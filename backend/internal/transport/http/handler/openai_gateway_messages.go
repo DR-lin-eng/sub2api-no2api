@@ -282,6 +282,10 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 			} else {
 				var failoverErr *service.UpstreamFailoverError
 				if errors.As(err, &failoverErr) {
+					if h.gatewayService.IsDistillationGroupRequest(c, account) {
+						h.handleAnthropicFailoverExhausted(c, failoverErr, streamStarted)
+						return
+					}
 					if failoverClientGone(c) {
 						reqLog.Info("openai_messages.failover_aborted_client_disconnected",
 							zap.Int64("account_id", account.ID),
@@ -345,7 +349,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 						return
 					}
 					switchCount++
-					if h.gatewayService.ShouldStopOpenAIOAuth429Failover(account, failoverErr.StatusCode, switchCount, &oauth429FailoverState) {
+					if !failoverErr.IsOpenAIOAuthGatewayRateLimit() && h.gatewayService.ShouldStopOpenAIOAuth429Failover(account, failoverErr.StatusCode, switchCount, &oauth429FailoverState) {
 						h.handleAnthropicFailoverExhausted(c, failoverErr, streamStarted)
 						return
 					}
@@ -480,6 +484,22 @@ func (h *OpenAIGatewayHandler) handleAnthropicFailoverExhausted(c *gin.Context, 
 	if failoverErr != nil {
 		service.SetOpsUpstreamError(c, failoverErr.StatusCode, service.ExtractUpstreamErrorMessage(failoverErr.ResponseBody), "")
 		copyFailoverRetryAfter(c, failoverErr.ResponseHeaders)
+		if failoverErr.IsOpenAIOAuthGatewayRateLimit() {
+			status := failoverErr.ClientStatusCode
+			if status == 0 {
+				status = http.StatusTooManyRequests
+			}
+			message := strings.TrimSpace(failoverErr.ClientMessage)
+			if message == "" {
+				message = "OpenAI OAuth account request rate limit exceeded"
+			}
+			errType := "rate_limit_error"
+			if status == http.StatusServiceUnavailable {
+				errType = "api_error"
+			}
+			h.anthropicStreamingAwareError(c, status, errType, message, streamStarted)
+			return
+		}
 		if failoverErr.IsOpenAIInvalidPromptPolicyError() {
 			h.anthropicStreamingAwareError(c, http.StatusBadRequest, "invalid_request_error", service.OpenAIInvalidPromptPolicyClientMessage, streamStarted)
 			return

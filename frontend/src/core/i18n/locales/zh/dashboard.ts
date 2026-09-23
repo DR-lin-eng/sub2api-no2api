@@ -128,6 +128,19 @@ export default {
     nameLabel: '名称',
     namePlaceholder: '我的 API 密钥',
     groupLabel: '分组',
+    providerLabel: '供应商',
+    providers: {
+      anthropic: 'Anthropic',
+      openai: 'OpenAI',
+      domestic: '国产模型',
+      other: '其他',
+    },
+    providerHints: {
+      anthropic: '选择可用的 Anthropic 或 Claude 分组',
+      openai: '选择可用的 OpenAI 或 GPT 分组',
+      domestic: '包含 DeepSeek、Kimi、智谱 GLM 和 MiniMax',
+      other: '包含 Gemini、Grok、Antigravity 和混合分组',
+    },
     groupBindings: {
       label: '密钥分组',
       rateProtection: '倍率上限',
@@ -594,7 +607,12 @@ export default {
       openai: 'OpenAI',
       anthropic: 'Anthropic',
       gemini: 'Gemini',
-      grok: 'Grok'
+      grok: 'Grok',
+      kimi: 'Kimi',
+      zhipu: '智谱 GLM',
+      deepseek: 'DeepSeek',
+      minimax: 'MiniMax',
+      opencode_go: 'OpenCode'
     },
     extraModelsHeader: '附加模型',
     extraModelsEmpty: '无附加模型',

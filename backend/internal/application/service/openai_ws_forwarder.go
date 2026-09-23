@@ -270,6 +270,7 @@ func (s *OpenAIGatewayService) getOpenAIWSConnPool() *openAIWSConnPool {
 				return s.isOpenAIWSModeRouterV2Enabled(context.Background())
 			})
 		}
+		s.openaiWSPool.setStateStoreForCleanup(s.getOpenAIWSStateStore())
 	})
 	return s.openaiWSPool
 }

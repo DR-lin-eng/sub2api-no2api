@@ -86,7 +86,17 @@ export interface UpdateApiKeyRequest {
 
 // ==================== Account & Proxy Types ====================
 
-export type AccountPlatform = 'anthropic' | 'openai' | 'gemini' | 'antigravity' | 'grok'
+export type AccountPlatform =
+  | 'anthropic'
+  | 'openai'
+  | 'gemini'
+  | 'antigravity'
+  | 'grok'
+  | 'kimi'
+  | 'zhipu'
+  | 'deepseek'
+  | 'minimax'
+  | 'opencode_go'
 export type AccountType = 'oauth' | 'setup-token' | 'apikey' | 'upstream' | 'bedrock' | 'service_account'
 export type OAuthAddMethod = 'oauth' | 'setup-token'
 export type ProxyProtocol = 'http' | 'https' | 'socks5' | 'socks5h'
@@ -114,12 +124,23 @@ export interface Proxy {
   quality_grade?: string
   quality_summary?: string
   quality_checked?: number
+  health_status: 'unknown' | 'healthy' | 'degraded' | 'unhealthy'
+  health_consecutive_failures: number
+  last_health_check_at?: string | null
+  last_health_error?: string
   expires_at: string | null
   fallback_mode: 'none' | 'proxy' | 'direct'
   backup_proxy_id?: number | null
   expiry_warn_days: number
   created_at: string
   updated_at: string
+}
+
+export interface ProxyAutoAssignmentSettings {
+  enabled: boolean
+  health_check_enabled: boolean
+  health_check_interval_minutes: number
+  failure_threshold: number
 }
 
 export interface ProxyAccountSummary {
@@ -388,7 +409,8 @@ export interface Account {
   proxy_fallback_origin_name?: string | null
   concurrency: number
   load_factor?: number | null
-  current_concurrency?: number // Real-time concurrency count from Redis
+	current_concurrency?: number // Real-time concurrency count from Redis
+	session_id_growth_per_minute?: number // Distinct OpenAI session IDs observed this minute
   cpa_capacity?: CPACapacityStatus | null
   stream_degraded?: boolean
   stream_degradation_level?: number
@@ -455,7 +477,7 @@ export interface Account {
   cache_ttl_override_enabled?: boolean | null
   cache_ttl_override_target?: string | null
 
-  // 自定义 Base URL 中继转发（仅 Anthropic OAuth/SetupToken 账号有效）
+  // 自定义 Base URL 中继转发（Anthropic OAuth/SetupToken 与 OpenAI OAuth 有效）
   custom_base_url_enabled?: boolean | null
   custom_base_url?: string | null
 

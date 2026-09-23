@@ -83,6 +83,172 @@
         <div class="flex items-center justify-between gap-4 border-t border-gray-100 pt-5 dark:border-dark-700">
           <div>
             <label class="font-medium text-gray-900 dark:text-white">
+              {{ t("admin.settings.codexSimulation.experimentalTransport") }}
+            </label>
+            <p class="text-sm text-gray-500 dark:text-gray-400">
+              {{ t("admin.settings.codexSimulation.experimentalTransportHint") }}
+            </p>
+          </div>
+          <fieldset
+            class="m-0 min-w-0 border-0 p-0"
+            :disabled="codexSimulationLoadFailed || codexSimulationSaving || !codexSimulationForm.c_level_simulation_enabled"
+          >
+            <Toggle
+              :model-value="codexSimulationForm.experimental_transport_enabled === true"
+              @update:model-value="codexSimulationForm.experimental_transport_enabled = $event"
+              data-testid="codex-simulation-experimental-transport-toggle"
+            />
+          </fieldset>
+        </div>
+
+        <div class="space-y-4 border-t border-gray-100 pt-5 dark:border-dark-700">
+          <div class="flex items-center justify-between gap-4">
+            <div>
+              <label class="font-medium text-gray-900 dark:text-white">
+                {{ t("admin.settings.codexSimulation.turnStateAutoReplay") }}
+              </label>
+              <p class="text-sm text-gray-500 dark:text-gray-400">
+                {{ t("admin.settings.codexSimulation.turnStateAutoReplayHint") }}
+              </p>
+            </div>
+            <fieldset
+              class="m-0 min-w-0 border-0 p-0"
+              :disabled="codexSimulationLoadFailed || codexSimulationSaving || codexSimulationSyncing"
+            >
+              <Toggle
+                v-model="codexSimulationForm.turn_state_auto_replay_enabled"
+                data-testid="codex-turn-state-auto-replay-toggle"
+              />
+            </fieldset>
+          </div>
+          <div>
+            <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300" for="codex-turn-state-target-length">
+              {{ t("admin.settings.codexSimulation.turnStateTargetLength") }}
+            </label>
+            <input
+              id="codex-turn-state-target-length"
+              v-model.number="codexSimulationForm.turn_state_target_length"
+              type="number"
+              min="1"
+              max="8192"
+              step="1"
+              class="input w-full sm:max-w-48"
+              :disabled="codexSimulationLoadFailed || codexSimulationSaving || codexSimulationSyncing"
+              data-testid="codex-turn-state-target-length"
+            />
+          </div>
+          <div class="flex items-center justify-between gap-4 border-t border-gray-100 pt-4 dark:border-dark-700">
+            <div>
+              <label class="font-medium text-gray-900 dark:text-white">
+                {{ t("admin.settings.codexSimulation.turnStateProxyProbe") }}
+              </label>
+              <p class="text-sm text-gray-500 dark:text-gray-400">
+                {{ t("admin.settings.codexSimulation.turnStateProxyProbeHint") }}
+              </p>
+            </div>
+            <fieldset
+              class="m-0 min-w-0 border-0 p-0"
+              :disabled="codexSimulationLoadFailed || codexSimulationSaving || codexSimulationSyncing"
+            >
+              <Toggle
+                :model-value="codexSimulationForm.turn_state_proxy_probe_enabled === true"
+                @update:model-value="codexSimulationForm.turn_state_proxy_probe_enabled = $event"
+                data-testid="codex-turn-state-proxy-probe-toggle"
+              />
+            </fieldset>
+          </div>
+          <div v-if="codexSimulationForm.turn_state_proxy_probe_enabled">
+            <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300" for="codex-turn-state-probe-proxy-id">
+              {{ t("admin.settings.codexSimulation.turnStateProbeProxyId") }}
+            </label>
+            <input
+              id="codex-turn-state-probe-proxy-id"
+              v-model.number="codexSimulationForm.turn_state_probe_proxy_id"
+              type="number"
+              min="1"
+              step="1"
+              class="input w-full sm:max-w-48"
+              :disabled="codexSimulationLoadFailed || codexSimulationSaving || codexSimulationSyncing"
+              :placeholder="t('admin.settings.codexSimulation.turnStateProbeProxyIdPlaceholder')"
+              data-testid="codex-turn-state-probe-proxy-id"
+            />
+            <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+              {{ t("admin.settings.codexSimulation.turnStateProbeProxyIdHint") }}
+            </p>
+          </div>
+          <div>
+            <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300" for="codex-turn-state-watch-models">
+              {{ t("admin.settings.codexSimulation.turnStateWatchModels") }}
+            </label>
+            <textarea
+              id="codex-turn-state-watch-models"
+              v-model="codexTurnStateWatchModelsText"
+              class="input min-h-24 w-full font-mono text-xs"
+              :disabled="codexSimulationLoadFailed || codexSimulationSaving || codexSimulationSyncing"
+              :placeholder="t('admin.settings.codexSimulation.turnStateWatchModelsPlaceholder')"
+              data-testid="codex-turn-state-watch-models"
+              spellcheck="false"
+            />
+            <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+              {{ t("admin.settings.codexSimulation.turnStateWatchModelsHint", { count: codexSimulationForm.turn_state_watch_models.length }) }}
+            </p>
+          </div>
+          <div class="flex items-center justify-between gap-4 border-t border-gray-100 pt-4 dark:border-dark-700">
+            <div>
+              <label class="font-medium text-gray-900 dark:text-white">
+                {{ t("admin.settings.codexSimulation.turnStateReplay") }}
+              </label>
+              <p class="text-sm text-gray-500 dark:text-gray-400">
+                {{ t("admin.settings.codexSimulation.turnStateReplayHint") }}
+              </p>
+            </div>
+            <fieldset
+              class="m-0 min-w-0 border-0 p-0"
+              :disabled="codexSimulationLoadFailed || codexSimulationSaving || codexSimulationSyncing"
+            >
+              <Toggle
+                v-model="codexSimulationForm.turn_state_replay_enabled"
+                data-testid="codex-turn-state-replay-toggle"
+              />
+            </fieldset>
+          </div>
+          <div>
+            <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300" for="codex-turn-states">
+                {{ t("admin.settings.codexSimulation.turnStates") }}
+              </label>
+              <button
+                type="button"
+                class="btn btn-secondary btn-sm inline-flex items-center gap-1.5"
+                :disabled="codexSimulationLoadFailed || codexSimulationSaving || codexSimulationSyncing || codexTurnStateDraftDirty"
+                data-testid="codex-turn-state-sync"
+                @click="syncCodexTurnStatesFromQuality"
+              >
+                <Icon name="refresh" size="sm" :class="codexSimulationSyncing ? 'animate-spin' : ''" />
+                {{ t("admin.settings.codexSimulation.turnStateSync") }}
+              </button>
+            </div>
+            <textarea
+              id="codex-turn-states"
+              v-model="codexTurnStatesText"
+              class="input min-h-28 w-full font-mono text-xs"
+              :disabled="codexSimulationLoadFailed || codexSimulationSaving || codexSimulationSyncing"
+              :placeholder="t('admin.settings.codexSimulation.turnStatesPlaceholder')"
+              data-testid="codex-turn-states"
+              spellcheck="false"
+            />
+            <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+              {{ t("admin.settings.codexSimulation.turnStatesHint", { count: codexSimulationForm.turn_states.length }) }}
+            </p>
+            <p v-if="codexTurnStateDraftDirty" class="mt-1.5 text-xs text-amber-700 dark:text-amber-300" data-testid="codex-turn-state-unsaved">
+              {{ t("admin.settings.codexSimulation.turnStatesSaveBeforeSync") }}
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between gap-4 border-t border-gray-100 pt-5 dark:border-dark-700">
+          <div>
+            <label class="font-medium text-gray-900 dark:text-white">
               {{ t("admin.settings.codexSimulation.cLevelSimulation") }}
             </label>
             <p class="text-sm text-gray-500 dark:text-gray-400">
@@ -174,7 +340,10 @@
               ? 'text-amber-700 dark:text-amber-300'
               : codexSimulationForm.full_simulation_enabled ||
                   codexSimulationForm.c_level_simulation_enabled ||
+                  codexSimulationForm.experimental_transport_enabled ||
                   codexSimulationForm.codex_prewarm_continuation_force_enabled ||
+                  codexSimulationForm.turn_state_auto_replay_enabled ||
+                  codexSimulationForm.turn_state_replay_enabled ||
                   codexSimulationForm.continuation_mode !== 'off'
               ? 'text-amber-700 dark:text-amber-300'
               : 'text-green-700 dark:text-green-300'
@@ -186,7 +355,10 @@
               ? t("admin.settings.codexSimulation.stateUnknown")
               : codexSimulationForm.full_simulation_enabled ||
                   codexSimulationForm.c_level_simulation_enabled ||
+                  codexSimulationForm.experimental_transport_enabled ||
                   codexSimulationForm.codex_prewarm_continuation_force_enabled ||
+                  codexSimulationForm.turn_state_auto_replay_enabled ||
+                  codexSimulationForm.turn_state_replay_enabled ||
                   codexSimulationForm.continuation_mode !== "off"
               ? t("admin.settings.codexSimulation.experimentalEnabled")
               : t("admin.settings.codexSimulation.originalBehaviorActive")
@@ -233,8 +405,13 @@ const {
   codexSimulationLoadFailed,
   codexSimulationLoading,
   codexSimulationSaving,
+  codexSimulationSyncing,
+  codexTurnStateDraftDirty,
+  codexTurnStateWatchModelsText,
+  codexTurnStatesText,
   restoreOriginalCodexBehavior,
   saveCodexSimulationSettings,
+  syncCodexTurnStatesFromQuality,
   t,
 } = useSettingsPageContext()
 </script>

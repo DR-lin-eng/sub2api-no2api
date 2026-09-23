@@ -28,21 +28,50 @@
 
       <!-- API Key input (only for apikey type, excluding Antigravity which has its own fields) -->
       <div v-if="form.type === 'apikey' && form.platform !== 'antigravity'" class="space-y-4">
-        <div>
+        <div v-if="isCNAccountPlatform(form.platform)" class="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label class="input-label" for="cn-account-mode">{{ t('admin.accounts.cnProvider.accountMode') }}</label>
+            <select id="cn-account-mode" :value="cnAccountMode" class="input" data-testid="cn-account-mode" @change="selectCNAccountMode">
+              <option value="payg">{{ t('admin.accounts.cnProvider.payg') }}</option>
+              <option value="coding" :disabled="form.platform === 'deepseek'">{{ t('admin.accounts.cnProvider.coding') }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="input-label" for="cn-api-protocol">{{ t('admin.accounts.cnProvider.apiProtocol') }}</label>
+            <select id="cn-api-protocol" :value="cnAPIProtocol" class="input" data-testid="cn-api-protocol" @change="selectCNAPIProtocol">
+              <option value="chat_completions">{{ t('admin.accounts.cnProvider.chatCompletions') }}</option>
+              <option value="adaptive">{{ t('admin.accounts.cnProvider.adaptive') }}</option>
+              <option value="anthropic">{{ t('admin.accounts.cnProvider.anthropic') }}</option>
+              <option v-if="form.platform !== 'zhipu'" value="responses">{{ t('admin.accounts.cnProvider.responses') }}</option>
+            </select>
+          </div>
+          <p class="input-hint sm:col-span-2">{{ t('admin.accounts.cnProvider.protocolHint') }}</p>
+        </div>
+        <div v-if="form.platform === 'opencode_go'">
+          <label class="input-label" for="opencode-account-mode">OpenCode plan</label>
+          <select id="opencode-account-mode" :value="openCodeAccountMode" class="input" data-testid="opencode-account-mode" @change="selectOpenCodeAccountMode">
+            <option value="go">Go subscription</option>
+            <option value="zen">Zen pay as you go</option>
+          </select>
+        </div>
+        <div v-if="form.platform === 'zhipu' && cnAccountMode === 'coding'" class="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label class="input-label">{{ t('admin.accounts.cnProvider.zhipuOrganization') }}</label>
+            <input v-model="zhipuOrganization" type="text" class="input" data-testid="zhipu-organization" />
+          </div>
+          <div>
+            <label class="input-label">{{ t('admin.accounts.cnProvider.zhipuProject') }}</label>
+            <input v-model="zhipuProject" type="text" class="input" data-testid="zhipu-project" />
+          </div>
+          <p class="input-hint sm:col-span-2">{{ t('admin.accounts.cnProvider.zhipuTeamHint') }}</p>
+        </div>
+        <div v-if="!((isCNAccountPlatform(form.platform) && cnAPIProtocol === 'adaptive') || form.platform === 'opencode_go')">
           <label class="input-label">{{ t('admin.accounts.baseUrl') }}</label>
           <input
             v-model="apiKeyBaseUrl"
             type="text"
             class="input"
-            :placeholder="
-              form.platform === 'openai'
-                ? 'https://api.openai.com'
-                : form.platform === 'gemini'
-                  ? 'https://generativelanguage.googleapis.com'
-                  : form.platform === 'grok'
-                    ? 'https://api.x.ai/v1'
-                    : 'https://api.anthropic.com'
-            "
+            :placeholder="isCNAccountPlatform(form.platform) ? defaultCNBaseURL(form.platform, cnAccountMode, cnAPIProtocol) : defaultAPIKeyBaseURL(form.platform)"
           />
           <p v-if="baseUrlHint" class="input-hint">{{ baseUrlHint }}</p>
           <GrokBaseUrlPresets
@@ -51,6 +80,26 @@
             @select="apiKeyBaseUrl = $event"
           />
         </div>
+        <div v-else class="space-y-3" data-testid="cn-adaptive-base-urls">
+          <label class="input-label">{{ t('admin.accounts.cnProvider.protocolEndpoints') }}</label>
+          <div>
+            <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{{ t('admin.accounts.cnProvider.chatCompletions') }}</label>
+            <input v-model="cnAdaptiveBaseURLs.chat_completions" type="text" class="input" data-testid="cn-adaptive-base-url-chat-completions" />
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{{ t('admin.accounts.cnProvider.anthropic') }}</label>
+            <input v-model="cnAdaptiveBaseURLs.anthropic" type="text" class="input" data-testid="cn-adaptive-base-url-anthropic" />
+          </div>
+          <div v-if="cnSupportsNativeResponses(form.platform)">
+            <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{{ t('admin.accounts.cnProvider.responses') }}</label>
+            <input v-model="cnAdaptiveBaseURLs.responses" type="text" class="input" data-testid="cn-adaptive-base-url-responses" />
+          </div>
+        </div>
+        <OpenCodeProtocolRulesEditor
+          v-if="form.platform === 'opencode_go'"
+          v-model:rows="openCodeProtocolRules"
+          :plan="openCodeAccountMode"
+        />
         <div>
           <label class="input-label">{{ t('admin.accounts.apiKeyRequired') }}</label>
           <input
@@ -58,15 +107,7 @@
             type="password"
             required
             class="input font-mono"
-            :placeholder="
-              form.platform === 'openai'
-                ? 'sk-proj-...'
-                : form.platform === 'gemini'
-                  ? 'AIza...'
-                  : form.platform === 'grok'
-                    ? 'xai-...'
-                    : 'sk-ant-...'
-            "
+            :placeholder="defaultAPIKeyPlaceholder(form.platform)"
           />
           <p v-if="apiKeyHint" class="input-hint">{{ apiKeyHint }}</p>
         </div>
@@ -1097,11 +1138,61 @@ import GrokBaseUrlPresets from '../GrokBaseUrlPresets.vue'
 import HeaderOverrideEditor from '../HeaderOverrideEditor.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import ModelWhitelistSelector from '../ModelWhitelistSelector.vue'
+import OpenCodeProtocolRulesEditor from '../OpenCodeProtocolRulesEditor.vue'
 import QuotaLimitCard from '../QuotaLimitCard.vue'
 import Toggle from '@/common/widgets/forms/Toggle.vue'
+import {
+  cnSupportsNativeResponses,
+  defaultAPIKeyBaseURL,
+  defaultAPIKeyPlaceholder,
+  defaultCNBaseURL,
+  isCNAccountPlatform,
+  updateCNAdaptiveDefaults,
+  updateOpenCodeProtocolRuleDefaults,
+  type CNNativeAPIProtocol,
+} from '@/core/constants/account'
 import type { CreateAccountCredentialContext } from '../../accountEditorContext'
 import { isUpstreamBillingProbeEligible } from '../../upstreamBillingProbeEligibility'
 
 const props = defineProps<{ context: CreateAccountCredentialContext }>()
-const { DEFAULT_POOL_MODE_RETRY_COUNT, DEFAULT_POOL_MODE_RETRY_STATUS_CODES, MAX_POOL_MODE_RETRY_COUNT, accountCategory, addCustomErrorCode, addMethod, addModelMapping, addPresetMapping, allowedModels, apiKeyBaseUrl, apiKeyHint, apiKeyValue, autoDisableOnUpstreamInsufficientBalance, baseUrlHint, bedrockAccessKeyId, bedrockApiKeyValue, bedrockAuthMode, bedrockForceGlobal, bedrockPresets, bedrockRegion, bedrockSecretAccessKey, bedrockSessionToken, commonErrorCodes, customErrorCodeInput, customErrorCodesEnabled, editDailyResetHour, editDailyResetMode, editQuotaDailyLimit, editQuotaLimit, editQuotaWeeklyLimit, editResetTimezone, editWeeklyResetDay, editWeeklyResetHour, editWeeklyResetMode, form, geminiTierAIStudio, getModelMappingKey, grokOAuthBaseUrl, grokOAuthCustomBaseUrlEnabled, headerOverrideEnabled, headerOverrideRows, isHeaderOverrideCapable, isOAuthFlow, isOpenAIModelRestrictionDisabled, modelMappings, modelRestrictionMode, poolModeEnabled, poolModeRetryCount, poolModeRetryStatusCodesInput, presetMappings, quotaNotifyGlobalEnabled, quotaNotifyState, removeErrorCode, removeModelMapping, selectedErrorCodes, syncPreviewCredentials, t, toggleErrorCode, upstreamBillingAutoProbeEnabled } = props.context
+const { DEFAULT_POOL_MODE_RETRY_COUNT, DEFAULT_POOL_MODE_RETRY_STATUS_CODES, MAX_POOL_MODE_RETRY_COUNT, accountCategory, addCustomErrorCode, addMethod, addModelMapping, addPresetMapping, allowedModels, apiKeyBaseUrl, apiKeyHint, apiKeyValue, autoDisableOnUpstreamInsufficientBalance, baseUrlHint, bedrockAccessKeyId, bedrockApiKeyValue, bedrockAuthMode, bedrockForceGlobal, bedrockPresets, bedrockRegion, bedrockSecretAccessKey, bedrockSessionToken, cnAccountMode, cnAPIProtocol, cnAdaptiveBaseURLs, commonErrorCodes, customErrorCodeInput, customErrorCodesEnabled, editDailyResetHour, editDailyResetMode, editQuotaDailyLimit, editQuotaLimit, editQuotaWeeklyLimit, editResetTimezone, editWeeklyResetDay, editWeeklyResetHour, editWeeklyResetMode, form, geminiTierAIStudio, getModelMappingKey, grokOAuthBaseUrl, grokOAuthCustomBaseUrlEnabled, headerOverrideEnabled, headerOverrideRows, isHeaderOverrideCapable, isOAuthFlow, isOpenAIModelRestrictionDisabled, modelMappings, modelRestrictionMode, openCodeAccountMode, openCodeProtocolRules, poolModeEnabled, poolModeRetryCount, poolModeRetryStatusCodesInput, presetMappings, quotaNotifyGlobalEnabled, quotaNotifyState, removeErrorCode, removeModelMapping, selectedErrorCodes, syncPreviewCredentials, t, toggleErrorCode, upstreamBillingAutoProbeEnabled, zhipuOrganization, zhipuProject } = props.context
+
+const selectCNAccountMode = (event: Event) => {
+  const mode = (event.target as HTMLSelectElement).value === 'coding' ? 'coding' : 'payg'
+  const previousMode = cnAccountMode.value
+  const currentURLs = { ...cnAdaptiveBaseURLs.value }
+  if (cnAPIProtocol.value !== 'adaptive') {
+    currentURLs[cnAPIProtocol.value as CNNativeAPIProtocol] = apiKeyBaseUrl.value
+  }
+  cnAccountMode.value = mode
+  if (isCNAccountPlatform(form.platform)) {
+    cnAdaptiveBaseURLs.value = updateCNAdaptiveDefaults(currentURLs, form.platform, previousMode, mode)
+    apiKeyBaseUrl.value = cnAPIProtocol.value === 'adaptive'
+      ? cnAdaptiveBaseURLs.value.chat_completions
+      : cnAdaptiveBaseURLs.value[cnAPIProtocol.value]
+  }
+}
+
+const selectCNAPIProtocol = (event: Event) => {
+  const protocol = (event.target as HTMLSelectElement).value as typeof cnAPIProtocol.value
+  const previousProtocol = cnAPIProtocol.value
+  const currentURLs = { ...cnAdaptiveBaseURLs.value }
+  if (previousProtocol !== 'adaptive') {
+    currentURLs[previousProtocol] = apiKeyBaseUrl.value.trim()
+  }
+  cnAdaptiveBaseURLs.value = currentURLs
+  cnAPIProtocol.value = protocol
+  apiKeyBaseUrl.value = protocol === 'adaptive'
+    ? currentURLs.chat_completions
+    : currentURLs[protocol]
+}
+
+const selectOpenCodeAccountMode = (event: Event) => {
+  const mode = (event.target as HTMLSelectElement).value === 'zen' ? 'zen' : 'go'
+  const previousMode = openCodeAccountMode.value
+  openCodeAccountMode.value = mode
+  cnAdaptiveBaseURLs.value = updateCNAdaptiveDefaults(cnAdaptiveBaseURLs.value, 'opencode_go', previousMode, mode)
+  openCodeProtocolRules.value = updateOpenCodeProtocolRuleDefaults(openCodeProtocolRules.value, previousMode, mode)
+  apiKeyBaseUrl.value = cnAdaptiveBaseURLs.value.chat_completions
+}
 </script>

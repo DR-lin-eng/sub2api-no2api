@@ -93,11 +93,10 @@ func ReadRequestBodyWithPrealloc(req *http.Request) ([]byte, error) {
 		}
 	}
 
-	buf := bytes.NewBuffer(make([]byte, 0, capHint))
-	if _, err := io.Copy(buf, req.Body); err != nil {
+	raw, err := readRequestBodyChunks(req.Body, capHint, req.ContentLength)
+	if err != nil {
 		return nil, err
 	}
-	raw := buf.Bytes()
 
 	enc := strings.ToLower(strings.TrimSpace(req.Header.Get("Content-Encoding")))
 	if enc == "" || enc == "identity" {
@@ -114,6 +113,70 @@ func ReadRequestBodyWithPrealloc(req *http.Request) ([]byte, error) {
 	req.ContentLength = int64(len(decoded))
 
 	return decoded, nil
+}
+
+// readRequestBodyChunks reads bounded chunks and assembles the exact-size
+// result only once.  A bytes.Buffer grows by repeatedly copying the complete
+// body when a large request exceeds its initial capacity; chunked reads keep
+// peak amplification bounded while retaining the existing reader/error
+// semantics (including http.MaxBytesReader).
+func readRequestBodyChunks(reader io.Reader, initialCapacity int, contentLength int64) ([]byte, error) {
+	if reader == nil {
+		return nil, nil
+	}
+	capacity := initialCapacity
+	if capacity <= 0 {
+		capacity = requestBodyReadInitCap
+	}
+	var chunks [][]byte
+	total := 0
+	for {
+		chunkCapacity := capacity
+		if remaining := contentLength - int64(total); remaining >= 0 && remaining < int64(chunkCapacity) {
+			// Allocate one extra byte when the declared length is exact so a
+			// reader that violates Content-Length still reaches its error/EOF
+			// boundary instead of being silently truncated.
+			chunkCapacity = int(remaining) + 1
+		}
+		if chunkCapacity <= 0 {
+			chunkCapacity = 1
+		}
+		chunk := make([]byte, chunkCapacity)
+		n := 0
+		var err error
+		for n < len(chunk) && err == nil {
+			var read int
+			read, err = reader.Read(chunk[n:])
+			n += read
+		}
+		if err != nil && err != io.EOF {
+			return nil, err
+		}
+		if n > 0 {
+			chunks = append(chunks, chunk[:n])
+			total += n
+		}
+		if err != nil {
+			switch len(chunks) {
+			case 0:
+				return chunk[:0], nil
+			case 1:
+				return chunks[0], nil
+			}
+			body := make([]byte, total)
+			offset := 0
+			for _, part := range chunks {
+				offset += copy(body[offset:], part)
+			}
+			return body, nil
+		}
+		if capacity < requestBodyReadMaxInitCap {
+			capacity *= 2
+			if capacity > requestBodyReadMaxInitCap {
+				capacity = requestBodyReadMaxInitCap
+			}
+		}
+	}
 }
 
 // ReadLenientJSONRequestBodyWithPrealloc reads a request body and normalizes

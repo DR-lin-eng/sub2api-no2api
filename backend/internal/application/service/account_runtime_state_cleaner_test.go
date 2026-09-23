@@ -24,6 +24,9 @@ func TestCompositeAccountRuntimeStateCleanerDeletesAllAccountState(t *testing.T)
 	antigravity.markBackfillAttempted(accountID)
 	rateLimit := &RateLimitService{usageCache: map[int64]*geminiUsageCacheEntry{accountID: {cachedAt: time.Now()}}}
 	cleaner := ProvideAccountRuntimeStateCleaner(usageCache, openAIGateway, antigravity, rateLimit)
+	if rateLimit.runtimeStateCleaner != cleaner {
+		t.Fatal("rate-limit OAuth cleanup did not receive the composite runtime cleaner")
+	}
 
 	cleaner.DeleteAccountRuntimeState(accountID)
 	if _, ok := usageCache.apiCache.Load(accountID); ok {

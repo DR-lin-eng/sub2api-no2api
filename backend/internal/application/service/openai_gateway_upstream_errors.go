@@ -393,6 +393,7 @@ func (s *OpenAIGatewayService) handleErrorResponse(
 ) (*OpenAIForwardResult, error) {
 	body := s.readUpstreamErrorBody(resp)
 	body = s.redactAgentIdentitySensitiveBody(ctx, account, body)
+	MarkOpenAIVerificationRecommendation(c, body, resp.StatusCode)
 	upstreamMsg := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(body)))
 	if isOpenAIInvalidPromptPolicyError(upstreamMsg, body) {
 		return nil, newOpenAIUpstreamFailoverError(
@@ -665,6 +666,7 @@ func (s *OpenAIGatewayService) handleCompatErrorResponse(
 ) (*OpenAIForwardResult, error) {
 	body := s.readUpstreamErrorBody(resp)
 	body = s.redactAgentIdentitySensitiveBody(context.Background(), account, body)
+	MarkOpenAIVerificationRecommendation(c, body, resp.StatusCode)
 	requestCtx := context.Background()
 	if c != nil && c.Request != nil {
 		requestCtx = c.Request.Context()

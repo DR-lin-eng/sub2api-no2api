@@ -77,6 +77,53 @@
         <Select v-model="openAIResponsesMode" :disabled="!enableOpenAIResponsesMode" :options="openAIResponsesModeOptions" />
       </div>
 
+      <!-- OpenAI OAuth Codex custom relay -->
+      <div v-if="allOpenAIOAuthOnly" class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div class="mb-3 flex items-center justify-between gap-4">
+          <div class="flex-1">
+            <label class="input-label mb-0" for="bulk-edit-openai-custom-relay-enabled">
+              {{ t('admin.accounts.quotaControl.customBaseUrl.label') }}
+            </label>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.quotaControl.customBaseUrl.openaiHint') }}
+            </p>
+          </div>
+          <input
+            v-model="enableOpenAICustomRelay"
+            id="bulk-edit-openai-custom-relay-enabled"
+            type="checkbox"
+            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+          />
+        </div>
+        <div :class="!enableOpenAICustomRelay && 'pointer-events-none opacity-50'">
+          <button
+            id="bulk-edit-openai-custom-relay-toggle"
+            type="button"
+            :aria-pressed="openAICustomRelayEnabled"
+            :class="[
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+              openAICustomRelayEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+            ]"
+            @click="openAICustomRelayEnabled = !openAICustomRelayEnabled"
+          >
+            <span
+              :class="[
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                openAICustomRelayEnabled ? 'translate-x-5' : 'translate-x-0'
+              ]"
+            />
+          </button>
+          <input
+            v-if="openAICustomRelayEnabled"
+            v-model="openAICustomRelayURL"
+            id="bulk-edit-openai-custom-relay-url"
+            type="url"
+            class="input mt-3"
+            :placeholder="t('admin.accounts.quotaControl.customBaseUrl.openaiUrlHint')"
+          />
+        </div>
+      </div>
+
       <BulkEditTLSFingerprintOption
         v-if="allOpenAIOAuthOnly"
         v-model:enable-update="enableTLSFingerprint"
@@ -812,6 +859,7 @@ const enableStatus = ref(false)
 const enableGroups = ref(false)
 const enableOpenAIPassthrough = ref(false)
 const enableOpenAIFlattenNamespaces = ref(false)
+const enableOpenAICustomRelay = ref(false)
 const enableOpenAILongContextBilling = ref(false)
 const enableTLSFingerprint = ref(false)
 const enableOpenAIEndpointCapabilities = ref(false)
@@ -852,6 +900,8 @@ const status = ref<'active' | 'inactive'>('active')
 const groupIds = ref<number[]>([])
 const openaiPassthroughEnabled = ref(false)
 const openaiFlattenNamespacesEnabled = ref(false)
+const openAICustomRelayEnabled = ref(false)
+const openAICustomRelayURL = ref('')
 const openAILongContextBillingEnabled = ref(false)
 const tlsFingerprintEnabled = ref(false)
 const tlsFingerprintProfileId = ref<number | null>(-1)
@@ -1109,6 +1159,9 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
     enableOpenAIFlattenNamespaces: enableOpenAIFlattenNamespaces.value,
     openaiFlattenNamespacesEligible: allOpenAIOAuthOnly.value,
     openaiFlattenNamespacesEnabled: openaiFlattenNamespacesEnabled.value,
+    enableOpenAICustomRelay: enableOpenAICustomRelay.value,
+    openAICustomRelayEnabled: openAICustomRelayEnabled.value,
+    openAICustomRelayURL: openAICustomRelayURL.value,
     enableOpenAILongContextBilling: enableOpenAILongContextBilling.value,
     openAILongContextBillingEnabled: openAILongContextBillingEnabled.value,
     enableTLSFingerprint: enableTLSFingerprint.value,
@@ -1216,6 +1269,7 @@ const handleSubmit = async () => {
     enableBaseUrl.value ||
     enableOpenAIPassthrough.value ||
     enableOpenAIFlattenNamespaces.value ||
+    enableOpenAICustomRelay.value ||
     enableOpenAILongContextBilling.value ||
     enableTLSFingerprint.value ||
     enableOpenAIEndpointCapabilities.value ||
@@ -1255,6 +1309,14 @@ const handleSubmit = async () => {
   if (enableBaseUrl.value) {
     const trimmedBaseUrl = baseUrl.value.trim()
     if (trimmedBaseUrl && !/^https?:\/\//i.test(trimmedBaseUrl)) {
+      appStore.showError(t('admin.accounts.grokCustomBaseUrl.invalid'))
+      return
+    }
+  }
+
+  if (enableOpenAICustomRelay.value && openAICustomRelayEnabled.value) {
+    const relayURL = openAICustomRelayURL.value.trim()
+    if (!/^https?:\/\//i.test(relayURL)) {
       appStore.showError(t('admin.accounts.grokCustomBaseUrl.invalid'))
       return
     }
@@ -1384,6 +1446,7 @@ watch(
       enableGroups.value = false
       enableOpenAIPassthrough.value = false
       enableOpenAIFlattenNamespaces.value = false
+      enableOpenAICustomRelay.value = false
       enableOpenAILongContextBilling.value = false
       enableTLSFingerprint.value = false
       enableOpenAIEndpointCapabilities.value = false
@@ -1405,6 +1468,8 @@ watch(
       baseUrl.value = ''
       openaiPassthroughEnabled.value = false
       openaiFlattenNamespacesEnabled.value = false
+      openAICustomRelayEnabled.value = false
+      openAICustomRelayURL.value = ''
       openAILongContextBillingEnabled.value = false
       tlsFingerprintEnabled.value = false
       tlsFingerprintProfileId.value = -1

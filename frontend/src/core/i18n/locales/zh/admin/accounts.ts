@@ -1,6 +1,7 @@
 import cpaMessages from './accounts.cpa'
 import codexMessages from './accounts.codex'
 import bulkActionsMessages from './accounts.bulk-actions'
+import channelMessages from './accounts.channels'
 
 export default {
     accounts: {
@@ -278,6 +279,7 @@ export default {
         cpaFresh: 'CPA 容量为最新快照；关闭联动后的备用并发为 {fallback}',
         cpaStale: 'CPA 当前使用过期快照；关闭联动后的备用并发为 {fallback}',
         cpaUnavailable: 'CPA 容量不可用，当前已停止调度；关闭联动后的备用并发为 {fallback}',
+        sessionIDGrowth: 'OpenAI Session ID 当前分钟增速：{count}/分钟',
         windowCost: {
           blocked: '5h窗口费用超限，账号暂停调度',
           stickyOnly: '5h窗口费用达阈值，仅允许粘性会话',
@@ -361,6 +363,11 @@ export default {
         gemini: 'Gemini',
         antigravity: 'Antigravity',
         grok: 'Grok',
+        kimi: 'Kimi',
+        zhipu: '智谱 GLM',
+        deepseek: 'DeepSeek',
+        minimax: 'MiniMax',
+        opencode_go: 'OpenCode',
       },
       types: {
         oauth: 'OAuth',
@@ -638,11 +645,7 @@ export default {
       oauthSetupToken: 'OAuth / Setup Token',
       addMethod: '添加方式',
       setupTokenLongLived: 'Setup Token（长期有效）',
-      baseUrl: 'Base URL',
-      baseUrlHint: '留空使用官方 Anthropic API',
-      apiKeyRequired: 'API Key *',
-      apiKeyPlaceholder: 'sk-ant-api03-...',
-      apiKeyHint: '您的 Claude Console API Key',
+      ...channelMessages,
       // OpenAI specific hints
       openai: {
         baseUrlHint: '留空使用官方 OpenAI API',
@@ -926,6 +929,8 @@ export default {
           label: '自定义转发地址',
           hint: '启用后将请求转发到自定义中继服务，代理地址将作为 URL 参数传递给中继服务',
           urlHint: '中继服务地址（如 https://relay.example.com）',
+          openaiHint: '将 OpenAI OAuth/Codex 模型请求转发到自定义网关；OAuth 授权和刷新仍使用 OpenAI 官方地址',
+          openaiUrlHint: 'Codex 网关地址（如 https://codex-relay.oaifree.com/backend-api/codex）',
         },
         clientAffinity: {
           label: '客户端亲和调度',

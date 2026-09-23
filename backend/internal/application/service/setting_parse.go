@@ -260,6 +260,8 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyRequestPriorityPendingMiBPerInstance:               strconv.Itoa(DefaultRequestPriorityPendingMiBPerInstance),
 		SettingKeyOpenAIWSModeRouterV2Enabled:                        strconv.FormatBool(s.defaultOpenAIWSModeRouterV2Enabled()),
 		SettingKeyOpenAIVisibleOutputTTFTEnabled:                     "true",
+		SettingKeyOpenAIOAuthForceRelayEnabled:                       "false",
+		SettingKeyOpenAIOAuthForceRelayBaseURL:                       DefaultOpenAIOAuthForceRelayBaseURL,
 		SettingKeyEnableAnthropicCacheTTL1hInjection:                 "false",
 		SettingKeyRewriteMessageCacheControl:                         strconv.FormatBool(s.defaultRewriteMessageCacheControl()),
 		SettingKeyEnableClientDatelineNormalization:                  "true",
@@ -273,6 +275,12 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingPaymentVisibleMethodAlipayEnabled:                     "false",
 		SettingPaymentVisibleMethodWxpayEnabled:                      "false",
 		SettingKeyOpenAIContentSessionBurstBalanceEnabled:            "false",
+		SettingKeyOpenAISessionIDRateLimitEnabled:                    "false",
+		SettingKeyOpenAISessionIDRateLimitPerMinute:                  "0",
+		SettingKeyOpenAIOAuthGatewayRateLimitEnabled:                 "false",
+		SettingKeyOpenAIOAuthGatewayRateLimitRPM:                     "60",
+		SettingKeyOpenAIOAuthGatewayRateLimitBurst:                   "5",
+		SettingKeyOpenAIRequestIntegrityObserveEnabled:               "false",
 		openAIAdvancedSchedulerSettingKey:                            "false",
 		SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled:       "false",
 		SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled: "false",
@@ -322,6 +330,28 @@ func parseSchedulerV2Limits(candidateRaw, scanRaw string) (int, int) {
 		return DefaultSchedulerCandidateFetchLimit, DefaultSchedulerCandidateScanLimit
 	}
 	return candidateLimit, scanLimit
+}
+
+func parseOpenAISessionIDRateLimitPerMinute(raw string) int {
+	value, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || value < 0 {
+		return 0
+	}
+	if value > 1000000 {
+		return 1000000
+	}
+	return value
+}
+
+func parseOpenAIOAuthGatewayRateLimitValue(raw string, fallback int) int {
+	value, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || value < 0 {
+		return fallback
+	}
+	if value > 1000000 {
+		return 1000000
+	}
+	return value
 }
 
 func clampAffiliateRebateRate(value float64) float64 {

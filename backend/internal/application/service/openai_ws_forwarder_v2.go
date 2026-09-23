@@ -42,7 +42,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	responseModelObserver := &upstreamResponseModelObserver{}
 	timingCollector := &openaitiming.Collector{}
 
-	wsURL, err := s.buildOpenAIResponsesWSURL(account)
+	wsURL, err := s.buildOpenAIResponsesWSURLWithContext(ctx, account, token)
 	if err != nil {
 		return nil, wrapOpenAIWSFallback("build_ws_url", err)
 	}
@@ -65,6 +65,12 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	)
 
 	payload := s.buildOpenAIWSCreatePayload(reqBody, account)
+	if s.IsDistillationGroupRequest(c, account) {
+		var cleaned map[string]any
+		if err := json.Unmarshal(stripDistillationCacheFields(payloadAsJSONBytes(payload)), &cleaned); err == nil {
+			payload = cleaned
+		}
+	}
 	reasoningEffort := ""
 	if effort := extractOpenAIReasoningEffort(reqBody, mappedModel, originalModel); effort != nil {
 		reasoningEffort = strings.TrimSpace(*effort)
@@ -139,6 +145,9 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 			turnState = savedTurnState
 		}
 	}
+	replayModel := openAIWSPayloadString(payload, "model")
+	stageOpenAICodexTurnStateModel(c, replayModel)
+	turnState = s.resolveCodexTurnStateReplay(c, account, replayModel, turnState)
 	preferredConnID := ""
 	if stateStore != nil && previousResponseID != "" {
 		if connID, ok := stateStore.GetResponseConn(previousResponseID); ok {
@@ -186,6 +195,8 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	}
 	applyCodexOutboundSessionHeaders(c, account, payloadAsJSONBytes(payload), promptCacheKey, wsHeaders, fingerprintIDs)
 	applyCodexFingerprintWSHeaders(wsHeaders, fingerprintIDs)
+	applyOpenAIResponsesLiteWebSocketHeader(wsHeaders, payloadAsJSONBytes(payload))
+	applyOpenAICodexSemanticRequestHeaders(wsHeaders, c, account, payloadAsJSONBytes(payload))
 	logOpenAIWSModeDebug(
 		"acquire_start account_id=%d account_type=%s transport=%s preferred_conn_id=%s has_previous_response_id=%v session_hash=%s has_turn_state=%v turn_state_len=%d has_turn_metadata=%v turn_metadata_len=%d store_disabled=%v store_disabled_conn_mode=%s retry_last_reason=%s force_new_conn=%v header_user_agent=%s header_openai_beta=%s header_originator=%s header_accept_language=%s header_session_id=%s header_conversation_id=%s session_id_source=%s conversation_id_source=%s has_prompt_cache_key=%v has_chatgpt_account_id=%v has_authorization=%v has_session_id=%v has_conversation_id=%v proxy_enabled=%v",
 		account.ID,
@@ -355,6 +366,11 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		handshakeTurnState != "",
 		len(handshakeTurnState),
 	)
+	observedTurnState := handshakeTurnState
+	if lease.Reused() {
+		observedTurnState = ""
+	}
+	s.observeOpenAICodexTurnState(ctx, c, account, mappedModel, observedTurnState)
 	if handshakeTurnState != "" {
 		if stateStore != nil && sessionHash != "" {
 			stateErr := stateStore.BindSessionTurnState(ctx, groupID, sessionHash, handshakeTurnState, s.openAIWSSessionStickyTTL())
@@ -415,6 +431,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	usage := &OpenAIUsage{}
 	imageCounter := newOpenAIImageOutputCounter()
 	var firstTokenMs *int
+	var localFirstEventTTFTMs *int
 	streamOutputStarted := false
 	responseID := ""
 	var finalResponse []byte
@@ -517,6 +534,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 
 	readTimeout := s.openAIWSReadTimeout()
 	var pendingJSONDocuments [][]byte
+	responseTurnState := ""
 
 	for {
 		var message []byte
@@ -617,6 +635,12 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		if eventType == "" {
 			continue
 		}
+		s.observeCodexEncryptedContentPayload(ctx, c, account, mappedModel, message, "ws")
+		MarkOpenAIVerificationRecommendation(c, message, http.StatusOK)
+		if eventType == "codex.response.metadata" {
+			metadataHeaders := make(http.Header)
+			responseTurnState = captureOpenAICodexTurnStateMetadata(metadataHeaders, message)
+		}
 		responseModelObserver.ObserveOpenAI(message, eventType)
 		timingCollector.Observe(message, eventType)
 		eventCount++
@@ -645,9 +669,16 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		if !firstOutputComplete && (isTerminalEvent || openAIStreamDataStartsClientOutput(string(message), eventType)) {
 			firstOutputComplete = true
 		}
-		if firstTokenMs == nil && isTTFTEvent {
+		isLocalFirstEventTTFT := isOpenAILocalFirstEventType(eventType)
+		if isTTFTEvent && (firstTokenMs == nil || isLocalFirstEventTTFT) {
 			ms := int(time.Since(startTime).Milliseconds())
-			firstTokenMs = &ms
+			if isLocalFirstEventTTFT {
+				if localFirstEventTTFTMs == nil {
+					localFirstEventTTFTMs = &ms
+				}
+			} else if firstTokenMs == nil {
+				firstTokenMs = &ms
+			}
 		}
 		if debugEnabled && shouldLogOpenAIWSEvent(eventCount, eventType) {
 			logOpenAIWSModeDebug(
@@ -942,6 +973,13 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	}
 	if stateStore != nil && storeDisabled && sessionHash != "" {
 		stateStore.BindSessionConn(groupID, sessionHash, lease.ConnID(), s.openAIWSSessionStickyTTL())
+	}
+	if localFirstEventTTFTMs != nil &&
+		(upstreamTerminalEvent == "response.completed" || upstreamTerminalEvent == "response.done") {
+		firstTokenMs = localFirstEventTTFTMs
+	}
+	if upstreamTerminalEvent == "response.completed" || upstreamTerminalEvent == "response.done" {
+		s.observeOpenAICodexTurnState(ctx, c, account, mappedModel, responseTurnState)
 	}
 	firstTokenMsValue := -1
 	if firstTokenMs != nil {

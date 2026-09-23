@@ -1,0 +1,195 @@
+Upstream Sync Verification — 2026-09-18
+========================================
+
+Changed branch / field
+----------------------
+Branch: codex/upstream-sync-20260918
+Field: selective upstream behavior through efe9aab1; most importantly,
+       usage_group_rollup tail lower-bound is a bound SQL parameter rather
+       than a runtime CTE value. The same branch also carries native DeepSeek
+       media lifting, strict Chat role adaptation, canceled-response affinity,
+       paused OAuth refresh and selected frontend reliability fixes.
+
+Upstream range
+--------------
+BASELINE_UPSTREAM=881f3202694c6bc932446931a30c27d9675178b9
+FINAL_UPSTREAM=efe9aab1e4ec89a42ba45e8dac20e882c5409a6a
+RANGE_RESULT=52 commits / 26 first-parent PR merges reviewed selectively
+DOWNSTREAM_BASELINE=4d1db9284b2b368db6fd476a45df3f7908774ec9
+FINAL_PUBLISHED_SHA=d54a1347ea754032a13f58e1df59f708680b3bc0
+PR=https://github.com/DR-lin-eng/sub2api-no2api/pull/90
+
+Required artifacts
+------------------
+MODIFIED_FILE: artifacts/upstream-sync-20260918/MODIFIED_FILE
+DIFF_FILE:     artifacts/upstream-sync-20260918/DIFF_FILE
+VERIFICATION:  artifacts/upstream-sync-20260918/VERIFICATION.txt
+ROLLBACK:      artifacts/upstream-sync-20260918/ROLLBACK.sh
+
+MODIFIED_FILE is a changed copy of the rollup implementation and remains
+changed. The complete allowlisted source baseline is recorded in
+baseline/ALL_BASELINE_SHA256SUMS.
+
+BASELINE evidence
+-----------------
+Command:
+  sha256sum artifacts/upstream-sync-20260918/baseline/usage_log_repo_group_rollup.go
+Input:
+  pristine downstream checkout at 4d1db9284
+Literal output:
+  080664c96baa1ab2f8f650cab29edd293ffb7b43fb6b8ef3e469738e6b90f69b  artifacts/upstream-sync-20260918/baseline/usage_log_repo_group_rollup.go
+Exit status: 0
+
+Command:
+  docker run --rm -e GOMAXPROCS=4 -v /private/tmp/sub2api-upstream-audit-20260918:/workspace -v /Users/lin/go/pkg/mod:/go/pkg/mod:ro -v upstream-sync-20260918-go-cache:/root/.cache/go-build -w /workspace/backend golang:1.26.6-bookworm sh -c 'go test -tags=unit -p=2 -count=1 ./internal/application/service ./internal/infrastructure/repository -run "Test(CNProviderSyncResponsesURLAndStatelessBody|AccountRepository_ListOAuthRefreshCandidatePage_SQLFilter|UsageLogRepositoryGetAllGroupUsageSummaryUsesRollupTail|OpenAIGatewayService_BindHTTPResponseAccount)$"'
+Input:
+  unmodified source and pre-change focused tests
+Literal output:
+  ok   github.com/Wei-Shaw/sub2api/internal/application/service 0.031s
+  ok   github.com/Wei-Shaw/sub2api/internal/infrastructure/repository 0.040s
+Exit status: 0
+
+MODIFIED evidence
+-----------------
+Command:
+  docker run --rm -e GOMAXPROCS=4 -v /private/tmp/sub2api-upstream-audit-20260918:/workspace -v /Users/lin/go/pkg/mod:/go/pkg/mod:ro -v upstream-sync-20260918-go-cache:/root/.cache/go-build -w /workspace/backend golang:1.26.6-bookworm sh -c 'go test -tags=unit -p=2 -count=1 ./internal/application/service ./internal/infrastructure/repository ./internal/shared/apicompat ./internal/shared/antigravity'
+Input:
+  modified checkout with all selected upstream changes
+Literal output:
+  full unit suite: all packages passed; application/service 194.334s, infrastructure/repository 6.764s, transport/http/handler 46.081s
+  ok   github.com/Wei-Shaw/sub2api/internal/application/service 193.755s
+  ok   github.com/Wei-Shaw/sub2api/internal/infrastructure/repository 9.209s
+  ok   github.com/Wei-Shaw/sub2api/internal/shared/apicompat 0.044s
+  ok   github.com/Wei-Shaw/sub2api/internal/shared/antigravity 0.084s
+Exit status: 0
+
+Command:
+  docker run --rm -e CI=true -v /private/tmp/sub2api-upstream-audit-20260918:/workspace -v upstream-sync-20260918-node-modules:/workspace/frontend/node_modules -w /workspace/frontend node:24-alpine sh -c 'node_modules/.bin/vitest run src/common/widgets/data/__tests__/Pagination.jump.spec.ts src/features/admin-channels/__tests__/ModelTagInput.keyboard.spec.ts src/features/billing/__tests__/AmountInput.invalid.spec.ts src/features/billing/__tests__/paymentStore.spec.ts src/features/announcements/__tests__/announcementsStore.spec.ts src/common/widgets/feedback/__tests__/BaseDialog.ids.spec.ts src/common/composables/__tests__/useClipboard.spec.ts src/features/subscriptions/__tests__/subscriptionsStore.spec.ts'
+Input:
+  independent Linux pnpm dependency volume and modified frontend
+Literal output:
+  Test Files 8 passed (8); Tests 29 passed (29); exit 0
+Exit status: 0
+
+Command:
+  docker run --rm -e CI=true -v /private/tmp/sub2api-upstream-audit-20260918:/workspace -v upstream-sync-20260918-node-modules:/workspace/frontend/node_modules -w /workspace/frontend node:24-alpine sh -c 'node_modules/.bin/vue-tsc --noEmit && node_modules/.bin/eslint src/common/composables/useClipboard.ts src/common/widgets/data/Pagination.vue src/common/widgets/data/ProxySelector.vue src/common/widgets/feedback/BaseDialog.vue src/features/admin-channels/presentation/widgets/ModelTagInput.vue src/features/admin-orders/presentation/widgets/AdminRefundDialog.vue src/features/announcements/presentation/stores/announcementsStore.ts src/features/auth/presentation/pages/RegisterPage.vue src/features/billing/presentation/pages/UserOrdersPage.vue src/features/billing/presentation/stores/paymentStore.ts src/features/billing/presentation/widgets/AmountInput.vue src/features/profile/presentation/widgets/TotpDisableDialog.vue src/features/profile/presentation/widgets/TotpSetupDialog.vue src/features/subscriptions/presentation/stores/subscriptionsStore.ts'
+Literal output:
+  no output; vue-tsc and eslint completed
+Exit status: 0
+
+Command:
+  make check-docs
+Literal output:
+  Documentation checks passed.
+Exit status: 0
+
+Command:
+  make -C backend check-layout
+Literal output:
+  layout error: internal/application/service/openai_ws_v2/passthrough_relay.go has 1273 lines (limit 1200); split by responsibility
+Exit status: 2
+Result:
+  pre-existing unrelated layout gate; the file was not changed in this sync.
+
+Docker image and runtime
+------------------------
+Build command:
+  docker build --tag sub2api-upstream-sync-20260918:candidate --build-arg VERSION=0.1.209-sync --build-arg COMMIT=upstream-sync-20260918 .
+Literal result:
+  frontend production build: ✓ built in 25.88s
+  image: sub2api-upstream-sync-20260918:candidate
+  image digest: sha256:febc405f5cb195d9d55c91e9fcbcd806d36d5dce900d7b96e1e9ba30c7da24bc
+Exit status: 0
+
+Compose command:
+  docker compose -f diagnostics/upstream-sync-20260918/compose.yaml up -d
+Literal result:
+  postgres healthy; redis healthy; app started
+Exit status: 0
+
+Readiness command:
+  curl -sS --max-time 10 http://127.0.0.1:18082/ready
+Literal output:
+  {"ready":true,"node_id":"445f720862df","node_name":"445f720862df","current_version":"0.1.209-sync","draining":false,"in_flight":0}
+Exit status: 0
+
+Health command:
+  curl -sS -i --max-time 10 http://127.0.0.1:18082/health
+Literal result:
+  HTTP/1.1 200 OK
+  {"status":"ok"}
+Exit status: 0
+
+Container command:
+  docker inspect -f 'STATUS={{.State.Status}} HEALTH={{.State.Health.Status}} RESTARTS={{.RestartCount}} IMAGE={{.Image}}' upstream-sync-20260918-app-1
+Literal output:
+  STATUS=running HEALTH=healthy RESTARTS=0 IMAGE=sha256:febc405f5cb195d9d55c91e9fcbcd806d36d5dce900d7b96e1e9ba30c7da24bc
+Exit status: 0
+
+Database/Redis commands:
+  docker exec upstream-sync-20260918-postgres-1 psql -U sub2api -d sub2api -Atc 'select * from schema_migrations order by applied_at desc nulls last limit 10;'
+  docker exec upstream-sync-20260918-redis-1 redis-cli ping
+Literal result:
+  latest migrations include 245_proxy_auto_assignment_health.sql and 244_add_opencode_go_platform.sql; Redis output PONG
+Exit status: 0
+
+Integration command:
+  GOCACHE=/private/tmp/upstream-sync-20260918-host-go-cache go test -tags=integration -count=1 ./internal/infrastructure/repository -run 'Test(GroupUsageRollupSyncAndSummaryUseClosedBucketsPlusRawTail|GroupUsageRollupCurrentInsertDoesNotWaitForStateRow|GroupUsageRollupInsertBarrierWaitsForCurrentTransaction|ListOAuthRefreshCandidatePage_GrokCursorAndExclusions)$'
+Input:
+  host Go 1.26.6, testcontainers PostgreSQL/Redis
+Literal output:
+  ok github.com/Wei-Shaw/sub2api/internal/infrastructure/repository 6.807s
+Exit status: 0
+
+Performance evidence
+--------------------
+The modified query binds `created_at >= $7`; the old query used `state.tail_start` from a CTE. The focused SQL test asserts the bound placeholder and invalid-watermark epoch fallback. The build/test path above exercised the modified repository and integration schema. The upstream review's production observation for this exact planner shape is a reduction from a 17M-row sequential scan to an index scan; no unbounded cache or extra request was introduced.
+
+Rollback evidence
+-----------------
+Command:
+  rm -rf /private/tmp/upstream-sync-rollback-copy; git clone --local . /private/tmp/upstream-sync-rollback-copy; artifacts/upstream-sync-20260918/ROLLBACK.sh /private/tmp/upstream-sync-rollback-copy
+Input:
+  independent modified checkout
+Literal output:
+  ROLLBACK_RESTORED=/private/tmp/upstream-sync-rollback-copy
+  TRACKED_FILES_RESTORED=28
+  ADDED_FILES_REMOVED=11
+Exit status: 0
+
+Command:
+  sha256sum /private/tmp/upstream-sync-rollback-copy/backend/internal/infrastructure/repository/usage_log_repo_group_rollup.go
+Literal output:
+  080664c96baa1ab2f8f650cab29edd293ffb7b43fb6b8ef3e469738e6b90f69b  /private/tmp/upstream-sync-rollback-copy/backend/internal/infrastructure/repository/usage_log_repo_group_rollup.go
+Exit status: 0
+
+Restored behavior/status:
+  Rollback restored all 28 allowlisted original files and removed 11 added
+  implementation/test files. The restored rollup hash equals the baseline.
+  The production checkout, MODIFIED_FILE, and candidate branch remain changed.
+
+Artifact hashes
+---------------
+MODIFIED_FILE SHA-256: 2e6859b050d46f43347cecd3d7e01e7c5d730688ad58236c036ce97b9f0379da
+BASELINE_FILE SHA-256:  080664c96baa1ab2f8f650cab29edd293ffb7b43fb6b8ef3e469738e6b90f69b
+DIFF_FILE: 128 lines; non-zero diff status is expected because the modified copy differs.
+
+Final CI / publication evidence
+-------------------------------
+The first publication SHA `625a5c0438ee90179a2b7f5edd4fdc2e2a7200bd` exposed
+one deterministic integration-fixture ordering mismatch: the paused OAuth row
+was created after the page-2 fixtures. The fix moved that row before `valid2`
+and was pushed as `d54a1347ea754032a13f58e1df59f708680b3bc0`.
+
+Commands:
+  gh run list --repo DR-lin-eng/sub2api-no2api --branch codex/upstream-sync-20260918 --limit 10 --json databaseId,status,conclusion,headSha,url,workflowName
+  gh pr view 90 --repo DR-lin-eng/sub2api-no2api --json headRefOid,statusCheckRollup
+
+Literal final results for `d54a1347ea754032a13f58e1df59f708680b3bc0`:
+  CI run 35359331995: success
+  Docker Image run 35359332103: success
+  Security Scan run 35359331868: success
+  PR #90 headRefOid: d54a1347ea754032a13f58e1df59f708680b3bc0
+  PR checks: test, frontend, golangci-lint, shell, Build and publish image,
+             backend-security and frontend-security all SUCCESS; CLA checks SKIPPED.
+Exit status: 0 for each completed workflow/check.

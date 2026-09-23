@@ -22,6 +22,7 @@ func ProvideAdminHandlers(
 	groupHandler *admin.GroupHandler,
 	accountHandler *admin.AccountHandler,
 	accountInspectionHandler *admin.AccountInspectionHandler,
+	accountQualityHandler *admin.AccountQualityHandler,
 	announcementHandler *admin.AnnouncementHandler,
 	activityCenterHandler *admin.ActivityCenterHandler,
 	dataManagementHandler *admin.DataManagementHandler,
@@ -56,18 +57,23 @@ func ProvideAdminHandlers(
 	upstreamBillingProbe *service.UpstreamBillingProbeService,
 	clusterHandler *admin.ClusterHandler,
 	ollamaCloudUsage *service.OllamaCloudUsageService,
+	cnProviderQuota *service.CNProviderQuotaService,
+	cnProviderBalance *service.CNProviderBalanceService,
 	chatHandler *admin.ChatHandler,
 	egressHandler *admin.EgressHandler,
 	customModelConfigHandler *admin.CustomModelConfigHandler,
+	oauth2ProviderHandler *admin.OAuth2ProviderHandler,
 ) *AdminHandlers {
 	accountHandler.SetUpstreamBillingProbeService(upstreamBillingProbe)
 	accountHandler.SetOllamaCloudUsageService(ollamaCloudUsage)
+	accountHandler.SetCNProviderServices(cnProviderQuota, cnProviderBalance)
 	return &AdminHandlers{
 		Dashboard:              dashboardHandler,
 		User:                   userHandler,
 		Group:                  groupHandler,
 		Account:                accountHandler,
 		AccountInspection:      accountInspectionHandler,
+		AccountQuality:         accountQualityHandler,
 		Announcement:           announcementHandler,
 		ActivityCenter:         activityCenterHandler,
 		DataManagement:         dataManagementHandler,
@@ -103,6 +109,7 @@ func ProvideAdminHandlers(
 		Chat:                   chatHandler,
 		Egress:                 egressHandler,
 		CustomModelConfig:      customModelConfigHandler,
+		OAuth2Provider:         oauth2ProviderHandler,
 	}
 }
 
@@ -219,6 +226,9 @@ func ProvideAdminSettingHandler(settingService *service.SettingService, emailSer
 	h.SetStepUpDeps(totpService, userService)
 	repoCleaner, _ := accountRepo.(service.TempUnschedulableBulkCleaner)
 	h.SetGlobalTempUnschedulableCleaner(service.NewGlobalTempUnschedulableCleaner(repoCleaner, tempUnschedCache, runtimeBlocker))
+	if gateway, ok := runtimeBlocker.(*service.OpenAIGatewayService); ok {
+		h.SetOpenAIGatewayService(gateway)
+	}
 	return h
 }
 
@@ -247,6 +257,7 @@ func ProvideHandlers(
 	batchImageHandler *BatchImageHandler,
 	chatHandler *ChatHandler,
 	mediaStudioHandler *MediaStudioHandler,
+	oauth2ProviderHandler *OAuth2ProviderHandler,
 	_ *service.IdempotencyCoordinator,
 	_ *service.IdempotencyCleanupService,
 ) *Handlers {
@@ -274,6 +285,7 @@ func ProvideHandlers(
 		BatchImage:       batchImageHandler,
 		Chat:             chatHandler,
 		MediaStudio:      mediaStudioHandler,
+		OAuth2Provider:   oauth2ProviderHandler,
 	}
 }
 
@@ -288,7 +300,7 @@ var ProviderSet = wire.NewSet(
 	NewSubscriptionHandler,
 	NewAnnouncementHandler,
 	ProvideActivityCenterUserHandler,
-	NewChannelMonitorUserHandler,
+	ProvideChannelMonitorUserHandler,
 	ProvideGatewayHandler,
 	ProvideOpenAIGatewayHandler,
 	NewTotpHandler,
@@ -302,6 +314,7 @@ var ProviderSet = wire.NewSet(
 	ProvideBatchImageHandler,
 	NewChatHandler,
 	NewMediaStudioHandler,
+	NewOAuth2ProviderHandler,
 
 	// Admin handlers
 	admin.NewDashboardHandler,
@@ -309,6 +322,7 @@ var ProviderSet = wire.NewSet(
 	admin.NewGroupHandler,
 	admin.ProvideAccountHandler,
 	admin.NewAccountInspectionHandler,
+	admin.NewAccountQualityHandler,
 	admin.NewAnnouncementHandler,
 	ProvideActivityCenterAdminHandler,
 	admin.NewDataManagementHandler,
@@ -343,6 +357,7 @@ var ProviderSet = wire.NewSet(
 	ProvideEgressHandler,
 	ProvideAdminChatHandler,
 	admin.NewCustomModelConfigHandler,
+	admin.NewOAuth2ProviderHandler,
 
 	// AdminHandlers and Handlers constructors
 	ProvideAdminHandlers,

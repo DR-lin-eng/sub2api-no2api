@@ -62,6 +62,7 @@ type SettingHandler struct {
 	totpService              *service.TotpService
 	userService              *service.UserService
 	tempUnschedulableCleaner *service.GlobalTempUnschedulableCleaner
+	openAIGatewayService     *service.OpenAIGatewayService
 }
 
 // NewSettingHandler 创建系统设置处理器
@@ -94,6 +95,10 @@ func (h *SettingHandler) SetStepUpDeps(totpService *service.TotpService, userSer
 
 func (h *SettingHandler) SetGlobalTempUnschedulableCleaner(cleaner *service.GlobalTempUnschedulableCleaner) {
 	h.tempUnschedulableCleaner = cleaner
+}
+
+func (h *SettingHandler) SetOpenAIGatewayService(gateway *service.OpenAIGatewayService) {
+	h.openAIGatewayService = gateway
 }
 
 // GetSettings 获取所有系统设置
@@ -305,6 +310,8 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		StreamModePerformanceEnabled:                           settings.StreamModePerformanceEnabled,
 		OpenAIWSModeRouterV2Enabled:                            settings.OpenAIWSModeRouterV2Enabled,
 		OpenAIVisibleOutputTTFTEnabled:                         settings.OpenAIVisibleOutputTTFTEnabled,
+		OpenAIOAuthForceRelayEnabled:                           settings.OpenAIOAuthForceRelayEnabled,
+		OpenAIOAuthForceRelayBaseURL:                           settings.OpenAIOAuthForceRelayBaseURL,
 		EnableFingerprintUnification:                           settings.EnableFingerprintUnification,
 		EnableMetadataPassthrough:                              settings.EnableMetadataPassthrough,
 		EnableCCHSigning:                                       settings.EnableCCHSigning,
@@ -333,6 +340,12 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		OpenAILowUpstreamRatePriorityEnabled:                   settings.OpenAILowUpstreamRatePriorityEnabled,
 		OpenAIOAuthSchedulingRateMultiplier:                    settings.OpenAIOAuthSchedulingRateMultiplier,
 		OpenAIContentSessionBurstBalanceEnabled:                settings.OpenAIContentSessionBurstBalanceEnabled,
+		OpenAISessionIDRateLimitEnabled:                        settings.OpenAISessionIDRateLimitEnabled,
+		OpenAISessionIDRateLimitPerMinute:                      settings.OpenAISessionIDRateLimitPerMinute,
+		OpenAIOAuthGatewayRateLimitEnabled:                     settings.OpenAIOAuthGatewayRateLimitEnabled,
+		OpenAIOAuthGatewayRateLimitRPM:                         settings.OpenAIOAuthGatewayRateLimitRPM,
+		OpenAIOAuthGatewayRateLimitBurst:                       settings.OpenAIOAuthGatewayRateLimitBurst,
+		OpenAIRequestIntegrityObserveEnabled:                   settings.OpenAIRequestIntegrityObserveEnabled,
 		OpenAIAdvancedSchedulerEnabled:                         settings.OpenAIAdvancedSchedulerEnabled,
 		OpenAIAdvancedSchedulerStickyWeightedEnabled:           settings.OpenAIAdvancedSchedulerStickyWeightedEnabled,
 		OpenAIAdvancedSchedulerSubscriptionPriorityEnabled:     settings.OpenAIAdvancedSchedulerSubscriptionPriorityEnabled,

@@ -1,0 +1,78 @@
+UPSTREAM SYNC VERIFICATION — 2026-09-23
+======================================
+Changed branch: codex/upstream-sync-20260923
+Changed branch/field: #7481 gateway group policy reads use GetByIDLite (four sites), #7500 user attribute requestVersion ownership.
+Frozen upstream: efe9aab1e4ec89a42ba45e8dac20e882c5409a6a..7c0a2a556c440836c54b3f3135f033755f15ecb7.
+Baseline downstream: f2284c586e8d182423b37eacf664d28b39cb41f5.
+
+FOUR ARTIFACT PATHS (reopen after write):
+- /Users/lin/.codex/worktrees/41ad/sub2api-no2api/diagnostics/upstream-sync-20260923/MODIFIED_FILE
+- /Users/lin/.codex/worktrees/41ad/sub2api-no2api/diagnostics/upstream-sync-20260923/DIFF_FILE
+- /Users/lin/.codex/worktrees/41ad/sub2api-no2api/diagnostics/upstream-sync-20260923/VERIFICATION.txt
+- /Users/lin/.codex/worktrees/41ad/sub2api-no2api/diagnostics/upstream-sync-20260923/ROLLBACK.sh (executable)
+Original copy: BASELINE_FILE sha256=ec24c0124545ac7303f458c4c33b3adee90248432e9d05220e9f2bc3c48fd934
+Modified copy: MODIFIED_FILE sha256=7d36e33634a4abd9b374ab3fb9d14468e3e0ae72a174a2832a3f8b3341a2a876
+
+BASELINE command/input (exit 0):
+mkdir -p /private/tmp/sub2api-upstream-baseline-20260923 && git archive f2284c586e8d182423b37eacf664d28b39cb41f5 | tar -xf - -C /private/tmp/sub2api-upstream-baseline-20260923
+then:
+docker run --rm -v /private/tmp/sub2api-upstream-baseline-20260923/backend:/workspace -v sub2api-go-mod-20260923:/go/pkg/mod -v sub2api-go-cache-20260923:/go-cache -w /workspace golang:1.26.6-alpine sh -c 'GOCACHE=/go-cache go test -mod=mod -vet=off -p=1 -tags=unit ./internal/application/service -run "TestGatewayService_Group(Resolution|Context)_|TestGatewayService_selectAccountWithMixedScheduling" -count=1 -timeout=300s'
+BASELINE literal output:
+ok   github.com/Wei-Shaw/sub2api/internal/application/service 0.106s
+BASELINE result: existing behavior passed; per-request group policy used GetByID (with account-count aggregation).
+
+MODIFIED command/input (exit 0):
+docker run --rm -v /Users/lin/.codex/worktrees/41ad/sub2api-no2api/backend:/workspace -v sub2api-go-mod-20260923:/go/pkg/mod -v sub2api-go-cache-20260923:/go-cache -w /workspace golang:1.26.6-alpine sh -c 'GOCACHE=/go-cache go test -mod=mod -vet=off -p=1 -tags=unit ./internal/application/service -run "TestGatewayService_Group(Resolution|Context)_|TestGatewayService_selectAccountWithMixedScheduling" -count=1 -timeout=300s'
+MODIFIED literal output:
+ok   github.com/Wei-Shaw/sub2api/internal/application/service 0.062s
+MODIFIED result: existing behavior passed; three group-resolution call-count assertions now require Lite only. Durations are not a benchmark.
+
+MODIFIED broader Docker command/input (exit 0):
+docker run --rm -v /Users/lin/.codex/worktrees/41ad/sub2api-no2api/backend:/workspace -v sub2api-go-mod-20260923:/go/pkg/mod -v sub2api-go-cache-20260923:/go-cache -w /workspace golang:1.26.6-alpine sh -c 'GOCACHE=/go-cache go test -mod=mod -vet=off -p=1 -tags=unit ./internal/application/service ./internal/infrastructure/repository ./internal/transport/http/handler ./internal/transport/http/server/routes -count=1 -timeout=900s'
+MODIFIED broader literal output:
+ok   github.com/Wei-Shaw/sub2api/internal/application/service 188.975s
+ok   github.com/Wei-Shaw/sub2api/internal/infrastructure/repository 6.702s
+ok   github.com/Wei-Shaw/sub2api/internal/transport/http/handler 42.154s
+ok   github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes 5.423s
+
+BASELINE frontend regression command/input (exit 1, expected):
+From /private/tmp/sub2api-upstream-baseline-20260923/frontend, with this branch's new test copied into the baseline tree and the already installed node_modules linked read-only:
+/Users/lin/.codex/worktrees/41ad/sub2api-no2api/frontend/node_modules/.bin/vitest run src/features/admin-users/__tests__/UserAttributeForm.race.spec.ts
+BASELINE literal output/result:
+❯ src/features/admin-users/__tests__/UserAttributeForm.race.spec.ts (3 tests | 3 failed)
+expected 'old' to be 'current'; expected 'old' to be ''; expected 'old' to be ''.
+Test Files 1 failed (1); Tests 3 failed (3).
+Restored behavior/status: modified component passes all three ownership cases; baseline copy was not edited.
+
+FRONTEND command/input (exit 0):
+pnpm --dir frontend exec vitest run src/features/admin-users/__tests__/UserAttributeForm.race.spec.ts && pnpm --dir frontend run typecheck && pnpm --dir frontend exec eslint src/features/admin-users/presentation/widgets/UserAttributeForm.vue src/features/admin-users/__tests__/UserAttributeForm.race.spec.ts
+FRONTEND literal result: Test Files 1 passed (1); Tests 3 passed (3); vue-tsc --noEmit passed; eslint passed.
+make test-frontend (exit 0): eslint ., vue-tsc --noEmit, critical Vitest: Test Files 28 passed (28); Tests 243 passed (243).
+
+DOCKER build command/input (exit 0):
+docker build --progress=plain --build-arg VERSION=0.1.214 --build-arg COMMIT=codex-upstream-sync-20260923 -t sub2api-upstream-sync-20260923:candidate .
+DOCKER literal result: manifest list sha256:a0a7c9c00ba1b68d11ac6eeef55317b4dfd23e575ccee82277167b9508e4f81b; frontend and Go 1.26.6 backend built.
+DOCKER runtime command/input (exit 0):
+docker compose -p sub2api-upstream-sync-20260923 -f diagnostics/upstream-sync-20260923/compose.yaml up -d --wait
+curl -fsS http://127.0.0.1:18083/health
+curl -fsS http://127.0.0.1:18083/ready
+DOCKER literal output:
+{"status":"ok"}
+{"ready":true,"node_id":"0be8b1604eb0","node_name":"0be8b1604eb0","current_version":"0.1.214","draining":false,"in_flight":0}
+Docker app/postgres/redis statuses: healthy; GET / status=200 bytes=3529; SELECT COUNT(*) FROM schema_migrations = 299.
+No data migration or API/JSON/SSE/WS schema introduced by this branch. This run covers fresh startup, not a rolling-upgrade rehearsal.
+
+ROLLBACK command/input (exit 0):
+cp diagnostics/upstream-sync-20260923/MODIFIED_FILE /private/tmp/upstream-sync-20260923-rollback-copy.go
+diagnostics/upstream-sync-20260923/ROLLBACK.sh diagnostics/upstream-sync-20260923/BASELINE_FILE /private/tmp/upstream-sync-20260923-rollback-copy.go
+ROLLBACK literal output:
+restored_behavior=baseline_bytes
+restored_sha256=ec24c0124545ac7303f458c4c33b3adee90248432e9d05220e9f2bc3c48fd934
+Restored behavior/status: the independent rollback copy byte-for-byte matches BASELINE_FILE; MODIFIED_FILE remains changed, sha256=7d36e33634a4abd9b374ab3fb9d14468e3e0ae72a174a2832a3f8b3341a2a876.
+
+Static checks:
+make check-docs (exit 0): Documentation checks passed.
+git diff --check (exit 0): no output.
+make -C backend check-layout (exit 2): openai_ws_v2/passthrough_relay.go 1273 lines; pricing_service.go 1217 lines. The exact same two failures reproduced with `make -C /private/tmp/sub2api-upstream-baseline-20260923/backend check-layout` (exit 2); neither file is changed in this branch.
+
+PUBLICATION: pending branch push, PR, and exact-SHA CI checks. Do not infer success from local Docker tests.

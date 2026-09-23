@@ -142,8 +142,9 @@ type Group struct {
 	WebSearchPricePerCall *float64 `json:"web_search_price_per_call"`
 
 	// Claude Code 客户端限制
-	ClaudeCodeOnly  bool   `json:"claude_code_only"`
-	FallbackGroupID *int64 `json:"fallback_group_id"`
+	ClaudeCodeOnly      bool   `json:"claude_code_only"`
+	IsDistillationGroup bool   `json:"is_distillation_group"`
+	FallbackGroupID     *int64 `json:"fallback_group_id"`
 	// 无效请求兜底分组
 	FallbackGroupIDOnInvalidRequest *int64 `json:"fallback_group_id_on_invalid_request"`
 
@@ -276,7 +277,7 @@ type Account struct {
 	CacheTTLOverrideEnabled *bool   `json:"cache_ttl_override_enabled,omitempty"`
 	CacheTTLOverrideTarget  *string `json:"cache_ttl_override_target,omitempty"`
 
-	// 自定义 Base URL 中继转发（仅 Anthropic OAuth/SetupToken 账号有效）
+	// 自定义 Base URL 中继转发（Anthropic OAuth/SetupToken 与 OpenAI OAuth 有效）
 	CustomBaseURLEnabled *bool   `json:"custom_base_url_enabled,omitempty"`
 	CustomBaseURL        *string `json:"custom_base_url,omitempty"`
 
@@ -346,10 +347,14 @@ type Proxy struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 
-	ExpiresAt      *time.Time `json:"expires_at"`
-	FallbackMode   string     `json:"fallback_mode"`
-	BackupProxyID  *int64     `json:"backup_proxy_id"`
-	ExpiryWarnDays int        `json:"expiry_warn_days"`
+	ExpiresAt                 *time.Time `json:"expires_at"`
+	FallbackMode              string     `json:"fallback_mode"`
+	BackupProxyID             *int64     `json:"backup_proxy_id"`
+	ExpiryWarnDays            int        `json:"expiry_warn_days"`
+	HealthStatus              string     `json:"health_status"`
+	HealthConsecutiveFailures int        `json:"health_consecutive_failures"`
+	LastHealthCheckAt         *time.Time `json:"last_health_check_at"`
+	LastHealthError           string     `json:"last_health_error,omitempty"`
 }
 
 type ProxyWithAccountCount struct {

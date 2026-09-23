@@ -170,6 +170,9 @@ func (Group) Fields() []ent.Field {
 		field.Bool("claude_code_only").
 			Default(false).
 			Comment("是否仅允许 Claude Code 客户端"),
+		field.Bool("is_distillation_group").
+			Default(false).
+			Comment("蒸馏分组：禁用上游缓存与恢复型重试，并按请求窗口重写 session ID"),
 		field.Int64("fallback_group_id").
 			Optional().
 			Nillable().

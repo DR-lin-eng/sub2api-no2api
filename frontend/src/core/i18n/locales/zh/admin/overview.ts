@@ -893,6 +893,11 @@ export default {
         gemini: 'Gemini',
         antigravity: 'Antigravity',
         grok: 'Grok',
+        kimi: 'Kimi',
+        zhipu: '智谱 GLM',
+        deepseek: 'DeepSeek',
+        minimax: 'MiniMax',
+        opencode_go: 'OpenCode',
         composite: 'Composite',
       },
       saving: '保存中...',
@@ -1061,7 +1066,7 @@ export default {
       },
       modelsList: {
         title: '{endpoint} 可用模型',
-        hint: '仅选中的模型会在该分组中展示并接受调用请求。可按需选择模型。',
+        hint: '仅选中的模型会在{endpoint}中展示并接受调用请求。可按需选择模型。',
         loading: '正在加载可用模型...',
         empty: '暂无可用模型',
         selectedSummary: '已选 {selected} / {total}',
@@ -1128,6 +1133,12 @@ export default {
         fallbackGroup: '降级分组',
         fallbackHint: '非 Claude Code 请求将使用此分组，留空则直接拒绝',
         noFallback: '不降级（直接拒绝）'
+      },
+      distillation: {
+        title: '蒸馏分组（无缓存 / 快速失败）',
+        enabled: '已启用蒸馏模式',
+        disabled: '普通转发模式',
+        hint: 'Anthropic 和 OpenAI OAuth 账号适用：清除 prompt_cache_key、cache_control 等缓存字段；每 10000 个请求轮换 session ID，并关闭重试、换号和错误修正。'
       },
       openaiMessages: {
         title: 'OpenAI Messages 调度配置',

@@ -1,0 +1,2 @@
+# Preserve the unified diff's literal context bytes.
+DIFF_FILE -whitespace

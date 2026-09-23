@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/domain/model"
+	"github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation"
 	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -63,4 +64,22 @@ func TestOpenAIRequestCarriesResolvedTLSProfileToTransportBoundary(t *testing.T)
 	profile := HTTPUpstreamTLSProfileFromContext(req.Context())
 	require.NotNil(t, profile)
 	require.Equal(t, "codex", profile.Name)
+}
+
+func TestExperimentalTransportSwitchControlsMLKEMProfile(t *testing.T) {
+	codexsimulation.SetCLevelEnabled(true)
+	codexsimulation.SetExperimentalTransportEnabled(false)
+	t.Cleanup(func() {
+		codexsimulation.SetCLevelEnabled(false)
+		codexsimulation.SetExperimentalTransportEnabled(false)
+	})
+	profileService := &TLSFingerprintProfileService{}
+	account := &Account{ID: 92, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Extra: map[string]any{"enable_tls_fingerprint": true}}
+	base := profileService.ResolveTLSProfile(account)
+	require.NotContains(t, base.Curves, tlsfingerprint.CodexX25519MLKEM768)
+
+	codexsimulation.SetExperimentalTransportEnabled(true)
+	experimental := profileService.ResolveTLSProfile(account)
+	require.Contains(t, experimental.Curves, tlsfingerprint.CodexX25519MLKEM768)
+	require.True(t, experimental.RandomizeExtensions)
 }

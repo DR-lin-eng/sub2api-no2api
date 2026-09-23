@@ -105,7 +105,13 @@ func validateJWTForUser(
 	// 从数据库获取最新的用户信息
 	user, err := userService.GetByID(c.Request.Context(), claims.UserID)
 	if err != nil {
-		AbortWithError(c, 401, "USER_NOT_FOUND", "User not found")
+		if errors.Is(err, service.ErrUserNotFound) {
+			AbortWithError(c, 401, "USER_NOT_FOUND", "User not found")
+		} else {
+			// A transient database/cache failure must not look like token
+			// invalidation; clients can retry without destroying the session.
+			AbortWithError(c, 500, "INTERNAL_ERROR", "Failed to load user")
+		}
 		return false
 	}
 

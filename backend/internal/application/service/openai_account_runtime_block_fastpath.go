@@ -48,7 +48,7 @@ func isGrokOAuthAccount(account *Account) bool {
 }
 
 func isOpenAIAccount(account *Account) bool {
-	return account != nil && (account.Platform == PlatformOpenAI || account.Platform == PlatformGrok)
+	return account != nil && account.IsOpenAICompatible()
 }
 
 func (s *OpenAIGatewayService) autoDisableOnUpstreamInsufficientBalance(ctx context.Context, account *Account, statusCode int, responseBody []byte) bool {
@@ -79,11 +79,15 @@ func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Cont
 	}
 	stateCtx, cancel := openAIAccountStateContext(ctx)
 	defer cancel()
+	stateCtx = withOAuth401CleanupAttemptState(stateCtx)
 	modelScope := firstRequestedModel(canonicalModel)
+	if statusCode == http.StatusUnauthorized && s.rateLimitService != nil && s.rateLimitService.tryAutoDeleteOAuthAccountOn401(stateCtx, account) {
+		return true
+	}
 	if s != nil && s.rateLimitService != nil && s.rateLimitService.maybeAutoDisableOpenAIAccountOnFailure(stateCtx, account, statusCode, headers, responseBody) {
 		return true
 	}
-	if s.autoDisableOnUpstreamInsufficientBalance(stateCtx, account, statusCode, responseBody) {
+	if statusCode != http.StatusUnauthorized && s.autoDisableOnUpstreamInsufficientBalance(stateCtx, account, statusCode, responseBody) {
 		return true
 	}
 	if statusCode == http.StatusTooManyRequests && account.BypassesLocalOpenAI429SchedulingBlocks() {

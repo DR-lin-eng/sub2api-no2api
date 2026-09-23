@@ -204,64 +204,6 @@ func ProvideOpenAITokenProvider(
 	return p
 }
 
-func ProvideOpenAIGatewayService(
-	accountRepo AccountRepository,
-	usageLogRepo UsageLogRepository,
-	usageBillingRepo UsageBillingRepository,
-	userRepo UserRepository,
-	userSubRepo UserSubscriptionRepository,
-	userGroupRateRepo UserGroupRateRepository,
-	cache GatewayCache,
-	cfg *config.Config,
-	schedulerSnapshot *SchedulerSnapshotService,
-	concurrencyService *ConcurrencyService,
-	billingService *BillingService,
-	rateLimitService *RateLimitService,
-	billingCacheService *BillingCacheService,
-	httpUpstream HTTPUpstream,
-	deferredService *DeferredService,
-	openAITokenProvider *OpenAITokenProvider,
-	grokTokenProvider *GrokTokenProvider,
-	resolver *ModelPricingResolver,
-	channelService *ChannelService,
-	balanceNotifyService *BalanceNotifyService,
-	settingService *SettingService,
-	userPlatformQuotaRepo UserPlatformQuotaRepository,
-	customModelCapabilities CustomModelCapabilityResolver,
-	tlsFPProfileService *TLSFingerprintProfileService,
-) *OpenAIGatewayService {
-	svc := NewOpenAIGatewayService(
-		accountRepo,
-		usageLogRepo,
-		usageBillingRepo,
-		userRepo,
-		userSubRepo,
-		userGroupRateRepo,
-		cache,
-		cfg,
-		schedulerSnapshot,
-		concurrencyService,
-		billingService,
-		rateLimitService,
-		billingCacheService,
-		httpUpstream,
-		deferredService,
-		openAITokenProvider,
-		grokTokenProvider,
-		resolver,
-		channelService,
-		balanceNotifyService,
-		settingService,
-		userPlatformQuotaRepo,
-	)
-	svc.customModelCapabilities = customModelCapabilities
-	svc.SetTLSFingerprintProfileService(tlsFPProfileService)
-	if tlsFPProfileService != nil {
-		tlsFPProfileService.SetCodexSimulationSettingService(settingService)
-	}
-	return svc
-}
-
 // ProvideOpenAIQuotaService wires the OpenAI quota query/reset service.
 // It depends on the OpenAI token provider for refreshed access tokens and the
 // privacy client factory for the impersonated upstream HTTP client.
@@ -319,6 +261,7 @@ func ProvideAccountUsageService(
 	service.SetHTTPUpstream(httpUpstream)
 	if openAIGatewayService != nil {
 		service.SetCodexSimulationSettingService(openAIGatewayService.settingService)
+		service.oauthGatewayLimiter = openAIGatewayService
 	}
 	service.agentIdentityWS = openAIGatewayService
 	service.cfg = cfg
@@ -348,6 +291,10 @@ func ProvideAccountTestService(
 		tlsFPProfileService,
 	)
 	service.agentIdentityWS = openAIGatewayService
+	service.oauthGatewayLimiter = openAIGatewayService
+	if openAIGatewayService != nil {
+		service.SetSettingService(openAIGatewayService.settingService)
+	}
 	service.openAIModelsManifest = openAIGatewayService
 	service.customModelCapabilities = customModelCapabilities
 	return service
@@ -476,8 +423,10 @@ func ProvideOpenAICodexVersionSyncService(
 }
 
 // ProvideProxyExpiryService creates and starts ProxyExpiryService.
-func ProvideProxyExpiryService(proxyRepo ProxyRepository) *ProxyExpiryService {
+func ProvideProxyExpiryService(proxyRepo ProxyRepository, settingService *SettingService) *ProxyExpiryService {
 	svc := NewProxyExpiryService(proxyRepo, time.Minute)
+	autoAssignRepo, _ := proxyRepo.(ProxyAutoAssignmentRepository)
+	svc.SetAutoAssignment(settingService, autoAssignRepo)
 	svc.Start()
 	return svc
 }
@@ -998,6 +947,7 @@ var ProviderSet = wire.NewSet(
 	ProvideClusterReleaseService,
 	// Core services
 	NewAuthService,
+	NewOAuth2ProviderService,
 	NewPasskeyService,
 	NewUserService,
 	ProvideAPIKeyService,
@@ -1048,6 +998,8 @@ var ProviderSet = wire.NewSet(
 	ProvideOpenAITokenProvider,
 	ProvideOpenAIQuotaService,
 	ProvideGrokQuotaService,
+	NewCNProviderQuotaService,
+	NewCNProviderBalanceService,
 	ProvideClaudeTokenProvider,
 	NewAntigravityGatewayService,
 	ProvideRateLimitService,
@@ -1082,13 +1034,14 @@ var ProviderSet = wire.NewSet(
 	ProvideUsageBillingQueueRuntimeCoordinator,
 	ProvideSchedulerSnapshotService,
 	NewIdentityService,
-	NewCRSSyncService,
+	ProvideCRSSyncService,
 	ProvideUpdateService,
 	ProvideTokenRefreshService,
 	wire.Bind(new(GrokOAuthReconciler), new(*TokenRefreshService)),
 	ProvideAccountExpiryService,
 	ProvideOpenAICodexVersionSyncService,
 	ProvideProxyExpiryService,
+	ProvideProxyHealthService,
 	ProvideSubscriptionExpiryService,
 	ProvideTimingWheelService,
 	ProvideDashboardAggregationService,
@@ -1109,6 +1062,7 @@ var ProviderSet = wire.NewSet(
 	ProvideScheduledTestService,
 	ProvideScheduledTestRunnerService,
 	ProvideAccountInspectionService,
+	ProvideAccountQualityMonitoringService,
 	NewGroupCapacityService,
 	ProvideChannelService,
 	wire.Bind(new(ChannelCacheInvalidator), new(*ChannelService)),

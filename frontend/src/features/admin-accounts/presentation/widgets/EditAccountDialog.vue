@@ -106,7 +106,16 @@ import {
 } from '@/features/admin-accounts/presentation/credentialsBuilder'
 import { formatDateTime, formatDateTimeLocalInput, parseDateTimeLocalInput } from '@/core/utils/format'
 import { createStableObjectKeyResolver } from '@/core/utils/stableObjectKey'
-import { VERTEX_LOCATION_OPTIONS } from '@/core/constants/account'
+import {
+  CN_ACCOUNT_PLATFORM_LABELS,
+  VERTEX_LOCATION_OPTIONS,
+  defaultCNAdaptiveBaseURLs,
+  defaultOpenCodeProtocolRules,
+  defaultAPIKeyBaseURL,
+  isCNAccountPlatform,
+  type CNAdaptiveBaseURLs,
+  type OpenCodeProtocolRule,
+} from '@/core/constants/account'
 import {
   OPENAI_WS_MODE_CTX_POOL,
   OPENAI_WS_MODE_OFF,
@@ -155,6 +164,7 @@ import type {
   EditAccountCredentialContext,
   EditAccountPolicyContext,
 } from '@/features/admin-accounts/presentation/accountEditorContext'
+import { hydrateCNAccountEditor } from '@/features/admin-accounts/presentation/hydrateCNAccountEditor'
 
 interface Props {
   show: boolean
@@ -195,6 +205,11 @@ const baseUrlHint = computed(() => {
   if (props.account.platform === 'openai') return t('admin.accounts.openai.baseUrlHint')
   if (props.account.platform === 'gemini') return t('admin.accounts.gemini.baseUrlHint')
   if (props.account.platform === 'grok') return ''
+  if (isCNAccountPlatform(props.account.platform)) {
+    return t('admin.accounts.cnProvider.baseUrlHint', {
+      provider: CN_ACCOUNT_PLATFORM_LABELS[props.account.platform],
+    })
+  }
   return t('admin.accounts.baseUrlHint')
 })
 
@@ -206,6 +221,13 @@ const bedrockPresets = computed(() => getPresetMappingsByPlatform('bedrock'))
 const submitting = ref(false)
 const editBaseUrl = ref('https://api.anthropic.com')
 const editApiKey = ref('')
+const editCNAccountMode = ref<'payg' | 'coding'>('payg')
+const editCNAPIProtocol = ref<'chat_completions' | 'adaptive' | 'anthropic' | 'responses'>('chat_completions')
+const editOpenCodeAccountMode = ref<'zen' | 'go'>('go')
+const editCNAdaptiveBaseURLs = ref<CNAdaptiveBaseURLs>(defaultCNAdaptiveBaseURLs('kimi', 'payg'))
+const editOpenCodeProtocolRules = ref<OpenCodeProtocolRule[]>(defaultOpenCodeProtocolRules('go'))
+const editZhipuOrganization = ref('')
+const editZhipuProject = ref('')
 // Bedrock credentials
 const editBedrockAccessKeyId = ref('')
 const editBedrockSecretAccessKey = ref('')
@@ -611,10 +633,7 @@ const tempUnschedPresets = computed(() => [
 
 // Computed: default base URL based on platform
 const defaultBaseUrl = computed(() => {
-  if (props.account?.platform === 'openai') return 'https://api.openai.com'
-  if (props.account?.platform === 'gemini') return 'https://generativelanguage.googleapis.com'
-  if (props.account?.platform === 'grok') return 'https://api.x.ai/v1'
-  return 'https://api.anthropic.com'
+    return props.account ? defaultAPIKeyBaseURL(props.account.platform) : 'https://api.anthropic.com'
 })
 
 const mixedChannelWarningMessageText = computed(() => {
@@ -720,6 +739,9 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   editVertexProjectId.value = ''
   editVertexClientEmail.value = ''
   editVertexLocation.value = 'us-central1'
+  editZhipuOrganization.value = ''
+  editZhipuProject.value = ''
+  editOpenCodeProtocolRules.value = defaultOpenCodeProtocolRules('go')
   antigravityProjectId.value =
     newAccount.platform === 'antigravity' &&
     newAccount.type === 'oauth' &&
@@ -941,15 +963,20 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   // Initialize API Key fields for apikey type
   if (newAccount.type === 'apikey' && newAccount.credentials) {
     const credentials = newAccount.credentials as Record<string, unknown>
-    const platformDefaultUrl =
-      newAccount.platform === 'openai'
-        ? 'https://api.openai.com'
-        : newAccount.platform === 'gemini'
-          ? 'https://generativelanguage.googleapis.com'
-          : newAccount.platform === 'grok'
-            ? 'https://api.x.ai/v1'
-            : 'https://api.anthropic.com'
-    editBaseUrl.value = (credentials.base_url as string) || platformDefaultUrl
+    const platformDefaultUrl = defaultAPIKeyBaseURL(newAccount.platform)
+    const cnState = hydrateCNAccountEditor(newAccount.platform, credentials)
+    if (cnState) {
+      editCNAccountMode.value = cnState.accountMode
+      editOpenCodeAccountMode.value = cnState.openCodeAccountMode
+      editCNAPIProtocol.value = cnState.protocol
+      editCNAdaptiveBaseURLs.value = cnState.adaptiveBaseURLs
+      editOpenCodeProtocolRules.value = cnState.openCodeProtocolRules
+      editZhipuOrganization.value = cnState.zhipuOrganization
+      editZhipuProject.value = cnState.zhipuProject
+      editBaseUrl.value = cnState.baseURL
+    } else {
+      editBaseUrl.value = (credentials.base_url as string) || platformDefaultUrl
+    }
 
     // Load model mappings and detect mode
     loadModelRestrictionFromMapping(credentials.model_mapping as Record<string, unknown> | undefined)
@@ -1022,14 +1049,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     // Load model mappings for service_account
     loadModelRestrictionFromMapping(credentials.model_mapping as Record<string, unknown> | undefined)
   } else {
-    const platformDefaultUrl =
-      newAccount.platform === 'openai'
-        ? 'https://api.openai.com'
-        : newAccount.platform === 'gemini'
-          ? 'https://generativelanguage.googleapis.com'
-          : newAccount.platform === 'grok'
-            ? 'https://api.x.ai/v1'
-            : 'https://api.anthropic.com'
+      const platformDefaultUrl = defaultAPIKeyBaseURL(newAccount.platform)
     editBaseUrl.value = platformDefaultUrl
 
     // Load model mappings for OpenAI/Grok OAuth accounts
@@ -1287,6 +1307,18 @@ function loadQuotaControlSettings(account: Account) {
     tlsFingerprintProfileId.value = normalizeTLSFingerprintProfileID(storedProfileID)
   }
 
+  // Custom model-request relay is supported by Anthropic OAuth/SetupToken and
+  // OpenAI OAuth/Codex.  Keep this independent from the Anthropic-only quota
+  // controls below so OpenAI OAuth accounts can edit it as well.
+  const customRelayEligible =
+    (account.platform === 'anthropic' &&
+      (account.type === 'oauth' || account.type === 'setup-token')) ||
+    (account.platform === 'openai' && account.type === 'oauth')
+  if (customRelayEligible && account.custom_base_url_enabled === true) {
+    customBaseUrlEnabled.value = true
+    customBaseUrl.value = account.custom_base_url || ''
+  }
+
   // Remaining quota controls apply only to Anthropic OAuth/SetupToken accounts.
   if (account.platform !== 'anthropic') {
     return
@@ -1332,11 +1364,6 @@ function loadQuotaControlSettings(account: Account) {
     cacheTTLOverrideTarget.value = account.cache_ttl_override_target || '5m'
   }
 
-  // Load custom base URL setting
-  if (account.custom_base_url_enabled === true) {
-    customBaseUrlEnabled.value = true
-    customBaseUrl.value = account.custom_base_url || ''
-  }
 }
 
 function formatTempUnschedKeywords(value: unknown) {
@@ -1385,7 +1412,7 @@ const {
   cpaConcurrencyPerCredential, cpaExcludeAbnormalCredentials, cpaManagementKey, cpaManagementUrl, cpaModeEnabled,
   cpaUseBaseUrl,
   customBaseUrl, customBaseUrlEnabled, customErrorCodesEnabled, defaultBaseUrl,
-  editApiKey, editBaseUrl, editBedrockAccessKeyId, editBedrockApiKeyValue,
+  editApiKey, editBaseUrl, editCNAccountMode, editCNAPIProtocol, editCNAdaptiveBaseURLs, editOpenCodeAccountMode, editOpenCodeProtocolRules, editZhipuOrganization, editZhipuProject, editBedrockAccessKeyId, editBedrockApiKeyValue,
   editBedrockForceGlobal, editBedrockRegion, editBedrockSecretAccessKey,
   editBedrockSessionToken, editDailyResetHour, editDailyResetMode, editPlanType,
   editQuotaDailyLimit, editQuotaLimit, editQuotaWeeklyLimit, editResetTimezone,
@@ -1420,7 +1447,7 @@ const editAccountCredentialContext = {
   antigravityPresetMappings, antigravityProjectId, autoDisableOnUpstreamInsufficientBalance,
   baseUrlHint, bedrockPresets, commonErrorCodes, cpaConcurrencyPerCredential, cpaExcludeAbnormalCredentials, cpaManagementKey,
   cpaManagementUrl, cpaModeEnabled, cpaUseBaseUrl, customErrorCodeInput, customErrorCodesEnabled, editApiKey,
-  editBaseUrl, editBedrockAccessKeyId, editBedrockApiKeyValue, editBedrockForceGlobal,
+  editBaseUrl, editCNAccountMode, editCNAPIProtocol, editCNAdaptiveBaseURLs, editOpenCodeAccountMode, editOpenCodeProtocolRules, editZhipuOrganization, editZhipuProject, editBedrockAccessKeyId, editBedrockApiKeyValue, editBedrockForceGlobal,
   editBedrockRegion, editBedrockSecretAccessKey, editBedrockSessionToken, editVertexLocation,
   editVertexProjectId, form, getAntigravityModelMappingKey, getModelMappingKey,
   grokClientToolCacheEnabled, grokOAuthBaseUrl, grokOAuthCustomBaseUrlEnabled,

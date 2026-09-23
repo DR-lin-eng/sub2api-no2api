@@ -144,6 +144,16 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/oauth/authorize',
+    name: 'OAuth2Authorize',
+    component: () => import('@/features/auth/presentation/pages/OAuth2AuthorizePage.vue'),
+    meta: {
+      requiresAuth: true,
+      title: 'Authorize application',
+      titleKey: 'oauth2Consent.pageTitle'
+    }
+  },
+  {
     path: '/forgot-password',
     name: 'ForgotPassword',
     component: () => import('@/features/auth/presentation/pages/ForgotPasswordPage.vue'),
@@ -199,6 +209,15 @@ const routes: RouteRecordRaw[] = [
       title: 'Channel Status',
       titleKey: 'nav.channelStatus'
     }
+  },
+  {
+    path: '/monitor/quality/public',
+    name: 'AccountQualityShare',
+    component: () => import('@/features/account-quality/presentation/pages/AccountQualitySharePage.vue'),
+    meta: {
+      requiresAuth: false,
+      title: 'Account Quality',
+    },
   },
 
   // ==================== User Routes ====================
@@ -645,6 +664,30 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/account-quality',
+    name: 'AdminAccountQuality',
+    component: () => import('@/features/admin-account-quality/presentation/pages/AccountQualityPage.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Account Quality Monitoring',
+      titleKey: 'admin.accountQuality.title',
+      descriptionKey: 'admin.accountQuality.description'
+    }
+  },
+  {
+    path: '/admin/state-diagnostics',
+    name: 'AdminStateDiagnostics',
+    component: () => import('@/features/admin-state-diagnostics/presentation/pages/StateDiagnosticsPage.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'State Diagnostics',
+      titleKey: 'admin.stateDiagnostics.title',
+      descriptionKey: 'admin.stateDiagnostics.description'
+    }
+  },
+  {
     path: '/admin/announcements',
     name: 'AdminAnnouncements',
     component: () => import('@/features/announcements/presentation/pages/AnnouncementsPage.vue'),
@@ -924,7 +967,7 @@ let authInitialized = false
 const navigationLoading = useNavigationLoadingState()
 // 延迟初始化预加载，传入 router 实例
 let routePrefetch: ReturnType<typeof useRoutePrefetch> | null = null
-const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/setup', '/payment/result', '/payment/airwallex', '/legal']
+const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/setup', '/payment/result', '/payment/airwallex', '/legal', '/monitor/quality/public', '/oauth/authorize']
 const BACKEND_MODE_CALLBACK_PATHS = [
   '/auth/callback',
   '/auth/linuxdo/callback',

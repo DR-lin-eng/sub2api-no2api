@@ -49,6 +49,7 @@ const baseGroupFormState = () => {
     profit_min_margin_percent: 0,
     profit_safety_buffer_percent: 0,
     claude_code_only: false,
+    is_distillation_group: false,
     fallback_group_id: null as number | null,
     fallback_group_id_on_invalid_request: null as number | null,
     allow_messages_dispatch: false,

@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"unicode/utf8"
 
+	"github.com/Wei-Shaw/sub2api/internal/shared/apicompat"
 	"github.com/Wei-Shaw/sub2api/internal/shared/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator"
 	"github.com/gin-gonic/gin"
@@ -43,6 +45,57 @@ func (s *OpenAIGatewayService) validateUpstreamBaseURL(raw string) (string, erro
 // - 其他情况：追加 /v1/responses
 func buildOpenAIResponsesURL(base string) string {
 	return buildOpenAIEndpointURL(base, "/v1/responses")
+}
+
+func buildOpenAIResponsesURLForPlatform(platform, base string) string {
+	if platform == PlatformDeepseek {
+		return buildOpenAIEndpointURL(base, "/responses")
+	}
+	return buildOpenAIResponsesURL(base)
+}
+
+func normalizeNativeCNResponsesRequestBody(account *Account, body []byte) []byte {
+	if account == nil || !account.UsesNativeCNResponses() {
+		return body
+	}
+	normalized, err := sjson.SetBytes(body, "store", false)
+	if err != nil {
+		return body
+	}
+	if stripped, err := sjson.DeleteBytes(normalized, "previous_response_id"); err == nil {
+		normalized = stripped
+	}
+	// Keep the common native-Responses path zero-copy. Only decode/re-encode
+	// when a tool output and an image marker are both present; ordinary turns
+	// retain the existing sjson-only cost.
+	if !bytes.Contains(normalized, []byte(`"function_call_output"`)) &&
+		!bytes.Contains(normalized, []byte(`"custom_tool_call_output"`)) &&
+		!bytes.Contains(normalized, []byte(`"tool_search_output"`)) {
+		return normalized
+	}
+	if !bytes.Contains(normalized, []byte(`"input_image"`)) && !bytes.Contains(normalized, []byte(`"image_url"`)) {
+		return normalized
+	}
+	var requestBody map[string]any
+	decoder := json.NewDecoder(bytes.NewReader(normalized))
+	decoder.UseNumber()
+	if err := decoder.Decode(&requestBody); err != nil {
+		return normalized
+	}
+	input, exists := requestBody["input"]
+	if !exists {
+		return normalized
+	}
+	liftedInput, changed := apicompat.LiftResponsesToolOutputMedia(input)
+	if !changed {
+		return normalized
+	}
+	requestBody["input"] = liftedInput
+	rebuilt, err := marshalOpenAIUpstreamJSON(requestBody)
+	if err != nil {
+		return normalized
+	}
+	return rebuilt
 }
 
 const openAIResponsesIDMaxLength = 64
@@ -227,7 +280,8 @@ func sanitizeOpenAIResponsesInputIDs(body []byte, stripAllReasoningIDs bool) ([]
 		return body, false, nil
 	}
 
-	input := gjson.GetBytes(body, "input")
+	root := parseRawJSONView(body)
+	input := root.Get("input")
 	if !input.Exists() {
 		return body, false, nil
 	}
@@ -242,6 +296,74 @@ func sanitizeOpenAIResponsesInputIDs(body []byte, stripAllReasoningIDs bool) ([]
 			return body, false, nil
 		}
 
+		// GJSON intentionally exposes raw slices of the original body.  Keep
+		// unchanged image/tool items as those slices and copy the complete body
+		// only once at the final replacement step.  Duplicate-key or malformed
+		// JSON is handed to the decoder path to preserve its last-key semantics.
+		if !root.IsObject() || !gjson.ValidBytes(body) || !utf8.Valid(body) || hasDuplicateJSONObjectKeys(root) {
+			return sanitizeOpenAIResponsesInputIDsDecoded(body, stripAllReasoningIDs)
+		}
+		items := make([]string, 0, 16)
+		fallback := false
+		var rebuildErr error
+		input.ForEach(func(_, item gjson.Result) bool {
+			if item.IsObject() && rawOpenAIResponsesInputItemNeedsSanitization(item, stripAllReasoningIDs) && hasDuplicateJSONObjectKeys(item) {
+				fallback = true
+				return false
+			}
+			itemRaw, _, keep, sanitizeErr := sanitizeRawOpenAIResponsesInputItem(item, stripAllReasoningIDs)
+			if sanitizeErr != nil {
+				rebuildErr = sanitizeErr
+				return false
+			}
+			if !keep {
+				return true
+			}
+			items = append(items, itemRaw)
+			return true
+		})
+		if fallback {
+			return sanitizeOpenAIResponsesInputIDsDecoded(body, stripAllReasoningIDs)
+		}
+		if rebuildErr != nil {
+			return body, false, fmt.Errorf("sanitize Responses input item ids: %w", rebuildErr)
+		}
+		return replaceOpenAIRawInput(body, input, items), true, nil
+	}
+
+	itemRaw, changed, keep, err := sanitizeRawOpenAIResponsesInputItem(input, stripAllReasoningIDs)
+	if err != nil {
+		return body, false, fmt.Errorf("sanitize Responses input item: %w", err)
+	}
+	if !changed {
+		return body, false, nil
+	}
+	if !root.IsObject() || !gjson.ValidBytes(body) || !utf8.Valid(body) || hasDuplicateJSONObjectKeys(root) {
+		return sanitizeOpenAIResponsesInputIDsDecoded(body, stripAllReasoningIDs)
+	}
+	if !keep {
+		itemRaw = "[]"
+	}
+	return replaceOpenAIRawValue(body, input, itemRaw), true, nil
+}
+
+// sanitizeOpenAIResponsesInputIDsDecoded is the compatibility path for
+// malformed or duplicate-key JSON.  The standard decoder intentionally keeps
+// the last duplicate key, unlike GJSON's first-key view.
+func sanitizeOpenAIResponsesInputIDsDecoded(body []byte, stripAllReasoningIDs bool) ([]byte, bool, error) {
+	input := gjson.GetBytes(body, "input")
+	if !input.Exists() {
+		return body, false, nil
+	}
+	if input.IsArray() {
+		changed := false
+		input.ForEach(func(_, item gjson.Result) bool {
+			changed = rawOpenAIResponsesInputItemNeedsSanitization(item, stripAllReasoningIDs)
+			return !changed
+		})
+		if !changed {
+			return body, false, nil
+		}
 		var rebuilt bytes.Buffer
 		rebuilt.Grow(len(input.Raw))
 		_ = rebuilt.WriteByte('[')
@@ -267,14 +389,12 @@ func sanitizeOpenAIResponsesInputIDs(body []byte, stripAllReasoningIDs bool) ([]
 			return body, false, fmt.Errorf("sanitize Responses input item ids: %w", rebuildErr)
 		}
 		_ = rebuilt.WriteByte(']')
-
 		sanitized, err := sjson.SetRawBytes(body, "input", rebuilt.Bytes())
 		if err != nil {
 			return body, false, fmt.Errorf("replace sanitized Responses input: %w", err)
 		}
 		return sanitized, true, nil
 	}
-
 	itemRaw, changed, keep, err := sanitizeRawOpenAIResponsesInputItem(input, stripAllReasoningIDs)
 	if err != nil {
 		return body, false, fmt.Errorf("sanitize Responses input item: %w", err)
@@ -834,6 +954,22 @@ func extractOpenAIRequestMetaFromBody(body []byte) (model string, stream bool, p
 	return view.Model, view.Stream, view.PromptCacheKey
 }
 
+func stripOpenAIInternalInputMetadataDecoded(reqBody map[string]any) bool {
+	input, _ := reqBody["input"].([]any)
+	changed := false
+	for _, value := range input {
+		item, ok := value.(map[string]any)
+		if !ok {
+			continue
+		}
+		if _, exists := item["internal_chat_message_metadata_passthrough"]; exists {
+			delete(item, "internal_chat_message_metadata_passthrough")
+			changed = true
+		}
+	}
+	return changed
+}
+
 // normalizeOpenAIPassthroughOAuthBody 将透传 OAuth 请求体收敛为旧链路关键行为：
 // 1) 删除 ChatGPT internal API 不支持的顶层 Responses 参数
 // 2) store=false 3) 非 compact 保持 stream=true；compact 强制 stream=false
@@ -879,6 +1015,23 @@ func normalizeOpenAIPassthroughOAuthBody(body []byte, compact bool) ([]byte, boo
 			next, err := sjson.SetRawBytes(normalized, "input", []byte("["+inputResult.Raw+"]"))
 			if err != nil {
 				return body, false, fmt.Errorf("normalize passthrough body input object: %w", err)
+			}
+			normalized = next
+			changed = true
+		}
+	}
+
+	// Remove only the provider-internal field on input items. User content and
+	// same-named top-level fields remain byte-exact.
+	input := gjson.GetBytes(normalized, "input")
+	if input.IsArray() {
+		for i, item := range input.Array() {
+			if !item.IsObject() || !item.Get("internal_chat_message_metadata_passthrough").Exists() {
+				continue
+			}
+			next, err := sjson.DeleteBytes(normalized, fmt.Sprintf("input.%d.internal_chat_message_metadata_passthrough", i))
+			if err != nil {
+				return body, false, fmt.Errorf("normalize oauth input metadata: %w", err)
 			}
 			normalized = next
 			changed = true
@@ -1636,7 +1789,7 @@ func normalizeOpenAIReasoningEffortForUpstream(raw, model string) (string, bool)
 // has a distinct max level. Other models retain the legacy max -> xhigh
 // normalization for compatibility with their upstream contract.
 func supportsOpenAIReasoningEffortMax(model string) bool {
-	if isOpenAIGPT56Model(model) || isOpenAIGPT6AstraModel(model) {
+	if isOpenAIGPT56Model(model) || isOpenAIGPT6Model(model) {
 		return true
 	}
 	normalized := strings.ToLower(lastOpenAIModelSegment(model))

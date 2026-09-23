@@ -16,14 +16,44 @@ func TestRequiredAdminPermissionSeparatesBasicUserInfoAndSensitiveUserRoutes(t *
 		{http.MethodPost, "/api/v1/admin/chat/conversations/1/messages", service.PermissionSupportWrite},
 		{http.MethodPost, "/api/v1/admin/chat/conversations/1/balance-transfers", service.PermissionSupportTransfer},
 		{http.MethodGet, "/api/v1/admin/users/1/basic", service.PermissionUsersReadBasic},
+		{http.MethodGet, "/api/v1/admin/account-quality/degraded-accounts", service.PermissionAccountsManage},
+		{http.MethodGet, "/api/v1/admin/state-diagnostics", service.PermissionAccountsManage},
 		{http.MethodGet, "/api/v1/admin/users/1/api-keys", service.PermissionUsersCredentials},
 		{http.MethodPost, "/api/v1/admin/users/1/balance", service.PermissionUsersBilling},
+		{http.MethodPut, "/api/v1/admin/settings/oauth-401-cleanup", service.PermissionSettingsManage},
+		{http.MethodGet, "/api/v1/admin/announcements", service.PermissionAnnouncementsManage},
+		{http.MethodPost, "/api/v1/admin/announcements", service.PermissionAnnouncementsManage},
+		{http.MethodGet, "/api/v1/admin/announcements/1", service.PermissionAnnouncementsManage},
+		{http.MethodPut, "/api/v1/admin/announcements/1", service.PermissionAnnouncementsManage},
+		{http.MethodDelete, "/api/v1/admin/announcements/1", service.PermissionAnnouncementsManage},
+		{http.MethodGet, "/api/v1/admin/announcements/1/read-status", service.PermissionAnnouncementsManage},
 	}
 	for _, tt := range tests {
 		t.Run(tt.method+" "+tt.path, func(t *testing.T) {
 			require.Equal(t, tt.want, requiredAdminPermission(tt.method, tt.path))
 		})
 	}
+}
+
+func TestAdminPermissionMiddlewareAllowsAnnouncementPublisherOnlyOnAnnouncementRoutes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		c.Set(string(ContextKeyUserRole), "publisher")
+		SetAdminPermissions(c, []string{service.PermissionAnnouncementsManage})
+		c.Next()
+	})
+	router.Use(AdminPermissionMiddleware(nil))
+	router.POST("/api/v1/admin/announcements", func(c *gin.Context) { c.Status(http.StatusNoContent) })
+	router.PUT("/api/v1/admin/settings", func(c *gin.Context) { c.Status(http.StatusNoContent) })
+
+	allowed := httptest.NewRecorder()
+	router.ServeHTTP(allowed, httptest.NewRequest(http.MethodPost, "/api/v1/admin/announcements", nil))
+	require.Equal(t, http.StatusNoContent, allowed.Code)
+
+	denied := httptest.NewRecorder()
+	router.ServeHTTP(denied, httptest.NewRequest(http.MethodPut, "/api/v1/admin/settings", nil))
+	require.Equal(t, http.StatusForbidden, denied.Code)
 }
 
 func TestAdminPermissionMiddlewareDeniesTransferToSupportRole(t *testing.T) {
@@ -52,6 +82,8 @@ func TestDelegatedPermissionsFailClosed(t *testing.T) {
 		{"POST", "/api/v1/admin/users/batch-concurrency", service.PermissionUsersBilling},
 		{"POST", "/api/v1/admin/settings/admin-api-keys", ""},
 		{"PUT", "/api/v1/admin/settings/permission-groups", ""},
+		{"PUT", "/api/v1/admin/oauth2-provider", ""},
+		{"POST", "/api/v1/admin/oauth2-provider/clients", ""},
 		{"GET", "/api/v1/admin/ops/dashboard", ""},
 		{"GET", "/api/v1/admin/settings-unassigned", ""},
 		{"GET", "/api/v1/admin/groups/1/api-keys", service.PermissionGroupsManage},

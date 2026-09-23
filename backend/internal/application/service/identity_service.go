@@ -502,6 +502,41 @@ func (s *IdentityService) RewriteUserIDWithMasking(ctx context.Context, body []b
 	return maskedBody, nil
 }
 
+// RewriteUserIDWithSessionID applies an explicit request-window session ID.
+// Distillation groups use this path instead of the legacy 15-minute masked
+// session cache. Existing device/account components are preserved; when the
+// request has no metadata.user_id, a canonical value is inserted.
+func (s *IdentityService) RewriteUserIDWithSessionID(body []byte, account *Account, accountUUID, cachedClientID, fingerprintUA, sessionID string) ([]byte, error) {
+	if account == nil || strings.TrimSpace(sessionID) == "" {
+		return body, nil
+	}
+	newBody, err := s.RewriteUserID(body, account.ID, accountUUID, cachedClientID, fingerprintUA)
+	if err != nil {
+		return body, err
+	}
+	userID := strings.TrimSpace(gjson.GetBytes(newBody, "metadata.user_id").String())
+	parsed := ParseMetadataUserID(userID)
+	deviceID := cachedClientID
+	storedAccountUUID := accountUUID
+	if parsed != nil {
+		if strings.TrimSpace(parsed.DeviceID) != "" {
+			deviceID = parsed.DeviceID
+		}
+		if strings.TrimSpace(parsed.AccountUUID) != "" {
+			storedAccountUUID = parsed.AccountUUID
+		}
+	}
+	if strings.TrimSpace(deviceID) == "" {
+		return newBody, nil
+	}
+	version := ExtractCLIVersion(fingerprintUA)
+	canonical := FormatMetadataUserID(deviceID, storedAccountUUID, sessionID, version)
+	if canonical == userID {
+		return newBody, nil
+	}
+	return sjson.SetBytes(newBody, "metadata.user_id", canonical)
+}
+
 // generateRandomUUID 生成随机 UUID v4 格式字符串
 func generateRandomUUID() string {
 	b := make([]byte, 16)

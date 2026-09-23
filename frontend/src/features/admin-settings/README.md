@@ -10,7 +10,8 @@
 - `data/datasources/adminSettingsDatasource.ts`: 迁移期纯兼容 facade；新调用直接进入明确 DTO、Query 或 Action owner。
 - `presentation/pages/`: 路由级加载、保存、step-up 与对话框编排。
 - `presentation/widgets/settings-tabs/`: 按设置领域拆分的 tab 和 panel。
-- `presentation/widgets/settings-tabs/gateway-resilience/`: Codex A/B、系统强制账号预热、临时不可调度、冷却、流超时、请求修正与策略设置卡片；直接复用页面 context，由网关韧性 panel 按原顺序装配。Codex 查询失败时不得显示默认关闭状态，独立强制恢复 action 必须保持可用。
+- `presentation/widgets/settings-tabs/SettingsOAuth2ProviderPanel.vue`: 完整管理员专用的 OAuth2 provider 总开关、issuer、token TTL、客户端、回调、scope 与密钥轮换面板。
+- `presentation/widgets/settings-tabs/gateway-resilience/`: Codex A/B/C、系统强制账号预热、关注模型的 Turn State 自动监测/代理探测/重放、兼容多值随机重放与质量巡检一键同步、临时不可调度、OAuth 401 自动清理、冷却、流超时、请求修正与策略设置卡片；直接复用页面 context，由网关韧性 panel 按原顺序装配。Codex 查询失败时不得显示默认关闭状态，独立强制恢复 action 必须保持可用。
 - `presentation/widgets/settings-tabs/identity-providers/`: LinuxDo、邮箱 OAuth、微信、钉钉与 OIDC 静态设置卡片；直接复用页面 context，由身份源 panel 按原顺序装配。
 - `presentation/composables/`: 页面局部控制器、表单初始化和纯转换。
 - `presentation/composables/settingsSavePreparation.ts`: 按页面既有顺序完成统一保存前的归一化与校验。
@@ -19,7 +20,7 @@
 
 新增设置项时，先确定所属 tab 和 datasource 字段，再把交互放入对应 controller。feature 内组件使用静态 import；不要把页面 context 提升为全局 Store，也不要通过 `@/api` 或 `@/stores` 兼容 barrel 新增依赖。保留单次设置加载、统一保存、敏感操作 step-up 和按需挂载语义。
 
-邮件模板、面板限流、管理员 API Key、独立网关策略、Web Search、SMTP 测试及主设置均已迁入明确 owner。`adminSettingsDatasource.ts` 仅服务旧 `src/api/admin` 兼容出口；新调用不得继续扩展 `settingsAPI`。
+邮件模板、面板限流、管理员 API Key、OAuth2 provider、独立网关策略、Web Search、SMTP 测试及主设置均已迁入明确 owner。`adminSettingsDatasource.ts` 仅服务旧 `src/api/admin` 兼容出口；新调用不得继续扩展 `settingsAPI`。
 
 验证入口：
 

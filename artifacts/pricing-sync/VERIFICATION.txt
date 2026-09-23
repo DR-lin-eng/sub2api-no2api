@@ -1,0 +1,267 @@
+Pricing correction verification — 2026-09-10
+Repository: /Users/lin/.codex/worktrees/31dd/sub2api-no2api
+Base commit: a65ac5551f92692c78221b9e201a1cd60901bf99
+Git state: detached HEAD; changes are in the worktree.
+
+CHANGED BRANCH / FIELDS
+Model: gpt-5.6-sol. USD per 1M tokens in input / cache read / cache write / output order.
+Standard: 5 / 0.5 / 6.25 / 30 -> 4 / 0.4 / 5 / 20.
+Fast/priority: 10 / 1 / 12.5 / 60 -> 8 / 0.8 / 10 / 40.
+Flex and catalog Batch: Standard x 0.5. Long context (>272000 input tokens): input/cache x 2, output x 1.5.
+Updated 15 price fields in the bundled catalog and the 8 Standard/Fast fields in each of PricingService and BillingService fallbacks.
+The download and cached-startup branches correct only the complete known stale Sol card from the default model-price-repo main URL before building pricing indexes.
+Custom feeds, pinned revisions, other models, and different future upstream prices retain their configured precedence; raw cache bytes and synchronization hash stay paired.
+Source: https://developers.openai.com/api/docs/pricing (fetched through official OpenAI Docs on 2026-09-10; saved as OFFICIAL_PRICING.md).
+The official promotional price is available at least through 2026-11-21. A future official rate revision needs another review.
+
+ARTIFACTS
+MODIFIED_FILE: /Users/lin/.codex/worktrees/31dd/sub2api-no2api/artifacts/pricing-sync/MODIFIED_FILE
+DIFF_FILE: /Users/lin/.codex/worktrees/31dd/sub2api-no2api/artifacts/pricing-sync/DIFF_FILE
+VERIFICATION.txt: /Users/lin/.codex/worktrees/31dd/sub2api-no2api/artifacts/pricing-sync/VERIFICATION.txt
+ROLLBACK.sh: /Users/lin/.codex/worktrees/31dd/sub2api-no2api/artifacts/pricing-sync/ROLLBACK.sh
+Original catalog SHA256: 6e99e843ee8c2e2d08ea3fba80638c3a39b298251107bd50033164a7c5085940
+Modified catalog SHA256: e770fd4419a9c28e73754afb8a638146eea7cc80671a651024b94e464622c64f
+All original file hashes: /Users/lin/.codex/worktrees/31dd/sub2api-no2api/artifacts/pricing-sync/ORIGINAL_HASHES.json
+All modified source hashes: /Users/lin/.codex/worktrees/31dd/sub2api-no2api/artifacts/pricing-sync/MODIFIED_HASHES.json
+
+BASELINE / MODIFIED / ROLLBACK REAL-CATALOG PROBES
+Shared input: captured remote JSON SHA256 ba07ca6d75f8ada58d813d5f77838a2cae91da21cb9e9199482eeea5d346d5b8; gpt-5.6-sol; 700 uncached input, 100 cache read, 200 cache write, 50 output tokens; rate multiplier 1.
+PROBE.sh runs real PricingService initialization, BillingService cost calculation, and cache reload in Docker golang:1.26.6-bookworm. A Go overlay replaces the entrypoint only for this probe; repository source is mounted read-only.
+
+BASELINE_COMMAND
+/Users/lin/.codex/worktrees/31dd/sub2api-no2api/artifacts/pricing-sync/PROBE.sh BASELINE
+BASELINE_INPUT
+Original checkout /private/tmp/pricing-baseline at the base commit.
+BASELINE_LITERAL_OUTPUT
+SOL_RATES_USD_PER_MTOK=5/0.5/6.25/30
+standard_TOTAL_USD=0.006300
+fast_TOTAL_USD=0.012600
+flex_TOTAL_USD=0.003150
+RESTART_PRICE_STABLE=PASS
+BASELINE_PROBE=PASS
+BASELINE_EXIT_STATUS=0
+
+MODIFIED_COMMAND
+/Users/lin/.codex/worktrees/31dd/sub2api-no2api/artifacts/pricing-sync/PROBE.sh MODIFIED
+MODIFIED_INPUT
+Current modified worktree.
+MODIFIED_LITERAL_OUTPUT
+SOL_RATES_USD_PER_MTOK=4/0.39999999999999997/5/20
+standard_TOTAL_USD=0.004840
+fast_TOTAL_USD=0.009680
+flex_TOTAL_USD=0.002420
+RESTART_PRICE_STABLE=PASS
+MODIFIED_PROBE=PASS
+MODIFIED_EXIT_STATUS=0
+
+ROLLBACK_COMMAND
+/Users/lin/.codex/worktrees/31dd/sub2api-no2api/artifacts/pricing-sync/PROBE.sh ROLLBACK
+ROLLBACK_INPUT
+Independent copy /private/tmp/pricing-sync-rollback-31dd after ROLLBACK.sh restored original source.
+ROLLBACK_LITERAL_OUTPUT
+SOL_RATES_USD_PER_MTOK=5/0.5/6.25/30
+standard_TOTAL_USD=0.006300
+fast_TOTAL_USD=0.012600
+flex_TOTAL_USD=0.003150
+RESTART_PRICE_STABLE=PASS
+ROLLBACK_PROBE=PASS
+ROLLBACK_EXIT_STATUS=0
+
+BASELINE_REGRESSION_REPRODUCTION_COMMAND
+docker run --rm -v /Users/lin/.codex/worktrees/31dd/sub2api-no2api:/workspace:ro -v /Users/lin/go/pkg/mod:/go/pkg/mod -v /private/tmp/pricing-go-cache:/root/.cache/go-build -w /workspace/backend -e GOMAXPROCS=4 golang:1.26.6-bookworm go test -p 4 -count=1 -run 'Test(PricingService_SolPromotion.*|DefaultPricingIncludesOfficialGPT56Rates|GPT56DedicatedFallbacksUseOfficialRates|BillingService_GPT56LongContextBoundaryIsExclusive)$' ./internal/application/service
+BASELINE_REGRESSION_REPRODUCTION_INPUT
+original implementation with new official-price assertions
+BASELINE_REGRESSION_REPRODUCTION_LITERAL_OUTPUT
+2026/09/10 06:31:54 Timezone initialized: UTC (UTC offset: +00:00)
+2026/09/10 06:31:54 [Pricing] Downloading from https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json
+2026/09/10 06:31:54 [Pricing] Downloaded 2 models successfully
+2026/09/10 06:31:54 [Pricing] Downloading from https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json
+2026/09/10 06:31:54 [Pricing] Downloaded 2 models successfully
+2026/09/10 06:31:54 [Pricing] Loaded 2 models from /tmp/TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart2745625899/001/model_pricing.json
+2026/09/10 06:31:54 [Pricing] Downloading from https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/refs/heads/main//model_prices_and_context_window.json
+2026/09/10 06:31:54 [Pricing] Downloaded 2 models successfully
+2026/09/10 06:31:54 [Pricing] Downloading from https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/refs/heads/main//model_prices_and_context_window.json
+2026/09/10 06:31:54 [Pricing] Downloaded 2 models successfully
+2026/09/10 06:31:54 [Pricing] Loaded 2 models from /tmp/TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart235493034/001/model_pricing.json
+--- FAIL: TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart (0.00s)
+    --- FAIL: TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart/https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json (0.00s)
+        --- FAIL: TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart/https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json/download (0.00s)
+            pricing_service_corrections_test.go:74: 
+                	Error Trace:	/workspace/backend/internal/application/service/pricing_service_corrections_test.go:74
+                	Error:      	Max difference between 4e-06 and 5e-06 allowed is 1e-12, but difference was -1.0000000000000006e-06
+                	Test:       	TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart/https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json/download
+        --- FAIL: TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart/https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json/refresh (0.00s)
+            pricing_service_corrections_test.go:74: 
+                	Error Trace:	/workspace/backend/internal/application/service/pricing_service_corrections_test.go:74
+                	Error:      	Max difference between 4e-06 and 5e-06 allowed is 1e-12, but difference was -1.0000000000000006e-06
+                	Test:       	TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart/https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json/refresh
+        --- FAIL: TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart/https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json/restart (0.00s)
+            pricing_service_corrections_test.go:74: 
+                	Error Trace:	/workspace/backend/internal/application/service/pricing_service_corrections_test.go:74
+                	Error:      	Max difference between 4e-06 and 5e-06 allowed is 1e-12, but difference was -1.0000000000000006e-06
+                	Test:       	TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart/https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json/restart
+    --- FAIL: TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart/https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/refs/heads/main//model_prices_and_context_window.json (0.00s)
+        --- FAIL: TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart/https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/refs/heads/main//model_prices_and_context_window.json/download (0.00s)
+            pricing_service_corrections_test.go:74: 
+                	Error Trace:	/workspace/backend/internal/application/service/pricing_service_corrections_test.go:74
+                	Error:      	Max difference between 4e-06 and 5e-06 allowed is 1e-12, but difference was -1.0000000000000006e-06
+                	Test:       	TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart/https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/refs/heads/main//model_prices_and_context_window.json/download
+        --- FAIL: TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart/https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/refs/heads/main//model_prices_and_context_window.json/refresh (0.00s)
+            pricing_service_corrections_test.go:74: 
+                	Error Trace:	/workspace/backend/internal/application/service/pricing_service_corrections_test.go:74
+                	Error:      	Max difference between 4e-06 and 5e-06 allowed is 1e-12, but difference was -1.0000000000000006e-06
+                	Test:       	TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart/https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/refs/heads/main//model_prices_and_context_window.json/refresh
+        --- FAIL: TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart/https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/refs/heads/main//model_prices_and_context_window.json/restart (0.00s)
+            pricing_service_corrections_test.go:74: 
+                	Error Trace:	/workspace/backend/internal/application/service/pricing_service_corrections_test.go:74
+                	Error:      	Max difference between 4e-06 and 5e-06 allowed is 1e-12, but difference was -1.0000000000000006e-06
+                	Test:       	TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart/https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/refs/heads/main//model_prices_and_context_window.json/restart
+2026/09/10 06:31:54 [Pricing] Loaded 2 models from /tmp/TestPricingService_SolPromotionPreservesCustomAndUpdatedCatalogs65136127/001/model_pricing.json
+2026/09/10 06:31:54 [Pricing] Loaded 2 models from /tmp/TestPricingService_SolPromotionPreservesCustomAndUpdatedCatalogs441105438/001/model_pricing.json
+2026/09/10 06:31:54 [Pricing] Loaded 2 models from /tmp/TestPricingService_SolPromotionPreservesCustomAndUpdatedCatalogs3329759526/001/model_pricing.json
+2026/09/10 06:31:54 [Pricing] Loaded 2 models from /tmp/TestPricingService_SolPromotionPreservesCustomAndUpdatedCatalogs1320714033/001/model_pricing.json
+2026/09/10 06:31:54 [Billing] Using fallback pricing for model: gpt-5.6-sol
+--- FAIL: TestBillingService_GPT56LongContextBoundaryIsExclusive (0.00s)
+    pricing_service_test.go:259: 
+        	Error Trace:	/workspace/backend/internal/application/service/pricing_service_test.go:259
+        	Error:      	Max difference between 0.4 and 0.5 allowed is 1e-12, but difference was -0.09999999999999998
+        	Test:       	TestBillingService_GPT56LongContextBoundaryIsExclusive
+--- FAIL: TestDefaultPricingIncludesOfficialGPT56Rates (0.00s)
+    --- FAIL: TestDefaultPricingIncludesOfficialGPT56Rates/gpt-5.6-sol (0.00s)
+        pricing_service_test.go:313: 
+            	Error Trace:	/workspace/backend/internal/application/service/pricing_service_test.go:313
+            	Error:      	Max difference between 4e-06 and 5e-06 allowed is 1e-12, but difference was -1.0000000000000006e-06
+            	Test:       	TestDefaultPricingIncludesOfficialGPT56Rates/gpt-5.6-sol
+2026/09/10 06:31:54 [Billing] Using fallback pricing for model: gpt-5.6-sol
+2026/09/10 06:31:54 [Billing] Using fallback pricing for model: gpt-5.6-terra
+2026/09/10 06:31:54 [Billing] Using fallback pricing for model: gpt-5.6-luna
+--- FAIL: TestGPT56DedicatedFallbacksUseOfficialRates (0.00s)
+    --- FAIL: TestGPT56DedicatedFallbacksUseOfficialRates/gpt-5.6-sol/pricing_service (0.00s)
+        pricing_service_test.go:346: 
+            	Error Trace:	/workspace/backend/internal/application/service/pricing_service_test.go:360
+            	            				/workspace/backend/internal/application/service/pricing_service_test.go:346
+            	Error:      	Max difference between 4e-06 and 5e-06 allowed is 1e-12, but difference was -1.0000000000000006e-06
+            	Test:       	TestGPT56DedicatedFallbacksUseOfficialRates/gpt-5.6-sol/pricing_service
+    --- FAIL: TestGPT56DedicatedFallbacksUseOfficialRates/gpt-5.6-sol/billing_service (0.00s)
+        pricing_service_test.go:353: 
+            	Error Trace:	/workspace/backend/internal/application/service/pricing_service_test.go:360
+            	            				/workspace/backend/internal/application/service/pricing_service_test.go:353
+            	Error:      	Max difference between 4e-06 and 5e-06 allowed is 1e-12, but difference was -1.0000000000000006e-06
+            	Test:       	TestGPT56DedicatedFallbacksUseOfficialRates/gpt-5.6-sol/billing_service
+FAIL
+FAIL	github.com/Wei-Shaw/sub2api/internal/application/service	0.014s
+FAIL
+BASELINE_REGRESSION_REPRODUCTION_EXIT_STATUS=1
+
+MODIFIED_FOCUSED_TESTS_COMMAND
+docker run --rm -v /Users/lin/.codex/worktrees/31dd/sub2api-no2api:/workspace:ro -v /Users/lin/go/pkg/mod:/go/pkg/mod -v /private/tmp/pricing-go-cache:/root/.cache/go-build -w /workspace/backend -e GOMAXPROCS=4 golang:1.26.6-bookworm go test -p 4 -count=1 -run 'Test(PricingService_SolPromotion.*|DefaultPricingIncludesOfficialGPT56Rates|GPT56DedicatedFallbacksUseOfficialRates|BillingService_GPT56.*|GetModelPricingWithChannel_PreservesUpstreamTierMetadata)$' ./internal/application/service
+MODIFIED_FOCUSED_TESTS_INPUT
+corrected local catalog, both fallbacks, default-source download/refresh/restart
+MODIFIED_FOCUSED_TESTS_LITERAL_OUTPUT
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.021s
+MODIFIED_FOCUSED_TESTS_EXIT_STATUS=0
+
+MODIFIED_APPLICATION_SERVICE_UNIT_SUITE_COMMAND
+docker run --rm -v /Users/lin/.codex/worktrees/31dd/sub2api-no2api:/workspace:ro -v /Users/lin/go/pkg/mod:/go/pkg/mod -v /private/tmp/pricing-go-cache:/root/.cache/go-build -w /workspace/backend -e GOMAXPROCS=4 golang:1.26.6-bookworm go test -tags=unit -p 4 -count=1 ./internal/application/service
+MODIFIED_APPLICATION_SERVICE_UNIT_SUITE_INPUT
+modified worktree; full application service unit suite
+MODIFIED_APPLICATION_SERVICE_UNIT_SUITE_LITERAL_OUTPUT
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	183.483s
+MODIFIED_APPLICATION_SERVICE_UNIT_SUITE_EXIT_STATUS=0
+
+ROLLBACK_RESTORE_COMMAND
+/Users/lin/.codex/worktrees/31dd/sub2api-no2api/artifacts/pricing-sync/ROLLBACK.sh /private/tmp/pricing-sync-rollback-31dd
+ROLLBACK_RESTORE_INPUT
+independent modified checkout /private/tmp/pricing-sync-rollback-31dd
+ROLLBACK_RESTORE_LITERAL_OUTPUT
+ROLLBACK_RESTORED=/private/tmp/pricing-sync-rollback-31dd
+ORIGINAL_FILES_VERIFIED=8 ADDED_FILES_REMOVED=2
+RESTORED_SOL_USD_PER_MTOK=5/0.5/6.25/30
+RESTORED_CATALOG_SHA256=6e99e843ee8c2e2d08ea3fba80638c3a39b298251107bd50033164a7c5085940
+ROLLBACK_RESTORE_EXIT_STATUS=0
+
+ROLLBACK_ORIGINAL_PRICING_TESTS_COMMAND
+docker run --rm -v /private/tmp/pricing-sync-rollback-31dd:/workspace:ro -v /Users/lin/go/pkg/mod:/go/pkg/mod -v /private/tmp/pricing-go-cache:/root/.cache/go-build -w /workspace/backend -e GOMAXPROCS=4 golang:1.26.6-bookworm go test -p 4 -count=1 -run 'Test(DefaultPricingIncludesOfficialGPT56Rates|GPT56DedicatedFallbacksUseOfficialRates|BillingService_GPT56.*|GetModelPricingWithChannel_PreservesUpstreamTierMetadata)$' ./internal/application/service
+ROLLBACK_ORIGINAL_PRICING_TESTS_INPUT
+restored original source and original pricing tests; Sol old rates
+ROLLBACK_ORIGINAL_PRICING_TESTS_LITERAL_OUTPUT
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.018s
+ROLLBACK_ORIGINAL_PRICING_TESTS_EXIT_STATUS=0
+
+OTHER_CHECKS
+git diff --check: exit 0, no output.
+make check-docs: exit 0, literal output: Documentation checks passed.
+make -C backend check-layout: exit 0, literal output: ./scripts/check-source-layout.sh
+Catalog comparison with fetched official tables: Standard, Fast and Flex prices all agree; existing Batch fields are half the Standard prices.
+Catalog diff: 199 models preserved; 1 model changed; 15 price fields changed.
+
+RESTORED_BEHAVIOR / FINAL_STATUS
+ROLLBACK.sh restored all 8 original files and removed the 2 added implementation/test files on the independent copy after verifying the allowlisted hashes.
+The restored catalog SHA256 equals the original. Restored real-catalog billing returned Standard 0.006300 USD / Fast 0.012600 USD / Flex 0.003150 USD and remained stable after cache reload.
+The modified worktree and MODIFIED_FILE remain changed. Modified real-catalog billing returned Standard 0.004840 USD / Fast 0.009680 USD / Flex 0.002420 USD and remained stable after cache reload.
+Only local code and evidence were changed in this task; running deployments were not restarted or replaced.
+
+FOLLOW-UP_CI_FIX — 2026-09-10
+Branch: codex/fix-sol-pricing.
+Changed field: three WebSocket usage-billing test expectations now match the corrected
+GPT-5.6 Sol card: 2 input tokens + 1 output token = 28e-6 USD for Sol, and
+2 input tokens + 1 output token = 16e-6 USD for Terra. Mapping and requested-model
+assertions remain unchanged.
+
+CI_BASELINE_COMMAND
+tmpcache=$(mktemp -d /tmp/go-cache.XXXXXX); GOCACHE="$tmpcache" go test -tags=unit ./internal/transport/http/handler -run 'TestOpenAIResponsesWebSocket_(PassthroughTracksModelPerTurn|PassthroughKeepsTurnMappingSnapshot|CtxPoolAppliesPerTurnMappingAndPreservesRequestedModel)$' -count=1
+CI_BASELINE_INPUT
+codex/fix-sol-pricing at a157f6774a1c090ae36d3ad5b57846d19b695a7c before the expectation update.
+CI_BASELINE_LITERAL_OUTPUT
+--- FAIL: TestOpenAIResponsesWebSocket_PassthroughTracksModelPerTurn (0.01s)
+--- FAIL: TestOpenAIResponsesWebSocket_PassthroughKeepsTurnMappingSnapshot (0.00s)
+--- FAIL: TestOpenAIResponsesWebSocket_CtxPoolAppliesPerTurnMappingAndPreservesRequestedModel (0.00s)
+FAIL	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	1.128s
+CI_BASELINE_EXIT_STATUS=1
+
+CI_MODIFIED_COMMAND
+docker run --rm -v /Users/lin/.codex/worktrees/31dd/sub2api-no2api:/workspace:ro -v /Users/lin/go/pkg/mod:/go/pkg/mod -v /private/tmp/pricing-go-cache:/root/.cache/go-build -w /workspace/backend -e GOMAXPROCS=4 golang:1.26.6-bookworm go test -tags=unit -p 4 -count=1 ./internal/transport/http/handler
+CI_MODIFIED_INPUT
+current codex/fix-sol-pricing worktree after the official-rate expectation update.
+CI_MODIFIED_LITERAL_OUTPUT
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	41.921s
+CI_MODIFIED_EXIT_STATUS=0
+
+CI_FULL_MODIFIED_COMMAND
+docker run --rm -v /Users/lin/.codex/worktrees/31dd/sub2api-no2api:/workspace:ro -v /Users/lin/go/pkg/mod:/go/pkg/mod -v /private/tmp/pricing-go-cache:/root/.cache/go-build -w /workspace/backend -e GOMAXPROCS=4 golang:1.26.6-bookworm go test -tags=unit -p 4 -count=1 ./...
+CI_FULL_MODIFIED_INPUT
+current worktree; the repository-wide Docker run reached the Ent schema write test but the source mount was read-only, so the acceptance rerun is the writable GitHub Actions checkout on this same SHA.
+CI_FULL_MODIFIED_LITERAL_OUTPUT
+ok  	github.com/Wei-Shaw/sub2api/ent/schema	2.662s
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	183.748s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	41.957s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes	5.328s
+ok  	github.com/Wei-Shaw/sub2api/migrations	0.002s
+(all packages reported ok; no failures)
+CI_FULL_MODIFIED_EXIT_STATUS=0
+
+ROLLBACK_REVERIFY_COMMAND
+/Users/lin/.codex/worktrees/31dd/sub2api-no2api/artifacts/pricing-sync/ROLLBACK.sh /private/tmp/pricing-sync-rollback-31dd
+ROLLBACK_REVERIFY_INPUT
+independent copy after the allowlisted original hashes were extended to include openai_gateway_handler_test.go.
+ROLLBACK_REVERIFY_LITERAL_OUTPUT
+ROLLBACK_RESTORED=/private/tmp/pricing-sync-rollback-31dd
+ORIGINAL_FILES_VERIFIED=9 ADDED_FILES_REMOVED=2
+RESTORED_SOL_USD_PER_MTOK=5/0.5/6.25/30
+RESTORED_CATALOG_SHA256=6e99e843ee8c2e2d08ea3fba80638c3a39b298251107bd50033164a7c5085940
+ROLLBACK_REVERIFY_EXIT_STATUS=0
+
+ROLLBACK_HANDLER_TEST_COMMAND
+docker run --rm -v /private/tmp/pricing-sync-rollback-31dd:/workspace:ro -v /Users/lin/go/pkg/mod:/go/pkg/mod -v /private/tmp/pricing-go-cache:/root/.cache/go-build -w /workspace/backend -e GOMAXPROCS=4 golang:1.26.6-bookworm go test -tags=unit -p 4 -count=1 ./internal/transport/http/handler
+ROLLBACK_HANDLER_TEST_INPUT
+independent restored checkout with original Sol rates and original test expectations.
+ROLLBACK_HANDLER_TEST_LITERAL_OUTPUT
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	41.430s
+ROLLBACK_HANDLER_TEST_EXIT_STATUS=0
+
+FOLLOW-UP_RESTORED_BEHAVIOR
+ROLLBACK.sh restores the original catalog, pricing services, docs/config, and the
+handler test file; the restored catalog is SHA256
+6e99e843ee8c2e2d08ea3fba80638c3a39b298251107bd50033164a7c5085940 and the restored
+handler package passes. The modified worktree keeps the official GPT-5.6 Sol rates
+and the synchronized test expectations.

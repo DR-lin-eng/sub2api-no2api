@@ -88,6 +88,7 @@ func detectOpenAICyberPolicy(payload []byte) (bool, string, string) {
 }
 
 func markOpenAICyberPolicyEvent(c *gin.Context, payload []byte, upstreamStatus int, usage *OpenAIUsage) bool {
+	MarkOpenAIVerificationRecommendation(c, payload, upstreamStatus)
 	hit, code, message := detectOpenAICyberPolicy(payload)
 	if !hit {
 		return false

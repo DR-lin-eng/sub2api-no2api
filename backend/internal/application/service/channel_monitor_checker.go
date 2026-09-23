@@ -168,8 +168,13 @@ type providerAdapter struct {
 //
 //nolint:gochecknoglobals // 适配器表是只读静态数据，初始化后不变更。
 var providerAdapters = map[string]providerAdapter{
-	MonitorProviderOpenAI: providerOpenAIChatAdapter,
-	MonitorProviderGrok:   providerGrokChatAdapter,
+	MonitorProviderOpenAI:   providerOpenAIChatAdapter,
+	MonitorProviderGrok:     providerGrokChatAdapter,
+	MonitorProviderKimi:     providerOpenAIChatAdapter,
+	MonitorProviderZhipu:    providerOpenAIChatAdapter,
+	MonitorProviderDeepseek: providerOpenAIChatAdapter,
+	MonitorProviderMiniMax:  providerOpenAIChatAdapter,
+	MonitorProviderOpenCode: providerOpenAIChatAdapter,
 	MonitorProviderAnthropic: {
 		buildPath: func(string) string { return providerAnthropicPath },
 		buildBody: func(model, prompt string) ([]byte, error) {
@@ -474,11 +479,14 @@ func bodyMergeDenyKey(provider, apiMode string) string {
 	if provider == MonitorProviderOpenAI {
 		return provider + ":" + defaultAPIMode(apiMode)
 	}
+	if IsCNProvider(provider) {
+		return MonitorProviderOpenAI + ":" + MonitorAPIModeChatCompletions
+	}
 	return provider
 }
 
 func validateReplaceRequestBody(provider, apiMode string, body map[string]any) error {
-	if provider != MonitorProviderOpenAI && provider != MonitorProviderGrok {
+	if provider != MonitorProviderOpenAI && provider != MonitorProviderGrok && !IsCNProvider(provider) {
 		return nil
 	}
 	switch defaultAPIMode(apiMode) {
@@ -542,12 +550,20 @@ func postRawJSON(ctx context.Context, fullURL string, payload []byte, headers ma
 	return respBody, resp.StatusCode, nil
 }
 
-// joinURL 把 base origin 与 path 拼成完整 URL。
-// 容忍 base 末尾有/无斜杠，path 必带前导斜杠。
+// joinURL 保留 base 的上游路径前缀，并避免重复追加已有的 API 路径前缀。
+// 使用 EscapedPath 匹配完整路径段，避免把 hostname 或编码斜杠当作路径。
 func joinURL(base, path string) string {
 	base = strings.TrimRight(base, "/")
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
+	}
+	if u, err := url.Parse(base); err == nil {
+		basePath := u.EscapedPath()
+		for end := strings.LastIndex(path, "/"); end > 0; end = strings.LastIndex(path[:end], "/") {
+			if strings.HasSuffix(basePath, path[:end]) {
+				return base + path[end:]
+			}
+		}
 	}
 	return base + path
 }

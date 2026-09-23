@@ -60,6 +60,7 @@
 | 客服质检（只读） | `support.read`、`users.read_basic` |
 | 客服财务 | 默认客服权限，再加 `support.balance_transfer` |
 | 运营概览 | `dashboard.read` |
+| 公告运营 | `announcements.manage` |
 | 用户资料维护 | `users.manage`；如需改邮箱/密码，再加 `users.credentials`；如需改限额，再加 `users.billing` |
 
 权限不会互相隐式补齐。例如单独授予 `support.write` 不会获得收件箱读取权限；需要使用客服界面时应同时授予 `support.read`。余额转账仍遵守原有业务余额检查和幂等约束。
@@ -100,6 +101,7 @@
 | `users.manage` | 普通用户列表、创建、编辑、删除与用户属性；不允许管理员工或分配员工角色 |
 | `users.credentials` | 普通用户 API Key 读取、登录身份绑定；更新邮箱/密码还须具备用户编辑权限 |
 | `users.billing` | 普通用户余额、并发/RPM、调度等级、模型分组、配额；批量操作需显式选择不超过 500 个普通用户，员工不能使用 `all=true` |
+| `announcements.manage` | 进入公告管理页，查看、发布、编辑、删除公告并查看用户阅读状态；不授予系统设置权限 |
 | `settings.manage` | 系统设置接口；权限组及管理员密钥接口仍仅限完整管理员。设置包含认证等高权限配置，应只交给受信任的配置维护人员 |
 | `groups.manage` | 模型分组及路由，不是人员权限分配 |
 | `accounts.manage` | 上游账号、巡检、代理和出口；现有二次验证要求保持不变 |

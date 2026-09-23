@@ -101,63 +101,34 @@ RUN --mount=type=cache,id=sub2api-gomod,target=/go/pkg/mod \
 # Stage 3: PostgreSQL Client (version-matched with docker-compose)
 # -----------------------------------------------------------------------------
 FROM ${POSTGRES_IMAGE} AS pg-client
+RUN mkdir -p /client && cp /usr/local/bin/pg_dump /usr/local/bin/psql /client/ \
+    && cp /usr/local/lib/libpq.so.5 /client/libpq.so.5
 
 # -----------------------------------------------------------------------------
 # Stage 4: Final Runtime Image
 # -----------------------------------------------------------------------------
-FROM ${ALPINE_IMAGE}
+FROM ${ALPINE_IMAGE} AS runtime
 
-# Labels
 LABEL maintainer="DR-lin-eng <github.com/DR-lin-eng>"
 LABEL description="Sub2API - AI API Gateway Platform"
 LABEL org.opencontainers.image.source="https://github.com/DR-lin-eng/sub2api-no2api"
 
-# Install runtime dependencies
-RUN apk add --no-cache \
-    ca-certificates \
-    tzdata \
-    su-exec \
-    libpq \
-    zstd-libs \
-    lz4-libs \
-    krb5-libs \
-    libldap \
-    libedit \
+RUN apk add --no-cache ca-certificates tzdata curl su-exec libpq zstd-libs lz4-libs krb5-libs libldap libedit \
     && rm -rf /var/cache/apk/*
 
-# Copy pg_dump and psql from the same postgres image used in docker-compose
-# This ensures version consistency between backup tools and the database server
 COPY --from=pg-client /usr/local/bin/pg_dump /usr/local/bin/pg_dump
 COPY --from=pg-client /usr/local/bin/psql /usr/local/bin/psql
 COPY --from=pg-client /usr/local/lib/libpq.so.5* /usr/local/lib/
 
-# Create non-root user
-RUN addgroup -g 1000 sub2api && \
-    adduser -u 1000 -G sub2api -s /bin/sh -D sub2api
-
-# Set working directory
+RUN addgroup -g 1000 sub2api && adduser -u 1000 -G sub2api -s /bin/sh -D sub2api
 WORKDIR /app
-
-# Copy binary/resources with ownership to avoid extra full-layer chown copy
 COPY --from=backend-builder --chown=sub2api:sub2api /app/sub2api /app/sub2api
 COPY --from=backend-builder --chown=sub2api:sub2api /app/backend/resources /app/resources
-
-# Create writable runtime directories. The in-app updater stages the new
-# binary beside /app/sub2api so its rename remains atomic; that requires the
-# non-root service user to write the binary's parent directory as well.
 RUN mkdir -p /app/data && chown sub2api:sub2api /app /app/data
-
-# Copy entrypoint script (fixes volume permissions then drops to sub2api)
 COPY deploy/docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
-
-# Expose port (can be overridden by SERVER_PORT env var)
 EXPOSE 8080
-
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD wget -q -T 5 -O /dev/null http://localhost:${SERVER_PORT:-8080}/ready || exit 1
-
-# Run the application (entrypoint fixes /app/data ownership then execs as sub2api)
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["/app/sub2api"]

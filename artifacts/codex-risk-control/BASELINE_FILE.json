@@ -1,0 +1,16 @@
+{
+  "risk_signal": {
+    "recommendation": null,
+    "retryable": true
+  },
+  "codex_turn_metadata": {
+    "workspaces": [
+      {
+        "path": "/workspace/private/repo",
+        "associated_remote_urls": [
+          "https://example.com/org/repo.git?tracking=fixture#fragment"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+--- artifacts/codex-risk-control/BASELINE_FILE.json	2026-09-18 13:31:01
++++ artifacts/codex-risk-control/MODIFIED_FILE.json	2026-09-18 13:16:56
+@@ -1,14 +1,14 @@
+ {
+   "risk_signal": {
+-    "recommendation": null,
++    "recommendation": "trusted_access_for_cyber",
+     "retryable": true
+   },
+   "codex_turn_metadata": {
+     "workspaces": [
+       {
+-        "path": "/workspace/private/repo",
++        "path": "workspace:redacted",
+         "associated_remote_urls": [
+-          "https://example.com/org/repo.git?tracking=fixture#fragment"
++          "https://example.com/org/repo.git"
+         ]
+       }
+     ]

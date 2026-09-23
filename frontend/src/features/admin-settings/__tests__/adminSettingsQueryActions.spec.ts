@@ -20,10 +20,12 @@ import {
   getAdminApiKey,
   getBetaPolicySettings,
   getCodexSimulationSettings,
+  getCodexTurnStateObservability,
   getEmailTemplate,
   getEmailTemplates,
   getGlobalTempUnschedulableSettings,
   getOverloadCooldownSettings,
+  getOAuth401CleanupSettings,
   getPanelRateLimitSettings,
   getRateLimit429CooldownSettings,
   getRectifierSettings,
@@ -51,6 +53,7 @@ import {
   updateEmailTemplate,
   updateGlobalTempUnschedulableSettings,
   updateOverloadCooldownSettings,
+  updateOAuth401CleanupSettings,
   updatePanelRateLimitSettings,
   updateRateLimit429CooldownSettings,
   updateRectifierSettings,
@@ -128,6 +131,12 @@ describe("admin settings query and action owners", () => {
     );
     expect(settingsAPI.updateRateLimit429CooldownSettings).toBe(
       updateRateLimit429CooldownSettings,
+    );
+    expect(settingsAPI.getOAuth401CleanupSettings).toBe(
+      getOAuth401CleanupSettings,
+    );
+    expect(settingsAPI.updateOAuth401CleanupSettings).toBe(
+      updateOAuth401CleanupSettings,
     );
     expect(settingsAPI.getGlobalTempUnschedulableSettings).toBe(
       getGlobalTempUnschedulableSettings,
@@ -276,6 +285,7 @@ describe("admin settings query and action owners", () => {
         auto_enable_after_quota_reset_enabled: false,
         auto_enable_when_quota_available_enabled: false,
       },
+      { enabled: false },
       { enabled: true },
       {
         response_header_timeout_degradation_enabled: true,
@@ -308,6 +318,7 @@ describe("admin settings query and action owners", () => {
     await getAdminApiKey();
     await getOverloadCooldownSettings();
     await getRateLimit429CooldownSettings();
+    await getOAuth401CleanupSettings();
     await getGlobalTempUnschedulableSettings();
     await getStreamTimeoutSettings();
     await getRectifierSettings();
@@ -319,6 +330,7 @@ describe("admin settings query and action owners", () => {
       "/admin/settings/admin-api-key",
       "/admin/settings/overload-cooldown",
       "/admin/settings/rate-limit-429-cooldown",
+      "/admin/settings/oauth-401-cleanup",
       "/admin/settings/temp-unschedulable",
       "/admin/settings/stream-timeout",
       "/admin/settings/rectifier",
@@ -368,6 +380,21 @@ describe("admin settings query and action owners", () => {
     expect(post).toHaveBeenCalledWith(
       "/admin/settings/codex-simulation/restore-original",
     );
+  });
+
+  it("uses the read-only Codex observability endpoint", async () => {
+    const response = {
+      generated_at: "2026-09-18T01:00:00Z",
+      scope: "current_node" as const,
+      enabled: true,
+      target_length: 292,
+      token_ttl_seconds: 3600,
+      items: [],
+    };
+    get.mockResolvedValueOnce({ data: response });
+
+    await expect(getCodexTurnStateObservability()).resolves.toEqual(response);
+    expect(get).toHaveBeenCalledWith("/admin/settings/codex-simulation/observability");
   });
 
   it("preserves admin API key payloads and identifier encoding", async () => {
@@ -508,6 +535,11 @@ describe("admin settings query and action owners", () => {
           auto_enable_after_quota_reset_enabled: false,
           auto_enable_when_quota_available_enabled: false,
         },
+      ],
+      [
+        updateOAuth401CleanupSettings,
+        "/admin/settings/oauth-401-cleanup",
+        { enabled: true },
       ],
       [
         updateGlobalTempUnschedulableSettings,

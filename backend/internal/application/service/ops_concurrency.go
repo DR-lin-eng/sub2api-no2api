@@ -80,15 +80,16 @@ func (s *OpsService) GetConcurrencySnapshot(
 	map[string]*PlatformAvailability,
 	map[int64]*GroupAvailability,
 	map[int64]*AccountAvailability,
+	SessionIDGrowthInfo,
 	*time.Time,
 	error,
 ) {
 	if err := s.RequireMonitoringEnabled(ctx); err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, SessionIDGrowthInfo{}, nil, err
 	}
 	accounts, err := s.listAllAccountsForOps(ctx, platformFilter, groupIDFilter)
 	if err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, SessionIDGrowthInfo{}, nil, err
 	}
 	sharedCtx := context.WithValue(ctx, opsAccountsSnapshotContextKey{}, accounts)
 	var platformConcurrency map[string]*PlatformConcurrencyInfo
@@ -113,13 +114,33 @@ func (s *OpsService) GetConcurrencySnapshot(
 		return queryErr
 	})
 	if err := g.Wait(); err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, SessionIDGrowthInfo{}, nil, err
 	}
 	if availabilityAt != nil && (collectedAt == nil || availabilityAt.After(*collectedAt)) {
 		collectedAt = availabilityAt
 	}
 	return platformConcurrency, groupConcurrency, accountConcurrency,
-		platformAvailability, groupAvailability, accountAvailability, collectedAt, nil
+		platformAvailability, groupAvailability, accountAvailability,
+		buildSessionIDGrowthInfo(accountConcurrency), collectedAt, nil
+}
+
+func buildSessionIDGrowthInfo(accounts map[int64]*AccountConcurrencyInfo) SessionIDGrowthInfo {
+	info := SessionIDGrowthInfo{}
+	for accountID, account := range accounts {
+		if account == nil {
+			continue
+		}
+		info.TotalPerMinute += account.SessionIDGrowthPerMinute
+		if account.SessionIDGrowthPerMinute > info.MaxPerMinute {
+			info.MaxPerMinute = account.SessionIDGrowthPerMinute
+			info.MaxAccountID = accountID
+		}
+	}
+	return info
+}
+
+func SessionIDGrowthInfoFromAccounts(accounts map[int64]*AccountConcurrencyInfo) SessionIDGrowthInfo {
+	return buildSessionIDGrowthInfo(accounts)
 }
 
 func (s *OpsService) getAccountsLoadMapBestEffort(ctx context.Context, accounts []Account) map[int64]*AccountLoadInfo {
@@ -191,6 +212,17 @@ func (s *OpsService) GetConcurrencyStats(
 
 	collectedAt := time.Now()
 	loadMap := s.getAccountsLoadMapBestEffort(ctx, accounts)
+	accountIDs := make([]int64, 0, len(accounts))
+	for _, acc := range accounts {
+		if acc.ID > 0 && acc.Platform == PlatformOpenAI {
+			accountIDs = append(accountIDs, acc.ID)
+		}
+	}
+	metrics := s.sessionIDRateMetrics
+	if metrics == nil {
+		metrics = DefaultOpenAISessionIDRateMetrics()
+	}
+	sessionGrowth := metrics.Snapshot(accountIDs, collectedAt)
 
 	platform := make(map[string]*PlatformConcurrencyInfo)
 	group := make(map[int64]*GroupConcurrencyInfo)
@@ -239,14 +271,15 @@ func (s *OpsService) GetConcurrencyStats(
 
 		if _, ok := account[acc.ID]; !ok {
 			info := &AccountConcurrencyInfo{
-				AccountID:      acc.ID,
-				AccountName:    acc.Name,
-				Platform:       acc.Platform,
-				GroupID:        displayGroupID,
-				GroupName:      displayGroupName,
-				CurrentInUse:   currentInUse,
-				MaxCapacity:    int64(acc.Concurrency),
-				WaitingInQueue: waiting,
+				AccountID:                acc.ID,
+				AccountName:              acc.Name,
+				Platform:                 acc.Platform,
+				GroupID:                  displayGroupID,
+				GroupName:                displayGroupName,
+				CurrentInUse:             currentInUse,
+				MaxCapacity:              int64(acc.Concurrency),
+				WaitingInQueue:           waiting,
+				SessionIDGrowthPerMinute: sessionGrowth.Counts[acc.ID],
 			}
 			if info.MaxCapacity > 0 {
 				info.LoadPercentage = float64(info.CurrentInUse) / float64(info.MaxCapacity) * 100
@@ -265,6 +298,10 @@ func (s *OpsService) GetConcurrencyStats(
 			p.MaxCapacity += int64(acc.Concurrency)
 			p.CurrentInUse += currentInUse
 			p.WaitingInQueue += waiting
+			p.SessionIDGrowthPerMinute += sessionGrowth.Counts[acc.ID]
+			if sessionGrowth.Counts[acc.ID] > p.MaxSessionIDGrowthPerMinute {
+				p.MaxSessionIDGrowthPerMinute = sessionGrowth.Counts[acc.ID]
+			}
 		}
 
 		// Group aggregation (one account may contribute to multiple groups).
@@ -288,6 +325,10 @@ func (s *OpsService) GetConcurrencyStats(
 			g.MaxCapacity += int64(acc.Concurrency)
 			g.CurrentInUse += currentInUse
 			g.WaitingInQueue += waiting
+			g.SessionIDGrowthPerMinute += sessionGrowth.Counts[acc.ID]
+			if sessionGrowth.Counts[acc.ID] > g.MaxSessionIDGrowthPerMinute {
+				g.MaxSessionIDGrowthPerMinute = sessionGrowth.Counts[acc.ID]
+			}
 		} else {
 			for _, grp := range acc.Groups {
 				if grp == nil || grp.ID <= 0 {
@@ -311,6 +352,10 @@ func (s *OpsService) GetConcurrencyStats(
 				g.MaxCapacity += int64(acc.Concurrency)
 				g.CurrentInUse += currentInUse
 				g.WaitingInQueue += waiting
+				g.SessionIDGrowthPerMinute += sessionGrowth.Counts[acc.ID]
+				if sessionGrowth.Counts[acc.ID] > g.MaxSessionIDGrowthPerMinute {
+					g.MaxSessionIDGrowthPerMinute = sessionGrowth.Counts[acc.ID]
+				}
 			}
 		}
 	}

@@ -1,0 +1,58 @@
+Dashboard stats 500 fix verification
+
+BASELINE_COMMIT: 15d3e4a565c0c5dad8ad44b3bfb1d5f7fa20d0ca
+BASELINE_SHA256: 1c573da63e66747aa7179579e8508383afed804a812ca1c447cbb589855d3c42
+MODIFIED_SHA256: 3598c0ece6235798402aff8f583478c488159fa8b4618a932373f79b52660ecc
+CHANGED_BRANCH_FIELD: user dashboard GetUserDashboardStats -> optional by_platform projection; core totals/RPM/TPM remain fail-fast
+
+ARTIFACT_PATHS:
+MODIFIED_FILE: diagnostics/dashboard-stats-fix/MODIFIED_FILE
+DIFF_FILE: diagnostics/dashboard-stats-fix/DIFF_FILE
+VERIFICATION.txt: diagnostics/dashboard-stats-fix/VERIFICATION.txt
+ROLLBACK.sh: diagnostics/dashboard-stats-fix/ROLLBACK.sh
+
+BASELINE:
+COMMAND: DOCKER_BUILDKIT=0 docker build --file deploy/Dockerfile --tag sub2api-dashboard-baseline:15d3e4a56 .
+INPUT: repository at BASELINE_COMMIT, Dockerfile deploy/Dockerfile
+LITERAL_OUTPUT: Successfully built add32f604f87; Successfully tagged sub2api-dashboard-baseline:15d3e4a56
+EXIT_STATUS: 0
+RESULT: baseline image built.
+COMMAND: curl -sS -o /tmp/dashboard-18591.out -w 'http=%{http_code}\\n' -H "Authorization: Bearer $TOKEN" -H 'User-Agent: dashboard-docker-test' 'http://127.0.0.1:18591/api/v1/usage/dashboard/stats?timezone=Asia%2FShanghai'
+INPUT: Docker baseline container, PostgreSQL fixture with one successful openai usage row and one failed placeholder row
+LITERAL_OUTPUT: http=200; {"code":0,"message":"success","data":{"total_api_keys":1,"active_api_keys":1,"total_requests":2,"total_actual_cost":1.2,"by_platform":[{"platform":"openai","total_requests":1,"total_actual_cost":1.2}]}}
+EXIT_STATUS: 0
+RESULT: baseline succeeds when the platform query is healthy.
+
+MODIFIED:
+COMMAND: DOCKER_BUILDKIT=0 docker build --file deploy/Dockerfile --tag sub2api-dashboard-fixed:dashboard-stats .
+INPUT: working tree with MODIFIED_FILE and dashboard query regression test
+LITERAL_OUTPUT: Successfully built dfa5bd0e9dd5; Successfully tagged sub2api-dashboard-fixed:dashboard-stats
+EXIT_STATUS: 0
+RESULT: fixed release image built and compiled the changed backend.
+COMMAND: cd backend && GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./internal/infrastructure/repository -run 'Test(GetUserDashboardStatsKeepsCoreStatsWhenPlatformQueryFails|FillSubjectDashboardUsageStats)' -count=1
+INPUT: sqlmock platform projection failure ("column groups.platform does not exist") after core queries succeed
+LITERAL_OUTPUT: ok github.com/Wei-Shaw/sub2api/internal/infrastructure/repository 0.852s
+EXIT_STATUS: 0
+RESULT: core stats returned with no by_platform rows and no HTTP-facing repository error.
+COMMAND: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/infrastructure/repository ./internal/application/service ./internal/transport/http/handler
+INPUT: backend regression packages
+LITERAL_OUTPUT: ok github.com/Wei-Shaw/sub2api/internal/infrastructure/repository (cached); ok github.com/Wei-Shaw/sub2api/internal/application/service (cached); ok github.com/Wei-Shaw/sub2api/internal/transport/http/handler (cached)
+EXIT_STATUS: 0
+RESULT: regression packages passed.
+COMMAND: make check-docs
+INPUT: modified repository
+LITERAL_OUTPUT: Documentation checks passed.
+EXIT_STATUS: 0
+RESULT: documentation checks passed.
+COMMAND: curl -sS -o /tmp/dashboard-fixed-final.out -w 'http=%{http_code}\\n' -H "Authorization: Bearer $TOKEN" -H 'User-Agent: dashboard-docker-test' 'http://127.0.0.1:18592/api/v1/usage/dashboard/stats?timezone=Asia%2FShanghai'
+INPUT: fixed Docker image, same PostgreSQL fixture and request
+LITERAL_OUTPUT: http=200; {"code":0,"message":"success","data":{"total_api_keys":1,"active_api_keys":1,"total_requests":2,"total_actual_cost":1.2,"by_platform":[{"platform":"openai","total_requests":1,"total_actual_cost":1.2}]}}
+EXIT_STATUS: 0
+RESULT: fixed container was ready/healthy and returned the user dashboard successfully.
+
+ROLLBACK:
+COMMAND: cp diagnostics/dashboard-stats-fix/MODIFIED_FILE /tmp/dashboard-rollback-target.go && diagnostics/dashboard-stats-fix/ROLLBACK.sh /tmp/dashboard-rollback-target.go
+INPUT: MODIFIED_FILE copy at /tmp/dashboard-rollback-target.go
+LITERAL_OUTPUT: restored /tmp/dashboard-rollback-target.go; rollback_before=3598c0ece6235798402aff8f583478c488159fa8b4618a932373f79b52660ecc; rollback_restored=1c573da63e66747aa7179579e8508383afed804a812ca1c447cbb589855d3c42; original=1c573da63e66747aa7179579e8508383afed804a812ca1c447cbb589855d3c42
+EXIT_STATUS: 0
+RESULT: independent copy restored byte-for-byte to BASELINE_SHA256; repository source remains modified.

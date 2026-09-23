@@ -1,0 +1,79 @@
+2026/09/10 06:31:54 Timezone initialized: UTC (UTC offset: +00:00)
+2026/09/10 06:31:54 [Pricing] Downloading from https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json
+2026/09/10 06:31:54 [Pricing] Downloaded 2 models successfully
+2026/09/10 06:31:54 [Pricing] Downloading from https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json
+2026/09/10 06:31:54 [Pricing] Downloaded 2 models successfully
+2026/09/10 06:31:54 [Pricing] Loaded 2 models from /tmp/TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart2745625899/001/model_pricing.json
+2026/09/10 06:31:54 [Pricing] Downloading from https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/refs/heads/main//model_prices_and_context_window.json
+2026/09/10 06:31:54 [Pricing] Downloaded 2 models successfully
+2026/09/10 06:31:54 [Pricing] Downloading from https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/refs/heads/main//model_prices_and_context_window.json
+2026/09/10 06:31:54 [Pricing] Downloaded 2 models successfully
+2026/09/10 06:31:54 [Pricing] Loaded 2 models from /tmp/TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart235493034/001/model_pricing.json
+--- FAIL: TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart (0.00s)
+    --- FAIL: TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart/https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json (0.00s)
+        --- FAIL: TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart/https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json/download (0.00s)
+            pricing_service_corrections_test.go:74: 
+                	Error Trace:	/workspace/backend/internal/application/service/pricing_service_corrections_test.go:74
+                	Error:      	Max difference between 4e-06 and 5e-06 allowed is 1e-12, but difference was -1.0000000000000006e-06
+                	Test:       	TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart/https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json/download
+        --- FAIL: TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart/https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json/refresh (0.00s)
+            pricing_service_corrections_test.go:74: 
+                	Error Trace:	/workspace/backend/internal/application/service/pricing_service_corrections_test.go:74
+                	Error:      	Max difference between 4e-06 and 5e-06 allowed is 1e-12, but difference was -1.0000000000000006e-06
+                	Test:       	TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart/https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json/refresh
+        --- FAIL: TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart/https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json/restart (0.00s)
+            pricing_service_corrections_test.go:74: 
+                	Error Trace:	/workspace/backend/internal/application/service/pricing_service_corrections_test.go:74
+                	Error:      	Max difference between 4e-06 and 5e-06 allowed is 1e-12, but difference was -1.0000000000000006e-06
+                	Test:       	TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart/https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json/restart
+    --- FAIL: TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart/https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/refs/heads/main//model_prices_and_context_window.json (0.00s)
+        --- FAIL: TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart/https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/refs/heads/main//model_prices_and_context_window.json/download (0.00s)
+            pricing_service_corrections_test.go:74: 
+                	Error Trace:	/workspace/backend/internal/application/service/pricing_service_corrections_test.go:74
+                	Error:      	Max difference between 4e-06 and 5e-06 allowed is 1e-12, but difference was -1.0000000000000006e-06
+                	Test:       	TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart/https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/refs/heads/main//model_prices_and_context_window.json/download
+        --- FAIL: TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart/https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/refs/heads/main//model_prices_and_context_window.json/refresh (0.00s)
+            pricing_service_corrections_test.go:74: 
+                	Error Trace:	/workspace/backend/internal/application/service/pricing_service_corrections_test.go:74
+                	Error:      	Max difference between 4e-06 and 5e-06 allowed is 1e-12, but difference was -1.0000000000000006e-06
+                	Test:       	TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart/https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/refs/heads/main//model_prices_and_context_window.json/refresh
+        --- FAIL: TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart/https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/refs/heads/main//model_prices_and_context_window.json/restart (0.00s)
+            pricing_service_corrections_test.go:74: 
+                	Error Trace:	/workspace/backend/internal/application/service/pricing_service_corrections_test.go:74
+                	Error:      	Max difference between 4e-06 and 5e-06 allowed is 1e-12, but difference was -1.0000000000000006e-06
+                	Test:       	TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart/https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/refs/heads/main//model_prices_and_context_window.json/restart
+2026/09/10 06:31:54 [Pricing] Loaded 2 models from /tmp/TestPricingService_SolPromotionPreservesCustomAndUpdatedCatalogs65136127/001/model_pricing.json
+2026/09/10 06:31:54 [Pricing] Loaded 2 models from /tmp/TestPricingService_SolPromotionPreservesCustomAndUpdatedCatalogs441105438/001/model_pricing.json
+2026/09/10 06:31:54 [Pricing] Loaded 2 models from /tmp/TestPricingService_SolPromotionPreservesCustomAndUpdatedCatalogs3329759526/001/model_pricing.json
+2026/09/10 06:31:54 [Pricing] Loaded 2 models from /tmp/TestPricingService_SolPromotionPreservesCustomAndUpdatedCatalogs1320714033/001/model_pricing.json
+2026/09/10 06:31:54 [Billing] Using fallback pricing for model: gpt-5.6-sol
+--- FAIL: TestBillingService_GPT56LongContextBoundaryIsExclusive (0.00s)
+    pricing_service_test.go:259: 
+        	Error Trace:	/workspace/backend/internal/application/service/pricing_service_test.go:259
+        	Error:      	Max difference between 0.4 and 0.5 allowed is 1e-12, but difference was -0.09999999999999998
+        	Test:       	TestBillingService_GPT56LongContextBoundaryIsExclusive
+--- FAIL: TestDefaultPricingIncludesOfficialGPT56Rates (0.00s)
+    --- FAIL: TestDefaultPricingIncludesOfficialGPT56Rates/gpt-5.6-sol (0.00s)
+        pricing_service_test.go:313: 
+            	Error Trace:	/workspace/backend/internal/application/service/pricing_service_test.go:313
+            	Error:      	Max difference between 4e-06 and 5e-06 allowed is 1e-12, but difference was -1.0000000000000006e-06
+            	Test:       	TestDefaultPricingIncludesOfficialGPT56Rates/gpt-5.6-sol
+2026/09/10 06:31:54 [Billing] Using fallback pricing for model: gpt-5.6-sol
+2026/09/10 06:31:54 [Billing] Using fallback pricing for model: gpt-5.6-terra
+2026/09/10 06:31:54 [Billing] Using fallback pricing for model: gpt-5.6-luna
+--- FAIL: TestGPT56DedicatedFallbacksUseOfficialRates (0.00s)
+    --- FAIL: TestGPT56DedicatedFallbacksUseOfficialRates/gpt-5.6-sol/pricing_service (0.00s)
+        pricing_service_test.go:346: 
+            	Error Trace:	/workspace/backend/internal/application/service/pricing_service_test.go:360
+            	            				/workspace/backend/internal/application/service/pricing_service_test.go:346
+            	Error:      	Max difference between 4e-06 and 5e-06 allowed is 1e-12, but difference was -1.0000000000000006e-06
+            	Test:       	TestGPT56DedicatedFallbacksUseOfficialRates/gpt-5.6-sol/pricing_service
+    --- FAIL: TestGPT56DedicatedFallbacksUseOfficialRates/gpt-5.6-sol/billing_service (0.00s)
+        pricing_service_test.go:353: 
+            	Error Trace:	/workspace/backend/internal/application/service/pricing_service_test.go:360
+            	            				/workspace/backend/internal/application/service/pricing_service_test.go:353
+            	Error:      	Max difference between 4e-06 and 5e-06 allowed is 1e-12, but difference was -1.0000000000000006e-06
+            	Test:       	TestGPT56DedicatedFallbacksUseOfficialRates/gpt-5.6-sol/billing_service
+FAIL
+FAIL	github.com/Wei-Shaw/sub2api/internal/application/service	0.014s
+FAIL

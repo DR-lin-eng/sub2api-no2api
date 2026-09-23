@@ -245,6 +245,9 @@ func (s *OpenAIGatewayService) FetchCodexModelsManifest(ctx context.Context, acc
 	clientVersion = strings.TrimSpace(clientVersion)
 	if clientVersion == "" {
 		clientVersion = CodexCanonicalClientVersion()
+		if credAccount.IsOpenAIOAuth() {
+			clientVersion = resolveCodexOutboundIdentity(credAccount.GetOpenAIUserAgent()).version
+		}
 	}
 
 	requestEndpoint := chatgptCodexModelsURL
@@ -256,6 +259,13 @@ func (s *OpenAIGatewayService) FetchCodexModelsManifest(ctx context.Context, acc
 		authToken = strings.TrimSpace(credAccount.GetOpenAIAccessToken())
 		if authToken == "" && !credAccount.IsOpenAIAgentIdentity() {
 			return nil, infraerrors.New(http.StatusBadGateway, "OPENAI_CODEX_MODELS_TOKEN_MISSING", "account has no Codex backend access token")
+		}
+		baseURL, official, relayErr := resolveOpenAIOAuthCodexBaseURL(ctx, s.settingService, s.cfg, credAccount)
+		if relayErr != nil {
+			return nil, infraerrors.Newf(http.StatusBadGateway, "OPENAI_CODEX_MODELS_RELAY_INVALID", "invalid OpenAI OAuth Codex relay URL: %v", relayErr)
+		}
+		if !official {
+			requestEndpoint = buildOpenAIEndpointURL(baseURL, "/models")
 		}
 	case credAccount.IsOpenAIApiKey():
 		baseURL := strings.TrimSpace(credAccount.GetCredential("base_url"))
@@ -314,7 +324,7 @@ func (s *OpenAIGatewayService) FetchCodexModelsManifest(ctx context.Context, acc
 	headers.Set("Originator", identity.originator)
 	headers.Set("User-Agent", identity.userAgent)
 	headerVersion := NormalizeCodexClientVersion(clientVersion)
-	if headerVersion == "" || CompareVersions(headerVersion, codexUpstreamMinVersion) < 0 {
+	if !useAPIKeyUpstream || headerVersion == "" || CompareVersions(headerVersion, codexUpstreamMinVersion) < 0 {
 		headerVersion = identity.version
 	}
 	headers.Set("Version", headerVersion)
@@ -670,7 +680,10 @@ func codexManifestFallbackModelID(modelID string) string {
 
 func codexManifestKnownImageInputModel(modelID string) bool {
 	normalized := codexManifestFallbackModelID(modelID)
-	if strings.HasPrefix(normalized, "gpt-6") && isOpenAIGPT6AstraModel(normalized) {
+	if normalized == "deepseek-v4-flash-vision-exp" {
+		return true
+	}
+	if strings.HasPrefix(normalized, "gpt-6") && isOpenAIGPT6Model(normalized) {
 		return true
 	}
 	for _, prefix := range []string{"gpt-5", "gpt-4o", "gpt-4.1", "gpt-4.5", "gpt-4-turbo", "gpt-4-vision"} {
@@ -683,7 +696,7 @@ func codexManifestKnownImageInputModel(modelID string) bool {
 
 func codexManifestKnownPriorityTierModel(modelID string) bool {
 	normalized := codexManifestFallbackModelID(modelID)
-	if strings.HasPrefix(normalized, "gpt-6") && isOpenAIGPT6AstraModel(normalized) {
+	if strings.HasPrefix(normalized, "gpt-6") && isOpenAIGPT6Model(normalized) {
 		return true
 	}
 	for _, family := range []string{"gpt-5.4", "gpt-5.5", "gpt-5.6"} {

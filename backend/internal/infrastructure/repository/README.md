@@ -9,14 +9,16 @@
 | `account*`, `user*`, `group*`, `api_key*` | 核心身份和账号持久化 |
 | `usage_log*`, `usage_billing*`, `billing_cache*` | 用量、计费队列和账务缓存 |
 | `scheduler*`, `concurrency*`, `session_limit*`, `rpm_cache*` | 调度与并发状态 |
+| `openai_oauth_gateway_rate_limit_cache.go` | OpenAI OAuth 按账号独立、同账号跨实例共享的请求令牌桶和逻辑请求去重 |
 | `ops*`, `audit_log*`, `channel_monitor*` | 运维、审计和监控查询 |
 | `cloudflare_ingress*`, `cloudflare_waf*` | Cloudflare Access Rule/WAF 分片客户端、Redis 共享状态、异步同步、统计缓存与到期回收 |
 | `payment*`, `subscription*`, `promo_code*`, `redeem_code*` | 商业对象持久化 |
 | `chat*` | 在线客服会话、消息、素材、快捷回复及分批保留清理 |
 | `cluster*` | 逻辑节点、runner 历史、共享任务租约与版本发布状态 |
-| `*_oauth_*`, `http_upstream*`, `proxy*` | 外部凭据和网络访问实现 |
+| `*_oauth_*`, `http_upstream*`, `proxy*` | 外部凭据、代理池均衡/健康状态和网络访问实现 |
+| `oauth2_provider_store.go` | OAuth2 一次性 authorization code 与 access token 摘要的 Redis 存储 |
 | `wire.go` | repository provider 集合 |
 
-`account_repo.go` 只保留仓储结构和构造器；账户持久化分别位于 `account_repo_crud.go`, `account_repo_list.go`, `account_repo_credentials.go`, `account_repo_scheduler_cache.go`, `account_repo_scheduling.go`, `account_repo_extra.go`, `account_repo_probe.go`, `account_repo_mapping.go` 和 `account_repo_quota.go`。新增账户查询或写入应进入对应职责文件，不再回填主文件。
+`account_repo.go` 只保留仓储结构和构造器；账户持久化分别位于 `account_repo_crud.go`, `account_repo_list.go`, `account_repo_credentials.go`, `account_repo_oauth_401_delete.go`, `account_repo_scheduler_cache.go`, `account_repo_scheduling.go`, `account_repo_extra.go`, `account_repo_probe.go`, `account_repo_mapping.go` 和 `account_repo_quota.go`。新增账户查询或写入应进入对应职责文件，不再回填主文件。
 
 SQL、Ent 和 Redis 细节只能停留在本层。复杂文件按 `query/command/cache/batch/recovery` 拆分，事务边界必须保持在同一公开方法内。

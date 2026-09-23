@@ -16,7 +16,7 @@
 ## 路由域
 
 - `/setup`: 首次安装。
-- 公共/认证：`/home`, `/login`, `/register`, OAuth 回调、密码重置、法律文档等。
+- 公共/认证：`/home`, `/login`, `/register`, OAuth 回调、OAuth2 授权页、密码重置、法律文档等。
 - 用户：dashboard、API Key、用量、订阅、支付、渠道、个人设置等。
 - 管理：dashboard、Ops、账号/分组/渠道、用户、支付、设置、审计和风控等。
 - `/:pathMatch(.*)*`: 404。

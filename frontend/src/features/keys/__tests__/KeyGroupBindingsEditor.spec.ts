@@ -43,8 +43,12 @@ const groupOptions = [
   option(5, { subscriptionType: 'subscription' }),
 ]
 
-const mountEditor = (modelValue: ApiKeyGroupBinding[] = bindings) => mount(KeyGroupBindingsEditor, {
-  props: { modelValue, groupOptions },
+const mountEditor = (
+  modelValue: ApiKeyGroupBinding[] = bindings,
+  options: GroupOption[] = groupOptions,
+  filterByProvider = false,
+) => mount(KeyGroupBindingsEditor, {
+  props: { modelValue, groupOptions: options, filterByProvider },
   global: {
     stubs: {
       GroupBadge: {
@@ -109,5 +113,62 @@ describe('KeyGroupBindingsEditor', () => {
       ...bindings,
       { group_id: 3, max_rate_multiplier: null },
     ])
+  })
+
+  it('filters the first routing group by provider without weakening same-platform fallbacks', async () => {
+    const options = [
+      option(1, { platform: 'anthropic' }),
+      option(2, { platform: 'openai' }),
+      option(3, { platform: 'kimi' }),
+      option(4, { platform: 'zhipu' }),
+      option(5, { platform: 'deepseek' }),
+      option(6, { platform: 'minimax' }),
+      option(7, { platform: 'gemini' }),
+      option(8, { platform: 'grok' }),
+      option(9, { platform: 'antigravity' }),
+      option(10, { platform: 'composite' }),
+    ]
+    const wrapper = mountEditor([], options, true)
+
+    expect(wrapper.findAll('input[name="key-provider"]')).toHaveLength(4)
+    await wrapper.get('input[name="key-provider"][value="domestic"]').setValue()
+    await wrapper.get('[data-test="key-group-add"]').trigger('click')
+    for (const id of [3, 4, 5, 6]) {
+      expect(wrapper.find(`[data-test="key-group-option-${id}"]`).exists()).toBe(true)
+    }
+    for (const id of [1, 2, 7, 8, 9, 10]) {
+      expect(wrapper.find(`[data-test="key-group-option-${id}"]`).exists()).toBe(false)
+    }
+
+    await wrapper.get('[data-test="key-group-option-5"]').trigger('click')
+    await wrapper.setProps({ modelValue: latestModel(wrapper) })
+    await wrapper.get('[data-test="key-group-add"]').trigger('click')
+    expect(wrapper.find('[data-test="key-group-option-3"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="key-group-option-4"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="key-group-option-6"]').exists()).toBe(false)
+  })
+
+  it('clears a selected group when the create-provider category changes', async () => {
+    const options = [
+      option(1, { platform: 'anthropic' }),
+      option(2, { platform: 'openai' }),
+    ]
+    const wrapper = mountEditor([{ group_id: 1, max_rate_multiplier: null }], options, true)
+
+    await wrapper.get('input[name="key-provider"][value="openai"]').setValue()
+    expect(latestModel(wrapper)).toEqual([])
+  })
+
+  it('keeps provider filtering out of edit mode', async () => {
+    const options = [
+      option(1, { platform: 'anthropic' }),
+      option(2, { platform: 'openai' }),
+    ]
+    const wrapper = mountEditor([], options, false)
+
+    expect(wrapper.find('[data-test="key-group-provider-filter"]').exists()).toBe(false)
+    await wrapper.get('[data-test="key-group-add"]').trigger('click')
+    expect(wrapper.find('[data-test="key-group-option-1"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="key-group-option-2"]').exists()).toBe(true)
   })
 })

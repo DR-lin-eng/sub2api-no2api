@@ -107,8 +107,12 @@ func (s *GatewayService) ForwardAsResponses(
 		anthropicBody = s.applyClaudeCodeOAuthMimicryToBody(ctx, c, account, anthropicBody, anthropicReq.System, mappedModel)
 	}
 
-	// 7. Enforce cache_control block limit
-	anthropicBody = enforceCacheControlLimit(anthropicBody)
+	// 7. Distillation groups do not carry or synthesize any cache fields.
+	if s.IsDistillationGroupRequest(c, account) {
+		anthropicBody = stripDistillationCacheFields(anthropicBody)
+	} else {
+		anthropicBody = enforceCacheControlLimit(anthropicBody)
+	}
 
 	// 8. Get access token
 	token, tokenType, err := s.GetAccessToken(ctx, account)

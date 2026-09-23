@@ -242,6 +242,8 @@ type UpdateSettingsRequest struct {
 	OpenAIVisibleOutputTTFTEnabled *bool `json:"openai_visible_output_ttft_enabled"`
 
 	// Gateway forwarding behavior
+	OpenAIOAuthForceRelayEnabled           *bool   `json:"openai_oauth_force_relay_enabled"`
+	OpenAIOAuthForceRelayBaseURL           *string `json:"openai_oauth_force_relay_base_url"`
 	EnableFingerprintUnification           *bool   `json:"enable_fingerprint_unification"`
 	EnableMetadataPassthrough              *bool   `json:"enable_metadata_passthrough"`
 	EnableCCHSigning                       *bool   `json:"enable_cch_signing"`
@@ -274,6 +276,12 @@ type UpdateSettingsRequest struct {
 	OpenAILowUpstreamRatePriorityEnabled               *bool    `json:"openai_low_upstream_rate_priority_enabled"`
 	OpenAIOAuthSchedulingRateMultiplier                *float64 `json:"openai_oauth_scheduling_rate_multiplier"`
 	OpenAIContentSessionBurstBalanceEnabled            *bool    `json:"openai_content_session_burst_balance_enabled"`
+	OpenAISessionIDRateLimitEnabled                    *bool    `json:"openai_session_id_rate_limit_enabled"`
+	OpenAISessionIDRateLimitPerMinute                  *int     `json:"openai_session_id_rate_limit_per_minute"`
+	OpenAIOAuthGatewayRateLimitEnabled                 *bool    `json:"openai_oauth_gateway_rate_limit_enabled"`
+	OpenAIOAuthGatewayRateLimitRPM                     *int     `json:"openai_oauth_gateway_rate_limit_rpm"`
+	OpenAIOAuthGatewayRateLimitBurst                   *int     `json:"openai_oauth_gateway_rate_limit_burst"`
+	OpenAIRequestIntegrityObserveEnabled               *bool    `json:"openai_request_integrity_observe_enabled"`
 	OpenAIAdvancedSchedulerEnabled                     *bool    `json:"openai_advanced_scheduler_enabled"`
 	OpenAIAdvancedSchedulerStickyWeightedEnabled       *bool    `json:"openai_advanced_scheduler_sticky_weighted_enabled"`
 	OpenAIAdvancedSchedulerSubscriptionPriorityEnabled *bool    `json:"openai_advanced_scheduler_subscription_priority_enabled"`

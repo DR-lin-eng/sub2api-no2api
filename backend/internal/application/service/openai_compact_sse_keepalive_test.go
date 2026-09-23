@@ -297,6 +297,36 @@ func TestOpenAICompactKeepaliveAdjustedWrittenSize_ExcludesStreamKeepaliveBytes(
 	require.Equal(t, ":\n\ndata: semantic\n\n", rec.Body.String())
 }
 
+func TestOpenAICompactKeepaliveAdjustedWrittenSize_ExcludesCodexControlOutput(t *testing.T) {
+	c, rec := newCompactBridgeTestContext(t, false)
+	control := []byte("data: {\"type\":\"codex.rate_limits\"}\n\n")
+	n, err := c.Writer.Write(control)
+	require.NoError(t, err)
+	recordOpenAIStreamControlOutput(c, n)
+	require.Equal(t, -1, OpenAICompactKeepaliveAdjustedWrittenSize(c),
+		"the flushed control preamble must remain replay-safe")
+	semantic := []byte("data: {\"type\":\"response.output_text.delta\",\"delta\":\"hi\"}\n\n")
+	n, err = c.Writer.Write(semantic)
+	require.NoError(t, err)
+	recordOpenAIStreamSemanticOutput(c, n)
+	require.Equal(t, len(semantic), OpenAICompactKeepaliveAdjustedWrittenSize(c))
+	require.Equal(t, string(append(control, semantic...)), rec.Body.String())
+}
+
+func TestOpenAIStreamControlOnlyOutputCommittedDetectsLaterUntrackedOutput(t *testing.T) {
+	c, _ := newCompactBridgeTestContext(t, false)
+	control := []byte("data: {\"type\":\"codex.rate_limits\"}\n\n")
+	n, err := c.Writer.Write(control)
+	require.NoError(t, err)
+	recordOpenAIStreamControlOutput(c, n)
+	require.True(t, openAIStreamControlOnlyOutputCommitted(c))
+
+	_, err = c.Writer.Write([]byte("data: {\"type\":\"response.failed\"}\n\n"))
+	require.NoError(t, err)
+	require.False(t, openAIStreamControlOnlyOutputCommitted(c),
+		"untracked downstream bytes after the control frame are committed output")
+}
+
 func TestOpenAIStreamClientOutputStarted_IgnoresCompactKeepaliveBytes(t *testing.T) {
 	c, _ := newCompactBridgeTestContext(t, true)
 	stop := StartOpenAICompactSSEKeepalive(c, keepaliveTestInterval)

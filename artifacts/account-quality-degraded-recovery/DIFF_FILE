@@ -1,0 +1,45 @@
+--- BASELINE_FILE
++++ MODIFIED_FILE
+@@ -211 +211 @@
+-		if !qualityProbeEligible(&account, settings.SourceGroupID) {
++		if !qualityProbeEligible(&account, settings.SourceGroupID, settings.DegradedGroupID) {
+@@ -342 +342 @@
+-				recordErr(s.restoreQualityGroups(ctx, &account, result))
++				recordErr(s.restoreQualityGroups(ctx, &account, settings.SourceGroupID, settings.DegradedGroupID, result))
+@@ -458 +458 @@
+-func qualityProbeEligible(account *Account, sourceGroupID *int64) bool {
++func qualityProbeEligible(account *Account, sourceGroupID, degradedGroupID *int64) bool {
+@@ -470,2 +470,7 @@
+-	// Continue probing accounts already moved to the degraded group so a
+-	// healthy streak can restore their original source-group binding.
++	// The configured degraded group is an explicit recovery queue. This also
++	// covers accounts placed there before quality-routing markers existed.
++	if degradedGroupID != nil && *degradedGroupID > 0 && accountHasGroup(account, *degradedGroupID) {
++		return true
++	}
++	// Keep following accounts moved by an older configuration so a healthy
++	// streak can still restore their recorded original bindings.
+@@ -567,2 +572,2 @@
+-func (s *AccountQualityMonitoringService) restoreQualityGroups(ctx context.Context, account *Account, result *AccountInspectionAccountResult) error {
+-	if account == nil || len(account.Extra) == 0 {
++func (s *AccountQualityMonitoringService) restoreQualityGroups(ctx context.Context, account *Account, sourceGroupID, degradedGroupID *int64, result *AccountInspectionAccountResult) error {
++	if account == nil {
+@@ -572 +577 @@
+-	raw := account.Extra[AccountQualityOriginalGroupsExtraKey]
++	raw, hasOriginalGroups := account.Extra[AccountQualityOriginalGroupsExtraKey]
+@@ -578,0 +584,15 @@
++	if !hasOriginalGroups || raw == nil {
++		// Accounts already in the configured degraded group may predate routing
++		// markers or have been placed there manually. Restore only an exact
++		// degraded-group binding so unrelated manual group changes remain intact.
++		if sourceGroupID != nil && *sourceGroupID > 0 && degradedGroupID != nil && *degradedGroupID > 0 && sameGroupIDs(account.GroupIDs, []int64{*degradedGroupID}) {
++			if err := s.accountRepo.BindGroups(ctx, account.ID, []int64{*sourceGroupID}); err != nil {
++				return err
++			}
++			writeQualityExtra(s.accountRepo, ctx, account.ID, map[string]any{AccountQualityOriginalGroupsExtraKey: nil, AccountQualityRoutingGroupExtraKey: nil})
++			result.QualityAction = "restored_group"
++			return nil
++		}
++		result.QualityAction = "healthy"
++		return nil
++	}

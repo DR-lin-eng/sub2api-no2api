@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/tidwall/gjson"
 )
 
 func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.Context, account *Account, body []byte, token string, isStream bool, promptCacheKey string, isCodexCLI bool) (*http.Request, error) {
@@ -20,13 +21,22 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 	stageCodexFingerprintIDs(c, fingerprintIDs)
 	// Determine target URL based on account type
 	var targetURL string
+	var workspaceRouting *openAIWorkspaceRouting
+	useOfficialCodexEndpoint := false
 	switch account.Type {
 	case AccountTypeOAuth:
 		// OAuth accounts use ChatGPT internal API
-		targetURL = chatgptCodexURL
+		var err error
+		targetURL, useOfficialCodexEndpoint, err = s.openAIOAuthCodexTargetURLWithContext(ctx, account)
+		if err != nil {
+			return nil, err
+		}
 	case AccountTypeAPIKey:
 		// API Key accounts use Platform API or custom base URL
 		baseURL := account.GetOpenAIBaseURL()
+		if account.UsesNativeCNResponses() && account.IsAdaptiveAPIProtocol() {
+			baseURL = account.GetCNProtocolBaseURL(APIProtocolResponses)
+		}
 		if baseURL == "" {
 			targetURL = openaiPlatformAPIURL
 		} else {
@@ -34,29 +44,57 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 			if err != nil {
 				return nil, err
 			}
-			targetURL = buildOpenAIResponsesURL(validatedURL)
+			targetURL = buildOpenAIResponsesURLForPlatform(account.Platform, validatedURL)
 		}
 	default:
 		targetURL = openaiPlatformAPIURL
 	}
 	targetURL = appendOpenAIResponsesRequestPathSuffix(targetURL, openAIResponsesRequestPathSuffix(c))
+	if account.IsOpenAIOAuth() {
+		var routingErr error
+		workspaceRouting, routingErr = s.resolveOpenAIWorkspaceRouting(ctx, account, token)
+		if routingErr != nil {
+			return nil, newOpenAIWorkspaceRoutingFailoverError(routingErr)
+		}
+		if workspaceRouting != nil {
+			var urlErr error
+			targetURL, urlErr = applyOpenAIWorkspaceRoutingURL(targetURL, workspaceRouting, true)
+			if urlErr != nil {
+				return nil, newOpenAIWorkspaceRoutingFailoverError(urlErr)
+			}
+		}
+	}
 
+	body = normalizeNativeCNResponsesRequestBody(account, body)
 	outboundBody := body
 	var codexSessionIDs *codexOutboundSessionIDs
+	distillation := s.IsDistillationGroupRequest(c, account)
+	if distillation {
+		outboundBody = stripDistillationCacheFields(outboundBody)
+	}
 	if account.IsOpenAIOAuth() && (fingerprintIDs == nil || fingerprintIDs.mode == codexFingerprintOff) {
-		codexSessionIDs = resolveCodexOutboundSessionIDs(c, account, body, promptCacheKey)
+		if distillation {
+			if sessionID, enabled := s.DistillationSessionID(ctx, c, account); enabled {
+				codexSessionIDs = &codexOutboundSessionIDs{sessionID: sessionID, threadID: sessionID, clientRequestID: sessionID}
+			}
+		} else {
+			codexSessionIDs = resolveCodexOutboundSessionIDs(c, account, outboundBody, promptCacheKey)
+		}
 		var rewriteErr error
-		outboundBody, rewriteErr = rewriteCodexOutboundSessionMetadata(body, codexSessionIDs)
+		outboundBody, rewriteErr = rewriteCodexOutboundSessionMetadata(outboundBody, codexSessionIDs)
 		if rewriteErr != nil {
 			return nil, rewriteErr
 		}
 	}
+	s.observeCodexEncryptedContentPayload(ctx, c, account, gjson.GetBytes(outboundBody, "model").String(), outboundBody, "http_request")
 
 	req, err := newOpenAIHTTPUpstreamRequest(ctx, http.MethodPost, targetURL, account, outboundBody)
 	if err != nil {
 		return nil, err
 	}
-	req = req.WithContext(WithHTTPUpstreamProfile(req.Context(), openAIHTTPUpstreamProfile(ctx, account, isStream)))
+	requestCtx := WithHTTPUpstreamProfile(req.Context(), openAIHTTPUpstreamProfile(ctx, account, isStream))
+	requestCtx = withOpenAIWorkspaceRoutingRedirectPolicy(requestCtx, workspaceRouting)
+	req = req.WithContext(requestCtx)
 	req = req.WithContext(WithHTTPUpstreamTLSProfile(req.Context(), s.resolveTLSProfile(account)))
 
 	// Build authentication for this request. Agent Identity signs a fresh
@@ -74,7 +112,9 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 	// Set headers specific to OAuth accounts (ChatGPT internal API)
 	if account.Type == AccountTypeOAuth {
 		// Required: set Host for ChatGPT API (must use req.Host, not Header.Set)
-		req.Host = "chatgpt.com"
+		if useOfficialCodexEndpoint && isOfficialChatGPTCodexURL(targetURL) {
+			req.Host = "chatgpt.com"
+		}
 		if err := resolveAndSetOpenAIChatGPTAccountHeaders(ctx, s.accountRepo, req.Header, account); err != nil {
 			return nil, fmt.Errorf("resolve chatgpt account headers: %w", err)
 		}
@@ -97,6 +137,8 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 	// A turn-state minted by another account is incompatible with this
 	// attempt's outbound identity. Unknown and same-account values pass through.
 	s.guardOpenAICodexTurnStateEcho(c, account, req.Header)
+	stageOpenAICodexTurnStateModel(c, gjson.GetBytes(outboundBody, "model").String())
+	s.applyConfiguredCodexTurnStateReplay(c, account, req.Header)
 	if account.Type == AccountTypeOAuth {
 		compatMessagesBridge := isOpenAICompatMessagesBridgeContext(c) || isOpenAICompatMessagesBridgeBody(body)
 		// 清除客户端透传的 session 头，后续用隔离后的值重新设置，防止跨用户会话碰撞。
@@ -121,14 +163,26 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 		} else {
 			req.Header.Set("accept", "text/event-stream")
 		}
-		if promptCacheKey != "" {
+		if promptCacheKey != "" && !distillation {
 			isolated := isolateOpenAISessionID(apiKeyID, promptCacheKey)
 			req.Header.Set("session_id", isolated)
 			if !compatMessagesBridge || clientConversationID != "" {
 				req.Header.Set("conversation_id", isolated)
 			}
 		}
-		applyResolvedCodexOutboundSessionHeaders(c, account, req.Header, fingerprintIDs, codexSessionIDs)
+		if distillation && codexSessionIDs != nil {
+			apiKeyID := getAPIKeyIDFromContext(c)
+			for _, name := range []string{"session-id", "session_id", "thread-id", "thread_id", "x-client-request-id", "conversation_id"} {
+				req.Header.Del(name)
+			}
+			req.Header.Set("session-id", codexSessionIDs.sessionID)
+			req.Header.Set("thread-id", codexSessionIDs.threadID)
+			req.Header.Set("x-client-request-id", codexSessionIDs.clientRequestID)
+			req.Header.Set("session_id", isolateOpenAISessionID(apiKeyID, codexSessionIDs.sessionID))
+			req.Header.Set("conversation_id", isolateOpenAISessionID(apiKeyID, codexSessionIDs.sessionID))
+		} else {
+			applyResolvedCodexOutboundSessionHeaders(c, account, req.Header, fingerprintIDs, codexSessionIDs)
+		}
 	} else if isOpenAIResponsesCompactPath(c) {
 		// compact 上游是 unary JSON 协议：API-key 账号也显式声明 Accept，
 		// 避免 OpenAI 兼容网关按 SSE 返回（#3777 期望行为 4）。
@@ -148,8 +202,8 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 	}
 	applyStagedCodexFingerprintHeaders(c, account, req.Header)
 
-	// OAuth requests leave through one canonical identity. Account-level UA
-	// overrides keep their fingerprint but their version is rebuilt.
+	// OAuth requests leave through one paired identity. Explicit account UAs
+	// retain their engine version and independent application build number.
 	if account.Type == AccountTypeOAuth {
 		enforceCodexIdentityHeadersWithUA(req.Header, s.codexIdentityOverrideUA(account))
 	}
@@ -161,10 +215,12 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 
 	// 账号级请求头覆写（仅 openai api_key 账号启用时生效；OAuth 路径 no-op）
 	account.ApplyHeaderOverrides(req.Header)
-	applyOpenCodeSessionHeader(c, account, targetURL, req.Header)
+	applyOpenCodeSessionHeader(c, account, targetURL, req.Header, body, openCodeSessionHintBody(promptCacheKey))
 	applyOpenAICodexBetaFeatures(c, account, req.Header)
 	applyOpenAICodexRoutingHintFromBody(ctx, account, "http", req.Header, outboundBody, "not_applicable")
 	applyCodexSimulationProfileHeaders(req.Header, fingerprintIDs)
+	applyOpenAICodexSemanticRequestHeaders(req.Header, c, account, outboundBody)
+	applyOpenAIWorkspaceRoutingHeader(req.Header, workspaceRouting)
 
 	return req, nil
 }

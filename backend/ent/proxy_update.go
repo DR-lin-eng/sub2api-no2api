@@ -247,6 +247,81 @@ func (_u *ProxyUpdate) AddExpiryWarnDays(v int) *ProxyUpdate {
 	return _u
 }
 
+// SetHealthStatus sets the "health_status" field.
+func (_u *ProxyUpdate) SetHealthStatus(v string) *ProxyUpdate {
+	_u.mutation.SetHealthStatus(v)
+	return _u
+}
+
+// SetNillableHealthStatus sets the "health_status" field if the given value is not nil.
+func (_u *ProxyUpdate) SetNillableHealthStatus(v *string) *ProxyUpdate {
+	if v != nil {
+		_u.SetHealthStatus(*v)
+	}
+	return _u
+}
+
+// SetHealthConsecutiveFailures sets the "health_consecutive_failures" field.
+func (_u *ProxyUpdate) SetHealthConsecutiveFailures(v int) *ProxyUpdate {
+	_u.mutation.ResetHealthConsecutiveFailures()
+	_u.mutation.SetHealthConsecutiveFailures(v)
+	return _u
+}
+
+// SetNillableHealthConsecutiveFailures sets the "health_consecutive_failures" field if the given value is not nil.
+func (_u *ProxyUpdate) SetNillableHealthConsecutiveFailures(v *int) *ProxyUpdate {
+	if v != nil {
+		_u.SetHealthConsecutiveFailures(*v)
+	}
+	return _u
+}
+
+// AddHealthConsecutiveFailures adds value to the "health_consecutive_failures" field.
+func (_u *ProxyUpdate) AddHealthConsecutiveFailures(v int) *ProxyUpdate {
+	_u.mutation.AddHealthConsecutiveFailures(v)
+	return _u
+}
+
+// SetLastHealthCheckAt sets the "last_health_check_at" field.
+func (_u *ProxyUpdate) SetLastHealthCheckAt(v time.Time) *ProxyUpdate {
+	_u.mutation.SetLastHealthCheckAt(v)
+	return _u
+}
+
+// SetNillableLastHealthCheckAt sets the "last_health_check_at" field if the given value is not nil.
+func (_u *ProxyUpdate) SetNillableLastHealthCheckAt(v *time.Time) *ProxyUpdate {
+	if v != nil {
+		_u.SetLastHealthCheckAt(*v)
+	}
+	return _u
+}
+
+// ClearLastHealthCheckAt clears the value of the "last_health_check_at" field.
+func (_u *ProxyUpdate) ClearLastHealthCheckAt() *ProxyUpdate {
+	_u.mutation.ClearLastHealthCheckAt()
+	return _u
+}
+
+// SetLastHealthError sets the "last_health_error" field.
+func (_u *ProxyUpdate) SetLastHealthError(v string) *ProxyUpdate {
+	_u.mutation.SetLastHealthError(v)
+	return _u
+}
+
+// SetNillableLastHealthError sets the "last_health_error" field if the given value is not nil.
+func (_u *ProxyUpdate) SetNillableLastHealthError(v *string) *ProxyUpdate {
+	if v != nil {
+		_u.SetLastHealthError(*v)
+	}
+	return _u
+}
+
+// ClearLastHealthError clears the value of the "last_health_error" field.
+func (_u *ProxyUpdate) ClearLastHealthError() *ProxyUpdate {
+	_u.mutation.ClearLastHealthError()
+	return _u
+}
+
 // AddAccountIDs adds the "accounts" edge to the Account entity by IDs.
 func (_u *ProxyUpdate) AddAccountIDs(ids ...int64) *ProxyUpdate {
 	_u.mutation.AddAccountIDs(ids...)
@@ -414,6 +489,16 @@ func (_u *ProxyUpdate) check() error {
 			return &ValidationError{Name: "fallback_mode", err: fmt.Errorf(`ent: validator failed for field "Proxy.fallback_mode": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.HealthStatus(); ok {
+		if err := proxy.HealthStatusValidator(v); err != nil {
+			return &ValidationError{Name: "health_status", err: fmt.Errorf(`ent: validator failed for field "Proxy.health_status": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.HealthConsecutiveFailures(); ok {
+		if err := proxy.HealthConsecutiveFailuresValidator(v); err != nil {
+			return &ValidationError{Name: "health_consecutive_failures", err: fmt.Errorf(`ent: validator failed for field "Proxy.health_consecutive_failures": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -482,6 +567,27 @@ func (_u *ProxyUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedExpiryWarnDays(); ok {
 		_spec.AddField(proxy.FieldExpiryWarnDays, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.HealthStatus(); ok {
+		_spec.SetField(proxy.FieldHealthStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.HealthConsecutiveFailures(); ok {
+		_spec.SetField(proxy.FieldHealthConsecutiveFailures, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedHealthConsecutiveFailures(); ok {
+		_spec.AddField(proxy.FieldHealthConsecutiveFailures, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.LastHealthCheckAt(); ok {
+		_spec.SetField(proxy.FieldLastHealthCheckAt, field.TypeTime, value)
+	}
+	if _u.mutation.LastHealthCheckAtCleared() {
+		_spec.ClearField(proxy.FieldLastHealthCheckAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.LastHealthError(); ok {
+		_spec.SetField(proxy.FieldLastHealthError, field.TypeString, value)
+	}
+	if _u.mutation.LastHealthErrorCleared() {
+		_spec.ClearField(proxy.FieldLastHealthError, field.TypeString)
 	}
 	if _u.mutation.AccountsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -840,6 +946,81 @@ func (_u *ProxyUpdateOne) AddExpiryWarnDays(v int) *ProxyUpdateOne {
 	return _u
 }
 
+// SetHealthStatus sets the "health_status" field.
+func (_u *ProxyUpdateOne) SetHealthStatus(v string) *ProxyUpdateOne {
+	_u.mutation.SetHealthStatus(v)
+	return _u
+}
+
+// SetNillableHealthStatus sets the "health_status" field if the given value is not nil.
+func (_u *ProxyUpdateOne) SetNillableHealthStatus(v *string) *ProxyUpdateOne {
+	if v != nil {
+		_u.SetHealthStatus(*v)
+	}
+	return _u
+}
+
+// SetHealthConsecutiveFailures sets the "health_consecutive_failures" field.
+func (_u *ProxyUpdateOne) SetHealthConsecutiveFailures(v int) *ProxyUpdateOne {
+	_u.mutation.ResetHealthConsecutiveFailures()
+	_u.mutation.SetHealthConsecutiveFailures(v)
+	return _u
+}
+
+// SetNillableHealthConsecutiveFailures sets the "health_consecutive_failures" field if the given value is not nil.
+func (_u *ProxyUpdateOne) SetNillableHealthConsecutiveFailures(v *int) *ProxyUpdateOne {
+	if v != nil {
+		_u.SetHealthConsecutiveFailures(*v)
+	}
+	return _u
+}
+
+// AddHealthConsecutiveFailures adds value to the "health_consecutive_failures" field.
+func (_u *ProxyUpdateOne) AddHealthConsecutiveFailures(v int) *ProxyUpdateOne {
+	_u.mutation.AddHealthConsecutiveFailures(v)
+	return _u
+}
+
+// SetLastHealthCheckAt sets the "last_health_check_at" field.
+func (_u *ProxyUpdateOne) SetLastHealthCheckAt(v time.Time) *ProxyUpdateOne {
+	_u.mutation.SetLastHealthCheckAt(v)
+	return _u
+}
+
+// SetNillableLastHealthCheckAt sets the "last_health_check_at" field if the given value is not nil.
+func (_u *ProxyUpdateOne) SetNillableLastHealthCheckAt(v *time.Time) *ProxyUpdateOne {
+	if v != nil {
+		_u.SetLastHealthCheckAt(*v)
+	}
+	return _u
+}
+
+// ClearLastHealthCheckAt clears the value of the "last_health_check_at" field.
+func (_u *ProxyUpdateOne) ClearLastHealthCheckAt() *ProxyUpdateOne {
+	_u.mutation.ClearLastHealthCheckAt()
+	return _u
+}
+
+// SetLastHealthError sets the "last_health_error" field.
+func (_u *ProxyUpdateOne) SetLastHealthError(v string) *ProxyUpdateOne {
+	_u.mutation.SetLastHealthError(v)
+	return _u
+}
+
+// SetNillableLastHealthError sets the "last_health_error" field if the given value is not nil.
+func (_u *ProxyUpdateOne) SetNillableLastHealthError(v *string) *ProxyUpdateOne {
+	if v != nil {
+		_u.SetLastHealthError(*v)
+	}
+	return _u
+}
+
+// ClearLastHealthError clears the value of the "last_health_error" field.
+func (_u *ProxyUpdateOne) ClearLastHealthError() *ProxyUpdateOne {
+	_u.mutation.ClearLastHealthError()
+	return _u
+}
+
 // AddAccountIDs adds the "accounts" edge to the Account entity by IDs.
 func (_u *ProxyUpdateOne) AddAccountIDs(ids ...int64) *ProxyUpdateOne {
 	_u.mutation.AddAccountIDs(ids...)
@@ -1020,6 +1201,16 @@ func (_u *ProxyUpdateOne) check() error {
 			return &ValidationError{Name: "fallback_mode", err: fmt.Errorf(`ent: validator failed for field "Proxy.fallback_mode": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.HealthStatus(); ok {
+		if err := proxy.HealthStatusValidator(v); err != nil {
+			return &ValidationError{Name: "health_status", err: fmt.Errorf(`ent: validator failed for field "Proxy.health_status": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.HealthConsecutiveFailures(); ok {
+		if err := proxy.HealthConsecutiveFailuresValidator(v); err != nil {
+			return &ValidationError{Name: "health_consecutive_failures", err: fmt.Errorf(`ent: validator failed for field "Proxy.health_consecutive_failures": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -1105,6 +1296,27 @@ func (_u *ProxyUpdateOne) sqlSave(ctx context.Context) (_node *Proxy, err error)
 	}
 	if value, ok := _u.mutation.AddedExpiryWarnDays(); ok {
 		_spec.AddField(proxy.FieldExpiryWarnDays, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.HealthStatus(); ok {
+		_spec.SetField(proxy.FieldHealthStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.HealthConsecutiveFailures(); ok {
+		_spec.SetField(proxy.FieldHealthConsecutiveFailures, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedHealthConsecutiveFailures(); ok {
+		_spec.AddField(proxy.FieldHealthConsecutiveFailures, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.LastHealthCheckAt(); ok {
+		_spec.SetField(proxy.FieldLastHealthCheckAt, field.TypeTime, value)
+	}
+	if _u.mutation.LastHealthCheckAtCleared() {
+		_spec.ClearField(proxy.FieldLastHealthCheckAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.LastHealthError(); ok {
+		_spec.SetField(proxy.FieldLastHealthError, field.TypeString, value)
+	}
+	if _u.mutation.LastHealthErrorCleared() {
+		_spec.ClearField(proxy.FieldLastHealthError, field.TypeString)
 	}
 	if _u.mutation.AccountsCleared() {
 		edge := &sqlgraph.EdgeSpec{

@@ -1,7 +1,9 @@
 package admin
 
 import (
+	"context"
 	"strings"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/Wei-Shaw/sub2api/internal/shared/response"
@@ -193,6 +195,29 @@ func (h *SettingHandler) UpdateRateLimit429CooldownSettings(c *gin.Context) {
 	})
 }
 
+func (h *SettingHandler) GetOAuth401CleanupSettings(c *gin.Context) {
+	settings, err := h.settingService.GetOAuth401CleanupSettings(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, dto.OAuth401CleanupSettings{Enabled: settings.Enabled})
+}
+
+func (h *SettingHandler) UpdateOAuth401CleanupSettings(c *gin.Context) {
+	var req dto.OAuth401CleanupSettings
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	settings := &service.OAuth401CleanupSettings{Enabled: req.Enabled}
+	if err := h.settingService.SetOAuth401CleanupSettings(c.Request.Context(), settings); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.Success(c, dto.OAuth401CleanupSettings{Enabled: settings.Enabled})
+}
+
 // GetGlobalTempUnschedulableSettings 获取全局临时不可调度配置
 // GET /api/v1/admin/settings/temp-unschedulable
 func (h *SettingHandler) GetGlobalTempUnschedulableSettings(c *gin.Context) {
@@ -240,7 +265,26 @@ func (h *SettingHandler) GetCodexSimulationSettings(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, codexSimulationSettingsDTO(settings))
+	response.Success(c, h.codexSimulationSettingsDTO(c, settings))
+}
+
+// GetStateDiagnostics returns redacted runtime state diagnostics for the
+// dedicated admin page. It never returns Turn State or encrypted_content
+// values.
+// GET /api/v1/admin/state-diagnostics
+func (h *SettingHandler) GetStateDiagnostics(c *gin.Context) {
+	if h.openAIGatewayService == nil {
+		response.Success(c, dto.CodexTurnStateObservability{GeneratedAt: time.Now().UTC(), Scope: "current_node", Items: []dto.CodexTurnStateObservation{}})
+		return
+	}
+	response.Success(c, codexTurnStateObservabilityDTO(h.openAIGatewayService.CodexTurnStateObservability(c.Request.Context())))
+}
+
+// GetCodexTurnStateObservability keeps the settings endpoint as a compatibility
+// alias for older admin clients.
+// GET /api/v1/admin/settings/codex-simulation/observability
+func (h *SettingHandler) GetCodexTurnStateObservability(c *gin.Context) {
+	h.GetStateDiagnostics(c)
 }
 
 // UpdateCodexSimulationSettings persists an explicit DB override. The service
@@ -282,10 +326,60 @@ func (h *SettingHandler) UpdateCodexSimulationSettings(c *gin.Context) {
 	if req.CodexPrewarmContinuationForceEnabled != nil {
 		prewarmForceEnabled = *req.CodexPrewarmContinuationForceEnabled
 	}
+	experimentalTransportEnabled := current.ExperimentalTransportEnabled
+	if req.ExperimentalTransportEnabled != nil {
+		experimentalTransportEnabled = *req.ExperimentalTransportEnabled
+	}
+	turnStateReplayEnabled := current.TurnStateReplayEnabled
+	if req.TurnStateReplayEnabled != nil {
+		turnStateReplayEnabled = *req.TurnStateReplayEnabled
+	}
+	turnStateAutoReplayEnabled := current.TurnStateAutoReplayEnabled
+	if req.TurnStateAutoReplayEnabled != nil {
+		turnStateAutoReplayEnabled = *req.TurnStateAutoReplayEnabled
+	}
+	turnStateProxyProbeEnabled := current.TurnStateProxyProbeEnabled
+	if req.TurnStateProxyProbeEnabled != nil {
+		turnStateProxyProbeEnabled = *req.TurnStateProxyProbeEnabled
+	}
+	turnStateProbeProxyID := current.TurnStateProbeProxyID
+	if req.TurnStateProbeProxyID != nil {
+		value := *req.TurnStateProbeProxyID
+		if value <= 0 {
+			turnStateProbeProxyID = nil
+		} else {
+			turnStateProbeProxyID = &value
+		}
+	}
+	turnStateTargetLength := current.TurnStateTargetLength
+	if req.TurnStateTargetLength != nil {
+		if *req.TurnStateTargetLength < 1 || *req.TurnStateTargetLength > 8192 {
+			response.BadRequest(c, "turn_state_target_length must be between 1 and 8192")
+			return
+		}
+		turnStateTargetLength = *req.TurnStateTargetLength
+	}
+	turnStateWatchModels := current.TurnStateWatchModels
+	if req.TurnStateWatchModels != nil {
+		turnStateWatchModels = *req.TurnStateWatchModels
+	}
+	turnStates := current.TurnStates
+	if req.TurnStates != nil {
+		turnStates = *req.TurnStates
+	}
 	settings, err := h.settingService.SetCodexSimulationSettings(c.Request.Context(), &service.CodexSimulationSettings{
 		FullSimulationEnabled:                *req.FullSimulationEnabled,
 		CLevelSimulationEnabled:              cLevelEnabled,
+		ExperimentalTransportEnabled:         experimentalTransportEnabled,
 		CodexPrewarmContinuationForceEnabled: prewarmForceEnabled,
+		TurnStateReplayEnabled:               turnStateReplayEnabled,
+		TurnStateAutoReplayEnabled:           turnStateAutoReplayEnabled,
+		TurnStateProxyProbeEnabled:           turnStateProxyProbeEnabled,
+		TurnStateProbeProxyID:                turnStateProbeProxyID,
+		TurnStateTargetLength:                turnStateTargetLength,
+		TurnStateWatchModels:                 turnStateWatchModels,
+		TurnStates:                           turnStates,
+		TurnStateAccountIDs:                  current.TurnStateAccountIDs,
 		ContinuationMode:                     mode,
 		StateTTLSeconds:                      *req.StateTTLSeconds,
 	})
@@ -293,7 +387,19 @@ func (h *SettingHandler) UpdateCodexSimulationSettings(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, codexSimulationSettingsDTO(settings))
+	response.Success(c, h.codexSimulationSettingsDTO(c, settings))
+}
+
+// SyncCodexTurnStates copies states captured by healthy account-quality probes
+// into the replay pool while retaining manual, globally applicable entries.
+// POST /api/v1/admin/settings/codex-simulation/sync-turn-states
+func (h *SettingHandler) SyncCodexTurnStates(c *gin.Context) {
+	settings, err := h.settingService.SyncCodexTurnStatesFromAccountQuality(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, h.codexSimulationSettingsDTO(c, settings))
 }
 
 // RestoreOriginalCodexBehavior is the fail-safe control-plane action. It does
@@ -305,21 +411,54 @@ func (h *SettingHandler) RestoreOriginalCodexBehavior(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, codexSimulationSettingsDTO(settings))
+	response.Success(c, h.codexSimulationSettingsDTO(c, settings))
 }
 
-func codexSimulationSettingsDTO(settings *service.CodexSimulationSettings) dto.CodexSimulationSettings {
+func (h *SettingHandler) codexSimulationSettingsDTO(c *gin.Context, settings *service.CodexSimulationSettings) dto.CodexSimulationSettings {
 	if settings == nil {
 		return dto.CodexSimulationSettings{}
+	}
+	var observability *dto.CodexTurnStateObservability
+	if h != nil && h.openAIGatewayService != nil {
+		ctx := context.Background()
+		if c != nil && c.Request != nil {
+			ctx = c.Request.Context()
+		}
+		value := codexTurnStateObservabilityDTO(h.openAIGatewayService.CodexTurnStateObservability(ctx))
+		observability = &value
 	}
 	return dto.CodexSimulationSettings{
 		FullSimulationEnabled:                settings.FullSimulationEnabled,
 		CLevelSimulationEnabled:              settings.CLevelSimulationEnabled,
+		ExperimentalTransportEnabled:         settings.ExperimentalTransportEnabled,
 		CodexPrewarmContinuationForceEnabled: settings.CodexPrewarmContinuationForceEnabled,
+		TurnStateReplayEnabled:               settings.TurnStateReplayEnabled,
+		TurnStateAutoReplayEnabled:           settings.TurnStateAutoReplayEnabled,
+		TurnStateProxyProbeEnabled:           settings.TurnStateProxyProbeEnabled,
+		TurnStateProbeProxyID:                settings.TurnStateProbeProxyID,
+		TurnStateTargetLength:                settings.TurnStateTargetLength,
+		TurnStateWatchModels:                 append([]string{}, settings.TurnStateWatchModels...),
+		TurnStates:                           append([]string{}, settings.TurnStates...),
 		ContinuationMode:                     settings.ContinuationMode,
 		StateTTLSeconds:                      settings.StateTTLSeconds,
 		IdentitySecretConfigured:             settings.IdentitySecretConfigured(),
+		TurnStateObservability:               observability,
 	}
+}
+
+func codexTurnStateObservabilityDTO(snapshot service.CodexTurnStateObservabilitySnapshot) dto.CodexTurnStateObservability {
+	items := make([]dto.CodexTurnStateObservation, 0, len(snapshot.Items))
+	for _, item := range snapshot.Items {
+		items = append(items, dto.CodexTurnStateObservation{
+			AccountID: item.AccountID, Model: item.Model, Source: item.Source, ProxyEnabled: item.ProxyEnabled,
+			LastSeenAt: item.LastSeenAt, LastResponseAt: item.LastResponseAt, LastResponseHadState: item.LastResponseHadState, LastAcceptedAt: item.LastAcceptedAt, StateDigest: item.StateDigest, LengthMatch: item.LengthMatch,
+			State:            dto.CodexTurnStateTokenMetadata{Valid: item.State.Valid, Expired: item.State.Expired, Version: item.State.Version, VersionHex: item.State.VersionHex, TokenCharacters: item.State.TokenCharacters, TokenBytes: item.State.TokenBytes, TokenBytesKnown: item.State.TokenBytesKnown, IssuedAt: item.State.IssuedAt, EstimatedExpiresAt: item.State.EstimatedExpiresAt, ParseError: item.State.ParseError},
+			EncryptedContent: dto.CodexEncryptedContentObservation{LastBytes: item.EncryptedContent.LastBytes, LastBytesKnown: item.EncryptedContent.LastBytesKnown, BaselineBytes: item.EncryptedContent.BaselineBytes, DeltaBytes: item.EncryptedContent.DeltaBytes, Classification: item.EncryptedContent.Classification, LastObservedAt: item.EncryptedContent.LastObservedAt},
+			Rotation:         dto.CodexTurnStateRotationObservation{Count: item.Rotation.Count, LastAt: item.Rotation.LastAt, LastReason: item.Rotation.LastReason},
+			Probe:            dto.CodexTurnStateProbeObservation{MissingSince: item.Probe.MissingSince, LastHealthyAt: item.Probe.LastHealthyAt, NextProbeAt: item.Probe.NextProbeAt, InFlight: item.Probe.InFlight, Recovering: item.Probe.Recovering},
+		})
+	}
+	return dto.CodexTurnStateObservability{GeneratedAt: snapshot.GeneratedAt, Scope: snapshot.Scope, Enabled: snapshot.Enabled, TargetLength: snapshot.TargetLength, TokenTTLSeconds: snapshot.TokenTTLSeconds, Items: items}
 }
 
 // GetStreamTimeoutSettings 获取流超时处理配置

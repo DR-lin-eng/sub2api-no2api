@@ -89,8 +89,13 @@ const platformLabel = computed(() => {
   if (props.platform === 'anthropic') return 'Anthropic'
   if (props.platform === 'openai') return 'OpenAI'
   if (props.platform === 'antigravity') return 'Antigravity'
-  if (props.platform === 'grok') return 'Grok'
-  return 'Gemini'
+    if (props.platform === 'grok') return 'Grok'
+    if (props.platform === 'kimi') return 'Kimi'
+    if (props.platform === 'zhipu') return 'Zhipu GLM'
+    if (props.platform === 'deepseek') return 'DeepSeek'
+    if (props.platform === 'minimax') return 'MiniMax'
+    if (props.platform === 'opencode_go') return 'OpenCode'
+    return 'Gemini'
 })
 
 const normalizedAuthMode = computed(() =>
@@ -184,9 +189,14 @@ const platformClass = computed(() => {
   if (props.platform === 'antigravity') {
     return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
   }
-  if (props.platform === 'grok') {
-    return 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
-  }
+    if (props.platform === 'grok') {
+      return 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
+    }
+    if (props.platform === 'kimi') return 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300'
+    if (props.platform === 'zhipu') return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
+    if (props.platform === 'deepseek') return 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300'
+    if (props.platform === 'minimax') return 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
+    if (props.platform === 'opencode_go') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
   return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
 })
 
@@ -200,9 +210,14 @@ const typeClass = computed(() => {
   if (props.platform === 'antigravity') {
     return 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'
   }
-  if (props.platform === 'grok') {
-    return 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'
-  }
+    if (props.platform === 'grok') {
+      return 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'
+    }
+    if (props.platform === 'kimi') return 'bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-300'
+    if (props.platform === 'zhipu') return 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300'
+    if (props.platform === 'deepseek') return 'bg-cyan-100 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-300'
+    if (props.platform === 'minimax') return 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-300'
+    if (props.platform === 'opencode_go') return 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-300'
   return 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
 })
 

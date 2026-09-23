@@ -112,7 +112,59 @@ export default {
         minutes: '{m}m',
         withSuffix: '{time} 后解除'
       }
-    }
+    },
+    accountQuality: {
+      passRate: "24h 通过率",
+      classified: "已判定的检测",
+      anomalies: "异常记录",
+      nextCheck: "距离下次检测",
+      lastCheck: "最近检测",
+      frequency: "每 {minutes} 分钟自动检测",
+      effort: "思考强度",
+      timezone: "北京时间 UTC+8",
+      conversations: "检测对话与作品",
+      evidenceHint: "查看真实回答、对话 ID 与动画预览 · 最近 24 小时最多 200 条",
+      filter: "筛选",
+      all: "全部记录",
+      images: "图片作品",
+      loadMore: "加载更多",
+      details: "查看检测详情",
+      conversationId: "对话 ID",
+      responseId: "响应 ID",
+      runId: "检测编号",
+      idUnavailable: "上游未返回对话 ID",
+      answer: "回答内容",
+      noAnswer: "暂无回答内容",
+      noStage: "该阶段未执行，或历史记录尚未保存详情",
+      stage1: "第一阶段 · 文字题",
+      stage2: "第二阶段 · 画图题",
+      preview: "本次检测生成的动画预览",
+      noPreview: "本条记录暂无可用图片",
+      enlarge: "放大图片并查看对话",
+      truncated: "回答较长，仅保存并展示前 16 KiB。",
+      codeMatchScore: '代码匹配 {score}/100 · 阈值 {threshold}',
+      modelAMatched: '命中 Model A',
+      modelANotMatched: '未命中 Model A',
+      modelANormal: '命中为正常',
+      otherNormal: '未命中为正常',
+      codeMatchHint: '根据生成代码的结构特征评分，表示代码相似度。',
+      matchedSignals: '命中特征',
+      previewFailed: '预览生成失败，代码匹配结果已保留。',
+      previewUnavailable: '预览将在浏览器中生成。',
+      incompleteDrawing: '画图回答不完整，已按已收到的代码完成分析。',
+      outputInterrupted: '输出被中断，分析可能错误。',
+      signals: { trig: '三角函数与逐帧动画', reuse: 'SVG 组件复用', motion: '减少动态效果支持', pause: '播放／暂停按钮', title: 'SVG 标题与说明', visibility: '页面可见性监听', naming: '多词连字符命名', palette: '无 :root 样式声明', scene: '无指定的 HTML 背景类' },
+      reasoningTokens: "Reasoning tokens",
+      due: "等待下一轮",
+
+      eyebrow: '模型质量', title: '账号级模型质量监控', subtitle: '模型质量检测',
+      refresh: '刷新结果', refreshing: '刷新中…', recent: '最近 24 小时',
+      total: '24h 检测', totalNote: '次账号级检测', passed: '正常', passedNote: '启用阶段均通过',
+      degraded: '降智', degradedNote: '答题或画图检测未通过', uncertain: '待确认', uncertainNote: '检测证据不足',
+      errors: '请求失败', errorsNote: '未计入分类', timeline: '24 小时检测时间线', timelineNote: '点击色块查看对话、回答与图片',
+      empty: '暂无公开检测记录', normal: '正常', abnormal: '降智', waiting: '待确认', failed: '请求失败',
+      footer: '每 {minutes} 分钟自动检测 · 每 20 秒刷新记录 · 回答仅作文本展示', qualityDisabled: '质量监控暂未公开或暂时无法读取。',
+    },
   },
 
   adminCompliance: {
@@ -159,7 +211,6 @@ export default {
       registerRequiredWarning: '请先阅读并同意最新条款后再注册。'
     }
   },
-
   // Navigation
   nav: {
     dashboard: '仪表盘',
@@ -183,6 +234,8 @@ export default {
     subscriptions: '订阅管理',
     accounts: '账号管理',
     accountInspection: '账号巡检',
+    accountQuality: '质量巡检',
+    stateDiagnostics: 'State 诊断',
     customModelConfig: '自定义模型配置',
     proxies: 'IP管理',
     ipv6Egress: 'IPv6 出口',
@@ -476,6 +529,22 @@ export default {
   },
 
   // Step-up（敏感操作二次验证）
+  oauth2Consent: {
+    pageTitle: '应用授权',
+    title: '确认应用授权',
+    requestedBy: '申请访问的应用',
+    redirectTo: '授权后返回',
+    permissions: '申请的权限',
+    allow: '允许',
+    deny: '拒绝',
+    invalidRequest: '授权请求无效或已失效',
+    submitFailed: '提交授权结果失败',
+    invalidRedirect: '授权回调地址无效',
+    scopes: {
+      profile: { label: '基本资料', description: '读取您的稳定标识和公开用户名' },
+      email: { label: '邮箱地址', description: '读取您的账号邮箱地址' },
+    },
+  },
   stepUp: {
     title: '需要二次验证',
     hint: '请输入身份验证器应用中的 6 位验证码以继续此敏感操作。',

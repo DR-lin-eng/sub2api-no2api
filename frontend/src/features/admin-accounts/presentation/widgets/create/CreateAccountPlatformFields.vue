@@ -24,97 +24,24 @@
       <!-- Platform Selection - Segmented Control Style -->
       <div>
         <label class="input-label">{{ t('admin.accounts.platform') }}</label>
-        <div class="mt-2 flex flex-wrap rounded-lg bg-gray-100 p-1 dark:bg-dark-700" data-tour="account-form-platform">
-          <button
-            type="button"
-            @click="form.platform = 'anthropic'"
-            :class="[
-              'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
-              form.platform === 'anthropic'
-                ? 'bg-white text-orange-600 shadow-sm dark:bg-dark-600 dark:text-orange-400'
-                : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
-            ]"
-          >
-            <Icon name="sparkles" size="sm" />
-            Anthropic
-          </button>
-          <button
-            type="button"
-            @click="form.platform = 'openai'"
-            :class="[
-              'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
-              form.platform === 'openai'
-                ? 'bg-white text-green-600 shadow-sm dark:bg-dark-600 dark:text-green-400'
-                : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
-            ]"
-          >
-            <svg
-              class="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              stroke-width="1.5"
+          <div class="mt-2 grid grid-cols-2 gap-1 rounded-lg bg-gray-100 p-1 sm:grid-cols-3 lg:grid-cols-5 dark:bg-dark-700" data-tour="account-form-platform">
+            <button
+              v-for="option in accountPlatformOptions"
+              :key="option.value"
+              type="button"
+              :data-testid="`account-platform-${option.value}`"
+              @click="form.platform = option.value"
+              :class="[
+                'flex min-w-0 items-center justify-center gap-2 rounded-md px-3 py-2.5 text-sm font-medium transition-all',
+                form.platform === option.value
+                  ? `bg-white shadow-sm dark:bg-dark-600 ${option.activeClass}`
+                  : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
+              ]"
             >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"
-              />
-            </svg>
-            OpenAI
-          </button>
-          <button
-            type="button"
-            @click="form.platform = 'gemini'"
-            :class="[
-              'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
-              form.platform === 'gemini'
-                ? 'bg-white text-blue-600 shadow-sm dark:bg-dark-600 dark:text-blue-400'
-                : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
-            ]"
-          >
-            <svg
-              class="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              stroke-width="1.5"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M12 2l1.5 6.5L20 10l-6.5 1.5L12 18l-1.5-6.5L4 10l6.5-1.5L12 2z"
-              />
-            </svg>
-            Gemini
-          </button>
-          <button
-            type="button"
-            @click="form.platform = 'antigravity'"
-            :class="[
-              'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
-              form.platform === 'antigravity'
-                ? 'bg-white text-purple-600 shadow-sm dark:bg-dark-600 dark:text-purple-400'
-                : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
-            ]"
-          >
-            <Icon name="cloud" size="sm" />
-            Antigravity
-          </button>
-          <button
-            type="button"
-            @click="form.platform = 'grok'"
-            :class="[
-              'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
-              form.platform === 'grok'
-                ? 'bg-white text-zinc-900 shadow-sm dark:bg-dark-600 dark:text-zinc-100'
-                : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
-            ]"
-          >
-            <PlatformIcon platform="grok" size="sm" />
-            Grok
-          </button>
-        </div>
+              <PlatformIcon :platform="option.value" size="sm" />
+              <span class="truncate">{{ option.label }}</span>
+            </button>
+          </div>
       </div>
 
       <!-- Account Type Selection (Anthropic) -->
@@ -363,9 +290,47 @@
             </div>
           </button>
         </div>
-      </div>
+        </div>
 
-      <!-- Account Type Selection (Gemini) -->
+        <div v-if="isCNAccountPlatform(form.platform)">
+          <label class="input-label">{{ t('admin.accounts.accountType') }}</label>
+          <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2" data-tour="account-form-type">
+            <button
+              type="button"
+              class="flex items-center gap-3 rounded-lg border-2 border-primary-500 bg-primary-50 p-3 text-left dark:bg-primary-900/20"
+              @click="accountCategory = 'apikey'"
+            >
+              <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-600 text-white">
+                <Icon name="key" size="sm" />
+              </div>
+              <div>
+                <span class="block text-sm font-medium text-gray-900 dark:text-white">API Key</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">OpenAI-compatible</span>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <div v-if="form.platform === 'opencode_go'">
+          <label class="input-label">{{ t('admin.accounts.accountType') }}</label>
+          <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2" data-tour="account-form-type">
+            <button
+              type="button"
+              class="flex items-center gap-3 rounded-lg border-2 border-amber-500 bg-amber-50 p-3 text-left dark:bg-amber-900/20"
+              @click="accountCategory = 'apikey'"
+            >
+              <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white">
+                <Icon name="key" size="sm" />
+              </div>
+              <div>
+                <span class="block text-sm font-medium text-gray-900 dark:text-white">API Key</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">Zen / Go multi-protocol</span>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Account Type Selection (Gemini) -->
       <div v-if="form.platform === 'gemini'">
         <div class="flex items-center justify-between">
           <label class="input-label">{{ t('admin.accounts.accountType') }}</label>
@@ -1029,7 +994,22 @@
 <script setup lang="ts">
 import Icon from '@/common/widgets/icons/Icon.vue'
 import PlatformIcon from '@/common/widgets/icons/PlatformIcon.vue'
+import type { AccountPlatform } from '@/types'
+import { isCNAccountPlatform } from '@/core/constants/account'
 import type { CreateAccountPlatformContext } from '../../accountEditorContext'
+
+const accountPlatformOptions: Array<{ value: AccountPlatform; label: string; activeClass: string }> = [
+  { value: 'anthropic', label: 'Anthropic', activeClass: 'text-orange-600 dark:text-orange-400' },
+  { value: 'openai', label: 'OpenAI', activeClass: 'text-emerald-600 dark:text-emerald-400' },
+  { value: 'gemini', label: 'Gemini', activeClass: 'text-blue-600 dark:text-blue-400' },
+  { value: 'antigravity', label: 'Antigravity', activeClass: 'text-purple-600 dark:text-purple-400' },
+  { value: 'grok', label: 'Grok', activeClass: 'text-zinc-900 dark:text-zinc-100' },
+  { value: 'kimi', label: 'Kimi', activeClass: 'text-pink-700 dark:text-pink-300' },
+  { value: 'zhipu', label: 'Zhipu GLM', activeClass: 'text-indigo-700 dark:text-indigo-300' },
+  { value: 'deepseek', label: 'DeepSeek', activeClass: 'text-cyan-700 dark:text-cyan-300' },
+  { value: 'minimax', label: 'MiniMax', activeClass: 'text-rose-700 dark:text-rose-300' },
+  { value: 'opencode_go', label: 'OpenCode', activeClass: 'text-amber-700 dark:text-amber-300' },
+]
 
 const props = defineProps<{ context: CreateAccountPlatformContext }>()
 const { VERTEX_LOCATION_OPTIONS, accountCategory, addAntigravityModelMapping, addAntigravityPresetMapping, antigravityAccountType, antigravityModelMappings, antigravityPresetMappings, antigravityProjectId, form, geminiAIStudioOAuthEnabled, geminiHelpLinks, geminiOAuthType, geminiTierAIStudio, geminiTierGcp, geminiTierGoogleOne, getAntigravityModelMappingKey, handleSelectGeminiOAuthType, handleVertexServiceAccountDrop, handleVertexServiceAccountFile, isGrokSSOInputMethod, isValidWildcardPattern, removeAntigravityModelMapping, showAdvancedOAuth, showGeminiHelpDialog, t, upstreamApiKey, upstreamBaseUrl, vertexClientEmail, vertexLocation, vertexProjectId, vertexServiceAccountDragActive, vertexServiceAccountFileInput } = props.context

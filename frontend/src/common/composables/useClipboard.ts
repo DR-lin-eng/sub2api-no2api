@@ -24,9 +24,11 @@ function fallbackCopy(text: string): boolean {
   textarea.focus({ preventScroll: true })
   textarea.select()
   textarea.setSelectionRange(0, textarea.value.length)
-  try {
-    return document.execCommand('copy')
-  } finally {
+	try {
+		return document.execCommand('copy')
+	} catch {
+		return false
+	} finally {
     document.body.removeChild(textarea)
   }
 }

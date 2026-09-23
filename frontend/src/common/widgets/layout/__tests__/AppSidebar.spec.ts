@@ -86,6 +86,13 @@ describe('AppSidebar activity center feature switch', () => {
   })
 })
 
+describe('AppSidebar announcement permission', () => {
+  it('shows announcement management only to the dedicated permission', () => {
+    expect(componentSource).toContain("path: '/admin/announcements'")
+    expect(componentSource).toContain("path: '/admin/announcements', label: t('nav.announcements'), icon: BellIcon, permission: 'announcements.manage'")
+  })
+})
+
 
 describe('AppSidebar active group override', () => {
   it('allows explicit collapse on an active route', () => {

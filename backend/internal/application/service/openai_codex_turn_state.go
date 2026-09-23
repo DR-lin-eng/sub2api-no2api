@@ -54,6 +54,7 @@ func (s *OpenAIGatewayService) relayOpenAICodexTurnState(c *gin.Context, account
 	}
 	key := http.CanonicalHeaderKey(openAICodexTurnStateHeader)
 	state := extractOpenAICodexTurnState(upstream)
+	s.observeOpenAICodexTurnState(context.Background(), c, account, openAICodexTurnStateModel(c), state)
 	if state == "" {
 		c.Writer.Header().Del(key)
 		return
@@ -90,10 +91,11 @@ func (s *OpenAIGatewayService) noteStagedOpenAICodexTurnStateCommitted(c *gin.Co
 }
 
 func (s *OpenAIGatewayService) bindStagedOpenAICodexTurnState(c *gin.Context, account *Account, staged http.Header) {
-	if s == nil || c == nil || account == nil || !account.IsOpenAIOAuth() || staged == nil {
+	if s == nil || c == nil || account == nil || !account.IsOpenAIOAuth() {
 		return
 	}
 	state := extractOpenAICodexTurnState(staged)
+	s.observeOpenAICodexTurnState(context.Background(), c, account, openAICodexTurnStateModel(c), state)
 	if state == "" {
 		return
 	}
@@ -238,6 +240,21 @@ func (s *OpenAIGatewayService) guardOpenAICodexTurnStateEcho(c *gin.Context, acc
 	if origin.accountID != account.ID {
 		headers.Del(openAICodexTurnStateHeader)
 	}
+}
+
+// applyConfiguredCodexTurnStateReplay force-selects one administrator-managed
+// state for each OAuth request. Account-bound states only participate for the
+// account that captured them; manually entered states remain globally usable.
+func (s *OpenAIGatewayService) applyConfiguredCodexTurnStateReplay(c *gin.Context, account *Account, headers http.Header) {
+	if headers == nil {
+		return
+	}
+	state := s.resolveCodexTurnStateReplay(c, account, openAICodexTurnStateModel(c), extractOpenAICodexTurnState(headers))
+	if state != "" {
+		headers.Set(openAICodexTurnStateHeader, state)
+		return
+	}
+	headers.Del(openAICodexTurnStateHeader)
 }
 
 func (s *OpenAIGatewayService) sweepOpenAICodexTurnStateOrigins() {

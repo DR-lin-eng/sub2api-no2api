@@ -23,6 +23,7 @@ export function mergeRuntimeFields(oldAccount: Account, updatedAccount: Account)
   return {
     ...updatedAccount,
     current_concurrency: updatedAccount.current_concurrency ?? oldAccount.current_concurrency,
+    session_id_growth_per_minute: updatedAccount.session_id_growth_per_minute ?? oldAccount.session_id_growth_per_minute,
     current_window_cost: updatedAccount.current_window_cost ?? oldAccount.current_window_cost,
     active_sessions: updatedAccount.active_sessions ?? oldAccount.active_sessions,
     cpa_capacity: updatedAccount.cpa_capacity ?? oldAccount.cpa_capacity,

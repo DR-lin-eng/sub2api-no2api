@@ -11,6 +11,7 @@ import ingressRisk from './ingressRisk'
 import egress from './egress'
 import customModelConfig from './customModelConfig'
 import accountInspection from './accountInspection'
+import stateDiagnostics from './stateDiagnostics'
 
 export default {
   ...overview,
@@ -26,4 +27,5 @@ export default {
   ...egress,
   ...accountInspection,
   customModelConfig,
+  ...stateDiagnostics,
 }

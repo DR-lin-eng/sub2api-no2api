@@ -127,16 +127,83 @@ export interface RateLimit429CooldownSettings {
   auto_enable_when_quota_available_enabled: boolean;
 }
 
+export interface OAuth401CleanupSettings {
+  enabled: boolean;
+}
+
 export interface GlobalTempUnschedulableSettings {
   enabled: boolean;
 }
 
 export type CodexContinuationMode = "off" | "shadow" | "enforce";
 
+export interface CodexTurnStateObservation {
+  account_id: number;
+  model: string;
+  source: string;
+  proxy_enabled: boolean;
+  last_seen_at?: string;
+  last_response_at?: string;
+  last_response_had_state: boolean;
+  last_accepted_at?: string;
+  state_digest?: string;
+  length_match: boolean;
+  state: {
+    valid: boolean;
+    expired: boolean;
+    version: number;
+    version_hex?: string;
+    token_characters: number;
+    token_bytes: number;
+    token_bytes_known: boolean;
+    issued_at?: string;
+    estimated_expires_at?: string;
+    parse_error?: string;
+  };
+  encrypted_content: {
+    last_bytes: number;
+    last_bytes_known: boolean;
+    baseline_bytes: number;
+    delta_bytes: number;
+    classification: string;
+    last_observed_at?: string;
+  };
+  rotation: {
+    count: number;
+    last_at?: string;
+    last_reason?: string;
+  };
+  probe: {
+    missing_since?: string;
+    last_healthy_at?: string;
+    next_probe_at?: string;
+    in_flight: boolean;
+    recovering: boolean;
+  };
+}
+
+export interface CodexTurnStateObservability {
+  generated_at: string;
+  scope: "current_node";
+  enabled: boolean;
+  target_length: number;
+  token_ttl_seconds: number;
+  items: CodexTurnStateObservation[];
+}
+
 export interface CodexSimulationSettings {
   full_simulation_enabled: boolean;
   c_level_simulation_enabled?: boolean;
+  experimental_transport_enabled?: boolean;
   codex_prewarm_continuation_force_enabled?: boolean;
+  turn_state_replay_enabled: boolean;
+  turn_state_auto_replay_enabled: boolean;
+  turn_state_proxy_probe_enabled?: boolean;
+  turn_state_probe_proxy_id?: number | null;
+  turn_state_target_length: number;
+  turn_state_watch_models: string[];
+  turn_states: string[];
+  turn_state_observability?: CodexTurnStateObservability;
   continuation_mode: CodexContinuationMode;
   state_ttl_seconds: number;
   identity_secret_configured: boolean;
@@ -144,7 +211,7 @@ export interface CodexSimulationSettings {
 
 export type UpdateCodexSimulationSettings = Omit<
   CodexSimulationSettings,
-  "identity_secret_configured"
+  "identity_secret_configured" | "turn_state_observability"
 >;
 
 export interface StreamTimeoutSettings {

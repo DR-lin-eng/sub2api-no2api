@@ -25,6 +25,7 @@ import (
 	"github.com/cespare/xxhash/v2"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
+	"golang.org/x/sync/singleflight"
 )
 
 const (
@@ -65,43 +66,45 @@ const (
 
 // OpenAI allowed headers whitelist (for non-passthrough).
 var openaiAllowedHeaders = map[string]bool{
-	"accept-language":         true,
-	"content-type":            true,
-	"conversation_id":         true,
-	"session-id":              true,
-	"user-agent":              true,
-	"originator":              true,
-	"session_id":              true,
-	"thread-id":               true,
-	"x-client-request-id":     true,
-	"x-codex-beta-features":   true,
-	"x-codex-installation-id": true,
-	"x-codex-turn-state":      true,
-	"x-codex-turn-metadata":   true,
-	"x-codex-window-id":       true,
-	responsesLiteHeaderKey:    true,
+	"accept-language":                       true,
+	"content-type":                          true,
+	"conversation_id":                       true,
+	"session-id":                            true,
+	"user-agent":                            true,
+	"originator":                            true,
+	"session_id":                            true,
+	"thread-id":                             true,
+	"x-client-request-id":                   true,
+	"x-codex-beta-features":                 true,
+	"x-codex-installation-id":               true,
+	"x-codex-turn-state":                    true,
+	"x-codex-turn-metadata":                 true,
+	"x-codex-window-id":                     true,
+	"x-responsesapi-include-timing-metrics": true,
+	responsesLiteHeaderKey:                  true,
 }
 
 // OpenAI passthrough allowed headers whitelist.
 // 透传模式下仅放行这些低风险请求头，避免将非标准/环境噪声头传给上游触发风控。
 var openaiPassthroughAllowedHeaders = map[string]bool{
-	"accept":                  true,
-	"accept-language":         true,
-	"content-type":            true,
-	"conversation_id":         true,
-	"session-id":              true,
-	"openai-beta":             true,
-	"user-agent":              true,
-	"originator":              true,
-	"session_id":              true,
-	"thread-id":               true,
-	"x-client-request-id":     true,
-	"x-codex-beta-features":   true,
-	"x-codex-installation-id": true,
-	"x-codex-turn-state":      true,
-	"x-codex-turn-metadata":   true,
-	"x-codex-window-id":       true,
-	responsesLiteHeaderKey:    true,
+	"accept":                                true,
+	"accept-language":                       true,
+	"content-type":                          true,
+	"conversation_id":                       true,
+	"session-id":                            true,
+	"openai-beta":                           true,
+	"user-agent":                            true,
+	"originator":                            true,
+	"session_id":                            true,
+	"thread-id":                             true,
+	"x-client-request-id":                   true,
+	"x-codex-beta-features":                 true,
+	"x-codex-installation-id":               true,
+	"x-codex-turn-state":                    true,
+	"x-codex-turn-metadata":                 true,
+	"x-codex-window-id":                     true,
+	"x-responsesapi-include-timing-metrics": true,
+	responsesLiteHeaderKey:                  true,
 }
 
 // codex_cli_only 拒绝时记录的请求头白名单（仅用于诊断日志，不参与上游透传）
@@ -463,6 +466,8 @@ type OpenAIGatewayService struct {
 	channelService          *ChannelService
 	balanceNotifyService    *BalanceNotifyService
 	settingService          *SettingService
+	proxyRepo               ProxyRepository
+	codexAutoProbeLock      LeaderLockCache
 	userPlatformQuotaRepo   UserPlatformQuotaRepository
 	customModelCapabilities CustomModelCapabilityResolver
 	liveAttestation         liveattestation.Provider
@@ -490,6 +495,13 @@ type OpenAIGatewayService struct {
 	openaiProxyStreamCircuit       *openAIProxyStreamCircuit
 	openaiProxyStreamFailOpenLogAt atomic.Int64
 	openaiContentSessions          *openAIContentSessionTracker
+	openAIWorkspaceRoutingEnabled  bool
+	openAIWorkspaceRoutingCache    sync.Map
+	openAIWorkspaceRoutingSF       singleflight.Group
+	sessionIDAdmissionCache        OpenAISessionIDAdmissionCache
+	oauthGatewayRateLimitCache     OpenAIOAuthGatewayRateLimitCache
+	sessionIDRateMetrics           *OpenAISessionIDRateMetrics
+	distillationCounterSource      distillationCounter
 
 	openaiWSFallbackUntil               sync.Map // key: int64(accountID), value: time.Time
 	openaiAccountRuntimeBlockUntil      sync.Map // key: int64(accountID), value: time.Time
@@ -510,10 +522,46 @@ type OpenAIGatewayService struct {
 	openaiCompatAnthropicDigestSessions boundedOpenAICompatSessionCache
 	// Tracks the account that minted the latest turn-state for each downstream
 	// API-key/session pair so failover cannot echo a known cross-account value.
-	openaiCodexTurnStateOrigins sync.Map
-	openaiCodexTurnStateWrites  atomic.Uint64
-	codexPrincipalUpstreamTotal atomic.Uint64
-	codexPrincipalLocalTotal    atomic.Uint64
+	openaiCodexTurnStateOrigins   sync.Map
+	openaiCodexTurnStateWrites    atomic.Uint64
+	codexAutoTurnStateMu          sync.RWMutex
+	codexAutoTurnStates           map[string]openAICodexAutoTurnStateBinding
+	codexAutoProbeMu              sync.Mutex
+	codexAutoProbeTargets         map[string]openAICodexAutoProbeTarget
+	codexAutoProbeOnce            sync.Once
+	codexAutoProbeCancel          context.CancelFunc
+	codexAutoProbeWG              sync.WaitGroup
+	codexAutoProbeWorkers         sync.WaitGroup
+	codexAutoProbeWakeOnce        sync.Once
+	codexAutoProbeWake            chan struct{}
+	codexAutoProbeStopped         atomic.Bool
+	codexAutoProbeProxyCursor     atomic.Uint64
+	codexTurnStateObservabilityMu sync.RWMutex
+	codexTurnStateObservability   map[string]codexTurnStateObservation
+	codexPrincipalUpstreamTotal   atomic.Uint64
+	codexPrincipalLocalTotal      atomic.Uint64
+	codexContextWindowMu          sync.Mutex
+	codexContextWindowIDs         sync.Map // key: account ID, value: account-scoped UUID
+}
+
+// SetDistillationCounter wires the shared Redis-backed request counter used by
+// distillation groups. It is intentionally a setter so existing test and
+// embedding constructors remain source-compatible.
+func (s *OpenAIGatewayService) SetDistillationCounter(source distillationCounter) {
+	if s != nil {
+		s.distillationCounterSource = source
+	}
+}
+
+func (s *OpenAIGatewayService) IsDistillationGroupRequest(c *gin.Context, account *Account) bool {
+	return isDistillationGroupRequest(c, account)
+}
+
+func (s *OpenAIGatewayService) DistillationSessionID(ctx context.Context, c *gin.Context, account *Account) (string, bool) {
+	if s == nil {
+		return "", false
+	}
+	return distillationSessionID(ctx, c, account, s.distillationCounterSource)
 }
 
 // NewOpenAIGatewayService creates a new OpenAIGatewayService
@@ -582,10 +630,17 @@ func NewOpenAIGatewayService(
 		codexSnapshotThrottle:   newAccountWriteThrottle(openAICodexSnapshotPersistMinInterval),
 		openaiModelTransient:    newOpenAIAccountModelTransientState(openAIModelTransientDefaultMax),
 		openaiStreamDegradation: newOpenAIStreamDegradationState(),
+		sessionIDRateMetrics:    DefaultOpenAISessionIDRateMetrics(),
 	}
 	svc.openaiWSResolver = newOpenAIWSProtocolResolver(cfg, func() bool {
 		return svc.isOpenAIWSModeRouterV2Enabled(context.Background())
 	})
+	if admissionCache, ok := cache.(OpenAISessionIDAdmissionCache); ok {
+		svc.sessionIDAdmissionCache = admissionCache
+	}
+	if rateLimitCache, ok := cache.(OpenAIOAuthGatewayRateLimitCache); ok {
+		svc.oauthGatewayRateLimitCache = rateLimitCache
+	}
 	if rateLimitService != nil {
 		rateLimitService.SetAccountRuntimeBlocker(svc)
 	}
@@ -715,7 +770,18 @@ func (s *OpenAIGatewayService) billingDeps() *billingDeps {
 // CloseOpenAIWSPool 关闭 OpenAI WebSocket 连接池的后台 worker 和空闲连接。
 // 应在应用优雅关闭时调用。
 func (s *OpenAIGatewayService) CloseOpenAIWSPool() {
-	if s != nil && s.openaiWSPool != nil {
+	if s == nil {
+		return
+	}
+	s.codexAutoProbeMu.Lock()
+	s.codexAutoProbeStopped.Store(true)
+	s.codexAutoProbeMu.Unlock()
+	if s.codexAutoProbeCancel != nil {
+		s.codexAutoProbeCancel()
+		s.codexAutoProbeWG.Wait()
+		s.codexAutoProbeWorkers.Wait()
+	}
+	if s.openaiWSPool != nil {
 		s.openaiWSPool.Close()
 	}
 }
@@ -1394,7 +1460,7 @@ func (s *OpenAIGatewayService) GetAccessToken(ctx context.Context, account *Acco
 			}
 			return apiKey, "apikey", nil
 		}
-		apiKey := account.GetOpenAIApiKey()
+		apiKey := account.GetOpenAIProtocolAPIKey()
 		if apiKey == "" {
 			return "", "", errors.New("api_key not found in credentials")
 		}

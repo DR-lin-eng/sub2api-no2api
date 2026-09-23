@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"testing"
@@ -34,6 +35,11 @@ type rateLimitAccountRepoStub struct {
 	lastModelRateID        int64
 	lastModelRateResetAt   time.Time
 	tempErr                error
+	deleteIDs              []int64
+	deleteCalls            int
+	deleteApplied          bool
+	deleteErr              error
+	deleteExpected         map[string]any
 }
 
 func (r *rateLimitAccountRepoStub) SetError(ctx context.Context, id int64, errorMsg string) error {
@@ -80,9 +86,269 @@ func (r *rateLimitAccountRepoStub) UpdateExtra(ctx context.Context, id int64, up
 	return nil
 }
 
+func (r *rateLimitAccountRepoStub) DeleteOAuthAccountIfCredentialsUnchanged(_ context.Context, _ int64, expected map[string]any) ([]int64, bool, error) {
+	r.deleteCalls++
+	r.deleteExpected = shallowCopyMap(expected)
+	return append([]int64(nil), r.deleteIDs...), r.deleteApplied, r.deleteErr
+}
+
 type tokenCacheInvalidatorRecorder struct {
 	accounts []*Account
 	err      error
+}
+
+type oauth401RuntimeCleanerRecorder struct {
+	deletedIDs []int64
+	clearedIDs []int64
+}
+
+func (*oauth401RuntimeCleanerRecorder) BlockAccountScheduling(*Account, time.Time, string) {}
+func (r *oauth401RuntimeCleanerRecorder) ClearAccountSchedulingBlock(accountID int64) {
+	r.clearedIDs = append(r.clearedIDs, accountID)
+}
+func (r *oauth401RuntimeCleanerRecorder) DeleteAccountRuntimeState(accountID int64) {
+	r.deletedIDs = append(r.deletedIDs, accountID)
+}
+
+func oauth401AutoDeleteSettingService(t *testing.T, enabled bool) *SettingService {
+	t.Helper()
+	repo := newMockSettingRepo()
+	payload, err := json.Marshal(OAuth401CleanupSettings{Enabled: enabled})
+	require.NoError(t, err)
+	repo.data[SettingKeyOAuth401CleanupSettings] = string(payload)
+	return NewSettingService(repo, &config.Config{})
+}
+
+func TestRateLimitService_HandleUpstreamError_OAuth401AutoDeletesWhenEnabled(t *testing.T) {
+	repo := &rateLimitAccountRepoStub{deleteIDs: []int64{901, 900}, deleteApplied: true}
+	invalidator := &tokenCacheInvalidatorRecorder{}
+	runtimeCleaner := &oauth401RuntimeCleanerRecorder{}
+	svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+	svc.SetSettingService(oauth401AutoDeleteSettingService(t, true))
+	svc.SetTokenCacheInvalidator(invalidator)
+	svc.SetAccountRuntimeBlocker(runtimeCleaner)
+	svc.SetAccountRuntimeStateCleaner(runtimeCleaner)
+	account := &Account{
+		ID:          900,
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Status:      StatusActive,
+		Schedulable: true,
+		Credentials: map[string]any{"access_token": "expired", "refresh_token": "rt-900", "_token_version": float64(7)},
+	}
+
+	shouldDisable := svc.HandleUpstreamError(context.Background(), account, http.StatusUnauthorized, http.Header{}, []byte(`{"error":{"message":"unauthorized"}}`))
+
+	require.True(t, shouldDisable)
+	require.Equal(t, 1, repo.deleteCalls)
+	require.Equal(t, account.Credentials, repo.deleteExpected)
+	require.Zero(t, repo.setErrorCalls)
+	require.Zero(t, repo.tempCalls)
+	require.Len(t, invalidator.accounts, 1)
+	require.Equal(t, []int64{901, 900}, runtimeCleaner.deletedIDs)
+	require.False(t, account.Schedulable)
+	require.Equal(t, StatusError, account.Status)
+}
+
+func TestRateLimitService_HandleUpstreamError_OAuth401AutoDeleteDefaultsOff(t *testing.T) {
+	repo := &rateLimitAccountRepoStub{deleteIDs: []int64{905}, deleteApplied: true}
+	svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+	svc.SetSettingService(oauth401AutoDeleteSettingService(t, false))
+	account := &Account{ID: 905, Platform: PlatformAnthropic, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Credentials: map[string]any{"refresh_token": "rt-905"}}
+
+	shouldDisable := svc.HandleUpstreamError(context.Background(), account, http.StatusUnauthorized, http.Header{}, []byte("unauthorized"))
+
+	require.True(t, shouldDisable)
+	require.Zero(t, repo.deleteCalls)
+	require.Equal(t, 1, repo.tempCalls, "the default-off policy must preserve existing OAuth recovery behavior")
+}
+
+func TestRateLimitService_HandleUpstreamError_OAuth401AutoDeleteExcludesNonOAuthAccounts(t *testing.T) {
+	tests := []struct {
+		name        string
+		accountType string
+		credentials map[string]any
+	}{
+		{
+			name:        "api_key",
+			accountType: AccountTypeAPIKey,
+			credentials: map[string]any{"api_key": "sk-test"},
+		},
+		{
+			name:        "setup_token",
+			accountType: AccountTypeSetupToken,
+			credentials: map[string]any{"setup_token": "setup-test"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &rateLimitAccountRepoStub{deleteIDs: []int64{906}, deleteApplied: true}
+			svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+			svc.SetSettingService(oauth401AutoDeleteSettingService(t, true))
+			account := &Account{
+				ID:          906,
+				Platform:    PlatformOpenAI,
+				Type:        tt.accountType,
+				Status:      StatusActive,
+				Schedulable: true,
+				Credentials: tt.credentials,
+			}
+
+			shouldDisable := svc.HandleUpstreamError(context.Background(), account, http.StatusUnauthorized, http.Header{}, []byte("unauthorized"))
+
+			require.True(t, shouldDisable)
+			require.Zero(t, repo.deleteCalls, "only direct type=oauth accounts may be auto-deleted")
+			require.Equal(t, 1, repo.setErrorCalls, "excluded account types must retain existing 401 handling")
+		})
+	}
+}
+
+func TestRateLimitService_HandleUpstreamError_OAuth401AutoDeleteCASMissPreservesReauthorizedAccount(t *testing.T) {
+	repo := &rateLimitAccountRepoStub{deleteApplied: false}
+	svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+	svc.SetSettingService(oauth401AutoDeleteSettingService(t, true))
+	account := &Account{ID: 902, Platform: PlatformGemini, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Credentials: map[string]any{"refresh_token": "stale"}}
+
+	shouldDisable := svc.HandleUpstreamError(context.Background(), account, http.StatusUnauthorized, http.Header{}, []byte("unauthorized"))
+
+	require.True(t, shouldDisable, "the stale request must fail over")
+	require.Equal(t, 1, repo.deleteCalls)
+	require.Zero(t, repo.setErrorCalls)
+	require.Zero(t, repo.tempCalls)
+	require.True(t, account.Schedulable, "the concurrently reauthorized account must remain available")
+}
+
+func TestOpenAIGatewayService_OAuth401AutoDeleteCASMissDoesNotBlockReauthorizedAccount(t *testing.T) {
+	repo := &rateLimitAccountRepoStub{deleteApplied: false}
+	rateLimits := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+	rateLimits.SetSettingService(oauth401AutoDeleteSettingService(t, true))
+	gateway := &OpenAIGatewayService{accountRepo: repo, rateLimitService: rateLimits}
+	rateLimits.SetAccountRuntimeBlocker(gateway)
+	account := &Account{
+		ID:          908,
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Status:      StatusActive,
+		Schedulable: true,
+		Credentials: map[string]any{"refresh_token": "stale"},
+	}
+
+	shouldDisable := gateway.handleOpenAIAccountUpstreamError(
+		context.Background(),
+		account,
+		http.StatusUnauthorized,
+		http.Header{},
+		[]byte("unauthorized"),
+	)
+
+	require.True(t, shouldDisable, "the request must still fail over")
+	require.Equal(t, 1, repo.deleteCalls)
+	require.False(t, gateway.isOpenAIAccountRuntimeBlocked(account), "new credentials must not inherit a stale request's runtime block")
+	require.True(t, account.Schedulable)
+}
+
+func TestOpenAIGatewayService_OAuth401AutoDeleteKeepsDedicatedDeleteBlock(t *testing.T) {
+	repo := &rateLimitAccountRepoStub{deleteIDs: []int64{909}, deleteApplied: true}
+	rateLimits := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+	rateLimits.SetSettingService(oauth401AutoDeleteSettingService(t, true))
+	gateway := &OpenAIGatewayService{accountRepo: repo, rateLimitService: rateLimits}
+	rateLimits.SetAccountRuntimeBlocker(gateway)
+	account := &Account{
+		ID:          909,
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Status:      StatusActive,
+		Schedulable: true,
+		Credentials: map[string]any{"refresh_token": "revoked"},
+	}
+
+	shouldDisable := gateway.handleOpenAIAccountUpstreamError(
+		context.Background(),
+		account,
+		http.StatusUnauthorized,
+		http.Header{},
+		[]byte("unauthorized"),
+	)
+
+	require.True(t, shouldDisable)
+	require.True(t, gateway.isOpenAIAccountRuntimeBlocked(account))
+	reason, ok := gateway.openaiAccountRuntimeBlockReason.Load(account.ID)
+	require.True(t, ok)
+	require.Equal(t, "oauth_401_deleted", reason, "generic upstream handling must not overwrite the deletion block")
+}
+
+func TestRateLimitService_HandleUpstreamError_OAuth401AutoDeletePrecedesBodyClassification(t *testing.T) {
+	repo := &insufficientBalanceAccountRepoStub{}
+	repo.deleteIDs = []int64{907}
+	repo.deleteApplied = true
+	svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+	svc.SetSettingService(oauth401AutoDeleteSettingService(t, true))
+	account := &Account{
+		ID:          907,
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Status:      StatusActive,
+		Schedulable: true,
+		Credentials: map[string]any{"refresh_token": "rt-907"},
+		Extra:       map[string]any{AutoDisableOnUpstreamInsufficientBalanceExtraKey: true},
+	}
+
+	shouldDisable := svc.HandleUpstreamError(
+		context.Background(),
+		account,
+		http.StatusUnauthorized,
+		http.Header{},
+		[]byte(`{"error":{"type":"billing_error","message":"insufficient balance"}}`),
+	)
+
+	require.True(t, shouldDisable)
+	require.Equal(t, 1, repo.deleteCalls)
+	require.Zero(t, repo.setSchedulableCalls, "HTTP 401 policy must take precedence over response-body classification")
+}
+
+func TestRateLimitService_HandleUpstreamError_OAuth401AutoDeleteFailureFallsBackToCooldown(t *testing.T) {
+	repo := &rateLimitAccountRepoStub{deleteErr: errors.New("delete unavailable")}
+	svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+	svc.SetSettingService(oauth401AutoDeleteSettingService(t, true))
+	account := &Account{ID: 903, Platform: PlatformAntigravity, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Credentials: map[string]any{"refresh_token": "rt-903"}}
+
+	shouldDisable := svc.HandleUpstreamError(context.Background(), account, http.StatusUnauthorized, http.Header{}, []byte("unauthorized"))
+
+	require.True(t, shouldDisable)
+	require.Equal(t, 1, repo.deleteCalls)
+	require.Equal(t, 1, repo.tempCalls, "a failed delete must retain the existing containment policy")
+	require.Zero(t, repo.setErrorCalls)
+}
+
+func TestOpenAIGatewayService_GrokOAuth401UsesGatewayAutoDeletePolicy(t *testing.T) {
+	repo := &insufficientBalanceAccountRepoStub{}
+	repo.deleteIDs = []int64{904}
+	repo.deleteApplied = true
+	rateLimits := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+	rateLimits.SetSettingService(oauth401AutoDeleteSettingService(t, true))
+	gateway := &OpenAIGatewayService{accountRepo: repo, rateLimitService: rateLimits}
+	account := &Account{
+		ID:          904,
+		Platform:    PlatformGrok,
+		Type:        AccountTypeOAuth,
+		Status:      StatusActive,
+		Schedulable: true,
+		Credentials: map[string]any{"refresh_token": "rt-904"},
+		Extra:       map[string]any{AutoDisableOnUpstreamInsufficientBalanceExtraKey: true},
+	}
+
+	gateway.handleGrokAccountUpstreamError(
+		context.Background(),
+		account,
+		http.StatusUnauthorized,
+		http.Header{},
+		[]byte(`{"error":{"type":"billing_error","message":"insufficient balance"}}`),
+	)
+
+	require.Equal(t, 1, repo.deleteCalls)
+	require.Zero(t, repo.tempCalls)
+	require.Zero(t, repo.setSchedulableCalls, "Grok HTTP 401 policy must take precedence over response-body classification")
 }
 
 type openAI403CounterCacheStub struct {
@@ -188,6 +454,7 @@ func TestRateLimitService_HandleUpstreamError_SparkShadow401RedirectsToParent(t 
 	invalidator := &tokenCacheInvalidatorRecorder{}
 	service := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
 	service.SetTokenCacheInvalidator(invalidator)
+	service.SetSettingService(oauth401AutoDeleteSettingService(t, true))
 
 	const parentID = int64(500)
 	mother := &Account{
@@ -216,6 +483,7 @@ func TestRateLimitService_HandleUpstreamError_SparkShadow401RedirectsToParent(t 
 	require.Equal(t, parentID, repo.lastTempID, "temp-unschedulable must target the credential owner (parent)")
 	require.Len(t, invalidator.accounts, 1)
 	require.Equal(t, parentID, invalidator.accounts[0].ID, "token cache invalidation must target the parent")
+	require.Zero(t, repo.deleteCalls, "a shadow 401 cannot prove which parent credential version was used")
 }
 
 // TestRateLimitService_HandleUpstreamError_OAuth401InvalidatorError

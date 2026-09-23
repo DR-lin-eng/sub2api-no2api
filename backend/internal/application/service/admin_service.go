@@ -130,6 +130,9 @@ type AdminService interface {
 	CheckProxyExists(ctx context.Context, host string, port int, username, password string) (bool, error)
 	TestProxy(ctx context.Context, id int64) (*ProxyTestResult, error)
 	CheckProxyQuality(ctx context.Context, id int64) (*ProxyQualityCheckResult, error)
+	GetProxyAutoAssignmentSettings(ctx context.Context) (*ProxyAutoAssignmentSettings, error)
+	UpdateProxyAutoAssignmentSettings(ctx context.Context, settings *ProxyAutoAssignmentSettings) (*ProxyAutoAssignmentSettings, error)
+	RebalanceProxyAssignments(ctx context.Context) (int64, error)
 
 	// Redeem code management
 	ListRedeemCodes(ctx context.Context, page, pageSize int, codeType, status, search string, sortBy, sortOrder string) ([]RedeemCode, int64, error)
@@ -255,6 +258,7 @@ type CreateGroupInput struct {
 	// Codex alpha/search 网页搜索单次价格（USD/次，仅 openai 平台使用）；nil/负数按默认价 0.01 处理
 	WebSearchPricePerCall *float64
 	ClaudeCodeOnly        bool   // 仅允许 Claude Code 客户端
+	IsDistillationGroup   bool   // 蒸馏分组：无缓存、快速失败、分段 session ID
 	FallbackGroupID       *int64 // 降级分组 ID
 	// 无效请求兜底分组 ID（仅 anthropic 平台使用）
 	FallbackGroupIDOnInvalidRequest *int64
@@ -323,6 +327,7 @@ type UpdateGroupInput struct {
 	// Codex alpha/search 网页搜索单次价格（USD/次）；nil 表示不修改，负数表示清除回默认价 0.01
 	WebSearchPricePerCall *float64
 	ClaudeCodeOnly        *bool  // 仅允许 Claude Code 客户端
+	IsDistillationGroup   *bool  // 蒸馏分组：无缓存、快速失败、分段 session ID
 	FallbackGroupID       *int64 // 降级分组 ID
 	// 无效请求兜底分组 ID（仅 anthropic 平台使用）
 	FallbackGroupIDOnInvalidRequest *int64
@@ -491,6 +496,8 @@ type CreateProxyInput struct {
 	FallbackMode   string
 	BackupProxyID  *int64
 	ExpiryWarnDays int
+	// SkipAutoRebalance lets trusted batch import paths converge once after the batch.
+	SkipAutoRebalance bool
 }
 
 type UpdateProxyInput struct {
@@ -498,8 +505,8 @@ type UpdateProxyInput struct {
 	Protocol       string
 	Host           string
 	Port           int
-	Username       string
-	Password       string
+	Username       *string
+	Password       *string
 	Status         string
 	ExpiresAt      *time.Time
 	ClearExpiresAt bool
@@ -507,6 +514,8 @@ type UpdateProxyInput struct {
 	BackupProxyID  *int64
 	ClearBackupID  bool
 	ExpiryWarnDays *int
+	// SkipAutoRebalance lets trusted batch import paths converge once after the batch.
+	SkipAutoRebalance bool
 }
 
 type GenerateRedeemCodesInput struct {

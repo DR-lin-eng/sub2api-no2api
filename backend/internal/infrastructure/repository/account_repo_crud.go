@@ -30,6 +30,10 @@ func createAccountRecord(ctx context.Context, client *dbent.Client, account *ser
 	if account == nil {
 		return service.ErrAccountNilInput
 	}
+	// Full Codex simulation needs one random context window per OAuth account.
+	// Initialize it at the durable account boundary so imports, CRS sync, admin
+	// creates, and atomic duplicate creates all share the same persisted value.
+	account.EnsureCodexContextWindowID()
 
 	builder := client.Account.Create().
 		SetName(account.Name).

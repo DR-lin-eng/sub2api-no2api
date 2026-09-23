@@ -2,6 +2,8 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -89,29 +91,24 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 
 	// Fallback to default models
 	if platform == service.PlatformOpenAI {
-		c.JSON(http.StatusOK, gin.H{
-			"object": "list",
-			"data":   openai.DefaultModels,
-		})
+		writeModelsListResponse(c, openai.DefaultModels)
 		return
 	}
 
 	if platform == service.PlatformGemini {
-		c.JSON(http.StatusOK, gin.H{
-			"object": "list",
-			"data":   geminicli.DefaultModels,
-		})
+		writeModelsListResponse(c, geminicli.DefaultModels)
 		return
 	}
 	if platform == service.PlatformGrok {
 		writeGrokModelsList(c, xai.DefaultModelIDs())
 		return
 	}
+	if service.IsCNProvider(platform) {
+		writeModelsList(c, platform, defaultModelIDsForPlatform(platform))
+		return
+	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"object": "list",
-		"data":   claude.DefaultModels,
-	})
+	writeModelsListResponse(c, claude.DefaultModels)
 }
 
 func (h *GatewayHandler) apiKeyBindingsAvailableModels(ctx context.Context, bindings []service.APIKeyGroupBinding) ([]string, string) {
@@ -166,7 +163,11 @@ func (h *GatewayHandler) compositeAvailableModels(ctx context.Context, groupID *
 	seen := make(map[string]struct{})
 	models := make([]string, 0)
 	schedulablePlatforms := h.gatewayService.GetSchedulablePlatforms(ctx, groupID)
-	for _, platform := range []string{service.PlatformAnthropic, service.PlatformGemini, service.PlatformOpenAI, service.PlatformAntigravity, service.PlatformGrok} {
+	for _, platform := range []string{
+		service.PlatformAnthropic, service.PlatformGemini, service.PlatformOpenAI, service.PlatformAntigravity, service.PlatformGrok,
+		service.PlatformKimi, service.PlatformZhipu, service.PlatformDeepseek, service.PlatformMiniMax,
+		service.PlatformOpenCodeGo,
+	} {
 		platformModels := h.gatewayService.GetAvailableModels(ctx, groupID, platform)
 		if len(platformModels) == 0 {
 			if _, ok := schedulablePlatforms[platform]; ok {
@@ -202,10 +203,7 @@ func writeModelsList(c *gin.Context, platform string, modelIDs []string) {
 			CreatedAt:   "2024-01-01T00:00:00Z",
 		})
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"object": "list",
-		"data":   models,
-	})
+	writeModelsListResponse(c, models)
 }
 
 func writeCustomModelsList(c *gin.Context, platform string, modelIDs []string) {
@@ -268,10 +266,47 @@ func writeGrokModelsList(c *gin.Context, modelIDs []string) {
 		models = append(models, item)
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"object": "list",
-		"data":   models,
-	})
+	writeModelsListResponse(c, models)
+}
+
+// writeModelsListResponse serves both the collection and optional
+// /models/:model retrieval. Collection responses retain their existing shape;
+// item retrieval returns the complete selected entry with all capability fields.
+func writeModelsListResponse(c *gin.Context, models any) {
+	if c == nil || c.Param("model") == "" {
+		c.JSON(http.StatusOK, gin.H{"object": "list", "data": models})
+		return
+	}
+	body, err := json.Marshal(gin.H{"object": "list", "data": models})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"type": "api_error", "message": "Failed to encode model catalogue"}})
+		return
+	}
+	var envelope struct {
+		Data []json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": gin.H{"type": "upstream_error", "message": "Invalid model catalogue"}})
+		return
+	}
+	wanted := c.Param("model")
+	for _, raw := range envelope.Data {
+		var entry struct {
+			ID string `json:"id"`
+		}
+		if err := json.Unmarshal(raw, &entry); err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{"error": gin.H{"type": "upstream_error", "message": "Invalid model catalogue entry"}})
+			return
+		}
+		if entry.ID == wanted {
+			c.Data(http.StatusOK, "application/json", raw)
+			return
+		}
+	}
+	c.JSON(http.StatusNotFound, gin.H{"error": gin.H{
+		"type": "invalid_request_error", "code": "model_not_found", "param": "model",
+		"message": fmt.Sprintf("Model %q does not exist or is not available for this group", wanted),
+	}})
 }
 
 func grokModelSupportsConfigurableReasoning(modelID string) bool {
@@ -304,10 +339,7 @@ func writeOpenAIModelsList(c *gin.Context, modelIDs []string) {
 			DisplayName: modelID,
 		})
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"object": "list",
-		"data":   models,
-	})
+	writeModelsListResponse(c, models)
 }
 
 func customModelsListSource(platform string, availableModels, fallbackModels []string) []string {
@@ -406,10 +438,24 @@ func defaultModelIDsForPlatform(platform string) []string {
 		return mergeModelIDs(ids, nil)
 	case service.PlatformGrok:
 		return xai.DefaultModelIDs()
+	case service.PlatformKimi:
+		return []string{"kimi-k3", "kimi-k2.6", "kimi-k2.5"}
+	case service.PlatformZhipu:
+		return []string{"glm-5.3", "glm-5.2", "glm-4.7"}
+	case service.PlatformDeepseek:
+		return []string{"deepseek-v4-pro", "deepseek-v4-flash", "deepseek-flash"}
+	case service.PlatformMiniMax:
+		return []string{"MiniMax-M3", "MiniMax-M2.7", "MiniMax-M2.5"}
+	case service.PlatformOpenCodeGo:
+		return service.DefaultOpenCodeGoModelIDs()
 	case service.PlatformComposite:
 		ids := make([]string, 0)
 		seen := make(map[string]struct{})
-		for _, concretePlatform := range []string{service.PlatformAnthropic, service.PlatformGemini, service.PlatformOpenAI, service.PlatformAntigravity, service.PlatformGrok} {
+		for _, concretePlatform := range []string{
+			service.PlatformAnthropic, service.PlatformGemini, service.PlatformOpenAI, service.PlatformAntigravity, service.PlatformGrok,
+			service.PlatformKimi, service.PlatformZhipu, service.PlatformDeepseek, service.PlatformMiniMax,
+			service.PlatformOpenCodeGo,
+		} {
 			for _, id := range defaultModelIDsForPlatform(concretePlatform) {
 				if _, ok := seen[id]; ok {
 					continue

@@ -23,6 +23,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/shared/geminicli"
 	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
 	"github.com/Wei-Shaw/sub2api/internal/shared/openai_compat"
+	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
 	"github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -38,18 +39,32 @@ const (
 	defaultAntigravityTestModel = "claude-sonnet-4-6"
 )
 
+type accountTestEffortContextKey struct{}
+
+func withAccountTestEffort(ctx context.Context, effort string) context.Context {
+	return context.WithValue(ctx, accountTestEffortContextKey{}, strings.ToLower(strings.TrimSpace(effort)))
+}
+
+func accountTestEffort(ctx context.Context) string {
+	value, _ := ctx.Value(accountTestEffortContextKey{}).(string)
+	return value
+}
+
 // TestEvent represents a SSE event for account testing
 type TestEvent struct {
-	Type     string `json:"type"`
-	Text     string `json:"text,omitempty"`
-	Model    string `json:"model,omitempty"`
-	Status   string `json:"status,omitempty"`
-	Code     string `json:"code,omitempty"`
-	ImageURL string `json:"image_url,omitempty"`
-	MimeType string `json:"mime_type,omitempty"`
-	Data     any    `json:"data,omitempty"`
-	Success  bool   `json:"success,omitempty"`
-	Error    string `json:"error,omitempty"`
+	Type            string `json:"type"`
+	Text            string `json:"text,omitempty"`
+	Model           string `json:"model,omitempty"`
+	Status          string `json:"status,omitempty"`
+	Code            string `json:"code,omitempty"`
+	ImageURL        string `json:"image_url,omitempty"`
+	MimeType        string `json:"mime_type,omitempty"`
+	Data            any    `json:"data,omitempty"`
+	Success         bool   `json:"success,omitempty"`
+	Error           string `json:"error,omitempty"`
+	ConversationID  string `json:"conversation_id,omitempty"`
+	ResponseID      string `json:"response_id,omitempty"`
+	ReasoningTokens *int64 `json:"reasoning_tokens,omitempty"`
 }
 
 const (
@@ -77,6 +92,34 @@ type AccountTestService struct {
 	customModelCapabilities   CustomModelCapabilityResolver
 	agentIdentityTaskMu       sync.Mutex
 	agentIdentityWS           agentIdentityWSConnectionInvalidator
+	oauthGatewayLimiter       *OpenAIGatewayService
+	settingService            *SettingService
+}
+
+// SetSettingService wires the persisted gateway settings used by OpenAI OAuth
+// account probes. Kept as a setter so focused test constructors remain stable.
+func (s *AccountTestService) SetSettingService(settingService *SettingService) {
+	if s != nil {
+		s.settingService = settingService
+	}
+}
+
+func (s *AccountTestService) doAccountTestHTTPUpstreamWithTLS(req *http.Request, proxyURL string, account *Account, profile *tlsfingerprint.Profile) (*http.Response, error) {
+	if s.oauthGatewayLimiter != nil && isOpenAIOAuthGatewayModelRequest(req, account) {
+		if err := s.oauthGatewayLimiter.admitOpenAIOAuthGatewayModelRequest(req.Context(), account); err != nil {
+			return nil, err
+		}
+	}
+	return doAccountHTTPUpstreamWithTLS(s.httpUpstream, req, proxyURL, account, profile)
+}
+
+func (s *AccountTestService) doAccountTestHTTPUpstream(req *http.Request, proxyURL string, account *Account) (*http.Response, error) {
+	if s.oauthGatewayLimiter != nil && isOpenAIOAuthGatewayModelRequest(req, account) {
+		if err := s.oauthGatewayLimiter.admitOpenAIOAuthGatewayModelRequest(req.Context(), account); err != nil {
+			return nil, err
+		}
+	}
+	return doAccountHTTPUpstream(s.httpUpstream, req, proxyURL, account)
 }
 
 // NewAccountTestService creates a new AccountTestService
@@ -204,7 +247,7 @@ func (s *AccountTestService) TestAccountConnection(c *gin.Context, accountID int
 	}
 
 	// Route to platform-specific test method
-	if account.IsOpenAI() {
+	if account.IsOpenAI() || account.IsCNProvider() {
 		return s.testOpenAIAccountConnection(c, account, modelID, prompt, normalizeAccountTestMode(mode))
 	}
 
@@ -324,7 +367,7 @@ func (s *AccountTestService) testClaudeAccountConnection(c *gin.Context, account
 		proxyURL = account.Proxy.URL()
 	}
 
-	resp, err := doAccountHTTPUpstreamWithTLS(s.httpUpstream, req, proxyURL, account, s.tlsFPProfileService.ResolveTLSProfile(account))
+	resp, err := s.doAccountTestHTTPUpstreamWithTLS(req, proxyURL, account, s.tlsFPProfileService.ResolveTLSProfile(account))
 	if err != nil {
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Request failed: %s", err.Error()))
 	}
@@ -396,7 +439,7 @@ func (s *AccountTestService) testClaudeVertexServiceAccountConnection(c *gin.Con
 		proxyURL = account.Proxy.URL()
 	}
 
-	resp, err := doAccountHTTPUpstreamWithTLS(s.httpUpstream, req, proxyURL, account, s.tlsFPProfileService.ResolveTLSProfile(account))
+	resp, err := s.doAccountTestHTTPUpstreamWithTLS(req, proxyURL, account, s.tlsFPProfileService.ResolveTLSProfile(account))
 	if err != nil {
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Request failed: %s", err.Error()))
 	}
@@ -482,7 +525,7 @@ func (s *AccountTestService) testBedrockAccountConnection(c *gin.Context, ctx co
 		proxyURL = account.Proxy.URL()
 	}
 
-	resp, err := doAccountHTTPUpstreamWithTLS(s.httpUpstream, req, proxyURL, account, nil)
+	resp, err := s.doAccountTestHTTPUpstreamWithTLS(req, proxyURL, account, nil)
 	if err != nil {
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Request failed: %s", err.Error()))
 	}
@@ -570,6 +613,7 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 	var authToken string
 	var apiURL string
 	var isOAuth bool
+	useOfficialOAuthEndpoint := false
 
 	if credentialAccount.IsOAuth() {
 		if mode == AccountTestModeChatCompletions {
@@ -584,11 +628,15 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 			return s.sendErrorAndEnd(c, "No access token available")
 		}
 
-		// OAuth uses ChatGPT internal API
-		apiURL = chatgptCodexAPIURL
+		baseURL, official, relayErr := resolveOpenAIOAuthCodexBaseURL(ctx, s.settingService, s.cfg, credentialAccount)
+		if relayErr != nil {
+			return s.sendErrorAndEnd(c, fmt.Sprintf("Invalid OpenAI OAuth Codex relay URL: %s", relayErr.Error()))
+		}
+		apiURL = buildOpenAIOAuthCodexResponsesURL(baseURL)
+		useOfficialOAuthEndpoint = official
 	} else if credentialAccount.Type == "apikey" {
 		// API Key - use Platform API
-		authToken = credentialAccount.GetOpenAIApiKey()
+		authToken = credentialAccount.GetOpenAIProtocolAPIKey()
 		if authToken == "" {
 			return s.sendErrorAndEnd(c, "No API key available")
 		}
@@ -601,7 +649,7 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 		if err != nil {
 			return s.sendErrorAndEnd(c, fmt.Sprintf("Invalid base URL: %s", err.Error()))
 		}
-		if mode == AccountTestModeChatCompletions ||
+		if account.IsCNProvider() || mode == AccountTestModeChatCompletions ||
 			(mode == AccountTestModeDefault && !openai_compat.ShouldUseResponsesAPI(account.Extra)) {
 			return s.testOpenAIChatCompletionsConnection(c, account, testModelID, prompt, normalizedBaseURL, authToken)
 		}
@@ -624,6 +672,14 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 		upstreamTestModelID = normalizeOpenAIModelForUpstream(credentialAccount, testModelID)
 	}
 	payload := createOpenAITestPayload(upstreamTestModelID, isOAuth, prompt)
+	if effort := accountTestEffort(ctx); effort != "" {
+		if isOAuth || mode != AccountTestModeChatCompletions {
+			payload["reasoning"] = map[string]any{"effort": effort}
+		}
+		if mode == AccountTestModeChatCompletions {
+			payload["reasoning_effort"] = effort
+		}
+	}
 	payloadBytes, _ := json.Marshal(payload)
 
 	// Send test_start event once. A task-invalid Agent Identity response may
@@ -660,7 +716,9 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 
 	// Set OAuth-specific headers for ChatGPT internal API
 	if isOAuth {
-		req.Host = "chatgpt.com"
+		if useOfficialOAuthEndpoint {
+			req.Host = "chatgpt.com"
+		}
 		req.Header.Set("accept", "text/event-stream")
 		req.Header.Set("OpenAI-Beta", "responses=experimental")
 		req.Header.Set("Originator", "codex_cli_rs")
@@ -676,6 +734,9 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 
 	// 账号级请求头覆写：测试请求与真实转发保持一致的最终头
 	credentialAccount.ApplyHeaderOverrides(req.Header)
+	if state := accountTestTurnState(ctx); isOAuth && state != "" {
+		req.Header.Set(openAICodexTurnStateHeader, state)
+	}
 
 	// Get proxy URL
 	proxyURL := ""
@@ -683,11 +744,12 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 		proxyURL = account.Proxy.URL()
 	}
 
-	resp, err := doAccountHTTPUpstreamWithTLS(s.httpUpstream, req, proxyURL, account, s.tlsFPProfileService.ResolveTLSProfile(account))
+	resp, err := s.doAccountTestHTTPUpstreamWithTLS(req, proxyURL, account, s.tlsFPProfileService.ResolveTLSProfile(account))
 	if err != nil {
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Request failed: %s", err.Error()))
 	}
 	defer func() { _ = resp.Body.Close() }()
+	captureAccountTestTurnState(ctx, resp.Header)
 
 	if isOAuth && s.accountRepo != nil {
 		if updates, err := extractOpenAICodexProbeUpdates(resp); err == nil && len(updates) > 0 {
@@ -748,6 +810,12 @@ func (s *AccountTestService) testOpenAIChatCompletionsConnection(
 	c.Writer.Flush()
 
 	payload := createOpenAIChatCompletionsTestPayload(testModelID, prompt)
+	if collect, _ := ctx.Value(accountTestUsageContextKey{}).(bool); collect {
+		payload["stream_options"] = map[string]any{"include_usage": true}
+	}
+	if effort := accountTestEffort(ctx); effort != "" {
+		payload["reasoning_effort"] = effort
+	}
 	payloadBytes, _ := json.Marshal(payload)
 
 	s.sendEvent(c, TestEvent{Type: "test_start", Model: testModelID})
@@ -770,7 +838,7 @@ func (s *AccountTestService) testOpenAIChatCompletionsConnection(
 		proxyURL = account.Proxy.URL()
 	}
 
-	resp, err := doAccountHTTPUpstreamWithTLS(s.httpUpstream, req, proxyURL, account, s.tlsFPProfileService.ResolveTLSProfile(account))
+	resp, err := s.doAccountTestHTTPUpstreamWithTLS(req, proxyURL, account, s.tlsFPProfileService.ResolveTLSProfile(account))
 	if err != nil {
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Chat Completions API (/v1/chat/completions) request failed: %s", err.Error()))
 	}
@@ -809,6 +877,7 @@ func (s *AccountTestService) testOpenAICompactConnection(c *gin.Context, account
 	authToken := ""
 	apiURL := ""
 	isOAuth := false
+	useOfficialOAuthEndpoint := false
 
 	switch {
 	case credentialAccount.IsOAuth():
@@ -819,9 +888,14 @@ func (s *AccountTestService) testOpenAICompactConnection(c *gin.Context, account
 		if authToken == "" && !credentialAccount.IsOpenAIAgentIdentity() {
 			return s.sendErrorAndEnd(c, "No access token available")
 		}
-		apiURL = chatgptCodexAPIURL
+		baseURL, official, relayErr := resolveOpenAIOAuthCodexBaseURL(ctx, s.settingService, s.cfg, credentialAccount)
+		if relayErr != nil {
+			return s.sendErrorAndEnd(c, fmt.Sprintf("Invalid OpenAI OAuth Codex relay URL: %s", relayErr.Error()))
+		}
+		apiURL = buildOpenAIOAuthCodexResponsesURL(baseURL)
+		useOfficialOAuthEndpoint = official
 	case account.Type == AccountTypeAPIKey:
-		authToken = account.GetOpenAIApiKey()
+		authToken = account.GetOpenAIProtocolAPIKey()
 		if authToken == "" {
 			return s.sendErrorAndEnd(c, "No API key available")
 		}
@@ -881,7 +955,9 @@ func (s *AccountTestService) testOpenAICompactConnection(c *gin.Context, account
 	req.Header.Set("Conversation_ID", probeSessionID)
 
 	if isOAuth {
-		req.Host = "chatgpt.com"
+		if useOfficialOAuthEndpoint {
+			req.Host = "chatgpt.com"
+		}
 		setOpenAIChatGPTAccountHeaders(req.Header, credentialAccount)
 		if fpIDs := resolveCodexFingerprintIDsFromRequest(account, req.Header); fpIDs != nil {
 			applyCodexFingerprintHeaders(req.Header, fpIDs)
@@ -896,7 +972,7 @@ func (s *AccountTestService) testOpenAICompactConnection(c *gin.Context, account
 		proxyURL = account.Proxy.URL()
 	}
 
-	resp, err := doAccountHTTPUpstreamWithTLS(s.httpUpstream, req, proxyURL, account, s.tlsFPProfileService.ResolveTLSProfile(account))
+	resp, err := s.doAccountTestHTTPUpstreamWithTLS(req, proxyURL, account, s.tlsFPProfileService.ResolveTLSProfile(account))
 	if err != nil {
 		if s.accountRepo != nil {
 			updates := buildOpenAICompactProbeExtraUpdates(nil, nil, err, false, time.Now())
@@ -1050,7 +1126,7 @@ func (s *AccountTestService) testGeminiAccountConnection(c *gin.Context, account
 		proxyURL = account.Proxy.URL()
 	}
 
-	resp, err := doAccountHTTPUpstreamWithTLS(s.httpUpstream, req, proxyURL, account, s.tlsFPProfileService.ResolveTLSProfile(account))
+	resp, err := s.doAccountTestHTTPUpstreamWithTLS(req, proxyURL, account, s.tlsFPProfileService.ResolveTLSProfile(account))
 	if err != nil {
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Request failed: %s", err.Error()))
 	}
@@ -1304,12 +1380,14 @@ func createGeminiTestPayload(modelID string, prompt string) []byte {
 // processGeminiStream processes SSE stream from Gemini API
 func (s *AccountTestService) processGeminiStream(c *gin.Context, body io.Reader) error {
 	reader := bufio.NewReader(body)
+	var reasoningTokens *int64
+	finished := false
 
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			if err == io.EOF {
-				s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
+				s.sendEvent(c, TestEvent{Type: "test_complete", Success: true, ReasoningTokens: reasoningTokens})
 				return nil
 			}
 			return s.sendErrorAndEnd(c, fmt.Sprintf("Stream read error: %s", err.Error()))
@@ -1322,13 +1400,17 @@ func (s *AccountTestService) processGeminiStream(c *gin.Context, body io.Reader)
 
 		jsonStr := strings.TrimPrefix(line, "data: ")
 		if jsonStr == "[DONE]" {
-			s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
+			s.sendEvent(c, TestEvent{Type: "test_complete", Success: true, ReasoningTokens: reasoningTokens})
 			return nil
 		}
 
 		var data map[string]any
 		if err := json.Unmarshal([]byte(jsonStr), &data); err != nil {
 			continue
+		}
+		s.captureQualityResponseIdentity(c, data)
+		if tokens := reasoningTokensFromPayload(data); tokens != nil {
+			reasoningTokens = tokens
 		}
 
 		// Support two Gemini response formats:
@@ -1337,13 +1419,19 @@ func (s *AccountTestService) processGeminiStream(c *gin.Context, body io.Reader)
 		if resp, ok := data["response"].(map[string]any); ok && resp != nil {
 			data = resp
 		}
-		if candidates, ok := data["candidates"].([]any); ok && len(candidates) > 0 {
+		if candidates, ok := data["candidates"].([]any); ok && len(candidates) > 0 && !finished {
 			if candidate, ok := candidates[0].(map[string]any); ok {
 				// Extract content first (before checking completion)
 				if content, ok := candidate["content"].(map[string]any); ok {
 					if parts, ok := content["parts"].([]any); ok {
 						for _, part := range parts {
 							if partMap, ok := part.(map[string]any); ok {
+								if text, ok := partMap["text"].(string); ok && text != "" {
+									markQualityProbeOutputForContext(c)
+								}
+								if thought, _ := partMap["thought"].(bool); thought {
+									continue
+								}
 								if text, ok := partMap["text"].(string); ok && text != "" {
 									s.sendEvent(c, TestEvent{Type: "content", Text: text})
 								}
@@ -1365,8 +1453,10 @@ func (s *AccountTestService) processGeminiStream(c *gin.Context, body io.Reader)
 
 				// Check for completion after extracting content
 				if finishReason, ok := candidate["finishReason"].(string); ok && finishReason != "" {
-					s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
-					return nil
+					// Some Gemini transports emit usageMetadata in a trailing
+					// event after the candidate's finishReason. Keep consuming
+					// the stream so the quality probe can retain that count.
+					finished = true
 				}
 			}
 		}
@@ -1410,8 +1500,14 @@ func createOpenAITestPayload(modelID string, isOAuth bool, prompt string) map[st
 		payload["store"] = false
 	}
 
-	// All accounts require instructions for Responses API
-	payload["instructions"] = openai.DefaultInstructions
+	// Codex OAuth routes select the backend persona from the model-specific
+	// client instructions. Reusing the generic fallback can produce a valid
+	// response on the low-quality route and a 312-character turn state.
+	if isOAuth {
+		payload["instructions"] = openai.CodexBaseInstructionsForModel(modelID)
+	} else {
+		payload["instructions"] = openai.DefaultInstructions
+	}
 
 	return payload
 }
@@ -1494,6 +1590,7 @@ func (s *AccountTestService) processOpenAIChatCompletionsStream(c *gin.Context, 
 	reader := bufio.NewReader(body)
 	seenJSON := false
 	seenFinish := false
+	var reasoningTokens *int64
 
 	for {
 		line, err := reader.ReadString('\n')
@@ -1501,7 +1598,7 @@ func (s *AccountTestService) processOpenAIChatCompletionsStream(c *gin.Context, 
 			if err == io.EOF {
 				if seenFinish {
 					s.sendEvent(c, TestEvent{Type: "status", Text: "已通过 /v1/chat/completions 验证"})
-					s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
+					s.sendEvent(c, TestEvent{Type: "test_complete", Success: true, ReasoningTokens: reasoningTokens})
 					return nil
 				}
 				if seenJSON {
@@ -1520,7 +1617,7 @@ func (s *AccountTestService) processOpenAIChatCompletionsStream(c *gin.Context, 
 		jsonStr := sseDataPrefix.ReplaceAllString(line, "")
 		if jsonStr == "[DONE]" {
 			s.sendEvent(c, TestEvent{Type: "status", Text: "已通过 /v1/chat/completions 验证"})
-			s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
+			s.sendEvent(c, TestEvent{Type: "test_complete", Success: true, ReasoningTokens: reasoningTokens})
 			return nil
 		}
 
@@ -1529,6 +1626,10 @@ func (s *AccountTestService) processOpenAIChatCompletionsStream(c *gin.Context, 
 			return s.sendErrorAndEnd(c, "Invalid Chat Completions response from /v1/chat/completions: expected JSON data")
 		}
 		seenJSON = true
+		s.captureQualityResponseIdentity(c, data)
+		if tokens := reasoningTokensFromPayload(data); tokens != nil {
+			reasoningTokens = tokens
+		}
 
 		if errData, ok := data["error"].(map[string]any); ok {
 			errorMsg := "Chat Completions API (/v1/chat/completions) returned an error"
@@ -1548,12 +1649,21 @@ func (s *AccountTestService) processOpenAIChatCompletionsStream(c *gin.Context, 
 				continue
 			}
 			if delta, ok := choice["delta"].(map[string]any); ok {
+				if len(delta) > 0 {
+					for _, value := range delta {
+						if text, ok := value.(string); ok && text != "" {
+							markQualityProbeOutputForContext(c)
+							break
+						}
+					}
+				}
 				if text, ok := delta["content"].(string); ok && text != "" {
 					s.sendEvent(c, TestEvent{Type: "content", Text: text})
 				}
 			}
 			if message, ok := choice["message"].(map[string]any); ok {
 				if text, ok := message["content"].(string); ok && text != "" {
+					markQualityProbeOutputForContext(c)
 					s.sendEvent(c, TestEvent{Type: "content", Text: text})
 				}
 			}
@@ -1568,13 +1678,14 @@ func (s *AccountTestService) processOpenAIChatCompletionsStream(c *gin.Context, 
 func (s *AccountTestService) processOpenAIStream(c *gin.Context, body io.Reader) error {
 	reader := bufio.NewReader(body)
 	seenCompleted := false
+	var reasoningTokens *int64
 
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			if err == io.EOF {
 				if seenCompleted {
-					s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
+					s.sendEvent(c, TestEvent{Type: "test_complete", Success: true, ReasoningTokens: reasoningTokens})
 					return nil
 				}
 				return s.sendErrorAndEnd(c, "Stream ended before response.completed")
@@ -1590,7 +1701,7 @@ func (s *AccountTestService) processOpenAIStream(c *gin.Context, body io.Reader)
 		jsonStr := sseDataPrefix.ReplaceAllString(line, "")
 		if jsonStr == "[DONE]" {
 			if seenCompleted {
-				s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
+				s.sendEvent(c, TestEvent{Type: "test_complete", Success: true, ReasoningTokens: reasoningTokens})
 				return nil
 			}
 			return s.sendErrorAndEnd(c, "Stream ended before response.completed")
@@ -1600,8 +1711,15 @@ func (s *AccountTestService) processOpenAIStream(c *gin.Context, body io.Reader)
 		if err := json.Unmarshal([]byte(jsonStr), &data); err != nil {
 			continue
 		}
+		s.captureQualityResponseIdentity(c, data)
+		if tokens := reasoningTokensFromPayload(data); tokens != nil {
+			reasoningTokens = tokens
+		}
 
 		eventType, _ := data["type"].(string)
+		if strings.HasSuffix(eventType, ".delta") {
+			markQualityProbeOutputForContext(c)
+		}
 
 		switch eventType {
 		case "response.output_text.delta":
@@ -1610,7 +1728,7 @@ func (s *AccountTestService) processOpenAIStream(c *gin.Context, body io.Reader)
 				s.sendEvent(c, TestEvent{Type: "content", Text: delta})
 			}
 		case "response.completed", "response.done":
-			s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
+			s.sendEvent(c, TestEvent{Type: "test_complete", Success: true, ReasoningTokens: reasoningTokens})
 			return nil
 		case "response.failed":
 			errorMsg := "OpenAI response failed"
@@ -1684,7 +1802,7 @@ func (s *AccountTestService) testOpenAIImageAPIKey(c *gin.Context, ctx context.C
 		proxyURL = account.Proxy.URL()
 	}
 
-	resp, err := doAccountHTTPUpstreamWithTLS(s.httpUpstream, req, proxyURL, account, s.tlsFPProfileService.ResolveTLSProfile(account))
+	resp, err := s.doAccountTestHTTPUpstreamWithTLS(req, proxyURL, account, s.tlsFPProfileService.ResolveTLSProfile(account))
 	if err != nil {
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Request failed: %s", err.Error()))
 	}
@@ -1779,12 +1897,19 @@ func (s *AccountTestService) testOpenAIImageOAuth(c *gin.Context, ctx context.Co
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Failed to build image request: %s", err.Error()))
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, chatgptCodexAPIURL, bytes.NewReader(responsesBody))
+	baseURL, useOfficialOAuthEndpoint, relayErr := resolveOpenAIOAuthCodexBaseURL(ctx, s.settingService, s.cfg, credentialAccount)
+	if relayErr != nil {
+		return s.sendErrorAndEnd(c, fmt.Sprintf("Invalid OpenAI OAuth Codex relay URL: %s", relayErr.Error()))
+	}
+	targetURL := buildOpenAIOAuthCodexResponsesURL(baseURL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(responsesBody))
 	if err != nil {
 		return s.sendErrorAndEnd(c, "Failed to create request")
 	}
 	req = req.WithContext(WithHTTPUpstreamProfile(req.Context(), HTTPUpstreamProfileOpenAI))
-	req.Host = "chatgpt.com"
+	if useOfficialOAuthEndpoint {
+		req.Host = "chatgpt.com"
+	}
 	if credentialAccount.IsOpenAIAgentIdentity() {
 		authHeaders, authErr := buildAgentIdentityAuthenticationHeaders(ctx, s.accountRepo, s.agentIdentityWS, &s.agentIdentityTaskMu, credentialAccount, s.cfg)
 		if authErr != nil {
@@ -1816,7 +1941,7 @@ func (s *AccountTestService) testOpenAIImageOAuth(c *gin.Context, ctx context.Co
 	if account.ProxyID != nil && account.Proxy != nil {
 		proxyURL = account.Proxy.URL()
 	}
-	resp, err := doAccountHTTPUpstream(s.httpUpstream, req, proxyURL, account)
+	resp, err := s.doAccountTestHTTPUpstream(req, proxyURL, account)
 	if err != nil {
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Responses API request failed: %s", err.Error()))
 	}
@@ -1877,6 +2002,9 @@ func (s *AccountTestService) testOpenAIImageOAuth(c *gin.Context, ctx context.Co
 }
 
 func (s *AccountTestService) sendEvent(c *gin.Context, event TestEvent) {
+	if c != nil && c.Request != nil && (event.Type == "content" || event.Type == "image") {
+		markQualityProbeOutput(c.Request.Context())
+	}
 	eventJSON, _ := json.Marshal(event)
 	if _, err := fmt.Fprintf(c.Writer, "data: %s\n\n", eventJSON); err != nil {
 		log.Printf("failed to write SSE event: %v", err)
@@ -1895,17 +2023,32 @@ func (s *AccountTestService) sendErrorAndEnd(c *gin.Context, errorMsg string) er
 // RunTestBackground executes an account test in-memory (no real HTTP client),
 // capturing SSE output via httptest.NewRecorder, then parses the result.
 func (s *AccountTestService) RunTestBackground(ctx context.Context, accountID int64, modelID string) (*ScheduledTestResult, error) {
+	return s.runTestBackground(ctx, accountID, modelID, "", "")
+}
+
+// RunQualityTestBackground executes the same account-specific transport probe
+// used by the admin test endpoint, but supplies a deterministic quality prompt.
+// The caller owns the grader; this method only captures the upstream response
+// and preserves the existing SSE/error semantics.
+func (s *AccountTestService) RunQualityTestBackground(ctx context.Context, accountID int64, modelID, prompt, effort string) (*ScheduledTestResult, error) {
+	ctx = withAccountTestUsage(ctx)
+	return s.runTestBackground(withAccountTestEffort(ctx, effort), accountID, modelID, prompt, effort)
+}
+
+func (s *AccountTestService) runTestBackground(ctx context.Context, accountID int64, modelID, prompt, _ string) (*ScheduledTestResult, error) {
 	startedAt := time.Now()
+	ctx, turnStateCapture := withAccountTestTurnStateCapture(ctx)
 
 	w := httptest.NewRecorder()
 	ginCtx, _ := gin.CreateTestContext(w)
 	ginCtx.Request = (&http.Request{}).WithContext(ctx)
 
-	testErr := s.TestAccountConnection(ginCtx, accountID, modelID, "", AccountTestModeDefault)
+	testErr := s.TestAccountConnection(ginCtx, accountID, modelID, prompt, AccountTestModeDefault)
 
 	finishedAt := time.Now()
 	body := w.Body.String()
-	responseText, errMsg := parseTestSSEOutput(body)
+	responseText, errMsg, reasoningTokens := parseTestSSEOutputWithReasoning(body)
+	conversationID, responseID := parseQualityResponseIdentity(body)
 
 	status := "success"
 	if testErr != nil || errMsg != "" {
@@ -1916,12 +2059,16 @@ func (s *AccountTestService) RunTestBackground(ctx context.Context, accountID in
 	}
 
 	return &ScheduledTestResult{
-		Status:       status,
-		ResponseText: responseText,
-		ErrorMessage: errMsg,
-		LatencyMs:    finishedAt.Sub(startedAt).Milliseconds(),
-		StartedAt:    startedAt,
-		FinishedAt:   finishedAt,
+		Status:            status,
+		ResponseText:      responseText,
+		ErrorMessage:      errMsg,
+		ReasoningTokens:   reasoningTokens,
+		TurnState:         turnStateCapture.value(),
+		InjectedTurnState: accountTestTurnState(ctx),
+		ConversationID:    conversationID, ResponseID: responseID,
+		LatencyMs:  finishedAt.Sub(startedAt).Milliseconds(),
+		StartedAt:  startedAt,
+		FinishedAt: finishedAt,
 	}, nil
 }
 

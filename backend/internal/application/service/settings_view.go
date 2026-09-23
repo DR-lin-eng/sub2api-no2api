@@ -270,6 +270,8 @@ type SystemSettings struct {
 	OpenAIVisibleOutputTTFTEnabled bool
 
 	// Gateway forwarding behavior
+	OpenAIOAuthForceRelayEnabled           bool   `json:"openai_oauth_force_relay_enabled"`
+	OpenAIOAuthForceRelayBaseURL           string `json:"openai_oauth_force_relay_base_url"`
 	EnableFingerprintUnification           bool   // 是否统一 OAuth 账号的指纹头（默认 true）
 	EnableMetadataPassthrough              bool   // 是否透传客户端原始 metadata（默认 false）
 	EnableCCHSigning                       bool   // 已废弃 no-op：新版 CLI 取消 cch 签名后网关不再注入/签名 cch，开关无效果
@@ -304,6 +306,12 @@ type SystemSettings struct {
 	OpenAILowUpstreamRatePriorityEnabled                   bool
 	OpenAIOAuthSchedulingRateMultiplier                    float64
 	OpenAIContentSessionBurstBalanceEnabled                bool
+	OpenAISessionIDRateLimitEnabled                        bool
+	OpenAISessionIDRateLimitPerMinute                      int
+	OpenAIOAuthGatewayRateLimitEnabled                     bool
+	OpenAIOAuthGatewayRateLimitRPM                         int
+	OpenAIOAuthGatewayRateLimitBurst                       int
+	OpenAIRequestIntegrityObserveEnabled                   bool
 	OpenAIAdvancedSchedulerEnabled                         bool
 	OpenAIAdvancedSchedulerStickyWeightedEnabled           bool
 	OpenAIAdvancedSchedulerSubscriptionPriorityEnabled     bool
@@ -675,6 +683,12 @@ type RateLimit429CooldownSettings struct {
 	AutoEnableWhenQuotaAvailableEnabled bool `json:"auto_enable_when_quota_available_enabled"`
 }
 
+// OAuth401CleanupSettings controls deletion of direct OAuth credential
+// accounts after an upstream 401 observed by the model gateway.
+type OAuth401CleanupSettings struct {
+	Enabled bool `json:"enabled"`
+}
+
 // GlobalTempUnschedulableSettings controls temporary account scheduling pauses globally.
 type GlobalTempUnschedulableSettings struct {
 	Enabled bool `json:"enabled"`
@@ -699,6 +713,10 @@ func DefaultRateLimit429CooldownSettings() *RateLimit429CooldownSettings {
 		AutoEnableAfterQuotaResetEnabled:    false,
 		AutoEnableWhenQuotaAvailableEnabled: false,
 	}
+}
+
+func DefaultOAuth401CleanupSettings() *OAuth401CleanupSettings {
+	return &OAuth401CleanupSettings{Enabled: false}
 }
 
 // DefaultBetaPolicySettings 返回默认的 Beta 策略配置

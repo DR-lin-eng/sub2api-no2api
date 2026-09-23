@@ -92,6 +92,8 @@ const (
 	FieldModelPricing = "model_pricing"
 	// FieldClaudeCodeOnly holds the string denoting the claude_code_only field in the database.
 	FieldClaudeCodeOnly = "claude_code_only"
+	// FieldIsDistillationGroup holds the string denoting the is_distillation_group field in the database.
+	FieldIsDistillationGroup = "is_distillation_group"
 	// FieldFallbackGroupID holds the string denoting the fallback_group_id field in the database.
 	FieldFallbackGroupID = "fallback_group_id"
 	// FieldFallbackGroupIDOnInvalidRequest holds the string denoting the fallback_group_id_on_invalid_request field in the database.
@@ -247,6 +249,7 @@ var Columns = []string{
 	FieldLongContextPricingEnabled,
 	FieldModelPricing,
 	FieldClaudeCodeOnly,
+	FieldIsDistillationGroup,
 	FieldFallbackGroupID,
 	FieldFallbackGroupIDOnInvalidRequest,
 	FieldModelRouting,
@@ -359,6 +362,8 @@ var (
 	DefaultLongContextPricingEnabled bool
 	// DefaultClaudeCodeOnly holds the default value on creation for the "claude_code_only" field.
 	DefaultClaudeCodeOnly bool
+	// DefaultIsDistillationGroup holds the default value on creation for the "is_distillation_group" field.
+	DefaultIsDistillationGroup bool
 	// DefaultModelRoutingEnabled holds the default value on creation for the "model_routing_enabled" field.
 	DefaultModelRoutingEnabled bool
 	// DefaultMcpXMLInject holds the default value on creation for the "mcp_xml_inject" field.
@@ -592,6 +597,11 @@ func ByLongContextPricingEnabled(opts ...sql.OrderTermOption) OrderOption {
 // ByClaudeCodeOnly orders the results by the claude_code_only field.
 func ByClaudeCodeOnly(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldClaudeCodeOnly, opts...).ToFunc()
+}
+
+// ByIsDistillationGroup orders the results by the is_distillation_group field.
+func ByIsDistillationGroup(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldIsDistillationGroup, opts...).ToFunc()
 }
 
 // ByFallbackGroupID orders the results by the fallback_group_id field.

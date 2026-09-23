@@ -61,6 +61,11 @@ const (
 	MonitorProviderAnthropic = "anthropic"
 	MonitorProviderGemini    = "gemini"
 	MonitorProviderGrok      = "grok"
+	MonitorProviderKimi      = PlatformKimi
+	MonitorProviderZhipu     = PlatformZhipu
+	MonitorProviderDeepseek  = PlatformDeepseek
+	MonitorProviderMiniMax   = PlatformMiniMax
+	MonitorProviderOpenCode  = PlatformOpenCodeGo
 
 	// MonitorModeActive sends synthetic probes. MonitorModePassive only reads
 	// real request/error records associated with the configured channel.
@@ -129,7 +134,7 @@ var (
 		"CHANNEL_MONITOR_NOT_FOUND", "channel monitor not found",
 	)
 	ErrChannelMonitorInvalidProvider = infraerrors.BadRequest(
-		"CHANNEL_MONITOR_INVALID_PROVIDER", "provider must be one of openai/anthropic/gemini/grok",
+		"CHANNEL_MONITOR_INVALID_PROVIDER", "provider must be one of openai/anthropic/gemini/grok/kimi/zhipu/deepseek/minimax",
 	)
 	ErrChannelMonitorInvalidMode = infraerrors.BadRequest(
 		"CHANNEL_MONITOR_INVALID_MODE", "monitor_mode must be active or passive",
@@ -165,7 +170,7 @@ var (
 		"CHANNEL_MONITOR_ENDPOINT_SCHEME", "endpoint must use https scheme",
 	)
 	ErrChannelMonitorEndpointPath = infraerrors.BadRequest(
-		"CHANNEL_MONITOR_ENDPOINT_PATH", "endpoint must be base origin only (no path/query/fragment)",
+		"CHANNEL_MONITOR_ENDPOINT_PATH", "endpoint must not contain query parameters or a fragment",
 	)
 	ErrChannelMonitorEndpointPrivate = infraerrors.BadRequest(
 		"CHANNEL_MONITOR_ENDPOINT_PRIVATE", "endpoint must be a public host",

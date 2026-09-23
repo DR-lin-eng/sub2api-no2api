@@ -284,6 +284,7 @@ func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {
 	s.streamModePerformanceLoaded.Store(time.Now().UnixNano())
 	s.openAIWSModeRouterV2Enabled.Store(settings.OpenAIWSModeRouterV2Enabled)
 	s.openAIWSModeRouterV2Loaded.Store(time.Now().UnixNano())
+	s.refreshOpenAIOAuthForceRelaySettings(settings)
 	s.storeRequestPriorityAdmissionSettings(RequestPriorityAdmissionSettings{
 		Enabled:                 settings.RequestPriorityAdmissionEnabled,
 		PendingLimitPerInstance: settings.RequestPriorityPendingLimitPerInstance,
@@ -314,9 +315,6 @@ func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {
 	})
 	s.openAICodexUASF.Forget("openai_codex_user_agent")
 	codexUA := strings.TrimSpace(settings.OpenAICodexUserAgent)
-	if codexUA == "" {
-		codexUA = DefaultOpenAICodexUserAgent
-	}
 	s.openAICodexUACache.Store(&cachedOpenAICodexUserAgent{
 		value:     codexUA,
 		expiresAt: time.Now().Add(openAICodexUserAgentCacheTTL).UnixNano(),
@@ -329,6 +327,12 @@ func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {
 		lowUpstreamRatePriorityEnabled: settings.OpenAILowUpstreamRatePriorityEnabled,
 		oauthSchedulingRateMultiplier:  settings.OpenAIOAuthSchedulingRateMultiplier,
 		contentSessionBurstBalance:     settings.OpenAIContentSessionBurstBalanceEnabled,
+		sessionIDRateLimitEnabled:      settings.OpenAISessionIDRateLimitEnabled,
+		sessionIDRateLimitPerMinute:    settings.OpenAISessionIDRateLimitPerMinute,
+		oauthGatewayRateLimitEnabled:   settings.OpenAIOAuthGatewayRateLimitEnabled,
+		oauthGatewayRateLimitRPM:       settings.OpenAIOAuthGatewayRateLimitRPM,
+		oauthGatewayRateLimitBurst:     settings.OpenAIOAuthGatewayRateLimitBurst,
+		requestIntegrityObserveEnabled: settings.OpenAIRequestIntegrityObserveEnabled,
 		enabled:                        settings.OpenAIAdvancedSchedulerEnabled,
 		stickyWeightedEnabled:          settings.OpenAIAdvancedSchedulerStickyWeightedEnabled,
 		subscriptionPriorityEnabled:    settings.OpenAIAdvancedSchedulerSubscriptionPriorityEnabled,

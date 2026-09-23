@@ -4,6 +4,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"regexp"
 	"testing"
 	"time"
@@ -121,4 +122,36 @@ func TestFillSubjectDashboardUsageStatsRejectsUnknownColumn(t *testing.T) {
 	repo := &usageLogRepository{}
 	err := repo.fillSubjectDashboardUsageStats(context.Background(), &usagestats.UserDashboardStats{}, "unsafe", 1, time.Now())
 	require.ErrorContains(t, err, "unsupported dashboard subject column")
+}
+
+func TestGetUserDashboardStatsKeepsCoreStatsWhenPlatformQueryFails(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	mock.ExpectQuery(`(?s)SELECT\s+COUNT\(\*\) AS total_api_keys.*FROM api_keys`).
+		WithArgs(int64(7), service.StatusActive).
+		WillReturnRows(sqlmock.NewRows([]string{"total_api_keys", "active_api_keys"}).AddRow(2, 1))
+	mock.ExpectQuery(`(?s)SELECT\s+COUNT\(\*\) AS total_requests.*FROM usage_logs\s+WHERE user_id = \$1`).
+		WithArgs(int64(7), sqlmock.AnyArg()).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"total_requests", "total_input_tokens", "total_output_tokens", "total_cache_creation_tokens", "total_cache_read_tokens",
+			"total_cost", "total_actual_cost", "avg_duration_ms", "today_requests", "today_input_tokens", "today_output_tokens",
+			"today_cache_creation_tokens", "today_cache_read_tokens", "today_cost", "today_actual_cost",
+		}).AddRow(3, 30, 20, 0, 0, 2.5, 2.0, 100.0, 1, 10, 5, 0, 0, 0.8, 0.6))
+	mock.ExpectQuery(`(?s)SELECT\s+COUNT\(\*\) as request_count.*FROM usage_logs\s+WHERE created_at >= \$1 AND user_id = \$2`).
+		WithArgs(sqlmock.AnyArg(), int64(7)).
+		WillReturnRows(sqlmock.NewRows([]string{"request_count", "token_count"}).AddRow(0, 0))
+	mock.ExpectQuery(`(?s)SELECT\s+CASE WHEN g\.platform = 'composite'.*FROM usage_logs ul`).
+		WithArgs(int64(7), sqlmock.AnyArg()).
+		WillReturnError(errors.New("column groups.platform does not exist"))
+
+	repo := &usageLogRepository{sql: db}
+	stats, err := repo.GetUserDashboardStats(context.Background(), 7)
+	require.NoError(t, err)
+	require.Equal(t, int64(2), stats.TotalAPIKeys)
+	require.Equal(t, int64(3), stats.TotalRequests)
+	require.Equal(t, int64(50), stats.TotalTokens)
+	require.Empty(t, stats.ByPlatform)
+	require.NoError(t, mock.ExpectationsWereMet())
 }

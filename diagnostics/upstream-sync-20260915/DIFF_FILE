@@ -1,0 +1,23 @@
+|diff --git a/backend/internal/domain/constants.go b/backend/internal/domain/constants.go
+|index a7cce32c0..9414d0587 100644
+|--- a/backend/internal/domain/constants.go
+|+++ b/backend/internal/domain/constants.go
+|@@ -23,9 +23,18 @@ const (
+| 	PlatformGemini      = "gemini"
+| 	PlatformAntigravity = "antigravity"
+| 	PlatformGrok        = "grok"
+|+	PlatformKimi        = "kimi"
+|+	PlatformZhipu       = "zhipu"
+|+	PlatformDeepseek    = "deepseek"
+|+	PlatformMiniMax     = "minimax"
+| 	PlatformComposite   = "composite"
+| )
+|
+|+const (
+|+	AccountModePayG   = "payg"
+|+	AccountModeCoding = "coding"
+|+)
+|+
+| // Account type constants
+| const (
+| 	AccountTypeOAuth          = "oauth"           // OAuth类型账号（full scope: profile + inference）

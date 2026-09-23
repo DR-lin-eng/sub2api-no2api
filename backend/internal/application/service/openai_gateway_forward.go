@@ -20,6 +20,11 @@ import (
 
 // Forward forwards request to OpenAI API
 func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, account *Account, body []byte) (*OpenAIForwardResult, error) {
+	distillation := s.IsDistillationGroupRequest(c, account)
+	if distillation {
+		body = stripDistillationCacheFields(body)
+	}
+	integrityOriginalBody := bytes.Clone(body)
 	ctx = s.WithOpenAIStreamRuntimeSettings(ctx)
 	if c != nil && c.Request != nil {
 		settings := s.openAIStreamRuntimeSettings(ctx)
@@ -117,7 +122,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	}
 	if shouldStripOpenAIResponsesInputNamespaces(account, wsDecision.Transport, passthroughEnabled) {
 		keepToolCallNamespaces := shouldKeepOpenAIResponsesToolCallNamespaces(
-			account, wsDecision.Transport, passthroughEnabled, compactPath,
+			account, wsDecision.Transport, passthroughEnabled, compactPath, body,
 		)
 		body, err = stripOpenAIResponsesInputNamespaces(body, keepToolCallNamespaces)
 		if err != nil {
@@ -138,6 +143,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	}
 
 	originalBody := body
+	rememberOpenCodeInboundBody(c, originalBody)
 	requestView := newOpenAIRequestView(body)
 	reqModel, reqStream, promptCacheKey := requestView.Model, requestView.Stream, requestView.PromptCacheKey
 	originalModel := reqModel
@@ -177,6 +183,20 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 
 	if account.Platform == PlatformGrok {
 		return s.forwardGrokResponses(ctx, c, account, body, originalModel, reqStream, startTime)
+	}
+	if account.IsOpenCodeGo() {
+		mapped := normalizeOpenAIModelForUpstream(account, resolveOpenAIForwardModel(account, originalModel, ""))
+		switch openCodeGoNativeProtocol(account, mapped) {
+		case APIProtocolAnthropic:
+			return s.forwardResponsesViaNativeAnthropic(ctx, c, account, body, "")
+		case APIProtocolResponses:
+			// Continue through the native Responses path below.
+		default:
+			return s.forwardResponsesViaRawChatCompletions(ctx, c, account, body)
+		}
+	}
+	if account.IsAnthropicProtocol() {
+		return s.forwardResponsesViaNativeAnthropic(ctx, c, account, body, "")
 	}
 
 	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) {
@@ -233,6 +253,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 				logger.LegacyPrintf("service.openai_gateway", "[OpenAI] Stripped /responses image_generation tool for Codex client by account policy")
 			}
 		}
+		s.observeOpenAIRequestIntegrity(ctx, c, account, integrityOriginalBody, body, "http_passthrough")
 		// 透传分支只需要轻量提取字段，避免热路径全量 Unmarshal。
 		mappedModel := account.GetMappedModel(reqModel)
 		reasoningEffort := extractOpenAIReasoningEffortFromBody(body, mappedModel)
@@ -335,12 +356,6 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		return nil, errors.New("image generation disabled for group")
 	}
 
-	instructions := gjson.GetBytes(body, "instructions")
-	instructionsEmpty := !instructions.Exists() || instructions.Type != gjson.String || strings.TrimSpace(instructions.String()) == ""
-	if instructionsEmpty && account.IsOpenAIOAuth() && !compatMessagesBridge {
-		markPatchSet("instructions", defaultCodexSynthInstructions(reqModel))
-	}
-
 	billingModel := account.GetMappedModel(reqModel)
 	if billingModel != reqModel {
 		logger.LegacyPrintf("service.openai_gateway", "[OpenAI] Model mapping applied: %s -> %s (account: %s, isCodexCLI: %v)", reqModel, billingModel, account.Name, isCodexCLI)
@@ -370,6 +385,20 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			logger.LegacyPrintf("service.openai_gateway", "[OpenAI] Upstream model resolved: %s -> %s (account: %s, type: %s, isCodexCLI: %v)", modelForNormalize, upstreamModel, account.Name, account.Type, isCodexCLI)
 			reqModel = upstreamModel
 			markPatchSet("model", upstreamModel)
+		}
+	}
+	// Select the Codex base prompt only after the final upstream model is
+	// known. This matters for aliases such as gpt-5.6, which normalize to Sol.
+	if account.IsOpenAIOAuth() && !compatMessagesBridge {
+		decoded, decodeErr := ensureReqBody()
+		if decodeErr != nil {
+			return nil, decodeErr
+		}
+		existing, _ := decoded["instructions"].(string)
+		trimmed := strings.TrimSpace(existing)
+		if trimmed == "" || trimmed == strings.TrimSpace(openai.DefaultInstructions) {
+			decoded["instructions"] = defaultCodexSynthInstructions(upstreamModel)
+			markDecodedModified()
 		}
 	}
 	if rawEffort := gjson.GetBytes(body, "reasoning.effort").String(); rawEffort != "" {
@@ -616,6 +645,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			requestView = newOpenAIRequestView(body)
 		}
 	}
+	s.observeOpenAIRequestIntegrity(ctx, c, account, integrityOriginalBody, body, "http")
 	imageBillingModel := ""
 	imageSizeTier := ""
 	imageInputSize := ""
@@ -1004,6 +1034,9 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(respBody))
 			upstreamMsg = sanitizeUpstreamErrorMessage(upstreamMsg)
 			upstreamCode := extractUpstreamErrorCode(respBody)
+			if distillation {
+				return s.handleErrorResponse(ctx, resp, c, account, body, billingModel)
+			}
 			if !agentTaskRecoveryTried && s.isAgentIdentityAccount(ctx, account) && isAgentIdentityTaskInvalidHTTPResponse(resp.StatusCode, respBody) {
 				agentTaskRecoveryTried = true
 				expectedTaskID := account.GetCredential("task_id")

@@ -9,6 +9,11 @@ import (
 )
 
 func (s *SettingService) applyGatewaySettings(result *SystemSettings, settings map[string]string) {
+	result.OpenAIOAuthForceRelayEnabled = strings.EqualFold(strings.TrimSpace(settings[SettingKeyOpenAIOAuthForceRelayEnabled]), "true")
+	result.OpenAIOAuthForceRelayBaseURL = strings.TrimSpace(settings[SettingKeyOpenAIOAuthForceRelayBaseURL])
+	if result.OpenAIOAuthForceRelayBaseURL == "" && !result.OpenAIOAuthForceRelayEnabled {
+		result.OpenAIOAuthForceRelayBaseURL = DefaultOpenAIOAuthForceRelayBaseURL
+	}
 	if value, ok := settings[SettingKeyOpenAIWSModeRouterV2Enabled]; ok && strings.TrimSpace(value) != "" {
 		result.OpenAIWSModeRouterV2Enabled = strings.EqualFold(strings.TrimSpace(value), "true")
 	} else {
@@ -81,6 +86,12 @@ func (s *SettingService) applyGatewaySettings(result *SystemSettings, settings m
 	result.OpenAILowUpstreamRatePriorityEnabled = settings[SettingKeyOpenAILowUpstreamRatePriorityEnabled] == "true"
 	result.OpenAIOAuthSchedulingRateMultiplier = parseOpenAIOAuthSchedulingRateMultiplier(settings[SettingKeyOpenAIOAuthSchedulingRateMultiplier])
 	result.OpenAIContentSessionBurstBalanceEnabled = settings[SettingKeyOpenAIContentSessionBurstBalanceEnabled] == "true"
+	result.OpenAISessionIDRateLimitEnabled = settings[SettingKeyOpenAISessionIDRateLimitEnabled] == "true"
+	result.OpenAISessionIDRateLimitPerMinute = parseOpenAISessionIDRateLimitPerMinute(settings[SettingKeyOpenAISessionIDRateLimitPerMinute])
+	result.OpenAIOAuthGatewayRateLimitEnabled = settings[SettingKeyOpenAIOAuthGatewayRateLimitEnabled] == "true"
+	result.OpenAIOAuthGatewayRateLimitRPM = parseOpenAIOAuthGatewayRateLimitValue(settings[SettingKeyOpenAIOAuthGatewayRateLimitRPM], 60)
+	result.OpenAIOAuthGatewayRateLimitBurst = parseOpenAIOAuthGatewayRateLimitValue(settings[SettingKeyOpenAIOAuthGatewayRateLimitBurst], 5)
+	result.OpenAIRequestIntegrityObserveEnabled = settings[SettingKeyOpenAIRequestIntegrityObserveEnabled] == "true"
 	result.OpenAIAdvancedSchedulerEnabled = settings[openAIAdvancedSchedulerSettingKey] == "true"
 	result.OpenAIAdvancedSchedulerStickyWeightedEnabled = settings[SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled] == "true"
 	result.OpenAIAdvancedSchedulerSubscriptionPriorityEnabled = settings[SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled] == "true"

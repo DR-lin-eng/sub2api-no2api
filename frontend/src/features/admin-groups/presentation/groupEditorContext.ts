@@ -75,6 +75,7 @@ export interface GroupEditorFormState {
   profit_min_margin_percent: number | string;
   profit_safety_buffer_percent: number | string;
   claude_code_only: boolean;
+  is_distillation_group: boolean;
   fallback_group_id: number | null;
   fallback_group_id_on_invalid_request: number | null;
   allow_messages_dispatch: boolean;

@@ -63,6 +63,8 @@ interface SummaryRow {
   total_concurrency: number
   used_concurrency: number
   waiting_in_queue: number
+  session_id_growth_per_minute: number
+  max_session_id_growth_per_minute: number
   // 计算字段
   availability_percentage: number
   concurrency_percentage: number
@@ -78,6 +80,7 @@ interface AccountRow {
   current_in_use: number
   max_capacity: number
   waiting_in_queue: number
+  session_id_growth_per_minute: number
   load_percentage: number
   // 状态
   is_available: boolean
@@ -128,6 +131,8 @@ const platformRows = computed((): SummaryRow[] => {
       total_concurrency: totalConcurrency,
       used_concurrency: usedConcurrency,
       waiting_in_queue: safeNumber(conc.waiting_in_queue),
+      session_id_growth_per_minute: safeNumber(conc.session_id_growth_per_minute),
+      max_session_id_growth_per_minute: safeNumber(conc.max_session_id_growth_per_minute),
       availability_percentage: totalAccounts > 0 ? Math.round((availableAccounts / totalAccounts) * 100) : 0,
       concurrency_percentage: totalConcurrency > 0 ? Math.round((usedConcurrency / totalConcurrency) * 100) : 0
     }
@@ -168,6 +173,8 @@ const groupRows = computed((): SummaryRow[] => {
         total_concurrency: totalConcurrency,
         used_concurrency: usedConcurrency,
         waiting_in_queue: safeNumber(conc.waiting_in_queue),
+        session_id_growth_per_minute: safeNumber(conc.session_id_growth_per_minute),
+        max_session_id_growth_per_minute: safeNumber(conc.max_session_id_growth_per_minute),
         availability_percentage: totalAccounts > 0 ? Math.round((availableAccounts / totalAccounts) * 100) : 0,
         concurrency_percentage: totalConcurrency > 0 ? Math.round((usedConcurrency / totalConcurrency) * 100) : 0
       }
@@ -204,6 +211,7 @@ const accountRows = computed((): AccountRow[] => {
         current_in_use: safeNumber(conc.current_in_use),
         max_capacity: safeNumber(conc.max_capacity),
         waiting_in_queue: safeNumber(conc.waiting_in_queue),
+        session_id_growth_per_minute: safeNumber(conc.session_id_growth_per_minute),
         load_percentage: safeNumber(conc.load_percentage),
         is_available: avail.is_available || false,
         is_rate_limited: avail.is_rate_limited || false,
@@ -259,6 +267,12 @@ const displayTitle = computed(() => {
   if (displayDimension.value === 'account') return t('admin.ops.concurrency.byAccount')
   if (displayDimension.value === 'group') return t('admin.ops.concurrency.byGroup')
   return t('admin.ops.concurrency.byPlatform')
+})
+
+const sessionGrowth = computed(() => (showByUser.value ? null : concurrency.value?.session_id_growth) || {
+  total_per_minute: 0,
+  max_per_minute: 0,
+  max_account_id: 0
 })
 
 async function loadData() {
@@ -397,9 +411,11 @@ watch(
         <span class="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
           {{ displayTitle }}
         </span>
-        <span class="text-[10px] text-gray-500 dark:text-gray-400">
-          {{ t('admin.ops.concurrency.totalRows', { count: formatCompactNumber(displayRows.length) }) }}
-        </span>
+        <div class="flex items-center gap-2 text-[10px] text-gray-500 dark:text-gray-400">
+          <span>{{ t('admin.ops.concurrency.sessionGrowthTotal', { count: formatCompactNumber(sessionGrowth.total_per_minute) }) }}</span>
+          <span>{{ t('admin.ops.concurrency.sessionGrowthMax', { count: formatCompactNumber(sessionGrowth.max_per_minute) }) }}</span>
+          <span>{{ t('admin.ops.concurrency.totalRows', { count: formatCompactNumber(displayRows.length) }) }}</span>
+        </div>
       </div>
 
       <!-- 空状态 -->
@@ -510,6 +526,9 @@ watch(
             >
               {{ t('admin.ops.concurrency.queued', { count: formatCompactNumber(row.waiting_in_queue) }) }}
             </span>
+            <span v-if="row.platform === 'openai' || (displayDimension === 'platform' && row.key === 'openai')" class="rounded-full bg-blue-100 px-1.5 py-0.5 font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+              {{ t('admin.ops.concurrency.sessionGrowthPerMinute', { count: formatCompactNumber(row.session_id_growth_per_minute) }) }}
+            </span>
           </div>
         </div>
       </div>
@@ -590,6 +609,11 @@ watch(
           <div v-if="row.waiting_in_queue > 0" class="mt-1.5 flex justify-end">
             <span class="rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
               {{ t('admin.ops.concurrency.queued', { count: formatCompactNumber(row.waiting_in_queue) }) }}
+            </span>
+          </div>
+          <div v-if="row.platform === 'openai'" class="mt-1.5 flex justify-end">
+            <span class="rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+              {{ t('admin.ops.concurrency.sessionGrowthPerMinute', { count: formatCompactNumber(row.session_id_growth_per_minute) }) }}
             </span>
           </div>
         </div>

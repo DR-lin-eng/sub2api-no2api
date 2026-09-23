@@ -341,6 +341,71 @@ describe('EditAccountModal', () => {
     authIsSimpleMode.value = true
   })
 
+  it('loads and submits adaptive endpoints and OpenCode protocol rules', async () => {
+    const account = {
+      ...buildAccount(),
+      platform: 'opencode_go',
+      name: 'OpenCode Go',
+      credentials: {
+        api_key: 'key',
+        account_mode: 'go',
+        api_protocol: 'adaptive',
+        base_url: 'https://chat.example/v1',
+        api_base_urls: {
+          chat_completions: 'https://chat.example/v1',
+          anthropic: 'https://anthropic.example',
+          responses: 'https://responses.example/v1',
+        },
+        protocol_rules: [{ pattern: 'private-*', protocol: 'responses' }],
+      },
+    } as any
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+
+    const wrapper = mountModal(account)
+    expect((wrapper.get('[data-testid="edit-cn-adaptive-base-url-anthropic"]').element as HTMLInputElement).value)
+      .toBe('https://anthropic.example')
+    expect((wrapper.get('[data-testid="opencode-protocol-pattern-0"]').element as HTMLInputElement).value)
+      .toBe('private-*')
+    await wrapper.get('[data-testid="opencode-protocol-pattern-0"]').setValue('custom-*')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({
+      api_base_urls: {
+        chat_completions: 'https://chat.example/v1',
+        anthropic: 'https://anthropic.example',
+        responses: 'https://responses.example/v1',
+      },
+      protocol_rules: [{ pattern: 'custom-*', protocol: 'responses' }],
+    })
+  })
+
+  it('clears Zhipu team identifiers when changing a team plan to pay as you go', async () => {
+    const account = {
+      ...buildAccount(),
+      platform: 'zhipu',
+      name: 'Zhipu team',
+      credentials: {
+        api_key: 'key',
+        account_mode: 'coding',
+        api_protocol: 'chat_completions',
+        base_url: 'https://open.bigmodel.cn/api/coding/paas/v4',
+        zhipu_organization: 'org-123',
+        zhipu_project: 'project-456',
+      },
+    } as any
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+
+    const wrapper = mountModal(account)
+    expect((wrapper.get('[data-testid="edit-zhipu-organization"]').element as HTMLInputElement).value).toBe('org-123')
+    await wrapper.get('[data-testid="edit-cn-account-mode"]').setValue('payg')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).not.toHaveProperty('zhipu_organization')
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).not.toHaveProperty('zhipu_project')
+  })
+
   it('reopening the same account rehydrates the OpenAI whitelist from props', async () => {
     const account = buildAccount()
     updateAccountMock.mockReset()

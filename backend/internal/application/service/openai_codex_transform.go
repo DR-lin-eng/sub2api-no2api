@@ -12,6 +12,8 @@ import (
 
 var codexModelMap = map[string]string{
 	"gpt-6-astra":          "gpt-6-astra",
+	"gpt-6-sol":            "gpt-6-sol",
+	"gpt-6-luna":           "gpt-6-luna",
 	"gpt-5.6-sol":          "gpt-5.6-sol",
 	"gpt-5.6-terra":        "gpt-5.6-terra",
 	"gpt-5.6-luna":         "gpt-5.6-luna",
@@ -61,6 +63,8 @@ var codexVersionModelPrefixes = []struct {
 	target string
 }{
 	{prefix: "gpt-6-astra", target: "gpt-6-astra"},
+	{prefix: "gpt-6-sol", target: "gpt-6-sol"},
+	{prefix: "gpt-6-luna", target: "gpt-6-luna"},
 	{prefix: "gpt-5.6-sol", target: "gpt-5.6-sol"},
 	{prefix: "gpt-5.6-terra", target: "gpt-5.6-terra"},
 	{prefix: "gpt-5.6-luna", target: "gpt-5.6-luna"},
@@ -151,6 +155,9 @@ func applyCodexOAuthTransform(reqBody map[string]any, isCodexCLI bool, isCompact
 
 func applyCodexOAuthTransformWithOptions(reqBody map[string]any, opts codexOAuthTransformOptions) codexTransformResult {
 	result := codexTransformResult{}
+	if stripOpenAIInternalInputMetadataDecoded(reqBody) {
+		result.Modified = true
+	}
 	// 工具续链需求会影响存储策略与 input 过滤逻辑。
 	needsToolContinuation := NeedsToolContinuation(reqBody)
 
@@ -1090,7 +1097,11 @@ func normalizeOpenAIModelForUpstream(account *Account, model string) string {
 	if account == nil || account.Type == AccountTypeOAuth {
 		return normalizeCodexModel(model)
 	}
-	return strings.TrimSpace(model)
+	model = strings.TrimSpace(model)
+	if account.Platform == PlatformDeepseek {
+		return normalizeClaudeCodeLongContextModel(model)
+	}
+	return model
 }
 
 func SupportsVerbosity(model string) bool {
@@ -1461,9 +1472,12 @@ func applyCodexClientMetadata(reqBody map[string]any, account *Account) bool {
 	}
 }
 
-// applyInstructions 处理 instructions 字段：仅在 instructions 为空时填充默认值。
+// applyInstructions fills the model-specific Codex base prompt when the
+// caller omitted instructions or sent the generic fallback. A caller's
+// non-default instructions remain intact because they may contain task policy.
 func applyInstructions(reqBody map[string]any, isCodexCLI bool) bool {
-	if !isInstructionsEmpty(reqBody) {
+	existing, _ := reqBody["instructions"].(string)
+	if !isInstructionsEmpty(reqBody) && strings.TrimSpace(existing) != strings.TrimSpace(openai.DefaultInstructions) {
 		return false
 	}
 	model, _ := reqBody["model"].(string)

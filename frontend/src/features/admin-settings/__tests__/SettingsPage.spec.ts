@@ -22,11 +22,14 @@ const {
   getOverloadCooldownSettings,
   getRateLimit429CooldownSettings,
   updateRateLimit429CooldownSettings,
+  getOAuth401CleanupSettings,
+  updateOAuth401CleanupSettings,
   getGlobalTempUnschedulableSettings,
   updateGlobalTempUnschedulableSettings,
   getCodexSimulationSettings,
   forceDisableCodexSimulationSettings,
   updateCodexSimulationSettings,
+  syncCodexTurnStates,
   getEmailTemplates,
   getEmailTemplate,
   updateEmailTemplate,
@@ -61,11 +64,14 @@ const {
   getOverloadCooldownSettings: vi.fn(),
   getRateLimit429CooldownSettings: vi.fn(),
   updateRateLimit429CooldownSettings: vi.fn(),
+  getOAuth401CleanupSettings: vi.fn(),
+  updateOAuth401CleanupSettings: vi.fn(),
   getGlobalTempUnschedulableSettings: vi.fn(),
   updateGlobalTempUnschedulableSettings: vi.fn(),
   getCodexSimulationSettings: vi.fn(),
   forceDisableCodexSimulationSettings: vi.fn(),
   updateCodexSimulationSettings: vi.fn(),
+  syncCodexTurnStates: vi.fn(),
   getEmailTemplates: vi.fn(),
   getEmailTemplate: vi.fn(),
   updateEmailTemplate: vi.fn(),
@@ -113,6 +119,8 @@ vi.mock("@/api", () => ({
       getOverloadCooldownSettings,
       getRateLimit429CooldownSettings,
       updateRateLimit429CooldownSettings,
+      getOAuth401CleanupSettings,
+      updateOAuth401CleanupSettings,
       getGlobalTempUnschedulableSettings,
       updateGlobalTempUnschedulableSettings,
       getPanelRateLimitSettings,
@@ -160,6 +168,7 @@ vi.mock(
       getOverloadCooldownSettings,
       getPanelRateLimitSettings,
       getRateLimit429CooldownSettings,
+      getOAuth401CleanupSettings,
       getRectifierSettings,
       getSettings,
       getStreamTimeoutSettings,
@@ -193,10 +202,12 @@ vi.mock(
       updateBetaPolicySettings: vi.fn(),
       forceDisableCodexSimulationSettings,
       updateCodexSimulationSettings,
+      syncCodexTurnStates,
       updateGlobalTempUnschedulableSettings,
       updateOverloadCooldownSettings: vi.fn(),
       updatePanelRateLimitSettings,
       updateRateLimit429CooldownSettings,
+      updateOAuth401CleanupSettings,
       updateRectifierSettings: vi.fn(),
       updateSettings,
       updateStreamTimeoutSettings,
@@ -366,6 +377,8 @@ vi.mock("vue-i18n", async () => {
     "admin.settings.openaiExperimentalScheduler.oauthRateTitle": "OAuth 调度参考倍率",
     "admin.settings.openaiExperimentalScheduler.oauthRatePriorityDescription": "同一分组同时包含 API Key 和 OAuth 账号时，OAuth 账号按此倍率与已探测的 API Key 计费倍率一起排序。",
     "admin.settings.openaiExperimentalScheduler.oauthRateWeightedDescription": "同一分组同时包含 API Key 和 OAuth 账号时，计算“计费倍率”得分时，OAuth 账号按此倍率参与计算。",
+    "admin.settings.scheduling.oauthGatewayRateLimit": "OpenAI OAuth 每账号限速",
+    "admin.settings.scheduling.oauthGatewayRateLimitHint": "所有账号使用同一套配置，但每个 OAuth 账号拥有独立令牌桶；同一账号在集群各实例间共享状态。",
     "admin.settings.openaiExperimentalScheduler.stickyWeightedTitle": "粘性加权",
     "admin.settings.openaiExperimentalScheduler.stickyWeightedDescription": "开启后 previous_response_id 和 session_hash 粘性进入高级调度打分；关闭时仍按旧逻辑硬命中粘性账号。",
     "admin.settings.openaiExperimentalScheduler.subscriptionPriorityTitle": "订阅优先",
@@ -561,6 +574,8 @@ const baseSettingsResponse = {
   stream_mode_performance_enabled: false,
   openai_ws_mode_router_v2_enabled: false,
   openai_visible_output_ttft_enabled: true,
+  openai_oauth_force_relay_enabled: false,
+  openai_oauth_force_relay_base_url: "https://codex-relay.oaifree.com/backend-api/codex",
   custom_menu_items: [],
   custom_endpoints: [],
   frontend_url: "",
@@ -695,6 +710,8 @@ const baseSettingsResponse = {
   openai_low_upstream_rate_priority_enabled: false,
   openai_oauth_scheduling_rate_multiplier: 1,
   openai_content_session_burst_balance_enabled: false,
+  openai_session_id_rate_limit_enabled: false,
+  openai_session_id_rate_limit_per_minute: 0,
   openai_advanced_scheduler_enabled: false,
   openai_advanced_scheduler_sticky_weighted_enabled: false,
   openai_advanced_scheduler_subscription_priority_enabled: false,
@@ -758,6 +775,7 @@ function mountView(extraStubs: Record<string, Component | boolean> = {}) {
         ImageUpload: ImageUploadStub,
         BackupSettings: true,
         PanelRateLimitSettingsCard: true,
+        SettingsOAuth2ProviderPanel: true,
         ...extraStubs,
       },
     },
@@ -844,11 +862,14 @@ describe("admin SettingsView payment visible method controls", () => {
     getOverloadCooldownSettings.mockReset();
     getRateLimit429CooldownSettings.mockReset();
     updateRateLimit429CooldownSettings.mockReset();
+    getOAuth401CleanupSettings.mockReset();
+    updateOAuth401CleanupSettings.mockReset();
     getGlobalTempUnschedulableSettings.mockReset();
     updateGlobalTempUnschedulableSettings.mockReset();
     getCodexSimulationSettings.mockReset();
     forceDisableCodexSimulationSettings.mockReset();
     updateCodexSimulationSettings.mockReset();
+    syncCodexTurnStates.mockReset();
     getEmailTemplates.mockReset();
     getEmailTemplate.mockReset();
     updateEmailTemplate.mockReset();
@@ -907,12 +928,19 @@ describe("admin SettingsView payment visible method controls", () => {
       auto_enable_when_quota_available_enabled: false,
     });
     updateRateLimit429CooldownSettings.mockImplementation(async (payload) => payload);
+    getOAuth401CleanupSettings.mockResolvedValue({ enabled: false });
+    updateOAuth401CleanupSettings.mockImplementation(async (payload) => payload);
     getGlobalTempUnschedulableSettings.mockResolvedValue({ enabled: true });
     updateGlobalTempUnschedulableSettings.mockImplementation(
       async (payload) => payload,
     );
     getCodexSimulationSettings.mockResolvedValue({
       full_simulation_enabled: false,
+      turn_state_replay_enabled: false,
+      turn_state_auto_replay_enabled: false,
+      turn_state_target_length: 292,
+      turn_state_watch_models: [],
+      turn_states: [],
       continuation_mode: "off",
       state_ttl_seconds: 604800,
       identity_secret_configured: false,
@@ -923,6 +951,11 @@ describe("admin SettingsView payment visible method controls", () => {
     }));
     forceDisableCodexSimulationSettings.mockResolvedValue({
       full_simulation_enabled: false,
+      turn_state_replay_enabled: false,
+      turn_state_auto_replay_enabled: false,
+      turn_state_target_length: 292,
+      turn_state_watch_models: [],
+      turn_states: [],
       continuation_mode: "off",
       state_ttl_seconds: 604800,
       identity_secret_configured: true,
@@ -1008,6 +1041,58 @@ describe("admin SettingsView payment visible method controls", () => {
 
     const payload = updateSettings.mock.calls.at(-1)?.[0] as Record<string, unknown>;
     expect(payload.openai_ws_mode_router_v2_enabled).toBe(true);
+  });
+
+  it("saves the global OpenAI OAuth relay from gateway settings", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+
+    const toggle = wrapper.get('[data-testid="openai-oauth-force-relay-toggle"]');
+    expect((toggle.element as HTMLInputElement).checked).toBe(false);
+    await toggle.setValue(true);
+    await wrapper.get('[data-testid="openai-oauth-force-relay-url"]').setValue(
+      "https://relay.example/backend-api/codex",
+    );
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    const payload = updateSettings.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+    expect(payload.openai_oauth_force_relay_enabled).toBe(true);
+    expect(payload.openai_oauth_force_relay_base_url).toBe(
+      "https://relay.example/backend-api/codex",
+    );
+  });
+
+  it("reloads the persisted relay and retains it when saving other settings", async () => {
+    const relayURL = "https://relay.example/backend-api/codex";
+    getSettings.mockResolvedValue({
+      ...baseSettingsResponse,
+      openai_oauth_force_relay_enabled: true,
+      openai_oauth_force_relay_base_url: relayURL,
+    });
+
+    const firstView = mountView();
+    await flushPromises();
+    firstView.unmount();
+
+    const reloadedView = mountView();
+    await flushPromises();
+    await openGatewayTab(reloadedView);
+
+    const toggle = reloadedView.get('[data-testid="openai-oauth-force-relay-toggle"]');
+    const input = reloadedView.get('[data-testid="openai-oauth-force-relay-url"]');
+    expect((toggle.element as HTMLInputElement).checked).toBe(true);
+    expect((input.element as HTMLInputElement).value).toBe(relayURL);
+
+    await reloadedView.get('[data-testid="openai-visible-output-ttft-toggle"]').setValue(false);
+    await reloadedView.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    const payload = updateSettings.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+    expect(payload.openai_oauth_force_relay_enabled).toBe(true);
+    expect(payload.openai_oauth_force_relay_base_url).toBe(relayURL);
+    reloadedView.unmount();
   });
 
   it("switches OpenAI TTFT to the legacy measurement from gateway settings", async () => {
@@ -1371,10 +1456,38 @@ describe("admin SettingsView payment visible method controls", () => {
     });
   });
 
+  it("saves OAuth 401 automatic deletion from gateway resilience settings", async () => {
+    getOAuth401CleanupSettings.mockResolvedValueOnce({ enabled: false });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+
+    const card = wrapper
+      .findAll(".card")
+      .find((node) => node.text().includes("admin.settings.oauth401Cleanup.title"));
+    expect(card).toBeDefined();
+    await card!.get('[data-testid="oauth-401-auto-delete-toggle"]').setValue(true);
+    const saveButton = card!
+      .findAll("button")
+      .find((node) => node.text().includes("common.save"));
+    await saveButton?.trigger("click");
+    await flushPromises();
+
+    expect(confirm).toHaveBeenCalledWith("admin.settings.oauth401Cleanup.confirmEnable");
+    expect(updateOAuth401CleanupSettings).toHaveBeenCalledWith({ enabled: true });
+    confirm.mockRestore();
+  });
+
   it("saves Codex A/B controls and restores original behavior", async () => {
     getCodexSimulationSettings.mockResolvedValueOnce({
       full_simulation_enabled: true,
       c_level_simulation_enabled: true,
+      turn_state_replay_enabled: false,
+      turn_state_auto_replay_enabled: false,
+      turn_state_target_length: 292,
+      turn_state_watch_models: ["gpt-5.6-codex"],
+      turn_states: ["saved-state"],
       continuation_mode: "enforce",
       state_ttl_seconds: 604800,
       identity_secret_configured: true,
@@ -1398,6 +1511,11 @@ describe("admin SettingsView payment visible method controls", () => {
       .get('[data-testid="codex-simulation-c-level-toggle"]')
       .setValue(false);
     await card!.get('[data-testid="codex-prewarm-force-toggle"]').setValue(true);
+    await card!.get('[data-testid="codex-turn-state-auto-replay-toggle"]').setValue(true);
+    await card!.get('[data-testid="codex-turn-state-target-length"]').setValue("300");
+    await card!.get('[data-testid="codex-turn-state-watch-models"]').setValue("gpt-5.6-codex\nGPT-5.5-CODEX");
+    await card!.get('[data-testid="codex-turn-state-replay-toggle"]').setValue(true);
+    await card!.get('[data-testid="codex-turn-states"]').setValue("state-a\nstate-b");
     await card!
       .get('[data-testid="codex-simulation-continuation-mode"]')
       .setValue("shadow");
@@ -1408,7 +1526,15 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(updateCodexSimulationSettings).toHaveBeenLastCalledWith({
       full_simulation_enabled: false,
       c_level_simulation_enabled: false,
+      experimental_transport_enabled: false,
       codex_prewarm_continuation_force_enabled: true,
+      turn_state_replay_enabled: true,
+      turn_state_auto_replay_enabled: true,
+      turn_state_proxy_probe_enabled: false,
+      turn_state_probe_proxy_id: 0,
+      turn_state_target_length: 300,
+      turn_state_watch_models: ["gpt-5.6-codex", "gpt-5.5-codex"],
+      turn_states: ["state-a", "state-b"],
       continuation_mode: "shadow",
       state_ttl_seconds: 3600,
     });
@@ -1420,6 +1546,9 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(forceDisableCodexSimulationSettings).toHaveBeenCalledOnce();
     expect(
       (card!.get('[data-testid="codex-prewarm-force-toggle"]').element as HTMLInputElement).checked,
+    ).toBe(false);
+    expect(
+      (card!.get('[data-testid="codex-turn-state-auto-replay-toggle"]').element as HTMLInputElement).checked,
     ).toBe(false);
     expect(
       card!.get('[data-testid="codex-simulation-effective-state"]').text(),
@@ -1461,6 +1590,64 @@ describe("admin SettingsView payment visible method controls", () => {
       card!.get('[data-testid="codex-simulation-effective-state"]').text(),
     ).toContain("admin.settings.codexSimulation.experimentalEnabled");
     expect(showError).toHaveBeenCalled();
+  });
+
+  it("syncs quality Turn States into the gateway control form", async () => {
+    syncCodexTurnStates.mockResolvedValueOnce({
+      full_simulation_enabled: false,
+      c_level_simulation_enabled: false,
+      experimental_transport_enabled: false,
+      codex_prewarm_continuation_force_enabled: false,
+      turn_state_replay_enabled: false,
+      turn_state_auto_replay_enabled: false,
+      turn_state_target_length: 292,
+      turn_state_watch_models: [],
+      turn_states: ["captured-a", "captured-b"],
+      continuation_mode: "off",
+      state_ttl_seconds: 604800,
+      identity_secret_configured: false,
+    });
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+
+    const card = wrapper
+      .findAll(".card")
+      .find((node) => node.text().includes("admin.settings.codexSimulation.title"));
+    await card!.get('[data-testid="codex-simulation-full-toggle"]').setValue(true);
+    await card!.get('[data-testid="codex-turn-state-sync"]').trigger("click");
+    await flushPromises();
+
+    expect(syncCodexTurnStates).toHaveBeenCalledOnce();
+    expect((card!.get('[data-testid="codex-turn-states"]').element as HTMLTextAreaElement).value)
+      .toBe("captured-a\ncaptured-b");
+    expect(
+      (card!.get('[data-testid="codex-simulation-full-toggle"]').element as HTMLInputElement).checked,
+    ).toBe(true);
+    expect(showSuccess).toHaveBeenCalledWith(
+      "admin.settings.codexSimulation.turnStateSyncSuccess",
+    );
+  });
+
+  it("keeps unsaved manual Turn States when sync is clicked", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+    const card = wrapper
+      .findAll(".card")
+      .find((node) => node.text().includes("admin.settings.codexSimulation.title"));
+
+    await card!.get('[data-testid="codex-turn-states"]').setValue("unsaved-state");
+    expect(card!.get('[data-testid="codex-turn-state-sync"]').attributes("disabled")).toBeDefined();
+    expect(card!.get('[data-testid="codex-turn-state-unsaved"]').text()).toContain(
+      "admin.settings.codexSimulation.turnStatesSaveBeforeSync",
+    );
+    await card!.get('[data-testid="codex-turn-state-sync"]').trigger("click");
+    await flushPromises();
+
+    expect(syncCodexTurnStates).not.toHaveBeenCalled();
+    expect((card!.get('[data-testid="codex-turn-states"]').element as HTMLTextAreaElement).value)
+      .toBe("unsaved-state");
   });
 
   it("keeps force restore available when Codex settings cannot be loaded", async () => {
@@ -1849,6 +2036,7 @@ describe("admin SettingsView payment visible method controls", () => {
           ProxySelector: true,
           ImageUpload: ImageUploadStub,
           BackupSettings: true,
+          SettingsOAuth2ProviderPanel: true,
         },
       },
     });
@@ -1945,10 +2133,28 @@ describe("admin SettingsView payment visible method controls", () => {
     const burstBalanceToggle = wrapper.get(
       '[data-testid="openai-content-session-burst-balance-toggle"]',
     );
+    const sessionRateToggle = wrapper.get(
+      '[data-testid="openai-session-id-rate-limit-toggle"]',
+    );
+    expect((sessionRateToggle.element as HTMLInputElement).checked).toBe(false);
+    expect(wrapper.find('[data-testid="openai-session-id-rate-limit-per-minute"]').exists()).toBe(false);
+    await sessionRateToggle.setValue(true);
+    await wrapper.get('[data-testid="openai-session-id-rate-limit-per-minute"]').setValue("12");
+    const oauthGatewayRateToggle = wrapper.get(
+      '[data-testid="openai-oauth-gateway-rate-limit-toggle"]',
+    );
+    expect((oauthGatewayRateToggle.element as HTMLInputElement).checked).toBe(false);
+    expect(wrapper.find('[data-testid="openai-oauth-gateway-rate-limit-rpm"]').exists()).toBe(false);
+    await oauthGatewayRateToggle.setValue(true);
+    await wrapper.get('[data-testid="openai-oauth-gateway-rate-limit-rpm"]').setValue("90");
+    await wrapper.get('[data-testid="openai-oauth-gateway-rate-limit-burst"]').setValue("7");
+    await wrapper.get('[data-testid="openai-request-integrity-observe-toggle"]').setValue(true);
     expect((burstBalanceToggle.element as HTMLInputElement).checked).toBe(false);
     await burstBalanceToggle.setValue(true);
     await lowRateToggle.setValue(true);
     const priorityModeText = wrapper.text();
+    expect(priorityModeText).toContain("OpenAI OAuth 每账号限速");
+    expect(priorityModeText).toContain("所有账号使用同一套配置，但每个 OAuth 账号拥有独立令牌桶");
     expect(priorityModeText).toContain(
       "同一分组同时包含 API Key 和 OAuth 账号时，OAuth 账号按此倍率与已探测的 API Key 计费倍率一起排序。",
     );
@@ -1972,6 +2178,12 @@ describe("admin SettingsView payment visible method controls", () => {
         openai_low_upstream_rate_priority_enabled: true,
         openai_oauth_scheduling_rate_multiplier: 0.05,
         openai_content_session_burst_balance_enabled: true,
+        openai_session_id_rate_limit_enabled: true,
+        openai_session_id_rate_limit_per_minute: 12,
+        openai_oauth_gateway_rate_limit_enabled: true,
+        openai_oauth_gateway_rate_limit_rpm: 90,
+        openai_oauth_gateway_rate_limit_burst: 7,
+        openai_request_integrity_observe_enabled: true,
       }),
     );
 
@@ -2098,6 +2310,7 @@ describe("admin SettingsView payment visible method controls", () => {
           ProxySelector: true,
           ImageUpload: ImageUploadStub,
           BackupSettings: true,
+          SettingsOAuth2ProviderPanel: true,
         },
       },
     });
@@ -2123,6 +2336,8 @@ describe("admin SettingsView wechat connect controls", () => {
     getOverloadCooldownSettings.mockReset();
     getRateLimit429CooldownSettings.mockReset();
     updateRateLimit429CooldownSettings.mockReset();
+    getOAuth401CleanupSettings.mockReset();
+    updateOAuth401CleanupSettings.mockReset();
     getGlobalTempUnschedulableSettings.mockReset();
     updateGlobalTempUnschedulableSettings.mockReset();
     getCodexSimulationSettings.mockReset();
@@ -2178,6 +2393,8 @@ describe("admin SettingsView wechat connect controls", () => {
       auto_enable_when_quota_available_enabled: false,
     });
     updateRateLimit429CooldownSettings.mockImplementation(async (payload) => payload);
+    getOAuth401CleanupSettings.mockResolvedValue({ enabled: false });
+    updateOAuth401CleanupSettings.mockImplementation(async (payload) => payload);
     getGlobalTempUnschedulableSettings.mockResolvedValue({ enabled: true });
     updateGlobalTempUnschedulableSettings.mockImplementation(
       async (payload) => payload,
@@ -2406,6 +2623,8 @@ describe("admin SettingsView platform quota matrix", () => {
     getOverloadCooldownSettings.mockReset();
     getRateLimit429CooldownSettings.mockReset();
     updateRateLimit429CooldownSettings.mockReset();
+    getOAuth401CleanupSettings.mockReset();
+    updateOAuth401CleanupSettings.mockReset();
     getGlobalTempUnschedulableSettings.mockReset();
     updateGlobalTempUnschedulableSettings.mockReset();
     getCodexSimulationSettings.mockReset();
@@ -2438,6 +2657,8 @@ describe("admin SettingsView platform quota matrix", () => {
     getOverloadCooldownSettings.mockResolvedValue({});
     getRateLimit429CooldownSettings.mockResolvedValue({});
     updateRateLimit429CooldownSettings.mockResolvedValue({});
+    getOAuth401CleanupSettings.mockResolvedValue({ enabled: false });
+    updateOAuth401CleanupSettings.mockResolvedValue({ enabled: false });
     getGlobalTempUnschedulableSettings.mockResolvedValue({ enabled: true });
     updateGlobalTempUnschedulableSettings.mockResolvedValue({ enabled: true });
     getCodexSimulationSettings.mockResolvedValue({

@@ -4,6 +4,7 @@ package middleware
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,6 +16,29 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
+
+func TestAdminAuth_TransientUserLookupReturnsRetryableServerError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := &config.Config{JWT: config.JWTConfig{Secret: "test-secret", ExpireHour: 1}}
+	authService := service.NewAuthService(nil, nil, nil, nil, cfg, nil, nil, nil, nil, nil, nil, nil, nil)
+	userRepo := &stubUserRepo{getByID: func(context.Context, int64) (*service.User, error) {
+		return nil, errors.New("database temporarily unavailable")
+	}}
+	userService := service.NewUserService(userRepo, nil, nil, nil)
+	router := gin.New()
+	router.Use(gin.HandlerFunc(NewAdminAuthMiddleware(authService, userService, nil, nil)))
+	router.GET("/admin", func(c *gin.Context) { c.Status(http.StatusOK) })
+	token, err := authService.GenerateToken(context.Background(), &service.User{ID: 1, Role: service.RoleAdmin, Status: service.StatusActive, TokenVersion: 1})
+	require.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/admin", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusInternalServerError, w.Code)
+	require.Contains(t, w.Body.String(), "INTERNAL_ERROR")
+}
 
 func TestAdminAuthJWTValidatesTokenVersion(t *testing.T) {
 	gin.SetMode(gin.TestMode)

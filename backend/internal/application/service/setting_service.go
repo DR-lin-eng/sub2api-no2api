@@ -122,6 +122,12 @@ type SettingService struct {
 	openAIWSModeRouterV2Loaded  atomic.Int64
 	openAIWSModeRouterV2SF      singleflight.Group
 
+	// OpenAI OAuth force-relay settings are read on every Codex model request.
+	// Keep this cache per SettingService so tests and multiple application
+	// instances never share a stale relay target.
+	openAIOAuthForceRelayCache atomic.Value // *cachedOpenAIOAuthForceRelaySettings
+	openAIOAuthForceRelaySF    singleflight.Group
+
 	codexSimulationSettings         atomic.Pointer[CodexSimulationSettings]
 	codexSimulationSettingsRevision atomic.Uint64
 	codexSimulationSettingsMu       sync.Mutex
@@ -161,6 +167,10 @@ type DefaultPlatformQuotaSetting struct {
 	DailyLimitUSD   *float64 `json:"daily"`
 	WeeklyLimitUSD  *float64 `json:"weekly"`
 	MonthlyLimitUSD *float64 `json:"monthly"`
+}
+
+func (q *DefaultPlatformQuotaSetting) HasAnyLimit() bool {
+	return q != nil && (q.DailyLimitUSD != nil || q.WeeklyLimitUSD != nil || q.MonthlyLimitUSD != nil)
 }
 
 type ProviderDefaultGrantSettings struct {
@@ -299,6 +309,7 @@ func NewSettingService(settingRepo SettingRepository, cfg *config.Config) *Setti
 	codexSimulationSettings := svc.defaultCodexSimulationSettings()
 	svc.codexSimulationSettings.Store(&codexSimulationSettings)
 	codexsimulation.SetCLevelEnabled(codexSimulationSettings.CLevelSimulationEnabled)
+	codexsimulation.SetExperimentalTransportEnabled(codexSimulationSettings.ExperimentalTransportEnabled)
 	codexsimulation.SetPrewarmContinuationEnabled(codexSimulationSettings.CodexPrewarmContinuationForceEnabled)
 	if cfg != nil {
 		svc.openAIWSModeRouterV2Enabled.Store(cfg.Gateway.OpenAIWS.ModeRouterV2Enabled)

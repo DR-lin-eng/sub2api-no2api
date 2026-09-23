@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/Users/lin/.codex/worktrees/31dd/sub2api-no2api/artifacts/pricing-sync/ROLLBACK.sh",
+    "/private/tmp/pricing-sync-rollback-31dd"
+  ],
+  "input": "independent modified checkout /private/tmp/pricing-sync-rollback-31dd",
+  "exit_status": 0
+}

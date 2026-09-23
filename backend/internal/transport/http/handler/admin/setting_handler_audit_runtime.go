@@ -148,6 +148,24 @@ func appendOpenAISchedulerSettingChanges(changed []string, before, after *servic
 	if before.OpenAIContentSessionBurstBalanceEnabled != after.OpenAIContentSessionBurstBalanceEnabled {
 		changed = append(changed, "openai_content_session_burst_balance_enabled")
 	}
+	if before.OpenAISessionIDRateLimitEnabled != after.OpenAISessionIDRateLimitEnabled {
+		changed = append(changed, "openai_session_id_rate_limit_enabled")
+	}
+	if before.OpenAISessionIDRateLimitPerMinute != after.OpenAISessionIDRateLimitPerMinute {
+		changed = append(changed, "openai_session_id_rate_limit_per_minute")
+	}
+	if before.OpenAIOAuthGatewayRateLimitEnabled != after.OpenAIOAuthGatewayRateLimitEnabled {
+		changed = append(changed, "openai_oauth_gateway_rate_limit_enabled")
+	}
+	if before.OpenAIOAuthGatewayRateLimitRPM != after.OpenAIOAuthGatewayRateLimitRPM {
+		changed = append(changed, "openai_oauth_gateway_rate_limit_rpm")
+	}
+	if before.OpenAIOAuthGatewayRateLimitBurst != after.OpenAIOAuthGatewayRateLimitBurst {
+		changed = append(changed, "openai_oauth_gateway_rate_limit_burst")
+	}
+	if before.OpenAIRequestIntegrityObserveEnabled != after.OpenAIRequestIntegrityObserveEnabled {
+		changed = append(changed, "openai_request_integrity_observe_enabled")
+	}
 	if before.OpenAIAdvancedSchedulerSubscriptionPriorityEnabled != after.OpenAIAdvancedSchedulerSubscriptionPriorityEnabled {
 		changed = append(changed, "openai_advanced_scheduler_subscription_priority_enabled")
 	}

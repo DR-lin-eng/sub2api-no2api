@@ -24,12 +24,21 @@ const (
 // request. IdentitySecret is persisted but must never be returned by an HTTP
 // handler; transport DTOs expose only IdentitySecretConfigured.
 type CodexSimulationSettings struct {
-	FullSimulationEnabled                bool   `json:"full_simulation_enabled"`
-	CLevelSimulationEnabled              bool   `json:"c_level_simulation_enabled"`
-	CodexPrewarmContinuationForceEnabled bool   `json:"codex_prewarm_continuation_force_enabled"`
-	ContinuationMode                     string `json:"continuation_mode"`
-	StateTTLSeconds                      int    `json:"state_ttl_seconds"`
-	IdentitySecret                       string `json:"identity_secret"`
+	FullSimulationEnabled                bool               `json:"full_simulation_enabled"`
+	CLevelSimulationEnabled              bool               `json:"c_level_simulation_enabled"`
+	ExperimentalTransportEnabled         bool               `json:"experimental_transport_enabled,omitempty"`
+	CodexPrewarmContinuationForceEnabled bool               `json:"codex_prewarm_continuation_force_enabled"`
+	TurnStateReplayEnabled               bool               `json:"turn_state_replay_enabled"`
+	TurnStateAutoReplayEnabled           bool               `json:"turn_state_auto_replay_enabled"`
+	TurnStateProxyProbeEnabled           bool               `json:"turn_state_proxy_probe_enabled"`
+	TurnStateProbeProxyID                *int64             `json:"turn_state_probe_proxy_id,omitempty"`
+	TurnStateTargetLength                int                `json:"turn_state_target_length"`
+	TurnStateWatchModels                 []string           `json:"turn_state_watch_models"`
+	TurnStates                           []string           `json:"turn_states"`
+	TurnStateAccountIDs                  map[string][]int64 `json:"turn_state_account_ids,omitempty"`
+	ContinuationMode                     string             `json:"continuation_mode"`
+	StateTTLSeconds                      int                `json:"state_ttl_seconds"`
+	IdentitySecret                       string             `json:"identity_secret"`
 }
 
 func (s CodexSimulationSettings) IdentitySecretConfigured() bool {
@@ -72,8 +81,9 @@ func cLevelTransportSimulationEnabled(settingService *SettingService) bool {
 
 func (s *SettingService) defaultCodexSimulationSettings() CodexSimulationSettings {
 	settings := CodexSimulationSettings{
-		ContinuationMode: codexContinuationOff.String(),
-		StateTTLSeconds:  codexSimulationDefaultStateTTLSeconds,
+		ContinuationMode:      codexContinuationOff.String(),
+		StateTTLSeconds:       codexSimulationDefaultStateTTLSeconds,
+		TurnStateTargetLength: openAICodexDefaultTurnStateCharacters,
 	}
 	if s == nil || s.cfg == nil {
 		return settings
@@ -82,6 +92,7 @@ func (s *SettingService) defaultCodexSimulationSettings() CodexSimulationSetting
 	cfg := s.cfg.Gateway.CodexSimulation
 	settings.FullSimulationEnabled = cfg.FullSimulationEnabled
 	settings.CLevelSimulationEnabled = cfg.CLevelSimulationEnabled
+	settings.ExperimentalTransportEnabled = cfg.ExperimentalTransportEnabled
 	settings.IdentitySecret = strings.TrimSpace(cfg.IdentitySecret)
 	settings.ContinuationMode = normalizeCodexContinuationMode(cfg.ContinuationMode)
 	if cfg.StateTTLSeconds > 0 {
@@ -124,7 +135,32 @@ func validateCodexSimulationSettings(settings CodexSimulationSettings) (CodexSim
 	}
 
 	settings.ContinuationMode = mode
+	if settings.TurnStateTargetLength == 0 {
+		settings.TurnStateTargetLength = openAICodexDefaultTurnStateCharacters
+	}
+	if settings.TurnStateTargetLength < 1 || settings.TurnStateTargetLength > codexTurnStateMaxValueBytes {
+		return CodexSimulationSettings{}, fmt.Errorf("turn_state_target_length must be between 1 and %d", codexTurnStateMaxValueBytes)
+	}
 	settings.IdentitySecret = strings.TrimSpace(settings.IdentitySecret)
+	var err error
+	settings.TurnStates, err = normalizeCodexTurnStates(settings.TurnStates)
+	if err != nil {
+		return CodexSimulationSettings{}, err
+	}
+	settings.TurnStateWatchModels, err = normalizeCodexTurnStateWatchModels(settings.TurnStateWatchModels)
+	if err != nil {
+		return CodexSimulationSettings{}, err
+	}
+	settings.TurnStateAccountIDs = normalizeCodexTurnStateAccountIDs(settings.TurnStates, settings.TurnStateAccountIDs)
+	if settings.TurnStateProbeProxyID != nil && *settings.TurnStateProbeProxyID <= 0 {
+		settings.TurnStateProbeProxyID = nil
+	}
+	if settings.TurnStateReplayEnabled && len(settings.TurnStates) == 0 {
+		return CodexSimulationSettings{}, fmt.Errorf("turn_states must not be empty when turn state replay is enabled")
+	}
+	if settings.TurnStateAutoReplayEnabled && len(settings.TurnStateWatchModels) == 0 {
+		return CodexSimulationSettings{}, fmt.Errorf("turn_state_watch_models must not be empty when automatic turn state replay is enabled")
+	}
 	if (settings.FullSimulationEnabled || mode != string(codexContinuationOff)) && len([]byte(settings.IdentitySecret)) < 32 {
 		return CodexSimulationSettings{}, fmt.Errorf("identity secret must be at least 32 bytes when Codex simulation is enabled")
 	}
@@ -178,6 +214,7 @@ func (s *SettingService) LoadCodexSimulationSettings(ctx context.Context) error 
 	}
 	s.codexSimulationSettings.Store(&settings)
 	codexsimulation.SetCLevelEnabled(settings.CLevelSimulationEnabled)
+	codexsimulation.SetExperimentalTransportEnabled(settings.ExperimentalTransportEnabled)
 	codexsimulation.SetPrewarmContinuationEnabled(settings.CodexPrewarmContinuationForceEnabled)
 	return nil
 }
@@ -188,8 +225,9 @@ func (s *SettingService) LoadCodexSimulationSettings(ctx context.Context) error 
 func (s *SettingService) CodexSimulationSettingsSnapshot(_ context.Context) CodexSimulationSettings {
 	if s == nil {
 		return CodexSimulationSettings{
-			ContinuationMode: string(codexContinuationOff),
-			StateTTLSeconds:  codexSimulationDefaultStateTTLSeconds,
+			ContinuationMode:      string(codexContinuationOff),
+			StateTTLSeconds:       codexSimulationDefaultStateTTLSeconds,
+			TurnStateTargetLength: openAICodexDefaultTurnStateCharacters,
 		}
 	}
 
@@ -269,6 +307,9 @@ func (s *SettingService) SetCodexSimulationSettings(ctx context.Context, request
 		current.IdentitySecret = s.defaultCodexSimulationSettings().IdentitySecret
 	}
 	settings := *requested
+	if settings.TurnStateAccountIDs == nil {
+		settings.TurnStateAccountIDs = current.TurnStateAccountIDs
+	}
 	providedSecret := strings.TrimSpace(settings.IdentitySecret)
 	if providedSecret == "" {
 		settings.IdentitySecret = current.IdentitySecret
@@ -325,7 +366,10 @@ func (s *SettingService) ForceDisableCodexSimulationSettings(ctx context.Context
 	}
 	settings.FullSimulationEnabled = false
 	settings.CLevelSimulationEnabled = false
+	settings.ExperimentalTransportEnabled = false
 	settings.CodexPrewarmContinuationForceEnabled = false
+	settings.TurnStateReplayEnabled = false
+	settings.TurnStateAutoReplayEnabled = false
 	settings.ContinuationMode = string(codexContinuationOff)
 
 	validated, err := validateCodexSimulationSettings(settings)
@@ -350,6 +394,7 @@ func (s *SettingService) persistCodexSimulationSettings(ctx context.Context, set
 	s.codexSimulationSettingsRevision.Add(1)
 	s.codexSimulationSettings.Store(&settings)
 	codexsimulation.SetCLevelEnabled(settings.CLevelSimulationEnabled)
+	codexsimulation.SetExperimentalTransportEnabled(settings.ExperimentalTransportEnabled)
 	codexsimulation.SetPrewarmContinuationEnabled(settings.CodexPrewarmContinuationForceEnabled)
 	return &settings, nil
 }

@@ -94,7 +94,7 @@ func TestAntigravityTokenCacheKey(t *testing.T) {
 					"project_id": "ag-project-456",
 				},
 			},
-			expected: "ag:ag-project-456",
+			expected: "ag:account:200",
 		},
 		{
 			name: "project_id_with_whitespace",
@@ -104,7 +104,7 @@ func TestAntigravityTokenCacheKey(t *testing.T) {
 					"project_id": "  ag-project-spaces  ",
 				},
 			},
-			expected: "ag:ag-project-spaces",
+			expected: "ag:account:201",
 		},
 		{
 			name: "empty_project_id_fallback_to_account_id",

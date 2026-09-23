@@ -108,9 +108,10 @@ export const useSubscriptionStore = defineStore('subscriptions', () => {
   /**
    * Clear all subscription data and stop polling
    */
-  function clear() {
-    requestGeneration++
-    activePromise = null
+function clear() {
+	requestGeneration++
+	activePromise = null
+	loading.value = false
     activeSubscriptions.value = []
     loaded.value = false
     lastFetchedAt.value = null

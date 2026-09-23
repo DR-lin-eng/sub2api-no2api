@@ -5,10 +5,12 @@ import {
   type AdminApiKeyStatus,
   type BetaPolicySettings,
   type CodexSimulationSettings,
+  type CodexTurnStateObservability,
   type EmailTemplateDetail,
   type EmailTemplateListResponse,
   type GlobalTempUnschedulableSettings,
   type OverloadCooldownSettings,
+  type OAuth401CleanupSettings,
   type PanelRateLimitSettings,
   type RateLimit429CooldownSettings,
   type RectifierSettings,
@@ -74,6 +76,13 @@ export async function getRateLimit429CooldownSettings(): Promise<RateLimit429Coo
   return data;
 }
 
+export async function getOAuth401CleanupSettings(): Promise<OAuth401CleanupSettings> {
+  const { data } = await apiClient.get<OAuth401CleanupSettings>(
+    "/admin/settings/oauth-401-cleanup",
+  );
+  return data;
+}
+
 export async function getGlobalTempUnschedulableSettings(): Promise<GlobalTempUnschedulableSettings> {
   const { data } = await apiClient.get<GlobalTempUnschedulableSettings>(
     "/admin/settings/temp-unschedulable",
@@ -84,6 +93,13 @@ export async function getGlobalTempUnschedulableSettings(): Promise<GlobalTempUn
 export async function getCodexSimulationSettings(): Promise<CodexSimulationSettings> {
   const { data } = await apiClient.get<CodexSimulationSettings>(
     "/admin/settings/codex-simulation",
+  );
+  return data;
+}
+
+export async function getCodexTurnStateObservability(): Promise<CodexTurnStateObservability> {
+  const { data } = await apiClient.get<CodexTurnStateObservability>(
+    "/admin/settings/codex-simulation/observability",
   );
   return data;
 }

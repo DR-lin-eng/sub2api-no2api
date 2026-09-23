@@ -75,6 +75,9 @@ func RegisterAdminRoutes(
 		// 系统设置
 		registerSettingsRoutes(admin, h)
 
+		// 对外 OAuth2 授权服务
+		registerOAuth2ProviderAdminRoutes(admin, h, stepUpAuth)
+
 		// 数据管理
 		registerDataManagementRoutes(admin, h, stepUpAuth)
 
@@ -98,6 +101,12 @@ func RegisterAdminRoutes(
 
 		// 账号巡检
 		registerAccountInspectionRoutes(admin, h)
+
+		// 账号质量监控（独立于账号巡检策略）
+		registerAccountQualityRoutes(admin, h)
+
+		// State 运行态诊断（只读，不属于网关设置页面）
+		registerStateDiagnosticsRoutes(admin, h)
 
 		// 用户属性管理
 		registerUserAttributeRoutes(admin, h)
@@ -140,6 +149,25 @@ func RegisterAdminRoutes(
 
 		// 媒体工坊分组配置
 		registerMediaStudioAdminRoutes(admin, h)
+	}
+}
+
+func registerStateDiagnosticsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	stateDiagnostics := admin.Group("/state-diagnostics")
+	{
+		stateDiagnostics.GET("", h.Admin.Setting.GetStateDiagnostics)
+	}
+}
+
+func registerOAuth2ProviderAdminRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAuth middleware.StepUpAuthMiddleware) {
+	oauth2Provider := admin.Group("/oauth2-provider")
+	{
+		oauth2Provider.GET("", h.Admin.OAuth2Provider.GetConfig)
+		oauth2Provider.PUT("", middleware.AdminSessionOnly(), gin.HandlerFunc(stepUpAuth), h.Admin.OAuth2Provider.UpdateConfig)
+		oauth2Provider.POST("/clients", middleware.AdminSessionOnly(), gin.HandlerFunc(stepUpAuth), h.Admin.OAuth2Provider.CreateClient)
+		oauth2Provider.PUT("/clients/:client_id", middleware.AdminSessionOnly(), gin.HandlerFunc(stepUpAuth), h.Admin.OAuth2Provider.UpdateClient)
+		oauth2Provider.POST("/clients/:client_id/rotate-secret", middleware.AdminSessionOnly(), gin.HandlerFunc(stepUpAuth), h.Admin.OAuth2Provider.RotateSecret)
+		oauth2Provider.DELETE("/clients/:client_id", middleware.AdminSessionOnly(), gin.HandlerFunc(stepUpAuth), h.Admin.OAuth2Provider.DeleteClient)
 	}
 }
 
@@ -476,6 +504,8 @@ func registerAccountRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAu
 		accounts.PUT("/:id/upstream-billing-probe", h.Admin.Account.SetUpstreamBillingProbeEnabled)
 		accounts.POST("/:id/upstream-billing-probe", h.Admin.Account.ProbeUpstreamBilling)
 		accounts.POST("/:id/upstream-quota/query", h.Admin.Account.QueryUpstreamQuota)
+		accounts.POST("/:id/cn-provider/quota", h.Admin.Account.QueryCNProviderQuota)
+		accounts.POST("/:id/cn-provider/balance", h.Admin.Account.QueryCNProviderBalance)
 		accounts.GET("/:id/ollama-cloud-usage", h.Admin.Account.GetOllamaCloudUsage)
 		accounts.PUT("/:id/ollama-cloud-usage/session", h.Admin.Account.SaveOllamaCloudUsageSession)
 		accounts.DELETE("/:id/ollama-cloud-usage/session", h.Admin.Account.DeleteOllamaCloudUsageSession)
@@ -613,6 +643,9 @@ func registerProxyRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAuth
 	{
 		proxies.GET("", h.Admin.Proxy.List)
 		proxies.GET("/all", h.Admin.Proxy.GetAll)
+		proxies.GET("/auto-assignment", h.Admin.Proxy.GetAutoAssignmentSettings)
+		proxies.PUT("/auto-assignment", h.Admin.Proxy.UpdateAutoAssignmentSettings)
+		proxies.POST("/auto-assignment/rebalance", h.Admin.Proxy.RebalanceAutoAssignments)
 		// 代理导出泄露账号密码原文——要求 step-up 2FA
 		proxies.GET("/data", gin.HandlerFunc(stepUpAuth), h.Admin.Proxy.ExportData)
 		proxies.POST("/data", h.Admin.Proxy.ImportData)
@@ -687,12 +720,16 @@ func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		// 429默认回避配置
 		adminSettings.GET("/rate-limit-429-cooldown", h.Admin.Setting.GetRateLimit429CooldownSettings)
 		adminSettings.PUT("/rate-limit-429-cooldown", h.Admin.Setting.UpdateRateLimit429CooldownSettings)
+		adminSettings.GET("/oauth-401-cleanup", h.Admin.Setting.GetOAuth401CleanupSettings)
+		adminSettings.PUT("/oauth-401-cleanup", h.Admin.Setting.UpdateOAuth401CleanupSettings)
 		// 全局临时不可调度开关
 		adminSettings.GET("/temp-unschedulable", h.Admin.Setting.GetGlobalTempUnschedulableSettings)
 		adminSettings.PUT("/temp-unschedulable", h.Admin.Setting.UpdateGlobalTempUnschedulableSettings)
 		// Codex OAuth A/B simulation runtime controls
 		adminSettings.GET("/codex-simulation", h.Admin.Setting.GetCodexSimulationSettings)
+		adminSettings.GET("/codex-simulation/observability", h.Admin.Setting.GetCodexTurnStateObservability)
 		adminSettings.PUT("/codex-simulation", h.Admin.Setting.UpdateCodexSimulationSettings)
+		adminSettings.POST("/codex-simulation/sync-turn-states", h.Admin.Setting.SyncCodexTurnStates)
 		adminSettings.POST("/codex-simulation/restore-original", h.Admin.Setting.RestoreOriginalCodexBehavior)
 		// 面板 API 限流配置
 		adminSettings.GET("/panel-rate-limit", h.Admin.Setting.GetPanelRateLimitSettings)
@@ -823,6 +860,16 @@ func registerAccountInspectionRoutes(admin *gin.RouterGroup, h *handler.Handlers
 		inspection.GET("", h.Admin.AccountInspection.AccountInspectionSettings)
 		inspection.PUT("/settings", h.Admin.AccountInspection.UpdateAccountInspectionSettings)
 		inspection.POST("/run", h.Admin.AccountInspection.RunAccountInspection)
+	}
+}
+
+func registerAccountQualityRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	quality := admin.Group("/account-quality")
+	{
+		quality.GET("", h.Admin.AccountQuality.Overview)
+		quality.GET("/degraded-accounts", h.Admin.AccountQuality.DegradedAccounts)
+		quality.PUT("/settings", h.Admin.AccountQuality.UpdateSettings)
+		quality.POST("/run", h.Admin.AccountQuality.Run)
 	}
 }
 

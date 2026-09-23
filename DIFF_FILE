@@ -1,0 +1,36 @@
+|diff --git a/backend/internal/application/service/account.go b/backend/internal/application/service/account.go
+|index ce65f812a..08e6e3d20 100644
+|--- a/backend/internal/application/service/account.go
+|+++ b/backend/internal/application/service/account.go
+|@@ -2728,10 +2728,13 @@ func (a *Account) IsSessionIDMaskingEnabled() bool {
+| 	return false
+| }
+|
+|-// IsCustomBaseURLEnabled 检查是否启用自定义 base URL 中继转发
+|-// 仅适用于 Anthropic OAuth/SetupToken 类型账号
+|+// IsCustomBaseURLEnabled 检查是否启用自定义 base URL 中继转发。
+|+// Anthropic OAuth/SetupToken and OpenAI OAuth (Codex) accounts support this
+|+// account-level forwarding override.  OAuth authorization and refresh
+|+// endpoints remain on their provider-owned URLs; this flag only affects model
+|+// request egress.
+| func (a *Account) IsCustomBaseURLEnabled() bool {
+|-	if !a.IsAnthropicOAuthOrSetupToken() {
+|+	if a == nil || (!a.IsAnthropicOAuthOrSetupToken() && !a.IsOpenAIOAuth()) {
+| 		return false
+| 	}
+| 	if a.Extra == nil {
+|@@ -2745,8 +2748,13 @@ func (a *Account) IsCustomBaseURLEnabled() bool {
+| 	return false
+| }
+|
+|-// GetCustomBaseURL 返回自定义中继服务的 base URL
+|+// GetCustomBaseURL 返回自定义中继服务的 base URL。
+|+// The value is deliberately kept separate from credentials so it cannot alter
+|+// OAuth token exchange or refresh destinations.
+| func (a *Account) GetCustomBaseURL() string {
+|+	if a == nil {
+|+		return ""
+|+	}
+| 	return a.GetExtraString("custom_base_url")
+| }
+|

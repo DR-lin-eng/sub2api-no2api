@@ -220,6 +220,7 @@ func groupFromServiceBase(g *service.Group) Group {
 		VideoPrice1080P:                 g.VideoPrice1080P,
 		WebSearchPricePerCall:           g.WebSearchPricePerCall,
 		ClaudeCodeOnly:                  g.ClaudeCodeOnly,
+		IsDistillationGroup:             g.IsDistillationGroup,
 		FallbackGroupID:                 g.FallbackGroupID,
 		FallbackGroupIDOnInvalidRequest: g.FallbackGroupIDOnInvalidRequest,
 		AllowMessagesDispatch:           g.AllowMessagesDispatch,
@@ -322,13 +323,15 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 			target := a.GetCacheTTLOverrideTarget()
 			out.CacheTTLOverrideTarget = &target
 		}
-		// 自定义 Base URL 中继转发
-		if a.IsCustomBaseURLEnabled() {
-			enabled := true
-			out.CustomBaseURLEnabled = &enabled
-			if customURL := a.GetCustomBaseURL(); customURL != "" {
-				out.CustomBaseURL = &customURL
-			}
+	}
+	// 自定义 Base URL 中继转发同时支持 Anthropic OAuth/SetupToken 与
+	// OpenAI OAuth/Codex。它位于 quota 控制块之外，因为 OpenAI OAuth
+	// 不应显示 Anthropic 的窗口/RPM 配额字段。
+	if a.IsCustomBaseURLEnabled() {
+		enabled := true
+		out.CustomBaseURLEnabled = &enabled
+		if customURL := a.GetCustomBaseURL(); customURL != "" {
+			out.CustomBaseURL = &customURL
 		}
 	}
 	// TLS 指纹同时支持 Anthropic OAuth/SetupToken 与 OpenAI OAuth。
@@ -483,19 +486,23 @@ func ProxyFromService(p *service.Proxy) *Proxy {
 		return nil
 	}
 	return &Proxy{
-		ID:             p.ID,
-		Name:           p.Name,
-		Protocol:       p.Protocol,
-		Host:           p.Host,
-		Port:           p.Port,
-		Username:       p.Username,
-		Status:         p.Status,
-		CreatedAt:      p.CreatedAt,
-		UpdatedAt:      p.UpdatedAt,
-		ExpiresAt:      p.ExpiresAt,
-		FallbackMode:   p.FallbackMode,
-		BackupProxyID:  p.BackupProxyID,
-		ExpiryWarnDays: p.ExpiryWarnDays,
+		ID:                        p.ID,
+		Name:                      p.Name,
+		Protocol:                  p.Protocol,
+		Host:                      p.Host,
+		Port:                      p.Port,
+		Username:                  p.Username,
+		Status:                    p.Status,
+		CreatedAt:                 p.CreatedAt,
+		UpdatedAt:                 p.UpdatedAt,
+		ExpiresAt:                 p.ExpiresAt,
+		FallbackMode:              p.FallbackMode,
+		BackupProxyID:             p.BackupProxyID,
+		ExpiryWarnDays:            p.ExpiryWarnDays,
+		HealthStatus:              p.HealthStatus,
+		HealthConsecutiveFailures: p.HealthConsecutiveFailures,
+		LastHealthCheckAt:         p.LastHealthCheckAt,
+		LastHealthError:           p.LastHealthError,
 	}
 }
 
@@ -646,6 +653,29 @@ func AccountSummaryFromService(a *service.Account) *AccountSummary {
 	}
 }
 
+func usageLogFirstTokenProjection(l *service.UsageLog) (*int, string) {
+	local := l.FirstTokenMs
+	if l.ImageCount > 0 || l.VideoCount > 0 {
+		return local, "local"
+	}
+	engine := l.OpenAITiming.FirstTokenMs()
+	engineComparableMs := 0.0
+	if engine != nil {
+		engineComparableMs = float64(*engine)
+		if l.OpenAITiming != nil && l.OpenAITiming.EngineServiceTTFTTotalMs != nil {
+			engineComparableMs = *l.OpenAITiming.EngineServiceTTFTTotalMs
+		}
+	}
+	switch {
+	case local == nil && engine != nil:
+		return engine, "openai"
+	case local != nil && engine != nil && engineComparableMs < float64(*local):
+		return engine, "openai"
+	default:
+		return local, "local"
+	}
+}
+
 func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 	// 普通用户 DTO：严禁包含管理员字段（例如 account_rate_multiplier、account、upstream_model）。
 	requestType := l.EffectiveRequestType()
@@ -654,12 +684,8 @@ func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 	if requestedModel == "" {
 		requestedModel = l.Model
 	}
-	firstTokenMs, durationMs := l.FirstTokenMs, l.DurationMs
-	if l.ImageCount == 0 && l.VideoCount == 0 {
-		if upstream := l.OpenAITiming.FirstTokenMs(); upstream != nil {
-			firstTokenMs = upstream
-		}
-	}
+	firstTokenMs, _ := usageLogFirstTokenProjection(l)
+	durationMs := l.DurationMs
 	if upstream := l.OpenAITiming.DurationMs(); upstream != nil {
 		durationMs = upstream
 	}
@@ -739,10 +765,8 @@ func UsageLogFromServiceAdmin(l *service.UsageLog) *AdminUsageLog {
 		return nil
 	}
 	usageLog := usageLogFromServiceUser(l)
-	firstTokenSource, durationSource := "local", "local"
-	if l.ImageCount == 0 && l.VideoCount == 0 && l.OpenAITiming.FirstTokenMs() != nil {
-		firstTokenSource = "openai"
-	}
+	_, firstTokenSource := usageLogFirstTokenProjection(l)
+	durationSource := "local"
 	if l.OpenAITiming.DurationMs() != nil {
 		durationSource = "openai"
 	}

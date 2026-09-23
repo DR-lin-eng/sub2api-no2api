@@ -75,4 +75,13 @@ describe('AccountCapacityCell CPA capacity', () => {
     expect(wrapper.getComponent(CapacityBadge).props('max')).toBe(99)
     expect(wrapper.find('[data-testid="cpa-capacity-credentials"]').exists()).toBe(false)
   })
+
+  it('shows OpenAI session ID growth beside concurrency', () => {
+    const account = accountWithCapacity('fresh', 2, 2, 20)
+    account.platform = 'openai'
+    account.session_id_growth_per_minute = 7
+    const wrapper = mount(AccountCapacityCell, { props: { account } })
+
+    expect(wrapper.get('[data-testid="session-id-growth"]').text()).toContain('7/min')
+  })
 })

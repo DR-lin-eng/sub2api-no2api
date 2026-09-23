@@ -16,23 +16,50 @@
 
       <!-- API Key fields (only for apikey type) -->
       <div v-if="account.type === 'apikey'" class="space-y-4">
-        <div>
+        <div v-if="isCNAccountPlatform(account.platform)" class="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label class="input-label" for="edit-cn-account-mode">{{ t('admin.accounts.cnProvider.accountMode') }}</label>
+            <select id="edit-cn-account-mode" :value="editCNAccountMode" class="input" data-testid="edit-cn-account-mode" @change="selectCNAccountMode">
+              <option value="payg">{{ t('admin.accounts.cnProvider.payg') }}</option>
+              <option value="coding" :disabled="account.platform === 'deepseek'">{{ t('admin.accounts.cnProvider.coding') }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="input-label" for="edit-cn-api-protocol">{{ t('admin.accounts.cnProvider.apiProtocol') }}</label>
+            <select id="edit-cn-api-protocol" :value="editCNAPIProtocol" class="input" data-testid="edit-cn-api-protocol" @change="selectCNAPIProtocol">
+              <option value="chat_completions">{{ t('admin.accounts.cnProvider.chatCompletions') }}</option>
+              <option value="adaptive">{{ t('admin.accounts.cnProvider.adaptive') }}</option>
+              <option value="anthropic">{{ t('admin.accounts.cnProvider.anthropic') }}</option>
+              <option v-if="account.platform !== 'zhipu'" value="responses">{{ t('admin.accounts.cnProvider.responses') }}</option>
+            </select>
+          </div>
+          <p class="input-hint sm:col-span-2">{{ t('admin.accounts.cnProvider.protocolHint') }}</p>
+        </div>
+        <div v-if="account.platform === 'opencode_go'">
+          <label class="input-label" for="edit-opencode-account-mode">OpenCode plan</label>
+          <select id="edit-opencode-account-mode" :value="editOpenCodeAccountMode" class="input" data-testid="edit-opencode-account-mode" @change="selectOpenCodeAccountMode">
+            <option value="go">Go subscription</option>
+            <option value="zen">Zen pay as you go</option>
+          </select>
+        </div>
+        <div v-if="account.platform === 'zhipu' && editCNAccountMode === 'coding'" class="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label class="input-label">{{ t('admin.accounts.cnProvider.zhipuOrganization') }}</label>
+            <input v-model="editZhipuOrganization" type="text" class="input" data-testid="edit-zhipu-organization" />
+          </div>
+          <div>
+            <label class="input-label">{{ t('admin.accounts.cnProvider.zhipuProject') }}</label>
+            <input v-model="editZhipuProject" type="text" class="input" data-testid="edit-zhipu-project" />
+          </div>
+          <p class="input-hint sm:col-span-2">{{ t('admin.accounts.cnProvider.zhipuTeamHint') }}</p>
+        </div>
+        <div v-if="!((isCNAccountPlatform(account.platform) && editCNAPIProtocol === 'adaptive') || account.platform === 'opencode_go')">
           <label class="input-label">{{ t('admin.accounts.baseUrl') }}</label>
           <input
             v-model="editBaseUrl"
             type="text"
             class="input"
-            :placeholder="
-              account.platform === 'openai'
-                ? 'https://api.openai.com'
-                : account.platform === 'gemini'
-                  ? 'https://generativelanguage.googleapis.com'
-                  : account.platform === 'antigravity'
-                    ? 'https://cloudcode-pa.googleapis.com'
-                    : account.platform === 'grok'
-                      ? 'https://api.x.ai/v1'
-                      : 'https://api.anthropic.com'
-            "
+            :placeholder="isCNAccountPlatform(account.platform) ? defaultCNBaseURL(account.platform, editCNAccountMode, editCNAPIProtocol) : defaultAPIKeyBaseURL(account.platform)"
           />
           <p v-if="baseUrlHint" class="input-hint">{{ baseUrlHint }}</p>
           <GrokBaseUrlPresets
@@ -41,6 +68,26 @@
             @select="editBaseUrl = $event"
           />
         </div>
+        <div v-else class="space-y-3" data-testid="edit-cn-adaptive-base-urls">
+          <label class="input-label">{{ t('admin.accounts.cnProvider.protocolEndpoints') }}</label>
+          <div>
+            <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{{ t('admin.accounts.cnProvider.chatCompletions') }}</label>
+            <input v-model="editCNAdaptiveBaseURLs.chat_completions" type="text" class="input" data-testid="edit-cn-adaptive-base-url-chat-completions" />
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{{ t('admin.accounts.cnProvider.anthropic') }}</label>
+            <input v-model="editCNAdaptiveBaseURLs.anthropic" type="text" class="input" data-testid="edit-cn-adaptive-base-url-anthropic" />
+          </div>
+          <div v-if="cnSupportsNativeResponses(account.platform)">
+            <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{{ t('admin.accounts.cnProvider.responses') }}</label>
+            <input v-model="editCNAdaptiveBaseURLs.responses" type="text" class="input" data-testid="edit-cn-adaptive-base-url-responses" />
+          </div>
+        </div>
+        <OpenCodeProtocolRulesEditor
+          v-if="account.platform === 'opencode_go'"
+          v-model:rows="editOpenCodeProtocolRules"
+          :plan="editOpenCodeAccountMode"
+        />
         <div>
           <label class="input-label">{{ t('admin.accounts.apiKey') }}</label>
           <input
@@ -51,17 +98,7 @@
             data-1p-ignore
             data-lpignore="true"
             data-bwignore="true"
-            :placeholder="
-              account.platform === 'openai'
-                ? 'sk-proj-...'
-                : account.platform === 'gemini'
-                  ? 'AIza...'
-                  : account.platform === 'antigravity'
-                    ? 'sk-...'
-                    : account.platform === 'grok'
-                      ? 'xai-...'
-                      : 'sk-ant-...'
-            "
+            :placeholder="defaultAPIKeyPlaceholder(account.platform)"
           />
           <p class="input-hint">{{ t('admin.accounts.leaveEmptyToKeep') }}</p>
         </div>
@@ -1242,10 +1279,60 @@ import GrokBaseUrlPresets from '../GrokBaseUrlPresets.vue'
 import HeaderOverrideEditor from '../HeaderOverrideEditor.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import ModelWhitelistSelector from '../ModelWhitelistSelector.vue'
+import OpenCodeProtocolRulesEditor from '../OpenCodeProtocolRulesEditor.vue'
 import Toggle from '@/common/widgets/forms/Toggle.vue'
 import EditAccountCPAFields from './EditAccountCPAFields.vue'
+import {
+  cnSupportsNativeResponses,
+  defaultAPIKeyBaseURL,
+  defaultAPIKeyPlaceholder,
+  defaultCNBaseURL,
+  isCNAccountPlatform,
+  updateCNAdaptiveDefaults,
+  updateOpenCodeProtocolRuleDefaults,
+  type CNNativeAPIProtocol,
+} from '@/core/constants/account'
 import type { EditAccountCredentialContext } from '../../accountEditorContext'
 
 const props = defineProps<{ context: EditAccountCredentialContext }>()
-const { DEFAULT_POOL_MODE_RETRY_COUNT, DEFAULT_POOL_MODE_RETRY_STATUS_CODES, MAX_POOL_MODE_RETRY_COUNT, VERTEX_LOCATION_OPTIONS, account, addAntigravityModelMapping, addAntigravityPresetMapping, addCustomErrorCode, addModelMapping, addPresetMapping, allowedModels, antigravityModelMappings, antigravityPresetMappings, antigravityProjectId, autoDisableOnUpstreamInsufficientBalance, baseUrlHint, bedrockPresets, commonErrorCodes, customErrorCodeInput, customErrorCodesEnabled, editApiKey, editBaseUrl, editBedrockAccessKeyId, editBedrockApiKeyValue, editBedrockForceGlobal, editBedrockRegion, editBedrockSecretAccessKey, editBedrockSessionToken, editVertexLocation, editVertexProjectId, form, getAntigravityModelMappingKey, getModelMappingKey, grokClientToolCacheEnabled, grokOAuthBaseUrl, grokOAuthCustomBaseUrlEnabled, headerOverrideCapable, headerOverrideEnabled, headerOverrideRows, isBedrockAPIKeyMode, isOpenAIModelRestrictionDisabled, isSyncingAntigravityUpstream, isValidWildcardPattern, modelMappings, modelRestrictionMode, poolModeEnabled, poolModeRetryCount, poolModeRetryStatusCodesInput, presetMappings, removeAntigravityModelMapping, removeErrorCode, removeModelMapping, selectedErrorCodes, syncAntigravityUpstreamModels, t, toggleErrorCode } = props.context
+const { DEFAULT_POOL_MODE_RETRY_COUNT, DEFAULT_POOL_MODE_RETRY_STATUS_CODES, MAX_POOL_MODE_RETRY_COUNT, VERTEX_LOCATION_OPTIONS, account, addAntigravityModelMapping, addAntigravityPresetMapping, addCustomErrorCode, addModelMapping, addPresetMapping, allowedModels, antigravityModelMappings, antigravityPresetMappings, antigravityProjectId, autoDisableOnUpstreamInsufficientBalance, baseUrlHint, bedrockPresets, commonErrorCodes, customErrorCodeInput, customErrorCodesEnabled, editApiKey, editBaseUrl, editCNAccountMode, editCNAPIProtocol, editCNAdaptiveBaseURLs, editOpenCodeAccountMode, editOpenCodeProtocolRules, editZhipuOrganization, editZhipuProject, editBedrockAccessKeyId, editBedrockApiKeyValue, editBedrockForceGlobal, editBedrockRegion, editBedrockSecretAccessKey, editBedrockSessionToken, editVertexLocation, editVertexProjectId, form, getAntigravityModelMappingKey, getModelMappingKey, grokClientToolCacheEnabled, grokOAuthBaseUrl, grokOAuthCustomBaseUrlEnabled, headerOverrideCapable, headerOverrideEnabled, headerOverrideRows, isBedrockAPIKeyMode, isOpenAIModelRestrictionDisabled, isSyncingAntigravityUpstream, isValidWildcardPattern, modelMappings, modelRestrictionMode, poolModeEnabled, poolModeRetryCount, poolModeRetryStatusCodesInput, presetMappings, removeAntigravityModelMapping, removeErrorCode, removeModelMapping, selectedErrorCodes, syncAntigravityUpstreamModels, t, toggleErrorCode } = props.context
+
+const selectCNAccountMode = (event: Event) => {
+  const mode = (event.target as HTMLSelectElement).value === 'coding' ? 'coding' : 'payg'
+  const previousMode = editCNAccountMode.value
+  const currentURLs = { ...editCNAdaptiveBaseURLs.value }
+  if (editCNAPIProtocol.value !== 'adaptive') {
+    currentURLs[editCNAPIProtocol.value as CNNativeAPIProtocol] = editBaseUrl.value
+  }
+  editCNAccountMode.value = mode
+  if (isCNAccountPlatform(account.value.platform)) {
+    editCNAdaptiveBaseURLs.value = updateCNAdaptiveDefaults(currentURLs, account.value.platform, previousMode, mode)
+    editBaseUrl.value = editCNAPIProtocol.value === 'adaptive'
+      ? editCNAdaptiveBaseURLs.value.chat_completions
+      : editCNAdaptiveBaseURLs.value[editCNAPIProtocol.value]
+  }
+}
+
+const selectCNAPIProtocol = (event: Event) => {
+  const protocol = (event.target as HTMLSelectElement).value as typeof editCNAPIProtocol.value
+  const previousProtocol = editCNAPIProtocol.value
+  const currentURLs = { ...editCNAdaptiveBaseURLs.value }
+  if (previousProtocol !== 'adaptive') {
+    currentURLs[previousProtocol] = editBaseUrl.value.trim()
+  }
+  editCNAdaptiveBaseURLs.value = currentURLs
+  editCNAPIProtocol.value = protocol
+  editBaseUrl.value = protocol === 'adaptive'
+    ? currentURLs.chat_completions
+    : currentURLs[protocol]
+}
+
+const selectOpenCodeAccountMode = (event: Event) => {
+  const mode = (event.target as HTMLSelectElement).value === 'zen' ? 'zen' : 'go'
+  const previousMode = editOpenCodeAccountMode.value
+  editOpenCodeAccountMode.value = mode
+  editCNAdaptiveBaseURLs.value = updateCNAdaptiveDefaults(editCNAdaptiveBaseURLs.value, 'opencode_go', previousMode, mode)
+  editOpenCodeProtocolRules.value = updateOpenCodeProtocolRuleDefaults(editOpenCodeProtocolRules.value, previousMode, mode)
+  editBaseUrl.value = editCNAdaptiveBaseURLs.value.chat_completions
+}
 </script>

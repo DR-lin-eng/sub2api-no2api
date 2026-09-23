@@ -314,8 +314,9 @@ func buildOpenAIWSHTTPBridgeErrorEvent(statusCode int, message string) []byte {
 		message = "upstream request failed"
 	}
 	event := map[string]any{
-		"type":   "error",
-		"status": statusCode,
+		"type":            "error",
+		"sequence_number": 0,
+		"status":          statusCode,
 		"error": map[string]any{
 			"type":    "upstream_error",
 			"message": message,
@@ -323,7 +324,7 @@ func buildOpenAIWSHTTPBridgeErrorEvent(statusCode int, message string) []byte {
 	}
 	body, err := json.Marshal(event)
 	if err != nil {
-		return []byte(`{"type":"error","error":{"type":"upstream_error","message":"upstream request failed"}}`)
+		return []byte(`{"type":"error","sequence_number":0,"error":{"type":"upstream_error","message":"upstream request failed"}}`)
 	}
 	return body
 }
@@ -400,7 +401,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
 		}
 	}
 
-	modelCtx := ctx
+	modelCtx := withOpenAIOAuthGatewayTurnKey(ctx, turn)
 	if account.Platform == PlatformGrok {
 		modelCtx = withGrokTeamRateLimitModel(ctx, resolveGrokWSUpstreamModel(account, body, originalModel))
 	}
@@ -449,6 +450,9 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
 	turnStart := time.Now()
 	resp, err := s.doAccountHTTPUpstream(upstreamReq, proxyURL, account)
 	if err != nil {
+		if limited := openAIOAuthGatewayRateLimitFailover(err); limited != nil {
+			return nil, limited
+		}
 		if turn == 1 {
 			return nil, s.handleOpenAIUpstreamTransportError(modelCtx, c, account, err, true)
 		}
@@ -494,6 +498,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
 	usage := OpenAIUsage{}
 	imageCounter := newOpenAIImageOutputCounter()
 	var firstTokenMs *int
+	var localFirstEventTTFTMs *int
 	reqStream := openAIWSPayloadBoolFromRaw(body, "stream", true)
 	eventCount := 0
 	tokenEventCount := 0
@@ -523,6 +528,10 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
 	}
 
 	resultWithUsage := func() *OpenAIForwardResult {
+		if localFirstEventTTFTMs != nil &&
+			(upstreamTerminalEvent == "response.completed" || upstreamTerminalEvent == "response.done") {
+			firstTokenMs = localFirstEventTTFTMs
+		}
 		imageCount := imageCounter.Count()
 		result := &OpenAIForwardResult{
 			RequestID:                     responseID,
@@ -601,9 +610,17 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
 		if isTokenEvent {
 			tokenEventCount++
 		}
-		if firstTokenMs == nil && isOpenAIWSTTFTEvent(eventType, visibleOutputTTFT) {
+		isLocalFirstEventTTFT := isOpenAILocalFirstEventType(eventType)
+		if isOpenAIWSTTFTEvent(eventType, visibleOutputTTFT) &&
+			(firstTokenMs == nil || isLocalFirstEventTTFT) {
 			ms := int(time.Since(turnStart).Milliseconds())
-			firstTokenMs = &ms
+			if isLocalFirstEventTTFT {
+				if localFirstEventTTFTMs == nil {
+					localFirstEventTTFTMs = &ms
+				}
+			} else if firstTokenMs == nil {
+				firstTokenMs = &ms
+			}
 		}
 		if openAIWSEventShouldParseUsage(eventType) {
 			parseOpenAIWSResponseUsageFromCompletedEvent(upstreamMessage, &usage)

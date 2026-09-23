@@ -1,6 +1,11 @@
 import type { ComputedRef, Ref } from 'vue'
 import type { useI18n } from 'vue-i18n'
 import type { Account } from '@/types'
+import {
+  cnSupportsNativeResponses,
+  defaultCNAdaptiveBaseURLs,
+  normalizeOpenCodeProtocolRules,
+} from '@/core/constants/account'
 import type { OpenAIWSMode } from '@/core/utils/openaiWsMode'
 import { isOpenAIWSModeEnabled } from '@/core/utils/openaiWsMode'
 import {
@@ -41,6 +46,13 @@ type EditorFields =
     | 'customErrorCodesEnabled'
     | 'editApiKey'
     | 'editBaseUrl'
+    | 'editCNAccountMode'
+    | 'editCNAPIProtocol'
+    | 'editCNAdaptiveBaseURLs'
+    | 'editOpenCodeAccountMode'
+    | 'editOpenCodeProtocolRules'
+    | 'editZhipuOrganization'
+    | 'editZhipuProject'
     | 'editBedrockAccessKeyId'
     | 'editBedrockApiKeyValue'
     | 'editBedrockForceGlobal'
@@ -190,6 +202,45 @@ function buildAPIKeyCredentials(
   const credentials: UpdatePayload = {
     ...currentCredentials,
     base_url: context.editBaseUrl.value.trim() || context.defaultBaseUrl.value,
+  }
+
+  const isCNProvider = ['kimi', 'zhipu', 'deepseek', 'minimax'].includes(account.platform)
+  if (isCNProvider || account.platform === 'opencode_go') {
+    const mode = account.platform === 'opencode_go'
+      ? context.editOpenCodeAccountMode.value
+      : context.editCNAccountMode.value
+    const protocol = account.platform === 'opencode_go' ? 'adaptive' : context.editCNAPIProtocol.value
+    credentials.account_mode = mode
+    credentials.api_protocol = protocol
+    if (protocol === 'adaptive') {
+      const defaults = defaultCNAdaptiveBaseURLs(account.platform as 'kimi' | 'zhipu' | 'deepseek' | 'minimax' | 'opencode_go', mode)
+      const apiBaseURLs: Record<string, string> = {
+        chat_completions: context.editCNAdaptiveBaseURLs.value.chat_completions.trim() || defaults.chat_completions,
+        anthropic: context.editCNAdaptiveBaseURLs.value.anthropic.trim() || defaults.anthropic,
+      }
+      if (cnSupportsNativeResponses(account.platform)) {
+        apiBaseURLs.responses = context.editCNAdaptiveBaseURLs.value.responses.trim() || defaults.responses
+      }
+      credentials.api_base_urls = apiBaseURLs
+      credentials.base_url = apiBaseURLs.chat_completions
+    } else {
+      delete credentials.api_base_urls
+    }
+    if (account.platform === 'opencode_go') {
+      credentials.protocol_rules = normalizeOpenCodeProtocolRules(context.editOpenCodeProtocolRules.value)
+    }
+    if (account.platform === 'zhipu') {
+      const organization = context.editZhipuOrganization.value.trim()
+      const project = context.editZhipuProject.value.trim()
+      if (mode === 'coding' && organization) {
+        credentials.zhipu_organization = organization
+        if (project) credentials.zhipu_project = project
+        else delete credentials.zhipu_project
+      } else {
+        delete credentials.zhipu_organization
+        delete credentials.zhipu_project
+      }
+    }
   }
 
   const hasExistingAPIKey =
@@ -833,6 +884,21 @@ function applyOpenAIExtra(
   }
   delete extra.responses_websockets_v2_enabled
   delete extra.openai_ws_enabled
+
+  // OpenAI OAuth/Codex model traffic may use a custom relay. Keep the value
+  // in account extra while leaving setup-token/API-key accounts unchanged.
+  if (account.type === 'oauth') {
+    if (
+      context.customBaseUrlEnabled.value &&
+      context.customBaseUrl.value.trim()
+    ) {
+      extra.custom_base_url_enabled = true
+      extra.custom_base_url = context.customBaseUrl.value.trim()
+    } else {
+      delete extra.custom_base_url_enabled
+      delete extra.custom_base_url
+    }
+  }
 
   if (context.openaiPassthroughEnabled.value) {
     extra.openai_passthrough = true

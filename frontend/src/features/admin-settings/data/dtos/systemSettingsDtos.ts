@@ -28,7 +28,7 @@ export interface DefaultSubscriptionSetting {
 }
 
 // ── 平台限额类型 ──────────────────────────────────────────────────
-export type PlatformType = "anthropic" | "openai" | "gemini" | "antigravity" | "grok"
+export type PlatformType = "anthropic" | "openai" | "gemini" | "antigravity" | "grok" | "kimi" | "zhipu" | "deepseek" | "minimax" | "opencode_go"
 export type QuotaWindowType = "daily" | "weekly" | "monthly"
 
 /** 单平台三档限额；null = 不限制，undefined = 未填（等价 null） */
@@ -41,7 +41,7 @@ export interface PlatformQuotaLimits {
 /** 全平台默认限额 map（key = PlatformType） */
 export type DefaultPlatformQuotasMap = Partial<Record<PlatformType, PlatformQuotaLimits>>
 
-const PLATFORMS: PlatformType[] = ["anthropic", "openai", "gemini", "antigravity", "grok"]
+const PLATFORMS: PlatformType[] = ["anthropic", "openai", "gemini", "antigravity", "grok", "kimi", "zhipu", "deepseek", "minimax", "opencode_go"]
 
 /** 归一化为全 4 平台 × 3 窗口（缺失填 null），供模板非空绑定 */
 export function normalizePlatformQuotasMap(input?: DefaultPlatformQuotasMap | null): DefaultPlatformQuotasMap {
@@ -608,6 +608,8 @@ export interface SystemSettings {
   request_priority_pending_mib_per_instance: number;
 
   // Gateway forwarding behavior
+  openai_oauth_force_relay_enabled: boolean;
+  openai_oauth_force_relay_base_url: string;
   enable_fingerprint_unification: boolean;
   enable_metadata_passthrough: boolean;
   enable_cch_signing: boolean;
@@ -668,6 +670,12 @@ export interface SystemSettings {
   openai_low_upstream_rate_priority_enabled?: boolean;
   openai_oauth_scheduling_rate_multiplier?: number;
   openai_content_session_burst_balance_enabled?: boolean;
+  openai_session_id_rate_limit_enabled?: boolean;
+  openai_session_id_rate_limit_per_minute?: number;
+  openai_oauth_gateway_rate_limit_enabled?: boolean;
+  openai_oauth_gateway_rate_limit_rpm?: number;
+  openai_oauth_gateway_rate_limit_burst?: number;
+  openai_request_integrity_observe_enabled?: boolean;
   openai_advanced_scheduler_enabled?: boolean;
   openai_advanced_scheduler_sticky_weighted_enabled?: boolean;
   openai_advanced_scheduler_subscription_priority_enabled?: boolean;
@@ -955,6 +963,8 @@ export interface UpdateSettingsRequest {
   request_priority_admission_enabled?: boolean;
   request_priority_pending_limit_per_instance?: number;
   request_priority_pending_mib_per_instance?: number;
+  openai_oauth_force_relay_enabled?: boolean;
+  openai_oauth_force_relay_base_url?: string;
   enable_fingerprint_unification?: boolean;
   enable_metadata_passthrough?: boolean;
   enable_cch_signing?: boolean;
@@ -1012,6 +1022,12 @@ export interface UpdateSettingsRequest {
   openai_low_upstream_rate_priority_enabled?: boolean;
   openai_oauth_scheduling_rate_multiplier?: number;
   openai_content_session_burst_balance_enabled?: boolean;
+  openai_session_id_rate_limit_enabled?: boolean;
+  openai_session_id_rate_limit_per_minute?: number;
+  openai_oauth_gateway_rate_limit_enabled?: boolean;
+  openai_oauth_gateway_rate_limit_rpm?: number;
+  openai_oauth_gateway_rate_limit_burst?: number;
+  openai_request_integrity_observe_enabled?: boolean;
   openai_advanced_scheduler_enabled?: boolean;
   openai_advanced_scheduler_sticky_weighted_enabled?: boolean;
   openai_advanced_scheduler_subscription_priority_enabled?: boolean;

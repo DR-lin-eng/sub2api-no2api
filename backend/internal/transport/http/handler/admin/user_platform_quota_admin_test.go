@@ -112,12 +112,17 @@ func TestUpdateUserPlatformQuotas_Success(t *testing.T) {
 	if len(repo.upsertCalls) != 1 {
 		t.Fatalf("UpsertForUser should be called once, got %d", len(repo.upsertCalls))
 	}
-	if repo.upsertCalls[0].userID != 42 || len(repo.upsertCalls[0].records) != len(service.AllowedQuotaPlatforms) {
+	if repo.upsertCalls[0].userID != 42 || len(repo.upsertCalls[0].records) != 2 {
 		t.Errorf("unexpected upsert call: %+v", repo.upsertCalls[0])
 	}
-	// 缓存失效：按全部允许平台统一失效。
-	if len(cache.deleteCalls) != 5 {
-		t.Errorf("expected 5 cache delete calls, got %d: %+v", len(cache.deleteCalls), cache.deleteCalls)
+	for _, record := range repo.upsertCalls[0].records {
+		if record.Platform != service.PlatformAnthropic && record.Platform != service.PlatformOpenAI {
+			t.Errorf("platform %q has no configured limit and must not be upserted", record.Platform)
+		}
+	}
+	// Cache invalidation always covers the full supported platform set.
+	if len(cache.deleteCalls) != len(service.AllowedQuotaPlatforms) {
+		t.Errorf("expected %d cache delete calls, got %d: %+v", len(service.AllowedQuotaPlatforms), len(cache.deleteCalls), cache.deleteCalls)
 	}
 }
 

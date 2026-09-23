@@ -115,4 +115,11 @@ describe('RegisterView invitation layout', () => {
     expect(wrapper.find('[data-testid="affiliate-invitation-field"]').exists()).toBe(false)
     expect(wrapper.get('#invitation_code').exists()).toBe(true)
   })
+
+  it('requires an explicit password confirmation field', async () => {
+    const wrapper = mountRegister()
+    await flushPromises()
+    expect(wrapper.get('#confirmPassword').attributes('autocomplete')).toBe('new-password')
+    expect(wrapper.get('#confirmPassword').attributes('required')).toBeDefined()
+  })
 })

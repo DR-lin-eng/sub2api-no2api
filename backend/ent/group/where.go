@@ -240,6 +240,11 @@ func ClaudeCodeOnly(v bool) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldClaudeCodeOnly, v))
 }
 
+// IsDistillationGroup applies equality check predicate on the "is_distillation_group" field. It's identical to IsDistillationGroupEQ.
+func IsDistillationGroup(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldIsDistillationGroup, v))
+}
+
 // FallbackGroupID applies equality check predicate on the "fallback_group_id" field. It's identical to FallbackGroupIDEQ.
 func FallbackGroupID(v int64) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldFallbackGroupID, v))
@@ -1863,6 +1868,16 @@ func ClaudeCodeOnlyEQ(v bool) predicate.Group {
 // ClaudeCodeOnlyNEQ applies the NEQ predicate on the "claude_code_only" field.
 func ClaudeCodeOnlyNEQ(v bool) predicate.Group {
 	return predicate.Group(sql.FieldNEQ(FieldClaudeCodeOnly, v))
+}
+
+// IsDistillationGroupEQ applies the EQ predicate on the "is_distillation_group" field.
+func IsDistillationGroupEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldIsDistillationGroup, v))
+}
+
+// IsDistillationGroupNEQ applies the NEQ predicate on the "is_distillation_group" field.
+func IsDistillationGroupNEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldIsDistillationGroup, v))
 }
 
 // FallbackGroupIDEQ applies the EQ predicate on the "fallback_group_id" field.

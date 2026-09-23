@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"sync"
 	"testing"
 	"time"
 
@@ -12,12 +13,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type inspectionSettingRepoStub struct{ values map[string]string }
+type inspectionSettingRepoStub struct {
+	values map[string]string
+	mu     sync.Mutex
+}
 
 func (s *inspectionSettingRepoStub) Get(context.Context, string) (*Setting, error) {
 	return nil, ErrSettingNotFound
 }
 func (s *inspectionSettingRepoStub) GetValue(_ context.Context, key string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	value, ok := s.values[key]
 	if !ok {
 		return "", ErrSettingNotFound
@@ -25,6 +31,8 @@ func (s *inspectionSettingRepoStub) GetValue(_ context.Context, key string) (str
 	return value, nil
 }
 func (s *inspectionSettingRepoStub) Set(_ context.Context, key, value string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.values[key] = value
 	return nil
 }
@@ -104,6 +112,18 @@ func TestAccountInspectionDefaultsMatchScriptThresholds(t *testing.T) {
 	require.InDelta(t, 0.60, settings.SuccessRateThreshold, 1e-9)
 	require.Equal(t, 1, settings.MinRequests)
 	require.True(t, settings.OAuthQuotaCheckEnabled)
+	quality := DefaultAccountQualitySettings()
+	require.False(t, quality.Enabled)
+	require.Equal(t, 10, quality.IntervalMinutes)
+	require.Equal(t, 2, quality.FailureThreshold)
+	require.Equal(t, 2, quality.RecoveryThreshold)
+	require.Nil(t, quality.SourceGroupID)
+}
+
+func TestQualityAnswerPassesOnlyIndependentNumber21(t *testing.T) {
+	require.True(t, qualityAnswerPasses("答案：21"))
+	require.True(t, qualityAnswerPasses("21。"))
+	require.False(t, qualityAnswerPasses("答案是 210"))
 }
 
 func TestEvaluateAccountInspectionOAuthThresholdsAndQuota(t *testing.T) {

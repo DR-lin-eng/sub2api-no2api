@@ -1,0 +1,11 @@
+{
+  "target": "https://chatgpt.com/backend-api/codex/responses",
+  "headers": {
+    "chatgpt-account-id": "workspace-fixture",
+    "originator": "codex_cli_rs",
+    "user-agent": "codex_cli_rs/0.155.0",
+    "version": "0.155.0",
+    "x-codex-turn-metadata": "{\"thread_source\":\"guardian_review\"}"
+  },
+  "redirects_disabled": false
+}

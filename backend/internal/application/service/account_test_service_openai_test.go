@@ -3,6 +3,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
 	"github.com/Wei-Shaw/sub2api/internal/shared/openai_compat"
 	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
 	"github.com/gin-gonic/gin"
@@ -25,6 +27,7 @@ import (
 type queuedHTTPUpstream struct {
 	responses []*http.Response
 	requests  []*http.Request
+	bodies    [][]byte
 	tlsFlags  []bool
 }
 
@@ -34,6 +37,15 @@ func (u *queuedHTTPUpstream) Do(_ *http.Request, _ string, _ int64, _ int) (*htt
 
 func (u *queuedHTTPUpstream) DoWithTLS(req *http.Request, _ string, _ int64, _ int, profile *tlsfingerprint.Profile) (*http.Response, error) {
 	u.requests = append(u.requests, req)
+	if req != nil && req.Body != nil {
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			return nil, err
+		}
+		u.bodies = append(u.bodies, body)
+		_ = req.Body.Close()
+		req.Body = io.NopCloser(bytes.NewReader(body))
+	}
 	u.tlsFlags = append(u.tlsFlags, profile != nil)
 	if len(u.responses) == 0 {
 		return nil, fmt.Errorf("no mocked response")
@@ -52,6 +64,15 @@ func newJSONResponse(status int, body string) *http.Response {
 }
 
 // --- test functions ---
+
+func TestCreateOpenAITestPayloadUsesModelSpecificCodexInstructions(t *testing.T) {
+	oauthPayload := createOpenAITestPayload("gpt-6-astra", true, "quality")
+	require.Equal(t, openai.CodexBaseInstructionsForModel("gpt-6-astra"), oauthPayload["instructions"])
+	require.NotEqual(t, openai.DefaultInstructions, oauthPayload["instructions"])
+
+	apiKeyPayload := createOpenAITestPayload("gpt-6-astra", false, "quality")
+	require.Equal(t, openai.DefaultInstructions, apiKeyPayload["instructions"])
+}
 
 func newTestContext() (*gin.Context, *httptest.ResponseRecorder) {
 	gin.SetMode(gin.TestMode)
@@ -135,6 +156,38 @@ func TestAccountTestService_OpenAISuccessPersistsSnapshotFromHeaders(t *testing.
 	require.Equal(t, 42.0, repo.updatedExtra["codex_5h_used_percent"])
 	require.Equal(t, 88.0, repo.updatedExtra["codex_7d_used_percent"])
 	require.Contains(t, recorder.Body.String(), "test_complete")
+}
+
+func TestAccountTestService_QualityProbeInjectsAndCapturesTurnState(t *testing.T) {
+	resp := newJSONResponse(http.StatusOK, "")
+	resp.Body = io.NopCloser(strings.NewReader(`data: {"type":"response.output_text.delta","delta":"21"}
+
+data: {"type":"response.completed","response":{"usage":{"output_tokens_details":{"reasoning_tokens":120}}}}
+
+`))
+	resp.Header.Set(openAICodexTurnStateHeader, "captured-state")
+	account := &Account{
+		ID:          91,
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Concurrency: 1,
+		Credentials: map[string]any{"access_token": "test-token"},
+	}
+	repo := &openAIAccountTestRepo{mockAccountRepoForGemini: mockAccountRepoForGemini{accountsByID: map[int64]*Account{account.ID: account}}}
+	upstream := &queuedHTTPUpstream{responses: []*http.Response{resp}}
+	svc := &AccountTestService{accountRepo: repo, httpUpstream: upstream}
+	ctx := withAccountTestTurnState(context.Background(), "injected-state")
+
+	result, err := svc.RunQualityTestBackground(ctx, account.ID, "gpt-5.4", "quality prompt", "high")
+
+	require.NoError(t, err)
+	require.Equal(t, "success", result.Status)
+	require.Equal(t, "21", result.ResponseText)
+	require.Equal(t, "injected-state", result.InjectedTurnState)
+	require.Equal(t, "captured-state", result.TurnState)
+	require.Len(t, upstream.requests, 1)
+	require.Equal(t, "injected-state", upstream.requests[0].Header.Get(openAICodexTurnStateHeader))
+	require.Equal(t, strings.TrimSpace(defaultCodexSynthInstructions("gpt-5.4")), strings.TrimSpace(gjson.GetBytes(upstream.bodies[0], "instructions").String()))
 }
 
 func TestAccountTestService_OpenAIOAuthTestNormalizesGPT56Alias(t *testing.T) {

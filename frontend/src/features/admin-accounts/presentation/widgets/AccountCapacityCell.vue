@@ -8,6 +8,16 @@
     </CapacityBadge>
 
     <span
+      v-if="showSessionIDGrowth"
+      class="inline-flex items-center gap-1 px-1.5 text-[10px] font-medium text-blue-700 dark:text-blue-400"
+      :title="t('admin.accounts.capacity.sessionIDGrowth', { count: sessionIDGrowthPerMinute })"
+      data-testid="session-id-growth"
+    >
+      <span aria-hidden="true">↗</span>
+      {{ sessionIDGrowthPerMinute }}/min
+    </span>
+
+    <span
       v-if="cpaCapacity"
       class="inline-flex items-center gap-1 px-1.5 text-[10px] font-medium text-gray-600 dark:text-gray-400"
       :title="cpaCapacityTooltip"
@@ -61,6 +71,8 @@ const { t } = useI18n()
 
 // ====== 并发 ======
 const currentConcurrency = computed(() => props.account.current_concurrency || 0)
+const sessionIDGrowthPerMinute = computed(() => props.account.session_id_growth_per_minute || 0)
+const showSessionIDGrowth = computed(() => props.account.platform === 'openai')
 const cpaCapacity = computed(() => props.account.cpa_capacity ?? null)
 const effectiveConcurrency = computed(() =>
   cpaCapacity.value ? cpaCapacity.value.effective_concurrency : props.account.concurrency

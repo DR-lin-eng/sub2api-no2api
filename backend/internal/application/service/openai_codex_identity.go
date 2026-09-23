@@ -116,34 +116,17 @@ func resolveCodexOutboundIdentity(candidateUA string) codexOutboundIdentity {
 		ua = canonical
 	}
 	originator, pairedUA, ok := openai.PairCodexClientIdentity(ua)
-	if !ok {
-		if originator, pairedUA, ok = openai.PairCodexClientIdentity(canonical); !ok {
+	if !ok || NormalizeCodexClientVersion(openai.CodexUserAgentVersion(pairedUA)) == "" {
+		if originator, pairedUA, ok = openai.PairCodexClientIdentity(canonical); !ok || NormalizeCodexClientVersion(openai.CodexUserAgentVersion(pairedUA)) == "" {
 			originator, pairedUA = openai.CodexCLIOriginator, codexCLIUserAgent
 		}
 	}
-	version := codexClientVersionFromUA(canonical)
-	if rebuilt := openai.SetCodexUserAgentVersion(pairedUA, version); rebuilt != "" {
-		pairedUA = rebuilt
+	// An explicit client identity owns both version tokens. In Desktop UAs the
+	// leading version belongs to the engine; the trailer is the app build.
+	return codexOutboundIdentity{
+		userAgent: pairedUA, originator: originator,
+		version: openai.CodexUserAgentVersion(pairedUA),
 	}
-	identity := codexOutboundIdentity{userAgent: pairedUA, originator: originator, version: version}
-	// The upstream scheduler currently puts codex-tui in a load-shed bucket.
-	// Normalize only while the canonical identity policy is enabled; the
-	// existing disable switch must continue to provide a genuine rollback path.
-	if codexIdentityEnforcement.Load() {
-		identity.originator, identity.userAgent, _ = openai.NormalizeCodexClientIdentityToCLI(
-			identity.originator,
-			identity.userAgent,
-		)
-	}
-	return identity
-}
-
-func codexClientVersionFromUA(ua string) string {
-	version := NormalizeCodexClientVersion(openai.CodexUserAgentVersion(ua))
-	if version == "" || CompareVersions(version, codexUpstreamMinVersion) < 0 {
-		return codexCLIVersion
-	}
-	return version
 }
 
 func ensureCodexIdentityHeaders(h http.Header) {
@@ -190,15 +173,8 @@ func enforceCodexIdentityHeadersWithUA(h http.Header, overrideUA string) {
 }
 
 func pairCodexIdentityHeaders(h http.Header) {
-	originator, pairedUA, ok := openai.PairCodexClientIdentity(h.Get("user-agent"))
-	if !ok {
-		identity := resolveCodexOutboundIdentity("")
-		originator, pairedUA = identity.originator, identity.userAgent
-		h.Set("version", identity.version)
-	}
-	h.Set("user-agent", pairedUA)
-	h.Set("originator", originator)
-	if v := strings.TrimSpace(h.Get("version")); v != "" && CompareVersions(v, codexUpstreamMinVersion) < 0 {
-		h.Set("version", resolveCodexOutboundIdentity("").version)
-	}
+	identity := resolveCodexOutboundIdentity(h.Get("user-agent"))
+	h.Set("user-agent", identity.userAgent)
+	h.Set("originator", identity.originator)
+	h.Set("version", identity.version)
 }

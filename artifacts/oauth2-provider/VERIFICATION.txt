@@ -1,0 +1,253 @@
+OAuth2 provider implementation verification
+Date: 2026-09-16 02:04:16 CST
+Worktree state: detached HEAD at df540cea99c810c978fc648adf454ec81d404293
+Publication branch: codex/oauth2-provider
+
+Changed branch/field
+--------------------
+The changed authorization branch is the new OAuth2 authorization-code provider:
+backend/internal/application/service/oauth2_provider.go validates an administrator-managed
+oauth2_provider_config record plus oauth2_provider_client.<client_id> records, requires exact
+redirect URI matching and PKCE S256, atomically consumes authorization codes from Redis, and
+revalidates the provider, client, scopes, user status, and TokenVersion on every userinfo call.
+The embedded frontend branch in backend/internal/transport/webassets/embed_on.go now bypasses
+SPA handling for discovery, token, userinfo, and revoke while preserving /oauth/authorize as
+the authenticated Vue consent page. OAuth2 trust writes additionally pass AdminSessionOnly, so
+Admin API keys and delegated staff cannot modify them. OAuth2 tokens remain invalid as site
+JWTs and gateway keys.
+
+Artifacts
+---------
+MODIFIED_FILE: /Users/lin/.codex/worktrees/48b3/sub2api-no2api/artifacts/oauth2-provider/MODIFIED_FILE
+DIFF_FILE: /Users/lin/.codex/worktrees/48b3/sub2api-no2api/artifacts/oauth2-provider/DIFF_FILE
+VERIFICATION.txt: /Users/lin/.codex/worktrees/48b3/sub2api-no2api/artifacts/oauth2-provider/VERIFICATION.txt
+ROLLBACK.sh: /Users/lin/.codex/worktrees/48b3/sub2api-no2api/artifacts/oauth2-provider/ROLLBACK.sh
+
+Anchor source: backend/internal/transport/webassets/embed_on.go
+Original anchor SHA256: e51e8ae9eff1aabd6df44f2aa9fef0eceb84710f90753ba5e661498afd391b0e
+Modified anchor SHA256: 03c2b78b6448f279bf7417bf14ca3272e5735bc05b3fa36d69306ee2be9ce4c9
+DIFF_FILE SHA256: 7a5c62a1c7dccddb15246e5f864e5f7bf4f0356e0bc09f34c1d7007446f8f92f
+ROLLBACK.sh SHA256: a6b0780d942852557def37a53a18ffe11bb6dd17fd3a5734ca968881a276f4da
+
+BASELINE_COMMAND
+----------------
+docker run --rm -v "$PWD:/workspace" -v /Users/lin/go/pkg/mod:/go/pkg/mod:ro -v sub2api-go-build-cache:/root/.cache/go-build -e GOPROXY=off -w /workspace/backend golang:1.26.6-bookworm sh -c 'go test -tags=unit ./internal/application/service ./internal/transport/http/handler ./internal/transport/http/server/middleware ./internal/transport/http/server/routes'
+
+BASELINE_INPUT
+--------------
+Working directory /Users/lin/.codex/worktrees/48b3/sub2api-no2api at untouched
+df540cea99c810c978fc648adf454ec81d404293, mounted into golang:1.26.6-bookworm.
+The host module cache was mounted read-only and GOPROXY=off.
+
+BASELINE_LITERAL_OUTPUT
+-----------------------
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	190.081s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	42.445s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware	0.066s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes	5.455s
+
+BASELINE_RESULT
+---------------
+exit status 0 (PASS)
+
+BASELINE_FRONTEND_COMMAND
+-------------------------
+docker run --rm -v "$PWD:/workspace" -v sub2api-oauth2-node-modules:/workspace/frontend/node_modules -v sub2api-pnpm-store:/pnpm/store -e PNPM_HOME=/pnpm -e PATH=/pnpm:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin -w /workspace/frontend node:24-bookworm sh -c 'corepack pnpm install --frozen-lockfile --store-dir /pnpm/store && corepack pnpm exec vitest run src/features/admin-settings/__tests__/SettingsPage.spec.ts src/core/routes/__tests__/adminRouteAccess.spec.ts'
+
+BASELINE_FRONTEND_INPUT
+-----------------------
+Untouched df540cea99c810c978fc648adf454ec81d404293 frontend mounted into
+node:24-bookworm; pnpm dependencies installed into isolated Docker volumes.
+
+BASELINE_FRONTEND_LITERAL_OUTPUT
+--------------------------------
+Test Files  2 passed (2)
+Tests       51 passed (51)
+Duration    4.31s
+
+BASELINE_FRONTEND_RESULT
+------------------------
+exit status 0 (PASS)
+
+MODIFIED_COMMAND
+----------------
+docker run --rm -v "$PWD:/workspace" -v /Users/lin/go/pkg/mod:/go/pkg/mod:ro -v sub2api-go-build-cache:/root/.cache/go-build -e GOPROXY=off -w /workspace/backend golang:1.26.6-bookworm sh -c 'go test -tags=unit ./internal/application/service ./internal/infrastructure/repository ./internal/transport/http/handler ./internal/transport/http/server/routes ./internal/transport/http/server/middleware -run "TestOAuth2Provider|TestRegisterOAuth2ProviderRoutes|TestRequiredAdminPermission|TestDelegatedPermissions|TestAdminSessionOnly" -count=1'
+
+MODIFIED_INPUT
+--------------
+Current modified worktree mounted into golang:1.26.6-bookworm; OAuth2 service,
+concurrent Redis consumption, protocol parsing, route registration, and administrator-session boundaries.
+
+MODIFIED_LITERAL_OUTPUT
+-----------------------
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.085s
+ok  	github.com/Wei-Shaw/sub2api/internal/infrastructure/repository	0.026s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	0.021s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes	0.012s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware	0.014s
+
+MODIFIED_RESULT
+---------------
+exit status 0 (PASS)
+
+MODIFIED_FULL_BACKEND_COMMAND
+-----------------------------
+docker run --rm -v "$PWD:/workspace" -v /Users/lin/go/pkg/mod:/go/pkg/mod:ro -v sub2api-go-build-cache:/root/.cache/go-build -e GOPROXY=off -e GOMAXPROCS=4 -w /workspace/backend golang:1.26.6-bookworm sh -c 'go test -tags=unit -p 4 ./...'
+
+MODIFIED_FULL_BACKEND_INPUT
+---------------------------
+Final byte-for-byte modified backend, including strict form media-type parsing, IPv6 issuer
+normalization, no-store responses, backend-mode consent access, and concurrent code consumption.
+
+MODIFIED_FULL_BACKEND_LITERAL_OUTPUT
+------------------------------------
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/infrastructure/repository	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware	0.025s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes	5.489s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/webassets	(cached)
+ok  	github.com/Wei-Shaw/sub2api/migrations	(cached)
+All other listed command packages, Ent packages, modules, platform packages, and shared packages also passed or reported [no test files].
+
+MODIFIED_FULL_BACKEND_RESULT
+----------------------------
+exit status 0 (PASS)
+
+MODIFIED_FRONTEND_COMMAND
+-------------------------
+docker run --rm -v "$PWD:/workspace" -v sub2api-oauth2-node-modules:/workspace/frontend/node_modules -v sub2api-pnpm-store:/pnpm/store -e PNPM_HOME=/pnpm -e PATH=/pnpm:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin -w /workspace/frontend node:24-bookworm sh -c 'corepack pnpm run lint:check && corepack pnpm run typecheck && corepack pnpm exec vitest run src/__tests__/dynamicLocaleMapping.spec.ts src/features/auth/__tests__/OAuth2AuthorizePage.spec.ts src/features/admin-settings/__tests__/SettingsOAuth2ProviderPanel.spec.ts src/core/routes/__tests__/guards.spec.ts src/core/i18n/__tests__/routeLocaleCoverage.spec.ts'
+
+MODIFIED_FRONTEND_INPUT
+-----------------------
+Modified frontend mounted into node:24-bookworm with isolated node_modules and pnpm-store
+volumes; lint, type checking, consent UI, admin UI, route guards, and locale gates.
+
+MODIFIED_FRONTEND_LITERAL_OUTPUT
+--------------------------------
+$ eslint .
+$ vue-tsc --noEmit
+Test Files  5 passed (5)
+Tests       43 passed (43)
+Duration    4.32s
+
+MODIFIED_FRONTEND_RESULT
+------------------------
+exit status 0 (PASS)
+
+FULL_FRONTEND_BASELINE_COMPARISON
+---------------------------------
+BASELINE: total=2223 passed=2209 failed=14
+MODIFIED: total=2227 passed=2213 failed=14
+The same eight pre-existing test files failed in both runs. The four added OAuth2 tests passed;
+the failed-file sets were byte-for-byte equal after sorting. Both full-suite commands exited 1
+because the detached base commit already contains those 14 failures.
+
+DOCKER_IMAGE_COMMAND
+--------------------
+docker buildx build --load -t sub2api-oauth2-provider:final .
+
+DOCKER_IMAGE_INPUT
+------------------
+Current complete worktree, Dockerfile multi-stage Vue production build, Go 1.26.6 Alpine
+backend build with -tags embed, and Alpine runtime image.
+
+DOCKER_IMAGE_LITERAL_OUTPUT
+---------------------------
+#23 CACHED
+#27 DONE 7.3s
+#40 exporting manifest list sha256:dfac3cdb1429a424e1e2b40541c97eb64a13771434dcbcc7271682994949e7b8 done
+#40 naming to docker.io/library/sub2api-oauth2-provider:final done
+#40 DONE 2.3s
+
+DOCKER_IMAGE_RESULT
+-------------------
+exit status 0 (PASS)
+Image ID: sha256:dfac3cdb1429a424e1e2b40541c97eb64a13771434dcbcc7271682994949e7b8
+Image size: 45332254 bytes
+
+RUNTIME_COMMAND
+---------------
+node tools/oauth2-provider-smoke.mjs sub2api-oauth2-provider:final
+
+RUNTIME_INPUT
+-------------
+Final release image plus disposable PostgreSQL 18-alpine and Redis 8-alpine containers on
+a random Docker network, tmpfs data, random temporary credentials, and a random host port.
+
+RUNTIME_LITERAL_OUTPUT
+----------------------
+ISOLATED_APP_HEALTH => 200
+LOGIN admin@fixture.local => 200
+GET /api/v1/admin/compliance => 200
+POST /api/v1/admin/compliance/accept => 200
+GET /api/v1/admin/oauth2-provider => 200
+GET /.well-known/oauth-authorization-server => 404
+POST /api/v1/admin/settings/admin-api-keys => 201
+PUT /api/v1/admin/oauth2-provider => 403
+PUT /api/v1/admin/oauth2-provider => 200
+POST /api/v1/admin/oauth2-provider/clients => 201
+GET /.well-known/oauth-authorization-server => 200
+GET /api/v1/oauth2/authorize => 200
+POST /api/v1/oauth2/authorize => 200
+GET /api/v1/oauth2/authorize => 200
+POST /api/v1/oauth2/authorize => 200
+POST /oauth/token => 200
+POST /oauth/token => 400
+GET /oauth/userinfo => 200
+GET /api/v1/auth/me => 401
+GET /v1/models => 401
+POST /oauth/revoke => 200
+GET /oauth/userinfo => 401
+GET /api/v1/oauth2/authorize => 200
+POST /api/v1/oauth2/authorize => 200
+POST /oauth/token => 200
+PUT /api/v1/admin/oauth2-provider/clients/s2c_0n6mEpXVaz9d31bSEPSgwZk1 => 200
+GET /oauth/userinfo => 401
+PUT /api/v1/admin/oauth2-provider => 200
+GET /.well-known/oauth-authorization-server => 404
+SMOKE_PASS assertions=28; admin-session control, authorize, PKCE, replay rejection, userinfo, scope revocation, token isolation and provider disable verified
+CLEANUP_PASS isolated containers/network/temporary credentials removed
+
+RUNTIME_RESULT
+--------------
+exit status 0 (PASS; 28 assertions; no smoke containers remained)
+
+DOCUMENTATION_COMMAND
+---------------------
+./tools/check-docs.sh
+
+DOCUMENTATION_LITERAL_OUTPUT
+----------------------------
+Documentation checks passed.
+
+DOCUMENTATION_RESULT
+--------------------
+exit status 0 (PASS)
+
+ROLLBACK_COMMAND
+----------------
+/Users/lin/.codex/worktrees/48b3/sub2api-no2api/artifacts/oauth2-provider/ROLLBACK.sh /private/tmp/sub2api-oauth2-rollback-lint2.5TNnHn
+
+ROLLBACK_INPUT
+--------------
+Independent Git tree created from df540cea99c810c978fc648adf454ec81d404293, then populated
+with DIFF_FILE using git apply. The active worktree and MODIFIED_FILE were not rollback targets.
+
+ROLLBACK_LITERAL_OUTPUT
+-----------------------
+ROLLBACK_RESTORED=/private/tmp/sub2api-oauth2-rollback-lint2.5TNnHn
+WORKTREE_STATUS=clean
+RESTORED_ANCHOR_SHA256=e51e8ae9eff1aabd6df44f2aa9fef0eceb84710f90753ba5e661498afd391b0e
+
+ROLLBACK_RESULT
+---------------
+exit status 0 (PASS)
+
+RESTORED_BEHAVIOR_STATUS
+------------------------
+The rollback target has a clean Git status and its anchor SHA256 equals the original baseline
+SHA256. New OAuth2 source, routes, UI, tests, smoke script, and documentation were removed by
+the reverse patch; modified tracked files were restored. The active worktree and MODIFIED_FILE
+remain changed, with MODIFIED_FILE SHA256 03c2b78b6448f279bf7417bf14ca3272e5735bc05b3fa36d69306ee2be9ce4c9.

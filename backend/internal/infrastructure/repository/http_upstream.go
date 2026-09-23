@@ -18,12 +18,15 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/andybalholm/brotli"
+	req "github.com/imroc/req/v3"
+	reqhttp2 "github.com/imroc/req/v3/http2"
 	"github.com/klauspost/compress/zstd"
 	"golang.org/x/net/http2"
 
@@ -81,6 +84,11 @@ const (
 	// 内无响应即判定死连接并关闭，从源头避免请求挂在死连接上。
 	openAIHTTP2ReadIdleTimeout = 15 * time.Second
 	openAIHTTP2PingTimeout     = 15 * time.Second
+	// Plugin-derived HTTP/2 values are isolated behind the experimental
+	// transport switch and are used only by the req/v3 adapter.
+	codexExperimentalHTTP2InitialWindow  uint32 = 2_097_152
+	codexExperimentalHTTP2ConnectionFlow uint32 = 5_177_345
+	codexExperimentalHTTP2MaxHeaders     uint32 = 16_384
 
 	// The Grok CLI proxy rejects requests that do not identify a supported
 	// client version. Keep a known-good stable version in the binary while
@@ -112,6 +120,63 @@ type poolSettings struct {
 	responseHeaderTimeout time.Duration // 等待响应头超时时间
 }
 
+func buildCodexExperimentalHTTP2Client(profile *tlsfingerprint.Profile, route platformegress.Route, parsedProxy *url.URL) *req.Client {
+	if profile == nil || !profile.RandomizeExtensions || !codexsimulation.CodexExperimentalTransportEnabled() {
+		return nil
+	}
+	// req/v3 owns an HTTP/2 transport that can consume a uTLS connection, unlike
+	// net/http's TLSNextProto adapter. IPv6-pool routes still use the existing
+	// custom dialer because req/v3 cannot inherit the account-bound dial context.
+	if route.Mode == platformegress.ModeIPv6Pool {
+		return nil
+	}
+	client := req.NewClient().
+		SetCookieJar(chatgptCookieJar()).
+		SetTLSFingerprintSpec(tlsfingerprint.ClientHelloSpecFromProfile(profile)).
+		SetHTTP2SettingsFrame(
+			reqhttp2.Setting{ID: reqhttp2.SettingInitialWindowSize, Val: codexExperimentalHTTP2InitialWindow},
+			reqhttp2.Setting{ID: reqhttp2.SettingMaxHeaderListSize, Val: codexExperimentalHTTP2MaxHeaders},
+		).
+		SetHTTP2ConnectionFlow(codexExperimentalHTTP2ConnectionFlow).
+		SetHTTP2ReadIdleTimeout(openAIHTTP2ReadIdleTimeout).
+		SetHTTP2PingTimeout(openAIHTTP2PingTimeout).
+		SetCommonHeaderOrder("host", "content-type", "authorization", "user-agent", "accept", "accept-encoding", "x-codex-routing-hint").
+		SetCommonPseudoHeaderOder(":method", ":authority", ":scheme", ":path")
+	if route.Mode == platformegress.ModeExternalProxy && parsedProxy != nil {
+		if parsedProxy.Scheme != "http" && parsedProxy.Scheme != "https" {
+			return nil
+		}
+		client.SetProxyURL(parsedProxy.String())
+	}
+	return client
+}
+
+func applyCodexExperimentalHeaderOrder(request *http.Request) {
+	if request == nil {
+		return
+	}
+	if request.Header == nil {
+		request.Header = make(http.Header)
+	}
+	request.Header[req.HeaderOderKey] = []string{"host", "content-type", "authorization", "user-agent", "accept", "accept-encoding", "x-codex-routing-hint"}
+	request.Header[req.PseudoHeaderOderKey] = []string{":method", ":authority", ":scheme", ":path"}
+}
+
+func experimentalHTTPClientForRequest(client *req.Client, request *http.Request) *http.Client {
+	if client == nil {
+		return nil
+	}
+	base := client.GetClient()
+	if base == nil || request == nil || !service.HTTPUpstreamRedirectsDisabled(request.Context()) {
+		return base
+	}
+	clone := *base
+	clone.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	return &clone
+}
+
 type openAIHTTP2Settings struct {
 	enabled                   bool
 	allowProxyFallbackToHTTP1 bool
@@ -131,6 +196,7 @@ func chatgptCookieJar() http.CookieJar {
 // 记录客户端实例及其元数据，用于连接池管理和淘汰策略
 type upstreamClientEntry struct {
 	client                 *http.Client // HTTP 客户端实例
+	experimentalReqClient  *req.Client  // plugin-derived experimental HTTP/2 client
 	grokFallbackClient     *http.Client
 	grokFallbackClientOnce sync.Once
 	proxyKey               string // 代理标识（用于检测代理变更）
@@ -178,6 +244,8 @@ type httpUpstreamService struct {
 	// OpenAI 走 HTTP/HTTPS 代理时的 H2->H1 回退状态（key=标准化 proxyKey）
 	openAIHTTP2FallbackMu sync.Mutex
 	openAIHTTP2Fallbacks  map[string]*openAIHTTP2FallbackState
+	experimentalDiagMu    sync.Mutex
+	experimentalDiagLast  time.Time
 }
 
 // NewHTTPUpstream 创建通用 HTTP 上游服务
@@ -246,8 +314,14 @@ func (s *httpUpstreamService) doRouteWithVirtualClientKey(req *http.Request, rou
 	}
 
 	// 执行请求
-	client := entry.clientForRequest(req)
-	resp, err := servertiming.Do(client, req)
+	var resp *http.Response
+	if entry.experimentalReqClient != nil {
+		applyCodexExperimentalHeaderOrder(req)
+		resp, err = servertiming.Do(experimentalHTTPClientForRequest(entry.experimentalReqClient, req), req)
+	} else {
+		client := entry.clientForRequest(req)
+		resp, err = servertiming.Do(client, req)
+	}
 	if err != nil {
 		if profile == service.HTTPUpstreamProfileOpenAIStream {
 			err = service.WrapOpenAIStreamResponseHeaderTimeout(err)
@@ -327,9 +401,21 @@ func (s *httpUpstreamService) doWithTLSRouteAndVirtualClientKey(req *http.Reques
 		slog.Debug("tls_fingerprint_acquire_client_failed", "account_id", accountID)
 		return nil, err
 	}
+	experimental := entry.experimentalReqClient != nil
+	defer func() {
+		if experimental {
+			s.writeCodexExperimentalDiagnostic(req, accountID, profile)
+		}
+	}()
 
-	client := entry.clientForRequest(req)
-	resp, err := servertiming.Do(client, req)
+	var resp *http.Response
+	if entry.experimentalReqClient != nil {
+		applyCodexExperimentalHeaderOrder(req)
+		resp, err = servertiming.Do(experimentalHTTPClientForRequest(entry.experimentalReqClient, req), req)
+	} else {
+		client := entry.clientForRequest(req)
+		resp, err = servertiming.Do(client, req)
+	}
 	if err != nil {
 		if upstreamProfile == service.HTTPUpstreamProfileOpenAIStream {
 			err = service.WrapOpenAIStreamResponseHeaderTimeout(err)
@@ -348,6 +434,50 @@ func (s *httpUpstreamService) doWithTLSRouteAndVirtualClientKey(req *http.Reques
 	})
 
 	return resp, nil
+}
+
+func (s *httpUpstreamService) writeCodexExperimentalDiagnostic(req *http.Request, accountID int64, profile *tlsfingerprint.Profile) {
+	if s == nil || !codexsimulation.CodexExperimentalTransportEnabled() || s.cfg == nil {
+		return
+	}
+	now := time.Now().UTC()
+	s.experimentalDiagMu.Lock()
+	defer s.experimentalDiagMu.Unlock()
+	if !s.experimentalDiagLast.IsZero() && now.Sub(s.experimentalDiagLast) < time.Minute {
+		return
+	}
+	s.experimentalDiagLast = now
+	dir := filepath.Join(strings.TrimSpace(s.cfg.Pricing.DataDir), "plugin-diag")
+	if strings.TrimSpace(s.cfg.Pricing.DataDir) == "" || os.MkdirAll(dir, 0o700) != nil {
+		return
+	}
+	path := filepath.Join(dir, "codex-persona.log")
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		return
+	}
+	defer func() { _ = file.Close() }()
+	routingHintSeen := req != nil && strings.TrimSpace(req.Header.Get("x-codex-routing-hint")) != ""
+	persona := ""
+	if req != nil {
+		persona = strings.TrimSpace(req.Header.Get("user-agent"))
+	}
+	if persona == "" && profile != nil {
+		persona = profile.Name
+	}
+	record := map[string]any{
+		"ts":                now.Format(time.RFC3339Nano),
+		"account_id":        accountID,
+		"transport":         "req_v3_http2",
+		"routing_hint_seen": routingHintSeen,
+		"panic_recovery":    false,
+		"persona":           persona,
+	}
+	raw, err := json.Marshal(record)
+	if err != nil {
+		return
+	}
+	_, _ = file.Write(append(raw, '\n'))
 }
 
 func httpClientForUpstreamRequest(client *http.Client, req *http.Request) *http.Client {
@@ -645,14 +775,21 @@ func (s *httpUpstreamService) getClientEntryWithTLSRouteAndVirtualClientKey(rout
 	}
 
 	entry := &upstreamClientEntry{
-		client:           client,
-		accountID:        accountID,
-		virtualClientKey: virtualClientKey,
-		proxyKey:         proxyKey,
-		routeKey:         routeKey,
-		routeMode:        effective.Mode,
-		poolKey:          poolKey,
-		tlsProfileKey:    profileKey,
+		client:                client,
+		experimentalReqClient: buildCodexExperimentalHTTP2Client(profile, effective, parsedProxy),
+		accountID:             accountID,
+		virtualClientKey:      virtualClientKey,
+		proxyKey:              proxyKey,
+		routeKey:              routeKey,
+		routeMode:             effective.Mode,
+		poolKey:               poolKey,
+		tlsProfileKey:         profileKey,
+	}
+	if entry.experimentalReqClient != nil {
+		if s.shouldValidateResolvedIP() {
+			entry.experimentalReqClient.GetClient().CheckRedirect = s.redirectChecker
+		}
+		slog.Info("codex_experimental_transport_enabled", "account_id", accountID, "http2_initial_window", codexExperimentalHTTP2InitialWindow, "http2_connection_flow", codexExperimentalHTTP2ConnectionFlow, "http2_max_header_list", codexExperimentalHTTP2MaxHeaders, "profile", profile.Name)
 	}
 	atomic.StoreInt64(&entry.lastUsed, nowUnix)
 	if markInFlight {
@@ -896,6 +1033,9 @@ func (s *httpUpstreamService) removeClientLocked(key string, entry *upstreamClie
 		// 关闭空闲连接，释放系统资源
 		// 注意：这不会中断活跃连接
 		entry.client.CloseIdleConnections()
+	}
+	if entry != nil && entry.experimentalReqClient != nil && entry.experimentalReqClient.GetClient() != nil {
+		entry.experimentalReqClient.GetClient().CloseIdleConnections()
 	}
 }
 

@@ -219,7 +219,11 @@ func (s *OpenAIGatewayService) forwardAlphaSearchViaResponsesWebSearch(
 }
 
 func (s *OpenAIGatewayService) buildOpenAIAlphaSearchResponsesWebSearchRequest(ctx context.Context, c *gin.Context, account *Account, alphaBody []byte, body []byte, token string) (*http.Request, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, chatgptCodexURL, bytes.NewReader(body))
+	targetURL, official, err := s.openAIOAuthCodexTargetURLWithContext(ctx, account)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
@@ -234,7 +238,9 @@ func (s *OpenAIGatewayService) buildOpenAIAlphaSearchResponsesWebSearchRequest(c
 			req.Header.Add(key, value)
 		}
 	}
-	req.Host = "chatgpt.com"
+	if official {
+		req.Host = "chatgpt.com"
+	}
 	if err := resolveAndSetOpenAIChatGPTAccountHeaders(ctx, s.accountRepo, req.Header, account); err != nil {
 		return nil, fmt.Errorf("resolve chatgpt account headers: %w", err)
 	}
@@ -343,7 +349,7 @@ func truncateOpenAIAlphaSearchPromptJSON(value string, limit int) string {
 }
 
 func (s *OpenAIGatewayService) buildOpenAIAlphaSearchRequest(ctx context.Context, c *gin.Context, account *Account, body []byte, token string) (*http.Request, error) {
-	targetURL, err := s.openAIAlphaSearchURL(account)
+	targetURL, err := s.openAIAlphaSearchURLWithContext(ctx, account)
 	if err != nil {
 		return nil, err
 	}
@@ -654,13 +660,20 @@ func collectOpenAIAlphaSearchURLCitations(value any, results *[]any, seen map[st
 	}
 }
 
-func (s *OpenAIGatewayService) openAIAlphaSearchURL(account *Account) (string, error) {
+func (s *OpenAIGatewayService) openAIAlphaSearchURLWithContext(ctx context.Context, account *Account) (string, error) {
 	if account == nil {
 		return "", fmt.Errorf("account is required")
 	}
 	switch account.Type {
 	case AccountTypeOAuth:
-		return chatgptCodexAlphaSearchURL, nil
+		baseURL, official, err := resolveOpenAIOAuthCodexBaseURL(ctx, s.settingService, s.cfg, account)
+		if err != nil {
+			return "", err
+		}
+		if official {
+			return chatgptCodexAlphaSearchURL, nil
+		}
+		return buildOpenAIEndpointURL(baseURL, "/alpha/search"), nil
 	case AccountTypeAPIKey:
 		baseURL := account.GetOpenAIBaseURL()
 		if baseURL == "" {

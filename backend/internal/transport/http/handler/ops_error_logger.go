@@ -743,6 +743,15 @@ func OpsErrorLoggerMiddleware(ops *service.OpsService) gin.HandlerFunc {
 			return
 		}
 		if status < 400 {
+			if streamErr, marked := service.GetOpsStreamError(c); marked {
+				// In-band results are the final request outcome even when a retry
+				// left upstream-attempt context behind. Request-scoped signals keep
+				// the existing recovered-attempt path below when such context exists.
+				logOpsStreamError(c, ops, status)
+				if !streamErr.RequestScoped || !hasOpsUpstreamErrorContext(c) {
+					return
+				}
+			}
 			// Even when the client request succeeds, we still want to persist upstream error attempts
 			// (retries/failover) so ops can observe upstream instability that gets "covered" by retries.
 			var events []*service.OpsUpstreamErrorEvent
@@ -1015,7 +1024,6 @@ func OpsErrorLoggerMiddleware(ops *service.OpsService) gin.HandlerFunc {
 		if shouldSkipOpsErrorLog(c.Request.Context(), ops, parsed.Message, string(body), c.Request.URL.Path) {
 			return
 		}
-
 		apiKey := getOpsAPIKey(c)
 
 		clientRequestID, _ := c.Request.Context().Value(ctxkey.ClientRequestID).(string)
@@ -1150,9 +1158,11 @@ func logOpsStreamError(c *gin.Context, ops *service.OpsService, wireStatus int) 
 	}
 
 	// 命中 skip_monitoring=true 透传规则的请求跳过落库，与其它分支一致。
-	if v, ok := c.Get(service.OpsSkipPassthroughKey); ok {
-		if skip, _ := v.(bool); skip {
-			return
+	if !streamErr.RequestScoped {
+		if v, ok := c.Get(service.OpsSkipPassthroughKey); ok {
+			if skip, _ := v.(bool); skip {
+				return
+			}
 		}
 	}
 
@@ -1167,9 +1177,21 @@ func logOpsStreamError(c *gin.Context, ops *service.OpsService, wireStatus int) 
 		classifyStatus = wireStatus
 	}
 	normalizedType := normalizeOpsErrorType(streamErr.ErrType, streamErr.Code)
-	phase, isBusinessLimited, errorOwner, errorSource := classifyOpsErrorLog(c, normalizedType, streamErr.Message, streamErr.Code, classifyStatus)
+	var phase, errorOwner, errorSource string
+	var isBusinessLimited bool
+	if streamErr.RequestScoped {
+		// Request-level provider results (for example content filtering) must not
+		// inherit a previous account's upstream context. They are client/business
+		// outcomes and remain outside provider SLA accounting.
+		phase = classifyOpsPhase(normalizedType, streamErr.Message, streamErr.Code)
+		isBusinessLimited = true
+		errorOwner = classifyOpsErrorOwner(phase, streamErr.Message)
+		errorSource = classifyOpsErrorSource(phase, streamErr.Message)
+	} else {
+		phase, isBusinessLimited, errorOwner, errorSource = classifyOpsErrorLog(c, normalizedType, streamErr.Message, streamErr.Code, classifyStatus)
+	}
 	recordedStatus := wireStatus
-	if streamErr.CountTowardsSLA && streamErr.IntendedStatus >= 400 {
+	if (streamErr.CountTowardsSLA || streamErr.RequestScoped) && streamErr.IntendedStatus >= 400 {
 		recordedStatus = streamErr.IntendedStatus
 	}
 	errorBody := ""
@@ -1216,8 +1238,8 @@ func logOpsStreamError(c *gin.Context, ops *service.OpsService, wireStatus int) 
 			}
 			return ""
 		}(),
-		// 就地 SSE 错误只出现在流式请求上。
-		Stream:           true,
+		// In-band errors normally come from SSE; NonStream marks a 2xx JSON body.
+		Stream:           !streamErr.NonStream,
 		InboundEndpoint:  GetInboundEndpoint(c),
 		UpstreamEndpoint: GetUpstreamEndpoint(c, platform),
 		RequestedModel:   modelName,
@@ -1258,6 +1280,9 @@ func logOpsStreamError(c *gin.Context, ops *service.OpsService, wireStatus int) 
 		CreatedAt: time.Now(),
 	}
 	applyOpsLatencyFieldsFromContext(c, entry)
+	if !streamErr.RequestScoped {
+		applyOpsUpstreamFieldsFromContext(c, entry)
+	}
 
 	if apiKey != nil {
 		entry.APIKeyID = &apiKey.ID

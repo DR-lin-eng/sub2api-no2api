@@ -3,6 +3,7 @@ package repository
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -10,6 +11,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -17,11 +20,108 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
+	"github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation"
 	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
 	"github.com/Wei-Shaw/sub2api/internal/shared/xai"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
+
+func TestCodexExperimentalHTTP2ClientGateAndProfile(t *testing.T) {
+	codexsimulation.SetCLevelEnabled(false)
+	codexsimulation.SetExperimentalTransportEnabled(true)
+	t.Cleanup(func() {
+		codexsimulation.SetCLevelEnabled(false)
+		codexsimulation.SetExperimentalTransportEnabled(false)
+	})
+	profile := tlsfingerprint.BuiltInCodexRustlsProfile().WithCodexExperimentalTransport()
+	require.Nil(t, buildCodexExperimentalHTTP2Client(profile, platformegress.DirectRoute(false), nil))
+
+	codexsimulation.SetCLevelEnabled(true)
+	client := buildCodexExperimentalHTTP2Client(profile, platformegress.DirectRoute(false), nil)
+	require.NotNil(t, client)
+	require.NotNil(t, client.GetClient())
+	require.NotNil(t, client.GetClient().Transport)
+	require.Contains(t, profile.KeyShareGroups, tlsfingerprint.CodexX25519MLKEM768)
+	require.True(t, profile.RandomizeExtensions)
+}
+
+func TestCodexExperimentalHTTP2EntryUsesReqClient(t *testing.T) {
+	codexsimulation.SetCLevelEnabled(true)
+	codexsimulation.SetExperimentalTransportEnabled(true)
+	t.Cleanup(func() {
+		codexsimulation.SetCLevelEnabled(false)
+		codexsimulation.SetExperimentalTransportEnabled(false)
+	})
+	upstream := NewHTTPUpstream(&config.Config{}, nil)
+	svc, ok := upstream.(*httpUpstreamService)
+	require.True(t, ok)
+	profile := tlsfingerprint.BuiltInCodexRustlsProfile().WithCodexExperimentalTransport()
+	entry, err := svc.getClientEntryWithTLS("", 905, 1, profile, service.HTTPUpstreamProfileOpenAI, false, false)
+	require.NoError(t, err)
+	require.NotNil(t, entry.experimentalReqClient)
+	require.NotNil(t, entry.experimentalReqClient.GetClient().Transport)
+}
+
+func TestCodexExperimentalHTTP2ClientNegotiatesAndKeepsConfiguredSettings(t *testing.T) {
+	codexsimulation.SetCLevelEnabled(true)
+	codexsimulation.SetExperimentalTransportEnabled(true)
+	t.Cleanup(func() {
+		codexsimulation.SetCLevelEnabled(false)
+		codexsimulation.SetExperimentalTransportEnabled(false)
+	})
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("content-type", "application/json")
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	server.EnableHTTP2 = true
+	server.StartTLS()
+	defer server.Close()
+
+	profile := tlsfingerprint.BuiltInCodexRustlsProfile().WithCodexExperimentalTransport()
+	client := buildCodexExperimentalHTTP2Client(profile, platformegress.DirectRoute(false), nil)
+	require.NotNil(t, client)
+	// The test server certificate is self-signed; req/v3's custom TLS handshake
+	// keeps the same verification override used by the standard test client.
+	client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true}) //nolint:gosec // test-only local server
+	req, err := http.NewRequest(http.MethodGet, server.URL, nil)
+	require.NoError(t, err)
+	resp, err := client.GetClient().Do(req)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+	require.Equal(t, 2, resp.ProtoMajor)
+	data, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, `{"ok":true}`, string(data))
+}
+
+func TestCodexExperimentalDiagnosticIsRateLimitedAndRedacted(t *testing.T) {
+	codexsimulation.SetCLevelEnabled(true)
+	codexsimulation.SetExperimentalTransportEnabled(true)
+	t.Cleanup(func() {
+		codexsimulation.SetCLevelEnabled(false)
+		codexsimulation.SetExperimentalTransportEnabled(false)
+	})
+	dataDir := t.TempDir()
+	svc := &httpUpstreamService{cfg: &config.Config{Pricing: config.PricingConfig{DataDir: dataDir}}}
+	req, err := http.NewRequest(http.MethodGet, "https://chatgpt.com/backend-api/models", nil)
+	require.NoError(t, err)
+	req.Header.Set("x-codex-routing-hint", "model=gpt-5.5")
+	req.Header.Set("user-agent", "codex_cli_rs/0.153.4 (Fedora 42; x86_64) kitty")
+	profile := tlsfingerprint.BuiltInCodexRustlsProfile().WithCodexExperimentalTransport()
+	svc.writeCodexExperimentalDiagnostic(req, 42, profile)
+	svc.writeCodexExperimentalDiagnostic(req, 42, profile)
+	path := filepath.Join(dataDir, "plugin-diag", "codex-persona.log")
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	require.Equal(t, 1, bytes.Count(data, []byte("\n")))
+	require.Contains(t, string(data), `"routing_hint_seen":true`)
+	require.NotContains(t, string(data), "Bearer")
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o600), info.Mode().Perm())
+}
 
 type httpUpstreamSettingRepo struct {
 	mu     sync.RWMutex

@@ -154,8 +154,12 @@ type GatewayCodexSimulationConfig struct {
 	// CLevelSimulationEnabled gates the transport/profile convergence added by
 	// the C-level simulation. It is independent from A identity and B
 	// continuation switches so administrators can roll back transport changes.
-	CLevelSimulationEnabled bool   `mapstructure:"c_level_simulation_enabled"`
-	IdentitySecret          string `mapstructure:"identity_secret"`
+	CLevelSimulationEnabled bool `mapstructure:"c_level_simulation_enabled"`
+	// ExperimentalTransportEnabled opts into plugin-derived ML-KEM, per-
+	// connection extension shuffling, HTTP/2 settings, and diagnostics.
+	// It is effective only when CLevelSimulationEnabled is also true.
+	ExperimentalTransportEnabled bool   `mapstructure:"experimental_transport_enabled"`
+	IdentitySecret               string `mapstructure:"identity_secret"`
 	// ContinuationMode accepts off, shadow, or enforce.
 	ContinuationMode string `mapstructure:"continuation_mode"`
 	StateTTLSeconds  int    `mapstructure:"state_ttl_seconds"`

@@ -251,6 +251,44 @@ describe('BulkEditAccountModal', () => {
     })
   })
 
+  it('OpenAI OAuth 批量编辑可统一设置自定义 Codex 反代地址', async () => {
+    const wrapper = mountModal({
+      selectedPlatforms: ['openai'],
+      selectedTypes: ['oauth']
+    })
+
+    await wrapper.get('#bulk-edit-openai-custom-relay-enabled').setValue(true)
+    await wrapper.get('#bulk-edit-openai-custom-relay-toggle').trigger('click')
+    await wrapper.get('#bulk-edit-openai-custom-relay-url').setValue('https://codex-relay.oaifree.com/backend-api/codex')
+    await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(bulkUpdate).toHaveBeenCalledWith([1, 2], {
+      extra: {
+        custom_base_url_enabled: true,
+        custom_base_url: 'https://codex-relay.oaifree.com/backend-api/codex'
+      }
+    })
+  })
+
+  it('OpenAI OAuth 批量编辑可统一关闭自定义 Codex 反代', async () => {
+    const wrapper = mountModal({
+      selectedPlatforms: ['openai'],
+      selectedTypes: ['oauth']
+    })
+
+    await wrapper.get('#bulk-edit-openai-custom-relay-enabled').setValue(true)
+    await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(bulkUpdate).toHaveBeenCalledWith([1, 2], {
+      extra: {
+        custom_base_url_enabled: false,
+        custom_base_url: null
+      }
+    })
+  })
+
   it('OpenAI OAuth 批量编辑可开启 TLS 指纹模拟并按账号稳定分配 profile', async () => {
     const wrapper = mountModal({
       selectedPlatforms: ['openai'],

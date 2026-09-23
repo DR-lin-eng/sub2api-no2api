@@ -13,11 +13,16 @@
 
 本项目因此在 full simulation 出站时只生成横线形式的 session/thread 头，并使
 `session_id == thread_id == prompt_cache_key`、`x-client-request-id == thread_id`。window projection
-采用 `thread_id:window_number` 形状。下游提供的 Codex 保留身份头先被删除，再从同一 attempt plan
-重建。full simulation 的 direct `x-codex-installation-id` 只在 Compact projection 保留，普通
+采用 `thread_id:window_number` 形状，编号从 1 开始。下游提供的 Codex 保留身份头先被删除，再从同一
+attempt plan 重建。full simulation 的 direct `x-codex-installation-id` 只在 Compact projection 保留，普通
 Responses/WS 通过 `client_metadata` 投影；`client_metadata` 顶层只保留源码兼容投影；调用方自定义键会转入
 `x-codex-turn-metadata` 的有界扁平 extra 字段，并按源码规则限制键和值长度。
-parent/fork/turn/root 关联 ID 会按虚拟 principal 重新派生，合法的 subagent 分类和对应兼容头会保留。
+每个 OpenAI OAuth 账号在首次创建或首次 full simulation 请求时生成一个随机 `context_window_id`，写入
+`accounts.extra.codex_context_window_id`，后续请求固定复用；它不会采用下游提供的窗口 ID。root_turn_id
+始终与当前 turn_id 对齐，parent/fork/turn 关联 ID 按虚拟 principal 重新派生，合法的 subagent 分类和对应兼容头会保留。
+
+full simulation 的 session、thread、turn 以及上下文窗口 ID 使用 UUIDv7 的毫秒时间戳布局；installation ID
+继续使用 UUIDv4，以保持安装身份与会话时间身份的边界。
 
 ## 默认 OAuth 出站身份
 
@@ -28,9 +33,20 @@ parent/fork/turn/root 关联 ID 会按虚拟 principal 重新派生，合法的 
 投影同步改写；账号指纹计划仍是最终覆盖者。旧的 `session_id` / `conversation_id` 只作为网关内部
 兼容投影保留，不得把下游原值直接带到另一个上游账号。
 
-出站身份策略开启时，命中已知容量降载桶的 `codex-tui` 会在最终身份解析边界改写为
-`codex_cli_rs`；版本、OS、架构和终端指纹保留，User-Agent 首段与 `originator` 始终配对。
-将 `gateway.disable_codex_identity_enforcement` 设为 `true` 后，该归一化也随之关闭，保留完整回滚语义。
+出站 UA 按账号 `credentials.user_agent`、全局 `openai_codex_user_agent`、默认 CLI 身份的顺序解析；
+`ForceCodexCLI` 开启时使用全局/默认身份。显式配置的官方客户端 UA 保留名称、引擎版本、OS、架构、
+终端和末尾的应用构建号，`originator` 从 UA 首段配对，`version` 取首个 `/` 后的引擎版本。
+例如 `Codex Desktop/0.153.4 (Windows 10.0.26200; x86_64) unknown (Codex Desktop; 26.903.71938)`
+中的 `0.153.4` 和 `26.903.71938` 分属引擎与应用，不能互相覆盖；`codex-tui` 等显式身份也不会自动
+归一为 `codex_cli_rs`。固定/自动同步版本只负责生成未配置完整 UA 时的默认 CLI 身份。
+无效或非官方 UA 继续回退为规范身份。将 `gateway.disable_codex_identity_enforcement` 设为 `true`
+后使用请求 UA 配对身份，`version` 仍与 UA 的引擎版本保持一致。
+
+HTTP 普通转发、透传、Compact 与 WS 默认使用同一身份解析结果。full simulation 的 Linux 画像仅在
+C 与实验性传输开关同时开启且账号未配置 UA 时启用。WS 连接兼容键包含 `User-Agent`、`originator`、`version` 和账号 TLS Profile；
+身份设置改变后的新请求不会复用旧握手，身份不变时保留原连接亲和性。
+旧的 session/full 指纹模式也从同一请求计划设置 HTTP 与 WS 握手的 `x-client-request-id`，
+不再由 WS 继承入站原值；后续 WS 帧仍按既有协议在 body metadata 中投影每轮身份。
 
 上游 WebSocket 可能以 `type:error` 或 `response.failed` 返回 `server_is_overloaded`、`slow_down`
 或仅包含过载消息。网关只在首个语义输出前把它转换为携带原始事件体和握手响应头的 503
@@ -46,6 +62,32 @@ failover，service 层不会先写 JSON，因此不会再和外层 `response.fai
 `x-codex-turn-state` 同时写入按账号隔离的本地/共享会话状态，后续 OAuth 请求可自动回带。流设置缓存
 采用 stale-while-revalidate，设置库不可用不会阻塞转发；传输超时的账号 runtime block 延迟到重试预算
 耗尽，恢复成功会只清理同一 `transport_timeout` 原因的封禁。
+
+管理员还可以在数据库运行时设置中显式开启 Turn State 重放。该模式优先于客户端回带和会话缓存：每个
+OpenAI OAuth HTTP 请求从当前账号可用池随机取一个值并覆盖注入；原生 WS 在每次新连接握手时随机取值，
+同一连接的后续帧沿用原握手头；托管连接池把 state 摘要纳入握手兼容键，不会把选择了不同 state 的请求
+复用到同一上游连接。手工值没有账号绑定；从质量
+巡检一键同步的值只对采集账号可用。质量巡检只把通过阶段的响应头纳入同步候选，并可用独立开关随机注入
+同一池做开启/关闭对照。原始 state 只出现在管理员接口和数据库设置，不进入公开质量页面或诊断日志。
+
+自动监测模式与上述兼容随机池使用独立开关。管理员逐行配置关注的实际上游模型；系统只对这些模型观察
+HTTP 响应头和 Responses SSE/WS 元数据 state 的 Unicode 字符数；`/v1/messages` 兼容桥也使用同一自动池。目标字符长度可在面板设置（默认 292，范围 1–8192）；业务监控只有严格等于目标长度且不同于上一值时才写入，
+共享缓存；日志只记录长度、命中、新旧与代理布尔值。普通 OAuth 请求在最终模型归一化后使用对应的
+`CodexBaseInstructionsForModel`，仅替换缺失值或通用默认值。首次缺少正确值时立即探测，已有正确值 45 分钟没有更新时
+刷新探测；HTTP 账号用模型专用 instructions 发最短合法请求并在响应头到达后关闭正文，WSv2 账号使用零输出 ping。
+事件唤醒配合 5 秒扫描，单实例并发 32 个账号/模型目标，每个目标在账号正常出口并行竞速最多 4 次且每次最多
+15 秒；首个长度正确、头值合法且未明确过期的结果会取消其余尝试并恢复重放，即使该值与旧值相同。正常
+业务监控随后拿到新的正确值会立即替换；整轮失败后 5 秒继续下一轮且不限制轮数，直到成功、关闭监测或账号
+失去资格。代理竞速探测默认关闭；管理员开启后可选定专用代理 ID，未指定时使用健康代理池。探测不写用户用量日志，多实例以共享锁避免重复探测。
+关注模型优先使用自动池且不接受未经验证的入站 state；未关注模型
+不参与自动逻辑，并可继续使用旧随机池。
+
+管理端另有独立页面和当前节点只读接口 `GET /api/v1/admin/state-diagnostics`。它按 URL-safe
+Base64 解码 `X-Codex-Turn-State`，展示版本、字符数、原始字节数、签发时间和按签发时间加 1 小时推算的到期时间；
+该“到期”不是协议明确字段，解析失败时不会把编码字符串长度冒充原始字节数。`encrypted_content` 只统计可解码的
+原始字节，使用同账号/模型的最短样本作为基线，+16 B 只作为观察线索。接口不返回任何 opaque 正文，轮换错误
+只保留计数和错误类别；诊断快照是单进程状态，部署多节点时每个节点分别观察。旧的
+`/api/v1/admin/settings/codex-simulation/observability` 路径仅作为兼容别名保留。
 
 ## 网关必须存在的差异
 
@@ -95,16 +137,21 @@ string-state 接口下不提供跨实例原子计数。
 
 ## 平台与传输层
 
-Profile 从 `identity_secret + principal` 确定性派生，但只在部署宿主的平台族内选择源码真实的终端组合。
+身份 Profile 从 `identity_secret + principal + 已解析 UA` 确定性派生，UA 配置与普通请求共用解析器。
 OpenAI OAuth 的稳定数据库 profile 分配也优先使用 `chatgpt_account_id`，避免同一虚拟 principal
 在本地账号 failover 后切换 TLS 外观；Spark shadow 只保存不含凭据的
-`codex_virtual_client_key` 来继承该 namespace。这样未来引入原生传输 sidecar 时不会出现 UA 声称
-macOS、传输层却固定呈现 Linux 的长期矛盾。
+`codex_virtual_client_key` 来继承该 namespace。UA 中的平台字段和 TLS ClientHello 参数是不同层级；
+保留 Desktop UA 不代表传输栈变为官方原生客户端。
+
+在 Linux amd64 上，C 与实验性传输开关同时开启且账号未配置 UA 时，full simulation 会从插件提供的五个抓包画像（Fedora/Arch/Ubuntu/Debian，
+`xterm-256color`、`alacritty`、`kitty`、`screen`）中按 principal 稳定选择一个；Codex 版本仍由网关
+canonical version 同步决定。账号显式 UA 继续优先；任一开关关闭或宿主不是 Linux amd64 时，
+沿用共享 UA 解析结果，保留全局或账号的完整客户端身份。
 
 当多个 OAuth 记录共享同一非本地虚拟 principal、出口路由和 TLS profile 时，账号级 upstream pool 也使用
 该 principal 的不可逆短 key；缺少 upstream principal 的 `local:` 账号仍保持本地账号隔离。
 
-当前 A/B 是纯 Go 请求语义实现，明确不模拟以下内容；这与独立的、按账号启用的 TLS
+当前 A/B 是纯 Go 请求语义实现；实验性传输开关仅在 C-level 下按账号启用。默认路径明确不模拟以下内容；这与独立的、按账号启用的 TLS
 Profile 传输层开关是两个边界。OpenAI/Codex 的 models、usage、quota 辅助请求现在也复用账号级
 HTTP/TLS upstream；未接入该端口的测试桩仍保留旧客户端 fallback：
 
@@ -116,15 +163,55 @@ Remote Control 的 URL、enroll/refresh/pair 请求、protocol-v3 WebSocket head
 账号适配器会把 token 以密文写入 Account.Extra；调用方可以把它绑定到账号级 HTTP/TLS transport。网关请求路径
 本身仍不自动启动后台 Remote Control socket，真实 enrollment/heartbeat 需要外部控制器调用该 manager。
 
+## 最新 Codex 请求头收敛
+
+OpenAI OAuth 的 Responses HTTP、Compact、透传和 Responses WebSocket 路径现在共享同一组出站头策略：
+
+- `x-codex-parent-thread-id`、`x-openai-subagent` 从隔离后的 `client_metadata`/turn metadata 重建；
+  调用方原始值不会直接跨 API key 或上游账号复用。
+- Guardian 的 `x-codex-guardian: reviewer|classifier` 只有在对应 `x-openai-subagent` 与
+  `thread_source`/`turn_trigger` 组合一致时才生成；普通请求会清除伪造值。
+- Memory consolidation 只有在 `x-openai-memgen-request: true`、`memory_consolidation` subagent 和
+  `request_kind=memory` 的语义同时成立时才生成。
+- `parent_response_id`、`guardian_credits_requested`、`history_ingest_requested`、`analytics_enabled`、
+  `forked_from_ordinal_exclusive`、`turn_trigger` 等新版 metadata 键保留在结构化投影中，并保持官方类型。
+- Responses Lite 的 `x-openai-internal-codex-responses-lite` 会在 HTTP/兼容桥上继续透传；原生 WS
+  握手同时从入站握手头或 `client_metadata.ws_request_header_x_openai_internal_codex_responses_lite` 重建，
+  并纳入连接兼容键，避免 Lite 与普通握手复用同一 socket。
+- Workspace routing 由网关使用当前 OAuth token 调用 `wham/accounts/check` 发现；只接受 HTTPS origin 与
+  `us`、`us_cr`、`NO_CONSTRAINT`。`us/us_cr` 生成 `x-openai-account-routing-override`，
+  `NO_CONSTRAINT` 不生成该头但仍禁用重定向。发现失败对当前账号 fail-closed 并进入账号级切换。
+- WS 连接兼容键包含最终目标 URL、routing override、认证摘要、Guardian/memgen/subagent 和 timing 头，
+  不会把不同 workspace、token 或语义会话复用到同一握手。
+
+为避免把 OAuth Bearer token 发送到未经验证的管理员自定义 Relay，当前 discovery 仅在官方
+`chatgpt.com` Codex origin 启用；自定义/全局 Relay 保留原有 Relay 路由，不自动发送
+`/wham/accounts/check`。若 Relay 将来提供明确的受信 discovery 合同，再单独接入该路径。
+
+这些字段由网关根据已验证的 OAuth 账号和请求语义生成；它们不属于 API key 账号的任意 Header override
+或低风险 passthrough 白名单。`x-oai-attestation`、managed residency 和 host-device-kind 仍不伪造。
+
 full simulation 会清理下游直接注入的 `x-oai-attestation`、residency 和 host-device-kind 头，避免把调用方
 的运行时证明带到另一个 OAuth principal；真实平台证明仍只由现有 Live/Agent Identity 专用路径提供。
+
+新版 Codex 的 `response.metadata` 事件可能携带
+`metadata.openai_verification_recommendation: ["trusted_access_for_cyber"]`。网关只识别这个已知数组枚举，
+在请求上下文中保留去重后的观测值，并原样转发事件；它不会把验证建议误判为 `cyber_policy`，也不会因此
+触发账号切换、重试或模型改写。客户端可据此显示自己的结构化 `model/verification` 通知。HTTP header 中
+同名字段、标量值和未知枚举会被忽略，遵循新版 Codex 的解析边界。
+
+Codex turn metadata 中的 workspace 投影不再把本地绝对路径、remote URL 的 userinfo/query/fragment 或
+workspace 内的 token/secret/password 字段带到另一个 OAuth principal。路径替换为固定的
+`workspace:redacted`，remote 仅保留协议、主机和仓库路径；无效 JSON 仍交给原有协议校验处理。
 
 - A/B 本身不改写 TLS ClientHello、HTTP/2 SETTINGS、Header 顺序和连接层时序；
 - Codex Rust 网络栈的字节级传输特征；
 - attestation、residency 或本项目无法真实证明的客户端能力。
 
-这些属于 A/B 的暂缓 phase C。启用 A/B 不应被描述为完成了传输层等价；启用账号 TLS
-Profile 后也只能保证 Rustls provider 参数和连接隔离，不能保证跨平台 byte-for-byte JA3。
+实验性传输开关打开后会尝试启用 uTLS 的 X25519MLKEM768、每连接扩展顺序随机化以及 req/v3 的
+HTTP/2 SETTINGS/WINDOW 参数；它们仍然不能保证跨平台 byte-for-byte JA3，也不能替代真实抓包验证。
+开关关闭时保留现有 Go transport。诊断文件只写入脱敏的账号、persona、routing-hint 是否出现和恢复状态，
+路径为 `pricing.data_dir/plugin-diag/codex-persona.log`。
 
 `CaptureWireProfile` / `WireProfileFingerprint` 只提供确定性的 ClientHello-input golden 摘要；真实 socket
 字节 capture、HTTP/2 SETTINGS/HPACK 和连接时序仍需独立的 capture harness。
@@ -135,12 +222,15 @@ Profile 后也只能保证 Rustls provider 参数和连接隔离，不能保证�
 `codex_simulation_settings`，当前节点立即发布，其他节点通过后台任务最多在 5 秒内刷新；OAuth 请求路径
 只读取内存快照，不查询数据库。数据库记录存在时会覆盖旧
 YAML。点击“强制恢复原版行为”会调用无请求体的 `POST .../codex-simulation/restore-original`，即使旧记录
-损坏或页面 TTL 输入无效，也会显式保存 `full_simulation_enabled=false`、`c_level_simulation_enabled=false` 与 `continuation_mode=off`，因此
+损坏或页面 TTL 输入无效，也会显式保存 `full_simulation_enabled=false`、`c_level_simulation_enabled=false`、`turn_state_replay_enabled=false`、`turn_state_auto_replay_enabled=false` 与 `continuation_mode=off`，因此
 不受旧文件中启用值影响。已有模拟 WS 会在下一轮关闭并通过重连进入原版路径。首次启用时后端自动生成
 共享身份密钥，管理 API
 只公开 `identity_secret_configured`，不会返回密钥内容。
 系统级 `codex_prewarm_continuation_force_enabled` 开启后会覆盖账号级关闭值，并让后续创建或导入的
 OpenAI OAuth 账号自动保存 `codex_prewarm_continuation_enabled=true`。
+同一面板允许逐行维护最多 100 个 Turn State，并通过
+`POST .../codex-simulation/sync-turn-states` 同步最近一次质量巡检的健康结果；设置保存和跨节点刷新继续复用
+`codex_simulation_settings` 的当前节点立即发布、其他节点最多 5 秒刷新语义。
 
 下列 YAML 只保留为数据库尚无记录时的兼容默认值：
 
@@ -149,6 +239,7 @@ gateway:
   codex_simulation:
     full_simulation_enabled: false
     c_level_simulation_enabled: false
+    experimental_transport_enabled: false
     identity_secret: ""
     continuation_mode: off # off|shadow|enforce
     state_ttl_seconds: 604800

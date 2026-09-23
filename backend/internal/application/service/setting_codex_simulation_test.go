@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -130,6 +132,32 @@ func TestCLevelSimulationGateFollowsAdminSettings(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.False(t, codexsimulation.CLevelEnabled())
+}
+
+func TestExperimentalTransportGateFollowsAdminSettings(t *testing.T) {
+	codexsimulation.SetCLevelEnabled(true)
+	codexsimulation.SetExperimentalTransportEnabled(false)
+	t.Cleanup(func() {
+		codexsimulation.SetCLevelEnabled(false)
+		codexsimulation.SetExperimentalTransportEnabled(false)
+	})
+	repo := newCodexSimulationSettingRepo()
+	cfg := &config.Config{}
+	svc := NewSettingService(repo, cfg)
+	updated, err := svc.SetCodexSimulationSettings(context.Background(), &CodexSimulationSettings{
+		CLevelSimulationEnabled:      true,
+		ExperimentalTransportEnabled: true,
+		ContinuationMode:             "off",
+		StateTTLSeconds:              60,
+	})
+	require.NoError(t, err)
+	require.True(t, updated.ExperimentalTransportEnabled)
+	require.True(t, codexsimulation.ExperimentalTransportEnabled())
+	require.True(t, codexsimulation.CodexExperimentalTransportEnabled())
+	_, err = svc.ForceDisableCodexSimulationSettings(context.Background())
+	require.NoError(t, err)
+	require.False(t, codexsimulation.ExperimentalTransportEnabled())
+	require.False(t, codexsimulation.CodexExperimentalTransportEnabled())
 }
 
 func TestCodexPrewarmForceGateFollowsAdminSettings(t *testing.T) {
@@ -275,6 +303,166 @@ func TestCodexSimulationSettingsRejectInvalidModeAndTTL(t *testing.T) {
 	}
 }
 
+func TestCodexSimulationSettingsNormalizeTurnStatePool(t *testing.T) {
+	repo := newCodexSimulationSettingRepo()
+	svc := NewSettingService(repo, &config.Config{})
+	settings, err := svc.SetCodexSimulationSettings(context.Background(), &CodexSimulationSettings{
+		TurnStateReplayEnabled: true,
+		TurnStates:             []string{" state-a ", "state-a", "state-b"},
+		TurnStateAccountIDs: map[string][]int64{
+			"state-a": {7, 7, -1},
+			"removed": {8},
+		},
+		ContinuationMode: "off",
+		StateTTLSeconds:  60,
+	})
+	require.NoError(t, err)
+	require.Equal(t, []string{"state-a", "state-b"}, settings.TurnStates)
+	require.Equal(t, map[string][]int64{"state-a": {7}}, settings.TurnStateAccountIDs)
+
+	_, err = svc.SetCodexSimulationSettings(context.Background(), &CodexSimulationSettings{
+		TurnStates:       []string{"valid", "bad\r\nvalue"},
+		ContinuationMode: "off",
+		StateTTLSeconds:  60,
+	})
+	require.ErrorContains(t, err, "invalid HTTP header bytes")
+
+	_, err = svc.SetCodexSimulationSettings(context.Background(), &CodexSimulationSettings{
+		TurnStateReplayEnabled: true,
+		ContinuationMode:       "off",
+		StateTTLSeconds:        60,
+	})
+	require.ErrorContains(t, err, "turn_states must not be empty")
+}
+
+func TestCodexSimulationSettingsNormalizeAutomaticTurnStateModels(t *testing.T) {
+	repo := newCodexSimulationSettingRepo()
+	svc := NewSettingService(repo, &config.Config{})
+	settings, err := svc.SetCodexSimulationSettings(context.Background(), &CodexSimulationSettings{
+		TurnStateAutoReplayEnabled: true,
+		TurnStateWatchModels:       []string{" GPT-5.6-CODEX ", "gpt-5.6-codex", "gpt-5.5-codex"},
+		ContinuationMode:           "off",
+		StateTTLSeconds:            60,
+	})
+	require.NoError(t, err)
+	require.Equal(t, []string{"gpt-5.6-codex", "gpt-5.5-codex"}, settings.TurnStateWatchModels)
+	require.Equal(t, 292, settings.TurnStateTargetLength)
+
+	_, err = svc.SetCodexSimulationSettings(context.Background(), &CodexSimulationSettings{
+		TurnStateAutoReplayEnabled: true,
+		ContinuationMode:           "off",
+		StateTTLSeconds:            60,
+	})
+	require.ErrorContains(t, err, "turn_state_watch_models must not be empty")
+
+	_, err = svc.SetCodexSimulationSettings(context.Background(), &CodexSimulationSettings{
+		TurnStateTargetLength: 8193,
+		ContinuationMode:      "off",
+		StateTTLSeconds:       60,
+	})
+	require.ErrorContains(t, err, "turn_state_target_length must be between")
+}
+
+func TestSyncCodexTurnStatesFromAccountQualityPreservesManualAndBindsCapturedStates(t *testing.T) {
+	repo := newCodexSimulationSettingRepo()
+	svc := NewSettingService(repo, &config.Config{})
+	_, err := svc.SetCodexSimulationSettings(context.Background(), &CodexSimulationSettings{
+		TurnStates:          []string{"manual-state", "old-synced"},
+		TurnStateAccountIDs: map[string][]int64{"old-synced": {3}},
+		ContinuationMode:    "off",
+		StateTTLSeconds:     60,
+	})
+	require.NoError(t, err)
+	quality := AccountQualityRunState{Status: AccountInspectionStatusSucceeded, Results: []AccountInspectionAccountResult{
+		{AccountID: 7, QualityStatus: "healthy", QualityTurnStates: []string{"shared-state", "state-seven"}},
+		{AccountID: 8, QualityStatus: "healthy", QualityTurnStates: []string{"shared-state"}},
+		{AccountID: 9, QualityStatus: "degraded", QualityTurnStates: []string{"rejected-state"}},
+	}}
+	raw, err := json.Marshal(quality)
+	require.NoError(t, err)
+	require.NoError(t, repo.Set(context.Background(), SettingKeyAccountQualityState, string(raw)))
+
+	settings, err := svc.SyncCodexTurnStatesFromAccountQuality(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, []string{"manual-state", "shared-state", "state-seven"}, settings.TurnStates)
+	require.ElementsMatch(t, []int64{7, 8}, settings.TurnStateAccountIDs["shared-state"])
+	require.Equal(t, []int64{7}, settings.TurnStateAccountIDs["state-seven"])
+	require.NotContains(t, settings.TurnStates, "old-synced")
+	require.NotContains(t, settings.TurnStates, "rejected-state")
+}
+
+func TestSyncCodexTurnStatesFromAccountQualityOver100(t *testing.T) {
+	repo := newCodexSimulationSettingRepo()
+	svc := NewSettingService(repo, &config.Config{})
+	_, err := svc.SetCodexSimulationSettings(context.Background(), &CodexSimulationSettings{
+		TurnStateReplayEnabled: true,
+		TurnStates:             []string{"manual-state"},
+		ContinuationMode:       "off",
+		StateTTLSeconds:        60,
+	})
+	require.NoError(t, err)
+
+	captured := make([]string, 150)
+	results := make([]AccountInspectionAccountResult, 0, len(captured)+1)
+	for i := range captured {
+		captured[i] = "captured-" + strconv.Itoa(i)
+		results = append(results, AccountInspectionAccountResult{
+			AccountID: int64(1000 + i), QualityStatus: "healthy", QualityTurnStates: []string{captured[i]},
+		})
+	}
+	results = append(results, AccountInspectionAccountResult{
+		AccountID: 8, QualityStatus: "degraded", QualityTurnStates: []string{"degraded-state"},
+	})
+	quality := AccountQualityRunState{Status: AccountInspectionStatusSucceeded, Results: results}
+	raw, err := json.Marshal(quality)
+	require.NoError(t, err)
+	require.NoError(t, repo.Set(context.Background(), SettingKeyAccountQualityState, string(raw)))
+
+	settings, err := svc.SyncCodexTurnStatesFromAccountQuality(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, append([]string{"manual-state"}, captured...), settings.TurnStates)
+	require.NotContains(t, settings.TurnStates, "degraded-state")
+	require.Equal(t, []int64{1149}, settings.TurnStateAccountIDs[captured[149]])
+	require.True(t, settings.TurnStateReplayEnabled)
+
+	loaded, err := svc.GetCodexSimulationSettings(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, settings, loaded)
+	require.Contains(t, []string{"manual-state", captured[0]}, randomCodexTurnStateForAccount(*loaded, 1000))
+	require.Equal(t, "manual-state", randomCodexTurnStateForAccount(*loaded, 8))
+}
+
+func TestCodexTurnStatePoolStillHasCountLimit(t *testing.T) {
+	states := make([]string, codexTurnStateMaxEntries+1)
+	for i := range states {
+		states[i] = "state-" + strconv.Itoa(i)
+	}
+	_, err := normalizeCodexTurnStates(states)
+	require.ErrorContains(t, err, "turn state count exceeds")
+}
+
+func TestSyncCodexTurnStatesRequiresCompletedQualityRun(t *testing.T) {
+	repo := newCodexSimulationSettingRepo()
+	svc := NewSettingService(repo, &config.Config{})
+	_, err := svc.SetCodexSimulationSettings(context.Background(), &CodexSimulationSettings{
+		TurnStates: []string{"manual-state"}, ContinuationMode: "off", StateTTLSeconds: 60,
+	})
+	require.NoError(t, err)
+	for _, status := range []string{AccountInspectionStatusRunning, AccountInspectionStatusFailed} {
+		raw, err := json.Marshal(AccountQualityRunState{
+			Status:  status,
+			Results: []AccountInspectionAccountResult{{AccountID: 7, QualityStatus: "healthy", QualityTurnStates: []string{"partial-state"}}},
+		})
+		require.NoError(t, err)
+		require.NoError(t, repo.Set(context.Background(), SettingKeyAccountQualityState, string(raw)))
+		_, err = svc.SyncCodexTurnStatesFromAccountQuality(context.Background())
+		require.ErrorContains(t, err, "must succeed")
+		stored, err := svc.GetCodexSimulationSettings(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, []string{"manual-state"}, stored.TurnStates)
+	}
+}
+
 func TestCodexSimulationSettingsPublishImmediatelyAndRefreshAcrossInstances(t *testing.T) {
 	repo := newCodexSimulationSettingRepo()
 	first := NewSettingService(repo, &config.Config{})
@@ -296,7 +484,7 @@ func TestCodexSimulationSettingsPublishImmediatelyAndRefreshAcrossInstances(t *t
 	t.Cleanup(cancel)
 	second.startCodexSimulationSettingsSync(syncCtx, 5*time.Millisecond)
 	require.Eventually(t, func() bool {
-		return second.CodexSimulationSettingsSnapshot(ctx) == *updated
+		return reflect.DeepEqual(second.CodexSimulationSettingsSnapshot(ctx), *updated)
 	}, time.Second, 5*time.Millisecond)
 }
 

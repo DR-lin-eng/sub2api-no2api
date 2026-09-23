@@ -89,15 +89,21 @@ func requiredAdminPermission(method, path string) string {
 		return service.PermissionUsersManage
 	case "dashboard":
 		return service.PermissionDashboardRead
+	case "announcements":
+		return service.PermissionAnnouncementsManage
 	case "settings":
 		// Delegated settings access must not mint global keys or change its own role grants.
 		if strings.HasPrefix(path, "settings/admin-api-key") || path == "settings/permission-groups" {
 			return ""
 		}
 		return service.PermissionSettingsManage
+	case "oauth2-provider":
+		// Creating trust relationships and rotating client credentials remain
+		// full-administrator operations even for delegated settings staff.
+		return ""
 	case "groups":
 		return service.PermissionGroupsManage
-	case "accounts", "account-inspection", "proxies", "egress":
+	case "accounts", "account-inspection", "account-quality", "state-diagnostics", "proxies", "egress":
 		return service.PermissionAccountsManage
 	default:
 		return ""

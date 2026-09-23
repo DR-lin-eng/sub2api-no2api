@@ -33,6 +33,36 @@ sequenceDiagram
 
 流式事件可能在最终用量结算前已经发送给客户端；这也是结算必须可恢复、幂等且不能依赖客户端连接继续存活的原因。
 
+## OAuth2 对外授权
+
+第三方应用从 `/oauth/authorize` 发起 Authorization Code + PKCE S256 请求。前端要求用户先登录，再通过 `/api/v1/oauth2/authorize` 读取服务端校验后的客户端与 scope 预览；用户允许后，后端将 authorization code 摘要及用户、客户端、精确回调、scope、PKCE challenge 和 TokenVersion 保存到 Redis。`/oauth/token` 原子消费 code，复查客户端、回调、PKCE 和用户状态后签发不透明 access token。`/oauth/userinfo` 每次调用都重查全局开关、客户端启用状态、当前 scope 和用户 TokenVersion，因此管理员收回授权后无需等待 token TTL。完整协议和管理端入口见 [OAuth2 对外授权服务](OAUTH2_PROVIDER.md)。
+
+OAuth2 token 的认证域与站内 JWT、Admin API Key、模型网关 API Key 相互独立，不进入网关调度或计费链路。
+
+### 账号级质量监控与降智分组切换
+
+管理员在独立的 `/admin/account-quality` 保存质量策略并启用质量巡检，可指定 `source_group_id` 作为检测源；后台只筛选状态启用且已启用调度（`schedulable=true`）的 OpenAI/Gemini OAuth 账号，API Key、service account 和关闭调度的账号不会进入检测队列；后台复用账号测试的真实上游传输路径，按
+`interval_minutes` 对账号执行两个可独立开关的阶段：`stage1_enabled` 开启糖果形状/口味保证题（默认 `stage1_answer=21`），`stage2_enabled` 开启 SVG 鹈鹕骑自行车画图题并进行代码匹配和预览渲染。管理员可编辑 `stage1_prompt`、`stage1_answer` 和 `stage2_prompt`。只运行启用的阶段；全开时先文字题再画图。答案必须匹配配置答案且代码匹配规则通过才算通过。答错、代码匹配未通过或第一阶段 reasoning token 低于阈值显示为 `degraded`；`failure_threshold` 决定连续失败几轮后自动切组，恢复遵循 `recovery_threshold`。请求或分类错误不递增失败计数。选择检测源分组后探测范围为源分组和配置的降智分组；由旧配置迁出的账号也会继续探测，以支持恢复。未配置检测源时扫描全部符合上述条件的账号。账号健康巡检在 `/admin/account-inspection` 使用独立设置、状态和调度器，两个入口互不触发。
+
+配置 `degraded_group_id` 后，首次进入降智状态会先把原 `account_groups` 列表写入账号
+`extra.account_quality_original_group_ids`，再通过现有 `BindGroups` 事务绑定目标分组并写 scheduler
+outbox。目标分组必须存在、启用且与账号平台一致；切换失败不会静默修改原分组。连续通过达到
+`recovery_threshold` 时，仅当账号仍停留在记录的降智分组，系统才恢复原分组；降智分组中没有历史
+迁移标记的账号仅在当前绑定恰好等于该降智分组时回到配置的源分组。管理员在此期间手动改到其他
+分组或增加绑定时保留手动结果。未配置目标分组时质量状态仍可观测，但不改变调度资格。
+
+质量监控默认并发 4 个探测，管理员可在质量策略中设置 1–200 的 `max_concurrent`（上限 200）。若检测间隔短于上一轮耗时，新的定时/手动轮次进入单槽待开始队列并合并重复请求，当前轮次不取消；上一轮完成后立即启动排队轮次。第一阶段使用 `timeout_seconds`（默认 120 秒，可由管理员设置为 30–300 秒）；第二阶段的该值只限制“尚未收到任何流式内容”的等待时间。OpenAI 画图探测使用 Responses 流式请求，收到首个内容/图片事件后不再触发这项短超时，继续等待上游完成；整个质量运行仍受外层运行预算约束。传输、鉴权或无输出超时错误显示为本次 `error`，但不递增质量失败计数，也不触发降智分组切换。第一阶段从上游实际 usage 提取 reasoning token：OpenAI Responses 的 `response.usage.output_tokens_details.reasoning_tokens`、Chat Completions 的 `usage.completion_tokens_details.reasoning_tokens`，Gemini 的 `usageMetadata.thoughtsTokenCount`。缺失用量显示未知；启用阈值时该次结果为待确认，不按 0 判降智。`min_reasoning_tokens` 默认 0（仅展示），管理员可设置 0–1000000；严格小于阈值判为降智，等于阈值通过。摘要提供 0–49、50–99、100–249、250–499、500–999、1000+ 六个区间、均值、已测和未知数量；汇总在分页和截断前完成。状态、连续计数和最近 24 次阶段摘要存入 `accounts.extra`，探测不写入用量日志；公开页仅展示下文列出的最终回答，不展示推理正文。
+
+OpenAI OAuth 质量探测会读取上游响应头 `X-Codex-Turn-State`。只有质量阶段判定为 `passed` 的值才写入管理员质量运行结果；降智、待确认和请求错误产生的值不会进入可同步集合，公开质量看板也不返回这些值。质量策略的 `inject_turn_state` 是独立对照开关：开启后，每个 OpenAI 探测阶段从“Codex OAuth A/B/C 模拟”的当前账号可用池随机选择一个 state 注入，同时在管理员结果表分别显示本次注入值和响应采集值；Gemini 探测不注入该头。
+
+画图阶段的质量判定改为后端 Go 代码匹配：`modules/qualityrender` 按提供的 `model_a_fingerprint.py` 规则，对完整 HTML/SVG 计算 9 项加权特征（总分 100，默认阈值 55），记录命中特征、缺失特征和规则版本。分数表示代码结构相似度，不是概率；管理员可设置阈值，也可选择命中 Model A 或未命中 Model A 为正常。旧 `min_confidence` 字段继续返回以兼容已有配置，但不再参与代码匹配判定；已有非空 `ACCOUNT_QUALITY_RENDERER_URL` 仍只用于生成预览。
+
+预览渲染改由前端浏览器完成：后端仅在 `probe_details.stage2.preview_html` 保存经过 CSP/外链过滤且最多 256 KiB 的 HTML，公开接口返回该字段；前端使用 `iframe srcdoc` 与 `sandbox="allow-scripts"` 加载自包含动画，历史 PNG/WebP 记录仍可通过原图片接口查看。主 Docker 镜像不再安装 Python、Chromium 或 Playwright，代码匹配仍在后端 Go 中执行。预览 HTML 不允许外部网络、框架、对象、表单或事件属性，代码匹配先于预览生成，浏览器预览失败不会丢失匹配分数和对话详情。公开接口不返回账号凭据或原始请求；没有回答、对话/响应 ID、代码匹配或预览的空失败记录不会出现在公开时间线和详情卡片中。流式画图即使在结束前中断，只要已收到部分 SVG/HTML，仍会执行代码匹配并记录 `source_complete=false`；第二阶段状态显示“输出被中断，分析可能错误”，但账号总结果以第一阶段文字题为准（第一阶段通过则整体通过，第一阶段答错仍判降智）。仅启用第二阶段时，不完整输出判为待确认。
+
+手动调用 `/api/v1/admin/account-quality/run` 会立即返回 `running` 状态；后台继续执行并持久化 `progress.total/completed/running/queued` 和各账号 `quality_phase`（排队、文字题、绘图生成、渲染分类、保存、完成或中断），管理页每 5 秒轮询展示总任务进度和账号级阶段进度。调度触发仍使用同一质量运行器并等待完整结果。开启 `quality_public_enabled` 后，匿名页 `/monitor/quality/public` 读取
+`GET /api/v1/account-quality-share`，按 manxue.ai 风格展示 24 小时摘要、可点击状态时间线、检测对话/响应 ID、两阶段最终回答文本、reasoning token 和图片预览；回答只保留最多 16 KiB 并在前端按纯文本渲染，不返回账号 ID、凭据或原始请求。图片由
+`GET /api/v1/account-quality-share/image/:id?format=png|webp` 提供，并限制 24 小时保留。历史记录如果没有对话详情会显示“上游未返回”，不会伪造 ID。
+
 ### 阅读顺序
 
 1. `routes/gateway.go`：确认实际命中路径、middleware 顺序和平台分流。
@@ -41,6 +71,18 @@ sequenceDiagram
 4. `application/service/gateway_scheduling.go` 或 `openai_account_scheduler.go`：确认候选账号和会话粘性。
 5. 对应 `gateway*_forward*` / `openai*_forward*`：确认上游请求与响应转换。
 6. `gateway_usage_billing.go` 或 `openai_gateway_usage.go`：确认用量解析和计费提交。
+
+### 蒸馏分组轻量链路
+
+管理员将分组的 `is_distillation_group` 设为 `true` 后，对 Anthropic OAuth/SetupToken 和
+OpenAI OAuth 账号启用该链路。网关会删除请求体中的 `prompt_cache_key`、`prompt_cache_retention`、
+`cache_control` 及代理生成的缓存断点；每个分组/账号的请求计数按 10000 个逻辑请求划分
+session ID 窗口，同一窗口内的重试状态复用同一个合成 session ID。蒸馏链路不读取或保存
+上游 session 缓存对象。
+
+蒸馏分组只执行一次上游请求：跳过传输重试、指数退避、thinking/budget/tool 错误修正、账号
+failover 和 fallback 分组；失败时立即返回协议兼容错误。鉴权、计费准入、槽位释放、取消处理、
+用量幂等写入和 HTTP/SSE/WS 终止事件仍然执行。普通分组继续使用既有缓存、重试和 failover 规则。
 
 ### Claude Code -> OpenAI 会话信号
 
@@ -59,12 +101,43 @@ OpenAI 兼容入口的会话键按以下顺序解析：显式 `session_id`/
 有界 Top-K 内遇到相同负载时使用请求级随机平局，避免固定低编号热集；批量负载快照
 若将所有账号判为满载会先执行一次无缓存刷新，再创建兜底等待计划。
 
+管理端 `/admin/ops/concurrency-snapshot` 同时返回 OpenAI 显式 session ID 的当前分钟
+首次观测去重增长量（同一 session ID 在 1 小时内不重复计数）：平台、分组和账号行提供 `session_id_growth_per_minute`，响应级
+`session_id_growth` 提供筛选范围内总增速和最大账号增速。该指标只保存在进程内短期内存，
+按 UTC 分钟轮换，不进入用量聚合、账单或持久化表；内容派生会话不计入该指标。
+
+系统设置的“OpenAI Session ID 每分钟限速”开关对应
+`openai_session_id_rate_limit_enabled`，启用后按
+`openai_session_id_rate_limit_per_minute` 对每个 OpenAI OAuth 账号的新增显式 Session ID 做
+Redis 原子限速；OpenAI API Key 账号不经过该限速；0 表示不限制。达到上限的 OAuth 账号
+从本次候选中排除，已有 Session ID 不重复消耗额度。
+
+“OpenAI OAuth 每账号限速”由全局设置 `openai_oauth_gateway_rate_limit_enabled` 显式开启；关闭时请求路径
+不访问对应 Redis key。开启后，所有 OpenAI OAuth 账号使用同一套 RPM/burst 配置，但每个账号拥有独立
+Redis 令牌桶；同一账号的桶由所有应用实例共享，不按模型或应用实例继续拆分。
+共享母账号 OAuth 凭据的影子账号使用母账号桶，不能通过影子记录获得额外额度。
+`openai_oauth_gateway_rate_limit_rpm` 是持续补充速率，
+`openai_oauth_gateway_rate_limit_burst` 是可立即消耗的突发容量。HTTP 请求的账号重试/切换按
+`client_request_id` 在同一账号桶内去重；切换到另一个账号会消耗新账号自己的额度。Responses 的所有上游子路径（含 `compact`、`input_tokens`）、独立 Alpha Search 和 Live 建连均使用所选账号的桶，
+WS 每个 `response.create` turn 单独计数；OpenAI API Key、模型列表、
+额度查询和 OAuth 刷新不计入。启用状态下 Redis 不可用时失败关闭并返回 503，额度不足返回 429
+和 `Retry-After`；额度不足时先排除当前账号并尝试其他候选账号，且不记为账号健康失败，全部候选耗尽后才向客户端返回 429。配置保存到共享设置表；当前节点立即使用新值，
+其他节点最多在 5 秒设置缓存周期后使用相同配置。
+
+`openai_request_integrity_observe_enabled` 只观察 OpenAI OAuth 请求在兼容转换前后的受保护语义字段；
+差异日志仅包含账号 ID、传输类型和字段名，不保存请求正文，也不拒绝或重放请求。质量巡检的私有
+artifact 同时保存本次模型、Codex 身份/传输、出口、并发和上述网关控制的非敏感运行快照；公开质量页
+会删除该运行快照。
+
 OpenAI Responses 请求在首个语义事件前使用
 `gateway.openai_first_output_timeout_seconds`（默认 90 秒；
 `high/xhigh/max` 可由 `gateway.openai_high_effort_first_output_timeout_seconds`
 单独设置，默认 180 秒）。`response.created`、`response.in_progress`、
 `codex.rate_limits`、`codex.response.metadata` 和 SSE 注释心跳不计作语义输出，
 也不因配额或元数据帧而禁用首输出保护；超时会关闭当前上游连接。OpenAI LLM 的
+`response.metadata` 中的 `metadata.openai_verification_recommendation` 只识别新版 Codex
+定义的已知数组枚举并保留原事件，不改变重试或账号切换；workspace 元数据在 OAuth
+principal 隔离前会移除本地路径和 remote 凭据。
 HTTP Responses 请求在尚未提交语义字节、且错误允许重试时继续排除失败账号，直到成功或
 可调度号池耗尽，不再受首输出一次切号和普通最大切号数的提前截断；透传路径每个已选择
 账号最多四次 transport attempt，重选同账号不补充预算。非流式、图片及其他入口保持原预算。
@@ -126,6 +199,29 @@ Claude Code 下一轮上下文并触发重复 Read；网关没有文件长度信
 路由；启用账号 TLS Profile 时还携带同一稳定 Profile key。请求热路径不为出口或
 Profile 重查数据库。
 
+Codex OAuth 的 HTTP、透传、Compact 和 WS 握手共用 UA 身份解析：账号完整 UA 优先于全局完整 UA，
+未配置时才由固定/同步版本生成默认 CLI UA。显式 UA 的引擎版本和 Desktop 应用构建号分别保留，
+完整指纹模式默认沿用同一结果；Linux 插件画像由下述 C 与实验性传输开关共同控制，账号显式 UA 继续优先。
+WS 池将 UA、originator、version 和 TLS Profile 一起用于握手兼容检查；
+变更身份后重新拨号，未变更时继续复用。具体边界见 [Codex 身份差异](codex/intentional-divergences.md)。
+
+OpenAI OAuth/Codex 账号可在管理端启用 `custom_base_url_enabled` 并填写
+`custom_base_url`，将模型请求改发到自定义 Codex 中继。例如填写
+`https://codex-relay.oaifree.com/backend-api/codex` 后，Responses HTTP、透传、Compact
+和 WebSocket 会分别使用该地址下的 `/responses`（以及请求路径后缀）端点；
+`responses/input_tokens` 使用网关本地有界估算，避免向通常不存在的中继预检端点发送请求。
+OAuth 授权码、refresh token、账号隐私/授权接口仍使用 OpenAI 官方地址；自定义地址只改变模型
+请求出口。地址继续经过全局 `security.url_allowlist` 校验，账号配置的出口路由和 TLS Profile
+仍按原规则应用。
+
+管理员还可以在“网关设置 -> 请求转发行为”开启
+`openai_oauth_force_relay_enabled`，并填写 `openai_oauth_force_relay_base_url`。开启后该全局
+策略优先于账号级 `custom_base_url`，覆盖 OpenAI OAuth 的 Responses、Compact、Responses WS、
+Alpha Search、模型清单、账号测试/探测、图片、Live 调用/sideband 以及
+`responses/input_tokens`（后者改为本地估算）路径；
+API Key、Anthropic 和 OAuth 授权/刷新、隐私与额度管理请求不受影响。全局地址为空或不符合
+`http/https` 与 `security.url_allowlist` 校验时请求 fail-closed，不回退到官方端点。
+
 IPv6 模式只解析 AAAA 并从绑定源地址拨号。无 AAAA、缺少绑定或路由失败时不允许
 Happy Eyeballs 回退 IPv4。连接池键包含源地址和绑定版本，轮换后只关闭旧空闲连接。
 完整数据、管理和 Docker 路由边界见 [账号级 IPv6 出口](IPV6_EGRESS.md)。
@@ -139,6 +235,11 @@ Happy Eyeballs 回退 IPv4。连接池键包含源地址和绑定版本，轮换
 - 获取用户槽位后必须再次检查计费资格；排队期间余额、订阅或平台额度可能变化。
 - 账号槽位、用户槽位和图片槽位在所有返回与取消路径释放。
 - failover 必须记录失败账号并受最大切换次数约束。
+- 网关 OAuth 401 自动清理默认关闭。开启后只删除直接持有 OAuth 凭据的账号；
+  删除与 Spark 影子级联、分组解绑和 scheduler outbox 在一个事务中提交。完整
+  `credentials` JSONB 必须与 401 请求快照一致；并发重新授权获胜时保留新账号并仅切换当前请求。
+  API Key、Setup Token 和凭据影子不直接触发删除；删除成功清理旧运行态并短时阻断并发旧快照，
+  删除失败必须回退至原 401 冷却/停调路径。
 - 网关韧性设置可选择开启 OpenAI OAuth 连续失败熔断：只累计账号级 429 与 502，
   成功请求清零 Redis 共享计数；达到管理员阈值后原子写入 `schedulable=false` 和暂停原因，
   并通过 scheduler outbox 从该账号绑定的所有分组移除。OpenAI API Key 账号不参与该计数。
@@ -164,19 +265,56 @@ Happy Eyeballs 回退 IPv4。连接池键包含源地址和绑定版本，轮换
 
 ### Codex OAuth A/B/C 模拟
 
-管理员面板的“网关服务 -> Codex OAuth A/B 模拟”通过
+管理员面板的“网关服务 -> Codex OAuth A/B/C 模拟”通过
 `GET/PUT /api/v1/admin/settings/codex-simulation` 管理数据库运行时设置；紧急回滚使用无请求体的
-`POST /api/v1/admin/settings/codex-simulation/restore-original`。该入口不依赖当前表单 TTL，也不要求旧数据库
+`POST /api/v1/admin/settings/codex-simulation/restore-original`。质量巡检完成后可调用
+`POST /api/v1/admin/settings/codex-simulation/sync-turn-states`，把最近一次**成功完成**的巡检中健康账号的已通过阶段 state 同步到池中；正在运行或失败的巡检不允许同步部分结果。手工录入的 state 保持全账号可用，同步值保留采集账号绑定。同一账号有多个可用 state 时，每个 HTTP 请求独立随机选择一个；原生 WS 只能在新连接的握手头中随机选择，不能在复用连接的后续帧中更改握手头。该选择只作用于 OpenAI OAuth 账号，热路径读取内存快照，不查询数据库，也不记录 state 正文到日志。
+
+独立的 `turn_state_auto_replay_enabled` 开关用于自动监测与重放。管理员必须在
+`turn_state_watch_models` 逐项填写实际上游模型名；未列出的模型不采集、不重放，也不触发后台探测。
+开启后，HTTP 响应头、Responses SSE/WS 的 `codex.response.metadata` 事件和新建 WS 握手只记录账号、实际上游模型、是否走代理、state 字符数及是否命中；`/v1/messages` 兼容桥也遵循同一自动池，
+不把 state 正文写入日志。`turn_state_target_length` 默认 292，管理员可设置 1–8192；字符数严格等于
+配置目标且与该账号/模型上次值不同才算业务监控获得新 state；探测恢复允许写回同一正确值。缓存按
+本地账号 ID 与实际上游模型隔离，通过 Redis 在多实例间共享，1 小时过期。关注模型的请求优先使用
+该自动池；没有可用值时删除未经验证的入站 state，让真实代理请求向上游获取新值。
+
+独立的“State 可视化诊断”页面通过 `GET /api/v1/admin/state-diagnostics` 读取当前节点的
+脱敏快照，刷新不会覆盖正在编辑的设置草稿。快照只返回账号、实际上游模型、来源、代理标记、短摘要和计数，
+不返回 state 或 `encrypted_content` 正文。`X-Codex-Turn-State` 按 URL-safe Base64 解码后读取第一个字节版本和
+接下来的 8 字节大端 Unix 签发时间；该字段不是协议明确的到期字段，项目按签发时间加 1 小时**推算**到期，无法解析时只显示字符数且不伪造字节数。
+`encrypted_content` 也只在可解码时统计原始字节；同一账号/模型的最短有效样本作为基线，`+16 B` 仅是长度线索，
+不单独断言“降智”。轮换错误按请求去重并记录 `invalid_encrypted_content` 或 “Encrypted content could not …” 摘要。
+该诊断是进程本地观测，不代表多节点合计结果。旧的
+`GET /api/v1/admin/settings/codex-simulation/observability` 保留为兼容别名，不再作为设置页面的组成部分。
+探测快照的 `probe.recovering` 在管理页显示为“持续恢复探测”，与单次执行中的“探测中”及尚未到期的排程状态分开。
+
+某账号/关注模型首次请求未返回正确长度时会立即进入探测；已有正确 state 的目标从最近一次新值起 45 分钟
+没有再获得新值时进入刷新探测。调度器由事件立即唤醒，并以 5 秒扫描兜底；单实例最多同时处理 32 个
+账号/模型目标。普通 OAuth 请求会在最终实际上游模型确定后选择对应的
+`CodexBaseInstructionsForModel`；缺失或通用默认 instructions 会被替换，调用方明确提供的其它 instructions 保留。
+探测跟随账号实际传输：HTTP/SSE 使用同一模型专用 instructions 的最短合法请求，在响应头到达后读取 state 并
+关闭正文；WSv2 使用 `generate=false`、空 input 的零输出 ping。每个目标在账号自身正常出口上最多 4 路并发，
+默认不枚举全局代理池，因此单实例最多同时存在 128 个同路由尝试。管理员可显式开启独立的代理竞速探测；开启后可选定一个专用代理 ID，未指定时才使用健康代理池。每个尝试最多 15 秒，取得首个正确长度、头值合法且未明确过期的 state 后取消同目标的其余
+尝试并写回自动池；该值允许与旧值相同，正常业务响应随后采集到新的正确值时会替换它。长度错误、缺失、
+明确过期或整轮失败后 5 秒开启下一轮，轮次不限，直到取得可用 state、管理员关闭监测或账号失去探测资格。
+到期目标按 `next_probe_at` 最早优先，多实例通过共享 leader lock 避免同一账号/模型重复探测。旧的
+`turn_state_replay_enabled` 手工/质量巡检随机池保留为兼容模式，
+与自动模式分开配置；关注模型上自动池优先，未关注模型仍可使用兼容随机池。
+
+紧急回滚入口不依赖当前表单 TTL，也不要求旧数据库
 记录可以被解析，会直接写入 A=false、B=off、C=false。数据库记录存在时明确覆盖
 `gateway.codex_simulation`；记录缺失时才使用 YAML/环境变量作为兼容默认值。当前节点保存后立即生效，
 其他节点最多在 5 秒后台刷新周期后生效；OAuth 请求只读内存快照，不承担数据库刷新。首次启用 A 或 B 时
 服务端自动生成并保存身份密钥，接口只返回
-密钥是否已配置。A/B/C 默认关闭；A/C 不改变账号调度，B enforce 只在已知 incremental owner 时
+密钥是否已配置。A/B/C 与两种 Turn State 重放默认关闭；强制恢复会关闭重放但保留已保存池和关注模型，便于之后显式重新启用。A/C 不改变账号调度，B enforce 只在已知 incremental owner 时
 给现有调度器增加 owner principal/本地账号候选约束，不改变匹配候选之间的排序、计费或通用 failover。A 的
 `full_simulation_enabled` 只作用于 `codex_fingerprint_mode=full` 的 OpenAI OAuth 账号；B 的
 `continuation_mode=off|shadow|enforce` 独立于账号指纹模式。C 的
 `c_level_simulation_enabled` 独立控制新增的账号级 HTTP/TLS、虚拟客户端连接池、Cloudflare 基础设施 Cookie
 和 Remote Control 协议投影；C 关闭时这些新增传输投影回退到原有路径。
+`experimental_transport_enabled` 是 C 下的二级实验开关；只有 C 与该开关同时开启时，才启用插件参考的
+ML-KEM-768 key share、每连接 TLS 扩展随机化、req/v3 HTTP/2 SETTINGS/WINDOW 参数和
+`pricing.data_dir/plugin-diag/codex-persona.log` 诊断写入。任一开关关闭即回退到现有 Go transport。
 同一面板中的 `codex_prewarm_continuation_force_enabled` 是系统级账号预热开关；开启后所有 OpenAI OAuth
 账号在运行时强制走预热续接，创建、OAuth 导入及更新账号时也会持久化该账号开关，关闭系统开关不会影响
 已显式保存的账号级启用状态。
@@ -191,6 +329,15 @@ HMAC；项目头在所有 HTTP/WS 上游构造器中删除。每个账号 attemp
 `chatgpt_account_id`；缺失时退回本地账号 ID 命名空间。多个本地记录指向相同
 `chatgpt_account_id` 时有意视为同一上游主体。
 
+full simulation 的 session/thread/turn 使用 UUIDv7，并从同一 attempt plan 投影到请求头、`prompt_cache_key`
+和 `client_metadata`。`root_turn_id` 与当前 `turn_id` 保持一致，`window_id` 使用从 1 开始的
+`thread_id:window_number`。每个 OpenAI OAuth 账号有一个随机生成、持久化在
+`accounts.extra.codex_context_window_id` 的 `context_window_id`；body 与 `x-codex-turn-metadata` 只使用该账号值，
+不接受下游窗口 ID 原样透传。installation ID 继续作为独立的 UUIDv4 安装身份。
+C 与实验性传输开关同时开启、账号未配置 UA 时，Linux amd64 的 Codex profile 会按 principal
+稳定选择一组 Fedora、Arch、Ubuntu 或 Debian 终端画像，版本沿用网关 canonical version。
+账号显式 UA、任一开关关闭或其他宿主平台均沿用共享 UA 解析结果。
+
 B 在 application 层将 body 分成 full/incremental，并读取 Redis string state（失败时使用有界本地
 fallback）判断 root/response owner。shadow 只读取、分类和记录假设；enforce 允许 full body 经结构化
 清理后迁移，但拒绝跨主体 incremental。已知 owner 的 incremental 在账号获取前将候选约束到记录的
@@ -198,6 +345,8 @@ principal；若 `previous_response_id -> account_id` 或当前节点的原始连
 加入 Scheduler V2 优先候选。账号元数据只携带非凭据的
 `codex_virtual_client_key`，完整凭据仍在选中后读取。相同主体的 WS incremental 必须取得原连接；连接繁忙沿用连接
 池等待，主体或连接不匹配返回独立终态错误，handler 直接写出协议兼容错误，不进入账号 failover。
+连接池的 30 秒后台 sweep 同步清理本节点 RCC（response/session -> conn）中的过期、空值或已无存活 socket
+绑定；每张映射单轮最多扫描 512 条，健康连接绑定不受影响，避免低流量时无效粘连一直保留到较长的状态 TTL。
 成功 turn 才写 owner/response；成功 Compact 才推进 generation。更完整的差异与故障语义见
 [Codex OAuth 模拟的有意差异](codex/intentional-divergences.md)。
 
@@ -291,6 +440,14 @@ handler success/usage
 - 队列满、worker 拒绝或 Redis 不可用时，关键结算必须进入受限 fallback 或同步执行，不能丢弃。
 - 缓存回填使用版本/新旧保护，避免旧数据库快照覆盖更晚的扣费结果。
 - 修改计费时同时验证余额模式、订阅模式、重复提交、并发提交和故障恢复。
+
+### 价格目录与官方费率
+
+`PricingService` 在启动时加载缓存，并按配置检查远端目录；渠道和分组自定义定价仍优先于模型目录。默认远端跟踪 `Wei-Shaw/model-price-repo/main`，内置文件补充缺失模型，两个 service 的静态价格承担最后兜底。
+
+2026-09-10 核对 [OpenAI 官方价格](https://developers.openai.com/api/docs/pricing)：GPT-5.6 Sol 的 Standard 输入、缓存读取、缓存写入、输出分别为 **$4 / $0.4 / $5 / $20 per 1M tokens**；Fast（兼容 `priority`）为 2 倍，Flex 和目录中的 Batch 为 0.5 倍。输入总量超过 272K 时，输入与缓存按 2 倍、输出按 1.5 倍计算。官方注明优惠价至少持续至 2026-11-21，后续调价需再次核对。
+
+默认远端仍返回完整 Sol 旧费率（$5 / $0.5 / $6.25 / $30 及其 Fast 价）时，下载和缓存加载阶段定向纠正这组费率，再构建内存索引。原始缓存字节与远端同步哈希保持对应关系。该纠正只匹配默认仓库的 `main` URL 和完整旧费率；自定义价格源、固定 commit、其他模型以及远端后续不同费率均按原目录处理。请求计费热路径不增加网络或磁盘访问。
 
 ### 账号渠道统计与详细日志
 

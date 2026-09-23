@@ -42,9 +42,8 @@ func (s *GatewayService) replaceModelInBody(body []byte, newModel string) []byte
 }
 
 type claudeOAuthNormalizeOptions struct {
-	injectMetadata          bool
-	metadataUserID          string
-	stripSystemCacheControl bool
+	injectMetadata bool
+	metadataUserID string
 }
 
 // sanitizeSystemText rewrites only the fixed OpenCode identity sentence (if present).
@@ -141,7 +140,11 @@ func deleteJSONPathBytes(body []byte, path string) ([]byte, bool) {
 	return next, true
 }
 
-func normalizeClaudeOAuthSystemBody(body []byte, opts claudeOAuthNormalizeOptions) ([]byte, bool) {
+// normalizeClaudeOAuthSystemBody only normalizes the fixed client identity
+// sentence. Client/system cache_control is retained: it is either caller-owned
+// intent or a stable anchor introduced by the configured prompt owner. The
+// shared four-breakpoint cap is enforced at the final outbound boundary.
+func normalizeClaudeOAuthSystemBody(body []byte) ([]byte, bool) {
 	sys := gjson.GetBytes(body, "system")
 	if !sys.Exists() {
 		return body, false
@@ -173,13 +176,6 @@ func normalizeClaudeOAuthSystemBody(body []byte, opts claudeOAuthNormalizeOption
 							modified = true
 						}
 					}
-				}
-			}
-
-			if opts.stripSystemCacheControl && item.Get("cache_control").Exists() {
-				if next, ok := deleteJSONPathBytes(out, fmt.Sprintf("system.%d.cache_control", index)); ok {
-					out = next
-					modified = true
 				}
 			}
 
@@ -229,7 +225,7 @@ func normalizeClaudeOAuthRequestBody(body []byte, modelID string, opts claudeOAu
 	out := body
 	modified := false
 
-	if next, changed := normalizeClaudeOAuthSystemBody(out, opts); changed {
+	if next, changed := normalizeClaudeOAuthSystemBody(out); changed {
 		out = next
 		modified = true
 	}
@@ -387,15 +383,17 @@ func (s *GatewayService) applyClaudeCodeOAuthMimicryToBody(
 	if account == nil || !account.IsOAuth() || len(body) == 0 {
 		return body
 	}
-
-	systemPromptInjectionEnabled, systemPrompt, systemPromptBlocks := s.claudeOAuthSystemPromptInjectionSettings(ctx)
-	systemRewritten := false
-	if systemPromptInjectionEnabled {
-		body = rewriteSystemForNonClaudeCodeWithPromptBlocks(body, normalizeSystemParam(systemRaw), systemPrompt, systemPromptBlocks)
-		systemRewritten = true
+	distillation := s.IsDistillationGroupRequest(c, account)
+	if distillation {
+		body = stripDistillationCacheFields(body)
 	}
 
-	normalizeOpts := claudeOAuthNormalizeOptions{stripSystemCacheControl: !systemRewritten}
+	systemPromptInjectionEnabled, systemPrompt, systemPromptBlocks := s.claudeOAuthSystemPromptInjectionSettings(ctx)
+	if systemPromptInjectionEnabled {
+		body = rewriteSystemForNonClaudeCodeWithPromptBlocks(body, normalizeSystemParam(systemRaw), systemPrompt, systemPromptBlocks)
+	}
+
+	normalizeOpts := claudeOAuthNormalizeOptions{}
 
 	if s.identityService != nil && c != nil && c.Request != nil {
 		if fp, err := s.identityService.GetOrCreateFingerprint(ctx, account.ID, c.Request.Header); err == nil && fp != nil {
@@ -419,6 +417,9 @@ func (s *GatewayService) applyClaudeCodeOAuthMimicryToBody(
 	//   1) messages cache：仅在配置开启时清除客户端断点并注入代理断点
 	//   2) tool rewrite：最后改 tools[*].name / tool_choice.name 并在 tools[-1]
 	//      上打断点；mapping 存入 gin.Context 供响应侧 bytes.Replace 还原。
+	if distillation {
+		return stripDistillationCacheFields(body)
+	}
 	body = s.rewriteMessageCacheControlIfEnabled(ctx, body)
 
 	if rw := buildToolNameRewriteFromBody(body); rw != nil {

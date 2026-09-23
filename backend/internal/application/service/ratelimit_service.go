@@ -34,17 +34,20 @@ type RateLimitService struct {
 	settingService            *SettingService
 	tokenCacheInvalidator     TokenCacheInvalidator
 	runtimeBlocker            AccountRuntimeBlocker
+	runtimeStateCleaner       AccountRuntimeStateCleaner
 	usageCacheMu              sync.RWMutex
 	usageCache                map[int64]*geminiUsageCacheEntry
 	usageCacheLastCleanup     time.Time
 
 	// OpenAI Team linked-error fan-out is rare, so keep a small process-local
 	// deduplication window instead of adding a hot-path cache dependency.
-	openaiTeamLinkedMu       sync.Mutex
-	openaiTeamLinkedRecent   map[string]time.Time
-	openAIFailurePolicyCache atomic.Value // *cachedOpenAIFailurePolicySettings
-	openAIFailurePolicySF    singleflight.Group
-	openAIQuotaCheckSF       singleflight.Group
+	openaiTeamLinkedMu         sync.Mutex
+	openaiTeamLinkedRecent     map[string]time.Time
+	openAIFailurePolicyCache   atomic.Value // *cachedOpenAIFailurePolicySettings
+	openAIFailurePolicySF      singleflight.Group
+	openAIQuotaCheckSF         singleflight.Group
+	oauth401CleanupPolicyCache atomic.Value // *cachedOAuth401CleanupPolicy
+	oauth401CleanupPolicySF    singleflight.Group
 }
 
 type AccountRuntimeBlocker interface {
@@ -336,6 +339,10 @@ func (s *RateLimitService) SetAccountRuntimeBlocker(blocker AccountRuntimeBlocke
 	s.runtimeBlocker = blocker
 }
 
+func (s *RateLimitService) SetAccountRuntimeStateCleaner(cleaner AccountRuntimeStateCleaner) {
+	s.runtimeStateCleaner = cleaner
+}
+
 func (s *RateLimitService) SnapshotOpenAIStreamDegradation(accountID int64) (OpenAIStreamDegradationSnapshot, bool) {
 	if s == nil || s.runtimeBlocker == nil {
 		return OpenAIStreamDegradationSnapshot{}, false
@@ -413,6 +420,9 @@ func (s *RateLimitService) CheckErrorPolicy(ctx context.Context, account *Accoun
 // 返回是否应该停止该账号的调度
 func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Account, statusCode int, headers http.Header, responseBody []byte, requestedModel ...string) (shouldDisable bool) {
 	ctx = withTempUnschedulableModel(ctx, requestedModel)
+	if statusCode == http.StatusUnauthorized && s.tryAutoDeleteOAuthAccountOn401(ctx, account) {
+		return true
+	}
 	s.maybeHandleOpenAITeamLinkedError(ctx, account, statusCode, responseBody)
 	if s.handleUpstreamInsufficientBalance(ctx, account, statusCode, responseBody) {
 		return true
@@ -438,7 +448,6 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 		slog.Info("account_error_code_skipped", "account_id", account.ID, "status_code", statusCode)
 		return false
 	}
-
 	if len(requestedModel) > 0 && s.HandleUpstreamModelNotFound(ctx, account, requestedModel[0], statusCode, responseBody) {
 		return true
 	}

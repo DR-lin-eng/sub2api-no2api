@@ -2,7 +2,9 @@ package service
 
 import (
 	"fmt"
+	"net/url"
 	"strconv"
+	"strings"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
 	"github.com/Wei-Shaw/sub2api/internal/shared/openai_compat"
@@ -12,12 +14,13 @@ type bulkOpenAISettings struct {
 	longContextBilling      bool
 	endpointCapabilities    bool
 	responsesMode           bool
+	customRelay             bool
 	capabilitiesIncludeChat bool
 	forcedResponsesMode     bool
 }
 
 func (s bulkOpenAISettings) any() bool {
-	return s.longContextBilling || s.endpointCapabilities || s.responsesMode
+	return s.longContextBilling || s.endpointCapabilities || s.responsesMode || s.customRelay
 }
 
 func normalizeBulkOpenAISettings(input *BulkUpdateAccountsInput) (bulkOpenAISettings, error) {
@@ -48,6 +51,24 @@ func normalizeBulkOpenAISettings(input *BulkUpdateAccountsInput) (bulkOpenAISett
 		}
 		settings.forcedResponsesMode = forced
 		input.Extra[openai_compat.ExtraKeyResponsesMode] = mode
+	}
+
+	if raw, exists := input.Extra["custom_base_url_enabled"]; exists {
+		enabled, ok := raw.(bool)
+		if !ok {
+			return settings, infraerrors.BadRequest("OPENAI_CUSTOM_RELAY_INVALID", "custom_base_url_enabled must be a boolean")
+		}
+		settings.customRelay = true
+		if enabled {
+			baseURL, ok := input.Extra["custom_base_url"].(string)
+			if !ok || strings.TrimSpace(baseURL) == "" {
+				return settings, infraerrors.BadRequest("OPENAI_CUSTOM_RELAY_INVALID", "custom_base_url is required when custom_base_url_enabled is true")
+			}
+			parsed, err := url.Parse(strings.TrimSpace(baseURL))
+			if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+				return settings, infraerrors.BadRequest("OPENAI_CUSTOM_RELAY_INVALID", "custom_base_url must be an absolute HTTP or HTTPS URL")
+			}
+		}
 	}
 
 	// A forced Responses route cannot be valid when the same bulk update removes
@@ -179,6 +200,10 @@ func validateBulkOpenAISettingsTargets(
 			if account.Platform != PlatformOpenAI || account.Type != AccountTypeAPIKey {
 				return 0, invalidBulkOpenAITarget(accountID, "endpoint capabilities and Responses routing require an OpenAI API-key account")
 			}
+		}
+
+		if settings.customRelay && (account.Platform != PlatformOpenAI || account.Type != AccountTypeOAuth) {
+			return 0, invalidBulkOpenAITarget(accountID, "custom Codex relay requires an OpenAI OAuth account")
 		}
 
 		if settings.forcedResponsesMode && !settings.capabilitiesIncludeChat &&

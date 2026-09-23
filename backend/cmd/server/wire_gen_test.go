@@ -41,6 +41,7 @@ func TestProvideCleanup_WithMinimalDependencies_NoPanic(t *testing.T) {
 	)
 	accountExpirySvc := service.NewAccountExpiryService(nil, time.Second)
 	proxyExpirySvc := service.NewProxyExpiryService(nil, time.Second)
+	proxyHealthSvc := service.NewProxyHealthService(nil, nil, nil)
 	subscriptionExpirySvc := service.NewSubscriptionExpiryService(nil, time.Second)
 	pricingSvc := service.NewPricingService(cfg, nil)
 	emailQueueSvc := service.NewEmailQueueService(nil, 1)
@@ -76,6 +77,7 @@ func TestProvideCleanup_WithMinimalDependencies_NoPanic(t *testing.T) {
 		accountExpirySvc,
 		nil, // codexVersionSync
 		proxyExpirySvc,
+		proxyHealthSvc,
 		subscriptionExpirySvc,
 		&service.UsageCleanupService{},
 		idempotencyCleanupSvc,
@@ -97,6 +99,7 @@ func TestProvideCleanup_WithMinimalDependencies_NoPanic(t *testing.T) {
 		nil, // openAIGateway
 		nil, // scheduledTestRunner
 		nil, // accountInspection
+		nil, // accountQuality
 		nil, // oauthModelSync
 		nil, // backupSvc
 		nil, // paymentOrderExpiry

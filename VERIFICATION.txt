@@ -1,0 +1,89 @@
+Changed branch/field: codex/openai-oauth-custom-relay-20260918 (based on origin/main e7aa857b3acb8ffb12762804efa59f3923298214) / OpenAI OAuth Codex custom relay fields `custom_base_url_enabled` and `custom_base_url`; routing owners include `openai_oauth_endpoint.go`, HTTP/WS/manifest/test paths, and the admin create/edit payloads.
+
+Artifacts (reopened for this change):
+- /Users/lin/.codex/worktrees/a227/sub2api-no2api/MODIFIED_FILE
+- /Users/lin/.codex/worktrees/a227/sub2api-no2api/DIFF_FILE
+- /Users/lin/.codex/worktrees/a227/sub2api-no2api/VERIFICATION.txt
+- /Users/lin/.codex/worktrees/a227/sub2api-no2api/ROLLBACK.sh (executable)
+
+Original root artifact hashes preserved before replacement:
+- MODIFIED_FILE: 9e7ec33119d63c67d2d3cb4730b3dabb8824278c1b343b68d93e14115671cc88
+- DIFF_FILE: 3da5444ae2637bda28ec6e10d77975188973e02b0c7f9abd3b3af2a9cab3d209
+- VERIFICATION.txt: 32a64dd7d1491d0c33d52d3fb87531076ef599f50605b6e414831e9d0e4208e2
+- ROLLBACK.sh: 4fad13b530db7335e3ba0f95fab840f9c29c69931bc5b7163166b5aadb942ca8
+
+Source copies:
+- Baseline: /private/tmp/sub2api-openai-oauth-relay-20260918131030/baseline-account.go from HEAD 95de2675375d03c1dfc15436e443108a8fb607c3.
+- Baseline SHA-256: 09ec36bd6d3caee006f11fd37c14126f389b349b36a0e70d0dbe48bd21577b56.
+- Modified: /private/tmp/sub2api-openai-oauth-relay-20260918131030/modified-account.go and MODIFIED_FILE from backend/internal/application/service/account.go.
+- Modified SHA-256: c1bb14be12de5771515eadce60dfb6d65912e58a9ebfbc0a7bb5f24f4bdff2b0.
+- DIFF_FILE is the whitespace-normalized, line-prefixed unified diff for that source field.
+
+BASELINE exact command:
+RUN=/private/tmp/sub2api-openai-oauth-relay-20260918131030; docker run --rm -v "$RUN/baseline/backend:/app" -v /Users/lin/go/pkg/mod:/go/pkg/mod:ro -v "$RUN/caches/baseline:/root/.cache/go-build" -w /app -e GOCACHE=/root/.cache/go-build -e GOPROXY=https://goproxy.cn,direct -e GOSUMDB=sum.golang.google.cn golang:1.26.6-alpine sh -c 'go test -tags=unit ./internal/application/service ./internal/transport/http/handler/dto'
+BASELINE input: clean HEAD 95de2675375d03c1dfc15436e443108a8fb607c3 source tree.
+BASELINE literal output:
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	187.693s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto	0.014s
+BASELINE exit status: 0.
+BASELINE behavior/status: prior code passed and `IsCustomBaseURLEnabled` remained Anthropic OAuth/SetupToken-only.
+
+MODIFIED exact command:
+RUN=/private/tmp/sub2api-openai-oauth-relay-20260918131030; docker run --rm -v "/Users/lin/.codex/worktrees/a227/sub2api-no2api/backend:/app" -v /Users/lin/go/pkg/mod:/go/pkg/mod:ro -v "$RUN/caches/modified-full-final2:/root/.cache/go-build" -w /app -e GOCACHE=/root/.cache/go-build -e GOPROXY=https://goproxy.cn,direct -e GOSUMDB=sum.golang.google.cn golang:1.26.6-alpine sh -c 'go test -tags=unit ./internal/application/service ./internal/transport/http/handler/dto'
+MODIFIED input: current working tree with OpenAI OAuth relay routing, models manifest routing, local input-token estimation, admin DTO/UI fields, tests, and docs.
+MODIFIED literal output:
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	188.589s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto	0.021s
+MODIFIED exit status: 0.
+MODIFIED behavior/status: OpenAI OAuth model requests can use the configured relay; official OAuth authorization/refresh/privacy paths remain unchanged.
+
+Targeted modified Docker regression:
+Command: docker run --rm -v "/Users/lin/.codex/worktrees/a227/sub2api-no2api/backend:/app" -v /Users/lin/go/pkg/mod:/go/pkg/mod:ro -v "/private/tmp/sub2api-openai-oauth-relay-20260918131030/caches/modified-final:/root/.cache/go-build" -w /app -e GOCACHE=/root/.cache/go-build -e GOPROXY=https://goproxy.cn,direct -e GOSUMDB=sum.golang.google.cn golang:1.26.6-alpine sh -c "go test -tags=unit ./internal/application/service -run 'TestOpenAIOAuthCustomRelay|TestBuildOpenAIOAuthCodexResponsesURL|TestFetchCodexModelsManifest' -count=1"
+Literal output: ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.216s
+Exit status: 0.
+
+ROLLBACK exact command:
+./ROLLBACK.sh /private/tmp/sub2api-openai-oauth-relay-20260918131030/baseline-account.go /private/tmp/sub2api-openai-oauth-relay-20260918131030/rollback-target-copy.go
+ROLLBACK input: independent copy of MODIFIED_FILE; MODIFIED_FILE itself was not targeted.
+ROLLBACK literal output:
+restored_behavior=anthropic_oauth_setup_token_only_custom_relay
+restored_status=openai_oauth_custom_relay_absent
+restored_sha256=09ec36bd6d3caee006f11fd37c14126f389b349b36a0e70d0dbe48bd21577b56
+ROLLBACK exit status: 0.
+ROLLBACK restored behavior/status: target copy exactly matches baseline; OpenAI OAuth custom relay support is absent; MODIFIED_FILE remains SHA-256 c1bb14be12de5771515eadce60dfb6d65912e58a9ebfbc0a7bb5f24f4bdff2b0.
+
+Docker image/runtime verification:
+- Build command: docker build --progress=plain -f Dockerfile -t sub2api-openai-oauth-relay:test .
+- Build literal result: image manifest sha256:1d29d29a123dff96570b6dca970db21e150503db03630289e9d464fe1c9fe821; exit status 0.
+- Runtime command: docker run -d --name sub2api-relay-app --network sub2api-relay-test-net -p 18091:8080 -e AUTO_SETUP=true -e DATABASE_HOST=sub2api-relay-pg -e DATABASE_PORT=5432 -e DATABASE_USER=sub2api -e DATABASE_PASSWORD=sub2api-test -e DATABASE_DBNAME=sub2api -e REDIS_HOST=sub2api-relay-redis -e REDIS_PORT=6379 -e ADMIN_EMAIL=admin@sub2api.local -e ADMIN_PASSWORD=admin-test-password -e JWT_SECRET=oauth-relay-docker-test-secret-32-bytes-long sub2api-openai-oauth-relay:test
+- Ready literal result: HTTP 200; {"ready":true,"node_id":"6b8aa77ef30a","node_name":"6b8aa77ef30a","current_version":"0.1.207","draining":false,"in_flight":0}; exit status 0.
+- Final container result: health=healthy, restart_count=0, status=running.
+- Supplied relay probe from the final container: POST https://codex-relay.oaifree.com/backend-api/codex/responses with invalid bearer returned HTTP 401 and `{"detail":"Could not parse your authentication token. Please try signing in again."}`; DNS/TLS/route reached the relay.
+
+Frontend/docs verification:
+- `cd frontend && pnpm run typecheck`: `$ vue-tsc --noEmit`; exit 0.
+- `cd frontend && pnpm run lint:check`: `$ eslint .`; exit 0.
+- `cd frontend && pnpm exec vitest run src/features/admin-accounts/__tests__/CreateAccountModal.spec.ts src/features/admin-accounts/__tests__/EditAccountModal.spec.ts`: 2 files passed, 74 tests passed; exit 0.
+- `make check-docs`: Documentation checks passed.; exit 0.
+- `git diff --check`: empty; exit 0.
+
+Final root artifact hashes:
+- MODIFIED_FILE: c1bb14be12de5771515eadce60dfb6d65912e58a9ebfbc0a7bb5f24f4bdff2b0
+- DIFF_FILE: 31809d5185235ef63e2abe5eddbd5a628c025f87c6f100d165615093f257a320
+- VERIFICATION.txt: updated after this write
+- ROLLBACK.sh: 78e3c670da57c30800ad5b5c2e909dcee89715e37c65cc313a943939bec1fbf7
+
+
+Publication evidence:
+- Publication branch: codex/openai-oauth-custom-relay-20260918.
+- Latest base checked: origin/main e7aa857b3acb8ffb12762804efa59f3923298214.
+- Docker tests on publication branch: service + DTO passed (exit 0).
+- Frontend publication-branch typecheck, lint, and 74 focused admin-account tests passed (exit 0).
+- Publication-branch Docker image build passed (exit 0), manifest sha256:683ce5bd71c9fa8fb35085471815c7b84b5296df21d798f8611940b0b3fa39f9.
+
+Bulk adjustment follow-up:
+- Changed branch/field: `custom_base_url_enabled` and `custom_base_url` in the admin Bulk Edit dialog and bulk account-update payload.
+- Backend target guard: bulk custom relay updates accept only OpenAI OAuth accounts and validate absolute HTTP/HTTPS URLs before any write.
+- Bulk backend Docker regression: `go test -tags=unit ./internal/application/service -run 'TestNormalizeBulkOpenAISettings|TestValidateBulkOpenAISettingsTargets' -count=1`; exit 0.
+- Bulk frontend regression: `pnpm exec vue-tsc --noEmit`; exit 0; `pnpm exec vitest run src/features/admin-accounts/__tests__/BulkEditAccountModal.spec.ts`; 38 tests passed; exit 0.
+- Bulk close behavior: enabling the update with the relay toggle off submits `custom_base_url_enabled=false` and `custom_base_url=null`, preserving partial-merge semantics.

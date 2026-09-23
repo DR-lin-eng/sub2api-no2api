@@ -534,8 +534,9 @@ func TestSchedulerSnapshotV2_DisableInvalidatesLegacyBeforePublishingSwitch(t *t
 func TestSchedulerSnapshotV2_LateActivationCannotOverwriteDisable(t *testing.T) {
 	cache := newSchedulerV2CacheStub()
 	cache.state = SchedulerEngineState{Engine: SchedulerEngineV2, Status: SchedulerEngineStatusBuilding}
+	canonicalCount := schedulerCanonicalBucketCount()
 	cache.onSetIndex = func(call int) {
-		if call == 12 {
+		if call == canonicalCount {
 			cache.state = SchedulerEngineState{Engine: SchedulerEngineLegacy, Status: SchedulerEngineStatusDisabled}
 		}
 	}
@@ -546,7 +547,7 @@ func TestSchedulerSnapshotV2_LateActivationCannotOverwriteDisable(t *testing.T) 
 
 	svc.activateSchedulerV2("test_disable_race")
 
-	require.Equal(t, 12, cache.setIndexCalls)
+	require.Equal(t, canonicalCount, cache.setIndexCalls)
 	require.Equal(t, 1, repo.listActiveCalls)
 	require.Equal(t, SchedulerEngineLegacy, cache.state.Engine)
 	require.Equal(t, SchedulerEngineStatusDisabled, cache.state.Status)

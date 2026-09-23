@@ -106,3 +106,16 @@ describe('PlatformTypeBadge OpenAI authentication modes', () => {
     expect(wrapper.text()).toContain('OAuth')
   })
 })
+
+describe('PlatformTypeBadge CN providers', () => {
+  it.each([
+    ['kimi', 'Kimi'],
+    ['zhipu', 'Zhipu GLM'],
+    ['deepseek', 'DeepSeek'],
+    ['minimax', 'MiniMax'],
+  ] as const)('renders %s without falling back to Gemini', (platform, label) => {
+    const wrapper = mount(PlatformTypeBadge, { props: { platform, type: 'apikey' } })
+    expect(wrapper.text()).toContain(label)
+    expect(wrapper.text()).not.toContain('Gemini')
+  })
+})

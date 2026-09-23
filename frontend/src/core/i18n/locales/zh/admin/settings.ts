@@ -1,6 +1,7 @@
 import supportChatMessages from './settings.support-chat'
 import codexSimulationMessages from './settings.codex-simulation'
 import ipv6EgressMessages from './settings.ipv6-egress'
+import oauth2ProviderMessages from './settings.oauth2-provider'
 
 export default {
     settings: {
@@ -29,6 +30,7 @@ export default {
           users_credentials: { name: "用户：登录与密钥", description: "查看普通用户密钥、绑定登录身份和修改邮箱密码" },
           users_billing: { name: "用户：余额与配额", description: "修改普通用户余额、并发、RPM、分组和配额" },
           dashboard_read: { name: "仪表盘：查看", description: "查看管理仪表盘；不包含运维和审计页面" },
+          announcements_manage: { name: "公告：管理", description: "查看、发布、编辑、删除公告并查看阅读状态" },
           settings_manage: { name: "系统设置：管理", description: "管理系统设置；权限组和管理员密钥仅限完整管理员" },
           groups_manage: { name: "模型分组：管理", description: "管理模型分组和分组路由；不是人员权限组" },
           accounts_manage: { name: "上游账号：管理", description: "管理上游账号、巡检、代理和出口" },
@@ -45,6 +47,7 @@ export default {
         saveFailed: '保存权限组失败',
         saved: '权限组已保存',
       },
+      oauth2Provider: oauth2ProviderMessages,
       performance: {
         title: '性能设置',
         description: '调整高并发请求与流式转发的运行时开销。',
@@ -479,7 +482,16 @@ export default {
         requestPriorityPendingMiB: '单实例等待请求体上限（MiB）',
         requestPriorityPendingMiBHint: '仅限制进程内实际缓冲的等待请求体，默认 256 MiB；Redis 不保存请求体。',
         contentSessionBurstBalance: '内容会话并发分散',
-        contentSessionBurstBalanceHint: '默认关闭。开启后，对没有显式会话标识且请求内容相同的重叠请求执行有上限的初始负载分散；高并发超额请求在已筛选的有界候选池内直接轮转并尝试两个账号，均忙时沿用账号排队限制。顺序请求、显式 session_id、prompt_cache_key 和 previous_response_id 的粘性保持不变。'
+        contentSessionBurstBalanceHint: '默认关闭。开启后，对没有显式会话标识且请求内容相同的重叠请求执行有上限的初始负载分散；高并发超额请求在已筛选的有界候选池内直接轮转并尝试两个账号，均忙时沿用账号排队限制。顺序请求、显式 session_id、prompt_cache_key 和 previous_response_id 的粘性保持不变。',
+        sessionIDRateLimit: 'OpenAI Session ID 每分钟限速',
+        sessionIDRateLimitHint: '开启后仅限制单个 OpenAI OAuth 账号每分钟首次出现的显式 Session ID 数量；API Key 账号不受影响。0 表示不限制；已有会话不重复计数。',
+        sessionIDRateLimitPerMinute: '每账号每分钟上限',
+        oauthGatewayRateLimit: 'OpenAI OAuth 每账号限速',
+        oauthGatewayRateLimitHint: '所有账号使用同一套配置，但每个 OAuth 账号拥有独立令牌桶；同一账号在集群各实例间共享状态。API Key、模型列表、额度查询和 OAuth 刷新不计入。关闭后完全旁路。',
+        oauthGatewayRateLimitRPM: '每账号持续速率（请求/分钟）',
+        oauthGatewayRateLimitBurst: '每账号突发容量',
+        requestIntegrityObserve: '观察 OpenAI 请求语义变化',
+        requestIntegrityObserveHint: '只记录转换中发生不可解释变化的字段名，不保存请求正文，也不会拒绝请求。'
       },
       upstreamBillingProbe: {
         title: '上游倍率自动探测',
@@ -509,7 +521,11 @@ export default {
         openAIWSModeRouterV2: 'OpenAI WS 账号模式路由',
         openAIWSModeRouterV2Hint: '对应 gateway.openai_ws.mode_router_v2_enabled。开启后按每个 OpenAI 账号的 WS mode 选择 ctx_pool、passthrough、http_bridge 或 off，保存后运行时生效。',
         openAIVisibleOutputTTFT: 'OpenAI 可见输出 TTFT 口径',
-        openAIVisibleOutputTTFTHint: '默认开启，首字时间记录到首个客户端可用的文本、音频或工具参数。关闭后使用 0.1.179 的旧事件口径；仅影响 TTFT 统计，不改变流式输出。',
+        openAIVisibleOutputTTFTHint: '默认开启，首字时间记录到首个客户端可用的文本、音频或工具参数；若 Codex 先发 rate_limits/metadata，本地首字基线也保留该首事件，HTTP SSE 的 rate_limits 会立即下发。关闭后使用 0.1.179 的旧事件口径；设置只影响 TTFT 统计，rate_limits 的即时下发保持不变。',
+        openAIOAuthForceRelay: '强制 OpenAI OAuth 使用中转网关',
+        openAIOAuthForceRelayHint: '将所有 OpenAI OAuth/Codex 模型请求，包括 Responses、Compact、WebSocket、搜索、模型清单、探测、图片和 Live 调用，发送到此中转地址。OAuth 授权和 token 刷新仍使用官方地址。',
+        openAIOAuthForceRelayBaseURL: 'OpenAI OAuth 中转基础地址',
+        openAIOAuthForceRelayBaseURLPlaceholder: 'https://codex-relay.oaifree.com/backend-api/codex',
         fingerprintUnification: '指纹统一化',
         fingerprintUnificationHint: '统一共享同一 OAuth 账号的用户的 X-Stainless-* 请求头。关闭后透传客户端原始请求头。',
         metadataPassthrough: 'Metadata 透传',
@@ -549,11 +565,11 @@ export default {
         antigravityUserAgentVersionPlaceholder: '1.23.2',
         antigravityUserAgentVersionHint: '留空时使用 ANTIGRAVITY_USER_AGENT_VERSION 或内置默认值 1.23.2；填写后后台设置优先。',
         openaiCodexUserAgent: 'OpenAI Codex UA',
-        openaiCodexUserAgentPlaceholder: 'codex_cli_rs/0.146.0 (Ubuntu 22.4.0; x86_64) xterm-256color',
-        openaiCodexUserAgentHint: '定义所有 OpenAI OAuth 出站请求统一使用的客户端与设备指纹；版本段始终按当前生效的 Codex 客户端版本重建。留空时使用内置规范身份。',
+        openaiCodexUserAgentPlaceholder: 'Codex Desktop/0.153.4 (Windows 10.0.26200; x86_64) unknown (Codex Desktop; 26.903.71938)',
+        openaiCodexUserAgentHint: 'HTTP 与 WebSocket 共用此客户端身份，保留完整 UA 的引擎版本、设备信息和应用构建号，完整指纹模式也会生效。账号自定义 UA 优先；留空时使用默认 CLI 身份及下方版本设置。',
         openaiCodexClientVersion: '固定 Codex 客户端版本',
         openaiCodexClientVersionPlaceholder: '例如 0.146.0',
-        openaiCodexClientVersionHint: '可选的管理员固定值。留空时依次使用自动同步的稳定版和编译期默认版本。',
+        openaiCodexClientVersionHint: '仅用于未配置完整 UA 时的默认 CLI 身份。留空时依次使用自动同步的稳定版和编译期默认版本。',
         openaiCodexSyncedVersion: '已同步稳定版本',
         openaiCodexSyncedVersionEmpty: '尚未同步',
         openaiCodexSyncedVersionHint: '只读值，由后台版本检查任务维护；普通设置保存不会覆盖它。',
@@ -797,7 +813,7 @@ export default {
         validationFieldRequired: '{field} 不能为空',
         validationEasyPayCustomMethodRequired: '每个易支付自定义方式都必须填写支付方式和上游 type',
         validationEasyPayCustomMethodTypeInvalid: '易支付自定义支付方式只能包含小写字母、数字、下划线和短横线',
-        validationEasyPayCustomMethodUpstreamTypeInvalid: '易支付上游 type 只能包含小写字母、数字、下划线和短横线',
+        validationEasyPayCustomMethodUpstreamTypeInvalid: '易支付上游 type 只能包含小写字母、数字、点号、下划线和短横线',
         validationEasyPayCustomMethodReserved: '易支付自定义支付方式不能使用内置的 alipay 或 wxpay',
         validationEasyPayCustomMethodPrefixReserved: '易支付自定义支付方式不能以 alipay 或 wxpay 开头',
         validationEasyPayCustomMethodDuplicate: '易支付自定义支付方式不能重复',
@@ -1074,6 +1090,16 @@ export default {
         autoEnableWhenAvailableHint: '主动查询主 Codex 额度并确认仍有可用额度时，自动恢复由 OAuth 熔断关闭的账号。额度未知、API Key 账号和管理员手动关闭的账号不受影响。',
         saved: '429 默认回避设置保存成功',
         saveFailed: '保存 429 默认回避设置失败'
+      },
+      oauth401Cleanup: {
+        title: 'OAuth 401 自动清理',
+        description: '配置网关收到上游 401 鉴权错误时的 OAuth 账号清理策略',
+        enabled: '自动删除返回 401 的 OAuth 账号',
+        enabledHint: '仅处理直接 OAuth 凭据账号；API Key、Setup Token 和不持有凭据的 Spark 影子账号不会被直接删除。',
+        warning: '该操作会软删除账号及关联影子账号。若检测到账号已被重新授权，系统会保留新凭据。',
+        confirmEnable: '确认开启 OAuth 401 自动删除吗？开启后，网关上游返回 401 的直接 OAuth 账号会被自动清理。',
+        saved: 'OAuth 401 自动清理设置已保存',
+        saveFailed: '保存 OAuth 401 自动清理设置失败'
       },
       globalTempUnschedulable: {
         title: '全局临时不可调度',

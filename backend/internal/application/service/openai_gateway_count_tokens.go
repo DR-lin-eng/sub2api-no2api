@@ -60,7 +60,7 @@ func (s *OpenAIGatewayService) ForwardResponsesInputTokens(
 		writeOpenAIResponsesInputTokensError(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")
 		return err
 	}
-	if shouldEstimateOpenAIInputTokensLocally(account) {
+	if s.shouldEstimateOpenAIInputTokensLocally(ctx, account) {
 		writeOpenAIResponsesInputTokensFallback(c, account, prepared, 0, "custom_relay")
 		return nil
 	}
@@ -82,6 +82,9 @@ func (s *OpenAIGatewayService) ForwardResponsesInputTokens(
 	}
 	resp, err := s.doAccountHTTPUpstream(upstreamReq, proxyURL, account)
 	if err != nil {
+		if limited := openAIOAuthGatewayRateLimitFailover(err); limited != nil {
+			return limited
+		}
 		safeErr := sanitizeUpstreamErrorMessage(err.Error())
 		setOpsUpstreamError(c, 0, safeErr, "")
 		writeOpenAIResponsesInputTokensError(c, http.StatusBadGateway, "upstream_error", "Upstream request failed")
@@ -143,6 +146,13 @@ func shouldEstimateOpenAIInputTokensLocally(account *Account) bool {
 	if account == nil || account.IsGrok() || account.Type == AccountTypeUpstream {
 		return true
 	}
+	// Codex relays commonly expose only `/responses`; the optional
+	// `/responses/input_tokens` preflight endpoint is not part of that contract.
+	// Keep the request usable by using the bounded local estimator instead of
+	// sending a guaranteed 404 to the configured relay.
+	if account.IsOpenAIOAuth() && account.IsCustomBaseURLEnabled() {
+		return true
+	}
 	if account.Type != AccountTypeAPIKey {
 		return false
 	}
@@ -155,6 +165,17 @@ func shouldEstimateOpenAIInputTokensLocally(account *Account) bool {
 		return true
 	}
 	return !strings.EqualFold(parsed.Hostname(), "api.openai.com")
+}
+
+func (s *OpenAIGatewayService) shouldEstimateOpenAIInputTokensLocally(ctx context.Context, account *Account) bool {
+	if shouldEstimateOpenAIInputTokensLocally(account) {
+		return true
+	}
+	if account == nil || !account.IsOpenAIOAuth() || s == nil || s.settingService == nil {
+		return false
+	}
+	enabled, _, err := s.settingService.GetOpenAIOAuthForceRelaySettings(ctx)
+	return err != nil || enabled
 }
 
 func isOpenAIResponsesInputTokensUnsupported(account *Account, statusCode int, body []byte) bool {
@@ -237,6 +258,15 @@ func (s *OpenAIGatewayService) ForwardCountTokensAsAnthropic(
 		writeAnthropicCountTokensError(c, http.StatusServiceUnavailable, "api_error", "No available OpenAI accounts")
 		return fmt.Errorf("count_tokens: missing account")
 	}
+	if account.IsCNProvider() {
+		estimated, estimateErr := EstimateGrokCountTokens(body)
+		if estimateErr != nil {
+			writeAnthropicCountTokensError(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")
+			return fmt.Errorf("count_tokens: estimate provider input tokens: %w", estimateErr)
+		}
+		c.JSON(http.StatusOK, gin.H{"input_tokens": estimated})
+		return nil
+	}
 
 	prepared, err := prepareOpenAIInputTokensCountRequest(body, account, defaultMappedModel)
 	if err != nil {
@@ -280,6 +310,9 @@ func (s *OpenAIGatewayService) ForwardCountTokensAsAnthropic(
 	}
 	resp, err := s.doAccountHTTPUpstream(upstreamReq, proxyURL, account)
 	if err != nil {
+		if limited := openAIOAuthGatewayRateLimitFailover(err); limited != nil {
+			return limited
+		}
 		safeErr := sanitizeUpstreamErrorMessage(err.Error())
 		setOpsUpstreamError(c, 0, safeErr, "")
 		writeAnthropicCountTokensError(c, http.StatusBadGateway, "upstream_error", "Upstream request failed")

@@ -1,0 +1,10 @@
+BASELINE:
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	3.300s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	0.146s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/httputil	0.172s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware	0.290s
+MODIFIED:
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	3.223s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	0.108s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/httputil	0.123s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware	0.250s

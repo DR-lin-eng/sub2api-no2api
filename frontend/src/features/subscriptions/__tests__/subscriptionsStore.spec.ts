@@ -174,6 +174,19 @@ describe('useSubscriptionStore', () => {
     })
   })
 
+	it('clear resets loading while an old request is in flight', async () => {
+		let resolve!: (value: any[]) => void
+		mockGetActiveSubscriptions.mockReturnValue(new Promise((yes) => { resolve = yes }))
+		const store = useSubscriptionStore()
+		const pending = store.fetchActiveSubscriptions()
+		expect(store.loading).toBe(true)
+		store.clear()
+		expect(store.loading).toBe(false)
+		resolve(fakeSubscriptions)
+		await pending
+		expect(store.activeSubscriptions).toEqual([])
+	})
+
   // --- invalidateCache ---
 
   describe('invalidateCache', () => {

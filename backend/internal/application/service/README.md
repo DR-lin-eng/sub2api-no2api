@@ -16,7 +16,9 @@
 | `payment*`, `batch_image*` | 支付应用编排与批量图片任务 |
 | `ops*`, `audit*`, `content_moderation*` | 运维、审计和内容策略 |
 | `setting*`, `notification*`, `backup*` | 配置、通知和维护用例 |
+| `proxy_auto_assignment*`, `proxy_health*` | 代理池强制均衡分配、定期测活和失活迁移 |
 | `oauth_model_sync_service.go` | OpenAI OAuth 实时模型能力快照与定时同步 |
+| `oauth2_provider.go` | 管理员控制的 OAuth2 客户端、PKCE 授权码、token 校验与 userinfo |
 | `cluster*` | 稳定节点身份、心跳清单、任务租约、就绪门禁与串行版本发布 |
 | `wire.go` | application provider 集合 |
 
@@ -37,11 +39,16 @@
 | `setting_update.go`, `setting_update_prepare.go` | 持久设置更新编排、首错顺序与跨域预处理 |
 | `setting_update_core.go`, `setting_update_identity.go`, `setting_update_product.go` | 注册访问、身份源与产品默认设置写入 |
 | `setting_update_gateway.go`, `setting_update_notifications.go` | 网关调度、通知与平台额度设置写入 |
-| `setting_codex_simulation.go` | Codex A/B/C 数据库覆盖、强制关闭、身份密钥生成与后台同步的无 DB 热路径快照 |
+| `setting_codex_simulation.go`, `setting_codex_turn_state_replay.go`, `openai_codex_turn_state_auto_replay.go`, `openai_codex_turn_state_probe.go` | Codex A/B/C 数据库覆盖、强制关闭、Turn State 手工随机池/质量同步、关注模型的可配置字符长度自动池、首次无效立即探测与 45 分钟刷新、默认走账号正常出口的 32 目标乘 4 尝试有界并发、可选专用/代理池竞速和 5 秒无限轮次恢复，以及身份密钥生成与后台同步的无 DB 热路径快照 |
+| `wire_openai_gateway.go` | OpenAI gateway provider、代理库与跨实例探测锁装配及后台探测启动 |
 | `api_key_group_routing.go` | API Key 有序分组候选、倍率保护过滤和请求内实际分组切换 |
 | `openai_codex_identity_plan.go`, `openai_codex_simulation_state.go` | Codex request root、per-principal 身份计划与短状态 fallback |
 | `openai_codex_continuation.go` | Codex continuation 分类、owner 策略、跨主体 sanitizer 与成功回写 |
+| `openai_oauth_gateway_rate_limit.go` | 统一配置、按账号分桶且跨实例共享的 OpenAI OAuth RPM/burst 准入、逻辑请求去重与协议错误投影 |
+| `openai_request_integrity_observe.go` | OpenAI OAuth 兼容转换前后语义字段的只观察差异诊断 |
 | `openai_quota_account_transport.go` | OpenAI quota/reset 通过账号级 HTTP/TLS upstream 的辅助请求路径 |
+| `account_quality_runtime_snapshot.go` | 质量巡检私有 artifact 的非敏感请求运行画像快照 |
+| `ratelimit_oauth_401_delete.go` | 网关 OAuth 401 自动删除准入、凭据 CAS 结果和运行态清理 |
 | `openai_codex_remote_control_store.go` | Codex Remote Control enrollment token 的账号级加密持久化适配 |
 | `openai_gateway_forward.go`, `openai_gateway_request_build.go` | OpenAI 转发编排与 HTTP 上游请求构造 |
 | `invalid_auth_abuse_limiter.go`, `cloudflare_ingress_settings.go` | 无效 API Key 来源计数、本地临时封禁，以及 Access Rule/WAF 双模式的 Cloudflare 加密持久设置与边缘端口 |

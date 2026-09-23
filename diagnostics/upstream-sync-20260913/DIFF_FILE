@@ -1,0 +1,5 @@
+Representative source diff (header_util.go):
+- "accept-encoding": "accept-encoding",
++ "accept-encoding": "Accept-Encoding",
+
+The full synchronized source diff is the commit diff on codex/upstream-sync-20260913; this artifact records the wire-level field changed for rollback verification.

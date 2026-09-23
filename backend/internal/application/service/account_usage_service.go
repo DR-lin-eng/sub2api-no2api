@@ -471,6 +471,7 @@ type AccountUsageService struct {
 	settingService          *SettingService
 	agentIdentityTaskMu     sync.Mutex
 	agentIdentityWS         agentIdentityWSConnectionInvalidator
+	oauthGatewayLimiter     *OpenAIGatewayService
 	cfg                     *config.Config
 }
 
@@ -991,11 +992,18 @@ func (s *AccountUsageService) probeOpenAICodexSnapshot(ctx context.Context, acco
 		proxyURL = account.Proxy.URL()
 	}
 	reqCtx = withAccountEgressContext(reqCtx, account, proxyURL, s.cfg)
-	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, chatgptCodexURL, bytes.NewReader(payloadBytes))
+	baseURL, official, relayErr := resolveOpenAIOAuthCodexBaseURL(ctx, s.settingService, s.cfg, account)
+	if relayErr != nil {
+		return nil, fmt.Errorf("invalid OpenAI OAuth Codex relay URL: %w", relayErr)
+	}
+	targetURL := buildOpenAIOAuthCodexResponsesURL(baseURL)
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, targetURL, bytes.NewReader(payloadBytes))
 	if err != nil {
 		return nil, fmt.Errorf("create openai probe request: %w", err)
 	}
-	req.Host = "chatgpt.com"
+	if official {
+		req.Host = "chatgpt.com"
+	}
 	req.Header.Set("Content-Type", "application/json")
 	if account.IsOpenAIAgentIdentity() {
 		authHeaders, authErr := buildAgentIdentityAuthenticationHeaders(reqCtx, s.accountRepo, s.agentIdentityWS, &s.agentIdentityTaskMu, account, s.cfg)
@@ -1028,6 +1036,11 @@ func (s *AccountUsageService) probeOpenAICodexSnapshot(ctx context.Context, acco
 	// 404（issue #3901）；缓存里的降载桶身份同样在此归一化，避免探针被回 server_is_overloaded。
 	enforceCodexIdentityHeadersWithUA(req.Header, account.GetOpenAIUserAgent())
 	setOpenAIChatGPTAccountHeaders(req.Header, account)
+	if s.oauthGatewayLimiter != nil {
+		if err := s.oauthGatewayLimiter.admitOpenAIOAuthGatewayModelRequest(req.Context(), account); err != nil {
+			return nil, err
+		}
+	}
 
 	var resp *http.Response
 	if cLevelTransportSimulationEnabled(s.settingService) && s.httpUpstream != nil {

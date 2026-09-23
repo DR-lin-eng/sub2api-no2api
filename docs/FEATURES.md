@@ -16,6 +16,7 @@
 | 首次安装 | `/setup` | 数据库、Redis 连接测试与管理员初始化：[setup](../frontend/src/features/setup/README.md) |
 | 公共首页与法律文档 | `/home`、`/legal/:documentId`、未知路由 | 公开设置、受控首页内容、登录协议和 404：[common](../frontend/src/common/README.md) |
 | 注册与登录 | `/login`、`/register`、认证回调 | 邮箱、OAuth、二次认证、会话恢复和密码找回：[auth](../frontend/src/features/auth/README.md) |
+| OAuth2 应用授权 | `/oauth/authorize` | 用户批准受信客户端读取有限身份字段：[OAuth2 对外授权服务](OAUTH2_PROVIDER.md)、[auth](../frontend/src/features/auth/README.md) |
 | 个人资料 | `/profile` | 密码、通知邮箱、身份绑定和 TOTP：[profile](../frontend/src/features/profile/README.md) |
 | Passkey | 登录流程与个人资料内嵌 | WebAuthn 凭据注册、登录、重命名和撤销：[passkeys](../frontend/src/features/passkeys/README.md) |
 | 用户仪表盘 | `/dashboard` | 本人用量、趋势、模型分布和 Key 统计：[dashboard-user](../frontend/src/features/dashboard-user/README.md) |
@@ -31,6 +32,7 @@
 | 模型广场 | `/model-plaza` | 模型筛选、分组与价格展示：[model-plaza](../frontend/src/features/model-plaza/README.md) |
 | 渠道与自定义页 | `/available-channels`、`/monitor`、`/custom/:id` | 可用渠道、状态页组合与受控自定义页面：[channels-user](../frontend/src/features/channels-user/README.md) |
 | 只读渠道监控 | `/monitor/public`，登录状态页内嵌 | 可用率、延迟、模型时间线和共享视图：[channel-monitor-user](../frontend/src/features/channel-monitor-user/README.md) |
+| 公开账号质量看板 | `/monitor/quality/public` | 账号级质量时间线、分类缩略图和 24 小时聚合：[account-quality](../frontend/src/features/account-quality/README.md) |
 | 批量图片 | `/batch-image`，媒体工坊内嵌 | 批任务、重试、预览和下载：[batch-image](../frontend/src/features/batch-image/README.md)、[批量图片](BATCH_IMAGE_MVP.md) |
 | 媒体工坊 | `/media-studio` | 图片生成、视频任务和批量工作区：[media-studio](../frontend/src/features/media-studio/README.md)、[配置与边界](CUSTOM_MODELS_AND_MEDIA.md) |
 
@@ -42,7 +44,9 @@
 | 用户管理 | `/admin/users` | 身份、分组、余额、平台额度和批量限制：[admin-users](../frontend/src/features/admin-users/README.md) |
 | 分组管理 | `/admin/groups` | 分组、倍率、模型范围和组合路由：[admin-groups](../frontend/src/features/admin-groups/README.md)、[组合分组](COMPOSITE_GROUPS.md) |
 | 上游账号 | `/admin/accounts` | 账号、授权、导入、批量操作、测试和额度快照：[admin-accounts](../frontend/src/features/admin-accounts/README.md) |
-| 账号巡检 | `/admin/account-inspection` | 策略、手动或自动执行、异常与额度分布：[admin-account-inspection](../frontend/src/features/admin-account-inspection/README.md) |
+| 账号巡检 | `/admin/account-inspection` | 健康策略、手动或自动执行、异常与额度分布：[admin-account-inspection](../frontend/src/features/admin-account-inspection/README.md) |
+| 账号质量巡检 | `/admin/account-quality`、`GET /api/v1/admin/account-quality/degraded-accounts` | 独立质量探测策略、模型思考强度、代码匹配阈值、源分组、降智分组、401 诊断和结果快照：[admin-account-quality](../frontend/src/features/admin-account-quality/README.md)、[降智账号 API](ACCOUNT_QUALITY_DEGRADED_ACCOUNTS_API.md) |
+| State 可视化诊断 | `/admin/state-diagnostics`、`GET /api/v1/admin/state-diagnostics` | 当前节点脱敏 Turn State 观测与 OpenAI OAuth 号池状态按账号聚合展示：[admin-state-diagnostics](../frontend/src/features/admin-state-diagnostics/README.md) |
 | 代理 | `/admin/proxies` | 代理配置、导入和连通性测试：[admin-proxies](../frontend/src/features/admin-proxies/README.md) |
 | IPv6 出口 | `/admin/egress` | 地址池、绑定、探测和 HE 隧道：[admin-egress](../frontend/src/features/admin-egress/README.md)、[出口专题](IPV6_EGRESS.md) |
 | 渠道定价 | `/admin/channels/pricing` | 模型价格、分组关联和时段价格：[admin-channels](../frontend/src/features/admin-channels/README.md) |
@@ -59,7 +63,7 @@
 | 操作审计 | `/admin/audit-logs` | 管理操作记录、详情和现场 TOTP 清理：[admin-audit](../frontend/src/features/admin-audit/README.md) |
 | 多实例 | `/admin/multi-instance` | 节点、负载、任务与滚动发布：[admin-cluster](../frontend/src/features/admin-cluster/README.md)、[部署专题](../deploy/MULTI_INSTANCE.md) |
 | 备份 | 系统设置内嵌 | S3、备份、恢复、定时计划和图片存储：[admin-backup](../frontend/src/features/admin-backup/README.md) |
-| 系统设置 | `/admin/settings` | 站点、认证、功能开关、网关策略与运行设置：[admin-settings](../frontend/src/features/admin-settings/README.md) |
+| 系统设置 | `/admin/settings` | 站点、认证、OAuth2 对外授权、功能开关、网关策略与运行设置：[admin-settings](../frontend/src/features/admin-settings/README.md)、[OAuth2 对外授权服务](OAUTH2_PROVIDER.md) |
 
 管理端的公告、活动、客服和返利页面由上表用户功能中的同名 feature 共同持有，并非另建一套 owner。它们分别位于 `/admin/announcements`、`/admin/activity-center/campaigns`、`/admin/support` 和 `/admin/affiliates` 下。
 
@@ -72,8 +76,9 @@
 | 用量结算与余额、订阅投影 | [关键请求链路](REQUEST_LIFECYCLES.md)、[支付集成](ADMIN_PAYMENT_INTEGRATION_API.md) | [repository](../backend/internal/infrastructure/repository/README.md) |
 | 异步图片提交、查询与内容 | [异步图片 API](ASYNC_IMAGE_TASKS.md) | [Images handler](../backend/internal/transport/http/handler/) |
 | Codex OAuth 行为 | [有意差异](codex/intentional-divergences.md) | [请求链路](REQUEST_LIFECYCLES.md) |
+| OAuth2 对外授权 | [OAuth2 对外授权服务](OAUTH2_PROVIDER.md) | [OAuth2 路由](../backend/internal/transport/http/server/routes/oauth2_provider.go) |
 
-垂直后端模块另有完整目录说明：[activitycenter](../backend/internal/modules/activitycenter/README.md)、[chat](../backend/internal/modules/chat/README.md)、[egress](../backend/internal/modules/egress/README.md)、[payment](../backend/internal/modules/payment/README.md)、[securityaudit](../backend/internal/modules/securityaudit/README.md)。并非所有功能都已经迁入 `modules`；存量服务仍以代码地图为准。
+垂直后端模块另有完整目录说明：[qualityrender](../backend/internal/modules/qualityrender/README.md)、[activitycenter](../backend/internal/modules/activitycenter/README.md)、[chat](../backend/internal/modules/chat/README.md)、[egress](../backend/internal/modules/egress/README.md)、[payment](../backend/internal/modules/payment/README.md)、[securityaudit](../backend/internal/modules/securityaudit/README.md)。并非所有功能都已经迁入 `modules`；存量服务仍以代码地图为准。
 
 ## 维护与验证
 

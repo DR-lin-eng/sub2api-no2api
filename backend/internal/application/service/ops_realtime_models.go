@@ -4,37 +4,50 @@ import "time"
 
 // PlatformConcurrencyInfo aggregates concurrency usage by platform.
 type PlatformConcurrencyInfo struct {
-	Platform       string  `json:"platform"`
-	CurrentInUse   int64   `json:"current_in_use"`
-	MaxCapacity    int64   `json:"max_capacity"`
-	LoadPercentage float64 `json:"load_percentage"`
-	WaitingInQueue int64   `json:"waiting_in_queue"`
+	Platform                    string  `json:"platform"`
+	CurrentInUse                int64   `json:"current_in_use"`
+	MaxCapacity                 int64   `json:"max_capacity"`
+	LoadPercentage              float64 `json:"load_percentage"`
+	WaitingInQueue              int64   `json:"waiting_in_queue"`
+	SessionIDGrowthPerMinute    int64   `json:"session_id_growth_per_minute"`
+	MaxSessionIDGrowthPerMinute int64   `json:"max_session_id_growth_per_minute"`
 }
 
 // GroupConcurrencyInfo aggregates concurrency usage by group.
 //
 // Note: one account can belong to multiple groups; group totals are therefore not additive across groups.
 type GroupConcurrencyInfo struct {
-	GroupID        int64   `json:"group_id"`
-	GroupName      string  `json:"group_name"`
-	Platform       string  `json:"platform"`
-	CurrentInUse   int64   `json:"current_in_use"`
-	MaxCapacity    int64   `json:"max_capacity"`
-	LoadPercentage float64 `json:"load_percentage"`
-	WaitingInQueue int64   `json:"waiting_in_queue"`
+	GroupID                     int64   `json:"group_id"`
+	GroupName                   string  `json:"group_name"`
+	Platform                    string  `json:"platform"`
+	CurrentInUse                int64   `json:"current_in_use"`
+	MaxCapacity                 int64   `json:"max_capacity"`
+	LoadPercentage              float64 `json:"load_percentage"`
+	WaitingInQueue              int64   `json:"waiting_in_queue"`
+	SessionIDGrowthPerMinute    int64   `json:"session_id_growth_per_minute"`
+	MaxSessionIDGrowthPerMinute int64   `json:"max_session_id_growth_per_minute"`
 }
 
 // AccountConcurrencyInfo represents real-time concurrency usage for a single account.
 type AccountConcurrencyInfo struct {
-	AccountID      int64   `json:"account_id"`
-	AccountName    string  `json:"account_name"`
-	Platform       string  `json:"platform"`
-	GroupID        int64   `json:"group_id"`
-	GroupName      string  `json:"group_name"`
-	CurrentInUse   int64   `json:"current_in_use"`
-	MaxCapacity    int64   `json:"max_capacity"`
-	LoadPercentage float64 `json:"load_percentage"`
-	WaitingInQueue int64   `json:"waiting_in_queue"`
+	AccountID                int64   `json:"account_id"`
+	AccountName              string  `json:"account_name"`
+	Platform                 string  `json:"platform"`
+	GroupID                  int64   `json:"group_id"`
+	GroupName                string  `json:"group_name"`
+	CurrentInUse             int64   `json:"current_in_use"`
+	MaxCapacity              int64   `json:"max_capacity"`
+	LoadPercentage           float64 `json:"load_percentage"`
+	WaitingInQueue           int64   `json:"waiting_in_queue"`
+	SessionIDGrowthPerMinute int64   `json:"session_id_growth_per_minute"`
+}
+
+// SessionIDGrowthInfo reports the current minute's distinct OpenAI session ID
+// growth across the selected account scope.
+type SessionIDGrowthInfo struct {
+	TotalPerMinute int64 `json:"total_per_minute"`
+	MaxPerMinute   int64 `json:"max_per_minute"`
+	MaxAccountID   int64 `json:"max_account_id"`
 }
 
 // UserConcurrencyInfo represents real-time concurrency usage for a single user.

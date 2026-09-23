@@ -3,6 +3,8 @@ package openai
 import (
 	"regexp"
 	"strings"
+
+	"golang.org/x/net/http/httpguts"
 )
 
 // CodexCLIUserAgentPrefixes matches Codex CLI User-Agent patterns
@@ -209,6 +211,11 @@ func matchCodexClientHeaderStrictPrefixes(value string, prefixes []string) bool 
 //     UA 首段后配对，保留真实版本/OS/终端指纹；
 //  3. 均不命中 → ok=false，调用方应整体回退为默认官方身份。
 func PairCodexClientIdentity(userAgent string) (originator string, pairedUA string, ok bool) {
+	// Reject control bytes before trimming. Otherwise a malformed header can be
+	// normalized into an apparently valid identity and forwarded upstream.
+	if !validCodexUserAgentValue(userAgent) {
+		return "", "", false
+	}
 	ua := strings.TrimSpace(userAgent)
 	slash := strings.IndexByte(ua, '/')
 	if slash <= 0 {
@@ -226,6 +233,13 @@ func PairCodexClientIdentity(userAgent string) (originator string, pairedUA stri
 		return trailer, trailer + ua[slash:], true
 	}
 	return "", "", false
+}
+
+func validCodexUserAgentValue(value string) bool {
+	if !httpguts.ValidHeaderFieldValue(value) {
+		return false
+	}
+	return !strings.ContainsAny(value, "\r\n")
 }
 
 // codexOriginatorMaxLen 官方 clientInfo.name 均为短 ASCII 标识，远低于此上限。
@@ -275,8 +289,9 @@ func CodexUserAgentVersion(userAgent string) string {
 	return strings.TrimSpace(rest)
 }
 
-// SetCodexUserAgentVersion rebuilds only the version declarations in a
-// Codex-style User-Agent, preserving the client name and machine fingerprint.
+// SetCodexUserAgentVersion rebuilds only the engine version in a Codex-style
+// User-Agent. The trailing clientInfo.version belongs to the host application
+// (for example, a Desktop build number) and is independent of the engine.
 // It returns an empty string when the input cannot be rebuilt safely.
 func SetCodexUserAgentVersion(userAgent, version string) string {
 	ua := strings.TrimSpace(userAgent)
@@ -299,28 +314,7 @@ func SetCodexUserAgentVersion(userAgent, version string) string {
 	} else if strings.TrimSpace(rest) == "" {
 		return ""
 	}
-	return rewriteCodexUATrailerVersion(client+"/"+version+tail, version)
-}
-
-func rewriteCodexUATrailerVersion(ua, version string) string {
-	open := strings.LastIndex(ua, "(")
-	if open < 0 {
-		return ua
-	}
-	closeIdx := strings.Index(ua[open+1:], ")")
-	if closeIdx < 0 {
-		return ua
-	}
-	inner := ua[open+1 : open+1+closeIdx]
-	semi := strings.Index(inner, ";")
-	if semi < 0 {
-		return ua
-	}
-	name := strings.TrimSpace(inner[:semi])
-	if name == "" || !IsCodexOfficialClientOriginator(name) {
-		return ua
-	}
-	return ua[:open+1] + name + "; " + version + ua[open+1+closeIdx:]
+	return client + "/" + version + tail
 }
 
 const codexLoadShedOriginator = "codex-tui"

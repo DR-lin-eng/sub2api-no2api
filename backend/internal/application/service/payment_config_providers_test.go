@@ -125,7 +125,7 @@ func TestValidateEasyPayCustomMethods(t *testing.T) {
 	}{
 		{
 			name:           "valid custom methods",
-			config:         map[string]string{"customMethods": `[{"type":"ldc","upstreamType":"epay","displayName":"LDC"}]`},
+			config:         map[string]string{"customMethods": `[{"type":"ldc","upstreamType":"epay.v2","displayName":"LDC"}]`},
 			supportedTypes: "alipay,wxpay,ldc",
 		},
 		{

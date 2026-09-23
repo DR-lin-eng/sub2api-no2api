@@ -26,13 +26,36 @@ func validateOpenAIWSBearerToken(account *Account, token string) error {
 }
 
 func (s *OpenAIGatewayService) buildOpenAIResponsesWSURL(account *Account) (string, error) {
+	return s.buildOpenAIResponsesWSURLWithContext(context.Background(), account)
+}
+
+func (s *OpenAIGatewayService) buildOpenAIResponsesWSURLWithContext(ctx context.Context, account *Account, accessTokens ...string) (string, error) {
 	if account == nil {
 		return "", errors.New("account is nil")
 	}
 	var targetURL string
 	switch account.Type {
 	case AccountTypeOAuth:
-		targetURL = chatgptCodexURL
+		var err error
+		targetURL, _, err = s.openAIOAuthCodexTargetURLWithContext(ctx, account, accessTokens...)
+		if err != nil {
+			return "", err
+		}
+		accessToken := ""
+		if len(accessTokens) > 0 {
+			accessToken = accessTokens[0]
+		}
+		routing, routingErr := s.resolveOpenAIWorkspaceRouting(ctx, account, accessToken)
+		if routingErr != nil {
+			return "", newOpenAIWorkspaceRoutingFailoverError(routingErr)
+		}
+		if routing != nil {
+			var urlErr error
+			targetURL, urlErr = applyOpenAIWorkspaceRoutingURL(targetURL, routing, true)
+			if urlErr != nil {
+				return "", newOpenAIWorkspaceRoutingFailoverError(urlErr)
+			}
+		}
 	case AccountTypeAPIKey:
 		baseURL := account.GetOpenAIBaseURL()
 		if baseURL == "" {
@@ -83,6 +106,7 @@ func (s *OpenAIGatewayService) buildOpenAIWSHeaders(
 		headers.Set("authorization", "Bearer "+token)
 	}
 
+	distillation := s.IsDistillationGroupRequest(c, account)
 	sessionResolution := resolveOpenAIWSSessionHeaders(c, promptCacheKey)
 	if c != nil && c.Request != nil {
 		if v := strings.TrimSpace(c.Request.Header.Get("accept-language")); v != "" {
@@ -98,11 +122,16 @@ func (s *OpenAIGatewayService) buildOpenAIWSHeaders(
 			"x-codex-installation-id",
 			"x-client-request-id",
 			"x-responsesapi-include-timing-metrics",
+			responsesLiteHeaderKey,
 		} {
 			if value := c.Request.Header.Get(name); strings.TrimSpace(value) != "" {
 				headers.Set(name, value)
 			}
 		}
+	}
+	workspaceRouting, routingErr := s.resolveOpenAIWorkspaceRouting(ctx, account, token)
+	if routingErr != nil {
+		return nil, sessionResolution, newOpenAIWorkspaceRoutingFailoverError(routingErr)
 	}
 	// OAuth 账号：将 apiKeyID 混入 session 标识符，防止跨用户会话碰撞。
 	if account != nil && account.Type == AccountTypeOAuth {
@@ -127,6 +156,21 @@ func (s *OpenAIGatewayService) buildOpenAIWSHeaders(
 	// enabled for this account.
 	if account == nil || account.GetCodexFingerprintMode() == codexFingerprintOff {
 		applyCodexOutboundSessionHeaders(c, account, nil, promptCacheKey, headers, nil)
+	}
+	if distillation {
+		if sessionID, enabled := s.DistillationSessionID(ctx, c, account); enabled {
+			sessionResolution.SessionID = sessionID
+			sessionResolution.ConversationID = sessionID
+			apiKeyID := getAPIKeyIDFromContext(c)
+			for _, name := range []string{"session-id", "session_id", "thread-id", "thread_id", "x-client-request-id", "conversation_id"} {
+				headers.Del(name)
+			}
+			headers.Set("session-id", sessionID)
+			headers.Set("thread-id", sessionID)
+			headers.Set("x-client-request-id", sessionID)
+			headers.Set("session_id", isolateOpenAISessionID(apiKeyID, sessionID))
+			headers.Set("conversation_id", isolateOpenAISessionID(apiKeyID, sessionID))
+		}
 	}
 	if state := strings.TrimSpace(turnState); state != "" {
 		headers.Set(openAIWSTurnStateHeader, state)
@@ -177,6 +221,9 @@ func (s *OpenAIGatewayService) buildOpenAIWSHeaders(
 	// while native compaction requests still force the v2 feature.
 	applyOpenAICodexBetaFeatures(c, account, headers)
 	setOpenAICodexRoutingHint(headers, account, routingModel, routingServiceTier)
+	applyOpenAIResponsesLiteWebSocketHeader(headers, stagedCodexOutboundSessionBody(c))
+	applyOpenAICodexSemanticRequestHeaders(headers, c, account, stagedCodexOutboundSessionBody(c))
+	applyOpenAIWorkspaceRoutingHeader(headers, workspaceRouting)
 	logOpenAIRoutingDiagnostics(
 		ctx,
 		account,

@@ -74,6 +74,21 @@ func TestShouldStripOpenAIResponsesInputNamespaces(t *testing.T) {
 	}
 }
 
+func TestShouldKeepOpenAIResponsesToolCallNamespacesForLiteDeclarations(t *testing.T) {
+	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	body := []byte(`{"input":[{"type":"additional_tools","tools":[{"type":"namespace","name":"collaboration"}]},{"type":"function_call","namespace":"collaboration","name":"spawn_agent"}]}`)
+	require.True(t, shouldKeepOpenAIResponsesToolCallNamespaces(
+		account, OpenAIUpstreamTransportHTTPSSE, false, false, body,
+	))
+	require.False(t, shouldKeepOpenAIResponsesToolCallNamespaces(
+		account, OpenAIUpstreamTransportHTTPSSE, false, true, body,
+	))
+	require.False(t, shouldKeepOpenAIResponsesToolCallNamespaces(
+		account, OpenAIUpstreamTransportHTTPSSE, false, false,
+		[]byte(`{"tools":[{"type":"function","namespace":"residual"}]}`),
+	))
+}
+
 func TestStripOpenAIResponsesInputNamespaces(t *testing.T) {
 	body := []byte(`{
 		"meta":9007199254740993,

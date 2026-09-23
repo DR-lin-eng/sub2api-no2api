@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
 	"github.com/stretchr/testify/require"
 )
 
@@ -65,4 +66,15 @@ func TestDefaultCodexSynthInstructionsModelAware(t *testing.T) {
 	require.False(t, strings.Contains(defaultCodexSynthInstructions("gpt-5.5"), "You are GPT-5.1 running in the Codex CLI"))
 	require.True(t, strings.Contains(defaultCodexSynthInstructions("gpt-5.2"), "You are GPT-5.2 running in the Codex CLI"))
 	require.True(t, strings.Contains(defaultCodexSynthInstructions("gpt-5.1"), "You are GPT-5.1 running in the Codex CLI"))
+}
+
+func TestApplyInstructionsReplacesOnlyGenericFallback(t *testing.T) {
+	model := "gpt-5.6-sol"
+	generic := map[string]any{"model": model, "instructions": openai.DefaultInstructions}
+	require.True(t, applyInstructions(generic, true))
+	require.Equal(t, defaultCodexSynthInstructions(model), generic["instructions"])
+
+	custom := map[string]any{"model": model, "instructions": "Keep the user's custom policy."}
+	require.False(t, applyInstructions(custom, true))
+	require.Equal(t, "Keep the user's custom policy.", custom["instructions"])
 }

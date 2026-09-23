@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"math"
@@ -24,8 +25,11 @@ const (
 	openAIWSConnHealthCheckIdle = 90 * time.Second
 	// coder/websocket cannot consume pong frames without a reader. Recycle
 	// unsupported idle sockets before the upstream keepalive window expires.
-	openAIWSConnIdleRecycleAfter   = 90 * time.Second
-	openAIWSConnHealthCheckTO      = 2 * time.Second
+	openAIWSConnIdleRecycleAfter = 90 * time.Second
+	openAIWSConnHealthCheckTO    = 2 * time.Second
+	// Background and inter-turn probes run outside the request write path. Give
+	// proxied pong round-trips a wider budget to avoid evicting healthy sockets.
+	openAIWSProbePingTO            = 10 * time.Second
 	openAIWSConnPrewarmExtraDelay  = 2 * time.Second
 	openAIWSAcquireCleanupInterval = 3 * time.Second
 	openAIWSBackgroundPingInterval = 30 * time.Second
@@ -39,6 +43,7 @@ var (
 	errOpenAIWSConnClosed               = errors.New("openai ws connection closed")
 	errOpenAIWSConnQueueFull            = errors.New("openai ws connection queue full")
 	errOpenAIWSPreferredConnUnavailable = errors.New("openai ws preferred connection unavailable")
+	errOpenAIWSPoolChanged              = errors.New("openai ws account pool changed")
 )
 
 type openAIWSDialError struct {
@@ -84,10 +89,23 @@ type openAIWSAcquireRequest struct {
 }
 
 type openAIWSHandshakeCompatibilityKey struct {
-	betaFeatures   string
-	fingerprintKey string
-	tlsProfileKey  string
-	egressRouteKey string
+	targetURL       string
+	userAgent       string
+	originator      string
+	version         string
+	betaHeader      string
+	betaFeatures    string
+	routingOverride string
+	responsesLite   string
+	subagent        string
+	guardian        string
+	memgen          string
+	timingMetrics   string
+	authHash        [sha256.Size]byte
+	fingerprintKey  string
+	turnStateHash   [sha256.Size]byte
+	tlsProfileKey   string
+	egressRouteKey  string
 }
 
 type openAIWSConnLease struct {
@@ -265,6 +283,19 @@ type openAIWSConn struct {
 	readMu  sync.Mutex
 	writeMu sync.Mutex
 
+	// readerLoopResults is non-nil only for transports whose control frames are
+	// processed while reading. One resident reader keeps idle sockets alive and
+	// hands the next data message to the active lease without concurrent reads.
+	readerLoopResults    chan []byte
+	readerLoopErrMu      sync.Mutex
+	readerLoopErr        error
+	readerLoopPeerClosed atomic.Bool
+	onPeerClosed         atomic.Pointer[func()]
+	// An application data frame received while no lease is active makes the
+	// connection state ambiguous; mark it unusable rather than replaying it into
+	// a different session.
+	unusable atomic.Bool
+
 	waiters       atomic.Int32
 	createdAtNano atomic.Int64
 	lastUsedNano  atomic.Int64
@@ -283,7 +314,100 @@ func newOpenAIWSConn(id string, _ int64, ws openAIWSClientConn, handshakeHeaders
 	conn.leaseCh <- struct{}{}
 	conn.createdAtNano.Store(now.UnixNano())
 	conn.lastUsedNano.Store(now.UnixNano())
+	if capable, ok := ws.(openAIWSReaderLoopCapable); ok && capable.RequiresReaderLoop() {
+		conn.readerLoopResults = make(chan []byte, 1)
+		go conn.runReaderLoop()
+	}
 	return conn
+}
+
+func (c *openAIWSConn) runReaderLoop() {
+	defer close(c.readerLoopResults)
+	for {
+		payload, err := c.ws.ReadMessage(context.Background())
+		if err != nil {
+			c.readerLoopErrMu.Lock()
+			c.readerLoopErr = err
+			c.readerLoopErrMu.Unlock()
+			peerClosed := false
+			select {
+			case <-c.closedCh:
+			default:
+				peerClosed = true
+				c.readerLoopPeerClosed.Store(true)
+			}
+			c.close()
+			if callback := c.onPeerClosed.Load(); peerClosed && callback != nil {
+				(*callback)()
+			}
+			return
+		}
+		// A data frame observed while no lease owns the connection belongs to a
+		// previous turn (or arrived during dial).  Do not let a later borrower
+		// consume it as its own response; mark the socket dirty immediately.
+		if !c.isLeased() {
+			c.unusable.Store(true)
+		}
+		select {
+		case c.readerLoopResults <- payload:
+		case <-c.closedCh:
+			return
+		}
+	}
+}
+
+func (c *openAIWSConn) hasReaderLoop() bool {
+	return c != nil && c.readerLoopResults != nil
+}
+
+func (c *openAIWSConn) readerLoopPending() bool {
+	return c.hasReaderLoop() && len(c.readerLoopResults) > 0
+}
+
+func (c *openAIWSConn) readerLoopError() error {
+	c.readerLoopErrMu.Lock()
+	defer c.readerLoopErrMu.Unlock()
+	if c.readerLoopErr != nil {
+		return c.readerLoopErr
+	}
+	return errOpenAIWSConnClosed
+}
+
+func (c *openAIWSConn) isClosed() bool {
+	if c == nil {
+		return true
+	}
+	select {
+	case <-c.closedCh:
+		return true
+	default:
+		return false
+	}
+}
+
+func (c *openAIWSConn) isUnusable() bool {
+	return c != nil && c.unusable.Load()
+}
+
+// leaseTokenUsable must run after consuming leaseCh. A buffered application
+// frame means the idle connection belongs to an earlier turn, so it is never
+// handed to another borrower.
+func (c *openAIWSConn) leaseTokenUsable() bool {
+	select {
+	case <-c.closedCh:
+		c.release()
+		return false
+	default:
+	}
+	if c.readerLoopPending() {
+		c.unusable.Store(true)
+		// tryAcquire/acquire consumed the semaphore before discovering the dirty
+		// frame. Return it so cleanup/eviction can observe the connection as idle
+		// and no waiter is stranded behind a permanently empty token.
+		c.release()
+		return false
+	}
+	return true
 }
 
 func (c *openAIWSConn) tryAcquire() bool {
@@ -297,13 +421,7 @@ func (c *openAIWSConn) tryAcquire() bool {
 	}
 	select {
 	case <-c.leaseCh:
-		select {
-		case <-c.closedCh:
-			c.release()
-			return false
-		default:
-		}
-		return true
+		return c.leaseTokenUsable()
 	default:
 		return false
 	}
@@ -328,14 +446,41 @@ func (c *openAIWSConn) acquire(ctx context.Context) error {
 				c.release()
 				return err
 			}
-			select {
-			case <-c.closedCh:
-				c.release()
+			if !c.leaseTokenUsable() {
 				return errOpenAIWSConnClosed
-			default:
 			}
 			return nil
 		}
+	}
+}
+
+// acquireOrPoolChanged waits for a lease while also observing the account
+// pool topology. When another connection is released, evicted, or created,
+// callers can re-run least-busy selection instead of remaining queued behind
+// one saturated connection.
+func (c *openAIWSConn) acquireOrPoolChanged(ctx context.Context, poolChanged <-chan struct{}) error {
+	if c == nil {
+		return errOpenAIWSConnClosed
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-c.closedCh:
+		return errOpenAIWSConnClosed
+	case <-poolChanged:
+		return errOpenAIWSPoolChanged
+	case <-c.leaseCh:
+		if err := ctx.Err(); err != nil {
+			c.release()
+			return err
+		}
+		if !c.leaseTokenUsable() {
+			return errOpenAIWSConnClosed
+		}
+		return nil
 	}
 }
 
@@ -351,13 +496,28 @@ func (c *openAIWSConn) release() {
 }
 
 func (c *openAIWSConn) close() {
+	c.closeWith(false)
+}
+
+// abort immediately cuts a connection whose read context timed out. A
+// resident reader may still be blocked in the websocket library; a graceful
+// close handshake would otherwise hold the request path for its timeout.
+func (c *openAIWSConn) abort() {
+	c.closeWith(true)
+}
+
+func (c *openAIWSConn) closeWith(force bool) {
 	if c == nil {
 		return
 	}
 	c.closeOnce.Do(func() {
 		close(c.closedCh)
 		if c.ws != nil {
-			_ = c.ws.Close()
+			if forceCloser, ok := c.ws.(openAIWSForceCloser); ok && force {
+				_ = forceCloser.CloseNow()
+			} else {
+				_ = c.ws.Close()
+			}
 		}
 		select {
 		case c.leaseCh <- struct{}{}:
@@ -413,10 +573,12 @@ func (c *openAIWSConn) readMessageWithContextTimeout(parent context.Context, tim
 	if c == nil {
 		return nil, errOpenAIWSConnClosed
 	}
-	select {
-	case <-c.closedCh:
-		return nil, errOpenAIWSConnClosed
-	default:
+	if c.readerLoopResults == nil {
+		select {
+		case <-c.closedCh:
+			return nil, errOpenAIWSConnClosed
+		default:
+		}
 	}
 
 	if parent == nil {
@@ -439,12 +601,25 @@ func (c *openAIWSConn) readMessage(readCtx context.Context) ([]byte, error) {
 	if readCtx == nil {
 		readCtx = context.Background()
 	}
-	payload, err := c.ws.ReadMessage(readCtx)
-	if err != nil {
-		return nil, err
+	if c.readerLoopResults == nil {
+		payload, err := c.ws.ReadMessage(readCtx)
+		if err != nil {
+			return nil, err
+		}
+		c.touch()
+		return payload, nil
 	}
-	c.touch()
-	return payload, nil
+	select {
+	case payload, ok := <-c.readerLoopResults:
+		if !ok {
+			return nil, c.readerLoopError()
+		}
+		c.touch()
+		return payload, nil
+	case <-readCtx.Done():
+		c.abort()
+		return nil, readCtx.Err()
+	}
 }
 
 func (c *openAIWSConn) pingWithTimeout(timeout time.Duration) error {
@@ -457,8 +632,9 @@ func (c *openAIWSConn) pingWithTimeout(timeout time.Duration) error {
 	default:
 	}
 
-	c.writeMu.Lock()
-	defer c.writeMu.Unlock()
+	// coder/websocket serializes control frames internally; do not hold the
+	// application write mutex while waiting for a pong, otherwise a health probe
+	// can stall the borrower that needs to send its request.
 	if c.ws == nil {
 		return errOpenAIWSConnClosed
 	}
@@ -476,6 +652,9 @@ func (c *openAIWSConn) pingWithTimeout(timeout time.Duration) error {
 func (c *openAIWSConn) supportsIdlePingWithoutReader() bool {
 	if c == nil || c.ws == nil {
 		return false
+	}
+	if c.readerLoopResults != nil {
+		return true
 	}
 	capable, ok := c.ws.(openAIWSIdlePingCapable)
 	// Test and alternate implementations keep the historical probe behavior
@@ -637,6 +816,9 @@ type openAIWSConnPool struct {
 
 	metrics openAIWSPoolMetrics
 
+	stateCleanupMu sync.RWMutex
+	stateCleaner   openAIWSConnectionBindingCleaner
+
 	workerStopCh chan struct{}
 	workerWg     sync.WaitGroup
 	closeOnce    sync.Once
@@ -689,6 +871,16 @@ func (p *openAIWSConnPool) setClientDialerForTest(dialer openAIWSClientDialer) {
 		return
 	}
 	p.clientDialer = dialer
+}
+
+func (p *openAIWSConnPool) setStateStoreForCleanup(store OpenAIWSStateStore) {
+	if p == nil {
+		return
+	}
+	cleaner, _ := store.(openAIWSConnectionBindingCleaner)
+	p.stateCleanupMu.Lock()
+	p.stateCleaner = cleaner
+	p.stateCleanupMu.Unlock()
 }
 
 // Close 停止后台 worker 并关闭所有空闲连接，应在优雅关闭时调用。
@@ -796,7 +988,13 @@ func (p *openAIWSConnPool) runBackgroundPingSweep() {
 			continue
 		}
 		g.Go(func() error {
-			if err := item.conn.pingWithTimeout(openAIWSConnHealthCheckTO); err != nil {
+			if err := item.conn.pingWithTimeout(openAIWSProbePingTO); err != nil {
+				// The snapshot and the ping are separated by a scheduling window.
+				// Claim the lease token before evicting so a connection borrowed in
+				// the meantime is never closed out from under its request.
+				if !item.conn.tryAcquire() && !item.conn.isClosed() && !item.conn.isUnusable() {
+					return nil
+				}
 				p.evictConn(item.accountID, item.conn.id)
 			}
 			return nil
@@ -880,6 +1078,39 @@ func (p *openAIWSConnPool) runBackgroundCleanupSweep(now time.Time) {
 	for _, result := range results {
 		closeOpenAIWSConns(result.evicted)
 	}
+	p.cleanupEmptyRCCBindings(now)
+}
+
+func (p *openAIWSConnPool) cleanupEmptyRCCBindings(now time.Time) {
+	if p == nil {
+		return
+	}
+	p.stateCleanupMu.RLock()
+	cleaner := p.stateCleaner
+	p.stateCleanupMu.RUnlock()
+	if cleaner != nil {
+		cleaner.cleanupConnectionBindings(now, p.hasUsableConnection)
+	}
+}
+
+func (p *openAIWSConnPool) hasUsableConnection(connID string) bool {
+	if p == nil {
+		return false
+	}
+	connID = stringsTrim(connID)
+	accountID := codexContinuationAccountIDFromConnID(connID)
+	if accountID <= 0 {
+		return false
+	}
+	accountPool, ok := p.getAccountPool(accountID)
+	if !ok || accountPool == nil {
+		return false
+	}
+	accountPool.mu.Lock()
+	conn, ok := accountPool.conns[connID]
+	live := ok && conn != nil && !conn.isClosed() && !conn.isUnusable()
+	accountPool.mu.Unlock()
+	return live
 }
 
 func (p *openAIWSConnPool) Acquire(ctx context.Context, req openAIWSAcquireRequest) (*openAIWSConnLease, error) {
@@ -914,6 +1145,17 @@ retryAcquire:
 		evicted = p.cleanupAccountLocked(ap, now, effectiveMaxConns)
 		ap.lastCleanupAt = now
 	}
+	// A resident reader may have observed a peer frame while the connection was
+	// idle. Remove such dirty sockets before selecting or queueing so they cannot
+	// strand a waiter at the account capacity limit.
+	for id, conn := range ap.conns {
+		if conn == nil || !conn.isUnusable() {
+			continue
+		}
+		delete(ap.conns, id)
+		delete(ap.pinnedConns, id)
+		evicted = append(evicted, conn)
+	}
 	pickStartedAt := time.Now()
 	allowReuse := !req.ForceNewConn
 	preferredConnID := stringsTrim(req.PreferredConnID)
@@ -928,7 +1170,13 @@ retryAcquire:
 				return nil, errOpenAIWSPreferredConnUnavailable
 			}
 			preferredConn, ok := ap.conns[preferredConnID]
-			if !ok || !preferredConn.matchesHandshakeCompatibility(compatibility) {
+			if !ok || preferredConn == nil || preferredConn.isClosed() || preferredConn.isUnusable() || !preferredConn.matchesHandshakeCompatibility(compatibility) {
+				if ok && preferredConn != nil && (preferredConn.isClosed() || preferredConn.isUnusable()) {
+					delete(ap.conns, preferredConn.id)
+					delete(ap.pinnedConns, preferredConn.id)
+					evicted = append(evicted, preferredConn)
+					ap.signalChangedLocked()
+				}
 				p.recordConnPickDuration(time.Since(pickStartedAt))
 				ap.mu.Unlock()
 				closeOpenAIWSConns(evicted)
@@ -1011,26 +1259,31 @@ retryAcquire:
 		}
 
 		if preferredConnID != "" {
-			if conn, ok := ap.conns[preferredConnID]; ok && conn.matchesHandshakeCompatibility(compatibility) && conn.tryAcquire() {
-				connPick := time.Since(pickStartedAt)
-				p.recordConnPickDuration(connPick)
-				ap.mu.Unlock()
-				closeOpenAIWSConns(evicted)
-				if p.shouldHealthCheckConn(conn) {
-					if err := conn.pingWithTimeout(openAIWSConnHealthCheckTO); err != nil {
-						conn.close()
-						p.evictConn(accountID, conn.id)
-						if retry < 1 {
-							return p.acquire(ctx, req, retry+1)
-						}
-						return nil, err
-					}
+			if conn, ok := ap.conns[preferredConnID]; ok {
+				if p.dropDeadConnLocked(ap, conn, &evicted) {
+					conn = nil
 				}
-				lease := &openAIWSConnLease{pool: p, accountID: accountID, conn: conn, connPick: connPick, reused: true}
-				p.metrics.acquireReuseTotal.Add(1)
-				p.recordLastSuccessfulAcquire(accountID, acquireGeneration, req)
-				p.ensureTargetIdleAsync(accountID)
-				return lease, nil
+				if conn != nil && conn.matchesHandshakeCompatibility(compatibility) && conn.tryAcquire() {
+					connPick := time.Since(pickStartedAt)
+					p.recordConnPickDuration(connPick)
+					ap.mu.Unlock()
+					closeOpenAIWSConns(evicted)
+					if p.shouldHealthCheckConn(conn) {
+						if err := conn.pingWithTimeout(openAIWSConnHealthCheckTO); err != nil {
+							conn.close()
+							p.evictConn(accountID, conn.id)
+							if retry < 1 {
+								return p.acquire(ctx, req, retry+1)
+							}
+							return nil, err
+						}
+					}
+					lease := &openAIWSConnLease{pool: p, accountID: accountID, conn: conn, connPick: connPick, reused: true}
+					p.metrics.acquireReuseTotal.Add(1)
+					p.recordLastSuccessfulAcquire(accountID, acquireGeneration, req)
+					p.ensureTargetIdleAsync(accountID)
+					return lease, nil
+				}
 			}
 		}
 
@@ -1038,6 +1291,10 @@ retryAcquire:
 		// connection whose handshake used the same hint, but do not make that
 		// preference a continuation compatibility requirement.
 		best := p.pickLeastBusyConnWithRoutingAffinityLocked(ap, compatibility, routingAffinity)
+		if best != nil && (best.isClosed() || best.isUnusable()) {
+			p.dropDeadConnLocked(ap, best, &evicted)
+			best = nil
+		}
 		if best != nil && best.tryAcquire() {
 			connPick := time.Since(pickStartedAt)
 			p.recordConnPickDuration(connPick)
@@ -1060,7 +1317,14 @@ retryAcquire:
 			return lease, nil
 		}
 		for _, conn := range ap.conns {
-			if conn == nil || conn == best || !conn.matchesHandshakeCompatibility(compatibility) || !conn.matchesRoutingAffinity(routingAffinity) {
+			if conn == nil || conn == best {
+				continue
+			}
+			if conn.isClosed() || conn.isUnusable() {
+				p.dropDeadConnLocked(ap, conn, &evicted)
+				continue
+			}
+			if !conn.matchesHandshakeCompatibility(compatibility) || !conn.matchesRoutingAffinity(routingAffinity) {
 				continue
 			}
 			if conn.tryAcquire() {
@@ -1162,6 +1426,17 @@ retryAcquire:
 			ap.mu.Unlock()
 			return nil, dialErr
 		}
+		if conn == nil || conn.isClosed() {
+			ap.signalChangedLocked()
+			ap.mu.Unlock()
+			if conn != nil {
+				conn.close()
+			}
+			if retry < 1 {
+				return p.acquire(ctx, req, retry+1)
+			}
+			return nil, errOpenAIWSConnClosed
+		}
 		// Claim the freshly dialed connection before publishing it. Otherwise a
 		// topology waiter awakened below can take the free semaphore first and
 		// make the caller that paid for the dial queue behind it.
@@ -1208,13 +1483,26 @@ acquireAtCapacity:
 		return nil, errOpenAIWSConnQueueFull
 	}
 	target.waiters.Add(1)
+	// Capture the channel while holding the pool lock; otherwise a release
+	// between unlock and receive could be missed and leave the waiter parked on
+	// a connection that is no longer the least-busy choice.
+	changedCh := ap.changeChannelLocked()
 	ap.mu.Unlock()
 	closeOpenAIWSConns(evicted)
-	defer target.waiters.Add(-1)
 	waitStart := time.Now()
 	p.metrics.acquireQueueWaitTotal.Add(1)
 
-	if err := target.acquire(ctx); err != nil {
+	err := target.acquireOrPoolChanged(ctx, changedCh)
+	target.waiters.Add(-1)
+	queueWait := time.Since(waitStart)
+	p.metrics.acquireQueueWaitMs.Add(queueWait.Milliseconds())
+	if err != nil {
+		if errors.Is(err, errOpenAIWSPoolChanged) {
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return nil, ctxErr
+			}
+			goto retryAcquire
+		}
 		if errors.Is(err, errOpenAIWSConnClosed) && retry < 1 {
 			return p.acquire(ctx, req, retry+1)
 		}
@@ -1232,8 +1520,6 @@ acquireAtCapacity:
 		}
 	}
 
-	queueWait := time.Since(waitStart)
-	p.metrics.acquireQueueWaitMs.Add(queueWait.Milliseconds())
 	lease := &openAIWSConnLease{pool: p, accountID: accountID, conn: target, queueWait: queueWait, connPick: connPick, reused: true}
 	p.metrics.acquireReuseTotal.Add(1)
 	p.recordLastSuccessfulAcquire(accountID, acquireGeneration, req)
@@ -1377,6 +1663,15 @@ func (p *openAIWSConnPool) cleanupAccountLocked(ap *openAIWSAccountPool, now tim
 			}
 			continue
 		}
+		if conn.isUnusable() {
+			delete(ap.conns, id)
+			if len(ap.pinnedConns) > 0 {
+				delete(ap.pinnedConns, id)
+			}
+			evicted = append(evicted, conn)
+			p.metrics.scaleDownTotal.Add(1)
+			continue
+		}
 		select {
 		case <-conn.closedCh:
 			delete(ap.conns, id)
@@ -1459,6 +1754,26 @@ func (p *openAIWSConnPool) cleanupAccountLocked(ap *openAIWSAccountPool, now tim
 	return evicted
 }
 
+// dropDeadConnLocked removes a connection already known to be closed or dirty
+// while the account-pool mutex is held. The caller closes it after unlocking.
+// Keeping this operation centralized prevents dead sockets from consuming the
+// account capacity while an acquire is choosing a replacement.
+func (p *openAIWSConnPool) dropDeadConnLocked(ap *openAIWSAccountPool, conn *openAIWSConn, evicted *[]*openAIWSConn) bool {
+	if ap == nil || conn == nil || (!conn.isClosed() && !conn.isUnusable()) {
+		return false
+	}
+	if _, exists := ap.conns[conn.id]; !exists {
+		return false
+	}
+	delete(ap.conns, conn.id)
+	delete(ap.pinnedConns, conn.id)
+	ap.signalChangedLocked()
+	if evicted != nil {
+		*evicted = append(*evicted, conn)
+	}
+	return true
+}
+
 func (p *openAIWSConnPool) pickLeastBusyConnLocked(
 	ap *openAIWSAccountPool,
 	preferredConnID string,
@@ -1477,7 +1792,7 @@ func (p *openAIWSConnPool) pickLeastBusyConnLocked(
 	var bestWaiters int32
 	var bestLastUsed time.Time
 	for _, conn := range ap.conns {
-		if conn == nil || !conn.matchesHandshakeCompatibility(compatibility) {
+		if conn == nil || conn.isClosed() || conn.isUnusable() || !conn.matchesHandshakeCompatibility(compatibility) {
 			continue
 		}
 		waiters := conn.waiters.Load()
@@ -1506,6 +1821,8 @@ func (p *openAIWSConnPool) pickLeastBusyConnWithRoutingAffinityLocked(
 	var bestLastUsed time.Time
 	for _, conn := range ap.conns {
 		if conn == nil ||
+			conn.isClosed() ||
+			conn.isUnusable() ||
 			!conn.matchesHandshakeCompatibility(compatibility) ||
 			!conn.matchesRoutingAffinity(routingAffinity) {
 			continue
@@ -1865,6 +2182,11 @@ func (p *openAIWSConnPool) dialConn(ctx context.Context, req openAIWSAcquireRequ
 	pooledConn := newOpenAIWSConn(id, req.Account.ID, conn, handshakeHeaders)
 	pooledConn.handshakeCompatibility = openAIWSAcquireCompatibility(req)
 	pooledConn.routingAffinity = normalizeOpenAIWSRoutingAffinity(req.Headers)
+	// The reader loop can observe a peer close before the dial result is
+	// published to the account map; storing the callback here makes later closes
+	// remove the connection immediately instead of waiting for the sweep.
+	evict := func() { p.evictConn(req.Account.ID, id) }
+	pooledConn.onPeerClosed.Store(&evict)
 	return pooledConn, nil
 }
 
@@ -1880,6 +2202,12 @@ func (p *openAIWSConnPool) nextConnID(accountID int64) string {
 
 func (p *openAIWSConnPool) shouldHealthCheckConn(conn *openAIWSConn) bool {
 	if conn == nil || !conn.supportsIdlePingWithoutReader() {
+		return false
+	}
+	// A resident reader observes peer close frames continuously; an additional
+	// synchronous ping on every long-idle borrow only adds an RTT to the hot
+	// path and can duplicate the background sweep.
+	if conn.hasReaderLoop() {
 		return false
 	}
 	return conn.idleDuration(time.Now()) >= openAIWSConnHealthCheckIdle
@@ -1931,14 +2259,13 @@ func (p *openAIWSConnPool) effectiveMaxConnsByAccount(account *Account) int {
 	if hardCap <= 0 {
 		return 0
 	}
-	if p.modeRouterV2Enabled() {
-		if account == nil {
-			return hardCap
-		}
-		if account.Concurrency <= 0 {
-			return 0
-		}
-		return min(account.Concurrency, hardCap)
+	// Mode-router v2 still rejects accounts with no positive concurrency, but
+	// uses the same explicitly configured session-cap factor as the legacy pool.
+	// Keeping the factor opt-in preserves the fork's conservative 1.0 default
+	// during rolling upgrades while allowing operators to reserve capacity for
+	// idle ctx_pool sessions when they have measured headroom.
+	if p.modeRouterV2Enabled() && account != nil && account.Concurrency <= 0 {
+		return 0
 	}
 	if account == nil || !p.dynamicMaxConnsEnabled() {
 		return hardCap
@@ -2055,6 +2382,14 @@ func sameOpenAIWSPrewarmTarget(a, b openAIWSAcquireRequest) bool {
 
 func openAIWSAcquireCompatibility(req openAIWSAcquireRequest) openAIWSHandshakeCompatibilityKey {
 	compatibility := normalizeOpenAIWSHandshakeCompatibility(req.Headers)
+	// A nil header set is used by lightweight pool callers/tests that seed a
+	// connection without a real handshake. Keep that legacy zero key reusable;
+	// all production WS paths provide the final handshake headers, so routed URL
+	// and auth identity still partition real sockets.
+	if req.Headers != nil && strings.TrimSpace(req.Headers.Get("Authorization")) != "" {
+		compatibility.targetURL = stringsTrim(req.WSURL)
+		compatibility.authHash = openAIWSAuthorizationCompatibilityHash(req.Headers)
+	}
 	compatibility.tlsProfileKey = tlsfingerprint.FingerprintKey(req.TLSProfile)
 	route := openAIWSAcquireRoute(req)
 	if route.Mode == platformegress.ModeIPv6Pool {
@@ -2100,9 +2435,39 @@ func normalizeOpenAIWSBetaFeatures(headers http.Header) string {
 
 func normalizeOpenAIWSHandshakeCompatibility(headers http.Header) openAIWSHandshakeCompatibilityKey {
 	return openAIWSHandshakeCompatibilityKey{
-		betaFeatures:   normalizeOpenAIWSBetaFeatures(headers),
-		fingerprintKey: headers.Get(codexFingerprintWSKeyHeader),
+		userAgent:       headers.Get("User-Agent"),
+		originator:      headers.Get("originator"),
+		version:         headers.Get("version"),
+		betaHeader:      headers.Get("OpenAI-Beta"),
+		betaFeatures:    normalizeOpenAIWSBetaFeatures(headers),
+		routingOverride: headers.Get(openAIAccountRoutingOverrideHeader),
+		responsesLite:   headers.Get(responsesLiteHeaderKey),
+		subagent:        headers.Get("x-openai-subagent"),
+		guardian:        headers.Get("x-codex-guardian"),
+		memgen:          headers.Get("x-openai-memgen-request"),
+		timingMetrics:   headers.Get("x-responsesapi-include-timing-metrics"),
+		fingerprintKey:  headers.Get(codexFingerprintWSKeyHeader),
+		turnStateHash:   openAIWSTurnStateCompatibilityHash(headers),
 	}
+}
+
+func openAIWSAuthorizationCompatibilityHash(headers http.Header) [sha256.Size]byte {
+	if headers == nil {
+		return [sha256.Size]byte{}
+	}
+	value := strings.TrimSpace(headers.Get("Authorization"))
+	if value == "" {
+		return [sha256.Size]byte{}
+	}
+	return sha256.Sum256([]byte(value))
+}
+
+func openAIWSTurnStateCompatibilityHash(headers http.Header) [sha256.Size]byte {
+	state := strings.TrimSpace(headers.Get(openAIWSTurnStateHeader))
+	if state == "" {
+		return [sha256.Size]byte{}
+	}
+	return sha256.Sum256([]byte(state))
 }
 
 func normalizeOpenAIWSRoutingAffinity(headers http.Header) string {

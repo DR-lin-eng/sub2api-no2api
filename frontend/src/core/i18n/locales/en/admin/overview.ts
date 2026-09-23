@@ -960,6 +960,11 @@ export default {
         gemini: 'Gemini',
         antigravity: 'Antigravity',
         grok: 'Grok',
+        kimi: 'Kimi',
+        zhipu: 'Zhipu GLM',
+        deepseek: 'DeepSeek',
+        minimax: 'MiniMax',
+        opencode_go: 'OpenCode',
         composite: 'Composite',
       },
       deleteConfirm:
@@ -1064,7 +1069,7 @@ export default {
       },
       modelsList: {
         title: 'Available models for {endpoint}',
-        hint: 'Only selected models are shown and accepted for requests in this group. Wildcards are not required; choose each model explicitly.',
+        hint: 'Only selected models are shown for {endpoint} and accepted for requests in this group. Wildcards are not required; choose each model explicitly.',
         loading: 'Loading available models...',
         empty: 'No available models',
         selectedSummary: 'Selected {selected} / {total}',
@@ -1130,6 +1135,12 @@ export default {
         fallbackGroup: 'Fallback Group',
         fallbackHint: 'Non-Claude Code requests will use this group. Leave empty to reject directly.',
         noFallback: 'No Fallback (Reject)'
+      },
+      distillation: {
+        title: 'Distillation Group (No Cache / Fail Fast)',
+        enabled: 'Distillation mode enabled',
+        disabled: 'Standard forwarding mode',
+        hint: 'Applies to Anthropic and OpenAI OAuth accounts: removes prompt_cache_key, cache_control, and related cache fields; rotates session IDs every 10,000 requests and disables retries, failover, and error repair.'
       },
       openaiMessages: {
         title: 'OpenAI Messages Dispatch',

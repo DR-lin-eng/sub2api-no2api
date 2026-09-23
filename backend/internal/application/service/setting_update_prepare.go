@@ -49,6 +49,30 @@ func (s *SettingService) prepareSystemSettingsUpdate(ctx context.Context, settin
 	if err := s.normalizeOpenAIAdvancedSchedulerOverrides(settings); err != nil {
 		return "", err
 	}
+	if settings.OpenAISessionIDRateLimitPerMinute < 0 || settings.OpenAISessionIDRateLimitPerMinute > 1000000 {
+		return "", infraerrors.BadRequest("INVALID_OPENAI_SESSION_ID_RATE_LIMIT", "OpenAI session ID rate limit must be between 0 and 1000000 per minute")
+	}
+	if settings.OpenAIOAuthGatewayRateLimitRPM < 0 || settings.OpenAIOAuthGatewayRateLimitRPM > 1000000 ||
+		settings.OpenAIOAuthGatewayRateLimitBurst < 0 || settings.OpenAIOAuthGatewayRateLimitBurst > 1000000 {
+		return "", infraerrors.BadRequest("INVALID_OPENAI_OAUTH_GATEWAY_RATE_LIMIT", "OpenAI OAuth gateway RPM and burst must be between 0 and 1000000")
+	}
+	if settings.OpenAIOAuthGatewayRateLimitEnabled && (settings.OpenAIOAuthGatewayRateLimitRPM == 0 || settings.OpenAIOAuthGatewayRateLimitBurst == 0) {
+		return "", infraerrors.BadRequest("INVALID_OPENAI_OAUTH_GATEWAY_RATE_LIMIT", "OpenAI OAuth gateway RPM and burst must be positive when the limiter is enabled")
+	}
+	settings.OpenAIOAuthForceRelayBaseURL = strings.TrimSpace(settings.OpenAIOAuthForceRelayBaseURL)
+	if settings.OpenAIOAuthForceRelayBaseURL == "" && !settings.OpenAIOAuthForceRelayEnabled {
+		settings.OpenAIOAuthForceRelayBaseURL = DefaultOpenAIOAuthForceRelayBaseURL
+	}
+	if settings.OpenAIOAuthForceRelayEnabled && settings.OpenAIOAuthForceRelayBaseURL == "" {
+		return "", infraerrors.BadRequest("INVALID_OPENAI_OAUTH_FORCE_RELAY", "OpenAI OAuth force relay base URL is required when the relay is enabled")
+	}
+	if settings.OpenAIOAuthForceRelayEnabled {
+		normalizedRelayURL, relayErr := validateOpenAIOAuthCustomRelayBaseURL(settings.OpenAIOAuthForceRelayBaseURL, s.cfg)
+		if relayErr != nil {
+			return "", infraerrors.BadRequest("INVALID_OPENAI_OAUTH_FORCE_RELAY", fmt.Sprintf("invalid OpenAI OAuth force relay base URL: %v", relayErr))
+		}
+		settings.OpenAIOAuthForceRelayBaseURL = normalizedRelayURL
+	}
 	if strings.TrimSpace(settings.ClientIPResolutionMode) == "" {
 		if s.clientIPResolver != nil {
 			settings.ClientIPResolutionMode, settings.ClientIPTrustedProxies = s.clientIPResolver.CurrentConfiguration()

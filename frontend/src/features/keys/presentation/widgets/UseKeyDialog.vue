@@ -251,8 +251,14 @@ const defaultClientTab = computed(() => {
   switch (props.platform) {
     case 'openai':
       return 'codex'
-    case 'grok':
-      return 'grok'
+      case 'grok':
+        return 'grok'
+      case 'kimi':
+      case 'zhipu':
+      case 'deepseek':
+      case 'minimax':
+      case 'opencode_go':
+        return 'codex'
     case 'gemini':
       return 'gemini'
     case 'antigravity':
@@ -367,13 +373,23 @@ const clientTabs = computed((): TabConfig[] => {
         { id: 'gemini', label: t('keys.useKeyModal.cliTabs.geminiCli'), icon: SparkleIcon },
         { id: 'opencode', label: t('keys.useKeyModal.cliTabs.opencode'), icon: TerminalIcon }
       ]
-    case 'grok':
+      case 'grok':
       return [
         { id: 'grok', label: t('keys.useKeyModal.cliTabs.grokCli'), icon: TerminalIcon },
         { id: 'claude', label: t('keys.useKeyModal.cliTabs.claudeCode'), icon: TerminalIcon },
         { id: 'codex', label: t('keys.useKeyModal.cliTabs.codexCli'), icon: TerminalIcon },
         { id: 'opencode', label: t('keys.useKeyModal.cliTabs.opencode'), icon: TerminalIcon }
-      ]
+        ]
+      case 'kimi':
+      case 'zhipu':
+      case 'deepseek':
+      case 'minimax':
+      case 'opencode_go':
+        return [
+          { id: 'claude', label: t('keys.useKeyModal.cliTabs.claudeCode'), icon: TerminalIcon },
+          { id: 'codex', label: t('keys.useKeyModal.cliTabs.codexCli'), icon: TerminalIcon },
+          { id: 'opencode', label: t('keys.useKeyModal.cliTabs.opencode'), icon: TerminalIcon }
+        ]
     default:
       return [
         { id: 'claude', label: t('keys.useKeyModal.cliTabs.claudeCode'), icon: TerminalIcon },
@@ -421,7 +437,7 @@ const platformDescription = computed(() => {
       return t('keys.useKeyModal.gemini.description')
     case 'antigravity':
       return t('keys.useKeyModal.antigravity.description')
-    case 'grok':
+      case 'grok':
       if (activeClientTab.value === 'claude') {
         return t('keys.useKeyModal.grok.claudeDescription')
       }
@@ -569,7 +585,15 @@ const currentFiles = computed((): FileConfig[] => {
       if (activeClientTab.value === 'codex') {
         return generateGrokCodexFiles(apiBase, apiKey)
       }
-      return generateGrokFiles(apiBase, apiKey)
+        return generateGrokFiles(apiBase, apiKey)
+      case 'kimi':
+      case 'zhipu':
+      case 'deepseek':
+      case 'minimax':
+      case 'opencode_go':
+        return activeClientTab.value === 'claude'
+          ? generateAnthropicFiles(baseUrl, apiKey)
+          : generateOpenAIFiles(baseUrl, apiKey)
     default:
       return generateAnthropicFiles(baseUrl, apiKey)
   }

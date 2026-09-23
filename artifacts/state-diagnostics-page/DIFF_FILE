@@ -1,0 +1,140 @@
+--- artifacts/state-diagnostics-page/baseline/SettingsCodexSimulationCard.vue	2026-09-18 18:53:13
++++ artifacts/state-diagnostics-page/MODIFIED_FILE	2026-09-18 19:28:56
+@@ -205,93 +205,6 @@
+               {{ t("admin.settings.codexSimulation.turnStatesSaveBeforeSync") }}
+             </p>
+           </div>
+-          <div
+-            v-if="codexSimulationForm.turn_state_observability"
+-            class="space-y-4 border-t border-gray-100 pt-4 dark:border-dark-700"
+-            data-testid="codex-turn-state-observability"
+-          >
+-            <div class="flex flex-wrap items-center justify-between gap-3">
+-              <div>
+-                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
+-                  {{ t("admin.settings.codexSimulation.observabilityTitle") }}
+-                </h3>
+-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+-                  {{ t("admin.settings.codexSimulation.observabilityHint") }}
+-                </p>
+-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+-                  {{ t("admin.settings.codexSimulation.observabilityCurrentNode") }} · {{ formatTimestamp(observability?.generated_at) }}
+-                </p>
+-              </div>
+-              <button
+-                type="button"
+-                class="btn btn-secondary btn-sm inline-flex items-center gap-1.5"
+-                :disabled="codexObservabilityRefreshing"
+-                data-testid="codex-turn-state-observability-refresh"
+-                @click="refreshCodexTurnStateObservability"
+-              >
+-                <Icon name="refresh" size="sm" :class="codexObservabilityRefreshing ? 'animate-spin' : ''" />
+-                {{ t("admin.settings.codexSimulation.observabilityRefresh") }}
+-              </button>
+-            </div>
+-            <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+-              <div class="border border-gray-200 px-3 py-2 dark:border-dark-600">
+-                <div class="text-xs text-gray-500 dark:text-gray-400">{{ t("admin.settings.codexSimulation.observabilityTracked") }}</div>
+-                <div class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{{ codexSimulationForm.turn_state_observability.items.length }}</div>
+-              </div>
+-              <div class="border border-gray-200 px-3 py-2 dark:border-dark-600">
+-                <div class="text-xs text-gray-500 dark:text-gray-400">{{ t("admin.settings.codexSimulation.observabilityValid") }}</div>
+-                <div class="mt-1 text-lg font-semibold text-green-600 dark:text-green-400">{{ validTurnStateCount }}</div>
+-              </div>
+-              <div class="border border-gray-200 px-3 py-2 dark:border-dark-600">
+-                <div class="text-xs text-gray-500 dark:text-gray-400">{{ t("admin.settings.codexSimulation.observabilityExpired") }}</div>
+-                <div class="mt-1 text-lg font-semibold text-amber-600 dark:text-amber-400">{{ expiredTurnStateCount }}</div>
+-              </div>
+-              <div class="border border-gray-200 px-3 py-2 dark:border-dark-600">
+-                <div class="text-xs text-gray-500 dark:text-gray-400">{{ t("admin.settings.codexSimulation.observabilityRotations") }}</div>
+-                <div class="mt-1 text-lg font-semibold text-red-600 dark:text-red-400">{{ rotationErrorCount }}</div>
+-              </div>
+-            </div>
+-            <div class="overflow-x-auto border border-gray-200 dark:border-dark-600">
+-              <table class="min-w-full text-left text-xs">
+-                <thead class="bg-gray-50 text-gray-500 dark:bg-dark-800 dark:text-gray-400">
+-                  <tr>
+-                    <th class="whitespace-nowrap px-3 py-2 font-medium">{{ t("admin.settings.codexSimulation.observabilityAccountModel") }}</th>
+-                    <th class="whitespace-nowrap px-3 py-2 font-medium">{{ t("admin.settings.codexSimulation.observabilityState") }}</th>
+-                    <th class="whitespace-nowrap px-3 py-2 font-medium">{{ t("admin.settings.codexSimulation.observabilityCipher") }}</th>
+-                    <th class="whitespace-nowrap px-3 py-2 font-medium">{{ t("admin.settings.codexSimulation.observabilityProbe") }}</th>
+-                  </tr>
+-                </thead>
+-                <tbody class="divide-y divide-gray-100 dark:divide-dark-700">
+-                  <tr v-for="item in codexSimulationForm.turn_state_observability.items" :key="`${item.account_id}:${item.model}`">
+-                    <td class="whitespace-nowrap px-3 py-2 align-top text-gray-900 dark:text-white">
+-                      <div class="font-medium">#{{ item.account_id }} · {{ item.model }}</div>
+-                      <div class="mt-1 text-gray-500 dark:text-gray-400">{{ item.source }}<span v-if="item.proxy_enabled"> · {{ t("admin.settings.codexSimulation.observabilityProxy") }}</span></div>
+-                    </td>
+-                    <td class="whitespace-nowrap px-3 py-2 align-top text-gray-700 dark:text-gray-300">
+-                      <div>{{ stateLabel(item) }}</div>
+-                      <div class="mt-1 text-gray-500 dark:text-gray-400">{{ t("admin.settings.codexSimulation.observabilityIssuedAt") }} {{ formatTimestamp(item.state.issued_at) }}</div>
+-                      <div class="mt-1 text-gray-500 dark:text-gray-400">{{ t("admin.settings.codexSimulation.observabilityEstimatedExpiry") }} {{ formatTimestamp(item.state.estimated_expires_at) }}</div>
+-                      <div class="mt-1 text-gray-500 dark:text-gray-400">{{ item.state.token_characters }} {{ t("admin.settings.codexSimulation.observabilityCharacters") }} · {{ item.state.token_bytes_known ? `${item.state.token_bytes} B` : t("admin.settings.codexSimulation.observabilityUnknown") }} · {{ item.state.version_hex || t("admin.settings.codexSimulation.observabilityUnknown") }}</div>
+-                      <div v-if="item.last_response_at && !item.last_response_had_state" class="mt-1 text-amber-600 dark:text-amber-400">{{ t("admin.settings.codexSimulation.observabilityLastResponseMissing") }}</div>
+-                      <div v-if="item.state_digest" class="mt-1 font-mono text-gray-500 dark:text-gray-400">{{ item.state_digest }}</div>
+-                    </td>
+-                    <td class="whitespace-nowrap px-3 py-2 align-top text-gray-700 dark:text-gray-300">
+-                      <div>{{ cipherLabel(item.encrypted_content.classification) }}</div>
+-                      <div class="mt-1 text-gray-500 dark:text-gray-400">{{ item.encrypted_content.last_bytes_known ? `${item.encrypted_content.last_bytes} B / ${signedDelta(item.encrypted_content.delta_bytes)}` : t("admin.settings.codexSimulation.observabilityUnknown") }}</div>
+-                      <div class="mt-1 text-gray-500 dark:text-gray-400">{{ t("admin.settings.codexSimulation.observabilityRotationsShort", { count: item.rotation.count }) }}</div>
+-                    </td>
+-                    <td class="whitespace-nowrap px-3 py-2 align-top text-gray-700 dark:text-gray-300">
+-                      <div>{{ item.probe.in_flight ? t("admin.settings.codexSimulation.observabilityProbeRunning") : t("admin.settings.codexSimulation.observabilityProbeIdle") }}</div>
+-                      <div class="mt-1 text-gray-500 dark:text-gray-400">{{ formatTimestamp(item.probe.next_probe_at) }}</div>
+-                    </td>
+-                  </tr>
+-                  <tr v-if="codexSimulationForm.turn_state_observability.items.length === 0">
+-                    <td colspan="4" class="px-3 py-5 text-center text-gray-500 dark:text-gray-400">{{ t("admin.settings.codexSimulation.observabilityEmpty") }}</td>
+-                  </tr>
+-                </tbody>
+-              </table>
+-            </div>
+-          </div>
+         </div>
+
+         <div class="flex items-center justify-between gap-4 border-t border-gray-100 pt-5 dark:border-dark-700">
+@@ -444,7 +357,6 @@
+ </template>
+
+ <script setup lang="ts">
+-import { computed } from 'vue'
+ import Toggle from '@/common/widgets/forms/Toggle.vue'
+ import Icon from '@/common/widgets/icons/Icon.vue'
+ import { useSettingsPageContext } from '@/features/admin-settings/presentation/composables/settingsPageContext'
+@@ -455,35 +367,12 @@
+   codexSimulationLoading,
+   codexSimulationSaving,
+   codexSimulationSyncing,
+-  codexObservabilityRefreshing,
+   codexTurnStateDraftDirty,
+   codexTurnStateWatchModelsText,
+   codexTurnStatesText,
+-  refreshCodexTurnStateObservability,
+   restoreOriginalCodexBehavior,
+   saveCodexSimulationSettings,
+   syncCodexTurnStatesFromQuality,
+   t,
+ } = useSettingsPageContext()
+-
+-const observability = computed(() => codexSimulationForm.turn_state_observability)
+-const validTurnStateCount = computed(() => observability.value?.items.filter((item) => item.state.valid && !item.state.expired && item.length_match).length ?? 0)
+-const expiredTurnStateCount = computed(() => observability.value?.items.filter((item) => item.state.expired).length ?? 0)
+-const rotationErrorCount = computed(() => observability.value?.items.reduce((sum, item) => sum + item.rotation.count, 0) ?? 0)
+-const formatTimestamp = (value?: string) => value ? new Date(value).toLocaleString() : '-'
+-const signedDelta = (value: number) => value > 0 ? `+${value} B` : `${value} B`
+-const stateLabel = (item: NonNullable<typeof observability.value>['items'][number]) => {
+-  if (item.state.expired) return t('admin.settings.codexSimulation.observabilityStateExpired')
+-  if (!item.state.valid) return t('admin.settings.codexSimulation.observabilityStateInvalid')
+-  if (!item.length_match) return t('admin.settings.codexSimulation.observabilityLengthMismatch')
+-  return t('admin.settings.codexSimulation.observabilityStateValid')
+-}
+-const cipherLabel = (classification: string) => {
+-  switch (classification) {
+-    case 'baseline': return t('admin.settings.codexSimulation.observabilityBaseline')
+-    case 'plus_16_hint': return t('admin.settings.codexSimulation.observabilityPlus16Hint')
+-    case 'other': return t('admin.settings.codexSimulation.observabilityOtherDelta')
+-    default: return t('admin.settings.codexSimulation.observabilityUnknown')
+-  }
+-}
+ </script>

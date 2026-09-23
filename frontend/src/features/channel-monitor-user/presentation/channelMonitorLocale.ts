@@ -23,7 +23,12 @@ const providerKeys = {
   openai: 'monitorCommon.providers.openai',
   anthropic: 'monitorCommon.providers.anthropic',
   gemini: 'monitorCommon.providers.gemini',
-  grok: 'monitorCommon.providers.grok',
+    grok: 'monitorCommon.providers.grok',
+    kimi: 'monitorCommon.providers.kimi',
+    zhipu: 'monitorCommon.providers.zhipu',
+    deepseek: 'monitorCommon.providers.deepseek',
+    minimax: 'monitorCommon.providers.minimax',
+    opencode_go: 'monitorCommon.providers.opencode_go',
 } as const
 
 const bodyModeKeys = {

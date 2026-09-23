@@ -60,6 +60,9 @@ services:
       - DEPLOYMENT_NODE_ID_FILE=${DEPLOYMENT_NODE_ID_FILE:-/app/data/.cluster-node-id}
       - NODE_NAME=${NODE_NAME:-}
       - WORKER_ENABLED=${WORKER_ENABLED:-auto}
+      # Optional account-quality HTML/SVG renderer + 8.4.14 classifier.
+      - ACCOUNT_QUALITY_RENDERER_URL=${ACCOUNT_QUALITY_RENDERER_URL:-}
+      - ACCOUNT_QUALITY_RENDERER_TOKEN=${ACCOUNT_QUALITY_RENDERER_TOKEN:-}
       - OAUTH_MODEL_SYNC_ENABLED=${OAUTH_MODEL_SYNC_ENABLED:-true}
       - OAUTH_MODEL_SYNC_INTERVAL_MINUTES=${OAUTH_MODEL_SYNC_INTERVAL_MINUTES:-60}
       - OAUTH_MODEL_SYNC_ACCOUNT_TIMEOUT_SECONDS=${OAUTH_MODEL_SYNC_ACCOUNT_TIMEOUT_SECONDS:-20}
@@ -221,6 +224,22 @@ services:
   # ===========================================================================
   # PostgreSQL Database
   # ===========================================================================
+  account-quality-renderer:
+    profiles: ["quality"]
+    build:
+      context: ./account-quality-renderer
+    container_name: sub2api-account-quality-renderer
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m
+    environment:
+      - ACCOUNT_QUALITY_RENDERER_TOKEN=${ACCOUNT_QUALITY_RENDERER_TOKEN:-}
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - sub2api-network
+
   postgres:
     image: postgres:18-alpine
     container_name: sub2api-postgres

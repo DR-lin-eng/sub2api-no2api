@@ -9,6 +9,7 @@ import {
   type EmailTemplatePreviewResponse,
   type GlobalTempUnschedulableSettings,
   type OverloadCooldownSettings,
+  type OAuth401CleanupSettings,
   type PanelRateLimitSettings,
   type PreviewEmailTemplateRequest,
   type RateLimit429CooldownSettings,
@@ -172,6 +173,16 @@ export async function updateRateLimit429CooldownSettings(
   return data;
 }
 
+export async function updateOAuth401CleanupSettings(
+  settings: OAuth401CleanupSettings,
+): Promise<OAuth401CleanupSettings> {
+  const { data } = await apiClient.put<OAuth401CleanupSettings>(
+    "/admin/settings/oauth-401-cleanup",
+    settings,
+  );
+  return data;
+}
+
 export async function updateGlobalTempUnschedulableSettings(
   settings: GlobalTempUnschedulableSettings,
 ): Promise<GlobalTempUnschedulableSettings> {
@@ -188,6 +199,13 @@ export async function updateCodexSimulationSettings(
   const { data } = await apiClient.put<CodexSimulationSettings>(
     "/admin/settings/codex-simulation",
     settings,
+  );
+  return data;
+}
+
+export async function syncCodexTurnStates(): Promise<CodexSimulationSettings> {
+  const { data } = await apiClient.post<CodexSimulationSettings>(
+    "/admin/settings/codex-simulation/sync-turn-states",
   );
   return data;
 }

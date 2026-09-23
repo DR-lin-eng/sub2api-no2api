@@ -35,5 +35,10 @@ func (s *OpenAIGatewayService) doAccountHTTPUpstream(
 	if req != nil {
 		req = req.WithContext(WithHTTPUpstreamTLSProfile(req.Context(), s.resolveTLSProfile(account)))
 	}
+	if isOpenAIOAuthGatewayModelRequest(req, account) {
+		if err := s.admitOpenAIOAuthGatewayModelRequest(req.Context(), account); err != nil {
+			return nil, err
+		}
+	}
 	return doAccountHTTPUpstream(s.httpUpstream, req, proxyURL, account)
 }

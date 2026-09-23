@@ -39,8 +39,16 @@ export type SettingsForm = Omit<
   google_oauth_client_secret: string;
   force_email_on_third_party_signup: boolean;
   openai_low_upstream_rate_priority_enabled: boolean;
+  openai_oauth_force_relay_enabled: boolean;
+  openai_oauth_force_relay_base_url: string;
   openai_oauth_scheduling_rate_multiplier: number;
   openai_content_session_burst_balance_enabled: boolean;
+  openai_session_id_rate_limit_enabled: boolean;
+  openai_session_id_rate_limit_per_minute: number;
+  openai_oauth_gateway_rate_limit_enabled: boolean;
+  openai_oauth_gateway_rate_limit_rpm: number;
+  openai_oauth_gateway_rate_limit_burst: number;
+  openai_request_integrity_observe_enabled: boolean;
   openai_advanced_scheduler_enabled: boolean;
   openai_advanced_scheduler_sticky_weighted_enabled: boolean;
   openai_advanced_scheduler_subscription_priority_enabled: boolean;
@@ -291,8 +299,17 @@ export function createSettingsForm(localText: LocalText): SettingsForm {
     max_claude_code_version: "",
     allow_ungrouped_key_scheduling: false,
     openai_low_upstream_rate_priority_enabled: false,
+    openai_oauth_force_relay_enabled: false,
+    openai_oauth_force_relay_base_url:
+      "https://codex-relay.oaifree.com/backend-api/codex",
     openai_oauth_scheduling_rate_multiplier: 1,
     openai_content_session_burst_balance_enabled: false,
+    openai_session_id_rate_limit_enabled: false,
+    openai_session_id_rate_limit_per_minute: 0,
+    openai_oauth_gateway_rate_limit_enabled: false,
+    openai_oauth_gateway_rate_limit_rpm: 60,
+    openai_oauth_gateway_rate_limit_burst: 5,
+    openai_request_integrity_observe_enabled: false,
     scheduler_v2_enabled: false,
     scheduler_v2_status: "disabled",
     scheduler_v2_error: "",

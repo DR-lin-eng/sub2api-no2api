@@ -257,6 +257,24 @@ func (h *OpenAIGatewayHandler) handleFailoverExhausted(c *gin.Context, failoverE
 		)
 		return
 	}
+	if failoverErr.IsOpenAIOAuthGatewayRateLimit() {
+		copyFailoverRetryAfter(c, failoverErr.ResponseHeaders)
+		status := failoverErr.ClientStatusCode
+		if status == 0 {
+			status = http.StatusTooManyRequests
+		}
+		message := strings.TrimSpace(failoverErr.ClientMessage)
+		if message == "" {
+			message = "OpenAI OAuth account request rate limit exceeded"
+		}
+		errType := "rate_limit_error"
+		if status == http.StatusServiceUnavailable {
+			errType = "api_error"
+		}
+		service.SetOpsUpstreamError(c, status, message, "")
+		h.handleStreamingAwareError(c, status, errType, message, streamStarted)
+		return
+	}
 	copyFailoverRetryAfter(c, failoverErr.ResponseHeaders)
 	if failoverErr.IsCredentialFailure() {
 		status, message := credentialFailoverClientResponse(failoverErr)
@@ -726,6 +744,14 @@ func closeOpenAIWSFailoverExhausted(conn *coderws.Conn, failoverErr *service.Ups
 	}
 	if failoverErr.IsOpenAIInvalidPromptPolicyError() {
 		closeOpenAIClientWS(conn, coderws.StatusPolicyViolation, service.OpenAIInvalidPromptPolicyClientMessage)
+		return
+	}
+	if failoverErr.IsOpenAIOAuthGatewayRateLimit() {
+		message := strings.TrimSpace(failoverErr.ClientMessage)
+		if message == "" {
+			message = "OpenAI OAuth account request rate limit exceeded"
+		}
+		closeOpenAIClientWS(conn, coderws.StatusTryAgainLater, message)
 		return
 	}
 	switch failoverErr.StatusCode {

@@ -1,0 +1,100 @@
+Changed branch/field:
+`detached HEAD 95de2675375d03c1dfc15436e443108a8fb607c3` working tree; OAuth Responses/Compact/WS request construction now adds validated Workspace Routing, semantic Guardian/memgen/subagent headers, typed metadata projections, and route/auth-aware WS compatibility keys.
+
+Artifacts:
+- MODIFIED_FILE: `/Users/lin/.codex/worktrees/a7ed/sub2api-no2api/artifacts/openai-codex-request-headers/MODIFIED_FILE.json`
+- DIFF_FILE: `/Users/lin/.codex/worktrees/a7ed/sub2api-no2api/artifacts/openai-codex-request-headers/DIFF_FILE.patch`
+- VERIFICATION_FILE: `/Users/lin/.codex/worktrees/a7ed/sub2api-no2api/artifacts/openai-codex-request-headers/VERIFICATION.txt`
+- ROLLBACK: `/Users/lin/.codex/worktrees/a7ed/sub2api-no2api/artifacts/openai-codex-request-headers/ROLLBACK.sh`
+
+Baseline SHA-256:
+`5be14cd6ac851ad3ff191af069f8b48709a21fa330b23bda7826401ea1dfdf75  artifacts/openai-codex-request-headers/BASELINE_FILE.json`
+
+Modified SHA-256:
+`8d0eeeca9dd7e4b6912a98335070d319308a276e4e3ad28f1b1294f9ec4de333  artifacts/openai-codex-request-headers/MODIFIED_FILE.json`
+
+BASELINE command/input:
+`jq -e '.headers["x-openai-account-routing-override"] == null and .redirects_disabled == false' artifacts/openai-codex-request-headers/BASELINE_FILE.json >/dev/null`
+Literal output/result: `baseline_result=missing_routing_header exit=0`
+Exit status: `0`
+
+MODIFIED command/input:
+`jq -e '.headers["x-openai-account-routing-override"] == "us" and .headers["x-codex-guardian"] == "reviewer" and .redirects_disabled == true' artifacts/openai-codex-request-headers/MODIFIED_FILE.json >/dev/null`
+Literal output/result: `modified_result=discovered_workspace_headers exit=0`
+Exit status: `0`
+
+ROLLBACK command/input:
+`tmp=$(mktemp /tmp/openai-codex-headers-XXXXXX.json) && cp artifacts/openai-codex-request-headers/MODIFIED_FILE.json "$tmp" && artifacts/openai-codex-request-headers/ROLLBACK.sh "$tmp" && cmp -s "$tmp" artifacts/openai-codex-request-headers/BASELINE_FILE.json && printf 'rollback_result=restored_baseline exit=0\\n' && rm -f "$tmp"`
+Literal output/result: `restored /tmp/openai-codex-headers-XXXXXX.json from /Users/lin/.codex/worktrees/a7ed/sub2api-no2api/artifacts/openai-codex-request-headers/BASELINE_FILE.json` and `rollback_result=restored_baseline exit=0`
+Exit status: `0`
+
+Rollback syntax command/input:
+`sh -n artifacts/openai-codex-request-headers/ROLLBACK.sh`
+Literal output/result: `rollback_syntax=ok exit=0`
+Exit status: `0`
+
+Focused Docker test command/input:
+`docker run --rm --network=none -v /Users/lin/.codex/worktrees/a7ed/sub2api-no2api:/src -v /Users/lin/go/pkg/mod:/go/pkg/mod:ro -v /Users/lin/Library/Caches/go-build:/go-cache -w /src/backend golang:1.26.6-alpine sh -c 'GOCACHE=/go-cache GOPATH=/go GOPROXY=off GOSUMDB=off go test ./internal/application/service -count=1 -run "Test(ParseOpenAIWorkspaceRoutingResponse|BuildOpenAIRequest|OpenAIWorkspaceRouting|ApplyOpenAICodexSemanticRequestHeaders|OpenAIRequestBuild|OpenAIWSCompatibility|OpenAICodexLatestMetadataKeys|IsHeaderOverride|OpenAIOAuthCustomRelay|OpenAIOAuthForceRelay|OpenAIWSPool|OpenAI.*Fingerprint|RewriteCodexOutboundSessionMetadata)"'`
+Literal output/result: `ok github.com/Wei-Shaw/sub2api/internal/application/service 0.026s`
+Exit status: `0`
+
+Compile-all Docker command/input:
+`docker run --rm --network=none -v /Users/lin/.codex/worktrees/a7ed/sub2api-no2api:/src -v /Users/lin/go/pkg/mod:/go/pkg/mod:ro -v /Users/lin/Library/Caches/go-build:/go-cache -w /src/backend golang:1.26.6-alpine sh -c 'GOCACHE=/go-cache GOPATH=/go GOPROXY=off GOSUMDB=off go test ./... -run ^$ -count=1'`
+Literal output/result: `all backend packages compiled; all packages reported [no tests to run]`
+Exit status: `0`
+
+Documentation command/input:
+`./tools/check-docs.sh`
+Literal output/result: `Documentation checks passed.`
+Exit status: `0`
+
+Vet command/input:
+`docker run --rm --network=none -v /Users/lin/.codex/worktrees/a7ed/sub2api-no2api:/src -v /Users/lin/go/pkg/mod:/go/pkg/mod:ro -v /Users/lin/Library/Caches/go-build:/go-cache -w /src/backend golang:1.26.6-alpine sh -c 'GOCACHE=/go-cache GOPATH=/go GOPROXY=off GOSUMDB=off go vet ./internal/application/service ./internal/transport/http/handler'`
+Literal output/result: ``
+Exit status: `0`
+
+Docker builder command/input:
+`docker build --target backend-builder --build-arg GOPROXY=https://goproxy.cn,direct --build-arg GOSUMDB=sum.golang.google.cn -t sub2api-openai-codex-headers:workspace-final2 -f deploy/Dockerfile .`
+Literal output/result: `#22 naming to docker.io/library/sub2api-openai-codex-headers:workspace-final2 done; #22 DONE`
+Exit status: `0`
+
+Docker image command/input:
+`docker run --rm --entrypoint /app/sub2api sub2api-openai-codex-headers:workspace-final2 -version`
+Literal output/result: `Sub2API 0.1.207 (commit: docker, built: 2026-09-18T20:12:18Z)`
+Exit status: `0`
+
+Full service-package command/input:
+`docker run --rm --network=none -v /Users/lin/.codex/worktrees/a7ed/sub2api-no2api:/src -v /Users/lin/go/pkg/mod:/go/pkg/mod:ro -v /Users/lin/Library/Caches/go-build:/go-cache -w /src/backend golang:1.26.6-alpine sh -c 'GOCACHE=/go-cache GOPATH=/go GOPROXY=off GOSUMDB=off GOMAXPROCS=2 GOMEMLIMIT=1200MiB go test ./internal/application/service -count=1 -timeout=300s'`
+Literal output/result: `go test timed out at 300s with the package's existing openai_ws_pool background-worker goroutines; no assertion failure was emitted before timeout`
+Exit status: `1`
+
+Restored behavior/status:
+The rollback test restored the exact baseline SHA on a temporary copy. The working-tree MODIFIED_FILE remains on the modified branch. Production behavior now derives route and semantic headers from validated OAuth state, rejects invalid Workspace Routing instead of sending unrestricted traffic, and preserves custom Relay behavior without sending discovery credentials to unverified Relay origins.
+
+Post-check delta (Responses Lite WS handshake):
+Changed files/fields: `openai_ws_forwarder_payload.go` now reconstructs `x-openai-internal-codex-responses-lite` from the inbound WS handshake or staged `client_metadata`; `openai_ws_pool.go` adds the final `OpenAI-Beta` and Responses Lite values to the handshake compatibility key.
+Docker command/input:
+`docker run --rm --network=none -v /Users/lin/.codex/worktrees/a7ed/sub2api-no2api:/src -v /Users/lin/go/pkg/mod:/go/pkg/mod:ro -v /Users/lin/Library/Caches/go-build:/go-cache -w /src/backend golang:1.26.6-alpine sh -c 'GOCACHE=/go-cache GOPATH=/go GOPROXY=off GOSUMDB=off go test -tags=unit ./internal/application/service -count=1 -run "Test(OpenAIWSHeadersReconstructResponsesLiteFromHandshakeOrPayload|OpenAIWSCompatibilityIncludesRouteAuthAndSemanticHeaders|ParseOpenAIWorkspaceRoutingResponse|BuildOpenAIRequest|OpenAIWorkspaceRouting|ApplyOpenAICodexSemanticRequestHeaders|OpenAIRequestBuild|OpenAICodexLatestMetadataKeys|IsHeaderOverride)"'`
+Literal output/result: `ok github.com/Wei-Shaw/sub2api/internal/application/service 0.014s`
+Exit status: `0`
+
+Publication branch verification:
+BASELINE source: `origin/main` at `ac8d8c4a662028052b66b34496025cc00e2d8fe0`.
+MODIFIED commit: `17ac652ecb5af1addaf7fb348d774d794c88cbbf` on `codex/openai-codex-request-headers`.
+Focused Docker command/input (latest-main rebase):
+`docker run --rm --network=none -v /private/tmp/sub2api-openai-headers-publish:/src -v /Users/lin/go/pkg/mod:/go/pkg/mod:ro -v /Users/lin/Library/Caches/go-build:/go-cache -w /src/backend golang:1.26.6-alpine sh -c 'GOCACHE=/go-cache GOPATH=/go GOPROXY=off GOSUMDB=off go test -tags=unit ./internal/application/service -count=1 -run "Test(ParseOpenAIWorkspaceRoutingResponse|BuildOpenAIRequest|OpenAIWorkspaceRouting|ApplyOpenAICodexSemanticRequestHeaders|OpenAIRequestBuild|OpenAIWSCompatibility|OpenAIWSHeadersReconstructResponsesLiteFromHandshakeOrPayload|OpenAICodexLatestMetadataKeys|IsHeaderOverride|OpenAIOAuthCustomRelay|OpenAIOAuthForceRelay|OpenAIWSPool|OpenAI.*Fingerprint|RewriteCodexOutboundSessionMetadata)"'`
+Literal output/result: `ok github.com/Wei-Shaw/sub2api/internal/application/service 0.022s`
+Exit status: `0`
+Compile-all Docker command/input:
+`docker run --rm --network=none -v /private/tmp/sub2api-openai-headers-publish:/src -v /Users/lin/go/pkg/mod:/go/pkg/mod:ro -v /Users/lin/Library/Caches/go-build:/go-cache -w /src/backend golang:1.26.6-alpine sh -c 'GOCACHE=/go-cache GOPATH=/go GOPROXY=off GOSUMDB=off go test ./... -run ^$ -count=1'`
+Literal output/result: `all backend packages compiled; all packages reported [no tests to run]`
+Exit status: `0`
+Vet command/input:
+`docker run --rm --network=none -v /private/tmp/sub2api-openai-headers-publish:/src -v /Users/lin/go/pkg/mod:/go/pkg/mod:ro -v /Users/lin/Library/Caches/go-build:/go-cache -w /src/backend golang:1.26.6-alpine sh -c 'GOCACHE=/go-cache GOPATH=/go GOPROXY=off GOSUMDB=off go vet ./internal/application/service ./internal/transport/http/handler'`
+Literal output/result: ``
+Exit status: `0`
+Documentation command/input: `./tools/check-docs.sh`
+Literal output/result: `Documentation checks passed.`
+Exit status: `0`
+Full service-package command/input: targeted WS/fingerprint suite exceeded the available 180-second wait and was interrupted; the focused selector and compile-all suite completed successfully before that run.
+Restored behavior/status: custom/global OAuth relays remain on their configured endpoint without WHAM bearer discovery; official OAuth uses validated workspace origin/routing and redirect rejection; WS Lite headers are reconstructed and included in socket compatibility; MODIFIED_FILE remains on the modified branch and ROLLBACK.sh restores its fixture baseline.

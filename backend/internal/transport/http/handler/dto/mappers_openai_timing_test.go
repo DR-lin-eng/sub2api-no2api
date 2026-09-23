@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	"github.com/Wei-Shaw/sub2api/internal/shared/openaitiming"
 	"github.com/stretchr/testify/require"
 )
 
@@ -55,3 +56,49 @@ func TestOpenAITimingDisplayFallback(t *testing.T) {
 		})
 	}
 }
+
+func TestOpenAITimingDisplayUsesLowerFirstTokenValue(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		local      *int
+		engine     *float64
+		want       *int
+		wantSource string
+		imageCount int
+		videoCount int
+	}{
+		{name: "local lower", local: intPtr(420), engine: float64Ptr(690.87897), want: intPtr(420), wantSource: "local"},
+		{name: "engine lower", local: intPtr(1250), engine: float64Ptr(690.87897), want: intPtr(691), wantSource: "openai"},
+		{name: "sub-millisecond engine lower", local: intPtr(691), engine: float64Ptr(690.87897), want: intPtr(691), wantSource: "openai"},
+		{name: "exactly equal prefers local", local: intPtr(691), engine: float64Ptr(691), want: intPtr(691), wantSource: "local"},
+		{name: "engine only", engine: float64Ptr(690.87897), want: intPtr(691), wantSource: "openai"},
+		{name: "local only", local: intPtr(420), want: intPtr(420), wantSource: "local"},
+		{name: "missing", wantSource: "local"},
+		{name: "image keeps local", local: intPtr(1250), engine: float64Ptr(690.87897), want: intPtr(1250), wantSource: "local", imageCount: 1},
+		{name: "video keeps local", local: intPtr(1250), engine: float64Ptr(690.87897), want: intPtr(1250), wantSource: "local", videoCount: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			log := service.UsageLog{
+				FirstTokenMs: tc.local,
+				ImageCount:   tc.imageCount,
+				VideoCount:   tc.videoCount,
+			}
+			if tc.engine != nil {
+				log.OpenAITiming = &openaitiming.Metrics{
+					EngineServiceTTFTTotalMs: tc.engine,
+				}
+			}
+
+			user := UsageLogFromService(&log)
+			admin := UsageLogFromServiceAdmin(&log)
+			require.Equal(t, tc.want, user.FirstTokenMs)
+			require.Equal(t, tc.want, admin.FirstTokenMs)
+			require.Equal(t, tc.wantSource, admin.FirstTokenSource)
+			require.Equal(t, tc.local, admin.LocalFirstTokenMs)
+		})
+	}
+}
+
+func intPtr(value int) *int { return &value }
+
+func float64Ptr(value float64) *float64 { return &value }

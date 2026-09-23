@@ -66,6 +66,8 @@ curl -X POST "${BASE}/api/v1/admin/settings/admin-api-keys" \
 
 ## 权限范围
 
+账号质量诊断接口详见[降智账号 API](ACCOUNT_QUALITY_DEGRADED_ACCOUNTS_API.md)。`GET /api/v1/admin/account-quality/degraded-accounts` 需要 `admin.accounts.read` scope（或管理员 JWT 对应的 `accounts.manage` 权限），返回降智 OAuth 账号的 `email`、`account_id`，并在数据项中保留上游 401（`http_status: 401`）。
+
 | Scope | 允许的操作 |
 | --- | --- |
 | `admin.read` | 所有非敏感 Admin GET/HEAD/OPTIONS 请求 |
@@ -207,9 +209,9 @@ python3 tools/disable_oauth_accounts.py --base-url "https://<your-domain>" --pla
 
 自动 runner 默认关闭，需要管理员在页面开启；手动执行不依赖自动开关。`auto_disable` 开启时，异常且当前仍可调度的账号会通过现有调度快照同步路径批量停调。
 
-## OpenAI OAuth 连续 429/502 熔断
+## 网关 OAuth 错误策略
 
-“网关服务 -> 网关韧性 -> 429 回避与 OAuth 熔断”复用以下接口：
+“网关服务 -> 网关韧性 -> 429 回避与 OAuth 熔断”使用以下接口：
 
 - `GET /api/v1/admin/settings/rate-limit-429-cooldown`
 - `PUT /api/v1/admin/settings/rate-limit-429-cooldown`
@@ -232,6 +234,23 @@ Codex 额度检查，而不会直接停调；只有上游明确返回限额状�
 上述 OpenAI OAuth 失败熔断写入专用恢复标记的账号；管理员手工停调会清除该标记，因此不会被
 后台恢复。OpenAI API Key 账号以及其它平台/账号类型不参与自动恢复。
 
+“网关服务 -> 网关韧性 -> OAuth 401 自动清理”使用独立接口：
+
+- `GET /api/v1/admin/settings/oauth-401-cleanup`
+- `PUT /api/v1/admin/settings/oauth-401-cleanup`
+
+该接口的 `enabled` 默认 `false`。开启后，网关已将请求发送到上游且收到 HTTP 401 时，
+会自动软删除直接持有 OAuth 凭据的账号及其 Spark 影子账号，并清理调度快照以及
+token、会话和统计缓存；已删除账号会留下短时进程内阻断，防止并发旧快照继续调度。
+API Key、Setup Token 和不持有凭据的 Spark 影子账号不会
+直接触发删除；影子账号的 401 继续使用原有父账号刷新冷却逻辑。
+
+删除前仓储会在同一 PostgreSQL 事务中锁定账号，并比较收到 401 的完整
+`credentials` JSONB（包括 `_token_version`）。如果请求期间账号已重新授权，比较失败会
+保留新凭据，仅让当前失败请求切换账号。删除写入失败时，网关保留账号并回退到
+原有 401 停调/冷却逻辑。多实例节点通过 scheduler outbox 同步删除结果；设置在各节点
+最多经过约 5 秒缓存周期生效。
+
 ```bash
 curl -X PUT "${BASE}/api/v1/admin/settings/rate-limit-429-cooldown" \
   -H "x-api-key: ${ADMIN_API_KEY}" \
@@ -245,6 +264,11 @@ curl -X PUT "${BASE}/api/v1/admin/settings/rate-limit-429-cooldown" \
     "auto_enable_after_quota_reset_enabled": true,
     "auto_enable_when_quota_available_enabled": true
   }'
+
+curl -X PUT "${BASE}/api/v1/admin/settings/oauth-401-cleanup" \
+  -H "x-api-key: ${ADMIN_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"enabled":true}'
 ```
 
 该操作需要 `admin.settings.write`。两个恢复开关关闭时，自动停调仍保持原有的人工恢复行为；

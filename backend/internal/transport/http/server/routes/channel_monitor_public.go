@@ -21,6 +21,12 @@ func RegisterChannelMonitorPublicRoutes(
 	settingService *service.SettingService,
 	panelRateLimiter *middleware.PanelRateLimiter,
 ) {
+	quality := v1.Group("/account-quality-share")
+	quality.Use(panelRateLimiter.PublicIP())
+	{
+		quality.GET("", h.ChannelMonitor.PublicQualityDashboard)
+		quality.GET("/image/:id", h.ChannelMonitor.PublicQualityImage)
+	}
 	monitors := v1.Group("/channel-status-share")
 	monitors.Use(panelRateLimiter.PublicIP())
 	monitors.Use(gin.HandlerFunc(optionalJWT))

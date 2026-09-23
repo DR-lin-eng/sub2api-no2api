@@ -88,11 +88,12 @@ func TransformClaudeToGeminiWithOptions(claudeReq *ClaudeRequest, projectID, map
 	// 用于存储 tool_use id -> name 映射
 	toolIDToName := make(map[string]string)
 
-	// 检测是否有 web_search 工具
-	hasWebSearchTool := hasWebSearchTool(claudeReq.Tools)
+	// Antigravity rejects built-in search mixed with client function tools.
+	// Preserve the client tools and select search mode only for search-only calls.
+	useWebSearchRequest := hasWebSearchTool(claudeReq.Tools) && !hasClientFunctionTools(claudeReq.Tools)
 	requestType := "agent"
 	targetModel := mappedModel
-	if hasWebSearchTool {
+	if useWebSearchRequest {
 		requestType = "web_search"
 		if targetModel != webSearchFallbackModel {
 			targetModel = webSearchFallbackModel
@@ -151,12 +152,6 @@ func TransformClaudeToGeminiWithOptions(claudeReq *ClaudeRequest, projectID, map
 	innerRequest.ToolConfig = &GeminiToolConfig{
 		FunctionCallingConfig: &GeminiFunctionCallingConfig{Mode: "VALIDATED"},
 	}
-	// Mixed server-side and function tools require this explicit opt-in.
-	if hasMixedToolInvocations(tools) {
-		enabled := true
-		innerRequest.ToolConfig.IncludeServerSideToolInvocations = &enabled
-	}
-
 	if systemInstruction != nil {
 		innerRequest.SystemInstruction = systemInstruction
 	}
@@ -183,19 +178,6 @@ func TransformClaudeToGeminiWithOptions(claudeReq *ClaudeRequest, projectID, map
 	}
 
 	return json.Marshal(v1Req)
-}
-
-func hasMixedToolInvocations(declarations []GeminiToolDeclaration) bool {
-	hasFunctions, hasServerTool := false, false
-	for _, declaration := range declarations {
-		if len(declaration.FunctionDeclarations) > 0 {
-			hasFunctions = true
-		}
-		if declaration.GoogleSearch != nil {
-			hasServerTool = true
-		}
-	}
-	return hasFunctions && hasServerTool
 }
 
 // antigravityIdentity Antigravity identity 提示词
@@ -302,6 +284,26 @@ func filterOpenCodePrompt(text string) string {
 	return ""
 }
 
+// stripClaudeAttribution removes the leading Claude attribution metadata line
+// from Antigravity system text. It is prompt metadata rather than an HTTP
+// header and has been observed to trigger RESOURCE_EXHAUSTED at this upstream.
+// Keep the adaptation scoped to Antigravity; native Anthropic paths retain it.
+func stripClaudeAttribution(text string) string {
+	trimmed := strings.TrimLeft(text, " \t\r\n")
+	if !strings.HasPrefix(trimmed, "x-anthropic-billing-header:") {
+		return text
+	}
+	end := strings.IndexAny(trimmed, "\r\n")
+	if end < 0 {
+		return ""
+	}
+	rest := trimmed[end+1:]
+	if trimmed[end] == '\r' {
+		rest = strings.TrimPrefix(rest, "\n")
+	}
+	return rest
+}
+
 // buildSystemInstruction 构建 systemInstruction（与 Antigravity-Manager 保持一致）
 func buildSystemInstruction(system json.RawMessage, modelName string, opts TransformOptions, tools []ClaudeTool) *GeminiContent {
 	var parts []GeminiPart
@@ -314,6 +316,7 @@ func buildSystemInstruction(system json.RawMessage, modelName string, opts Trans
 		// 尝试解析为字符串
 		var sysStr string
 		if err := json.Unmarshal(system, &sysStr); err == nil {
+			sysStr = stripClaudeAttribution(sysStr)
 			if strings.TrimSpace(sysStr) != "" {
 				if strings.Contains(sysStr, "You are Antigravity") {
 					userHasAntigravityIdentity = true
@@ -329,6 +332,7 @@ func buildSystemInstruction(system json.RawMessage, modelName string, opts Trans
 			var sysBlocks []SystemBlock
 			if err := json.Unmarshal(system, &sysBlocks); err == nil {
 				for _, block := range sysBlocks {
+					block.Text = stripClaudeAttribution(block.Text)
 					if block.Type == "text" && strings.TrimSpace(block.Text) != "" {
 						if strings.Contains(block.Text, "You are Antigravity") {
 							userHasAntigravityIdentity = true
@@ -702,6 +706,18 @@ func hasWebSearchTool(tools []ClaudeTool) bool {
 	return false
 }
 
+func hasClientFunctionTools(tools []ClaudeTool) bool {
+	for _, tool := range tools {
+		if isWebSearchTool(tool) {
+			continue
+		}
+		if strings.TrimSpace(tool.Name) != "" {
+			return true
+		}
+	}
+	return false
+}
+
 func isWebSearchTool(tool ClaudeTool) bool {
 	if strings.HasPrefix(tool.Type, "web_search") || tool.Type == "google_search" {
 		return true
@@ -772,6 +788,11 @@ func buildTools(tools []ClaudeTool) []GeminiToolDeclaration {
 			Description: description,
 			Parameters:  params,
 		})
+	}
+
+	if len(funcDecls) > 0 && hasWebSearch {
+		log.Printf("[antigravity] dropping built-in web_search because client function tools are present")
+		hasWebSearch = false
 	}
 
 	var declarations []GeminiToolDeclaration

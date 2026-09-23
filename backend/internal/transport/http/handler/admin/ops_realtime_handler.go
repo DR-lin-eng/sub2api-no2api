@@ -27,11 +27,12 @@ func (h *OpsHandler) GetConcurrencyStats(c *gin.Context) {
 
 	if !h.opsService.IsRealtimeMonitoringEnabled(c.Request.Context()) {
 		response.Success(c, gin.H{
-			"enabled":   false,
-			"platform":  map[string]*service.PlatformConcurrencyInfo{},
-			"group":     map[int64]*service.GroupConcurrencyInfo{},
-			"account":   map[int64]*service.AccountConcurrencyInfo{},
-			"timestamp": time.Now().UTC(),
+			"enabled":           false,
+			"platform":          map[string]*service.PlatformConcurrencyInfo{},
+			"group":             map[int64]*service.GroupConcurrencyInfo{},
+			"account":           map[int64]*service.AccountConcurrencyInfo{},
+			"session_id_growth": service.SessionIDGrowthInfo{},
+			"timestamp":         time.Now().UTC(),
 		})
 		return
 	}
@@ -57,10 +58,11 @@ func (h *OpsHandler) GetConcurrencyStats(c *gin.Context) {
 	}
 
 	payload := gin.H{
-		"enabled":  true,
-		"platform": platform,
-		"group":    group,
-		"account":  account,
+		"enabled":           true,
+		"platform":          platform,
+		"group":             group,
+		"account":           account,
+		"session_id_growth": service.SessionIDGrowthInfoFromAccounts(account),
 	}
 	if collectedAt != nil {
 		payload["timestamp"] = collectedAt.UTC()
@@ -81,10 +83,11 @@ func (h *OpsHandler) GetConcurrencySnapshot(c *gin.Context) {
 	}
 	if !h.opsService.IsRealtimeMonitoringEnabled(c.Request.Context()) {
 		response.Success(c, gin.H{
-			"enabled":      false,
-			"concurrency":  gin.H{"platform": map[string]any{}, "group": map[int64]any{}, "account": map[int64]any{}},
-			"availability": gin.H{"platform": map[string]any{}, "group": map[int64]any{}, "account": map[int64]any{}},
-			"timestamp":    time.Now().UTC(),
+			"enabled":           false,
+			"concurrency":       gin.H{"platform": map[string]any{}, "group": map[int64]any{}, "account": map[int64]any{}},
+			"availability":      gin.H{"platform": map[string]any{}, "group": map[int64]any{}, "account": map[int64]any{}},
+			"session_id_growth": service.SessionIDGrowthInfo{},
+			"timestamp":         time.Now().UTC(),
 		})
 		return
 	}
@@ -100,6 +103,7 @@ func (h *OpsHandler) GetConcurrencySnapshot(c *gin.Context) {
 	}
 	platformConcurrency, groupConcurrency, accountConcurrency,
 		platformAvailability, groupAvailability, accountAvailability,
+		sessionIDGrowth,
 		collectedAt, err := h.opsService.GetConcurrencySnapshot(c.Request.Context(), platformFilter, groupID)
 	if err != nil {
 		if isOpsRealtimeRequestCanceled(c, err) {
@@ -120,10 +124,12 @@ func (h *OpsHandler) GetConcurrencySnapshot(c *gin.Context) {
 		"group":    groupAvailability,
 		"account":  accountAvailability,
 	}
+	concurrencyPayload["session_id_growth"] = sessionIDGrowth
 	payload := gin.H{
-		"enabled":      true,
-		"concurrency":  concurrencyPayload,
-		"availability": availabilityPayload,
+		"enabled":           true,
+		"concurrency":       concurrencyPayload,
+		"availability":      availabilityPayload,
+		"session_id_growth": sessionIDGrowth,
 	}
 	if collectedAt != nil {
 		payload["timestamp"] = collectedAt.UTC()

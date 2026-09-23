@@ -185,6 +185,19 @@ func (h *OpenAIGatewayHandler) writeLiveCreateError(c *gin.Context, err error) {
 			return
 		}
 		var upstreamErr *service.UpstreamFailoverError
+		if errors.As(err, &upstreamErr) && upstreamErr.IsOpenAIOAuthGatewayRateLimit() {
+			copyFailoverRetryAfter(c, upstreamErr.ResponseHeaders)
+			status := upstreamErr.ClientStatusCode
+			if status == 0 {
+				status = http.StatusTooManyRequests
+			}
+			errType := "rate_limit_error"
+			if status == http.StatusServiceUnavailable {
+				errType = "api_error"
+			}
+			h.errorResponse(c, status, errType, upstreamErr.ClientMessage)
+			return
+		}
 		if errors.As(err, &upstreamErr) && upstreamErr.StatusCode >= 400 && upstreamErr.StatusCode < 500 {
 			h.errorResponse(c, upstreamErr.StatusCode, "invalid_request_error", "Live upstream rejected the request")
 			return

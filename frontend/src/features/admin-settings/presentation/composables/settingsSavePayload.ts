@@ -269,6 +269,9 @@ function buildGatewaySettingsPayload({
     request_priority_pending_mib_per_instance: Number(
       form.request_priority_pending_mib_per_instance,
     ),
+    openai_oauth_force_relay_enabled: form.openai_oauth_force_relay_enabled,
+    openai_oauth_force_relay_base_url:
+      form.openai_oauth_force_relay_base_url?.trim() || "",
     enable_fingerprint_unification: form.enable_fingerprint_unification,
     enable_metadata_passthrough: form.enable_metadata_passthrough,
     enable_cch_signing: form.enable_cch_signing,
@@ -352,6 +355,18 @@ function buildOpenAISchedulingSettingsPayload({
       form.openai_oauth_scheduling_rate_multiplier,
     openai_content_session_burst_balance_enabled:
       form.openai_content_session_burst_balance_enabled,
+    openai_session_id_rate_limit_enabled:
+      form.openai_session_id_rate_limit_enabled,
+    openai_session_id_rate_limit_per_minute:
+      Math.max(0, Math.min(1000000, Math.floor(Number(form.openai_session_id_rate_limit_per_minute) || 0))),
+    openai_oauth_gateway_rate_limit_enabled:
+      form.openai_oauth_gateway_rate_limit_enabled,
+    openai_oauth_gateway_rate_limit_rpm:
+      Math.max(0, Math.min(1000000, Math.floor(Number(form.openai_oauth_gateway_rate_limit_rpm) || 0))),
+    openai_oauth_gateway_rate_limit_burst:
+      Math.max(0, Math.min(1000000, Math.floor(Number(form.openai_oauth_gateway_rate_limit_burst) || 0))),
+    openai_request_integrity_observe_enabled:
+      form.openai_request_integrity_observe_enabled,
     openai_advanced_scheduler_enabled:
       form.openai_advanced_scheduler_enabled,
     openai_advanced_scheduler_sticky_weighted_enabled:

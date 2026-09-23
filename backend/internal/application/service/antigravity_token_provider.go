@@ -249,9 +249,5 @@ func (p *AntigravityTokenProvider) DeleteAccountRuntimeState(accountID int64) {
 }
 
 func AntigravityTokenCacheKey(account *Account) string {
-	projectID := strings.TrimSpace(account.GetCredential("project_id"))
-	if projectID != "" {
-		return "ag:" + projectID
-	}
 	return "ag:account:" + strconv.FormatInt(account.ID, 10)
 }

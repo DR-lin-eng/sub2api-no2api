@@ -128,6 +128,19 @@ export default {
     nameLabel: 'Name',
     namePlaceholder: 'My API Key',
     groupLabel: 'Group',
+    providerLabel: 'Provider',
+    providers: {
+      anthropic: 'Anthropic',
+      openai: 'OpenAI',
+      domestic: 'Chinese AI',
+      other: 'Other',
+    },
+    providerHints: {
+      anthropic: 'Choose an available Anthropic or Claude group',
+      openai: 'Choose an available OpenAI or GPT group',
+      domestic: 'Includes DeepSeek, Kimi, Zhipu GLM, and MiniMax',
+      other: 'Includes Gemini, Grok, Antigravity, and mixed groups',
+    },
     groupBindings: {
       label: 'Key Groups',
       rateProtection: 'Rate ceiling',
@@ -589,7 +602,12 @@ export default {
       openai: 'OpenAI',
       anthropic: 'Anthropic',
       gemini: 'Gemini',
-      grok: 'Grok'
+      grok: 'Grok',
+      kimi: 'Kimi',
+      zhipu: 'Zhipu GLM',
+      deepseek: 'DeepSeek',
+      minimax: 'MiniMax',
+      opencode_go: 'OpenCode'
     },
     extraModelsHeader: 'Extra Models',
     extraModelsEmpty: 'No extra models',

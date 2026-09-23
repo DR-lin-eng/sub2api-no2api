@@ -1,0 +1,648 @@
+[
+  {
+    "name": "all",
+    "html": "<svg>Math.sin(0);requestAnimationFrame(tick)<use href=\"#x\"/><use href=\"#x\"/><use href=\"#x\"/><use href=\"#x\"/><use href=\"#x\"/><use href=\"#x\"/>prefers-reduced-motion matchMedia<button aria-pressed=\"false\">Play</button>aria-labelledby=\"title description\"visibilitychangescarf-tail</svg>",
+    "expected": {
+      "score": 90.0,
+      "raw_points": 90.0,
+      "max_points": 100,
+      "matched_signals": [
+        "js_trig_leg_animation",
+        "defs_use_reuse",
+        "reduced_motion_js",
+        "play_pause_button",
+        "visibilitychange_listener",
+        "multiword_kebab_naming",
+        "no_root_css_vars",
+        "pure_svg_scene"
+      ],
+      "missing_signals": [
+        "title_desc_aria_labelledby"
+      ],
+      "is_model_a": true,
+      "threshold": 55
+    }
+  },
+  {
+    "name": "none",
+    "html": "<svg class=\"sun\"><style>:root{}</style></svg>",
+    "expected": {
+      "score": 0.0,
+      "raw_points": 0.0,
+      "max_points": 100,
+      "matched_signals": [],
+      "missing_signals": [
+        "js_trig_leg_animation",
+        "defs_use_reuse",
+        "reduced_motion_js",
+        "play_pause_button",
+        "title_desc_aria_labelledby",
+        "visibilitychange_listener",
+        "multiword_kebab_naming",
+        "no_root_css_vars",
+        "pure_svg_scene"
+      ],
+      "is_model_a": false,
+      "threshold": 55
+    }
+  },
+  {
+    "name": "trig",
+    "html": "<svg class=\"sun\"><style>:root{}</style>Math.sin(0);requestAnimationFrame(tick)</svg>",
+    "expected": {
+      "score": 20.0,
+      "raw_points": 20.0,
+      "max_points": 100,
+      "matched_signals": [
+        "js_trig_leg_animation"
+      ],
+      "missing_signals": [
+        "defs_use_reuse",
+        "reduced_motion_js",
+        "play_pause_button",
+        "title_desc_aria_labelledby",
+        "visibilitychange_listener",
+        "multiword_kebab_naming",
+        "no_root_css_vars",
+        "pure_svg_scene"
+      ],
+      "is_model_a": false,
+      "threshold": 55
+    }
+  },
+  {
+    "name": "reuse",
+    "html": "<svg class=\"sun\"><style>:root{}</style><use href=\"#x\"/><use href=\"#x\"/><use href=\"#x\"/><use href=\"#x\"/><use href=\"#x\"/><use href=\"#x\"/></svg>",
+    "expected": {
+      "score": 15.0,
+      "raw_points": 15.0,
+      "max_points": 100,
+      "matched_signals": [
+        "defs_use_reuse"
+      ],
+      "missing_signals": [
+        "js_trig_leg_animation",
+        "reduced_motion_js",
+        "play_pause_button",
+        "title_desc_aria_labelledby",
+        "visibilitychange_listener",
+        "multiword_kebab_naming",
+        "no_root_css_vars",
+        "pure_svg_scene"
+      ],
+      "is_model_a": false,
+      "threshold": 55
+    }
+  },
+  {
+    "name": "motion",
+    "html": "<svg class=\"sun\"><style>:root{}</style>prefers-reduced-motion matchMedia</svg>",
+    "expected": {
+      "score": 12.0,
+      "raw_points": 12.0,
+      "max_points": 100,
+      "matched_signals": [
+        "reduced_motion_js"
+      ],
+      "missing_signals": [
+        "js_trig_leg_animation",
+        "defs_use_reuse",
+        "play_pause_button",
+        "title_desc_aria_labelledby",
+        "visibilitychange_listener",
+        "multiword_kebab_naming",
+        "no_root_css_vars",
+        "pure_svg_scene"
+      ],
+      "is_model_a": false,
+      "threshold": 55
+    }
+  },
+  {
+    "name": "button",
+    "html": "<svg class=\"sun\"><style>:root{}</style><button aria-pressed=\"false\">Play</button></svg>",
+    "expected": {
+      "score": 12.0,
+      "raw_points": 12.0,
+      "max_points": 100,
+      "matched_signals": [
+        "play_pause_button"
+      ],
+      "missing_signals": [
+        "js_trig_leg_animation",
+        "defs_use_reuse",
+        "reduced_motion_js",
+        "title_desc_aria_labelledby",
+        "visibilitychange_listener",
+        "multiword_kebab_naming",
+        "no_root_css_vars",
+        "pure_svg_scene"
+      ],
+      "is_model_a": false,
+      "threshold": 55
+    }
+  },
+  {
+    "name": "title",
+    "html": "<svg class=\"sun\"><style>:root{}</style>aria-labelledby=\"title description\"</svg>",
+    "expected": {
+      "score": 0.0,
+      "raw_points": 0.0,
+      "max_points": 100,
+      "matched_signals": [],
+      "missing_signals": [
+        "js_trig_leg_animation",
+        "defs_use_reuse",
+        "reduced_motion_js",
+        "play_pause_button",
+        "title_desc_aria_labelledby",
+        "visibilitychange_listener",
+        "multiword_kebab_naming",
+        "no_root_css_vars",
+        "pure_svg_scene"
+      ],
+      "is_model_a": false,
+      "threshold": 55
+    }
+  },
+  {
+    "name": "visibility",
+    "html": "<svg class=\"sun\"><style>:root{}</style>visibilitychange</svg>",
+    "expected": {
+      "score": 8.0,
+      "raw_points": 8.0,
+      "max_points": 100,
+      "matched_signals": [
+        "visibilitychange_listener"
+      ],
+      "missing_signals": [
+        "js_trig_leg_animation",
+        "defs_use_reuse",
+        "reduced_motion_js",
+        "play_pause_button",
+        "title_desc_aria_labelledby",
+        "multiword_kebab_naming",
+        "no_root_css_vars",
+        "pure_svg_scene"
+      ],
+      "is_model_a": false,
+      "threshold": 55
+    }
+  },
+  {
+    "name": "naming",
+    "html": "<svg class=\"sun\"><style>:root{}</style>scarf-tail</svg>",
+    "expected": {
+      "score": 8.0,
+      "raw_points": 8.0,
+      "max_points": 100,
+      "matched_signals": [
+        "multiword_kebab_naming"
+      ],
+      "missing_signals": [
+        "js_trig_leg_animation",
+        "defs_use_reuse",
+        "reduced_motion_js",
+        "play_pause_button",
+        "title_desc_aria_labelledby",
+        "visibilitychange_listener",
+        "no_root_css_vars",
+        "pure_svg_scene"
+      ],
+      "is_model_a": false,
+      "threshold": 55
+    }
+  },
+  {
+    "name": "comment_root",
+    "html": "<svg><!--\n:root\n--></svg>",
+    "expected": {
+      "score": 15.0,
+      "raw_points": 15.0,
+      "max_points": 100,
+      "matched_signals": [
+        "no_root_css_vars",
+        "pure_svg_scene"
+      ],
+      "missing_signals": [
+        "js_trig_leg_animation",
+        "defs_use_reuse",
+        "reduced_motion_js",
+        "play_pause_button",
+        "title_desc_aria_labelledby",
+        "visibilitychange_listener",
+        "multiword_kebab_naming"
+      ],
+      "is_model_a": false,
+      "threshold": 55
+    }
+  },
+  {
+    "name": "five_uses",
+    "html": "<svg><use href=\"#a\"/><use href=\"#a\"/><use href=\"#a\"/><use href=\"#a\"/><use href=\"#a\"/></svg>",
+    "expected": {
+      "score": 15.0,
+      "raw_points": 15.0,
+      "max_points": 100,
+      "matched_signals": [
+        "no_root_css_vars",
+        "pure_svg_scene"
+      ],
+      "missing_signals": [
+        "js_trig_leg_animation",
+        "defs_use_reuse",
+        "reduced_motion_js",
+        "play_pause_button",
+        "title_desc_aria_labelledby",
+        "visibilitychange_listener",
+        "multiword_kebab_naming"
+      ],
+      "is_model_a": false,
+      "threshold": 55
+    }
+  },
+  {
+    "name": "upper_use",
+    "html": "<SVG><USE href=\"#a\"/><USE href=\"#a\"/><USE href=\"#a\"/><USE href=\"#a\"/><USE href=\"#a\"/><USE href=\"#a\"/></SVG>",
+    "expected": {
+      "score": 30.0,
+      "raw_points": 30.0,
+      "max_points": 100,
+      "matched_signals": [
+        "defs_use_reuse",
+        "no_root_css_vars",
+        "pure_svg_scene"
+      ],
+      "missing_signals": [
+        "js_trig_leg_animation",
+        "reduced_motion_js",
+        "play_pause_button",
+        "title_desc_aria_labelledby",
+        "visibilitychange_listener",
+        "multiword_kebab_naming"
+      ],
+      "is_model_a": false,
+      "threshold": 55
+    }
+  },
+  {
+    "name": "unicode_use",
+    "html": "<svg><use href=\"#a\"/><use href=\"#a\"/><use href=\"#a\"/><use href=\"#a\"/><use href=\"#a\"/><use href=\"#a\"/></svg>",
+    "expected": {
+      "score": 30.0,
+      "raw_points": 30.0,
+      "max_points": 100,
+      "matched_signals": [
+        "defs_use_reuse",
+        "no_root_css_vars",
+        "pure_svg_scene"
+      ],
+      "missing_signals": [
+        "js_trig_leg_animation",
+        "reduced_motion_js",
+        "play_pause_button",
+        "title_desc_aria_labelledby",
+        "visibilitychange_listener",
+        "multiword_kebab_naming"
+      ],
+      "is_model_a": false,
+      "threshold": 55
+    }
+  },
+  {
+    "name": "separator_use",
+    "html": "<svg><use\u001chref=\"#a\"/><use\u001chref=\"#a\"/><use\u001chref=\"#a\"/><use\u001chref=\"#a\"/><use\u001chref=\"#a\"/><use\u001chref=\"#a\"/></svg>",
+    "expected": {
+      "score": 30.0,
+      "raw_points": 30.0,
+      "max_points": 100,
+      "matched_signals": [
+        "defs_use_reuse",
+        "no_root_css_vars",
+        "pure_svg_scene"
+      ],
+      "missing_signals": [
+        "js_trig_leg_animation",
+        "reduced_motion_js",
+        "play_pause_button",
+        "title_desc_aria_labelledby",
+        "visibilitychange_listener",
+        "multiword_kebab_naming"
+      ],
+      "is_model_a": false,
+      "threshold": 55
+    }
+  },
+  {
+    "name": "upper_trig",
+    "html": "<svg>math.sin(0) RequestAnimationFrame</svg>",
+    "expected": {
+      "score": 15.0,
+      "raw_points": 15.0,
+      "max_points": 100,
+      "matched_signals": [
+        "no_root_css_vars",
+        "pure_svg_scene"
+      ],
+      "missing_signals": [
+        "js_trig_leg_animation",
+        "defs_use_reuse",
+        "reduced_motion_js",
+        "play_pause_button",
+        "title_desc_aria_labelledby",
+        "visibilitychange_listener",
+        "multiword_kebab_naming"
+      ],
+      "is_model_a": false,
+      "threshold": 55
+    }
+  },
+  {
+    "name": "one_trig",
+    "html": "<svg>Math.cos(0)</svg>",
+    "expected": {
+      "score": 15.0,
+      "raw_points": 15.0,
+      "max_points": 100,
+      "matched_signals": [
+        "no_root_css_vars",
+        "pure_svg_scene"
+      ],
+      "missing_signals": [
+        "js_trig_leg_animation",
+        "defs_use_reuse",
+        "reduced_motion_js",
+        "play_pause_button",
+        "title_desc_aria_labelledby",
+        "visibilitychange_listener",
+        "multiword_kebab_naming"
+      ],
+      "is_model_a": false,
+      "threshold": 55
+    }
+  },
+  {
+    "name": "one_motion",
+    "html": "<svg>prefers-reduced-motion</svg>",
+    "expected": {
+      "score": 15.0,
+      "raw_points": 15.0,
+      "max_points": 100,
+      "matched_signals": [
+        "no_root_css_vars",
+        "pure_svg_scene"
+      ],
+      "missing_signals": [
+        "js_trig_leg_animation",
+        "defs_use_reuse",
+        "reduced_motion_js",
+        "play_pause_button",
+        "title_desc_aria_labelledby",
+        "visibilitychange_listener",
+        "multiword_kebab_naming"
+      ],
+      "is_model_a": false,
+      "threshold": 55
+    }
+  },
+  {
+    "name": "upper_button",
+    "html": "<svg/><BUTTON aria-pressed=\"true\"/>",
+    "expected": {
+      "score": 27.0,
+      "raw_points": 27.0,
+      "max_points": 100,
+      "matched_signals": [
+        "play_pause_button",
+        "no_root_css_vars",
+        "pure_svg_scene"
+      ],
+      "missing_signals": [
+        "js_trig_leg_animation",
+        "defs_use_reuse",
+        "reduced_motion_js",
+        "title_desc_aria_labelledby",
+        "visibilitychange_listener",
+        "multiword_kebab_naming"
+      ],
+      "is_model_a": false,
+      "threshold": 55
+    }
+  },
+  {
+    "name": "one_button",
+    "html": "<svg/><button/>",
+    "expected": {
+      "score": 15.0,
+      "raw_points": 15.0,
+      "max_points": 100,
+      "matched_signals": [
+        "no_root_css_vars",
+        "pure_svg_scene"
+      ],
+      "missing_signals": [
+        "js_trig_leg_animation",
+        "defs_use_reuse",
+        "reduced_motion_js",
+        "play_pause_button",
+        "title_desc_aria_labelledby",
+        "visibilitychange_listener",
+        "multiword_kebab_naming"
+      ],
+      "is_model_a": false,
+      "threshold": 55
+    }
+  },
+  {
+    "name": "two_title",
+    "html": "<svg><title id=\"title\"/><desc id=\"description\"/></svg>",
+    "expected": {
+      "score": 15.0,
+      "raw_points": 15.0,
+      "max_points": 100,
+      "matched_signals": [
+        "no_root_css_vars",
+        "pure_svg_scene"
+      ],
+      "missing_signals": [
+        "js_trig_leg_animation",
+        "defs_use_reuse",
+        "reduced_motion_js",
+        "play_pause_button",
+        "title_desc_aria_labelledby",
+        "visibilitychange_listener",
+        "multiword_kebab_naming"
+      ],
+      "is_model_a": false,
+      "threshold": 55
+    }
+  },
+  {
+    "name": "single_quotes",
+    "html": "<svg aria-labelledby='title description'/>",
+    "expected": {
+      "score": 15.0,
+      "raw_points": 15.0,
+      "max_points": 100,
+      "matched_signals": [
+        "no_root_css_vars",
+        "pure_svg_scene"
+      ],
+      "missing_signals": [
+        "js_trig_leg_animation",
+        "defs_use_reuse",
+        "reduced_motion_js",
+        "play_pause_button",
+        "title_desc_aria_labelledby",
+        "visibilitychange_listener",
+        "multiword_kebab_naming"
+      ],
+      "is_model_a": false,
+      "threshold": 55
+    }
+  },
+  {
+    "name": "cloud",
+    "html": "<svg class=\"cloud\"/>",
+    "expected": {
+      "score": 7.0,
+      "raw_points": 7.0,
+      "max_points": 100,
+      "matched_signals": [
+        "no_root_css_vars"
+      ],
+      "missing_signals": [
+        "js_trig_leg_animation",
+        "defs_use_reuse",
+        "reduced_motion_js",
+        "play_pause_button",
+        "title_desc_aria_labelledby",
+        "visibilitychange_listener",
+        "multiword_kebab_naming",
+        "pure_svg_scene"
+      ],
+      "is_model_a": false,
+      "threshold": 55
+    }
+  },
+  {
+    "name": "upper_cloud",
+    "html": "<svg class=\"Cloud\"/>",
+    "expected": {
+      "score": 15.0,
+      "raw_points": 15.0,
+      "max_points": 100,
+      "matched_signals": [
+        "no_root_css_vars",
+        "pure_svg_scene"
+      ],
+      "missing_signals": [
+        "js_trig_leg_animation",
+        "defs_use_reuse",
+        "reduced_motion_js",
+        "play_pause_button",
+        "title_desc_aria_labelledby",
+        "visibilitychange_listener",
+        "multiword_kebab_naming"
+      ],
+      "is_model_a": false,
+      "threshold": 55
+    }
+  },
+  {
+    "name": "multi_cloud",
+    "html": "<svg class=\"cloud layer\"/>",
+    "expected": {
+      "score": 15.0,
+      "raw_points": 15.0,
+      "max_points": 100,
+      "matched_signals": [
+        "no_root_css_vars",
+        "pure_svg_scene"
+      ],
+      "missing_signals": [
+        "js_trig_leg_animation",
+        "defs_use_reuse",
+        "reduced_motion_js",
+        "play_pause_button",
+        "title_desc_aria_labelledby",
+        "visibilitychange_listener",
+        "multiword_kebab_naming"
+      ],
+      "is_model_a": false,
+      "threshold": 55
+    }
+  },
+  {
+    "name": "boundary_55",
+    "html": "<svg/><script>Math.sin(0);requestAnimationFrame(tick);matchMedia(\"prefers-reduced-motion\");document.addEventListener(\"visibilitychange\",()=>{});</script>",
+    "expected": {
+      "score": 55.0,
+      "raw_points": 55.0,
+      "max_points": 100,
+      "matched_signals": [
+        "js_trig_leg_animation",
+        "reduced_motion_js",
+        "visibilitychange_listener",
+        "no_root_css_vars",
+        "pure_svg_scene"
+      ],
+      "missing_signals": [
+        "defs_use_reuse",
+        "play_pause_button",
+        "title_desc_aria_labelledby",
+        "multiword_kebab_naming"
+      ],
+      "is_model_a": true,
+      "threshold": 55
+    }
+  },
+  {
+    "name": "boundary_55_above",
+    "html": "<svg/><script>Math.sin(0);requestAnimationFrame(tick);matchMedia(\"prefers-reduced-motion\");document.addEventListener(\"visibilitychange\",()=>{});</script>",
+    "expected": {
+      "score": 55.0,
+      "raw_points": 55.0,
+      "max_points": 100,
+      "matched_signals": [
+        "js_trig_leg_animation",
+        "reduced_motion_js",
+        "visibilitychange_listener",
+        "no_root_css_vars",
+        "pure_svg_scene"
+      ],
+      "missing_signals": [
+        "defs_use_reuse",
+        "play_pause_button",
+        "title_desc_aria_labelledby",
+        "multiword_kebab_naming"
+      ],
+      "is_model_a": false,
+      "threshold": 55.1
+    }
+  },
+  {
+    "name": "boundary_54",
+    "html": "<svg/><use href=\"#x\"/><use href=\"#x\"/><use href=\"#x\"/><use href=\"#x\"/><use href=\"#x\"/><use href=\"#x\"/>prefers-reduced-motion matchMedia<button aria-pressed=\"false\">Play</button>",
+    "expected": {
+      "score": 54.0,
+      "raw_points": 54.0,
+      "max_points": 100,
+      "matched_signals": [
+        "defs_use_reuse",
+        "reduced_motion_js",
+        "play_pause_button",
+        "no_root_css_vars",
+        "pure_svg_scene"
+      ],
+      "missing_signals": [
+        "js_trig_leg_animation",
+        "title_desc_aria_labelledby",
+        "visibilitychange_listener",
+        "multiword_kebab_naming"
+      ],
+      "is_model_a": false,
+      "threshold": 55
+    }
+  }
+]

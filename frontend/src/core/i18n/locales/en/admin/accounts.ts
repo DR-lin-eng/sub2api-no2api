@@ -1,6 +1,7 @@
 import cpaMessages from './accounts.cpa'
 import codexMessages from './accounts.codex'
 import bulkActionsMessages from './accounts.bulk-actions'
+import channelMessages from './accounts.channels'
 
 export default {
     accounts: {
@@ -115,6 +116,11 @@ export default {
         gemini: 'Gemini',
         antigravity: 'Antigravity',
         grok: 'Grok',
+        kimi: 'Kimi',
+        zhipu: 'Zhipu GLM',
+        deepseek: 'DeepSeek',
+        minimax: 'MiniMax',
+        opencode_go: 'OpenCode',
       },
       types: {
         oauth: 'OAuth',
@@ -327,6 +333,7 @@ export default {
         cpaFresh: 'CPA capacity is fresh. Fallback concurrency after disabling CPA: {fallback}',
         cpaStale: 'CPA is using a stale snapshot. Fallback concurrency after disabling CPA: {fallback}',
         cpaUnavailable: 'CPA capacity is unavailable and scheduling is stopped. Fallback concurrency after disabling CPA: {fallback}',
+        sessionIDGrowth: 'OpenAI Session ID growth this minute: {count}/min',
         windowCost: {
           blocked: '5h window cost exceeded, account scheduling paused',
           stickyOnly: '5h window cost at threshold, only sticky sessions allowed',
@@ -561,11 +568,7 @@ export default {
       oauthSetupToken: 'OAuth / Setup Token',
       addMethod: 'Add Method',
       setupTokenLongLived: 'Setup Token (Long-lived)',
-      baseUrl: 'Base URL',
-      baseUrlHint: 'Leave default for official Anthropic API',
-      apiKeyRequired: 'API Key *',
-      apiKeyPlaceholder: 'sk-ant-api03-...',
-      apiKeyHint: 'Your Claude Console API Key',
+      ...channelMessages,
       // OpenAI specific hints
       openai: {
         baseUrlHint: 'Leave default for official OpenAI API',
@@ -862,6 +865,8 @@ export default {
           label: 'Custom Relay URL',
           hint: 'Forward requests to a custom relay service. Proxy URL will be passed as a query parameter.',
           urlHint: 'Relay service URL (e.g., https://relay.example.com)',
+          openaiHint: 'Forward OpenAI OAuth/Codex model requests to a custom relay. OAuth authorization and refresh still use OpenAI.',
+          openaiUrlHint: 'Codex relay base (e.g., https://codex-relay.oaifree.com/backend-api/codex)',
         },
         clientAffinity: {
           label: 'Client Affinity Scheduling',

@@ -115,6 +115,7 @@ export interface AdminUser extends User {
   group_rates?: Record<number, number>
   // 当前并发数（仅管理员列表接口返回）
   current_concurrency?: number
+  session_id_growth_per_minute?: number
   // 管理员可见的请求调度等级：0 优先，1 普通，2 低调度
   scheduling_tier: RequestSchedulingTier
 }

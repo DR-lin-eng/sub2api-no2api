@@ -15,7 +15,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 24 // v24: include group model allowlist
+const apiKeyAuthSnapshotVersion = 25 // v25: include group distillation policy
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -585,6 +585,7 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 			LongContextPricingEnabled:       apiKey.Group.LongContextPricingEnabled,
 			ModelPricing:                    cloneGroupModelPricing(apiKey.Group.ModelPricing),
 			ClaudeCodeOnly:                  apiKey.Group.ClaudeCodeOnly,
+			IsDistillationGroup:             apiKey.Group.IsDistillationGroup,
 			FallbackGroupID:                 apiKey.Group.FallbackGroupID,
 			FallbackGroupIDOnInvalidRequest: apiKey.Group.FallbackGroupIDOnInvalidRequest,
 			ModelRouting:                    apiKey.Group.ModelRouting,
@@ -692,6 +693,7 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 			LongContextPricingEnabled:       snapshot.Group.LongContextPricingEnabled,
 			ModelPricing:                    snapshot.Group.ModelPricing,
 			ClaudeCodeOnly:                  snapshot.Group.ClaudeCodeOnly,
+			IsDistillationGroup:             snapshot.Group.IsDistillationGroup,
 			FallbackGroupID:                 snapshot.Group.FallbackGroupID,
 			FallbackGroupIDOnInvalidRequest: snapshot.Group.FallbackGroupIDOnInvalidRequest,
 			ModelRouting:                    snapshot.Group.ModelRouting,
@@ -764,6 +766,7 @@ func apiKeyAuthGroupSnapshotFromGroup(group *Group) *APIKeyAuthGroupSnapshot {
 		LongContextPricingEnabled:       group.LongContextPricingEnabled,
 		ModelPricing:                    cloneGroupModelPricing(group.ModelPricing),
 		ClaudeCodeOnly:                  group.ClaudeCodeOnly,
+		IsDistillationGroup:             group.IsDistillationGroup,
 		FallbackGroupID:                 group.FallbackGroupID,
 		FallbackGroupIDOnInvalidRequest: group.FallbackGroupIDOnInvalidRequest,
 		ModelRouting:                    group.ModelRouting,
@@ -822,6 +825,7 @@ func apiKeyGroupFromAuthSnapshot(snapshot *APIKeyAuthGroupSnapshot) *Group {
 		LongContextPricingEnabled:       snapshot.LongContextPricingEnabled,
 		ModelPricing:                    snapshot.ModelPricing,
 		ClaudeCodeOnly:                  snapshot.ClaudeCodeOnly,
+		IsDistillationGroup:             snapshot.IsDistillationGroup,
 		FallbackGroupID:                 snapshot.FallbackGroupID,
 		FallbackGroupIDOnInvalidRequest: snapshot.FallbackGroupIDOnInvalidRequest,
 		ModelRouting:                    snapshot.ModelRouting,

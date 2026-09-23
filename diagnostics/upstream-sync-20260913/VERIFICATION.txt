@@ -1,0 +1,97 @@
+UPSTREAM SYNC VERIFICATION
+==========================
+Changed branch: codex/upstream-sync-20260913
+Changed fields: selective upstream main synchronization through bdb42e22; WS pool reader/queue lifecycle; Gemini in-band signals; Claude cache-control/output_config beta handling; model discovery; transient auth; monitor paths; EasyPay validation; heartbeat envelope; privacy transport; Antigravity Gemini 3.7/3.8; Grok media slot ownership.
+
+Artifacts (all reopened after write):
+- /private/tmp/sub2api-work-20260913/MODIFIED_FILE
+- /private/tmp/sub2api-work-20260913/DIFF_FILE
+- /private/tmp/sub2api-work-20260913/VERIFICATION.txt
+- /private/tmp/sub2api-work-20260913/ROLLBACK.sh (executable)
+- /private/tmp/sub2api-work-20260913/diagnostics/upstream-sync-20260913/MODIFIED_FILE (modified source copy)
+- /private/tmp/sub2api-work-20260913/diagnostics/upstream-sync-20260913/DIFF_FILE
+- /private/tmp/sub2api-work-20260913/diagnostics/upstream-sync-20260913/VERIFICATION.txt
+- /private/tmp/sub2api-work-20260913/diagnostics/upstream-sync-20260913/ROLLBACK.sh (executable)
+
+Original root artifact hashes preserved before replacement:
+- MODIFIED_FILE c6879f7bad2c2138c8fbf4fd8d6d0487b05bee3dfa596203ae9ae22faecf761f
+- DIFF_FILE 2f6a2a32a2412b0118f91aef0bfb3f3d255bc8478ee1e071a4d417e1dc21c8e2
+- VERIFICATION.txt e0c2d425bb03d62e2763304bd0eedcaeeea03a6b7a89203b8258082037b125bb
+- ROLLBACK.sh 407a4ed239cafba9b52df1566f9e50faa0eed9e91c6648fe7720e9adf0b00676
+
+Representative copy hashes:
+BASELINE_FILE SHA-256 397215b5d1062c430171e1f32a72ab85b77955466448fa1b5c2748020dcbc724
+MODIFIED_FILE SHA-256 00197eb19ac196aa3c043f4760ef73d9d465d8a129c52588151314918466f42c
+DIFF_FILE lines 16
+
+BASELINE command (exit 0):
+cd /private/tmp/sub2api-baseline-20260913/backend && GOCACHE=/private/tmp/go-cache-sub2 go test -tags=unit ./internal/application/service ./internal/shared/apicompat ./internal/shared/httputil ./internal/transport/http/server/middleware -run "Test(OpenAIWSConnPool|OpenAIWSConn|NormalizeCodexCallOutputBootstrap|ReadRequestBody|PairCodexClientIdentity|JWTAuth|AdminAuth)" -count=1 -timeout=300s
+BASELINE literal output:
+ok   github.com/Wei-Shaw/sub2api/internal/application/service 3.300s
+ok   github.com/Wei-Shaw/sub2api/internal/shared/apicompat 0.146s
+ok   github.com/Wei-Shaw/sub2api/internal/shared/httputil 0.172s
+ok   github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware 0.290s
+
+MODIFIED command (exit 0):
+cd /private/tmp/sub2api-work-20260913/backend && GOCACHE=/private/tmp/go-cache-sub2 go test -tags=unit ./internal/application/service ./internal/shared/apicompat ./internal/shared/httputil ./internal/transport/http/server/middleware -run "Test(OpenAIWSConnPool|OpenAIWSConn|NormalizeCodexCallOutputBootstrap|ReadRequestBody|PairCodexClientIdentity|JWTAuth|AdminAuth)" -count=1 -timeout=300s
+MODIFIED literal output:
+ok   github.com/Wei-Shaw/sub2api/internal/application/service 3.223s
+ok   github.com/Wei-Shaw/sub2api/internal/shared/apicompat 0.108s
+ok   github.com/Wei-Shaw/sub2api/internal/shared/httputil 0.123s
+ok   github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware 0.250s
+
+MODIFIED full backend command (exit 0):
+cd /private/tmp/sub2api-work-20260913/backend && GOCACHE=/private/tmp/go-cache-sub2 go test -tags=unit ./...
+MODIFIED result: all backend packages passed; representative application/service 185.310s, handler 41.670s, routes 6.092s.
+
+RACE command (exit 0):
+cd /private/tmp/sub2api-work-20260913/backend && GOCACHE=/private/tmp/go-cache-sub2 go test -race -tags=unit ./internal/application/service ./internal/shared/apicompat ./internal/shared/httputil ./internal/transport/http/server/middleware ./internal/transport/http/handler ./internal/transport/http/server/routes -run 'Test(OpenAIWSConn|OpenAIWSConnPool|Gemini|DetectGemini|NormalizeCodexCallOutputBootstrap|LogOpsStreamError|SanitizeAnthropicBodyForBetaTokens_MessageOutputConfig|GatewayServiceAcceptEncodingOnWire|IsCloudflareChallengeResponse|JWTAuth_Transient|AdminAuth_Transient)'
+RACE literal result: all selected packages passed.
+
+FRONTEND commands/results:
+cd /private/tmp/sub2api-work-20260913 && make test-frontend
+exit 0; eslint, vue-tsc --noEmit, and 28 critical Vitest files passed (237 tests).
+cd /private/tmp/sub2api-work-20260913/frontend && pnpm exec vitest run src/core/networks/__tests__/client.spec.ts src/features/billing/__tests__/PaymentProviderDialog.spec.ts
+exit 0; 27 tests passed.
+
+DOCKER focused test command (exit 0):
+docker run --rm -e GOMAXPROCS=2 -e GOPROXY=https://proxy.golang.org,direct -v /private/tmp/sub2api-work-20260913/backend:/workspace -v /Users/lin/go/pkg/mod:/go/pkg/mod -v /private/tmp/go-cache-sub2:/go-cache -w /workspace golang:1.26.6-alpine sh -c 'GOCACHE=/go-cache go test -mod=mod -vet=off -p=1 -tags=unit ./internal/application/service ./internal/shared/httputil ./internal/shared/apicompat ./internal/transport/http/server/middleware ./internal/transport/http/handler ./internal/transport/http/server/routes'
+DOCKER literal output (tail):
+ok   github.com/Wei-Shaw/sub2api/internal/application/service 185.608s
+ok   github.com/Wei-Shaw/sub2api/internal/shared/httputil (cached)
+ok   github.com/Wei-Shaw/sub2api/internal/shared/apicompat (cached)
+ok   github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware 0.029s
+ok   github.com/Wei-Shaw/sub2api/internal/transport/http/handler 41.282s
+ok   github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes 5.274s
+
+DOCKER build command (exit 0):
+docker build --progress=plain --build-arg VERSION=0.1.200 --build-arg COMMIT=codex-upstream-sync-20260913 -t sub2api-upstream-sync-20260913:candidate .
+DOCKER build result: final image manifest list sha256:e4a84b34ca7c0e7cd14103830329a2b190ccf0035efef2037495e86dcacc6bf7; embedded frontend and Go 1.26.6 backend built successfully.
+
+DOCKER runtime command/input (exit 0):
+docker run -d --name sub2api-sync-app --network sub2api-sync-net-20260913 -e AUTO_SETUP=true -e SERVER_HOST=0.0.0.0 -e SERVER_PORT=8080 -e SERVER_MODE=release -e RUN_MODE=simple -e DEPLOYMENT_MODE=standalone -e DATABASE_HOST=sub2api-sync-pg -e DATABASE_PORT=5432 -e DATABASE_USER=sub2api -e DATABASE_PASSWORD=sub2api-test -e DATABASE_DBNAME=sub2api -e DATABASE_SSLMODE=disable -e REDIS_HOST=sub2api-sync-redis -e REDIS_PORT=6379 -e ADMIN_EMAIL=admin@sync.local -e ADMIN_PASSWORD=sync-test-password -e JWT_SECRET=sync-test-jwt-secret-01234567890123456789 sub2api-upstream-sync-20260913:candidate
+DOCKER runtime literal result:
+health={"status":"ok"}
+ready={"ready":true,"node_id":"43207b05f60a","node_name":"43207b05f60a","current_version":"0.1.200","draining":false,"in_flight":0}
+container=running/0
+migrations=296
+
+ROLLBACK command (exit 0):
+/private/tmp/sub2api-work-20260913/diagnostics/upstream-sync-20260913/ROLLBACK.sh /private/tmp/sub2api-work-20260913/diagnostics/upstream-sync-20260913/BASELINE_FILE /private/tmp/sub2api-work-20260913/diagnostics/upstream-sync-20260913/rollback-copy.go
+ROLLBACK literal output:
+restored_behavior=baseline_bytes
+restored_sha256=397215b5d1062c430171e1f32a72ab85b77955466448fa1b5c2748020dcbc724
+ROLLBACK exit: 0
+Restored behavior/status: rollback-copy.go exactly matches BASELINE_FILE after rollback; MODIFIED_FILE remains changed (hash 00197e...). No database or user worktree cleanup was performed.
+
+Static checks:
+make check-docs -> Documentation checks passed. (exit 0)
+make -C backend check-layout -> exit 0
+Gofmt/go vet focused -> exit 0
+
+PUBLISHED CI (exact merge SHA a927f948b5e21971f1130c7f2e68cc82e4ab88e1):
+- CI run 34763767578: success
+- Docker Image run 34763767598: success
+- Security Scan run 34763767618: success
+- PR #63 merged at 2026-09-13T14:49:09Z
+PR-head CI (a70d9bb1d1da7798385d4d0ae5e5b5f50636eb29): CI 34763088078, Docker 34763088133, Security 34763088070: all success.

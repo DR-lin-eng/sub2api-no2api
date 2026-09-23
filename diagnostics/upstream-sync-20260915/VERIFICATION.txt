@@ -1,0 +1,148 @@
+Changed branch/field: codex/upstream-sync-20260915; backend/internal/domain/constants.go fields PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax, AccountModePayG, and AccountModeCoding.
+
+Artifacts:
+- /private/tmp/sub2api-upstream-sync-20260915.B4qT7C/repo/MODIFIED_FILE
+- /private/tmp/sub2api-upstream-sync-20260915.B4qT7C/repo/DIFF_FILE
+- /private/tmp/sub2api-upstream-sync-20260915.B4qT7C/repo/VERIFICATION.txt
+- /private/tmp/sub2api-upstream-sync-20260915.B4qT7C/repo/ROLLBACK.sh (executable)
+
+Original root artifact hashes preserved before replacement:
+- MODIFIED_FILE: 4e45c99818dfc8ec6d3a88faa20598379527e2bb9b8b6e6902de67d4b91e571f
+- DIFF_FILE: ef13210207975325a629c03482c68eb0798b1b2c7d2d5b1ba5e12e52b3f9d199
+- VERIFICATION.txt: 555e4736558d494083c32fecec42cdf7fc0f1f356b7e84723edb45c3b56f51e4
+- ROLLBACK.sh: c59e80e66b411a05b780cac67551740738ce1984d3b2f5a4984c0c46d33c7912
+
+Source copies:
+- Baseline: diagnostics/upstream-sync-20260915/BASELINE_FILE from origin/main@69810eab4e2bfee8cb002ae9594116a845ff2078.
+- Baseline SHA-256: 4153e700927668d7b93218453daad0e9ac552588f64f4e4a720ab601c093ee8f; size 7883 bytes.
+- Modified: MODIFIED_FILE and diagnostics/upstream-sync-20260915/MODIFIED_FILE from the current backend/internal/domain/constants.go.
+- Modified SHA-256: 9e7ec33119d63c67d2d3cb4730b3dabb8824278c1b343b68d93e14115671cc88; size 8080 bytes.
+- DIFF_FILE SHA-256 after line-prefixing the literal unified diff for repository whitespace checks: 3da5444ae2637bda28ec6e10d77975188973e02b0c7f9abd3b3af2a9cab3d209.
+
+BASELINE exact command:
+cd /private/tmp/sub2api-upstream-sync-20260915.B4qT7C/baseline/backend && GOCACHE=/private/tmp/sub2api-upstream-sync-20260915.B4qT7C/gocache-baseline go test -tags=unit ./internal/application/service -run '^TestCNProvider' -count=1
+BASELINE input: clean origin/main@69810eab4e2bfee8cb002ae9594116a845ff2078; constants.go SHA-256 4153e700927668d7b93218453daad0e9ac552588f64f4e4a720ab601c093ee8f.
+BASELINE literal output:
+ok 	github.com/Wei-Shaw/sub2api/internal/application/service	1.441s [no tests to run]
+BASELINE exit status: 0.
+BASELINE behavior/status: the prior main branch compiled successfully and did not contain CN provider tests or the four first-class platform constants.
+
+MODIFIED exact command:
+cd /private/tmp/sub2api-upstream-sync-20260915.B4qT7C/repo/backend && GOCACHE=/private/tmp/sub2api-upstream-sync-20260915.B4qT7C/gocache-modified go test -tags=unit ./internal/application/service -run '^TestCNProvider' -count=1
+MODIFIED input: merged working tree with the four independent OpenAI-compatible pools, default/custom URLs, model ownership, quota ownership, and Kimi coding mode.
+MODIFIED literal output:
+ok 	github.com/Wei-Shaw/sub2api/internal/application/service	0.973s
+MODIFIED exit status: 0.
+MODIFIED behavior/status: all CN provider domain tests ran and passed.
+
+ROLLBACK preparation exact command:
+cd /private/tmp/sub2api-upstream-sync-20260915.B4qT7C/repo && cp MODIFIED_FILE diagnostics/upstream-sync-20260915/rollback-copy.go && shasum -a 256 diagnostics/upstream-sync-20260915/rollback-copy.go && rg -n 'Platform(Kimi|Zhipu|Deepseek|MiniMax)' diagnostics/upstream-sync-20260915/rollback-copy.go
+ROLLBACK preparation literal output:
+9e7ec33119d63c67d2d3cb4730b3dabb8824278c1b343b68d93e14115671cc88  diagnostics/upstream-sync-20260915/rollback-copy.go
+26:	PlatformKimi        = "kimi"
+27:	PlatformZhipu       = "zhipu"
+28:	PlatformDeepseek    = "deepseek"
+29:	PlatformMiniMax     = "minimax"
+ROLLBACK preparation exit status: 0.
+
+ROLLBACK exact command:
+cd /private/tmp/sub2api-upstream-sync-20260915.B4qT7C/repo && ./ROLLBACK.sh diagnostics/upstream-sync-20260915/BASELINE_FILE diagnostics/upstream-sync-20260915/rollback-copy.go
+ROLLBACK input: an independent copy with SHA-256 9e7ec33119d63c67d2d3cb4730b3dabb8824278c1b343b68d93e14115671cc88; the source and MODIFIED_FILE were not targeted.
+ROLLBACK literal output:
+restored_behavior=legacy_platform_constants
+restored_status=cn_provider_constants_absent
+restored_sha256=4153e700927668d7b93218453daad0e9ac552588f64f4e4a720ab601c093ee8f
+ROLLBACK exit status: 0.
+ROLLBACK restored behavior/status: the independent copy exactly matches origin/main and no longer contains the four CN provider constants; MODIFIED_FILE remains changed at SHA-256 9e7ec33119d63c67d2d3cb4730b3dabb8824278c1b343b68d93e14115671cc88.
+
+Upstream review:
+- Previous reviewed upstream: bdb42e22f81fcb633ff0a060961211dd2bcb515b.
+- Functional upstream freeze: badfad8b7248b8aac0e6b503a06e392aa31cb294.
+- Final upstream close point: 32682a4f84c6a29104439050a0be14737552cec2.
+- Scope: 45 commits, 18 first-parent merged PRs, and one direct README sponsor commit.
+- Imported correctness changes: #7112, #7073, #7085, #7111, #7082, #7094, #7076, #6925, #6689, #6654, #7126, #7072, and #6257.
+- Closed with no net change: #7110 was fully reverted by #7148.
+- Deferred for separate owner/performance review: #6691, #7091, and #6769.
+- Tree-preserving ancestry merge: 3e023a3ba9c977b65734a50ee44c797bdef408f3; parents c68988fa504f3ac207bf98bb6db3d7cecb98cd9d and badfad8b7248b8aac0e6b503a06e392aa31cb294.
+- Upstream advanced during CI to direct commit 32682a4f84c6a29104439050a0be14737552cec2, which only changed sponsor links/tables in README.md, README_CN.md, and README_JA.md.
+- The sponsor content was excluded under the project's no-sponsor rule; merge 32f828212ec4bbe01617140ef42494856a753167 records 32682a4f as a second parent with identical pre/post tree 6a47ce90a029dbb69511da324c47f9c71e2731f3.
+- Downstream origin/main advanced to 69810eab4e2bfee8cb002ae9594116a845ff2078 (PR #73); its 18 changed files had zero overlap and were merged as a21077696ca72b3046f95e919c6f949ffa772479.
+
+Implemented channel behavior:
+- Kimi, Zhipu GLM, DeepSeek, and MiniMax are first-class platforms across account create/edit/filter, groups, Composite, pricing, platform quota, Ops filters, channel monitoring, model lists, user usage instructions, icons, colors, and i18n.
+- Defaults: Kimi https://api.moonshot.cn/v1; Zhipu https://open.bigmodel.cn/api/paas/v4; DeepSeek https://api.deepseek.com; MiniMax https://api.minimaxi.com/v1.
+- Existing OpenAI-compatible bridge is reused; outbound defaults to Chat Completions, /messages/count_tokens uses local estimation, monitor chat probes are supported, and Responses probes remain OpenAI-only.
+- Migration 243 only widens four CHECK constraints. Existing rows and old OpenAI API-key accounts are not rewritten.
+- Empty quota settings no longer create meaningless rows.
+- Browser inspection found Anthropic-only placeholders on new platforms; commit 966b03b968a97f4d83d94b8a6ba6871fc6d18949 centralized URL/key placeholders and added provider-specific bilingual hints.
+
+Host verification:
+- Focused CN/backend tests passed.
+- Full application/service command: go test -tags=unit ./internal/application/service
+  Literal result: ok github.com/Wei-Shaw/sub2api/internal/application/service 189.483s; exit 0.
+- Full Go fail-only command: GOCACHE=/private/tmp/sub2api-gocache go test -tags=unit -json ./... | jq 'select(.Action=="fail")'
+  Literal output: empty; pipeline exit 0.
+- Frontend command after the final downstream merge: make test-frontend
+  Literal result: Test Files 28 passed (28); Tests 238 passed (238); exit 0.
+- Focused form command: pnpm exec vitest run src/features/admin-accounts/__tests__/CreateAccountModal.spec.ts
+  Literal result: Test Files 1 passed (1); Tests 25 passed (25); exit 0.
+- Typecheck command: cd frontend && pnpm run typecheck
+  Literal output: $ vue-tsc --noEmit; exit 0.
+- Lint command: cd frontend && pnpm run lint:check
+  Literal output: $ eslint .; exit 0.
+- Docs command: make check-docs
+  Literal output: Documentation checks passed.; exit 0.
+- Layout command: make -C backend check-layout
+  Literal failure: internal/application/service/openai_ws_v2/passthrough_relay.go has 1273 lines (limit 1200).
+  Exit status: nonzero. This file was unchanged by the branch and is recorded as existing main-branch debt, not mixed into this sync.
+- Diff command: git diff --check
+  Literal output: empty; exit 0.
+- Initial published SHA 6bba0e49278d741aee75956e2faa06132b4262a5 exposed one branch-owned CI lint failure in runs 34935396073 and 34935439862.
+- GitHub annotation: backend/internal/application/service/openai_passthrough_normalization_test.go:103:25, "Error return value is not checked (errcheck)".
+- Fix: split the nested type assertions and verify both assertion results with require.True before inspecting the decoded message.
+- Fixed test command: GOCACHE=/private/tmp/sub2api-upstream-sync-20260915.B4qT7C/gocache-modified go test -tags=unit ./internal/application/service -run '^TestNormalizeOpenAIPassthroughOAuthBody_StripsOnlyInputItemInternalMetadata$' -count=1
+  Literal output: ok github.com/Wei-Shaw/sub2api/internal/application/service 1.072s; exit 0.
+- Fixed lint command: docker run --rm -v /private/tmp/sub2api-upstream-sync-20260915.B4qT7C/repo/backend:/app -v /private/tmp/sub2api-upstream-sync-20260915.B4qT7C/golangci-lint-v2.9.0:/usr/local/bin/golangci-lint:ro -v /Users/lin/go/pkg/mod:/go/pkg/mod:ro -w /app -e GOCACHE=/tmp/go-cache -e GOLANGCI_LINT_CACHE=/tmp/golangci-cache golang:1.26.6-alpine sh -lc 'export PATH=/usr/local/go/bin:$PATH; golangci-lint run --timeout=10m --concurrency=1 --enable-only=errcheck ./internal/application/service'
+  Literal output: 0 issues.; exit 0.
+
+Performance exact command:
+cd /private/tmp/sub2api-upstream-sync-20260915.B4qT7C/repo/backend && GOCACHE=/private/tmp/sub2api-upstream-sync-20260915.B4qT7C/gocache-modified go test -tags=unit ./internal/application/service -run '^$' -bench '^BenchmarkNormalizeCNProviderPlatform$' -benchmem -count=5
+Performance literal result:
+BenchmarkNormalizeCNProviderPlatform-10 966609357 1.375 ns/op 0 B/op 0 allocs/op
+BenchmarkNormalizeCNProviderPlatform-10 855421071 1.243 ns/op 0 B/op 0 allocs/op
+BenchmarkNormalizeCNProviderPlatform-10 927787226 1.279 ns/op 0 B/op 0 allocs/op
+BenchmarkNormalizeCNProviderPlatform-10 1000000000 1.211 ns/op 0 B/op 0 allocs/op
+BenchmarkNormalizeCNProviderPlatform-10 938196625 1.255 ns/op 0 B/op 0 allocs/op
+PASS
+ok github.com/Wei-Shaw/sub2api/internal/application/service 9.052s
+Performance exit status: 0.
+
+Final Docker verification:
+- Image build command: docker build --build-arg COMMIT=a21077696ca72b3046f95e919c6f949ffa772479 -t sub2api-upstream-sync-20260915:candidate .
+- Image build literal result: exported manifest list sha256:fbefaa98e01cf4bc03ed4dc80280db745616b833d779f4e3700a64668eff29bb and tagged sub2api-upstream-sync-20260915:candidate; exit 0.
+- Final focused command:
+  docker run --rm -v /private/tmp/sub2api-upstream-sync-20260915.B4qT7C/repo:/src -v /Users/lin/go/pkg/mod:/go/pkg/mod:ro -w /src/backend -e GOCACHE=/tmp/go-cache golang:1.26.6-alpine sh -lc 'export PATH=/usr/local/go/bin:$PATH; go test -tags=unit ./internal/application/service ./internal/transport/http/server/middleware ./internal/transport/http/server/routes -run "TestCNProvider|Test.*Permission|TestRequiredAdminPermission|TestAdminAPIKeyScopePolicy" -count=1'
+- Final focused literal output:
+  ok github.com/Wei-Shaw/sub2api/internal/application/service 0.070s
+  ok github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware 0.015s
+  ok github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes 0.014s [no tests to run]
+- Final focused exit status: 0.
+- Upgrade runtime reused PostgreSQL and Redis, replaced only sub2api-sync-app-20260915, and adopted the existing installation.
+- GET /health literal output: {"status":"ok"}; exit 0.
+- GET /ready literal output: {"ready":true,"node_id":"ce1525432c1d","node_name":"ce1525432c1d","current_version":"0.1.203","draining":false,"in_flight":0}; exit 0.
+- Container literal state: status=running health=healthy restart_count=0 image=sha256:fbefaa98e01cf4bc03ed4dc80280db745616b833d779f4e3700a64668eff29bb.
+- PostgreSQL migration count literal output: 297; exit 0.
+- PostgreSQL constraint query returned all four named checks with kimi, zhipu, deepseek, and minimax; exit 0.
+- Redis command literal output: PONG; exit 0.
+
+Browser verification against the final Docker image:
+- Desktop viewport 1440x900: nine platform buttons visible; Kimi selected as API Key / OpenAI-compatible.
+- Mobile viewport 390x844: documentScrollWidth=390 and innerWidth=390; dialog width=390; every platform button right edge <=353.
+- Kimi URL/placeholder https://api.moonshot.cn/v1; key placeholder sk-...; provider hint present.
+- Zhipu URL/placeholder https://open.bigmodel.cn/api/paas/v4; key placeholder API Key; provider hint present.
+- DeepSeek URL/placeholder https://api.deepseek.com; key placeholder sk-...; provider hint present.
+- MiniMax URL/placeholder https://api.minimaxi.com/v1; key placeholder API Key; provider hint present.
+- Browser viewport override was reset and the temporary tab was closed.
+
+Publication:
+- Branch push, pull request, merge SHA, exact-SHA Actions, Security Scan, Docker Image, and GHCR manifest evidence are appended after remote publication.

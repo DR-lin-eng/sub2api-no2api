@@ -1,0 +1,10 @@
+2026/09/10 06:46:58 [Pricing] Local pricing file not found, downloading...
+2026/09/10 06:46:58 [Pricing] Downloading from https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json
+2026/09/10 06:46:58 [Pricing] Downloaded 230 models successfully
+2026/09/10 06:46:58 [Pricing] Update scheduler started (check every 10m0s)
+2026/09/10 06:46:58 [Pricing] Service initialized with 230 models
+2026/09/10 06:46:58 [Pricing] Loaded 230 models from /tmp/pricing-probe-144593327/model_pricing.json
+2026/09/10 06:46:58 [Pricing] Update scheduler started (check every 10m0s)
+2026/09/10 06:46:58 [Pricing] Service initialized with 230 models
+2026/09/10 06:46:58 [Pricing] Service stopped
+2026/09/10 06:46:58 [Pricing] Service stopped

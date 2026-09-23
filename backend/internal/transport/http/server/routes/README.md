@@ -6,6 +6,7 @@
 | --- | --- |
 | `admin.go` | `/api/v1/admin` |
 | `auth.go` | 登录、OAuth 和会话 |
+| `oauth2_provider.go` | 对外 OAuth2 授权、token、userinfo 和撤销 |
 | `gateway.go` | LLM、OpenAI/Codex、图片和兼容入口 |
 | `payment.go` | 支付与回调 |
 | `user.go` | 用户侧 API |

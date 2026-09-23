@@ -37,8 +37,22 @@ func TestCodexSimulationSettingsHandlerHidesIdentitySecret(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, recorder.Code)
 	require.Contains(t, recorder.Body.String(), `"identity_secret_configured":true`)
+	require.Contains(t, recorder.Body.String(), `"turn_state_target_length":292`)
 	require.NotContains(t, recorder.Body.String(), cfg.Gateway.CodexSimulation.IdentitySecret)
 	require.NotContains(t, recorder.Body.String(), `"identity_secret"`)
+}
+
+func TestStateDiagnosticsHandlerUsesDedicatedReadOnlyEndpoint(t *testing.T) {
+	h, _ := newCodexSimulationSettingHandlerTest(&config.Config{})
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/admin/state-diagnostics", nil)
+
+	h.GetStateDiagnostics(c)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Contains(t, recorder.Body.String(), `"scope":"current_node"`)
+	require.Contains(t, recorder.Body.String(), `"items":[]`)
 }
 
 func TestCodexSimulationSettingsHandlerPersistsRuntimeOverrideAndGeneratesSecret(t *testing.T) {
@@ -46,7 +60,7 @@ func TestCodexSimulationSettingsHandlerPersistsRuntimeOverrideAndGeneratesSecret
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest(http.MethodPut, "/api/v1/admin/settings/codex-simulation", bytes.NewBufferString(
-		`{"full_simulation_enabled":true,"continuation_mode":"enforce","state_ttl_seconds":604800}`,
+		`{"full_simulation_enabled":true,"turn_state_replay_enabled":true,"turn_states":["state-a","state-b"],"continuation_mode":"enforce","state_ttl_seconds":604800}`,
 	))
 	c.Request.Header.Set("Content-Type", "application/json")
 
@@ -57,8 +71,30 @@ func TestCodexSimulationSettingsHandlerPersistsRuntimeOverrideAndGeneratesSecret
 	var persisted service.CodexSimulationSettings
 	require.NoError(t, json.Unmarshal([]byte(repo.values[service.SettingKeyCodexSimulationSettings]), &persisted))
 	require.True(t, persisted.IdentitySecretConfigured())
+	require.True(t, persisted.TurnStateReplayEnabled)
+	require.Equal(t, []string{"state-a", "state-b"}, persisted.TurnStates)
+	require.Contains(t, recorder.Body.String(), `"turn_states":["state-a","state-b"]`)
 	require.NotContains(t, recorder.Body.String(), persisted.IdentitySecret)
 	require.NotContains(t, recorder.Body.String(), `"identity_secret"`)
+}
+
+func TestSyncCodexTurnStatesHandlerUsesHealthyQualityResultsAndHidesBindings(t *testing.T) {
+	h, repo := newCodexSimulationSettingHandlerTest(&config.Config{})
+	repo.values = map[string]string{
+		service.SettingKeyAccountQualityState: `{"status":"succeeded","results":[{"account_id":7,"quality_status":"healthy","quality_turn_states":["captured-state"]}]}`,
+	}
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/admin/settings/codex-simulation/sync-turn-states", nil)
+
+	h.SyncCodexTurnStates(c)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Contains(t, recorder.Body.String(), `"turn_states":["captured-state"]`)
+	require.NotContains(t, recorder.Body.String(), "turn_state_account_ids")
+	var persisted service.CodexSimulationSettings
+	require.NoError(t, json.Unmarshal([]byte(repo.values[service.SettingKeyCodexSimulationSettings]), &persisted))
+	require.Equal(t, []int64{7}, persisted.TurnStateAccountIDs["captured-state"])
 }
 
 func TestCodexSimulationSettingsHandlerPersistsCLevelSwitch(t *testing.T) {
@@ -76,6 +112,63 @@ func TestCodexSimulationSettingsHandlerPersistsCLevelSwitch(t *testing.T) {
 	var persisted service.CodexSimulationSettings
 	require.NoError(t, json.Unmarshal([]byte(repo.values[service.SettingKeyCodexSimulationSettings]), &persisted))
 	require.True(t, persisted.CLevelSimulationEnabled)
+}
+
+func TestCodexSimulationSettingsHandlerPersistsAutomaticTurnStateControls(t *testing.T) {
+	h, repo := newCodexSimulationSettingHandlerTest(&config.Config{})
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPut, "/api/v1/admin/settings/codex-simulation", bytes.NewBufferString(
+		`{"full_simulation_enabled":false,"turn_state_auto_replay_enabled":true,"turn_state_target_length":300,"turn_state_watch_models":["GPT-5.6-CODEX"],"continuation_mode":"off","state_ttl_seconds":604800}`,
+	))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	h.UpdateCodexSimulationSettings(c)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var persisted service.CodexSimulationSettings
+	require.NoError(t, json.Unmarshal([]byte(repo.values[service.SettingKeyCodexSimulationSettings]), &persisted))
+	require.True(t, persisted.TurnStateAutoReplayEnabled)
+	require.Equal(t, 300, persisted.TurnStateTargetLength)
+	require.Equal(t, []string{"gpt-5.6-codex"}, persisted.TurnStateWatchModels)
+	require.Contains(t, recorder.Body.String(), `"turn_state_auto_replay_enabled":true`)
+	require.Contains(t, recorder.Body.String(), `"turn_state_target_length":300`)
+	require.Contains(t, recorder.Body.String(), `"turn_state_watch_models":["gpt-5.6-codex"]`)
+}
+
+func TestCodexSimulationSettingsHandlerPersistsProxyProbeControls(t *testing.T) {
+	h, repo := newCodexSimulationSettingHandlerTest(&config.Config{})
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPut, "/api/v1/admin/settings/codex-simulation", bytes.NewBufferString(
+		`{"full_simulation_enabled":false,"turn_state_auto_replay_enabled":true,"turn_state_proxy_probe_enabled":true,"turn_state_probe_proxy_id":17,"turn_state_watch_models":["gpt-5.6-sol"],"continuation_mode":"off","state_ttl_seconds":604800}`,
+	))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	h.UpdateCodexSimulationSettings(c)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var persisted service.CodexSimulationSettings
+	require.NoError(t, json.Unmarshal([]byte(repo.values[service.SettingKeyCodexSimulationSettings]), &persisted))
+	require.True(t, persisted.TurnStateProxyProbeEnabled)
+	require.NotNil(t, persisted.TurnStateProbeProxyID)
+	require.Equal(t, int64(17), *persisted.TurnStateProbeProxyID)
+}
+
+func TestCodexSimulationSettingsHandlerPersistsExperimentalTransportSwitch(t *testing.T) {
+	h, repo := newCodexSimulationSettingHandlerTest(&config.Config{})
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPut, "/api/v1/admin/settings/codex-simulation", bytes.NewBufferString(
+		`{"full_simulation_enabled":false,"c_level_simulation_enabled":true,"experimental_transport_enabled":true,"continuation_mode":"off","state_ttl_seconds":604800}`,
+	))
+	c.Request.Header.Set("Content-Type", "application/json")
+	h.UpdateCodexSimulationSettings(c)
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var persisted service.CodexSimulationSettings
+	require.NoError(t, json.Unmarshal([]byte(repo.values[service.SettingKeyCodexSimulationSettings]), &persisted))
+	require.True(t, persisted.ExperimentalTransportEnabled)
+	require.Contains(t, recorder.Body.String(), `"experimental_transport_enabled":true`)
 }
 
 func TestRestoreOriginalCodexBehaviorOverwritesMalformedSettingsWithoutBody(t *testing.T) {
@@ -108,6 +201,9 @@ func TestCodexSimulationSettingsHandlerRejectsMalformedPayloads(t *testing.T) {
 		{name: "partial", body: `{"full_simulation_enabled":false}`},
 		{name: "invalid mode", body: `{"full_simulation_enabled":false,"continuation_mode":"on","state_ttl_seconds":60}`},
 		{name: "invalid ttl", body: `{"full_simulation_enabled":false,"continuation_mode":"off","state_ttl_seconds":0}`},
+		{name: "invalid turn state", body: "{\"full_simulation_enabled\":false,\"turn_states\":[\"bad\\r\\nstate\"],\"continuation_mode\":\"off\",\"state_ttl_seconds\":60}"},
+		{name: "invalid target length", body: `{"full_simulation_enabled":false,"turn_state_target_length":0,"continuation_mode":"off","state_ttl_seconds":60}`},
+		{name: "oversized target length", body: `{"full_simulation_enabled":false,"turn_state_target_length":8193,"continuation_mode":"off","state_ttl_seconds":60}`},
 		{name: "null field", body: `{"full_simulation_enabled":null,"continuation_mode":"off","state_ttl_seconds":60}`},
 	} {
 		t.Run(test.name, func(t *testing.T) {

@@ -1,6 +1,7 @@
 import supportChatMessages from './settings.support-chat'
 import codexSimulationMessages from './settings.codex-simulation'
 import ipv6EgressMessages from './settings.ipv6-egress'
+import oauth2ProviderMessages from './settings.oauth2-provider'
 
 export default {
     settings: {
@@ -29,6 +30,7 @@ export default {
           users_credentials: { name: "Users: credentials", description: "Read regular user keys, bind identities and change email or password" },
           users_billing: { name: "Users: billing and limits", description: "Manage regular user balance, concurrency, RPM, groups and quotas" },
           dashboard_read: { name: "Dashboard: read", description: "View the admin dashboard, not operations or audit pages" },
+          announcements_manage: { name: "Announcements: manage", description: "View, publish, edit and delete announcements and inspect read status" },
           settings_manage: { name: "Settings: manage", description: "Manage system settings; role grants and administrator keys remain admin-only" },
           groups_manage: { name: "Model groups: manage", description: "Manage model groups and routing, not staff permission groups" },
           accounts_manage: { name: "Upstream accounts: manage", description: "Manage upstream accounts, inspection, proxies and egress" },
@@ -45,6 +47,7 @@ export default {
         saveFailed: 'Failed to save permission groups',
         saved: 'Permission groups saved',
       },
+      oauth2Provider: oauth2ProviderMessages,
       performance: {
         title: 'Performance Settings',
         description: 'Tune runtime overhead for high-concurrency and streaming traffic.',
@@ -486,7 +489,16 @@ export default {
         requestPriorityPendingMiB: 'Pending request bodies per instance (MiB)',
         requestPriorityPendingMiBHint: 'Caps request bodies actually buffered in this process. Default: 256 MiB. Request bodies are never stored in Redis.',
         contentSessionBurstBalance: 'Spread concurrent content sessions',
-        contentSessionBurstBalanceHint: 'Disabled by default. When enabled, an initial bounded set of overlapping requests with identical content and no explicit session identifier is spread by account load. High-concurrency overflow is sent directly through a bounded pool of previously validated accounts, trying two accounts before using the existing queue limits. Sequential requests and explicit session_id, prompt_cache_key, and previous_response_id affinity remain unchanged.'
+        contentSessionBurstBalanceHint: 'Disabled by default. When enabled, an initial bounded set of overlapping requests with identical content and no explicit session identifier is spread by account load. High-concurrency overflow is sent directly through a bounded pool of previously validated accounts, trying two accounts before using the existing queue limits. Sequential requests and explicit session_id, prompt_cache_key, and previous_response_id affinity remain unchanged.',
+        sessionIDRateLimit: 'OpenAI Session ID rate limit per minute',
+        sessionIDRateLimitHint: 'Limits newly observed explicit Session IDs per OpenAI OAuth account per minute; API key accounts are unaffected. 0 means unlimited; existing sessions are not counted again.',
+        sessionIDRateLimitPerMinute: 'Per-account limit per minute',
+        oauthGatewayRateLimit: 'OpenAI OAuth per-account limit',
+        oauthGatewayRateLimitHint: 'All accounts use the same settings, but each OAuth account has an independent token bucket shared across cluster instances. API keys, model lists, quota queries, and OAuth refreshes are excluded. Disabling it fully bypasses Redis admission.',
+        oauthGatewayRateLimitRPM: 'Per-account sustained rate (requests/minute)',
+        oauthGatewayRateLimitBurst: 'Per-account burst capacity',
+        requestIntegrityObserve: 'Observe OpenAI request semantic changes',
+        requestIntegrityObserveHint: 'Records only field names with unexplained transformation differences. Request content is not stored and requests are never blocked.'
       },
       upstreamBillingProbe: {
         title: 'Upstream Rate Auto Detection',
@@ -516,7 +528,11 @@ export default {
         openAIWSModeRouterV2: 'OpenAI WS account mode router',
         openAIWSModeRouterV2Hint: 'Web control for gateway.openai_ws.mode_router_v2_enabled. When enabled, each OpenAI account\'s WS mode selects ctx_pool, passthrough, http_bridge, or off. Changes apply at runtime.',
         openAIVisibleOutputTTFT: 'OpenAI visible-output TTFT',
-        openAIVisibleOutputTTFTHint: 'Enabled by default. Records TTFT at the first client-usable text, audio, or tool argument. Disable to use the 0.1.179 event definition. This affects metrics only, not stream delivery.',
+        openAIVisibleOutputTTFTHint: 'Enabled by default. Records TTFT at the first client-usable text, audio, or tool argument; when Codex sends rate_limits/metadata first, the local baseline retains that first event and HTTP SSE rate_limits is delivered immediately. Disable to use the 0.1.179 event definition. The setting affects TTFT metrics only; immediate rate_limits delivery is unchanged.',
+        openAIOAuthForceRelay: 'Force OpenAI OAuth through relay',
+        openAIOAuthForceRelayHint: 'Routes all OpenAI OAuth/Codex model requests, including Responses, Compact, WebSocket, search, model manifests, probes, images, and Live calls, through this relay. OAuth authorization and token refresh remain official.',
+        openAIOAuthForceRelayBaseURL: 'OpenAI OAuth relay base URL',
+        openAIOAuthForceRelayBaseURLPlaceholder: 'https://codex-relay.oaifree.com/backend-api/codex',
         fingerprintUnification: 'Fingerprint Unification',
         fingerprintUnificationHint: 'Unify X-Stainless-* headers across users sharing the same OAuth account. Disabling passes through each client\'s original headers.',
         metadataPassthrough: 'Metadata Passthrough',
@@ -556,11 +572,11 @@ export default {
         antigravityUserAgentVersionPlaceholder: '1.23.2',
         antigravityUserAgentVersionHint: 'Leave empty to use ANTIGRAVITY_USER_AGENT_VERSION or the built-in default 1.23.2; when set, the admin setting takes precedence.',
         openaiCodexUserAgent: 'OpenAI Codex UA',
-        openaiCodexUserAgentPlaceholder: 'codex_cli_rs/0.146.0 (Ubuntu 22.4.0; x86_64) xterm-256color',
-        openaiCodexUserAgentHint: 'Defines the client and device fingerprint used for every outbound OpenAI OAuth request. The version segment is always rebuilt from the effective Codex client version. Leave empty to use the built-in canonical identity.',
+        openaiCodexUserAgentPlaceholder: 'Codex Desktop/0.153.4 (Windows 10.0.26200; x86_64) unknown (Codex Desktop; 26.903.71938)',
+        openaiCodexUserAgentHint: 'HTTP and WebSocket share this identity, preserving the full UA engine version, device details and app build, including in full fingerprint mode. An account UA takes precedence. Leave empty to use the default CLI identity and version settings below.',
         openaiCodexClientVersion: 'Pinned Codex Client Version',
         openaiCodexClientVersionPlaceholder: 'e.g. 0.146.0',
-        openaiCodexClientVersionHint: 'Optional administrator override. Leave empty to use the synchronized stable version, then the compile-time fallback.',
+        openaiCodexClientVersionHint: 'Used for the default CLI identity when no full UA is configured. Leave empty to use the synchronized stable version, then the compile-time fallback.',
         openaiCodexSyncedVersion: 'Synchronized Stable Version',
         openaiCodexSyncedVersionEmpty: 'Not synchronized yet',
         openaiCodexSyncedVersionHint: 'Read-only value maintained by the background release checker. Ordinary settings saves never overwrite it.',
@@ -801,7 +817,7 @@ export default {
         validationFieldRequired: '{field} is required',
         validationEasyPayCustomMethodRequired: 'Each custom EasyPay method requires both a payment type and an upstream type',
         validationEasyPayCustomMethodTypeInvalid: 'Custom EasyPay payment types may only contain lowercase letters, digits, underscores, and hyphens',
-        validationEasyPayCustomMethodUpstreamTypeInvalid: 'EasyPay upstream types may only contain lowercase letters, digits, underscores, and hyphens',
+        validationEasyPayCustomMethodUpstreamTypeInvalid: 'EasyPay upstream types may only contain lowercase letters, digits, periods, underscores, and hyphens',
         validationEasyPayCustomMethodReserved: 'Custom EasyPay payment types cannot use built-in alipay or wxpay',
         validationEasyPayCustomMethodPrefixReserved: 'Custom EasyPay payment types cannot start with alipay or wxpay',
         validationEasyPayCustomMethodDuplicate: 'Custom EasyPay payment types must be unique',
@@ -1079,6 +1095,16 @@ export default {
         autoEnableWhenAvailableHint: 'When an active main Codex quota query confirms available capacity, restore an account paused by the OAuth circuit. Unknown quota, API-key accounts, and manually paused accounts are unchanged.',
         saved: '429 default cooldown settings saved',
         saveFailed: 'Failed to save 429 default cooldown settings'
+      },
+      oauth401Cleanup: {
+        title: 'OAuth 401 Automatic Cleanup',
+        description: 'Configure OAuth account cleanup when the gateway receives an upstream 401 authentication error',
+        enabled: 'Delete OAuth accounts that return 401',
+        enabledHint: 'Only direct OAuth credential accounts are handled. API-key accounts, Setup Tokens, and credential-less Spark shadows are not directly deleted.',
+        warning: 'This soft-deletes the account and linked shadows. A credential comparison preserves an account that was reauthorized after the failed request started.',
+        confirmEnable: 'Enable automatic OAuth 401 deletion? Direct OAuth accounts that receive an upstream gateway 401 will be cleaned up automatically.',
+        saved: 'OAuth 401 automatic cleanup settings saved',
+        saveFailed: 'Failed to save OAuth 401 automatic cleanup settings'
       },
       globalTempUnschedulable: {
         title: 'Global Temporary Scheduling Pause',

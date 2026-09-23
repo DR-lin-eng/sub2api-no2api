@@ -251,7 +251,16 @@ func (s *SettingService) GetAntigravityUserAgentVersion(ctx context.Context) str
 // GetOpenAICodexUserAgent 返回 OpenAI Codex 上游请求使用的 User-Agent。
 // 后台设置优先；为空时回退到内置默认值。
 func (s *SettingService) GetOpenAICodexUserAgent(ctx context.Context) string {
-	fallback := DefaultOpenAICodexUserAgent
+	if ua := s.getConfiguredOpenAICodexUserAgent(ctx); ua != "" {
+		return ua
+	}
+	return DefaultOpenAICodexUserAgent
+}
+
+// Keep the empty setting distinct from an explicitly configured full UA so
+// automatic CLI version updates cannot rewrite a Desktop app's identity.
+func (s *SettingService) getConfiguredOpenAICodexUserAgent(ctx context.Context) string {
+	const fallback = ""
 	if s == nil || s.settingRepo == nil {
 		return fallback
 	}
@@ -282,16 +291,13 @@ func (s *SettingService) GetOpenAICodexUserAgent(ctx context.Context) string {
 			return fallback, nil
 		}
 		ua := strings.TrimSpace(value)
-		if ua == "" {
-			ua = fallback
-		}
 		s.openAICodexUACache.Store(&cachedOpenAICodexUserAgent{
 			value:     ua,
 			expiresAt: time.Now().Add(openAICodexUserAgentCacheTTL).UnixNano(),
 		})
 		return ua, nil
 	})
-	if ua, ok := result.(string); ok && ua != "" {
+	if ua, ok := result.(string); ok {
 		return ua
 	}
 	return fallback
@@ -366,22 +372,17 @@ func (s *SettingService) InvalidateOpenAICodexClientVersionCache() {
 	s.openAICodexVersionCache.Store(&cachedOpenAICodexClientVersion{expiresAt: 0})
 }
 
-// GetOpenAICodexCanonicalUserAgent rebuilds the configured fingerprint with
-// the effective version, preserving OS and terminal details without allowing
-// an old configured UA to bypass version synchronization.
+// GetOpenAICodexCanonicalUserAgent preserves an explicitly configured full UA.
+// Version synchronization only supplies the default CLI identity. Desktop's
+// engine version and trailing clientInfo.version are independent values.
 func (s *SettingService) GetOpenAICodexCanonicalUserAgent(ctx context.Context) string {
 	if s == nil {
 		return codexCLIUserAgent
 	}
-	version := s.GetOpenAICodexClientVersion(ctx)
-	ua := strings.TrimSpace(s.GetOpenAICodexUserAgent(ctx))
-	if ua == "" {
-		return buildCodexCLIUserAgent(version)
+	if ua := s.getConfiguredOpenAICodexUserAgent(ctx); ua != "" {
+		return ua
 	}
-	if rebuilt := openai.SetCodexUserAgentVersion(ua, version); rebuilt != "" {
-		return rebuilt
-	}
-	return ua
+	return buildCodexCLIUserAgent(s.GetOpenAICodexClientVersion(ctx))
 }
 
 var legacyClaudeCodeCodexWhitelistEntry = openai.AllowedClientEntry{

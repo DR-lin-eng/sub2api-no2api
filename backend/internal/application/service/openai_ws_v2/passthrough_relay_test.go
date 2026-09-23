@@ -987,6 +987,92 @@ func TestRelay_LegacyTTFTRecordsTerminalFallback(t *testing.T) {
 	require.NotNil(t, result.FirstTokenMs)
 }
 
+func TestRelay_CodexFirstEventRecordsLocalTTFT(t *testing.T) {
+	t.Parallel()
+
+	clientConn := newPassthroughTestFrameConn(nil, false)
+	upstreamConn := newPassthroughTestFrameConn([]passthroughTestFrame{
+		{msgType: coderws.MessageText, payload: []byte(`{"type":"codex.rate_limits","rate_limits":{"allowed":true}}`)},
+		{msgType: coderws.MessageText, payload: []byte(`{"type":"response.created","response":{"id":"resp_first_event"}}`)},
+		{msgType: coderws.MessageText, payload: []byte(`{"type":"response.completed","response":{"id":"resp_first_event","usage":{"input_tokens":1,"output_tokens":1}}}`)},
+	}, true)
+
+	base := time.Unix(0, 0)
+	var nowTick atomic.Int64
+	nowFn := func() time.Time {
+		return base.Add(time.Duration(nowTick.Add(1)) * 10 * time.Millisecond)
+	}
+	var turn RelayTurnResult
+	result, relayExit := Relay(
+		context.Background(),
+		clientConn,
+		upstreamConn,
+		[]byte(`{"type":"response.create","model":"gpt-5.3-codex","input":[]}`),
+		RelayOptions{
+			Now:            nowFn,
+			OnTurnComplete: func(current RelayTurnResult) { turn = current },
+		},
+	)
+
+	require.Nil(t, relayExit)
+	require.NotNil(t, result.FirstTokenMs)
+	require.Less(t, int64(*result.FirstTokenMs), result.Duration.Milliseconds(),
+		"the local metric should retain the first codex control event")
+	require.NotNil(t, turn.FirstTokenMs,
+		"per-turn timing should retain a control event observed before response.created")
+}
+
+func TestRelay_CodexFirstEventDoesNotBecomeTTFTOnFailedTurn(t *testing.T) {
+	t.Parallel()
+
+	clientConn := newPassthroughTestFrameConn(nil, false)
+	upstreamConn := newPassthroughTestFrameConn([]passthroughTestFrame{
+		{msgType: coderws.MessageText, payload: []byte(`{"type":"codex.rate_limits","rate_limits":{"allowed":true}}`)},
+		{msgType: coderws.MessageText, payload: []byte(`{"type":"response.created","response":{"id":"resp_first_event_failed"}}`)},
+		{msgType: coderws.MessageText, payload: []byte(`{"type":"response.failed","response":{"id":"resp_first_event_failed","status":"failed","error":{"code":"server_error","message":"failed"}}}`)},
+	}, true)
+
+	var turn RelayTurnResult
+	result, relayExit := Relay(
+		context.Background(),
+		clientConn,
+		upstreamConn,
+		[]byte(`{"type":"response.create","model":"gpt-5.3-codex","input":[]}`),
+		RelayOptions{OnTurnComplete: func(current RelayTurnResult) { turn = current }},
+	)
+
+	require.Nil(t, relayExit)
+	require.Nil(t, result.FirstTokenMs)
+	require.Nil(t, turn.FirstTokenMs)
+}
+
+func TestObserveUpstreamMessageSuccessfulTurnPrefersCodexFirstEventOverSemanticTTFT(t *testing.T) {
+	start := time.Unix(0, 0)
+	state := &relayState{}
+	observeAt := func(payload string, elapsed time.Duration) observedUpstreamEvent {
+		return observeUpstreamMessage(
+			state,
+			[]byte(payload),
+			start,
+			func() time.Time { return start.Add(elapsed) },
+			nil,
+		)
+	}
+
+	observeAt(`{"type":"codex.rate_limits","rate_limits":{"allowed":true}}`, 10*time.Millisecond)
+	observeAt(`{"type":"response.created","response":{"id":"resp_precedence"}}`, 20*time.Millisecond)
+	observeAt(`{"type":"response.output_text.delta","delta":"ready"}`, 100*time.Millisecond)
+	terminal := observeAt(
+		`{"type":"response.completed","response":{"id":"resp_precedence","usage":{"input_tokens":1,"output_tokens":1}}}`,
+		120*time.Millisecond,
+	)
+
+	require.NotNil(t, state.firstTokenMs)
+	require.Equal(t, 10, *state.firstTokenMs)
+	require.NotNil(t, terminal.firstToken)
+	require.Equal(t, 10, *terminal.firstToken)
+}
+
 func TestRelay_NoDeltaOutputDoneEvent_RecordsFirstTokenBeforeTerminal(t *testing.T) {
 	t.Parallel()
 

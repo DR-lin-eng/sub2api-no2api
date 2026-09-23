@@ -346,6 +346,137 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     expect(createAccountMock.mock.calls[0]?.[0]?.upstream_billing_probe_enabled).toBe(true)
   })
 
+  it.each([
+    ['kimi', 'https://api.moonshot.cn/v1'],
+    ['zhipu', 'https://open.bigmodel.cn/api/paas/v4'],
+    ['deepseek', 'https://api.deepseek.com'],
+    ['minimax', 'https://api.minimaxi.com/v1'],
+  ] as const)('creates first-class %s API-key accounts with the provider default', async (platform, baseURL) => {
+    const wrapper = mountModal()
+    await wrapper.get(`[data-testid="account-platform-${platform}"]`).trigger('click')
+    await flushPromises()
+    const baseURLInput = wrapper
+      .findAll('form#create-account-form input[type="text"]')
+      .find((input) => (input.element as HTMLInputElement).value === baseURL)
+    expect(baseURLInput?.attributes('placeholder')).toBe(baseURL)
+    expect(wrapper.get('form#create-account-form input[type="password"]').attributes('placeholder')).toBe(
+      platform === 'kimi' || platform === 'deepseek' ? 'sk-...' : 'API Key'
+    )
+    expect(wrapper.text()).toContain('admin.accounts.cnProvider.baseUrlHint')
+    expect(wrapper.text()).toContain('admin.accounts.cnProvider.apiKeyHint')
+    await wrapper.get('form#create-account-form input[type="text"]').setValue(`${platform} account`)
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('provider-key')
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(createAccountMock).toHaveBeenCalledTimes(1)
+    expect(createAccountMock.mock.calls[0]?.[0]).toMatchObject({
+      platform,
+      type: 'apikey',
+      credentials: {
+        api_key: 'provider-key',
+        base_url: baseURL,
+        account_mode: 'payg',
+        api_protocol: 'chat_completions',
+      },
+    })
+  })
+
+  it('stores CN coding-plan and adaptive protocol selections', async () => {
+    const wrapper = mountModal()
+    await wrapper.get('[data-testid="account-platform-kimi"]').trigger('click')
+    await wrapper.get('[data-testid="cn-account-mode"]').setValue('coding')
+    await wrapper.get('[data-testid="cn-api-protocol"]').setValue('adaptive')
+    expect(wrapper.findAll('input[type="text"]').some(input =>
+      (input.element as HTMLInputElement).value === 'https://api.kimi.com/coding/v1'
+    )).toBe(true)
+
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('Kimi coding')
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('provider-key')
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({
+      account_mode: 'coding',
+      api_protocol: 'adaptive',
+      base_url: 'https://api.kimi.com/coding/v1',
+      api_base_urls: {
+        chat_completions: 'https://api.kimi.com/coding/v1',
+        anthropic: 'https://api.kimi.com/coding',
+        responses: 'https://api.kimi.com/coding/v1',
+      },
+    })
+  })
+
+  it('preserves custom adaptive endpoints while changing CN account mode', async () => {
+    const wrapper = mountModal()
+    await wrapper.get('[data-testid="account-platform-kimi"]').trigger('click')
+    await wrapper.get('[data-testid="cn-api-protocol"]').setValue('adaptive')
+    await wrapper.get('[data-testid="cn-adaptive-base-url-anthropic"]').setValue('https://relay.example/anthropic')
+    await wrapper.get('[data-testid="cn-account-mode"]').setValue('coding')
+
+    expect((wrapper.get('[data-testid="cn-adaptive-base-url-chat-completions"]').element as HTMLInputElement).value)
+      .toBe('https://api.kimi.com/coding/v1')
+    expect((wrapper.get('[data-testid="cn-adaptive-base-url-anthropic"]').element as HTMLInputElement).value)
+      .toBe('https://relay.example/anthropic')
+  })
+
+  it('creates OpenCode Go and Zen accounts with adaptive protocol defaults', async () => {
+    const wrapper = mountModal()
+    await wrapper.get('[data-testid="account-platform-opencode_go"]').trigger('click')
+    await flushPromises()
+    expect((wrapper.get('[data-testid="cn-adaptive-base-url-chat-completions"]').element as HTMLInputElement).value)
+      .toBe('https://opencode.ai/zen/go/v1')
+
+    await wrapper.get('[data-testid="opencode-account-mode"]').setValue('zen')
+    expect((wrapper.get('[data-testid="cn-adaptive-base-url-chat-completions"]').element as HTMLInputElement).value)
+      .toBe('https://opencode.ai/zen/v1')
+    expect((wrapper.get('[data-testid="opencode-protocol-pattern-3"]').element as HTMLInputElement).value)
+      .toBe('claude-*')
+
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('OpenCode Zen')
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('provider-key')
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(createAccountMock.mock.calls[0]?.[0]).toMatchObject({
+      platform: 'opencode_go',
+      type: 'apikey',
+      credentials: {
+        account_mode: 'zen',
+        api_protocol: 'adaptive',
+        base_url: 'https://opencode.ai/zen/v1',
+        api_base_urls: {
+          chat_completions: 'https://opencode.ai/zen/v1',
+          anthropic: 'https://opencode.ai/zen',
+          responses: 'https://opencode.ai/zen/v1',
+        },
+        protocol_rules: expect.arrayContaining([
+          { pattern: 'claude-*', protocol: 'anthropic' },
+          { pattern: 'gpt-*', protocol: 'responses' },
+        ]),
+      },
+    })
+  })
+
+  it('stores Zhipu team Coding Plan identifiers', async () => {
+    const wrapper = mountModal()
+    await wrapper.get('[data-testid="account-platform-zhipu"]').trigger('click')
+    await wrapper.get('[data-testid="cn-account-mode"]').setValue('coding')
+    await wrapper.get('[data-testid="zhipu-organization"]').setValue('org-123')
+    await wrapper.get('[data-testid="zhipu-project"]').setValue('project-456')
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('Zhipu team')
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('provider-key')
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({
+      account_mode: 'coding',
+      zhipu_organization: 'org-123',
+      zhipu_project: 'project-456',
+    })
+  })
+
   it('leaves Codex session import billing ownership to the backend', async () => {
     const wrapper = await openCodexImportStep()
     await wrapper.get('[data-testid="import-codex-session"]').trigger('click')

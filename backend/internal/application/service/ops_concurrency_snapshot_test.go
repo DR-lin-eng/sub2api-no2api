@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 type opsAccountsSnapshotRepoProbe struct {
@@ -27,8 +28,10 @@ func TestGetConcurrencySnapshotLoadsAccountsOnce(t *testing.T) {
 		Schedulable: true,
 	}}}
 	svc := &OpsService{accountRepo: repo}
+	svc.sessionIDRateMetrics = NewOpenAISessionIDRateMetrics()
+	svc.sessionIDRateMetrics.Record(7, "session-a", time.Now())
 	platformConcurrency, _, accountConcurrency,
-		platformAvailability, _, accountAvailability, _, err := svc.GetConcurrencySnapshot(context.Background(), "", nil)
+		platformAvailability, _, accountAvailability, sessionGrowth, _, err := svc.GetConcurrencySnapshot(context.Background(), "", nil)
 	if err != nil {
 		t.Fatalf("GetConcurrencySnapshot() error = %v", err)
 	}
@@ -37,6 +40,9 @@ func TestGetConcurrencySnapshotLoadsAccountsOnce(t *testing.T) {
 	}
 	if platformConcurrency["openai"].MaxCapacity != 4 || accountConcurrency[7].MaxCapacity != 4 {
 		t.Fatalf("unexpected concurrency snapshot: platform=%+v account=%+v", platformConcurrency, accountConcurrency)
+	}
+	if sessionGrowth.TotalPerMinute != 1 || accountConcurrency[7].SessionIDGrowthPerMinute != 1 {
+		t.Fatalf("unexpected session growth: summary=%+v account=%+v", sessionGrowth, accountConcurrency[7])
 	}
 	if platformAvailability["openai"].AvailableCount != 1 || !accountAvailability[7].IsAvailable {
 		t.Fatalf("unexpected availability snapshot: platform=%+v account=%+v", platformAvailability, accountAvailability)

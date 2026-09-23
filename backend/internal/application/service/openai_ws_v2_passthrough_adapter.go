@@ -723,6 +723,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	if err := validateOpenAIWSBearerToken(account, token); err != nil {
 		return err
 	}
+	integrityOriginalFirstMessage := append([]byte(nil), firstClientMessage...)
 	firstClientMessage = normalizeCodexBootstrapForOpenAIWS(account.ID, 1, firstClientMessage)
 	visibleOutputTTFT := s.useOpenAIVisibleOutputTTFT(ctx)
 	if isOpenAIResponsesLiteWebSocketPayload(firstClientMessage) {
@@ -823,6 +824,10 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	} else if changed {
 		firstClientMessage = fingerprinted
 	}
+	s.observeOpenAIRequestIntegrity(ctx, c, account, integrityOriginalFirstMessage, firstClientMessage, "websocket_passthrough")
+	if err := s.admitOpenAIOAuthGatewayModelRequest(withOpenAIOAuthGatewayTurnKey(ctx, 1), account); err != nil {
+		return openAIOAuthGatewayRateLimitWSFailover(err, 1, firstClientMessage)
+	}
 
 	// 在 policy filter 之后再提取 service_tier / reasoning_effort 用于
 	// usage 上报：filter
@@ -840,7 +845,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	usageMeta.initFromFirstFrame(firstClientMessage, capturedSessionModel)
 	promptCacheKey := strings.TrimSpace(gjson.GetBytes(firstClientMessage, "prompt_cache_key").String())
 
-	wsURL, err := s.buildOpenAIResponsesWSURL(account)
+	wsURL, err := s.buildOpenAIResponsesWSURLWithContext(ctx, account, token)
 	if err != nil {
 		return fmt.Errorf("build ws url: %w", err)
 	}
@@ -887,12 +892,16 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	if buildHdrErr != nil {
 		return fmt.Errorf("build ws headers: %w", buildHdrErr)
 	}
+	stageOpenAICodexTurnStateModel(c, capturedSessionModel)
+	s.applyConfiguredCodexTurnStateReplay(c, account, headers)
 	if s.CodexSimulationRequestEnabled(c) {
 		headers.Del(CodexProjectIDHeader)
 	}
 	stageCodexOutboundSessionBody(c, firstClientMessage)
 	applyCodexOutboundSessionHeaders(c, account, firstClientMessage, promptCacheKey, headers, fingerprintIDs)
 	applyCodexFingerprintWSHeaders(headers, fingerprintIDs)
+	applyOpenAIResponsesLiteWebSocketHeader(headers, firstClientMessage)
+	applyOpenAICodexSemanticRequestHeaders(headers, c, account, firstClientMessage)
 	// The compatibility key is only for the managed connection pool. This
 	// passthrough path dials upstream directly and must never expose it.
 	headers.Del(codexFingerprintWSKeyHeader)
@@ -966,6 +975,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 		statusCode,
 		openAIWSHeaderValueForLog(handshakeHeaders, "x-request-id"),
 	)
+	s.observeOpenAICodexTurnState(ctx, c, account, capturedSessionModel, extractOpenAICodexTurnState(handshakeHeaders))
 
 	upstreamFrameConn, ok := upstreamConn.(openaiwsv2.FrameConn)
 	if !ok {
@@ -1001,6 +1011,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	}
 
 	completedTurns := atomic.Int32{}
+	var responseTurnState atomic.Pointer[string]
 	// activeHookTurn: -1 means relay closed, 0 means idle, and positive values
 	// identify the admitted turn whose AfterTurn callback is still pending.
 	activeHookTurn := atomic.Int32{}
@@ -1050,6 +1061,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 			}
 			eventType := strings.TrimSpace(gjson.GetBytes(payload, "type").String())
 			isResponseCreate := eventType == "response.create"
+			integrityOriginalPayload := append([]byte(nil), payload...)
 			turnNo := int(completedTurns.Load()) + 1
 			if turnNo < 2 {
 				turnNo = 2
@@ -1074,6 +1086,9 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 					return payload, nil, NewOpenAIWSClientCloseError(coderws.StatusGoingAway, "websocket request canceled", err)
 				}
 				defer endHookProcessing()
+				if err := s.admitOpenAIOAuthGatewayModelRequest(withOpenAIOAuthGatewayTurnKey(ctx, turnNo), account); err != nil {
+					return payload, nil, openAIOAuthGatewayRateLimitWSFailover(err, turnNo, payload)
+				}
 			}
 			if isResponseCreate {
 				if isOpenAIResponsesLiteWebSocketPayload(payload) {
@@ -1194,8 +1209,10 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 			//     覆盖（Store(nil)），因为 OpenAI 上游对该帧实际不传
 			//     service_tier 时按 default 处理，billing 应如实反映。
 			if policyErr == nil && blocked == nil && isResponseCreate {
+				responseTurnState.Store(nil)
 				usageMeta.updateFromResponseCreate(out, model, requestModelForThisFrame)
 				acceptedTurn = true
+				s.observeOpenAIRequestIntegrity(ctx, c, account, integrityOriginalPayload, out, "websocket_passthrough")
 			}
 			return out, blocked, policyErr
 		},
@@ -1269,6 +1286,18 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 			OnTurnComplete: func(turn openaiwsv2.RelayTurnResult) {
 				turnNo := int(completedTurns.Add(1))
 				turnRequestModel, turnUpstreamModel := usageMeta.turnModels(turn.RequestModel)
+				terminalEvent := normalizeOpenAIWSTerminalEvent(turn.TerminalEventType)
+				if terminalEvent == "response.completed" || terminalEvent == "response.done" {
+					turnState := ""
+					if captured := responseTurnState.Swap(nil); captured != nil {
+						turnState = *captured
+					}
+					model := strings.TrimSpace(turnUpstreamModel)
+					if model == "" {
+						model = capturedSessionModel
+					}
+					s.observeOpenAICodexTurnState(ctx, c, account, model, turnState)
+				}
 				turnResult := &OpenAIForwardResult{
 					RequestID: turn.RequestID,
 					Usage: OpenAIUsage{
@@ -1286,7 +1315,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 					ReasoningEffort:               usageMeta.reasoningEffort.Load(),
 					Stream:                        true,
 					OpenAIWSMode:                  true,
-					UpstreamTerminalEvent:         normalizeOpenAIWSTerminalEvent(turn.TerminalEventType),
+					UpstreamTerminalEvent:         terminalEvent,
 					ResponseHeaders:               cloneHeader(handshakeHeaders),
 					Duration:                      turn.Duration,
 					FirstTokenMs:                  turn.FirstTokenMs,
@@ -1334,6 +1363,14 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 					return nil
 				}
 				eventType, _, _ := parseOpenAIWSEventEnvelope(payload)
+				s.observeCodexEncryptedContentPayload(ctx, c, account, capturedSessionModel, payload, "ws_passthrough")
+				if eventType == "codex.response.metadata" {
+					metadataHeaders := make(http.Header)
+					if state := captureOpenAICodexTurnStateMetadata(metadataHeaders, payload); state != "" {
+						captured := state
+						responseTurnState.Store(&captured)
+					}
+				}
 				if (eventType == "error" || eventType == "response.failed") && markOpenAIWSV2PassthroughCyberPolicy(c, payload) {
 					return nil
 				}

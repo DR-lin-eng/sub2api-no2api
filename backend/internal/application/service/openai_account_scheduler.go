@@ -54,6 +54,12 @@ type cachedOpenAIAdvancedSchedulerSetting struct {
 	lowUpstreamRatePriorityEnabled bool
 	oauthSchedulingRateMultiplier  float64
 	contentSessionBurstBalance     bool
+	sessionIDRateLimitEnabled      bool
+	sessionIDRateLimitPerMinute    int
+	oauthGatewayRateLimitEnabled   bool
+	oauthGatewayRateLimitRPM       int
+	oauthGatewayRateLimitBurst     int
+	requestIntegrityObserveEnabled bool
 	enabled                        bool
 	stickyWeightedEnabled          bool
 	subscriptionPriorityEnabled    bool
@@ -66,6 +72,12 @@ type openAIAdvancedSchedulerRuntimeSettings struct {
 	lowUpstreamRatePriorityEnabled bool
 	oauthSchedulingRateMultiplier  float64
 	contentSessionBurstBalance     bool
+	sessionIDRateLimitEnabled      bool
+	sessionIDRateLimitPerMinute    int
+	oauthGatewayRateLimitEnabled   bool
+	oauthGatewayRateLimitRPM       int
+	oauthGatewayRateLimitBurst     int
+	requestIntegrityObserveEnabled bool
 	enabled                        bool
 	stickyWeightedEnabled          bool
 	subscriptionPriorityEnabled    bool
@@ -77,15 +89,18 @@ var openAIAdvancedSchedulerSettingCache atomic.Value // *cachedOpenAIAdvancedSch
 var openAIAdvancedSchedulerSettingSF singleflight.Group
 
 type OpenAIAccountScheduleRequest struct {
-	GroupID                  *int64
-	Platform                 string
-	SessionHash              string
-	StickyAccountID          int64
-	EphemeralStickyAccount   bool
-	StickyPreviousAccountID  int64
-	StickyWeighted           bool
-	SubscriptionPriority     bool
-	PreserveStickyBinding    bool
+	GroupID                 *int64
+	Platform                string
+	SessionHash             string
+	StickyAccountID         int64
+	EphemeralStickyAccount  bool
+	StickyPreviousAccountID int64
+	StickyWeighted          bool
+	SubscriptionPriority    bool
+	PreserveStickyBinding   bool
+	// DisableStickyEscape keeps task-owner lookups on their bound account even
+	// when generic sticky health/concurrency heuristics would prefer another.
+	DisableStickyEscape      bool
 	ContentSessionConcurrent bool
 	PreviousResponseID       string
 	PreviousResponseCanMove  bool
@@ -136,6 +151,7 @@ type openAIAccountSchedulerMetrics struct {
 	selectTotal            atomic.Int64
 	stickyPreviousHitTotal atomic.Int64
 	stickySessionHitTotal  atomic.Int64
+	stickyHitTotal         atomic.Int64
 	loadBalanceSelectTotal atomic.Int64
 	accountSwitchTotal     atomic.Int64
 	latencyMsTotal         atomic.Int64
@@ -176,6 +192,9 @@ func (m *openAIAccountSchedulerMetrics) recordSelect(decision OpenAIAccountSched
 	}
 	if decision.StickySessionHit {
 		m.stickySessionHitTotal.Add(1)
+	}
+	if decision.StickyPreviousHit || decision.StickySessionHit {
+		m.stickyHitTotal.Add(1)
 	}
 	if decision.Layer == openAIAccountScheduleLayerLoadBalance {
 		m.loadBalanceSelectTotal.Add(1)
@@ -452,8 +471,7 @@ func newDefaultOpenAIAccountScheduler(service *OpenAIGatewayService, stats *open
 func (s *defaultOpenAIAccountScheduler) Select(
 	ctx context.Context,
 	req OpenAIAccountScheduleRequest,
-) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
-	decision := OpenAIAccountScheduleDecision{}
+) (selection *AccountSelectionResult, decision OpenAIAccountScheduleDecision, err error) {
 	start := time.Now()
 	defer func() {
 		decision.LatencyMs = time.Since(start).Milliseconds()
@@ -698,7 +716,7 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 	}
 	escapeCfg := s.service.openAIStickyEscapeConfig()
 	contentSessionOverflow := openAIContentSessionRequestOverflow(ctx)
-	if reason, errorRate, ttft, shouldEscape := s.shouldEscapeStickyAccount(accountID, escapeCfg); !contentSessionOverflow && shouldEscape {
+	if reason, errorRate, ttft, shouldEscape := s.shouldEscapeStickyAccount(accountID, escapeCfg); !contentSessionOverflow && shouldEscape && !req.DisableStickyEscape {
 		slog.Info("sticky_escape_triggered",
 			"account_id", accountID,
 			"reason", reason,
@@ -709,6 +727,9 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 	}
 	result, acquireErr := s.service.tryAcquireAccountSlot(ctx, accountID, account.Concurrency)
 	if errors.Is(acquireErr, ErrPriorityAdmissionUnavailable) {
+		return nil, 0, acquireErr
+	}
+	if acquireErr != nil && req.DisableStickyEscape {
 		return nil, 0, acquireErr
 	}
 	if acquireErr == nil && result != nil && result.Acquired {
@@ -730,7 +751,7 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 	// over once the queue is saturated (or when no queue is configured).
 	// WaitPlan.MaxConcurrency 使用 Concurrency（非 EffectiveLoadFactor），因为 WaitPlan 控制的是 Redis 实际并发槽位等待。
 	if s.service.concurrencyService != nil {
-		if escapeCfg.enabled && !contentSessionOverflow && acquireErr == nil && result != nil && !result.Acquired {
+		if escapeCfg.enabled && !req.DisableStickyEscape && !contentSessionOverflow && acquireErr == nil && result != nil && !result.Acquired {
 			waitingCount, waitErr := s.service.concurrencyService.GetAccountWaitingCount(ctx, accountID)
 			queueSaturated := cfg.StickySessionMaxWaiting <= 0 || (waitErr == nil && waitingCount >= cfg.StickySessionMaxWaiting)
 			if queueSaturated {
@@ -1210,15 +1231,15 @@ func (s *defaultOpenAIAccountScheduler) buildOpenAIAccountLoadPlan(
 		plan.includeOverflowFallback = applyOpenAIUpstreamCostFactors(candidates, now, s.service.openAIOAuthSchedulingRateMultiplier(ctx))
 	}
 
-	// Reset 因子（use-it-or-lose-it）：在拥有「未来会话窗口结束时间」的账号中，
+	// Reset 因子（use-it-or-lose-it）：优先读取 Codex 5h 重置时间，回退到会话窗口。
 	// 剩余时间越短 → 因子越接近 1（越早重置越优先用尽）。无活跃窗口的账号因子为 0。
 	// 仅在 weights.Reset > 0 时计算，默认关闭不影响原有行为。
 	minResetRemaining, maxResetRemaining := 0.0, 0.0
 	hasResetSample := false
 	if weights.Reset > 0 {
 		for _, candidate := range candidates {
-			end := candidate.account.SessionWindowEnd
-			if end == nil || !now.Before(*end) {
+			end, ok := openAISchedulingResetWindowEnd(candidate.account, now)
+			if !ok {
 				continue
 			}
 			remaining := end.Sub(now).Seconds()
@@ -1251,7 +1272,7 @@ func (s *defaultOpenAIAccountScheduler) buildOpenAIAccountLoadPlan(
 		}
 		resetFactor := 0.0
 		if weights.Reset > 0 && hasResetSample {
-			if end := item.account.SessionWindowEnd; end != nil && now.Before(*end) {
+			if end, ok := openAISchedulingResetWindowEnd(item.account, now); ok {
 				if maxResetRemaining > minResetRemaining {
 					resetFactor = 1 - clamp01((end.Sub(now).Seconds()-minResetRemaining)/(maxResetRemaining-minResetRemaining))
 				} else {
@@ -1738,7 +1759,7 @@ func (s *defaultOpenAIAccountScheduler) selectionFailureDetails(
 
 	var schedGroup *Group
 	if req.GroupID != nil && s.service.schedulerSnapshot != nil {
-		schedGroup, _ = s.service.schedulerSnapshot.GetGroupByID(ctx, *req.GroupID)
+		schedGroup, _ = s.service.schedulerSnapshot.GetGroupByIDLite(ctx, *req.GroupID)
 	}
 
 	stats := openAISelectionFilterStats{pool: len(accounts)}
@@ -1802,7 +1823,7 @@ func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 	// require_privacy_set: 获取分组信息
 	var schedGroup *Group
 	if req.GroupID != nil && s.service.schedulerSnapshot != nil {
-		schedGroup, _ = s.service.schedulerSnapshot.GetGroupByID(ctx, *req.GroupID)
+		schedGroup, _ = s.service.schedulerSnapshot.GetGroupByIDLite(ctx, *req.GroupID)
 	}
 
 	filtered := make([]*Account, 0, len(accounts))
@@ -2220,6 +2241,7 @@ func (s *defaultOpenAIAccountScheduler) SnapshotMetrics() OpenAIAccountScheduler
 	selectTotal := s.metrics.selectTotal.Load()
 	prevHit := s.metrics.stickyPreviousHitTotal.Load()
 	sessionHit := s.metrics.stickySessionHitTotal.Load()
+	stickyHit := s.metrics.stickyHitTotal.Load()
 	switchTotal := s.metrics.accountSwitchTotal.Load()
 	latencyTotal := s.metrics.latencyMsTotal.Load()
 	loadSkewTotal := s.metrics.loadSkewMilliTotal.Load()
@@ -2235,7 +2257,7 @@ func (s *defaultOpenAIAccountScheduler) SnapshotMetrics() OpenAIAccountScheduler
 	}
 	if selectTotal > 0 {
 		snapshot.SchedulerLatencyMsAvg = float64(latencyTotal) / float64(selectTotal)
-		snapshot.StickyHitRatio = float64(prevHit+sessionHit) / float64(selectTotal)
+		snapshot.StickyHitRatio = float64(stickyHit) / float64(selectTotal)
 		snapshot.AccountSwitchRate = float64(switchTotal) / float64(selectTotal)
 		snapshot.LoadSkewAvg = float64(loadSkewTotal) / 1000 / float64(selectTotal)
 	}
@@ -2256,6 +2278,12 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 				lowUpstreamRatePriorityEnabled: cached.lowUpstreamRatePriorityEnabled,
 				oauthSchedulingRateMultiplier:  cached.oauthSchedulingRateMultiplier,
 				contentSessionBurstBalance:     cached.contentSessionBurstBalance,
+				sessionIDRateLimitEnabled:      cached.sessionIDRateLimitEnabled,
+				sessionIDRateLimitPerMinute:    cached.sessionIDRateLimitPerMinute,
+				oauthGatewayRateLimitEnabled:   cached.oauthGatewayRateLimitEnabled,
+				oauthGatewayRateLimitRPM:       cached.oauthGatewayRateLimitRPM,
+				oauthGatewayRateLimitBurst:     cached.oauthGatewayRateLimitBurst,
+				requestIntegrityObserveEnabled: cached.requestIntegrityObserveEnabled,
 				enabled:                        cached.enabled,
 				stickyWeightedEnabled:          cached.stickyWeightedEnabled,
 				subscriptionPriorityEnabled:    cached.subscriptionPriorityEnabled,
@@ -2272,6 +2300,12 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 					lowUpstreamRatePriorityEnabled: cached.lowUpstreamRatePriorityEnabled,
 					oauthSchedulingRateMultiplier:  cached.oauthSchedulingRateMultiplier,
 					contentSessionBurstBalance:     cached.contentSessionBurstBalance,
+					sessionIDRateLimitEnabled:      cached.sessionIDRateLimitEnabled,
+					sessionIDRateLimitPerMinute:    cached.sessionIDRateLimitPerMinute,
+					oauthGatewayRateLimitEnabled:   cached.oauthGatewayRateLimitEnabled,
+					oauthGatewayRateLimitRPM:       cached.oauthGatewayRateLimitRPM,
+					oauthGatewayRateLimitBurst:     cached.oauthGatewayRateLimitBurst,
+					requestIntegrityObserveEnabled: cached.requestIntegrityObserveEnabled,
 					enabled:                        cached.enabled,
 					stickyWeightedEnabled:          cached.stickyWeightedEnabled,
 					subscriptionPriorityEnabled:    cached.subscriptionPriorityEnabled,
@@ -2284,6 +2318,18 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 		lowUpstreamRatePriorityEnabled := false
 		oauthSchedulingRateMultiplier := defaultOpenAIOAuthSchedulingRateMultiplier
 		contentSessionBurstBalance := false
+		sessionIDRateLimitEnabled := false
+		sessionIDRateLimitPerMinute := 0
+		oauthGatewayRateLimitEnabled := false
+		oauthGatewayRateLimitRPM := 60
+		oauthGatewayRateLimitBurst := 5
+		requestIntegrityObserveEnabled := false
+		if stale, ok := openAIAdvancedSchedulerSettingCache.Load().(*cachedOpenAIAdvancedSchedulerSetting); ok && stale != nil {
+			oauthGatewayRateLimitEnabled = stale.oauthGatewayRateLimitEnabled
+			oauthGatewayRateLimitRPM = stale.oauthGatewayRateLimitRPM
+			oauthGatewayRateLimitBurst = stale.oauthGatewayRateLimitBurst
+			requestIntegrityObserveEnabled = stale.requestIntegrityObserveEnabled
+		}
 		enabled := false
 		stickyWeightedEnabled := false
 		subscriptionPriorityEnabled := false
@@ -2297,6 +2343,12 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 				lowUpstreamRatePriorityEnabled = strings.EqualFold(strings.TrimSpace(values[SettingKeyOpenAILowUpstreamRatePriorityEnabled]), "true")
 				oauthSchedulingRateMultiplier = parseOpenAIOAuthSchedulingRateMultiplier(values[SettingKeyOpenAIOAuthSchedulingRateMultiplier])
 				contentSessionBurstBalance = strings.EqualFold(strings.TrimSpace(values[SettingKeyOpenAIContentSessionBurstBalanceEnabled]), "true")
+				sessionIDRateLimitEnabled = strings.EqualFold(strings.TrimSpace(values[SettingKeyOpenAISessionIDRateLimitEnabled]), "true")
+				sessionIDRateLimitPerMinute = parseOpenAISessionIDRateLimitPerMinute(values[SettingKeyOpenAISessionIDRateLimitPerMinute])
+				oauthGatewayRateLimitEnabled = strings.EqualFold(strings.TrimSpace(values[SettingKeyOpenAIOAuthGatewayRateLimitEnabled]), "true")
+				oauthGatewayRateLimitRPM = parseOpenAIOAuthGatewayRateLimitValue(values[SettingKeyOpenAIOAuthGatewayRateLimitRPM], 60)
+				oauthGatewayRateLimitBurst = parseOpenAIOAuthGatewayRateLimitValue(values[SettingKeyOpenAIOAuthGatewayRateLimitBurst], 5)
+				requestIntegrityObserveEnabled = strings.EqualFold(strings.TrimSpace(values[SettingKeyOpenAIRequestIntegrityObserveEnabled]), "true")
 				enabled = strings.EqualFold(strings.TrimSpace(values[openAIAdvancedSchedulerSettingKey]), "true")
 				stickyWeightedEnabled = strings.EqualFold(strings.TrimSpace(values[SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled]), "true")
 				subscriptionPriorityEnabled = strings.EqualFold(strings.TrimSpace(values[SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled]), "true")
@@ -2315,6 +2367,20 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 				lowUpstreamRatePriorityEnabled = strings.EqualFold(strings.TrimSpace(fallbackValues[SettingKeyOpenAILowUpstreamRatePriorityEnabled]), "true")
 				oauthSchedulingRateMultiplier = parseOpenAIOAuthSchedulingRateMultiplier(fallbackValues[SettingKeyOpenAIOAuthSchedulingRateMultiplier])
 				contentSessionBurstBalance = strings.EqualFold(strings.TrimSpace(fallbackValues[SettingKeyOpenAIContentSessionBurstBalanceEnabled]), "true")
+				sessionIDRateLimitEnabled = strings.EqualFold(strings.TrimSpace(fallbackValues[SettingKeyOpenAISessionIDRateLimitEnabled]), "true")
+				sessionIDRateLimitPerMinute = parseOpenAISessionIDRateLimitPerMinute(fallbackValues[SettingKeyOpenAISessionIDRateLimitPerMinute])
+				if raw, ok := fallbackValues[SettingKeyOpenAIOAuthGatewayRateLimitEnabled]; ok {
+					oauthGatewayRateLimitEnabled = strings.EqualFold(strings.TrimSpace(raw), "true")
+				}
+				if raw, ok := fallbackValues[SettingKeyOpenAIOAuthGatewayRateLimitRPM]; ok {
+					oauthGatewayRateLimitRPM = parseOpenAIOAuthGatewayRateLimitValue(raw, 60)
+				}
+				if raw, ok := fallbackValues[SettingKeyOpenAIOAuthGatewayRateLimitBurst]; ok {
+					oauthGatewayRateLimitBurst = parseOpenAIOAuthGatewayRateLimitValue(raw, 5)
+				}
+				if raw, ok := fallbackValues[SettingKeyOpenAIRequestIntegrityObserveEnabled]; ok {
+					requestIntegrityObserveEnabled = strings.EqualFold(strings.TrimSpace(raw), "true")
+				}
 				enabled = strings.EqualFold(strings.TrimSpace(fallbackValues[openAIAdvancedSchedulerSettingKey]), "true")
 				stickyWeightedEnabled = strings.EqualFold(strings.TrimSpace(fallbackValues[SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled]), "true")
 				subscriptionPriorityEnabled = strings.EqualFold(strings.TrimSpace(fallbackValues[SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled]), "true")
@@ -2327,6 +2393,12 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 			lowUpstreamRatePriorityEnabled: lowUpstreamRatePriorityEnabled,
 			oauthSchedulingRateMultiplier:  oauthSchedulingRateMultiplier,
 			contentSessionBurstBalance:     contentSessionBurstBalance,
+			sessionIDRateLimitEnabled:      sessionIDRateLimitEnabled,
+			sessionIDRateLimitPerMinute:    sessionIDRateLimitPerMinute,
+			oauthGatewayRateLimitEnabled:   oauthGatewayRateLimitEnabled,
+			oauthGatewayRateLimitRPM:       oauthGatewayRateLimitRPM,
+			oauthGatewayRateLimitBurst:     oauthGatewayRateLimitBurst,
+			requestIntegrityObserveEnabled: requestIntegrityObserveEnabled,
 			enabled:                        enabled,
 			stickyWeightedEnabled:          stickyWeightedEnabled,
 			subscriptionPriorityEnabled:    subscriptionPriorityEnabled,
@@ -2338,6 +2410,12 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 			lowUpstreamRatePriorityEnabled: lowUpstreamRatePriorityEnabled,
 			oauthSchedulingRateMultiplier:  oauthSchedulingRateMultiplier,
 			contentSessionBurstBalance:     contentSessionBurstBalance,
+			sessionIDRateLimitEnabled:      sessionIDRateLimitEnabled,
+			sessionIDRateLimitPerMinute:    sessionIDRateLimitPerMinute,
+			oauthGatewayRateLimitEnabled:   oauthGatewayRateLimitEnabled,
+			oauthGatewayRateLimitRPM:       oauthGatewayRateLimitRPM,
+			oauthGatewayRateLimitBurst:     oauthGatewayRateLimitBurst,
+			requestIntegrityObserveEnabled: requestIntegrityObserveEnabled,
 			enabled:                        enabled,
 			stickyWeightedEnabled:          stickyWeightedEnabled,
 			subscriptionPriorityEnabled:    subscriptionPriorityEnabled,
@@ -2386,6 +2464,12 @@ func openAIAdvancedSchedulerRuntimeSettingKeys() []string {
 		SettingKeyOpenAILowUpstreamRatePriorityEnabled,
 		SettingKeyOpenAIOAuthSchedulingRateMultiplier,
 		SettingKeyOpenAIContentSessionBurstBalanceEnabled,
+		SettingKeyOpenAISessionIDRateLimitEnabled,
+		SettingKeyOpenAISessionIDRateLimitPerMinute,
+		SettingKeyOpenAIOAuthGatewayRateLimitEnabled,
+		SettingKeyOpenAIOAuthGatewayRateLimitRPM,
+		SettingKeyOpenAIOAuthGatewayRateLimitBurst,
+		SettingKeyOpenAIRequestIntegrityObserveEnabled,
 		openAIAdvancedSchedulerSettingKey,
 		SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled,
 		SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled,
@@ -2492,6 +2576,7 @@ func (s *OpenAIGatewayService) SelectAccountWithScheduler(
 	selection, decision, err := s.selectAccountWithScheduler(ctx, groupID, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, "", "", requireCompact, PlatformOpenAI, false, true)
 	if selection != nil && selection.Account != nil {
 		s.recordOpenAIContentSessionCandidate(ctx, groupID, sessionHash, selection.Account.ID)
+		s.recordOpenAISessionIDGrowth(ctx, sessionHash, selection.Account)
 	}
 	return selection, decision, err
 }
@@ -2520,6 +2605,7 @@ func (s *OpenAIGatewayService) SelectAccountWithSchedulerForCapability(
 	selection, decision, err := s.selectAccountWithScheduler(ctx, groupID, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, requiredCapability, "", requireCompact, platform, previousResponseCanMove, useUpstreamTokenCost)
 	if selection != nil && selection.Account != nil {
 		s.recordOpenAIContentSessionCandidate(ctx, groupID, sessionHash, selection.Account.ID)
+		s.recordOpenAISessionIDGrowth(ctx, sessionHash, selection.Account)
 	}
 	return selection, decision, err
 }
@@ -2535,6 +2621,7 @@ func (s *OpenAIGatewayService) SelectAccountWithSchedulerForImages(
 	selection, decision, err := s.selectAccountWithScheduler(ctx, groupID, "", sessionHash, requestedModel, excludedIDs, OpenAIUpstreamTransportHTTPSSE, "", requiredCapability, false, PlatformOpenAI, false, false)
 	if err == nil && selection != nil && selection.Account != nil {
 		s.recordOpenAIContentSessionCandidate(ctx, groupID, sessionHash, selection.Account.ID)
+		s.recordOpenAISessionIDGrowth(ctx, sessionHash, selection.Account)
 		return selection, decision, nil
 	}
 	// Forced API capability must never fall back to OAuth/basic accounts.
@@ -2545,8 +2632,23 @@ func (s *OpenAIGatewayService) SelectAccountWithSchedulerForImages(
 	}
 	if selection != nil && selection.Account != nil {
 		s.recordOpenAIContentSessionCandidate(ctx, groupID, sessionHash, selection.Account.ID)
+		s.recordOpenAISessionIDGrowth(ctx, sessionHash, selection.Account)
 	}
 	return selection, decision, err
+}
+
+func (s *OpenAIGatewayService) recordOpenAISessionIDGrowth(ctx context.Context, sessionHash string, account *Account) {
+	if s == nil || account == nil || account.Platform != PlatformOpenAI || strings.TrimSpace(sessionHash) == "" {
+		return
+	}
+	if openAISessionHashMetadataFromContext(ctx).contentDerived {
+		return
+	}
+	metrics := s.sessionIDRateMetrics
+	if metrics == nil {
+		metrics = DefaultOpenAISessionIDRateMetrics()
+	}
+	metrics.Record(account.ID, sessionHash, time.Now())
 }
 
 func (s *OpenAIGatewayService) selectAccountWithScheduler(
@@ -2605,6 +2707,59 @@ func (s *OpenAIGatewayService) selectAccountWithScheduler(
 }
 
 func (s *OpenAIGatewayService) selectAccountWithSchedulerInGroup(
+	ctx context.Context,
+	groupID *int64,
+	previousResponseID string,
+	sessionHash string,
+	requestedModel string,
+	excludedIDs map[int64]struct{},
+	requiredTransport OpenAIUpstreamTransport,
+	requiredCapability OpenAIEndpointCapability,
+	requiredImageCapability OpenAIImagesCapability,
+	requireCompact bool,
+	platform string,
+	previousResponseCanMove bool,
+	useUpstreamTokenCost bool,
+) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
+	enabled, limit := s.openAISessionIDRateLimitSettings(ctx)
+	if !enabled || limit <= 0 || strings.TrimSpace(sessionHash) == "" || openAISessionHashMetadataFromContext(ctx).contentDerived || normalizeOpenAICompatiblePlatform(platform) != PlatformOpenAI || (strings.TrimSpace(previousResponseID) != "" && !previousResponseCanMove) || codexContinuationSchedulingAffinityActive(ctx) {
+		return s.selectAccountWithSchedulerInGroupRaw(ctx, groupID, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, requiredCapability, requiredImageCapability, requireCompact, platform, previousResponseCanMove, useUpstreamTokenCost)
+	}
+	effectiveExcludedIDs := cloneExcludedAccountIDs(excludedIDs)
+	var lastDecision OpenAIAccountScheduleDecision
+	for attempt := 0; attempt < openAIAccountSelectionProbeLimit; attempt++ {
+		selection, decision, err := s.selectAccountWithSchedulerInGroupRaw(ctx, groupID, previousResponseID, sessionHash, requestedModel, effectiveExcludedIDs, requiredTransport, requiredCapability, requiredImageCapability, requireCompact, platform, previousResponseCanMove, useUpstreamTokenCost)
+		lastDecision = decision
+		if selection == nil || selection.Account == nil || err != nil {
+			return selection, decision, err
+		}
+		if !openAISessionIDRateLimitApplies(selection.Account) {
+			return selection, decision, nil
+		}
+		admission, admissionErr := s.admitOpenAISessionID(ctx, selection.Account.ID, sessionHash, limit)
+		if admissionErr != nil {
+			// Preserve the existing fail-open behavior when Redis is unavailable.
+			s.recordOpenAISessionIDGrowth(ctx, sessionHash, selection.Account)
+			return selection, decision, nil
+		}
+		if admission.Allowed {
+			return selection, decision, nil
+		}
+		if strings.TrimSpace(previousResponseID) == "" && s.cache != nil {
+			_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
+		}
+		if selection.ReleaseFunc != nil {
+			selection.ReleaseFunc()
+		}
+		if effectiveExcludedIDs == nil {
+			effectiveExcludedIDs = make(map[int64]struct{})
+		}
+		effectiveExcludedIDs[selection.Account.ID] = struct{}{}
+	}
+	return nil, lastDecision, ErrNoAvailableAccounts
+}
+
+func (s *OpenAIGatewayService) selectAccountWithSchedulerInGroupRaw(
 	ctx context.Context,
 	groupID *int64,
 	previousResponseID string,
@@ -3120,8 +3275,8 @@ func buildOpenAIAccountSchedulerScoreSnapshot(
 	}
 	if weights.Reset > 0 {
 		for _, candidate := range candidates {
-			end := candidate.account.SessionWindowEnd
-			if end == nil || !now.Before(*end) {
+			end, ok := openAISchedulingResetWindowEnd(candidate.account, now)
+			if !ok {
 				continue
 			}
 			remaining := end.Sub(now).Seconds()
@@ -3151,7 +3306,7 @@ func buildOpenAIAccountSchedulerScoreSnapshot(
 		ttftFactor := 0.5
 		resetFactor := 0.0
 		if weights.Reset > 0 && hasResetSample {
-			if end := candidate.account.SessionWindowEnd; end != nil && now.Before(*end) {
+			if end, ok := openAISchedulingResetWindowEnd(candidate.account, now); ok {
 				if maxResetRemaining > minResetRemaining {
 					resetFactor = 1 - clamp01((end.Sub(now).Seconds()-minResetRemaining)/(maxResetRemaining-minResetRemaining))
 				} else {
@@ -3477,20 +3632,85 @@ func openAIQuotaHeadroomFactor(account *Account, now time.Time) float64 {
 	if account == nil || len(account.Extra) == 0 || openAIQuotaHeadroomSnapshotStale(account.Extra, now) {
 		return openAIQuotaHeadroomNeutralFactor
 	}
-	primaryUsedPercent, ok := resolveAccountExtraNumber(account.Extra, "codex_primary_used_percent", "codex_7d_used_percent")
-	if !ok || openAIQuotaWindowResetAny(account.Extra, now, "primary", "7d") {
+	window5h, window7d := openAICanonicalQuotaWindows(account.Extra, now)
+	if !window7d.hasUsed || window7d.reset {
 		return openAIQuotaHeadroomNeutralFactor
 	}
 
-	factor := 1 - clamp01(primaryUsedPercent/100)
-	if secondaryUsedPercent, ok := resolveAccountExtraNumber(account.Extra, "codex_secondary_used_percent", "codex_5h_used_percent"); ok &&
-		!openAIQuotaWindowResetAny(account.Extra, now, "secondary", "5h") {
-		secondaryRemaining := 1 - clamp01(secondaryUsedPercent/100)
-		if secondaryRemaining < openAIQuotaHeadroomSecondaryLowRemain {
+	factor := 1 - clamp01(window7d.usedPercent/100)
+	if window5h.hasUsed && !window5h.reset {
+		remaining := 1 - clamp01(window5h.usedPercent/100)
+		if remaining < openAIQuotaHeadroomSecondaryLowRemain {
 			factor *= openAIQuotaHeadroomNeutralFactor
 		}
 	}
 	return factor
+}
+
+type openAICanonicalQuotaWindow struct {
+	usedPercent float64
+	hasUsed     bool
+	reset       bool
+}
+
+func openAICanonicalQuotaWindows(extra map[string]any, now time.Time) (window5h, window7d openAICanonicalQuotaWindow) {
+	if used, ok := resolveAccountExtraNumber(extra, "codex_5h_used_percent"); ok {
+		window5h = openAICanonicalQuotaWindow{usedPercent: used, hasUsed: true, reset: openAIQuotaWindowReset(extra, "5h", now)}
+	}
+	if used, ok := resolveAccountExtraNumber(extra, "codex_7d_used_percent"); ok {
+		window7d = openAICanonicalQuotaWindow{usedPercent: used, hasUsed: true, reset: openAIQuotaWindowReset(extra, "7d", now)}
+	}
+	if window5h.hasUsed && window7d.hasUsed {
+		return window5h, window7d
+	}
+
+	snapshot := &OpenAICodexUsageSnapshot{}
+	if used, ok := resolveAccountExtraNumber(extra, "codex_primary_used_percent"); ok {
+		snapshot.PrimaryUsedPercent = &used
+	}
+	if used, ok := resolveAccountExtraNumber(extra, "codex_secondary_used_percent"); ok {
+		snapshot.SecondaryUsedPercent = &used
+	}
+	if minutes := parseExtraInt(extra["codex_primary_window_minutes"]); minutes > 0 {
+		snapshot.PrimaryWindowMinutes = &minutes
+	}
+	if minutes := parseExtraInt(extra["codex_secondary_window_minutes"]); minutes > 0 {
+		snapshot.SecondaryWindowMinutes = &minutes
+	}
+	normalized := snapshot.Normalize()
+	if normalized == nil {
+		return window5h, window7d
+	}
+	fromRaw := func(used *float64) openAICanonicalQuotaWindow {
+		if used == nil {
+			return openAICanonicalQuotaWindow{}
+		}
+		window := "secondary"
+		if used == snapshot.PrimaryUsedPercent {
+			window = "primary"
+		}
+		return openAICanonicalQuotaWindow{usedPercent: *used, hasUsed: true, reset: openAIQuotaWindowReset(extra, window, now)}
+	}
+	if !window5h.hasUsed {
+		window5h = fromRaw(normalized.Used5hPercent)
+	}
+	if !window7d.hasUsed {
+		window7d = fromRaw(normalized.Used7dPercent)
+	}
+	return window5h, window7d
+}
+
+func openAISchedulingResetWindowEnd(account *Account, now time.Time) (time.Time, bool) {
+	if account == nil {
+		return time.Time{}, false
+	}
+	if end, ok := openAICodexWindowResetAt(account.Extra, "5h"); ok && now.Before(end) {
+		return end, true
+	}
+	if end := account.SessionWindowEnd; end != nil && now.Before(*end) {
+		return *end, true
+	}
+	return time.Time{}, false
 }
 
 func openAIQuotaHeadroomSnapshotStale(extra map[string]any, now time.Time) bool {
@@ -3503,15 +3723,6 @@ func openAIQuotaHeadroomSnapshotStale(extra map[string]any, now time.Time) bool 
 		return true
 	}
 	return now.Sub(updatedAt) >= openAIQuotaHeadroomSnapshotStaleAfter
-}
-
-func openAIQuotaWindowResetAny(extra map[string]any, now time.Time, windows ...string) bool {
-	for _, window := range windows {
-		if openAIQuotaWindowReset(extra, window, now) {
-			return true
-		}
-	}
-	return false
 }
 
 func clamp01(value float64) float64 {

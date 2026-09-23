@@ -125,6 +125,26 @@ func ExpiryWarnDays(v int) predicate.Proxy {
 	return predicate.Proxy(sql.FieldEQ(FieldExpiryWarnDays, v))
 }
 
+// HealthStatus applies equality check predicate on the "health_status" field. It's identical to HealthStatusEQ.
+func HealthStatus(v string) predicate.Proxy {
+	return predicate.Proxy(sql.FieldEQ(FieldHealthStatus, v))
+}
+
+// HealthConsecutiveFailures applies equality check predicate on the "health_consecutive_failures" field. It's identical to HealthConsecutiveFailuresEQ.
+func HealthConsecutiveFailures(v int) predicate.Proxy {
+	return predicate.Proxy(sql.FieldEQ(FieldHealthConsecutiveFailures, v))
+}
+
+// LastHealthCheckAt applies equality check predicate on the "last_health_check_at" field. It's identical to LastHealthCheckAtEQ.
+func LastHealthCheckAt(v time.Time) predicate.Proxy {
+	return predicate.Proxy(sql.FieldEQ(FieldLastHealthCheckAt, v))
+}
+
+// LastHealthError applies equality check predicate on the "last_health_error" field. It's identical to LastHealthErrorEQ.
+func LastHealthError(v string) predicate.Proxy {
+	return predicate.Proxy(sql.FieldEQ(FieldLastHealthError, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.Proxy {
 	return predicate.Proxy(sql.FieldEQ(FieldCreatedAt, v))
@@ -888,6 +908,236 @@ func ExpiryWarnDaysLT(v int) predicate.Proxy {
 // ExpiryWarnDaysLTE applies the LTE predicate on the "expiry_warn_days" field.
 func ExpiryWarnDaysLTE(v int) predicate.Proxy {
 	return predicate.Proxy(sql.FieldLTE(FieldExpiryWarnDays, v))
+}
+
+// HealthStatusEQ applies the EQ predicate on the "health_status" field.
+func HealthStatusEQ(v string) predicate.Proxy {
+	return predicate.Proxy(sql.FieldEQ(FieldHealthStatus, v))
+}
+
+// HealthStatusNEQ applies the NEQ predicate on the "health_status" field.
+func HealthStatusNEQ(v string) predicate.Proxy {
+	return predicate.Proxy(sql.FieldNEQ(FieldHealthStatus, v))
+}
+
+// HealthStatusIn applies the In predicate on the "health_status" field.
+func HealthStatusIn(vs ...string) predicate.Proxy {
+	return predicate.Proxy(sql.FieldIn(FieldHealthStatus, vs...))
+}
+
+// HealthStatusNotIn applies the NotIn predicate on the "health_status" field.
+func HealthStatusNotIn(vs ...string) predicate.Proxy {
+	return predicate.Proxy(sql.FieldNotIn(FieldHealthStatus, vs...))
+}
+
+// HealthStatusGT applies the GT predicate on the "health_status" field.
+func HealthStatusGT(v string) predicate.Proxy {
+	return predicate.Proxy(sql.FieldGT(FieldHealthStatus, v))
+}
+
+// HealthStatusGTE applies the GTE predicate on the "health_status" field.
+func HealthStatusGTE(v string) predicate.Proxy {
+	return predicate.Proxy(sql.FieldGTE(FieldHealthStatus, v))
+}
+
+// HealthStatusLT applies the LT predicate on the "health_status" field.
+func HealthStatusLT(v string) predicate.Proxy {
+	return predicate.Proxy(sql.FieldLT(FieldHealthStatus, v))
+}
+
+// HealthStatusLTE applies the LTE predicate on the "health_status" field.
+func HealthStatusLTE(v string) predicate.Proxy {
+	return predicate.Proxy(sql.FieldLTE(FieldHealthStatus, v))
+}
+
+// HealthStatusContains applies the Contains predicate on the "health_status" field.
+func HealthStatusContains(v string) predicate.Proxy {
+	return predicate.Proxy(sql.FieldContains(FieldHealthStatus, v))
+}
+
+// HealthStatusHasPrefix applies the HasPrefix predicate on the "health_status" field.
+func HealthStatusHasPrefix(v string) predicate.Proxy {
+	return predicate.Proxy(sql.FieldHasPrefix(FieldHealthStatus, v))
+}
+
+// HealthStatusHasSuffix applies the HasSuffix predicate on the "health_status" field.
+func HealthStatusHasSuffix(v string) predicate.Proxy {
+	return predicate.Proxy(sql.FieldHasSuffix(FieldHealthStatus, v))
+}
+
+// HealthStatusEqualFold applies the EqualFold predicate on the "health_status" field.
+func HealthStatusEqualFold(v string) predicate.Proxy {
+	return predicate.Proxy(sql.FieldEqualFold(FieldHealthStatus, v))
+}
+
+// HealthStatusContainsFold applies the ContainsFold predicate on the "health_status" field.
+func HealthStatusContainsFold(v string) predicate.Proxy {
+	return predicate.Proxy(sql.FieldContainsFold(FieldHealthStatus, v))
+}
+
+// HealthConsecutiveFailuresEQ applies the EQ predicate on the "health_consecutive_failures" field.
+func HealthConsecutiveFailuresEQ(v int) predicate.Proxy {
+	return predicate.Proxy(sql.FieldEQ(FieldHealthConsecutiveFailures, v))
+}
+
+// HealthConsecutiveFailuresNEQ applies the NEQ predicate on the "health_consecutive_failures" field.
+func HealthConsecutiveFailuresNEQ(v int) predicate.Proxy {
+	return predicate.Proxy(sql.FieldNEQ(FieldHealthConsecutiveFailures, v))
+}
+
+// HealthConsecutiveFailuresIn applies the In predicate on the "health_consecutive_failures" field.
+func HealthConsecutiveFailuresIn(vs ...int) predicate.Proxy {
+	return predicate.Proxy(sql.FieldIn(FieldHealthConsecutiveFailures, vs...))
+}
+
+// HealthConsecutiveFailuresNotIn applies the NotIn predicate on the "health_consecutive_failures" field.
+func HealthConsecutiveFailuresNotIn(vs ...int) predicate.Proxy {
+	return predicate.Proxy(sql.FieldNotIn(FieldHealthConsecutiveFailures, vs...))
+}
+
+// HealthConsecutiveFailuresGT applies the GT predicate on the "health_consecutive_failures" field.
+func HealthConsecutiveFailuresGT(v int) predicate.Proxy {
+	return predicate.Proxy(sql.FieldGT(FieldHealthConsecutiveFailures, v))
+}
+
+// HealthConsecutiveFailuresGTE applies the GTE predicate on the "health_consecutive_failures" field.
+func HealthConsecutiveFailuresGTE(v int) predicate.Proxy {
+	return predicate.Proxy(sql.FieldGTE(FieldHealthConsecutiveFailures, v))
+}
+
+// HealthConsecutiveFailuresLT applies the LT predicate on the "health_consecutive_failures" field.
+func HealthConsecutiveFailuresLT(v int) predicate.Proxy {
+	return predicate.Proxy(sql.FieldLT(FieldHealthConsecutiveFailures, v))
+}
+
+// HealthConsecutiveFailuresLTE applies the LTE predicate on the "health_consecutive_failures" field.
+func HealthConsecutiveFailuresLTE(v int) predicate.Proxy {
+	return predicate.Proxy(sql.FieldLTE(FieldHealthConsecutiveFailures, v))
+}
+
+// LastHealthCheckAtEQ applies the EQ predicate on the "last_health_check_at" field.
+func LastHealthCheckAtEQ(v time.Time) predicate.Proxy {
+	return predicate.Proxy(sql.FieldEQ(FieldLastHealthCheckAt, v))
+}
+
+// LastHealthCheckAtNEQ applies the NEQ predicate on the "last_health_check_at" field.
+func LastHealthCheckAtNEQ(v time.Time) predicate.Proxy {
+	return predicate.Proxy(sql.FieldNEQ(FieldLastHealthCheckAt, v))
+}
+
+// LastHealthCheckAtIn applies the In predicate on the "last_health_check_at" field.
+func LastHealthCheckAtIn(vs ...time.Time) predicate.Proxy {
+	return predicate.Proxy(sql.FieldIn(FieldLastHealthCheckAt, vs...))
+}
+
+// LastHealthCheckAtNotIn applies the NotIn predicate on the "last_health_check_at" field.
+func LastHealthCheckAtNotIn(vs ...time.Time) predicate.Proxy {
+	return predicate.Proxy(sql.FieldNotIn(FieldLastHealthCheckAt, vs...))
+}
+
+// LastHealthCheckAtGT applies the GT predicate on the "last_health_check_at" field.
+func LastHealthCheckAtGT(v time.Time) predicate.Proxy {
+	return predicate.Proxy(sql.FieldGT(FieldLastHealthCheckAt, v))
+}
+
+// LastHealthCheckAtGTE applies the GTE predicate on the "last_health_check_at" field.
+func LastHealthCheckAtGTE(v time.Time) predicate.Proxy {
+	return predicate.Proxy(sql.FieldGTE(FieldLastHealthCheckAt, v))
+}
+
+// LastHealthCheckAtLT applies the LT predicate on the "last_health_check_at" field.
+func LastHealthCheckAtLT(v time.Time) predicate.Proxy {
+	return predicate.Proxy(sql.FieldLT(FieldLastHealthCheckAt, v))
+}
+
+// LastHealthCheckAtLTE applies the LTE predicate on the "last_health_check_at" field.
+func LastHealthCheckAtLTE(v time.Time) predicate.Proxy {
+	return predicate.Proxy(sql.FieldLTE(FieldLastHealthCheckAt, v))
+}
+
+// LastHealthCheckAtIsNil applies the IsNil predicate on the "last_health_check_at" field.
+func LastHealthCheckAtIsNil() predicate.Proxy {
+	return predicate.Proxy(sql.FieldIsNull(FieldLastHealthCheckAt))
+}
+
+// LastHealthCheckAtNotNil applies the NotNil predicate on the "last_health_check_at" field.
+func LastHealthCheckAtNotNil() predicate.Proxy {
+	return predicate.Proxy(sql.FieldNotNull(FieldLastHealthCheckAt))
+}
+
+// LastHealthErrorEQ applies the EQ predicate on the "last_health_error" field.
+func LastHealthErrorEQ(v string) predicate.Proxy {
+	return predicate.Proxy(sql.FieldEQ(FieldLastHealthError, v))
+}
+
+// LastHealthErrorNEQ applies the NEQ predicate on the "last_health_error" field.
+func LastHealthErrorNEQ(v string) predicate.Proxy {
+	return predicate.Proxy(sql.FieldNEQ(FieldLastHealthError, v))
+}
+
+// LastHealthErrorIn applies the In predicate on the "last_health_error" field.
+func LastHealthErrorIn(vs ...string) predicate.Proxy {
+	return predicate.Proxy(sql.FieldIn(FieldLastHealthError, vs...))
+}
+
+// LastHealthErrorNotIn applies the NotIn predicate on the "last_health_error" field.
+func LastHealthErrorNotIn(vs ...string) predicate.Proxy {
+	return predicate.Proxy(sql.FieldNotIn(FieldLastHealthError, vs...))
+}
+
+// LastHealthErrorGT applies the GT predicate on the "last_health_error" field.
+func LastHealthErrorGT(v string) predicate.Proxy {
+	return predicate.Proxy(sql.FieldGT(FieldLastHealthError, v))
+}
+
+// LastHealthErrorGTE applies the GTE predicate on the "last_health_error" field.
+func LastHealthErrorGTE(v string) predicate.Proxy {
+	return predicate.Proxy(sql.FieldGTE(FieldLastHealthError, v))
+}
+
+// LastHealthErrorLT applies the LT predicate on the "last_health_error" field.
+func LastHealthErrorLT(v string) predicate.Proxy {
+	return predicate.Proxy(sql.FieldLT(FieldLastHealthError, v))
+}
+
+// LastHealthErrorLTE applies the LTE predicate on the "last_health_error" field.
+func LastHealthErrorLTE(v string) predicate.Proxy {
+	return predicate.Proxy(sql.FieldLTE(FieldLastHealthError, v))
+}
+
+// LastHealthErrorContains applies the Contains predicate on the "last_health_error" field.
+func LastHealthErrorContains(v string) predicate.Proxy {
+	return predicate.Proxy(sql.FieldContains(FieldLastHealthError, v))
+}
+
+// LastHealthErrorHasPrefix applies the HasPrefix predicate on the "last_health_error" field.
+func LastHealthErrorHasPrefix(v string) predicate.Proxy {
+	return predicate.Proxy(sql.FieldHasPrefix(FieldLastHealthError, v))
+}
+
+// LastHealthErrorHasSuffix applies the HasSuffix predicate on the "last_health_error" field.
+func LastHealthErrorHasSuffix(v string) predicate.Proxy {
+	return predicate.Proxy(sql.FieldHasSuffix(FieldLastHealthError, v))
+}
+
+// LastHealthErrorIsNil applies the IsNil predicate on the "last_health_error" field.
+func LastHealthErrorIsNil() predicate.Proxy {
+	return predicate.Proxy(sql.FieldIsNull(FieldLastHealthError))
+}
+
+// LastHealthErrorNotNil applies the NotNil predicate on the "last_health_error" field.
+func LastHealthErrorNotNil() predicate.Proxy {
+	return predicate.Proxy(sql.FieldNotNull(FieldLastHealthError))
+}
+
+// LastHealthErrorEqualFold applies the EqualFold predicate on the "last_health_error" field.
+func LastHealthErrorEqualFold(v string) predicate.Proxy {
+	return predicate.Proxy(sql.FieldEqualFold(FieldLastHealthError, v))
+}
+
+// LastHealthErrorContainsFold applies the ContainsFold predicate on the "last_health_error" field.
+func LastHealthErrorContainsFold(v string) predicate.Proxy {
+	return predicate.Proxy(sql.FieldContainsFold(FieldLastHealthError, v))
 }
 
 // HasAccounts applies the HasEdge predicate on the "accounts" edge.

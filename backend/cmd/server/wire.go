@@ -99,6 +99,7 @@ func provideCleanup(
 	accountExpiry *service.AccountExpiryService,
 	codexVersionSync *service.OpenAICodexVersionSyncService,
 	proxyExpiry *service.ProxyExpiryService,
+	proxyHealth *service.ProxyHealthService,
 	subscriptionExpiry *service.SubscriptionExpiryService,
 	usageCleanup *service.UsageCleanupService,
 	idempotencyCleanup *service.IdempotencyCleanupService,
@@ -120,6 +121,7 @@ func provideCleanup(
 	openAIGateway *service.OpenAIGatewayService,
 	scheduledTestRunner *service.ScheduledTestRunnerService,
 	accountInspection *service.AccountInspectionService,
+	accountQuality *service.AccountQualityMonitoringService,
 	oauthModelSync *service.OAuthModelSyncService,
 	backupSvc *service.BackupService,
 	paymentOrderExpiry *service.PaymentOrderExpiryService,
@@ -340,6 +342,12 @@ func provideCleanup(
 				proxyExpiry.Stop()
 				return nil
 			}},
+			{"ProxyHealthService", func() error {
+				if proxyHealth != nil {
+					proxyHealth.Stop()
+				}
+				return nil
+			}},
 			{"SubscriptionExpiryService", func() error {
 				subscriptionExpiry.Stop()
 				return nil
@@ -395,6 +403,12 @@ func provideCleanup(
 			{"AccountInspectionService", func() error {
 				if accountInspection != nil {
 					accountInspection.Stop()
+				}
+				return nil
+			}},
+			{"AccountQualityMonitoringService", func() error {
+				if accountQuality != nil {
+					accountQuality.Stop()
 				}
 				return nil
 			}},

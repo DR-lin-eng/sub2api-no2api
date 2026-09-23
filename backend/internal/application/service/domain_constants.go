@@ -43,8 +43,63 @@ const (
 	PlatformGemini      = domain.PlatformGemini
 	PlatformAntigravity = domain.PlatformAntigravity
 	PlatformGrok        = domain.PlatformGrok
+	PlatformKimi        = domain.PlatformKimi
+	PlatformZhipu       = domain.PlatformZhipu
+	PlatformDeepseek    = domain.PlatformDeepseek
+	PlatformMiniMax     = domain.PlatformMiniMax
+	PlatformOpenCodeGo  = domain.PlatformOpenCodeGo
 	PlatformComposite   = domain.PlatformComposite
 )
+
+const (
+	AccountModePayG   = domain.AccountModePayG
+	AccountModeCoding = domain.AccountModeCoding
+	AccountModeZen    = domain.AccountModeZen
+	AccountModeGo     = domain.AccountModeGo
+)
+
+const (
+	APIProtocolChatCompletions = "chat_completions"
+	APIProtocolAnthropic       = "anthropic"
+	APIProtocolResponses       = "responses"
+	APIProtocolAdaptive        = "adaptive"
+)
+
+const (
+	DefaultKimiPayGBaseURL    = "https://api.moonshot.cn/v1"
+	DefaultKimiCodingBaseURL  = "https://api.kimi.com/coding/v1"
+	DefaultZhipuPayGBaseURL   = "https://open.bigmodel.cn/api/paas/v4"
+	DefaultZhipuCodingBaseURL = "https://open.bigmodel.cn/api/coding/paas/v4"
+	DefaultDeepseekBaseURL    = "https://api.deepseek.com"
+	DefaultMiniMaxBaseURL     = "https://api.minimaxi.com/v1"
+	DefaultOpenCodeGoBaseURL  = "https://opencode.ai/zen/go/v1"
+	DefaultOpenCodeZenBaseURL = "https://opencode.ai/zen/v1"
+
+	DefaultKimiPayGAnthropicBaseURL    = "https://api.moonshot.cn/anthropic"
+	DefaultKimiCodingAnthropicBaseURL  = "https://api.kimi.com/coding"
+	DefaultZhipuAnthropicBaseURL       = "https://open.bigmodel.cn/api/anthropic"
+	DefaultDeepseekAnthropicBaseURL    = "https://api.deepseek.com/anthropic"
+	DefaultMiniMaxAnthropicBaseURL     = "https://api.minimaxi.com/anthropic"
+	DefaultOpenCodeGoAnthropicBaseURL  = "https://opencode.ai/zen/go"
+	DefaultOpenCodeZenAnthropicBaseURL = "https://opencode.ai/zen"
+)
+
+func IsCNProvider(platform string) bool {
+	switch platform {
+	case PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax:
+		return true
+	default:
+		return false
+	}
+}
+
+func IsOpenCodeGo(platform string) bool {
+	return platform == PlatformOpenCodeGo
+}
+
+func IsMultiProtocolAPIKeyProvider(platform string) bool {
+	return IsCNProvider(platform) || IsOpenCodeGo(platform)
+}
 
 // AllowedQuotaPlatforms 是允许设置 user × platform quota 的平台列表（单一权威来源）。
 // ent/schema/user_platform_quota.go 的 Validate 函数独立维护（构建期约束），
@@ -55,6 +110,11 @@ var AllowedQuotaPlatforms = []string{
 	PlatformGemini,
 	PlatformAntigravity,
 	PlatformGrok,
+	PlatformKimi,
+	PlatformZhipu,
+	PlatformDeepseek,
+	PlatformMiniMax,
+	PlatformOpenCodeGo,
 }
 
 // IsAllowedQuotaPlatform 报告 s 是否为合法的 quota platform 标识。
@@ -470,9 +530,22 @@ const (
 	// for probing remote Sub2API API-key billing metadata.
 	SettingKeyUpstreamBillingProbeSettings = "upstream_billing_probe_settings"
 
+	// SettingKeyProxyAutoAssignmentSettings stores the opt-in proxy-pool policy.
+	SettingKeyProxyAutoAssignmentSettings = "proxy_auto_assignment_settings"
+	// SettingKeyProxyAutoAssignmentCursor serializes round-robin reservations across instances.
+	SettingKeyProxyAutoAssignmentCursor = "proxy_auto_assignment_cursor"
+
 	// Account inspection settings and latest persisted run snapshot.
 	SettingKeyAccountInspectionSettings = "account_inspection_settings"
 	SettingKeyAccountInspectionState    = "account_inspection_state"
+	// Account quality monitoring has an independent policy and run snapshot.
+	SettingKeyAccountQualitySettings = "account_quality_settings"
+	SettingKeyAccountQualityState    = "account_quality_state"
+
+	// Account quality routing markers are stored in accounts.extra so existing
+	// account rows and scheduler snapshots remain backward compatible.
+	AccountQualityOriginalGroupsExtraKey = "account_quality_original_group_ids"
+	AccountQualityRoutingGroupExtraKey   = "account_quality_routing_group_id"
 
 	// SettingKeyOllamaCloudUsageSettings stores the opt-in global runner switch and interval.
 	SettingKeyOllamaCloudUsageSettings = "ollama_cloud_usage_settings"
@@ -486,6 +559,8 @@ const (
 
 	// SettingKeyRateLimit429CooldownSettings stores JSON config for 429 fallback cooldown handling.
 	SettingKeyRateLimit429CooldownSettings = "rate_limit_429_cooldown_settings"
+	// SettingKeyOAuth401CleanupSettings stores the opt-in gateway OAuth 401 deletion policy.
+	SettingKeyOAuth401CleanupSettings = "oauth_401_cleanup_settings"
 
 	// SettingKeyGlobalTempUnschedulableEnabled controls all temporary account scheduling pauses.
 	SettingKeyGlobalTempUnschedulableEnabled = "global_temp_unschedulable_enabled"
@@ -550,6 +625,17 @@ const (
 	SettingKeyOpenAIOAuthSchedulingRateMultiplier = "openai_oauth_scheduling_rate_multiplier"
 	// SettingKeyOpenAIContentSessionBurstBalanceEnabled 是否分散内容派生会话的重叠请求。
 	SettingKeyOpenAIContentSessionBurstBalanceEnabled = "openai_content_session_burst_balance_enabled"
+	SettingKeyOpenAISessionIDRateLimitEnabled         = "openai_session_id_rate_limit_enabled"
+	SettingKeyOpenAISessionIDRateLimitPerMinute       = "openai_session_id_rate_limit_per_minute"
+	// The OAuth gateway limiter is one Redis-backed token bucket shared by every
+	// instance and every OpenAI OAuth account. It is independent of the
+	// per-account explicit Session ID limiter above.
+	SettingKeyOpenAIOAuthGatewayRateLimitEnabled = "openai_oauth_gateway_rate_limit_enabled"
+	SettingKeyOpenAIOAuthGatewayRateLimitRPM     = "openai_oauth_gateway_rate_limit_rpm"
+	SettingKeyOpenAIOAuthGatewayRateLimitBurst   = "openai_oauth_gateway_rate_limit_burst"
+	// Request integrity observation only records field names whose protected
+	// semantics changed; it never stores request content or blocks a request.
+	SettingKeyOpenAIRequestIntegrityObserveEnabled = "openai_request_integrity_observe_enabled"
 	// SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled OpenAI 高级调度下是否启用粘性加权。
 	SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled = "openai_advanced_scheduler_sticky_weighted_enabled"
 	// SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled OpenAI 高级调度下是否优先使用订阅账号池。
@@ -592,6 +678,13 @@ const (
 	// measured from the first client-usable value (true) or the legacy semantic
 	// output event classifier (false). Missing values default to true.
 	SettingKeyOpenAIVisibleOutputTTFTEnabled = "openai_visible_output_ttft_enabled"
+	// SettingKeyOpenAIOAuthForceRelayEnabled forces OpenAI OAuth/Codex model
+	// traffic through the administrator-selected relay. OAuth authorization and
+	// token refresh endpoints intentionally do not use this setting.
+	SettingKeyOpenAIOAuthForceRelayEnabled = "openai_oauth_force_relay_enabled"
+	// SettingKeyOpenAIOAuthForceRelayBaseURL stores the relay base URL before the
+	// endpoint-specific /responses, /models, or /alpha/search suffix.
+	SettingKeyOpenAIOAuthForceRelayBaseURL = "openai_oauth_force_relay_base_url"
 
 	// Gateway Forwarding Behavior
 	// SettingKeyEnableFingerprintUnification 是否统一 OAuth 账号的 X-Stainless-* 指纹头（默认 true）
@@ -622,7 +715,7 @@ const (
 	// SettingKeyAntigravityUserAgentVersion Antigravity 上游 User-Agent 版本号（空值使用环境变量/默认值）
 	SettingKeyAntigravityUserAgentVersion = "antigravity_user_agent_version"
 	// SettingKeyOpenAICodexUserAgent OpenAI Codex 完整 User-Agent（空值使用内置默认）。
-	// 自定义值只贡献客户端和设备指纹；版本段由生效的客户端版本重建。
+	// 自定义值保留引擎版本和应用构建号；固定/同步版本仅用于默认 CLI UA。
 	SettingKeyOpenAICodexUserAgent = "openai_codex_user_agent"
 	// SettingKeyOpenAICodexClientVersion 是管理员固定的出站 Codex 客户端版本。
 	// 空值依次回退到自动同步值和编译期默认值。

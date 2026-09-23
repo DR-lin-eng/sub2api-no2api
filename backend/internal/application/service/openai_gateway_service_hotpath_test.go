@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -198,6 +199,37 @@ func TestOpenAIGatewayService_Forward_OAuthSplitsInstructionImages(t *testing.T)
 	require.Equal(t, "user", gjson.GetBytes(forwarded, "input.3.role").String())
 	require.Equal(t, "https://example.com/policy.png", gjson.GetBytes(forwarded, "input.3.content.0.image_url").String())
 	require.Equal(t, "user", gjson.GetBytes(forwarded, "input.4.role").String())
+}
+
+func TestOpenAIGatewayService_Forward_OAuthReplacesGenericCodexInstructions(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+		Body: io.NopCloser(strings.NewReader(
+			"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_generic_instruction\",\"model\":\"gpt-5.6-sol\",\"status\":\"completed\",\"output\":[{\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"output_text\",\"text\":\"ok\"}]}],\"usage\":{\"input_tokens\":1,\"output_tokens\":1,\"total_tokens\":2}}}\n\ndata: [DONE]\n\n",
+		)),
+	}}
+	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
+	account := &Account{
+		ID: 43, Name: "openai-oauth", Platform: PlatformOpenAI, Type: AccountTypeOAuth,
+		Status: StatusActive, Schedulable: true, Concurrency: 1,
+		Credentials: map[string]any{"access_token": "oauth-token", "chatgpt_account_id": "chatgpt-account"},
+	}
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	body := []byte(`{"model":"gpt-5.6","stream":true,"instructions":` + jsonQuote(openai.DefaultInstructions) + `,"input":[{"type":"message","role":"user","content":[{"type":"input_text","text":"hello"}]}]}`)
+	result, err := svc.Forward(context.Background(), c, account, body)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, "gpt-5.6-sol", gjson.GetBytes(upstream.lastBody, "model").String())
+	require.Equal(t, defaultCodexSynthInstructions("gpt-5.6-sol"), gjson.GetBytes(upstream.lastBody, "instructions").String())
+}
+
+func jsonQuote(value string) string {
+	encoded, _ := json.Marshal(value)
+	return string(encoded)
 }
 
 func TestOpenAIGatewayService_Forward_APIKeySanitizesInputIDs(t *testing.T) {

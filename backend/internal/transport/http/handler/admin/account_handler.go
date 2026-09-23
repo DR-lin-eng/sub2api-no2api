@@ -65,6 +65,8 @@ type AccountHandler struct {
 	grokImportProber        grokImportProber
 	upstreamBillingProbe    *service.UpstreamBillingProbeService
 	ollamaCloudUsage        *service.OllamaCloudUsageService
+	cnProviderQuota         *service.CNProviderQuotaService
+	cnProviderBalance       *service.CNProviderBalanceService
 }
 
 // SetUpstreamBillingProbeService attaches the optional remote billing probe service.
@@ -74,6 +76,47 @@ func (h *AccountHandler) SetUpstreamBillingProbeService(probe *service.UpstreamB
 
 func (h *AccountHandler) SetOllamaCloudUsageService(usage *service.OllamaCloudUsageService) {
 	h.ollamaCloudUsage = usage
+}
+
+func (h *AccountHandler) SetCNProviderServices(quota *service.CNProviderQuotaService, balance *service.CNProviderBalanceService) {
+	h.cnProviderQuota = quota
+	h.cnProviderBalance = balance
+}
+
+func (h *AccountHandler) QueryCNProviderQuota(c *gin.Context) {
+	accountID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "Invalid account ID")
+		return
+	}
+	if h.cnProviderQuota == nil {
+		response.InternalError(c, "CN provider quota service is not configured")
+		return
+	}
+	result, err := h.cnProviderQuota.QueryUsage(c.Request.Context(), accountID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+func (h *AccountHandler) QueryCNProviderBalance(c *gin.Context) {
+	accountID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "Invalid account ID")
+		return
+	}
+	if h.cnProviderBalance == nil {
+		response.InternalError(c, "CN provider balance service is not configured")
+		return
+	}
+	result, err := h.cnProviderBalance.QueryBalance(c.Request.Context(), accountID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, result)
 }
 
 // NewAccountHandler creates a new admin account handler
@@ -193,6 +236,7 @@ type CheckMixedChannelRequest struct {
 type AccountWithConcurrency struct {
 	*dto.Account
 	CurrentConcurrency        int                                 `json:"current_concurrency"`
+	SessionIDGrowthPerMinute  int64                               `json:"session_id_growth_per_minute"`
 	CPACapacity               *service.CPACapacityStatus          `json:"cpa_capacity,omitempty"`
 	StreamDegraded            bool                                `json:"stream_degraded"`
 	StreamDegradationLevel    int                                 `json:"stream_degradation_level,omitempty"`
@@ -275,6 +319,7 @@ func (h *AccountHandler) buildAccountResponseWithRuntime(ctx context.Context, ac
 			item.CurrentConcurrency = counts[account.ID]
 		}
 	}
+	item.SessionIDGrowthPerMinute = service.DefaultOpenAISessionIDRateMetrics().Snapshot([]int64{account.ID}, time.Now().UTC()).Counts[account.ID]
 	item.CPACapacity = h.getCPACapacityStatus(ctx, account)
 	h.enrichOpenAIStreamDegradation(&item, account.ID)
 
@@ -681,6 +726,7 @@ func (h *AccountHandler) List(c *gin.Context) {
 	}
 
 	concurrencyCounts := make(map[int64]int)
+	sessionIDGrowth := make(map[int64]int64)
 	var windowCosts map[int64]float64
 	var activeSessions map[int64]int
 	var rpmCounts map[int64]int
@@ -704,6 +750,9 @@ func (h *AccountHandler) List(c *gin.Context) {
 		if cc, ccErr := h.concurrencyService.GetAccountConcurrencyBatch(c.Request.Context(), accountIDs); ccErr == nil && cc != nil {
 			concurrencyCounts = cc
 		}
+	}
+	for accountID, count := range service.DefaultOpenAISessionIDRateMetrics().Snapshot(accountIDs, time.Now().UTC()).Counts {
+		sessionIDGrowth[accountID] = count
 	}
 
 	// 识别需要查询窗口费用、会话数和 RPM 的账号（Anthropic OAuth/SetupToken 且启用了相应功能）
@@ -763,12 +812,13 @@ func (h *AccountHandler) List(c *gin.Context) {
 	for i := range accounts {
 		acc := &accounts[i]
 		item := AccountWithConcurrency{
-			Account:            h.accountResponseFromService(acc),
-			CurrentConcurrency: concurrencyCounts[acc.ID],
-			CPACapacity:        cpaCapacities[acc.ID],
-			SchedulerScore:     schedulerScores[acc.ID],
-			SchedulerScores:    schedulerGroupScores[acc.ID],
-			HourlyUsage:        hourlyUsage[acc.ID],
+			Account:                  h.accountResponseFromService(acc),
+			CurrentConcurrency:       concurrencyCounts[acc.ID],
+			SessionIDGrowthPerMinute: sessionIDGrowth[acc.ID],
+			CPACapacity:              cpaCapacities[acc.ID],
+			SchedulerScore:           schedulerScores[acc.ID],
+			SchedulerScores:          schedulerGroupScores[acc.ID],
+			HourlyUsage:              hourlyUsage[acc.ID],
 		}
 		h.enrichOpenAIStreamDegradation(&item, acc.ID)
 
@@ -1540,6 +1590,7 @@ func (h *AccountHandler) Refresh(c *gin.Context) {
 
 	if warning == "missing_project_id_temporary" {
 		response.Success(c, gin.H{
+			"account": h.buildAccountResponseWithRuntime(c.Request.Context(), updatedAccount),
 			"message": "Token refreshed successfully, but project_id could not be retrieved (will retry automatically)",
 			"warning": "missing_project_id_temporary",
 		})

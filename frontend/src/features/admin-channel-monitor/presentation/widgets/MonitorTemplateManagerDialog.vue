@@ -249,7 +249,12 @@ import {
   PROVIDER_ANTHROPIC,
   PROVIDER_OPENAI,
   PROVIDER_GEMINI,
-  PROVIDER_GROK,
+    PROVIDER_GROK,
+    PROVIDER_KIMI,
+    PROVIDER_ZHIPU,
+    PROVIDER_DEEPSEEK,
+    PROVIDER_MINIMAX,
+    PROVIDER_OPENCODE_GO,
   API_MODE_CHAT_COMPLETIONS,
   API_MODE_RESPONSES,
 } from '@/core/constants/channelMonitor'
@@ -269,7 +274,12 @@ const providerTabs = computed<{ value: Provider; label: string }[]>(() => [
   { value: PROVIDER_ANTHROPIC, label: t('monitorCommon.providers.anthropic') },
   { value: PROVIDER_OPENAI, label: t('monitorCommon.providers.openai') },
   { value: PROVIDER_GEMINI, label: t('monitorCommon.providers.gemini') },
-  { value: PROVIDER_GROK, label: t('monitorCommon.providers.grok') },
+    { value: PROVIDER_GROK, label: t('monitorCommon.providers.grok') },
+    { value: PROVIDER_KIMI, label: t('monitorCommon.providers.kimi') },
+    { value: PROVIDER_ZHIPU, label: t('monitorCommon.providers.zhipu') },
+    { value: PROVIDER_DEEPSEEK, label: t('monitorCommon.providers.deepseek') },
+    { value: PROVIDER_MINIMAX, label: t('monitorCommon.providers.minimax') },
+    { value: PROVIDER_OPENCODE_GO, label: t('monitorCommon.providers.opencode_go') },
 ])
 
 const activeProvider = ref<Provider>(PROVIDER_ANTHROPIC)
@@ -285,7 +295,12 @@ const countByProvider = computed<Record<Provider, number>>(() => {
     anthropic: 0,
     openai: 0,
     gemini: 0,
-    grok: 0,
+      grok: 0,
+      kimi: 0,
+      zhipu: 0,
+      deepseek: 0,
+      minimax: 0,
+      opencode_go: 0,
   }
   for (const t of templates.value) out[t.provider]++
   return out

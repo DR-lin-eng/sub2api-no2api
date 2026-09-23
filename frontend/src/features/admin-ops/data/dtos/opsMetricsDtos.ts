@@ -120,6 +120,8 @@ export interface PlatformConcurrencyInfo {
   max_capacity: number
   load_percentage: number
   waiting_in_queue: number
+  session_id_growth_per_minute: number
+  max_session_id_growth_per_minute: number
 }
 
 export interface GroupConcurrencyInfo {
@@ -130,6 +132,8 @@ export interface GroupConcurrencyInfo {
   max_capacity: number
   load_percentage: number
   waiting_in_queue: number
+  session_id_growth_per_minute: number
+  max_session_id_growth_per_minute: number
 }
 
 export interface AccountConcurrencyInfo {
@@ -142,6 +146,13 @@ export interface AccountConcurrencyInfo {
   max_capacity: number
   load_percentage: number
   waiting_in_queue: number
+  session_id_growth_per_minute: number
+}
+
+export interface SessionIDGrowthInfo {
+  total_per_minute: number
+  max_per_minute: number
+  max_account_id: number
 }
 
 export interface OpsConcurrencyStatsResponse {
@@ -149,6 +160,7 @@ export interface OpsConcurrencyStatsResponse {
   platform: Record<string, PlatformConcurrencyInfo>
   group: Record<string, GroupConcurrencyInfo>
   account: Record<string, AccountConcurrencyInfo>
+  session_id_growth?: SessionIDGrowthInfo
   timestamp?: string
 }
 
@@ -216,6 +228,7 @@ export interface OpsConcurrencySnapshotResponse {
   enabled: boolean
   concurrency: OpsConcurrencyStatsResponse
   availability: OpsAccountAvailabilityStatsResponse
+  session_id_growth?: SessionIDGrowthInfo
   timestamp?: string
 }
 

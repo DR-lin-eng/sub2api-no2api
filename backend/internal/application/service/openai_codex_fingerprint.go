@@ -65,17 +65,22 @@ var codexReservedIdentityHeaders = []string{
 // matching the source client's separation between compatibility projections
 // and turn metadata.
 var codexOfficialClientMetadataKeys = map[string]struct{}{
-	"x-codex-installation-id":  {},
-	"session_id":               {},
-	"thread_id":                {},
-	"turn_id":                  {},
-	"x-codex-window-id":        {},
-	"x-codex-turn-metadata":    {},
-	"x-codex-turn-state":       {},
-	"x-openai-subagent":        {},
-	"x-codex-parent-thread-id": {},
-	"parent_turn_id":           {},
-	"root_turn_id":             {},
+	"x-codex-installation-id":            {},
+	"session_id":                         {},
+	"thread_id":                          {},
+	"turn_id":                            {},
+	"x-codex-window-id":                  {},
+	"window_number":                      {},
+	"context_window_id":                  {},
+	"x-codex-turn-metadata":              {},
+	"x-codex-turn-state":                 {},
+	"x-openai-subagent":                  {},
+	"x-codex-parent-thread-id":           {},
+	"parent_turn_id":                     {},
+	"root_turn_id":                       {},
+	"parent_response_id":                 {},
+	"guardian_credits_requested":         {},
+	"x-codex-ws-stream-request-start-ms": {},
 	"ws_request_header_x_openai_internal_codex_responses_lite": {},
 	"ws_request_header_traceparent":                            {},
 	"ws_request_header_tracestate":                             {},
@@ -88,14 +93,18 @@ var codexOfficialTurnMetadataKeys = map[string]struct{}{
 	"agent_name":                     {},
 	"turn_id":                        {},
 	"window_id":                      {},
+	"window_number":                  {},
+	"context_window_id":              {},
 	"request_kind":                   {},
 	"compaction":                     {},
 	"forked_from_thread_id":          {},
+	"forked_from_ordinal_exclusive":  {},
 	"parent_thread_id":               {},
 	"parent_turn_id":                 {},
 	"root_turn_id":                   {},
 	"subagent_kind":                  {},
 	"thread_source":                  {},
+	"turn_trigger":                   {},
 	"sandbox":                        {},
 	"sandbox_mode":                   {},
 	"auto_review_enabled":            {},
@@ -104,15 +113,20 @@ var codexOfficialTurnMetadataKeys = map[string]struct{}{
 	"workspaces":                     {},
 	"tool_namespaces_info":           {},
 	"turn_started_at_unix_ms":        {},
+	"history_ingest_requested":       {},
+	"analytics_enabled":              {},
 }
 
 var codexForbiddenTurnMetadataKeys = map[string]struct{}{
-	"x-codex-installation-id":  {},
-	"x-codex-window-id":        {},
-	"x-codex-turn-metadata":    {},
-	"x-codex-parent-thread-id": {},
-	"x-openai-subagent":        {},
-	"code_mode_tool_names":     {},
+	"x-codex-installation-id":            {},
+	"x-codex-window-id":                  {},
+	"x-codex-turn-metadata":              {},
+	"x-codex-parent-thread-id":           {},
+	"x-openai-subagent":                  {},
+	"parent_response_id":                 {},
+	"guardian_credits_requested":         {},
+	"x-codex-ws-stream-request-start-ms": {},
+	"code_mode_tool_names":               {},
 }
 
 const (
@@ -219,6 +233,8 @@ type codexFingerprintIDs struct {
 	threadID                 string
 	turnID                   string
 	windowID                 string
+	windowNumber             int
+	contextWindowID          string
 	promptCacheKey           string
 	generation               uint64
 	turnStartedAtMS          int64
@@ -308,10 +324,14 @@ func applyCodexFingerprintHeaders(headers http.Header, ids *codexFingerprintIDs)
 		return
 	}
 	turnMetadata := headers.Get("x-codex-turn-metadata")
+	subagent := headers.Get("x-openai-subagent")
 	if ids.fullSimulation {
 		stripCodexReservedIdentityHeaders(headers)
 		if strings.TrimSpace(turnMetadata) != "" {
 			headers.Set("x-codex-turn-metadata", turnMetadata)
+		}
+		if validCodexSubagentValue(subagent) {
+			headers.Set("x-openai-subagent", subagent)
 		}
 	}
 
@@ -387,6 +407,9 @@ func applyCodexFingerprintWSHeaders(headers http.Header, ids *codexFingerprintID
 	if ids.fullSimulation {
 		headers.Set("x-client-request-id", ids.threadID)
 	} else {
+		// Match the ordinary HTTP projection for this attempt. A downstream
+		// request ID must not survive after its session/turn identity is replaced.
+		headers.Set("x-client-request-id", ids.turnID)
 		headers.Set("session_id", ids.sessionID)
 	}
 	applyCodexSimulationProfileHeaders(headers, ids)
@@ -449,7 +472,17 @@ func rewriteCodexTurnMetadataValue(raw string, ids *codexFingerprintIDs) string 
 		}
 	}
 	if ids.fullSimulation {
+		sanitizeCodexTurnMetadataMapInPlace(metadata)
 		projectCodexFullSimulationTurnMetadata(metadata)
+	}
+	// Workspace metadata is an upstream risk signal, but raw local paths and
+	// remote credentials are not portable across virtual OAuth principals.
+	// Apply the same redaction in device/session and full simulation modes.
+	if sanitized := sanitizeCodexTurnMetadataValue(mustMarshalCodexMetadata(metadata, raw)); sanitized != "" {
+		raw = sanitized
+		if err := json.Unmarshal([]byte(raw), &metadata); err != nil {
+			return raw
+		}
 	}
 	applyCodexTurnMetadataFields(metadata, ids)
 	rebuilt, err := json.Marshal(metadata)
@@ -457,6 +490,14 @@ func rewriteCodexTurnMetadataValue(raw string, ids *codexFingerprintIDs) string 
 		return raw
 	}
 	return string(rebuilt)
+}
+
+func mustMarshalCodexMetadata(metadata map[string]any, fallback string) string {
+	encoded, err := json.Marshal(metadata)
+	if err != nil {
+		return fallback
+	}
+	return string(encoded)
 }
 
 func applyCodexTurnMetadataFields(metadata map[string]any, ids *codexFingerprintIDs) {
@@ -476,11 +517,16 @@ func applyCodexTurnMetadataFields(metadata map[string]any, ids *codexFingerprint
 	metadata["window_id"] = ids.windowID
 	metadata["turn_started_at_unix_ms"] = ids.turnStartedAtMS
 	if ids.fullSimulation {
-		for _, key := range []string{"forked_from_thread_id", "parent_thread_id", "parent_turn_id", "root_turn_id"} {
+		metadata["window_number"] = ids.windowNumber
+		if ids.contextWindowID != "" {
+			metadata["context_window_id"] = ids.contextWindowID
+		}
+		for _, key := range []string{"forked_from_thread_id", "parent_thread_id", "parent_turn_id"} {
 			if raw, ok := metadata[key].(string); ok && strings.TrimSpace(raw) != "" {
 				metadata[key] = rewriteCodexSimulationMetadataID(ids, key, raw)
 			}
 		}
+		metadata["root_turn_id"] = ids.turnID
 		if subagent, ok := metadata["subagent_kind"].(string); ok && !validCodexSubagentValue(subagent) {
 			delete(metadata, "subagent_kind")
 		}
@@ -533,10 +579,15 @@ func applyCodexFingerprintClientMetadataMap(metadata map[string]any, ids *codexF
 		return false
 	}
 	if ids.fullSimulation {
+		sanitizeCodexTurnMetadataMapInPlace(metadata)
 		projectCodexFullSimulationMetadata(metadata)
 	}
 	metadata["x-codex-installation-id"] = ids.installationID
 	if ids.fullSimulation {
+		metadata["root_turn_id"] = ids.turnID
+		if ids.contextWindowID != "" {
+			metadata["context_window_id"] = ids.contextWindowID
+		}
 		if parent, ok := metadata["x-codex-parent-thread-id"].(string); ok && strings.TrimSpace(parent) != "" {
 			metadata["x-codex-parent-thread-id"] = rewriteCodexSimulationMetadataID(ids, "parent_thread_id", parent)
 		}
@@ -756,6 +807,7 @@ func rewriteEmbeddedCodexTurnMetadata(clientMetadata map[string]any, ids *codexF
 			return
 		}
 	}
+	sanitizeCodexTurnMetadataMapInPlace(metadata)
 	if ids.fullSimulation {
 		projectCodexFullSimulationTurnMetadata(metadata)
 	}

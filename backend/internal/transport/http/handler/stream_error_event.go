@@ -31,10 +31,11 @@ type responsesFailedBody struct {
 }
 
 // responsesFailedEvent 是写入 SSE data 行的顶层结构。
-// 故意不带 sequence_number：spec 标记可选，且本函数被调用时无法可靠拿到 last seq。
+// Strict Responses clients require sequence_number even for terminal errors.
 type responsesFailedEvent struct {
-	Type     string              `json:"type"`
-	Response responsesFailedBody `json:"response"`
+	Type           string              `json:"type"`
+	SequenceNumber int                 `json:"sequence_number"`
+	Response       responsesFailedBody `json:"response"`
 }
 
 func setSSEResponseHeaders(c *gin.Context) {
@@ -57,8 +58,7 @@ func setSSEResponseHeaders(c *gin.Context) {
 // 而抛出 "stream closed before response.completed"。
 //
 // 字段集对齐 apicompat.makeResponsesCompletedEvent：id/object/model/status/output/error。
-// 故意不写 sequence_number：本函数被调用时无法可靠拿到当前流的 last sequence，
-// 而 OpenAI spec 将 sequence_number 设为可选；省略避免破坏单调性约束。
+// 拿不到上一帧序号时写 0；这是终止事件，后续不会继续写流。
 //
 // 返回 true 表示已尝试 SSE 写出（不论 Write 是否成功，caller 都应直接 return）。
 // 返回 false 表示 writer 不支持 Flusher，无法以 SSE 形式回报错误；

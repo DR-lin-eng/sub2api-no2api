@@ -237,6 +237,13 @@ func (s *TLSFingerprintProfileService) accountScopedOpenAIProfile(account *Accou
 	return tlsfingerprint.VariantForKey(profile, variantKey)
 }
 
+func applyCodexExperimentalTLSProfile(account *Account, profile *tlsfingerprint.Profile) *tlsfingerprint.Profile {
+	if account == nil || !account.IsOpenAIOAuth() || !codexsimulation.CodexExperimentalTransportEnabled() {
+		return profile
+	}
+	return profile.WithCodexExperimentalTransport()
+}
+
 func fnvHash64(value string) uint64 {
 	hasher := fnv.New64a()
 	_, _ = hasher.Write([]byte(value))
@@ -261,14 +268,14 @@ func (s *TLSFingerprintProfileService) ResolveTLSProfile(account *Account) *tlsf
 			// An administrator-selected profile is the base wire family, while
 			// OpenAI OAuth still receives an account-specific variant so a bulk
 			// assignment cannot make every account present the same ClientHello.
-			return s.accountScopedOpenAIProfile(account, p)
+			return applyCodexExperimentalTLSProfile(account, s.accountScopedOpenAIProfile(account, p))
 		}
 	}
 	// OpenAI/Codex uses an account-scoped pseudo-random variant of the source-
 	// derived Rustls profile by default. The variant is stable for the account,
 	// while its offer ordering differs from neighboring accounts.
 	if account.IsOpenAIOAuth() && id == 0 {
-		return s.accountScopedOpenAIProfile(account, tlsfingerprint.BuiltInCodexRustlsProfile())
+		return applyCodexExperimentalTLSProfile(account, s.accountScopedOpenAIProfile(account, tlsfingerprint.BuiltInCodexRustlsProfile()))
 	}
 	stableKey := ""
 	if s.settingService != nil && codexsimulation.CLevelEnabled() {
@@ -282,7 +289,7 @@ func (s *TLSFingerprintProfileService) ResolveTLSProfile(account *Account) *tlsf
 	}
 	// TLS 启用但没有可配置 profile 时，按上游平台选择内置传输参数。
 	if account.IsOpenAIOAuth() {
-		return s.accountScopedOpenAIProfile(account, tlsfingerprint.BuiltInCodexRustlsProfile())
+		return applyCodexExperimentalTLSProfile(account, s.accountScopedOpenAIProfile(account, tlsfingerprint.BuiltInCodexRustlsProfile()))
 	}
 	return &tlsfingerprint.Profile{Name: "Built-in Default (Node.js 24.x)"}
 }
