@@ -683,7 +683,7 @@ func codexManifestKnownImageInputModel(modelID string) bool {
 	if normalized == "deepseek-v4-flash-vision-exp" {
 		return true
 	}
-	if strings.HasPrefix(normalized, "gpt-6") && isOpenAIGPT6AstraModel(normalized) {
+	if strings.HasPrefix(normalized, "gpt-6") && isOpenAIGPT6Model(normalized) {
 		return true
 	}
 	for _, prefix := range []string{"gpt-5", "gpt-4o", "gpt-4.1", "gpt-4.5", "gpt-4-turbo", "gpt-4-vision"} {
@@ -696,7 +696,7 @@ func codexManifestKnownImageInputModel(modelID string) bool {
 
 func codexManifestKnownPriorityTierModel(modelID string) bool {
 	normalized := codexManifestFallbackModelID(modelID)
-	if strings.HasPrefix(normalized, "gpt-6") && isOpenAIGPT6AstraModel(normalized) {
+	if strings.HasPrefix(normalized, "gpt-6") && isOpenAIGPT6Model(normalized) {
 		return true
 	}
 	for _, family := range []string{"gpt-5.4", "gpt-5.5", "gpt-5.6"} {

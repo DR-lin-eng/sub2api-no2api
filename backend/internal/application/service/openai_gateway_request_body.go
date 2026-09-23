@@ -1789,7 +1789,7 @@ func normalizeOpenAIReasoningEffortForUpstream(raw, model string) (string, bool)
 // has a distinct max level. Other models retain the legacy max -> xhigh
 // normalization for compatibility with their upstream contract.
 func supportsOpenAIReasoningEffortMax(model string) bool {
-	if isOpenAIGPT56Model(model) || isOpenAIGPT6AstraModel(model) {
+	if isOpenAIGPT56Model(model) || isOpenAIGPT6Model(model) {
 		return true
 	}
 	normalized := strings.ToLower(lastOpenAIModelSegment(model))

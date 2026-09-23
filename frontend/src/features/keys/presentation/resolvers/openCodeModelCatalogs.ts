@@ -53,6 +53,48 @@ export const openAIModelCatalog = {
       max: {}
     }
   },
+  'gpt-6-sol': {
+    name: 'GPT-6 Sol',
+    limit: {
+      context: 1050000,
+      output: 128000
+    },
+    modalities: {
+      input: ['text', 'image'],
+      output: ['text']
+    },
+    options: {
+      store: false
+    },
+    variants: {
+      low: {},
+      medium: {},
+      high: {},
+      xhigh: {},
+      max: {}
+    }
+  },
+  'gpt-6-luna': {
+    name: 'GPT-6 Luna',
+    limit: {
+      context: 1050000,
+      output: 128000
+    },
+    modalities: {
+      input: ['text', 'image'],
+      output: ['text']
+    },
+    options: {
+      store: false
+    },
+    variants: {
+      low: {},
+      medium: {},
+      high: {},
+      xhigh: {},
+      max: {}
+    }
+  },
   'gpt-5.2': {
     name: 'GPT-5.2',
     limit: {

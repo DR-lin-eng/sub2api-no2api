@@ -1,0 +1,77 @@
+OpenAI model catalog update evidence
+
+BRANCH: codex/update-openai-models
+CHANGED FIELDS: DefaultModels (gpt-6-sol, gpt-6-luna), OpenAI pricing catalog, static billing/pricing fallbacks, Codex model normalization/capabilities, admin whitelist, OpenCode catalog
+ARTIFACTS:
+  MODIFIED_FILE: /Users/lin/.codex/worktrees/14f1/sub2api-no2api/diagnostics/openai-model-update-20260923/MODIFIED_FILE
+  DIFF_FILE: /Users/lin/.codex/worktrees/14f1/sub2api-no2api/diagnostics/openai-model-update-20260923/DIFF_FILE
+  VERIFICATION.txt: /Users/lin/.codex/worktrees/14f1/sub2api-no2api/diagnostics/openai-model-update-20260923/VERIFICATION.txt
+  ROLLBACK.sh: /Users/lin/.codex/worktrees/14f1/sub2api-no2api/diagnostics/openai-model-update-20260923/ROLLBACK.sh
+
+ORIGINAL MODIFIED_FILE SHA-256: 310496fcaf5f5a0e7d0dc078a58d2996282473704e96cd3794837913bbf23a3d
+MODIFIED MODIFIED_FILE SHA-256: c30cb885d1ad2f91f3ef6d3c0e0e4ada10db7584940350dbcc549ba509c62db2
+
+BASELINE:
+  command: docker run --rm -v "$PWD/backend:/workspace" -w /workspace golang:1.26.6-alpine sh -c 'apk add --no-cache git ca-certificates >/dev/null && GOCACHE=/tmp/go-build GOPROXY=https://goproxy.cn,direct go test ./internal/shared/openai ./internal/application/service'
+  input: repository at ccfb23c7c before the GPT-6 Sol/Luna edits
+  literal output/result:
+    ok  github.com/Wei-Shaw/sub2api/internal/shared/openai  0.007s
+    ok  github.com/Wei-Shaw/sub2api/internal/application/service  137.220s
+  exit status: 0
+  command: docker run --rm -v "$PWD/frontend:/workspace" -w /workspace node:24-alpine sh -c 'corepack enable && corepack prepare pnpm@11.17.0 --activate >/dev/null && pnpm install --frozen-lockfile >/tmp/pnpm-install.log && pnpm exec vitest run src/features/admin-accounts/presentation/composables/__tests__/useModelWhitelist.spec.ts src/features/keys/__tests__/UseKeyDialog.spec.ts src/features/model-plaza/__tests__/PlazaModelPricingTable.spec.ts'
+  input: repository at ccfb23c7c before the GPT-6 Sol/Luna edits
+  literal output/result: Test Files 3 passed (3); Tests 41 passed (41); Duration 2.11s
+  exit status: 0
+
+MODIFIED:
+  command: docker run --rm -v "$PWD/backend:/workspace" -v /private/tmp/sub2api-go-mod:/go/pkg/mod -v /private/tmp/sub2api-go-build:/tmp/go-build -w /workspace golang:1.26.6-alpine sh -c 'apk add --no-cache git ca-certificates >/dev/null && GOCACHE=/tmp/go-build GOPROXY=https://goproxy.cn,direct go test ./internal/shared/openai ./internal/application/service'
+  input: branch codex/update-openai-models with gpt-6-sol/gpt-6-luna catalog, aliases, capabilities, and pricing tests
+  literal output/result:
+    ok  github.com/Wei-Shaw/sub2api/internal/shared/openai  0.011s
+    ok  github.com/Wei-Shaw/sub2api/internal/application/service  138.157s
+  exit status: 0
+
+  command: docker run --rm -v "$PWD/backend:/workspace" -v /private/tmp/sub2api-go-mod:/go/pkg/mod -v /private/tmp/sub2api-go-build:/tmp/go-build -w /workspace golang:1.26.6-alpine sh -c 'apk add --no-cache git ca-certificates >/dev/null && GOCACHE=/tmp/go-build GOPROXY=https://goproxy.cn,direct go test ./...'
+  input: current branch source tree
+  literal output/result: all backend packages passed, including internal/application/service, internal/transport/http/handler, internal/infrastructure/repository, and internal/shared/openai
+  exit status: 0
+
+  command: docker run --rm -e CI=true -v "$PWD:/app" -w /app/frontend node:24-alpine sh -c 'corepack enable && corepack prepare pnpm@11.17.0 --activate >/dev/null && pnpm install --frozen-lockfile >/tmp/install.log && pnpm run lint:check && pnpm run typecheck && pnpm run test:run && pnpm run build'
+  input: current branch source tree
+  literal output/result: lint and typecheck passed; 375 test files passed and 5 pre-existing test files failed (8 tests: Pinia setup, modularization hash/line baselines, registration navigation); build step was not reached in this combined command
+  exit status: 1
+
+  command: docker run --rm -e CI=true -v "$PWD:/app" -w /app/frontend node:24-alpine sh -c 'corepack enable && corepack prepare pnpm@11.17.0 --activate >/dev/null && pnpm install --frozen-lockfile >/tmp/install.log && pnpm run build'
+  input: current branch source tree
+  literal output/result: vue-tsc passed; Vite 1530 modules transformed; built in 30.16s
+  exit status: 0
+  command: docker run --rm -v "$PWD/frontend:/workspace" -w /workspace node:24-alpine sh -c 'corepack enable && corepack prepare pnpm@11.17.0 --activate >/dev/null && pnpm exec vitest run src/features/admin-accounts/presentation/composables/__tests__/useModelWhitelist.spec.ts src/features/keys/__tests__/UseKeyDialog.spec.ts src/features/keys/__tests__/openCodeConfigResolver.spec.ts src/features/model-plaza/__tests__/PlazaModelPricingTable.spec.ts'
+  input: branch codex/update-openai-models with GPT-6 Sol/Luna whitelist and OpenCode catalog entries
+  literal output/result: Test Files 4 passed (4); Tests 48 passed (48); Duration 2.56s
+  exit status: 0
+
+IMAGE:
+  command: docker build --file Dockerfile --tag sub2api-openai-models:20260923 --build-arg VERSION=0.1.212 --build-arg COMMIT=codex-update-openai-models --build-arg GOPROXY=https://goproxy.cn,direct --build-arg GOSUMDB=sum.golang.google.cn .
+  input: current branch source tree
+  literal output/result: image sub2api-openai-models:20260923; manifest list sha256:d4d11cdd41a0ff071ccca6b92e50dabf5a58a8efaefc7631765233a9499100d7; arch arm64
+  exit status: 0
+  command: docker run --rm sub2api-openai-models:20260923 --help
+  input: built image
+  literal output/result: Usage of /app/sub2api: -setup (Run setup wizard in CLI mode); -version (Show version information)
+  exit status: 0
+  command: docker run --rm sub2api-openai-models:20260923 -version
+  input: built image
+  literal output/result: Sub2API 0.1.212 (commit: codex-update-openai-models, built: 2026-09-23T01:02:34Z)
+  exit status: 0
+
+ROLLBACK:
+  command: diagnostics/openai-model-update-20260923/ROLLBACK.sh "$TMP/ROLLBACK_TARGET" "$TMP/ORIGINAL_COPY"; shasum -a 256 "$TMP/ROLLBACK_TARGET"; cmp -s "$TMP/ROLLBACK_TARGET" "$TMP/ORIGINAL_COPY"
+  input: a modified copy and a second copy of the original constants.go
+  literal output/result:
+    restored /private/tmp/openai-model-rollback.M2adMJ/ROLLBACK_TARGET from /private/tmp/openai-model-rollback.M2adMJ/ORIGINAL_COPY
+    target_sha=310496fcaf5f5a0e7d0dc078a58d2996282473704e96cd3794837913bbf23a3d
+    source_sha=310496fcaf5f5a0e7d0dc078a58d2996282473704e96cd3794837913bbf23a3d
+    cmp=identical
+  exit status: 0
+
+RESTORED BEHAVIOR/STATUS: rollback copy exactly matches the original hash; MODIFIED_FILE remains changed with the two GPT-6 entries.

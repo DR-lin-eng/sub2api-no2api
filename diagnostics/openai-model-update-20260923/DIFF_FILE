@@ -1,0 +1,13 @@
+ORIGINAL: backend/internal/shared/openai/constants.go at ccfb23c7c
+MODIFIED: backend/internal/shared/openai/constants.go on codex/update-openai-models
+
+Changed DefaultModels entries:
+- Added gpt-6-sol (created metadata 1790121600, display name GPT-6 Sol).
+- Added gpt-6-luna (created metadata 1790121600, display name GPT-6 Luna).
+
+Changed CodexBaseInstructionsForModel:
+- GPT-6 Sol and GPT-6 Luna now use the existing GPT-6 prompt alongside GPT-6 Astra.
+- Snapshot and gpt6 alias forms remain normalized before prompt selection.
+
+The complete source diff is the staged change to constants.go; MODIFIED_FILE is the
+standalone changed copy used for hash and rollback verification.
