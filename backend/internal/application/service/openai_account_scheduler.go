@@ -1759,7 +1759,7 @@ func (s *defaultOpenAIAccountScheduler) selectionFailureDetails(
 
 	var schedGroup *Group
 	if req.GroupID != nil && s.service.schedulerSnapshot != nil {
-		schedGroup, _ = s.service.schedulerSnapshot.GetGroupByID(ctx, *req.GroupID)
+		schedGroup, _ = s.service.schedulerSnapshot.GetGroupByIDLite(ctx, *req.GroupID)
 	}
 
 	stats := openAISelectionFilterStats{pool: len(accounts)}
@@ -1823,7 +1823,7 @@ func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 	// require_privacy_set: 获取分组信息
 	var schedGroup *Group
 	if req.GroupID != nil && s.service.schedulerSnapshot != nil {
-		schedGroup, _ = s.service.schedulerSnapshot.GetGroupByID(ctx, *req.GroupID)
+		schedGroup, _ = s.service.schedulerSnapshot.GetGroupByIDLite(ctx, *req.GroupID)
 	}
 
 	filtered := make([]*Account, 0, len(accounts))

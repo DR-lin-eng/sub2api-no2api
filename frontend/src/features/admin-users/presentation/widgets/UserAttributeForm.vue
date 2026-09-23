@@ -115,6 +115,7 @@ const emit = defineEmits<Emits>()
 const loading = ref(false)
 const attributes = ref<UserAttributeDefinition[]>([])
 const localValues = ref<UserAttributeValuesMap>({})
+let requestVersion = 0
 
 const loadAttributes = async () => {
   loading.value = true
@@ -129,9 +130,11 @@ const loadAttributes = async () => {
 
 const loadUserValues = async () => {
   if (!props.userId) return
+  const version = ++requestVersion
 
   try {
     const values = await getUserAttributeValues(props.userId)
+    if (version !== requestVersion) return
     const valuesMap: UserAttributeValuesMap = {}
     values.forEach(v => {
       valuesMap[v.attribute_id] = v.value
@@ -139,6 +142,7 @@ const loadUserValues = async () => {
     localValues.value = { ...valuesMap }
     emit('update:modelValue', localValues.value)
   } catch (error) {
+    if (version !== requestVersion) return
     console.error('Failed to load user attribute values:', error)
   }
 }
@@ -187,13 +191,10 @@ watch(() => props.modelValue, (newVal) => {
   }
 }, { immediate: true })
 
-watch(() => props.userId, (newUserId) => {
-  if (newUserId) {
-    loadUserValues()
-  } else {
-    // Reset for new user
-    localValues.value = {}
-  }
+watch(() => props.userId, (newUserId, _, onCleanup) => {
+  onCleanup(() => { requestVersion++ })
+  localValues.value = {}
+  if (newUserId) loadUserValues()
 }, { immediate: true })
 
 onMounted(() => {
