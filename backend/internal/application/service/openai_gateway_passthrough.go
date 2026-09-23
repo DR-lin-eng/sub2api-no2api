@@ -168,6 +168,13 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 			attemptImageIntentInvalidated = true
 		}
 	}
+	if account != nil && account.Platform == PlatformOpenAI {
+		if sanitized, changed, sanitizeErr := sanitizeOpenAIResponsesAccessPrograms(body); sanitizeErr != nil {
+			return nil, sanitizeErr
+		} else if changed {
+			body = sanitized
+		}
+	}
 	promptCacheKey := openAIPassthroughTurnStateKey(c, account, body)
 
 	if account != nil && account.Type == AccountTypeOAuth {
@@ -633,7 +640,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerpr
 	if account.IsOpenAIOAuth() && (fingerprintIDs == nil || fingerprintIDs.mode == codexFingerprintOff) {
 		codexSessionIDs = resolveCodexOutboundSessionIDs(c, account, body, promptCacheKey)
 		var rewriteErr error
-		outboundBody, rewriteErr = rewriteCodexOutboundSessionMetadata(body, codexSessionIDs)
+		outboundBody, rewriteErr = rewriteCodexOutboundSessionMetadata(body, account, codexSessionIDs)
 		if rewriteErr != nil {
 			return nil, rewriteErr
 		}

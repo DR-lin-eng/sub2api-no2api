@@ -1,0 +1,12 @@
+BASELINE COMMAND:
+jq -e 'select(.headers."x-codex-turn-metadata" | fromjson | .turn_id == "forged-turn" and .sandbox == "danger-full-access" and .guardian_credits_requested == true) and .body.access_programs.cyber == "daybreak_red" and .expected_policy == "raw_header_and_access_program_passthrough"' "/Users/lin/.codex/worktrees/8a2a/sub2api-no2api/artifacts/codex-latest-risk-audit-20260923/BASELINE_FILE.json" >/dev/null && printf 'result=baseline_capability_bypass exit=%s\n' "0"
+result=baseline_capability_bypass exit=0
+BASELINE_EXIT=0
+MODIFIED COMMAND:
+jq -e 'select((.headers."x-codex-turn-metadata" | fromjson | .session_id == "isolated-session" and .thread_id == "isolated-thread" and .workspaces[0].path == "workspace:redacted") and (.body.access_programs == null) and .expected_policy == "oauth_header_and_access_program_normalized")' "/Users/lin/.codex/worktrees/8a2a/sub2api-no2api/artifacts/codex-latest-risk-audit-20260923/MODIFIED_FILE.json" >/dev/null && printf 'result=modified_server_owned_fields_normalized exit=%s\n' "0"
+result=modified_server_owned_fields_normalized exit=0
+MODIFIED_EXIT=0
+ROLLBACK COMMAND:
+result=restored_baseline exit=0
+restored /var/folders/8n/2t9wvjvd4hx2ms7g6r78g2d00000gn/T/codex-risk-audit-rollback.iHWLpx7KVC from /Users/lin/.codex/worktrees/8a2a/sub2api-no2api/artifacts/codex-latest-risk-audit-20260923/BASELINE_FILE.json
+ROLLBACK_EXIT=0

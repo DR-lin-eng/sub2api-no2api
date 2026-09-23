@@ -74,6 +74,45 @@ func TestApplyOpenAICodexSemanticRequestHeaders(t *testing.T) {
 	}
 }
 
+func TestOpenAICodexRawTurnMetadataHeaderIsBoundedAndAccountScoped(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	c.Request.Header.Set("session-id", "client-session")
+
+	headers := make(http.Header)
+	headers.Set(openAIWSTurnMetadataHeader, `{"turn_id":"forged-turn","window_id":"forged-window","sandbox":"danger-full-access","guardian_credits_requested":true,"turn_trigger":"guardian_classifier","subagent_kind":"guardian","workspaces":[{"path":"/Users/alice/private/repo","associated_remote_urls":["https://example.com/org/repo.git?token=secret#fragment"],"access_token":"drop-me"}],"custom":{"nested":true}}`)
+	account := &Account{ID: 92, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+
+	applyOpenAICodexSemanticRequestHeaders(headers, c, account, nil)
+	metadata := headers.Get(openAIWSTurnMetadataHeader)
+	require.True(t, gjson.Valid(metadata))
+	require.Empty(t, gjson.Get(metadata, "turn_id").String())
+	require.Empty(t, gjson.Get(metadata, "window_id").String())
+	require.Empty(t, gjson.Get(metadata, "sandbox").String())
+	require.False(t, gjson.Get(metadata, "guardian_credits_requested").Exists())
+	require.Equal(t, "guardian_classifier", gjson.Get(metadata, "turn_trigger").String())
+	require.NotEqual(t, "client-session", gjson.Get(metadata, "session_id").String())
+	require.NotEqual(t, "forged-window", gjson.Get(metadata, "window_id").String())
+	require.Equal(t, resolveConvergedInstallationID(account), gjson.Get(metadata, "installation_id").String())
+	require.Equal(t, "workspace:redacted", gjson.Get(metadata, "workspaces.0.path").String())
+	require.Equal(t, "https://example.com/org/repo.git", gjson.Get(metadata, "workspaces.0.associated_remote_urls.0").String())
+	require.False(t, gjson.Get(metadata, "workspaces.0.access_token").Exists())
+	require.False(t, strings.Contains(metadata, "/Users/alice"))
+	require.False(t, strings.Contains(metadata, "token=secret"))
+
+	invalidHeaders := make(http.Header)
+	invalidHeaders.Set(openAIWSTurnMetadataHeader, "not-json")
+	applyOpenAICodexSemanticRequestHeaders(invalidHeaders, c, account, nil)
+	require.Empty(t, invalidHeaders.Get(openAIWSTurnMetadataHeader))
+
+	bodyHeaders := make(http.Header)
+	bodyHeaders.Set(openAIWSTurnMetadataHeader, "not-json")
+	body := []byte(`{"client_metadata":{"x-codex-turn-metadata":"{\"thread_source\":\"body\"}"}}`)
+	applyOpenAICodexSemanticRequestHeaders(bodyHeaders, c, account, body)
+	require.Equal(t, "body", gjson.Get(bodyHeaders.Get(openAIWSTurnMetadataHeader), "thread_source").String())
+}
+
 func TestOpenAIRequestBuildReconstructsIsolatedParentAndGuardianHeaders(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())

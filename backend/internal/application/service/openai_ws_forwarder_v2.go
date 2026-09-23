@@ -65,6 +65,9 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	)
 
 	payload := s.buildOpenAIWSCreatePayload(reqBody, account)
+	if account.Platform == PlatformOpenAI {
+		sanitizeOpenAIResponsesAccessProgramsMap(payload)
+	}
 	if s.IsDistillationGroupRequest(c, account) {
 		var cleaned map[string]any
 		if err := json.Unmarshal(stripDistillationCacheFields(payloadAsJSONBytes(payload)), &cleaned); err == nil {
@@ -85,6 +88,10 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	previousResponseID := openAIWSPayloadString(payload, "previous_response_id")
 	previousResponseIDKind := ClassifyOpenAIPreviousResponseIDKind(previousResponseID)
 	promptCacheKey := openAIWSPayloadString(payload, "prompt_cache_key")
+	if account.IsOpenAIOAuth() && (fingerprintIDs == nil || fingerprintIDs.mode == codexFingerprintOff) {
+		ids := resolveCodexOutboundSessionIDs(c, account, payloadAsJSONBytes(payload), promptCacheKey)
+		sanitizeOpenAICodexClientMetadataPayload(payload, account, ids)
+	}
 	_, hasTools := payload["tools"]
 	debugEnabled := isOpenAIWSModeDebugEnabled()
 	payloadBytes := -1
@@ -193,6 +200,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	if s.CodexSimulationRequestEnabled(c) {
 		wsHeaders.Del(CodexProjectIDHeader)
 	}
+	stageCodexFingerprintIDs(c, fingerprintIDs)
 	applyCodexOutboundSessionHeaders(c, account, payloadAsJSONBytes(payload), promptCacheKey, wsHeaders, fingerprintIDs)
 	applyCodexFingerprintWSHeaders(wsHeaders, fingerprintIDs)
 	applyOpenAIResponsesLiteWebSocketHeader(wsHeaders, payloadAsJSONBytes(payload))

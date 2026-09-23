@@ -66,6 +66,13 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 	}
 
 	body = normalizeNativeCNResponsesRequestBody(account, body)
+	if account.Platform == PlatformOpenAI {
+		if sanitized, changed, sanitizeErr := sanitizeOpenAIResponsesAccessPrograms(body); sanitizeErr != nil {
+			return nil, sanitizeErr
+		} else if changed {
+			body = sanitized
+		}
+	}
 	outboundBody := body
 	var codexSessionIDs *codexOutboundSessionIDs
 	distillation := s.IsDistillationGroupRequest(c, account)
@@ -81,7 +88,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 			codexSessionIDs = resolveCodexOutboundSessionIDs(c, account, outboundBody, promptCacheKey)
 		}
 		var rewriteErr error
-		outboundBody, rewriteErr = rewriteCodexOutboundSessionMetadata(outboundBody, codexSessionIDs)
+		outboundBody, rewriteErr = rewriteCodexOutboundSessionMetadata(outboundBody, account, codexSessionIDs)
 		if rewriteErr != nil {
 			return nil, rewriteErr
 		}

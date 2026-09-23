@@ -1431,45 +1431,36 @@ func ensureCodexReasoningInclude(reqBody map[string]any) bool {
 	}
 }
 
-// applyCodexClientMetadata 在请求体补齐 client_metadata["x-codex-installation-id"]，
-// 取值为账号真实的 openai_device_id（最新 Codex 在请求体携带的安装标识）。
+// applyCodexClientMetadata 在请求体补齐 client_metadata["x-codex-installation-id"]。
+// 取值为账号稳定的 Codex installation/device 标识：优先使用账号已持久化的
+// openai_device_id，否则按账号虚拟客户端 key 稳定派生，不随请求变化。
 //
-// 加法式、幂等：仅在账号存在 device_id 且该键缺失时注入，绝不覆盖既有 client_metadata
-// （如 turn metadata），也不伪造——无 device_id 时不写入。
+// 服务端权威式、幂等：始终覆盖客户端同名值，避免伪造值随机漂移。其它
+// client_metadata（如 turn metadata）保留，细粒度的身份/审批清洗由 OAuth metadata boundary 负责。
 func applyCodexClientMetadata(reqBody map[string]any, account *Account) bool {
-	if account == nil {
+	if reqBody == nil || account == nil || !account.IsOpenAIOAuth() {
 		return false
 	}
-	deviceID := strings.TrimSpace(account.GetOpenAIDeviceID())
+	deviceID := strings.TrimSpace(resolveConvergedInstallationID(account))
+
+	metadata, ok := mutableCodexClientMetadata(reqBody["client_metadata"])
+	if !ok {
+		return false
+	}
+	changed := false
 	if deviceID == "" {
-		return false
+		if _, exists := metadata["x-codex-installation-id"]; exists {
+			delete(metadata, "x-codex-installation-id")
+			changed = true
+		}
+	} else if current, isString := metadata["x-codex-installation-id"].(string); !isString || strings.TrimSpace(current) != deviceID {
+		metadata["x-codex-installation-id"] = deviceID
+		changed = true
 	}
-	const key = "x-codex-installation-id"
-	switch existing := reqBody["client_metadata"].(type) {
-	case map[string]any:
-		if v, ok := existing[key].(string); ok && strings.TrimSpace(v) != "" {
-			return false
-		}
-		existing[key] = deviceID
-		reqBody["client_metadata"] = existing
-		return true
-	case map[string]string:
-		if strings.TrimSpace(existing[key]) != "" {
-			return false
-		}
-		next := make(map[string]any, len(existing)+1)
-		for k, v := range existing {
-			next[k] = v
-		}
-		next[key] = deviceID
-		reqBody["client_metadata"] = next
-		return true
-	case nil:
-		reqBody["client_metadata"] = map[string]any{key: deviceID}
-		return true
-	default:
-		return false
+	if changed || reqBody["client_metadata"] == nil {
+		reqBody["client_metadata"] = metadata
 	}
+	return changed
 }
 
 // applyInstructions fills the model-specific Codex base prompt when the
