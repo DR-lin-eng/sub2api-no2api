@@ -21,8 +21,8 @@ const baselines: OpenCodeBaseline[] = [
   },
   {
     platform: 'openai',
-    bytes: 4614,
-    sha256: '7458b1e6a63af0236cd9ae65c73af07407d4352fff0f5cbdf70c84f4c0f775e2',
+    bytes: 5734,
+    sha256: '677f03c3dc7ad73e0aa79396db0ad180df78682397b4b48d731b32d86b003348',
     providerKeys: ['options', 'models']
   },
   {

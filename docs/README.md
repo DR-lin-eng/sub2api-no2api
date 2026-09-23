@@ -63,6 +63,7 @@
 | [上游渠道适配同步审查记录（2026-09-16）](UPSTREAM_SYNC_20260916.md) | 上游 main 至 `881f3202` 的渠道功能核对、多协议/OpenCode 补齐、Docker 运行态与浏览器验收 |
 | [上游主线同步审查记录（2026-09-18）](UPSTREAM_SYNC_20260918.md) | 上游 main 至 `efe9aab1` 的协议/刷新/用量性能选择性移植、前端稳定性修复、Docker 与 CI 跟踪 |
 | [GPT-6 Astra 接入记录](GPT6_ASTRA.md) | OpenAI 官方模型目录、能力、价格和本项目兼容计费映射 |
+| [GPT-6 模型目录与价格](GPT6_MODELS.md) | GPT-6 Astra、Sol、Luna 的官方能力、价格与本项目实现位置 |
 | [OpenAI 请求计时](OPENAI_TIMING.md) | 上游 timing 采集、用户明细投影与管理员本地/上游对比 |
 
 ## 长期优化计划
