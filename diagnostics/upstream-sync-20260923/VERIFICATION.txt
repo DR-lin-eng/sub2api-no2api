@@ -35,6 +35,15 @@ ok   github.com/Wei-Shaw/sub2api/internal/infrastructure/repository 6.702s
 ok   github.com/Wei-Shaw/sub2api/internal/transport/http/handler 42.154s
 ok   github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes 5.423s
 
+BASELINE frontend regression command/input (exit 1, expected):
+From /private/tmp/sub2api-upstream-baseline-20260923/frontend, with this branch's new test copied into the baseline tree and the already installed node_modules linked read-only:
+/Users/lin/.codex/worktrees/41ad/sub2api-no2api/frontend/node_modules/.bin/vitest run src/features/admin-users/__tests__/UserAttributeForm.race.spec.ts
+BASELINE literal output/result:
+❯ src/features/admin-users/__tests__/UserAttributeForm.race.spec.ts (3 tests | 3 failed)
+expected 'old' to be 'current'; expected 'old' to be ''; expected 'old' to be ''.
+Test Files 1 failed (1); Tests 3 failed (3).
+Restored behavior/status: modified component passes all three ownership cases; baseline copy was not edited.
+
 FRONTEND command/input (exit 0):
 pnpm --dir frontend exec vitest run src/features/admin-users/__tests__/UserAttributeForm.race.spec.ts && pnpm --dir frontend run typecheck && pnpm --dir frontend exec eslint src/features/admin-users/presentation/widgets/UserAttributeForm.vue src/features/admin-users/__tests__/UserAttributeForm.race.spec.ts
 FRONTEND literal result: Test Files 1 passed (1); Tests 3 passed (3); vue-tsc --noEmit passed; eslint passed.
