@@ -161,4 +161,22 @@ func TestIsMigrationChecksumCompatible(t *testing.T) {
 		)
 		require.False(t, ok)
 	})
+
+	t.Run("235注释差异的历史checksum可兼容", func(t *testing.T) {
+		ok := isMigrationChecksumCompatible(
+			"235_media_studio_api_key_identity.sql",
+			"921683740c0fd19dd16ac1ecc6ced6e40f83654277037ed29e19c926e1b9f53e",
+			"4f7e76002a8303efeb0c7dcddd2597dbb217a1c5a5712e47cb50a3cf9212171a",
+		)
+		require.True(t, ok)
+	})
+
+	t.Run("235未知checksum仍拒绝", func(t *testing.T) {
+		ok := isMigrationChecksumCompatible(
+			"235_media_studio_api_key_identity.sql",
+			"921683740c0fd19dd16ac1ecc6ced6e40f83654277037ed29e19c926e1b9f53e",
+			"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+		)
+		require.False(t, ok)
+	})
 }
