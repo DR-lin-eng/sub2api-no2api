@@ -37,6 +37,25 @@ export function resolveHomeContentUrl(value: string): string {
 }
 
 /**
+ * Returns true when both hostnames are sibling subdomains sharing the same
+ * parent, e.g. web.example.com and v2.example.com.
+ *
+ * Deliberately conservative: both hostnames need the same label count and at
+ * least three labels, and the leading labels must differ. No Public Suffix
+ * List validation is performed, so a site deployed directly under a public
+ * suffix (e.g. v2.co.uk) would treat *.co.uk as siblings. The widget stays
+ * cross-origin with the parent page either way, so no parent data is exposed.
+ */
+function isSiblingHostOf(targetHostname: string, parentHostname: string): boolean {
+  const parentLabels = parentHostname.split('.')
+  const targetLabels = targetHostname.split('.')
+  if (parentLabels.length < 3 || targetLabels.length < 3) return false
+  if (parentLabels.length !== targetLabels.length) return false
+  if (parentLabels[0] === targetLabels[0]) return false
+  return parentLabels.slice(1).join('.') === targetLabels.slice(1).join('.')
+}
+
+/**
  * Keep arbitrary home URLs sandboxed, but let an explicitly configured HTTPS
  * subdomain of this site keep its own origin and popup behavior. This is
  * needed by trusted sibling apps that use localStorage or open their login
@@ -65,10 +84,11 @@ export function resolveHomeContentIframeSandbox(
 
     const parentHostname = parentURL.hostname.toLowerCase()
     const targetHostname = targetURL.hostname.toLowerCase()
-    const isSiblingSubdomain =
+    const isSubdomainOfSite =
       targetHostname !== parentHostname && targetHostname.endsWith(`.${parentHostname}`)
+    const isSiblingHost = isSiblingHostOf(targetHostname, parentHostname)
 
-    return isSiblingSubdomain ? TRUSTED_HOME_CONTENT_IFRAME_SANDBOX : strictSandbox
+    return isSubdomainOfSite || isSiblingHost ? TRUSTED_HOME_CONTENT_IFRAME_SANDBOX : strictSandbox
   } catch {
     return strictSandbox
   }
