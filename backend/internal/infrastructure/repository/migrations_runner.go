@@ -84,6 +84,9 @@ var migrationChecksumCompatibilityRules = map[string]migrationChecksumCompatibil
 	"159_batch_image_foundation.sql":                          newMigrationChecksumCompatibilityRule("d902b70982025ec519749faf058aab7631e82c3f48167b9a4ae4db718eb72cce", "82da85b5d98e67a0507647b873a40373e84538e4adafdeed6767c0ac8b6570b2"),
 	"161_batch_image_pricing_snapshot.sql":                    newMigrationChecksumCompatibilityRule("4012af3e43636cb6af22e0176d59d1fcc70615c0f310194329461ae462c4fbd6", "96d915c9b7a6941ae99039e0ff3f1a61481eb9bddd933d11c6fadb2274554e87"),
 	"188_allow_live_usage_request_type.sql":                   newMigrationChecksumCompatibilityRule("f1f2d54b6bcff0c18f32692f418517aed0fc887fcb4d729f5572a851e9a3b3ac", "0233dba07a75bd9c740402a64e3af75c2a3884dfc8c4b63145df115e716fd35e"),
+	// 235 differs only by two comments between the applied merge revision and
+	// the deployed file; SQL semantics are identical.
+	"235_media_studio_api_key_identity.sql":                  newMigrationChecksumCompatibilityRule("4f7e76002a8303efeb0c7dcddd2597dbb217a1c5a5712e47cb50a3cf9212171a", "921683740c0fd19dd16ac1ecc6ced6e40f83654277037ed29e19c926e1b9f53e"),
 }
 
 // ApplyMigrations 将嵌入的 SQL 迁移文件应用到指定的数据库。
