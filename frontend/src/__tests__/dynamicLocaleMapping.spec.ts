@@ -30,7 +30,8 @@ function dynamicLocaleCalls(): Map<string, number> {
     const source = readFileSync(file, 'utf8')
     for (const pattern of patterns) {
       for (const match of source.matchAll(pattern)) {
-        const signature = `${relative(srcRoot, file)} :: ${normalizeExpression(match[1])}`
+        // Normalize separators so the audited keys match on Windows too.
+        const signature = `${relative(srcRoot, file).replace(/\\/g, '/')} :: ${normalizeExpression(match[1])}`
         findings.set(signature, (findings.get(signature) ?? 0) + 1)
       }
     }
@@ -94,7 +95,6 @@ const auditedDynamicCalls: Record<string, number> = {
   'features/billing/presentation/widgets/PaymentProviderDialog.vue :: `admin.settings.payment.field_${f.key}`': 2,
   'features/billing/presentation/widgets/PaymentProviderDialog.vue :: `payment.methods.${opt.value}`': 1,
   'features/billing/presentation/widgets/PaymentProviderList.vue :: `payment.methods.${opt.value}`': 1,
-  'features/channel-monitor-user/presentation/widgets/MonitorCard.vue :: `channelStatus.windowTab.${props.window}`': 1,
   'features/dashboard-user/presentation/widgets/UserDashboardStats.vue :: `dashboard.platformQuota.${w}`': 2,
   'features/keys/presentation/widgets/KeyGroupBindingsEditor.vue :: `keys.providerHints.${createProvider}`': 1,
   'features/keys/presentation/widgets/KeyGroupBindingsEditor.vue :: `keys.providers.${provider.value}`': 1,

@@ -646,6 +646,11 @@ export default {
     detailLoadError: '加载渠道详情失败',
     detailTitle: '渠道详情',
     closeDetail: '关闭',
+    unnamedGroup: '未命名分组',
+    groupCount: '{n} 个分组',
+    abnormalCount: '{n} 个异常',
+    expandGroups: '展开其余 {n} 个分组',
+    collapseGroups: '收起分组',
     windowTab: {
       '7d': '7 天',
       '15d': '15 天',
