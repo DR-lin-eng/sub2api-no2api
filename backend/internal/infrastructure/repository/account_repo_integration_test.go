@@ -2202,6 +2202,63 @@ func (s *AccountRepoSuite) TestBulkUpdate_TLSFingerprintPersistsAndReadsBack() {
 	s.Require().Equal("two", got2.Extra["existing"])
 }
 
+func (s *AccountRepoSuite) TestBulkUpdate_ExcelBPSTypedSwitchIsAtomicAndOverridesLegacy() {
+	a1 := mustCreateAccount(s.T(), s.client, &service.Account{
+		Name: "bulk-bps-legacy", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+		Extra: map[string]any{"openai_excel_bps": true, "keep": "value"},
+	})
+	a2 := mustCreateAccount(s.T(), s.client, &service.Account{
+		Name: "bulk-bps-regular", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+	})
+	disabled := false
+	affected, err := s.repo.BulkUpdate(s.ctx, []int64{a1.ID, a2.ID}, service.AccountBulkUpdate{ExcelBPSEnabled: &disabled})
+	s.Require().NoError(err)
+	s.Require().Equal(int64(2), affected)
+	got, err := s.repo.GetByID(s.ctx, a1.ID)
+	s.Require().NoError(err)
+	s.Require().Equal(false, got.Extra[service.ExcelBPSEnabledExtraKey])
+	s.Require().Equal(true, got.Extra["openai_excel_bps"])
+	s.Require().Equal("value", got.Extra["keep"])
+	s.Require().False(got.IsExcelBPSEnabled())
+
+	// Generic extra updates cannot bypass the typed switch or its eligibility guard.
+	_, err = s.repo.BulkUpdate(s.ctx, []int64{a1.ID}, service.AccountBulkUpdate{
+		Extra: map[string]any{service.ExcelBPSEnabledExtraKey: true, "openai_excel_bps": false, "keep": "patched"},
+	})
+	s.Require().NoError(err)
+	got, err = s.repo.GetByID(s.ctx, a1.ID)
+	s.Require().NoError(err)
+	s.Require().False(got.IsExcelBPSEnabled())
+	s.Require().Equal("patched", got.Extra["keep"])
+}
+
+func TestBulkUpdateExcelBPSIneligibleTargetRollsBackWholeBatch(t *testing.T) {
+	client := testEntClient(t)
+	ctx := context.Background()
+	repo := newAccountRepositoryWithSQL(client, integrationDB, nil)
+	eligible := mustCreateAccount(t, client, &service.Account{
+		Name: "bps-atomic-eligible", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+		Extra: map[string]any{service.ExcelBPSEnabledExtraKey: false},
+	})
+	pat := mustCreateAccount(t, client, &service.Account{
+		Name: "bps-atomic-pat", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+		Credentials: map[string]any{"auth_mode": service.OpenAIAuthModePersonalAccessToken},
+	})
+	t.Cleanup(func() {
+		_ = client.Account.DeleteOneID(eligible.ID).Exec(context.Background())
+		_ = client.Account.DeleteOneID(pat.ID).Exec(context.Background())
+	})
+	enabled := true
+	_, err := repo.BulkUpdate(ctx, []int64{eligible.ID, pat.ID}, service.AccountBulkUpdate{ExcelBPSEnabled: &enabled})
+	require.ErrorIs(t, err, service.ErrExcelBPSBulkTargetChanged)
+	got, err := repo.GetByID(ctx, eligible.ID)
+	require.NoError(t, err)
+	require.False(t, got.IsExcelBPSEnabled(), "eligible row must roll back with ineligible row")
+	got, err = repo.GetByID(ctx, pat.ID)
+	require.NoError(t, err)
+	require.NotEqual(t, true, got.Extra[service.ExcelBPSEnabledExtraKey])
+}
+
 func (s *AccountRepoSuite) TestBulkUpdate_EmptyIDs() {
 	affected, err := s.repo.BulkUpdate(s.ctx, []int64{}, service.AccountBulkUpdate{})
 	s.Require().NoError(err)
@@ -2222,4 +2279,81 @@ func idsOfAccounts(accounts []service.Account) []int64 {
 		out = append(out, accounts[i].ID)
 	}
 	return out
+}
+
+func (s *AccountRepoSuite) TestListWithExcelBPSFilterPaginatesAndExcludesIneligibleAccounts() {
+	tx := testEntTx(s.T())
+	client := tx.Client()
+	repo := newAccountRepositoryWithSQL(client, tx, nil)
+	ctx := context.Background()
+
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "bps-enabled", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+		Extra: map[string]any{service.ExcelBPSEnabledExtraKey: true},
+	})
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "bps-legacy", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+		Extra: map[string]any{"openai_excel_bps": true},
+	})
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "bps-legacy-malformed", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+		Extra: map[string]any{service.ExcelBPSEnabledExtraKey: "false", "openai_excel_bps": true},
+	})
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "bps-malformed", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+		Extra: map[string]any{service.ExcelBPSEnabledExtraKey: "true"},
+	})
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "bps-disabled", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+		Extra: map[string]any{service.ExcelBPSEnabledExtraKey: false, "openai_excel_bps": true},
+	})
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "bps-apikey", Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
+		Extra: map[string]any{service.ExcelBPSEnabledExtraKey: true},
+	})
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "bps-pat", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+		Credentials: map[string]any{"auth_mode": service.OpenAIAuthModePersonalAccessToken},
+		Extra:       map[string]any{service.ExcelBPSEnabledExtraKey: true},
+	})
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "bps-agent", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+		Credentials: map[string]any{"auth_mode": service.OpenAIAuthModeAgentIdentity},
+		Extra:       map[string]any{service.ExcelBPSEnabledExtraKey: true},
+	})
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "bps-other-platform", Platform: service.PlatformAnthropic, Type: service.AccountTypeOAuth,
+		Extra: map[string]any{service.ExcelBPSEnabledExtraKey: true},
+	})
+
+	page := pagination.PaginationParams{Page: 1, PageSize: 1, SortBy: "name", SortOrder: "asc"}
+	accounts, result, err := repo.ListWithFeatureFilters(ctx, page, "", "", "", "bps-", 0, "", "", service.AccountExcelBPSFilterEnabled)
+	require.NoError(s.T(), err)
+	require.Equal(s.T(), int64(3), result.Total)
+	require.Len(s.T(), accounts, 1)
+	require.Equal(s.T(), "bps-enabled", accounts[0].Name)
+
+	page.Page = 2
+	accounts, result, err = repo.ListWithFeatureFilters(ctx, page, "", "", "", "bps-", 0, "", "", service.AccountExcelBPSFilterEnabled)
+	require.NoError(s.T(), err)
+	require.Equal(s.T(), int64(3), result.Total)
+	require.Len(s.T(), accounts, 1)
+	require.Equal(s.T(), "bps-legacy", accounts[0].Name)
+
+	page.Page = 1
+	accounts, result, err = repo.ListWithFeatureFilters(ctx, page, "", "", "", "bps-", 0, "", "", service.AccountExcelBPSFilterDisabled)
+	require.NoError(s.T(), err)
+	require.Equal(s.T(), int64(2), result.Total)
+	require.Equal(s.T(), "bps-disabled", accounts[0].Name)
+
+	projections, total, err := repo.ListUpstreamBillingRateProjections(ctx, pagination.PaginationParams{Page: 1, PageSize: 10}, service.UpstreamBillingRateListFilters{
+		Search: "bps-", ExcelBPSFilter: service.AccountExcelBPSFilterEnabled,
+	})
+	require.NoError(s.T(), err)
+	require.Equal(s.T(), int64(3), total)
+	require.Len(s.T(), projections, 3)
+
+	all, err := repo.ListAllWithFeatureFilters(ctx, "", "", "", "bps-", 0, "", "", service.AccountExcelBPSFilterEnabled)
+	require.NoError(s.T(), err)
+	require.Len(s.T(), all, 3)
 }

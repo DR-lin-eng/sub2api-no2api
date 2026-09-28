@@ -337,6 +337,31 @@ function mountModal(account = buildAccount()) {
 }
 
 describe('EditAccountModal', () => {
+
+  it('persists BPS per OAuth account and explicitly overrides a legacy true when disabled', async () => {
+    const account = {
+      ...buildAccount(), type: 'oauth',
+      credentials: { auth_mode: 'oauth', access_token: 'token', chatgpt_account_id: 'acct' },
+      extra: { openai_excel_bps: true }
+    }
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+    const wrapper = mountModal(account)
+    const toggle = wrapper.get('[data-test="excel-bps-toggle"]')
+    expect(toggle.classes()).toContain('bg-primary-600')
+    await toggle.trigger('click')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).toMatchObject({ excel_bps_enabled: false })
+    expect(wrapper.get('[data-test="excel-bps-toggle"]').classes()).not.toContain('bg-primary-600')
+    await wrapper.setProps({ account: { ...account, extra: { openai_excel_bps: true, excel_bps_enabled: false } } })
+    expect(wrapper.get('[data-test="excel-bps-toggle"]').classes()).not.toContain('bg-primary-600')
+  })
+
+  it('does not show BPS for PAT and API-key accounts', () => {
+    expect(mountModal(buildOpenAIPATAccount()).find('[data-test="excel-bps-toggle"]').exists()).toBe(false)
+    expect(mountModal(buildAccount()).find('[data-test="excel-bps-toggle"]').exists()).toBe(false)
+  })
   beforeEach(() => {
     authIsSimpleMode.value = true
   })

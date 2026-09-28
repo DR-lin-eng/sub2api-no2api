@@ -194,11 +194,15 @@ export function useAccountsUpstreamBilling(options: AccountsUpstreamBillingOptio
   const buildUpstreamBillingRateFilters = () => {
     const rawParams = toRaw(options.getParams())
     const sortState = options.getSortState()
+    const excelBps: '' | 'enabled' | 'disabled' = rawParams.excel_bps === 'enabled' || rawParams.excel_bps === 'disabled'
+      ? rawParams.excel_bps
+      : ''
     return {
       platform: typeof rawParams.platform === 'string' ? rawParams.platform : '',
       type: typeof rawParams.type === 'string' ? rawParams.type : '',
       status: typeof rawParams.status === 'string' ? rawParams.status : '',
       oauth_quota: typeof rawParams.oauth_quota === 'string' ? rawParams.oauth_quota : '',
+      excel_bps: excelBps,
       group: typeof rawParams.group === 'string' ? rawParams.group : '',
       search: typeof rawParams.search === 'string' ? rawParams.search : '',
       privacy_mode: typeof rawParams.privacy_mode === 'string' ? rawParams.privacy_mode : '',

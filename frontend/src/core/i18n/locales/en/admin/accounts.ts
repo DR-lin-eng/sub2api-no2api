@@ -97,6 +97,7 @@ export default {
       allPlatforms: 'All Platforms',
       allTypes: 'All Types',
       allStatus: 'All Status', allOAuthQuota: 'All OAuth Quota', oauthQuotaHasQuota: 'OAuth has quota', oauthQuotaExhausted: 'OAuth quota exhausted', openAIQuotaWithReset: 'OpenAI OAuth with reset credits', openAIQuota5hExhausted: 'OpenAI 5h quota full', openAIQuota7dExhausted: 'OpenAI 7d quota full',
+      allExcelBPS: 'All BPS states', excelBPSEnabled: 'BPS enabled', excelBPSDisabled: 'BPS disabled',
       allGroups: 'All Groups',
       ungroupedGroup: 'Ungrouped',
       oauthType: 'OAuth',
@@ -455,6 +456,10 @@ export default {
       bulkSchedulableResultUnknown: 'Bulk scheduling result incomplete. Please retry or refresh.',
       bulkActions: bulkActionsMessages,
       bulkEdit: {
+        excelBpsUnchanged: 'Leave BPS unchanged',
+        excelBpsEnable: 'Enable BPS',
+        excelBpsDisable: 'Disable BPS',
+        excelBpsEligibility: 'Only regular OpenAI OAuth accounts qualify. Shadow accounts, PATs and agent identities block the entire batch.',
         title: 'Bulk Edit Accounts',
         selectionInfo:
           '{count} account(s) selected. Only checked or filled fields will be updated; others stay unchanged.',
@@ -576,6 +581,9 @@ export default {
         oauthPassthrough: 'Auto passthrough (auth only)',
         oauthPassthroughDesc:
           'When enabled, this OpenAI account uses automatic passthrough: the gateway forwards request/response as-is and only swaps auth, while keeping billing/concurrency/audit and necessary safety filtering.',
+        excelBpsEnabled: 'Excel / Basispoints bridge',
+        excelBpsEnabledDesc:
+          'Route this OpenAI OAuth account through the Excel / Basispoints Responses bridge. Personal access tokens, agent identities, and shadow accounts are excluded.',
         ...codexMessages,
         longContextBilling: 'API long-context pricing',
 		longContextBillingDesc:

@@ -26,6 +26,7 @@ export interface AccountSelectionFilters {
   type?: string
   status?: string
   oauth_quota?: string
+  excel_bps?: 'enabled' | 'disabled' | ''
   group?: string
   privacy_mode?: string
   search?: string
@@ -238,6 +239,20 @@ const accountHasExhaustedOAuthQuota = (account: Account, now: number): boolean =
 export function accountMatchesFilters(account: Account, filters: AccountSelectionFilters, now = Date.now()): boolean {
   if (filters.platform && account.platform !== filters.platform) return false
   if (filters.type && account.type !== filters.type) return false
+  if (filters.excel_bps) {
+    const credentials = (account.credentials ?? {}) as Record<string, unknown>
+    const authMode = String(credentials.auth_mode ?? credentials.openai_auth_mode ?? '').toLowerCase()
+    if (
+      account.platform !== 'openai' || account.type !== 'oauth' || account.parent_account_id != null ||
+      ['personalaccesstoken', 'personal_access_token', 'agentidentity'].includes(authMode)
+    ) return false
+    const extra = (account.extra ?? {}) as Record<string, unknown>
+    const enabled = typeof extra.excel_bps_enabled === 'boolean'
+      ? extra.excel_bps_enabled
+      : extra.openai_excel_bps === true
+    if (filters.excel_bps === 'enabled' && !enabled) return false
+    if (filters.excel_bps === 'disabled' && enabled) return false
+  }
   const quotaFilter = filters.oauth_quota ?? ''
   if (quotaFilter === ACCOUNT_OAUTH_QUOTA_FILTER.exhausted && !accountHasExhaustedOAuthQuota(account, now)) return false
   if (quotaFilter === ACCOUNT_OAUTH_QUOTA_FILTER.hasQuota &&

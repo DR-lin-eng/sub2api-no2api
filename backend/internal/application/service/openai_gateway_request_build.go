@@ -66,6 +66,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 	}
 
 	body = normalizeNativeCNResponsesRequestBody(account, body)
+	body = normalizeDeepSeekResponsesRequestBody(account, body)
 	if account.Platform == PlatformOpenAI {
 		if sanitized, changed, sanitizeErr := sanitizeOpenAIResponsesAccessPrograms(body); sanitizeErr != nil {
 			return nil, sanitizeErr

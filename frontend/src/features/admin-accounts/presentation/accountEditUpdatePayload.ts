@@ -119,6 +119,7 @@ type EditorFields =
     | 'customBaseUrl'
     | 'customBaseUrlEnabled'
     | 'editPlanType'
+    | 'excelBpsEnabled'
     | 'maxSessions'
     | 'mixedScheduling'
     | 'openAICompactMode'
@@ -958,6 +959,17 @@ function applyOpenAIExtra(
     delete extra.openai_compact_mode
   } else {
     extra.openai_compact_mode = context.openAICompactMode.value
+  }
+
+  if (
+    account.type === 'oauth' &&
+    !context.isSparkShadow.value &&
+    !context.isOpenAIPersonalAccessTokenAccount.value &&
+    account.credentials?.auth_mode !== 'agentIdentity'
+  ) {
+    // Account updates merge extra JSONB keys, so an explicit false must override
+    // a persisted legacy true value after the switch is turned off.
+    extra.excel_bps_enabled = context.excelBpsEnabled.value
   }
 
   if (account.type === 'apikey') {
