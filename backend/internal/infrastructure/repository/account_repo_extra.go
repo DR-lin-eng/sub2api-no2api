@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
 	"strings"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
@@ -282,7 +283,7 @@ func ollamaCloudUsageSnapshotClearRequested(extra map[string]any) bool {
 }
 
 func accountBulkUpdateRequiresImmediateSchedulerSync(updates service.AccountBulkUpdate) bool {
-	if updates.Concurrency != nil || updates.Priority != nil || updates.LoadFactor != nil {
+	if updates.Concurrency != nil || updates.Priority != nil || updates.LoadFactor != nil || updates.ExcelBPSEnabled != nil {
 		return true
 	}
 	for _, key := range []string{
@@ -309,6 +310,17 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 		return 0, nil
 	}
 
+	// Generic extra patches must not bypass the typed eligibility check.
+	updates.Extra = maps.Clone(updates.Extra)
+	delete(updates.Extra, service.ExcelBPSEnabledExtraKey)
+	delete(updates.Extra, "openai_excel_bps")
+	if updates.ExcelBPSEnabled != nil {
+		// Merge an explicit JSON boolean so a legacy true cannot override false.
+		if updates.Extra == nil {
+			updates.Extra = make(map[string]any)
+		}
+		updates.Extra[service.ExcelBPSEnabledExtraKey] = *updates.ExcelBPSEnabled
+	}
 	setClauses := make([]string, 0, 8)
 	args := make([]any, 0, 8)
 
@@ -468,6 +480,12 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 	whereClause := " WHERE id = ANY($" + itoa(idx) + ") AND deleted_at IS NULL"
 	args = append(args, pq.Array(ids))
 	idx++
+	if updates.ExcelBPSEnabled != nil {
+		// Recheck eligibility at write time if the account changed since prefetch.
+		whereClause += " AND platform = 'openai' AND type = 'oauth' AND parent_account_id IS NULL" +
+			" AND LOWER(BTRIM(COALESCE(credentials->>'auth_mode', ''))) NOT IN ('agentidentity', 'personalaccesstoken', 'personal_access_token')" +
+			" AND LOWER(BTRIM(COALESCE(credentials->>'openai_auth_mode', ''))) NOT IN ('personalaccesstoken', 'personal_access_token')"
+	}
 	if updates.ProbeEnabled != nil {
 		whereClause += " AND platform = ANY($" + itoa(idx) + ") AND type = $" + itoa(idx+1)
 		args = append(args, pq.Array([]string{service.PlatformOpenAI, service.PlatformAnthropic, service.PlatformGemini, service.PlatformAntigravity, service.PlatformGrok}), service.AccountTypeAPIKey)
@@ -500,6 +518,16 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 	rows, err := result.RowsAffected()
 	if err != nil {
 		return 0, err
+	}
+	if updates.ExcelBPSEnabled != nil {
+		seenIDs := make(map[int64]struct{}, len(ids))
+		for _, id := range ids {
+			seenIDs[id] = struct{}{}
+		}
+		if rows != int64(len(seenIDs)) {
+			// Return before committing the local transaction: no partial BPS batch.
+			return 0, service.ErrExcelBPSBulkTargetChanged
+		}
 	}
 	if updates.ProbeEnabled != nil {
 		expectedRows := int64(0)

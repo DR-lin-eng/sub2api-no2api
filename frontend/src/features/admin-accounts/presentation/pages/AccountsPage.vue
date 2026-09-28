@@ -105,6 +105,7 @@ type AccountBulkEditTarget =
         type?: string
         status?: string
         oauth_quota?: string
+        excel_bps?: 'enabled' | 'disabled' | ''
         group?: string
         search?: string
         privacy_mode?: string
@@ -334,6 +335,7 @@ const {
     type: '',
     status: '',
     oauth_quota: '',
+    excel_bps: '',
     privacy_mode: '',
     group: '',
     search: '',
@@ -599,6 +601,7 @@ const refreshAccountsIncrementally = async () => {
         type?: string
         status?: string
         oauth_quota?: string
+        excel_bps?: 'enabled' | 'disabled' | ''
         privacy_mode?: string
         group?: string
         search?: string
@@ -933,11 +936,15 @@ const handleBulkToggleSchedulable = async (schedulable: boolean) => {
 const buildBulkEditFilterSnapshot = () => {
   const rawParams = toRaw(params) as Record<string, unknown>
   const sortOrder: AccountSortOrder = rawParams.sort_order === 'desc' ? 'desc' : 'asc'
+  const excelBps: '' | 'enabled' | 'disabled' = rawParams.excel_bps === 'enabled' || rawParams.excel_bps === 'disabled'
+    ? rawParams.excel_bps
+    : ''
   return {
     platform: typeof rawParams.platform === 'string' ? rawParams.platform : '',
     type: typeof rawParams.type === 'string' ? rawParams.type : '',
     status: typeof rawParams.status === 'string' ? rawParams.status : '',
     oauth_quota: typeof rawParams.oauth_quota === 'string' ? rawParams.oauth_quota : '',
+    excel_bps: excelBps,
     group: typeof rawParams.group === 'string' ? rawParams.group : '',
     search: typeof rawParams.search === 'string' ? rawParams.search : '',
     privacy_mode: typeof rawParams.privacy_mode === 'string' ? rawParams.privacy_mode : '',

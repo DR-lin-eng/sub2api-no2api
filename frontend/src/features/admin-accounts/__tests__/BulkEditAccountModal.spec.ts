@@ -88,6 +88,40 @@ function mountModal(extraProps: Record<string, unknown> = {}) {
 }
 
 describe('BulkEditAccountModal', () => {
+  it('BPS bulk mode defaults to unchanged, submits a boolean and respects filtered targets', async () => {
+    const wrapper = mountModal({ selectedPlatforms: ['openai'], selectedTypes: ['oauth'] })
+    const select = wrapper.get('[data-testid="bulk-edit-excel-bps-mode"]')
+    expect((select.element as HTMLSelectElement).value).toBe('unchanged')
+    await select.setValue('disabled')
+    await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(bulkUpdate).toHaveBeenCalledWith([1, 2], { excel_bps_enabled: false })
+
+    const filtered = mountModal({
+      selectedPlatforms: ['openai'], selectedTypes: ['oauth'],
+      target: {
+        mode: 'filtered', previewCount: 2,
+        selectedPlatforms: ['openai'], selectedTypes: ['oauth'],
+        filters: { platform: 'openai', type: 'oauth', excel_bps: 'disabled' }
+      }
+    })
+    await filtered.get('[data-testid="bulk-edit-excel-bps-mode"]').setValue('enabled')
+    await filtered.get('#bulk-edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(bulkUpdate).toHaveBeenCalledWith({
+      filters: { platform: 'openai', type: 'oauth', excel_bps: 'disabled' },
+      excel_bps_enabled: true
+    })
+  })
+
+  it('BPS option is not shown for API keys and is unchanged unless selected', async () => {
+    const apiKey = mountModal({ selectedPlatforms: ['openai'], selectedTypes: ['apikey'] })
+    expect(apiKey.find('[data-testid="bulk-edit-excel-bps-mode"]').exists()).toBe(false)
+    const oauth = mountModal({ selectedPlatforms: ['openai'], selectedTypes: ['oauth'] })
+    await oauth.get('#bulk-edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(bulkUpdate).not.toHaveBeenCalled()
+  })
   beforeEach(() => {
     vi.mocked(bulkUpdate).mockReset()
     vi.mocked(checkMixedChannelRisk).mockReset()

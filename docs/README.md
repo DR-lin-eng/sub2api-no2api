@@ -42,6 +42,7 @@
 | 文档 | 内容 |
 | --- | --- |
 | [组合分组](COMPOSITE_GROUPS.md) | Composite group 的平台解析和使用约束 |
+| [Excel BPS 与 DeepSeek 兼容](BPS_DEEPSEEK_COMPAT.md) | 账号级 BPS 开关/筛选/批量更新、Responses 与 Chat Completions 兼容入口 |
 | [Codex OAuth 模拟的有意差异](codex/intentional-divergences.md) | 固定 Codex 源码 revision、纯 Go A/B 身份与 continuation 边界、暂缓的传输层差异 |
 | [CPA 多号池动态负载](CPA_POOL_DYNAMIC_LOAD_BALANCING_CN.md) | CPA 凭据容量、动态分流和运维检查 |
 | [调度候选索引优化](SCHEDULER_CANDIDATE_INDEX_OPTIMIZATION_CN.md) | 实验调度引擎、索引一致性和回退行为 |
@@ -63,6 +64,7 @@
 | [上游渠道适配同步审查记录（2026-09-16）](UPSTREAM_SYNC_20260916.md) | 上游 main 至 `881f3202` 的渠道功能核对、多协议/OpenCode 补齐、Docker 运行态与浏览器验收 |
 | [上游主线同步审查记录（2026-09-18）](UPSTREAM_SYNC_20260918.md) | 上游 main 至 `efe9aab1` 的协议/刷新/用量性能选择性移植、前端稳定性修复、Docker 与 CI 跟踪 |
 | [上游主线同步审查记录（2026-09-23）](UPSTREAM_SYNC_20260923.md) | 上游 main 至 `7c0a2a55` 的逐 PR 台账、选号性能与用户属性请求隔离、Docker 和 CI 跟踪 |
+| [上游主线同步审查记录（2026-09-27）](UPSTREAM_SYNC_20260927.md) | 11 个上游 PR 的已覆盖/已移植/暂缓台账、加密与视频价格修复、Docker 及发布证据 |
 | [GPT-6 Astra 接入记录](GPT6_ASTRA.md) | OpenAI 官方模型目录、能力、价格和本项目兼容计费映射 |
 | [GPT-6 模型目录与价格](GPT6_MODELS.md) | GPT-6 Astra、Sol、Luna 的官方能力、价格与本项目实现位置 |
 | [OpenAI 请求计时](OPENAI_TIMING.md) | 上游 timing 采集、用户明细投影与管理员本地/上游对比 |

@@ -34,7 +34,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	beginUpstreamResponseModelObservation(c)
 	beginOpenAITimingObservation(c)
 	ClearActualOpenAIUpstreamEndpoint(c)
-	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) {
+	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) || shouldForwardDeepSeekCompatViaChatCompletions(c, account, body) {
 		SetActualOpenAIUpstreamEndpoint(c, "/v1/chat/completions")
 	}
 	clearGrokResponsesClientToolMapping(c)
@@ -168,6 +168,12 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		}
 	}
 	stageOpenAICompatTurnStateKey(c, account, body)
+	// The account switch selects Excel/Basispoints for ordinary Responses
+	// requests. Unsupported hosted tools fail explicitly in the bridge rather
+	// than silently switching this account back to the native endpoint.
+	if !compactPath && account.IsExcelBPSEnabled() {
+		return s.forwardExcelBPS(ctx, c, account, body, startTime)
+	}
 	if !compactPath {
 		if imageModel, forced := account.forcedOpenAIResponsesImageModel(reqModel); forced {
 			logger.LegacyPrintf(
@@ -199,7 +205,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		return s.forwardResponsesViaNativeAnthropic(ctx, c, account, body, "")
 	}
 
-	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) {
+	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) || shouldForwardDeepSeekCompatViaChatCompletions(c, account, body) {
 		return s.forwardResponsesViaRawChatCompletions(ctx, c, account, body)
 	}
 
