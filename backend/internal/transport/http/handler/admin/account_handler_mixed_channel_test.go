@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
@@ -257,4 +258,43 @@ func TestBulkUpdateAcceptsDedicatedUpstreamBillingProbeSetting(t *testing.T) {
 	require.NotNil(t, adminSvc.lastBulkUpdateAccountInput)
 	require.NotNil(t, adminSvc.lastBulkUpdateAccountInput.ProbeEnabled)
 	require.False(t, *adminSvc.lastBulkUpdateAccountInput.ProbeEnabled)
+}
+
+func TestBulkUpdateExcelBPSBooleanAndFilteredTarget(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		adminSvc := newStubAdminService()
+		router := setupAccountMixedChannelRouter(adminSvc)
+		body, err := json.Marshal(map[string]any{
+			"filters":           map[string]any{"platform": "openai", "type": "oauth", "excel_bps": "enabled"},
+			"excel_bps_enabled": enabled,
+		})
+		require.NoError(t, err)
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts/bulk-update", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		router.ServeHTTP(rec, req)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		require.NotNil(t, adminSvc.lastBulkUpdateAccountInput)
+		require.Equal(t, &enabled, adminSvc.lastBulkUpdateAccountInput.ExcelBPSEnabled)
+		require.Equal(t, "enabled", adminSvc.lastBulkUpdateAccountInput.Filters.ExcelBPS)
+	}
+}
+
+func TestBulkUpdateExcelBPSRejectsUntypedExtraAndInvalidFilter(t *testing.T) {
+	for name, body := range map[string]string{
+		"untyped new field":    `{"account_ids":[1],"extra":{"excel_bps_enabled":true}}`,
+		"untyped legacy field": `{"account_ids":[1],"extra":{"openai_excel_bps":true}}`,
+		"invalid filter":       `{"filters":{"excel_bps":"unexpected"},"excel_bps_enabled":true}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			adminSvc := newStubAdminService()
+			router := setupAccountMixedChannelRouter(adminSvc)
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts/bulk-update", strings.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			router.ServeHTTP(rec, req)
+			require.Equal(t, http.StatusBadRequest, rec.Code)
+			require.Nil(t, adminSvc.lastBulkUpdateAccountInput)
+		})
+	}
 }

@@ -352,6 +352,7 @@ const openAILongContextBillingEnabled = ref(false)
 // OpenAI 订阅档位（Plus/Pro/Free）手动覆盖值,存于 credentials.plan_type;'' 表示清空/自动识别
 const editPlanType = ref<string>('')
 const openAICompactMode = ref<OpenAICompactMode>('auto')
+const excelBpsEnabled = ref(false)
 const openAIResponsesMode = ref<OpenAIResponsesMode>('auto')
 const openAIEndpointCapabilities = ref<OpenAIEndpointCapability[]>(['chat_completions', 'embeddings'])
 const openAIForceImageAPIEnabled = ref(false)
@@ -753,6 +754,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   mixedScheduling.value = false
   allowOverages.value = false
 	const extra = newAccount.extra as Record<string, unknown> | undefined
+	excelBpsEnabled.value = false
 	mixedScheduling.value = extra?.mixed_scheduling === true
 	allowOverages.value = extra?.allow_overages === true
 	autoPause5hThreshold.value = typeof extra?.auto_pause_5h_threshold === 'number' ? extra.auto_pause_5h_threshold * 100 : null
@@ -839,6 +841,16 @@ const syncFormFromAccount = (newAccount: Account | null) => {
         extra?.codex_cli_only_allow_app_server === true
     }
     const credentials = newAccount.credentials as Record<string, unknown> | undefined
+    const excelBpsEligible =
+      newAccount.type === 'oauth' &&
+      newAccount.parent_account_id == null &&
+      !isOpenAIPersonalAccessTokenCredentials(credentials) &&
+      credentials?.auth_mode !== 'agentIdentity'
+    excelBpsEnabled.value = excelBpsEligible && (
+      typeof extra?.excel_bps_enabled === 'boolean'
+        ? extra.excel_bps_enabled
+        : extra?.openai_excel_bps === true
+    )
     if (newAccount.type === 'oauth' && isOpenAIPersonalAccessTokenCredentials(credentials)) {
       codexWebSearchEnabled.value = readCodexWebSearchEnabled(credentials)
     }
@@ -1425,7 +1437,7 @@ const {
   maxSessions, mixedChannelWarningAction, mixedChannelWarningDetails,
   mixedChannelWarningRawMessage, mixedScheduling, notifications,
   onClose: () => emit('close'), onUpdated: (account) => emit('updated', account),
-  openAICompactMode, openAICompactModelMappings, openAIForceImageAPIEnabled,
+  excelBpsEnabled, openAICompactMode, openAICompactModelMappings, openAIForceImageAPIEnabled,
   openAILongContextBillingEnabled, openAIResponsesMode,
   openAITextGenerationCapabilityEnabled, openaiAPIKeyResponsesWebSocketV2Mode,
   openaiOAuthResponsesWebSocketV2Mode, openaiFlattenNamespacesEnabled,
@@ -1484,8 +1496,8 @@ const editAccountPolicyContext = {
   account: activeAccount, addOpenAICompactModelMapping, allowOverages, isSimpleMode,
   autoPause5hDisabled, autoPause5hThreshold, autoPause7dDisabled, autoPause7dThreshold,
   autoPauseOnExpired, baseRpm, cacheTTLOverrideEnabled, cacheTTLOverrideTarget, customBaseUrl,
-  customBaseUrlEnabled, editPlanType, form, formatDateTime, getOpenAICompactModelMappingKey,
-  groups: availableGroups, isSparkShadow, maxSessions, mixedScheduling, openAICompactMode,
+  customBaseUrlEnabled, editPlanType, excelBpsEnabled, form, formatDateTime, getOpenAICompactModelMappingKey,
+  groups: availableGroups, isOpenAIPersonalAccessTokenAccount, isSparkShadow, maxSessions, mixedScheduling, openAICompactMode,
   openAICompactModeOptions, openAICompactModelMappings, openAICompactStatusKey, planTypeOptions,
   removeOpenAICompactModelMapping, rpmLimitEnabled, rpmStickyBuffer, rpmStrategy,
   sessionIdMaskingEnabled, sessionIdleTimeout, sessionLimitEnabled, statusOptions, t,

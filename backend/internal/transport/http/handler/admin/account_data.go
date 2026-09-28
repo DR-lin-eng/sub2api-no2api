@@ -512,10 +512,13 @@ func (h *AccountHandler) listAllProxies(ctx context.Context) ([]service.Proxy, e
 	return out, nil
 }
 
-func (h *AccountHandler) listAccountsFiltered(ctx context.Context, platform, accountType, status, search string, groupID int64, privacyMode, sortBy, sortOrder string, oauthQuotaFilters ...string) ([]service.Account, error) {
-	oauthQuotaFilter := ""
-	if len(oauthQuotaFilters) > 0 {
-		oauthQuotaFilter = oauthQuotaFilters[0]
+func (h *AccountHandler) listAccountsFiltered(ctx context.Context, platform, accountType, status, search string, groupID int64, privacyMode, sortBy, sortOrder string, featureFilters ...string) ([]service.Account, error) {
+	oauthQuotaFilter, excelBPSFilter := "", ""
+	if len(featureFilters) > 0 {
+		oauthQuotaFilter = featureFilters[0]
+	}
+	if len(featureFilters) > 1 {
+		excelBPSFilter = featureFilters[1]
 	}
 	page := 1
 	pageSize := dataPageCap
@@ -524,7 +527,16 @@ func (h *AccountHandler) listAccountsFiltered(ctx context.Context, platform, acc
 		var items []service.Account
 		var total int64
 		var err error
-		if oauthQuotaFilter != "" {
+		if excelBPSFilter != "" {
+			filteredService, ok := h.adminService.(service.AdminAccountFeatureListService)
+			if !ok {
+				return nil, fmt.Errorf("account service does not support Excel BPS filtering")
+			}
+			items, total, err = filteredService.ListAccountsWithFeatureFilters(
+				ctx, page, pageSize, platform, accountType, status, search,
+				groupID, privacyMode, sortBy, sortOrder, oauthQuotaFilter, excelBPSFilter,
+			)
+		} else if oauthQuotaFilter != "" {
 			filteredService, ok := h.adminService.(service.AdminAccountOAuthQuotaListService)
 			if !ok {
 				return nil, fmt.Errorf("account service does not support OAuth quota filtering")
@@ -573,6 +585,10 @@ func (h *AccountHandler) resolveExportAccounts(ctx context.Context, ids []int64,
 	if err != nil {
 		return nil, err
 	}
+	excelBPSFilter, err := parseAccountExcelBPSFilter(c)
+	if err != nil {
+		return nil, err
+	}
 	sortBy := c.DefaultQuery("sort_by", "name")
 	sortOrder := c.DefaultQuery("sort_order", "asc")
 	if len(search) > 100 {
@@ -592,7 +608,7 @@ func (h *AccountHandler) resolveExportAccounts(ctx context.Context, ids []int64,
 		}
 	}
 
-	return h.listAccountsFiltered(ctx, platform, accountType, status, search, groupID, privacyMode, sortBy, sortOrder, oauthQuotaFilter)
+	return h.listAccountsFiltered(ctx, platform, accountType, status, search, groupID, privacyMode, sortBy, sortOrder, oauthQuotaFilter, excelBPSFilter)
 }
 
 func (h *AccountHandler) resolveExportProxies(ctx context.Context, accounts []service.Account) ([]service.Proxy, error) {

@@ -483,3 +483,66 @@ func TestAdminServiceBulkUpdateAccountsResolvesOAuthQuotaFilter(t *testing.T) {
 	require.Equal(t, []int64{17}, repo.bulkUpdateIDs)
 	require.Equal(t, 1, result.Success)
 }
+
+func TestAdminServiceBulkUpdateAccountsExcelBPSTriStateAndEligibility(t *testing.T) {
+	eligible := &Account{ID: 41, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Extra: map[string]any{"openai_excel_bps": true}}
+	for _, enabled := range []bool{false, true} {
+		t.Run(map[bool]string{false: "disable legacy true", true: "enable"}[enabled], func(t *testing.T) {
+			repo := &accountRepoStubForBulkUpdate{getByIDsAccounts: []*Account{eligible}}
+			svc := &adminServiceImpl{accountRepo: repo}
+			result, err := svc.BulkUpdateAccounts(context.Background(), &BulkUpdateAccountsInput{AccountIDs: []int64{41}, ExcelBPSEnabled: &enabled})
+			require.NoError(t, err)
+			require.Equal(t, 1, result.Success)
+			require.True(t, repo.getByIDsCalled)
+			require.Equal(t, &enabled, repo.bulkUpdate.ExcelBPSEnabled)
+		})
+	}
+	for name, invalid := range map[string]*Account{
+		"api key": {ID: 42, Platform: PlatformOpenAI, Type: AccountTypeAPIKey},
+		"shadow":  {ID: 42, Platform: PlatformOpenAI, Type: AccountTypeOAuth, ParentAccountID: func() *int64 { id := int64(41); return &id }()},
+		"PAT":     {ID: 42, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"auth_mode": OpenAIAuthModePersonalAccessToken}},
+		"agent":   {ID: 42, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"auth_mode": OpenAIAuthModeAgentIdentity}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			repo := &accountRepoStubForBulkUpdate{getByIDsAccounts: []*Account{eligible, invalid}}
+			svc := &adminServiceImpl{accountRepo: repo}
+			enabled := false
+			result, err := svc.BulkUpdateAccounts(context.Background(), &BulkUpdateAccountsInput{AccountIDs: []int64{41, 42}, ExcelBPSEnabled: &enabled})
+			require.Nil(t, result)
+			require.ErrorContains(t, err, "account 42")
+			require.Empty(t, repo.bulkUpdateIDs, "reject all targets before any write")
+		})
+	}
+}
+
+type accountRepoStubForBulkUpdateFeatureFilters struct {
+	*accountRepoStubForBulkUpdate
+	lastOAuthQuota string
+	lastExcelBPS   string
+}
+
+func (s *accountRepoStubForBulkUpdateFeatureFilters) ListWithFeatureFilters(
+	ctx context.Context, params pagination.PaginationParams,
+	platform, accountType, status, search string, groupID int64, privacyMode, oauthQuota, excelBPS string,
+) ([]Account, *pagination.PaginationResult, error) {
+	s.lastOAuthQuota = oauthQuota
+	s.lastExcelBPS = excelBPS
+	return s.ListWithFilters(ctx, params, platform, accountType, status, search, groupID, privacyMode)
+}
+
+func TestAdminServiceBulkUpdateAccountsResolvesCombinedBPSAndQuotaFilter(t *testing.T) {
+	repo := &accountRepoStubForBulkUpdateFeatureFilters{accountRepoStubForBulkUpdate: &accountRepoStubForBulkUpdate{
+		listData: []Account{{ID: 41}}, listResult: &pagination.PaginationResult{Total: 1},
+	}}
+	svc := &adminServiceImpl{accountRepo: repo}
+	schedulable := true
+	result, err := svc.BulkUpdateAccounts(context.Background(), &BulkUpdateAccountsInput{
+		Filters:     &BulkUpdateAccountFilters{Platform: PlatformOpenAI, OAuthQuota: AccountOAuthQuotaFilter7dExhausted, ExcelBPS: AccountExcelBPSFilterDisabled},
+		Schedulable: &schedulable,
+	})
+	require.NoError(t, err)
+	require.Equal(t, 1, result.Success)
+	require.Equal(t, AccountOAuthQuotaFilter7dExhausted, repo.lastOAuthQuota)
+	require.Equal(t, AccountExcelBPSFilterDisabled, repo.lastExcelBPS)
+	require.Equal(t, []int64{41}, repo.bulkUpdateIDs)
+}

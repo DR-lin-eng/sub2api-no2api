@@ -26,6 +26,7 @@ export interface BulkAccountUpdatePayloadState {
   enableOpenAIFlattenNamespaces: boolean
   openaiFlattenNamespacesEligible: boolean
   openaiFlattenNamespacesEnabled: boolean
+  excelBpsMode: 'unchanged' | 'enabled' | 'disabled'
   enableOpenAICustomRelay: boolean
   openAICustomRelayEnabled: boolean
   openAICustomRelayURL: string
@@ -120,6 +121,10 @@ export function buildBulkAccountUpdatePayload(
     const extra = ensureExtra()
     extra.openai_passthrough = state.openaiPassthroughEnabled
     if (!state.openaiPassthroughEnabled) extra.openai_oauth_passthrough = false
+  }
+
+  if (state.excelBpsMode !== 'unchanged') {
+    updates.excel_bps_enabled = state.excelBpsMode === 'enabled'
   }
 
   if (state.enableOpenAIFlattenNamespaces && state.openaiFlattenNamespacesEligible) {

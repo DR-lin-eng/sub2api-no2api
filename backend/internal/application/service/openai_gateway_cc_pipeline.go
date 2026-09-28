@@ -187,6 +187,10 @@ func (s *OpenAIGatewayService) sendCCUpstreamRequest(
 	userAgent string,
 	grokCacheIdentity string,
 ) (*http.Response, error) {
+	// DeepSeek thinking mode requires every historical assistant turn to carry
+	// reasoning_content. Fill only missing fields at the shared Chat endpoint;
+	// non-DeepSeek requests remain byte-identical.
+	body = ensureDeepSeekChatReasoningPlaceholders(account, body)
 	upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
 	upstreamReq, err := http.NewRequestWithContext(upstreamCtx, http.MethodPost, targetURL, bytes.NewReader(body))
 	releaseUpstreamCtx()
