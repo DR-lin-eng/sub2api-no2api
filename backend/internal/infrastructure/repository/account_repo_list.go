@@ -383,6 +383,73 @@ func (r *accountRepository) ListWithFilters(ctx context.Context, params paginati
 	return outAccounts, paginationResultFromTotal(int64(total), params), nil
 }
 
+func applyExcelBPSFilter(q *dbent.AccountQuery, filter string) (*dbent.AccountQuery, error) {
+	normalized, err := service.NormalizeAccountExcelBPSFilter(filter)
+	if err != nil {
+		return nil, err
+	}
+	if normalized == "" {
+		return q, nil
+	}
+	predicate := dbpredicate.Account(func(s *entsql.Selector) {
+		typeColumn := s.C(dbaccount.FieldType)
+		platformColumn := s.C(dbaccount.FieldPlatform)
+		parentColumn := s.C(dbaccount.FieldParentAccountID)
+		credentials := s.C(dbaccount.FieldCredentials)
+		extra := s.C(dbaccount.FieldExtra)
+		eligible := "(" + typeColumn + " = 'oauth' AND " + platformColumn + " = 'openai' AND " + parentColumn + " IS NULL" +
+			" AND LOWER(BTRIM(COALESCE(" + credentials + "->>'auth_mode', ''))) NOT IN ('agentidentity', 'personalaccesstoken', 'personal_access_token')" +
+			" AND LOWER(BTRIM(COALESCE(" + credentials + "->>'openai_auth_mode', ''))) NOT IN ('personalaccesstoken', 'personal_access_token'))"
+		// Match Account.IsExcelBPSEnabled: only JSON booleans count. A
+		// malformed new value falls back to the legacy boolean; a new false
+		// explicitly overrides an old true after the JSONB merge update.
+		enabled := "(CASE WHEN jsonb_typeof(" + extra + "->'excel_bps_enabled') = 'boolean' THEN " + extra + "->>'excel_bps_enabled' = 'true'" +
+			" WHEN jsonb_typeof(" + extra + "->'openai_excel_bps') = 'boolean' THEN " + extra + "->>'openai_excel_bps' = 'true' ELSE FALSE END)"
+		if normalized == service.AccountExcelBPSFilterDisabled {
+			s.Where(entsql.ExprP(eligible + " AND NOT (" + enabled + ")"))
+			return
+		}
+		s.Where(entsql.ExprP(eligible + " AND " + enabled))
+	})
+	return q.Where(predicate), nil
+}
+
+func (r *accountRepository) ListWithFeatureFilters(
+	ctx context.Context,
+	params pagination.PaginationParams,
+	platform, accountType, status, search string,
+	groupID int64,
+	privacyMode, oauthQuotaFilter, excelBPSFilter string,
+) ([]service.Account, *pagination.PaginationResult, error) {
+	q := r.accountListFilteredQuery(platform, accountType, status, search, groupID, privacyMode)
+	var err error
+	q, err = applyOAuthQuotaFilter(q, oauthQuotaFilter)
+	if err != nil {
+		return nil, nil, err
+	}
+	q, err = applyExcelBPSFilter(q, excelBPSFilter)
+	if err != nil {
+		return nil, nil, err
+	}
+	total, err := q.Clone().Count(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	accountsQuery := q.Offset(params.Offset()).Limit(params.Limit())
+	for _, order := range accountListOrder(params) {
+		accountsQuery = accountsQuery.Order(order)
+	}
+	accounts, err := accountsQuery.All(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	outAccounts, err := r.accountsToService(ctx, accounts)
+	if err != nil {
+		return nil, nil, err
+	}
+	return outAccounts, paginationResultFromTotal(int64(total), params), nil
+}
+
 func (r *accountRepository) ListWithOAuthQuotaFilter(
 	ctx context.Context,
 	params pagination.PaginationParams,
@@ -436,6 +503,10 @@ func (r *accountRepository) ListUpstreamBillingRateProjections(
 	if err != nil {
 		return nil, 0, err
 	}
+	q, err = applyExcelBPSFilter(q, filters.ExcelBPSFilter)
+	if err != nil {
+		return nil, 0, err
+	}
 	total, err := q.Clone().Count(ctx)
 	if err != nil {
 		return nil, 0, err
@@ -457,6 +528,30 @@ func (r *accountRepository) ListUpstreamBillingRateProjections(
 
 func (r *accountRepository) ListAllWithFilters(ctx context.Context, platform, accountType, status, search string, groupID int64, privacyMode string) ([]service.Account, error) {
 	accounts, err := r.accountListFilteredQuery(platform, accountType, status, search, groupID, privacyMode).All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return r.accountsToService(ctx, accounts)
+}
+
+func (r *accountRepository) ListAllWithFeatureFilters(
+	ctx context.Context,
+	platform, accountType, status, search string,
+	groupID int64,
+	privacyMode, oauthQuotaFilter, excelBPSFilter string,
+) ([]service.Account, error) {
+	q, err := applyOAuthQuotaFilter(
+		r.accountListFilteredQuery(platform, accountType, status, search, groupID, privacyMode),
+		oauthQuotaFilter,
+	)
+	if err != nil {
+		return nil, err
+	}
+	q, err = applyExcelBPSFilter(q, excelBPSFilter)
+	if err != nil {
+		return nil, err
+	}
+	accounts, err := q.All(ctx)
 	if err != nil {
 		return nil, err
 	}

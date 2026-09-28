@@ -63,4 +63,29 @@ describe('AccountTableFilters OAuth quota options', () => {
       oauth_quota: 'with_reset'
     })
   })
+
+  it('filters BPS accounts independently and clears incompatible platform and type', async () => {
+    const wrapper = mount(AccountTableFilters, {
+      props: {
+        searchQuery: '',
+        filters: { platform: 'anthropic', type: 'apikey', status: '', oauth_quota: '', excel_bps: '', privacy_mode: '', group: '' },
+        groups: []
+      },
+      global: { stubs: { Select: SelectStub, SearchInput: SearchInputStub } }
+    })
+
+    const bpsFilter = wrapper.get('[data-test="excel-bps-filter"]')
+    expect(bpsFilter.findAll('button').map(button => button.attributes('data-value'))).toEqual(['', 'enabled', 'disabled'])
+    await bpsFilter.get('[data-value="enabled"]').trigger('click')
+    expect(wrapper.emitted('update:filters')?.at(-1)?.[0]).toMatchObject({
+      platform: 'openai', type: 'oauth', excel_bps: 'enabled'
+    })
+
+    await wrapper.setProps({ filters: { platform: 'openai', type: 'oauth', status: '', oauth_quota: '', excel_bps: 'disabled', privacy_mode: '', group: '' } })
+    await wrapper.findAllComponents(SelectStub)[0]?.get('[data-value="anthropic"]').trigger('click')
+    expect(wrapper.emitted('update:filters')?.at(-1)?.[0]).toMatchObject({ platform: 'anthropic', excel_bps: '' })
+    await wrapper.findAllComponents(SelectStub)[1]?.get('[data-value="apikey"]').trigger('click')
+    expect(wrapper.emitted('update:filters')?.at(-1)?.[0]).toMatchObject({ type: 'apikey', excel_bps: '' })
+  })
+
 })

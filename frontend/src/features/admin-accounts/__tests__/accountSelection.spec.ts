@@ -51,6 +51,16 @@ describe('fetchAllAccountIds', () => {
 })
 
 describe('accountMatchesFilters', () => {
+
+  it('applies BPS enabled/disabled only to eligible OAuth accounts and honours explicit false', () => {
+    const base = { id: 9, platform: 'openai', type: 'oauth', status: 'active', extra: { excel_bps_enabled: true } } as Account
+    expect(accountMatchesFilters(base, { excel_bps: 'enabled' })).toBe(true)
+    expect(accountMatchesFilters(base, { excel_bps: 'disabled' })).toBe(false)
+    expect(accountMatchesFilters({ ...base, extra: { excel_bps_enabled: false, openai_excel_bps: true } } as Account, { excel_bps: 'disabled' })).toBe(true)
+    expect(accountMatchesFilters({ ...base, type: 'apikey' } as Account, { excel_bps: 'disabled' })).toBe(false)
+    expect(accountMatchesFilters({ ...base, parent_account_id: 10 } as Account, { excel_bps: 'enabled' })).toBe(false)
+    expect(accountMatchesFilters({ ...base, credentials: { auth_mode: 'agentIdentity' } } as Account, { excel_bps: 'enabled' })).toBe(false)
+  })
   const now = Date.parse('2026-08-27T00:00:00Z')
   const account = {
     id: 7,

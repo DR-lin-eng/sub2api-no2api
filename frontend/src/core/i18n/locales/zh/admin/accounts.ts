@@ -97,6 +97,7 @@ export default {
       allPlatforms: '全部平台',
       allTypes: '全部类型',
       allStatus: '全部状态', allOAuthQuota: '全部 OAuth 额度', oauthQuotaHasQuota: 'OAuth 有额度', oauthQuotaExhausted: 'OAuth 额度已耗尽', openAIQuotaWithReset: 'OpenAI OAuth 有可用重置', openAIQuota5hExhausted: 'OpenAI 5h 额度已满', openAIQuota7dExhausted: 'OpenAI 7d 额度已满',
+      allExcelBPS: '全部 BPS 状态', excelBPSEnabled: 'BPS 已启用', excelBPSDisabled: 'BPS 未启用',
       allGroups: '全部分组',
       ungroupedGroup: '未分配分组',
       oauthType: 'OAuth',
@@ -534,6 +535,10 @@ export default {
       bulkSchedulableResultUnknown: '批量调度结果不完整，请稍后重试或刷新列表',
       bulkActions: bulkActionsMessages,
       bulkEdit: {
+        excelBpsUnchanged: '不修改 BPS',
+        excelBpsEnable: '开启 BPS',
+        excelBpsDisable: '关闭 BPS',
+        excelBpsEligibility: '仅普通 OpenAI OAuth 账号可用。影子账号、PAT 与 Agent Identity 会阻止整批修改。',
         title: '批量编辑账号',
         selectionInfo: '已选择 {count} 个账号。只更新您勾选或填写的字段，未勾选的字段保持不变。',
         baseUrlPlaceholder: 'https://api.anthropic.com 或 https://api.openai.com',
@@ -653,6 +658,9 @@ export default {
         oauthPassthrough: '自动透传（仅替换认证）',
         oauthPassthroughDesc:
           '开启后，该 OpenAI 账号将自动透传请求与响应，仅替换认证并保留计费/并发/审计及必要安全过滤；如遇兼容性问题可随时关闭回滚。',
+        excelBpsEnabled: 'Excel / Basispoints 桥接',
+        excelBpsEnabledDesc:
+          '将此 OpenAI OAuth 账号切换到 Excel / Basispoints Responses 兼容层。个人访问令牌、Agent Identity 和影子账号不会进入该桥接。',
         ...codexMessages,
         longContextBilling: 'API 长上下文计费',
 		longContextBillingDesc: '默认关闭。仅当该账号的上游会按模型阈值收取 OpenAI API 长上下文费率时开启。',

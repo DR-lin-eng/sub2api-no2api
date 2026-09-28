@@ -53,7 +53,7 @@ pnpm run build
 - 公告、管理员合规等非必现的全局对话框使用 `defineAsyncComponent` 并只在状态需要时挂载。不要把低频弹窗或它们的重依赖静态导入应用壳层。
 - `vite.config.ts` 将 Markdown、二维码、表格虚拟化、引导、支付和导出等低频依赖拆为独立 chunk。新增重依赖后检查生产 `index.html` 的 `modulepreload`，避免它重新进入匿名用户首屏。
 - `index.html` 中的 `#app-logo-preload` 是登录页 Logo 的高优先级预加载入口。修改其结构时同步检查 Vite 开发态 branding 注入和后端 `internal/transport/webassets` 的生产 HTML 注入，确保自定义 Logo 使用同一 URL。
-- 公共首页的 `home_content` HTML 必须经过展示型 allowlist 清洗；脚本、事件属性、表单和嵌入对象不得进入同源 DOM。URL 模式只接受绝对 HTTP(S)，并在无同源权限、无 referrer 的 sandbox iframe 中运行。
+- 公共首页的 `home_content` HTML 必须经过展示型 allowlist 清洗；脚本、事件属性、表单和嵌入对象不得进入同源 DOM。URL 模式只接受绝对 HTTP(S)，默认在无同源权限、无 referrer 的 sandbox iframe 中运行；仅 HTTPS、端口一致且同注册域的可信子域或兄弟子域保留自身 origin 和弹窗能力。
 - 运行时 `v-html` 和直接 `innerHTML` 受 `src/__tests__/dynamicHtmlSecurity.spec.ts` 精确清单约束。新增动态 HTML sink 必须先建立明确 sanitizer/常量 owner，不得通过扩大基线绕过。
 - 自定义 Markdown 中的 iframe 必须经过 URL 协议校验，并强制无同源权限 sandbox、`no-referrer`、懒加载和本地化标题；非法、`srcdoc` 或事件处理器 iframe 必须被删除。
 - 后端状态、模式和类型枚举不得直接拼接翻译 key。共享或可扩展枚举必须通过显式 resolver 映射，并对未来值回退到本地化“未知”，相邻测试需覆盖中英文与异常值。

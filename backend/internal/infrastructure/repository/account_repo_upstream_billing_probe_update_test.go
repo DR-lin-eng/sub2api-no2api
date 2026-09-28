@@ -259,6 +259,8 @@ func TestAccountBulkUpdateSchedulingFieldsRequireImmediateSnapshotSync(t *testin
 	require.True(t, accountBulkUpdateRequiresImmediateSchedulerSync(service.AccountBulkUpdate{Concurrency: &zero}))
 	require.True(t, accountBulkUpdateRequiresImmediateSchedulerSync(service.AccountBulkUpdate{Priority: &zero}))
 	require.True(t, accountBulkUpdateRequiresImmediateSchedulerSync(service.AccountBulkUpdate{LoadFactor: &zero}))
+	enabled := false
+	require.True(t, accountBulkUpdateRequiresImmediateSchedulerSync(service.AccountBulkUpdate{ExcelBPSEnabled: &enabled}))
 	require.True(t, accountBulkUpdateRequiresImmediateSchedulerSync(service.AccountBulkUpdate{Credentials: map[string]any{
 		service.CPAExcludeAbnormalCredentialsCredentialKey: true,
 	}}))
