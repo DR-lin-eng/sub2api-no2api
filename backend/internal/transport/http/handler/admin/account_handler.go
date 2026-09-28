@@ -882,7 +882,14 @@ func (h *AccountHandler) List(c *gin.Context) {
 
 	h.enrichShadowParents(c.Request.Context(), result)
 
-	etag := buildAccountsListETagWithOAuthQuota(result, total, page, pageSize, platform, accountType, status, search, oauthQuotaFilter, lite, excelBPSFilter)
+	// Keep the ordinary list's ETag shape identical when no feature filter is
+	// selected; the extended builder includes each selected filter in the hash.
+	etag := ""
+	if oauthQuotaFilter == "" && excelBPSFilter == "" {
+		etag = buildAccountsListETag(result, total, page, pageSize, platform, accountType, status, search, lite)
+	} else {
+		etag = buildAccountsListETagWithOAuthQuota(result, total, page, pageSize, platform, accountType, status, search, oauthQuotaFilter, lite, excelBPSFilter)
+	}
 	if etag != "" {
 		c.Header("ETag", etag)
 		c.Header("Vary", "If-None-Match")

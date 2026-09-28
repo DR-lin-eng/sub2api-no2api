@@ -161,7 +161,7 @@ func (s *OpenAIGatewayService) forwardExcelBPS(ctx context.Context, c *gin.Conte
 	if err != nil {
 		return fail(http.StatusBadGateway, "transport_error", "Excel BPS connection failed")
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 512<<10))
 		status := resp.StatusCode
@@ -216,7 +216,7 @@ func (s *OpenAIGatewayService) forwardExcelBPS(ctx context.Context, c *gin.Conte
 	}
 
 	converted := bridge.StreamWithToolRepair(ctx, resp.Body, nil)
-	defer converted.Close()
+	defer func() { _ = converted.Close() }()
 	scanner := s.newUpstreamSSEScanner(converted)
 	var completed []byte
 	terminal := ""
@@ -306,7 +306,7 @@ func (s *OpenAIGatewayService) uploadExcelBPSAttachment(ctx context.Context, acc
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return "", fmt.Errorf("attachment upload returned HTTP %d", resp.StatusCode)
 	}
