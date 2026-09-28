@@ -641,6 +641,11 @@ export default {
     detailLoadError: 'Failed to load channel detail',
     detailTitle: 'Channel Detail',
     closeDetail: 'Close',
+    unnamedGroup: 'Unnamed group',
+    groupCount: '{n} groups',
+    abnormalCount: '{n} abnormal',
+    expandGroups: 'Show {n} more groups',
+    collapseGroups: 'Collapse groups',
     windowTab: {
       '7d': '7 days',
       '15d': '15 days',
