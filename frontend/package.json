@@ -30,6 +30,7 @@
     "node-forge": "1.4.0",
     "pinia": "^2.1.7",
     "qrcode": "^1.5.4",
+    "tldts": "7.4.13",
     "vue": "^3.4.0",
     "vue-chartjs": "^5.3.0",
     "vue-draggable-plus": "^0.6.1",
