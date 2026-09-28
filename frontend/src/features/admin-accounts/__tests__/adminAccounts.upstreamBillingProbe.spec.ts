@@ -76,13 +76,13 @@ describe('admin account upstream billing probe API', () => {
     const data = { items: [{ account_id: 7, snapshot: { status: 'ok' } }], total: 1, page: 1, page_size: 20 }
     get.mockResolvedValueOnce({ status: 200, headers: { etag: '"rate-v1"' }, data })
 
-    await expect(getUpstreamBillingRatesWithEtag(1, 20, { sort_by: 'name', sort_order: 'asc' })).resolves.toEqual({
+    await expect(getUpstreamBillingRatesWithEtag(1, 20, { sort_by: 'name', sort_order: 'asc', excel_bps: 'enabled' })).resolves.toEqual({
       notModified: false,
       etag: '"rate-v1"',
       data
     })
     expect(get).toHaveBeenCalledWith('/admin/accounts/upstream-billing-rates', expect.objectContaining({
-      params: expect.objectContaining({ page: 1, page_size: 20, sort_by: 'name', sort_order: 'asc' }),
+      params: expect.objectContaining({ page: 1, page_size: 20, sort_by: 'name', sort_order: 'asc', excel_bps: 'enabled' }),
       validateStatus: expect.any(Function)
     }))
 

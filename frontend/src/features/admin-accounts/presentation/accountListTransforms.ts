@@ -11,6 +11,7 @@ export function buildAccountQueryFiltersFromState(
     type: stringValue(params.type),
     status: stringValue(params.status),
     oauth_quota: stringValue(params.oauth_quota),
+    excel_bps: stringValue(params.excel_bps) as 'enabled' | 'disabled' | '',
     group: stringValue(params.group),
     privacy_mode: stringValue(params.privacy_mode),
     search: stringValue(params.search),

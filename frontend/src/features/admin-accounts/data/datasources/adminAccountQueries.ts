@@ -18,6 +18,7 @@ export interface AccountListFilters {
   type?: string
   status?: string
   oauth_quota?: string
+  excel_bps?: 'enabled' | 'disabled' | ''
   group?: string
   search?: string
   privacy_mode?: string
@@ -87,7 +88,7 @@ export async function listWithEtag(
 
 export type AccountUpstreamBillingRateFilters = Pick<
   AccountListFilters,
-  'platform' | 'type' | 'status' | 'oauth_quota' | 'group' | 'search' | 'privacy_mode' | 'sort_by' | 'sort_order'
+  'platform' | 'type' | 'status' | 'oauth_quota' | 'excel_bps' | 'group' | 'search' | 'privacy_mode' | 'sort_by' | 'sort_order'
 >
 
 export interface AccountUpstreamBillingRatesWithEtagResult {

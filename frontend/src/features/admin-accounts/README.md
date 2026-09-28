@@ -13,7 +13,9 @@
 - `presentation/widgets/edit/`: 编辑表单的领域字段。
 - `presentation/composables/`: 有界的表单策略、OAuth 与提交编排。
 
-账号列表页保留路由、请求和弹窗编排，表格 DOM 由 `AccountsTableView.vue` 静态承载。列表列偏好、展示映射、今日统计和上游额度分别由同域 composable 管理；表格只消费 `accountTableViewContext.ts` 的 typed context，不直接请求 API 或创建 watcher、timer。`oauth_quota` 在服务端分页前筛选已持久化的 OAuth 用量快照：支持有额度、任一窗口满额、OpenAI 有可用重置次数、OpenAI 5h 满额和 OpenAI 7d 满额；缺少快照的账号保持未知，不会被误判为有额度或满额。
+账号列表页保留路由、请求和弹窗编排，表格 DOM 由 `AccountsTableView.vue` 静态承载。列表列偏好、展示映射、今日统计和上游额度分别由同域 composable 管理；表格只消费 `accountTableViewContext.ts` 的 typed context，不直接请求 API 或创建 watcher、timer。`excel_bps` 独立筛选普通 OpenAI OAuth 账号的账号级 BPS 状态，筛选在后端分页、导出与上游计费快照前生效；编辑开关保存为 `extra.excel_bps_enabled`，显式 `false` 覆盖旧字段。
+
+`oauth_quota` 在服务端分页前筛选已持久化的 OAuth 用量快照：支持有额度、任一窗口满额、OpenAI 有可用重置次数、OpenAI 5h 满额和 OpenAI 7d 满额；缺少快照的账号保持未知，不会被误判为有额度或满额。
 
 请求生命周期由 presentation 明确持有：账号页负责列表 AbortController、ETag、筛选和写后刷新；今日统计 composable 用请求序号忽略过期响应；上游计费 composable 负责费率 ETag、轮询暂停条件、探测后的列表刷新和额度缓存失效。重复账号 Action 在请求成功前将幂等键同时保存在内存与 `sessionStorage`，失败重试和页面重载继续复用同一个键。
 
@@ -42,6 +44,8 @@ OAuth composable 和创建账号的 OAuth 兑换编排直接依赖账号 OAuth A
 - `useAccountColumnPreferences.ts`: 列可见性迁移与服务端派生查询参数。
 - `useAccountTodayStats.ts`: 当前页今日统计的请求并发保护。
 - `useAccountTablePresentation.ts`: 纯列定义、徽标和单元格格式化。
+- `BulkEditOpenAICustomRelayOption.vue`: OpenAI OAuth 自定义转发端点开关与地址输入。
+- `BulkEditExcelBPSOption.vue`: BPS 账号批量开关的三态选择；后端验证资格并用数据库条件限制写入。
 - `BulkEditCodexThinkingTagOption.vue`: 批量更新 Codex thinking tag 规范化开关，保持批量编辑主对话框在维护上限内。
 
 新增平台字段时同步检查创建、编辑和批量更新 payload。不要复制无边界表单、把完整 Pinia Store 传入字段组件，或把控制器重新堆回单一 SFC。运行时代码保持在 1500 行以内，新增职责应进入现有有界组件或 composable。

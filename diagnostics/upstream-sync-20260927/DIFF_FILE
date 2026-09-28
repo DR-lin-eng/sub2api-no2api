@@ -1,0 +1,10 @@
+--- diagnostics/upstream-sync-20260927/BASELINE_FILE	2026-09-27 22:30:43
++++ diagnostics/upstream-sync-20260927/MODIFIED_FILE	2026-09-27 22:33:35
+@@ -354 +354,2 @@
+-	// 如果没提供 secret，保留原有值
++	// loadS3Config returns the decrypted secret. A save that omits the secret
++	// inherits plaintext, so it must pass through the same encryption path.
+@@ -360 +361,2 @@
+-	} else {
++	}
++	if cfg.SecretAccessKey != "" {
