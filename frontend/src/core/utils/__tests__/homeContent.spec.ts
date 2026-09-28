@@ -53,6 +53,15 @@ describe('home content security', () => {
       .toBe(TRUSTED_HOME_CONTENT_IFRAME_SANDBOX)
   })
 
+  it('does not trust different sites under a shared public suffix', () => {
+    expect(resolveHomeContentIframeSandbox('https://web.co.uk/home', 'https://v2.co.uk'))
+      .toBe(HOME_CONTENT_IFRAME_SANDBOX)
+    expect(resolveHomeContentIframeSandbox('https://other.github.io/home', 'https://myapp.github.io'))
+      .toBe(HOME_CONTENT_IFRAME_SANDBOX)
+    expect(resolveHomeContentIframeSandbox('https://web.example.co.uk/home', 'https://v2.example.co.uk'))
+      .toBe(TRUSTED_HOME_CONTENT_IFRAME_SANDBOX)
+  })
+
   it('permits sibling subdomains that share the same parent domain', () => {
     expect(resolveHomeContentIframeSandbox('https://web.muxueai.pro/home', 'https://v2.muxueai.pro'))
       .toBe(TRUSTED_HOME_CONTENT_IFRAME_SANDBOX)

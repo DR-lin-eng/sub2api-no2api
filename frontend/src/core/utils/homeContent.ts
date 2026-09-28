@@ -1,4 +1,5 @@
 import DOMPurify from 'dompurify'
+import { getDomain } from 'tldts'
 import { sanitizeUrl } from './url'
 
 const FORBIDDEN_HOME_CONTENT_TAGS = [
@@ -37,21 +38,19 @@ export function resolveHomeContentUrl(value: string): string {
 }
 
 /**
- * Returns true when both hostnames are sibling subdomains sharing the same
- * parent, e.g. web.example.com and v2.example.com.
- *
- * Deliberately conservative: both hostnames need the same label count and at
- * least three labels, and the leading labels must differ. No Public Suffix
- * List validation is performed, so a site deployed directly under a public
- * suffix (e.g. v2.co.uk) would treat *.co.uk as siblings. The widget stays
- * cross-origin with the parent page either way, so no parent data is exposed.
+ * Trust sibling hosts only within one registrable site. Hostname suffixes
+ * alone can match unrelated tenants under public suffixes such as co.uk or
+ * github.io, so include private suffix rules in the domain check.
  */
 function isSiblingHostOf(targetHostname: string, parentHostname: string): boolean {
   const parentLabels = parentHostname.split('.')
   const targetLabels = targetHostname.split('.')
-  if (parentLabels.length < 3 || targetLabels.length < 3) return false
-  if (parentLabels.length !== targetLabels.length) return false
+  if (parentLabels.length < 3 || targetLabels.length !== parentLabels.length) return false
   if (parentLabels[0] === targetLabels[0]) return false
+  const siteDomain = getDomain(parentHostname, { allowPrivateDomains: true })
+  if (!siteDomain || siteDomain !== getDomain(targetHostname, { allowPrivateDomains: true })) {
+    return false
+  }
   return parentLabels.slice(1).join('.') === targetLabels.slice(1).join('.')
 }
 
