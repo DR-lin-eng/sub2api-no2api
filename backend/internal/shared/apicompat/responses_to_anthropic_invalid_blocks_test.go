@@ -181,3 +181,18 @@ func TestAnthropicContentIsOnlyBlankText(t *testing.T) {
 		require.Equal(t, tc.want, anthropicContentIsOnlyBlankText(json.RawMessage(tc.raw)), "raw=%q", tc.raw)
 	}
 }
+
+func TestResponsesToAnthropic_InputFileDataURIBecomesDocument(t *testing.T) {
+	messages := responsesToAnthropicMessages(t, `[
+		{"type":"message","role":"user","content":[
+			{"type":"input_text","text":"read this"},
+			{"type":"input_file","filename":"token.pdf","file_data":"data:application/pdf;base64,JVBERi0="}
+		]}
+	]`)
+
+	requireAnthropicMessagesAreSendable(t, messages)
+	require.Len(t, messages, 1)
+	require.Contains(t, string(messages[0].Content), `"type":"document"`)
+	require.Contains(t, string(messages[0].Content), `"media_type":"application/pdf"`)
+	require.Contains(t, string(messages[0].Content), `"data":"JVBERi0="`)
+}

@@ -93,6 +93,11 @@ func selectResponsesProbeModel(account *Account) string {
 		return openai.DefaultTestModel
 	}
 	sort.Strings(candidates)
+	for _, candidate := range candidates {
+		if strings.HasPrefix(candidate, "gpt-") && !isOpenAIImageGenerationModel(candidate) {
+			return candidate
+		}
+	}
 	return candidates[0]
 }
 
@@ -220,6 +225,9 @@ func (s *AccountTestService) ProbeOpenAIAPIKeyResponsesSupport(ctx context.Conte
 // by status code only. A 2xx failed response or a response truncated by this
 // probe's own output budget must keep the previous unknown state.
 func responsesProbeVerdictIsConclusive(status int, body []byte) bool {
+	if isResponsesProbeModelUnavailable(status, body) {
+		return false
+	}
 	if status < 200 || status >= 300 {
 		return true
 	}
@@ -261,6 +269,9 @@ func isResponsesEndpointSupportedByStatus(status int) bool {
 //     输出项才算真正可用;否则(如火山方舟 coding/v3 × kimi-k2.6 仅回 reasoning)
 //     判为 false,使网关改走 /v1/chat/completions 直转路径。
 func decideResponsesProbeSupport(status int, body []byte) bool {
+	if isResponsesProbeModelUnavailable(status, body) {
+		return true
+	}
 	if status == http.StatusNotFound || status == http.StatusMethodNotAllowed {
 		return false
 	}
@@ -283,4 +294,18 @@ func responsesProbeBodyHasFunctionCall(body []byte) bool {
 		}
 	}
 	return false
+}
+
+func isResponsesProbeModelUnavailable(status int, body []byte) bool {
+	if status != http.StatusBadRequest && status != http.StatusNotFound {
+		return false
+	}
+	for _, path := range []string{"error.code", "error.type", "response.error.code", "response.error.type"} {
+		switch strings.ToLower(strings.TrimSpace(gjson.GetBytes(body, path).String())) {
+		case "model_not_found", "model_not_available", "unsupported_model", "invalid_model":
+			return true
+		}
+	}
+	message := strings.ToLower(extractUpstreamErrorMessage(body))
+	return strings.Contains(message, "model") && (strings.Contains(message, "does not exist") || strings.Contains(message, "model not found") || strings.Contains(message, "model is not available") || strings.Contains(message, "not supported by any configured account"))
 }

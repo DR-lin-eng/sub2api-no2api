@@ -214,11 +214,13 @@ func cleanJSONSchemaRecursive(value any) any {
 		hasKey(schemaMap, "properties") ||
 		hasKey(schemaMap, "items") ||
 		hasKey(schemaMap, "enum") ||
+		hasKey(schemaMap, "const") ||
 		hasKey(schemaMap, "anyOf") ||
 		hasKey(schemaMap, "oneOf") ||
 		hasKey(schemaMap, "allOf")
 
 	if looksLikeSchema {
+		preserveSchemaConst(schemaMap)
 		// 4. [ROBUST] 约束迁移
 		migrateConstraints(schemaMap)
 
@@ -516,4 +518,37 @@ func DeepCleanUndefined(value any) {
 			DeepCleanUndefined(val)
 		}
 	}
+}
+
+// preserveSchemaConst converts const to the enum accepted by Gemini.
+func preserveSchemaConst(schema map[string]any) {
+	value, exists := schema["const"]
+	if !exists {
+		return
+	}
+	if enum, exists := schema["enum"]; !exists {
+		schema["enum"] = []any{value}
+	} else if text, ok := value.(string); ok {
+		if values, ok := enum.([]any); ok {
+			intersection := []any{}
+			for _, candidate := range values {
+				if candidateText, ok := candidate.(string); ok && candidateText == text {
+					intersection = append(intersection, text)
+					break
+				}
+			}
+			schema["enum"] = intersection
+		}
+	}
+	if _, exists := schema["type"]; !exists {
+		switch value.(type) {
+		case string:
+			schema["type"] = "string"
+		case bool:
+			schema["type"] = "boolean"
+		case float64, int, int64:
+			schema["type"] = "number"
+		}
+	}
+	delete(schema, "const")
 }
