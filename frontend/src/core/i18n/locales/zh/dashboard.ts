@@ -773,7 +773,9 @@ export default {
       perUnitRequest: '/ 次',
       perUnitImage: '/ 张',
       perRequest: '按次计费',
-      perImage: '按图片计费'
+      perImage: '按图片计费',
+      perVideo: '按视频时长计费',
+      perUnitSecond: '/ 秒'
     },
     nav: {
       login: '登录',

@@ -43,6 +43,8 @@ type PlazaGroup struct {
 	IsExclusive          bool
 	ImageRateIndependent bool
 	ImageRateMultiplier  float64
+	VideoRateIndependent bool
+	VideoRateMultiplier  float64
 	Models               []PlazaModel
 }
 
@@ -106,6 +108,8 @@ func (s *ChannelService) ListPlazaGroups(ctx context.Context, opts PlazaListOpti
 			IsExclusive:          g.IsExclusive,
 			ImageRateIndependent: g.ImageRateIndependent,
 			ImageRateMultiplier:  g.ImageRateMultiplier,
+			VideoRateIndependent: g.VideoRateIndependent,
+			VideoRateMultiplier:  g.VideoRateMultiplier,
 		}
 		groupByID[g.ID] = g
 		order = append(order, g.ID)

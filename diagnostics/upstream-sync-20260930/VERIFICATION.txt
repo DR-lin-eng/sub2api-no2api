@@ -1,0 +1,132 @@
+UPSTREAM SYNC VERIFICATION
+==========================
+
+TARGET
+Downstream project: DR-lin-eng/sub2api-no2api
+Downstream branch: codex/upstream-sync-20260930
+Downstream base before change: b58c640a2d7b0b35f28cf05ca8bef4356578b09c
+Downstream version fast-forward included: 97ee9d1383c7189f80958f17767d3b6480b3a57c (VERSION 0.1.217)
+Previous upstream boundary: a3eb7ef302961cba716dc78b39b93b60c467db0e
+Frozen upstream boundary: 96f4c115c9749078f90cbf210a01d39baf3f53b6
+Reviewed PR merges: 48
+
+CHANGED BRANCH/FIELDS
+Protocol: Responses message type; Anthropic tool input recovery; input_file to document to Gemini inlineData; GPT generation >=5 reasoning filtering; caller OpenAI beta filtering; Alpha Search completion validation; API-key Responses probe selection.
+Streaming: semantic Antigravity content gate and empty-stream failover.
+Billing: account-statistics long-context switch; model-plaza video independent multiplier and units.
+UI/runtime: CC Switch URL normalization; whitelist/mapping conflict feedback; modal listener cleanup; usage countdown; video price display.
+Deployment: Redis exec-list command form, retaining memory/AOF/client tuning.
+Performance: gateway tool-name rewrite gathers byte spans and performs one body copy.
+
+FOUR ARTIFACTS
+MODIFIED_FILE=/private/tmp/sub2api-upstream-sync-20260930/diagnostics/upstream-sync-20260930/MODIFIED_FILE
+DIFF_FILE=/private/tmp/sub2api-upstream-sync-20260930/diagnostics/upstream-sync-20260930/DIFF_FILE
+VERIFICATION=/private/tmp/sub2api-upstream-sync-20260930/diagnostics/upstream-sync-20260930/VERIFICATION.txt
+ROLLBACK=/private/tmp/sub2api-upstream-sync-20260930/diagnostics/upstream-sync-20260930/ROLLBACK.sh
+BASELINE_COPY=/private/tmp/sub2api-upstream-sync-20260930/diagnostics/upstream-sync-20260930/BASELINE_FILE
+
+HASHES
+BASELINE_SHA256=a9270259de4357d4d476cccb6a032a8c43933eb2d89cf054c20b7f11ffa3e671 backend/internal/application/service/gateway_tool_rewrite.go
+MODIFIED_SHA256=c47c5246114316e0270e721945637114cb558261d5eb7e0b2a622ce3edac66d0 backend/internal/application/service/gateway_tool_rewrite.go
+MODIFIED_FILE_SHA256=c47c5246114316e0270e721945637114cb558261d5eb7e0b2a622ce3edac66d0 diagnostics/upstream-sync-20260930/MODIFIED_FILE
+
+BASELINE / MODIFIED / ROLLBACK COMMANDS AND RESULTS
+1. BASELINE protocol
+Command: docker run --rm -v /private/tmp/sub2api-upstream-baseline-20260930/backend:/workspace -v /Users/lin/go/pkg/mod:/go/pkg/mod -v sub2api-sync-gocache:/root/.cache/go-build -w /workspace golang:1.26.6-bookworm go test ./internal/shared/apicompat ./internal/shared/antigravity ./internal/bootstrap/setup
+Input: clean checkout b58c640a2d7b0b35f28cf05ca8bef4356578b09c
+Literal output: ok apicompat; ok antigravity; ok bootstrap/setup
+Exit status: 0
+Evidence: clean-baseline-protocol.log and clean-baseline-protocol.exit
+
+2. BASELINE frontend
+Command: docker run --rm -v /private/tmp/sub2api-upstream-baseline-20260930:/workspace -v sub2api-sync-baseline-node:/workspace/frontend/node_modules -w /workspace/frontend node:24-alpine sh -c 'corepack enable && corepack prepare pnpm@11.17.0 --activate && pnpm install --frozen-lockfile && pnpm exec vitest run src/core/utils/__tests__/ccswitchImport.spec.ts src/features/admin-accounts/__tests__/UsageProgressBar.spec.ts src/features/model-plaza/__tests__/PlazaModelPricingTable.spec.ts'
+Input: clean checkout b58c640a2d7b0b35f28cf05ca8bef4356578b09c
+Literal output: 3 files passed; 32 tests passed
+Exit status: 0
+Evidence: clean-baseline-frontend.log and clean-baseline-frontend.exit
+
+3. MODIFIED protocol
+Command: docker run --rm -v /private/tmp/sub2api-upstream-sync-20260930/backend:/workspace -v /Users/lin/go/pkg/mod:/go/pkg/mod -v sub2api-sync-gocache:/root/.cache/go-build -w /workspace golang:1.26.6-bookworm go test ./internal/shared/apicompat ./internal/shared/antigravity ./internal/bootstrap/setup
+Input: candidate tree with frozen PR ports
+Literal output: ok apicompat; ok antigravity; ok bootstrap/setup
+Exit status: 0
+Evidence: modified-protocol.log and modified-protocol.exit
+
+4. MODIFIED full backend
+Command: docker run --rm -v /private/tmp/sub2api-upstream-sync-20260930/backend:/workspace -v /Users/lin/go/pkg/mod:/go/pkg/mod -v sub2api-sync-gocache:/root/.cache/go-build -w /workspace golang:1.26.6-bookworm go test -tags=unit ./...
+Input: candidate tree
+Literal output: all packages passed; transport/http/handler, transport/http/server and migrations passed
+Exit status: 0
+Evidence: final-docker-unit.log and final-docker-unit.exit
+
+5. MODIFIED integration
+Command: docker run --rm -v /private/tmp/sub2api-upstream-sync-20260930/backend:/workspace -v /Users/lin/go/pkg/mod:/go/pkg/mod -v sub2api-sync-gocache:/root/.cache/go-build -v /var/run/docker.sock:/var/run/docker.sock -w /workspace -e DOCKER_HOST=unix:///var/run/docker.sock -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -e CI=true sub2api-upstream-sync-test:20260930 go test -tags=integration ./...
+Input: candidate tree, Docker socket, Testcontainers host override
+Literal output: ok infrastructure/repository 32.064s; remaining integration packages passed
+Exit status: 0
+Evidence: docker-integration.log and docker-integration.exit
+
+6. MODIFIED frontend and docs
+Command: pnpm 11.17.0 focused Vitest; pnpm run typecheck; pnpm run lint:check; make test-frontend-critical; make check-docs
+Input: candidate tree
+Literal output: focused 4 files and 41 tests passed; critical 28 files and 245 tests passed; Documentation checks passed
+Exit status: 0
+Evidence: final-frontend.log and docs-check.log; exit files are 0
+
+7. MODIFIED Docker build
+Command: BUILDX_CONFIG=/private/tmp/sub2api-sync-buildx-20260930 docker build --build-arg GOPROXY=https://proxy.golang.org,direct --build-arg GOSUMDB=sum.golang.org -t sub2api-upstream-sync:20260930 /private/tmp/sub2api-upstream-sync-20260930
+Input: candidate source tree
+Literal output: Dockerfile stages completed; image named sub2api-upstream-sync:20260930
+Exit status: 0
+Evidence: docker-candidate-build.log and docker-candidate-build.exit
+
+8. ROLLBACK
+Command: bash /private/tmp/sub2api-upstream-sync-20260930/diagnostics/upstream-sync-20260930/ROLLBACK.sh /private/tmp/sub2api-upstream-rollback-20260930/backend/internal/application/service/gateway_tool_rewrite.go
+Input: modified SHA c47c5246114316e0270e721945637114cb558261d5eb7e0b2a622ce3edac66d0
+Literal output: ROLLBACK_OK sha256=a9270259de4357d4d476cccb6a032a8c43933eb2d89cf054c20b7f11ffa3e671
+Exit status: 0
+Evidence: rollback-restore.log and rollback-restore.exit
+
+9. ROLLBACK behavior
+Command: bash diagnostics/upstream-sync-20260930/VERIFY.sh rollback
+Input: independent copy /private/tmp/sub2api-sync-replay-rollback-20260930/backend
+Literal output: ROLLBACK_PASS hash=verified tool_name_contract=preserved; TestApplyToolNameRewriteToBody passed
+Exit status: 0
+Evidence: replay-rollback-restore.log and replay-rollback.log
+
+10. Runtime baseline, modified, rollback, restored
+Command: docker compose -p sub2api-sync-20260930 -f diagnostics/upstream-sync-20260930/compose.yaml up -d --wait --wait-timeout 120 app; python3 diagnostics/upstream-sync-20260930/runtime_check.py baseline|modified|rollback|restored
+Input: isolated PostgreSQL 18 and Redis 8 stack; credential envelope from credential_envelope.mjs; Key fixture name browser-upgrade-fixture quota 12.34
+Literal output for every stage: /health HTTP_200; /ready HTTP_200; embedded_frontend HTTP_200; admin_login PASS; persisted_key_name_quota PASS; public_settings_contract PASS; RUNTIME_PASS
+Exit status: 0 for all four stages
+Evidence: runtime-baseline.log, runtime-modified.log, runtime-rollback.log, runtime-restored.log and exit files
+
+11. Redis command matrix
+Command: python3 diagnostics/upstream-sync-20260930/redis_command_check.py
+Input: docker-compose.yml, docker-compose.local.yml, docker-compose.dev.yml; empty password and password sync$'\";$(echo nope)\\! test
+Literal output: six real Redis containers returned REDIS_PONG; REDIS_COMMAND_MATRIX_PASS
+Exit status: 0
+Evidence: redis-command.log and redis-command.exit
+
+12. Browser
+Command: Codex in-app browser at http://127.0.0.1:18085
+Input: credential-envelope login; existing browser-upgrade-fixture Key; video-fixture with video_rate_multiplier 0.5
+Literal output: desktop Key modal rendered; 390px Key modal document.scrollWidth=390; model plaza showed video-fixture, $1.00 / 秒 and 0.5x; no horizontal overflow
+Exit status: 0
+Evidence: browser-desktop.png, browser-mobile.png, browser-video-price.png, browser-video-mobile.png
+
+PERFORMANCE
+Baseline command: go test -tags=unit ./internal/application/service -run '^$' -bench '^BenchmarkApplyToolNameRewriteToBody_LongHistory$' -benchmem -count=3
+Baseline literal output: 100.938081ms, 82.579964ms, 81.169952ms; 137053958 B/op; 9906 allocs/op; exit 0
+Modified command: same command on candidate tree
+Modified literal output: 0.433303ms, 0.426248ms, 0.424944ms; 393599 B/op; 2037 allocs/op; exit 0
+Result: one body copy preserved tool names and removed repeated whole-body rewrites; rollback returned baseline behavior
+
+SOURCE LAYOUT BASELINE
+Command: ./backend/scripts/check-source-layout.sh on clean downstream base
+Literal output: pre-existing openai_ws_v2/passthrough_relay.go 1273 lines and pricing_service.go 1238 lines exceed 1200
+Exit status: 1
+Candidate did not add to these pre-existing owner exceptions.
+
+PUBLISHING
+This file records local evidence before publication. PR URL, exact merge SHA, CI run IDs and GHCR digest are appended after publication.
