@@ -34,4 +34,6 @@ The file contains JSON data with model pricing information including:
 - Context window sizes
 - Model capabilities
 
-Last updated: 2025-08-10
+Last updated: 2026-09-30. The bundled OpenAI cards include GPT-6.1 Sol from the
+official pricing page, including standard, cache, long-context, Batch, Flex and
+Fast tier rates.

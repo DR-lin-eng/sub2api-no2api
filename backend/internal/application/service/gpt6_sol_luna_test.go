@@ -70,6 +70,37 @@ func TestGPT6SolAndLunaOfficialFallbackPricing(t *testing.T) {
 	}
 }
 
+func TestGPT61SolOfficialFallbackPricing(t *testing.T) {
+	require.Equal(t, "gpt-6.1-sol", normalizeKnownOpenAICodexModel("gpt6.1_sol-max"))
+	require.True(t, isOpenAIOAuthServableModel("gpt-6.1-sol"))
+	require.True(t, codexManifestKnownImageInputModel("gpt-6.1-sol"))
+	require.True(t, codexManifestKnownPriorityTierModel("gpt-6.1-sol"))
+	require.Equal(t, "low", normalizeOpenAIReasoningEffortForModel("none", "gpt-6.1-sol"))
+
+	svc := NewBillingService(&config.Config{}, nil)
+	pricing, err := svc.GetModelPricing("gpt-6.1-sol")
+	require.NoError(t, err)
+	require.InDelta(t, 2e-6, pricing.InputPricePerToken, 1e-15)
+	require.InDelta(t, 0.1e-6, pricing.CacheReadPricePerToken, 1e-15)
+	require.InDelta(t, 2.5e-6, pricing.CacheCreationPricePerToken, 1e-15)
+	require.InDelta(t, 10e-6, pricing.OutputPricePerToken, 1e-15)
+
+	pricingSvc := &PricingService{pricingData: map[string]*LiteLLMModelPricing{
+		"gpt-5.1-codex": {InputCostPerToken: 1.25e-6},
+	}}
+	static := pricingSvc.GetModelPricing("openai/gpt6.1_sol")
+	require.NotNil(t, static)
+	require.InDelta(t, 2e-6, static.InputCostPerToken, 1e-15)
+	require.InDelta(t, 0.1e-6, static.CacheReadInputTokenCost, 1e-15)
+	require.InDelta(t, 2.5e-6, static.CacheCreationInputTokenCost, 1e-15)
+	require.InDelta(t, 10e-6, static.OutputCostPerToken, 1e-15)
+
+	tokens := UsageTokens{InputTokens: 1000, CacheReadTokens: 100, CacheCreationTokens: 200, OutputTokens: 10}
+	standard, err := svc.CalculateCostWithServiceTier("gpt-6.1-sol", tokens, 1, "")
+	require.NoError(t, err)
+	require.InDelta(t, 1000*2e-6+100*0.1e-6+200*2.5e-6+10*10e-6, standard.TotalCost, 1e-12)
+}
+
 func TestGPT6SolAndLunaBundledPricingCatalog(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("..", "..", "..", "resources", "model-pricing", "model_prices_and_context_window.json"))
 	require.NoError(t, err)
@@ -77,7 +108,7 @@ func TestGPT6SolAndLunaBundledPricingCatalog(t *testing.T) {
 	pricingSvc := &PricingService{}
 	catalog, err := pricingSvc.parsePricingData(data)
 	require.NoError(t, err)
-	for model, input := range map[string]float64{"gpt-6-sol": 2e-6, "gpt-6-luna": 0.1e-6} {
+	for model, input := range map[string]float64{"gpt-6.1-sol": 2e-6, "gpt-6-sol": 2e-6, "gpt-6-luna": 0.1e-6} {
 		pricing := catalog[model]
 		require.NotNil(t, pricing, model)
 		require.InDelta(t, input, pricing.InputCostPerToken, 1e-15, model)
@@ -94,12 +125,16 @@ func TestGPT6SolAndLunaBundledPricingCatalog(t *testing.T) {
 		SupportsMaxReasoningEffort  bool `json:"supports_max_reasoning_effort"`
 	}
 	require.NoError(t, json.Unmarshal(data, &raw))
-	for _, model := range []string{"gpt-6-sol", "gpt-6-luna"} {
+	for _, model := range []string{"gpt-6.1-sol", "gpt-6-sol", "gpt-6-luna"} {
 		entry, ok := raw[model]
 		require.True(t, ok, model)
 		require.Equal(t, 922000, entry.MaxInputTokens, model)
 		require.Equal(t, 128000, entry.MaxOutputTokens, model)
-		require.True(t, entry.SupportsNoneReasoningEffort, model)
+		if model == "gpt-6.1-sol" {
+			require.False(t, entry.SupportsNoneReasoningEffort, model)
+		} else {
+			require.True(t, entry.SupportsNoneReasoningEffort, model)
+		}
 		require.True(t, entry.SupportsMaxReasoningEffort, model)
 	}
 }
