@@ -28,7 +28,8 @@
 
 OpenAI 已把 Priority processing 更名为 Fast；请求中的 `service_tier: "fast"` 和
 `service_tier: "priority"` 在本项目中使用同一 Fast 价格。Astra 不支持 `none` 或
-`minimal` 推理强度，兼容客户端传入这两档时定向降为最低可用的 `low`，其他模型的
+`minimal` 推理强度，兼容客户端传入这两档时定向降为最低可用的 `low`；GPT-6.1 Sol
+采用相同兼容处理，其他模型的
 既有归一化保持不变。Chat Completions 转 Responses 的兼容路径会按 reasoning 模型
 规则丢弃 Astra 不支持的自定义 `temperature` 和 `top_p`，直通协议仍保持原请求语义。
 
