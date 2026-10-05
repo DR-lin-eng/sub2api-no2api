@@ -1,3 +1,5 @@
+import accountPriority from './accountPriority'
+
 import cpaMessages from './accounts.cpa'
 import codexMessages from './accounts.codex'
 import bulkActionsMessages from './accounts.bulk-actions'
@@ -162,6 +164,7 @@ export default {
         overloadedUntil: 'Overloaded until {time}',
         viewTempUnschedDetails: 'View temp unschedulable details'
       },
+      ...accountPriority,
       columns: {
         name: 'Name',
         id: 'Account ID',
@@ -735,6 +738,7 @@ export default {
       enterCustomModelName: 'Enter custom model name',
       addModel: 'Add',
       modelExists: 'Model already exists',
+      modelMappingConflict: 'A mapping already exists for {from} → {to}. Modify or remove it under Model Mapping before adding this whitelist model',
       modelCount: '{count} models',
       poolMode: 'Pool Mode',
       poolModeHint: 'Enable when upstream is an account pool; errors won\'t mark local account status',
@@ -749,7 +753,7 @@ export default {
       customErrorCodes: 'Custom Error Codes',
       customErrorCodesHint: 'Only stop scheduling for selected error codes',
       customErrorCodesWarning:
-        'Only selected error codes will stop scheduling. Other errors will return 500.',
+        'Custom error codes filter account error handling, including scheduling and rate limit updates. Unselected errors can still retry or switch accounts; the returned status follows the gateway and passthrough rules. An empty list applies no filtering.',
       customErrorCodes429Warning:
         '429 already has built-in rate limit handling. Adding it to custom error codes will disable the account instead of temporary rate limiting. Are you sure?',
       customErrorCodes529Warning:

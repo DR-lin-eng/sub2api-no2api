@@ -181,8 +181,7 @@ function moveGroup(id: number, offset: number): void {
 }
 
 function applyRoutes(routes: MediaStudioGroupRoutes): void {
-  // 历史配置可能残留已被删除或已停用的分组，这些分组后端保存时会校验失败，
-  // 因此只保留当前可选（active）的分组，避免保存时提交无效的 group_id。
+  // Keep historical routes aligned with the groups the administrator can select.
   const selectableIds = new Set(availableGroups().map(group => group.id))
   const validRoutes = routes.filter(entry => selectableIds.has(entry.group_id))
   selectedIds.value = validRoutes.map(entry => entry.group_id)

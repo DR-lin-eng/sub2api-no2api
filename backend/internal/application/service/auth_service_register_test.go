@@ -867,3 +867,43 @@ func TestCanBypassRegistrationDisabledForOAuth(t *testing.T) {
 		})
 	}
 }
+
+func (s *emailCacheStub) VerifyVerificationCode(ctx context.Context, email, code string, maxAttempts int) error {
+	data, err := s.GetVerificationCode(ctx, email)
+	if err != nil || data == nil {
+		return ErrInvalidVerifyCode
+	}
+	if data.Attempts >= maxAttempts {
+		return ErrVerifyCodeMaxAttempts
+	}
+	if data.Code != code {
+		data.Attempts++
+		if data.Attempts >= maxAttempts {
+			return ErrVerifyCodeMaxAttempts
+		}
+		return ErrInvalidVerifyCode
+	}
+	return s.DeleteVerificationCode(ctx, email)
+}
+
+func (s *emailCacheStub) VerifyNotifyVerificationCode(ctx context.Context, email, code string, maxAttempts int) error {
+	data, err := s.GetNotifyVerifyCode(ctx, email)
+	if err != nil || data == nil {
+		return ErrInvalidVerifyCode
+	}
+	if data.Attempts >= maxAttempts {
+		return ErrVerifyCodeMaxAttempts
+	}
+	if data.Code != code {
+		data.Attempts++
+		if data.Attempts >= maxAttempts {
+			return ErrVerifyCodeMaxAttempts
+		}
+		return ErrInvalidVerifyCode
+	}
+	return s.DeleteNotifyVerifyCode(ctx, email)
+}
+
+func (s *emailCacheStub) ConsumePasswordResetToken(context.Context, string, string, string) (bool, error) {
+	return false, nil
+}

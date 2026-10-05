@@ -1765,7 +1765,7 @@ func normalizeOpenAIReasoningEffort(raw string) string {
 
 func normalizeOpenAIReasoningEffortForModel(raw, model string) string {
 	rawNormalized := strings.ToLower(strings.TrimSpace(raw))
-	if (rawNormalized == "none" || rawNormalized == "minimal") && isOpenAIGPT6AstraModel(model) {
+	if (rawNormalized == "none" || rawNormalized == "minimal") && (isOpenAIGPT6AstraModel(model) || isOpenAIGPT61SolModel(model)) {
 		return "low"
 	}
 	if rawNormalized == "max" && supportsOpenAIReasoningEffortMax(model) {
@@ -1776,7 +1776,7 @@ func normalizeOpenAIReasoningEffortForModel(raw, model string) string {
 
 func normalizeOpenAIReasoningEffortForUpstream(raw, model string) (string, bool) {
 	normalized := strings.ToLower(strings.TrimSpace(raw))
-	if (normalized == "none" || normalized == "minimal") && isOpenAIGPT6AstraModel(model) {
+	if (normalized == "none" || normalized == "minimal") && (isOpenAIGPT6AstraModel(model) || isOpenAIGPT61SolModel(model)) {
 		return "low", true
 	}
 	if normalized == "minimal" {

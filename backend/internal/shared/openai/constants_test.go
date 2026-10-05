@@ -14,6 +14,10 @@ func TestDefaultModelsIncludeGPT6Astra(t *testing.T) {
 	require.Contains(t, DefaultModelIDs(), "gpt-6-astra")
 }
 
+func TestDefaultModelsIncludeGPT61Sol(t *testing.T) {
+	require.Contains(t, DefaultModelIDs(), "gpt-6.1-sol")
+}
+
 func TestDefaultModelsIncludeGPT6SolAndLuna(t *testing.T) {
 	require.Contains(t, DefaultModelIDs(), "gpt-6-sol")
 	require.Contains(t, DefaultModelIDs(), "gpt-6-luna")

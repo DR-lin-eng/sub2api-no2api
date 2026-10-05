@@ -891,3 +891,16 @@ func newTestChannelServiceForStats(t *testing.T, channel *Channel, groupID int64
 	cs.cache.Store(cache)
 	return cs
 }
+
+func TestTryModelFilePricing_AccountLongContextFlag(t *testing.T) {
+	bs := newTestBillingServiceWithPrices(map[string]*ModelPricing{
+		"gpt-5.6-sol": {InputPricePerToken: 0.001, OutputPricePerToken: 0.002, CacheReadPricePerToken: 0.0001, LongContextInputThreshold: 100, LongContextInputMultiplier: 2, LongContextOutputMultiplier: 1.5},
+	})
+	tokens := UsageTokens{InputTokens: 101, OutputTokens: 10, CacheReadTokens: 5}
+	standard := tryModelFilePricing(bs, "gpt-5.6-sol", tokens, "", false)
+	long := tryModelFilePricing(bs, "gpt-5.6-sol", tokens, "", true)
+	require.NotNil(t, standard)
+	require.NotNil(t, long)
+	require.InDelta(t, 0.1215, *standard, 1e-12)
+	require.InDelta(t, 0.233, *long, 1e-12)
+}

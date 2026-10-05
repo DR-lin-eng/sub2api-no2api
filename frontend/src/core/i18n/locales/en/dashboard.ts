@@ -768,7 +768,9 @@ export default {
       perUnitRequest: '/ request',
       perUnitImage: '/ image',
       perRequest: 'Per request',
-      perImage: 'Per image'
+      perImage: 'Per image',
+      perVideo: 'Per video second',
+      perUnitSecond: '/ second'
     },
     nav: {
       login: 'Sign In',
