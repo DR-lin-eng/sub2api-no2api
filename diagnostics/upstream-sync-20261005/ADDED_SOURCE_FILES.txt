@@ -9,6 +9,7 @@ backend/internal/infrastructure/repository/email_cache_benchmark_test.go
 backend/internal/shared/xai/cli_identity.go
 backend/internal/shared/xai/cli_identity_test.go
 backend/internal/transport/http/server/routes/payment_public_rate_limit_test.go
+frontend/src/core/__tests__/credentialCryptoUsage.spec.ts
 frontend/src/core/i18n/locales/en/admin/accountPriority.ts
 frontend/src/core/i18n/locales/zh/admin/accountPriority.ts
 frontend/src/features/admin-accounts/__tests__/AccountPriorityCell.spec.ts

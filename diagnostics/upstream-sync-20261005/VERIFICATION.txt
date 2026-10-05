@@ -97,3 +97,13 @@ The missing previous sync document was recovered from its already committed ledg
 PUBLICATION
 Git tracking merge closes this reviewed upstream commit range while fully_closed=false items remain deferred.
 PR head SHA, merge result, CI run URLs and main Docker Image workflow status are recorded in the GitHub PR body and final delivery, without rewriting the already verified source commit for status-only updates.
+
+CI DEPENDENCY FOLLOW-UP
+Initial PR head 58b7eb0 and baseline main scheduled Security Scan both reported seven new Axios advisories and GHSA-86w9-cpqp-85rv for node-forge. Main comparison run: https://github.com/DR-lin-eng/sub2api-no2api/actions/runs/37294475593 . Initial regular CI and PR Docker Image build passed.
+Axios was updated from 1.18.1 to official fixed version 1.20.0. node-forge registry latest remains 1.4.0 and its official advisory lists no patched release. Production audit inputs are audit-before.json / audit-after.json; after the patch, only the exact node-forge advisory remains high.
+This existing browser credential fallback encrypts with RSA-OAEP/SHA-256 and AES-GCM and does not perform affected PKCS#1 v1.5 signature verification. .github/audit-exceptions.yml records only this advisory until 2026-11-05. Mandatory credentialCryptoUsage.spec.ts restricts runtime imports, Forge API scope and cipher schemes; other advisories are not exempted.
+Official sources: https://github.com/advisories/GHSA-c29m-xwm3-cm6r and https://github.com/advisories/GHSA-86w9-cpqp-85rv .
+Local audit gate command: python3 tools/check_pnpm_audit_exceptions.py --audit diagnostics/upstream-sync-20261005/audit-after.json --exceptions .github/audit-exceptions.yml
+Literal result: Audit exceptions validated.; exit 0.
+Docker frontend regression command extends section 6 with client.spec.ts, sessionRefresh.spec.ts, credentialEncryption.spec.ts, credentialCryptoUsage.spec.ts and initialAssetLoading.spec.ts, plus the prior widget/Key specs. Lint/typecheck and make test-frontend-critical rerun after the lockfile change. Final focused suite: 7 files / 62 tests passed; final critical suite: 29 files / 247 tests passed; exit 0. Native and fallback RSA-OAEP/AES-GCM remain server-decryptable in the credential tests.
+Final dependency Docker build: candidate command in section 7 with COMMIT=upstream-sync-20261005-dependency-verified. All stages completed; exit 0. The rebuilt image also passes runtime_check.py restored with persisted Key/order/setting values; exit 0.

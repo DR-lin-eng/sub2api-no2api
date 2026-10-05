@@ -17,7 +17,7 @@
 | [#7803](https://github.com/Wei-Shaw/sub2api/pull/7803) | 已移植 | repository/api_key_repo_sort.go；features/keys。按第一绑定分组名称在 SQL 分页前排序，无分组始终置后，ID 稳定排序；有序 fallback 绑定不变。提取排序 owner 以符合源码上限，查询次数和预加载不变。 |
 | [#7674](https://github.com/Wei-Shaw/sub2api/pull/7674) | 已移植 | service/antigravity_upstream_error_sanitize.go、antigravity_gateway_gemini.go。只在客户端错误投影中清除项目/消费者/邮箱等账号池身份，保留 Gemini code/status/message 与 HTTP 状态；成功、重试、Ops 和计费路径不变。真实 stream/nonstream 转发回归覆盖，regex 预编译且不进入成功热路径。 |
 | [#7676](https://github.com/Wei-Shaw/sub2api/pull/7676) | 重构后移植 | repository/email_cache_atomic.go；service/email_service.go、user_service.go。单 key 单次 Lua 完成旧 JSON 验证码校验、失败计数与成功消费，保留 TTL；重置链接原子消费支持旧明文及 sha256: 前缀。哈希写入需 password_reset_token_hash_storage_enabled=true，默认保持旧节点可读和原 resend 契约；无计数旁路 key、无网关 DB 查询。 |
-| [#7773](https://github.com/Wei-Shaw/sub2api/pull/7773) | 文案已移植；依赖已覆盖 | core/i18n/locales/{en,zh}/admin/accounts.ts；frontend/package.json、pnpm-lock.yaml。修正文案说明账号错误处理与重试/切号相互独立；锁定 Axios 1.18.1 已高于上游升级要求，不重复变更依赖。 |
+| [#7773](https://github.com/Wei-Shaw/sub2api/pull/7773) | 文案已移植；Axios 已补齐 | core/i18n/locales/{en,zh}/admin/accounts.ts；frontend/package.json、pnpm-lock.yaml。修正文案说明账号错误处理与重试/切号相互独立；初始 Axios 1.18.1 已覆盖上游升级要求；后续 CI 新公告要求 1.20.0，本轮只补齐官方修复版。 |
 | [#7630](https://github.com/Wei-Shaw/sub2api/pull/7630) | 已移植并收敛生命周期 | features/admin-accounts/presentation/widgets/AccountPriorityCell.vue。连续点击 450ms 合并为 priority-only Action；输入、取消、失败恢复与卸载处理在同域 widget。离开页面清理未发出的保存，并忽略卸载后的返回，不触发额外轮询；直接导入本项目 updateAccount owner。 |
 | [#7814](https://github.com/Wei-Shaw/sub2api/pull/7814) | 上游专属差异已关闭 | 上游 .github/SECURITY.md。不复制上游维护者邮箱、服务范围或披露承诺；本项目私密漏洞报告 API 返回 enabled=false，不添加无效的本项目报告链接或修改仓库设置。该上游专属文档差异不再重复审查。 |
 | [#7816](https://github.com/Wei-Shaw/sub2api/pull/7816) | 已移植 | repository/usage_billing_repo.go。仅 ErrAPIKeyNotFound 跳过 Key 自身额度和窗口；余额、订阅、账号、平台额度及持久幂等结算继续执行。其他数据库错误仍回滚；不增加 SQL 或丢弃计费任务。 |
@@ -41,3 +41,9 @@
 Docker 全量后端 unit/integration、Go lint、race、前端 lint/typecheck、31 个相关测试与 245 个关键测试、完整源码构建、升级/回退及文档门禁分别核对。两个旧源码上限问题（`openai_ws_v2/passthrough_relay.go`、`pricing_service.go`）在冻结基线已经存在；本次新增的排序 owner 不新增上限例外。
 
 浏览器验收使用隔离的组件页面，加载生产 widget、样式与中文词表，Action/Toast 为测试替身；验证 450ms 后保存结果及 390px 宽度无横向溢出。实际 Docker API 登录/Key/订单/重置链接由运行测试单独验证。发布后的 PR 精确 SHA、CI 与主线镜像工作流以 GitHub PR 和最终交付链接为准，避免修改已验证提交来追加运行结果。
+
+## CI 发现的依赖后续问题
+
+首次推送 `58b7eb0` 的 Security Scan 与相同下游基线主线的最新定时扫描都报告 Axios 1.18.1 的七个新高危公告及 node-forge 1.4.0 的一项公告。依据 [Axios 官方公告](https://github.com/advisories/GHSA-c29m-xwm3-cm6r) 升级至 1.20.0 后，生产依赖审计只剩 node-forge 的 [GHSA-86w9-cpqp-85rv](https://github.com/advisories/GHSA-86w9-cpqp-85rv)，该公告暂无官方修复版本。
+
+node-forge 仅由 `core/networks/credentialEncryptionFallback.ts` 用于 RSA-OAEP 加密、AES-GCM 和公钥解析，当前不执行受影响的 PKCS#1 v1.5 签名验证。为保留既有 HTTP/IP 浏览器登录兼容，按现有审计机制为该精确公告设置截至 **2026-11-05** 的例外，并把 `credentialCryptoUsage.spec.ts` 加入必跑关键测试集，约束导入 owner、允许的 Forge API 和 OAEP/GCM 方案。例外不覆盖其他公告；官方修复版发布、调用范围改变或到期时须重新审查。原生/回退加密、401 合并刷新和 HTTP client 同步执行 Docker 回归。

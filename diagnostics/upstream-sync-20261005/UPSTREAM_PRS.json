@@ -259,11 +259,19 @@
       "frontend/src/i18n/locales/zh/admin/accounts.ts"
     ],
     "upstream_diff_sha256": "5455a44f7882bdfbc13a5520ffd322293e72c030afa5ce28f30e7948bb3dfa7e",
-    "status": "文案已移植；依赖已覆盖",
+    "status": "文案已移植；Axios 已补齐",
     "fully_closed": true,
     "current_owner": "core/i18n/locales/{en,zh}/admin/accounts.ts；frontend/package.json、pnpm-lock.yaml",
-    "decision": "修正文案说明账号错误处理与重试/切号相互独立；锁定 Axios 1.18.1 已高于上游升级要求，不重复变更依赖。",
-    "reopen_condition": "仅出现新的行为变化或回归证据"
+    "decision": "修正文案说明账号错误处理与重试/切号独立。初始 1.18.1 已覆盖上游要求，但 CI 新公告要求 1.20.0，本轮只补齐该官方修复版，不重开原有功能差异。",
+    "reopen_condition": "仅出现新的行为变化或回归证据",
+    "ci_followup": {
+      "axios_before": "1.18.1",
+      "axios_after": "1.20.0",
+      "node_forge_advisory": "GHSA-86w9-cpqp-85rv",
+      "node_forge_version": "1.4.0",
+      "exception_expires_on": "2026-11-05",
+      "mitigation": "单一 RSA-OAEP/AES-GCM 加密 owner；强制使用范围测试门禁；固定版本发布或使用变化时重开"
+    }
   },
   {
     "pr": 7630,
