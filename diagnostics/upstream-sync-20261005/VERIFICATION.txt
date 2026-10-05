@@ -1,0 +1,99 @@
+UPSTREAM SELECTIVE SYNC VERIFICATION — 2026-10-05
+
+DOWNSTREAM_BASELINE=f64e146d258f037ea88208b66011fbe421036c8d
+PREVIOUS_UPSTREAM=96f4c115c9749078f90cbf210a01d39baf3f53b6
+FROZEN_UPSTREAM=b8dece9000c68815a5b867ca5a1e6f236e173905
+RANGE=12 PR merges, 3 upstream VERSION commits
+RESULT=8 PR behaviors ported/refactored; 1 upstream-only documentation divergence closed; 3 protocol/payment dependency items explicitly deferred.
+Detailed decisions and fully_closed flags: UPSTREAM_PRS.json.
+
+FOUR ARTIFACTS
+MODIFIED_FILE=/Users/lin/.codex/worktrees/8f42/sub2api-no2api/diagnostics/upstream-sync-20261005/MODIFIED_FILE
+DIFF_FILE=/Users/lin/.codex/worktrees/8f42/sub2api-no2api/diagnostics/upstream-sync-20261005/DIFF_FILE
+VERIFICATION=/Users/lin/.codex/worktrees/8f42/sub2api-no2api/diagnostics/upstream-sync-20261005/VERIFICATION.txt
+ROLLBACK=/Users/lin/.codex/worktrees/8f42/sub2api-no2api/diagnostics/upstream-sync-20261005/ROLLBACK.sh
+Primary modified field/branch: EmailService.VerifyCode delegates to an atomic cache port; password-reset compare/delete is atomic and hash writing is gated for rolling upgrades.
+BASELINE_SHA256=f5ac3bc4700981a3c5120e15b572b2ba4c653c0231c708015d38fd0fe90e54e3
+MODIFIED_SHA256=356f91a72051ad3c6925d718fc44acf847dd7722d8203757af269d1d1de4b1c3
+All changed source/test files: SOURCE_FILES_SHA256.txt.
+
+TEST COMMANDS / INPUT / OBSERVED RESULTS
+Commands are run from the repository root unless a path is stated.
+
+1. Clean baseline backend
+Input: git archive DOWNSTREAM_BASELINE into /private/tmp/sub2api-sync-20261005-baseline.
+Command: docker run --rm -e GOMAXPROCS=4 -v /private/tmp/sub2api-sync-20261005-baseline/backend:/workspace -v sub2api-sync-gomod:/go/pkg/mod -v sub2api-sync-gocache:/root/.cache/go-build -w /workspace golang:1.26.6-bookworm go test -p 2 -tags=unit ./...
+Result: all packages passed; exit 0.
+
+2. Baseline defect replay
+Input: same deleted-Key billing regression test against original production usage_billing_repo.go.
+Command: baseline container above, go test -tags=unit ./internal/infrastructure/repository -run '^TestApplyUsageBillingEffects_DeletedAPIKeyStillBillsBalance$' -count=1
+Literal result: Received unexpected error: code=404 reason="API_KEY_NOT_FOUND" message="api key not found". FAIL; exit 1 (expected baseline defect).
+Candidate same test: passes in focused and complete unit suites; balance remains charged and non-not-found DB errors still fail.
+
+3. Final complete backend unit
+Command: docker run --rm -e GOMAXPROCS=2 -e GOFLAGS=-p=2 -v "$PWD/backend:/workspace" -v sub2api-sync-gomod:/go/pkg/mod -v sub2api-sync-gocache:/root/.cache/go-build -w /workspace golang:1.26.6-bookworm go test -tags=unit ./...
+Input: final production source and all tests, including default-off hash write gate and both Gemini error modes.
+Result: all packages passed; exit 0. Exact log retained in /private/tmp/sub2api-sync-20261005-logs/unit-exact.log.
+
+4. PostgreSQL / Redis integration
+Command: docker run --rm -e GOMAXPROCS=4 -v "$PWD/backend:/workspace" -v sub2api-sync-gomod:/go/pkg/mod -v sub2api-sync-gocache:/root/.cache/go-build -v /var/run/docker.sock:/var/run/docker.sock -w /workspace -e DOCKER_HOST=unix:///var/run/docker.sock -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -e CI=true sub2api-upstream-sync-test:20260930 go test -p 2 -tags=integration ./...
+Input: candidate source, real Testcontainers PostgreSQL/Redis. Go image runtime is 1.26.6, Docker CLI is bundled in this test image.
+Result: all packages passed; exit 0. TestUsageBillingRepositoryApply_DeletedAPIKeyStillBillsBalance verifies the actual transaction, unchanged Key counters and dedup row.
+
+5. Go lint and race
+Lint command: docker run --rm -e GOMAXPROCS=2 -e GOFLAGS=-p=2 -v "$PWD/backend:/workspace" -v sub2api-sync-gomod:/go/pkg/mod -v sub2api-sync-gocache:/root/.cache/go-build -w /workspace golang:1.26.6-bookworm sh -c 'GOBIN=/tmp/bin go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.9.0 && /tmp/bin/golangci-lint run --timeout=30m ./...'
+Use GOGC=35 and GOMEMLIMIT=1500MiB on 8GB Docker Desktop to limit peak tool memory.
+Lint literal result: 0 issues.; exit 0.
+Race command: docker run --rm -e GOMAXPROCS=2 -e GOFLAGS=-p=2 -v "$PWD/backend:/workspace" -v sub2api-sync-gomod:/go/pkg/mod -v sub2api-sync-gocache:/root/.cache/go-build -w /workspace golang:1.26.6-bookworm go test -race -tags=unit ./internal/infrastructure/repository -run '^TestEmail' -count=1
+Race literal result: ok github.com/Wei-Shaw/sub2api/internal/infrastructure/repository 1.156s; exit 0.
+Concurrent behavior: 50 wrong checks respect the existing five-failure cap; 30 matching checks or reset consumptions have one winner; wrong tokens do not delete valid data. JSON and original TTL remain compatible.
+
+6. Frontend Docker validation
+Command: docker run --rm -v "$PWD:/workspace" -v sub2api-sync-20261005-node:/workspace/frontend/node_modules -w /workspace/frontend node:24-alpine sh -c 'corepack enable && corepack prepare pnpm@11.17.0 --activate && pnpm install --frozen-lockfile --prefer-offline && pnpm exec vitest run src/features/admin-accounts/__tests__/AccountPriorityCell.spec.ts src/features/keys/__tests__/KeysPage.spec.ts && pnpm run lint:check && pnpm run typecheck && cd /workspace && apk add --no-cache make && make test-frontend-critical'
+Input: production widget, owner Action API, locale fragments, Key sorting and lifecycle tests.
+Literal result: 2 focused files / 31 tests passed; ESLint passed; vue-tsc passed; 28 critical files / 245 tests passed. Exit 0.
+
+7. Full source Docker builds
+Baseline command: BUILDX_CONFIG=/private/tmp/sub2api-sync-buildx-20261005 docker build --build-arg GOPROXY=https://proxy.golang.org,direct --build-arg GOSUMDB=sum.golang.org --build-arg COMMIT=f64e146d258f037ea88208b66011fbe421036c8d -t sub2api-upstream-sync:20261005-baseline /private/tmp/sub2api-sync-20261005-baseline
+Candidate command: BUILDX_CONFIG=/private/tmp/sub2api-sync-buildx-20261005 docker build --build-arg GOPROXY=https://proxy.golang.org,direct --build-arg GOSUMDB=sum.golang.org --build-arg COMMIT=upstream-sync-20261005-verified -t sub2api-upstream-sync:20261005 .
+Result: all frontend/backend/runtime stages completed for both; exit 0. Candidate contains embedded frontend and final production source. Docker build commit labels are local validation labels; exact publishing SHA is verified on GitHub separately.
+
+8. Runtime baseline / modified / rollback / restored
+Commands: SYNC_IMAGE=sub2api-upstream-sync:20261005-baseline|sub2api-upstream-sync:20261005 docker compose -f diagnostics/upstream-sync-20261005/compose.yaml -p sub2api-sync-20261005 up -d --wait --wait-timeout 60 app
+Then: python3 diagnostics/upstream-sync-20261005/runtime_check.py baseline|modified|rollback|restored
+Input: same isolated PostgreSQL/Redis throughout; synthetic accounts, legacy pending order, preupgrade plaintext reset token and prefixed hash reset token from runtime-fixtures.sql.
+Result for each stage: /health 200, /ready 200, embedded frontend 200, encrypted credential-envelope admin login PASS, persisted Key name/quota PASS, public settings PASS, legacy pending-order state PASS, RUNTIME_PASS; exit 0.
+Modified also: preupgrade_reset_link PASS, hash_reset_link PASS. The normal email verification/password-reset feature switches were enabled in the fixture for these calls. Hash writing remains default off.
+SQL command: docker compose -f diagnostics/upstream-sync-20261005/compose.yaml -p sub2api-sync-20261005 exec -T postgres psql -U sub2api -d sub2api -Atc 'SELECT COUNT(*) FROM schema_migrations;'
+Literal output before/after: 299. No new migration and no reverse migration required.
+Runtime state file is /private/tmp/sub2api-sync-runtime-state-20261005.json (synthetic test IDs, no auth token).
+
+9. Independent source rollback
+Command: diagnostics/upstream-sync-20261005/ROLLBACK.sh /private/tmp/sub2api-sync-20261005-rollback-copy
+Input: independent temporary target; baseline archive restores original files and removes only the enumerated newly introduced source files. Actual workspace is not targeted.
+Literal result: ROLLBACK_PASS baseline=f64e146d258f037ea88208b66011fbe421036c8d source_hash=f5ac3bc4700981a3c5120e15b572b2ba4c653c0231c708015d38fd0fe90e54e3
+Exit 0; baseline file cmp and original SHA-256 verified; MODIFIED_FILE remains unchanged.
+
+10. Real Redis performance
+Identical benchmark source is compiled against baseline and candidate; setup excluded and script warmed.
+Command: docker run --rm --network sub2api-sync-20261005_default -e GOMAXPROCS=4 -e SUB2API_SYNC_REDIS_ADDR=redis:6379 -v BASELINE_OR_CANDIDATE_BACKEND:/workspace -v sub2api-sync-gomod:/go/pkg/mod -v sub2api-sync-gocache:/root/.cache/go-build -w /workspace golang:1.26.6-bookworm go test -tags=unit ./internal/infrastructure/repository -run '^$' -bench '^BenchmarkEmailCodeVerification$' -benchmem -benchtime=300x -count=3
+Literal outputs: baseline-benchmark.txt and candidate-benchmark.txt; both exit 0.
+Observed median success: 75079 -> 39239 ns/op; failure: 85278 -> 51206 ns/op. Redis commands: 2 -> 1 per verification. Success: 1040 -> 424 B/op, 22 -> 12 allocs/op. Failure: ~1355 -> 440 B/op, 28 -> 13 allocs/op.
+These are development-host local measurements; no whole-gateway speedup is inferred.
+
+11. Browser component validation
+Command: Docker node:24-alpine Vite runner with the isolated ui/ fixture bound at /workspace/frontend/sync-harness; see ui/vite.config.ts for fixture-only Action/Toast replacements.
+Input: actual AccountPriorityCell.vue, production CSS and Chinese locale; synthetic test account.
+Observed: click +1 shows draft 4, after 450ms saved value 4; default desktop and width=390 both render; document.scrollWidth=innerWidth=390. Browser viewport reset afterward.
+Evidence: browser-desktop.jpg and browser-mobile.jpg. Full live app login/API compatibility is tested separately by runtime_check.py.
+
+12. Docs / diff / source layout
+make check-docs -> Documentation checks passed.; exit 0.
+git diff --check -> empty output; exit 0.
+check-source-layout.sh -> same two known baseline failures: openai_ws_v2/passthrough_relay.go 1273 lines, pricing_service.go 1238 lines, limit 1200. No new exception; API Key sort owner was split before committing.
+The missing previous sync document was recovered from its already committed ledger, and .gitignore now retains both stable report entries.
+
+PUBLICATION
+Git tracking merge closes this reviewed upstream commit range while fully_closed=false items remain deferred.
+PR head SHA, merge result, CI run URLs and main Docker Image workflow status are recorded in the GitHub PR body and final delivery, without rewriting the already verified source commit for status-only updates.

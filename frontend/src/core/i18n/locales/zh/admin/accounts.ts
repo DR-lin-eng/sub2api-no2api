@@ -1,3 +1,5 @@
+import accountPriority from './accountPriority'
+
 import cpaMessages from './accounts.cpa'
 import codexMessages from './accounts.codex'
 import bulkActionsMessages from './accounts.bulk-actions'
@@ -108,6 +110,7 @@ export default {
       schedulableDisabled: '调度已关闭',
       failedToToggleSchedulable: '切换调度状态失败',
       groupCountTotal: '共 {count} 个分组',
+      ...accountPriority,
       columns: {
         name: '名称',
         id: '账号ID',
@@ -815,7 +818,7 @@ export default {
       poolModeRetryStatusCodesHint: '仅在池模式下生效。以英文逗号分隔的 HTTP 状态码（100-599），命中时触发同账号重试。留空使用默认值（{default}）。',
       customErrorCodes: '自定义错误码',
       customErrorCodesHint: '仅对选中的错误码停止调度',
-      customErrorCodesWarning: '仅选中的错误码会停止调度，其他错误将返回 500。',
+      customErrorCodesWarning: '自定义错误码筛选账号错误处理，包括停止调度和限流标记。未选中的错误仍可能触发重试或切换账号；返回状态取决于网关路径和错误透传规则。列表为空时不做筛选。',
       customErrorCodes429Warning:
         '429 已有内置的限流处理机制。添加到自定义错误码后，将直接停止调度而非临时限流。确定要添加吗？',
       customErrorCodes529Warning:

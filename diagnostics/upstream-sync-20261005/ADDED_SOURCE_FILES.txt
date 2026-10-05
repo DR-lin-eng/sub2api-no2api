@@ -1,0 +1,15 @@
+backend/internal/application/service/antigravity_upstream_error_sanitize.go
+backend/internal/application/service/antigravity_upstream_error_sanitize_test.go
+backend/internal/application/service/email_service_reset_token_test.go
+backend/internal/infrastructure/repository/api_key_repo_group_sort_unit_test.go
+backend/internal/infrastructure/repository/api_key_repo_sort.go
+backend/internal/infrastructure/repository/email_cache_atomic.go
+backend/internal/infrastructure/repository/email_cache_atomic_test.go
+backend/internal/infrastructure/repository/email_cache_benchmark_test.go
+backend/internal/shared/xai/cli_identity.go
+backend/internal/shared/xai/cli_identity_test.go
+backend/internal/transport/http/server/routes/payment_public_rate_limit_test.go
+frontend/src/core/i18n/locales/en/admin/accountPriority.ts
+frontend/src/core/i18n/locales/zh/admin/accountPriority.ts
+frontend/src/features/admin-accounts/__tests__/AccountPriorityCell.spec.ts
+frontend/src/features/admin-accounts/presentation/widgets/AccountPriorityCell.vue

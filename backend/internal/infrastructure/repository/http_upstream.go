@@ -41,7 +41,6 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
 	"github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator"
 	"github.com/Wei-Shaw/sub2api/internal/shared/xai"
-	"golang.org/x/mod/semver"
 )
 
 // 默认配置常量
@@ -93,12 +92,10 @@ const (
 	// The Grok CLI proxy rejects requests that do not identify a supported
 	// client version. Keep a known-good stable version in the binary while
 	// allowing operators to bump it without waiting for a Sub2API release.
-	grokCLIProxyHost       = "cli-chat-proxy.grok.com"
-	grokOfficialAPIHost    = "api.x.ai"
-	grokTokenAuthHeader    = "X-Xai-Token-Auth"
-	grokCLIStableVersion   = xai.CLIClientVersion
-	grokCLIVersionOverride = "XAI_GROK_CLI_VERSION"
-	grokFallbackBodyLimit  = 64 << 10
+	grokCLIProxyHost      = "cli-chat-proxy.grok.com"
+	grokOfficialAPIHost   = "api.x.ai"
+	grokTokenAuthHeader   = "X-Xai-Token-Auth"
+	grokFallbackBodyLimit = 64 << 10
 )
 
 const (
@@ -662,21 +659,7 @@ func applyGrokCLIProxyHeaders(req *http.Request) {
 	if req.Header == nil {
 		req.Header = make(http.Header)
 	}
-	version := strings.TrimSpace(os.Getenv(grokCLIVersionOverride))
-	if !isSupportedGrokCLIVersion(version) {
-		version = grokCLIStableVersion
-	}
-	req.Header.Set(grokTokenAuthHeader, "xai-grok-cli")
-	req.Header.Set("x-grok-client-version", version)
-	req.Header.Set("User-Agent", "xai-grok-workspace/"+version)
-}
-
-func isSupportedGrokCLIVersion(version string) bool {
-	canonical := "v" + version
-	minimum := "v" + grokCLIStableVersion
-	return semver.IsValid(canonical) &&
-		semver.Canonical(canonical) == canonical &&
-		semver.Compare(canonical, minimum) >= 0
+	xai.ApplyCLIProxyHeaders(req)
 }
 
 // getClientEntryWithTLS 获取或创建带 TLS 指纹的客户端条目
