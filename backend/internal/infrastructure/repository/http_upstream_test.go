@@ -411,7 +411,7 @@ func TestHTTPUpstreamDoAppliesGrokCLIIdentityBeforeOAuthRoundTrip(t *testing.T) 
 
 			require.Equal(t, xai.CLIClientVersion, capturedHeaders.Get("x-grok-client-version"))
 			require.Equal(t, "xai-grok-cli", capturedHeaders.Get("X-XAI-Token-Auth"))
-			require.Equal(t, "xai-grok-workspace/"+xai.CLIClientVersion, capturedHeaders.Get("User-Agent"))
+			require.Equal(t, xai.CLIUserAgentForVersion(xai.CLIClientVersion), capturedHeaders.Get("User-Agent"))
 		})
 	}
 }
@@ -673,18 +673,20 @@ func TestApplyGrokCLIProxyHeaders(t *testing.T) {
 
 		require.Equal(t, xai.CLIClientVersion, req.Header.Get("x-grok-client-version"))
 		require.Equal(t, "xai-grok-cli", req.Header.Get("X-XAI-Token-Auth"))
-		require.Equal(t, "xai-grok-workspace/"+xai.CLIClientVersion, req.Header.Get("User-Agent"))
+		require.Equal(t, xai.CLIUserAgentForVersion(xai.CLIClientVersion), req.Header.Get("User-Agent"))
+		require.Equal(t, xai.CLIClientMode, req.Header.Get("x-grok-client-mode"))
+		require.Equal(t, xai.CLIClientIdentifier, req.Header.Get("x-grok-client-identifier"))
 	})
 
 	t.Run("accepts a valid operator override", func(t *testing.T) {
-		t.Setenv("XAI_GROK_CLI_VERSION", "0.2.121-alpha.1")
+		t.Setenv("XAI_GROK_CLI_VERSION", "1.0.47-alpha.1")
 		req, err := http.NewRequest(http.MethodPost, "https://cli-chat-proxy.grok.com/v1/chat/completions", nil)
 		require.NoError(t, err)
 
 		applyGrokCLIProxyHeaders(req)
 
-		require.Equal(t, "0.2.121-alpha.1", req.Header.Get("x-grok-client-version"))
-		require.Equal(t, "xai-grok-workspace/0.2.121-alpha.1", req.Header.Get("User-Agent"))
+		require.Equal(t, "1.0.47-alpha.1", req.Header.Get("x-grok-client-version"))
+		require.Equal(t, xai.CLIUserAgentForVersion("1.0.47-alpha.1"), req.Header.Get("User-Agent"))
 	})
 
 	t.Run("rejects an unsafe override", func(t *testing.T) {
@@ -706,18 +708,22 @@ func TestApplyGrokCLIProxyHeaders(t *testing.T) {
 		applyGrokCLIProxyHeaders(req)
 
 		require.Equal(t, xai.CLIClientVersion, req.Header.Get("x-grok-client-version"))
-		require.Equal(t, "xai-grok-workspace/"+xai.CLIClientVersion, req.Header.Get("User-Agent"))
+		require.Equal(t, xai.CLIUserAgentForVersion(xai.CLIClientVersion), req.Header.Get("User-Agent"))
+		require.Equal(t, xai.CLIClientMode, req.Header.Get("x-grok-client-mode"))
+		require.Equal(t, xai.CLIClientIdentifier, req.Header.Get("x-grok-client-identifier"))
 	})
 
 	t.Run("rejects a prerelease override at the minimum version", func(t *testing.T) {
-		t.Setenv("XAI_GROK_CLI_VERSION", xai.CLIClientVersion+"-beta.1")
+		t.Setenv("XAI_GROK_CLI_VERSION", xai.CLIStableVersion+"-beta.1")
 		req, err := http.NewRequest(http.MethodPost, "https://cli-chat-proxy.grok.com/v1/responses", nil)
 		require.NoError(t, err)
 
 		applyGrokCLIProxyHeaders(req)
 
 		require.Equal(t, xai.CLIClientVersion, req.Header.Get("x-grok-client-version"))
-		require.Equal(t, "xai-grok-workspace/"+xai.CLIClientVersion, req.Header.Get("User-Agent"))
+		require.Equal(t, xai.CLIUserAgentForVersion(xai.CLIClientVersion), req.Header.Get("User-Agent"))
+		require.Equal(t, xai.CLIClientMode, req.Header.Get("x-grok-client-mode"))
+		require.Equal(t, xai.CLIClientIdentifier, req.Header.Get("x-grok-client-identifier"))
 	})
 
 	for _, version := range []string{
@@ -725,7 +731,7 @@ func TestApplyGrokCLIProxyHeaders(t *testing.T) {
 		"0.2.121-alpha..1",
 		"0.3",
 		"1",
-		"0.2.121+build.1",
+		"1.0.47+build.1",
 	} {
 		t.Run("rejects invalid semver "+version, func(t *testing.T) {
 			t.Setenv("XAI_GROK_CLI_VERSION", version)
@@ -735,7 +741,9 @@ func TestApplyGrokCLIProxyHeaders(t *testing.T) {
 			applyGrokCLIProxyHeaders(req)
 
 			require.Equal(t, xai.CLIClientVersion, req.Header.Get("x-grok-client-version"))
-			require.Equal(t, "xai-grok-workspace/"+xai.CLIClientVersion, req.Header.Get("User-Agent"))
+			require.Equal(t, xai.CLIUserAgentForVersion(xai.CLIClientVersion), req.Header.Get("User-Agent"))
+			require.Equal(t, xai.CLIClientMode, req.Header.Get("x-grok-client-mode"))
+			require.Equal(t, xai.CLIClientIdentifier, req.Header.Get("x-grok-client-identifier"))
 		})
 	}
 

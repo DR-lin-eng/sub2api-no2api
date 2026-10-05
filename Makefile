@@ -5,6 +5,7 @@ FRONTEND_CRITICAL_VITEST := \
 	src/common/widgets/layout/__tests__/AppHeaderResponsive.spec.ts \
 	src/core/i18n/__tests__/routeLocaleCoverage.spec.ts \
 	src/__tests__/dynamicLocaleMapping.spec.ts \
+	src/core/__tests__/credentialCryptoUsage.spec.ts \
 	src/core/routes/__tests__/adminRouteAccess.spec.ts \
 	src/features/auth/__tests__/authProfileLocaleScopes.spec.ts \
 	src/features/billing/__tests__/paymentLocaleScopes.spec.ts \

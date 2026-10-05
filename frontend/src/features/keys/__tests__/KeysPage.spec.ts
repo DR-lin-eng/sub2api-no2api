@@ -885,4 +885,14 @@ describe('user KeysView column settings', () => {
       expect.objectContaining({ signal: expect.any(AbortSignal) })
     )
   })
+  it.each(['asc', 'desc'] as const)('sorts by the primary group with %s order on the server', async (order) => {
+    const wrapper = await mountView()
+    expect(visibleColumnMeta(wrapper).find(column => column.key === 'group')?.sortable).toBe(true)
+    listKeys.mockClear()
+    wrapper.findComponent({ name: 'DataTable' }).vm.$emit('sort', 'group', order)
+    await flushPromises()
+    expect(listKeys).toHaveBeenLastCalledWith(1, 20, expect.objectContaining({ sort_by: 'group', sort_order: order }), expect.any(Object))
+    wrapper.unmount()
+  })
+
 })

@@ -12,6 +12,7 @@
 | `openai_oauth_gateway_rate_limit_cache.go` | OpenAI OAuth 按账号独立、同账号跨实例共享的请求令牌桶和逻辑请求去重 |
 | `ops*`, `audit_log*`, `channel_monitor*` | 运维、审计和监控查询 |
 | `cloudflare_ingress*`, `cloudflare_waf*` | Cloudflare Access Rule/WAF 分片客户端、Redis 共享状态、异步同步、统计缓存与到期回收 |
+| `email_cache*` | 注册/通知验证码的原子校验及密码重置链接的哈希和旧值兼容消费 |
 | `payment*`, `subscription*`, `promo_code*`, `redeem_code*` | 商业对象持久化 |
 | `chat*` | 在线客服会话、消息、素材、快捷回复及分批保留清理 |
 | `cluster*` | 逻辑节点、runner 历史、共享任务租约与版本发布状态 |
@@ -22,3 +23,5 @@
 `account_repo.go` 只保留仓储结构和构造器；账户持久化分别位于 `account_repo_crud.go`, `account_repo_list.go`, `account_repo_credentials.go`, `account_repo_oauth_401_delete.go`, `account_repo_scheduler_cache.go`, `account_repo_scheduling.go`, `account_repo_extra.go`, `account_repo_probe.go`, `account_repo_mapping.go` 和 `account_repo_quota.go`。新增账户查询或写入应进入对应职责文件，不再回填主文件。
 
 SQL、Ent 和 Redis 细节只能停留在本层。复杂文件按 `query/command/cache/batch/recovery` 拆分，事务边界必须保持在同一公开方法内。
+
+API Key 列表排序由 `api_key_repo_sort.go` 定义，在 SQL 分页前按第一绑定分组名称排序，无分组项在两个方向都置后，ID 为稳定次序；有序路由绑定和列表预加载继续由现有 owner 维护。
