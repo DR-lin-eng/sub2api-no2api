@@ -138,6 +138,7 @@ deploy/docker-compose.override.yml
 .gocache/
 vite.config.js
 docs/*
+!docs/BPS_DEEPSEEK_COMPAT.md
 !docs/README.md
 !docs/ARCHITECTURE.md
 !docs/CODE_MAP.md
@@ -157,6 +158,8 @@ docs/*
 !docs/CLOUDFLARE_EDGE_RULES.md
 !docs/FRONTEND_CORS_DEPLOYMENT_CN.md
 !docs/UPSTREAM_SYNC_20260908.md
+!docs/UPSTREAM_SYNC_20260930.md
+!docs/UPSTREAM_SYNC_20261005.md
 !docs/FEATURES.md
 !docs/ACTIVITY_CENTER.md
 !docs/SUPPORT_CHAT.md

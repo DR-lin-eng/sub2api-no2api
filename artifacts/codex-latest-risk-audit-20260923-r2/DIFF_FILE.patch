@@ -1,0 +1,61 @@
+--- artifacts/codex-latest-risk-audit-20260923-r2/BASELINE_FILE.json	2026-09-23 22:55:35
++++ artifacts/codex-latest-risk-audit-20260923-r2/MODIFIED_FILE.json	2026-09-23 22:55:35
+@@ -2,30 +2,15 @@
+   "account_id": 2048,
+   "request": "codex_oauth_identity_and_capability_boundary",
+   "headers": {
+-    "x-codex-turn-metadata": "{\"installation_id\":\"forged-installation\",\"session_id\":\"forged-session\",\"thread_id\":\"forged-thread\",\"turn_id\":\"forged-turn\",\"window_id\":\"forged-window\",\"sandbox\":\"danger-full-access\",\"approvalPolicy\":\"never\",\"workspaces\":[{\"path\":\"/Users/alice/private/repo\",\"associated_remote_urls\":[\"https://user:secret@example.com/org/repo.git?token=secret#fragment\"],\"access_token\":\"drop-me\"}]}"
++    "x-codex-turn-metadata": "{\"installation_id\":\"ff4bfdbe-53a5-4746-b583-9413b19e7804\",\"session_id\":\"account-stable-session\",\"thread_id\":\"account-stable-thread\",\"turn_trigger\":\"guardian_classifier\",\"workspaces\":[{\"path\":\"workspace:redacted\",\"associated_remote_urls\":[\"https://example.com/org/repo.git\"]}]}"
+   },
+   "body": {
+     "model": "gpt-5.6-sol",
+     "client_metadata": {
+-      "x-codex-installation-id": "client-forged-installation",
+-      "installation_id": "client-forged-installation",
+-      "session_id": "client-forged-session",
+-      "thread_id": "client-forged-thread",
+-      "x-codex-turn-metadata": "{\"sandbox_mode\":\"danger-full-access\",\"guardian_credits_requested\":true}"
++      "x-codex-installation-id": "ff4bfdbe-53a5-4746-b583-9413b19e7804",
++      "session_id": "account-stable-session",
++      "thread_id": "account-stable-thread"
+     },
+-    "access_programs": {
+-      "cyber": "daybreak_red"
+-    },
+-    "serviceName": "chatgpt-work",
+-    "daybreakEnabled": true,
+-    "cyberAccessProgram": "daybreak_red",
+-    "disabledPluginIds": [
+-      "browser"
+-    ],
+-    "serviceTierForTurn": "priority",
+-    "turnTrigger": "guardian_classifier",
+-    "approvalPolicy": "never",
+-    "sandboxPolicy": "danger-full-access",
+     "input": [
+       {
+         "type": "input_text",
+@@ -41,11 +26,17 @@
+           "cyberAccessProgram": "user-data"
+         }
+       }
+-    ],
+-    "ACCESS_PROGRAMS": {
+-      "cyber": "daybreak_red"
+-    },
+-    "ServiceName": "codex_work_desktop"
++    ]
+   },
+-  "expected_policy": "raw_client_identity_and_top_level_capability_passthrough"
++  "stable_identity_assertion": {
++    "account_id": 2048,
++    "device_id": "ff4bfdbe-53a5-4746-b583-9413b19e7804",
++    "same_account_repeated_requests": "same-device-id",
++    "different_accounts": "different-device-id"
++  },
++  "expected_policy": "account-stable-identity-and-server-owned-top-level-capabilities",
++  "case_variant_assertion": {
++    "ACCESS_PROGRAMS": "removed",
++    "ServiceName": "removed"
++  }
+ }

@@ -1,0 +1,11 @@
+goos: linux
+goarch: arm64
+pkg: github.com/Wei-Shaw/sub2api/internal/infrastructure/repository
+BenchmarkEmailCodeVerification/success-4         	     300	     82391 ns/op	         2.000 redis-commands/op	    1040 B/op	      22 allocs/op
+BenchmarkEmailCodeVerification/success-4         	     300	     73413 ns/op	         2.000 redis-commands/op	    1040 B/op	      22 allocs/op
+BenchmarkEmailCodeVerification/success-4         	     300	     75079 ns/op	         2.000 redis-commands/op	    1040 B/op	      22 allocs/op
+BenchmarkEmailCodeVerification/failure-4         	     300	    107102 ns/op	         2.000 redis-commands/op	    1355 B/op	      28 allocs/op
+BenchmarkEmailCodeVerification/failure-4         	     300	     53075 ns/op	         2.000 redis-commands/op	    1355 B/op	      28 allocs/op
+BenchmarkEmailCodeVerification/failure-4         	     300	     85278 ns/op	         2.000 redis-commands/op	    1354 B/op	      28 allocs/op
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/infrastructure/repository	0.370s

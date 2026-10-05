@@ -460,7 +460,7 @@ func normalizeResponsesRequestServiceTier(req *apicompat.ResponsesRequest) {
 }
 
 func normalizeGPT6AstraResponsesRequest(req *apicompat.ResponsesRequest, model string) {
-	if req == nil || !isOpenAIGPT6AstraModel(model) {
+	if req == nil || (!isOpenAIGPT6AstraModel(model) && !isOpenAIGPT61SolModel(model)) {
 		return
 	}
 	if req.Reasoning != nil {
@@ -468,7 +468,7 @@ func normalizeGPT6AstraResponsesRequest(req *apicompat.ResponsesRequest, model s
 			req.Reasoning.Effort = effort
 		}
 	}
-	// GPT-6 Astra is a reasoning model and does not accept custom sampling values.
+	// GPT-6 Astra and GPT-6.1 Sol are reasoning models and do not accept custom sampling values.
 	req.Temperature = nil
 	req.TopP = nil
 }

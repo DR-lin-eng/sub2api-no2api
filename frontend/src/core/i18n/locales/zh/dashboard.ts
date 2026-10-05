@@ -646,6 +646,10 @@ export default {
     detailLoadError: '加载渠道详情失败',
     detailTitle: '渠道详情',
     closeDetail: '关闭',
+    allOperational: '全部正常',
+    someIssues: '存在异常',
+    providerStatus: '服务提供商状态',
+    totalProviders: '个监控项',
     unnamedGroup: '未命名分组',
     groupCount: '{n} 个分组',
     abnormalCount: '{n} 个异常',
@@ -714,6 +718,8 @@ export default {
       billingModePerRequest: '按次',
       billingModeImage: '按图片',
       billingModeVideo: '按视频',
+      videoPrice: '视频单价',
+      unitPerSecond: '/ 秒',
       inputPrice: '输入',
       outputPrice: '输出',
       cacheWritePrice: '缓存写入',
@@ -767,7 +773,9 @@ export default {
       perUnitRequest: '/ 次',
       perUnitImage: '/ 张',
       perRequest: '按次计费',
-      perImage: '按图片计费'
+      perImage: '按图片计费',
+      perVideo: '按视频时长计费',
+      perUnitSecond: '/ 秒'
     },
     nav: {
       login: '登录',

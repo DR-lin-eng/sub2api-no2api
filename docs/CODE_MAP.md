@@ -11,7 +11,7 @@
 | 服务启动、依赖注入 | `backend/cmd/server/main.go`, `wire.go` | 各层 `wire.go`、`server/router.go` | `go test ./cmd/server/...` |
 | 新增浏览器/管理 API | `server/routes/user.go` 或 `admin.go` | 对应 handler、application service、repository | 路由测试 + handler/service 测试 |
 | 修改 API Key 鉴权 | `server/middleware/api_key_auth.go` | `application/service/api_key*`, `infrastructure/repository/api_key*` | middleware + gateway route 测试 |
-| 修改 API Key 多分组路由 | `application/service/api_key_group_routing.go` | `gateway_scheduling.go`, `openai_account_scheduler.go`, `repository/api_key_repo.go`, `features/keys/` | service fallback + repository integration + 前端 feature 测试 |
+| 修改 API Key 多分组路由 | `application/service/api_key_group_routing.go` | `gateway_scheduling.go`, `openai_account_scheduler.go`, `repository/api_key_repo.go`, `api_key_repo_sort.go`, `features/keys/` | service fallback + repository integration + 前端 feature 测试 |
 | 设置分组可用模型 | `application/service/group_model_allowlist.go`, `transport/http/server/middleware/group_model_allowlist.go` | `ent/schema/group.go`, admin group DTO/page、各模型列表 handler | allowlist service + gateway admission/listing + Docker |
 | 修改 JWT/管理员鉴权 | `server/middleware/jwt_auth.go`, `admin_auth.go` | `handler/auth*`, `application/service/auth*` | auth/middleware 测试 |
 | 修改前端登录/会话 | `frontend/src/features/auth/data/datasources/authSessionActions.ts`, `authOAuthActions.ts` | `presentation/stores/authStore.ts`, `core/networks/sessionRefresh.ts`, `core/routes/index.ts` | auth/profile + sessionRefresh + route guard 测试 |

@@ -297,6 +297,13 @@ func resolveCodexFingerprintIDsFromRequest(account *Account, headers http.Header
 }
 
 func resolveCodexFingerprintIDsFromGinContext(account *Account, c *gin.Context) *codexFingerprintIDs {
+	if c != nil {
+		if value, exists := c.Get(codexFingerprintIDsContextKey); exists {
+			if ids, ok := value.(*codexFingerprintIDs); ok && ids != nil {
+				return ids
+			}
+		}
+	}
 	if attempt, ok := codexSimulationAttemptFromGin(c); ok && attempt.fingerprint != nil {
 		if account != nil && attempt.principal.key != "" {
 			return attempt.fingerprint

@@ -1,0 +1,42 @@
+{
+  "account_id": 2048,
+  "request": "codex_oauth_identity_and_capability_boundary",
+  "headers": {
+    "x-codex-turn-metadata": "{\"installation_id\":\"ff4bfdbe-53a5-4746-b583-9413b19e7804\",\"session_id\":\"account-stable-session\",\"thread_id\":\"account-stable-thread\",\"turn_trigger\":\"guardian_classifier\",\"workspaces\":[{\"path\":\"workspace:redacted\",\"associated_remote_urls\":[\"https://example.com/org/repo.git\"]}]}"
+  },
+  "body": {
+    "model": "gpt-5.6-sol",
+    "client_metadata": {
+      "x-codex-installation-id": "ff4bfdbe-53a5-4746-b583-9413b19e7804",
+      "session_id": "account-stable-session",
+      "thread_id": "account-stable-thread"
+    },
+    "input": [
+      {
+        "type": "input_text",
+        "text": "hello"
+      },
+      {
+        "type": "function_call_output",
+        "call_id": "call_1",
+        "output": {
+          "access_programs": {
+            "cyber": "user-data"
+          },
+          "cyberAccessProgram": "user-data"
+        }
+      }
+    ]
+  },
+  "stable_identity_assertion": {
+    "account_id": 2048,
+    "device_id": "ff4bfdbe-53a5-4746-b583-9413b19e7804",
+    "same_account_repeated_requests": "same-device-id",
+    "different_accounts": "different-device-id"
+  },
+  "expected_policy": "account-stable-identity-and-server-owned-top-level-capabilities",
+  "case_variant_assertion": {
+    "ACCESS_PROGRAMS": "removed",
+    "ServiceName": "removed"
+  }
+}

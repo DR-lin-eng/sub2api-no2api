@@ -641,6 +641,10 @@ export default {
     detailLoadError: 'Failed to load channel detail',
     detailTitle: 'Channel Detail',
     closeDetail: 'Close',
+    allOperational: 'All systems operational',
+    someIssues: 'Some issues detected',
+    providerStatus: 'Provider status',
+    totalProviders: 'monitored items',
     unnamedGroup: 'Unnamed group',
     groupCount: '{n} groups',
     abnormalCount: '{n} abnormal',
@@ -709,6 +713,8 @@ export default {
       billingModePerRequest: 'Per Request',
       billingModeImage: 'Per Image',
       billingModeVideo: 'Per Video',
+      videoPrice: 'Video Price',
+      unitPerSecond: '/ second',
       inputPrice: 'Input',
       outputPrice: 'Output',
       cacheWritePrice: 'Cache Write',
@@ -762,7 +768,9 @@ export default {
       perUnitRequest: '/ request',
       perUnitImage: '/ image',
       perRequest: 'Per request',
-      perImage: 'Per image'
+      perImage: 'Per image',
+      perVideo: 'Per video second',
+      perUnitSecond: '/ second'
     },
     nav: {
       login: 'Sign In',

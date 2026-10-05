@@ -55,6 +55,12 @@ func (h *AccountHandler) GetUpstreamBillingRates(c *gin.Context) {
 		return
 	}
 	filters.OAuthQuotaFilter = oauthQuotaFilter
+	excelBPSFilter, bpsFilterErr := parseAccountExcelBPSFilter(c)
+	if bpsFilterErr != nil {
+		response.ErrorFrom(c, bpsFilterErr)
+		return
+	}
+	filters.ExcelBPSFilter = excelBPSFilter
 	if groupQuery := c.Query("group"); groupQuery != "" {
 		if groupQuery == accountListGroupUngroupedQueryValue {
 			filters.GroupID = service.AccountListGroupUngrouped

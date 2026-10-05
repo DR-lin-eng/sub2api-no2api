@@ -1,0 +1,151 @@
+CODEX LATEST RISK AUDIT VERIFICATION
+Date: 2026-09-23 (Asia/Shanghai)
+Reference task: 01a0cc64-2d92-7f91-bffe-e875c4a8decc
+Reference Codex HEAD: b7add4df3d95e2d41249e54d3c3a1bd14680848a
+Sub2API HEAD: f2284c586e8d182423b37eacf664d28b39cb41f5
+
+CHANGED_BRANCH_AND_FIELDS
+- changed_branch: OpenAI Responses HTTP and WebSocket relay capability/metadata boundary.
+- changed_fields: top-level Responses access_programs; raw x-codex-turn-metadata;
+  client_metadata.x-codex-turn-metadata; staged Codex fingerprint plan used by HTTP and WS
+  header/body projections.
+- enforced_behavior: top-level access_programs is removed because this gateway does not expose
+  server-owned cyber_access_program entitlement selection; nested input/tool data with the same
+  key is preserved. Invalid metadata JSON is discarded; app-server-owned installation/turn/window/
+  sandbox/approval fields are removed; workspace data is redacted and bounded; session/thread values
+  are rebound to the current OAuth account; thread_source and turn_trigger remain observations only.
+
+REQUIRED_ARTIFACTS
+- MODIFIED_FILE: /Users/lin/.codex/worktrees/8a2a/sub2api-no2api/artifacts/codex-latest-risk-audit-20260923/MODIFIED_FILE.json
+- DIFF_FILE: /Users/lin/.codex/worktrees/8a2a/sub2api-no2api/artifacts/codex-latest-risk-audit-20260923/DIFF_FILE.patch
+- VERIFICATION.txt: /Users/lin/.codex/worktrees/8a2a/sub2api-no2api/artifacts/codex-latest-risk-audit-20260923/VERIFICATION.txt
+- ROLLBACK.sh: /Users/lin/.codex/worktrees/8a2a/sub2api-no2api/artifacts/codex-latest-risk-audit-20260923/ROLLBACK.sh
+
+FIXTURE INPUTS
+- BASELINE_FILE.json input: an OAuth request containing forged core-owned metadata and a client-selected
+  top-level access_programs.cyber=daybreak_red; expected_policy=raw_header_and_access_program_passthrough.
+- MODIFIED_FILE.json input: the same request after account-scoped metadata normalization and removal of
+  the top-level access_programs capability selection; expected_policy=oauth_header_and_access_program_normalized.
+- ROLLBACK input: a temporary copy of MODIFIED_FILE.json. The working MODIFIED_FILE remains changed.
+
+BASELINE
+Exact command:
+  jq -e 'select(.headers."x-codex-turn-metadata" | fromjson | .turn_id == "forged-turn" and .sandbox == "danger-full-access" and .guardian_credits_requested == true) and .body.access_programs.cyber == "daybreak_red" and .expected_policy == "raw_header_and_access_program_passthrough"' "/Users/lin/.codex/worktrees/8a2a/sub2api-no2api/artifacts/codex-latest-risk-audit-20260923/BASELINE_FILE.json" >/dev/null && printf 'result=baseline_capability_bypass exit=%s\n' "$?"
+Literal output:
+  result=baseline_capability_bypass exit=0
+  BASELINE_EXIT=0
+Exit status: 0
+Result: baseline fixture contains both the raw metadata bypass and a forged client-selected access program.
+
+MODIFIED
+Exact command:
+  jq -e 'select((.headers."x-codex-turn-metadata" | fromjson | .session_id == "isolated-session" and .thread_id == "isolated-thread" and .workspaces[0].path == "workspace:redacted") and (.body.access_programs == null) and .expected_policy == "oauth_header_and_access_program_normalized")' "/Users/lin/.codex/worktrees/8a2a/sub2api-no2api/artifacts/codex-latest-risk-audit-20260923/MODIFIED_FILE.json" >/dev/null && printf 'result=modified_server_owned_fields_normalized exit=%s\n' "$?"
+Literal output:
+  result=modified_server_owned_fields_normalized exit=0
+  MODIFIED_EXIT=0
+Exit status: 0
+Result: normalized fixture has account-scoped session/thread metadata, redacted workspace, and no top-level access_programs.
+
+ROLLBACK
+Exact command:
+  target=$(mktemp -t codex-risk-audit-rollback)
+  cp "/Users/lin/.codex/worktrees/8a2a/sub2api-no2api/artifacts/codex-latest-risk-audit-20260923/MODIFIED_FILE.json" "$target" && "/Users/lin/.codex/worktrees/8a2a/sub2api-no2api/artifacts/codex-latest-risk-audit-20260923/ROLLBACK.sh" "$target" >/tmp/codex-risk-audit-rollback.out && cmp -s "$target" "/Users/lin/.codex/worktrees/8a2a/sub2api-no2api/artifacts/codex-latest-risk-audit-20260923/BASELINE_FILE.json"; rc=$?; printf 'result=restored_baseline exit=%s\n' "$rc"; cat /tmp/codex-risk-audit-rollback.out; rm -f "$target" /tmp/codex-risk-audit-rollback.out
+Literal output:
+  result=restored_baseline exit=0
+  restored /var/folders/8n/2t9wvjvd4hx2ms7g6r78g2d00000gn/T/codex-risk-audit-rollback.iHWLpx7KVC from /Users/lin/.codex/worktrees/8a2a/sub2api-no2api/artifacts/codex-latest-risk-audit-20260923/BASELINE_FILE.json
+  ROLLBACK_EXIT=0
+Exit status: 0
+Restored behavior/status: cmp against BASELINE_FILE.json returned 0 on the temporary copy; MODIFIED_FILE.json remained changed and retained expected_policy=oauth_header_and_access_program_normalized.
+
+ROLLBACK SCRIPT
+Exact command:
+  test -x "/Users/lin/.codex/worktrees/8a2a/sub2api-no2api/artifacts/codex-latest-risk-audit-20260923/ROLLBACK.sh"
+Literal output/result:
+  rollback_executable=1
+Exit status: 0
+
+DOCKER ACCESS-PROGRAM FOCUSED TEST
+Exact command:
+  docker run --rm --name sub2api-risk-access-programs-20260923 -v "/Users/lin/.codex/worktrees/8a2a/sub2api-no2api":/src -w /src -e GOPROXY=https://goproxy.cn,direct -e GOSUMDB=sum.golang.google.cn golang:1.26.6-alpine sh -c 'export PATH=/usr/local/go/bin:$PATH; apk add --no-cache git ca-certificates >/dev/null; cd backend; go test ./internal/application/service -run "Test(SanitizeOpenAIResponsesAccessPrograms|OpenAICodexRawTurnMetadataHeaderIsBoundedAndAccountScoped)$" -count=1 -timeout=300s'
+Literal output/result:
+  ok github.com/Wei-Shaw/sub2api/internal/application/service 0.013s
+  docker_access_programs_focused_exit=0
+Exit status: 0
+Log: /Users/lin/.codex/worktrees/8a2a/sub2api-no2api/artifacts/codex-latest-risk-audit-20260923/logs/docker-access-programs-focused.txt
+
+DOCKER SERVICE/HANDLER REGRESSION
+Exact command:
+  docker run --rm --name sub2api-risk-service-handler-20260923-final -v "/Users/lin/.codex/worktrees/8a2a/sub2api-no2api":/src -w /src -e GOPROXY=https://goproxy.cn,direct -e GOSUMDB=sum.golang.google.cn golang:1.26.6-alpine sh -c 'export PATH=/usr/local/go/bin:$PATH; apk add --no-cache git ca-certificates >/dev/null; cd backend; go test ./internal/application/service ./internal/transport/http/handler/... -count=1 -timeout=300s'
+Literal output/result:
+  ok github.com/Wei-Shaw/sub2api/internal/application/service 138.106s
+  ok github.com/Wei-Shaw/sub2api/internal/transport/http/handler 31.045s
+  ok github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin 0.303s
+  ok github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto 0.031s
+  ok github.com/Wei-Shaw/sub2api/internal/transport/http/handler/quotaview 0.030s
+  ok github.com/Wei-Shaw/sub2api/internal/transport/http/handler/supportchatasset 0.020s
+  docker_service_handler_final_exit=0
+Exit status: 0
+Log: /Users/lin/.codex/worktrees/8a2a/sub2api-no2api/artifacts/codex-latest-risk-audit-20260923/logs/docker-service-handler-20260923-final.txt
+
+DOCKER VET AND COMPILE-ALL
+Exact command:
+  docker run --rm --name sub2api-risk-vet-compile-20260923-final -v "/Users/lin/.codex/worktrees/8a2a/sub2api-no2api":/src -w /src -e GOPROXY=https://goproxy.cn,direct -e GOSUMDB=sum.golang.google.cn golang:1.26.6-alpine sh -c 'export PATH=/usr/local/go/bin:$PATH; apk add --no-cache git ca-certificates >/dev/null; cd backend; go vet ./... && go test ./... -run ^$ -count=1'
+Literal output/result:
+  all vet packages passed; all backend packages compiled with no tests run; docker_vet_compile_final_exit=0
+Exit status: 0
+Log: /Users/lin/.codex/worktrees/8a2a/sub2api-no2api/artifacts/codex-latest-risk-audit-20260923/logs/docker-vet-compile-final.txt
+
+DOCKER DOCUMENTATION CHECK
+Exact command:
+  docker run --rm --name sub2api-risk-docs-20260923-r2 -v "/Users/lin/.codex/worktrees/8a2a/sub2api-no2api":/src -w /src alpine:3.20 sh -c './tools/check-docs.sh'
+Literal output:
+  Documentation checks passed.
+  docker_check_docs_r2_exit=0
+Exit status: 0
+Log: /Users/lin/.codex/worktrees/8a2a/sub2api-no2api/artifacts/codex-latest-risk-audit-20260923/logs/docker-check-docs-20260923-r2.txt
+
+DOCKER IMAGE BUILD
+Exact command:
+  docker build --network=host --progress=plain -f deploy/Dockerfile --build-arg GOPROXY=https://goproxy.cn,direct --build-arg GOSUMDB=sum.golang.google.cn --build-arg COMMIT=f2284c586e8d182423b37eacf664d28b39cb41f5 -t sub2api:codex-risk-audit-20260923-final .
+Literal output/result:
+  #32 exporting manifest sha256:83b9fa4f3ce3b57d4f8d50d5719c8ecd5488acd8842c09f9206e574fb09e8dea done
+  #32 naming to docker.io/library/sub2api:codex-risk-audit-20260923-final done
+  #32 DONE 3.0s
+  docker_image_build_final_exit=0
+Exit status: 0
+Log: /Users/lin/.codex/worktrees/8a2a/sub2api-no2api/artifacts/codex-latest-risk-audit-20260923/logs/docker-image-build-20260923-final.txt
+
+DOCKER IMAGE RUNTIME
+Exact command:
+  docker run with the final image plus temporary PostgreSQL 18-alpine and Redis 7-alpine containers on a temporary Docker network, with AUTO_SETUP=true; docker exec app curl -fsS --max-time 2 http://127.0.0.1:8080/ready; cleanup trap removed all temporary containers and the network.
+Literal output/result:
+  ready_attempt=3
+  {"ready":true,"node_id":"153aa10e4b14","node_name":"153aa10e4b14","current_version":"0.1.214","draining":false,"in_flight":0}
+  health_result=pass
+  Sub2API 0.1.214 (commit: f2284c586e8d182423b37eacf664d28b39cb41f5, built: 2026-09-23T13:41:23Z)
+  docker_image_runtime_final_exit=0
+Exit status: 0
+Log: /Users/lin/.codex/worktrees/8a2a/sub2api-no2api/artifacts/codex-latest-risk-audit-20260923/logs/docker-image-runtime-20260923-final.txt
+
+FINAL LOCAL CHECKS
+Exact commands:
+  git diff --check
+  git status --short --branch
+Literal output/result:
+  git_diff_check_exit=0
+  ## HEAD (no branch)
+  changed tracked files: 10
+  new source/test files: 2
+  audit artifact directory: artifacts/codex-latest-risk-audit-20260923/
+Exit status: 0
+
+HASHES
+Original source hashes before modification are listed in:
+  /Users/lin/.codex/worktrees/8a2a/sub2api-no2api/artifacts/codex-latest-risk-audit-20260923/ORIGINAL_SHA256.txt
+Current artifact hashes:
+  MODIFIED_FILE.json: 9ee37d314b7128d3ee15007ee3b7852b21f6305a3e94a4927a8012b7801fcee1
+  DIFF_FILE.patch: b85177822c1b916fb6dd54bd972ec9e4248608a3e902ca71cc112438a94f30bf
+  ROLLBACK.sh: 54cedadef0b2d60de76ad2339ead1f83d0494a3cade3993bd5e493b886906d38
+
+ACCEPTANCE BOUNDARY
+Docker proves the modified backend compiles, the focused access-program and metadata tests pass, the full service/handler regression passes, vet and documentation checks pass, the final release image builds, and the final image starts with PostgreSQL/Redis and reports ready. It does not prove real upstream Work/workspace/model/Cyber entitlement rejection; that remains an integration-environment item.

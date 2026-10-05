@@ -31,9 +31,26 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 		writeOpenAIResponsesFallbackError(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")
 		return nil, fmt.Errorf("parse responses request: %w", err)
 	}
+	requestedStream := responsesReq.Stream
+	deepSeekCompact := isOpenAINativeCompactionV2(c) &&
+		HasCompactionTriggerInInput(body) &&
+		isDeepSeekSemanticsChatUpstream(account, account.GetMappedModel(responsesReq.Model))
 	compactRequest, hasCompatCompactionItem := inspectCompatCompactionInput(body)
-	compactClientStream := compactRequest && responsesReq.Stream
-	if hasCompatCompactionItem {
+	compactClientStream := compactRequest && requestedStream
+	if deepSeekCompact {
+		rewrittenBody, err := buildDeepSeekCompactChatBody(body)
+		if err != nil {
+			writeOpenAIResponsesFallbackError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+			return nil, fmt.Errorf("build deepseek compact chat body: %w", err)
+		}
+		body = rewrittenBody
+		compactRequest = true
+		compactClientStream = requestedStream
+		if err := json.Unmarshal(body, &responsesReq); err != nil {
+			writeOpenAIResponsesFallbackError(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse rewritten request body")
+			return nil, fmt.Errorf("parse rewritten responses request: %w", err)
+		}
+	} else if hasCompatCompactionItem {
 		rewrittenBody, err := rewriteCompatCompactRequestBody(body)
 		if err != nil {
 			writeOpenAIResponsesFallbackError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
@@ -86,6 +103,7 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 	if err != nil {
 		return nil, fmt.Errorf("marshal chat completions fallback request: %w", err)
 	}
+	chatBody = stripDeepSeekUnsupportedChatResponseFormat(account, chatBody)
 	chatBody, err = s.applyOpenAIFastPolicyToBody(ctx, account, upstreamModel, chatBody)
 	if err != nil {
 		var blocked *OpenAIFastBlockedError
@@ -126,7 +144,7 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 	}
 
 	if compactRequest {
-		return s.bufferCompatCompactAsResponses(c, resp, originalModel, compactClientStream, billingModel, upstreamModel, reasoningEffort, serviceTier, startTime)
+		return s.bufferCompatCompactAsResponses(c, resp, originalModel, compactClientStream, billingModel, upstreamModel, reasoningEffort, serviceTier, startTime, deepSeekCompact)
 	}
 	if clientStream {
 		return s.streamChatCompletionsAsResponses(c, resp, originalModel, customTools, toolSearch, namespaceTools, billingModel, upstreamModel, reasoningEffort, serviceTier, startTime, account.IsCodexThinkingTagNormalizationEnabled())
@@ -144,6 +162,7 @@ func (s *OpenAIGatewayService) bufferCompatCompactAsResponses(
 	reasoningEffort *string,
 	serviceTier *string,
 	startTime time.Time,
+	deepSeekCompact bool,
 ) (*OpenAIForwardResult, error) {
 	requestID := resp.Header.Get("x-request-id")
 	ccResp, usage, err := s.readCCUpstreamJSONResponse(c, resp, writeOpenAIResponsesFallbackError)
@@ -154,10 +173,25 @@ func (s *OpenAIGatewayService) bufferCompatCompactAsResponses(
 		requestID = ccResp.ID
 	}
 
-	compactResp, err := buildCompatCompactResponse(ccResp, originalModel)
-	if err != nil {
-		writeOpenAIResponsesFallbackError(c, http.StatusBadGateway, "upstream_error", err.Error())
-		return nil, fmt.Errorf("build compact response: %w", err)
+	var compactResp *apicompat.ResponsesResponse
+	if deepSeekCompact {
+		converted := apicompat.ChatCompletionsResponseToResponsesWithOptions(ccResp, originalModel, nil, false, nil, apicompat.ChatCompletionsResponsesBridgeOptions{})
+		summary := compactSummaryTextFromResponses(converted.Output)
+		if summary == "" && len(ccResp.Choices) > 0 {
+			summary = strings.TrimSpace(chatMessagePlainText(ccResp.Choices[0].Message.Content))
+		}
+		if summary == "" {
+			writeOpenAIResponsesFallbackError(c, http.StatusBadGateway, "upstream_error", "compact response carries no summary text")
+			return nil, fmt.Errorf("build deepseek compact response: summary is empty")
+		}
+		compactResp = buildDeepSeekCompactResponse(converted, summary)
+		compactResp.Model = originalModel
+	} else {
+		compactResp, err = buildCompatCompactResponse(ccResp, originalModel)
+		if err != nil {
+			writeOpenAIResponsesFallbackError(c, http.StatusBadGateway, "upstream_error", err.Error())
+			return nil, fmt.Errorf("build compact response: %w", err)
+		}
 	}
 	encoded, err := json.Marshal(compactResp)
 	if err != nil {

@@ -1,3 +1,5 @@
+import accountPriority from './accountPriority'
+
 import cpaMessages from './accounts.cpa'
 import codexMessages from './accounts.codex'
 import bulkActionsMessages from './accounts.bulk-actions'
@@ -97,6 +99,7 @@ export default {
       allPlatforms: 'All Platforms',
       allTypes: 'All Types',
       allStatus: 'All Status', allOAuthQuota: 'All OAuth Quota', oauthQuotaHasQuota: 'OAuth has quota', oauthQuotaExhausted: 'OAuth quota exhausted', openAIQuotaWithReset: 'OpenAI OAuth with reset credits', openAIQuota5hExhausted: 'OpenAI 5h quota full', openAIQuota7dExhausted: 'OpenAI 7d quota full',
+      allExcelBPS: 'All BPS states', excelBPSEnabled: 'BPS enabled', excelBPSDisabled: 'BPS disabled',
       allGroups: 'All Groups',
       ungroupedGroup: 'Ungrouped',
       oauthType: 'OAuth',
@@ -161,6 +164,7 @@ export default {
         overloadedUntil: 'Overloaded until {time}',
         viewTempUnschedDetails: 'View temp unschedulable details'
       },
+      ...accountPriority,
       columns: {
         name: 'Name',
         id: 'Account ID',
@@ -455,6 +459,10 @@ export default {
       bulkSchedulableResultUnknown: 'Bulk scheduling result incomplete. Please retry or refresh.',
       bulkActions: bulkActionsMessages,
       bulkEdit: {
+        excelBpsUnchanged: 'Leave BPS unchanged',
+        excelBpsEnable: 'Enable BPS',
+        excelBpsDisable: 'Disable BPS',
+        excelBpsEligibility: 'Only regular OpenAI OAuth accounts qualify. Shadow accounts, PATs and agent identities block the entire batch.',
         title: 'Bulk Edit Accounts',
         selectionInfo:
           '{count} account(s) selected. Only checked or filled fields will be updated; others stay unchanged.',
@@ -576,6 +584,9 @@ export default {
         oauthPassthrough: 'Auto passthrough (auth only)',
         oauthPassthroughDesc:
           'When enabled, this OpenAI account uses automatic passthrough: the gateway forwards request/response as-is and only swaps auth, while keeping billing/concurrency/audit and necessary safety filtering.',
+        excelBpsEnabled: 'Excel / Basispoints bridge',
+        excelBpsEnabledDesc:
+          'Route this OpenAI OAuth account through the Excel / Basispoints Responses bridge. Personal access tokens, agent identities, and shadow accounts are excluded.',
         ...codexMessages,
         longContextBilling: 'API long-context pricing',
 		longContextBillingDesc:
@@ -727,6 +738,7 @@ export default {
       enterCustomModelName: 'Enter custom model name',
       addModel: 'Add',
       modelExists: 'Model already exists',
+      modelMappingConflict: 'A mapping already exists for {from} → {to}. Modify or remove it under Model Mapping before adding this whitelist model',
       modelCount: '{count} models',
       poolMode: 'Pool Mode',
       poolModeHint: 'Enable when upstream is an account pool; errors won\'t mark local account status',
@@ -741,7 +753,7 @@ export default {
       customErrorCodes: 'Custom Error Codes',
       customErrorCodesHint: 'Only stop scheduling for selected error codes',
       customErrorCodesWarning:
-        'Only selected error codes will stop scheduling. Other errors will return 500.',
+        'Custom error codes filter account error handling, including scheduling and rate limit updates. Unselected errors can still retry or switch accounts; the returned status follows the gateway and passthrough rules. An empty list applies no filtering.',
       customErrorCodes429Warning:
         '429 already has built-in rate limit handling. Adding it to custom error codes will disable the account instead of temporary rate limiting. Are you sure?',
       customErrorCodes529Warning:

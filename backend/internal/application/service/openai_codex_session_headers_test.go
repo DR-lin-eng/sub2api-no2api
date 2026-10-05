@@ -107,9 +107,29 @@ func TestRewriteCodexOutboundSessionMetadataMatchesHeaderProjection(t *testing.T
 	account := &Account{ID: 33, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"chatgpt_account_id": "metadata-account"}}
 	ids := resolveCodexOutboundSessionIDs(c, account, body, "")
 
-	rewritten, err := rewriteCodexOutboundSessionMetadata(body, ids)
+	rewritten, err := rewriteCodexOutboundSessionMetadata(body, account, ids)
 	require.NoError(t, err)
 	require.Equal(t, ids.sessionID, gjson.GetBytes(rewritten, "client_metadata.session_id").String())
 	require.Equal(t, ids.threadID, gjson.GetBytes(rewritten, "client_metadata.thread_id").String())
 	require.Equal(t, "yes", gjson.GetBytes(rewritten, "client_metadata.preserved").String())
+}
+
+func TestCodexOutboundSessionProjectionStablePerAccountWithoutClientSignals(t *testing.T) {
+	account := &Account{ID: 401, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"chatgpt_account_id": "stable-account"}}
+	firstContext := newCodexSessionHeaderTestContext(t, "/v1/responses")
+	secondContext := newCodexSessionHeaderTestContext(t, "/v1/responses")
+
+	first := resolveCodexOutboundSessionIDs(firstContext, account, []byte(`{"model":"gpt-5.5","input":"hello"}`), "")
+	second := resolveCodexOutboundSessionIDs(secondContext, account, []byte(`{"model":"gpt-5.5","input":"hello"}`), "")
+	require.NotNil(t, first)
+	require.NotNil(t, second)
+	require.Equal(t, first.installationID, second.installationID)
+	require.Equal(t, first.sessionID, second.sessionID)
+	require.Equal(t, first.threadID, second.threadID)
+	require.Equal(t, resolveConvergedInstallationID(account), first.installationID)
+
+	other := &Account{ID: 402, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"chatgpt_account_id": "other-account"}}
+	otherIDs := resolveCodexOutboundSessionIDs(newCodexSessionHeaderTestContext(t, "/v1/responses"), other, []byte(`{"model":"gpt-5.5","input":"hello"}`), "")
+	require.NotEqual(t, first.installationID, otherIDs.installationID)
+	require.NotEqual(t, first.sessionID, otherIDs.sessionID)
 }

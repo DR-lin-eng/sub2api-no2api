@@ -356,6 +356,33 @@ func TestBackupService_S3ConfigKeepExistingSecret(t *testing.T) {
 	require.Equal(t, "AKID-NEW", internal.AccessKeyID)
 }
 
+// The second save inherits decrypted plaintext; it must be encrypted before persisting.
+func TestBackupService_S3ConfigStaysEncryptedAfterSecondSave(t *testing.T) {
+	repo := newMockSettingRepo()
+	svc := newTestBackupService(repo, &mockDumper{}, newMockObjectStore())
+	ctx := context.Background()
+	_, err := svc.UpdateS3Config(ctx, BackupS3Config{Bucket: "first", AccessKeyID: "AKID", SecretAccessKey: "original-secret"})
+	require.NoError(t, err)
+	storedSecret := func() string {
+		raw, err := repo.GetValue(ctx, settingKeyBackupS3Config)
+		require.NoError(t, err)
+		var stored BackupS3Config
+		require.NoError(t, json.Unmarshal([]byte(raw), &stored))
+		return stored.SecretAccessKey
+	}
+	require.Equal(t, "ENC:original-secret", storedSecret())
+	_, err = svc.UpdateS3Config(ctx, BackupS3Config{Bucket: "second", AccessKeyID: "AKID-NEW"})
+	require.NoError(t, err)
+	require.Equal(t, "ENC:original-secret", storedSecret(), "inherited secret must remain encrypted at rest")
+	_, err = svc.UpdateS3Config(ctx, BackupS3Config{Bucket: "third", AccessKeyID: "AKID-THIRD"})
+	require.NoError(t, err)
+	require.Equal(t, "ENC:original-secret", storedSecret(), "secret must not be double-encrypted")
+	loaded, err := svc.loadS3Config(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "original-secret", loaded.SecretAccessKey)
+	require.Equal(t, "AKID-THIRD", loaded.AccessKeyID)
+}
+
 func TestBackupService_UpdateS3Config_RejectsEphemeralKey(t *testing.T) {
 	repo := newMockSettingRepo()
 	svc := newTestBackupServiceEphemeralKey(repo)

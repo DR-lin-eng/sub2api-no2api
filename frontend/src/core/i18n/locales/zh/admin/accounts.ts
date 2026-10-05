@@ -1,3 +1,5 @@
+import accountPriority from './accountPriority'
+
 import cpaMessages from './accounts.cpa'
 import codexMessages from './accounts.codex'
 import bulkActionsMessages from './accounts.bulk-actions'
@@ -97,6 +99,7 @@ export default {
       allPlatforms: '全部平台',
       allTypes: '全部类型',
       allStatus: '全部状态', allOAuthQuota: '全部 OAuth 额度', oauthQuotaHasQuota: 'OAuth 有额度', oauthQuotaExhausted: 'OAuth 额度已耗尽', openAIQuotaWithReset: 'OpenAI OAuth 有可用重置', openAIQuota5hExhausted: 'OpenAI 5h 额度已满', openAIQuota7dExhausted: 'OpenAI 7d 额度已满',
+      allExcelBPS: '全部 BPS 状态', excelBPSEnabled: 'BPS 已启用', excelBPSDisabled: 'BPS 未启用',
       allGroups: '全部分组',
       ungroupedGroup: '未分配分组',
       oauthType: 'OAuth',
@@ -107,6 +110,7 @@ export default {
       schedulableDisabled: '调度已关闭',
       failedToToggleSchedulable: '切换调度状态失败',
       groupCountTotal: '共 {count} 个分组',
+      ...accountPriority,
       columns: {
         name: '名称',
         id: '账号ID',
@@ -534,6 +538,10 @@ export default {
       bulkSchedulableResultUnknown: '批量调度结果不完整，请稍后重试或刷新列表',
       bulkActions: bulkActionsMessages,
       bulkEdit: {
+        excelBpsUnchanged: '不修改 BPS',
+        excelBpsEnable: '开启 BPS',
+        excelBpsDisable: '关闭 BPS',
+        excelBpsEligibility: '仅普通 OpenAI OAuth 账号可用。影子账号、PAT 与 Agent Identity 会阻止整批修改。',
         title: '批量编辑账号',
         selectionInfo: '已选择 {count} 个账号。只更新您勾选或填写的字段，未勾选的字段保持不变。',
         baseUrlPlaceholder: 'https://api.anthropic.com 或 https://api.openai.com',
@@ -653,6 +661,9 @@ export default {
         oauthPassthrough: '自动透传（仅替换认证）',
         oauthPassthroughDesc:
           '开启后，该 OpenAI 账号将自动透传请求与响应，仅替换认证并保留计费/并发/审计及必要安全过滤；如遇兼容性问题可随时关闭回滚。',
+        excelBpsEnabled: 'Excel / Basispoints 桥接',
+        excelBpsEnabledDesc:
+          '将此 OpenAI OAuth 账号切换到 Excel / Basispoints Responses 兼容层。个人访问令牌、Agent Identity 和影子账号不会进入该桥接。',
         ...codexMessages,
         longContextBilling: 'API 长上下文计费',
 		longContextBillingDesc: '默认关闭。仅当该账号的上游会按模型阈值收取 OpenAI API 长上下文费率时开启。',
@@ -795,6 +806,7 @@ export default {
       enterCustomModelName: '输入自定义模型名称',
       addModel: '填入',
       modelExists: '该模型已存在',
+      modelMappingConflict: '该模型已配置映射 {from} → {to}，请在模型映射中修改或删除后再添加白名单模型',
       modelCount: '{count} 个模型',
       poolMode: '池模式',
       poolModeHint: '上游为账号池时启用，错误不标记本地账号状态',
@@ -806,7 +818,7 @@ export default {
       poolModeRetryStatusCodesHint: '仅在池模式下生效。以英文逗号分隔的 HTTP 状态码（100-599），命中时触发同账号重试。留空使用默认值（{default}）。',
       customErrorCodes: '自定义错误码',
       customErrorCodesHint: '仅对选中的错误码停止调度',
-      customErrorCodesWarning: '仅选中的错误码会停止调度，其他错误将返回 500。',
+      customErrorCodesWarning: '自定义错误码筛选账号错误处理，包括停止调度和限流标记。未选中的错误仍可能触发重试或切换账号；返回状态取决于网关路径和错误透传规则。列表为空时不做筛选。',
       customErrorCodes429Warning:
         '429 已有内置的限流处理机制。添加到自定义错误码后，将直接停止调度而非临时限流。确定要添加吗？',
       customErrorCodes529Warning:

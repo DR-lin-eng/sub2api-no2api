@@ -1,0 +1,11 @@
+{
+  "request": "oauth_responses_header_and_body_capability_fields",
+  "headers": {
+    "x-codex-turn-metadata": "{\"session_id\":\"isolated-session\",\"thread_id\":\"isolated-thread\",\"turn_trigger\":\"guardian_classifier\",\"workspaces\":[{\"path\":\"workspace:redacted\",\"associated_remote_urls\":[\"https://example.com/org/repo.git\"]}]}"
+  },
+  "body": {
+    "model": "gpt-5.6-sol",
+    "input": "hello"
+  },
+  "expected_policy": "oauth_header_and_access_program_normalized"
+}

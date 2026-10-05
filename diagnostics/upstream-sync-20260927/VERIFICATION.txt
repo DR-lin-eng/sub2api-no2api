@@ -1,0 +1,73 @@
+SUB2API SELECTIVE UPSTREAM REVIEW — 2026-09-27
+
+Frozen range: upstream 7c0a2a556c440836c54b3f3135f033755f15ecb7..a3eb7ef302961cba716dc78b39b93b60c467db0e (11 first-parent PRs); downstream baseline 516e30762b0ecf3453742f57569d05d2b71f3690.
+Changed branch/field: BackupService.UpdateS3Config retained SecretAccessKey after loadS3Config decryption now traverses Encrypt before Set. SupportedModelChip displays video billing_mode per-second base/tier prices; no billing calculation change. Two ported PRs: #4867 and #7513. See docs/UPSTREAM_SYNC_20260927.md for closed/covered/deferred differences.
+
+Absolute artifacts:
+MODIFIED_FILE: /private/tmp/sub2api-upstream-sync-20260927/diagnostics/upstream-sync-20260927/MODIFIED_FILE
+DIFF_FILE: /private/tmp/sub2api-upstream-sync-20260927/diagnostics/upstream-sync-20260927/DIFF_FILE
+VERIFICATION.txt: /private/tmp/sub2api-upstream-sync-20260927/diagnostics/upstream-sync-20260927/VERIFICATION.txt
+ROLLBACK.sh: /private/tmp/sub2api-upstream-sync-20260927/diagnostics/upstream-sync-20260927/ROLLBACK.sh
+Baseline file: /private/tmp/sub2api-upstream-sync-20260927/diagnostics/upstream-sync-20260927/BASELINE_FILE
+Independent rollback target: /private/tmp/sub2api-upstream-sync-20260927/diagnostics/upstream-sync-20260927/ROLLBACK_TARGET_COPY
+Original baseline SHA-256: 950e23cf1278df8042ca04c9a7e43d57b2d043646044cda4b09691e9f1e7b33d
+Modified source/copy SHA-256: 7704bf55f11ea39666970cbec5485daf27a52f838a8bae55f8ed7e817ae864bd
+
+BASELINE exact Go command (in /private/tmp/sub2api-upstream-sync-20260927, with regression test added but source branch unchanged):
+docker run --rm -v "$PWD/backend:/app" -w /app -e GOPROXY=https://goproxy.cn,direct -e GOSUMDB=sum.golang.google.cn -v sub2api-sync-gomod:/go/pkg/mod -v sub2api-sync-gobuild:/root/.cache/go-build golang:1.26.6-alpine go test -tags=unit ./internal/application/service -run '^TestBackupService_S3ConfigStaysEncryptedAfterSecondSave$' -count=1
+BASELINE input: original backup_service.go SHA-256 950e23cf1278df8042ca04c9a7e43d57b2d043646044cda4b09691e9f1e7b33d; new regression test.
+BASELINE literal result:
+--- FAIL: TestBackupService_S3ConfigStaysEncryptedAfterSecondSave (0.00s)
+    backup_service_test.go:376: expected: "ENC:original-secret"; actual: "original-secret"
+FAIL github.com/Wei-Shaw/sub2api/internal/application/service
+BASELINE exit status: 1. Behavior: second save wrote plaintext.
+
+BASELINE exact frontend command (same cwd, new spec against original SupportedModelChip.vue):
+docker run --rm -v "$PWD/frontend:/app" -w /app -v sub2api-sync-pnpm:/root/.local/share/pnpm/store node:24-alpine sh -lc 'corepack enable && corepack prepare pnpm@11.17.0 --activate && pnpm install --frozen-lockfile --prefer-offline && pnpm exec vitest run src/features/channels-user/__tests__/SupportedModelChip.spec.ts'
+BASELINE input: original video popover without per-second branch; new spec for user/admin prefixes.
+BASELINE literal result:
+Test Files  1 failed (1)
+Tests  2 failed (2)
+Expected: "availableChannels.pricing.billingModeVideo"
+Received: "video-testgrokavailableChannels.pricing.billingMode-availableChannels.pricing.intervals480p- / -720p- / -"
+BASELINE exit status: 1. Behavior: video preview shows dash and token-style intervals.
+
+MODIFIED exact Go command (same cwd):
+docker run --rm -v "$PWD/backend:/app" -w /app -e GOPROXY=https://goproxy.cn,direct -e GOSUMDB=sum.golang.google.cn -v sub2api-sync-gomod:/go/pkg/mod -v sub2api-sync-gobuild:/root/.cache/go-build golang:1.26.6-alpine go test -tags=unit ./internal/application/service -count=1
+MODIFIED input: modified backup_service.go + regression test, complete service package.
+MODIFIED literal output: ok   github.com/Wei-Shaw/sub2api/internal/application/service 187.008s
+MODIFIED exit status: 0. Behavior: encrypted after first/second/third save, loaded plaintext only in memory; no double-encryption.
+
+MODIFIED exact frontend command (same cwd):
+docker run --rm -v "$PWD/frontend:/app" -w /app -v sub2api-sync-pnpm:/root/.local/share/pnpm/store node:24-alpine sh -lc 'corepack enable && corepack prepare pnpm@11.17.0 --activate && pnpm exec vitest run src/features/channels-user/__tests__/SupportedModelChip.spec.ts && pnpm run typecheck && pnpm run lint:check'
+MODIFIED input: updated SupportedModelChip.vue, four i18n files and new spec.
+MODIFIED literal result: Test Files  1 passed (1); Tests  2 passed (2); $ vue-tsc --noEmit; $ eslint .
+MODIFIED exit status: 0. Behavior: video base/tier labels are per-second, zero is visible, null base omitted, other billing modes unchanged.
+
+ROLLBACK exact command (same cwd):
+diagnostics/upstream-sync-20260927/ROLLBACK.sh diagnostics/upstream-sync-20260927/BASELINE_FILE diagnostics/upstream-sync-20260927/ROLLBACK_TARGET_COPY
+ROLLBACK input: independent copy of MODIFIED_FILE; MODIFIED_FILE and actual source were not targeted.
+ROLLBACK literal output:
+restored_behavior=inherited_s3_secret_can_be_persisted_without_reencryption
+restored_status=baseline_sha256_match
+restored_sha256=950e23cf1278df8042ca04c9a7e43d57b2d043646044cda4b09691e9f1e7b33d
+ROLLBACK exit status: 0. Restored behavior/status: rollback target matches original hash and UpdateS3Config else branch; the target is back to baseline behavior, while MODIFIED_FILE stays changed at SHA-256 7704bf55f11ea39666970cbec5485daf27a52f838a8bae55f8ed7e817ae864bd.
+
+Docker full candidate build exact command (same cwd, after buildx metadata escalation):
+set -o pipefail; docker build --progress=plain --build-arg COMMIT=upstream-sync-candidate -t sub2api-upstream-sync:20260927 . 2>&1 | tee /private/tmp/sub2api-upstream-sync-20260927-docker-build.log
+Literal result: exporting manifest sha256:5d6b0195dca3cfcf126c0c3eccd07e1ece1bcd25abf9388cf5dcbf94f61a8563; exporting manifest list sha256:78eb706562536d9d7dd8d41eb073df331c629a5758241988ac61b125a71661aa; #40 DONE 3.5s. Exit 0. Vue chunk-size warnings were nonfatal.
+Docker runtime exact command (same cwd):
+docker compose -f diagnostics/upstream-sync-20260927/compose.yaml -p sub2api-sync-20260927 up -d --wait
+Literal result: app healthy; postgres healthy; redis healthy. Exit 0.
+Runtime probes: curl --noproxy '*' -fsS http://127.0.0.1:18084/health -> {"status":"ok"} (HTTP 200); curl --noproxy '*' -fsS http://127.0.0.1:18084/ready -> {"ready":true,"node_id":"30cdbb329355","node_name":"30cdbb329355","current_version":"0.1.215","draining":false,"in_flight":0} (HTTP 200); GET / -> HTTP 200.
+Runtime SQL exact command: docker compose -f diagnostics/upstream-sync-20260927/compose.yaml -p sub2api-sync-20260927 exec -T postgres psql -U sub2api -d sub2api -Atc "SELECT COUNT(*) FROM schema_migrations; SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE filename='240_add_group_distillation_mode.sql');"
+Literal output: 299; t. Exit 0. docker inspect app: health=healthy restart_count=0 status=running.
+
+Existing-mapping coverage exact command:
+docker run --rm -v "$PWD/backend:/app" -w /app -e GOPROXY=https://goproxy.cn,direct -e GOSUMDB=sum.golang.google.cn -v sub2api-sync-gomod:/go/pkg/mod -v sub2api-sync-gobuild:/root/.cache/go-build golang:1.26.6-alpine go test -tags=unit ./internal/transport/http/handler/admin -run '^TestAccountHandlerGetAvailableModels_OpenAIOAuth' -count=1
+Literal result: ok github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin 0.009s; exit 0.
+Unchanged scheduler baseline benchmark exact command:
+docker run --rm -v "$PWD/backend:/app" -w /app -e GOPROXY=https://goproxy.cn,direct -e GOSUMDB=sum.golang.google.cn -v sub2api-sync-gomod:/go/pkg/mod -v sub2api-sync-gobuild:/root/.cache/go-build golang:1.26.6-alpine go test -tags=unit ./internal/application/service -run '^$' -bench '^BenchmarkApplyOpenAIUpstreamCostFactors$' -benchtime=30x -count=1
+Literal result: 64 candidates 23564 ns/op 2048 B/op 1 allocs/op; 256 candidates 76954 ns/op 8192 B/op 1 allocs/op; PASS, exit 0. No upstream candidate benchmark was accepted.
+Docs exact command: make check-docs -> Documentation checks passed.; exit 0.
+Diff exact command: git diff --check -> empty output; exit 0.

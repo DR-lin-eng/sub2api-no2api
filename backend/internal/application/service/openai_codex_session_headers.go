@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -19,6 +20,7 @@ const (
 // codexOutboundSessionIDs is the isolated projection of one downstream
 // conversation. Raw header values are never copied into the upstream request.
 type codexOutboundSessionIDs struct {
+	installationID  string
 	sessionID       string
 	threadID        string
 	clientRequestID string
@@ -28,9 +30,9 @@ type codexOutboundSessionIDs struct {
 
 // resolveCodexOutboundSessionIDs follows the same precedence as the Codex
 // client: explicit protocol headers first, then client_metadata, then the
-// prompt-cache signal.  Values are namespaced by both the API key and the
-// selected upstream account so a failover cannot replay one tenant's opaque
-// IDs into another account.
+// prompt-cache signal. Values are namespaced by the account's stable virtual
+// client key so spoofed device/session projections remain stable across API-key
+// entry points while still diverging across OAuth accounts.
 func resolveCodexOutboundSessionIDs(
 	c *gin.Context,
 	account *Account,
@@ -90,15 +92,23 @@ func resolveCodexOutboundSessionIDs(
 		sessionRaw = threadRaw
 	}
 	if sessionRaw == "" && threadRaw == "" {
-		seed := codexOutboundRequestSeed(c)
-		sessionRaw = seed
-		threadRaw = seed
+		// Keep the spoofed device/session projection stable per OAuth account
+		// instead of generating a new identity on every request with no client
+		// session header. Explicit client sessions still receive account-scoped
+		// derived IDs above.
+		stableSession := resolveConvergedSessionID(account)
+		if stableSession == "" {
+			stableSession = codexOutboundRequestSeed(c)
+		}
+		sessionRaw = stableSession
+		threadRaw = stableSession
 	}
 
 	namespace := codexOutboundSessionNamespace(c, account)
 	threadID := deriveCodexOutboundSessionUUID("thread", namespace, threadRaw)
 	sessionID := deriveCodexOutboundSessionUUID("session", namespace, sessionRaw)
 	ids := &codexOutboundSessionIDs{
+		installationID:  resolveConvergedInstallationID(account),
 		sessionID:       sessionID,
 		threadID:        threadID,
 		clientRequestID: threadID,
@@ -146,12 +156,21 @@ func codexOutboundRequestSeed(c *gin.Context) string {
 }
 
 func codexOutboundSessionNamespace(c *gin.Context, account *Account) string {
-	apiKeyID := getAPIKeyIDFromContext(c)
-	accountID := int64(0)
 	if account != nil {
-		accountID = account.ID
+		if virtualKey := strings.TrimSpace(account.CodexVirtualClientKey()); virtualKey != "" {
+			return "account:" + virtualKey
+		}
 	}
-	return fmt.Sprintf("api_key:%d:account:%d", apiKeyID, accountID)
+	// Keep a deterministic fallback for synthetic tests or incomplete account
+	// fixtures that do not expose a virtual-client key yet.
+	return fmt.Sprintf("api_key:%d:account:%d", getAPIKeyIDFromContext(c), accountIDForCodexNamespace(account))
+}
+
+func accountIDForCodexNamespace(account *Account) int64 {
+	if account == nil {
+		return 0
+	}
+	return account.ID
 }
 
 func deriveCodexOutboundSessionUUID(kind, namespace, raw string) string {
@@ -268,49 +287,35 @@ func applyResolvedCodexOutboundSessionHeaders(
 	}
 }
 
-// rewriteCodexOutboundSessionMetadata keeps body and header projections on the
-// same isolated IDs when a client_metadata object is present. Other metadata,
-// including opaque turn state, is preserved byte-for-byte by sjson.
-func rewriteCodexOutboundSessionMetadata(body []byte, ids *codexOutboundSessionIDs) ([]byte, error) {
-	if len(body) == 0 || ids == nil {
+// rewriteCodexOutboundSessionMetadata applies the OAuth client_metadata boundary
+// and keeps body/header projections on the same isolated IDs. Opaque turn state
+// remains untouched; identity, workspace, and approval fields are normalized.
+func rewriteCodexOutboundSessionMetadata(body []byte, account *Account, ids *codexOutboundSessionIDs) ([]byte, error) {
+	if len(body) == 0 || account == nil || !account.IsOpenAIOAuth() {
 		return body, nil
 	}
 	metadata := gjson.GetBytes(body, "client_metadata")
-	if !metadata.Exists() || metadata.Type != gjson.JSON || !metadata.IsObject() {
+	if !metadata.Exists() || strings.TrimSpace(metadata.Raw) == "null" {
 		return body, nil
 	}
-	rewritten, err := sjson.SetBytes(body, "client_metadata.session_id", ids.sessionID)
-	if err != nil {
-		return body, fmt.Errorf("rewrite Codex client_metadata session_id: %w", err)
-	}
-	rewritten, err = sjson.SetBytes(rewritten, "client_metadata.thread_id", ids.threadID)
-	if err != nil {
-		return body, fmt.Errorf("rewrite Codex client_metadata thread_id: %w", err)
-	}
-	if ids.parentThreadID != "" {
-		rewritten, err = sjson.SetBytes(rewritten, "client_metadata.x-codex-parent-thread-id", ids.parentThreadID)
+	if metadata.Type != gjson.JSON || !metadata.IsObject() {
+		rewritten, err := sjson.DeleteBytes(body, "client_metadata")
 		if err != nil {
-			return body, fmt.Errorf("rewrite Codex client_metadata parent thread id: %w", err)
+			return body, fmt.Errorf("remove invalid Codex client_metadata: %w", err)
 		}
+		return rewritten, nil
 	}
-	if ids.subagent != "" {
-		rewritten, err = sjson.SetBytes(rewritten, "client_metadata.x-openai-subagent", ids.subagent)
-		if err != nil {
-			return body, fmt.Errorf("rewrite Codex client_metadata subagent: %w", err)
-		}
+
+	clientMetadata := make(map[string]any)
+	if err := json.Unmarshal([]byte(metadata.Raw), &clientMetadata); err != nil {
+		return body, fmt.Errorf("decode Codex client_metadata: %w", err)
 	}
-	if turnMetadata := gjson.GetBytes(rewritten, "client_metadata.x-codex-turn-metadata"); turnMetadata.Type == gjson.String {
-		metadataValue := turnMetadata.String()
-		if ids.parentThreadID != "" {
-			metadataValue = rewriteCodexTurnMetadataStringField(metadataValue, "parent_thread_id", ids.parentThreadID)
-		}
-		sanitized := sanitizeCodexTurnMetadataValue(metadataValue)
-		if sanitized != turnMetadata.String() {
-			rewritten, err = sjson.SetBytes(rewritten, "client_metadata.x-codex-turn-metadata", sanitized)
-			if err != nil {
-				return body, fmt.Errorf("sanitize Codex turn metadata: %w", err)
-			}
-		}
+	if !sanitizeOpenAICodexClientMetadataMap(clientMetadata, account, ids) {
+		return body, nil
 	}
-	return rewritten, nil
+	encoded, err := json.Marshal(clientMetadata)
+	if err != nil {
+		return body, fmt.Errorf("encode Codex client_metadata: %w", err)
+	}
+	return sjson.SetRawBytes(body, "client_metadata", encoded)
 }

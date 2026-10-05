@@ -1,0 +1,15 @@
+ready_result=not_ready
+2026-09-23T08:10:28.225Z	INFO	stdlog	First run detected, starting setup wizard...	{"service": "sub2api", "env": "bootstrap", "legacy_stdlog": true}
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+2026-09-23T08:10:28.225Z	WARN	stdlog	Warning: CORS allowed_origins not configured; cross-origin requests will be rejected.	{"service": "sub2api", "env": "bootstrap", "legacy_stdlog": true}
+[GIN-debug] GET    /setup/status             --> github.com/Wei-Shaw/sub2api/internal/bootstrap/setup.getStatus (4 handlers)
+[GIN-debug] POST   /setup/test-db            --> github.com/Wei-Shaw/sub2api/internal/bootstrap/setup.testDatabase (5 handlers)
+[GIN-debug] POST   /setup/test-redis         --> github.com/Wei-Shaw/sub2api/internal/bootstrap/setup.testRedis (5 handlers)
+[GIN-debug] POST   /setup/install            --> github.com/Wei-Shaw/sub2api/internal/bootstrap/setup.install (5 handlers)
+2026-09-23T08:10:28.226Z	INFO	stdlog	Setup wizard available at http://0.0.0.0:8080	{"service": "sub2api", "env": "bootstrap", "legacy_stdlog": true}
+2026-09-23T08:10:28.226Z	INFO	stdlog	Complete the setup wizard to configure Sub2API	{"service": "sub2api", "env": "bootstrap", "legacy_stdlog": true}
+container_status=running health=unhealthy
+docker_image_smoke_exit=1

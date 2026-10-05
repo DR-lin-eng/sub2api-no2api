@@ -143,6 +143,12 @@ const (
 // continuation request is still forwarded upstream.
 const CodexPrewarmContinuationExtraKey = "codex_prewarm_continuation_enabled"
 
+// ExcelBPSEnabledExtraKey enables the account-scoped Excel/Basispoints bridge.
+// The bridge is deliberately limited to ordinary OpenAI OAuth accounts; API
+// keys, shadow accounts, PATs and agent-identity credentials keep the normal
+// Responses path.
+const ExcelBPSEnabledExtraKey = "excel_bps_enabled"
+
 // CodexVirtualClientKeyExtraKey stores the stable virtual-client namespace
 // used by A/B identity and TLS profile assignment. It is intentionally not a
 // credential: a shadow account may carry the parent's principal namespace here
@@ -1595,6 +1601,24 @@ func (a *Account) IsAnthropic() bool {
 
 func (a *Account) IsOpenAIOAuth() bool {
 	return a.IsOpenAI() && a.Type == AccountTypeOAuth
+}
+
+// IsExcelBPSEnabled reports whether this account may use the Excel/BPS
+// Responses transport. A legacy upstream key is accepted for read compatibility
+// but all new writes use ExcelBPSEnabledExtraKey.
+func (a *Account) IsExcelBPSEligible() bool {
+	return a != nil && a.IsOpenAIOAuth() && !a.IsShadow() && !a.IsOpenAIAgentIdentity() && !a.IsOpenAIPersonalAccessToken()
+}
+
+func (a *Account) IsExcelBPSEnabled() bool {
+	if !a.IsExcelBPSEligible() || a.Extra == nil {
+		return false
+	}
+	if enabled, ok := a.Extra[ExcelBPSEnabledExtraKey].(bool); ok {
+		return enabled
+	}
+	legacy, _ := a.Extra["openai_excel_bps"].(bool)
+	return legacy
 }
 
 // IsCodexPrewarmContinuationEnabled reports whether this OpenAI OAuth account

@@ -443,11 +443,13 @@ export interface EditAccountPolicyContext {
   customBaseUrl: Ref<string>
   customBaseUrlEnabled: Ref<boolean>
   editPlanType: Ref<string>
+  excelBpsEnabled: Ref<boolean>
   form: EditAccountFormState
   formatDateTime: (value: string | Date | null | undefined) => string
   getOpenAICompactModelMappingKey: (mapping: ModelMapping) => string
   groups: ComputedRef<AdminGroup[]>
   isSparkShadow: ComputedRef<boolean>
+  isOpenAIPersonalAccessTokenAccount: ComputedRef<boolean>
   maxSessions: Ref<number | null>
   mixedScheduling: Ref<boolean>
   openAICompactMode: Ref<OpenAICompactMode>

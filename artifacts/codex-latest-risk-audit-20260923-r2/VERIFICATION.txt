@@ -1,0 +1,84 @@
+Codex latest risk-control alignment verification
+Date: 2026-09-23 (Asia/Shanghai)
+
+WORKTREE / BRANCH
+- Worktree: /Users/lin/.codex/worktrees/8a2a/sub2api-no2api
+- Branch state: HEAD (detached)
+- HEAD: f2284c586e8d182423b37eacf664d28b39cb41f5
+- Changed branch/field: account-scoped stable Codex device/installation identity, stable session/thread projection, raw OAuth metadata sanitization, case-insensitive top-level app-server capability/approval/sandbox field removal, and HTTP/WebSocket path coverage.
+
+PRIMARY ARTIFACTS (four required paths)
+- MODIFIED_FILE: /Users/lin/.codex/worktrees/8a2a/sub2api-no2api/artifacts/codex-latest-risk-audit-20260923-r2/MODIFIED_FILE.json
+- DIFF_FILE: /Users/lin/.codex/worktrees/8a2a/sub2api-no2api/artifacts/codex-latest-risk-audit-20260923-r2/DIFF_FILE.patch
+- VERIFICATION: /Users/lin/.codex/worktrees/8a2a/sub2api-no2api/artifacts/codex-latest-risk-audit-20260923-r2/VERIFICATION.txt
+- ROLLBACK: /Users/lin/.codex/worktrees/8a2a/sub2api-no2api/artifacts/codex-latest-risk-audit-20260923-r2/ROLLBACK.sh
+
+HASH / COPY PRESERVATION
+- Baseline input: BASELINE_FILE.json
+- Baseline SHA-256: 87c500ff36832d2abac743cb04e3242196f4d6aa014c5d04ca3810c412f8fefa
+- Modified copy SHA-256: 88bafc0056f5e5832d3f7156c058e29db1fc8b3418b5ac2c9953973b69187461
+- DIFF_FILE SHA-256: 124882ee7548e63a9acb8aa8a54febb60d9b39d1b797be47f45ab911d8acd695
+- MODIFIED_FILE remains in the modified state after rollback testing; rollback was executed only against a temporary copy.
+
+BASELINE TEST
+- Exact command:
+  python3 -c 'import json, pathlib; p=pathlib.Path("artifacts/codex-latest-risk-audit-20260923-r2/BASELINE_FILE.json"); d=json.loads(p.read_text()); assert d["body"]["access_programs"]["cyber"]=="daybreak_red"; assert d["body"]["ACCESS_PROGRAMS"]["cyber"]=="daybreak_red"; assert d["body"]["ServiceName"]=="codex_work_desktop"; assert "forged-installation" in d["headers"]["x-codex-turn-metadata"]; print("BASELINE raw=present top_level_access_programs=present case_variant=present status=expected-baseline")'
+- Input: BASELINE_FILE.json containing forged installation/session/thread/window/sandbox/approval metadata, canonical and casing-variant top-level capability fields.
+- Literal output:
+  BASELINE raw=present top_level_access_programs=present case_variant=present status=expected-baseline
+- Result: baseline fixture matched the pre-alignment behavior.
+- Exit status: 0.
+
+MODIFIED TEST
+- Exact command:
+  python3 -c 'import json, pathlib; p=pathlib.Path("artifacts/codex-latest-risk-audit-20260923-r2/MODIFIED_FILE.json"); d=json.loads(p.read_text()); stable=d["stable_identity_assertion"]["device_id"]; assert d["body"]["client_metadata"]["x-codex-installation-id"]==stable; assert d["headers"]["x-codex-turn-metadata"].find("danger-full-access")==-1; assert "access_programs" not in d["body"]; assert "ACCESS_PROGRAMS" not in d["body"]; assert "serviceName" not in d["body"]; assert "ServiceName" not in d["body"]; nested=d["body"]["input"][1]["output"]; assert nested["access_programs"]["cyber"]=="user-data"; assert nested["cyberAccessProgram"]=="user-data"; print(f"MODIFIED stable_device_id={stable} top_level_capabilities=removed case_variants=removed nested_user_data=preserved status=pass")'
+- Input: MODIFIED_FILE.json with account 2048 stable device/installation value ff4bfdbe-53a5-4746-b583-9413b19e7804, account-stable session/thread projections, redacted workspace metadata, casing variants removed, and nested user data retained.
+- Literal output:
+  MODIFIED stable_device_id=ff4bfdbe-53a5-4746-b583-9413b19e7804 top_level_capabilities=removed case_variants=removed nested_user_data=preserved status=pass
+- Result: account-stable identity and top-level capability boundary assertions passed; nested input data remained unchanged.
+- Exit status: 0.
+
+ROLLBACK TEST
+- Exact command:
+  set -eu; tmp="$(mktemp /tmp/codex-risk-rollback.XXXXXX.json)"; cp "artifacts/codex-latest-risk-audit-20260923-r2/MODIFIED_FILE.json" "$tmp"; "artifacts/codex-latest-risk-audit-20260923-r2/ROLLBACK.sh" "$tmp"; cmp -s "$tmp" "artifacts/codex-latest-risk-audit-20260923-r2/BASELINE_FILE.json"; printf 'ROLLBACK target=%s restored=baseline cmp=identical status=pass\\n' "$tmp"; rm -f "$tmp"
+- Input: temporary copy of MODIFIED_FILE.json; target was not the primary MODIFIED_FILE.
+- Literal output:
+  restored /tmp/codex-risk-rollback.XXXXXX.json from /Users/lin/.codex/worktrees/8a2a/sub2api-no2api/artifacts/codex-latest-risk-audit-20260923-r2/BASELINE_FILE.json
+  ROLLBACK target=/tmp/codex-risk-rollback.XXXXXX.json restored=baseline cmp=identical status=pass
+- Result: temporary copy restored byte-for-byte to BASELINE_FILE.json; primary MODIFIED_FILE remained modified.
+- Exit status: 0.
+
+DOCKER BUILD / RUNTIME
+- Exact build command:
+  docker buildx build --load --progress=plain -t sub2api:codex-risk-20260923-r2 --build-arg VERSION=0.1.214-risk-r2 --build-arg COMMIT=f2284c586e8d182423b37eacf664d28b39cb41f5 .
+- Result: image build completed successfully; image manifest sha256:a601577ee388cae2e49561e3b1f3a758f0eee92a9bc61b2f9f69f31fa3af1949; linux/arm64; size 45567631 bytes.
+- Exit status: 0.
+- Runtime input: temporary PostgreSQL 18 and Redis 8 containers, AUTO_SETUP=true, database/Redis environment variables, image sub2api:codex-risk-20260923-r2.
+- Exact readiness command:
+  curl -sS -o /tmp/codex-risk-ready-r2.body -w '%{http_code}' http://127.0.0.1:28080/ready
+- Literal result:
+  http=200 body={"ready":true,"node_id":"362f85eafe7c","node_name":"362f85eafe7c","current_version":"0.1.214-risk-r2","draining":false,"in_flight":0}
+- Runtime status: Docker app container healthy; PostgreSQL connection, Redis connection, database initialization, admin bootstrap, and /ready all completed successfully.
+
+DOCKER TESTS
+- Exact command:
+  docker run --rm --network none -v "$PWD/backend:/workspace" -v sub2api-go-mod-20260923:/go/pkg/mod -v sub2api-go-cache-20260923:/root/.cache/go-build -w /workspace -e GOPROXY=https://goproxy.cn,direct -e GOSUMDB=sum.golang.google.cn golang:1.26.6-alpine sh -ec 'go test ./internal/application/service/...; printf "service_tests_exit=0\\n"; go test ./internal/transport/http/handler/...; printf "handler_tests_exit=0\\n"'
+- Literal result:
+  ok   github.com/Wei-Shaw/sub2api/internal/application/service 136.739s
+  ok   github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2 3.015s
+  service_tests_exit=0
+  ok   github.com/Wei-Shaw/sub2api/internal/transport/http/handler 30.710s
+  ok   github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin 0.277s
+  ok   github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto 0.015s
+  ok   github.com/Wei-Shaw/sub2api/internal/transport/http/handler/quotaview 0.014s
+  ok   github.com/Wei-Shaw/sub2api/internal/transport/http/handler/supportchatasset 0.008s
+  handler_tests_exit=0
+- Result: service and HTTP handler Docker regression suites passed.
+- Exit status: 0.
+
+FINAL RESTORED BEHAVIOR / STATUS
+- Account 2048 emits the same stable device/installation value on repeated requests: ff4bfdbe-53a5-4746-b583-9413b19e7804 in the fixture.
+- Client-forged identity, sandbox, approval, workspace-secret, canonical/casing-variant top-level app-server capability fields are removed or replaced by the account-owned projection.
+- Nested input/tool user data remains preserved.
+- Temporary rollback copy restored exactly; MODIFIED_FILE remains changed.
+- Actual upstream Work/Cyber entitlement responses are not part of this local Docker fixture and require a real entitlement-enabled upstream account for end-to-end confirmation.

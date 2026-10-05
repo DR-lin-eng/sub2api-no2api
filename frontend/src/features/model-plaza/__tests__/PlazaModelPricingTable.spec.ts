@@ -43,7 +43,7 @@ function mountTable(
   models: PlazaModel[],
   rateMultiplier: number,
   userRateMultiplier?: number | null,
-  extraProps?: { imageRateIndependent?: boolean; imageRateMultiplier?: number | null }
+  extraProps?: { imageRateIndependent?: boolean; imageRateMultiplier?: number | null; videoRateIndependent?: boolean; videoRateMultiplier?: number | null }
 ) {
   return mount(PlazaModelPricingTable, {
     props: { models, rateMultiplier, userRateMultiplier: userRateMultiplier ?? null, ...extraProps }
@@ -369,4 +369,15 @@ describe('PlazaModelPricingTable', () => {
       'shared-modelOpenAI'
     ])
   })
+})
+
+
+it('shows independent video rates instead of the user or image rate', () => {
+  const model = tokenModel({ name: 'video-test', pricing: { ...tokenModel().pricing!, billing_mode: 'video', per_request_price: 2 } })
+  const wrapper = mountTable([model], 0.8, 0.2, { imageRateIndependent: true, imageRateMultiplier: 0.1, videoRateIndependent: true, videoRateMultiplier: 0.5 })
+  expect(wrapper.text()).toContain('$1.00')
+  expect(wrapper.text()).toContain('modelPlaza.table.perVideo')
+  expect(wrapper.text()).toContain('modelPlaza.table.perUnitSecond')
+  expect(wrapper.text()).toContain('0.5x')
+  expect(wrapper.text()).not.toContain('0.2x')
 })

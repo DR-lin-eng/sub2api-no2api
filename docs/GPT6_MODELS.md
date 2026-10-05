@@ -3,25 +3,28 @@
 ## 官方资料
 
 - [Models](https://developers.openai.com/api/docs/models)
+- [GPT-6.1 Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol)
 - [GPT-6 Sol](https://developers.openai.com/api/docs/models/gpt-6-sol)
 - [GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna)
 - [Pricing](https://developers.openai.com/api/docs/pricing)
 
-当前内置 OpenAI 目录包含 `gpt-6-astra`、`gpt-6-sol` 和 `gpt-6-luna`。本次新增
-Sol/Luna，不改变账号测试默认值或已有分组的默认映射。
+当前内置 OpenAI 目录包含 `gpt-6-astra`、`gpt-6.1-sol`、`gpt-6-sol` 和
+`gpt-6-luna`。GPT-6.1 Sol 于 2026-09-29 发布；本次更新不改变账号测试默认值或已有
+分组的默认映射。
 
 ## 能力
 
 | 模型 | Model ID | 推理强度 | 上下文窗口 | 最大输入 | 最大输出 |
 | --- | --- | --- | ---: | ---: | ---: |
 | GPT-6 Astra | `gpt-6-astra` | low、medium、high、xhigh、max | 1,050,000 | 922,000 | 128,000 |
+| GPT-6.1 Sol | `gpt-6.1-sol` | low、medium、high、xhigh、max | 1,050,000 | 922,000 | 128,000 |
 | GPT-6 Sol | `gpt-6-sol` | none、low、medium、high、xhigh、max | 1,050,000 | 922,000 | 128,000 |
 | GPT-6 Luna | `gpt-6-luna` | none、low、medium、high、xhigh、max | 1,050,000 | 922,000 | 128,000 |
 
-三个模型均支持 text/image 输入、text 输出、Responses、Chat Completions、Batch、流式、
-function calling、structured outputs、web search 和 prompt caching。Sol/Luna 的
-官方模型页明确列出 `none`，Astra 仍按现有兼容逻辑把不支持的 `none`/`minimal` 降为
-`low`。
+四个模型均支持 text/image 输入、text 输出、Responses、Chat Completions、Batch、流式、
+function calling、structured outputs、web search 和 prompt caching。GPT-6 Sol/Luna 的
+官方模型页明确列出 `none`；Astra 和 GPT-6.1 Sol 对不支持的 `none`/`minimal` 按兼容逻辑
+降为 `low`。
 
 ## 标准价格
 
@@ -32,6 +35,7 @@ Batch 乘 0.5。
 | 模型 | 输入 | 缓存读取 | 缓存写入 | 输出 |
 | --- | ---: | ---: | ---: | ---: |
 | GPT-6 Astra | 10.00 | 1.00 | 12.50 | 50.00 |
+| GPT-6.1 Sol | 2.00 | 0.10 | 2.50 | 10.00 |
 | GPT-6 Sol | 2.00 | 0.20 | 2.50 | 10.00 |
 | GPT-6 Luna | 0.10 | 0.01 | 0.125 | 0.50 |
 

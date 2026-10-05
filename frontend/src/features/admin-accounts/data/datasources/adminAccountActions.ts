@@ -64,6 +64,7 @@ export interface AccountExportOptions {
     type?: string
     status?: string
     oauth_quota?: string
+    excel_bps?: 'enabled' | 'disabled' | ''
     group?: string
     privacy_mode?: string
     search?: string
@@ -323,11 +324,12 @@ export async function exportData(options?: AccountExportOptions): Promise<AdminD
   if (options?.ids && options.ids.length > 0) {
     params.ids = options.ids.join(',')
   } else if (options?.filters) {
-    const { platform, type, status, oauth_quota, group, privacy_mode, search, sort_by, sort_order } = options.filters
+    const { platform, type, status, oauth_quota, excel_bps, group, privacy_mode, search, sort_by, sort_order } = options.filters
     if (platform) params.platform = platform
     if (type) params.type = type
     if (status) params.status = status
     if (oauth_quota) params.oauth_quota = oauth_quota
+    if (excel_bps) params.excel_bps = excel_bps
     if (group) params.group = group
     if (privacy_mode) params.privacy_mode = privacy_mode
     if (search) params.search = search

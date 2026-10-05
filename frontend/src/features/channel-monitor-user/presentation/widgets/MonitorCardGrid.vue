@@ -1,27 +1,28 @@
 <template>
   <div>
+    <!-- Loading 骨架屏 - 单列布局 -->
     <div
       v-if="loading && items.length === 0"
-      class="grid gap-4 grid-cols-2 lg:grid-cols-4"
+      class="space-y-3"
     >
       <div
         v-for="i in 4"
         :key="i"
-        class="p-5 rounded-2xl min-h-[240px] bg-white/70 dark:bg-dark-800/60 border border-gray-200/80 dark:border-dark-700/70 animate-pulse"
+        class="p-6 rounded-xl min-h-[200px] bg-white/70 dark:bg-dark-800/60 border border-gray-200/80 dark:border-dark-700/70 animate-pulse"
       >
-        <div class="flex items-start gap-3">
-          <div class="w-9 h-9 rounded-xl bg-gray-200 dark:bg-dark-700"></div>
-          <div class="flex-1 space-y-2">
-            <div class="h-4 w-2/3 rounded bg-gray-200 dark:bg-dark-700"></div>
+        <div class="flex items-start gap-4">
+          <div class="w-11 h-11 rounded-xl bg-gray-200 dark:bg-dark-700"></div>
+          <div class="flex-1 space-y-2.5">
+            <div class="h-5 w-1/3 rounded bg-gray-200 dark:bg-dark-700"></div>
             <div class="h-3 w-1/2 rounded bg-gray-200 dark:bg-dark-700"></div>
           </div>
-          <div class="h-6 w-16 rounded-full bg-gray-200 dark:bg-dark-700"></div>
+          <div class="h-7 w-20 rounded-full bg-gray-200 dark:bg-dark-700"></div>
         </div>
-        <div class="mt-5 space-y-3">
+        <div class="mt-6 space-y-3">
           <div
             v-for="row in 3"
             :key="row"
-            class="h-12 rounded-xl bg-gray-100 dark:bg-dark-900/40"
+            class="h-14 rounded-lg bg-gray-100 dark:bg-dark-900/40"
           ></div>
         </div>
       </div>
@@ -33,9 +34,10 @@
       :description="t('channelStatus.empty.description')"
     />
 
+    <!-- 单列通栏卡片布局 -->
     <div
       v-else
-      class="grid gap-4 grid-cols-2 lg:grid-cols-4"
+      class="space-y-3"
     >
       <MonitorProviderCard
         v-for="group in cardGroups"

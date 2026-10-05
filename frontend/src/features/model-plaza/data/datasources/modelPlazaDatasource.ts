@@ -43,6 +43,8 @@ export interface ModelPlazaGroup {
   /** 图片计费模型使用独立倍率，不取分组或用户专属倍率。 */
   image_rate_independent: boolean
   image_rate_multiplier: number
+  video_rate_independent?: boolean
+  video_rate_multiplier?: number
   models: PlazaModel[]
 }
 

@@ -9,4 +9,6 @@
 
 共享页面不是管理员数据的匿名版本；共享开关和返回内容由 [公共监控路由](../../../../backend/internal/transport/http/server/routes/channel_monitor_public.go) 及 handler 控制。`unknown`、`error`、`failed` 等状态应分别展示，不把缺失延迟当成 0ms 或健康。
 
+提供商卡片保留整卡折叠和综合健康度排序，自动刷新不重置本地折叠状态。折叠按钮提供本地化标签和展开状态；7/15/30 天可用率继续使用各自窗口的数据。
+
 从 `frontend/` 执行 `pnpm exec vitest run src/features/channel-monitor-user`，并核对后端用户/公共监控测试。新增状态需覆盖中英文及未来未知值。

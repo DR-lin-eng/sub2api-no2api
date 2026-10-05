@@ -29,10 +29,43 @@ func (s *adminServiceImpl) ListAccounts(ctx context.Context, page, pageSize int,
 	return accounts, result.Total, nil
 }
 
-// ListAccountsWithOAuthQuotaFilter is the opt-in paginated variant used by
-// the admin account list. The repository extension keeps the JSONB predicate
-// below pagination; falling back to a hydrated in-memory scan would make the
-// reported total and page boundaries incorrect on large installations.
+// ListAccountsWithFeatureFilters applies the OAuth quota and Excel BPS
+// predicates in the repository before pagination. An in-memory scan would
+// produce incorrect totals and page boundaries on large installations.
+func (s *adminServiceImpl) ListAccountsWithFeatureFilters(
+	ctx context.Context,
+	page, pageSize int,
+	platform, accountType, status, search string,
+	groupID int64,
+	privacyMode, sortBy, sortOrder, oauthQuotaFilter, excelBPSFilter string,
+) ([]Account, int64, error) {
+	oauthQuotaFilter, err := NormalizeAccountOAuthQuotaFilter(oauthQuotaFilter)
+	if err != nil {
+		return nil, 0, err
+	}
+	excelBPSFilter, err = NormalizeAccountExcelBPSFilter(excelBPSFilter)
+	if err != nil {
+		return nil, 0, err
+	}
+	if oauthQuotaFilter == "" && excelBPSFilter == "" {
+		return s.ListAccounts(ctx, page, pageSize, platform, accountType, status, search, groupID, privacyMode, sortBy, sortOrder)
+	}
+	repo, ok := s.accountRepo.(interface {
+		ListWithFeatureFilters(
+			context.Context, pagination.PaginationParams, string, string, string, string, int64, string, string, string,
+		) ([]Account, *pagination.PaginationResult, error)
+	})
+	if !ok {
+		return nil, 0, errors.New("account repository does not support account feature filtering")
+	}
+	params := pagination.PaginationParams{Page: page, PageSize: pageSize, SortBy: sortBy, SortOrder: sortOrder}
+	accounts, result, err := repo.ListWithFeatureFilters(ctx, params, platform, accountType, status, search, groupID, privacyMode, oauthQuotaFilter, excelBPSFilter)
+	if err != nil {
+		return nil, 0, err
+	}
+	return accounts, result.Total, nil
+}
+
 func (s *adminServiceImpl) ListAccountsWithOAuthQuotaFilter(
 	ctx context.Context,
 	page, pageSize int,
@@ -74,6 +107,35 @@ func (s *adminServiceImpl) ListAccountsForSchedulerScoreFilter(ctx context.Conte
 		return nil, nil
 	}
 	return s.accountRepo.ListAllWithFilters(ctx, platform, accountType, status, search, groupID, privacyMode)
+}
+
+func (s *adminServiceImpl) ListAccountsForSchedulerScoreFilterWithFeatureFilters(
+	ctx context.Context,
+	platform, accountType, status, search string,
+	groupID int64,
+	privacyMode, oauthQuotaFilter, excelBPSFilter string,
+) ([]Account, error) {
+	oauthQuotaFilter, err := NormalizeAccountOAuthQuotaFilter(oauthQuotaFilter)
+	if err != nil {
+		return nil, err
+	}
+	excelBPSFilter, err = NormalizeAccountExcelBPSFilter(excelBPSFilter)
+	if err != nil {
+		return nil, err
+	}
+	if oauthQuotaFilter == "" && excelBPSFilter == "" {
+		return s.ListAccountsForSchedulerScoreFilter(ctx, platform, accountType, status, search, groupID, privacyMode)
+	}
+	if s == nil || s.accountRepo == nil {
+		return nil, nil
+	}
+	repo, ok := s.accountRepo.(interface {
+		ListAllWithFeatureFilters(context.Context, string, string, string, string, int64, string, string, string) ([]Account, error)
+	})
+	if !ok {
+		return nil, errors.New("account repository does not support account feature filtering")
+	}
+	return repo.ListAllWithFeatureFilters(ctx, platform, accountType, status, search, groupID, privacyMode, oauthQuotaFilter, excelBPSFilter)
 }
 
 func (s *adminServiceImpl) ListAccountsForSchedulerScoreFilterWithOAuthQuota(
@@ -1100,6 +1162,9 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	delete(input.Extra, AccountSchedulingDisabledReasonExtraKey)
 	delete(input.Extra, AccountAutoEnableSourceExtraKey)
 	delete(input.Extra, AccountAutoEnableAtExtraKey)
+	// BPS is only writable through the typed field after target validation.
+	delete(input.Extra, ExcelBPSEnabledExtraKey)
+	delete(input.Extra, "openai_excel_bps")
 
 	if len(input.AccountIDs) == 0 && input.Filters != nil {
 		accountIDs, err := s.resolveBulkUpdateTargetIDs(ctx, input.Filters)
@@ -1132,7 +1197,7 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 
 	// 预取所有目标账号，供凭据守卫/代理守卫/混合渠道检查共用，避免多次 DB 查询。
 	var cachedTargets []*Account
-	if len(input.Credentials) > 0 || input.ProxyID != nil || needMixedChannelCheck || openAISettings.any() || input.ProbeEnabled != nil || input.RateMultiplier != nil {
+	if len(input.Credentials) > 0 || input.ProxyID != nil || needMixedChannelCheck || openAISettings.any() || input.ProbeEnabled != nil || input.RateMultiplier != nil || input.ExcelBPSEnabled != nil {
 		loaded, err := s.accountRepo.GetByIDs(ctx, input.AccountIDs)
 		if err != nil {
 			return nil, err
@@ -1151,6 +1216,17 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 			return nil, err
 		}
 		result.LongContextInheritedCount = inheritedCount
+	}
+	if input.ExcelBPSEnabled != nil {
+		for _, accountID := range input.AccountIDs {
+			account := targetsByID[accountID]
+			if account == nil {
+				return nil, ErrAccountNotFound
+			}
+			if !account.IsExcelBPSEligible() {
+				return nil, infraerrors.Newf(http.StatusBadRequest, "EXCEL_BPS_ACCOUNT_INVALID", "account %d is not eligible for Excel BPS", accountID)
+			}
+		}
 	}
 	if input.ProbeEnabled != nil {
 		for _, accountID := range input.AccountIDs {
@@ -1237,9 +1313,10 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 
 	// Prepare bulk updates for columns and JSONB fields.
 	repoUpdates := AccountBulkUpdate{
-		Credentials:  input.Credentials,
-		Extra:        input.Extra,
-		ProbeEnabled: input.ProbeEnabled,
+		Credentials:     input.Credentials,
+		Extra:           input.Extra,
+		ProbeEnabled:    input.ProbeEnabled,
+		ExcelBPSEnabled: input.ExcelBPSEnabled,
 	}
 	if input.ProbeEnabled != nil {
 		if repoUpdates.Extra == nil {
@@ -1297,8 +1374,18 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	}
 
 	// Run bulk update for column/jsonb fields first.
-	if _, err := s.accountRepo.BulkUpdate(ctx, input.AccountIDs, repoUpdates); err != nil {
+	updatedCount, err := s.accountRepo.BulkUpdate(ctx, input.AccountIDs, repoUpdates)
+	if err != nil {
 		return nil, err
+	}
+	if input.ExcelBPSEnabled != nil {
+		uniqueIDs := make(map[int64]struct{}, len(input.AccountIDs))
+		for _, accountID := range input.AccountIDs {
+			uniqueIDs[accountID] = struct{}{}
+		}
+		if updatedCount != int64(len(uniqueIDs)) {
+			return nil, ErrExcelBPSBulkTargetChanged
+		}
 	}
 
 	// 将 proxy 变更传播到每个目标账号的 spark 影子账号
@@ -1534,20 +1621,16 @@ func (s *adminServiceImpl) resolveBulkUpdateTargetIDs(ctx context.Context, filte
 			total    int64
 			err      error
 		)
-		if filters.OAuthQuota != "" {
+		if filters.ExcelBPS != "" {
+			accounts, total, err = s.ListAccountsWithFeatureFilters(
+				ctx, page, pageSize, filters.Platform, filters.Type, filters.Status,
+				filters.Search, groupID, filters.PrivacyMode, "", "",
+				filters.OAuthQuota, filters.ExcelBPS,
+			)
+		} else if filters.OAuthQuota != "" {
 			accounts, total, err = s.ListAccountsWithOAuthQuotaFilter(
-				ctx,
-				page,
-				pageSize,
-				filters.Platform,
-				filters.Type,
-				filters.Status,
-				filters.Search,
-				groupID,
-				filters.PrivacyMode,
-				"",
-				"",
-				filters.OAuthQuota,
+				ctx, page, pageSize, filters.Platform, filters.Type, filters.Status,
+				filters.Search, groupID, filters.PrivacyMode, "", "", filters.OAuthQuota,
 			)
 		} else {
 			accounts, total, err = s.ListAccounts(

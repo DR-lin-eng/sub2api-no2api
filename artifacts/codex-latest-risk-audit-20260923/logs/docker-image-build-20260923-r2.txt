@@ -1,0 +1,115 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 4.35kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/alpine:3.20
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/golang:1.26.6-alpine
+#3 DONE 0.0s
+
+#4 [internal] load metadata for docker.io/library/node:24-alpine
+#4 DONE 0.0s
+
+#5 [internal] load .dockerignore
+#5 transferring context: 1.46kB done
+#5 DONE 0.0s
+
+#6 [frontend-builder 1/8] FROM docker.io/library/node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1
+#6 resolve docker.io/library/node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 0.0s done
+#6 DONE 0.0s
+
+#7 [stage-2 1/9] FROM docker.io/library/alpine:3.20@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc
+#7 resolve docker.io/library/alpine:3.20@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc 0.0s done
+#7 DONE 0.0s
+
+#8 [backend-builder 1/8] FROM docker.io/library/golang:1.26.6-alpine@sha256:3889b425f035be855a72fb4755265311293b6d414521f0a519d819df32222d83
+#8 resolve docker.io/library/golang:1.26.6-alpine@sha256:3889b425f035be855a72fb4755265311293b6d414521f0a519d819df32222d83 0.0s done
+#8 DONE 0.0s
+
+#9 [internal] load build context
+#9 transferring context: 707.19kB 0.2s done
+#9 DONE 0.2s
+
+#10 [backend-builder 2/8] RUN apk add --no-cache git ca-certificates tzdata
+#10 CACHED
+
+#11 [backend-builder 3/8] WORKDIR /app/backend
+#11 CACHED
+
+#12 [backend-builder 4/8] COPY backend/go.mod backend/go.sum ./
+#12 CACHED
+
+#13 [backend-builder 5/8] RUN go mod download
+#13 CACHED
+
+#14 [frontend-builder 6/8] COPY frontend/ ./
+#14 CACHED
+
+#15 [frontend-builder 7/8] COPY docs/legal/ /app/docs/legal/
+#15 CACHED
+
+#16 [frontend-builder 2/8] WORKDIR /app/frontend
+#16 CACHED
+
+#17 [frontend-builder 3/8] RUN corepack enable && corepack prepare pnpm@11.17.0 --activate
+#17 CACHED
+
+#18 [frontend-builder 4/8] COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
+#18 CACHED
+
+#19 [frontend-builder 5/8] RUN pnpm install --frozen-lockfile
+#19 CACHED
+
+#20 [frontend-builder 8/8] RUN pnpm run build
+#20 CACHED
+
+#21 [backend-builder 6/8] COPY backend/ ./
+#21 DONE 0.5s
+
+#22 [backend-builder 7/8] COPY --from=frontend-builder /app/backend/internal/transport/webassets/dist ./internal/transport/webassets/dist
+#22 DONE 0.1s
+
+#23 [backend-builder 8/8] RUN VERSION_VALUE="" &&     if [ -z "${VERSION_VALUE}" ]; then VERSION_VALUE="$(./scripts/resolve-version.sh)"; fi &&     DATE_VALUE="${DATE:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}" &&     CGO_ENABLED=0 GOOS=linux go build     -tags embed     -ldflags="-s -w -X main.Version=${VERSION_VALUE} -X main.Commit=f2284c586e8d182423b37eacf664d28b39cb41f5 -X main.Date=${DATE_VALUE} -X main.BuildType=release"     -o /app/sub2api     ./cmd/server
+#23 DONE 38.1s
+
+#24 [stage-2 2/9] RUN apk add --no-cache ca-certificates tzdata curl su-exec && rm -rf /var/cache/apk/*
+#24 CACHED
+
+#25 [stage-2 3/9] RUN addgroup -g 1000 sub2api && adduser -u 1000 -G sub2api -s /bin/sh -D sub2api
+#25 CACHED
+
+#26 [stage-2 4/9] WORKDIR /app
+#26 CACHED
+
+#27 [stage-2 5/9] COPY --from=backend-builder /app/sub2api /app/sub2api
+#27 DONE 0.3s
+
+#28 [stage-2 6/9] COPY --from=backend-builder --chown=sub2api:sub2api /app/backend/resources /app/resources
+#28 DONE 0.0s
+
+#29 [stage-2 7/9] RUN mkdir -p /app/data && chown -R sub2api:sub2api /app
+#29 DONE 0.3s
+
+#30 [stage-2 8/9] COPY deploy/docker-entrypoint.sh /app/docker-entrypoint.sh
+#30 DONE 0.0s
+
+#31 [stage-2 9/9] RUN chmod +x /app/docker-entrypoint.sh
+#31 DONE 0.1s
+
+#32 exporting to image
+#32 exporting layers
+#32 exporting layers 2.3s done
+#32 exporting manifest sha256:4b73cbe5e6f92c978ab7f1ed356e4773d930e533d369580fdb9afd1dc40bec8b done
+#32 exporting config sha256:79253dfc99f5142fa38f73e5336a0c5a0821a7a7b5fb2606313554f4cc53b83f done
+#32 exporting attestation manifest sha256:a6083a617d8b1d26e7b0ea7e5311bd89d15269fb92aa39caf572b33d3dddf51e 0.0s done
+#32 exporting manifest list sha256:18561f4a40236e7b902ebc0b92da53065b63ae48f5f69bb5719d68ee887200d9 done
+#32 naming to docker.io/library/sub2api:codex-risk-audit-20260923-r2 done
+#32 unpacking to docker.io/library/sub2api:codex-risk-audit-20260923-r2
+#32 unpacking to docker.io/library/sub2api:codex-risk-audit-20260923-r2 0.6s done
+#32 DONE 2.9s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/80rcak6phzaezor39qdyjao43
+docker_image_build_r2_exit=0

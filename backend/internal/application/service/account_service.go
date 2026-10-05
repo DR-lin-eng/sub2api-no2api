@@ -37,6 +37,26 @@ const (
 	AccountOAuthQuotaFilter7dExhausted = "7d_exhausted"
 )
 
+// AccountExcelBPSFilter values select accounts whose persisted extra JSON
+// enables the account-scoped Excel/Basispoints bridge.
+const (
+	AccountExcelBPSFilterEnabled  = "enabled"
+	AccountExcelBPSFilterDisabled = "disabled"
+)
+
+func NormalizeAccountExcelBPSFilter(value string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "":
+		return "", nil
+	case AccountExcelBPSFilterEnabled:
+		return AccountExcelBPSFilterEnabled, nil
+	case AccountExcelBPSFilterDisabled:
+		return AccountExcelBPSFilterDisabled, nil
+	default:
+		return "", fmt.Errorf("invalid Excel BPS filter")
+	}
+}
+
 // NormalizeAccountOAuthQuotaFilter constrains callers to the documented wire
 // values and returns one canonical value for ETags and repository calls.
 func NormalizeAccountOAuthQuotaFilter(value string) (string, error) {
@@ -70,6 +90,28 @@ type AdminAccountOAuthQuotaListService interface {
 		groupID int64,
 		privacyMode, sortBy, sortOrder, oauthQuotaFilter string,
 	) ([]Account, int64, error)
+}
+
+// AdminAccountFeatureListService is the combined paginated filter extension.
+// It keeps feature predicates in SQL so totals and page boundaries remain
+// correct for large account pools.
+type AdminAccountFeatureListService interface {
+	ListAccountsWithFeatureFilters(
+		ctx context.Context,
+		page, pageSize int,
+		platform, accountType, status, search string,
+		groupID int64,
+		privacyMode, sortBy, sortOrder, oauthQuotaFilter, excelBPSFilter string,
+	) ([]Account, int64, error)
+}
+
+type AdminAccountFeatureSchedulerFilterService interface {
+	ListAccountsForSchedulerScoreFilterWithFeatureFilters(
+		ctx context.Context,
+		platform, accountType, status, search string,
+		groupID int64,
+		privacyMode, oauthQuotaFilter, excelBPSFilter string,
+	) ([]Account, error)
 }
 
 // AdminAccountOAuthQuotaSchedulerFilterService is the unpaged counterpart
@@ -231,6 +273,7 @@ type AccountBulkUpdate struct {
 	CredentialKeysToDelete []string
 	Extra                  map[string]any
 	ProbeEnabled           *bool
+	ExcelBPSEnabled        *bool
 }
 
 // CreateAccountRequest 创建账号请求

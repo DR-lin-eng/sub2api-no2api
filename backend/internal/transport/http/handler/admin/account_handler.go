@@ -212,6 +212,7 @@ type BulkUpdateAccountsRequest struct {
 	Credentials             map[string]any            `json:"credentials"`
 	Extra                   map[string]any            `json:"extra"`
 	ProbeEnabled            *bool                     `json:"upstream_billing_probe_enabled"`
+	ExcelBPSEnabled         *bool                     `json:"excel_bps_enabled"`
 	ConfirmMixedChannelRisk *bool                     `json:"confirm_mixed_channel_risk"` // 用户确认混合渠道风险
 }
 
@@ -220,6 +221,7 @@ type BulkUpdateAccountFilters struct {
 	Type        string `json:"type"`
 	Status      string `json:"status"`
 	OAuthQuota  string `json:"oauth_quota"`
+	ExcelBPS    string `json:"excel_bps"`
 	Group       string `json:"group"`
 	Search      string `json:"search"`
 	PrivacyMode string `json:"privacy_mode"`
@@ -270,12 +272,25 @@ const (
 	accountListGroupUngroupedQueryValue = "ungrouped"
 	accountHourlyUsageQueryTimeout      = 1500 * time.Millisecond
 	accountOAuthQuotaFilterQueryKey     = "oauth_quota"
+	accountExcelBPSFilterQueryKey       = "excel_bps"
 )
 
 // parseAccountOAuthQuotaFilter accepts the canonical query key and one
 // descriptive alias for callers that already use *_status naming. Keeping the
 // wire value constrained prevents accidental broad scans for unsupported
 // values.
+func parseAccountExcelBPSFilter(c *gin.Context) (string, error) {
+	value := strings.TrimSpace(c.Query(accountExcelBPSFilterQueryKey))
+	if value == "" {
+		return "", nil
+	}
+	normalized, err := service.NormalizeAccountExcelBPSFilter(value)
+	if err != nil {
+		return "", infraerrors.BadRequest("INVALID_EXCEL_BPS_FILTER", "invalid Excel BPS filter")
+	}
+	return normalized, nil
+}
+
 func parseAccountOAuthQuotaFilter(c *gin.Context) (string, error) {
 	values := make([]string, 0, 2)
 	for _, key := range []string{accountOAuthQuotaFilterQueryKey, "oauth_quota_status"} {
@@ -587,23 +602,27 @@ func (h *AccountHandler) listAccountSchedulerScoreFilterPool(
 	platform, accountType, status, search string,
 	groupID int64,
 	privacyMode string,
-	oauthQuotaFilters ...string,
+	featureFilters ...string,
 ) []service.Account {
 	oauthQuotaFilter := ""
-	if len(oauthQuotaFilters) > 0 {
-		oauthQuotaFilter = oauthQuotaFilters[0]
+	excelBPSFilter := ""
+	if len(featureFilters) > 0 {
+		oauthQuotaFilter = featureFilters[0]
+	}
+	if len(featureFilters) > 1 {
+		excelBPSFilter = featureFilters[1]
 	}
 	if h.adminService == nil || (platform != "" && platform != service.PlatformOpenAI) {
 		return nil
 	}
-	if oauthQuotaFilter != "" {
-		if filtered, ok := h.adminService.(service.AdminAccountOAuthQuotaSchedulerFilterService); ok {
+	if oauthQuotaFilter != "" || excelBPSFilter != "" {
+		if filtered, ok := h.adminService.(service.AdminAccountFeatureSchedulerFilterService); ok {
 			schedulerPlatform := platform
 			if schedulerPlatform == "" {
 				schedulerPlatform = service.PlatformOpenAI
 			}
-			accounts, err := filtered.ListAccountsForSchedulerScoreFilterWithOAuthQuota(
-				ctx, schedulerPlatform, accountType, status, search, groupID, privacyMode, oauthQuotaFilter,
+			accounts, err := filtered.ListAccountsForSchedulerScoreFilterWithFeatureFilters(
+				ctx, schedulerPlatform, accountType, status, search, groupID, privacyMode, oauthQuotaFilter, excelBPSFilter,
 			)
 			if err != nil {
 				slog.Warn("openai_scheduler_filter_score_pool_failed", "error", err)
@@ -637,6 +656,11 @@ func (h *AccountHandler) List(c *gin.Context) {
 	oauthQuotaFilter, filterErr := parseAccountOAuthQuotaFilter(c)
 	if filterErr != nil {
 		response.ErrorFrom(c, filterErr)
+		return
+	}
+	excelBPSFilter, bpsFilterErr := parseAccountExcelBPSFilter(c)
+	if bpsFilterErr != nil {
+		response.ErrorFrom(c, bpsFilterErr)
 		return
 	}
 	sortBy := c.DefaultQuery("sort_by", "name")
@@ -673,7 +697,17 @@ func (h *AccountHandler) List(c *gin.Context) {
 	var accounts []service.Account
 	var total int64
 	var err error
-	if oauthQuotaFilter != "" {
+	if excelBPSFilter != "" {
+		filteredService, ok := h.adminService.(service.AdminAccountFeatureListService)
+		if !ok {
+			response.Error(c, http.StatusServiceUnavailable, "account service does not support Excel BPS filtering")
+			return
+		}
+		accounts, total, err = filteredService.ListAccountsWithFeatureFilters(
+			c.Request.Context(), page, pageSize, platform, accountType, status, search,
+			groupID, privacyMode, sortBy, sortOrder, oauthQuotaFilter, excelBPSFilter,
+		)
+	} else if oauthQuotaFilter != "" {
 		filteredService, ok := h.adminService.(service.AdminAccountOAuthQuotaListService)
 		if !ok {
 			response.Error(c, http.StatusServiceUnavailable, "account service does not support OAuth quota filtering")
@@ -741,7 +775,7 @@ func (h *AccountHandler) List(c *gin.Context) {
 		}
 	}
 	if includeSchedulerScore && pageHasOpenAIAccounts {
-		schedulerFilterPool := h.listAccountSchedulerScoreFilterPool(c.Request.Context(), platform, accountType, status, search, groupID, privacyMode, oauthQuotaFilter)
+		schedulerFilterPool := h.listAccountSchedulerScoreFilterPool(c.Request.Context(), platform, accountType, status, search, groupID, privacyMode, oauthQuotaFilter, excelBPSFilter)
 		schedulerScores, schedulerGroupScores = h.buildOpenAIAccountSchedulerScores(c.Request.Context(), accounts, schedulerFilterPool)
 	}
 
@@ -848,11 +882,13 @@ func (h *AccountHandler) List(c *gin.Context) {
 
 	h.enrichShadowParents(c.Request.Context(), result)
 
+	// Keep the ordinary list's ETag shape identical when no feature filter is
+	// selected; the extended builder includes each selected filter in the hash.
 	etag := ""
-	if oauthQuotaFilter == "" {
+	if oauthQuotaFilter == "" && excelBPSFilter == "" {
 		etag = buildAccountsListETag(result, total, page, pageSize, platform, accountType, status, search, lite)
 	} else {
-		etag = buildAccountsListETagWithOAuthQuota(result, total, page, pageSize, platform, accountType, status, search, oauthQuotaFilter, lite)
+		etag = buildAccountsListETagWithOAuthQuota(result, total, page, pageSize, platform, accountType, status, search, oauthQuotaFilter, lite, excelBPSFilter)
 	}
 	if etag != "" {
 		c.Header("ETag", etag)
@@ -885,7 +921,12 @@ func buildAccountsListETagWithOAuthQuota(
 	platform, accountType, status, search string,
 	oauthQuotaFilter string,
 	lite bool,
+	featureFilters ...string,
 ) string {
+	excelBPSFilter := ""
+	if len(featureFilters) > 0 {
+		excelBPSFilter = featureFilters[0]
+	}
 	payload := struct {
 		Total       int64                    `json:"total"`
 		Page        int                      `json:"page"`
@@ -895,6 +936,7 @@ func buildAccountsListETagWithOAuthQuota(
 		Status      string                   `json:"status"`
 		Search      string                   `json:"search"`
 		OAuthQuota  string                   `json:"oauth_quota,omitempty"`
+		ExcelBPS    string                   `json:"excel_bps,omitempty"`
 		Lite        bool                     `json:"lite"`
 		Items       []AccountWithConcurrency `json:"items"`
 	}{
@@ -906,6 +948,7 @@ func buildAccountsListETagWithOAuthQuota(
 		Status:      status,
 		Search:      search,
 		OAuthQuota:  oauthQuotaFilter,
+		ExcelBPS:    excelBPSFilter,
 		Lite:        lite,
 		Items:       items,
 	}
@@ -2190,6 +2233,22 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 			return
 		}
 		req.Filters.OAuthQuota = oauthQuotaFilter
+		excelBPSFilter, err := service.NormalizeAccountExcelBPSFilter(req.Filters.ExcelBPS)
+		if err != nil {
+			response.BadRequest(c, "invalid Excel BPS filter")
+			return
+		}
+		req.Filters.ExcelBPS = excelBPSFilter
+	}
+	// Only the typed field may change BPS: generic extra patches cannot bypass
+	// the account eligibility check in the application layer.
+	if _, ok := req.Extra[service.ExcelBPSEnabledExtraKey]; ok {
+		response.BadRequest(c, "use excel_bps_enabled instead of extra.excel_bps_enabled")
+		return
+	}
+	if _, ok := req.Extra["openai_excel_bps"]; ok {
+		response.BadRequest(c, "use excel_bps_enabled instead of extra.openai_excel_bps")
+		return
 	}
 	// base_rpm 输入校验：负值归零，超过 10000 截断
 	sanitizeExtraBaseRPM(req.Extra)
@@ -2208,7 +2267,8 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 		req.GroupIDs != nil ||
 		len(req.Credentials) > 0 ||
 		len(req.Extra) > 0 ||
-		req.ProbeEnabled != nil
+		req.ProbeEnabled != nil ||
+		req.ExcelBPSEnabled != nil
 
 	if !hasUpdates {
 		response.BadRequest(c, "No updates provided")
@@ -2230,6 +2290,7 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 		Credentials:           req.Credentials,
 		Extra:                 req.Extra,
 		ProbeEnabled:          req.ProbeEnabled,
+		ExcelBPSEnabled:       req.ExcelBPSEnabled,
 		SkipMixedChannelCheck: skipCheck,
 	})
 	if err != nil {
@@ -2263,6 +2324,7 @@ func toServiceBulkUpdateAccountFilters(filters *BulkUpdateAccountFilters) *servi
 		Type:        filters.Type,
 		Status:      filters.Status,
 		OAuthQuota:  filters.OAuthQuota,
+		ExcelBPS:    filters.ExcelBPS,
 		Group:       filters.Group,
 		Search:      filters.Search,
 		PrivacyMode: filters.PrivacyMode,

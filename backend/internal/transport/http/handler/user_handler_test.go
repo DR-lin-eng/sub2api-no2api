@@ -811,3 +811,43 @@ func TestUserHandlerStartIdentityBindingReturnsAuthorizeURL(t *testing.T) {
 	require.Contains(t, resp.Data.AuthorizeURL, "intent=bind_current_user")
 	require.Contains(t, resp.Data.AuthorizeURL, "redirect=%2Fsettings%2Fprofile")
 }
+
+func (s *userHandlerEmailCacheStub) VerifyVerificationCode(ctx context.Context, email, code string, maxAttempts int) error {
+	data, err := s.GetVerificationCode(ctx, email)
+	if err != nil || data == nil {
+		return service.ErrInvalidVerifyCode
+	}
+	if data.Attempts >= maxAttempts {
+		return service.ErrVerifyCodeMaxAttempts
+	}
+	if data.Code != code {
+		data.Attempts++
+		if data.Attempts >= maxAttempts {
+			return service.ErrVerifyCodeMaxAttempts
+		}
+		return service.ErrInvalidVerifyCode
+	}
+	return s.DeleteVerificationCode(ctx, email)
+}
+
+func (s *userHandlerEmailCacheStub) VerifyNotifyVerificationCode(ctx context.Context, email, code string, maxAttempts int) error {
+	data, err := s.GetNotifyVerifyCode(ctx, email)
+	if err != nil || data == nil {
+		return service.ErrInvalidVerifyCode
+	}
+	if data.Attempts >= maxAttempts {
+		return service.ErrVerifyCodeMaxAttempts
+	}
+	if data.Code != code {
+		data.Attempts++
+		if data.Attempts >= maxAttempts {
+			return service.ErrVerifyCodeMaxAttempts
+		}
+		return service.ErrInvalidVerifyCode
+	}
+	return s.DeleteNotifyVerifyCode(ctx, email)
+}
+
+func (s *userHandlerEmailCacheStub) ConsumePasswordResetToken(context.Context, string, string, string) (bool, error) {
+	return false, nil
+}

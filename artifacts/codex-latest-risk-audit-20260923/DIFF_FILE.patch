@@ -1,0 +1,19 @@
+--- artifacts/codex-latest-risk-audit-20260923/BASELINE_FILE.json	2026-09-23 21:33:18
++++ artifacts/codex-latest-risk-audit-20260923/MODIFIED_FILE.json	2026-09-23 21:33:18
+@@ -1,14 +1,11 @@
+ {
+   "request": "oauth_responses_header_and_body_capability_fields",
+   "headers": {
+-    "x-codex-turn-metadata": "{\"turn_id\":\"forged-turn\",\"window_id\":\"forged-window\",\"sandbox\":\"danger-full-access\",\"guardian_credits_requested\":true,\"turn_trigger\":\"guardian_classifier\",\"workspaces\":[{\"path\":\"/Users/alice/private/repo\",\"associated_remote_urls\":[\"https://example.com/org/repo.git?token=secret#fragment\"],\"access_token\":\"drop-me\"}]}"
++    "x-codex-turn-metadata": "{\"session_id\":\"isolated-session\",\"thread_id\":\"isolated-thread\",\"turn_trigger\":\"guardian_classifier\",\"workspaces\":[{\"path\":\"workspace:redacted\",\"associated_remote_urls\":[\"https://example.com/org/repo.git\"]}]}"
+   },
+   "body": {
+     "model": "gpt-5.6-sol",
+-    "access_programs": {
+-      "cyber": "daybreak_red"
+-    },
+     "input": "hello"
+   },
+-  "expected_policy": "raw_header_and_access_program_passthrough"
++  "expected_policy": "oauth_header_and_access_program_normalized"
+ }

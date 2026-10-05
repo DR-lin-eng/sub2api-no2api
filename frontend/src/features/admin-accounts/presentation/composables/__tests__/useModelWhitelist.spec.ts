@@ -11,6 +11,7 @@ describe('useModelWhitelist', () => {
     const models = getModelsByPlatform('openai')
 
     expect(models).toContain('gpt-6-astra')
+    expect(models).toContain('gpt-6.1-sol')
     expect(models).toContain('gpt-6-sol')
     expect(models).toContain('gpt-6-luna')
     expect(models).toContain('gpt-5.4')

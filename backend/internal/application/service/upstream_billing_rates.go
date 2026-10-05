@@ -17,8 +17,8 @@ type UpstreamBillingRateProjection struct {
 }
 
 type UpstreamBillingRateListFilters struct {
-	Platform, AccountType, Status, Search, PrivacyMode, OAuthQuotaFilter string
-	GroupID                                                              int64
+	Platform, AccountType, Status, Search, PrivacyMode, OAuthQuotaFilter, ExcelBPSFilter string
+	GroupID                                                                              int64
 }
 
 type upstreamBillingRateProjectionLister interface {

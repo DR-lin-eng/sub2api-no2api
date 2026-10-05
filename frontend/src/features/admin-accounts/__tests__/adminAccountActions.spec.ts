@@ -63,7 +63,7 @@ describe('admin account actions', () => {
 
     await expect(batchRefresh([7, 11])).resolves.toEqual(batchResult)
     await expect(exportData({
-      filters: { platform: 'openai', status: 'active', sort_by: 'name', sort_order: 'asc' },
+      filters: { platform: 'openai', status: 'active', excel_bps: 'enabled', sort_by: 'name', sort_order: 'asc' },
       includeProxies: false
     })).resolves.toEqual(exportResult)
 
@@ -76,6 +76,7 @@ describe('admin account actions', () => {
       params: {
         platform: 'openai',
         status: 'active',
+        excel_bps: 'enabled',
         sort_by: 'name',
         sort_order: 'asc',
         include_proxies: 'false'

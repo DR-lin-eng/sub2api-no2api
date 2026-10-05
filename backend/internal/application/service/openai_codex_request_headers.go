@@ -1,7 +1,6 @@
 package service
 
 import (
-	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -52,6 +51,7 @@ func applyOpenAICodexSemanticRequestHeaders(headers http.Header, c *gin.Context,
 	if account == nil || !account.IsOpenAIOAuth() {
 		return
 	}
+	normalizeOpenAICodexTurnMetadataHeader(headers, c, account, body)
 
 	semantics := parseOpenAICodexRequestSemantics(body)
 	if semantics.subagent == "" {
@@ -83,6 +83,42 @@ func applyOpenAICodexSemanticRequestHeaders(headers http.Header, c *gin.Context,
 	}
 }
 
+// normalizeOpenAICodexTurnMetadataHeader closes the header-only bypass around
+// client_metadata.x-codex-turn-metadata. The body projection is preferred when
+// present because it has already passed through the account/session rewrite;
+// otherwise the raw header is parsed, bounded, and stripped of app-server-owned
+// identity/permission fields before it reaches an OAuth upstream.
+func normalizeOpenAICodexTurnMetadataHeader(headers http.Header, c *gin.Context, account *Account, body []byte) {
+	if headers == nil || account == nil || !account.IsOpenAIOAuth() {
+		return
+	}
+	source := strings.TrimSpace(codexBodyMetadataValue(body, openAIWSTurnMetadataHeader))
+	if source == "" {
+		source = strings.TrimSpace(headers.Get(openAIWSTurnMetadataHeader))
+	}
+	if source == "" {
+		return
+	}
+
+	if fingerprintIDs := resolveCodexFingerprintIDsFromGinContext(account, c); fingerprintIDs != nil && fingerprintIDs.mode != codexFingerprintOff {
+		normalized := rewriteCodexTurnMetadataValue(source, fingerprintIDs)
+		if normalized == "" || !gjson.Valid(normalized) {
+			deleteOpenAIHeaderEqualFold(headers, openAIWSTurnMetadataHeader)
+			return
+		}
+		headers.Set(openAIWSTurnMetadataHeader, normalized)
+		return
+	}
+
+	ids := resolveCodexOutboundSessionIDs(c, account, body, "")
+	normalized, ok := normalizeUntrustedCodexTurnMetadataValue(source, ids)
+	if !ok {
+		deleteOpenAIHeaderEqualFold(headers, openAIWSTurnMetadataHeader)
+		return
+	}
+	headers.Set(openAIWSTurnMetadataHeader, normalized)
+}
+
 func stagedCodexOutboundSessionBody(c *gin.Context) []byte {
 	if c != nil {
 		if value, exists := c.Get(codexOutboundSessionBodyContextKey); exists {
@@ -91,20 +127,4 @@ func stagedCodexOutboundSessionBody(c *gin.Context) []byte {
 		}
 	}
 	return nil
-}
-
-func rewriteCodexTurnMetadataStringField(raw, key, value string) string {
-	if strings.TrimSpace(raw) == "" || strings.TrimSpace(key) == "" || strings.TrimSpace(value) == "" {
-		return raw
-	}
-	metadata := make(map[string]any)
-	if err := json.Unmarshal([]byte(raw), &metadata); err != nil {
-		return raw
-	}
-	metadata[key] = value
-	rebuilt, err := json.Marshal(metadata)
-	if err != nil {
-		return raw
-	}
-	return string(rebuilt)
 }
