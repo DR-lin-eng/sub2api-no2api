@@ -181,9 +181,12 @@ function moveGroup(id: number, offset: number): void {
 }
 
 function applyRoutes(routes: MediaStudioGroupRoutes): void {
-  selectedIds.value = routes.map(entry => entry.group_id)
+  // Keep historical routes aligned with the groups the administrator can select.
+  const selectableIds = new Set(availableGroups().map(group => group.id))
+  const validRoutes = routes.filter(entry => selectableIds.has(entry.group_id))
+  selectedIds.value = validRoutes.map(entry => entry.group_id)
   for (const key of Object.keys(selectedModels)) delete selectedModels[Number(key)]
-  for (const entry of routes) selectedModels[entry.group_id] = [...(entry.models || [])]
+  for (const entry of validRoutes) selectedModels[entry.group_id] = [...(entry.models || [])]
 }
 
 function buildRoutes(): MediaStudioGroupRoutes {

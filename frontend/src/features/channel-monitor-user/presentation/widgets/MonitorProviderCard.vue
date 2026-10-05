@@ -40,6 +40,9 @@
       
       <!-- 折叠指示器 -->
       <button
+          type="button"
+          :aria-expanded="!isCollapsed"
+          :aria-label="isCollapsed ? t('channelStatus.expandGroups', { n: items.length }) : t('channelStatus.collapseGroups')"
           class="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100/80 dark:hover:bg-dark-700/60 transition-all flex-shrink-0"
           @click.stop="isCollapsed = !isCollapsed"
         >
