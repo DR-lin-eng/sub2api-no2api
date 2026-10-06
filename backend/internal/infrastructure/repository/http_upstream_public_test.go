@@ -83,8 +83,16 @@ func TestPublicDestinationPinsHTTPAndSOCKSProxyRequests(t *testing.T) {
 		proxyHits.Add(1)
 		require.Equal(t, http.MethodConnect, r.Method)
 		require.Equal(t, "8.8.8.8:80", r.Host)
-		conn, reader, err := w.(http.Hijacker).Hijack()
-		require.NoError(t, err)
+		hijacker, ok := w.(http.Hijacker)
+		if !ok {
+			t.Errorf("response writer does not support hijacking")
+			return
+		}
+		conn, reader, err := hijacker.Hijack()
+		if err != nil {
+			t.Errorf("hijack proxy connection: %v", err)
+			return
+		}
 		defer func() { _ = conn.Close() }()
 		_, err = io.WriteString(conn, "HTTP/1.1 200 Connection Established\r\n\r\n")
 		require.NoError(t, err)

@@ -770,6 +770,127 @@ func TestPaymentNotificationRejectsAmountMismatchBeforeFulfillment(t *testing.T)
 	require.Equal(t, OrderStatusPending, reloaded.Status)
 }
 
+func TestPaymentNotificationRejectsEmptyEasyPayTradeNoBeforeFulfillment(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentOrderLifecycleTestClient(t)
+	order := createPaymentFulfillmentSubscriptionOrder(t, ctx, client, OrderStatusPending, time.Now())
+	order, err := client.PaymentOrder.UpdateOneID(order.ID).
+		SetPaymentType(payment.TypeEasyPay).
+		SetPaymentTradeNo("").
+		Save(ctx)
+	require.NoError(t, err)
+
+	svc := &PaymentService{entClient: client}
+	err = svc.HandlePaymentNotification(ctx, &payment.PaymentNotification{
+		TradeNo: "",
+		OrderID: order.OutTradeNo,
+		Amount:  order.PayAmount,
+		Status:  payment.NotificationStatusSuccess,
+	}, payment.TypeEasyPay)
+	require.ErrorContains(t, err, "missing trade number")
+
+	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
+	require.NoError(t, err)
+	require.Equal(t, OrderStatusPending, reloaded.Status)
+}
+
+func TestPaymentNotificationAllowsEmptyEasyPayTradeNoOnlyForUpstreamQuery(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentOrderLifecycleTestClient(t)
+	user, err := client.User.Create().SetEmail("query-easypay@example.com").SetPasswordHash("hash").SetUsername("query-easypay").Save(ctx)
+	require.NoError(t, err)
+	order, err := client.PaymentOrder.Create().
+		SetUserID(user.ID).SetUserEmail(user.Email).SetUserName(user.Username).
+		SetAmount(650).SetPayAmount(650).SetFeeRate(0).
+		SetRechargeCode("QUERY-EASYPAY-RECHARGE").SetOutTradeNo("QUERY-EASYPAY-ORDER").
+		SetPaymentType(payment.TypeEasyPay).SetPaymentTradeNo("").SetProviderKey(payment.TypeEasyPay).
+		SetOrderType(payment.OrderTypeBalance).SetStatus(OrderStatusCompleted).
+		SetExpiresAt(time.Now().Add(time.Hour)).SetClientIP("127.0.0.1").SetSrcHost("site.example").Save(ctx)
+	require.NoError(t, err)
+
+	svc := &PaymentService{entClient: client}
+	require.NoError(t, svc.HandlePaymentNotification(ctx, &payment.PaymentNotification{
+		OrderID:  order.OutTradeNo,
+		Amount:   order.PayAmount,
+		Status:   payment.NotificationStatusSuccess,
+		Metadata: map[string]string{"notification_source": "upstream_query"},
+	}, payment.TypeEasyPay))
+}
+
+func TestPaymentNotificationAcceptsValidEasyPayTradeNo(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentOrderLifecycleTestClient(t)
+	user, err := client.User.Create().
+		SetEmail("valid-easypay@example.com").
+		SetPasswordHash("hash").
+		SetUsername("valid-easypay").
+		Save(ctx)
+	require.NoError(t, err)
+
+	order, err := client.PaymentOrder.Create().
+		SetUserID(user.ID).
+		SetUserEmail(user.Email).
+		SetUserName(user.Username).
+		SetAmount(650).
+		SetPayAmount(650).
+		SetFeeRate(0).
+		SetRechargeCode("VALID-EASYPAY-RECHARGE").
+		SetOutTradeNo("VALID-EASYPAY-ORDER").
+		SetPaymentType(payment.TypeEasyPay).
+		SetPaymentTradeNo("").
+		SetProviderKey(payment.TypeEasyPay).
+		SetProviderSnapshot(map[string]any{
+			"schema_version": 2,
+			"provider_key":   payment.TypeEasyPay,
+			"merchant_id":    "1000",
+		}).
+		SetOrderType(payment.OrderTypeBalance).
+		SetStatus(OrderStatusPending).
+		SetExpiresAt(time.Now().Add(time.Hour)).
+		SetClientIP("127.0.0.1").
+		SetSrcHost("site.example").
+		Save(ctx)
+	require.NoError(t, err)
+
+	userRepo := &mockUserRepo{getByIDUser: &User{ID: user.ID, Email: user.Email, Username: user.Username}}
+	userRepo.updateBalanceFn = func(_ context.Context, id int64, amount float64) error {
+		require.Equal(t, user.ID, id)
+		userRepo.getByIDUser.Balance += amount
+		return nil
+	}
+	redeemRepo := &paymentOrderLifecycleRedeemRepo{codesByCode: map[string]*RedeemCode{
+		order.RechargeCode: {
+			ID:     1,
+			Code:   order.RechargeCode,
+			Type:   RedeemTypeBalance,
+			Value:  order.Amount,
+			Status: StatusUnused,
+		},
+	}}
+	svc := &PaymentService{
+		entClient: client,
+		registry:  payment.NewRegistry(),
+		userRepo:  userRepo,
+		redeemService: NewRedeemService(
+			redeemRepo, userRepo, nil, nil, nil, client, nil, nil,
+		),
+	}
+
+	require.NoError(t, svc.HandlePaymentNotification(ctx, &payment.PaymentNotification{
+		TradeNo:  "UPSTREAM-VALID-123",
+		OrderID:  order.OutTradeNo,
+		Amount:   order.PayAmount,
+		Status:   payment.NotificationStatusSuccess,
+		Metadata: map[string]string{"pid": "1000"},
+	}, payment.TypeEasyPay))
+
+	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
+	require.NoError(t, err)
+	require.Equal(t, OrderStatusCompleted, reloaded.Status)
+	require.Equal(t, "UPSTREAM-VALID-123", reloaded.PaymentTradeNo)
+	require.Equal(t, 650.0, userRepo.getByIDUser.Balance)
+}
+
 func TestExecuteSubscriptionFulfillmentRecoversCommittedAssignmentWithoutExtendingAgain(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)

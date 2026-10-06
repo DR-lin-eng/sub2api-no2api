@@ -435,6 +435,23 @@ func TestOpenAIGeneratedImage_OpensMappedURLWithoutAuthorization(t *testing.T) {
 	require.Equal(t, "bytes=0-3", upstream.request.Header.Get("Range"))
 }
 
+func TestOpenAIGeneratedImageRejectsOversizedMappedResponse(t *testing.T) {
+	rawURL := "https://cdn.vendor.example/generated/oversized.png"
+	sum := sha256.Sum256([]byte(rawURL))
+	hash := hex.EncodeToString(sum[:])
+	store := &generatedImageStoreStub{urls: map[string]string{hash: rawURL}}
+	upstream := &generatedImageHTTPUpstreamStub{resp: &http.Response{
+		StatusCode:    http.StatusOK,
+		Header:        http.Header{"Content-Type": []string{"image/png"}},
+		Body:          io.NopCloser(strings.NewReader("oversized")),
+		ContentLength: GeneratedImageProxyMaxBytes + 1,
+	}}
+	svc := &OpenAIGatewayService{cache: store, httpUpstream: upstream}
+
+	_, err := svc.OpenGeneratedImage(context.Background(), hash+".png", nil)
+	require.ErrorIs(t, err, ErrGeneratedImageUnavailable)
+}
+
 func TestOpenAIGeneratedImage_OpensMappedURLWithRequestAccountRoute(t *testing.T) {
 	rawURL := "https://cdn.vendor.example/generated/result.png?signature=route"
 	sum := sha256.Sum256([]byte(rawURL))
