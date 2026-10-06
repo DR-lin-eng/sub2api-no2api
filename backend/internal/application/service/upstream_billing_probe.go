@@ -970,6 +970,9 @@ func decodeUpstreamBillingProbeSnapshot(extra map[string]any) *UpstreamBillingPr
 // explicitly supported API-key platforms so future platforms do not inherit
 // periodic outbound probing by accident.
 func IsUpstreamBillingProbeIdentity(platform, accountType string) bool {
+	if platform == PlatformTypeSafe {
+		return accountType == AccountTypeAPIKey
+	}
 	if accountType != AccountTypeAPIKey {
 		return false
 	}
@@ -992,6 +995,7 @@ var upstreamBillingProbeOfficialAPIDomains = []string{
 	"grok.com",
 	"openai.com",
 	"ollama.com",
+	"typesafe.ai",
 }
 
 func upstreamBillingProbeTargetIsOfficialAPI(baseURL string) bool {

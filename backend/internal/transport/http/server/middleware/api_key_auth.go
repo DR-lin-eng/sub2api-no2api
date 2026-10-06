@@ -115,6 +115,9 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 		// Auth cache entries are shared across requests. Routing may advance this
 		// request to another configured group, so mutate only a request-local copy.
 		apiKey = apiKey.CloneForRequest()
+		if c.Request.URL.Path == "/v1/systemone" {
+			filterSystemOneGroupBindings(apiKey)
+		}
 		c.Request = c.Request.WithContext(service.WithAPIKeyGroupRouting(c.Request.Context(), apiKey))
 
 		// apiKey 已加载（含 User/Group）。即便后续因分组停用/Key 停用/用户停用/

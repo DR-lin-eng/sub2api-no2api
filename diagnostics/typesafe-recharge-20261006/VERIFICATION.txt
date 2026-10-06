@@ -1,0 +1,35 @@
+DATE=2026-10-06 Asia/Shanghai
+BASELINE=eb107c2b48e1e8c471713cc41817fec3811fd64e (origin/main; includes fork PR #108)
+UPSTREAM_FROZEN=b8dece9000c68815a5b867ca5a1e6f236e173905
+BRANCH=codex/typesafe-recharge-20261006
+RESULT=Deferred upstream PRs #7425, #7813, #7802 adapted into current owners and closed. Earlier closed differences were not revisited.
+
+Docker environment: Go 1.26.6, Node 24, pnpm 11.17.0, PostgreSQL 18, Redis 8. No real payment or TypeSafe API calls.
+Go concurrency capped at GOMAXPROCS=2 / GOFLAGS=-p=2 / GOMEMLIMIT=1500MiB for local Docker resources.
+Ent and Wire generated using go generate ./ent and go generate ./cmd/server in Docker. Source schema changes only; generated files not hand-edited.
+
+Backend unit: final go test -tags=unit ./... PASS, exit 0; unit-clean.txt. Complete application service suite passed (188 s). Additive default-platform API snapshot and native fixture assertions corrected before the final clean run.
+Backend integration: go test -tags=integration ./... in Docker with Testcontainers (CI=true), complete run PASS including real PostgreSQL/Redis. See integration-final.txt.
+Added PostgreSQL regression: TypeSafe quota Ent/repository round trip; migrate from old constraint/column set twice; old payment writer after upgrade; preserve all 10 existing platforms; gift order settles 120 credits once across repeat fulfillment and replayed notification. PASS; integration-money.txt.
+Go lint v2.9.0: 0 issues; full middleware/routes/server packages PASS. backend-final.txt.
+Native account/forwarding regression: account egress preserves IPv6 binding and external proxy priority; header override preserves credential protections; native-only protocol/model/price; API-key-only probe eligibility; context-free async usage capture; native prompt state/criteria/extensions; malformed and streaming request rejection; upstream error policy and 4MiB response bounds.
+Financial regression: default-off quote keeps old amounts even when tiers exist; enabled bonus/discount quote; max 20 tiers; nil/partial updates; two-decimal validation; order snapshot unchanged after config change; affiliate excludes gifts; full/partial refund uses stored paid-to-credit ratio. Pure and application tests PASS.
+
+Frontend CI: make test-frontend -> typecheck and 29 critical files / 247 tests PASS; eslint PASS. frontend-final.txt.
+Affected feature suite: 43 files / 339 tests PASS; then native CLI spec extended, 13 tests PASS. frontend-affected.txt + native-cli.txt.
+One optional pre-existing Codex card hash assertion excluded from the broad admin-settings directory run. Actual file byte-identical to baseline; PREEXISTING_TEST.txt. No CI required checks were skipped. No lint architecture or source-layout exception baseline expanded.
+Dynamic HTML gate covers the new bonus notice using existing payment-help sanitizer. Dynamic locale key replaced with explicit fixed translations; EN/ZH route locale coverage PASS.
+
+Production Docker build PASS (sub2api-typesafe-recharge:20261006). Final build includes native request pending-memory accounting.
+Full runtime uses compose.yaml, mock_systemone.py and synthetic historical administrator acknowledgement fixture; no acceptance API/UI called for a real user.
+Baseline -> candidate: /health and /ready 200, frontend 200, encrypted admin login, persisted API Key/name/quota, legacy pending order intact; migrations 299 -> 301, stored tiers stay disabled. runtime-baseline.txt + runtime-modified.txt.
+Native: two same-platform TypeSafe group bindings (first empty, second has account), model catalog, raw successful JSON including extension, stream:true rejection, configured finite single-account failover, next successful request releases slots; exactly 246 input tokens billed at 0.042/1M, output free. runtime-native.txt.
+TypeSafe relay billing probe: manual /api/v1/admin/accounts/1/upstream-billing-probe returned snapshot.status=ok. runtime-probe.txt. Official TypeSafe API remains unsupported for fork-only billing endpoint by design.
+Rollback/restoration: same database and Redis; disable offers and stop native traffic, old binary works without dropping additive migrations; restore candidate without duplicate migrations. runtime-rollback.txt + runtime-restored.txt.
+
+Browser actual production Vue components: 1280x900 and 390x844; bonus/discount preview, tier editor and TypeSafe usage dialog. No console errors. browser-desktop.png, browser-discount.png, browser-mobile.png, browser-typesafe.png; fixture source under ui/.
+
+Performance: go test ./internal/modules/typesafe -run '^$' -bench BenchmarkSystemOneValidation -benchmem -count=3 -benchtime=100x. 256KiB state median CPU 3.078 ms -> 2.319 ms (~25% lower); allocation 1,855,288 -> 1,584,435 bytes/op (~15% lower). 1KiB median 30.9 -> 14.2 us. Protocol-only benchmark, not network throughput; benchmark.txt.
+make check-docs PASS; git diff --check PASS. Source-layout script still reports the two pre-existing baseline overlength files: openai_ws_v2/passthrough_relay.go (1273) and pricing_service.go (1238); no new violation or allowlist extension.
+
+Exact pushed-head CI and merge/main Docker publication are tracked in the fork PR. No new upstream tracking merge is needed: the frozen upstream range was already recorded in PR #107; machine closure ledger is updated for these three deferred behaviors.

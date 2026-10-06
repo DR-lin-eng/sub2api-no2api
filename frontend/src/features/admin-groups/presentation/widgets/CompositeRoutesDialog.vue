@@ -372,6 +372,7 @@ const platformOptions = computed(() => [
     { value: 'deepseek', label: 'DeepSeek' },
     { value: 'minimax', label: 'MiniMax' },
     { value: 'opencode_go', label: 'OpenCode' },
+    { value: 'typesafe', label: 'TypeSafe / Jev' },
 ])
 
 const endpointOptions = computed(() => [

@@ -31,6 +31,7 @@ export function useGroupEditorRuntime() {
       { value: "deepseek", label: "DeepSeek" },
       { value: "minimax", label: "MiniMax" },
       { value: "opencode_go", label: "OpenCode" },
+    { value: 'typesafe', label: 'TypeSafe / Jev' },
       { value: "composite", label: "Composite" },
   ]);
   const subscriptionTypeOptions = computed(() => [

@@ -1,0 +1,37 @@
+$ eslint .
+$ vue-tsc --noEmit
+ ✓ src/core/__tests__/credentialCryptoUsage.spec.ts (2 tests) 368ms
+ ✓ src/__tests__/dynamicLocaleMapping.spec.ts (1 test) 452ms
+ ✓ src/features/profile/__tests__/ProfileInfoCard.spec.ts (8 tests) 128ms
+ ✓ src/features/admin-usage/__tests__/UsageTable.spec.ts (22 tests) 191ms
+ ✓ src/features/admin-usage/__tests__/UsageDetailDialog.spec.ts (4 tests) 98ms
+ ✓ src/common/pages/__tests__/HomePageCompact.spec.ts (11 tests) 147ms
+ ✓ src/features/auth/__tests__/LinuxDoCallbackView.spec.ts (17 tests) 159ms
+ ✓ src/features/billing/__tests__/PaymentResultPage.spec.ts (15 tests) 96ms
+ ✓ src/features/auth/__tests__/WechatCallbackView.spec.ts (25 tests) 248ms
+ ✓ src/features/billing/__tests__/PaymentPage.spec.ts (13 tests) 186ms
+ ✓ src/common/widgets/data/__tests__/GroupOptionItem.spec.ts (11 tests) 125ms
+ ✓ src/core/routes/__tests__/adminRouteAccess.spec.ts (1 test) 87ms
+ ✓ src/features/auth/__tests__/authProfileLocaleScopes.spec.ts (4 tests) 53ms
+ ✓ src/core/utils/__tests__/homeContent.spec.ts (5 tests) 31ms
+ ✓ src/features/admin-usage/__tests__/UsageStatsCards.spec.ts (4 tests) 57ms
+ ✓ src/features/channels-user/__tests__/customPageHtml.spec.ts (3 tests) 43ms
+ ✓ src/features/billing/__tests__/paymentLocaleScopes.spec.ts (4 tests) 64ms
+ ✓ src/core/utils/__tests__/embedded-url.spec.ts (7 tests) 16ms
+ ✓ src/features/prompt-audit/__tests__/RuntimeOverview.spec.ts (1 test) 20ms
+ ✓ src/features/prompt-audit/__tests__/promptAuditLocale.spec.ts (4 tests) 2ms
+ ✓ src/features/channel-monitor-user/__tests__/channelMonitorLocale.spec.ts (6 tests) 12ms
+ ✓ src/core/utils/__tests__/usageLocale.spec.ts (4 tests) 7ms
+ ✓ src/features/subscriptions/__tests__/subscriptionStatus.spec.ts (4 tests) 5ms
+ ✓ src/common/widgets/layout/__tests__/AppHeaderResponsive.spec.ts (2 tests) 4ms
+ ✓ src/features/channels-user/__tests__/CustomLandingPage.security.spec.ts (4 tests) 4ms
+ ✓ src/features/admin-backup/presentation/pages/__tests__/backupStatus.spec.ts (4 tests) 2ms
+ ✓ src/__tests__/dynamicHtmlSecurity.spec.ts (4 tests) 17ms
+ ✓ src/features/admin-settings/__tests__/SettingsPage.spec.ts (54 tests) 2524ms
+ ✓ src/core/i18n/__tests__/routeLocaleCoverage.spec.ts (3 tests) 5778ms
+ Test Files  29 passed (29)
+      Tests  247 passed (247)
+$ eslint . --fix
+ ✓ src/features/keys/__tests__/UseKeyDialog.spec.ts (13 tests) 138ms
+ Test Files  1 passed (1)
+      Tests  13 passed (13)

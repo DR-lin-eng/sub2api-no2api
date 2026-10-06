@@ -1,0 +1,2 @@
+Baseline eb107c2b48e1e8c471713cc41817fec3811fd64e
+settingsGatewayResilienceModularization.spec.ts CodexSimulationCard expected hash c78190ebe0430d38d939afcd187759beb1e88dd0fda341eb303e65facf4fdb3e; baseline and current actual f72f76ef998051b6103723348ab9ed9cdfd37c7353bc88676583558c8b56cb03. Source is byte-identical to baseline. This optional full-feature spec is not in the CI critical set. No unrelated card source or test was altered.

@@ -1,3 +1,4 @@
+import { normalizeRechargeBonusTiers, normalizeRechargeBonusMode } from '@/features/billing/rechargeBonus'
 import { useAuthStore } from "@/features/auth";
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -518,6 +519,10 @@ export function useSettingsPage() {
         }
       }
       normalizeHumanVerificationProvider();
+      form.payment_recharge_bonus_enabled = settings.payment_recharge_bonus_enabled === true;
+      form.payment_recharge_bonus_tiers = normalizeRechargeBonusTiers(settings.payment_recharge_bonus_tiers);
+      form.payment_recharge_bonus_mode = normalizeRechargeBonusMode(settings.payment_recharge_bonus_mode);
+      form.payment_recharge_bonus_notice = settings.payment_recharge_bonus_notice || "";
       clientIPTrustedProxiesText.value = (
         settings.client_ip_trusted_proxies || []
       ).join("\n");

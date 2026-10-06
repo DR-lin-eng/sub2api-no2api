@@ -48,7 +48,7 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 	}
 
 	if platform == service.PlatformComposite {
-		availableModels := h.compositeAvailableModels(c.Request.Context(), groupID)
+		availableModels := h.compositeAvailableModels(c.Request.Context(), groupID, true)
 		if apiKey != nil && apiKey.Group != nil && apiKey.Group.ModelAllowlistEnabled() {
 			source := availableModels
 			if len(source) == 0 {
@@ -99,6 +99,10 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 		writeModelsListResponse(c, geminicli.DefaultModels)
 		return
 	}
+	if platform == service.PlatformTypeSafe {
+		writeModelsList(c, platform, []string{"jev-latest"})
+		return
+	}
 	if platform == service.PlatformGrok {
 		writeGrokModelsList(c, xai.DefaultModelIDs())
 		return
@@ -124,7 +128,7 @@ func (h *GatewayHandler) apiKeyBindingsAvailableModels(ctx context.Context, bind
 		groupID := group.ID
 		var groupModels []string
 		if group.Platform == service.PlatformComposite {
-			groupModels = h.compositeAvailableModels(ctx, &groupID)
+			groupModels = h.compositeAvailableModels(ctx, &groupID, true)
 		} else {
 			groupModels = h.gatewayService.GetAvailableModels(ctx, &groupID, group.Platform)
 			if len(groupModels) == 0 {
@@ -156,7 +160,7 @@ func (h *GatewayHandler) apiKeyBindingsAvailableModels(ctx context.Context, bind
 	return models, platform
 }
 
-func (h *GatewayHandler) compositeAvailableModels(ctx context.Context, groupID *int64) []string {
+func (h *GatewayHandler) compositeAvailableModels(ctx context.Context, groupID *int64, includeSystemOne bool) []string {
 	if h == nil || h.gatewayService == nil {
 		return nil
 	}
@@ -166,8 +170,11 @@ func (h *GatewayHandler) compositeAvailableModels(ctx context.Context, groupID *
 	for _, platform := range []string{
 		service.PlatformAnthropic, service.PlatformGemini, service.PlatformOpenAI, service.PlatformAntigravity, service.PlatformGrok,
 		service.PlatformKimi, service.PlatformZhipu, service.PlatformDeepseek, service.PlatformMiniMax,
-		service.PlatformOpenCodeGo,
+		service.PlatformOpenCodeGo, service.PlatformTypeSafe,
 	} {
+		if platform == service.PlatformTypeSafe && !includeSystemOne {
+			continue
+		}
 		platformModels := h.gatewayService.GetAvailableModels(ctx, groupID, platform)
 		if len(platformModels) == 0 {
 			if _, ok := schedulablePlatforms[platform]; ok {
@@ -446,6 +453,8 @@ func defaultModelIDsForPlatform(platform string) []string {
 		return []string{"deepseek-v4-pro", "deepseek-v4-flash", "deepseek-flash"}
 	case service.PlatformMiniMax:
 		return []string{"MiniMax-M3", "MiniMax-M2.7", "MiniMax-M2.5"}
+	case service.PlatformTypeSafe:
+		return []string{"jev-latest"}
 	case service.PlatformOpenCodeGo:
 		return service.DefaultOpenCodeGoModelIDs()
 	case service.PlatformComposite:

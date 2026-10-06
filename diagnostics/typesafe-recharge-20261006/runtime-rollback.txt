@@ -1,0 +1,9 @@
+ROLLBACK: /health HTTP_200
+ROLLBACK: /ready HTTP_200
+ROLLBACK: embedded_frontend HTTP_200
+ROLLBACK: admin_login PASS
+ROLLBACK: persisted_key_name_quota PASS
+ROLLBACK: public_settings_contract PASS
+ROLLBACK: legacy_order_state PASS
+ROLLBACK: RUNTIME_PASS
+301

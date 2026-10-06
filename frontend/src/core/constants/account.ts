@@ -141,6 +141,7 @@ export function updateOpenCodeProtocolRuleDefaults(
 }
 
 export function defaultAPIKeyBaseURL(platform: AccountPlatform): string {
+  if (platform === 'typesafe') return 'https://api.typesafe.ai'
   switch (platform) {
     case 'openai': return 'https://api.openai.com'
     case 'gemini': return 'https://generativelanguage.googleapis.com'

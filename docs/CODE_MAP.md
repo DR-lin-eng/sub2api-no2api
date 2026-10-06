@@ -177,3 +177,5 @@ rg -n "from '@/api|from '@/api/admin|from '@/stores" frontend/src -g '*.{ts,vue}
 | 新前端页面 | core route、feature page/widget、导航可见性、datasource、core i18n、权限和相邻测试 |
 
 需要理解调用时序时，继续阅读 [关键请求链路](REQUEST_LIFECYCLES.md)。
+
+TypeSafe 原生协议入口为 [独立模块](../backend/internal/modules/typesafe/README.md)，HTTP/application 编排为 `gateway_systemone.go`；充值阶梯纯规则归属 [支付模块](../backend/internal/modules/payment/README.md)。升级与验证见 [专项适配](UPSTREAM_ADAPT_20261006.md)。

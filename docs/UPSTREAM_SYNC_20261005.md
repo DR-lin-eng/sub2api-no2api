@@ -11,7 +11,7 @@
 | PR | 处理 | 当前 owner / 审查结论 |
 | --- | --- | --- |
 | [#7780](https://github.com/Wei-Shaw/sub2api/pull/7780) | 已移植 | shared/xai/cli_identity.go；repository/http_upstream.go；service/openai_gateway_grok.go。交互式 Grok 身份统一为 1.0.46，版本覆盖下限 1.0.13，按运行平台构造 UA；保留本项目固定默认版本、API 域名与路由/出口隔离。 |
-| [#7425](https://github.com/Wei-Shaw/sub2api/pull/7425) | 专项暂缓（未合入） | 现有 shared/typesafe 仅为内部审核客户端；新原生网关需独立模块。原生 /v1/systemone 与平台枚举、计费/额度、审计和 UI 是新协议范围；迁移 241 与本项目 241_account_quality_runs.sql 冲突，上游 Do(proxyURL) 未携带本项目完整账号出口。需模块化路由与账户出口/失败/结算专项验证。 |
+| [#7425](https://github.com/Wei-Shaw/sub2api/pull/7425) | 专项暂缓（未合入） | 当时评估独立原生网关模块与协议链路，暂缓进行专项适配。原生 /v1/systemone 与平台枚举、计费/额度、审计和 UI 是新协议范围；迁移 241 与本项目 241_account_quality_runs.sql 冲突，上游 Do(proxyURL) 未携带本项目完整账号出口。需模块化路由与账户出口/失败/结算专项验证。 |
 | [#7802](https://github.com/Wei-Shaw/sub2api/pull/7802) | 专项暂缓（未合入） | modules/payment；service/payment_order.go、payment_fulfillment.go。新增 bonus_amount 和阶梯报价改变到账金额、返利基数及退款边界；迁移 241 冲突。需在现有支付模块设计报价快照、实际支付/赠送拆分与升级回退，不将上游旧 service/Ent 生成代码整包覆盖。 |
 | [#7673](https://github.com/Wei-Shaw/sub2api/pull/7673) | 已移植 | transport/http/server/routes/payment.go；platform/middleware/rate_limiter.go。匿名旧订单状态查询每 IP 每分钟 20 次，复用现有原子限流与受信客户端 IP；Redis 故障 fail-open。签名恢复令牌、回调和已登录订单路由保持原契约，不新增 Wire 图。 |
 | [#7803](https://github.com/Wei-Shaw/sub2api/pull/7803) | 已移植 | repository/api_key_repo_sort.go；features/keys。按第一绑定分组名称在 SQL 分页前排序，无分组始终置后，ID 稳定排序；有序 fallback 绑定不变。提取排序 owner 以符合源码上限，查询次数和预加载不变。 |
@@ -47,3 +47,5 @@ Docker 全量后端 unit/integration、Go lint、race、前端 lint/typecheck、
 首次推送 `58b7eb0` 的 Security Scan 与相同下游基线主线的最新定时扫描都报告 Axios 1.18.1 的七个新高危公告及 node-forge 1.4.0 的一项公告。依据 [Axios 官方公告](https://github.com/advisories/GHSA-c29m-xwm3-cm6r) 升级至 1.20.0 后，生产依赖审计只剩 node-forge 的 [GHSA-86w9-cpqp-85rv](https://github.com/advisories/GHSA-86w9-cpqp-85rv)，该公告暂无官方修复版本。
 
 node-forge 仅由 `core/networks/credentialEncryptionFallback.ts` 用于 RSA-OAEP 加密、AES-GCM 和公钥解析，当前不执行受影响的 PKCS#1 v1.5 签名验证。为保留既有 HTTP/IP 浏览器登录兼容，按现有审计机制为该精确公告设置截至 **2026-11-05** 的例外，并把 `credentialCryptoUsage.spec.ts` 加入必跑关键测试集，约束导入 owner、允许的 Forge API 和 OAEP/GCM 方案。例外不覆盖其他公告；官方修复版发布、调用范围改变或到期时须重新审查。原生/回退加密、401 合并刷新和 HTTP client 同步执行 Docker 回归。
+
+2026-10-06 更新：#7425、#7802、#7813 已完成 [专项适配](UPSTREAM_ADAPT_20261006.md)，本表暂缓理由仅记录前次决策。机器台账三项 `fully_closed` 已改为 true，后续不重复处理。
