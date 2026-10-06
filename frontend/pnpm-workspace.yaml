@@ -17,6 +17,7 @@ overrides:
   picomatch@<2.3.2: 2.3.2
   picomatch@>=4.0.0 <4.0.4: 4.0.5
   postcss@<8.5.18: 8.5.23
+  source-map-js@<1.2.2: 1.2.2
   dompurify@<3.4.14: ">=3.4.14"
   tldts-core: 7.4.13
   rollup: 4.59.0

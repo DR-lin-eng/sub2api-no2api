@@ -39,3 +39,7 @@ Linux arm64、Docker Go 1.26.6，`GOMAXPROCS=2`，相同有效请求，100 次/�
 浏览器在 1280×900 与 390×844 使用实际 Vue 组件验证赠金、折扣切换、金额预览和原生使用说明；fixture 不调用真实支付或 TypeSafe 服务。截图和 harness 在诊断目录。
 
 扩大到整个 admin-settings 测试目录时发现一条原有 Codex 卡片模板哈希断言：基线 main 与当前文件完全相同，但测试期待旧哈希。本轮没有修改无关卡片或断言；[基线证据](../diagnostics/typesafe-recharge-20261006/PREEXISTING_TEST.txt) 单独记录。全部 CI 必需门禁仍完整执行。
+
+推送后 CI 在 2026-10-06 检出两条 10 月 5 日更新的依赖公告。升级 Vue 全套锁定到 3.5.42，消除 [GHSA-g2v6-rqmx-r4w6](https://github.com/advisories/GHSA-g2v6-rqmx-r4w6)；条件 override 将 source-map-js <1.2.2 收敛到 1.2.2，消除 [GHSA-68fv-2mgg-jv7q](https://github.com/advisories/GHSA-68fv-2mgg-jv7q)。生产依赖审计只剩前次已有的 node-forge 限定例外，该例外范围和加密用途门禁均保持不变。补丁后重建镜像、复验运行数据、原生 relay 探测和全部前端回归。
+
+扩大回归另外发现旧主线的原始文件行数断言、缺少 Pinia 的测试挂载、旧注册导航断言和旧 OpenCode 字节快照；已用精确基线源码、原 Vue 3.5.40 与原 frozen lockfile 独立复现，共 6 个文件 9 条旧失败，详见基线证据。这些不是 CI 必需集合。TypeSafe 配额的 11 平台/33 输入及额度加载保存测试已补齐。
