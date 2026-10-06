@@ -1,0 +1,18 @@
+server
+__pycache__/
+
+# Preserve reviewed audit evidence despite the repository-wide *.log rule.
+!check-docs.log
+!docker-test-image.log
+!docker-unit.log
+!docker-integration.log
+!docker-race.log
+!docker-pre-fix-replay.log
+!docker-runtime-cleanup.log
+!runtime-app.log
+!runtime-direct.log
+!runtime-queued.log
+!runtime-version.log
+!runtime-queue-completed.log
+!runtime-queue-pending.log
+!runtime-audit-sql.log

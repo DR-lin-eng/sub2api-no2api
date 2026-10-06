@@ -1,0 +1,67 @@
+2026/10/06 09:05:17 Timezone initialized: UTC (UTC offset: +00:00)
+2026/10/06 09:05:17 github.com/testcontainers/testcontainers-go - Connected to docker:
+  Server Version: 29.2.1
+  API Version: 1.51
+  Operating System: Docker Desktop
+  Total Memory: 7836 MB
+  Labels:
+    com.docker.desktop.address=unix:///Users/lin/Library/Containers/com.docker.docker/Data/docker-cli.sock
+  Testcontainers for Go Version: v0.40.0
+  Resolved Docker Host: unix:///var/run/docker.sock
+  Resolved Docker Socket Path: /var/run/docker.sock
+  Test SessionID: 68917df08c562bff3ca4c8eb2396be174dfa1c037eb6743a58a97ed46de275dd
+  Test ProcessID: 0188c71c-2a71-4be9-beb4-c3ee16bb1a16
+2026/10/06 09:05:17 🐳 Creating container for image postgres:18.1-alpine3.23
+2026/10/06 09:05:17 🐳 Creating container for image testcontainers/ryuk:0.13.0
+2026/10/06 09:05:17 ✅ Container created: 205d24d50e34
+2026/10/06 09:05:17 🐳 Starting container: 205d24d50e34
+2026/10/06 09:05:17 ✅ Container started: 205d24d50e34
+2026/10/06 09:05:17 ⏳ Waiting for container id 205d24d50e34 image: testcontainers/ryuk:0.13.0. Waiting for: port 8080/tcp to be listening
+2026/10/06 09:05:17 Shell not found in container
+2026/10/06 09:05:17 🔔 Container is ready: 205d24d50e34
+2026/10/06 09:05:17 ✅ Container created: 45e160859a15
+2026/10/06 09:05:17 🐳 Starting container: 45e160859a15
+2026/10/06 09:05:17 ✅ Container started: 45e160859a15
+2026/10/06 09:05:17 ⏳ Waiting for container id 45e160859a15 image: postgres:18.1-alpine3.23. Waiting for: all of: [log message "database system is ready to accept connections" (occurrence: 2), port 5432/tcp to be listening]
+2026/10/06 09:05:18 🔔 Container is ready: 45e160859a15
+2026/10/06 09:05:18 🐳 Creating container for image redis:8.4-alpine
+2026/10/06 09:05:18 ✅ Container created: b6611bcc2211
+2026/10/06 09:05:18 🐳 Starting container: b6611bcc2211
+2026/10/06 09:05:18 ✅ Container started: b6611bcc2211
+2026/10/06 09:05:18 ⏳ Waiting for container id b6611bcc2211 image: redis:8.4-alpine. Waiting for: all of: [port 6379/tcp to be listening, log message "* Ready to accept connections"]
+2026/10/06 09:05:19 🔔 Container is ready: b6611bcc2211
+=== RUN   TestUsageBillingKeyDeletion_DirectSettlement
+=== RUN   TestUsageBillingKeyDeletion_DirectSettlement/balance
+    usage_billing_key_deletion_integration_test.go:30:
+            Error Trace:    /workspace/internal/infrastructure/repository/usage_billing_key_deletion_integration_test.go:30
+            Error:          Received unexpected error:
+                            error: code=404 reason="API_KEY_NOT_FOUND" message="api key not found" metadata=map[]
+            Test:           TestUsageBillingKeyDeletion_DirectSettlement/balance
+=== RUN   TestUsageBillingKeyDeletion_DirectSettlement/subscription
+    usage_billing_key_deletion_integration_test.go:30:
+            Error Trace:    /workspace/internal/infrastructure/repository/usage_billing_key_deletion_integration_test.go:30
+            Error:          Received unexpected error:
+                            error: code=404 reason="API_KEY_NOT_FOUND" message="api key not found" metadata=map[]
+            Test:           TestUsageBillingKeyDeletion_DirectSettlement/subscription
+--- FAIL: TestUsageBillingKeyDeletion_DirectSettlement (0.02s)
+    --- FAIL: TestUsageBillingKeyDeletion_DirectSettlement/balance (0.01s)
+    --- FAIL: TestUsageBillingKeyDeletion_DirectSettlement/subscription (0.01s)
+=== RUN   TestUsageBillingKeyDeletion_DurableQueueSettlement
+=== RUN   TestUsageBillingKeyDeletion_DurableQueueSettlement/balance
+    usage_billing_key_deletion_integration_test.go:81:
+            Error Trace:    /workspace/internal/infrastructure/repository/usage_billing_key_deletion_integration_test.go:157
+                                        /workspace/internal/infrastructure/repository/usage_billing_key_deletion_integration_test.go:81
+            Error:          Max difference between 97.5 and 100 allowed is 1e-08, but difference was -2.5
+            Test:           TestUsageBillingKeyDeletion_DurableQueueSettlement/balance
+=== RUN   TestUsageBillingKeyDeletion_DurableQueueSettlement/subscription
+    usage_billing_key_deletion_integration_test.go:81:
+            Error Trace:    /workspace/internal/infrastructure/repository/usage_billing_key_deletion_integration_test.go:166
+                                        /workspace/internal/infrastructure/repository/usage_billing_key_deletion_integration_test.go:81
+            Error:          Max difference between 2.5 and 0 allowed is 1e-08, but difference was 2.5
+            Test:           TestUsageBillingKeyDeletion_DurableQueueSettlement/subscription
+--- FAIL: TestUsageBillingKeyDeletion_DurableQueueSettlement (0.06s)
+    --- FAIL: TestUsageBillingKeyDeletion_DurableQueueSettlement/balance (0.03s)
+    --- FAIL: TestUsageBillingKeyDeletion_DurableQueueSettlement/subscription (0.03s)
+FAIL
+FAIL    github.com/Wei-Shaw/sub2api/internal/infrastructure/repository  2.979s
+FAIL

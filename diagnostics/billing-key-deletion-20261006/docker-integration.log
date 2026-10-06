@@ -1,0 +1,88 @@
+2026/10/06 08:54:06 Timezone initialized: UTC (UTC offset: +00:00)
+2026/10/06 08:54:06 github.com/testcontainers/testcontainers-go - Connected to docker:
+  Server Version: 29.2.1
+  API Version: 1.51
+  Operating System: Docker Desktop
+  Total Memory: 7836 MB
+  Labels:
+    com.docker.desktop.address=unix:///Users/lin/Library/Containers/com.docker.docker/Data/docker-cli.sock
+  Testcontainers for Go Version: v0.40.0
+  Resolved Docker Host: unix:///var/run/docker.sock
+  Resolved Docker Socket Path: /var/run/docker.sock
+  Test SessionID: c89f4b5df474947cf98c12cef3cf4dcbd191d49a0c54966fa1e28aa043f913f4
+  Test ProcessID: fc70115b-b388-4c6b-a301-b92daa058434
+2026/10/06 08:54:06 🐳 Creating container for image postgres:18.1-alpine3.23
+2026/10/06 08:54:07 🐳 Creating container for image testcontainers/ryuk:0.13.0
+2026/10/06 08:54:07 ✅ Container created: 75ae5bc38255
+2026/10/06 08:54:07 🐳 Starting container: 75ae5bc38255
+2026/10/06 08:54:08 ✅ Container started: 75ae5bc38255
+2026/10/06 08:54:08 ⏳ Waiting for container id 75ae5bc38255 image: testcontainers/ryuk:0.13.0. Waiting for: port 8080/tcp to be listening
+2026/10/06 08:54:08 Shell not found in container
+2026/10/06 08:54:08 🔔 Container is ready: 75ae5bc38255
+2026/10/06 08:54:08 ✅ Container created: 29c20ea81e5e
+2026/10/06 08:54:08 🐳 Starting container: 29c20ea81e5e
+2026/10/06 08:54:08 ✅ Container started: 29c20ea81e5e
+2026/10/06 08:54:08 ⏳ Waiting for container id 29c20ea81e5e image: postgres:18.1-alpine3.23. Waiting for: all of: [log message "database system is ready to accept connections" (occurrence: 2), port 5432/tcp to be listening]
+2026/10/06 08:54:09 🔔 Container is ready: 29c20ea81e5e
+2026/10/06 08:54:09 🐳 Creating container for image redis:8.4-alpine
+2026/10/06 08:54:10 ✅ Container created: 01ea1b7326aa
+2026/10/06 08:54:10 🐳 Starting container: 01ea1b7326aa
+2026/10/06 08:54:10 ✅ Container started: 01ea1b7326aa
+2026/10/06 08:54:10 ⏳ Waiting for container id 01ea1b7326aa image: redis:8.4-alpine. Waiting for: all of: [port 6379/tcp to be listening, log message "* Ready to accept connections"]
+2026/10/06 08:54:10 🔔 Container is ready: 01ea1b7326aa
+=== RUN   TestDurableUsageBillingQueueClusterPerformance
+    usage_billing_cluster_performance_integration_test.go:27: set SUB2API_RUN_CLUSTER_BILLING_STRESS=1 to run the clustered billing stress test
+--- SKIP: TestDurableUsageBillingQueueClusterPerformance (0.00s)
+=== RUN   TestDurableUsageBillingQueueSurvivesRedisLoss
+2026/10/06 08:54:12 INFO durable usage billing Redis overlays recovered jobs=1
+--- PASS: TestDurableUsageBillingQueueSurvivesRedisLoss (0.06s)
+=== RUN   TestDurableUsageBillingQueueRetriesOverlayCompletionAfterPostgresCommit
+redis: 2026/10/06 08:54:12 pool.go:762: redis: connection pool: failed to dial after 5 attempts: dial tcp 127.0.0.1:1: connect: connection refused
+redis: 2026/10/06 08:54:12 pool.go:762: redis: connection pool: failed to dial after 5 attempts: dial tcp 127.0.0.1:1: connect: connection refused
+redis: 2026/10/06 08:54:13 pool.go:762: redis: connection pool: failed to dial after 5 attempts: dial tcp 127.0.0.1:1: connect: connection refused
+redis: 2026/10/06 08:54:13 pool.go:762: redis: connection pool: failed to dial after 5 attempts: dial tcp 127.0.0.1:1: connect: connection refused
+2026/10/06 08:54:13 WARN durable usage billing Redis overlay completion failed request_id=durable-overlay-retry-69bb516b-194d-48dc-8152-6be6c6222aa4 error="dial tcp 127.0.0.1:1: connect: connection refused"
+--- PASS: TestDurableUsageBillingQueueRetriesOverlayCompletionAfterPostgresCommit (1.76s)
+=== RUN   TestDurableUsageBillingQueueConcurrentConsumersApplyExactlyOnce
+--- PASS: TestDurableUsageBillingQueueConcurrentConsumersApplyExactlyOnce (3.69s)
+=== RUN   TestDurableUsageBillingQueueConcurrent50000
+    usage_billing_durable_queue_integration_test.go:340: set SUB2API_RUN_50K_BILLING_TEST=1 to run the 50k billing stress test
+--- SKIP: TestDurableUsageBillingQueueConcurrent50000 (0.00s)
+=== RUN   TestUsageBillingKeyDeletion_DirectSettlement
+=== RUN   TestUsageBillingKeyDeletion_DirectSettlement/balance
+    usage_billing_key_deletion_integration_test.go:36: settled=1 cost=1.25 balance=98.75 subscription=false account_quota=1.25 dedup=1
+=== RUN   TestUsageBillingKeyDeletion_DirectSettlement/subscription
+    usage_billing_key_deletion_integration_test.go:36: settled=1 cost=1.25 balance=100.00 subscription=true account_quota=1.25 dedup=1
+--- PASS: TestUsageBillingKeyDeletion_DirectSettlement (0.05s)
+    --- PASS: TestUsageBillingKeyDeletion_DirectSettlement/balance (0.03s)
+    --- PASS: TestUsageBillingKeyDeletion_DirectSettlement/subscription (0.02s)
+=== RUN   TestUsageBillingKeyDeletion_DurableQueueSettlement
+=== RUN   TestUsageBillingKeyDeletion_DurableQueueSettlement/balance
+    usage_billing_key_deletion_integration_test.go:81: settled=2 cost=2.50 balance=97.50 subscription=false account_quota=2.50 dedup=2
+    usage_billing_key_deletion_integration_test.go:101: settled=2 cost=2.50 balance=97.50 subscription=false account_quota=2.50 dedup=2
+=== RUN   TestUsageBillingKeyDeletion_DurableQueueSettlement/subscription
+    usage_billing_key_deletion_integration_test.go:81: settled=2 cost=2.50 balance=100.00 subscription=true account_quota=2.50 dedup=2
+    usage_billing_key_deletion_integration_test.go:101: settled=2 cost=2.50 balance=100.00 subscription=true account_quota=2.50 dedup=2
+--- PASS: TestUsageBillingKeyDeletion_DurableQueueSettlement (0.12s)
+    --- PASS: TestUsageBillingKeyDeletion_DurableQueueSettlement/balance (0.06s)
+    --- PASS: TestUsageBillingKeyDeletion_DurableQueueSettlement/subscription (0.06s)
+=== RUN   TestUsageBillingRepositoryApply_DeduplicatesBalanceBilling
+--- PASS: TestUsageBillingRepositoryApply_DeduplicatesBalanceBilling (0.01s)
+=== RUN   TestUsageBillingRepositoryApply_DeduplicatesSubscriptionBilling
+--- PASS: TestUsageBillingRepositoryApply_DeduplicatesSubscriptionBilling (0.01s)
+=== RUN   TestUsageBillingRepositoryApply_RequestFingerprintConflict
+--- PASS: TestUsageBillingRepositoryApply_RequestFingerprintConflict (0.00s)
+=== RUN   TestUsageBillingRepositoryApply_UpdatesAccountQuota
+--- PASS: TestUsageBillingRepositoryApply_UpdatesAccountQuota (0.01s)
+=== RUN   TestUsageBillingRepositoryApply_EnqueuesSchedulerOutboxOnQuotaCrossing
+=== RUN   TestUsageBillingRepositoryApply_EnqueuesSchedulerOutboxOnQuotaCrossing/daily_first_crossing_enqueues
+=== RUN   TestUsageBillingRepositoryApply_EnqueuesSchedulerOutboxOnQuotaCrossing/weekly_first_crossing_enqueues
+--- PASS: TestUsageBillingRepositoryApply_EnqueuesSchedulerOutboxOnQuotaCrossing (0.02s)
+    --- PASS: TestUsageBillingRepositoryApply_EnqueuesSchedulerOutboxOnQuotaCrossing/daily_first_crossing_enqueues (0.02s)
+    --- PASS: TestUsageBillingRepositoryApply_EnqueuesSchedulerOutboxOnQuotaCrossing/weekly_first_crossing_enqueues (0.01s)
+=== RUN   TestUsageBillingRepositoryApply_DeduplicatesAgainstArchivedKey
+--- PASS: TestUsageBillingRepositoryApply_DeduplicatesAgainstArchivedKey (0.01s)
+=== RUN   TestUsageBillingRepositoryApply_DeletedAPIKeyStillBillsBalance
+--- PASS: TestUsageBillingRepositoryApply_DeletedAPIKeyStillBillsBalance (0.01s)
+PASS
+ok      github.com/Wei-Shaw/sub2api/internal/infrastructure/repository  11.564s
