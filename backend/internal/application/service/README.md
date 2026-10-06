@@ -52,6 +52,7 @@
 | `ratelimit_oauth_401_delete.go` | 网关 OAuth 401 自动删除准入、凭据 CAS 结果和运行态清理 |
 | `openai_codex_remote_control_store.go` | Codex Remote Control enrollment token 的账号级加密持久化适配 |
 | `openai_gateway_forward.go`, `openai_gateway_request_build.go` | OpenAI 转发编排与 HTTP 上游请求构造 |
+| `openai_responses_image_api_bridge.go`, `openai_responses_image_plan.go`, `http_upstream_profile.go` | Responses 图片/遮罩解析、共享下载与单图子请求；用户远程输入携带独立公开地址策略，管理员私网上游配置不放宽此策略 |
 | `invalid_auth_abuse_limiter.go`, `cloudflare_ingress_settings.go` | 无效 API Key 来源计数、本地临时封禁，以及 Access Rule/WAF 双模式的 Cloudflare 加密持久设置与边缘端口 |
 
 ## 拆分约定

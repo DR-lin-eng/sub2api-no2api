@@ -197,6 +197,8 @@ security:
     crs_hosts: []
     # Allow localhost/private IPs for upstream/pricing/CRS (use only in trusted networks)
     # 允许本地/私有 IP 地址用于上游/定价/CRS（仅在可信网络中使用）
+    # This exception does not apply to user-supplied Responses image/mask URLs.
+    # 此例外不适用于用户提交的 Responses 图片或遮罩 URL。
     allow_private_hosts: true
     # Allow http:// URLs when allowlist is disabled (default: true; set to false to require https)
     # 白名单禁用时是否允许 http:// URL（默认: true，设为 false 则仅允许 https）
