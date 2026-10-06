@@ -18,6 +18,7 @@ const (
 
 type httpUpstreamProfileContextKey struct{}
 type httpUpstreamDisableRedirectsContextKey struct{}
+type httpUpstreamPublicDestinationContextKey struct{}
 type openAIStreamSchedulingContextKey struct{}
 
 // WithHTTPUpstreamProfile injects an upstream transport profile into ctx.
@@ -59,6 +60,20 @@ func WithHTTPUpstreamRedirectsDisabled(ctx context.Context) context.Context {
 
 func HTTPUpstreamRedirectsDisabled(ctx context.Context) bool {
 	return ctx != nil && ctx.Value(httpUpstreamDisableRedirectsContextKey{}) == true
+}
+
+// WithHTTPUpstreamPublicDestination requires public destination validation and
+// DNS pinning for user-controlled image downloads, independently of upstream
+// allowlist settings. The selected account egress route is still preserved.
+func WithHTTPUpstreamPublicDestination(ctx context.Context) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return context.WithValue(ctx, httpUpstreamPublicDestinationContextKey{}, true)
+}
+
+func HTTPUpstreamPublicDestination(ctx context.Context) bool {
+	return ctx != nil && ctx.Value(httpUpstreamPublicDestinationContextKey{}) == true
 }
 
 // WithOpenAIStreamScheduling marks scheduler work that will open a streaming

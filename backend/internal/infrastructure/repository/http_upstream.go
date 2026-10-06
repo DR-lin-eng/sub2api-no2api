@@ -294,7 +294,7 @@ func (s *httpUpstreamService) DoRouteWithVirtualClientKey(req *http.Request, rou
 	return s.doRouteWithVirtualClientKey(req, route, accountID, accountConcurrency, virtualClientKey)
 }
 
-func (s *httpUpstreamService) doRouteWithVirtualClientKey(req *http.Request, route platformegress.Route, accountID int64, accountConcurrency int, virtualClientKey string) (*http.Response, error) {
+func (s *httpUpstreamService) doTrustedRouteWithVirtualClientKey(req *http.Request, route platformegress.Route, accountID int64, accountConcurrency int, virtualClientKey string) (*http.Response, error) {
 	applyGrokCLIProxyHeaders(req)
 	if err := s.validateRequestHost(req); err != nil {
 		return nil, err
@@ -364,7 +364,7 @@ func (s *httpUpstreamService) DoWithTLSRouteAndVirtualClientKey(req *http.Reques
 	return s.doWithTLSRouteAndVirtualClientKey(req, route, accountID, accountConcurrency, profile, virtualClientKey)
 }
 
-func (s *httpUpstreamService) doWithTLSRouteAndVirtualClientKey(req *http.Request, route platformegress.Route, accountID int64, accountConcurrency int, profile *tlsfingerprint.Profile, virtualClientKey string) (*http.Response, error) {
+func (s *httpUpstreamService) doTrustedWithTLSRouteAndVirtualClientKey(req *http.Request, route platformegress.Route, accountID int64, accountConcurrency int, profile *tlsfingerprint.Profile, virtualClientKey string) (*http.Response, error) {
 	if profile == nil {
 		return s.doRouteWithVirtualClientKey(req, route, accountID, accountConcurrency, virtualClientKey)
 	}
