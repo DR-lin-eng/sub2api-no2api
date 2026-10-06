@@ -1,0 +1,116 @@
+2026/10/06 08:50:43 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestApiKeyService_Delete_OwnerMismatch
+--- PASS: TestApiKeyService_Delete_OwnerMismatch (0.00s)
+=== RUN   TestApiKeyService_Delete_Success
+--- PASS: TestApiKeyService_Delete_Success (0.00s)
+=== RUN   TestApiKeyService_Delete_NotFound
+--- PASS: TestApiKeyService_Delete_NotFound (0.00s)
+=== RUN   TestApiKeyService_Delete_DeleteFails
+--- PASS: TestApiKeyService_Delete_DeleteFails (0.00s)
+=== RUN   TestBuildUsageBillingCommand_SubscriptionAppliesRateMultiplier
+=== PAUSE TestBuildUsageBillingCommand_SubscriptionAppliesRateMultiplier
+=== RUN   TestBuildUsageBillingCommand_AccountQuotaUsesAccountBillingCost
+=== PAUSE TestBuildUsageBillingCommand_AccountQuotaUsesAccountBillingCost
+=== RUN   TestBuildUsageBillingCommand_AccountQuotaFallsBackToRawCost
+=== PAUSE TestBuildUsageBillingCommand_AccountQuotaFallsBackToRawCost
+=== RUN   TestBuildUsageBillingCommand_AccountQuotaCanApplyWhenUserCostIsZero
+=== PAUSE TestBuildUsageBillingCommand_AccountQuotaCanApplyWhenUserCostIsZero
+=== RUN   TestUsageBillingModelCandidates_BareGPT56IncludesSol
+--- PASS: TestUsageBillingModelCandidates_BareGPT56IncludesSol (0.00s)
+=== RUN   TestUsageBillingModelCandidatesPreserveCodexAutoReviewModel
+--- PASS: TestUsageBillingModelCandidatesPreserveCodexAutoReviewModel (0.00s)
+=== RUN   TestUsageBillingModelCandidatesPreserveGPT55ProModel
+--- PASS: TestUsageBillingModelCandidatesPreserveGPT55ProModel (0.00s)
+=== RUN   TestUsageBillingCommandQuantizesBalanceAndQuotaIdentically
+--- PASS: TestUsageBillingCommandQuantizesBalanceAndQuotaIdentically (0.00s)
+=== RUN   TestQuantizeUsageBillingAmountBoundaries
+=== RUN   TestQuantizeUsageBillingAmountBoundaries/below_half
+=== RUN   TestQuantizeUsageBillingAmountBoundaries/just_below_half
+=== RUN   TestQuantizeUsageBillingAmountBoundaries/exact_half
+=== RUN   TestQuantizeUsageBillingAmountBoundaries/just_above_half
+=== RUN   TestQuantizeUsageBillingAmountBoundaries/long_tail
+=== RUN   TestQuantizeUsageBillingAmountBoundaries/already_quantized
+--- PASS: TestQuantizeUsageBillingAmountBoundaries (0.00s)
+    --- PASS: TestQuantizeUsageBillingAmountBoundaries/below_half (0.00s)
+    --- PASS: TestQuantizeUsageBillingAmountBoundaries/just_below_half (0.00s)
+    --- PASS: TestQuantizeUsageBillingAmountBoundaries/exact_half (0.00s)
+    --- PASS: TestQuantizeUsageBillingAmountBoundaries/just_above_half (0.00s)
+    --- PASS: TestQuantizeUsageBillingAmountBoundaries/long_tail (0.00s)
+    --- PASS: TestQuantizeUsageBillingAmountBoundaries/already_quantized (0.00s)
+=== RUN   TestUsageBillingNormalizeKeepsFingerprintDerivedFromRawAmounts
+--- PASS: TestUsageBillingNormalizeKeepsFingerprintDerivedFromRawAmounts (0.00s)
+=== RUN   TestBuildUsageBillingCommandDefersFingerprintUntilPlatformQuotaIsKnown
+--- PASS: TestBuildUsageBillingCommandDefersFingerprintUntilPlatformQuotaIsKnown (0.00s)
+=== RUN   TestQuantizeUsageBillingAmountHandlesSpecialAndNegativeValues
+--- PASS: TestQuantizeUsageBillingAmountHandlesSpecialAndNegativeValues (0.00s)
+=== CONT  TestBuildUsageBillingCommand_SubscriptionAppliesRateMultiplier
+=== CONT  TestBuildUsageBillingCommand_AccountQuotaFallsBackToRawCost
+=== RUN   TestBuildUsageBillingCommand_SubscriptionAppliesRateMultiplier/subscription_with_2x_multiplier_consumes_2x_quota
+=== PAUSE TestBuildUsageBillingCommand_SubscriptionAppliesRateMultiplier/subscription_with_2x_multiplier_consumes_2x_quota
+=== RUN   TestBuildUsageBillingCommand_SubscriptionAppliesRateMultiplier/subscription_with_0.5x_multiplier_consumes_0.5x_quota
+=== PAUSE TestBuildUsageBillingCommand_SubscriptionAppliesRateMultiplier/subscription_with_0.5x_multiplier_consumes_0.5x_quota
+=== RUN   TestBuildUsageBillingCommand_SubscriptionAppliesRateMultiplier/free_subscription_(multiplier_0)_consumes_no_quota
+=== PAUSE TestBuildUsageBillingCommand_SubscriptionAppliesRateMultiplier/free_subscription_(multiplier_0)_consumes_no_quota
+--- PASS: TestBuildUsageBillingCommand_AccountQuotaFallsBackToRawCost (0.00s)
+=== CONT  TestBuildUsageBillingCommand_AccountQuotaCanApplyWhenUserCostIsZero
+=== RUN   TestBuildUsageBillingCommand_SubscriptionAppliesRateMultiplier/balance_billing_keeps_using_ActualCost_(regression)
+--- PASS: TestBuildUsageBillingCommand_AccountQuotaCanApplyWhenUserCostIsZero (0.00s)
+=== PAUSE TestBuildUsageBillingCommand_SubscriptionAppliesRateMultiplier/balance_billing_keeps_using_ActualCost_(regression)
+=== CONT  TestBuildUsageBillingCommand_SubscriptionAppliesRateMultiplier/subscription_with_2x_multiplier_consumes_2x_quota
+=== CONT  TestBuildUsageBillingCommand_AccountQuotaUsesAccountBillingCost
+--- PASS: TestBuildUsageBillingCommand_AccountQuotaUsesAccountBillingCost (0.00s)
+=== CONT  TestBuildUsageBillingCommand_SubscriptionAppliesRateMultiplier/balance_billing_keeps_using_ActualCost_(regression)
+=== CONT  TestBuildUsageBillingCommand_SubscriptionAppliesRateMultiplier/subscription_with_0.5x_multiplier_consumes_0.5x_quota
+=== CONT  TestBuildUsageBillingCommand_SubscriptionAppliesRateMultiplier/free_subscription_(multiplier_0)_consumes_no_quota
+--- PASS: TestBuildUsageBillingCommand_SubscriptionAppliesRateMultiplier (0.00s)
+    --- PASS: TestBuildUsageBillingCommand_SubscriptionAppliesRateMultiplier/subscription_with_2x_multiplier_consumes_2x_quota (0.00s)
+    --- PASS: TestBuildUsageBillingCommand_SubscriptionAppliesRateMultiplier/balance_billing_keeps_using_ActualCost_(regression) (0.00s)
+    --- PASS: TestBuildUsageBillingCommand_SubscriptionAppliesRateMultiplier/subscription_with_0.5x_multiplier_consumes_0.5x_quota (0.00s)
+    --- PASS: TestBuildUsageBillingCommand_SubscriptionAppliesRateMultiplier/free_subscription_(multiplier_0)_consumes_no_quota (0.00s)
+PASS
+ok      github.com/Wei-Shaw/sub2api/internal/application/service    0.023s
+=== RUN   TestDurableUsageBillingOverlayIsIdempotentAndCompletes
+--- PASS: TestDurableUsageBillingOverlayIsIdempotentAndCompletes (0.01s)
+=== RUN   TestDurableUsageBillingCompletionMarkerOutlivesMutationOverlay
+--- PASS: TestDurableUsageBillingCompletionMarkerOutlivesMutationOverlay (0.00s)
+=== RUN   TestDurableUsageBillingOverlayCanRebuildAfterRedisLoss
+--- PASS: TestDurableUsageBillingOverlayCanRebuildAfterRedisLoss (0.00s)
+=== RUN   TestDurableUsageBillingInsertBatchReturnsStatuses
+--- PASS: TestDurableUsageBillingInsertBatchReturnsStatuses (0.00s)
+=== RUN   TestDurableUsageBillingFlushBatchDeduplicatesInMemory
+--- PASS: TestDurableUsageBillingFlushBatchDeduplicatesInMemory (0.00s)
+=== RUN   TestUsageBillingRetryDelayIsBounded
+--- PASS: TestUsageBillingRetryDelayIsBounded (0.00s)
+=== RUN   TestUsageBillingConsumerWaitOnlyLeaderPolls
+--- PASS: TestUsageBillingConsumerWaitOnlyLeaderPolls (0.04s)
+=== RUN   TestUsageBillingAutoModeWakesFromDurableReadyBacklog
+--- PASS: TestUsageBillingAutoModeWakesFromDurableReadyBacklog (0.00s)
+=== RUN   TestTruncateUsageBillingError
+--- PASS: TestTruncateUsageBillingError (0.00s)
+=== RUN   TestDeductUsageBillingBalance_UsesSufficientBalanceGuard
+--- PASS: TestDeductUsageBillingBalance_UsesSufficientBalanceGuard (0.00s)
+=== RUN   TestDeductUsageBillingBalance_RecordsOverdraftWhenGuardMisses
+--- PASS: TestDeductUsageBillingBalance_RecordsOverdraftWhenGuardMisses (0.00s)
+=== RUN   TestApplyUsageBillingEffects_FlagsBalanceOverdraft
+--- PASS: TestApplyUsageBillingEffects_FlagsBalanceOverdraft (0.00s)
+=== RUN   TestDeductUsageBillingBalance_ReturnsUserNotFoundWhenNoUserUpdated
+--- PASS: TestDeductUsageBillingBalance_ReturnsUserNotFoundWhenNoUserUpdated (0.00s)
+=== RUN   TestReserveUsageBillingBatchImageBalance_MovesAvailableToFrozen
+--- PASS: TestReserveUsageBillingBatchImageBalance_MovesAvailableToFrozen (0.00s)
+=== RUN   TestReserveUsageBillingBatchImageBalance_InsufficientBalance
+--- PASS: TestReserveUsageBillingBatchImageBalance_InsufficientBalance (0.00s)
+=== RUN   TestCaptureUsageBillingBatchImageBalance_ReleasesRemainder
+--- PASS: TestCaptureUsageBillingBatchImageBalance_ReleasesRemainder (0.00s)
+=== RUN   TestCaptureUsageBillingBatchImageBalance_RejectsActualCostOverHold
+--- PASS: TestCaptureUsageBillingBatchImageBalance_RejectsActualCostOverHold (0.00s)
+=== RUN   TestReleaseUsageBillingBatchImageBalance_ReturnsFrozenToAvailable
+--- PASS: TestReleaseUsageBillingBatchImageBalance_ReturnsFrozenToAvailable (0.00s)
+=== RUN   TestReleaseUsageBillingBatchImageBalance_SkipsWhenHoldNeverReserved
+2026/10/06 08:50:43 [BatchImage] release skipped, hold was never reserved: batch=imgbatch_phantom
+--- PASS: TestReleaseUsageBillingBatchImageBalance_SkipsWhenHoldNeverReserved (0.00s)
+=== RUN   TestApplyUsageBillingEffects_DeletedAPIKeyStillBillsBalance
+--- PASS: TestApplyUsageBillingEffects_DeletedAPIKeyStillBillsBalance (0.00s)
+=== RUN   TestApplyUsageBillingEffects_APIKeyCounterErrorStillFails
+--- PASS: TestApplyUsageBillingEffects_APIKeyCounterErrorStillFails (0.00s)
+PASS
+ok      github.com/Wei-Shaw/sub2api/internal/infrastructure/repository  0.067s
