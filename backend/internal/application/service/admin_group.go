@@ -10,6 +10,7 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/internal/modules/typesafe"
 	"github.com/Wei-Shaw/sub2api/internal/shared/antigravity"
 	"github.com/Wei-Shaw/sub2api/internal/shared/claude"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
@@ -339,6 +340,8 @@ func defaultModelsListCandidateIDs(platform string) []string {
 		return []string{"deepseek-v4-pro", "deepseek-v4-flash", "deepseek-flash"}
 	case PlatformMiniMax:
 		return []string{"MiniMax-M3", "MiniMax-M2.7", "MiniMax-M2.5"}
+	case PlatformTypeSafe:
+		return []string{typesafe.JevLatestModel}
 	case PlatformOpenCodeGo:
 		return DefaultOpenCodeGoModelIDs()
 	case PlatformComposite:

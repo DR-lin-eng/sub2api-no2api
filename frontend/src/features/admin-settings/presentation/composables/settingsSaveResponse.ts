@@ -1,3 +1,4 @@
+import { normalizeRechargeBonusTiers, normalizeRechargeBonusMode } from '@/features/billing/rechargeBonus'
 import type { Ref } from "vue";
 import { normalizeRegistrationEmailSuffixDomains } from "@/core/utils/registrationEmailPolicy";
 import {
@@ -49,6 +50,10 @@ export function applySettingsSaveResponse({
   }
 
   normalizeHumanVerificationProvider();
+      form.payment_recharge_bonus_enabled = updated.payment_recharge_bonus_enabled === true;
+      form.payment_recharge_bonus_tiers = normalizeRechargeBonusTiers(updated.payment_recharge_bonus_tiers);
+      form.payment_recharge_bonus_mode = normalizeRechargeBonusMode(updated.payment_recharge_bonus_mode);
+      form.payment_recharge_bonus_notice = updated.payment_recharge_bonus_notice || "";
   clientIPTrustedProxiesText.value = (
     updated.client_ip_trusted_proxies || []
   ).join("\n");

@@ -4,7 +4,7 @@
 
 ## API Key 模型请求
 
-典型入口包括 `/v1/messages`、`/v1/responses`、`/v1/chat/completions`、`/v1beta/...` 以及无 `/v1` 的兼容别名。所有绑定在 `backend/internal/transport/http/server/routes/gateway.go`。
+典型入口包括 TypeSafe 原生非流式 `/v1/systemone`、`/v1/messages`、`/v1/responses`、`/v1/chat/completions`、`/v1beta/...` 以及无 `/v1` 的兼容别名。所有绑定在 `backend/internal/transport/http/server/routes/gateway.go`。
 
 ```mermaid
 sequenceDiagram

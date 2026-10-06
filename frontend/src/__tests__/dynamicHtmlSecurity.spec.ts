@@ -38,6 +38,7 @@ const expectedVHtmlSinks = [
   'common/widgets/layout/AppSidebar.vue:sanitizeSvg(item.iconSvg)',
   'features/admin-settings/presentation/widgets/AdminComplianceDialog.vue:renderedDocument',
   'features/billing/presentation/pages/PaymentPage.vue:renderedHelpText',
+  'features/billing/presentation/pages/PaymentPage.vue:renderedBonusNotice',
   'features/activity-center/presentation/pages/ActivityCenterPage.vue:safeBanners[campaign.id]',
   'features/channels-user/presentation/pages/CustomLandingPage.vue:renderedHtml',
   'features/keys/presentation/pages/KeyUsagePage.vue:row.iconSvg',

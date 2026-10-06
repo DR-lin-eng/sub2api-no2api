@@ -1,3 +1,4 @@
+import rechargeBonusMessages from './settings.recharge-bonus'
 import supportChatMessages from './settings.support-chat'
 import codexSimulationMessages from './settings.codex-simulation'
 import ipv6EgressMessages from './settings.ipv6-egress'
@@ -771,6 +772,7 @@ export default {
         rechargeFeeRate: 'Recharge Fee Rate',
         rechargeFeeRateHint: 'Percentage of service fee charged on top of recharge amount, 0 means no fee',
         rechargeFeePreview: 'Preview: Recharge 100, fee {fee}',
+        ...rechargeBonusMessages,
         orderTimeout: 'Order Timeout',
         orderTimeoutHint: 'In minutes, minimum 1',
         maxPendingOrders: 'Max Pending Orders',

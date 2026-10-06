@@ -531,6 +531,13 @@
             </div>
           </div>
 
+          <!-- 充值优惠阶梯（独立卡片，与服务商管理同级） -->
+          <div v-if="form.payment_enabled" class="card p-6 space-y-4">
+            <h2 class="text-lg font-semibold">{{ t('admin.settings.payment.rechargeBonus.label') }}</h2>
+            <div class="flex items-center justify-between"><label>{{ t('admin.settings.payment.rechargeBonus.enabled') }}</label><Toggle v-model="form.payment_recharge_bonus_enabled" /></div>
+            <p class="text-sm text-amber-700 dark:text-amber-300">{{ t('admin.settings.payment.rechargeBonus.rolloutHint') }}</p>
+            <RechargeBonusTierEditor v-model="form.payment_recharge_bonus_tiers" v-model:mode="form.payment_recharge_bonus_mode" v-model:notice="form.payment_recharge_bonus_notice" />
+          </div>
           <!-- Provider Management -->
           <PaymentProviderList
             v-if="form.payment_enabled"
@@ -553,6 +560,7 @@
 </template>
 
 <script setup lang="ts">
+import RechargeBonusTierEditor from '@/features/admin-settings/presentation/widgets/RechargeBonusTierEditor.vue'
 import ImageUpload from '@/common/widgets/data/ImageUpload.vue'
 import PaymentProviderList from '@/features/billing/paymentProviderList'
 import Select from '@/common/widgets/forms/Select.vue'

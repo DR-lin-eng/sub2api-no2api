@@ -2,12 +2,13 @@ package domain
 
 // Status constants
 const (
-	StatusActive   = "active"
-	StatusDisabled = "disabled"
-	StatusError    = "error"
-	StatusUnused   = "unused"
-	StatusUsed     = "used"
-	StatusExpired  = "expired"
+	PlatformTypeSafe = "typesafe" // TypeSafe native System One (Jev).
+	StatusActive     = "active"
+	StatusDisabled   = "disabled"
+	StatusError      = "error"
+	StatusUnused     = "unused"
+	StatusUsed       = "used"
+	StatusExpired    = "expired"
 )
 
 // Role constants

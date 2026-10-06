@@ -1,0 +1,271 @@
+Preparing pnpm@11.17.0 for immediate activation...
+? Verifying lockfile against supply-chain policies (476 entries)...
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +426
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+   ╭──────────────────────────────────────────────╮
+   │                                              │
+   │     Update available! 11.17.0 → 12.9.1.      │
+   │     Changelog: https://pnpm.io/v/12.9.1      │
+   │   To update, run: corepack use pnpm@12.9.1   │
+   │                                              │
+   ╰──────────────────────────────────────────────╯
+
+Progress: resolved 426, reused 418, downloaded 4, added 289
+Progress: resolved 426, reused 418, downloaded 8, added 426, done
+✓ Lockfile passes supply-chain policies (476 entries in 5.7s)
+.../esbuild@0.25.12/node_modules/esbuild postinstall$ node install.js
+.../node_modules/vue-demi postinstall$ node -e "try{require('./scripts/postinstall.js')}catch(e){}"
+.../esbuild@0.25.12/node_modules/esbuild postinstall: Done
+.../node_modules/vue-demi postinstall: Done
+
+dependencies:
++ @airwallex/components-sdk 1.32.0
++ @stripe/stripe-js 9.12.0
++ @tanstack/vue-virtual 3.13.34
++ @vueuse/core 10.11.1
++ axios 1.20.0
++ cap-widget 0.1.50
++ chart.js 4.5.1
++ dompurify 3.4.14
++ driver.js 1.8.0
++ file-saver 2.0.5
++ marked 17.0.6
++ node-forge 1.4.0
++ pinia 2.3.1
++ qrcode 1.5.4
++ tldts 7.4.13
++ vue 3.5.40
++ vue-chartjs 5.3.4
++ vue-draggable-plus 0.6.1
++ vue-i18n 9.14.5
++ vue-router 4.6.4
++ xlsx 0.20.3
+
+devDependencies:
++ @eslint/js 10.0.1
++ @intlify/message-compiler 9.14.5
++ @types/file-saver 2.0.7
++ @types/mdx 2.0.14
++ @types/node 24.13.3
++ @types/node-forge 1.3.14
++ @types/qrcode 1.5.6
++ @typescript-eslint/eslint-plugin 8.65.0
++ @typescript-eslint/parser 8.65.0
++ @vitejs/plugin-vue 6.0.8
++ @vitest/coverage-v8 3.2.6
++ @vue/test-utils 2.4.11
++ autoprefixer 10.5.4
++ eslint 10.8.0
++ eslint-plugin-vue 10.10.0
++ globals 17.4.0
++ jsdom 24.1.3
++ postcss 8.5.23
++ tailwindcss 3.4.19
++ typescript 5.6.3
++ vite 6.4.3
++ vite-plugin-checker 0.14.5
++ vitest 3.2.6
++ vue-tsc 2.2.12
+
+Done in 6.2s using pnpm v11.17.0
+
+ RUN  v3.2.6 /workspace/frontend
+
+ ❯ src/features/admin-accounts/__tests__/adminAccountsModularization.spec.ts (13 tests | 1 failed) 72ms
+   ✓ admin accounts modularization > owns account-only DTOs in feature data while preserving compatibility exports 8ms
+   × admin accounts modularization > keeps every feature runtime module within the maintenance target 44ms
+     → presentation/widgets/CreateAccountDialog.vue: expected 1512 to be less than or equal to 1500
+   ✓ admin accounts modularization > keeps the table and field modules statically owned by the accounts route chunk 0ms
+   ✓ admin accounts modularization > keeps request lifecycle out of the table-only view 0ms
+   ✓ admin accounts modularization > routes page requests through feature owners instead of the admin compatibility barrel 0ms
+   ✓ admin accounts modularization > routes bulk edit actions through the account action owner 0ms
+   ✓ admin accounts modularization > reads the global quota notification switch from its settings owner 0ms
+   ✓ admin accounts modularization > routes scheduled test lifecycle calls through their datasource owner 0ms
+   ✓ admin accounts modularization > routes OAuth composables through feature-owned action datasources 0ms
+   ✓ admin accounts modularization > routes reauthorization widgets through account action owners 0ms
+   ✓ admin accounts modularization > routes create and edit workflows through explicit account and settings owners 0ms
+   ✓ admin accounts modularization > routes account import and CRS sync through query/action owners 17ms
+   ✓ admin accounts modularization > preserves quota hydration, bounded batches, feedback timing, and refresh cadence 0ms
+ ❯ src/features/admin-settings/__tests__/settingsGatewayResilienceModularization.spec.ts (2 tests | 1 failed) 10ms
+   ✓ settings gateway resilience modularization > keeps the parent as a static gateway resilience card composition 1ms
+   × settings gateway resilience modularization > keeps each original card template on the shared page context 9ms
+     → expected 'f72f76ef998051b6103723348ab9ed9cdfd37…' to be 'c78190ebe0430d38d939afcd187759beb1e88…' // Object.is equality
+stderr | src/features/admin-users/__tests__/UsersPage.spec.ts > admin UsersView > shows active, used, and created activity columns in order and requests last_used_at sort
+[Vue warn]: Invalid vnode type when creating vnode: undefined.
+  at <UsersPage ref="VTU_COMPONENT" >
+  at <VTUROOT>
+
+stderr | src/features/admin-users/__tests__/UsersPage.spec.ts > admin UsersView > clears usage current-page sort when switching to last_used_at server sort
+[Vue warn]: Invalid vnode type when creating vnode: undefined.
+  at <UsersPage ref="VTU_COMPONENT" >
+  at <VTUROOT>
+
+stderr | src/features/admin-users/__tests__/UsersPage.spec.ts > admin UsersView > keeps selected user IDs across pages and clears them after a successful bulk update
+[Vue warn]: Invalid vnode type when creating vnode: undefined.
+  at <UsersPage ref="VTU_COMPONENT" >
+  at <VTUROOT>
+
+stderr | src/features/admin-users/__tests__/UsersPage.spec.ts > admin UsersView > keeps the 300ms search debounce after the toolbar split
+[Vue warn]: Invalid vnode type when creating vnode: undefined.
+  at <UsersPage ref="VTU_COMPONENT" >
+  at <VTUROOT>
+
+ ❯ src/features/admin-users/__tests__/UsersPage.spec.ts (4 tests | 4 failed) 21ms
+   × admin UsersView > shows active, used, and created activity columns in order and requests last_used_at sort 16ms
+     → [🍍]: "getActivePinia()" was called but there was no active Pinia. Are you trying to use a store before calling "app.use(pinia)"?
+See https://pinia.vuejs.org/core-concepts/outside-component-usage.html for help.
+This will fail in production.
+   × admin UsersView > clears usage current-page sort when switching to last_used_at server sort 2ms
+     → [🍍]: "getActivePinia()" was called but there was no active Pinia. Are you trying to use a store before calling "app.use(pinia)"?
+See https://pinia.vuejs.org/core-concepts/outside-component-usage.html for help.
+This will fail in production.
+   × admin UsersView > keeps selected user IDs across pages and clears them after a successful bulk update 1ms
+     → [🍍]: "getActivePinia()" was called but there was no active Pinia. Are you trying to use a store before calling "app.use(pinia)"?
+See https://pinia.vuejs.org/core-concepts/outside-component-usage.html for help.
+This will fail in production.
+   × admin UsersView > keeps the 300ms search debounce after the toolbar split 1ms
+     → [🍍]: "getActivePinia()" was called but there was no active Pinia. Are you trying to use a store before calling "app.use(pinia)"?
+See https://pinia.vuejs.org/core-concepts/outside-component-usage.html for help.
+This will fail in production.
+ ❯ src/features/auth/__tests__/RegisterViewCredentialStorage.spec.ts (1 test | 1 failed) 29ms
+   × RegisterView credential storage > stores only non-secret metadata before navigating to email verification 29ms
+     → expected "spy" to be called with arguments: [ '/email-verify' ]
+
+Number of calls: 0
+
+ ❯ src/features/keys/__tests__/openCodeConfigResolver.spec.ts (7 tests | 1 failed) 7ms
+   ✓ OpenCode config resolver > preserves the 'anthropic' serialized template byte-for-byte 1ms
+   × OpenCode config resolver > preserves the 'openai' serialized template byte-for-byte 4ms
+     → expected 6297 to be 5734 // Object.is equality
+   ✓ OpenCode config resolver > preserves the 'gemini' serialized template byte-for-byte 0ms
+   ✓ OpenCode config resolver > preserves the 'antigravity-claude' serialized template byte-for-byte 0ms
+   ✓ OpenCode config resolver > preserves the 'antigravity-gemini' serialized template byte-for-byte 0ms
+   ✓ OpenCode config resolver > preserves the 'grok' serialized template byte-for-byte 0ms
+   ✓ OpenCode config resolver > keeps the default path and caller-provided translated hint 0ms
+ ❯ src/features/admin-users/__tests__/UserEditDialog.spec.ts (1 test | 1 failed) 10ms
+   × UserEditModal > preserves priority tier zero in the update payload 10ms
+     → [🍍]: "getActivePinia()" was called but there was no active Pinia. Are you trying to use a store before calling "app.use(pinia)"?
+See https://pinia.vuejs.org/core-concepts/outside-component-usage.html for help.
+This will fail in production.
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/admin-accounts/__tests__/adminAccountsModularization.spec.ts > admin accounts modularization > keeps every feature runtime module within the maintenance target
+AssertionError: presentation/widgets/CreateAccountDialog.vue: expected 1512 to be less than or equal to 1500
+ ❯ src/features/admin-accounts/__tests__/adminAccountsModularization.spec.ts:114:63
+    112|     for (const runtime of collectRuntimeSources(featureDir)) {
+    113|       const target = maintenanceTargets.get(runtime.path) ?? 1500
+    114|       expect(runtime.source.split('\n').length, runtime.path).toBeLess…
+       |                                                               ^
+    115|     }
+    116|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
+
+ FAIL  src/features/admin-settings/__tests__/settingsGatewayResilienceModularization.spec.ts > settings gateway resilience modularization > keeps each original card template on the shared page context
+AssertionError: expected 'f72f76ef998051b6103723348ab9ed9cdfd37…' to be 'c78190ebe0430d38d939afcd187759beb1e88…' // Object.is equality
+
+Expected: "c78190ebe0430d38d939afcd187759beb1e88dd0fda341eb303e65facf4fdb3e"
+Received: "f72f76ef998051b6103723348ab9ed9cdfd37c7353bc88676583558c8b56cb03"
+
+ ❯ src/features/admin-settings/__tests__/settingsGatewayResilienceModularization.spec.ts:116:48
+    114|       expect(source.match(/useSettingsPageContext\(\)/g)).toHaveLength…
+    115|       expect(template.trim()).toMatch(/^<div class="card">/)
+    116|       expect(normalizedTemplateHash(template)).toBe(card.templateHash)
+       |                                                ^
+    117|       expect(source).not.toMatch(/\b(?:ref|reactive|computed|watch)\s*…
+    118|       expect(source).not.toMatch(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/9]⎯
+
+ FAIL  src/features/admin-users/__tests__/UserEditDialog.spec.ts > UserEditModal > preserves priority tier zero in the update payload
+Error: [🍍]: "getActivePinia()" was called but there was no active Pinia. Are you trying to use a store before calling "app.use(pinia)"?
+See https://pinia.vuejs.org/core-concepts/outside-component-usage.html for help.
+This will fail in production.
+ ❯ useStore node_modules/.pnpm/pinia@2.3.1_typescript@5.6.3_vue@3.5.40_typescript@5.6.3_/node_modules/pinia/dist/pinia.mjs:1735:19
+    1733|             setActivePinia(pinia);
+    1734|         if ((process.env.NODE_ENV !== 'production') && !activePinia) {
+    1735|             throw new Error(`[🍍]: "getActivePinia()" was called but t…
+       |                   ^
+    1736|                 `See https://pinia.vuejs.org/core-concepts/outside-com…
+    1737|                 `This will fail in production.`);
+ ❯ setup src/features/admin-users/presentation/widgets/UserEditDialog.vue:105:19
+ ❯ callWithErrorHandling node_modules/.pnpm/@vue+runtime-core@3.5.40/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:200:19
+ ❯ setupStatefulComponent node_modules/.pnpm/@vue+runtime-core@3.5.40/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:8151:25
+ ❯ setupComponent node_modules/.pnpm/@vue+runtime-core@3.5.40/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:8113:36
+ ❯ mountComponent node_modules/.pnpm/@vue+runtime-core@3.5.40/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:6023:7
+ ❯ processComponent node_modules/.pnpm/@vue+runtime-core@3.5.40/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:5989:9
+ ❯ patch node_modules/.pnpm/@vue+runtime-core@3.5.40/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:5494:11
+ ❯ ReactiveEffect.componentUpdateFn [as fn] node_modules/.pnpm/@vue+runtime-core@3.5.40/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:6137:11
+ ❯ ReactiveEffect.run node_modules/.pnpm/@vue+reactivity@3.5.40/node_modules/@vue/reactivity/dist/reactivity.cjs.js:268:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/9]⎯
+
+ FAIL  src/features/admin-users/__tests__/UsersPage.spec.ts > admin UsersView > shows active, used, and created activity columns in order and requests last_used_at sort
+ FAIL  src/features/admin-users/__tests__/UsersPage.spec.ts > admin UsersView > clears usage current-page sort when switching to last_used_at server sort
+ FAIL  src/features/admin-users/__tests__/UsersPage.spec.ts > admin UsersView > keeps selected user IDs across pages and clears them after a successful bulk update
+ FAIL  src/features/admin-users/__tests__/UsersPage.spec.ts > admin UsersView > keeps the 300ms search debounce after the toolbar split
+Error: [🍍]: "getActivePinia()" was called but there was no active Pinia. Are you trying to use a store before calling "app.use(pinia)"?
+See https://pinia.vuejs.org/core-concepts/outside-component-usage.html for help.
+This will fail in production.
+ ❯ useStore node_modules/.pnpm/pinia@2.3.1_typescript@5.6.3_vue@3.5.40_typescript@5.6.3_/node_modules/pinia/dist/pinia.mjs:1735:19
+    1733|             setActivePinia(pinia);
+    1734|         if ((process.env.NODE_ENV !== 'production') && !activePinia) {
+    1735|             throw new Error(`[🍍]: "getActivePinia()" was called but t…
+       |                   ^
+    1736|                 `See https://pinia.vuejs.org/core-concepts/outside-com…
+    1737|                 `This will fail in production.`);
+ ❯ setup src/features/admin-users/presentation/pages/UsersPage.vue:615:19
+ ❯ callWithErrorHandling node_modules/.pnpm/@vue+runtime-core@3.5.40/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:200:19
+ ❯ setupStatefulComponent node_modules/.pnpm/@vue+runtime-core@3.5.40/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:8151:25
+ ❯ setupComponent node_modules/.pnpm/@vue+runtime-core@3.5.40/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:8113:36
+ ❯ mountComponent node_modules/.pnpm/@vue+runtime-core@3.5.40/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:6023:7
+ ❯ processComponent node_modules/.pnpm/@vue+runtime-core@3.5.40/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:5989:9
+ ❯ patch node_modules/.pnpm/@vue+runtime-core@3.5.40/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:5494:11
+ ❯ ReactiveEffect.componentUpdateFn [as fn] node_modules/.pnpm/@vue+runtime-core@3.5.40/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:6137:11
+ ❯ ReactiveEffect.run node_modules/.pnpm/@vue+reactivity@3.5.40/node_modules/@vue/reactivity/dist/reactivity.cjs.js:268:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/9]⎯
+
+ FAIL  src/features/auth/__tests__/RegisterViewCredentialStorage.spec.ts > RegisterView credential storage > stores only non-secret metadata before navigating to email verification
+AssertionError: expected "spy" to be called with arguments: [ '/email-verify' ]
+
+Number of calls: 0
+
+ ❯ src/features/auth/__tests__/RegisterViewCredentialStorage.spec.ts:116:22
+    114|     await flushPromises()
+    115|
+    116|     expect(pushMock).toHaveBeenCalledWith('/email-verify')
+       |                      ^
+    117|     expect(registerMock).not.toHaveBeenCalled()
+    118|     expect(sessionStorage.getItem('register_data')).toBe(JSON.stringif…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/9]⎯
+
+ FAIL  src/features/keys/__tests__/openCodeConfigResolver.spec.ts > OpenCode config resolver > preserves the 'openai' serialized template byte-for-byte
+AssertionError: expected 6297 to be 5734 // Object.is equality
+
+- Expected
++ Received
+
+- 5734
++ 6297
+
+ ❯ src/features/keys/__tests__/openCodeConfigResolver.spec.ts:72:47
+     70|     expect(result.path).toBe(`${platform}.json`)
+     71|     expect(result.hint).toBe('keys.useKeyModal.opencode.hint')
+     72|     expect(Buffer.byteLength(result.content)).toBe(bytes)
+       |                                               ^
+     73|     expect(createHash('sha256').update(result.content).digest('hex')).…
+     74|     expect(Object.keys(parsed)).toEqual(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/9]⎯
+
+
+ Test Files  6 failed (6)
+      Tests  9 failed | 19 passed (28)
+   Start at  01:42:33
+   Duration  2.54s (transform 1.48s, setup 231ms, collect 2.13s, tests 151ms, environment 1.19s, prepare 353ms)

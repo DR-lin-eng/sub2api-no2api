@@ -110,11 +110,13 @@
       "frontend/src/views/user/__tests__/KeysView.spec.ts"
     ],
     "upstream_diff_sha256": "3c3bc662212b54a45eb2568fb1a0dc584f2f81242c23b52ac54273a486da8fdf",
-    "status": "专项暂缓（未合入）",
-    "fully_closed": false,
-    "current_owner": "现有 shared/typesafe 仅为内部审核客户端；新原生网关需独立模块",
-    "decision": "原生 /v1/systemone 与平台枚举、计费/额度、审计和 UI 是新协议范围；迁移 241 与本项目 241_account_quality_runs.sql 冲突，上游 Do(proxyURL) 未携带本项目完整账号出口。需模块化路由与账户出口/失败/结算专项验证。",
-    "reopen_condition": "按 PR 编号开展专项协议/账务/迁移设计"
+    "status": "已适配并验证",
+    "fully_closed": true,
+    "current_owner": "modules/typesafe；application/service/gateway_systemone.go；transport/http/handler/gateway_systemone.go",
+    "decision": "新增独立原生模块，并按本项目的完整出口、有序分组、审计、可靠结算和管理端架构适配；迁移追加 246。",
+    "reopen_condition": "仅上游行为变化或出现实际回归证据",
+    "resolved_on": "2026-10-06",
+    "resolution_evidence": "diagnostics/typesafe-recharge-20261006/VERIFICATION.txt"
   },
   {
     "pr": 7802,
@@ -168,11 +170,13 @@
       "frontend/src/views/user/PaymentView.vue"
     ],
     "upstream_diff_sha256": "7f632e03ee0090e86a5c7511413d09a282d8581ffc3d04cb2a4c599b6ede0dbe",
-    "status": "专项暂缓（未合入）",
-    "fully_closed": false,
-    "current_owner": "modules/payment；service/payment_order.go、payment_fulfillment.go",
-    "decision": "新增 bonus_amount 和阶梯报价改变到账金额、返利基数及退款边界；迁移 241 冲突。需在现有支付模块设计报价快照、实际支付/赠送拆分与升级回退，不将上游旧 service/Ent 生成代码整包覆盖。",
-    "reopen_condition": "按 PR 编号开展专项协议/账务/迁移设计"
+    "status": "已适配并验证",
+    "fully_closed": true,
+    "current_owner": "modules/payment/recharge_bonus.go；application/service/payment_order.go、payment_fulfillment.go；features/billing 与 admin-settings",
+    "decision": "默认关闭、币种精度报价、订单实付/赠送快照、赠送剔除返利基数、比例退款和幂等履约；迁移追加 247。",
+    "reopen_condition": "仅上游行为变化或出现实际回归证据",
+    "resolved_on": "2026-10-06",
+    "resolution_evidence": "diagnostics/typesafe-recharge-20261006/VERIFICATION.txt"
   },
   {
     "pr": 7673,
@@ -334,10 +338,12 @@
       "backend/internal/service/upstream_billing_probe_multiplatform_test.go"
     ],
     "upstream_diff_sha256": "fa77da0d11a29b6d5756eea772d2acd39c35b035dd2f5ceb319252143e6b6116",
-    "status": "专项暂缓（依赖 #7425，未合入）",
-    "fully_closed": false,
-    "current_owner": "service/upstream_billing_probe.go",
-    "decision": "当前没有原生 TypeSafe 账号平台；不能只添加计费探测资格而漏掉协议、迁移和账号出口。随 #7425 专项引入，不重复修改现有内部审核客户端。",
-    "reopen_condition": "按 PR 编号开展专项协议/账务/迁移设计"
+    "status": "已适配并验证",
+    "fully_closed": true,
+    "current_owner": "application/service/upstream_billing_probe.go；features/admin-accounts/presentation/upstreamBillingProbeEligibility.ts",
+    "decision": "随原生 TypeSafe 完整平台引入，前后端限定 API-key，官方域名跳过 fork 专用探测，自定义 relay 继续使用完整账号出口。",
+    "reopen_condition": "仅上游行为变化或出现实际回归证据",
+    "resolved_on": "2026-10-06",
+    "resolution_evidence": "diagnostics/typesafe-recharge-20261006/VERIFICATION.txt"
   }
 ]

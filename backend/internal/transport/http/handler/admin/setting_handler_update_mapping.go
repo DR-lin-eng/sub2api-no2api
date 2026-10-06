@@ -384,6 +384,10 @@ func buildPaymentConfigUpdate(req *UpdateSettingsRequest) service.UpdatePaymentC
 		BalanceRechargeMultiplier:     req.PaymentBalanceRechargeMultiplier,
 		SubscriptionUSDToCNYRate:      req.PaymentSubscriptionUSDToCNYRate,
 		RechargeFeeRate:               req.PaymentRechargeFeeRate,
+		RechargeBonusEnabled:          req.PaymentRechargeBonusEnabled,
+		RechargeBonusTiers:            rechargeBonusTiersFromDTO(req.PaymentRechargeBonusTiers),
+		RechargeBonusMode:             req.PaymentRechargeBonusMode,
+		RechargeBonusNotice:           req.PaymentRechargeBonusNotice,
 		LoadBalanceStrategy:           req.PaymentLoadBalanceStrat,
 		ProductNamePrefix:             req.PaymentProductNamePrefix,
 		ProductNameSuffix:             req.PaymentProductNameSuffix,
@@ -408,6 +412,7 @@ func hasPaymentFields(req UpdateSettingsRequest) bool {
 		req.PaymentEnabledTypes != nil || req.PaymentBalanceDisabled != nil ||
 		req.PaymentBalanceRechargeMultiplier != nil || req.PaymentSubscriptionUSDToCNYRate != nil ||
 		req.PaymentRechargeFeeRate != nil ||
+		req.PaymentRechargeBonusEnabled != nil || req.PaymentRechargeBonusTiers != nil || req.PaymentRechargeBonusMode != nil || req.PaymentRechargeBonusNotice != nil ||
 		req.PaymentLoadBalanceStrat != nil || req.PaymentProductNamePrefix != nil ||
 		req.PaymentProductNameSuffix != nil || req.PaymentHelpImageURL != nil ||
 		req.PaymentHelpText != nil || req.PaymentCancelRateLimitEnabled != nil ||

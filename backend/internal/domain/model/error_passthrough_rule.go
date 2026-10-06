@@ -32,6 +32,7 @@ const MatchModeAll = "all"
 
 // 支持的平台常量
 const (
+	PlatformTypeSafe    = "typesafe"
 	PlatformAnthropic   = "anthropic"
 	PlatformOpenAI      = "openai"
 	PlatformGemini      = "gemini"
@@ -48,7 +49,7 @@ const (
 func AllPlatforms() []string {
 	return []string{
 		PlatformAnthropic, PlatformOpenAI, PlatformGemini, PlatformAntigravity, PlatformGrok,
-		PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax, PlatformOpenCodeGo,
+		PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax, PlatformOpenCodeGo, PlatformTypeSafe,
 	}
 }
 

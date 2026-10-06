@@ -22,6 +22,26 @@ vi.mock('@/common/composables/useClipboard', () => ({
 import UseKeyModal from '../presentation/widgets/UseKeyDialog.vue'
 
 describe('UseKeyModal', () => {
+  it('offers only native TypeSafe examples with copyable Unix, CMD and PowerShell payloads', async () => {
+    const wrapper = mount(UseKeyModal, {
+      props: { show: true, platform: 'typesafe', apiKey: 'fixture-key', baseUrl: 'https://example.com/root/v1' },
+      global: { stubs: { Teleport: true } }
+    })
+    const unix = wrapper.find('pre code').text()
+    expect(unix).toContain('https://example.com/root/v1/systemone')
+    expect(unix).toContain('"model": "jev-latest"')
+    expect(wrapper.text()).not.toContain('keys.useKeyModal.cliTabs.codex')
+    const cmd = wrapper.findAll('button').find(button => button.text().trim() === 'Windows CMD')
+    expect(cmd).toBeDefined()
+    await cmd!.trigger('click')
+    expect(wrapper.find('pre code').text()).toContain(String.raw`\"model\":\"jev-latest\"`)
+    const ps = wrapper.findAll('button').find(button => button.text().trim() === 'PowerShell')
+    expect(ps).toBeDefined()
+    await ps!.trigger('click')
+    expect(wrapper.find('pre code').text()).toContain('Invoke-RestMethod -Method Post')
+    wrapper.unmount()
+  })
+
   it('maps every group platform to the existing OpenCode provider, path, and base URL', async () => {
     const cases: Array<{
       platform: GroupPlatform

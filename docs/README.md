@@ -41,6 +41,7 @@
 
 | 文档 | 内容 |
 | --- | --- |
+| [TypeSafe 与充值阶梯专项适配](UPSTREAM_ADAPT_20261006.md) | 原生协议、计费探测、优惠快照、升级回退和验证 |
 | [组合分组](COMPOSITE_GROUPS.md) | Composite group 的平台解析和使用约束 |
 | [Excel BPS 与 DeepSeek 兼容](BPS_DEEPSEEK_COMPAT.md) | 账号级 BPS 开关/筛选/批量更新、Responses 与 Chat Completions 兼容入口 |
 | [Codex OAuth 模拟的有意差异](codex/intentional-divergences.md) | 固定 Codex 源码 revision、纯 Go A/B 身份与 continuation 边界、暂缓的传输层差异 |

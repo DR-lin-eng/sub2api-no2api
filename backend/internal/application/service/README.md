@@ -9,6 +9,7 @@
 | `account*`, `admin_account*`, `admin_group*`, `admin_user*` | 账号与管理用例 |
 | `auth*`, `oauth*`, `token*`, `totp*` | 身份、会话和凭据刷新 |
 | `gateway*` | Anthropic/Claude 通用网关请求、调度、转发和计费 |
+| `gateway_systemone.go`, `account_test_service_typesafe.go` | TypeSafe 原生非流式转发与账号测试，复用完整账号出口和可靠计费 |
 | `openai*` | OpenAI/Codex/Responses/Images/WS 管线 |
 | `gemini*`, `grok*`, `antigravity*`, `bedrock*` | 各上游协议适配与重试 |
 | `scheduler*`, `channel*`, `ratelimit*`, `concurrency*` | 调度、通道和并发控制 |
