@@ -37,10 +37,30 @@ type OpenAIResponsesImagePlan struct {
 	mask           *openAIResponsesImageInput
 	forceGenerate  bool
 
-	prepareOnce sync.Once
-	prepareErr  error
-	fileCache   sync.Map
-	fileGroup   singleflight.Group
+	prepareOnce     sync.Once
+	prepareErr      error
+	fileCache       sync.Map
+	fileGroup       singleflight.Group
+	retainedBytesMu sync.Mutex
+	retainedBytes   int64
+}
+
+// Keep the aggregate materialized image budget below the gateway request body
+// limit. Per-image limits alone still allow one request to retain many large
+// images concurrently.
+const openAIResponsesImageMaxRetainedBytes = 128 << 20
+
+func (p *OpenAIResponsesImagePlan) retainResolvedBytes(size int) error {
+	if p == nil || size < 0 {
+		return fmt.Errorf("invalid resolved image size")
+	}
+	p.retainedBytesMu.Lock()
+	defer p.retainedBytesMu.Unlock()
+	if int64(size) > openAIResponsesImageMaxRetainedBytes-p.retainedBytes {
+		return fmt.Errorf("responses image inputs exceed aggregate limit of %d bytes", openAIResponsesImageMaxRetainedBytes)
+	}
+	p.retainedBytes += int64(size)
+	return nil
 }
 
 type openAIResponsesImageResolvedInput struct {
@@ -238,6 +258,9 @@ func (s *OpenAIGatewayService) PrepareOpenAIResponsesImagePlan(ctx context.Conte
 				if err != nil {
 					return err
 				}
+				if err := plan.retainResolvedBytes(len(data)); err != nil {
+					return err
+				}
 				for _, ref := range refs {
 					ref.Data = data
 					ref.ContentType = contentType
@@ -308,6 +331,9 @@ func (s *OpenAIGatewayService) resolveOpenAIResponsesImagePlanInputForAccount(
 		}
 		data, contentType, filename, err := s.downloadOpenAIFileImage(ctx, account, input.FileID)
 		if err != nil {
+			return nil, err
+		}
+		if err := plan.retainResolvedBytes(len(data)); err != nil {
 			return nil, err
 		}
 		resolved := openAIResponsesImageResolvedInput{Data: data, ContentType: contentType, Filename: filename}

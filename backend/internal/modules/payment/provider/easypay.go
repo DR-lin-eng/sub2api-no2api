@@ -33,6 +33,22 @@ const (
 	deviceMobile           = "mobile"
 )
 
+// EasyPay's notify protocol has a fixed set of signed fields. Keeping the
+// accepted set narrow prevents a field from smuggling another signed field
+// through a decoded value (for example, a return_url containing an ampersand).
+var easyPayNotifyAllowedParams = map[string]struct{}{
+	"pid":          {},
+	"trade_no":     {},
+	"out_trade_no": {},
+	"type":         {},
+	"name":         {},
+	"money":        {},
+	"trade_status": {},
+	"param":        {},
+	"sign":         {},
+	"sign_type":    {},
+}
+
 // EasyPay implements payment.Provider for the EasyPay aggregation platform.
 type EasyPay struct {
 	instanceID string
@@ -352,32 +368,53 @@ func (e *EasyPay) VerifyNotification(_ context.Context, rawBody string, _ map[st
 		return nil, fmt.Errorf("parse notify: %w", err)
 	}
 	// url.ParseQuery already decodes values — no additional decode needed.
-	params := make(map[string]string)
-	for k := range values {
-		params[k] = values.Get(k)
+	// Reject unknown and repeated keys before constructing the signature input;
+	// otherwise a value can be reinterpreted as another signed parameter.
+	params := make(map[string]string, len(values))
+	for k, entries := range values {
+		if _, ok := easyPayNotifyAllowedParams[k]; !ok {
+			return nil, fmt.Errorf("unexpected notify param: %s", k)
+		}
+		if len(entries) != 1 {
+			return nil, fmt.Errorf("duplicate notify param: %s", k)
+		}
+		params[k] = entries[0]
 	}
 	sign := params["sign"]
-	if sign == "" {
+	if strings.TrimSpace(sign) == "" {
 		return nil, fmt.Errorf("missing sign")
+	}
+	expectedPID := strings.TrimSpace(e.config["pid"])
+	actualPID := strings.TrimSpace(params["pid"])
+	if expectedPID == "" || actualPID == "" || !strings.EqualFold(expectedPID, actualPID) {
+		return nil, fmt.Errorf("merchant pid mismatch")
+	}
+	if signType := strings.TrimSpace(params["sign_type"]); signType != "" && !strings.EqualFold(signType, signTypeMD5) {
+		return nil, fmt.Errorf("unsupported sign_type: %s", signType)
 	}
 	if !easyPayVerifySign(params, e.config["pkey"], sign) {
 		return nil, fmt.Errorf("invalid signature")
 	}
+	orderID := strings.TrimSpace(params["out_trade_no"])
+	if orderID == "" {
+		return nil, fmt.Errorf("missing out_trade_no")
+	}
 	status := payment.ProviderStatusFailed
-	if params["trade_status"] == tradeStatusSuccess {
+	if strings.TrimSpace(params["trade_status"]) == tradeStatusSuccess {
 		status = payment.ProviderStatusSuccess
 	}
-	amount, _ := strconv.ParseFloat(params["money"], 64)
+	amount, parseErr := strconv.ParseFloat(strings.TrimSpace(params["money"]), 64)
+	if parseErr != nil {
+		return nil, fmt.Errorf("invalid money: %w", parseErr)
+	}
+	tradeNo := strings.TrimSpace(params["trade_no"])
+	if status == payment.ProviderStatusSuccess && tradeNo == "" {
+		return nil, fmt.Errorf("missing trade_no")
+	}
 
 	metadata := e.MerchantIdentityMetadata()
-	if pid := strings.TrimSpace(params["pid"]); pid != "" {
-		if metadata == nil {
-			metadata = map[string]string{}
-		}
-		metadata["pid"] = pid
-	}
 	return &payment.PaymentNotification{
-		TradeNo: params["trade_no"], OrderID: params["out_trade_no"],
+		TradeNo: tradeNo, OrderID: orderID,
 		Amount: amount, Status: status, RawData: rawBody, Metadata: metadata,
 	}, nil
 }

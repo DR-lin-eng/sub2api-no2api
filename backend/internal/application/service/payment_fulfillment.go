@@ -101,6 +101,13 @@ func (s *PaymentService) confirmPayment(ctx context.Context, oid int64, tradeNo 
 		})
 		return err
 	}
+	if strings.EqualFold(strings.TrimSpace(pk), payment.TypeEasyPay) && strings.TrimSpace(tradeNo) == "" &&
+		strings.TrimSpace(metadata["notification_source"]) != "upstream_query" {
+		s.writeAuditLog(ctx, o.ID, "PAYMENT_MISSING_TRADE_NO", pk, map[string]any{
+			"paidAmount": paid,
+		})
+		return fmt.Errorf("easypay notification missing trade number")
+	}
 	if !isValidProviderAmount(paid) {
 		s.writeAuditLog(ctx, o.ID, "PAYMENT_INVALID_AMOUNT", pk, map[string]any{
 			"expected": o.PayAmount,
