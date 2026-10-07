@@ -202,9 +202,12 @@
     </BaseDialog>
 
   </AppLayout>
+  <TotpStepUpDialog :controller="stepUp" />
 </template>
 
 <script setup lang="ts">
+import TotpStepUpDialog from '@/features/auth/totpStepUpDialog'
+import { useStepUp, isStepUpCancelled } from '@/common/composables/useStepUp'
 	import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 	import { useI18n } from 'vue-i18n'
 	import { useAppStore } from '@/core/stores/appStore'
@@ -254,6 +257,7 @@ const formatDateTimeLocal = (isoDate: string): string => {
 }
 
 const appStore = useAppStore()
+const stepUp = useStepUp()
 const onboardingStore = useOnboardingStore()
 const { copyToClipboard: clipboardCopy } = useClipboard()
 
@@ -1060,11 +1064,13 @@ const handleDelete = async () => {
   if (!selectedKey.value) return
 
   try {
-    await keysAPI.delete(selectedKey.value.id)
+    const keyID = selectedKey.value.id
+    await stepUp.run(() => keysAPI.delete(keyID))
     appStore.showSuccess(t('keys.keyDeletedSuccess'))
     showDeleteDialog.value = false
     loadApiKeys()
   } catch (error: any) {
+    if (isStepUpCancelled(error)) return
     // 优先使用后端返回的错误消息，提供更具体的错误信息给用户
     const errorMsg = error?.message || t('keys.failedToDelete')
     appStore.showError(errorMsg)

@@ -43,6 +43,9 @@ func SetupRouter(
 	redisClient *redis.Client,
 	db *sql.DB,
 ) *gin.Engine {
+	// Gin redirects run before middleware; disable automatic API rewrites.
+	r.RedirectTrailingSlash = false
+	r.RedirectFixedPath = false
 	middleware2.SetIngressRejectRecorder(opsService)
 	// 缓存动态 CSP origin，避免每个静态资源请求都读取设置。
 	var cachedFrameOrigins atomic.Pointer[[]string]
@@ -147,12 +150,12 @@ func registerRoutes(
 
 	// 注册各模块路由
 	routes.RegisterAuthRoutes(v1, h, jwtAuth, auditLog, redisClient, db, settingService, panelRateLimiter)
-	routes.RegisterOAuth2ProviderRoutes(r, h, jwtAuth, panelRateLimiter)
-	routes.RegisterUserRoutes(v1, h, jwtAuth, auditLog, settingService, panelRateLimiter)
+	routes.RegisterOAuth2ProviderRoutes(r, h, jwtAuth, panelRateLimiter, redisClient)
+	routes.RegisterUserRoutes(v1, h, jwtAuth, auditLog, settingService, panelRateLimiter, stepUpAuth)
 	routes.RegisterChannelMonitorPublicRoutes(v1, h, optionalJWTAuth, settingService, panelRateLimiter)
 	routes.RegisterModelPlazaRoutes(v1, h, optionalJWTAuth, settingService, panelRateLimiter)
 	routes.RegisterAdminRoutes(v1, h, adminAuth, auditLog, stepUpAuth, settingService, panelRateLimiter)
-	routes.RegisterGatewayRoutes(r, h, apiKeyAuth, apiKeyService, subscriptionService, opsService, settingService, compositeResolver, cfg)
+	routes.RegisterGatewayRoutes(r, h, apiKeyAuth, apiKeyService, subscriptionService, opsService, settingService, compositeResolver, cfg, panelRateLimiter.PublicFixedWindow("generated-image", 120, time.Minute, coremiddleware.RateLimitFailOpen))
 	routes.RegisterPaymentRoutes(v1, h.Payment, h.PaymentWebhook, h.Admin.Payment, jwtAuth, adminAuth, auditLog, settingService, panelRateLimiter, redisClient)
 
 	handler.RegisterPageRoutes(v1, cfg.Pricing.DataDir, gin.HandlerFunc(jwtAuth), gin.HandlerFunc(adminAuth), settingService)

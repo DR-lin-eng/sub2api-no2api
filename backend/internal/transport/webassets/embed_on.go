@@ -89,7 +89,7 @@ func (s *FrontendServer) Middleware() gin.HandlerFunc {
 		path := c.Request.URL.Path
 
 		// Skip API routes
-		if shouldBypassEmbeddedFrontend(path) {
+		if (c.Request.Method != http.MethodGet && c.Request.Method != http.MethodHead) || shouldBypassEmbeddedFrontend(path) {
 			c.Next()
 			return
 		}
@@ -345,7 +345,7 @@ func ServeEmbeddedFrontend() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := c.Request.URL.Path
 
-		if shouldBypassEmbeddedFrontend(path) {
+		if (c.Request.Method != http.MethodGet && c.Request.Method != http.MethodHead) || shouldBypassEmbeddedFrontend(path) {
 			c.Next()
 			return
 		}
@@ -387,9 +387,13 @@ func tryServeOverrideFile(c *gin.Context, overrideDir, cleanPath string) bool {
 }
 
 func shouldBypassEmbeddedFrontend(path string) bool {
-	trimmed := strings.TrimSpace(path)
+	trimmed := strings.TrimSuffix(strings.TrimSpace(path), "/")
 	return strings.HasPrefix(trimmed, "/api/") ||
 		strings.HasPrefix(trimmed, "/v1/") ||
+		trimmed == "/chat/completions" ||
+		trimmed == "/embeddings" ||
+		trimmed == "/messages/count_tokens" ||
+		trimmed == "/x_search" ||
 		strings.HasPrefix(trimmed, "/v1beta/") ||
 		strings.HasPrefix(trimmed, "/backend-api/") ||
 		strings.HasPrefix(trimmed, "/antigravity/") ||
@@ -401,6 +405,7 @@ func shouldBypassEmbeddedFrontend(path string) bool {
 		trimmed == "/health" ||
 		trimmed == "/ready" ||
 		trimmed == "/models" ||
+		strings.HasPrefix(trimmed, "/models/") ||
 		trimmed == "/responses" ||
 		strings.HasPrefix(trimmed, "/responses/") ||
 		trimmed == "/alpha/search" ||

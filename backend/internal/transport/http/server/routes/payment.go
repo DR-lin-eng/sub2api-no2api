@@ -60,15 +60,20 @@ func RegisterPaymentRoutes(
 	// The legacy anonymous out_trade_no verify endpoint remains available as a
 	// persisted-state compatibility path for staggered upgrades.
 	public := v1.Group("/payment/public")
+	public.Use(panelRateLimiter.PublicIP())
 	{
 		// Redis failures leave persisted payment results accessible during an outage.
 		limiter := ratelimit.NewRateLimiter(redisClient)
 		public.POST("/orders/verify", limiter.Limit("payment-public-order-verify", publicOrderVerifyRateLimit, publicOrderVerifyRateLimitWindow), paymentHandler.VerifyOrderPublic)
-		public.POST("/orders/resolve", paymentHandler.ResolveOrderPublicByResumeToken)
+		public.POST("/orders/resolve", limiter.Limit("payment-public-order-resolve", 60, time.Minute), paymentHandler.ResolveOrderPublicByResumeToken)
 	}
 
 	// --- Webhook endpoints (no auth) ---
 	webhook := v1.Group("/payment/webhook")
+	webhookLimiter := ratelimit.NewRateLimiter(redisClient)
+	webhook.Use(webhookLimiter.LimitWithOptions("payment-webhook", 120, time.Minute, ratelimit.RateLimitOptions{
+		FailureMode: ratelimit.RateLimitFailOpen,
+	}))
 	{
 		// EasyPay sends GET callbacks with query params
 		webhook.GET("/easypay", webhookHandler.EasyPayNotify)
@@ -82,6 +87,7 @@ func RegisterPaymentRoutes(
 	// --- Admin payment endpoints (admin auth) ---
 	adminGroup := v1.Group("/admin/payment")
 	adminGroup.Use(gin.HandlerFunc(adminAuth))
+	adminGroup.Use(middleware.AdminPermissionMiddleware(settingService))
 	adminGroup.Use(panelRateLimiter.Authenticated())
 	adminGroup.Use(gin.HandlerFunc(auditLog))
 	adminGroup.Use(middleware.AdminComplianceGuard(settingService))

@@ -60,6 +60,7 @@
 | 客服质检（只读） | `support.read`、`users.read_basic` |
 | 客服财务 | 默认客服权限，再加 `support.balance_transfer` |
 | 运营概览 | `dashboard.read` |
+| 支付运营 | `payment.manage` |
 | 公告运营 | `announcements.manage` |
 | 用户资料维护 | `users.manage`；如需改邮箱/密码，再加 `users.credentials`；如需改限额，再加 `users.billing` |
 
@@ -105,6 +106,7 @@
 | `settings.manage` | 系统设置接口；权限组及管理员密钥接口仍仅限完整管理员。设置包含认证等高权限配置，应只交给受信任的配置维护人员 |
 | `groups.manage` | 模型分组及路由，不是人员权限分配 |
 | `accounts.manage` | 上游账号、巡检、代理和出口；现有二次验证要求保持不变 |
+| `payment.manage` | 支付配置、订单、退款、方案和服务商渠道；已有人员组不会自动得到此权限 |
 
 Admin API Key 的既有 scope 与人员权限组是两套机制。本功能不把员工角色自动转换成管理员 API Key，也不取消已有 scope 校验。
 

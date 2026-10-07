@@ -753,9 +753,7 @@ func (s *httpUpstreamService) getClientEntryWithTLSRouteAndVirtualClientKey(rout
 	}
 
 	client := &http.Client{Transport: transport, Jar: chatgptCookieJar()}
-	if s.shouldValidateResolvedIP() {
-		client.CheckRedirect = s.redirectChecker
-	}
+	client.CheckRedirect = s.redirectChecker
 
 	entry := &upstreamClientEntry{
 		client:                client,
@@ -769,9 +767,7 @@ func (s *httpUpstreamService) getClientEntryWithTLSRouteAndVirtualClientKey(rout
 		tlsProfileKey:         profileKey,
 	}
 	if entry.experimentalReqClient != nil {
-		if s.shouldValidateResolvedIP() {
-			entry.experimentalReqClient.GetClient().CheckRedirect = s.redirectChecker
-		}
+		entry.experimentalReqClient.GetClient().CheckRedirect = s.redirectChecker
 		slog.Info("codex_experimental_transport_enabled", "account_id", accountID, "http2_initial_window", codexExperimentalHTTP2InitialWindow, "http2_connection_flow", codexExperimentalHTTP2ConnectionFlow, "http2_max_header_list", codexExperimentalHTTP2MaxHeaders, "profile", profile.Name)
 	}
 	atomic.StoreInt64(&entry.lastUsed, nowUnix)
@@ -790,27 +786,25 @@ func (s *httpUpstreamService) shouldValidateResolvedIP() bool {
 	if s.cfg == nil {
 		return false
 	}
-	if !s.cfg.Security.URLAllowlist.Enabled {
-		return false
-	}
 	return !s.cfg.Security.URLAllowlist.AllowPrivateHosts
 }
 
 func (s *httpUpstreamService) validateRequestHost(req *http.Request) error {
-	if !s.shouldValidateResolvedIP() {
-		return nil
-	}
 	if req == nil || req.URL == nil {
 		return errors.New("request url is nil")
+	}
+	allowHTTP := s.cfg != nil && s.cfg.Security.URLAllowlist.AllowInsecureHTTP
+	if _, err := urlvalidator.ValidateURLFormat(req.URL.String(), allowHTTP); err != nil {
+		return err
+	}
+	if !s.shouldValidateResolvedIP() {
+		return nil
 	}
 	host := strings.TrimSpace(req.URL.Hostname())
 	if host == "" {
 		return errors.New("request host is empty")
 	}
-	if err := urlvalidator.ValidateResolvedIP(host); err != nil {
-		return err
-	}
-	return nil
+	return urlvalidator.ValidateResolvedIP(host)
 }
 
 func (s *httpUpstreamService) redirectChecker(req *http.Request, via []*http.Request) error {
@@ -932,9 +926,7 @@ func (s *httpUpstreamService) getClientEntryRouteWithVirtualClientKey(route plat
 		return nil, fmt.Errorf("build transport: %w", err)
 	}
 	client := &http.Client{Transport: transport, Jar: chatgptCookieJar()}
-	if s.shouldValidateResolvedIP() {
-		client.CheckRedirect = s.redirectChecker
-	}
+	client.CheckRedirect = s.redirectChecker
 	entry := &upstreamClientEntry{
 		client:           client,
 		accountID:        accountID,

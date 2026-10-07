@@ -289,9 +289,8 @@ func TestPanelRateLimiterPublicIP(t *testing.T) {
 	router := newPanelTestRouter(path, p.PublicIP(), 0, "")
 	require.Equal(t, http.StatusOK, performPanelRequest(router, path, "203.0.113.9:1").Code)
 	require.Equal(t, http.StatusTooManyRequests, performPanelRequest(router, path, "203.0.113.9:1").Code)
-	for i := 0; i < 3; i++ {
-		require.Equal(t, http.StatusOK, performPanelRequest(router, path, "127.0.0.1:1").Code)
-	}
+	require.Equal(t, http.StatusOK, performPanelRequest(router, path, "127.0.0.1:1").Code)
+	require.Equal(t, http.StatusTooManyRequests, performPanelRequest(router, path, "127.0.0.1:1").Code)
 }
 
 func TestPanelHeavyPathCoverage(t *testing.T) {
@@ -342,11 +341,12 @@ func TestPanelRateLimiterAdminPaymentAndOpsRoutesConsumeHeavyBucket(t *testing.T
 	}
 }
 
-func TestIsPubliclyRoutableClientIP(t *testing.T) {
-	require.True(t, isPubliclyRoutableClientIP("203.0.113.9"))
-	require.True(t, isPubliclyRoutableClientIP("2001:db8::1"))
-	for _, value := range []string{"127.0.0.1", "::1", "10.1.2.3", "172.16.0.1", "192.168.0.1", "169.254.1.1", "fe80::1", "fc00::1", "0.0.0.0", "", "not-an-ip"} {
-		require.Falsef(t, isPubliclyRoutableClientIP(value), "expected non-routable address %q", value)
+func TestValidPanelClientIPIncludesPrivatePeers(t *testing.T) {
+	for _, value := range []string{"203.0.113.9", "2001:db8::1", "127.0.0.1", "::1", "10.1.2.3", "172.16.0.1", "192.168.0.1", "169.254.1.1", "fe80::1", "fc00::1"} {
+		require.True(t, isValidPanelClientIP(value), value)
+	}
+	for _, value := range []string{"0.0.0.0", "::", "", "not-an-ip", "224.0.0.1"} {
+		require.False(t, isValidPanelClientIP(value), value)
 	}
 }
 

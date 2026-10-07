@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"regexp"
 	"strconv"
 	"strings"
@@ -375,8 +374,8 @@ func (s *PaymentConfigService) UpdateProviderInstance(ctx context.Context, id in
 	if req.Name != nil {
 		u.SetName(*req.Name)
 	}
-	if mergedConfig != nil {
-		enc, err := s.encryptConfig(mergedConfig)
+	if configToValidate != nil {
+		enc, err := s.encryptConfig(configToValidate)
 		if err != nil {
 			return nil, err
 		}
@@ -490,35 +489,9 @@ func (s *PaymentConfigService) mergeConfig(ctx context.Context, id int64, newCon
 	return existing, nil
 }
 
-// decryptConfig parses a stored provider config.
-// New records are plaintext JSON; legacy records are AES-256-GCM ciphertext
-// ("iv:authTag:ciphertext"). Values that cannot be parsed as either — including
-// legacy ciphertext with no/invalid TOTP_ENCRYPTION_KEY — are treated as empty,
-// letting the admin re-enter the config via the UI to complete the migration.
-//
-// TODO(deprecated-legacy-ciphertext): The AES fallback branch is a transitional
-// shim for pre-plaintext records. Remove it (and the encryptionKey field) after
-// a few releases once all live deployments have re-saved their provider configs.
+// decryptConfig accepts legacy plaintext but never discards unreadable secrets.
 func (s *PaymentConfigService) decryptConfig(stored string) (map[string]string, error) {
-	if stored == "" {
-		return nil, nil
-	}
-	var cfg map[string]string
-	if err := json.Unmarshal([]byte(stored), &cfg); err == nil {
-		return cfg, nil
-	}
-	// Deprecated: legacy AES-256-GCM ciphertext fallback — scheduled for removal.
-	if len(s.encryptionKey) == payment.AES256KeySize {
-		//nolint:staticcheck // SA1019: intentional legacy fallback, scheduled for removal
-		if plaintext, err := payment.Decrypt(stored, s.encryptionKey); err == nil {
-			if err := json.Unmarshal([]byte(plaintext), &cfg); err == nil {
-				return cfg, nil
-			}
-		}
-	}
-	slog.Warn("payment provider config unreadable, treating as empty for re-entry",
-		"stored_len", len(stored))
-	return nil, nil
+	return payment.DecodeProviderConfig(stored, s.encryptionKey)
 }
 
 func (s *PaymentConfigService) DeleteProviderInstance(ctx context.Context, id int64) error {
@@ -533,13 +506,52 @@ func (s *PaymentConfigService) DeleteProviderInstance(ctx context.Context, id in
 	return s.entClient.PaymentProviderInstance.DeleteOneID(id).Exec(ctx)
 }
 
-// encryptConfig serialises a provider config for storage.
-// New records are written as plaintext JSON; the historical AES-GCM wrapping
-// has been dropped but decryptConfig still accepts old ciphertext during migration.
+// encryptConfig serialises and encrypts a provider config for storage. A
+// missing stable key is an operational error; silently writing plaintext would
+// reintroduce the credential-at-rest exposure this boundary protects.
 func (s *PaymentConfigService) encryptConfig(cfg map[string]string) (string, error) {
 	data, err := json.Marshal(cfg)
 	if err != nil {
 		return "", fmt.Errorf("marshal config: %w", err)
 	}
-	return string(data), nil
+	if len(s.encryptionKey) != payment.AES256KeySize {
+		return "", fmt.Errorf("payment config encryption key must be %d bytes", payment.AES256KeySize)
+	}
+	enc, err := payment.Encrypt(string(data), s.encryptionKey)
+	if err != nil {
+		return "", fmt.Errorf("encrypt config: %w", err)
+	}
+	return enc, nil
+}
+
+// EncryptLegacyProviderConfigs runs before the provider registry is populated.
+// Compare-and-swap on the stored bytes preserves concurrent administrative
+// edits. The existing ciphertext format is readable by the previous release,
+// so the migration requires no schema change and remains rollback compatible.
+func (s *PaymentConfigService) EncryptLegacyProviderConfigs(ctx context.Context) error {
+	var after int64
+	for {
+		instances, err := s.entClient.PaymentProviderInstance.Query().Where(paymentproviderinstance.IDGT(after)).Order(paymentproviderinstance.ByID()).Limit(100).All(ctx)
+		if err != nil {
+			return fmt.Errorf("load legacy payment configs: %w", err)
+		}
+		for _, instance := range instances {
+			after = instance.ID
+			var cfg map[string]string
+			if strings.TrimSpace(instance.Config) == "" || json.Unmarshal([]byte(instance.Config), &cfg) != nil {
+				continue
+			}
+			encrypted, err := s.encryptConfig(cfg)
+			if err != nil {
+				return fmt.Errorf("encrypt legacy payment instance %d: %w", instance.ID, err)
+			}
+			_, err = s.entClient.PaymentProviderInstance.Update().Where(paymentproviderinstance.IDEQ(instance.ID), paymentproviderinstance.ConfigEQ(instance.Config)).SetConfig(encrypted).Save(ctx)
+			if err != nil {
+				return fmt.Errorf("save encrypted payment instance %d: %w", instance.ID, err)
+			}
+		}
+		if len(instances) < 100 {
+			return nil
+		}
+	}
 }

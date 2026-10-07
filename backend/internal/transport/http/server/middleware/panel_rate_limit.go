@@ -121,9 +121,8 @@ func (p *PanelRateLimiter) Authenticated() gin.HandlerFunc {
 	}
 }
 
-// PublicIP limits unauthenticated settings endpoints. Private and loopback
-// addresses are skipped so a reverse proxy's internal address cannot collapse
-// all clients into one bucket.
+// PublicIP limits unauthenticated settings endpoints, including direct private
+// clients. Reverse proxies must be explicitly trusted by the IP resolver.
 func (p *PanelRateLimiter) PublicIP() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if p == nil || p.limiter == nil || p.settingService == nil {
@@ -136,7 +135,7 @@ func (p *PanelRateLimiter) PublicIP() gin.HandlerFunc {
 			return
 		}
 		clientIP := SecurityClientIP(c)
-		if !isPubliclyRoutableClientIP(clientIP) {
+		if !isValidPanelClientIP(clientIP) {
 			c.Next()
 			return
 		}
@@ -144,6 +143,37 @@ func (p *PanelRateLimiter) PublicIP() gin.HandlerFunc {
 		result, err := p.limiter.Allow(c.Request.Context(), "panel:public:ip:"+clientIP, settings.PublicIPRPM, panelRateLimitWindow)
 		if err != nil {
 			p.recordRedisFailure("public", err)
+			c.Next()
+			return
+		}
+		p.redisRetryAt.Store(0)
+		if !result.Allowed {
+			abortPanelRateLimited(c, result.RetryAfter)
+			return
+		}
+		c.Next()
+	}
+}
+
+// PublicFixedWindow applies an endpoint-specific public bucket independent of
+// the optional panel policy. It is used for credential and signed-token
+// endpoints whose abuse protection must remain enabled even when an operator
+// changes the broader panel policy. Redis failures fail closed for these
+// security-sensitive endpoints.
+func (p *PanelRateLimiter) PublicFixedWindow(key string, limit int, window time.Duration, failureMode platformmiddleware.RateLimitFailureMode) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if p == nil || p.limiter == nil || limit <= 0 {
+			c.Next()
+			return
+		}
+		clientIP := SecurityClientIP(c)
+		result, err := p.limiter.Allow(c.Request.Context(), "panel:public:endpoint:"+key+":"+clientIP, limit, window)
+		if err != nil {
+			if failureMode == platformmiddleware.RateLimitFailClose {
+				abortPanelRateLimited(c, window)
+				return
+			}
+			p.recordRedisFailure("public-endpoint", err)
 			c.Next()
 			return
 		}
@@ -196,16 +226,9 @@ func isPanelHeavyPath(path string) bool {
 	}
 }
 
-func isPubliclyRoutableClientIP(clientIP string) bool {
+func isValidPanelClientIP(clientIP string) bool {
 	ip := net.ParseIP(clientIP)
-	if ip == nil {
-		return false
-	}
-	if ip.IsLoopback() || ip.IsPrivate() || ip.IsUnspecified() ||
-		ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
-		return false
-	}
-	return ip.IsGlobalUnicast()
+	return ip != nil && !ip.IsUnspecified() && !ip.IsMulticast()
 }
 
 func abortPanelRateLimited(c *gin.Context, retryAfter time.Duration) {

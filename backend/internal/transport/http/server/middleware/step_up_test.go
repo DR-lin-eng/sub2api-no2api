@@ -164,3 +164,24 @@ func TestEnforceStepUpTypedNilSettingServiceFailsClosed(t *testing.T) {
 	require.False(t, ok)
 	require.Equal(t, http.StatusUnauthorized, rec.Code)
 }
+
+func TestUserSensitiveStepUpRequiresGrantOnlyForEnrolledUsers(t *testing.T) {
+	for _, tc := range []struct {
+		name            string
+		enrolled, grant bool
+		want            bool
+		status          int
+	}{
+		{"unenrolled password-email flow", false, false, true, 200},
+		{"enrolled without grant", true, false, false, 403},
+		{"enrolled verified session", true, true, true, 200},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c, rec := newStepUpTestContext(t)
+			c.Set(string(ContextKeyUser), AuthSubject{UserID: 1})
+			got := enforceUserStepUp(c, stubStepUpGrantChecker{granted: tc.grant}, stubStepUpUserReader{user: &service.User{ID: 1, TotpEnabled: tc.enrolled}})
+			require.Equal(t, tc.want, got)
+			require.Equal(t, tc.status, rec.Code)
+		})
+	}
+}

@@ -190,9 +190,12 @@
       </div>
     </div>
   </div>
+  <TotpStepUpDialog :controller="stepUp" />
 </template>
 
 <script setup lang="ts">
+import TotpStepUpDialog from '@/features/auth/totpStepUpDialog'
+import { useStepUp, isStepUpCancelled } from '@/common/composables/useStepUp'
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
@@ -243,6 +246,7 @@ const props = withDefaults(
 const { t } = useI18n()
 const route = useRoute()
 const appStore = useAppStore()
+const stepUp = useStepUp()
 const authStore = useAuthStore()
 
 const localUser = ref<User | null>(null)
@@ -571,10 +575,11 @@ function applyUpdatedUser(user: User): void {
 async function handleUnbind(provider: BindableProvider, providerLabel: string): Promise<void> {
   unbindingProvider.value = provider
   try {
-    const user = await unbindAuthIdentity(provider)
+    const user = await stepUp.run(() => unbindAuthIdentity(provider))
     applyUpdatedUser(user)
     appStore.showSuccess(t('profile.authBindings.unbindSuccess', { providerName: providerLabel }))
   } catch (error) {
+    if (isStepUpCancelled(error)) return
     appStore.showError((error as { message?: string }).message || t('common.tryAgain'))
   } finally {
     unbindingProvider.value = null
@@ -619,9 +624,10 @@ async function sendEmailCode(): Promise<void> {
 
   isSendingEmailCode.value = true
   try {
-    await sendEmailBindingCode(emailBindingForm.email)
+    await stepUp.run(() => sendEmailBindingCode(emailBindingForm.email))
     appStore.showSuccess(t('profile.authBindings.codeSentTo', { email: emailBindingForm.email }))
   } catch (error) {
+    if (isStepUpCancelled(error)) return
     appStore.showError((error as { message?: string }).message || t('auth.sendCodeFailed'))
   } finally {
     isSendingEmailCode.value = false
@@ -635,11 +641,11 @@ async function bindEmail(): Promise<void> {
 
   isBindingEmail.value = true
   try {
-    const user = await bindEmailIdentity({
+    const user = await stepUp.run(() => bindEmailIdentity({
       email: emailBindingForm.email,
       verify_code: emailBindingForm.verifyCode,
       password: emailBindingForm.password,
-    })
+    }))
     const replacingBoundEmail = emailBound.value
     applyUpdatedUser(user)
     emailBindingForm.verifyCode = ''
@@ -653,6 +659,7 @@ async function bindEmail(): Promise<void> {
         : t('profile.authBindings.bindSuccess')
     )
   } catch (error) {
+    if (isStepUpCancelled(error)) return
     appStore.showError((error as { message?: string }).message || t('common.tryAgain'))
   } finally {
     isBindingEmail.value = false

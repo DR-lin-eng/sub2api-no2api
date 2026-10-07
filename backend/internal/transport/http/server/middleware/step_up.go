@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 
@@ -50,7 +51,15 @@ func NewStepUpAuthMiddleware(
 	userService *service.UserService,
 	settingService *service.SettingService,
 ) StepUpAuthMiddleware {
-	return StepUpAuthMiddleware(stepUpAuth(totpService, userService, stepUpSettingsOrNil(settingService)))
+	var checker stepUpGrantChecker
+	var reader stepUpUserReader
+	if totpService != nil {
+		checker = totpService
+	}
+	if userService != nil {
+		reader = userService
+	}
+	return StepUpAuthMiddleware(stepUpAuth(checker, reader, stepUpSettingsOrNil(settingService)))
 }
 
 // stepUpSettingsOrNil 将可能为 nil 的具体指针归一化为接口，
@@ -64,7 +73,11 @@ func stepUpSettingsOrNil(settingService *service.SettingService) stepUpSettingRe
 
 func stepUpAuth(grantChecker stepUpGrantChecker, userReader stepUpUserReader, settings stepUpSettingReader) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if !enforceStepUp(c, grantChecker, userReader, settings) {
+		if isUserSensitiveRoute(c) {
+			if !enforceUserStepUp(c, grantChecker, userReader) {
+				return
+			}
+		} else if !enforceStepUp(c, grantChecker, userReader, settings) {
 			return
 		}
 		c.Next()
@@ -113,6 +126,10 @@ func enforceStepUp(c *gin.Context, grantChecker stepUpGrantChecker, userReader s
 		return false
 	}
 
+	if userReader == nil || grantChecker == nil {
+		AbortWithError(c, 503, "STEP_UP_UNAVAILABLE", "Step-up verification service unavailable")
+		return false
+	}
 	user, err := userReader.GetByID(c.Request.Context(), subject.UserID)
 	if err != nil {
 		AbortWithError(c, 500, "INTERNAL_ERROR", "Failed to load user")
@@ -138,4 +155,32 @@ func enforceStepUp(c *gin.Context, grantChecker stepUpGrantChecker, userReader s
 	}
 
 	return true
+}
+
+// TOTP-enabled users always confirm credential deletion or identity changes,
+// independently of the administrator-only step_up_enabled switch. Users who
+// have not enrolled TOTP retain the existing password/email verification flow.
+func isUserSensitiveRoute(c *gin.Context) bool {
+	path := c.Request.URL.Path
+	return strings.HasPrefix(path, "/api/v1/keys/") || strings.HasPrefix(path, "/api/v1/user/account-bindings/")
+}
+func enforceUserStepUp(c *gin.Context, checker stepUpGrantChecker, users stepUpUserReader) bool {
+	subject, ok := GetAuthSubjectFromContext(c)
+	if !ok || subject.UserID <= 0 {
+		AbortWithError(c, 401, "UNAUTHORIZED", "Authorization required")
+		return false
+	}
+	if users == nil || checker == nil {
+		AbortWithError(c, 503, "STEP_UP_UNAVAILABLE", "Step-up verification service unavailable")
+		return false
+	}
+	user, err := users.GetByID(c.Request.Context(), subject.UserID)
+	if err != nil {
+		AbortWithError(c, 503, "STEP_UP_UNAVAILABLE", "Unable to check two-factor status")
+		return false
+	}
+	if !user.TotpEnabled {
+		return true
+	}
+	return enforceStepUp(c, checker, users, nil)
 }
