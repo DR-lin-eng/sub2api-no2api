@@ -125,7 +125,7 @@ func (s *OpenAIGatewayService) settleLiveCall(ctx context.Context, record *LiveC
 		return err
 	}
 	if result == nil {
-		return errors.New("Live billing returned no result")
+		return errors.New("live billing returned no result")
 	}
 	if result.Applied {
 		finalizePostUsageBilling(ctx, p, s.billingDeps(), result)

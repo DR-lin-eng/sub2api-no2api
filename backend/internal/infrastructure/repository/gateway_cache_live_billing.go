@@ -86,8 +86,9 @@ func (c *gatewayCache) ListDueLiveCalls(ctx context.Context, now time.Time, limi
 	if limit <= 0 || limit > 32 {
 		limit = 32
 	}
-	hashes, err := c.rdb.ZRangeByScore(ctx, liveBillingPendingKey, &redis.ZRangeBy{
-		Min: "-inf", Max: strconv.FormatInt(now.UnixMilli(), 10), Offset: 0, Count: int64(limit),
+	hashes, err := c.rdb.ZRangeArgs(ctx, redis.ZRangeArgs{
+		Key: liveBillingPendingKey, Start: "-inf", Stop: strconv.FormatInt(now.UnixMilli(), 10),
+		ByScore: true, Offset: 0, Count: int64(limit),
 	}).Result()
 	if err != nil {
 		return nil, err
