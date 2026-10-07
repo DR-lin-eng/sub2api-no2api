@@ -1,0 +1,102 @@
+2026/10/07 07:26:40 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestCodexLineageForwardWire
+=== RUN   TestCodexLineageForwardWire/full=false/passthrough=false/stream=false
+    openai_codex_lineage_forward_test.go:36: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_lineage_forward_test.go:36
+        	Error:      	Should NOT be empty, but was 
+        	Test:       	TestCodexLineageForwardWire/full=false/passthrough=false/stream=false
+        	Messages:   	parent_turn_id
+=== RUN   TestCodexLineageForwardWire/full=false/passthrough=false/stream=true
+    openai_codex_lineage_forward_test.go:36: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_lineage_forward_test.go:36
+        	Error:      	Should NOT be empty, but was 
+        	Test:       	TestCodexLineageForwardWire/full=false/passthrough=false/stream=true
+        	Messages:   	parent_turn_id
+=== RUN   TestCodexLineageForwardWire/full=false/passthrough=true/stream=false
+2026/10/07 07:26:40 [OpenAI 自动透传] 命中自动透传分支: account=403 name= type=oauth model=gpt-5.5 stream=true
+    openai_codex_lineage_forward_test.go:36: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_lineage_forward_test.go:36
+        	Error:      	Should NOT be empty, but was 
+        	Test:       	TestCodexLineageForwardWire/full=false/passthrough=true/stream=false
+        	Messages:   	parent_turn_id
+=== RUN   TestCodexLineageForwardWire/full=false/passthrough=true/stream=true
+2026/10/07 07:26:40 [OpenAI 自动透传] 命中自动透传分支: account=403 name= type=oauth model=gpt-5.5 stream=true
+    openai_codex_lineage_forward_test.go:36: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_lineage_forward_test.go:36
+        	Error:      	Should NOT be empty, but was 
+        	Test:       	TestCodexLineageForwardWire/full=false/passthrough=true/stream=true
+        	Messages:   	parent_turn_id
+=== RUN   TestCodexLineageForwardWire/full=true/passthrough=false/stream=false
+    openai_codex_lineage_forward_test.go:39: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_lineage_forward_test.go:39
+        	Error:      	Not equal: 
+        	            	expected: "395242a1-0a5d-4d48-84ee-81ddf8616426"
+        	            	actual  : "parent"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-395242a1-0a5d-4d48-84ee-81ddf8616426
+        	            	+parent
+        	Test:       	TestCodexLineageForwardWire/full=true/passthrough=false/stream=false
+        	Messages:   	parent_turn_id body
+=== RUN   TestCodexLineageForwardWire/full=true/passthrough=false/stream=true
+    openai_codex_lineage_forward_test.go:39: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_lineage_forward_test.go:39
+        	Error:      	Not equal: 
+        	            	expected: "395242a1-0a5d-4d48-84ee-81ddf8616426"
+        	            	actual  : "parent"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-395242a1-0a5d-4d48-84ee-81ddf8616426
+        	            	+parent
+        	Test:       	TestCodexLineageForwardWire/full=true/passthrough=false/stream=true
+        	Messages:   	parent_turn_id body
+=== RUN   TestCodexLineageForwardWire/full=true/passthrough=true/stream=false
+2026/10/07 07:26:40 [OpenAI 自动透传] 命中自动透传分支: account=403 name= type=oauth model=gpt-5.5 stream=true
+    openai_codex_lineage_forward_test.go:39: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_lineage_forward_test.go:39
+        	Error:      	Not equal: 
+        	            	expected: "395242a1-0a5d-4d48-84ee-81ddf8616426"
+        	            	actual  : "parent"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-395242a1-0a5d-4d48-84ee-81ddf8616426
+        	            	+parent
+        	Test:       	TestCodexLineageForwardWire/full=true/passthrough=true/stream=false
+        	Messages:   	parent_turn_id body
+=== RUN   TestCodexLineageForwardWire/full=true/passthrough=true/stream=true
+2026/10/07 07:26:40 [OpenAI 自动透传] 命中自动透传分支: account=403 name= type=oauth model=gpt-5.5 stream=true
+    openai_codex_lineage_forward_test.go:39: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_lineage_forward_test.go:39
+        	Error:      	Not equal: 
+        	            	expected: "395242a1-0a5d-4d48-84ee-81ddf8616426"
+        	            	actual  : "parent"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-395242a1-0a5d-4d48-84ee-81ddf8616426
+        	            	+parent
+        	Test:       	TestCodexLineageForwardWire/full=true/passthrough=true/stream=true
+        	Messages:   	parent_turn_id body
+--- FAIL: TestCodexLineageForwardWire (0.01s)
+    --- FAIL: TestCodexLineageForwardWire/full=false/passthrough=false/stream=false (0.00s)
+    --- FAIL: TestCodexLineageForwardWire/full=false/passthrough=false/stream=true (0.00s)
+    --- FAIL: TestCodexLineageForwardWire/full=false/passthrough=true/stream=false (0.00s)
+    --- FAIL: TestCodexLineageForwardWire/full=false/passthrough=true/stream=true (0.00s)
+    --- FAIL: TestCodexLineageForwardWire/full=true/passthrough=false/stream=false (0.00s)
+    --- FAIL: TestCodexLineageForwardWire/full=true/passthrough=false/stream=true (0.00s)
+    --- FAIL: TestCodexLineageForwardWire/full=true/passthrough=true/stream=false (0.00s)
+    --- FAIL: TestCodexLineageForwardWire/full=true/passthrough=true/stream=true (0.00s)
+FAIL
+FAIL	github.com/Wei-Shaw/sub2api/internal/application/service	0.024s
+FAIL

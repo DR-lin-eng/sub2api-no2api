@@ -1,0 +1,127 @@
+Sending build context to Docker daemon  67.87MB
+Step 1/45 : ARG NODE_IMAGE=node:24-alpine
+Step 2/45 : ARG GOLANG_IMAGE=golang:1.26.6-alpine
+Step 3/45 : ARG ALPINE_IMAGE=alpine:3.20
+Step 4/45 : ARG GOPROXY=https://goproxy.cn,direct
+Step 5/45 : ARG GOSUMDB=sum.golang.google.cn
+Step 6/45 : FROM ${NODE_IMAGE} AS frontend-builder
+ ---> ebfe2f904627
+Step 7/45 : WORKDIR /app/frontend
+ ---> Using cache
+ ---> 9a2f0f1a7285
+Step 8/45 : ENV NODE_OPTIONS=--max-old-space-size=2048
+ ---> Using cache
+ ---> 39b0fc47936b
+Step 9/45 : RUN corepack enable && corepack prepare pnpm@11.17.0 --activate
+ ---> Using cache
+ ---> d76e58b1300e
+Step 10/45 : COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
+ ---> Using cache
+ ---> 5a5f780c9279
+Step 11/45 : RUN pnpm install --frozen-lockfile
+ ---> Using cache
+ ---> a7d4958cd8b7
+Step 12/45 : COPY frontend/ ./
+ ---> Using cache
+ ---> 4e55f1e061fb
+Step 13/45 : COPY docs/legal/ /app/docs/legal/
+ ---> Using cache
+ ---> 6c9300824348
+Step 14/45 : RUN pnpm run build
+ ---> Using cache
+ ---> 90970768c5d3
+Step 15/45 : FROM ${GOLANG_IMAGE} AS backend-builder
+ ---> 3889b425f035
+Step 16/45 : ARG VERSION=
+ ---> Using cache
+ ---> 174485e10911
+Step 17/45 : ARG COMMIT=docker
+ ---> Using cache
+ ---> 43f3eb3fc041
+Step 18/45 : ARG DATE
+ ---> Using cache
+ ---> eac46f142f7b
+Step 19/45 : ARG GOPROXY
+ ---> Using cache
+ ---> 47081b96ec80
+Step 20/45 : ARG GOSUMDB
+ ---> Using cache
+ ---> 8224e668f659
+Step 21/45 : ENV GOPROXY=${GOPROXY}
+ ---> Using cache
+ ---> 60eca37a0b40
+Step 22/45 : ENV GOSUMDB=${GOSUMDB}
+ ---> Using cache
+ ---> af8eeb662847
+Step 23/45 : RUN apk add --no-cache git ca-certificates tzdata
+ ---> Using cache
+ ---> b193d3a877c1
+Step 24/45 : WORKDIR /app/backend
+ ---> Using cache
+ ---> fed63b93616c
+Step 25/45 : COPY backend/go.mod backend/go.sum ./
+ ---> Using cache
+ ---> 660103f19818
+Step 26/45 : RUN go mod download
+ ---> Using cache
+ ---> cda10ef5f1c2
+Step 27/45 : COPY backend/ ./
+ ---> 09104a4d073a
+Step 28/45 : COPY --from=frontend-builder /app/backend/internal/transport/webassets/dist ./internal/transport/webassets/dist
+ ---> 2233ace48b99
+Step 29/45 : RUN VERSION_VALUE="${VERSION}" &&     if [ -z "${VERSION_VALUE}" ]; then VERSION_VALUE="$(./scripts/resolve-version.sh)"; fi &&     DATE_VALUE="${DATE:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}" &&     CGO_ENABLED=0 GOOS=linux go build     -tags embed     -ldflags="-s -w -X main.Version=${VERSION_VALUE} -X main.Commit=${COMMIT} -X main.Date=${DATE_VALUE} -X main.BuildType=release"     -o /app/sub2api     ./cmd/server
+ ---> Running in 0df300f1a951
+ ---> Removed intermediate container 0df300f1a951
+ ---> 02d1d738dc77
+Step 30/45 : FROM ${ALPINE_IMAGE}
+ ---> d9e853e87e55
+Step 31/45 : LABEL maintainer="DR-lin-eng <github.com/DR-lin-eng>"
+ ---> Using cache
+ ---> dc139a924356
+Step 32/45 : LABEL description="Sub2API - AI API Gateway Platform"
+ ---> Using cache
+ ---> a2965f4affc6
+Step 33/45 : LABEL org.opencontainers.image.source="https://github.com/DR-lin-eng/sub2api-no2api"
+ ---> Using cache
+ ---> b49126b174e7
+Step 34/45 : RUN apk add --no-cache ca-certificates tzdata curl su-exec && rm -rf /var/cache/apk/*
+ ---> Using cache
+ ---> 3ac74804f1d1
+Step 35/45 : RUN addgroup -g 1000 sub2api && adduser -u 1000 -G sub2api -s /bin/sh -D sub2api
+ ---> Using cache
+ ---> 2a1478256a20
+Step 36/45 : WORKDIR /app
+ ---> Using cache
+ ---> 91cc0fe688c4
+Step 37/45 : COPY --from=backend-builder /app/sub2api /app/sub2api
+ ---> 88e6f6542a3c
+Step 38/45 : COPY --from=backend-builder --chown=sub2api:sub2api /app/backend/resources /app/resources
+ ---> 1513e8b4cace
+Step 39/45 : RUN mkdir -p /app/data && chown -R sub2api:sub2api /app
+ ---> Running in c3160b9a891d
+ ---> Removed intermediate container c3160b9a891d
+ ---> 2dff5956069f
+Step 40/45 : COPY deploy/docker-entrypoint.sh /app/docker-entrypoint.sh
+ ---> 6a0c9db70ef1
+Step 41/45 : RUN chmod +x /app/docker-entrypoint.sh
+ ---> Running in 52d985e52cf9
+ ---> Removed intermediate container 52d985e52cf9
+ ---> de53629aa9ea
+Step 42/45 : EXPOSE 8080
+ ---> Running in 8f7fdef9ecf1
+ ---> Removed intermediate container 8f7fdef9ecf1
+ ---> f94da5efecb4
+Step 43/45 : HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3     CMD wget -q -T 5 -O /dev/null http://localhost:${SERVER_PORT:-8080}/ready || exit 1
+ ---> Running in 07614b715fe6
+ ---> Removed intermediate container 07614b715fe6
+ ---> 5d49982ac62c
+Step 44/45 : ENTRYPOINT ["/app/docker-entrypoint.sh"]
+ ---> Running in 8b6f8c8817b1
+ ---> Removed intermediate container 8b6f8c8817b1
+ ---> 7e832e90dfde
+Step 45/45 : CMD ["/app/sub2api"]
+ ---> Running in 76a26198e8fb
+ ---> Removed intermediate container 76a26198e8fb
+ ---> 52c45683b33f
+Successfully built 52c45683b33f
+Successfully tagged sub2api-codex-risk-test:20261007-final

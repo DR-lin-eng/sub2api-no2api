@@ -1,0 +1,99 @@
+{
+  "baseline_revision": "064b59b9fbf2d095963cac453e1559f68a1d15ab",
+  "files": [
+    {
+      "path": "backend/internal/application/service/openai_codex_fingerprint.go",
+      "baseline_sha256": "efb7adaddf6c9ee496cf366cd33151a36b3c9de12741062263a5688aaa89cf38",
+      "modified_sha256": "215b03273d72c538fc5f94419cebca9cba6aa040b88e77b7a00725c40eb6293a"
+    },
+    {
+      "path": "backend/internal/application/service/openai_codex_metadata_sanitize.go",
+      "baseline_sha256": "040d4d238aa37dc818d12f79e57fe8b69a9d1ed6f673879642448e790e5ebbc6",
+      "modified_sha256": "e460e4f67bd5335207e261bb3ef5448d5feab8f9443b660ccf8f1270fbac19a6"
+    },
+    {
+      "path": "backend/internal/application/service/openai_codex_metadata_sanitize_test.go",
+      "baseline_sha256": "b5fe8ae419494057e3db96434ced6963cf05d5a82e3549b9421e70e4bfe51e3d",
+      "modified_sha256": "130d8213668b900ea9dc967e31da7a3bd9f14964575ee2dd8bc6031fa57916b2"
+    },
+    {
+      "path": "backend/internal/application/service/openai_codex_request_headers.go",
+      "baseline_sha256": "7c7f8e8aa5610fcd50a124c099436b2c9e83e26f7361154ff2d89f0a1b7bfa32",
+      "modified_sha256": "0f28630bc5030d2c05f38cc5b4986e5b4ea5cf227131766e27fbb77f0b46bd4e"
+    },
+    {
+      "path": "backend/internal/application/service/openai_codex_request_headers_test.go",
+      "baseline_sha256": "5e5df9d0b6ee969e22d6e5dea0650792d702abb7f8015e63148c6a1b4f33b3c2",
+      "modified_sha256": "6ecbdc5fda56cb2c191f8b4a1d05f5910df7daf1dfee6a4186e40862fdcc8ba7"
+    },
+    {
+      "path": "backend/internal/application/service/openai_codex_session_headers.go",
+      "baseline_sha256": "e99eeed55f7d30c6a1e2f29b3cbbe855da1163a1311834d97335eadb88c2b9da",
+      "modified_sha256": "46ebf245db4a77511f9328e32f34698299fff089290267521b46305a54ca5d7d"
+    },
+    {
+      "path": "backend/internal/application/service/openai_codex_session_headers_test.go",
+      "baseline_sha256": "9415b56e1a5dbc5c8487fe85caab40c84489ed9721b759eacfd17803206c6818",
+      "modified_sha256": "b358fffd667b373898b3e4c9478484d2286abef9a7e84349070d62341b9a1a61"
+    },
+    {
+      "path": "backend/internal/application/service/openai_codex_simulation_ingress_test.go",
+      "baseline_sha256": "bc0c4a404183533afd1eb7d34b0230d0886672b60f52e19aa1ceaefbabf8c6cd",
+      "modified_sha256": "660672def79df955a12e59e9e6ae73ce31a81a559556d904eb9065784ed5ac2d"
+    },
+    {
+      "path": "backend/internal/application/service/openai_gateway_forward.go",
+      "baseline_sha256": "328864c5f6b1cfb1bd3e103b4a3f68f9a99a204165854f6340afc9260bfe0fca",
+      "modified_sha256": "a1fad7f5b0c4611c80e62cb20afad6c9f540a98fdd675b254bb774118273957d"
+    },
+    {
+      "path": "backend/internal/application/service/openai_gateway_passthrough.go",
+      "baseline_sha256": "04889f15d91757db2f7e42dc091a713c6c6a06809c5d8ae71c167a3e3e5a13af",
+      "modified_sha256": "d0ec530648087f1cbeab20e4831c52f14b495494f3d547ac24311751dc7decfe"
+    },
+    {
+      "path": "backend/internal/application/service/openai_gateway_request_build.go",
+      "baseline_sha256": "ca88bdb6fcb11578398ae50c2e487d3af289d0eb7febb9fe3f7e2c76ea2122c4",
+      "modified_sha256": "020b9f2e5bfde15fde1d2755b69bb5652c7042a48c9cb64751740f6cada794b6"
+    },
+    {
+      "path": "backend/internal/application/service/openai_responses_access_programs.go",
+      "baseline_sha256": "9a97ca5c88fc9158665c0c7dd9a4d53f8cc6d10baf38eee68932f4ad56e363a4",
+      "modified_sha256": "5b0d158031d2e7e6cb76b498cfb2aa91b97cfdbbca3ad46bfdbce0b28a3462eb"
+    },
+    {
+      "path": "backend/internal/application/service/openai_responses_access_programs_test.go",
+      "baseline_sha256": "68f70577c141148d6e3a1a16c76bafa30dff9bc38c9e970b0ddbdc0818316f2c",
+      "modified_sha256": "2fbd10659a483aa0bb3b3c2378a0e2bde7e47b3158e851d7a5352b6ce807591f"
+    },
+    {
+      "path": "backend/internal/application/service/openai_ws_forwarder_ingress.go",
+      "baseline_sha256": "ac5497baf2eca6e0b219c3be34fa9c50ed9ff57af9e5679f990e86379334ce91",
+      "modified_sha256": "fde34ee607ea6eec4eeb3c0dc9c8b715bcd07c898b3775ef7ce4d11245c762f1"
+    },
+    {
+      "path": "backend/internal/application/service/openai_ws_forwarder_v2.go",
+      "baseline_sha256": "149ef3d39611272e35b33bb93cc6d1043f8539495de5ebccd769359cc1e63c98",
+      "modified_sha256": "138f9ba99dab7784b5790176ca173f41a4c83ce391c398b5c43f19a9daea218b"
+    },
+    {
+      "path": "backend/internal/application/service/openai_ws_v2_passthrough_adapter.go",
+      "baseline_sha256": "b02e27607562e1cabbea443e80d60cf49fc605916b949cda65ddbebd1ab2f673",
+      "modified_sha256": "2fffda6377b2cd599f5426fbb7441a7418096f22e5a67e4f47235e640db839e9"
+    },
+    {
+      "path": "docs/REQUEST_LIFECYCLES.md",
+      "baseline_sha256": "0c6365c3867053cf9e76fb3785a63643411a7917c5bc9724cf8f04c95415ee0a",
+      "modified_sha256": "d47ae9463666e60b3bff69a3bdcfaf0aad69c7da9a34d1c81e6d0120a88f739d"
+    },
+    {
+      "path": "docs/codex/intentional-divergences.md",
+      "baseline_sha256": "6dcb30b867423fcc255794ac9fedc03c17a31d1f5e8ea42a4ccc4d27a83bf30b",
+      "modified_sha256": "baf760913cdb75d9ee22000fe7cfdae697bd3cd589380651a9221883d1b8e281"
+    }
+  ],
+  "added": [
+    "backend/internal/application/service/openai_codex_metadata_projection.go",
+    "backend/internal/application/service/openai_codex_lineage_forward_test.go"
+  ]
+}

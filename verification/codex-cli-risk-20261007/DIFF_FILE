@@ -6,7 +6,10 @@
 @@ -49,0 +52,2 @@
 +	parentTurnRaw := codexBodyMetadataValue(body, "parent_turn_id", "parentTurnId")
 +	rootTurnRaw := codexBodyMetadataValue(body, "root_turn_id", "rootTurnId")
-@@ -63,0 +68,8 @@
+@@ -63,0 +68,11 @@
++	if turnMetadata == "" {
++		turnMetadata = codexInboundHeaderValue(c, openAIWSTurnMetadataHeader)
++	}
 +	if gjson.Valid(turnMetadata) {
 +		if parentTurnRaw == "" {
 +			parentTurnRaw = strings.TrimSpace(gjson.Get(turnMetadata, "parent_turn_id").String())
@@ -15,20 +18,26 @@
 +			rootTurnRaw = strings.TrimSpace(gjson.Get(turnMetadata, "root_turn_id").String())
 +		}
 +	}
-@@ -66,0 +79,6 @@
-+	if parentTurnRaw == "" {
-+		parentTurnRaw = codexInboundHeaderValue(c, "x-codex-parent-turn-id", "parent-turn-id")
+@@ -118,0 +134,3 @@
 +	}
-+	if rootTurnRaw == "" {
-+		rootTurnRaw = codexInboundHeaderValue(c, "x-codex-root-turn-id", "root-turn-id")
-+	}
-@@ -119,0 +138,9 @@
 +	if parentTurnRaw != "" {
 +		ids.parentTurnID = deriveCodexOutboundSessionUUID("turn", namespace, parentTurnRaw)
-+	}
+@@ -119,0 +138,3 @@
 +	if rootTurnRaw != "" {
 +		ids.rootTurnID = deriveCodexOutboundSessionUUID("turn", namespace, rootTurnRaw)
-+	} else if ids.parentTurnID != "" {
-+		// Keep delegated lineage account-scoped when the caller omits the root.
-+		ids.rootTurnID = ids.parentTurnID
 +	}
+@@ -222 +243,6 @@
+-	ids := resolveCodexOutboundSessionIDs(c, account, body, promptCacheKey)
++	var ids *codexOutboundSessionIDs
++	if projection := resolvedCodexMetadataProjection(c, account, body); projection != nil {
++		ids = projection.sessionIDs
++	} else {
++		ids = resolveCodexOutboundSessionIDs(c, account, body, promptCacheKey)
++	}
+@@ -293 +319 @@
+-func rewriteCodexOutboundSessionMetadata(body []byte, account *Account, ids *codexOutboundSessionIDs) ([]byte, error) {
++func rewriteCodexOutboundSessionMetadata(body []byte, account *Account, ids *codexOutboundSessionIDs, contexts ...*gin.Context) ([]byte, error) {
+@@ -313,0 +340 @@
++		stageCodexMetadataProjection(clientMetadata, account, ids, nil, contexts...)
+@@ -319,0 +347 @@
++	stageCodexMetadataProjection(clientMetadata, account, ids, nil, contexts...)

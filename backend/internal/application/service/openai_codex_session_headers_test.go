@@ -146,5 +146,6 @@ func TestCodexOutboundSessionProjectionRebindsTurnLineage(t *testing.T) {
 	require.NotEqual(t, "client-root", ids.rootTurnID)
 
 	withoutRoot := resolveCodexOutboundSessionIDs(c, account, []byte(`{"client_metadata":{"parent_turn_id":"client-parent"}}`), "")
-	require.Equal(t, withoutRoot.parentTurnID, withoutRoot.rootTurnID)
+	require.NotEmpty(t, withoutRoot.parentTurnID)
+	require.Empty(t, withoutRoot.rootTurnID, "an absent root does not imply the parent is the root")
 }

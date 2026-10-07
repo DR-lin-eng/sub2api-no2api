@@ -91,6 +91,9 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	if account.IsOpenAIOAuth() && (fingerprintIDs == nil || fingerprintIDs.mode == codexFingerprintOff) {
 		ids := resolveCodexOutboundSessionIDs(c, account, payloadAsJSONBytes(payload), promptCacheKey)
 		sanitizeOpenAICodexClientMetadataPayload(payload, account, ids)
+		if metadata, ok := payload["client_metadata"].(map[string]any); ok {
+			stageCodexMetadataProjection(metadata, account, ids, nil, c)
+		}
 	}
 	_, hasTools := payload["tools"]
 	debugEnabled := isOpenAIWSModeDebugEnabled()

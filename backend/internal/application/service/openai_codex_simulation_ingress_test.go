@@ -112,7 +112,7 @@ func TestCodexFullSimulationIngressUsesOneAttemptPlanForHandshakeAndBody(t *test
 	defer func() { _ = clientConn.CloseNow() }()
 
 	writeContext, cancelWrite := context.WithTimeout(context.Background(), 3*time.Second)
-	err = clientConn.Write(writeContext, coderws.MessageText, []byte(`{"type":"response.create","model":"gpt-5.4","stream":false,"prompt_cache_key":"forged-cache","client_metadata":{"preserved":true}}`))
+	err = clientConn.Write(writeContext, coderws.MessageText, []byte(`{"type":"response.create","model":"gpt-5.4","stream":false,"prompt_cache_key":"forged-cache","client_metadata":{"preserved":true,"parent_turn_id":"client-parent-turn","root_turn_id":"client-root-turn","x-codex-turn-metadata":"{\"parent_turn_id\":\"client-parent-turn\",\"root_turn_id\":\"client-root-turn\"}"}}`))
 	cancelWrite()
 	require.NoError(t, err)
 	readContext, cancelRead := context.WithTimeout(context.Background(), 3*time.Second)
@@ -164,6 +164,11 @@ func TestCodexFullSimulationIngressUsesOneAttemptPlanForHandshakeAndBody(t *test
 	headerMetadata := decodeFingerprintMetadata(t, headers.Get("x-codex-turn-metadata"))
 	require.Equal(t, headerMetadata["turn_id"], bodyMetadata["turn_id"])
 	require.Equal(t, headerMetadata["turn_started_at_unix_ms"], bodyMetadata["turn_started_at_unix_ms"])
+	for _, key := range []string{"parent_turn_id", "root_turn_id"} {
+		require.NotEmpty(t, bodyMetadata[key])
+		require.Equal(t, bodyMetadata[key], headerMetadata[key])
+		require.Equal(t, bodyMetadata[key], gjson.GetBytes(written, "client_metadata."+key).String())
+	}
 
 	nextWritten := []byte(requestToJSONString(captureConn.writes[1]))
 	require.Equal(t, "resp_full_ingress", gjson.GetBytes(nextWritten, "previous_response_id").String())

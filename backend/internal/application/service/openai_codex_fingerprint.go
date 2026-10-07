@@ -534,7 +534,9 @@ func applyCodexTurnMetadataFields(metadata map[string]any, ids *codexFingerprint
 			}
 		}
 		if root, ok := metadata["root_turn_id"].(string); ok && strings.TrimSpace(root) != "" {
-			metadata["root_turn_id"] = rewriteCodexSimulationMetadataID(ids, "root_turn_id", root)
+			if root != ids.turnID {
+				metadata["root_turn_id"] = rewriteCodexSimulationMetadataID(ids, "root_turn_id", root)
+			}
 		} else {
 			metadata["root_turn_id"] = ids.turnID
 		}
@@ -548,6 +550,9 @@ func rewriteCodexSimulationMetadataID(ids *codexFingerprintIDs, domain, raw stri
 	if ids == nil || !ids.fullSimulation || strings.TrimSpace(ids.identitySecret) == "" {
 		return raw
 	}
+	if domain == "parent_turn_id" || domain == "root_turn_id" {
+		domain = "turn_lineage"
+	}
 	return codexSimulationUUID(ids.identitySecret, "metadata:"+domain, ids.principalKey, strings.TrimSpace(raw))
 }
 
@@ -560,7 +565,7 @@ func validCodexSubagentValue(value string) bool {
 	}
 }
 
-func applyCodexFingerprintClientMetadata(reqBody map[string]any, ids *codexFingerprintIDs) bool {
+func applyCodexFingerprintClientMetadata(reqBody map[string]any, ids *codexFingerprintIDs, contexts ...*gin.Context) bool {
 	if reqBody == nil || ids == nil || ids.installationID == "" {
 		return false
 	}
@@ -575,6 +580,7 @@ func applyCodexFingerprintClientMetadata(reqBody map[string]any, ids *codexFinge
 	if !applyCodexFingerprintClientMetadataMap(metadata, ids) {
 		return false
 	}
+	stageCodexMetadataProjection(metadata, nil, nil, ids, contexts...)
 	reqBody["client_metadata"] = metadata
 	if ids.fullSimulation {
 		reqBody["prompt_cache_key"] = ids.promptCacheKey
@@ -595,16 +601,8 @@ func applyCodexFingerprintClientMetadataMap(metadata map[string]any, ids *codexF
 	}
 	metadata["x-codex-installation-id"] = ids.installationID
 	if ids.fullSimulation {
-		if root, ok := metadata["root_turn_id"].(string); ok && strings.TrimSpace(root) != "" {
-			metadata["root_turn_id"] = rewriteCodexSimulationMetadataID(ids, "root_turn_id", root)
-		} else {
-			metadata["root_turn_id"] = ids.turnID
-		}
 		if ids.contextWindowID != "" {
 			metadata["context_window_id"] = ids.contextWindowID
-		}
-		if parent, ok := metadata["x-codex-parent-thread-id"].(string); ok && strings.TrimSpace(parent) != "" {
-			metadata["x-codex-parent-thread-id"] = rewriteCodexSimulationMetadataID(ids, "parent_thread_id", parent)
 		}
 		if subagent, ok := metadata["x-openai-subagent"].(string); ok && !validCodexSubagentValue(subagent) {
 			delete(metadata, "x-openai-subagent")
@@ -617,6 +615,19 @@ func applyCodexFingerprintClientMetadataMap(metadata map[string]any, ids *codexF
 		metadata["x-codex-window-id"] = ids.windowID
 	}
 	rewriteEmbeddedCodexTurnMetadata(metadata, ids)
+	if ids.fullSimulation {
+		turnMetadata, _ := metadata["x-codex-turn-metadata"].(string)
+		for _, key := range []string{"parent_turn_id", "root_turn_id"} {
+			if projected := gjson.Get(turnMetadata, key); projected.Type == gjson.String && projected.String() != "" {
+				metadata[key] = projected.String()
+			} else {
+				delete(metadata, key)
+			}
+		}
+		if parent := gjson.Get(turnMetadata, "parent_thread_id"); parent.Type == gjson.String && parent.String() != "" {
+			metadata["x-codex-parent-thread-id"] = parent.String()
+		}
+	}
 	return true
 }
 
@@ -752,7 +763,7 @@ func codexMetadataExtraString(value any) (string, error) {
 
 // applyCodexFingerprintClientMetadataToBody rewrites only client_metadata and
 // copies the outer request once. Large Responses input/tool payloads stay raw.
-func applyCodexFingerprintClientMetadataToBody(body []byte, ids *codexFingerprintIDs) ([]byte, bool, error) {
+func applyCodexFingerprintClientMetadataToBody(body []byte, ids *codexFingerprintIDs, contexts ...*gin.Context) ([]byte, bool, error) {
 	if len(body) == 0 || ids == nil || ids.installationID == "" {
 		return body, false, nil
 	}
@@ -790,6 +801,7 @@ func applyCodexFingerprintClientMetadataToBody(body []byte, ids *codexFingerprin
 			return body, false, fmt.Errorf("rewrite codex prompt_cache_key: %w", err)
 		}
 	}
+	stageCodexMetadataProjection(metadata, nil, nil, ids, contexts...)
 	return rewritten, true, nil
 }
 
@@ -820,6 +832,20 @@ func rewriteEmbeddedCodexTurnMetadata(clientMetadata map[string]any, ids *codexF
 	if strings.TrimSpace(raw) != "" {
 		if err := json.Unmarshal([]byte(raw), &metadata); err != nil && !ids.fullSimulation {
 			return
+		}
+	}
+	if ids.fullSimulation {
+		if _, exists := metadata["parent_thread_id"]; !exists {
+			if value, ok := clientMetadata["x-codex-parent-thread-id"].(string); ok && strings.TrimSpace(value) != "" {
+				metadata["parent_thread_id"] = value
+			}
+		}
+		for _, key := range []string{"parent_turn_id", "root_turn_id"} {
+			if _, exists := metadata[key]; !exists {
+				if value, ok := clientMetadata[key].(string); ok && strings.TrimSpace(value) != "" {
+					metadata[key] = value
+				}
+			}
 		}
 	}
 	sanitizeCodexTurnMetadataMapInPlace(metadata)
