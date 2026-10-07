@@ -369,7 +369,9 @@ func (s *APIKeyService) validateAndHydrateAPIKeyGroupBindings(ctx context.Contex
 		if err != nil {
 			return nil, fmt.Errorf("get group %d: %w", binding.GroupID, err)
 		}
-		if user == nil || !s.canUserBindGroup(ctx, user, group) {
+		// Directly submitted IDs must satisfy the same active-group boundary as
+		// GetAvailableGroups, including secondary routing bindings.
+		if group == nil || group.Status != StatusActive || user == nil || !s.canUserBindGroup(ctx, user, group) {
 			return nil, ErrGroupNotAllowed
 		}
 		// Subscription enforcement is currently performed before account
@@ -406,6 +408,26 @@ func applyAPIKeyGroupBindings(apiKey *APIKey, bindings []APIKeyGroupBinding) {
 	groupID := bindings[0].GroupID
 	apiKey.GroupID = &groupID
 	apiKey.Group = bindings[0].Group
+}
+
+func apiKeyGroupBindingsUnchanged(apiKey *APIKey, bindings []APIKeyGroupBinding) bool {
+	existing := apiKey.GroupBindings
+	if len(existing) == 0 && apiKey.GroupID != nil {
+		existing = []APIKeyGroupBinding{{APIKeyGroupBinding: domain.APIKeyGroupBinding{GroupID: *apiKey.GroupID}}}
+	}
+	if len(existing) != len(bindings) {
+		return false
+	}
+	for i := range existing {
+		before, after := existing[i], bindings[i]
+		if before.GroupID != after.GroupID || (before.MaxRateMultiplier == nil) != (after.MaxRateMultiplier == nil) {
+			return false
+		}
+		if before.MaxRateMultiplier != nil && *before.MaxRateMultiplier != *after.MaxRateMultiplier {
+			return false
+		}
+	}
+	return true
 }
 
 // APIKeyGroupRateInfo describes the effective group billing multiplier for one
@@ -999,22 +1021,26 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 	}
 
 	if req.GroupBindings != nil || req.GroupID != nil {
-		user, err := s.userRepo.GetByID(ctx, userID)
-		if err != nil {
-			return nil, fmt.Errorf("get user: %w", err)
-		}
-
 		bindings, err := normalizeAPIKeyGroupBindingInputs(req.GroupID, req.GroupBindings)
 		if err != nil {
 			return nil, err
 		}
-		bindings, err = s.validateAndHydrateAPIKeyGroupBindings(ctx, user, bindings)
-		if err != nil {
-			return nil, err
+		// Editors send the full binding list for unrelated edits. Keep an
+		// unchanged list when a former fallback has since become unavailable;
+		// request-time authorization still prevents routing through that group.
+		if !apiKeyGroupBindingsUnchanged(apiKey, bindings) {
+			user, err := s.userRepo.GetByID(ctx, userID)
+			if err != nil {
+				return nil, fmt.Errorf("get user: %w", err)
+			}
+			bindings, err = s.validateAndHydrateAPIKeyGroupBindings(ctx, user, bindings)
+			if err != nil {
+				return nil, err
+			}
+			applyAPIKeyGroupBindings(apiKey, bindings)
+			fields.GroupID = true
+			fields.GroupBindings = true
 		}
-		applyAPIKeyGroupBindings(apiKey, bindings)
-		fields.GroupID = true
-		fields.GroupBindings = true
 	}
 
 	if req.Status != nil {
