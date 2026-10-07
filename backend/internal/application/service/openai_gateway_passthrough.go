@@ -213,7 +213,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 			body = normalizedBody
 		}
 		if !isOpenAIResponsesCompactPath(c) || (fingerprintIDs != nil && fingerprintIDs.fullSimulation) {
-			fingerprintedBody, fingerprinted, fingerprintErr := applyCodexFingerprintClientMetadataToBody(body, fingerprintIDs)
+			fingerprintedBody, fingerprinted, fingerprintErr := applyCodexFingerprintClientMetadataToBody(body, fingerprintIDs, c)
 			if fingerprintErr != nil {
 				return nil, fingerprintErr
 			}
@@ -640,7 +640,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerpr
 	if account.IsOpenAIOAuth() && (fingerprintIDs == nil || fingerprintIDs.mode == codexFingerprintOff) {
 		codexSessionIDs = resolveCodexOutboundSessionIDs(c, account, body, promptCacheKey)
 		var rewriteErr error
-		outboundBody, rewriteErr = rewriteCodexOutboundSessionMetadata(body, account, codexSessionIDs)
+		outboundBody, rewriteErr = rewriteCodexOutboundSessionMetadata(body, account, codexSessionIDs, c)
 		if rewriteErr != nil {
 			return nil, rewriteErr
 		}

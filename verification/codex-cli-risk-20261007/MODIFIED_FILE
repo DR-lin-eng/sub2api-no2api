@@ -65,6 +65,9 @@ func resolveCodexOutboundSessionIDs(
 	if parentThreadRaw == "" && gjson.Valid(turnMetadata) {
 		parentThreadRaw = strings.TrimSpace(gjson.Get(turnMetadata, "parent_thread_id").String())
 	}
+	if turnMetadata == "" {
+		turnMetadata = codexInboundHeaderValue(c, openAIWSTurnMetadataHeader)
+	}
 	if gjson.Valid(turnMetadata) {
 		if parentTurnRaw == "" {
 			parentTurnRaw = strings.TrimSpace(gjson.Get(turnMetadata, "parent_turn_id").String())
@@ -75,12 +78,6 @@ func resolveCodexOutboundSessionIDs(
 	}
 	if parentThreadRaw == "" {
 		parentThreadRaw = codexInboundHeaderValue(c, "x-codex-parent-thread-id")
-	}
-	if parentTurnRaw == "" {
-		parentTurnRaw = codexInboundHeaderValue(c, "x-codex-parent-turn-id", "parent-turn-id")
-	}
-	if rootTurnRaw == "" {
-		rootTurnRaw = codexInboundHeaderValue(c, "x-codex-root-turn-id", "root-turn-id")
 	}
 	subagent := strings.TrimSpace(gjson.GetBytes(body, "client_metadata.x-openai-subagent").String())
 	if subagent == "" && gjson.Valid(turnMetadata) {
@@ -140,9 +137,6 @@ func resolveCodexOutboundSessionIDs(
 	}
 	if rootTurnRaw != "" {
 		ids.rootTurnID = deriveCodexOutboundSessionUUID("turn", namespace, rootTurnRaw)
-	} else if ids.parentTurnID != "" {
-		// Keep delegated lineage account-scoped when the caller omits the root.
-		ids.rootTurnID = ids.parentTurnID
 	}
 	return ids
 }
@@ -246,7 +240,12 @@ func applyCodexOutboundSessionHeaders(
 			}
 		}
 	}
-	ids := resolveCodexOutboundSessionIDs(c, account, body, promptCacheKey)
+	var ids *codexOutboundSessionIDs
+	if projection := resolvedCodexMetadataProjection(c, account, body); projection != nil {
+		ids = projection.sessionIDs
+	} else {
+		ids = resolveCodexOutboundSessionIDs(c, account, body, promptCacheKey)
+	}
 	applyResolvedCodexOutboundSessionHeaders(c, account, headers, fingerprintIDs, ids)
 }
 
@@ -317,7 +316,7 @@ func applyResolvedCodexOutboundSessionHeaders(
 // rewriteCodexOutboundSessionMetadata applies the OAuth client_metadata boundary
 // and keeps body/header projections on the same isolated IDs. Opaque turn state
 // remains untouched; identity, workspace, and approval fields are normalized.
-func rewriteCodexOutboundSessionMetadata(body []byte, account *Account, ids *codexOutboundSessionIDs) ([]byte, error) {
+func rewriteCodexOutboundSessionMetadata(body []byte, account *Account, ids *codexOutboundSessionIDs, contexts ...*gin.Context) ([]byte, error) {
 	if len(body) == 0 || account == nil || !account.IsOpenAIOAuth() {
 		return body, nil
 	}
@@ -338,11 +337,13 @@ func rewriteCodexOutboundSessionMetadata(body []byte, account *Account, ids *cod
 		return body, fmt.Errorf("decode Codex client_metadata: %w", err)
 	}
 	if !sanitizeOpenAICodexClientMetadataMap(clientMetadata, account, ids) {
+		stageCodexMetadataProjection(clientMetadata, account, ids, nil, contexts...)
 		return body, nil
 	}
 	encoded, err := json.Marshal(clientMetadata)
 	if err != nil {
 		return body, fmt.Errorf("encode Codex client_metadata: %w", err)
 	}
+	stageCodexMetadataProjection(clientMetadata, account, ids, nil, contexts...)
 	return sjson.SetRawBytes(body, "client_metadata", encoded)
 }

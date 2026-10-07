@@ -521,7 +521,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		}
 		if !isCompactRequest || s.codexFullSimulationEnabledForAccount(c, account) {
 			fingerprintIDs = resolveCodexFingerprintIDsFromGinContext(account, c)
-			if applyCodexFingerprintClientMetadata(decoded, fingerprintIDs) {
+			if applyCodexFingerprintClientMetadata(decoded, fingerprintIDs, c) {
 				markDecodedModified()
 			}
 		}

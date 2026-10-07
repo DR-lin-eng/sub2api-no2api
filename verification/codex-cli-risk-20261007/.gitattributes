@@ -1,0 +1,4 @@
+# Preserve the literal whitespace emitted by test runners in evidence logs.
+VERIFICATION.txt -whitespace
+headers-check/*.stdout -whitespace
+headers-check/*.stderr -whitespace

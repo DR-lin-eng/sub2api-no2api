@@ -1,0 +1,4 @@
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	193.437s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	44.415s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/openai	0.007s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation	0.004s

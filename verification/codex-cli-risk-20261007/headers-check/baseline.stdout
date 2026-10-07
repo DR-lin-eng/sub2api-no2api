@@ -1,0 +1,85 @@
+2026/10/07 07:10:22 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestCodexLineageHTTPHeaderMatchesProjectedBody
+=== RUN   TestCodexLineageHTTPHeaderMatchesProjectedBody/full=false/passthrough=false
+    openai_codex_request_headers_test.go:334: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_request_headers_test.go:334
+        	Error:      	Not equal: 
+        	            	expected: "b604e47d-6b5a-4fd4-a0b0-90d3dafeddf9"
+        	            	actual  : "fb81ad24-ef78-4460-8a4a-89a7d4bfc151"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-b604e47d-6b5a-4fd4-a0b0-90d3dafeddf9
+        	            	+fb81ad24-ef78-4460-8a4a-89a7d4bfc151
+        	Test:       	TestCodexLineageHTTPHeaderMatchesProjectedBody/full=false/passthrough=false
+        	Messages:   	parent_turn_id header projection
+=== RUN   TestCodexLineageHTTPHeaderMatchesProjectedBody/full=false/passthrough=true
+    openai_codex_request_headers_test.go:334: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_request_headers_test.go:334
+        	Error:      	Not equal: 
+        	            	expected: "b604e47d-6b5a-4fd4-a0b0-90d3dafeddf9"
+        	            	actual  : "fb81ad24-ef78-4460-8a4a-89a7d4bfc151"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-b604e47d-6b5a-4fd4-a0b0-90d3dafeddf9
+        	            	+fb81ad24-ef78-4460-8a4a-89a7d4bfc151
+        	Test:       	TestCodexLineageHTTPHeaderMatchesProjectedBody/full=false/passthrough=true
+        	Messages:   	parent_turn_id header projection
+=== RUN   TestCodexLineageHTTPHeaderMatchesProjectedBody/full=true/passthrough=false
+    openai_codex_request_headers_test.go:333: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_request_headers_test.go:333
+        	Error:      	Not equal: 
+        	            	expected: "ee4cb231-8c84-4e4a-90af-0f56dc92e8a4"
+        	            	actual  : "parent"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-ee4cb231-8c84-4e4a-90af-0f56dc92e8a4
+        	            	+parent
+        	Test:       	TestCodexLineageHTTPHeaderMatchesProjectedBody/full=true/passthrough=false
+        	Messages:   	parent_turn_id outer projection
+=== RUN   TestCodexLineageHTTPHeaderMatchesProjectedBody/full=true/passthrough=true
+    openai_codex_request_headers_test.go:333: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_request_headers_test.go:333
+        	Error:      	Not equal: 
+        	            	expected: "ee4cb231-8c84-4e4a-90af-0f56dc92e8a4"
+        	            	actual  : "parent"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-ee4cb231-8c84-4e4a-90af-0f56dc92e8a4
+        	            	+parent
+        	Test:       	TestCodexLineageHTTPHeaderMatchesProjectedBody/full=true/passthrough=true
+        	Messages:   	parent_turn_id outer projection
+--- FAIL: TestCodexLineageHTTPHeaderMatchesProjectedBody (0.00s)
+    --- FAIL: TestCodexLineageHTTPHeaderMatchesProjectedBody/full=false/passthrough=false (0.00s)
+    --- FAIL: TestCodexLineageHTTPHeaderMatchesProjectedBody/full=false/passthrough=true (0.00s)
+    --- FAIL: TestCodexLineageHTTPHeaderMatchesProjectedBody/full=true/passthrough=false (0.00s)
+    --- FAIL: TestCodexLineageHTTPHeaderMatchesProjectedBody/full=true/passthrough=true (0.00s)
+=== RUN   TestCodexLineageSharedTurnIDNamespace
+    openai_codex_request_headers_test.go:349: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_request_headers_test.go:349
+        	Error:      	Not equal: 
+        	            	expected: ""
+        	            	actual  : "turn"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-
+        	            	+turn
+        	Test:       	TestCodexLineageSharedTurnIDNamespace
+--- FAIL: TestCodexLineageSharedTurnIDNamespace (0.00s)
+FAIL
+FAIL	github.com/Wei-Shaw/sub2api/internal/application/service	0.014s
+FAIL

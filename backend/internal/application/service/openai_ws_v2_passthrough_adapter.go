@@ -830,14 +830,14 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	// first passthrough frame is prepared before the WS handshake is built, so
 	// stage it explicitly for semantic metadata normalization below.
 	stageCodexFingerprintIDs(c, fingerprintIDs)
-	if fingerprinted, changed, fingerprintErr := applyCodexFingerprintClientMetadataToBody(firstClientMessage, fingerprintIDs); fingerprintErr != nil {
+	if fingerprinted, changed, fingerprintErr := applyCodexFingerprintClientMetadataToBody(firstClientMessage, fingerprintIDs, c); fingerprintErr != nil {
 		return NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", fingerprintErr)
 	} else if changed {
 		firstClientMessage = fingerprinted
 	}
 	if account.IsOpenAIOAuth() && (fingerprintIDs == nil || fingerprintIDs.mode == codexFingerprintOff) {
 		ids := resolveCodexOutboundSessionIDs(c, account, firstClientMessage, "")
-		rewritten, rewriteErr := rewriteCodexOutboundSessionMetadata(firstClientMessage, account, ids)
+		rewritten, rewriteErr := rewriteCodexOutboundSessionMetadata(firstClientMessage, account, ids, c)
 		if rewriteErr != nil {
 			return NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", rewriteErr)
 		}
@@ -1212,7 +1212,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 				if attempt, ok := codexSimulationAttemptFromGin(c); ok && attempt.fingerprint != nil {
 					turnFingerprintIDs = attempt.fingerprint
 				}
-				fingerprinted, changed, fingerprintErr := applyCodexFingerprintClientMetadataToBody(out, turnFingerprintIDs)
+				fingerprinted, changed, fingerprintErr := applyCodexFingerprintClientMetadataToBody(out, turnFingerprintIDs, c)
 				if fingerprintErr != nil {
 					return payload, nil, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", fingerprintErr)
 				}
@@ -1221,7 +1221,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 				}
 				if account.IsOpenAIOAuth() && (turnFingerprintIDs == nil || turnFingerprintIDs.mode == codexFingerprintOff) {
 					ids := resolveCodexOutboundSessionIDs(c, account, out, "")
-					rewritten, rewriteErr := rewriteCodexOutboundSessionMetadata(out, account, ids)
+					rewritten, rewriteErr := rewriteCodexOutboundSessionMetadata(out, account, ids, c)
 					if rewriteErr != nil {
 						return payload, nil, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", rewriteErr)
 					}

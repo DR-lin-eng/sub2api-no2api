@@ -147,3 +147,12 @@ func TestCodexFullSimulationPreservesDerivedRootLineage(t *testing.T) {
 	require.Equal(t, rewriteCodexSimulationMetadataID(ids, "root_turn_id", "client-root"), gjson.Get(rewritten, "root_turn_id").String())
 	require.Equal(t, rewriteCodexSimulationMetadataID(ids, "parent_turn_id", "client-parent"), gjson.Get(rewritten, "parent_turn_id").String())
 }
+
+func TestCodexFullSimulationNullTurnMetadata(t *testing.T) {
+	ids := &codexFingerprintIDs{mode: codexFingerprintFull, fullSimulation: true, installationID: "install", sessionID: "session", threadID: "thread", turnID: "current-turn"}
+	body := []byte(`{"client_metadata":{"x-codex-turn-metadata":"null"}}`)
+	out, _, err := applyCodexFingerprintClientMetadataToBody(body, ids)
+	require.NoError(t, err)
+	turn := gjson.GetBytes(out, "client_metadata.x-codex-turn-metadata").String()
+	require.Equal(t, "current-turn", gjson.Get(turn, "root_turn_id").String())
+}

@@ -89,7 +89,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 			codexSessionIDs = resolveCodexOutboundSessionIDs(c, account, outboundBody, promptCacheKey)
 		}
 		var rewriteErr error
-		outboundBody, rewriteErr = rewriteCodexOutboundSessionMetadata(outboundBody, account, codexSessionIDs)
+		outboundBody, rewriteErr = rewriteCodexOutboundSessionMetadata(outboundBody, account, codexSessionIDs, c)
 		if rewriteErr != nil {
 			return nil, rewriteErr
 		}

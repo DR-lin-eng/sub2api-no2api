@@ -99,6 +99,14 @@ func normalizeOpenAICodexTurnMetadataHeader(headers http.Header, c *gin.Context,
 	if source == "" {
 		return
 	}
+	if projection := resolvedCodexMetadataProjection(c, account, body); projection != nil && projection.turnMetadata != "" {
+		deleteOpenAIHeaderEqualFold(headers, openAIWSTurnMetadataHeader)
+		if normalized := codexProjectedTurnMetadataHeader(projection.turnMetadata); normalized != "" {
+			headers.Set(openAIWSTurnMetadataHeader, normalized)
+			restoreCodexTurnCompatibilityHeaders(headers)
+		}
+		return
+	}
 
 	if fingerprintIDs := resolveCodexFingerprintIDsFromGinContext(account, c); fingerprintIDs != nil && fingerprintIDs.mode != codexFingerprintOff {
 		normalized := rewriteCodexTurnMetadataValue(source, fingerprintIDs)

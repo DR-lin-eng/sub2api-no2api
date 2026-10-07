@@ -18,8 +18,9 @@ attempt plan 重建。full simulation 的 direct `x-codex-installation-id` 只�
 Responses/WS 通过 `client_metadata` 投影；`client_metadata` 顶层只保留源码兼容投影；调用方自定义键会转入
 `x-codex-turn-metadata` 的有界扁平 extra 字段，并按源码规则限制键和值长度。
 每个 OpenAI OAuth 账号在首次创建或首次 full simulation 请求时生成一个随机 `context_window_id`，写入
-`accounts.extra.codex_context_window_id`，后续请求固定复用；它不会采用下游提供的窗口 ID。root_turn_id
-始终与当前 turn_id 对齐，parent/fork/turn 关联 ID 按虚拟 principal 重新派生，合法的 subagent 分类和对应兼容头会保留。
+`accounts.extra.codex_context_window_id`，后续请求固定复用；它不会采用下游提供的窗口 ID。没有显式 root 时
+full simulation 的 `root_turn_id` 使用当前 `turn_id`；显式 parent/root 在同一 turn 命名空间按虚拟
+principal 重新派生，合法的 subagent 分类和对应兼容头会保留。
 
 full simulation 的 session、thread、turn 以及上下文窗口 ID 使用 UUIDv7 的毫秒时间戳布局；installation ID
 继续使用 UUIDv4，以保持安装身份与会话时间身份的边界。
@@ -174,8 +175,9 @@ OpenAI OAuth 的 Responses HTTP、Compact、透传和 Responses WebSocket 路径
   调用方原始值不会直接跨 API key 或上游账号复用。
 - Codex CLI 新增的 `parentTurnId`/`rootTurnId` lineage 也按同一规则处理：普通 OAuth
   请求在 `client_metadata` 与 `x-codex-turn-metadata` 中都使用当前账号命名空间派生的
-  turn ID；缺少 root 时回退到派生 parent。full simulation 保留并重新派生客户端提供的
-  root，因此委托链不会被错误地改成当前 turn，也不会把原始 ID 带到另一个 OAuth 账号。
+  turn ID。缺少 root 时普通 OAuth 不猜测根节点，full simulation 使用当前 turn。
+  外层 metadata、嵌套 turn metadata 和 HTTP/WS 请求头复用已经完成的账号投影，避免再次派生。
+  parent 与 root 指向同一原始 turn 时使用同一派生 ID；不会把原始 ID 带到另一个 OAuth 账号。
 - Guardian 的 `x-codex-guardian: reviewer|classifier` 只有在对应 `x-openai-subagent` 与
   `thread_source`/`turn_trigger` 组合一致时才生成；普通请求会清除伪造值。
 - Memory consolidation 只有在 `x-openai-memgen-request: true`、`memory_consolidation` subagent 和

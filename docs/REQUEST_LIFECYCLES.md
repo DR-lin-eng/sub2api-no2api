@@ -340,7 +340,8 @@ HMAC；项目头在所有 HTTP/WS 上游构造器中删除。每个账号 attemp
 `chatgpt_account_id` 时有意视为同一上游主体。
 
 full simulation 的 session/thread/turn 使用 UUIDv7，并从同一 attempt plan 投影到请求头、`prompt_cache_key`
-和 `client_metadata`。`root_turn_id` 与当前 `turn_id` 保持一致，`window_id` 使用从 1 开始的
+和 `client_metadata`。`parent_turn_id`/`root_turn_id` 在同一主体 turn 命名空间重新派生；没有显式 root
+时使用当前 `turn_id`。HTTP/WS 请求头复用正文投影，避免重复派生。`window_id` 使用从 1 开始的
 `thread_id:window_number`。每个 OpenAI OAuth 账号有一个随机生成、持久化在
 `accounts.extra.codex_context_window_id` 的 `context_window_id`；body 与 `x-codex-turn-metadata` 只使用该账号值，
 不接受下游窗口 ID 原样透传。installation ID 继续作为独立的 UUIDv4 安装身份。
