@@ -33,5 +33,7 @@ func TestUsageBillingRequestIDWithoutTrustedContext(t *testing.T) {
 	require.NotEqual(t, first, second)
 	require.Empty(t, resolveUsageBillingPayloadFingerprint(ctx, ""))
 	// Background jobs retain the existing explicit, stable settlement ID contract.
-	require.Equal(t, "server-job-id", resolveUsageBillingRequestID(nil, "server-job-id"))
+	for _, jobContext := range []context.Context{nil, context.Background()} {
+		require.Equal(t, "server-job-id", resolveUsageBillingRequestID(jobContext, "server-job-id"))
+	}
 }

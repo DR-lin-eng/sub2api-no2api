@@ -54,7 +54,9 @@ func TestCyberBillingPreservesPrivateRequestAndTurnIdentity(t *testing.T) {
 				want := "local:server-request"
 				if websocket {
 					usageCtx := openAIWSTurnUsageContext(parent, turn)
-					want = "local:" + usageCtx.Value(ctxkey.UsageBillingRequestID).(string)
+					turnID, ok := usageCtx.Value(ctxkey.UsageBillingRequestID).(string)
+					require.True(t, ok)
+					want = "local:" + turnID
 					h.recordCyberPolicyIfMarkedWithUsageContext(usageCtx, c, apiKey, account, nil, "gpt-5.1", true, "", service.ChannelUsageFields{}, "")
 				} else {
 					h.recordCyberPolicyIfMarked(c, apiKey, account, nil, "gpt-5.1", true, "", service.ChannelUsageFields{}, "")

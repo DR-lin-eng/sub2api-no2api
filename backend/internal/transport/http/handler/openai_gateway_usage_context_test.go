@@ -60,7 +60,6 @@ func TestOpenAIWSTurnUsageContextSeparatesTurnsAndPreservesRetries(t *testing.T)
 	require.Equal(t, "server-connection", parent.Value(ctxkey.UsageBillingRequestID))
 	worker := usageRecordContext(second, context.Background())
 	require.Equal(t, second.Value(ctxkey.UsageBillingRequestID), worker.Value(ctxkey.UsageBillingRequestID))
-	require.NotEmpty(t, openAIWSTurnUsageContext(nil, 1).Value(ctxkey.UsageBillingRequestID))
 	// A relay restart after a later-turn failover begins again at turn 1.
 	// It must not reuse any completed turn from the previous proxy attempt.
 	firstAttempt := openAIWSAttemptUsageContext(parent)
@@ -69,5 +68,8 @@ func TestOpenAIWSTurnUsageContextSeparatesTurnsAndPreservesRetries(t *testing.T)
 	secondAttemptTurn := openAIWSTurnUsageContext(secondAttempt, 1)
 	require.NotEqual(t, firstAttemptTurn.Value(ctxkey.UsageBillingRequestID), secondAttemptTurn.Value(ctxkey.UsageBillingRequestID))
 	require.Equal(t, firstAttemptTurn.Value(ctxkey.UsageBillingRequestID), openAIWSTurnUsageContext(firstAttempt, 1).Value(ctxkey.UsageBillingRequestID))
-	require.NotEmpty(t, openAIWSAttemptUsageContext(nil).Value(ctxkey.UsageBillingRequestID))
+	for _, fallbackParent := range []context.Context{nil, context.Background()} {
+		require.NotEmpty(t, openAIWSTurnUsageContext(fallbackParent, 1).Value(ctxkey.UsageBillingRequestID))
+		require.NotEmpty(t, openAIWSAttemptUsageContext(fallbackParent).Value(ctxkey.UsageBillingRequestID))
+	}
 }
