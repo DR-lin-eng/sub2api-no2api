@@ -13,7 +13,7 @@ import (
 
 const clientRequestIDHeader = "X-Client-Request-ID"
 
-// ClientRequestID ensures every request has a unique client_request_id in request.Context().
+// ClientRequestID supplies gateway correlation metadata and a private billing ID.
 //
 // This is used by the Ops monitoring module for end-to-end request correlation.
 func ClientRequestID() gin.HandlerFunc {
@@ -22,6 +22,11 @@ func ClientRequestID() gin.HandlerFunc {
 			c.Next()
 			return
 		}
+
+		// Always issue a new billing identity at ingress, independently of public
+		// headers or correlation values inherited from another context.
+		ctx := context.WithValue(c.Request.Context(), ctxkey.UsageBillingRequestID, uuid.NewString())
+		c.Request = c.Request.WithContext(ctx)
 
 		if v, _ := c.Request.Context().Value(ctxkey.ClientRequestID).(string); strings.TrimSpace(v) != "" {
 			var valid bool
@@ -38,7 +43,7 @@ func ClientRequestID() gin.HandlerFunc {
 
 		id := uuid.New().String()
 		c.Header(clientRequestIDHeader, id)
-		ctx := context.WithValue(c.Request.Context(), ctxkey.ClientRequestID, id)
+		ctx = context.WithValue(c.Request.Context(), ctxkey.ClientRequestID, id)
 		requestLogger := logger.FromContext(ctx).With(zap.String("client_request_id", strings.TrimSpace(id)))
 		ctx = logger.IntoContext(ctx, requestLogger)
 		c.Request = c.Request.WithContext(ctx)
