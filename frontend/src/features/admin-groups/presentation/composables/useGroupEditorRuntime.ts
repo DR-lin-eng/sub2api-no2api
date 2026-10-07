@@ -8,6 +8,7 @@ import {
   getModelsListCandidates,
 } from "@/features/admin-groups/data/datasources/adminGroupQueries";
 import type { GroupPlatform } from "@/types/group";
+import type { LiveCapability } from "@/features/admin-groups/data/dtos/adminGroupDtos";
 import { createModelsListCandidatesTracker } from "../groupsModelsListCandidatesResolver";
 import { setModelsListCandidates, type ModelsListState } from "../groupsModelsListResolver";
 import type {
@@ -169,13 +170,10 @@ export function useGroupEditorRuntime() {
   const showUnsupportedLiveConfirm = computed(
     () => pendingLiveForm.value !== null,
   );
-  const liveCapability = ref<{ supported: boolean; reason?: string } | null>(
+  const liveCapability = ref<LiveCapability | null>(
     null,
   );
-  let liveCapabilityRequest: Promise<{
-    supported: boolean;
-    reason?: string;
-  }> | null = null;
+  let liveCapabilityRequest: Promise<LiveCapability> | null = null;
 
   const loadLiveCapability = async () => {
     if (liveCapability.value) return liveCapability.value;
@@ -198,7 +196,7 @@ export function useGroupEditorRuntime() {
       return;
     }
     const capability = await loadLiveCapability();
-    if (capability.supported) {
+    if (capability.supported || capability.codex_voice_supported) {
       form.allow_live = true;
       return;
     }

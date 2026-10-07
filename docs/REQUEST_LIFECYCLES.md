@@ -37,6 +37,8 @@ sequenceDiagram
 
 用户端 API Key 创建与分组修改统一校验每个 `group_id`/`group_bindings` 候选的 active 状态及用户授权；原绑定列表完全不变时，改名或编辑自有 Key 的消费上限仍允许保存，已经停用的旧候选由运行时路由过滤。`quota` 是 Key 的自设消费上限，余额与订阅扣费不因调整它而豁免。
 
+Codex CLI 语音通过 Live 创建与 Sideband 控制链路接入，`gpt-live-1-codex` 使用 CLI 的可选证明契约；语音按分钟结算，任务模型另按 token 计费。倍率与配额策略在创建时冻结，Redis 保留未结算会话，由固定批量恢复器完成幂等扣费和用量写入。客户端 Sideband 地址与升级/回退边界见 [Codex CLI 语音](CODEX_VOICE.md)。
+
 Responses 走图片编辑桥接时，用户提交的图片与遮罩 URL 在共享解析阶段携带独立公开地址策略。HTTP port 的 repository 实现对全部 DNS 结果与重定向逐跳校验，再连接固定 IP；账号代理/IPv6 出口仍随请求传递，管理员私网上游例外不能放宽用户输入。接口、计费和本地图片输入边界见 [媒体工坊安全说明](CUSTOM_MODELS_AND_MEDIA.md)。
 
 普通 OpenAI OAuth 账号在 `extra.excel_bps_enabled=true` 且不是独立 compact 路径时将 Responses 请求转入账号级 Excel/Basispoints 桥接；桥接不支持的原生托管工具显式报错，不静默回退。账号管理页的 `excel_bps=enabled|disabled` 在 PostgreSQL JSONB 谓词中先于分页计算，同时用于批量编辑目标解析、导出和上游计费快照；批量 BPS 开关在写入前校验所有账号资格，SQL 写入时复查并保持整批原子性；DeepSeek 专用兼容调整分别落在 Responses 出站请求与 Chat Completions 出站/回退链路。配置、能力边界和验证入口见 [Excel BPS 与 DeepSeek 兼容](BPS_DEEPSEEK_COMPAT.md)。

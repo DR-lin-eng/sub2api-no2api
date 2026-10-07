@@ -82,7 +82,7 @@ describe('shared usage locale contract', () => {
   const expected = {
     en: {
       sources: ['Upstream output', 'Request input', 'Default billing tier', 'Legacy record'],
-      costLines: ['Text input', 'Image input', 'Text output', 'Image output', 'Cache creation', 'Cache read', 'Per request', 'Image generation', 'Video generation'],
+      costLines: ['Text input', 'Image input', 'Text output', 'Image output', 'Cache creation', 'Cache read', 'Per request', 'Image generation', 'Video generation', 'Voice conversation'],
       missing: 'Not recorded',
       legacy: 'Legacy record',
       unknown: 'Unknown',
@@ -90,7 +90,7 @@ describe('shared usage locale contract', () => {
     },
     zh: {
       sources: ['上游输出', '请求输入', '默认计费档位', '历史记录'],
-      costLines: ['文本输入', '图片输入', '文本输出', '图片输出', '缓存创建', '缓存读取', '按次请求', '图片生成', '视频生成'],
+      costLines: ['文本输入', '图片输入', '文本输出', '图片输出', '缓存创建', '缓存读取', '按次请求', '图片生成', '视频生成', '语音通话'],
       missing: '未记录',
       legacy: '历史记录',
       unknown: '未知',

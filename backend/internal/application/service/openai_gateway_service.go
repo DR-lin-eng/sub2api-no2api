@@ -473,6 +473,8 @@ type OpenAIGatewayService struct {
 	customModelCapabilities CustomModelCapabilityResolver
 	liveAttestation         liveattestation.Provider
 	liveAttestationCipher   SecretEncryptor
+	liveBillingOnce         sync.Once
+	liveBillingCancel       context.CancelFunc
 
 	openaiWSPoolOnce               sync.Once
 	openaiWSStateStoreOnce         sync.Once
@@ -773,6 +775,9 @@ func (s *OpenAIGatewayService) billingDeps() *billingDeps {
 func (s *OpenAIGatewayService) CloseOpenAIWSPool() {
 	if s == nil {
 		return
+	}
+	if s.liveBillingCancel != nil {
+		s.liveBillingCancel()
 	}
 	s.codexAutoProbeMu.Lock()
 	s.codexAutoProbeStopped.Store(true)

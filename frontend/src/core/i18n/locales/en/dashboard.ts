@@ -395,6 +395,7 @@ export default {
       requestsUnit: 'requests',
       imagesUnit: 'images',
       videoSecondsUnit: 'video-seconds',
+      voiceMinutesUnit: 'minutes',
       noUnitPrice: 'Unit price unavailable',
       costLines: {
         input: 'Text input',
@@ -406,6 +407,7 @@ export default {
         request: 'Per request',
         image: 'Image generation',
         video: 'Video generation',
+        voice: 'Voice conversation',
       },
     },
     cacheTtlOverriddenHint: 'Cache TTL Override enabled',
@@ -446,6 +448,7 @@ export default {
     billingModePerRequest: 'Per Request',
     billingModeImage: 'Image',
     billingModeVideo: 'Video',
+    billingModeLive: 'Voice Minutes',
     timeRange: 'Time Range',
     exportCsv: 'Export CSV',
     exportExcel: 'Export Excel',

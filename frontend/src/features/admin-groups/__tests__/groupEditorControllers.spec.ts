@@ -166,6 +166,15 @@ describe("group editor controllers", () => {
     scope.stop();
   });
 
+  it("enables Codex voice when legacy Desktop proof is unavailable", async () => {
+    getLiveCapability.mockResolvedValue({ supported: false, codex_voice_supported: true });
+    const runtime = scope.run(() => useGroupEditorRuntime())!;
+    const form = { allow_live: false };
+    await runtime.toggleLive("create", form);
+    expect(form.allow_live).toBe(true);
+    expect(runtime.showUnsupportedLiveConfirm.value).toBe(false);
+  });
+
   it("keeps create payload normalization and refresh timing", async () => {
     const loadGroups = vi.fn();
     const groups = ref<AdminGroup[]>([]);

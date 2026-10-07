@@ -131,3 +131,14 @@ describe('buildUsageBillingCalculation', () => {
     expect(result.reconciled).toBe(true)
   })
 })
+
+
+describe('Codex voice minute billing', () => {
+  it('shows prorated minutes and the minute price independently of tokens', () => {
+    const result = buildUsageBillingCalculation(usage({ billing_mode: 'live', duration_ms: 90_000, total_cost: 0.075, actual_cost: 0.15, rate_multiplier: 2 }))
+    expect(result.lines[0]).toMatchObject({ key: 'voice', quantity: 1.5, quantityUnit: 'voice_minutes', cost: 0.075 })
+    expect(result.lines[0].unitPrice).toBeCloseTo(0.05)
+    expect(result.calculatedActual).toBe(0.15)
+    expect(result.reconciled).toBe(true)
+  })
+})
