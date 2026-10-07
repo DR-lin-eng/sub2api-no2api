@@ -4,7 +4,7 @@
     {
       "path": "backend/internal/application/service/openai_codex_fingerprint.go",
       "baseline_sha256": "efb7adaddf6c9ee496cf366cd33151a36b3c9de12741062263a5688aaa89cf38",
-      "modified_sha256": "215b03273d72c538fc5f94419cebca9cba6aa040b88e77b7a00725c40eb6293a"
+      "modified_sha256": "6f4975927b795d35c09bde02e8c6f193b555102d888611f0e6dd75b563c6b27b"
     },
     {
       "path": "backend/internal/application/service/openai_codex_metadata_sanitize.go",
@@ -14,7 +14,7 @@
     {
       "path": "backend/internal/application/service/openai_codex_metadata_sanitize_test.go",
       "baseline_sha256": "b5fe8ae419494057e3db96434ced6963cf05d5a82e3549b9421e70e4bfe51e3d",
-      "modified_sha256": "130d8213668b900ea9dc967e31da7a3bd9f14964575ee2dd8bc6031fa57916b2"
+      "modified_sha256": "86c4266caf13150a6c452761f0e1f3888da6ee58767b4b0e8276a07c013b3fd8"
     },
     {
       "path": "backend/internal/application/service/openai_codex_request_headers.go",

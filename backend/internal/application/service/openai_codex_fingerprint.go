@@ -834,6 +834,9 @@ func rewriteEmbeddedCodexTurnMetadata(clientMetadata map[string]any, ids *codexF
 			return
 		}
 	}
+	if metadata == nil {
+		metadata = make(map[string]any)
+	}
 	if ids.fullSimulation {
 		if _, exists := metadata["parent_thread_id"]; !exists {
 			if value, ok := clientMetadata["x-codex-parent-thread-id"].(string); ok && strings.TrimSpace(value) != "" {

@@ -333,3 +333,10 @@ Literal stderr:
 Exit status: 0
 
 Checks: make check-docs returned "Documentation checks passed.", exit 0. git diff HEAD --check, exit 0.
+
+Null turn metadata guard: literal regression stdout:
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	15.606s
+
+Literal stderr:
+<empty>
+Exit status: 0
