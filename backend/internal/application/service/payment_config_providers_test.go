@@ -805,3 +805,48 @@ func validWxpayProviderConfigWithJSAPIAppID(t *testing.T) map[string]string {
 	cfg["mpAppId"] = "wx-mp-app-test"
 	return cfg
 }
+
+func TestPaymentConfigEncryptionAndLegacyMigration(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	key := []byte("0123456789abcdef0123456789abcdef")
+	svc := NewPaymentConfigService(client, nil, key)
+	cfg := map[string]string{"pid": "test-merchant", "pkey": "payment-fixture-secret", "apiBase": "https://pay.example.com"}
+	row, err := svc.CreateProviderInstance(ctx, CreateProviderInstanceRequest{ProviderKey: payment.TypeEasyPay, Name: "disabled fixture", Config: cfg})
+	require.NoError(t, err)
+	require.NotContains(t, row.Config, cfg["pkey"])
+	decoded, err := payment.DecodeProviderConfig(row.Config, key)
+	require.NoError(t, err)
+	require.Equal(t, cfg, decoded)
+	legacy, err := client.PaymentProviderInstance.Create().SetProviderKey(payment.TypeEasyPay).SetName("legacy").SetConfig(`{"pkey":"legacy-fixture-secret","pid":"legacy"}`).Save(ctx)
+	require.NoError(t, err)
+	require.NoError(t, svc.EncryptLegacyProviderConfigs(ctx))
+	reloaded, err := client.PaymentProviderInstance.Get(ctx, legacy.ID)
+	require.NoError(t, err)
+	require.NotContains(t, reloaded.Config, "legacy-fixture-secret")
+	masked, err := svc.ListProviderInstancesWithConfig(ctx)
+	require.NoError(t, err)
+	for _, item := range masked {
+		require.NotContains(t, item.Config, "pkey")
+	}
+	before := reloaded.Config
+	require.NoError(t, svc.EncryptLegacyProviderConfigs(ctx))
+	reloaded, err = client.PaymentProviderInstance.Get(ctx, legacy.ID)
+	require.NoError(t, err)
+	require.Equal(t, before, reloaded.Config, "encrypted records are not rewritten")
+	noKey := NewPaymentConfigService(client, nil, nil)
+	_, err = noKey.CreateProviderInstance(ctx, CreateProviderInstanceRequest{ProviderKey: payment.TypeEasyPay, Name: "no key", Config: cfg})
+	require.Error(t, err)
+}
+
+func TestPaymentConfigCannotOverwriteUnreadableSecrets(t *testing.T) {
+	client := newPaymentConfigServiceTestClient(t)
+	row, err := client.PaymentProviderInstance.Create().SetProviderKey(payment.TypeStripe).SetName("broken ciphertext").SetConfig("broken:cipher:bytes").Save(t.Context())
+	require.NoError(t, err)
+	svc := NewPaymentConfigService(client, nil, []byte("0123456789abcdef0123456789abcdef"))
+	_, err = svc.UpdateProviderInstance(t.Context(), row.ID, UpdateProviderInstanceRequest{Config: map[string]string{"secretKey": "new"}})
+	require.Error(t, err)
+	reloaded, err := client.PaymentProviderInstance.Get(t.Context(), row.ID)
+	require.NoError(t, err)
+	require.Equal(t, row.Config, reloaded.Config)
+}

@@ -24,7 +24,13 @@ func RegisterCommonRoutes(r *gin.Engine, releaseService *service.ClusterReleaseS
 		if !readiness.Ready {
 			status = http.StatusServiceUnavailable
 		}
-		c.JSON(status, readiness)
+		// Keep the probe contract deliberately small. Node identity and build
+		// versions belong to the authenticated cluster diagnostics endpoint.
+		payload := gin.H{"ready": readiness.Ready}
+		if readiness.Reason != "" {
+			payload["reason"] = readiness.Reason
+		}
+		c.JSON(status, payload)
 	})
 
 	// Claude Code 遥测日志（忽略，直接返回200）

@@ -1,7 +1,9 @@
 package middleware
 
 import (
+	"crypto/tls"
 	"encoding/base64"
+	clientip "github.com/Wei-Shaw/sub2api/internal/shared/ip"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -490,5 +492,40 @@ func BenchmarkSecurityHeadersMiddleware(b *testing.B) {
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
 		middleware(c)
+	}
+}
+
+func TestSecurityHeadersTrustTLSAndExplicitProxyScheme(t *testing.T) {
+	for _, test := range []struct {
+		name, peer string
+		tls        bool
+		trusted    []string
+		forwarded  string
+		wantHSTS   bool
+	}{
+		{"native TLS", "198.51.100.20:443", true, nil, "", true},
+		{"direct HTTP spoof", "198.51.100.20:80", false, nil, "https", false},
+		{"private HTTP spoof", "10.1.2.3:80", false, nil, "https", false},
+		{"explicit proxy HTTPS", "10.1.2.3:80", false, []string{"10.1.2.3"}, "https", true},
+		{"ambiguous scheme", "10.1.2.3:80", false, []string{"10.1.2.3"}, "https, http", false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			resolver, err := clientip.NewResolver(test.trusted)
+			require.NoError(t, err)
+			router := gin.New()
+			router.Use(resolver.Middleware(), SecurityHeaders(config.CSPConfig{}, nil))
+			router.GET("/", func(c *gin.Context) { c.Status(204) })
+			req := httptest.NewRequest("GET", "/", nil)
+			req.RemoteAddr = test.peer
+			req.Header.Set("X-Forwarded-Proto", test.forwarded)
+			if test.tls {
+				req.TLS = &tls.ConnectionState{}
+			}
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+			require.Equal(t, test.wantHSTS, rec.Header().Get("Strict-Transport-Security") != "")
+			require.Equal(t, "same-origin-allow-popups", rec.Header().Get("Cross-Origin-Opener-Policy"))
+			require.Equal(t, "camera=(), microphone=(), geolocation=()", rec.Header().Get("Permissions-Policy"))
+		})
 	}
 }

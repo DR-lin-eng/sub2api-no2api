@@ -212,7 +212,7 @@ func TestHTTPUpstreamDoCanDisableRedirectsPerRequest(t *testing.T) {
 	}))
 	t.Cleanup(redirector.Close)
 
-	upstream := NewHTTPUpstream(nil, nil)
+	upstream := NewHTTPUpstream(&config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{AllowPrivateHosts: true, AllowInsecureHTTP: true}}}, nil)
 	req, err := http.NewRequestWithContext(
 		service.WithHTTPUpstreamRedirectsDisabled(t.Context()),
 		http.MethodGet,
@@ -244,7 +244,7 @@ func TestHTTPUpstreamDoWithTLSPlainHTTPUsesConfiguredHTTPProxy(t *testing.T) {
 
 	req, err := http.NewRequest(http.MethodGet, upstream.URL, nil)
 	require.NoError(t, err)
-	client := NewHTTPUpstream(nil, nil)
+	client := NewHTTPUpstream(&config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{AllowPrivateHosts: true, AllowInsecureHTTP: true}}}, nil)
 	resp, err := client.DoWithTLS(req, proxy.URL, 41, 1, &tlsfingerprint.Profile{Name: "unused-for-http"})
 	require.NoError(t, err)
 	require.Equal(t, http.StatusNoContent, resp.StatusCode)
@@ -264,7 +264,7 @@ func TestHTTPUpstreamDoWithTLSPlainHTTPUsesConfiguredSOCKSProxy(t *testing.T) {
 
 	req, err := http.NewRequest(http.MethodGet, upstream.URL, nil)
 	require.NoError(t, err)
-	client := NewHTTPUpstream(nil, nil)
+	client := NewHTTPUpstream(&config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{AllowPrivateHosts: true, AllowInsecureHTTP: true}}}, nil)
 	resp, err := client.DoWithTLS(req, proxyURL, 42, 1, &tlsfingerprint.Profile{Name: "unused-for-http"})
 	require.NoError(t, err)
 	require.Equal(t, http.StatusNoContent, resp.StatusCode)

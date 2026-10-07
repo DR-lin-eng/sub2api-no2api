@@ -181,3 +181,11 @@ func TestCiphertextFormat(t *testing.T) {
 		}
 	}
 }
+
+func TestDecryptRejectsMalformedNonceWithoutPanicking(t *testing.T) {
+	for _, ciphertext := range []string{"AA==:AAAAAAAAAAAAAAAAAAAAAA==:AA==", "AAAAAAAAAAAAAAAA:AA==:AA=="} {
+		if _, err := Decrypt(ciphertext, makeKey(t)); err == nil {
+			t.Fatal("invalid nonce/tag accepted")
+		}
+	}
+}

@@ -25,4 +25,6 @@ func TestReadyRouteReportsReleaseReadiness(t *testing.T) {
 	require.Equal(t, http.StatusServiceUnavailable, recorder.Code)
 	require.Contains(t, recorder.Body.String(), `"ready":false`)
 	require.Contains(t, recorder.Body.String(), `"reason":"initializing_release_state"`)
+	require.NotContains(t, recorder.Body.String(), `"node_id"`)
+	require.NotContains(t, recorder.Body.String(), `"current_version"`)
 }

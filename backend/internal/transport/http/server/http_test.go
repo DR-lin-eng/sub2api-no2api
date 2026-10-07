@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAutoCompatResolverWorksWithoutGinTrustedProxyConfiguration(t *testing.T) {
+func TestExplicitProxyResolverWorksWithoutGinTrustedProxyConfiguration(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	resolver, err := clientip.NewResolver(nil)
+	resolver, err := clientip.NewResolver([]string{"172.18.0.1"})
 	require.NoError(t, err)
 
 	router := gin.New()

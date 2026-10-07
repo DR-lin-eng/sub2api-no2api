@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"sort"
@@ -75,10 +76,13 @@ func NewEasyPay(instanceID string, config map[string]string) (*EasyPay, error) {
 		cfg[k] = v
 	}
 	cfg["apiBase"] = normalizeEasyPayAPIBase(cfg["apiBase"])
+	if err := validateEasyPayAPIBase(cfg["apiBase"]); err != nil {
+		return nil, err
+	}
 	return &EasyPay{
 		instanceID: instanceID,
 		config:     cfg,
-		httpClient: &http.Client{Timeout: easypayHTTPTimeout},
+		httpClient: &http.Client{Timeout: easypayHTTPTimeout, CheckRedirect: func(*http.Request, []*http.Request) error { return fmt.Errorf("easypay API redirect refused") }},
 	}, nil
 }
 
@@ -615,4 +619,21 @@ func easyPaySign(params map[string]string, pkey string) string {
 
 func easyPayVerifySign(params map[string]string, pkey string, sign string) bool {
 	return hmac.Equal([]byte(easyPaySign(params, pkey)), []byte(sign))
+}
+
+// Merchant secrets require authenticated TLS. HTTP is accepted only for
+// explicitly configured loopback development providers, never network peers.
+func validateEasyPayAPIBase(raw string) error {
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.Host == "" || parsed.User != nil || parsed.Opaque != "" {
+		return fmt.Errorf("easypay apiBase must be an HTTPS URL without credentials")
+	}
+	if parsed.Scheme == "https" {
+		return nil
+	}
+	ip := net.ParseIP(parsed.Hostname())
+	if parsed.Scheme == "http" && ip != nil && ip.IsLoopback() {
+		return nil
+	}
+	return fmt.Errorf("easypay apiBase must be an HTTPS URL (HTTP is allowed only on loopback)")
 }

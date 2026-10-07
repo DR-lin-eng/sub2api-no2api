@@ -25,17 +25,7 @@ func ClusterReadiness(releaseService *service.ClusterReleaseService) gin.Handler
 			return
 		}
 		readiness := releaseService.GetReadiness()
-		metadata := map[string]string{
-			"node_id":         readiness.NodeID,
-			"node_name":       readiness.NodeName,
-			"current_version": readiness.CurrentVersion,
-		}
-		if readiness.DesiredVersion != "" {
-			metadata["desired_version"] = readiness.DesiredVersion
-		}
-		if readiness.RolloutID != "" {
-			metadata["rollout_id"] = readiness.RolloutID
-		}
+		metadata := map[string]string{"reason": readiness.Reason}
 		c.Abort()
 		response.ErrorWithDetails(
 			c,

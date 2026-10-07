@@ -15,6 +15,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/modules/payment"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNormalizeVisibleMethods(t *testing.T) {
@@ -821,4 +822,18 @@ func mustCreateFallbackSignedToken(t *testing.T, claims any) string {
 	_, _ = mac.Write([]byte(encodedPayload))
 	signature := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 	return encodedPayload + "." + signature
+}
+
+func TestResumeSigningKeyIsSeparatedFromConfigEncryptionKey(t *testing.T) {
+	t.Setenv("PAYMENT_RESUME_SIGNING_KEY", "")
+	key := []byte("0123456789abcdef0123456789abcdef")
+	signing, fallback := resolvePaymentResumeSigningKeys(key)
+	require.NotEqual(t, key, signing)
+	require.Equal(t, [][]byte{key}, fallback)
+	token, err := NewPaymentResumeService(signing, fallback...).CreateToken(ResumeTokenClaims{OrderID: 1})
+	require.NoError(t, err)
+	_, err = NewPaymentResumeService(signing).ParseToken(token)
+	require.NoError(t, err)
+	_, err = NewPaymentResumeService(key).ParseToken(token)
+	require.Error(t, err)
 }

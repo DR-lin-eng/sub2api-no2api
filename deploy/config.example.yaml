@@ -96,8 +96,8 @@ server:
   # Keep-alive idle timeout in seconds.
   # Keep-Alive 空闲连接超时（秒）。
   idle_timeout: 120
-  # Optional additional trusted proxy CIDRs/IPs. Empty keeps automatic compatibility enabled.
-  # 可选的额外可信代理地址（CIDR/IP）。留空仍会启用自动兼容解析，无需为常规反代修改此项。
+  # Additional trusted proxy CIDRs/IPs. Private reverse proxies must be explicitly listed.
+  # 额外可信代理地址（CIDR/IP）。私网反代必须显式列名；回环和 Cloudflare 网段自动识别。
   trusted_proxies: []
   # Global max request body size in bytes (default: 256MB)
   # 全局最大请求体大小（字节，默认 256MB）
@@ -199,10 +199,10 @@ security:
     # 允许本地/私有 IP 地址用于上游/定价/CRS（仅在可信网络中使用）
     # This exception does not apply to user-supplied Responses image/mask URLs.
     # 此例外不适用于用户提交的 Responses 图片或遮罩 URL。
-    allow_private_hosts: true
-    # Allow http:// URLs when allowlist is disabled (default: true; set to false to require https)
-    # 白名单禁用时是否允许 http:// URL（默认: true，设为 false 则仅允许 https）
-    allow_insecure_http: true
+    allow_private_hosts: false
+    # Allow http:// URLs when allowlist is disabled (default: false; set to true only for trusted local upstreams)
+    # 白名单禁用时是否允许 http:// URL（默认: false，可信本地上游才开启）
+    allow_insecure_http: false
   response_headers:
     # Enable configurable response header filtering (default: true)
     # 启用可配置的响应头过滤（默认启用，过滤上游敏感响应头）

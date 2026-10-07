@@ -24,6 +24,7 @@ const (
 	PermissionSettingsManage      = "settings.manage"
 	PermissionGroupsManage        = "groups.manage"
 	PermissionAccountsManage      = "accounts.manage"
+	PermissionPaymentManage       = "payment.manage"
 )
 
 type PermissionDefinition struct {
@@ -55,6 +56,7 @@ func PermissionDefinitions() []PermissionDefinition {
 		{Key: PermissionSettingsManage, Name: "系统设置：管理", Description: "修改系统设置；权限组和管理员密钥仅限完整管理员"},
 		{Key: PermissionGroupsManage, Name: "分组：管理", Description: "管理模型分组和分组路由"},
 		{Key: PermissionAccountsManage, Name: "账号：管理", Description: "管理上游账号、代理和出口配置"},
+		{Key: PermissionPaymentManage, Name: "支付：管理", Description: "管理支付配置、订单、方案和支付渠道"},
 	}
 }
 

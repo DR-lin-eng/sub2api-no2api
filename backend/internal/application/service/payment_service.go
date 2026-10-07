@@ -3,6 +3,8 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"log/slog"
@@ -326,7 +328,9 @@ func resolvePaymentResumeSigningKeys(legacyKey []byte) ([]byte, [][]byte) {
 		if len(legacyKey) == 0 {
 			return nil, nil
 		}
-		return legacyKey, nil
+		mac := hmac.New(sha256.New, legacyKey)
+		_, _ = mac.Write([]byte("sub2api/payment/resume-signing/v1"))
+		return mac.Sum(nil), [][]byte{legacyKey}
 	}
 	if len(legacyKey) == 0 || bytes.Equal(legacyKey, signingKey) {
 		return signingKey, nil

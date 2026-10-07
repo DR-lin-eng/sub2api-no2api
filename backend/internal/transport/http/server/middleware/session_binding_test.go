@@ -72,8 +72,8 @@ func TestSessionBindingContextIgnoresTrustedProxyPeerChanges(t *testing.T) {
 }
 
 func TestSessionBindingContextUsesUnifiedIPRegardlessOfLegacyArgument(t *testing.T) {
-	first := requestSessionBindingForTest(t, false, nil, "10.0.0.2:1234", "test-agent", "9.9.9.9")
-	second := requestSessionBindingForTest(t, false, nil, "10.0.0.3:1234", "test-agent", "8.8.8.8")
+	first := requestSessionBindingForTest(t, false, []string{"10.0.0.0/8"}, "10.0.0.2:1234", "test-agent", "9.9.9.9")
+	second := requestSessionBindingForTest(t, false, []string{"10.0.0.0/8"}, "10.0.0.3:1234", "test-agent", "8.8.8.8")
 
 	assert.Equal(t, "9.9.9.9", first.IP)
 	assert.Equal(t, "8.8.8.8", second.IP)

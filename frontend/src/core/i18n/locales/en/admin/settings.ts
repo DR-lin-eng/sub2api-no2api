@@ -35,6 +35,7 @@ export default {
           settings_manage: { name: "Settings: manage", description: "Manage system settings; role grants and administrator keys remain admin-only" },
           groups_manage: { name: "Model groups: manage", description: "Manage model groups and routing, not staff permission groups" },
           accounts_manage: { name: "Upstream accounts: manage", description: "Manage upstream accounts, inspection, proxies and egress" },
+          payment_manage: { name: "Payments: manage", description: "Manage payment configuration, orders, plans and provider channels" },
         },
         title: 'Permission Groups',
         description: 'Create custom roles and control which admin functions each role can view or operate. The built-in Support group includes support chat and basic user information permissions.',
@@ -304,7 +305,7 @@ export default {
         description:
           'Use one client IP for rate limits, API Key IP rules, usage records, audit logs, and session binding',
         resolutionMode: 'Resolution mode',
-        resolutionModeHint: 'Automatic compatibility works with Nginx, Caddy, Cloudflare, and Docker without configuration changes',
+        resolutionModeHint: 'Loopback and Cloudflare peers are recognized automatically; private Nginx, Caddy, or Docker proxies must be explicitly trusted',
         trustedProxies: 'Additional trusted proxies',
         trustedProxiesPlaceholder: 'One IP or CIDR per line, for example 203.0.113.10/32',
         trustedProxiesHint: 'Up to 64 entries; existing server.trusted_proxies entries are merged automatically',

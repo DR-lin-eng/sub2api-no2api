@@ -44,3 +44,16 @@ func TestEasyPayCreatePaymentResolvesRelativeReturnedRefs(t *testing.T) {
 		t.Fatalf("QRCode = %q, want %q", resp.QRCode, want)
 	}
 }
+
+func TestEasyPayMerchantSecretTransportRequiresTLS(t *testing.T) {
+	for _, raw := range []string{"http://pay.example.com", "http://10.0.0.2", "ftp://pay.example.com", "https://user:secret@pay.example.com"} {
+		if err := validateEasyPayAPIBase(raw); err == nil {
+			t.Fatalf("unsafe payment endpoint accepted: %s", raw)
+		}
+	}
+	for _, raw := range []string{"https://pay.example.com/epay", "http://127.0.0.1:8080/test"} {
+		if err := validateEasyPayAPIBase(raw); err != nil {
+			t.Fatal(err)
+		}
+	}
+}

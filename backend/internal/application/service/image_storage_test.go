@@ -1,12 +1,14 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
+	"io"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -24,7 +26,7 @@ func TestImageResultUploaderExplicitIPv6DisabledFailsClosed(t *testing.T) {
 		platformegress.IPv6PoolRoute("2001:db8::50", 5, 1, false),
 		platformegress.Policy{},
 	)
-	uploader := NewImageResultUploader(&fakeImageStorage{}, "images/", 0, nil)
+	uploader := NewImageResultUploader(&fakeImageStorage{}, "images/", 0, &generatedImageHTTPUpstreamStub{})
 	_, err := uploader.Rewrite(ctx, "imgtask_egress", json.RawMessage(`{"data":[{"url":"https://example.invalid/image.png"}]}`))
 	require.ErrorIs(t, err, platformegress.ErrIPv6Disabled)
 }
@@ -85,16 +87,18 @@ func TestImageResultUploaderRewritesB64JSON(t *testing.T) {
 }
 
 func TestImageResultUploaderRewritesURL(t *testing.T) {
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "image/png")
-		_, _ = w.Write(pngBytes)
-	}))
-	defer upstream.Close()
-
 	storage := &fakeImageStorage{}
-	uploader := NewImageResultUploader(storage, "images/", 0, nil)
+	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"image/png"}},
+			Body:       io.NopCloser(bytes.NewReader(pngBytes)),
+			Request:    req,
+		}, nil
+	})}
+	uploader := NewImageResultUploader(storage, "images/", 0, imageStorageTestUpstream{client})
 
-	result := json.RawMessage(`{"created":1,"data":[{"url":"` + upstream.URL + `/pic.png"}]}`)
+	result := json.RawMessage(`{"created":1,"data":[{"url":"https://cdn.example.test/pic.png"}]}`)
 	out, err := uploader.Rewrite(context.Background(), "imgtask_xyz", result)
 	require.NoError(t, err)
 
@@ -116,7 +120,7 @@ func TestImageResultUploaderRewritesImageDataURLWithoutHTTP(t *testing.T) {
 		return nil, errors.New("HTTP must not be called for data URLs")
 	})}
 	storage := &fakeImageStorage{}
-	uploader := NewImageResultUploader(storage, "images/", 0, client)
+	uploader := NewImageResultUploader(storage, "images/", 0, imageStorageTestUpstream{client})
 	b64 := base64.StdEncoding.EncodeToString(pngBytes)
 	result := json.RawMessage(`{"data":[{"url":"DATA:image/jpeg;name=photo.jpg;BaSe64,` + b64 + `","revised_prompt":"kept"}]}`)
 
@@ -158,7 +162,7 @@ func TestImageResultUploaderDataURLValidation(t *testing.T) {
 				httpCalls++
 				return nil, errors.New("HTTP must not be called for data URLs")
 			})}
-			uploader := NewImageResultUploader(&fakeImageStorage{}, "images/", 0, client)
+			uploader := NewImageResultUploader(&fakeImageStorage{}, "images/", 0, imageStorageTestUpstream{client})
 			result, err := json.Marshal(map[string]any{"data": []map[string]string{{"url": tt.url}}})
 			require.NoError(t, err)
 
@@ -267,4 +271,15 @@ func TestImageTaskServiceCompleteOffloadFailureMarksFailed(t *testing.T) {
 	require.Equal(t, http.StatusBadGateway, got.HTTPStatus)
 	require.Contains(t, string(got.Error), "object storage")
 	require.NotContains(t, string(got.Result), "b64_json", "failed offload must not persist base64 to Redis")
+}
+
+// This is an explicitly supplied test HTTP port. Production uses the repository
+// port, including DNS pinning and redirect destination validation.
+type imageStorageTestUpstream struct{ client *http.Client }
+
+func (s imageStorageTestUpstream) Do(req *http.Request, _ string, _ int64, _ int) (*http.Response, error) {
+	return s.client.Do(req)
+}
+func (s imageStorageTestUpstream) DoWithTLS(req *http.Request, proxy string, account int64, concurrency int, _ *tlsfingerprint.Profile) (*http.Response, error) {
+	return s.Do(req, proxy, account, concurrency)
 }

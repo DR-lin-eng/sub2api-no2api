@@ -564,6 +564,11 @@ func TestFrontendServer_Middleware(t *testing.T) {
 			"/ready",
 			"/responses",
 			"/responses/compact",
+			"/chat/completions",
+			"/embeddings",
+			"/messages/count_tokens",
+			"/x_search",
+			"/models/example-model",
 		}
 
 		for _, path := range apiPaths {
@@ -949,5 +954,21 @@ func BenchmarkFrontendServerServeIndexHTML(b *testing.B) {
 		c.Set(middleware.CSPNonceKey, "test-nonce")
 
 		server.serveIndexHTML(c)
+	}
+}
+
+func TestBothFrontendMiddlewaresLeaveAllPostRequestsToRouter(t *testing.T) {
+	server, err := NewFrontendServer(&mockSettingsProvider{settings: map[string]string{"test": "value"}})
+	require.NoError(t, err)
+	for _, layer := range []gin.HandlerFunc{server.Middleware(), ServeEmbeddedFrontend()} {
+		for _, route := range []string{"/chat/completions", "/embeddings", "/messages/count_tokens", "/x_search", "/unknown-action"} {
+			router := gin.New()
+			router.Use(layer)
+			router.POST(route, func(c *gin.Context) { c.AbortWithStatusJSON(401, gin.H{"error": "authentication required"}) })
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, route, strings.NewReader(`{"stream":false}`)))
+			require.Equal(t, 401, rec.Code)
+			require.Contains(t, rec.Header().Get("Content-Type"), "application/json")
+		}
 	}
 }

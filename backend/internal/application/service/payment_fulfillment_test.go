@@ -1181,3 +1181,21 @@ func TestExecuteSubscriptionFulfillmentDoesNotDuplicateWorkAfterLegacySuccessAud
 
 var _ AffiliateRepository = (*paymentFulfillmentAffiliateRepoStub)(nil)
 var _ SettingRepository = (*paymentFulfillmentSettingRepoStub)(nil)
+
+func TestCancelledPaymentRecoveryHasGraceWindow(t *testing.T) {
+	ctx := t.Context()
+	client := newPaymentConfigServiceTestClient(t)
+	svc := &PaymentService{entClient: client, groupRepo: &subscriptionGroupRepoStub{group: &Group{ID: 7, Status: "inactive"}}}
+	old := createPaymentFulfillmentSubscriptionOrder(t, ctx, client, OrderStatusCancelled, time.Now().Add(-24*time.Hour))
+	require.NoError(t, svc.toPaid(ctx, old, "late-payment", 80, payment.TypeAlipay))
+	stored, err := client.PaymentOrder.Get(ctx, old.ID)
+	require.NoError(t, err)
+	require.Equal(t, OrderStatusCancelled, stored.Status)
+	recent := createPaymentFulfillmentSubscriptionOrder(t, ctx, client, OrderStatusCancelled, time.Now())
+	// Fulfillment lacks subscription dependencies in this fixture. A reported
+	// fulfillment error still leaves the observed PAID transition for inspection.
+	_ = svc.toPaid(ctx, recent, "racing-payment", 80, payment.TypeAlipay)
+	stored, err = client.PaymentOrder.Get(ctx, recent.ID)
+	require.NoError(t, err)
+	require.NotEqual(t, OrderStatusCancelled, stored.Status)
+}

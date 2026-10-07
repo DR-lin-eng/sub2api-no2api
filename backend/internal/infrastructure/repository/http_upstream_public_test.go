@@ -93,6 +93,7 @@ func TestPublicDestinationPinsHTTPAndSOCKSProxyRequests(t *testing.T) {
 			t.Errorf("hijack proxy connection: %v", err)
 			return
 		}
+
 		defer func() { _ = conn.Close() }()
 		_, err = io.WriteString(conn, "HTTP/1.1 200 Connection Established\r\n\r\n")
 		require.NoError(t, err)
@@ -245,4 +246,56 @@ func TestPublicDestinationFailsClosedForCancelledDNSAndIPv6Routes(t *testing.T) 
 	require.NoError(t, err)
 	_, err = tpt.RoundTrip(req)
 	require.True(t, errors.Is(err, platformegress.ErrIPv6Destination))
+}
+
+func TestPrivateUpstreamRuleIsIndependentOfAllowlist(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		cfg := &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: enabled}}}
+		impl := NewHTTPUpstream(cfg, nil)
+		req, err := http.NewRequest(http.MethodGet, "https://127.0.0.1/image", nil)
+		require.NoError(t, err)
+		_, err = impl.Do(req, "", 0, 0)
+		require.Error(t, err)
+		_, err = impl.DoWithTLS(req, "", 0, 0, nil)
+		require.Error(t, err)
+	}
+	hits := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { hits++; w.WriteHeader(204) }))
+	defer server.Close()
+	cfg := &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{AllowPrivateHosts: true, AllowInsecureHTTP: true}}}
+	req, err := http.NewRequest(http.MethodGet, server.URL, nil)
+	require.NoError(t, err)
+	resp, err := NewHTTPUpstream(cfg, nil).Do(req, "", 0, 0)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	require.Equal(t, 1, hits)
+}
+
+func TestUpstreamHTTPSCannotRedirectToHTTP(t *testing.T) {
+	insecureHits := 0
+	insecure := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { insecureHits++; w.WriteHeader(204) }))
+	defer insecure.Close()
+	secure := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, insecure.URL, http.StatusFound) }))
+	defer secure.Close()
+	cfg := &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{AllowPrivateHosts: true}}}
+	impl, ok := NewHTTPUpstream(cfg, nil).(*httpUpstreamService)
+	require.True(t, ok)
+	entry, err := impl.getOrCreateClient("", 0, 0)
+	require.NoError(t, err)
+	transport, ok := entry.client.Transport.(*http.Transport)
+	require.True(t, ok)
+	roots := x509.NewCertPool()
+	roots.AddCert(secure.Certificate())
+	transport.TLSClientConfig = &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}
+	req, err := http.NewRequest(http.MethodGet, secure.URL, nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer fixture-only")
+	_, err = impl.Do(req, "", 0, 0)
+	require.Error(t, err)
+	require.Equal(t, 0, insecureHits, "HTTP downgrade must stop before sending credentials")
+	cfg.Security.URLAllowlist.AllowInsecureHTTP = true
+	resp, err := impl.Do(req, "", 0, 0)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	require.Equal(t, 1, insecureHits, "explicit HTTP opt-in keeps local development usable")
 }

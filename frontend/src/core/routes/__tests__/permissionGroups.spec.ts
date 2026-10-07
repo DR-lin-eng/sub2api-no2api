@@ -30,6 +30,14 @@ describe('permission group navigation', () => {
     expect(canAccessAdminPage(publisher, '/admin/announcements')).toBe(true)
     expect(canAccessAdminPage(publisher, '/admin/settings')).toBe(false)
   })
+  it('requires a payment grant and lands payment-only staff on orders', () => {
+    const payment = staff(['payment.manage'])
+    expect(adminLandingPath(payment, true)).toBe('/admin/orders')
+    for (const path of ['/admin/orders', '/admin/orders/dashboard', '/admin/orders/plans']) {
+      expect(canAccessAdminPage(payment, path)).toBe(true)
+      expect(canAccessAdminPage(staff(['dashboard.read']), path)).toBe(false)
+    }
+  })
   it('retains full administrator and regular-user defaults', () => {
     const admin = { ...support, isAdmin: true }
     expect(canAccessAdminPage(admin, '/admin/ops')).toBe(true)

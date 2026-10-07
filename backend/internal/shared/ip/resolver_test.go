@@ -57,7 +57,7 @@ func TestResolverResolutionMatrix(t *testing.T) {
 		},
 		{
 			name: "docker bridge",
-			mode: ResolutionModeAutoCompat, remote: "172.18.0.1:8080",
+			mode: ResolutionModeTrustedProxy, trusted: []string{"172.18.0.0/16"}, remote: "172.18.0.1:8080",
 			headers: map[string]string{"X-Real-IP": "203.0.113.43"},
 			wantIP:  "203.0.113.43", source: ClientIPSourceRealIP,
 		},
@@ -75,13 +75,13 @@ func TestResolverResolutionMatrix(t *testing.T) {
 		},
 		{
 			name: "multi proxy chain",
-			mode: ResolutionModeAutoCompat, remote: "127.0.0.1:8080",
+			mode: ResolutionModeTrustedProxy, trusted: []string{"10.0.0.0/8", "172.18.0.0/16"}, remote: "127.0.0.1:8080",
 			headers: map[string]string{"X-Forwarded-For": "198.51.100.8, 10.0.0.4, 173.245.48.20"},
 			wantIP:  "198.51.100.8", source: ClientIPSourceForwardedFor,
 		},
 		{
 			name: "private final client is preserved",
-			mode: ResolutionModeAutoCompat, remote: "172.18.0.1:8080",
+			mode: ResolutionModeTrustedProxy, trusted: []string{"172.18.0.0/16", "10.0.0.0/8"}, remote: "172.18.0.1:8080",
 			headers: map[string]string{"X-Forwarded-For": "192.168.10.20, 10.0.0.4"},
 			wantIP:  "192.168.10.20", source: ClientIPSourceForwardedFor,
 		},
@@ -115,7 +115,7 @@ func TestResolverResolutionMatrix(t *testing.T) {
 		},
 		{
 			name: "IPv6 ULA proxy",
-			mode: ResolutionModeAutoCompat, remote: "[fd00::10]:8080",
+			mode: ResolutionModeTrustedProxy, trusted: []string{"fd00::/8"}, remote: "[fd00::10]:8080",
 			headers: map[string]string{"X-Forwarded-For": "2001:db8::20"},
 			wantIP:  "2001:db8::20", source: ClientIPSourceForwardedFor,
 		},
@@ -160,7 +160,7 @@ func TestResolverInvalidOrOversizedForwardedForFallsBack(t *testing.T) {
 }
 
 func TestResolverAcceptsSixteenForwardedForHops(t *testing.T) {
-	resolver := newResolverForTest(t, ResolutionModeAutoCompat, nil)
+	resolver := newResolverForTest(t, ResolutionModeTrustedProxy, []string{"10.0.0.0/8"})
 	hops := []string{"203.0.113.80"}
 	for index := 1; index < maxForwardedForHops; index++ {
 		hops = append(hops, fmt.Sprintf("10.0.0.%d", index))
@@ -169,6 +169,16 @@ func TestResolverAcceptsSixteenForwardedForHops(t *testing.T) {
 		"X-Forwarded-For": strings.Join(hops, ", "),
 	})
 	require.Equal(t, "203.0.113.80", result.IP)
+}
+
+func TestResolverAutoCompatRejectsUnlistedPrivatePeer(t *testing.T) {
+	resolver := newResolverForTest(t, ResolutionModeAutoCompat, nil)
+	result := resolveForTest(t, resolver, "172.18.0.1:8080", map[string]string{
+		"X-Forwarded-For": "203.0.113.200",
+		"X-Real-IP":       "203.0.113.201",
+	})
+	require.Equal(t, "172.18.0.1", result.IP)
+	require.Equal(t, ClientIPSourceDirect, result.Source)
 }
 
 func TestResolverMergesStaticAndRuntimeTrustedProxies(t *testing.T) {

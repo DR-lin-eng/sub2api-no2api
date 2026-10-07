@@ -32,6 +32,7 @@ func RegisterGatewayRoutes(
 	settingService *service.SettingService,
 	compositeResolver *service.CompositeRouteResolver,
 	cfg *config.Config,
+	publicResourceMiddleware ...gin.HandlerFunc,
 ) {
 	bodyLimit := middleware.RequestBodyLimit(cfg.Gateway.MaxBodySize)
 	textBodyLimit := middleware.RequestBodyLimit(cfg.Gateway.TextMaxBodySize)
@@ -235,7 +236,7 @@ func RegisterGatewayRoutes(
 	}
 	// Generated image URLs are short-lived, hash-addressed public assets. The
 	// upstream target is resolved from Redis and never accepted from the client.
-	r.GET("/generated/:filename", h.OpenAIGateway.GeneratedImage)
+	r.GET("/generated/:filename", append(publicResourceMiddleware, h.OpenAIGateway.GeneratedImage)...)
 	// API网关（Claude API兼容）
 	gateway := r.Group("/v1")
 	gateway.Use(bodyLimit)
