@@ -1,0 +1,7 @@
+BASELINE=043203dd645eb996c339ba84a808f96f34f5a73b
+Baseline frozen lockfile uses Vue 3.5.42; candidate uses Vue 3.5.43.
+UNCHANGED e63a0afdb1ee672937cc637750b2dfb705dc5613b05c8077186ec769a514de8e frontend/src/features/keys/presentation/resolvers/openCodeConfigResolver.ts
+UNCHANGED 7ebb6c07b2af9f6284dc513d866e8690c5ae2bd3ea0a3be12da0f2e1e0ee8184 frontend/src/features/keys/presentation/resolvers/openCodeModelCatalogs.ts
+UNCHANGED 2706dcc3384a13e40f56454b2b6ca3ea987631779026e7cfc5ef01a6ddca558b frontend/src/features/keys/__tests__/openCodeConfigResolver.spec.ts
+Optional regression fails identically on baseline and candidate: openai serialized template expected length 5734; actual 6297.
+Required make test-frontend: 29 files / 247 tests PASS. Remaining expanded set: 216 tests PASS; one known baseline case excluded without editing the old owner or its assertion.

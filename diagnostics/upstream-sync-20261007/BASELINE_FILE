@@ -574,10 +574,6 @@ func createAdminUser(cfg *SetupConfig) (bool, string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	return bootstrapAdminUser(ctx, db, cfg)
-}
-
-func bootstrapAdminUser(ctx context.Context, db *sql.DB, cfg *SetupConfig) (bool, string, error) {
 	var totalUsers int64
 	if err := db.QueryRowContext(ctx, "SELECT COUNT(1) FROM users").Scan(&totalUsers); err != nil {
 		return false, "", err
@@ -591,14 +587,12 @@ func bootstrapAdminUser(ctx context.Context, db *sql.DB, cfg *SetupConfig) (bool
 		return false, decision.reason, nil
 	}
 
-	emailGenerated, passwordGenerated, err := prepareAdminCredentials(&cfg.Admin)
-	if err != nil {
-		return false, "", err
-	}
-	if emailGenerated {
-		fmt.Printf("Generated admin email (login username): %s\n", cfg.Admin.Email)
-	}
-	if passwordGenerated {
+	if strings.TrimSpace(cfg.Admin.Password) == "" {
+		password, genErr := generateSecret(16)
+		if genErr != nil {
+			return false, "", fmt.Errorf("failed to generate admin password: %w", genErr)
+		}
+		cfg.Admin.Password = password
 		fmt.Printf("Generated admin password (one-time): %s\n", cfg.Admin.Password)
 		fmt.Println("IMPORTANT: Save this password! It will not be shown again.")
 	}
@@ -759,7 +753,7 @@ func AutoSetupFromEnv() error {
 			EnableTLS: getEnvOrDefault("REDIS_ENABLE_TLS", "false") == "true",
 		},
 		Admin: AdminConfig{
-			Email:    getEnvOrDefault("ADMIN_EMAIL", ""),
+			Email:    getEnvOrDefault("ADMIN_EMAIL", "admin@sub2api.local"),
 			Password: getEnvOrDefault("ADMIN_PASSWORD", ""),
 		},
 		Server: ServerConfig{

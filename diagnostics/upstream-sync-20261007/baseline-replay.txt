@@ -1,0 +1,11 @@
+--- FAIL: TestAdminCredentialLoginCompatibility (0.00s)
+    admin_validation_test.go:12: setup accepted an email rejected by login: "a@b"
+    admin_validation_test.go:12: setup accepted an email rejected by login: "Owner <owner@example.com>"
+    admin_validation_test.go:12: setup accepted an email rejected by login: "<owner@example.com>"
+    --- FAIL: TestAdminCredentialLoginCompatibility/over_maximum (0.00s)
+        admin_validation_test.go:32: valid=true, want false for 73 UTF-8 bytes
+    --- FAIL: TestAdminCredentialLoginCompatibility/UTF-8_over_maximum (0.00s)
+        admin_validation_test.go:32: valid=true, want false for 75 UTF-8 bytes
+FAIL
+FAIL	github.com/Wei-Shaw/sub2api/internal/bootstrap/setup	0.011s
+FAIL
