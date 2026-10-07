@@ -148,6 +148,7 @@ export interface UpdateGroupRequest extends Partial<CreateGroupRequest> {
 
 export interface LiveCapability {
   supported: boolean
+  codex_voice_supported?: boolean
   reason?: string
 }
 

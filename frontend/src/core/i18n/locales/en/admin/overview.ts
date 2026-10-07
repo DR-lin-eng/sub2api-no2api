@@ -1168,7 +1168,7 @@ export default {
       openaiLive: {
         title: 'OpenAI Live',
         allow: 'Allow Live access',
-        hint: 'When enabled, API keys in this OpenAI group can create and control Live voice sessions. Disabled by default. The Sub2API server must run on Apple Silicon macOS with the official ChatGPT app installed; client platforms are unrestricted.',
+        hint: 'Enable Codex CLI /voice (gpt-live-1-codex) for API keys in this OpenAI group. Voice costs $0.05/minute before group or user multipliers; task models are billed separately by tokens. Codex voice supports Linux/Docker servers. Legacy ChatGPT Desktop Live still requires Apple Silicon macOS and the official ChatGPT app. Disabled by default.',
         unsupportedTitle: 'Current server does not support Live',
         unsupportedMessage: 'This Sub2API server cannot generate the required Live attestation. Live will not work even if enabled. Continue anyway?',
         enableAnyway: 'Enable anyway'

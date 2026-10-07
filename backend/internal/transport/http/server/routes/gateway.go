@@ -268,6 +268,7 @@ func RegisterGatewayRoutes(
 		gateway.GET("/usage", h.Gateway.Usage)
 		gateway.POST("/live", h.OpenAIGateway.Live)
 		gateway.GET("/live/:call_id", h.OpenAIGateway.LiveSideband)
+		gateway.POST("/realtime/calls", h.OpenAIGateway.Live)
 		// OpenAI Responses API: auto-route based on group platform
 		gateway.POST("/responses", func(c *gin.Context) {
 			if isOpenAIResponsesCompatibleGatewayPlatform(c) {
@@ -368,6 +369,9 @@ func RegisterGatewayRoutes(
 	r.GET("/models", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), gatewayModelValidation, groupModelAllowlist, requireGroupAnthropic, h.Gateway.Models)
 	r.GET("/models/:model", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), gatewayModelValidation, groupModelAllowlist, requireGroupAnthropic, h.Gateway.Models)
 	r.POST("/messages/count_tokens", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), gatewayModelValidation, groupModelAllowlist, compositeTarget, requireGroupAnthropic, countTokensHandler)
+	r.POST("/live", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), gatewayModelValidation, groupModelAllowlist, compositeTarget, requireGroupAnthropic, h.OpenAIGateway.Live)
+	r.GET("/live/:call_id", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), gatewayModelValidation, groupModelAllowlist, requireGroupAnthropic, h.OpenAIGateway.LiveSideband)
+	r.POST("/realtime/calls", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), gatewayModelValidation, groupModelAllowlist, compositeTarget, requireGroupAnthropic, h.OpenAIGateway.Live)
 	codexDirect := r.Group("/backend-api/codex")
 	codexDirect.Use(bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), gatewayModelValidation, groupModelAllowlist, compositeTarget, requireGroupAnthropic)
 	{

@@ -400,6 +400,7 @@ export default {
       requestsUnit: '次请求',
       imagesUnit: '张图片',
       videoSecondsUnit: '视频秒',
+      voiceMinutesUnit: '分钟',
       noUnitPrice: '无可用单价',
       costLines: {
         input: '文本输入',
@@ -411,6 +412,7 @@ export default {
         request: '按次请求',
         image: '图片生成',
         video: '视频生成',
+        voice: '语音通话',
       },
     },
     cacheTtlOverriddenHint: '缓存 TTL Override 已启用',
@@ -451,6 +453,7 @@ export default {
     billingModePerRequest: '按次',
     billingModeImage: '按次（图片）',
     billingModeVideo: '按次（视频）',
+    billingModeLive: '按分钟（语音）',
     timeRange: '时间范围',
     exportCsv: '导出 CSV',
     exportExcel: '导出 Excel',

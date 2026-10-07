@@ -45,6 +45,7 @@
 | [组合分组](COMPOSITE_GROUPS.md) | Composite group 的平台解析和使用约束 |
 | [Excel BPS 与 DeepSeek 兼容](BPS_DEEPSEEK_COMPAT.md) | 账号级 BPS 开关/筛选/批量更新、Responses 与 Chat Completions 兼容入口 |
 | [Codex OAuth 模拟的有意差异](codex/intentional-divergences.md) | 固定 Codex 源码 revision、纯 Go A/B 身份与 continuation 边界、暂缓的传输层差异 |
+| [Codex CLI 语音](CODEX_VOICE.md) | `/voice` 的 V3 协议、Sideband 配置、分钟价格和结算恢复 |
 | [CPA 多号池动态负载](CPA_POOL_DYNAMIC_LOAD_BALANCING_CN.md) | CPA 凭据容量、动态分流和运维检查 |
 | [调度候选索引优化](SCHEDULER_CANDIDATE_INDEX_OPTIMIZATION_CN.md) | 实验调度引擎、索引一致性和回退行为 |
 | [账号级 IPv6 出口](IPV6_EGRESS.md) | 稳定账号源地址、失败关闭、HE 6in4 和 Linux/Docker 路由边界 |

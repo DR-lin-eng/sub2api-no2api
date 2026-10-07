@@ -26,10 +26,10 @@ type GroupHandler struct {
 	groupCapacityService *service.GroupCapacityService
 }
 
-// GetLiveCapability 返回当前服务端是否具备生成 Live attestation 的运行环境。
+// GetLiveCapability reports Codex voice separately from legacy Desktop proof.
 func (h *GroupHandler) GetLiveCapability(c *gin.Context) {
 	err := liveattestation.NewProvider().Check(c.Request.Context())
-	result := gin.H{"supported": err == nil}
+	result := gin.H{"supported": err == nil, "codex_voice_supported": true}
 	if err != nil {
 		result["reason"] = err.Error()
 	}

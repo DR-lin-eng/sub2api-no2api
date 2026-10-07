@@ -277,9 +277,18 @@ func (s *OpenAIGatewayService) CreateLiveCall(
 	if err != nil {
 		return nil, err
 	}
-	attestation, attestationCiphertext, err := s.prepareLiveAttestation(ctx)
-	if err != nil {
-		return nil, err
+	codexVoice := IsCodexVoiceSession(request.Session)
+	var attestation, attestationCiphertext string
+	if !codexVoice {
+		attestation, attestationCiphertext, err = s.prepareLiveAttestation(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if identity.Billing != nil {
+		if _, ok := s.cache.(LiveCallBillingStore); !ok || s.usageBillingRepo == nil || s.usageLogRepo == nil {
+			return nil, ErrLiveUnavailable
+		}
 	}
 
 	excluded := make(map[int64]struct{})
@@ -312,6 +321,12 @@ func (s *OpenAIGatewayService) CreateLiveCall(
 		}
 
 		account := selection.Account
+		var billing *LiveBillingSnapshot
+		if identity.Billing != nil {
+			snapshot := *identity.Billing
+			snapshot.AccountRateMultiplier = account.BillingRateMultiplier()
+			billing = &snapshot
+		}
 		leaseID := generateRequestID()
 		acquired, acquireErr := liveCache.AcquireLiveLease(
 			ctx,
@@ -366,6 +381,10 @@ func (s *OpenAIGatewayService) CreateLiveCall(
 			IPAddress:             identity.IPAddress,
 			InboundEndpoint:       identity.InboundEndpoint,
 			AttestationCiphertext: attestationCiphertext,
+			CodexVoice:            codexVoice,
+			SessionID:             created.SessionID,
+			ThreadID:              created.ThreadID,
+			Billing:               billing,
 		}
 		mappingTTL := s.liveMaxSessionDuration() + 5*time.Minute
 		if saveErr := store.SaveLiveCall(ctx, record, mappingTTL); saveErr != nil {
@@ -460,8 +479,11 @@ func (s *OpenAIGatewayService) createUpstreamLiveCall(
 	}
 	upstreamReq.Header.Set("Content-Type", "application/json")
 	upstreamReq.Header.Set("Accept", "application/sdp")
-	upstreamReq.Header.Set(liveAttestationHeader, attestation)
+	if attestation != "" {
+		upstreamReq.Header.Set(liveAttestationHeader, attestation)
+	}
 	applyLiveUpstreamIdentityHeaders(upstreamReq.Header)
+	upstreamReq.Header.Set("X-Session-Id", upstreamReq.Header.Get("session-id"))
 
 	resp, err := s.doAccountHTTPUpstream(upstreamReq, resolveAccountProxyURL(account), account)
 	if err != nil {
@@ -492,9 +514,11 @@ func (s *OpenAIGatewayService) createUpstreamLiveCall(
 		return nil, err
 	}
 	return &LiveCallCreated{
-		SDP:      responseBody,
-		CallID:   callID,
-		Location: resp.Header.Get("Location"),
+		SDP:       responseBody,
+		CallID:    callID,
+		Location:  resp.Header.Get("Location"),
+		SessionID: upstreamReq.Header.Get("session-id"),
+		ThreadID:  upstreamReq.Header.Get("thread-id"),
 	}, nil
 }
 
@@ -591,12 +615,21 @@ func (s *OpenAIGatewayService) liveSidebandHeaders(
 	if err := resolveAndSetOpenAIChatGPTAccountHeaders(ctx, s.accountRepo, headers, account); err != nil {
 		return nil, err
 	}
-	attestation, err := s.decryptLiveAttestation(record)
-	if err != nil {
-		return nil, err
+	if !record.CodexVoice {
+		attestation, err := s.decryptLiveAttestation(record)
+		if err != nil {
+			return nil, err
+		}
+		headers.Set(liveAttestationHeader, attestation)
 	}
-	headers.Set(liveAttestationHeader, attestation)
 	applyLiveUpstreamIdentityHeaders(headers)
+	if record.SessionID != "" {
+		headers.Set("session-id", record.SessionID)
+		headers.Set("X-Session-Id", record.SessionID)
+	}
+	if record.ThreadID != "" {
+		headers.Set("thread-id", record.ThreadID)
+	}
 	return headers, nil
 }
 
@@ -982,6 +1015,10 @@ func (s *OpenAIGatewayService) releaseLiveLease(accountID, userID, apiKeyID int6
 
 func (s *OpenAIGatewayService) finalizeLiveCall(record *LiveCallRecord) {
 	if record == nil {
+		return
+	}
+	if record.Billing != nil {
+		s.finalizeBillableLiveCall(record)
 		return
 	}
 	store, err := s.liveStore()
