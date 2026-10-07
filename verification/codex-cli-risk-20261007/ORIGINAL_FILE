@@ -25,8 +25,6 @@ type codexOutboundSessionIDs struct {
 	threadID        string
 	clientRequestID string
 	parentThreadID  string
-	parentTurnID    string
-	rootTurnID      string
 	subagent        string
 }
 
@@ -49,8 +47,6 @@ func resolveCodexOutboundSessionIDs(
 	threadRaw := codexInboundHeaderValue(c, "thread-id", "thread_id")
 	clientRequestRaw := codexInboundHeaderValue(c, "x-client-request-id")
 	parentThreadRaw := codexBodyMetadataValue(body, "x-codex-parent-thread-id")
-	parentTurnRaw := codexBodyMetadataValue(body, "parent_turn_id", "parentTurnId")
-	rootTurnRaw := codexBodyMetadataValue(body, "root_turn_id", "rootTurnId")
 
 	if sessionRaw == "" {
 		sessionRaw = codexBodyMetadataValue(body, "session_id", "session-id")
@@ -65,22 +61,8 @@ func resolveCodexOutboundSessionIDs(
 	if parentThreadRaw == "" && gjson.Valid(turnMetadata) {
 		parentThreadRaw = strings.TrimSpace(gjson.Get(turnMetadata, "parent_thread_id").String())
 	}
-	if gjson.Valid(turnMetadata) {
-		if parentTurnRaw == "" {
-			parentTurnRaw = strings.TrimSpace(gjson.Get(turnMetadata, "parent_turn_id").String())
-		}
-		if rootTurnRaw == "" {
-			rootTurnRaw = strings.TrimSpace(gjson.Get(turnMetadata, "root_turn_id").String())
-		}
-	}
 	if parentThreadRaw == "" {
 		parentThreadRaw = codexInboundHeaderValue(c, "x-codex-parent-thread-id")
-	}
-	if parentTurnRaw == "" {
-		parentTurnRaw = codexInboundHeaderValue(c, "x-codex-parent-turn-id", "parent-turn-id")
-	}
-	if rootTurnRaw == "" {
-		rootTurnRaw = codexInboundHeaderValue(c, "x-codex-root-turn-id", "root-turn-id")
 	}
 	subagent := strings.TrimSpace(gjson.GetBytes(body, "client_metadata.x-openai-subagent").String())
 	if subagent == "" && gjson.Valid(turnMetadata) {
@@ -134,15 +116,6 @@ func resolveCodexOutboundSessionIDs(
 	}
 	if parentThreadRaw != "" {
 		ids.parentThreadID = deriveCodexOutboundSessionUUID("thread", namespace, parentThreadRaw)
-	}
-	if parentTurnRaw != "" {
-		ids.parentTurnID = deriveCodexOutboundSessionUUID("turn", namespace, parentTurnRaw)
-	}
-	if rootTurnRaw != "" {
-		ids.rootTurnID = deriveCodexOutboundSessionUUID("turn", namespace, rootTurnRaw)
-	} else if ids.parentTurnID != "" {
-		// Keep delegated lineage account-scoped when the caller omits the root.
-		ids.rootTurnID = ids.parentTurnID
 	}
 	return ids
 }

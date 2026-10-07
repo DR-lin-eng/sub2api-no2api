@@ -133,3 +133,18 @@ func TestCodexOutboundSessionProjectionStablePerAccountWithoutClientSignals(t *t
 	require.NotEqual(t, first.installationID, otherIDs.installationID)
 	require.NotEqual(t, first.sessionID, otherIDs.sessionID)
 }
+
+func TestCodexOutboundSessionProjectionRebindsTurnLineage(t *testing.T) {
+	account := &Account{ID: 403, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"chatgpt_account_id": "lineage-account"}}
+	c := newCodexSessionHeaderTestContext(t, "/v1/responses")
+	body := []byte(`{"model":"gpt-5.5","client_metadata":{"x-codex-turn-metadata":"{\"parent_turn_id\":\"client-parent\",\"root_turn_id\":\"client-root\"}"}}`)
+	ids := resolveCodexOutboundSessionIDs(c, account, body, "")
+	require.NotNil(t, ids)
+	require.NotEmpty(t, ids.parentTurnID)
+	require.NotEmpty(t, ids.rootTurnID)
+	require.NotEqual(t, "client-parent", ids.parentTurnID)
+	require.NotEqual(t, "client-root", ids.rootTurnID)
+
+	withoutRoot := resolveCodexOutboundSessionIDs(c, account, []byte(`{"client_metadata":{"parent_turn_id":"client-parent"}}`), "")
+	require.Equal(t, withoutRoot.parentTurnID, withoutRoot.rootTurnID)
+}

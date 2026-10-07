@@ -533,7 +533,11 @@ func applyCodexTurnMetadataFields(metadata map[string]any, ids *codexFingerprint
 				metadata[key] = rewriteCodexSimulationMetadataID(ids, key, raw)
 			}
 		}
-		metadata["root_turn_id"] = ids.turnID
+		if root, ok := metadata["root_turn_id"].(string); ok && strings.TrimSpace(root) != "" {
+			metadata["root_turn_id"] = rewriteCodexSimulationMetadataID(ids, "root_turn_id", root)
+		} else {
+			metadata["root_turn_id"] = ids.turnID
+		}
 		if subagent, ok := metadata["subagent_kind"].(string); ok && !validCodexSubagentValue(subagent) {
 			delete(metadata, "subagent_kind")
 		}
@@ -591,7 +595,11 @@ func applyCodexFingerprintClientMetadataMap(metadata map[string]any, ids *codexF
 	}
 	metadata["x-codex-installation-id"] = ids.installationID
 	if ids.fullSimulation {
-		metadata["root_turn_id"] = ids.turnID
+		if root, ok := metadata["root_turn_id"].(string); ok && strings.TrimSpace(root) != "" {
+			metadata["root_turn_id"] = rewriteCodexSimulationMetadataID(ids, "root_turn_id", root)
+		} else {
+			metadata["root_turn_id"] = ids.turnID
+		}
 		if ids.contextWindowID != "" {
 			metadata["context_window_id"] = ids.contextWindowID
 		}

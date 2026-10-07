@@ -35,6 +35,25 @@ var openAIResponsesServerOwnedTopLevelFields = map[string]struct{}{
 	"approvalsReviewer":     {},
 	"sandbox_policy":        {},
 	"sandboxPolicy":         {},
+	// App-server envelope fields are not Responses entitlements. Keep them
+	// out of the top-level relay while allowing the same names inside input or
+	// tool arguments as ordinary user data.
+	"parent_turn_id":     {},
+	"parentTurnId":       {},
+	"root_turn_id":       {},
+	"rootTurnId":         {},
+	"origin":             {},
+	"auth_bearer_token":  {},
+	"authBearerToken":    {},
+	"connect_timeout_ms": {},
+	"connectTimeoutMs":   {},
+	"skills":             {},
+	"server_name":        {},
+	"serverName":         {},
+	"namespace_tools":    {},
+	"namespaceTools":     {},
+	"login_id":           {},
+	"loginId":            {},
 }
 
 func isOpenAIResponsesServerOwnedTopLevelField(key string) bool {
@@ -49,7 +68,11 @@ func isOpenAIResponsesServerOwnedTopLevelField(key string) bool {
 		"daybreak_enabled", "daybreakenabled", "disabled_plugin_ids", "disabledpluginids",
 		"service_name", "servicename", "service_tier_for_turn", "servicetierforturn",
 		"turn_trigger", "turntrigger", "approval_policy", "approvalpolicy",
-		"approvals_reviewer", "approvalsreviewer", "sandbox_policy", "sandboxpolicy":
+		"approvals_reviewer", "approvalsreviewer", "sandbox_policy", "sandboxpolicy",
+		"parent_turn_id", "parentturnid", "root_turn_id", "rootturnid", "origin",
+		"auth_bearer_token", "authbearertoken", "connect_timeout_ms", "connecttimeoutms",
+		"skills", "server_name", "servername", "namespace_tools", "namespacetools",
+		"login_id", "loginid":
 		return true
 	default:
 		return false

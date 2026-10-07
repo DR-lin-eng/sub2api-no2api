@@ -106,3 +106,44 @@ func TestSanitizeOpenAICodexClientMetadataUsesStableAccountInstallation(t *testi
 	require.True(t, sanitizeOpenAICodexClientMetadataMap(second, account, ids))
 	require.Equal(t, stableInstallation, second["x-codex-installation-id"])
 }
+
+func TestCodexLineageIsReboundToTheSelectedOAuthAccount(t *testing.T) {
+	ids := &codexOutboundSessionIDs{
+		sessionID:    "derived-session",
+		threadID:     "derived-thread",
+		parentTurnID: "derived-parent",
+		rootTurnID:   "derived-root",
+	}
+	raw := `{"parent_turn_id":"client-parent","root_turn_id":"client-root","thread_source":"delegated"}`
+	normalized, ok := normalizeUntrustedCodexTurnMetadataValue(raw, ids)
+	require.True(t, ok)
+	require.Equal(t, "derived-parent", gjson.Get(normalized, "parent_turn_id").String())
+	require.Equal(t, "derived-root", gjson.Get(normalized, "root_turn_id").String())
+
+	account := &Account{ID: 2049, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+	body := []byte(`{"client_metadata":{"parent_turn_id":"client-parent","root_turn_id":"client-root","x-codex-turn-metadata":"{\"parent_turn_id\":\"client-parent\",\"root_turn_id\":\"client-root\"}"}}`)
+	rewritten, err := rewriteCodexOutboundSessionMetadata(body, account, ids)
+	require.NoError(t, err)
+	require.Equal(t, "derived-parent", gjson.GetBytes(rewritten, "client_metadata.parent_turn_id").String())
+	require.Equal(t, "derived-root", gjson.GetBytes(rewritten, "client_metadata.root_turn_id").String())
+	nested := gjson.GetBytes(rewritten, "client_metadata.x-codex-turn-metadata").String()
+	require.Equal(t, "derived-parent", gjson.Get(nested, "parent_turn_id").String())
+	require.Equal(t, "derived-root", gjson.Get(nested, "root_turn_id").String())
+}
+
+func TestCodexFullSimulationPreservesDerivedRootLineage(t *testing.T) {
+	ids := &codexFingerprintIDs{
+		fullSimulation: true,
+		identitySecret: "lineage-secret",
+		principalKey:   "lineage-principal",
+		installationID: "install",
+		sessionID:      "session",
+		threadID:       "thread",
+		turnID:         "current-turn",
+	}
+	raw := `{"parent_turn_id":"client-parent","root_turn_id":"client-root"}`
+	rewritten := rewriteCodexTurnMetadataValue(raw, ids)
+	require.NotEqual(t, "current-turn", gjson.Get(rewritten, "root_turn_id").String())
+	require.Equal(t, rewriteCodexSimulationMetadataID(ids, "root_turn_id", "client-root"), gjson.Get(rewritten, "root_turn_id").String())
+	require.Equal(t, rewriteCodexSimulationMetadataID(ids, "parent_turn_id", "client-parent"), gjson.Get(rewritten, "parent_turn_id").String())
+}

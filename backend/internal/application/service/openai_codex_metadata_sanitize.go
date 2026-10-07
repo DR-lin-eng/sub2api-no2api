@@ -105,6 +105,8 @@ func normalizeUntrustedCodexTurnMetadataValue(raw string, ids *codexOutboundSess
 		"parent_thread_id",
 		"parent_turn_id",
 		"parent_response_id",
+		"parentTurnId",
+		"rootTurnId",
 		"guardian_credits_requested",
 		"sandbox",
 		"sandbox_mode",
@@ -137,6 +139,12 @@ func normalizeUntrustedCodexTurnMetadataValue(raw string, ids *codexOutboundSess
 		}
 		if ids.parentThreadID != "" {
 			metadata["parent_thread_id"] = ids.parentThreadID
+		}
+		if ids.parentTurnID != "" {
+			metadata["parent_turn_id"] = ids.parentTurnID
+		}
+		if ids.rootTurnID != "" {
+			metadata["root_turn_id"] = ids.rootTurnID
 		}
 		if ids.subagent != "" && validCodexSubagentValue(ids.subagent) {
 			metadata["subagent_kind"] = ids.subagent
@@ -229,6 +237,8 @@ func sanitizeOpenAICodexClientMetadataMap(metadata map[string]any, account *Acco
 		"x-openai-subagent",
 		"parent_turn_id",
 		"root_turn_id",
+		"parentTurnId",
+		"rootTurnId",
 		"parent_response_id",
 		"guardian_credits_requested",
 		"x-codex-ws-stream-request-start-ms",
@@ -251,6 +261,14 @@ func sanitizeOpenAICodexClientMetadataMap(metadata map[string]any, account *Acco
 		}
 		if ids.parentThreadID != "" && metadata["x-codex-parent-thread-id"] != ids.parentThreadID {
 			metadata["x-codex-parent-thread-id"] = ids.parentThreadID
+			changed = true
+		}
+		if ids.parentTurnID != "" && metadata["parent_turn_id"] != ids.parentTurnID {
+			metadata["parent_turn_id"] = ids.parentTurnID
+			changed = true
+		}
+		if ids.rootTurnID != "" && metadata["root_turn_id"] != ids.rootTurnID {
+			metadata["root_turn_id"] = ids.rootTurnID
 			changed = true
 		}
 		if ids.subagent != "" && validCodexSubagentValue(ids.subagent) && metadata["x-openai-subagent"] != ids.subagent {

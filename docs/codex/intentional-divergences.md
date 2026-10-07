@@ -172,6 +172,10 @@ OpenAI OAuth 的 Responses HTTP、Compact、透传和 Responses WebSocket 路径
 
 - `x-codex-parent-thread-id`、`x-openai-subagent` 从隔离后的 `client_metadata`/turn metadata 重建；
   调用方原始值不会直接跨 API key 或上游账号复用。
+- Codex CLI 新增的 `parentTurnId`/`rootTurnId` lineage 也按同一规则处理：普通 OAuth
+  请求在 `client_metadata` 与 `x-codex-turn-metadata` 中都使用当前账号命名空间派生的
+  turn ID；缺少 root 时回退到派生 parent。full simulation 保留并重新派生客户端提供的
+  root，因此委托链不会被错误地改成当前 turn，也不会把原始 ID 带到另一个 OAuth 账号。
 - Guardian 的 `x-codex-guardian: reviewer|classifier` 只有在对应 `x-openai-subagent` 与
   `thread_source`/`turn_trigger` 组合一致时才生成；普通请求会清除伪造值。
 - Memory consolidation 只有在 `x-openai-memgen-request: true`、`memory_consolidation` subagent 和
@@ -218,6 +222,9 @@ Sub2API 没有对外暴露 `cyber_access_program` 的 RPC、模型 entitlement �
 `turnTrigger`、approval/sandbox policy 等 app-server envelope 字段；它们不能靠客户端字段授予 Work、
 Cyber、插件或沙箱能力。嵌套在 `input` 或工具参数中的同名用户数据不受影响；上游返回的模型目录
 `available_access_programs` 仍可作为发现信息，但不能反向授予推理权限。
+同一顶层拒绝边界覆盖新版 app-server 的 `origin`、`authBearerToken`、`skills`、`serverName`、
+`namespaceTools` 和 MCP `loginId` 等环境/插件/登录投影；这些字段即使被伪造也不会进入
+Responses 上游。字段只在顶层拒绝，嵌套在用户 `input` 或工具参数中的同名数据保持原样。
 
 - A/B 本身不改写 TLS ClientHello、HTTP/2 SETTINGS、Header 顺序和连接层时序；
 - Codex Rust 网络栈的字节级传输特征；
