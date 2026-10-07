@@ -80,6 +80,29 @@ func TestGatewayRoutesAPIKeyGroupsPathIsRegistered(t *testing.T) {
 	require.NotEqual(t, http.StatusNotFound, w.Code)
 }
 
+func TestGatewayRoutesRejectDuplicateModelsBeforeHandlers(t *testing.T) {
+	router := newGatewayRoutesTestRouter()
+	for _, path := range []string{
+		"/v1/responses", "/responses", "/v1/responses/compact", "/responses/compact",
+		"/backend-api/codex/responses", "/backend-api/codex/responses/compact",
+		"/v1/chat/completions", "/chat/completions", "/v1/messages", "/v1/messages/count_tokens",
+		"/v1/embeddings", "/embeddings", "/v1/images/generations", "/images/edits", "/v1/live",
+	} {
+		for _, body := range []string{
+			`{"model":"gpt-5.6-luna","model":"gpt-6-astra"}`,
+			`{"model":"gpt-6-astra","model":"gpt-5.6-luna","stream":true}`,
+			`{"session":{"model":"gpt-5.6-luna","model":"gpt-6-astra"}}`,
+		} {
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			router.ServeHTTP(w, req)
+			require.Equal(t, http.StatusBadRequest, w.Code, "path=%s body=%s", path, body)
+			require.Contains(t, w.Body.String(), "duplicate model", "path=%s", path)
+		}
+	}
+}
+
 func TestGatewayRoutesAnnouncementsPathIsRegistered(t *testing.T) {
 	router := newGatewayRoutesTestRouter()
 

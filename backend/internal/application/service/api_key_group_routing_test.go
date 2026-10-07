@@ -113,6 +113,89 @@ func TestValidateAPIKeyGroupBindingsRejectsMixedPlatforms(t *testing.T) {
 	require.ErrorIs(t, err, ErrAPIKeyGroupBindingsInvalid)
 }
 
+func TestValidateAPIKeyGroupBindingsRejectsInactiveGroups(t *testing.T) {
+	inactive := activeRoutingGroup(3)
+	inactive.Status = "inactive"
+	svc := &APIKeyService{groupRepo: apiKeyGroupRoutingGroupRepo{groups: map[int64]*Group{
+		inactive.ID: inactive,
+	}}}
+
+	_, err := svc.validateAndHydrateAPIKeyGroupBindings(context.Background(), &User{ID: 7}, []APIKeyGroupBinding{
+		{APIKeyGroupBinding: domain.APIKeyGroupBinding{GroupID: inactive.ID}},
+	})
+
+	require.ErrorIs(t, err, ErrGroupNotAllowed)
+}
+
+type bindingMutationKeyRepo struct {
+	APIKeyRepository
+	key    *APIKey
+	fields []APIKeyUpdateFields
+}
+
+func (r *bindingMutationKeyRepo) GetByID(context.Context, int64) (*APIKey, error) {
+	return r.key.CloneForRequest(), nil
+}
+
+func (r *bindingMutationKeyRepo) Update(_ context.Context, _ *APIKey, fields APIKeyUpdateFields) error {
+	r.fields = append(r.fields, fields)
+	return nil
+}
+
+type bindingMutationUserRepo struct {
+	UserRepository
+	user *User
+}
+
+func (r bindingMutationUserRepo) GetByID(context.Context, int64) (*User, error) {
+	return r.user, nil
+}
+
+func TestAPIKeyUpdatePreservesUnchangedInactiveFallback(t *testing.T) {
+	primary, fallback := activeRoutingGroup(1), activeRoutingGroup(2)
+	fallback.Status = "inactive"
+	key := routingAPIKey(primary, fallback, routingTestFloat64Pointer(1.25))
+	key.ID, key.UserID, key.Name = 10, 7, "before"
+	repo := &bindingMutationKeyRepo{key: key}
+	svc := &APIKeyService{apiKeyRepo: repo}
+	name := "after"
+	inputs := []APIKeyGroupBindingInput{
+		{GroupID: primary.ID, MaxRateMultiplier: routingTestFloat64Pointer(1.25)},
+		{GroupID: fallback.ID},
+	}
+	updated, err := svc.Update(context.Background(), key.ID, key.UserID, UpdateAPIKeyRequest{
+		Name: &name, GroupID: &primary.ID, GroupBindings: &inputs,
+	})
+	require.NoError(t, err)
+	require.Equal(t, name, updated.Name)
+	require.Equal(t, []APIKeyUpdateFields{{Name: true}}, repo.fields)
+	require.Equal(t, []int64{primary.ID}, bindingGroupIDs(EligibleAPIKeyGroupBindings(updated)))
+}
+
+func TestAPIKeyUpdateRejectsAddingInactiveFallback(t *testing.T) {
+	primary, fallback := activeRoutingGroup(1), activeRoutingGroup(2)
+	fallback.Status = "inactive"
+	repo := &bindingMutationKeyRepo{key: &APIKey{ID: 10, UserID: 7, GroupID: &primary.ID}}
+	svc := &APIKeyService{
+		apiKeyRepo: repo,
+		userRepo:   bindingMutationUserRepo{user: &User{ID: 7}},
+		groupRepo:  apiKeyGroupRoutingGroupRepo{groups: map[int64]*Group{1: primary, 2: fallback}},
+	}
+	inputs := []APIKeyGroupBindingInput{{GroupID: primary.ID}, {GroupID: fallback.ID}}
+	_, err := svc.Update(context.Background(), 10, 7, UpdateAPIKeyRequest{GroupBindings: &inputs})
+	require.ErrorIs(t, err, ErrGroupNotAllowed)
+	require.Empty(t, repo.fields)
+}
+
+func TestAPIKeyUpdateRejectsChangingAnotherUsersGroupAndQuota(t *testing.T) {
+	repo := &bindingMutationKeyRepo{key: &APIKey{ID: 10, UserID: 7}}
+	svc := &APIKeyService{apiKeyRepo: repo}
+	groupID, quota := int64(29), 0.0
+	_, err := svc.Update(context.Background(), 10, 8, UpdateAPIKeyRequest{GroupID: &groupID, Quota: &quota})
+	require.ErrorIs(t, err, ErrInsufficientPerms)
+	require.Empty(t, repo.fields)
+}
+
 func TestAPIKeyCloneForRequestDoesNotAliasRoutingFields(t *testing.T) {
 	groupID := int64(1)
 	ceiling := 2.0
