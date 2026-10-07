@@ -185,3 +185,44 @@ func TestUserSensitiveStepUpRequiresGrantOnlyForEnrolledUsers(t *testing.T) {
 		})
 	}
 }
+
+func TestStepUpDisabledDoesNotGateAnySensitiveRoute(t *testing.T) {
+	for _, path := range []string{
+		"/api/v1/keys/42", "/api/v1/user/account-bindings/email", "/api/v1/user/account-bindings/email/send-code", "/api/v1/user/account-bindings/oidc", "/api/v1/admin/accounts/export",
+	} {
+		t.Run(path, func(t *testing.T) {
+			// Nil dependencies deliberately prove that a disabled feature never reads
+			// enrollment or checks grants, even when those services are unavailable.
+			router := gin.New()
+			called := false
+			router.Use(stepUpAuth(nil, nil, stubStepUpSettingReader{enabled: false}))
+			router.POST(path, func(c *gin.Context) { called = true; c.Status(http.StatusNoContent) })
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, path, nil))
+			require.Equal(t, http.StatusNoContent, rec.Code)
+			require.True(t, called)
+		})
+	}
+}
+
+func TestStepUpEnabledStillRequiresEnrolledUserGrant(t *testing.T) {
+	for _, tc := range []struct {
+		name            string
+		enrolled, grant bool
+		status          int
+	}{
+		{"unenrolled keeps password and email workflow", false, false, 204},
+		{"enrolled without grant blocked", true, false, 403},
+		{"enrolled with grant allowed", true, true, 204},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			router := gin.New()
+			router.Use(func(c *gin.Context) { c.Set(string(ContextKeyUser), AuthSubject{UserID: 1}); c.Next() })
+			router.Use(stepUpAuth(stubStepUpGrantChecker{granted: tc.grant}, stubStepUpUserReader{user: &service.User{ID: 1, TotpEnabled: tc.enrolled}}, stubStepUpSettingReader{enabled: true}))
+			router.DELETE("/api/v1/keys/:id", func(c *gin.Context) { c.Status(204) })
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, httptest.NewRequest(http.MethodDelete, "/api/v1/keys/42", nil))
+			require.Equal(t, tc.status, rec.Code)
+		})
+	}
+}

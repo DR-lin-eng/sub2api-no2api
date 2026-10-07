@@ -16,7 +16,7 @@
 | 低成本入口加固 | GET OAuth start/callback/bind/payment 共用 60/min；webhook 和 generated 各 120/min；resume resolve 60/min；webhook 在数据库实例选择前限流 | `routes/auth.go`、`payment.go`、`gateway.go` |
 | 浏览器响应头 | COOP `same-origin-allow-popups` 保留 OAuth 窗口；Permissions-Policy 禁用相机、麦克风和定位；HSTS 只响应 TLS 或经可信 TCP peer 提供的单一 HTTPS scheme | `middleware/security_headers.go` |
 | 匿名节点/版本信息 | `/ready` 保留 ready/reason，公开设置和 HTML bootstrap 不公开后端版本；完整信息仍在认证管理接口 | `routes/common.go`、`handler/setting_handler.go`、`service/setting_public.go` |
-| 用户敏感操作 | 已启用 TOTP 的用户删 key、发送换绑邮箱验证码、换绑/解绑身份要求 session step-up；未启用 TOTP 用户保留既有密码和邮箱验证；前端弹窗验证后重试 | `middleware/step_up.go`、`routes/user.go`、keys/profile feature |
+| 用户敏感操作 | step_up_enabled 开启时，已启用 TOTP 用户的删 key、发送换绑邮箱验证码、换绑/解绑身份要求 session step-up；总开关关闭或用户未启用 TOTP 时保留原流程；前端弹窗验证后重试 | `middleware/step_up.go`、`routes/user.go`、keys/profile feature |
 | 易支付商户密钥 HTTP 出网 | apiBase 必须 HTTPS，只有显式 loopback 开发夹具可用 HTTP；API 请求拒绝重定向 | `payment/provider/easypay.go` |
 | 取消订单无限期恢复 | CANCELLED 与 EXPIRED 都仅在现有 5 分钟 grace 内接受付款成功恢复；超过 grace 保持原状态；合法竞态付款仍可恢复 | `service/payment_fulfillment.go` |
 | URL 默认宽松及降级跳转 | config、Compose 和 `.env.example` 默认关闭 HTTP/私网例外；HTTP port 的私网规则独立于 host allowlist 开关；初始/重定向都校验 scheme；CRS 也遵守该规则 | config、`repository/http_upstream.go`、`service/crs_sync_service.go` |
@@ -31,7 +31,7 @@
 3. 私网 Docker/Nginx/Caddy 反代需要把**实际 TCP peer IP/CIDR**加入 `server.trusted_proxies` 或管理端可信代理列表。代理必须覆盖客户端转发头，不能把整个可达内网无条件授权为代理。
 4. 私有模型服务需要显式开启 `allow_private_hosts`；HTTP 模型服务还需显式开启 `allow_insecure_http`。这些管理员例外不适用于上游返回的结果图片 URL。
 5. 等全部节点完成升级，再给支付运营人员授予 `payment.manage`。回退旧版本前从权限组中移除新权限键；旧版本不认识该权限。已有组默认不变，完整 admin 可完成迁移/恢复。
-6. `step_up_enabled` 继续控制原管理员敏感操作的可选策略。已启用 TOTP 用户的新增凭据/身份门控独立于该管理员开关，避免关闭全局策略绕过用户 2FA。
+6. `step_up_enabled` 统一控制管理员及用户侧敏感操作的二次验证。总开关未开启时，不读取用户 TOTP 状态、不检查验证授权，所有功能沿用原流程；开启后，已启用 TOTP 用户需要最近完成会话验证，未启用 TOTP 用户保留原有密码/邮箱校验。
 
 公开业务查询、webhook 和 generated 的 Redis 故障维持 fail open，避免付款结果和上游重试被缓存故障阻断。OAuth2 凭据入口使用 fail closed；认证后面板桶仍保留管理员豁免。以上均为明确运行策略，不代表所有端点都使用失败关闭。
 
