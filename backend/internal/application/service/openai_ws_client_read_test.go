@@ -26,7 +26,7 @@ func TestReadOpenAIWSClientMessageRejectsDuplicateModels(t *testing.T) {
 						result <- err
 						return
 					}
-					defer conn.CloseNow()
+					defer func() { _ = conn.CloseNow() }()
 					if followup {
 						frameConn := &openAIWSClientFrameConn{conn: conn}
 						kind, body, err := frameConn.ReadFrame(context.Background())
@@ -47,7 +47,7 @@ func TestReadOpenAIWSClientMessageRejectsDuplicateModels(t *testing.T) {
 				defer cancel()
 				conn, _, err := coderws.Dial(ctx, "ws"+strings.TrimPrefix(server.URL, "http"), nil)
 				require.NoError(t, err)
-				defer conn.CloseNow()
+				defer func() { _ = conn.CloseNow() }()
 				if followup {
 					require.NoError(t, conn.Write(ctx, messageType, []byte(`{"type":"response.create","model":"gpt-6-astra"}`)))
 					_, _, err = conn.Read(ctx)
