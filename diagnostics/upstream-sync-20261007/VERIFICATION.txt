@@ -45,6 +45,7 @@ sh deploy/tests/docker-runtime-resources-test.sh
 sh deploy/tests/docker-deploy-admin-test.sh
 sh deploy/test-caddyfile-cache.sh
 Result: bootstrap PASS (1.609s), all shell checks PASS; exit 0.
+Docker go vet -tags=e2e ./internal/integration/... also PASS; exit 0.
 The preparation-script test stubs only downloads/RNG using synthetic fixtures; success writes a random-format login email, RNG errors and empty output both exit before .env is created. The same check is added to macOS shell CI.
 
 EXACT BASELINE DEFECT REPLAY
@@ -97,6 +98,7 @@ bash diagnostics/upstream-sync-20261007/ROLLBACK.sh /private/tmp/sub2api-sync-20
 Literal result: ROLLBACK_PASS baseline=043203dd645eb996c339ba84a808f96f34f5a73b; exit 0. cmp verifies original setup.go and absence of the new owner in a clean archived copy. Actual checkout unchanged.
 make check-docs -> Documentation checks passed.; exit 0.
 git diff --check -> empty output; exit 0.
+Saved DIFF_FILE has the repository's existing literal-patch whitespace attribute; actual source checks remain enabled.
 Docker source-layout check: baseline and candidate both exit 1 with byte-identical output in LAYOUT_BASELINE.txt. Three pre-existing files: passthrough_relay.go 1273, payment_fulfillment_test.go 1201, pricing_service.go 1238; limit 1200. No changed source exceeds the limit and no allowlist expansion.
 
 PUBLICATION
