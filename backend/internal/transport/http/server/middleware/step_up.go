@@ -73,6 +73,12 @@ func stepUpSettingsOrNil(settingService *service.SettingService) stepUpSettingRe
 
 func stepUpAuth(grantChecker stepUpGrantChecker, userReader stepUpUserReader, settings stepUpSettingReader) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// The administrator switch controls every step-up route. When disabled,
+		// preserve existing credential and identity workflows for all users.
+		if settings != nil && !settings.IsStepUpEnabled(c.Request.Context()) {
+			c.Next()
+			return
+		}
 		if isUserSensitiveRoute(c) {
 			if !enforceUserStepUp(c, grantChecker, userReader) {
 				return
@@ -157,9 +163,9 @@ func enforceStepUp(c *gin.Context, grantChecker stepUpGrantChecker, userReader s
 	return true
 }
 
-// TOTP-enabled users always confirm credential deletion or identity changes,
-// independently of the administrator-only step_up_enabled switch. Users who
-// have not enrolled TOTP retain the existing password/email verification flow.
+// When step-up is enabled, enrolled users confirm credential deletion or
+// identity changes. The shared middleware checks the feature switch first;
+// unenrolled users retain the existing password/email verification flow.
 func isUserSensitiveRoute(c *gin.Context) bool {
 	path := c.Request.URL.Path
 	return strings.HasPrefix(path, "/api/v1/keys/") || strings.HasPrefix(path, "/api/v1/user/account-bindings/")
