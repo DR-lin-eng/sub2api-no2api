@@ -1,0 +1,63 @@
+[
+  {
+    "stage": "baseline",
+    "result": "PASS",
+    "migrations": 301
+  },
+  {
+    "stage": "upgraded",
+    "result": "PASS",
+    "migrations": 301
+  },
+  {
+    "stage": "rollback",
+    "result": "PASS",
+    "migrations": 301
+  },
+  {
+    "stage": "restored",
+    "result": "PASS",
+    "migrations": 301
+  },
+  {
+    "stage": "fresh_short",
+    "result": "PASS",
+    "users": 0,
+    "install_marker": false
+  },
+  {
+    "stage": "fresh_long",
+    "result": "PASS",
+    "users": 0,
+    "install_marker": false
+  },
+  {
+    "stage": "fresh_utf8",
+    "result": "PASS",
+    "users": 0,
+    "install_marker": false
+  },
+  {
+    "stage": "fresh_email",
+    "result": "PASS",
+    "users": 0,
+    "install_marker": false
+  },
+  {
+    "stage": "fresh_mailbox",
+    "result": "PASS",
+    "users": 0,
+    "install_marker": false
+  },
+  {
+    "stage": "fresh_random",
+    "result": "PASS",
+    "generated_credentials_login": true,
+    "fixed_email_rejected": true
+  },
+  {
+    "stage": "fresh_explicit",
+    "result": "PASS",
+    "trimmed_email_and_72_utf8_bytes_login": true
+  }
+]

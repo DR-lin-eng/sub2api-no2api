@@ -1,9 +1,7 @@
 package setup
 
 import (
-	"fmt"
 	"net/http"
-	"net/mail"
 	"regexp"
 	"strings"
 	"sync"
@@ -81,23 +79,6 @@ func validateUsername(name string) bool {
 	// Allow only alphanumeric and underscores
 	validName := regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
 	return validName.MatchString(name) && len(name) <= 63
-}
-
-// validateEmail checks if email format is valid
-func validateEmail(email string) bool {
-	_, err := mail.ParseAddress(email)
-	return err == nil && len(email) <= 254
-}
-
-// validatePassword checks password strength
-func validatePassword(password string) error {
-	if len(password) < 8 {
-		return fmt.Errorf("password must be at least 8 characters")
-	}
-	if len(password) > 128 {
-		return fmt.Errorf("password must be at most 128 characters")
-	}
-	return nil
 }
 
 // validatePort checks if port is in valid range
