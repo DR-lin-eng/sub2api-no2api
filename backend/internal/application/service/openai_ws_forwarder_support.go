@@ -632,6 +632,18 @@ func (s *OpenAIGatewayService) handleOpenAIWSDialTransientFailure(ctx context.Co
 	s.handleOpenAIAccountUpstreamError(ctx, account, dialErr.StatusCode, dialErr.ResponseHeaders, dialErr.ResponseBody, canonicalModel)
 }
 
+func isOpenAIWSDialTokenExpired(err error) bool {
+	var dialErr *openAIWSDialError
+	if !errors.As(err, &dialErr) || dialErr == nil || dialErr.StatusCode != http.StatusUnauthorized {
+		return false
+	}
+	return extractUpstreamErrorCode(dialErr.ResponseBody) == "token_expired"
+}
+
+func isOpenAIWSTokenExpiredEvent(payload []byte) bool {
+	return extractUpstreamErrorCode(payload) == "token_expired"
+}
+
 func isOpenAIWSTokenEvent(eventType string) bool {
 	eventType = strings.TrimSpace(eventType)
 	return strings.HasSuffix(eventType, ".delta") ||

@@ -43,6 +43,8 @@ Responses 走图片编辑桥接时，用户提交的图片与遮罩 URL 在共�
 
 普通 OpenAI OAuth 账号在 `extra.excel_bps_enabled=true` 且不是独立 compact 路径时将 Responses 请求转入账号级 Excel/Basispoints 桥接；桥接不支持的原生托管工具显式报错，不静默回退。账号管理页的 `excel_bps=enabled|disabled` 在 PostgreSQL JSONB 谓词中先于分页计算，同时用于批量编辑目标解析、导出和上游计费快照；批量 BPS 开关在写入前校验所有账号资格，SQL 写入时复查并保持整批原子性；DeepSeek 专用兼容调整分别落在 Responses 出站请求与 Chat Completions 出站/回退链路。配置、能力边界和验证入口见 [Excel BPS 与 DeepSeek 兼容](BPS_DEEPSEEK_COMPAT.md)。
 
+OpenAI OAuth Responses、自动透传和原生 WebSocket 握手收到上游 `401` 且错误码为 `token_expired` 时，网关先删除该账号的 token 缓存，在分布式刷新锁下强制执行一次 refresh token 流程，即使数据库中的 `expires_at` 仍在未来；刷新成功后仅重放当前请求一次并继续使用同一账号。刷新失败、refresh token 缺失、`token_revoked`/`token_invalidated` 或再次收到 401 继续走原有账号冷却、永久错误和 failover 策略。其它 401 不会被误判为可恢复过期。
+
 ## OAuth2 对外授权
 
 第三方应用从 `/oauth/authorize` 发起 Authorization Code + PKCE S256 请求。前端要求用户先登录，再通过 `/api/v1/oauth2/authorize` 读取服务端校验后的客户端与 scope 预览；用户允许后，后端将 authorization code 摘要及用户、客户端、精确回调、scope、PKCE challenge 和 TokenVersion 保存到 Redis。`/oauth/token` 原子消费 code，复查客户端、回调、PKCE 和用户状态后签发不透明 access token。`/oauth/userinfo` 每次调用都重查全局开关、客户端启用状态、当前 scope 和用户 TokenVersion，因此管理员收回授权后无需等待 token TTL。完整协议和管理端入口见 [OAuth2 对外授权服务](OAUTH2_PROVIDER.md)。
