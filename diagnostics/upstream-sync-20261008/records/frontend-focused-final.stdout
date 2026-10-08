@@ -1,0 +1,13 @@
+
+ RUN  v3.2.6 /workspace/frontend
+
+ ✓ src/features/admin-accounts/__tests__/AccountTableFilters.spec.ts (2 tests) 39ms
+ ✓ src/features/admin-accounts/presentation/widgets/__tests__/ScheduledTestsPanel.results.spec.ts (4 tests) 105ms
+ ✓ src/features/admin-groups/presentation/widgets/__tests__/GroupRPMOverridesDialog.edit.spec.ts (6 tests) 64ms
+ ✓ src/features/admin-groups/presentation/widgets/__tests__/GroupRateMultipliersDialog.requests.spec.ts (5 tests) 66ms
+
+ Test Files  4 passed (4)
+      Tests  17 passed (17)
+   Start at  15:35:56
+   Duration  1.28s (transform 1.44s, setup 201ms, collect 2.23s, tests 274ms, environment 1.21s, prepare 235ms)
+

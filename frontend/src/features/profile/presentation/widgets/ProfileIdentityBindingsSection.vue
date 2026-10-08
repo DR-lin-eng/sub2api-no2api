@@ -99,6 +99,7 @@
                   class="input"
                   :placeholder="t('profile.authBindings.emailPlaceholder')"
                   :disabled="isSendingEmailCode || isBindingEmail"
+                  @input="isEmailBindingFormDirty = true"
                 />
                 <button
                   data-testid="profile-binding-email-send-code"
@@ -122,6 +123,7 @@
                   class="input"
                   :placeholder="t('profile.authBindings.codePlaceholder')"
                   :disabled="isBindingEmail"
+                  @input="isEmailBindingFormDirty = true"
                 />
                 <input
                   v-model="emailBindingForm.password"
@@ -130,6 +132,7 @@
                   class="input"
                   :placeholder="emailPasswordPlaceholder"
                   :disabled="isBindingEmail"
+                  @input="isEmailBindingFormDirty = true"
                 />
                 <button
                   data-testid="profile-binding-email-submit"
@@ -252,6 +255,7 @@ const authStore = useAuthStore()
 const localUser = ref<User | null>(null)
 const isSendingEmailCode = ref(false)
 const isBindingEmail = ref(false)
+const isEmailBindingFormDirty = ref(false)
 const isEmailFormExpanded = ref(!props.compact)
 const unbindingProvider = ref<BindableProvider | null>(null)
 const emailBindingForm = reactive({
@@ -260,15 +264,21 @@ const emailBindingForm = reactive({
   password: '',
 })
 
+function resetEmailBindingForm(user: User | null): void {
+  emailBindingForm.email =
+    typeof user?.email === 'string' && !user.email.endsWith('.invalid') ? user.email : ''
+  emailBindingForm.verifyCode = ''
+  emailBindingForm.password = ''
+  isEmailBindingFormDirty.value = false
+}
+
 watch(
   () => props.user,
-  (user) => {
+  (user, previousUser) => {
     localUser.value = null
-    if (!user) {
-      return
-    }
-    if (typeof user.email === 'string' && !user.email.endsWith('.invalid')) {
-      emailBindingForm.email = user.email
+    // Profile polling must not overwrite an in-progress email verification flow.
+    if (user?.id !== previousUser?.id || !isEmailBindingFormDirty.value) {
+      resetEmailBindingForm(user)
     }
   },
   { immediate: true }
@@ -622,6 +632,7 @@ async function sendEmailCode(): Promise<void> {
     return
   }
 
+  isEmailBindingFormDirty.value = true
   isSendingEmailCode.value = true
   try {
     await stepUp.run(() => sendEmailBindingCode(emailBindingForm.email))
@@ -639,6 +650,7 @@ async function bindEmail(): Promise<void> {
     return
   }
 
+  isEmailBindingFormDirty.value = true
   isBindingEmail.value = true
   try {
     const user = await stepUp.run(() => bindEmailIdentity({
@@ -648,8 +660,7 @@ async function bindEmail(): Promise<void> {
     }))
     const replacingBoundEmail = emailBound.value
     applyUpdatedUser(user)
-    emailBindingForm.verifyCode = ''
-    emailBindingForm.password = ''
+    resetEmailBindingForm(user)
     if (compact.value) {
       isEmailFormExpanded.value = false
     }

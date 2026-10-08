@@ -1,0 +1,26 @@
+# github.com/Wei-Shaw/sub2api/internal/application/service [github.com/Wei-Shaw/sub2api/internal/application/service.test]
+internal/application/service/anthropic_buffered_negative_index_test.go:67:15: undefined: newNativeAnthropicHangTestService
+internal/application/service/anthropic_buffered_negative_index_test.go:74:15: undefined: newNativeAnthropicHangTestService
+internal/application/service/channel_monitor_endpoint_test.go:104:50: undefined: providerZhipuPath
+internal/application/service/channel_monitor_endpoint_test.go:105:50: undefined: providerZhipuPath
+internal/application/service/gateway_forward_as_chat_completions_ping_test.go:64:78: not enough arguments in call to (&GatewayService{}).handleCCStreamingFromAnthropic
+	have (*"net/http".Response, *gin.Context, string, string, nil, "time".Time)
+	want (*"net/http".Response, *gin.Context, string, string, *string, "time".Time, bool)
+internal/application/service/gateway_forward_as_chat_completions_ping_test.go:164:47: not enough arguments in call to (&GatewayService{}).handleCCStreamingFromAnthropic
+	have (*"net/http".Response, *gin.Context, string, string, nil, "time".Time)
+	want (*"net/http".Response, *gin.Context, string, string, *string, "time".Time, bool)
+internal/application/service/gateway_forward_as_chat_completions_ping_test.go:189:49: not enough arguments in call to (&GatewayService{}).handleCCStreamingFromAnthropic
+	have (*"net/http".Response, *gin.Context, string, string, nil, "time".Time)
+	want (*"net/http".Response, *gin.Context, string, string, *string, "time".Time, bool)
+# github.com/Wei-Shaw/sub2api/internal/transport/http/handler [github.com/Wei-Shaw/sub2api/internal/transport/http/handler.test]
+internal/transport/http/handler/openai_gateway_ws_group_pricing_test.go:108:5: unknown field apiKeyService in struct literal of type openAIResponsesWSUsageLogCase
+internal/transport/http/handler/openai_gateway_ws_group_pricing_test.go:109:5: unknown field apiKeyCredential in struct literal of type openAIResponsesWSUsageLogCase
+internal/transport/http/handler/openai_gateway_ws_group_pricing_test.go:133:3: unknown field apiKeyService in struct literal of type openAIResponsesWSUsageLogCase
+internal/transport/http/handler/openai_gateway_ws_group_pricing_test.go:134:3: unknown field apiKeyCredential in struct literal of type openAIResponsesWSUsageLogCase
+internal/transport/http/handler/openai_gateway_ws_group_pricing_test.go:135:3: unknown field accountRateMultiplier in struct literal of type openAIResponsesWSUsageLogCase
+internal/transport/http/handler/openai_gateway_ws_group_pricing_test.go:140:3: unknown field secondTurnCloseExpected in struct literal of type openAIResponsesWSUsageLogCase
+internal/transport/http/handler/openai_gateway_ws_group_pricing_test.go:141:3: unknown field closeStatus in struct literal of type openAIResponsesWSUsageLogCase
+internal/transport/http/handler/openai_gateway_ws_group_pricing_test.go:142:3: unknown field closeReason in struct literal of type openAIResponsesWSUsageLogCase
+internal/transport/http/handler/openai_gateway_ws_group_pricing_test.go:152:3: unknown field apiKeyService in struct literal of type openAIResponsesWSUsageLogCase
+internal/transport/http/handler/openai_gateway_ws_group_pricing_test.go:153:3: unknown field apiKeyCredential in struct literal of type openAIResponsesWSUsageLogCase
+internal/transport/http/handler/openai_gateway_ws_group_pricing_test.go:153:3: too many errors

@@ -1,0 +1,32 @@
+
+PR #7800: 4bcad0657b37ecbf127e5cfd886ea7173157426b
+OWNERS: ["Makefile"]
+diff --git a/Makefile b/Makefile
+index e205902e2..e83f00193 100644
+--- a/Makefile
++++ b/Makefile
+@@ -21,7 +21,8 @@ FRONTEND_CRITICAL_VITEST := \
+ 	src/views/admin/__tests__/SettingsView.spec.ts \
+ 	src/features/channel-monitor-v2/__tests__/designSystem.structure.spec.ts \
+ 	src/features/channel-monitor-v2/__tests__/monitorFormat.spec.ts \
+-	src/features/channel-monitor-v2/__tests__/monitorZoom.spec.ts
++	src/features/channel-monitor-v2/__tests__/monitorZoom.spec.ts \
++	src/components/admin/channel/__tests__/PricingEntryCard.modelDefaultPrice.spec.ts
+ 
+ # 一键编译前后端
+ build: build-backend build-frontend
+
+PR #7833: 48c647b5d2ef83301de61e4301b1bb12e2f0207b
+OWNERS: ["Makefile"]
+diff --git a/Makefile b/Makefile
+index e83f00193..319da6ca4 100644
+--- a/Makefile
++++ b/Makefile
+@@ -18,6 +18,7 @@ FRONTEND_CRITICAL_VITEST := \
+ 	src/views/user/__tests__/PaymentResultView.spec.ts \
+ 	src/views/user/__tests__/ChannelStatusView.mode.spec.ts \
+ 	src/components/user/profile/__tests__/ProfileInfoCard.spec.ts \
++	src/components/user/profile/__tests__/ProfileIdentityBindingsSection.spec.ts \
+ 	src/views/admin/__tests__/SettingsView.spec.ts \
+ 	src/features/channel-monitor-v2/__tests__/designSystem.structure.spec.ts \
+ 	src/features/channel-monitor-v2/__tests__/monitorFormat.spec.ts \

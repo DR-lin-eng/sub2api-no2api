@@ -1,0 +1,36 @@
+=== RUN   TestChatCompletionsToResponses_ToolChoiceShape
+=== RUN   TestChatCompletionsToResponses_ToolChoiceShape/named_chat_function_is_flattened
+    chatcompletions_to_responses_tool_choice_test.go:40: 
+        	Error Trace:	/workspace/internal/shared/apicompat/chatcompletions_to_responses_tool_choice_test.go:40
+        	Error:      	Not equal: 
+        	            	expected: map[string]interface {}{"name":"get_weather", "type":"function"}
+        	            	actual  : map[string]interface {}{"function":map[string]interface {}{"name":"get_weather"}, "type":"function"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,3 +1,5 @@
+        	            	 (map[string]interface {}) (len=2) {
+        	            	- (string) (len=4) "name": (string) (len=11) "get_weather",
+        	            	+ (string) (len=8) "function": (map[string]interface {}) (len=1) {
+        	            	+  (string) (len=4) "name": (string) (len=11) "get_weather"
+        	            	+ },
+        	            	  (string) (len=4) "type": (string) (len=8) "function"
+        	Test:       	TestChatCompletionsToResponses_ToolChoiceShape/named_chat_function_is_flattened
+=== RUN   TestChatCompletionsToResponses_ToolChoiceShape/flat_responses_function_is_kept
+=== RUN   TestChatCompletionsToResponses_ToolChoiceShape/auto_string_is_kept
+=== RUN   TestChatCompletionsToResponses_ToolChoiceShape/required_string_is_kept
+=== RUN   TestChatCompletionsToResponses_ToolChoiceShape/none_string_is_kept
+=== RUN   TestChatCompletionsToResponses_ToolChoiceShape/allowed_tools_policy_is_kept
+=== RUN   TestChatCompletionsToResponses_ToolChoiceShape/function_without_name_is_kept
+--- FAIL: TestChatCompletionsToResponses_ToolChoiceShape (0.00s)
+    --- FAIL: TestChatCompletionsToResponses_ToolChoiceShape/named_chat_function_is_flattened (0.00s)
+    --- PASS: TestChatCompletionsToResponses_ToolChoiceShape/flat_responses_function_is_kept (0.00s)
+    --- PASS: TestChatCompletionsToResponses_ToolChoiceShape/auto_string_is_kept (0.00s)
+    --- PASS: TestChatCompletionsToResponses_ToolChoiceShape/required_string_is_kept (0.00s)
+    --- PASS: TestChatCompletionsToResponses_ToolChoiceShape/none_string_is_kept (0.00s)
+    --- PASS: TestChatCompletionsToResponses_ToolChoiceShape/allowed_tools_policy_is_kept (0.00s)
+    --- PASS: TestChatCompletionsToResponses_ToolChoiceShape/function_without_name_is_kept (0.00s)
+FAIL
+FAIL	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	0.005s
+FAIL

@@ -58,7 +58,7 @@ func (r *opsRepository) getDashboardOverviewRaw(ctx context.Context, filter *ser
 	}
 
 	latencyCtx, cancelLatency := context.WithTimeout(ctx, opsRawLatencyQueryTimeout)
-	duration, ttft, _, err := r.queryUsageLatency(latencyCtx, filter, start, end)
+	duration, ttft, _, outputTPS, err := r.queryUsageLatencyMetrics(latencyCtx, filter, start, end, true)
 	cancelLatency()
 	if err != nil {
 		if isQueryTimeoutErr(err) {
@@ -156,8 +156,9 @@ func (r *opsRepository) getDashboardOverviewRaw(ctx context.Context, filter *ser
 			Avg:     tpsAvg,
 		},
 
-		Duration: duration,
-		TTFT:     ttft,
+		OutputTPS: outputTPS,
+		Duration:  duration,
+		TTFT:      ttft,
 	}, nil
 }
 
@@ -252,7 +253,7 @@ func (r *opsRepository) getDashboardOverviewPreaggregated(ctx context.Context, f
 	// TTFT from raw logs so switching to preagg cannot reintroduce image latency.
 	var ttft service.OpsPercentiles
 	ttftCtx, cancelTTFT := context.WithTimeout(ctx, opsRawLatencyQueryTimeout)
-	rawTTFT, err := r.queryUsageTTFT(ttftCtx, filter, start, end)
+	rawTTFT, outputTPS, err := r.queryUsageTTFTAndOutputTPS(ttftCtx, filter, start, end)
 	cancelTTFT()
 	if err == nil {
 		ttft = rawTTFT
@@ -345,8 +346,9 @@ func (r *opsRepository) getDashboardOverviewPreaggregated(ctx context.Context, f
 			Avg:     tpsAvg,
 		},
 
-		Duration: duration,
-		TTFT:     ttft,
+		OutputTPS: outputTPS,
+		Duration:  duration,
+		TTFT:      ttft,
 	}, nil
 }
 
@@ -815,62 +817,9 @@ FROM usage_logs ul
 	return successCount, tokenConsumed, nil
 }
 
-func (r *opsRepository) queryUsageLatency(ctx context.Context, filter *service.OpsDashboardFilter, start, end time.Time) (duration service.OpsPercentiles, ttft service.OpsPercentiles, ttftSampleCount int64, err error) {
-	join, where, args, _ := buildUsageWhere(filter, start, end, 1)
-	q := `
-SELECT
-  percentile_cont(0.50) WITHIN GROUP (ORDER BY duration_ms) FILTER (WHERE duration_ms IS NOT NULL) AS duration_p50,
-  percentile_cont(0.90) WITHIN GROUP (ORDER BY duration_ms) FILTER (WHERE duration_ms IS NOT NULL) AS duration_p90,
-  percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_ms) FILTER (WHERE duration_ms IS NOT NULL) AS duration_p95,
-  percentile_cont(0.99) WITHIN GROUP (ORDER BY duration_ms) FILTER (WHERE duration_ms IS NOT NULL) AS duration_p99,
-  AVG(duration_ms) FILTER (WHERE duration_ms IS NOT NULL) AS duration_avg,
-  MAX(duration_ms) AS duration_max,
-  percentile_cont(0.50) WITHIN GROUP (ORDER BY first_token_ms) FILTER (WHERE first_token_ms IS NOT NULL AND COALESCE(image_count, 0) = 0) AS ttft_p50,
-  percentile_cont(0.90) WITHIN GROUP (ORDER BY first_token_ms) FILTER (WHERE first_token_ms IS NOT NULL AND COALESCE(image_count, 0) = 0) AS ttft_p90,
-  percentile_cont(0.95) WITHIN GROUP (ORDER BY first_token_ms) FILTER (WHERE first_token_ms IS NOT NULL AND COALESCE(image_count, 0) = 0) AS ttft_p95,
-  percentile_cont(0.99) WITHIN GROUP (ORDER BY first_token_ms) FILTER (WHERE first_token_ms IS NOT NULL AND COALESCE(image_count, 0) = 0) AS ttft_p99,
-  AVG(first_token_ms) FILTER (WHERE first_token_ms IS NOT NULL AND COALESCE(image_count, 0) = 0) AS ttft_avg,
-  MAX(first_token_ms) FILTER (WHERE COALESCE(image_count, 0) = 0) AS ttft_max,
-  COUNT(first_token_ms) FILTER (WHERE COALESCE(image_count, 0) = 0) AS ttft_sample_count
-FROM usage_logs ul
-` + join + `
-` + where
-
-	var dP50, dP90, dP95, dP99 sql.NullFloat64
-	var dAvg sql.NullFloat64
-	var dMax sql.NullInt64
-	var tP50, tP90, tP95, tP99 sql.NullFloat64
-	var tAvg sql.NullFloat64
-	var tMax sql.NullInt64
-	var tCount int64
-	if err := r.db.QueryRowContext(ctx, q, args...).Scan(
-		&dP50, &dP90, &dP95, &dP99, &dAvg, &dMax,
-		&tP50, &tP90, &tP95, &tP99, &tAvg, &tMax, &tCount,
-	); err != nil {
-		return service.OpsPercentiles{}, service.OpsPercentiles{}, 0, err
-	}
-
-	duration.P50 = floatToIntPtr(dP50)
-	duration.P90 = floatToIntPtr(dP90)
-	duration.P95 = floatToIntPtr(dP95)
-	duration.P99 = floatToIntPtr(dP99)
-	duration.Avg = floatToIntPtr(dAvg)
-	if dMax.Valid {
-		v := int(dMax.Int64)
-		duration.Max = &v
-	}
-
-	ttft.P50 = floatToIntPtr(tP50)
-	ttft.P90 = floatToIntPtr(tP90)
-	ttft.P95 = floatToIntPtr(tP95)
-	ttft.P99 = floatToIntPtr(tP99)
-	ttft.Avg = floatToIntPtr(tAvg)
-	if tMax.Valid {
-		v := int(tMax.Int64)
-		ttft.Max = &v
-	}
-
-	return duration, ttft, tCount, nil
+func (r *opsRepository) queryUsageLatency(ctx context.Context, filter *service.OpsDashboardFilter, start, end time.Time) (service.OpsPercentiles, service.OpsPercentiles, int64, error) {
+	duration, ttft, count, _, err := r.queryUsageLatencyMetrics(ctx, filter, start, end, false)
+	return duration, ttft, count, err
 }
 
 func (r *opsRepository) queryUsageTTFT(ctx context.Context, filter *service.OpsDashboardFilter, start, end time.Time) (service.OpsPercentiles, error) {

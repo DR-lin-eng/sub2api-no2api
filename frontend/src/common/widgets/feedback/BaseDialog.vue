@@ -59,6 +59,7 @@
 
 <script lang="ts">
 let dialogIdCounter = 0
+const openDialogs: string[] = []
 </script>
 
 <script setup lang="ts">
@@ -133,7 +134,7 @@ const handleClose = () => {
 }
 
 const handleEscape = (event: KeyboardEvent) => {
-  if (props.show && props.closeOnEscape && event.key === 'Escape') {
+  if (props.show && props.closeOnEscape && event.key === 'Escape' && openDialogs[openDialogs.length - 1] === dialogId) {
     emit('close')
   }
 }
@@ -151,6 +152,9 @@ const syncBodyScrollLock = (locked: boolean) => {
 watch(
   () => props.show,
   async (isOpen) => {
+    const stackIndex = openDialogs.indexOf(dialogId)
+    if (stackIndex !== -1) openDialogs.splice(stackIndex, 1)
+    if (isOpen) openDialogs.push(dialogId)
     if (isOpen && props.mode === 'dialog') {
       // 保存当前焦点元素
       previousActiveElement = document.activeElement as HTMLElement
@@ -186,6 +190,8 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  const stackIndex = openDialogs.indexOf(dialogId)
+  if (stackIndex !== -1) openDialogs.splice(stackIndex, 1)
   document.removeEventListener('keydown', handleEscape)
   syncBodyScrollLock(false)
 })

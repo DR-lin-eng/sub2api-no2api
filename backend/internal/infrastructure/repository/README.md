@@ -12,6 +12,7 @@
 | `gateway_cache_live_billing.go` | Live 终止时长原子冻结、待结算索引和跨实例恢复 |
 | `openai_oauth_gateway_rate_limit_cache.go` | OpenAI OAuth 按账号独立、同账号跨实例共享的请求令牌桶和逻辑请求去重 |
 | `ops*`, `audit_log*`, `channel_monitor*` | 运维、审计和监控查询 |
+| `ops_repo_latency_metrics.go` | TPS 精确分位数与现有 latency/TTFT 查询融合，供 raw/preagg/snapshot 共用，不新增扫描轮次 |
 | `cloudflare_ingress*`, `cloudflare_waf*` | Cloudflare Access Rule/WAF 分片客户端、Redis 共享状态、异步同步、统计缓存与到期回收 |
 | `email_cache*` | 注册/通知验证码的原子校验及密码重置链接的哈希和旧值兼容消费 |
 | `payment*`, `subscription*`, `promo_code*`, `redeem_code*` | 商业对象持久化 |

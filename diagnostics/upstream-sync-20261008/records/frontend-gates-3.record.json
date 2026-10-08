@@ -1,0 +1,29 @@
+{
+  "label": "frontend-gates-3",
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo",
+  "argv": [
+    "docker",
+    "run",
+    "--rm",
+    "-v",
+    "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo:/workspace",
+    "-v",
+    "sub2api-sync-20261007-node:/workspace/frontend/node_modules",
+    "-w",
+    "/workspace/frontend",
+    "node:24-alpine",
+    "sh",
+    "-c",
+    "corepack enable && pnpm run typecheck && pnpm run lint:check && pnpm exec vitest run src/core/utils src/common src/features/admin-groups src/features/admin-ops src/features/admin-settings src/features/profile src/features/billing src/features/admin-backup src/features/admin-channels src/features/admin-accounts src/features/admin-users src/features/admin-usage src/features/admin-channel-monitor src/features/batch-image src/features/channels-user src/features/auth src/features/announcements"
+  ],
+  "command": "docker run --rm -v /private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo:/workspace -v sub2api-sync-20261007-node:/workspace/frontend/node_modules -w /workspace/frontend node:24-alpine sh -c 'corepack enable && pnpm run typecheck && pnpm run lint:check && pnpm exec vitest run src/core/utils src/common src/features/admin-groups src/features/admin-ops src/features/admin-settings src/features/profile src/features/billing src/features/admin-backup src/features/admin-channels src/features/admin-accounts src/features/admin-users src/features/admin-usage src/features/admin-channel-monitor src/features/batch-image src/features/channels-user src/features/auth src/features/announcements'",
+  "input": "repository sources and committed regression fixtures",
+  "stdout": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/records/frontend-gates-3.stdout",
+  "stderr": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/records/frontend-gates-3.stderr",
+  "exit": 1,
+  "started": "2026-10-08T15:19:24.411274+00:00",
+  "finished": "2026-10-08T15:20:45.048407+00:00",
+  "accepted": false,
+  "stdout_sha256": "27ed94fdb014ab6b69c3fe5900cf5eed2725a8194ce1811463b7413dc20bb03d",
+  "stderr_sha256": "8959f07bde96b05928a149a9f21946179410bf93fe9954bdf991bcabbe01c9a3"
+}

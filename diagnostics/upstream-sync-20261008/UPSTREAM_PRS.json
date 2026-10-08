@@ -1,0 +1,2005 @@
+[
+  {
+    "pr": 7811,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7811",
+    "merge_sha": "db29b3a7738e26cfbc30025f033f481ac365ab7a",
+    "title": "fix(codex): never advertise null service_tiers in models manifest",
+    "upstream_diff_sha256": "a4b7e2ee1a534a5eeb7aa4285f0974a688c916fcc291232eceebec0974288cac",
+    "files": [
+      "backend/internal/service/openai_codex_model_metadata.go",
+      "backend/internal/service/openai_codex_model_metadata_test.go"
+    ],
+    "status": "ported",
+    "fully_closed": false,
+    "owners": {
+      "backend/internal/service/openai_codex_model_metadata.go": []
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:23:48Z",
+    "github_merge_sha": "db29b3a7738e26cfbc30025f033f481ac365ab7a",
+    "decision": "API Key manifest 中显式 null service_tiers 改为 []，不覆盖已有非空数组和未知字段；上游跨账号元数据求交尚无对应功能。",
+    "current_owner": "backend/internal/application/service/openai_codex_models_service.go",
+    "current_surface_closed": true,
+    "reopen_condition": "接入跨账号 Codex 元数据求交/冲突回退时复核 service_tiers [] 规则；本轮只关闭已存在的 API Key manifest 分支。",
+    "mapped_owners": [
+      "backend/internal/application/service/openai_codex_models_service.go"
+    ],
+    "local_diff_sha256": "1c3bd4dbf0e9a527a90eedf38471d04d825c814a6d99b99d830d87361b4af12b"
+  },
+  {
+    "pr": 7779,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7779",
+    "merge_sha": "6db4171cfb7592ee6f81c29a82e9fcba0077155e",
+    "title": "fix(openai-ws): bill each later turn with the current group pricing",
+    "upstream_diff_sha256": "4eea568f58599fd3967388e806e3a853f62c3c4389ea04c1f0cd4092f1a92c97",
+    "files": [
+      "backend/internal/handler/openai_gateway_handler.go",
+      "backend/internal/handler/openai_gateway_handler_test.go",
+      "backend/internal/handler/openai_gateway_ws_group_pricing_test.go"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "backend/internal/handler/openai_gateway_handler.go": [
+        "backend/internal/transport/http/handler/openai_gateway_handler.go"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:25:11Z",
+    "github_merge_sha": "6db4171cfb7592ee6f81c29a82e9fcba0077155e",
+    "decision": "后续 WS turn 经原认证缓存刷新选中分组；定价、利润门、结算同源。保留 Key/用户/订阅及连接选号，覆盖多分组和失败回退。",
+    "current_owner": "backend/internal/transport/http/handler/openai_gateway_ws_group_pricing.go",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "backend/internal/transport/http/handler/openai_gateway_handler.go",
+      "backend/internal/transport/http/handler/openai_gateway_handler_test.go",
+      "backend/internal/transport/http/handler/openai_gateway_ws_group_pricing.go",
+      "backend/internal/transport/http/handler/openai_gateway_ws_group_pricing_test.go"
+    ],
+    "local_diff_sha256": "ad25ebe761320b6b6d4ec4f95832a39acba27a394c09f59d552b34ef85bd9d82",
+    "added_owner_sha256": {
+      "backend/internal/transport/http/handler/openai_gateway_ws_group_pricing.go": "6f5addae38d8dbc1bc946bfe82aa08800c2d6ab8d5a3726282a48b89e1423a12",
+      "backend/internal/transport/http/handler/openai_gateway_ws_group_pricing_test.go": "34ce7cb7ca1c7e66de7fb14c3030b67f7a6ec7f1bb39b33a728f894a1aee3d4e"
+    }
+  },
+  {
+    "pr": 7792,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7792",
+    "merge_sha": "ef16f8a3d1ca6fbcb06332c652c91223f4caabb4",
+    "title": "fix(openai): account image input usage on WS passthrough",
+    "upstream_diff_sha256": "e49586c85c0849db064ead5baa10556fabf2128c6fc9b7166b3790a40a8e9167",
+    "files": [
+      "backend/internal/service/openai_ws_v2/passthrough_relay.go",
+      "backend/internal/service/openai_ws_v2/passthrough_relay_image_usage_test.go",
+      "backend/internal/service/openai_ws_v2_passthrough_adapter.go",
+      "backend/internal/service/openai_ws_v2_passthrough_image_usage_test.go"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "backend/internal/service/openai_ws_v2/passthrough_relay.go": [
+        "backend/internal/application/service/openai_ws_v2/passthrough_relay.go"
+      ],
+      "backend/internal/service/openai_ws_v2_passthrough_adapter.go": [
+        "backend/internal/application/service/openai_ws_v2_passthrough_adapter.go"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:25:32Z",
+    "github_merge_sha": "ef16f8a3d1ca6fbcb06332c652c91223f4caabb4",
+    "decision": "透传 WS 图片输入/输出 token、image_gen 回填及累计计费；现有 usage parser 原样拆至小文件，避免扩大超长 relay。",
+    "current_owner": "backend/internal/application/service/openai_ws_v2/passthrough_usage.go",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "backend/internal/application/service/openai_ws_v2/passthrough_relay.go",
+      "backend/internal/application/service/openai_ws_v2/passthrough_usage.go",
+      "backend/internal/application/service/openai_ws_v2_passthrough_adapter.go"
+    ],
+    "local_diff_sha256": "801abafa9d51ce6982202bce29cbffde76af2ae9ea9f43c3d7f06d4d666d9a86",
+    "added_owner_sha256": {
+      "backend/internal/application/service/openai_ws_v2/passthrough_usage.go": "dc5180b2df02c65839cd89e89e71c2d369e9ef24b90d1898b122645d95b7d785"
+    }
+  },
+  {
+    "pr": 7785,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7785",
+    "merge_sha": "f087fdb205315838a761cd62ce623e21ae34254b",
+    "title": "fix(apicompat): flatten named chat tool_choice for Responses",
+    "upstream_diff_sha256": "ff9b838dfcc7ca6867dded498dd5abc0ea718d5af5085e69335d4296afa133a3",
+    "files": [
+      "backend/internal/pkg/apicompat/chatcompletions_to_responses.go",
+      "backend/internal/pkg/apicompat/chatcompletions_to_responses_tool_choice_test.go"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "backend/internal/pkg/apicompat/chatcompletions_to_responses.go": [
+        "backend/internal/shared/apicompat/chatcompletions_to_responses.go"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:25:46Z",
+    "github_merge_sha": "f087fdb205315838a761cd62ce623e21ae34254b",
+    "decision": "Chat 命名工具选择扁平化；字符串和 Responses 结构保留。",
+    "current_owner": "backend/internal/shared/apicompat/chatcompletions_to_responses.go",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "backend/internal/shared/apicompat/chatcompletions_to_responses.go",
+      "backend/internal/shared/apicompat/chatcompletions_to_responses_tool_choice_test.go"
+    ],
+    "local_diff_sha256": "c1c1d8fd848227ec3811829c453435fc9f3f37dbaa0041b70d0ff20584992616",
+    "added_owner_sha256": {
+      "backend/internal/shared/apicompat/chatcompletions_to_responses_tool_choice_test.go": "031a26107e0caae1794a8e6fe4b0dd543521fc118997ae0a6884e9f55cd6c39f"
+    }
+  },
+  {
+    "pr": 7786,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7786",
+    "merge_sha": "f9bd97cc157959df1fe1b737dad5d8473dece35c",
+    "title": "fix(apicompat): keep chat developer messages as developer role",
+    "upstream_diff_sha256": "31d7793d459740450c802adf75cb2374274e753fedad24893f08c28405a93e86",
+    "files": [
+      "backend/internal/pkg/apicompat/chatcompletions_to_responses.go",
+      "backend/internal/pkg/apicompat/chatcompletions_to_responses_developer_role_test.go"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "backend/internal/pkg/apicompat/chatcompletions_to_responses.go": [
+        "backend/internal/shared/apicompat/chatcompletions_to_responses.go"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:26:03Z",
+    "github_merge_sha": "f9bd97cc157959df1fe1b737dad5d8473dece35c",
+    "decision": "保留 developer 角色，不降为 user。",
+    "current_owner": "backend/internal/shared/apicompat/chatcompletions_to_responses.go",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "backend/internal/shared/apicompat/chatcompletions_to_responses.go",
+      "backend/internal/shared/apicompat/chatcompletions_to_responses_developer_role_test.go"
+    ],
+    "local_diff_sha256": "c1c1d8fd848227ec3811829c453435fc9f3f37dbaa0041b70d0ff20584992616",
+    "added_owner_sha256": {
+      "backend/internal/shared/apicompat/chatcompletions_to_responses_developer_role_test.go": "f1e2f5ff0e404a0a1b5becb1373f95a7144a787f6a11a3219e73a01dd5171f40"
+    }
+  },
+  {
+    "pr": 7787,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7787",
+    "merge_sha": "8d504668099c6bc1447c713395430a4b479d605e",
+    "title": "fix(apicompat): pair legacy chat function calls with their results",
+    "upstream_diff_sha256": "be521b36c6bcffa2e92957908a37899c1222228ce0985a61001346f7667c96e8",
+    "files": [
+      "backend/internal/pkg/apicompat/chatcompletions_to_responses.go",
+      "backend/internal/pkg/apicompat/chatcompletions_to_responses_legacy_function_call_test.go"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "backend/internal/pkg/apicompat/chatcompletions_to_responses.go": [
+        "backend/internal/shared/apicompat/chatcompletions_to_responses.go"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:26:16Z",
+    "github_merge_sha": "8d504668099c6bc1447c713395430a4b479d605e",
+    "decision": "legacy function_call 和 function result 用稳定 call_id 配对并避开已有 ID，按名称 FIFO。",
+    "current_owner": "backend/internal/shared/apicompat/chatcompletions_to_responses.go",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "backend/internal/shared/apicompat/chatcompletions_to_responses.go",
+      "backend/internal/shared/apicompat/chatcompletions_to_responses_legacy_function_call_test.go"
+    ],
+    "local_diff_sha256": "c1c1d8fd848227ec3811829c453435fc9f3f37dbaa0041b70d0ff20584992616",
+    "added_owner_sha256": {
+      "backend/internal/shared/apicompat/chatcompletions_to_responses_legacy_function_call_test.go": "0452af777098ffc64d34d3eb09e914a0a6a9199fdd0e7107b65f9041b9c2a48d"
+    }
+  },
+  {
+    "pr": 7788,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7788",
+    "merge_sha": "9d49d275f34a6859b822f51ce314eb29d74e5273",
+    "title": "fix(apicompat): preserve refusals when converting Responses to Chat",
+    "upstream_diff_sha256": "7263440f1bd02561f40d70e0c91865356936b87431c8a5e175ead41c3a35d4a0",
+    "files": [
+      "backend/internal/pkg/apicompat/responses_to_chatcompletions.go",
+      "backend/internal/pkg/apicompat/responses_to_chatcompletions_refusal_test.go",
+      "backend/internal/pkg/apicompat/types.go"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "backend/internal/pkg/apicompat/responses_to_chatcompletions.go": [
+        "backend/internal/shared/apicompat/responses_to_chatcompletions.go"
+      ],
+      "backend/internal/pkg/apicompat/types.go": [
+        "backend/internal/modules/chat/types.go",
+        "backend/internal/modules/egress/types.go",
+        "backend/internal/modules/payment/types.go",
+        "backend/internal/shared/apicompat/types.go",
+        "backend/internal/shared/errors/types.go",
+        "backend/internal/shared/websearch/types.go",
+        "backend/internal/transport/http/handler/dto/types.go"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:26:29Z",
+    "github_merge_sha": "9d49d275f34a6859b822f51ce314eb29d74e5273",
+    "decision": "Responses refusal 在非流式、流式 delta 与缓冲结果中保留。",
+    "current_owner": "backend/internal/shared/apicompat/responses_to_chatcompletions.go",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "backend/internal/shared/apicompat/responses_to_chatcompletions.go",
+      "backend/internal/shared/apicompat/responses_to_chatcompletions_refusal_test.go",
+      "backend/internal/shared/apicompat/types.go"
+    ],
+    "local_diff_sha256": "a8fdb82df3061b9db3f65313d93464e7fbcd5004febf631ce3134e179f133b4e",
+    "added_owner_sha256": {
+      "backend/internal/shared/apicompat/responses_to_chatcompletions_refusal_test.go": "154d42a0b22f20934a63e2da476107e43ca59088e3cb7c129af1ce73ccc40b0d"
+    }
+  },
+  {
+    "pr": 7789,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7789",
+    "merge_sha": "cc4a1e3f616cd50491cb7987dfb0459cae380197",
+    "title": "fix(gateway): ignore negative content block index in buffered Anthropic paths",
+    "upstream_diff_sha256": "9c3650e81b1d680e8754ad52a9e4009568ba07932d6ab6725250711060b2f1da",
+    "files": [
+      "backend/internal/service/anthropic_buffered_negative_index_test.go",
+      "backend/internal/service/gateway_forward_as_chat_completions.go",
+      "backend/internal/service/gateway_forward_as_responses.go",
+      "backend/internal/service/openai_gateway_chat_completions_anthropic_native.go",
+      "backend/internal/service/openai_gateway_responses_anthropic_native.go"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "backend/internal/service/gateway_forward_as_chat_completions.go": [
+        "backend/internal/application/service/gateway_forward_as_chat_completions.go"
+      ],
+      "backend/internal/service/gateway_forward_as_responses.go": [
+        "backend/internal/application/service/gateway_forward_as_responses.go"
+      ],
+      "backend/internal/service/openai_gateway_chat_completions_anthropic_native.go": [
+        "backend/internal/application/service/openai_gateway_chat_completions_anthropic_native.go"
+      ],
+      "backend/internal/service/openai_gateway_responses_anthropic_native.go": [
+        "backend/internal/application/service/openai_gateway_responses_anthropic_native.go"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:26:48Z",
+    "github_merge_sha": "cc4a1e3f616cd50491cb7987dfb0459cae380197",
+    "decision": "四条 Anthropic 缓冲桥拒绝负 content_block index，保留现有 native pump。",
+    "current_owner": "backend/internal/application/service/gateway_forward_as_chat_completions.go",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "backend/internal/application/service/anthropic_buffered_negative_index_test.go",
+      "backend/internal/application/service/gateway_forward_as_chat_completions.go",
+      "backend/internal/application/service/gateway_forward_as_responses.go",
+      "backend/internal/application/service/openai_gateway_chat_completions_anthropic_native.go",
+      "backend/internal/application/service/openai_gateway_responses_anthropic_native.go"
+    ],
+    "local_diff_sha256": "884d581b4bc93ff00ee4aa1a6269e1b523ca94cf4858759f2a439113d7be4ae9",
+    "added_owner_sha256": {
+      "backend/internal/application/service/anthropic_buffered_negative_index_test.go": "e550cff639f6f3f2a69fcab8151b11943533a70611bb798b5b9e4341da3a011c"
+    }
+  },
+  {
+    "pr": 7869,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7869",
+    "merge_sha": "e473fba99cafe5dad076e0f5a9df6df3bca10ee5",
+    "title": "fix(apicompat): always include `signature` on Anthropic thinking blocks",
+    "upstream_diff_sha256": "9b3063911cae92c04844c1fa36d4874e58979dbb0d653a52434878664a23cc3b",
+    "files": [
+      "backend/internal/pkg/antigravity/claude_types.go",
+      "backend/internal/pkg/antigravity/claude_types_test.go",
+      "backend/internal/pkg/antigravity/stream_transformer.go",
+      "backend/internal/pkg/apicompat/anthropic_responses_test.go",
+      "backend/internal/pkg/apicompat/thinking_signature_wire_test.go",
+      "backend/internal/pkg/apicompat/types.go"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "backend/internal/pkg/antigravity/claude_types.go": [
+        "backend/internal/shared/antigravity/claude_types.go"
+      ],
+      "backend/internal/pkg/antigravity/stream_transformer.go": [
+        "backend/internal/shared/antigravity/stream_transformer.go"
+      ],
+      "backend/internal/pkg/apicompat/types.go": [
+        "backend/internal/modules/chat/types.go",
+        "backend/internal/modules/egress/types.go",
+        "backend/internal/modules/payment/types.go",
+        "backend/internal/shared/apicompat/types.go",
+        "backend/internal/shared/errors/types.go",
+        "backend/internal/shared/websearch/types.go",
+        "backend/internal/transport/http/handler/dto/types.go"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:27:14Z",
+    "github_merge_sha": "e473fba99cafe5dad076e0f5a9df6df3bca10ee5",
+    "decision": "thinking 块始终含 signature（允许空串），同步 Antigravity 与共享 JSON/SSE。",
+    "current_owner": "backend/internal/shared/apicompat/types.go",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "backend/internal/shared/antigravity/claude_types.go",
+      "backend/internal/shared/antigravity/claude_types_test.go",
+      "backend/internal/shared/antigravity/stream_transformer.go",
+      "backend/internal/shared/apicompat/anthropic_responses_test.go",
+      "backend/internal/shared/apicompat/types.go"
+    ],
+    "local_diff_sha256": "ddabe516338e8ded10b052666867cfe51b6c207c875a4140bf9001c1d79aaee0"
+  },
+  {
+    "pr": 7844,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7844",
+    "merge_sha": "f19cd4fdea288984908ce1c9744dc2ddb7d663d7",
+    "title": "fix(anthropic): keep cache TTL order valid on the mimic path",
+    "upstream_diff_sha256": "ba8e1d70895a1822284975f3b3d507dce39216a2d90fa5b4f21adc0b7a1c4f2c",
+    "files": [
+      "backend/internal/service/gateway_cache_ttl_order_test.go",
+      "backend/internal/service/gateway_claude_oauth_body.go"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "backend/internal/service/gateway_claude_oauth_body.go": [
+        "backend/internal/application/service/gateway_claude_oauth_body.go"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:27:28Z",
+    "github_merge_sha": "f19cd4fdea288984908ce1c9744dc2ddb7d663d7",
+    "decision": "保留客户端 1h TTL，将前序 ephemeral 断点升为 1h；最多四个断点的既有限制先执行。",
+    "current_owner": "backend/internal/application/service/gateway_claude_oauth_body.go",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "backend/internal/application/service/gateway_cache_ttl_order_test.go",
+      "backend/internal/application/service/gateway_claude_oauth_body.go"
+    ],
+    "local_diff_sha256": "9d9cffc56bf7920b16ec7162be77229298c4a18466c8e366a1df177563e2434d",
+    "added_owner_sha256": {
+      "backend/internal/application/service/gateway_cache_ttl_order_test.go": "43a954019e5ef9846aeeafaa8f3174a8a54c1c0aa3596f0e6b7eab03bb9b8310"
+    }
+  },
+  {
+    "pr": 7827,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7827",
+    "merge_sha": "129369204eaccac9a0ee3ea6f4ea0b35be7e4130",
+    "title": "fix(anthropic): preserve requested tool change beta headers",
+    "upstream_diff_sha256": "e8cf733d65724e91fa08e25b476dcacb46ce400b73d4b260b71c52cc99cd4ace",
+    "files": [
+      "backend/internal/pkg/claude/constants.go",
+      "backend/internal/service/gateway_tool_changes_beta_test.go",
+      "backend/internal/service/gateway_upstream_request.go"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "backend/internal/pkg/claude/constants.go": [
+        "backend/internal/domain/constants.go",
+        "backend/internal/shared/claude/constants.go",
+        "backend/internal/shared/geminicli/constants.go",
+        "backend/internal/shared/openai/constants.go"
+      ],
+      "backend/internal/service/gateway_upstream_request.go": [
+        "backend/internal/application/service/gateway_upstream_request.go"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:27:46Z",
+    "github_merge_sha": "129369204eaccac9a0ee3ea6f4ea0b35be7e4130",
+    "decision": "只透传客户端显式请求的两个工具变更 beta；不自动补 companion token，drop policy 优先。",
+    "current_owner": "backend/internal/application/service/gateway_upstream_request.go",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "backend/internal/application/service/gateway_tool_changes_beta_test.go",
+      "backend/internal/application/service/gateway_upstream_request.go",
+      "backend/internal/shared/claude/constants.go"
+    ],
+    "local_diff_sha256": "1d4485e0b2562326618eb559d1ad65e9f6399344f56874f778c11579017ffb4f",
+    "added_owner_sha256": {
+      "backend/internal/application/service/gateway_tool_changes_beta_test.go": "22a65fe94e52e3a5e41f4b16382a1c0be2dea1864e6caea7966b32337cb8ff5f"
+    }
+  },
+  {
+    "pr": 7910,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7910",
+    "merge_sha": "2afe7d45777723d069b0f74e3cac2ef313539cf8",
+    "title": "perf(openai): lazily rebuild input when stripping namespaces",
+    "upstream_diff_sha256": "1e8e0ea8861a641a062054a1ef2c48b649626da99f37f66eec6397105119adf6",
+    "files": [
+      "backend/internal/service/openai_responses_namespace.go",
+      "backend/internal/service/openai_responses_namespace_benchmark_test.go",
+      "backend/internal/service/openai_responses_namespace_test.go"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "backend/internal/service/openai_responses_namespace.go": [
+        "backend/internal/application/service/openai_responses_namespace.go"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:28:02Z",
+    "github_merge_sha": "2afe7d45777723d069b0f74e3cac2ef313539cf8",
+    "decision": "namespace 无变化路径懒分配，用只读 string view 和一次 span-copy；非目标字节保持不变。",
+    "current_owner": "backend/internal/application/service/openai_responses_namespace.go",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "backend/internal/application/service/openai_responses_namespace.go",
+      "backend/internal/application/service/openai_responses_namespace_benchmark_test.go",
+      "backend/internal/application/service/openai_responses_namespace_test.go"
+    ],
+    "local_diff_sha256": "5e143190fb70eab79e513c41c8ec61c2afc9d215bf1ddee58747fff45dcfbb8c",
+    "added_owner_sha256": {
+      "backend/internal/application/service/openai_responses_namespace_benchmark_test.go": "949b942fcda83b093c626095130b9192eb1d6b837a9835f3d31ba56c4c3ba14b"
+    }
+  },
+  {
+    "pr": 7775,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7775",
+    "merge_sha": "6cacccc767f8294c127888c431e430a5b2a22658",
+    "title": "fix(grok): fail over silent-refusal empty response.completed on Grok Responses streams",
+    "upstream_diff_sha256": "907a1fd4a655eb72c24dc31eb935735fcacce583588bf2408fcdea44c420a87b",
+    "files": [
+      "backend/internal/service/openai_gateway_response_handling.go",
+      "backend/internal/service/openai_gateway_responses_empty_completed_test.go"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "backend/internal/service/openai_gateway_response_handling.go": [
+        "artifacts/upstream-sync-20260918/baseline/all/backend/internal/application/service/openai_gateway_response_handling.go",
+        "artifacts/upstream-sync-20260918/baseline/openai_gateway_response_handling.go",
+        "backend/internal/application/service/openai_gateway_response_handling.go",
+        "diagnostics/stream-control-20260907/original/backend/internal/application/service/openai_gateway_response_handling.go"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:28:23Z",
+    "github_merge_sha": "6cacccc767f8294c127888c431e430a5b2a22658",
+    "decision": "Grok Responses 空 completed 视为上游无语义输出，可在提交前换号，不成功记 0/0。",
+    "current_owner": "backend/internal/application/service/openai_gateway_response_handling.go",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "backend/internal/application/service/openai_gateway_response_handling.go",
+      "backend/internal/application/service/openai_gateway_responses_empty_completed_test.go"
+    ],
+    "local_diff_sha256": "4306af880ead1da618c387f823122d7474052657b6da03f8d13ba31c1409ba48"
+  },
+  {
+    "pr": 7854,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7854",
+    "merge_sha": "90afaf120e311c8b81f0732999b141457bb81fea",
+    "title": "fix(streaming): preserve chat stream heartbeat comments",
+    "upstream_diff_sha256": "cedb7407ce586eef84c6027f28b2399f82c57bd98a27fe56fad6976f7a93d789",
+    "files": [
+      "backend/internal/service/gateway_forward_as_chat_completions.go",
+      "backend/internal/service/gateway_forward_as_chat_completions_ping_test.go"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "backend/internal/service/gateway_forward_as_chat_completions.go": [
+        "backend/internal/application/service/gateway_forward_as_chat_completions.go"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:28:39Z",
+    "github_merge_sha": "90afaf120e311c8b81f0732999b141457bb81fea",
+    "decision": "Anthropic ping 转为 SSE 注释并立即 flush，不泄漏 event: ping，不启动 TTFT。include_usage 保留本项目契约。",
+    "current_owner": "backend/internal/application/service/gateway_forward_as_chat_completions.go",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "backend/internal/application/service/gateway_forward_as_chat_completions.go",
+      "backend/internal/application/service/gateway_forward_as_chat_completions_ping_test.go"
+    ],
+    "local_diff_sha256": "267eb5b0d5bfefe24cb1b3a530b5a4e3f631c72284982992e24d89a334dfaee0",
+    "added_owner_sha256": {
+      "backend/internal/application/service/gateway_forward_as_chat_completions_ping_test.go": "0fb07ee2e13907223d43db9fd0e3bc2a35b57d0f4f00833fd40d7cb63597e321"
+    }
+  },
+  {
+    "pr": 7891,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7891",
+    "merge_sha": "bbf1d37783d37d58edc8b9c07ffec53b075e4de9",
+    "title": "fix(opencode): cap Retry-After backoff at 24h and report neutral 403",
+    "upstream_diff_sha256": "c81ca6d505519f2ab269f0a00b697cb0151f4be51e59bf6fa3e5f191ae35061d",
+    "files": [
+      "backend/internal/service/opencode_go_usage.go",
+      "backend/internal/service/opencode_go_usage_test.go",
+      "backend/internal/service/upstream_billing_probe.go",
+      "backend/internal/service/upstream_billing_probe_test.go",
+      "frontend/src/i18n/locales/en/admin/accounts.ts",
+      "frontend/src/i18n/locales/zh/admin/accounts.ts"
+    ],
+    "status": "ported",
+    "fully_closed": false,
+    "owners": {
+      "backend/internal/service/opencode_go_usage.go": [],
+      "backend/internal/service/upstream_billing_probe.go": [
+        "backend/internal/application/service/upstream_billing_probe.go"
+      ],
+      "frontend/src/i18n/locales/en/admin/accounts.ts": [
+        "frontend/src/core/i18n/locales/en/admin/accounts.ts",
+        "frontend/src/core/i18n/locales/zh/admin/accounts.ts"
+      ],
+      "frontend/src/i18n/locales/zh/admin/accounts.ts": [
+        "frontend/src/core/i18n/locales/en/admin/accounts.ts",
+        "frontend/src/core/i18n/locales/zh/admin/accounts.ts"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:31:41Z",
+    "github_merge_sha": "bbf1d37783d37d58edc8b9c07ffec53b075e4de9",
+    "decision": "统一账单探测限制 Retry-After 在 24h 内；本项目无独立 opencode_go_usage，现有通用 http_error 不把 403 误判为订阅缺失。",
+    "current_owner": "backend/internal/application/service/upstream_billing_probe.go",
+    "current_surface_closed": true,
+    "reopen_condition": "接入独立 OpenCode Go 用量 worker/UI 时复核 403 文案和 24h 上限；当前统一探测路径已关闭。",
+    "mapped_owners": [
+      "backend/internal/application/service/upstream_billing_probe.go",
+      "backend/internal/application/service/upstream_billing_probe_test.go",
+      "frontend/src/core/i18n/locales/en/admin/accounts.ts",
+      "frontend/src/core/i18n/locales/zh/admin/accounts.ts"
+    ],
+    "local_diff_sha256": "ff00aa57de58a26d33aabbf12744ce113fcaeba2b25d6bc5f21166b00c8afbfa"
+  },
+  {
+    "pr": 7889,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7889",
+    "merge_sha": "3c274768c19c73e7403ff27f1d7a7f3b99b8f890",
+    "title": "fix(opencode): correct Zen qwen3.8-max endpoint and reject unsupported models",
+    "upstream_diff_sha256": "9d19f92297b4d689e5509ec60144c0ed315c629990c8f427814d9c12bd198937",
+    "files": [
+      "backend/internal/service/account_test_service.go",
+      "backend/internal/service/openai_gateway_chat_completions.go",
+      "backend/internal/service/openai_gateway_forward.go",
+      "backend/internal/service/openai_gateway_messages.go",
+      "backend/internal/service/opencode_go.go",
+      "backend/internal/service/opencode_go_test.go",
+      "backend/internal/service/opencode_unsupported_models_test.go",
+      "frontend/src/components/account/credentialsBuilder.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "backend/internal/service/account_test_service.go": [
+        "backend/internal/application/service/account_test_service.go"
+      ],
+      "backend/internal/service/openai_gateway_chat_completions.go": [
+        "backend/internal/application/service/openai_gateway_chat_completions.go"
+      ],
+      "backend/internal/service/openai_gateway_forward.go": [
+        "backend/internal/application/service/openai_gateway_forward.go",
+        "diagnostics/stream-control-20260907/original/backend/internal/application/service/openai_gateway_forward.go"
+      ],
+      "backend/internal/service/openai_gateway_messages.go": [
+        "backend/internal/application/service/openai_gateway_messages.go",
+        "backend/internal/transport/http/handler/openai_gateway_messages.go"
+      ],
+      "backend/internal/service/opencode_go.go": [
+        "backend/internal/application/service/opencode_go.go"
+      ],
+      "frontend/src/components/account/credentialsBuilder.ts": [
+        "frontend/src/features/admin-accounts/presentation/credentialsBuilder.ts"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:32:12Z",
+    "github_merge_sha": "3c274768c19c73e7403ff27f1d7a7f3b99b8f890",
+    "decision": "Zen qwen3.8-max 使用 Chat；显式自定义规则保留。通用入口和连接测试拒绝专属 Gemini/System One 模型，原生适配器不改。",
+    "current_owner": "backend/internal/application/service/opencode_go.go",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "backend/internal/application/service/account_test_service.go",
+      "backend/internal/application/service/openai_gateway_chat_completions.go",
+      "backend/internal/application/service/openai_gateway_forward.go",
+      "backend/internal/application/service/openai_gateway_messages.go",
+      "backend/internal/application/service/opencode_go.go",
+      "backend/internal/application/service/opencode_go_test.go",
+      "frontend/src/features/admin-accounts/presentation/credentialsBuilder.ts"
+    ],
+    "local_diff_sha256": "3fde0a0476a43b32877ec5eaa7d80f422bd468053311c233258978e9953fbdd6"
+  },
+  {
+    "pr": 7887,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7887",
+    "merge_sha": "bb0d4a53c9aada57a8effbdd3f3d31d78ee31550",
+    "title": "fix(grok): include consent token and origin in SSO device approval",
+    "upstream_diff_sha256": "230c537619c72db3f617c6a9d5a2cc8ba7ebbdb9cf2e466f3f89539eaf4bd65d",
+    "files": [
+      "backend/internal/pkg/xai/sso_device.go",
+      "backend/internal/pkg/xai/sso_device_test.go"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "backend/internal/pkg/xai/sso_device.go": [
+        "backend/internal/shared/xai/sso_device.go"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:32:26Z",
+    "github_merge_sha": "bb0d4a53c9aada57a8effbdd3f3d31d78ee31550",
+    "decision": "xAI SSO 解析隐藏 consent_token，首跳携带 Origin/Referer；重定向可信域和 2MiB 限制保留。",
+    "current_owner": "backend/internal/shared/xai/sso_device.go",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "backend/internal/shared/xai/sso_device.go",
+      "backend/internal/shared/xai/sso_device_test.go"
+    ],
+    "local_diff_sha256": "387fd90a369d73c66b8fe18e37a77b29d6fc9e65bdfe07a452bc858b447195ce"
+  },
+  {
+    "pr": 7877,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7877",
+    "merge_sha": "4b8c5577050f0a17e348b9bf9a6ef1575cdc24f3",
+    "title": "fix(channel-monitor): build zhipu probe URL from the configured endpoint",
+    "upstream_diff_sha256": "a508f8ecd81c97d10d4112bb2c067d3774dccd553db459b9be574fd55bbc107c",
+    "files": [
+      "backend/internal/service/channel_monitor_checker.go",
+      "backend/internal/service/channel_monitor_endpoint_test.go"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "backend/internal/service/channel_monitor_checker.go": [
+        "backend/internal/application/service/channel_monitor_checker.go"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:32:38Z",
+    "github_merge_sha": "4b8c5577050f0a17e348b9bf9a6ef1575cdc24f3",
+    "decision": "智谱官方根、Coding Plan paas/v4、转发 v1 三类探测路径区分，复用原 HTTP client/安全限制。",
+    "current_owner": "backend/internal/application/service/channel_monitor_checker.go",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "backend/internal/application/service/channel_monitor_checker.go",
+      "backend/internal/application/service/channel_monitor_endpoint_test.go"
+    ],
+    "local_diff_sha256": "98da5f4cfa1e624b23528d34c8fb3a28e8acbbf363d36e4f518cb6fd90849dde",
+    "added_owner_sha256": {
+      "backend/internal/application/service/channel_monitor_endpoint_test.go": "e4b097d124ef449810d310ca7931a95decb9a7a91ee24c53573e3a4c929a4ebe"
+    }
+  },
+  {
+    "pr": 7837,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7837",
+    "merge_sha": "3a7fd4ae786f129d9ebfa9d385d3405b935220dd",
+    "title": "fix: use account mapping keys for Antigravity connectivity tests",
+    "upstream_diff_sha256": "a84642f843b86671954c31b2387c8e4cf0839cbf8e340b5e33bcf21415379ee7",
+    "files": [
+      "backend/internal/handler/admin/account_handler.go",
+      "backend/internal/handler/admin/account_handler_available_models_test.go"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "backend/internal/handler/admin/account_handler.go": [
+        "backend/internal/transport/http/handler/admin/account_handler.go"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:33:00Z",
+    "github_merge_sha": "3a7fd4ae786f129d9ebfa9d385d3405b935220dd",
+    "decision": "Antigravity 连通性模型显示显式 request-side 映射名，空映射使用原默认目录。",
+    "current_owner": "backend/internal/transport/http/handler/admin/account_handler.go",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "backend/internal/transport/http/handler/admin/account_handler.go",
+      "backend/internal/transport/http/handler/admin/account_handler_available_models_test.go"
+    ],
+    "local_diff_sha256": "de1cc8c912d72fd78266d8b8c262c85e3b47aa9914b262c525dcdbc0836bc37d"
+  },
+  {
+    "pr": 7878,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7878",
+    "merge_sha": "458865ed1be1d3aec9408d8a38167603e1922219",
+    "title": "fix(accounts): attribute connectivity test failure logs",
+    "upstream_diff_sha256": "37c78c72945584d06d62401322823f099a68e82fc6d2a8e02f564a218e8488bb",
+    "files": [
+      "backend/internal/service/account_test_logging.go",
+      "backend/internal/service/account_test_logging_test.go",
+      "backend/internal/service/account_test_service.go"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "backend/internal/service/account_test_logging.go": [],
+      "backend/internal/service/account_test_service.go": [
+        "backend/internal/application/service/account_test_service.go"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:33:15Z",
+    "github_merge_sha": "458865ed1be1d3aec9408d8a38167603e1922219",
+    "decision": "连通性错误记录绑定账号/平台/test_id/source，先脱敏再限长，后台与 HTTP 保留请求关联。",
+    "current_owner": "backend/internal/application/service/account_test_logging.go",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "backend/internal/application/service/account_test_logging.go",
+      "backend/internal/application/service/account_test_logging_test.go",
+      "backend/internal/application/service/account_test_service.go"
+    ],
+    "local_diff_sha256": "e3387755d4c399f5bf72eb42149482f8ee3cde8bc835766c72ade8e5f33436c4",
+    "added_owner_sha256": {
+      "backend/internal/application/service/account_test_logging.go": "db246454016b6ee38009a506e8e0a1446cb5f9030b14a6f1674bcf7ea402d391",
+      "backend/internal/application/service/account_test_logging_test.go": "afe1638f62fdaa8ae00aa7bb7b2895389e56e6c34562f2c9eaa7b0f6bb85c6f0"
+    }
+  },
+  {
+    "pr": 7782,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7782",
+    "merge_sha": "bc63bd2874d4d77ed39859cd5399d514b53674d5",
+    "title": "fix(models): enforce account mappings for remote Codex discovery",
+    "upstream_diff_sha256": "1b189d5e4ef623d45cf341f6d838547d8a962c797a102b5afd7a303a1f0ec491",
+    "files": [
+      "backend/internal/handler/openai_codex_models_handler_test.go",
+      "backend/internal/service/openai_codex_models_pinned.go",
+      "backend/internal/service/openai_codex_models_pinned_test.go",
+      "backend/internal/service/openai_models_list.go",
+      "backend/internal/service/openai_models_list_test.go"
+    ],
+    "status": "ported",
+    "fully_closed": false,
+    "owners": {
+      "backend/internal/service/openai_codex_models_pinned.go": [],
+      "backend/internal/service/openai_models_list.go": []
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:33:28Z",
+    "github_merge_sha": "bc63bd2874d4d77ed39859cd5399d514b53674d5",
+    "decision": "已有普通 Codex manifest 端点按显式账号映射投影，保留元数据、不改共享缓存，identity mapping 保留 ETag；无 pinned 聚合前置。",
+    "current_owner": "backend/internal/application/service/openai_codex_models_mapping.go",
+    "current_surface_closed": true,
+    "reopen_condition": "启用 pinned/远程 catalog 前置时复核聚合、失败回退、映射、ETag 和预算；#7736 的独立暂缓记录不变。",
+    "mapped_owners": [
+      "backend/internal/application/service/openai_codex_models_mapping.go",
+      "backend/internal/transport/http/handler/openai_codex_models_handler_test.go"
+    ],
+    "local_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "added_owner_sha256": {
+      "backend/internal/application/service/openai_codex_models_mapping.go": "deeb40ae1f7989fc5754c8b97b7a3d624f586c6f3765ddc5684f43bbceef27f7"
+    }
+  },
+  {
+    "pr": 7822,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7822",
+    "merge_sha": "7ff5cff1bb525faa6c4d35244b72505e03e336ea",
+    "title": "fix(web): bypass bare API aliases from embedded frontend fallback",
+    "upstream_diff_sha256": "6d26b266ec029e068ae53595b84ec8dcfc46387fd932f93871a633b66bd92462",
+    "files": [
+      "backend/internal/web/embed_on.go",
+      "backend/internal/web/embed_test.go"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "backend/internal/web/embed_on.go": [
+        "backend/internal/transport/webassets/embed_on.go"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:33:59Z",
+    "github_merge_sha": "7ff5cff1bb525faa6c4d35244b72505e03e336ea",
+    "decision": "裸 API 别名不落入嵌入 SPA，保留原 OAuth/网关前缀。",
+    "current_owner": "backend/internal/transport/webassets/embed_on.go",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "backend/internal/transport/webassets/embed_on.go",
+      "backend/internal/transport/webassets/embed_test.go"
+    ],
+    "local_diff_sha256": "3757b9a991a4074e4f578e01fe783d7d5df71b8ca3927c405b7c560fd346801d"
+  },
+  {
+    "pr": 7800,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7800",
+    "merge_sha": "4bcad0657b37ecbf127e5cfd886ea7173157426b",
+    "title": "fix(channels): 追加模型时不再改写条目已留空的价格",
+    "upstream_diff_sha256": "c4d713d34e3905775ac0970f2a73b4ae5bbc8dfd9d27812396f8467e54a27f40",
+    "files": [
+      "Makefile",
+      "frontend/src/components/admin/channel/PricingEntryCard.vue",
+      "frontend/src/components/admin/channel/__tests__/PricingEntryCard.modelDefaultPrice.spec.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "Makefile": [
+        "Makefile"
+      ],
+      "frontend/src/components/admin/channel/PricingEntryCard.vue": [
+        "frontend/src/features/admin-channels/presentation/widgets/PricingEntryCard.vue"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:34:17Z",
+    "github_merge_sha": "4bcad0657b37ecbf127e5cfd886ea7173157426b",
+    "decision": "只有空价格条目首次添加一个模型才自动填价，避免追加/批量模型静默重定价。",
+    "current_owner": "frontend/src/features/admin-channels/presentation/widgets/PricingEntryCard.vue",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "backend/Makefile",
+      "frontend/src/features/admin-channels/presentation/widgets/PricingEntryCard.vue",
+      "frontend/src/features/admin-channels/presentation/widgets/__tests__/PricingEntryCard.modelDefaultPrice.spec.ts"
+    ],
+    "local_diff_sha256": "c837ecdb9da7404007a5144d40730ecc2c287aa2dbc6271491a578d03da54518",
+    "added_owner_sha256": {
+      "frontend/src/features/admin-channels/presentation/widgets/__tests__/PricingEntryCard.modelDefaultPrice.spec.ts": "fd5ba6bdb8cc1e8b1fa6473762a3d262187ef78ea59ae5df7e7760c0cbaf65d6"
+    }
+  },
+  {
+    "pr": 7904,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7904",
+    "merge_sha": "7fc5332b45e1ad462b1aa0bba9ca7ae595bb26e3",
+    "title": "fix(groups): ignore stale rate multiplier loads",
+    "upstream_diff_sha256": "9459be3d0f20472bdc24f6f3c04af75bcffa5fd833d60fe553bc200244e4ec62",
+    "files": [
+      "frontend/src/components/admin/group/GroupRateMultipliersModal.vue",
+      "frontend/src/components/admin/group/__tests__/GroupRateMultipliersModal.requests.spec.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "frontend/src/components/admin/group/GroupRateMultipliersModal.vue": []
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:34:38Z",
+    "github_merge_sha": "7fc5332b45e1ad462b1aa0bba9ca7ae595bb26e3",
+    "decision": "分组倍率弹窗请求版本隔离切组/重开/卸载，保留独立 Query/Action 和原 300ms 搜索。",
+    "current_owner": "frontend/src/features/admin-groups/presentation/widgets/GroupRateMultipliersDialog.vue",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "frontend/src/features/admin-groups/presentation/widgets/GroupRateMultipliersDialog.vue",
+      "frontend/src/features/admin-groups/presentation/widgets/__tests__/GroupRateMultipliersDialog.requests.spec.ts"
+    ],
+    "local_diff_sha256": "da485ee4c947767a5d3eab835b084f4fd0b6772099e118b18ce1a9c2dc5dd3c2",
+    "added_owner_sha256": {
+      "frontend/src/features/admin-groups/presentation/widgets/__tests__/GroupRateMultipliersDialog.requests.spec.ts": "e5554e1fb779af7abac48c81788448efb60f489ca8cdf575e2de02146b587a9e"
+    }
+  },
+  {
+    "pr": 7903,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7903",
+    "merge_sha": "b126b94525f13da89233a01804d864e28adfd97d",
+    "title": "fix(profile): preserve username edits made during save",
+    "upstream_diff_sha256": "ec0ec075a2f1d6c7bbc78afda5e24af4d4eb62149a81d49e56c105539fc05951",
+    "files": [
+      "frontend/src/components/user/profile/ProfileEditForm.vue",
+      "frontend/src/components/user/profile/__tests__/ProfileEditForm.draft.spec.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "frontend/src/components/user/profile/ProfileEditForm.vue": [
+        "frontend/src/features/profile/presentation/widgets/ProfileEditForm.vue"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:34:49Z",
+    "github_merge_sha": "b126b94525f13da89233a01804d864e28adfd97d",
+    "decision": "后台 profile 刷新和迟到保存响应不覆盖编辑中的用户名草稿。",
+    "current_owner": "frontend/src/features/profile/presentation/widgets/ProfileEditForm.vue",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "frontend/src/features/profile/presentation/widgets/ProfileEditForm.vue",
+      "frontend/src/features/profile/presentation/widgets/__tests__/ProfileEditForm.draft.spec.ts"
+    ],
+    "local_diff_sha256": "70159421e5e7f9f4a71d7acf77418d975b72876f1d2095a0605008fd81cb2445",
+    "added_owner_sha256": {
+      "frontend/src/features/profile/presentation/widgets/__tests__/ProfileEditForm.draft.spec.ts": "74b728a3ac3534d79807f87debde26a012e09f3255c85b2a4c1e69df6d2f619b"
+    }
+  },
+  {
+    "pr": 7902,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7902",
+    "merge_sha": "cdbf1d6f4d1f3145ad34697ddb830babdf572f5f",
+    "title": "fix(admin): use the saved passthrough rule enabled state",
+    "upstream_diff_sha256": "69710c7f8161f18fbc2ce30978b57bd140e6d8c0c5446c9e18b6f20eb94466ea",
+    "files": [
+      "frontend/src/components/admin/ErrorPassthroughRulesModal.vue",
+      "frontend/src/components/admin/__tests__/ErrorPassthroughRulesModal.toggle.spec.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "frontend/src/components/admin/ErrorPassthroughRulesModal.vue": []
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:35:02Z",
+    "github_merge_sha": "cdbf1d6f4d1f3145ad34697ddb830babdf572f5f",
+    "decision": "错误透传开关以服务端返回 enabled 为准，避免并发反转本地值。",
+    "current_owner": "frontend/src/features/admin-settings/presentation/widgets/ErrorPassthroughRulesDialog.vue",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "frontend/src/features/admin-settings/presentation/widgets/ErrorPassthroughRulesDialog.vue",
+      "frontend/src/features/admin-settings/presentation/widgets/__tests__/ErrorPassthroughRulesDialog.toggle.spec.ts"
+    ],
+    "local_diff_sha256": "701d4d924a6c11d3e5b2a06117d3460e4b4faf089a5eb04b8afa5dc830d4b2f2",
+    "added_owner_sha256": {
+      "frontend/src/features/admin-settings/presentation/widgets/__tests__/ErrorPassthroughRulesDialog.toggle.spec.ts": "9fe623191c855bdfe819a2e9fa0a451b37fb7b9202d62bec92bd9568efa6de8c"
+    }
+  },
+  {
+    "pr": 7901,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7901",
+    "merge_sha": "c2f0edc13716876aeeb316bdf83dcf8848fb2181",
+    "title": "fix(payment): stop Airwallex checkout after leaving the page",
+    "upstream_diff_sha256": "80f57312cc9bc57e3f8629e123d03a3834f72779bf4d17b24a3bc6c1feaeb015",
+    "files": [
+      "frontend/src/views/user/AirwallexPaymentView.vue",
+      "frontend/src/views/user/__tests__/AirwallexPaymentView.lifecycle.spec.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "frontend/src/views/user/AirwallexPaymentView.vue": []
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:35:15Z",
+    "github_merge_sha": "c2f0edc13716876aeeb316bdf83dcf8848fb2181",
+    "decision": "Airwallex SDK import/init 完成后检查卸载状态，禁止页面离开后挂载。",
+    "current_owner": "frontend/src/features/billing/presentation/pages/AirwallexPaymentPage.vue",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "frontend/src/features/billing/presentation/pages/AirwallexPaymentPage.vue"
+    ],
+    "local_diff_sha256": "12b68df008e66c5cbfc0b1dded2e7632db76a602923e065e213d1013b39039c3"
+  },
+  {
+    "pr": 7900,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7900",
+    "merge_sha": "1865f28469e8c66903bfb2c17ccaf31da302b41a",
+    "title": "fix(groups): preserve numeric values when editing RPM overrides",
+    "upstream_diff_sha256": "c3605873bcbedc6418093e255e0fd773338f282af98ab43c4473a12358bcd045",
+    "files": [
+      "frontend/src/components/admin/group/GroupRPMOverridesModal.vue",
+      "frontend/src/components/admin/group/__tests__/GroupRPMOverridesModal.edit.spec.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "frontend/src/components/admin/group/GroupRPMOverridesModal.vue": []
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:35:28Z",
+    "github_merge_sha": "1865f28469e8c66903bfb2c17ccaf31da302b41a",
+    "decision": "RPM 编辑使用完整 Number 并校验整数，拒绝小数、垃圾后缀、空值和负数。",
+    "current_owner": "frontend/src/features/admin-groups/presentation/widgets/GroupRPMOverridesDialog.vue",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "frontend/src/features/admin-groups/presentation/widgets/GroupRPMOverridesDialog.vue",
+      "frontend/src/features/admin-groups/presentation/widgets/__tests__/GroupRPMOverridesDialog.edit.spec.ts"
+    ],
+    "local_diff_sha256": "92817813ec04dd7377d9a987162f9a110874828de8f506fb3429a2cfd233ab96",
+    "added_owner_sha256": {
+      "frontend/src/features/admin-groups/presentation/widgets/__tests__/GroupRPMOverridesDialog.edit.spec.ts": "69bb3b42b22974363cedfd6ad61ecb0ae40a4d9ded22d86892f2b8e7e6a75cb1"
+    }
+  },
+  {
+    "pr": 7843,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7843",
+    "merge_sha": "d1202bea5fa8f3dca267cd7ffaa7e2678d9b8b00",
+    "title": "fix(ops): validate alert rule durations as whole minutes",
+    "upstream_diff_sha256": "bef788b775bcd940204da177004926ac8f2ed974a30b07d4f2db450c9faf066f",
+    "files": [
+      "frontend/src/views/admin/ops/components/OpsAlertRulesCard.vue",
+      "frontend/src/views/admin/ops/components/__tests__/OpsAlertRulesCard.duration.spec.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "frontend/src/views/admin/ops/components/OpsAlertRulesCard.vue": [
+        "frontend/src/features/admin-ops/presentation/widgets/OpsAlertRulesCard.vue"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:35:43Z",
+    "github_merge_sha": "d1202bea5fa8f3dca267cd7ffaa7e2678d9b8b00",
+    "decision": "告警持续/冷却时长为范围内整数分钟，校验保持原 owner。",
+    "current_owner": "frontend/src/features/admin-ops/presentation/widgets/OpsAlertRulesCard.vue",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "frontend/src/features/admin-ops/presentation/widgets/OpsAlertRulesCard.vue"
+    ],
+    "local_diff_sha256": "98bbeb23351de9fef2d936dd545cfcbbe18d877b2e3829dd8e683b9edbfb6245"
+  },
+  {
+    "pr": 7842,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7842",
+    "merge_sha": "486b226b69075bf7b69b0b24f0e612c0ddb07d32",
+    "title": "fix(ops): require loaded settings before saving",
+    "upstream_diff_sha256": "c44310d8d76f3048d28e2a67c92460e0481e64657d27101a7a8304967e49e8e7",
+    "files": [
+      "frontend/src/views/admin/ops/components/OpsSettingsDialog.vue",
+      "frontend/src/views/admin/ops/components/__tests__/OpsSettingsDialog.loading.spec.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "frontend/src/views/admin/ops/components/OpsSettingsDialog.vue": [
+        "frontend/src/features/admin-ops/presentation/widgets/OpsSettingsDialog.vue"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:35:57Z",
+    "github_merge_sha": "486b226b69075bf7b69b0b24f0e612c0ddb07d32",
+    "decision": "运维设置只有全部读取成功后允许保存，读取失败/加载中保留禁用。",
+    "current_owner": "frontend/src/features/admin-ops/presentation/widgets/OpsSettingsDialog.vue",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "frontend/src/features/admin-ops/presentation/widgets/OpsSettingsDialog.vue"
+    ],
+    "local_diff_sha256": "a10b91112bdd95435deac74360f8b52b47c72f09e1dcd2286768eaf53820128e"
+  },
+  {
+    "pr": 7841,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7841",
+    "merge_sha": "02aad478f39961619fcbdd8371e33e13f2b020af",
+    "title": "fix(ops): discard stale alert event pages after filter changes",
+    "upstream_diff_sha256": "31fd58a119970cfe7b2894159cebd6f55dbe6e55e795a6ab4adf5f407eeb6e36",
+    "files": [
+      "frontend/src/views/admin/ops/components/OpsAlertEventsCard.vue",
+      "frontend/src/views/admin/ops/components/__tests__/OpsAlertEventsCard.pagination.spec.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "frontend/src/views/admin/ops/components/OpsAlertEventsCard.vue": [
+        "frontend/src/features/admin-ops/presentation/widgets/OpsAlertEventsCard.vue"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:36:08Z",
+    "github_merge_sha": "02aad478f39961619fcbdd8371e33e13f2b020af",
+    "decision": "告警事件筛选/翻页请求版本隔离，旧页结果和错误不修改新列表。",
+    "current_owner": "frontend/src/features/admin-ops/presentation/widgets/OpsAlertEventsCard.vue",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "frontend/src/features/admin-ops/presentation/widgets/OpsAlertEventsCard.vue"
+    ],
+    "local_diff_sha256": "ff11d82a1a4e52b276fb57c4d28412f55bcf83aeebe7aac5832732e8be95cc98"
+  },
+  {
+    "pr": 7840,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7840",
+    "merge_sha": "2c6bd63de92769d55315d5bd9463abd0d2b1920f",
+    "title": "fix(monitor): ignore obsolete template manager list responses",
+    "upstream_diff_sha256": "cca51817b9c2b709474cb3db8c9816780aa2cde18868e71be13a1338938712c3",
+    "files": [
+      "frontend/src/components/admin/monitor/MonitorTemplateManagerDialog.vue",
+      "frontend/src/components/admin/monitor/__tests__/MonitorTemplateManagerDialog.requests.spec.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "frontend/src/components/admin/monitor/MonitorTemplateManagerDialog.vue": [
+        "frontend/src/features/admin-channel-monitor/presentation/widgets/MonitorTemplateManagerDialog.vue"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:36:20Z",
+    "github_merge_sha": "2c6bd63de92769d55315d5bd9463abd0d2b1920f",
+    "decision": "监控模板请求版本隔离，关闭/卸载忽略旧结果。",
+    "current_owner": "frontend/src/features/admin-channel-monitor/presentation/widgets/MonitorTemplateManagerDialog.vue",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "frontend/src/features/admin-channel-monitor/presentation/widgets/MonitorTemplateManagerDialog.vue",
+      "frontend/src/features/admin-channel-monitor/presentation/widgets/__tests__/MonitorTemplateManagerDialog.requests.spec.ts"
+    ],
+    "local_diff_sha256": "fbee8d76fb82dd1ae7405203f9cd2fc3b09f61d868f41fa94b896e7b5fcf4032",
+    "added_owner_sha256": {
+      "frontend/src/features/admin-channel-monitor/presentation/widgets/__tests__/MonitorTemplateManagerDialog.requests.spec.ts": "1cf8a254057a28f4dba958a628086e4db4fe8c822655daf4a9e5f5c9f9a26eba"
+    }
+  },
+  {
+    "pr": 7839,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7839",
+    "merge_sha": "f3bcad3c3352eb21b351381131dc3cf1bc3373f2",
+    "title": "fix(admin): keep scheduled test results scoped to the expanded plan",
+    "upstream_diff_sha256": "3184ce83b409be28bdc74bf43ce17b9c8a76bb86b83cba6dfda5199ed2984ad3",
+    "files": [
+      "frontend/src/components/admin/account/ScheduledTestsPanel.vue",
+      "frontend/src/components/admin/account/__tests__/ScheduledTestsPanel.results.spec.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "frontend/src/components/admin/account/ScheduledTestsPanel.vue": [
+        "frontend/src/features/admin-accounts/presentation/widgets/ScheduledTestsPanel.vue"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:36:34Z",
+    "github_merge_sha": "f3bcad3c3352eb21b351381131dc3cf1bc3373f2",
+    "decision": "计划测试结果只归属当前展开计划，折叠/重开/卸载立即失效。",
+    "current_owner": "frontend/src/features/admin-accounts/presentation/widgets/ScheduledTestsPanel.vue",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "frontend/src/features/admin-accounts/presentation/widgets/ScheduledTestsPanel.vue",
+      "frontend/src/features/admin-accounts/presentation/widgets/__tests__/ScheduledTestsPanel.results.spec.ts"
+    ],
+    "local_diff_sha256": "52f522225b635aeec58588326e65f08223b54e2fb6087d9dcebb3d94a0de2eae",
+    "added_owner_sha256": {
+      "frontend/src/features/admin-accounts/presentation/widgets/__tests__/ScheduledTestsPanel.results.spec.ts": "321c4dace9813d0e2951fa91973f186fab5449ba9920457e61482406a09cbcec"
+    }
+  },
+  {
+    "pr": 7819,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7819",
+    "merge_sha": "4747827e355c35f9c62b2ba6b8f1969273d49a46",
+    "title": "fix(payment): stop late Stripe callbacks after leaving the page",
+    "upstream_diff_sha256": "d84c061047823848a114a8fd701a17acc78950d2f3e9d93c5b148ab516d10a73",
+    "files": [
+      "frontend/src/views/user/StripePaymentView.vue",
+      "frontend/src/views/user/__tests__/StripePaymentView.spec.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "frontend/src/views/user/StripePaymentView.vue": []
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:37:00Z",
+    "github_merge_sha": "4747827e355c35f9c62b2ba6b8f1969273d49a46",
+    "decision": "Stripe 页面卸载后禁止迟到 SDK callback、挂载、poll timer 和 redirect timer。",
+    "current_owner": "frontend/src/features/billing/presentation/pages/StripePaymentPage.vue",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "frontend/src/features/billing/__tests__/StripePaymentPage.spec.ts",
+      "frontend/src/features/billing/presentation/pages/StripePaymentPage.vue"
+    ],
+    "local_diff_sha256": "72f9042dc50881b5a52d24b752330ddc66dbe64516eddacb01e83b3174f5af42"
+  },
+  {
+    "pr": 7818,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7818",
+    "merge_sha": "b94974467b418a93638e808fa4797ee45ba200c8",
+    "title": "fix(custom-pages): ignore obsolete Markdown responses",
+    "upstream_diff_sha256": "e0e8e2bc4f4d11c23d4a6547cdca7cb62f9a12b6c1498c3639ff29cc2172acf7",
+    "files": [
+      "frontend/src/views/user/CustomPageView.vue",
+      "frontend/src/views/user/__tests__/CustomPageView.race.spec.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "frontend/src/views/user/CustomPageView.vue": []
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:37:12Z",
+    "github_merge_sha": "b94974467b418a93638e808fa4797ee45ba200c8",
+    "decision": "复用本项目已有 markdownRenderRequestSeq 与清洗，仅补 nextTick 后检查和卸载失效。",
+    "current_owner": "frontend/src/features/channels-user/presentation/pages/CustomLandingPage.vue",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "frontend/src/features/channels-user/presentation/pages/CustomLandingPage.vue"
+    ],
+    "local_diff_sha256": "20eab9e1d18e4828a75b857f9f38d28671149709e2836185922da5389fd4a086"
+  },
+  {
+    "pr": 7833,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7833",
+    "merge_sha": "48c647b5d2ef83301de61e4301b1bb12e2f0207b",
+    "title": "fix(profile): preserve email binding draft during user refresh",
+    "upstream_diff_sha256": "4b788934dffd202bf3fe03efc46d23a25a5966a2eed27e1db4dc2b83cffd691b",
+    "files": [
+      "Makefile",
+      "frontend/src/components/user/profile/ProfileIdentityBindingsSection.vue",
+      "frontend/src/components/user/profile/__tests__/ProfileIdentityBindingsSection.spec.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "Makefile": [
+        "Makefile"
+      ],
+      "frontend/src/components/user/profile/ProfileIdentityBindingsSection.vue": [
+        "frontend/src/features/profile/presentation/widgets/ProfileIdentityBindingsSection.vue"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:37:26Z",
+    "github_merge_sha": "48c647b5d2ef83301de61e4301b1bb12e2f0207b",
+    "decision": "身份邮箱绑定保留用户输入草稿，切用户和成功绑定时明确重置。",
+    "current_owner": "frontend/src/features/profile/presentation/widgets/ProfileIdentityBindingsSection.vue",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "backend/Makefile",
+      "frontend/src/features/profile/__tests__/ProfileIdentityBindingsSection.spec.ts",
+      "frontend/src/features/profile/presentation/widgets/ProfileIdentityBindingsSection.vue"
+    ],
+    "local_diff_sha256": "e846ec7a7f5a9827bdfb9b9f92a70dd6423987764f8919810613c3d4b82b5376"
+  },
+  {
+    "pr": 7897,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7897",
+    "merge_sha": "ba3af61251d37480e9cb124e1006b0003b8c81d4",
+    "title": "fix(usage): replace misleading long-context multiplier badge",
+    "upstream_diff_sha256": "a7052726600234a8de96706b1c9ea27349e6619a55f0b56eb5b1e750200d5093",
+    "files": [
+      "frontend/src/components/admin/usage/UsageTable.vue",
+      "frontend/src/components/admin/usage/__tests__/UsageTable.spec.ts",
+      "frontend/src/i18n/locales/en/admin/resources.ts",
+      "frontend/src/i18n/locales/zh/admin/resources.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "frontend/src/components/admin/usage/UsageTable.vue": [
+        "frontend/src/features/admin-usage/presentation/widgets/UsageTable.vue"
+      ],
+      "frontend/src/i18n/locales/en/admin/resources.ts": [
+        "frontend/src/core/i18n/locales/en/admin/resources.ts",
+        "frontend/src/core/i18n/locales/zh/admin/resources.ts"
+      ],
+      "frontend/src/i18n/locales/zh/admin/resources.ts": [
+        "frontend/src/core/i18n/locales/en/admin/resources.ts",
+        "frontend/src/core/i18n/locales/zh/admin/resources.ts"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:37:41Z",
+    "github_merge_sha": "ba3af61251d37480e9cb124e1006b0003b8c81d4",
+    "decision": "长上下文标记改为准确文案，移至 user 词表供用户与管理用量共用，不再显示统一 x2。",
+    "current_owner": "frontend/src/features/admin-usage/presentation/widgets/UsageTable.vue",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "frontend/src/core/i18n/locales/en/admin/resources.ts",
+      "frontend/src/core/i18n/locales/zh/admin/resources.ts",
+      "frontend/src/features/admin-usage/__tests__/UsageTable.spec.ts",
+      "frontend/src/features/admin-usage/presentation/widgets/UsageTable.vue"
+    ],
+    "local_diff_sha256": "41c02063505ecec9363eb4d0235f63704a4bf01fbab1b6bd31d80260cb9cd2dd"
+  },
+  {
+    "pr": 7853,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7853",
+    "merge_sha": "0ac774e3785aa2bd3a4d43808f216fcaddd88130",
+    "title": "feat(accounts): compact account search and filters",
+    "upstream_diff_sha256": "be84c1c3caf6c4a88d048afcbd047f673f45ffa6da9a661ed6b28515016eb703",
+    "files": [
+      "frontend/src/components/admin/account/AccountTableFilters.vue",
+      "frontend/src/components/admin/account/__tests__/AccountTableFilters.spec.ts",
+      "frontend/src/i18n/locales/en/admin/accounts.ts",
+      "frontend/src/i18n/locales/zh/admin/accounts.ts",
+      "frontend/src/views/admin/AccountsView.vue"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "frontend/src/components/admin/account/AccountTableFilters.vue": [
+        "frontend/src/features/admin-accounts/presentation/widgets/AccountTableFilters.vue"
+      ],
+      "frontend/src/i18n/locales/en/admin/accounts.ts": [
+        "frontend/src/core/i18n/locales/en/admin/accounts.ts",
+        "frontend/src/core/i18n/locales/zh/admin/accounts.ts"
+      ],
+      "frontend/src/i18n/locales/zh/admin/accounts.ts": [
+        "frontend/src/core/i18n/locales/en/admin/accounts.ts",
+        "frontend/src/core/i18n/locales/zh/admin/accounts.ts"
+      ],
+      "frontend/src/views/admin/AccountsView.vue": []
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:39:40Z",
+    "github_merge_sha": "0ac774e3785aa2bd3a4d43808f216fcaddd88130",
+    "decision": "紧凑账号筛选保留 OAuth 额度和 BPS，更多筛选展示有效计数与 aria；移动布局浏览器验证。",
+    "current_owner": "frontend/src/features/admin-accounts/presentation/widgets/AccountTableFilters.vue",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "frontend/src/core/i18n/locales/en/admin/accounts.ts",
+      "frontend/src/core/i18n/locales/zh/admin/accounts.ts",
+      "frontend/src/features/admin-accounts/__tests__/AccountTableFilters.spec.ts",
+      "frontend/src/features/admin-accounts/presentation/pages/AccountsPage.vue",
+      "frontend/src/features/admin-accounts/presentation/widgets/AccountTableFilters.vue"
+    ],
+    "local_diff_sha256": "065e52b89729467f7eb45c24b3a25d1c2ed58472532d7af892ec6601f99364d6"
+  },
+  {
+    "pr": 7793,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7793",
+    "merge_sha": "8e2c4fad321fe8ce86d577dd7561c371bf602647",
+    "title": "fix(models): list composite exact route aliases",
+    "upstream_diff_sha256": "60c70b782126efdedbb841c114f3ca6db60e5d166448b620e02c0c3e3a053a71",
+    "files": [
+      "backend/internal/handler/gateway_handler.go",
+      "backend/internal/handler/gateway_models_test.go",
+      "backend/internal/service/composite_route_resolver.go",
+      "backend/internal/service/composite_route_resolver_test.go",
+      "backend/internal/service/gateway_service.go"
+    ],
+    "status": "ported",
+    "fully_closed": false,
+    "owners": {
+      "backend/internal/handler/gateway_handler.go": [
+        "backend/internal/transport/http/handler/gateway_handler.go"
+      ],
+      "backend/internal/service/composite_route_resolver.go": [
+        "backend/internal/application/service/composite_route_resolver.go"
+      ],
+      "backend/internal/service/gateway_service.go": [
+        "backend/internal/application/service/gateway_service.go"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:39:51Z",
+    "github_merge_sha": "8e2c4fad321fe8ce86d577dd7561c371bf602647",
+    "decision": "组合分组列出 exact public aliases，复用现有缓存编译快照；没有复建旧 resolver 或启用 composite Codex catalog。",
+    "current_owner": "backend/internal/application/service/composite_route_resolver.go",
+    "current_surface_closed": true,
+    "reopen_condition": "启用 composite Codex catalog 时补 Responses endpoint 隔离与 System One 过滤；现有 /v1/models aliases 已关闭。",
+    "mapped_owners": [
+      "backend/internal/application/service/composite_route_resolver.go",
+      "backend/internal/application/service/composite_route_resolver_test.go",
+      "backend/internal/application/service/gateway_service.go",
+      "backend/internal/transport/http/handler/gateway_handler.go",
+      "backend/internal/transport/http/handler/gateway_models_test.go"
+    ],
+    "local_diff_sha256": "f86cbced953771970141ba95860263b49e6e77b822ed0d235f134fe60d0c5f62"
+  },
+  {
+    "pr": 7911,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7911",
+    "merge_sha": "745ff1d3ca79a7f39520f627f6aa44d778a11580",
+    "title": "feat(usage): add output TPS to usage logs and ops dashboard",
+    "upstream_diff_sha256": "5ed32f00b9842c8f50c9e6ab2cb0b4fb48ae41cb4abb00230b052e608064c1a9",
+    "files": [
+      "backend/internal/repository/ops_repo_dashboard.go",
+      "backend/internal/repository/ops_repo_dashboard_integration_test.go",
+      "backend/internal/repository/ops_repo_dashboard_timeout_test.go",
+      "backend/internal/service/ops_dashboard_models.go",
+      "frontend/src/api/admin/ops.ts",
+      "frontend/src/components/admin/usage/UsageTable.vue",
+      "frontend/src/components/admin/usage/__tests__/UsageTable.spec.ts",
+      "frontend/src/i18n/locales/en/admin/ops.ts",
+      "frontend/src/i18n/locales/en/dashboard.ts",
+      "frontend/src/i18n/locales/zh/admin/ops.ts",
+      "frontend/src/i18n/locales/zh/dashboard.ts",
+      "frontend/src/utils/__tests__/latencyHealth.spec.ts",
+      "frontend/src/utils/latencyHealth.ts",
+      "frontend/src/views/admin/ops/components/OpsDashboardHeader.vue",
+      "frontend/src/views/admin/ops/components/OpsDashboardSkeleton.vue",
+      "frontend/src/views/admin/ops/components/__tests__/OpsDashboardHeader.spec.ts",
+      "frontend/src/views/user/__tests__/UsageView.spec.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "backend/internal/repository/ops_repo_dashboard.go": [
+        "backend/internal/infrastructure/repository/ops_repo_dashboard.go"
+      ],
+      "backend/internal/service/ops_dashboard_models.go": [
+        "backend/internal/application/service/ops_dashboard_models.go"
+      ],
+      "frontend/src/api/admin/ops.ts": [
+        "frontend/src/core/i18n/locales/en/admin/ops.ts",
+        "frontend/src/core/i18n/locales/zh/admin/ops.ts"
+      ],
+      "frontend/src/components/admin/usage/UsageTable.vue": [
+        "frontend/src/features/admin-usage/presentation/widgets/UsageTable.vue"
+      ],
+      "frontend/src/i18n/locales/en/admin/ops.ts": [
+        "frontend/src/core/i18n/locales/en/admin/ops.ts",
+        "frontend/src/core/i18n/locales/zh/admin/ops.ts"
+      ],
+      "frontend/src/i18n/locales/en/dashboard.ts": [
+        "frontend/src/core/i18n/locales/en/dashboard.ts",
+        "frontend/src/core/i18n/locales/zh/dashboard.ts"
+      ],
+      "frontend/src/i18n/locales/zh/admin/ops.ts": [
+        "frontend/src/core/i18n/locales/en/admin/ops.ts",
+        "frontend/src/core/i18n/locales/zh/admin/ops.ts"
+      ],
+      "frontend/src/i18n/locales/zh/dashboard.ts": [
+        "frontend/src/core/i18n/locales/en/dashboard.ts",
+        "frontend/src/core/i18n/locales/zh/dashboard.ts"
+      ],
+      "frontend/src/utils/latencyHealth.ts": [
+        "frontend/src/core/utils/latencyHealth.ts"
+      ],
+      "frontend/src/views/admin/ops/components/OpsDashboardHeader.vue": [
+        "frontend/src/features/admin-ops/presentation/widgets/OpsDashboardHeader.vue"
+      ],
+      "frontend/src/views/admin/ops/components/OpsDashboardSkeleton.vue": [
+        "frontend/src/features/admin-ops/presentation/widgets/OpsDashboardSkeleton.vue"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T03:40:15Z",
+    "github_merge_sha": "745ff1d3ca79a7f39520f627f6aa44d778a11580",
+    "decision": "TPS 精确分位数融合现有 latency scan，覆盖 raw/preagg/snapshot；过滤图片/Live，字段可选，前端现有 OpsMetricsGrid 渲染。",
+    "current_owner": "backend/internal/infrastructure/repository/ops_repo_latency_metrics.go",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "backend/internal/application/service/ops_dashboard_models.go",
+      "backend/internal/infrastructure/repository/ops_repo_dashboard.go",
+      "backend/internal/infrastructure/repository/ops_repo_dashboard_timeout_test.go",
+      "backend/internal/infrastructure/repository/ops_repo_latency_metrics.go",
+      "frontend/src/core/i18n/locales/en/admin/ops.ts",
+      "frontend/src/core/i18n/locales/en/dashboard.ts",
+      "frontend/src/core/i18n/locales/zh/admin/ops.ts",
+      "frontend/src/core/i18n/locales/zh/dashboard.ts",
+      "frontend/src/core/utils/__tests__/latencyHealth.spec.ts",
+      "frontend/src/core/utils/latencyHealth.ts",
+      "frontend/src/features/admin-ops/__tests__/OpsDashboardHeader.spec.ts",
+      "frontend/src/features/admin-ops/presentation/widgets/OpsDashboardHeader.vue",
+      "frontend/src/features/admin-ops/presentation/widgets/OpsDashboardSkeleton.vue",
+      "frontend/src/features/admin-usage/__tests__/UsageTable.spec.ts",
+      "frontend/src/features/admin-usage/presentation/widgets/UsageTable.vue"
+    ],
+    "local_diff_sha256": "2a713ea2225d2e8e479ad86f6a049b0709e4a96091f5a45ecdb4ab5f353fc1c0",
+    "added_owner_sha256": {
+      "backend/internal/infrastructure/repository/ops_repo_latency_metrics.go": "c3ab88313495130d8655db1b238602064c56c3aceaef367246f99911a4992b8a"
+    }
+  },
+  {
+    "pr": 7703,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7703",
+    "merge_sha": "2eb7ccb6d258b6e75a7b849edb0119641d9dc024",
+    "title": "fix(openai): recover rejected encrypted reasoning signatures",
+    "upstream_diff_sha256": "387277d1b5a122b0c29e033abe7b6abac2290b4ea988f7010d1f780984e1e5e0",
+    "files": [
+      "backend/internal/service/openai_gateway_forward.go",
+      "backend/internal/service/openai_gateway_service_hotpath_test.go"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "backend/internal/service/openai_gateway_forward.go": [
+        "backend/internal/application/service/openai_gateway_forward.go",
+        "diagnostics/stream-control-20260907/original/backend/internal/application/service/openai_gateway_forward.go"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T05:48:34Z",
+    "github_merge_sha": "2eb7ccb6d258b6e75a7b849edb0119641d9dc024",
+    "decision": "加密 thinking signature invalid 的窄错误条件共用原单次恢复；保留 continuation 禁止恢复边界。",
+    "current_owner": "backend/internal/application/service/openai_gateway_forward.go",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "backend/internal/application/service/openai_gateway_forward.go",
+      "backend/internal/application/service/openai_gateway_service_hotpath_test.go"
+    ],
+    "local_diff_sha256": "46c4fb6102d676671b5fbd26c768d2cee3b35d214779ac5855d82e78524b57c6"
+  },
+  {
+    "pr": 7732,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7732",
+    "merge_sha": "9e46f2d77ec87f5230f04dc01e53a750ce5ce232",
+    "title": "fix(auth): share pending step-up verification prompts",
+    "upstream_diff_sha256": "7518a4fd08fe15b2b0f7c7a810e3a4d29faa6852bd36af487b9d2cd7fde41a42",
+    "files": [
+      "frontend/src/composables/__tests__/useStepUp.spec.ts",
+      "frontend/src/composables/useStepUp.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "frontend/src/composables/useStepUp.ts": [
+        "frontend/src/common/composables/useStepUp.ts"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T05:48:52Z",
+    "github_merge_sha": "9e46f2d77ec87f5230f04dc01e53a750ce5ce232",
+    "decision": "同一 controller 并发 step-up 共享待决 promise，取消/完成清除；不改变后端 step-up 开关。",
+    "current_owner": "frontend/src/common/composables/useStepUp.ts",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "frontend/src/common/composables/__tests__/useStepUp.spec.ts",
+      "frontend/src/common/composables/useStepUp.ts"
+    ],
+    "local_diff_sha256": "ea3949e5cf845fd51477f1f7b3ef1e9856215ffc04eea95c7bee07ae39f3718e"
+  },
+  {
+    "pr": 7765,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7765",
+    "merge_sha": "068239305ede5f7f4548d421485921f8438958c7",
+    "title": "fix(auth): keep cleared compliance state isolated from pending requests",
+    "upstream_diff_sha256": "7116d3650ede61ef99415d2ad93cf0ae65ae6c2e64ba5387c30cac5e7c5b5a62",
+    "files": [
+      "frontend/src/stores/__tests__/adminCompliance.reset.spec.ts",
+      "frontend/src/stores/adminCompliance.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "frontend/src/stores/adminCompliance.ts": []
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T05:49:13Z",
+    "github_merge_sha": "068239305ede5f7f4548d421485921f8438958c7",
+    "decision": "合规 store reset 后隔离未完成请求，旧结果不覆盖新用户状态。",
+    "current_owner": "frontend/src/features/admin-settings/presentation/stores/adminComplianceStore.ts",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "frontend/src/features/admin-settings/presentation/stores/__tests__/adminCompliance.reset.spec.ts",
+      "frontend/src/features/admin-settings/presentation/stores/adminComplianceStore.ts"
+    ],
+    "local_diff_sha256": "d145c577725b4dead846b1041c0c3da9ae965d80671a1e94537615ac05abcfaa",
+    "added_owner_sha256": {
+      "frontend/src/features/admin-settings/presentation/stores/__tests__/adminCompliance.reset.spec.ts": "bc711fe35d94ebadf6fc93aecd217a9df74bbded1442c7bb8f9f7332a2293048"
+    }
+  },
+  {
+    "pr": 7764,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7764",
+    "merge_sha": "2c13fb595eafa5c36c6c89a79a2445c78c6d1f45",
+    "title": "fix(plugins): ignore obsolete configuration UI sessions",
+    "upstream_diff_sha256": "7b17d4984f36d9821693789058edf85c7c7a351c8b324c92f3893c95d83ea2bd",
+    "files": [
+      "frontend/src/views/admin/PluginsView.vue",
+      "frontend/src/views/admin/__tests__/PluginsView.spec.ts"
+    ],
+    "status": "covered",
+    "fully_closed": false,
+    "owners": {
+      "frontend/src/views/admin/PluginsView.vue": []
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T05:49:24Z",
+    "github_merge_sha": "2c13fb595eafa5c36c6c89a79a2445c78c6d1f45",
+    "decision": "当前项目未启用插件配置 UI/UISession，不存在该运行路径；保留独立前置功能和关闭原因。",
+    "current_owner": "frontend/src/core/routes/index.ts",
+    "current_surface_closed": true,
+    "reopen_condition": "首次启用插件安装/UISession 功能时实现请求版本隔离并跑其生命周期测试。",
+    "mapped_owners": [
+      "frontend/src/core/routes/index.ts"
+    ],
+    "local_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "pr": 7731,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7731",
+    "merge_sha": "3dc2a9c371dc8e0a4abc6e145399615a09c63b37",
+    "title": "fix(ui): limit Escape to the most recently opened dialog",
+    "upstream_diff_sha256": "1d50fe1bd38d76fbe2ef88718bf69f84a88694c638f0820a795f1b335e007d21",
+    "files": [
+      "frontend/src/components/common/BaseDialog.vue",
+      "frontend/src/components/common/__tests__/BaseDialog.escape.spec.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "frontend/src/components/common/BaseDialog.vue": [
+        "artifacts/upstream-sync-20260918/baseline/all/frontend/src/common/widgets/feedback/BaseDialog.vue",
+        "frontend/src/common/widgets/feedback/BaseDialog.vue"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T05:49:34Z",
+    "github_merge_sha": "3dc2a9c371dc8e0a4abc6e145399615a09c63b37",
+    "decision": "只有最后打开的 dialog 响应 Escape，子弹窗禁用 Escape 时父弹窗不关闭；复用独立 bodyScrollLock。",
+    "current_owner": "frontend/src/common/widgets/feedback/BaseDialog.vue",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "frontend/src/common/widgets/feedback/BaseDialog.vue",
+      "frontend/src/common/widgets/feedback/__tests__/BaseDialog.escape.spec.ts"
+    ],
+    "local_diff_sha256": "5d69e018dd04e7461e140be41095ea9c9dc8071d4f8f2a0a74ad8eed6ec0a47d",
+    "added_owner_sha256": {
+      "frontend/src/common/widgets/feedback/__tests__/BaseDialog.escape.spec.ts": "91a8b1c4e623393b244446d716258f3b6122be1e1cda05cdd568da2ac1098d35"
+    }
+  },
+  {
+    "pr": 7729,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7729",
+    "merge_sha": "0b51cbe15d1a5ac21b35e7c125cd464306410503",
+    "title": "fix(backup): prevent polling from restarting after navigation",
+    "upstream_diff_sha256": "dae86a1a7b6144f6cb6ad2d1f4d25b9cbfc4eedddd4b4b9df98fba237608be51",
+    "files": [
+      "frontend/src/views/admin/BackupView.vue",
+      "frontend/src/views/admin/__tests__/BackupView.spec.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "frontend/src/views/admin/BackupView.vue": []
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T05:49:48Z",
+    "github_merge_sha": "0b51cbe15d1a5ac21b35e7c125cd464306410503",
+    "decision": "备份页卸载后禁止迟到结果重启轮询。",
+    "current_owner": "frontend/src/features/admin-backup/presentation/pages/BackupPage.vue",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "frontend/src/features/admin-backup/presentation/pages/BackupPage.vue",
+      "frontend/src/features/admin-backup/presentation/pages/__tests__/BackupPage.spec.ts"
+    ],
+    "local_diff_sha256": "394a018294de7d583c65327a112f14349070322cebcd3dd82b1236a07ac04275"
+  },
+  {
+    "pr": 7724,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7724",
+    "merge_sha": "3149d6285178b9f55d5e651f1787f68d6b36afca",
+    "title": "fix(usage): ignore obsolete cleanup task list responses",
+    "upstream_diff_sha256": "f8c1ff4eaa820ba02bf02ff8e8ba0f844cce8df581582f7e6729bc78258d0cc8",
+    "files": [
+      "frontend/src/components/admin/usage/UsageCleanupDialog.vue",
+      "frontend/src/components/admin/usage/__tests__/UsageCleanupDialog.spec.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "frontend/src/components/admin/usage/UsageCleanupDialog.vue": [
+        "frontend/src/features/admin-usage/presentation/widgets/UsageCleanupDialog.vue"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T05:49:59Z",
+    "github_merge_sha": "3149d6285178b9f55d5e651f1787f68d6b36afca",
+    "decision": "清理任务请求版本隔离分页和关闭，不让旧轮询覆盖新任务。",
+    "current_owner": "frontend/src/features/admin-usage/presentation/widgets/UsageCleanupDialog.vue",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "frontend/src/features/admin-usage/presentation/widgets/UsageCleanupDialog.vue",
+      "frontend/src/features/admin-usage/presentation/widgets/__tests__/UsageCleanupDialog.spec.ts"
+    ],
+    "local_diff_sha256": "9e0af392e38723d37addd1c75665be7d7c2a28689857457fb8482a1c6fd35af6",
+    "added_owner_sha256": {
+      "frontend/src/features/admin-usage/presentation/widgets/__tests__/UsageCleanupDialog.spec.ts": "7a7616bd8c6e9a4647028ef90d67ac61330f79c4683fe429431a0b4410c426d3"
+    }
+  },
+  {
+    "pr": 7723,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7723",
+    "merge_sha": "6cfa0f4ef842770b51c3c4616c6996f63ed34409",
+    "title": "fix(batch-image): allow access lookup retries after request failures",
+    "upstream_diff_sha256": "59ac832ebec16532f6df05cd61c1b29b5f1555ac51a248d5a8a9003ff8a0877f",
+    "files": [
+      "frontend/src/composables/__tests__/useBatchImageAccess.retry.spec.ts",
+      "frontend/src/composables/useBatchImageAccess.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "frontend/src/composables/useBatchImageAccess.ts": [
+        "frontend/src/features/batch-image/presentation/composables/useBatchImageAccess.ts"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T05:50:09Z",
+    "github_merge_sha": "6cfa0f4ef842770b51c3c4616c6996f63ed34409",
+    "decision": "批量图片权限查询失败保持 loaded=false，允许后续重试。",
+    "current_owner": "frontend/src/features/batch-image/presentation/composables/useBatchImageAccess.ts",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "frontend/src/features/batch-image/presentation/composables/__tests__/useBatchImageAccess.retry.spec.ts",
+      "frontend/src/features/batch-image/presentation/composables/useBatchImageAccess.ts"
+    ],
+    "local_diff_sha256": "56598e1b26b4df8c4dc2123dbdb091a32a8a106af3088d3d8dfbb771cefa6808",
+    "added_owner_sha256": {
+      "frontend/src/features/batch-image/presentation/composables/__tests__/useBatchImageAccess.retry.spec.ts": "0e15641044a2e6b9d9fcaf69184a612c324effdefa218c8a9fdf823ce1c051f4"
+    }
+  },
+  {
+    "pr": 7722,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7722",
+    "merge_sha": "9663b5ccf05a0f2efefceef96727170e36042260",
+    "title": "fix(announcements): report failed read confirmations accurately",
+    "upstream_diff_sha256": "729b7629d8894e3865e60a66a11b539bf49f4d6e02deec4b397ae4660d187a56",
+    "files": [
+      "frontend/src/components/common/AnnouncementBell.vue",
+      "frontend/src/components/common/__tests__/AnnouncementBell.spec.ts",
+      "frontend/src/stores/announcements.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "frontend/src/components/common/AnnouncementBell.vue": [
+        "frontend/src/common/widgets/data/AnnouncementBell.vue"
+      ],
+      "frontend/src/stores/announcements.ts": []
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T05:50:19Z",
+    "github_merge_sha": "9663b5ccf05a0f2efefceef96727170e36042260",
+    "decision": "公告标已读返回实际成功状态，失败保留未读并显示错误。",
+    "current_owner": "frontend/src/features/announcements/presentation/stores/announcementsStore.ts",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "frontend/src/common/widgets/data/AnnouncementBell.vue",
+      "frontend/src/features/announcements/presentation/stores/announcementsStore.ts"
+    ],
+    "local_diff_sha256": "2d05cc2f8263da3ff384e58318c24ff1803c9cad4f92532465a50cf6bb8a4ad1"
+  },
+  {
+    "pr": 7720,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7720",
+    "merge_sha": "b0c2c4d623df46e2641493cb81910771d1ed82b8",
+    "title": "fix(usage): preserve zero user multipliers in cost details",
+    "upstream_diff_sha256": "c91de44062d6f1507bdd3abbbae0b1ae99456d1efdba4d058ffe069ff8326d6b",
+    "files": [
+      "frontend/src/components/admin/usage/UsageTable.vue",
+      "frontend/src/components/admin/usage/__tests__/UsageTable.spec.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "frontend/src/components/admin/usage/UsageTable.vue": [
+        "frontend/src/features/admin-usage/presentation/widgets/UsageTable.vue"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T05:50:40Z",
+    "github_merge_sha": "b0c2c4d623df46e2641493cb81910771d1ed82b8",
+    "decision": "用户零倍率使用 ?? 而非 ||，避免显示成 1x。",
+    "current_owner": "frontend/src/features/admin-usage/presentation/widgets/UsageTable.vue",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "frontend/src/features/admin-usage/__tests__/UsageTable.spec.ts",
+      "frontend/src/features/admin-usage/presentation/widgets/UsageTable.vue"
+    ],
+    "local_diff_sha256": "41c02063505ecec9363eb4d0235f63704a4bf01fbab1b6bd31d80260cb9cd2dd"
+  },
+  {
+    "pr": 7719,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7719",
+    "merge_sha": "a61833898763b2b52e211fd6c7b64b3c83d7b985",
+    "title": "fix(profile): ignore obsolete notification email code responses",
+    "upstream_diff_sha256": "b446ac0c47f189d785c8922fc3fe24e65c7db8e24b9a32b8e9c7d166fdc7e694",
+    "files": [
+      "frontend/src/components/user/profile/ProfileBalanceNotifyCard.vue",
+      "frontend/src/components/user/profile/__tests__/ProfileBalanceNotifyCard.spec.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "frontend/src/components/user/profile/ProfileBalanceNotifyCard.vue": [
+        "frontend/src/features/profile/presentation/widgets/ProfileBalanceNotifyCard.vue"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T05:50:55Z",
+    "github_merge_sha": "a61833898763b2b52e211fd6c7b64b3c83d7b985",
+    "decision": "通知邮箱验证码迟到响应不为移除项或卸载组件创建定时器。",
+    "current_owner": "frontend/src/features/profile/presentation/widgets/ProfileBalanceNotifyCard.vue",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "frontend/src/features/profile/presentation/widgets/ProfileBalanceNotifyCard.vue"
+    ],
+    "local_diff_sha256": "68152b73a305b9ec4f449eb9228466b6edbe63cd6341e23549c342aabeed53c7"
+  },
+  {
+    "pr": 7718,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7718",
+    "merge_sha": "d068b866f3e12ecdd2a49040b242e47589ac00bd",
+    "title": "fix(users): show normalized errors when bulk updating limits",
+    "upstream_diff_sha256": "69027a45de92020d8ebca4a16ed1a91fa7e4beedd3061c610555371c449e4159",
+    "files": [
+      "frontend/src/components/admin/user/BulkEditUserModal.vue",
+      "frontend/src/components/admin/user/__tests__/BulkEditUserModal.spec.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "frontend/src/components/admin/user/BulkEditUserModal.vue": []
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T05:51:05Z",
+    "github_merge_sha": "d068b866f3e12ecdd2a49040b242e47589ac00bd",
+    "decision": "批量用户限制更新复用标准归一化 API 错误文本。",
+    "current_owner": "frontend/src/features/admin-users/presentation/widgets/BulkEditUserDialog.vue",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "frontend/src/features/admin-users/__tests__/BulkEditUserModal.spec.ts",
+      "frontend/src/features/admin-users/presentation/widgets/BulkEditUserDialog.vue"
+    ],
+    "local_diff_sha256": "38505b41a203e32d281f63c739c0442fe1b49e7404c8ed003933c73332a81793"
+  },
+  {
+    "pr": 7716,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7716",
+    "merge_sha": "5a6e826f83f8f6a515b216a3cf9de157f528a3a1",
+    "title": "fix(pricing): preserve exponents when trimming scaled prices",
+    "upstream_diff_sha256": "4d7d6f74563f6a2a4a88d33f715993e8c4b5f61375e7fb7e40a1f83fcaba4c75",
+    "files": [
+      "frontend/src/utils/__tests__/pricing.formatScaled.spec.ts",
+      "frontend/src/utils/pricing.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "frontend/src/utils/pricing.ts": [
+        "frontend/src/core/utils/pricing.ts"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T05:51:19Z",
+    "github_merge_sha": "5a6e826f83f8f6a515b216a3cf9de157f528a3a1",
+    "decision": "价格显示通过 Number 保留指数，避免正则截断科学计数法。",
+    "current_owner": "frontend/src/core/utils/pricing.ts",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "frontend/src/core/utils/__tests__/pricing.formatScaled.spec.ts",
+      "frontend/src/core/utils/pricing.ts"
+    ],
+    "local_diff_sha256": "79b8472980386abecc7d919ebb4b318f997fe51ee1ad563b564f80f6326e8667",
+    "added_owner_sha256": {
+      "frontend/src/core/utils/__tests__/pricing.formatScaled.spec.ts": "c3bd0a27bb38ac9a8c186ce0f4276f451cd0ea008557abed307c1075b3d6d7e1"
+    }
+  },
+  {
+    "pr": 7728,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7728",
+    "merge_sha": "80dd7288a61af1bc64cbf479b88295c265b9ba6d",
+    "title": "fix(auth): avoid starting OAuth code cooldowns after unmount",
+    "upstream_diff_sha256": "33b1c222a38e9b5289a3452ac5faa80333a96f6bb7247475982b373454de64ad",
+    "files": [
+      "frontend/src/components/auth/PendingOAuthCreateAccountForm.vue",
+      "frontend/src/components/auth/__tests__/PendingOAuthCreateAccountForm.spec.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "frontend/src/components/auth/PendingOAuthCreateAccountForm.vue": [
+        "frontend/src/features/auth/presentation/widgets/PendingOAuthCreateAccountForm.vue"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T05:51:30Z",
+    "github_merge_sha": "80dd7288a61af1bc64cbf479b88295c265b9ba6d",
+    "decision": "OAuth 账户表单卸载后不启动验证码 cooldown。",
+    "current_owner": "frontend/src/features/auth/presentation/widgets/PendingOAuthCreateAccountForm.vue",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "frontend/src/features/auth/__tests__/PendingOAuthCreateAccountForm.spec.ts",
+      "frontend/src/features/auth/presentation/widgets/PendingOAuthCreateAccountForm.vue"
+    ],
+    "local_diff_sha256": "b79709693a471f8610f4762393b1503cc8ca569256d19dd5244df1ddc54d375d"
+  },
+  {
+    "pr": 7725,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7725",
+    "merge_sha": "3a012ac0cee4e54e747f0bb5cf292c4883718d94",
+    "title": "fix(ui): close selectors when they become disabled",
+    "upstream_diff_sha256": "a0bd037d308909cfeb77a2b690277466b707d99216628b27752b17d4d1e096c9",
+    "files": [
+      "frontend/src/components/common/ProxySelector.vue",
+      "frontend/src/components/common/Select.vue",
+      "frontend/src/components/common/__tests__/disabledSelectors.spec.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "frontend/src/components/common/ProxySelector.vue": [
+        "artifacts/upstream-sync-20260918/baseline/all/frontend/src/common/widgets/data/ProxySelector.vue",
+        "frontend/src/common/widgets/data/ProxySelector.vue"
+      ],
+      "frontend/src/components/common/Select.vue": [
+        "frontend/src/common/widgets/forms/Select.vue"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T05:51:41Z",
+    "github_merge_sha": "3a012ac0cee4e54e747f0bb5cf292c4883718d94",
+    "decision": "Select/ProxySelector 变为 disabled 时关闭展开列表并清代理搜索。",
+    "current_owner": "frontend/src/common/widgets/forms/Select.vue",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "frontend/src/common/widgets/data/ProxySelector.vue",
+      "frontend/src/common/widgets/forms/Select.vue",
+      "frontend/src/common/widgets/forms/__tests__/disabledSelectors.spec.ts"
+    ],
+    "local_diff_sha256": "77ae68df6572b9ed2e41ed82586ca12be8c36c798d0c47497035e72a192a34d9",
+    "added_owner_sha256": {
+      "frontend/src/common/widgets/forms/__tests__/disabledSelectors.spec.ts": "ba7af0957629383ca63a92842aca0f0f35f15c45401f7752cc02fc674be9213b"
+    }
+  },
+  {
+    "pr": 7721,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7721",
+    "merge_sha": "3e69643392e7ec45bbfd3402a245d397d4b79cb8",
+    "title": "fix(ops): retain byte units for sub-byte throughput",
+    "upstream_diff_sha256": "ff659945b51a956dd2f8901930690ce03c7822a3de67ce1842a5c70e3d3db63b",
+    "files": [
+      "frontend/src/utils/__tests__/formatBytes.spec.ts",
+      "frontend/src/utils/format.ts"
+    ],
+    "status": "ported",
+    "fully_closed": true,
+    "owners": {
+      "frontend/src/utils/format.ts": [
+        "frontend/src/core/utils/format.ts"
+      ]
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T05:51:52Z",
+    "github_merge_sha": "3e69643392e7ec45bbfd3402a245d397d4b79cb8",
+    "decision": "小于 1 的 bytes/rate 单位索引至少 0，显示 B 不再 undefined。",
+    "current_owner": "frontend/src/core/utils/format.ts",
+    "current_surface_closed": true,
+    "reopen_condition": "仅当该 owner 的实际行为或上游后续变更改变本条语义时重开；精确冻结 diff 不重复处理。",
+    "mapped_owners": [
+      "frontend/src/core/utils/__tests__/formatBytes.spec.ts",
+      "frontend/src/core/utils/format.ts"
+    ],
+    "local_diff_sha256": "fc213ad789aca9b01d0a23887a28f71e79cfa47a3ccb3cda8ca42b64d318fc71",
+    "added_owner_sha256": {
+      "frontend/src/core/utils/__tests__/formatBytes.spec.ts": "3bbf3683fdba48257c81634b9facc23194718fdd917101c8b5eea5ca2e08d894"
+    }
+  },
+  {
+    "pr": 7916,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7916",
+    "merge_sha": "5fc0e486c3f6a8a191b8bd140f39b60457f611cf",
+    "title": "fix(channel-monitor): require request samples before health scoring",
+    "upstream_diff_sha256": "777719cb200b22f029f243f6e5634216c299b20435798f62ef8f3ca883ce0c4b",
+    "files": [
+      "backend/internal/service/channel_monitor_v2.go",
+      "backend/internal/service/channel_monitor_v2_test.go"
+    ],
+    "status": "covered",
+    "fully_closed": false,
+    "owners": {
+      "backend/internal/service/channel_monitor_v2.go": []
+    },
+    "prior_records": [],
+    "github_merged_at": "2026-10-08T05:52:34Z",
+    "github_merge_sha": "5fc0e486c3f6a8a191b8bd140f39b60457f611cf",
+    "decision": "当前项目无上游 channel_monitor_v2 最小样本健康阈值模块；当前 passive 监控契约保持，不伪造 V2 完成。",
+    "current_owner": "backend/internal/application/service/channel_monitor_types.go",
+    "current_surface_closed": true,
+    "reopen_condition": "首次启用 channel_monitor_v2 健康阈值功能时移植最小样本门并测试不足样本。",
+    "mapped_owners": [
+      "backend/internal/application/service/channel_monitor_types.go"
+    ],
+    "local_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+]

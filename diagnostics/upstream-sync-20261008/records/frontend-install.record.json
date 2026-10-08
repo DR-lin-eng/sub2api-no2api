@@ -1,0 +1,29 @@
+{
+  "label": "frontend-install",
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo",
+  "argv": [
+    "docker",
+    "run",
+    "--rm",
+    "-v",
+    "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo:/workspace",
+    "-v",
+    "sub2api-sync-20261007-node:/workspace/frontend/node_modules",
+    "-w",
+    "/workspace/frontend",
+    "node:24-alpine",
+    "sh",
+    "-c",
+    "corepack enable && corepack prepare pnpm@11.17.0 --activate && pnpm install --frozen-lockfile --prefer-offline"
+  ],
+  "command": "docker run --rm -v /private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo:/workspace -v sub2api-sync-20261007-node:/workspace/frontend/node_modules -w /workspace/frontend node:24-alpine sh -c 'corepack enable && corepack prepare pnpm@11.17.0 --activate && pnpm install --frozen-lockfile --prefer-offline'",
+  "input": "repository sources and committed regression fixtures",
+  "stdout": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/records/frontend-install.stdout",
+  "stderr": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/records/frontend-install.stderr",
+  "exit": 0,
+  "started": "2026-10-08T14:54:19.841195+00:00",
+  "finished": "2026-10-08T14:55:04.626482+00:00",
+  "accepted": false,
+  "stdout_sha256": "eee4fb92d2cc997d9a0997faa57448f11c530a6b1aa53d49b617d152c3a5203a",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

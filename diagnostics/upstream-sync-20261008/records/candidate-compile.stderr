@@ -1,0 +1,2 @@
+# github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2
+internal/application/service/openai_ws_v2/passthrough_relay.go:1159:3: duplicate field name ImageInputTokens in struct literal

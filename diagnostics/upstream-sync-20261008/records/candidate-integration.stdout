@@ -1,0 +1,176 @@
+ok  	github.com/Wei-Shaw/sub2api/cmd/cleanup-ingress-reject-logs	0.012s
+?   	github.com/Wei-Shaw/sub2api/cmd/jwtgen	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/cmd/profit-preview	0.009s
+ok  	github.com/Wei-Shaw/sub2api/cmd/server	0.012s
+?   	github.com/Wei-Shaw/sub2api/ent	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/account	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/accountegressbinding	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/accountgroup	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/announcement	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/announcementread	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/apikey	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/authidentity	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/authidentitychannel	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/batchimageevent	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/batchimageitem	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/batchimagejob	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/channelmonitor	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatasset	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatconversation	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatmessage	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatmessageasset	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatquickreply	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/compositemodelroute	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/custommodelconfig	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/custommodelrequesttemplate	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/enttest	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/group	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/hook	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/idempotencyrecord	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/intercept	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/ipv6egresspool	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/ent/migrate	(cached)
+?   	github.com/Wei-Shaw/sub2api/ent/paymentauditlog	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/paymentorder	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/paymentproviderinstance	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/pendingauthsession	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/predicate	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/promocode	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/promocodeusage	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/proxy	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/redeemcode	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/redeemcodeusage	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/runtime	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/ent/schema	1.101s
+?   	github.com/Wei-Shaw/sub2api/ent/schema/mixins	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/securitysecret	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/setting	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/subscriptionplan	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/tlsfingerprintprofile	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/usagecleanuptask	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/usagelog	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/user	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/userallowedgroup	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/userattributedefinition	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/userattributevalue	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/userplatformquota	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/usersubscription	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	141.073s
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2	6.340s
+ok  	github.com/Wei-Shaw/sub2api/internal/bootstrap/setup	0.090s
+ok  	github.com/Wei-Shaw/sub2api/internal/domain	(cached)
+?   	github.com/Wei-Shaw/sub2api/internal/domain/model	[no test files]
+2026/10/08 15:38:19 Timezone initialized: UTC (UTC offset: +00:00)
+2026/10/08 15:38:24 Warning: deduct balance cache failed for user 201: context canceled
+2026/10/08 15:38:24 Warning: update subscription usage cache failed for user 301 group 401: context canceled
+2026/10/08 15:38:24 [OAuth] Step 3: Exchanging code for token at http://in-process/token
+2026/10/08 15:38:24 [OAuth] Step 3 Request Body: {"client_id":"9d1c250a-e61b-44d9-88ed-5944d1962f5e","code":"***","code_verifier":"***","grant_type":"authorization_code","redirect_uri":"https://platform.claude.com/oauth/code/callback","state":"STATE2"}
+2026/10/08 15:38:24 [OAuth] Step 3 Response - Status: 200, Body: {"access_token":"***","expires_in":3600,"refresh_token":"***","scope":"s","token_type":"bearer"}
+2026/10/08 15:38:24 [OAuth] Step 3 SUCCESS - Got access token
+2026/10/08 15:38:24 [OAuth] Step 3: Exchanging code for token at http://in-process/token
+2026/10/08 15:38:24 [OAuth] Step 3 Request Body: {"client_id":"9d1c250a-e61b-44d9-88ed-5944d1962f5e","code":"***","code_verifier":"***","grant_type":"authorization_code","redirect_uri":"https://platform.claude.com/oauth/code/callback"}
+2026/10/08 15:38:24 [OAuth] Step 3 Response - Status: 200, Body: {"access_token":"***","expires_in":31536000,"token_type":"bearer"}
+2026/10/08 15:38:24 [OAuth] Step 3 SUCCESS - Got access token
+2026/10/08 15:38:24 [OAuth] Step 3: Exchanging code for token at http://in-process/token
+2026/10/08 15:38:24 [OAuth] Step 3 Request Body: {"client_id":"9d1c250a-e61b-44d9-88ed-5944d1962f5e","code":"***","code_verifier":"***","grant_type":"authorization_code","redirect_uri":"https://platform.claude.com/oauth/code/callback"}
+2026/10/08 15:38:24 [OAuth] Step 3 Response - Status: 400, Body: <non-json payload redacted>
+2026/10/08 15:38:24 [OAuth] Step 2: Getting authorization code from http://in-process/v1/oauth/org-1/authorize
+2026/10/08 15:38:24 [OAuth] Step 2 Request Body: {"client_id":"9d1c250a-e61b-44d9-88ed-5944d1962f5e","code_challenge":"cc","code_challenge_method":"S256","organization_uuid":"org-1","redirect_uri":"https://platform.claude.com/oauth/code/callback","response_type":"code","scope":"user:inference","state":"st"}
+2026/10/08 15:38:24 [OAuth] Step 2 Response - Status: 200, Body: {"redirect_uri":"https://platform.claude.com/oauth/code/callback?code=AUTH\u0026state=STATE"}
+2026/10/08 15:38:24 [OAuth] Step 2 SUCCESS - Got authorization code
+2026/10/08 15:38:24 [OAuth] Step 2: Getting authorization code from http://in-process/v1/oauth/org-1/authorize
+2026/10/08 15:38:24 [OAuth] Step 2 Request Body: {"client_id":"9d1c250a-e61b-44d9-88ed-5944d1962f5e","code_challenge":"cc","code_challenge_method":"S256","organization_uuid":"org-1","redirect_uri":"https://platform.claude.com/oauth/code/callback","response_type":"code","scope":"user:inference","state":"st"}
+2026/10/08 15:38:24 [OAuth] Step 2 Response - Status: 200, Body: {"redirect_uri":"https://platform.claude.com/oauth/code/callback?state=STATE"}
+2026/10/08 15:38:24 [OAuth] Step 1: Getting organization UUID from http://in-process/api/organizations
+2026/10/08 15:38:24 [OAuth] Step 1 Response - Status: 200
+2026/10/08 15:38:24 [OAuth] Step 1 SUCCESS - Single org found, UUID: org-1, Name:
+2026/10/08 15:38:24 [OAuth] Step 1: Getting organization UUID from http://in-process/api/organizations
+2026/10/08 15:38:24 [OAuth] Step 1 Response - Status: 401
+2026/10/08 15:38:24 [OAuth] Step 1: Getting organization UUID from http://in-process/api/organizations
+2026/10/08 15:38:24 [OAuth] Step 1 FAILED - Request error: invalid character 'o' in literal null (expecting 'u')
+2026/10/08 15:38:27 WARN database connection pool duration clamped key=database.conn_max_lifetime_minutes before=0 after=30
+2026/10/08 15:38:27 WARN database connection pool duration clamped key=database.conn_max_idle_time_minutes before=0 after=5
+2026/10/08 15:38:27 WARN database connection pool duration clamped key=database.conn_max_lifetime_minutes before=-1 after=30
+2026/10/08 15:38:27 WARN database connection pool duration clamped key=database.conn_max_idle_time_minutes before=-5 after=5
+2026/10/08 15:38:27 WARN database connection pool duration clamped key=database.conn_max_lifetime_minutes before=1441 after=30
+2026/10/08 15:38:27 WARN database connection pool duration clamped key=database.conn_max_idle_time_minutes before=1441 after=5
+2026/10/08 15:38:27 INFO database connection pool configured effective.max_open=40 effective.max_idle=8 effective.max_lifetime=15m0s effective.max_idle_time=3m0s
+--- FAIL: TestDashboardOutputTPSUsesExactSamplesAndSharedScan (0.02s)
+    ops_repo_output_tps_integration_test.go:85: 
+        	Error Trace:	/workspace/internal/infrastructure/repository/ops_repo_output_tps_integration_test.go:85
+        	Error:      	Received unexpected error:
+        	            	pq: column "created_at" is of type timestamp with time zone but expression is of type interval
+        	Test:       	TestDashboardOutputTPSUsesExactSamplesAndSharedScan
+redis: 2026/10/08 15:38:32 pool.go:762: redis: connection pool: failed to dial after 5 attempts: dial tcp 127.0.0.1:1: connect: connection refused
+redis: 2026/10/08 15:38:33 pool.go:762: redis: connection pool: failed to dial after 5 attempts: dial tcp 127.0.0.1:1: connect: connection refused
+redis: 2026/10/08 15:38:33 pool.go:762: redis: connection pool: failed to dial after 5 attempts: dial tcp 127.0.0.1:1: connect: connection refused
+redis: 2026/10/08 15:38:34 pool.go:762: redis: connection pool: failed to dial after 5 attempts: dial tcp 127.0.0.1:1: connect: connection refused
+FAIL
+FAIL	github.com/Wei-Shaw/sub2api/internal/infrastructure/repository	18.934s
+ok  	github.com/Wei-Shaw/sub2api/internal/integration	0.020s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/activitycenter	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/chat	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/egress	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/payment	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/payment/provider	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/qualityrender	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/securityaudit	0.247s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/typesafe	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/config	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/egress	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/liveattestation	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/middleware	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/anthropicfp	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/antigravity	0.005s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	0.015s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/basispoints	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/chatgptcookies	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/claude	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation	(cached)
+?   	github.com/Wei-Shaw/sub2api/internal/shared/ctxkey	[no test files]
+?   	github.com/Wei-Shaw/sub2api/internal/shared/errors	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/gemini	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/geminicli	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/googleapi	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/httpclient	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/httputil	(cached)
+?   	github.com/Wei-Shaw/sub2api/internal/shared/ip	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/logger	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/logredact	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/oauth	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/oauthstate	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/openai	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/openai_compat	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/openaitiming	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/pagination	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/proxyurl	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/proxyutil	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/remotecontrol	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/requestmodel	(cached)
+?   	github.com/Wei-Shaw/sub2api/internal/shared/response	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/responseheaders	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/servertiming	(cached)
+?   	github.com/Wei-Shaw/sub2api/internal/shared/sysutil	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/timezone	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/usagestats	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/websearch	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/wsutil	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/xai	0.004s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	30.493s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin	0.301s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto	0.010s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/quotaview	0.009s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/supportchatasset	(cached)
+?   	github.com/Wei-Shaw/sub2api/internal/transport/http/server	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware	0.032s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes	8.528s
+?   	github.com/Wei-Shaw/sub2api/internal/transport/webassets	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/migrations	(cached)
+FAIL

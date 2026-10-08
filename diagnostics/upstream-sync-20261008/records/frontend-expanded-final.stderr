@@ -1,0 +1,152 @@
+! Corepack is about to download https://registry.npmjs.org/pnpm/-/pnpm-11.17.0.tgz
+stderr | src/features/admin-groups/__tests__/GroupsPage.columnSettings.spec.ts > admin GroupsView column settings > toggles a column and persists hidden column keys
+Error: AggregateError
+    at Object.dispatchError (/workspace/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:63:19)
+    at Request.<anonymous> (/workspace/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+    at Request.emit (node:events:526:24)
+    at ClientRequest.<anonymous> (/workspace/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+    at ClientRequest.emit (node:events:514:28)
+    at emitErrorEvent (node:_http_client:114:11)
+    at Socket.socketErrorListener (node:_http_client:766:5)
+    at Socket.emit (node:events:514:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3) [90mundefined[39m
+
+stderr | src/features/admin-groups/__tests__/GroupsPage.columnSettings.spec.ts > admin GroupsView column settings > toggles a column and persists hidden column keys
+Error: AggregateError
+    at Object.dispatchError (/workspace/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:63:19)
+    at Request.<anonymous> (/workspace/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+    at Request.emit (node:events:526:24)
+    at ClientRequest.<anonymous> (/workspace/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+    at ClientRequest.emit (node:events:514:28)
+    at emitErrorEvent (node:_http_client:114:11)
+    at Socket.socketErrorListener (node:_http_client:766:5)
+    at Socket.emit (node:events:514:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3) [90mundefined[39m
+
+stderr | src/features/admin-groups/__tests__/GroupsPage.columnSettings.spec.ts > admin GroupsView column settings > can show the id column from column settings
+Error: AggregateError
+    at Object.dispatchError (/workspace/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:63:19)
+    at Request.<anonymous> (/workspace/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+    at Request.emit (node:events:526:24)
+    at ClientRequest.<anonymous> (/workspace/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+    at ClientRequest.emit (node:events:514:28)
+    at emitErrorEvent (node:_http_client:114:11)
+    at Socket.socketErrorListener (node:_http_client:766:5)
+    at Socket.emit (node:events:514:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3) [90mundefined[39m
+
+stderr | src/features/admin-groups/__tests__/GroupsPage.columnSettings.spec.ts > admin GroupsView column settings > can show the id column from column settings
+Error: AggregateError
+    at Object.dispatchError (/workspace/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:63:19)
+    at Request.<anonymous> (/workspace/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+    at Request.emit (node:events:526:24)
+    at ClientRequest.<anonymous> (/workspace/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+    at ClientRequest.emit (node:events:514:28)
+    at emitErrorEvent (node:_http_client:114:11)
+    at Socket.socketErrorListener (node:_http_client:766:5)
+    at Socket.emit (node:events:514:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3) [90mundefined[39m
+
+stderr | src/features/admin-groups/__tests__/GroupsPage.columnSettings.spec.ts > admin GroupsView column settings > skips usage and capacity fetches until consuming columns are shown
+Error: AggregateError
+    at Object.dispatchError (/workspace/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:63:19)
+    at Request.<anonymous> (/workspace/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+    at Request.emit (node:events:526:24)
+    at ClientRequest.<anonymous> (/workspace/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+    at ClientRequest.emit (node:events:514:28)
+    at emitErrorEvent (node:_http_client:114:11)
+    at Socket.socketErrorListener (node:_http_client:766:5)
+    at Socket.emit (node:events:514:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3) [90mundefined[39m
+
+stderr | unknown test
+Error: AggregateError
+    at Object.dispatchError (/workspace/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:63:19)
+    at Request.<anonymous> (/workspace/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+    at Request.emit (node:events:526:24)
+    at ClientRequest.<anonymous> (/workspace/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+    at ClientRequest.emit (node:events:514:28)
+    at emitErrorEvent (node:_http_client:114:11)
+    at Socket.socketErrorListener (node:_http_client:766:5)
+    at Socket.emit (node:events:514:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3) [90mundefined[39m
+
+stderr | src/features/admin-groups/__tests__/GroupsPage.duplicate.spec.ts
+Error: AggregateError
+    at Object.dispatchError (/workspace/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:63:19)
+    at Request.<anonymous> (/workspace/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+    at Request.emit (node:events:526:24)
+    at ClientRequest.<anonymous> (/workspace/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+    at ClientRequest.emit (node:events:514:28)
+    at emitErrorEvent (node:_http_client:114:11)
+    at Socket.socketErrorListener (node:_http_client:766:5)
+    at Socket.emit (node:events:514:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3) [90mundefined[39m
+
+stderr | src/common/widgets/data/__tests__/AnnouncementPopup.spec.ts > AnnouncementPopup > renders mixed Markdown and HTML inside the shared styled container
+[intlify] Not found 'common.time.daysAgo' key in 'en' locale messages.
+[intlify] Not found 'common.time.never' key in 'en' locale messages.
+
+stderr | src/common/widgets/data/__tests__/AnnouncementPopup.spec.ts > AnnouncementPopup > previews an admin announcement without marking it as read
+[intlify] Not found 'common.time.daysAgo' key in 'en' locale messages.
+[intlify] Not found 'common.time.never' key in 'en' locale messages.
+
+stderr | src/common/widgets/data/__tests__/AnnouncementPopup.spec.ts > AnnouncementPopup > keeps a later modal lock until its owner releases it
+[intlify] Not found 'common.time.daysAgo' key in 'en' locale messages.
+[intlify] Not found 'common.time.never' key in 'en' locale messages.
+
+stderr | src/common/widgets/data/__tests__/AnnouncementPopup.spec.ts > AnnouncementPopup > keeps the existing user popup dismissal behavior
+[intlify] Not found 'common.time.daysAgo' key in 'en' locale messages.
+[intlify] Not found 'common.time.never' key in 'en' locale messages.
+
+stderr | src/features/admin-ops/__tests__/OpsOpenAITokenStatsCard.spec.ts > OpsOpenAITokenStatsCard > 接口异常时显示错误提示
+[OpsOpenAITokenStatsCard] Failed to load data Error: 加载失败
+    at [90m/workspace/frontend/[39msrc/features/admin-ops/__tests__/OpsOpenAITokenStatsCard.spec.ts:215:47
+    at [90mfile:///workspace/frontend/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@3.2.6/node_modules/[4m@vitest/runner[24m/dist/chunk-hooks.js:155:11
+    at [90mfile:///workspace/frontend/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@3.2.6/node_modules/[4m@vitest/runner[24m/dist/chunk-hooks.js:752:26
+    at [90mfile:///workspace/frontend/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@3.2.6/node_modules/[4m@vitest/runner[24m/dist/chunk-hooks.js:1897:20
+    at new Promise (<anonymous>)
+    at runWithTimeout [90m(file:///workspace/frontend/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@3.2.6/node_modules/[4m@vitest/runner[24m/dist/chunk-hooks.js:1863:10[90m)[39m
+    at runTest [90m(file:///workspace/frontend/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@3.2.6/node_modules/[4m@vitest/runner[24m/dist/chunk-hooks.js:1574:12[90m)[39m
+    at runSuite [90m(file:///workspace/frontend/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@3.2.6/node_modules/[4m@vitest/runner[24m/dist/chunk-hooks.js:1729:8[90m)[39m
+    at runSuite [90m(file:///workspace/frontend/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@3.2.6/node_modules/[4m@vitest/runner[24m/dist/chunk-hooks.js:1729:8[90m)[39m
+    at runFiles [90m(file:///workspace/frontend/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@3.2.6/node_modules/[4m@vitest/runner[24m/dist/chunk-hooks.js:1787:3[90m)[39m
+
+stderr | src/features/admin-ops/__tests__/OpsUserUsageStatsCard.spec.ts > OpsUserUsageStatsCard > 空数据与接口错误都有明确状态
+[OpsUserUsageStatsCard] Failed to load data Error: 加载失败
+    at [90m/workspace/frontend/[39msrc/features/admin-ops/__tests__/OpsUserUsageStatsCard.spec.ts:138:49
+    at [90mfile:///workspace/frontend/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@3.2.6/node_modules/[4m@vitest/runner[24m/dist/chunk-hooks.js:752:20
+
+stderr | src/common/composables/__tests__/useTableLoader.spec.ts > useTableLoader > 错误处理 > 非取消错误会被抛出
+Table load error: Error: Server error
+    at [90m/workspace/frontend/[39msrc/common/composables/__tests__/useTableLoader.spec.ts:237:49
+    at [90mfile:///workspace/frontend/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@3.2.6/node_modules/[4m@vitest/runner[24m/dist/chunk-hooks.js:155:11
+    at [90mfile:///workspace/frontend/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@3.2.6/node_modules/[4m@vitest/runner[24m/dist/chunk-hooks.js:752:26
+    at [90mfile:///workspace/frontend/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@3.2.6/node_modules/[4m@vitest/runner[24m/dist/chunk-hooks.js:1897:20
+    at new Promise (<anonymous>)
+    at runWithTimeout [90m(file:///workspace/frontend/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@3.2.6/node_modules/[4m@vitest/runner[24m/dist/chunk-hooks.js:1863:10[90m)[39m
+    at runTest [90m(file:///workspace/frontend/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@3.2.6/node_modules/[4m@vitest/runner[24m/dist/chunk-hooks.js:1574:12[90m)[39m
+    at runSuite [90m(file:///workspace/frontend/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@3.2.6/node_modules/[4m@vitest/runner[24m/dist/chunk-hooks.js:1729:8[90m)[39m
+    at runSuite [90m(file:///workspace/frontend/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@3.2.6/node_modules/[4m@vitest/runner[24m/dist/chunk-hooks.js:1729:8[90m)[39m
+    at runSuite [90m(file:///workspace/frontend/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@3.2.6/node_modules/[4m@vitest/runner[24m/dist/chunk-hooks.js:1729:8[90m)[39m
+
+stderr | src/features/announcements/__tests__/announcementsStore.spec.ts > mark all announcements read > preserves successful results and retries only failures
+Failed to mark all as read: Error: offline
+    at Object.<anonymous> [90m(/workspace/frontend/[39msrc/features/announcements/__tests__/announcementsStore.spec.ts:22:95[90m)[39m
+    at Object.mockCall [90m(file:///workspace/frontend/[39mnode_modules/[4m.pnpm[24m/@vitest+spy@3.2.6/node_modules/[4m@vitest/spy[24m/dist/index.js:96:15[90m)[39m
+    at Object.spy [as markRead] [90m(file:///workspace/frontend/[39mnode_modules/[4m.pnpm[24m/tinyspy@4.0.4/node_modules/[4mtinyspy[24m/dist/index.js:47:80[90m)[39m
+    at [90m/workspace/frontend/[39msrc/features/announcements/presentation/stores/announcementsStore.ts:109:27
+    at Array.map (<anonymous>)
+    at Proxy.markAllAsRead [90m(/workspace/frontend/[39msrc/features/announcements/presentation/stores/announcementsStore.ts:108:51[90m)[39m
+    at Proxy.wrappedAction [90m(file:///workspace/frontend/[39mnode_modules/[4m.pnpm[24m/pinia@2.3.1_typescript@5.6.3_vue@3.5.43_typescript@5.6.3_/node_modules/[4mpinia[24m/dist/pinia.mjs:1399:26[90m)[39m
+    at [90m/workspace/frontend/[39msrc/features/announcements/__tests__/announcementsStore.spec.ts:23:24
+    at [90mfile:///workspace/frontend/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@3.2.6/node_modules/[4m@vitest/runner[24m/dist/chunk-hooks.js:155:11
+    at [90mfile:///workspace/frontend/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@3.2.6/node_modules/[4m@vitest/runner[24m/dist/chunk-hooks.js:752:26
+

@@ -1,0 +1,20 @@
+Traceback (most recent call last):
+  File "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/runtime_check.py", line 117, in <module>
+    sql('upgrade', """INSERT INTO payment_orders (user_id,amount,pay_amount,expires_at,out_trade_no,payment_type,order_type,status)
+    ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        SELECT id,12.34,12.34,NOW()+INTERVAL '1 day','upstream-sync-20261008-legacy','alipay','balance','PENDING'
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        FROM users WHERE role='admin' ORDER BY id LIMIT 1;""")
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/runtime_check.py", line 31, in sql
+    return compose('exec', '-T', 'postgres', 'psql', '-U', 'sub2api', '-d', database,
+           ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                   '-v', 'ON_ERROR_STOP=1', '-Atc', statement, capture=True).strip()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/runtime_check.py", line 25, in compose
+    result = subprocess.run(COMPOSE + list(args), env={**os.environ, **(env or {})},
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py", line 577, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['docker', 'compose', '-f', '/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/compose.yaml', '-p', 'sub2api-sync-20261008', 'exec', '-T', 'postgres', 'psql', '-U', 'sub2api', '-d', 'upgrade', '-v', 'ON_ERROR_STOP=1', '-Atc', "INSERT INTO payment_orders (user_id,amount,pay_amount,expires_at,out_trade_no,payment_type,order_type,status)\n    SELECT id,12.34,12.34,NOW()+INTERVAL '1 day','upstream-sync-20261008-legacy','alipay','balance','PENDING'\n    FROM users WHERE role='admin' ORDER BY id LIMIT 1;"]' returned non-zero exit status 1.

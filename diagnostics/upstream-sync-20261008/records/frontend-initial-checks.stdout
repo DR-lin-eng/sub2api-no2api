@@ -1,0 +1,3 @@
+src/common/widgets/feedback/BaseDialog.vue(136,74): error TS2304: Cannot find name 'openDialogs'.
+src/features/admin-usage/presentation/widgets/UsageTable.vue(550,3): error TS6133: 'formatUsageOutputRate' is declared but its value is never read.
+[ELIFECYCLE] Command failed with exit code 2.

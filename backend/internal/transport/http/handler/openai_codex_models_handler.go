@@ -93,7 +93,7 @@ func (h *OpenAIGatewayHandler) CodexModels(c *gin.Context) {
 			if accountRelease != nil {
 				defer accountRelease()
 			}
-			if apiKey.Group.ModelAllowlistEnabled() {
+			if apiKey.Group.ModelAllowlistEnabled() || service.CodexManifestMappingEnabled(account) {
 				return h.gatewayService.FetchCodexModelsManifest(c.Request.Context(), account, c.Query("client_version"), "")
 			}
 			return h.gatewayService.FetchCodexModelsManifest(c.Request.Context(), account, c.Query("client_version"), c.GetHeader("If-None-Match"))
@@ -114,6 +114,20 @@ func (h *OpenAIGatewayHandler) CodexModels(c *gin.Context) {
 		if c.Request.Context().Err() != nil {
 			return
 		}
+		if service.CodexManifestMappingEnabled(account) {
+			ifNoneMatch := c.GetHeader("If-None-Match")
+			if apiKey.Group.ModelAllowlistEnabled() {
+				ifNoneMatch = ""
+			}
+			manifest, err = service.ProjectCodexModelsManifestForAccount(manifest, account, apiKey.Group, ifNoneMatch)
+			if err != nil {
+				h.errorResponse(c, http.StatusBadGateway, "upstream_error", "invalid mapped Codex models manifest")
+				return
+			}
+		}
+		// Group filters must never mutate a shared cached response's metadata.
+		clientManifest := *manifest
+		manifest = &clientManifest
 		if manifest.NotModified {
 			if manifest.ETag != "" {
 				c.Header("ETag", manifest.ETag)

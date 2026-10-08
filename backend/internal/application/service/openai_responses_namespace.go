@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"unsafe"
 
 	"github.com/Wei-Shaw/sub2api/internal/shared/apicompat"
 	"github.com/gin-gonic/gin"
@@ -76,7 +77,9 @@ func hasOpenAIResponsesNamespaceToolDeclaration(body []byte) bool {
 	}
 
 	// Responses Lite carries namespace declarations in input.additional_tools.
-	input := gjson.GetBytes(body, "input")
+	// The view is read-only and stays inside this call. It avoids copying the
+	// full input array before deciding whether any namespace needs deletion.
+	input := gjson.Get(unsafe.String(unsafe.SliceData(body), len(body)), "input")
 	if !input.IsArray() {
 		return false
 	}
@@ -149,41 +152,45 @@ func stripOpenAIResponsesInputNamespaces(body []byte, keepToolCallNamespaces boo
 	if !bytes.Contains(body, []byte(`"namespace"`)) {
 		return body, nil
 	}
-	input := gjson.GetBytes(body, "input")
+	input := gjson.Get(unsafe.String(unsafe.SliceData(body), len(body)), "input")
 	if !input.IsArray() {
 		return body, nil
 	}
 
 	var rebuilt bytes.Buffer
-	rebuilt.Grow(len(input.Raw))
-	_ = rebuilt.WriteByte('[')
 	changed := false
-	first := true
+	// Offsets below are relative to input.Raw, not the full request body.
+	copyFrom := 0
 	var stripErr error
 	input.ForEach(func(_, item gjson.Result) bool {
-		if !first {
-			_ = rebuilt.WriteByte(',')
+		if !item.IsObject() || !item.Get("namespace").Exists() ||
+			(keepToolCallNamespaces && isOpenAIResponsesToolCallItemType(item.Get("type").String())) {
+			return true
 		}
-		first = false
-		itemBody := []byte(item.Raw)
-		if item.IsObject() && item.Get("namespace").Exists() &&
-			(!keepToolCallNamespaces || !isOpenAIResponsesToolCallItemType(item.Get("type").String())) {
-			itemBody, stripErr = sjson.DeleteBytes(itemBody, "namespace")
-			if stripErr != nil {
-				return false
-			}
+		itemBody, err := sjson.DeleteBytes([]byte(item.Raw), "namespace")
+		if err != nil {
+			stripErr = err
+			return false
+		}
+		if !changed {
+			// Allocate only on the first change; copy unchanged spans without
+			// traversing their items again or converting them to byte slices.
+			rebuilt.Grow(len(input.Raw))
 			changed = true
 		}
+		itemStart := item.Index - input.Index
+		_, _ = rebuilt.WriteString(input.Raw[copyFrom:itemStart])
 		_, _ = rebuilt.Write(itemBody)
+		copyFrom = itemStart + len(item.Raw)
 		return true
 	})
-	_ = rebuilt.WriteByte(']')
 	if stripErr != nil {
 		return body, fmt.Errorf("delete OpenAI input namespace: %w", stripErr)
 	}
 	if !changed {
 		return body, nil
 	}
+	_, _ = rebuilt.WriteString(input.Raw[copyFrom:])
 	stripped, err := sjson.SetRawBytes(body, "input", rebuilt.Bytes())
 	if err != nil {
 		return body, fmt.Errorf("replace OpenAI input after namespace deletion: %w", err)

@@ -626,6 +626,10 @@ func adjustAPIKeyCodexModelsManifest(body []byte) ([]byte, error) {
 			continue
 		}
 		modelChanged := false
+		if tiers, exists := model["service_tiers"]; exists && bytes.Equal(bytes.TrimSpace(tiers), []byte("null")) {
+			model["service_tiers"] = json.RawMessage("[]")
+			modelChanged = true
+		}
 		if _, targeted := apiKeyCodexModelsWithoutResponsesLite[slug]; targeted {
 			var useResponsesLite bool
 			if err := json.Unmarshal(model["use_responses_lite"], &useResponsesLite); err == nil && useResponsesLite {

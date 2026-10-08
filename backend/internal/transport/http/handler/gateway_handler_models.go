@@ -193,6 +193,14 @@ func (h *GatewayHandler) compositeAvailableModels(ctx context.Context, groupID *
 			models = append(models, model)
 		}
 	}
+	if routeModels, err := h.gatewayService.GetCompositeRouteModels(ctx, groupID, "", includeSystemOne); err == nil {
+		for _, model := range routeModels {
+			if _, exists := seen[model]; !exists {
+				seen[model] = struct{}{}
+				models = append(models, model)
+			}
+		}
+	}
 	return models
 }
 

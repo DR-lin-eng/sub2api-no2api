@@ -1,0 +1,45 @@
+Preparing pnpm@11.17.0 for immediate activation...
+make[1]: Entering directory '/workspace'
+
+ RUN  v3.2.6 /workspace/frontend
+
+ ✓ src/core/__tests__/credentialCryptoUsage.spec.ts (2 tests) 582ms
+   ✓ credential crypto dependency scope > confines node-forge imports to the credential encryption fallback  560ms
+ ✓ src/__tests__/dynamicLocaleMapping.spec.ts (1 test) 643ms
+   ✓ dynamic locale mapping gate > requires every dynamic translation key construction to be explicitly reviewed  637ms
+ ✓ src/features/profile/__tests__/ProfileInfoCard.spec.ts (8 tests) 197ms
+ ✓ src/features/admin-usage/__tests__/UsageTable.spec.ts (22 tests) 239ms
+ ✓ src/common/pages/__tests__/HomePageCompact.spec.ts (11 tests) 129ms
+ ✓ src/features/admin-usage/__tests__/UsageDetailDialog.spec.ts (4 tests) 90ms
+ ✓ src/features/auth/__tests__/LinuxDoCallbackView.spec.ts (17 tests) 194ms
+ ✓ src/features/billing/__tests__/PaymentResultPage.spec.ts (15 tests) 99ms
+ ✓ src/features/auth/__tests__/WechatCallbackView.spec.ts (25 tests) 278ms
+ ✓ src/features/billing/__tests__/PaymentPage.spec.ts (13 tests) 267ms
+ ✓ src/core/routes/__tests__/adminRouteAccess.spec.ts (1 test) 57ms
+ ✓ src/common/widgets/data/__tests__/GroupOptionItem.spec.ts (11 tests) 136ms
+ ✓ src/features/admin-usage/__tests__/UsageStatsCards.spec.ts (4 tests) 46ms
+ ✓ src/core/utils/__tests__/homeContent.spec.ts (5 tests) 37ms
+ ✓ src/features/prompt-audit/__tests__/RuntimeOverview.spec.ts (1 test) 33ms
+ ✓ src/features/auth/__tests__/authProfileLocaleScopes.spec.ts (4 tests) 71ms
+ ✓ src/features/billing/__tests__/paymentLocaleScopes.spec.ts (4 tests) 53ms
+ ✓ src/features/channels-user/__tests__/customPageHtml.spec.ts (3 tests) 78ms
+ ✓ src/core/utils/__tests__/embedded-url.spec.ts (7 tests) 14ms
+ ✓ src/core/utils/__tests__/usageLocale.spec.ts (4 tests) 7ms
+ ✓ src/features/prompt-audit/__tests__/promptAuditLocale.spec.ts (4 tests) 4ms
+ ✓ src/features/channels-user/__tests__/CustomLandingPage.security.spec.ts (4 tests) 3ms
+ ✓ src/features/channel-monitor-user/__tests__/channelMonitorLocale.spec.ts (6 tests) 5ms
+ ✓ src/features/admin-backup/presentation/pages/__tests__/backupStatus.spec.ts (4 tests) 2ms
+ ✓ src/features/subscriptions/__tests__/subscriptionStatus.spec.ts (4 tests) 3ms
+ ✓ src/common/widgets/layout/__tests__/AppHeaderResponsive.spec.ts (2 tests) 2ms
+ ✓ src/__tests__/dynamicHtmlSecurity.spec.ts (4 tests) 17ms
+ ✓ src/features/admin-settings/__tests__/SettingsPage.spec.ts (54 tests) 2627ms
+ ✓ src/core/i18n/__tests__/routeLocaleCoverage.spec.ts (3 tests) 5808ms
+   ✓ locale coverage > resolves every static locale key used by runtime source  2390ms
+   ✓ locale coverage > loads every statically reachable message for every route  3392ms
+
+ Test Files  29 passed (29)
+      Tests  247 passed (247)
+   Start at  16:07:44
+   Duration  10.21s (transform 10.70s, setup 1.91s, collect 25.95s, tests 11.72s, environment 11.99s, prepare 1.97s)
+
+make[1]: Leaving directory '/workspace'

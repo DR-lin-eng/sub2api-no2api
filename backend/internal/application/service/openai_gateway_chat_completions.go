@@ -117,6 +117,9 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
 	isResponsesShape := !gjson.GetBytes(body, "messages").Exists() && gjson.GetBytes(body, "input").Exists()
 	if account.IsOpenCodeGo() {
 		proto := openCodeGoNativeProtocol(account, resolveOpenCodeGoMappedModel(account, body, defaultMappedModel))
+		if mapped := resolveOpenCodeGoMappedModel(account, body, defaultMappedModel); IsOpenCodeUnsupportedModel(mapped) {
+			return nil, writeOpenCodeUnsupportedModelError(c, false, mapped)
+		}
 		if proto != APIProtocolResponses {
 			if isResponsesShape {
 				if proto == APIProtocolAnthropic {

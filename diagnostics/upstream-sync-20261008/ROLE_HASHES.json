@@ -1,0 +1,22 @@
+{
+  "MODIFIED_FILE": {
+    "path": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/MODIFIED_FILE",
+    "sha256": "02e94b489a5b09a3c4d7b2ad7e51f5dfcf19a124e0fe1626399e2af9260dbfe7",
+    "bytes": 559581
+  },
+  "DIFF_FILE": {
+    "path": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/DIFF_FILE",
+    "sha256": "5de02892161c262f9c1e591a4792ef4d0978cac88d192cfc155ba5052aa168bc",
+    "bytes": 304003
+  },
+  "VERIFICATION.txt": {
+    "path": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/VERIFICATION.txt",
+    "sha256": "720c765c01566c0dd76935ed232181a494d106e2db4d0d105b3325d95978eec0",
+    "bytes": 260617
+  },
+  "ROLLBACK.sh": {
+    "path": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/ROLLBACK.sh",
+    "sha256": "cb4e4d1f174cf618642d9139d2e2b761fd9aef9b685826c04ac87f3c888f39d9",
+    "bytes": 1258
+  }
+}

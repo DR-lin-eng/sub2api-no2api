@@ -1,0 +1,29 @@
+{
+  "label": "frontend-required-2",
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo",
+  "argv": [
+    "docker",
+    "run",
+    "--rm",
+    "-v",
+    "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo:/workspace",
+    "-v",
+    "sub2api-sync-20261007-node:/workspace/frontend/node_modules",
+    "-w",
+    "/workspace",
+    "node:24-alpine",
+    "sh",
+    "-c",
+    "apk add --no-cache make >/tmp/apk-make.txt && corepack enable && corepack prepare pnpm@11.17.0 --activate && make test-frontend"
+  ],
+  "command": "docker run --rm -v /private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo:/workspace -v sub2api-sync-20261007-node:/workspace/frontend/node_modules -w /workspace node:24-alpine sh -c 'apk add --no-cache make >/tmp/apk-make.txt && corepack enable && corepack prepare pnpm@11.17.0 --activate && make test-frontend'",
+  "input": "repository sources and committed regression fixtures",
+  "stdout": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/records/frontend-required-2.stdout",
+  "stderr": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/records/frontend-required-2.stderr",
+  "exit": 2,
+  "started": "2026-10-08T15:44:56.920306+00:00",
+  "finished": "2026-10-08T15:45:59.881295+00:00",
+  "accepted": false,
+  "stdout_sha256": "248d673027300809a2e2e258232064bb837d8d18c3ea22f42bafc57f112e943f",
+  "stderr_sha256": "49a909dbb91327f735abe1ae12102368e3d3e3739dc74ead4e704762a9ef65bd"
+}

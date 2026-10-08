@@ -1,0 +1,2008 @@
+
+PR #7811: db29b3a7738e26cfbc30025f033f481ac365ab7a
+OWNERS: []
+diff --git a/backend/internal/service/openai_codex_model_metadata.go b/backend/internal/service/openai_codex_model_metadata.go
+index b757908cd..69e452b75 100644
+--- a/backend/internal/service/openai_codex_model_metadata.go
++++ b/backend/internal/service/openai_codex_model_metadata.go
+@@ -21,6 +21,9 @@ func applyCodexToolCapabilities(dst, src map[string]json.RawMessage, overwrite b
+ 		if len(value) == 0 {
+ 			continue
+ 		}
++		if field == "service_tiers" && bytes.Equal(value, []byte("null")) {
++			value = []byte("[]")
++		}
+ 		// These Codex fields are nullable booleans or strings, never arbitrary objects.
+ 		if !bytes.Equal(value, []byte("null")) {
+ 			if field == "service_tiers" {
+@@ -278,8 +281,11 @@ func intersectUpstreamModelMetadata(modelID string, candidates []UpstreamModelMe
+ 			result.CodexToolCapabilities[field] = value
+ 		} else if declared {
+ 			fallback := json.RawMessage("null")
+-			if field == "supports_search_tool" || field == "use_responses_lite" {
++			switch field {
++			case "supports_search_tool", "use_responses_lite":
+ 				fallback = json.RawMessage("false")
++			case "service_tiers":
++				fallback = json.RawMessage("[]")
+ 			}
+ 			result.CodexToolCapabilities[field] = fallback
+ 		}
+
+PR #7779: 6db4171cfb7592ee6f81c29a82e9fcba0077155e
+OWNERS: ["backend/internal/transport/http/handler/openai_gateway_handler.go"]
+diff --git a/backend/internal/handler/openai_gateway_handler.go b/backend/internal/handler/openai_gateway_handler.go
+index 6214aacbc..21f0cace7 100644
+--- a/backend/internal/handler/openai_gateway_handler.go
++++ b/backend/internal/handler/openai_gateway_handler.go
+@@ -2125,6 +2125,101 @@ func (p *openAIWSTurnPricing) currentOr(fallback time.Time) time.Time {
+ 	return fallback
+ }
+ 
++// openAIWSTurnAPIKeyLookup 是后续 turn 重取 API Key 认证快照的入口
++// （APIKeyService.GetByKey：经 L1/L2 认证缓存，未命中才回源）。
++type openAIWSTurnAPIKeyLookup interface {
++	GetByKey(ctx context.Context, key string) (*service.APIKey, error)
++}
++
++// openAIWSTurnBillingAPIKeys 按 turn 号保存每个 turn 计费用的 API Key 快照。
++//
++// API Key 认证快照只在建连时取一次。若连接内所有 turn 共用它，分组定价（倍率、
++// 高峰、图片定价、利润门参数）会停留在建连时刻：管理员调价后，已打开的长连接
++// 在客户端重连前一直按旧价计费、按旧售价过利润门，而 HTTP 请求每次都经认证缓存
++// 取快照，缓存失效后即生效。
++//
++// 因此后续 turn 在 BeforeTurn（与 HTTP 请求进入认证中间件同位）经同一认证缓存
++// 重取快照，只采用其中的分组，作为该 turn 利润门准入与用量计费共同的分组；用户、
++// Key 限额、订阅仍沿用建连快照。只在同一把 Key、同一分组且平台与订阅类型未变时
++// 采用：Key 换组或分组改平台/订阅类型不是调价，该连接按建连分组调度，继续按建连
++// 快照计费；重取失败同样保留建连快照，不断连。
++//
++// 首轮沿用刚经认证中间件取得的建连快照；没有经过 BeforeTurn 的 turn 回退建连
++// 快照。只保留当前与上一个 turn：下一 turn 的 BeforeTurn 先于上一 turn 的
++// AfterTurn 执行时，上一 turn 仍取到自己的快照。
++type openAIWSTurnBillingAPIKeys struct {
++	mu   sync.Mutex
++	keys map[int]*service.APIKey
++}
++
++// begin 在 BeforeTurn 重装利润门前调用：后续 turn 重取计费分组并按 turn 记下，
++// 返回换入该分组的上下文供本 turn 的利润门使用。
++func (k *openAIWSTurnBillingAPIKeys) begin(ctx context.Context, apiKeyService *service.APIKeyService, turn int, conn *service.APIKey) context.Context {
++	turnKey := conn
++	if turn > 1 && apiKeyService != nil {
++		turnKey = refreshOpenAIWSTurnBillingAPIKey(ctx, apiKeyService, conn)
++	}
++	k.set(turn, turnKey)
++	return withOpenAIWSTurnBillingGroup(ctx, turnKey)
++}
++
++func (k *openAIWSTurnBillingAPIKeys) set(turn int, key *service.APIKey) {
++	k.mu.Lock()
++	defer k.mu.Unlock()
++	if k.keys == nil {
++		k.keys = make(map[int]*service.APIKey, 2)
++	}
++	for t := range k.keys {
++		if t < turn-1 {
++			delete(k.keys, t)
++		}
++	}
++	k.keys[turn] = key
++}
++
++func (k *openAIWSTurnBillingAPIKeys) forTurn(turn int, conn *service.APIKey) *service.APIKey {
++	k.mu.Lock()
++	defer k.mu.Unlock()
++	if key := k.keys[turn]; key != nil {
++		return key
++	}
++	return conn
++}
++
++// refreshOpenAIWSTurnBillingAPIKey 返回本 turn 计费用的 API Key：分组取当前认证
++// 快照，其余字段与建连快照共享。不满足采用条件时原样返回建连快照。
++func refreshOpenAIWSTurnBillingAPIKey(ctx context.Context, lookup openAIWSTurnAPIKeyLookup, conn *service.APIKey) *service.APIKey {
++	if lookup == nil || conn == nil || conn.Key == "" || conn.GroupID == nil || conn.Group == nil {
++		return conn
++	}
++	latest, err := lookup.GetByKey(ctx, conn.Key)
++	if err != nil || latest == nil || latest.ID != conn.ID || latest.GroupID == nil || *latest.GroupID != *conn.GroupID {
++		return conn
++	}
++	group := latest.Group
++	if group == nil || group.ID != conn.Group.ID ||
++		group.Platform != conn.Group.Platform ||
++		group.SubscriptionType != conn.Group.SubscriptionType {
++		return conn
++	}
++	turnKey := *conn
++	turnKey.Group = group
++	return &turnKey
++}
++
++// withOpenAIWSTurnBillingGroup 把本 turn 的计费分组换进认证分组上下文，使利润门
++// 的售价与本 turn 计费同源。上下文里没有同 ID 的认证分组时不改动。
++func withOpenAIWSTurnBillingGroup(ctx context.Context, turnKey *service.APIKey) context.Context {
++	if turnKey == nil || turnKey.Group == nil {
++		return ctx
++	}
++	current, ok := ctx.Value(ctxkey.Group).(*service.Group)
++	if !ok || current == nil || current == turnKey.Group || current.ID != turnKey.Group.ID {
++		return ctx
++	}
++	return context.WithValue(ctx, ctxkey.Group, turnKey.Group)
++}
++
+ // recordOpenAIProfitVeto 记录 OpenAI 侧选号循环的一次利润门终检否决：把账号
+ // 加入本请求排除集并递增否决计数。返回 false 表示否决次数已达
+ // maxProfitVetoAttempts，调用方必须停止重选并按「无可用账号」终止。
+@@ -2856,6 +2951,9 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
+ 		// turn 级定价：首轮回退到 TurnStarted 的所属 turn 时刻；后续 turn 由
+ 		// BeforeTurn 重新冻结 pricingAt 并按最新门复核当前账号。
+ 		var turnPricing openAIWSTurnPricing
++		// 后续 turn 的计费分组同样在 BeforeTurn 经认证缓存重取，使分组调价对
++		// 已打开的连接生效。
++		var turnBillingAPIKeys openAIWSTurnBillingAPIKeys
+ 		// Passthrough ingress does not invoke BeforeTurn for the first frame.
+ 		if err := checkSimpleModeTurnBilling(); err != nil {
+ 			closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, "billing check failed")
+@@ -2943,7 +3041,8 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
+ 				// 长连接跨峰谷/倍率刷新防护：每个 turn 按当前时刻重装门并复核
+ 				// 当前账号，越线即要求客户端重连重选（连接绑定单一上游账号，
+ 				// 无法中途换号）。本 turn 的准入与计费共用同一 pricingAt。
+-				turnCtx, turnAt := h.gatewayService.WithOpenAITurnPricingContext(ctx, apiKey.GroupID)
++				turnBillingCtx := turnBillingAPIKeys.begin(ctx, h.apiKeyService, turn, apiKey)
++				turnCtx, turnAt := h.gatewayService.WithOpenAITurnPricingContext(turnBillingCtx, apiKey.GroupID)
+ 				if _, vetoed, reason := h.gatewayService.ProfitControlVetoLatest(turnCtx, account); vetoed {
+ 					reqLog.Info("openai.websocket_turn_profit_vetoed",
+ 						zap.Int("turn", turn),
+@@ -3059,11 +3158,12 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
+ 				quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
+ 				sessionID := service.ExtractClientSessionID(c)
+ 				turnRecordPricingAt := turnPricing.currentOr(turnStart)
++				turnBillingAPIKey := turnBillingAPIKeys.forTurn(turn, apiKey)
+ 				cyberBlocked := service.GetOpsCyberPolicy(c) != nil
+ 				h.submitOpenAIUsageRecordTask(ctx, result, func(taskCtx context.Context) {
+ 					if err := h.gatewayService.RecordUsage(taskCtx, &service.OpenAIRecordUsageInput{
+ 						Result:             result,
+-						APIKey:             apiKey,
++						APIKey:             turnBillingAPIKey,
+ 						User:               apiKey.User,
+ 						Account:            account,
+ 						Subscription:       subscription,
+
+PR #7792: ef16f8a3d1ca6fbcb06332c652c91223f4caabb4
+OWNERS: ["backend/internal/application/service/openai_ws_v2/passthrough_relay.go"]
+diff --git a/backend/internal/service/openai_ws_v2/passthrough_relay.go b/backend/internal/service/openai_ws_v2/passthrough_relay.go
+index 3c6bd076d..0fdbb9085 100644
+--- a/backend/internal/service/openai_ws_v2/passthrough_relay.go
++++ b/backend/internal/service/openai_ws_v2/passthrough_relay.go
+@@ -26,6 +26,7 @@ type FrameConn interface {
+ 
+ type Usage struct {
+ 	InputTokens              int
++	ImageInputTokens         int
+ 	OutputTokens             int
+ 	CacheCreationInputTokens int
+ 	CacheReadInputTokens     int
+@@ -1117,6 +1118,21 @@ func parseUsageAndAccumulate(
+ 	if imageTokens == 0 {
+ 		imageTokens = usageResult.Get("completion_tokens_details.image_tokens").Int()
+ 	}
++	imageInputTokens := usageResult.Get("input_tokens_details.image_tokens").Int()
++	if imageInputTokens <= 0 {
++		imageInputTokens = usageResult.Get("prompt_tokens_details.image_tokens").Int()
++	}
++	// 与 HTTP Responses 同口径：usage 缺图片计数时由托管工具 tool_usage.image_gen 回填。
++	imageGen := gjson.GetBytes(message, "response.tool_usage.image_gen")
++	if !imageGen.Exists() {
++		imageGen = gjson.GetBytes(message, "tool_usage.image_gen")
++	}
++	if imageTokens <= 0 {
++		imageTokens = max(imageGen.Get("output_tokens_details.image_tokens").Int(), 0)
++	}
++	if imageInputTokens <= 0 {
++		imageInputTokens = max(imageGen.Get("input_tokens_details.image_tokens").Int(), 0)
++	}
+ 
+ 	requireTotals := isTerminalEvent(strings.TrimSpace(eventType))
+ 	inputTokens, inputOK := parseUsageIntField(inputResult, requireTotals)
+@@ -1141,6 +1157,7 @@ func parseUsageAndAccumulate(
+ 	}
+ 	parsedUsage := Usage{
+ 		InputTokens:              inputTokens,
++		ImageInputTokens:         int(imageInputTokens),
+ 		OutputTokens:             outputTokens,
+ 		CacheCreationInputTokens: openAICacheCreationTokensFromUsage(usageResult),
+ 		CacheReadInputTokens:     cachedTokens,
+@@ -1161,7 +1178,7 @@ func parseUsageAndAccumulate(
+ func relayUsageHasTokens(usage Usage) bool {
+ 	return usage.InputTokens > 0 || usage.OutputTokens > 0 ||
+ 		usage.CacheCreationInputTokens > 0 || usage.CacheReadInputTokens > 0 ||
+-		usage.ImageOutputTokens > 0
++		usage.ImageInputTokens > 0 || usage.ImageOutputTokens > 0
+ }
+ 
+ func mergeRelayUsageNonZero(dst *Usage, src Usage) {
+@@ -1180,6 +1197,9 @@ func mergeRelayUsageNonZero(dst *Usage, src Usage) {
+ 	if src.CacheReadInputTokens > 0 {
+ 		dst.CacheReadInputTokens = src.CacheReadInputTokens
+ 	}
++	if src.ImageInputTokens > 0 {
++		dst.ImageInputTokens = src.ImageInputTokens
++	}
+ 	if src.ImageOutputTokens > 0 {
+ 		dst.ImageOutputTokens = src.ImageOutputTokens
+ 	}
+@@ -1191,6 +1211,7 @@ func finalizeRelayTurnUsage(state *relayState) Usage {
+ 	}
+ 	turnUsage := state.turnUsage
+ 	state.usage.InputTokens += turnUsage.InputTokens
++	state.usage.ImageInputTokens += turnUsage.ImageInputTokens
+ 	state.usage.OutputTokens += turnUsage.OutputTokens
+ 	state.usage.CacheCreationInputTokens += turnUsage.CacheCreationInputTokens
+ 	state.usage.CacheReadInputTokens += turnUsage.CacheReadInputTokens
+
+PR #7792: ef16f8a3d1ca6fbcb06332c652c91223f4caabb4
+OWNERS: ["backend/internal/application/service/openai_ws_v2_passthrough_adapter.go"]
+diff --git a/backend/internal/service/openai_ws_v2_passthrough_adapter.go b/backend/internal/service/openai_ws_v2_passthrough_adapter.go
+index 556ad0627..5b5f25e37 100644
+--- a/backend/internal/service/openai_ws_v2_passthrough_adapter.go
++++ b/backend/internal/service/openai_ws_v2_passthrough_adapter.go
+@@ -1207,6 +1207,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
+ 					RequestID: turn.RequestID,
+ 					Usage: OpenAIUsage{
+ 						InputTokens:              turn.Usage.InputTokens,
++						ImageInputTokens:         turn.Usage.ImageInputTokens,
+ 						OutputTokens:             turn.Usage.OutputTokens,
+ 						CacheCreationInputTokens: turn.Usage.CacheCreationInputTokens,
+ 						CacheReadInputTokens:     turn.Usage.CacheReadInputTokens,
+@@ -1348,6 +1349,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
+ 		RequestID: relayResult.RequestID,
+ 		Usage: OpenAIUsage{
+ 			InputTokens:              relayResult.Usage.InputTokens,
++			ImageInputTokens:         relayResult.Usage.ImageInputTokens,
+ 			OutputTokens:             relayResult.Usage.OutputTokens,
+ 			CacheCreationInputTokens: relayResult.Usage.CacheCreationInputTokens,
+ 			CacheReadInputTokens:     relayResult.Usage.CacheReadInputTokens,
+
+PR #7785: f087fdb205315838a761cd62ce623e21ae34254b
+OWNERS: ["backend/internal/shared/apicompat/chatcompletions_to_responses.go"]
+diff --git a/backend/internal/pkg/apicompat/chatcompletions_to_responses.go b/backend/internal/pkg/apicompat/chatcompletions_to_responses.go
+index d1f3bccc0..46cfda43b 100644
+--- a/backend/internal/pkg/apicompat/chatcompletions_to_responses.go
++++ b/backend/internal/pkg/apicompat/chatcompletions_to_responses.go
+@@ -88,10 +88,11 @@ func ChatCompletionsToResponses(req *ChatCompletionsRequest) (*ResponsesRequest,
+ 		out.Tools = convertChatToolsToResponses(req.Tools, req.Functions)
+ 	}
+ 
+-	// tool_choice: already compatible format — pass through directly.
++	// tool_choice: strings and Responses-shaped objects pass through; a named
++	// Chat choice nests the name under "function" and must be flattened.
+ 	// Legacy function_call needs mapping.
+ 	if len(req.ToolChoice) > 0 {
+-		out.ToolChoice = req.ToolChoice
++		out.ToolChoice = convertChatToolChoiceToResponses(req.ToolChoice)
+ 	} else if len(req.FunctionCall) > 0 {
+ 		tc, err := convertChatFunctionCallToToolChoice(req.FunctionCall)
+ 		if err != nil {
+@@ -490,6 +491,34 @@ func defaultStrictFalse(src *bool) *bool {
+ 	return src
+ }
+ 
++// convertChatToolChoiceToResponses maps a Chat Completions tool_choice to the
++// Responses API shape.
++//
++//	{"type":"function","function":{"name":"X"}} → {"type":"function","name":"X"}
++//
++// Strings ("auto", "none", "required") and objects that already use the
++// Responses shape are returned unchanged.
++func convertChatToolChoiceToResponses(raw json.RawMessage) json.RawMessage {
++	var choice struct {
++		Type     string `json:"type"`
++		Function *struct {
++			Name string `json:"name"`
++		} `json:"function"`
++	}
++	if err := json.Unmarshal(raw, &choice); err != nil || choice.Type != "function" || choice.Function == nil {
++		return raw
++	}
++	name := strings.TrimSpace(choice.Function.Name)
++	if name == "" {
++		return raw
++	}
++	flat, err := json.Marshal(map[string]string{"type": "function", "name": name})
++	if err != nil {
++		return raw
++	}
++	return flat
++}
++
+ // convertChatFunctionCallToToolChoice maps the legacy function_call field to a
+ // Responses API tool_choice value.
+ //
+
+PR #7786: f9bd97cc157959df1fe1b737dad5d8473dece35c
+OWNERS: ["backend/internal/shared/apicompat/chatcompletions_to_responses.go"]
+diff --git a/backend/internal/pkg/apicompat/chatcompletions_to_responses.go b/backend/internal/pkg/apicompat/chatcompletions_to_responses.go
+index 46cfda43b..33db6412d 100644
+--- a/backend/internal/pkg/apicompat/chatcompletions_to_responses.go
++++ b/backend/internal/pkg/apicompat/chatcompletions_to_responses.go
+@@ -122,7 +122,7 @@ func convertChatMessagesToResponsesInput(msgs []ChatMessage) ([]ResponsesInputIt
+ // ResponsesInputItem values.
+ func chatMessageToResponsesItems(m ChatMessage) ([]ResponsesInputItem, error) {
+ 	switch m.Role {
+-	case "system":
++	case "system", "developer":
+ 		return chatSystemToResponses(m)
+ 	case "user":
+ 		return chatUserToResponses(m)
+@@ -137,7 +137,9 @@ func chatMessageToResponsesItems(m ChatMessage) ([]ResponsesInputItem, error) {
+ 	}
+ }
+ 
+-// chatSystemToResponses converts a system message.
++// chatSystemToResponses converts a system or developer message, keeping its
++// role: the Responses API accepts both, and developer must not be demoted to
++// a user turn.
+ func chatSystemToResponses(m ChatMessage) ([]ResponsesInputItem, error) {
+ 	parsed, err := parseChatMessageContent(m.Content)
+ 	if err != nil {
+@@ -147,7 +149,7 @@ func chatSystemToResponses(m ChatMessage) ([]ResponsesInputItem, error) {
+ 	if err != nil {
+ 		return nil, err
+ 	}
+-	return []ResponsesInputItem{{Type: "message", Role: "system", Content: content}}, nil
++	return []ResponsesInputItem{{Type: "message", Role: m.Role, Content: content}}, nil
+ }
+ 
+ // chatUserToResponses converts a user message, handling both plain strings and
+
+PR #7787: 8d504668099c6bc1447c713395430a4b479d605e
+OWNERS: ["backend/internal/shared/apicompat/chatcompletions_to_responses.go"]
+diff --git a/backend/internal/pkg/apicompat/chatcompletions_to_responses.go b/backend/internal/pkg/apicompat/chatcompletions_to_responses.go
+index 33db6412d..5f4267c83 100644
+--- a/backend/internal/pkg/apicompat/chatcompletions_to_responses.go
++++ b/backend/internal/pkg/apicompat/chatcompletions_to_responses.go
+@@ -108,7 +108,18 @@ func ChatCompletionsToResponses(req *ChatCompletionsRequest) (*ResponsesRequest,
+ // array into a Responses API input items array.
+ func convertChatMessagesToResponsesInput(msgs []ChatMessage) ([]ResponsesInputItem, error) {
+ 	var out []ResponsesInputItem
++	legacyIDs := legacyFunctionCallIDs{msgs: msgs}
+ 	for _, m := range msgs {
++		switch {
++		case m.Role == "assistant" && m.FunctionCall != nil && len(m.ToolCalls) == 0:
++			m.ToolCalls = []ChatToolCall{{
++				ID:       legacyIDs.assign(m.FunctionCall.Name),
++				Type:     "function",
++				Function: *m.FunctionCall,
++			}}
++		case m.Role == "function" && m.ToolCallID == "":
++			m.ToolCallID = legacyIDs.claim(m.Name)
++		}
+ 		items, err := chatMessageToResponsesItems(m)
+ 		if err != nil {
+ 			return nil, err
+@@ -118,6 +129,58 @@ func convertChatMessagesToResponsesInput(msgs []ChatMessage) ([]ResponsesInputIt
+ 	return out, nil
+ }
+ 
++// legacyFunctionCallIDs pairs legacy function calls with their results. Legacy
++// function calling carries no call IDs: the assistant turn has function_call
++// and the role=function result refers to it only by name, while the Responses
++// API pairs function_call and function_call_output by call_id. IDs follow
++// message order, so a replayed history converts to the same input, and skip
++// IDs already used by tool_calls in the same conversation.
++type legacyFunctionCallIDs struct {
++	msgs    []ChatMessage
++	used    map[string]bool
++	next    int
++	pending map[string][]string
++}
++
++// assign returns a new call ID for a legacy function call and queues it for
++// the next result with the same function name.
++func (ids *legacyFunctionCallIDs) assign(name string) string {
++	if ids.used == nil {
++		ids.used = make(map[string]bool)
++		ids.pending = make(map[string][]string)
++		for _, m := range ids.msgs {
++			for _, tc := range m.ToolCalls {
++				ids.used[tc.ID] = true
++			}
++			if m.ToolCallID != "" {
++				ids.used[m.ToolCallID] = true
++			}
++		}
++	}
++	var id string
++	for {
++		ids.next++
++		id = fmt.Sprintf("call_legacy_%d", ids.next)
++		if !ids.used[id] {
++			break
++		}
++	}
++	ids.used[id] = true
++	ids.pending[name] = append(ids.pending[name], id)
++	return id
++}
++
++// claim returns the oldest unanswered call ID for name, or "" when no legacy
++// call with that name precedes the result.
++func (ids *legacyFunctionCallIDs) claim(name string) string {
++	queue := ids.pending[name]
++	if len(queue) == 0 {
++		return ""
++	}
++	ids.pending[name] = queue[1:]
++	return queue[0]
++}
++
+ // chatMessageToResponsesItems converts a single ChatMessage into one or more
+ // ResponsesInputItem values.
+ func chatMessageToResponsesItems(m ChatMessage) ([]ResponsesInputItem, error) {
+@@ -306,8 +369,9 @@ func chatToolToResponses(m ChatMessage) ([]ResponsesInputItem, error) {
+ }
+ 
+ // chatFunctionToResponses converts a legacy function result message
+-// (role=function) into a function_call_output item. The Name field is used as
+-// call_id since legacy function calls do not carry a separate call_id.
++// (role=function) into a function_call_output item. ToolCallID holds the ID
++// assigned to the matching legacy call (see legacyFunctionCallIDs); without a
++// matching call the Name field is used as call_id.
+ func chatFunctionToResponses(m ChatMessage) ([]ResponsesInputItem, error) {
+ 	output, err := parseChatContent(m.Content)
+ 	if err != nil {
+@@ -316,9 +380,13 @@ func chatFunctionToResponses(m ChatMessage) ([]ResponsesInputItem, error) {
+ 	if output == "" {
+ 		output = "(empty)"
+ 	}
++	callID := m.ToolCallID
++	if callID == "" {
++		callID = m.Name
++	}
+ 	return []ResponsesInputItem{{
+ 		Type:   "function_call_output",
+-		CallID: m.Name,
++		CallID: callID,
+ 		Output: output,
+ 	}}, nil
+ }
+
+PR #7788: 9d49d275f34a6859b822f51ce314eb29d74e5273
+OWNERS: ["backend/internal/shared/apicompat/responses_to_chatcompletions.go"]
+diff --git a/backend/internal/pkg/apicompat/responses_to_chatcompletions.go b/backend/internal/pkg/apicompat/responses_to_chatcompletions.go
+index f402184f2..2b8f2b811 100644
+--- a/backend/internal/pkg/apicompat/responses_to_chatcompletions.go
++++ b/backend/internal/pkg/apicompat/responses_to_chatcompletions.go
+@@ -15,7 +15,8 @@ import (
+ 
+ // ResponsesToChatCompletions converts a Responses API response into a Chat
+ // Completions response. Text output items are concatenated into
+-// choices[0].message.content; function_call items become tool_calls.
++// choices[0].message.content, refusal parts into choices[0].message.refusal;
++// function_call items become tool_calls.
+ func ResponsesToChatCompletions(resp *ResponsesResponse, model string) *ChatCompletionsResponse {
+ 	id := resp.ID
+ 	if id == "" {
+@@ -31,6 +32,7 @@ func ResponsesToChatCompletions(resp *ResponsesResponse, model string) *ChatComp
+ 	}
+ 
+ 	var contentText string
++	var refusalText string
+ 	var reasoningText string
+ 	var toolCalls []ChatToolCall
+ 
+@@ -38,8 +40,11 @@ func ResponsesToChatCompletions(resp *ResponsesResponse, model string) *ChatComp
+ 		switch item.Type {
+ 		case "message":
+ 			for _, part := range item.Content {
+-				if part.Type == "output_text" && part.Text != "" {
++				switch {
++				case part.Type == "output_text" && part.Text != "":
+ 					contentText += part.Text
++				case part.Type == "refusal" && part.Refusal != "":
++					refusalText += part.Refusal
+ 				}
+ 			}
+ 		case "function_call":
+@@ -62,7 +67,7 @@ func ResponsesToChatCompletions(resp *ResponsesResponse, model string) *ChatComp
+ 		}
+ 	}
+ 
+-	msg := ChatMessage{Role: "assistant"}
++	msg := ChatMessage{Role: "assistant", Refusal: refusalText}
+ 	if len(toolCalls) > 0 {
+ 		msg.ToolCalls = toolCalls
+ 	}
+@@ -149,6 +154,8 @@ func ResponsesEventToChatChunks(evt *ResponsesStreamEvent, state *ResponsesEvent
+ 		return resToChatHandleCreated(evt, state)
+ 	case "response.output_text.delta":
+ 		return resToChatHandleTextDelta(evt, state)
++	case "response.refusal.delta":
++		return resToChatHandleRefusalDelta(evt, state)
+ 	case "response.output_item.added":
+ 		return resToChatHandleOutputItemAdded(evt, state)
+ 	case "response.function_call_arguments.delta",
+@@ -248,6 +255,14 @@ func resToChatHandleTextDelta(evt *ResponsesStreamEvent, state *ResponsesEventTo
+ 	return []ChatCompletionsChunk{makeChatDeltaChunk(state, ChatDelta{Content: &content})}
+ }
+ 
++func resToChatHandleRefusalDelta(evt *ResponsesStreamEvent, state *ResponsesEventToChatState) []ChatCompletionsChunk {
++	if evt.Delta == "" {
++		return nil
++	}
++	refusal := evt.Delta
++	return []ChatCompletionsChunk{makeChatDeltaChunk(state, ChatDelta{Refusal: &refusal})}
++}
++
+ func resToChatHandleOutputItemAdded(evt *ResponsesStreamEvent, state *ResponsesEventToChatState) []ChatCompletionsChunk {
+ 	// function_call 与 custom_tool_call（custom/freeform 工具）均按工具调用注册，
+ 	// 以便后续 *_input.delta / *_arguments.delta 能映射到正确的工具索引。
+@@ -496,6 +511,7 @@ type bufferedFuncCall struct {
+ // (response.completed / response.done) carries an empty output array.
+ type BufferedResponseAccumulator struct {
+ 	text                 strings.Builder
++	refusal              strings.Builder
+ 	reasoning            strings.Builder
+ 	funcCalls            []bufferedFuncCall
+ 	outputIndexToFuncIdx map[int]int
+@@ -517,6 +533,10 @@ func (a *BufferedResponseAccumulator) ProcessEvent(event *ResponsesStreamEvent)
+ 		if event.Delta != "" {
+ 			_, _ = a.text.WriteString(event.Delta)
+ 		}
++	case "response.refusal.delta":
++		if event.Delta != "" {
++			_, _ = a.refusal.WriteString(event.Delta)
++		}
+ 	case "response.output_item.added":
+ 		if event.Item != nil && (event.Item.Type == "function_call" || event.Item.Type == "custom_tool_call") {
+ 			idx := len(a.funcCalls)
+@@ -553,7 +573,7 @@ func (a *BufferedResponseAccumulator) ProcessEvent(event *ResponsesStreamEvent)
+ 
+ // HasContent reports whether any content has been accumulated.
+ func (a *BufferedResponseAccumulator) HasContent() bool {
+-	return a.text.Len() > 0 || len(a.funcCalls) > 0 || a.reasoning.Len() > 0
++	return a.text.Len() > 0 || a.refusal.Len() > 0 || len(a.funcCalls) > 0 || a.reasoning.Len() > 0
+ }
+ 
+ // BuildOutput constructs a []ResponsesOutput from the accumulated delta
+@@ -572,14 +592,18 @@ func (a *BufferedResponseAccumulator) BuildOutput() []ResponsesOutput {
+ 		})
+ 	}
+ 
+-	if a.text.Len() > 0 {
++	if a.text.Len() > 0 || a.refusal.Len() > 0 {
++		var content []ResponsesContentPart
++		if a.text.Len() > 0 {
++			content = append(content, ResponsesContentPart{Type: "output_text", Text: a.text.String()})
++		}
++		if a.refusal.Len() > 0 {
++			content = append(content, ResponsesContentPart{Type: "refusal", Refusal: a.refusal.String()})
++		}
+ 		out = append(out, ResponsesOutput{
+-			Type: "message",
+-			Role: "assistant",
+-			Content: []ResponsesContentPart{{
+-				Type: "output_text",
+-				Text: a.text.String(),
+-			}},
++			Type:    "message",
++			Role:    "assistant",
++			Content: content,
+ 		})
+ 	}
+ 
+
+PR #7788: 9d49d275f34a6859b822f51ce314eb29d74e5273
+OWNERS: ["backend/internal/modules/chat/types.go", "backend/internal/modules/egress/types.go", "backend/internal/modules/payment/types.go", "backend/internal/shared/apicompat/types.go", "backend/internal/shared/errors/types.go", "backend/internal/shared/websearch/types.go", "backend/internal/transport/http/handler/dto/types.go"]
+diff --git a/backend/internal/pkg/apicompat/types.go b/backend/internal/pkg/apicompat/types.go
+index 859cb1dcb..c0a833f10 100644
+--- a/backend/internal/pkg/apicompat/types.go
++++ b/backend/internal/pkg/apicompat/types.go
+@@ -312,8 +312,9 @@ func (i *ResponsesInputItem) UnmarshalJSON(data []byte) error {
+ // ResponsesContentPart is a typed content part in a Responses message.
+ type ResponsesContentPart struct {
+ 	PromptCacheBreakpoint json.RawMessage `json:"prompt_cache_breakpoint,omitempty"`
+-	Type                  string          `json:"type"` // "input_text" | "output_text" | "input_image" | "input_file"
++	Type                  string          `json:"type"` // "input_text" | "output_text" | "refusal" | "input_image" | "input_file"
+ 	Text                  string          `json:"text,omitempty"`
++	Refusal               string          `json:"refusal,omitempty"`   // type=refusal
+ 	ImageURL              string          `json:"image_url,omitempty"` // data URI for input_image
+ 
+ 	// input_file fields.
+@@ -690,6 +691,7 @@ type ChatStreamOptions struct {
+ type ChatMessage struct {
+ 	Role             string          `json:"role"` // "system" | "user" | "assistant" | "tool" | "function"
+ 	Content          json.RawMessage `json:"content,omitempty"`
++	Refusal          string          `json:"refusal,omitempty"`
+ 	ReasoningContent string          `json:"reasoning_content,omitempty"`
+ 	Reasoning        string          `json:"reasoning,omitempty"`
+ 	Name             string          `json:"name,omitempty"`
+@@ -830,6 +832,7 @@ type ChatChunkChoice struct {
+ type ChatDelta struct {
+ 	Role             string         `json:"role,omitempty"`
+ 	Content          *string        `json:"content,omitempty"` // pointer: omit when not present, null vs "" matters
++	Refusal          *string        `json:"refusal,omitempty"`
+ 	ReasoningContent *string        `json:"reasoning_content,omitempty"`
+ 	Reasoning        *string        `json:"reasoning,omitempty"`
+ 	ToolCalls        []ChatToolCall `json:"tool_calls,omitempty"`
+
+PR #7789: cc4a1e3f616cd50491cb7987dfb0459cae380197
+OWNERS: ["backend/internal/application/service/gateway_forward_as_chat_completions.go"]
+diff --git a/backend/internal/service/gateway_forward_as_chat_completions.go b/backend/internal/service/gateway_forward_as_chat_completions.go
+index 800bb8125..5113fc6d0 100644
+--- a/backend/internal/service/gateway_forward_as_chat_completions.go
++++ b/backend/internal/service/gateway_forward_as_chat_completions.go
+@@ -280,7 +280,7 @@ func (s *GatewayService) handleCCBufferedFromAnthropic(
+ 		}
+ 		if event.Type == "content_block_delta" && event.Delta != nil && finalResp != nil && event.Index != nil {
+ 			idx := *event.Index
+-			if idx < len(finalResp.Content) {
++			if idx >= 0 && idx < len(finalResp.Content) {
+ 				switch event.Delta.Type {
+ 				case "text_delta":
+ 					finalResp.Content[idx].Text += event.Delta.Text
+
+PR #7789: cc4a1e3f616cd50491cb7987dfb0459cae380197
+OWNERS: ["backend/internal/application/service/gateway_forward_as_responses.go"]
+diff --git a/backend/internal/service/gateway_forward_as_responses.go b/backend/internal/service/gateway_forward_as_responses.go
+index c360b95d2..db8033ebe 100644
+--- a/backend/internal/service/gateway_forward_as_responses.go
++++ b/backend/internal/service/gateway_forward_as_responses.go
+@@ -438,7 +438,7 @@ func (s *GatewayService) handleResponsesBufferedStreamingResponse(
+ 		}
+ 		if event.Type == "content_block_delta" && event.Delta != nil && finalResp != nil && event.Index != nil {
+ 			idx := *event.Index
+-			if idx < len(finalResp.Content) {
++			if idx >= 0 && idx < len(finalResp.Content) {
+ 				switch event.Delta.Type {
+ 				case "text_delta":
+ 					finalResp.Content[idx].Text += event.Delta.Text
+
+PR #7789: cc4a1e3f616cd50491cb7987dfb0459cae380197
+OWNERS: ["backend/internal/application/service/openai_gateway_chat_completions_anthropic_native.go"]
+diff --git a/backend/internal/service/openai_gateway_chat_completions_anthropic_native.go b/backend/internal/service/openai_gateway_chat_completions_anthropic_native.go
+index 5a937eff4..6c0affe2b 100644
+--- a/backend/internal/service/openai_gateway_chat_completions_anthropic_native.go
++++ b/backend/internal/service/openai_gateway_chat_completions_anthropic_native.go
+@@ -241,7 +241,7 @@ func (s *OpenAIGatewayService) handleCCBufferedFromNativeAnthropic(
+ 		}
+ 		if event.Type == "content_block_delta" && event.Delta != nil && finalResp != nil && event.Index != nil {
+ 			idx := *event.Index
+-			if idx < len(finalResp.Content) {
++			if idx >= 0 && idx < len(finalResp.Content) {
+ 				switch event.Delta.Type {
+ 				case "text_delta":
+ 					finalResp.Content[idx].Text += event.Delta.Text
+
+PR #7789: cc4a1e3f616cd50491cb7987dfb0459cae380197
+OWNERS: ["backend/internal/application/service/openai_gateway_responses_anthropic_native.go"]
+diff --git a/backend/internal/service/openai_gateway_responses_anthropic_native.go b/backend/internal/service/openai_gateway_responses_anthropic_native.go
+index 69bbd7303..09278d291 100644
+--- a/backend/internal/service/openai_gateway_responses_anthropic_native.go
++++ b/backend/internal/service/openai_gateway_responses_anthropic_native.go
+@@ -242,7 +242,7 @@ func (s *OpenAIGatewayService) handleResponsesBufferedFromNativeAnthropic(
+ 		}
+ 		if event.Type == "content_block_delta" && event.Delta != nil && finalResp != nil && event.Index != nil {
+ 			idx := *event.Index
+-			if idx < len(finalResp.Content) {
++			if idx >= 0 && idx < len(finalResp.Content) {
+ 				switch event.Delta.Type {
+ 				case "text_delta":
+ 					finalResp.Content[idx].Text += event.Delta.Text
+
+PR #7869: e473fba99cafe5dad076e0f5a9df6df3bca10ee5
+OWNERS: ["backend/internal/shared/antigravity/claude_types.go"]
+diff --git a/backend/internal/pkg/antigravity/claude_types.go b/backend/internal/pkg/antigravity/claude_types.go
+index 23601c045..61e32b615 100644
+--- a/backend/internal/pkg/antigravity/claude_types.go
++++ b/backend/internal/pkg/antigravity/claude_types.go
+@@ -122,6 +122,20 @@ type ClaudeContentItem struct {
+ 	Input any    `json:"input,omitempty"`
+ }
+ 
++// MarshalJSON 保证 thinking 块始终带 thinking/signature 字段（即使为空），
++// 与 Anthropic 官方一致；Grok Build 等严格客户端缺少 signature 会解析失败。
++func (c ClaudeContentItem) MarshalJSON() ([]byte, error) {
++	type claudeContentItem ClaudeContentItem
++	if c.Type != "thinking" {
++		return json.Marshal(claudeContentItem(c))
++	}
++	return json.Marshal(struct {
++		Thinking  string `json:"thinking"`
++		Signature string `json:"signature"`
++		claudeContentItem
++	}{Thinking: c.Thinking, Signature: c.Signature, claudeContentItem: claudeContentItem(c)})
++}
++
+ // ClaudeUsage Claude 用量统计
+ type ClaudeUsage struct {
+ 	InputTokens              int `json:"input_tokens"`
+
+PR #7869: e473fba99cafe5dad076e0f5a9df6df3bca10ee5
+OWNERS: ["backend/internal/shared/antigravity/stream_transformer.go"]
+diff --git a/backend/internal/pkg/antigravity/stream_transformer.go b/backend/internal/pkg/antigravity/stream_transformer.go
+index 13471dddd..faecf233e 100644
+--- a/backend/internal/pkg/antigravity/stream_transformer.go
++++ b/backend/internal/pkg/antigravity/stream_transformer.go
+@@ -296,8 +296,9 @@ func (p *StreamingProcessor) processThinking(text, signature string) []byte {
+ 	// 开始或继续 thinking 块
+ 	if p.blockType != BlockTypeThinking {
+ 		_, _ = result.Write(p.startBlock(BlockTypeThinking, map[string]any{
+-			"type":     "thinking",
+-			"thinking": "",
++			"type":      "thinking",
++			"thinking":  "",
++			"signature": "",
+ 		}))
+ 	}
+ 
+@@ -475,8 +476,9 @@ func (p *StreamingProcessor) emitEmptyThinkingWithSignature(signature string) []
+ 	var result bytes.Buffer
+ 
+ 	_, _ = result.Write(p.startBlock(BlockTypeThinking, map[string]any{
+-		"type":     "thinking",
+-		"thinking": "",
++		"type":      "thinking",
++		"thinking":  "",
++		"signature": "",
+ 	}))
+ 	_, _ = result.Write(p.emitDelta("thinking_delta", map[string]any{
+ 		"thinking": "",
+
+PR #7869: e473fba99cafe5dad076e0f5a9df6df3bca10ee5
+OWNERS: ["backend/internal/modules/chat/types.go", "backend/internal/modules/egress/types.go", "backend/internal/modules/payment/types.go", "backend/internal/shared/apicompat/types.go", "backend/internal/shared/errors/types.go", "backend/internal/shared/websearch/types.go", "backend/internal/transport/http/handler/dto/types.go"]
+diff --git a/backend/internal/pkg/apicompat/types.go b/backend/internal/pkg/apicompat/types.go
+index c0a833f10..b5864f2f2 100644
+--- a/backend/internal/pkg/apicompat/types.go
++++ b/backend/internal/pkg/apicompat/types.go
+@@ -95,10 +95,14 @@ func (b AnthropicContentBlock) MarshalJSON() ([]byte, error) {
+ 			anthropicContentBlock
+ 		}{Text: b.Text, anthropicContentBlock: anthropicContentBlock(b)})
+ 	case "thinking":
++		// Anthropic always sends `signature` on thinking blocks (empty on
++		// content_block_start); strict clients such as Grok Build reject the
++		// block with "missing field `signature`" when the key is absent.
+ 		return json.Marshal(struct {
+-			Thinking string `json:"thinking"`
++			Thinking  string `json:"thinking"`
++			Signature string `json:"signature"`
+ 			anthropicContentBlock
+-		}{Thinking: b.Thinking, anthropicContentBlock: anthropicContentBlock(b)})
++		}{Thinking: b.Thinking, Signature: b.Signature, anthropicContentBlock: anthropicContentBlock(b)})
+ 	default:
+ 		return json.Marshal(base)
+ 	}
+
+PR #7844: f19cd4fdea288984908ce1c9744dc2ddb7d663d7
+OWNERS: ["backend/internal/application/service/gateway_claude_oauth_body.go"]
+diff --git a/backend/internal/service/gateway_claude_oauth_body.go b/backend/internal/service/gateway_claude_oauth_body.go
+index 9fa4c1e13..085cfefbd 100644
+--- a/backend/internal/service/gateway_claude_oauth_body.go
++++ b/backend/internal/service/gateway_claude_oauth_body.go
+@@ -1052,9 +1052,15 @@ func collectCacheControlPaths(body []byte) (invalidThinking []cacheControlPath,
+ 	return invalidThinking, messagePaths, toolPaths, systemPaths
+ }
+ 
+-// enforceCacheControlLimit 强制执行 cache_control 块数量限制（最多 4 个）
+-// 超限时优先移除工具断点，再移除 messages 断点，最后才移除 system 断点。
++// enforceCacheControlLimit 让出站 cache_control 满足上游约束：
++// 先执行块数量限制，再修正 TTL 顺序。
+ func enforceCacheControlLimit(body []byte) []byte {
++	return normalizeCacheControlTTLOrder(enforceCacheControlBlockLimit(body))
++}
++
++// enforceCacheControlBlockLimit 强制执行 cache_control 块数量限制（最多 4 个）
++// 超限时优先移除工具断点，再移除 messages 断点，最后才移除 system 断点。
++func enforceCacheControlBlockLimit(body []byte) []byte {
+ 	if len(body) == 0 {
+ 		return body
+ 	}
+@@ -1137,6 +1143,46 @@ func enforceCacheControlLimit(body []byte) []byte {
+ 	return body
+ }
+ 
++// normalizeCacheControlTTLOrder raises earlier ephemeral breakpoints to 1h when
++// a later breakpoint uses 1h. Anthropic processes tools, system, then messages,
++// and rejects a ttl=1h breakpoint that follows a 5m one; an omitted ttl means 5m.
++// The mimic path adds its own 5m breakpoints to tools and system, so a client
++// 1h breakpoint in messages would otherwise turn a valid request into a 400.
++//
++// Raising keeps the client's choice. Tokens before a 1h breakpoint are already
++// written at the 1h rate, so the earlier breakpoints add no cache write cost.
++// Requests with a valid order are returned unchanged.
++func normalizeCacheControlTTLOrder(body []byte) []byte {
++	_, messagePaths, toolPaths, systemPaths := collectCacheControlPaths(body)
++	paths := make([]string, 0, len(toolPaths)+len(systemPaths)+len(messagePaths)+1)
++	paths = append(paths, toolPaths...)
++	paths = append(paths, systemPaths...)
++	paths = append(paths, messagePaths...)
++	// A top-level cache_control applies to the last cacheable block.
++	if gjson.GetBytes(body, "cache_control").Exists() {
++		paths = append(paths, "cache_control")
++	}
++
++	last1h := -1
++	for i, path := range paths {
++		if gjson.GetBytes(body, path+".ttl").String() == cacheTTLTarget1h {
++			last1h = i
++		}
++	}
++
++	out := body
++	for _, path := range paths[:last1h+1] {
++		cc := gjson.GetBytes(out, path)
++		if cc.Get("type").String() != "ephemeral" || cc.Get("ttl").String() == cacheTTLTarget1h {
++			continue
++		}
++		if next, err := sjson.SetBytes(out, path+".ttl", cacheTTLTarget1h); err == nil {
++			out = next
++		}
++	}
++	return out
++}
++
+ // injectAnthropicCacheControlTTL1h 将已有 ephemeral cache_control 块的 ttl 强制写为 1h。
+ // 仅修改已经存在的 cache_control，不新增缓存断点。
+ func injectAnthropicCacheControlTTL1h(body []byte) []byte {
+
+PR #7827: 129369204eaccac9a0ee3ea6f4ea0b35be7e4130
+OWNERS: ["backend/internal/domain/constants.go", "backend/internal/shared/claude/constants.go", "backend/internal/shared/geminicli/constants.go", "backend/internal/shared/openai/constants.go"]
+diff --git a/backend/internal/pkg/claude/constants.go b/backend/internal/pkg/claude/constants.go
+index 6c2aeebba..5e0f9fc27 100644
+--- a/backend/internal/pkg/claude/constants.go
++++ b/backend/internal/pkg/claude/constants.go
+@@ -20,6 +20,9 @@ const (
+ 	BetaFastMode                 = "fast-mode-2026-02-01"
+ 	// Legacy structured output compatibility; forwarded only when explicitly requested.
+ 	BetaStructuredOutputs = "structured-outputs-2025-11-13"
++	// Tool-change compatibility tokens; never enabled without an explicit client request.
++	BetaMidConversationToolChanges = "mid-conversation-tool-changes-2026-07-01"
++	BetaInlineTools                = "inline-tools-2026-09-15"
+ 
+ 	// 新增（对齐官方 CLI 2.1.9x 以来的流量）
+ 	BetaPromptCachingScope          = "prompt-caching-scope-2026-01-05"
+
+PR #7827: 129369204eaccac9a0ee3ea6f4ea0b35be7e4130
+OWNERS: ["backend/internal/application/service/gateway_upstream_request.go"]
+diff --git a/backend/internal/service/gateway_upstream_request.go b/backend/internal/service/gateway_upstream_request.go
+index b6e91a52a..06ee09822 100644
+--- a/backend/internal/service/gateway_upstream_request.go
++++ b/backend/internal/service/gateway_upstream_request.go
+@@ -545,14 +545,20 @@ func (s *GatewayService) computeFinalAnthropicBeta(
+ 
+ 	if tokenType == "oauth" {
+ 		if mimicClaudeCode {
+-			// Keep the default beta set, with a narrow opt-in for legacy structured
+-			// output requests. Unknown client betas remain excluded and policy drops
+-			// still take precedence over this compatibility token.
+-			incomingBeta := ""
+-			if containsBetaToken(clientBeta, claude.BetaStructuredOutputs) {
+-				incomingBeta = claude.BetaStructuredOutputs
++			// Preserve explicitly requested compatibility tokens so the forwarded
++			// body and headers agree. Unknown betas remain excluded; policy drops
++			// still take precedence. Missing companion tokens are not inferred.
++			var incomingBetas []string
++			for _, token := range []string{
++				claude.BetaStructuredOutputs,
++				claude.BetaMidConversationToolChanges,
++				claude.BetaInlineTools,
++			} {
++				if containsBetaToken(clientBeta, token) {
++					incomingBetas = append(incomingBetas, token)
++				}
+ 			}
+-			return mergeAnthropicBetaDropping(claude.FullClaudeCodeMimicryBetas(), incomingBeta, effectiveDropSet), true
++			return mergeAnthropicBetaDropping(claude.FullClaudeCodeMimicryBetas(), strings.Join(incomingBetas, ","), effectiveDropSet), true
+ 		}
+ 		// 真 Claude Code 客户端透传路径
+ 		return stripBetaTokensWithSet(s.getBetaHeader(modelID, clientBeta), effectiveDropSet), true
+
+PR #7910: 2afe7d45777723d069b0f74e3cac2ef313539cf8
+OWNERS: ["backend/internal/application/service/openai_responses_namespace.go"]
+diff --git a/backend/internal/service/openai_responses_namespace.go b/backend/internal/service/openai_responses_namespace.go
+index 2d110a9e0..17ee43606 100644
+--- a/backend/internal/service/openai_responses_namespace.go
++++ b/backend/internal/service/openai_responses_namespace.go
+@@ -202,37 +202,39 @@ func stripOpenAIResponsesInputNamespaces(body []byte, keepToolCallNamespaces boo
+ 	}
+ 
+ 	var rebuilt bytes.Buffer
+-	rebuilt.Grow(len(input.Raw))
+-	_ = rebuilt.WriteByte('[')
+ 	changed := false
+-	first := true
++	// Offsets below are relative to input.Raw, not the full request body.
++	copyFrom := 0
+ 	var stripErr error
+ 	input.ForEach(func(_, item gjson.Result) bool {
+-		if !first {
+-			_ = rebuilt.WriteByte(',')
++		if !item.IsObject() || !item.Get("namespace").Exists() ||
++			(keepToolCallNamespaces && isOpenAIResponsesToolCallItemType(item.Get("type").String())) {
++			return true
+ 		}
+-		first = false
+-		itemBody := []byte(item.Raw)
+-		// 先判存在再判类型：长历史里绝大多数是 message/reasoning 等不带 namespace
+-		// 的项，这样它们无需再扫一次 type。
+-		if item.IsObject() && item.Get("namespace").Exists() &&
+-			(!keepToolCallNamespaces || !isOpenAIResponsesToolCallItemType(item.Get("type").String())) {
+-			itemBody, stripErr = sjson.DeleteBytes(itemBody, "namespace")
+-			if stripErr != nil {
+-				return false
+-			}
++		itemBody, err := sjson.DeleteBytes([]byte(item.Raw), "namespace")
++		if err != nil {
++			stripErr = err
++			return false
++		}
++		if !changed {
++			// Allocate only on the first change; copy unchanged spans without
++			// traversing their items again or converting them to byte slices.
++			rebuilt.Grow(len(input.Raw))
+ 			changed = true
+ 		}
++		itemStart := item.Index - input.Index
++		_, _ = rebuilt.WriteString(input.Raw[copyFrom:itemStart])
+ 		_, _ = rebuilt.Write(itemBody)
++		copyFrom = itemStart + len(item.Raw)
+ 		return true
+ 	})
+-	_ = rebuilt.WriteByte(']')
+ 	if stripErr != nil {
+ 		return body, fmt.Errorf("delete OpenAI input namespace: %w", stripErr)
+ 	}
+ 	if !changed {
+ 		return body, nil
+ 	}
++	_, _ = rebuilt.WriteString(input.Raw[copyFrom:])
+ 	stripped, err := sjson.SetRawBytes(body, "input", rebuilt.Bytes())
+ 	if err != nil {
+ 		return body, fmt.Errorf("replace OpenAI input after namespace deletion: %w", err)
+
+PR #7775: 6cacccc767f8294c127888c431e430a5b2a22658
+OWNERS: ["artifacts/upstream-sync-20260918/baseline/all/backend/internal/application/service/openai_gateway_response_handling.go", "artifacts/upstream-sync-20260918/baseline/openai_gateway_response_handling.go", "backend/internal/application/service/openai_gateway_response_handling.go", "diagnostics/stream-control-20260907/original/backend/internal/application/service/openai_gateway_response_handling.go"]
+diff --git a/backend/internal/service/openai_gateway_response_handling.go b/backend/internal/service/openai_gateway_response_handling.go
+index 95e5db319..d4c8f723b 100644
+--- a/backend/internal/service/openai_gateway_response_handling.go
++++ b/backend/internal/service/openai_gateway_response_handling.go
+@@ -687,8 +687,12 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
+ 			// OpenAI Responses streams that terminate with an empty
+ 			// response.completed (no output, no usage, no error, nothing sent
+ 			// to the client) are silent upstream refusals: fail over instead of
+-			// recording a successful 0/0 usage turn (issue #5009).
+-			if account != nil && account.Platform == PlatformOpenAI &&
++			// recording a successful 0/0 usage turn (issue #5009). Grok
++			// subscriptions behind vendor gateways show the same silent-refusal
++			// shape on /v1/responses (forwardGrokResponses reaches this same
++			// handler), so cover PlatformGrok too — the passthrough-path guard
++			// is already unconditional.
++			if account != nil && (account.Platform == PlatformOpenAI || account.Platform == PlatformGrok) &&
+ 				(eventType == "response.completed" || eventType == "response.done") &&
+ 				!sawFailedEvent && !responsesSemanticOutputSeen && !clientOutputStarted &&
+ 				openAIResponsesCompletedEventIsEmpty(dataBytes, usage) {
+
+PR #7854: 90afaf120e311c8b81f0732999b141457bb81fea
+OWNERS: ["backend/internal/application/service/gateway_forward_as_chat_completions.go"]
+diff --git a/backend/internal/service/gateway_forward_as_chat_completions.go b/backend/internal/service/gateway_forward_as_chat_completions.go
+index 5113fc6d0..60b14488c 100644
+--- a/backend/internal/service/gateway_forward_as_chat_completions.go
++++ b/backend/internal/service/gateway_forward_as_chat_completions.go
+@@ -421,10 +421,11 @@ func (s *GatewayService) handleCCStreamingFromAnthropic(
+ 		if event == nil {
+ 			return false
+ 		}
+-		// Drop Anthropic keepalive pings before OpenAI conversion:
+-		// leaking `event: ping` frames crashes OpenAI-stream clients.
+-		// Error events must still forward — they carry upstream failures.
+ 		if event.Type == "ping" {
++			if _, err := fmt.Fprint(c.Writer, ": ping\n\n"); err != nil {
++				return true
++			}
++			c.Writer.Flush()
+ 			return false
+ 		}
+ 		if firstChunk {
+
+PR #7891: bbf1d37783d37d58edc8b9c07ffec53b075e4de9
+OWNERS: []
+diff --git a/backend/internal/service/opencode_go_usage.go b/backend/internal/service/opencode_go_usage.go
+index f0408a0f3..2e96d3384 100644
+--- a/backend/internal/service/opencode_go_usage.go
++++ b/backend/internal/service/opencode_go_usage.go
+@@ -779,7 +779,7 @@ func (s *OpenCodeGoUsageService) refreshLoadedAccount(ctx context.Context, accou
+ 		return s.persistFailure(ctx, account, intervalMinutes, now, resp.StatusCode, "unauthorized", retryAfter(resp.Header, now), true)
+ 	}
+ 	if resp.StatusCode == http.StatusForbidden {
+-		return s.persistFailure(ctx, account, intervalMinutes, now, resp.StatusCode, "OpenCode Go subscription required (403)", retryAfter(resp.Header, now), false)
++		return s.persistFailure(ctx, account, intervalMinutes, now, resp.StatusCode, "forbidden", retryAfter(resp.Header, now), false)
+ 	}
+ 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+ 		return s.persistFailure(ctx, account, intervalMinutes, now, resp.StatusCode, "http_error", retryAfter(resp.Header, now), false)
+@@ -1000,8 +1000,17 @@ func decodeOpenCodeGoUsageSnapshot(extra map[string]any) *OpenCodeGoUsageSnapsho
+ 
+ // nextOpenCodeGoUsageDelay computes the not-before delay for the next refresh:
+ // interval * 2^min(failureCount-1, 6) capped at 24h, ±10% jitter capped at 5min,
+-// never below a Retry-After hint or one minute.
++// never below a Retry-After hint or one minute. The hint is honored over the
++// local backoff but clamped to the same 24h ceiling: it arrives over a network
++// path we do not control (upstream CDN, account proxy), and an unbounded value
++// would freeze a group's auto refresh indefinitely.
+ func nextOpenCodeGoUsageDelay(intervalMinutes, failureCount int, retryAfterDuration time.Duration) time.Duration {
++	if retryAfterDuration < 0 {
++		retryAfterDuration = 0
++	}
++	if retryAfterDuration > opencodeGoUsageMaxDelay {
++		retryAfterDuration = opencodeGoUsageMaxDelay
++	}
+ 	minimumDelay := retryAfterDuration
+ 	base := time.Duration(intervalMinutes) * time.Minute
+ 	if base < opencodeGoUsageMinIntervalMinutes*time.Minute {
+
+PR #7891: bbf1d37783d37d58edc8b9c07ffec53b075e4de9
+OWNERS: ["backend/internal/application/service/upstream_billing_probe.go"]
+diff --git a/backend/internal/service/upstream_billing_probe.go b/backend/internal/service/upstream_billing_probe.go
+index adf3d2527..b34900f4f 100644
+--- a/backend/internal/service/upstream_billing_probe.go
++++ b/backend/internal/service/upstream_billing_probe.go
+@@ -1105,6 +1105,12 @@ func (s *UpstreamBillingProbeService) currentTime() time.Time {
+ }
+ 
+ func nextProbeDelay(intervalMinutes int, retryAfterDuration time.Duration) time.Duration {
++	if retryAfterDuration < 0 {
++		retryAfterDuration = 0
++	}
++	if retryAfterDuration > upstreamBillingProbeMaxDelay {
++		retryAfterDuration = upstreamBillingProbeMaxDelay
++	}
+ 	interval := time.Duration(intervalMinutes) * time.Minute
+ 	if interval < upstreamBillingProbeMinIntervalMinutes*time.Minute {
+ 		interval = upstreamBillingProbeMinIntervalMinutes * time.Minute
+@@ -1120,8 +1126,8 @@ func nextProbeDelay(intervalMinutes int, retryAfterDuration time.Duration) time.
+ 		interval += time.Duration(rand.Int64N(int64(jitterRange)*2+1)) - jitterRange
+ 	}
+ 	if retryAfterDuration > interval {
+-		// Retry-After is an explicit upstream instruction; do not shorten it
+-		// with the local maximum delay.
++		// Retry-After is an explicit upstream instruction; honor it over the
++		// local backoff interval, clamped to the same 24h ceiling.
+ 		return retryAfterDuration
+ 	}
+ 	if interval > upstreamBillingProbeMaxDelay {
+@@ -1133,8 +1139,7 @@ func nextProbeDelay(intervalMinutes int, retryAfterDuration time.Duration) time.
+ // unsupportedProbeDelay 拉长 unsupported 账号的重探间隔，让无效候选自然退出
+ // 热队列，不再和真正接入 sub2api 的中转账号抢每周期的探测名额。
+ // 仍按 upstreamBillingProbeMaxDelay 封顶，保证上游后来接入 sub2api 时最迟一天
+-// 内会被重新发现；base 本身已达上限（例如 Retry-After 明确要求更久）时原样返回，
+-// 不缩短上游指令。
++// 内会被重新发现；base 本身亦受 24h 封顶保护。
+ func unsupportedProbeDelay(intervalMinutes int, retryAfterDuration time.Duration) time.Duration {
+ 	base := nextProbeDelay(intervalMinutes, retryAfterDuration)
+ 	if base >= upstreamBillingProbeMaxDelay {
+
+PR #7889: 3c274768c19c73e7403ff27f1d7a7f3b99b8f890
+OWNERS: ["backend/internal/application/service/account_test_service.go"]
+diff --git a/backend/internal/service/account_test_service.go b/backend/internal/service/account_test_service.go
+index 4da30d610..cea4dfea4 100644
+--- a/backend/internal/service/account_test_service.go
++++ b/backend/internal/service/account_test_service.go
+@@ -436,6 +436,9 @@ func (s *AccountTestService) testOpenCodeGoAccountConnection(c *gin.Context, acc
+ 		testModelID = DefaultOpenCodeGoTestModel
+ 	}
+ 	testModelID = account.GetMappedModel(testModelID)
++	if IsOpenCodeUnsupportedModel(testModelID) {
++		return fmt.Errorf("model %q is not supported on OpenCode standard gateway (gemini models require Google SDK endpoint, jev models require System One endpoint)", testModelID)
++	}
+ 	proto := account.GetAPIProtocol()
+ 	switch proto {
+ 	case APIProtocolChatCompletions, APIProtocolAnthropic, APIProtocolResponses:
+
+PR #7889: 3c274768c19c73e7403ff27f1d7a7f3b99b8f890
+OWNERS: ["backend/internal/application/service/openai_gateway_chat_completions.go"]
+diff --git a/backend/internal/service/openai_gateway_chat_completions.go b/backend/internal/service/openai_gateway_chat_completions.go
+index a94d57007..7ffd20916 100644
+--- a/backend/internal/service/openai_gateway_chat_completions.go
++++ b/backend/internal/service/openai_gateway_chat_completions.go
+@@ -118,6 +118,9 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
+ 	// 规则未命中一律兜底 Chat Completions，只有显式 Responses 才走下方转换链。
+ 	if account.IsOpenCodeGo() {
+ 		mapped := resolveOpenCodeGoMappedModel(account, body, defaultMappedModel)
++		if IsOpenCodeUnsupportedModel(mapped) {
++			return nil, writeOpenCodeUnsupportedModelError(c, false, mapped)
++		}
+ 		proto := openCodeGoNativeProtocol(account, mapped)
+ 		if proto != APIProtocolResponses {
+ 			if isResponsesShape {
+
+PR #7889: 3c274768c19c73e7403ff27f1d7a7f3b99b8f890
+OWNERS: ["backend/internal/application/service/openai_gateway_forward.go", "diagnostics/stream-control-20260907/original/backend/internal/application/service/openai_gateway_forward.go"]
+diff --git a/backend/internal/service/openai_gateway_forward.go b/backend/internal/service/openai_gateway_forward.go
+index 10c525550..fffca9af2 100644
+--- a/backend/internal/service/openai_gateway_forward.go
++++ b/backend/internal/service/openai_gateway_forward.go
+@@ -161,6 +161,9 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
+ 
+ 	if account.IsOpenCodeGo() {
+ 		mapped := resolveOpenCodeGoMappedModel(account, body, "")
++		if IsOpenCodeUnsupportedModel(mapped) {
++			return nil, writeOpenCodeUnsupportedModelError(c, false, mapped)
++		}
+ 		switch openCodeGoNativeProtocol(account, mapped) {
+ 		case APIProtocolAnthropic:
+ 			return s.forwardResponsesViaNativeAnthropic(ctx, c, account, body, "")
+
+PR #7889: 3c274768c19c73e7403ff27f1d7a7f3b99b8f890
+OWNERS: ["backend/internal/application/service/openai_gateway_messages.go", "backend/internal/transport/http/handler/openai_gateway_messages.go"]
+diff --git a/backend/internal/service/openai_gateway_messages.go b/backend/internal/service/openai_gateway_messages.go
+index efe17c30a..a45dd5e56 100644
+--- a/backend/internal/service/openai_gateway_messages.go
++++ b/backend/internal/service/openai_gateway_messages.go
+@@ -56,6 +56,9 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
+ 	// OpenCode Go：按模型原生协议分流。规则未命中兜底 Chat Completions。
+ 	if account.IsOpenCodeGo() {
+ 		mapped := resolveOpenCodeGoMappedModel(account, body, defaultMappedModel)
++		if IsOpenCodeUnsupportedModel(mapped) {
++			return nil, writeOpenCodeUnsupportedModelError(c, true, mapped)
++		}
+ 		switch openCodeGoNativeProtocol(account, mapped) {
+ 		case APIProtocolAnthropic:
+ 			return s.forwardAnthropicViaNativeAnthropicEndpoint(ctx, c, account, body, defaultMappedModel)
+
+PR #7889: 3c274768c19c73e7403ff27f1d7a7f3b99b8f890
+OWNERS: ["backend/internal/application/service/opencode_go.go"]
+diff --git a/backend/internal/service/opencode_go.go b/backend/internal/service/opencode_go.go
+index 1364179b0..68a543766 100644
+--- a/backend/internal/service/opencode_go.go
++++ b/backend/internal/service/opencode_go.go
+@@ -6,6 +6,7 @@ import (
+ 	"strings"
+ 
+ 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
++	"github.com/gin-gonic/gin"
+ )
+ 
+ // OpenCode Go 是 OpenCode Zen 的订阅网关：同一 API Key 下按模型分流到
+@@ -67,6 +68,39 @@ func normalizeOpenCodeGoModelID(model string) string {
+ 	return model
+ }
+ 
++// IsOpenCodeUnsupportedModel 判断请求的模型是否属于 OpenCode 专有协议端点模型。
++// 官方 Zen 上 gemini-* 仅走 Google SDK 专属端点 /zen/v1/models/<id>，
++// jev-* 仅走 SystemOne 专属端点 /zen/v1/systemone，
++// 在通用 Chat Completions / Anthropic Messages / Responses 网关端点上不可用。
++func IsOpenCodeUnsupportedModel(model string) bool {
++	normalized := normalizeOpenCodeGoModelID(model)
++	return strings.HasPrefix(normalized, "gemini-") || strings.HasPrefix(normalized, "jev-")
++}
++
++func writeOpenCodeUnsupportedModelError(c *gin.Context, isAnthropic bool, model string) error {
++	msg := fmt.Sprintf("Model '%s' is not supported on OpenCode standard gateway (gemini models require Google SDK endpoint, jev models require System One endpoint)", model)
++	if c != nil {
++		if isAnthropic {
++			c.JSON(http.StatusBadRequest, gin.H{
++				"type": "error",
++				"error": gin.H{
++					"type":    "invalid_request_error",
++					"message": msg,
++				},
++			})
++		} else {
++			c.JSON(http.StatusBadRequest, gin.H{
++				"error": gin.H{
++					"type":    "invalid_request_error",
++					"code":    "model_not_supported",
++					"message": msg,
++				},
++			})
++		}
++	}
++	return fmt.Errorf("opencode unsupported model: %s", model)
++}
++
+ // OpenCodeGoProtocolRule is one model-pattern → native protocol mapping.
+ // Pattern is an exact ID or a suffix glob (foo* / *). First match wins.
+ type OpenCodeGoProtocolRule struct {
+@@ -86,13 +120,15 @@ func DefaultOpenCodeGoProtocolRules() []OpenCodeGoProtocolRule {
+ }
+ 
+ // DefaultOpenCodeZenProtocolRules 对齐 https://opencode.ai/docs/zen/ 端点表：
+-// GPT/Grok/Muse Spark → Responses，Claude/Qwen → Anthropic，其余 Chat Completions。
++// GPT/Grok/Muse Spark → Responses，Claude/Qwen(除 qwen3.8-max) → Anthropic，
++// qwen3.8-max 及其余模型 → Chat Completions。
+ func DefaultOpenCodeZenProtocolRules() []OpenCodeGoProtocolRule {
+ 	return []OpenCodeGoProtocolRule{
+ 		{Pattern: "grok-*", Protocol: APIProtocolResponses},
+ 		{Pattern: "gpt-*", Protocol: APIProtocolResponses},
+ 		{Pattern: "muse-spark-*", Protocol: APIProtocolResponses},
+ 		{Pattern: "claude-*", Protocol: APIProtocolAnthropic},
++		{Pattern: "qwen3.8-max", Protocol: APIProtocolChatCompletions},
+ 		{Pattern: "qwen*", Protocol: APIProtocolAnthropic},
+ 	}
+ }
+
+PR #7887: bb0d4a53c9aada57a8effbdd3f3d31d78ee31550
+OWNERS: ["backend/internal/shared/xai/sso_device.go"]
+diff --git a/backend/internal/pkg/xai/sso_device.go b/backend/internal/pkg/xai/sso_device.go
+index 825616b93..5a06d24f9 100644
+--- a/backend/internal/pkg/xai/sso_device.go
++++ b/backend/internal/pkg/xai/sso_device.go
+@@ -1,6 +1,7 @@
+ package xai
+ 
+ import (
++	"bytes"
+ 	"context"
+ 	"encoding/base64"
+ 	"encoding/json"
+@@ -14,6 +15,8 @@ import (
+ 	"strconv"
+ 	"strings"
+ 	"time"
++
++	"golang.org/x/net/html"
+ )
+ 
+ const (
+@@ -147,7 +150,7 @@ func (f *ssoDeviceFlow) convert(ctx context.Context) (*TokenResponse, error) {
+ 		return nil, fmt.Errorf("open xAI device verification page: %w", SSOHTTPError{Status: status})
+ 	}
+ 
+-	status, finalURL, _, err = f.do(ctx, http.MethodPost, SSOVerifyURL, url.Values{"user_code": {device.UserCode}})
++	status, finalURL, body, err = f.do(ctx, http.MethodPost, SSOVerifyURL, url.Values{"user_code": {device.UserCode}})
+ 	if err != nil {
+ 		return nil, err
+ 	}
+@@ -158,11 +161,19 @@ func (f *ssoDeviceFlow) convert(ctx context.Context) (*TokenResponse, error) {
+ 		return nil, errors.New("xAI device verification did not reach consent page")
+ 	}
+ 
+-	status, finalURL, _, err = f.do(ctx, http.MethodPost, SSOApproveURL, url.Values{
++	approval := url.Values{
+ 		"user_code":      {device.UserCode},
+ 		"action":         {"allow"},
+ 		"principal_type": {"User"},
+ 		"principal_id":   {""},
++	}
++	if consentToken := ssoConsentToken(body); consentToken != "" {
++		approval.Set("consent_token", consentToken)
++	}
++	consentURL, _ := url.Parse(finalURL) // f.do only returns validated xAI URLs.
++	status, finalURL, _, err = f.do(ctx, http.MethodPost, SSOApproveURL, approval, http.Header{
++		"Origin":  {consentURL.Scheme + "://" + consentURL.Host},
++		"Referer": {finalURL},
+ 	})
+ 	if err != nil {
+ 		return nil, err
+@@ -177,6 +188,37 @@ func (f *ssoDeviceFlow) convert(ctx context.Context) (*TokenResponse, error) {
+ 	return f.pollToken(ctx, device.DeviceCode, time.Duration(device.Interval)*time.Second, time.Duration(device.ExpiresIn)*time.Second)
+ }
+ 
++// xAI binds device approval to a hidden token on the consent page. Keep it in
++// this flow only; older consent pages without the field remain supported.
++func ssoConsentToken(body []byte) string {
++	tokenizer := html.NewTokenizer(bytes.NewReader(body))
++	for {
++		switch tokenizer.Next() {
++		case html.ErrorToken:
++			return ""
++		case html.StartTagToken, html.SelfClosingTagToken:
++			token := tokenizer.Token()
++			if token.Data != "input" {
++				continue
++			}
++			var name, value, inputType string
++			for _, attr := range token.Attr {
++				switch attr.Key {
++				case "name":
++					name = attr.Val
++				case "value":
++					value = attr.Val
++				case "type":
++					inputType = attr.Val
++				}
++			}
++			if name == "consent_token" && strings.EqualFold(inputType, "hidden") {
++				return value
++			}
++		}
++	}
++}
++
+ func (f *ssoDeviceFlow) pollToken(ctx context.Context, deviceCode string, interval, expiresIn time.Duration) (*TokenResponse, error) {
+ 	if interval < time.Second {
+ 		interval = time.Second
+@@ -241,7 +283,7 @@ func (f *ssoDeviceFlow) pollToken(ctx context.Context, deviceCode string, interv
+ 	return nil, errors.New("xAI device flow token polling timed out")
+ }
+ 
+-func (f *ssoDeviceFlow) do(ctx context.Context, method, endpoint string, form url.Values) (int, string, []byte, error) {
++func (f *ssoDeviceFlow) do(ctx context.Context, method, endpoint string, form url.Values, headers ...http.Header) (int, string, []byte, error) {
+ 	if !safeXAIAuthURL(endpoint) {
+ 		return 0, "", nil, errors.New("xAI OAuth URL is not trusted")
+ 	}
+@@ -260,6 +302,15 @@ func (f *ssoDeviceFlow) do(ctx context.Context, method, endpoint string, form ur
+ 		request.Header.Set("Accept", "application/json, text/html;q=0.9, */*;q=0.8")
+ 		request.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+ 		request.Header.Set("User-Agent", f.userAgent)
++		if redirects == 0 {
++			for _, header := range headers {
++				for name, values := range header {
++					for _, value := range values {
++						request.Header.Add(name, value)
++					}
++				}
++			}
++		}
+ 		if cookie := f.cookieHeader(request.URL); cookie != "" {
+ 			request.Header.Set("Cookie", cookie)
+ 		}
+
+PR #7877: 4b8c5577050f0a17e348b9bf9a6ef1575cdc24f3
+OWNERS: ["backend/internal/application/service/channel_monitor_checker.go"]
+diff --git a/backend/internal/service/channel_monitor_checker.go b/backend/internal/service/channel_monitor_checker.go
+index a310288bf..ddb5e7831 100644
+--- a/backend/internal/service/channel_monitor_checker.go
++++ b/backend/internal/service/channel_monitor_checker.go
+@@ -297,7 +297,7 @@ func callProvider(ctx context.Context, provider, endpoint, apiKey, model, prompt
+ 		return "", "", 0, err
+ 	}
+ 	headers := mergeHeaders(adapter.buildHeaders(apiKey), opts)
+-	full := joinURL(endpoint, adapter.buildPath(model))
++	full := joinURL(endpoint, monitorRequestPath(provider, endpoint, adapter, model))
+ 	respBytes, status, err := postRawJSON(ctx, full, body, headers)
+ 	if err != nil {
+ 		return "", "", status, err
+@@ -556,6 +556,37 @@ func postRawJSON(ctx context.Context, fullURL string, payload []byte, headers ma
+ 	return respBody, resp.StatusCode, nil
+ }
+ 
++// monitorRequestPath 返回探测请求路径。智谱按 endpoint 区分：
++//   - 已带 /paas/v4（含 Coding Plan 的 /api/coding/paas/v4）：只追加 /chat/completions
++//   - 官方域名根地址：/api/paas/v4/chat/completions
++//   - 中转站 / 本站网关：只暴露 OpenAI 兼容的 /v1/chat/completions，与 Kimi / DeepSeek 一致
++func monitorRequestPath(provider, endpoint string, adapter providerAdapter, model string) string {
++	if provider != MonitorProviderZhipu {
++		return adapter.buildPath(model)
++	}
++	u, err := url.Parse(strings.TrimSpace(endpoint))
++	if err != nil {
++		return providerOpenAIPath
++	}
++	if strings.Contains(u.EscapedPath(), "/paas/v4") {
++		return "/chat/completions"
++	}
++	if isZhipuOfficialHost(u) {
++		return adapter.buildPath(model)
++	}
++	return providerOpenAIPath
++}
++
++func isZhipuOfficialHost(u *url.URL) bool {
++	host := strings.ToLower(u.Hostname())
++	for _, official := range []string{"bigmodel.cn", "z.ai"} {
++		if host == official || strings.HasSuffix(host, "."+official) {
++			return true
++		}
++	}
++	return false
++}
++
+ // joinURL 保留 base 的上游路径前缀，并避免重复追加已有的 API 路径前缀。
+ // 使用 EscapedPath 匹配完整路径段，避免把 hostname 或编码斜杠当作路径。
+ func joinURL(base, path string) string {
+
+PR #7837: 3a7fd4ae786f129d9ebfa9d385d3405b935220dd
+OWNERS: ["backend/internal/transport/http/handler/admin/account_handler.go"]
+diff --git a/backend/internal/handler/admin/account_handler.go b/backend/internal/handler/admin/account_handler.go
+index 6a0ef4fdf..97ebd9ed3 100644
+--- a/backend/internal/handler/admin/account_handler.go
++++ b/backend/internal/handler/admin/account_handler.go
+@@ -2894,10 +2894,9 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
+ 		return
+ 	}
+ 
+-	// Handle Antigravity accounts: return Claude + Gemini models
++	// Explicit account mappings expose their request-side names to connectivity tests.
+ 	if account.Platform == service.PlatformAntigravity {
+-		// 直接复用 antigravity.DefaultModels()，与 /v1/models 端点保持同步
+-		response.Success(c, antigravity.DefaultModels())
++		response.Success(c, antigravityAccountTestModels(account.Credentials["model_mapping"]))
+ 		return
+ 	}
+ 
+@@ -2998,6 +2997,48 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
+ 	response.Success(c, models)
+ }
+ 
++// antigravityAccountTestModels uses the stored mapping rather than GetModelMapping,
++// which supplies defaults and compatibility aliases that the administrator did not configure.
++func antigravityAccountTestModels(rawMapping any) []antigravity.ClaudeModel {
++	var mappedIDs []string
++	switch mapping := rawMapping.(type) {
++	case map[string]any:
++		for id := range mapping {
++			if strings.TrimSpace(id) != "" {
++				mappedIDs = append(mappedIDs, id)
++			}
++		}
++	case map[string]string:
++		for id := range mapping {
++			if strings.TrimSpace(id) != "" {
++				mappedIDs = append(mappedIDs, id)
++			}
++		}
++	}
++	if len(mappedIDs) == 0 {
++		return antigravity.DefaultModels()
++	}
++
++	sort.Strings(mappedIDs)
++	defaultByID := make(map[string]antigravity.ClaudeModel)
++	for _, model := range antigravity.DefaultModels() {
++		defaultByID[model.ID] = model
++	}
++	models := make([]antigravity.ClaudeModel, 0, len(mappedIDs))
++	for _, id := range mappedIDs {
++		if model, ok := defaultByID[id]; ok {
++			models = append(models, model)
++			continue
++		}
++		models = append(models, antigravity.ClaudeModel{
++			ID:          id,
++			Type:        "model",
++			DisplayName: id,
++		})
++	}
++	return models
++}
++
+ // SyncUpstreamModels handles syncing live supported models from an account's upstream.
+ // POST /api/v1/admin/accounts/:id/models/sync-upstream
+ func (h *AccountHandler) SyncUpstreamModels(c *gin.Context) {
+
+PR #7878: 458865ed1be1d3aec9408d8a38167603e1922219
+OWNERS: []
+diff --git a/backend/internal/service/account_test_logging.go b/backend/internal/service/account_test_logging.go
+new file mode 100644
+index 000000000..f1f5501d5
+--- /dev/null
++++ b/backend/internal/service/account_test_logging.go
+@@ -0,0 +1,48 @@
++package service
++
++import (
++	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
++	"github.com/Wei-Shaw/sub2api/internal/util/logredact"
++	"github.com/gin-gonic/gin"
++	"github.com/google/uuid"
++	"go.uber.org/zap"
++)
++
++const accountTestBackgroundKey = "account_test_background"
++
++// Bind attribution before lookup so missing accounts are identifiable too. The
++// request logger retains HTTP request IDs or the caller's background correlation.
++func initAccountTestLogger(c *gin.Context, accountID int64, modelID, mode string) {
++	source := "http"
++	if c.GetBool(accountTestBackgroundKey) {
++		source = "background"
++	}
++	ctx := c.Request.Context()
++	l := logger.FromContext(ctx).With(
++		zap.String("component", "service.account_test"),
++		zap.Int64("account_id", accountID),
++		zap.String("test_id", uuid.NewString()),
++		zap.String("test_source", source),
++		zap.String("requested_model", modelID),
++		zap.String("test_mode", normalizeAccountTestMode(mode)),
++	)
++	c.Request = c.Request.WithContext(logger.IntoContext(ctx, l))
++}
++
++func bindAccountTestPlatform(c *gin.Context, account *Account) {
++	ctx := c.Request.Context()
++	l := logger.FromContext(ctx).With(
++		zap.String("platform", account.Platform),
++		zap.String("account_type", account.Type),
++	)
++	c.Request = c.Request.WithContext(logger.IntoContext(ctx, l))
++}
++
++func logAccountTestError(c *gin.Context, message string) {
++	// Redact known credential fields before bounding text; truncating first can
++	// cut a quoted credential in half and prevent the redactor from matching it.
++	message = logredact.RedactText(message, "api_key", "authorization")
++	logger.FromContext(c.Request.Context()).Warn("account_test.failed",
++		zap.String("error", truncateString(message, 2048)),
++	)
++}
+
+PR #7878: 458865ed1be1d3aec9408d8a38167603e1922219
+OWNERS: ["backend/internal/application/service/account_test_service.go"]
+diff --git a/backend/internal/service/account_test_service.go b/backend/internal/service/account_test_service.go
+index cea4dfea4..3b84bd269 100644
+--- a/backend/internal/service/account_test_service.go
++++ b/backend/internal/service/account_test_service.go
+@@ -359,6 +359,7 @@ func createTestPayload(modelID string) (map[string]any, error) {
+ // mode is optional - "compact" routes OpenAI accounts to the /responses/compact probe path
+ // opts is optional media (image/audio data URLs for real generation / STT).
+ func (s *AccountTestService) TestAccountConnection(c *gin.Context, accountID int64, modelID string, prompt string, mode string, opts ...AccountTestOptions) error {
++	initAccountTestLogger(c, accountID, modelID, mode)
+ 	ctx := c.Request.Context()
+ 	testOpts := firstAccountTestOptions(opts)
+ 
+@@ -367,6 +368,7 @@ func (s *AccountTestService) TestAccountConnection(c *gin.Context, accountID int
+ 	if err != nil {
+ 		return s.sendErrorAndEnd(c, "Account not found")
+ 	}
++	bindAccountTestPlatform(c, account)
+ 
+ 	// Synthetic UI load-test accounts exercise the real SSE parsing and modal
+ 	// interactions, but intentionally do not send their placeholder credentials
+@@ -3274,7 +3276,7 @@ func (s *AccountTestService) sendEvent(c *gin.Context, event TestEvent) {
+ 
+ // sendErrorAndEnd sends an error event and ends the stream
+ func (s *AccountTestService) sendErrorAndEnd(c *gin.Context, errorMsg string) error {
+-	log.Printf("Account test error: %s", errorMsg)
++	logAccountTestError(c, errorMsg)
+ 	s.sendEvent(c, TestEvent{Type: "error", Error: errorMsg})
+ 	return fmt.Errorf("%s", errorMsg)
+ }
+@@ -3287,6 +3289,7 @@ func (s *AccountTestService) RunTestBackground(ctx context.Context, accountID in
+ 	w := httptest.NewRecorder()
+ 	ginCtx, _ := gin.CreateTestContext(w)
+ 	ginCtx.Request = (&http.Request{}).WithContext(ctx)
++	ginCtx.Set(accountTestBackgroundKey, true)
+ 
+ 	testErr := s.TestAccountConnection(ginCtx, accountID, modelID, "", AccountTestModeDefault)
+ 
+
+PR #7782: bc63bd2874d4d77ed39859cd5399d514b53674d5
+OWNERS: []
+diff --git a/backend/internal/service/openai_codex_models_pinned.go b/backend/internal/service/openai_codex_models_pinned.go
+index b74b3eafd..16faefd06 100644
+--- a/backend/internal/service/openai_codex_models_pinned.go
++++ b/backend/internal/service/openai_codex_models_pinned.go
+@@ -8,6 +8,7 @@ import (
+ 	"fmt"
+ 	"log/slog"
+ 	"net/http"
++	"slices"
+ 	"strings"
+ 	"sync"
+ 	"time"
+@@ -91,6 +92,13 @@ func mergeCodexModelsManifestBodies(bodies [][]byte) ([]byte, error) {
+ 		}
+ 	}
+ 
++	if len(bodies) == 1 {
++		_, original, err := modelCatalogEntries(bodies[0], "models")
++		if err == nil && slices.EqualFunc(original, mergedModels, func(a, b json.RawMessage) bool { return bytes.Equal(a, b) }) {
++			return bodies[0], nil
++		}
++	}
++
+ 	encodedModels, err := json.Marshal(mergedModels)
+ 	if err != nil {
+ 		return nil, fmt.Errorf("encode merged codex models: %w", err)
+@@ -139,6 +147,9 @@ func (s *OpenAIGatewayService) FetchPinnedCodexModelsManifest(ctx context.Contex
+ 	if err != nil {
+ 		return nil, nil, fmt.Errorf("merge pinned codex models manifests: %w", err)
+ 	}
++	if len(results) == 1 && bytes.Equal(merged, results[0].response.Body) {
++		return results[0].response, results[0].account, nil
++	}
+ 	return &OpenAIModelsResponse{Body: merged, ETag: codexModelsManifestBodyETag(merged)}, results[0].account, nil
+ }
+ 
+
+PR #7782: bc63bd2874d4d77ed39859cd5399d514b53674d5
+OWNERS: []
+diff --git a/backend/internal/service/openai_models_list.go b/backend/internal/service/openai_models_list.go
+index 2a07f10d6..9b27a03cd 100644
+--- a/backend/internal/service/openai_models_list.go
++++ b/backend/internal/service/openai_models_list.go
+@@ -6,6 +6,7 @@ import (
+ 	"encoding/json"
+ 	"fmt"
+ 	"net/http"
++	"slices"
+ 	"sort"
+ 	"strings"
+ 
+@@ -229,6 +230,10 @@ func projectAccountModelsBody(body []byte, account *Account, group *Group, codex
+ 			continue
+ 		}
+ 		seen[id] = struct{}{}
++		if id == target {
++			projected = append(projected, raw)
++			continue
++		}
+ 		var entry map[string]json.RawMessage
+ 		if err := json.Unmarshal(raw, &entry); err != nil {
+ 			return nil, err
+@@ -243,6 +248,9 @@ func projectAccountModelsBody(body []byte, account *Account, group *Group, codex
+ 		}
+ 		projected = append(projected, encoded)
+ 	}
++	if slices.EqualFunc(entries, projected, func(a, b json.RawMessage) bool { return bytes.Equal(a, b) }) {
++		return body, nil
++	}
+ 	envelope[field], err = json.Marshal(projected)
+ 	if err != nil {
+ 		return nil, err
+@@ -250,18 +258,21 @@ func projectAccountModelsBody(body []byte, account *Account, group *Group, codex
+ 	return json.Marshal(envelope)
+ }
+ 
+-// ApplyPinnedCodexModelsMapping is used by pinned discovery and its scheduler
+-// fallback. The ordinary (non-pinned) Codex path retains its local catalog policy.
++// ApplyPinnedCodexModelsMapping projects all remotely discovered Codex catalogs,
++// including ordinary discovery and pinned scheduler fallback. Locally generated
++// catalogs retain their existing policy and do not pass through this function.
+ func ApplyPinnedCodexModelsMapping(response *OpenAIModelsResponse, account *Account, group *Group) error {
+-	if group == nil || group.Platform != PlatformOpenAI || !group.CodexModelsManifestConfig.Enabled {
++	if group == nil || group.Platform != PlatformOpenAI {
+ 		return nil
+ 	}
+ 	body, err := projectAccountModelsBody(response.Body, account, group, true)
+ 	if err != nil {
+ 		return err
+ 	}
+-	response.Body = body
+-	response.ETag = codexModelsManifestBodyETag(body)
++	if !bytes.Equal(response.Body, body) {
++		response.Body = body
++		response.ETag = codexModelsManifestBodyETag(body)
++	}
+ 	return nil
+ }
+ 
+
+PR #7822: 7ff5cff1bb525faa6c4d35244b72505e03e336ea
+OWNERS: ["backend/internal/transport/webassets/embed_on.go"]
+diff --git a/backend/internal/web/embed_on.go b/backend/internal/web/embed_on.go
+index 516ac88dc..d16b1c4d8 100644
+--- a/backend/internal/web/embed_on.go
++++ b/backend/internal/web/embed_on.go
+@@ -362,10 +362,26 @@ func shouldBypassEmbeddedFrontend(path string) bool {
+ 		strings.HasPrefix(trimmed, "/setup/") ||
+ 		trimmed == "/health" ||
+ 		trimmed == "/models" ||
++		strings.HasPrefix(trimmed, "/models/") ||
+ 		trimmed == "/responses" ||
+ 		strings.HasPrefix(trimmed, "/responses/") ||
++		trimmed == "/chat/completions" ||
++		trimmed == "/embeddings" ||
++		trimmed == "/messages/count_tokens" ||
+ 		trimmed == "/alpha/search" ||
++		trimmed == "/web_search" ||
++		trimmed == "/x_search" ||
++		trimmed == "/tts" ||
++		trimmed == "/stt" ||
++		trimmed == "/realtime" ||
++		trimmed == "/custom-voices" ||
++		strings.HasPrefix(trimmed, "/custom-voices/") ||
++		trimmed == "/contents/generations/tasks" ||
++		strings.HasPrefix(trimmed, "/contents/generations/tasks/") ||
++		trimmed == "/v3/contents/generations/tasks" ||
++		strings.HasPrefix(trimmed, "/v3/contents/generations/tasks/") ||
+ 		strings.HasPrefix(trimmed, "/images/") ||
++		trimmed == "/videos" ||
+ 		strings.HasPrefix(trimmed, "/videos/")
+ }
+ 
+
+PR #7793: 8e2c4fad321fe8ce86d577dd7561c371bf602647
+OWNERS: ["backend/internal/transport/http/handler/gateway_handler.go"]
+diff --git a/backend/internal/handler/gateway_handler.go b/backend/internal/handler/gateway_handler.go
+index c12f281ff..beb9400d1 100644
+--- a/backend/internal/handler/gateway_handler.go
++++ b/backend/internal/handler/gateway_handler.go
+@@ -1166,7 +1166,7 @@ func (h *GatewayHandler) Models(c *gin.Context) {
+ 	}
+ 
+ 	if platform == service.PlatformComposite {
+-		availableModels := h.compositeAvailableModels(c.Request.Context(), groupID, true)
++		availableModels := h.compositeAvailableModels(c.Request.Context(), groupID, "", true)
+ 		if apiKey != nil && apiKey.Group != nil && apiKey.Group.ModelAllowlistEnabled() {
+ 			source := availableModels
+ 			if len(source) == 0 {
+@@ -1265,19 +1265,19 @@ func (h *GatewayHandler) codexModelIDsForGroup(ctx context.Context, group *servi
+ 		platform = group.Platform
+ 	}
+ 	if platform == service.PlatformComposite {
+-		availableModels := h.compositeAvailableModels(ctx, groupID, false)
++		availableModels := h.compositeAvailableModels(ctx, groupID, service.CompositeRouteEndpointResponses, false)
+ 		fallbackModels := defaultCodexModelIDsForPlatform(service.PlatformComposite)
++		models := availableModels
++		if len(models) == 0 {
++			models = fallbackModels
++		}
+ 		if group.ModelAllowlistEnabled() {
+-			source := availableModels
+-			if len(source) == 0 {
+-				source = fallbackModels
+-			}
+-			return group.ModelAllowlist.FilterForListing(source)
++			models = group.ModelAllowlist.FilterForListing(models)
+ 		}
+-		if len(availableModels) > 0 {
+-			return availableModels
++		if filtered, err := h.gatewayService.FilterCompositeCodexModels(ctx, group.ID, models); err == nil {
++			return filtered
+ 		}
+-		return fallbackModels
++		return models
+ 	}
+ 
+ 	availableModels := h.gatewayService.GetAvailableModels(ctx, groupID, platform)
+@@ -1294,7 +1294,7 @@ func (h *GatewayHandler) codexModelIDsForGroup(ctx context.Context, group *servi
+ // compositeAvailableModels lists the models the composite group can serve.
+ // includeSystemOne adds TypeSafe models, which only work through /v1/systemone;
+ // LLM client catalogs (Codex) must exclude them.
+-func (h *GatewayHandler) compositeAvailableModels(ctx context.Context, groupID *int64, includeSystemOne bool) []string {
++func (h *GatewayHandler) compositeAvailableModels(ctx context.Context, groupID *int64, endpoint string, includeSystemOne bool) []string {
+ 	if h == nil || h.gatewayService == nil {
+ 		return nil
+ 	}
+@@ -1325,6 +1325,16 @@ func (h *GatewayHandler) compositeAvailableModels(ctx context.Context, groupID *
+ 			models = append(models, model)
+ 		}
+ 	}
++	// A route can expose a public ID that no account model mapping contains.
++	// On lookup failure, retain the existing account-derived catalog only.
++	if routeModels, err := h.gatewayService.GetCompositeRouteModels(ctx, groupID, endpoint, includeSystemOne); err == nil {
++		for _, model := range routeModels {
++			if _, ok := seen[model]; !ok {
++				seen[model] = struct{}{}
++				models = append(models, model)
++			}
++		}
++	}
+ 	return models
+ }
+ 
+
+PR #7793: 8e2c4fad321fe8ce86d577dd7561c371bf602647
+OWNERS: ["backend/internal/application/service/composite_route_resolver.go"]
+diff --git a/backend/internal/service/composite_route_resolver.go b/backend/internal/service/composite_route_resolver.go
+index f2e1928ac..5d73de7de 100644
+--- a/backend/internal/service/composite_route_resolver.go
++++ b/backend/internal/service/composite_route_resolver.go
+@@ -22,6 +22,52 @@ func (r *CompositeRouteResolver) SetModelOwnershipResolver(resolver CompositeMod
+ 	}
+ }
+ 
++// ListExactPublicModels returns enabled, concrete route IDs suitable for a model catalog.
++func (r *CompositeRouteResolver) ListExactPublicModels(ctx context.Context, groupID int64, endpoint string, includeSystemOne bool) ([]string, error) {
++	if r == nil || r.repo == nil || groupID <= 0 {
++		return nil, nil
++	}
++	routes, err := r.repo.ListByGroup(ctx, groupID, false)
++	if err != nil {
++		return nil, err
++	}
++	models := make([]string, 0, len(routes))
++	for _, route := range routes {
++		if route.Enabled && route.MatchType == CompositeRouteMatchExact &&
++			(endpoint == "" || normalizeCompositeRouteEndpoint(route.Endpoint) == CompositeRouteEndpointAny || normalizeCompositeRouteEndpoint(route.Endpoint) == endpoint) {
++			if model := strings.TrimSpace(route.PublicModel); model != "" {
++				models = append(models, model)
++			}
++		}
++	}
++	if !includeSystemOne {
++		models = filterSystemOneRouteModels(routes, models, endpoint)
++	}
++	return models, nil
++}
++
++func (r *CompositeRouteResolver) FilterCodexModels(ctx context.Context, groupID int64, models []string) ([]string, error) {
++	if r == nil || r.repo == nil || groupID <= 0 {
++		return models, nil
++	}
++	routes, err := r.repo.ListByGroup(ctx, groupID, false)
++	if err != nil {
++		return nil, err
++	}
++	return filterSystemOneRouteModels(routes, models, CompositeRouteEndpointResponses), nil
++}
++
++func filterSystemOneRouteModels(routes []CompositeModelRoute, models []string, endpoint string) []string {
++	filtered := make([]string, 0, len(models))
++	for _, model := range models {
++		route, matched := matchCompositeRoute(routes, model, normalizeCompositeRouteEndpoint(endpoint))
++		if !matched || route.TargetPlatform != PlatformTypeSafe {
++			filtered = append(filtered, model)
++		}
++	}
++	return filtered
++}
++
+ func (r *CompositeRouteResolver) Resolve(ctx context.Context, groupID int64, model, endpoint string) (CompositeRouteDecision, error) {
+ 	model = strings.TrimSpace(model)
+ 	endpoint = normalizeCompositeRouteEndpoint(endpoint)
+
+PR #7793: 8e2c4fad321fe8ce86d577dd7561c371bf602647
+OWNERS: ["backend/internal/application/service/gateway_service.go"]
+diff --git a/backend/internal/service/gateway_service.go b/backend/internal/service/gateway_service.go
+index eb782d9a1..c22097ede 100644
+--- a/backend/internal/service/gateway_service.go
++++ b/backend/internal/service/gateway_service.go
+@@ -1535,6 +1535,21 @@ func explicitModelMappingClaims(account Account, model string) bool {
+ 	return ok && strings.TrimSpace(mapped) != ""
+ }
+ 
++// GetCompositeRouteModels returns public IDs from enabled exact composite routes.
++func (s *GatewayService) GetCompositeRouteModels(ctx context.Context, groupID *int64, endpoint string, includeSystemOne bool) ([]string, error) {
++	if s == nil || s.compositeResolver == nil || groupID == nil {
++		return nil, nil
++	}
++	return s.compositeResolver.ListExactPublicModels(ctx, *groupID, endpoint, includeSystemOne)
++}
++
++func (s *GatewayService) FilterCompositeCodexModels(ctx context.Context, groupID int64, models []string) ([]string, error) {
++	if s == nil || s.compositeResolver == nil {
++		return models, nil
++	}
++	return s.compositeResolver.FilterCodexModels(ctx, groupID, models)
++}
++
+ // GetSchedulablePlatforms returns the concrete platforms that currently have
+ // schedulable accounts in the target group.
+ func (s *GatewayService) GetSchedulablePlatforms(ctx context.Context, groupID *int64) map[string]struct{} {
+
+PR #7911: 745ff1d3ca79a7f39520f627f6aa44d778a11580
+OWNERS: ["backend/internal/infrastructure/repository/ops_repo_dashboard.go"]
+diff --git a/backend/internal/repository/ops_repo_dashboard.go b/backend/internal/repository/ops_repo_dashboard.go
+index a22235a80..6fa037d37 100644
+--- a/backend/internal/repository/ops_repo_dashboard.go
++++ b/backend/internal/repository/ops_repo_dashboard.go
+@@ -33,18 +33,63 @@ func (r *opsRepository) GetDashboardOverview(ctx context.Context, filter *servic
+ 		mode = service.OpsQueryModeRaw
+ 	}
+ 
++	var overview *service.OpsDashboardOverview
++	var err error
+ 	switch mode {
+ 	case service.OpsQueryModePreagg:
+-		return r.getDashboardOverviewPreaggregated(ctx, filter)
++		overview, err = r.getDashboardOverviewPreaggregated(ctx, filter)
+ 	case service.OpsQueryModeAuto:
+-		out, err := r.getDashboardOverviewPreaggregated(ctx, filter)
+-		if err != nil && errors.Is(err, service.ErrOpsPreaggregatedNotPopulated) {
+-			return r.getDashboardOverviewRaw(ctx, filter)
++		overview, err = r.getDashboardOverviewPreaggregated(ctx, filter)
++		if errors.Is(err, service.ErrOpsPreaggregatedNotPopulated) {
++			overview, err = r.getDashboardOverviewRaw(ctx, filter)
+ 		}
+-		return out, err
+ 	default:
+-		return r.getDashboardOverviewRaw(ctx, filter)
++		overview, err = r.getDashboardOverviewRaw(ctx, filter)
++	}
++	if err != nil {
++		return nil, err
++	}
++	// Percentiles must use individual rates over the entire window, even in
++	// preagg mode: hourly percentiles cannot be averaged into window percentiles.
++	rateCtx, cancelRate := context.WithTimeout(ctx, opsRawLatencyQueryTimeout)
++	defer cancelRate()
++	overview.OutputTPS, err = r.queryOutputTPS(rateCtx, filter)
++	if err != nil && !isQueryTimeoutErr(err) {
++		return nil, err
++	}
++	return overview, nil
++}
++
++func (r *opsRepository) queryOutputTPS(ctx context.Context, filter *service.OpsDashboardFilter) (*service.OpsOutputTPS, error) {
++	join, where, args, _ := buildUsageWhere(filter, filter.StartTime.UTC(), filter.EndTime.UTC(), 1)
++	query := `
++SELECT
++ percentile_cont(0.05) WITHIN GROUP (ORDER BY output_tps),
++ percentile_cont(0.10) WITHIN GROUP (ORDER BY output_tps),
++ percentile_cont(0.50) WITHIN GROUP (ORDER BY output_tps),
++ AVG(output_tps),
++ COUNT(*)
++FROM (
++ SELECT ul.output_tokens * 1000.0 / NULLIF(ul.duration_ms, 0) AS output_tps
++ FROM usage_logs ul
++ ` + join + `
++ ` + where + `
++ AND ul.output_tokens > 0 AND ul.duration_ms > 0
++ AND ul.image_count = 0 AND ul.image_output_tokens = 0
++ AND COALESCE(ul.billing_mode, '') <> 'image'
++ ` + fmt.Sprintf("AND ul.request_type IN (%d, %d, %d, %d)",
++		service.RequestTypeSync, service.RequestTypeStream, service.RequestTypeWSV2, service.RequestTypeCyberBlocked) + `
++) rates`
++	var stats service.OpsOutputTPS
++	if err := r.db.QueryRowContext(ctx, query, args...).Scan(&stats.P5, &stats.P10, &stats.P50, &stats.Avg, &stats.SampleCount); err != nil {
++		// lib/pq reports query cancellation without wrapping the context error.
++		// Preserve deadline vs caller cancellation for the overview's timeout policy.
++		if ctxErr := ctx.Err(); ctxErr != nil {
++			return nil, ctxErr
++		}
++		return nil, err
+ 	}
++	return &stats, nil
+ }
+ 
+ func (r *opsRepository) getDashboardOverviewRaw(ctx context.Context, filter *service.OpsDashboardFilter) (*service.OpsDashboardOverview, error) {
+
+PR #7911: 745ff1d3ca79a7f39520f627f6aa44d778a11580
+OWNERS: ["backend/internal/application/service/ops_dashboard_models.go"]
+diff --git a/backend/internal/service/ops_dashboard_models.go b/backend/internal/service/ops_dashboard_models.go
+index f189031bd..7ab9e69bc 100644
+--- a/backend/internal/service/ops_dashboard_models.go
++++ b/backend/internal/service/ops_dashboard_models.go
+@@ -29,6 +29,15 @@ type OpsPercentiles struct {
+ 	Max *int `json:"max_ms"`
+ }
+ 
++// OpsOutputTPS describes per-request output rates, not aggregate token throughput.
++type OpsOutputTPS struct {
++	P5          *float64 `json:"p5"`
++	P10         *float64 `json:"p10"`
++	P50         *float64 `json:"p50"`
++	Avg         *float64 `json:"avg"`
++	SampleCount int64    `json:"sample_count"`
++}
++
+ type OpsDashboardOverview struct {
+ 	StartTime time.Time `json:"start_time"`
+ 	EndTime   time.Time `json:"end_time"`
+@@ -62,8 +71,9 @@ type OpsDashboardOverview struct {
+ 	Upstream429Count             int64   `json:"upstream_429_count"`
+ 	Upstream529Count             int64   `json:"upstream_529_count"`
+ 
+-	QPS OpsRateSummary `json:"qps"`
+-	TPS OpsRateSummary `json:"tps"`
++	QPS       OpsRateSummary `json:"qps"`
++	TPS       OpsRateSummary `json:"tps"`
++	OutputTPS *OpsOutputTPS  `json:"output_tps"`
+ 
+ 	Duration OpsPercentiles `json:"duration"`
+ 	TTFT     OpsPercentiles `json:"ttft"`
+
+PR #7703: 2eb7ccb6d258b6e75a7b849edb0119641d9dc024
+OWNERS: ["backend/internal/application/service/openai_gateway_forward.go", "diagnostics/stream-control-20260907/original/backend/internal/application/service/openai_gateway_forward.go"]
+diff --git a/backend/internal/service/openai_gateway_forward.go b/backend/internal/service/openai_gateway_forward.go
+index fffca9af2..78dd47afe 100644
+--- a/backend/internal/service/openai_gateway_forward.go
++++ b/backend/internal/service/openai_gateway_forward.go
+@@ -1116,7 +1116,12 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
+ 			}
+ 			respBody = s.redactAgentIdentitySensitiveBody(ctx, account, respBody)
+ 			resp.Body = io.NopCloser(bytes.NewReader(respBody))
+-			if !httpInvalidEncryptedContentRetryTried && resp.StatusCode == http.StatusBadRequest && upstreamCode == "invalid_encrypted_content" {
++			invalidEncryptedContentError := upstreamCode == "invalid_encrypted_content" ||
++				(upstreamCode == "thinking_signature_invalid" &&
++					strings.Contains(upstreamMsg, "The encrypted content") &&
++					strings.Contains(upstreamMsg, "could not be verified") &&
++					strings.Contains(upstreamMsg, "could not be decrypted or parsed"))
++			if !httpInvalidEncryptedContentRetryTried && resp.StatusCode == http.StatusBadRequest && invalidEncryptedContentError {
+ 				decoded, decodeErr := ensureReqBody()
+ 				if decodeErr != nil {
+ 					return nil, decodeErr
+
+PR #7916: 5fc0e486c3f6a8a191b8bd140f39b60457f611cf
+OWNERS: []
+diff --git a/backend/internal/service/channel_monitor_v2.go b/backend/internal/service/channel_monitor_v2.go
+index cb2251de7..d4aed72dc 100644
+--- a/backend/internal/service/channel_monitor_v2.go
++++ b/backend/internal/service/channel_monitor_v2.go
+@@ -963,6 +963,9 @@ func ChannelMonitorV2HealthForWithThresholds(metrics ChannelMonitorV2Metric, thr
+ 		Overall: "unknown", ErrorRate: "unknown", TTFT: "unknown", Cache: "unknown",
+ 		MinimumSample: thresholds.MinimumSample, Thresholds: thresholds,
+ 	}
++	if metrics.RequestCount < result.MinimumSample {
++		return result
++	}
+ 
+ 	type scored struct {
+ 		score  float64
