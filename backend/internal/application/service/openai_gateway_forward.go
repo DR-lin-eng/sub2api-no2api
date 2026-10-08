@@ -706,6 +706,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		agentTaskRecoveryTried := false
 		wsPrevResponseRecoveryTried := false
 		wsInvalidEncryptedContentRecoveryTried := false
+		wsAuthRecoveryTried := false
 		recoverPrevResponseNotFound := func(attempt int) bool {
 			if codexContinuationRecoveryForbidden(c) {
 				return false
@@ -796,9 +797,29 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 				wsLastFailureReason,
 				&agentTaskRecoveryTried,
 				fingerprintIDs,
+				!wsAuthRecoveryTried,
 			)
 			if wsErr == nil {
 				break
+			}
+			var wsAuthRecovered *openAIWSAuthRecoveredError
+			if errors.As(wsErr, &wsAuthRecovered) {
+				wsAuthRecoveryTried = true
+				token, _, err = s.GetAccessToken(ctx, account)
+				if err != nil {
+					return nil, err
+				}
+				continue
+			}
+			if !wsAuthRecoveryTried && account.IsOpenAIOAuth() && s.openAITokenProvider != nil && isOpenAIWSDialTokenExpired(wsErr) {
+				wsAuthRecoveryTried = true
+				if refreshErr := s.openAITokenProvider.RefreshAfterUnauthorized(ctx, account); refreshErr == nil {
+					token, _, err = s.GetAccessToken(ctx, account)
+					if err != nil {
+						return nil, err
+					}
+					continue
+				}
 			}
 			var wsFailoverErr *UpstreamFailoverError
 			if errors.As(wsErr, &wsFailoverErr) && wsFailoverErr.SafeToFailoverAfterWrite {
@@ -977,6 +998,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 
 	httpInvalidEncryptedContentRetryTried := false
 	agentTaskRecoveryTried := false
+	openAIAuthRecoveryTried := false
 	rejectedFieldRetryState := newOpenAIResponsesRejectedFieldRetryState(body)
 	for {
 		// Build upstream request
@@ -1043,6 +1065,19 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(respBody))
 			upstreamMsg = sanitizeUpstreamErrorMessage(upstreamMsg)
 			upstreamCode := extractUpstreamErrorCode(respBody)
+			if resp.StatusCode == http.StatusUnauthorized && upstreamCode == "token_expired" &&
+				!openAIAuthRecoveryTried && account.IsOpenAIOAuth() && s.openAITokenProvider != nil {
+				openAIAuthRecoveryTried = true
+				if refreshErr := s.openAITokenProvider.RefreshAfterUnauthorized(ctx, account); refreshErr == nil {
+					_ = resp.Body.Close()
+					token, _, err = s.GetAccessToken(ctx, account)
+					if err != nil {
+						return nil, err
+					}
+					reqBody = nil
+					continue
+				}
+			}
 			if distillation {
 				return s.handleErrorResponse(ctx, resp, c, account, body, billingModel)
 			}

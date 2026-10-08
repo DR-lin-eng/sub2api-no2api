@@ -34,6 +34,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	lastFailureReason string,
 	agentTaskRecoveryTried *bool,
 	fingerprintIDs *codexFingerprintIDs,
+	allowAuthRecovery bool,
 ) (*OpenAIForwardResult, error) {
 	if s == nil || account == nil {
 		return nil, wrapOpenAIWSFallback("invalid_state", errors.New("service or account is nil"))
@@ -726,6 +727,13 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 
 		if eventType == "error" {
 			errCodeRaw, errTypeRaw, errMsgRaw := parseOpenAIWSErrorEventFields(message)
+			if allowAuthRecovery && !wroteDownstream && account.IsOpenAIOAuth() &&
+				s.openAITokenProvider != nil && isOpenAIWSTokenExpiredEvent(message) {
+				if refreshErr := s.openAITokenProvider.RefreshAfterUnauthorized(ctx, account); refreshErr == nil {
+					lease.MarkBroken()
+					return nil, &openAIWSAuthRecoveredError{}
+				}
+			}
 			errMsg := strings.TrimSpace(errMsgRaw)
 			if errMsg == "" {
 				errMsg = "Upstream websocket error"

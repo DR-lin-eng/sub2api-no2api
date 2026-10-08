@@ -342,6 +342,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 	if reqStream && account != nil && account.Platform == PlatformOpenAI {
 		firstOutputTimeout = s.openAIFirstOutputTimeoutWithContext(ctx, reasoningEffortValue)
 	}
+	openAIAuthRecoveryTried := false
 	for {
 		upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
 		var headerGuard *openAIFirstOutputHeaderGuard
@@ -445,6 +446,18 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 				return nil, fmt.Errorf("agent identity task recovery failed: %w", recoveryErr)
 			}
 			continue
+		}
+		if resp.StatusCode == http.StatusUnauthorized && extractUpstreamErrorCode(probeBody) == "token_expired" &&
+			!openAIAuthRecoveryTried && account.IsOpenAIOAuth() && s.openAITokenProvider != nil {
+			openAIAuthRecoveryTried = true
+			if refreshErr := s.openAITokenProvider.RefreshAfterUnauthorized(ctx, account); refreshErr == nil {
+				_ = resp.Body.Close()
+				token, _, err = s.GetAccessToken(ctx, account)
+				if err != nil {
+					return nil, err
+				}
+				continue
+			}
 		}
 
 		// Any HTTP error received from OpenAI is handed to account failover before

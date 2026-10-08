@@ -58,7 +58,9 @@ C 与实验性传输开关同时开启且账号未配置 UA 时启用。WS 连�
 `response.created` / `response.in_progress` 使用有界前导缓存，避免非语义元数据过早破坏换号安全性。
 WS 握手返回 401/403 且尚未产生语义输出时，会先静默切换到 HTTP Responses/HTTP bridge；
 拨号器的 `expected handshake response ... 401` 只进入运维日志。只有 HTTP 也失败时才进入正常账号
-failover，service 层不会先写 JSON，因此不会再和外层 `response.failed` 终止事件拼接。
+failover，service 层不会先写 JSON，因此不会再和外层 `response.failed` 终止事件拼接。对 OpenAI OAuth
+账号，若 401 的结构化错误码为 `token_expired`，网关会先按一次有界的 refresh-token 恢复重试同一账号；
+只有刷新失败或再次 401 才进入这条 HTTP 回退/账号 failover 路径。
 
 透传路径的恢复重试使用请求级总 attempt budget，不会在每次切换账号后重新获得完整的同账号重试次数。
 带显式 `store:true`、图片生成意图、`previous_response_id` 或工具输出的请求不做无法证明幂等的传输重放。
