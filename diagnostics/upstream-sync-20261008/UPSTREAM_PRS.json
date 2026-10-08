@@ -57,7 +57,7 @@
       "backend/internal/transport/http/handler/openai_gateway_ws_group_pricing.go",
       "backend/internal/transport/http/handler/openai_gateway_ws_group_pricing_test.go"
     ],
-    "local_diff_sha256": "ad25ebe761320b6b6d4ec4f95832a39acba27a394c09f59d552b34ef85bd9d82",
+    "local_diff_sha256": "02992f0ab570fe46122b17013a734ed0cf7807ff16d9390c15da51a46083764b",
     "added_owner_sha256": {
       "backend/internal/transport/http/handler/openai_gateway_ws_group_pricing.go": "6f5addae38d8dbc1bc946bfe82aa08800c2d6ab8d5a3726282a48b89e1423a12",
       "backend/internal/transport/http/handler/openai_gateway_ws_group_pricing_test.go": "34ce7cb7ca1c7e66de7fb14c3030b67f7a6ec7f1bb39b33a728f894a1aee3d4e"
@@ -97,7 +97,7 @@
       "backend/internal/application/service/openai_ws_v2/passthrough_usage.go",
       "backend/internal/application/service/openai_ws_v2_passthrough_adapter.go"
     ],
-    "local_diff_sha256": "801abafa9d51ce6982202bce29cbffde76af2ae9ea9f43c3d7f06d4d666d9a86",
+    "local_diff_sha256": "d3a745c9829438476333d3292dbced92dded74ab6670be219c06546c79afa9d6",
     "added_owner_sha256": {
       "backend/internal/application/service/openai_ws_v2/passthrough_usage.go": "dc5180b2df02c65839cd89e89e71c2d369e9ef24b90d1898b122645d95b7d785"
     }
@@ -130,7 +130,7 @@
       "backend/internal/shared/apicompat/chatcompletions_to_responses.go",
       "backend/internal/shared/apicompat/chatcompletions_to_responses_tool_choice_test.go"
     ],
-    "local_diff_sha256": "c1c1d8fd848227ec3811829c453435fc9f3f37dbaa0041b70d0ff20584992616",
+    "local_diff_sha256": "0293794366e3cd0cc08629724fe7a6cb50691bbef0f2996e428903ee6b902691",
     "added_owner_sha256": {
       "backend/internal/shared/apicompat/chatcompletions_to_responses_tool_choice_test.go": "031a26107e0caae1794a8e6fe4b0dd543521fc118997ae0a6884e9f55cd6c39f"
     }
@@ -163,7 +163,7 @@
       "backend/internal/shared/apicompat/chatcompletions_to_responses.go",
       "backend/internal/shared/apicompat/chatcompletions_to_responses_developer_role_test.go"
     ],
-    "local_diff_sha256": "c1c1d8fd848227ec3811829c453435fc9f3f37dbaa0041b70d0ff20584992616",
+    "local_diff_sha256": "a9a0f30931d44cf86150c358a7fab742298bf7f5a86d45eafddc46533fee6bce",
     "added_owner_sha256": {
       "backend/internal/shared/apicompat/chatcompletions_to_responses_developer_role_test.go": "f1e2f5ff0e404a0a1b5becb1373f95a7144a787f6a11a3219e73a01dd5171f40"
     }
@@ -196,7 +196,7 @@
       "backend/internal/shared/apicompat/chatcompletions_to_responses.go",
       "backend/internal/shared/apicompat/chatcompletions_to_responses_legacy_function_call_test.go"
     ],
-    "local_diff_sha256": "c1c1d8fd848227ec3811829c453435fc9f3f37dbaa0041b70d0ff20584992616",
+    "local_diff_sha256": "b9255608a9f644cd8a349c6c7d47e96d325c2724bb1c3906f80c85d1fc3faeb3",
     "added_owner_sha256": {
       "backend/internal/shared/apicompat/chatcompletions_to_responses_legacy_function_call_test.go": "0452af777098ffc64d34d3eb09e914a0a6a9199fdd0e7107b65f9041b9c2a48d"
     }
@@ -240,7 +240,7 @@
       "backend/internal/shared/apicompat/responses_to_chatcompletions_refusal_test.go",
       "backend/internal/shared/apicompat/types.go"
     ],
-    "local_diff_sha256": "a8fdb82df3061b9db3f65313d93464e7fbcd5004febf631ce3134e179f133b4e",
+    "local_diff_sha256": "171bb7f94f5dcafa283c0873e68ddfae645eecd254fe6f0259ed99339cd73ce7",
     "added_owner_sha256": {
       "backend/internal/shared/apicompat/responses_to_chatcompletions_refusal_test.go": "154d42a0b22f20934a63e2da476107e43ca59088e3cb7c129af1ce73ccc40b0d"
     }
@@ -288,7 +288,7 @@
       "backend/internal/application/service/openai_gateway_chat_completions_anthropic_native.go",
       "backend/internal/application/service/openai_gateway_responses_anthropic_native.go"
     ],
-    "local_diff_sha256": "884d581b4bc93ff00ee4aa1a6269e1b523ca94cf4858759f2a439113d7be4ae9",
+    "local_diff_sha256": "2d622ffdfa4d89519cbee202151f305af7a849524884fb9a7b9981d3a39e75bc",
     "added_owner_sha256": {
       "backend/internal/application/service/anthropic_buffered_negative_index_test.go": "e550cff639f6f3f2a69fcab8151b11943533a70611bb798b5b9e4341da3a011c"
     }
@@ -370,7 +370,7 @@
       "backend/internal/application/service/gateway_cache_ttl_order_test.go",
       "backend/internal/application/service/gateway_claude_oauth_body.go"
     ],
-    "local_diff_sha256": "9d9cffc56bf7920b16ec7162be77229298c4a18466c8e366a1df177563e2434d",
+    "local_diff_sha256": "b400eb8a24ff3b356369c39afe76cc29f0f94061eca128f929f9e416810edb64",
     "added_owner_sha256": {
       "backend/internal/application/service/gateway_cache_ttl_order_test.go": "43a954019e5ef9846aeeafaa8f3174a8a54c1c0aa3596f0e6b7eab03bb9b8310"
     }
@@ -411,7 +411,7 @@
       "backend/internal/application/service/gateway_upstream_request.go",
       "backend/internal/shared/claude/constants.go"
     ],
-    "local_diff_sha256": "1d4485e0b2562326618eb559d1ad65e9f6399344f56874f778c11579017ffb4f",
+    "local_diff_sha256": "7a052c27824d484d7eae5a77e1013a53ead3a7181427fcee9ac75c4f91054aa6",
     "added_owner_sha256": {
       "backend/internal/application/service/gateway_tool_changes_beta_test.go": "22a65fe94e52e3a5e41f4b16382a1c0be2dea1864e6caea7966b32337cb8ff5f"
     }
@@ -446,7 +446,7 @@
       "backend/internal/application/service/openai_responses_namespace_benchmark_test.go",
       "backend/internal/application/service/openai_responses_namespace_test.go"
     ],
-    "local_diff_sha256": "5e143190fb70eab79e513c41c8ec61c2afc9d215bf1ddee58747fff45dcfbb8c",
+    "local_diff_sha256": "05f2763c92e3458e2ce8dd6a1069d8cbd0959d314f70a6b12d6a905ba6efaa2a",
     "added_owner_sha256": {
       "backend/internal/application/service/openai_responses_namespace_benchmark_test.go": "949b942fcda83b093c626095130b9192eb1d6b837a9835f3d31ba56c4c3ba14b"
     }
@@ -512,7 +512,7 @@
       "backend/internal/application/service/gateway_forward_as_chat_completions.go",
       "backend/internal/application/service/gateway_forward_as_chat_completions_ping_test.go"
     ],
-    "local_diff_sha256": "267eb5b0d5bfefe24cb1b3a530b5a4e3f631c72284982992e24d89a334dfaee0",
+    "local_diff_sha256": "b3a2607e71f80a66bf0241f861679ca9257bb60ac3b3eba3baf4d060f7e166c7",
     "added_owner_sha256": {
       "backend/internal/application/service/gateway_forward_as_chat_completions_ping_test.go": "0fb07ee2e13907223d43db9fd0e3bc2a35b57d0f4f00833fd40d7cb63597e321"
     }
@@ -648,7 +648,7 @@
       "backend/internal/shared/xai/sso_device.go",
       "backend/internal/shared/xai/sso_device_test.go"
     ],
-    "local_diff_sha256": "387fd90a369d73c66b8fe18e37a77b29d6fc9e65bdfe07a452bc858b447195ce"
+    "local_diff_sha256": "2067931798cfc04777948a4ec4236ebf006593f3cea12236eb2fb6c372999dee"
   },
   {
     "pr": 7877,
@@ -678,7 +678,7 @@
       "backend/internal/application/service/channel_monitor_checker.go",
       "backend/internal/application/service/channel_monitor_endpoint_test.go"
     ],
-    "local_diff_sha256": "98da5f4cfa1e624b23528d34c8fb3a28e8acbbf363d36e4f518cb6fd90849dde",
+    "local_diff_sha256": "725aa357cba7c26a70c296955863e647c4b38b9408b37410661a4799d1ddac2e",
     "added_owner_sha256": {
       "backend/internal/application/service/channel_monitor_endpoint_test.go": "e4b097d124ef449810d310ca7931a95decb9a7a91ee24c53573e3a4c929a4ebe"
     }
@@ -711,7 +711,7 @@
       "backend/internal/transport/http/handler/admin/account_handler.go",
       "backend/internal/transport/http/handler/admin/account_handler_available_models_test.go"
     ],
-    "local_diff_sha256": "de1cc8c912d72fd78266d8b8c262c85e3b47aa9914b262c525dcdbc0836bc37d"
+    "local_diff_sha256": "f496672b9fb4b9f3ad59c625f581b4761ac83355b32319daded924c8f15c2865"
   },
   {
     "pr": 7878,
@@ -744,7 +744,7 @@
       "backend/internal/application/service/account_test_logging_test.go",
       "backend/internal/application/service/account_test_service.go"
     ],
-    "local_diff_sha256": "e3387755d4c399f5bf72eb42149482f8ee3cde8bc835766c72ade8e5f33436c4",
+    "local_diff_sha256": "10d40314f1c94aa6b39fb93d4e0fbb22bd415938319e962befe6adbccc3fb57e",
     "added_owner_sha256": {
       "backend/internal/application/service/account_test_logging.go": "db246454016b6ee38009a506e8e0a1446cb5f9030b14a6f1674bcf7ea402d391",
       "backend/internal/application/service/account_test_logging_test.go": "afe1638f62fdaa8ae00aa7bb7b2895389e56e6c34562f2c9eaa7b0f6bb85c6f0"
@@ -780,7 +780,7 @@
       "backend/internal/application/service/openai_codex_models_mapping.go",
       "backend/internal/transport/http/handler/openai_codex_models_handler_test.go"
     ],
-    "local_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "local_diff_sha256": "0fc4e659cb94d84d9172587234773f572491be9e651b6b0a80dd80dc76d61b4b",
     "added_owner_sha256": {
       "backend/internal/application/service/openai_codex_models_mapping.go": "deeb40ae1f7989fc5754c8b97b7a3d624f586c6f3765ddc5684f43bbceef27f7"
     }
@@ -848,7 +848,7 @@
       "frontend/src/features/admin-channels/presentation/widgets/PricingEntryCard.vue",
       "frontend/src/features/admin-channels/presentation/widgets/__tests__/PricingEntryCard.modelDefaultPrice.spec.ts"
     ],
-    "local_diff_sha256": "c837ecdb9da7404007a5144d40730ecc2c287aa2dbc6271491a578d03da54518",
+    "local_diff_sha256": "a5fd4b747463c0abcf8f6d3aab814f8e00ebe3f30d46a5fc5994b9ad67421b74",
     "added_owner_sha256": {
       "frontend/src/features/admin-channels/presentation/widgets/__tests__/PricingEntryCard.modelDefaultPrice.spec.ts": "fd5ba6bdb8cc1e8b1fa6473762a3d262187ef78ea59ae5df7e7760c0cbaf65d6"
     }
@@ -879,7 +879,7 @@
       "frontend/src/features/admin-groups/presentation/widgets/GroupRateMultipliersDialog.vue",
       "frontend/src/features/admin-groups/presentation/widgets/__tests__/GroupRateMultipliersDialog.requests.spec.ts"
     ],
-    "local_diff_sha256": "da485ee4c947767a5d3eab835b084f4fd0b6772099e118b18ce1a9c2dc5dd3c2",
+    "local_diff_sha256": "8844efed96b296e1b5b7fd2d3e8e5ba5a0d8b6077ba2d7550e635b5ff09b4b07",
     "added_owner_sha256": {
       "frontend/src/features/admin-groups/presentation/widgets/__tests__/GroupRateMultipliersDialog.requests.spec.ts": "e5554e1fb779af7abac48c81788448efb60f489ca8cdf575e2de02146b587a9e"
     }
@@ -912,7 +912,7 @@
       "frontend/src/features/profile/presentation/widgets/ProfileEditForm.vue",
       "frontend/src/features/profile/presentation/widgets/__tests__/ProfileEditForm.draft.spec.ts"
     ],
-    "local_diff_sha256": "70159421e5e7f9f4a71d7acf77418d975b72876f1d2095a0605008fd81cb2445",
+    "local_diff_sha256": "55d14e2f897962681a379149604a94e556187760085033f90771197407bb1025",
     "added_owner_sha256": {
       "frontend/src/features/profile/presentation/widgets/__tests__/ProfileEditForm.draft.spec.ts": "74b728a3ac3534d79807f87debde26a012e09f3255c85b2a4c1e69df6d2f619b"
     }
@@ -943,7 +943,7 @@
       "frontend/src/features/admin-settings/presentation/widgets/ErrorPassthroughRulesDialog.vue",
       "frontend/src/features/admin-settings/presentation/widgets/__tests__/ErrorPassthroughRulesDialog.toggle.spec.ts"
     ],
-    "local_diff_sha256": "701d4d924a6c11d3e5b2a06117d3460e4b4faf089a5eb04b8afa5dc830d4b2f2",
+    "local_diff_sha256": "8ebae4681c271332e12e34f0d79cc3a8c8c8f3587eaf72b4f6d61e2139c93763",
     "added_owner_sha256": {
       "frontend/src/features/admin-settings/presentation/widgets/__tests__/ErrorPassthroughRulesDialog.toggle.spec.ts": "9fe623191c855bdfe819a2e9fa0a451b37fb7b9202d62bec92bd9568efa6de8c"
     }
@@ -1001,7 +1001,7 @@
       "frontend/src/features/admin-groups/presentation/widgets/GroupRPMOverridesDialog.vue",
       "frontend/src/features/admin-groups/presentation/widgets/__tests__/GroupRPMOverridesDialog.edit.spec.ts"
     ],
-    "local_diff_sha256": "92817813ec04dd7377d9a987162f9a110874828de8f506fb3429a2cfd233ab96",
+    "local_diff_sha256": "b74b1896a0d4804b8d410cb89f20244dc5d9860fadb0a3ee4688fb6c56ec054c",
     "added_owner_sha256": {
       "frontend/src/features/admin-groups/presentation/widgets/__tests__/GroupRPMOverridesDialog.edit.spec.ts": "69bb3b42b22974363cedfd6ad61ecb0ae40a4d9ded22d86892f2b8e7e6a75cb1"
     }
@@ -1121,7 +1121,7 @@
       "frontend/src/features/admin-channel-monitor/presentation/widgets/MonitorTemplateManagerDialog.vue",
       "frontend/src/features/admin-channel-monitor/presentation/widgets/__tests__/MonitorTemplateManagerDialog.requests.spec.ts"
     ],
-    "local_diff_sha256": "fbee8d76fb82dd1ae7405203f9cd2fc3b09f61d868f41fa94b896e7b5fcf4032",
+    "local_diff_sha256": "6d848ce7652626504630b1262cf5d36794fdec7a6e6494590a7f215053fd20a1",
     "added_owner_sha256": {
       "frontend/src/features/admin-channel-monitor/presentation/widgets/__tests__/MonitorTemplateManagerDialog.requests.spec.ts": "1cf8a254057a28f4dba958a628086e4db4fe8c822655daf4a9e5f5c9f9a26eba"
     }
@@ -1154,7 +1154,7 @@
       "frontend/src/features/admin-accounts/presentation/widgets/ScheduledTestsPanel.vue",
       "frontend/src/features/admin-accounts/presentation/widgets/__tests__/ScheduledTestsPanel.results.spec.ts"
     ],
-    "local_diff_sha256": "52f522225b635aeec58588326e65f08223b54e2fb6087d9dcebb3d94a0de2eae",
+    "local_diff_sha256": "3069bcb3de851210c45602c49e1fc50a3d972987db469913d446a413ad021886",
     "added_owner_sha256": {
       "frontend/src/features/admin-accounts/presentation/widgets/__tests__/ScheduledTestsPanel.results.spec.ts": "321c4dace9813d0e2951fa91973f186fab5449ba9920457e61482406a09cbcec"
     }
@@ -1469,7 +1469,7 @@
       "frontend/src/features/admin-usage/__tests__/UsageTable.spec.ts",
       "frontend/src/features/admin-usage/presentation/widgets/UsageTable.vue"
     ],
-    "local_diff_sha256": "2a713ea2225d2e8e479ad86f6a049b0709e4a96091f5a45ecdb4ab5f353fc1c0",
+    "local_diff_sha256": "41a1bfac94682d666efb55caf5c48c4c3c19a48ceadb30fb4ab5ebc245617d35",
     "added_owner_sha256": {
       "backend/internal/infrastructure/repository/ops_repo_latency_metrics.go": "c3ab88313495130d8655db1b238602064c56c3aceaef367246f99911a4992b8a"
     }
@@ -1561,7 +1561,7 @@
       "frontend/src/features/admin-settings/presentation/stores/__tests__/adminCompliance.reset.spec.ts",
       "frontend/src/features/admin-settings/presentation/stores/adminComplianceStore.ts"
     ],
-    "local_diff_sha256": "d145c577725b4dead846b1041c0c3da9ae965d80671a1e94537615ac05abcfaa",
+    "local_diff_sha256": "edfcffa9c84dafe694367bbeb2d649818da6263d5ae6a32c3e279ce752033d2a",
     "added_owner_sha256": {
       "frontend/src/features/admin-settings/presentation/stores/__tests__/adminCompliance.reset.spec.ts": "bc711fe35d94ebadf6fc93aecd217a9df74bbded1442c7bb8f9f7332a2293048"
     }
@@ -1622,7 +1622,7 @@
       "frontend/src/common/widgets/feedback/BaseDialog.vue",
       "frontend/src/common/widgets/feedback/__tests__/BaseDialog.escape.spec.ts"
     ],
-    "local_diff_sha256": "5d69e018dd04e7461e140be41095ea9c9dc8071d4f8f2a0a74ad8eed6ec0a47d",
+    "local_diff_sha256": "9f5fedc54a9d954a2f1e5d495c7bac09678163e5ed7a6dfdcd0aa77f13654f29",
     "added_owner_sha256": {
       "frontend/src/common/widgets/feedback/__tests__/BaseDialog.escape.spec.ts": "91a8b1c4e623393b244446d716258f3b6122be1e1cda05cdd568da2ac1098d35"
     }
@@ -1683,7 +1683,7 @@
       "frontend/src/features/admin-usage/presentation/widgets/UsageCleanupDialog.vue",
       "frontend/src/features/admin-usage/presentation/widgets/__tests__/UsageCleanupDialog.spec.ts"
     ],
-    "local_diff_sha256": "9e0af392e38723d37addd1c75665be7d7c2a28689857457fb8482a1c6fd35af6",
+    "local_diff_sha256": "073a50e9a58bb5f7e739fc5485bfcf63d269447f08fefcede1b4b1dbe880ebee",
     "added_owner_sha256": {
       "frontend/src/features/admin-usage/presentation/widgets/__tests__/UsageCleanupDialog.spec.ts": "7a7616bd8c6e9a4647028ef90d67ac61330f79c4683fe429431a0b4410c426d3"
     }
@@ -1716,7 +1716,7 @@
       "frontend/src/features/batch-image/presentation/composables/__tests__/useBatchImageAccess.retry.spec.ts",
       "frontend/src/features/batch-image/presentation/composables/useBatchImageAccess.ts"
     ],
-    "local_diff_sha256": "56598e1b26b4df8c4dc2123dbdb091a32a8a106af3088d3d8dfbb771cefa6808",
+    "local_diff_sha256": "a8184a80040f198f5fdfcb5908148760a33c5703d4e1f32f9ce0d5c258889be5",
     "added_owner_sha256": {
       "frontend/src/features/batch-image/presentation/composables/__tests__/useBatchImageAccess.retry.spec.ts": "0e15641044a2e6b9d9fcaf69184a612c324effdefa218c8a9fdf823ce1c051f4"
     }
@@ -1868,7 +1868,7 @@
       "frontend/src/core/utils/__tests__/pricing.formatScaled.spec.ts",
       "frontend/src/core/utils/pricing.ts"
     ],
-    "local_diff_sha256": "79b8472980386abecc7d919ebb4b318f997fe51ee1ad563b564f80f6326e8667",
+    "local_diff_sha256": "53c0437c17aecf9364cda3047f80f91cff97192397e513e4482f576e17f71fce",
     "added_owner_sha256": {
       "frontend/src/core/utils/__tests__/pricing.formatScaled.spec.ts": "c3bd0a27bb38ac9a8c186ce0f4276f451cd0ea008557abed307c1075b3d6d7e1"
     }
@@ -1937,7 +1937,7 @@
       "frontend/src/common/widgets/forms/Select.vue",
       "frontend/src/common/widgets/forms/__tests__/disabledSelectors.spec.ts"
     ],
-    "local_diff_sha256": "77ae68df6572b9ed2e41ed82586ca12be8c36c798d0c47497035e72a192a34d9",
+    "local_diff_sha256": "907e63e166e6265f46a4dd42383e7f7a59e892f29b0e75ba82950b8b6bfce40a",
     "added_owner_sha256": {
       "frontend/src/common/widgets/forms/__tests__/disabledSelectors.spec.ts": "ba7af0957629383ca63a92842aca0f0f35f15c45401f7752cc02fc674be9213b"
     }
@@ -1970,7 +1970,7 @@
       "frontend/src/core/utils/__tests__/formatBytes.spec.ts",
       "frontend/src/core/utils/format.ts"
     ],
-    "local_diff_sha256": "fc213ad789aca9b01d0a23887a28f71e79cfa47a3ccb3cda8ca42b64d318fc71",
+    "local_diff_sha256": "22475e2d1da81716bde94d33c350b25178ad8912a0da25e59d9eb92f1f3ad62f",
     "added_owner_sha256": {
       "frontend/src/core/utils/__tests__/formatBytes.spec.ts": "3bbf3683fdba48257c81634b9facc23194718fdd917101c8b5eea5ca2e08d894"
     }
