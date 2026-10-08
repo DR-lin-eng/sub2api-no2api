@@ -4,6 +4,8 @@ export default {
       description: '运维监控与排障',
       // Dashboard
       systemHealth: '系统健康',
+      outputTps: '单次输出 TPS',
+      outputTpsSamples: '有效样本：{count}',
       overview: '概览',
       noSystemMetrics: '尚未收集系统指标。',
       collectedAt: '采集时间：',
@@ -868,6 +870,7 @@ export default {
         accountError: '异常'
       },
       tooltips: {
+        outputTps: '每条有效用量记录的输出 Token ÷ 总耗时（含首字等待），再按当前时间、平台和分组计算分位数。输出可含推理 Token，不重复相加。P50 为中位数，P5/P10 反映较慢请求；数值越高越快。排除图片、Live、无有效输出或耗时的记录。样本来自仍保留的使用明细；无样本或统计暂不可用时显示 —。',
         totalRequests: '当前时间窗口内的总请求数和Token消耗量。',
         throughputTrend: '当前窗口内的请求/QPS 与 token/TPS 趋势。',
         networkBandwidth: '当前采集实例的公网出入网速率。只统计默认 IPv4/IPv6 路由对应接口，按接口名去重，不包含回环、容器桥接或其他内网网卡。',

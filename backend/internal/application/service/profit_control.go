@@ -211,6 +211,14 @@ func (s *OpenAIGatewayService) WithOpenAIRequestPricingContext(ctx context.Conte
 func (s *OpenAIGatewayService) WithOpenAITurnPricingContext(ctx context.Context, groupID *int64) (context.Context, time.Time) {
 	pricingAt := timezone.Now()
 	ctx = context.WithValue(ctx, tokenRequestPricingAtCtxKey{}, pricingAt)
+	// A WS turn freezes the refreshed authenticated group without mutating the
+	// connection's routing state. The profit gate must use the same sale price
+	// as this turn's usage record, including multi-group connections.
+	if group, _ := ctx.Value(ctxkey.Group).(*Group); IsGroupContextValid(group) &&
+		groupID != nil && group.ID == *groupID {
+		ctx = context.WithValue(ctx, tokenRequestBillingGroupCtxKey{}, group)
+		ctx = context.WithValue(ctx, apiKeyGroupRoutingAttemptKey{}, group.ID)
+	}
 	if existing, _ := ctx.Value(profitControlGateCtxKey{}).(*profitControlGate); existing != nil {
 		id := existing.groupID
 		groupID = &id

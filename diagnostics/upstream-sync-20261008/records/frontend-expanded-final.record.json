@@ -1,0 +1,29 @@
+{
+  "label": "frontend-expanded-final",
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo",
+  "argv": [
+    "docker",
+    "run",
+    "--rm",
+    "-v",
+    "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo:/workspace",
+    "-v",
+    "sub2api-sync-20261007-node:/workspace/frontend/node_modules",
+    "-w",
+    "/workspace/frontend",
+    "node:24-alpine",
+    "sh",
+    "-c",
+    "corepack enable && pnpm exec vitest run src/core/utils src/common src/features/admin-groups src/features/admin-ops src/features/admin-settings src/features/profile src/features/billing src/features/admin-backup src/features/admin-channels src/features/admin-accounts src/features/admin-users src/features/admin-usage src/features/admin-channel-monitor src/features/batch-image src/features/channels-user src/features/auth src/features/announcements --exclude src/features/admin-accounts/__tests__/adminAccountsModularization.spec.ts --exclude src/features/admin-settings/__tests__/settingsGatewayResilienceModularization.spec.ts --exclude src/features/admin-users/__tests__/UserEditDialog.spec.ts --exclude src/features/admin-users/__tests__/UsersPage.spec.ts --exclude src/features/auth/__tests__/RegisterViewCredentialStorage.spec.ts"
+  ],
+  "command": "docker run --rm -v /private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo:/workspace -v sub2api-sync-20261007-node:/workspace/frontend/node_modules -w /workspace/frontend node:24-alpine sh -c 'corepack enable && pnpm exec vitest run src/core/utils src/common src/features/admin-groups src/features/admin-ops src/features/admin-settings src/features/profile src/features/billing src/features/admin-backup src/features/admin-channels src/features/admin-accounts src/features/admin-users src/features/admin-usage src/features/admin-channel-monitor src/features/batch-image src/features/channels-user src/features/auth src/features/announcements --exclude src/features/admin-accounts/__tests__/adminAccountsModularization.spec.ts --exclude src/features/admin-settings/__tests__/settingsGatewayResilienceModularization.spec.ts --exclude src/features/admin-users/__tests__/UserEditDialog.spec.ts --exclude src/features/admin-users/__tests__/UsersPage.spec.ts --exclude src/features/auth/__tests__/RegisterViewCredentialStorage.spec.ts'",
+  "input": "repository sources and committed regression fixtures",
+  "stdout": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/records/frontend-expanded-final.stdout",
+  "stderr": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/records/frontend-expanded-final.stderr",
+  "exit": 0,
+  "started": "2026-10-08T15:41:51.118487+00:00",
+  "finished": "2026-10-08T15:42:29.763145+00:00",
+  "accepted": true,
+  "stdout_sha256": "95027178c69a93fdb4def5a0e315c2909ef0e27c49d001382b10895e792f8c86",
+  "stderr_sha256": "e8e91e2afe16734d70c71f68ba240c56f93bce01b12f3b8e0ab1c1666b4699b6"
+}

@@ -1,0 +1,31 @@
+{
+  "label": "build-candidate",
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo",
+  "argv": [
+    "docker",
+    "--config",
+    "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/docker-config",
+    "buildx",
+    "build",
+    "--load",
+    "--build-arg",
+    "GOPROXY=https://proxy.golang.org,direct",
+    "--build-arg",
+    "GOSUMDB=sum.golang.org",
+    "--build-arg",
+    "COMMIT=upstream-sync-20261008-verified",
+    "-t",
+    "sub2api-upstream-sync:20261008",
+    "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo"
+  ],
+  "command": "docker --config /private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/docker-config buildx build --load --build-arg GOPROXY=https://proxy.golang.org,direct --build-arg GOSUMDB=sum.golang.org --build-arg COMMIT=upstream-sync-20261008-verified -t sub2api-upstream-sync:20261008 /private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo",
+  "input": "repository sources and committed regression fixtures",
+  "stdout": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/records/build-candidate.stdout",
+  "stderr": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/records/build-candidate.stderr",
+  "exit": 0,
+  "started": "2026-10-08T15:47:55.266768+00:00",
+  "finished": "2026-10-08T15:49:11.347673+00:00",
+  "accepted": false,
+  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderr_sha256": "7204d5eab7f0a941132b18e5c3103b03a0df4e3a8e6a95a88dd900333fbb10fa"
+}

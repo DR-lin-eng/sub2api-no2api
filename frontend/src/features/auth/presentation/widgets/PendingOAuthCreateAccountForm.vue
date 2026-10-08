@@ -184,6 +184,7 @@ const externalHumanVerificationReady = computed(() => {
 })
 
 let countdownTimer: ReturnType<typeof setInterval> | null = null
+let disposed = false
 
 watch(
   () => props.initialEmail,
@@ -301,6 +302,7 @@ async function handleSendCode() {
         ? { captcha_id: localCaptchaId.value, captcha_code: localCaptchaCode.value }
         : {})
     })
+    if (disposed) return
     sendCodeSuccess.value = true
     startCountdown(response.countdown)
   } catch (error: unknown) {
@@ -401,6 +403,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  disposed = true
   clearCountdown()
 })
 </script>

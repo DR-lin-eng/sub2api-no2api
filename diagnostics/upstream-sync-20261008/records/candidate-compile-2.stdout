@@ -1,0 +1,7 @@
+FAIL	github.com/Wei-Shaw/sub2api/internal/application/service [setup failed]
+FAIL	github.com/Wei-Shaw/sub2api/internal/transport/http/handler [setup failed]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	0.001s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/antigravity	0.002s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/xai	0.001s [no tests to run]
+FAIL	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin [build failed]
+FAIL

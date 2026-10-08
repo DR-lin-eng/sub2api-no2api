@@ -72,6 +72,7 @@
 | [上游主线同步审查记录（2026-09-30）](UPSTREAM_SYNC_20260930.md) | 48 个冻结主线 PR 的当前 owner 台账、协议/统计与工具改写性能修复、Docker 升级回退和 CI |
 | [上游主线同步审查记录（2026-10-05）](UPSTREAM_SYNC_20261005.md) | 12 个增量 PR 的关闭台账、验证码原子重构、平滑升级、Docker 与 CI 跟踪 |
 | [上游主线同步审查记录（2026-10-07）](UPSTREAM_SYNC_20261007.md) | 3 个增量 PR 的首次安装适配、已覆盖差异关闭、性能与 Docker 升级回退验证 |
+| [上游主线同步审查记录（2026-10-08）](UPSTREAM_SYNC_20261008.md) | 57 个冻结主线 PR 的关闭/重开台账、WS 逐轮计费、TPS 与 namespace 性能、Docker 平滑升级和发布跟踪 |
 | [API Key 删除与计费竞争条件审查（2026-10-06）](../diagnostics/billing-key-deletion-20261006/REPORT.md) | 旧版本漏扣回放、当前修复边界、真实数据库与 24 个 Docker HTTP 场景 |
 | [GPT-6 Astra 接入记录](GPT6_ASTRA.md) | OpenAI 官方模型目录、能力、价格和本项目兼容计费映射 |
 | [GPT-6 模型目录与价格](GPT6_MODELS.md) | GPT-6 Astra、Sol、Luna 的官方能力、价格与本项目实现位置 |

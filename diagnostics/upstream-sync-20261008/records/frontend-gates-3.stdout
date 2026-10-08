@@ -1,0 +1,365 @@
+
+ RUN  v3.2.6 /workspace/frontend
+
+ ❯ src/features/admin-usage/__tests__/UsageTable.spec.ts (22 tests | 1 failed) 176ms
+   ✓ UsageTable audience boundary > ignores admin-only row fields and columns for user audiences 36ms
+   ✓ UsageTable audience boundary > keeps admin diagnostics visible for admin audiences 7ms
+   ✓ admin UsageTable request ID column > renders and copies the full request ID 7ms
+   × admin UsageTable tooltip > marks only usage rows that actually applied long-context billing 12ms
+     → expected 'admin.usage.longContext' to be 'x2' // Object.is equality
+   ✓ admin UsageTable tooltip > opens the selected usage record from the details action 11ms
+   ✓ admin UsageTable tooltip > shows output token speed for valid text requests and skips unusable rows 46ms
+   ✓ admin UsageTable tooltip > shows service tier and billing breakdown in cost tooltip 7ms
+   ✓ admin UsageTable tooltip > shows requested and upstream models separately for admin rows 3ms
+   ✓ admin UsageTable tooltip > shows a compact upstream response audit marker for 'possible version variant' 5ms
+   ✓ admin UsageTable tooltip > shows a compact upstream response audit marker for 'different upstream model' 2ms
+   ✓ admin UsageTable tooltip > shows image usage metadata for 'defaulted row' 6ms
+   ✓ admin UsageTable tooltip > shows image usage metadata for 'output-sourced row' 8ms
+   ✓ admin UsageTable tooltip > shows image usage metadata for 'input-sourced row' 3ms
+   ✓ admin UsageTable tooltip > shows image usage metadata for 'legacy unstandardized row' 4ms
+   ✓ admin UsageTable tooltip > displays historical image rows with missing billing_mode as image usage without a 2K fallback 3ms
+   ✓ admin UsageTable IP geolocation batch toolbar > does not render the batch toolbar when the ip_address column is not visible 2ms
+   ✓ admin UsageTable IP geolocation batch toolbar > renders the batch toolbar with a pending count when the ip_address column is visible 2ms
+   ✓ admin UsageTable IP geolocation batch toolbar > fetches deduplicated IPs from the current page when the batch button is clicked 3ms
+   ✓ admin UsageTable IP geolocation batch toolbar > emits ipGeoBatchFailed when the batch request reports a network-level failure 2ms
+   ✓ admin UsageTable IP geolocation batch toolbar > renders IpGeoCell content for ip_address cells 1ms
+   ✓ admin UsageTable deleted-user badge > renders deleted badge for a soft-deleted user row 2ms
+   ✓ admin UsageTable deleted-user badge > does NOT render deleted badge for an active user row 3ms
+ ✓ src/features/admin-accounts/__tests__/AccountUsageCell.spec.ts (37 tests) 215ms
+ ✓ src/features/auth/__tests__/OidcCallbackView.spec.ts (15 tests) 259ms
+ ✓ src/features/auth/__tests__/LinuxDoCallbackView.spec.ts (17 tests) 277ms
+ ✓ src/features/auth/__tests__/WechatCallbackView.spec.ts (25 tests) 339ms
+ ✓ src/features/admin-settings/__tests__/adminSettingsQueryActions.spec.ts (12 tests) 15ms
+ ✓ src/features/admin-accounts/__tests__/EditAccountModal.spec.ts (47 tests) 1156ms
+ ✓ src/features/admin-usage/__tests__/UsagePage.spec.ts (12 tests) 402ms
+ ✓ src/features/admin-accounts/__tests__/OpenAIQuotaResetCell.spark_shadow.spec.ts (20 tests) 215ms
+ ✓ src/features/profile/__tests__/ProfileIdentityBindingsSection.spec.ts (16 tests) 219ms
+ ✓ src/features/admin-accounts/__tests__/credentialsBuilder.spec.ts (57 tests) 22ms
+ ✓ src/features/billing/__tests__/PaymentPage.spec.ts (13 tests) 182ms
+ ✓ src/features/admin-accounts/__tests__/UpstreamBillingRateCell.spec.ts (11 tests) 161ms
+ ✓ src/features/admin-accounts/__tests__/CreateAccountModal.spec.ts (29 tests) 1022ms
+ ✓ src/features/billing/__tests__/paymentFlow.spec.ts (25 tests) 9ms
+ ✓ src/features/auth/__tests__/EmailVerifyView.spec.ts (9 tests) 109ms
+ ✓ src/features/admin-accounts/__tests__/BulkEditAccountModal.spec.ts (40 tests) 893ms
+ ✓ src/features/billing/__tests__/PaymentResultPage.spec.ts (15 tests) 115ms
+ ✓ src/features/admin-settings/__tests__/settingsSaveModules.spec.ts (8 tests) 8ms
+ ✓ src/features/auth/__tests__/authStore.spec.ts (25 tests) 27ms
+ ✓ src/common/widgets/data/__tests__/DataTable.spec.ts (12 tests) 246ms
+ ✓ src/features/admin-settings/__tests__/settings.authSourceDefaults.spec.ts (13 tests) 11ms
+ ✓ src/features/admin-ops/__tests__/adminOpsModularization.spec.ts (5 tests) 66ms
+ ❯ src/features/admin-users/__tests__/UsersPage.spec.ts (4 tests | 4 failed) 30ms
+   × admin UsersView > shows active, used, and created activity columns in order and requests last_used_at sort 23ms
+     → [🍍]: "getActivePinia()" was called but there was no active Pinia. Are you trying to use a store before calling "app.use(pinia)"?
+See https://pinia.vuejs.org/core-concepts/outside-component-usage.html for help.
+This will fail in production.
+   × admin UsersView > clears usage current-page sort when switching to last_used_at server sort 2ms
+     → [🍍]: "getActivePinia()" was called but there was no active Pinia. Are you trying to use a store before calling "app.use(pinia)"?
+See https://pinia.vuejs.org/core-concepts/outside-component-usage.html for help.
+This will fail in production.
+   × admin UsersView > keeps selected user IDs across pages and clears them after a successful bulk update 1ms
+     → [🍍]: "getActivePinia()" was called but there was no active Pinia. Are you trying to use a store before calling "app.use(pinia)"?
+See https://pinia.vuejs.org/core-concepts/outside-component-usage.html for help.
+This will fail in production.
+   × admin UsersView > keeps the 300ms search debounce after the toolbar split 2ms
+     → [🍍]: "getActivePinia()" was called but there was no active Pinia. Are you trying to use a store before calling "app.use(pinia)"?
+See https://pinia.vuejs.org/core-concepts/outside-component-usage.html for help.
+This will fail in production.
+ ❯ src/features/admin-accounts/__tests__/adminAccountsModularization.spec.ts (13 tests | 1 failed) 247ms
+   ✓ admin accounts modularization > owns account-only DTOs in feature data while preserving compatibility exports 14ms
+   × admin accounts modularization > keeps every feature runtime module within the maintenance target 84ms
+     → presentation/widgets/CreateAccountDialog.vue: expected 1512 to be less than or equal to 1500
+   ✓ admin accounts modularization > keeps the table and field modules statically owned by the accounts route chunk 1ms
+   ✓ admin accounts modularization > keeps request lifecycle out of the table-only view 0ms
+   ✓ admin accounts modularization > routes page requests through feature owners instead of the admin compatibility barrel 0ms
+   ✓ admin accounts modularization > routes bulk edit actions through the account action owner 0ms
+   ✓ admin accounts modularization > reads the global quota notification switch from its settings owner 0ms
+   ✓ admin accounts modularization > routes scheduled test lifecycle calls through their datasource owner 0ms
+   ✓ admin accounts modularization > routes OAuth composables through feature-owned action datasources 1ms
+   ✓ admin accounts modularization > routes reauthorization widgets through account action owners 1ms
+   ✓ admin accounts modularization > routes create and edit workflows through explicit account and settings owners 1ms
+   ✓ admin accounts modularization > routes account import and CRS sync through query/action owners 142ms
+   ✓ admin accounts modularization > preserves quota hydration, bounded batches, feedback timing, and refresh cadence 0ms
+ ✓ src/features/admin-channels/__tests__/channelFormCodec.spec.ts (5 tests) 13ms
+ ✓ src/features/admin-accounts/__tests__/AccountsPage.upstreamQuota.spec.ts (3 tests) 239ms
+ ✓ src/features/admin-accounts/__tests__/AccountsPage.sparkShadow.spec.ts (8 tests) 247ms
+ ✓ src/features/admin-accounts/__tests__/AccountsPage.bulkEdit.spec.ts (5 tests) 276ms
+ ✓ src/features/admin-accounts/__tests__/EditAccountModal.grokUpstream.spec.ts (11 tests) 338ms
+ ✓ src/features/admin-accounts/__tests__/AccountsPage.schedulerScore.spec.ts (9 tests) 394ms
+ ✓ src/features/auth/__tests__/PendingOAuthCreateAccountForm.spec.ts (9 tests) 125ms
+ ✓ src/features/admin-accounts/__tests__/adminAccountActions.spec.ts (9 tests) 6ms
+ ✓ src/core/utils/__tests__/ipGeoLookup.spec.ts (22 tests) 40ms
+ ✓ src/features/billing/__tests__/PaymentProviderDialog.spec.ts (9 tests) 239ms
+ ✓ src/features/admin-users/__tests__/UserPlatformQuotaModal.spec.ts (12 tests) 266ms
+ ✓ src/features/admin-usage/__tests__/UsageFilters.spec.ts (4 tests) 89ms
+ ✓ src/features/billing/__tests__/PaymentStatusPanel.spec.ts (7 tests) 102ms
+ ✓ src/features/admin-groups/__tests__/groupEditorControllers.spec.ts (3 tests) 22ms
+ ✓ src/features/admin-users/__tests__/adminUsers.spec.ts (9 tests) 9ms
+ ✓ src/features/admin-accounts/__tests__/AdminAccountTestDialog.spec.ts (6 tests) 148ms
+ ✓ src/features/profile/__tests__/ProfileAvatarCard.spec.ts (4 tests) 42ms
+ ✓ src/features/batch-image/__tests__/batchImageAsyncLifecycle.spec.ts (5 tests) 61ms
+ ✓ src/features/admin-channel-monitor/__tests__/ChannelMonitorPage.grok.spec.ts (4 tests) 203ms
+ ✓ src/features/admin-groups/__tests__/GroupsPage.columnSettings.spec.ts (6 tests) 250ms
+ ✓ src/features/admin-groups/__tests__/GroupsPage.duplicate.spec.ts (4 tests) 209ms
+ ✓ src/features/profile/__tests__/ProfileInfoCard.spec.ts (8 tests) 180ms
+ ✓ src/features/auth/__tests__/authOauthAdoption.spec.ts (13 tests) 54ms
+ ✓ src/features/auth/__tests__/OAuthCallbackView.spec.ts (6 tests) 76ms
+ ✓ src/features/auth/__tests__/LoginPageSettingsResilience.spec.ts (6 tests) 80ms
+ ✓ src/features/auth/__tests__/auth.protocolOwners.spec.ts (5 tests) 7ms
+ ✓ src/features/admin-settings/__tests__/SettingsPage.spec.ts (54 tests) 4411ms
+ ✓ src/features/admin-accounts/__tests__/OllamaCloudUsageSettings.spec.ts (5 tests) 95ms
+ ✓ src/features/admin-accounts/__tests__/EditAccountDialog.cpa.spec.ts (4 tests) 219ms
+ ✓ src/features/auth/__tests__/WechatOAuthSection.spec.ts (6 tests) 30ms
+ ✓ src/features/admin-accounts/__tests__/AccountStatusIndicator.spec.ts (7 tests) 48ms
+ ✓ src/features/admin-ops/__tests__/adminOpsAlertSettingsQueries.spec.ts (3 tests) 4ms
+ ✓ src/features/channels-user/__tests__/AvailableChannelsTable.spec.ts (6 tests) 80ms
+ ✓ src/common/composables/__tests__/useTableLoader.spec.ts (12 tests) 29ms
+ ✓ src/features/admin-ops/__tests__/adminOpsDashboardQueries.spec.ts (3 tests) 8ms
+ ✓ src/features/admin-accounts/__tests__/AccountsPage.usageWindowsHint.spec.ts (3 tests) 163ms
+ ✓ src/features/admin-accounts/__tests__/adminAccountQueries.spec.ts (9 tests) 8ms
+ ✓ src/features/admin-accounts/__tests__/AccountActionMenu.spark_shadow.spec.ts (11 tests) 108ms
+ ✓ src/features/billing/__tests__/rechargeBonus.spec.ts (10 tests) 11ms
+ ✓ src/common/pages/__tests__/HomePageCompact.spec.ts (11 tests) 183ms
+ ✓ src/features/admin-ops/__tests__/adminOpsRealtimeSubscription.spec.ts (6 tests) 11ms
+ ✓ src/common/widgets/charts/__tests__/ModelDistributionChart.spec.ts (4 tests) 58ms
+ ✓ src/features/admin-channel-monitor/__tests__/ChannelMonitorPage.duplicate.spec.ts (5 tests) 93ms
+ ✓ src/features/admin-groups/__tests__/adminGroups.protocolOwners.spec.ts (4 tests) 6ms
+ ✓ src/common/composables/__tests__/useRoutePrefetch.spec.ts (15 tests) 2734ms
+   ✓ useRoutePrefetch > requestIdleCallback 超时处理 > 超时后仍能正常执行预加载  2103ms
+ ✓ src/features/auth/__tests__/AliyunCaptchaWidget.spec.ts (7 tests) 100ms
+ ✓ src/features/admin-groups/__tests__/groupsEditorModularization.spec.ts (4 tests) 7ms
+ ✓ src/features/admin-usage/__tests__/UsageDetailDialog.spec.ts (4 tests) 110ms
+ ✓ src/features/admin-ops/__tests__/OpsOpenAITokenStatsCard.spec.ts (5 tests) 96ms
+ ✓ src/features/admin-groups/__tests__/CompositeRoutesDialog.spec.ts (4 tests) 108ms
+ ✓ src/features/admin-accounts/presentation/composables/__tests__/useModelWhitelist.spec.ts (15 tests) 15ms
+ ✓ src/features/admin-accounts/__tests__/AccountTestModal.spec.ts (3 tests) 121ms
+ ✓ src/features/admin-accounts/__tests__/accountSelection.spec.ts (7 tests) 9ms
+ ✓ src/features/admin-usage/__tests__/adminUsageModularization.spec.ts (4 tests) 9ms
+ ✓ src/features/auth/__tests__/LoginForm.spec.ts (5 tests) 56ms
+ ✓ src/features/admin-accounts/__tests__/AccountPriorityCell.spec.ts (8 tests) 69ms
+ ✓ src/core/utils/__tests__/registrationEmailPolicy.spec.ts (13 tests) 7ms
+ ✓ src/features/admin-settings/__tests__/PanelRateLimitSettingsCard.spec.ts (6 tests) 69ms
+ ✓ src/features/auth/__tests__/HumanVerificationWidget.spec.ts (8 tests) 35ms
+ ✓ src/features/batch-image/__tests__/batchImageModularization.spec.ts (4 tests) 33ms
+ ✓ src/common/widgets/data/__tests__/AnnouncementPopup.spec.ts (14 tests) 198ms
+ ✓ src/core/utils/__tests__/usageLocale.spec.ts (4 tests) 4ms
+ ✓ src/features/admin-accounts/__tests__/AccountActionMenu.position.spec.ts (10 tests) 87ms
+ ✓ src/features/admin-ops/__tests__/OpsSystemLogTable.spec.ts (4 tests) 128ms
+ ✓ src/common/widgets/data/__tests__/GroupOptionItem.spec.ts (11 tests) 116ms
+ ✓ src/features/admin-ops/__tests__/adminOpsErrorQueries.spec.ts (5 tests) 10ms
+ ✓ src/features/auth/__tests__/authProfileLocaleScopes.spec.ts (4 tests) 103ms
+ ✓ src/common/composables/__tests__/useNavigationLoading.spec.ts (11 tests) 12ms
+ ✓ src/features/admin-groups/__tests__/adminGroupsModularization.spec.ts (4 tests) 9ms
+ ✓ src/features/profile/__tests__/totp-timer-cleanup.spec.ts (4 tests) 51ms
+ ✓ src/features/auth/__tests__/authProfileModularization.spec.ts (6 tests) 13ms
+ ✓ src/features/admin-backup/presentation/pages/__tests__/BackupPage.spec.ts (3 tests) 185ms
+ ❯ src/features/admin-settings/__tests__/settingsGatewayResilienceModularization.spec.ts (2 tests | 1 failed) 23ms
+   ✓ settings gateway resilience modularization > keeps the parent as a static gateway resilience card composition 4ms
+   × settings gateway resilience modularization > keeps each original card template on the shared page context 17ms
+     → expected 'f72f76ef998051b6103723348ab9ed9cdfd37…' to be 'c78190ebe0430d38d939afcd187759beb1e88…' // Object.is equality
+ ✓ src/features/admin-ops/__tests__/OpsDashboardHeader.spec.ts (6 tests) 248ms
+ ✓ src/features/admin-ops/__tests__/OpsUserUsageStatsCard.spec.ts (4 tests) 94ms
+ ✓ src/features/admin-users/__tests__/BulkEditUserModal.spec.ts (6 tests) 118ms
+ ✓ src/common/widgets/layout/__tests__/AppSidebar.spec.ts (11 tests) 3ms
+ ✓ src/features/billing/__tests__/alipayDeepLink.spec.ts (7 tests) 14ms
+ ✓ src/common/composables/__tests__/useClipboard.spec.ts (9 tests) 26ms
+ ✓ src/features/admin-accounts/__tests__/adminAccounts.ollamaCloudUsage.spec.ts (3 tests) 18ms
+ ✓ src/core/utils/__tests__/usageBillingCalculation.spec.ts (6 tests) 15ms
+ ✓ src/features/billing/__tests__/AmountInput.spec.ts (10 tests) 130ms
+ ✓ src/features/admin-ops/__tests__/errorDetailResponse.spec.ts (7 tests) 7ms
+ ✓ src/common/widgets/icons/__tests__/PlatformTypeBadge.grok.spec.ts (9 tests) 80ms
+ ✓ src/features/admin-accounts/__tests__/UsageProgressBar.spec.ts (8 tests) 31ms
+ ✓ src/features/admin-channel-monitor/__tests__/adminChannelMonitor.duplicate.spec.ts (5 tests) 20ms
+ ✓ src/features/admin-accounts/__tests__/SyncFromCrsDialog.spec.ts (3 tests) 84ms
+ ✓ src/core/utils/__tests__/upstreamQuotaCache.spec.ts (5 tests) 11ms
+ ✓ src/features/admin-ops/__tests__/OpsErrorScopeCharts.spec.ts (3 tests) 52ms
+ ✓ src/features/admin-groups/__tests__/apiKeyGroupFilterOptionsSignals.spec.ts (6 tests) 5ms
+ ✓ src/features/admin-accounts/__tests__/adminAccounts.upstreamBillingProbe.spec.ts (4 tests) 12ms
+ ✓ src/features/admin-groups/__tests__/adminGroups.duplicate.spec.ts (5 tests) 17ms
+ ✓ src/features/admin-accounts/__tests__/CNProviderUsageCell.spec.ts (5 tests) 68ms
+ ✓ src/core/utils/__tests__/homeContent.spec.ts (5 tests) 50ms
+ ✓ src/core/utils/__tests__/embedded-url.spec.ts (7 tests) 14ms
+ ✓ src/features/admin-usage/__tests__/adminUsage.protocolOwners.spec.ts (4 tests) 13ms
+ ✓ src/features/admin-users/__tests__/usersPageModularization.spec.ts (4 tests) 4ms
+ ✓ src/features/billing/__tests__/providerConfig.spec.ts (10 tests) 4ms
+ ✓ src/features/billing/__tests__/paymentLocaleScopes.spec.ts (4 tests) 46ms
+ ✓ src/features/admin-channels/presentation/widgets/__tests__/PricingEntryCard.modelDefaultPrice.spec.ts (4 tests) 47ms
+ ✓ src/features/admin-ops/__tests__/adminOpsLogQueries.spec.ts (3 tests) 6ms
+ ❯ src/features/auth/__tests__/RegisterViewCredentialStorage.spec.ts (1 test | 1 failed) 56ms
+   × RegisterView credential storage > stores only non-secret metadata before navigating to email verification 55ms
+     → expected "spy" to be called with arguments: [ '/email-verify' ][90m
+
+Number of calls: [1m0[22m
+[39m
+ ✓ src/common/widgets/data/__tests__/IpGeoCell.spec.ts (6 tests) 33ms
+ ✓ src/features/billing/__tests__/StripePaymentPage.spec.ts (1 test) 37ms
+ ✓ src/features/admin-groups/__tests__/MediaStudioGroupRoutingDialog.spec.ts (3 tests) 57ms
+ ✓ src/features/admin-accounts/__tests__/AccountCapacityCell.cpa.spec.ts (5 tests) 65ms
+ ✓ src/features/auth/__tests__/RegisterPage.spec.ts (3 tests) 122ms
+ ✓ src/common/composables/__tests__/useForm.spec.ts (7 tests) 17ms
+ ✓ src/core/utils/__tests__/accountUsageRefresh.spec.ts (7 tests) 17ms
+ ✓ src/features/admin-accounts/__tests__/adminAccountOAuthActions.spec.ts (3 tests) 5ms
+ ✓ src/features/billing/__tests__/AirwallexPaymentPage.spec.ts (2 tests) 62ms
+ ✓ src/features/auth/__tests__/WechatPaymentCallbackView.spec.ts (3 tests) 46ms
+ ✓ src/features/admin-settings/__tests__/settingsIdentityProvidersModularization.spec.ts (3 tests) 31ms
+ ✓ src/features/admin-settings/__tests__/adminSettingsModularization.spec.ts (4 tests) 161ms
+ ✓ src/common/widgets/charts/__tests__/GroupDistributionChart.spec.ts (3 tests) 89ms
+ ✓ src/features/admin-settings/__tests__/OpenAIFastPolicyUserSelector.spec.ts (3 tests) 59ms
+ ✓ src/features/admin-accounts/__tests__/OllamaCloudUsageCell.spec.ts (2 tests) 51ms
+ ✓ src/features/auth/__tests__/EmailOAuthButtons.spec.ts (4 tests) 55ms
+ ❯ src/features/admin-accounts/presentation/widgets/__tests__/ScheduledTestsPanel.results.spec.ts (4 tests | 4 failed) 154ms
+   × scheduled test result selection > ignores an old plan request that later resolves 89ms
+     → Cannot read properties of undefined (reading 'trigger')
+   × scheduled test result selection > ignores an old plan request that later rejects 18ms
+     → Cannot read properties of undefined (reading 'trigger')
+   × scheduled test result selection > keeps loading the current plan when the previous request completes 18ms
+     → Cannot read properties of undefined (reading 'trigger')
+   × scheduled test result selection > invalidates a request when the same plan is collapsed and reopened 28ms
+     → Cannot read properties of undefined (reading 'trigger')
+ ✓ src/features/admin-groups/__tests__/groupsModelsListResolver.spec.ts (8 tests) 4ms
+ ❯ src/features/admin-accounts/__tests__/AccountTableFilters.spec.ts (2 tests | 1 failed) 140ms
+   ✓ AccountTableFilters OAuth quota options > offers all server-side quota modes and scopes OpenAI modes to OpenAI 105ms
+   × AccountTableFilters OAuth quota options > filters BPS accounts independently and clears incompatible platform and type 33ms
+     → Unable to get [data-value="apikey"] within: <div aria-label="admin.accounts.allStatus" class="min-w-0 w-full sm:w-36"><button data-value="">admin.accounts.allStatus</button><button data-value="active">admin.accounts.status.active</button><button data-value="inactive">admin.accounts.status.inactive</button><button data-value="error">admin.accounts.status.error</button><button data-value="rate_limited">admin.accounts.status.rateLimited</button><button data-value="temp_unschedulable">admin.accounts.status.tempUnschedulable</button><button data-value="unschedulable">admin.accounts.status.unschedulable</button></div>
+ ✓ src/core/utils/__tests__/ccswitchImport.spec.ts (14 tests) 19ms
+ ✓ src/features/admin-ops/__tests__/OpsErrorLogTable.spec.ts (4 tests) 135ms
+ ✓ src/common/widgets/forms/__tests__/Select.spec.ts (5 tests) 156ms
+ ✓ src/common/composables/__tests__/useStepUp.spec.ts (9 tests) 112ms
+ ✓ src/features/admin-settings/__tests__/SettingsOAuth2ProviderPanel.spec.ts (2 tests) 73ms
+ ✓ src/features/admin-channels/__tests__/types.spec.ts (7 tests) 3ms
+ ✓ src/features/admin-settings/presentation/stores/__tests__/adminCompliance.reset.spec.ts (7 tests) 14ms
+ ✓ src/features/auth/__tests__/LocalCaptchaWidget.spec.ts (3 tests) 56ms
+ ✓ src/features/admin-settings/presentation/widgets/__tests__/ErrorPassthroughRulesDialog.toggle.spec.ts (4 tests) 82ms
+ ✓ src/features/auth/__tests__/TurnstileWidget.spec.ts (4 tests) 34ms
+ ✓ src/features/channels-user/__tests__/CustomLandingPage.security.spec.ts (4 tests) 2ms
+ ✓ src/features/admin-accounts/__tests__/ModelWhitelistSelector.spec.ts (4 tests) 104ms
+ ✓ src/features/admin-accounts/__tests__/grokPlanResolver.spec.ts (4 tests) 8ms
+ ✓ src/features/channels-user/__tests__/customPageHtml.spec.ts (3 tests) 30ms
+ ✓ src/features/auth/__tests__/OAuth2AuthorizePage.spec.ts (2 tests) 27ms
+ ✓ src/features/admin-usage/__tests__/UsageStatsCards.spec.ts (4 tests) 70ms
+ ✓ src/core/utils/__tests__/openaiWsMode.spec.ts (6 tests) 2ms
+ ✓ src/features/admin-ops/__tests__/OpsImageGenerationStatsCard.spec.ts (2 tests) 70ms
+ ✓ src/features/admin-groups/__tests__/groupsMessagesDispatchResolver.spec.ts (8 tests) 15ms
+ ✓ src/features/admin-accounts/presentation/composables/__tests__/useOpenAIOAuth.spec.ts (4 tests) 7ms
+ ✓ src/features/admin-groups/__tests__/groupsModelPricing.spec.ts (4 tests) 11ms
+ ✓ src/features/admin-usage/presentation/widgets/__tests__/UsageCleanupDialog.spec.ts (3 tests) 61ms
+ ✓ src/common/widgets/charts/__tests__/TokenUsageTrend.spec.ts (3 tests) 24ms
+ ✓ src/features/billing/__tests__/paymentUxSignals.spec.ts (9 tests) 10ms
+ ✓ src/features/admin-channel-monitor/presentation/widgets/__tests__/MonitorTemplateManagerDialog.requests.spec.ts (4 tests) 94ms
+ ✓ src/features/profile/__tests__/ProfilePasswordForm.spec.ts (2 tests) 51ms
+ ✓ src/features/profile/__tests__/ProfilePage.spec.ts (1 test) 63ms
+ ✓ src/features/admin-groups/__tests__/groupsReasoningEffort.spec.ts (6 tests) 7ms
+ ✓ src/core/utils/__tests__/device.spec.ts (9 tests) 10ms
+ ✓ src/common/composables/__tests__/useSwipeSelect.spec.ts (5 tests) 5ms
+ ✓ src/common/widgets/forms/__tests__/DateRangePicker.spec.ts (2 tests) 90ms
+ ✓ src/core/utils/__tests__/bodyScrollLock.spec.ts (3 tests) 50ms
+ ✓ src/features/admin-ops/__tests__/OpsRequestDetailsModal.spec.ts (1 test) 70ms
+ ✓ src/features/admin-users/__tests__/UserAttributeForm.race.spec.ts (3 tests) 56ms
+ ✓ src/features/admin-accounts/__tests__/scheduledTestsDatasource.spec.ts (3 tests) 11ms
+ ✓ src/features/profile/presentation/widgets/__tests__/ProfileEditForm.draft.spec.ts (4 tests) 90ms
+ ✓ src/common/composables/__tests__/useKeyedDebouncedSearch.spec.ts (3 tests) 21ms
+ ✓ src/features/admin-channel-monitor/__tests__/MonitorActionsCell.spec.ts (3 tests) 52ms
+ ✓ src/features/billing/__tests__/PaymentQRDialog.spec.ts (1 test) 52ms
+ ✓ src/features/channels-user/__tests__/SupportedModelChip.spec.ts (2 tests) 69ms
+ ❯ src/features/admin-users/__tests__/UserEditDialog.spec.ts (1 test | 1 failed) 27ms
+   × UserEditModal > preserves priority tier zero in the update payload 23ms
+     → [🍍]: "getActivePinia()" was called but there was no active Pinia. Are you trying to use a store before calling "app.use(pinia)"?
+See https://pinia.vuejs.org/core-concepts/outside-component-usage.html for help.
+This will fail in production.
+ ✓ src/features/admin-channels/__tests__/channelsModularization.spec.ts (4 tests) 2ms
+ ✓ src/common/widgets/feedback/__tests__/NavigationProgress.spec.ts (5 tests) 107ms
+ ✓ src/core/utils/__tests__/tablePreferences.spec.ts (6 tests) 3ms
+ ✓ src/common/widgets/feedback/__tests__/BaseDialog.spec.ts (3 tests) 136ms
+ ✓ src/features/admin-groups/__tests__/groupsImagePricingResolver.spec.ts (7 tests) 11ms
+ ✓ src/features/admin-backup/presentation/pages/__tests__/backupStatus.spec.ts (4 tests) 4ms
+ ✓ src/core/utils/__tests__/subscriptionQuota.spec.ts (5 tests) 7ms
+ ✓ src/features/admin-settings/__tests__/permissionGroups.spec.ts (2 tests) 73ms
+ ✓ src/features/admin-usage/__tests__/UserTokenRanking.spec.ts (2 tests) 70ms
+ ✓ src/features/admin-groups/presentation/groupsProfitControl.spec.ts (4 tests) 4ms
+ ✓ src/features/announcements/__tests__/AnnouncementReadStatusDialog.spec.ts (1 test) 39ms
+ ✓ src/features/admin-ops/__tests__/OpsNetworkBandwidthChart.spec.ts (2 tests) 57ms
+ ✓ src/features/admin-accounts/__tests__/adminAccounts.duplicate.spec.ts (3 tests) 14ms
+ ✓ src/features/auth/__tests__/authCredentialRequest.spec.ts (2 tests) 8ms
+ ✓ src/features/admin-settings/__tests__/settings.paymentVisibleMethods.spec.ts (3 tests) 9ms
+ ✓ src/common/widgets/feedback/__tests__/HelpTooltip.spec.ts (2 tests) 57ms
+ ✓ src/core/utils/__tests__/proxyExpiry.spec.ts (9 tests) 10ms
+ ✓ src/features/admin-settings/__tests__/adminSystem.rollback.spec.ts (4 tests) 7ms
+ ✓ src/features/admin-groups/__tests__/groupsLocale.spec.ts (2 tests) 2ms
+ ✓ src/features/auth/__tests__/TotpLoginModal.spec.ts (2 tests) 53ms
+ ✓ src/features/admin-accounts/presentation/composables/__tests__/useGrokOAuth.spec.ts (2 tests) 2ms
+ ✓ src/features/billing/__tests__/PaymentMethodSelector.spec.ts (3 tests) 39ms
+ ✓ src/features/admin-accounts/__tests__/AccountBulkActionsBar.spec.ts (3 tests) 43ms
+ ✓ src/features/auth/__tests__/authOAuthStart.spec.ts (3 tests) 4ms
+ ✓ src/features/admin-accounts/__tests__/accountLocale.spec.ts (4 tests) 6ms
+ ✓ src/features/admin-accounts/__tests__/CreateAccountModal.grok.spec.ts (3 tests) 2ms
+ ✓ src/features/admin-accounts/presentation/composables/__tests__/useQuotaNotifyState.spec.ts (2 tests) 5ms
+ ✓ src/common/widgets/forms/__tests__/disabledSelectors.spec.ts (2 tests) 52ms
+ ✓ src/features/billing/__tests__/validity.spec.ts (6 tests) 2ms
+ ✓ src/features/admin-groups/__tests__/groupsModelsListCandidatesResolver.spec.ts (3 tests) 6ms
+ ✓ src/features/admin-usage/__tests__/xlsxLazyLoading.spec.ts (3 tests) 6ms
+ ✓ src/features/billing/__tests__/paymentWechatResumeResolver.spec.ts (3 tests) 3ms
+ ✓ src/core/utils/__tests__/oauthAffiliate.spec.ts (3 tests) 22ms
+ ✓ src/core/utils/__tests__/usageServiceTier.spec.ts (5 tests) 2ms
+ ✓ src/features/admin-accounts/__tests__/GrokQuotaProbeCell.spec.ts (1 test) 22ms
+ ✓ src/features/batch-image/presentation/composables/__tests__/useBatchImageAccess.retry.spec.ts (2 tests) 31ms
+ ✓ src/features/admin-settings/__tests__/clientIpResolutionLocale.spec.ts (2 tests) 5ms
+ ✓ src/common/widgets/layout/__tests__/docUrlSanitization.spec.ts (6 tests) 5ms
+ ✓ src/core/utils/__tests__/formatDateTimeLocalInput.spec.ts (4 tests) 16ms
+ ✓ src/core/utils/__tests__/usageMetrics.spec.ts (11 tests) 8ms
+ ✓ src/features/admin-ops/__tests__/OpsThroughputTrendChart.spec.ts (1 test) 39ms
+ ✓ src/features/admin-ops/__tests__/opsFormatters.spec.ts (19 tests) 11ms
+ ✓ src/features/admin-groups/__tests__/groupsModelsListLayout.spec.ts (3 tests) 1ms
+ ✓ src/features/admin-accounts/__tests__/AccountActionMenu.cpa.spec.ts (2 tests) 46ms
+ ✓ src/common/widgets/layout/__tests__/siteLogoSanitization.spec.ts (4 tests) 2ms
+ ✓ src/common/widgets/layout/__tests__/TablePageLayout.spec.ts (2 tests) 7ms
+ ✓ src/features/admin-accounts/presentation/composables/__tests__/useAntigravityOAuth.spec.ts (2 tests) 8ms
+ ✓ src/features/billing/__tests__/paymentLocale.spec.ts (2 tests) 6ms
+ ✓ src/features/admin-accounts/__tests__/accountSortState.spec.ts (3 tests) 8ms
+ ✓ src/common/widgets/feedback/__tests__/BaseDialog.escape.spec.ts (2 tests) 85ms
+ ✓ src/features/billing/__tests__/stripeLazyLoading.spec.ts (4 tests) 7ms
+ ✓ src/features/batch-image/__tests__/batchImageLocale.spec.ts (2 tests) 7ms
+ ✓ src/core/utils/__tests__/safeStorage.spec.ts (2 tests) 2ms
+ ✓ src/features/announcements/__tests__/announcementsStore.spec.ts (1 test) 18ms
+ ✓ src/features/admin-accounts/__tests__/codexFingerprintSignals.spec.ts (3 tests) 2ms
+ ✓ src/core/utils/__tests__/authError.spec.ts (4 tests) 4ms
+ ✓ src/common/composables/__tests__/useAutoRefresh.spec.ts (1 test) 27ms
+ ✓ src/features/billing/__tests__/paymentStore.spec.ts (1 test) 5ms
+ ✓ src/common/widgets/layout/__tests__/AppHeaderResponsive.spec.ts (2 tests) 5ms
+ ✓ src/features/profile/__tests__/profileDatasource.spec.ts (1 test) 76ms
+ ✓ src/core/utils/__tests__/stableObjectKey.spec.ts (3 tests) 3ms
+ ✓ src/features/admin-users/__tests__/userAttributeLocale.spec.ts (2 tests) 4ms
+ ✓ src/core/utils/__tests__/floatingPanel.spec.ts (3 tests) 6ms
+ ✓ src/features/channels-user/__tests__/embeddedCapabilityDatasource.spec.ts (1 test) 7ms
+ ✓ src/features/billing/__tests__/paymentDatasource.spec.ts (2 tests) 6ms
+ ✓ src/features/admin-groups/__tests__/groupsSupportedModelScopesResolver.spec.ts (4 tests) 8ms
+ ✓ src/features/admin-accounts/__tests__/typesafeCapabilities.spec.ts (1 test) 6ms
+ ✓ src/core/utils/__tests__/latencyHealth.spec.ts (2 tests) 2ms
+ ✓ src/features/admin-accounts/__tests__/adminGrok.spec.ts (4 tests) 11ms
+ ✓ src/core/utils/__tests__/formatMultiplier.spec.ts (4 tests) 4ms
+ ✓ src/features/admin-settings/__tests__/settingsClaudePromptResolver.spec.ts (1 test) 6ms
+ ✓ src/features/admin-accounts/__tests__/accountExpiry.spec.ts (5 tests) 2ms
+ ✓ src/features/admin-settings/__tests__/settings.wechatConnect.spec.ts (2 tests) 5ms
+ ✓ src/features/admin-users/__tests__/adminUserLocale.spec.ts (2 tests) 3ms
+ ✓ src/features/admin-settings/__tests__/errorPassthroughLocale.spec.ts (2 tests) 7ms
+ ✓ src/core/utils/__tests__/formatCompactNumber.spec.ts (3 tests) 3ms
+ ✓ src/common/widgets/feedback/__tests__/BaseDialog.ids.spec.ts (1 test) 96ms
+ ✓ src/features/admin-groups/__tests__/adminGroups.usageSummary.spec.ts (1 test) 6ms
+ ✓ src/core/utils/__tests__/pricing.formatScaled.spec.ts (11 tests) 6ms
+ ✓ src/features/billing/__tests__/currency.spec.ts (2 tests) 11ms
+ ✓ src/features/admin-accounts/__tests__/accountFormPolicy.codexFingerprint.spec.ts (9 tests) 3ms
+ ✓ src/common/widgets/data/__tests__/Pagination.jump.spec.ts (1 test) 44ms
+ ✓ src/common/pages/__tests__/HomePageResponsive.spec.ts (1 test) 2ms
+ ✓ src/features/admin-ops/__tests__/opsErrorParams.spec.ts (2 tests) 6ms
+ ✓ src/features/billing/__tests__/paymentHelpHtml.spec.ts (1 test) 51ms
+ ✓ src/features/admin-channels/__tests__/ModelTagInput.keyboard.spec.ts (1 test) 26ms
+ ✓ src/core/utils/__tests__/routePath.spec.ts (3 tests) 6ms
+ ✓ src/common/composables/__tests__/usePersistedPageSize.spec.ts (1 test) 4ms
+ ✓ src/core/utils/__tests__/formatDateLocalInput.spec.ts (2 tests) 4ms
+ ✓ src/features/billing/__tests__/AmountInput.invalid.spec.ts (1 test) 28ms
+ ✓ src/core/utils/__tests__/formatBytes.spec.ts (5 tests) 2ms
+ ✓ src/core/utils/__tests__/formatDateTimeToMinute.spec.ts (2 tests) 10ms
+
+ Test Files  10 failed | 271 passed (281)
+      Tests  14 failed | 1735 passed (1749)
+   Start at  15:20:15
+   Duration  29.02s (transform 21.81s, setup 15.50s, collect 58.35s, tests 26.35s, environment 94.48s, prepare 17.02s)
+

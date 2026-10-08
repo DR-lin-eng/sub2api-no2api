@@ -1,0 +1,7 @@
+
+/workspace/frontend/src/core/i18n/locales/en/admin/accounts.ts
+  1520:1  error  File has too many lines (1501). Maximum allowed is 1500  max-lines
+
+✖ 1 problem (1 error, 0 warnings)
+
+[ELIFECYCLE] Command failed with exit code 1.

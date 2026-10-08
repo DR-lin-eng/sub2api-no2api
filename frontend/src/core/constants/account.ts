@@ -96,6 +96,7 @@ const OPENCODE_ZEN_PROTOCOL_RULES: OpenCodeProtocolRule[] = [
   { pattern: 'gpt-*', protocol: 'responses' },
   { pattern: 'muse-spark-*', protocol: 'responses' },
   { pattern: 'claude-*', protocol: 'anthropic' },
+  { pattern: 'qwen3.8-max', protocol: 'chat_completions' },
   { pattern: 'qwen*', protocol: 'anthropic' },
 ]
 

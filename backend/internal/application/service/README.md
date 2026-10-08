@@ -61,3 +61,5 @@
 单个功能按 `types/plan/request/forward/response/billing/runtime` 职责拆文件，不按“公共 helper”堆积。新增功能若不需要访问本包大量私有状态，应建立 `modules/<domain>` 并通过接口接入。
 
 本包禁止导入 `internal/infrastructure/repository`；例外只能在 lint 配置中显式记录并附迁移原因。
+
+Codex manifest 的显式管理员模型映射投影归属 `openai_codex_models_mapping.go`；不修改共享缓存、不启用 pinned 聚合前置。WS 逐轮分组价格刷新与混合版本 TPS 行为见 [本轮同步审查](../../../../docs/UPSTREAM_SYNC_20261008.md)。

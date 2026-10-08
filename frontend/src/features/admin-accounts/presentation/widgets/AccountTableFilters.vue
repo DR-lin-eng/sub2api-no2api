@@ -1,28 +1,36 @@
 <template>
-  <div class="flex flex-wrap items-center gap-3">
-    <SearchInput
-      :model-value="searchQuery"
-      :placeholder="t('admin.accounts.searchAccounts')"
-      class="w-full sm:w-64"
-      @update:model-value="$emit('update:searchQuery', $event)"
-      @search="$emit('change')"
-    />
-    <Select :model-value="filters.platform" class="w-40" :options="pOpts" @update:model-value="updatePlatform" @change="$emit('change')" />
-    <Select :model-value="filters.type" class="w-40" :options="tOpts" @update:model-value="updateType" @change="$emit('change')" />
-    <Select :model-value="filters.status" class="w-40" :options="sOpts" @update:model-value="updateStatus" @change="$emit('change')" />
-    <Select data-test="oauth-quota-filter" :model-value="filters.oauth_quota" class="w-56" :options="qOpts" @update:model-value="updateOAuthQuota" @change="$emit('change')" />
-    <Select data-test="excel-bps-filter" :model-value="filters.excel_bps" class="w-48" :options="excelBpsOpts" @update:model-value="updateExcelBps" @change="$emit('change')" />
-    <Select :model-value="filters.privacy_mode" class="w-40" :options="privacyOpts" @update:model-value="updatePrivacyMode" @change="$emit('change')" />
-    <Select :model-value="filters.group" class="w-40" :options="gOpts" @update:model-value="updateGroup" @change="$emit('change')" />
+  <div class="min-w-0 w-full space-y-2">
+    <div class="grid grid-cols-2 items-center gap-2 sm:flex sm:flex-wrap">
+      <SearchInput :model-value="searchQuery" :placeholder="t('admin.accounts.searchAccounts')" class="col-span-2 min-w-0 w-full sm:w-56" @update:model-value="$emit('update:searchQuery', $event)" @search="$emit('change')" />
+      <Select :model-value="filters.platform" :aria-label="t('admin.accounts.allPlatforms')" class="min-w-0 w-full sm:w-36" :options="pOpts" @update:model-value="updatePlatform" @change="$emit('change')" />
+      <Select :model-value="filters.status" :aria-label="t('admin.accounts.allStatus')" class="min-w-0 w-full sm:w-36" :options="sOpts" @update:model-value="updateStatus" @change="$emit('change')" />
+      <button type="button" class="btn btn-secondary col-span-2 min-w-0 w-full sm:w-auto" :aria-expanded="moreFiltersOpen" :aria-controls="moreFiltersId" :aria-label="activeSecondaryCount ? t('admin.accounts.moreFiltersActive', { count: activeSecondaryCount }) : t('admin.accounts.moreFilters')" @click="moreFiltersOpen = !moreFiltersOpen">
+        {{ t('admin.accounts.moreFilters') }}
+        <span v-if="activeSecondaryCount" aria-hidden="true" class="rounded-full bg-primary-100 px-2 text-xs font-medium text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">{{ activeSecondaryCount }}</span>
+      </button>
+    </div>
+    <div v-show="moreFiltersOpen" :id="moreFiltersId" class="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-3">
+      <Select :model-value="filters.type" :aria-label="t('admin.accounts.allTypes')" class="min-w-0 w-full" :options="tOpts" @update:model-value="updateType" @change="$emit('change')" />
+      <Select data-test="oauth-quota-filter" :model-value="filters.oauth_quota" :aria-label="t('admin.accounts.allOAuthQuota')" class="min-w-0 w-full" :options="qOpts" @update:model-value="updateOAuthQuota" @change="$emit('change')" />
+      <Select data-test="excel-bps-filter" :model-value="filters.excel_bps" :aria-label="t('admin.accounts.allExcelBPS')" class="min-w-0 w-full" :options="excelBpsOpts" @update:model-value="updateExcelBps" @change="$emit('change')" />
+      <Select :model-value="filters.privacy_mode" :aria-label="t('admin.accounts.allPrivacyModes')" class="min-w-0 w-full" :options="privacyOpts" @update:model-value="updatePrivacyMode" @change="$emit('change')" />
+      <Select :model-value="filters.group" :aria-label="t('admin.accounts.allGroups')" class="min-w-0 w-full" :options="gOpts" @update:model-value="updateGroup" @change="$emit('change')" />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'; import { useI18n } from 'vue-i18n'; import Select from '@/common/widgets/forms/Select.vue'; import SearchInput from '@/common/widgets/forms/SearchInput.vue'
+import { computed, ref, useId } from 'vue'; import { useI18n } from 'vue-i18n'; import Select from '@/common/widgets/forms/Select.vue'; import SearchInput from '@/common/widgets/forms/SearchInput.vue'
 import type { AdminGroup } from '@/types'
 import { ACCOUNT_OAUTH_QUOTA_FILTER } from '@/features/admin-accounts/data/dtos/accountQuotaFilters'
 const props = defineProps<{ searchQuery: string; filters: Record<string, any>; groups?: AdminGroup[] }>()
 const emit = defineEmits(['update:searchQuery', 'update:filters', 'change']); const { t } = useI18n()
+const moreFiltersOpen = ref(false)
+const moreFiltersId = useId()
+const activeSecondaryCount = computed(() => ['type', 'oauth_quota', 'excel_bps', 'privacy_mode', 'group'].filter(key => {
+  const value = props.filters[key]
+  return value !== '' && value !== null && value !== undefined
+}).length)
 const openAIQuotaFilters = new Set<string>([
   ACCOUNT_OAUTH_QUOTA_FILTER.withReset,
   ACCOUNT_OAUTH_QUOTA_FILTER.fiveHourExhausted,

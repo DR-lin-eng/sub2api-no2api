@@ -1,0 +1,12 @@
+baseline: readiness/frontend/encrypted-login/persisted-key/legacy-order/data-snapshot PASS
+upgraded: readiness/frontend/encrypted-login/persisted-key/legacy-order/data-snapshot PASS
+rollback: readiness/frontend/encrypted-login/persisted-key/legacy-order/data-snapshot PASS
+restored: readiness/frontend/encrypted-login/persisted-key/legacy-order/data-snapshot PASS
+fresh_short: rejected; no admin/config/install-lock/installation-marker PASS
+fresh_long: rejected; no admin/config/install-lock/installation-marker PASS
+fresh_utf8: rejected; no admin/config/install-lock/installation-marker PASS
+fresh_email: rejected; no admin/config/install-lock/installation-marker PASS
+fresh_mailbox: rejected; no admin/config/install-lock/installation-marker PASS
+fresh_random: generated credentials login; old fixed email rejected PASS
+fresh_explicit: trimmed email and 72 UTF-8 byte password login PASS
+ALL_RUNTIME_CHECKS_PASS

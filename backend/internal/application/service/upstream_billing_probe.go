@@ -1043,6 +1043,12 @@ func (s *UpstreamBillingProbeService) currentTime() time.Time {
 }
 
 func nextProbeDelay(intervalMinutes int, retryAfterDuration time.Duration) time.Duration {
+	if retryAfterDuration < 0 {
+		retryAfterDuration = 0
+	}
+	if retryAfterDuration > upstreamBillingProbeMaxDelay {
+		retryAfterDuration = upstreamBillingProbeMaxDelay
+	}
 	interval := time.Duration(intervalMinutes) * time.Minute
 	if interval < upstreamBillingProbeMinIntervalMinutes*time.Minute {
 		interval = upstreamBillingProbeMinIntervalMinutes * time.Minute
@@ -1058,8 +1064,8 @@ func nextProbeDelay(intervalMinutes int, retryAfterDuration time.Duration) time.
 		interval += time.Duration(rand.Int64N(int64(jitterRange)*2+1)) - jitterRange
 	}
 	if retryAfterDuration > interval {
-		// Retry-After is an explicit upstream instruction; do not shorten it
-		// with the local maximum delay.
+		// Retry-After is an explicit upstream instruction; honor it over the
+		// local backoff interval, clamped to the same 24h ceiling.
 		return retryAfterDuration
 	}
 	if interval > upstreamBillingProbeMaxDelay {

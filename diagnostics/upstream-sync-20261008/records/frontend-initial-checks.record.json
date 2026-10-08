@@ -1,0 +1,29 @@
+{
+  "label": "frontend-initial-checks",
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo",
+  "argv": [
+    "docker",
+    "run",
+    "--rm",
+    "-v",
+    "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo:/workspace",
+    "-v",
+    "sub2api-sync-20261007-node:/workspace/frontend/node_modules",
+    "-w",
+    "/workspace/frontend",
+    "node:24-alpine",
+    "sh",
+    "-c",
+    "corepack enable && pnpm run typecheck && pnpm run lint:check"
+  ],
+  "command": "docker run --rm -v /private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo:/workspace -v sub2api-sync-20261007-node:/workspace/frontend/node_modules -w /workspace/frontend node:24-alpine sh -c 'corepack enable && pnpm run typecheck && pnpm run lint:check'",
+  "input": "repository sources and committed regression fixtures",
+  "stdout": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/records/frontend-initial-checks.stdout",
+  "stderr": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/records/frontend-initial-checks.stderr",
+  "exit": 2,
+  "started": "2026-10-08T15:00:51.577147+00:00",
+  "finished": "2026-10-08T15:01:23.250493+00:00",
+  "accepted": false,
+  "stdout_sha256": "b8b373bb64d3da8b77cb7bb0acdb6e5f0197dff82b4262024ca148c3d8f3db38",
+  "stderr_sha256": "788f8cfae6911f5e4a2e688401cbab194991753e0d4c77b32026367100fab22e"
+}

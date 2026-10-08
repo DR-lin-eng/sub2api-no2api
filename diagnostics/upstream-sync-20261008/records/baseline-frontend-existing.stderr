@@ -1,0 +1,116 @@
+! Corepack is about to download https://registry.npmjs.org/pnpm/-/pnpm-11.17.0.tgz
+stderr | src/features/admin-users/__tests__/UsersPage.spec.ts > admin UsersView > shows active, used, and created activity columns in order and requests last_used_at sort
+[Vue warn]: Invalid vnode type when creating vnode: undefined. 
+  at <UsersPage ref="VTU_COMPONENT" > 
+  at <VTUROOT>
+
+stderr | src/features/admin-users/__tests__/UsersPage.spec.ts > admin UsersView > clears usage current-page sort when switching to last_used_at server sort
+[Vue warn]: Invalid vnode type when creating vnode: undefined. 
+  at <UsersPage ref="VTU_COMPONENT" > 
+  at <VTUROOT>
+
+stderr | src/features/admin-users/__tests__/UsersPage.spec.ts > admin UsersView > keeps selected user IDs across pages and clears them after a successful bulk update
+[Vue warn]: Invalid vnode type when creating vnode: undefined. 
+  at <UsersPage ref="VTU_COMPONENT" > 
+  at <VTUROOT>
+
+stderr | src/features/admin-users/__tests__/UsersPage.spec.ts > admin UsersView > keeps the 300ms search debounce after the toolbar split
+[Vue warn]: Invalid vnode type when creating vnode: undefined. 
+  at <UsersPage ref="VTU_COMPONENT" > 
+  at <VTUROOT>
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/admin-accounts/__tests__/adminAccountsModularization.spec.ts > admin accounts modularization > keeps every feature runtime module within the maintenance target
+AssertionError: presentation/widgets/CreateAccountDialog.vue: expected 1512 to be less than or equal to 1500
+ ❯ src/features/admin-accounts/__tests__/adminAccountsModularization.spec.ts:114:63
+    112|     for (const runtime of collectRuntimeSources(featureDir)) {
+    113|       const target = maintenanceTargets.get(runtime.path) ?? 1500
+    114|       expect(runtime.source.split('\n').length, runtime.path).toBeLess…
+       |                                                               ^
+    115|     }
+    116|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  src/features/admin-settings/__tests__/settingsGatewayResilienceModularization.spec.ts > settings gateway resilience modularization > keeps each original card template on the shared page context
+AssertionError: expected 'f72f76ef998051b6103723348ab9ed9cdfd37…' to be 'c78190ebe0430d38d939afcd187759beb1e88…' // Object.is equality
+
+Expected: [32m"c78190ebe0430d38d939afcd187759beb1e88dd0fda341eb303e65facf4fdb3e"[39m
+Received: [31m"f72f76ef998051b6103723348ab9ed9cdfd37c7353bc88676583558c8b56cb03"[39m
+
+ ❯ src/features/admin-settings/__tests__/settingsGatewayResilienceModularization.spec.ts:116:48
+    114|       expect(source.match(/useSettingsPageContext\(\)/g)).toHaveLength…
+    115|       expect(template.trim()).toMatch(/^<div class="card">/)
+    116|       expect(normalizedTemplateHash(template)).toBe(card.templateHash)
+       |                                                ^
+    117|       expect(source).not.toMatch(/\b(?:ref|reactive|computed|watch)\s*…
+    118|       expect(source).not.toMatch(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  src/features/admin-users/__tests__/UserEditDialog.spec.ts > UserEditModal > preserves priority tier zero in the update payload
+Error: [🍍]: "getActivePinia()" was called but there was no active Pinia. Are you trying to use a store before calling "app.use(pinia)"?
+See https://pinia.vuejs.org/core-concepts/outside-component-usage.html for help.
+This will fail in production.
+ ❯ useStore node_modules/.pnpm/pinia@2.3.1_typescript@5.6.3_vue@3.5.43_typescript@5.6.3_/node_modules/pinia/dist/pinia.mjs:1735:19
+    1733|             setActivePinia(pinia);
+    1734|         if ((process.env.NODE_ENV !== 'production') && !activePinia) {
+    1735|             throw new Error(`[🍍]: "getActivePinia()" was called but t…
+       |                   ^
+    1736|                 `See https://pinia.vuejs.org/core-concepts/outside-com…
+    1737|                 `This will fail in production.`);
+ ❯ setup src/features/admin-users/presentation/widgets/UserEditDialog.vue:105:19
+ ❯ callWithErrorHandling node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:200:19
+ ❯ setupStatefulComponent node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:8257:25
+ ❯ setupComponent node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:8219:36
+ ❯ mountComponent node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:6095:7
+ ❯ processComponent node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:6061:9
+ ❯ patch node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:5566:11
+ ❯ ReactiveEffect.componentUpdateFn [as fn] node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:6210:11
+ ❯ ReactiveEffect.run node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.cjs.js:268:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  src/features/admin-users/__tests__/UsersPage.spec.ts > admin UsersView > shows active, used, and created activity columns in order and requests last_used_at sort
+ FAIL  src/features/admin-users/__tests__/UsersPage.spec.ts > admin UsersView > clears usage current-page sort when switching to last_used_at server sort
+ FAIL  src/features/admin-users/__tests__/UsersPage.spec.ts > admin UsersView > keeps selected user IDs across pages and clears them after a successful bulk update
+ FAIL  src/features/admin-users/__tests__/UsersPage.spec.ts > admin UsersView > keeps the 300ms search debounce after the toolbar split
+Error: [🍍]: "getActivePinia()" was called but there was no active Pinia. Are you trying to use a store before calling "app.use(pinia)"?
+See https://pinia.vuejs.org/core-concepts/outside-component-usage.html for help.
+This will fail in production.
+ ❯ useStore node_modules/.pnpm/pinia@2.3.1_typescript@5.6.3_vue@3.5.43_typescript@5.6.3_/node_modules/pinia/dist/pinia.mjs:1735:19
+    1733|             setActivePinia(pinia);
+    1734|         if ((process.env.NODE_ENV !== 'production') && !activePinia) {
+    1735|             throw new Error(`[🍍]: "getActivePinia()" was called but t…
+       |                   ^
+    1736|                 `See https://pinia.vuejs.org/core-concepts/outside-com…
+    1737|                 `This will fail in production.`);
+ ❯ setup src/features/admin-users/presentation/pages/UsersPage.vue:615:19
+ ❯ callWithErrorHandling node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:200:19
+ ❯ setupStatefulComponent node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:8257:25
+ ❯ setupComponent node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:8219:36
+ ❯ mountComponent node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:6095:7
+ ❯ processComponent node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:6061:9
+ ❯ patch node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:5566:11
+ ❯ ReactiveEffect.componentUpdateFn [as fn] node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:6210:11
+ ❯ ReactiveEffect.run node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.cjs.js:268:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  src/features/auth/__tests__/RegisterViewCredentialStorage.spec.ts > RegisterView credential storage > stores only non-secret metadata before navigating to email verification
+AssertionError: expected "spy" to be called with arguments: [ '/email-verify' ][90m
+
+Number of calls: [1m0[22m
+[39m
+ ❯ src/features/auth/__tests__/RegisterViewCredentialStorage.spec.ts:116:22
+    114|     await flushPromises()
+    115| 
+    116|     expect(pushMock).toHaveBeenCalledWith('/email-verify')
+       |                      ^
+    117|     expect(registerMock).not.toHaveBeenCalled()
+    118|     expect(sessionStorage.getItem('register_data')).toBe(JSON.stringif…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+

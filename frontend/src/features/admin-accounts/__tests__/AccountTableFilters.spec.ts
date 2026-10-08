@@ -84,7 +84,7 @@ describe('AccountTableFilters OAuth quota options', () => {
     await wrapper.setProps({ filters: { platform: 'openai', type: 'oauth', status: '', oauth_quota: '', excel_bps: 'disabled', privacy_mode: '', group: '' } })
     await wrapper.findAllComponents(SelectStub)[0]?.get('[data-value="anthropic"]').trigger('click')
     expect(wrapper.emitted('update:filters')?.at(-1)?.[0]).toMatchObject({ platform: 'anthropic', excel_bps: '' })
-    await wrapper.findAllComponents(SelectStub)[1]?.get('[data-value="apikey"]').trigger('click')
+    await wrapper.findAllComponents(SelectStub)[2]?.get('[data-value="apikey"]').trigger('click')
     expect(wrapper.emitted('update:filters')?.at(-1)?.[0]).toMatchObject({ type: 'apikey', excel_bps: '' })
   })
 
