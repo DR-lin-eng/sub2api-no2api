@@ -1,0 +1,32 @@
+✓ Lockfile passes supply-chain policies (verified 40m ago)
+Lockfile is up to date, resolution step is skipped
+Already up to date
+
+Done in 1.3s using pnpm v11.17.0
+
+ RUN  v3.2.6 /app/frontend
+
+ ✓ src/features/admin-usage/__tests__/adminUsageModularization.spec.ts (4 tests) 10ms
+ ✓ src/features/admin-usage/__tests__/adminUsage.protocolOwners.spec.ts (4 tests) 16ms
+ ✓ src/features/admin-usage/__tests__/UsageStatsCards.spec.ts (4 tests) 262ms
+ ✓ src/features/admin-usage/__tests__/UsageFilters.spec.ts (4 tests) 177ms
+ ✓ src/features/admin-usage/__tests__/UsageDetailDialog.spec.ts (4 tests) 262ms
+ ✓ src/features/admin-usage/presentation/widgets/__tests__/UsageCleanupDialog.spec.ts (3 tests) 147ms
+ ✓ src/core/utils/__tests__/usageMetrics.spec.ts (11 tests) 4ms
+ ✓ src/features/admin-usage/__tests__/UserTokenRanking.spec.ts (2 tests) 417ms
+   ✓ UserTokenRanking > loads on mount with shared filters and emits select-user with id + email on row click  375ms
+ ✓ src/features/usage/__tests__/usageDashboard.spec.ts (2 tests) 36ms
+ ✓ src/features/admin-usage/__tests__/UsageTable.spec.ts (22 tests) 707ms
+ ✓ src/features/admin-usage/__tests__/xlsxLazyLoading.spec.ts (3 tests) 4ms
+ ✓ src/core/utils/__tests__/latencyHealth.spec.ts (2 tests) 4ms
+ ✓ src/features/usage/__tests__/UsagePage.spec.ts (6 tests) 462ms
+ ✓ src/features/admin-usage/__tests__/UsagePage.spec.ts (12 tests) 913ms
+ ✓ src/core/i18n/__tests__/routeLocaleCoverage.spec.ts (3 tests) 7067ms
+   ✓ locale coverage > resolves every static locale key used by runtime source  2623ms
+   ✓ locale coverage > loads every statically reachable message for every route  4369ms
+
+ Test Files  15 passed (15)
+      Tests  86 passed (86)
+   Start at  04:01:10
+   Duration  16.05s (transform 13.83s, setup 2.81s, collect 30.12s, tests 10.49s, environment 20.91s, prepare 4.48s)
+

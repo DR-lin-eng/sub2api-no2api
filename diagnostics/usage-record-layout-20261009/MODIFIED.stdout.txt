@@ -1,0 +1,2 @@
+MODIFIED: cases=46; normal_pairs=aligned; user_diagnostics=hidden; mobile_overflow=none; extra_nodes=pairs stay aligned
+MODIFIED: observed_first_row=[{"label":"首字","value":"1.67s","sameLine":true},{"label":"总耗时","value":"52.07s","sameLine":true},{"label":"速度","value":"36 Token/s","sameLine":true},{"label":"本地首字","value":"1.67s","sameLine":true},{"label":"OpenAI 引擎首字","value":"-","sameLine":true}]
