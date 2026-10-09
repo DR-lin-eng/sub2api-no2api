@@ -1,0 +1,47 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from sub2api-test-20261009.Dockerfile
+#1 transferring dockerfile: 411B 0.0s done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/sub2api-upstream-sync-test:20260930
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/golang:1.26.9-bookworm
+#3 DONE 0.0s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [stage-1 1/3] FROM docker.io/library/golang:1.26.9-bookworm@sha256:d9c68c2c51161e12fd77e4c6320687c9cd86e1af1e3ad6e6cd63ff970641453c
+#5 resolve docker.io/library/golang:1.26.9-bookworm@sha256:d9c68c2c51161e12fd77e4c6320687c9cd86e1af1e3ad6e6cd63ff970641453c 0.0s done
+#5 DONE 0.0s
+
+#6 [old 1/1] FROM docker.io/library/sub2api-upstream-sync-test:20260930@sha256:8e85ff9032147e08f0dd97f27a06809fe5399aee68327e0c096fefaa59061d27
+#6 resolve docker.io/library/sub2api-upstream-sync-test:20260930@sha256:8e85ff9032147e08f0dd97f27a06809fe5399aee68327e0c096fefaa59061d27
+#6 resolve docker.io/library/sub2api-upstream-sync-test:20260930@sha256:8e85ff9032147e08f0dd97f27a06809fe5399aee68327e0c096fefaa59061d27 0.0s done
+#6 DONE 0.1s
+
+#5 [stage-1 1/3] FROM docker.io/library/golang:1.26.9-bookworm@sha256:d9c68c2c51161e12fd77e4c6320687c9cd86e1af1e3ad6e6cd63ff970641453c
+#5 DONE 0.1s
+
+#7 [stage-1 3/3] COPY --from=old /usr/local/bin/golangci-lint /usr/local/bin/golangci-lint
+#7 ERROR: failed to calculate checksum of ref qhymdmmm3qdec5sqm5b7490gi::jwypgp0b2mpjlo3xr1gyh6vsu: "/usr/local/bin/golangci-lint": not found
+
+#8 [stage-1 2/3] RUN apt-get update && apt-get install -y --no-install-recommends make git python3 ca-certificates && rm -rf /var/lib/apt/lists/*
+#8 CANCELED
+------
+ > [stage-1 3/3] COPY --from=old /usr/local/bin/golangci-lint /usr/local/bin/golangci-lint:
+------
+sub2api-test-20261009.Dockerfile:4
+--------------------
+   2 |     FROM golang:1.26.9-bookworm
+   3 |     RUN apt-get update && apt-get install -y --no-install-recommends make git python3 ca-certificates && rm -rf /var/lib/apt/lists/*
+   4 | >>> COPY --from=old /usr/local/bin/golangci-lint /usr/local/bin/golangci-lint
+   5 |     ENV GOPROXY=https://goproxy.cn,direct
+   6 |     ENV GOSUMDB=sum.golang.google.cn
+--------------------
+ERROR: failed to build: failed to solve: failed to compute cache key: failed to calculate checksum of ref qhymdmmm3qdec5sqm5b7490gi::jwypgp0b2mpjlo3xr1gyh6vsu: "/usr/local/bin/golangci-lint": not found
+
+View build details: docker-desktop://dashboard/build/default/default/lm8agxbcoq4c5iheadpu60eqc

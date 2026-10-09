@@ -46,7 +46,7 @@ run_suite() {
     "${extra_mounts[@]}" --workdir /workspace/backend \
     --env GOTOOLCHAIN=local --env GOPROXY=off --env RUN_RESPONSES_IMAGE_SSRF_DOCKER=1 \
     --env "SSRF_EXPECT_VULNERABLE=$vulnerable" \
-    golang:1.26.6-bookworm "${command[@]}" >/dev/null
+    golang:1.26.9-bookworm "${command[@]}" >/dev/null
   docker network connect --ip 169.254.169.254 "$metadata_network" "$container"
   docker network connect --ip 93.184.216.34 "$public_network" "$container"
   docker start -a "$container" | tee "$audit_dir/$stage.log"

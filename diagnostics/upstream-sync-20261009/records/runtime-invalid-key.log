@@ -1,0 +1,18 @@
+2026-10-09T14:10:46.434+0800	INFO	stdlog	Auto setup mode enabled...	{"service": "sub2api", "env": "bootstrap", "legacy_stdlog": true}
+2026-10-09T14:10:46.434+0800	INFO	Auto setup enabled, configuring from environment variables...	{"service": "sub2api", "env": "bootstrap", "component": "setup", "legacy_printf": true}
+2026-10-09T14:10:46.434+0800	INFO	Data directory: /app/data	{"service": "sub2api", "env": "bootstrap", "component": "setup", "legacy_printf": true}
+2026-10-09T14:10:46.440+0800	INFO	Testing database connection...	{"service": "sub2api", "env": "bootstrap", "component": "setup", "legacy_printf": true}
+2026-10-09T14:10:46.446+0800	INFO	Database connection successful	{"service": "sub2api", "env": "bootstrap", "component": "setup", "legacy_printf": true}
+2026-10-09T14:10:46.446+0800	INFO	Testing Redis connection...	{"service": "sub2api", "env": "bootstrap", "component": "setup", "legacy_printf": true}
+2026-10-09T14:10:46.448+0800	INFO	Redis connection successful	{"service": "sub2api", "env": "bootstrap", "component": "setup", "legacy_printf": true}
+2026-10-09T14:10:46.451+0800	INFO	Initializing database...	{"service": "sub2api", "env": "bootstrap", "component": "setup", "legacy_printf": true}
+2026-10-09T14:10:46.948+0800	INFO	Database initialized successfully	{"service": "sub2api", "env": "bootstrap", "component": "setup", "legacy_printf": true}
+2026-10-09T14:10:46.954+0800	INFO	Creating admin user...	{"service": "sub2api", "env": "bootstrap", "component": "setup", "legacy_printf": true}
+2026-10-09T14:10:47.010+0800	INFO	Admin user created: sync-admin@example.com	{"service": "sub2api", "env": "bootstrap", "component": "setup", "legacy_printf": true}
+2026-10-09T14:10:47.013+0800	INFO	Writing configuration file...	{"service": "sub2api", "env": "bootstrap", "component": "setup", "legacy_printf": true}
+2026-10-09T14:10:47.014+0800	INFO	Configuration file created	{"service": "sub2api", "env": "bootstrap", "component": "setup", "legacy_printf": true}
+2026-10-09T14:10:47.014+0800	INFO	Installation lock created	{"service": "sub2api", "env": "bootstrap", "component": "setup", "legacy_printf": true}
+2026-10-09T14:10:47.014+0800	INFO	Auto setup completed successfully!	{"service": "sub2api", "env": "bootstrap", "component": "setup", "legacy_printf": true}
+2026-10-09T14:10:47.019+0800	INFO	stdlog	repository/ent.go:107	Timezone initialized: Asia/Shanghai (UTC offset: +08:00)	{"service": "sub2api", "env": "production", "legacy_stdlog": true}
+2026-10-09T14:10:47.019+0800	INFO	slog	logger/slog_handler.go:59	database connection pool configured	{"service": "sub2api", "env": "production", "effective": {"max_open": 256, "max_idle": 128, "max_lifetime": 1800000, "max_idle_time": 300000}}
+2026-10-09T14:10:47.058+0800	INFO	stdlog	server/main.go:94	Failed to initialize application: invalid configured totp encryption key: must decode to exactly 32 bytes, got 35	{"service": "sub2api", "env": "production", "legacy_stdlog": true}

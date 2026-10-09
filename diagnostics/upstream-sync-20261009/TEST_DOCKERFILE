@@ -1,0 +1,4 @@
+FROM sub2api-upstream-sync-test:20260930 AS old
+FROM sub2api-upstream-sync-test:20261009
+COPY --from=old /usr/local/bin/docker /usr/local/bin/docker
+RUN docker --version && go version

@@ -1,0 +1,7 @@
+docs error: README.md Go badge does not match backend/go.mod (1.26.9)
+docs error: README.md tech stack does not match backend/go.mod (1.26.9)
+docs error: README_CN.md Go badge does not match backend/go.mod (1.26.9)
+docs error: README_CN.md tech stack does not match backend/go.mod (1.26.9)
+docs error: README_JA.md Go badge does not match backend/go.mod (1.26.9)
+docs error: README_JA.md tech stack does not match backend/go.mod (1.26.9)
+make: *** [check-docs] Error 1

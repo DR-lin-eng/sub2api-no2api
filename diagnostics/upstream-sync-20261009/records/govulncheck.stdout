@@ -1,0 +1,1146 @@
+=== Symbol Results ===
+
+Vulnerability #1: GO-2026-6617
+    HTTP/2 server crash due to HPACK encoder race in net/http
+  More info: https://pkg.go.dev/vuln/GO-2026-6617
+  Module: golang.org/x/net
+    Found in: golang.org/x/net@v0.57.0
+    Fixed in: golang.org/x/net@v0.60.0
+    Example traces found:
+      #1: internal/transport/http/server/http.go:147:34: server.ProvideHTTPServer calls http2.ConfigureServer
+      #2: internal/infrastructure/repository/http_upstream.go:1720:38: repository.enableOpenAIHTTP2KeepAlive calls http2.ConfigureTransports
+      #3: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.ConnectionError.Error
+      #4: internal/application/service/openai_codex_models_service.go:137:80: service.isRetryableCodexModelsManifestTransportError calls http2.ErrCode.String
+      #5: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http2.FrameHeader.String
+      #6: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http2.FrameType.String
+      #7: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http2.FrameWriteRequest.String
+      #8: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.GoAwayError.Error
+      #9: cmd/server/main.go:129:33: server.runSetupServer calls http.Server.ListenAndServe, which eventually calls http2.Server.ServeConn
+      #10: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http2.Setting.String
+      #11: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http2.SettingID.String
+      #12: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.StreamError.Error
+      #13: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.Transport.NewClientConn
+      #14: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.Transport.RoundTrip
+      #15: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http2.bufferedWriterTimeoutWriter.Write
+      #16: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http2.chunkWriter.Write
+      #17: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.connError.Error
+      #18: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.duplicatePseudoHeaderError.Error
+      #19: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http2.gzipReader.Close
+      #20: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http2.gzipReader.Read
+      #21: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.headerFieldNameError.Error
+      #22: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.headerFieldValueError.Error
+      #23: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.netHTTPClientConn.RoundTrip
+      #24: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.noDialH2RoundTripper.NewClientConn
+      #25: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.noDialH2RoundTripper.RoundTrip
+      #26: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.pseudoHeaderError.Error
+      #27: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http2.requestBody.Close
+      #28: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http2.requestBody.Read
+      #29: internal/transport/http/handler/ops_error_logger.go:617:24: handler.opsCaptureWriter.Flush calls gin.responseWriter.Flush, which calls http2.responseWriter.Flush
+      #30: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http2.responseWriter.Write
+      #31: internal/transport/http/handler/auth_linuxdo_oauth.go:1184:25: handler.AuthHandler.PrepareOAuthBindAccessTokenCookie calls gin.responseWriter.WriteHeaderNow, which calls http2.responseWriter.WriteHeader
+      #32: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http2.responseWriter.WriteString
+      #33: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http2.stickyErrWriter.Write
+      #34: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http2.transportResponseBody.Close
+      #35: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http2.transportResponseBody.Read
+      #36: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.unencryptedTransport.RoundTrip
+      #37: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http2.writeData.String
+
+  Standard library
+    Found in: net/http@go1.26.6
+    Fixed in: net/http@go1.26.9
+    Example traces found:
+      #1: internal/application/service/openai_gateway_passthrough.go:2945:33: service.writeOpenAIPassthroughResponseHeaders calls http.CanonicalHeaderKey
+      #2: internal/application/service/openai_gateway_passthrough.go:2945:33: service.writeOpenAIPassthroughResponseHeaders calls http.CanonicalHeaderKey
+      #3: internal/shared/websearch/manager.go:400:31: websearch.Manager.getOrCreateHTTPClient calls http.Client.CloseIdleConnections
+      #4: internal/shared/websearch/manager.go:400:31: websearch.Manager.getOrCreateHTTPClient calls http.Client.CloseIdleConnections
+      #5: internal/application/service/batch_image_provider_vertex.go:930:24: service.VertexGCSObjectStore.OpenObject calls http.Client.Do
+      #6: internal/application/service/batch_image_provider_vertex.go:930:24: service.VertexGCSObjectStore.OpenObject calls http.Client.Do
+      #7: internal/transport/http/handler/openai_live.go:253:35: handler.OpenAIGatewayHandler.LiveSideband calls websocket.Accept, which eventually calls http.Error
+      #8: internal/transport/http/handler/openai_live.go:253:35: handler.OpenAIGatewayHandler.LiveSideband calls websocket.Accept, which eventually calls http.Error
+      #9: internal/application/service/openai_codex_models_service.go:313:16: service.OpenAIGatewayService.FetchCodexModelsManifest calls http.Header.Add
+      #10: internal/application/service/openai_codex_models_service.go:313:16: service.OpenAIGatewayService.FetchCodexModelsManifest calls http.Header.Add
+      #11: internal/application/service/openai_codex_models_service.go:364:21: service.OpenAIGatewayService.FetchCodexModelsManifest calls http.Header.Del
+      #12: internal/application/service/openai_codex_models_service.go:364:21: service.OpenAIGatewayService.FetchCodexModelsManifest calls http.Header.Del
+      #13: internal/application/service/gemini_messages_compat_service.go:2738:36: service.GeminiMessagesCompatService.ForwardAIStudioGET calls http.Header.Get
+      #14: internal/application/service/gemini_messages_compat_service.go:2738:36: service.GeminiMessagesCompatService.ForwardAIStudioGET calls http.Header.Get
+      #15: internal/application/service/gemini_messages_compat_service.go:2717:17: service.GeminiMessagesCompatService.ForwardAIStudioGET calls http.Header.Set
+      #16: internal/application/service/gemini_messages_compat_service.go:2717:17: service.GeminiMessagesCompatService.ForwardAIStudioGET calls http.Header.Set
+      #17: internal/application/service/openai_ws_forwarder_payload.go:115:48: service.OpenAIGatewayService.buildOpenAIWSHeaders calls http.Header.Values
+      #18: internal/application/service/openai_ws_forwarder_payload.go:115:48: service.OpenAIGatewayService.buildOpenAIWSHeaders calls http.Header.Values
+      #19: internal/infrastructure/repository/http_upstream.go:529:31: repository.grokAccessDeniedFallbackTransport.RoundTrip calls req.Transport.RoundTrip, which eventually calls http.Header.Write
+      #20: internal/infrastructure/repository/http_upstream.go:529:31: repository.grokAccessDeniedFallbackTransport.RoundTrip calls req.Transport.RoundTrip, which eventually calls http.Header.Write
+      #21: internal/transport/http/handler/admin/user_permission_groups.go:68:9: admin.UserHandler.RequireManagedUser calls gin.Context.Next, which eventually calls http.Header.WriteSubset
+      #22: internal/transport/http/handler/admin/user_permission_groups.go:68:9: admin.UserHandler.RequireManagedUser calls gin.Context.Next, which eventually calls http.Header.WriteSubset
+      #23: internal/modules/payment/provider/stripe.go:341:40: provider.Stripe.CancelPayment calls stripe.v1PaymentIntentService.Cancel, which eventually calls http.NewRequest
+      #24: internal/modules/payment/provider/stripe.go:341:40: provider.Stripe.CancelPayment calls stripe.v1PaymentIntentService.Cancel, which eventually calls http.NewRequest
+      #25: internal/application/service/gemini_messages_compat_service.go:2706:40: service.GeminiMessagesCompatService.ForwardAIStudioGET calls http.NewRequestWithContext
+      #26: internal/application/service/gemini_messages_compat_service.go:2706:40: service.GeminiMessagesCompatService.ForwardAIStudioGET calls http.NewRequestWithContext
+      #27: internal/shared/basispoints/image_relay.go:430:16: basispoints.ImageRelay.ServeHTTP calls http.NotFound
+      #28: internal/shared/basispoints/image_relay.go:430:16: basispoints.ImageRelay.ServeHTTP calls http.NotFound
+      #29: internal/application/service/ratelimit_service.go:2475:34: service.parseRetryAfterResetTime calls http.ParseTime
+      #30: internal/application/service/ratelimit_service.go:2475:34: service.parseRetryAfterResetTime calls http.ParseTime
+      #31: internal/infrastructure/repository/http_upstream.go:529:31: repository.grokAccessDeniedFallbackTransport.RoundTrip calls req.Transport.RoundTrip, which eventually calls http.ProxyFromEnvironment
+      #32: internal/infrastructure/repository/http_upstream.go:529:31: repository.grokAccessDeniedFallbackTransport.RoundTrip calls req.Transport.RoundTrip, which eventually calls http.ProxyFromEnvironment
+      #33: internal/infrastructure/repository/backup_s3_store.go:98:47: repository.S3BackupStore.PresignURL calls s3.PresignClient.PresignGetObject, which eventually calls http.ReadRequest
+      #34: internal/infrastructure/repository/backup_s3_store.go:98:47: repository.S3BackupStore.PresignURL calls s3.PresignClient.PresignGetObject, which eventually calls http.ReadRequest
+      #35: internal/shared/tlsfingerprint/dialer.go:272:32: tlsfingerprint.HTTPProxyDialer.DialTLSContext calls http.ReadResponse
+      #36: internal/shared/tlsfingerprint/dialer.go:272:32: tlsfingerprint.HTTPProxyDialer.DialTLSContext calls http.ReadResponse
+      #37: internal/application/service/gemini_messages_compat_service.go:1399:11: service.GeminiMessagesCompatService.ForwardNative calls gin.Context.Data, which eventually calls http.Redirect
+      #38: internal/application/service/gemini_messages_compat_service.go:1399:11: service.GeminiMessagesCompatService.ForwardNative calls gin.Context.Data, which eventually calls http.Redirect
+      #39: internal/modules/payment/provider/alipay.go:241:34: provider.Alipay.QueryOrder calls alipay.Client.TradeQuery, which eventually calls http.Request.AddCookie
+      #40: internal/modules/payment/provider/alipay.go:241:34: provider.Alipay.QueryOrder calls alipay.Client.TradeQuery, which eventually calls http.Request.AddCookie
+      #41: internal/transport/http/handler/auth_linuxdo_oauth.go:1034:29: handler.readCookieDecoded calls http.Request.Cookie
+      #42: internal/transport/http/handler/auth_linuxdo_oauth.go:1034:29: handler.readCookieDecoded calls http.Request.Cookie
+      #43: internal/transport/http/handler/supportchatasset/image.go:38:36: supportchatasset.ParseUpload calls http.Request.FormFile
+      #44: internal/transport/http/handler/supportchatasset/image.go:38:36: supportchatasset.ParseUpload calls http.Request.FormFile
+      #45: internal/transport/http/handler/oauth2_provider_handler.go:190:31: handler.OAuth2ProviderHandler.Revoke calls http.Request.ParseForm
+      #46: internal/transport/http/handler/oauth2_provider_handler.go:190:31: handler.OAuth2ProviderHandler.Revoke calls http.Request.ParseForm
+      #47: internal/transport/http/handler/oauth2_provider_handler.go:199:65: handler.OAuth2ProviderHandler.Revoke calls gin.Context.PostForm, which eventually calls http.Request.ParseMultipartForm
+      #48: internal/transport/http/handler/oauth2_provider_handler.go:199:65: handler.OAuth2ProviderHandler.Revoke calls gin.Context.PostForm, which eventually calls http.Request.ParseMultipartForm
+      #49: internal/transport/http/handler/payment_handler.go:292:37: handler.PaymentHandler.CreateOrder calls http.Request.Referer
+      #50: internal/transport/http/handler/payment_handler.go:292:37: handler.PaymentHandler.CreateOrder calls http.Request.Referer
+      #51: internal/transport/http/handler/admin/audit_log_handler.go:153:40: admin.AuditLogHandler.Clear calls http.Request.UserAgent
+      #52: internal/transport/http/handler/admin/audit_log_handler.go:153:40: admin.AuditLogHandler.Clear calls http.Request.UserAgent
+      #53: internal/shared/tlsfingerprint/dialer.go:264:21: tlsfingerprint.HTTPProxyDialer.DialTLSContext calls http.Request.Write
+      #54: internal/shared/tlsfingerprint/dialer.go:264:21: tlsfingerprint.HTTPProxyDialer.DialTLSContext calls http.Request.Write
+      #55: internal/shared/xai/sso_device.go:353:41: xai.ssoDeviceFlow.captureCookies calls http.Response.Cookies
+      #56: internal/shared/xai/sso_device.go:353:41: xai.ssoDeviceFlow.captureCookies calls http.Response.Cookies
+      #57: internal/infrastructure/repository/backup_s3_store.go:98:47: repository.S3BackupStore.PresignURL calls s3.PresignClient.PresignGetObject, which eventually calls http.Response.Write
+      #58: internal/infrastructure/repository/backup_s3_store.go:98:47: repository.S3BackupStore.PresignURL calls s3.PresignClient.PresignGetObject, which eventually calls http.Response.Write
+      #59: internal/transport/http/handler/page_handler.go:128:8: handler.PageHandler.ServePageImage calls gin.Context.File, which calls http.ServeFile
+      #60: internal/transport/http/handler/page_handler.go:128:8: handler.PageHandler.ServePageImage calls gin.Context.File, which calls http.ServeFile
+      #61: cmd/server/main.go:190:34: server.runMainServer calls http.Server.Close
+      #62: cmd/server/main.go:190:34: server.runMainServer calls http.Server.Close
+      #63: cmd/server/main.go:129:33: server.runSetupServer calls http.Server.ListenAndServe
+      #64: cmd/server/main.go:129:33: server.runSetupServer calls http.Server.ListenAndServe
+      #65: cmd/server/main.go:188:31: server.runMainServer calls http.Server.Shutdown
+      #66: cmd/server/main.go:188:31: server.runMainServer calls http.Server.Shutdown
+      #67: internal/transport/http/handler/auth_wechat_oauth.go:1337:16: handler.wechatPaymentSetCookie calls http.SetCookie
+      #68: internal/transport/http/handler/auth_wechat_oauth.go:1337:16: handler.wechatPaymentSetCookie calls http.SetCookie
+      #69: internal/infrastructure/repository/http_upstream.go:1915:16: repository.zstdResponseReader.Read calls sync.Once.Do, which eventually calls http.Transport.Clone
+      #70: internal/infrastructure/repository/http_upstream.go:1915:16: repository.zstdResponseReader.Read calls sync.Once.Do, which eventually calls http.Transport.Clone
+      #71: internal/infrastructure/repository/http_upstream_public.go:107:33: repository.publicDestinationTransport.RoundTrip calls http.Transport.CloseIdleConnections
+      #72: internal/infrastructure/repository/http_upstream_public.go:107:33: repository.publicDestinationTransport.RoundTrip calls http.Transport.CloseIdleConnections
+      #73: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip
+      #74: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip
+      #75: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.body.Close
+      #76: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.body.Close
+      #77: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.body.Read
+      #78: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.body.Read
+      #79: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.bodyEOFSignal.Close
+      #80: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.bodyEOFSignal.Close
+      #81: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.bodyEOFSignal.Read
+      #82: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.bodyEOFSignal.Read
+      #83: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls io.LimitedReader.Read, which calls http.bodyLocked.Read
+      #84: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls io.LimitedReader.Read, which calls http.bodyLocked.Read
+      #85: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.bufioFlushWriter.Write
+      #86: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.bufioFlushWriter.Write
+      #87: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.cancelTimerBody.Close
+      #88: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.cancelTimerBody.Close
+      #89: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.cancelTimerBody.Read
+      #90: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.cancelTimerBody.Read
+      #91: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.checkConnErrorWriter.Write
+      #92: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.checkConnErrorWriter.Write
+      #93: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.chunkWriter.Write
+      #94: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.chunkWriter.Write
+      #95: internal/infrastructure/repository/http_upstream_public_proxy.go:85:82: repository.publicImageProxyConn.Read calls bufio.Reader.Read, which calls http.connReader.Read
+      #96: internal/infrastructure/repository/http_upstream_public_proxy.go:85:82: repository.publicImageProxyConn.Read calls bufio.Reader.Read, which calls http.connReader.Read
+      #97: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.expectContinueReader.Close
+      #98: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.expectContinueReader.Close
+      #99: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.expectContinueReader.Read
+      #100: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.expectContinueReader.Read
+      #101: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.gzipReader.Close
+      #102: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.gzipReader.Close
+      #103: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.gzipReader.Read
+      #104: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.gzipReader.Read
+      #105: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2ConnectionError.Error
+      #106: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2ConnectionError.Error
+      #107: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2ErrCode.String
+      #108: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2ErrCode.String
+      #109: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2FrameHeader.String
+      #110: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2FrameHeader.String
+      #111: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2FrameType.String
+      #112: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2FrameType.String
+      #113: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2FrameWriteRequest.String
+      #114: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2FrameWriteRequest.String
+      #115: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2GoAwayError.Error
+      #116: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2GoAwayError.Error
+      #117: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2Setting.String
+      #118: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2Setting.String
+      #119: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2SettingID.String
+      #120: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2SettingID.String
+      #121: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2StreamError.Error
+      #122: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2StreamError.Error
+      #123: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.http2bufferedWriterTimeoutWriter.Write
+      #124: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.http2bufferedWriterTimeoutWriter.Write
+      #125: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.http2chunkWriter.Write
+      #126: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.http2chunkWriter.Write
+      #127: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2connError.Error
+      #128: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2connError.Error
+      #129: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2duplicatePseudoHeaderError.Error
+      #130: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2duplicatePseudoHeaderError.Error
+      #131: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.http2gzipReader.Close
+      #132: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.http2gzipReader.Close
+      #133: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.http2gzipReader.Read
+      #134: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.http2gzipReader.Read
+      #135: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2headerFieldNameError.Error
+      #136: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2headerFieldNameError.Error
+      #137: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2headerFieldValueError.Error
+      #138: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2headerFieldValueError.Error
+      #139: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2pseudoHeaderError.Error
+      #140: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2pseudoHeaderError.Error
+      #141: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.http2requestBody.Close
+      #142: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.http2requestBody.Close
+      #143: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.http2requestBody.Read
+      #144: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.http2requestBody.Read
+      #145: internal/transport/http/handler/ops_error_logger.go:617:24: handler.opsCaptureWriter.Flush calls gin.responseWriter.Flush, which calls http.http2responseWriter.Flush
+      #146: internal/transport/http/handler/ops_error_logger.go:617:24: handler.opsCaptureWriter.Flush calls gin.responseWriter.Flush, which calls http.http2responseWriter.Flush
+      #147: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.http2responseWriter.Write
+      #148: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.http2responseWriter.Write
+      #149: internal/transport/http/handler/auth_linuxdo_oauth.go:1184:25: handler.AuthHandler.PrepareOAuthBindAccessTokenCookie calls gin.responseWriter.WriteHeaderNow, which calls http.http2responseWriter.WriteHeader
+      #150: internal/transport/http/handler/auth_linuxdo_oauth.go:1184:25: handler.AuthHandler.PrepareOAuthBindAccessTokenCookie calls gin.responseWriter.WriteHeaderNow, which calls http.http2responseWriter.WriteHeader
+      #151: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.http2responseWriter.WriteString
+      #152: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.http2responseWriter.WriteString
+      #153: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.http2stickyErrWriter.Write
+      #154: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.http2stickyErrWriter.Write
+      #155: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.http2transportResponseBody.Close
+      #156: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.http2transportResponseBody.Close
+      #157: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.http2transportResponseBody.Read
+      #158: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.http2transportResponseBody.Read
+      #159: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2writeData.String
+      #160: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2writeData.String
+      #161: internal/transport/http/handler/admin/ops_ws_handler.go:328:32: admin.OpsHandler.QPSWSHandler calls websocket.Upgrader.Upgrade, which calls http.loggingConn.Close
+      #162: internal/transport/http/handler/admin/ops_ws_handler.go:328:32: admin.OpsHandler.QPSWSHandler calls websocket.Upgrader.Upgrade, which calls http.loggingConn.Close
+      #163: internal/infrastructure/repository/http_upstream_public_proxy.go:85:82: repository.publicImageProxyConn.Read calls bufio.Reader.Read, which calls http.loggingConn.Read
+      #164: internal/infrastructure/repository/http_upstream_public_proxy.go:85:82: repository.publicImageProxyConn.Read calls bufio.Reader.Read, which calls http.loggingConn.Read
+      #165: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.loggingConn.Write
+      #166: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.loggingConn.Write
+      #167: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.maxBytesReader.Close
+      #168: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.maxBytesReader.Close
+      #169: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.maxBytesReader.Read
+      #170: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.maxBytesReader.Read
+      #171: internal/infrastructure/repository/http_upstream.go:1915:16: repository.zstdResponseReader.Read calls sync.Once.Do, which eventually calls http.onceCloseListener.Close
+      #172: internal/infrastructure/repository/http_upstream.go:1915:16: repository.zstdResponseReader.Read calls sync.Once.Do, which eventually calls http.onceCloseListener.Close
+      #173: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.persistConn.Read
+      #174: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.persistConn.Read
+      #175: internal/application/service/batch_image_provider_gemini.go:534:22: service.GeminiBatchHTTPClient.UploadJSONL calls io.Copy, which eventually calls http.persistConnWriter.ReadFrom
+      #176: internal/application/service/batch_image_provider_gemini.go:534:22: service.GeminiBatchHTTPClient.UploadJSONL calls io.Copy, which eventually calls http.persistConnWriter.ReadFrom
+      #177: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.persistConnWriter.Write
+      #178: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.persistConnWriter.Write
+      #179: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.readTrackingBody.Close
+      #180: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.readTrackingBody.Close
+      #181: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.readTrackingBody.Read
+      #182: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.readTrackingBody.Read
+      #183: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.readWriteCloserBody.Read
+      #184: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.readWriteCloserBody.Read
+      #185: internal/transport/http/handler/ops_error_logger.go:617:24: handler.opsCaptureWriter.Flush calls gin.responseWriter.Flush, which calls http.response.Flush
+      #186: internal/transport/http/handler/ops_error_logger.go:617:24: handler.opsCaptureWriter.Flush calls gin.responseWriter.Flush, which calls http.response.Flush
+      #187: internal/transport/http/handler/ops_error_logger.go:624:32: handler.opsCaptureWriter.Hijack calls gin.responseWriter.Hijack, which calls http.response.Hijack
+      #188: internal/transport/http/handler/ops_error_logger.go:624:32: handler.opsCaptureWriter.Hijack calls gin.responseWriter.Hijack, which calls http.response.Hijack
+      #189: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.response.Write
+      #190: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.response.Write
+      #191: internal/transport/http/handler/auth_linuxdo_oauth.go:1184:25: handler.AuthHandler.PrepareOAuthBindAccessTokenCookie calls gin.responseWriter.WriteHeaderNow, which calls http.response.WriteHeader
+      #192: internal/transport/http/handler/auth_linuxdo_oauth.go:1184:25: handler.AuthHandler.PrepareOAuthBindAccessTokenCookie calls gin.responseWriter.WriteHeaderNow, which calls http.response.WriteHeader
+      #193: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.response.WriteString
+      #194: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.response.WriteString
+      #195: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.transportReadFromServerError.Error
+      #196: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.transportReadFromServerError.Error
+
+Vulnerability #2: GO-2026-6613
+    HTTP/1 server connection desynchronization after 2xx CONNECT response in
+    net/http
+  More info: https://pkg.go.dev/vuln/GO-2026-6613
+  Standard library
+    Found in: net/http@go1.26.6
+    Fixed in: net/http@go1.26.9
+    Example traces found:
+      #1: internal/application/service/openai_gateway_passthrough.go:2945:33: service.writeOpenAIPassthroughResponseHeaders calls http.CanonicalHeaderKey
+      #2: internal/shared/websearch/manager.go:400:31: websearch.Manager.getOrCreateHTTPClient calls http.Client.CloseIdleConnections
+      #3: internal/application/service/batch_image_provider_vertex.go:930:24: service.VertexGCSObjectStore.OpenObject calls http.Client.Do
+      #4: internal/transport/http/handler/openai_live.go:253:35: handler.OpenAIGatewayHandler.LiveSideband calls websocket.Accept, which eventually calls http.Error
+      #5: internal/application/service/openai_codex_models_service.go:313:16: service.OpenAIGatewayService.FetchCodexModelsManifest calls http.Header.Add
+      #6: internal/application/service/openai_codex_models_service.go:364:21: service.OpenAIGatewayService.FetchCodexModelsManifest calls http.Header.Del
+      #7: internal/application/service/gemini_messages_compat_service.go:2738:36: service.GeminiMessagesCompatService.ForwardAIStudioGET calls http.Header.Get
+      #8: internal/application/service/gemini_messages_compat_service.go:2717:17: service.GeminiMessagesCompatService.ForwardAIStudioGET calls http.Header.Set
+      #9: internal/application/service/openai_ws_forwarder_payload.go:115:48: service.OpenAIGatewayService.buildOpenAIWSHeaders calls http.Header.Values
+      #10: internal/infrastructure/repository/http_upstream.go:529:31: repository.grokAccessDeniedFallbackTransport.RoundTrip calls req.Transport.RoundTrip, which eventually calls http.Header.Write
+      #11: internal/transport/http/handler/admin/user_permission_groups.go:68:9: admin.UserHandler.RequireManagedUser calls gin.Context.Next, which eventually calls http.Header.WriteSubset
+      #12: internal/modules/payment/provider/stripe.go:341:40: provider.Stripe.CancelPayment calls stripe.v1PaymentIntentService.Cancel, which eventually calls http.NewRequest
+      #13: internal/application/service/gemini_messages_compat_service.go:2706:40: service.GeminiMessagesCompatService.ForwardAIStudioGET calls http.NewRequestWithContext
+      #14: internal/shared/basispoints/image_relay.go:430:16: basispoints.ImageRelay.ServeHTTP calls http.NotFound
+      #15: internal/application/service/ratelimit_service.go:2475:34: service.parseRetryAfterResetTime calls http.ParseTime
+      #16: internal/infrastructure/repository/http_upstream.go:529:31: repository.grokAccessDeniedFallbackTransport.RoundTrip calls req.Transport.RoundTrip, which eventually calls http.ProxyFromEnvironment
+      #17: internal/infrastructure/repository/backup_s3_store.go:98:47: repository.S3BackupStore.PresignURL calls s3.PresignClient.PresignGetObject, which eventually calls http.ReadRequest
+      #18: internal/shared/tlsfingerprint/dialer.go:272:32: tlsfingerprint.HTTPProxyDialer.DialTLSContext calls http.ReadResponse
+      #19: internal/application/service/gemini_messages_compat_service.go:1399:11: service.GeminiMessagesCompatService.ForwardNative calls gin.Context.Data, which eventually calls http.Redirect
+      #20: internal/modules/payment/provider/alipay.go:241:34: provider.Alipay.QueryOrder calls alipay.Client.TradeQuery, which eventually calls http.Request.AddCookie
+      #21: internal/transport/http/handler/auth_linuxdo_oauth.go:1034:29: handler.readCookieDecoded calls http.Request.Cookie
+      #22: internal/transport/http/handler/supportchatasset/image.go:38:36: supportchatasset.ParseUpload calls http.Request.FormFile
+      #23: internal/transport/http/handler/oauth2_provider_handler.go:190:31: handler.OAuth2ProviderHandler.Revoke calls http.Request.ParseForm
+      #24: internal/transport/http/handler/oauth2_provider_handler.go:199:65: handler.OAuth2ProviderHandler.Revoke calls gin.Context.PostForm, which eventually calls http.Request.ParseMultipartForm
+      #25: internal/transport/http/handler/payment_handler.go:292:37: handler.PaymentHandler.CreateOrder calls http.Request.Referer
+      #26: internal/transport/http/handler/admin/audit_log_handler.go:153:40: admin.AuditLogHandler.Clear calls http.Request.UserAgent
+      #27: internal/shared/tlsfingerprint/dialer.go:264:21: tlsfingerprint.HTTPProxyDialer.DialTLSContext calls http.Request.Write
+      #28: internal/shared/xai/sso_device.go:353:41: xai.ssoDeviceFlow.captureCookies calls http.Response.Cookies
+      #29: internal/infrastructure/repository/backup_s3_store.go:98:47: repository.S3BackupStore.PresignURL calls s3.PresignClient.PresignGetObject, which eventually calls http.Response.Write
+      #30: internal/transport/http/handler/page_handler.go:128:8: handler.PageHandler.ServePageImage calls gin.Context.File, which calls http.ServeFile
+      #31: cmd/server/main.go:190:34: server.runMainServer calls http.Server.Close
+      #32: cmd/server/main.go:129:33: server.runSetupServer calls http.Server.ListenAndServe
+      #33: cmd/server/main.go:188:31: server.runMainServer calls http.Server.Shutdown
+      #34: internal/transport/http/handler/auth_wechat_oauth.go:1337:16: handler.wechatPaymentSetCookie calls http.SetCookie
+      #35: internal/infrastructure/repository/http_upstream.go:1915:16: repository.zstdResponseReader.Read calls sync.Once.Do, which eventually calls http.Transport.Clone
+      #36: internal/infrastructure/repository/http_upstream_public.go:107:33: repository.publicDestinationTransport.RoundTrip calls http.Transport.CloseIdleConnections
+      #37: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip
+      #38: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.body.Close
+      #39: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.body.Read
+      #40: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.bodyEOFSignal.Close
+      #41: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.bodyEOFSignal.Read
+      #42: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls io.LimitedReader.Read, which calls http.bodyLocked.Read
+      #43: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.bufioFlushWriter.Write
+      #44: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.cancelTimerBody.Close
+      #45: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.cancelTimerBody.Read
+      #46: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.checkConnErrorWriter.Write
+      #47: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.chunkWriter.Write
+      #48: internal/infrastructure/repository/http_upstream_public_proxy.go:85:82: repository.publicImageProxyConn.Read calls bufio.Reader.Read, which calls http.connReader.Read
+      #49: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.expectContinueReader.Close
+      #50: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.expectContinueReader.Read
+      #51: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.gzipReader.Close
+      #52: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.gzipReader.Read
+      #53: internal/transport/http/handler/admin/ops_ws_handler.go:328:32: admin.OpsHandler.QPSWSHandler calls websocket.Upgrader.Upgrade, which calls http.loggingConn.Close
+      #54: internal/infrastructure/repository/http_upstream_public_proxy.go:85:82: repository.publicImageProxyConn.Read calls bufio.Reader.Read, which calls http.loggingConn.Read
+      #55: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.loggingConn.Write
+      #56: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.maxBytesReader.Close
+      #57: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.maxBytesReader.Read
+      #58: internal/infrastructure/repository/http_upstream.go:1915:16: repository.zstdResponseReader.Read calls sync.Once.Do, which eventually calls http.onceCloseListener.Close
+      #59: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.persistConn.Read
+      #60: internal/application/service/batch_image_provider_gemini.go:534:22: service.GeminiBatchHTTPClient.UploadJSONL calls io.Copy, which eventually calls http.persistConnWriter.ReadFrom
+      #61: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.persistConnWriter.Write
+      #62: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.readTrackingBody.Close
+      #63: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.readTrackingBody.Read
+      #64: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.readWriteCloserBody.Read
+      #65: internal/transport/http/handler/ops_error_logger.go:617:24: handler.opsCaptureWriter.Flush calls gin.responseWriter.Flush, which calls http.response.Flush
+      #66: internal/transport/http/handler/ops_error_logger.go:624:32: handler.opsCaptureWriter.Hijack calls gin.responseWriter.Hijack, which calls http.response.Hijack
+      #67: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.response.Write
+      #68: internal/transport/http/handler/auth_linuxdo_oauth.go:1184:25: handler.AuthHandler.PrepareOAuthBindAccessTokenCookie calls gin.responseWriter.WriteHeaderNow, which calls http.response.WriteHeader
+      #69: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.response.WriteString
+      #70: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.transportReadFromServerError.Error
+
+Vulnerability #3: GO-2026-6612
+    Double flow control refund on HTTP/2 server streams in net/http
+  More info: https://pkg.go.dev/vuln/GO-2026-6612
+  Module: golang.org/x/net
+    Found in: golang.org/x/net@v0.57.0
+    Fixed in: golang.org/x/net@v0.60.0
+    Example traces found:
+      #1: internal/transport/http/server/http.go:147:34: server.ProvideHTTPServer calls http2.ConfigureServer
+      #2: internal/infrastructure/repository/http_upstream.go:1720:38: repository.enableOpenAIHTTP2KeepAlive calls http2.ConfigureTransports
+      #3: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.ConnectionError.Error
+      #4: internal/application/service/openai_codex_models_service.go:137:80: service.isRetryableCodexModelsManifestTransportError calls http2.ErrCode.String
+      #5: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http2.FrameHeader.String
+      #6: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http2.FrameType.String
+      #7: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http2.FrameWriteRequest.String
+      #8: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.GoAwayError.Error
+      #9: cmd/server/main.go:129:33: server.runSetupServer calls http.Server.ListenAndServe, which eventually calls http2.Server.ServeConn
+      #10: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http2.Setting.String
+      #11: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http2.SettingID.String
+      #12: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.StreamError.Error
+      #13: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.Transport.NewClientConn
+      #14: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.Transport.RoundTrip
+      #15: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http2.bufferedWriterTimeoutWriter.Write
+      #16: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http2.chunkWriter.Write
+      #17: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.connError.Error
+      #18: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.duplicatePseudoHeaderError.Error
+      #19: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http2.gzipReader.Close
+      #20: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http2.gzipReader.Read
+      #21: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.headerFieldNameError.Error
+      #22: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.headerFieldValueError.Error
+      #23: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.netHTTPClientConn.RoundTrip
+      #24: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.noDialH2RoundTripper.NewClientConn
+      #25: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.noDialH2RoundTripper.RoundTrip
+      #26: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.pseudoHeaderError.Error
+      #27: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http2.requestBody.Close
+      #28: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http2.requestBody.Read
+      #29: internal/transport/http/handler/ops_error_logger.go:617:24: handler.opsCaptureWriter.Flush calls gin.responseWriter.Flush, which calls http2.responseWriter.Flush
+      #30: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http2.responseWriter.Write
+      #31: internal/transport/http/handler/auth_linuxdo_oauth.go:1184:25: handler.AuthHandler.PrepareOAuthBindAccessTokenCookie calls gin.responseWriter.WriteHeaderNow, which calls http2.responseWriter.WriteHeader
+      #32: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http2.responseWriter.WriteString
+      #33: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http2.stickyErrWriter.Write
+      #34: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http2.transportResponseBody.Close
+      #35: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http2.transportResponseBody.Read
+      #36: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.unencryptedTransport.RoundTrip
+      #37: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http2.writeData.String
+
+  Standard library
+    Found in: net/http@go1.26.6
+    Fixed in: net/http@go1.26.9
+    Example traces found:
+      #1: internal/application/service/openai_gateway_passthrough.go:2945:33: service.writeOpenAIPassthroughResponseHeaders calls http.CanonicalHeaderKey
+      #2: internal/application/service/openai_gateway_passthrough.go:2945:33: service.writeOpenAIPassthroughResponseHeaders calls http.CanonicalHeaderKey
+      #3: internal/shared/websearch/manager.go:400:31: websearch.Manager.getOrCreateHTTPClient calls http.Client.CloseIdleConnections
+      #4: internal/shared/websearch/manager.go:400:31: websearch.Manager.getOrCreateHTTPClient calls http.Client.CloseIdleConnections
+      #5: internal/application/service/batch_image_provider_vertex.go:930:24: service.VertexGCSObjectStore.OpenObject calls http.Client.Do
+      #6: internal/application/service/batch_image_provider_vertex.go:930:24: service.VertexGCSObjectStore.OpenObject calls http.Client.Do
+      #7: internal/transport/http/handler/openai_live.go:253:35: handler.OpenAIGatewayHandler.LiveSideband calls websocket.Accept, which eventually calls http.Error
+      #8: internal/transport/http/handler/openai_live.go:253:35: handler.OpenAIGatewayHandler.LiveSideband calls websocket.Accept, which eventually calls http.Error
+      #9: internal/application/service/openai_codex_models_service.go:313:16: service.OpenAIGatewayService.FetchCodexModelsManifest calls http.Header.Add
+      #10: internal/application/service/openai_codex_models_service.go:313:16: service.OpenAIGatewayService.FetchCodexModelsManifest calls http.Header.Add
+      #11: internal/application/service/openai_codex_models_service.go:364:21: service.OpenAIGatewayService.FetchCodexModelsManifest calls http.Header.Del
+      #12: internal/application/service/openai_codex_models_service.go:364:21: service.OpenAIGatewayService.FetchCodexModelsManifest calls http.Header.Del
+      #13: internal/application/service/gemini_messages_compat_service.go:2738:36: service.GeminiMessagesCompatService.ForwardAIStudioGET calls http.Header.Get
+      #14: internal/application/service/gemini_messages_compat_service.go:2738:36: service.GeminiMessagesCompatService.ForwardAIStudioGET calls http.Header.Get
+      #15: internal/application/service/gemini_messages_compat_service.go:2717:17: service.GeminiMessagesCompatService.ForwardAIStudioGET calls http.Header.Set
+      #16: internal/application/service/gemini_messages_compat_service.go:2717:17: service.GeminiMessagesCompatService.ForwardAIStudioGET calls http.Header.Set
+      #17: internal/application/service/openai_ws_forwarder_payload.go:115:48: service.OpenAIGatewayService.buildOpenAIWSHeaders calls http.Header.Values
+      #18: internal/application/service/openai_ws_forwarder_payload.go:115:48: service.OpenAIGatewayService.buildOpenAIWSHeaders calls http.Header.Values
+      #19: internal/infrastructure/repository/http_upstream.go:529:31: repository.grokAccessDeniedFallbackTransport.RoundTrip calls req.Transport.RoundTrip, which eventually calls http.Header.Write
+      #20: internal/infrastructure/repository/http_upstream.go:529:31: repository.grokAccessDeniedFallbackTransport.RoundTrip calls req.Transport.RoundTrip, which eventually calls http.Header.Write
+      #21: internal/transport/http/handler/admin/user_permission_groups.go:68:9: admin.UserHandler.RequireManagedUser calls gin.Context.Next, which eventually calls http.Header.WriteSubset
+      #22: internal/transport/http/handler/admin/user_permission_groups.go:68:9: admin.UserHandler.RequireManagedUser calls gin.Context.Next, which eventually calls http.Header.WriteSubset
+      #23: internal/modules/payment/provider/stripe.go:341:40: provider.Stripe.CancelPayment calls stripe.v1PaymentIntentService.Cancel, which eventually calls http.NewRequest
+      #24: internal/modules/payment/provider/stripe.go:341:40: provider.Stripe.CancelPayment calls stripe.v1PaymentIntentService.Cancel, which eventually calls http.NewRequest
+      #25: internal/application/service/gemini_messages_compat_service.go:2706:40: service.GeminiMessagesCompatService.ForwardAIStudioGET calls http.NewRequestWithContext
+      #26: internal/application/service/gemini_messages_compat_service.go:2706:40: service.GeminiMessagesCompatService.ForwardAIStudioGET calls http.NewRequestWithContext
+      #27: internal/shared/basispoints/image_relay.go:430:16: basispoints.ImageRelay.ServeHTTP calls http.NotFound
+      #28: internal/shared/basispoints/image_relay.go:430:16: basispoints.ImageRelay.ServeHTTP calls http.NotFound
+      #29: internal/application/service/ratelimit_service.go:2475:34: service.parseRetryAfterResetTime calls http.ParseTime
+      #30: internal/application/service/ratelimit_service.go:2475:34: service.parseRetryAfterResetTime calls http.ParseTime
+      #31: internal/infrastructure/repository/http_upstream.go:529:31: repository.grokAccessDeniedFallbackTransport.RoundTrip calls req.Transport.RoundTrip, which eventually calls http.ProxyFromEnvironment
+      #32: internal/infrastructure/repository/http_upstream.go:529:31: repository.grokAccessDeniedFallbackTransport.RoundTrip calls req.Transport.RoundTrip, which eventually calls http.ProxyFromEnvironment
+      #33: internal/infrastructure/repository/backup_s3_store.go:98:47: repository.S3BackupStore.PresignURL calls s3.PresignClient.PresignGetObject, which eventually calls http.ReadRequest
+      #34: internal/infrastructure/repository/backup_s3_store.go:98:47: repository.S3BackupStore.PresignURL calls s3.PresignClient.PresignGetObject, which eventually calls http.ReadRequest
+      #35: internal/shared/tlsfingerprint/dialer.go:272:32: tlsfingerprint.HTTPProxyDialer.DialTLSContext calls http.ReadResponse
+      #36: internal/shared/tlsfingerprint/dialer.go:272:32: tlsfingerprint.HTTPProxyDialer.DialTLSContext calls http.ReadResponse
+      #37: internal/application/service/gemini_messages_compat_service.go:1399:11: service.GeminiMessagesCompatService.ForwardNative calls gin.Context.Data, which eventually calls http.Redirect
+      #38: internal/application/service/gemini_messages_compat_service.go:1399:11: service.GeminiMessagesCompatService.ForwardNative calls gin.Context.Data, which eventually calls http.Redirect
+      #39: internal/modules/payment/provider/alipay.go:241:34: provider.Alipay.QueryOrder calls alipay.Client.TradeQuery, which eventually calls http.Request.AddCookie
+      #40: internal/modules/payment/provider/alipay.go:241:34: provider.Alipay.QueryOrder calls alipay.Client.TradeQuery, which eventually calls http.Request.AddCookie
+      #41: internal/transport/http/handler/auth_linuxdo_oauth.go:1034:29: handler.readCookieDecoded calls http.Request.Cookie
+      #42: internal/transport/http/handler/auth_linuxdo_oauth.go:1034:29: handler.readCookieDecoded calls http.Request.Cookie
+      #43: internal/transport/http/handler/supportchatasset/image.go:38:36: supportchatasset.ParseUpload calls http.Request.FormFile
+      #44: internal/transport/http/handler/supportchatasset/image.go:38:36: supportchatasset.ParseUpload calls http.Request.FormFile
+      #45: internal/transport/http/handler/oauth2_provider_handler.go:190:31: handler.OAuth2ProviderHandler.Revoke calls http.Request.ParseForm
+      #46: internal/transport/http/handler/oauth2_provider_handler.go:190:31: handler.OAuth2ProviderHandler.Revoke calls http.Request.ParseForm
+      #47: internal/transport/http/handler/oauth2_provider_handler.go:199:65: handler.OAuth2ProviderHandler.Revoke calls gin.Context.PostForm, which eventually calls http.Request.ParseMultipartForm
+      #48: internal/transport/http/handler/oauth2_provider_handler.go:199:65: handler.OAuth2ProviderHandler.Revoke calls gin.Context.PostForm, which eventually calls http.Request.ParseMultipartForm
+      #49: internal/transport/http/handler/payment_handler.go:292:37: handler.PaymentHandler.CreateOrder calls http.Request.Referer
+      #50: internal/transport/http/handler/payment_handler.go:292:37: handler.PaymentHandler.CreateOrder calls http.Request.Referer
+      #51: internal/transport/http/handler/admin/audit_log_handler.go:153:40: admin.AuditLogHandler.Clear calls http.Request.UserAgent
+      #52: internal/transport/http/handler/admin/audit_log_handler.go:153:40: admin.AuditLogHandler.Clear calls http.Request.UserAgent
+      #53: internal/shared/tlsfingerprint/dialer.go:264:21: tlsfingerprint.HTTPProxyDialer.DialTLSContext calls http.Request.Write
+      #54: internal/shared/tlsfingerprint/dialer.go:264:21: tlsfingerprint.HTTPProxyDialer.DialTLSContext calls http.Request.Write
+      #55: internal/shared/xai/sso_device.go:353:41: xai.ssoDeviceFlow.captureCookies calls http.Response.Cookies
+      #56: internal/shared/xai/sso_device.go:353:41: xai.ssoDeviceFlow.captureCookies calls http.Response.Cookies
+      #57: internal/infrastructure/repository/backup_s3_store.go:98:47: repository.S3BackupStore.PresignURL calls s3.PresignClient.PresignGetObject, which eventually calls http.Response.Write
+      #58: internal/infrastructure/repository/backup_s3_store.go:98:47: repository.S3BackupStore.PresignURL calls s3.PresignClient.PresignGetObject, which eventually calls http.Response.Write
+      #59: internal/transport/http/handler/page_handler.go:128:8: handler.PageHandler.ServePageImage calls gin.Context.File, which calls http.ServeFile
+      #60: internal/transport/http/handler/page_handler.go:128:8: handler.PageHandler.ServePageImage calls gin.Context.File, which calls http.ServeFile
+      #61: cmd/server/main.go:190:34: server.runMainServer calls http.Server.Close
+      #62: cmd/server/main.go:190:34: server.runMainServer calls http.Server.Close
+      #63: cmd/server/main.go:129:33: server.runSetupServer calls http.Server.ListenAndServe
+      #64: cmd/server/main.go:129:33: server.runSetupServer calls http.Server.ListenAndServe
+      #65: cmd/server/main.go:188:31: server.runMainServer calls http.Server.Shutdown
+      #66: cmd/server/main.go:188:31: server.runMainServer calls http.Server.Shutdown
+      #67: internal/transport/http/handler/auth_wechat_oauth.go:1337:16: handler.wechatPaymentSetCookie calls http.SetCookie
+      #68: internal/transport/http/handler/auth_wechat_oauth.go:1337:16: handler.wechatPaymentSetCookie calls http.SetCookie
+      #69: internal/infrastructure/repository/http_upstream.go:1915:16: repository.zstdResponseReader.Read calls sync.Once.Do, which eventually calls http.Transport.Clone
+      #70: internal/infrastructure/repository/http_upstream.go:1915:16: repository.zstdResponseReader.Read calls sync.Once.Do, which eventually calls http.Transport.Clone
+      #71: internal/infrastructure/repository/http_upstream_public.go:107:33: repository.publicDestinationTransport.RoundTrip calls http.Transport.CloseIdleConnections
+      #72: internal/infrastructure/repository/http_upstream_public.go:107:33: repository.publicDestinationTransport.RoundTrip calls http.Transport.CloseIdleConnections
+      #73: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip
+      #74: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip
+      #75: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.body.Close
+      #76: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.body.Close
+      #77: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.body.Read
+      #78: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.body.Read
+      #79: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.bodyEOFSignal.Close
+      #80: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.bodyEOFSignal.Close
+      #81: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.bodyEOFSignal.Read
+      #82: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.bodyEOFSignal.Read
+      #83: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls io.LimitedReader.Read, which calls http.bodyLocked.Read
+      #84: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls io.LimitedReader.Read, which calls http.bodyLocked.Read
+      #85: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.bufioFlushWriter.Write
+      #86: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.bufioFlushWriter.Write
+      #87: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.cancelTimerBody.Close
+      #88: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.cancelTimerBody.Close
+      #89: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.cancelTimerBody.Read
+      #90: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.cancelTimerBody.Read
+      #91: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.checkConnErrorWriter.Write
+      #92: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.checkConnErrorWriter.Write
+      #93: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.chunkWriter.Write
+      #94: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.chunkWriter.Write
+      #95: internal/infrastructure/repository/http_upstream_public_proxy.go:85:82: repository.publicImageProxyConn.Read calls bufio.Reader.Read, which calls http.connReader.Read
+      #96: internal/infrastructure/repository/http_upstream_public_proxy.go:85:82: repository.publicImageProxyConn.Read calls bufio.Reader.Read, which calls http.connReader.Read
+      #97: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.expectContinueReader.Close
+      #98: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.expectContinueReader.Close
+      #99: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.expectContinueReader.Read
+      #100: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.expectContinueReader.Read
+      #101: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.gzipReader.Close
+      #102: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.gzipReader.Close
+      #103: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.gzipReader.Read
+      #104: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.gzipReader.Read
+      #105: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2ConnectionError.Error
+      #106: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2ConnectionError.Error
+      #107: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2ErrCode.String
+      #108: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2ErrCode.String
+      #109: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2FrameHeader.String
+      #110: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2FrameHeader.String
+      #111: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2FrameType.String
+      #112: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2FrameType.String
+      #113: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2FrameWriteRequest.String
+      #114: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2FrameWriteRequest.String
+      #115: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2GoAwayError.Error
+      #116: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2GoAwayError.Error
+      #117: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2Setting.String
+      #118: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2Setting.String
+      #119: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2SettingID.String
+      #120: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2SettingID.String
+      #121: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2StreamError.Error
+      #122: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2StreamError.Error
+      #123: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.http2bufferedWriterTimeoutWriter.Write
+      #124: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.http2bufferedWriterTimeoutWriter.Write
+      #125: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.http2chunkWriter.Write
+      #126: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.http2chunkWriter.Write
+      #127: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2connError.Error
+      #128: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2connError.Error
+      #129: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2duplicatePseudoHeaderError.Error
+      #130: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2duplicatePseudoHeaderError.Error
+      #131: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.http2gzipReader.Close
+      #132: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.http2gzipReader.Close
+      #133: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.http2gzipReader.Read
+      #134: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.http2gzipReader.Read
+      #135: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2headerFieldNameError.Error
+      #136: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2headerFieldNameError.Error
+      #137: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2headerFieldValueError.Error
+      #138: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2headerFieldValueError.Error
+      #139: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2pseudoHeaderError.Error
+      #140: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2pseudoHeaderError.Error
+      #141: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.http2requestBody.Close
+      #142: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.http2requestBody.Close
+      #143: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.http2requestBody.Read
+      #144: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.http2requestBody.Read
+      #145: internal/transport/http/handler/ops_error_logger.go:617:24: handler.opsCaptureWriter.Flush calls gin.responseWriter.Flush, which calls http.http2responseWriter.Flush
+      #146: internal/transport/http/handler/ops_error_logger.go:617:24: handler.opsCaptureWriter.Flush calls gin.responseWriter.Flush, which calls http.http2responseWriter.Flush
+      #147: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.http2responseWriter.Write
+      #148: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.http2responseWriter.Write
+      #149: internal/transport/http/handler/auth_linuxdo_oauth.go:1184:25: handler.AuthHandler.PrepareOAuthBindAccessTokenCookie calls gin.responseWriter.WriteHeaderNow, which calls http.http2responseWriter.WriteHeader
+      #150: internal/transport/http/handler/auth_linuxdo_oauth.go:1184:25: handler.AuthHandler.PrepareOAuthBindAccessTokenCookie calls gin.responseWriter.WriteHeaderNow, which calls http.http2responseWriter.WriteHeader
+      #151: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.http2responseWriter.WriteString
+      #152: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.http2responseWriter.WriteString
+      #153: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.http2stickyErrWriter.Write
+      #154: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.http2stickyErrWriter.Write
+      #155: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.http2transportResponseBody.Close
+      #156: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.http2transportResponseBody.Close
+      #157: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.http2transportResponseBody.Read
+      #158: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.http2transportResponseBody.Read
+      #159: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2writeData.String
+      #160: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2writeData.String
+      #161: internal/transport/http/handler/admin/ops_ws_handler.go:328:32: admin.OpsHandler.QPSWSHandler calls websocket.Upgrader.Upgrade, which calls http.loggingConn.Close
+      #162: internal/transport/http/handler/admin/ops_ws_handler.go:328:32: admin.OpsHandler.QPSWSHandler calls websocket.Upgrader.Upgrade, which calls http.loggingConn.Close
+      #163: internal/infrastructure/repository/http_upstream_public_proxy.go:85:82: repository.publicImageProxyConn.Read calls bufio.Reader.Read, which calls http.loggingConn.Read
+      #164: internal/infrastructure/repository/http_upstream_public_proxy.go:85:82: repository.publicImageProxyConn.Read calls bufio.Reader.Read, which calls http.loggingConn.Read
+      #165: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.loggingConn.Write
+      #166: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.loggingConn.Write
+      #167: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.maxBytesReader.Close
+      #168: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.maxBytesReader.Close
+      #169: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.maxBytesReader.Read
+      #170: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.maxBytesReader.Read
+      #171: internal/infrastructure/repository/http_upstream.go:1915:16: repository.zstdResponseReader.Read calls sync.Once.Do, which eventually calls http.onceCloseListener.Close
+      #172: internal/infrastructure/repository/http_upstream.go:1915:16: repository.zstdResponseReader.Read calls sync.Once.Do, which eventually calls http.onceCloseListener.Close
+      #173: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.persistConn.Read
+      #174: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.persistConn.Read
+      #175: internal/application/service/batch_image_provider_gemini.go:534:22: service.GeminiBatchHTTPClient.UploadJSONL calls io.Copy, which eventually calls http.persistConnWriter.ReadFrom
+      #176: internal/application/service/batch_image_provider_gemini.go:534:22: service.GeminiBatchHTTPClient.UploadJSONL calls io.Copy, which eventually calls http.persistConnWriter.ReadFrom
+      #177: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.persistConnWriter.Write
+      #178: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.persistConnWriter.Write
+      #179: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.readTrackingBody.Close
+      #180: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.readTrackingBody.Close
+      #181: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.readTrackingBody.Read
+      #182: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.readTrackingBody.Read
+      #183: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.readWriteCloserBody.Read
+      #184: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.readWriteCloserBody.Read
+      #185: internal/transport/http/handler/ops_error_logger.go:617:24: handler.opsCaptureWriter.Flush calls gin.responseWriter.Flush, which calls http.response.Flush
+      #186: internal/transport/http/handler/ops_error_logger.go:617:24: handler.opsCaptureWriter.Flush calls gin.responseWriter.Flush, which calls http.response.Flush
+      #187: internal/transport/http/handler/ops_error_logger.go:624:32: handler.opsCaptureWriter.Hijack calls gin.responseWriter.Hijack, which calls http.response.Hijack
+      #188: internal/transport/http/handler/ops_error_logger.go:624:32: handler.opsCaptureWriter.Hijack calls gin.responseWriter.Hijack, which calls http.response.Hijack
+      #189: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.response.Write
+      #190: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.response.Write
+      #191: internal/transport/http/handler/auth_linuxdo_oauth.go:1184:25: handler.AuthHandler.PrepareOAuthBindAccessTokenCookie calls gin.responseWriter.WriteHeaderNow, which calls http.response.WriteHeader
+      #192: internal/transport/http/handler/auth_linuxdo_oauth.go:1184:25: handler.AuthHandler.PrepareOAuthBindAccessTokenCookie calls gin.responseWriter.WriteHeaderNow, which calls http.response.WriteHeader
+      #193: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.response.WriteString
+      #194: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.response.WriteString
+      #195: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.transportReadFromServerError.Error
+      #196: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.transportReadFromServerError.Error
+
+Vulnerability #4: GO-2026-6611
+    Excessive CPU consumption from repeated initial window changes in net/http
+  More info: https://pkg.go.dev/vuln/GO-2026-6611
+  Module: golang.org/x/net
+    Found in: golang.org/x/net@v0.57.0
+    Fixed in: golang.org/x/net@v0.60.0
+    Example traces found:
+      #1: internal/transport/http/server/http.go:147:34: server.ProvideHTTPServer calls http2.ConfigureServer
+      #2: internal/infrastructure/repository/http_upstream.go:1720:38: repository.enableOpenAIHTTP2KeepAlive calls http2.ConfigureTransports
+      #3: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.ConnectionError.Error
+      #4: internal/application/service/openai_codex_models_service.go:137:80: service.isRetryableCodexModelsManifestTransportError calls http2.ErrCode.String
+      #5: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http2.FrameHeader.String
+      #6: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http2.FrameType.String
+      #7: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http2.FrameWriteRequest.String
+      #8: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.GoAwayError.Error
+      #9: cmd/server/main.go:129:33: server.runSetupServer calls http.Server.ListenAndServe, which eventually calls http2.Server.ServeConn
+      #10: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http2.Setting.String
+      #11: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http2.SettingID.String
+      #12: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.StreamError.Error
+      #13: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.Transport.NewClientConn
+      #14: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.Transport.RoundTrip
+      #15: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http2.bufferedWriterTimeoutWriter.Write
+      #16: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http2.chunkWriter.Write
+      #17: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.connError.Error
+      #18: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.duplicatePseudoHeaderError.Error
+      #19: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http2.gzipReader.Close
+      #20: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http2.gzipReader.Read
+      #21: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.headerFieldNameError.Error
+      #22: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.headerFieldValueError.Error
+      #23: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.netHTTPClientConn.RoundTrip
+      #24: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.noDialH2RoundTripper.NewClientConn
+      #25: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.noDialH2RoundTripper.RoundTrip
+      #26: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.pseudoHeaderError.Error
+      #27: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http2.requestBody.Close
+      #28: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http2.requestBody.Read
+      #29: internal/transport/http/handler/ops_error_logger.go:617:24: handler.opsCaptureWriter.Flush calls gin.responseWriter.Flush, which calls http2.responseWriter.Flush
+      #30: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http2.responseWriter.Write
+      #31: internal/transport/http/handler/auth_linuxdo_oauth.go:1184:25: handler.AuthHandler.PrepareOAuthBindAccessTokenCookie calls gin.responseWriter.WriteHeaderNow, which calls http2.responseWriter.WriteHeader
+      #32: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http2.responseWriter.WriteString
+      #33: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http2.stickyErrWriter.Write
+      #34: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http2.transportResponseBody.Close
+      #35: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http2.transportResponseBody.Read
+      #36: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.unencryptedTransport.RoundTrip
+      #37: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http2.writeData.String
+
+  Standard library
+    Found in: net/http@go1.26.6
+    Fixed in: net/http@go1.26.9
+    Example traces found:
+      #1: internal/application/service/openai_gateway_passthrough.go:2945:33: service.writeOpenAIPassthroughResponseHeaders calls http.CanonicalHeaderKey
+      #2: internal/application/service/openai_gateway_passthrough.go:2945:33: service.writeOpenAIPassthroughResponseHeaders calls http.CanonicalHeaderKey
+      #3: internal/shared/websearch/manager.go:400:31: websearch.Manager.getOrCreateHTTPClient calls http.Client.CloseIdleConnections
+      #4: internal/shared/websearch/manager.go:400:31: websearch.Manager.getOrCreateHTTPClient calls http.Client.CloseIdleConnections
+      #5: internal/application/service/batch_image_provider_vertex.go:930:24: service.VertexGCSObjectStore.OpenObject calls http.Client.Do
+      #6: internal/application/service/batch_image_provider_vertex.go:930:24: service.VertexGCSObjectStore.OpenObject calls http.Client.Do
+      #7: internal/transport/http/handler/openai_live.go:253:35: handler.OpenAIGatewayHandler.LiveSideband calls websocket.Accept, which eventually calls http.Error
+      #8: internal/transport/http/handler/openai_live.go:253:35: handler.OpenAIGatewayHandler.LiveSideband calls websocket.Accept, which eventually calls http.Error
+      #9: internal/application/service/openai_codex_models_service.go:313:16: service.OpenAIGatewayService.FetchCodexModelsManifest calls http.Header.Add
+      #10: internal/application/service/openai_codex_models_service.go:313:16: service.OpenAIGatewayService.FetchCodexModelsManifest calls http.Header.Add
+      #11: internal/application/service/openai_codex_models_service.go:364:21: service.OpenAIGatewayService.FetchCodexModelsManifest calls http.Header.Del
+      #12: internal/application/service/openai_codex_models_service.go:364:21: service.OpenAIGatewayService.FetchCodexModelsManifest calls http.Header.Del
+      #13: internal/application/service/gemini_messages_compat_service.go:2738:36: service.GeminiMessagesCompatService.ForwardAIStudioGET calls http.Header.Get
+      #14: internal/application/service/gemini_messages_compat_service.go:2738:36: service.GeminiMessagesCompatService.ForwardAIStudioGET calls http.Header.Get
+      #15: internal/application/service/gemini_messages_compat_service.go:2717:17: service.GeminiMessagesCompatService.ForwardAIStudioGET calls http.Header.Set
+      #16: internal/application/service/gemini_messages_compat_service.go:2717:17: service.GeminiMessagesCompatService.ForwardAIStudioGET calls http.Header.Set
+      #17: internal/application/service/openai_ws_forwarder_payload.go:115:48: service.OpenAIGatewayService.buildOpenAIWSHeaders calls http.Header.Values
+      #18: internal/application/service/openai_ws_forwarder_payload.go:115:48: service.OpenAIGatewayService.buildOpenAIWSHeaders calls http.Header.Values
+      #19: internal/infrastructure/repository/http_upstream.go:529:31: repository.grokAccessDeniedFallbackTransport.RoundTrip calls req.Transport.RoundTrip, which eventually calls http.Header.Write
+      #20: internal/infrastructure/repository/http_upstream.go:529:31: repository.grokAccessDeniedFallbackTransport.RoundTrip calls req.Transport.RoundTrip, which eventually calls http.Header.Write
+      #21: internal/transport/http/handler/admin/user_permission_groups.go:68:9: admin.UserHandler.RequireManagedUser calls gin.Context.Next, which eventually calls http.Header.WriteSubset
+      #22: internal/transport/http/handler/admin/user_permission_groups.go:68:9: admin.UserHandler.RequireManagedUser calls gin.Context.Next, which eventually calls http.Header.WriteSubset
+      #23: internal/modules/payment/provider/stripe.go:341:40: provider.Stripe.CancelPayment calls stripe.v1PaymentIntentService.Cancel, which eventually calls http.NewRequest
+      #24: internal/modules/payment/provider/stripe.go:341:40: provider.Stripe.CancelPayment calls stripe.v1PaymentIntentService.Cancel, which eventually calls http.NewRequest
+      #25: internal/application/service/gemini_messages_compat_service.go:2706:40: service.GeminiMessagesCompatService.ForwardAIStudioGET calls http.NewRequestWithContext
+      #26: internal/application/service/gemini_messages_compat_service.go:2706:40: service.GeminiMessagesCompatService.ForwardAIStudioGET calls http.NewRequestWithContext
+      #27: internal/shared/basispoints/image_relay.go:430:16: basispoints.ImageRelay.ServeHTTP calls http.NotFound
+      #28: internal/shared/basispoints/image_relay.go:430:16: basispoints.ImageRelay.ServeHTTP calls http.NotFound
+      #29: internal/application/service/ratelimit_service.go:2475:34: service.parseRetryAfterResetTime calls http.ParseTime
+      #30: internal/application/service/ratelimit_service.go:2475:34: service.parseRetryAfterResetTime calls http.ParseTime
+      #31: internal/infrastructure/repository/http_upstream.go:529:31: repository.grokAccessDeniedFallbackTransport.RoundTrip calls req.Transport.RoundTrip, which eventually calls http.ProxyFromEnvironment
+      #32: internal/infrastructure/repository/http_upstream.go:529:31: repository.grokAccessDeniedFallbackTransport.RoundTrip calls req.Transport.RoundTrip, which eventually calls http.ProxyFromEnvironment
+      #33: internal/infrastructure/repository/backup_s3_store.go:98:47: repository.S3BackupStore.PresignURL calls s3.PresignClient.PresignGetObject, which eventually calls http.ReadRequest
+      #34: internal/infrastructure/repository/backup_s3_store.go:98:47: repository.S3BackupStore.PresignURL calls s3.PresignClient.PresignGetObject, which eventually calls http.ReadRequest
+      #35: internal/shared/tlsfingerprint/dialer.go:272:32: tlsfingerprint.HTTPProxyDialer.DialTLSContext calls http.ReadResponse
+      #36: internal/shared/tlsfingerprint/dialer.go:272:32: tlsfingerprint.HTTPProxyDialer.DialTLSContext calls http.ReadResponse
+      #37: internal/application/service/gemini_messages_compat_service.go:1399:11: service.GeminiMessagesCompatService.ForwardNative calls gin.Context.Data, which eventually calls http.Redirect
+      #38: internal/application/service/gemini_messages_compat_service.go:1399:11: service.GeminiMessagesCompatService.ForwardNative calls gin.Context.Data, which eventually calls http.Redirect
+      #39: internal/modules/payment/provider/alipay.go:241:34: provider.Alipay.QueryOrder calls alipay.Client.TradeQuery, which eventually calls http.Request.AddCookie
+      #40: internal/modules/payment/provider/alipay.go:241:34: provider.Alipay.QueryOrder calls alipay.Client.TradeQuery, which eventually calls http.Request.AddCookie
+      #41: internal/transport/http/handler/auth_linuxdo_oauth.go:1034:29: handler.readCookieDecoded calls http.Request.Cookie
+      #42: internal/transport/http/handler/auth_linuxdo_oauth.go:1034:29: handler.readCookieDecoded calls http.Request.Cookie
+      #43: internal/transport/http/handler/supportchatasset/image.go:38:36: supportchatasset.ParseUpload calls http.Request.FormFile
+      #44: internal/transport/http/handler/supportchatasset/image.go:38:36: supportchatasset.ParseUpload calls http.Request.FormFile
+      #45: internal/transport/http/handler/oauth2_provider_handler.go:190:31: handler.OAuth2ProviderHandler.Revoke calls http.Request.ParseForm
+      #46: internal/transport/http/handler/oauth2_provider_handler.go:190:31: handler.OAuth2ProviderHandler.Revoke calls http.Request.ParseForm
+      #47: internal/transport/http/handler/oauth2_provider_handler.go:199:65: handler.OAuth2ProviderHandler.Revoke calls gin.Context.PostForm, which eventually calls http.Request.ParseMultipartForm
+      #48: internal/transport/http/handler/oauth2_provider_handler.go:199:65: handler.OAuth2ProviderHandler.Revoke calls gin.Context.PostForm, which eventually calls http.Request.ParseMultipartForm
+      #49: internal/transport/http/handler/payment_handler.go:292:37: handler.PaymentHandler.CreateOrder calls http.Request.Referer
+      #50: internal/transport/http/handler/payment_handler.go:292:37: handler.PaymentHandler.CreateOrder calls http.Request.Referer
+      #51: internal/transport/http/handler/admin/audit_log_handler.go:153:40: admin.AuditLogHandler.Clear calls http.Request.UserAgent
+      #52: internal/transport/http/handler/admin/audit_log_handler.go:153:40: admin.AuditLogHandler.Clear calls http.Request.UserAgent
+      #53: internal/shared/tlsfingerprint/dialer.go:264:21: tlsfingerprint.HTTPProxyDialer.DialTLSContext calls http.Request.Write
+      #54: internal/shared/tlsfingerprint/dialer.go:264:21: tlsfingerprint.HTTPProxyDialer.DialTLSContext calls http.Request.Write
+      #55: internal/shared/xai/sso_device.go:353:41: xai.ssoDeviceFlow.captureCookies calls http.Response.Cookies
+      #56: internal/shared/xai/sso_device.go:353:41: xai.ssoDeviceFlow.captureCookies calls http.Response.Cookies
+      #57: internal/infrastructure/repository/backup_s3_store.go:98:47: repository.S3BackupStore.PresignURL calls s3.PresignClient.PresignGetObject, which eventually calls http.Response.Write
+      #58: internal/infrastructure/repository/backup_s3_store.go:98:47: repository.S3BackupStore.PresignURL calls s3.PresignClient.PresignGetObject, which eventually calls http.Response.Write
+      #59: internal/transport/http/handler/page_handler.go:128:8: handler.PageHandler.ServePageImage calls gin.Context.File, which calls http.ServeFile
+      #60: internal/transport/http/handler/page_handler.go:128:8: handler.PageHandler.ServePageImage calls gin.Context.File, which calls http.ServeFile
+      #61: cmd/server/main.go:190:34: server.runMainServer calls http.Server.Close
+      #62: cmd/server/main.go:190:34: server.runMainServer calls http.Server.Close
+      #63: cmd/server/main.go:129:33: server.runSetupServer calls http.Server.ListenAndServe
+      #64: cmd/server/main.go:129:33: server.runSetupServer calls http.Server.ListenAndServe
+      #65: cmd/server/main.go:188:31: server.runMainServer calls http.Server.Shutdown
+      #66: cmd/server/main.go:188:31: server.runMainServer calls http.Server.Shutdown
+      #67: internal/transport/http/handler/auth_wechat_oauth.go:1337:16: handler.wechatPaymentSetCookie calls http.SetCookie
+      #68: internal/transport/http/handler/auth_wechat_oauth.go:1337:16: handler.wechatPaymentSetCookie calls http.SetCookie
+      #69: internal/infrastructure/repository/http_upstream.go:1915:16: repository.zstdResponseReader.Read calls sync.Once.Do, which eventually calls http.Transport.Clone
+      #70: internal/infrastructure/repository/http_upstream.go:1915:16: repository.zstdResponseReader.Read calls sync.Once.Do, which eventually calls http.Transport.Clone
+      #71: internal/infrastructure/repository/http_upstream_public.go:107:33: repository.publicDestinationTransport.RoundTrip calls http.Transport.CloseIdleConnections
+      #72: internal/infrastructure/repository/http_upstream_public.go:107:33: repository.publicDestinationTransport.RoundTrip calls http.Transport.CloseIdleConnections
+      #73: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip
+      #74: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip
+      #75: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.body.Close
+      #76: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.body.Close
+      #77: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.body.Read
+      #78: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.body.Read
+      #79: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.bodyEOFSignal.Close
+      #80: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.bodyEOFSignal.Close
+      #81: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.bodyEOFSignal.Read
+      #82: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.bodyEOFSignal.Read
+      #83: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls io.LimitedReader.Read, which calls http.bodyLocked.Read
+      #84: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls io.LimitedReader.Read, which calls http.bodyLocked.Read
+      #85: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.bufioFlushWriter.Write
+      #86: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.bufioFlushWriter.Write
+      #87: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.cancelTimerBody.Close
+      #88: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.cancelTimerBody.Close
+      #89: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.cancelTimerBody.Read
+      #90: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.cancelTimerBody.Read
+      #91: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.checkConnErrorWriter.Write
+      #92: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.checkConnErrorWriter.Write
+      #93: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.chunkWriter.Write
+      #94: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.chunkWriter.Write
+      #95: internal/infrastructure/repository/http_upstream_public_proxy.go:85:82: repository.publicImageProxyConn.Read calls bufio.Reader.Read, which calls http.connReader.Read
+      #96: internal/infrastructure/repository/http_upstream_public_proxy.go:85:82: repository.publicImageProxyConn.Read calls bufio.Reader.Read, which calls http.connReader.Read
+      #97: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.expectContinueReader.Close
+      #98: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.expectContinueReader.Close
+      #99: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.expectContinueReader.Read
+      #100: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.expectContinueReader.Read
+      #101: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.gzipReader.Close
+      #102: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.gzipReader.Close
+      #103: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.gzipReader.Read
+      #104: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.gzipReader.Read
+      #105: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2ConnectionError.Error
+      #106: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2ConnectionError.Error
+      #107: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2ErrCode.String
+      #108: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2ErrCode.String
+      #109: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2FrameHeader.String
+      #110: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2FrameHeader.String
+      #111: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2FrameType.String
+      #112: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2FrameType.String
+      #113: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2FrameWriteRequest.String
+      #114: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2FrameWriteRequest.String
+      #115: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2GoAwayError.Error
+      #116: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2GoAwayError.Error
+      #117: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2Setting.String
+      #118: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2Setting.String
+      #119: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2SettingID.String
+      #120: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2SettingID.String
+      #121: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2StreamError.Error
+      #122: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2StreamError.Error
+      #123: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.http2bufferedWriterTimeoutWriter.Write
+      #124: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.http2bufferedWriterTimeoutWriter.Write
+      #125: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.http2chunkWriter.Write
+      #126: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.http2chunkWriter.Write
+      #127: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2connError.Error
+      #128: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2connError.Error
+      #129: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2duplicatePseudoHeaderError.Error
+      #130: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2duplicatePseudoHeaderError.Error
+      #131: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.http2gzipReader.Close
+      #132: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.http2gzipReader.Close
+      #133: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.http2gzipReader.Read
+      #134: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.http2gzipReader.Read
+      #135: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2headerFieldNameError.Error
+      #136: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2headerFieldNameError.Error
+      #137: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2headerFieldValueError.Error
+      #138: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2headerFieldValueError.Error
+      #139: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2pseudoHeaderError.Error
+      #140: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2pseudoHeaderError.Error
+      #141: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.http2requestBody.Close
+      #142: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.http2requestBody.Close
+      #143: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.http2requestBody.Read
+      #144: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.http2requestBody.Read
+      #145: internal/transport/http/handler/ops_error_logger.go:617:24: handler.opsCaptureWriter.Flush calls gin.responseWriter.Flush, which calls http.http2responseWriter.Flush
+      #146: internal/transport/http/handler/ops_error_logger.go:617:24: handler.opsCaptureWriter.Flush calls gin.responseWriter.Flush, which calls http.http2responseWriter.Flush
+      #147: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.http2responseWriter.Write
+      #148: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.http2responseWriter.Write
+      #149: internal/transport/http/handler/auth_linuxdo_oauth.go:1184:25: handler.AuthHandler.PrepareOAuthBindAccessTokenCookie calls gin.responseWriter.WriteHeaderNow, which calls http.http2responseWriter.WriteHeader
+      #150: internal/transport/http/handler/auth_linuxdo_oauth.go:1184:25: handler.AuthHandler.PrepareOAuthBindAccessTokenCookie calls gin.responseWriter.WriteHeaderNow, which calls http.http2responseWriter.WriteHeader
+      #151: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.http2responseWriter.WriteString
+      #152: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.http2responseWriter.WriteString
+      #153: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.http2stickyErrWriter.Write
+      #154: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.http2stickyErrWriter.Write
+      #155: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.http2transportResponseBody.Close
+      #156: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.http2transportResponseBody.Close
+      #157: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.http2transportResponseBody.Read
+      #158: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.http2transportResponseBody.Read
+      #159: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2writeData.String
+      #160: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2writeData.String
+      #161: internal/transport/http/handler/admin/ops_ws_handler.go:328:32: admin.OpsHandler.QPSWSHandler calls websocket.Upgrader.Upgrade, which calls http.loggingConn.Close
+      #162: internal/transport/http/handler/admin/ops_ws_handler.go:328:32: admin.OpsHandler.QPSWSHandler calls websocket.Upgrader.Upgrade, which calls http.loggingConn.Close
+      #163: internal/infrastructure/repository/http_upstream_public_proxy.go:85:82: repository.publicImageProxyConn.Read calls bufio.Reader.Read, which calls http.loggingConn.Read
+      #164: internal/infrastructure/repository/http_upstream_public_proxy.go:85:82: repository.publicImageProxyConn.Read calls bufio.Reader.Read, which calls http.loggingConn.Read
+      #165: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.loggingConn.Write
+      #166: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.loggingConn.Write
+      #167: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.maxBytesReader.Close
+      #168: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.maxBytesReader.Close
+      #169: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.maxBytesReader.Read
+      #170: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.maxBytesReader.Read
+      #171: internal/infrastructure/repository/http_upstream.go:1915:16: repository.zstdResponseReader.Read calls sync.Once.Do, which eventually calls http.onceCloseListener.Close
+      #172: internal/infrastructure/repository/http_upstream.go:1915:16: repository.zstdResponseReader.Read calls sync.Once.Do, which eventually calls http.onceCloseListener.Close
+      #173: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.persistConn.Read
+      #174: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.persistConn.Read
+      #175: internal/application/service/batch_image_provider_gemini.go:534:22: service.GeminiBatchHTTPClient.UploadJSONL calls io.Copy, which eventually calls http.persistConnWriter.ReadFrom
+      #176: internal/application/service/batch_image_provider_gemini.go:534:22: service.GeminiBatchHTTPClient.UploadJSONL calls io.Copy, which eventually calls http.persistConnWriter.ReadFrom
+      #177: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.persistConnWriter.Write
+      #178: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.persistConnWriter.Write
+      #179: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.readTrackingBody.Close
+      #180: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.readTrackingBody.Close
+      #181: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.readTrackingBody.Read
+      #182: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.readTrackingBody.Read
+      #183: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.readWriteCloserBody.Read
+      #184: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.readWriteCloserBody.Read
+      #185: internal/transport/http/handler/ops_error_logger.go:617:24: handler.opsCaptureWriter.Flush calls gin.responseWriter.Flush, which calls http.response.Flush
+      #186: internal/transport/http/handler/ops_error_logger.go:617:24: handler.opsCaptureWriter.Flush calls gin.responseWriter.Flush, which calls http.response.Flush
+      #187: internal/transport/http/handler/ops_error_logger.go:624:32: handler.opsCaptureWriter.Hijack calls gin.responseWriter.Hijack, which calls http.response.Hijack
+      #188: internal/transport/http/handler/ops_error_logger.go:624:32: handler.opsCaptureWriter.Hijack calls gin.responseWriter.Hijack, which calls http.response.Hijack
+      #189: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.response.Write
+      #190: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.response.Write
+      #191: internal/transport/http/handler/auth_linuxdo_oauth.go:1184:25: handler.AuthHandler.PrepareOAuthBindAccessTokenCookie calls gin.responseWriter.WriteHeaderNow, which calls http.response.WriteHeader
+      #192: internal/transport/http/handler/auth_linuxdo_oauth.go:1184:25: handler.AuthHandler.PrepareOAuthBindAccessTokenCookie calls gin.responseWriter.WriteHeaderNow, which calls http.response.WriteHeader
+      #193: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.response.WriteString
+      #194: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.response.WriteString
+      #195: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.transportReadFromServerError.Error
+      #196: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.transportReadFromServerError.Error
+
+Vulnerability #5: GO-2026-6610
+    HTTP/2 transport accepts malformed framing-related headers in net/http
+  More info: https://pkg.go.dev/vuln/GO-2026-6610
+  Module: golang.org/x/net
+    Found in: golang.org/x/net@v0.57.0
+    Fixed in: golang.org/x/net@v0.60.0
+    Example traces found:
+      #1: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.Transport.NewClientConn
+      #2: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.Transport.RoundTrip
+      #3: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.noDialH2RoundTripper.NewClientConn
+      #4: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.noDialH2RoundTripper.RoundTrip
+      #5: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.unencryptedTransport.RoundTrip
+
+  Standard library
+    Found in: net/http@go1.26.6
+    Fixed in: net/http@go1.26.9
+    Example traces found:
+      #1: internal/shared/websearch/manager.go:400:31: websearch.Manager.getOrCreateHTTPClient calls http.Client.CloseIdleConnections
+      #2: internal/shared/websearch/manager.go:400:31: websearch.Manager.getOrCreateHTTPClient calls http.Client.CloseIdleConnections
+      #3: internal/application/service/batch_image_provider_vertex.go:930:24: service.VertexGCSObjectStore.OpenObject calls http.Client.Do
+      #4: internal/application/service/batch_image_provider_vertex.go:930:24: service.VertexGCSObjectStore.OpenObject calls http.Client.Do
+      #5: internal/infrastructure/repository/http_upstream_public.go:107:33: repository.publicDestinationTransport.RoundTrip calls http.Transport.CloseIdleConnections
+      #6: internal/infrastructure/repository/http_upstream_public.go:107:33: repository.publicDestinationTransport.RoundTrip calls http.Transport.CloseIdleConnections
+      #7: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip
+      #8: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip
+
+Vulnerability #6: GO-2026-6609
+    Lack of limit on size of parsed Range headers in net/http
+  More info: https://pkg.go.dev/vuln/GO-2026-6609
+  Standard library
+    Found in: net/http@go1.26.6
+    Fixed in: net/http@go1.26.9
+    Example traces found:
+      #1: internal/transport/http/handler/page_handler.go:128:8: handler.PageHandler.ServePageImage calls gin.Context.File, which calls http.ServeFile
+
+Vulnerability #7: GO-2026-6608
+    Memory limit bypass when parsing MIME headers in net/textproto,
+    mime/multipart
+  More info: https://pkg.go.dev/vuln/GO-2026-6608
+  Standard library
+    Found in: net/textproto@go1.26.6
+    Fixed in: net/textproto@go1.26.9
+    Example traces found:
+      #1: internal/application/service/openai_images.go:339:31: service.parseOpenAIImagesMultipartRequest calls multipart.Reader.NextPart
+      #2: internal/transport/http/handler/supportchatasset/image.go:38:36: supportchatasset.ParseUpload calls http.Request.FormFile, which eventually calls multipart.Reader.ReadForm
+      #3: internal/shared/tlsfingerprint/dialer.go:272:32: tlsfingerprint.HTTPProxyDialer.DialTLSContext calls http.ReadResponse, which calls textproto.Reader.ReadMIMEHeader
+
+Vulnerability #8: GO-2026-6607
+    Reject malformed ECH outer extension references in crypto/tls
+  More info: https://pkg.go.dev/vuln/GO-2026-6607
+  Standard library
+    Found in: crypto/tls@go1.26.6
+    Fixed in: crypto/tls@go1.26.9
+    Example traces found:
+      #1: internal/infrastructure/repository/server_timing_sql.go:24:29: repository.serverTimingConnector.Connect calls pq.Connector.Connect, which eventually calls tls.Conn.Handshake
+      #2: internal/shared/tlsfingerprint/dialer.go:240:38: tlsfingerprint.HTTPProxyDialer.DialTLSContext calls tls.Conn.HandshakeContext
+      #3: internal/infrastructure/repository/http_upstream_public_proxy.go:85:82: repository.publicImageProxyConn.Read calls bufio.Reader.Read, which calls tls.Conn.Read
+      #4: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls tls.Conn.Write
+      #5: internal/application/service/email_service.go:253:34: service.EmailService.connectSMTP calls tls.DialWithDialer
+      #6: internal/infrastructure/repository/http_upstream.go:529:31: repository.grokAccessDeniedFallbackTransport.RoundTrip calls req.Transport.RoundTrip, which eventually calls tls.Dialer.DialContext
+      #7: internal/infrastructure/repository/http_upstream.go:529:31: repository.grokAccessDeniedFallbackTransport.RoundTrip calls req.Transport.RoundTrip, which eventually calls tls.QUICConn.Start
+
+Vulnerability #9: GO-2026-6605
+    HTTP/1 client connection desynchronization after CONNECT rejection in
+    net/http
+  More info: https://pkg.go.dev/vuln/GO-2026-6605
+  Standard library
+    Found in: net/http@go1.26.6
+    Fixed in: net/http@go1.26.9
+    Example traces found:
+      #1: internal/shared/websearch/manager.go:400:31: websearch.Manager.getOrCreateHTTPClient calls http.Client.CloseIdleConnections
+      #2: internal/application/service/batch_image_provider_vertex.go:930:24: service.VertexGCSObjectStore.OpenObject calls http.Client.Do
+      #3: internal/infrastructure/repository/http_upstream_public.go:107:33: repository.publicDestinationTransport.RoundTrip calls http.Transport.CloseIdleConnections
+      #4: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip
+      #5: internal/infrastructure/repository/backup_s3_store.go:98:47: repository.S3BackupStore.PresignURL calls s3.PresignClient.PresignGetObject, which eventually calls httputil.DumpRequestOut
+
+Vulnerability #10: GO-2026-6603
+    HTTP/2 server memory exhaustion due to Trailer headers in net/http
+  More info: https://pkg.go.dev/vuln/GO-2026-6603
+  Module: golang.org/x/net
+    Found in: golang.org/x/net@v0.57.0
+    Fixed in: golang.org/x/net@v0.60.0
+    Example traces found:
+      #1: internal/transport/http/server/http.go:147:34: server.ProvideHTTPServer calls http2.ConfigureServer
+      #2: internal/infrastructure/repository/http_upstream.go:1720:38: repository.enableOpenAIHTTP2KeepAlive calls http2.ConfigureTransports
+      #3: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.ConnectionError.Error
+      #4: internal/application/service/openai_codex_models_service.go:137:80: service.isRetryableCodexModelsManifestTransportError calls http2.ErrCode.String
+      #5: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http2.FrameHeader.String
+      #6: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http2.FrameType.String
+      #7: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http2.FrameWriteRequest.String
+      #8: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.GoAwayError.Error
+      #9: cmd/server/main.go:129:33: server.runSetupServer calls http.Server.ListenAndServe, which eventually calls http2.Server.ServeConn
+      #10: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http2.Setting.String
+      #11: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http2.SettingID.String
+      #12: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.StreamError.Error
+      #13: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.Transport.NewClientConn
+      #14: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.Transport.RoundTrip
+      #15: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http2.bufferedWriterTimeoutWriter.Write
+      #16: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http2.chunkWriter.Write
+      #17: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.connError.Error
+      #18: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.duplicatePseudoHeaderError.Error
+      #19: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http2.gzipReader.Close
+      #20: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http2.gzipReader.Read
+      #21: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.headerFieldNameError.Error
+      #22: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.headerFieldValueError.Error
+      #23: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.netHTTPClientConn.RoundTrip
+      #24: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.noDialH2RoundTripper.NewClientConn
+      #25: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.noDialH2RoundTripper.RoundTrip
+      #26: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http2.pseudoHeaderError.Error
+      #27: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http2.requestBody.Close
+      #28: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http2.requestBody.Read
+      #29: internal/transport/http/handler/ops_error_logger.go:617:24: handler.opsCaptureWriter.Flush calls gin.responseWriter.Flush, which calls http2.responseWriter.Flush
+      #30: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http2.responseWriter.Write
+      #31: internal/transport/http/handler/auth_linuxdo_oauth.go:1184:25: handler.AuthHandler.PrepareOAuthBindAccessTokenCookie calls gin.responseWriter.WriteHeaderNow, which calls http2.responseWriter.WriteHeader
+      #32: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http2.responseWriter.WriteString
+      #33: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http2.stickyErrWriter.Write
+      #34: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http2.transportResponseBody.Close
+      #35: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http2.transportResponseBody.Read
+      #36: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip, which eventually calls http2.unencryptedTransport.RoundTrip
+      #37: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http2.writeData.String
+
+  Standard library
+    Found in: net/http@go1.26.6
+    Fixed in: net/http@go1.26.9
+    Example traces found:
+      #1: internal/application/service/openai_gateway_passthrough.go:2945:33: service.writeOpenAIPassthroughResponseHeaders calls http.CanonicalHeaderKey
+      #2: internal/application/service/openai_gateway_passthrough.go:2945:33: service.writeOpenAIPassthroughResponseHeaders calls http.CanonicalHeaderKey
+      #3: internal/shared/websearch/manager.go:400:31: websearch.Manager.getOrCreateHTTPClient calls http.Client.CloseIdleConnections
+      #4: internal/shared/websearch/manager.go:400:31: websearch.Manager.getOrCreateHTTPClient calls http.Client.CloseIdleConnections
+      #5: internal/application/service/batch_image_provider_vertex.go:930:24: service.VertexGCSObjectStore.OpenObject calls http.Client.Do
+      #6: internal/application/service/batch_image_provider_vertex.go:930:24: service.VertexGCSObjectStore.OpenObject calls http.Client.Do
+      #7: internal/transport/http/handler/openai_live.go:253:35: handler.OpenAIGatewayHandler.LiveSideband calls websocket.Accept, which eventually calls http.Error
+      #8: internal/transport/http/handler/openai_live.go:253:35: handler.OpenAIGatewayHandler.LiveSideband calls websocket.Accept, which eventually calls http.Error
+      #9: internal/application/service/openai_codex_models_service.go:313:16: service.OpenAIGatewayService.FetchCodexModelsManifest calls http.Header.Add
+      #10: internal/application/service/openai_codex_models_service.go:313:16: service.OpenAIGatewayService.FetchCodexModelsManifest calls http.Header.Add
+      #11: internal/application/service/openai_codex_models_service.go:364:21: service.OpenAIGatewayService.FetchCodexModelsManifest calls http.Header.Del
+      #12: internal/application/service/openai_codex_models_service.go:364:21: service.OpenAIGatewayService.FetchCodexModelsManifest calls http.Header.Del
+      #13: internal/application/service/gemini_messages_compat_service.go:2738:36: service.GeminiMessagesCompatService.ForwardAIStudioGET calls http.Header.Get
+      #14: internal/application/service/gemini_messages_compat_service.go:2738:36: service.GeminiMessagesCompatService.ForwardAIStudioGET calls http.Header.Get
+      #15: internal/application/service/gemini_messages_compat_service.go:2717:17: service.GeminiMessagesCompatService.ForwardAIStudioGET calls http.Header.Set
+      #16: internal/application/service/gemini_messages_compat_service.go:2717:17: service.GeminiMessagesCompatService.ForwardAIStudioGET calls http.Header.Set
+      #17: internal/application/service/openai_ws_forwarder_payload.go:115:48: service.OpenAIGatewayService.buildOpenAIWSHeaders calls http.Header.Values
+      #18: internal/application/service/openai_ws_forwarder_payload.go:115:48: service.OpenAIGatewayService.buildOpenAIWSHeaders calls http.Header.Values
+      #19: internal/infrastructure/repository/http_upstream.go:529:31: repository.grokAccessDeniedFallbackTransport.RoundTrip calls req.Transport.RoundTrip, which eventually calls http.Header.Write
+      #20: internal/infrastructure/repository/http_upstream.go:529:31: repository.grokAccessDeniedFallbackTransport.RoundTrip calls req.Transport.RoundTrip, which eventually calls http.Header.Write
+      #21: internal/transport/http/handler/admin/user_permission_groups.go:68:9: admin.UserHandler.RequireManagedUser calls gin.Context.Next, which eventually calls http.Header.WriteSubset
+      #22: internal/transport/http/handler/admin/user_permission_groups.go:68:9: admin.UserHandler.RequireManagedUser calls gin.Context.Next, which eventually calls http.Header.WriteSubset
+      #23: internal/modules/payment/provider/stripe.go:341:40: provider.Stripe.CancelPayment calls stripe.v1PaymentIntentService.Cancel, which eventually calls http.NewRequest
+      #24: internal/modules/payment/provider/stripe.go:341:40: provider.Stripe.CancelPayment calls stripe.v1PaymentIntentService.Cancel, which eventually calls http.NewRequest
+      #25: internal/application/service/gemini_messages_compat_service.go:2706:40: service.GeminiMessagesCompatService.ForwardAIStudioGET calls http.NewRequestWithContext
+      #26: internal/application/service/gemini_messages_compat_service.go:2706:40: service.GeminiMessagesCompatService.ForwardAIStudioGET calls http.NewRequestWithContext
+      #27: internal/shared/basispoints/image_relay.go:430:16: basispoints.ImageRelay.ServeHTTP calls http.NotFound
+      #28: internal/shared/basispoints/image_relay.go:430:16: basispoints.ImageRelay.ServeHTTP calls http.NotFound
+      #29: internal/application/service/ratelimit_service.go:2475:34: service.parseRetryAfterResetTime calls http.ParseTime
+      #30: internal/application/service/ratelimit_service.go:2475:34: service.parseRetryAfterResetTime calls http.ParseTime
+      #31: internal/infrastructure/repository/http_upstream.go:529:31: repository.grokAccessDeniedFallbackTransport.RoundTrip calls req.Transport.RoundTrip, which eventually calls http.ProxyFromEnvironment
+      #32: internal/infrastructure/repository/http_upstream.go:529:31: repository.grokAccessDeniedFallbackTransport.RoundTrip calls req.Transport.RoundTrip, which eventually calls http.ProxyFromEnvironment
+      #33: internal/infrastructure/repository/backup_s3_store.go:98:47: repository.S3BackupStore.PresignURL calls s3.PresignClient.PresignGetObject, which eventually calls http.ReadRequest
+      #34: internal/infrastructure/repository/backup_s3_store.go:98:47: repository.S3BackupStore.PresignURL calls s3.PresignClient.PresignGetObject, which eventually calls http.ReadRequest
+      #35: internal/shared/tlsfingerprint/dialer.go:272:32: tlsfingerprint.HTTPProxyDialer.DialTLSContext calls http.ReadResponse
+      #36: internal/shared/tlsfingerprint/dialer.go:272:32: tlsfingerprint.HTTPProxyDialer.DialTLSContext calls http.ReadResponse
+      #37: internal/application/service/gemini_messages_compat_service.go:1399:11: service.GeminiMessagesCompatService.ForwardNative calls gin.Context.Data, which eventually calls http.Redirect
+      #38: internal/application/service/gemini_messages_compat_service.go:1399:11: service.GeminiMessagesCompatService.ForwardNative calls gin.Context.Data, which eventually calls http.Redirect
+      #39: internal/modules/payment/provider/alipay.go:241:34: provider.Alipay.QueryOrder calls alipay.Client.TradeQuery, which eventually calls http.Request.AddCookie
+      #40: internal/modules/payment/provider/alipay.go:241:34: provider.Alipay.QueryOrder calls alipay.Client.TradeQuery, which eventually calls http.Request.AddCookie
+      #41: internal/transport/http/handler/auth_linuxdo_oauth.go:1034:29: handler.readCookieDecoded calls http.Request.Cookie
+      #42: internal/transport/http/handler/auth_linuxdo_oauth.go:1034:29: handler.readCookieDecoded calls http.Request.Cookie
+      #43: internal/transport/http/handler/supportchatasset/image.go:38:36: supportchatasset.ParseUpload calls http.Request.FormFile
+      #44: internal/transport/http/handler/supportchatasset/image.go:38:36: supportchatasset.ParseUpload calls http.Request.FormFile
+      #45: internal/transport/http/handler/oauth2_provider_handler.go:190:31: handler.OAuth2ProviderHandler.Revoke calls http.Request.ParseForm
+      #46: internal/transport/http/handler/oauth2_provider_handler.go:190:31: handler.OAuth2ProviderHandler.Revoke calls http.Request.ParseForm
+      #47: internal/transport/http/handler/oauth2_provider_handler.go:199:65: handler.OAuth2ProviderHandler.Revoke calls gin.Context.PostForm, which eventually calls http.Request.ParseMultipartForm
+      #48: internal/transport/http/handler/oauth2_provider_handler.go:199:65: handler.OAuth2ProviderHandler.Revoke calls gin.Context.PostForm, which eventually calls http.Request.ParseMultipartForm
+      #49: internal/transport/http/handler/payment_handler.go:292:37: handler.PaymentHandler.CreateOrder calls http.Request.Referer
+      #50: internal/transport/http/handler/payment_handler.go:292:37: handler.PaymentHandler.CreateOrder calls http.Request.Referer
+      #51: internal/transport/http/handler/admin/audit_log_handler.go:153:40: admin.AuditLogHandler.Clear calls http.Request.UserAgent
+      #52: internal/transport/http/handler/admin/audit_log_handler.go:153:40: admin.AuditLogHandler.Clear calls http.Request.UserAgent
+      #53: internal/shared/tlsfingerprint/dialer.go:264:21: tlsfingerprint.HTTPProxyDialer.DialTLSContext calls http.Request.Write
+      #54: internal/shared/tlsfingerprint/dialer.go:264:21: tlsfingerprint.HTTPProxyDialer.DialTLSContext calls http.Request.Write
+      #55: internal/shared/xai/sso_device.go:353:41: xai.ssoDeviceFlow.captureCookies calls http.Response.Cookies
+      #56: internal/shared/xai/sso_device.go:353:41: xai.ssoDeviceFlow.captureCookies calls http.Response.Cookies
+      #57: internal/infrastructure/repository/backup_s3_store.go:98:47: repository.S3BackupStore.PresignURL calls s3.PresignClient.PresignGetObject, which eventually calls http.Response.Write
+      #58: internal/infrastructure/repository/backup_s3_store.go:98:47: repository.S3BackupStore.PresignURL calls s3.PresignClient.PresignGetObject, which eventually calls http.Response.Write
+      #59: internal/transport/http/handler/page_handler.go:128:8: handler.PageHandler.ServePageImage calls gin.Context.File, which calls http.ServeFile
+      #60: internal/transport/http/handler/page_handler.go:128:8: handler.PageHandler.ServePageImage calls gin.Context.File, which calls http.ServeFile
+      #61: cmd/server/main.go:190:34: server.runMainServer calls http.Server.Close
+      #62: cmd/server/main.go:190:34: server.runMainServer calls http.Server.Close
+      #63: cmd/server/main.go:129:33: server.runSetupServer calls http.Server.ListenAndServe
+      #64: cmd/server/main.go:129:33: server.runSetupServer calls http.Server.ListenAndServe
+      #65: cmd/server/main.go:188:31: server.runMainServer calls http.Server.Shutdown
+      #66: cmd/server/main.go:188:31: server.runMainServer calls http.Server.Shutdown
+      #67: internal/transport/http/handler/auth_wechat_oauth.go:1337:16: handler.wechatPaymentSetCookie calls http.SetCookie
+      #68: internal/transport/http/handler/auth_wechat_oauth.go:1337:16: handler.wechatPaymentSetCookie calls http.SetCookie
+      #69: internal/infrastructure/repository/http_upstream.go:1915:16: repository.zstdResponseReader.Read calls sync.Once.Do, which eventually calls http.Transport.Clone
+      #70: internal/infrastructure/repository/http_upstream.go:1915:16: repository.zstdResponseReader.Read calls sync.Once.Do, which eventually calls http.Transport.Clone
+      #71: internal/infrastructure/repository/http_upstream_public.go:107:33: repository.publicDestinationTransport.RoundTrip calls http.Transport.CloseIdleConnections
+      #72: internal/infrastructure/repository/http_upstream_public.go:107:33: repository.publicDestinationTransport.RoundTrip calls http.Transport.CloseIdleConnections
+      #73: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip
+      #74: internal/infrastructure/repository/http_upstream_public.go:106:35: repository.publicDestinationTransport.RoundTrip calls http.Transport.RoundTrip
+      #75: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.body.Close
+      #76: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.body.Close
+      #77: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.body.Read
+      #78: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.body.Read
+      #79: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.bodyEOFSignal.Close
+      #80: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.bodyEOFSignal.Close
+      #81: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.bodyEOFSignal.Read
+      #82: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.bodyEOFSignal.Read
+      #83: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls io.LimitedReader.Read, which calls http.bodyLocked.Read
+      #84: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls io.LimitedReader.Read, which calls http.bodyLocked.Read
+      #85: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.bufioFlushWriter.Write
+      #86: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.bufioFlushWriter.Write
+      #87: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.cancelTimerBody.Close
+      #88: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.cancelTimerBody.Close
+      #89: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.cancelTimerBody.Read
+      #90: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.cancelTimerBody.Read
+      #91: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.checkConnErrorWriter.Write
+      #92: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.checkConnErrorWriter.Write
+      #93: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.chunkWriter.Write
+      #94: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.chunkWriter.Write
+      #95: internal/infrastructure/repository/http_upstream_public_proxy.go:85:82: repository.publicImageProxyConn.Read calls bufio.Reader.Read, which calls http.connReader.Read
+      #96: internal/infrastructure/repository/http_upstream_public_proxy.go:85:82: repository.publicImageProxyConn.Read calls bufio.Reader.Read, which calls http.connReader.Read
+      #97: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.expectContinueReader.Close
+      #98: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.expectContinueReader.Close
+      #99: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.expectContinueReader.Read
+      #100: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.expectContinueReader.Read
+      #101: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.gzipReader.Close
+      #102: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.gzipReader.Close
+      #103: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.gzipReader.Read
+      #104: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.gzipReader.Read
+      #105: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2ConnectionError.Error
+      #106: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2ConnectionError.Error
+      #107: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2ErrCode.String
+      #108: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2ErrCode.String
+      #109: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2FrameHeader.String
+      #110: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2FrameHeader.String
+      #111: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2FrameType.String
+      #112: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2FrameType.String
+      #113: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2FrameWriteRequest.String
+      #114: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2FrameWriteRequest.String
+      #115: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2GoAwayError.Error
+      #116: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2GoAwayError.Error
+      #117: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2Setting.String
+      #118: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2Setting.String
+      #119: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2SettingID.String
+      #120: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2SettingID.String
+      #121: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2StreamError.Error
+      #122: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2StreamError.Error
+      #123: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.http2bufferedWriterTimeoutWriter.Write
+      #124: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.http2bufferedWriterTimeoutWriter.Write
+      #125: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.http2chunkWriter.Write
+      #126: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.http2chunkWriter.Write
+      #127: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2connError.Error
+      #128: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2connError.Error
+      #129: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2duplicatePseudoHeaderError.Error
+      #130: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2duplicatePseudoHeaderError.Error
+      #131: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.http2gzipReader.Close
+      #132: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.http2gzipReader.Close
+      #133: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.http2gzipReader.Read
+      #134: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.http2gzipReader.Read
+      #135: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2headerFieldNameError.Error
+      #136: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2headerFieldNameError.Error
+      #137: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2headerFieldValueError.Error
+      #138: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2headerFieldValueError.Error
+      #139: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2pseudoHeaderError.Error
+      #140: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.http2pseudoHeaderError.Error
+      #141: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.http2requestBody.Close
+      #142: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.http2requestBody.Close
+      #143: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.http2requestBody.Read
+      #144: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.http2requestBody.Read
+      #145: internal/transport/http/handler/ops_error_logger.go:617:24: handler.opsCaptureWriter.Flush calls gin.responseWriter.Flush, which calls http.http2responseWriter.Flush
+      #146: internal/transport/http/handler/ops_error_logger.go:617:24: handler.opsCaptureWriter.Flush calls gin.responseWriter.Flush, which calls http.http2responseWriter.Flush
+      #147: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.http2responseWriter.Write
+      #148: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.http2responseWriter.Write
+      #149: internal/transport/http/handler/auth_linuxdo_oauth.go:1184:25: handler.AuthHandler.PrepareOAuthBindAccessTokenCookie calls gin.responseWriter.WriteHeaderNow, which calls http.http2responseWriter.WriteHeader
+      #150: internal/transport/http/handler/auth_linuxdo_oauth.go:1184:25: handler.AuthHandler.PrepareOAuthBindAccessTokenCookie calls gin.responseWriter.WriteHeaderNow, which calls http.http2responseWriter.WriteHeader
+      #151: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.http2responseWriter.WriteString
+      #152: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.http2responseWriter.WriteString
+      #153: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.http2stickyErrWriter.Write
+      #154: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.http2stickyErrWriter.Write
+      #155: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.http2transportResponseBody.Close
+      #156: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.http2transportResponseBody.Close
+      #157: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.http2transportResponseBody.Read
+      #158: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.http2transportResponseBody.Read
+      #159: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2writeData.String
+      #160: internal/application/service/user_service.go:1010:48: service.firstStringIdentityValue calls http.http2writeData.String
+      #161: internal/transport/http/handler/admin/ops_ws_handler.go:328:32: admin.OpsHandler.QPSWSHandler calls websocket.Upgrader.Upgrade, which calls http.loggingConn.Close
+      #162: internal/transport/http/handler/admin/ops_ws_handler.go:328:32: admin.OpsHandler.QPSWSHandler calls websocket.Upgrader.Upgrade, which calls http.loggingConn.Close
+      #163: internal/infrastructure/repository/http_upstream_public_proxy.go:85:82: repository.publicImageProxyConn.Read calls bufio.Reader.Read, which calls http.loggingConn.Read
+      #164: internal/infrastructure/repository/http_upstream_public_proxy.go:85:82: repository.publicImageProxyConn.Read calls bufio.Reader.Read, which calls http.loggingConn.Read
+      #165: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.loggingConn.Write
+      #166: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.loggingConn.Write
+      #167: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.maxBytesReader.Close
+      #168: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.maxBytesReader.Close
+      #169: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.maxBytesReader.Read
+      #170: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.maxBytesReader.Read
+      #171: internal/infrastructure/repository/http_upstream.go:1915:16: repository.zstdResponseReader.Read calls sync.Once.Do, which eventually calls http.onceCloseListener.Close
+      #172: internal/infrastructure/repository/http_upstream.go:1915:16: repository.zstdResponseReader.Read calls sync.Once.Do, which eventually calls http.onceCloseListener.Close
+      #173: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.persistConn.Read
+      #174: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.persistConn.Read
+      #175: internal/application/service/batch_image_provider_gemini.go:534:22: service.GeminiBatchHTTPClient.UploadJSONL calls io.Copy, which eventually calls http.persistConnWriter.ReadFrom
+      #176: internal/application/service/batch_image_provider_gemini.go:534:22: service.GeminiBatchHTTPClient.UploadJSONL calls io.Copy, which eventually calls http.persistConnWriter.ReadFrom
+      #177: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.persistConnWriter.Write
+      #178: internal/transport/http/handler/admin/redeem_handler.go:509:25: admin.RedeemHandler.ExportGenerated calls csv.Writer.Error, which eventually calls http.persistConnWriter.Write
+      #179: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.readTrackingBody.Close
+      #180: internal/infrastructure/repository/http_upstream.go:1937:23: repository.decompressedBody.Close calls http.readTrackingBody.Close
+      #181: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.readTrackingBody.Read
+      #182: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.readTrackingBody.Read
+      #183: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.readWriteCloserBody.Read
+      #184: internal/application/service/batch_image_provider_vertex.go:708:27: service.vertexCombinedJSONLReadCloser.Read calls http.readWriteCloserBody.Read
+      #185: internal/transport/http/handler/ops_error_logger.go:617:24: handler.opsCaptureWriter.Flush calls gin.responseWriter.Flush, which calls http.response.Flush
+      #186: internal/transport/http/handler/ops_error_logger.go:617:24: handler.opsCaptureWriter.Flush calls gin.responseWriter.Flush, which calls http.response.Flush
+      #187: internal/transport/http/handler/ops_error_logger.go:624:32: handler.opsCaptureWriter.Hijack calls gin.responseWriter.Hijack, which calls http.response.Hijack
+      #188: internal/transport/http/handler/ops_error_logger.go:624:32: handler.opsCaptureWriter.Hijack calls gin.responseWriter.Hijack, which calls http.response.Hijack
+      #189: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.response.Write
+      #190: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.response.Write
+      #191: internal/transport/http/handler/auth_linuxdo_oauth.go:1184:25: handler.AuthHandler.PrepareOAuthBindAccessTokenCookie calls gin.responseWriter.WriteHeaderNow, which calls http.response.WriteHeader
+      #192: internal/transport/http/handler/auth_linuxdo_oauth.go:1184:25: handler.AuthHandler.PrepareOAuthBindAccessTokenCookie calls gin.responseWriter.WriteHeaderNow, which calls http.response.WriteHeader
+      #193: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.response.WriteString
+      #194: internal/application/service/openai_first_output_timeout.go:145:26: service.openAIFirstOutputStage.WriteString calls io.WriteString, which calls http.response.WriteString
+      #195: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.transportReadFromServerError.Error
+      #196: internal/transport/http/handler/admin/account_handler.go:2981:55: admin.AccountHandler.SyncUpstreamModelsPreview calls http.transportReadFromServerError.Error
+
+Your code is affected by 10 vulnerabilities from the Go standard library.
+This scan also found 3 vulnerabilities in packages you import and 6
+vulnerabilities in modules you require, but your code doesn't appear to call
+these vulnerabilities.
+Use '-show verbose' for more details.

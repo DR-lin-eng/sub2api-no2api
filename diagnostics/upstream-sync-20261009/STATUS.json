@@ -1,0 +1,21 @@
+{
+  "baseline_sha": "03a9207f932378207bf07ad09ce57aa154b5e0cd",
+  "previous_upstream_sha": "5fc0e486c3f6a8a191b8bd140f39b60457f611cf",
+  "upstream_sha": "3a6fd1c9db07203ca308aaba69e502bc1f35b307",
+  "version_commit": {
+    "sha": "3a6fd1c9db07203ca308aaba69e502bc1f35b307",
+    "status": "intentional-fork-version-line-retained",
+    "closed": true
+  },
+  "prior_ledgers": "Unmodified: all earlier closed differences stay closed; independent deferrals are neither implemented nor closed by tracking ancestry.",
+  "active_object": "/private/tmp/sub2api-upstream-sync-20261009",
+  "last_confirmed_result": "All local acceptance gates PASS; source commit 2e934b245 + tracking merge fc9475962; 34 paths hash-verified; same-DB upgrade/rollback PASS; original worktree untouched.",
+  "next_executable_action": "Commit verification ledger, push branch, create PR, exact-head CI, merge, post-merge CI/Docker/GHCR readback.",
+  "input_paths": [
+    "SOURCE_PATHS.txt",
+    "UPSTREAM_PRS.json",
+    "VERIFICATION.txt",
+    "records/"
+  ],
+  "acceptance_event": "Exact published PR/head/main checks and GHCR confirmed; deferred new platform functionality remains explicit."
+}

@@ -1,0 +1,33 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "-e",
+    "GOMAXPROCS=2",
+    "-e",
+    "GOFLAGS=-p=2",
+    "-e",
+    "GOMEMLIMIT=1200MiB",
+    "-v",
+    "/private/tmp/sub2api-upstream-sync-20261009/backend:/workspace",
+    "-v",
+    "sub2api-go-mod-20261007:/go/pkg/mod",
+    "-v",
+    "sub2api-go-build-20261007:/root/.cache/go-build",
+    "-w",
+    "/workspace",
+    "sub2api-upstream-sync-test:20260930",
+    "go",
+    "test",
+    "-tags=unit",
+    "./..."
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261009",
+  "exit_status": 0,
+  "elapsed_s": 297.70972845799406,
+  "utc": "2026-10-09T08:44:46.045546+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "ceb7f2a30e25398f6369fc83e3b9614ae784f9b52f0507a55ebc748dbd7195d8",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

@@ -1,0 +1,33 @@
+golangci-lint has version 2.9.0 built with go1.26.0 from 72798d34 on 2026-02-10T23:13:22Z
+internal/application/service/openai_codex_models_service.go:92:16: SA1019: http2.GoAwayError is deprecated: GoAwayError is deprecated. (staticcheck)
+	var goAwayErr http2.GoAwayError
+	              ^
+internal/application/service/openai_codex_models_service_test.go:95:15: SA1019: http2.GoAwayError is deprecated: GoAwayError is deprecated. (staticcheck)
+			err:       http2.GoAwayError{ErrCode: http2.ErrCodeNo},
+			           ^
+internal/infrastructure/repository/http_upstream.go:1719:62: SA1019: http2.Transport is deprecated: Use [http.Transport] instead. (staticcheck)
+func enableOpenAIHTTP2KeepAlive(transport *http.Transport) (*http2.Transport, error) {
+                                                             ^
+internal/infrastructure/repository/http_upstream.go:1720:13: SA1019: http2.ConfigureTransports is deprecated: Set [http.Transport.Protocols] instead. (staticcheck)
+	h2, err := http2.ConfigureTransports(transport)
+	           ^
+internal/infrastructure/repository/http_upstream.go:1725:3: SA1019: h2.ReadIdleTimeout is deprecated: Use [http.Transport.HTTP2] and [http.HTTP2Config.SendPingTimeout] instead. (staticcheck)
+		h2.ReadIdleTimeout = openAIHTTP2ReadIdleTimeout
+		^
+internal/infrastructure/repository/http_upstream.go:1726:3: SA1019: h2.PingTimeout is deprecated: Use [http.Transport.HTTP2] and [http.HTTP2Config.PingTimeout] instead. (staticcheck)
+		h2.PingTimeout = openAIHTTP2PingTimeout
+		^
+internal/infrastructure/repository/http_upstream_http2_keepalive_test.go:34:22: SA1019: h2.ReadIdleTimeout is deprecated: Use [http.Transport.HTTP2] and [http.HTTP2Config.SendPingTimeout] instead. (staticcheck)
+	require.Positive(t, h2.ReadIdleTimeout, "必须启用空闲 PING 探测以剔除死连接")
+	                    ^
+internal/infrastructure/repository/http_upstream_http2_keepalive_test.go:35:47: SA1019: h2.ReadIdleTimeout is deprecated: Use [http.Transport.HTTP2] and [http.HTTP2Config.SendPingTimeout] instead. (staticcheck)
+	require.Equal(t, openAIHTTP2ReadIdleTimeout, h2.ReadIdleTimeout)
+	                                             ^
+internal/infrastructure/repository/http_upstream_http2_keepalive_test.go:36:43: SA1019: h2.PingTimeout is deprecated: Use [http.Transport.HTTP2] and [http.HTTP2Config.PingTimeout] instead. (staticcheck)
+	require.Equal(t, openAIHTTP2PingTimeout, h2.PingTimeout, "PING 无响应必须有超时判定")
+	                                         ^
+internal/transport/http/server/http.go:147:13: SA1019: http2.ConfigureServer is deprecated: Set [http.Server.Protocols] instead. (staticcheck)
+		if err := http2.ConfigureServer(server, &http2.Server{
+		          ^
+10 issues:
+* staticcheck: 10

@@ -182,6 +182,8 @@ Codex Desktop 新建委派任务或启动定时任务时，首轮可能注入没
 不得把 `fco_*` item `id` 伪造成 `call_id`。其他工具输出仍必须携带可与真实调用上下文配对的
 `call_id`，未知或含歧义调用上下文的输入不会进入该兼容分支。
 
+OAuth Responses 回放历史含 `web_search_call`、但顶层与 `additional_tools` 都未声明搜索工具时，网关补充 `external_web_access:false` 的缓存搜索声明。标准协议放顶层 `tools`；Lite 放第一个 `input.additional_tools`，缺失时插在末尾 `compaction_trigger` 之前。原本完全无工具且 `tool_choice` 缺省/auto/none 时固定 none，调用方已有工具或显式其他选择保持原样。HTTP transform/passthrough 与普通/透传 WS 的每轮共享此规则；旧 unary `/responses/compact`、API Key、其他平台和 BPS 独立协议不注入。原历史项、数值和非目标字节不被整段重编码。
+
 ### Claude Messages 的上下文控制与 Compact
 
 `/v1/messages` 与 `/v1/responses` 是两条独立的兼容链路。OpenAI 目标的

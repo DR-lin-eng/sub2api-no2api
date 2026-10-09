@@ -1,0 +1,50 @@
+2026/10/09 08:31:04 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestForwardOAuthWebSearchHistory20261009
+=== RUN   TestForwardOAuthWebSearchHistory20261009/transform
+OBSERVED path=transform declared=web_search choice=none trigger_last=true input_history=web_search_call
+=== RUN   TestForwardOAuthWebSearchHistory20261009/passthrough
+2026/10/09 08:31:04 [OpenAI 自动透传] 命中自动透传分支: account=501 name=history-fixture type=oauth model=gpt-6-astra stream=true
+OBSERVED path=passthrough declared=web_search choice=none trigger_last=true input_history=web_search_call
+=== RUN   TestForwardOAuthWebSearchHistory20261009/transform-lite
+OBSERVED path=transform-lite declared=web_search choice=none trigger_last=true input_history=web_search_call
+=== RUN   TestForwardOAuthWebSearchHistory20261009/passthrough-lite
+2026/10/09 08:31:04 [OpenAI 自动透传] 命中自动透传分支: account=501 name=history-fixture type=oauth model=gpt-6-astra stream=true
+OBSERVED path=passthrough-lite declared= choice=none trigger_last=false input_history=web_search_call
+    openai_oauth_web_search_history_forward_test.go:57: 
+        	Error Trace:	/workspace/internal/application/service/openai_oauth_web_search_history_forward_test.go:57
+        	Error:      	Not equal: 
+        	            	expected: "web_search"
+        	            	actual  : ""
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-web_search
+        	            	+
+        	Test:       	TestForwardOAuthWebSearchHistory20261009/passthrough-lite
+--- FAIL: TestForwardOAuthWebSearchHistory20261009 (0.00s)
+    --- PASS: TestForwardOAuthWebSearchHistory20261009/transform (0.00s)
+    --- PASS: TestForwardOAuthWebSearchHistory20261009/passthrough (0.00s)
+    --- PASS: TestForwardOAuthWebSearchHistory20261009/transform-lite (0.00s)
+    --- FAIL: TestForwardOAuthWebSearchHistory20261009/passthrough-lite (0.00s)
+=== RUN   TestEnsureOpenAIOAuthWebSearchToolForHistory_StandardAndLite
+--- PASS: TestEnsureOpenAIOAuthWebSearchToolForHistory_StandardAndLite (0.00s)
+=== RUN   TestEnsureOpenAIOAuthWebSearchToolForHistory_RawMatchesMap
+    openai_oauth_web_search_history_test.go:45: 
+        	Error Trace:	/workspace/internal/application/service/openai_oauth_web_search_history_test.go:45
+        	Error:      	Input ('{"model":"gpt-6-astra","input":[{"type":"message","role":"user","content":"look it up"},{"type":"web_search_call","id":"ws_1","status":"completed","action":{"type":"search","query":"q"}},{"type":"message","role":"assistant","content":"found"},{"type":"compaction_trigger"}],{"type":"additional_tools","role":"developer","tools":[{"type":"web_search","external_web_access":false}]},"tools":[],"tool_choice":"auto","tool_choice":"none"}') needs to be valid json.
+        	            	JSON parsing error: 'invalid character '{' looking for beginning of object key string'
+        	Test:       	TestEnsureOpenAIOAuthWebSearchToolForHistory_RawMatchesMap
+--- FAIL: TestEnsureOpenAIOAuthWebSearchToolForHistory_RawMatchesMap (0.00s)
+=== RUN   TestEnsureOpenAIOAuthWebSearchToolForHistory_NoOpAndChoiceBoundaries
+--- PASS: TestEnsureOpenAIOAuthWebSearchToolForHistory_NoOpAndChoiceBoundaries (0.00s)
+=== RUN   TestEnsureOpenAIOAuthWebSearchToolForHistory_ToolMapIsolation
+--- PASS: TestEnsureOpenAIOAuthWebSearchToolForHistory_ToolMapIsolation (0.00s)
+=== RUN   TestApplyCodexOAuthTransform_DeclaresWebSearchHistoryTool
+--- PASS: TestApplyCodexOAuthTransform_DeclaresWebSearchHistoryTool (0.00s)
+=== RUN   TestEnsureOpenAIOAuthWebSearchToolForHistory_RawToolPath
+--- PASS: TestEnsureOpenAIOAuthWebSearchToolForHistory_RawToolPath (0.00s)
+FAIL
+FAIL	github.com/Wei-Shaw/sub2api/internal/application/service	0.059s
+FAIL

@@ -1,0 +1,19 @@
+2026/10/09 09:08:25 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestForwardOAuthWebSearchHistory20261009
+=== RUN   TestForwardOAuthWebSearchHistory20261009/transform
+OBSERVED path=transform declared=web_search choice=none trigger_last=true input_history=web_search_call
+=== RUN   TestForwardOAuthWebSearchHistory20261009/passthrough
+2026/10/09 09:08:25 [OpenAI 自动透传] 命中自动透传分支: account=501 name=history-fixture type=oauth model=gpt-6-astra stream=true
+OBSERVED path=passthrough declared=web_search choice=none trigger_last=true input_history=web_search_call
+=== RUN   TestForwardOAuthWebSearchHistory20261009/transform-lite
+OBSERVED path=transform-lite declared=web_search choice=none trigger_last=true input_history=web_search_call
+=== RUN   TestForwardOAuthWebSearchHistory20261009/passthrough-lite
+2026/10/09 09:08:25 [OpenAI 自动透传] 命中自动透传分支: account=501 name=history-fixture type=oauth model=gpt-6-astra stream=true
+OBSERVED path=passthrough-lite declared=web_search choice=none trigger_last=true input_history=web_search_call
+--- PASS: TestForwardOAuthWebSearchHistory20261009 (0.01s)
+    --- PASS: TestForwardOAuthWebSearchHistory20261009/transform (0.00s)
+    --- PASS: TestForwardOAuthWebSearchHistory20261009/passthrough (0.00s)
+    --- PASS: TestForwardOAuthWebSearchHistory20261009/transform-lite (0.00s)
+    --- PASS: TestForwardOAuthWebSearchHistory20261009/passthrough-lite (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.126s

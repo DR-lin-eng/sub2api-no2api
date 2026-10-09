@@ -92,6 +92,8 @@ type codexOAuthTransformOptions struct {
 	SkipDefaultInstructions             bool
 	PreserveToolCallIDs                 bool
 	OmitPromotedSystemMessagesFromInput bool
+	// ResponsesLite carries hosted tools through input.additional_tools.
+	ResponsesLite bool
 }
 
 const (
@@ -326,6 +328,14 @@ func applyCodexOAuthTransformWithOptions(reqBody map[string]any, opts codexOAuth
 		} else {
 			reqBody["input"] = []any{}
 		}
+		result.Modified = true
+	}
+
+	// ChatGPT rejects replayed hosted web_search_call history unless the
+	// request declares web_search. Local compaction carries the full history
+	// with no tools; add the cached-only declaration after input filtering so
+	// the check sees the final replayed history. Compact has its own wire shape.
+	if !opts.IsCompact && ensureOpenAIOAuthWebSearchToolForHistory(reqBody, opts.ResponsesLite) {
 		result.Modified = true
 	}
 

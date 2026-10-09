@@ -1,0 +1,22 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "-v",
+    "/private/tmp/sub2api-upstream-sync-20261009/Makefile:/app/Makefile:ro",
+    "-w",
+    "/app",
+    "3bb37eff23d8",
+    "sh",
+    "-c",
+    "apk add --no-cache make && make test-frontend && pnpm --dir frontend exec vitest run src/features/admin-settings/__tests__/settings.authSourceDefaults.spec.ts src/features/admin-users/__tests__/UserPlatformQuotaModal.spec.ts"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261009",
+  "exit_status": 0,
+  "elapsed_s": 76.99746654200135,
+  "utc": "2026-10-09T08:52:22.782008+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "9415301dc1221d4a12ee4de339ff4fe2a3788b35d3752bf4f120fac72452a3e0",
+  "stderr_sha256": "1ca6770fa73f51b7548b34ec7c562186021bd47a430b243fbdab371e552664fe"
+}

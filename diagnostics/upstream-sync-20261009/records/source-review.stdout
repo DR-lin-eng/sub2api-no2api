@@ -1,0 +1,72 @@
+Documentation checks passed.
+ .github/workflows/backend-ci.yml                   |   4 +-
+ .github/workflows/release.yml                      |   2 +-
+ .github/workflows/security-scan.yml                |   2 +-
+ AGENTS.md                                          |   2 +-
+ DEV_GUIDE.md                                       |   2 +-
+ Dockerfile                                         |   2 +-
+ README.md                                          |   4 +-
+ README_CN.md                                       |   4 +-
+ README_JA.md                                       |   4 +-
+ backend/.golangci.yml                              |  16 ++
+ backend/Dockerfile                                 |   2 +-
+ backend/go.mod                                     |  18 +-
+ backend/go.sum                                     |  26 +-
+ backend/internal/application/service/README.md     |   4 +-
+ .../application/service/openai_codex_transform.go  |  10 +
+ .../application/service/openai_gateway_forward.go  |  49 +---
+ .../service/openai_gateway_forward_prepare.go      |  71 ++++++
+ .../service/openai_gateway_passthrough.go          |  10 +
+ .../openai_gateway_responses_anthropic_native.go   |   6 +-
+ .../service/openai_oauth_web_search_history.go     | 269 +++++++++++++++++++++
+ ...enai_oauth_web_search_history_benchmark_test.go |  43 ++++
+ ...openai_oauth_web_search_history_forward_test.go |  66 +++++
+ .../openai_oauth_web_search_history_test.go        | 233 ++++++++++++++++++
+ .../openai_oauth_web_search_history_ws_test.go     | 107 ++++++++
+ .../service/openai_ws_forwarder_ingress.go         |   6 +
+ .../service/openai_ws_v2_passthrough_adapter.go    |  16 ++
+ .../upstream_provider_profile_compat_test.go       |  47 ++++
+ .../upstream_reference_websearch_benchmark_test.go | 266 ++++++++++++++++++++
+ backend/scripts/README.md                          |   2 +-
+ backend/scripts/test-responses-image-ssrf.sh       |   2 +-
+ deploy/Dockerfile                                  |   2 +-
+ docs/README.md                                     |   1 +
+ docs/REQUEST_LIFECYCLES.md                         |   2 +
+ docs/UPSTREAM_SYNC_20261009.md                     |  46 ++++
+ 34 files changed, 1272 insertions(+), 74 deletions(-)
+## codex/upstream-sync-20261009
+ M .github/workflows/backend-ci.yml
+ M .github/workflows/release.yml
+ M .github/workflows/security-scan.yml
+ M AGENTS.md
+ M DEV_GUIDE.md
+ M Dockerfile
+ M README.md
+ M README_CN.md
+ M README_JA.md
+ M backend/.golangci.yml
+ M backend/Dockerfile
+ M backend/go.mod
+ M backend/go.sum
+ M backend/internal/application/service/README.md
+ M backend/internal/application/service/openai_codex_transform.go
+ M backend/internal/application/service/openai_gateway_forward.go
+ A backend/internal/application/service/openai_gateway_forward_prepare.go
+ M backend/internal/application/service/openai_gateway_passthrough.go
+ M backend/internal/application/service/openai_gateway_responses_anthropic_native.go
+ A backend/internal/application/service/openai_oauth_web_search_history.go
+ A backend/internal/application/service/openai_oauth_web_search_history_benchmark_test.go
+ A backend/internal/application/service/openai_oauth_web_search_history_forward_test.go
+ A backend/internal/application/service/openai_oauth_web_search_history_test.go
+ A backend/internal/application/service/openai_oauth_web_search_history_ws_test.go
+ M backend/internal/application/service/openai_ws_forwarder_ingress.go
+ M backend/internal/application/service/openai_ws_v2_passthrough_adapter.go
+ A backend/internal/application/service/upstream_provider_profile_compat_test.go
+ A backend/internal/application/service/upstream_reference_websearch_benchmark_test.go
+ M backend/scripts/README.md
+ M backend/scripts/test-responses-image-ssrf.sh
+ M deploy/Dockerfile
+ M docs/README.md
+ M docs/REQUEST_LIFECYCLES.md
+ A docs/UPSTREAM_SYNC_20261009.md
+?? diagnostics/upstream-sync-20261009/

@@ -1,0 +1,13 @@
+{
+  "command": [
+    "diagnostics/upstream-sync-20261009/ROLLBACK.sh",
+    "/private/tmp/sub2api-upstream-sync-20261009-rollback"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261009",
+  "exit_status": 0,
+  "elapsed_s": 0.7791201660002116,
+  "utc": "2026-10-09T08:41:50.230403+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "d1a8dda102eb3e909c49d60715aa8f0596d002992c22d6daa545efcbff720627",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}
