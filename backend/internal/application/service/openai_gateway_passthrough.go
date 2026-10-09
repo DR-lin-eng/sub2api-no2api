@@ -212,6 +212,16 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 		if normalized {
 			body = normalizedBody
 		}
+		if account.IsOpenAIOAuth() && !isOpenAIResponsesCompactPath(c) {
+			responsesLite := isOpenAIResponsesLiteHeader(c.GetHeader(responsesLiteHeader)) || isOpenAIResponsesLiteWebSocketPayload(body)
+			webSearchBody, webSearchChanged, webSearchErr := normalizeOpenAIOAuthWebSearchHistoryForAccount(body, account, false, responsesLite)
+			if webSearchErr != nil {
+				return nil, fmt.Errorf("normalize passthrough Responses web_search history: %w", webSearchErr)
+			}
+			if webSearchChanged {
+				body = webSearchBody
+			}
+		}
 		if !isOpenAIResponsesCompactPath(c) || (fingerprintIDs != nil && fingerprintIDs.fullSimulation) {
 			fingerprintedBody, fingerprinted, fingerprintErr := applyCodexFingerprintClientMetadataToBody(body, fingerprintIDs, c)
 			if fingerprintErr != nil {

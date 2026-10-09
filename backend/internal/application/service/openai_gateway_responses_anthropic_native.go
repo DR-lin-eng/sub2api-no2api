@@ -56,8 +56,10 @@ func (s *OpenAIGatewayService) forwardResponsesViaNativeAnthropic(
 		writeResponsesError(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")
 		return nil, fmt.Errorf("parse responses request: %w", err)
 	}
-	originalModel := responsesReq.Model
-	if strings.TrimSpace(originalModel) == "" {
+	// Keep billing and dispatch on the same trimmed request model. In
+	// particular, model-routed OpenCode accounts do not have a dispatch fallback.
+	originalModel := strings.TrimSpace(responsesReq.Model)
+	if originalModel == "" {
 		writeResponsesError(c, http.StatusBadRequest, "invalid_request_error", "model is required")
 		return nil, fmt.Errorf("missing model in request")
 	}

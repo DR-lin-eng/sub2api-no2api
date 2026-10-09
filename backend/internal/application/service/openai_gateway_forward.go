@@ -76,21 +76,9 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	}
 	responsesLite := account.IsOpenAI() && isOpenAIResponsesLiteHeader(c.GetHeader(responsesLiteHeader))
 	if responsesLite {
-		liteBody, changed, liteErr := normalizeOpenAIResponsesLitePayloadForAccount(body, account)
-		if liteErr != nil {
-			param := "tools"
-			var validationErr *openAIResponsesLiteValidationError
-			if errors.As(liteErr, &validationErr) {
-				param = validationErr.param
-			}
-			setOpsUpstreamError(c, http.StatusBadRequest, liteErr.Error(), "")
-			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
-				"type": "invalid_request_error", "message": liteErr.Error(), "param": param,
-			}})
-			return nil, liteErr
-		}
-		if changed {
-			body = liteBody
+		body, err = normalizeOpenAIForwardLiteRequest(c, account, body)
+		if err != nil {
+			return nil, err
 		}
 	}
 	wsDecision := s.getOpenAIWSProtocolResolver().Resolve(account)
@@ -498,35 +486,14 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		if decodeErr != nil {
 			return nil, decodeErr
 		}
-		// The handler has already applied the group's reasoning policy before an
-		// account is selected. Honor the explicit CPA opt-in on the decoded map,
-		// avoiding another full copy of large native agent histories.
-		if reasoningOverridden, overrideErr := applyCodexPrewarmContinuationReasoningOverride(c, account, decoded); overrideErr != nil {
-			return nil, overrideErr
-		} else if reasoningOverridden {
-			markDecodedModified()
-			logOpenAIWSModeInfo("prewarm_reasoning_override account_id=%d effort=none", account.ID)
+		opts := codexForwardOAuthOptions(isCodexCLI, isCompactRequest, responsesLite, compatMessagesBridge)
+		codexResult, preparedIDs, prepareErr := s.prepareOpenAIForwardOAuthRequest(c, account, decoded, opts)
+		if prepareErr != nil {
+			return nil, prepareErr
 		}
-		codexResult := codexTransformResult{}
-		if compatMessagesBridge {
-			codexResult = applyCodexOAuthTransformWithOptions(decoded, codexOAuthTransformOptions{IsCodexCLI: isCodexCLI, IsCompact: isCompactRequest, SkipDefaultInstructions: true, PreserveToolCallIDs: true})
-			ensureCodexOAuthInstructionsField(decoded)
-			markDecodedModified()
-		} else {
-			codexResult = applyCodexOAuthTransform(decoded, isCodexCLI, isCompactRequest)
-		}
+		fingerprintIDs = preparedIDs
 		if codexResult.Modified {
 			markDecodedModified()
-		}
-		// 带真实 device_id 时补齐 client_metadata 安装标识，与真实 Codex 对齐（compact 形态不同，跳过）。
-		if !isCompactRequest && applyCodexClientMetadata(decoded, account) {
-			markDecodedModified()
-		}
-		if !isCompactRequest || s.codexFullSimulationEnabledForAccount(c, account) {
-			fingerprintIDs = resolveCodexFingerprintIDsFromGinContext(account, c)
-			if applyCodexFingerprintClientMetadata(decoded, fingerprintIDs, c) {
-				markDecodedModified()
-			}
 		}
 		if codexResult.NormalizedModel != "" {
 			upstreamModel = codexResult.NormalizedModel

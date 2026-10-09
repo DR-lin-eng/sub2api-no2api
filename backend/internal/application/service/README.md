@@ -52,7 +52,7 @@
 | `account_quality_runtime_snapshot.go` | 质量巡检私有 artifact 的非敏感请求运行画像快照 |
 | `ratelimit_oauth_401_delete.go` | 网关 OAuth 401 自动删除准入、凭据 CAS 结果和运行态清理 |
 | `openai_codex_remote_control_store.go` | Codex Remote Control enrollment token 的账号级加密持久化适配 |
-| `openai_gateway_forward.go`, `openai_gateway_request_build.go` | OpenAI 转发编排与 HTTP 上游请求构造 |
+| `openai_gateway_forward.go`, `openai_gateway_forward_prepare.go`, `openai_gateway_request_build.go` | OpenAI 转发编排与 HTTP 上游请求构造 |
 | `openai_responses_image_api_bridge.go`, `openai_responses_image_plan.go`, `http_upstream_profile.go` | Responses 图片/遮罩解析、共享下载与单图子请求；用户远程输入携带独立公开地址策略，管理员私网上游配置不放宽此策略 |
 | `invalid_auth_abuse_limiter.go`, `cloudflare_ingress_settings.go` | 无效 API Key 来源计数、本地临时封禁，以及 Access Rule/WAF 双模式的 Cloudflare 加密持久设置与边缘端口 |
 
@@ -63,3 +63,5 @@
 本包禁止导入 `internal/infrastructure/repository`；例外只能在 lint 配置中显式记录并附迁移原因。
 
 Codex manifest 的显式管理员模型映射投影归属 `openai_codex_models_mapping.go`；不修改共享缓存、不启用 pinned 聚合前置。WS 逐轮分组价格刷新与混合版本 TPS 行为见 [本轮同步审查](../../../../docs/UPSTREAM_SYNC_20261008.md)。
+
+OAuth 历史 `web_search_call` 的缓存搜索声明由 `openai_oauth_web_search_history.go` 负责；标准/Lite、HTTP/WS、compact/API-key 隔离和工具链修补分支见 [2026-10-09 同步记录](../../../../docs/UPSTREAM_SYNC_20261009.md)。
