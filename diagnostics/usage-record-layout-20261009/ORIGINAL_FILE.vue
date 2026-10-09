@@ -195,9 +195,8 @@
               <span
                 v-if="row.long_context_billing_applied"
                 data-testid="long-context-billing-marker"
-                :title="t('usage.longContextPricingTooltip')"
                 class="inline-flex items-center rounded px-1 py-px text-[10px] font-semibold leading-tight bg-amber-100 text-amber-700 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:ring-amber-500/30"
-              >{{ t('usage.longContext') }}</span>
+              >x2</span>
               <!-- Cost Detail Tooltip -->
               <div
                 class="group relative"
@@ -225,35 +224,21 @@
                 : LATENCY_BAR_CLASSES[durationSeverity(row.duration_ms ?? 0)]"
               aria-hidden="true"
             ></span>
-            <dl class="grid grid-cols-[max-content_max-content] gap-x-2 gap-y-0.5 whitespace-nowrap text-left text-xs">
-              <div class="col-span-2 grid grid-cols-subgrid items-baseline">
-                <dt class="text-gray-400 dark:text-gray-500">{{ t('usage.latencyFirstToken') }}</dt>
-                <dd v-if="row.first_token_ms != null" class="font-medium tabular-nums" :class="LATENCY_TEXT_CLASSES[firstTokenSeverity(row.first_token_ms)]">{{ formatDuration(row.first_token_ms) }}</dd>
-                <dd v-else class="text-gray-400 dark:text-gray-500">-</dd>
-              </div>
-              <div class="col-span-2 grid grid-cols-subgrid items-baseline">
-                <dt class="text-gray-400 dark:text-gray-500">{{ t('usage.latencyDuration') }}</dt>
-                <dd class="font-medium tabular-nums" :class="LATENCY_TEXT_CLASSES[durationSeverity(row.duration_ms ?? 0)]">{{ formatDuration(row.duration_ms) }}</dd>
-              </div>
-              <div class="col-span-2 grid grid-cols-subgrid items-baseline">
-                <dt class="text-gray-400 dark:text-gray-500" :title="t('usage.outputTpsHint')">{{ t('usage.outputTps') }}</dt>
-                <dd data-testid="output-tps" class="font-medium tabular-nums text-gray-700 dark:text-gray-300">{{ formatUsageOutputRate(row) }}</dd>
-              </div>
-              <div class="col-span-2 grid grid-cols-subgrid items-baseline">
-                <dt class="text-gray-400 dark:text-gray-500">{{ t('usage.latencyOutputSpeed') }}</dt>
-                <dd data-testid="output-token-speed" class="font-medium tabular-nums text-teal-600 dark:text-teal-400">{{ formatOutputTokenSpeed(row) }}</dd>
-              </div>
+            <div class="grid grid-cols-[max-content_max-content] items-baseline gap-x-2 gap-y-0.5 text-xs">
+              <span class="text-gray-400 dark:text-gray-500">{{ t('usage.latencyFirstToken') }}</span>
+              <span v-if="row.first_token_ms != null" class="font-medium tabular-nums" :class="LATENCY_TEXT_CLASSES[firstTokenSeverity(row.first_token_ms)]">{{ formatDuration(row.first_token_ms) }}</span>
+              <span v-else class="text-gray-400 dark:text-gray-500">-</span>
+              <span class="text-gray-400 dark:text-gray-500">{{ t('usage.latencyDuration') }}</span>
+              <span class="font-medium tabular-nums" :class="LATENCY_TEXT_CLASSES[durationSeverity(row.duration_ms ?? 0)]">{{ formatDuration(row.duration_ms) }}</span>
+              <span class="text-gray-400 dark:text-gray-500">{{ t('usage.latencyOutputSpeed') }}</span>
+              <span data-testid="output-token-speed" class="font-medium tabular-nums text-teal-600 dark:text-teal-400">{{ formatOutputTokenSpeed(row) }}</span>
               <template v-if="isAdminAudience && row.openai_timing">
-                <div class="col-span-2 grid grid-cols-subgrid items-baseline">
-                  <dt class="text-gray-400 dark:text-gray-500">{{ t('usage.timingLocalFirst') }}</dt>
-                  <dd data-testid="local-first-token" class="tabular-nums text-gray-600 dark:text-gray-300">{{ formatDuration(row.local_first_token_ms) }}</dd>
-                </div>
-                <div class="col-span-2 grid grid-cols-subgrid items-baseline">
-                  <dt class="text-gray-400 dark:text-gray-500">{{ t('usage.timingEngineFirst') }}</dt>
-                  <dd data-testid="openai-first-token" class="tabular-nums text-gray-600 dark:text-gray-300">{{ formatDuration(row.openai_timing.engine_service_ttft_total_ms) }}</dd>
-                </div>
+                <span class="text-gray-400 dark:text-gray-500">{{ t('usage.timingLocalFirst') }}</span>
+                <span data-testid="local-first-token" class="tabular-nums text-gray-600 dark:text-gray-300">{{ formatDuration(row.local_first_token_ms) }}</span>
+                <span class="text-gray-400 dark:text-gray-500">{{ t('usage.timingEngineFirst') }}</span>
+                <span data-testid="openai-first-token" class="tabular-nums text-gray-600 dark:text-gray-300">{{ formatDuration(row.openai_timing.engine_service_ttft_total_ms) }}</span>
               </template>
-            </dl>
+            </div>
           </div>
         </template>
 
@@ -502,7 +487,7 @@
           </div>
           <div class="flex items-center justify-between gap-6">
             <span class="text-gray-400">{{ t('usage.rate') }}</span>
-            <span class="font-semibold text-blue-400">{{ formatMultiplier(tooltipData?.rate_multiplier ?? 1) }}x</span>
+            <span class="font-semibold text-blue-400">{{ formatMultiplier(tooltipData?.rate_multiplier || 1) }}x</span>
           </div>
           <div class="flex items-center justify-between gap-6">
             <span class="text-gray-400">{{ t('usage.original') }}</span>
@@ -561,7 +546,6 @@ import {
   LATENCY_TEXT_CLASSES,
   durationSeverity,
   firstTokenSeverity,
-  formatUsageOutputRate,
 } from '@/core/utils/latencyHealth'
 import {
   BILLING_MODE_TOKEN,

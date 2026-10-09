@@ -1,0 +1,43 @@
+{
+  "rows": [
+    {
+      "id": 1,
+      "first_token_ms": 1670,
+      "duration_ms": 52070,
+      "output_tokens": 1875,
+      "local_first_token_ms": 1670,
+      "openai_timing": {}
+    },
+    {
+      "id": 2,
+      "first_token_ms": 1840,
+      "duration_ms": 23650,
+      "output_tokens": 213,
+      "local_first_token_ms": 1840,
+      "openai_timing": {}
+    }
+  ],
+  "viewports": [
+    320,
+    375,
+    768,
+    1440
+  ],
+  "locales": [
+    "zh",
+    "en"
+  ],
+  "themes": [
+    "light",
+    "dark"
+  ],
+  "audiences": [
+    "admin",
+    "user"
+  ],
+  "extra_node": {
+    "label": "输出 TPS",
+    "value": "36.5 tok/s",
+    "position": "before total duration value"
+  }
+}

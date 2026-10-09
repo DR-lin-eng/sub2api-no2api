@@ -1,0 +1,4837 @@
+{
+  "phase": "PUB_ROLLBACK",
+  "browser": "152.0.7977.82",
+  "records": [
+    {
+      "width": 320,
+      "locale": "zh",
+      "audience": "admin",
+      "theme": "light",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 87,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 105,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "速度",
+              "value": "36 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 141,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "本地首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 159,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 177,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 105,
+              "valueLeft": 124.953125
+            }
+          ],
+          "width": 162.046875,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 293,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 311,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 347,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "本地首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 365,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 383,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 311,
+              "valueLeft": 131.828125
+            }
+          ],
+          "width": 155.171875,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 320,
+      "locale": "zh",
+      "audience": "admin",
+      "theme": "dark",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 87,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 105,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "速度",
+              "value": "36 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 141,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "本地首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 159,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 177,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 105,
+              "valueLeft": 124.953125
+            }
+          ],
+          "width": 162.046875,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 293,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 311,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 347,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "本地首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 365,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 383,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 311,
+              "valueLeft": 131.828125
+            }
+          ],
+          "width": 155.171875,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 320,
+      "locale": "zh",
+      "audience": "user",
+      "theme": "light",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 65,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 83,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "速度",
+              "value": "36 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 119,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 83,
+              "valueLeft": 163.015625
+            }
+          ],
+          "width": 123.984375,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 213,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 231,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 267,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 231,
+              "valueLeft": 176.75
+            }
+          ],
+          "width": 110.25,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 320,
+      "locale": "zh",
+      "audience": "user",
+      "theme": "dark",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 65,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 83,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "速度",
+              "value": "36 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 119,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 83,
+              "valueLeft": 163.015625
+            }
+          ],
+          "width": 123.984375,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 213,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 231,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 267,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 231,
+              "valueLeft": 176.75
+            }
+          ],
+          "width": 110.25,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 320,
+      "locale": "en",
+      "audience": "admin",
+      "theme": "light",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 87,
+              "valueLeft": 235.359375
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 105,
+              "valueLeft": 235.359375
+            },
+            {
+              "label": "Speed",
+              "value": "36 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 141,
+              "valueLeft": 235.359375
+            },
+            {
+              "label": "Local TTFT",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 159,
+              "valueLeft": 235.359375
+            },
+            {
+              "label": "OpenAI engine TTFT",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 177,
+              "valueLeft": 235.359375
+            },
+            {
+              "label": "Output TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 105,
+              "valueLeft": 115.640625
+            }
+          ],
+          "width": 184.296875,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 293,
+              "valueLeft": 235.359375
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 311,
+              "valueLeft": 235.359375
+            },
+            {
+              "label": "Speed",
+              "value": "9 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 347,
+              "valueLeft": 235.359375
+            },
+            {
+              "label": "Local TTFT",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 365,
+              "valueLeft": 235.359375
+            },
+            {
+              "label": "OpenAI engine TTFT",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 383,
+              "valueLeft": 235.359375
+            },
+            {
+              "label": "Output TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 311,
+              "valueLeft": 115.640625
+            }
+          ],
+          "width": 183.203125,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 320,
+      "locale": "en",
+      "audience": "admin",
+      "theme": "dark",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 87,
+              "valueLeft": 235.359375
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 105,
+              "valueLeft": 235.359375
+            },
+            {
+              "label": "Speed",
+              "value": "36 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 141,
+              "valueLeft": 235.359375
+            },
+            {
+              "label": "Local TTFT",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 159,
+              "valueLeft": 235.359375
+            },
+            {
+              "label": "OpenAI engine TTFT",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 177,
+              "valueLeft": 235.359375
+            },
+            {
+              "label": "Output TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 105,
+              "valueLeft": 115.640625
+            }
+          ],
+          "width": 184.296875,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 293,
+              "valueLeft": 235.359375
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 311,
+              "valueLeft": 235.359375
+            },
+            {
+              "label": "Speed",
+              "value": "9 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 347,
+              "valueLeft": 235.359375
+            },
+            {
+              "label": "Local TTFT",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 365,
+              "valueLeft": 235.359375
+            },
+            {
+              "label": "OpenAI engine TTFT",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 383,
+              "valueLeft": 235.359375
+            },
+            {
+              "label": "Output TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 311,
+              "valueLeft": 115.640625
+            }
+          ],
+          "width": 183.203125,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 320,
+      "locale": "en",
+      "audience": "user",
+      "theme": "light",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 65,
+              "valueLeft": 222.421875
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 83,
+              "valueLeft": 222.421875
+            },
+            {
+              "label": "Speed",
+              "value": "36 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 119,
+              "valueLeft": 222.421875
+            },
+            {
+              "label": "Output TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 83,
+              "valueLeft": 159.640625
+            }
+          ],
+          "width": 127.359375,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 213,
+              "valueLeft": 223.515625
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 231,
+              "valueLeft": 223.515625
+            },
+            {
+              "label": "Speed",
+              "value": "9 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 267,
+              "valueLeft": 223.515625
+            },
+            {
+              "label": "Output TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 231,
+              "valueLeft": 167.59375
+            }
+          ],
+          "width": 119.40625,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 320,
+      "locale": "en",
+      "audience": "user",
+      "theme": "dark",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 65,
+              "valueLeft": 222.421875
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 83,
+              "valueLeft": 222.421875
+            },
+            {
+              "label": "Speed",
+              "value": "36 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 119,
+              "valueLeft": 222.421875
+            },
+            {
+              "label": "Output TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 83,
+              "valueLeft": 159.640625
+            }
+          ],
+          "width": 127.359375,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 213,
+              "valueLeft": 223.515625
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 231,
+              "valueLeft": 223.515625
+            },
+            {
+              "label": "Speed",
+              "value": "9 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 267,
+              "valueLeft": 223.515625
+            },
+            {
+              "label": "Output TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 231,
+              "valueLeft": 167.59375
+            }
+          ],
+          "width": 119.40625,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 375,
+      "locale": "zh",
+      "audience": "admin",
+      "theme": "light",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 87,
+              "valueLeft": 280.796875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 105,
+              "valueLeft": 280.796875
+            },
+            {
+              "label": "速度",
+              "value": "36 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 141,
+              "valueLeft": 280.796875
+            },
+            {
+              "label": "本地首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 159,
+              "valueLeft": 280.796875
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 177,
+              "valueLeft": 280.796875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 105,
+              "valueLeft": 179.953125
+            }
+          ],
+          "width": 162.046875,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 293,
+              "valueLeft": 287.671875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 311,
+              "valueLeft": 287.671875
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 347,
+              "valueLeft": 287.671875
+            },
+            {
+              "label": "本地首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 365,
+              "valueLeft": 287.671875
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 383,
+              "valueLeft": 287.671875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 311,
+              "valueLeft": 186.828125
+            }
+          ],
+          "width": 155.171875,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 375,
+      "locale": "zh",
+      "audience": "admin",
+      "theme": "dark",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 87,
+              "valueLeft": 280.796875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 105,
+              "valueLeft": 280.796875
+            },
+            {
+              "label": "速度",
+              "value": "36 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 141,
+              "valueLeft": 280.796875
+            },
+            {
+              "label": "本地首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 159,
+              "valueLeft": 280.796875
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 177,
+              "valueLeft": 280.796875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 105,
+              "valueLeft": 179.953125
+            }
+          ],
+          "width": 162.046875,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 293,
+              "valueLeft": 287.671875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 311,
+              "valueLeft": 287.671875
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 347,
+              "valueLeft": 287.671875
+            },
+            {
+              "label": "本地首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 365,
+              "valueLeft": 287.671875
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 383,
+              "valueLeft": 287.671875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 311,
+              "valueLeft": 186.828125
+            }
+          ],
+          "width": 155.171875,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 375,
+      "locale": "zh",
+      "audience": "user",
+      "theme": "light",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 65,
+              "valueLeft": 280.796875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 83,
+              "valueLeft": 280.796875
+            },
+            {
+              "label": "速度",
+              "value": "36 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 119,
+              "valueLeft": 280.796875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 83,
+              "valueLeft": 218.015625
+            }
+          ],
+          "width": 123.984375,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 213,
+              "valueLeft": 287.671875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 231,
+              "valueLeft": 287.671875
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 267,
+              "valueLeft": 287.671875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 231,
+              "valueLeft": 231.75
+            }
+          ],
+          "width": 110.25,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 375,
+      "locale": "zh",
+      "audience": "user",
+      "theme": "dark",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 65,
+              "valueLeft": 280.796875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 83,
+              "valueLeft": 280.796875
+            },
+            {
+              "label": "速度",
+              "value": "36 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 119,
+              "valueLeft": 280.796875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 83,
+              "valueLeft": 218.015625
+            }
+          ],
+          "width": 123.984375,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 213,
+              "valueLeft": 287.671875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 231,
+              "valueLeft": 287.671875
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 267,
+              "valueLeft": 287.671875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 231,
+              "valueLeft": 231.75
+            }
+          ],
+          "width": 110.25,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 375,
+      "locale": "en",
+      "audience": "admin",
+      "theme": "light",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 87,
+              "valueLeft": 277.421875
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 105,
+              "valueLeft": 277.421875
+            },
+            {
+              "label": "Speed",
+              "value": "36 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 141,
+              "valueLeft": 277.421875
+            },
+            {
+              "label": "Local TTFT",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 159,
+              "valueLeft": 277.421875
+            },
+            {
+              "label": "OpenAI engine TTFT",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 177,
+              "valueLeft": 277.421875
+            },
+            {
+              "label": "Output TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 105,
+              "valueLeft": 157.703125
+            }
+          ],
+          "width": 184.296875,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 293,
+              "valueLeft": 278.515625
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 311,
+              "valueLeft": 278.515625
+            },
+            {
+              "label": "Speed",
+              "value": "9 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 347,
+              "valueLeft": 278.515625
+            },
+            {
+              "label": "Local TTFT",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 365,
+              "valueLeft": 278.515625
+            },
+            {
+              "label": "OpenAI engine TTFT",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 383,
+              "valueLeft": 278.515625
+            },
+            {
+              "label": "Output TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 311,
+              "valueLeft": 158.796875
+            }
+          ],
+          "width": 183.203125,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 375,
+      "locale": "en",
+      "audience": "admin",
+      "theme": "dark",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 87,
+              "valueLeft": 277.421875
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 105,
+              "valueLeft": 277.421875
+            },
+            {
+              "label": "Speed",
+              "value": "36 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 141,
+              "valueLeft": 277.421875
+            },
+            {
+              "label": "Local TTFT",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 159,
+              "valueLeft": 277.421875
+            },
+            {
+              "label": "OpenAI engine TTFT",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 177,
+              "valueLeft": 277.421875
+            },
+            {
+              "label": "Output TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 105,
+              "valueLeft": 157.703125
+            }
+          ],
+          "width": 184.296875,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 293,
+              "valueLeft": 278.515625
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 311,
+              "valueLeft": 278.515625
+            },
+            {
+              "label": "Speed",
+              "value": "9 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 347,
+              "valueLeft": 278.515625
+            },
+            {
+              "label": "Local TTFT",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 365,
+              "valueLeft": 278.515625
+            },
+            {
+              "label": "OpenAI engine TTFT",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 383,
+              "valueLeft": 278.515625
+            },
+            {
+              "label": "Output TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 311,
+              "valueLeft": 158.796875
+            }
+          ],
+          "width": 183.203125,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 375,
+      "locale": "en",
+      "audience": "user",
+      "theme": "light",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 65,
+              "valueLeft": 277.421875
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 83,
+              "valueLeft": 277.421875
+            },
+            {
+              "label": "Speed",
+              "value": "36 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 119,
+              "valueLeft": 277.421875
+            },
+            {
+              "label": "Output TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 83,
+              "valueLeft": 214.640625
+            }
+          ],
+          "width": 127.359375,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 213,
+              "valueLeft": 278.515625
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 231,
+              "valueLeft": 278.515625
+            },
+            {
+              "label": "Speed",
+              "value": "9 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 267,
+              "valueLeft": 278.515625
+            },
+            {
+              "label": "Output TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 231,
+              "valueLeft": 222.59375
+            }
+          ],
+          "width": 119.40625,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 375,
+      "locale": "en",
+      "audience": "user",
+      "theme": "dark",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 65,
+              "valueLeft": 277.421875
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 83,
+              "valueLeft": 277.421875
+            },
+            {
+              "label": "Speed",
+              "value": "36 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 119,
+              "valueLeft": 277.421875
+            },
+            {
+              "label": "Output TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 83,
+              "valueLeft": 214.640625
+            }
+          ],
+          "width": 127.359375,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 213,
+              "valueLeft": 278.515625
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 231,
+              "valueLeft": 278.515625
+            },
+            {
+              "label": "Speed",
+              "value": "9 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 267,
+              "valueLeft": 278.515625
+            },
+            {
+              "label": "Output TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 231,
+              "valueLeft": 222.59375
+            }
+          ],
+          "width": 119.40625,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 768,
+      "locale": "zh",
+      "audience": "admin",
+      "theme": "light",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 73,
+              "valueLeft": 434.578125
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 91,
+              "valueLeft": 434.578125
+            },
+            {
+              "label": "速度",
+              "value": "36 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 127,
+              "valueLeft": 434.578125
+            },
+            {
+              "label": "本地首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 145,
+              "valueLeft": 434.578125
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 163,
+              "valueLeft": 434.578125
+            },
+            {
+              "label": "输出 TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 91,
+              "valueLeft": 333.734375
+            }
+          ],
+          "width": 162.046875,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 212,
+              "valueLeft": 434.578125
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 230,
+              "valueLeft": 434.578125
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 266,
+              "valueLeft": 434.578125
+            },
+            {
+              "label": "本地首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 284,
+              "valueLeft": 434.578125
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 302,
+              "valueLeft": 434.578125
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 230,
+              "valueLeft": 333.734375
+            }
+          ],
+          "width": 155.171875,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 768,
+      "locale": "zh",
+      "audience": "admin",
+      "theme": "dark",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 73,
+              "valueLeft": 434.578125
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 91,
+              "valueLeft": 434.578125
+            },
+            {
+              "label": "速度",
+              "value": "36 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 127,
+              "valueLeft": 434.578125
+            },
+            {
+              "label": "本地首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 145,
+              "valueLeft": 434.578125
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 163,
+              "valueLeft": 434.578125
+            },
+            {
+              "label": "输出 TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 91,
+              "valueLeft": 333.734375
+            }
+          ],
+          "width": 162.046875,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 212,
+              "valueLeft": 434.578125
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 230,
+              "valueLeft": 434.578125
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 266,
+              "valueLeft": 434.578125
+            },
+            {
+              "label": "本地首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 284,
+              "valueLeft": 434.578125
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 302,
+              "valueLeft": 434.578125
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 230,
+              "valueLeft": 333.734375
+            }
+          ],
+          "width": 155.171875,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 768,
+      "locale": "zh",
+      "audience": "user",
+      "theme": "light",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 73,
+              "valueLeft": 429.84375
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 91,
+              "valueLeft": 429.84375
+            },
+            {
+              "label": "速度",
+              "value": "36 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 127,
+              "valueLeft": 429.84375
+            },
+            {
+              "label": "输出 TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 91,
+              "valueLeft": 367.0625
+            }
+          ],
+          "width": 123.984375,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 176,
+              "valueLeft": 422.984375
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 194,
+              "valueLeft": 422.984375
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 230,
+              "valueLeft": 422.984375
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 194,
+              "valueLeft": 367.0625
+            }
+          ],
+          "width": 110.25,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 768,
+      "locale": "zh",
+      "audience": "user",
+      "theme": "dark",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 73,
+              "valueLeft": 429.84375
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 91,
+              "valueLeft": 429.84375
+            },
+            {
+              "label": "速度",
+              "value": "36 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 127,
+              "valueLeft": 429.84375
+            },
+            {
+              "label": "输出 TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 91,
+              "valueLeft": 367.0625
+            }
+          ],
+          "width": 123.984375,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 176,
+              "valueLeft": 422.984375
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 194,
+              "valueLeft": 422.984375
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 230,
+              "valueLeft": 422.984375
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 194,
+              "valueLeft": 367.0625
+            }
+          ],
+          "width": 110.25,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 768,
+      "locale": "en",
+      "audience": "admin",
+      "theme": "light",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 73,
+              "valueLeft": 437.046875
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 91,
+              "valueLeft": 437.046875
+            },
+            {
+              "label": "Speed",
+              "value": "36 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 127,
+              "valueLeft": 437.046875
+            },
+            {
+              "label": "Local TTFT",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 145,
+              "valueLeft": 437.046875
+            },
+            {
+              "label": "OpenAI engine TTFT",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 163,
+              "valueLeft": 437.046875
+            },
+            {
+              "label": "Output TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 91,
+              "valueLeft": 317.328125
+            }
+          ],
+          "width": 184.296875,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 212,
+              "valueLeft": 437.046875
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 230,
+              "valueLeft": 437.046875
+            },
+            {
+              "label": "Speed",
+              "value": "9 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 266,
+              "valueLeft": 437.046875
+            },
+            {
+              "label": "Local TTFT",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 284,
+              "valueLeft": 437.046875
+            },
+            {
+              "label": "OpenAI engine TTFT",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 302,
+              "valueLeft": 437.046875
+            },
+            {
+              "label": "Output TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 230,
+              "valueLeft": 317.328125
+            }
+          ],
+          "width": 183.203125,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 768,
+      "locale": "en",
+      "audience": "admin",
+      "theme": "dark",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 73,
+              "valueLeft": 437.046875
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 91,
+              "valueLeft": 437.046875
+            },
+            {
+              "label": "Speed",
+              "value": "36 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 127,
+              "valueLeft": 437.046875
+            },
+            {
+              "label": "Local TTFT",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 145,
+              "valueLeft": 437.046875
+            },
+            {
+              "label": "OpenAI engine TTFT",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 163,
+              "valueLeft": 437.046875
+            },
+            {
+              "label": "Output TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 91,
+              "valueLeft": 317.328125
+            }
+          ],
+          "width": 184.296875,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 212,
+              "valueLeft": 437.046875
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 230,
+              "valueLeft": 437.046875
+            },
+            {
+              "label": "Speed",
+              "value": "9 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 266,
+              "valueLeft": 437.046875
+            },
+            {
+              "label": "Local TTFT",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 284,
+              "valueLeft": 437.046875
+            },
+            {
+              "label": "OpenAI engine TTFT",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 302,
+              "valueLeft": 437.046875
+            },
+            {
+              "label": "Output TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 230,
+              "valueLeft": 317.328125
+            }
+          ],
+          "width": 183.203125,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 768,
+      "locale": "en",
+      "audience": "user",
+      "theme": "light",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 73,
+              "valueLeft": 426.578125
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 91,
+              "valueLeft": 426.578125
+            },
+            {
+              "label": "Speed",
+              "value": "36 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 127,
+              "valueLeft": 426.578125
+            },
+            {
+              "label": "Output TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 91,
+              "valueLeft": 363.796875
+            }
+          ],
+          "width": 127.359375,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 176,
+              "valueLeft": 419.71875
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 194,
+              "valueLeft": 419.71875
+            },
+            {
+              "label": "Speed",
+              "value": "9 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 230,
+              "valueLeft": 419.71875
+            },
+            {
+              "label": "Output TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 194,
+              "valueLeft": 363.796875
+            }
+          ],
+          "width": 119.40625,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 768,
+      "locale": "en",
+      "audience": "user",
+      "theme": "dark",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 73,
+              "valueLeft": 426.578125
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 91,
+              "valueLeft": 426.578125
+            },
+            {
+              "label": "Speed",
+              "value": "36 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 127,
+              "valueLeft": 426.578125
+            },
+            {
+              "label": "Output TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 91,
+              "valueLeft": 363.796875
+            }
+          ],
+          "width": 127.359375,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 176,
+              "valueLeft": 419.71875
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 194,
+              "valueLeft": 419.71875
+            },
+            {
+              "label": "Speed",
+              "value": "9 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 230,
+              "valueLeft": 419.71875
+            },
+            {
+              "label": "Output TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 194,
+              "valueLeft": 363.796875
+            }
+          ],
+          "width": 119.40625,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 1440,
+      "locale": "zh",
+      "audience": "admin",
+      "theme": "light",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 73,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 91,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "速度",
+              "value": "36 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 127,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "本地首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 145,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 163,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "输出 TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 91,
+              "valueLeft": 654.265625
+            }
+          ],
+          "width": 162.046875,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 212,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 230,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 266,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "本地首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 284,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 302,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 230,
+              "valueLeft": 654.265625
+            }
+          ],
+          "width": 155.171875,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 1440,
+      "locale": "zh",
+      "audience": "admin",
+      "theme": "dark",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 73,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 91,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "速度",
+              "value": "36 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 127,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "本地首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 145,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 163,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "输出 TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 91,
+              "valueLeft": 654.265625
+            }
+          ],
+          "width": 162.046875,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 212,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 230,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 266,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "本地首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 284,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 302,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 230,
+              "valueLeft": 654.265625
+            }
+          ],
+          "width": 155.171875,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 1440,
+      "locale": "zh",
+      "audience": "user",
+      "theme": "light",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 73,
+              "valueLeft": 756.359375
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 91,
+              "valueLeft": 756.359375
+            },
+            {
+              "label": "速度",
+              "value": "36 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 127,
+              "valueLeft": 756.359375
+            },
+            {
+              "label": "输出 TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 91,
+              "valueLeft": 693.578125
+            }
+          ],
+          "width": 123.984375,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 176,
+              "valueLeft": 749.5
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 194,
+              "valueLeft": 749.5
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 230,
+              "valueLeft": 749.5
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 194,
+              "valueLeft": 693.578125
+            }
+          ],
+          "width": 110.25,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 1440,
+      "locale": "zh",
+      "audience": "user",
+      "theme": "dark",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 73,
+              "valueLeft": 756.359375
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 91,
+              "valueLeft": 756.359375
+            },
+            {
+              "label": "速度",
+              "value": "36 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 127,
+              "valueLeft": 756.359375
+            },
+            {
+              "label": "输出 TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 91,
+              "valueLeft": 693.578125
+            }
+          ],
+          "width": 123.984375,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 176,
+              "valueLeft": 749.5
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 194,
+              "valueLeft": 749.5
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 230,
+              "valueLeft": 749.5
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 194,
+              "valueLeft": 693.578125
+            }
+          ],
+          "width": 110.25,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 1440,
+      "locale": "en",
+      "audience": "admin",
+      "theme": "light",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 73,
+              "valueLeft": 754.625
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 91,
+              "valueLeft": 754.625
+            },
+            {
+              "label": "Speed",
+              "value": "36 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 127,
+              "valueLeft": 754.625
+            },
+            {
+              "label": "Local TTFT",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 145,
+              "valueLeft": 754.625
+            },
+            {
+              "label": "OpenAI engine TTFT",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 163,
+              "valueLeft": 754.625
+            },
+            {
+              "label": "Output TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 91,
+              "valueLeft": 634.90625
+            }
+          ],
+          "width": 184.296875,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 212,
+              "valueLeft": 754.625
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 230,
+              "valueLeft": 754.625
+            },
+            {
+              "label": "Speed",
+              "value": "9 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 266,
+              "valueLeft": 754.625
+            },
+            {
+              "label": "Local TTFT",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 284,
+              "valueLeft": 754.625
+            },
+            {
+              "label": "OpenAI engine TTFT",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 302,
+              "valueLeft": 754.625
+            },
+            {
+              "label": "Output TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 230,
+              "valueLeft": 634.90625
+            }
+          ],
+          "width": 183.203125,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 1440,
+      "locale": "en",
+      "audience": "admin",
+      "theme": "dark",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 73,
+              "valueLeft": 754.625
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 91,
+              "valueLeft": 754.625
+            },
+            {
+              "label": "Speed",
+              "value": "36 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 127,
+              "valueLeft": 754.625
+            },
+            {
+              "label": "Local TTFT",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 145,
+              "valueLeft": 754.625
+            },
+            {
+              "label": "OpenAI engine TTFT",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 163,
+              "valueLeft": 754.625
+            },
+            {
+              "label": "Output TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 91,
+              "valueLeft": 634.90625
+            }
+          ],
+          "width": 184.296875,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 212,
+              "valueLeft": 754.625
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 230,
+              "valueLeft": 754.625
+            },
+            {
+              "label": "Speed",
+              "value": "9 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 266,
+              "valueLeft": 754.625
+            },
+            {
+              "label": "Local TTFT",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 284,
+              "valueLeft": 754.625
+            },
+            {
+              "label": "OpenAI engine TTFT",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 302,
+              "valueLeft": 754.625
+            },
+            {
+              "label": "Output TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 230,
+              "valueLeft": 634.90625
+            }
+          ],
+          "width": 183.203125,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 1440,
+      "locale": "en",
+      "audience": "user",
+      "theme": "light",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 73,
+              "valueLeft": 752.5
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 91,
+              "valueLeft": 752.5
+            },
+            {
+              "label": "Speed",
+              "value": "36 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 127,
+              "valueLeft": 752.5
+            },
+            {
+              "label": "Output TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 91,
+              "valueLeft": 689.71875
+            }
+          ],
+          "width": 127.359375,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 176,
+              "valueLeft": 745.640625
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 194,
+              "valueLeft": 745.640625
+            },
+            {
+              "label": "Speed",
+              "value": "9 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 230,
+              "valueLeft": 745.640625
+            },
+            {
+              "label": "Output TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 194,
+              "valueLeft": 689.71875
+            }
+          ],
+          "width": 119.40625,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 1440,
+      "locale": "en",
+      "audience": "user",
+      "theme": "dark",
+      "extra": false,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 73,
+              "valueLeft": 752.5
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 91,
+              "valueLeft": 752.5
+            },
+            {
+              "label": "Speed",
+              "value": "36 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 127,
+              "valueLeft": 752.5
+            },
+            {
+              "label": "Output TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 91,
+              "valueLeft": 689.71875
+            }
+          ],
+          "width": 127.359375,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "First",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 176,
+              "valueLeft": 745.640625
+            },
+            {
+              "label": "Total",
+              "value": "Output TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 194,
+              "valueLeft": 745.640625
+            },
+            {
+              "label": "Speed",
+              "value": "9 tokens/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 230,
+              "valueLeft": 745.640625
+            },
+            {
+              "label": "Output TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 194,
+              "valueLeft": 689.71875
+            }
+          ],
+          "width": 119.40625,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 375,
+      "locale": "zh",
+      "audience": "admin",
+      "theme": "dark",
+      "extra": true,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 87,
+              "valueLeft": 280.796875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 105,
+              "valueLeft": 280.796875
+            },
+            {
+              "label": "速度",
+              "value": "36 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 159,
+              "valueLeft": 280.796875
+            },
+            {
+              "label": "本地首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 177,
+              "valueLeft": 280.796875
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 195,
+              "valueLeft": 280.796875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 105,
+              "valueLeft": 179.953125
+            }
+          ],
+          "width": 162.046875,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 311,
+              "valueLeft": 287.671875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 329,
+              "valueLeft": 287.671875
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 383,
+              "valueLeft": 287.671875
+            },
+            {
+              "label": "本地首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 401,
+              "valueLeft": 287.671875
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 419,
+              "valueLeft": 287.671875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 329,
+              "valueLeft": 186.828125
+            }
+          ],
+          "width": 155.171875,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 1440,
+      "locale": "zh",
+      "audience": "admin",
+      "theme": "dark",
+      "extra": true,
+      "missing": "",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 73,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 91,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "速度",
+              "value": "36 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 145,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "本地首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 163,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 181,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "输出 TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 91,
+              "valueLeft": 654.265625
+            }
+          ],
+          "width": 162.046875,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 230,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 248,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 302,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "本地首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 320,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 338,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 248,
+              "valueLeft": 654.265625
+            }
+          ],
+          "width": 155.171875,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 320,
+      "locale": "zh",
+      "audience": "admin",
+      "theme": "dark",
+      "extra": false,
+      "missing": "first",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 87,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 105,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "速度",
+              "value": "36 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 141,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "本地首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 159,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 177,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 105,
+              "valueLeft": 124.953125
+            }
+          ],
+          "width": 162.046875,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 293,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 311,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 347,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "本地首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 365,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 383,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 311,
+              "valueLeft": 131.828125
+            }
+          ],
+          "width": 155.171875,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 320,
+      "locale": "zh",
+      "audience": "user",
+      "theme": "dark",
+      "extra": false,
+      "missing": "first",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 65,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 83,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "速度",
+              "value": "36 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 119,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 83,
+              "valueLeft": 163.015625
+            }
+          ],
+          "width": 123.984375,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 213,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 231,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 267,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 231,
+              "valueLeft": 176.75
+            }
+          ],
+          "width": 110.25,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 1440,
+      "locale": "zh",
+      "audience": "admin",
+      "theme": "dark",
+      "extra": false,
+      "missing": "first",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 73,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 91,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "速度",
+              "value": "36 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 127,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "本地首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 145,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 163,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "输出 TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 91,
+              "valueLeft": 654.265625
+            }
+          ],
+          "width": 162.046875,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 212,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 230,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 266,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "本地首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 284,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 302,
+              "valueLeft": 755.109375
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 230,
+              "valueLeft": 654.265625
+            }
+          ],
+          "width": 155.171875,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 1440,
+      "locale": "zh",
+      "audience": "user",
+      "theme": "dark",
+      "extra": false,
+      "missing": "first",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 73,
+              "valueLeft": 756.359375
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 91,
+              "valueLeft": 756.359375
+            },
+            {
+              "label": "速度",
+              "value": "36 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 127,
+              "valueLeft": 756.359375
+            },
+            {
+              "label": "输出 TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 91,
+              "valueLeft": 693.578125
+            }
+          ],
+          "width": 123.984375,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 176,
+              "valueLeft": 749.5
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 194,
+              "valueLeft": 749.5
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 230,
+              "valueLeft": 749.5
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 194,
+              "valueLeft": 693.578125
+            }
+          ],
+          "width": 110.25,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 320,
+      "locale": "zh",
+      "audience": "admin",
+      "theme": "dark",
+      "extra": false,
+      "missing": "timing",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 87,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 105,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "速度",
+              "value": "36 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 141,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 105,
+              "valueLeft": 163.015625
+            }
+          ],
+          "width": 123.984375,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 257,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 275,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 311,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "本地首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 329,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 347,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 275,
+              "valueLeft": 131.828125
+            }
+          ],
+          "width": 155.171875,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 320,
+      "locale": "zh",
+      "audience": "user",
+      "theme": "dark",
+      "extra": false,
+      "missing": "timing",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 65,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 83,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "速度",
+              "value": "36 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 119,
+              "valueLeft": 225.796875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 83,
+              "valueLeft": 163.015625
+            }
+          ],
+          "width": 123.984375,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 213,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 231,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 267,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 231,
+              "valueLeft": 176.75
+            }
+          ],
+          "width": 110.25,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 1440,
+      "locale": "zh",
+      "audience": "admin",
+      "theme": "dark",
+      "extra": false,
+      "missing": "timing",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 73,
+              "valueLeft": 723.515625
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 91,
+              "valueLeft": 723.515625
+            },
+            {
+              "label": "速度",
+              "value": "36 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 127,
+              "valueLeft": 723.515625
+            },
+            {
+              "label": "输出 TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 91,
+              "valueLeft": 660.734375
+            }
+          ],
+          "width": 123.984375,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 176,
+              "valueLeft": 761.578125
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 194,
+              "valueLeft": 761.578125
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 230,
+              "valueLeft": 761.578125
+            },
+            {
+              "label": "本地首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 248,
+              "valueLeft": 761.578125
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 266,
+              "valueLeft": 761.578125
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 194,
+              "valueLeft": 660.734375
+            }
+          ],
+          "width": 155.171875,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 1440,
+      "locale": "zh",
+      "audience": "user",
+      "theme": "dark",
+      "extra": false,
+      "missing": "timing",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.67s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 73,
+              "valueLeft": 756.359375
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 91,
+              "valueLeft": 756.359375
+            },
+            {
+              "label": "速度",
+              "value": "36 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 127,
+              "valueLeft": 756.359375
+            },
+            {
+              "label": "输出 TPS",
+              "value": "36.5 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 91,
+              "valueLeft": 693.578125
+            }
+          ],
+          "width": 123.984375,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 176,
+              "valueLeft": 749.5
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 194,
+              "valueLeft": 749.5
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 230,
+              "valueLeft": 749.5
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 194,
+              "valueLeft": 693.578125
+            }
+          ],
+          "width": 110.25,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 320,
+      "locale": "zh",
+      "audience": "admin",
+      "theme": "dark",
+      "extra": false,
+      "missing": "zero",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "0ms",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 87,
+              "valueLeft": 239.46875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 105,
+              "valueLeft": 239.46875
+            },
+            {
+              "label": "速度",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 141,
+              "valueLeft": 239.46875
+            },
+            {
+              "label": "本地首字",
+              "value": "0ms",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 159,
+              "valueLeft": 239.46875
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "0ms",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 177,
+              "valueLeft": 239.46875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "—",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 105,
+              "valueLeft": 138.625
+            }
+          ],
+          "width": 148.375,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 293,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 311,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 347,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "本地首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 365,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 383,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 311,
+              "valueLeft": 131.828125
+            }
+          ],
+          "width": 155.171875,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 320,
+      "locale": "zh",
+      "audience": "user",
+      "theme": "dark",
+      "extra": false,
+      "missing": "zero",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "0ms",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 65,
+              "valueLeft": 239.46875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 83,
+              "valueLeft": 239.46875
+            },
+            {
+              "label": "速度",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 119,
+              "valueLeft": 239.46875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "—",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 83,
+              "valueLeft": 195.453125
+            }
+          ],
+          "width": 91.546875,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 213,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 231,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 267,
+              "valueLeft": 232.671875
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 231,
+              "valueLeft": 176.75
+            }
+          ],
+          "width": 110.25,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 1440,
+      "locale": "zh",
+      "audience": "admin",
+      "theme": "dark",
+      "extra": false,
+      "missing": "zero",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "0ms",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 73,
+              "valueLeft": 761.578125
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 91,
+              "valueLeft": 761.578125
+            },
+            {
+              "label": "速度",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 127,
+              "valueLeft": 761.578125
+            },
+            {
+              "label": "本地首字",
+              "value": "0ms",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 145,
+              "valueLeft": 761.578125
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "0ms",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 163,
+              "valueLeft": 761.578125
+            },
+            {
+              "label": "输出 TPS",
+              "value": "—",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 91,
+              "valueLeft": 660.734375
+            }
+          ],
+          "width": 148.375,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 212,
+              "valueLeft": 761.578125
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 230,
+              "valueLeft": 761.578125
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 266,
+              "valueLeft": 761.578125
+            },
+            {
+              "label": "本地首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 284,
+              "valueLeft": 761.578125
+            },
+            {
+              "label": "OpenAI 引擎首字",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 302,
+              "valueLeft": 761.578125
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 230,
+              "valueLeft": 660.734375
+            }
+          ],
+          "width": 155.171875,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "width": 1440,
+      "locale": "zh",
+      "audience": "user",
+      "theme": "dark",
+      "extra": false,
+      "missing": "zero",
+      "expectedFailure": true,
+      "okay": true,
+      "metrics": [
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "0ms",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 73,
+              "valueLeft": 754.15625
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 91,
+              "valueLeft": 754.15625
+            },
+            {
+              "label": "速度",
+              "value": "-",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 127,
+              "valueLeft": 754.15625
+            },
+            {
+              "label": "输出 TPS",
+              "value": "—",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 91,
+              "valueLeft": 710.140625
+            }
+          ],
+          "width": 91.546875,
+          "allPairsAligned": false
+        },
+        {
+          "pairs": [
+            {
+              "label": "首字",
+              "value": "1.84s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 176,
+              "valueLeft": 766.0625
+            },
+            {
+              "label": "总耗时",
+              "value": "输出 TPS",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 194,
+              "valueLeft": 766.0625
+            },
+            {
+              "label": "速度",
+              "value": "9 Token/s",
+              "sameLine": true,
+              "separateColumns": true,
+              "top": 230,
+              "valueLeft": 766.0625
+            },
+            {
+              "label": "输出 TPS",
+              "value": "9.4 tok/s",
+              "sameLine": false,
+              "separateColumns": false,
+              "top": 194,
+              "valueLeft": 710.140625
+            }
+          ],
+          "width": 110.25,
+          "allPairsAligned": false
+        }
+      ],
+      "horizontalOverflow": false
+    }
+  ],
+  "errors": []
+}
