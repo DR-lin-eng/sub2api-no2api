@@ -1,0 +1,1788 @@
+diff --git a/.github/workflows/backend-ci.yml b/.github/workflows/backend-ci.yml
+index 30e7cec32..7c3aec791 100644
+--- a/.github/workflows/backend-ci.yml
++++ b/.github/workflows/backend-ci.yml
+@@ -33,7 +33,7 @@ jobs:
+           cache-dependency-path: backend/go.sum
+       - name: Verify Go version
+         run: |
+-          go version | grep -q 'go1.26.6'
++          go version | grep -q 'go1.26.9'
+       - name: Unit tests
+         working-directory: backend
+         run: make test-unit
+@@ -73,7 +73,7 @@ jobs:
+           cache-dependency-path: backend/go.sum
+       - name: Verify Go version
+         run: |
+-          go version | grep -q 'go1.26.6'
++          go version | grep -q 'go1.26.9'
+       - name: golangci-lint
+         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a
+         with:
+diff --git a/.github/workflows/release.yml b/.github/workflows/release.yml
+index 653ce53e7..87eded079 100644
+--- a/.github/workflows/release.yml
++++ b/.github/workflows/release.yml
+@@ -181,7 +181,7 @@ jobs:
+ 
+       - name: Verify Go version
+         run: |
+-          go version | grep -q 'go1.26.6'
++          go version | grep -q 'go1.26.9'
+ 
+       # Docker setup for GoReleaser
+       - name: Set up QEMU
+diff --git a/.github/workflows/security-scan.yml b/.github/workflows/security-scan.yml
+index 5ebcc63d6..9d3f1e0c1 100644
+--- a/.github/workflows/security-scan.yml
++++ b/.github/workflows/security-scan.yml
+@@ -23,7 +23,7 @@ jobs:
+           cache-dependency-path: backend/go.sum
+       - name: Verify Go version
+         run: |
+-          go version | grep -q 'go1.26.6'
++          go version | grep -q 'go1.26.9'
+       - name: Run govulncheck
+         working-directory: backend
+         run: |
+diff --git a/AGENTS.md b/AGENTS.md
+index d432dc807..5f6d30d77 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -12,7 +12,7 @@
+ 
+ ## 仓库结构
+ 
+-- `backend/`: Go 1.26.6 模块化单体。入口在 `backend/cmd/server/`。
++- `backend/`: Go 1.26.9 模块化单体。入口在 `backend/cmd/server/`。
+ - `frontend/`: Vue 3、TypeScript、Vite、Pinia，使用 pnpm。
+ - `deploy/`: Docker Compose、安装脚本和运行配置示例。
+ - `docs/`: 架构、API、功能和运维专题文档。
+diff --git a/DEV_GUIDE.md b/DEV_GUIDE.md
+index ce39edafc..83c6db5bf 100644
+--- a/DEV_GUIDE.md
++++ b/DEV_GUIDE.md
+@@ -6,7 +6,7 @@
+ 
+ | 工具 | 版本来源 | 用途 |
+ | --- | --- | --- |
+-| Go | `backend/go.mod`，当前为 1.26.6 | 后端构建、生成和测试 |
++| Go | `backend/go.mod`，当前为 1.26.9 | 后端构建、生成和测试 |
+ | Node.js | `.github/workflows/backend-ci.yml`，当前为 24 | 前端工具链 |
+ | pnpm | `frontend/package.json`，当前为 11.17.0 | 前端依赖和脚本；不要混用 npm/yarn |
+ | PostgreSQL | `deploy/docker-compose.dev.yml` | 持久化数据和迁移 |
+diff --git a/Dockerfile b/Dockerfile
+index 6df1af26d..ac1ba38ae 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -8,7 +8,7 @@
+ # =============================================================================
+ 
+ ARG NODE_IMAGE=node:24-alpine
+-ARG GOLANG_IMAGE=golang:1.26.6-alpine
++ARG GOLANG_IMAGE=golang:1.26.9-alpine
+ ARG ALPINE_IMAGE=alpine:3.21
+ ARG POSTGRES_IMAGE=postgres:18-alpine
+ ARG GOPROXY=https://goproxy.cn,direct
+diff --git a/README.md b/README.md
+index 8b640719e..12a14a495 100644
+--- a/README.md
++++ b/README.md
+@@ -4,7 +4,7 @@
+ 
+ # Sub2API
+ 
+-[![Go](https://img.shields.io/badge/Go-1.26.6-00ADD8.svg)](https://golang.org/)
++[![Go](https://img.shields.io/badge/Go-1.26.9-00ADD8.svg)](https://golang.org/)
+ [![Vue](https://img.shields.io/badge/Vue-3.4+-4FC08D.svg)](https://vuejs.org/)
+ [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-336791.svg)](https://www.postgresql.org/)
+ [![Redis](https://img.shields.io/badge/Redis-7+-DC382D.svg)](https://redis.io/)
+@@ -57,7 +57,7 @@ Community projects that extend or integrate with Sub2API:
+ 
+ | Component | Technology |
+ |-----------|------------|
+-| Backend | Go 1.26.6, Gin, Ent |
++| Backend | Go 1.26.9, Gin, Ent |
+ | Frontend | Vue 3.4+, Vite 5+, TailwindCSS |
+ | Database | PostgreSQL 15+ |
+ | Cache/Queue | Redis 7+ |
+diff --git a/README_CN.md b/README_CN.md
+index bed02efb4..0d4d3a19e 100644
+--- a/README_CN.md
++++ b/README_CN.md
+@@ -4,7 +4,7 @@
+ 
+ # Sub2API
+ 
+-[![Go](https://img.shields.io/badge/Go-1.26.6-00ADD8.svg)](https://golang.org/)
++[![Go](https://img.shields.io/badge/Go-1.26.9-00ADD8.svg)](https://golang.org/)
+ [![Vue](https://img.shields.io/badge/Vue-3.4+-4FC08D.svg)](https://vuejs.org/)
+ [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-336791.svg)](https://www.postgresql.org/)
+ [![Redis](https://img.shields.io/badge/Redis-7+-DC382D.svg)](https://redis.io/)
+@@ -58,7 +58,7 @@ Sub2API 是一个 AI API 网关平台，用于分发和管理 AI 产品订阅的
+ 
+ | 组件 | 技术 |
+ |------|------|
+-| 后端 | Go 1.26.6, Gin, Ent |
++| 后端 | Go 1.26.9, Gin, Ent |
+ | 前端 | Vue 3.4+, Vite 5+, TailwindCSS |
+ | 数据库 | PostgreSQL 15+ |
+ | 缓存/队列 | Redis 7+ |
+diff --git a/README_JA.md b/README_JA.md
+index d41d47cfa..7dda10e5a 100644
+--- a/README_JA.md
++++ b/README_JA.md
+@@ -4,7 +4,7 @@
+ 
+ # Sub2API
+ 
+-[![Go](https://img.shields.io/badge/Go-1.26.6-00ADD8.svg)](https://golang.org/)
++[![Go](https://img.shields.io/badge/Go-1.26.9-00ADD8.svg)](https://golang.org/)
+ [![Vue](https://img.shields.io/badge/Vue-3.4+-4FC08D.svg)](https://vuejs.org/)
+ [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-336791.svg)](https://www.postgresql.org/)
+ [![Redis](https://img.shields.io/badge/Redis-7+-DC382D.svg)](https://redis.io/)
+@@ -56,7 +56,7 @@ Sub2API を拡張・統合するコミュニティプロジェクト:
+ 
+ | コンポーネント | 技術 |
+ |-----------|------------|
+-| バックエンド | Go 1.26.6, Gin, Ent |
++| バックエンド | Go 1.26.9, Gin, Ent |
+ | フロントエンド | Vue 3.4+, Vite 5+, TailwindCSS |
+ | データベース | PostgreSQL 15+ |
+ | キャッシュ/キュー | Redis 7+ |
+diff --git a/backend/.golangci.yml b/backend/.golangci.yml
+index 26df246c9..ea752d60a 100644
+--- a/backend/.golangci.yml
++++ b/backend/.golangci.yml
+@@ -2,6 +2,22 @@ version: "2"
+ 
+ linters:
+   default: none
++  exclusions:
++    rules:
++      # x/net v0.60 deprecates adapters that still own our explicit HTTP/2
++      # idle-PING/proxy behavior. Keep that verified contract for this patch
++      # upgrade, as upstream #7618 does; do not globally disable SA1019.
++      - path: 'internal/infrastructure/repository/http_upstream(_http2_keepalive_test)?\.go$'
++        linters: [ staticcheck ]
++        text: 'SA1019: ((golang\.org/x/net/)?http2\.(Transport|ConfigureTransports)|h2\.(ReadIdleTimeout|PingTimeout)|\(golang\.org/x/net/http2\.Transport\)\.(ReadIdleTimeout|PingTimeout))'
++      - path: 'internal/transport/http/server/http\.go$'
++        linters: [ staticcheck ]
++        text: 'SA1019: (golang\.org/x/net/)?http2\.(ConfigureServer|Server)\b'
++      # Upstream clients can return the legacy typed GOAWAY error; retaining
++      # errors.As matching avoids downgrading existing transport failover.
++      - path: 'internal/application/service/openai_codex_models_service(_test)?\.go$'
++        linters: [ staticcheck ]
++        text: 'SA1019: (golang\.org/x/net/)?http2\.GoAwayError\b'
+   enable:
+     - depguard
+     - errcheck
+diff --git a/backend/Dockerfile b/backend/Dockerfile
+index 1efbd3859..f99663eb7 100644
+--- a/backend/Dockerfile
++++ b/backend/Dockerfile
+@@ -1,4 +1,4 @@
+-FROM golang:1.26.6-alpine
++FROM golang:1.26.9-alpine
+ 
+ WORKDIR /app
+ 
+diff --git a/backend/go.mod b/backend/go.mod
+index deecb3fb4..e983efb1f 100644
+--- a/backend/go.mod
++++ b/backend/go.mod
+@@ -1,6 +1,6 @@
+ module github.com/Wei-Shaw/sub2api
+ 
+-go 1.26.6
++go 1.26.9
+ 
+ require (
+ 	entgo.io/ent v0.14.5
+@@ -44,13 +44,13 @@ require (
+ 	github.com/wechatpay-apiv3/wechatpay-go v0.2.21
+ 	github.com/zeromicro/go-zero v1.9.4
+ 	go.uber.org/zap v1.24.0
+-	golang.org/x/crypto v0.54.0
++	golang.org/x/crypto v0.57.0
+ 	golang.org/x/image v0.45.0
+-	golang.org/x/mod v0.38.0
+-	golang.org/x/net v0.57.0
+-	golang.org/x/sync v0.22.0
+-	golang.org/x/sys v0.47.0
+-	golang.org/x/term v0.45.0
++	golang.org/x/mod v0.41.0
++	golang.org/x/net v0.60.0
++	golang.org/x/sync v0.23.0
++	golang.org/x/sys v0.48.0
++	golang.org/x/term v0.46.0
+ 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
+ 	gopkg.in/yaml.v3 v3.0.1
+ 	modernc.org/sqlite v1.44.3
+@@ -188,9 +188,9 @@ require (
+ 	go.uber.org/multierr v1.9.0 // indirect
+ 	golang.org/x/arch v0.3.0 // indirect
+ 	golang.org/x/exp v0.0.0-20251023183803-a4bb9ffd2546 // indirect
+-	golang.org/x/text v0.41.0 // indirect
++	golang.org/x/text v0.42.0 // indirect
+ 	golang.org/x/time v0.12.0 // indirect
+-	golang.org/x/tools v0.48.0 // indirect
++	golang.org/x/tools v0.49.0 // indirect
+ 	google.golang.org/grpc v1.75.1 // indirect
+ 	google.golang.org/protobuf v1.36.10 // indirect
+ 	gopkg.in/ini.v1 v1.67.0 // indirect
+diff --git a/backend/go.sum b/backend/go.sum
+index d23ae997d..78a80fbf3 100644
+--- a/backend/go.sum
++++ b/backend/go.sum
+@@ -106,6 +106,8 @@ github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13 h1:fAjc9m62+UWV/WA
+ github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13/go.mod h1:SqUrOPUnsFjfmXRMNPybcSiG0BgUW2AuFH8PAnS2iTw=
+ github.com/distribution/reference v0.6.0 h1:0IXCQ5g4/QMHHkarYzh5l+u8T3t73zM5QvfrDyIgxBk=
+ github.com/distribution/reference v0.6.0/go.mod h1:BbU0aIcezP1/5jX/8MP0YiH4SdvB5Y4f/wlDRiLyi3E=
++github.com/dlclark/regexp2 v1.11.0 h1:G/nrcoOa7ZXlpoa/91N3X7mM3r8eIlMBBJZvsz/mxKI=
++github.com/dlclark/regexp2 v1.11.0/go.mod h1:DHkYz0B9wPfa6wondMfaivmHpzrQ3v9q8cnmRbL6yW8=
+ github.com/dlclark/regexp2/v2 v2.1.0 h1:jHXRmHRZGbuQzDZjMlCAXOvQb75iv3HyLDzXGj5H1AY=
+ github.com/dlclark/regexp2/v2 v2.1.0/go.mod h1:Bz5TMy5d8fPK0ximH0Yi9KvsRHNnvXqUx9XG6a4wB+I=
+ github.com/docker/docker v28.5.1+incompatible h1:Bm8DchhSD2J6PsFzxC35TZo4TLGR2PdW/E69rU45NhM=
+@@ -352,6 +354,8 @@ github.com/stretchr/objx v0.5.0/go.mod h1:Yh+to48EsGEfYuaHDzXPcE3xhTkx73EhmCGUpE
+ github.com/stretchr/objx v0.5.2/go.mod h1:FRsXN1f5AsAjCGJKqEizvkpNtU+EGNCLh3NxZ/8L+MA=
+ github.com/stretchr/objx v0.5.3 h1:jmXUvGomnU1o3W/V5h2VEradbpJDwGrzugQQvL0POH4=
+ github.com/stretchr/objx v0.5.3/go.mod h1:rDQraq+vQZU7Fde9LOZLr8Tax6zZvy4kuNKF+QYS+U0=
++github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
++github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
+ github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
+ github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
+ github.com/stretchr/testify v1.7.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
+@@ -360,8 +364,6 @@ github.com/stretchr/testify v1.8.1/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o
+ github.com/stretchr/testify v1.8.2/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
+ github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
+ github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
+-github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
+-github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
+ github.com/stripe/stripe-go/v85 v85.0.0 h1:HMlFJXW6I/9WvkeSAtj8V7dI5pzeDu4gS1TaqR1ccI4=
+ github.com/stripe/stripe-go/v85 v85.0.0/go.mod h1:5P+HGFenpWgak27T5Is6JMsmDfUC1yJnjhhmquz7kXw=
+ github.com/subosito/gotenv v1.6.0 h1:9NlTDc1FTs4qu0DDq7AEtTPNw6SVm7uBMsUCUjABIf8=
+@@ -446,34 +448,50 @@ golang.org/x/arch v0.3.0 h1:02VY4/ZcO/gBOH6PUaoiptASxtXU10jazRCP865E97k=
+ golang.org/x/arch v0.3.0/go.mod h1:5om86z9Hs0C8fWVUuoMHwpExlXzs5Tkyp9hOrfG7pp8=
+ golang.org/x/crypto v0.54.0 h1:YLIA59K4fiNzHzjnZt2tUJQjQtUWfWbeHBqKtk3eScw=
+ golang.org/x/crypto v0.54.0/go.mod h1:KWL8ny2AZdGR2cWmzeHrp2azQPGogOv+HeQaVEXC2dk=
++golang.org/x/crypto v0.57.0 h1:3ZVCjf8Ggz7zneR/EHRVx68Ctf+2pmIMP2UFhh9cC6M=
++golang.org/x/crypto v0.57.0/go.mod h1:Fdz0i5U6CoizGwLda9DttjSk6qlZo25zYNtR+ycvuZA=
+ golang.org/x/exp v0.0.0-20251023183803-a4bb9ffd2546 h1:mgKeJMpvi0yx/sU5GsxQ7p6s2wtOnGAHZWCHUM4KGzY=
+ golang.org/x/exp v0.0.0-20251023183803-a4bb9ffd2546/go.mod h1:j/pmGrbnkbPtQfxEe5D0VQhZC6qKbfKifgD0oM7sR70=
+ golang.org/x/image v0.45.0 h1:FMb1nTbH5H9vF55SriQHgFw5GnNL9Jg6L25BwXKzhB0=
+ golang.org/x/image v0.45.0/go.mod h1:n62x/7RqlwXDvGsSU4u6IUTUf6KghUZ9Bt7cG/T9Fx4=
+ golang.org/x/mod v0.38.0 h1:MECBjubtXD7yj4HrhIUcywNaGeNVUdfVnxmPajOk4yk=
+ golang.org/x/mod v0.38.0/go.mod h1:V6Xz0pq8TQ3dGqVQ1FVHuelZpAL0uNhSkk9ogYP3c40=
++golang.org/x/mod v0.41.0 h1:qJmnOUb4YB+FsEuM3HcWucdZASCPGhsX6uljO6pog0c=
++golang.org/x/mod v0.41.0/go.mod h1:Ek9pY8RKWXwsWvd3rQiHYtMqkjSUV+s1Rj7j4H5Ur6o=
+ golang.org/x/net v0.57.0 h1:K5+3DljvIuDG9/Jv9rvyMywYNFCQ9RSUY6OOTTkT+tE=
+ golang.org/x/net v0.57.0/go.mod h1:KpXc8iv+r3XplLAG/f7Jsf9RPszJzdR0f58q9vGOuEU=
++golang.org/x/net v0.60.0 h1:79p50tfZlm0J9YfoDsSi639qSXNGVwEzOPLCxM2FsYU=
++golang.org/x/net v0.60.0/go.mod h1:2DA/G1UfVbCpQPeWTmMPGY7Cs2PkBkwu743bVX5PIVg=
+ golang.org/x/sync v0.22.0 h1:SZjpbeLmrCk4xhRSZFNZW5gFUeCeFgjekvI/+gfScek=
+ golang.org/x/sync v0.22.0/go.mod h1:9xrNwdLfx4jkKbNva9FpL6vEN7evnE43NNNJQ2LF3+0=
++golang.org/x/sync v0.23.0 h1:KameEIfc1IkluZyXWLn39Wd4tURc6GbCiISGiZm2bQk=
++golang.org/x/sync v0.23.0/go.mod h1:sUUOizhqBxiL6pEWpqNLUiaJn1ShEbZ6BBqskPbjZm0=
+ golang.org/x/sys v0.0.0-20190916202348-b4ddaad3f8a3/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+ golang.org/x/sys v0.0.0-20201204225414-ed752295db88/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+ golang.org/x/sys v0.0.0-20210616094352-59db8d763f22/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+ golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+ golang.org/x/sys v0.0.0-20220811171246-fbc7d0a398ab/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+-golang.org/x/sys v0.6.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+-golang.org/x/sys v0.8.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+ golang.org/x/sys v0.11.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+ golang.org/x/sys v0.47.0 h1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=
+ golang.org/x/sys v0.47.0/go.mod h1:4GL1E5IUh+htKOUEOaiffhrAeqysfVGipDYzABqnCmw=
++golang.org/x/sys v0.48.0 h1:bbX/i/6MgT9BVLM9RT1thmxL04yeTAhbEz4SyadbXoo=
++golang.org/x/sys v0.48.0/go.mod h1:hNLxWAXmnKAxqDtdwIYC4bM9oQPEecfsnNMuSxOs3og=
++golang.org/x/sys v0.6.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
++golang.org/x/sys v0.8.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+ golang.org/x/term v0.45.0 h1:NwWyBmoJCbfTHpxrWoZ9C6/VxOf7ic219I8xZZFdrf0=
+ golang.org/x/term v0.45.0/go.mod h1:9aqxs0blBcrm/n0L9QW0aRVD+ktan8ssZromtqJC43w=
++golang.org/x/term v0.46.0 h1:3+OXuTbaKDgwk8jTi3aSLHRlmWqHEUDUtxnbFigO4YE=
++golang.org/x/term v0.46.0/go.mod h1:+K02xbkittuwc0Am4abfA3Fc+XRGXkvBXNO88NCXPoc=
+ golang.org/x/text v0.41.0 h1:vz/seA0lnX87Othu2f/0L24RcgrXD9/YFTSuGjj3rH8=
+ golang.org/x/text v0.41.0/go.mod h1:jvf1O8ajNzZqhSrQBPbutR/EB83Cc0CFrezNQIwbb5M=
++golang.org/x/text v0.42.0 h1:JbOZXgfeCPU9gacVtYliJqOhD+zhrEqK4LfdpmlUZqI=
++golang.org/x/text v0.42.0/go.mod h1:ojzP1Z+2QtioaF8DTtO8K5q7JWVVYwZKenzujK0Zd0E=
+ golang.org/x/time v0.12.0 h1:ScB/8o8olJvc+CQPWrK3fPZNfh7qgwCrY0zJmoEQLSE=
+ golang.org/x/time v0.12.0/go.mod h1:CDIdPxbZBQxdj6cxyCIdrNogrJKMJ7pr37NYpMcMDSg=
+ golang.org/x/tools v0.48.0 h1:3+hClM1aLL5mjMKm5ovokw9epgRXPuu2tILgismM6RE=
+ golang.org/x/tools v0.48.0/go.mod h1:08xX0orndb/F7jJxGDicx061tyd5pcMto75YMAXr6lk=
++golang.org/x/tools v0.49.0 h1:3NI7VXzL9+1WZD52Dx2ttoPwD5DWrFGpl9mFZDlmisI=
++golang.org/x/tools v0.49.0/go.mod h1:SJNXV9DBKT0UbdttsQjbfJlAE/q+y36++zo3uL3N0Oo=
+ golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
+ google.golang.org/genproto v0.0.0-20231106174013-bbf56f31fb17 h1:wpZ8pe2x1Q3f2KyT5f8oP/fa9rHAKgFPr/HZdNuS+PQ=
+ google.golang.org/genproto/googleapis/api v0.0.0-20250929231259-57b25ae835d4 h1:8XJ4pajGwOlasW+L13MnEGA8W4115jJySQtVfS2/IBU=
+diff --git a/backend/internal/application/service/README.md b/backend/internal/application/service/README.md
+index 1c4fb3e17..cdbd2b517 100644
+--- a/backend/internal/application/service/README.md
++++ b/backend/internal/application/service/README.md
+@@ -52,7 +52,7 @@
+ | `account_quality_runtime_snapshot.go` | 质量巡检私有 artifact 的非敏感请求运行画像快照 |
+ | `ratelimit_oauth_401_delete.go` | 网关 OAuth 401 自动删除准入、凭据 CAS 结果和运行态清理 |
+ | `openai_codex_remote_control_store.go` | Codex Remote Control enrollment token 的账号级加密持久化适配 |
+-| `openai_gateway_forward.go`, `openai_gateway_request_build.go` | OpenAI 转发编排与 HTTP 上游请求构造 |
++| `openai_gateway_forward.go`, `openai_gateway_forward_prepare.go`, `openai_gateway_request_build.go` | OpenAI 转发编排与 HTTP 上游请求构造 |
+ | `openai_responses_image_api_bridge.go`, `openai_responses_image_plan.go`, `http_upstream_profile.go` | Responses 图片/遮罩解析、共享下载与单图子请求；用户远程输入携带独立公开地址策略，管理员私网上游配置不放宽此策略 |
+ | `invalid_auth_abuse_limiter.go`, `cloudflare_ingress_settings.go` | 无效 API Key 来源计数、本地临时封禁，以及 Access Rule/WAF 双模式的 Cloudflare 加密持久设置与边缘端口 |
+ 
+@@ -63,3 +63,5 @@
+ 本包禁止导入 `internal/infrastructure/repository`；例外只能在 lint 配置中显式记录并附迁移原因。
+ 
+ Codex manifest 的显式管理员模型映射投影归属 `openai_codex_models_mapping.go`；不修改共享缓存、不启用 pinned 聚合前置。WS 逐轮分组价格刷新与混合版本 TPS 行为见 [本轮同步审查](../../../../docs/UPSTREAM_SYNC_20261008.md)。
++
++OAuth 历史 `web_search_call` 的缓存搜索声明由 `openai_oauth_web_search_history.go` 负责；标准/Lite、HTTP/WS、compact/API-key 隔离和工具链修补分支见 [2026-10-09 同步记录](../../../../docs/UPSTREAM_SYNC_20261009.md)。
+diff --git a/backend/internal/application/service/openai_codex_transform.go b/backend/internal/application/service/openai_codex_transform.go
+index 9ec7adf68..05bd895ea 100644
+--- a/backend/internal/application/service/openai_codex_transform.go
++++ b/backend/internal/application/service/openai_codex_transform.go
+@@ -92,6 +92,8 @@ type codexOAuthTransformOptions struct {
+ 	SkipDefaultInstructions             bool
+ 	PreserveToolCallIDs                 bool
+ 	OmitPromotedSystemMessagesFromInput bool
++	// ResponsesLite carries hosted tools through input.additional_tools.
++	ResponsesLite bool
+ }
+ 
+ const (
+@@ -329,6 +331,14 @@ func applyCodexOAuthTransformWithOptions(reqBody map[string]any, opts codexOAuth
+ 		result.Modified = true
+ 	}
+ 
++	// ChatGPT rejects replayed hosted web_search_call history unless the
++	// request declares web_search. Local compaction carries the full history
++	// with no tools; add the cached-only declaration after input filtering so
++	// the check sees the final replayed history. Compact has its own wire shape.
++	if !opts.IsCompact && ensureOpenAIOAuthWebSearchToolForHistory(reqBody, opts.ResponsesLite) {
++		result.Modified = true
++	}
++
+ 	return result
+ }
+ 
+diff --git a/backend/internal/application/service/openai_gateway_forward.go b/backend/internal/application/service/openai_gateway_forward.go
+index 19ec020b3..9849a08c4 100644
+--- a/backend/internal/application/service/openai_gateway_forward.go
++++ b/backend/internal/application/service/openai_gateway_forward.go
+@@ -76,21 +76,9 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
+ 	}
+ 	responsesLite := account.IsOpenAI() && isOpenAIResponsesLiteHeader(c.GetHeader(responsesLiteHeader))
+ 	if responsesLite {
+-		liteBody, changed, liteErr := normalizeOpenAIResponsesLitePayloadForAccount(body, account)
+-		if liteErr != nil {
+-			param := "tools"
+-			var validationErr *openAIResponsesLiteValidationError
+-			if errors.As(liteErr, &validationErr) {
+-				param = validationErr.param
+-			}
+-			setOpsUpstreamError(c, http.StatusBadRequest, liteErr.Error(), "")
+-			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
+-				"type": "invalid_request_error", "message": liteErr.Error(), "param": param,
+-			}})
+-			return nil, liteErr
+-		}
+-		if changed {
+-			body = liteBody
++		body, err = normalizeOpenAIForwardLiteRequest(c, account, body)
++		if err != nil {
++			return nil, err
+ 		}
+ 	}
+ 	wsDecision := s.getOpenAIWSProtocolResolver().Resolve(account)
+@@ -498,36 +486,15 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
+ 		if decodeErr != nil {
+ 			return nil, decodeErr
+ 		}
+-		// The handler has already applied the group's reasoning policy before an
+-		// account is selected. Honor the explicit CPA opt-in on the decoded map,
+-		// avoiding another full copy of large native agent histories.
+-		if reasoningOverridden, overrideErr := applyCodexPrewarmContinuationReasoningOverride(c, account, decoded); overrideErr != nil {
+-			return nil, overrideErr
+-		} else if reasoningOverridden {
+-			markDecodedModified()
+-			logOpenAIWSModeInfo("prewarm_reasoning_override account_id=%d effort=none", account.ID)
+-		}
+-		codexResult := codexTransformResult{}
+-		if compatMessagesBridge {
+-			codexResult = applyCodexOAuthTransformWithOptions(decoded, codexOAuthTransformOptions{IsCodexCLI: isCodexCLI, IsCompact: isCompactRequest, SkipDefaultInstructions: true, PreserveToolCallIDs: true})
+-			ensureCodexOAuthInstructionsField(decoded)
+-			markDecodedModified()
+-		} else {
+-			codexResult = applyCodexOAuthTransform(decoded, isCodexCLI, isCompactRequest)
++		opts := codexForwardOAuthOptions(isCodexCLI, isCompactRequest, responsesLite, compatMessagesBridge)
++		codexResult, preparedIDs, prepareErr := s.prepareOpenAIForwardOAuthRequest(c, account, decoded, opts)
++		if prepareErr != nil {
++			return nil, prepareErr
+ 		}
++		fingerprintIDs = preparedIDs
+ 		if codexResult.Modified {
+ 			markDecodedModified()
+ 		}
+-		// 带真实 device_id 时补齐 client_metadata 安装标识，与真实 Codex 对齐（compact 形态不同，跳过）。
+-		if !isCompactRequest && applyCodexClientMetadata(decoded, account) {
+-			markDecodedModified()
+-		}
+-		if !isCompactRequest || s.codexFullSimulationEnabledForAccount(c, account) {
+-			fingerprintIDs = resolveCodexFingerprintIDsFromGinContext(account, c)
+-			if applyCodexFingerprintClientMetadata(decoded, fingerprintIDs, c) {
+-				markDecodedModified()
+-			}
+-		}
+ 		if codexResult.NormalizedModel != "" {
+ 			upstreamModel = codexResult.NormalizedModel
+ 		}
+diff --git a/backend/internal/application/service/openai_gateway_forward_prepare.go b/backend/internal/application/service/openai_gateway_forward_prepare.go
+new file mode 100644
+index 000000000..eb41f8965
+--- /dev/null
++++ b/backend/internal/application/service/openai_gateway_forward_prepare.go
+@@ -0,0 +1,71 @@
++package service
++
++import (
++	"errors"
++	"github.com/gin-gonic/gin"
++	"net/http"
++)
++
++// prepareOpenAIForwardOAuthRequest owns the existing decoded OAuth preparation.
++// It reuses the caller's map: no extra body decode, identity lookup or allocation
++// is introduced by moving this responsibility out of the Forward orchestrator.
++func (s *OpenAIGatewayService) prepareOpenAIForwardOAuthRequest(
++	c *gin.Context, account *Account, decoded map[string]any, opts codexOAuthTransformOptions,
++) (codexTransformResult, *codexFingerprintIDs, error) {
++	modified := false
++	// Group reasoning has already been applied before account selection.
++	if overridden, err := applyCodexPrewarmContinuationReasoningOverride(c, account, decoded); err != nil {
++		return codexTransformResult{}, nil, err
++	} else if overridden {
++		modified = true
++		logOpenAIWSModeInfo("prewarm_reasoning_override account_id=%d effort=none", account.ID)
++	}
++	result := applyCodexOAuthTransformWithOptions(decoded, opts)
++	if opts.SkipDefaultInstructions {
++		ensureCodexOAuthInstructionsField(decoded)
++		modified = true
++	}
++	if !opts.IsCompact && applyCodexClientMetadata(decoded, account) {
++		modified = true
++	}
++	var ids *codexFingerprintIDs
++	if !opts.IsCompact || s.codexFullSimulationEnabledForAccount(c, account) {
++		ids = resolveCodexFingerprintIDsFromGinContext(account, c)
++		if applyCodexFingerprintClientMetadata(decoded, ids, c) {
++			modified = true
++		}
++	}
++	result.Modified = result.Modified || modified
++	return result, ids, nil
++}
++
++// normalizeOpenAIForwardLiteRequest retains the existing HTTP error contract.
++func normalizeOpenAIForwardLiteRequest(c *gin.Context, account *Account, body []byte) ([]byte, error) {
++	liteBody, changed, err := normalizeOpenAIResponsesLitePayloadForAccount(body, account)
++	if err != nil {
++		param := "tools"
++		var validationErr *openAIResponsesLiteValidationError
++		if errors.As(err, &validationErr) {
++			param = validationErr.param
++		}
++		setOpsUpstreamError(c, http.StatusBadRequest, err.Error(), "")
++		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
++			"type": "invalid_request_error", "message": err.Error(), "param": param,
++		}})
++		return body, err
++	}
++	if changed {
++		return liteBody, nil
++	}
++	return body, nil
++}
++
++func codexForwardOAuthOptions(isCodexCLI, compact, lite, compatMessagesBridge bool) codexOAuthTransformOptions {
++	return codexOAuthTransformOptions{
++		IsCodexCLI:              isCodexCLI,
++		IsCompact:               compact,
++		SkipDefaultInstructions: compatMessagesBridge,
++		PreserveToolCallIDs:     compatMessagesBridge,
++		ResponsesLite:           lite,
++	}
++}
+diff --git a/backend/internal/application/service/openai_gateway_passthrough.go b/backend/internal/application/service/openai_gateway_passthrough.go
+index 3c0315aa0..fb70e1efe 100644
+--- a/backend/internal/application/service/openai_gateway_passthrough.go
++++ b/backend/internal/application/service/openai_gateway_passthrough.go
+@@ -212,6 +212,16 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
+ 		if normalized {
+ 			body = normalizedBody
+ 		}
++		if account.IsOpenAIOAuth() && !isOpenAIResponsesCompactPath(c) {
++			responsesLite := isOpenAIResponsesLiteHeader(c.GetHeader(responsesLiteHeader)) || isOpenAIResponsesLiteWebSocketPayload(body)
++			webSearchBody, webSearchChanged, webSearchErr := normalizeOpenAIOAuthWebSearchHistoryForAccount(body, account, false, responsesLite)
++			if webSearchErr != nil {
++				return nil, fmt.Errorf("normalize passthrough Responses web_search history: %w", webSearchErr)
++			}
++			if webSearchChanged {
++				body = webSearchBody
++			}
++		}
+ 		if !isOpenAIResponsesCompactPath(c) || (fingerprintIDs != nil && fingerprintIDs.fullSimulation) {
+ 			fingerprintedBody, fingerprinted, fingerprintErr := applyCodexFingerprintClientMetadataToBody(body, fingerprintIDs, c)
+ 			if fingerprintErr != nil {
+diff --git a/backend/internal/application/service/openai_gateway_responses_anthropic_native.go b/backend/internal/application/service/openai_gateway_responses_anthropic_native.go
+index 6b1f4b141..6dda33be5 100644
+--- a/backend/internal/application/service/openai_gateway_responses_anthropic_native.go
++++ b/backend/internal/application/service/openai_gateway_responses_anthropic_native.go
+@@ -56,8 +56,10 @@ func (s *OpenAIGatewayService) forwardResponsesViaNativeAnthropic(
+ 		writeResponsesError(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")
+ 		return nil, fmt.Errorf("parse responses request: %w", err)
+ 	}
+-	originalModel := responsesReq.Model
+-	if strings.TrimSpace(originalModel) == "" {
++	// Keep billing and dispatch on the same trimmed request model. In
++	// particular, model-routed OpenCode accounts do not have a dispatch fallback.
++	originalModel := strings.TrimSpace(responsesReq.Model)
++	if originalModel == "" {
+ 		writeResponsesError(c, http.StatusBadRequest, "invalid_request_error", "model is required")
+ 		return nil, fmt.Errorf("missing model in request")
+ 	}
+diff --git a/backend/internal/application/service/openai_oauth_web_search_history.go b/backend/internal/application/service/openai_oauth_web_search_history.go
+new file mode 100644
+index 000000000..a0e378ec6
+--- /dev/null
++++ b/backend/internal/application/service/openai_oauth_web_search_history.go
+@@ -0,0 +1,269 @@
++package service
++
++import (
++	"bytes"
++	"fmt"
++	"strings"
++	"unsafe"
++
++	"github.com/tidwall/gjson"
++	"github.com/tidwall/sjson"
++)
++
++// The ChatGPT internal Codex endpoint rejects a request whose input replays a
++// hosted web_search_call item unless the request also declares the web_search
++// tool; the stream then fails with "response protection is unavailable".
++// Codex's local context compaction sends the full history with tools:[], so
++// every compaction after a web search fails (#7927).
++//
++// Declare a cached-only web_search tool for such requests. Responses Lite
++// rejects hosted tools at the top level, so Lite requests carry it in an
++// input additional_tools item instead. When the caller declared no tools at
++// all, also pin tool_choice to "none" so the injected tool cannot be invoked
++// and the request keeps its no-tools semantics.
++
++const (
++	openAIWebSearchCallItemType      = "web_search_call"
++	openAIAdditionalToolsItemType    = "additional_tools"
++	openAICompactionTriggerItemType  = "compaction_trigger"
++	openAIAdditionalToolsDefaultRole = "developer"
++)
++
++var openAIWebSearchHistoryTool = map[string]any{
++	"type":                "web_search",
++	"external_web_access": false,
++}
++
++func isOpenAIWebSearchToolType(toolType string) bool {
++	return strings.HasPrefix(strings.TrimSpace(toolType), "web_search")
++}
++
++func openAIToolsContainWebSearch(rawTools any) bool {
++	tools, ok := rawTools.([]any)
++	if !ok {
++		return false
++	}
++	for _, rawTool := range tools {
++		tool, ok := rawTool.(map[string]any)
++		if ok && isOpenAIWebSearchToolType(firstNonEmptyString(tool["type"])) {
++			return true
++		}
++	}
++	return false
++}
++
++// shouldPinOpenAIWebSearchHistoryToolChoice reports whether tool_choice may be
++// forced to "none": only when the caller offered no tools, so the choice
++// cannot meaningfully be anything else.
++func shouldPinOpenAIWebSearchHistoryToolChoice(choice any) bool {
++	switch typed := choice.(type) {
++	case nil:
++		return true
++	case string:
++		normalized := strings.ToLower(strings.TrimSpace(typed))
++		return normalized == "" || normalized == "auto" || normalized == "none"
++	default:
++		return false
++	}
++}
++
++// ensureOpenAIOAuthWebSearchToolForHistory is the map variant used by the
++// Codex OAuth transform.
++func ensureOpenAIOAuthWebSearchToolForHistory(reqBody map[string]any, responsesLite bool) bool {
++	if reqBody == nil {
++		return false
++	}
++	input, ok := reqBody["input"].([]any)
++	if !ok || openAIToolsContainWebSearch(reqBody["tools"]) {
++		return false
++	}
++	hasWebSearchCall := false
++	callerDeclaredTools := false
++	additionalToolsIndex := -1
++	lastType := ""
++	for i, rawItem := range input {
++		lastType = ""
++		item, ok := rawItem.(map[string]any)
++		if !ok {
++			continue
++		}
++		lastType = strings.TrimSpace(firstNonEmptyString(item["type"]))
++		switch lastType {
++		case openAIWebSearchCallItemType:
++			hasWebSearchCall = true
++		case openAIAdditionalToolsItemType:
++			if openAIToolsContainWebSearch(item["tools"]) {
++				return false
++			}
++			if tools, _ := item["tools"].([]any); len(tools) > 0 {
++				callerDeclaredTools = true
++			}
++			if additionalToolsIndex < 0 {
++				additionalToolsIndex = i
++			}
++		}
++	}
++	if !hasWebSearchCall || openAIToolsContainWebSearch(reqBody["tools"]) {
++		return false
++	}
++	tools, _ := reqBody["tools"].([]any)
++	callerDeclaredTools = callerDeclaredTools || len(tools) > 0
++
++	switch {
++	case !responsesLite:
++		reqBody["tools"] = append(tools, cloneOpenAIWebSearchHistoryTool())
++	case additionalToolsIndex >= 0:
++		// additionalToolsIndex is only recorded for map items.
++		item, _ := input[additionalToolsIndex].(map[string]any)
++		existing, _ := item["tools"].([]any)
++		item["tools"] = append(existing, cloneOpenAIWebSearchHistoryTool())
++	default:
++		at := len(input)
++		if lastType == openAICompactionTriggerItemType {
++			at--
++		}
++		additional := map[string]any{
++			"type":  openAIAdditionalToolsItemType,
++			"role":  openAIAdditionalToolsDefaultRole,
++			"tools": []any{cloneOpenAIWebSearchHistoryTool()},
++		}
++		next := make([]any, 0, len(input)+1)
++		next = append(next, input[:at]...)
++		next = append(next, additional)
++		next = append(next, input[at:]...)
++		reqBody["input"] = next
++	}
++	if !callerDeclaredTools {
++		if choice, exists := reqBody["tool_choice"]; !exists || shouldPinOpenAIWebSearchHistoryToolChoice(choice) {
++			reqBody["tool_choice"] = "none"
++		}
++	}
++	return true
++}
++
++// ensureOpenAIOAuthWebSearchToolForHistoryBody is the raw-body variant used by
++// the passthrough and WebSocket paths; it avoids decoding the whole body.
++func ensureOpenAIOAuthWebSearchToolForHistoryBody(body []byte, responsesLite bool) ([]byte, bool, error) {
++	if len(body) == 0 || !bytes.Contains(body, []byte(openAIWebSearchCallItemType)) {
++		return body, false, nil
++	}
++	// This view is read-only, scoped to this call, and never retained. Large
++	// histories with an existing declaration must not copy the input array.
++	view := unsafe.String(unsafe.SliceData(body), len(body))
++	tools := gjson.Get(view, "tools")
++	if gjsonToolsContainWebSearch(tools) {
++		return body, false, nil
++	}
++	input := gjson.Get(view, "input")
++	if !input.IsArray() {
++		return body, false, nil
++	}
++	hasWebSearchCall, alreadyDeclared := false, false
++	callerDeclaredTools := gjsonArrayHasItems(tools)
++	additionalToolsIndex := -1
++	additionalToolsArray := false
++	var last gjson.Result
++	input.ForEach(func(index, item gjson.Result) bool {
++		last = item
++		switch strings.TrimSpace(item.Get("type").String()) {
++		case openAIWebSearchCallItemType:
++			hasWebSearchCall = true
++		case openAIAdditionalToolsItemType:
++			itemTools := item.Get("tools")
++			if gjsonToolsContainWebSearch(itemTools) {
++				alreadyDeclared = true
++				return false
++			}
++			callerDeclaredTools = callerDeclaredTools || gjsonArrayHasItems(itemTools)
++			if additionalToolsIndex < 0 {
++				additionalToolsIndex = int(index.Int())
++				additionalToolsArray = itemTools.IsArray()
++			}
++		}
++		return true
++	})
++	if !hasWebSearchCall || alreadyDeclared {
++		return body, false, nil
++	}
++	var next []byte
++	var err error
++	switch {
++	case !responsesLite && gjsonArrayHasItems(tools):
++		next, err = sjson.SetBytes(body, "tools.-1", cloneOpenAIWebSearchHistoryTool())
++	case !responsesLite:
++		next, err = sjson.SetBytes(body, "tools", []any{cloneOpenAIWebSearchHistoryTool()})
++	case additionalToolsIndex >= 0 && additionalToolsArray:
++		next, err = sjson.SetBytes(body, fmt.Sprintf("input.%d.tools.-1", additionalToolsIndex), cloneOpenAIWebSearchHistoryTool())
++	case additionalToolsIndex >= 0:
++		next, err = sjson.SetBytes(body, fmt.Sprintf("input.%d.tools", additionalToolsIndex), []any{cloneOpenAIWebSearchHistoryTool()})
++	default:
++		// Insert one item without rebuilding or reserializing the history.
++		// ForEach offsets are absolute in the request body. Preserve whitespace,
++		// number spelling, escaped strings, and a final compaction trigger.
++		additional := []byte(`{"type":"additional_tools","role":"developer","tools":[{"type":"web_search","external_web_access":false}]}`)
++		at := input.Index + len(input.Raw) - 1
++		if strings.TrimSpace(last.Get("type").String()) == openAICompactionTriggerItemType {
++			at = last.Index
++			additional = append(additional, ',')
++		} else {
++			additional = append([]byte{','}, additional...)
++		}
++		next = make([]byte, 0, len(body)+len(additional))
++		next = append(next, body[:at]...)
++		next = append(next, additional...)
++		next = append(next, body[at:]...)
++	}
++	if err != nil {
++		return body, false, fmt.Errorf("declare web_search tool for web_search_call history: %w", err)
++	}
++	if !callerDeclaredTools {
++		choice := gjson.GetBytes(next, "tool_choice")
++		if !choice.Exists() || choice.Type == gjson.Null || (choice.Type == gjson.String && shouldPinOpenAIWebSearchHistoryToolChoice(choice.String())) {
++			next, err = sjson.SetBytes(next, "tool_choice", "none")
++			if err != nil {
++				return body, false, fmt.Errorf("pin tool_choice for web_search_call history: %w", err)
++			}
++		}
++	}
++	return next, true, nil
++}
++
++func gjsonArrayHasItems(value gjson.Result) bool {
++	found := false
++	if value.IsArray() {
++		value.ForEach(func(_, _ gjson.Result) bool { found = true; return false })
++	}
++	return found
++}
++
++func gjsonToolsContainWebSearch(tools gjson.Result) bool {
++	if !tools.IsArray() {
++		return false
++	}
++	found := false
++	tools.ForEach(func(_, tool gjson.Result) bool {
++		if isOpenAIWebSearchToolType(tool.Get("type").String()) {
++			found = true
++			return false
++		}
++		return true
++	})
++	return found
++}
++
++// normalizeOpenAIOAuthWebSearchHistoryForAccount is the common raw HTTP/WS
++// guard. API-key, other-platform, and unary compact payloads stay byte-exact.
++func normalizeOpenAIOAuthWebSearchHistoryForAccount(body []byte, account *Account, compact, responsesLite bool) ([]byte, bool, error) {
++	if account == nil || !account.IsOpenAIOAuth() || compact {
++		return body, false, nil
++	}
++	return ensureOpenAIOAuthWebSearchToolForHistoryBody(body, responsesLite)
++}
++
++func cloneOpenAIWebSearchHistoryTool() map[string]any {
++	tool := make(map[string]any, len(openAIWebSearchHistoryTool))
++	for key, value := range openAIWebSearchHistoryTool {
++		tool[key] = value
++	}
++	return tool
++}
+diff --git a/backend/internal/application/service/openai_oauth_web_search_history_benchmark_test.go b/backend/internal/application/service/openai_oauth_web_search_history_benchmark_test.go
+new file mode 100644
+index 000000000..f871f44bd
+--- /dev/null
++++ b/backend/internal/application/service/openai_oauth_web_search_history_benchmark_test.go
+@@ -0,0 +1,43 @@
++//go:build benchmark
++
++package service
++
++import (
++	"strings"
++	"testing"
++)
++
++func BenchmarkOAuthWebSearchHistory20261009(b *testing.B) {
++	for _, size := range []struct {
++		name  string
++		bytes int
++	}{{"small", 64}, {"8MiB", 8 << 20}} {
++		for _, scenario := range []string{"no_marker", "top_declared", "additional_declared", "lite_insert"} {
++			message := `{"type":"message","role":"user","content":"` + strings.Repeat("x", size.bytes) + `"}`
++			body := []byte(`{"input":[` + message + `],"tools":[]}`)
++			if scenario != "no_marker" {
++				body = []byte(`{"input":[` + message + `,{"type":"web_search_call"},{"type":"compaction_trigger"}],"tools":[]}`)
++			}
++			if scenario == "top_declared" {
++				body = []byte(`{"input":[` + message + `,{"type":"web_search_call"}],"tools":[{"type":"web_search"}]}`)
++			}
++			if scenario == "additional_declared" {
++				body = []byte(`{"input":[` + message + `,{"type":"web_search_call"},{"type":"additional_tools","tools":[{"type":"web_search"}]}],"tools":[]}`)
++			}
++			for _, impl := range []struct {
++				name string
++				fn   func([]byte, bool) ([]byte, bool, error)
++			}{{"upstream", upstreamReferenceEnsureOpenAIOAuthWebSearchToolForHistoryBody}, {"adapted", ensureOpenAIOAuthWebSearchToolForHistoryBody}} {
++				b.Run(size.name+"/"+scenario+"/"+impl.name, func(b *testing.B) {
++					b.ReportAllocs()
++					for i := 0; i < b.N; i++ {
++						_, _, err := impl.fn(body, true)
++						if err != nil {
++							b.Fatal(err)
++						}
++					}
++				})
++			}
++		}
++	}
++}
+diff --git a/backend/internal/application/service/openai_oauth_web_search_history_forward_test.go b/backend/internal/application/service/openai_oauth_web_search_history_forward_test.go
+new file mode 100644
+index 000000000..dcc25df61
+--- /dev/null
++++ b/backend/internal/application/service/openai_oauth_web_search_history_forward_test.go
+@@ -0,0 +1,66 @@
++//go:build unit
++
++package service
++
++import (
++	"context"
++	"fmt"
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++
++	"github.com/Wei-Shaw/sub2api/internal/platform/config"
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++	"github.com/tidwall/gjson"
++)
++
++// This is also the identical baseline/modified/rollback transaction fixture.
++// It drives the real Forward path, rather than merely exercising the helper.
++func TestForwardOAuthWebSearchHistory20261009(t *testing.T) {
++	for _, tc := range []struct {
++		name              string
++		passthrough, lite bool
++	}{
++		{"transform", false, false}, {"passthrough", true, false}, {"transform-lite", false, true}, {"passthrough-lite", true, true},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			gin.SetMode(gin.TestMode)
++			c, _ := gin.CreateTestContext(httptest.NewRecorder())
++			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
++			c.Request.Header.Set("User-Agent", "codex_cli_rs/0.144.1")
++			if tc.lite {
++				c.Request.Header.Set(responsesLiteHeader, "true")
++			}
++			upstream := &httpUpstreamRecorder{resp: &http.Response{
++				StatusCode: 200, Header: http.Header{"Content-Type": []string{"text/event-stream"}},
++				Body: io.NopCloser(strings.NewReader("data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_test\",\"status\":\"completed\",\"output\":[{\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"output_text\",\"text\":\"ok\"}]}],\"usage\":{\"input_tokens\":1,\"output_tokens\":1}}}\n\ndata: [DONE]\n\n")),
++			}}
++			svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
++			account := &Account{ID: 501, Name: "history-fixture", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Concurrency: 1,
++				Credentials: map[string]any{"access_token": "fixture-oauth", "chatgpt_account_id": "fixture-account"},
++				Extra:       map[string]any{"openai_passthrough": tc.passthrough},
++			}
++			input := []byte(`{"model":"gpt-6-astra","stream":true,"instructions":"fixture","input":[{"type":"web_search_call","status":"completed","action":{"type":"search","query":"q"}},{"type":"message","role":"user","content":"summarize"},{"type":"compaction_trigger"}],"tools":[],"tool_choice":"auto"}`)
++			result, err := svc.Forward(context.Background(), c, account, input)
++			require.NoError(t, err)
++			require.NotNil(t, result)
++			body := upstream.lastBody
++			items := gjson.GetBytes(body, "input").Array()
++			carrier := "tools"
++			if tc.lite {
++				carrier = `input.#(type=="additional_tools").tools`
++			}
++			fmt.Printf("OBSERVED path=%s declared=%s choice=%s trigger_last=%v input_history=%s\n", tc.name, gjson.GetBytes(body, carrier+".0.type").String(), gjson.GetBytes(body, "tool_choice").String(), items[len(items)-1].Get("type").String() == "compaction_trigger", items[0].Get("type").String())
++			require.Equal(t, "web_search", gjson.GetBytes(body, carrier+".0.type").String())
++			require.Equal(t, "false", gjson.GetBytes(body, carrier+".0.external_web_access").Raw)
++			require.Equal(t, "none", gjson.GetBytes(body, "tool_choice").String())
++			require.Equal(t, "compaction_trigger", items[len(items)-1].Get("type").String())
++			if tc.lite {
++				require.Empty(t, gjson.GetBytes(body, "tools").Array())
++			}
++		})
++	}
++}
+diff --git a/backend/internal/application/service/openai_oauth_web_search_history_test.go b/backend/internal/application/service/openai_oauth_web_search_history_test.go
+new file mode 100644
+index 000000000..a21dd9bbb
+--- /dev/null
++++ b/backend/internal/application/service/openai_oauth_web_search_history_test.go
+@@ -0,0 +1,233 @@
++package service
++
++import (
++	"bytes"
++	"encoding/json"
++	"strings"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++	"github.com/tidwall/gjson"
++)
++
++const openAIWebSearchHistoryFixture = `{"model":"gpt-6-astra","input":[{"type":"message","role":"user","content":"look it up"},{"type":"web_search_call","id":"ws_1","status":"completed","action":{"type":"search","query":"q"}},{"type":"message","role":"assistant","content":"found"},{"type":"compaction_trigger"}],"tools":[],"tool_choice":"auto"}`
++
++func TestEnsureOpenAIOAuthWebSearchToolForHistory_StandardAndLite(t *testing.T) {
++	standard, changed := ensureWebSearchHistoryMap(t, openAIWebSearchHistoryFixture, false)
++	require.True(t, changed)
++	standardTools, ok := standard["tools"].([]any)
++	require.True(t, ok)
++	require.Len(t, standardTools, 1)
++	require.Equal(t, "web_search", webSearchValue[map[string]any](t, standardTools[0])["type"])
++	require.Equal(t, "none", standard["tool_choice"])
++
++	lite, changed := ensureWebSearchHistoryMap(t, openAIWebSearchHistoryFixture, true)
++	require.True(t, changed)
++	require.Empty(t, lite["tools"])
++	liteInput, ok := lite["input"].([]any)
++	require.True(t, ok)
++	require.Len(t, liteInput, 5)
++	require.Equal(t, "additional_tools", webSearchValue[map[string]any](t, liteInput[3])["type"])
++	require.Equal(t, "compaction_trigger", webSearchValue[map[string]any](t, liteInput[4])["type"])
++	require.Equal(t, "web_search", webSearchValue[map[string]any](t, webSearchValue[[]any](t, webSearchValue[map[string]any](t, liteInput[3])["tools"])[0])["type"])
++	require.Equal(t, "none", lite["tool_choice"])
++}
++
++func TestEnsureOpenAIOAuthWebSearchToolForHistory_RawMatchesMap(t *testing.T) {
++	for _, lite := range []bool{false, true} {
++		var want map[string]any
++		require.NoError(t, json.Unmarshal([]byte(openAIWebSearchHistoryFixture), &want))
++		require.True(t, ensureOpenAIOAuthWebSearchToolForHistory(want, lite))
++
++		got, changed, err := ensureOpenAIOAuthWebSearchToolForHistoryBody([]byte(openAIWebSearchHistoryFixture), lite)
++		require.NoError(t, err)
++		require.True(t, changed)
++		wantJSON, err := json.Marshal(want)
++		require.NoError(t, err)
++		require.JSONEq(t, string(wantJSON), string(got))
++	}
++}
++
++func TestEnsureOpenAIOAuthWebSearchToolForHistory_NoOpAndChoiceBoundaries(t *testing.T) {
++	for _, body := range []string{
++		`{"input":[{"type":"web_search_call"}],"tools":[{"type":"web_search_preview"}]}`,
++		`{"input":[{"type":"additional_tools","tools":[{"type":"web_search"}]},{"type":"web_search_call"}]}`,
++		`{"input":[{"type":"message","content":"web_search_call"}],"tools":[]}`,
++	} {
++		var req map[string]any
++		require.NoError(t, json.Unmarshal([]byte(body), &req))
++		require.False(t, ensureOpenAIOAuthWebSearchToolForHistory(req, false))
++		out, changed, err := ensureOpenAIOAuthWebSearchToolForHistoryBody([]byte(body), false)
++		require.NoError(t, err)
++		require.False(t, changed)
++		require.JSONEq(t, body, string(out))
++	}
++
++	var required map[string]any
++	require.NoError(t, json.Unmarshal([]byte(`{"input":[{"type":"web_search_call"}],"tools":[],"tool_choice":"required"}`), &required))
++	require.True(t, ensureOpenAIOAuthWebSearchToolForHistory(required, false))
++	require.Equal(t, "required", required["tool_choice"])
++}
++
++func TestEnsureOpenAIOAuthWebSearchToolForHistory_ToolMapIsolation(t *testing.T) {
++	first := map[string]any{"input": []any{map[string]any{"type": "web_search_call"}}}
++	second := map[string]any{"input": []any{map[string]any{"type": "web_search_call"}}}
++	require.True(t, ensureOpenAIOAuthWebSearchToolForHistory(first, false))
++	require.True(t, ensureOpenAIOAuthWebSearchToolForHistory(second, false))
++	webSearchValue[map[string]any](t, webSearchValue[[]any](t, first["tools"])[0])["external_web_access"] = true
++	require.Equal(t, false, webSearchValue[map[string]any](t, webSearchValue[[]any](t, second["tools"])[0])["external_web_access"])
++	require.Equal(t, false, openAIWebSearchHistoryTool["external_web_access"])
++}
++
++func TestApplyCodexOAuthTransform_DeclaresWebSearchHistoryTool(t *testing.T) {
++	var req map[string]any
++	require.NoError(t, json.Unmarshal([]byte(openAIWebSearchHistoryFixture), &req))
++	result := applyCodexOAuthTransformWithOptions(req, codexOAuthTransformOptions{
++		IsCodexCLI:    true,
++		ResponsesLite: true,
++	})
++	require.True(t, result.Modified)
++	require.Equal(t, "none", req["tool_choice"])
++	input, ok := req["input"].([]any)
++	require.True(t, ok)
++	require.Equal(t, "additional_tools", webSearchValue[map[string]any](t, input[len(input)-2])["type"])
++	require.Equal(t, "compaction_trigger", webSearchValue[map[string]any](t, input[len(input)-1])["type"])
++}
++
++func ensureWebSearchHistoryMap(t *testing.T, body string, lite bool) (map[string]any, bool) {
++	t.Helper()
++	var req map[string]any
++	require.NoError(t, json.Unmarshal([]byte(body), &req))
++	changed := ensureOpenAIOAuthWebSearchToolForHistory(req, lite)
++	return req, changed
++}
++
++func TestEnsureOpenAIOAuthWebSearchToolForHistory_RawToolPath(t *testing.T) {
++	body := []byte(`{"input":[{"type":"web_search_call"}],"tools":[{"type":"function","name":"echo"}]}`)
++	out, changed, err := ensureOpenAIOAuthWebSearchToolForHistoryBody(body, false)
++	require.NoError(t, err)
++	require.True(t, changed)
++	require.Equal(t, "function", gjson.GetBytes(out, "tools.0.type").String())
++	require.Equal(t, "web_search", gjson.GetBytes(out, "tools.1.type").String())
++	require.NotEqual(t, string(body), string(out))
++}
++
++func webSearchValue[T any](t *testing.T, raw any) T {
++	t.Helper()
++	value, ok := raw.(T)
++	require.True(t, ok)
++	return value
++}
++
++func TestOAuthWebSearchHistoryGuardCompactAPIKeyAndOtherPlatform(t *testing.T) {
++	for _, tc := range []struct {
++		account *Account
++		compact bool
++	}{
++		{nil, false}, {&Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}, false},
++		{&Account{Platform: PlatformGrok, Type: AccountTypeOAuth}, false},
++		{&Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}, true},
++	} {
++		original := []byte(openAIWebSearchHistoryFixture)
++		out, changed, err := normalizeOpenAIOAuthWebSearchHistoryForAccount(original, tc.account, tc.compact, true)
++		require.NoError(t, err)
++		require.False(t, changed)
++		require.Equal(t, original, out)
++	}
++	req := webSearchValue[map[string]any](t, map[string]any{"input": []any{map[string]any{"type": "web_search_call"}}, "tools": []any{}})
++	applyCodexOAuthTransformWithOptions(req, codexOAuthTransformOptions{IsCompact: true, ResponsesLite: true})
++	require.Empty(t, req["tools"])
++}
++
++func TestOAuthWebSearchHistoryRawPreservesNonTargetBytes(t *testing.T) {
++	for _, history := range []string{
++		`[ { "type" : "web_search_call", "id":"ws_1" }, {"role":"user","content":"é\\n"}, { "type" : "compaction_trigger" } ]`,
++		`[ { "type" : "web_search_call", "id":"ws_1" } ]`,
++	} {
++		body := []byte(`{ "number":900719925474099312345, "ext":1.20e-2, "input":` + history + `, "tools":[], "tool_choice":"none" }`)
++		original := bytes.Clone(body)
++		out, changed, err := ensureOpenAIOAuthWebSearchToolForHistoryBody(body, true)
++		require.NoError(t, err)
++		require.True(t, changed)
++		require.True(t, gjson.ValidBytes(out))
++		require.Equal(t, original, body)
++		require.Contains(t, string(out), `"number":900719925474099312345, "ext":1.20e-2`)
++		require.Contains(t, string(out), `{ "type" : "web_search_call", "id":"ws_1" }`)
++		if strings.Contains(history, "compaction_trigger") {
++			items := gjson.GetBytes(out, "input").Array()
++			require.Equal(t, "compaction_trigger", items[len(items)-1].Get("type").String())
++		}
++	}
++}
++
++func TestEnsureOpenAIOAuthWebSearchToolForHistory(t *testing.T) {
++	const (
++		user    = `{"type":"message","role":"user","content":[{"type":"input_text","text":"q"}]}`
++		search  = `{"type":"web_search_call","id":"ws_1","status":"completed","action":{"type":"search","query":"q"}}`
++		trigger = `{"type":"compaction_trigger"}`
++		history = `[` + user + `,` + search + `]`
++	)
++	tests := []struct {
++		name       string
++		body       string
++		lite       bool
++		changed    bool
++		toolsPath  string
++		toolCount  int
++		toolChoice string
++		itemTypes  []string
++	}{
++		{"tools absent", `{"input":` + history + `}`, false, true, "tools", 1, "none", nil},
++		{"tools null", `{"input":` + history + `,"tools":null,"tool_choice":null}`, false, true, "tools", 1, "none", nil},
++		{"explicit none kept", `{"input":` + history + `,"tools":[],"tool_choice":"none"}`, false, true, "tools", 1, "none", nil},
++		{"required not rewritten", `{"input":` + history + `,"tools":[],"tool_choice":"required"}`, false, true, "tools", 1, "required", nil},
++		{"caller tools keep choice", `{"input":` + history + `,"tools":[{"type":"function","name":"echo"}],"tool_choice":"auto"}`, false, true, "tools", 2, "auto", nil},
++		{"web_search already declared", `{"input":` + history + `,"tools":[{"type":"web_search"}]}`, false, false, "", 0, "", nil},
++		{"web_search_preview declared", `{"input":` + history + `,"tools":[{"type":"web_search_preview"}]}`, false, false, "", 0, "", nil},
++		{"declared via additional_tools", `{"input":[{"type":"additional_tools","tools":[{"type":"web_search"}]},` + search + `]}`, false, false, "", 0, "", nil},
++		{"no web_search_call item", `{"input":[{"type":"message","role":"user","content":"web_search_call"}],"tools":[]}`, false, false, "", 0, "", nil},
++		{"string input", `{"input":"web_search_call"}`, false, false, "", 0, "", nil},
++		{"lite inserts before compaction trigger", `{"input":[` + user + `,` + search + `,` + trigger + `]}`, true, true, "input.2.tools", 1, "none",
++			[]string{"message", "web_search_call", "additional_tools", "compaction_trigger"}},
++		{"lite appends without trigger", `{"input":` + history + `,"tool_choice":"auto"}`, true, true, "input.2.tools", 1, "none",
++			[]string{"message", "web_search_call", "additional_tools"}},
++		{"lite extends caller additional_tools", `{"input":[{"type":"additional_tools","role":"developer","tools":[{"type":"function","name":"echo"}]},` + search + `,` + trigger + `],"tool_choice":"auto"}`, true, true, "input.0.tools", 2, "auto",
++			[]string{"additional_tools", "web_search_call", "compaction_trigger"}},
++		{"lite fills empty additional_tools", `{"input":[{"type":"additional_tools","role":"developer"},` + search + `]}`, true, true, "input.0.tools", 1, "none",
++			[]string{"additional_tools", "web_search_call"}},
++		{"lite keeps top-level tools untouched", `{"input":` + history + `,"tools":[{"type":"function","name":"echo"}]}`, true, true, "input.2.tools", 1, "",
++			[]string{"message", "web_search_call", "additional_tools"}},
++	}
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			out, changed, err := ensureOpenAIOAuthWebSearchToolForHistoryBody([]byte(tt.body), tt.lite)
++			require.NoError(t, err)
++			require.Equal(t, tt.changed, changed)
++			var req map[string]any
++			require.NoError(t, json.Unmarshal([]byte(tt.body), &req))
++			require.Equal(t, tt.changed, ensureOpenAIOAuthWebSearchToolForHistory(req, tt.lite))
++			if !tt.changed {
++				require.Equal(t, tt.body, string(out))
++				return
++			}
++			require.True(t, gjson.ValidBytes(out))
++			tools := gjson.GetBytes(out, tt.toolsPath).Array()
++			require.Len(t, tools, tt.toolCount)
++			require.Equal(t, "web_search", tools[len(tools)-1].Get("type").String())
++			require.Equal(t, tt.toolChoice, gjson.GetBytes(out, "tool_choice").String())
++			if tt.lite {
++				require.False(t, gjsonToolsContainWebSearch(gjson.GetBytes(out, "tools")), "Lite rejects top-level hosted tools")
++				var types []string
++				for _, item := range gjson.GetBytes(out, "input").Array() {
++					types = append(types, item.Get("type").String())
++				}
++				require.Equal(t, tt.itemTypes, types)
++			}
++
++			// The map variant used by the Codex transform must agree.
++			mapOut, err := json.Marshal(req)
++			require.NoError(t, err)
++			require.JSONEq(t, string(out), string(mapOut))
++		})
++	}
++}
+diff --git a/backend/internal/application/service/openai_oauth_web_search_history_ws_test.go b/backend/internal/application/service/openai_oauth_web_search_history_ws_test.go
+new file mode 100644
+index 000000000..68e26c910
+--- /dev/null
++++ b/backend/internal/application/service/openai_oauth_web_search_history_ws_test.go
+@@ -0,0 +1,107 @@
++//go:build unit
++
++package service
++
++import (
++	"context"
++	"encoding/json"
++	"testing"
++	"time"
++
++	coderws "github.com/coder/websocket"
++	"github.com/stretchr/testify/require"
++	"github.com/tidwall/gjson"
++	"github.com/tidwall/sjson"
++)
++
++type webSearchStagedWSConn struct{ *stagedPassthroughConn }
++
++func (c *webSearchStagedWSConn) WriteJSON(ctx context.Context, value any) error {
++	data, err := json.Marshal(value)
++	if err != nil {
++		return err
++	}
++	return c.WriteFrame(ctx, coderws.MessageText, data)
++}
++
++func TestOAuthWebSearchHistoryWebSocketAllTurns20261009(t *testing.T) {
++	for _, mode := range []string{OpenAIWSIngressModeCtxPool, OpenAIWSIngressModePassthrough} {
++		for _, lite := range []bool{false, true} {
++			for _, kind := range []string{AccountTypeOAuth, AccountTypeAPIKey} {
++				name := mode + "/" + map[bool]string{true: "lite", false: "standard"}[lite] + "/" + kind
++				t.Run(name, func(t *testing.T) {
++					cfg := passthroughLifecycleConfig()
++					cfg.Gateway.OpenAIWS.OAuthEnabled = true
++					cfg.Gateway.OpenAIWS.ReadTimeoutSeconds = 5
++					cfg.Gateway.OpenAIWS.IngressInterTurnIdleTimeoutSeconds = 5
++					cfg.Gateway.OpenAIWS.MaxConnsPerAccount = 1
++					cfg.Gateway.OpenAIWS.MaxIdlePerAccount = 1
++					staged := newStagedPassthroughConn()
++					conn := &webSearchStagedWSConn{staged}
++					svc := newPassthroughLifecycleService(cfg, staged)
++					svc.openaiWSPassthroughDialer = &stagedPassthroughDialer{conn: conn}
++					pool := newOpenAIWSConnPool(cfg)
++					t.Cleanup(pool.Close)
++					pool.setClientDialerForTest(&stagedPassthroughDialer{conn: conn})
++					svc.openaiWSPool = pool
++					account := passthroughLifecycleAccount()
++					account.Type = kind
++					account.Credentials = map[string]any{"access_token": "fixture", "api_key": "fixture"}
++					account.Extra = map[string]any{
++						"openai_oauth_responses_websockets_v2_mode":     mode,
++						"openai_oauth_responses_websockets_v2_enabled":  true,
++						"openai_apikey_responses_websockets_v2_mode":    mode,
++						"openai_apikey_responses_websockets_v2_enabled": true,
++					}
++					ctx, cancel := context.WithCancel(context.Background())
++					defer cancel()
++					server, serverErr := startPassthroughLifecycleServer(t, ctx, svc, account)
++					defer server.Close()
++					body := []byte(`{"type":"response.create","model":"gpt-6-astra","stream":false,"input":[{"type":"web_search_call","status":"completed"},{"type":"message","role":"user","content":"continue"},{"type":"compaction_trigger"}],"tools":[],"tool_choice":"auto"}`)
++					if lite {
++						var err error
++						body, err = sjson.SetBytes(body, "client_metadata."+responsesLiteWSMetadataKey, "true")
++						require.NoError(t, err)
++					}
++					client := dialPassthroughLifecycleClientWithPayload(t, server, body)
++					defer func() { _ = client.CloseNow() }()
++					for turn := 1; turn <= 2; turn++ {
++						if turn == 2 {
++							writeCtx, stop := context.WithTimeout(ctx, 5*time.Second)
++							err := client.Write(writeCtx, coderws.MessageText, body)
++							stop()
++							require.NoError(t, err)
++						}
++						forwarded := requirePassthroughUpstreamWrite(t, staged, 5*time.Second)
++						path := "tools.0.type"
++						if lite {
++							path = `input.#(type=="additional_tools").tools.0.type`
++						}
++						if kind == AccountTypeOAuth {
++							require.Equal(t, "web_search", gjson.GetBytes(forwarded, path).String(), "mode=%s turn=%d", mode, turn)
++							require.Equal(t, "none", gjson.GetBytes(forwarded, "tool_choice").String())
++						} else {
++							require.False(t, gjson.GetBytes(forwarded, path).Exists())
++							require.Equal(t, "auto", gjson.GetBytes(forwarded, "tool_choice").String())
++						}
++						items := gjson.GetBytes(forwarded, "input").Array()
++						require.Equal(t, "compaction_trigger", items[len(items)-1].Get("type").String())
++						if lite {
++							require.Empty(t, gjson.GetBytes(forwarded, "tools").Array())
++						}
++						staged.Send(`{"type":"response.completed","response":{"id":"resp_search","status":"completed","model":"gpt-6-astra","usage":{"input_tokens":1,"output_tokens":1}}}`)
++						_, err := readPassthroughLifecycleFrame(t, client, 5*time.Second)
++						require.NoError(t, err)
++					}
++					require.NoError(t, client.Close(coderws.StatusNormalClosure, "done"))
++					select {
++					case err := <-serverErr:
++						require.NoError(t, err)
++					case <-time.After(5 * time.Second):
++						t.Fatal("WS fixture did not stop")
++					}
++				})
++			}
++		}
++	}
++}
+diff --git a/backend/internal/application/service/openai_ws_forwarder_ingress.go b/backend/internal/application/service/openai_ws_forwarder_ingress.go
+index b8b181f5f..00d2a5ab5 100644
+--- a/backend/internal/application/service/openai_ws_forwarder_ingress.go
++++ b/backend/internal/application/service/openai_ws_forwarder_ingress.go
+@@ -393,6 +393,12 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
+ 			}
+ 			normalized = litePayload
+ 		}
++		responsesLite := isOpenAIResponsesLiteHeader(c.GetHeader(responsesLiteHeader)) || isOpenAIResponsesLiteWebSocketPayload(normalized)
++		webSearchPayload, _, webSearchErr := normalizeOpenAIOAuthWebSearchHistoryForAccount(normalized, account, false, responsesLite)
++		if webSearchErr != nil {
++			return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", webSearchErr)
++		}
++		normalized = webSearchPayload
+ 		apiKey := getAPIKeyFromContext(c)
+ 		imageGenerationAllowed := GroupAllowsImageGeneration(apiKeyGroup(apiKey))
+ 		codexImageGenerationExplicitToolPolicy := codexImageGenerationExplicitToolPolicyAllow
+diff --git a/backend/internal/application/service/openai_ws_v2_passthrough_adapter.go b/backend/internal/application/service/openai_ws_v2_passthrough_adapter.go
+index dfd9ec958..bc440a43f 100644
+--- a/backend/internal/application/service/openai_ws_v2_passthrough_adapter.go
++++ b/backend/internal/application/service/openai_ws_v2_passthrough_adapter.go
+@@ -733,6 +733,14 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
+ 		}
+ 		firstClientMessage = liteFirstMessage
+ 	}
++	if account.IsOpenAIOAuth() {
++		responsesLite := isOpenAIResponsesLiteHeader(c.GetHeader(responsesLiteHeader)) || isOpenAIResponsesLiteWebSocketPayload(firstClientMessage)
++		webSearchMessage, _, webSearchErr := normalizeOpenAIOAuthWebSearchHistoryForAccount(firstClientMessage, account, false, responsesLite)
++		if webSearchErr != nil {
++			return NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", webSearchErr)
++		}
++		firstClientMessage = webSearchMessage
++	}
+ 	if hooks != nil && (hooks.MaxReasoningEffort != "" || len(hooks.ReasoningEffortMappings) > 0) {
+ 		if capped, changed := ApplyOpenAIReasoningEffortPolicy(firstClientMessage, hooks.MaxReasoningEffort, hooks.ReasoningEffortMappings); changed {
+ 			firstClientMessage = capped
+@@ -1124,6 +1132,14 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
+ 					}
+ 					payload = litePayload
+ 				}
++				if account.IsOpenAIOAuth() {
++					responsesLite := isOpenAIResponsesLiteHeader(c.GetHeader(responsesLiteHeader)) || isOpenAIResponsesLiteWebSocketPayload(payload)
++					webSearchPayload, _, webSearchErr := normalizeOpenAIOAuthWebSearchHistoryForAccount(payload, account, false, responsesLite)
++					if webSearchErr != nil {
++						return payload, nil, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", webSearchErr)
++					}
++					payload = webSearchPayload
++				}
+ 				if hooks != nil && (hooks.MaxReasoningEffort != "" || len(hooks.ReasoningEffortMappings) > 0) {
+ 					if capped, changed := ApplyOpenAIReasoningEffortPolicy(payload, hooks.MaxReasoningEffort, hooks.ReasoningEffortMappings); changed {
+ 						payload = capped
+diff --git a/backend/internal/application/service/upstream_provider_profile_compat_test.go b/backend/internal/application/service/upstream_provider_profile_compat_test.go
+new file mode 100644
+index 000000000..814c83073
+--- /dev/null
++++ b/backend/internal/application/service/upstream_provider_profile_compat_test.go
+@@ -0,0 +1,47 @@
++//go:build unit
++
++package service
++
++import (
++	"context"
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++
++	"github.com/Wei-Shaw/sub2api/internal/platform/config"
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++	"github.com/tidwall/gjson"
++)
++
++func TestResponsesNativeAnthropicTrimmedBillingModel20261009(t *testing.T) {
++	for _, platform := range []string{PlatformKimi, PlatformOpenCodeGo} {
++		for _, stream := range []bool{false, true} {
++			t.Run(platform+"/"+map[bool]string{true: "stream", false: "buffered"}[stream], func(t *testing.T) {
++				gin.SetMode(gin.TestMode)
++				c, _ := gin.CreateTestContext(httptest.NewRecorder())
++				c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
++				c.Request.Header.Set("User-Agent", "fixture")
++				upstream := &httpUpstreamRecorder{resp: &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": []string{"text/event-stream"}}, Body: io.NopCloser(strings.NewReader(
++					"event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_fixture\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"kimi-k2\",\"usage\":{\"input_tokens\":3,\"output_tokens\":0}}}\n\n" +
++						"event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n" +
++						"event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"ok\"}}\n\n" +
++						"event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n" +
++						"event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":2}}\n\n" +
++						"event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"))}}
++				svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
++				account := &Account{ID: 7618, Platform: platform, Type: AccountTypeAPIKey, Concurrency: 1, Credentials: map[string]any{"api_key": "fixture-key", "api_protocol": APIProtocolAnthropic, "base_url": "https://upstream.example"}}
++				body := []byte(`{"model":" kimi-k2 ","stream":` + map[bool]string{true: "true", false: "false"}[stream] + `,"input":"hello"}`)
++				result, err := svc.Forward(context.Background(), c, account, body)
++				require.NoError(t, err)
++				require.NotNil(t, result)
++				require.Equal(t, "kimi-k2", result.BillingModel)
++				require.Equal(t, "kimi-k2", gjson.GetBytes(upstream.lastBody, "model").String())
++				require.True(t, strings.HasSuffix(upstream.lastReq.URL.Path, "/v1/messages"))
++				require.Equal(t, 2, result.Usage.OutputTokens)
++			})
++		}
++	}
++}
+diff --git a/backend/internal/application/service/upstream_reference_websearch_benchmark_test.go b/backend/internal/application/service/upstream_reference_websearch_benchmark_test.go
+new file mode 100644
+index 000000000..acff64c18
+--- /dev/null
++++ b/backend/internal/application/service/upstream_reference_websearch_benchmark_test.go
+@@ -0,0 +1,266 @@
++//go:build benchmark
++
++package service
++
++import (
++	"bytes"
++	"fmt"
++	"strings"
++
++	"github.com/tidwall/gjson"
++	"github.com/tidwall/sjson"
++)
++
++// The ChatGPT internal Codex endpoint rejects a request whose input replays a
++// hosted web_search_call item unless the request also declares the web_search
++// tool; the stream then fails with "response protection is unavailable".
++// Codex's local context compaction sends the full history with tools:[], so
++// every compaction after a web search fails (#7927).
++//
++// Declare a cached-only web_search tool for such requests. Responses Lite
++// rejects hosted tools at the top level, so Lite requests carry it in an
++// input additional_tools item instead. When the caller declared no tools at
++// all, also pin tool_choice to "none" so the injected tool cannot be invoked
++// and the request keeps its no-tools semantics.
++
++const (
++	upstreamReferenceOpenAIWebSearchCallItemType      = "web_search_call"
++	upstreamReferenceOpenAIAdditionalToolsItemType    = "additional_tools"
++	upstreamReferenceOpenAICompactionTriggerItemType  = "compaction_trigger"
++	upstreamReferenceOpenAIAdditionalToolsDefaultRole = "developer"
++)
++
++var upstreamReferenceOpenAIWebSearchHistoryTool = map[string]any{
++	"type":                "web_search",
++	"external_web_access": false,
++}
++
++func upstreamReferenceIsOpenAIWebSearchToolType(toolType string) bool {
++	return strings.HasPrefix(strings.TrimSpace(toolType), "web_search")
++}
++
++func upstreamReferenceOpenAIToolsContainWebSearch(rawTools any) bool {
++	tools, ok := rawTools.([]any)
++	if !ok {
++		return false
++	}
++	for _, rawTool := range tools {
++		tool, ok := rawTool.(map[string]any)
++		if ok && upstreamReferenceIsOpenAIWebSearchToolType(firstNonEmptyString(tool["type"])) {
++			return true
++		}
++	}
++	return false
++}
++
++// upstreamReferenceShouldPinOpenAIWebSearchHistoryToolChoice reports whether tool_choice may be
++// forced to "none": only when the caller offered no tools, so the choice
++// cannot meaningfully be anything else.
++func upstreamReferenceShouldPinOpenAIWebSearchHistoryToolChoice(choice any) bool {
++	switch typed := choice.(type) {
++	case nil:
++		return true
++	case string:
++		normalized := strings.ToLower(strings.TrimSpace(typed))
++		return normalized == "" || normalized == "auto" || normalized == "none"
++	default:
++		return false
++	}
++}
++
++// upstreamReferenceOpenAIAdditionalToolsInsertIndex keeps a trailing compaction trigger last,
++// as required by the remote compaction v2 wire format.
++func upstreamReferenceOpenAIAdditionalToolsInsertIndex(itemTypes []string) int {
++	if n := len(itemTypes); n > 0 && itemTypes[n-1] == upstreamReferenceOpenAICompactionTriggerItemType {
++		return n - 1
++	}
++	return len(itemTypes)
++}
++
++// upstreamReferenceEnsureOpenAIOAuthWebSearchToolForHistory is the map variant used by the
++// Codex OAuth transform.
++func upstreamReferenceEnsureOpenAIOAuthWebSearchToolForHistory(reqBody map[string]any, responsesLite bool) bool {
++	if reqBody == nil {
++		return false
++	}
++	input, ok := reqBody["input"].([]any)
++	if !ok {
++		return false
++	}
++	hasWebSearchCall := false
++	callerDeclaredTools := false
++	additionalToolsIndex := -1
++	itemTypes := make([]string, len(input))
++	for i, rawItem := range input {
++		item, ok := rawItem.(map[string]any)
++		if !ok {
++			continue
++		}
++		itemTypes[i] = strings.TrimSpace(firstNonEmptyString(item["type"]))
++		switch itemTypes[i] {
++		case upstreamReferenceOpenAIWebSearchCallItemType:
++			hasWebSearchCall = true
++		case upstreamReferenceOpenAIAdditionalToolsItemType:
++			if upstreamReferenceOpenAIToolsContainWebSearch(item["tools"]) {
++				return false
++			}
++			if tools, _ := item["tools"].([]any); len(tools) > 0 {
++				callerDeclaredTools = true
++			}
++			if additionalToolsIndex < 0 {
++				additionalToolsIndex = i
++			}
++		}
++	}
++	if !hasWebSearchCall || upstreamReferenceOpenAIToolsContainWebSearch(reqBody["tools"]) {
++		return false
++	}
++	tools, _ := reqBody["tools"].([]any)
++	callerDeclaredTools = callerDeclaredTools || len(tools) > 0
++
++	switch {
++	case !responsesLite:
++		reqBody["tools"] = append(tools, upstreamReferenceCloneOpenAIWebSearchHistoryTool())
++	case additionalToolsIndex >= 0:
++		// additionalToolsIndex is only recorded for map items.
++		item, _ := input[additionalToolsIndex].(map[string]any)
++		existing, _ := item["tools"].([]any)
++		item["tools"] = append(existing, upstreamReferenceCloneOpenAIWebSearchHistoryTool())
++	default:
++		at := upstreamReferenceOpenAIAdditionalToolsInsertIndex(itemTypes)
++		additional := map[string]any{
++			"type":  upstreamReferenceOpenAIAdditionalToolsItemType,
++			"role":  upstreamReferenceOpenAIAdditionalToolsDefaultRole,
++			"tools": []any{upstreamReferenceCloneOpenAIWebSearchHistoryTool()},
++		}
++		next := make([]any, 0, len(input)+1)
++		next = append(next, input[:at]...)
++		next = append(next, additional)
++		next = append(next, input[at:]...)
++		reqBody["input"] = next
++	}
++	if !callerDeclaredTools {
++		if choice, exists := reqBody["tool_choice"]; !exists || upstreamReferenceShouldPinOpenAIWebSearchHistoryToolChoice(choice) {
++			reqBody["tool_choice"] = "none"
++		}
++	}
++	return true
++}
++
++// upstreamReferenceEnsureOpenAIOAuthWebSearchToolForHistoryBody is the raw-body variant used by
++// the passthrough and WebSocket paths; it avoids decoding the whole body.
++func upstreamReferenceEnsureOpenAIOAuthWebSearchToolForHistoryBody(body []byte, responsesLite bool) ([]byte, bool, error) {
++	if len(body) == 0 || !bytes.Contains(body, []byte(upstreamReferenceOpenAIWebSearchCallItemType)) {
++		return body, false, nil
++	}
++	input := gjson.GetBytes(body, "input")
++	if !input.IsArray() {
++		return body, false, nil
++	}
++	items := input.Array()
++	hasWebSearchCall := false
++	callerDeclaredTools := false
++	additionalToolsIndex := -1
++	itemTypes := make([]string, len(items))
++	for i, item := range items {
++		itemTypes[i] = strings.TrimSpace(item.Get("type").String())
++		switch itemTypes[i] {
++		case upstreamReferenceOpenAIWebSearchCallItemType:
++			hasWebSearchCall = true
++		case upstreamReferenceOpenAIAdditionalToolsItemType:
++			itemTools := item.Get("tools")
++			if upstreamReferenceGjsonToolsContainWebSearch(itemTools) {
++				return body, false, nil
++			}
++			if itemTools.IsArray() && len(itemTools.Array()) > 0 {
++				callerDeclaredTools = true
++			}
++			if additionalToolsIndex < 0 {
++				additionalToolsIndex = i
++			}
++		}
++	}
++	if !hasWebSearchCall {
++		return body, false, nil
++	}
++	tools := gjson.GetBytes(body, "tools")
++	if upstreamReferenceGjsonToolsContainWebSearch(tools) {
++		return body, false, nil
++	}
++	topLevelTools := tools.IsArray() && len(tools.Array()) > 0
++	callerDeclaredTools = callerDeclaredTools || topLevelTools
++
++	var (
++		next []byte
++		err  error
++	)
++	switch {
++	case !responsesLite && topLevelTools:
++		next, err = sjson.SetBytes(body, "tools.-1", upstreamReferenceCloneOpenAIWebSearchHistoryTool())
++	case !responsesLite:
++		next, err = sjson.SetBytes(body, "tools", []any{upstreamReferenceCloneOpenAIWebSearchHistoryTool()})
++	case additionalToolsIndex >= 0 && items[additionalToolsIndex].Get("tools").IsArray():
++		next, err = sjson.SetBytes(body, fmt.Sprintf("input.%d.tools.-1", additionalToolsIndex), upstreamReferenceCloneOpenAIWebSearchHistoryTool())
++	case additionalToolsIndex >= 0:
++		next, err = sjson.SetBytes(body, fmt.Sprintf("input.%d.tools", additionalToolsIndex), []any{upstreamReferenceCloneOpenAIWebSearchHistoryTool()})
++	default:
++		next, err = upstreamReferenceInsertOpenAIAdditionalToolsItemRaw(body, items, upstreamReferenceOpenAIAdditionalToolsInsertIndex(itemTypes))
++	}
++	if err != nil {
++		return body, false, fmt.Errorf("declare web_search tool for web_search_call history: %w", err)
++	}
++	if !callerDeclaredTools {
++		choice := gjson.GetBytes(next, "tool_choice")
++		if !choice.Exists() || choice.Type == gjson.Null || (choice.Type == gjson.String && upstreamReferenceShouldPinOpenAIWebSearchHistoryToolChoice(choice.String())) {
++			next, err = sjson.SetBytes(next, "tool_choice", "none")
++			if err != nil {
++				return body, false, fmt.Errorf("pin tool_choice for web_search_call history: %w", err)
++			}
++		}
++	}
++	return next, true, nil
++}
++
++func upstreamReferenceInsertOpenAIAdditionalToolsItemRaw(body []byte, items []gjson.Result, at int) ([]byte, error) {
++	additional, err := marshalOpenAIUpstreamJSON(map[string]any{
++		"type":  upstreamReferenceOpenAIAdditionalToolsItemType,
++		"role":  upstreamReferenceOpenAIAdditionalToolsDefaultRole,
++		"tools": []any{upstreamReferenceCloneOpenAIWebSearchHistoryTool()},
++	})
++	if err != nil {
++		return nil, err
++	}
++	rawItems := make([][]byte, 0, len(items)+1)
++	for i, item := range items {
++		if i == at {
++			rawItems = append(rawItems, additional)
++		}
++		rawItems = append(rawItems, []byte(item.Raw))
++	}
++	if at >= len(items) {
++		rawItems = append(rawItems, additional)
++	}
++	raw := append([]byte{'['}, bytes.Join(rawItems, []byte{','})...)
++	raw = append(raw, ']')
++	return sjson.SetRawBytes(body, "input", raw)
++}
++
++func upstreamReferenceGjsonToolsContainWebSearch(tools gjson.Result) bool {
++	if !tools.IsArray() {
++		return false
++	}
++	for _, tool := range tools.Array() {
++		if upstreamReferenceIsOpenAIWebSearchToolType(tool.Get("type").String()) {
++			return true
++		}
++	}
++	return false
++}
++
++func upstreamReferenceCloneOpenAIWebSearchHistoryTool() map[string]any {
++	tool := make(map[string]any, len(upstreamReferenceOpenAIWebSearchHistoryTool))
++	for key, value := range upstreamReferenceOpenAIWebSearchHistoryTool {
++		tool[key] = value
++	}
++	return tool
++}
+diff --git a/backend/scripts/README.md b/backend/scripts/README.md
+index 3b248471d..8ac3d88d1 100644
+--- a/backend/scripts/README.md
++++ b/backend/scripts/README.md
+@@ -9,4 +9,4 @@
+ 
+ 脚本必须支持从任意工作目录调用，并在失败时返回非零状态。
+ 
+-从仓库根目录执行 `bash backend/scripts/test-responses-image-ssrf.sh`。测试依赖已缓存的 `golang:1.26.6-bookworm` 镜像、Go 模块及构建缓存；默认使用 `sub2api-go-mod-cache` 和 `sub2api-go-build-cache` Docker 卷，可通过 `SUB2API_SSRF_GOMOD_VOLUME` / `SUB2API_SSRF_GOBUILD_VOLUME` 指定。`SUB2API_SSRF_BASELINE_REF` 可替换已确认含漏洞的基线提交。测试使用 `ssrf_docker` tag，与 PostgreSQL/Redis Testcontainers 的 `integration` 入口独立。
++从仓库根目录执行 `bash backend/scripts/test-responses-image-ssrf.sh`。测试依赖已缓存的 `golang:1.26.9-bookworm` 镜像、Go 模块及构建缓存；默认使用 `sub2api-go-mod-cache` 和 `sub2api-go-build-cache` Docker 卷，可通过 `SUB2API_SSRF_GOMOD_VOLUME` / `SUB2API_SSRF_GOBUILD_VOLUME` 指定。`SUB2API_SSRF_BASELINE_REF` 可替换已确认含漏洞的基线提交。测试使用 `ssrf_docker` tag，与 PostgreSQL/Redis Testcontainers 的 `integration` 入口独立。
+diff --git a/backend/scripts/test-responses-image-ssrf.sh b/backend/scripts/test-responses-image-ssrf.sh
+index 1bdafc75b..c4b5fb983 100644
+--- a/backend/scripts/test-responses-image-ssrf.sh
++++ b/backend/scripts/test-responses-image-ssrf.sh
+@@ -46,7 +46,7 @@ run_suite() {
+     "${extra_mounts[@]}" --workdir /workspace/backend \
+     --env GOTOOLCHAIN=local --env GOPROXY=off --env RUN_RESPONSES_IMAGE_SSRF_DOCKER=1 \
+     --env "SSRF_EXPECT_VULNERABLE=$vulnerable" \
+-    golang:1.26.6-bookworm "${command[@]}" >/dev/null
++    golang:1.26.9-bookworm "${command[@]}" >/dev/null
+   docker network connect --ip 169.254.169.254 "$metadata_network" "$container"
+   docker network connect --ip 93.184.216.34 "$public_network" "$container"
+   docker start -a "$container" | tee "$audit_dir/$stage.log"
+diff --git a/deploy/Dockerfile b/deploy/Dockerfile
+index 6d9b308aa..6ef1cdb89 100644
+--- a/deploy/Dockerfile
++++ b/deploy/Dockerfile
+@@ -7,7 +7,7 @@
+ # =============================================================================
+ 
+ ARG NODE_IMAGE=node:24-alpine
+-ARG GOLANG_IMAGE=golang:1.26.6-alpine
++ARG GOLANG_IMAGE=golang:1.26.9-alpine
+ ARG ALPINE_IMAGE=alpine:3.20
+ ARG GOPROXY=https://goproxy.cn,direct
+ ARG GOSUMDB=sum.golang.google.cn
+diff --git a/docs/README.md b/docs/README.md
+index d19d49f7d..ecd5eeba2 100644
+--- a/docs/README.md
++++ b/docs/README.md
+@@ -73,6 +73,7 @@
+ | [上游主线同步审查记录（2026-10-05）](UPSTREAM_SYNC_20261005.md) | 12 个增量 PR 的关闭台账、验证码原子重构、平滑升级、Docker 与 CI 跟踪 |
+ | [上游主线同步审查记录（2026-10-07）](UPSTREAM_SYNC_20261007.md) | 3 个增量 PR 的首次安装适配、已覆盖差异关闭、性能与 Docker 升级回退验证 |
+ | [上游主线同步审查记录（2026-10-08）](UPSTREAM_SYNC_20261008.md) | 57 个冻结主线 PR 的关闭/重开台账、WS 逐轮计费、TPS 与 namespace 性能、Docker 平滑升级和发布跟踪 |
++| [上游主线同步审查记录（2026-10-09）](UPSTREAM_SYNC_20261009.md) | 两个冻结 PR 的精准修复、安全工具链、搜索历史性能、关闭/专项暂缓台账和 Docker 验证 |
+ | [API Key 删除与计费竞争条件审查（2026-10-06）](../diagnostics/billing-key-deletion-20261006/REPORT.md) | 旧版本漏扣回放、当前修复边界、真实数据库与 24 个 Docker HTTP 场景 |
+ | [GPT-6 Astra 接入记录](GPT6_ASTRA.md) | OpenAI 官方模型目录、能力、价格和本项目兼容计费映射 |
+ | [GPT-6 模型目录与价格](GPT6_MODELS.md) | GPT-6 Astra、Sol、Luna 的官方能力、价格与本项目实现位置 |
+diff --git a/docs/REQUEST_LIFECYCLES.md b/docs/REQUEST_LIFECYCLES.md
+index 02f054213..491e0fb43 100644
+--- a/docs/REQUEST_LIFECYCLES.md
++++ b/docs/REQUEST_LIFECYCLES.md
+@@ -182,6 +182,8 @@ Codex Desktop 新建委派任务或启动定时任务时，首轮可能注入没
+ 不得把 `fco_*` item `id` 伪造成 `call_id`。其他工具输出仍必须携带可与真实调用上下文配对的
+ `call_id`，未知或含歧义调用上下文的输入不会进入该兼容分支。
+ 
++OAuth Responses 回放历史含 `web_search_call`、但顶层与 `additional_tools` 都未声明搜索工具时，网关补充 `external_web_access:false` 的缓存搜索声明。标准协议放顶层 `tools`；Lite 放第一个 `input.additional_tools`，缺失时插在末尾 `compaction_trigger` 之前。原本完全无工具且 `tool_choice` 缺省/auto/none 时固定 none，调用方已有工具或显式其他选择保持原样。HTTP transform/passthrough 与普通/透传 WS 的每轮共享此规则；旧 unary `/responses/compact`、API Key、其他平台和 BPS 独立协议不注入。原历史项、数值和非目标字节不被整段重编码。
++
+ ### Claude Messages 的上下文控制与 Compact
+ 
+ `/v1/messages` 与 `/v1/responses` 是两条独立的兼容链路。OpenAI 目标的
+diff --git a/docs/UPSTREAM_SYNC_20261009.md b/docs/UPSTREAM_SYNC_20261009.md
+new file mode 100644
+index 000000000..81402b7be
+--- /dev/null
++++ b/docs/UPSTREAM_SYNC_20261009.md
+@@ -0,0 +1,46 @@
++# 上游主线同步审查（2026-10-09）
++
++本轮从下游 `03a9207f932378207bf07ad09ce57aa154b5e0cd` 出发，延续已审查边界 `5fc0e486c3f6a8a191b8bd140f39b60457f611cf`，冻结至 `3a6fd1c9db07203ca308aaba69e502bc1f35b307`。范围为 2 个主线合并 PR 及 1 个上游 VERSION 提交。原工作区不改动，在独立可写克隆执行；原链接工作树的 FETCH_HEAD 不可写，不能把抓取错误当成“没有增量”。
++
++## 差异关闭与专项边界
++
++| 上游 PR | 本轮结果 | 当前 owner 与后续范围 |
++| --- | --- | --- |
++| [#7939](https://github.com/Wei-Shaw/sub2api/pull/7939) | 完整适配、性能重构；关闭该冻结差异 | `application/service/openai_oauth_web_search_history.go`；HTTP transform/passthrough 与普通/透传 WS 首轮及后续 turn。 |
++| [#7618](https://github.com/Wei-Shaw/sub2api/pull/7618) | 安全工具链及当前模型修复适配；保留明确专项暂缓 | Responses→Anthropic 计费模型去除首尾空白；Go 安全修补保持 1.26 分支。已有 11 平台额度和 Zen qwen3.8-max 规则保持原 owner，不重复重构。平台/profile 清单、协议集合目录、Command Code 和 Cline 尚未实现，不标记完全关闭。 |
++
++[机器台账](../diagnostics/upstream-sync-20261009/UPSTREAM_PRS.json) 记录 merge SHA、原始 diff SHA-256、逐子项关闭/重开条件。此前所有关闭和独立暂缓台账原样保留；tracking merge 只登记审查祖先，不代表专项功能完成。上游 VERSION `0.2.15` 不覆盖本项目版本线，三语 README 的无赞助政策保留。
++
++#7618 共 134 个文件、13,053 行新增，包含旧 `service/handler/components/views` owner、删除两个数据库平台 CHECK 约束、原编号 242 迁移、新供应商及协议集合字段。直接覆盖会丢失本项目 `transport/application/domain` 和 feature owner、TypeSafe 原生隔离、账号完整出口和既有数据库防御约束。本轮保留现有 CN/OpenCode 路由契约；这不表示平台/profile 抽象已经实现。
++
++新 `protocols` 集合的旧节点只理解单个 `protocol`，可能将原本可直通的入站转成有损协议；上游冷模型目录可在路由首次请求等待 2 秒。后续专项须采用有界后台刷新/快照、跨账号缓存隔离、代理/IPv6/TLS 一致的账号出口，验证旧/新 writer、身份、计费、失败限额和显式开启顺序，再注册新平台。Cline 还需要验证订阅/积分/免费模型各自冷却，不可退化为账号全局停调。本轮没有引入新平台，没有删除 CHECK、修改 Ent/Wire 或新增迁移；不能宣称这些新功能已经同步。
++
++## OAuth 搜索历史和兼容性
++
++历史包含 hosted `web_search_call` 而请求未声明搜索工具时，ChatGPT Codex 可能返回 `response protection is unavailable`；本轮移植声明机制，不删除历史。标准 Responses 补顶层 `{"type":"web_search","external_web_access":false}`；Lite 改放首个 `input.additional_tools`，没有载体时插在最后 `compaction_trigger` 之前。调用方没有任何工具且 choice 缺省/auto/none 时固定 none；已有工具及其他显式 choice 保留。已声明 `web_search*` 的请求保持字节原样。
++
++旧 unary `/responses/compact`、API Key、其他平台和 BPS 独立链路不注入。真实 HTTP 四条转发路径及 WS ctx_pool/passthrough × OAuth/API-key × standard/Lite × 两轮 fixture 验证声明位置、choice、终态、trigger 和未改动 API-key 语义。兼容代码不修改身份、调度、可靠结算和失败重放规则。
++
++#7618 的模型名问题在 `openai_gateway_responses_anthropic_native.go` 直接归一化请求模型，避免将裸模型字符串的首尾空白写入 `BillingModel`；不把分组默认映射泛化到普通 Responses。Kimi 与 OpenCode 的流式/非流式真实 Forward fixture 使用同一最终模型，保留用量输出。`Forward` 的既有 decoded OAuth 与 Lite 准备逻辑按职责移入 `openai_gateway_forward_prepare.go`，复用原 decoded map、调用顺序和身份对象；主文件从基线 1233 行降到 1200 行，allowlist 没有扩大。
++
++## 安全工具链
++
++当前 `govulncheck` 在基线 Go 1.26.6 检出 10 项可达标准库漏洞，并提示 x/net v0.57.0 的相关修补版本。官方 Go 发布目录确认 `1.26.9` 修补分支；x/net v0.60.0 的最低 Go 为 1.26.0，因此选择 Go **1.26.9** 与 **x/net v0.60.0**，无需跳到上游 Go 1.27.2、改变 Ent 导出格式或升级 lint 大版本。
++
++Docker builder、backend/go.mod、CI/Security/Release Go 版本检查、部署 Dockerfile、当前三语技术栈和开发说明一致更新。传递依赖按 x/net 依赖图更新，保留既有工具依赖和旧 checksum；不修改 Node/pnpm、支付状态、数据库 schema 或公开必填协议。x/net v0.60 将现有 HTTP/2 适配 API 标记 deprecated；依上游 #7618 策略，仅对已验证的 idle-PING、H2C 和 typed GOAWAY owner 增加路径/符号都受限的 SA1019 例外，保留代理、连接健康探测和 failover 语义，不全局停用该规则。对应 keepalive/H2C 回归继续执行。修补后的 [安全记录](../diagnostics/upstream-sync-20261009/records/govulncheck-go1269.stdout) 显示 0 项可达漏洞；仍有 1 项模块级但未被代码调用的提示，不把它描述成所有依赖绝无风险。
++
++## 性能
++
++原始上游 helper 先复制 `input`，即使已有工具声明也分配整段历史。本项目改为调用内只读 string view 和 `ForEach`，提前检查顶层声明；Lite 新载体通过一次 span 插入，保留未知字段、数字精度、转义及非目标字节。map 版移除逐项类型临时数组，复用既有 decoded map。
++
++相同 Docker Go 1.26.6、linux/arm64、GOMAXPROCS=2，8 MiB 历史、每轮 10 次、3 轮：已有顶层声明中位数 `5.73ms / 8.40MB / 5 allocs` 降至 `1.54ms / 0B / 0 allocs`；已有 additional_tools 声明分配降为 0，延迟约 4.4ms，未宣称该分支更快；Lite 插入中位数 `12.31ms / 50.38MB / 44 allocs` 降至 `8.79ms / 16.79MB / 4 allocs`。无标记检查两版均为零分配。该测试不代表全网关吞吐量，原始数据和 frozen upstream test-only reference 位于 [性能记录](../diagnostics/upstream-sync-20261009/records/reviewed-compat-and-benchmark.stdout)。
++
++## 验证与回退
++
++四个角色为 [MODIFIED_FILE](../diagnostics/upstream-sync-20261009/MODIFIED_FILE)（原生源码 tar.gz）、[DIFF_FILE](../diagnostics/upstream-sync-20261009/DIFF_FILE)（重建 patch）、[VERIFICATION.txt](../diagnostics/upstream-sync-20261009/VERIFICATION.txt) 和可执行 [ROLLBACK.sh](../diagnostics/upstream-sync-20261009/ROLLBACK.sh)。每个修改路径与原始 SHA 保存于 SOURCE_HASHES.json。回退脚本只接受独立副本，通过 sibling BASELINE_FILE 还原源字节并删除新增路径；不操作原工作区。
++
++同一个 Forward fixture：基线四路径无搜索声明且 choice=auto，回归退出 1；候选四路径有缓存搜索声明且 choice=none，退出 0；独立回退恢复基线行为，退出 1。还原 hash 逐项一致，重施 DIFF_FILE 后 modified hash 一致。records 保存每次命令、输入、逐字 stdout/stderr、退出码和错误修正，没有把编译资源错误记为基线行为。
++
++当前 Docker 单元、集成、race、lint、生产镜像和 PostgreSQL/Redis 同库升级/回退结果以 VERIFICATION.txt 的最终记录为准。源布局剩余 `payment_fulfillment_test.go` 1201 行、`pricing_service.go` 1238 行均与精确基线字节相同，不重复修复或扩大 allowlist。前端使用冻结依赖执行原必需门禁，既有可选失败须单独与基线核对。
++
++发布的 head/main SHA、CI/Security/Docker 和 GHCR 多架构清单单独核对，不把本地测试当作远端发布完成。

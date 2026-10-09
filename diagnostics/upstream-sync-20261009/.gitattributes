@@ -1,0 +1,12 @@
+MODIFIED_FILE binary
+BASELINE_FILE binary
+DIFF_FILE -text
+PR-7618.diff -text
+PR-7939.diff -text
+# Preserve literal patch context and command output whitespace as evidence.
+DIFF_FILE -whitespace
+*.diff -whitespace
+VERIFICATION.txt -whitespace
+records/*.stdout -whitespace
+records/*.stderr -whitespace
+records/*.log -whitespace

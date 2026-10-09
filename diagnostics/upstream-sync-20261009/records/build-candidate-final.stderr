@@ -1,0 +1,182 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 6.10kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://docker.io/docker/dockerfile:1.7
+#2 DONE 2.2s
+
+#3 docker-image://docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#3 CACHED
+
+#4 [internal] load metadata for docker.io/library/postgres:18-alpine
+#4 DONE 1.9s
+
+#5 [internal] load metadata for docker.io/library/alpine:3.21
+#5 ...
+
+#6 [internal] load metadata for docker.io/library/node:24-alpine
+#6 DONE 2.0s
+
+#7 [internal] load metadata for docker.io/library/golang:1.26.9-alpine
+#7 ...
+
+#5 [internal] load metadata for docker.io/library/alpine:3.21
+#5 DONE 2.3s
+
+#7 [internal] load metadata for docker.io/library/golang:1.26.9-alpine
+#7 DONE 3.8s
+
+#8 [internal] load .dockerignore
+#8 transferring context: 1.46kB done
+#8 DONE 0.0s
+
+#9 [internal] load build context
+#9 DONE 0.0s
+
+#10 [frontend-builder 1/8] FROM docker.io/library/node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1
+#10 resolve docker.io/library/node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 0.0s done
+#10 DONE 0.1s
+
+#11 [backend-builder 1/8] FROM docker.io/library/golang:1.26.9-alpine@sha256:cdfd4fe2da6b225d8b40c6b7a105736e548e83ff56d5d8f9394446eeb5eb84e0
+#11 resolve docker.io/library/golang:1.26.9-alpine@sha256:cdfd4fe2da6b225d8b40c6b7a105736e548e83ff56d5d8f9394446eeb5eb84e0
+#11 resolve docker.io/library/golang:1.26.9-alpine@sha256:cdfd4fe2da6b225d8b40c6b7a105736e548e83ff56d5d8f9394446eeb5eb84e0 0.0s done
+#11 DONE 0.2s
+
+#12 [pg-client 1/2] FROM docker.io/library/postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+#12 resolve docker.io/library/postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873 0.0s done
+#12 DONE 0.1s
+
+#13 [runtime  1/12] FROM docker.io/library/alpine:3.21@sha256:ce64758a109eb420d874a118f87920e625e12d3634e03b4a5573fd9f6e5d3507
+#13 resolve docker.io/library/alpine:3.21@sha256:ce64758a109eb420d874a118f87920e625e12d3634e03b4a5573fd9f6e5d3507 0.0s done
+#13 DONE 0.1s
+
+#9 [internal] load build context
+#9 transferring context: 54.09MB 0.8s done
+#9 DONE 0.9s
+
+#14 [frontend-builder 6/8] COPY frontend/ ./
+#14 CACHED
+
+#15 [frontend-builder 2/8] WORKDIR /app/frontend
+#15 CACHED
+
+#16 [frontend-builder 3/8] RUN corepack enable && corepack prepare pnpm@11.17.0 --activate
+#16 CACHED
+
+#17 [frontend-builder 5/8] RUN --mount=type=cache,id=sub2api-pnpm-store,target=/root/.local/share/pnpm/store     if [ -n "" ]; then pnpm config set registry ""; fi &&     pnpm install --frozen-lockfile --prefer-offline
+#17 CACHED
+
+#18 [frontend-builder 7/8] COPY docs/legal/ /app/docs/legal/
+#18 CACHED
+
+#19 [frontend-builder 4/8] COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
+#19 CACHED
+
+#20 [frontend-builder 8/8] RUN pnpm run build
+#20 CACHED
+
+#11 [backend-builder 1/8] FROM docker.io/library/golang:1.26.9-alpine@sha256:cdfd4fe2da6b225d8b40c6b7a105736e548e83ff56d5d8f9394446eeb5eb84e0
+#11 sha256:348001e198c43bff043472eaf391b2d76f1f1c3939a6af3021a11d86617e0e17 126B / 126B 0.5s done
+#11 sha256:5258cfc7b8cfd861ec79320847f08e8174a42164ecef7bd82fcad140be0d237b 0B / 249.81kB 0.9s
+#11 sha256:5258cfc7b8cfd861ec79320847f08e8174a42164ecef7bd82fcad140be0d237b 249.81kB / 249.81kB 1.3s done
+#11 extracting sha256:5258cfc7b8cfd861ec79320847f08e8174a42164ecef7bd82fcad140be0d237b 0.0s done
+#11 DONE 1.5s
+
+#11 [backend-builder 1/8] FROM docker.io/library/golang:1.26.9-alpine@sha256:cdfd4fe2da6b225d8b40c6b7a105736e548e83ff56d5d8f9394446eeb5eb84e0
+#11 extracting sha256:d035f39de3c6ef146b1aeb1e916d3e2a8e98c2ce563984191d3492463253e95f
+#11 extracting sha256:d035f39de3c6ef146b1aeb1e916d3e2a8e98c2ce563984191d3492463253e95f 2.4s done
+#11 DONE 3.9s
+
+#11 [backend-builder 1/8] FROM docker.io/library/golang:1.26.9-alpine@sha256:cdfd4fe2da6b225d8b40c6b7a105736e548e83ff56d5d8f9394446eeb5eb84e0
+#11 extracting sha256:348001e198c43bff043472eaf391b2d76f1f1c3939a6af3021a11d86617e0e17 0.0s done
+#11 extracting sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1 0.0s done
+#11 DONE 4.0s
+
+#21 [backend-builder 2/8] RUN apk add --no-cache git ca-certificates tzdata
+#21 3.198 ( 1/13) Installing brotli-libs (1.2.0-r1)
+#21 3.380 ( 2/13) Installing c-ares (1.34.8-r0)
+#21 3.546 ( 3/13) Installing libunistring (1.4.2-r0)
+#21 3.739 ( 4/13) Installing libidn2 (2.3.8-r0)
+#21 3.905 ( 5/13) Installing nghttp2-libs (1.70.0-r0)
+#21 4.068 ( 6/13) Installing libpsl (0.21.5-r3)
+#21 4.232 ( 7/13) Installing zstd-libs (1.5.7-r2)
+#21 4.408 ( 8/13) Installing libcurl (8.22.0-r0)
+#21 4.581 ( 9/13) Installing libexpat (2.8.5-r0)
+#21 4.748 (10/13) Installing pcre2 (10.49-r0)
+#21 4.923 (11/13) Installing git (2.54.0-r0)
+#21 5.308 (12/13) Installing git-init-template (2.54.0-r0)
+#21 5.470 (13/13) Installing tzdata (2026e-r0)
+#21 5.667 Executing busybox-1.37.0-r31.trigger
+#21 5.681 OK: 22.0 MiB in 30 packages
+#21 DONE 6.4s
+
+#22 [backend-builder 3/8] WORKDIR /app/backend
+#22 DONE 0.0s
+
+#23 [backend-builder 4/8] COPY backend/go.mod backend/go.sum ./
+#23 DONE 0.1s
+
+#24 [backend-builder 5/8] RUN --mount=type=cache,id=sub2api-gomod,target=/go/pkg/mod     go mod download
+#24 DONE 1.0s
+
+#25 [backend-builder 6/8] COPY backend/ ./
+#25 DONE 0.6s
+
+#26 [backend-builder 7/8] COPY --from=frontend-builder /app/backend/internal/transport/webassets/dist ./internal/transport/webassets/dist
+#26 DONE 0.3s
+
+#27 [backend-builder 8/8] RUN --mount=type=cache,id=sub2api-gomod,target=/go/pkg/mod     --mount=type=cache,id=sub2api-gobuild,target=/root/.cache/go-build     VERSION_VALUE="0.1.220-sync-20261009" &&     if [ -z "${VERSION_VALUE}" ]; then VERSION_VALUE="$(./scripts/resolve-version.sh)"; fi &&     DATE_VALUE="${DATE:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}" &&     CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build     -tags embed     -ldflags="-s -w -X main.Version=${VERSION_VALUE} -X main.Commit=reviewed-3a6fd1c9 -X main.Date=${DATE_VALUE} -X main.BuildType=release"     -trimpath     -o /app/sub2api     ./cmd/server
+#27 DONE 133.9s
+
+#28 [pg-client 2/2] RUN mkdir -p /client && cp /usr/local/bin/pg_dump /usr/local/bin/psql /client/     && cp /usr/local/lib/libpq.so.5 /client/libpq.so.5
+#28 CACHED
+
+#29 [runtime  4/12] COPY --from=pg-client /usr/local/bin/psql /usr/local/bin/psql
+#29 CACHED
+
+#30 [runtime  5/12] COPY --from=pg-client /usr/local/lib/libpq.so.5* /usr/local/lib/
+#30 CACHED
+
+#31 [runtime  2/12] RUN apk add --no-cache ca-certificates tzdata curl su-exec libpq zstd-libs lz4-libs krb5-libs libldap libedit     && rm -rf /var/cache/apk/*
+#31 CACHED
+
+#32 [runtime  3/12] COPY --from=pg-client /usr/local/bin/pg_dump /usr/local/bin/pg_dump
+#32 CACHED
+
+#33 [runtime  6/12] RUN addgroup -g 1000 sub2api && adduser -u 1000 -G sub2api -s /bin/sh -D sub2api
+#33 CACHED
+
+#34 [runtime  7/12] WORKDIR /app
+#34 CACHED
+
+#35 [runtime  8/12] COPY --from=backend-builder --chown=sub2api:sub2api /app/sub2api /app/sub2api
+#35 DONE 0.5s
+
+#36 [runtime  9/12] COPY --from=backend-builder --chown=sub2api:sub2api /app/backend/resources /app/resources
+#36 DONE 0.1s
+
+#37 [runtime 10/12] RUN mkdir -p /app/data && chown sub2api:sub2api /app /app/data
+#37 DONE 0.4s
+
+#38 [runtime 11/12] COPY deploy/docker-entrypoint.sh /app/docker-entrypoint.sh
+#38 DONE 0.1s
+
+#39 [runtime 12/12] RUN chmod +x /app/docker-entrypoint.sh
+#39 DONE 0.2s
+
+#40 exporting to image
+#40 exporting layers
+#40 exporting layers 3.1s done
+#40 exporting manifest sha256:b9dcbe879918a0e783b89b8748ae686b7fd32fd842d63a3aee61be8f905b8166 done
+#40 exporting config sha256:1b77e3f7963024d9c4a64a117622dd2579d50a5421d797269150ed0d665fcf98 done
+#40 exporting attestation manifest sha256:0d6cdf99309fda79015fe089d231dd8dc02078ba539c194afbb36edb294834bf 0.0s done
+#40 exporting manifest list sha256:067105d39de67468ff113ba138ee4da551cc6767314d81cf2ef8a050404caa2f 0.0s done
+#40 naming to docker.io/library/sub2api-upstream-sync:20261009-final done
+#40 unpacking to docker.io/library/sub2api-upstream-sync:20261009-final
+#40 unpacking to docker.io/library/sub2api-upstream-sync:20261009-final 0.4s done
+#40 DONE 3.6s
+
+View build details: docker-desktop://dashboard/build/default/default/xhu9ooy16ztqm4co4124rk8yh

@@ -1,0 +1,72 @@
+2026/10/09 08:58:13 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestForwardOAuthWebSearchHistory20261009
+=== RUN   TestForwardOAuthWebSearchHistory20261009/transform
+OBSERVED path=transform declared= choice=auto trigger_last=true input_history=web_search_call
+    openai_oauth_web_search_history_forward_test.go:57: 
+        	Error Trace:	/workspace/internal/application/service/openai_oauth_web_search_history_forward_test.go:57
+        	Error:      	Not equal: 
+        	            	expected: "web_search"
+        	            	actual  : ""
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-web_search
+        	            	+
+        	Test:       	TestForwardOAuthWebSearchHistory20261009/transform
+=== RUN   TestForwardOAuthWebSearchHistory20261009/passthrough
+2026/10/09 08:58:13 [OpenAI 自动透传] 命中自动透传分支: account=501 name=history-fixture type=oauth model=gpt-6-astra stream=true
+OBSERVED path=passthrough declared= choice=auto trigger_last=true input_history=web_search_call
+    openai_oauth_web_search_history_forward_test.go:57: 
+        	Error Trace:	/workspace/internal/application/service/openai_oauth_web_search_history_forward_test.go:57
+        	Error:      	Not equal: 
+        	            	expected: "web_search"
+        	            	actual  : ""
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-web_search
+        	            	+
+        	Test:       	TestForwardOAuthWebSearchHistory20261009/passthrough
+=== RUN   TestForwardOAuthWebSearchHistory20261009/transform-lite
+OBSERVED path=transform-lite declared= choice=auto trigger_last=true input_history=web_search_call
+    openai_oauth_web_search_history_forward_test.go:57: 
+        	Error Trace:	/workspace/internal/application/service/openai_oauth_web_search_history_forward_test.go:57
+        	Error:      	Not equal: 
+        	            	expected: "web_search"
+        	            	actual  : ""
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-web_search
+        	            	+
+        	Test:       	TestForwardOAuthWebSearchHistory20261009/transform-lite
+=== RUN   TestForwardOAuthWebSearchHistory20261009/passthrough-lite
+2026/10/09 08:58:13 [OpenAI 自动透传] 命中自动透传分支: account=501 name=history-fixture type=oauth model=gpt-6-astra stream=true
+OBSERVED path=passthrough-lite declared= choice=auto trigger_last=true input_history=web_search_call
+    openai_oauth_web_search_history_forward_test.go:57: 
+        	Error Trace:	/workspace/internal/application/service/openai_oauth_web_search_history_forward_test.go:57
+        	Error:      	Not equal: 
+        	            	expected: "web_search"
+        	            	actual  : ""
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-web_search
+        	            	+
+        	Test:       	TestForwardOAuthWebSearchHistory20261009/passthrough-lite
+--- FAIL: TestForwardOAuthWebSearchHistory20261009 (0.01s)
+    --- FAIL: TestForwardOAuthWebSearchHistory20261009/transform (0.00s)
+    --- FAIL: TestForwardOAuthWebSearchHistory20261009/passthrough (0.00s)
+    --- FAIL: TestForwardOAuthWebSearchHistory20261009/transform-lite (0.00s)
+    --- FAIL: TestForwardOAuthWebSearchHistory20261009/passthrough-lite (0.00s)
+FAIL
+FAIL	github.com/Wei-Shaw/sub2api/internal/application/service	0.054s
+FAIL

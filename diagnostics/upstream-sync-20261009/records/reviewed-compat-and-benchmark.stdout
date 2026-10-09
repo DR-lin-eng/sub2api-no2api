@@ -1,0 +1,54 @@
+2026/10/09 08:36:27 Timezone initialized: UTC (UTC offset: +00:00)
+goos: linux
+goarch: arm64
+pkg: github.com/Wei-Shaw/sub2api/internal/application/service
+BenchmarkOAuthWebSearchHistory20261009/small/no_marker/upstream-2         	      10	       308.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/small/no_marker/upstream-2         	      10	       254.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/small/no_marker/upstream-2         	      10	       266.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/small/no_marker/adapted-2          	      10	       229.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/small/no_marker/adapted-2          	      10	       233.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/small/no_marker/adapted-2          	      10	       175.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/small/top_declared/upstream-2      	      10	       945.8 ns/op	     488 B/op	       5 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/small/top_declared/upstream-2      	      10	       833.3 ns/op	     488 B/op	       5 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/small/top_declared/upstream-2      	      10	       929.1 ns/op	     488 B/op	       5 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/small/top_declared/adapted-2       	      10	       712.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/small/top_declared/adapted-2       	      10	       625.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/small/top_declared/adapted-2       	      10	       658.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/small/additional_declared/upstream-2         	      10	      1238 ns/op	     896 B/op	       6 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/small/additional_declared/upstream-2         	      10	      1133 ns/op	     896 B/op	       6 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/small/additional_declared/upstream-2         	      10	      1162 ns/op	     896 B/op	       6 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/small/additional_declared/adapted-2          	      10	      1162 ns/op	       0 B/op	       0 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/small/additional_declared/adapted-2          	      10	      1146 ns/op	       0 B/op	       0 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/small/additional_declared/adapted-2          	      10	      1271 ns/op	       0 B/op	       0 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/small/lite_insert/upstream-2                 	      10	      3708 ns/op	    4231 B/op	      39 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/small/lite_insert/upstream-2                 	      10	      3767 ns/op	    4261 B/op	      39 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/small/lite_insert/upstream-2                 	      10	      3404 ns/op	    4261 B/op	      39 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/small/lite_insert/adapted-2                  	      10	      1858 ns/op	     928 B/op	       4 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/small/lite_insert/adapted-2                  	      10	      1475 ns/op	     928 B/op	       4 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/small/lite_insert/adapted-2                  	      10	      1533 ns/op	     928 B/op	       4 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/8MiB/no_marker/upstream-2                    	      10	     96467 ns/op	       0 B/op	       0 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/8MiB/no_marker/upstream-2                    	      10	     94804 ns/op	       0 B/op	       0 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/8MiB/no_marker/upstream-2                    	      10	     93283 ns/op	       0 B/op	       0 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/8MiB/no_marker/adapted-2                     	      10	     96908 ns/op	       0 B/op	       0 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/8MiB/no_marker/adapted-2                     	      10	     95138 ns/op	       0 B/op	       0 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/8MiB/no_marker/adapted-2                     	      10	     95700 ns/op	       0 B/op	       0 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/8MiB/top_declared/upstream-2                 	      10	   5727767 ns/op	 8397144 B/op	       5 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/8MiB/top_declared/upstream-2                 	      10	   5682738 ns/op	 8397144 B/op	       5 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/8MiB/top_declared/upstream-2                 	      10	   5886954 ns/op	 8397144 B/op	       5 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/8MiB/top_declared/adapted-2                  	      10	   1543504 ns/op	       0 B/op	       0 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/8MiB/top_declared/adapted-2                  	      10	   1534479 ns/op	       0 B/op	       0 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/8MiB/top_declared/adapted-2                  	      10	   1536425 ns/op	       0 B/op	       0 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/8MiB/additional_declared/upstream-2          	      10	   4371521 ns/op	 8397488 B/op	       6 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/8MiB/additional_declared/upstream-2          	      10	   4383767 ns/op	 8397488 B/op	       6 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/8MiB/additional_declared/upstream-2          	      10	   4180708 ns/op	 8397488 B/op	       6 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/8MiB/additional_declared/adapted-2           	      10	   4403646 ns/op	       0 B/op	       0 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/8MiB/additional_declared/adapted-2           	      10	   4405242 ns/op	       0 B/op	       0 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/8MiB/additional_declared/adapted-2           	      10	   4467175 ns/op	       0 B/op	       0 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/8MiB/lite_insert/upstream-2                  	      10	  12208579 ns/op	50383508 B/op	      43 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/8MiB/lite_insert/upstream-2                  	      10	  12305117 ns/op	50383545 B/op	      44 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/8MiB/lite_insert/upstream-2                  	      10	  12417650 ns/op	50383542 B/op	      44 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/8MiB/lite_insert/adapted-2                   	      10	   8789212 ns/op	16793888 B/op	       4 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/8MiB/lite_insert/adapted-2                   	      10	   8850996 ns/op	16793888 B/op	       4 allocs/op
+BenchmarkOAuthWebSearchHistory20261009/8MiB/lite_insert/adapted-2                   	      10	   8570767 ns/op	16793888 B/op	       4 allocs/op
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	1.354s
