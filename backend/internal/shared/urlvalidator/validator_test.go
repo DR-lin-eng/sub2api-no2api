@@ -9,8 +9,8 @@ func TestValidateURLFormat(t *testing.T) {
 	if _, err := ValidateURLFormat("://bad", false); err == nil {
 		t.Fatalf("expected invalid url to fail")
 	}
-	if _, err := ValidateURLFormat("http://example.com", false); err == nil {
-		t.Fatalf("expected http to fail when allow_insecure_http is false")
+	if _, err := ValidateURLFormat("http://example.com", false); err != nil {
+		t.Fatalf("expected configured http URL to pass without opt-in, got %v", err)
 	}
 	if _, err := ValidateURLFormat("https://example.com", false); err != nil {
 		t.Fatalf("expected https to pass, got %v", err)
@@ -51,8 +51,8 @@ func TestValidateURLFormat(t *testing.T) {
 }
 
 func TestValidateHTTPURL(t *testing.T) {
-	if _, err := ValidateHTTPURL("http://example.com", false, ValidationOptions{}); err == nil {
-		t.Fatalf("expected http to fail when allow_insecure_http is false")
+	if _, err := ValidateHTTPURL("http://example.com", false, ValidationOptions{}); err != nil {
+		t.Fatalf("expected configured http URL to pass without opt-in, got %v", err)
 	}
 	if _, err := ValidateHTTPURL("http://example.com", true, ValidationOptions{}); err != nil {
 		t.Fatalf("expected http to pass when allow_insecure_http is true, got %v", err)
@@ -71,5 +71,29 @@ func TestValidateHTTPURL(t *testing.T) {
 	}
 	if _, err := ValidateHTTPURL("https://localhost", false, ValidationOptions{AllowPrivate: false}); err == nil {
 		t.Fatalf("expected localhost to be blocked when allow_private_hosts is false")
+	}
+}
+
+func TestConfiguredHTTPURLHostPolicies(t *testing.T) {
+	tests := []struct {
+		name      string
+		raw       string
+		opts      ValidationOptions
+		wantError bool
+	}{
+		{name: "allowlisted HTTP", raw: "http://api.example.com/v1/", opts: ValidationOptions{AllowedHosts: []string{"api.example.com"}, RequireAllowlist: true}},
+		{name: "missing allowlist", raw: "http://api.example.com", opts: ValidationOptions{RequireAllowlist: true}, wantError: true},
+		{name: "host outside allowlist", raw: "http://other.example.com", opts: ValidationOptions{AllowedHosts: []string{"api.example.com"}}, wantError: true},
+		{name: "private host blocked", raw: "http://127.0.0.1", wantError: true},
+		{name: "unsupported protocol", raw: "ftp://api.example.com", wantError: true},
+		{name: "malformed URL", raw: "://bad", wantError: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ValidateHTTPSURL(tt.raw, tt.opts)
+			if (err != nil) != tt.wantError {
+				t.Fatalf("unexpected host-policy result: %v", err)
+			}
+		})
 	}
 }

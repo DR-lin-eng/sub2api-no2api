@@ -171,7 +171,7 @@ services:
       # =======================================================================
       # Enable URL allowlist validation (false to skip allowlist checks)
       - SECURITY_URL_ALLOWLIST_ENABLED=${SECURITY_URL_ALLOWLIST_ENABLED:-false}
-      # Allow insecure HTTP URLs when allowlist is disabled (default: false; set to true only for trusted local upstreams)
+      # Allow public image HTTP URLs and HTTPS-to-HTTP redirects (default: false)
       - SECURITY_URL_ALLOWLIST_ALLOW_INSECURE_HTTP=${SECURITY_URL_ALLOWLIST_ALLOW_INSECURE_HTTP:-false}
       # Allow private IP addresses for upstream/pricing/CRS (default: false; set to true only for trusted private upstreams)
       - SECURITY_URL_ALLOWLIST_ALLOW_PRIVATE_HOSTS=${SECURITY_URL_ALLOWLIST_ALLOW_PRIVATE_HOSTS:-false}

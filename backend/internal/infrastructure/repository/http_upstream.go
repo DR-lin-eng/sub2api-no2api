@@ -811,6 +811,10 @@ func (s *httpUpstreamService) redirectChecker(req *http.Request, via []*http.Req
 	if len(via) >= 10 {
 		return errors.New("stopped after 10 redirects")
 	}
+	if req != nil && req.URL != nil && req.URL.Scheme == "http" && len(via) > 0 &&
+		via[len(via)-1].URL.Scheme == "https" && (s.cfg == nil || !s.cfg.Security.URLAllowlist.AllowInsecureHTTP) {
+		return errors.New("HTTPS to HTTP redirect is not allowed")
+	}
 	return s.validateRequestHost(req)
 }
 

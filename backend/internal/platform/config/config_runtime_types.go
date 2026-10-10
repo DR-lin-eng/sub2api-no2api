@@ -167,7 +167,8 @@ type URLAllowlistConfig struct {
 	PricingHosts      []string `mapstructure:"pricing_hosts"`
 	CRSHosts          []string `mapstructure:"crs_hosts"`
 	AllowPrivateHosts bool     `mapstructure:"allow_private_hosts"`
-	// 关闭 URL 白名单校验时，是否允许 http URL（默认只允许 https）
+	// 是否允许用户提交的公开图片 HTTP URL 和 HTTPS 到 HTTP 重定向。
+	// 管理员配置的 HTTP 上游 base URL 不受此开关限制。
 	AllowInsecureHTTP bool `mapstructure:"allow_insecure_http"`
 }
 

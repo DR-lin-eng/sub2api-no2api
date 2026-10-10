@@ -200,8 +200,10 @@ security:
     # This exception does not apply to user-supplied Responses image/mask URLs.
     # 此例外不适用于用户提交的 Responses 图片或遮罩 URL。
     allow_private_hosts: false
-    # Allow http:// URLs when allowlist is disabled (default: false; set to true only for trusted local upstreams)
-    # 白名单禁用时是否允许 http:// URL（默认: false，可信本地上游才开启）
+    # Allow public image HTTP URLs and HTTPS-to-HTTP redirects (default: false).
+    # 是否允许公开图片 HTTP URL 和 HTTPS 到 HTTP 重定向（默认: false）。
+    # Configured upstream base URLs accept HTTP without this switch.
+    # 管理员配置的 HTTP 上游 base URL 无需开启此开关。
     allow_insecure_http: false
   response_headers:
     # Enable configurable response header filtering (default: true)

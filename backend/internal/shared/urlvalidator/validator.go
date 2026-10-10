@@ -20,12 +20,14 @@ type ValidationOptions struct {
 // ValidateHTTPURL validates an outbound HTTP/HTTPS URL.
 //
 // It provides a single validation entry point that supports:
-// - scheme 校验（https 或可选允许 http）
+// - scheme 校验（http 或 https）
 // - 可选 allowlist（支持 *.example.com 通配）
 // - allow_private_hosts 策略（阻断 localhost/私网字面量 IP）
 //
 // 注意：DNS Rebinding 防护（解析后 IP 校验）应在实际发起请求时执行，避免 TOCTOU。
-func ValidateHTTPURL(raw string, allowInsecureHTTP bool, opts ValidationOptions) (string, error) {
+// The boolean argument is retained for source compatibility. Configured upstream
+// URLs support both HTTP and HTTPS without a separate HTTP opt-in.
+func ValidateHTTPURL(raw string, _ bool, opts ValidationOptions) (string, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
 		return "", errors.New("url is required")
@@ -37,7 +39,7 @@ func ValidateHTTPURL(raw string, allowInsecureHTTP bool, opts ValidationOptions)
 	}
 
 	scheme := strings.ToLower(parsed.Scheme)
-	if scheme != "https" && (!allowInsecureHTTP || scheme != "http") {
+	if scheme != "https" && scheme != "http" {
 		return "", fmt.Errorf("invalid url scheme: %s", parsed.Scheme)
 	}
 
@@ -69,7 +71,7 @@ func ValidateHTTPURL(raw string, allowInsecureHTTP bool, opts ValidationOptions)
 	return strings.TrimRight(parsed.String(), "/"), nil
 }
 
-func ValidateURLFormat(raw string, allowInsecureHTTP bool) (string, error) {
+func ValidateURLFormat(raw string, _ bool) (string, error) {
 	// 最小格式校验：仅保证 URL 可解析且 scheme 合规，不做白名单/私网/SSRF 校验
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
@@ -82,7 +84,7 @@ func ValidateURLFormat(raw string, allowInsecureHTTP bool) (string, error) {
 	}
 
 	scheme := strings.ToLower(parsed.Scheme)
-	if scheme != "https" && (!allowInsecureHTTP || scheme != "http") {
+	if scheme != "https" && scheme != "http" {
 		return "", fmt.Errorf("invalid url scheme: %s", parsed.Scheme)
 	}
 
@@ -101,6 +103,8 @@ func ValidateURLFormat(raw string, allowInsecureHTTP bool) (string, error) {
 	return strings.TrimRight(trimmed, "/"), nil
 }
 
+// ValidateHTTPSURL retains the legacy entry point for host-policy validation.
+// Like ValidateHTTPURL, it accepts configured HTTP and HTTPS upstreams.
 func ValidateHTTPSURL(raw string, opts ValidationOptions) (string, error) {
 	return ValidateHTTPURL(raw, false, opts)
 }

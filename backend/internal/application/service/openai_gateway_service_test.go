@@ -3018,7 +3018,7 @@ func TestOpenAIInvalidBaseURLWhenAllowlistDisabled(t *testing.T) {
 	}
 }
 
-func TestOpenAIValidateUpstreamBaseURLDisabledRequiresHTTPS(t *testing.T) {
+func TestOpenAIValidateUpstreamBaseURLDisabledAllowsHTTPWithoutOptIn(t *testing.T) {
 	cfg := &config.Config{
 		Security: config.SecurityConfig{
 			URLAllowlist: config.URLAllowlistConfig{Enabled: false},
@@ -3026,8 +3026,8 @@ func TestOpenAIValidateUpstreamBaseURLDisabledRequiresHTTPS(t *testing.T) {
 	}
 	svc := &OpenAIGatewayService{cfg: cfg}
 
-	if _, err := svc.validateUpstreamBaseURL("http://not-https.example.com"); err == nil {
-		t.Fatalf("expected http to be rejected when allow_insecure_http is false")
+	if _, err := svc.validateUpstreamBaseURL("http://not-https.example.com"); err != nil {
+		t.Fatalf("expected configured http URL to pass without opt-in, got %v", err)
 	}
 	normalized, err := svc.validateUpstreamBaseURL("https://example.com")
 	if err != nil {
