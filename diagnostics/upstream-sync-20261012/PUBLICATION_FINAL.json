@@ -1,0 +1,374 @@
+{
+  "pull_requests": [
+    {
+      "number": 128,
+      "url": "https://github.com/DR-lin-eng/sub2api-no2api/pull/128"
+    },
+    {
+      "number": 129,
+      "url": "https://github.com/DR-lin-eng/sub2api-no2api/pull/129"
+    }
+  ],
+  "merge_sha": "09b396364b8f9d71b359c9cbdce8f9e242d6531f",
+  "origin_main_sha": "09b396364b8f9d71b359c9cbdce8f9e242d6531f",
+  "reviewed_upstream": "ab80abc6d1f929a6864c8804fd077b509d21fda2",
+  "reviewed_upstream_is_ancestor": true,
+  "CI": {
+    "attempt": 2,
+    "conclusion": "success",
+    "headSha": "09b396364b8f9d71b359c9cbdce8f9e242d6531f",
+    "jobs": [
+      {
+        "completedAt": "2026-10-12T19:09:34Z",
+        "conclusion": "success",
+        "databaseId": 114964626503,
+        "name": "golangci-lint",
+        "startedAt": "2026-10-12T19:04:56Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-12T19:04:57Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-12T19:04:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T19:05:01Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+            "number": 2,
+            "startedAt": "2026-10-12T19:04:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T19:05:13Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+            "number": 3,
+            "startedAt": "2026-10-12T19:05:01Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T19:05:14Z",
+            "conclusion": "success",
+            "name": "Verify Go version",
+            "number": 4,
+            "startedAt": "2026-10-12T19:05:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T19:09:26Z",
+            "conclusion": "success",
+            "name": "golangci-lint",
+            "number": 5,
+            "startedAt": "2026-10-12T19:05:14Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T19:09:26Z",
+            "conclusion": "success",
+            "name": "Post golangci-lint",
+            "number": 8,
+            "startedAt": "2026-10-12T19:09:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T19:09:26Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+            "number": 9,
+            "startedAt": "2026-10-12T19:09:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T19:09:27Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+            "number": 10,
+            "startedAt": "2026-10-12T19:09:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T19:09:27Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-10-12T19:09:27Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/DR-lin-eng/sub2api-no2api/actions/runs/38293623091/job/114964626503"
+      },
+      {
+        "completedAt": "2026-10-12T18:50:54Z",
+        "conclusion": "success",
+        "databaseId": 114964628870,
+        "name": "shell",
+        "startedAt": "2026-10-12T18:50:39Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-12T18:50:40Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-12T18:50:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T18:50:45Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+            "number": 2,
+            "startedAt": "2026-10-12T18:50:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T18:50:50Z",
+            "conclusion": "success",
+            "name": "Check deployment scripts",
+            "number": 3,
+            "startedAt": "2026-10-12T18:50:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T18:50:50Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+            "number": 6,
+            "startedAt": "2026-10-12T18:50:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T18:50:51Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 7,
+            "startedAt": "2026-10-12T18:50:50Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/DR-lin-eng/sub2api-no2api/actions/runs/38293623091/job/114964628870"
+      },
+      {
+        "completedAt": "2026-10-12T18:52:11Z",
+        "conclusion": "success",
+        "databaseId": 114964674593,
+        "name": "frontend",
+        "startedAt": "2026-10-12T18:50:32Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-12T18:50:33Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-12T18:50:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T18:50:37Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+            "number": 2,
+            "startedAt": "2026-10-12T18:50:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T18:50:41Z",
+            "conclusion": "success",
+            "name": "Setup pnpm",
+            "number": 3,
+            "startedAt": "2026-10-12T18:50:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T18:50:43Z",
+            "conclusion": "success",
+            "name": "Setup Node.js",
+            "number": 4,
+            "startedAt": "2026-10-12T18:50:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T18:50:47Z",
+            "conclusion": "success",
+            "name": "Install frontend dependencies",
+            "number": 5,
+            "startedAt": "2026-10-12T18:50:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T18:52:09Z",
+            "conclusion": "success",
+            "name": "Frontend typecheck and critical vitest",
+            "number": 6,
+            "startedAt": "2026-10-12T18:50:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T18:52:09Z",
+            "conclusion": "success",
+            "name": "Post Setup Node.js",
+            "number": 10,
+            "startedAt": "2026-10-12T18:52:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T18:52:09Z",
+            "conclusion": "success",
+            "name": "Post Setup pnpm",
+            "number": 11,
+            "startedAt": "2026-10-12T18:52:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T18:52:09Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+            "number": 12,
+            "startedAt": "2026-10-12T18:52:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T18:52:09Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 13,
+            "startedAt": "2026-10-12T18:52:09Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/DR-lin-eng/sub2api-no2api/actions/runs/38293623091/job/114964674593"
+      },
+      {
+        "completedAt": "2026-10-12T19:01:32Z",
+        "conclusion": "success",
+        "databaseId": 114964680433,
+        "name": "test",
+        "startedAt": "2026-10-12T18:50:32Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-12T18:50:34Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-12T18:50:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T18:50:38Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+            "number": 2,
+            "startedAt": "2026-10-12T18:50:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T18:50:52Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+            "number": 3,
+            "startedAt": "2026-10-12T18:50:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T18:50:52Z",
+            "conclusion": "success",
+            "name": "Verify Go version",
+            "number": 4,
+            "startedAt": "2026-10-12T18:50:52Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T18:57:38Z",
+            "conclusion": "success",
+            "name": "Unit tests",
+            "number": 5,
+            "startedAt": "2026-10-12T18:50:52Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T19:01:29Z",
+            "conclusion": "success",
+            "name": "Integration tests",
+            "number": 6,
+            "startedAt": "2026-10-12T18:57:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T19:01:29Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+            "number": 11,
+            "startedAt": "2026-10-12T19:01:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T19:01:29Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+            "number": 12,
+            "startedAt": "2026-10-12T19:01:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-12T19:01:29Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 13,
+            "startedAt": "2026-10-12T19:01:29Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/DR-lin-eng/sub2api-no2api/actions/runs/38293623091/job/114964680433"
+      }
+    ],
+    "status": "completed"
+  },
+  "Security Scan": {
+    "conclusion": "success",
+    "headSha": "09b396364b8f9d71b359c9cbdce8f9e242d6531f",
+    "status": "completed"
+  },
+  "Docker Image": {
+    "conclusion": "success",
+    "headSha": "09b396364b8f9d71b359c9cbdce8f9e242d6531f",
+    "status": "completed"
+  },
+  "ghcr": {
+    "sha_tag": "sha-09b3963",
+    "latest_matches_sha_tag": true,
+    "index_digest": "sha256:81ba2a2871332cde81b7cde5d9da80e45f26bdc3b436fea94ae36fa833e1ad62",
+    "revision_labels": {
+      "linux/amd64": "09b396364b8f9d71b359c9cbdce8f9e242d6531f",
+      "linux/arm64": "09b396364b8f9d71b359c9cbdce8f9e242d6531f"
+    }
+  },
+  "roles": {
+    "MODIFIED_FILE": {
+      "path": "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/diagnostics/upstream-sync-20261012/MODIFIED_FILE",
+      "bytes": 582027,
+      "sha256": "532de0f8553095d4dfc5f3d50814b91b9d6ebd6fa7346bf7dada1194a14de062"
+    },
+    "DIFF_FILE": {
+      "path": "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/diagnostics/upstream-sync-20261012/DIFF_FILE",
+      "bytes": 156549,
+      "sha256": "220f0215fbe5178c22d528aa6507935760f1af504b019853f2841fb5364745ff"
+    },
+    "VERIFICATION.txt": {
+      "path": "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/diagnostics/upstream-sync-20261012/VERIFICATION.txt",
+      "bytes": 178118,
+      "sha256": "6a39f06a999703a51c241cdc283bc96c0a4dbd9fcbd292cf693492c1b1232217"
+    },
+    "ROLLBACK.sh": {
+      "path": "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/diagnostics/upstream-sync-20261012/ROLLBACK.sh",
+      "bytes": 1371,
+      "sha256": "76b4b708353b2c6a9db90970d39be488fbfb70717bdf56c96bd0263652e0ac41"
+    }
+  },
+  "observed_at": "2026-10-13T03:12:02.491280+08:00"
+}

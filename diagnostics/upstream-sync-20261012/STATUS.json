@@ -2,7 +2,7 @@
   "target": "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5",
   "baseline_sha": "73469a9062b3e7f8df31d22b42c1507a843b2ae9",
   "upstream_sha": "ab80abc6d1f929a6864c8804fd077b509d21fda2",
-  "stage": "final-candidate-verified",
+  "stage": "complete",
   "docker_images": {
     "baseline": "sub2api-upstream-sync:20261012-baseline",
     "candidate": "sub2api-upstream-sync:20261012-candidate"
@@ -14,12 +14,32 @@
   "golangci": "PASS",
   "frontend_build": "PASS",
   "runtime_upgrade_rollback": "PASS",
-  "next_action": "commit final owner corrections and reviewed upstream ancestry, push and track PR/main CI",
+  "next_action": null,
   "verified_copy": "/private/tmp/sub2api-sync-20261012-verified-copy-dc87h_1u",
   "role_paths": {
     "MODIFIED_FILE": "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/diagnostics/upstream-sync-20261012/MODIFIED_FILE",
     "DIFF_FILE": "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/diagnostics/upstream-sync-20261012/DIFF_FILE",
     "VERIFICATION.txt": "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/diagnostics/upstream-sync-20261012/VERIFICATION.txt",
     "ROLLBACK.sh": "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/diagnostics/upstream-sync-20261012/ROLLBACK.sh"
-  }
+  },
+  "pull_requests": [
+    128,
+    129
+  ],
+  "merge_sha": "09b396364b8f9d71b359c9cbdce8f9e242d6531f",
+  "last_confirmed_result": "PR 128/129 merged; exact final main CI attempt 2, Security, Docker, GHCR and upstream ancestry verified",
+  "acceptance_event": "exact merge SHA CI/Security/Docker success and amd64/arm64 OCI revision match",
+  "main_workflows": {
+    "CI": 38293623091,
+    "Security Scan": 38293623385,
+    "Docker Image": 38293623185
+  },
+  "schema_timeout": {
+    "initial_attempt": 1,
+    "job": 114959340654,
+    "cause": "remote schema request timeout",
+    "retry_attempt": 2,
+    "result": "success"
+  },
+  "publication": "PUBLICATION_FINAL.json"
 }
