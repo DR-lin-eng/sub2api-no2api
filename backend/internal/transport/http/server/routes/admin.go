@@ -697,7 +697,9 @@ func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		adminSettings.GET("", h.Admin.Setting.GetSettings)
 		adminSettings.PUT("", h.Admin.Setting.UpdateSettings)
 		adminSettings.GET("/permission-groups", h.Admin.Setting.GetPermissionGroups)
-		adminSettings.PUT("/permission-groups", h.Admin.Setting.UpdatePermissionGroups)
+		// Role grants change the authorization of delegated JWT users; machine
+		// credentials must never be able to rewrite that trust boundary.
+		adminSettings.PUT("/permission-groups", middleware.AdminSessionOnly(), h.Admin.Setting.UpdatePermissionGroups)
 		adminSettings.POST("/test-smtp", h.Admin.Setting.TestSMTPConnection)
 		adminSettings.POST("/send-test-email", h.Admin.Setting.SendTestEmail)
 		adminSettings.GET("/email-templates", h.Admin.Setting.ListEmailTemplates)
@@ -707,13 +709,13 @@ func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		adminSettings.POST("/email-templates/:event/:locale/restore-official", h.Admin.Setting.RestoreOfficialEmailTemplate)
 		// Admin API Key 管理
 		adminSettings.GET("/admin-api-keys", h.Admin.Setting.ListAdminAPIKeys)
-		adminSettings.POST("/admin-api-keys", h.Admin.Setting.CreateAdminAPIKey)
-		adminSettings.PUT("/admin-api-keys/:id", h.Admin.Setting.UpdateAdminAPIKey)
-		adminSettings.POST("/admin-api-keys/:id/rotate", h.Admin.Setting.RotateAdminAPIKey)
-		adminSettings.DELETE("/admin-api-keys/:id", h.Admin.Setting.RevokeAdminAPIKey)
+		adminSettings.POST("/admin-api-keys", middleware.AdminSessionOnly(), h.Admin.Setting.CreateAdminAPIKey)
+		adminSettings.PUT("/admin-api-keys/:id", middleware.AdminSessionOnly(), h.Admin.Setting.UpdateAdminAPIKey)
+		adminSettings.POST("/admin-api-keys/:id/rotate", middleware.AdminSessionOnly(), h.Admin.Setting.RotateAdminAPIKey)
+		adminSettings.DELETE("/admin-api-keys/:id", middleware.AdminSessionOnly(), h.Admin.Setting.RevokeAdminAPIKey)
 		adminSettings.GET("/admin-api-key", h.Admin.Setting.GetAdminAPIKey)
-		adminSettings.POST("/admin-api-key/regenerate", h.Admin.Setting.RegenerateAdminAPIKey)
-		adminSettings.DELETE("/admin-api-key", h.Admin.Setting.DeleteAdminAPIKey)
+		adminSettings.POST("/admin-api-key/regenerate", middleware.AdminSessionOnly(), h.Admin.Setting.RegenerateAdminAPIKey)
+		adminSettings.DELETE("/admin-api-key", middleware.AdminSessionOnly(), h.Admin.Setting.DeleteAdminAPIKey)
 		// 529过载冷却配置
 		adminSettings.GET("/overload-cooldown", h.Admin.Setting.GetOverloadCooldownSettings)
 		adminSettings.PUT("/overload-cooldown", h.Admin.Setting.UpdateOverloadCooldownSettings)
@@ -782,13 +784,13 @@ func registerBackupRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAut
 		backup.GET("/s3-config", h.Admin.Backup.GetS3Config)
 		// 修改 S3 目标可将数据库备份外泄——要求 step-up 2FA
 		backup.PUT("/s3-config", gin.HandlerFunc(stepUpAuth), h.Admin.Backup.UpdateS3Config)
-		backup.POST("/s3-config/test", h.Admin.Backup.TestS3Connection)
+		backup.POST("/s3-config/test", gin.HandlerFunc(stepUpAuth), h.Admin.Backup.TestS3Connection)
 
 		// 异步生图对象存储配置（与备份共用 S3 客户端，可直接复用备份凭证）
 		backup.GET("/image-storage", h.Admin.Backup.GetImageStorageConfig)
 		// 同 S3 配置：改写对象存储目标可将生成内容导向外部账号——要求 step-up 2FA
 		backup.PUT("/image-storage", gin.HandlerFunc(stepUpAuth), h.Admin.Backup.UpdateImageStorageConfig)
-		backup.POST("/image-storage/test", h.Admin.Backup.TestImageStorageConnection)
+		backup.POST("/image-storage/test", gin.HandlerFunc(stepUpAuth), h.Admin.Backup.TestImageStorageConnection)
 
 		// 定时备份配置
 		backup.GET("/schedule", h.Admin.Backup.GetSchedule)

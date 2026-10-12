@@ -9,12 +9,20 @@ const {
   getSchedule,
   listBackups,
   getDownloadURL,
+  testS3Connection,
+  testImageStorageConnection,
+  stepUpRun,
+  showError,
 } = vi.hoisted(() => ({
   getS3Config: vi.fn(),
   getImageStorageConfig: vi.fn(),
   getSchedule: vi.fn(),
   listBackups: vi.fn(),
   getDownloadURL: vi.fn(),
+  testS3Connection: vi.fn(),
+  testImageStorageConnection: vi.fn(),
+  stepUpRun: vi.fn(),
+  showError: vi.fn(),
 }))
 
 vi.mock('@/api', () => ({
@@ -22,10 +30,10 @@ vi.mock('@/api', () => ({
     backup: {
       getS3Config,
       updateS3Config: vi.fn(),
-      testS3Connection: vi.fn(),
+      testS3Connection,
       getImageStorageConfig,
       updateImageStorageConfig: vi.fn(),
-      testImageStorageConnection: vi.fn(),
+      testImageStorageConnection,
       getSchedule,
       updateSchedule: vi.fn(),
       createBackup: vi.fn(),
@@ -40,7 +48,7 @@ vi.mock('@/api', () => ({
 
 vi.mock('@/stores', () => ({
   useAppStore: () => ({
-    showError: vi.fn(),
+    showError,
     showSuccess: vi.fn(),
     showWarning: vi.fn(),
   }),
@@ -48,7 +56,7 @@ vi.mock('@/stores', () => ({
 
 vi.mock('@/core/stores/appStore', () => ({
   useAppStore: () => ({
-    showError: vi.fn(),
+    showError,
     showSuccess: vi.fn(),
     showWarning: vi.fn(),
   }),
@@ -59,9 +67,9 @@ vi.mock('@/features/auth/totpStepUpDialog', () => ({
 }))
 
 vi.mock('@/common/composables/useStepUp', () => ({
-  useStepUp: () => ({ run: (fn: () => unknown) => fn() }),
+  useStepUp: () => ({ run: stepUpRun }),
   isStepUpBlocked: () => false,
-  isStepUpCancelled: () => false,
+  isStepUpCancelled: (error: unknown) => error instanceof Error && error.message === 'cancelled',
   stepUpBlockReason: () => '',
 }))
 
@@ -97,6 +105,10 @@ describe('BackupPage split archives', () => {
     getSchedule.mockResolvedValue({ enabled: false, cron_expr: '', retain_days: 14, retain_count: 10 })
     listBackups.mockReset()
     getDownloadURL.mockReset()
+    showError.mockReset()
+    stepUpRun.mockReset().mockImplementation((fn: () => unknown) => fn())
+    testS3Connection.mockReset().mockResolvedValue({ ok: true })
+    testImageStorageConnection.mockReset().mockResolvedValue({ ok: true })
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
   })
 
@@ -158,4 +170,34 @@ describe('BackupPage split archives', () => {
     expect(wrapper.find('tbody tr td:nth-child(5)').text()).toBe('-')
     expect(wrapper.findAll('button').some(button => button.text() === 'common.delete')).toBe(false)
   })
+
+  it.each([0, 1])('runs storage connection test %s through step-up', async (index) => {
+    listBackups.mockResolvedValue({ items: [] })
+    const wrapper = mountBackupPage()
+    await flushPromises()
+    const buttons = wrapper.findAll('button').filter(button =>
+      button.text() === 'admin.backup.s3.testConnection',
+    )
+    await buttons[index].trigger('click')
+    await flushPromises()
+    expect(stepUpRun).toHaveBeenCalledOnce()
+    expect(index === 0 ? testS3Connection : testImageStorageConnection).toHaveBeenCalledOnce()
+  })
+
+  it.each([0, 1])('cancels storage connection test %s without sending it or showing an error', async (index) => {
+    listBackups.mockResolvedValue({ items: [] })
+    stepUpRun.mockRejectedValueOnce(new Error('cancelled'))
+    const wrapper = mountBackupPage()
+    await flushPromises()
+    const buttons = wrapper.findAll('button').filter(button =>
+      button.text() === 'admin.backup.s3.testConnection',
+    )
+    await buttons[index].trigger('click')
+    await flushPromises()
+    expect(testS3Connection).not.toHaveBeenCalled()
+    expect(testImageStorageConnection).not.toHaveBeenCalled()
+    expect(showError).not.toHaveBeenCalled()
+    expect(buttons[index].attributes('disabled')).toBeUndefined()
+  })
+
 })

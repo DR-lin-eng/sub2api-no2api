@@ -77,7 +77,7 @@ curl -X POST "${BASE}/api/v1/admin/settings/admin-api-keys" \
 | `admin.accounts.read` | 上游账号管理读取接口 |
 | `admin.accounts.write` | 上游账号管理写入接口 |
 | `admin.settings.read` | 系统设置读取和 Admin API Key 列表 |
-| `admin.settings.write` | 系统设置修改、Key 创建、编辑、轮换和撤销 |
+| `admin.settings.write` | 系统设置修改；不包含管理员密钥管理 |
 | `admin.backups.read` | 备份元数据读取，不包含下载链接 |
 | `admin.backups.write` | 备份创建、恢复和删除 |
 | `admin.system.read` | 系统状态和版本读取 |
@@ -96,6 +96,8 @@ curl -X POST "${BASE}/api/v1/admin/settings/admin-api-keys" \
 - `GET /api/v1/admin/backups/:id/download-url`
 
 这些操作必须使用管理员 JWT，并通过接口要求的 TOTP step-up。
+
+管理员密钥的创建、编辑、轮换、撤销，以及旧版密钥的重新生成和删除，只允许完整管理员的 JWT 会话调用。机器密钥不能管理自身或其他密钥，无论其 scope 或 step-up 开关状态如何；仅含脱敏元数据的列表/状态读取保留原 scope 规则。
 
 旧版单一 Admin API Key 仅保留只读兼容能力，不能修改设置、轮换自身或执行其他写操作。建议重新创建 scoped Key 后撤销旧 Key。
 
