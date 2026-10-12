@@ -1,0 +1,222 @@
+diff --git a/frontend/src/i18n/locales/en/admin/ops.ts b/frontend/src/i18n/locales/en/admin/ops.ts
+index c68b7ebea..acfdcb207 100644
+--- a/frontend/src/i18n/locales/en/admin/ops.ts
++++ b/frontend/src/i18n/locales/en/admin/ops.ts
+@@ -428,6 +428,7 @@ export default {
+           kind: 'Kind',
+           platform: 'Platform',
+           model: 'Model',
++          account: 'Account',
+           duration: 'Duration',
+           status: 'Status',
+           requestId: 'Request ID',
+diff --git a/frontend/src/i18n/locales/zh/admin/ops.ts b/frontend/src/i18n/locales/zh/admin/ops.ts
+index bc37c1245..e3c14b598 100644
+--- a/frontend/src/i18n/locales/zh/admin/ops.ts
++++ b/frontend/src/i18n/locales/zh/admin/ops.ts
+@@ -428,6 +428,7 @@ export default {
+           kind: '类型',
+           platform: '平台',
+           model: '模型',
++          account: '账号',
+           duration: '耗时',
+           status: '状态码',
+           requestId: '请求ID',
+diff --git a/frontend/src/views/admin/ops/components/OpsRequestDetailsModal.vue b/frontend/src/views/admin/ops/components/OpsRequestDetailsModal.vue
+index d38882989..8d2d26621 100644
+--- a/frontend/src/views/admin/ops/components/OpsRequestDetailsModal.vue
++++ b/frontend/src/views/admin/ops/components/OpsRequestDetailsModal.vue
+@@ -8,6 +8,7 @@ import { useClipboard } from '@/composables/useClipboard'
+ import { useAppStore } from '@/stores'
+ import { opsAPI, type OpsRequestDetailsParams, type OpsRequestDetail } from '@/api/admin/ops'
+ import { parseTimeRangeMinutes, formatDateTime } from '../utils/opsFormatters'
++import { getAccountNameMap } from '../utils/accountNameMap'
+ 
+ export interface OpsRequestDetailsPreset {
+   title: string
+@@ -44,6 +45,7 @@ const items = ref<OpsRequestDetail[]>([])
+ const total = ref(0)
+ const page = ref(1)
+ const pageSize = ref(10)
++const accountNameById = ref<Map<number, string>>(new Map())
+ 
+ const close = () => emit('update:modelValue', false)
+ 
+@@ -93,6 +95,7 @@ const fetchData = async () => {
+     const res = await opsAPI.listRequestDetails(params)
+     items.value = res.items || []
+     total.value = res.total || 0
++    refreshAccountNames()
+   } catch (e: any) {
+     console.error('[OpsRequestDetailsModal] Failed to fetch request details', e)
+     appStore.showError(e?.message || t('admin.ops.requestDetails.failedToLoad'))
+@@ -159,6 +162,27 @@ const kindBadgeClass = (kind: string) => {
+   if (kind === 'error') return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+   return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+ }
++
++// 明细行只带 account_id；账号名来自 lite 账号列表映射，缺项时强制刷新一次缓存（新建账号场景）。
++async function refreshAccountNames() {
++  const ids = items.value
++    .map(row => row.account_id)
++    .filter((id): id is number => typeof id === 'number' && id > 0)
++  if (ids.length === 0) return
++  try {
++    let map = await getAccountNameMap()
++    if (ids.some(id => !map.has(id))) map = await getAccountNameMap(true)
++    accountNameById.value = map
++  } catch (e) {
++    console.warn('[OpsRequestDetailsModal] Failed to load account names', e)
++  }
++}
++
++function accountLabel(row: OpsRequestDetail): string {
++  const id = row.account_id
++  if (typeof id !== 'number' || id <= 0) return '-'
++  return accountNameById.value.get(id) || `#${id}`
++}
+ </script>
+ 
+ <template>
+@@ -212,6 +236,9 @@ const kindBadgeClass = (kind: string) => {
+                     <span class="ml-auto text-[11px] text-gray-500 dark:text-gray-400">{{ formatDateTime(row.created_at) }}</span>
+                   </div>
+                   <div class="break-all text-xs text-gray-600 dark:text-gray-300">{{ row.model || '-' }}</div>
++                  <div v-if="typeof row.account_id === 'number' && row.account_id > 0" class="break-all text-xs text-gray-500 dark:text-gray-400" :title="accountLabel(row)">
++                    {{ t('admin.ops.requestDetails.table.account') }}: {{ accountLabel(row) }}
++                  </div>
+                   <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-300">
+                     <span>{{ latencyLabel }}: {{ formatLatency(row) }}</span>
+                     <span>{{ row.status_code ?? '-' }}</span>
+@@ -251,6 +278,9 @@ const kindBadgeClass = (kind: string) => {
+                   <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                     {{ t('admin.ops.requestDetails.table.model') }}
+                   </th>
++                  <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
++                    {{ t('admin.ops.requestDetails.table.account') }}
++                  </th>
+                   <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                     {{ latencyLabel }}
+                   </th>
+@@ -281,6 +311,9 @@ const kindBadgeClass = (kind: string) => {
+                   <td class="max-w-[240px] truncate px-4 py-3 text-xs text-gray-600 dark:text-gray-300" :title="row.model || ''">
+                     {{ row.model || '-' }}
+                   </td>
++                  <td class="max-w-[180px] truncate px-4 py-3 text-xs text-gray-600 dark:text-gray-300" :title="accountLabel(row)">
++                    {{ accountLabel(row) }}
++                  </td>
+                   <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-600 dark:text-gray-300">
+                     {{ formatLatency(row) }}
+                   </td>
+diff --git a/frontend/src/views/admin/ops/components/__tests__/OpsRequestDetailsModal.spec.ts b/frontend/src/views/admin/ops/components/__tests__/OpsRequestDetailsModal.spec.ts
+index be856162a..25099077f 100644
+--- a/frontend/src/views/admin/ops/components/__tests__/OpsRequestDetailsModal.spec.ts
++++ b/frontend/src/views/admin/ops/components/__tests__/OpsRequestDetailsModal.spec.ts
+@@ -4,14 +4,17 @@ import type { OpsDashboardOverview } from '@/api/admin/ops'
+ import { flushPromises, mount, shallowMount } from '@vue/test-utils'
+ import OpsDashboardHeader from '../OpsDashboardHeader.vue'
+ import OpsRequestDetailsModal from '../OpsRequestDetailsModal.vue'
++import { resetAccountNameCacheForTests } from '../../utils/accountNameMap'
+ 
+-const { listRequestDetails, viewport } = vi.hoisted(() => ({
++const { listRequestDetails, listAccounts, viewport } = vi.hoisted(() => ({
+   listRequestDetails: vi.fn(),
++  listAccounts: vi.fn(),
+   viewport: { desktop: true },
+ }))
+ 
+ vi.mock('@vueuse/core', () => ({ useMediaQuery: () => ref(viewport.desktop) }))
+ vi.mock('@/api/admin/ops', () => ({ opsAPI: { listRequestDetails } }))
++vi.mock('@/api/admin/accounts', () => ({ accountsAPI: { list: listAccounts } }))
+ vi.mock('@/api', () => ({ adminAPI: { groups: { getAll: vi.fn().mockResolvedValue([]) } } }))
+ vi.mock('@/stores', () => ({
+   useAppStore: () => ({ showError: vi.fn() }),
+@@ -36,15 +39,23 @@ async function openDetails(sort: 'duration_desc' | 'ttft_desc') {
+ describe('Ops request latency details', () => {
+   beforeEach(() => {
+     vi.clearAllMocks()
++    resetAccountNameCacheForTests()
+     viewport.desktop = true
+     listRequestDetails.mockResolvedValue({
+       items: [
+-        { kind: 'success', created_at: '2026-09-10T00:00:00Z', duration_ms: 12000, first_token_ms: 800 },
+-        { kind: 'success', created_at: '2026-09-10T00:00:01Z', duration_ms: 9000, first_token_ms: 0 },
+-        { kind: 'success', created_at: '2026-09-10T00:00:02Z', duration_ms: 5000, first_token_ms: null },
++        { kind: 'success', created_at: '2026-09-10T00:00:00Z', duration_ms: 12000, first_token_ms: 800, account_id: 101 },
++        { kind: 'success', created_at: '2026-09-10T00:00:01Z', duration_ms: 9000, first_token_ms: 0, account_id: 102 },
++        { kind: 'success', created_at: '2026-09-10T00:00:02Z', duration_ms: 5000, first_token_ms: null, account_id: 999 },
+       ],
+       total: 3,
+     })
++    listAccounts.mockResolvedValue({
++      items: [
++        { id: 101, name: 'acc-alpha' },
++        { id: 102, name: 'acc-beta' },
++      ],
++      total: 2,
++    })
+   })
+ 
+   it('opens the TTFT card with first-token sorting and successful requests', async () => {
+@@ -74,11 +85,21 @@ describe('Ops request latency details', () => {
+     expect(wrapper.text()).not.toContain('12000 ms')
+     expect(wrapper.text()).not.toContain('9000 ms')
+     expect(wrapper.text()).not.toContain('5000 ms')
+-    if (desktop) expect(wrapper.findAll('tbody tr')[2].findAll('td')[4].text()).toBe('-')
++    if (desktop) expect(wrapper.findAll('tbody tr')[2].findAll('td')[5].text()).toBe('-')
+     else expect(wrapper.text()).toContain('admin.ops.ttftLabel: -')
+     wrapper.unmount()
+   })
+ 
++  it('shows account names with id fallback in the account column', async () => {
++    const wrapper = await openDetails('ttft_desc')
++    expect(wrapper.text()).toContain('admin.ops.requestDetails.table.account')
++    const accountCells = wrapper.findAll('tbody tr').map(tr => tr.findAll('td')[4].text())
++    expect(accountCells).toEqual(['acc-alpha', 'acc-beta', '#999'])
++    // 999 不在账号映射里，应触发一次强制刷新重建缓存
++    expect(listAccounts).toHaveBeenCalledTimes(2)
++    wrapper.unmount()
++  })
++
+   it('keeps total duration for duration details', async () => {
+     const wrapper = await openDetails('duration_desc')
+     expect(listRequestDetails).toHaveBeenCalledWith(expect.objectContaining({ sort: 'duration_desc' }))
+diff --git a/frontend/src/views/admin/ops/utils/accountNameMap.ts b/frontend/src/views/admin/ops/utils/accountNameMap.ts
+new file mode 100644
+index 000000000..c69b36e98
+--- /dev/null
++++ b/frontend/src/views/admin/ops/utils/accountNameMap.ts
+@@ -0,0 +1,33 @@
++import { accountsAPI } from '@/api/admin/accounts'
++
++// 运维监控请求明细只带 account_id，账号名由前端用 lite 账号列表建映射；
++// 模块级缓存避免每次打开弹窗都拉全量账号。
++const ACCOUNT_NAME_PAGE_SIZE = 1000
++
++let accountNameCache: Map<number, string> | null = null
++
++export async function getAccountNameMap(force = false): Promise<Map<number, string>> {
++  if (!force && accountNameCache) return accountNameCache
++
++  const map = new Map<number, string>()
++  let page = 1
++  let total = Number.POSITIVE_INFINITY
++  while (map.size < total) {
++    const res = await accountsAPI.list(page, ACCOUNT_NAME_PAGE_SIZE, {
++      lite: '1',
++      include_scheduler_score: '0'
++    })
++    total = res.total || 0
++    const items = res.items || []
++    if (items.length === 0) break
++    for (const item of items) map.set(item.id, item.name)
++    page++
++  }
++
++  accountNameCache = map
++  return map
++}
++
++export function resetAccountNameCacheForTests() {
++  accountNameCache = null
++}

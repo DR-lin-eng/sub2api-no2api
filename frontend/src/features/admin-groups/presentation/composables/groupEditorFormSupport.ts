@@ -1,4 +1,4 @@
-import type { GroupPlatform, SubscriptionType } from "@/types/group";
+import type { GroupPlatform, SubscriptionType, GroupI18n } from "@/types/group";
 import { createDefaultMessagesDispatchFormState } from "../groupsMessagesDispatchResolver";
 import type { MessagesDispatchMappingRow } from "../groupsMessagesDispatchResolver";
 import type { ModelsListState } from "../groupsModelsListResolver";
@@ -16,6 +16,7 @@ const baseGroupFormState = () => {
   return {
     name: "",
     description: "",
+    i18n: {} as GroupI18n,
     platform: "anthropic" as GroupPlatform,
     rate_multiplier: 1.0,
     is_exclusive: false,

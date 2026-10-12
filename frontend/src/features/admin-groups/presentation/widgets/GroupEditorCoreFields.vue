@@ -2,6 +2,7 @@
 import { useI18n } from "vue-i18n";
 import Select from "@/common/widgets/forms/Select.vue";
 import Icon from "@/common/widgets/icons/Icon.vue";
+import GroupI18nField from "./GroupI18nField.vue";
 import GroupEditorMediaPricingFields from "./GroupEditorMediaPricingFields.vue";
 import ReasoningEffortPolicyFields from "./ReasoningEffortPolicyFields.vue";
 import {
@@ -35,28 +36,24 @@ const {
 </script>
 
 <template>
-    <div>
-      <label class="input-label">{{ t("admin.groups.form.name") }}</label>
-      <input
-        v-model="form.name"
-        type="text"
-        required
-        class="input"
-        :placeholder="isEdit ? undefined : t('admin.groups.enterGroupName')"
-        :data-tour="isEdit ? 'edit-group-form-name' : 'group-form-name'"
-      />
-    </div>
-    <div>
-      <label class="input-label">{{
-        t("admin.groups.form.description")
-      }}</label>
-      <textarea
-        v-model="form.description"
-        rows="3"
-        class="input"
-        :placeholder="isEdit ? undefined : t('admin.groups.optionalDescription')"
-      ></textarea>
-    </div>
+    <GroupI18nField
+      v-model="form.name"
+      v-model:i18n="form.i18n"
+      :label="t('admin.groups.form.name')"
+      field="name"
+      required
+      :placeholder="isEdit ? undefined : t('admin.groups.enterGroupName')"
+      :data-tour="isEdit ? 'edit-group-form-name' : 'group-form-name'"
+    />
+    <GroupI18nField
+      v-model="form.description"
+      v-model:i18n="form.i18n"
+      :label="t('admin.groups.form.description')"
+      field="description"
+      multiline
+      rows="3"
+      :placeholder="isEdit ? undefined : t('admin.groups.optionalDescription')"
+    />
     <div>
       <label class="input-label">{{
         t("admin.groups.form.platform")

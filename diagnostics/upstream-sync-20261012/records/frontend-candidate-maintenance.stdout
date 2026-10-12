@@ -1,0 +1,27 @@
+Preparing pnpm@11.17.0 for immediate activation...
+Already up to date
+Done in 351ms using pnpm v11.17.0
+
+ RUN  v3.2.6 /workspace
+
+ ❯ src/features/admin-accounts/__tests__/adminAccountsModularization.spec.ts (13 tests | 1 failed) 364ms
+   ✓ admin accounts modularization > owns account-only DTOs in feature data while preserving compatibility exports 18ms
+   × admin accounts modularization > keeps every feature runtime module within the maintenance target 203ms
+     → presentation/widgets/CreateAccountDialog.vue: expected 1512 to be less than or equal to 1500
+   ✓ admin accounts modularization > keeps the table and field modules statically owned by the accounts route chunk 0ms
+   ✓ admin accounts modularization > keeps request lifecycle out of the table-only view 1ms
+   ✓ admin accounts modularization > routes page requests through feature owners instead of the admin compatibility barrel 0ms
+   ✓ admin accounts modularization > routes bulk edit actions through the account action owner 0ms
+   ✓ admin accounts modularization > reads the global quota notification switch from its settings owner 0ms
+   ✓ admin accounts modularization > routes scheduled test lifecycle calls through their datasource owner 0ms
+   ✓ admin accounts modularization > routes OAuth composables through feature-owned action datasources 0ms
+   ✓ admin accounts modularization > routes reauthorization widgets through account action owners 1ms
+   ✓ admin accounts modularization > routes create and edit workflows through explicit account and settings owners 0ms
+   ✓ admin accounts modularization > routes account import and CRS sync through query/action owners 139ms
+   ✓ admin accounts modularization > preserves quota hydration, bounded batches, feedback timing, and refresh cadence 0ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 12 passed (13)
+   Start at  16:32:19
+   Duration  4.26s (transform 82ms, setup 532ms, collect 58ms, tests 364ms, environment 2.60s, prepare 73ms)
+

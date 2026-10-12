@@ -1,0 +1,56 @@
+diff --git a/frontend/src/components/account/UsageProgressBar.vue b/frontend/src/components/account/UsageProgressBar.vue
+index c8dc46fa8..bf0812718 100644
+--- a/frontend/src/components/account/UsageProgressBar.vue
++++ b/frontend/src/components/account/UsageProgressBar.vue
+@@ -62,7 +62,7 @@
+ </template>
+ 
+ <script setup lang="ts">
+-import { computed, ref, watch } from 'vue'
++import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+ import { useIntervalFn } from '@vueuse/core'
+ import { useI18n } from 'vue-i18n'
+ import type { WindowStats } from '@/types'
+@@ -97,6 +97,11 @@ const { pause: pauseClock, resume: resumeClock } = useIntervalFn(
+   { immediate: false },
+ )
+ if (props.resetsAt) resumeClock()
++const refreshClockWhenVisible = () => {
++  if (!document.hidden && props.resetsAt) now.value = new Date()
++}
++onMounted(() => document.addEventListener('visibilitychange', refreshClockWhenVisible))
++onUnmounted(() => document.removeEventListener('visibilitychange', refreshClockWhenVisible))
+ watch(
+   () => props.resetsAt,
+   (val) => {
+diff --git a/frontend/src/components/account/__tests__/UsageProgressBar.spec.ts b/frontend/src/components/account/__tests__/UsageProgressBar.spec.ts
+index 7c5016ecb..2b954c748 100644
+--- a/frontend/src/components/account/__tests__/UsageProgressBar.spec.ts
++++ b/frontend/src/components/account/__tests__/UsageProgressBar.spec.ts
+@@ -68,6 +68,26 @@ describe('UsageProgressBar', () => {
+     expect(wrapper.text()).not.toContain('usage.resetNow')
+   })
+ 
++  it('refreshes an active window countdown when a background tab becomes visible', async () => {
++    const wrapper = mount(UsageProgressBar, {
++      props: {
++        label: '5h',
++        utilization: 12,
++        resetsAt: '2026-03-17T02:30:00Z',
++        color: 'indigo'
++      }
++    })
++
++    expect(wrapper.text()).toContain('2h 30m')
++    // Background tabs can throttle the periodic timer while time advances.
++    vi.setSystemTime(new Date('2026-03-17T01:00:00Z'))
++    document.dispatchEvent(new Event('visibilitychange'))
++    await wrapper.vm.$nextTick()
++
++    expect(wrapper.text()).toContain('1h 30m')
++    wrapper.unmount()
++  })
++
+   it('resetsAt 已过期且利用率大于 0 时显示「待刷新」', () => {
+     const wrapper = mount(UsageProgressBar, {
+       props: {

@@ -8,7 +8,7 @@
       :auto-refresh="autoRefresh"
       :show-share-button="showShareButton"
       @update:window="handleWindowChange"
-      @refresh="manualReload"
+      @refresh="refresh()"
       @copy-share-link="copyShareLink"
     />
 
@@ -70,7 +70,7 @@ const autoRefresh = useAutoRefresh({
   storageKey: 'channel-status-auto-refresh',
   intervals: [30, 60, 120] as const,
   defaultInterval: DEFAULT_INTERVAL_SECONDS,
-  onRefresh: () => reload(true),
+  onRefresh: () => refresh(true),
   shouldPause: () => document.hidden || loading.value,
 })
 const countdown = autoRefresh.countdown
@@ -115,8 +115,8 @@ async function reload(silent = false) {
   }
 }
 
-async function manualReload() {
-  await reload(false)
+async function refresh(silent = false) {
+  await reload(silent)
   if (currentWindow.value !== '7d') {
     await loadDetails(items.value.map(it => it.id), true)
   }
