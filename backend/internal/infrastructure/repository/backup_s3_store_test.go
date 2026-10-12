@@ -54,7 +54,8 @@ func TestS3BackupStoreUploadFileRangeSendsExactRangeAndContentLength(t *testing.
 	require.NoError(t, err)
 	// Keep the upload test local without relaxing the production destination
 	// policy: replace this instance's SDK transport only after construction.
-	backupStore := store.(*S3BackupStore)
+	backupStore, ok := store.(*S3BackupStore)
+	require.True(t, ok)
 	options := backupStore.client.Options()
 	options.BaseEndpoint = &server.URL
 	options.HTTPClient = server.Client()

@@ -14,7 +14,11 @@ import (
 // socket boundary and dial that exact IP, preserving the SDK's Host/signature
 // and TLS server name. Environment proxies and redirects cannot bypass this.
 func newS3HTTPClient() *http.Client {
-	transport := http.DefaultTransport.(*http.Transport).Clone()
+	baseTransport, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		panic("http.DefaultTransport is not *http.Transport")
+	}
+	transport := baseTransport.Clone()
 	transport.Proxy = nil
 	dialer := &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}
 	transport.DialContext = s3DialContext(net.DefaultResolver, dialer.DialContext)

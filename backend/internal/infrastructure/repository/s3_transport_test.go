@@ -44,7 +44,8 @@ func TestS3TransportDoesNotFollowRedirectOrUseEnvironmentProxy(t *testing.T) {
 	}))
 	defer server.Close()
 	client := newS3HTTPClient()
-	transport := client.Transport.(*http.Transport)
+	transport, ok := client.Transport.(*http.Transport)
+	require.True(t, ok)
 	defer transport.CloseIdleConnections()
 	require.Nil(t, transport.Proxy)
 	resolver := publicDestinationResolverFunc(func(context.Context, string, string) ([]netip.Addr, error) {
@@ -56,7 +57,7 @@ func TestS3TransportDoesNotFollowRedirectOrUseEnvironmentProxy(t *testing.T) {
 	})
 	response, err := client.Get("http://s3.example.com/test-bucket")
 	require.NoError(t, err)
-	defer response.Body.Close()
+	defer func() { require.NoError(t, response.Body.Close()) }()
 	require.Equal(t, http.StatusTemporaryRedirect, response.StatusCode)
 	require.Equal(t, 1, requests)
 }
