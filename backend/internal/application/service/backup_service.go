@@ -23,6 +23,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
+	"github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator"
 )
 
 const (
@@ -351,6 +352,11 @@ func (s *BackupService) GetS3Config(ctx context.Context) (*BackupS3Config, error
 }
 
 func (s *BackupService) UpdateS3Config(ctx context.Context, cfg BackupS3Config) (*BackupS3Config, error) {
+	endpoint, err := urlvalidator.ValidateS3Endpoint(cfg.Endpoint)
+	if err != nil {
+		return nil, infraerrors.BadRequest("INVALID_S3_ENDPOINT", err.Error())
+	}
+	cfg.Endpoint = endpoint
 	// loadS3Config returns the decrypted secret. A save that omits the secret
 	// inherits plaintext, so it must pass through the same encryption path.
 	if cfg.SecretAccessKey == "" {
@@ -392,6 +398,11 @@ func (s *BackupService) UpdateS3Config(ctx context.Context, cfg BackupS3Config) 
 }
 
 func (s *BackupService) TestS3Connection(ctx context.Context, cfg BackupS3Config) error {
+	endpoint, err := urlvalidator.ValidateS3Endpoint(cfg.Endpoint)
+	if err != nil {
+		return err
+	}
+	cfg.Endpoint = endpoint
 	// 如果没提供 secret，用已保存的
 	if cfg.SecretAccessKey == "" {
 		old, _ := s.loadS3Config(ctx)

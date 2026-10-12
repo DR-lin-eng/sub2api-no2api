@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
 	"database/sql/driver"
 	"errors"
@@ -107,15 +108,35 @@ func discardSQLConnection(conn *sql.Conn) {
 
 // Restore executes psql to restore from a streaming reader
 func (d *PgDumper) Restore(ctx context.Context, data io.Reader) error {
+	script, cleanup, err := prepareBackupRestore(ctx, data)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+	// The dump's own key is untrusted. Establish a fresh restriction before any
+	// input is parsed, and never expose the matching unrestrict command to it.
+	key := make([]byte, 32)
+	if _, err := rand.Read(key); err != nil {
+		return fmt.Errorf("generate restore restriction key: %w", err)
+	}
 	args := []string{
 		"-h", d.cfg.Host,
 		"-p", fmt.Sprintf("%d", d.cfg.Port),
 		"-U", d.cfg.User,
 		"-d", d.cfg.DBName,
 		"--single-transaction",
+		"--no-psqlrc",
+		"--no-password",
+		"--set=ON_ERROR_STOP=1",
+		"--command", fmt.Sprintf("\\restrict %x", key),
+		"--file=-",
 	}
 
-	cmd := exec.CommandContext(ctx, "psql", args...)
+	commandContext := d.commandContext
+	if commandContext == nil {
+		commandContext = exec.CommandContext
+	}
+	cmd := commandContext(ctx, "psql", args...)
 	if d.cfg.Password != "" {
 		cmd.Env = append(cmd.Environ(), "PGPASSWORD="+d.cfg.Password)
 	}
@@ -123,7 +144,7 @@ func (d *PgDumper) Restore(ctx context.Context, data io.Reader) error {
 		cmd.Env = append(cmd.Environ(), "PGSSLMODE="+d.cfg.SSLMode)
 	}
 
-	cmd.Stdin = data
+	cmd.Stdin = script
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
