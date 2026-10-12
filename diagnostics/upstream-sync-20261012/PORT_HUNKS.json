@@ -39,9 +39,10 @@
     "pr": 7974,
     "path": "frontend/src/features/admin-accounts/presentation/composables/useGeminiOAuth.ts",
     "hunk": 0,
-    "state": "pending",
+    "state": "resolved-by-owner-adaptation",
     "before": "import { useI18n } from 'vue-i18n'\nimport { useAppStore } from '@/core/stores/app'\nimport { adminAPI } from '@/api/admin'\nimport type { GeminiOAuthCapabilities } from '@/api/admin/gemini'\n\nexport interface GeminiTokenInfo {\n",
-    "after": "import { useI18n } from 'vue-i18n'\nimport { useAppStore } from '@/core/stores/app'\nimport { adminAPI } from '@/api/admin'\nimport { extractApiErrorMessage } from '@/core/utils/apiError'\nimport type { GeminiOAuthCapabilities } from '@/api/admin/gemini'\n\nexport interface GeminiTokenInfo {\n"
+    "after": "import { useI18n } from 'vue-i18n'\nimport { useAppStore } from '@/core/stores/app'\nimport { adminAPI } from '@/api/admin'\nimport { extractApiErrorMessage } from '@/core/utils/apiError'\nimport type { GeminiOAuthCapabilities } from '@/api/admin/gemini'\n\nexport interface GeminiTokenInfo {\n",
+    "resolution": "Historical exact-hunk lookup; the final current-owner decision and verification are in UPSTREAM_PRS.json, SOURCE_HASHES.json and VERIFICATION.txt. Missing legacy simple-mode/catalog helpers were not introduced."
   },
   {
     "pr": 7974,
@@ -53,25 +54,28 @@
     "pr": 7973,
     "path": "frontend/src/features/channels-user/presentation/pages/ChannelStatusPage.vue",
     "hunk": 0,
-    "state": "pending",
+    "state": "resolved-by-owner-adaptation",
     "before": "      :loading=\"loading\"\n      :auto-refresh=\"autoRefresh\"\n      @update:window=\"handleWindowChange\"\n      @refresh=\"manualReload\"\n    />\n\n    <MonitorCardGrid\n",
-    "after": "      :loading=\"loading\"\n      :auto-refresh=\"autoRefresh\"\n      @update:window=\"handleWindowChange\"\n      @refresh=\"refresh()\"\n    />\n\n    <MonitorCardGrid\n"
+    "after": "      :loading=\"loading\"\n      :auto-refresh=\"autoRefresh\"\n      @update:window=\"handleWindowChange\"\n      @refresh=\"refresh()\"\n    />\n\n    <MonitorCardGrid\n",
+    "resolution": "Historical exact-hunk lookup; the final current-owner decision and verification are in UPSTREAM_PRS.json, SOURCE_HASHES.json and VERIFICATION.txt. Missing legacy simple-mode/catalog helpers were not introduced."
   },
   {
     "pr": 7973,
     "path": "frontend/src/features/channels-user/presentation/pages/ChannelStatusPage.vue",
     "hunk": 1,
-    "state": "pending",
+    "state": "resolved-by-owner-adaptation",
     "before": "  intervals: [30, 60, 120] as const,\n  defaultInterval: DEFAULT_INTERVAL_SECONDS,\n  defaultEnabled: true,\n  onRefresh: () => reload(true),\n  shouldPause: () => document.hidden || loading.value,\n})\nconst countdown = autoRefresh.countdown\n",
-    "after": "  intervals: [30, 60, 120] as const,\n  defaultInterval: DEFAULT_INTERVAL_SECONDS,\n  defaultEnabled: true,\n  onRefresh: () => refresh(true),\n  shouldPause: () => document.hidden || loading.value,\n})\nconst countdown = autoRefresh.countdown\n"
+    "after": "  intervals: [30, 60, 120] as const,\n  defaultInterval: DEFAULT_INTERVAL_SECONDS,\n  defaultEnabled: true,\n  onRefresh: () => refresh(true),\n  shouldPause: () => document.hidden || loading.value,\n})\nconst countdown = autoRefresh.countdown\n",
+    "resolution": "Historical exact-hunk lookup; the final current-owner decision and verification are in UPSTREAM_PRS.json, SOURCE_HASHES.json and VERIFICATION.txt. Missing legacy simple-mode/catalog helpers were not introduced."
   },
   {
     "pr": 7973,
     "path": "frontend/src/features/channels-user/presentation/pages/ChannelStatusPage.vue",
     "hunk": 2,
-    "state": "pending",
+    "state": "resolved-by-owner-adaptation",
     "before": "  }\n}\n\nasync function manualReload() {\n  await reload(false)\n  // After base reload, refresh any cached detail records so non-7d availability\n  // values stay in sync without forcing the user to switch tabs again.\n  if (currentWindow.value !== '7d') {\n",
-    "after": "  }\n}\n\nasync function refresh(silent = false) {\n  await reload(silent)\n  // After base reload, refresh any cached detail records so non-7d availability\n  // values stay in sync without forcing the user to switch tabs again.\n  if (currentWindow.value !== '7d') {\n"
+    "after": "  }\n}\n\nasync function refresh(silent = false) {\n  await reload(silent)\n  // After base reload, refresh any cached detail records so non-7d availability\n  // values stay in sync without forcing the user to switch tabs again.\n  if (currentWindow.value !== '7d') {\n",
+    "resolution": "Historical exact-hunk lookup; the final current-owner decision and verification are in UPSTREAM_PRS.json, SOURCE_HASHES.json and VERIFICATION.txt. Missing legacy simple-mode/catalog helpers were not introduced."
   },
   {
     "pr": 7972,
@@ -89,17 +93,19 @@
     "pr": 7969,
     "path": "frontend/src/features/admin-ops/presentation/widgets/OpsDashboardHeader.vue",
     "hunk": 0,
-    "state": "pending",
+    "state": "resolved-by-owner-adaptation",
     "before": "import { opsAPI, type OpsDashboardOverview, type OpsMetricThresholds, type OpsRealtimeTrafficSummary } from '@/api/admin/ops'\nimport type { OpsRequestDetailsPreset } from './OpsRequestDetailsModal.vue'\nimport { useAdminSettingsStore } from '@/stores'\nimport { formatNumber } from '@/core/utils/format'\nimport { formatMemorySizeMB } from '../utils/opsFormatters'\n\ntype RealtimeWindow = '1min' | '5min' | '30min' | '1h'\n",
-    "after": "import { opsAPI, type OpsDashboardOverview, type OpsMetricThresholds, type OpsRealtimeTrafficSummary } from '@/api/admin/ops'\nimport type { OpsRequestDetailsPreset } from './OpsRequestDetailsModal.vue'\nimport { useAdminSettingsStore } from '@/stores'\nimport { formatDateTimeLocalInput, formatNumber } from '@/core/utils/format'\nimport { formatMemorySizeMB } from '../utils/opsFormatters'\n\ntype RealtimeWindow = '1min' | '5min' | '30min' | '1h'\n"
+    "after": "import { opsAPI, type OpsDashboardOverview, type OpsMetricThresholds, type OpsRealtimeTrafficSummary } from '@/api/admin/ops'\nimport type { OpsRequestDetailsPreset } from './OpsRequestDetailsModal.vue'\nimport { useAdminSettingsStore } from '@/stores'\nimport { formatDateTimeLocalInput, formatNumber } from '@/core/utils/format'\nimport { formatMemorySizeMB } from '../utils/opsFormatters'\n\ntype RealtimeWindow = '1min' | '5min' | '30min' | '1h'\n",
+    "resolution": "Historical exact-hunk lookup; the final current-owner decision and verification are in UPSTREAM_PRS.json, SOURCE_HASHES.json and VERIFICATION.txt. Missing legacy simple-mode/catalog helpers were not introduced."
   },
   {
     "pr": 7969,
     "path": "frontend/src/features/admin-ops/presentation/widgets/OpsDashboardHeader.vue",
     "hunk": 1,
-    "state": "pending",
+    "state": "resolved-by-owner-adaptation",
     "before": "    // 初始化为最近1小时\n    const now = new Date()\n    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000)\n    customStartTimeInput.value = oneHourAgo.toISOString().slice(0, 16)\n    customEndTimeInput.value = now.toISOString().slice(0, 16)\n    showCustomTimeRangeDialog.value = true\n  } else {\n    emit('update:timeRange', newValue)\n",
-    "after": "    // 初始化为最近1小时\n    const now = new Date()\n    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000)\n    customStartTimeInput.value = formatDateTimeLocalInput(oneHourAgo.getTime() / 1000)\n    customEndTimeInput.value = formatDateTimeLocalInput(now.getTime() / 1000)\n    showCustomTimeRangeDialog.value = true\n  } else {\n    emit('update:timeRange', newValue)\n"
+    "after": "    // 初始化为最近1小时\n    const now = new Date()\n    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000)\n    customStartTimeInput.value = formatDateTimeLocalInput(oneHourAgo.getTime() / 1000)\n    customEndTimeInput.value = formatDateTimeLocalInput(now.getTime() / 1000)\n    showCustomTimeRangeDialog.value = true\n  } else {\n    emit('update:timeRange', newValue)\n",
+    "resolution": "Historical exact-hunk lookup; the final current-owner decision and verification are in UPSTREAM_PRS.json, SOURCE_HASHES.json and VERIFICATION.txt. Missing legacy simple-mode/catalog helpers were not introduced."
   },
   {
     "pr": 7717,
@@ -141,9 +147,10 @@
     "pr": 8002,
     "path": "frontend/src/features/admin-groups/presentation/widgets/GroupRPMOverridesDialog.vue",
     "hunk": 1,
-    "state": "pending",
+    "state": "resolved-by-owner-adaptation",
     "before": "\nconst loadEntries = async () => {\n  if (!props.group) return\n  loading.value = true\n  try {\n    serverEntries.value = await adminAPI.groups.getGroupRPMOverrides(props.group.id)\n    localEntries.value = cloneEntries(serverEntries.value)\n    adjustPage()\n  } catch (error) {\n    appStore.showError(t('admin.groups.failedToLoad'))\n    console.error('Error loading RPM overrides:', error)\n  } finally {\n    loading.value = false\n  }\n}\n\n",
-    "after": "\nconst loadEntries = async () => {\n  if (!props.group) return\n  const version = loadVersion\n  loading.value = true\n  serverEntries.value = []\n  localEntries.value = []\n  try {\n    const entries = await adminAPI.groups.getGroupRPMOverrides(props.group.id)\n    if (version !== loadVersion) return\n    serverEntries.value = entries\n    localEntries.value = cloneEntries(serverEntries.value)\n    adjustPage()\n  } catch (error) {\n    if (version !== loadVersion) return\n    appStore.showError(t('admin.groups.failedToLoad'))\n    console.error('Error loading RPM overrides:', error)\n  } finally {\n    if (version === loadVersion) loading.value = false\n  }\n}\n\n"
+    "after": "\nconst loadEntries = async () => {\n  if (!props.group) return\n  const version = loadVersion\n  loading.value = true\n  serverEntries.value = []\n  localEntries.value = []\n  try {\n    const entries = await adminAPI.groups.getGroupRPMOverrides(props.group.id)\n    if (version !== loadVersion) return\n    serverEntries.value = entries\n    localEntries.value = cloneEntries(serverEntries.value)\n    adjustPage()\n  } catch (error) {\n    if (version !== loadVersion) return\n    appStore.showError(t('admin.groups.failedToLoad'))\n    console.error('Error loading RPM overrides:', error)\n  } finally {\n    if (version === loadVersion) loading.value = false\n  }\n}\n\n",
+    "resolution": "Historical exact-hunk lookup; the final current-owner decision and verification are in UPSTREAM_PRS.json, SOURCE_HASHES.json and VERIFICATION.txt. Missing legacy simple-mode/catalog helpers were not introduced."
   },
   {
     "pr": 8002,
@@ -202,41 +209,46 @@
     "pr": 7960,
     "path": "backend/internal/transport/http/handler/admin/group_handler.go",
     "hunk": 0,
-    "state": "pending",
+    "state": "resolved-by-owner-adaptation",
     "before": "\tPlatform    string `json:\"platform\"`\n\tStatus      string `json:\"status\"`\n\n\tAccountCount            int64     `json:\"account_count,omitempty\"`\n\tActiveAccountCount      int64     `json:\"active_account_count,omitempty\"`\n\tRateLimitedAccountCount int64     `json:\"rate_limited_account_count,omitempty\"`\n",
-    "after": "\tPlatform    string `json:\"platform\"`\n\tStatus      string `json:\"status\"`\n\n\tI18n service.GroupI18n `json:\"i18n,omitempty\"`\n\n\tAccountCount            int64     `json:\"account_count,omitempty\"`\n\tActiveAccountCount      int64     `json:\"active_account_count,omitempty\"`\n\tRateLimitedAccountCount int64     `json:\"rate_limited_account_count,omitempty\"`\n"
+    "after": "\tPlatform    string `json:\"platform\"`\n\tStatus      string `json:\"status\"`\n\n\tI18n service.GroupI18n `json:\"i18n,omitempty\"`\n\n\tAccountCount            int64     `json:\"account_count,omitempty\"`\n\tActiveAccountCount      int64     `json:\"active_account_count,omitempty\"`\n\tRateLimitedAccountCount int64     `json:\"rate_limited_account_count,omitempty\"`\n",
+    "resolution": "Historical exact-hunk lookup; the final current-owner decision and verification are in UPSTREAM_PRS.json, SOURCE_HASHES.json and VERIFICATION.txt. Missing legacy simple-mode/catalog helpers were not introduced."
   },
   {
     "pr": 7960,
     "path": "backend/internal/transport/http/handler/admin/group_handler.go",
     "hunk": 1,
-    "state": "pending",
+    "state": "resolved-by-owner-adaptation",
     "before": "\treturn &simpleModeGroupResponse{\n\t\tID: group.ID, Name: group.Name, Description: group.Description, Platform: group.Platform,\n\t\tStatus:             group.Status,\n\t\tAccountCount:       group.AccountCount,\n\t\tActiveAccountCount: group.ActiveAccountCount, RateLimitedAccountCount: group.RateLimitedAccountCount,\n\t\tSortOrder: group.SortOrder, CreatedAt: group.CreatedAt, UpdatedAt: group.UpdatedAt,\n",
-    "after": "\treturn &simpleModeGroupResponse{\n\t\tID: group.ID, Name: group.Name, Description: group.Description, Platform: group.Platform,\n\t\tStatus:             group.Status,\n\t\tI18n:               group.I18n,\n\t\tAccountCount:       group.AccountCount,\n\t\tActiveAccountCount: group.ActiveAccountCount, RateLimitedAccountCount: group.RateLimitedAccountCount,\n\t\tSortOrder: group.SortOrder, CreatedAt: group.CreatedAt, UpdatedAt: group.UpdatedAt,\n"
+    "after": "\treturn &simpleModeGroupResponse{\n\t\tID: group.ID, Name: group.Name, Description: group.Description, Platform: group.Platform,\n\t\tStatus:             group.Status,\n\t\tI18n:               group.I18n,\n\t\tAccountCount:       group.AccountCount,\n\t\tActiveAccountCount: group.ActiveAccountCount, RateLimitedAccountCount: group.RateLimitedAccountCount,\n\t\tSortOrder: group.SortOrder, CreatedAt: group.CreatedAt, UpdatedAt: group.UpdatedAt,\n",
+    "resolution": "Historical exact-hunk lookup; the final current-owner decision and verification are in UPSTREAM_PRS.json, SOURCE_HASHES.json and VERIFICATION.txt. Missing legacy simple-mode/catalog helpers were not introduced."
   },
   {
     "pr": 7960,
     "path": "backend/internal/transport/http/handler/admin/group_handler.go",
     "hunk": 2,
-    "state": "pending",
+    "state": "resolved-by-owner-adaptation",
     "before": "\tif req == nil {\n\t\treturn\n\t}\n\tallowed := CreateGroupRequest{Name: req.Name, Description: req.Description, Platform: req.Platform}\n\tallowed.RateMultiplier = 1\n\tallowed.SubscriptionType = service.SubscriptionTypeStandard\n\t*req = allowed\n",
-    "after": "\tif req == nil {\n\t\treturn\n\t}\n\tallowed := CreateGroupRequest{Name: req.Name, Description: req.Description, I18n: req.I18n, Platform: req.Platform}\n\tallowed.RateMultiplier = 1\n\tallowed.SubscriptionType = service.SubscriptionTypeStandard\n\t*req = allowed\n"
+    "after": "\tif req == nil {\n\t\treturn\n\t}\n\tallowed := CreateGroupRequest{Name: req.Name, Description: req.Description, I18n: req.I18n, Platform: req.Platform}\n\tallowed.RateMultiplier = 1\n\tallowed.SubscriptionType = service.SubscriptionTypeStandard\n\t*req = allowed\n",
+    "resolution": "Historical exact-hunk lookup; the final current-owner decision and verification are in UPSTREAM_PRS.json, SOURCE_HASHES.json and VERIFICATION.txt. Missing legacy simple-mode/catalog helpers were not introduced."
   },
   {
     "pr": 7960,
     "path": "backend/internal/transport/http/handler/admin/group_handler.go",
     "hunk": 3,
-    "state": "pending",
+    "state": "resolved-by-owner-adaptation",
     "before": "\tif req == nil {\n\t\treturn\n\t}\n\t*req = UpdateGroupRequest{Name: req.Name, Description: req.Description}\n}\n\n// CreateGroupRequest represents create group request\ntype CreateGroupRequest struct {\n\tName                      string                        `json:\"name\" binding:\"required\"`\n\tDescription               string                        `json:\"description\"`\n\tPlatform                  string                        `json:\"platform\" binding:\"omitempty,group_platform\"`\n\tRateMultiplier            float64                       `json:\"rate_multiplier\"`\n\tIsExclusive               bool                          `json:\"is_exclusive\"`\n",
-    "after": "\tif req == nil {\n\t\treturn\n\t}\n\t*req = UpdateGroupRequest{Name: req.Name, Description: req.Description, I18n: req.I18n}\n}\n\n// CreateGroupRequest represents create group request\ntype CreateGroupRequest struct {\n\tName                      string                        `json:\"name\" binding:\"required\"`\n\tDescription               string                        `json:\"description\"`\n\tI18n                      service.GroupI18n             `json:\"i18n\"` // 名称与描述的界面语言译文\n\tPlatform                  string                        `json:\"platform\" binding:\"omitempty,group_platform\"`\n\tRateMultiplier            float64                       `json:\"rate_multiplier\"`\n\tIsExclusive               bool                          `json:\"is_exclusive\"`\n"
+    "after": "\tif req == nil {\n\t\treturn\n\t}\n\t*req = UpdateGroupRequest{Name: req.Name, Description: req.Description, I18n: req.I18n}\n}\n\n// CreateGroupRequest represents create group request\ntype CreateGroupRequest struct {\n\tName                      string                        `json:\"name\" binding:\"required\"`\n\tDescription               string                        `json:\"description\"`\n\tI18n                      service.GroupI18n             `json:\"i18n\"` // 名称与描述的界面语言译文\n\tPlatform                  string                        `json:\"platform\" binding:\"omitempty,group_platform\"`\n\tRateMultiplier            float64                       `json:\"rate_multiplier\"`\n\tIsExclusive               bool                          `json:\"is_exclusive\"`\n",
+    "resolution": "Historical exact-hunk lookup; the final current-owner decision and verification are in UPSTREAM_PRS.json, SOURCE_HASHES.json and VERIFICATION.txt. Missing legacy simple-mode/catalog helpers were not introduced."
   },
   {
     "pr": 7960,
     "path": "backend/internal/transport/http/handler/admin/group_handler.go",
     "hunk": 4,
-    "state": "pending",
+    "state": "resolved-by-owner-adaptation",
     "before": "type UpdateGroupRequest struct {\n\tName                      string                         `json:\"name\"`\n\tDescription               *string                        `json:\"description\"`\n\tPlatform                  string                         `json:\"platform\" binding:\"omitempty,group_platform\"`\n\tRateMultiplier            *float64                       `json:\"rate_multiplier\"`\n\tIsExclusive               *bool                          `json:\"is_exclusive\"`\n",
-    "after": "type UpdateGroupRequest struct {\n\tName                      string                         `json:\"name\"`\n\tDescription               *string                        `json:\"description\"`\n\tI18n                      *service.GroupI18n             `json:\"i18n\"` // 缺省不修改，传入则整体替换\n\tPlatform                  string                         `json:\"platform\" binding:\"omitempty,group_platform\"`\n\tRateMultiplier            *float64                       `json:\"rate_multiplier\"`\n\tIsExclusive               *bool                          `json:\"is_exclusive\"`\n"
+    "after": "type UpdateGroupRequest struct {\n\tName                      string                         `json:\"name\"`\n\tDescription               *string                        `json:\"description\"`\n\tI18n                      *service.GroupI18n             `json:\"i18n\"` // 缺省不修改，传入则整体替换\n\tPlatform                  string                         `json:\"platform\" binding:\"omitempty,group_platform\"`\n\tRateMultiplier            *float64                       `json:\"rate_multiplier\"`\n\tIsExclusive               *bool                          `json:\"is_exclusive\"`\n",
+    "resolution": "Historical exact-hunk lookup; the final current-owner decision and verification are in UPSTREAM_PRS.json, SOURCE_HASHES.json and VERIFICATION.txt. Missing legacy simple-mode/catalog helpers were not introduced."
   },
   {
     "pr": 7960,
@@ -272,9 +284,10 @@
     "pr": 7960,
     "path": "backend/internal/transport/http/handler/api_key_handler.go",
     "hunk": 3,
-    "state": "pending",
+    "state": "resolved-by-owner-adaptation",
     "before": "\t\treturn\n\t}\n\n\tresponse.Success(c, dto.APIKeyFromService(key))\n}\n\n// Delete handles deleting an API key\n",
-    "after": "\t\treturn\n\t}\n\n\tresponse.Success(c, dto.APIKeyFromService(key).Localized(c.GetHeader(\"Accept-Language\")))\n}\n\n// Delete handles deleting an API key\n"
+    "after": "\t\treturn\n\t}\n\n\tresponse.Success(c, dto.APIKeyFromService(key).Localized(c.GetHeader(\"Accept-Language\")))\n}\n\n// Delete handles deleting an API key\n",
+    "resolution": "Historical exact-hunk lookup; the final current-owner decision and verification are in UPSTREAM_PRS.json, SOURCE_HASHES.json and VERIFICATION.txt. Missing legacy simple-mode/catalog helpers were not introduced."
   },
   {
     "pr": 7960,
@@ -304,9 +317,10 @@
     "pr": 7960,
     "path": "backend/internal/transport/http/handler/available_channel_handler.go",
     "hunk": 3,
-    "state": "pending",
+    "state": "resolved-by-owner-adaptation",
     "before": "\tresponse.Success(c, out)\n}\n\n// buildPlatformSections 把一个渠道按 visibleGroups 的平台集合拆成有序的 section 列表：\n// 每个 section 对应一个具体平台，只包含该平台的 groups 和 supported_models。\n//\n",
-    "after": "\tresponse.Success(c, out)\n}\n\n// localizeUserAvailableGroups 把分组名称就地换成请求首选语言的版本。\nfunc localizeUserAvailableGroups(groups []userAvailableGroup, acceptLanguage string) {\n\tfor i := range groups {\n\t\tgroups[i].Name = groups[i].i18n.LocalizeName(acceptLanguage, groups[i].Name)\n\t}\n}\n\n// buildPlatformSections 把一个渠道按 visibleGroups 的平台集合拆成有序的 section 列表：\n// 每个 section 对应一个具体平台，只包含该平台的 groups 和 supported_models。\n//\n"
+    "after": "\tresponse.Success(c, out)\n}\n\n// localizeUserAvailableGroups 把分组名称就地换成请求首选语言的版本。\nfunc localizeUserAvailableGroups(groups []userAvailableGroup, acceptLanguage string) {\n\tfor i := range groups {\n\t\tgroups[i].Name = groups[i].i18n.LocalizeName(acceptLanguage, groups[i].Name)\n\t}\n}\n\n// buildPlatformSections 把一个渠道按 visibleGroups 的平台集合拆成有序的 section 列表：\n// 每个 section 对应一个具体平台，只包含该平台的 groups 和 supported_models。\n//\n",
+    "resolution": "Historical exact-hunk lookup; the final current-owner decision and verification are in UPSTREAM_PRS.json, SOURCE_HASHES.json and VERIFICATION.txt. Missing legacy simple-mode/catalog helpers were not introduced."
   },
   {
     "pr": 7960,
@@ -335,9 +349,10 @@
     "pr": 7960,
     "path": "backend/internal/transport/http/handler/model_plaza_handler.go",
     "hunk": 0,
-    "state": "pending",
+    "state": "resolved-by-owner-adaptation",
     "before": "\n\tvisible := filterPlazaVisibleGroups(groups, allowedGroups, restrictPublicGroups)\n\n\tout := make([]modelPlazaGroup, 0, len(visible))\n\tfor i := range visible {\n\t\tout = append(out, toModelPlazaGroupDTO(&visible[i], userRates))\n\t}\n\tresponse.Success(c, modelPlazaResponse{\n\t\tDescription: rt.Description,\n\t\tGroups:      out,\n",
-    "after": "\n\tvisible := filterPlazaVisibleGroups(groups, allowedGroups, restrictPublicGroups)\n\n\t// 广场可匿名访问，分组文案随请求语言变化，提示中间缓存按语言区分。\n\t// 追加而非覆盖：CORS 中间件已为具体来源写入 Vary: Origin。\n\tc.Writer.Header().Add(\"Vary\", \"Accept-Language\")\n\tout := toLocalizedModelPlazaGroups(visible, userRates, c.GetHeader(\"Accept-Language\"))\n\tresponse.Success(c, modelPlazaResponse{\n\t\tDescription: rt.Description,\n\t\tGroups:      out,\n"
+    "after": "\n\tvisible := filterPlazaVisibleGroups(groups, allowedGroups, restrictPublicGroups)\n\n\t// 广场可匿名访问，分组文案随请求语言变化，提示中间缓存按语言区分。\n\t// 追加而非覆盖：CORS 中间件已为具体来源写入 Vary: Origin。\n\tc.Writer.Header().Add(\"Vary\", \"Accept-Language\")\n\tout := toLocalizedModelPlazaGroups(visible, userRates, c.GetHeader(\"Accept-Language\"))\n\tresponse.Success(c, modelPlazaResponse{\n\t\tDescription: rt.Description,\n\t\tGroups:      out,\n",
+    "resolution": "Historical exact-hunk lookup; the final current-owner decision and verification are in UPSTREAM_PRS.json, SOURCE_HASHES.json and VERIFICATION.txt. Missing legacy simple-mode/catalog helpers were not introduced."
   },
   {
     "pr": 7960,
@@ -367,9 +382,10 @@
     "pr": 7960,
     "path": "backend/internal/transport/http/handler/redeem_handler.go",
     "hunk": 1,
-    "state": "pending",
+    "state": "resolved-by-owner-adaptation",
     "before": "\t\t}\n\t\tout := make([]dto.RedeemCode, 0, len(codes))\n\t\tfor i := range codes {\n\t\t\tout = append(out, *dto.RedeemCodeFromService(&codes[i]))\n\t\t}\n\t\tresponse.Paginated(c, out, result.Total, page, pageSize)\n\t\treturn\n",
-    "after": "\t\t}\n\t\tout := make([]dto.RedeemCode, 0, len(codes))\n\t\tfor i := range codes {\n\t\t\tout = append(out, *dto.RedeemCodeFromService(&codes[i]).Localized(c.GetHeader(\"Accept-Language\")))\n\t\t}\n\t\tresponse.Paginated(c, out, result.Total, page, pageSize)\n\t\treturn\n"
+    "after": "\t\t}\n\t\tout := make([]dto.RedeemCode, 0, len(codes))\n\t\tfor i := range codes {\n\t\t\tout = append(out, *dto.RedeemCodeFromService(&codes[i]).Localized(c.GetHeader(\"Accept-Language\")))\n\t\t}\n\t\tresponse.Paginated(c, out, result.Total, page, pageSize)\n\t\treturn\n",
+    "resolution": "Historical exact-hunk lookup; the final current-owner decision and verification are in UPSTREAM_PRS.json, SOURCE_HASHES.json and VERIFICATION.txt. Missing legacy simple-mode/catalog helpers were not introduced."
   },
   {
     "pr": 7960,
@@ -381,17 +397,19 @@
     "pr": 7960,
     "path": "backend/internal/transport/http/handler/subscription_handler.go",
     "hunk": 0,
-    "state": "pending",
+    "state": "resolved-by-owner-adaptation",
     "before": "\n\tout := make([]dto.UserSubscription, 0, len(subscriptions))\n\tfor i := range subscriptions {\n\t\tout = append(out, *dto.UserSubscriptionFromService(&subscriptions[i]))\n\t}\n\tresponse.Success(c, out)\n}\n",
-    "after": "\n\tout := make([]dto.UserSubscription, 0, len(subscriptions))\n\tfor i := range subscriptions {\n\t\tout = append(out, *dto.UserSubscriptionFromService(&subscriptions[i]).Localized(c.GetHeader(\"Accept-Language\")))\n\t}\n\tresponse.Success(c, out)\n}\n"
+    "after": "\n\tout := make([]dto.UserSubscription, 0, len(subscriptions))\n\tfor i := range subscriptions {\n\t\tout = append(out, *dto.UserSubscriptionFromService(&subscriptions[i]).Localized(c.GetHeader(\"Accept-Language\")))\n\t}\n\tresponse.Success(c, out)\n}\n",
+    "resolution": "Historical exact-hunk lookup; the final current-owner decision and verification are in UPSTREAM_PRS.json, SOURCE_HASHES.json and VERIFICATION.txt. Missing legacy simple-mode/catalog helpers were not introduced."
   },
   {
     "pr": 7960,
     "path": "backend/internal/transport/http/handler/subscription_handler.go",
     "hunk": 1,
-    "state": "pending",
+    "state": "resolved-by-owner-adaptation",
     "before": "\n\tout := make([]dto.UserSubscription, 0, len(subscriptions))\n\tfor i := range subscriptions {\n\t\tout = append(out, *dto.UserSubscriptionFromService(&subscriptions[i]))\n\t}\n\tresponse.Success(c, out)\n}\n",
-    "after": "\n\tout := make([]dto.UserSubscription, 0, len(subscriptions))\n\tfor i := range subscriptions {\n\t\tout = append(out, *dto.UserSubscriptionFromService(&subscriptions[i]).Localized(c.GetHeader(\"Accept-Language\")))\n\t}\n\tresponse.Success(c, out)\n}\n"
+    "after": "\n\tout := make([]dto.UserSubscription, 0, len(subscriptions))\n\tfor i := range subscriptions {\n\t\tout = append(out, *dto.UserSubscriptionFromService(&subscriptions[i]).Localized(c.GetHeader(\"Accept-Language\")))\n\t}\n\tresponse.Success(c, out)\n}\n",
+    "resolution": "Historical exact-hunk lookup; the final current-owner decision and verification are in UPSTREAM_PRS.json, SOURCE_HASHES.json and VERIFICATION.txt. Missing legacy simple-mode/catalog helpers were not introduced."
   },
   {
     "pr": 7960,
@@ -439,25 +457,28 @@
     "pr": 7960,
     "path": "backend/internal/application/service/admin_group.go",
     "hunk": 0,
-    "state": "pending",
+    "state": "resolved-by-owner-adaptation",
     "before": "\t\treturn\n\t}\n\t*input = CreateGroupInput{\n\t\tName: input.Name, Description: input.Description, Platform: input.Platform,\n\t\tRateMultiplier: 1, SubscriptionType: SubscriptionTypeStandard,\n\t}\n}\n",
-    "after": "\t\treturn\n\t}\n\t*input = CreateGroupInput{\n\t\tName: input.Name, Description: input.Description, I18n: input.I18n, Platform: input.Platform,\n\t\tRateMultiplier: 1, SubscriptionType: SubscriptionTypeStandard,\n\t}\n}\n"
+    "after": "\t\treturn\n\t}\n\t*input = CreateGroupInput{\n\t\tName: input.Name, Description: input.Description, I18n: input.I18n, Platform: input.Platform,\n\t\tRateMultiplier: 1, SubscriptionType: SubscriptionTypeStandard,\n\t}\n}\n",
+    "resolution": "Historical exact-hunk lookup; the final current-owner decision and verification are in UPSTREAM_PRS.json, SOURCE_HASHES.json and VERIFICATION.txt. Missing legacy simple-mode/catalog helpers were not introduced."
   },
   {
     "pr": 7960,
     "path": "backend/internal/application/service/admin_group.go",
     "hunk": 1,
-    "state": "pending",
+    "state": "resolved-by-owner-adaptation",
     "before": "\tif input == nil {\n\t\treturn\n\t}\n\t*input = UpdateGroupInput{Name: input.Name, Description: input.Description}\n}\n\nfunc (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupInput) (*Group, error) {\n",
-    "after": "\tif input == nil {\n\t\treturn\n\t}\n\t*input = UpdateGroupInput{Name: input.Name, Description: input.Description, I18n: input.I18n}\n}\n\nfunc (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupInput) (*Group, error) {\n"
+    "after": "\tif input == nil {\n\t\treturn\n\t}\n\t*input = UpdateGroupInput{Name: input.Name, Description: input.Description, I18n: input.I18n}\n}\n\nfunc (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupInput) (*Group, error) {\n",
+    "resolution": "Historical exact-hunk lookup; the final current-owner decision and verification are in UPSTREAM_PRS.json, SOURCE_HASHES.json and VERIFICATION.txt. Missing legacy simple-mode/catalog helpers were not introduced."
   },
   {
     "pr": 7960,
     "path": "backend/internal/application/service/admin_group.go",
     "hunk": 2,
-    "state": "pending",
+    "state": "resolved-by-owner-adaptation",
     "before": "\tif input.RateMultiplier <= 0 {\n\t\treturn nil, errors.New(\"rate_multiplier must be > 0\")\n\t}\n\n\tplatform := NormalizeGroupPlatform(input.Platform)\n\t// 固定账号 manifest 配置：账号绑定发生在创建之后，创建时无法校验成员关系，\n",
-    "after": "\tif input.RateMultiplier <= 0 {\n\t\treturn nil, errors.New(\"rate_multiplier must be > 0\")\n\t}\n\ti18n, err := normalizeGroupI18n(input.I18n)\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\n\tplatform := NormalizeGroupPlatform(input.Platform)\n\t// 固定账号 manifest 配置：账号绑定发生在创建之后，创建时无法校验成员关系，\n"
+    "after": "\tif input.RateMultiplier <= 0 {\n\t\treturn nil, errors.New(\"rate_multiplier must be > 0\")\n\t}\n\ti18n, err := normalizeGroupI18n(input.I18n)\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\n\tplatform := NormalizeGroupPlatform(input.Platform)\n\t// 固定账号 manifest 配置：账号绑定发生在创建之后，创建时无法校验成员关系，\n",
+    "resolution": "Historical exact-hunk lookup; the final current-owner decision and verification are in UPSTREAM_PRS.json, SOURCE_HASHES.json and VERIFICATION.txt. Missing legacy simple-mode/catalog helpers were not introduced."
   },
   {
     "pr": 7960,
@@ -481,9 +502,10 @@
     "pr": 7960,
     "path": "backend/internal/application/service/admin_service.go",
     "hunk": 0,
-    "state": "pending",
+    "state": "resolved-by-owner-adaptation",
     "before": "type CreateGroupInput struct {\n\tName                      string\n\tDescription               string\n\tPlatform                  string\n\tRateMultiplier            float64\n\tIsExclusive               bool\n",
-    "after": "type CreateGroupInput struct {\n\tName                      string\n\tDescription               string\n\tI18n                      GroupI18n // 名称与描述的界面语言译文\n\tPlatform                  string\n\tRateMultiplier            float64\n\tIsExclusive               bool\n"
+    "after": "type CreateGroupInput struct {\n\tName                      string\n\tDescription               string\n\tI18n                      GroupI18n // 名称与描述的界面语言译文\n\tPlatform                  string\n\tRateMultiplier            float64\n\tIsExclusive               bool\n",
+    "resolution": "Historical exact-hunk lookup; the final current-owner decision and verification are in UPSTREAM_PRS.json, SOURCE_HASHES.json and VERIFICATION.txt. Missing legacy simple-mode/catalog helpers were not introduced."
   },
   {
     "pr": 7960,
@@ -518,17 +540,19 @@
     "pr": 7960,
     "path": "backend/internal/application/service/model_plaza_service.go",
     "hunk": 0,
-    "state": "pending",
+    "state": "resolved-by-owner-adaptation",
     "before": "\tID                 int64\n\tName               string\n\tDescription        string\n\tPlatform           string\n\tSubscriptionType   string\n\tRateMultiplier     float64\n",
-    "after": "\tID                 int64\n\tName               string\n\tDescription        string\n\tI18n               GroupI18n\n\tPlatform           string\n\tSubscriptionType   string\n\tRateMultiplier     float64\n"
+    "after": "\tID                 int64\n\tName               string\n\tDescription        string\n\tI18n               GroupI18n\n\tPlatform           string\n\tSubscriptionType   string\n\tRateMultiplier     float64\n",
+    "resolution": "Historical exact-hunk lookup; the final current-owner decision and verification are in UPSTREAM_PRS.json, SOURCE_HASHES.json and VERIFICATION.txt. Missing legacy simple-mode/catalog helpers were not introduced."
   },
   {
     "pr": 7960,
     "path": "backend/internal/application/service/model_plaza_service.go",
     "hunk": 1,
-    "state": "pending",
+    "state": "resolved-by-owner-adaptation",
     "before": "\t\t\tID:                        g.ID,\n\t\t\tName:                      g.Name,\n\t\t\tDescription:               g.Description,\n\t\t\tPlatform:                  g.Platform,\n\t\t\tSubscriptionType:          g.SubscriptionType,\n\t\t\tRateMultiplier:            g.RateMultiplier,\n",
-    "after": "\t\t\tID:                        g.ID,\n\t\t\tName:                      g.Name,\n\t\t\tDescription:               g.Description,\n\t\t\tI18n:                      g.I18n,\n\t\t\tPlatform:                  g.Platform,\n\t\t\tSubscriptionType:          g.SubscriptionType,\n\t\t\tRateMultiplier:            g.RateMultiplier,\n"
+    "after": "\t\t\tID:                        g.ID,\n\t\t\tName:                      g.Name,\n\t\t\tDescription:               g.Description,\n\t\t\tI18n:                      g.I18n,\n\t\t\tPlatform:                  g.Platform,\n\t\t\tSubscriptionType:          g.SubscriptionType,\n\t\t\tRateMultiplier:            g.RateMultiplier,\n",
+    "resolution": "Historical exact-hunk lookup; the final current-owner decision and verification are in UPSTREAM_PRS.json, SOURCE_HASHES.json and VERIFICATION.txt. Missing legacy simple-mode/catalog helpers were not introduced."
   },
   {
     "pr": 7960,
@@ -557,16 +581,18 @@
     "pr": 7960,
     "path": "frontend/src/i18n/locales/en/admin/overview.ts",
     "hunk": 0,
-    "state": "pending",
+    "state": "resolved-by-owner-adaptation",
     "before": "        yes: 'Yes',\n        no: 'No'\n      },\n      enterGroupName: 'Enter group name',\n      optionalDescription: 'Optional description',\n      platformHint: 'Select the platform this group is associated with',\n",
-    "after": "        yes: 'Yes',\n        no: 'No'\n      },\n      i18nField: {\n        default: 'Default',\n        add: 'Add {language} version',\n        edit: 'Edit {language} version',\n        placeholder: '{language} version; leave empty to show the default text'\n      },\n      enterGroupName: 'Enter group name',\n      optionalDescription: 'Optional description',\n      platformHint: 'Select the platform this group is associated with',\n"
+    "after": "        yes: 'Yes',\n        no: 'No'\n      },\n      i18nField: {\n        default: 'Default',\n        add: 'Add {language} version',\n        edit: 'Edit {language} version',\n        placeholder: '{language} version; leave empty to show the default text'\n      },\n      enterGroupName: 'Enter group name',\n      optionalDescription: 'Optional description',\n      platformHint: 'Select the platform this group is associated with',\n",
+    "resolution": "Historical exact-hunk lookup; the final current-owner decision and verification are in UPSTREAM_PRS.json, SOURCE_HASHES.json and VERIFICATION.txt. Missing legacy simple-mode/catalog helpers were not introduced."
   },
   {
     "pr": 7960,
     "path": "frontend/src/i18n/locales/zh/admin/overview.ts",
     "hunk": 0,
-    "state": "pending",
+    "state": "resolved-by-owner-adaptation",
     "before": "        privacySetOnlyEnabled: '已启用 — Privacy 未设置的账号将被排除',\n        disabled: '未启用'\n      },\n      enterGroupName: '请输入分组名称',\n      optionalDescription: '可选描述',\n      platformHint: '选择此分组关联的平台',\n",
-    "after": "        privacySetOnlyEnabled: '已启用 — Privacy 未设置的账号将被排除',\n        disabled: '未启用'\n      },\n      i18nField: {\n        default: '默认',\n        add: '新增 {language} 版',\n        edit: '编辑 {language} 版',\n        placeholder: '{language} 版，留空则显示默认内容'\n      },\n      enterGroupName: '请输入分组名称',\n      optionalDescription: '可选描述',\n      platformHint: '选择此分组关联的平台',\n"
+    "after": "        privacySetOnlyEnabled: '已启用 — Privacy 未设置的账号将被排除',\n        disabled: '未启用'\n      },\n      i18nField: {\n        default: '默认',\n        add: '新增 {language} 版',\n        edit: '编辑 {language} 版',\n        placeholder: '{language} 版，留空则显示默认内容'\n      },\n      enterGroupName: '请输入分组名称',\n      optionalDescription: '可选描述',\n      platformHint: '选择此分组关联的平台',\n",
+    "resolution": "Historical exact-hunk lookup; the final current-owner decision and verification are in UPSTREAM_PRS.json, SOURCE_HASHES.json and VERIFICATION.txt. Missing legacy simple-mode/catalog helpers were not introduced."
   }
 ]

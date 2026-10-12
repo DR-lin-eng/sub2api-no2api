@@ -22,3 +22,14 @@ func TestOpenAISubscriptionLongContextExemptUsesSentModelAndCredentialType(t *te
 		})
 	}
 }
+
+func BenchmarkSubscriptionLongContextExemption(b *testing.B) {
+	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+	result := &OpenAIForwardResult{UpstreamModel: "gpt-6.1-sol"}
+	b.ReportAllocs()
+	for b.Loop() {
+		if !openAISubscriptionLongContextExempt(account, result) {
+			b.Fatal("missing exemption")
+		}
+	}
+}

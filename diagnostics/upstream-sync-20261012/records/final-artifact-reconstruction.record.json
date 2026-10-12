@@ -1,0 +1,13 @@
+{
+  "command": [
+    "python3",
+    "diagnostics/upstream-sync-20261012/verify_roles.py"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5",
+  "exit_status": 0,
+  "elapsed_s": 1.4170689579914324,
+  "utc": "2026-10-12T18:23:51.153793+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "1c85ca3c56f531b0cd4e5f2fd5b55dfe52adff9ffba5797b267ddabbf7445431",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

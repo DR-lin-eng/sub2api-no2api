@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-
 	"fmt"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
 	"strings"
 	"time"
+
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
 )
 
 func (s *ContentModerationService) GetConfig(ctx context.Context) (*ContentModerationConfigView, error) {

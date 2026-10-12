@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/diagnostics/upstream-sync-20261012/runtime_check.py", line 152, in <module>
+    assert status == 200
+           ^^^^^^^^^^^^^
+AssertionError

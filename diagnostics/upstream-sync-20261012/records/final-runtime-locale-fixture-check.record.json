@@ -1,0 +1,13 @@
+{
+  "command": [
+    "python3",
+    "diagnostics/upstream-sync-20261012/runtime_check.py"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5",
+  "exit_status": 1,
+  "elapsed_s": 11.887336415995378,
+  "utc": "2026-10-12T18:18:28.715331+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderr_sha256": "fb98334904c9c9cf88ed4c80f78749cdb6f4f413f6a383eaa7c4e715b076170c"
+}

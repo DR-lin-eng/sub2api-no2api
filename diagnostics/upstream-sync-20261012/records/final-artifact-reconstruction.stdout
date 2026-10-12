@@ -1,0 +1,6 @@
+BASELINE_HASH_PASS count=74
+MODIFIED_HASH_PASS count=88
+ROLLBACK_PASS
+ROLLBACK_HASH_PASS count=74
+REAPPLIED_HASH_PASS count=88
+VERIFIED_COPY=/private/tmp/sub2api-sync-20261012-verified-copy-pkpbnzus

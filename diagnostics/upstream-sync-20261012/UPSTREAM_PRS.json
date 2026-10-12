@@ -37,7 +37,10 @@
     "evidence": [
       "records/go-focused-with-new-tests-retry.record.json",
       "records/integration-group-moderation-final.record.json",
-      "records/runtime-upgrade-rollback-final2.record.json"
+      "records/runtime-upgrade-rollback-final2.record.json",
+      "records/ui-baseline-final.record.json",
+      "records/ui-modified-final.record.json",
+      "records/ui-rollback-final.record.json"
     ]
   },
   {
@@ -256,7 +259,8 @@
     "evidence": [
       "records/go-focused-with-new-tests-retry.record.json",
       "records/integration-group-moderation-final.record.json",
-      "records/runtime-upgrade-rollback-final2.record.json"
+      "records/runtime-upgrade-rollback-final2.record.json",
+      "records/final-lock-integration.record.json"
     ]
   },
   {
@@ -324,7 +328,9 @@
     "evidence": [
       "records/go-focused-with-new-tests-retry.record.json",
       "records/integration-group-moderation-final.record.json",
-      "records/runtime-upgrade-rollback-final2.record.json"
+      "records/runtime-upgrade-rollback-final2.record.json",
+      "records/billing-final-matrix-valid.record.json",
+      "records/billing-baseline-valid-benchmark.record.json"
     ]
   },
   {
@@ -410,7 +416,18 @@
     "evidence": [
       "records/go-focused-with-new-tests-retry.record.json",
       "records/integration-group-moderation-final.record.json",
-      "records/runtime-upgrade-rollback-final2.record.json"
+      "records/runtime-upgrade-rollback-final2.record.json",
+      "records/final-progress-and-billing.record.json",
+      "records/final-lock-integration.record.json",
+      "records/final-runtime-complete-valid.record.json"
+    ],
+    "mapped_owners": [
+      "backend/internal/domain/group_i18n.go",
+      "backend/internal/application/service/group_i18n.go",
+      "backend/internal/application/service/subscription_progress.go",
+      "backend/internal/transport/http/handler/dto/group_localize.go",
+      "frontend/src/features/admin-groups/presentation/widgets/GroupI18nField.vue",
+      "backend/migrations/248_group_i18n.sql"
     ]
   }
 ]

@@ -27,4 +27,6 @@
 
 SQL、Ent 和 Redis 细节只能停留在本层。复杂文件按 `query/command/cache/batch/recovery` 拆分，事务边界必须保持在同一公开方法内。
 
+审核配置写入与分组删除通过 `group_moderation_scope.go` 约定 group → settings 锁顺序；普通删除直接获取写锁，级联删除保留原事务和写锁。配置写入复核仍存在的分组，删除在同一事务清理 `group_ids`，不改写无效历史 JSON。
+
 API Key 列表排序由 `api_key_repo_sort.go` 定义，在 SQL 分页前按第一绑定分组名称排序，无分组项在两个方向都置后，ID 为稳定次序；有序路由绑定和列表预加载继续由现有 owner 维护。

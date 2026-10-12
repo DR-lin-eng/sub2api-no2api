@@ -148,6 +148,9 @@ func (h *SubscriptionHandler) GetProgressByID(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
+	if progress != nil {
+		progress.GroupName = progress.GroupI18n.LocalizeName(c.GetHeader("Accept-Language"), progress.GroupName)
+	}
 	response.Success(c, progress)
 }
 

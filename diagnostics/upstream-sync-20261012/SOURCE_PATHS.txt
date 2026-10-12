@@ -1,3 +1,5 @@
+.gitignore
+backend/cmd/server/VERSION
 backend/ent/group.go
 backend/ent/group/group.go
 backend/ent/group_create.go
@@ -6,6 +8,7 @@ backend/ent/migrate/schema.go
 backend/ent/mutation.go
 backend/ent/runtime/runtime.go
 backend/ent/schema/group.go
+backend/internal/application/service/README.md
 backend/internal/application/service/admin_group.go
 backend/internal/application/service/admin_group_duplicate.go
 backend/internal/application/service/admin_service.go
@@ -20,12 +23,18 @@ backend/internal/application/service/openai_alpha_search_billing_test.go
 backend/internal/application/service/openai_gateway_service.go
 backend/internal/application/service/openai_gateway_usage.go
 backend/internal/application/service/openai_subscription_long_context.go
+backend/internal/application/service/openai_subscription_long_context_billing_test.go
 backend/internal/application/service/openai_subscription_long_context_test.go
 backend/internal/application/service/ops_request_details.go
 backend/internal/application/service/payment_config_plans.go
 backend/internal/application/service/response_model_billing_test.go
+backend/internal/application/service/subscription_progress.go
+backend/internal/application/service/subscription_progress_owner_test.go
+backend/internal/application/service/subscription_service.go
+backend/internal/domain/README.md
 backend/internal/domain/group_i18n.go
 backend/internal/domain/group_i18n_test.go
+backend/internal/infrastructure/repository/README.md
 backend/internal/infrastructure/repository/api_key_repo.go
 backend/internal/infrastructure/repository/group_moderation_scope.go
 backend/internal/infrastructure/repository/group_moderation_scope_integration_test.go
@@ -36,6 +45,7 @@ backend/internal/infrastructure/repository/setting_repo.go
 backend/internal/transport/http/handler/admin/group_handler.go
 backend/internal/transport/http/handler/api_key_handler.go
 backend/internal/transport/http/handler/available_channel_handler.go
+backend/internal/transport/http/handler/dto/README.md
 backend/internal/transport/http/handler/dto/group_localize.go
 backend/internal/transport/http/handler/dto/mappers.go
 backend/internal/transport/http/handler/dto/types.go
@@ -46,6 +56,7 @@ backend/internal/transport/http/handler/subscription_handler.go
 backend/internal/transport/http/handler/usage_handler.go
 backend/migrations/248_group_i18n.sql
 docs/README.md
+docs/UPSTREAM_SYNC_20261012.md
 frontend/src/common/widgets/data/GroupBadge.vue
 frontend/src/common/widgets/data/LocaleSwitcher.vue
 frontend/src/common/widgets/forms/Select.vue
@@ -56,6 +67,7 @@ frontend/src/core/i18n/locales/zh/admin/overview.ts
 frontend/src/features/admin-accounts/presentation/composables/useGeminiOAuth.ts
 frontend/src/features/admin-accounts/presentation/widgets/AccountGroupsCell.vue
 frontend/src/features/admin-accounts/presentation/widgets/UsageProgressBar.vue
+frontend/src/features/admin-groups/README.md
 frontend/src/features/admin-groups/data/dtos/adminGroupDtos.ts
 frontend/src/features/admin-groups/presentation/composables/groupEditorFormSupport.ts
 frontend/src/features/admin-groups/presentation/composables/useCreateGroupController.ts
@@ -65,6 +77,7 @@ frontend/src/features/admin-groups/presentation/widgets/GroupEditorCoreFields.vu
 frontend/src/features/admin-groups/presentation/widgets/GroupI18nField.vue
 frontend/src/features/admin-groups/presentation/widgets/GroupRPMOverridesDialog.vue
 frontend/src/features/admin-groups/presentation/widgets/GroupRateMultipliersDialog.vue
+frontend/src/features/admin-ops/README.md
 frontend/src/features/admin-ops/data/dtos/opsLogDtos.ts
 frontend/src/features/admin-ops/presentation/widgets/OpsDashboardToolbar.vue
 frontend/src/features/admin-ops/presentation/widgets/OpsRequestDetailsDialog.vue

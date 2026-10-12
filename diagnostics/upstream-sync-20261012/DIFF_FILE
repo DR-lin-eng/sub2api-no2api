@@ -1,3 +1,22 @@
+diff --git a/.gitignore b/.gitignore
+index 8279ac005..fe91891af 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -163,6 +163,7 @@ docs/*
+ !docs/UPSTREAM_SYNC_20260930.md
+ !docs/UPSTREAM_SYNC_20261005.md
+ !docs/UPSTREAM_SYNC_20261007.md
++!docs/UPSTREAM_SYNC_20261012.md
+ !docs/UPSTREAM_ADAPT_20261006.md
+ !docs/SECURITY_REVIEW_RESPONSES_IMAGE_SSRF_20261006.md
+ !docs/FEATURES.md
+diff --git a/backend/cmd/server/VERSION b/backend/cmd/server/VERSION
+index 25bc676b5..19298d4e5 100644
+--- a/backend/cmd/server/VERSION
++++ b/backend/cmd/server/VERSION
+@@ -1 +1 @@
+-0.1.221
++0.1.222
 diff --git a/backend/ent/group.go b/backend/ent/group.go
 index 6e23bada9..5dd8be995 100644
 --- a/backend/ent/group.go
@@ -653,6 +672,18 @@ index 9e3fe55ea..acb8955d8 100644
  		field.Float("rate_multiplier").
  			SchemaType(map[string]string{dialect.Postgres: "decimal(10,4)"}).
  			Default(1.0),
+diff --git a/backend/internal/application/service/README.md b/backend/internal/application/service/README.md
+index cdbd2b517..52f5d80ee 100644
+--- a/backend/internal/application/service/README.md
++++ b/backend/internal/application/service/README.md
+@@ -65,3 +65,7 @@
+ Codex manifest 的显式管理员模型映射投影归属 `openai_codex_models_mapping.go`；不修改共享缓存、不启用 pinned 聚合前置。WS 逐轮分组价格刷新与混合版本 TPS 行为见 [本轮同步审查](../../../../docs/UPSTREAM_SYNC_20261008.md)。
+ 
+ OAuth 历史 `web_search_call` 的缓存搜索声明由 `openai_oauth_web_search_history.go` 负责；标准/Lite、HTTP/WS、compact/API-key 隔离和工具链修补分支见 [2026-10-09 同步记录](../../../../docs/UPSTREAM_SYNC_20261009.md)。
++
++GPT-6.1 Sol 的订阅模型长上下文豁免由 `openai_subscription_long_context.go` 判断实际凭据与发送模型，通过 `CostInput.DisableModelLongContextPricing` 接入既有计费流程；自定义价格区间保留。分组展示译文由 `group_i18n.go` 规范化，HTTP 输出负责语言选择。同步和回退证据见 [2026-10-12 同步记录](../../../../docs/UPSTREAM_SYNC_20261012.md)。
++
++`subscription_progress.go` 保存订阅进度值；名称译文仅作为不序列化的输出参数从已加载分组带到 handler，单条与批量用户进度保持同一语言规则，不增加数据库查询。
 diff --git a/backend/internal/application/service/admin_group.go b/backend/internal/application/service/admin_group.go
 index 76fd766fe..8409d705c 100644
 --- a/backend/internal/application/service/admin_group.go
@@ -794,20 +825,22 @@ index f033bfdb9..ce6e7e53a 100644
  			SubscriptionType:     g.SubscriptionType,
  			RateMultiplier:       g.RateMultiplier,
 diff --git a/backend/internal/application/service/content_moderation_config_api.go b/backend/internal/application/service/content_moderation_config_api.go
-index 4dc5fddf0..fe4015d27 100644
+index 4dc5fddf0..9695f6fa6 100644
 --- a/backend/internal/application/service/content_moderation_config_api.go
 +++ b/backend/internal/application/service/content_moderation_config_api.go
-@@ -3,7 +3,10 @@ package service
+@@ -3,9 +3,12 @@ package service
  import (
  	"context"
  	"encoding/json"
 +	"errors"
-+
  	"fmt"
-+	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
  	"strings"
  	"time"
++
++	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
  )
+ 
+ func (s *ContentModerationService) GetConfig(ctx context.Context) (*ContentModerationConfigView, error) {
 @@ -137,7 +140,18 @@ func (s *ContentModerationService) UpdateConfig(ctx context.Context, input Updat
  	if err != nil {
  		return nil, fmt.Errorf("marshal content moderation config: %w", err)
@@ -840,6 +873,108 @@ index 4802c618c..8e9b56b1c 100644
  	Platform       string
  	RateMultiplier float64
  	// 高峰时段倍率：peak_rate_enabled 为 true 且当前时刻处于 [PeakStart, PeakEnd) 时，
+diff --git a/backend/internal/application/service/group_i18n.go b/backend/internal/application/service/group_i18n.go
+new file mode 100644
+index 000000000..fe036c232
+--- /dev/null
++++ b/backend/internal/application/service/group_i18n.go
+@@ -0,0 +1,64 @@
++package service
++
++import (
++	"fmt"
++	"maps"
++	"regexp"
++	"slices"
++	"strings"
++	"unicode/utf8"
++
++	"github.com/Wei-Shaw/sub2api/internal/domain"
++	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
++)
++
++type GroupI18n = domain.GroupI18n
++type GroupLocaleText = domain.GroupLocaleText
++
++// groupI18nNameMaxRunes 与 groups.name 的长度上限一致。
++const groupI18nNameMaxRunes = 100
++
++// 语言代码只校验 BCP 47 形态（en、zh、zh-TW）；具体提供哪些语言由前端语言包决定。
++var groupI18nLocalePattern = regexp.MustCompile(`^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$`)
++
++// normalizeGroupI18n 把语言代码统一为 domain.CanonicalLocale 的写法，去除译文首尾空白，
++// 并丢弃名称与描述都为空的语言。统一写法后重复的语言代码（如 en 与 EN）直接拒绝，
++// 不在其中任选一份。返回值始终非 nil，落库为 JSON 对象。
++func normalizeGroupI18n(in GroupI18n) (GroupI18n, error) {
++	out := make(GroupI18n, len(in))
++	seen := make(map[string]struct{}, len(in))
++	for _, raw := range slices.Sorted(maps.Keys(in)) {
++		if !groupI18nLocalePattern.MatchString(raw) {
++			return nil, infraerrors.BadRequest("INVALID_GROUP_I18N", fmt.Sprintf("invalid locale %q in i18n", raw))
++		}
++		locale := domain.CanonicalLocale(raw)
++		if _, dup := seen[locale]; dup {
++			return nil, infraerrors.BadRequest("INVALID_GROUP_I18N", fmt.Sprintf("duplicate locale %q in i18n", locale))
++		}
++		seen[locale] = struct{}{}
++		text := in[raw]
++		name := strings.TrimSpace(text.Name)
++		description := strings.TrimSpace(text.Description)
++		if utf8.RuneCountInString(name) > groupI18nNameMaxRunes {
++			return nil, infraerrors.BadRequest("INVALID_GROUP_I18N", fmt.Sprintf("i18n name for locale %q must be at most %d characters", locale, groupI18nNameMaxRunes))
++		}
++		if name == "" && description == "" {
++			continue
++		}
++		out[locale] = GroupLocaleText{Name: name, Description: description}
++	}
++	return out, nil
++}
++
++// cloneGroupI18nForDuplicate 复制译文中的描述。名称译文不随复制带走：
++// 副本的 name 已改写，沿用源分组的名称译文会让两个分组在该语言下同名。
++func cloneGroupI18nForDuplicate(in GroupI18n) GroupI18n {
++	out := make(GroupI18n, len(in))
++	for locale, text := range in {
++		if text.Description == "" {
++			continue
++		}
++		out[locale] = GroupLocaleText{Description: text.Description}
++	}
++	return out
++}
+diff --git a/backend/internal/application/service/group_i18n_test.go b/backend/internal/application/service/group_i18n_test.go
+new file mode 100644
+index 000000000..513b4a012
+--- /dev/null
++++ b/backend/internal/application/service/group_i18n_test.go
+@@ -0,0 +1,26 @@
++package service
++
++import "testing"
++
++func TestNormalizeGroupI18nRejectsDuplicateCanonicalLocales(t *testing.T) {
++	_, err := normalizeGroupI18n(GroupI18n{
++		"en": {Name: "one"},
++		"EN": {Name: "two"},
++	})
++	if err == nil {
++		t.Fatal("expected duplicate locale error")
++	}
++}
++
++func TestNormalizeGroupI18nTrimsAndDropsEmptyEntries(t *testing.T) {
++	got, err := normalizeGroupI18n(GroupI18n{
++		"en-us": {Name: "  English  ", Description: "  "},
++		"zh":    {},
++	})
++	if err != nil {
++		t.Fatal(err)
++	}
++	if len(got) != 1 || got["en-US"].Name != "English" || got["en-US"].Description != "" {
++		t.Fatalf("normalized i18n = %#v", got)
++	}
++}
 diff --git a/backend/internal/application/service/openai_alpha_search_billing_test.go b/backend/internal/application/service/openai_alpha_search_billing_test.go
 index 17d4f64a7..5d0779091 100644
 --- a/backend/internal/application/service/openai_alpha_search_billing_test.go
@@ -992,6 +1127,81 @@ index 8afdaab62..f6ef75a51 100644
  	)
  	return cost, nil, err
  }
+diff --git a/backend/internal/application/service/openai_subscription_long_context.go b/backend/internal/application/service/openai_subscription_long_context.go
+new file mode 100644
+index 000000000..a3a5933c3
+--- /dev/null
++++ b/backend/internal/application/service/openai_subscription_long_context.go
+@@ -0,0 +1,28 @@
++package service
++
++import "strings"
++
++// Exempt the upstream subscription model, independent of client/billing aliases.
++func openAISubscriptionLongContextExempt(account *Account, result *OpenAIForwardResult) bool {
++	if account == nil || !account.IsOpenAI() || (account.Type != AccountTypeOAuth && account.Type != AccountTypeSetupToken) || result == nil {
++		return false
++	}
++	model := strings.TrimSpace(result.UpstreamModel)
++	if model == "" {
++		model = result.Model
++	}
++	model = strings.ReplaceAll(strings.ToLower(strings.TrimSpace(model)), "_", "-")
++	model = strings.TrimPrefix(model, "openai/")
++	if model == "gpt-6.1-sol" {
++		return true
++	}
++	suffix, ok := strings.CutPrefix(model, "gpt-6.1-sol-")
++	if !ok {
++		return false
++	}
++	switch suffix {
++	case "none", "minimal", "low", "medium", "high", "xhigh", "max", "openai-compact":
++		return true
++	}
++	return false
++}
+diff --git a/backend/internal/application/service/openai_subscription_long_context_test.go b/backend/internal/application/service/openai_subscription_long_context_test.go
+new file mode 100644
+index 000000000..3fc7bec7f
+--- /dev/null
++++ b/backend/internal/application/service/openai_subscription_long_context_test.go
+@@ -0,0 +1,35 @@
++package service
++
++import "testing"
++
++func TestOpenAISubscriptionLongContextExemptUsesSentModelAndCredentialType(t *testing.T) {
++	for _, tc := range []struct {
++		name    string
++		account *Account
++		result  *OpenAIForwardResult
++		want    bool
++	}{
++		{"oauth target", &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}, &OpenAIForwardResult{Model: "custom", UpstreamModel: "gpt-6.1-sol-low"}, true},
++		{"setup token target", &Account{Platform: PlatformOpenAI, Type: AccountTypeSetupToken}, &OpenAIForwardResult{Model: "gpt-6.1-sol"}, true},
++		{"api key stays priced", &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}, &OpenAIForwardResult{Model: "gpt-6.1-sol"}, false},
++		{"billing label does not decide", &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}, &OpenAIForwardResult{Model: "gpt-6-sol", BillingModel: "gpt-6.1-sol"}, false},
++		{"invalid suffix", &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}, &OpenAIForwardResult{Model: "gpt-6.1-sol-preview"}, false},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			if got := openAISubscriptionLongContextExempt(tc.account, tc.result); got != tc.want {
++				t.Fatalf("exempt = %t, want %t", got, tc.want)
++			}
++		})
++	}
++}
++
++func BenchmarkSubscriptionLongContextExemption(b *testing.B) {
++	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}
++	result := &OpenAIForwardResult{UpstreamModel: "gpt-6.1-sol"}
++	b.ReportAllocs()
++	for b.Loop() {
++		if !openAISubscriptionLongContextExempt(account, result) {
++			b.Fatal("missing exemption")
++		}
++	}
++}
 diff --git a/backend/internal/application/service/ops_request_details.go b/backend/internal/application/service/ops_request_details.go
 index 8e103414d..7f01d3baf 100644
 --- a/backend/internal/application/service/ops_request_details.go
@@ -1047,6 +1257,258 @@ index 951f2e538..0286da5f7 100644
  		)
  		if err != nil {
  			b.Fatal(err)
+diff --git a/backend/internal/application/service/subscription_progress_owner_test.go b/backend/internal/application/service/subscription_progress_owner_test.go
+index 59838e1e9..bb173dfed 100644
+--- a/backend/internal/application/service/subscription_progress_owner_test.go
++++ b/backend/internal/application/service/subscription_progress_owner_test.go
+@@ -2,6 +2,7 @@ package service
+ 
+ import (
+ 	"context"
++	"encoding/json"
+ 	"errors"
+ 	"testing"
+ 	"time"
+@@ -45,6 +46,7 @@ func TestGetSubscriptionProgressForUserUsesOwnedLookup(t *testing.T) {
+ 			Group: &Group{
+ 				ID:            9,
+ 				Name:          "owned",
++				I18n:          GroupI18n{"en": {Name: "Translated"}},
+ 				DailyLimitUSD: &dailyLimit,
+ 			},
+ 		},
+@@ -54,6 +56,11 @@ func TestGetSubscriptionProgressForUserUsesOwnedLookup(t *testing.T) {
+ 	progress, err := svc.GetSubscriptionProgressForUser(context.Background(), 17, 42)
+ 	require.NoError(t, err)
+ 	require.Equal(t, int64(17), progress.ID)
++	require.Equal(t, "Translated", progress.GroupI18n.LocalizeName("en", progress.GroupName))
++	require.Equal(t, "owned", repo.sub.Group.Name)
++	encoded, err := json.Marshal(progress)
++	require.NoError(t, err)
++	require.NotContains(t, string(encoded), "i18n")
+ 	require.Equal(t, 1, repo.ownedLookups)
+ 
+ 	_, err = svc.GetSubscriptionProgressForUser(context.Background(), 17, 99)
+diff --git a/backend/internal/application/service/subscription_service.go b/backend/internal/application/service/subscription_service.go
+index 428b6b1e4..a9cbf311b 100644
+--- a/backend/internal/application/service/subscription_service.go
++++ b/backend/internal/application/service/subscription_service.go
+@@ -1078,28 +1078,6 @@ func (s *SubscriptionService) RecordUsage(ctx context.Context, subscriptionID in
+ 	return s.userSubRepo.IncrementUsage(ctx, subscriptionID, costUSD)
+ }
+ 
+-// SubscriptionProgress 订阅进度
+-type SubscriptionProgress struct {
+-	ID            int64                `json:"id"`
+-	GroupName     string               `json:"group_name"`
+-	ExpiresAt     time.Time            `json:"expires_at"`
+-	ExpiresInDays int                  `json:"expires_in_days"`
+-	Daily         *UsageWindowProgress `json:"daily,omitempty"`
+-	Weekly        *UsageWindowProgress `json:"weekly,omitempty"`
+-	Monthly       *UsageWindowProgress `json:"monthly,omitempty"`
+-}
+-
+-// UsageWindowProgress 使用窗口进度
+-type UsageWindowProgress struct {
+-	LimitUSD        float64   `json:"limit_usd"`
+-	UsedUSD         float64   `json:"used_usd"`
+-	RemainingUSD    float64   `json:"remaining_usd"`
+-	Percentage      float64   `json:"percentage"`
+-	WindowStart     time.Time `json:"window_start"`
+-	ResetsAt        time.Time `json:"resets_at"`
+-	ResetsInSeconds int64     `json:"resets_in_seconds"`
+-}
+-
+ // GetSubscriptionProgress 获取订阅使用进度
+ func (s *SubscriptionService) GetSubscriptionProgress(ctx context.Context, subscriptionID int64) (*SubscriptionProgress, error) {
+ 	sub, err := s.userSubRepo.GetByID(ctx, subscriptionID)
+@@ -1156,6 +1134,7 @@ func (s *SubscriptionService) calculateProgress(sub *UserSubscription, group *Gr
+ 	progress := &SubscriptionProgress{
+ 		ID:            sub.ID,
+ 		GroupName:     group.Name,
++		GroupI18n:     group.I18n,
+ 		ExpiresAt:     sub.ExpiresAt,
+ 		ExpiresInDays: sub.DaysRemaining(),
+ 	}
+diff --git a/backend/internal/domain/README.md b/backend/internal/domain/README.md
+index 655eb155a..8059482a6 100644
+--- a/backend/internal/domain/README.md
++++ b/backend/internal/domain/README.md
+@@ -7,6 +7,7 @@
+ | `announcement.go` | 公告领域规则 |
+ | `constants.go` | 稳定领域常量 |
+ | `models_list_config.go` | 模型列表配置值 |
++| `group_i18n.go` | 分组展示译文、语言优先级与缺失字段回退 |
+ | `openai_messages_dispatch.go` | 消息分发领域枚举 |
+ | `reasoning_effort.go` | reasoning effort 规范化 |
+ | `model/` | 共享领域模型 |
+diff --git a/backend/internal/domain/group_i18n.go b/backend/internal/domain/group_i18n.go
+new file mode 100644
+index 000000000..1dc5efb76
+--- /dev/null
++++ b/backend/internal/domain/group_i18n.go
+@@ -0,0 +1,116 @@
++package domain
++
++import (
++	"strconv"
++	"strings"
++)
++
++// GroupLocaleText 是分组名称与描述在某个界面语言下的译文。
++// 字段为空表示该语言沿用分组自身的 name/description。
++type GroupLocaleText struct {
++	Name        string `json:"name,omitempty"`
++	Description string `json:"description,omitempty"`
++}
++
++// GroupI18n 以界面语言代码（如 "en"、"zh"）为键保存分组展示文案的译文。
++// 仅用于页面展示；分组的唯一性、搜索与各类日志仍以 name 为准。
++type GroupI18n map[string]GroupLocaleText
++
++// Localize 返回 name、description 在请求首选语言下的版本；该语言没有译文的字段保持原值。
++// acceptLanguage 是 Accept-Language 请求头。只采用其中优先级最高的语言：原字段的语言
++// 未知，退到次选语言的译文不一定比原字段更合适。
++func (m GroupI18n) Localize(acceptLanguage, name, description string) (string, string) {
++	if len(m) == 0 || acceptLanguage == "" {
++		return name, description
++	}
++	text, ok := m.lookup(preferredLanguage(acceptLanguage))
++	if !ok {
++		return name, description
++	}
++	if text.Name != "" {
++		name = text.Name
++	}
++	if text.Description != "" {
++		description = text.Description
++	}
++	return name, description
++}
++
++// LocalizeName 是只需要名称时的 Localize。
++func (m GroupI18n) LocalizeName(acceptLanguage, name string) string {
++	name, _ = m.Localize(acceptLanguage, name, "")
++	return name
++}
++
++// CanonicalLocale 按 BCP 47 的惯用大小写书写语言代码：主语言小写，4 位文字代码首字母大写，
++// 2 位地区代码大写，其余小写（zh-hant-tw -> zh-Hant-TW）；单字母扩展标记之后的部分全部小写。
++// 只调整大小写，不校验代码是否合法。
++func CanonicalLocale(locale string) string {
++	subtags := strings.Split(locale, "-")
++	extension := false
++	for i, subtag := range subtags {
++		subtag = strings.ToLower(subtag)
++		switch {
++		case i == 0 || extension:
++		case len(subtag) == 1:
++			extension = true
++		case len(subtag) == 2:
++			subtag = strings.ToUpper(subtag)
++		case len(subtag) == 4:
++			subtag = strings.ToUpper(subtag[:1]) + subtag[1:]
++		}
++		subtags[i] = subtag
++	}
++	return strings.Join(subtags, "-")
++}
++
++// lookup 先按完整语言代码匹配（zh-TW），再按主语言匹配（zh-CN -> zh），不区分大小写。
++// 写入时语言代码已统一为 CanonicalLocale，同一语言只有一个键；若存有仅大小写不同的多个键，
++// 规范写法的键优先，其余按字节序取最小者，保证同一请求语言的结果固定。
++func (m GroupI18n) lookup(tag string) (GroupLocaleText, bool) {
++	if tag == "" || len(m) == 0 {
++		return GroupLocaleText{}, false
++	}
++	primary, _, _ := strings.Cut(tag, "-")
++	for _, candidate := range []string{tag, primary} {
++		candidate = CanonicalLocale(candidate)
++		if text, ok := m[candidate]; ok {
++			return text, true
++		}
++		matched := ""
++		for locale := range m {
++			if strings.EqualFold(locale, candidate) && (matched == "" || locale < matched) {
++				matched = locale
++			}
++		}
++		if matched != "" {
++			return m[matched], true
++		}
++	}
++	return GroupLocaleText{}, false
++}
++
++// preferredLanguage 取 Accept-Language 中权重最高的语言代码，权重相同取靠前者；
++// 通配符 * 与 q=0 的条目不参与。
++func preferredLanguage(acceptLanguage string) string {
++	best, bestQ := "", 0.0
++	for _, part := range strings.Split(acceptLanguage, ",") {
++		tag, params, _ := strings.Cut(part, ";")
++		tag = strings.ReplaceAll(strings.TrimSpace(tag), "_", "-")
++		if tag == "" || tag == "*" {
++			continue
++		}
++		q := 1.0
++		if value, ok := strings.CutPrefix(strings.TrimSpace(params), "q="); ok {
++			parsed, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
++			if err != nil || parsed < 0 || parsed > 1 {
++				continue
++			}
++			q = parsed
++		}
++		if q > bestQ {
++			best, bestQ = tag, q
++		}
++	}
++	return best
++}
+diff --git a/backend/internal/domain/group_i18n_test.go b/backend/internal/domain/group_i18n_test.go
+new file mode 100644
+index 000000000..ae758cf52
+--- /dev/null
++++ b/backend/internal/domain/group_i18n_test.go
+@@ -0,0 +1,28 @@
++package domain
++
++import "testing"
++
++func TestGroupI18nLocalizeUsesPreferredLanguageAndFallback(t *testing.T) {
++	m := GroupI18n{
++		"zh":    {Name: "中文名称", Description: "中文描述"},
++		"en-US": {Name: "English name"},
++	}
++	name, description := m.Localize("fr;q=0.9,en-US;q=0.8,zh;q=0.7", "默认名称", "默认描述")
++	if name != "默认名称" || description != "默认描述" {
++		t.Fatalf("unsupported highest language must preserve defaults: %q %q", name, description)
++	}
++	name, description = m.Localize("en-GB,en;q=0.8", "默认名称", "默认描述")
++	if name != "默认名称" || description != "默认描述" {
++		t.Fatalf("regional language must not silently choose a lower-ranked primary language: %q %q", name, description)
++	}
++	name, description = m.Localize("zh-TW, en;q=0.1", "默认名称", "默认描述")
++	if name != "中文名称" || description != "中文描述" {
++		t.Fatalf("primary-language fallback failed: %q %q", name, description)
++	}
++}
++
++func TestCanonicalLocale(t *testing.T) {
++	if got := CanonicalLocale("zh-hant-tw"); got != "zh-Hant-TW" {
++		t.Fatalf("CanonicalLocale() = %q", got)
++	}
++}
+diff --git a/backend/internal/infrastructure/repository/README.md b/backend/internal/infrastructure/repository/README.md
+index 3c0806d96..d1d140fbe 100644
+--- a/backend/internal/infrastructure/repository/README.md
++++ b/backend/internal/infrastructure/repository/README.md
+@@ -27,4 +27,6 @@
+ 
+ SQL、Ent 和 Redis 细节只能停留在本层。复杂文件按 `query/command/cache/batch/recovery` 拆分，事务边界必须保持在同一公开方法内。
+ 
++审核配置写入与分组删除通过 `group_moderation_scope.go` 约定 group → settings 锁顺序；普通删除直接获取写锁，级联删除保留原事务和写锁。配置写入复核仍存在的分组，删除在同一事务清理 `group_ids`，不改写无效历史 JSON。
++
+ API Key 列表排序由 `api_key_repo_sort.go` 定义，在 SQL 分页前按第一绑定分组名称排序，无分组项在两个方向都置后，ID 为稳定次序；有序路由绑定和列表预加载继续由现有 owner 维护。
 diff --git a/backend/internal/infrastructure/repository/api_key_repo.go b/backend/internal/infrastructure/repository/api_key_repo.go
 index cb60d19b6..cc459dd57 100644
 --- a/backend/internal/infrastructure/repository/api_key_repo.go
@@ -1059,8 +1521,209 @@ index cb60d19b6..cc459dd57 100644
  		Platform:                        g.Platform,
  		RateMultiplier:                  g.RateMultiplier,
  		IsExclusive:                     g.IsExclusive,
+diff --git a/backend/internal/infrastructure/repository/group_moderation_scope.go b/backend/internal/infrastructure/repository/group_moderation_scope.go
+new file mode 100644
+index 000000000..a5b8aecd2
+--- /dev/null
++++ b/backend/internal/infrastructure/repository/group_moderation_scope.go
+@@ -0,0 +1,68 @@
++package repository
++
++import (
++	"context"
++	"database/sql"
++	"encoding/json"
++	"errors"
++	"slices"
++
++	"github.com/Wei-Shaw/sub2api/ent"
++	"github.com/Wei-Shaw/sub2api/internal/application/service"
++	"github.com/lib/pq"
++)
++
++// Config writers and deleters lock groups first, then the setting row.
++func lockLiveGroups(ctx context.Context, client *ent.Client, ids []int64) error {
++	ids = slices.Clone(ids)
++	slices.Sort(ids)
++	ids = slices.Compact(ids)
++	if len(ids) == 0 {
++		return nil
++	}
++	rows, err := client.QueryContext(ctx, `SELECT id FROM groups WHERE id = ANY($1::bigint[]) AND deleted_at IS NULL ORDER BY id FOR SHARE`, pq.Array(ids))
++	if err != nil {
++		return err
++	}
++	defer func() { _ = rows.Close() }()
++	count := 0
++	for rows.Next() {
++		var id int64
++		if err := rows.Scan(&id); err != nil {
++			return err
++		}
++		count++
++	}
++	if err := rows.Err(); err != nil {
++		return err
++	}
++	if count != len(ids) {
++		return service.ErrGroupNotFound
++	}
++	return nil
++}
++
++func cleanupDeletedModerationGroup(ctx context.Context, client *ent.Client, id int64) error {
++	var value string
++	err := scanSingleRow(ctx, client, `SELECT value FROM settings WHERE key = $1 FOR UPDATE`, []any{service.SettingKeyContentModerationConfig}, &value)
++	if errors.Is(err, sql.ErrNoRows) {
++		return nil
++	}
++	if err != nil {
++		return err
++	}
++	// Preserve malformed legacy settings; deletion must still succeed.
++	if !json.Valid([]byte(value)) {
++		return nil
++	}
++	_, err = client.ExecContext(ctx, `UPDATE settings
++	SET value = jsonb_set(value::jsonb, '{group_ids}',
++	  CASE WHEN jsonb_typeof(value::jsonb->'group_ids') = 'array' THEN
++	    (SELECT COALESCE(jsonb_agg(group_id ORDER BY ord), '[]'::jsonb)
++	     FROM jsonb_array_elements(value::jsonb->'group_ids') WITH ORDINALITY AS ids(group_id, ord)
++	     WHERE group_id <> to_jsonb($2::bigint))
++	  ELSE value::jsonb->'group_ids' END)::text, updated_at = NOW()
++	WHERE key = $1 AND jsonb_typeof(value::jsonb->'group_ids') = 'array'
++	  AND value::jsonb->'group_ids' @> jsonb_build_array($2::bigint)`, service.SettingKeyContentModerationConfig, id)
++	return err
++}
+diff --git a/backend/internal/infrastructure/repository/group_moderation_scope_integration_test.go b/backend/internal/infrastructure/repository/group_moderation_scope_integration_test.go
+new file mode 100644
+index 000000000..ee77c2598
+--- /dev/null
++++ b/backend/internal/infrastructure/repository/group_moderation_scope_integration_test.go
+@@ -0,0 +1,121 @@
++//go:build integration
++
++package repository
++
++import (
++	"context"
++	"fmt"
++	"testing"
++	"time"
++
++	"github.com/Wei-Shaw/sub2api/internal/application/service"
++	"github.com/stretchr/testify/require"
++)
++
++func TestContentModerationConfigWriterRechecksGroupAfterConcurrentDelete(t *testing.T) {
++	ctx := context.Background()
++	client := testEntClient(t)
++	repo := newGroupRepositoryWithSQL(client, integrationDB)
++	settings := &settingRepository{client: client}
++	group := &service.Group{
++		Name:             "moderation-concurrent-delete",
++		Platform:         service.PlatformAnthropic,
++		RateMultiplier:   1,
++		Status:           service.StatusActive,
++		SubscriptionType: service.SubscriptionTypeStandard,
++	}
++	require.NoError(t, repo.Create(ctx, group))
++	t.Cleanup(func() { _, _ = integrationDB.ExecContext(ctx, "DELETE FROM groups WHERE id=$1", group.ID) })
++
++	key := service.SettingKeyContentModerationConfig
++	previous, previousErr := settings.GetValue(ctx, key)
++	t.Cleanup(func() {
++		if previousErr == nil {
++			_ = settings.Set(ctx, key, previous)
++		} else {
++			_ = settings.Delete(ctx, key)
++		}
++	})
++	require.NoError(t, settings.Set(ctx, key, `{"all_groups":false,"group_ids":[]}`))
++
++	tx, err := integrationDB.BeginTx(ctx, nil)
++	require.NoError(t, err)
++	defer func() { _ = tx.Rollback() }()
++	var lockedID int64
++	require.NoError(t, tx.QueryRowContext(ctx, "SELECT id FROM groups WHERE id=$1 FOR UPDATE", group.ID).Scan(&lockedID))
++	finished := make(chan error, 1)
++	go func() {
++		finished <- settings.SetContentModerationConfig(ctx,
++			fmt.Sprintf(`{"all_groups":false,"group_ids":[%d]}`, group.ID), []int64{group.ID})
++	}()
++	select {
++	case err := <-finished:
++		t.Fatalf("writer passed the deleter lock: %v", err)
++	case <-time.After(100 * time.Millisecond):
++	}
++	_, err = tx.ExecContext(ctx, "UPDATE groups SET deleted_at=NOW() WHERE id=$1", group.ID)
++	require.NoError(t, err)
++	require.NoError(t, tx.Commit())
++	select {
++	case err := <-finished:
++		require.ErrorIs(t, err, service.ErrGroupNotFound)
++	case <-time.After(5 * time.Second):
++		t.Fatal("writer did not finish after delete commit")
++	}
++	stored, err := settings.GetValue(ctx, key)
++	require.NoError(t, err)
++	require.NotContains(t, stored, fmt.Sprintf("%d", lockedID))
++}
++
++func TestGroupDeleteConcurrentCallsUseWriteLock(t *testing.T) {
++	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
++	defer cancel()
++	client := testEntClient(t)
++	repo := newGroupRepositoryWithSQL(client, integrationDB)
++	group := &service.Group{Name: "delete-concurrent", Platform: service.PlatformAnthropic,
++		RateMultiplier: 1, Status: service.StatusActive, SubscriptionType: service.SubscriptionTypeStandard}
++	require.NoError(t, repo.Create(ctx, group))
++	t.Cleanup(func() {
++		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM groups WHERE id=$1", group.ID)
++	})
++	// Hold both calls behind a write lock so they contend for the same row.
++	tx, err := integrationDB.BeginTx(ctx, nil)
++	require.NoError(t, err)
++	defer func() { _ = tx.Rollback() }()
++	var id int64
++	require.NoError(t, tx.QueryRowContext(ctx, "SELECT id FROM groups WHERE id=$1 FOR UPDATE", group.ID).Scan(&id))
++	results := make(chan error, 2)
++	started := make(chan struct{}, 2)
++	for range 2 {
++		go func() { started <- struct{}{}; results <- repo.Delete(ctx, group.ID) }()
++	}
++	<-started
++	<-started
++	require.NoError(t, tx.Commit())
++	first, second := <-results, <-results
++	if first != nil {
++		first, second = second, first
++	}
++	require.NoError(t, first)
++	require.ErrorIs(t, second, service.ErrGroupNotFound)
++}
++
++func (s *GroupRepoSuite) TestI18nPreservedAndCleared() {
++	group := &service.Group{Name: "i18n-persist", Platform: service.PlatformAnthropic,
++		RateMultiplier: 1, Status: service.StatusActive, SubscriptionType: service.SubscriptionTypeStandard,
++		I18n: service.GroupI18n{"en": {Name: "English", Description: "English description"}}}
++	s.Require().NoError(s.repo.Create(s.ctx, group))
++	stored, err := s.repo.GetByID(s.ctx, group.ID)
++	s.Require().NoError(err)
++	s.Require().Equal(group.I18n, stored.I18n)
++	stored.Name = "old-client-default-edit"
++	s.Require().NoError(s.repo.Update(s.ctx, stored))
++	stored, err = s.repo.GetByID(s.ctx, group.ID)
++	s.Require().NoError(err)
++	s.Require().Equal("English", stored.I18n["en"].Name)
++	stored.I18n = service.GroupI18n{}
++	s.Require().NoError(s.repo.Update(s.ctx, stored))
++	stored, err = s.repo.GetByID(s.ctx, group.ID)
++	s.Require().NoError(err)
++	s.Require().Empty(stored.I18n)
++}
 diff --git a/backend/internal/infrastructure/repository/group_repo.go b/backend/internal/infrastructure/repository/group_repo.go
-index 046e1f1ea..bf297f954 100644
+index 046e1f1ea..d4e4c282a 100644
 --- a/backend/internal/infrastructure/repository/group_repo.go
 +++ b/backend/internal/infrastructure/repository/group_repo.go
 @@ -128,6 +128,10 @@ func createGroupRecord(ctx context.Context, client *dbent.Client, groupIn *servi
@@ -1087,7 +1750,7 @@ index 046e1f1ea..bf297f954 100644
  	updated, err := builder.Save(ctx)
  	if err != nil {
  		return translatePersistenceError(err, service.ErrGroupNotFound, service.ErrGroupExists)
-@@ -382,10 +392,29 @@ func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) er
+@@ -382,10 +392,31 @@ func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) er
  }
  
  func (r *groupRepository) Delete(ctx context.Context, id int64) error {
@@ -1102,7 +1765,9 @@ index 046e1f1ea..bf297f954 100644
 +		defer func() { _ = tx.Rollback() }()
 +		client = tx.Client()
 +	}
-+	if err := lockLiveGroups(ctx, client, []int64{id}); err != nil {
++	// Deleters acquire the write lock directly. Upgrading shared locks can
++	// deadlock when two nodes delete the same group concurrently.
++	if _, err := client.Group.Query().Where(group.IDEQ(id)).ForUpdate().Only(ctx); err != nil {
  		return translatePersistenceError(err, service.ErrGroupNotFound, nil)
  	}
 +	if _, err := client.Group.Delete().Where(group.IDEQ(id)).Exec(ctx); err != nil {
@@ -1119,7 +1784,7 @@ index 046e1f1ea..bf297f954 100644
  	if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventGroupChanged, nil, &id, nil); err != nil {
  		logger.LegacyPrintf("repository.group", "[SchedulerOutbox] enqueue group delete failed: group=%d err=%v", id, err)
  	}
-@@ -871,6 +900,9 @@ func (r *groupRepository) DeleteCascade(ctx context.Context, id int64) ([]int64,
+@@ -871,6 +902,9 @@ func (r *groupRepository) DeleteCascade(ctx context.Context, id int64) ([]int64,
  	if _, err := txClient.Group.Delete().Where(group.IDEQ(id)).Exec(ctx); err != nil {
  		return nil, err
  	}
@@ -1408,6 +2073,73 @@ index 0e197eafa..593e4a99a 100644
  			Platform:           g.Platform,
  			SubscriptionType:   g.SubscriptionType,
  			RateMultiplier:     g.RateMultiplier,
+diff --git a/backend/internal/transport/http/handler/dto/README.md b/backend/internal/transport/http/handler/dto/README.md
+index e38537c00..da237dcb8 100644
+--- a/backend/internal/transport/http/handler/dto/README.md
++++ b/backend/internal/transport/http/handler/dto/README.md
+@@ -7,6 +7,7 @@
+ | `types.go` | 通用 API DTO |
+ | `settings.go` | 公共与管理设置 DTO |
+ | `mappers.go` | 核心模型映射 |
++| `group_localize.go` | 用户响应中的分组名称与描述本地化；管理员响应保留原字段 |
+ | `credentials_redact.go` | 凭据输出脱敏 |
+ | `announcement.go`, `channel_monitor.go` | 对应资源 DTO |
+ 
+diff --git a/backend/internal/transport/http/handler/dto/group_localize.go b/backend/internal/transport/http/handler/dto/group_localize.go
+new file mode 100644
+index 000000000..6a9ce7d8f
+--- /dev/null
++++ b/backend/internal/transport/http/handler/dto/group_localize.go
+@@ -0,0 +1,49 @@
++package dto
++
++// 用户侧接口在输出前调用 Localized：把分组的名称与描述换成请求首选语言
++// （Accept-Language）的版本，并去掉译文表。管理端接口不调用，保留原字段与译文表，
++// 分组编辑表单依赖原字段回写。
++
++// Localized 就地本地化分组并返回自身。
++func (g *Group) Localized(acceptLanguage string) *Group {
++	if g == nil {
++		return nil
++	}
++	g.Name, g.Description = g.I18n.Localize(acceptLanguage, g.Name, g.Description)
++	g.I18n = nil
++	return g
++}
++
++// Localized 本地化 API Key 所属分组并返回自身。
++func (k *APIKey) Localized(acceptLanguage string) *APIKey {
++	if k != nil {
++		k.Group.Localized(acceptLanguage)
++	}
++	return k
++}
++
++// Localized 本地化兑换码关联分组并返回自身。
++func (r *RedeemCode) Localized(acceptLanguage string) *RedeemCode {
++	if r != nil {
++		r.Group.Localized(acceptLanguage)
++	}
++	return r
++}
++
++// Localized 本地化使用记录关联的分组（含其 API Key 与订阅各自携带的分组）并返回自身。
++func (l *UsageLog) Localized(acceptLanguage string) *UsageLog {
++	if l != nil {
++		l.Group.Localized(acceptLanguage)
++		l.APIKey.Localized(acceptLanguage)
++		l.Subscription.Localized(acceptLanguage)
++	}
++	return l
++}
++
++// Localized 本地化订阅关联分组并返回自身。
++func (s *UserSubscription) Localized(acceptLanguage string) *UserSubscription {
++	if s != nil {
++		s.Group.Localized(acceptLanguage)
++	}
++	return s
++}
 diff --git a/backend/internal/transport/http/handler/dto/mappers.go b/backend/internal/transport/http/handler/dto/mappers.go
 index 26f0fe29e..0ef319308 100644
 --- a/backend/internal/transport/http/handler/dto/mappers.go
@@ -1516,7 +2248,7 @@ index 13eb0346a..48230ecdc 100644
  	response.Success(c, out)
  }
 diff --git a/backend/internal/transport/http/handler/subscription_handler.go b/backend/internal/transport/http/handler/subscription_handler.go
-index d08a9ecae..82bb909ee 100644
+index d08a9ecae..5940531a1 100644
 --- a/backend/internal/transport/http/handler/subscription_handler.go
 +++ b/backend/internal/transport/http/handler/subscription_handler.go
 @@ -61,7 +61,7 @@ func (h *SubscriptionHandler) List(c *gin.Context) {
@@ -1550,7 +2282,17 @@ index d08a9ecae..82bb909ee 100644
  			Progress:     progress,
  		})
  	}
-@@ -179,7 +182,7 @@ func (h *SubscriptionHandler) GetSummary(c *gin.Context) {
+@@ -145,6 +148,9 @@ func (h *SubscriptionHandler) GetProgressByID(c *gin.Context) {
+ 		response.ErrorFrom(c, err)
+ 		return
+ 	}
++	if progress != nil {
++		progress.GroupName = progress.GroupI18n.LocalizeName(c.GetHeader("Accept-Language"), progress.GroupName)
++	}
+ 	response.Success(c, progress)
+ }
+ 
+@@ -179,7 +185,7 @@ func (h *SubscriptionHandler) GetSummary(c *gin.Context) {
  
  		// Add group info if preloaded
  		if sub.Group != nil {
@@ -1581,6 +2323,17 @@ index f5b63b3ce..53298df42 100644
  }
  
  // Stats handles getting usage statistics
+diff --git a/backend/migrations/248_group_i18n.sql b/backend/migrations/248_group_i18n.sql
+new file mode 100644
+index 000000000..2e0ab2c63
+--- /dev/null
++++ b/backend/migrations/248_group_i18n.sql
+@@ -0,0 +1,5 @@
++ALTER TABLE groups
++    ADD COLUMN IF NOT EXISTS i18n JSONB NOT NULL DEFAULT '{}'::jsonb;
++
++COMMENT ON COLUMN groups.i18n IS
++    'Per-locale display text for the group: {"<locale>":{"name":string,"description":string}}; locales or fields that are absent fall back to groups.name / groups.description';
 diff --git a/docs/README.md b/docs/README.md
 index ecd5eeba2..6ecc6c84c 100644
 --- a/docs/README.md
@@ -1785,6 +2538,19 @@ index 9ef48b523..08526189a 100644
  watch(
    () => props.resetsAt,
    (val) => {
+diff --git a/frontend/src/features/admin-groups/README.md b/frontend/src/features/admin-groups/README.md
+index 5856e12ad..003a49b0c 100644
+--- a/frontend/src/features/admin-groups/README.md
++++ b/frontend/src/features/admin-groups/README.md
+@@ -12,6 +12,8 @@
+ 
+ 创建与编辑使用共享的静态编辑器，但继续保留独立 form、watcher 和提交 payload；模式差异通过 typed context 或显式 props/actions 表达。不要复制整套编辑模板，不要用动态组件改变路由 chunk、挂载时机或表单状态。
+ 
++分组译文由 `GroupI18nField.vue` 编辑默认值与 `i18n` map；创建/编辑 controller 拥有表单，旧响应没有 `i18n` 时回退空对象。管理员读取原名称，用户响应由后端按 `Accept-Language` 本地化；该字段不参与搜索、唯一性、计费或路由。
++
+ 分组列表的今日、昨日和累计费用使用服务端配置时区的统一口径。datasource 不发送浏览器时区；页面必须兼容滚动升级期间旧节点暂未返回 `yesterday_cost` 的情况，并将缺失值显示为 0。
+ 
+ 用户端与管理端共享的基础分组协议位于 `src/types/group.ts`；管理员专属字段由本 feature DTO 扩展，`src/types/gateway.ts` 只保留兼容重导出。跨 feature 读取分组必须直接依赖 `adminGroupQueries.ts`，不能重新经过统一 `adminAPI.groups`。
 diff --git a/frontend/src/features/admin-groups/data/dtos/adminGroupDtos.ts b/frontend/src/features/admin-groups/data/dtos/adminGroupDtos.ts
 index b53176be4..446ca3b76 100644
 --- a/frontend/src/features/admin-groups/data/dtos/adminGroupDtos.ts
@@ -1926,792 +2692,6 @@ index b61fb9def..be3c45060 100644
      <div>
        <label class="input-label">{{
          t("admin.groups.form.platform")
-diff --git a/frontend/src/features/admin-groups/presentation/widgets/GroupRPMOverridesDialog.vue b/frontend/src/features/admin-groups/presentation/widgets/GroupRPMOverridesDialog.vue
-index 3ad8e42c3..eca359fb6 100644
---- a/frontend/src/features/admin-groups/presentation/widgets/GroupRPMOverridesDialog.vue
-+++ b/frontend/src/features/admin-groups/presentation/widgets/GroupRPMOverridesDialog.vue
-@@ -254,6 +254,7 @@ const currentPage = ref(1)
- const pageSize = ref(10)
- 
- let searchTimeout: ReturnType<typeof setTimeout>
-+let loadVersion = 0
- 
- const platformColorClass = computed(() => {
-   switch (props.group?.platform) {
-@@ -281,16 +282,22 @@ const cloneEntries = (entries: GroupRPMOverrideEntry[]): LocalEntry[] => {
- 
- const loadEntries = async () => {
-   if (!props.group) return
-+  const version = loadVersion
-   loading.value = true
-+  serverEntries.value = []
-+  localEntries.value = []
-   try {
--    serverEntries.value = await getGroupRPMOverrides(props.group.id)
-+    const entries = await getGroupRPMOverrides(props.group.id)
-+    if (version !== loadVersion) return
-+    serverEntries.value = entries
-     localEntries.value = cloneEntries(serverEntries.value)
-     adjustPage()
-   } catch (error) {
-+    if (version !== loadVersion) return
-     appStore.showError(t('admin.groups.failedToLoad'))
-     console.error('Error loading RPM overrides:', error)
-   } finally {
--    loading.value = false
-+    if (version === loadVersion) loading.value = false
-   }
- }
- 
-@@ -299,8 +306,9 @@ const adjustPage = () => {
-   if (currentPage.value > totalPages) currentPage.value = totalPages
- }
- 
--watch(() => props.show, (val) => {
--  if (val && props.group) {
-+watch([() => props.show, () => props.group?.id], ([show]) => {
-+  loadVersion++
-+  if (show && props.group) {
-     currentPage.value = 1
-     searchQuery.value = ''
-     searchResults.value = []
-@@ -431,6 +439,7 @@ if (typeof document !== 'undefined') {
-   document.addEventListener('click', handleClickOutside)
- }
- onUnmounted(() => {
-+  loadVersion++
-   clearTimeout(searchTimeout)
-   document.removeEventListener('click', handleClickOutside)
- })
-diff --git a/frontend/src/features/admin-groups/presentation/widgets/GroupRateMultipliersDialog.vue b/frontend/src/features/admin-groups/presentation/widgets/GroupRateMultipliersDialog.vue
-index 7f181a3b2..b55e31f8e 100644
---- a/frontend/src/features/admin-groups/presentation/widgets/GroupRateMultipliersDialog.vue
-+++ b/frontend/src/features/admin-groups/presentation/widgets/GroupRateMultipliersDialog.vue
-@@ -431,7 +431,7 @@ const updateLocalRate = (userId: number, value: string) => {
-     return
-   }
-   const num = parseFloat(value)
--  if (isNaN(num)) return
-+  if (!Number.isFinite(num) || num <= 0) return
-   entry.rate_multiplier = num
- }
- 
-diff --git a/frontend/src/features/admin-ops/data/dtos/opsLogDtos.ts b/frontend/src/features/admin-ops/data/dtos/opsLogDtos.ts
-index 2153a1b2c..132a96b72 100644
---- a/frontend/src/features/admin-ops/data/dtos/opsLogDtos.ts
-+++ b/frontend/src/features/admin-ops/data/dtos/opsLogDtos.ts
-@@ -23,6 +23,7 @@ export interface OpsRequestDetail {
-   user_id?: number | null
-   api_key_id?: number | null
-   account_id?: number | null
-+  account_name?: string | null
-   group_id?: number | null
- 
-   stream?: boolean
-diff --git a/frontend/src/features/admin-ops/presentation/widgets/OpsDashboardToolbar.vue b/frontend/src/features/admin-ops/presentation/widgets/OpsDashboardToolbar.vue
-index 088058974..ba75c5d7e 100644
---- a/frontend/src/features/admin-ops/presentation/widgets/OpsDashboardToolbar.vue
-+++ b/frontend/src/features/admin-ops/presentation/widgets/OpsDashboardToolbar.vue
-@@ -1,6 +1,7 @@
- <script setup lang="ts">
- import { computed, onMounted, ref, watch } from 'vue'
- import { useI18n } from 'vue-i18n'
-+import { formatDateTimeLocalInput } from '@/core/utils/format'
- import Select from '@/common/widgets/forms/Select.vue'
- import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
- import { getAll as getAllGroups } from '@/features/admin-groups/data/datasources/adminGroupQueries'
-@@ -136,8 +137,8 @@ function handleTimeRangeChange(val: string | number | boolean | null) {
-     // 初始化为最近1小时
-     const now = new Date()
-     const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000)
--    customStartTimeInput.value = oneHourAgo.toISOString().slice(0, 16)
--    customEndTimeInput.value = now.toISOString().slice(0, 16)
-+    customStartTimeInput.value = formatDateTimeLocalInput(oneHourAgo.getTime() / 1000)
-+    customEndTimeInput.value = formatDateTimeLocalInput(now.getTime() / 1000)
-     showCustomTimeRangeDialog.value = true
-   } else {
-     emit('update:timeRange', newValue)
-diff --git a/frontend/src/features/admin-ops/presentation/widgets/OpsRequestDetailsDialog.vue b/frontend/src/features/admin-ops/presentation/widgets/OpsRequestDetailsDialog.vue
-index 2c490ae93..629ebcc74 100644
---- a/frontend/src/features/admin-ops/presentation/widgets/OpsRequestDetailsDialog.vue
-+++ b/frontend/src/features/admin-ops/presentation/widgets/OpsRequestDetailsDialog.vue
-@@ -147,6 +147,10 @@ const kindBadgeClass = (kind: string) => {
-   if (kind === 'error') return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-   return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
- }
-+function accountLabel(row: OpsRequestDetail): string {
-+  if (typeof row.account_id !== 'number' || row.account_id <= 0) return '-'
-+  return row.account_name?.trim() || `#${row.account_id}`
-+}
- </script>
- 
- <template>
-@@ -200,6 +204,9 @@ const kindBadgeClass = (kind: string) => {
-                     <span class="ml-auto text-[11px] text-gray-500 dark:text-gray-400">{{ formatDateTime(row.created_at) }}</span>
-                   </div>
-                   <div class="break-all text-xs text-gray-600 dark:text-gray-300">{{ row.model || '-' }}</div>
-+                  <div v-if="row.account_id && row.account_id > 0" class="break-all text-xs text-gray-500 dark:text-gray-400" :title="accountLabel(row)">
-+                    {{ t('admin.ops.requestDetails.table.account') }}: {{ accountLabel(row) }}
-+                  </div>
-                   <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-300">
-                     <span>{{ typeof row.duration_ms === 'number' ? `${row.duration_ms} ms` : '-' }}</span>
-                     <span>{{ row.status_code ?? '-' }}</span>
-@@ -239,6 +246,9 @@ const kindBadgeClass = (kind: string) => {
-                   <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                     {{ t('admin.ops.requestDetails.table.model') }}
-                   </th>
-+                  <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-+                    {{ t('admin.ops.requestDetails.table.account') }}
-+                  </th>
-                   <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                     {{ showsTTFT ? t('admin.ops.requestDetails.table.ttft') : t('admin.ops.requestDetails.table.duration') }}
-                   </th>
-@@ -269,6 +279,9 @@ const kindBadgeClass = (kind: string) => {
-                   <td class="max-w-[240px] truncate px-4 py-3 text-xs text-gray-600 dark:text-gray-300" :title="row.model || ''">
-                     {{ row.model || '-' }}
-                   </td>
-+                  <td class="max-w-[180px] truncate px-4 py-3 text-xs text-gray-600 dark:text-gray-300" :title="accountLabel(row)">
-+                    {{ accountLabel(row) }}
-+                  </td>
-                   <td
-                     class="whitespace-nowrap px-4 py-3 text-xs tabular-nums text-gray-600 dark:text-gray-300"
-                     :title="formatExactDurationMs(showsTTFT ? row.first_token_ms : row.duration_ms)"
-diff --git a/frontend/src/features/billing/presentation/pages/PaymentQRCodePage.vue b/frontend/src/features/billing/presentation/pages/PaymentQRCodePage.vue
-index cdd5cda9a..f9afe2cae 100644
---- a/frontend/src/features/billing/presentation/pages/PaymentQRCodePage.vue
-+++ b/frontend/src/features/billing/presentation/pages/PaymentQRCodePage.vue
-@@ -157,12 +157,13 @@ async function pollStatus() {
- 
- function startCountdown(seconds: number) {
-   remainingSeconds.value = Math.max(0, seconds)
-+  const deadline = Date.now() + remainingSeconds.value * 1000
-   if (remainingSeconds.value <= 0) {
-     expired.value = true
-     return
-   }
-   countdownTimer = setInterval(() => {
--    remainingSeconds.value--
-+    remainingSeconds.value = Math.max(0, Math.floor((deadline - Date.now()) / 1000))
-     if (remainingSeconds.value <= 0) {
-       expired.value = true
-       cleanup()
-diff --git a/frontend/src/features/billing/presentation/widgets/PaymentQRDialog.vue b/frontend/src/features/billing/presentation/widgets/PaymentQRDialog.vue
-index d6060ad12..a06469ef0 100644
---- a/frontend/src/features/billing/presentation/widgets/PaymentQRDialog.vue
-+++ b/frontend/src/features/billing/presentation/widgets/PaymentQRDialog.vue
-@@ -234,12 +234,13 @@ async function tryRecoverPendingOrder(order: PaymentOrder): Promise<PaymentOrder
- 
- function startCountdown(seconds: number) {
-   remainingSeconds.value = Math.max(0, seconds)
-+  const deadline = Date.now() + remainingSeconds.value * 1000
-   if (remainingSeconds.value <= 0) {
-     expired.value = true
-     return
-   }
-   countdownTimer = setInterval(() => {
--    remainingSeconds.value--
-+    remainingSeconds.value = Math.max(0, Math.floor((deadline - Date.now()) / 1000))
-     if (remainingSeconds.value <= 0) {
-       expired.value = true
-       cleanup()
-diff --git a/frontend/src/features/billing/presentation/widgets/PaymentStatusPanel.vue b/frontend/src/features/billing/presentation/widgets/PaymentStatusPanel.vue
-index 33aa522b3..3d082bfa0 100644
---- a/frontend/src/features/billing/presentation/widgets/PaymentStatusPanel.vue
-+++ b/frontend/src/features/billing/presentation/widgets/PaymentStatusPanel.vue
-@@ -450,9 +450,10 @@ async function pollStatus() {
- 
- function startCountdown(seconds: number) {
-   remainingSeconds.value = Math.max(0, seconds)
-+  const deadline = Date.now() + remainingSeconds.value * 1000
-   if (remainingSeconds.value <= 0) { setOutcome('expired'); return }
-   countdownTimer = setInterval(() => {
--    remainingSeconds.value--
-+    remainingSeconds.value = Math.max(0, Math.floor((deadline - Date.now()) / 1000))
-     if (remainingSeconds.value <= 0) { setOutcome('expired'); cleanup() }
-   }, 1000)
- }
-diff --git a/frontend/src/features/channels-user/presentation/pages/ChannelStatusPage.vue b/frontend/src/features/channels-user/presentation/pages/ChannelStatusPage.vue
-index 0c2a140f7..64c81d474 100644
---- a/frontend/src/features/channels-user/presentation/pages/ChannelStatusPage.vue
-+++ b/frontend/src/features/channels-user/presentation/pages/ChannelStatusPage.vue
-@@ -8,7 +8,7 @@
-       :auto-refresh="autoRefresh"
-       :show-share-button="showShareButton"
-       @update:window="handleWindowChange"
--      @refresh="manualReload"
-+      @refresh="refresh()"
-       @copy-share-link="copyShareLink"
-     />
- 
-@@ -70,7 +70,7 @@ const autoRefresh = useAutoRefresh({
-   storageKey: 'channel-status-auto-refresh',
-   intervals: [30, 60, 120] as const,
-   defaultInterval: DEFAULT_INTERVAL_SECONDS,
--  onRefresh: () => reload(true),
-+  onRefresh: () => refresh(true),
-   shouldPause: () => document.hidden || loading.value,
- })
- const countdown = autoRefresh.countdown
-@@ -115,8 +115,8 @@ async function reload(silent = false) {
-   }
- }
- 
--async function manualReload() {
--  await reload(false)
-+async function refresh(silent = false) {
-+  await reload(silent)
-   if (currentWindow.value !== '7d') {
-     await loadDetails(items.value.map(it => it.id), true)
-   }
-diff --git a/frontend/src/types/group.ts b/frontend/src/types/group.ts
-index d63bee25b..5abf29497 100644
---- a/frontend/src/types/group.ts
-+++ b/frontend/src/types/group.ts
-@@ -1,3 +1,9 @@
-+export interface GroupLocaleText {
-+  name?: string
-+  description?: string
-+}
-+export type GroupI18n = Record<string, GroupLocaleText>
-+
- import type { BillingMode } from '@/core/constants/channel'
- 
- export type GroupPlatform =
-diff --git a/backend/internal/application/service/group_i18n.go b/backend/internal/application/service/group_i18n.go
-new file mode 100644
-index 000000000..fe036c232
---- /dev/null
-+++ b/backend/internal/application/service/group_i18n.go
-@@ -0,0 +1,64 @@
-+package service
-+
-+import (
-+	"fmt"
-+	"maps"
-+	"regexp"
-+	"slices"
-+	"strings"
-+	"unicode/utf8"
-+
-+	"github.com/Wei-Shaw/sub2api/internal/domain"
-+	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
-+)
-+
-+type GroupI18n = domain.GroupI18n
-+type GroupLocaleText = domain.GroupLocaleText
-+
-+// groupI18nNameMaxRunes 与 groups.name 的长度上限一致。
-+const groupI18nNameMaxRunes = 100
-+
-+// 语言代码只校验 BCP 47 形态（en、zh、zh-TW）；具体提供哪些语言由前端语言包决定。
-+var groupI18nLocalePattern = regexp.MustCompile(`^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$`)
-+
-+// normalizeGroupI18n 把语言代码统一为 domain.CanonicalLocale 的写法，去除译文首尾空白，
-+// 并丢弃名称与描述都为空的语言。统一写法后重复的语言代码（如 en 与 EN）直接拒绝，
-+// 不在其中任选一份。返回值始终非 nil，落库为 JSON 对象。
-+func normalizeGroupI18n(in GroupI18n) (GroupI18n, error) {
-+	out := make(GroupI18n, len(in))
-+	seen := make(map[string]struct{}, len(in))
-+	for _, raw := range slices.Sorted(maps.Keys(in)) {
-+		if !groupI18nLocalePattern.MatchString(raw) {
-+			return nil, infraerrors.BadRequest("INVALID_GROUP_I18N", fmt.Sprintf("invalid locale %q in i18n", raw))
-+		}
-+		locale := domain.CanonicalLocale(raw)
-+		if _, dup := seen[locale]; dup {
-+			return nil, infraerrors.BadRequest("INVALID_GROUP_I18N", fmt.Sprintf("duplicate locale %q in i18n", locale))
-+		}
-+		seen[locale] = struct{}{}
-+		text := in[raw]
-+		name := strings.TrimSpace(text.Name)
-+		description := strings.TrimSpace(text.Description)
-+		if utf8.RuneCountInString(name) > groupI18nNameMaxRunes {
-+			return nil, infraerrors.BadRequest("INVALID_GROUP_I18N", fmt.Sprintf("i18n name for locale %q must be at most %d characters", locale, groupI18nNameMaxRunes))
-+		}
-+		if name == "" && description == "" {
-+			continue
-+		}
-+		out[locale] = GroupLocaleText{Name: name, Description: description}
-+	}
-+	return out, nil
-+}
-+
-+// cloneGroupI18nForDuplicate 复制译文中的描述。名称译文不随复制带走：
-+// 副本的 name 已改写，沿用源分组的名称译文会让两个分组在该语言下同名。
-+func cloneGroupI18nForDuplicate(in GroupI18n) GroupI18n {
-+	out := make(GroupI18n, len(in))
-+	for locale, text := range in {
-+		if text.Description == "" {
-+			continue
-+		}
-+		out[locale] = GroupLocaleText{Description: text.Description}
-+	}
-+	return out
-+}
-diff --git a/backend/internal/application/service/group_i18n_test.go b/backend/internal/application/service/group_i18n_test.go
-new file mode 100644
-index 000000000..513b4a012
---- /dev/null
-+++ b/backend/internal/application/service/group_i18n_test.go
-@@ -0,0 +1,26 @@
-+package service
-+
-+import "testing"
-+
-+func TestNormalizeGroupI18nRejectsDuplicateCanonicalLocales(t *testing.T) {
-+	_, err := normalizeGroupI18n(GroupI18n{
-+		"en": {Name: "one"},
-+		"EN": {Name: "two"},
-+	})
-+	if err == nil {
-+		t.Fatal("expected duplicate locale error")
-+	}
-+}
-+
-+func TestNormalizeGroupI18nTrimsAndDropsEmptyEntries(t *testing.T) {
-+	got, err := normalizeGroupI18n(GroupI18n{
-+		"en-us": {Name: "  English  ", Description: "  "},
-+		"zh":    {},
-+	})
-+	if err != nil {
-+		t.Fatal(err)
-+	}
-+	if len(got) != 1 || got["en-US"].Name != "English" || got["en-US"].Description != "" {
-+		t.Fatalf("normalized i18n = %#v", got)
-+	}
-+}
-diff --git a/backend/internal/application/service/openai_subscription_long_context.go b/backend/internal/application/service/openai_subscription_long_context.go
-new file mode 100644
-index 000000000..a3a5933c3
---- /dev/null
-+++ b/backend/internal/application/service/openai_subscription_long_context.go
-@@ -0,0 +1,28 @@
-+package service
-+
-+import "strings"
-+
-+// Exempt the upstream subscription model, independent of client/billing aliases.
-+func openAISubscriptionLongContextExempt(account *Account, result *OpenAIForwardResult) bool {
-+	if account == nil || !account.IsOpenAI() || (account.Type != AccountTypeOAuth && account.Type != AccountTypeSetupToken) || result == nil {
-+		return false
-+	}
-+	model := strings.TrimSpace(result.UpstreamModel)
-+	if model == "" {
-+		model = result.Model
-+	}
-+	model = strings.ReplaceAll(strings.ToLower(strings.TrimSpace(model)), "_", "-")
-+	model = strings.TrimPrefix(model, "openai/")
-+	if model == "gpt-6.1-sol" {
-+		return true
-+	}
-+	suffix, ok := strings.CutPrefix(model, "gpt-6.1-sol-")
-+	if !ok {
-+		return false
-+	}
-+	switch suffix {
-+	case "none", "minimal", "low", "medium", "high", "xhigh", "max", "openai-compact":
-+		return true
-+	}
-+	return false
-+}
-diff --git a/backend/internal/application/service/openai_subscription_long_context_test.go b/backend/internal/application/service/openai_subscription_long_context_test.go
-new file mode 100644
-index 000000000..3c4e14e86
---- /dev/null
-+++ b/backend/internal/application/service/openai_subscription_long_context_test.go
-@@ -0,0 +1,24 @@
-+package service
-+
-+import "testing"
-+
-+func TestOpenAISubscriptionLongContextExemptUsesSentModelAndCredentialType(t *testing.T) {
-+	for _, tc := range []struct {
-+		name    string
-+		account *Account
-+		result  *OpenAIForwardResult
-+		want    bool
-+	}{
-+		{"oauth target", &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}, &OpenAIForwardResult{Model: "custom", UpstreamModel: "gpt-6.1-sol-low"}, true},
-+		{"setup token target", &Account{Platform: PlatformOpenAI, Type: AccountTypeSetupToken}, &OpenAIForwardResult{Model: "gpt-6.1-sol"}, true},
-+		{"api key stays priced", &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}, &OpenAIForwardResult{Model: "gpt-6.1-sol"}, false},
-+		{"billing label does not decide", &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}, &OpenAIForwardResult{Model: "gpt-6-sol", BillingModel: "gpt-6.1-sol"}, false},
-+		{"invalid suffix", &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}, &OpenAIForwardResult{Model: "gpt-6.1-sol-preview"}, false},
-+	} {
-+		t.Run(tc.name, func(t *testing.T) {
-+			if got := openAISubscriptionLongContextExempt(tc.account, tc.result); got != tc.want {
-+				t.Fatalf("exempt = %t, want %t", got, tc.want)
-+			}
-+		})
-+	}
-+}
-diff --git a/backend/internal/domain/group_i18n.go b/backend/internal/domain/group_i18n.go
-new file mode 100644
-index 000000000..1dc5efb76
---- /dev/null
-+++ b/backend/internal/domain/group_i18n.go
-@@ -0,0 +1,116 @@
-+package domain
-+
-+import (
-+	"strconv"
-+	"strings"
-+)
-+
-+// GroupLocaleText 是分组名称与描述在某个界面语言下的译文。
-+// 字段为空表示该语言沿用分组自身的 name/description。
-+type GroupLocaleText struct {
-+	Name        string `json:"name,omitempty"`
-+	Description string `json:"description,omitempty"`
-+}
-+
-+// GroupI18n 以界面语言代码（如 "en"、"zh"）为键保存分组展示文案的译文。
-+// 仅用于页面展示；分组的唯一性、搜索与各类日志仍以 name 为准。
-+type GroupI18n map[string]GroupLocaleText
-+
-+// Localize 返回 name、description 在请求首选语言下的版本；该语言没有译文的字段保持原值。
-+// acceptLanguage 是 Accept-Language 请求头。只采用其中优先级最高的语言：原字段的语言
-+// 未知，退到次选语言的译文不一定比原字段更合适。
-+func (m GroupI18n) Localize(acceptLanguage, name, description string) (string, string) {
-+	if len(m) == 0 || acceptLanguage == "" {
-+		return name, description
-+	}
-+	text, ok := m.lookup(preferredLanguage(acceptLanguage))
-+	if !ok {
-+		return name, description
-+	}
-+	if text.Name != "" {
-+		name = text.Name
-+	}
-+	if text.Description != "" {
-+		description = text.Description
-+	}
-+	return name, description
-+}
-+
-+// LocalizeName 是只需要名称时的 Localize。
-+func (m GroupI18n) LocalizeName(acceptLanguage, name string) string {
-+	name, _ = m.Localize(acceptLanguage, name, "")
-+	return name
-+}
-+
-+// CanonicalLocale 按 BCP 47 的惯用大小写书写语言代码：主语言小写，4 位文字代码首字母大写，
-+// 2 位地区代码大写，其余小写（zh-hant-tw -> zh-Hant-TW）；单字母扩展标记之后的部分全部小写。
-+// 只调整大小写，不校验代码是否合法。
-+func CanonicalLocale(locale string) string {
-+	subtags := strings.Split(locale, "-")
-+	extension := false
-+	for i, subtag := range subtags {
-+		subtag = strings.ToLower(subtag)
-+		switch {
-+		case i == 0 || extension:
-+		case len(subtag) == 1:
-+			extension = true
-+		case len(subtag) == 2:
-+			subtag = strings.ToUpper(subtag)
-+		case len(subtag) == 4:
-+			subtag = strings.ToUpper(subtag[:1]) + subtag[1:]
-+		}
-+		subtags[i] = subtag
-+	}
-+	return strings.Join(subtags, "-")
-+}
-+
-+// lookup 先按完整语言代码匹配（zh-TW），再按主语言匹配（zh-CN -> zh），不区分大小写。
-+// 写入时语言代码已统一为 CanonicalLocale，同一语言只有一个键；若存有仅大小写不同的多个键，
-+// 规范写法的键优先，其余按字节序取最小者，保证同一请求语言的结果固定。
-+func (m GroupI18n) lookup(tag string) (GroupLocaleText, bool) {
-+	if tag == "" || len(m) == 0 {
-+		return GroupLocaleText{}, false
-+	}
-+	primary, _, _ := strings.Cut(tag, "-")
-+	for _, candidate := range []string{tag, primary} {
-+		candidate = CanonicalLocale(candidate)
-+		if text, ok := m[candidate]; ok {
-+			return text, true
-+		}
-+		matched := ""
-+		for locale := range m {
-+			if strings.EqualFold(locale, candidate) && (matched == "" || locale < matched) {
-+				matched = locale
-+			}
-+		}
-+		if matched != "" {
-+			return m[matched], true
-+		}
-+	}
-+	return GroupLocaleText{}, false
-+}
-+
-+// preferredLanguage 取 Accept-Language 中权重最高的语言代码，权重相同取靠前者；
-+// 通配符 * 与 q=0 的条目不参与。
-+func preferredLanguage(acceptLanguage string) string {
-+	best, bestQ := "", 0.0
-+	for _, part := range strings.Split(acceptLanguage, ",") {
-+		tag, params, _ := strings.Cut(part, ";")
-+		tag = strings.ReplaceAll(strings.TrimSpace(tag), "_", "-")
-+		if tag == "" || tag == "*" {
-+			continue
-+		}
-+		q := 1.0
-+		if value, ok := strings.CutPrefix(strings.TrimSpace(params), "q="); ok {
-+			parsed, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
-+			if err != nil || parsed < 0 || parsed > 1 {
-+				continue
-+			}
-+			q = parsed
-+		}
-+		if q > bestQ {
-+			best, bestQ = tag, q
-+		}
-+	}
-+	return best
-+}
-diff --git a/backend/internal/domain/group_i18n_test.go b/backend/internal/domain/group_i18n_test.go
-new file mode 100644
-index 000000000..ae758cf52
---- /dev/null
-+++ b/backend/internal/domain/group_i18n_test.go
-@@ -0,0 +1,28 @@
-+package domain
-+
-+import "testing"
-+
-+func TestGroupI18nLocalizeUsesPreferredLanguageAndFallback(t *testing.T) {
-+	m := GroupI18n{
-+		"zh":    {Name: "中文名称", Description: "中文描述"},
-+		"en-US": {Name: "English name"},
-+	}
-+	name, description := m.Localize("fr;q=0.9,en-US;q=0.8,zh;q=0.7", "默认名称", "默认描述")
-+	if name != "默认名称" || description != "默认描述" {
-+		t.Fatalf("unsupported highest language must preserve defaults: %q %q", name, description)
-+	}
-+	name, description = m.Localize("en-GB,en;q=0.8", "默认名称", "默认描述")
-+	if name != "默认名称" || description != "默认描述" {
-+		t.Fatalf("regional language must not silently choose a lower-ranked primary language: %q %q", name, description)
-+	}
-+	name, description = m.Localize("zh-TW, en;q=0.1", "默认名称", "默认描述")
-+	if name != "中文名称" || description != "中文描述" {
-+		t.Fatalf("primary-language fallback failed: %q %q", name, description)
-+	}
-+}
-+
-+func TestCanonicalLocale(t *testing.T) {
-+	if got := CanonicalLocale("zh-hant-tw"); got != "zh-Hant-TW" {
-+		t.Fatalf("CanonicalLocale() = %q", got)
-+	}
-+}
-diff --git a/backend/internal/infrastructure/repository/group_moderation_scope.go b/backend/internal/infrastructure/repository/group_moderation_scope.go
-new file mode 100644
-index 000000000..a5b8aecd2
---- /dev/null
-+++ b/backend/internal/infrastructure/repository/group_moderation_scope.go
-@@ -0,0 +1,68 @@
-+package repository
-+
-+import (
-+	"context"
-+	"database/sql"
-+	"encoding/json"
-+	"errors"
-+	"slices"
-+
-+	"github.com/Wei-Shaw/sub2api/ent"
-+	"github.com/Wei-Shaw/sub2api/internal/application/service"
-+	"github.com/lib/pq"
-+)
-+
-+// Config writers and deleters lock groups first, then the setting row.
-+func lockLiveGroups(ctx context.Context, client *ent.Client, ids []int64) error {
-+	ids = slices.Clone(ids)
-+	slices.Sort(ids)
-+	ids = slices.Compact(ids)
-+	if len(ids) == 0 {
-+		return nil
-+	}
-+	rows, err := client.QueryContext(ctx, `SELECT id FROM groups WHERE id = ANY($1::bigint[]) AND deleted_at IS NULL ORDER BY id FOR SHARE`, pq.Array(ids))
-+	if err != nil {
-+		return err
-+	}
-+	defer func() { _ = rows.Close() }()
-+	count := 0
-+	for rows.Next() {
-+		var id int64
-+		if err := rows.Scan(&id); err != nil {
-+			return err
-+		}
-+		count++
-+	}
-+	if err := rows.Err(); err != nil {
-+		return err
-+	}
-+	if count != len(ids) {
-+		return service.ErrGroupNotFound
-+	}
-+	return nil
-+}
-+
-+func cleanupDeletedModerationGroup(ctx context.Context, client *ent.Client, id int64) error {
-+	var value string
-+	err := scanSingleRow(ctx, client, `SELECT value FROM settings WHERE key = $1 FOR UPDATE`, []any{service.SettingKeyContentModerationConfig}, &value)
-+	if errors.Is(err, sql.ErrNoRows) {
-+		return nil
-+	}
-+	if err != nil {
-+		return err
-+	}
-+	// Preserve malformed legacy settings; deletion must still succeed.
-+	if !json.Valid([]byte(value)) {
-+		return nil
-+	}
-+	_, err = client.ExecContext(ctx, `UPDATE settings
-+	SET value = jsonb_set(value::jsonb, '{group_ids}',
-+	  CASE WHEN jsonb_typeof(value::jsonb->'group_ids') = 'array' THEN
-+	    (SELECT COALESCE(jsonb_agg(group_id ORDER BY ord), '[]'::jsonb)
-+	     FROM jsonb_array_elements(value::jsonb->'group_ids') WITH ORDINALITY AS ids(group_id, ord)
-+	     WHERE group_id <> to_jsonb($2::bigint))
-+	  ELSE value::jsonb->'group_ids' END)::text, updated_at = NOW()
-+	WHERE key = $1 AND jsonb_typeof(value::jsonb->'group_ids') = 'array'
-+	  AND value::jsonb->'group_ids' @> jsonb_build_array($2::bigint)`, service.SettingKeyContentModerationConfig, id)
-+	return err
-+}
-diff --git a/backend/internal/infrastructure/repository/group_moderation_scope_integration_test.go b/backend/internal/infrastructure/repository/group_moderation_scope_integration_test.go
-new file mode 100644
-index 000000000..c0d1d675f
---- /dev/null
-+++ b/backend/internal/infrastructure/repository/group_moderation_scope_integration_test.go
-@@ -0,0 +1,67 @@
-+//go:build integration
-+
-+package repository
-+
-+import (
-+	"context"
-+	"fmt"
-+	"testing"
-+	"time"
-+
-+	"github.com/Wei-Shaw/sub2api/internal/application/service"
-+	"github.com/stretchr/testify/require"
-+)
-+
-+func TestContentModerationConfigWriterRechecksGroupAfterConcurrentDelete(t *testing.T) {
-+	ctx := context.Background()
-+	client := testEntClient(t)
-+	repo := newGroupRepositoryWithSQL(client, integrationDB)
-+	settings := &settingRepository{client: client}
-+	group := &service.Group{
-+		Name: "moderation-concurrent-delete",
-+		Platform: service.PlatformAnthropic,
-+		RateMultiplier: 1,
-+		Status: service.StatusActive,
-+		SubscriptionType: service.SubscriptionTypeStandard,
-+	}
-+	require.NoError(t, repo.Create(ctx, group))
-+	t.Cleanup(func() { _, _ = integrationDB.ExecContext(ctx, "DELETE FROM groups WHERE id=$1", group.ID) })
-+
-+	key := service.SettingKeyContentModerationConfig
-+	previous, previousErr := settings.GetValue(ctx, key)
-+	t.Cleanup(func() {
-+		if previousErr == nil {
-+			_ = settings.Set(ctx, key, previous)
-+		} else {
-+			_ = settings.Delete(ctx, key)
-+		}
-+	})
-+	require.NoError(t, settings.Set(ctx, key, `{"all_groups":false,"group_ids":[]}`))
-+
-+	tx, err := integrationDB.BeginTx(ctx, nil)
-+	require.NoError(t, err)
-+	var lockedID int64
-+	require.NoError(t, tx.QueryRowContext(ctx, "SELECT id FROM groups WHERE id=$1 FOR UPDATE", group.ID).Scan(&lockedID))
-+	finished := make(chan error, 1)
-+	go func() {
-+		finished <- settings.SetContentModerationConfig(ctx,
-+			fmt.Sprintf(`{"all_groups":false,"group_ids":[%d]}`, group.ID), []int64{group.ID})
-+	}()
-+	select {
-+	case err := <-finished:
-+		t.Fatalf("writer passed the deleter lock: %v", err)
-+	case <-time.After(100 * time.Millisecond):
-+	}
-+	_, err = tx.ExecContext(ctx, "UPDATE groups SET deleted_at=NOW() WHERE id=$1", group.ID)
-+	require.NoError(t, err)
-+	require.NoError(t, tx.Commit())
-+	select {
-+	case err := <-finished:
-+		require.ErrorIs(t, err, service.ErrGroupNotFound)
-+	case <-time.After(5 * time.Second):
-+		t.Fatal("writer did not finish after delete commit")
-+	}
-+	stored, err := settings.GetValue(ctx, key)
-+	require.NoError(t, err)
-+	require.NotContains(t, stored, fmt.Sprintf("%d", lockedID))
-+}
-diff --git a/backend/internal/transport/http/handler/dto/group_localize.go b/backend/internal/transport/http/handler/dto/group_localize.go
-new file mode 100644
-index 000000000..6a9ce7d8f
---- /dev/null
-+++ b/backend/internal/transport/http/handler/dto/group_localize.go
-@@ -0,0 +1,49 @@
-+package dto
-+
-+// 用户侧接口在输出前调用 Localized：把分组的名称与描述换成请求首选语言
-+// （Accept-Language）的版本，并去掉译文表。管理端接口不调用，保留原字段与译文表，
-+// 分组编辑表单依赖原字段回写。
-+
-+// Localized 就地本地化分组并返回自身。
-+func (g *Group) Localized(acceptLanguage string) *Group {
-+	if g == nil {
-+		return nil
-+	}
-+	g.Name, g.Description = g.I18n.Localize(acceptLanguage, g.Name, g.Description)
-+	g.I18n = nil
-+	return g
-+}
-+
-+// Localized 本地化 API Key 所属分组并返回自身。
-+func (k *APIKey) Localized(acceptLanguage string) *APIKey {
-+	if k != nil {
-+		k.Group.Localized(acceptLanguage)
-+	}
-+	return k
-+}
-+
-+// Localized 本地化兑换码关联分组并返回自身。
-+func (r *RedeemCode) Localized(acceptLanguage string) *RedeemCode {
-+	if r != nil {
-+		r.Group.Localized(acceptLanguage)
-+	}
-+	return r
-+}
-+
-+// Localized 本地化使用记录关联的分组（含其 API Key 与订阅各自携带的分组）并返回自身。
-+func (l *UsageLog) Localized(acceptLanguage string) *UsageLog {
-+	if l != nil {
-+		l.Group.Localized(acceptLanguage)
-+		l.APIKey.Localized(acceptLanguage)
-+		l.Subscription.Localized(acceptLanguage)
-+	}
-+	return l
-+}
-+
-+// Localized 本地化订阅关联分组并返回自身。
-+func (s *UserSubscription) Localized(acceptLanguage string) *UserSubscription {
-+	if s != nil {
-+		s.Group.Localized(acceptLanguage)
-+	}
-+	return s
-+}
-diff --git a/backend/migrations/248_group_i18n.sql b/backend/migrations/248_group_i18n.sql
-new file mode 100644
-index 000000000..2e0ab2c63
---- /dev/null
-+++ b/backend/migrations/248_group_i18n.sql
-@@ -0,0 +1,5 @@
-+ALTER TABLE groups
-+    ADD COLUMN IF NOT EXISTS i18n JSONB NOT NULL DEFAULT '{}'::jsonb;
-+
-+COMMENT ON COLUMN groups.i18n IS
-+    'Per-locale display text for the group: {"<locale>":{"name":string,"description":string}}; locales or fields that are absent fall back to groups.name / groups.description';
 diff --git a/frontend/src/features/admin-groups/presentation/widgets/GroupI18nField.vue b/frontend/src/features/admin-groups/presentation/widgets/GroupI18nField.vue
 new file mode 100644
 index 000000000..7ab6feb21
@@ -2897,3 +2877,438 @@ index 000000000..7ab6feb21
 +  document.removeEventListener('click', handleClickOutside)
 +})
 +</script>
+diff --git a/frontend/src/features/admin-groups/presentation/widgets/GroupRPMOverridesDialog.vue b/frontend/src/features/admin-groups/presentation/widgets/GroupRPMOverridesDialog.vue
+index 3ad8e42c3..eca359fb6 100644
+--- a/frontend/src/features/admin-groups/presentation/widgets/GroupRPMOverridesDialog.vue
++++ b/frontend/src/features/admin-groups/presentation/widgets/GroupRPMOverridesDialog.vue
+@@ -254,6 +254,7 @@ const currentPage = ref(1)
+ const pageSize = ref(10)
+ 
+ let searchTimeout: ReturnType<typeof setTimeout>
++let loadVersion = 0
+ 
+ const platformColorClass = computed(() => {
+   switch (props.group?.platform) {
+@@ -281,16 +282,22 @@ const cloneEntries = (entries: GroupRPMOverrideEntry[]): LocalEntry[] => {
+ 
+ const loadEntries = async () => {
+   if (!props.group) return
++  const version = loadVersion
+   loading.value = true
++  serverEntries.value = []
++  localEntries.value = []
+   try {
+-    serverEntries.value = await getGroupRPMOverrides(props.group.id)
++    const entries = await getGroupRPMOverrides(props.group.id)
++    if (version !== loadVersion) return
++    serverEntries.value = entries
+     localEntries.value = cloneEntries(serverEntries.value)
+     adjustPage()
+   } catch (error) {
++    if (version !== loadVersion) return
+     appStore.showError(t('admin.groups.failedToLoad'))
+     console.error('Error loading RPM overrides:', error)
+   } finally {
+-    loading.value = false
++    if (version === loadVersion) loading.value = false
+   }
+ }
+ 
+@@ -299,8 +306,9 @@ const adjustPage = () => {
+   if (currentPage.value > totalPages) currentPage.value = totalPages
+ }
+ 
+-watch(() => props.show, (val) => {
+-  if (val && props.group) {
++watch([() => props.show, () => props.group?.id], ([show]) => {
++  loadVersion++
++  if (show && props.group) {
+     currentPage.value = 1
+     searchQuery.value = ''
+     searchResults.value = []
+@@ -431,6 +439,7 @@ if (typeof document !== 'undefined') {
+   document.addEventListener('click', handleClickOutside)
+ }
+ onUnmounted(() => {
++  loadVersion++
+   clearTimeout(searchTimeout)
+   document.removeEventListener('click', handleClickOutside)
+ })
+diff --git a/frontend/src/features/admin-groups/presentation/widgets/GroupRateMultipliersDialog.vue b/frontend/src/features/admin-groups/presentation/widgets/GroupRateMultipliersDialog.vue
+index 7f181a3b2..b55e31f8e 100644
+--- a/frontend/src/features/admin-groups/presentation/widgets/GroupRateMultipliersDialog.vue
++++ b/frontend/src/features/admin-groups/presentation/widgets/GroupRateMultipliersDialog.vue
+@@ -431,7 +431,7 @@ const updateLocalRate = (userId: number, value: string) => {
+     return
+   }
+   const num = parseFloat(value)
+-  if (isNaN(num)) return
++  if (!Number.isFinite(num) || num <= 0) return
+   entry.rate_multiplier = num
+ }
+ 
+diff --git a/frontend/src/features/admin-ops/README.md b/frontend/src/features/admin-ops/README.md
+index 91770dce2..471f80103 100644
+--- a/frontend/src/features/admin-ops/README.md
++++ b/frontend/src/features/admin-ops/README.md
+@@ -28,6 +28,8 @@
+ 
+ 验证入口：
+ 
++请求明细的 `account_name` 来自当前分页 SQL 的现有账号关联；页面无需加载全量账号，混合版本响应没有名称时显示 `#account_id`。本地时间控件只在提交时转为 UTC。
++
+ ```sh
+ pnpm exec vitest run src/features/admin-ops
+ pnpm run typecheck
+diff --git a/frontend/src/features/admin-ops/data/dtos/opsLogDtos.ts b/frontend/src/features/admin-ops/data/dtos/opsLogDtos.ts
+index 2153a1b2c..132a96b72 100644
+--- a/frontend/src/features/admin-ops/data/dtos/opsLogDtos.ts
++++ b/frontend/src/features/admin-ops/data/dtos/opsLogDtos.ts
+@@ -23,6 +23,7 @@ export interface OpsRequestDetail {
+   user_id?: number | null
+   api_key_id?: number | null
+   account_id?: number | null
++  account_name?: string | null
+   group_id?: number | null
+ 
+   stream?: boolean
+diff --git a/frontend/src/features/admin-ops/presentation/widgets/OpsDashboardToolbar.vue b/frontend/src/features/admin-ops/presentation/widgets/OpsDashboardToolbar.vue
+index 088058974..ba75c5d7e 100644
+--- a/frontend/src/features/admin-ops/presentation/widgets/OpsDashboardToolbar.vue
++++ b/frontend/src/features/admin-ops/presentation/widgets/OpsDashboardToolbar.vue
+@@ -1,6 +1,7 @@
+ <script setup lang="ts">
+ import { computed, onMounted, ref, watch } from 'vue'
+ import { useI18n } from 'vue-i18n'
++import { formatDateTimeLocalInput } from '@/core/utils/format'
+ import Select from '@/common/widgets/forms/Select.vue'
+ import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
+ import { getAll as getAllGroups } from '@/features/admin-groups/data/datasources/adminGroupQueries'
+@@ -136,8 +137,8 @@ function handleTimeRangeChange(val: string | number | boolean | null) {
+     // 初始化为最近1小时
+     const now = new Date()
+     const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000)
+-    customStartTimeInput.value = oneHourAgo.toISOString().slice(0, 16)
+-    customEndTimeInput.value = now.toISOString().slice(0, 16)
++    customStartTimeInput.value = formatDateTimeLocalInput(oneHourAgo.getTime() / 1000)
++    customEndTimeInput.value = formatDateTimeLocalInput(now.getTime() / 1000)
+     showCustomTimeRangeDialog.value = true
+   } else {
+     emit('update:timeRange', newValue)
+diff --git a/frontend/src/features/admin-ops/presentation/widgets/OpsRequestDetailsDialog.vue b/frontend/src/features/admin-ops/presentation/widgets/OpsRequestDetailsDialog.vue
+index 2c490ae93..629ebcc74 100644
+--- a/frontend/src/features/admin-ops/presentation/widgets/OpsRequestDetailsDialog.vue
++++ b/frontend/src/features/admin-ops/presentation/widgets/OpsRequestDetailsDialog.vue
+@@ -147,6 +147,10 @@ const kindBadgeClass = (kind: string) => {
+   if (kind === 'error') return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+   return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+ }
++function accountLabel(row: OpsRequestDetail): string {
++  if (typeof row.account_id !== 'number' || row.account_id <= 0) return '-'
++  return row.account_name?.trim() || `#${row.account_id}`
++}
+ </script>
+ 
+ <template>
+@@ -200,6 +204,9 @@ const kindBadgeClass = (kind: string) => {
+                     <span class="ml-auto text-[11px] text-gray-500 dark:text-gray-400">{{ formatDateTime(row.created_at) }}</span>
+                   </div>
+                   <div class="break-all text-xs text-gray-600 dark:text-gray-300">{{ row.model || '-' }}</div>
++                  <div v-if="row.account_id && row.account_id > 0" class="break-all text-xs text-gray-500 dark:text-gray-400" :title="accountLabel(row)">
++                    {{ t('admin.ops.requestDetails.table.account') }}: {{ accountLabel(row) }}
++                  </div>
+                   <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-300">
+                     <span>{{ typeof row.duration_ms === 'number' ? `${row.duration_ms} ms` : '-' }}</span>
+                     <span>{{ row.status_code ?? '-' }}</span>
+@@ -239,6 +246,9 @@ const kindBadgeClass = (kind: string) => {
+                   <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                     {{ t('admin.ops.requestDetails.table.model') }}
+                   </th>
++                  <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
++                    {{ t('admin.ops.requestDetails.table.account') }}
++                  </th>
+                   <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                     {{ showsTTFT ? t('admin.ops.requestDetails.table.ttft') : t('admin.ops.requestDetails.table.duration') }}
+                   </th>
+@@ -269,6 +279,9 @@ const kindBadgeClass = (kind: string) => {
+                   <td class="max-w-[240px] truncate px-4 py-3 text-xs text-gray-600 dark:text-gray-300" :title="row.model || ''">
+                     {{ row.model || '-' }}
+                   </td>
++                  <td class="max-w-[180px] truncate px-4 py-3 text-xs text-gray-600 dark:text-gray-300" :title="accountLabel(row)">
++                    {{ accountLabel(row) }}
++                  </td>
+                   <td
+                     class="whitespace-nowrap px-4 py-3 text-xs tabular-nums text-gray-600 dark:text-gray-300"
+                     :title="formatExactDurationMs(showsTTFT ? row.first_token_ms : row.duration_ms)"
+diff --git a/frontend/src/features/billing/presentation/pages/PaymentQRCodePage.vue b/frontend/src/features/billing/presentation/pages/PaymentQRCodePage.vue
+index cdd5cda9a..f9afe2cae 100644
+--- a/frontend/src/features/billing/presentation/pages/PaymentQRCodePage.vue
++++ b/frontend/src/features/billing/presentation/pages/PaymentQRCodePage.vue
+@@ -157,12 +157,13 @@ async function pollStatus() {
+ 
+ function startCountdown(seconds: number) {
+   remainingSeconds.value = Math.max(0, seconds)
++  const deadline = Date.now() + remainingSeconds.value * 1000
+   if (remainingSeconds.value <= 0) {
+     expired.value = true
+     return
+   }
+   countdownTimer = setInterval(() => {
+-    remainingSeconds.value--
++    remainingSeconds.value = Math.max(0, Math.floor((deadline - Date.now()) / 1000))
+     if (remainingSeconds.value <= 0) {
+       expired.value = true
+       cleanup()
+diff --git a/frontend/src/features/billing/presentation/widgets/PaymentQRDialog.vue b/frontend/src/features/billing/presentation/widgets/PaymentQRDialog.vue
+index d6060ad12..a06469ef0 100644
+--- a/frontend/src/features/billing/presentation/widgets/PaymentQRDialog.vue
++++ b/frontend/src/features/billing/presentation/widgets/PaymentQRDialog.vue
+@@ -234,12 +234,13 @@ async function tryRecoverPendingOrder(order: PaymentOrder): Promise<PaymentOrder
+ 
+ function startCountdown(seconds: number) {
+   remainingSeconds.value = Math.max(0, seconds)
++  const deadline = Date.now() + remainingSeconds.value * 1000
+   if (remainingSeconds.value <= 0) {
+     expired.value = true
+     return
+   }
+   countdownTimer = setInterval(() => {
+-    remainingSeconds.value--
++    remainingSeconds.value = Math.max(0, Math.floor((deadline - Date.now()) / 1000))
+     if (remainingSeconds.value <= 0) {
+       expired.value = true
+       cleanup()
+diff --git a/frontend/src/features/billing/presentation/widgets/PaymentStatusPanel.vue b/frontend/src/features/billing/presentation/widgets/PaymentStatusPanel.vue
+index 33aa522b3..3d082bfa0 100644
+--- a/frontend/src/features/billing/presentation/widgets/PaymentStatusPanel.vue
++++ b/frontend/src/features/billing/presentation/widgets/PaymentStatusPanel.vue
+@@ -450,9 +450,10 @@ async function pollStatus() {
+ 
+ function startCountdown(seconds: number) {
+   remainingSeconds.value = Math.max(0, seconds)
++  const deadline = Date.now() + remainingSeconds.value * 1000
+   if (remainingSeconds.value <= 0) { setOutcome('expired'); return }
+   countdownTimer = setInterval(() => {
+-    remainingSeconds.value--
++    remainingSeconds.value = Math.max(0, Math.floor((deadline - Date.now()) / 1000))
+     if (remainingSeconds.value <= 0) { setOutcome('expired'); cleanup() }
+   }, 1000)
+ }
+diff --git a/frontend/src/features/channels-user/presentation/pages/ChannelStatusPage.vue b/frontend/src/features/channels-user/presentation/pages/ChannelStatusPage.vue
+index 0c2a140f7..64c81d474 100644
+--- a/frontend/src/features/channels-user/presentation/pages/ChannelStatusPage.vue
++++ b/frontend/src/features/channels-user/presentation/pages/ChannelStatusPage.vue
+@@ -8,7 +8,7 @@
+       :auto-refresh="autoRefresh"
+       :show-share-button="showShareButton"
+       @update:window="handleWindowChange"
+-      @refresh="manualReload"
++      @refresh="refresh()"
+       @copy-share-link="copyShareLink"
+     />
+ 
+@@ -70,7 +70,7 @@ const autoRefresh = useAutoRefresh({
+   storageKey: 'channel-status-auto-refresh',
+   intervals: [30, 60, 120] as const,
+   defaultInterval: DEFAULT_INTERVAL_SECONDS,
+-  onRefresh: () => reload(true),
++  onRefresh: () => refresh(true),
+   shouldPause: () => document.hidden || loading.value,
+ })
+ const countdown = autoRefresh.countdown
+@@ -115,8 +115,8 @@ async function reload(silent = false) {
+   }
+ }
+ 
+-async function manualReload() {
+-  await reload(false)
++async function refresh(silent = false) {
++  await reload(silent)
+   if (currentWindow.value !== '7d') {
+     await loadDetails(items.value.map(it => it.id), true)
+   }
+diff --git a/frontend/src/types/group.ts b/frontend/src/types/group.ts
+index d63bee25b..5abf29497 100644
+--- a/frontend/src/types/group.ts
++++ b/frontend/src/types/group.ts
+@@ -1,3 +1,9 @@
++export interface GroupLocaleText {
++  name?: string
++  description?: string
++}
++export type GroupI18n = Record<string, GroupLocaleText>
++
+ import type { BillingMode } from '@/core/constants/channel'
+ 
+ export type GroupPlatform =
+diff --git a/backend/internal/application/service/openai_subscription_long_context_billing_test.go b/backend/internal/application/service/openai_subscription_long_context_billing_test.go
+new file mode 100644
+index 000000000..cfef45ac4
+--- /dev/null
++++ b/backend/internal/application/service/openai_subscription_long_context_billing_test.go
+@@ -0,0 +1,76 @@
++//go:build unit
++
++package service
++
++import (
++	"context"
++	"fmt"
++	"testing"
++	"time"
++
++	"github.com/stretchr/testify/require"
++)
++
++func TestRecordUsageSubscriptionLongContextBillingMatrix(t *testing.T) {
++	for _, kind := range []string{AccountTypeOAuth, AccountTypeSetupToken, AccountTypeAPIKey} {
++		for _, grouped := range []string{"none", "enabled", "disabled"} {
++			for _, enabled := range []bool{false, true} {
++				for _, tier := range []string{"", "priority"} {
++					name := fmt.Sprintf("%s/group=%s/account=%t/tier=%s", kind, grouped, enabled, tier)
++					t.Run(name, func(t *testing.T) {
++						logs := &openAIRecordUsageLogRepoStub{inserted: true}
++						users := &openAIRecordUsageUserRepoStub{}
++						svc := newOpenAIRecordUsageServiceForTest(logs, users, &openAIRecordUsageSubRepoStub{}, nil)
++						key := &APIKey{ID: 1}
++						if grouped != "none" {
++							id := int64(7)
++							key.GroupID = &id
++							key.Group = &Group{ID: id, Platform: PlatformOpenAI, RateMultiplier: 1.1,
++								LongContextPricingEnabled: grouped == "enabled", Hydrated: true}
++							svc.resolver = NewModelPricingResolver(nil, svc.billingService)
++						}
++						account := &Account{ID: 3, Platform: PlatformOpenAI, Type: kind,
++							Extra: map[string]any{openAILongContextBillingEnabledKey: enabled}}
++						err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
++							Result: &OpenAIForwardResult{RequestID: name, Model: "gpt-6.1-sol", UpstreamModel: "gpt-6.1-sol",
++								ServiceTier: &tier, Duration: time.Second,
++								Usage: OpenAIUsage{InputTokens: 300000, OutputTokens: 2000, CacheReadInputTokens: 80000, CacheCreationInputTokens: 20000}},
++							APIKey: key, User: &User{ID: 2}, Account: account,
++						})
++						require.NoError(t, err)
++						long := kind == AccountTypeAPIKey && enabled && grouped != "disabled"
++						inputFactor, outputFactor, tierFactor := 1.0, 1.0, 1.0
++						if long {
++							inputFactor, outputFactor = 2, 1.5
++						}
++						if tier == "priority" {
++							tierFactor = 2
++						}
++						require.Equal(t, long, logs.lastLog.LongContextBillingApplied)
++						want := (200000*2e-6*inputFactor + 80000*0.1e-6*inputFactor + 20000*2.5e-6*inputFactor + 2000*10e-6*outputFactor) * tierFactor
++						require.InDelta(t, want, logs.lastLog.TotalCost, 1e-12)
++						require.InDelta(t, want*1.1, logs.lastLog.ActualCost, 1e-12)
++						require.Equal(t, 1, users.deductCalls)
++					})
++				}
++			}
++		}
++	}
++}
++
++func TestSubscriptionLongContextExemptionPreservesCustomIntervals(t *testing.T) {
++	bs := newTestBillingService()
++	resolver := NewModelPricingResolver(nil, bs)
++	resolved := &ResolvedPricing{Mode: BillingModeToken, Source: PricingSourceGroup,
++		BasePricing: &ModelPricing{InputPricePerToken: 1e-6, OutputPricePerToken: 2e-6},
++		Intervals:   []PricingInterval{{MinTokens: 272000, InputPrice: testPtrFloat64(7e-6), OutputPrice: testPtrFloat64(14e-6)}}}
++	for _, exempt := range []bool{false, true} {
++		cost, err := bs.CalculateCostUnified(CostInput{
++			Ctx: context.Background(), Model: "gpt-6.1-sol", Tokens: UsageTokens{InputTokens: 300000, OutputTokens: 2000},
++			RateMultiplier: 1, Resolver: resolver, Resolved: resolved, DisableModelLongContextPricing: exempt,
++		})
++		require.NoError(t, err)
++		require.InDelta(t, 2.128, cost.TotalCost, 1e-12)
++		require.False(t, cost.LongContextBillingApplied)
++	}
++}
+diff --git a/backend/internal/application/service/subscription_progress.go b/backend/internal/application/service/subscription_progress.go
+new file mode 100644
+index 000000000..f97764d97
+--- /dev/null
++++ b/backend/internal/application/service/subscription_progress.go
+@@ -0,0 +1,26 @@
++package service
++
++import "time"
++
++// SubscriptionProgress 订阅进度；分组译文仅供传输层选取展示名称。
++type SubscriptionProgress struct {
++	ID            int64                `json:"id"`
++	GroupName     string               `json:"group_name"`
++	GroupI18n     GroupI18n            `json:"-"`
++	ExpiresAt     time.Time            `json:"expires_at"`
++	ExpiresInDays int                  `json:"expires_in_days"`
++	Daily         *UsageWindowProgress `json:"daily,omitempty"`
++	Weekly        *UsageWindowProgress `json:"weekly,omitempty"`
++	Monthly       *UsageWindowProgress `json:"monthly,omitempty"`
++}
++
++// UsageWindowProgress 使用窗口进度
++type UsageWindowProgress struct {
++	LimitUSD        float64   `json:"limit_usd"`
++	UsedUSD         float64   `json:"used_usd"`
++	RemainingUSD    float64   `json:"remaining_usd"`
++	Percentage      float64   `json:"percentage"`
++	WindowStart     time.Time `json:"window_start"`
++	ResetsAt        time.Time `json:"resets_at"`
++	ResetsInSeconds int64     `json:"resets_in_seconds"`
++}
+diff --git a/docs/UPSTREAM_SYNC_20261012.md b/docs/UPSTREAM_SYNC_20261012.md
+new file mode 100644
+index 000000000..56f7191e0
+--- /dev/null
++++ b/docs/UPSTREAM_SYNC_20261012.md
+@@ -0,0 +1,51 @@
++# 上游主线同步审查（2026-10-12）
++
++本轮从下游 `73469a9062b3e7f8df31d22b42c1507a843b2ae9` 出发，冻结上游
++`ab80abc6d1f929a6864c8804fd077b509d21fda2`。审查在独立可写副本完成，保留当前
++`transport -> application -> domain -> infrastructure` owner；上游旧目录不会覆盖本项目的模块边界。
++
++## PR 台账
++
++| 上游 PR | 决定 | 当前 owner / 说明 |
++| --- | --- | --- |
++| #7982 | 已覆盖 | 当前嵌入式前端测试已经使用发布资源路径；没有重复引入旧 `internal/web` 测试树。 |
++| #7983 | 已移植 | `admin-accounts` 的 `AccountGroupsCell` 与共享 `GroupBadge` 支持完整名称换行，默认截断行为保留。 |
++| #7974 | 已移植 | Gemini OAuth composable 通过 `extractApiErrorMessage` 保留服务端错误，兼容旧错误回退。 |
++| #7973 | 已移植 | `channels-user/ChannelStatusPage` 的自动刷新也刷新非 7 天详情缓存；7 天路径仍只请求列表。 |
++| #7972 | 已移植 | 分组用户倍率只接受有限且大于零的数字；清空输入仍表示删除覆盖值。 |
++| #7970 | 已移植 | 共享 Select 在 IME composition 期间让输入法处理按键。 |
++| #7969 | 已移植 | 运维自定义时间范围使用本地时间控件，提交时只做一次 UTC 转换。 |
++| #7933 | 已移植并重构 | 运维请求明细在已有 success/error CTE 中投影 `account_name`，避免前端分页拉取全量账号或逐行请求；移动端和桌面端均显示回退的 `#account_id`。 |
++| #7738 | 暂缓 | 当前 `admin-channel-monitor` 没有上游 v2 平台配置 owner；启用前需要明确配置快照、模型目录和滚动升级契约。 |
++| #7717 | 已移植 | 支付倒计时以 deadline 计算，后台切换或定时器漂移不会延长订单有效期。 |
++| #7696 | 已移植 | 账号用量倒计时在页面重新可见时刷新；不增加后台轮询。 |
++| #7711 | 已移植并重构 | 审核分组写入按 group 行再 settings 行加锁，删除在同一事务清理 `group_ids`；旧的非法 JSON 设置保持可删除。 |
++| #7649 | 已移植 | Codex hosted image bridge 仅对 OpenAI 平台账号开启，Kimi/DeepSeek/MiniMax 原生 Responses 保持原请求。 |
++| #8002 | 已移植 | RPM 覆盖列表使用请求版本号丢弃关闭弹窗或切换分组后的旧响应。 |
++| #8036 | 已移植并重构 | GPT-6.1 Sol 的模型长上下文附加费只对 OAuth/Setup Token 按最终发送模型豁免；API Key 和分组自定义区间价格保持原规则。 |
++| #8033 | 暂缓 | 当前 owner 是上游 manifest 透传与账号映射，没有旧树的静态 `configuredCodexModelDescriptor`；新增 500k 默认值需先建立目录快照、显式元数据优先级和回退矩阵。 |
++| #7960 | 已移植并重构 | 分组名称/描述多语言进入 domain/application/transport owner，迁移使用本项目下一个编号 `248`；管理端保留 `i18n`，用户端按 `Accept-Language` 输出，缺失译文回退默认字段。 |
++
++已移植差异写入 `diagnostics/upstream-sync-20261012/UPSTREAM_PRS.json`，原始 diff SHA 和重开条件保存在同一台账。#7618、#7939 以及此前的搜索历史、工具链和安全差异沿用 2026-10-09 的关闭记录，不重复重做；只有发生新的上游行为或当前 owner 出现回归时才重开。
++
++## 性能与兼容边界
++
++账号名称由请求明细的已有 SQL CTE 一次投影，复用已有关联，只增加账号名称列的投影，不引入 N+1 请求。多语言只在传输输出阶段做有界 map 查找，不参与调度、计费、搜索或分组唯一性。长上下文豁免只传递一个布尔策略到已有计费入口，不重新解析定价。RPM 版本号和支付 deadline 都是 O(1) 的请求状态检查。
++
++相同 Docker Go 1.26.9、linux/arm64、GOMAXPROCS=2，常规计费解析 benchmark 三轮中位数从 `732.5ns` 到 `659.5ns`，均为 `209B / 9 allocs`；未观察到分配增长或大幅时间回退，不据此宣称全网关吞吐提升。订阅豁免判断中位数 `19.05ns / 0B / 0 allocs`。36 个实际 RecordUsage 场景验证 OAuth/Setup Token/API Key、分组与账号开关、priority、缓存 token 和扣款；另验证管理员自定义区间价格不被豁免改变。
++
++分组迁移只增加 带空对象默认值的 JSONB 列，使用 `IF NOT EXISTS`；旧节点忽略新列，新的读路径对缺失译文回退原字段。审核配置写入和组删除使用相同的 group → settings 锁顺序，避免跨实例竞态；非法历史 JSON 不会阻塞组删除。
++
++## Docker 与回退验证
++
++候选与基线均从完整源码树构建。基线生产镜像构建通过；候选前端 builder 和完整生产镜像在最终提交前重建。Docker Go 聚焦测试覆盖多语言规范化、GPT-6.1 Sol 凭据类型边界、非 OpenAI image bridge、审核分组和运维账号投影。
++
++前端候选关键目录测试为 `843/844`，唯一失败是现有 `admin-accounts/presentation/widgets/CreateAccountDialog.vue` 的 1512 行维护门禁；同一测试在干净基线也是 `1512 > 1500`。后端布局检查同样在基线和候选都报告既有 `payment_fulfillment_test.go` 1201 行、`pricing_service.go` 1238 行。本轮没有为无关门禁扩大范围。候选生产构建、全量 Go unit、前端 lint 和审核分组 integration 测试通过。升级/回退使用同一 PostgreSQL/Redis 数据快照，验证旧镜像启动、候选镜像启动、回到旧镜像以及再次升级后的登录、API Key、旧订单和已存在的迁移不会减少，新增迁移只应用一次；详细 stdout/stderr、退出码和哈希见 `diagnostics/upstream-sync-20261012/VERIFICATION.txt`。
++
++本轮不删除现有数据库 CHECK 约束，不改公开协议必填字段，不把上游 tracking merge 当作新平台已实现。重新启用 #7738 或 #8033 前应先补齐对应 owner、快照缓存和混合版本部署矩阵。
++
++浏览器 fixture 在 320、375、1440 宽度与中英文下复现基线的名称截断和 `+2` 被裁切；候选完整换行且按钮可见，无水平溢出。独立回退副本重现基线行为。候选译文编辑保持默认名称，并将既有 `data-tour` 属性透传到真实输入控件。
++
++最终复核把普通删除从共享锁升级方式改成直接 `FOR UPDATE`，真实 PostgreSQL 并发删除与“删除期间写配置”都通过；分组译文保存、旧字段编辑保留译文和空 map 清除测试通过。文档已加入 `.gitignore` 例外，主线索引不再指向仅存在于本地的文件。源码归档以固定初始 SHA 重建，并独立执行补丁应用、回退、哈希比较与重施。
++
++本项目单条订阅进度接口也应用相同的名称译文，不新增查库；进度值从已加载分组带出仅内部使用的 map，JSON 不输出译文表。Docker 混合版本矩阵验证单条进度与分组列表均为“旧版本默认名 → 新版本英文名 → 回退默认名 → 再升级英文名”，旧版本修改默认描述不会清除已有译文。
