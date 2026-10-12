@@ -214,7 +214,7 @@ type SystemSettings struct {
 	// Channel Monitor feature
 	ChannelMonitorEnabled                bool   `json:"channel_monitor_enabled"`
 	ChannelMonitorDefaultIntervalSeconds int    `json:"channel_monitor_default_interval_seconds"`
-	ChannelMonitorTimelinePoints        int    `json:"channel_monitor_timeline_points"`
+	ChannelMonitorTimelinePoints         int    `json:"channel_monitor_timeline_points"`
 	ChannelMonitorLatencyUnit            string `json:"channel_monitor_latency_unit"`
 	ChannelMonitorPublicShareEnabled     bool   `json:"channel_monitor_public_share_enabled"`
 	ChannelMonitorPublicShareRequireAuth bool   `json:"channel_monitor_public_share_require_auth"`
@@ -435,7 +435,7 @@ type PublicSettings struct {
 	// Channel Monitor feature
 	ChannelMonitorEnabled                bool   `json:"channel_monitor_enabled"`
 	ChannelMonitorDefaultIntervalSeconds int    `json:"channel_monitor_default_interval_seconds"`
-	ChannelMonitorTimelinePoints        int    `json:"channel_monitor_timeline_points"`
+	ChannelMonitorTimelinePoints         int    `json:"channel_monitor_timeline_points"`
 	ChannelMonitorLatencyUnit            string `json:"channel_monitor_latency_unit"`
 	ChannelMonitorPublicShareEnabled     bool   `json:"channel_monitor_public_share_enabled"`
 	ChannelMonitorPublicShareRequireAuth bool   `json:"channel_monitor_public_share_require_auth"`

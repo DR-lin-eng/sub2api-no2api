@@ -64,7 +64,7 @@ import MonitorHero, {
 import MonitorCardGrid from '@/features/channel-monitor-user/presentation/widgets/MonitorCardGrid.vue'
 import MonitorDetailDialog from '@/features/channel-monitor-user/presentation/widgets/MonitorDetailDialog.vue'
 import { DEFAULT_INTERVAL_SECONDS, STATUS_OPERATIONAL } from '@/core/constants/channelMonitor'
-import { useChannelMonitorFormat } from '@/features/channel-monitor-user/presentation/composables/useChannelMonitorFormat'
+import { useChannelMonitorFormat } from '@/features/channel-monitor-user'
 import { useAutoRefresh } from '@/common/composables/useAutoRefresh'
 
 const { t } = useI18n()

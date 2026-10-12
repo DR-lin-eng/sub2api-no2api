@@ -195,7 +195,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		// Channel monitor defaults (enabled, 60s)
 		SettingKeyChannelMonitorEnabled:                "true",
 		SettingKeyChannelMonitorDefaultIntervalSeconds: "60",
-		SettingKeyChannelMonitorTimelinePoints:          "20",
+		SettingKeyChannelMonitorTimelinePoints:         "20",
 		SettingKeyChannelMonitorLatencyUnit:            "ms",
 		SettingKeyChannelMonitorPublicShareEnabled:     "false",
 		SettingKeyChannelMonitorPublicShareRequireAuth: "false",

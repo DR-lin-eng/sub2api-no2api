@@ -109,7 +109,7 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 
 		ChannelMonitorEnabled:                settings.ChannelMonitorEnabled,
 		ChannelMonitorDefaultIntervalSeconds: settings.ChannelMonitorDefaultIntervalSeconds,
-		ChannelMonitorTimelinePoints:        settings.ChannelMonitorTimelinePoints,
+		ChannelMonitorTimelinePoints:         settings.ChannelMonitorTimelinePoints,
 		ChannelMonitorLatencyUnit:            settings.ChannelMonitorLatencyUnit,
 		ChannelMonitorPublicShareEnabled:     settings.ChannelMonitorPublicShareEnabled,
 		ChannelMonitorPublicShareRequireAuth: settings.ChannelMonitorPublicShareRequireAuth,

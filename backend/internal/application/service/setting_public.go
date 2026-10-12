@@ -374,7 +374,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 
 		ChannelMonitorEnabled:                !isFalseSettingValue(settings[SettingKeyChannelMonitorEnabled]),
 		ChannelMonitorDefaultIntervalSeconds: parseChannelMonitorInterval(settings[SettingKeyChannelMonitorDefaultIntervalSeconds]),
-		ChannelMonitorTimelinePoints:        parseChannelMonitorTimelinePoints(settings[SettingKeyChannelMonitorTimelinePoints]),
+		ChannelMonitorTimelinePoints:         parseChannelMonitorTimelinePoints(settings[SettingKeyChannelMonitorTimelinePoints]),
 		ChannelMonitorLatencyUnit:            normalizeChannelMonitorLatencyUnit(settings[SettingKeyChannelMonitorLatencyUnit]),
 		ChannelMonitorPublicShareEnabled:     settings[SettingKeyChannelMonitorPublicShareEnabled] == "true",
 		ChannelMonitorPublicShareRequireAuth: settings[SettingKeyChannelMonitorPublicShareRequireAuth] == "true",
@@ -727,7 +727,7 @@ type PublicSettingsInjectionPayload struct {
 	// that hid the "可用渠道" menu on page refresh.
 	ChannelMonitorEnabled                bool   `json:"channel_monitor_enabled"`
 	ChannelMonitorDefaultIntervalSeconds int    `json:"channel_monitor_default_interval_seconds"`
-	ChannelMonitorTimelinePoints        int    `json:"channel_monitor_timeline_points"`
+	ChannelMonitorTimelinePoints         int    `json:"channel_monitor_timeline_points"`
 	ChannelMonitorLatencyUnit            string `json:"channel_monitor_latency_unit"`
 	ChannelMonitorPublicShareEnabled     bool   `json:"channel_monitor_public_share_enabled"`
 	ChannelMonitorPublicShareRequireAuth bool   `json:"channel_monitor_public_share_require_auth"`
@@ -818,7 +818,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 
 		ChannelMonitorEnabled:                settings.ChannelMonitorEnabled,
 		ChannelMonitorDefaultIntervalSeconds: settings.ChannelMonitorDefaultIntervalSeconds,
-		ChannelMonitorTimelinePoints:        settings.ChannelMonitorTimelinePoints,
+		ChannelMonitorTimelinePoints:         settings.ChannelMonitorTimelinePoints,
 		ChannelMonitorLatencyUnit:            settings.ChannelMonitorLatencyUnit,
 		ChannelMonitorPublicShareEnabled:     settings.ChannelMonitorPublicShareEnabled,
 		ChannelMonitorPublicShareRequireAuth: settings.ChannelMonitorPublicShareRequireAuth,
