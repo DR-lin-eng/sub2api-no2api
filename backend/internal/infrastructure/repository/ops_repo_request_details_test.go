@@ -49,6 +49,7 @@ func TestOpsRepositoryListRequestDetailsTTFTDrilldown(t *testing.T) {
 		"account_id",
 		"group_id",
 		"stream",
+		"account_name",
 	}).AddRow(
 		"success",
 		createdAt,
@@ -67,6 +68,7 @@ func TestOpsRepositoryListRequestDetailsTTFTDrilldown(t *testing.T) {
 		int64(3),
 		int64(4),
 		true,
+		"test-account",
 	)
 
 	mock.ExpectQuery(`(?s)FROM combined\s+WHERE kind = \$3 AND first_token_ms IS NOT NULL\s+ORDER BY first_token_ms DESC NULLS LAST, created_at DESC\s+LIMIT \$4 OFFSET \$5`).
@@ -78,6 +80,7 @@ func TestOpsRepositoryListRequestDetailsTTFTDrilldown(t *testing.T) {
 	require.Equal(t, int64(1), total)
 	require.Len(t, items, 1)
 	require.Equal(t, "req-ttft", items[0].RequestID)
+	require.Equal(t, "test-account", items[0].AccountName)
 	require.NotNil(t, items[0].FirstTokenMs)
 	require.Equal(t, 450, *items[0].FirstTokenMs)
 	require.NotNil(t, items[0].DurationMs)

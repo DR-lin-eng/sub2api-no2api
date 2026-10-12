@@ -147,6 +147,10 @@ const kindBadgeClass = (kind: string) => {
   if (kind === 'error') return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
   return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
 }
+function accountLabel(row: OpsRequestDetail): string {
+  if (typeof row.account_id !== 'number' || row.account_id <= 0) return '-'
+  return row.account_name?.trim() || `#${row.account_id}`
+}
 </script>
 
 <template>
@@ -200,6 +204,9 @@ const kindBadgeClass = (kind: string) => {
                     <span class="ml-auto text-[11px] text-gray-500 dark:text-gray-400">{{ formatDateTime(row.created_at) }}</span>
                   </div>
                   <div class="break-all text-xs text-gray-600 dark:text-gray-300">{{ row.model || '-' }}</div>
+                  <div v-if="row.account_id && row.account_id > 0" class="break-all text-xs text-gray-500 dark:text-gray-400" :title="accountLabel(row)">
+                    {{ t('admin.ops.requestDetails.table.account') }}: {{ accountLabel(row) }}
+                  </div>
                   <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-300">
                     <span>{{ typeof row.duration_ms === 'number' ? `${row.duration_ms} ms` : '-' }}</span>
                     <span>{{ row.status_code ?? '-' }}</span>
@@ -240,6 +247,9 @@ const kindBadgeClass = (kind: string) => {
                     {{ t('admin.ops.requestDetails.table.model') }}
                   </th>
                   <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    {{ t('admin.ops.requestDetails.table.account') }}
+                  </th>
+                  <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                     {{ showsTTFT ? t('admin.ops.requestDetails.table.ttft') : t('admin.ops.requestDetails.table.duration') }}
                   </th>
                   <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
@@ -268,6 +278,9 @@ const kindBadgeClass = (kind: string) => {
                   </td>
                   <td class="max-w-[240px] truncate px-4 py-3 text-xs text-gray-600 dark:text-gray-300" :title="row.model || ''">
                     {{ row.model || '-' }}
+                  </td>
+                  <td class="max-w-[180px] truncate px-4 py-3 text-xs text-gray-600 dark:text-gray-300" :title="accountLabel(row)">
+                    {{ accountLabel(row) }}
                   </td>
                   <td
                     class="whitespace-nowrap px-4 py-3 text-xs tabular-nums text-gray-600 dark:text-gray-300"

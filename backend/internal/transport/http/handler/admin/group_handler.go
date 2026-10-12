@@ -98,6 +98,7 @@ func NewGroupHandler(adminService service.AdminService, dashboardService *servic
 type CreateGroupRequest struct {
 	Name                      string                        `json:"name" binding:"required"`
 	Description               string                        `json:"description"`
+	I18n                      service.GroupI18n             `json:"i18n"`
 	Platform                  string                        `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity grok kimi zhipu deepseek minimax opencode_go typesafe composite"`
 	RateMultiplier            float64                       `json:"rate_multiplier"`
 	IsExclusive               bool                          `json:"is_exclusive"`
@@ -164,6 +165,7 @@ type CreateGroupRequest struct {
 type UpdateGroupRequest struct {
 	Name                      string                         `json:"name"`
 	Description               *string                        `json:"description"`
+	I18n                      *service.GroupI18n             `json:"i18n"`
 	Platform                  string                         `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity grok kimi zhipu deepseek minimax opencode_go typesafe composite"`
 	RateMultiplier            *float64                       `json:"rate_multiplier"`
 	IsExclusive               *bool                          `json:"is_exclusive"`
@@ -524,6 +526,7 @@ func (h *GroupHandler) Create(c *gin.Context) {
 	group, err := h.adminService.CreateGroup(c.Request.Context(), &service.CreateGroupInput{
 		Name:                            req.Name,
 		Description:                     req.Description,
+		I18n:                            req.I18n,
 		Platform:                        req.Platform,
 		RateMultiplier:                  req.RateMultiplier,
 		IsExclusive:                     req.IsExclusive,
@@ -650,6 +653,7 @@ func (h *GroupHandler) Update(c *gin.Context) {
 	group, err := h.adminService.UpdateGroup(c.Request.Context(), groupID, &service.UpdateGroupInput{
 		Name:                            req.Name,
 		Description:                     req.Description,
+		I18n:                            req.I18n,
 		Platform:                        req.Platform,
 		RateMultiplier:                  req.RateMultiplier,
 		IsExclusive:                     req.IsExclusive,

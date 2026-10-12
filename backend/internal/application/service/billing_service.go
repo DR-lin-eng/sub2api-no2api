@@ -1241,6 +1241,8 @@ type CostInput struct {
 	Resolver                  *ModelPricingResolver // 定价解析器
 	Resolved                  *ResolvedPricing      // 可选：预解析的定价结果（避免重复 Resolve 调用）
 	LongContextBillingEnabled *bool
+	// Exempts the model surcharge while preserving custom pricing intervals.
+	DisableModelLongContextPricing bool
 }
 
 // CalculateCostUnified 统一计费入口，支持三种计费模式。
@@ -1259,7 +1261,7 @@ func (s *BillingService) CalculateCostUnified(input CostInput) (*CostBreakdown, 
 			input.ImageRateMultiplier,
 			input.ServiceTier,
 			nil,
-			applyLongContextBilling,
+			applyLongContextBilling && !input.DisableModelLongContextPricing,
 		)
 	}
 
@@ -1321,7 +1323,7 @@ func (s *BillingService) calculateTokenCost(resolved *ResolvedPricing, input Cos
 	}
 
 	// 长上下文定价仅在无区间定价时应用（区间定价已包含上下文分层）
-	applyLongCtx := len(resolved.Intervals) == 0 && !resolved.longContextPricingDisabled
+	applyLongCtx := len(resolved.Intervals) == 0 && !resolved.longContextPricingDisabled && !input.DisableModelLongContextPricing
 	if input.LongContextBillingEnabled != nil {
 		applyLongCtx = applyLongCtx && *input.LongContextBillingEnabled
 	}

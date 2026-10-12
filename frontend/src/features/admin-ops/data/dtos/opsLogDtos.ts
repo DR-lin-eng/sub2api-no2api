@@ -23,6 +23,7 @@ export interface OpsRequestDetail {
   user_id?: number | null
   api_key_id?: number | null
   account_id?: number | null
+  account_name?: string | null
   group_id?: number | null
 
   stream?: boolean

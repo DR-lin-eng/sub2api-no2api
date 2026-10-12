@@ -207,6 +207,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		}
 	}
 	longContextBillingEnabled := accountLongContextBillingEnabled(billingAccount)
+	modelLongContextExempt := openAISubscriptionLongContextExempt(billingAccount, result)
 	costResolution, err = s.calculateOpenAIRecordUsageCostWithResolution(
 		ctx,
 		result,
@@ -219,6 +220,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		tokens,
 		serviceTier,
 		longContextBillingEnabled,
+		modelLongContextExempt,
 	)
 	if costResolution.Cost != nil {
 		cost = costResolution.Cost
@@ -261,6 +263,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 					tokens,
 					serviceTier,
 					longContextBillingEnabled,
+					modelLongContextExempt,
 					responsePricing,
 				)
 				if responseErr == nil && responseModelBillingAdoptable(
@@ -416,7 +419,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	if apiKey.GroupID != nil {
 		applyAccountStatsCost(ctx, usageLog, s.channelService, s.billingService,
 			account.ID, *apiKey.GroupID, result.UpstreamModel, result.Model,
-			tokens, cost.TotalCost, longContextBillingEnabled,
+			tokens, cost.TotalCost, longContextBillingEnabled && !modelLongContextExempt,
 		)
 	}
 
@@ -479,6 +482,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCostWithResolution(
 	tokens UsageTokens,
 	serviceTier string,
 	longContextBillingEnabled bool,
+	modelLongContextExempt bool,
 ) (openAIRecordUsageCostResolution, error) {
 	billingModel := firstUsageBillingModel(billingModels)
 	if result != nil && result.WebSearchCalls > 0 {
@@ -530,6 +534,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCostWithResolution(
 			tokens,
 			serviceTier,
 			longContextBillingEnabled,
+			modelLongContextExempt,
 			nil,
 		)
 		if err == nil {
@@ -591,6 +596,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 	tokens UsageTokens,
 	serviceTier string,
 	longContextBillingEnabled bool,
+	modelLongContextExempt bool,
 	resolved *ResolvedPricing,
 ) (*CostBreakdown, *ResolvedPricing, error) {
 	if s.resolver != nil && apiKey.Group != nil {
@@ -599,18 +605,19 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 			resolved = s.resolver.Resolve(ctx, PricingInput{Model: billingModel, GroupID: &gid, Group: apiKey.Group})
 		}
 		cost, err := s.billingService.CalculateCostUnified(CostInput{
-			Ctx:                       ctx,
-			Model:                     billingModel,
-			GroupID:                   &gid,
-			Group:                     apiKey.Group,
-			Tokens:                    tokens,
-			RequestCount:              1,
-			RateMultiplier:            multiplier,
-			ImageRateMultiplier:       imageMultiplier,
-			ServiceTier:               serviceTier,
-			Resolver:                  s.resolver,
-			Resolved:                  resolved,
-			LongContextBillingEnabled: &longContextBillingEnabled,
+			Ctx:                            ctx,
+			Model:                          billingModel,
+			GroupID:                        &gid,
+			Group:                          apiKey.Group,
+			Tokens:                         tokens,
+			RequestCount:                   1,
+			RateMultiplier:                 multiplier,
+			ImageRateMultiplier:            imageMultiplier,
+			ServiceTier:                    serviceTier,
+			Resolver:                       s.resolver,
+			Resolved:                       resolved,
+			LongContextBillingEnabled:      &longContextBillingEnabled,
+			DisableModelLongContextPricing: modelLongContextExempt,
 		})
 		return cost, resolved, err
 	}
@@ -621,7 +628,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 		imageMultiplier,
 		serviceTier,
 		nil,
-		longContextBillingEnabled,
+		longContextBillingEnabled && !modelLongContextExempt,
 	)
 	return cost, nil, err
 }

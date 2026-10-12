@@ -223,6 +223,7 @@ export function useCreateGroupController({
     runtime.clearAllAccountSearchState();
     createForm.name = "";
     createForm.description = "";
+    createForm.i18n = {};
     createForm.platform = "anthropic";
     createForm.rate_multiplier = 1.0;
     createForm.is_exclusive = false;

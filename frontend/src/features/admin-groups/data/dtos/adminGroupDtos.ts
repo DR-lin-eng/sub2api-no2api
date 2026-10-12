@@ -1,6 +1,7 @@
 import type {
   ChannelModelPricing,
   Group,
+  GroupI18n,
   GroupPlatform,
   ModelAllowlist,
   ModelsListConfig,
@@ -10,6 +11,7 @@ import type {
 } from '@/types/group'
 
 export interface AdminGroup extends Group {
+  i18n?: GroupI18n
   model_pricing?: ChannelModelPricing[]
   profit_control_enabled: boolean
   profit_min_margin: number
@@ -86,6 +88,7 @@ export interface CompositeRouteDecision {
 }
 
 export interface CreateGroupRequest {
+  i18n?: GroupI18n
   name: string
   description?: string | null
   platform?: GroupPlatform

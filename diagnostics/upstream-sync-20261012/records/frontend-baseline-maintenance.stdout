@@ -1,0 +1,95 @@
+Preparing pnpm@11.17.0 for immediate activation...
+? Verifying lockfile against supply-chain policies (483 entries)...
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +433
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 433, reused 0, downloaded 0, added 0
+Progress: resolved 433, reused 0, downloaded 46, added 32
+Progress: resolved 433, reused 0, downloaded 109, added 108
+Progress: resolved 433, reused 0, downloaded 187, added 182
+Progress: resolved 433, reused 0, downloaded 268, added 217
+Progress: resolved 433, reused 0, downloaded 357, added 257
+Progress: resolved 433, reused 0, downloaded 430, added 295
+Progress: resolved 433, reused 0, downloaded 433, added 410
+✓ Lockfile passes supply-chain policies (483 entries in 8.2s)
+Progress: resolved 433, reused 0, downloaded 433, added 433, done
+.../esbuild@0.25.12/node_modules/esbuild postinstall$ node install.js
+.../node_modules/vue-demi postinstall$ node -e "try{require('./scripts/postinstall.js')}catch(e){}"
+.../esbuild@0.25.12/node_modules/esbuild postinstall: Done
+.../node_modules/vue-demi postinstall: Done
+
+dependencies:
++ @airwallex/components-sdk 1.32.0
++ @stripe/stripe-js 9.12.0
++ @tanstack/vue-virtual 3.13.34
++ @vueuse/core 10.11.1
++ axios 1.20.0
++ cap-widget 0.1.50
++ chart.js 4.5.1
++ dompurify 3.4.14
++ driver.js 1.8.0
++ file-saver 2.0.5
++ marked 17.0.6
++ node-forge 1.4.0
++ pinia 2.3.1
++ qrcode 1.5.4
++ tldts 7.4.13
++ vue 3.5.43
++ vue-chartjs 5.3.4
++ vue-draggable-plus 0.6.1
++ vue-i18n 9.14.5
++ vue-router 4.6.4
++ xlsx 0.20.3
+
+devDependencies:
++ @eslint/js 10.0.1
++ @intlify/message-compiler 9.14.5
++ @types/file-saver 2.0.7
++ @types/mdx 2.0.14
++ @types/node 24.13.3
++ @types/node-forge 1.3.14
++ @types/qrcode 1.5.6
++ @typescript-eslint/eslint-plugin 8.65.0
++ @typescript-eslint/parser 8.65.0
++ @vitejs/plugin-vue 6.0.8
++ @vitest/coverage-v8 3.2.6
++ @vue/test-utils 2.4.11
++ autoprefixer 10.5.4
++ eslint 10.8.0
++ eslint-plugin-vue 10.10.0
++ globals 17.4.0
++ jsdom 24.1.3
++ postcss 8.5.23
++ tailwindcss 3.4.19
++ typescript 5.6.3
++ vite 6.4.3
++ vite-plugin-checker 0.14.5
++ vitest 3.2.6
++ vue-tsc 2.2.12
+
+Done in 9.8s using pnpm v11.17.0
+
+ RUN  v3.2.6 /workspace
+
+ ❯ src/features/admin-accounts/__tests__/adminAccountsModularization.spec.ts (13 tests | 1 failed) 39ms
+   ✓ admin accounts modularization > owns account-only DTOs in feature data while preserving compatibility exports 3ms
+   × admin accounts modularization > keeps every feature runtime module within the maintenance target 24ms
+     → presentation/widgets/CreateAccountDialog.vue: expected 1512 to be less than or equal to 1500
+   ✓ admin accounts modularization > keeps the table and field modules statically owned by the accounts route chunk 0ms
+   ✓ admin accounts modularization > keeps request lifecycle out of the table-only view 0ms
+   ✓ admin accounts modularization > routes page requests through feature owners instead of the admin compatibility barrel 0ms
+   ✓ admin accounts modularization > routes bulk edit actions through the account action owner 0ms
+   ✓ admin accounts modularization > reads the global quota notification switch from its settings owner 0ms
+   ✓ admin accounts modularization > routes scheduled test lifecycle calls through their datasource owner 0ms
+   ✓ admin accounts modularization > routes OAuth composables through feature-owned action datasources 0ms
+   ✓ admin accounts modularization > routes reauthorization widgets through account action owners 0ms
+   ✓ admin accounts modularization > routes create and edit workflows through explicit account and settings owners 0ms
+   ✓ admin accounts modularization > routes account import and CRS sync through query/action owners 9ms
+   ✓ admin accounts modularization > preserves quota hydration, bounded batches, feedback timing, and refresh cadence 0ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 12 passed (13)
+   Start at  16:32:28
+   Duration  1.09s (transform 49ms, setup 77ms, collect 25ms, tests 39ms, environment 343ms, prepare 266ms)
+

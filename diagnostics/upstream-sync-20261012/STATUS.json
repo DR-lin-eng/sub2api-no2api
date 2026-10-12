@@ -1,0 +1,17 @@
+{
+  "target": "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5",
+  "baseline_sha": "73469a9062b3e7f8df31d22b42c1507a843b2ae9",
+  "upstream_sha": "ab80abc6d1f929a6864c8804fd077b509d21fda2",
+  "stage": "ready-to-publish",
+  "docker_images": {
+    "baseline": "sub2api-upstream-sync:20261012-baseline",
+    "candidate": "sub2api-upstream-sync:20261012-candidate"
+  },
+  "frontend_maintenance_failure": "pre-existing CreateAccountDialog.vue 1512 > 1500; baseline and candidate identical",
+  "runtime_matrix": "baseline/upgraded/rollback/restored PASS",
+  "verification": "VERIFICATION.txt",
+  "go_unit": "PASS",
+  "golangci": "PASS",
+  "frontend_build": "PASS",
+  "runtime_upgrade_rollback": "PASS"
+}

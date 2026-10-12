@@ -445,6 +445,7 @@ export default {
           kind: 'Kind',
           platform: 'Platform',
           model: 'Model',
+          account: 'Account',
           duration: 'Duration',
           ttft: 'TTFT',
           status: 'Status',

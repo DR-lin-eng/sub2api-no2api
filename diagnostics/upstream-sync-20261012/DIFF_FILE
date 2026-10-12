@@ -1,0 +1,2899 @@
+diff --git a/backend/ent/group.go b/backend/ent/group.go
+index 6e23bada9..5dd8be995 100644
+--- a/backend/ent/group.go
++++ b/backend/ent/group.go
+@@ -29,6 +29,8 @@ type Group struct {
+ 	Name string `json:"name,omitempty"`
+ 	// Description holds the value of the "description" field.
+ 	Description *string `json:"description,omitempty"`
++	// 名称与描述的界面语言译文：语言代码 -> {name, description}；缺失的语言沿用 name/description
++	I18n domain.GroupI18n `json:"i18n,omitempty"`
+ 	// RateMultiplier holds the value of the "rate_multiplier" field.
+ 	RateMultiplier float64 `json:"rate_multiplier,omitempty"`
+ 	// 是否启用高峰时段倍率
+@@ -245,7 +247,7 @@ func (*Group) scanValues(columns []string) ([]any, error) {
+ 	values := make([]any, len(columns))
+ 	for i := range columns {
+ 		switch columns[i] {
+-		case group.FieldModelPricing, group.FieldModelRouting, group.FieldSupportedModelScopes, group.FieldMessagesDispatchModelConfig, group.FieldModelsListConfig, group.FieldModelAllowlist, group.FieldReasoningEffortMappings:
++		case group.FieldI18n, group.FieldModelPricing, group.FieldModelRouting, group.FieldSupportedModelScopes, group.FieldMessagesDispatchModelConfig, group.FieldModelsListConfig, group.FieldModelAllowlist, group.FieldReasoningEffortMappings:
+ 			values[i] = new([]byte)
+ 		case group.FieldPeakRateEnabled, group.FieldIsExclusive, group.FieldAllowImageGeneration, group.FieldOpenaiForceImageTool, group.FieldAllowBatchImageGeneration, group.FieldImageRateIndependent, group.FieldVideoRateIndependent, group.FieldLongContextPricingEnabled, group.FieldClaudeCodeOnly, group.FieldIsDistillationGroup, group.FieldModelRoutingEnabled, group.FieldMcpXMLInject, group.FieldAllowMessagesDispatch, group.FieldAllowLive, group.FieldRequireOauthOnly, group.FieldRequirePrivacySet, group.FieldProfitControlEnabled:
+ 			values[i] = new(sql.NullBool)
+@@ -310,6 +312,14 @@ func (_m *Group) assignValues(columns []string, values []any) error {
+ 				_m.Description = new(string)
+ 				*_m.Description = value.String
+ 			}
++		case group.FieldI18n:
++			if value, ok := values[i].(*[]byte); !ok {
++				return fmt.Errorf("unexpected type %T for field i18n", values[i])
++			} else if value != nil && len(*value) > 0 {
++				if err := json.Unmarshal(*value, &_m.I18n); err != nil {
++					return fmt.Errorf("unmarshal field i18n: %w", err)
++				}
++			}
+ 		case group.FieldRateMultiplier:
+ 			if value, ok := values[i].(*sql.NullFloat64); !ok {
+ 				return fmt.Errorf("unexpected type %T for field rate_multiplier", values[i])
+@@ -762,6 +772,9 @@ func (_m *Group) String() string {
+ 		builder.WriteString(*v)
+ 	}
+ 	builder.WriteString(", ")
++	builder.WriteString("i18n=")
++	builder.WriteString(fmt.Sprintf("%v", _m.I18n))
++	builder.WriteString(", ")
+ 	builder.WriteString("rate_multiplier=")
+ 	builder.WriteString(fmt.Sprintf("%v", _m.RateMultiplier))
+ 	builder.WriteString(", ")
+diff --git a/backend/ent/group/group.go b/backend/ent/group/group.go
+index 736717d2a..741da229d 100644
+--- a/backend/ent/group/group.go
++++ b/backend/ent/group/group.go
+@@ -26,6 +26,8 @@ const (
+ 	FieldName = "name"
+ 	// FieldDescription holds the string denoting the description field in the database.
+ 	FieldDescription = "description"
++	// FieldI18n holds the string denoting the i18n field in the database.
++	FieldI18n = "i18n"
+ 	// FieldRateMultiplier holds the string denoting the rate_multiplier field in the database.
+ 	FieldRateMultiplier = "rate_multiplier"
+ 	// FieldPeakRateEnabled holds the string denoting the peak_rate_enabled field in the database.
+@@ -216,6 +218,7 @@ var Columns = []string{
+ 	FieldDeletedAt,
+ 	FieldName,
+ 	FieldDescription,
++	FieldI18n,
+ 	FieldRateMultiplier,
+ 	FieldPeakRateEnabled,
+ 	FieldPeakStart,
+@@ -308,6 +311,8 @@ var (
+ 	UpdateDefaultUpdatedAt func() time.Time
+ 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
+ 	NameValidator func(string) error
++	// DefaultI18n holds the default value on creation for the "i18n" field.
++	DefaultI18n domain.GroupI18n
+ 	// DefaultRateMultiplier holds the default value on creation for the "rate_multiplier" field.
+ 	DefaultRateMultiplier float64
+ 	// DefaultPeakRateEnabled holds the default value on creation for the "peak_rate_enabled" field.
+diff --git a/backend/ent/group_create.go b/backend/ent/group_create.go
+index 0c7655972..628bae4fb 100644
+--- a/backend/ent/group_create.go
++++ b/backend/ent/group_create.go
+@@ -92,6 +92,12 @@ func (_c *GroupCreate) SetNillableDescription(v *string) *GroupCreate {
+ 	return _c
+ }
+ 
++// SetI18n sets the "i18n" field.
++func (_c *GroupCreate) SetI18n(v domain.GroupI18n) *GroupCreate {
++	_c.mutation.SetI18n(v)
++	return _c
++}
++
+ // SetRateMultiplier sets the "rate_multiplier" field.
+ func (_c *GroupCreate) SetRateMultiplier(v float64) *GroupCreate {
+ 	_c.mutation.SetRateMultiplier(v)
+@@ -971,6 +977,10 @@ func (_c *GroupCreate) defaults() error {
+ 		v := group.DefaultUpdatedAt()
+ 		_c.mutation.SetUpdatedAt(v)
+ 	}
++	if _, ok := _c.mutation.I18n(); !ok {
++		v := group.DefaultI18n
++		_c.mutation.SetI18n(v)
++	}
+ 	if _, ok := _c.mutation.RateMultiplier(); !ok {
+ 		v := group.DefaultRateMultiplier
+ 		_c.mutation.SetRateMultiplier(v)
+@@ -1150,6 +1160,9 @@ func (_c *GroupCreate) check() error {
+ 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Group.name": %w`, err)}
+ 		}
+ 	}
++	if _, ok := _c.mutation.I18n(); !ok {
++		return &ValidationError{Name: "i18n", err: errors.New(`ent: missing required field "Group.i18n"`)}
++	}
+ 	if _, ok := _c.mutation.RateMultiplier(); !ok {
+ 		return &ValidationError{Name: "rate_multiplier", err: errors.New(`ent: missing required field "Group.rate_multiplier"`)}
+ 	}
+@@ -1357,6 +1370,10 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
+ 		_spec.SetField(group.FieldDescription, field.TypeString, value)
+ 		_node.Description = &value
+ 	}
++	if value, ok := _c.mutation.I18n(); ok {
++		_spec.SetField(group.FieldI18n, field.TypeJSON, value)
++		_node.I18n = value
++	}
+ 	if value, ok := _c.mutation.RateMultiplier(); ok {
+ 		_spec.SetField(group.FieldRateMultiplier, field.TypeFloat64, value)
+ 		_node.RateMultiplier = value
+@@ -1793,6 +1810,18 @@ func (u *GroupUpsert) ClearDescription() *GroupUpsert {
+ 	return u
+ }
+ 
++// SetI18n sets the "i18n" field.
++func (u *GroupUpsert) SetI18n(v domain.GroupI18n) *GroupUpsert {
++	u.Set(group.FieldI18n, v)
++	return u
++}
++
++// UpdateI18n sets the "i18n" field to the value that was provided on create.
++func (u *GroupUpsert) UpdateI18n() *GroupUpsert {
++	u.SetExcluded(group.FieldI18n)
++	return u
++}
++
+ // SetRateMultiplier sets the "rate_multiplier" field.
+ func (u *GroupUpsert) SetRateMultiplier(v float64) *GroupUpsert {
+ 	u.Set(group.FieldRateMultiplier, v)
+@@ -2781,6 +2810,20 @@ func (u *GroupUpsertOne) ClearDescription() *GroupUpsertOne {
+ 	})
+ }
+ 
++// SetI18n sets the "i18n" field.
++func (u *GroupUpsertOne) SetI18n(v domain.GroupI18n) *GroupUpsertOne {
++	return u.Update(func(s *GroupUpsert) {
++		s.SetI18n(v)
++	})
++}
++
++// UpdateI18n sets the "i18n" field to the value that was provided on create.
++func (u *GroupUpsertOne) UpdateI18n() *GroupUpsertOne {
++	return u.Update(func(s *GroupUpsert) {
++		s.UpdateI18n()
++	})
++}
++
+ // SetRateMultiplier sets the "rate_multiplier" field.
+ func (u *GroupUpsertOne) SetRateMultiplier(v float64) *GroupUpsertOne {
+ 	return u.Update(func(s *GroupUpsert) {
+@@ -4080,6 +4123,20 @@ func (u *GroupUpsertBulk) ClearDescription() *GroupUpsertBulk {
+ 	})
+ }
+ 
++// SetI18n sets the "i18n" field.
++func (u *GroupUpsertBulk) SetI18n(v domain.GroupI18n) *GroupUpsertBulk {
++	return u.Update(func(s *GroupUpsert) {
++		s.SetI18n(v)
++	})
++}
++
++// UpdateI18n sets the "i18n" field to the value that was provided on create.
++func (u *GroupUpsertBulk) UpdateI18n() *GroupUpsertBulk {
++	return u.Update(func(s *GroupUpsert) {
++		s.UpdateI18n()
++	})
++}
++
+ // SetRateMultiplier sets the "rate_multiplier" field.
+ func (u *GroupUpsertBulk) SetRateMultiplier(v float64) *GroupUpsertBulk {
+ 	return u.Update(func(s *GroupUpsert) {
+diff --git a/backend/ent/group_update.go b/backend/ent/group_update.go
+index e5dc6471e..102a7c0f9 100644
+--- a/backend/ent/group_update.go
++++ b/backend/ent/group_update.go
+@@ -97,6 +97,12 @@ func (_u *GroupUpdate) ClearDescription() *GroupUpdate {
+ 	return _u
+ }
+ 
++// SetI18n sets the "i18n" field.
++func (_u *GroupUpdate) SetI18n(v domain.GroupI18n) *GroupUpdate {
++	_u.mutation.SetI18n(v)
++	return _u
++}
++
+ // SetRateMultiplier sets the "rate_multiplier" field.
+ func (_u *GroupUpdate) SetRateMultiplier(v float64) *GroupUpdate {
+ 	_u.mutation.ResetRateMultiplier()
+@@ -1422,6 +1428,9 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
+ 	if _u.mutation.DescriptionCleared() {
+ 		_spec.ClearField(group.FieldDescription, field.TypeString)
+ 	}
++	if value, ok := _u.mutation.I18n(); ok {
++		_spec.SetField(group.FieldI18n, field.TypeJSON, value)
++	}
+ 	if value, ok := _u.mutation.RateMultiplier(); ok {
+ 		_spec.SetField(group.FieldRateMultiplier, field.TypeFloat64, value)
+ 	}
+@@ -2087,6 +2096,12 @@ func (_u *GroupUpdateOne) ClearDescription() *GroupUpdateOne {
+ 	return _u
+ }
+ 
++// SetI18n sets the "i18n" field.
++func (_u *GroupUpdateOne) SetI18n(v domain.GroupI18n) *GroupUpdateOne {
++	_u.mutation.SetI18n(v)
++	return _u
++}
++
+ // SetRateMultiplier sets the "rate_multiplier" field.
+ func (_u *GroupUpdateOne) SetRateMultiplier(v float64) *GroupUpdateOne {
+ 	_u.mutation.ResetRateMultiplier()
+@@ -3442,6 +3457,9 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
+ 	if _u.mutation.DescriptionCleared() {
+ 		_spec.ClearField(group.FieldDescription, field.TypeString)
+ 	}
++	if value, ok := _u.mutation.I18n(); ok {
++		_spec.SetField(group.FieldI18n, field.TypeJSON, value)
++	}
+ 	if value, ok := _u.mutation.RateMultiplier(); ok {
+ 		_spec.SetField(group.FieldRateMultiplier, field.TypeFloat64, value)
+ 	}
+diff --git a/backend/ent/migrate/schema.go b/backend/ent/migrate/schema.go
+index bc981e7bf..f9f416f3d 100644
+--- a/backend/ent/migrate/schema.go
++++ b/backend/ent/migrate/schema.go
+@@ -1230,6 +1230,7 @@ var (
+ 		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+ 		{Name: "name", Type: field.TypeString, Size: 100},
+ 		{Name: "description", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
++		{Name: "i18n", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
+ 		{Name: "rate_multiplier", Type: field.TypeFloat64, Default: 1, SchemaType: map[string]string{"postgres": "decimal(10,4)"}},
+ 		{Name: "peak_rate_enabled", Type: field.TypeBool, Default: false},
+ 		{Name: "peak_start", Type: field.TypeString, Size: 5, Default: ""},
+@@ -1295,22 +1296,22 @@ var (
+ 			{
+ 				Name:    "group_status",
+ 				Unique:  false,
+-				Columns: []*schema.Column{GroupsColumns[12]},
++				Columns: []*schema.Column{GroupsColumns[13]},
+ 			},
+ 			{
+ 				Name:    "group_platform",
+ 				Unique:  false,
+-				Columns: []*schema.Column{GroupsColumns[14]},
++				Columns: []*schema.Column{GroupsColumns[15]},
+ 			},
+ 			{
+ 				Name:    "group_subscription_type",
+ 				Unique:  false,
+-				Columns: []*schema.Column{GroupsColumns[15]},
++				Columns: []*schema.Column{GroupsColumns[16]},
+ 			},
+ 			{
+ 				Name:    "group_is_exclusive",
+ 				Unique:  false,
+-				Columns: []*schema.Column{GroupsColumns[11]},
++				Columns: []*schema.Column{GroupsColumns[12]},
+ 			},
+ 			{
+ 				Name:    "group_deleted_at",
+@@ -1320,12 +1321,12 @@ var (
+ 			{
+ 				Name:    "group_sort_order",
+ 				Unique:  false,
+-				Columns: []*schema.Column{GroupsColumns[46]},
++				Columns: []*schema.Column{GroupsColumns[47]},
+ 			},
+ 			{
+ 				Name:    "idx_groups_duplicate_operation_id_active",
+ 				Unique:  true,
+-				Columns: []*schema.Column{GroupsColumns[13]},
++				Columns: []*schema.Column{GroupsColumns[14]},
+ 				Annotation: &entsql.IndexAnnotation{
+ 					Where: "duplicate_operation_id IS NOT NULL AND deleted_at IS NULL",
+ 				},
+diff --git a/backend/ent/mutation.go b/backend/ent/mutation.go
+index 42a5640ab..3de72e805 100644
+--- a/backend/ent/mutation.go
++++ b/backend/ent/mutation.go
+@@ -29015,6 +29015,7 @@ type GroupMutation struct {
+ 	deleted_at                              *time.Time
+ 	name                                    *string
+ 	description                             *string
++	i18n                                    *domain.GroupI18n
+ 	rate_multiplier                         *float64
+ 	addrate_multiplier                      *float64
+ 	peak_rate_enabled                       *bool
+@@ -29424,6 +29425,42 @@ func (m *GroupMutation) ResetDescription() {
+ 	delete(m.clearedFields, group.FieldDescription)
+ }
+ 
++// SetI18n sets the "i18n" field.
++func (m *GroupMutation) SetI18n(di domain.GroupI18n) {
++	m.i18n = &di
++}
++
++// I18n returns the value of the "i18n" field in the mutation.
++func (m *GroupMutation) I18n() (r domain.GroupI18n, exists bool) {
++	v := m.i18n
++	if v == nil {
++		return
++	}
++	return *v, true
++}
++
++// OldI18n returns the old "i18n" field's value of the Group entity.
++// If the Group object wasn't provided to the builder, the object is fetched from the database.
++// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
++func (m *GroupMutation) OldI18n(ctx context.Context) (v domain.GroupI18n, err error) {
++	if !m.op.Is(OpUpdateOne) {
++		return v, errors.New("OldI18n is only allowed on UpdateOne operations")
++	}
++	if m.id == nil || m.oldValue == nil {
++		return v, errors.New("OldI18n requires an ID field in the mutation")
++	}
++	oldValue, err := m.oldValue(ctx)
++	if err != nil {
++		return v, fmt.Errorf("querying old value for OldI18n: %w", err)
++	}
++	return oldValue.I18n, nil
++}
++
++// ResetI18n resets all changes to the "i18n" field.
++func (m *GroupMutation) ResetI18n() {
++	m.i18n = nil
++}
++
+ // SetRateMultiplier sets the "rate_multiplier" field.
+ func (m *GroupMutation) SetRateMultiplier(f float64) {
+ 	m.rate_multiplier = &f
+@@ -32475,7 +32512,7 @@ func (m *GroupMutation) Type() string {
+ // order to get all numeric fields that were incremented/decremented, call
+ // AddedFields().
+ func (m *GroupMutation) Fields() []string {
+-	fields := make([]string, 0, 60)
++	fields := make([]string, 0, 61)
+ 	if m.created_at != nil {
+ 		fields = append(fields, group.FieldCreatedAt)
+ 	}
+@@ -32491,6 +32528,9 @@ func (m *GroupMutation) Fields() []string {
+ 	if m.description != nil {
+ 		fields = append(fields, group.FieldDescription)
+ 	}
++	if m.i18n != nil {
++		fields = append(fields, group.FieldI18n)
++	}
+ 	if m.rate_multiplier != nil {
+ 		fields = append(fields, group.FieldRateMultiplier)
+ 	}
+@@ -32674,6 +32714,8 @@ func (m *GroupMutation) Field(name string) (ent.Value, bool) {
+ 		return m.Name()
+ 	case group.FieldDescription:
+ 		return m.Description()
++	case group.FieldI18n:
++		return m.I18n()
+ 	case group.FieldRateMultiplier:
+ 		return m.RateMultiplier()
+ 	case group.FieldPeakRateEnabled:
+@@ -32803,6 +32845,8 @@ func (m *GroupMutation) OldField(ctx context.Context, name string) (ent.Value, e
+ 		return m.OldName(ctx)
+ 	case group.FieldDescription:
+ 		return m.OldDescription(ctx)
++	case group.FieldI18n:
++		return m.OldI18n(ctx)
+ 	case group.FieldRateMultiplier:
+ 		return m.OldRateMultiplier(ctx)
+ 	case group.FieldPeakRateEnabled:
+@@ -32957,6 +33001,13 @@ func (m *GroupMutation) SetField(name string, value ent.Value) error {
+ 		}
+ 		m.SetDescription(v)
+ 		return nil
++	case group.FieldI18n:
++		v, ok := value.(domain.GroupI18n)
++		if !ok {
++			return fmt.Errorf("unexpected type %T for field %s", value, name)
++		}
++		m.SetI18n(v)
++		return nil
+ 	case group.FieldRateMultiplier:
+ 		v, ok := value.(float64)
+ 		if !ok {
+@@ -33790,6 +33841,9 @@ func (m *GroupMutation) ResetField(name string) error {
+ 	case group.FieldDescription:
+ 		m.ResetDescription()
+ 		return nil
++	case group.FieldI18n:
++		m.ResetI18n()
++		return nil
+ 	case group.FieldRateMultiplier:
+ 		m.ResetRateMultiplier()
+ 		return nil
+diff --git a/backend/ent/runtime/runtime.go b/backend/ent/runtime/runtime.go
+index c1581a94f..d9549b75e 100644
+--- a/backend/ent/runtime/runtime.go
++++ b/backend/ent/runtime/runtime.go
+@@ -1302,182 +1302,186 @@ func init() {
+ 			return nil
+ 		}
+ 	}()
++	// groupDescI18n is the schema descriptor for i18n field.
++	groupDescI18n := groupFields[2].Descriptor()
++	// group.DefaultI18n holds the default value on creation for the i18n field.
++	group.DefaultI18n = groupDescI18n.Default.(domain.GroupI18n)
+ 	// groupDescRateMultiplier is the schema descriptor for rate_multiplier field.
+-	groupDescRateMultiplier := groupFields[2].Descriptor()
++	groupDescRateMultiplier := groupFields[3].Descriptor()
+ 	// group.DefaultRateMultiplier holds the default value on creation for the rate_multiplier field.
+ 	group.DefaultRateMultiplier = groupDescRateMultiplier.Default.(float64)
+ 	// groupDescPeakRateEnabled is the schema descriptor for peak_rate_enabled field.
+-	groupDescPeakRateEnabled := groupFields[3].Descriptor()
++	groupDescPeakRateEnabled := groupFields[4].Descriptor()
+ 	// group.DefaultPeakRateEnabled holds the default value on creation for the peak_rate_enabled field.
+ 	group.DefaultPeakRateEnabled = groupDescPeakRateEnabled.Default.(bool)
+ 	// groupDescPeakStart is the schema descriptor for peak_start field.
+-	groupDescPeakStart := groupFields[4].Descriptor()
++	groupDescPeakStart := groupFields[5].Descriptor()
+ 	// group.DefaultPeakStart holds the default value on creation for the peak_start field.
+ 	group.DefaultPeakStart = groupDescPeakStart.Default.(string)
+ 	// group.PeakStartValidator is a validator for the "peak_start" field. It is called by the builders before save.
+ 	group.PeakStartValidator = groupDescPeakStart.Validators[0].(func(string) error)
+ 	// groupDescPeakEnd is the schema descriptor for peak_end field.
+-	groupDescPeakEnd := groupFields[5].Descriptor()
++	groupDescPeakEnd := groupFields[6].Descriptor()
+ 	// group.DefaultPeakEnd holds the default value on creation for the peak_end field.
+ 	group.DefaultPeakEnd = groupDescPeakEnd.Default.(string)
+ 	// group.PeakEndValidator is a validator for the "peak_end" field. It is called by the builders before save.
+ 	group.PeakEndValidator = groupDescPeakEnd.Validators[0].(func(string) error)
+ 	// groupDescPeakRateMultiplier is the schema descriptor for peak_rate_multiplier field.
+-	groupDescPeakRateMultiplier := groupFields[6].Descriptor()
++	groupDescPeakRateMultiplier := groupFields[7].Descriptor()
+ 	// group.DefaultPeakRateMultiplier holds the default value on creation for the peak_rate_multiplier field.
+ 	group.DefaultPeakRateMultiplier = groupDescPeakRateMultiplier.Default.(float64)
+ 	// groupDescIsExclusive is the schema descriptor for is_exclusive field.
+-	groupDescIsExclusive := groupFields[7].Descriptor()
++	groupDescIsExclusive := groupFields[8].Descriptor()
+ 	// group.DefaultIsExclusive holds the default value on creation for the is_exclusive field.
+ 	group.DefaultIsExclusive = groupDescIsExclusive.Default.(bool)
+ 	// groupDescStatus is the schema descriptor for status field.
+-	groupDescStatus := groupFields[8].Descriptor()
++	groupDescStatus := groupFields[9].Descriptor()
+ 	// group.DefaultStatus holds the default value on creation for the status field.
+ 	group.DefaultStatus = groupDescStatus.Default.(string)
+ 	// group.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+ 	group.StatusValidator = groupDescStatus.Validators[0].(func(string) error)
+ 	// groupDescDuplicateOperationID is the schema descriptor for duplicate_operation_id field.
+-	groupDescDuplicateOperationID := groupFields[9].Descriptor()
++	groupDescDuplicateOperationID := groupFields[10].Descriptor()
+ 	// group.DuplicateOperationIDValidator is a validator for the "duplicate_operation_id" field. It is called by the builders before save.
+ 	group.DuplicateOperationIDValidator = groupDescDuplicateOperationID.Validators[0].(func(string) error)
+ 	// groupDescPlatform is the schema descriptor for platform field.
+-	groupDescPlatform := groupFields[10].Descriptor()
++	groupDescPlatform := groupFields[11].Descriptor()
+ 	// group.DefaultPlatform holds the default value on creation for the platform field.
+ 	group.DefaultPlatform = groupDescPlatform.Default.(string)
+ 	// group.PlatformValidator is a validator for the "platform" field. It is called by the builders before save.
+ 	group.PlatformValidator = groupDescPlatform.Validators[0].(func(string) error)
+ 	// groupDescSubscriptionType is the schema descriptor for subscription_type field.
+-	groupDescSubscriptionType := groupFields[11].Descriptor()
++	groupDescSubscriptionType := groupFields[12].Descriptor()
+ 	// group.DefaultSubscriptionType holds the default value on creation for the subscription_type field.
+ 	group.DefaultSubscriptionType = groupDescSubscriptionType.Default.(string)
+ 	// group.SubscriptionTypeValidator is a validator for the "subscription_type" field. It is called by the builders before save.
+ 	group.SubscriptionTypeValidator = groupDescSubscriptionType.Validators[0].(func(string) error)
+ 	// groupDescDefaultValidityDays is the schema descriptor for default_validity_days field.
+-	groupDescDefaultValidityDays := groupFields[15].Descriptor()
++	groupDescDefaultValidityDays := groupFields[16].Descriptor()
+ 	// group.DefaultDefaultValidityDays holds the default value on creation for the default_validity_days field.
+ 	group.DefaultDefaultValidityDays = groupDescDefaultValidityDays.Default.(int)
+ 	// groupDescAllowImageGeneration is the schema descriptor for allow_image_generation field.
+-	groupDescAllowImageGeneration := groupFields[16].Descriptor()
++	groupDescAllowImageGeneration := groupFields[17].Descriptor()
+ 	// group.DefaultAllowImageGeneration holds the default value on creation for the allow_image_generation field.
+ 	group.DefaultAllowImageGeneration = groupDescAllowImageGeneration.Default.(bool)
+ 	// groupDescOpenaiForceImageTool is the schema descriptor for openai_force_image_tool field.
+-	groupDescOpenaiForceImageTool := groupFields[17].Descriptor()
++	groupDescOpenaiForceImageTool := groupFields[18].Descriptor()
+ 	// group.DefaultOpenaiForceImageTool holds the default value on creation for the openai_force_image_tool field.
+ 	group.DefaultOpenaiForceImageTool = groupDescOpenaiForceImageTool.Default.(bool)
+ 	// groupDescAllowBatchImageGeneration is the schema descriptor for allow_batch_image_generation field.
+-	groupDescAllowBatchImageGeneration := groupFields[18].Descriptor()
++	groupDescAllowBatchImageGeneration := groupFields[19].Descriptor()
+ 	// group.DefaultAllowBatchImageGeneration holds the default value on creation for the allow_batch_image_generation field.
+ 	group.DefaultAllowBatchImageGeneration = groupDescAllowBatchImageGeneration.Default.(bool)
+ 	// groupDescImageRateIndependent is the schema descriptor for image_rate_independent field.
+-	groupDescImageRateIndependent := groupFields[19].Descriptor()
++	groupDescImageRateIndependent := groupFields[20].Descriptor()
+ 	// group.DefaultImageRateIndependent holds the default value on creation for the image_rate_independent field.
+ 	group.DefaultImageRateIndependent = groupDescImageRateIndependent.Default.(bool)
+ 	// groupDescImageRateMultiplier is the schema descriptor for image_rate_multiplier field.
+-	groupDescImageRateMultiplier := groupFields[20].Descriptor()
++	groupDescImageRateMultiplier := groupFields[21].Descriptor()
+ 	// group.DefaultImageRateMultiplier holds the default value on creation for the image_rate_multiplier field.
+ 	group.DefaultImageRateMultiplier = groupDescImageRateMultiplier.Default.(float64)
+ 	// groupDescBatchImageDiscountMultiplier is the schema descriptor for batch_image_discount_multiplier field.
+-	groupDescBatchImageDiscountMultiplier := groupFields[24].Descriptor()
++	groupDescBatchImageDiscountMultiplier := groupFields[25].Descriptor()
+ 	// group.DefaultBatchImageDiscountMultiplier holds the default value on creation for the batch_image_discount_multiplier field.
+ 	group.DefaultBatchImageDiscountMultiplier = groupDescBatchImageDiscountMultiplier.Default.(float64)
+ 	// groupDescBatchImageHoldMultiplier is the schema descriptor for batch_image_hold_multiplier field.
+-	groupDescBatchImageHoldMultiplier := groupFields[25].Descriptor()
++	groupDescBatchImageHoldMultiplier := groupFields[26].Descriptor()
+ 	// group.DefaultBatchImageHoldMultiplier holds the default value on creation for the batch_image_hold_multiplier field.
+ 	group.DefaultBatchImageHoldMultiplier = groupDescBatchImageHoldMultiplier.Default.(float64)
+ 	// groupDescVideoRateIndependent is the schema descriptor for video_rate_independent field.
+-	groupDescVideoRateIndependent := groupFields[26].Descriptor()
++	groupDescVideoRateIndependent := groupFields[27].Descriptor()
+ 	// group.DefaultVideoRateIndependent holds the default value on creation for the video_rate_independent field.
+ 	group.DefaultVideoRateIndependent = groupDescVideoRateIndependent.Default.(bool)
+ 	// groupDescVideoRateMultiplier is the schema descriptor for video_rate_multiplier field.
+-	groupDescVideoRateMultiplier := groupFields[27].Descriptor()
++	groupDescVideoRateMultiplier := groupFields[28].Descriptor()
+ 	// group.DefaultVideoRateMultiplier holds the default value on creation for the video_rate_multiplier field.
+ 	group.DefaultVideoRateMultiplier = groupDescVideoRateMultiplier.Default.(float64)
+ 	// groupDescLongContextPricingEnabled is the schema descriptor for long_context_pricing_enabled field.
+-	groupDescLongContextPricingEnabled := groupFields[32].Descriptor()
++	groupDescLongContextPricingEnabled := groupFields[33].Descriptor()
+ 	// group.DefaultLongContextPricingEnabled holds the default value on creation for the long_context_pricing_enabled field.
+ 	group.DefaultLongContextPricingEnabled = groupDescLongContextPricingEnabled.Default.(bool)
+ 	// groupDescClaudeCodeOnly is the schema descriptor for claude_code_only field.
+-	groupDescClaudeCodeOnly := groupFields[34].Descriptor()
++	groupDescClaudeCodeOnly := groupFields[35].Descriptor()
+ 	// group.DefaultClaudeCodeOnly holds the default value on creation for the claude_code_only field.
+ 	group.DefaultClaudeCodeOnly = groupDescClaudeCodeOnly.Default.(bool)
+ 	// groupDescIsDistillationGroup is the schema descriptor for is_distillation_group field.
+-	groupDescIsDistillationGroup := groupFields[35].Descriptor()
++	groupDescIsDistillationGroup := groupFields[36].Descriptor()
+ 	// group.DefaultIsDistillationGroup holds the default value on creation for the is_distillation_group field.
+ 	group.DefaultIsDistillationGroup = groupDescIsDistillationGroup.Default.(bool)
+ 	// groupDescModelRoutingEnabled is the schema descriptor for model_routing_enabled field.
+-	groupDescModelRoutingEnabled := groupFields[39].Descriptor()
++	groupDescModelRoutingEnabled := groupFields[40].Descriptor()
+ 	// group.DefaultModelRoutingEnabled holds the default value on creation for the model_routing_enabled field.
+ 	group.DefaultModelRoutingEnabled = groupDescModelRoutingEnabled.Default.(bool)
+ 	// groupDescMcpXMLInject is the schema descriptor for mcp_xml_inject field.
+-	groupDescMcpXMLInject := groupFields[40].Descriptor()
++	groupDescMcpXMLInject := groupFields[41].Descriptor()
+ 	// group.DefaultMcpXMLInject holds the default value on creation for the mcp_xml_inject field.
+ 	group.DefaultMcpXMLInject = groupDescMcpXMLInject.Default.(bool)
+ 	// groupDescSupportedModelScopes is the schema descriptor for supported_model_scopes field.
+-	groupDescSupportedModelScopes := groupFields[41].Descriptor()
++	groupDescSupportedModelScopes := groupFields[42].Descriptor()
+ 	// group.DefaultSupportedModelScopes holds the default value on creation for the supported_model_scopes field.
+ 	group.DefaultSupportedModelScopes = groupDescSupportedModelScopes.Default.([]string)
+ 	// groupDescSortOrder is the schema descriptor for sort_order field.
+-	groupDescSortOrder := groupFields[42].Descriptor()
++	groupDescSortOrder := groupFields[43].Descriptor()
+ 	// group.DefaultSortOrder holds the default value on creation for the sort_order field.
+ 	group.DefaultSortOrder = groupDescSortOrder.Default.(int)
+ 	// groupDescAllowMessagesDispatch is the schema descriptor for allow_messages_dispatch field.
+-	groupDescAllowMessagesDispatch := groupFields[43].Descriptor()
++	groupDescAllowMessagesDispatch := groupFields[44].Descriptor()
+ 	// group.DefaultAllowMessagesDispatch holds the default value on creation for the allow_messages_dispatch field.
+ 	group.DefaultAllowMessagesDispatch = groupDescAllowMessagesDispatch.Default.(bool)
+ 	// groupDescAllowLive is the schema descriptor for allow_live field.
+-	groupDescAllowLive := groupFields[44].Descriptor()
++	groupDescAllowLive := groupFields[45].Descriptor()
+ 	// group.DefaultAllowLive holds the default value on creation for the allow_live field.
+ 	group.DefaultAllowLive = groupDescAllowLive.Default.(bool)
+ 	// groupDescRequireOauthOnly is the schema descriptor for require_oauth_only field.
+-	groupDescRequireOauthOnly := groupFields[45].Descriptor()
++	groupDescRequireOauthOnly := groupFields[46].Descriptor()
+ 	// group.DefaultRequireOauthOnly holds the default value on creation for the require_oauth_only field.
+ 	group.DefaultRequireOauthOnly = groupDescRequireOauthOnly.Default.(bool)
+ 	// groupDescRequirePrivacySet is the schema descriptor for require_privacy_set field.
+-	groupDescRequirePrivacySet := groupFields[46].Descriptor()
++	groupDescRequirePrivacySet := groupFields[47].Descriptor()
+ 	// group.DefaultRequirePrivacySet holds the default value on creation for the require_privacy_set field.
+ 	group.DefaultRequirePrivacySet = groupDescRequirePrivacySet.Default.(bool)
+ 	// groupDescDefaultMappedModel is the schema descriptor for default_mapped_model field.
+-	groupDescDefaultMappedModel := groupFields[47].Descriptor()
++	groupDescDefaultMappedModel := groupFields[48].Descriptor()
+ 	// group.DefaultDefaultMappedModel holds the default value on creation for the default_mapped_model field.
+ 	group.DefaultDefaultMappedModel = groupDescDefaultMappedModel.Default.(string)
+ 	// group.DefaultMappedModelValidator is a validator for the "default_mapped_model" field. It is called by the builders before save.
+ 	group.DefaultMappedModelValidator = groupDescDefaultMappedModel.Validators[0].(func(string) error)
+ 	// groupDescMessagesDispatchModelConfig is the schema descriptor for messages_dispatch_model_config field.
+-	groupDescMessagesDispatchModelConfig := groupFields[48].Descriptor()
++	groupDescMessagesDispatchModelConfig := groupFields[49].Descriptor()
+ 	// group.DefaultMessagesDispatchModelConfig holds the default value on creation for the messages_dispatch_model_config field.
+ 	group.DefaultMessagesDispatchModelConfig = groupDescMessagesDispatchModelConfig.Default.(domain.OpenAIMessagesDispatchModelConfig)
+ 	// groupDescModelsListConfig is the schema descriptor for models_list_config field.
+-	groupDescModelsListConfig := groupFields[49].Descriptor()
++	groupDescModelsListConfig := groupFields[50].Descriptor()
+ 	// group.DefaultModelsListConfig holds the default value on creation for the models_list_config field.
+ 	group.DefaultModelsListConfig = groupDescModelsListConfig.Default.(domain.GroupModelsListConfig)
+ 	// groupDescModelAllowlist is the schema descriptor for model_allowlist field.
+-	groupDescModelAllowlist := groupFields[50].Descriptor()
++	groupDescModelAllowlist := groupFields[51].Descriptor()
+ 	// group.DefaultModelAllowlist holds the default value on creation for the model_allowlist field.
+ 	group.DefaultModelAllowlist = groupDescModelAllowlist.Default.(domain.GroupModelAllowlist)
+ 	// groupDescRpmLimit is the schema descriptor for rpm_limit field.
+-	groupDescRpmLimit := groupFields[51].Descriptor()
++	groupDescRpmLimit := groupFields[52].Descriptor()
+ 	// group.DefaultRpmLimit holds the default value on creation for the rpm_limit field.
+ 	group.DefaultRpmLimit = groupDescRpmLimit.Default.(int)
+ 	// groupDescMaxReasoningEffort is the schema descriptor for max_reasoning_effort field.
+-	groupDescMaxReasoningEffort := groupFields[52].Descriptor()
++	groupDescMaxReasoningEffort := groupFields[53].Descriptor()
+ 	// group.DefaultMaxReasoningEffort holds the default value on creation for the max_reasoning_effort field.
+ 	group.DefaultMaxReasoningEffort = groupDescMaxReasoningEffort.Default.(string)
+ 	// group.MaxReasoningEffortValidator is a validator for the "max_reasoning_effort" field. It is called by the builders before save.
+ 	group.MaxReasoningEffortValidator = groupDescMaxReasoningEffort.Validators[0].(func(string) error)
+ 	// groupDescReasoningEffortMappings is the schema descriptor for reasoning_effort_mappings field.
+-	groupDescReasoningEffortMappings := groupFields[53].Descriptor()
++	groupDescReasoningEffortMappings := groupFields[54].Descriptor()
+ 	// group.DefaultReasoningEffortMappings holds the default value on creation for the reasoning_effort_mappings field.
+ 	group.DefaultReasoningEffortMappings = groupDescReasoningEffortMappings.Default.([]domain.ReasoningEffortMapping)
+ 	// groupDescProfitControlEnabled is the schema descriptor for profit_control_enabled field.
+-	groupDescProfitControlEnabled := groupFields[54].Descriptor()
++	groupDescProfitControlEnabled := groupFields[55].Descriptor()
+ 	// group.DefaultProfitControlEnabled holds the default value on creation for the profit_control_enabled field.
+ 	group.DefaultProfitControlEnabled = groupDescProfitControlEnabled.Default.(bool)
+ 	// groupDescProfitMinMargin is the schema descriptor for profit_min_margin field.
+-	groupDescProfitMinMargin := groupFields[55].Descriptor()
++	groupDescProfitMinMargin := groupFields[56].Descriptor()
+ 	// group.DefaultProfitMinMargin holds the default value on creation for the profit_min_margin field.
+ 	group.DefaultProfitMinMargin = groupDescProfitMinMargin.Default.(float64)
+ 	// groupDescProfitSafetyBuffer is the schema descriptor for profit_safety_buffer field.
+-	groupDescProfitSafetyBuffer := groupFields[56].Descriptor()
++	groupDescProfitSafetyBuffer := groupFields[57].Descriptor()
+ 	// group.DefaultProfitSafetyBuffer holds the default value on creation for the profit_safety_buffer field.
+ 	group.DefaultProfitSafetyBuffer = groupDescProfitSafetyBuffer.Default.(float64)
+ 	ipv6egresspoolMixin := schema.IPv6EgressPool{}.Mixin()
+diff --git a/backend/ent/schema/group.go b/backend/ent/schema/group.go
+index 9e3fe55ea..acb8955d8 100644
+--- a/backend/ent/schema/group.go
++++ b/backend/ent/schema/group.go
+@@ -44,6 +44,11 @@ func (Group) Fields() []ent.Field {
+ 			Optional().
+ 			Nillable().
+ 			SchemaType(map[string]string{dialect.Postgres: "text"}),
++		// 名称与描述的界面语言译文 (added by migration 248)
++		field.JSON("i18n", domain.GroupI18n{}).
++			Default(domain.GroupI18n{}).
++			SchemaType(map[string]string{dialect.Postgres: "jsonb"}).
++			Comment("名称与描述的界面语言译文：语言代码 -> {name, description}；缺失的语言沿用 name/description"),
+ 		field.Float("rate_multiplier").
+ 			SchemaType(map[string]string{dialect.Postgres: "decimal(10,4)"}).
+ 			Default(1.0),
+diff --git a/backend/internal/application/service/admin_group.go b/backend/internal/application/service/admin_group.go
+index 76fd766fe..8409d705c 100644
+--- a/backend/internal/application/service/admin_group.go
++++ b/backend/internal/application/service/admin_group.go
+@@ -404,6 +404,10 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
+ 		return nil, errors.New("rate_multiplier must be > 0")
+ 	}
+ 
++	i18n, err := normalizeGroupI18n(input.I18n)
++	if err != nil {
++		return nil, err
++	}
+ 	platform := NormalizeGroupPlatform(input.Platform)
+ 	modelPricing, err := normalizeGroupModelPricing(platform, input.ModelPricing)
+ 	if err != nil {
+@@ -568,6 +572,7 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
+ 	group := &Group{
+ 		Name:                            input.Name,
+ 		Description:                     input.Description,
++		I18n:                            i18n,
+ 		Platform:                        platform,
+ 		RateMultiplier:                  input.RateMultiplier,
+ 		IsExclusive:                     input.IsExclusive,
+@@ -759,6 +764,13 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
+ 	if input.Description != nil {
+ 		group.Description = *input.Description
+ 	}
++	if input.I18n != nil {
++		i18n, err := normalizeGroupI18n(*input.I18n)
++		if err != nil {
++			return nil, err
++		}
++		group.I18n = i18n
++	}
+ 	if input.Platform != "" {
+ 		group.Platform = input.Platform
+ 	}
+diff --git a/backend/internal/application/service/admin_group_duplicate.go b/backend/internal/application/service/admin_group_duplicate.go
+index 65c1faff2..24eb08e58 100644
+--- a/backend/internal/application/service/admin_group_duplicate.go
++++ b/backend/internal/application/service/admin_group_duplicate.go
+@@ -93,6 +93,7 @@ func cloneGroupForDuplicate(source *Group, operationID string) *Group {
+ 	return &Group{
+ 		Name:                            duplicateGroupName(source.Name, 1),
+ 		Description:                     source.Description,
++		I18n:                            cloneGroupI18nForDuplicate(source.I18n),
+ 		Platform:                        source.Platform,
+ 		RateMultiplier:                  source.RateMultiplier,
+ 		PeakRateEnabled:                 source.PeakRateEnabled,
+diff --git a/backend/internal/application/service/admin_service.go b/backend/internal/application/service/admin_service.go
+index ba648eefa..e2bee6c66 100644
+--- a/backend/internal/application/service/admin_service.go
++++ b/backend/internal/application/service/admin_service.go
+@@ -221,6 +221,7 @@ type AdminBoundAuthIdentityChannel struct {
+ type CreateGroupInput struct {
+ 	Name             string
+ 	Description      string
++	I18n             GroupI18n
+ 	Platform         string
+ 	RateMultiplier   float64
+ 	IsExclusive      bool
+@@ -290,6 +291,7 @@ type CreateGroupInput struct {
+ type UpdateGroupInput struct {
+ 	Name                      string
+ 	Description               *string
++	I18n                      *GroupI18n // nil 表示不修改；非 nil 整体替换
+ 	Platform                  string
+ 	RateMultiplier            *float64 // 使用指针以支持设置为0
+ 	IsExclusive               *bool
+diff --git a/backend/internal/application/service/billing_service.go b/backend/internal/application/service/billing_service.go
+index 74be704ab..718e318ab 100644
+--- a/backend/internal/application/service/billing_service.go
++++ b/backend/internal/application/service/billing_service.go
+@@ -1241,6 +1241,8 @@ type CostInput struct {
+ 	Resolver                  *ModelPricingResolver // 定价解析器
+ 	Resolved                  *ResolvedPricing      // 可选：预解析的定价结果（避免重复 Resolve 调用）
+ 	LongContextBillingEnabled *bool
++	// Exempts the model surcharge while preserving custom pricing intervals.
++	DisableModelLongContextPricing bool
+ }
+ 
+ // CalculateCostUnified 统一计费入口，支持三种计费模式。
+@@ -1259,7 +1261,7 @@ func (s *BillingService) CalculateCostUnified(input CostInput) (*CostBreakdown,
+ 			input.ImageRateMultiplier,
+ 			input.ServiceTier,
+ 			nil,
+-			applyLongContextBilling,
++			applyLongContextBilling && !input.DisableModelLongContextPricing,
+ 		)
+ 	}
+ 
+@@ -1321,7 +1323,7 @@ func (s *BillingService) calculateTokenCost(resolved *ResolvedPricing, input Cos
+ 	}
+ 
+ 	// 长上下文定价仅在无区间定价时应用（区间定价已包含上下文分层）
+-	applyLongCtx := len(resolved.Intervals) == 0 && !resolved.longContextPricingDisabled
++	applyLongCtx := len(resolved.Intervals) == 0 && !resolved.longContextPricingDisabled && !input.DisableModelLongContextPricing
+ 	if input.LongContextBillingEnabled != nil {
+ 		applyLongCtx = applyLongCtx && *input.LongContextBillingEnabled
+ 	}
+diff --git a/backend/internal/application/service/channel_available.go b/backend/internal/application/service/channel_available.go
+index eeaf7dac2..c6e68556a 100644
+--- a/backend/internal/application/service/channel_available.go
++++ b/backend/internal/application/service/channel_available.go
+@@ -15,6 +15,7 @@ import (
+ type AvailableGroupRef struct {
+ 	ID                 int64
+ 	Name               string
++	I18n               GroupI18n
+ 	Platform           string
+ 	SubscriptionType   string
+ 	RateMultiplier     float64
+@@ -65,6 +66,7 @@ func (s *ChannelService) ListAvailable(ctx context.Context) ([]AvailableChannel,
+ 		groupByID[g.ID] = AvailableGroupRef{
+ 			ID:                 g.ID,
+ 			Name:               g.Name,
++			I18n:               g.I18n,
+ 			Platform:           g.Platform,
+ 			SubscriptionType:   g.SubscriptionType,
+ 			RateMultiplier:     g.RateMultiplier,
+diff --git a/backend/internal/application/service/channel_plaza.go b/backend/internal/application/service/channel_plaza.go
+index f033bfdb9..ce6e7e53a 100644
+--- a/backend/internal/application/service/channel_plaza.go
++++ b/backend/internal/application/service/channel_plaza.go
+@@ -33,6 +33,7 @@ type PlazaGroup struct {
+ 	ID                   int64
+ 	Name                 string
+ 	Description          string
++	I18n                 GroupI18n
+ 	Platform             string
+ 	SubscriptionType     string
+ 	RateMultiplier       float64
+@@ -98,6 +99,7 @@ func (s *ChannelService) ListPlazaGroups(ctx context.Context, opts PlazaListOpti
+ 			ID:                   g.ID,
+ 			Name:                 g.Name,
+ 			Description:          g.Description,
++			I18n:                 g.I18n,
+ 			Platform:             g.Platform,
+ 			SubscriptionType:     g.SubscriptionType,
+ 			RateMultiplier:       g.RateMultiplier,
+diff --git a/backend/internal/application/service/content_moderation_config_api.go b/backend/internal/application/service/content_moderation_config_api.go
+index 4dc5fddf0..fe4015d27 100644
+--- a/backend/internal/application/service/content_moderation_config_api.go
++++ b/backend/internal/application/service/content_moderation_config_api.go
+@@ -3,7 +3,10 @@ package service
+ import (
+ 	"context"
+ 	"encoding/json"
++	"errors"
++
+ 	"fmt"
++	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
+ 	"strings"
+ 	"time"
+ )
+@@ -137,7 +140,18 @@ func (s *ContentModerationService) UpdateConfig(ctx context.Context, input Updat
+ 	if err != nil {
+ 		return nil, fmt.Errorf("marshal content moderation config: %w", err)
+ 	}
+-	if err := s.settingRepo.Set(ctx, SettingKeyContentModerationConfig, string(raw)); err != nil {
++	var saveErr error
++	if writer, ok := s.settingRepo.(interface {
++		SetContentModerationConfig(context.Context, string, []int64) error
++	}); ok {
++		saveErr = writer.SetContentModerationConfig(ctx, string(raw), cfg.GroupIDs)
++		if errors.Is(saveErr, ErrGroupNotFound) {
++			return nil, infraerrors.BadRequest("INVALID_CONTENT_MODERATION_GROUP", "审计分组不存在")
++		}
++	} else {
++		saveErr = s.settingRepo.Set(ctx, SettingKeyContentModerationConfig, string(raw))
++	}
++	if err := saveErr; err != nil {
+ 		return nil, fmt.Errorf("save content moderation config: %w", err)
+ 	}
+ 	s.replaceRuntimeConfig(cfg, raw)
+diff --git a/backend/internal/application/service/group.go b/backend/internal/application/service/group.go
+index 4802c618c..8e9b56b1c 100644
+--- a/backend/internal/application/service/group.go
++++ b/backend/internal/application/service/group.go
+@@ -19,6 +19,7 @@ type Group struct {
+ 	ID             int64
+ 	Name           string
+ 	Description    string
++	I18n           GroupI18n // 名称与描述的界面语言译文；缺失的语言沿用 Name/Description
+ 	Platform       string
+ 	RateMultiplier float64
+ 	// 高峰时段倍率：peak_rate_enabled 为 true 且当前时刻处于 [PeakStart, PeakEnd) 时，
+diff --git a/backend/internal/application/service/openai_alpha_search_billing_test.go b/backend/internal/application/service/openai_alpha_search_billing_test.go
+index 17d4f64a7..5d0779091 100644
+--- a/backend/internal/application/service/openai_alpha_search_billing_test.go
++++ b/backend/internal/application/service/openai_alpha_search_billing_test.go
+@@ -50,7 +50,7 @@ func TestCalculateOpenAIRecordUsageCostWebSearchPerCall(t *testing.T) {
+ 	// 即使 token 倍率（含高峰，3.0）更高也不采用。
+ 	apiKey := &APIKey{ID: 1, GroupID: &groupID, Group: &Group{ID: groupID, Platform: PlatformOpenAI}}
+ 	result := &OpenAIForwardResult{Model: "gpt-5.6-sol", UpstreamModel: "gpt-5.6-sol", WebSearchCalls: 1}
+-	resolution, err := svc.calculateOpenAIRecordUsageCostWithResolution(context.Background(), result, apiKey, []string{"gpt-5.6-sol"}, 3.0, 1.0, 1.0, 2.0, UsageTokens{}, "", false)
++	resolution, err := svc.calculateOpenAIRecordUsageCostWithResolution(context.Background(), result, apiKey, []string{"gpt-5.6-sol"}, 3.0, 1.0, 1.0, 2.0, UsageTokens{}, "", false, false)
+ 	require.NoError(t, err)
+ 	require.NotNil(t, resolution.Cost)
+ 	cost := resolution.Cost
+@@ -60,7 +60,7 @@ func TestCalculateOpenAIRecordUsageCostWebSearchPerCall(t *testing.T) {
+ 
+ 	// 分组配置单价 0.005
+ 	apiKey.Group.WebSearchPricePerCall = float64Ptr(0.005)
+-	resolution, err = svc.calculateOpenAIRecordUsageCostWithResolution(context.Background(), result, apiKey, []string{"gpt-5.6-sol"}, 1.0, 1.0, 1.0, 1.0, UsageTokens{}, "", false)
++	resolution, err = svc.calculateOpenAIRecordUsageCostWithResolution(context.Background(), result, apiKey, []string{"gpt-5.6-sol"}, 1.0, 1.0, 1.0, 1.0, UsageTokens{}, "", false, false)
+ 	require.NoError(t, err)
+ 	require.NotNil(t, resolution.Cost)
+ 	cost = resolution.Cost
+@@ -70,7 +70,7 @@ func TestCalculateOpenAIRecordUsageCostWebSearchPerCall(t *testing.T) {
+ 	// WebSearchCalls = 0 时不得走按次分支（无定价数据会返回 pricing 错误，
+ 	// 证明回落到了 token 路径而不是被按次分支吞掉）。
+ 	result.WebSearchCalls = 0
+-	_, err = svc.calculateOpenAIRecordUsageCostWithResolution(context.Background(), result, apiKey, []string{"gpt-5.6-sol"}, 1.0, 1.0, 1.0, 1.0, UsageTokens{InputTokens: 10}, "", false)
++	_, err = svc.calculateOpenAIRecordUsageCostWithResolution(context.Background(), result, apiKey, []string{"gpt-5.6-sol"}, 1.0, 1.0, 1.0, 1.0, UsageTokens{InputTokens: 10}, "", false, false)
+ 	require.Error(t, err)
+ }
+ 
+diff --git a/backend/internal/application/service/openai_gateway_service.go b/backend/internal/application/service/openai_gateway_service.go
+index f42ba0540..343cf0976 100644
+--- a/backend/internal/application/service/openai_gateway_service.go
++++ b/backend/internal/application/service/openai_gateway_service.go
+@@ -689,7 +689,14 @@ func (s *OpenAIGatewayService) ResolveChannelMappingAndRestrict(ctx context.Cont
+ 	return s.channelService.ResolveChannelMappingAndRestrict(ctx, groupID, model)
+ }
+ 
++// isCodexImageGenerationBridgeEnabled 决定是否为 Codex 客户端自动注入 hosted
++// image_generation 工具。该工具是 OpenAI Responses 专属能力，Kimi / DeepSeek /
++// MiniMax 等经 OpenAI 网关转发的原生 Responses 上游不识别，注入后会被 400 拒绝，
++// 因此非 OpenAI 平台账号一律不桥接，后续再按账号 → 渠道 → 全局的优先级取开关。
+ func (s *OpenAIGatewayService) isCodexImageGenerationBridgeEnabled(ctx context.Context, account *Account, apiKey *APIKey) bool {
++	if account == nil || account.Platform != PlatformOpenAI {
++		return false
++	}
+ 	if override := account.CodexImageGenerationBridgeOverride(); override != nil {
+ 		return *override
+ 	}
+diff --git a/backend/internal/application/service/openai_gateway_usage.go b/backend/internal/application/service/openai_gateway_usage.go
+index 8afdaab62..f6ef75a51 100644
+--- a/backend/internal/application/service/openai_gateway_usage.go
++++ b/backend/internal/application/service/openai_gateway_usage.go
+@@ -207,6 +207,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
+ 		}
+ 	}
+ 	longContextBillingEnabled := accountLongContextBillingEnabled(billingAccount)
++	modelLongContextExempt := openAISubscriptionLongContextExempt(billingAccount, result)
+ 	costResolution, err = s.calculateOpenAIRecordUsageCostWithResolution(
+ 		ctx,
+ 		result,
+@@ -219,6 +220,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
+ 		tokens,
+ 		serviceTier,
+ 		longContextBillingEnabled,
++		modelLongContextExempt,
+ 	)
+ 	if costResolution.Cost != nil {
+ 		cost = costResolution.Cost
+@@ -261,6 +263,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
+ 					tokens,
+ 					serviceTier,
+ 					longContextBillingEnabled,
++					modelLongContextExempt,
+ 					responsePricing,
+ 				)
+ 				if responseErr == nil && responseModelBillingAdoptable(
+@@ -416,7 +419,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
+ 	if apiKey.GroupID != nil {
+ 		applyAccountStatsCost(ctx, usageLog, s.channelService, s.billingService,
+ 			account.ID, *apiKey.GroupID, result.UpstreamModel, result.Model,
+-			tokens, cost.TotalCost, longContextBillingEnabled,
++			tokens, cost.TotalCost, longContextBillingEnabled && !modelLongContextExempt,
+ 		)
+ 	}
+ 
+@@ -479,6 +482,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCostWithResolution(
+ 	tokens UsageTokens,
+ 	serviceTier string,
+ 	longContextBillingEnabled bool,
++	modelLongContextExempt bool,
+ ) (openAIRecordUsageCostResolution, error) {
+ 	billingModel := firstUsageBillingModel(billingModels)
+ 	if result != nil && result.WebSearchCalls > 0 {
+@@ -530,6 +534,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCostWithResolution(
+ 			tokens,
+ 			serviceTier,
+ 			longContextBillingEnabled,
++			modelLongContextExempt,
+ 			nil,
+ 		)
+ 		if err == nil {
+@@ -591,6 +596,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
+ 	tokens UsageTokens,
+ 	serviceTier string,
+ 	longContextBillingEnabled bool,
++	modelLongContextExempt bool,
+ 	resolved *ResolvedPricing,
+ ) (*CostBreakdown, *ResolvedPricing, error) {
+ 	if s.resolver != nil && apiKey.Group != nil {
+@@ -599,18 +605,19 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
+ 			resolved = s.resolver.Resolve(ctx, PricingInput{Model: billingModel, GroupID: &gid, Group: apiKey.Group})
+ 		}
+ 		cost, err := s.billingService.CalculateCostUnified(CostInput{
+-			Ctx:                       ctx,
+-			Model:                     billingModel,
+-			GroupID:                   &gid,
+-			Group:                     apiKey.Group,
+-			Tokens:                    tokens,
+-			RequestCount:              1,
+-			RateMultiplier:            multiplier,
+-			ImageRateMultiplier:       imageMultiplier,
+-			ServiceTier:               serviceTier,
+-			Resolver:                  s.resolver,
+-			Resolved:                  resolved,
+-			LongContextBillingEnabled: &longContextBillingEnabled,
++			Ctx:                            ctx,
++			Model:                          billingModel,
++			GroupID:                        &gid,
++			Group:                          apiKey.Group,
++			Tokens:                         tokens,
++			RequestCount:                   1,
++			RateMultiplier:                 multiplier,
++			ImageRateMultiplier:            imageMultiplier,
++			ServiceTier:                    serviceTier,
++			Resolver:                       s.resolver,
++			Resolved:                       resolved,
++			LongContextBillingEnabled:      &longContextBillingEnabled,
++			DisableModelLongContextPricing: modelLongContextExempt,
+ 		})
+ 		return cost, resolved, err
+ 	}
+@@ -621,7 +628,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
+ 		imageMultiplier,
+ 		serviceTier,
+ 		nil,
+-		longContextBillingEnabled,
++		longContextBillingEnabled && !modelLongContextExempt,
+ 	)
+ 	return cost, nil, err
+ }
+diff --git a/backend/internal/application/service/ops_request_details.go b/backend/internal/application/service/ops_request_details.go
+index 8e103414d..7f01d3baf 100644
+--- a/backend/internal/application/service/ops_request_details.go
++++ b/backend/internal/application/service/ops_request_details.go
+@@ -33,10 +33,11 @@ type OpsRequestDetail struct {
+ 	Severity string `json:"severity,omitempty"`
+ 	Message  string `json:"message,omitempty"`
+ 
+-	UserID    *int64 `json:"user_id,omitempty"`
+-	APIKeyID  *int64 `json:"api_key_id,omitempty"`
+-	AccountID *int64 `json:"account_id,omitempty"`
+-	GroupID   *int64 `json:"group_id,omitempty"`
++	UserID      *int64 `json:"user_id,omitempty"`
++	APIKeyID    *int64 `json:"api_key_id,omitempty"`
++	AccountID   *int64 `json:"account_id,omitempty"`
++	AccountName string `json:"account_name,omitempty"`
++	GroupID     *int64 `json:"group_id,omitempty"`
+ 
+ 	Stream bool `json:"stream"`
+ }
+diff --git a/backend/internal/application/service/payment_config_plans.go b/backend/internal/application/service/payment_config_plans.go
+index 79ac663d6..740201d8d 100644
+--- a/backend/internal/application/service/payment_config_plans.go
++++ b/backend/internal/application/service/payment_config_plans.go
+@@ -86,6 +86,9 @@ type PlanGroupInfo struct {
+ 	WeeklyLimitUSD     *float64 `json:"weekly_limit_usd"`
+ 	MonthlyLimitUSD    *float64 `json:"monthly_limit_usd"`
+ 	ModelScopes        []string `json:"supported_model_scopes"`
++
++	// 不对外输出；handler 按请求语言用它换出 Name 的译文。
++	I18n GroupI18n `json:"-"`
+ }
+ 
+ // GetGroupInfoMap returns a map of group_id → PlanGroupInfo for the given plans.
+@@ -119,6 +122,7 @@ func (s *PaymentConfigService) GetGroupInfoMap(ctx context.Context, plans []*dbe
+ 			WeeklyLimitUSD:     g.WeeklyLimitUsd,
+ 			MonthlyLimitUSD:    g.MonthlyLimitUsd,
+ 			ModelScopes:        g.SupportedModelScopes,
++			I18n:               g.I18n,
+ 		}
+ 	}
+ 	return m
+diff --git a/backend/internal/application/service/response_model_billing_test.go b/backend/internal/application/service/response_model_billing_test.go
+index 951f2e538..0286da5f7 100644
+--- a/backend/internal/application/service/response_model_billing_test.go
++++ b/backend/internal/application/service/response_model_billing_test.go
+@@ -551,7 +551,7 @@ func BenchmarkOpenAIRecordUsageCostResolution_DefaultMode(b *testing.B) {
+ 	for b.Loop() {
+ 		resolution, err := svc.calculateOpenAIRecordUsageCostWithResolution(
+ 			context.Background(), result, &APIKey{}, []string{openAIPriceyResponseModel},
+-			1.1, 1.1, 1.1, 1.1, tokens, "", false,
++			1.1, 1.1, 1.1, 1.1, tokens, "", false, false,
+ 		)
+ 		if err != nil {
+ 			b.Fatal(err)
+diff --git a/backend/internal/infrastructure/repository/api_key_repo.go b/backend/internal/infrastructure/repository/api_key_repo.go
+index cb60d19b6..cc459dd57 100644
+--- a/backend/internal/infrastructure/repository/api_key_repo.go
++++ b/backend/internal/infrastructure/repository/api_key_repo.go
+@@ -1090,6 +1090,7 @@ func groupEntityToService(g *dbent.Group) *service.Group {
+ 		ID:                              g.ID,
+ 		Name:                            g.Name,
+ 		Description:                     derefString(g.Description),
++		I18n:                            g.I18n,
+ 		Platform:                        g.Platform,
+ 		RateMultiplier:                  g.RateMultiplier,
+ 		IsExclusive:                     g.IsExclusive,
+diff --git a/backend/internal/infrastructure/repository/group_repo.go b/backend/internal/infrastructure/repository/group_repo.go
+index 046e1f1ea..bf297f954 100644
+--- a/backend/internal/infrastructure/repository/group_repo.go
++++ b/backend/internal/infrastructure/repository/group_repo.go
+@@ -128,6 +128,10 @@ func createGroupRecord(ctx context.Context, client *dbent.Client, groupIn *servi
+ 	// 设置支持的模型系列（始终设置，空数组表示不限制）
+ 	builder = builder.SetSupportedModelScopes(groupIn.SupportedModelScopes)
+ 
++	if groupIn.I18n != nil {
++		builder = builder.SetI18n(groupIn.I18n)
++	}
++
+ 	created, err := builder.Save(ctx)
+ 	if err != nil {
+ 		return translatePersistenceError(err, nil, service.ErrGroupExists)
+@@ -370,6 +374,12 @@ func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) er
+ 	// 处理 SupportedModelScopes（始终设置，空数组表示不限制）
+ 	builder = builder.SetSupportedModelScopes(groupIn.SupportedModelScopes)
+ 
++	i18n := groupIn.I18n
++	if i18n == nil {
++		i18n = service.GroupI18n{}
++	}
++	builder = builder.SetI18n(i18n)
++
+ 	updated, err := builder.Save(ctx)
+ 	if err != nil {
+ 		return translatePersistenceError(err, service.ErrGroupNotFound, service.ErrGroupExists)
+@@ -382,10 +392,29 @@ func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) er
+ }
+ 
+ func (r *groupRepository) Delete(ctx context.Context, id int64) error {
+-	_, err := r.client.Group.Delete().Where(group.IDEQ(id)).Exec(ctx)
+-	if err != nil {
++	tx, err := r.client.Tx(ctx)
++	if err != nil && !errors.Is(err, dbent.ErrTxStarted) {
++		return err
++	}
++	client := r.client
++	if err == nil {
++		defer func() { _ = tx.Rollback() }()
++		client = tx.Client()
++	}
++	if err := lockLiveGroups(ctx, client, []int64{id}); err != nil {
+ 		return translatePersistenceError(err, service.ErrGroupNotFound, nil)
+ 	}
++	if _, err := client.Group.Delete().Where(group.IDEQ(id)).Exec(ctx); err != nil {
++		return translatePersistenceError(err, service.ErrGroupNotFound, nil)
++	}
++	if err := cleanupDeletedModerationGroup(ctx, client, id); err != nil {
++		return err
++	}
++	if tx != nil {
++		if err := tx.Commit(); err != nil {
++			return err
++		}
++	}
+ 	if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventGroupChanged, nil, &id, nil); err != nil {
+ 		logger.LegacyPrintf("repository.group", "[SchedulerOutbox] enqueue group delete failed: group=%d err=%v", id, err)
+ 	}
+@@ -871,6 +900,9 @@ func (r *groupRepository) DeleteCascade(ctx context.Context, id int64) ([]int64,
+ 	if _, err := txClient.Group.Delete().Where(group.IDEQ(id)).Exec(ctx); err != nil {
+ 		return nil, err
+ 	}
++	if err := cleanupDeletedModerationGroup(ctx, txClient, id); err != nil {
++		return nil, err
++	}
+ 
+ 	if tx != nil {
+ 		if err := tx.Commit(); err != nil {
+diff --git a/backend/internal/infrastructure/repository/ops_repo_request_details.go b/backend/internal/infrastructure/repository/ops_repo_request_details.go
+index 4ffb7dd32..2abee09fd 100644
+--- a/backend/internal/infrastructure/repository/ops_repo_request_details.go
++++ b/backend/internal/infrastructure/repository/ops_repo_request_details.go
+@@ -106,7 +106,8 @@ WITH combined AS (
+     ul.api_key_id AS api_key_id,
+     ul.account_id AS account_id,
+     ul.group_id AS group_id,
+-    ul.stream AS stream
++    ul.stream AS stream,
++    a.name AS account_name
+   FROM usage_logs ul
+   LEFT JOIN groups g ON g.id = ul.group_id
+   LEFT JOIN accounts a ON a.id = ul.account_id
+@@ -131,7 +132,8 @@ WITH combined AS (
+     o.api_key_id AS api_key_id,
+     o.account_id AS account_id,
+     o.group_id AS group_id,
+-    o.stream AS stream
++    o.stream AS stream,
++    a.name AS account_name
+   FROM ops_error_logs o
+   LEFT JOIN groups g ON g.id = o.group_id
+   LEFT JOIN accounts a ON a.id = o.account_id
+@@ -183,7 +185,8 @@ SELECT
+   api_key_id,
+   account_id,
+   group_id,
+-  stream
++  stream,
++  account_name
+ FROM combined
+ %s
+ %s
+@@ -235,7 +238,8 @@ LIMIT $%d OFFSET $%d
+ 			accountID sql.NullInt64
+ 			groupID   sql.NullInt64
+ 
+-			stream bool
++			accountName sql.NullString
++			stream      bool
+ 		)
+ 
+ 		if err := rows.Scan(
+@@ -256,6 +260,7 @@ LIMIT $%d OFFSET $%d
+ 			&accountID,
+ 			&groupID,
+ 			&stream,
++			&accountName,
+ 		); err != nil {
+ 			return nil, 0, err
+ 		}
+@@ -275,10 +280,11 @@ LIMIT $%d OFFSET $%d
+ 			Severity:     severity.String,
+ 			Message:      message.String,
+ 
+-			UserID:    toInt64Ptr(userID),
+-			APIKeyID:  toInt64Ptr(apiKeyID),
+-			AccountID: toInt64Ptr(accountID),
+-			GroupID:   toInt64Ptr(groupID),
++			UserID:      toInt64Ptr(userID),
++			APIKeyID:    toInt64Ptr(apiKeyID),
++			AccountID:   toInt64Ptr(accountID),
++			AccountName: accountName.String,
++			GroupID:     toInt64Ptr(groupID),
+ 
+ 			Stream: stream,
+ 		}
+diff --git a/backend/internal/infrastructure/repository/ops_repo_request_details_test.go b/backend/internal/infrastructure/repository/ops_repo_request_details_test.go
+index 1761f48e0..8b0cf7592 100644
+--- a/backend/internal/infrastructure/repository/ops_repo_request_details_test.go
++++ b/backend/internal/infrastructure/repository/ops_repo_request_details_test.go
+@@ -49,6 +49,7 @@ func TestOpsRepositoryListRequestDetailsTTFTDrilldown(t *testing.T) {
+ 		"account_id",
+ 		"group_id",
+ 		"stream",
++		"account_name",
+ 	}).AddRow(
+ 		"success",
+ 		createdAt,
+@@ -67,6 +68,7 @@ func TestOpsRepositoryListRequestDetailsTTFTDrilldown(t *testing.T) {
+ 		int64(3),
+ 		int64(4),
+ 		true,
++		"test-account",
+ 	)
+ 
+ 	mock.ExpectQuery(`(?s)FROM combined\s+WHERE kind = \$3 AND first_token_ms IS NOT NULL\s+ORDER BY first_token_ms DESC NULLS LAST, created_at DESC\s+LIMIT \$4 OFFSET \$5`).
+@@ -78,6 +80,7 @@ func TestOpsRepositoryListRequestDetailsTTFTDrilldown(t *testing.T) {
+ 	require.Equal(t, int64(1), total)
+ 	require.Len(t, items, 1)
+ 	require.Equal(t, "req-ttft", items[0].RequestID)
++	require.Equal(t, "test-account", items[0].AccountName)
+ 	require.NotNil(t, items[0].FirstTokenMs)
+ 	require.Equal(t, 450, *items[0].FirstTokenMs)
+ 	require.NotNil(t, items[0].DurationMs)
+diff --git a/backend/internal/infrastructure/repository/setting_repo.go b/backend/internal/infrastructure/repository/setting_repo.go
+index cdeb1b53e..d948882d4 100644
+--- a/backend/internal/infrastructure/repository/setting_repo.go
++++ b/backend/internal/infrastructure/repository/setting_repo.go
+@@ -2,6 +2,7 @@ package repository
+ 
+ import (
+ 	"context"
++	"errors"
+ 	"time"
+ 
+ 	"github.com/Wei-Shaw/sub2api/ent"
+@@ -9,6 +10,34 @@ import (
+ 	"github.com/Wei-Shaw/sub2api/internal/application/service"
+ )
+ 
++// SetContentModerationConfig holds live group rows until the setting is written.
++// Deletion takes FOR UPDATE on the group before cleaning this setting, so both
++// operations follow the same lock order: groups, then settings.
++func (r *settingRepository) SetContentModerationConfig(ctx context.Context, value string, groupIDs []int64) error {
++	tx, err := r.client.Tx(ctx)
++	if err != nil && !errors.Is(err, ent.ErrTxStarted) {
++		return err
++	}
++	client := r.client
++	if err == nil {
++		defer func() { _ = tx.Rollback() }()
++		client = tx.Client()
++	}
++	if err := lockLiveGroups(ctx, client, groupIDs); err != nil {
++		return err
++	}
++	now := time.Now()
++	if err := client.Setting.Create().SetKey(service.SettingKeyContentModerationConfig).
++		SetValue(value).SetUpdatedAt(now).OnConflictColumns(setting.FieldKey).
++		UpdateNewValues().Exec(ctx); err != nil {
++		return err
++	}
++	if tx != nil {
++		return tx.Commit()
++	}
++	return nil
++}
++
+ type settingRepository struct {
+ 	client *ent.Client
+ }
+diff --git a/backend/internal/transport/http/handler/admin/group_handler.go b/backend/internal/transport/http/handler/admin/group_handler.go
+index 663a8a4de..4f833a4d9 100644
+--- a/backend/internal/transport/http/handler/admin/group_handler.go
++++ b/backend/internal/transport/http/handler/admin/group_handler.go
+@@ -98,6 +98,7 @@ func NewGroupHandler(adminService service.AdminService, dashboardService *servic
+ type CreateGroupRequest struct {
+ 	Name                      string                        `json:"name" binding:"required"`
+ 	Description               string                        `json:"description"`
++	I18n                      service.GroupI18n             `json:"i18n"`
+ 	Platform                  string                        `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity grok kimi zhipu deepseek minimax opencode_go typesafe composite"`
+ 	RateMultiplier            float64                       `json:"rate_multiplier"`
+ 	IsExclusive               bool                          `json:"is_exclusive"`
+@@ -164,6 +165,7 @@ type CreateGroupRequest struct {
+ type UpdateGroupRequest struct {
+ 	Name                      string                         `json:"name"`
+ 	Description               *string                        `json:"description"`
++	I18n                      *service.GroupI18n             `json:"i18n"`
+ 	Platform                  string                         `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity grok kimi zhipu deepseek minimax opencode_go typesafe composite"`
+ 	RateMultiplier            *float64                       `json:"rate_multiplier"`
+ 	IsExclusive               *bool                          `json:"is_exclusive"`
+@@ -524,6 +526,7 @@ func (h *GroupHandler) Create(c *gin.Context) {
+ 	group, err := h.adminService.CreateGroup(c.Request.Context(), &service.CreateGroupInput{
+ 		Name:                            req.Name,
+ 		Description:                     req.Description,
++		I18n:                            req.I18n,
+ 		Platform:                        req.Platform,
+ 		RateMultiplier:                  req.RateMultiplier,
+ 		IsExclusive:                     req.IsExclusive,
+@@ -650,6 +653,7 @@ func (h *GroupHandler) Update(c *gin.Context) {
+ 	group, err := h.adminService.UpdateGroup(c.Request.Context(), groupID, &service.UpdateGroupInput{
+ 		Name:                            req.Name,
+ 		Description:                     req.Description,
++		I18n:                            req.I18n,
+ 		Platform:                        req.Platform,
+ 		RateMultiplier:                  req.RateMultiplier,
+ 		IsExclusive:                     req.IsExclusive,
+diff --git a/backend/internal/transport/http/handler/api_key_handler.go b/backend/internal/transport/http/handler/api_key_handler.go
+index d0183ae36..f29c236e0 100644
+--- a/backend/internal/transport/http/handler/api_key_handler.go
++++ b/backend/internal/transport/http/handler/api_key_handler.go
+@@ -140,7 +140,7 @@ func (h *APIKeyHandler) List(c *gin.Context) {
+ 
+ 	out := make([]dto.APIKey, 0, len(keys))
+ 	for i := range keys {
+-		out = append(out, *dto.APIKeyFromService(&keys[i]))
++		out = append(out, *dto.APIKeyFromService(&keys[i]).Localized(c.GetHeader("Accept-Language")))
+ 	}
+ 	response.Paginated(c, out, result.Total, page, pageSize)
+ }
+@@ -172,7 +172,7 @@ func (h *APIKeyHandler) GetByID(c *gin.Context) {
+ 		return
+ 	}
+ 
+-	response.Success(c, dto.APIKeyFromService(key))
++	response.Success(c, dto.APIKeyFromService(key).Localized(c.GetHeader("Accept-Language")))
+ }
+ 
+ // Create handles creating a new API key
+@@ -221,7 +221,7 @@ func (h *APIKeyHandler) Create(c *gin.Context) {
+ 		if err != nil {
+ 			return nil, err
+ 		}
+-		return dto.APIKeyFromService(key), nil
++		return dto.APIKeyFromService(key).Localized(c.GetHeader("Accept-Language")), nil
+ 	})
+ }
+ 
+@@ -273,7 +273,7 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
+ 		return
+ 	}
+ 
+-	response.Success(c, dto.APIKeyFromService(key))
++	response.Success(c, dto.APIKeyFromService(key).Localized(c.GetHeader("Accept-Language")))
+ }
+ 
+ func apiKeyUpdateRequestToService(req UpdateAPIKeyRequest) service.UpdateAPIKeyRequest {
+@@ -340,7 +340,7 @@ func (h *APIKeyHandler) GetAvailableGroups(c *gin.Context) {
+ 
+ 	out := make([]dto.Group, 0, len(groups))
+ 	for i := range groups {
+-		out = append(out, *dto.GroupFromService(&groups[i]))
++		out = append(out, *dto.GroupFromService(&groups[i]).Localized(c.GetHeader("Accept-Language")))
+ 	}
+ 	response.Success(c, out)
+ }
+diff --git a/backend/internal/transport/http/handler/available_channel_handler.go b/backend/internal/transport/http/handler/available_channel_handler.go
+index 0e197eafa..593e4a99a 100644
+--- a/backend/internal/transport/http/handler/available_channel_handler.go
++++ b/backend/internal/transport/http/handler/available_channel_handler.go
+@@ -61,6 +61,9 @@ type userAvailableGroup struct {
+ 	PeakEnd            string  `json:"peak_end"`
+ 	PeakRateMultiplier float64 `json:"peak_rate_multiplier"`
+ 	IsExclusive        bool    `json:"is_exclusive"`
++
++	// 不对外输出；List 按请求语言把 Name 换成译文后丢弃。
++	i18n service.GroupI18n
+ }
+ 
+ // userSupportedModelPricing 用户可见的定价字段白名单。
+@@ -146,6 +149,7 @@ func (h *AvailableChannelHandler) List(c *gin.Context) {
+ 		return
+ 	}
+ 
++	acceptLanguage := c.GetHeader("Accept-Language")
+ 	out := make([]userAvailableChannel, 0, len(channels))
+ 	for _, ch := range channels {
+ 		if ch.Status != service.StatusActive {
+@@ -155,6 +159,7 @@ func (h *AvailableChannelHandler) List(c *gin.Context) {
+ 		if len(visibleGroups) == 0 {
+ 			continue
+ 		}
++		localizeUserAvailableGroups(visibleGroups, acceptLanguage)
+ 		sections := buildPlatformSections(ch, visibleGroups)
+ 		if len(sections) == 0 {
+ 			continue
+@@ -169,6 +174,12 @@ func (h *AvailableChannelHandler) List(c *gin.Context) {
+ 	response.Success(c, out)
+ }
+ 
++func localizeUserAvailableGroups(groups []userAvailableGroup, acceptLanguage string) {
++	for i := range groups {
++		groups[i].Name = groups[i].i18n.LocalizeName(acceptLanguage, groups[i].Name)
++	}
++}
++
+ // buildPlatformSections 把一个渠道按 visibleGroups 的平台集合拆成有序的 section 列表。
+ // Composite 分组会展开到每个已配置模型的平台；无模型时保留 composite 空状态。
+ // 输出按 platform 字母序稳定排序，便于前端等效比较与回归测试。
+@@ -238,6 +249,7 @@ func filterUserVisibleGroups(
+ 		visible = append(visible, userAvailableGroup{
+ 			ID:                 g.ID,
+ 			Name:               g.Name,
++			i18n:               g.I18n,
+ 			Platform:           g.Platform,
+ 			SubscriptionType:   g.SubscriptionType,
+ 			RateMultiplier:     g.RateMultiplier,
+diff --git a/backend/internal/transport/http/handler/dto/mappers.go b/backend/internal/transport/http/handler/dto/mappers.go
+index 26f0fe29e..0ef319308 100644
+--- a/backend/internal/transport/http/handler/dto/mappers.go
++++ b/backend/internal/transport/http/handler/dto/mappers.go
+@@ -190,6 +190,7 @@ func groupFromServiceBase(g *service.Group) Group {
+ 		ID:                              g.ID,
+ 		Name:                            g.Name,
+ 		Description:                     g.Description,
++		I18n:                            g.I18n,
+ 		Platform:                        g.Platform,
+ 		RateMultiplier:                  g.RateMultiplier,
+ 		IsExclusive:                     g.IsExclusive,
+diff --git a/backend/internal/transport/http/handler/dto/types.go b/backend/internal/transport/http/handler/dto/types.go
+index d8e277f7e..00d8745b8 100644
+--- a/backend/internal/transport/http/handler/dto/types.go
++++ b/backend/internal/transport/http/handler/dto/types.go
+@@ -111,6 +111,10 @@ type Group struct {
+ 	IsExclusive    bool    `json:"is_exclusive"`
+ 	Status         string  `json:"status"`
+ 
++	// I18n 名称与描述的各语言译文。只有管理端输出；用户侧接口经 Localized 把
++	// name/description 换成请求语言的版本后清空本字段。
++	I18n domain.GroupI18n `json:"i18n,omitempty"`
++
+ 	SubscriptionType          string   `json:"subscription_type"`
+ 	DailyLimitUSD             *float64 `json:"daily_limit_usd"`
+ 	WeeklyLimitUSD            *float64 `json:"weekly_limit_usd"`
+diff --git a/backend/internal/transport/http/handler/model_plaza_handler.go b/backend/internal/transport/http/handler/model_plaza_handler.go
+index 5310f38e3..fbcc8b436 100644
+--- a/backend/internal/transport/http/handler/model_plaza_handler.go
++++ b/backend/internal/transport/http/handler/model_plaza_handler.go
+@@ -130,10 +130,9 @@ func (h *ModelPlazaHandler) Get(c *gin.Context) {
+ 
+ 	visible := filterPlazaVisibleGroups(groups, allowedExclusive)
+ 
+-	out := make([]modelPlazaGroup, 0, len(visible))
+-	for i := range visible {
+-		out = append(out, toModelPlazaGroupDTO(&visible[i], userRates))
+-	}
++	out := toLocalizedModelPlazaGroups(visible, userRates, c.GetHeader("Accept-Language"))
++
++	c.Writer.Header().Add("Vary", "Accept-Language")
+ 	response.Success(c, modelPlazaResponse{
+ 		Description: rt.Description,
+ 		Groups:      out,
+@@ -161,6 +160,17 @@ func filterPlazaVisibleGroups(
+ 	return visible
+ }
+ 
++// toLocalizedModelPlazaGroups 转换可见分组，并把名称与描述换成请求首选语言的版本。
++func toLocalizedModelPlazaGroups(visible []service.PlazaGroup, userRates map[int64]float64, acceptLanguage string) []modelPlazaGroup {
++	out := make([]modelPlazaGroup, 0, len(visible))
++	for i := range visible {
++		group := toModelPlazaGroupDTO(&visible[i], userRates)
++		group.Name, group.Description = visible[i].I18n.Localize(acceptLanguage, group.Name, group.Description)
++		out = append(out, group)
++	}
++	return out
++}
++
+ // toModelPlazaGroupDTO 将 service 层广场分组映射为白名单 DTO,并合并用户专属倍率。
+ func toModelPlazaGroupDTO(g *service.PlazaGroup, userRates map[int64]float64) modelPlazaGroup {
+ 	models := make([]modelPlazaModel, 0, len(g.Models))
+diff --git a/backend/internal/transport/http/handler/payment_handler.go b/backend/internal/transport/http/handler/payment_handler.go
+index 92541df1f..f67ac9833 100644
+--- a/backend/internal/transport/http/handler/payment_handler.go
++++ b/backend/internal/transport/http/handler/payment_handler.go
+@@ -79,7 +79,7 @@ func (h *PaymentHandler) GetPlans(c *gin.Context) {
+ 		gi := groupInfo[p.GroupID]
+ 		result = append(result, planWithPlatform{
+ 			ID: int64(p.ID), GroupID: p.GroupID,
+-			GroupPlatform: gi.Platform, GroupName: gi.Name,
++			GroupPlatform: gi.Platform, GroupName: gi.I18n.LocalizeName(c.GetHeader("Accept-Language"), gi.Name),
+ 			RateMultiplier: gi.RateMultiplier, PeakRateEnabled: gi.PeakRateEnabled,
+ 			PeakStart: gi.PeakStart, PeakEnd: gi.PeakEnd, PeakRateMultiplier: gi.PeakRateMultiplier,
+ 			Name: p.Name, Description: p.Description, Price: p.Price, OriginalPrice: p.OriginalPrice,
+@@ -127,7 +127,7 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
+ 		gi := groupInfo[p.GroupID]
+ 		planList = append(planList, checkoutPlan{
+ 			ID: int64(p.ID), GroupID: p.GroupID,
+-			GroupPlatform: gi.Platform, GroupName: gi.Name,
++			GroupPlatform: gi.Platform, GroupName: gi.I18n.LocalizeName(c.GetHeader("Accept-Language"), gi.Name),
+ 			RateMultiplier:  gi.RateMultiplier,
+ 			PeakRateEnabled: gi.PeakRateEnabled, PeakStart: gi.PeakStart,
+ 			PeakEnd: gi.PeakEnd, PeakRateMultiplier: gi.PeakRateMultiplier,
+diff --git a/backend/internal/transport/http/handler/redeem_handler.go b/backend/internal/transport/http/handler/redeem_handler.go
+index 13eb0346a..48230ecdc 100644
+--- a/backend/internal/transport/http/handler/redeem_handler.go
++++ b/backend/internal/transport/http/handler/redeem_handler.go
+@@ -56,7 +56,7 @@ func (h *RedeemHandler) Redeem(c *gin.Context) {
+ 		return
+ 	}
+ 
+-	response.Success(c, dto.RedeemCodeFromService(result))
++	response.Success(c, dto.RedeemCodeFromService(result).Localized(c.GetHeader("Accept-Language")))
+ }
+ 
+ // GetHistory returns the user's redemption history
+@@ -79,7 +79,7 @@ func (h *RedeemHandler) GetHistory(c *gin.Context) {
+ 
+ 	out := make([]dto.RedeemCode, 0, len(codes))
+ 	for i := range codes {
+-		out = append(out, *dto.RedeemCodeFromService(&codes[i]))
++		out = append(out, *dto.RedeemCodeFromService(&codes[i]).Localized(c.GetHeader("Accept-Language")))
+ 	}
+ 	response.Success(c, out)
+ }
+diff --git a/backend/internal/transport/http/handler/subscription_handler.go b/backend/internal/transport/http/handler/subscription_handler.go
+index d08a9ecae..82bb909ee 100644
+--- a/backend/internal/transport/http/handler/subscription_handler.go
++++ b/backend/internal/transport/http/handler/subscription_handler.go
+@@ -61,7 +61,7 @@ func (h *SubscriptionHandler) List(c *gin.Context) {
+ 
+ 	out := make([]dto.UserSubscription, 0, len(subscriptions))
+ 	for i := range subscriptions {
+-		out = append(out, *dto.UserSubscriptionFromService(&subscriptions[i]))
++		out = append(out, *dto.UserSubscriptionFromService(&subscriptions[i]).Localized(c.GetHeader("Accept-Language")))
+ 	}
+ 	response.Success(c, out)
+ }
+@@ -83,7 +83,7 @@ func (h *SubscriptionHandler) GetActive(c *gin.Context) {
+ 
+ 	out := make([]dto.UserSubscription, 0, len(subscriptions))
+ 	for i := range subscriptions {
+-		out = append(out, *dto.UserSubscriptionFromService(&subscriptions[i]))
++		out = append(out, *dto.UserSubscriptionFromService(&subscriptions[i]).Localized(c.GetHeader("Accept-Language")))
+ 	}
+ 	response.Success(c, out)
+ }
+@@ -112,8 +112,11 @@ func (h *SubscriptionHandler) GetProgress(c *gin.Context) {
+ 			// Skip subscriptions with errors
+ 			continue
+ 		}
++		if sub.Group != nil {
++			progress.GroupName = sub.Group.I18n.LocalizeName(c.GetHeader("Accept-Language"), progress.GroupName)
++		}
+ 		result = append(result, SubscriptionProgressInfo{
+-			Subscription: dto.UserSubscriptionFromService(sub),
++			Subscription: dto.UserSubscriptionFromService(sub).Localized(c.GetHeader("Accept-Language")),
+ 			Progress:     progress,
+ 		})
+ 	}
+@@ -179,7 +182,7 @@ func (h *SubscriptionHandler) GetSummary(c *gin.Context) {
+ 
+ 		// Add group info if preloaded
+ 		if sub.Group != nil {
+-			item.GroupName = sub.Group.Name
++			item.GroupName = sub.Group.I18n.LocalizeName(c.GetHeader("Accept-Language"), sub.Group.Name)
+ 			if sub.Group.DailyLimitUSD != nil {
+ 				item.DailyLimitUSD = *sub.Group.DailyLimitUSD
+ 			}
+diff --git a/backend/internal/transport/http/handler/usage_handler.go b/backend/internal/transport/http/handler/usage_handler.go
+index f5b63b3ce..53298df42 100644
+--- a/backend/internal/transport/http/handler/usage_handler.go
++++ b/backend/internal/transport/http/handler/usage_handler.go
+@@ -250,7 +250,7 @@ func (h *UsageHandler) List(c *gin.Context) {
+ 
+ 	out := make([]dto.UsageLog, 0, len(records))
+ 	for i := range records {
+-		out = append(out, *dto.UsageLogFromService(&records[i]))
++		out = append(out, *dto.UsageLogFromService(&records[i]).Localized(c.GetHeader("Accept-Language")))
+ 	}
+ 	response.Paginated(c, out, result.Total, page, pageSize)
+ }
+@@ -402,7 +402,7 @@ func (h *UsageHandler) GetByID(c *gin.Context) {
+ 		return
+ 	}
+ 
+-	response.Success(c, dto.UsageLogFromService(record))
++	response.Success(c, dto.UsageLogFromService(record).Localized(c.GetHeader("Accept-Language")))
+ }
+ 
+ // Stats handles getting usage statistics
+diff --git a/docs/README.md b/docs/README.md
+index ecd5eeba2..6ecc6c84c 100644
+--- a/docs/README.md
++++ b/docs/README.md
+@@ -74,6 +74,7 @@
+ | [上游主线同步审查记录（2026-10-07）](UPSTREAM_SYNC_20261007.md) | 3 个增量 PR 的首次安装适配、已覆盖差异关闭、性能与 Docker 升级回退验证 |
+ | [上游主线同步审查记录（2026-10-08）](UPSTREAM_SYNC_20261008.md) | 57 个冻结主线 PR 的关闭/重开台账、WS 逐轮计费、TPS 与 namespace 性能、Docker 平滑升级和发布跟踪 |
+ | [上游主线同步审查记录（2026-10-09）](UPSTREAM_SYNC_20261009.md) | 两个冻结 PR 的精准修复、安全工具链、搜索历史性能、关闭/专项暂缓台账和 Docker 验证 |
++| [上游主线同步审查记录（2026-10-12）](UPSTREAM_SYNC_20261012.md) | 17 个增量 PR 的当前 owner 适配、分组多语言、计费与审核并发性能、Docker 与升级回退边界 |
+ | [API Key 删除与计费竞争条件审查（2026-10-06）](../diagnostics/billing-key-deletion-20261006/REPORT.md) | 旧版本漏扣回放、当前修复边界、真实数据库与 24 个 Docker HTTP 场景 |
+ | [GPT-6 Astra 接入记录](GPT6_ASTRA.md) | OpenAI 官方模型目录、能力、价格和本项目兼容计费映射 |
+ | [GPT-6 模型目录与价格](GPT6_MODELS.md) | GPT-6 Astra、Sol、Luna 的官方能力、价格与本项目实现位置 |
+diff --git a/frontend/src/common/widgets/data/GroupBadge.vue b/frontend/src/common/widgets/data/GroupBadge.vue
+index 436769591..76df0fefd 100644
+--- a/frontend/src/common/widgets/data/GroupBadge.vue
++++ b/frontend/src/common/widgets/data/GroupBadge.vue
+@@ -8,7 +8,7 @@
+     <!-- Platform logo -->
+     <PlatformIcon v-if="platform" :platform="platform" size="sm" />
+     <!-- Group name -->
+-    <span class="truncate">{{ name }}</span>
++    <span :class="truncate ? 'truncate' : 'min-w-0 whitespace-normal [overflow-wrap:anywhere]'">{{ name }}</span>
+     <!-- Right side label -->
+     <span v-if="showLabel" :class="labelClass">
+       <template v-if="hasCustomRate">
+@@ -45,6 +45,8 @@ interface Props {
+   peakEnd?: string
+   peakRateMultiplier?: number
+   showRate?: boolean
++  /** Allow full group names to wrap in layouts that have room for multiple lines. */
++  truncate?: boolean
+   daysRemaining?: number | null // 剩余天数（订阅类型时使用）
+   /**
+    * 订阅分组默认在右侧 label 展示"订阅"或剩余天数；
+@@ -57,6 +59,7 @@ interface Props {
+ const props = withDefaults(defineProps<Props>(), {
+   subscriptionType: 'standard',
+   showRate: true,
++  truncate: true,
+   daysRemaining: null,
+   userRateMultiplier: null,
+   peakRateEnabled: false,
+diff --git a/frontend/src/common/widgets/data/LocaleSwitcher.vue b/frontend/src/common/widgets/data/LocaleSwitcher.vue
+index 70279cbd6..e895df0fc 100644
+--- a/frontend/src/common/widgets/data/LocaleSwitcher.vue
++++ b/frontend/src/common/widgets/data/LocaleSwitcher.vue
+@@ -69,6 +69,8 @@ async function selectLocale(code: string) {
+   try {
+     await setLocale(code)
+     isOpen.value = false
++    // 分组名称等内容由后端按请求语言返回，整页刷新让已加载的数据换成新语言
++    window.location.reload()
+   } finally {
+     switching.value = false
+   }
+diff --git a/frontend/src/common/widgets/forms/Select.vue b/frontend/src/common/widgets/forms/Select.vue
+index a946506a2..2c8be164f 100644
+--- a/frontend/src/common/widgets/forms/Select.vue
++++ b/frontend/src/common/widgets/forms/Select.vue
+@@ -410,6 +410,7 @@ const onTriggerKeyDown = () => {
+ }
+ 
+ const onDropdownKeyDown = (e: KeyboardEvent) => {
++  if (e.isComposing) return
+   switch (e.key) {
+     case 'ArrowDown':
+       e.preventDefault()
+diff --git a/frontend/src/core/i18n/locales/en/admin/ops.ts b/frontend/src/core/i18n/locales/en/admin/ops.ts
+index 0f772a485..fb18f4c57 100644
+--- a/frontend/src/core/i18n/locales/en/admin/ops.ts
++++ b/frontend/src/core/i18n/locales/en/admin/ops.ts
+@@ -445,6 +445,7 @@ export default {
+           kind: 'Kind',
+           platform: 'Platform',
+           model: 'Model',
++          account: 'Account',
+           duration: 'Duration',
+           ttft: 'TTFT',
+           status: 'Status',
+diff --git a/frontend/src/core/i18n/locales/en/admin/overview.ts b/frontend/src/core/i18n/locales/en/admin/overview.ts
+index 7adbf8860..8e3b37e2e 100644
+--- a/frontend/src/core/i18n/locales/en/admin/overview.ts
++++ b/frontend/src/core/i18n/locales/en/admin/overview.ts
+@@ -893,6 +893,12 @@ export default {
+         yes: 'Yes',
+         no: 'No'
+       },
++      i18nField: {
++        default: 'Default',
++        add: 'Add {language} version',
++        edit: 'Edit {language} version',
++        placeholder: '{language} version; leave empty to show the default text'
++      },
+       enterGroupName: 'Enter group name',
+       optionalDescription: 'Optional description',
+       platformHint: 'Select the platform this group is associated with',
+diff --git a/frontend/src/core/i18n/locales/zh/admin/ops.ts b/frontend/src/core/i18n/locales/zh/admin/ops.ts
+index 162cedb91..9b150be18 100644
+--- a/frontend/src/core/i18n/locales/zh/admin/ops.ts
++++ b/frontend/src/core/i18n/locales/zh/admin/ops.ts
+@@ -445,6 +445,7 @@ export default {
+           kind: '类型',
+           platform: '平台',
+           model: '模型',
++          account: '账号',
+           duration: '耗时',
+           ttft: '首 Token 延迟',
+           status: '状态码',
+diff --git a/frontend/src/core/i18n/locales/zh/admin/overview.ts b/frontend/src/core/i18n/locales/zh/admin/overview.ts
+index 3393ee3ee..d5bf450c4 100644
+--- a/frontend/src/core/i18n/locales/zh/admin/overview.ts
++++ b/frontend/src/core/i18n/locales/zh/admin/overview.ts
+@@ -927,6 +927,12 @@ export default {
+         privacySetOnlyEnabled: '已启用 — Privacy 未设置的账号将被排除',
+         disabled: '未启用'
+       },
++      i18nField: {
++        default: '默认',
++        add: '新增 {language} 版',
++        edit: '编辑 {language} 版',
++        placeholder: '{language} 版，留空则显示默认内容'
++      },
+       enterGroupName: '请输入分组名称',
+       optionalDescription: '可选描述',
+       platformHint: '选择此分组关联的平台',
+diff --git a/frontend/src/features/admin-accounts/presentation/composables/useGeminiOAuth.ts b/frontend/src/features/admin-accounts/presentation/composables/useGeminiOAuth.ts
+index ed61d38d1..1903f7e70 100644
+--- a/frontend/src/features/admin-accounts/presentation/composables/useGeminiOAuth.ts
++++ b/frontend/src/features/admin-accounts/presentation/composables/useGeminiOAuth.ts
+@@ -1,4 +1,5 @@
+ import { ref } from 'vue'
++import { extractApiErrorMessage } from '@/core/utils/apiError'
+ import { useI18n } from 'vue-i18n'
+ import { useAppStore } from '@/core/stores/appStore'
+ import {
+@@ -60,8 +61,8 @@ export function useGeminiOAuth() {
+       sessionId.value = response.session_id
+       state.value = response.state
+       return true
+-    } catch (err: any) {
+-      error.value = err.response?.data?.detail || t('admin.accounts.oauth.gemini.failedToGenerateUrl')
++    } catch (err: unknown) {
++      error.value = extractApiErrorMessage(err, t('admin.accounts.oauth.gemini.failedToGenerateUrl'))
+       appStore.showError(error.value)
+       return false
+     } finally {
+diff --git a/frontend/src/features/admin-accounts/presentation/widgets/AccountGroupsCell.vue b/frontend/src/features/admin-accounts/presentation/widgets/AccountGroupsCell.vue
+index f17251587..3d58c75a3 100644
+--- a/frontend/src/features/admin-accounts/presentation/widgets/AccountGroupsCell.vue
++++ b/frontend/src/features/admin-accounts/presentation/widgets/AccountGroupsCell.vue
+@@ -1,7 +1,7 @@
+ <template>
+   <div v-if="groups && groups.length > 0" class="relative max-w-56">
+-    <!-- 分组容器：固定最大宽度，最多显示2行 -->
+-    <div class="flex flex-wrap gap-1 max-h-14 overflow-hidden">
++    <!-- 限制列宽但不裁切行高，完整显示分组名称和 +N 按钮 -->
++    <div class="flex flex-wrap gap-1">
+       <GroupBadge
+         v-for="group in displayGroups"
+         :key="group.id"
+@@ -10,7 +10,8 @@
+         :subscription-type="group.subscription_type"
+         :rate-multiplier="group.rate_multiplier"
+         :show-rate="false"
+-        class="max-w-24"
++        :truncate="false"
++        class="min-w-0 max-w-full"
+       />
+       <!-- 更多数量徽章 -->
+       <button
+@@ -61,6 +62,8 @@
+               :subscription-type="group.subscription_type"
+               :rate-multiplier="group.rate_multiplier"
+               :show-rate="false"
++              :truncate="false"
++              class="min-w-0 max-w-full"
+             />
+           </div>
+         </div>
+diff --git a/frontend/src/features/admin-accounts/presentation/widgets/UsageProgressBar.vue b/frontend/src/features/admin-accounts/presentation/widgets/UsageProgressBar.vue
+index 9ef48b523..08526189a 100644
+--- a/frontend/src/features/admin-accounts/presentation/widgets/UsageProgressBar.vue
++++ b/frontend/src/features/admin-accounts/presentation/widgets/UsageProgressBar.vue
+@@ -56,7 +56,7 @@
+ </template>
+ 
+ <script setup lang="ts">
+-import { computed, ref, watch } from 'vue'
++import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+ import { useIntervalFn } from '@vueuse/core'
+ import { useI18n } from 'vue-i18n'
+ import type { WindowStats } from '@/types'
+@@ -85,6 +85,11 @@ const { pause: pauseClock, resume: resumeClock } = useIntervalFn(
+   { immediate: false },
+ )
+ if (props.resetsAt) resumeClock()
++const refreshClockWhenVisible = () => {
++  if (!document.hidden && props.resetsAt) now.value = new Date()
++}
++onMounted(() => document.addEventListener('visibilitychange', refreshClockWhenVisible))
++onUnmounted(() => document.removeEventListener('visibilitychange', refreshClockWhenVisible))
+ watch(
+   () => props.resetsAt,
+   (val) => {
+diff --git a/frontend/src/features/admin-groups/data/dtos/adminGroupDtos.ts b/frontend/src/features/admin-groups/data/dtos/adminGroupDtos.ts
+index b53176be4..446ca3b76 100644
+--- a/frontend/src/features/admin-groups/data/dtos/adminGroupDtos.ts
++++ b/frontend/src/features/admin-groups/data/dtos/adminGroupDtos.ts
+@@ -1,6 +1,7 @@
+ import type {
+   ChannelModelPricing,
+   Group,
++  GroupI18n,
+   GroupPlatform,
+   ModelAllowlist,
+   ModelsListConfig,
+@@ -10,6 +11,7 @@ import type {
+ } from '@/types/group'
+ 
+ export interface AdminGroup extends Group {
++  i18n?: GroupI18n
+   model_pricing?: ChannelModelPricing[]
+   profit_control_enabled: boolean
+   profit_min_margin: number
+@@ -86,6 +88,7 @@ export interface CompositeRouteDecision {
+ }
+ 
+ export interface CreateGroupRequest {
++  i18n?: GroupI18n
+   name: string
+   description?: string | null
+   platform?: GroupPlatform
+diff --git a/frontend/src/features/admin-groups/presentation/composables/groupEditorFormSupport.ts b/frontend/src/features/admin-groups/presentation/composables/groupEditorFormSupport.ts
+index ed4f671b1..36080d40c 100644
+--- a/frontend/src/features/admin-groups/presentation/composables/groupEditorFormSupport.ts
++++ b/frontend/src/features/admin-groups/presentation/composables/groupEditorFormSupport.ts
+@@ -1,4 +1,4 @@
+-import type { GroupPlatform, SubscriptionType } from "@/types/group";
++import type { GroupPlatform, SubscriptionType, GroupI18n } from "@/types/group";
+ import { createDefaultMessagesDispatchFormState } from "../groupsMessagesDispatchResolver";
+ import type { MessagesDispatchMappingRow } from "../groupsMessagesDispatchResolver";
+ import type { ModelsListState } from "../groupsModelsListResolver";
+@@ -16,6 +16,7 @@ const baseGroupFormState = () => {
+   return {
+     name: "",
+     description: "",
++    i18n: {} as GroupI18n,
+     platform: "anthropic" as GroupPlatform,
+     rate_multiplier: 1.0,
+     is_exclusive: false,
+diff --git a/frontend/src/features/admin-groups/presentation/composables/useCreateGroupController.ts b/frontend/src/features/admin-groups/presentation/composables/useCreateGroupController.ts
+index b55c87607..8de71e20c 100644
+--- a/frontend/src/features/admin-groups/presentation/composables/useCreateGroupController.ts
++++ b/frontend/src/features/admin-groups/presentation/composables/useCreateGroupController.ts
+@@ -223,6 +223,7 @@ export function useCreateGroupController({
+     runtime.clearAllAccountSearchState();
+     createForm.name = "";
+     createForm.description = "";
++    createForm.i18n = {};
+     createForm.platform = "anthropic";
+     createForm.rate_multiplier = 1.0;
+     createForm.is_exclusive = false;
+diff --git a/frontend/src/features/admin-groups/presentation/composables/useEditGroupController.ts b/frontend/src/features/admin-groups/presentation/composables/useEditGroupController.ts
+index 70f29115f..4efd670fd 100644
+--- a/frontend/src/features/admin-groups/presentation/composables/useEditGroupController.ts
++++ b/frontend/src/features/admin-groups/presentation/composables/useEditGroupController.ts
+@@ -224,6 +224,7 @@ export function useEditGroupController({
+     editingGroup.value = group;
+     editForm.name = group.name;
+     editForm.description = group.description || "";
++    editForm.i18n = Object.fromEntries(Object.entries(group.i18n ?? {}).map(([locale, text]) => [locale, { ...text }]));
+     editForm.platform = group.platform;
+     editForm.rate_multiplier = group.rate_multiplier;
+     editForm.is_exclusive = group.is_exclusive;
+diff --git a/frontend/src/features/admin-groups/presentation/groupEditorContext.ts b/frontend/src/features/admin-groups/presentation/groupEditorContext.ts
+index e4e574a96..c1d7cb617 100644
+--- a/frontend/src/features/admin-groups/presentation/groupEditorContext.ts
++++ b/frontend/src/features/admin-groups/presentation/groupEditorContext.ts
+@@ -41,6 +41,7 @@ export interface GroupReasoningEffortFieldsExpose {
+ export interface GroupEditorFormState {
+   name: string;
+   description: string;
++  i18n: import("@/types/group").GroupI18n;
+   platform: GroupPlatform;
+   rate_multiplier: number | string;
+   is_exclusive: boolean;
+diff --git a/frontend/src/features/admin-groups/presentation/widgets/GroupEditorCoreFields.vue b/frontend/src/features/admin-groups/presentation/widgets/GroupEditorCoreFields.vue
+index b61fb9def..be3c45060 100644
+--- a/frontend/src/features/admin-groups/presentation/widgets/GroupEditorCoreFields.vue
++++ b/frontend/src/features/admin-groups/presentation/widgets/GroupEditorCoreFields.vue
+@@ -2,6 +2,7 @@
+ import { useI18n } from "vue-i18n";
+ import Select from "@/common/widgets/forms/Select.vue";
+ import Icon from "@/common/widgets/icons/Icon.vue";
++import GroupI18nField from "./GroupI18nField.vue";
+ import GroupEditorMediaPricingFields from "./GroupEditorMediaPricingFields.vue";
+ import ReasoningEffortPolicyFields from "./ReasoningEffortPolicyFields.vue";
+ import {
+@@ -35,28 +36,24 @@ const {
+ </script>
+ 
+ <template>
+-    <div>
+-      <label class="input-label">{{ t("admin.groups.form.name") }}</label>
+-      <input
+-        v-model="form.name"
+-        type="text"
+-        required
+-        class="input"
+-        :placeholder="isEdit ? undefined : t('admin.groups.enterGroupName')"
+-        :data-tour="isEdit ? 'edit-group-form-name' : 'group-form-name'"
+-      />
+-    </div>
+-    <div>
+-      <label class="input-label">{{
+-        t("admin.groups.form.description")
+-      }}</label>
+-      <textarea
+-        v-model="form.description"
+-        rows="3"
+-        class="input"
+-        :placeholder="isEdit ? undefined : t('admin.groups.optionalDescription')"
+-      ></textarea>
+-    </div>
++    <GroupI18nField
++      v-model="form.name"
++      v-model:i18n="form.i18n"
++      :label="t('admin.groups.form.name')"
++      field="name"
++      required
++      :placeholder="isEdit ? undefined : t('admin.groups.enterGroupName')"
++      :data-tour="isEdit ? 'edit-group-form-name' : 'group-form-name'"
++    />
++    <GroupI18nField
++      v-model="form.description"
++      v-model:i18n="form.i18n"
++      :label="t('admin.groups.form.description')"
++      field="description"
++      multiline
++      rows="3"
++      :placeholder="isEdit ? undefined : t('admin.groups.optionalDescription')"
++    />
+     <div>
+       <label class="input-label">{{
+         t("admin.groups.form.platform")
+diff --git a/frontend/src/features/admin-groups/presentation/widgets/GroupRPMOverridesDialog.vue b/frontend/src/features/admin-groups/presentation/widgets/GroupRPMOverridesDialog.vue
+index 3ad8e42c3..eca359fb6 100644
+--- a/frontend/src/features/admin-groups/presentation/widgets/GroupRPMOverridesDialog.vue
++++ b/frontend/src/features/admin-groups/presentation/widgets/GroupRPMOverridesDialog.vue
+@@ -254,6 +254,7 @@ const currentPage = ref(1)
+ const pageSize = ref(10)
+ 
+ let searchTimeout: ReturnType<typeof setTimeout>
++let loadVersion = 0
+ 
+ const platformColorClass = computed(() => {
+   switch (props.group?.platform) {
+@@ -281,16 +282,22 @@ const cloneEntries = (entries: GroupRPMOverrideEntry[]): LocalEntry[] => {
+ 
+ const loadEntries = async () => {
+   if (!props.group) return
++  const version = loadVersion
+   loading.value = true
++  serverEntries.value = []
++  localEntries.value = []
+   try {
+-    serverEntries.value = await getGroupRPMOverrides(props.group.id)
++    const entries = await getGroupRPMOverrides(props.group.id)
++    if (version !== loadVersion) return
++    serverEntries.value = entries
+     localEntries.value = cloneEntries(serverEntries.value)
+     adjustPage()
+   } catch (error) {
++    if (version !== loadVersion) return
+     appStore.showError(t('admin.groups.failedToLoad'))
+     console.error('Error loading RPM overrides:', error)
+   } finally {
+-    loading.value = false
++    if (version === loadVersion) loading.value = false
+   }
+ }
+ 
+@@ -299,8 +306,9 @@ const adjustPage = () => {
+   if (currentPage.value > totalPages) currentPage.value = totalPages
+ }
+ 
+-watch(() => props.show, (val) => {
+-  if (val && props.group) {
++watch([() => props.show, () => props.group?.id], ([show]) => {
++  loadVersion++
++  if (show && props.group) {
+     currentPage.value = 1
+     searchQuery.value = ''
+     searchResults.value = []
+@@ -431,6 +439,7 @@ if (typeof document !== 'undefined') {
+   document.addEventListener('click', handleClickOutside)
+ }
+ onUnmounted(() => {
++  loadVersion++
+   clearTimeout(searchTimeout)
+   document.removeEventListener('click', handleClickOutside)
+ })
+diff --git a/frontend/src/features/admin-groups/presentation/widgets/GroupRateMultipliersDialog.vue b/frontend/src/features/admin-groups/presentation/widgets/GroupRateMultipliersDialog.vue
+index 7f181a3b2..b55e31f8e 100644
+--- a/frontend/src/features/admin-groups/presentation/widgets/GroupRateMultipliersDialog.vue
++++ b/frontend/src/features/admin-groups/presentation/widgets/GroupRateMultipliersDialog.vue
+@@ -431,7 +431,7 @@ const updateLocalRate = (userId: number, value: string) => {
+     return
+   }
+   const num = parseFloat(value)
+-  if (isNaN(num)) return
++  if (!Number.isFinite(num) || num <= 0) return
+   entry.rate_multiplier = num
+ }
+ 
+diff --git a/frontend/src/features/admin-ops/data/dtos/opsLogDtos.ts b/frontend/src/features/admin-ops/data/dtos/opsLogDtos.ts
+index 2153a1b2c..132a96b72 100644
+--- a/frontend/src/features/admin-ops/data/dtos/opsLogDtos.ts
++++ b/frontend/src/features/admin-ops/data/dtos/opsLogDtos.ts
+@@ -23,6 +23,7 @@ export interface OpsRequestDetail {
+   user_id?: number | null
+   api_key_id?: number | null
+   account_id?: number | null
++  account_name?: string | null
+   group_id?: number | null
+ 
+   stream?: boolean
+diff --git a/frontend/src/features/admin-ops/presentation/widgets/OpsDashboardToolbar.vue b/frontend/src/features/admin-ops/presentation/widgets/OpsDashboardToolbar.vue
+index 088058974..ba75c5d7e 100644
+--- a/frontend/src/features/admin-ops/presentation/widgets/OpsDashboardToolbar.vue
++++ b/frontend/src/features/admin-ops/presentation/widgets/OpsDashboardToolbar.vue
+@@ -1,6 +1,7 @@
+ <script setup lang="ts">
+ import { computed, onMounted, ref, watch } from 'vue'
+ import { useI18n } from 'vue-i18n'
++import { formatDateTimeLocalInput } from '@/core/utils/format'
+ import Select from '@/common/widgets/forms/Select.vue'
+ import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
+ import { getAll as getAllGroups } from '@/features/admin-groups/data/datasources/adminGroupQueries'
+@@ -136,8 +137,8 @@ function handleTimeRangeChange(val: string | number | boolean | null) {
+     // 初始化为最近1小时
+     const now = new Date()
+     const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000)
+-    customStartTimeInput.value = oneHourAgo.toISOString().slice(0, 16)
+-    customEndTimeInput.value = now.toISOString().slice(0, 16)
++    customStartTimeInput.value = formatDateTimeLocalInput(oneHourAgo.getTime() / 1000)
++    customEndTimeInput.value = formatDateTimeLocalInput(now.getTime() / 1000)
+     showCustomTimeRangeDialog.value = true
+   } else {
+     emit('update:timeRange', newValue)
+diff --git a/frontend/src/features/admin-ops/presentation/widgets/OpsRequestDetailsDialog.vue b/frontend/src/features/admin-ops/presentation/widgets/OpsRequestDetailsDialog.vue
+index 2c490ae93..629ebcc74 100644
+--- a/frontend/src/features/admin-ops/presentation/widgets/OpsRequestDetailsDialog.vue
++++ b/frontend/src/features/admin-ops/presentation/widgets/OpsRequestDetailsDialog.vue
+@@ -147,6 +147,10 @@ const kindBadgeClass = (kind: string) => {
+   if (kind === 'error') return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+   return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+ }
++function accountLabel(row: OpsRequestDetail): string {
++  if (typeof row.account_id !== 'number' || row.account_id <= 0) return '-'
++  return row.account_name?.trim() || `#${row.account_id}`
++}
+ </script>
+ 
+ <template>
+@@ -200,6 +204,9 @@ const kindBadgeClass = (kind: string) => {
+                     <span class="ml-auto text-[11px] text-gray-500 dark:text-gray-400">{{ formatDateTime(row.created_at) }}</span>
+                   </div>
+                   <div class="break-all text-xs text-gray-600 dark:text-gray-300">{{ row.model || '-' }}</div>
++                  <div v-if="row.account_id && row.account_id > 0" class="break-all text-xs text-gray-500 dark:text-gray-400" :title="accountLabel(row)">
++                    {{ t('admin.ops.requestDetails.table.account') }}: {{ accountLabel(row) }}
++                  </div>
+                   <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-300">
+                     <span>{{ typeof row.duration_ms === 'number' ? `${row.duration_ms} ms` : '-' }}</span>
+                     <span>{{ row.status_code ?? '-' }}</span>
+@@ -239,6 +246,9 @@ const kindBadgeClass = (kind: string) => {
+                   <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                     {{ t('admin.ops.requestDetails.table.model') }}
+                   </th>
++                  <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
++                    {{ t('admin.ops.requestDetails.table.account') }}
++                  </th>
+                   <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                     {{ showsTTFT ? t('admin.ops.requestDetails.table.ttft') : t('admin.ops.requestDetails.table.duration') }}
+                   </th>
+@@ -269,6 +279,9 @@ const kindBadgeClass = (kind: string) => {
+                   <td class="max-w-[240px] truncate px-4 py-3 text-xs text-gray-600 dark:text-gray-300" :title="row.model || ''">
+                     {{ row.model || '-' }}
+                   </td>
++                  <td class="max-w-[180px] truncate px-4 py-3 text-xs text-gray-600 dark:text-gray-300" :title="accountLabel(row)">
++                    {{ accountLabel(row) }}
++                  </td>
+                   <td
+                     class="whitespace-nowrap px-4 py-3 text-xs tabular-nums text-gray-600 dark:text-gray-300"
+                     :title="formatExactDurationMs(showsTTFT ? row.first_token_ms : row.duration_ms)"
+diff --git a/frontend/src/features/billing/presentation/pages/PaymentQRCodePage.vue b/frontend/src/features/billing/presentation/pages/PaymentQRCodePage.vue
+index cdd5cda9a..f9afe2cae 100644
+--- a/frontend/src/features/billing/presentation/pages/PaymentQRCodePage.vue
++++ b/frontend/src/features/billing/presentation/pages/PaymentQRCodePage.vue
+@@ -157,12 +157,13 @@ async function pollStatus() {
+ 
+ function startCountdown(seconds: number) {
+   remainingSeconds.value = Math.max(0, seconds)
++  const deadline = Date.now() + remainingSeconds.value * 1000
+   if (remainingSeconds.value <= 0) {
+     expired.value = true
+     return
+   }
+   countdownTimer = setInterval(() => {
+-    remainingSeconds.value--
++    remainingSeconds.value = Math.max(0, Math.floor((deadline - Date.now()) / 1000))
+     if (remainingSeconds.value <= 0) {
+       expired.value = true
+       cleanup()
+diff --git a/frontend/src/features/billing/presentation/widgets/PaymentQRDialog.vue b/frontend/src/features/billing/presentation/widgets/PaymentQRDialog.vue
+index d6060ad12..a06469ef0 100644
+--- a/frontend/src/features/billing/presentation/widgets/PaymentQRDialog.vue
++++ b/frontend/src/features/billing/presentation/widgets/PaymentQRDialog.vue
+@@ -234,12 +234,13 @@ async function tryRecoverPendingOrder(order: PaymentOrder): Promise<PaymentOrder
+ 
+ function startCountdown(seconds: number) {
+   remainingSeconds.value = Math.max(0, seconds)
++  const deadline = Date.now() + remainingSeconds.value * 1000
+   if (remainingSeconds.value <= 0) {
+     expired.value = true
+     return
+   }
+   countdownTimer = setInterval(() => {
+-    remainingSeconds.value--
++    remainingSeconds.value = Math.max(0, Math.floor((deadline - Date.now()) / 1000))
+     if (remainingSeconds.value <= 0) {
+       expired.value = true
+       cleanup()
+diff --git a/frontend/src/features/billing/presentation/widgets/PaymentStatusPanel.vue b/frontend/src/features/billing/presentation/widgets/PaymentStatusPanel.vue
+index 33aa522b3..3d082bfa0 100644
+--- a/frontend/src/features/billing/presentation/widgets/PaymentStatusPanel.vue
++++ b/frontend/src/features/billing/presentation/widgets/PaymentStatusPanel.vue
+@@ -450,9 +450,10 @@ async function pollStatus() {
+ 
+ function startCountdown(seconds: number) {
+   remainingSeconds.value = Math.max(0, seconds)
++  const deadline = Date.now() + remainingSeconds.value * 1000
+   if (remainingSeconds.value <= 0) { setOutcome('expired'); return }
+   countdownTimer = setInterval(() => {
+-    remainingSeconds.value--
++    remainingSeconds.value = Math.max(0, Math.floor((deadline - Date.now()) / 1000))
+     if (remainingSeconds.value <= 0) { setOutcome('expired'); cleanup() }
+   }, 1000)
+ }
+diff --git a/frontend/src/features/channels-user/presentation/pages/ChannelStatusPage.vue b/frontend/src/features/channels-user/presentation/pages/ChannelStatusPage.vue
+index 0c2a140f7..64c81d474 100644
+--- a/frontend/src/features/channels-user/presentation/pages/ChannelStatusPage.vue
++++ b/frontend/src/features/channels-user/presentation/pages/ChannelStatusPage.vue
+@@ -8,7 +8,7 @@
+       :auto-refresh="autoRefresh"
+       :show-share-button="showShareButton"
+       @update:window="handleWindowChange"
+-      @refresh="manualReload"
++      @refresh="refresh()"
+       @copy-share-link="copyShareLink"
+     />
+ 
+@@ -70,7 +70,7 @@ const autoRefresh = useAutoRefresh({
+   storageKey: 'channel-status-auto-refresh',
+   intervals: [30, 60, 120] as const,
+   defaultInterval: DEFAULT_INTERVAL_SECONDS,
+-  onRefresh: () => reload(true),
++  onRefresh: () => refresh(true),
+   shouldPause: () => document.hidden || loading.value,
+ })
+ const countdown = autoRefresh.countdown
+@@ -115,8 +115,8 @@ async function reload(silent = false) {
+   }
+ }
+ 
+-async function manualReload() {
+-  await reload(false)
++async function refresh(silent = false) {
++  await reload(silent)
+   if (currentWindow.value !== '7d') {
+     await loadDetails(items.value.map(it => it.id), true)
+   }
+diff --git a/frontend/src/types/group.ts b/frontend/src/types/group.ts
+index d63bee25b..5abf29497 100644
+--- a/frontend/src/types/group.ts
++++ b/frontend/src/types/group.ts
+@@ -1,3 +1,9 @@
++export interface GroupLocaleText {
++  name?: string
++  description?: string
++}
++export type GroupI18n = Record<string, GroupLocaleText>
++
+ import type { BillingMode } from '@/core/constants/channel'
+ 
+ export type GroupPlatform =
+diff --git a/backend/internal/application/service/group_i18n.go b/backend/internal/application/service/group_i18n.go
+new file mode 100644
+index 000000000..fe036c232
+--- /dev/null
++++ b/backend/internal/application/service/group_i18n.go
+@@ -0,0 +1,64 @@
++package service
++
++import (
++	"fmt"
++	"maps"
++	"regexp"
++	"slices"
++	"strings"
++	"unicode/utf8"
++
++	"github.com/Wei-Shaw/sub2api/internal/domain"
++	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
++)
++
++type GroupI18n = domain.GroupI18n
++type GroupLocaleText = domain.GroupLocaleText
++
++// groupI18nNameMaxRunes 与 groups.name 的长度上限一致。
++const groupI18nNameMaxRunes = 100
++
++// 语言代码只校验 BCP 47 形态（en、zh、zh-TW）；具体提供哪些语言由前端语言包决定。
++var groupI18nLocalePattern = regexp.MustCompile(`^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$`)
++
++// normalizeGroupI18n 把语言代码统一为 domain.CanonicalLocale 的写法，去除译文首尾空白，
++// 并丢弃名称与描述都为空的语言。统一写法后重复的语言代码（如 en 与 EN）直接拒绝，
++// 不在其中任选一份。返回值始终非 nil，落库为 JSON 对象。
++func normalizeGroupI18n(in GroupI18n) (GroupI18n, error) {
++	out := make(GroupI18n, len(in))
++	seen := make(map[string]struct{}, len(in))
++	for _, raw := range slices.Sorted(maps.Keys(in)) {
++		if !groupI18nLocalePattern.MatchString(raw) {
++			return nil, infraerrors.BadRequest("INVALID_GROUP_I18N", fmt.Sprintf("invalid locale %q in i18n", raw))
++		}
++		locale := domain.CanonicalLocale(raw)
++		if _, dup := seen[locale]; dup {
++			return nil, infraerrors.BadRequest("INVALID_GROUP_I18N", fmt.Sprintf("duplicate locale %q in i18n", locale))
++		}
++		seen[locale] = struct{}{}
++		text := in[raw]
++		name := strings.TrimSpace(text.Name)
++		description := strings.TrimSpace(text.Description)
++		if utf8.RuneCountInString(name) > groupI18nNameMaxRunes {
++			return nil, infraerrors.BadRequest("INVALID_GROUP_I18N", fmt.Sprintf("i18n name for locale %q must be at most %d characters", locale, groupI18nNameMaxRunes))
++		}
++		if name == "" && description == "" {
++			continue
++		}
++		out[locale] = GroupLocaleText{Name: name, Description: description}
++	}
++	return out, nil
++}
++
++// cloneGroupI18nForDuplicate 复制译文中的描述。名称译文不随复制带走：
++// 副本的 name 已改写，沿用源分组的名称译文会让两个分组在该语言下同名。
++func cloneGroupI18nForDuplicate(in GroupI18n) GroupI18n {
++	out := make(GroupI18n, len(in))
++	for locale, text := range in {
++		if text.Description == "" {
++			continue
++		}
++		out[locale] = GroupLocaleText{Description: text.Description}
++	}
++	return out
++}
+diff --git a/backend/internal/application/service/group_i18n_test.go b/backend/internal/application/service/group_i18n_test.go
+new file mode 100644
+index 000000000..513b4a012
+--- /dev/null
++++ b/backend/internal/application/service/group_i18n_test.go
+@@ -0,0 +1,26 @@
++package service
++
++import "testing"
++
++func TestNormalizeGroupI18nRejectsDuplicateCanonicalLocales(t *testing.T) {
++	_, err := normalizeGroupI18n(GroupI18n{
++		"en": {Name: "one"},
++		"EN": {Name: "two"},
++	})
++	if err == nil {
++		t.Fatal("expected duplicate locale error")
++	}
++}
++
++func TestNormalizeGroupI18nTrimsAndDropsEmptyEntries(t *testing.T) {
++	got, err := normalizeGroupI18n(GroupI18n{
++		"en-us": {Name: "  English  ", Description: "  "},
++		"zh":    {},
++	})
++	if err != nil {
++		t.Fatal(err)
++	}
++	if len(got) != 1 || got["en-US"].Name != "English" || got["en-US"].Description != "" {
++		t.Fatalf("normalized i18n = %#v", got)
++	}
++}
+diff --git a/backend/internal/application/service/openai_subscription_long_context.go b/backend/internal/application/service/openai_subscription_long_context.go
+new file mode 100644
+index 000000000..a3a5933c3
+--- /dev/null
++++ b/backend/internal/application/service/openai_subscription_long_context.go
+@@ -0,0 +1,28 @@
++package service
++
++import "strings"
++
++// Exempt the upstream subscription model, independent of client/billing aliases.
++func openAISubscriptionLongContextExempt(account *Account, result *OpenAIForwardResult) bool {
++	if account == nil || !account.IsOpenAI() || (account.Type != AccountTypeOAuth && account.Type != AccountTypeSetupToken) || result == nil {
++		return false
++	}
++	model := strings.TrimSpace(result.UpstreamModel)
++	if model == "" {
++		model = result.Model
++	}
++	model = strings.ReplaceAll(strings.ToLower(strings.TrimSpace(model)), "_", "-")
++	model = strings.TrimPrefix(model, "openai/")
++	if model == "gpt-6.1-sol" {
++		return true
++	}
++	suffix, ok := strings.CutPrefix(model, "gpt-6.1-sol-")
++	if !ok {
++		return false
++	}
++	switch suffix {
++	case "none", "minimal", "low", "medium", "high", "xhigh", "max", "openai-compact":
++		return true
++	}
++	return false
++}
+diff --git a/backend/internal/application/service/openai_subscription_long_context_test.go b/backend/internal/application/service/openai_subscription_long_context_test.go
+new file mode 100644
+index 000000000..3c4e14e86
+--- /dev/null
++++ b/backend/internal/application/service/openai_subscription_long_context_test.go
+@@ -0,0 +1,24 @@
++package service
++
++import "testing"
++
++func TestOpenAISubscriptionLongContextExemptUsesSentModelAndCredentialType(t *testing.T) {
++	for _, tc := range []struct {
++		name    string
++		account *Account
++		result  *OpenAIForwardResult
++		want    bool
++	}{
++		{"oauth target", &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}, &OpenAIForwardResult{Model: "custom", UpstreamModel: "gpt-6.1-sol-low"}, true},
++		{"setup token target", &Account{Platform: PlatformOpenAI, Type: AccountTypeSetupToken}, &OpenAIForwardResult{Model: "gpt-6.1-sol"}, true},
++		{"api key stays priced", &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}, &OpenAIForwardResult{Model: "gpt-6.1-sol"}, false},
++		{"billing label does not decide", &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}, &OpenAIForwardResult{Model: "gpt-6-sol", BillingModel: "gpt-6.1-sol"}, false},
++		{"invalid suffix", &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}, &OpenAIForwardResult{Model: "gpt-6.1-sol-preview"}, false},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			if got := openAISubscriptionLongContextExempt(tc.account, tc.result); got != tc.want {
++				t.Fatalf("exempt = %t, want %t", got, tc.want)
++			}
++		})
++	}
++}
+diff --git a/backend/internal/domain/group_i18n.go b/backend/internal/domain/group_i18n.go
+new file mode 100644
+index 000000000..1dc5efb76
+--- /dev/null
++++ b/backend/internal/domain/group_i18n.go
+@@ -0,0 +1,116 @@
++package domain
++
++import (
++	"strconv"
++	"strings"
++)
++
++// GroupLocaleText 是分组名称与描述在某个界面语言下的译文。
++// 字段为空表示该语言沿用分组自身的 name/description。
++type GroupLocaleText struct {
++	Name        string `json:"name,omitempty"`
++	Description string `json:"description,omitempty"`
++}
++
++// GroupI18n 以界面语言代码（如 "en"、"zh"）为键保存分组展示文案的译文。
++// 仅用于页面展示；分组的唯一性、搜索与各类日志仍以 name 为准。
++type GroupI18n map[string]GroupLocaleText
++
++// Localize 返回 name、description 在请求首选语言下的版本；该语言没有译文的字段保持原值。
++// acceptLanguage 是 Accept-Language 请求头。只采用其中优先级最高的语言：原字段的语言
++// 未知，退到次选语言的译文不一定比原字段更合适。
++func (m GroupI18n) Localize(acceptLanguage, name, description string) (string, string) {
++	if len(m) == 0 || acceptLanguage == "" {
++		return name, description
++	}
++	text, ok := m.lookup(preferredLanguage(acceptLanguage))
++	if !ok {
++		return name, description
++	}
++	if text.Name != "" {
++		name = text.Name
++	}
++	if text.Description != "" {
++		description = text.Description
++	}
++	return name, description
++}
++
++// LocalizeName 是只需要名称时的 Localize。
++func (m GroupI18n) LocalizeName(acceptLanguage, name string) string {
++	name, _ = m.Localize(acceptLanguage, name, "")
++	return name
++}
++
++// CanonicalLocale 按 BCP 47 的惯用大小写书写语言代码：主语言小写，4 位文字代码首字母大写，
++// 2 位地区代码大写，其余小写（zh-hant-tw -> zh-Hant-TW）；单字母扩展标记之后的部分全部小写。
++// 只调整大小写，不校验代码是否合法。
++func CanonicalLocale(locale string) string {
++	subtags := strings.Split(locale, "-")
++	extension := false
++	for i, subtag := range subtags {
++		subtag = strings.ToLower(subtag)
++		switch {
++		case i == 0 || extension:
++		case len(subtag) == 1:
++			extension = true
++		case len(subtag) == 2:
++			subtag = strings.ToUpper(subtag)
++		case len(subtag) == 4:
++			subtag = strings.ToUpper(subtag[:1]) + subtag[1:]
++		}
++		subtags[i] = subtag
++	}
++	return strings.Join(subtags, "-")
++}
++
++// lookup 先按完整语言代码匹配（zh-TW），再按主语言匹配（zh-CN -> zh），不区分大小写。
++// 写入时语言代码已统一为 CanonicalLocale，同一语言只有一个键；若存有仅大小写不同的多个键，
++// 规范写法的键优先，其余按字节序取最小者，保证同一请求语言的结果固定。
++func (m GroupI18n) lookup(tag string) (GroupLocaleText, bool) {
++	if tag == "" || len(m) == 0 {
++		return GroupLocaleText{}, false
++	}
++	primary, _, _ := strings.Cut(tag, "-")
++	for _, candidate := range []string{tag, primary} {
++		candidate = CanonicalLocale(candidate)
++		if text, ok := m[candidate]; ok {
++			return text, true
++		}
++		matched := ""
++		for locale := range m {
++			if strings.EqualFold(locale, candidate) && (matched == "" || locale < matched) {
++				matched = locale
++			}
++		}
++		if matched != "" {
++			return m[matched], true
++		}
++	}
++	return GroupLocaleText{}, false
++}
++
++// preferredLanguage 取 Accept-Language 中权重最高的语言代码，权重相同取靠前者；
++// 通配符 * 与 q=0 的条目不参与。
++func preferredLanguage(acceptLanguage string) string {
++	best, bestQ := "", 0.0
++	for _, part := range strings.Split(acceptLanguage, ",") {
++		tag, params, _ := strings.Cut(part, ";")
++		tag = strings.ReplaceAll(strings.TrimSpace(tag), "_", "-")
++		if tag == "" || tag == "*" {
++			continue
++		}
++		q := 1.0
++		if value, ok := strings.CutPrefix(strings.TrimSpace(params), "q="); ok {
++			parsed, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
++			if err != nil || parsed < 0 || parsed > 1 {
++				continue
++			}
++			q = parsed
++		}
++		if q > bestQ {
++			best, bestQ = tag, q
++		}
++	}
++	return best
++}
+diff --git a/backend/internal/domain/group_i18n_test.go b/backend/internal/domain/group_i18n_test.go
+new file mode 100644
+index 000000000..ae758cf52
+--- /dev/null
++++ b/backend/internal/domain/group_i18n_test.go
+@@ -0,0 +1,28 @@
++package domain
++
++import "testing"
++
++func TestGroupI18nLocalizeUsesPreferredLanguageAndFallback(t *testing.T) {
++	m := GroupI18n{
++		"zh":    {Name: "中文名称", Description: "中文描述"},
++		"en-US": {Name: "English name"},
++	}
++	name, description := m.Localize("fr;q=0.9,en-US;q=0.8,zh;q=0.7", "默认名称", "默认描述")
++	if name != "默认名称" || description != "默认描述" {
++		t.Fatalf("unsupported highest language must preserve defaults: %q %q", name, description)
++	}
++	name, description = m.Localize("en-GB,en;q=0.8", "默认名称", "默认描述")
++	if name != "默认名称" || description != "默认描述" {
++		t.Fatalf("regional language must not silently choose a lower-ranked primary language: %q %q", name, description)
++	}
++	name, description = m.Localize("zh-TW, en;q=0.1", "默认名称", "默认描述")
++	if name != "中文名称" || description != "中文描述" {
++		t.Fatalf("primary-language fallback failed: %q %q", name, description)
++	}
++}
++
++func TestCanonicalLocale(t *testing.T) {
++	if got := CanonicalLocale("zh-hant-tw"); got != "zh-Hant-TW" {
++		t.Fatalf("CanonicalLocale() = %q", got)
++	}
++}
+diff --git a/backend/internal/infrastructure/repository/group_moderation_scope.go b/backend/internal/infrastructure/repository/group_moderation_scope.go
+new file mode 100644
+index 000000000..a5b8aecd2
+--- /dev/null
++++ b/backend/internal/infrastructure/repository/group_moderation_scope.go
+@@ -0,0 +1,68 @@
++package repository
++
++import (
++	"context"
++	"database/sql"
++	"encoding/json"
++	"errors"
++	"slices"
++
++	"github.com/Wei-Shaw/sub2api/ent"
++	"github.com/Wei-Shaw/sub2api/internal/application/service"
++	"github.com/lib/pq"
++)
++
++// Config writers and deleters lock groups first, then the setting row.
++func lockLiveGroups(ctx context.Context, client *ent.Client, ids []int64) error {
++	ids = slices.Clone(ids)
++	slices.Sort(ids)
++	ids = slices.Compact(ids)
++	if len(ids) == 0 {
++		return nil
++	}
++	rows, err := client.QueryContext(ctx, `SELECT id FROM groups WHERE id = ANY($1::bigint[]) AND deleted_at IS NULL ORDER BY id FOR SHARE`, pq.Array(ids))
++	if err != nil {
++		return err
++	}
++	defer func() { _ = rows.Close() }()
++	count := 0
++	for rows.Next() {
++		var id int64
++		if err := rows.Scan(&id); err != nil {
++			return err
++		}
++		count++
++	}
++	if err := rows.Err(); err != nil {
++		return err
++	}
++	if count != len(ids) {
++		return service.ErrGroupNotFound
++	}
++	return nil
++}
++
++func cleanupDeletedModerationGroup(ctx context.Context, client *ent.Client, id int64) error {
++	var value string
++	err := scanSingleRow(ctx, client, `SELECT value FROM settings WHERE key = $1 FOR UPDATE`, []any{service.SettingKeyContentModerationConfig}, &value)
++	if errors.Is(err, sql.ErrNoRows) {
++		return nil
++	}
++	if err != nil {
++		return err
++	}
++	// Preserve malformed legacy settings; deletion must still succeed.
++	if !json.Valid([]byte(value)) {
++		return nil
++	}
++	_, err = client.ExecContext(ctx, `UPDATE settings
++	SET value = jsonb_set(value::jsonb, '{group_ids}',
++	  CASE WHEN jsonb_typeof(value::jsonb->'group_ids') = 'array' THEN
++	    (SELECT COALESCE(jsonb_agg(group_id ORDER BY ord), '[]'::jsonb)
++	     FROM jsonb_array_elements(value::jsonb->'group_ids') WITH ORDINALITY AS ids(group_id, ord)
++	     WHERE group_id <> to_jsonb($2::bigint))
++	  ELSE value::jsonb->'group_ids' END)::text, updated_at = NOW()
++	WHERE key = $1 AND jsonb_typeof(value::jsonb->'group_ids') = 'array'
++	  AND value::jsonb->'group_ids' @> jsonb_build_array($2::bigint)`, service.SettingKeyContentModerationConfig, id)
++	return err
++}
+diff --git a/backend/internal/infrastructure/repository/group_moderation_scope_integration_test.go b/backend/internal/infrastructure/repository/group_moderation_scope_integration_test.go
+new file mode 100644
+index 000000000..c0d1d675f
+--- /dev/null
++++ b/backend/internal/infrastructure/repository/group_moderation_scope_integration_test.go
+@@ -0,0 +1,67 @@
++//go:build integration
++
++package repository
++
++import (
++	"context"
++	"fmt"
++	"testing"
++	"time"
++
++	"github.com/Wei-Shaw/sub2api/internal/application/service"
++	"github.com/stretchr/testify/require"
++)
++
++func TestContentModerationConfigWriterRechecksGroupAfterConcurrentDelete(t *testing.T) {
++	ctx := context.Background()
++	client := testEntClient(t)
++	repo := newGroupRepositoryWithSQL(client, integrationDB)
++	settings := &settingRepository{client: client}
++	group := &service.Group{
++		Name: "moderation-concurrent-delete",
++		Platform: service.PlatformAnthropic,
++		RateMultiplier: 1,
++		Status: service.StatusActive,
++		SubscriptionType: service.SubscriptionTypeStandard,
++	}
++	require.NoError(t, repo.Create(ctx, group))
++	t.Cleanup(func() { _, _ = integrationDB.ExecContext(ctx, "DELETE FROM groups WHERE id=$1", group.ID) })
++
++	key := service.SettingKeyContentModerationConfig
++	previous, previousErr := settings.GetValue(ctx, key)
++	t.Cleanup(func() {
++		if previousErr == nil {
++			_ = settings.Set(ctx, key, previous)
++		} else {
++			_ = settings.Delete(ctx, key)
++		}
++	})
++	require.NoError(t, settings.Set(ctx, key, `{"all_groups":false,"group_ids":[]}`))
++
++	tx, err := integrationDB.BeginTx(ctx, nil)
++	require.NoError(t, err)
++	var lockedID int64
++	require.NoError(t, tx.QueryRowContext(ctx, "SELECT id FROM groups WHERE id=$1 FOR UPDATE", group.ID).Scan(&lockedID))
++	finished := make(chan error, 1)
++	go func() {
++		finished <- settings.SetContentModerationConfig(ctx,
++			fmt.Sprintf(`{"all_groups":false,"group_ids":[%d]}`, group.ID), []int64{group.ID})
++	}()
++	select {
++	case err := <-finished:
++		t.Fatalf("writer passed the deleter lock: %v", err)
++	case <-time.After(100 * time.Millisecond):
++	}
++	_, err = tx.ExecContext(ctx, "UPDATE groups SET deleted_at=NOW() WHERE id=$1", group.ID)
++	require.NoError(t, err)
++	require.NoError(t, tx.Commit())
++	select {
++	case err := <-finished:
++		require.ErrorIs(t, err, service.ErrGroupNotFound)
++	case <-time.After(5 * time.Second):
++		t.Fatal("writer did not finish after delete commit")
++	}
++	stored, err := settings.GetValue(ctx, key)
++	require.NoError(t, err)
++	require.NotContains(t, stored, fmt.Sprintf("%d", lockedID))
++}
+diff --git a/backend/internal/transport/http/handler/dto/group_localize.go b/backend/internal/transport/http/handler/dto/group_localize.go
+new file mode 100644
+index 000000000..6a9ce7d8f
+--- /dev/null
++++ b/backend/internal/transport/http/handler/dto/group_localize.go
+@@ -0,0 +1,49 @@
++package dto
++
++// 用户侧接口在输出前调用 Localized：把分组的名称与描述换成请求首选语言
++// （Accept-Language）的版本，并去掉译文表。管理端接口不调用，保留原字段与译文表，
++// 分组编辑表单依赖原字段回写。
++
++// Localized 就地本地化分组并返回自身。
++func (g *Group) Localized(acceptLanguage string) *Group {
++	if g == nil {
++		return nil
++	}
++	g.Name, g.Description = g.I18n.Localize(acceptLanguage, g.Name, g.Description)
++	g.I18n = nil
++	return g
++}
++
++// Localized 本地化 API Key 所属分组并返回自身。
++func (k *APIKey) Localized(acceptLanguage string) *APIKey {
++	if k != nil {
++		k.Group.Localized(acceptLanguage)
++	}
++	return k
++}
++
++// Localized 本地化兑换码关联分组并返回自身。
++func (r *RedeemCode) Localized(acceptLanguage string) *RedeemCode {
++	if r != nil {
++		r.Group.Localized(acceptLanguage)
++	}
++	return r
++}
++
++// Localized 本地化使用记录关联的分组（含其 API Key 与订阅各自携带的分组）并返回自身。
++func (l *UsageLog) Localized(acceptLanguage string) *UsageLog {
++	if l != nil {
++		l.Group.Localized(acceptLanguage)
++		l.APIKey.Localized(acceptLanguage)
++		l.Subscription.Localized(acceptLanguage)
++	}
++	return l
++}
++
++// Localized 本地化订阅关联分组并返回自身。
++func (s *UserSubscription) Localized(acceptLanguage string) *UserSubscription {
++	if s != nil {
++		s.Group.Localized(acceptLanguage)
++	}
++	return s
++}
+diff --git a/backend/migrations/248_group_i18n.sql b/backend/migrations/248_group_i18n.sql
+new file mode 100644
+index 000000000..2e0ab2c63
+--- /dev/null
++++ b/backend/migrations/248_group_i18n.sql
+@@ -0,0 +1,5 @@
++ALTER TABLE groups
++    ADD COLUMN IF NOT EXISTS i18n JSONB NOT NULL DEFAULT '{}'::jsonb;
++
++COMMENT ON COLUMN groups.i18n IS
++    'Per-locale display text for the group: {"<locale>":{"name":string,"description":string}}; locales or fields that are absent fall back to groups.name / groups.description';
+diff --git a/frontend/src/features/admin-groups/presentation/widgets/GroupI18nField.vue b/frontend/src/features/admin-groups/presentation/widgets/GroupI18nField.vue
+new file mode 100644
+index 000000000..7ab6feb21
+--- /dev/null
++++ b/frontend/src/features/admin-groups/presentation/widgets/GroupI18nField.vue
+@@ -0,0 +1,179 @@
++<template>
++  <div>
++    <div class="mb-1.5 flex items-center justify-between gap-3">
++      <label class="input-label mb-0">{{ label }}</label>
++      <div ref="menuRef" class="relative">
++        <button
++          type="button"
++          data-testid="group-i18n-menu"
++          class="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition-colors"
++          :class="
++            activeLocale
++              ? 'bg-primary-50 text-primary-600 dark:bg-primary-900/20 dark:text-primary-400'
++              : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-dark-400 dark:hover:bg-dark-700 dark:hover:text-gray-200'
++          "
++          :aria-expanded="menuOpen"
++          @click="menuOpen = !menuOpen"
++        >
++          <Icon name="globe" size="sm" />
++          <span>{{ activeLabel }}</span>
++          <Icon
++            name="chevronDown"
++            size="xs"
++            class="transition-transform duration-200"
++            :class="{ 'rotate-180': menuOpen }"
++          />
++        </button>
++        <div v-if="menuOpen" class="dropdown right-0 mt-1 min-w-[10rem]">
++          <button
++            v-for="option in options"
++            :key="option.code"
++            type="button"
++            :data-locale="option.code || 'default'"
++            class="dropdown-item w-full whitespace-nowrap text-left"
++            :class="{
++              'bg-primary-50 text-primary-600 dark:bg-primary-900/20 dark:text-primary-400':
++                option.active
++            }"
++            @click="selectLocale(option.code)"
++          >
++            <span>{{ option.label }}</span>
++            <Icon v-if="option.active" name="check" size="sm" class="ml-auto text-primary-500" />
++          </button>
++        </div>
++      </div>
++    </div>
++    <textarea
++      v-if="multiline"
++      v-bind="$attrs"
++      ref="controlRef"
++      class="input"
++      :value="currentValue"
++      :required="required && !activeLocale"
++      :placeholder="currentPlaceholder"
++      @input="onInput"
++    ></textarea>
++    <input
++      v-else
++      v-bind="$attrs"
++      ref="controlRef"
++      type="text"
++      class="input"
++      :value="currentValue"
++      :required="required && !activeLocale"
++      :placeholder="currentPlaceholder"
++      @input="onInput"
++    />
++  </div>
++</template>
++
++<script setup lang="ts">
++import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
++import { useI18n } from 'vue-i18n'
++import Icon from '@/common/widgets/icons/Icon.vue'
++import { availableLocales } from '@/core/i18n'
++import type { GroupI18n } from '@/types/group'
++
++// 透传的属性（rows、data-tour 等）落在输入控件上，而不是外层容器
++defineOptions({ inheritAttrs: false })
++
++const props = withDefaults(
++  defineProps<{
++    label: string
++    /** 默认内容，即分组自身的 name / description */
++    modelValue: string
++    /** 全部语言的译文；本组件只读写其中的 field 字段 */
++    i18n: GroupI18n
++    field: 'name' | 'description'
++    multiline?: boolean
++    /** 仅约束默认内容，译文始终可留空 */
++    required?: boolean
++    placeholder?: string
++  }>(),
++  { multiline: false, required: false, placeholder: '' }
++)
++
++const emit = defineEmits<{
++  'update:modelValue': [value: string]
++  'update:i18n': [value: GroupI18n]
++}>()
++
++const { t } = useI18n()
++
++// 输入控件当前编辑的版本：空串为默认内容，其余为界面语言代码
++const activeLocale = ref('')
++
++const options = computed(() => [
++  {
++    code: '',
++    label: t('admin.groups.i18nField.default'),
++    active: activeLocale.value === ''
++  },
++  ...availableLocales.map((locale) => ({
++    code: locale.code as string,
++    label: t(
++      props.i18n[locale.code]?.[props.field]
++        ? 'admin.groups.i18nField.edit'
++        : 'admin.groups.i18nField.add',
++      { language: locale.name }
++    ),
++    active: activeLocale.value === locale.code
++  }))
++])
++
++const activeLocaleName = computed(
++  () => availableLocales.find((locale) => locale.code === activeLocale.value)?.name ?? ''
++)
++
++const activeLabel = computed(
++  () => activeLocaleName.value || t('admin.groups.i18nField.default')
++)
++
++const currentValue = computed(() =>
++  activeLocale.value ? (props.i18n[activeLocale.value]?.[props.field] ?? '') : props.modelValue
++)
++
++const currentPlaceholder = computed(() =>
++  activeLocale.value
++    ? t('admin.groups.i18nField.placeholder', { language: activeLocaleName.value })
++    : props.placeholder
++)
++
++function onInput(event: Event) {
++  const value = (event.target as HTMLInputElement | HTMLTextAreaElement).value
++  if (!activeLocale.value) {
++    emit('update:modelValue', value)
++    return
++  }
++  emit('update:i18n', {
++    ...props.i18n,
++    [activeLocale.value]: { ...props.i18n[activeLocale.value], [props.field]: value }
++  })
++}
++
++const controlRef = ref<HTMLInputElement | HTMLTextAreaElement | null>(null)
++
++async function selectLocale(code: string) {
++  menuOpen.value = false
++  activeLocale.value = code
++  await nextTick()
++  controlRef.value?.focus()
++}
++
++const menuOpen = ref(false)
++const menuRef = ref<HTMLElement | null>(null)
++
++function handleClickOutside(event: MouseEvent) {
++  if (menuRef.value && !menuRef.value.contains(event.target as Node)) {
++    menuOpen.value = false
++  }
++}
++
++onMounted(() => {
++  document.addEventListener('click', handleClickOutside)
++})
++
++onBeforeUnmount(() => {
++  document.removeEventListener('click', handleClickOutside)
++})
++</script>

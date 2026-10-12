@@ -1,0 +1,25 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "-e",
+    "GOMAXPROCS=2",
+    "-e",
+    "GOFLAGS=-p=2",
+    "-v",
+    "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/backend:/workspace",
+    "-w",
+    "/workspace",
+    "sub2api-upstream-sync-test:20261009-docker",
+    "make",
+    "check-layout"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5",
+  "exit_status": 2,
+  "elapsed_s": 0.9273097919649445,
+  "utc": "2026-10-12T17:12:01.629942+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "bc47e5caa9ee997120b50f2387547331f77907d12d8228a259881f576e7443fe",
+  "stderr_sha256": "0cfd0cdde260f76d33291c2ffd256bc16a77dd6e0041265ff488078d5889467b"
+}

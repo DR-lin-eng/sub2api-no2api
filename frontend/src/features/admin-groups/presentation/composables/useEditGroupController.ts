@@ -224,6 +224,7 @@ export function useEditGroupController({
     editingGroup.value = group;
     editForm.name = group.name;
     editForm.description = group.description || "";
+    editForm.i18n = Object.fromEntries(Object.entries(group.i18n ?? {}).map(([locale, text]) => [locale, { ...text }]));
     editForm.platform = group.platform;
     editForm.rate_multiplier = group.rate_multiplier;
     editForm.is_exclusive = group.is_exclusive;

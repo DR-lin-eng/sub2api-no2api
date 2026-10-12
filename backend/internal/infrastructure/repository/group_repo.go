@@ -128,6 +128,10 @@ func createGroupRecord(ctx context.Context, client *dbent.Client, groupIn *servi
 	// 设置支持的模型系列（始终设置，空数组表示不限制）
 	builder = builder.SetSupportedModelScopes(groupIn.SupportedModelScopes)
 
+	if groupIn.I18n != nil {
+		builder = builder.SetI18n(groupIn.I18n)
+	}
+
 	created, err := builder.Save(ctx)
 	if err != nil {
 		return translatePersistenceError(err, nil, service.ErrGroupExists)
@@ -370,6 +374,12 @@ func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) er
 	// 处理 SupportedModelScopes（始终设置，空数组表示不限制）
 	builder = builder.SetSupportedModelScopes(groupIn.SupportedModelScopes)
 
+	i18n := groupIn.I18n
+	if i18n == nil {
+		i18n = service.GroupI18n{}
+	}
+	builder = builder.SetI18n(i18n)
+
 	updated, err := builder.Save(ctx)
 	if err != nil {
 		return translatePersistenceError(err, service.ErrGroupNotFound, service.ErrGroupExists)
@@ -382,9 +392,28 @@ func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) er
 }
 
 func (r *groupRepository) Delete(ctx context.Context, id int64) error {
-	_, err := r.client.Group.Delete().Where(group.IDEQ(id)).Exec(ctx)
-	if err != nil {
+	tx, err := r.client.Tx(ctx)
+	if err != nil && !errors.Is(err, dbent.ErrTxStarted) {
+		return err
+	}
+	client := r.client
+	if err == nil {
+		defer func() { _ = tx.Rollback() }()
+		client = tx.Client()
+	}
+	if err := lockLiveGroups(ctx, client, []int64{id}); err != nil {
 		return translatePersistenceError(err, service.ErrGroupNotFound, nil)
+	}
+	if _, err := client.Group.Delete().Where(group.IDEQ(id)).Exec(ctx); err != nil {
+		return translatePersistenceError(err, service.ErrGroupNotFound, nil)
+	}
+	if err := cleanupDeletedModerationGroup(ctx, client, id); err != nil {
+		return err
+	}
+	if tx != nil {
+		if err := tx.Commit(); err != nil {
+			return err
+		}
 	}
 	if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventGroupChanged, nil, &id, nil); err != nil {
 		logger.LegacyPrintf("repository.group", "[SchedulerOutbox] enqueue group delete failed: group=%d err=%v", id, err)
@@ -869,6 +898,9 @@ func (r *groupRepository) DeleteCascade(ctx context.Context, id int64) ([]int64,
 
 	// 5. Soft-delete group itself.
 	if _, err := txClient.Group.Delete().Where(group.IDEQ(id)).Exec(ctx); err != nil {
+		return nil, err
+	}
+	if err := cleanupDeletedModerationGroup(ctx, txClient, id); err != nil {
 		return nil, err
 	}
 

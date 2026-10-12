@@ -1,0 +1,24 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "-v",
+    "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5-baseline/frontend:/workspace",
+    "-v",
+    "sub2api-pnpm-store-20261009:/root/.local/share/pnpm/store",
+    "-w",
+    "/workspace",
+    "node:24-bookworm-slim",
+    "sh",
+    "-c",
+    "corepack enable && corepack prepare pnpm@11.17.0 --activate && pnpm install --frozen-lockfile --prefer-offline && pnpm exec vitest run src/features/admin-accounts/__tests__/adminAccountsModularization.spec.ts"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5",
+  "exit_status": 1,
+  "elapsed_s": 17.067840708012227,
+  "utc": "2026-10-12T16:32:30.285011+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "24892ef2dd543206528702a3e8046b586649ad33597cb71aaf2f4d1c9543a1ed",
+  "stderr_sha256": "55a563a8b37acc8dc279a4331f07d51644695efbe1570ef6fe7aa40218eef17c"
+}
