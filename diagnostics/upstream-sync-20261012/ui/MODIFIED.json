@@ -1,0 +1,68 @@
+[
+  {
+    "phase": "MODIFIED",
+    "width": 320,
+    "locale": "en",
+    "textClipped": false,
+    "horizontalOverflow": false,
+    "moreButton": "+2",
+    "moreVisible": true,
+    "textCount": 4
+  },
+  {
+    "phase": "MODIFIED",
+    "width": 320,
+    "locale": "zh",
+    "textClipped": false,
+    "horizontalOverflow": false,
+    "moreButton": "+2",
+    "moreVisible": true,
+    "textCount": 4
+  },
+  {
+    "phase": "MODIFIED",
+    "width": 375,
+    "locale": "en",
+    "textClipped": false,
+    "horizontalOverflow": false,
+    "moreButton": "+2",
+    "moreVisible": true,
+    "textCount": 4
+  },
+  {
+    "phase": "MODIFIED",
+    "width": 375,
+    "locale": "zh",
+    "textClipped": false,
+    "horizontalOverflow": false,
+    "moreButton": "+2",
+    "moreVisible": true,
+    "textCount": 4
+  },
+  {
+    "phase": "MODIFIED",
+    "width": 1440,
+    "locale": "en",
+    "textClipped": false,
+    "horizontalOverflow": false,
+    "moreButton": "+2",
+    "moreVisible": true,
+    "textCount": 4
+  },
+  {
+    "phase": "MODIFIED",
+    "width": 1440,
+    "locale": "zh",
+    "textClipped": false,
+    "horizontalOverflow": false,
+    "moreButton": "+2",
+    "moreVisible": true,
+    "textCount": 4
+  },
+  {
+    "phase": "MODIFIED",
+    "translation_edit": "PASS",
+    "default_name_preserved": true,
+    "data_tour_on_input": true
+  }
+]

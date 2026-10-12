@@ -65,3 +65,7 @@
 Codex manifest 的显式管理员模型映射投影归属 `openai_codex_models_mapping.go`；不修改共享缓存、不启用 pinned 聚合前置。WS 逐轮分组价格刷新与混合版本 TPS 行为见 [本轮同步审查](../../../../docs/UPSTREAM_SYNC_20261008.md)。
 
 OAuth 历史 `web_search_call` 的缓存搜索声明由 `openai_oauth_web_search_history.go` 负责；标准/Lite、HTTP/WS、compact/API-key 隔离和工具链修补分支见 [2026-10-09 同步记录](../../../../docs/UPSTREAM_SYNC_20261009.md)。
+
+GPT-6.1 Sol 的订阅模型长上下文豁免由 `openai_subscription_long_context.go` 判断实际凭据与发送模型，通过 `CostInput.DisableModelLongContextPricing` 接入既有计费流程；自定义价格区间保留。分组展示译文由 `group_i18n.go` 规范化，HTTP 输出负责语言选择。同步和回退证据见 [2026-10-12 同步记录](../../../../docs/UPSTREAM_SYNC_20261012.md)。
+
+`subscription_progress.go` 保存订阅进度值；名称译文仅作为不序列化的输出参数从已加载分组带到 handler，单条与批量用户进度保持同一语言规则，不增加数据库查询。

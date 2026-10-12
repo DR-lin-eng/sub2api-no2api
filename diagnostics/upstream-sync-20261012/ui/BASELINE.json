@@ -1,0 +1,62 @@
+[
+  {
+    "phase": "BASELINE",
+    "width": 320,
+    "locale": "en",
+    "textClipped": true,
+    "horizontalOverflow": false,
+    "moreButton": "+2",
+    "moreVisible": false,
+    "textCount": 4
+  },
+  {
+    "phase": "BASELINE",
+    "width": 320,
+    "locale": "zh",
+    "textClipped": true,
+    "horizontalOverflow": false,
+    "moreButton": "+2",
+    "moreVisible": false,
+    "textCount": 4
+  },
+  {
+    "phase": "BASELINE",
+    "width": 375,
+    "locale": "en",
+    "textClipped": true,
+    "horizontalOverflow": false,
+    "moreButton": "+2",
+    "moreVisible": false,
+    "textCount": 4
+  },
+  {
+    "phase": "BASELINE",
+    "width": 375,
+    "locale": "zh",
+    "textClipped": true,
+    "horizontalOverflow": false,
+    "moreButton": "+2",
+    "moreVisible": false,
+    "textCount": 4
+  },
+  {
+    "phase": "BASELINE",
+    "width": 1440,
+    "locale": "en",
+    "textClipped": true,
+    "horizontalOverflow": false,
+    "moreButton": "+2",
+    "moreVisible": false,
+    "textCount": 4
+  },
+  {
+    "phase": "BASELINE",
+    "width": 1440,
+    "locale": "zh",
+    "textClipped": true,
+    "horizontalOverflow": false,
+    "moreButton": "+2",
+    "moreVisible": false,
+    "textCount": 4
+  }
+]

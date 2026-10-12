@@ -28,6 +28,8 @@
 
 验证入口：
 
+请求明细的 `account_name` 来自当前分页 SQL 的现有账号关联；页面无需加载全量账号，混合版本响应没有名称时显示 `#account_id`。本地时间控件只在提交时转为 UTC。
+
 ```sh
 pnpm exec vitest run src/features/admin-ops
 pnpm run typecheck

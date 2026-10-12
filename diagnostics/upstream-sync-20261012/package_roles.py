@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
-import hashlib, io, json, pathlib, subprocess, tarfile
+import gzip, hashlib, io, json, pathlib, subprocess, tarfile
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 ROLE = pathlib.Path(__file__).resolve().parent
-BASELINE = subprocess.check_output(['git','rev-parse','HEAD'], cwd=ROOT, text=True).strip()
-tracked = subprocess.check_output(['git','diff','--name-only',BASELINE,'--'], cwd=ROOT, text=True).splitlines()
-status = subprocess.check_output(['git','status','--short'], cwd=ROOT, text=True).splitlines()
-untracked = [line[3:] for line in status if line.startswith('?? ') and not line.startswith('?? diagnostics/')]
+BASELINE = (ROLE/'BASELINE_SHA.txt').read_text().strip()
+tracked = [p for p in subprocess.check_output(['git','diff','--name-only',BASELINE,'--'], cwd=ROOT, text=True).splitlines() if not p.startswith('diagnostics/')]
+untracked = [p for p in subprocess.check_output(['git','ls-files','--others','--exclude-standard'], cwd=ROOT, text=True).splitlines() if not p.startswith('diagnostics/')]
 paths = sorted(set(p for p in tracked + untracked if p and not p.startswith('diagnostics/')))
 (ROLE/'BASELINE_SHA.txt').write_text(BASELINE+'\n')
 (ROLE/'SOURCE_PATHS.txt').write_text('\n'.join(paths)+'\n')
 manifest={'baseline':{},'modified':{},'added':[]}
 def sha(data): return hashlib.sha256(data).hexdigest()
-with tarfile.open(ROLE/'BASELINE_FILE','w:gz') as base, tarfile.open(ROLE/'MODIFIED_FILE','w:gz') as mod:
+base_bytes = io.BytesIO()
+mod_bytes = io.BytesIO()
+with tarfile.open(fileobj=base_bytes,mode='w') as base, tarfile.open(fileobj=mod_bytes,mode='w') as mod:
     for path in paths:
         current=(ROOT/path).read_bytes()
         manifest['modified'][path]=sha(current)
@@ -24,6 +25,8 @@ with tarfile.open(ROLE/'BASELINE_FILE','w:gz') as base, tarfile.open(ROLE/'MODIF
             base.addfile(info,io.BytesIO(old.stdout))
         else:
             manifest['added'].append(path)
+(ROLE/'BASELINE_FILE').write_bytes(gzip.compress(base_bytes.getvalue(),mtime=0))
+(ROLE/'MODIFIED_FILE').write_bytes(gzip.compress(mod_bytes.getvalue(),mtime=0))
 (ROLE/'SOURCE_HASHES.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
 patch=subprocess.check_output(['git','diff','--binary',BASELINE,'--',*tracked],cwd=ROOT) if tracked else b''
 for path in untracked:
@@ -59,4 +62,4 @@ PYTHON
 (ROLE/'ROLLBACK.sh').write_text(rollback);(ROLE/'ROLLBACK.sh').chmod(0o755)
 for name in ['BASELINE_FILE','MODIFIED_FILE','DIFF_FILE','ROLLBACK.sh']:
  p=ROLE/name;print(name,sha(p.read_bytes()),p.stat().st_size)
-print('BASELINE',BASELINE,'PATHS',len(paths),'ADDED',len(untracked))
+print('BASELINE',BASELINE,'PATHS',len(paths),'ADDED',len(manifest['added']))

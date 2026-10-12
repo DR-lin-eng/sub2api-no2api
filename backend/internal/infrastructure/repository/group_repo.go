@@ -401,7 +401,9 @@ func (r *groupRepository) Delete(ctx context.Context, id int64) error {
 		defer func() { _ = tx.Rollback() }()
 		client = tx.Client()
 	}
-	if err := lockLiveGroups(ctx, client, []int64{id}); err != nil {
+	// Deleters acquire the write lock directly. Upgrading shared locks can
+	// deadlock when two nodes delete the same group concurrently.
+	if _, err := client.Group.Query().Where(group.IDEQ(id)).ForUpdate().Only(ctx); err != nil {
 		return translatePersistenceError(err, service.ErrGroupNotFound, nil)
 	}
 	if _, err := client.Group.Delete().Where(group.IDEQ(id)).Exec(ctx); err != nil {

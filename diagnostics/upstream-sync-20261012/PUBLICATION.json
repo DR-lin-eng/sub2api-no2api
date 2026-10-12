@@ -1,0 +1,24 @@
+{
+  "pull_request": 128,
+  "pull_request_url": "https://github.com/DR-lin-eng/sub2api-no2api/pull/128",
+  "merge_sha": "6a36556196677eaf21c5e06544c4054a49c17221",
+  "origin_main_sha": "6a36556196677eaf21c5e06544c4054a49c17221",
+  "workflows": [
+    {"workflow": "CI", "run_id": 38285683730, "conclusion": "success", "url": "https://github.com/DR-lin-eng/sub2api-no2api/actions/runs/38285683730"},
+    {"workflow": "Security Scan", "run_id": 38285683619, "conclusion": "success", "url": "https://github.com/DR-lin-eng/sub2api-no2api/actions/runs/38285683619"},
+    {"workflow": "Docker Image", "run_id": 38285683596, "conclusion": "success", "url": "https://github.com/DR-lin-eng/sub2api-no2api/actions/runs/38285683596"}
+  ],
+  "ghcr": {
+    "image": "ghcr.io/dr-lin-eng/sub2api-no2api",
+    "sha_tag": "sha-6a36556",
+    "latest_tag": "latest",
+    "index_digest": "sha256:569089c5d24811562a9c82d19b349efa243809123515abe7205f056d7d56e50b",
+    "platforms": ["linux/amd64", "linux/arm64"],
+    "revision_labels": {
+      "linux/amd64": "6a36556196677eaf21c5e06544c4054a49c17221",
+      "linux/arm64": "6a36556196677eaf21c5e06544c4054a49c17221"
+    },
+    "latest_matches_sha_tag": true
+  },
+  "observed_at": "2026-10-13T01:47:00+08:00"
+}

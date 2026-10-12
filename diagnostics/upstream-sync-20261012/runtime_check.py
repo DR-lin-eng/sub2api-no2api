@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent
 COMPOSE = ['docker', 'compose', '-f', str(ROOT / 'compose.yaml'), '-p', 'sub2api-sync-20261012-matrix']
 BASE = 'http://127.0.0.1:18109'
 BASELINE = 'sub2api-upstream-sync:20261012-baseline'
-CANDIDATE = 'sub2api-upstream-sync:20261012-candidate'
+CANDIDATE = 'sub2api-upstream-sync:20261012-final'
 OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}),
                                    urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
 REPORT = []
@@ -29,15 +29,17 @@ def compose(*args, env=None, capture=False):
 
 def sql(database, statement):
     return compose('exec', '-T', 'postgres', 'psql', '-U', 'sub2api', '-d', database,
-                   '-v', 'ON_ERROR_STOP=1', '-Atc', statement, capture=True).strip()
+                   '-v', 'ON_ERROR_STOP=1', '-qAtc', statement, capture=True).strip()
 
 
-def request(path, body=None, token=None):
+def request(path, body=None, token=None, method=None, language=None):
     headers = {'Content-Type': 'application/json'}
     if token:
         headers['Authorization'] = 'Bearer ' + token
+    if language:
+        headers['Accept-Language'] = language
     req = urllib.request.Request(BASE + path, headers=headers,
-        data=None if body is None else json.dumps(body).encode())
+        data=None if body is None else json.dumps(body).encode(), method=method)
     try:
         response = OPENER.open(req, timeout=20)
     except urllib.error.HTTPError as error:
@@ -105,9 +107,37 @@ def runtime(stage, state):
     baseline_snapshot = json.loads(state['snapshot'])
     for key in ('users', 'keys', 'orders'):
         assert current_snapshot.get(key) == baseline_snapshot.get(key), f'upgrade changed persisted {key}'
-    assert int(current_snapshot.get('migrations', 0)) >= int(baseline_snapshot.get('migrations', 0)), 'migration count moved backwards'
+    expected_migrations = int(baseline_snapshot['migrations']) + (stage != 'baseline')
+    assert current_snapshot['migrations'] == expected_migrations, 'new migration was not applied exactly once'
     REPORT.append({'stage': stage, 'result': 'PASS', 'migrations': int(current_snapshot.get('migrations', 0))})
     print(stage + ': readiness/frontend/encrypted-login/persisted-key/legacy-order/data-snapshot PASS', flush=True)
+    return token
+
+
+def localization(stage, state, token):
+    group_path = '/api/v1/admin/groups/' + str(state['group_id'])
+    if stage == 'upgraded':
+        code, result = request(group_path, {'i18n': {'en': {'name': 'English group', 'description': 'English description'}}}, token, method='PUT')
+        assert code == 200, ('new writer rejected translations', code)
+    elif stage == 'rollback':
+        code, result = request(group_path, {'description': 'old-writer-edit'}, token, method='PUT')
+        assert code == 200, ('old writer could not update original fields', code)
+        assert json.loads(sql('upgrade', 'SELECT i18n::text FROM groups WHERE id=' + str(state['group_id'])))['en']['name'] == 'English group'
+    code, available = request('/api/v1/groups/available', token=token, language='en-US,en;q=0.8')
+    assert code == 200
+    group = next(g for g in available['data'] if g['id'] == state['group_id'])
+    expected_name = 'English group' if stage in ('upgraded', 'restored') else '默认分组'
+    assert group['name'] == expected_name and 'i18n' not in group, (stage, group['name'])
+    code, progress = request('/api/v1/subscriptions/' + str(state['subscription_id']) + '/progress', token=token, language='en')
+    assert code == 200 and progress['data']['group_name'] == expected_name
+    assert 'i18n' not in progress['data'] and 'GroupI18n' not in progress['data']
+    code, admin = request(group_path, token=token, language='en')
+    assert code == 200 and admin['data']['name'] == '默认分组'
+    if stage == 'restored':
+        assert admin['data']['description'] == 'old-writer-edit'
+        assert admin['data']['i18n']['en']['name'] == 'English group'
+    REPORT[-1]['locale_contract'] = 'PASS'
+    print(stage + ': group default/admin/user locale and mixed-version writer PASS', flush=True)
 
 
 # This named project contains only this script's synthetic fixtures.
@@ -118,19 +148,27 @@ start(BASELINE)
 status, logged = login('admin@sub2api.local', 'sync_admin_password')
 assert status == 200
 token = logged['data']['access_token']
+# Seed only this disposable Docker test administrator's initialization state.
+sql('upgrade', """INSERT INTO settings (key,value,updated_at)
+    SELECT 'admin_compliance_acknowledgement:' || id,
+    json_build_object('version','v2026.06.10','accepted_at',NOW(),'admin_user_id',id)::text, NOW()
+    FROM users WHERE role='admin';""")
 status, created = request('/api/v1/keys', {'name': 'upstream-sync-upgrade-fixture', 'quota': 12.34}, token)
 assert status == 200
 key = created['data']
+status, group = request('/api/v1/admin/groups', {'name': '默认分组', 'description': 'original-description', 'platform': 'openai', 'rate_multiplier': 1}, token)
+assert status == 200, ('baseline group fixture', status, group)
+subscription_id = int(sql('upgrade', "INSERT INTO user_subscriptions (user_id,group_id,starts_at,expires_at,status) VALUES (" + str(logged['data']['user']['id']) + "," + str(group['data']['id']) + ",NOW(),NOW()+INTERVAL '1 day','active') RETURNING id"))
 sql('upgrade', """INSERT INTO payment_orders (user_id,amount,pay_amount,expires_at,out_trade_no,payment_type,order_type,status)
     SELECT id,12.34,12.34,NOW()+INTERVAL '1 day','upstream-sync-20261008-legacy','alipay','balance','PENDING'
     FROM users WHERE role='admin' ORDER BY id LIMIT 1;""")
-state = {'user_id': logged['data']['user']['id'], 'key_id': key['id'], 'name': key['name'], 'snapshot': snapshot()}
-runtime('baseline', state)
+state = {'user_id': logged['data']['user']['id'], 'key_id': key['id'], 'group_id': group['data']['id'], 'subscription_id': subscription_id, 'name': key['name'], 'snapshot': snapshot()}
+localization('baseline', state, runtime('baseline', state))
 for stage, image in [('upgraded', CANDIDATE), ('rollback', BASELINE), ('restored', CANDIDATE)]:
     # Every replacement has a fresh data directory and stale invalid init env.
     # The installed database must be adopted without rewriting its admin.
     start(image, email='invalid-initialization-email', password='123456')
-    runtime(stage, state)
+    localization(stage, state, runtime(stage, state))
 
 
 (ROOT / "runtime-result.json").write_text(json.dumps(REPORT, indent=2)+"\n")

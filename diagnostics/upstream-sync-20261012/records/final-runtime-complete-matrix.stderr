@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/diagnostics/upstream-sync-20261012/runtime_check.py", line 161, in <module>
+    subscription_id = int(sql('upgrade', "INSERT INTO user_subscriptions (user_id,group_id,starts_at,expires_at,status) VALUES (" + str(logged['data']['user']['id']) + "," + str(group['data']['id']) + ",NOW(),NOW()+INTERVAL '1 day','active') RETURNING id"))
+ValueError: invalid literal for int() with base 10: '1\nINSERT 0 1'

@@ -1,0 +1,62 @@
+[
+  {
+    "phase": "ROLLBACK",
+    "width": 320,
+    "locale": "en",
+    "textClipped": true,
+    "horizontalOverflow": false,
+    "moreButton": "+2",
+    "moreVisible": false,
+    "textCount": 4
+  },
+  {
+    "phase": "ROLLBACK",
+    "width": 320,
+    "locale": "zh",
+    "textClipped": true,
+    "horizontalOverflow": false,
+    "moreButton": "+2",
+    "moreVisible": false,
+    "textCount": 4
+  },
+  {
+    "phase": "ROLLBACK",
+    "width": 375,
+    "locale": "en",
+    "textClipped": true,
+    "horizontalOverflow": false,
+    "moreButton": "+2",
+    "moreVisible": false,
+    "textCount": 4
+  },
+  {
+    "phase": "ROLLBACK",
+    "width": 375,
+    "locale": "zh",
+    "textClipped": true,
+    "horizontalOverflow": false,
+    "moreButton": "+2",
+    "moreVisible": false,
+    "textCount": 4
+  },
+  {
+    "phase": "ROLLBACK",
+    "width": 1440,
+    "locale": "en",
+    "textClipped": true,
+    "horizontalOverflow": false,
+    "moreButton": "+2",
+    "moreVisible": false,
+    "textCount": 4
+  },
+  {
+    "phase": "ROLLBACK",
+    "width": 1440,
+    "locale": "zh",
+    "textClipped": true,
+    "horizontalOverflow": false,
+    "moreButton": "+2",
+    "moreVisible": false,
+    "textCount": 4
+  }
+]

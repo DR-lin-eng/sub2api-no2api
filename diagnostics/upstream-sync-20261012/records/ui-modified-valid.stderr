@@ -1,0 +1,10 @@
+file:///app/frontend/sync-harness/browser.mjs:26
+    if (observation.textClipped === modified || observation.horizontalOverflow || observation.textCount !== 4 || observation.moreButton !== '+2') throw new Error(JSON.stringify(observation))
+                                                                                                                                                        ^
+
+Error: {"textClipped":false,"horizontalOverflow":false,"moreButton":"+3","textCount":3}
+    at file:///app/frontend/sync-harness/browser.mjs:26:153
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at process.processImmediate (node:internal/timers:541:9)
+
+Node.js v24.21.0

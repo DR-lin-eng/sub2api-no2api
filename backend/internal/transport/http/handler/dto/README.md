@@ -7,6 +7,7 @@
 | `types.go` | 通用 API DTO |
 | `settings.go` | 公共与管理设置 DTO |
 | `mappers.go` | 核心模型映射 |
+| `group_localize.go` | 用户响应中的分组名称与描述本地化；管理员响应保留原字段 |
 | `credentials_redact.go` | 凭据输出脱敏 |
 | `announcement.go`, `channel_monitor.go` | 对应资源 DTO |
 

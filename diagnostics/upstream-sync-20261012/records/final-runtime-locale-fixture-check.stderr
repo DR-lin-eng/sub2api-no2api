@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/diagnostics/upstream-sync-20261012/runtime_check.py", line 152, in <module>
+    assert status == 200, ('baseline group fixture', status, group)
+           ^^^^^^^^^^^^^
+AssertionError: ('baseline group fixture', 423, {'code': 'ADMIN_COMPLIANCE_ACK_REQUIRED', 'message': 'administrator compliance acknowledgement is required', 'metadata': {'document_path_en': 'docs/legal/admin-compliance.en.md', 'document_path_zh': 'docs/legal/admin-compliance.zh.md', 'document_url_en': 'https://github.com/DR-lin-eng/sub2api-no2api/blob/main/docs/legal/admin-compliance.en.md', 'document_url_zh': 'https://github.com/DR-lin-eng/sub2api-no2api/blob/main/docs/legal/admin-compliance.zh.md', 'version': 'v2026.06.10'}})
