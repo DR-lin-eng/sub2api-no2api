@@ -68,6 +68,8 @@ export default {
           enabledHint: 'Disabling stops background checks; existing history is preserved.',
           defaultInterval: 'Default check interval (seconds)',
           defaultIntervalHint: 'Pre-fills the interval when creating a new monitor; each monitor can override it. Range 15 – 3600.',
+          timelinePoints: 'Status timeline bars',
+          timelinePointsHint: 'Controls how many status bars are shown on each user-facing timeline. Range 1 – 60.',
           latencyUnit: 'Latency display unit',
           latencyUnitHint: 'Controls latency display in Channel Monitor and Channel Status pages.',
           latencyUnitMs: 'Milliseconds (ms)',

@@ -24,6 +24,9 @@ func appendNotificationAndRiskSettingChanges(changed []string, before, after *se
 	if before.ChannelMonitorEnabled != after.ChannelMonitorEnabled {
 		changed = append(changed, "channel_monitor_enabled")
 	}
+	if before.ChannelMonitorTimelinePoints != after.ChannelMonitorTimelinePoints {
+		changed = append(changed, "channel_monitor_timeline_points")
+	}
 	if before.ChannelMonitorDefaultIntervalSeconds != after.ChannelMonitorDefaultIntervalSeconds {
 		changed = append(changed, "channel_monitor_default_interval_seconds")
 	}

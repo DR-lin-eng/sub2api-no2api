@@ -291,6 +291,7 @@ func buildSettingsUpdateResponsePayload(
 
 		ChannelMonitorEnabled:                updatedSettings.ChannelMonitorEnabled,
 		ChannelMonitorDefaultIntervalSeconds: updatedSettings.ChannelMonitorDefaultIntervalSeconds,
+		ChannelMonitorTimelinePoints:        updatedSettings.ChannelMonitorTimelinePoints,
 		ChannelMonitorLatencyUnit:            updatedSettings.ChannelMonitorLatencyUnit,
 		ChannelMonitorPublicShareEnabled:     updatedSettings.ChannelMonitorPublicShareEnabled,
 		ChannelMonitorPublicShareRequireAuth: updatedSettings.ChannelMonitorPublicShareRequireAuth,

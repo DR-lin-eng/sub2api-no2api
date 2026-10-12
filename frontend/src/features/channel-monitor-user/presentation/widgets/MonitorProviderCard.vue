@@ -19,12 +19,7 @@
           <span class="text-base font-bold tracking-tight truncate text-gray-900 dark:text-white">
             {{ providerLabel(provider) }}
           </span>
-          <span
-            v-if="modeLabelText"
-            class="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider flex-shrink-0 bg-gray-100/90 text-gray-700 dark:bg-dark-700/80 dark:text-gray-300 border border-gray-200/60 dark:border-dark-600/60"
-          >
-            {{ modeLabelText }}
-          </span>
+
         </div>
         <div class="mt-1 text-xs truncate text-gray-600 dark:text-gray-300 font-medium">
           {{ summaryLabel }}
@@ -55,68 +50,58 @@
       </button>
     </header>
 
-    <!-- 模型列表 - 优化信息密度的网格布局，支持折叠 -->
-    <div 
+    <!-- 主动和被动监控共用供应商卡片，但分别展示状态和时间线 -->
+    <div
       v-show="!isCollapsed"
-      class="px-6 py-4 transition-all duration-300"
+      class="px-6 py-4 space-y-5 transition-all duration-300"
     >
-      <div class="grid gap-3 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-        <button
-          v-for="row in sortedItems"
-          :key="row.id"
-          type="button"
-          class="group/item relative text-left p-4 rounded-lg bg-gray-50/60 dark:bg-dark-900/40 border border-gray-200/50 dark:border-dark-700/50 hover:border-gray-300 dark:hover:border-dark-600 hover:bg-white dark:hover:bg-dark-800/70 transition-all duration-200 hover:shadow-sm active:scale-[0.98]"
-          @click="emit('cardClick', row)"
-        >
-          <!-- 模型信息头部 -->
-          <div class="flex items-start justify-between gap-2.5 mb-3">
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 min-w-0 mb-1">
-                <span class="text-sm font-bold truncate text-gray-900 dark:text-white leading-tight">
+      <div v-for="group in modeGroups" :key="group.mode" class="space-y-3">
+        <div class="flex items-center gap-2 border-b border-gray-100 pb-2 text-xs font-bold uppercase tracking-wider text-gray-500 dark:border-dark-700 dark:text-gray-400">
+          <span>{{ modeLabel(group.mode) }}</span>
+          <span class="font-normal normal-case">{{ modeSummary(group.items) }}</span>
+        </div>
+        <div class="grid gap-3 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+          <button
+            v-for="row in group.items"
+            :key="row.id"
+            type="button"
+            class="group/item relative text-left p-4 rounded-lg bg-gray-50/60 dark:bg-dark-900/40 border border-gray-200/50 dark:border-dark-700/50 hover:border-gray-300 dark:hover:border-dark-600 hover:bg-white dark:hover:bg-dark-800/70 transition-all duration-200 hover:shadow-sm active:scale-[0.98]"
+            @click="emit('cardClick', row)"
+          >
+            <div class="flex items-start justify-between gap-2.5 mb-3">
+              <div class="flex-1 min-w-0">
+                <span class="block text-sm font-bold truncate text-gray-900 dark:text-white leading-tight">
                   {{ row.group_name || row.name || t('channelStatus.unnamedGroup') }}
                 </span>
+                <span class="inline-block font-mono text-[10px] truncate text-gray-600 dark:text-gray-400 bg-gray-100/70 dark:bg-dark-800/60 px-2 py-0.5 rounded border border-gray-200/50 dark:border-dark-700/40">
+                  {{ row.primary_model }}
+                </span>
               </div>
-              <span class="inline-block font-mono text-[10px] truncate text-gray-600 dark:text-gray-400 bg-gray-100/70 dark:bg-dark-800/60 px-2 py-0.5 rounded border border-gray-200/50 dark:border-dark-700/40">
-                {{ row.primary_model }}
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide flex-shrink-0 shadow-xs transition-transform group-hover/item:scale-105" :class="statusBadgeClass(row.primary_status)">
+                {{ statusLabel(row.primary_status) }}
               </span>
             </div>
-            
-            <span
-              class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide flex-shrink-0 shadow-xs transition-transform group-hover/item:scale-105"
-              :class="statusBadgeClass(row.primary_status)"
-            >
-              {{ statusLabel(row.primary_status) }}
-            </span>
-          </div>
-
-          <!-- 指标数据 -->
-          <div class="flex items-center gap-4 mb-3 text-xs">
+            <div class="flex items-center gap-4 mb-3 text-xs">
               <div class="flex items-center gap-1.5 font-mono tabular-nums font-semibold text-gray-700 dark:text-gray-300">
-              <span class="w-1.5 h-1.5 rounded-full bg-blue-500 dark:bg-blue-400 shadow-sm"></span>
-              <span>{{ formatLatencyWithUnit(row.primary_latency_ms) }}</span>
+                <span class="w-1.5 h-1.5 rounded-full bg-blue-500 dark:bg-blue-400 shadow-sm"></span>
+                <span>{{ formatLatencyWithUnit(row.primary_latency_ms) }}</span>
+              </div>
+              <div class="flex items-center gap-1.5 tabular-nums font-bold" :style="availabilityColor(row)">
+                <span class="w-1.5 h-1.5 rounded-full shadow-sm" :style="availabilityColor(row)"></span>
+                <span>{{ formatPercent(resolveAvailability(row)) }}</span>
+              </div>
             </div>
-            <div class="flex items-center gap-1.5 tabular-nums font-bold" :style="availabilityColor(row)">
-              <span class="w-1.5 h-1.5 rounded-full shadow-sm" :style="availabilityColor(row)"></span>
-              <span>{{ formatPercent(resolveAvailability(row)) }}</span>
-            </div>
-          </div>
-
-          <!-- 时间线 -->
-          <MonitorTimeline
-            compact
-            :buckets="row.timeline"
-            :countdown-seconds="countdownSeconds"
-          />
-
-          <!-- Hover 指示器 -->
-          <div class="absolute top-3 right-3 opacity-0 group-hover/item:opacity-100 transition-opacity">
-            <Icon
-              name="chevronRight"
-              size="xs"
-              class="text-gray-400 dark:text-gray-400"
+            <MonitorTimeline
+              compact
+              :buckets="row.timeline"
+              :length="timelinePoints"
+              :countdown-seconds="countdownSeconds"
             />
-          </div>
-        </button>
+            <div class="absolute top-3 right-3 opacity-0 group-hover/item:opacity-100 transition-opacity">
+              <Icon name="chevronRight" size="xs" class="text-gray-400 dark:text-gray-400" />
+            </div>
+          </button>
+        </div>
       </div>
     </div>
   </section>
@@ -212,9 +197,9 @@ const PROVIDER_TINT: Record<string, string> = {
 
 const props = defineProps<{
   items: UserMonitorView[]
-  mode?: MonitorMode
   window: '7d' | '15d' | '30d'
   countdownSeconds: number
+  timelinePoints: number
   detailCache: Record<number, UserMonitorDetail>
 }>()
 
@@ -229,11 +214,6 @@ const isCollapsed = ref(false)
 
 const { statusLabel, statusBadgeClass, modeLabel, providerLabel, formatLatencyWithUnit, formatPercent } =
   useChannelMonitorFormat()
-
-/** Legacy monitors without a mode keep the header unlabelled. */
-const modeLabelText = computed(() =>
-  props.mode === 'active' || props.mode === 'passive' ? modeLabel(props.mode) : '',
-)
 
 const provider = computed<Provider>(() => props.items[0]?.provider ?? ('' as Provider))
 
@@ -268,15 +248,24 @@ const summaryLabel = computed(() => {
  * 2. 爆红（异常）模型排在末尾
  * 3. 中间状态按"整体健康度+最新状态"综合评分排序
  */
-const sortedItems = computed(() => {
-  return [...props.items].sort((a, b) => {
-    const scoreA = calculateHealthScore(a)
-    const scoreB = calculateHealthScore(b)
-    
-    // 健康度评分高的排在前面（降序）
-    return scoreB - scoreA
-  })
+const modeGroups = computed(() => {
+  const modes: MonitorMode[] = ['active', 'passive']
+  return modes
+    .map(mode => ({
+      mode,
+      items: props.items
+        .filter(item => (item.monitor_mode ?? 'active') === mode)
+        .sort((a, b) => calculateHealthScore(b) - calculateHealthScore(a)),
+    }))
+    .filter(group => group.items.length > 0)
 })
+
+function modeSummary(items: UserMonitorView[]): string {
+  const abnormal = items.filter(item => item.primary_status !== 'operational').length
+  return abnormal > 0
+    ? t('channelStatus.abnormalCount', { n: abnormal })
+    : t('channelStatus.allOperational')
+}
 
 function resolveAvailability(item: UserMonitorView): number | null {
   if (props.window === '7d') return item.availability_7d ?? null

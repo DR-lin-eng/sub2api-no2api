@@ -58,6 +58,7 @@
           :items="items"
           :window="currentWindow"
           :countdown-seconds="countdown"
+          :timeline-points="timelinePoints"
           :loading="loading"
           :detail-cache="detailCache"
           @card-click="openDetail"
@@ -117,6 +118,11 @@ const autoRefresh = useAutoRefresh({
   shouldPause: () => document.hidden || loading.value,
 })
 const countdown = autoRefresh.countdown
+
+const timelinePoints = computed(() => {
+  const value = appStore.cachedPublicSettings?.channel_monitor_timeline_points
+  return typeof value === 'number' && value >= 1 ? value : 20
+})
 
 const overallStatus = computed<OverallStatus>(() => {
   if (items.value.length === 0) return 'operational'

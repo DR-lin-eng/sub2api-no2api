@@ -362,6 +362,32 @@ func TestSettingService_GetPublicSettings_ExposesTablePreferences(t *testing.T) 
 	require.Equal(t, []int{20, 50, 100}, settings.TablePageSizeOptions)
 }
 
+func TestSettingService_GetPublicSettings_ExposesChannelMonitorTimelinePoints(t *testing.T) {
+	tests := []struct {
+		name     string
+		raw      string
+		expected int
+	}{
+		{name: "uses_configured_value", raw: "35", expected: 35},
+		{name: "defaults_when_missing", raw: "", expected: 20},
+		{name: "clamps_below_minimum", raw: "0", expected: 1},
+		{name: "clamps_above_maximum", raw: "999", expected: 60},
+		{name: "falls_back_on_invalid", raw: "abc", expected: 20},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &settingPublicRepoStub{values: map[string]string{}}
+			if tt.raw != "" {
+				repo.setValues(map[string]string{SettingKeyChannelMonitorTimelinePoints: tt.raw})
+			}
+			settings, err := NewSettingService(repo, &config.Config{}).GetPublicSettings(context.Background())
+			require.NoError(t, err)
+			require.Equal(t, tt.expected, settings.ChannelMonitorTimelinePoints)
+		})
+	}
+}
+
 func TestSettingService_GetPublicSettings_ExposesCompactHomeEnabled(t *testing.T) {
 	repo := &settingPublicRepoStub{values: map[string]string{
 		SettingKeyCompactHomeEnabled: "true",

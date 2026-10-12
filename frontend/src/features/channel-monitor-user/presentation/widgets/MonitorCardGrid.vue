@@ -43,9 +43,9 @@
         v-for="group in cardGroups"
         :key="group.key"
         :items="group.items"
-        :mode="group.mode"
         :window="window"
         :countdown-seconds="countdownSeconds"
+        :timeline-points="timelinePoints"
         :detail-cache="detailCache"
         @card-click="emit('cardClick', $event)"
       />
@@ -58,7 +58,6 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type {
   Provider,
-  MonitorMode,
   UserMonitorView,
   UserMonitorDetail,
 } from '@/features/channel-monitor-user/data/datasources/channelMonitorUserDatasource'
@@ -69,6 +68,7 @@ const props = defineProps<{
   items: UserMonitorView[]
   window: '7d' | '15d' | '30d'
   countdownSeconds: number
+  timelinePoints: number
   loading: boolean
   detailCache: Record<number, UserMonitorDetail>
 }>()
@@ -82,28 +82,23 @@ const { t } = useI18n()
 interface MonitorCardGroup {
   key: string
   provider: Provider
-  mode?: MonitorMode
   items: UserMonitorView[]
 }
 
 /**
- * Bucket the flat monitor list by provider *and* monitor mode so every group
- * watching the same AI family lands in one card. Active probes (synthetic
- * checks) and passive monitors (real traffic sampling) answer different
- * questions for the viewer, so they never share a card.
- *
+ * Bucket the flat monitor list by provider so active and passive monitors
+ * appear together while their individual modes remain visible in the card.
  * Groups keep their first-seen order to avoid cards jumping around while
  * auto-refresh replaces the list.
  */
 const cardGroups = computed<MonitorCardGroup[]>(() => {
   const groups: MonitorCardGroup[] = []
-  const indexByKey = new Map<string, number>()
+  const indexByKey = new Map<Provider, number>()
   for (const item of props.items) {
-    const key = `${item.provider}::${item.monitor_mode ?? ''}`
-    const existing = indexByKey.get(key)
+    const existing = indexByKey.get(item.provider)
     if (existing === undefined) {
-      indexByKey.set(key, groups.length)
-      groups.push({ key, provider: item.provider, mode: item.monitor_mode, items: [item] })
+      indexByKey.set(item.provider, groups.length)
+      groups.push({ key: item.provider, provider: item.provider, items: [item] })
       continue
     }
     groups[existing].items.push(item)

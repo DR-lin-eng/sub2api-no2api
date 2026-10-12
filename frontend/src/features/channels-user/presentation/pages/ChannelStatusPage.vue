@@ -12,10 +12,23 @@
       @copy-share-link="copyShareLink"
     />
 
+    <div v-if="providerOptions.length > 0" class="mb-3 flex items-center gap-2">
+      <label class="text-xs font-semibold text-gray-500 dark:text-gray-400" for="provider-filter">
+        {{ t('channelStatus.filterProvider') }}
+      </label>
+      <select id="provider-filter" v-model="selectedProvider" class="input h-8 w-auto py-1 text-xs">
+        <option value="all">{{ t('channelStatus.allProviders') }}</option>
+        <option v-for="option in providerOptions" :key="option" :value="option">
+          {{ providerLabel(option) }}
+        </option>
+      </select>
+    </div>
+
     <MonitorCardGrid
-      :items="items"
+      :items="filteredItems"
       :window="currentWindow"
       :countdown-seconds="countdown"
+      :timeline-points="timelinePoints"
       :loading="loading"
       :detail-cache="detailCache"
       @card-click="openDetail"
@@ -51,9 +64,11 @@ import MonitorHero, {
 import MonitorCardGrid from '@/features/channel-monitor-user/presentation/widgets/MonitorCardGrid.vue'
 import MonitorDetailDialog from '@/features/channel-monitor-user/presentation/widgets/MonitorDetailDialog.vue'
 import { DEFAULT_INTERVAL_SECONDS, STATUS_OPERATIONAL } from '@/core/constants/channelMonitor'
+import { useChannelMonitorFormat } from '@/features/channel-monitor-user/presentation/composables/useChannelMonitorFormat'
 import { useAutoRefresh } from '@/common/composables/useAutoRefresh'
 
 const { t } = useI18n()
+const { providerLabel } = useChannelMonitorFormat()
 const appStore = useAppStore()
 const authStore = useAuthStore()
 
@@ -76,13 +91,35 @@ const autoRefresh = useAutoRefresh({
 const countdown = autoRefresh.countdown
 
 const overallStatus = computed<OverallStatus>(() => {
-  if (items.value.length === 0) return 'operational'
-  for (const it of items.value) {
+  const list = filteredItems.value
+  if (list.length === 0) return 'operational'
+  for (const it of list) {
     if (it.primary_status === 'failed' || it.primary_status === 'error') return 'degraded'
     if (it.primary_status !== STATUS_OPERATIONAL) return 'degraded'
   }
   return 'operational'
 })
+
+const timelinePoints = computed(() => {
+  const value = appStore.cachedPublicSettings?.channel_monitor_timeline_points
+  return typeof value === 'number' && value >= 1 ? value : 20
+})
+
+const providerOptions = computed(() => {
+  const seen: string[] = []
+  for (const item of items.value) {
+    if (!seen.includes(item.provider)) seen.push(item.provider)
+  }
+  return seen
+})
+
+const selectedProvider = ref<string>('all')
+
+const filteredItems = computed(() =>
+  selectedProvider.value === 'all'
+    ? items.value
+    : items.value.filter(item => item.provider === selectedProvider.value),
+)
 
 const detailTitle = computed(() => detailTarget.value?.name || t('channelStatus.detailTitle'))
 

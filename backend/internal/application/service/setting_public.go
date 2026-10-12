@@ -234,6 +234,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyAccountQuotaNotifyEnabled,
 		SettingKeyChannelMonitorEnabled,
 		SettingKeyChannelMonitorDefaultIntervalSeconds,
+		SettingKeyChannelMonitorTimelinePoints,
 		SettingKeyChannelMonitorLatencyUnit,
 		SettingKeyChannelMonitorPublicShareEnabled,
 		SettingKeyChannelMonitorPublicShareRequireAuth,
@@ -373,6 +374,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 
 		ChannelMonitorEnabled:                !isFalseSettingValue(settings[SettingKeyChannelMonitorEnabled]),
 		ChannelMonitorDefaultIntervalSeconds: parseChannelMonitorInterval(settings[SettingKeyChannelMonitorDefaultIntervalSeconds]),
+		ChannelMonitorTimelinePoints:        parseChannelMonitorTimelinePoints(settings[SettingKeyChannelMonitorTimelinePoints]),
 		ChannelMonitorLatencyUnit:            normalizeChannelMonitorLatencyUnit(settings[SettingKeyChannelMonitorLatencyUnit]),
 		ChannelMonitorPublicShareEnabled:     settings[SettingKeyChannelMonitorPublicShareEnabled] == "true",
 		ChannelMonitorPublicShareRequireAuth: settings[SettingKeyChannelMonitorPublicShareRequireAuth] == "true",
@@ -404,6 +406,30 @@ const (
 	channelMonitorIntervalMax      = 3600
 	channelMonitorIntervalFallback = 60
 )
+
+const (
+	channelMonitorTimelinePointsMin      = 1
+	channelMonitorTimelinePointsMax      = 60
+	channelMonitorTimelinePointsFallback = 20
+)
+
+func parseChannelMonitorTimelinePoints(raw string) int {
+	v, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil {
+		return channelMonitorTimelinePointsFallback
+	}
+	return clampChannelMonitorTimelinePoints(v)
+}
+
+func clampChannelMonitorTimelinePoints(v int) int {
+	if v < channelMonitorTimelinePointsMin {
+		return channelMonitorTimelinePointsMin
+	}
+	if v > channelMonitorTimelinePointsMax {
+		return channelMonitorTimelinePointsMax
+	}
+	return v
+}
 
 // parseChannelMonitorInterval parses the stored string and clamps to [15, 3600].
 // Empty / invalid input falls back to channelMonitorIntervalFallback.
@@ -701,6 +727,7 @@ type PublicSettingsInjectionPayload struct {
 	// that hid the "可用渠道" menu on page refresh.
 	ChannelMonitorEnabled                bool   `json:"channel_monitor_enabled"`
 	ChannelMonitorDefaultIntervalSeconds int    `json:"channel_monitor_default_interval_seconds"`
+	ChannelMonitorTimelinePoints        int    `json:"channel_monitor_timeline_points"`
 	ChannelMonitorLatencyUnit            string `json:"channel_monitor_latency_unit"`
 	ChannelMonitorPublicShareEnabled     bool   `json:"channel_monitor_public_share_enabled"`
 	ChannelMonitorPublicShareRequireAuth bool   `json:"channel_monitor_public_share_require_auth"`
@@ -791,6 +818,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 
 		ChannelMonitorEnabled:                settings.ChannelMonitorEnabled,
 		ChannelMonitorDefaultIntervalSeconds: settings.ChannelMonitorDefaultIntervalSeconds,
+		ChannelMonitorTimelinePoints:        settings.ChannelMonitorTimelinePoints,
 		ChannelMonitorLatencyUnit:            settings.ChannelMonitorLatencyUnit,
 		ChannelMonitorPublicShareEnabled:     settings.ChannelMonitorPublicShareEnabled,
 		ChannelMonitorPublicShareRequireAuth: settings.ChannelMonitorPublicShareRequireAuth,

@@ -371,6 +371,7 @@ export function createSettingsForm(localText: LocalText): SettingsForm {
     account_quota_notify_emails: [] as NotifyEmailEntry[],
     channel_monitor_enabled: true,
     channel_monitor_default_interval_seconds: 60,
+    channel_monitor_timeline_points: 20,
     channel_monitor_latency_unit: "ms",
     channel_monitor_public_share_enabled: false,
     channel_monitor_public_share_require_auth: false,

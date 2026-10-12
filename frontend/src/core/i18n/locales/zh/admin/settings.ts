@@ -68,6 +68,8 @@ export default {
           enabledHint: '关闭后后台不再执行定时检测，已有数据保留。',
           defaultInterval: '默认检测间隔（秒）',
           defaultIntervalHint: '新建渠道监控时表单的默认值，可被单个渠道覆盖。范围 15 – 3600 秒。',
+          timelinePoints: '状态时间线柱数',
+          timelinePointsHint: '控制用户端每条状态时间线显示的小柱数量。范围 1 – 60。',
           latencyUnit: '延迟显示单位',
           latencyUnitHint: '影响渠道监控和渠道状态页中的延迟展示。',
           latencyUnitMs: '毫秒（ms）',

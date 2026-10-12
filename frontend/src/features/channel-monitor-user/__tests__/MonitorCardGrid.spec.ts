@@ -47,6 +47,7 @@ function mountGrid(items: UserMonitorView[], loading = false) {
       items,
       window: '7d' as const,
       countdownSeconds: 10,
+      timelinePoints: 20,
       loading,
       detailCache: {},
     },
@@ -86,7 +87,7 @@ describe('MonitorCardGrid provider and monitor-mode aggregation', () => {
     expect(cards[1].props('items')).toHaveLength(1)
   })
 
-  it('splits active probes and passive monitors of one provider into separate cards', () => {
+  it('merges active probes and passive monitors of one provider into a single card', () => {
     const wrapper = mountGrid([
       monitor({ id: 1, provider: 'openai', monitor_mode: 'active', group_name: 'Probe A' }),
       monitor({ id: 2, provider: 'openai', monitor_mode: 'passive', group_name: 'Traffic A' }),
@@ -94,23 +95,21 @@ describe('MonitorCardGrid provider and monitor-mode aggregation', () => {
     ])
 
     const cards = wrapper.findAllComponents(MonitorProviderCard)
-    expect(cards).toHaveLength(2)
-    expect(cards[0].props('mode')).toBe('active')
-    expect(cards[0].props('items')).toHaveLength(2)
-    expect(cards[1].props('mode')).toBe('passive')
-    expect(cards[1].props('items')).toHaveLength(1)
+    expect(cards).toHaveLength(1)
+    expect(cards[0].props('items')).toHaveLength(3)
+    expect(wrapper.findAll('button[class~="group/item"]')).toHaveLength(3)
   })
 
-  it('keeps legacy monitors without a mode in their own card', () => {
+  it('renders legacy monitors without a mode inside their provider card', () => {
     const wrapper = mountGrid([
       monitor({ id: 1, provider: 'openai' }),
       monitor({ id: 2, provider: 'openai', monitor_mode: 'active' }),
     ])
 
     const cards = wrapper.findAllComponents(MonitorProviderCard)
-    expect(cards).toHaveLength(2)
-    expect(cards[0].props('mode')).toBeUndefined()
-    expect(cards[1].props('mode')).toBe('active')
+    expect(cards).toHaveLength(1)
+    expect(cards[0].props('items')).toHaveLength(2)
+    expect(wrapper.findAll('button[class~="group/item"]')).toHaveLength(2)
   })
 
   it('ranks healthy groups above abnormal ones without dropping them', () => {
@@ -124,6 +123,28 @@ describe('MonitorCardGrid provider and monitor-mode aggregation', () => {
     expect(labels[0]).toContain('Healthy')
     expect(labels[1]).toContain('Slow')
     expect(labels[2]).toContain('Broken')
+  })
+
+  it('labels the active and passive sections inside one provider card', () => {
+    const wrapper = mountGrid([
+      monitor({ id: 1, provider: 'openai', monitor_mode: 'active', group_name: 'Probe A' }),
+      monitor({ id: 2, provider: 'openai', monitor_mode: 'passive', group_name: 'Traffic A' }),
+    ])
+
+    const card = wrapper.getComponent(MonitorProviderCard)
+    const text = card.text()
+    expect(text).toContain('monitorCommon.modes.active')
+    expect(text).toContain('monitorCommon.modes.passive')
+    expect(text).toContain('Probe A')
+    expect(text).toContain('Traffic A')
+  })
+
+  it('forwards the configured timeline length down to each monitor row', () => {
+    const wrapper = mountGrid([
+      monitor({ id: 1, provider: 'openai', monitor_mode: 'active' }),
+    ])
+    const card = wrapper.getComponent(MonitorProviderCard)
+    expect(card.props('timelinePoints')).toBe(20)
   })
 
   it('emits the clicked row so the detail dialog opens the right monitor', async () => {
