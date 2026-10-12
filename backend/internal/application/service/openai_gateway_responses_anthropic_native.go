@@ -56,8 +56,10 @@ func (s *OpenAIGatewayService) forwardResponsesViaNativeAnthropic(
 		writeResponsesError(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")
 		return nil, fmt.Errorf("parse responses request: %w", err)
 	}
-	originalModel := responsesReq.Model
-	if strings.TrimSpace(originalModel) == "" {
+	// Keep billing and dispatch on the same trimmed request model. In
+	// particular, model-routed OpenCode accounts do not have a dispatch fallback.
+	originalModel := strings.TrimSpace(responsesReq.Model)
+	if originalModel == "" {
 		writeResponsesError(c, http.StatusBadRequest, "invalid_request_error", "model is required")
 		return nil, fmt.Errorf("missing model in request")
 	}
@@ -239,7 +241,7 @@ func (s *OpenAIGatewayService) handleResponsesBufferedFromNativeAnthropic(
 		}
 		if event.Type == "content_block_delta" && event.Delta != nil && finalResp != nil && event.Index != nil {
 			idx := *event.Index
-			if idx < len(finalResp.Content) {
+			if idx >= 0 && idx < len(finalResp.Content) {
 				switch event.Delta.Type {
 				case "text_delta":
 					finalResp.Content[idx].Text += event.Delta.Text

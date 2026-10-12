@@ -1,0 +1,29 @@
+{
+  "label": "baseline-frontend-existing",
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo",
+  "argv": [
+    "docker",
+    "run",
+    "--rm",
+    "-v",
+    "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/baseline:/workspace",
+    "-v",
+    "sub2api-sync-20261007-baseline-node:/workspace/frontend/node_modules",
+    "-w",
+    "/workspace/frontend",
+    "node:24-alpine",
+    "sh",
+    "-c",
+    "corepack enable && pnpm install --frozen-lockfile --prefer-offline && pnpm exec vitest run src/features/admin-accounts/__tests__/adminAccountsModularization.spec.ts src/features/admin-settings/__tests__/settingsGatewayResilienceModularization.spec.ts src/features/admin-users/__tests__/UserEditDialog.spec.ts src/features/admin-users/__tests__/UsersPage.spec.ts src/features/auth/__tests__/RegisterViewCredentialStorage.spec.ts"
+  ],
+  "command": "docker run --rm -v /private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/baseline:/workspace -v sub2api-sync-20261007-baseline-node:/workspace/frontend/node_modules -w /workspace/frontend node:24-alpine sh -c 'corepack enable && pnpm install --frozen-lockfile --prefer-offline && pnpm exec vitest run src/features/admin-accounts/__tests__/adminAccountsModularization.spec.ts src/features/admin-settings/__tests__/settingsGatewayResilienceModularization.spec.ts src/features/admin-users/__tests__/UserEditDialog.spec.ts src/features/admin-users/__tests__/UsersPage.spec.ts src/features/auth/__tests__/RegisterViewCredentialStorage.spec.ts'",
+  "input": "repository sources and committed regression fixtures",
+  "stdout": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/records/baseline-frontend-existing.stdout",
+  "stderr": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/records/baseline-frontend-existing.stderr",
+  "exit": 1,
+  "started": "2026-10-08T15:30:02.434337+00:00",
+  "finished": "2026-10-08T15:30:31.068820+00:00",
+  "accepted": false,
+  "stdout_sha256": "7a88023654a985e8d3502942f7f399fce4dd2d2b8ccceadf9febc458b8d8ffd1",
+  "stderr_sha256": "25f8cf18e2b56ec06fbb286e0b51b70f9cc2f861e1ca81e1e9a562f893f7eeb8"
+}

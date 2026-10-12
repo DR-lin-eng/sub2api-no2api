@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Wei-Shaw/sub2api/internal/shared/ctxkey"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -1900,6 +1901,12 @@ type openAIResponsesWSUsageLogCase struct {
 	billingModelSource        string
 	accountModelMapping       map[string]any
 	afterFirstUpstreamRequest func(channelSvc *service.ChannelService) error
+	apiKeyService             *service.APIKeyService
+	apiKeyCredential          string
+	accountRateMultiplier     *float64
+	secondTurnCloseExpected   bool
+	closeStatus               coderws.StatusCode
+	closeReason               string
 }
 
 type openAIResponsesWSUsageLogResult struct {
@@ -2652,6 +2659,7 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 		account.Extra["openai_apikey_responses_websockets_v2_mode"] = tc.ingressMode
 	}
 
+	account.RateMultiplier = tc.accountRateMultiplier
 	cfg := &config.Config{}
 	cfg.RunMode = config.RunModeSimple
 	cfg.Default.RateMultiplier = 1
@@ -2728,10 +2736,19 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 		GroupID: &groupID,
 		User:    &service.User{ID: 1701, Status: service.StatusActive},
 	}
+	if tc.apiKeyService != nil {
+		h.apiKeyService = tc.apiKeyService
+		authKey, lookupErr := tc.apiKeyService.GetByKey(context.Background(), tc.apiKeyCredential)
+		require.NoError(t, lookupErr)
+		apiKey = authKey
+	}
 	router := gin.New()
 	router.Use(func(c *gin.Context) {
 		c.Set(string(middleware.ContextKeyAPIKey), apiKey)
 		c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: apiKey.User.ID, Concurrency: 1})
+		if tc.apiKeyService != nil && apiKey.Group != nil {
+			c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), ctxkey.Group, apiKey.Group))
+		}
 		c.Next()
 	})
 	router.GET("/openai/v1/responses", h.ResponsesWebSocket)
@@ -2774,12 +2791,25 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 		err = clientConn.Write(writeCtx, coderws.MessageText, []byte(tc.secondPayload))
 		cancelWrite()
 		require.NoError(t, err)
-		readCompleted()
+		if tc.secondTurnCloseExpected {
+			readCtx, cancelRead := context.WithTimeout(context.Background(), 3*time.Second)
+			_, _, closeErr := clientConn.Read(readCtx)
+			cancelRead()
+			require.Error(t, closeErr)
+			require.Equal(t, tc.closeStatus, coderws.CloseStatus(closeErr))
+			require.Contains(t, closeErr.Error(), tc.closeReason)
+		} else {
+			readCompleted()
+		}
 	}
 	_ = clientConn.Close(coderws.StatusNormalClosure, "done")
 
-	usageLogs := make([]*service.UsageLog, 0, turnCount)
-	for len(usageLogs) < turnCount {
+	expectedTurns := turnCount
+	if tc.secondTurnCloseExpected {
+		expectedTurns = 1
+	}
+	usageLogs := make([]*service.UsageLog, 0, expectedTurns)
+	for len(usageLogs) < expectedTurns {
 		select {
 		case usageLog := <-usageRepo.created:
 			require.NotNil(t, usageLog)
@@ -2789,8 +2819,8 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 		}
 	}
 
-	upstreamPayloads := make([][]byte, 0, turnCount)
-	for len(upstreamPayloads) < turnCount {
+	upstreamPayloads := make([][]byte, 0, expectedTurns)
+	for len(upstreamPayloads) < expectedTurns {
 		select {
 		case payload := <-upstreamPayloadCh:
 			upstreamPayloads = append(upstreamPayloads, payload)
@@ -2801,7 +2831,9 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 
 	select {
 	case upstreamErr := <-upstreamErrCh:
-		require.NoError(t, upstreamErr)
+		if !tc.secondTurnCloseExpected {
+			require.NoError(t, upstreamErr)
+		}
 	case <-time.After(3 * time.Second):
 		t.Fatal("等待上游 WebSocket 结束超时")
 	}

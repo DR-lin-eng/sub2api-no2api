@@ -1,0 +1,17 @@
+goos: linux
+goarch: arm64
+pkg: github.com/Wei-Shaw/sub2api/internal/modules/typesafe
+BenchmarkSystemOneValidation/upstream/1KiB-2         	     100	     30920 ns/op	   11074 B/op	     128 allocs/op
+BenchmarkSystemOneValidation/upstream/1KiB-2         	     100	     31481 ns/op	   11074 B/op	     128 allocs/op
+BenchmarkSystemOneValidation/upstream/1KiB-2         	     100	     22885 ns/op	   11076 B/op	     128 allocs/op
+BenchmarkSystemOneValidation/adapted/1KiB-2          	     100	     12723 ns/op	    9492 B/op	     118 allocs/op
+BenchmarkSystemOneValidation/adapted/1KiB-2          	     100	     18302 ns/op	    9490 B/op	     118 allocs/op
+BenchmarkSystemOneValidation/adapted/1KiB-2          	     100	     14215 ns/op	    9492 B/op	     118 allocs/op
+BenchmarkSystemOneValidation/upstream/256KiB-2       	     100	   2975426 ns/op	 1855355 B/op	     138 allocs/op
+BenchmarkSystemOneValidation/upstream/256KiB-2       	     100	   3165449 ns/op	 1855288 B/op	     137 allocs/op
+BenchmarkSystemOneValidation/upstream/256KiB-2       	     100	   3078160 ns/op	 1855261 B/op	     137 allocs/op
+BenchmarkSystemOneValidation/adapted/256KiB-2        	     100	   2367089 ns/op	 1584435 B/op	     127 allocs/op
+BenchmarkSystemOneValidation/adapted/256KiB-2        	     100	   2319156 ns/op	 1584434 B/op	     127 allocs/op
+BenchmarkSystemOneValidation/adapted/256KiB-2        	     100	   2294801 ns/op	 1584439 B/op	     127 allocs/op
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/typesafe	1.665s

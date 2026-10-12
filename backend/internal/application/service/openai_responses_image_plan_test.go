@@ -120,6 +120,12 @@ func TestOpenAIResponsesImagePlanMaterializesDataURLOnceForMultiImage(t *testing
 	}
 }
 
+func TestOpenAIResponsesImagePlanEnforcesAggregateRetainedByteLimit(t *testing.T) {
+	plan := &OpenAIResponsesImagePlan{}
+	require.NoError(t, plan.retainResolvedBytes(openAIResponsesImageMaxRetainedBytes))
+	require.ErrorContains(t, plan.retainResolvedBytes(1), "aggregate limit")
+}
+
 func TestOpenAIResponsesImagePlanDownloadsRepeatedURLOnce(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	stub := &openAIResponsesImagePlanHTTPStub{}

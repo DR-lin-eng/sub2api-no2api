@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/httpclient"
+	"github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator"
 )
 
 const defaultImageMaxDownloadBytes int64 = 32 << 20 // 32 MiB
@@ -34,32 +34,24 @@ type ImageStorage interface {
 // 并把响应结果改写为只含短链接的紧凑 JSON，从而避免大 base64 落 Redis。
 type ImageResultUploader struct {
 	storage          ImageStorage
-	httpClient       *http.Client
-	contextAware     bool
+	upstream         HTTPUpstream
+	allowHTTP        bool
 	prefix           string
 	maxDownloadBytes int64
 }
 
 // NewImageResultUploader 构造一个 uploader；storage 为 nil 时 Rewrite 直接透传。
-func NewImageResultUploader(storage ImageStorage, prefix string, maxDownloadBytes int64, httpClient *http.Client) *ImageResultUploader {
-	contextAware := httpClient == nil
-	if contextAware {
-		httpClient = defaultImageDownloadHTTPClient()
-	}
+func NewImageResultUploader(storage ImageStorage, prefix string, maxDownloadBytes int64, upstream HTTPUpstream, allowHTTP ...bool) *ImageResultUploader {
 	if maxDownloadBytes <= 0 {
 		maxDownloadBytes = defaultImageMaxDownloadBytes
 	}
 	return &ImageResultUploader{
 		storage:          storage,
-		httpClient:       httpClient,
-		contextAware:     contextAware,
+		upstream:         upstream,
+		allowHTTP:        len(allowHTTP) > 0 && allowHTTP[0],
 		prefix:           prefix,
 		maxDownloadBytes: maxDownloadBytes,
 	}
-}
-
-func defaultImageDownloadHTTPClient() *http.Client {
-	return &http.Client{Timeout: 60 * time.Second}
 }
 
 // Rewrite 将 result（上游生图响应 JSON）里的每张图片转存到对象存储，
@@ -196,22 +188,26 @@ func (u *ImageResultUploader) decodeImageDataURL(rawURL string) ([]byte, string,
 }
 
 func (u *ImageResultUploader) download(ctx context.Context, rawURL string) ([]byte, string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	validatedURL, err := urlvalidator.ValidatePublicHTTPURL(rawURL, u.allowHTTP)
+	if err != nil {
+		return nil, "", fmt.Errorf("validate image download URL: %w", err)
+	}
+	// The production HTTP port validates every DNS answer, pins the socket
+	// destination and revalidates each redirect. Account proxy/IPv6 routes
+	// remain attached to the request; administrator private-host exceptions
+	// never relax the policy for an untrusted upstream result URL.
+	downloadCtx, cancel := context.WithTimeout(WithHTTPUpstreamPublicDestination(ctx), 30*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(downloadCtx, http.MethodGet, validatedURL, nil)
 	if err != nil {
 		return nil, "", fmt.Errorf("build download request: %w", err)
 	}
-	client := u.httpClient
-	if u.contextAware {
-		client, err = httpclient.GetClientForContext(ctx, httpclient.Options{Timeout: 60 * time.Second})
-		if err != nil {
-			return nil, "", fmt.Errorf("configure image download client: %w", err)
-		}
-	}
-	resp, err := client.Do(req)
+	resp, err := doGeneratedImageHTTPUpstream(u.upstream, req)
 	if err != nil {
 		return nil, "", fmt.Errorf("download image: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
+
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return nil, "", fmt.Errorf("download image: unexpected status %d", resp.StatusCode)
 	}

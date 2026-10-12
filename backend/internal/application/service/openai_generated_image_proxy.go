@@ -26,6 +26,7 @@ import (
 const (
 	generatedImageURLTTL              = 30 * time.Minute
 	generatedImageDownloadConcurrency = 4
+	GeneratedImageProxyMaxBytes       = 50 << 20
 )
 
 var generatedImageDownloadSlots = make(chan struct{}, generatedImageDownloadConcurrency)
@@ -768,5 +769,13 @@ func (s *OpenAIGatewayService) OpenGeneratedImage(
 	if s == nil || s.httpUpstream == nil {
 		return nil, ErrGeneratedImageUnavailable
 	}
-	return doGeneratedImageHTTPUpstream(s.httpUpstream, req)
+	resp, err := doGeneratedImageHTTPUpstream(s.httpUpstream, req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.ContentLength > GeneratedImageProxyMaxBytes {
+		_ = resp.Body.Close()
+		return nil, fmt.Errorf("%w: generated image exceeds %d bytes", ErrGeneratedImageUnavailable, GeneratedImageProxyMaxBytes)
+	}
+	return resp, nil
 }

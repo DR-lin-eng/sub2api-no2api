@@ -100,8 +100,20 @@ func (h *OpenAIGatewayHandler) Live(c *gin.Context) {
 		return
 	}
 	defer userRelease()
+	if err := h.billingCacheService.CheckBillingEligibility(
+		c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription,
+		service.QuotaPlatform(c.Request.Context(), apiKey),
+	); err != nil {
+		status, code, message, retryAfter := billingErrorDetails(err)
+		if retryAfter > 0 {
+			c.Header("Retry-After", strconv.Itoa(retryAfter))
+		}
+		h.errorResponse(c, status, code, message)
+		return
+	}
 
 	identity := liveCallIdentity(c, apiKey, subject.UserID, subscription)
+	identity.Billing = h.gatewayService.LiveBillingSnapshotForAPIKey(c.Request.Context(), apiKey)
 	created, err := h.gatewayService.CreateLiveCall(
 		c.Request.Context(),
 		request,
@@ -144,6 +156,9 @@ func parseLiveCallRequest(c *gin.Context) (*service.LiveCallRequest, error) {
 
 func liveSidebandLocation(fullPath, callID string) string {
 	prefix := "/v1/live/"
+	if fullPath == "/live" || fullPath == "/realtime/calls" {
+		prefix = "/live/"
+	}
 	if strings.HasPrefix(fullPath, "/backend-api/codex/") {
 		prefix = "/backend-api/codex/"
 	}

@@ -18,8 +18,7 @@ const (
 	// CLIClientVersion is the single pinned Grok CLI version used by gateway,
 	// OAuth proxy, and billing requests.
 	// Keep in sync with https://x.ai/cli/stable.
-	CLIClientVersion = "0.2.120"
-	CLIUserAgent     = "grok-pager/" + CLIClientVersion + " grok-shell/" + CLIClientVersion + " (macos; aarch64)"
+	CLIClientVersion = "1.0.46"
 
 	BillingWeeklyPath  = "/billing?format=credits"
 	BillingMonthlyPath = "/billing"
@@ -27,6 +26,9 @@ const (
 	SuperGrokLimitCents      = 15_000  // $150.00
 	SuperGrokHeavyLimitCents = 150_000 // $1,500.00
 )
+
+// CLIUserAgent is the pinned billing identity; gateway requests resolve the override separately.
+var CLIUserAgent = CLIUserAgentForVersion(CLIClientVersion)
 
 // BillingPeriod describes the current weekly/monthly window.
 type BillingPeriod struct {
@@ -125,8 +127,11 @@ func ApplyCLIBillingHeaders(req *http.Request, accessToken string) {
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set(CLITokenAuthHeader, CLITokenAuthValue)
-	req.Header.Set(CLIClientVersionHeader, CLIClientVersion)
-	req.Header.Set("User-Agent", CLIUserAgent)
+	version := ResolveCLIVersion()
+	req.Header.Set("User-Agent", CLIUserAgentForVersion(version))
+	req.Header.Set(CLIClientVersionHeader, version)
+	req.Header.Set("x-grok-client-identifier", CLIClientIdentifier)
+	req.Header.Set("x-grok-client-mode", CLIClientMode)
 }
 
 // ParseBillingPayload unmarshals a billing API response body.

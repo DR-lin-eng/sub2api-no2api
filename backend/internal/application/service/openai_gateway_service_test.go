@@ -3018,7 +3018,7 @@ func TestOpenAIInvalidBaseURLWhenAllowlistDisabled(t *testing.T) {
 	}
 }
 
-func TestOpenAIValidateUpstreamBaseURLDisabledRequiresHTTPS(t *testing.T) {
+func TestOpenAIValidateUpstreamBaseURLDisabledAllowsHTTPWithoutOptIn(t *testing.T) {
 	cfg := &config.Config{
 		Security: config.SecurityConfig{
 			URLAllowlist: config.URLAllowlistConfig{Enabled: false},
@@ -3026,8 +3026,8 @@ func TestOpenAIValidateUpstreamBaseURLDisabledRequiresHTTPS(t *testing.T) {
 	}
 	svc := &OpenAIGatewayService{cfg: cfg}
 
-	if _, err := svc.validateUpstreamBaseURL("http://not-https.example.com"); err == nil {
-		t.Fatalf("expected http to be rejected when allow_insecure_http is false")
+	if _, err := svc.validateUpstreamBaseURL("http://not-https.example.com"); err != nil {
+		t.Fatalf("expected configured http URL to pass without opt-in, got %v", err)
 	}
 	normalized, err := svc.validateUpstreamBaseURL("https://example.com")
 	if err != nil {
@@ -3316,6 +3316,58 @@ func TestOpenAIBuildUpstreamRequestOAuthMessagesBridgeUsesSessionOnly(t *testing
 	require.Empty(t, req.Header.Get("Conversation_Id"))
 	require.Empty(t, req.Header.Get("OpenAI-Beta"))
 	require.Empty(t, req.Header.Get("originator"))
+}
+
+func TestOpenAIBuildUpstreamRequestOAuthResponsesPreservesCallerBeta(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	makeRequest := func(betaValues ...string) *gin.Context {
+		rec := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(rec)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader([]byte(`{"model":"gpt-5.5","input":"hello"}`)))
+		for _, value := range betaValues {
+			c.Request.Header.Add("OpenAI-Beta", value)
+		}
+		return c
+	}
+	svc := &OpenAIGatewayService{cfg: &config.Config{}}
+	oauth := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"chatgpt_account_id": "chatgpt-acc"}}
+	apiKey := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "test-api-key"}}
+
+	t.Run("preserves caller multi-agent beta", func(t *testing.T) {
+		c := makeRequest("responses_multi_agent=v1")
+		req, err := svc.buildUpstreamRequest(c.Request.Context(), c, oauth, []byte(`{"model":"gpt-5.5","input":"hello"}`), "token", true, "", false)
+		require.NoError(t, err)
+		require.Equal(t, "responses_multi_agent=v1", req.Header.Get("OpenAI-Beta"))
+	})
+
+	t.Run("preserves mixed beta tokens and removes legacy token", func(t *testing.T) {
+		c := makeRequest("responses_multi_agent=v1, responses=experimental", "future_feature=v2")
+		req, err := svc.buildUpstreamRequest(c.Request.Context(), c, oauth, []byte(`{"model":"gpt-5.5","input":"hello"}`), "token", true, "", false)
+		require.NoError(t, err)
+		require.Equal(t, []string{"responses_multi_agent=v1", "future_feature=v2"}, req.Header.Values("OpenAI-Beta"))
+	})
+
+	t.Run("absent beta remains absent", func(t *testing.T) {
+		c := makeRequest()
+		req, err := svc.buildUpstreamRequest(c.Request.Context(), c, oauth, []byte(`{"model":"gpt-5.5","input":"hello"}`), "token", true, "", false)
+		require.NoError(t, err)
+		require.Empty(t, req.Header.Values("OpenAI-Beta"))
+	})
+
+	t.Run("api key remains caller controlled", func(t *testing.T) {
+		c := makeRequest("responses=experimental, responses_multi_agent=v1")
+		req, err := svc.buildUpstreamRequest(c.Request.Context(), c, apiKey, []byte(`{"model":"gpt-5.5","input":"hello"}`), "token", true, "", false)
+		require.NoError(t, err)
+		require.Equal(t, []string{"responses=experimental, responses_multi_agent=v1"}, req.Header.Values("OpenAI-Beta"))
+	})
+
+	t.Run("compact OAuth removes legacy token and preserves independent beta", func(t *testing.T) {
+		c := makeRequest("responses=experimental, future_feature=v1")
+		c.Request.URL.Path = "/v1/responses/compact"
+		req, err := svc.buildUpstreamRequest(c.Request.Context(), c, oauth, []byte(`{"model":"gpt-5.5","input":"hello"}`), "token", false, "", false)
+		require.NoError(t, err)
+		require.Equal(t, "future_feature=v1", req.Header.Get("OpenAI-Beta"))
+	})
 }
 
 func TestOpenAIBuildUpstreamRequestPreservesCompactPathForAPIKeyBaseURL(t *testing.T) {

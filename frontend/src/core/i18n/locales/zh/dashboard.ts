@@ -232,7 +232,12 @@ export default {
         codexCli: 'Codex CLI',
         codexCliWs: 'Codex CLI (WebSocket)',
         grokCli: 'Grok CLI',
+        systemOne: 'System One',
         opencode: 'OpenCode'
+      },
+      typesafe: {
+        description: '通过 TypeSafe 原生 System One 端点调用 Jev。',
+        note: 'System One 不支持流式请求，也不兼容 Chat Completions、Responses、Claude Code 或 Codex 客户端。'
       },
       antigravity: {
         description: '为 Antigravity 分组配置 API 访问。请根据您使用的客户端选择对应的配置方式。',
@@ -395,6 +400,7 @@ export default {
       requestsUnit: '次请求',
       imagesUnit: '张图片',
       videoSecondsUnit: '视频秒',
+      voiceMinutesUnit: '分钟',
       noUnitPrice: '无可用单价',
       costLines: {
         input: '文本输入',
@@ -406,6 +412,7 @@ export default {
         request: '按次请求',
         image: '图片生成',
         video: '视频生成',
+        voice: '语音通话',
       },
     },
     cacheTtlOverriddenHint: '缓存 TTL Override 已启用',
@@ -446,6 +453,7 @@ export default {
     billingModePerRequest: '按次',
     billingModeImage: '按次（图片）',
     billingModeVideo: '按次（视频）',
+    billingModeLive: '按分钟（语音）',
     timeRange: '时间范围',
     exportCsv: '导出 CSV',
     exportExcel: '导出 Excel',
@@ -482,6 +490,10 @@ export default {
     latency: '延迟',
     latencyFirstToken: '首字',
     latencyDuration: '总耗时',
+    longContext: '长上下文',
+    longContextPricingTooltip: '已应用长上下文计费。输入和输出费率取决于定价档位，并非统一倍率。',
+    outputTps: '输出 TPS',
+    outputTpsHint: '输出 Token ÷ 总耗时（包含首字等待），单位 tok/s。输出 Token 可能包含推理 Token。',
     latencyOutputSpeed: '速度',
     timingComparison: '计时对比',
     timingLocal: '本地',
@@ -773,7 +785,9 @@ export default {
       perUnitRequest: '/ 次',
       perUnitImage: '/ 张',
       perRequest: '按次计费',
-      perImage: '按图片计费'
+      perImage: '按图片计费',
+      perVideo: '按视频时长计费',
+      perUnitSecond: '/ 秒'
     },
     nav: {
       login: '登录',

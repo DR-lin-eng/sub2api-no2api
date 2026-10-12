@@ -763,6 +763,7 @@ func ProvideImageStorageSettingService(
 	backup *BackupService,
 	factory ImageStorageFactory,
 	cfg *config.Config,
+	upstream HTTPUpstream,
 ) *ImageStorageSettingService {
 	if cfg.ImageStorage.Enabled && !cfg.ImageStorage.Active() {
 		// 列出具体缺失的键。若这些键其实已在环境变量里设过，说明它们没被读进来，
@@ -770,7 +771,10 @@ func ProvideImageStorageSettingService(
 		logger.L().Warn("image_storage.enabled is true in config but object storage is not fully configured; configure it in the admin UI or complete the config file",
 			zap.Strings("missing_keys", cfg.ImageStorage.MissingCredentialKeys()))
 	}
-	return NewImageStorageSettingService(settingRepo, encryptor, backup, factory, cfg.ImageStorage)
+	svc := NewImageStorageSettingService(settingRepo, encryptor, backup, factory, cfg.ImageStorage)
+	svc.upstream = upstream
+	svc.allowHTTP = cfg.Security.URLAllowlist.AllowInsecureHTTP
+	return svc
 }
 
 // ProvideImageTaskService 构造异步图片任务服务。
@@ -1088,8 +1092,14 @@ func ProvideUserPlatformQuotaUsageFlusher(cfg *config.Config, cache BillingCache
 
 // ProvidePaymentConfigService wraps NewPaymentConfigService to accept the named
 // payment.EncryptionKey type instead of raw []byte, avoiding Wire ambiguity.
-func ProvidePaymentConfigService(entClient *dbent.Client, settingRepo SettingRepository, key payment.EncryptionKey) *PaymentConfigService {
-	return NewPaymentConfigService(entClient, settingRepo, []byte(key))
+func ProvidePaymentConfigService(entClient *dbent.Client, settingRepo SettingRepository, key payment.EncryptionKey) (*PaymentConfigService, error) {
+	svc := NewPaymentConfigService(entClient, settingRepo, []byte(key))
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := svc.EncryptLegacyProviderConfigs(ctx); err != nil {
+		return nil, err
+	}
+	return svc, nil
 }
 
 // ProvideBalanceNotifyService creates BalanceNotifyService

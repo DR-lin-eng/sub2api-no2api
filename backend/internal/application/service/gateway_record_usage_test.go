@@ -143,12 +143,12 @@ func TestGatewayServiceRecordUsage_BillingFingerprintIncludesRequestPayloadHash(
 	require.Equal(t, payloadHash, billingRepo.lastCmd.RequestPayloadHash)
 }
 
-func TestGatewayServiceRecordUsage_BillingFingerprintFallsBackToContextRequestID(t *testing.T) {
+func TestGatewayServiceRecordUsage_BillingFingerprintFallsBackToTrustedRequestID(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{}
 	billingRepo := &openAIRecordUsageBillingRepoStub{result: &UsageBillingApplyResult{Applied: true}}
 	svc := newGatewayRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
 
-	ctx := context.WithValue(context.Background(), ctxkey.RequestID, "req-local-123")
+	ctx := context.WithValue(context.Background(), ctxkey.UsageBillingRequestID, "req-local-123")
 	err := svc.RecordUsage(ctx, &RecordUsageInput{
 		Result: &ForwardResult{
 			RequestID: "gateway_payload_fallback",
@@ -419,13 +419,13 @@ func TestGatewayServiceRecordUsageWithLongContext_BillingUsesDetachedContext(t *
 	require.NoError(t, quotaSvc.lastQuotaCtxErr)
 }
 
-func TestGatewayServiceRecordUsage_UsesFallbackRequestIDForUsageLog(t *testing.T) {
+func TestGatewayServiceRecordUsage_UsesTrustedRequestIDForUsageLog(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
 	svc := newGatewayRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 
-	ctx := context.WithValue(context.Background(), ctxkey.RequestID, "gateway-local-fallback")
+	ctx := context.WithValue(context.Background(), ctxkey.UsageBillingRequestID, "gateway-local-fallback")
 	err := svc.RecordUsage(ctx, &RecordUsageInput{
 		Result: &ForwardResult{
 			RequestID: "",
@@ -446,13 +446,14 @@ func TestGatewayServiceRecordUsage_UsesFallbackRequestIDForUsageLog(t *testing.T
 	require.Equal(t, "local:gateway-local-fallback", usageRepo.lastLog.RequestID)
 }
 
-func TestGatewayServiceRecordUsage_PrefersClientRequestIDOverUpstreamRequestID(t *testing.T) {
+func TestGatewayServiceRecordUsage_PrefersTrustedRequestIDOverCorrelationIDs(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{}
 	billingRepo := &openAIRecordUsageBillingRepoStub{result: &UsageBillingApplyResult{Applied: true}}
 	svc := newGatewayRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
 
 	ctx := context.WithValue(context.Background(), ctxkey.ClientRequestID, "client-stable-123")
 	ctx = context.WithValue(ctx, ctxkey.RequestID, "req-local-ignored")
+	ctx = context.WithValue(ctx, ctxkey.UsageBillingRequestID, "gateway-server-123")
 	err := svc.RecordUsage(ctx, &RecordUsageInput{
 		Result: &ForwardResult{
 			RequestID: "upstream-volatile-456",
@@ -470,9 +471,9 @@ func TestGatewayServiceRecordUsage_PrefersClientRequestIDOverUpstreamRequestID(t
 
 	require.NoError(t, err)
 	require.NotNil(t, billingRepo.lastCmd)
-	require.Equal(t, "client:client-stable-123", billingRepo.lastCmd.RequestID)
+	require.Equal(t, "local:gateway-server-123", billingRepo.lastCmd.RequestID)
 	require.NotNil(t, usageRepo.lastLog)
-	require.Equal(t, "client:client-stable-123", usageRepo.lastLog.RequestID)
+	require.Equal(t, "local:gateway-server-123", usageRepo.lastLog.RequestID)
 }
 
 func TestGatewayServiceRecordUsage_GeneratesRequestIDWhenAllSourcesMissing(t *testing.T) {

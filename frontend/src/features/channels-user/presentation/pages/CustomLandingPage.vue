@@ -433,7 +433,7 @@ async function fetchAndRenderMarkdown(slug: string) {
       loading.value = false
       await nextTick()
       await nextTick()
-      injectCopyButtons()
+      if (requestSeq === markdownRenderRequestSeq) injectCopyButtons()
     }
   }
 }
@@ -542,6 +542,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  markdownRenderRequestSeq++
   clearEmbeddedAuthDispatch()
   window.removeEventListener('message', handleEmbeddedAuthReady)
   if (themeObserver) {

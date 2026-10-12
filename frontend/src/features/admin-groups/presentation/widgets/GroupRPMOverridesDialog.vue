@@ -206,7 +206,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
 import {
@@ -365,8 +365,9 @@ const handleAddLocal = () => {
 }
 
 const updateLocalRpm = (userId: number, value: string) => {
-  const num = parseInt(value, 10)
-  if (isNaN(num) || num < 0) return
+  if (!value.trim()) return
+  const num = Number(value)
+  if (!Number.isInteger(num) || num < 0) return
   const entry = localEntries.value.find(e => e.user_id === userId)
   if (entry) entry.rpm_override = num
 }
@@ -429,6 +430,10 @@ const handleClickOutside = () => { showDropdown.value = false }
 if (typeof document !== 'undefined') {
   document.addEventListener('click', handleClickOutside)
 }
+onUnmounted(() => {
+  clearTimeout(searchTimeout)
+  document.removeEventListener('click', handleClickOutside)
+})
 </script>
 
 <style scoped>

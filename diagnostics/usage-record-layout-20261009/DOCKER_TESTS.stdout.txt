@@ -1,0 +1,26 @@
+
+ RUN  v3.2.6 /app/frontend
+
+ ✓ src/features/admin-usage/__tests__/adminUsageModularization.spec.ts (4 tests) 26ms
+ ✓ src/features/admin-usage/__tests__/adminUsage.protocolOwners.spec.ts (4 tests) 11ms
+ ✓ src/features/admin-usage/__tests__/UsageStatsCards.spec.ts (4 tests) 176ms
+ ✓ src/features/admin-usage/__tests__/UsageFilters.spec.ts (4 tests) 186ms
+ ✓ src/features/admin-usage/__tests__/UsageDetailDialog.spec.ts (4 tests) 332ms
+ ✓ src/features/admin-usage/__tests__/xlsxLazyLoading.spec.ts (3 tests) 12ms
+ ✓ src/features/admin-usage/__tests__/UserTokenRanking.spec.ts (2 tests) 191ms
+ ✓ src/core/utils/__tests__/usageMetrics.spec.ts (11 tests) 21ms
+ ✓ src/features/admin-usage/__tests__/UsageTable.spec.ts (22 tests) 826ms
+   ✓ UsageTable audience boundary > ignores admin-only row fields and columns for user audiences  333ms
+ ✓ src/features/usage/__tests__/usageDashboard.spec.ts (2 tests) 17ms
+ ✓ src/core/utils/__tests__/latencyHealth.spec.ts (2 tests) 4ms
+ ✓ src/features/usage/__tests__/UsagePage.spec.ts (6 tests) 259ms
+ ✓ src/features/admin-usage/__tests__/UsagePage.spec.ts (12 tests) 794ms
+ ✓ src/core/i18n/__tests__/routeLocaleCoverage.spec.ts (3 tests) 5030ms
+   ✓ locale coverage > resolves every static locale key used by runtime source  1603ms
+   ✓ locale coverage > loads every statically reachable message for every route  3397ms
+
+ Test Files  14 passed (14)
+      Tests  83 passed (83)
+   Start at  03:24:12
+   Duration  13.11s (transform 11.80s, setup 2.61s, collect 25.96s, tests 7.88s, environment 22.00s, prepare 4.58s)
+

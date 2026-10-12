@@ -88,8 +88,9 @@ func (s *FrontendServer) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := c.Request.URL.Path
 
-		// Skip API routes
-		if shouldBypassEmbeddedFrontend(path) {
+		// Keep API requests and non-document methods in the API router.
+		if (c.Request.Method != http.MethodGet && c.Request.Method != http.MethodHead) ||
+			(shouldBypassEmbeddedFrontend(path) && (!isBrowserDocumentRequest(c.Request) || c.FullPath() != "")) {
 			c.Next()
 			return
 		}
@@ -345,7 +346,8 @@ func ServeEmbeddedFrontend() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := c.Request.URL.Path
 
-		if shouldBypassEmbeddedFrontend(path) {
+		if (c.Request.Method != http.MethodGet && c.Request.Method != http.MethodHead) ||
+			(shouldBypassEmbeddedFrontend(path) && (!isBrowserDocumentRequest(c.Request) || c.FullPath() != "")) {
 			c.Next()
 			return
 		}
@@ -387,9 +389,13 @@ func tryServeOverrideFile(c *gin.Context, overrideDir, cleanPath string) bool {
 }
 
 func shouldBypassEmbeddedFrontend(path string) bool {
-	trimmed := strings.TrimSpace(path)
+	trimmed := strings.TrimSuffix(strings.TrimSpace(path), "/")
 	return strings.HasPrefix(trimmed, "/api/") ||
 		strings.HasPrefix(trimmed, "/v1/") ||
+		trimmed == "/chat/completions" ||
+		trimmed == "/embeddings" ||
+		trimmed == "/messages/count_tokens" ||
+		trimmed == "/x_search" ||
 		strings.HasPrefix(trimmed, "/v1beta/") ||
 		strings.HasPrefix(trimmed, "/backend-api/") ||
 		strings.HasPrefix(trimmed, "/antigravity/") ||
@@ -401,12 +407,47 @@ func shouldBypassEmbeddedFrontend(path string) bool {
 		trimmed == "/health" ||
 		trimmed == "/ready" ||
 		trimmed == "/models" ||
+		strings.HasPrefix(trimmed, "/models/") ||
+		strings.HasPrefix(trimmed, "/models/") ||
 		trimmed == "/responses" ||
 		strings.HasPrefix(trimmed, "/responses/") ||
+		trimmed == "/chat/completions" ||
+		trimmed == "/embeddings" ||
+		trimmed == "/messages/count_tokens" ||
 		trimmed == "/alpha/search" ||
+		trimmed == "/web_search" ||
+		trimmed == "/x_search" ||
+		trimmed == "/tts" ||
+		trimmed == "/stt" ||
+		trimmed == "/realtime" ||
+		trimmed == "/custom-voices" ||
+		strings.HasPrefix(trimmed, "/custom-voices/") ||
+		trimmed == "/contents/generations/tasks" ||
+		strings.HasPrefix(trimmed, "/contents/generations/tasks/") ||
+		trimmed == "/v3/contents/generations/tasks" ||
+		strings.HasPrefix(trimmed, "/v3/contents/generations/tasks/") ||
 		strings.HasPrefix(trimmed, "/images/") ||
+		trimmed == "/videos" ||
 		strings.HasPrefix(trimmed, "/generated/") ||
 		strings.HasPrefix(trimmed, "/videos/")
+}
+
+// isBrowserDocumentRequest reports whether the client is navigating to an HTML
+// document. API clients generally send JSON or wildcard Accept headers, while
+// browser navigations advertise text/html. The middleware only uses this for
+// paths that did not match a registered API route, so gateway handlers retain
+// their normal behavior.
+func isBrowserDocumentRequest(r *http.Request) bool {
+	if r == nil {
+		return false
+	}
+	for _, mediaRange := range strings.Split(r.Header.Get("Accept"), ",") {
+		mediaType := strings.TrimSpace(strings.SplitN(mediaRange, ";", 2)[0])
+		if mediaType == "text/html" || mediaType == "application/xhtml+xml" {
+			return true
+		}
+	}
+	return false
 }
 
 func serveIndexHTML(c *gin.Context, fsys fs.FS) {

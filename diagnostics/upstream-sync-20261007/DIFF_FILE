@@ -1,0 +1,1533 @@
+diff --git a/.github/workflows/backend-ci.yml b/.github/workflows/backend-ci.yml
+index 6909ccc3a..30e7cec32 100644
+--- a/.github/workflows/backend-ci.yml
++++ b/.github/workflows/backend-ci.yml
+@@ -18,6 +18,7 @@ jobs:
+           /bin/bash deploy/tests/apple-container-test.sh
+           /bin/sh deploy/tests/docker-compose-security-test.sh
+           /bin/sh deploy/tests/docker-runtime-resources-test.sh
++          /bin/sh deploy/tests/docker-deploy-admin-test.sh
+           /bin/sh deploy/test-caddyfile-cache.sh
+ 
+   test:
+diff --git a/.gitignore b/.gitignore
+index ebca74e11..8279ac005 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -162,6 +162,7 @@ docs/*
+ !docs/UPSTREAM_SYNC_20260908.md
+ !docs/UPSTREAM_SYNC_20260930.md
+ !docs/UPSTREAM_SYNC_20261005.md
++!docs/UPSTREAM_SYNC_20261007.md
+ !docs/UPSTREAM_ADAPT_20261006.md
+ !docs/SECURITY_REVIEW_RESPONSES_IMAGE_SSRF_20261006.md
+ !docs/FEATURES.md
+diff --git a/README.md b/README.md
+index be4efb936..8b640719e 100644
+--- a/README.md
++++ b/README.md
+@@ -217,8 +217,10 @@ JWT_SECRET=your_jwt_secret_here
+ TOTP_ENCRYPTION_KEY=your_totp_key_here
+ 
+ # Optional: Admin account
+-ADMIN_EMAIL=admin@example.com
+-ADMIN_PASSWORD=your_admin_password
++# Leave empty to generate a random login email and password on first startup.
++# Supplied passwords must be 8-72 bytes; existing admin accounts are kept.
++ADMIN_EMAIL=
++ADMIN_PASSWORD=
+ 
+ # Optional: Custom port
+ SERVER_PORT=8080
+@@ -267,9 +269,9 @@ docker compose -f docker-compose.local.yml logs -f sub2api
+ 
+ Open `http://YOUR_SERVER_IP:8080` in your browser.
+ 
+-If admin password was auto-generated, find it in logs:
++If admin email/password were auto-generated, find them in logs:
+ ```bash
+-docker compose -f docker-compose.local.yml logs sub2api | grep "admin password"
++docker compose -f docker-compose.local.yml logs sub2api | grep "Generated admin"
+ ```
+ 
+ #### Upgrade
+diff --git a/README_CN.md b/README_CN.md
+index e5e74371e..bed02efb4 100644
+--- a/README_CN.md
++++ b/README_CN.md
+@@ -218,8 +218,10 @@ JWT_SECRET=your_jwt_secret_here
+ TOTP_ENCRYPTION_KEY=your_totp_key_here
+ 
+ # 可选：管理员账号
+-ADMIN_EMAIL=admin@example.com
+-ADMIN_PASSWORD=your_admin_password
++# 留空则首次安装生成随机登录邮箱和密码；显式密码须为 8–72 字节。
++# 已有管理员账号保持原值，升级不会重新创建。
++ADMIN_EMAIL=
++ADMIN_PASSWORD=
+ 
+ # 可选：自定义端口
+ SERVER_PORT=8080
+@@ -280,9 +282,9 @@ docker compose -f docker-compose.local.yml logs -f sub2api
+ 
+ 在浏览器中打开 `http://你的服务器IP:8080`
+ 
+-如果管理员密码是自动生成的，在日志中查找：
++如果管理员邮箱或密码是自动生成的，在日志中查找：
+ ```bash
+-docker compose -f docker-compose.local.yml logs sub2api | grep "admin password"
++docker compose -f docker-compose.local.yml logs sub2api | grep "Generated admin"
+ ```
+ 
+ #### 升级
+diff --git a/README_JA.md b/README_JA.md
+index c9c8e752a..d41d47cfa 100644
+--- a/README_JA.md
++++ b/README_JA.md
+@@ -216,8 +216,10 @@ JWT_SECRET=your_jwt_secret_here
+ TOTP_ENCRYPTION_KEY=your_totp_key_here
+ 
+ # オプション: 管理者アカウント
+-ADMIN_EMAIL=admin@example.com
+-ADMIN_PASSWORD=your_admin_password
++# 空欄の場合、初回起動時にランダムなログイン用メールとパスワードを生成します。
++# 指定パスワードは 8–72 バイト。既存管理者の資格情報は保持されます。
++ADMIN_EMAIL=
++ADMIN_PASSWORD=
+ 
+ # オプション: カスタムポート
+ SERVER_PORT=8080
+@@ -266,9 +268,9 @@ docker compose -f docker-compose.local.yml logs -f sub2api
+ 
+ ブラウザで `http://YOUR_SERVER_IP:8080` を開いてください。
+ 
+-管理者パスワードが自動生成された場合は、ログで確認できます:
++管理者メールアドレスまたはパスワードが自動生成された場合は、ログで確認できます:
+ ```bash
+-docker compose -f docker-compose.local.yml logs sub2api | grep "admin password"
++docker compose -f docker-compose.local.yml logs sub2api | grep "Generated admin"
+ ```
+ 
+ #### アップグレード
+diff --git a/backend/internal/bootstrap/setup/README.md b/backend/internal/bootstrap/setup/README.md
+index 0ebf5b96e..d78fd9342 100644
+--- a/backend/internal/bootstrap/setup/README.md
++++ b/backend/internal/bootstrap/setup/README.md
+@@ -3,6 +3,7 @@
+ | 文件 | 作用 |
+ | --- | --- |
+ | `cli.go` | 命令行初始化交互 |
++| `admin_credentials.go` | 首次管理员的随机凭据与登录兼容校验；已有用户时跳过 |
+ | `handler.go` | setup HTTP 入口 |
+ | `setup.go` | 初始化状态与核心流程 |
+ | `setup_test.go` | 初始化回归测试 |
+diff --git a/backend/internal/bootstrap/setup/admin_credentials.go b/backend/internal/bootstrap/setup/admin_credentials.go
+new file mode 100644
+index 000000000..54179aab6
+--- /dev/null
++++ b/backend/internal/bootstrap/setup/admin_credentials.go
+@@ -0,0 +1,74 @@
++package setup
++
++import (
++	"fmt"
++	"net/mail"
++	"strings"
++
++	"github.com/gin-gonic/gin/binding"
++)
++
++const maxPasswordBytes = 72 // bcrypt's input limit
++
++// validateEmail uses the login endpoint's rules so a new admin can log in.
++func validateEmail(email string) bool {
++	if len(email) > 254 {
++		return false
++	}
++	if _, err := mail.ParseAddress(email); err != nil {
++		return false
++	}
++	login := struct {
++		Email string `binding:"required,email"`
++	}{Email: email}
++	return binding.Validator.ValidateStruct(&login) == nil
++}
++
++func validatePassword(password string) error {
++	if len(password) < 8 {
++		return fmt.Errorf("password must be at least 8 bytes")
++	}
++	if len(password) > maxPasswordBytes {
++		return fmt.Errorf("password must be at most %d bytes", maxPasswordBytes)
++	}
++	return nil
++}
++
++// prepareAdminCredentials runs only after deciding to create the first admin.
++// Validate supplied values before generating or changing any credentials.
++func prepareAdminCredentials(admin *AdminConfig) (emailGenerated, passwordGenerated bool, err error) {
++	email := strings.TrimSpace(admin.Email)
++	if email != "" && !validateEmail(email) {
++		return false, false, fmt.Errorf("invalid admin email: address cannot be used to log in")
++	}
++	if strings.TrimSpace(admin.Password) != "" {
++		if err := validatePassword(admin.Password); err != nil {
++			return false, false, fmt.Errorf("invalid admin password: %w", err)
++		}
++	}
++	if email == "" {
++		email, err = generateAdminEmail()
++		if err != nil {
++			return false, false, err
++		}
++		emailGenerated = true
++	}
++	password := admin.Password
++	if strings.TrimSpace(password) == "" {
++		password, err = generateSecret(16)
++		if err != nil {
++			return false, false, fmt.Errorf("failed to generate admin password: %w", err)
++		}
++		passwordGenerated = true
++	}
++	admin.Email, admin.Password = email, password
++	return emailGenerated, passwordGenerated, nil
++}
++
++func generateAdminEmail() (string, error) {
++	suffix, err := generateSecret(6)
++	if err != nil {
++		return "", fmt.Errorf("failed to generate admin email: %w", err)
++	}
++	return "admin-" + suffix + "@sub2api.local", nil
++}
+diff --git a/backend/internal/bootstrap/setup/admin_credentials_bench_test.go b/backend/internal/bootstrap/setup/admin_credentials_bench_test.go
+new file mode 100644
+index 000000000..b98b5ee2e
+--- /dev/null
++++ b/backend/internal/bootstrap/setup/admin_credentials_bench_test.go
+@@ -0,0 +1,25 @@
++package setup
++
++import "testing"
++
++func BenchmarkAdminEmailValidation(b *testing.B) {
++	if !validateEmail("owner@example.com") {
++		b.Fatal("valid login email rejected")
++	}
++	b.ReportAllocs()
++	b.ResetTimer()
++	for i := 0; i < b.N; i++ {
++		if !validateEmail("owner@example.com") {
++			b.Fatal("valid login email rejected")
++		}
++	}
++}
++
++func BenchmarkAdminPasswordValidation(b *testing.B) {
++	b.ReportAllocs()
++	for i := 0; i < b.N; i++ {
++		if err := validatePassword("synthetic-admin-password"); err != nil {
++			b.Fatal(err)
++		}
++	}
++}
+diff --git a/backend/internal/bootstrap/setup/admin_credentials_test.go b/backend/internal/bootstrap/setup/admin_credentials_test.go
+new file mode 100644
+index 000000000..71c9fd679
+--- /dev/null
++++ b/backend/internal/bootstrap/setup/admin_credentials_test.go
+@@ -0,0 +1,244 @@
++package setup
++
++import (
++	"context"
++	"regexp"
++	"strings"
++	"testing"
++
++	"github.com/DATA-DOG/go-sqlmock"
++	"github.com/Wei-Shaw/sub2api/internal/application/service"
++	"github.com/gin-gonic/gin/binding"
++)
++
++func TestPrepareAdminCredentialsGeneratesMissingValues(t *testing.T) {
++	t.Parallel()
++
++	admin := AdminConfig{Email: "  ", Password: ""}
++	emailGenerated, passwordGenerated, err := prepareAdminCredentials(&admin)
++	if err != nil {
++		t.Fatalf("prepareAdminCredentials() error = %v", err)
++	}
++	if !emailGenerated || !passwordGenerated {
++		t.Fatalf("generated flags = (%v, %v), want (true, true)", emailGenerated, passwordGenerated)
++	}
++	if !regexp.MustCompile(`^admin-[0-9a-f]{12}@sub2api\.local$`).MatchString(admin.Email) {
++		t.Fatalf("generated email = %q, want admin-<12 hex>@sub2api.local", admin.Email)
++	}
++	// 生成的邮箱必须能通过登录接口的 binding:"required,email" 校验。
++	loginReq := struct {
++		Email string `binding:"required,email"`
++	}{Email: admin.Email}
++	if err := binding.Validator.ValidateStruct(&loginReq); err != nil {
++		t.Fatalf("generated email %q rejected by login validator: %v", admin.Email, err)
++	}
++	if len(admin.Password) != 32 {
++		t.Fatalf("generated password length = %d, want 32", len(admin.Password))
++	}
++
++	other := AdminConfig{}
++	if _, _, err := prepareAdminCredentials(&other); err != nil {
++		t.Fatalf("prepareAdminCredentials() second call error = %v", err)
++	}
++	if other.Email == admin.Email {
++		t.Fatalf("generated emails should be random, got %q twice", admin.Email)
++	}
++}
++
++func TestPrepareAdminCredentialsKeepsProvidedValues(t *testing.T) {
++	t.Parallel()
++
++	admin := AdminConfig{Email: "owner@example.com", Password: "a-strong-password"}
++	emailGenerated, passwordGenerated, err := prepareAdminCredentials(&admin)
++	if err != nil {
++		t.Fatalf("prepareAdminCredentials() error = %v", err)
++	}
++	if emailGenerated || passwordGenerated {
++		t.Fatalf("generated flags = (%v, %v), want (false, false)", emailGenerated, passwordGenerated)
++	}
++	if admin.Email != "owner@example.com" || admin.Password != "a-strong-password" {
++		t.Fatalf("provided credentials were modified: %+v", admin)
++	}
++}
++
++func TestPrepareAdminCredentialsRejectsWeakPassword(t *testing.T) {
++	t.Parallel()
++
++	tests := []struct {
++		name     string
++		password string
++	}{
++		{name: "too short", password: "123456"},
++		{name: "seven chars", password: "1234567"},
++		{name: "exceeds bcrypt limit", password: strings.Repeat("a", 73)},
++		{name: "former 128 limit", password: strings.Repeat("a", 128)},
++	}
++
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			t.Parallel()
++
++			admin := AdminConfig{Email: "owner@example.com", Password: tt.password}
++			_, _, err := prepareAdminCredentials(&admin)
++			if err == nil || !strings.Contains(err.Error(), "invalid admin password") {
++				t.Fatalf("prepareAdminCredentials(%q) error = %v, want invalid admin password error", tt.password, err)
++			}
++		})
++	}
++}
++
++func TestPrepareAdminCredentialsRejectsUnloginableEmail(t *testing.T) {
++	t.Parallel()
++
++	for _, email := range []string{"admin", "a@b", "Owner <owner@example.com>", "<owner@example.com>"} {
++		t.Run(email, func(t *testing.T) {
++			t.Parallel()
++
++			admin := AdminConfig{Email: email, Password: "a-strong-password"}
++			_, _, err := prepareAdminCredentials(&admin)
++			if err == nil || !strings.Contains(err.Error(), "invalid admin email") {
++				t.Fatalf("prepareAdminCredentials(%q) error = %v, want invalid admin email error", email, err)
++			}
++		})
++	}
++}
++
++func TestPrepareAdminCredentialsTrimsProvidedEmail(t *testing.T) {
++	t.Parallel()
++
++	admin := AdminConfig{Email: "  owner@example.com\n", Password: "a-strong-password"}
++	if _, _, err := prepareAdminCredentials(&admin); err != nil {
++		t.Fatalf("prepareAdminCredentials() error = %v", err)
++	}
++	if admin.Email != "owner@example.com" {
++		t.Fatalf("email = %q, want trimmed owner@example.com", admin.Email)
++	}
++}
++
++func TestPrepareAdminCredentialsAcceptsBcryptMaxLengthPassword(t *testing.T) {
++	t.Parallel()
++
++	admin := AdminConfig{Email: "owner@example.com", Password: strings.Repeat("a", 72)}
++	if _, _, err := prepareAdminCredentials(&admin); err != nil {
++		t.Fatalf("prepareAdminCredentials() error = %v", err)
++	}
++	// 校验上限必须与 bcrypt 实际可哈希的上限一致，否则通过校验后仍会在建号时失败。
++	user := service.User{}
++	if err := user.SetPassword(admin.Password); err != nil {
++		t.Fatalf("SetPassword() with max-length password error = %v", err)
++	}
++}
++
++func expectAdminBootstrapCounts(mock sqlmock.Sqlmock, totalUsers, adminUsers int64) {
++	mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(1) FROM users")).
++		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(totalUsers))
++	mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(1) FROM users WHERE role = $1")).
++		WithArgs(service.RoleAdmin).
++		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(adminUsers))
++}
++
++func TestBootstrapAdminUserSkipsValidationWhenNotCreating(t *testing.T) {
++	t.Parallel()
++
++	tests := []struct {
++		name       string
++		totalUsers int64
++		adminUsers int64
++		reason     string
++	}{
++		{name: "admin exists", totalUsers: 3, adminUsers: 1, reason: adminBootstrapReasonAdminExists},
++		{name: "users exist without admin", totalUsers: 3, adminUsers: 0, reason: adminBootstrapReasonUsersExistWithoutAdmin},
++	}
++
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			t.Parallel()
++
++			db, mock, err := sqlmock.New()
++			if err != nil {
++				t.Fatalf("sqlmock.New() error = %v", err)
++			}
++			defer func() { _ = db.Close() }()
++			expectAdminBootstrapCounts(mock, tt.totalUsers, tt.adminUsers)
++
++			// 已有部署里遗留的弱密码/非法邮箱不能阻断启动。
++			cfg := &SetupConfig{Admin: AdminConfig{Email: "admin", Password: "123456"}}
++			created, reason, err := bootstrapAdminUser(context.Background(), db, cfg)
++			if err != nil || created || reason != tt.reason {
++				t.Fatalf("bootstrapAdminUser() = (%v, %q, %v), want (false, %q, nil)", created, reason, err, tt.reason)
++			}
++			if err := mock.ExpectationsWereMet(); err != nil {
++				t.Fatalf("unexpected database interaction: %v", err)
++			}
++		})
++	}
++}
++
++func TestBootstrapAdminUserRejectsWeakPasswordWithoutInsert(t *testing.T) {
++	t.Parallel()
++
++	db, mock, err := sqlmock.New()
++	if err != nil {
++		t.Fatalf("sqlmock.New() error = %v", err)
++	}
++	defer func() { _ = db.Close() }()
++	expectAdminBootstrapCounts(mock, 0, 0)
++
++	cfg := &SetupConfig{Admin: AdminConfig{Password: "123456"}}
++	created, _, err := bootstrapAdminUser(context.Background(), db, cfg)
++	if err == nil || created || !strings.Contains(err.Error(), "invalid admin password") {
++		t.Fatalf("bootstrapAdminUser() = (%v, %v), want invalid admin password error", created, err)
++	}
++	// 未设置 INSERT 期望：若发生插入，sqlmock 会返回非预期调用错误，上面的错误断言即失败。
++	if err := mock.ExpectationsWereMet(); err != nil {
++		t.Fatalf("unexpected database interaction: %v", err)
++	}
++}
++
++func TestBootstrapAdminUserCreatesAdminWithGeneratedCredentials(t *testing.T) {
++	t.Parallel()
++
++	db, mock, err := sqlmock.New()
++	if err != nil {
++		t.Fatalf("sqlmock.New() error = %v", err)
++	}
++	defer func() { _ = db.Close() }()
++	expectAdminBootstrapCounts(mock, 0, 0)
++	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO users")).
++		WithArgs(
++			sqlmock.AnyArg(), sqlmock.AnyArg(), service.RoleAdmin, sqlmock.AnyArg(),
++			sqlmock.AnyArg(), service.StatusActive, sqlmock.AnyArg(), sqlmock.AnyArg(),
++		).
++		WillReturnResult(sqlmock.NewResult(1, 1))
++
++	cfg := &SetupConfig{}
++	created, reason, err := bootstrapAdminUser(context.Background(), db, cfg)
++	if err != nil || !created || reason != adminBootstrapReasonEmptyDatabase {
++		t.Fatalf("bootstrapAdminUser() = (%v, %q, %v), want (true, %q, nil)", created, reason, err, adminBootstrapReasonEmptyDatabase)
++	}
++	if !regexp.MustCompile(`^admin-[0-9a-f]{12}@sub2api\.local$`).MatchString(cfg.Admin.Email) {
++		t.Fatalf("admin email = %q, want generated admin-<12 hex>@sub2api.local", cfg.Admin.Email)
++	}
++	if len(cfg.Admin.Password) != 32 {
++		t.Fatalf("admin password length = %d, want generated 32", len(cfg.Admin.Password))
++	}
++	if err := mock.ExpectationsWereMet(); err != nil {
++		t.Fatalf("database expectations not met: %v", err)
++	}
++}
++
++func TestPrepareAdminCredentialsAcceptsMinimumLengthPassword(t *testing.T) {
++	t.Parallel()
++
++	admin := AdminConfig{Password: "12345678"}
++	emailGenerated, passwordGenerated, err := prepareAdminCredentials(&admin)
++	if err != nil {
++		t.Fatalf("prepareAdminCredentials() error = %v", err)
++	}
++	if !emailGenerated || passwordGenerated {
++		t.Fatalf("generated flags = (%v, %v), want (true, false)", emailGenerated, passwordGenerated)
++	}
++	if admin.Password != "12345678" {
++		t.Fatalf("password = %q, want unchanged", admin.Password)
++	}
++}
+diff --git a/backend/internal/bootstrap/setup/admin_validation_test.go b/backend/internal/bootstrap/setup/admin_validation_test.go
+new file mode 100644
+index 000000000..d89caf0f1
+--- /dev/null
++++ b/backend/internal/bootstrap/setup/admin_validation_test.go
+@@ -0,0 +1,36 @@
++package setup
++
++import (
++	"strings"
++	"testing"
++)
++
++func TestAdminCredentialLoginCompatibility(t *testing.T) {
++	t.Parallel()
++	for _, email := range []string{"a@b", "Owner <owner@example.com>", "<owner@example.com>", strings.Repeat("a", 250) + "@example.com"} {
++		if validateEmail(email) {
++			t.Errorf("setup accepted an email rejected by login: %q", email)
++		}
++	}
++	if !validateEmail("owner@example.com") {
++		t.Error("valid login email rejected")
++	}
++	for _, tc := range []struct {
++		name     string
++		password string
++		valid    bool
++	}{
++		{"short", "1234567", false},
++		{"minimum", "12345678", true},
++		{"bcrypt maximum", strings.Repeat("a", 72), true},
++		{"over maximum", strings.Repeat("a", 73), false},
++		{"UTF-8 at maximum", strings.Repeat("密", 24), true},
++		{"UTF-8 over maximum", strings.Repeat("密", 25), false},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			if valid := validatePassword(tc.password) == nil; valid != tc.valid {
++				t.Fatalf("valid=%v, want %v for %d UTF-8 bytes", valid, tc.valid, len(tc.password))
++			}
++		})
++	}
++}
+diff --git a/backend/internal/bootstrap/setup/cli.go b/backend/internal/bootstrap/setup/cli.go
+index 2b323acf4..158441df9 100644
+--- a/backend/internal/bootstrap/setup/cli.go
++++ b/backend/internal/bootstrap/setup/cli.go
+@@ -4,7 +4,6 @@ package setup
+ import (
+ 	"bufio"
+ 	"fmt"
+-	"net/mail"
+ 	"os"
+ 	"regexp"
+ 	"strconv"
+@@ -29,11 +28,6 @@ func cliValidateUsername(name string) bool {
+ 	return validName.MatchString(name) && len(name) <= 63
+ }
+ 
+-func cliValidateEmail(email string) bool {
+-	_, err := mail.ParseAddress(email)
+-	return err == nil && len(email) <= 254
+-}
+-
+ func cliValidatePort(port int) bool {
+ 	return port > 0 && port <= 65535
+ }
+@@ -163,9 +157,13 @@ func RunCLI() error {
+ 	fmt.Println()
+ 	fmt.Println("── Admin Account ──")
+ 
++	defaultAdminEmail, err := generateAdminEmail()
++	if err != nil {
++		return err
++	}
+ 	for {
+-		cfg.Admin.Email = promptString(reader, "Admin Email", "admin@example.com")
+-		if cliValidateEmail(cfg.Admin.Email) {
++		cfg.Admin.Email = promptString(reader, "Admin Email (login username)", defaultAdminEmail)
++		if validateEmail(cfg.Admin.Email) {
+ 			break
+ 		}
+ 		fmt.Println("  Invalid email format.")
+@@ -173,13 +171,8 @@ func RunCLI() error {
+ 
+ 	for {
+ 		cfg.Admin.Password = promptPassword("Admin Password")
+-		// SECURITY: Match Web API requirement of 8 characters minimum
+-		if len(cfg.Admin.Password) < 8 {
+-			fmt.Println("  Password must be at least 8 characters")
+-			continue
+-		}
+-		if len(cfg.Admin.Password) > 128 {
+-			fmt.Println("  Password must be at most 128 characters")
++		if err := validatePassword(cfg.Admin.Password); err != nil {
++			fmt.Printf("  Invalid password: %v\n", err)
+ 			continue
+ 		}
+ 		confirm := promptPassword("Confirm Password")
+diff --git a/backend/internal/bootstrap/setup/handler.go b/backend/internal/bootstrap/setup/handler.go
+index efe17b664..c05d3cda3 100644
+--- a/backend/internal/bootstrap/setup/handler.go
++++ b/backend/internal/bootstrap/setup/handler.go
+@@ -1,9 +1,7 @@
+ package setup
+ 
+ import (
+-	"fmt"
+ 	"net/http"
+-	"net/mail"
+ 	"regexp"
+ 	"strings"
+ 	"sync"
+@@ -83,23 +81,6 @@ func validateUsername(name string) bool {
+ 	return validName.MatchString(name) && len(name) <= 63
+ }
+ 
+-// validateEmail checks if email format is valid
+-func validateEmail(email string) bool {
+-	_, err := mail.ParseAddress(email)
+-	return err == nil && len(email) <= 254
+-}
+-
+-// validatePassword checks password strength
+-func validatePassword(password string) error {
+-	if len(password) < 8 {
+-		return fmt.Errorf("password must be at least 8 characters")
+-	}
+-	if len(password) > 128 {
+-		return fmt.Errorf("password must be at most 128 characters")
+-	}
+-	return nil
+-}
+-
+ // validatePort checks if port is in valid range
+ func validatePort(port int) bool {
+ 	return port > 0 && port <= 65535
+diff --git a/backend/internal/bootstrap/setup/setup.go b/backend/internal/bootstrap/setup/setup.go
+index 5fa78fbc2..17c221357 100644
+--- a/backend/internal/bootstrap/setup/setup.go
++++ b/backend/internal/bootstrap/setup/setup.go
+@@ -574,6 +574,10 @@ func createAdminUser(cfg *SetupConfig) (bool, string, error) {
+ 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+ 	defer cancel()
+ 
++	return bootstrapAdminUser(ctx, db, cfg)
++}
++
++func bootstrapAdminUser(ctx context.Context, db *sql.DB, cfg *SetupConfig) (bool, string, error) {
+ 	var totalUsers int64
+ 	if err := db.QueryRowContext(ctx, "SELECT COUNT(1) FROM users").Scan(&totalUsers); err != nil {
+ 		return false, "", err
+@@ -587,12 +591,14 @@ func createAdminUser(cfg *SetupConfig) (bool, string, error) {
+ 		return false, decision.reason, nil
+ 	}
+ 
+-	if strings.TrimSpace(cfg.Admin.Password) == "" {
+-		password, genErr := generateSecret(16)
+-		if genErr != nil {
+-			return false, "", fmt.Errorf("failed to generate admin password: %w", genErr)
+-		}
+-		cfg.Admin.Password = password
++	emailGenerated, passwordGenerated, err := prepareAdminCredentials(&cfg.Admin)
++	if err != nil {
++		return false, "", err
++	}
++	if emailGenerated {
++		fmt.Printf("Generated admin email (login username): %s\n", cfg.Admin.Email)
++	}
++	if passwordGenerated {
+ 		fmt.Printf("Generated admin password (one-time): %s\n", cfg.Admin.Password)
+ 		fmt.Println("IMPORTANT: Save this password! It will not be shown again.")
+ 	}
+@@ -753,7 +759,7 @@ func AutoSetupFromEnv() error {
+ 			EnableTLS: getEnvOrDefault("REDIS_ENABLE_TLS", "false") == "true",
+ 		},
+ 		Admin: AdminConfig{
+-			Email:    getEnvOrDefault("ADMIN_EMAIL", "admin@sub2api.local"),
++			Email:    getEnvOrDefault("ADMIN_EMAIL", ""),
+ 			Password: getEnvOrDefault("ADMIN_PASSWORD", ""),
+ 		},
+ 		Server: ServerConfig{
+diff --git a/backend/internal/integration/e2e_user_flow_test.go b/backend/internal/integration/e2e_user_flow_test.go
+index 5489d0a32..82798342a 100644
+--- a/backend/internal/integration/e2e_user_flow_test.go
++++ b/backend/internal/integration/e2e_user_flow_test.go
+@@ -263,11 +263,11 @@ func doRequest(t *testing.T, method, path string, body []byte, token string) (*h
+ func loginTestUser(t *testing.T) string {
+ 	t.Helper()
+ 
+-	// 先尝试用管理员账户登录
+-	adminEmail := getEnv("ADMIN_EMAIL", "admin@sub2api.local")
++	// Generated admin emails have no fixed default; both credentials are needed.
++	adminEmail := getEnv("ADMIN_EMAIL", "")
+ 	adminPassword := getEnv("ADMIN_PASSWORD", "")
+ 
+-	if adminPassword == "" {
++	if adminEmail == "" || adminPassword == "" {
+ 		// 尝试用测试用户
+ 		adminEmail = testUserEmail
+ 		adminPassword = testUserPassword
+diff --git a/deploy/.env.example b/deploy/.env.example
+index 855c8668c..727ba2a6d 100644
+--- a/deploy/.env.example
++++ b/deploy/.env.example
+@@ -262,10 +262,11 @@ BILLING_QUEUE_ENABLED=true
+ # -----------------------------------------------------------------------------
+ # Admin Account
+ # -----------------------------------------------------------------------------
+-# Email for the admin account
+-ADMIN_EMAIL=admin@sub2api.local
++# Admin login email. Leave empty to generate a random address on first install.
++# Generated credentials are printed once in the application logs.
++ADMIN_EMAIL=
+ 
+-# Password for admin account
++# Password for admin account (8-72 bytes)
+ # Leave empty to auto-generate (will be shown in logs on first run)
+ ADMIN_PASSWORD=
+ 
+diff --git a/deploy/APPLE_CONTAINER.md b/deploy/APPLE_CONTAINER.md
+index 3e9efb84b..4a5843752 100644
+--- a/deploy/APPLE_CONTAINER.md
++++ b/deploy/APPLE_CONTAINER.md
+@@ -41,7 +41,7 @@ nano .env
+ ./apple-container.sh status
+ ```
+ 
+-Open `http://localhost:8080`. If `ADMIN_PASSWORD` is empty, retrieve the generated password with:
++Open `http://localhost:8080`. If `ADMIN_EMAIL` or `ADMIN_PASSWORD` is empty, retrieve the generated login email and password with:
+ 
+ ```bash
+ ./apple-container.sh logs app
+diff --git a/deploy/README.md b/deploy/README.md
+index 2b1b8833c..b956f2180 100644
+--- a/deploy/README.md
++++ b/deploy/README.md
+@@ -80,6 +80,7 @@ chmod +x docker-deploy.sh
+ **What the script does:**
+ - Downloads `docker-compose.local.yml` and `.env.example`
+ - Automatically generates secure secrets (JWT_SECRET, TOTP_ENCRYPTION_KEY, POSTGRES_PASSWORD)
++- Generates a random admin login email (ADMIN_EMAIL)
+ - Creates `.env` file with generated secrets
+ - Creates necessary persistent data directories (data/, postgres_data/)
+ - **Displays generated credentials** (POSTGRES_PASSWORD, JWT_SECRET, etc.)
+@@ -92,8 +93,8 @@ docker compose -f docker-compose.local.yml up -d
+ # View logs
+ docker compose -f docker-compose.local.yml logs -f sub2api
+ 
+-# If admin password was auto-generated, find it in logs:
+-docker compose -f docker-compose.local.yml logs sub2api | grep "admin password"
++# If admin email/password were auto-generated, find them in logs:
++docker compose -f docker-compose.local.yml logs sub2api | grep "Generated admin"
+ 
+ # Access Web UI
+ # http://localhost:8080
+@@ -125,7 +126,7 @@ mkdir -p data postgres_data
+ # Start all services using local directory version
+ docker compose -f docker-compose.local.yml up -d
+ 
+-# View logs (check for auto-generated admin password)
++# View logs (check for auto-generated admin email/password)
+ docker compose -f docker-compose.local.yml logs -f sub2api
+ 
+ # Access Web UI
+@@ -149,7 +150,7 @@ When using Docker Compose with `AUTO_SETUP=true`:
+    - Connects to PostgreSQL and Redis
+    - Applies database migrations (SQL files in `backend/migrations/*.sql`) and records them in `schema_migrations`
+    - Persists a cluster-wide JWT secret in PostgreSQL (if not provided)
+-   - Creates admin account (password auto-generated if not provided)
++   - Creates admin account (random login email/password if omitted; supplied passwords must be 8-72 bytes)
+    - Writes the local config.yaml and installation marker
+ 
+    Concurrent replicas serialize this first-install sequence with a PostgreSQL
+@@ -158,9 +159,9 @@ When using Docker Compose with `AUTO_SETUP=true`:
+ 
+ 2. No manual Setup Wizard needed - just configure `.env` and start
+ 
+-3. If `ADMIN_PASSWORD` is not set, check logs for the generated password:
++3. If `ADMIN_EMAIL` or `ADMIN_PASSWORD` is not set, check logs for the generated credentials:
+    ```bash
+-   docker compose logs sub2api | grep "admin password"
++   docker compose logs sub2api | grep "Generated admin"
+    ```
+ 
+ ### Startup and Database Recovery
+@@ -265,8 +266,8 @@ docker compose down -v
+ | `JWT_SECRET` | **Recommended** | *(auto-generated)* | JWT secret (fixed for persistent sessions) |
+ | `TOTP_ENCRYPTION_KEY` | **Recommended** | *(auto-generated)* | TOTP encryption key (fixed for persistent 2FA) |
+ | `SERVER_PORT` | No | `8080` | Server port |
+-| `ADMIN_EMAIL` | No | `admin@sub2api.local` | Admin email |
+-| `ADMIN_PASSWORD` | No | *(auto-generated)* | Admin password |
++| `ADMIN_EMAIL` | No | *(auto-generated)* | Random admin login email on first install |
++| `ADMIN_PASSWORD` | No | *(auto-generated)* | Admin password (8-72 bytes) |
+ | `TZ` | No | `Asia/Shanghai` | Timezone |
+ | `DEPLOYMENT_MODE` | No | `standalone` | Set `multi_instance` on every load-balanced replica. |
+ | `DEPLOYMENT_NODE_ID` | No | *(generated)* | Optional fixed logical node identity. |
+diff --git a/deploy/docker-compose.dev.yml b/deploy/docker-compose.dev.yml
+index 71cc6c39a..f5a465b51 100644
+--- a/deploy/docker-compose.dev.yml
++++ b/deploy/docker-compose.dev.yml
+@@ -57,7 +57,7 @@ services:
+       - REDIS_USERNAME=${REDIS_USERNAME:-}
+       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+       - REDIS_DB=${REDIS_DB:-0}
+-      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@sub2api.local}
++      - ADMIN_EMAIL=${ADMIN_EMAIL:-}
+       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+       - JWT_SECRET=${JWT_SECRET:-}
+       - SUB2API_CLAUDE_CLI_VERSION=${SUB2API_CLAUDE_CLI_VERSION:-}
+diff --git a/deploy/docker-compose.local.yml b/deploy/docker-compose.local.yml
+index d405d8988..8cc3bd9bf 100644
+--- a/deploy/docker-compose.local.yml
++++ b/deploy/docker-compose.local.yml
+@@ -110,7 +110,7 @@ services:
+       # =======================================================================
+       # Admin Account (auto-created on first run)
+       # =======================================================================
+-      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@sub2api.local}
++      - ADMIN_EMAIL=${ADMIN_EMAIL:-}
+       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+ 
+       # =======================================================================
+diff --git a/deploy/docker-compose.standalone.yml b/deploy/docker-compose.standalone.yml
+index d3a762c7b..959cf8917 100644
+--- a/deploy/docker-compose.standalone.yml
++++ b/deploy/docker-compose.standalone.yml
+@@ -90,7 +90,7 @@ services:
+       # =======================================================================
+       # Admin Account (auto-created on first run)
+       # =======================================================================
+-      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@sub2api.local}
++      - ADMIN_EMAIL=${ADMIN_EMAIL:-}
+       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+ 
+       # =======================================================================
+diff --git a/deploy/docker-compose.yml b/deploy/docker-compose.yml
+index 85cef0475..fe9206346 100644
+--- a/deploy/docker-compose.yml
++++ b/deploy/docker-compose.yml
+@@ -106,7 +106,7 @@ services:
+       # =======================================================================
+       # Admin Account (auto-created on first run)
+       # =======================================================================
+-      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@sub2api.local}
++      - ADMIN_EMAIL=${ADMIN_EMAIL:-}
+       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+ 
+       # =======================================================================
+diff --git a/deploy/docker-deploy.sh b/deploy/docker-deploy.sh
+index 9baa483cb..caf2dff83 100644
+--- a/deploy/docker-deploy.sh
++++ b/deploy/docker-deploy.sh
+@@ -5,6 +5,7 @@
+ # This script prepares deployment files for Sub2API:
+ #   - Downloads docker-compose.local.yml and .env.example
+ #   - Generates secure secrets (JWT_SECRET, TOTP_ENCRYPTION_KEY, POSTGRES_PASSWORD)
++#   - Generates a random admin login email (ADMIN_EMAIL)
+ #   - Creates necessary data directories
+ #
+ # After running this script, you can start services with:
+@@ -45,6 +46,13 @@ generate_secret() {
+     openssl rand -hex 32
+ }
+ 
++generate_admin_email() {
++    local suffix
++    suffix=$(openssl rand -hex 6) || return 1
++    [ -n "$suffix" ] || return 1
++    echo "admin-${suffix}@sub2api.local"
++}
++
+ # Check if command exists
+ command_exists() {
+     command -v "$1" >/dev/null 2>&1
+@@ -104,6 +112,7 @@ main() {
+     JWT_SECRET=$(generate_secret)
+     TOTP_ENCRYPTION_KEY=$(generate_secret)
+     POSTGRES_PASSWORD=$(generate_secret)
++    ADMIN_EMAIL=$(generate_admin_email)
+ 
+     # Create .env from .env.example
+     cp .env.example .env
+@@ -114,11 +123,13 @@ main() {
+         sed -i "s/^JWT_SECRET=.*/JWT_SECRET=${JWT_SECRET}/" .env
+         sed -i "s/^TOTP_ENCRYPTION_KEY=.*/TOTP_ENCRYPTION_KEY=${TOTP_ENCRYPTION_KEY}/" .env
+         sed -i "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=${POSTGRES_PASSWORD}/" .env
++        sed -i "s/^ADMIN_EMAIL=.*/ADMIN_EMAIL=${ADMIN_EMAIL}/" .env
+     else
+         # BSD sed (macOS)
+         sed -i '' "s/^JWT_SECRET=.*/JWT_SECRET=${JWT_SECRET}/" .env
+         sed -i '' "s/^TOTP_ENCRYPTION_KEY=.*/TOTP_ENCRYPTION_KEY=${TOTP_ENCRYPTION_KEY}/" .env
+         sed -i '' "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=${POSTGRES_PASSWORD}/" .env
++        sed -i '' "s/^ADMIN_EMAIL=.*/ADMIN_EMAIL=${ADMIN_EMAIL}/" .env
+     fi
+ 
+     # Create data directories
+@@ -139,6 +150,7 @@ main() {
+     echo "  POSTGRES_PASSWORD:     ${POSTGRES_PASSWORD}"
+     echo "  JWT_SECRET:            ${JWT_SECRET}"
+     echo "  TOTP_ENCRYPTION_KEY:   ${TOTP_ENCRYPTION_KEY}"
++    echo "  ADMIN_EMAIL:           ${ADMIN_EMAIL}  (admin login username)"
+     echo ""
+     print_warning "These credentials have been saved to .env file."
+     print_warning "Please keep them secure and do not share publicly!"
+diff --git a/deploy/tests/docker-deploy-admin-test.sh b/deploy/tests/docker-deploy-admin-test.sh
+new file mode 100644
+index 000000000..3534eba77
+--- /dev/null
++++ b/deploy/tests/docker-deploy-admin-test.sh
+@@ -0,0 +1,49 @@
++#!/bin/sh
++# Exercise the preparation script without network access or real credentials.
++set -eu
++
++repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
++test_dir=$(mktemp -d)
++trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
++mkdir -p "$test_dir/bin"
++
++cat > "$test_dir/bin/curl" <<'SH'
++#!/bin/sh
++set -eu
++case "$2" in
++    */docker-compose.local.yml) source=docker-compose.local.yml ;;
++    */.env.example) source=.env.example ;;
++    *) exit 1 ;;
++esac
++cp "$DEPLOY_TEST_FIXTURE_ROOT/$source" "$4"
++SH
++
++cat > "$test_dir/bin/openssl" <<'SH'
++#!/bin/sh
++set -eu
++if [ "$3" = 6 ]; then
++    case "$DEPLOY_TEST_OPENSSL_MODE" in
++        failure) exit 1 ;;
++        empty) exit 0 ;;
++    esac
++    printf '%s\n' abcdef123456
++else
++    printf '%s\n' 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
++fi
++SH
++chmod +x "$test_dir/bin/curl" "$test_dir/bin/openssl"
++export PATH="$test_dir/bin:$PATH"
++export DEPLOY_TEST_FIXTURE_ROOT="$repo_root/deploy"
++
++for mode in success failure empty; do
++    mkdir "$test_dir/$mode"
++    if (cd "$test_dir/$mode" && DEPLOY_TEST_OPENSSL_MODE="$mode" bash "$repo_root/deploy/docker-deploy.sh" > output.txt 2>&1); then
++        [ "$mode" = success ] || { echo "Unexpected success: $mode"; exit 1; }
++        grep -q '^ADMIN_EMAIL=admin-abcdef123456@sub2api.local$' "$test_dir/$mode/.env"
++        [ -d "$test_dir/$mode/data" ]
++    else
++        [ "$mode" != success ] || { echo "Unexpected preparation failure"; exit 1; }
++        [ ! -e "$test_dir/$mode/.env" ] || { echo "Credentials written after RNG failure"; exit 1; }
++    fi
++done
++echo 'Docker deployment admin credential tests passed.'
+diff --git a/docs/README.md b/docs/README.md
+index 786c015fb..eab50b2c9 100644
+--- a/docs/README.md
++++ b/docs/README.md
+@@ -71,6 +71,7 @@
+ | [上游主线同步审查记录（2026-09-27）](UPSTREAM_SYNC_20260927.md) | 11 个上游 PR 的已覆盖/已移植/暂缓台账、加密与视频价格修复、Docker 及发布证据 |
+ | [上游主线同步审查记录（2026-09-30）](UPSTREAM_SYNC_20260930.md) | 48 个冻结主线 PR 的当前 owner 台账、协议/统计与工具改写性能修复、Docker 升级回退和 CI |
+ | [上游主线同步审查记录（2026-10-05）](UPSTREAM_SYNC_20261005.md) | 12 个增量 PR 的关闭台账、验证码原子重构、平滑升级、Docker 与 CI 跟踪 |
++| [上游主线同步审查记录（2026-10-07）](UPSTREAM_SYNC_20261007.md) | 3 个增量 PR 的首次安装适配、已覆盖差异关闭、性能与 Docker 升级回退验证 |
+ | [API Key 删除与计费竞争条件审查（2026-10-06）](../diagnostics/billing-key-deletion-20261006/REPORT.md) | 旧版本漏扣回放、当前修复边界、真实数据库与 24 个 Docker HTTP 场景 |
+ | [GPT-6 Astra 接入记录](GPT6_ASTRA.md) | OpenAI 官方模型目录、能力、价格和本项目兼容计费映射 |
+ | [GPT-6 模型目录与价格](GPT6_MODELS.md) | GPT-6 Astra、Sol、Luna 的官方能力、价格与本项目实现位置 |
+diff --git a/docs/UPSTREAM_SYNC_20261007.md b/docs/UPSTREAM_SYNC_20261007.md
+new file mode 100644
+index 000000000..681774e4b
+--- /dev/null
++++ b/docs/UPSTREAM_SYNC_20261007.md
+@@ -0,0 +1,43 @@
++# 上游主线同步审查（2026-10-07）
++
++下游基线为 `043203dd645eb996c339ba84a808f96f34f5a73b`，包含本项目 #114–#118 的模型字段、计费身份、Codex 语音和 lineage 修复。前次已审查上游边界为 `b8dece9000c68815a5b867ca5a1e6f236e173905`；本轮冻结至 `3f1a2ea0a760730e3bc528105c00b4ee4f23e469`，范围为 3 个主线合并 PR 和 1 个 VERSION 提交。
++
++沿用按当前 owner 适配及保留代码树的 tracking merge，不覆盖上游旧目录、生成文件或本项目版本线。此前已关闭差异不重复处理，既有 `fully_closed=false` 专项保留原台账；Git 祖先关系不表示这些暂缓功能已经实现。
++
++## 差异关闭台账
++
++| 上游 PR | 处理结果 | 当前 owner 与边界 |
++| --- | --- | --- |
++| [#7851](https://github.com/Wei-Shaw/sub2api/pull/7851) | 当前配置无对应差异，关闭 | `features/keys/presentation/widgets/UseKeyDialog.vue` 没有 `model_catalog_url` 或远程目录模式，当前 HTTP/WS、API Key 与兼容配置不触发此问题。前置 #7736 仍为暂缓专项；启用它时必须同时接入本 PR 的 `api_key_model_discovery` 开关，并验证客户端版本、认证模式和目录预算。 |
++| [#7888](https://github.com/Wei-Shaw/sub2api/pull/7888) | 已有修复覆盖，关闭 | 本项目 #111 已在 `modules/payment/provider/easypay.go` 和 `application/service/payment_resume_service.go` 移除用户查询串、限制回调字段，并进一步校验重复参数、商户 PID、签名类型、金额及交易号。保留现有实现。 |
++| [#7893](https://github.com/Wei-Shaw/sub2api/pull/7893) | 按现有 owner 适配，关闭 | 凭据规则进入 `bootstrap/setup/admin_credentials.go`，CLI/Web/自动安装复用；Compose、准备脚本、三语部署说明和 setup feature 一致。Vue 的运行时及构建依赖同步到 3.5.43，保留本项目 source-map-js、SheetJS 和既有审计约束。 |
++
++[机器台账](../diagnostics/upstream-sync-20261007/UPSTREAM_PRS.json) 保存精确 merge SHA、原始 diff SHA-256、文件集合、关闭标志与重开条件。上游直接提交 `3f1a2ea0` 只更新 VERSION，保留本项目版本线。#7851 的关闭表示当前配置没有该差异，远程目录协议继续按 #7736 的独立专项管理。
++
++## 首次安装与平滑升级
++
++自动安装只在决定创建第一个管理员后检查凭据。已有管理员或已有普通用户时继续跳过创建，安装完成标记存在时继续采用持久数据库；旧 `.env` 中的无效初始化邮箱、短密码不会重写账号或阻断升级。
++
++新安装时，空邮箱生成 `admin-<12 hex>@sub2api.local`，空密码沿用安全随机生成，日志输出首次凭据。提供的邮箱先去除两端空白，要求同时通过邮箱解析及登录接口的 `binding:"required,email"` 规则；超长邮箱在解析前拒绝。提供的密码须为 8–72 个 UTF-8 字节，与 bcrypt 实际输入边界一致，密码本身保留原值。先检查提供值再生成随机凭据，失败不会插入管理员、写配置或安装锁；数据库初始化迁移仍可能已完成。
++
++CLI 和 Web 向导使用相同后端规则，浏览器按钮及中英文提示按 UTF-8 字节计算。部署准备脚本生成随机登录邮箱；随机源返回错误或空值时在写 `.env` 前退出。四个 Compose 示例去掉固定邮箱默认值，原部署的持久管理员账号仍由数据库保存。
++
++本轮没有 Ent schema、Wire 或数据库迁移变化，不改变 JSON/SSE/WS、账号出口、调度、可靠结算及支付回调的既有实现。新凭据作为普通邮箱和 bcrypt hash 保存，旧 binary 可继续登录；旧 binary 搭配新 Compose 做全新安装时会沿用其旧默认邮箱，应按运行镜像的日志确认登录凭据。
++
++## 性能审查
++
++首次管理员创建保留原有两次用户计数查询及一次 INSERT，没有新增查询轮数、网关调用、goroutine 或队列。新增校验只进入安装路径；EasyPay 和客户端配置的已覆盖差异没有改写。
++
++相同 Docker Go 1.26.6、linux/arm64、`GOMAXPROCS=2`，预先完成 validator 初始化后，每轮 5000 次、三轮测量：有效邮箱校验中位数为 `133.9 -> 617.1 ns/op`，分配 `96 -> 128 B/op`、`5 -> 7 allocs/op`。增加约 0.48 微秒用于保持与登录校验一致，只在首次安装/向导校验执行。密码边界校验两版均无分配。该测量不是冷启动耗时或网关吞吐量测试；本轮未引入网关热路径开销，无需为安装校验替换登录规则。原始输出见 [基线](../diagnostics/upstream-sync-20261007/benchmark-baseline.txt) 和 [候选](../diagnostics/upstream-sync-20261007/benchmark-candidate.txt)。
++
++## 验证与发布
++
++Docker 完整后端 unit/integration、安装 race、部署脚本、前端 lint/typecheck 与全部必需关键测试、两版生产镜像、真实 PostgreSQL/Redis 运行矩阵分别验证，详见 [验证记录](../diagnostics/upstream-sync-20261007/VERIFICATION.txt)。四阶段复用同一数据库和 Redis，替换应用时使用全新数据目录及无效旧初始化环境变量；管理员 hash/邮箱/余额、Key 名称/配额、历史待支付订单和迁移数均保持一致。
++
++新安装覆盖短密码、73 字节密码、多字节超限、不可登录邮箱、显示名称邮箱、空凭据随机生成和带空白邮箱/72 字节多字节密码。拒绝场景均没有管理员、配置、安装锁或完成标记；随机账号及边界账号可通过真实 Cookie + RSA-OAEP/AES-GCM 登录。
++
++前端必需门禁 29 个文件、247 条测试通过；扩展客户端配置/网络/路由回归 216 条通过。OpenCode 的一条旧字节快照在精确基线及候选均为 `6297 != 5734`，三个 owner/测试文件逐字节未变。保留原代码和断言，证据见 [基线记录](../diagnostics/upstream-sync-20261007/PREEXISTING_TEST.txt)。生产依赖审计通过原有例外校验，没有新增或延长例外。
++
++源码布局检查在精确基线和候选均报告同样三个既有超长文件：`openai_ws_v2/passthrough_relay.go` 1273 行、`payment_fulfillment_test.go` 1201 行、`pricing_service.go` 1238 行。本轮未改这些文件或扩充 allowlist。
++
++本项目 PR、精确发布 SHA、CI 和主线镜像结果在最终交付中核对；不为追加状态记录改写已验证源码提交。
+diff --git a/frontend/package.json b/frontend/package.json
+index dc224c5cb..d90bc091c 100644
+--- a/frontend/package.json
++++ b/frontend/package.json
+@@ -31,7 +31,7 @@
+     "pinia": "^2.1.7",
+     "qrcode": "^1.5.4",
+     "tldts": "7.4.13",
+-    "vue": "^3.5.42",
++    "vue": "^3.5.43",
+     "vue-chartjs": "^5.3.0",
+     "vue-draggable-plus": "^0.6.1",
+     "vue-i18n": "^9.14.5",
+diff --git a/frontend/pnpm-lock.yaml b/frontend/pnpm-lock.yaml
+index da39a815a..3da22b8b0 100644
+--- a/frontend/pnpm-lock.yaml
++++ b/frontend/pnpm-lock.yaml
+@@ -34,10 +34,10 @@ importers:
+         version: 9.12.0
+       '@tanstack/vue-virtual':
+         specifier: ^3.13.23
+-        version: 3.13.34(vue@3.5.42(typescript@5.6.3))
++        version: 3.13.34(vue@3.5.43(typescript@5.6.3))
+       '@vueuse/core':
+         specifier: ^10.7.0
+-        version: 10.11.1(vue@3.5.42(typescript@5.6.3))
++        version: 10.11.1(vue@3.5.43(typescript@5.6.3))
+       axios:
+         specifier: ^1.20.0
+         version: 1.20.0(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0)
+@@ -64,7 +64,7 @@ importers:
+         version: 1.4.0
+       pinia:
+         specifier: ^2.1.7
+-        version: 2.3.1(typescript@5.6.3)(vue@3.5.42(typescript@5.6.3))
++        version: 2.3.1(typescript@5.6.3)(vue@3.5.43(typescript@5.6.3))
+       qrcode:
+         specifier: ^1.5.4
+         version: 1.5.4
+@@ -72,20 +72,20 @@ importers:
+         specifier: 7.4.13
+         version: 7.4.13
+       vue:
+-        specifier: ^3.5.42
+-        version: 3.5.42(typescript@5.6.3)
++        specifier: ^3.5.43
++        version: 3.5.43(typescript@5.6.3)
+       vue-chartjs:
+         specifier: ^5.3.0
+-        version: 5.3.4(chart.js@4.5.1)(vue@3.5.42(typescript@5.6.3))
++        version: 5.3.4(chart.js@4.5.1)(vue@3.5.43(typescript@5.6.3))
+       vue-draggable-plus:
+         specifier: ^0.6.1
+         version: 0.6.1(@types/sortablejs@1.15.9)
+       vue-i18n:
+         specifier: ^9.14.5
+-        version: 9.14.5(vue@3.5.42(typescript@5.6.3))
++        version: 9.14.5(vue@3.5.43(typescript@5.6.3))
+       vue-router:
+         specifier: ^4.2.5
+-        version: 4.6.4(vue@3.5.42(typescript@5.6.3))
++        version: 4.6.4(vue@3.5.43(typescript@5.6.3))
+       xlsx:
+         specifier: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
+         version: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
+@@ -119,13 +119,13 @@ importers:
+         version: 8.65.0(eslint@10.8.0(jiti@1.21.7)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.6.3)
+       '@vitejs/plugin-vue':
+         specifier: 6.0.8
+-        version: 6.0.8(vite@6.4.3(@types/node@24.13.3)(jiti@1.21.7))(vue@3.5.42(typescript@5.6.3))
++        version: 6.0.8(vite@6.4.3(@types/node@24.13.3)(jiti@1.21.7))(vue@3.5.43(typescript@5.6.3))
+       '@vitest/coverage-v8':
+         specifier: 3.2.6
+         version: 3.2.6(supports-color@7.2.0)(vitest@3.2.6(@types/node@24.13.3)(jiti@1.21.7)(jsdom@24.1.3(supports-color@7.2.0))(supports-color@7.2.0))
+       '@vue/test-utils':
+         specifier: ^2.4.6
+-        version: 2.4.11(@vue/compiler-dom@3.5.42)(@vue/server-renderer@3.5.42)(vue@3.5.42(typescript@5.6.3))
++        version: 2.4.11(@vue/compiler-dom@3.5.43)(@vue/server-renderer@3.5.43)(vue@3.5.43(typescript@5.6.3))
+       autoprefixer:
+         specifier: ^10.4.16
+         version: 10.5.4(postcss@8.5.23)
+@@ -825,23 +825,23 @@ packages:
+   '@volar/typescript@2.4.15':
+     resolution: {integrity: sha512-2aZ8i0cqPGjXb4BhkMsPYDkkuc2ZQ6yOpqwAuNwUoncELqoy5fRgOQtLR9gB0g902iS0NAkvpIzs27geVyVdPg==}
+ 
+-  '@vue/compiler-core@3.5.40':
+-    resolution: {integrity: sha512-39E8IgOhTbVDnoJFMKc2DvYnypcZwUqgUhQkccva/0m6FUwtIKSGV7n1hpVmYcFaoRAwf9pBcwnKlCEsN63ZEQ==}
+-
+   '@vue/compiler-core@3.5.42':
+     resolution: {integrity: sha512-2Ye1ilMtKXxl8qZUrQ5j0CdgenFp/HFQmta6rfRyfEsTG69L6Wk+tWuNoHYHMx9E8tF2Slvdg1FuwDvAXdy1LQ==}
+ 
+-  '@vue/compiler-dom@3.5.40':
+-    resolution: {integrity: sha512-pwkx4vqlqOspFstrcmzwkKLePVMD3PT65imRzLhanU2V1Fj4K13g6OXjanOyzw3aTAuRk84BOmY8f3rEHqPaVA==}
++  '@vue/compiler-core@3.5.43':
++    resolution: {integrity: sha512-zdiLhnbe1QQqgDT8xZMpNmyqZ3qlI+/Q/FHQco57Kwl/b05HhCzN6eVGN9QU9rbga4CrS0H5SYY8VGHZCt/1Hg==}
+ 
+   '@vue/compiler-dom@3.5.42':
+     resolution: {integrity: sha512-qbhQZEFmycr+ni/qyuccS4sucNN7VAbDfbkvNxWOX2VfgFm90MNs3/UhRNKoPMEIVn0F8gdlYjLPvqxHwHeQOA==}
+ 
+-  '@vue/compiler-sfc@3.5.42':
+-    resolution: {integrity: sha512-fkCAFB4okcAANGMThboWnScp/gzWjU0ZSkVnjTIiplmMDq2uq0tIB3j+xVu4rhv5rvOgBySCysudmbMd6xRRqw==}
++  '@vue/compiler-dom@3.5.43':
++    resolution: {integrity: sha512-PEZoAk3NQmsn/ejMzSOCyTYqwGqczrWm70PuhBKjjv1+TCoQAaO/zOqNwjV+honlNstT5ILxtc+8r8UUfj+iEQ==}
++
++  '@vue/compiler-sfc@3.5.43':
++    resolution: {integrity: sha512-FCbrG3XNCRl+js3huuKx4IVHBLTvMkJhVepjbxSPu1gn4yWLaYtGNQdjJGZaMytXB6qb76qQDDmDSLy/vkmleQ==}
+ 
+-  '@vue/compiler-ssr@3.5.42':
+-    resolution: {integrity: sha512-xmLk3wLkbizPAiLyomjgFFosf2ys9b5Ghb+oh/k2tnvipNz8OFrQOiTcWCzyK7MpBp9KkyGtfvgfLUivbmuGYA==}
++  '@vue/compiler-ssr@3.5.43':
++    resolution: {integrity: sha512-GF62orf7KiJX9RqrHNGrYBudsQGD0OhJ5nDs90O8UiDuS40+YMYomiXu6w6EuvtXuRDc3MSNis3EaaSKAVSWpg==}
+ 
+   '@vue/compiler-vue2@2.7.16':
+     resolution: {integrity: sha512-qYC3Psj9S/mfu9uVi5WvNZIzq+xnXMhOwbTFKKDD7b1lhpnn71jXSFdTQ+WsIEk0ONCd7VV2IMm7ONl6tbQ86A==}
+@@ -857,24 +857,24 @@ packages:
+       typescript:
+         optional: true
+ 
+-  '@vue/reactivity@3.5.42':
+-    resolution: {integrity: sha512-TzNNfKpb7hDxbQltwAut8VDQA5YP+BuRlxntHUuRjyKwlMvmAPbs3unhCvieijifY6vFfVBwsS7wG/C7uq+bEQ==}
+-
+-  '@vue/runtime-core@3.5.42':
+-    resolution: {integrity: sha512-9uACtuHs7vJGkm5Bp3xu4xRDLFTIYy5DgxpToVjqGIAhAEKwQfsaLvKINhM6nFVp6bZPRFGdDqd1g52MqKsotA==}
++  '@vue/reactivity@3.5.43':
++    resolution: {integrity: sha512-G/c9GyOZNI2jVaaS6OX1EF1SSFSv7H0ERqNTl4+DTFMlZmB5eVAB53aLQNam/7NL2NPtaDD7RdVrzf8uJzMuOA==}
+ 
+-  '@vue/runtime-dom@3.5.42':
+-    resolution: {integrity: sha512-rsCmhiWLaRxGltLwhlCWyYkFn7WAbKRh0q17eZ1A6Dq6eqc2ACQ61IIryxz0LrsvCzHSilLA9JHovVwM8CNE2g==}
++  '@vue/runtime-core@3.5.43':
++    resolution: {integrity: sha512-hU6U6VnVhBGQDpvlnnDlIB8ZGJBiOcgk2lh/0InltHiz3D8oSkluvuvY+do1G2H3+udeKFsmaBlgVYP7gXQzEw==}
+ 
+-  '@vue/server-renderer@3.5.42':
+-    resolution: {integrity: sha512-2++5dUyYS4gvo7xQXSECUDhB7TS0aOl5SeVfC5qSq1Jgfhjvegw1zqhwTIR3imZ+QYPJQw9gfcFvXGAjGZ7ajQ==}
++  '@vue/runtime-dom@3.5.43':
++    resolution: {integrity: sha512-Bb2Jc0YjjJdMt1SJmb9b2L/IWd3I8lIT9x9eS/xvvP9CiVgna0ffua74xKRmt4/uSJ+0r4iN8ex1jrqkhQGWQw==}
+ 
+-  '@vue/shared@3.5.40':
+-    resolution: {integrity: sha512-WxnBtruIqOoV3rA4jeKDWzrYI5h7Cp4+pjwDi8kWGHz+IslhiN+wguLVVhtv2l8VoU02rzDCVfDjgCl1lNpZVg==}
++  '@vue/server-renderer@3.5.43':
++    resolution: {integrity: sha512-l2Ygjv9NehV94PSBxNWsAHC0j/eIIKbn92mBuWXAPGLnn6HfJ6MH5ubsd+Nk0YoZ5FRuxWI1P2VSoh+dbPQhCQ==}
+ 
+   '@vue/shared@3.5.42':
+     resolution: {integrity: sha512-2rPxex1jQf4jvl9MOHl6YaXCPcrNqz/FstMOEh3QWY+/OME9nQTvl9WYeCwhW7AFjaR0SnngZGlp/wkR6rkI6g==}
+ 
++  '@vue/shared@3.5.43':
++    resolution: {integrity: sha512-uksS7YGMR5NZyr4JNq0Rp+QyLns0ueaz20KwzIPW9R0LH1Vnt4E+XUM29PNseEbf1www2gOuhuDi5AKOIXag9Q==}
++
+   '@vue/test-utils@2.4.11':
+     resolution: {integrity: sha512-GDqaqZsA6m2E5vNzej0aYiIb6BX8xV9pNSbbbXKOfEYwg7ZNblVX8suyqmUBThq8VIrgAJNxn+z72hVtUeiWHA==}
+     peerDependencies:
+@@ -1603,6 +1603,11 @@ packages:
+     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
+     hasBin: true
+ 
++  nanoid@3.3.20:
++    resolution: {integrity: sha512-uKdg2G3GNCKQn9byYOpxbGqrT2fGO5KRt5J/8b3pok8rT6qxGWF6hxMyJiEYtAf+FVyYuD9hRaDqX5uPFYJ4ZQ==}
++    engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
++    hasBin: true
++
+   natural-compare@1.4.0:
+     resolution: {integrity: sha512-OWND8ei3VtNC9h7V60qff3SVobHr996CTwgxubgyQYEpg290h9J0buyECNNJexkFm5sOajh5G116RYA1c8ZMSw==}
+ 
+@@ -1783,6 +1788,10 @@ packages:
+     resolution: {integrity: sha512-g50586zr4bZmwFiTlflMu8E0bDTb5I5gertgwAKmsdUlTQIhZtunzUlD1WSzwcVWPoAVpsrA6vlfCD7oXvRwgg==}
+     engines: {node: ^10 || ^12 || >=14}
+ 
++  postcss@8.5.29:
++    resolution: {integrity: sha512-49cGhUbXj8Qenv0iTMxA1cFBzxXoctpC9Ujd77t1WcbJIr6nF/eI7g/8MgxrYldFRuAXvja7xQRwavoW7kgrxQ==}
++    engines: {node: ^10 || ^12 || >=14}
++
+   prelude-ls@1.2.1:
+     resolution: {integrity: sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g==}
+     engines: {node: '>= 0.8.0'}
+@@ -2205,8 +2214,8 @@ packages:
+     peerDependencies:
+       typescript: '>=5.0.0'
+ 
+-  vue@3.5.42:
+-    resolution: {integrity: sha512-4RyHQTbQvOPs3MfvUO1Sg0YRrKNnA0mAVtvpd12Tg1fKDN7OHBUl1IqSn8zGJjK9nI3NkNp8cgTpVrSZC5TTcA==}
++  vue@3.5.43:
++    resolution: {integrity: sha512-o5qZoksdnjIKvW1srZ3ab7pcDNYAerBjRe54D0LBLfRdCYFrSgBHVXokMas35czQc0//lmx4/tuY4ZNQ+Rf2Ng==}
+     peerDependencies:
+       typescript: '*'
+     peerDependenciesMeta:
+@@ -2641,10 +2650,10 @@ snapshots:
+ 
+   '@tanstack/virtual-core@3.17.6': {}
+ 
+-  '@tanstack/vue-virtual@3.13.34(vue@3.5.42(typescript@5.6.3))':
++  '@tanstack/vue-virtual@3.13.34(vue@3.5.43(typescript@5.6.3))':
+     dependencies:
+       '@tanstack/virtual-core': 3.17.6
+-      vue: 3.5.42(typescript@5.6.3)
++      vue: 3.5.43(typescript@5.6.3)
+ 
+   '@types/chai@5.2.3':
+     dependencies:
+@@ -2775,11 +2784,11 @@ snapshots:
+       '@typescript-eslint/types': 8.65.0
+       eslint-visitor-keys: 5.0.1
+ 
+-  '@vitejs/plugin-vue@6.0.8(vite@6.4.3(@types/node@24.13.3)(jiti@1.21.7))(vue@3.5.42(typescript@5.6.3))':
++  '@vitejs/plugin-vue@6.0.8(vite@6.4.3(@types/node@24.13.3)(jiti@1.21.7))(vue@3.5.43(typescript@5.6.3))':
+     dependencies:
+       '@rolldown/pluginutils': 1.0.1
+       vite: 6.4.3(@types/node@24.13.3)(jiti@1.21.7)
+-      vue: 3.5.42(typescript@5.6.3)
++      vue: 3.5.43(typescript@5.6.3)
+ 
+   '@vitest/coverage-v8@3.2.6(supports-color@7.2.0)(vitest@3.2.6(@types/node@24.13.3)(jiti@1.21.7)(jsdom@24.1.3(supports-color@7.2.0))(supports-color@7.2.0))':
+     dependencies:
+@@ -2858,48 +2867,48 @@ snapshots:
+       path-browserify: 1.0.1
+       vscode-uri: 3.1.0
+ 
+-  '@vue/compiler-core@3.5.40':
++  '@vue/compiler-core@3.5.42':
+     dependencies:
+-      '@babel/parser': 7.29.7
+-      '@vue/shared': 3.5.40
++      '@babel/parser': 7.29.9
++      '@vue/shared': 3.5.42
+       entities: 7.0.1
+       estree-walker: 2.0.2
+       source-map-js: 1.2.2
+ 
+-  '@vue/compiler-core@3.5.42':
++  '@vue/compiler-core@3.5.43':
+     dependencies:
+       '@babel/parser': 7.29.9
+-      '@vue/shared': 3.5.42
++      '@vue/shared': 3.5.43
+       entities: 7.0.1
+       estree-walker: 2.0.2
+       source-map-js: 1.2.2
+ 
+-  '@vue/compiler-dom@3.5.40':
+-    dependencies:
+-      '@vue/compiler-core': 3.5.40
+-      '@vue/shared': 3.5.40
+-
+   '@vue/compiler-dom@3.5.42':
+     dependencies:
+       '@vue/compiler-core': 3.5.42
+       '@vue/shared': 3.5.42
+ 
+-  '@vue/compiler-sfc@3.5.42':
++  '@vue/compiler-dom@3.5.43':
++    dependencies:
++      '@vue/compiler-core': 3.5.43
++      '@vue/shared': 3.5.43
++
++  '@vue/compiler-sfc@3.5.43':
+     dependencies:
+       '@babel/parser': 7.29.9
+-      '@vue/compiler-core': 3.5.42
+-      '@vue/compiler-dom': 3.5.42
+-      '@vue/compiler-ssr': 3.5.42
+-      '@vue/shared': 3.5.42
++      '@vue/compiler-core': 3.5.43
++      '@vue/compiler-dom': 3.5.43
++      '@vue/compiler-ssr': 3.5.43
++      '@vue/shared': 3.5.43
+       estree-walker: 2.0.2
+       magic-string: 0.30.21
+-      postcss: 8.5.23
++      postcss: 8.5.29
+       source-map-js: 1.2.2
+ 
+-  '@vue/compiler-ssr@3.5.42':
++  '@vue/compiler-ssr@3.5.43':
+     dependencies:
+-      '@vue/compiler-dom': 3.5.42
+-      '@vue/shared': 3.5.42
++      '@vue/compiler-dom': 3.5.43
++      '@vue/shared': 3.5.43
+ 
+   '@vue/compiler-vue2@2.7.16':
+     dependencies:
+@@ -2911,9 +2920,9 @@ snapshots:
+   '@vue/language-core@2.2.12(typescript@5.6.3)':
+     dependencies:
+       '@volar/language-core': 2.4.15
+-      '@vue/compiler-dom': 3.5.40
++      '@vue/compiler-dom': 3.5.42
+       '@vue/compiler-vue2': 2.7.16
+-      '@vue/shared': 3.5.40
++      '@vue/shared': 3.5.42
+       alien-signals: 1.0.13
+       minimatch: 10.2.5
+       muggle-string: 0.4.1
+@@ -2921,56 +2930,56 @@ snapshots:
+     optionalDependencies:
+       typescript: 5.6.3
+ 
+-  '@vue/reactivity@3.5.42':
++  '@vue/reactivity@3.5.43':
+     dependencies:
+-      '@vue/shared': 3.5.42
++      '@vue/shared': 3.5.43
+ 
+-  '@vue/runtime-core@3.5.42':
++  '@vue/runtime-core@3.5.43':
+     dependencies:
+-      '@vue/reactivity': 3.5.42
+-      '@vue/shared': 3.5.42
++      '@vue/reactivity': 3.5.43
++      '@vue/shared': 3.5.43
+ 
+-  '@vue/runtime-dom@3.5.42':
++  '@vue/runtime-dom@3.5.43':
+     dependencies:
+-      '@vue/reactivity': 3.5.42
+-      '@vue/runtime-core': 3.5.42
+-      '@vue/shared': 3.5.42
++      '@vue/reactivity': 3.5.43
++      '@vue/runtime-core': 3.5.43
++      '@vue/shared': 3.5.43
+       csstype: 3.2.3
+ 
+-  '@vue/server-renderer@3.5.42':
++  '@vue/server-renderer@3.5.43':
+     dependencies:
+-      '@vue/compiler-ssr': 3.5.42
+-      '@vue/runtime-dom': 3.5.42
+-      '@vue/shared': 3.5.42
+-
+-  '@vue/shared@3.5.40': {}
++      '@vue/compiler-ssr': 3.5.43
++      '@vue/runtime-dom': 3.5.43
++      '@vue/shared': 3.5.43
+ 
+   '@vue/shared@3.5.42': {}
+ 
+-  '@vue/test-utils@2.4.11(@vue/compiler-dom@3.5.42)(@vue/server-renderer@3.5.42)(vue@3.5.42(typescript@5.6.3))':
++  '@vue/shared@3.5.43': {}
++
++  '@vue/test-utils@2.4.11(@vue/compiler-dom@3.5.43)(@vue/server-renderer@3.5.43)(vue@3.5.43(typescript@5.6.3))':
+     dependencies:
+-      '@vue/compiler-dom': 3.5.42
++      '@vue/compiler-dom': 3.5.43
+       js-beautify: 1.15.4
+-      vue: 3.5.42(typescript@5.6.3)
++      vue: 3.5.43(typescript@5.6.3)
+       vue-component-type-helpers: 3.3.8
+     optionalDependencies:
+-      '@vue/server-renderer': 3.5.42
++      '@vue/server-renderer': 3.5.43
+ 
+-  '@vueuse/core@10.11.1(vue@3.5.42(typescript@5.6.3))':
++  '@vueuse/core@10.11.1(vue@3.5.43(typescript@5.6.3))':
+     dependencies:
+       '@types/web-bluetooth': 0.0.20
+       '@vueuse/metadata': 10.11.1
+-      '@vueuse/shared': 10.11.1(vue@3.5.42(typescript@5.6.3))
+-      vue-demi: 0.14.10(vue@3.5.42(typescript@5.6.3))
++      '@vueuse/shared': 10.11.1(vue@3.5.43(typescript@5.6.3))
++      vue-demi: 0.14.10(vue@3.5.43(typescript@5.6.3))
+     transitivePeerDependencies:
+       - '@vue/composition-api'
+       - vue
+ 
+   '@vueuse/metadata@10.11.1': {}
+ 
+-  '@vueuse/shared@10.11.1(vue@3.5.42(typescript@5.6.3))':
++  '@vueuse/shared@10.11.1(vue@3.5.43(typescript@5.6.3))':
+     dependencies:
+-      vue-demi: 0.14.10(vue@3.5.42(typescript@5.6.3))
++      vue-demi: 0.14.10(vue@3.5.43(typescript@5.6.3))
+     transitivePeerDependencies:
+       - '@vue/composition-api'
+       - vue
+@@ -3698,6 +3707,8 @@ snapshots:
+ 
+   nanoid@3.3.18: {}
+ 
++  nanoid@3.3.20: {}
++
+   natural-compare@1.4.0: {}
+ 
+   node-forge@1.4.0: {}
+@@ -3785,11 +3796,11 @@ snapshots:
+ 
+   pify@2.3.0: {}
+ 
+-  pinia@2.3.1(typescript@5.6.3)(vue@3.5.42(typescript@5.6.3)):
++  pinia@2.3.1(typescript@5.6.3)(vue@3.5.43(typescript@5.6.3)):
+     dependencies:
+       '@vue/devtools-api': 6.6.4
+-      vue: 3.5.42(typescript@5.6.3)
+-      vue-demi: 0.14.10(vue@3.5.42(typescript@5.6.3))
++      vue: 3.5.43(typescript@5.6.3)
++      vue-demi: 0.14.10(vue@3.5.43(typescript@5.6.3))
+     optionalDependencies:
+       typescript: 5.6.3
+     transitivePeerDependencies:
+@@ -3841,6 +3852,12 @@ snapshots:
+       picocolors: 1.1.1
+       source-map-js: 1.2.2
+ 
++  postcss@8.5.29:
++    dependencies:
++      nanoid: 3.3.20
++      picocolors: 1.1.1
++      source-map-js: 1.2.2
++
+   prelude-ls@1.2.1: {}
+ 
+   proper-lockfile@4.1.2:
+@@ -4214,16 +4231,16 @@ snapshots:
+ 
+   vscode-uri@3.1.0: {}
+ 
+-  vue-chartjs@5.3.4(chart.js@4.5.1)(vue@3.5.42(typescript@5.6.3)):
++  vue-chartjs@5.3.4(chart.js@4.5.1)(vue@3.5.43(typescript@5.6.3)):
+     dependencies:
+       chart.js: 4.5.1
+-      vue: 3.5.42(typescript@5.6.3)
++      vue: 3.5.43(typescript@5.6.3)
+ 
+   vue-component-type-helpers@3.3.8: {}
+ 
+-  vue-demi@0.14.10(vue@3.5.42(typescript@5.6.3)):
++  vue-demi@0.14.10(vue@3.5.43(typescript@5.6.3)):
+     dependencies:
+-      vue: 3.5.42(typescript@5.6.3)
++      vue: 3.5.43(typescript@5.6.3)
+ 
+   vue-draggable-plus@0.6.1(@types/sortablejs@1.15.9):
+     dependencies:
+@@ -4241,17 +4258,17 @@ snapshots:
+     transitivePeerDependencies:
+       - supports-color
+ 
+-  vue-i18n@9.14.5(vue@3.5.42(typescript@5.6.3)):
++  vue-i18n@9.14.5(vue@3.5.43(typescript@5.6.3)):
+     dependencies:
+       '@intlify/core-base': 9.14.5
+       '@intlify/shared': 9.14.5
+       '@vue/devtools-api': 6.6.4
+-      vue: 3.5.42(typescript@5.6.3)
++      vue: 3.5.43(typescript@5.6.3)
+ 
+-  vue-router@4.6.4(vue@3.5.42(typescript@5.6.3)):
++  vue-router@4.6.4(vue@3.5.43(typescript@5.6.3)):
+     dependencies:
+       '@vue/devtools-api': 6.6.4
+-      vue: 3.5.42(typescript@5.6.3)
++      vue: 3.5.43(typescript@5.6.3)
+ 
+   vue-tsc@2.2.12(typescript@5.6.3):
+     dependencies:
+@@ -4259,13 +4276,13 @@ snapshots:
+       '@vue/language-core': 2.2.12(typescript@5.6.3)
+       typescript: 5.6.3
+ 
+-  vue@3.5.42(typescript@5.6.3):
++  vue@3.5.43(typescript@5.6.3):
+     dependencies:
+-      '@vue/compiler-dom': 3.5.42
+-      '@vue/compiler-sfc': 3.5.42
+-      '@vue/runtime-dom': 3.5.42
+-      '@vue/server-renderer': 3.5.42
+-      '@vue/shared': 3.5.42
++      '@vue/compiler-dom': 3.5.43
++      '@vue/compiler-sfc': 3.5.43
++      '@vue/runtime-dom': 3.5.43
++      '@vue/server-renderer': 3.5.43
++      '@vue/shared': 3.5.43
+     optionalDependencies:
+       typescript: 5.6.3
+ 
+diff --git a/frontend/src/core/i18n/locales/en/landing.ts b/frontend/src/core/i18n/locales/en/landing.ts
+index 2286a14af..ec7c0eab3 100644
+--- a/frontend/src/core/i18n/locales/en/landing.ts
++++ b/frontend/src/core/i18n/locales/en/landing.ts
+@@ -230,7 +230,7 @@ export default {
+       email: 'Email',
+       password: 'Password',
+       confirmPassword: 'Confirm Password',
+-      passwordPlaceholder: 'Min 8 characters',
++      passwordPlaceholder: '8–72 bytes (UTF-8)',
+       confirmPasswordPlaceholder: 'Confirm password',
+       passwordMismatch: 'Passwords do not match'
+     },
+diff --git a/frontend/src/core/i18n/locales/zh/landing.ts b/frontend/src/core/i18n/locales/zh/landing.ts
+index 584bdd023..53807eb64 100644
+--- a/frontend/src/core/i18n/locales/zh/landing.ts
++++ b/frontend/src/core/i18n/locales/zh/landing.ts
+@@ -230,7 +230,7 @@ export default {
+       email: '邮箱',
+       password: '密码',
+       confirmPassword: '确认密码',
+-      passwordPlaceholder: '至少 8 个字符',
++      passwordPlaceholder: '8–72 字节（UTF-8）',
+       confirmPasswordPlaceholder: '确认密码',
+       passwordMismatch: '密码不匹配'
+     },
+diff --git a/frontend/src/features/setup/README.md b/frontend/src/features/setup/README.md
+index b17921d35..3ce482988 100644
+--- a/frontend/src/features/setup/README.md
++++ b/frontend/src/features/setup/README.md
+@@ -9,3 +9,5 @@
+ Setup API 不在 `/api/v1` 下，当前保留专用 Axios client，并通过共享 URL helper 解析根地址；这是已有初始化入口，不是新增普通业务 client 的范例。数据库、Redis 和管理员密码只用于安装流程，不能写入日志或浏览器持久缓存。
+ 
+ 服务完成安装后，路由守卫依据 `needs_setup` 与实际登录状态决定后续跳转，不能无条件把普通用户送入管理页。当前 feature 没有独立 Vitest；从 `frontend/` 执行 `pnpm exec vitest run src/core/routes` 和 `pnpm run typecheck`，安装动作另需后端 bootstrap/setup 测试及独立空数据库。
++
++管理员密码按 UTF-8 的 8–72 字节校验，页面按钮和中英文提示使用同一边界；后端复用安装凭据 owner，并以登录邮箱及 bcrypt 规则作最终校验。
+diff --git a/frontend/src/features/setup/presentation/pages/SetupWizardPage.vue b/frontend/src/features/setup/presentation/pages/SetupWizardPage.vue
+index 0446b3d3d..0650a123c 100644
+--- a/frontend/src/features/setup/presentation/pages/SetupWizardPage.vue
++++ b/frontend/src/features/setup/presentation/pages/SetupWizardPage.vue
+@@ -573,12 +573,14 @@ const canProceed = computed(() => {
+       return dbConnected.value
+     case 1:
+       return redisConnected.value
+-    case 2:
++    case 2: {
++      const passwordBytes = new TextEncoder().encode(formData.admin.password).length
+       return (
+         formData.admin.email &&
+-        formData.admin.password.length >= 8 &&
++        passwordBytes >= 8 && passwordBytes <= 72 &&
+         formData.admin.password === confirmPassword.value
+       )
++    }
+     default:
+       return true
+   }

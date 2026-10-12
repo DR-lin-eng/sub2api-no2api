@@ -1,0 +1,15 @@
+{
+  "url": "http://127.0.0.1:18099/",
+  "desktop": "browser-desktop.jpg",
+  "mobile": "browser-mobile.jpg",
+  "mobileWidth": 390,
+  "observedClientWidth": 382,
+  "observedScrollWidth": 382,
+  "outputTPSP50": "50.0",
+  "secondaryActiveCount": 2,
+  "preservedFilters": [
+    "OAuth 有额度",
+    "BPS 已启用"
+  ],
+  "result": "PASS"
+}

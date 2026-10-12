@@ -70,6 +70,33 @@ func (r *CompositeRouteResolver) groupGeneration(groupID int64) *atomic.Uint64 {
 	return counter
 }
 
+// ListExactPublicModels reuses the routing snapshot and exposes only concrete enabled aliases.
+func (r *CompositeRouteResolver) ListExactPublicModels(ctx context.Context, groupID int64, endpoint string, includeSystemOne bool) ([]string, error) {
+	if r == nil || r.repo == nil || groupID <= 0 {
+		return nil, nil
+	}
+	snapshot, err := r.loadSnapshot(ctx, groupID)
+	if err != nil {
+		return nil, err
+	}
+	seen := make(map[string]struct{}, len(snapshot.exact))
+	models := make([]string, 0, len(snapshot.exact))
+	for key, route := range snapshot.exact {
+		if endpoint != "" && key.endpoint != CompositeRouteEndpointAny && key.endpoint != normalizeCompositeRouteEndpoint(endpoint) {
+			continue
+		}
+		if !includeSystemOne && route.TargetPlatform == PlatformTypeSafe {
+			continue
+		}
+		if _, ok := seen[key.model]; !ok {
+			seen[key.model] = struct{}{}
+			models = append(models, key.model)
+		}
+	}
+	sort.Strings(models)
+	return models, nil
+}
+
 func (r *CompositeRouteResolver) Resolve(ctx context.Context, groupID int64, model, endpoint string) (CompositeRouteDecision, error) {
 	model = strings.TrimSpace(model)
 	endpoint = normalizeCompositeRouteEndpoint(endpoint)

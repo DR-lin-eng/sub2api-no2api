@@ -192,7 +192,9 @@ func (s *PaymentService) checkPaidWithOptions(ctx context.Context, o *dbent.Paym
 			}
 			notificationTradeNo = upstreamTradeNo
 		}
-		if err := s.HandlePaymentNotification(ctx, &payment.PaymentNotification{TradeNo: notificationTradeNo, OrderID: o.OutTradeNo, Amount: resp.Amount, Status: payment.ProviderStatusSuccess, Metadata: resp.Metadata}, prov.ProviderKey()); err != nil {
+		notificationMetadata := clonePaymentNotificationMetadata(resp.Metadata)
+		notificationMetadata["notification_source"] = "upstream_query"
+		if err := s.HandlePaymentNotification(ctx, &payment.PaymentNotification{TradeNo: notificationTradeNo, OrderID: o.OutTradeNo, Amount: resp.Amount, Status: payment.ProviderStatusSuccess, Metadata: notificationMetadata}, prov.ProviderKey()); err != nil {
 			slog.Error("fulfillment failed during checkPaid", "orderID", o.ID, "error", err)
 			// Still return already_paid — order was paid, fulfillment can be retried
 		}
@@ -270,6 +272,14 @@ func paymentOrderShouldPersistUpstreamTradeNo(queryRef, upstreamTradeNo, current
 		return false
 	}
 	return true
+}
+
+func clonePaymentNotificationMetadata(source map[string]string) map[string]string {
+	cloned := make(map[string]string, len(source)+1)
+	for key, value := range source {
+		cloned[key] = value
+	}
+	return cloned
 }
 
 // VerifyOrderByOutTradeNo actively queries the upstream provider to check

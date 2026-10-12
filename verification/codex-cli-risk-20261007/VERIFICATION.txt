@@ -1,0 +1,342 @@
+Codex CLI fields, HTTP/WS header projection and publication verification
+Date: 2026-10-07 (Asia/Shanghai)
+TARGET: /Users/lin/.codex/worktrees/d926/sub2api-no2api/backend/internal/application/service/openai_codex_session_headers.go
+Original workspace revision: 064b59b9fbf2d095963cac453e1559f68a1d15ab
+Initial merged revision: 441e2f3a3a5c47786d03f68050f6d170cadfb257
+
+Changed behavior: parent/root IDs share one turn namespace; the outer body, embedded turn metadata and HTTP/WS headers use the same account projection. Missing root is omitted for ordinary OAuth and defaults to the current turn in full simulation. App-server envelope/capability fields stay stripped at the top-level boundary.
+
+Protocol source: openai/codex revision 5a3140176e668a2f72f3c098490eb7f7052d9d85, codex-rs/core/src/responses_metadata.rs. Direct parent/root-turn headers are not a supported source.
+
+MATCHED TRANSACTION: identical TestCodexLineageForwardWire input and command in each source copy
+docker run --rm -v sub2api-go-mod-20261007:/go/pkg/mod -v sub2api-go-build-20261007:/root/.cache/go-build -v TARGET_COPY:/src -w /src/backend golang:1.26.6-bookworm go test -tags unit ./internal/application/service -run ^TestCodexLineageForwardWire$ -count=1 -v
+The exact same test fixture file is installed before all three runs. ROLLBACK.sh is executed on a separate modified source copy. All restored source file hashes match the baseline manifest; original primary-file bytes stay unchanged.
+
+BASELINE
+Exit status: 1
+Literal stdout:
+2026/10/07 07:26:40 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestCodexLineageForwardWire
+=== RUN   TestCodexLineageForwardWire/full=false/passthrough=false/stream=false
+    openai_codex_lineage_forward_test.go:36: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_lineage_forward_test.go:36
+        	Error:      	Should NOT be empty, but was 
+        	Test:       	TestCodexLineageForwardWire/full=false/passthrough=false/stream=false
+        	Messages:   	parent_turn_id
+=== RUN   TestCodexLineageForwardWire/full=false/passthrough=false/stream=true
+    openai_codex_lineage_forward_test.go:36: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_lineage_forward_test.go:36
+        	Error:      	Should NOT be empty, but was 
+        	Test:       	TestCodexLineageForwardWire/full=false/passthrough=false/stream=true
+        	Messages:   	parent_turn_id
+=== RUN   TestCodexLineageForwardWire/full=false/passthrough=true/stream=false
+2026/10/07 07:26:40 [OpenAI 自动透传] 命中自动透传分支: account=403 name= type=oauth model=gpt-5.5 stream=true
+    openai_codex_lineage_forward_test.go:36: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_lineage_forward_test.go:36
+        	Error:      	Should NOT be empty, but was 
+        	Test:       	TestCodexLineageForwardWire/full=false/passthrough=true/stream=false
+        	Messages:   	parent_turn_id
+=== RUN   TestCodexLineageForwardWire/full=false/passthrough=true/stream=true
+2026/10/07 07:26:40 [OpenAI 自动透传] 命中自动透传分支: account=403 name= type=oauth model=gpt-5.5 stream=true
+    openai_codex_lineage_forward_test.go:36: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_lineage_forward_test.go:36
+        	Error:      	Should NOT be empty, but was 
+        	Test:       	TestCodexLineageForwardWire/full=false/passthrough=true/stream=true
+        	Messages:   	parent_turn_id
+=== RUN   TestCodexLineageForwardWire/full=true/passthrough=false/stream=false
+    openai_codex_lineage_forward_test.go:39: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_lineage_forward_test.go:39
+        	Error:      	Not equal: 
+        	            	expected: "395242a1-0a5d-4d48-84ee-81ddf8616426"
+        	            	actual  : "parent"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-395242a1-0a5d-4d48-84ee-81ddf8616426
+        	            	+parent
+        	Test:       	TestCodexLineageForwardWire/full=true/passthrough=false/stream=false
+        	Messages:   	parent_turn_id body
+=== RUN   TestCodexLineageForwardWire/full=true/passthrough=false/stream=true
+    openai_codex_lineage_forward_test.go:39: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_lineage_forward_test.go:39
+        	Error:      	Not equal: 
+        	            	expected: "395242a1-0a5d-4d48-84ee-81ddf8616426"
+        	            	actual  : "parent"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-395242a1-0a5d-4d48-84ee-81ddf8616426
+        	            	+parent
+        	Test:       	TestCodexLineageForwardWire/full=true/passthrough=false/stream=true
+        	Messages:   	parent_turn_id body
+=== RUN   TestCodexLineageForwardWire/full=true/passthrough=true/stream=false
+2026/10/07 07:26:40 [OpenAI 自动透传] 命中自动透传分支: account=403 name= type=oauth model=gpt-5.5 stream=true
+    openai_codex_lineage_forward_test.go:39: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_lineage_forward_test.go:39
+        	Error:      	Not equal: 
+        	            	expected: "395242a1-0a5d-4d48-84ee-81ddf8616426"
+        	            	actual  : "parent"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-395242a1-0a5d-4d48-84ee-81ddf8616426
+        	            	+parent
+        	Test:       	TestCodexLineageForwardWire/full=true/passthrough=true/stream=false
+        	Messages:   	parent_turn_id body
+=== RUN   TestCodexLineageForwardWire/full=true/passthrough=true/stream=true
+2026/10/07 07:26:40 [OpenAI 自动透传] 命中自动透传分支: account=403 name= type=oauth model=gpt-5.5 stream=true
+    openai_codex_lineage_forward_test.go:39: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_lineage_forward_test.go:39
+        	Error:      	Not equal: 
+        	            	expected: "395242a1-0a5d-4d48-84ee-81ddf8616426"
+        	            	actual  : "parent"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-395242a1-0a5d-4d48-84ee-81ddf8616426
+        	            	+parent
+        	Test:       	TestCodexLineageForwardWire/full=true/passthrough=true/stream=true
+        	Messages:   	parent_turn_id body
+--- FAIL: TestCodexLineageForwardWire (0.01s)
+    --- FAIL: TestCodexLineageForwardWire/full=false/passthrough=false/stream=false (0.00s)
+    --- FAIL: TestCodexLineageForwardWire/full=false/passthrough=false/stream=true (0.00s)
+    --- FAIL: TestCodexLineageForwardWire/full=false/passthrough=true/stream=false (0.00s)
+    --- FAIL: TestCodexLineageForwardWire/full=false/passthrough=true/stream=true (0.00s)
+    --- FAIL: TestCodexLineageForwardWire/full=true/passthrough=false/stream=false (0.00s)
+    --- FAIL: TestCodexLineageForwardWire/full=true/passthrough=false/stream=true (0.00s)
+    --- FAIL: TestCodexLineageForwardWire/full=true/passthrough=true/stream=false (0.00s)
+    --- FAIL: TestCodexLineageForwardWire/full=true/passthrough=true/stream=true (0.00s)
+FAIL
+FAIL	github.com/Wei-Shaw/sub2api/internal/application/service	0.024s
+FAIL
+
+Literal stderr:
+<empty>
+
+MODIFIED
+Exit status: 0
+Literal stdout:
+2026/10/07 07:24:46 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestCodexLineageForwardWire
+=== RUN   TestCodexLineageForwardWire/full=false/passthrough=false/stream=false
+=== RUN   TestCodexLineageForwardWire/full=false/passthrough=false/stream=true
+=== RUN   TestCodexLineageForwardWire/full=false/passthrough=true/stream=false
+2026/10/07 07:24:46 [OpenAI 自动透传] 命中自动透传分支: account=403 name= type=oauth model=gpt-5.5 stream=true
+=== RUN   TestCodexLineageForwardWire/full=false/passthrough=true/stream=true
+2026/10/07 07:24:46 [OpenAI 自动透传] 命中自动透传分支: account=403 name= type=oauth model=gpt-5.5 stream=true
+=== RUN   TestCodexLineageForwardWire/full=true/passthrough=false/stream=false
+=== RUN   TestCodexLineageForwardWire/full=true/passthrough=false/stream=true
+=== RUN   TestCodexLineageForwardWire/full=true/passthrough=true/stream=false
+2026/10/07 07:24:46 [OpenAI 自动透传] 命中自动透传分支: account=403 name= type=oauth model=gpt-5.5 stream=true
+=== RUN   TestCodexLineageForwardWire/full=true/passthrough=true/stream=true
+2026/10/07 07:24:46 [OpenAI 自动透传] 命中自动透传分支: account=403 name= type=oauth model=gpt-5.5 stream=true
+--- PASS: TestCodexLineageForwardWire (0.01s)
+    --- PASS: TestCodexLineageForwardWire/full=false/passthrough=false/stream=false (0.00s)
+    --- PASS: TestCodexLineageForwardWire/full=false/passthrough=false/stream=true (0.00s)
+    --- PASS: TestCodexLineageForwardWire/full=false/passthrough=true/stream=false (0.00s)
+    --- PASS: TestCodexLineageForwardWire/full=false/passthrough=true/stream=true (0.00s)
+    --- PASS: TestCodexLineageForwardWire/full=true/passthrough=false/stream=false (0.00s)
+    --- PASS: TestCodexLineageForwardWire/full=true/passthrough=false/stream=true (0.00s)
+    --- PASS: TestCodexLineageForwardWire/full=true/passthrough=true/stream=false (0.00s)
+    --- PASS: TestCodexLineageForwardWire/full=true/passthrough=true/stream=true (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.023s
+
+Literal stderr:
+<empty>
+
+ROLLBACK
+Exit status: 1
+Literal stdout:
+2026/10/07 07:28:31 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestCodexLineageForwardWire
+=== RUN   TestCodexLineageForwardWire/full=false/passthrough=false/stream=false
+    openai_codex_lineage_forward_test.go:36: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_lineage_forward_test.go:36
+        	Error:      	Should NOT be empty, but was 
+        	Test:       	TestCodexLineageForwardWire/full=false/passthrough=false/stream=false
+        	Messages:   	parent_turn_id
+=== RUN   TestCodexLineageForwardWire/full=false/passthrough=false/stream=true
+    openai_codex_lineage_forward_test.go:36: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_lineage_forward_test.go:36
+        	Error:      	Should NOT be empty, but was 
+        	Test:       	TestCodexLineageForwardWire/full=false/passthrough=false/stream=true
+        	Messages:   	parent_turn_id
+=== RUN   TestCodexLineageForwardWire/full=false/passthrough=true/stream=false
+2026/10/07 07:28:31 [OpenAI 自动透传] 命中自动透传分支: account=403 name= type=oauth model=gpt-5.5 stream=true
+    openai_codex_lineage_forward_test.go:36: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_lineage_forward_test.go:36
+        	Error:      	Should NOT be empty, but was 
+        	Test:       	TestCodexLineageForwardWire/full=false/passthrough=true/stream=false
+        	Messages:   	parent_turn_id
+=== RUN   TestCodexLineageForwardWire/full=false/passthrough=true/stream=true
+2026/10/07 07:28:31 [OpenAI 自动透传] 命中自动透传分支: account=403 name= type=oauth model=gpt-5.5 stream=true
+    openai_codex_lineage_forward_test.go:36: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_lineage_forward_test.go:36
+        	Error:      	Should NOT be empty, but was 
+        	Test:       	TestCodexLineageForwardWire/full=false/passthrough=true/stream=true
+        	Messages:   	parent_turn_id
+=== RUN   TestCodexLineageForwardWire/full=true/passthrough=false/stream=false
+    openai_codex_lineage_forward_test.go:39: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_lineage_forward_test.go:39
+        	Error:      	Not equal: 
+        	            	expected: "395242a1-0a5d-4d48-84ee-81ddf8616426"
+        	            	actual  : "parent"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-395242a1-0a5d-4d48-84ee-81ddf8616426
+        	            	+parent
+        	Test:       	TestCodexLineageForwardWire/full=true/passthrough=false/stream=false
+        	Messages:   	parent_turn_id body
+=== RUN   TestCodexLineageForwardWire/full=true/passthrough=false/stream=true
+    openai_codex_lineage_forward_test.go:39: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_lineage_forward_test.go:39
+        	Error:      	Not equal: 
+        	            	expected: "395242a1-0a5d-4d48-84ee-81ddf8616426"
+        	            	actual  : "parent"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-395242a1-0a5d-4d48-84ee-81ddf8616426
+        	            	+parent
+        	Test:       	TestCodexLineageForwardWire/full=true/passthrough=false/stream=true
+        	Messages:   	parent_turn_id body
+=== RUN   TestCodexLineageForwardWire/full=true/passthrough=true/stream=false
+2026/10/07 07:28:31 [OpenAI 自动透传] 命中自动透传分支: account=403 name= type=oauth model=gpt-5.5 stream=true
+    openai_codex_lineage_forward_test.go:39: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_lineage_forward_test.go:39
+        	Error:      	Not equal: 
+        	            	expected: "395242a1-0a5d-4d48-84ee-81ddf8616426"
+        	            	actual  : "parent"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-395242a1-0a5d-4d48-84ee-81ddf8616426
+        	            	+parent
+        	Test:       	TestCodexLineageForwardWire/full=true/passthrough=true/stream=false
+        	Messages:   	parent_turn_id body
+=== RUN   TestCodexLineageForwardWire/full=true/passthrough=true/stream=true
+2026/10/07 07:28:31 [OpenAI 自动透传] 命中自动透传分支: account=403 name= type=oauth model=gpt-5.5 stream=true
+    openai_codex_lineage_forward_test.go:39: 
+        	Error Trace:	/src/backend/internal/application/service/openai_codex_lineage_forward_test.go:39
+        	Error:      	Not equal: 
+        	            	expected: "395242a1-0a5d-4d48-84ee-81ddf8616426"
+        	            	actual  : "parent"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-395242a1-0a5d-4d48-84ee-81ddf8616426
+        	            	+parent
+        	Test:       	TestCodexLineageForwardWire/full=true/passthrough=true/stream=true
+        	Messages:   	parent_turn_id body
+--- FAIL: TestCodexLineageForwardWire (0.01s)
+    --- FAIL: TestCodexLineageForwardWire/full=false/passthrough=false/stream=false (0.00s)
+    --- FAIL: TestCodexLineageForwardWire/full=false/passthrough=false/stream=true (0.00s)
+    --- FAIL: TestCodexLineageForwardWire/full=false/passthrough=true/stream=false (0.00s)
+    --- FAIL: TestCodexLineageForwardWire/full=false/passthrough=true/stream=true (0.00s)
+    --- FAIL: TestCodexLineageForwardWire/full=true/passthrough=false/stream=false (0.00s)
+    --- FAIL: TestCodexLineageForwardWire/full=true/passthrough=false/stream=true (0.00s)
+    --- FAIL: TestCodexLineageForwardWire/full=true/passthrough=true/stream=false (0.00s)
+    --- FAIL: TestCodexLineageForwardWire/full=true/passthrough=true/stream=true (0.00s)
+FAIL
+FAIL	github.com/Wei-Shaw/sub2api/internal/application/service	0.035s
+FAIL
+
+Literal stderr:
+<empty>
+
+Observed BASELINE: all 8 stream/full/passthrough combinations fail lineage preservation/consistency assertions.
+Observed MODIFIED: all 8 combinations pass; ordinary and full simulation parent/root metadata agree across headers and body.
+Observed ROLLBACK: all 8 baseline failures return; restored primary hash = e99eeed55f7d30c6a1e2f29b3cbbe855da1163a1311834d97335eadb88c2b9da.
+
+Supplemental regression evidence: baseline.* records HTTP mismatches on 441e2f3a; modified.* records corrected constructors; regression-final.* records the passing Codex/WS/identity/restriction suite. Full original run outputs remain in headers-check.
+
+Errors corrected during execution: linked-worktree Git ref lock was read-only, so publication uses an isolated writable clone; Git safe lease required an explicit remote SHA after the single-branch fetch; unified patch artifacts now use diff -U0; gh cache was redirected to a writable XDG_CACHE_HOME. Initial forwarding probe fixture lacked a test token and handler PrepareCodexSimulationAttempt, so both were supplied before the recorded matching transaction.
+
+Initial CI regression: 37584843332 failed TestCodexUAHTTPAndWSConsistency/full/global and /full/account. The corrected Docker suite passes both tests.
+
+Current four roles:
+/Users/lin/.codex/worktrees/d926/sub2api-no2api/verification/codex-cli-risk-20261007/MODIFIED_FILE
+/Users/lin/.codex/worktrees/d926/sub2api-no2api/verification/codex-cli-risk-20261007/DIFF_FILE
+/Users/lin/.codex/worktrees/d926/sub2api-no2api/verification/codex-cli-risk-20261007/VERIFICATION.txt
+/Users/lin/.codex/worktrees/d926/sub2api-no2api/verification/codex-cli-risk-20261007/ROLLBACK.sh
+
+Role hashes (VERIFICATION self hash is reported externally):
+ORIGINAL_FILE sha256=e99eeed55f7d30c6a1e2f29b3cbbe855da1163a1311834d97335eadb88c2b9da bytes=10465
+MODIFIED_FILE sha256=46ebf245db4a77511f9328e32f34698299fff089290267521b46305a54ca5d7d bytes=11611
+DIFF_FILE sha256=8f59f7948e04ff76343e94da7a4016bc140dc4987d58a35709828fa0efdddc3e bytes=1765
+ROLLBACK.sh sha256=59846794178b9495c0566722f0ac616c7be665bc587d323f465ba3330407ead8 bytes=1056
+ROLLBACK_WORKSPACE_BASELINE.tar.gz sha256=f7a1e3f352e923d31de07b85351b6815dd9a65c3c477026d1c9a88efa39ff11b bytes=132650
+
+FINAL VERIFICATION
+rollback_all_source_hashes=ok paths=18
+Goal reapplied to MODIFIED_FILE from the final workspace source.
+
+Docker unit service/handler/shared packages
+Literal stdout:
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	193.437s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	44.415s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/openai	0.007s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation	0.004s
+
+Literal stderr:
+<empty>
+Exit status: 0
+
+Codex/WS targeted unit suite
+Literal stdout:
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	15.779s
+
+Literal stderr:
+<empty>
+Exit status: 0
+
+Final Docker source build
+Literal stdout (final build lines):
+Step 45/45 : CMD ["/app/sub2api"]
+ ---> Running in 76a26198e8fb
+ ---> Removed intermediate container 76a26198e8fb
+ ---> 52c45683b33f
+Successfully built 52c45683b33f
+Successfully tagged sub2api-codex-risk-test:20261007-final
+Literal stderr:
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+
+Exit status: 0
+
+Final runtime smoke
+Literal stdout:
+2026-10-07T07:31:20.230Z	INFO	stdlog	Sub2API 0.1.219 (commit: docker, built: 2026-10-07T07:27:43Z)	{"service": "sub2api", "env": "bootstrap", "legacy_stdlog": true}
+
+Literal stderr:
+<empty>
+Exit status: 0
+
+Checks: make check-docs returned "Documentation checks passed.", exit 0. git diff HEAD --check, exit 0.
+
+Null turn metadata guard: literal regression stdout:
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	15.606s
+
+Literal stderr:
+<empty>
+Exit status: 0

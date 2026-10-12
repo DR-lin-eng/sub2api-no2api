@@ -81,6 +81,18 @@ func TestSanitizeOpenAIResponsesServerOwnedFieldsIsCaseInsensitiveAtTopLevel(t *
 	require.Equal(t, "user-data", gjson.GetBytes(got, "input.ACCESS_PROGRAMS.cyber").String())
 }
 
+func TestSanitizeOpenAIResponsesNewAppServerEnvelopeFields(t *testing.T) {
+	body := []byte(`{"parentTurnId":"parent","rootTurnId":"root","origin":"automatic","authBearerToken":"secret","skills":{"required":["unsafe"],"name":"user-data"},"serverName":"mcp","namespaceTools":["admin"],"loginId":"login","input":{"parentTurnId":"user-data"}}`)
+
+	got, changed, err := sanitizeOpenAIResponsesServerOwnedFields(body)
+	require.NoError(t, err)
+	require.True(t, changed)
+	for _, key := range []string{"parentTurnId", "rootTurnId", "origin", "authBearerToken", "skills", "serverName", "namespaceTools", "loginId"} {
+		require.False(t, gjson.GetBytes(got, key).Exists(), "top-level %s must be stripped", key)
+	}
+	require.Equal(t, "user-data", gjson.GetBytes(got, "input.parentTurnId").String())
+}
+
 func TestSanitizeOpenAIResponsesAccessProgramsMap(t *testing.T) {
 	payload := map[string]any{
 		"model":           "gpt-5.6-sol",

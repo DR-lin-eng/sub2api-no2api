@@ -1,0 +1,105 @@
+UPSTREAM SELECTIVE SYNC VERIFICATION — 2026-10-07 Asia/Shanghai
+
+DOWNSTREAM_BASELINE=043203dd645eb996c339ba84a808f96f34f5a73b
+PREVIOUS_UPSTREAM=b8dece9000c68815a5b867ca5a1e6f236e173905
+FROZEN_UPSTREAM=3f1a2ea0a760730e3bc528105c00b4ee4f23e469
+BRANCH=codex/upstream-sync-20261007
+RANGE=3 merged upstream main PRs plus one VERSION-only commit.
+DECISIONS=#7893 adapted into current owners; #7888 already covered by fork #111; #7851 has no triggering configuration in this fork and is closed with an explicit #7736 dependency/reopen condition. Earlier closed differences were not reimplemented. Earlier deferred features remain in their original ledgers.
+
+ARTIFACTS
+BASELINE_FILE / MODIFIED_FILE snapshot bootstrap/setup/setup.go.
+DIFF_FILE contains the source/doc patch, excluding this diagnostics directory.
+SOURCE_FILES_SHA256.txt records exact changed source/doc bytes.
+UPSTREAM_PRS.json records merge SHAs, upstream diff SHA-256, file sets and closure conditions.
+ROLLBACK.sh only creates a new independent task-specific temporary copy; it refuses existing targets and the actual checkout.
+
+TOOLS / DATA BOUNDARY
+Docker Go 1.26.6 linux/arm64, Node 24, pnpm 11.17.0, PostgreSQL 18, Redis 8.
+Go concurrency: GOMAXPROCS=2, GOFLAGS=-p=2; larger suites/lint use GOMEMLIMIT=1500MiB.
+All runtime data are synthetic in Compose project sub2api-sync-20261007 on loopback port 18089.
+No real payment, model-provider or administrator-acceptance request was sent.
+No Ent/Wire source change, generated-file edit, migration or exception expansion.
+
+BACKEND COMPLETE UNIT
+From repository root:
+docker run --rm -e GOMAXPROCS=2 -e GOFLAGS=-p=2 -e GOMEMLIMIT=1500MiB -v "$PWD/backend:/workspace" -v sub2api-go-mod-20261007:/go/pkg/mod -v sub2api-go-build-20261007:/root/.cache/go-build -w /workspace golang:1.26.6-bookworm go test -tags=unit ./...
+Result: all packages PASS; exit 0. New bootstrap owner also passed final race/focused verification after the bounded-email short circuit.
+
+BACKEND POSTGRESQL / REDIS INTEGRATION
+docker run --rm -e GOMAXPROCS=2 -e GOFLAGS=-p=2 -e GOMEMLIMIT=1500MiB -e CI=true -e DOCKER_HOST=unix:///var/run/docker.sock -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -v "$PWD/backend:/workspace" -v sub2api-go-mod-20261007:/go/pkg/mod -v sub2api-go-build-20261007:/root/.cache/go-build -v /var/run/docker.sock:/var/run/docker.sock -w /workspace sub2api-upstream-sync-test:20260930 go test -tags=integration ./...
+Result: all packages PASS; exit 0. Real Testcontainers databases/caches verify the retained protocol, routing, payment and reliable settlement paths, including deleted-Key and live billing regressions from the current main.
+
+GO LINT
+Docker Go image above, GOGC=35, GOMEMLIMIT=1500MiB:
+GOBIN=/tmp/bin go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.9.0
+/tmp/bin/golangci-lint run --timeout=30m ./...
+Version verified: golangci-lint 2.9.0 built with go1.26.6.
+Literal result: 0 issues.; exit 0.
+
+FINAL BOOTSTRAP / DEPLOYMENT REGRESSION
+Docker Go image above:
+cd backend && go test -race ./internal/bootstrap/setup -count=1
+cd /workspace && sh deploy/tests/docker-compose-security-test.sh
+sh deploy/tests/docker-runtime-resources-test.sh
+sh deploy/tests/docker-deploy-admin-test.sh
+sh deploy/test-caddyfile-cache.sh
+Result: bootstrap PASS (1.609s), all shell checks PASS; exit 0.
+Docker go vet -tags=e2e ./internal/integration/... also PASS; exit 0.
+The preparation-script test stubs only downloads/RNG using synthetic fixtures; success writes a random-format login email, RNG errors and empty output both exit before .env is created. The same check is added to macOS shell CI.
+
+EXACT BASELINE DEFECT REPLAY
+Input: git archive of DOWNSTREAM_BASELINE; only admin_validation_test.go added as a regression harness, with original production code.
+Docker Go command: go test ./internal/bootstrap/setup -run '^TestAdminCredentialLoginCompatibility$' -count=1
+Result: expected failure, exit 1. Original setup accepted a@b, display-name/angle mailbox forms, 73 ASCII bytes and 75 UTF-8 bytes. The identical regression passes against the candidate.
+
+FRONTEND REQUIRED CI GATE
+Docker node:24-alpine, repository mounted at /workspace, independent sub2api-sync-20261007-node volume, pnpm 11.17.0:
+pnpm install --frozen-lockfile --prefer-offline
+cd /workspace && make test-frontend
+Result: ESLint PASS, vue-tsc PASS, 29 mandatory files / 247 tests PASS.
+Extended command from frontend:
+pnpm exec vitest run src/features/keys src/core/networks src/core/routes -t "^(?!.*preserves the.*openai).*"
+Result: 21 files PASS, 216 tests PASS, one pre-existing OpenCode snapshot case skipped.
+Baseline independently installed its original frozen lockfile (Vue 3.5.42): openCodeConfigResolver.spec.ts reports the identical 6297 != 5734 assertion, 6 other cases PASS. Candidate is Vue 3.5.43. Owners/test bytes match the exact baseline; PREEXISTING_TEST.txt.
+No required CI case was skipped and no stale assertion or existing configuration owner was modified.
+
+DEPENDENCY AUDIT
+Docker frontend: pnpm audit --prod --audit-level high --json > audit.json
+Production audit high finding: only pre-existing node-forge GHSA-86w9-cpqp-85rv.
+python3 tools/check_pnpm_audit_exceptions.py --audit diagnostics/upstream-sync-20261007/audit.json --exceptions .github/audit-exceptions.yml
+Literal result: Audit exceptions validated.; exit 0. Existing expiration 2026-11-05 and RSA-OAEP/AES-GCM usage gate unchanged. No exception added or extended. No upstream legacy xlsx exception copied.
+
+FULL SOURCE PRODUCTION BUILDS
+Baseline:
+docker build --build-arg GOPROXY=https://proxy.golang.org,direct --build-arg GOSUMDB=sum.golang.org --build-arg COMMIT=043203dd645eb996c339ba84a808f96f34f5a73b -t sub2api-upstream-sync:20261007-baseline /private/tmp/sub2api-sync-20261007-baseline
+Candidate:
+docker build --build-arg GOPROXY=https://proxy.golang.org,direct --build-arg GOSUMDB=sum.golang.org --build-arg COMMIT=upstream-sync-20261007-verified -t sub2api-upstream-sync:20261007 .
+Result: all frontend/backend/runtime stages PASS; both exit 0. Local candidate label is a validation label; publishing SHA is verified on GitHub separately.
+
+POSTGRESQL / REDIS RUNTIME MATRIX
+python3 diagnostics/upstream-sync-20261007/runtime_check.py
+Result: 11 scenarios PASS, ALL_RUNTIME_CHECKS_PASS; exit 0. Structured results: runtime-result.json.
+Four stages use the same database/cache: baseline -> upgraded -> rollback -> restored.
+Each replacement has a fresh app data directory plus invalid stale initialization env. /health and /ready 200; embedded frontend 200; actual Cookie + RSA-OAEP/AES-GCM admin login PASS; Key ID/name/quota and legacy pending order state PASS. Persistent user email/password hash/balance, Key and order snapshot remain identical. Migrations stay 301 throughout.
+Five fresh rejected installs: 7-byte password, 73-byte ASCII password, 75-byte UTF-8 password, a@b email, display-name mailbox. Each has zero users, no config, .installed lock or installation_complete marker. Initialization migrations/shared bootstrap secret may already exist, consistent with existing flow.
+Fresh empty env generates random email/password and logs one-time values; these authenticate, while old fixed email receives 401. Report does not contain generated credentials.
+Fresh explicit env trims email and preserves a 72-byte multibyte password; real encrypted login PASS.
+
+PERFORMANCE
+Identical Docker Go 1.26.6, linux/arm64, GOMAXPROCS=2:
+go test ./internal/bootstrap/setup -run '^$' -bench '^BenchmarkAdmin' -benchmem -count=3 -benchtime=5000x
+Validator warmed before timing. Outputs: benchmark-baseline.txt / benchmark-candidate.txt; both exit 0.
+Email median 133.9 -> 617.1 ns/op, 96 -> 128 B/op, 5 -> 7 allocs/op. Approx. 0.48us added to install-only validation; password boundary check has zero allocations in both versions. This is not a cold-start/whole-gateway throughput measurement.
+User counts and INSERT query shape/round trips remain unchanged. No gateway hot-path code, scheduler, upstream transport, goroutine or queue introduced. Existing EasyPay and Codex config behaviors were left intact.
+
+SOURCE ROLLBACK / DOCS / LAYOUT
+bash diagnostics/upstream-sync-20261007/ROLLBACK.sh /private/tmp/sub2api-sync-20261007-rollback-check
+Literal result: ROLLBACK_PASS baseline=043203dd645eb996c339ba84a808f96f34f5a73b; exit 0. cmp verifies original setup.go and absence of the new owner in a clean archived copy. Actual checkout unchanged.
+make check-docs -> Documentation checks passed.; exit 0.
+git diff --check -> empty output; exit 0.
+Saved DIFF_FILE has the repository's existing literal-patch whitespace attribute; actual source checks remain enabled.
+Docker source-layout check: baseline and candidate both exit 1 with byte-identical output in LAYOUT_BASELINE.txt. Three pre-existing files: passthrough_relay.go 1273, payment_fulfillment_test.go 1201, pricing_service.go 1238; limit 1200. No changed source exceeds the limit and no allowlist expansion.
+
+PUBLICATION
+The review range is recorded through a tree-preserving upstream tracking merge; semantic closure remains in UPSTREAM_PRS.json. PR head SHA, CI, final main merge and multi-architecture image publication are checked on GitHub and provided in final delivery without rewriting the tested source commit for status-only updates.

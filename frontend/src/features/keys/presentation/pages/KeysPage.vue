@@ -202,9 +202,12 @@
     </BaseDialog>
 
   </AppLayout>
+  <TotpStepUpDialog :controller="stepUp" />
 </template>
 
 <script setup lang="ts">
+import TotpStepUpDialog from '@/features/auth/totpStepUpDialog'
+import { useStepUp, isStepUpCancelled } from '@/common/composables/useStepUp'
 	import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 	import { useI18n } from 'vue-i18n'
 	import { useAppStore } from '@/core/stores/appStore'
@@ -241,6 +244,7 @@ import type {
   KeysTableContext
 } from '@/features/keys/presentation/keysPageContext'
 import {
+  CC_SWITCH_USAGE_SCRIPT,
   buildCcSwitchImportDeeplink,
   type CcSwitchClientType
 } from '@/core/utils/ccswitchImport'
@@ -253,6 +257,7 @@ const formatDateTimeLocal = (isoDate: string): string => {
 }
 
 const appStore = useAppStore()
+const stepUp = useStepUp()
 const onboardingStore = useOnboardingStore()
 const { copyToClipboard: clipboardCopy } = useClipboard()
 
@@ -260,7 +265,7 @@ const allColumns = computed<Column[]>(() => [
   { key: 'name', label: t('common.name'), sortable: true },
   { key: 'id', label: t('keys.id'), sortable: true },
   { key: 'key', label: t('keys.apiKey'), sortable: false },
-  { key: 'group', label: t('keys.groupRouting'), sortable: false },
+  { key: 'group', label: t('keys.groupRouting'), sortable: true },
   { key: 'current_concurrency', label: t('keys.currentConcurrency'), sortable: true },
   { key: 'usage', label: t('keys.usage'), sortable: false },
   { key: 'rate_limit', label: t('keys.rateLimitColumn'), sortable: false },
@@ -1059,11 +1064,13 @@ const handleDelete = async () => {
   if (!selectedKey.value) return
 
   try {
-    await keysAPI.delete(selectedKey.value.id)
+    const keyID = selectedKey.value.id
+    await stepUp.run(() => keysAPI.delete(keyID))
     appStore.showSuccess(t('keys.keyDeletedSuccess'))
     showDeleteDialog.value = false
     loadApiKeys()
   } catch (error: any) {
+    if (isStepUpCancelled(error)) return
     // 优先使用后端返回的错误消息，提供更具体的错误信息给用户
     const errorMsg = error?.message || t('keys.failedToDelete')
     appStore.showError(errorMsg)
@@ -1176,22 +1183,7 @@ const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType) => {
   const baseUrl = publicSettings.value?.api_base_url || window.location.origin
   const platform = row.group?.platform || 'anthropic'
 
-  const usageScript = `({
-    request: {
-      url: "{{baseUrl}}/v1/usage",
-      method: "GET",
-      headers: { "Authorization": "Bearer {{apiKey}}" }
-    },
-    extractor: function(response) {
-      const remaining = response?.remaining ?? response?.quota?.remaining ?? response?.balance;
-      const unit = response?.unit ?? response?.quota?.unit ?? "USD";
-      return {
-        isValid: response?.is_active ?? response?.isValid ?? true,
-        remaining,
-        unit
-      };
-    }
-  })`
+  const usageScript = CC_SWITCH_USAGE_SCRIPT
   const providerName = (publicSettings.value?.site_name || 'sub2api').trim() || 'sub2api'
   const deeplink = buildCcSwitchImportDeeplink({
     baseUrl,

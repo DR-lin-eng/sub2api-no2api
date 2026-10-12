@@ -1,0 +1,25 @@
+2026/10/07 07:24:46 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestCodexLineageForwardWire
+=== RUN   TestCodexLineageForwardWire/full=false/passthrough=false/stream=false
+=== RUN   TestCodexLineageForwardWire/full=false/passthrough=false/stream=true
+=== RUN   TestCodexLineageForwardWire/full=false/passthrough=true/stream=false
+2026/10/07 07:24:46 [OpenAI 自动透传] 命中自动透传分支: account=403 name= type=oauth model=gpt-5.5 stream=true
+=== RUN   TestCodexLineageForwardWire/full=false/passthrough=true/stream=true
+2026/10/07 07:24:46 [OpenAI 自动透传] 命中自动透传分支: account=403 name= type=oauth model=gpt-5.5 stream=true
+=== RUN   TestCodexLineageForwardWire/full=true/passthrough=false/stream=false
+=== RUN   TestCodexLineageForwardWire/full=true/passthrough=false/stream=true
+=== RUN   TestCodexLineageForwardWire/full=true/passthrough=true/stream=false
+2026/10/07 07:24:46 [OpenAI 自动透传] 命中自动透传分支: account=403 name= type=oauth model=gpt-5.5 stream=true
+=== RUN   TestCodexLineageForwardWire/full=true/passthrough=true/stream=true
+2026/10/07 07:24:46 [OpenAI 自动透传] 命中自动透传分支: account=403 name= type=oauth model=gpt-5.5 stream=true
+--- PASS: TestCodexLineageForwardWire (0.01s)
+    --- PASS: TestCodexLineageForwardWire/full=false/passthrough=false/stream=false (0.00s)
+    --- PASS: TestCodexLineageForwardWire/full=false/passthrough=false/stream=true (0.00s)
+    --- PASS: TestCodexLineageForwardWire/full=false/passthrough=true/stream=false (0.00s)
+    --- PASS: TestCodexLineageForwardWire/full=false/passthrough=true/stream=true (0.00s)
+    --- PASS: TestCodexLineageForwardWire/full=true/passthrough=false/stream=false (0.00s)
+    --- PASS: TestCodexLineageForwardWire/full=true/passthrough=false/stream=true (0.00s)
+    --- PASS: TestCodexLineageForwardWire/full=true/passthrough=true/stream=false (0.00s)
+    --- PASS: TestCodexLineageForwardWire/full=true/passthrough=true/stream=true (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.023s

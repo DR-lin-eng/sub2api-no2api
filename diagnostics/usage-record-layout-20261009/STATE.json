@@ -1,0 +1,22 @@
+{
+  "TARGET": "/Users/lin/.codex/worktrees/142f/sub2api-no2api/frontend/src/features/admin-usage/presentation/widgets/UsageTable.vue",
+  "GOAL": "cell-latency: keep each timing label and its value in one independent row",
+  "ORIGINAL_SHA256": "87b07c1082e27fd71cdaec0de86de5a8913f9933bc1ca0cc485e29b2daaf4f4f",
+  "EVIDENCE": "/Users/lin/.codex/worktrees/142f/sub2api-no2api/diagnostics/usage-record-layout-20261009",
+  "WORK": "/private/tmp/sub2api-usage-layout-152cxoaa",
+  "INPUT": "/Users/lin/.codex/worktrees/142f/sub2api-no2api/diagnostics/usage-record-layout-20261009/INPUT.json",
+  "IMAGE": "sub2api-usage-layout-test:20261009",
+  "MODIFIED_FILE": "/Users/lin/.codex/worktrees/142f/sub2api-no2api/diagnostics/usage-record-layout-20261009/MODIFIED_FILE.vue",
+  "DIFF_FILE": "/Users/lin/.codex/worktrees/142f/sub2api-no2api/diagnostics/usage-record-layout-20261009/DIFF_FILE.patch",
+  "VERIFICATION": "/Users/lin/.codex/worktrees/142f/sub2api-no2api/diagnostics/usage-record-layout-20261009/VERIFICATION.txt",
+  "ROLLBACK": "/Users/lin/.codex/worktrees/142f/sub2api-no2api/diagnostics/usage-record-layout-20261009/ROLLBACK.sh",
+  "MODIFIED_SHA256": "7caddffe32140850a23700607628779efec48e16d537efab24e4c8f84c92820d",
+  "LAST_CONFIRMED_RESULT": "Current-main candidate passed Docker 86 tests, lint, typecheck and 46-case native baseline/modified/rollback verification",
+  "NEXT_EXECUTABLE_ACTION": "Commit and push verified current-main candidate, open PR and merge after checks",
+  "STATUS": "publishing",
+  "ACCEPTANCE_EVENT": "MODIFIED extra-node layout displays 总耗时=52.07s on the same row; ROLLBACK reproduces BASELINE and restores original SHA256",
+  "PUBLISH_ROOT": "/private/tmp/sub2api-usage-layout-152cxoaa/publish",
+  "PUBLISH_BASE_SHA": "9312e56c31bc5005ab7ee58a261bd1f635c3b9c7",
+  "PUBLISH_BRANCH": "codex/usage-record-layout-20261009",
+  "PUBLICATION_BASELINE_SHA256": "ecf5cffbe0fb6111e80afa6915b200f7dcdb42f99f22577c5b250434183591c3"
+}

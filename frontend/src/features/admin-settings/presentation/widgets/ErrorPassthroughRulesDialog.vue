@@ -631,8 +631,8 @@ const handleSubmit = async () => {
 
 const toggleEnabled = async (rule: ErrorPassthroughRule) => {
   try {
-    await errorPassthroughAPI.toggleEnabled(rule.id, !rule.enabled)
-    rule.enabled = !rule.enabled
+    const updated = await errorPassthroughAPI.toggleEnabled(rule.id, !rule.enabled)
+    rule.enabled = updated.enabled
   } catch (error: any) {
     appStore.showError(error.response?.data?.detail || t('admin.errorPassthrough.failedToToggle'))
     console.error('Error toggling rule:', error)

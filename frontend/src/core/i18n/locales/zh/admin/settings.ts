@@ -1,3 +1,4 @@
+import rechargeBonusMessages from './settings.recharge-bonus'
 import supportChatMessages from './settings.support-chat'
 import codexSimulationMessages from './settings.codex-simulation'
 import ipv6EgressMessages from './settings.ipv6-egress'
@@ -34,6 +35,7 @@ export default {
           settings_manage: { name: "系统设置：管理", description: "管理系统设置；权限组和管理员密钥仅限完整管理员" },
           groups_manage: { name: "模型分组：管理", description: "管理模型分组和分组路由；不是人员权限组" },
           accounts_manage: { name: "上游账号：管理", description: "管理上游账号、巡检、代理和出口" },
+          payment_manage: { name: "支付：管理", description: "管理支付配置、订单、方案和支付渠道" },
         },
         title: '权限组',
         description: '在这里创建自定义角色，控制管理员可以查看和操作的功能。客服组默认保留，并包含在线客服和用户基本信息权限。',
@@ -302,7 +304,7 @@ export default {
         title: '客户端 IP 解析',
         description: '统一控制限流、API Key IP 规则、使用记录、操作审计与会话绑定所使用的客户端 IP',
         resolutionMode: '解析模式',
-        resolutionModeHint: '自动兼容模式无需修改 Nginx、Caddy、Cloudflare 或 Docker 配置',
+        resolutionModeHint: '回环和 Cloudflare 网段自动识别；私网 Nginx、Caddy 或 Docker 反代需显式添加可信代理',
         trustedProxies: '额外可信代理',
         trustedProxiesPlaceholder: '每行填写一个 IP 或 CIDR，例如 203.0.113.10/32',
         trustedProxiesHint: '最多 64 条；已有 server.trusted_proxies 会自动合并，无需重复填写',
@@ -767,6 +769,7 @@ export default {
         rechargeFeeRate: '充值手续费率',
         rechargeFeeRateHint: '用户充值时额外收取的手续费百分比，0 表示不收取手续费',
         rechargeFeePreview: '预览：充值 100 元，手续费 {fee} 元',
+        ...rechargeBonusMessages,
         orderTimeout: '订单超时时间',
         orderTimeoutHint: '单位：分钟，至少 1 分钟',
         maxPendingOrders: '最大待支付订单数',

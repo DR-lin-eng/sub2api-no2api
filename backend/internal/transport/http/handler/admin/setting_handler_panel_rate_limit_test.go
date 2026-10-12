@@ -70,7 +70,7 @@ func newPanelSettingHandlerTest() (*SettingHandler, *panelSettingHandlerRepo) {
 	return NewSettingHandler(svc, nil, nil, nil, nil, nil, nil), repo
 }
 
-func TestGetPanelRateLimitSettingsMissingDefaultsDisabled(t *testing.T) {
+func TestGetPanelRateLimitSettingsMissingDefaultsEnabled(t *testing.T) {
 	h, _ := newPanelSettingHandlerTest()
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
@@ -79,7 +79,7 @@ func TestGetPanelRateLimitSettingsMissingDefaultsDisabled(t *testing.T) {
 	h.GetPanelRateLimitSettings(c)
 
 	require.Equal(t, http.StatusOK, recorder.Code)
-	require.Contains(t, recorder.Body.String(), `"enabled":false`)
+	require.Contains(t, recorder.Body.String(), `"enabled":true`)
 }
 
 func TestUpdatePanelRateLimitSettingsPersistsAndRefreshes(t *testing.T) {

@@ -1,0 +1,13 @@
+{
+  "command": [
+    "bash",
+    "backend/scripts/check-source-layout.sh"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261009",
+  "exit_status": 1,
+  "elapsed_s": 0.14856229099677876,
+  "utc": "2026-10-09T08:41:08.653696+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderr_sha256": "bcb96ff5b948d5e6c936d35eda582521f30c4e10a3228b4437348bf44aa6e073"
+}

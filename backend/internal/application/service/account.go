@@ -4,6 +4,7 @@ package service
 import (
 	"encoding/json"
 	"errors"
+	"github.com/Wei-Shaw/sub2api/internal/modules/typesafe"
 	"hash/fnv"
 	"log/slog"
 	"reflect"
@@ -414,6 +415,10 @@ func (a *Account) IsGrok() bool {
 	return a.Platform == PlatformGrok
 }
 
+func (a *Account) IsTypeSafe() bool {
+	return a != nil && a.Platform == PlatformTypeSafe
+}
+
 func (a *Account) IsGrokOAuth() bool {
 	return a.IsGrok() && a.Type == AccountTypeOAuth
 }
@@ -771,6 +776,11 @@ func stringSliceMappingFromRaw(raw any) map[string][]string {
 }
 
 func (a *Account) GetModelMapping() map[string]string {
+	if a.Platform == PlatformTypeSafe {
+		if raw, ok := a.Credentials["model_mapping"]; !ok || raw == nil {
+			return map[string]string{typesafe.JevLatestModel: typesafe.JevLatestModel}
+		}
+	}
 	credentialsPtr := mapPtr(a.Credentials)
 	rawMapping, _ := a.Credentials["model_mapping"].(map[string]any)
 	rawPtr := mapPtr(rawMapping)
@@ -1242,6 +1252,10 @@ func (a *Account) GetBaseURL() string {
 	}
 	baseURL := a.GetCredential("base_url")
 	if baseURL == "" {
+		// TypeSafe keys must never fall back to the Anthropic host.
+		if a.Platform == PlatformTypeSafe {
+			return typesafe.DefaultBaseURL
+		}
 		return "https://api.anthropic.com"
 	}
 	if a.Platform == PlatformAntigravity {

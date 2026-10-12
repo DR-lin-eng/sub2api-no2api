@@ -573,12 +573,14 @@ const canProceed = computed(() => {
       return dbConnected.value
     case 1:
       return redisConnected.value
-    case 2:
+    case 2: {
+      const passwordBytes = new TextEncoder().encode(formData.admin.password).length
       return (
         formData.admin.email &&
-        formData.admin.password.length >= 8 &&
+        passwordBytes >= 8 && passwordBytes <= 72 &&
         formData.admin.password === confirmPassword.value
       )
+    }
     default:
       return true
   }

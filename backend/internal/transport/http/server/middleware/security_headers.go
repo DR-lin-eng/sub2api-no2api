@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	clientip "github.com/Wei-Shaw/sub2api/internal/shared/ip"
 	"github.com/gin-gonic/gin"
 )
 
@@ -138,6 +139,11 @@ func SecurityHeaders(cfg config.CSPConfig, getFrameSrcOrigins func() []string, g
 		c.Header("X-Content-Type-Options", "nosniff")
 		c.Header("X-Frame-Options", "DENY")
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
+		c.Header("Cross-Origin-Opener-Policy", "same-origin-allow-popups")
+		c.Header("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		if requestIsHTTPS(c) {
+			c.Header("Strict-Transport-Security", "max-age=31536000")
+		}
 		if isAPIRoutePath(c) {
 			c.Next()
 			return
@@ -157,6 +163,20 @@ func SecurityHeaders(cfg config.CSPConfig, getFrameSrcOrigins func() []string, g
 		}
 		c.Next()
 	}
+}
+
+func requestIsHTTPS(c *gin.Context) bool {
+	if c == nil || c.Request == nil {
+		return false
+	}
+	if c.Request.TLS != nil {
+		return true
+	}
+	if clientip.ForwardedHeadersTrusted(c) {
+		values := c.Request.Header.Values("X-Forwarded-Proto")
+		return len(values) == 1 && strings.EqualFold(strings.TrimSpace(values[0]), "https")
+	}
+	return false
 }
 
 func addOriginsToDirective(policy, directive string, origins []string) string {

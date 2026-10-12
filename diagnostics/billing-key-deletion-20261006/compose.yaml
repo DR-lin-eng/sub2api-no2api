@@ -1,0 +1,71 @@
+services:
+  postgres:
+    image: postgres:18.1-alpine3.23
+    environment:
+      POSTGRES_USER: audit
+      POSTGRES_PASSWORD: local_billing_audit_only
+      POSTGRES_DB: audit
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "audit", "-d", "audit"]
+      interval: 1s
+      timeout: 3s
+      retries: 40
+  redis:
+    image: redis:8.4-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 40
+  upstream:
+    image: python:3.13-alpine
+    volumes:
+      - ./mock_upstream.py:/audit/mock_upstream.py:ro
+      - ./pricing.json:/audit/pricing.json:ro
+    command: ["python", "-u", "/audit/mock_upstream.py"]
+    ports:
+      - "127.0.0.1:18090:8080"
+  app:
+    image: golang:1.26.6-bookworm
+    working_dir: /app
+    command: ["/audit/server"]
+    volumes:
+      - ./server:/audit/server:ro
+      - ./pricing.json:/audit/pricing.json:ro
+    ports:
+      - "127.0.0.1:18089:8080"
+    environment:
+      AUTO_SETUP: "true"
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 8080
+      SERVER_MODE: release
+      RUN_MODE: standard
+      DATABASE_HOST: postgres
+      DATABASE_USER: audit
+      DATABASE_PASSWORD: local_billing_audit_only
+      DATABASE_DBNAME: audit
+      DATABASE_SSLMODE: disable
+      REDIS_HOST: redis
+      ADMIN_EMAIL: synthetic-admin@billing-audit.invalid
+      ADMIN_PASSWORD: local_billing_audit_only
+      JWT_SECRET: local_billing_audit_jwt_abcdefghijklmnopqrstuvwxyz_0123456789
+      TOTP_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      BILLING_QUEUE_ENABLED: ${BILLING_AUDIT_QUEUE_ENABLED:-false}
+      PRICING_REMOTE_URL: http://upstream:8080/pricing.json
+      PRICING_HASH_URL: http://upstream:8080/pricing.sha256
+      PRICING_FALLBACK_FILE: /audit/pricing.json
+      SECURITY_URL_ALLOWLIST_ALLOW_INSECURE_HTTP: "true"
+      SECURITY_URL_ALLOWLIST_ALLOW_PRIVATE_HOSTS: "true"
+      GOMAXPROCS: "2"
+      GOMEMLIMIT: 1500MiB
+      HTTP_PROXY: ""
+      HTTPS_PROXY: ""
+      ALL_PROXY: ""
+      NO_PROXY: localhost,127.0.0.1,postgres,redis,upstream
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      upstream:
+        condition: service_started

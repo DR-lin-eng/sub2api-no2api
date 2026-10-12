@@ -245,6 +245,11 @@ func CanonicalizeReturnURL(raw string, srcHost string, srcURL string) (string, e
 		return "", infraerrors.BadRequest("INVALID_RETURN_URL", "return_url must use http or https")
 	}
 	parsed.Fragment = ""
+	// The result page receives server-generated order parameters. User-supplied
+	// query values must not enter the provider's signed checkout payload, where
+	// an ampersand could be promoted into a separate EasyPay notify parameter.
+	parsed.RawQuery = ""
+	parsed.ForceQuery = false
 	if parsed.Path == "" {
 		parsed.Path = "/"
 	}

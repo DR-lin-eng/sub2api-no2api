@@ -1,0 +1,57 @@
+2026/10/06 09:48:40 Timezone initialized: UTC (UTC offset: +00:00)
+2026/10/06 09:48:40 github.com/testcontainers/testcontainers-go - Connected to docker:
+  Server Version: 29.2.1
+  API Version: 1.51
+  Operating System: Docker Desktop
+  Total Memory: 7836 MB
+  Labels:
+    com.docker.desktop.address=unix:///Users/lin/Library/Containers/com.docker.docker/Data/docker-cli.sock
+  Testcontainers for Go Version: v0.40.0
+  Resolved Docker Host: unix:///var/run/docker.sock
+  Resolved Docker Socket Path: /var/run/docker.sock
+  Test SessionID: 6ef6543fbc88cea2193def244f1e354e53162aeeca1fac96c39382d9f25f2bf7
+  Test ProcessID: 52daffd8-d16b-4523-9f96-02fe08ece91a
+2026/10/06 09:48:40 🐳 Creating container for image postgres:18.1-alpine3.23
+2026/10/06 09:48:41 🐳 Creating container for image testcontainers/ryuk:0.13.0
+2026/10/06 09:48:41 ✅ Container created: f7edf7379e1a
+2026/10/06 09:48:41 🐳 Starting container: f7edf7379e1a
+2026/10/06 09:48:42 ✅ Container started: f7edf7379e1a
+2026/10/06 09:48:42 ⏳ Waiting for container id f7edf7379e1a image: testcontainers/ryuk:0.13.0. Waiting for: port 8080/tcp to be listening
+2026/10/06 09:48:42 Shell not found in container
+2026/10/06 09:48:42 🔔 Container is ready: f7edf7379e1a
+2026/10/06 09:48:42 ✅ Container created: 3968897abcb0
+2026/10/06 09:48:42 🐳 Starting container: 3968897abcb0
+2026/10/06 09:48:42 ✅ Container started: 3968897abcb0
+2026/10/06 09:48:42 ⏳ Waiting for container id 3968897abcb0 image: postgres:18.1-alpine3.23. Waiting for: all of: [log message "database system is ready to accept connections" (occurrence: 2), port 5432/tcp to be listening]
+2026/10/06 09:48:44 🔔 Container is ready: 3968897abcb0
+2026/10/06 09:48:44 🐳 Creating container for image redis:8.4-alpine
+2026/10/06 09:48:44 ✅ Container created: 3d4d8fc6e74c
+2026/10/06 09:48:44 🐳 Starting container: 3d4d8fc6e74c
+2026/10/06 09:48:44 ✅ Container started: 3d4d8fc6e74c
+2026/10/06 09:48:44 ⏳ Waiting for container id 3d4d8fc6e74c image: redis:8.4-alpine. Waiting for: all of: [port 6379/tcp to be listening, log message "* Ready to accept connections"]
+2026/10/06 09:48:44 🔔 Container is ready: 3d4d8fc6e74c
+=== RUN   TestDurableUsageBillingQueueSurvivesRedisLoss
+2026/10/06 09:48:45 INFO durable usage billing Redis overlays recovered jobs=1
+--- PASS: TestDurableUsageBillingQueueSurvivesRedisLoss (0.04s)
+=== RUN   TestUsageBillingKeyDeletion_DirectSettlement
+=== RUN   TestUsageBillingKeyDeletion_DirectSettlement/balance
+    usage_billing_key_deletion_integration_test.go:36: settled=1 cost=1.25 balance=98.75 subscription=false account_quota=1.25 dedup=1
+=== RUN   TestUsageBillingKeyDeletion_DirectSettlement/subscription
+    usage_billing_key_deletion_integration_test.go:36: settled=1 cost=1.25 balance=100.00 subscription=true account_quota=1.25 dedup=1
+--- PASS: TestUsageBillingKeyDeletion_DirectSettlement (0.04s)
+    --- PASS: TestUsageBillingKeyDeletion_DirectSettlement/balance (0.02s)
+    --- PASS: TestUsageBillingKeyDeletion_DirectSettlement/subscription (0.02s)
+=== RUN   TestUsageBillingKeyDeletion_DurableQueueSettlement
+=== RUN   TestUsageBillingKeyDeletion_DurableQueueSettlement/balance
+    usage_billing_key_deletion_integration_test.go:81: settled=2 cost=2.50 balance=97.50 subscription=false account_quota=2.50 dedup=2
+    usage_billing_key_deletion_integration_test.go:101: settled=2 cost=2.50 balance=97.50 subscription=false account_quota=2.50 dedup=2
+=== RUN   TestUsageBillingKeyDeletion_DurableQueueSettlement/subscription
+    usage_billing_key_deletion_integration_test.go:81: settled=2 cost=2.50 balance=100.00 subscription=true account_quota=2.50 dedup=2
+    usage_billing_key_deletion_integration_test.go:101: settled=2 cost=2.50 balance=100.00 subscription=true account_quota=2.50 dedup=2
+--- PASS: TestUsageBillingKeyDeletion_DurableQueueSettlement (0.12s)
+    --- PASS: TestUsageBillingKeyDeletion_DurableQueueSettlement/balance (0.06s)
+    --- PASS: TestUsageBillingKeyDeletion_DurableQueueSettlement/subscription (0.06s)
+=== RUN   TestUsageBillingRepositoryApply_DeletedAPIKeyStillBillsBalance
+--- PASS: TestUsageBillingRepositoryApply_DeletedAPIKeyStillBillsBalance (0.01s)
+PASS
+ok      github.com/Wei-Shaw/sub2api/internal/infrastructure/repository  6.335s

@@ -41,7 +41,6 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
 	"github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator"
 	"github.com/Wei-Shaw/sub2api/internal/shared/xai"
-	"golang.org/x/mod/semver"
 )
 
 // 默认配置常量
@@ -93,12 +92,10 @@ const (
 	// The Grok CLI proxy rejects requests that do not identify a supported
 	// client version. Keep a known-good stable version in the binary while
 	// allowing operators to bump it without waiting for a Sub2API release.
-	grokCLIProxyHost       = "cli-chat-proxy.grok.com"
-	grokOfficialAPIHost    = "api.x.ai"
-	grokTokenAuthHeader    = "X-Xai-Token-Auth"
-	grokCLIStableVersion   = xai.CLIClientVersion
-	grokCLIVersionOverride = "XAI_GROK_CLI_VERSION"
-	grokFallbackBodyLimit  = 64 << 10
+	grokCLIProxyHost      = "cli-chat-proxy.grok.com"
+	grokOfficialAPIHost   = "api.x.ai"
+	grokTokenAuthHeader   = "X-Xai-Token-Auth"
+	grokFallbackBodyLimit = 64 << 10
 )
 
 const (
@@ -297,7 +294,7 @@ func (s *httpUpstreamService) DoRouteWithVirtualClientKey(req *http.Request, rou
 	return s.doRouteWithVirtualClientKey(req, route, accountID, accountConcurrency, virtualClientKey)
 }
 
-func (s *httpUpstreamService) doRouteWithVirtualClientKey(req *http.Request, route platformegress.Route, accountID int64, accountConcurrency int, virtualClientKey string) (*http.Response, error) {
+func (s *httpUpstreamService) doTrustedRouteWithVirtualClientKey(req *http.Request, route platformegress.Route, accountID int64, accountConcurrency int, virtualClientKey string) (*http.Response, error) {
 	applyGrokCLIProxyHeaders(req)
 	if err := s.validateRequestHost(req); err != nil {
 		return nil, err
@@ -367,7 +364,7 @@ func (s *httpUpstreamService) DoWithTLSRouteAndVirtualClientKey(req *http.Reques
 	return s.doWithTLSRouteAndVirtualClientKey(req, route, accountID, accountConcurrency, profile, virtualClientKey)
 }
 
-func (s *httpUpstreamService) doWithTLSRouteAndVirtualClientKey(req *http.Request, route platformegress.Route, accountID int64, accountConcurrency int, profile *tlsfingerprint.Profile, virtualClientKey string) (*http.Response, error) {
+func (s *httpUpstreamService) doTrustedWithTLSRouteAndVirtualClientKey(req *http.Request, route platformegress.Route, accountID int64, accountConcurrency int, profile *tlsfingerprint.Profile, virtualClientKey string) (*http.Response, error) {
 	if profile == nil {
 		return s.doRouteWithVirtualClientKey(req, route, accountID, accountConcurrency, virtualClientKey)
 	}
@@ -662,21 +659,7 @@ func applyGrokCLIProxyHeaders(req *http.Request) {
 	if req.Header == nil {
 		req.Header = make(http.Header)
 	}
-	version := strings.TrimSpace(os.Getenv(grokCLIVersionOverride))
-	if !isSupportedGrokCLIVersion(version) {
-		version = grokCLIStableVersion
-	}
-	req.Header.Set(grokTokenAuthHeader, "xai-grok-cli")
-	req.Header.Set("x-grok-client-version", version)
-	req.Header.Set("User-Agent", "xai-grok-workspace/"+version)
-}
-
-func isSupportedGrokCLIVersion(version string) bool {
-	canonical := "v" + version
-	minimum := "v" + grokCLIStableVersion
-	return semver.IsValid(canonical) &&
-		semver.Canonical(canonical) == canonical &&
-		semver.Compare(canonical, minimum) >= 0
+	xai.ApplyCLIProxyHeaders(req)
 }
 
 // getClientEntryWithTLS 获取或创建带 TLS 指纹的客户端条目
@@ -770,9 +753,7 @@ func (s *httpUpstreamService) getClientEntryWithTLSRouteAndVirtualClientKey(rout
 	}
 
 	client := &http.Client{Transport: transport, Jar: chatgptCookieJar()}
-	if s.shouldValidateResolvedIP() {
-		client.CheckRedirect = s.redirectChecker
-	}
+	client.CheckRedirect = s.redirectChecker
 
 	entry := &upstreamClientEntry{
 		client:                client,
@@ -786,9 +767,7 @@ func (s *httpUpstreamService) getClientEntryWithTLSRouteAndVirtualClientKey(rout
 		tlsProfileKey:         profileKey,
 	}
 	if entry.experimentalReqClient != nil {
-		if s.shouldValidateResolvedIP() {
-			entry.experimentalReqClient.GetClient().CheckRedirect = s.redirectChecker
-		}
+		entry.experimentalReqClient.GetClient().CheckRedirect = s.redirectChecker
 		slog.Info("codex_experimental_transport_enabled", "account_id", accountID, "http2_initial_window", codexExperimentalHTTP2InitialWindow, "http2_connection_flow", codexExperimentalHTTP2ConnectionFlow, "http2_max_header_list", codexExperimentalHTTP2MaxHeaders, "profile", profile.Name)
 	}
 	atomic.StoreInt64(&entry.lastUsed, nowUnix)
@@ -807,32 +786,34 @@ func (s *httpUpstreamService) shouldValidateResolvedIP() bool {
 	if s.cfg == nil {
 		return false
 	}
-	if !s.cfg.Security.URLAllowlist.Enabled {
-		return false
-	}
 	return !s.cfg.Security.URLAllowlist.AllowPrivateHosts
 }
 
 func (s *httpUpstreamService) validateRequestHost(req *http.Request) error {
-	if !s.shouldValidateResolvedIP() {
-		return nil
-	}
 	if req == nil || req.URL == nil {
 		return errors.New("request url is nil")
+	}
+	allowHTTP := s.cfg != nil && s.cfg.Security.URLAllowlist.AllowInsecureHTTP
+	if _, err := urlvalidator.ValidateURLFormat(req.URL.String(), allowHTTP); err != nil {
+		return err
+	}
+	if !s.shouldValidateResolvedIP() {
+		return nil
 	}
 	host := strings.TrimSpace(req.URL.Hostname())
 	if host == "" {
 		return errors.New("request host is empty")
 	}
-	if err := urlvalidator.ValidateResolvedIP(host); err != nil {
-		return err
-	}
-	return nil
+	return urlvalidator.ValidateResolvedIP(host)
 }
 
 func (s *httpUpstreamService) redirectChecker(req *http.Request, via []*http.Request) error {
 	if len(via) >= 10 {
 		return errors.New("stopped after 10 redirects")
+	}
+	if req != nil && req.URL != nil && req.URL.Scheme == "http" && len(via) > 0 &&
+		via[len(via)-1].URL.Scheme == "https" && (s.cfg == nil || !s.cfg.Security.URLAllowlist.AllowInsecureHTTP) {
+		return errors.New("HTTPS to HTTP redirect is not allowed")
 	}
 	return s.validateRequestHost(req)
 }
@@ -949,9 +930,7 @@ func (s *httpUpstreamService) getClientEntryRouteWithVirtualClientKey(route plat
 		return nil, fmt.Errorf("build transport: %w", err)
 	}
 	client := &http.Client{Transport: transport, Jar: chatgptCookieJar()}
-	if s.shouldValidateResolvedIP() {
-		client.CheckRedirect = s.redirectChecker
-	}
+	client.CheckRedirect = s.redirectChecker
 	entry := &upstreamClientEntry{
 		client:           client,
 		accountID:        accountID,

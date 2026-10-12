@@ -1,0 +1,2 @@
+# Saved unified diff retains literal blank context lines and Go indentation.
+DIFF_FILE -whitespace

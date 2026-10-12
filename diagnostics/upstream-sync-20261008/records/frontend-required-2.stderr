@@ -1,0 +1,26 @@
+$ eslint .
+$ vue-tsc --noEmit
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/core/i18n/__tests__/routeLocaleCoverage.spec.ts > locale coverage > loads every statically reachable message for every route
+AssertionError: expected '/usage [en; base+user]: admin.usage.l…' to be '' // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[31m+ /usage [en; base+user]: admin.usage.longContext, admin.usage.longContextPricingTooltip[39m
+[31m+ /usage [zh; base+user]: admin.usage.longContext, admin.usage.longContextPricingTooltip[39m
+
+ ❯ src/core/i18n/__tests__/routeLocaleCoverage.spec.ts:410:33
+    408|       }
+    409|     }
+    410|     expect(findings.join('\n')).toBe('')
+       |                                 ^
+    411|   }, 60_000)
+    412| })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+make[1]: *** [Makefile:60: test-frontend-critical] Error 1
+make: *** [Makefile:57: test-frontend] Error 2

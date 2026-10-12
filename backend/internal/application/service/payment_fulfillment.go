@@ -101,6 +101,13 @@ func (s *PaymentService) confirmPayment(ctx context.Context, oid int64, tradeNo 
 		})
 		return err
 	}
+	if strings.EqualFold(strings.TrimSpace(pk), payment.TypeEasyPay) && strings.TrimSpace(tradeNo) == "" &&
+		strings.TrimSpace(metadata["notification_source"]) != "upstream_query" {
+		s.writeAuditLog(ctx, o.ID, "PAYMENT_MISSING_TRADE_NO", pk, map[string]any{
+			"paidAmount": paid,
+		})
+		return fmt.Errorf("easypay notification missing trade number")
+	}
 	if !isValidProviderAmount(paid) {
 		s.writeAuditLog(ctx, o.ID, "PAYMENT_INVALID_AMOUNT", pk, map[string]any{
 			"expected": o.PayAmount,
@@ -155,7 +162,10 @@ func (s *PaymentService) toPaid(ctx context.Context, o *dbent.PaymentOrder, trad
 		paymentorder.IDEQ(o.ID),
 		paymentorder.Or(
 			paymentorder.StatusEQ(OrderStatusPending),
-			paymentorder.StatusEQ(OrderStatusCancelled),
+			paymentorder.And(
+				paymentorder.StatusEQ(OrderStatusCancelled),
+				paymentorder.UpdatedAtGTE(grace),
+			),
 			paymentorder.And(
 				paymentorder.StatusEQ(OrderStatusExpired),
 				paymentorder.UpdatedAtGTE(grace),
@@ -702,7 +712,10 @@ func affiliateRebateBaseAmount(o *dbent.PaymentOrder) float64 {
 		return 0
 	}
 	switch o.OrderType {
-	case payment.OrderTypeBalance, payment.OrderTypeSubscription:
+	case payment.OrderTypeBalance:
+		// 返利只按实充部分计算，赠送额度不参与
+		return paymentOrderAmountWithoutBonus(o)
+	case payment.OrderTypeSubscription:
 		return o.Amount
 	default:
 		return 0

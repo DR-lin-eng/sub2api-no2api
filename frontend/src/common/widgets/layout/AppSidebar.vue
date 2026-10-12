@@ -932,10 +932,11 @@ const adminNavItems = computed((): NavItem[] => {
       expandOnly: true,
       featureFlag: flagAdminPayment,
       children: [
-        { path: '/admin/orders/dashboard', label: t('nav.paymentDashboard'), icon: ChartIcon },
-        { path: '/admin/orders', label: t('nav.orderManagement'), icon: OrderIcon },
-        { path: '/admin/orders/plans', label: t('nav.paymentPlans'), icon: CreditCardIcon },
+        { path: '/admin/orders/dashboard', label: t('nav.paymentDashboard'), icon: ChartIcon, permission: 'payment.manage' },
+        { path: '/admin/orders', label: t('nav.orderManagement'), icon: OrderIcon, permission: 'payment.manage' },
+        { path: '/admin/orders/plans', label: t('nav.paymentPlans'), icon: CreditCardIcon, permission: 'payment.manage' },
       ],
+      permission: 'payment.manage',
     },
     { path: '/admin/usage', label: t('nav.usage'), icon: ChartIcon, permission: 'dashboard.read' },
     { path: '/admin/audit-logs', label: t('nav.auditLogs'), icon: ShieldIcon, hideInSimpleMode: true, permission: 'settings.manage' }

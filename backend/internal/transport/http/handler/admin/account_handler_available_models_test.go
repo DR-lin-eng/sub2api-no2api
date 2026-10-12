@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"github.com/Wei-Shaw/sub2api/internal/shared/antigravity"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -340,4 +341,47 @@ func TestAccountHandlerSyncUpstreamModels_UpstreamErrorDoesNotExposeBody(t *test
 	require.Equal(t, http.StatusBadGateway, rec.Code)
 	require.Contains(t, rec.Body.String(), "Upstream model list request failed with HTTP 502")
 	require.NotContains(t, rec.Body.String(), "SECRET_TOKEN")
+}
+
+func TestAccountHandlerGetAvailableModels_Antigravity(t *testing.T) {
+	defaults := antigravity.DefaultModels()
+	known := defaults[0]
+	custom := antigravity.ClaudeModel{ID: "claude-custom-alias", Type: "model", DisplayName: "claude-custom-alias"}
+	cases := []struct {
+		name        string
+		credentials map[string]any
+		want        []antigravity.ClaudeModel
+	}{
+		{name: "nil credentials", want: defaults},
+		{name: "missing mapping", credentials: map[string]any{}, want: defaults},
+		{name: "empty JSON mapping", credentials: map[string]any{"model_mapping": map[string]any{}}, want: defaults},
+		{name: "empty string mapping", credentials: map[string]any{"model_mapping": map[string]string{}}, want: defaults},
+		{name: "blank key", credentials: map[string]any{"model_mapping": map[string]any{" ": "upstream-model"}}, want: defaults},
+		{name: "JSON mapping keys and metadata", credentials: map[string]any{"model_mapping": map[string]any{
+			known.ID: known.ID, custom.ID: "upstream-model",
+		}}, want: []antigravity.ClaudeModel{custom, known}},
+		{name: "string mapping keys and metadata", credentials: map[string]any{"model_mapping": map[string]string{
+			known.ID: known.ID, custom.ID: "upstream-model",
+		}}, want: []antigravity.ClaudeModel{custom, known}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, accountType := range []string{service.AccountTypeOAuth, service.AccountTypeAPIKey} {
+				t.Run(accountType, func(t *testing.T) {
+					svc := &availableModelsAdminService{
+						stubAdminService: newStubAdminService(),
+						account:          service.Account{ID: 51, Platform: service.PlatformAntigravity, Type: accountType, Credentials: tc.credentials},
+					}
+					rec := httptest.NewRecorder()
+					setupAvailableModelsRouter(svc).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/admin/accounts/51/models", nil))
+					require.Equal(t, http.StatusOK, rec.Code)
+					var resp struct {
+						Data []antigravity.ClaudeModel `json:"data"`
+					}
+					require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+					require.Equal(t, tc.want, resp.Data)
+				})
+			}
+		})
+	}
 }

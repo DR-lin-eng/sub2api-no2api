@@ -15,6 +15,7 @@ const PROVIDER_BY_PLATFORM: Record<GroupPlatform, KeyGroupProvider> = {
   grok: 'other',
   antigravity: 'other',
   opencode_go: 'other',
+  typesafe: 'other',
   composite: 'other',
 }
 

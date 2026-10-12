@@ -16,7 +16,12 @@ func RegisterUserRoutes(
 	auditLog middleware.AuditLogMiddleware,
 	settingService *service.SettingService,
 	panelRateLimiter *middleware.PanelRateLimiter,
+	stepUpMiddleware ...middleware.StepUpAuthMiddleware,
 ) {
+	stepUp := func(c *gin.Context) { c.Next() }
+	if len(stepUpMiddleware) > 0 {
+		stepUp = gin.HandlerFunc(stepUpMiddleware[0])
+	}
 	authenticated := v1.Group("")
 	authenticated.Use(gin.HandlerFunc(jwtAuth))
 	authenticated.Use(middleware.BackendModeUserGuard(settingService))
@@ -32,9 +37,9 @@ func RegisterUserRoutes(
 			user.PUT("", h.User.UpdateProfile)
 			user.GET("/aff", h.User.GetAffiliate)
 			user.POST("/aff/transfer", h.User.TransferAffiliateQuota)
-			user.POST("/account-bindings/email/send-code", h.User.SendEmailBindingCode)
-			user.POST("/account-bindings/email", h.User.BindEmailIdentity)
-			user.DELETE("/account-bindings/:provider", h.User.UnbindIdentity)
+			user.POST("/account-bindings/email/send-code", stepUp, h.User.SendEmailBindingCode)
+			user.POST("/account-bindings/email", stepUp, h.User.BindEmailIdentity)
+			user.DELETE("/account-bindings/:provider", stepUp, h.User.UnbindIdentity)
 			user.POST("/auth-identities/bind/start", h.User.StartIdentityBinding)
 			user.GET("/api-keys/:id/usage/daily", h.Usage.GetMyAPIKeyDailyUsage)
 			user.GET("/platform-quotas", h.User.GetMyPlatformQuotas)
@@ -78,7 +83,7 @@ func RegisterUserRoutes(
 			keys.GET("/:id", h.APIKey.GetByID)
 			keys.POST("", h.APIKey.Create)
 			keys.PUT("/:id", h.APIKey.Update)
-			keys.DELETE("/:id", h.APIKey.Delete)
+			keys.DELETE("/:id", stepUp, h.APIKey.Delete)
 		}
 
 		// 用户可用分组（非管理员接口）

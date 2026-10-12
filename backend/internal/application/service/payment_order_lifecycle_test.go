@@ -275,6 +275,54 @@ func TestVerifyOrderByOutTradeNoBackfillsTradeNoFromPaidQuery(t *testing.T) {
 	require.Equal(t, user.ID, redeemRepo.useCalls[0].userID)
 }
 
+func TestEasyPayReconciliationWithMissingUpstreamTradeNoStillFulfills(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentOrderLifecycleTestClient(t)
+	order := createPaymentFulfillmentSubscriptionOrder(t, ctx, client, OrderStatusPending, time.Now())
+	order, err := client.PaymentOrder.UpdateOneID(order.ID).
+		SetOrderType(payment.OrderTypeBalance).
+		ClearPlanID().ClearSubscriptionGroupID().ClearSubscriptionDays().
+		SetPaymentType(payment.TypeEasyPay).
+		SetPaymentTradeNo("").
+		Save(ctx)
+	require.NoError(t, err)
+
+	userRepo := &mockUserRepo{getByIDUser: &User{ID: order.UserID, Email: order.UserEmail, Username: order.UserName}}
+	userRepo.updateBalanceFn = func(_ context.Context, id int64, amount float64) error {
+		require.Equal(t, order.UserID, id)
+		userRepo.getByIDUser.Balance += amount
+		return nil
+	}
+	redeemRepo := &paymentOrderLifecycleRedeemRepo{codesByCode: map[string]*RedeemCode{
+		order.RechargeCode: {
+			ID: 1, Code: order.RechargeCode, Type: RedeemTypeBalance,
+			Value: order.Amount, Status: StatusUnused,
+		},
+	}}
+	provider := &paymentOrderLifecycleQueryProvider{
+		key: payment.TypeEasyPay,
+		resp: &payment.QueryOrderResponse{
+			// EasyPay uses out_trade_no as the compatibility fallback when a
+			// legacy api.php response has no trade_no field.
+			TradeNo: order.OutTradeNo,
+			Status:  payment.ProviderStatusPaid,
+			Amount:  order.PayAmount,
+		},
+	}
+	registry := payment.NewRegistry()
+	registry.Register(provider)
+	svc := &PaymentService{
+		entClient: client, registry: registry, providersLoaded: true, userRepo: userRepo,
+		redeemService: NewRedeemService(redeemRepo, userRepo, nil, nil, nil, client, nil, nil),
+	}
+
+	got, err := svc.VerifyOrderByOutTradeNo(ctx, order.OutTradeNo, order.UserID)
+	require.NoError(t, err)
+	require.Equal(t, OrderStatusCompleted, got.Status)
+	require.Equal(t, 1, len(redeemRepo.useCalls))
+	require.Equal(t, order.Amount, userRepo.getByIDUser.Balance)
+}
+
 func TestVerifyOrderByOutTradeNoRetriesZeroAmountPaidQueryOnce(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentOrderLifecycleTestClient(t)

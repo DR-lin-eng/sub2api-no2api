@@ -1,0 +1,10 @@
+MODIFIED: /health HTTP_200
+MODIFIED: /ready HTTP_200
+MODIFIED: embedded_frontend HTTP_200
+MODIFIED: admin_login PASS
+MODIFIED: persisted_key_name_quota PASS
+MODIFIED: public_settings_contract PASS
+MODIFIED: legacy_order_state PASS
+MODIFIED: dormant_tiers_default_off PASS
+MODIFIED: RUNTIME_PASS
+301

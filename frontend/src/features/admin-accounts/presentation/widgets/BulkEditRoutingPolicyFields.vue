@@ -251,6 +251,7 @@
               </div>
 
               <ModelWhitelistSelector
+                :model-mappings="modelMappings"
                 v-model="allowedModels"
                 :platforms="targetSelectedPlatforms"
               />

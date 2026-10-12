@@ -72,7 +72,7 @@ func TestForwardOpenAIWSV2OverloadFailsOverBeforeAnyDownstreamOutput(t *testing.
 				map[string]any{"model": "gpt-5.5", "input": "hello", "stream": true},
 				"sk-test",
 				OpenAIWSProtocolDecision{Transport: OpenAIUpstreamTransportResponsesWebsocketV2},
-				false, true, "gpt-5.5", "gpt-5.5", time.Now(), 1, "", nil, nil,
+				false, true, "gpt-5.5", "gpt-5.5", time.Now(), 1, "", nil, nil, false,
 			)
 
 			require.Nil(t, result)
@@ -119,7 +119,7 @@ func TestForwardOpenAIWSV2OverloadAfterSemanticOutputIsNotReplayed(t *testing.T)
 		context.Background(), c, account,
 		map[string]any{"model": "gpt-5.5", "input": "hello", "stream": true},
 		"sk-test", OpenAIWSProtocolDecision{Transport: OpenAIUpstreamTransportResponsesWebsocketV2},
-		false, true, "gpt-5.5", "gpt-5.5", time.Now(), 1, "", nil, nil,
+		false, true, "gpt-5.5", "gpt-5.5", time.Now(), 1, "", nil, nil, false,
 	)
 
 	require.Nil(t, result)

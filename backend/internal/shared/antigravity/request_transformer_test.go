@@ -561,3 +561,17 @@ func TestTransformClaudeToGeminiWithOptions_DropsWebSearchAlongsideFunctions(t *
 	require.Len(t, req.Request.Tools[0].FunctionDeclarations, 1)
 	require.Equal(t, "get_weather", req.Request.Tools[0].FunctionDeclarations[0].Name)
 }
+
+func TestBuildParts_DocumentBecomesInlineData(t *testing.T) {
+	content := `[
+		{"type":"text","text":"read this"},
+		{"type":"document","source":{"type":"base64","media_type":"application/pdf","data":"JVBERi0="}}
+	]`
+	parts, stripped, err := buildParts(json.RawMessage(content), map[string]string{}, true)
+	require.NoError(t, err)
+	require.False(t, stripped)
+	require.Len(t, parts, 2)
+	require.NotNil(t, parts[1].InlineData)
+	require.Equal(t, "application/pdf", parts[1].InlineData.MimeType)
+	require.Equal(t, "JVBERi0=", parts[1].InlineData.Data)
+}

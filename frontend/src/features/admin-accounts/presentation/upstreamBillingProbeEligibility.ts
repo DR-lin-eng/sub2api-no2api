@@ -6,6 +6,7 @@ const UPSTREAM_BILLING_PROBE_PLATFORMS = new Set<AccountPlatform>([
   "gemini",
   "antigravity",
   "grok",
+  "typesafe",
 ]);
 
 export const isUpstreamBillingProbeEligible = (

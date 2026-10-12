@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  CC_SWITCH_USAGE_SCRIPT,
   GROK_CC_SWITCH_MODEL,
   OPENAI_CC_SWITCH_CODEX_MODEL,
   buildCcSwitchImportDeeplink
@@ -93,4 +94,11 @@ describe('ccswitchImport utils', () => {
     expect(params.get('endpoint')).toBe(`${baseInput.baseUrl}/antigravity`)
     expect(params.has('model')).toBe(false)
   })
+})
+
+
+it.each(['https://api.example.com', 'https://api.example.com/', 'https://api.example.com/v1', 'https://api.example.com/v1/'])('normalizes the usage URL for %s', (baseUrl) => {
+  const script = CC_SWITCH_USAGE_SCRIPT.replaceAll('{{baseUrl}}', baseUrl).replaceAll('{{apiKey}}', 'test-key')
+  const query = Function(`return ${script}`)() as { request: { url: string } }
+  expect(query.request.url).toBe('https://api.example.com/v1/usage')
 })

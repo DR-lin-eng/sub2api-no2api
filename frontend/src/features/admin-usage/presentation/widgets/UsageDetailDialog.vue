@@ -313,6 +313,7 @@ const quantityUnitLabel = (line: UsageBillingCostLine): string => {
   if (line.quantityUnit === 'tokens') return t('usage.detail.tokensUnit')
   if (line.quantityUnit === 'images') return t('usage.detail.imagesUnit')
   if (line.quantityUnit === 'video_seconds') return t('usage.detail.videoSecondsUnit')
+  if (line.quantityUnit === 'voice_minutes') return t('usage.detail.voiceMinutesUnit')
   return t('usage.detail.requestsUnit')
 }
 

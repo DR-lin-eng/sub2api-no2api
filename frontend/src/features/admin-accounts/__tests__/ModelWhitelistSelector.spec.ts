@@ -29,11 +29,12 @@ vi.mock('@/common/composables/useClipboard', () => ({
 
 import ModelWhitelistSelector from '../presentation/widgets/ModelWhitelistSelector.vue'
 
-function mountSelector() {
+function mountSelector(overrides: Record<string, unknown> = {}) {
   return mount(ModelWhitelistSelector, {
     props: {
       modelValue: [],
-      platform: 'openai'
+      platform: 'openai',
+      ...overrides
     },
     global: {
       stubs: {
@@ -86,4 +87,20 @@ describe('ModelWhitelistSelector', () => {
     expect(wrapper.emitted('update:modelValue')).toEqual([[['gpt-5.6-sol']]])
     expect(copyToClipboard).not.toHaveBeenCalled()
   })
+})
+
+
+it('preserves a mapped target when adding the same source as a whitelist model', async () => {
+  const wrapper = mountSelector({ modelMappings: [{ from: 'gpt-latest', to: 'deepseek-chat' }] })
+  const input = wrapper.get('input[placeholder="admin.accounts.enterCustomModelName"]')
+  await input.setValue(' gpt-latest ')
+  await input.trigger('keydown.enter')
+  expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+})
+it('allows an identity mapping in the whitelist', async () => {
+  const wrapper = mountSelector({ modelMappings: [{ from: 'gpt-latest', to: 'gpt-latest' }] })
+  const input = wrapper.get('input[placeholder="admin.accounts.enterCustomModelName"]')
+  await input.setValue('gpt-latest')
+  await input.trigger('keydown.enter')
+  expect(wrapper.emitted('update:modelValue')).toEqual([[['gpt-latest']]])
 })

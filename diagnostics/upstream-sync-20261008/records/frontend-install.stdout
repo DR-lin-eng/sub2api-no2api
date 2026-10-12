@@ -1,0 +1,7 @@
+Preparing pnpm@11.17.0 for immediate activation...
+? Verifying lockfile against supply-chain policies (483 entries)...
+Lockfile is up to date, resolution step is skipped
+Already up to date
+✓ Lockfile passes supply-chain policies (483 entries in 24.6s)
+
+Done in 25s using pnpm v11.17.0

@@ -4,7 +4,7 @@
 
 # Sub2API
 
-[![Go](https://img.shields.io/badge/Go-1.26.6-00ADD8.svg)](https://golang.org/)
+[![Go](https://img.shields.io/badge/Go-1.26.9-00ADD8.svg)](https://golang.org/)
 [![Vue](https://img.shields.io/badge/Vue-3.4+-4FC08D.svg)](https://vuejs.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-336791.svg)](https://www.postgresql.org/)
 [![Redis](https://img.shields.io/badge/Redis-7+-DC382D.svg)](https://redis.io/)
@@ -58,7 +58,7 @@ Sub2API 是一个 AI API 网关平台，用于分发和管理 AI 产品订阅的
 
 | 组件 | 技术 |
 |------|------|
-| 后端 | Go 1.26.6, Gin, Ent |
+| 后端 | Go 1.26.9, Gin, Ent |
 | 前端 | Vue 3.4+, Vite 5+, TailwindCSS |
 | 数据库 | PostgreSQL 15+ |
 | 缓存/队列 | Redis 7+ |
@@ -218,8 +218,10 @@ JWT_SECRET=your_jwt_secret_here
 TOTP_ENCRYPTION_KEY=your_totp_key_here
 
 # 可选：管理员账号
-ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=your_admin_password
+# 留空则首次安装生成随机登录邮箱和密码；显式密码须为 8–72 字节。
+# 已有管理员账号保持原值，升级不会重新创建。
+ADMIN_EMAIL=
+ADMIN_PASSWORD=
 
 # 可选：自定义端口
 SERVER_PORT=8080
@@ -280,9 +282,9 @@ docker compose -f docker-compose.local.yml logs -f sub2api
 
 在浏览器中打开 `http://你的服务器IP:8080`
 
-如果管理员密码是自动生成的，在日志中查找：
+如果管理员邮箱或密码是自动生成的，在日志中查找：
 ```bash
-docker compose -f docker-compose.local.yml logs sub2api | grep "admin password"
+docker compose -f docker-compose.local.yml logs sub2api | grep "Generated admin"
 ```
 
 #### 升级

@@ -1,0 +1,5 @@
+ok  	github.com/Wei-Shaw/sub2api/internal/bootstrap/setup	1.609s
+docker compose security test passed
+docker runtime resources test passed
+Docker deployment admin credential tests passed.
+Caddyfile preserves backend cache policy, SSE streaming, and non-SSE compression

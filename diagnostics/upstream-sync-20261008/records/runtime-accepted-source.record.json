@@ -1,0 +1,18 @@
+{
+  "label": "runtime-accepted-source",
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo",
+  "argv": [
+    "python3",
+    "diagnostics/upstream-sync-20261008/runtime_check.py"
+  ],
+  "command": "python3 diagnostics/upstream-sync-20261008/runtime_check.py",
+  "input": "repository sources and committed regression fixtures",
+  "stdout": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/records/runtime-accepted-source.stdout",
+  "stderr": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/records/runtime-accepted-source.stderr",
+  "exit": 0,
+  "started": "2026-10-08T17:03:30.628274+00:00",
+  "finished": "2026-10-08T17:04:17.282683+00:00",
+  "accepted": true,
+  "stdout_sha256": "ba2988d99a34da114a39b8bd4680ac8a64dfaa8ba75e18885e32c15bfc406730",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

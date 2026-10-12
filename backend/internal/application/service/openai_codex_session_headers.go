@@ -25,6 +25,8 @@ type codexOutboundSessionIDs struct {
 	threadID        string
 	clientRequestID string
 	parentThreadID  string
+	parentTurnID    string
+	rootTurnID      string
 	subagent        string
 }
 
@@ -47,6 +49,8 @@ func resolveCodexOutboundSessionIDs(
 	threadRaw := codexInboundHeaderValue(c, "thread-id", "thread_id")
 	clientRequestRaw := codexInboundHeaderValue(c, "x-client-request-id")
 	parentThreadRaw := codexBodyMetadataValue(body, "x-codex-parent-thread-id")
+	parentTurnRaw := codexBodyMetadataValue(body, "parent_turn_id", "parentTurnId")
+	rootTurnRaw := codexBodyMetadataValue(body, "root_turn_id", "rootTurnId")
 
 	if sessionRaw == "" {
 		sessionRaw = codexBodyMetadataValue(body, "session_id", "session-id")
@@ -60,6 +64,17 @@ func resolveCodexOutboundSessionIDs(
 	turnMetadata := codexBodyMetadataValue(body, "x-codex-turn-metadata")
 	if parentThreadRaw == "" && gjson.Valid(turnMetadata) {
 		parentThreadRaw = strings.TrimSpace(gjson.Get(turnMetadata, "parent_thread_id").String())
+	}
+	if turnMetadata == "" {
+		turnMetadata = codexInboundHeaderValue(c, openAIWSTurnMetadataHeader)
+	}
+	if gjson.Valid(turnMetadata) {
+		if parentTurnRaw == "" {
+			parentTurnRaw = strings.TrimSpace(gjson.Get(turnMetadata, "parent_turn_id").String())
+		}
+		if rootTurnRaw == "" {
+			rootTurnRaw = strings.TrimSpace(gjson.Get(turnMetadata, "root_turn_id").String())
+		}
 	}
 	if parentThreadRaw == "" {
 		parentThreadRaw = codexInboundHeaderValue(c, "x-codex-parent-thread-id")
@@ -116,6 +131,12 @@ func resolveCodexOutboundSessionIDs(
 	}
 	if parentThreadRaw != "" {
 		ids.parentThreadID = deriveCodexOutboundSessionUUID("thread", namespace, parentThreadRaw)
+	}
+	if parentTurnRaw != "" {
+		ids.parentTurnID = deriveCodexOutboundSessionUUID("turn", namespace, parentTurnRaw)
+	}
+	if rootTurnRaw != "" {
+		ids.rootTurnID = deriveCodexOutboundSessionUUID("turn", namespace, rootTurnRaw)
 	}
 	return ids
 }
@@ -219,7 +240,12 @@ func applyCodexOutboundSessionHeaders(
 			}
 		}
 	}
-	ids := resolveCodexOutboundSessionIDs(c, account, body, promptCacheKey)
+	var ids *codexOutboundSessionIDs
+	if projection := resolvedCodexMetadataProjection(c, account, body); projection != nil {
+		ids = projection.sessionIDs
+	} else {
+		ids = resolveCodexOutboundSessionIDs(c, account, body, promptCacheKey)
+	}
 	applyResolvedCodexOutboundSessionHeaders(c, account, headers, fingerprintIDs, ids)
 }
 
@@ -290,7 +316,7 @@ func applyResolvedCodexOutboundSessionHeaders(
 // rewriteCodexOutboundSessionMetadata applies the OAuth client_metadata boundary
 // and keeps body/header projections on the same isolated IDs. Opaque turn state
 // remains untouched; identity, workspace, and approval fields are normalized.
-func rewriteCodexOutboundSessionMetadata(body []byte, account *Account, ids *codexOutboundSessionIDs) ([]byte, error) {
+func rewriteCodexOutboundSessionMetadata(body []byte, account *Account, ids *codexOutboundSessionIDs, contexts ...*gin.Context) ([]byte, error) {
 	if len(body) == 0 || account == nil || !account.IsOpenAIOAuth() {
 		return body, nil
 	}
@@ -311,11 +337,13 @@ func rewriteCodexOutboundSessionMetadata(body []byte, account *Account, ids *cod
 		return body, fmt.Errorf("decode Codex client_metadata: %w", err)
 	}
 	if !sanitizeOpenAICodexClientMetadataMap(clientMetadata, account, ids) {
+		stageCodexMetadataProjection(clientMetadata, account, ids, nil, contexts...)
 		return body, nil
 	}
 	encoded, err := json.Marshal(clientMetadata)
 	if err != nil {
 		return body, fmt.Errorf("encode Codex client_metadata: %w", err)
 	}
+	stageCodexMetadataProjection(clientMetadata, account, ids, nil, contexts...)
 	return sjson.SetRawBytes(body, "client_metadata", encoded)
 }

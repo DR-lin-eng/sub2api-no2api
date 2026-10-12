@@ -1,0 +1,218 @@
+ok  	github.com/Wei-Shaw/sub2api/cmd/cleanup-ingress-reject-logs	0.011s
+?   	github.com/Wei-Shaw/sub2api/cmd/jwtgen	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/cmd/profit-preview	0.010s
+ok  	github.com/Wei-Shaw/sub2api/cmd/server	0.012s
+?   	github.com/Wei-Shaw/sub2api/ent	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/account	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/accountegressbinding	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/accountgroup	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/announcement	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/announcementread	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/apikey	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/authidentity	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/authidentitychannel	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/batchimageevent	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/batchimageitem	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/batchimagejob	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/channelmonitor	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatasset	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatconversation	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatmessage	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatmessageasset	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatquickreply	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/compositemodelroute	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/custommodelconfig	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/custommodelrequesttemplate	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/enttest	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/group	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/hook	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/idempotencyrecord	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/intercept	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/ipv6egresspool	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/ent/migrate	(cached)
+?   	github.com/Wei-Shaw/sub2api/ent/paymentauditlog	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/paymentorder	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/paymentproviderinstance	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/pendingauthsession	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/predicate	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/promocode	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/promocodeusage	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/proxy	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/redeemcode	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/redeemcodeusage	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/runtime	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/ent/schema	1.249s
+?   	github.com/Wei-Shaw/sub2api/ent/schema/mixins	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/securitysecret	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/setting	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/subscriptionplan	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/tlsfingerprintprofile	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/usagecleanuptask	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/usagelog	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/user	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/userallowedgroup	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/userattributedefinition	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/userattributevalue	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/userplatformquota	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/usersubscription	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	141.072s
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2	6.321s
+ok  	github.com/Wei-Shaw/sub2api/internal/bootstrap/setup	0.089s
+ok  	github.com/Wei-Shaw/sub2api/internal/domain	(cached)
+?   	github.com/Wei-Shaw/sub2api/internal/domain/model	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/infrastructure/repository	20.207s
+ok  	github.com/Wei-Shaw/sub2api/internal/integration	0.020s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/activitycenter	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/chat	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/egress	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/payment	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/payment/provider	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/qualityrender	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/securityaudit	0.238s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/typesafe	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/config	0.506s
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/egress	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/liveattestation	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/middleware	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/anthropicfp	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/antigravity	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/basispoints	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/chatgptcookies	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/claude	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation	(cached)
+?   	github.com/Wei-Shaw/sub2api/internal/shared/ctxkey	[no test files]
+?   	github.com/Wei-Shaw/sub2api/internal/shared/errors	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/gemini	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/geminicli	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/googleapi	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/httpclient	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/httputil	(cached)
+?   	github.com/Wei-Shaw/sub2api/internal/shared/ip	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/logger	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/logredact	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/oauth	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/oauthstate	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/openai	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/openai_compat	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/openaitiming	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/pagination	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/proxyurl	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/proxyutil	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/remotecontrol	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/requestmodel	(cached)
+?   	github.com/Wei-Shaw/sub2api/internal/shared/response	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/responseheaders	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/servertiming	(cached)
+?   	github.com/Wei-Shaw/sub2api/internal/shared/sysutil	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/timezone	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/usagestats	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/websearch	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/wsutil	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/xai	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	30.512s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin	0.293s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto	0.011s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/quotaview	0.008s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/supportchatasset	(cached)
+?   	github.com/Wei-Shaw/sub2api/internal/transport/http/server	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware	0.033s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes	8.461s
+?   	github.com/Wei-Shaw/sub2api/internal/transport/webassets	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/migrations	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2	1.015s
+2026/10/08 15:57:52 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=true oauth_enabled=false apikey_enabled=true force_http=false responses_websockets_v2=true responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/08 15:57:52 [OpenAI WS v2 passthrough] ws_mode=passthrough ws_router=v2 relay_start account_id=9901 model=gpt-5.6-sol previous_response_id=- first_message_type=text first_message_bytes=63
+2026/10/08 15:57:52 [OpenAI WS v2 passthrough] ws_mode=passthrough ws_router=v2 relay_dial_start account_id=9901 ws_host=127.0.0.1:46105 ws_path=/v1/responses proxy_enabled=false
+2026/10/08 15:57:52 [OpenAI WS v2 passthrough] ws_mode=passthrough ws_router=v2 relay_dial_ok account_id=9901 status_code=0 upstream_request_id=-
+2026/10/08 15:57:52 [OpenAI WS v2 passthrough] ws_mode=passthrough ws_router=v2 relay_trace account_id=9901 stage=relay_start direction=- msg_type=text bytes=63 graceful=false wrote_downstream=false err=-
+2026/10/08 15:57:52 [OpenAI WS v2 passthrough] ws_mode=passthrough ws_router=v2 relay_trace account_id=9901 stage=write_first_message_skipped direction=client_to_upstream msg_type=text bytes=63 graceful=false wrote_downstream=false err=-
+2026/10/08 15:57:52 [OpenAI WS v2 passthrough] ws_mode=passthrough ws_router=v2 relay_turn_completed account_id=9901 turn=1 request_id=resp_usage_e2e_1 terminal_event=response.completed turn_requested_model=gpt-5.6-sol turn_upstream_model=gpt-5.6-sol duration_ms=0 first_token_ms=-1 input_tokens=2 output_tokens=1 cache_read_tokens=0
+2026/10/08 15:57:52 [Billing] Using fallback pricing for model: gpt-5.6-sol
+2026/10/08 15:57:52 [SIMPLE MODE] Usage recorded (not billed): user=1701, tokens=3
+2026/10/08 15:57:52 [OpenAI WS v2 passthrough] ws_mode=passthrough ws_router=v2 relay_turn_completed account_id=9901 turn=2 request_id=resp_usage_e2e_2 terminal_event=response.completed turn_requested_model=gpt-5.6-sol turn_upstream_model=gpt-5.6-sol duration_ms=0 first_token_ms=-1 input_tokens=2 output_tokens=1 cache_read_tokens=0
+2026/10/08 15:57:52 [SIMPLE MODE] Usage recorded (not billed): user=1701, tokens=3
+2026/10/08 15:57:52 [OpenAI WS v2 passthrough] ws_mode=passthrough ws_router=v2 relay_trace account_id=9901 stage=read_upstream_fail direction=upstream_to_client msg_type=- bytes=0 graceful=true wrote_downstream=true err=fail to get reader: fail to read frame header: EOF
+2026/10/08 15:57:52 [OpenAI WS v2 passthrough] ws_mode=passthrough ws_router=v2 relay_trace account_id=9901 stage=first_exit direction=upstream_to_client msg_type=- bytes=0 graceful=true wrote_downstream=true err=fail to get reader: fail to read frame header: EOF
+2026/10/08 15:57:52 [OpenAI WS v2 passthrough] ws_mode=passthrough ws_router=v2 relay_trace account_id=9901 stage=read_client_fail direction=client_to_upstream msg_type=- bytes=0 graceful=true wrote_downstream=false err=fail to get reader: received close frame: status = StatusNormalClosure and reason = "done"
+2026/10/08 15:57:52 [OpenAI WS v2 passthrough] ws_mode=passthrough ws_router=v2 relay_trace account_id=9901 stage=second_exit direction=client_to_upstream msg_type=- bytes=0 graceful=true wrote_downstream=false err=fail to get reader: received close frame: status = StatusNormalClosure and reason = "done"
+2026/10/08 15:57:52 [OpenAI WS v2 passthrough] ws_mode=passthrough ws_router=v2 relay_trace account_id=9901 stage=relay_complete direction=- msg_type=- bytes=0 graceful=true wrote_downstream=true err=-
+2026/10/08 15:57:52 [OpenAI WS v2 passthrough] ws_mode=passthrough ws_router=v2 relay_completed account_id=9901 request_id=resp_usage_e2e_2 terminal_event=response.completed duration_ms=3 c2u_frames=2 u2c_frames=2 dropped_frames=0 turns=2
+2026/10/08 15:57:52 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=true oauth_enabled=false apikey_enabled=true force_http=false responses_websockets_v2=true responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/08 15:57:52 [OpenAI WS Mode][openai_ws_mode=true] ingress_ws_protocol_confirm account_id=9901 account_type=apikey transport=responses_websockets_v2 ws_host=127.0.0.1:40895 ws_path=/v1/responses ws_mode=ctx_pool store_disabled=false has_session_hash=true has_previous_response_id=false
+2026/10/08 15:57:52 [OpenAI WS Mode][openai_ws_mode=true] ingress_ws_upstream_connected account_id=9901 turn=1 conn_id=oa_ws_9901_1 conn_reused=false conn_pick_ms=0 queue_wait_ms=0 preferred_conn_id=-
+2026/10/08 15:57:52 [Billing] Using fallback pricing for model: gpt-5.6-sol
+2026/10/08 15:57:52 [SIMPLE MODE] Usage recorded (not billed): user=1701, tokens=3
+2026/10/08 15:57:52 [SIMPLE MODE] Usage recorded (not billed): user=1701, tokens=3
+2026/10/08 15:57:52 [OpenAI WS Mode][openai_ws_mode=true] ingress_ws_client_closed account_id=9901 conn_id=oa_ws_9901_1 close_status=1000(StatusNormalClosure) close_reason=done
+2026/10/08 15:57:52 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=true oauth_enabled=false apikey_enabled=true force_http=false responses_websockets_v2=true responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/08 15:57:52 [OpenAI WS v2 passthrough] ws_mode=passthrough ws_router=v2 relay_start account_id=9901 model=gpt-5.6-sol previous_response_id=- first_message_type=text first_message_bytes=63
+2026/10/08 15:57:52 [OpenAI WS v2 passthrough] ws_mode=passthrough ws_router=v2 relay_dial_start account_id=9901 ws_host=127.0.0.1:37643 ws_path=/v1/responses proxy_enabled=false
+2026/10/08 15:57:52 [OpenAI WS v2 passthrough] ws_mode=passthrough ws_router=v2 relay_dial_ok account_id=9901 status_code=0 upstream_request_id=-
+2026/10/08 15:57:52 [OpenAI WS v2 passthrough] ws_mode=passthrough ws_router=v2 relay_trace account_id=9901 stage=relay_start direction=- msg_type=text bytes=63 graceful=false wrote_downstream=false err=-
+2026/10/08 15:57:52 [OpenAI WS v2 passthrough] ws_mode=passthrough ws_router=v2 relay_trace account_id=9901 stage=write_first_message_skipped direction=client_to_upstream msg_type=text bytes=63 graceful=false wrote_downstream=false err=-
+2026/10/08 15:57:52 [OpenAI WS v2 passthrough] ws_mode=passthrough ws_router=v2 relay_turn_completed account_id=9901 turn=1 request_id=resp_usage_e2e_1 terminal_event=response.completed turn_requested_model=gpt-5.6-sol turn_upstream_model=gpt-5.6-sol duration_ms=0 first_token_ms=-1 input_tokens=2 output_tokens=1 cache_read_tokens=0
+2026/10/08 15:57:52 [Billing] Using fallback pricing for model: gpt-5.6-sol
+2026/10/08 15:57:52 [SIMPLE MODE] Usage recorded (not billed): user=1701, tokens=3
+2026/10/08 15:57:52 [OpenAI WS v2 passthrough] ws_mode=passthrough ws_router=v2 relay_trace account_id=9901 stage=read_client_fail direction=client_to_upstream msg_type=- bytes=0 graceful=false wrote_downstream=false err=openai ws client close: 1013 account is no longer eligible for this connection, please reconnect
+2026/10/08 15:57:52 [OpenAI WS v2 passthrough] ws_mode=passthrough ws_router=v2 relay_trace account_id=9901 stage=first_exit direction=client_to_upstream msg_type=- bytes=0 graceful=false wrote_downstream=false err=openai ws client close: 1013 account is no longer eligible for this connection, please reconnect
+==================
+WARNING: DATA RACE
+Write at 0x00c000360698 by goroutine 75:
+  github.com/Wei-Shaw/sub2api/internal/transport/http/handler.runOpenAIResponsesWebSocketUsageLogCase()
+      /workspace/internal/transport/http/handler/openai_gateway_handler_test.go:2808 +0x1e78
+  github.com/Wei-Shaw/sub2api/internal/transport/http/handler.TestOpenAIResponsesWebSocket_GroupRateChangeReachesProfitGateOnNextTurn()
+      /workspace/internal/transport/http/handler/openai_gateway_ws_group_pricing_test.go:130 +0x588
+  testing.tRunner()
+      /usr/local/go/src/testing/testing.go:2036 +0x164
+  testing.(*T).Run.gowrap1()
+      /usr/local/go/src/testing/testing.go:2101 +0x34
+
+Previous read at 0x00c000360698 by goroutine 96:
+  github.com/Wei-Shaw/sub2api/internal/transport/http/handler.runOpenAIResponsesWebSocketUsageLogCase.func1()
+      /workspace/internal/transport/http/handler/openai_gateway_handler_test.go:2602 +0x15c
+  net/http.HandlerFunc.ServeHTTP()
+      /usr/local/go/src/net/http/server.go:2284 +0x48
+  net/http.serverHandler.ServeHTTP()
+      /usr/local/go/src/net/http/server.go:3309 +0x268
+  net/http.(*conn).serve()
+      /usr/local/go/src/net/http/server.go:2067 +0xa30
+  net/http.(*Server).Serve.gowrap3()
+      /usr/local/go/src/net/http/server.go:3462 +0x40
+
+Goroutine 75 (running) created at:
+  testing.(*T).Run()
+      /usr/local/go/src/testing/testing.go:2101 +0x7bc
+  testing.runTests.func1()
+      /usr/local/go/src/testing/testing.go:2585 +0x74
+  testing.tRunner()
+      /usr/local/go/src/testing/testing.go:2036 +0x164
+  testing.runTests()
+      /usr/local/go/src/testing/testing.go:2583 +0x7a0
+  testing.(*M).Run()
+      /usr/local/go/src/testing/testing.go:2443 +0xb38
+  main.main()
+      _testmain.go:1220 +0x100
+
+Goroutine 96 (running) created at:
+  net/http.(*Server).Serve()
+      /usr/local/go/src/net/http/server.go:3462 +0x5e8
+  net/http/httptest.(*Server).goServe.func1()
+      /usr/local/go/src/net/http/httptest/server.go:341 +0x98
+==================
+2026/10/08 15:57:52 [OpenAI WS v2 passthrough] ws_mode=passthrough ws_router=v2 relay_trace account_id=9901 stage=read_upstream_fail direction=upstream_to_client msg_type=- bytes=0 graceful=true wrote_downstream=true err=context canceled
+2026/10/08 15:57:52 [OpenAI WS v2 passthrough] ws_mode=passthrough ws_router=v2 relay_trace account_id=9901 stage=second_exit direction=upstream_to_client msg_type=- bytes=0 graceful=true wrote_downstream=true err=context canceled
+--- FAIL: TestOpenAIResponsesWebSocket_GroupRateChangeReachesProfitGateOnNextTurn (0.00s)
+    testing.go:1712: race detected during execution of test
+2026/10/08 15:57:52 [OpenAI WS v2 passthrough] ws_mode=passthrough ws_router=v2 relay_trace account_id=9901 stage=relay_exit direction=client_to_upstream msg_type=- bytes=0 graceful=false wrote_downstream=true err=openai ws client close: 1013 account is no longer eligible for this connection, please reconnect
+2026/10/08 15:57:52 [OpenAI WS v2 passthrough] ws_mode=passthrough ws_router=v2 relay_failed account_id=9901 stage=read_client wrote_downstream=true err=openai ws client close: 1013 account is no longer eligible for this connection, please reconnect duration_ms=1 c2u_frames=1 u2c_frames=1 dropped_frames=0 turns=1
+FAIL
+FAIL	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	0.109s
+FAIL

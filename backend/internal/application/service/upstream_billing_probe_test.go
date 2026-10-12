@@ -511,9 +511,9 @@ func TestUpstreamBillingProbeFailurePreservesLastSuccessAndRetryAfter(t *testing
 	require.NotContains(t, snapshot.LastError, "do not persist")
 }
 
-func TestUpstreamBillingProbeRetryAfterIsNotShortened(t *testing.T) {
+func TestUpstreamBillingProbeRetryAfterClampedToOneDay(t *testing.T) {
 	delay := nextProbeDelay(30, 48*time.Hour)
-	require.Equal(t, 48*time.Hour, delay)
+	require.Equal(t, 24*time.Hour, delay)
 }
 
 func TestUpstreamBillingProbeEmptyResponseIsPersistedAsFailure(t *testing.T) {

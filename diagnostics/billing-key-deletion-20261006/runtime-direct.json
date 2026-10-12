@@ -1,0 +1,218 @@
+[
+  {
+    "case": "audit-direct-responses-balance-json",
+    "cost": "0.0004500000",
+    "delta": {
+      "balance": "-0.00045000",
+      "daily": "0",
+      "weekly": "0",
+      "monthly": "0",
+      "platform": "0.0004500000",
+      "account": "0.00045"
+    },
+    "ledger": {
+      "logs": 1,
+      "dedup": 1,
+      "jobs": 0,
+      "dead": 0
+    }
+  },
+  {
+    "case": "audit-direct-responses-balance-stream",
+    "cost": "0.0004500000",
+    "delta": {
+      "balance": "-0.00045000",
+      "daily": "0",
+      "weekly": "0",
+      "monthly": "0",
+      "platform": "0.0004500000",
+      "account": "0.00045"
+    },
+    "ledger": {
+      "logs": 1,
+      "dedup": 1,
+      "jobs": 0,
+      "dead": 0
+    }
+  },
+  {
+    "case": "audit-direct-responses-subscription-json",
+    "cost": "0.0004500000",
+    "delta": {
+      "balance": "0E-8",
+      "daily": "0.0004500000",
+      "weekly": "0.0004500000",
+      "monthly": "0.0004500000",
+      "platform": "0",
+      "account": "0.00045"
+    },
+    "ledger": {
+      "logs": 1,
+      "dedup": 1,
+      "jobs": 0,
+      "dead": 0
+    }
+  },
+  {
+    "case": "audit-direct-responses-subscription-stream",
+    "cost": "0.0004500000",
+    "delta": {
+      "balance": "0E-8",
+      "daily": "0.0004500000",
+      "weekly": "0.0004500000",
+      "monthly": "0.0004500000",
+      "platform": "0",
+      "account": "0.00045"
+    },
+    "ledger": {
+      "logs": 1,
+      "dedup": 1,
+      "jobs": 0,
+      "dead": 0
+    }
+  },
+  {
+    "case": "audit-direct-chat-balance-json",
+    "cost": "0.0004500000",
+    "delta": {
+      "balance": "-0.00045000",
+      "daily": "0",
+      "weekly": "0",
+      "monthly": "0",
+      "platform": "0.0004500000",
+      "account": "0.00045"
+    },
+    "ledger": {
+      "logs": 1,
+      "dedup": 1,
+      "jobs": 0,
+      "dead": 0
+    }
+  },
+  {
+    "case": "audit-direct-chat-balance-stream",
+    "cost": "0.0004500000",
+    "delta": {
+      "balance": "-0.00045000",
+      "daily": "0",
+      "weekly": "0",
+      "monthly": "0",
+      "platform": "0.0004500000",
+      "account": "0.00045"
+    },
+    "ledger": {
+      "logs": 1,
+      "dedup": 1,
+      "jobs": 0,
+      "dead": 0
+    }
+  },
+  {
+    "case": "audit-direct-chat-subscription-json",
+    "cost": "0.0004500000",
+    "delta": {
+      "balance": "0E-8",
+      "daily": "0.0004500000",
+      "weekly": "0.0004500000",
+      "monthly": "0.0004500000",
+      "platform": "0",
+      "account": "0.00045"
+    },
+    "ledger": {
+      "logs": 1,
+      "dedup": 1,
+      "jobs": 0,
+      "dead": 0
+    }
+  },
+  {
+    "case": "audit-direct-chat-subscription-stream",
+    "cost": "0.0004500000",
+    "delta": {
+      "balance": "0E-8",
+      "daily": "0.0004500000",
+      "weekly": "0.0004500000",
+      "monthly": "0.0004500000",
+      "platform": "0",
+      "account": "0.00045"
+    },
+    "ledger": {
+      "logs": 1,
+      "dedup": 1,
+      "jobs": 0,
+      "dead": 0
+    }
+  },
+  {
+    "case": "audit-direct-messages-balance-json",
+    "cost": "0.0105000000",
+    "delta": {
+      "balance": "-0.01050000",
+      "daily": "0",
+      "weekly": "0",
+      "monthly": "0",
+      "platform": "0.0105000000",
+      "account": "0.0105"
+    },
+    "ledger": {
+      "logs": 1,
+      "dedup": 1,
+      "jobs": 0,
+      "dead": 0
+    }
+  },
+  {
+    "case": "audit-direct-messages-balance-stream",
+    "cost": "0.0105000000",
+    "delta": {
+      "balance": "-0.01050000",
+      "daily": "0",
+      "weekly": "0",
+      "monthly": "0",
+      "platform": "0.0105000000",
+      "account": "0.0105"
+    },
+    "ledger": {
+      "logs": 1,
+      "dedup": 1,
+      "jobs": 0,
+      "dead": 0
+    }
+  },
+  {
+    "case": "audit-direct-messages-subscription-json",
+    "cost": "0.0105000000",
+    "delta": {
+      "balance": "0E-8",
+      "daily": "0.0105000000",
+      "weekly": "0.0105000000",
+      "monthly": "0.0105000000",
+      "platform": "0",
+      "account": "0.0105"
+    },
+    "ledger": {
+      "logs": 1,
+      "dedup": 1,
+      "jobs": 0,
+      "dead": 0
+    }
+  },
+  {
+    "case": "audit-direct-messages-subscription-stream",
+    "cost": "0.0105000000",
+    "delta": {
+      "balance": "0E-8",
+      "daily": "0.0105000000",
+      "weekly": "0.0105000000",
+      "monthly": "0.0105000000",
+      "platform": "0",
+      "account": "0.0105"
+    },
+    "ledger": {
+      "logs": 1,
+      "dedup": 1,
+      "jobs": 0,
+      "dead": 0
+    }
+  }
+]

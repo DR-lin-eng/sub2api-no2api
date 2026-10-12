@@ -3,6 +3,7 @@
 | 文件 | 作用 |
 | --- | --- |
 | `cli.go` | 命令行初始化交互 |
+| `admin_credentials.go` | 首次管理员的随机凭据与登录兼容校验；已有用户时跳过 |
 | `handler.go` | setup HTTP 入口 |
 | `setup.go` | 初始化状态与核心流程 |
 | `setup_test.go` | 初始化回归测试 |

@@ -1,0 +1,1 @@
+2026-10-06T09:49:23.282Z    INFO    stdlog  Sub2API 0.1.217 (commit: 9600705ea6a6ce9fc02512582e86ef57f9242f63, built: unknown)  {"service": "sub2api", "env": "bootstrap", "legacy_stdlog": true}

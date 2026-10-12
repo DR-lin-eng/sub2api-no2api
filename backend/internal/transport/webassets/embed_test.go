@@ -564,6 +564,11 @@ func TestFrontendServer_Middleware(t *testing.T) {
 			"/ready",
 			"/responses",
 			"/responses/compact",
+			"/chat/completions",
+			"/embeddings",
+			"/messages/count_tokens",
+			"/x_search",
+			"/models/example-model",
 		}
 
 		for _, path := range apiPaths {
@@ -725,6 +730,84 @@ func TestEmbeddedFrontendBypassesBareVideoAPIRoutes(t *testing.T) {
 
 func TestEmbeddedFrontendBypassesGeneratedImageRoutes(t *testing.T) {
 	require.True(t, shouldBypassEmbeddedFrontend("/generated/hash.png"))
+}
+
+func TestEmbeddedFrontendUsesSPAForBrowserDeepLinks(t *testing.T) {
+	server, err := NewFrontendServer(&mockSettingsProvider{settings: map[string]string{"test": "value"}})
+	require.NoError(t, err)
+
+	for _, path := range []string{"/setup/foo", "/api/v1/unknown", "/v1/unknown"} {
+		t.Run(path, func(t *testing.T) {
+			router := gin.New()
+			router.Use(server.Middleware())
+
+			recorder := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodGet, path, nil)
+			request.Header.Set("Accept", "text/html,application/xhtml+xml")
+			router.ServeHTTP(recorder, request)
+
+			assert.Equal(t, http.StatusOK, recorder.Code)
+			assert.Contains(t, recorder.Header().Get("Content-Type"), "text/html")
+		})
+	}
+}
+
+func TestEmbeddedFrontendKeepsJSONAPIRequestsOnRouter(t *testing.T) {
+	server, err := NewFrontendServer(&mockSettingsProvider{settings: map[string]string{"test": "value"}})
+	require.NoError(t, err)
+
+	router := gin.New()
+	router.Use(server.Middleware())
+	router.GET("/api/v1/unknown", func(c *gin.Context) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+	})
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/unknown", nil)
+	request.Header.Set("Accept", "application/json")
+	router.ServeHTTP(recorder, request)
+
+	assert.Equal(t, http.StatusUnauthorized, recorder.Code)
+	assert.JSONEq(t, `{"error":"authentication required"}`, recorder.Body.String())
+}
+
+func TestEmbeddedFrontendKeepsRegisteredAPIRequestsOnRouterForHTMLAccept(t *testing.T) {
+	server, err := NewFrontendServer(&mockSettingsProvider{settings: map[string]string{"test": "value"}})
+	require.NoError(t, err)
+
+	router := gin.New()
+	router.Use(server.Middleware())
+	router.GET("/api/v1/known", func(c *gin.Context) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+	})
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/known", nil)
+	request.Header.Set("Accept", "text/html,application/xhtml+xml")
+	router.ServeHTTP(recorder, request)
+
+	assert.Equal(t, http.StatusUnauthorized, recorder.Code)
+	assert.JSONEq(t, `{"error":"authentication required"}`, recorder.Body.String())
+}
+
+func TestIsBrowserDocumentRequest(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		accept string
+		want   bool
+	}{
+		{name: "html", accept: "text/html,application/xhtml+xml", want: true},
+		{name: "html_with_parameters", accept: "text/html; q=0.9, application/json", want: true},
+		{name: "json", accept: "application/json", want: false},
+		{name: "wildcard", accept: "*/*", want: false},
+		{name: "empty", accept: "", want: false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodGet, "/", nil)
+			request.Header.Set("Accept", test.accept)
+			assert.Equal(t, test.want, isBrowserDocumentRequest(request))
+		})
+	}
 }
 
 func TestNewFrontendServer(t *testing.T) {
@@ -949,5 +1032,21 @@ func BenchmarkFrontendServerServeIndexHTML(b *testing.B) {
 		c.Set(middleware.CSPNonceKey, "test-nonce")
 
 		server.serveIndexHTML(c)
+	}
+}
+
+func TestBothFrontendMiddlewaresLeaveAllPostRequestsToRouter(t *testing.T) {
+	server, err := NewFrontendServer(&mockSettingsProvider{settings: map[string]string{"test": "value"}})
+	require.NoError(t, err)
+	for _, layer := range []gin.HandlerFunc{server.Middleware(), ServeEmbeddedFrontend()} {
+		for _, route := range []string{"/chat/completions", "/embeddings", "/messages/count_tokens", "/x_search", "/unknown-action"} {
+			router := gin.New()
+			router.Use(layer)
+			router.POST(route, func(c *gin.Context) { c.AbortWithStatusJSON(401, gin.H{"error": "authentication required"}) })
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, route, strings.NewReader(`{"stream":false}`)))
+			require.Equal(t, 401, rec.Code)
+			require.Contains(t, rec.Header().Get("Content-Type"), "application/json")
+		}
 	}
 }

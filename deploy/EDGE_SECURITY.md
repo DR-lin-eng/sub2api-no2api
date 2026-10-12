@@ -93,18 +93,17 @@ the application's responsibility.
 
 ## Trusted client IPs
 
-Sub2API defaults to the `auto_compat` client-IP mode. Loopback/private peers,
+Sub2API defaults to the `auto_compat` client-IP mode. Loopback peers,
 Cloudflare's embedded official ranges, and explicit trusted proxies may supply
-forwarded client addresses. Public non-Cloudflare peers cannot override their
-TCP peer address with forwarding headers. This supports common Nginx, Caddy,
-Docker, Cloudflare orange-cloud, and Cloudflare Tunnel deployments without a
-configuration-file change.
+forwarded client addresses. Private Docker, Nginx, or Caddy peers must be
+listed explicitly; an unlisted private peer cannot override its TCP address
+with forwarding headers. This avoids treating every reachable RFC1918 host as
+a trusted proxy.
 
 `server.trusted_proxies` is an optional additional list of CIDR/IP addresses
 that connect directly to Sub2API. It is merged with proxy entries configured in
-the admin settings. Use the `trusted_proxy` mode in the admin settings when
-private infrastructure ranges should not be trusted automatically, or `direct`
-to ignore all forwarding headers.
+the admin settings. Use the `trusted_proxy` mode in the admin settings for a
+fully explicit proxy policy, or `direct` to ignore all forwarding headers.
 
 Never trust `CF-Connecting-IP`, `X-Real-IP`, or `X-Forwarded-For` merely because
 the header exists. A CDN deployment must firewall the origin so only the CDN or

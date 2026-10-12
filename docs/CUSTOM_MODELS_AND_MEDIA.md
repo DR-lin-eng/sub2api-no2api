@@ -26,6 +26,8 @@
 
 能力缓存不可在应用启动时为匿名用户强制请求管理员接口；它应在实际媒体或管理场景按需加载。请求模板和媒体配置的 JSON 大小、字段和 URL 校验由后端 handler/service 执行，前端校验只用于交互反馈。
 
+Responses 编辑图片的 `input_image.image_url` 和 `input_image_mask.image_url` 只下载公开 HTTP(S) 地址；是否接受 HTTP 继续遵循 `security.url_allowlist.allow_insecure_http`。私网、回环、链路本地、元数据及共享地址始终拒绝，管理员配置的 `allow_private_hosts` 不适用于这些用户输入。下载器校验全部 DNS 结果、固定连接 IP，并对重定向逐跳校验；保留本地 `/generated/`、base64 data URL 和账号 `file_id` 输入。每次远程下载总超时为 30 秒，原有大小上限继续生效。HTTP/HTTPS 代理需要允许对目标图片端口建立 CONNECT 隧道；SOCKS 代理使用固定 IP。验证及影响说明见 [安全修复记录](SECURITY_REVIEW_RESPONSES_IMAGE_SSRF_20261006.md)。
+
 ## 事实源与验证
 
 - 前端 owner：[custom-model-config](../frontend/src/features/custom-model-config/README.md) 与 [media-studio](../frontend/src/features/media-studio/README.md)。

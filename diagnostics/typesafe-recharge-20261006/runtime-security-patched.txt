@@ -1,0 +1,18 @@
+RESTORED: /health HTTP_200
+RESTORED: /ready HTTP_200
+RESTORED: embedded_frontend HTTP_200
+RESTORED: admin_login PASS
+RESTORED: persisted_key_name_quota PASS
+RESTORED: public_settings_contract PASS
+RESTORED: legacy_order_state PASS
+RESTORED: dormant_tiers_default_off PASS
+RESTORED: RUNTIME_PASS
+PROBE: /health HTTP_200
+PROBE: /ready HTTP_200
+PROBE: embedded_frontend HTTP_200
+PROBE: admin_login PASS
+PROBE: persisted_key_name_quota PASS
+PROBE: public_settings_contract PASS
+PROBE: legacy_order_state PASS
+PROBE: typesafe_relay_manual_billing_probe PASS
+PROBE: RUNTIME_PASS

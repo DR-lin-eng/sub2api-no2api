@@ -1,12 +1,21 @@
 package routes
 
 import (
+	"time"
+
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	ratelimit "github.com/Wei-Shaw/sub2api/internal/platform/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/transport/http/handler"
 	"github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin"
 	"github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
+)
+
+const (
+	publicOrderVerifyRateLimit       = 20
+	publicOrderVerifyRateLimitWindow = time.Minute
 )
 
 // RegisterPaymentRoutes registers all payment-related routes:
@@ -21,6 +30,7 @@ func RegisterPaymentRoutes(
 	auditLog middleware.AuditLogMiddleware,
 	settingService *service.SettingService,
 	panelRateLimiter *middleware.PanelRateLimiter,
+	redisClient *redis.Client,
 ) {
 	// --- User-facing payment endpoints (authenticated) ---
 	authenticated := v1.Group("/payment")
@@ -50,13 +60,20 @@ func RegisterPaymentRoutes(
 	// The legacy anonymous out_trade_no verify endpoint remains available as a
 	// persisted-state compatibility path for staggered upgrades.
 	public := v1.Group("/payment/public")
+	public.Use(panelRateLimiter.PublicIP())
 	{
-		public.POST("/orders/verify", paymentHandler.VerifyOrderPublic)
-		public.POST("/orders/resolve", paymentHandler.ResolveOrderPublicByResumeToken)
+		// Redis failures leave persisted payment results accessible during an outage.
+		limiter := ratelimit.NewRateLimiter(redisClient)
+		public.POST("/orders/verify", limiter.Limit("payment-public-order-verify", publicOrderVerifyRateLimit, publicOrderVerifyRateLimitWindow), paymentHandler.VerifyOrderPublic)
+		public.POST("/orders/resolve", limiter.Limit("payment-public-order-resolve", 60, time.Minute), paymentHandler.ResolveOrderPublicByResumeToken)
 	}
 
 	// --- Webhook endpoints (no auth) ---
 	webhook := v1.Group("/payment/webhook")
+	webhookLimiter := ratelimit.NewRateLimiter(redisClient)
+	webhook.Use(webhookLimiter.LimitWithOptions("payment-webhook", 120, time.Minute, ratelimit.RateLimitOptions{
+		FailureMode: ratelimit.RateLimitFailOpen,
+	}))
 	{
 		// EasyPay sends GET callbacks with query params
 		webhook.GET("/easypay", webhookHandler.EasyPayNotify)
@@ -70,6 +87,7 @@ func RegisterPaymentRoutes(
 	// --- Admin payment endpoints (admin auth) ---
 	adminGroup := v1.Group("/admin/payment")
 	adminGroup.Use(gin.HandlerFunc(adminAuth))
+	adminGroup.Use(middleware.AdminPermissionMiddleware(settingService))
 	adminGroup.Use(panelRateLimiter.Authenticated())
 	adminGroup.Use(gin.HandlerFunc(auditLog))
 	adminGroup.Use(middleware.AdminComplianceGuard(settingService))

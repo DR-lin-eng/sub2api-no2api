@@ -1,0 +1,19 @@
+{
+  "label": "transaction-final-copy",
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo",
+  "argv": [
+    "sh",
+    "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/ROLLBACK.sh",
+    "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/transaction-final-rollback"
+  ],
+  "command": "sh /private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/ROLLBACK.sh /private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/transaction-final-rollback",
+  "input": "repository sources and committed regression fixtures",
+  "stdout": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/records/transaction-final-copy.stdout",
+  "stderr": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/records/transaction-final-copy.stderr",
+  "exit": 0,
+  "started": "2026-10-08T17:02:58.177415+00:00",
+  "finished": "2026-10-08T17:02:58.886499+00:00",
+  "accepted": true,
+  "stdout_sha256": "49ac9c19dfa689f917883e2ce96fda4472c35fc4045ca3b6f1362659640651ba",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

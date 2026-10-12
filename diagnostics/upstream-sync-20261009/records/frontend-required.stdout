@@ -1,0 +1,58 @@
+(1/1) Installing make (4.4.1-r4)
+Executing busybox-1.37.0-r31.trigger
+OK: 11.3 MiB in 19 packages
+make[1]: Entering directory '/app'
+
+ RUN  v3.2.6 /app/frontend
+
+ ✓ src/features/billing/__tests__/PaymentResultPage.spec.ts (15 tests) 188ms
+ ✓ src/__tests__/dynamicLocaleMapping.spec.ts (1 test) 397ms
+   ✓ dynamic locale mapping gate > requires every dynamic translation key construction to be explicitly reviewed  394ms
+ ✓ src/features/profile/__tests__/ProfileInfoCard.spec.ts (8 tests) 236ms
+ ✓ src/features/admin-usage/__tests__/UsageTable.spec.ts (22 tests) 334ms
+ ✓ src/features/admin-usage/__tests__/UsageDetailDialog.spec.ts (4 tests) 155ms
+ ✓ src/common/pages/__tests__/HomePageCompact.spec.ts (11 tests) 281ms
+ ✓ src/features/billing/__tests__/PaymentPage.spec.ts (13 tests) 337ms
+ ✓ src/features/auth/__tests__/LinuxDoCallbackView.spec.ts (17 tests) 395ms
+ ✓ src/features/auth/__tests__/WechatCallbackView.spec.ts (25 tests) 468ms
+ ✓ src/core/utils/__tests__/usageLocale.spec.ts (4 tests) 10ms
+ ✓ src/common/widgets/data/__tests__/GroupOptionItem.spec.ts (11 tests) 208ms
+ ✓ src/__tests__/dynamicHtmlSecurity.spec.ts (4 tests) 27ms
+ ✓ src/core/utils/__tests__/embedded-url.spec.ts (7 tests) 35ms
+ ✓ src/features/auth/__tests__/authProfileLocaleScopes.spec.ts (4 tests) 95ms
+ ✓ src/features/channel-monitor-user/__tests__/channelMonitorLocale.spec.ts (6 tests) 19ms
+ ✓ src/features/billing/__tests__/paymentLocaleScopes.spec.ts (4 tests) 74ms
+ ✓ src/core/utils/__tests__/homeContent.spec.ts (5 tests) 76ms
+ ✓ src/features/admin-usage/__tests__/UsageStatsCards.spec.ts (4 tests) 105ms
+ ✓ src/features/prompt-audit/__tests__/promptAuditLocale.spec.ts (4 tests) 3ms
+ ✓ src/features/channels-user/__tests__/CustomLandingPage.security.spec.ts (4 tests) 4ms
+ ✓ src/features/channels-user/__tests__/customPageHtml.spec.ts (3 tests) 70ms
+ ✓ src/core/__tests__/credentialCryptoUsage.spec.ts (2 tests) 77ms
+ ✓ src/features/subscriptions/__tests__/subscriptionStatus.spec.ts (4 tests) 4ms
+ ✓ src/features/prompt-audit/__tests__/RuntimeOverview.spec.ts (1 test) 20ms
+ ✓ src/features/admin-backup/presentation/pages/__tests__/backupStatus.spec.ts (4 tests) 4ms
+ ✓ src/common/widgets/layout/__tests__/AppHeaderResponsive.spec.ts (2 tests) 2ms
+ ✓ src/core/routes/__tests__/adminRouteAccess.spec.ts (1 test) 75ms
+ ✓ src/core/i18n/__tests__/routeLocaleCoverage.spec.ts (3 tests) 4554ms
+   ✓ locale coverage > resolves every static locale key used by runtime source  1860ms
+   ✓ locale coverage > loads every statically reachable message for every route  2660ms
+ ✓ src/features/admin-settings/__tests__/SettingsPage.spec.ts (54 tests) 3364ms
+   ✓ admin SettingsView payment visible method controls > submits stream mode performance optimization from the performance tab  315ms
+
+ Test Files  29 passed (29)
+      Tests  247 passed (247)
+   Start at  08:52:09
+   Duration  10.74s (transform 10.57s, setup 2.63s, collect 26.64s, tests 11.62s, environment 16.47s, prepare 5.58s)
+
+make[1]: Leaving directory '/app'
+
+ RUN  v3.2.6 /app/frontend
+
+ ✓ src/features/admin-settings/__tests__/settings.authSourceDefaults.spec.ts (13 tests) 9ms
+ ✓ src/features/admin-users/__tests__/UserPlatformQuotaModal.spec.ts (12 tests) 148ms
+
+ Test Files  2 passed (2)
+      Tests  25 passed (25)
+   Start at  08:52:20
+   Duration  1.12s (transform 311ms, setup 120ms, collect 494ms, tests 157ms, environment 493ms, prepare 136ms)
+

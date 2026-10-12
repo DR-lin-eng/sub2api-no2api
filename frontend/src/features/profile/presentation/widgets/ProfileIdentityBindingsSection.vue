@@ -99,6 +99,7 @@
                   class="input"
                   :placeholder="t('profile.authBindings.emailPlaceholder')"
                   :disabled="isSendingEmailCode || isBindingEmail"
+                  @input="isEmailBindingFormDirty = true"
                 />
                 <button
                   data-testid="profile-binding-email-send-code"
@@ -122,6 +123,7 @@
                   class="input"
                   :placeholder="t('profile.authBindings.codePlaceholder')"
                   :disabled="isBindingEmail"
+                  @input="isEmailBindingFormDirty = true"
                 />
                 <input
                   v-model="emailBindingForm.password"
@@ -130,6 +132,7 @@
                   class="input"
                   :placeholder="emailPasswordPlaceholder"
                   :disabled="isBindingEmail"
+                  @input="isEmailBindingFormDirty = true"
                 />
                 <button
                   data-testid="profile-binding-email-submit"
@@ -190,9 +193,12 @@
       </div>
     </div>
   </div>
+  <TotpStepUpDialog :controller="stepUp" />
 </template>
 
 <script setup lang="ts">
+import TotpStepUpDialog from '@/features/auth/totpStepUpDialog'
+import { useStepUp, isStepUpCancelled } from '@/common/composables/useStepUp'
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
@@ -243,11 +249,13 @@ const props = withDefaults(
 const { t } = useI18n()
 const route = useRoute()
 const appStore = useAppStore()
+const stepUp = useStepUp()
 const authStore = useAuthStore()
 
 const localUser = ref<User | null>(null)
 const isSendingEmailCode = ref(false)
 const isBindingEmail = ref(false)
+const isEmailBindingFormDirty = ref(false)
 const isEmailFormExpanded = ref(!props.compact)
 const unbindingProvider = ref<BindableProvider | null>(null)
 const emailBindingForm = reactive({
@@ -256,15 +264,21 @@ const emailBindingForm = reactive({
   password: '',
 })
 
+function resetEmailBindingForm(user: User | null): void {
+  emailBindingForm.email =
+    typeof user?.email === 'string' && !user.email.endsWith('.invalid') ? user.email : ''
+  emailBindingForm.verifyCode = ''
+  emailBindingForm.password = ''
+  isEmailBindingFormDirty.value = false
+}
+
 watch(
   () => props.user,
-  (user) => {
+  (user, previousUser) => {
     localUser.value = null
-    if (!user) {
-      return
-    }
-    if (typeof user.email === 'string' && !user.email.endsWith('.invalid')) {
-      emailBindingForm.email = user.email
+    // Profile polling must not overwrite an in-progress email verification flow.
+    if (user?.id !== previousUser?.id || !isEmailBindingFormDirty.value) {
+      resetEmailBindingForm(user)
     }
   },
   { immediate: true }
@@ -571,10 +585,11 @@ function applyUpdatedUser(user: User): void {
 async function handleUnbind(provider: BindableProvider, providerLabel: string): Promise<void> {
   unbindingProvider.value = provider
   try {
-    const user = await unbindAuthIdentity(provider)
+    const user = await stepUp.run(() => unbindAuthIdentity(provider))
     applyUpdatedUser(user)
     appStore.showSuccess(t('profile.authBindings.unbindSuccess', { providerName: providerLabel }))
   } catch (error) {
+    if (isStepUpCancelled(error)) return
     appStore.showError((error as { message?: string }).message || t('common.tryAgain'))
   } finally {
     unbindingProvider.value = null
@@ -617,11 +632,13 @@ async function sendEmailCode(): Promise<void> {
     return
   }
 
+  isEmailBindingFormDirty.value = true
   isSendingEmailCode.value = true
   try {
-    await sendEmailBindingCode(emailBindingForm.email)
+    await stepUp.run(() => sendEmailBindingCode(emailBindingForm.email))
     appStore.showSuccess(t('profile.authBindings.codeSentTo', { email: emailBindingForm.email }))
   } catch (error) {
+    if (isStepUpCancelled(error)) return
     appStore.showError((error as { message?: string }).message || t('auth.sendCodeFailed'))
   } finally {
     isSendingEmailCode.value = false
@@ -633,17 +650,17 @@ async function bindEmail(): Promise<void> {
     return
   }
 
+  isEmailBindingFormDirty.value = true
   isBindingEmail.value = true
   try {
-    const user = await bindEmailIdentity({
+    const user = await stepUp.run(() => bindEmailIdentity({
       email: emailBindingForm.email,
       verify_code: emailBindingForm.verifyCode,
       password: emailBindingForm.password,
-    })
+    }))
     const replacingBoundEmail = emailBound.value
     applyUpdatedUser(user)
-    emailBindingForm.verifyCode = ''
-    emailBindingForm.password = ''
+    resetEmailBindingForm(user)
     if (compact.value) {
       isEmailFormExpanded.value = false
     }
@@ -653,6 +670,7 @@ async function bindEmail(): Promise<void> {
         : t('profile.authBindings.bindSuccess')
     )
   } catch (error) {
+    if (isStepUpCancelled(error)) return
     appStore.showError((error as { message?: string }).message || t('common.tryAgain'))
   } finally {
     isBindingEmail.value = false

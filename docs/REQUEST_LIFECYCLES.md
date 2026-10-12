@@ -4,7 +4,7 @@
 
 ## API Key 模型请求
 
-典型入口包括 `/v1/messages`、`/v1/responses`、`/v1/chat/completions`、`/v1beta/...` 以及无 `/v1` 的兼容别名。所有绑定在 `backend/internal/transport/http/server/routes/gateway.go`。
+典型入口包括 TypeSafe 原生非流式 `/v1/systemone`、`/v1/messages`、`/v1/responses`、`/v1/chat/completions`、`/v1beta/...` 以及无 `/v1` 的兼容别名。所有绑定在 `backend/internal/transport/http/server/routes/gateway.go`。
 
 ```mermaid
 sequenceDiagram
@@ -33,7 +33,17 @@ sequenceDiagram
 
 流式事件可能在最终用量结算前已经发送给客户端；这也是结算必须可恢复、幂等且不能依赖客户端连接继续存活的原因。
 
+模型字段在鉴权之后、分组白名单和合成路由改写之前必须通过 `GatewayModelValidation`。JSON 顶层 `model`、`session` 和 `session.model` 的重复键（含大小写与转义别名），以及 multipart 重复 `model`/`session` 字段返回协议兼容的 400；该检查不依赖模型白名单开关。Responses WebSocket 在每个原始客户端帧读入时执行同一检查，歧义帧以 1008 关闭，避免调度、上游解析和计费分别采用首值或末值。工具 schema 和消息内容中的模型字段不属于这一边界。
+
+用户端 API Key 创建与分组修改统一校验每个 `group_id`/`group_bindings` 候选的 active 状态及用户授权；原绑定列表完全不变时，改名或编辑自有 Key 的消费上限仍允许保存，已经停用的旧候选由运行时路由过滤。`quota` 是 Key 的自设消费上限，余额与订阅扣费不因调整它而豁免。
+
+Codex CLI 语音通过 Live 创建与 Sideband 控制链路接入，`gpt-live-1-codex` 使用 CLI 的可选证明契约；语音按分钟结算，任务模型另按 token 计费。倍率与配额策略在创建时冻结，Redis 保留未结算会话，由固定批量恢复器完成幂等扣费和用量写入。客户端 Sideband 地址与升级/回退边界见 [Codex CLI 语音](CODEX_VOICE.md)。
+
+Responses 走图片编辑桥接时，用户提交的图片与遮罩 URL 在共享解析阶段携带独立公开地址策略。HTTP port 的 repository 实现对全部 DNS 结果与重定向逐跳校验，再连接固定 IP；账号代理/IPv6 出口仍随请求传递，管理员私网上游例外不能放宽用户输入。接口、计费和本地图片输入边界见 [媒体工坊安全说明](CUSTOM_MODELS_AND_MEDIA.md)。
+
 普通 OpenAI OAuth 账号在 `extra.excel_bps_enabled=true` 且不是独立 compact 路径时将 Responses 请求转入账号级 Excel/Basispoints 桥接；桥接不支持的原生托管工具显式报错，不静默回退。账号管理页的 `excel_bps=enabled|disabled` 在 PostgreSQL JSONB 谓词中先于分页计算，同时用于批量编辑目标解析、导出和上游计费快照；批量 BPS 开关在写入前校验所有账号资格，SQL 写入时复查并保持整批原子性；DeepSeek 专用兼容调整分别落在 Responses 出站请求与 Chat Completions 出站/回退链路。配置、能力边界和验证入口见 [Excel BPS 与 DeepSeek 兼容](BPS_DEEPSEEK_COMPAT.md)。
+
+OpenAI OAuth Responses、自动透传和原生 WebSocket 握手收到上游 `401` 且错误码为 `token_expired` 时，网关先删除该账号的 token 缓存，在分布式刷新锁下强制执行一次 refresh token 流程，即使数据库中的 `expires_at` 仍在未来；刷新成功后仅重放当前请求一次并继续使用同一账号。刷新失败、refresh token 缺失、`token_revoked`/`token_invalidated` 或再次收到 401 继续走原有账号冷却、永久错误和 failover 策略。其它 401 不会被误判为可恢复过期。
 
 ## OAuth2 对外授权
 
@@ -171,6 +181,8 @@ Codex Desktop 新建委派任务或启动定时任务时，首轮可能注入没
 校验前对已验证的 delegation/automation 信封做窄范围转换，将其原位恢复为 user message；
 不得把 `fco_*` item `id` 伪造成 `call_id`。其他工具输出仍必须携带可与真实调用上下文配对的
 `call_id`，未知或含歧义调用上下文的输入不会进入该兼容分支。
+
+OAuth Responses 回放历史含 `web_search_call`、但顶层与 `additional_tools` 都未声明搜索工具时，网关补充 `external_web_access:false` 的缓存搜索声明。标准协议放顶层 `tools`；Lite 放第一个 `input.additional_tools`，缺失时插在末尾 `compaction_trigger` 之前。原本完全无工具且 `tool_choice` 缺省/auto/none 时固定 none，调用方已有工具或显式其他选择保持原样。HTTP transform/passthrough 与普通/透传 WS 的每轮共享此规则；旧 unary `/responses/compact`、API Key、其他平台和 BPS 独立协议不注入。原历史项、数值和非目标字节不被整段重编码。
 
 ### Claude Messages 的上下文控制与 Compact
 
@@ -332,7 +344,8 @@ HMAC；项目头在所有 HTTP/WS 上游构造器中删除。每个账号 attemp
 `chatgpt_account_id` 时有意视为同一上游主体。
 
 full simulation 的 session/thread/turn 使用 UUIDv7，并从同一 attempt plan 投影到请求头、`prompt_cache_key`
-和 `client_metadata`。`root_turn_id` 与当前 `turn_id` 保持一致，`window_id` 使用从 1 开始的
+和 `client_metadata`。`parent_turn_id`/`root_turn_id` 在同一主体 turn 命名空间重新派生；没有显式 root
+时使用当前 `turn_id`。HTTP/WS 请求头复用正文投影，避免重复派生。`window_id` 使用从 1 开始的
 `thread_id:window_number`。每个 OpenAI OAuth 账号有一个随机生成、持久化在
 `accounts.extra.codex_context_window_id` 的 `context_window_id`；body 与 `x-codex-turn-metadata` 只使用该账号值，
 不接受下游窗口 ID 原样透传。installation ID 继续作为独立的 UUIDv4 安装身份。
@@ -436,7 +449,8 @@ handler success/usage
 
 - `CalculateCostUnified` 是 token、按次和图片等计费模式的统一成本入口。
 - 渠道 token 定价的可选 `time_pricing` 使用请求固定的 `PricingAt` 计算；时区/时段配置编译后缓存，缺失或脏配置安全回退到 1x，不改变旧数据的升级口径。
-- request ID 与请求指纹用于幂等；同一 ID 的不同请求不能被静默视为重复。
+- 网关计费使用入口生成的私有 `UsageBillingRequestID`，不使用客户端关联头、`RequestID`/`ClientRequestID` 或上游响应 ID。异步结算保留该 ID；下游 WebSocket 为每次上游连接尝试生成独立私有 ID，再按服务端轮次派生，避免换号后轮次重置与已结算轮次冲突。后台任务保留已有的服务端任务 ID 重试语义。
+- 计费 ID 与请求指纹用于幂等；同一 ID 的不同请求不能被静默视为重复。
 - PostgreSQL 结算事务内完成幂等占位以及余额、订阅、API Key/账号额度等账务效果。
 - usage log 是相邻的独立写入，不与结算事务共享原子性；排障时不能仅凭日志是否存在判断扣费是否成功。
 - 队列满、worker 拒绝或 Redis 不可用时，关键结算必须进入受限 fallback 或同步执行，不能丢弃。

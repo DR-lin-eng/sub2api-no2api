@@ -1,0 +1,71 @@
+[
+  {
+    "pr": 7851,
+    "title": "fix: enable API-key discovery for remote Codex catalogs",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7851",
+    "merge_sha": "33d9e72f9098baa58d3562fc632e26578cdbe9a9",
+    "files": [
+      "frontend/src/components/keys/UseKeyModal.vue"
+    ],
+    "upstream_diff_sha256": "7354e935c3581ea4278c5ae984782ccca3b77aab6384a5c712f37ca965c7c045",
+    "status": "当前配置无此差异，已关闭",
+    "fully_closed": true,
+    "current_owner": "frontend/src/features/keys/presentation/widgets/UseKeyDialog.vue",
+    "decision": "当前配置没有 model_catalog_url 或远程目录模式；保留现有旧/新客户端认证与 HTTP/WS 配置。前置 #7736 仍属独立暂缓专项，本轮不引入目录协议。",
+    "reopen_condition": "启用 #7736 远程目录时，必须同时适配本 PR 的 api_key_model_discovery 开关并验证 API Key/兼容模式及 HTTP/WS",
+    "resolution_evidence": "diagnostics/upstream-sync-20261007/VERIFICATION.txt"
+  },
+  {
+    "pr": 7888,
+    "title": "fix(payment): 修复易支付回调签名复用伪造入账漏洞 (fixes #7881)",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7888",
+    "merge_sha": "d97ccc952ff3b7f63b44c45079ee6a28422f1393",
+    "files": [
+      "backend/internal/payment/provider/easypay.go",
+      "backend/internal/payment/provider/easypay_notify_security_test.go",
+      "backend/internal/service/payment_resume_service.go",
+      "backend/internal/service/payment_resume_service_test.go"
+    ],
+    "upstream_diff_sha256": "8f90550e037e3addb74876d1e536dc41bcbe636e97dff3c52271522a459796d4",
+    "status": "现有修复覆盖，已关闭",
+    "fully_closed": true,
+    "current_owner": "backend/internal/modules/payment/provider/easypay.go；application/service/payment_resume_service.go",
+    "decision": "本项目 #111 已剥离客户端 return_url 查询串，并限制回调字段；进一步校验重复参数、商户 PID、sign_type、金额及 trade_no。保留已验证实现，不重复改写。",
+    "reopen_condition": "仅上游行为变化或实际回归证据",
+    "resolution_evidence": "diagnostics/upstream-sync-20261007/VERIFICATION.txt"
+  },
+  {
+    "pr": 7893,
+    "title": "fix(setup): stop shipping guessable admin credentials on fresh installs (fixes #7850)",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7893",
+    "merge_sha": "0363b8cdba8cec3e2ba4b2dbd49c4481143fa55d",
+    "files": [
+      ".github/audit-exceptions.yml",
+      "README.md",
+      "README_CN.md",
+      "README_JA.md",
+      "backend/internal/integration/e2e_user_flow_test.go",
+      "backend/internal/setup/cli.go",
+      "backend/internal/setup/handler.go",
+      "backend/internal/setup/setup.go",
+      "backend/internal/setup/setup_test.go",
+      "deploy/.env.example",
+      "deploy/APPLE_CONTAINER.md",
+      "deploy/README.md",
+      "deploy/docker-compose.dev.yml",
+      "deploy/docker-compose.local.yml",
+      "deploy/docker-compose.standalone.yml",
+      "deploy/docker-compose.yml",
+      "deploy/docker-deploy.sh",
+      "frontend/package.json",
+      "frontend/pnpm-lock.yaml"
+    ],
+    "upstream_diff_sha256": "d4e59933992f14c08841ce3fe413092493d40cf200e55ab3d5de12f002b0132e",
+    "status": "按现有 owner 适配，已关闭",
+    "fully_closed": true,
+    "current_owner": "backend/internal/bootstrap/setup/admin_credentials.go；deploy；frontend/src/features/setup",
+    "decision": "首次创建管理员时随机补齐空凭据，复用登录邮箱规则和 8–72 UTF-8 字节密码边界；已有用户时跳过。CLI/Web/Compose/示例一致；Vue 仅更新至 3.5.43，不扩充审计例外。",
+    "reopen_condition": "仅上游行为变化或实际回归证据",
+    "resolution_evidence": "diagnostics/upstream-sync-20261007/VERIFICATION.txt"
+  }
+]

@@ -1,0 +1,2 @@
+PUB_BASELINE: cases=46; native_pairs=misaligned (expected); user_diagnostics=hidden; mobile_overflow=none; extra_nodes=total label displays 输出 TPS (native TPS ordering bug reproduced)
+PUB_BASELINE: observed_first_row=[{"label":"首字","value":"1.67s","sameLine":true},{"label":"总耗时","value":"输出 TPS","sameLine":true},{"label":"速度","value":"36 Token/s","sameLine":true},{"label":"本地首字","value":"1.67s","sameLine":true},{"label":"OpenAI 引擎首字","value":"-","sameLine":true},{"label":"输出 TPS","value":"36.5 tok/s","sameLine":false}]

@@ -1,3 +1,4 @@
+import { sanitizeRechargeBonusTiersForSubmit } from '@/features/billing/rechargeBonus'
 import {
   appendAuthSourceDefaultsToUpdateRequest,
   defaultWeChatConnectScopesForMode,
@@ -324,6 +325,10 @@ function buildPaymentSettingsPayload({
     payment_subscription_usd_to_cny_rate:
       Number(form.payment_subscription_usd_to_cny_rate) || 0,
     payment_recharge_fee_rate: Number(form.payment_recharge_fee_rate) || 0,
+    payment_recharge_bonus_enabled: form.payment_recharge_bonus_enabled,
+    payment_recharge_bonus_tiers: sanitizeRechargeBonusTiersForSubmit(form.payment_recharge_bonus_tiers),
+    payment_recharge_bonus_mode: form.payment_recharge_bonus_mode,
+    payment_recharge_bonus_notice: form.payment_recharge_bonus_notice,
     payment_enabled_types: form.payment_enabled_types,
     payment_load_balance_strategy: form.payment_load_balance_strategy,
     payment_product_name_prefix: form.payment_product_name_prefix,

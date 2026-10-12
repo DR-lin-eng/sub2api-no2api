@@ -1,0 +1,605 @@
+diff --git a/backend/internal/service/openai_codex_transform.go b/backend/internal/service/openai_codex_transform.go
+index edca90f1e..220358f1e 100644
+--- a/backend/internal/service/openai_codex_transform.go
++++ b/backend/internal/service/openai_codex_transform.go
+@@ -93,6 +93,8 @@ type codexOAuthTransformOptions struct {
+ 	SkipDefaultInstructions             bool
+ 	PreserveToolCallIDs                 bool
+ 	OmitPromotedSystemMessagesFromInput bool
++	// ResponsesLite selects where an injected hosted tool is declared.
++	ResponsesLite bool
+ }
+ 
+ const (
+@@ -347,6 +349,12 @@ func applyCodexOAuthTransformWithOptions(reqBody map[string]any, opts codexOAuth
+ 		result.Modified = true
+ 	}
+ 
++	// Runs after input filtering so it sees the final replayed history. The
++	// compact endpoint has its own wire shape and is left untouched.
++	if !opts.IsCompact && ensureOpenAIOAuthWebSearchToolForHistory(reqBody, opts.ResponsesLite) {
++		result.Modified = true
++	}
++
+ 	return result
+ }
+ 
+diff --git a/backend/internal/service/openai_gateway_forward.go b/backend/internal/service/openai_gateway_forward.go
+index 444b2c4db..16df53310 100644
+--- a/backend/internal/service/openai_gateway_forward.go
++++ b/backend/internal/service/openai_gateway_forward.go
+@@ -508,6 +508,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
+ 				SkipDefaultInstructions:             true,
+ 				PreserveToolCallIDs:                 true,
+ 				OmitPromotedSystemMessagesFromInput: omitPromotedSystemMessages,
++				ResponsesLite:                       responsesLite,
+ 			})
+ 			ensureCodexOAuthInstructionsField(decoded)
+ 			markDecodedModified()
+@@ -516,6 +517,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
+ 				IsCodexCLI:                          isCodexCLI,
+ 				IsCompact:                           isCompactRequest,
+ 				OmitPromotedSystemMessagesFromInput: omitPromotedSystemMessages,
++				ResponsesLite:                       responsesLite,
+ 			})
+ 		}
+ 		if codexResult.Error != nil {
+diff --git a/backend/internal/service/openai_gateway_passthrough.go b/backend/internal/service/openai_gateway_passthrough.go
+index a24ae4a00..bf74b242d 100644
+--- a/backend/internal/service/openai_gateway_passthrough.go
++++ b/backend/internal/service/openai_gateway_passthrough.go
+@@ -213,7 +213,10 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
+ 	}
+ 	if account != nil && account.IsOpenAI() {
+ 		responsesLite := isOpenAIResponsesLiteHeader(c.GetHeader(responsesLiteHeader)) || isOpenAIResponsesLiteWebSocketPayload(body)
+-		normalizedBody, normalized, normalizeErr := normalizeOpenAIResponsesWebSocketCompatibilityBody(body, account, responsesLite)
++		normalizedBody, normalized, normalizeErr := normalizeOpenAIResponsesCompatibilityBodyWithOptions(body, account, openAIResponsesCompatibilityOptions{
++			ResponsesLite: responsesLite,
++			Compact:       isOpenAIResponsesCompactPath(c),
++		})
+ 		if normalizeErr != nil {
+ 			return nil, fmt.Errorf("normalize passthrough Responses compatibility: %w", normalizeErr)
+ 		}
+diff --git a/backend/internal/service/openai_gateway_request_body.go b/backend/internal/service/openai_gateway_request_body.go
+index 663944e47..7ae18793e 100644
+--- a/backend/internal/service/openai_gateway_request_body.go
++++ b/backend/internal/service/openai_gateway_request_body.go
+@@ -1430,6 +1430,18 @@ func normalizeOpenAIResponseFormatSchemasBody(body []byte) ([]byte, bool, error)
+ }
+ 
+ func normalizeOpenAIResponsesWebSocketCompatibilityBody(body []byte, account *Account, responsesLite bool) ([]byte, bool, error) {
++	return normalizeOpenAIResponsesCompatibilityBodyWithOptions(body, account, openAIResponsesCompatibilityOptions{ResponsesLite: responsesLite})
++}
++
++type openAIResponsesCompatibilityOptions struct {
++	ResponsesLite bool
++	// Compact marks the /responses/compact wire shape, which is left as-is
++	// by request-shape compatibility rewrites such as web_search history.
++	Compact bool
++}
++
++func normalizeOpenAIResponsesCompatibilityBodyWithOptions(body []byte, account *Account, opts openAIResponsesCompatibilityOptions) ([]byte, bool, error) {
++	responsesLite := opts.ResponsesLite
+ 	if account == nil || !account.IsOpenAI() {
+ 		return body, false, nil
+ 	}
+@@ -1494,6 +1506,14 @@ func normalizeOpenAIResponsesWebSocketCompatibilityBody(body []byte, account *Ac
+ 			normalized = next
+ 			changed = true
+ 		}
++		if !opts.Compact {
++			webSearchBody, webSearchChanged, err := ensureOpenAIOAuthWebSearchToolForHistoryBody(normalized, responsesLite)
++			if err != nil {
++				return body, false, fmt.Errorf("normalize websocket body: %w", err)
++			}
++			normalized = webSearchBody
++			changed = changed || webSearchChanged
++		}
+ 	}
+ 	needsOrphanCleanup := account != nil && account.IsOpenAIOAuthLike() &&
+ 		gjson.GetBytes(normalized, "input").IsArray()
+diff --git a/backend/internal/service/openai_oauth_web_search_history.go b/backend/internal/service/openai_oauth_web_search_history.go
+new file mode 100644
+index 000000000..6a68eb719
+--- /dev/null
++++ b/backend/internal/service/openai_oauth_web_search_history.go
+@@ -0,0 +1,264 @@
++package service
++
++import (
++	"bytes"
++	"fmt"
++	"strings"
++
++	"github.com/tidwall/gjson"
++	"github.com/tidwall/sjson"
++)
++
++// The ChatGPT internal Codex endpoint rejects a request whose input replays a
++// hosted web_search_call item unless the request also declares the web_search
++// tool; the stream then fails with "response protection is unavailable".
++// Codex's local context compaction sends the full history with tools:[], so
++// every compaction after a web search fails (#7927).
++//
++// Declare a cached-only web_search tool for such requests. Responses Lite
++// rejects hosted tools at the top level, so Lite requests carry it in an
++// input additional_tools item instead. When the caller declared no tools at
++// all, also pin tool_choice to "none" so the injected tool cannot be invoked
++// and the request keeps its no-tools semantics.
++
++const (
++	openAIWebSearchCallItemType      = "web_search_call"
++	openAIAdditionalToolsItemType    = "additional_tools"
++	openAICompactionTriggerItemType  = "compaction_trigger"
++	openAIAdditionalToolsDefaultRole = "developer"
++)
++
++var openAIWebSearchHistoryTool = map[string]any{
++	"type":                "web_search",
++	"external_web_access": false,
++}
++
++func isOpenAIWebSearchToolType(toolType string) bool {
++	return strings.HasPrefix(strings.TrimSpace(toolType), "web_search")
++}
++
++func openAIToolsContainWebSearch(rawTools any) bool {
++	tools, ok := rawTools.([]any)
++	if !ok {
++		return false
++	}
++	for _, rawTool := range tools {
++		tool, ok := rawTool.(map[string]any)
++		if ok && isOpenAIWebSearchToolType(firstNonEmptyString(tool["type"])) {
++			return true
++		}
++	}
++	return false
++}
++
++// shouldPinOpenAIWebSearchHistoryToolChoice reports whether tool_choice may be
++// forced to "none": only when the caller offered no tools, so the choice
++// cannot meaningfully be anything else.
++func shouldPinOpenAIWebSearchHistoryToolChoice(choice any) bool {
++	switch typed := choice.(type) {
++	case nil:
++		return true
++	case string:
++		normalized := strings.ToLower(strings.TrimSpace(typed))
++		return normalized == "" || normalized == "auto" || normalized == "none"
++	default:
++		return false
++	}
++}
++
++// openAIAdditionalToolsInsertIndex keeps a trailing compaction trigger last,
++// as required by the remote compaction v2 wire format.
++func openAIAdditionalToolsInsertIndex(itemTypes []string) int {
++	if n := len(itemTypes); n > 0 && itemTypes[n-1] == openAICompactionTriggerItemType {
++		return n - 1
++	}
++	return len(itemTypes)
++}
++
++// ensureOpenAIOAuthWebSearchToolForHistory is the map variant used by the
++// Codex OAuth transform.
++func ensureOpenAIOAuthWebSearchToolForHistory(reqBody map[string]any, responsesLite bool) bool {
++	if reqBody == nil {
++		return false
++	}
++	input, ok := reqBody["input"].([]any)
++	if !ok {
++		return false
++	}
++	hasWebSearchCall := false
++	callerDeclaredTools := false
++	additionalToolsIndex := -1
++	itemTypes := make([]string, len(input))
++	for i, rawItem := range input {
++		item, ok := rawItem.(map[string]any)
++		if !ok {
++			continue
++		}
++		itemTypes[i] = strings.TrimSpace(firstNonEmptyString(item["type"]))
++		switch itemTypes[i] {
++		case openAIWebSearchCallItemType:
++			hasWebSearchCall = true
++		case openAIAdditionalToolsItemType:
++			if openAIToolsContainWebSearch(item["tools"]) {
++				return false
++			}
++			if tools, _ := item["tools"].([]any); len(tools) > 0 {
++				callerDeclaredTools = true
++			}
++			if additionalToolsIndex < 0 {
++				additionalToolsIndex = i
++			}
++		}
++	}
++	if !hasWebSearchCall || openAIToolsContainWebSearch(reqBody["tools"]) {
++		return false
++	}
++	tools, _ := reqBody["tools"].([]any)
++	callerDeclaredTools = callerDeclaredTools || len(tools) > 0
++
++	switch {
++	case !responsesLite:
++		reqBody["tools"] = append(tools, cloneOpenAIWebSearchHistoryTool())
++	case additionalToolsIndex >= 0:
++		// additionalToolsIndex is only recorded for map items.
++		item, _ := input[additionalToolsIndex].(map[string]any)
++		existing, _ := item["tools"].([]any)
++		item["tools"] = append(existing, cloneOpenAIWebSearchHistoryTool())
++	default:
++		at := openAIAdditionalToolsInsertIndex(itemTypes)
++		additional := map[string]any{
++			"type":  openAIAdditionalToolsItemType,
++			"role":  openAIAdditionalToolsDefaultRole,
++			"tools": []any{cloneOpenAIWebSearchHistoryTool()},
++		}
++		next := make([]any, 0, len(input)+1)
++		next = append(next, input[:at]...)
++		next = append(next, additional)
++		next = append(next, input[at:]...)
++		reqBody["input"] = next
++	}
++	if !callerDeclaredTools {
++		if choice, exists := reqBody["tool_choice"]; !exists || shouldPinOpenAIWebSearchHistoryToolChoice(choice) {
++			reqBody["tool_choice"] = "none"
++		}
++	}
++	return true
++}
++
++// ensureOpenAIOAuthWebSearchToolForHistoryBody is the raw-body variant used by
++// the passthrough and WebSocket paths; it avoids decoding the whole body.
++func ensureOpenAIOAuthWebSearchToolForHistoryBody(body []byte, responsesLite bool) ([]byte, bool, error) {
++	if len(body) == 0 || !bytes.Contains(body, []byte(openAIWebSearchCallItemType)) {
++		return body, false, nil
++	}
++	input := gjson.GetBytes(body, "input")
++	if !input.IsArray() {
++		return body, false, nil
++	}
++	items := input.Array()
++	hasWebSearchCall := false
++	callerDeclaredTools := false
++	additionalToolsIndex := -1
++	itemTypes := make([]string, len(items))
++	for i, item := range items {
++		itemTypes[i] = strings.TrimSpace(item.Get("type").String())
++		switch itemTypes[i] {
++		case openAIWebSearchCallItemType:
++			hasWebSearchCall = true
++		case openAIAdditionalToolsItemType:
++			itemTools := item.Get("tools")
++			if gjsonToolsContainWebSearch(itemTools) {
++				return body, false, nil
++			}
++			if itemTools.IsArray() && len(itemTools.Array()) > 0 {
++				callerDeclaredTools = true
++			}
++			if additionalToolsIndex < 0 {
++				additionalToolsIndex = i
++			}
++		}
++	}
++	if !hasWebSearchCall {
++		return body, false, nil
++	}
++	tools := gjson.GetBytes(body, "tools")
++	if gjsonToolsContainWebSearch(tools) {
++		return body, false, nil
++	}
++	topLevelTools := tools.IsArray() && len(tools.Array()) > 0
++	callerDeclaredTools = callerDeclaredTools || topLevelTools
++
++	var (
++		next []byte
++		err  error
++	)
++	switch {
++	case !responsesLite && topLevelTools:
++		next, err = sjson.SetBytes(body, "tools.-1", cloneOpenAIWebSearchHistoryTool())
++	case !responsesLite:
++		next, err = sjson.SetBytes(body, "tools", []any{cloneOpenAIWebSearchHistoryTool()})
++	case additionalToolsIndex >= 0 && items[additionalToolsIndex].Get("tools").IsArray():
++		next, err = sjson.SetBytes(body, fmt.Sprintf("input.%d.tools.-1", additionalToolsIndex), cloneOpenAIWebSearchHistoryTool())
++	case additionalToolsIndex >= 0:
++		next, err = sjson.SetBytes(body, fmt.Sprintf("input.%d.tools", additionalToolsIndex), []any{cloneOpenAIWebSearchHistoryTool()})
++	default:
++		next, err = insertOpenAIAdditionalToolsItemRaw(body, items, openAIAdditionalToolsInsertIndex(itemTypes))
++	}
++	if err != nil {
++		return body, false, fmt.Errorf("declare web_search tool for web_search_call history: %w", err)
++	}
++	if !callerDeclaredTools {
++		choice := gjson.GetBytes(next, "tool_choice")
++		if !choice.Exists() || choice.Type == gjson.Null || (choice.Type == gjson.String && shouldPinOpenAIWebSearchHistoryToolChoice(choice.String())) {
++			next, err = sjson.SetBytes(next, "tool_choice", "none")
++			if err != nil {
++				return body, false, fmt.Errorf("pin tool_choice for web_search_call history: %w", err)
++			}
++		}
++	}
++	return next, true, nil
++}
++
++func insertOpenAIAdditionalToolsItemRaw(body []byte, items []gjson.Result, at int) ([]byte, error) {
++	additional, err := marshalOpenAIUpstreamJSON(map[string]any{
++		"type":  openAIAdditionalToolsItemType,
++		"role":  openAIAdditionalToolsDefaultRole,
++		"tools": []any{cloneOpenAIWebSearchHistoryTool()},
++	})
++	if err != nil {
++		return nil, err
++	}
++	rawItems := make([][]byte, 0, len(items)+1)
++	for i, item := range items {
++		if i == at {
++			rawItems = append(rawItems, additional)
++		}
++		rawItems = append(rawItems, []byte(item.Raw))
++	}
++	if at >= len(items) {
++		rawItems = append(rawItems, additional)
++	}
++	raw := append([]byte{'['}, bytes.Join(rawItems, []byte{','})...)
++	raw = append(raw, ']')
++	return sjson.SetRawBytes(body, "input", raw)
++}
++
++func gjsonToolsContainWebSearch(tools gjson.Result) bool {
++	if !tools.IsArray() {
++		return false
++	}
++	for _, tool := range tools.Array() {
++		if isOpenAIWebSearchToolType(tool.Get("type").String()) {
++			return true
++		}
++	}
++	return false
++}
++
++func cloneOpenAIWebSearchHistoryTool() map[string]any {
++	tool := make(map[string]any, len(openAIWebSearchHistoryTool))
++	for key, value := range openAIWebSearchHistoryTool {
++		tool[key] = value
++	}
++	return tool
++}
+diff --git a/backend/internal/service/openai_oauth_web_search_history_forward_test.go b/backend/internal/service/openai_oauth_web_search_history_forward_test.go
+new file mode 100644
+index 000000000..9735f179c
+--- /dev/null
++++ b/backend/internal/service/openai_oauth_web_search_history_forward_test.go
+@@ -0,0 +1,71 @@
++//go:build unit
++
++package service
++
++import (
++	"context"
++	"io"
++	"net/http"
++	"strings"
++	"testing"
++
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++	"github.com/tidwall/gjson"
++	"github.com/tidwall/sjson"
++)
++
++// TestForward_OAuthWebSearchHistoryDeclaresTool drives the Codex compaction
++// shape (web_search_call history, tools:[]) through Forward and asserts the
++// body reaching chatgpt.com declares web_search (#7927): top-level for the
++// standard wire, input additional_tools for Responses Lite.
++func TestForward_OAuthWebSearchHistoryDeclaresTool(t *testing.T) {
++	for _, tc := range []struct {
++		name        string
++		passthrough bool
++		lite        bool
++	}{
++		{"transform", false, false},
++		{"passthrough", true, false},
++		{"transform lite", false, true},
++		{"passthrough lite", true, true},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			gin.SetMode(gin.TestMode)
++			s := newAstraOAuthSetup(t, tc.passthrough)
++			if tc.lite {
++				s.c.Request.Header.Set(responsesLiteHeader, "true")
++			}
++			inner := `{"id":"resp_test","model":"gpt-5.5","output":[],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}`
++			s.upstream.resp = &http.Response{
++				StatusCode: http.StatusOK,
++				Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
++				Body:       io.NopCloser(strings.NewReader(codexCompletedSSE(inner))),
++			}
++			body, err := sjson.SetRawBytes([]byte(openAIWebSearchHistoryCompactionBody), "input.-1", []byte(`{"type":"compaction_trigger"}`))
++			require.NoError(t, err)
++
++			result, err := s.svc.Forward(context.Background(), s.c, s.account, body)
++			require.NoError(t, err)
++			require.NotNil(t, result)
++			require.NotNil(t, s.upstream.lastReq)
++			require.Equal(t, astraProCodexResponsesURL, s.upstream.lastReq.URL.String())
++
++			forwarded := s.upstream.lastBody
++			require.Equal(t, "web_search_call", gjson.GetBytes(forwarded, "input.1.type").String())
++			require.Equal(t, "none", gjson.GetBytes(forwarded, "tool_choice").String())
++			items := gjson.GetBytes(forwarded, "input").Array()
++			require.Equal(t, "compaction_trigger", items[len(items)-1].Get("type").String())
++			if !tc.lite {
++				tools := gjson.GetBytes(forwarded, "tools").Array()
++				require.Len(t, tools, 1)
++				require.Equal(t, "web_search", tools[0].Get("type").String())
++				return
++			}
++			require.False(t, gjsonToolsContainWebSearch(gjson.GetBytes(forwarded, "tools")))
++			additional := items[len(items)-2]
++			require.Equal(t, "additional_tools", additional.Get("type").String())
++			require.Equal(t, "web_search", additional.Get("tools.0.type").String())
++		})
++	}
++}
+diff --git a/backend/internal/service/openai_oauth_web_search_history_test.go b/backend/internal/service/openai_oauth_web_search_history_test.go
+new file mode 100644
+index 000000000..19b7ef0cf
+--- /dev/null
++++ b/backend/internal/service/openai_oauth_web_search_history_test.go
+@@ -0,0 +1,152 @@
++package service
++
++import (
++	"encoding/json"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++	"github.com/tidwall/gjson"
++)
++
++// Codex local compaction replays hosted web_search_call history with tools:[];
++// ChatGPT then fails with "response protection is unavailable" (#7927).
++const openAIWebSearchHistoryCompactionBody = `{"model":"gpt-5.5","instructions":"x","input":[{"type":"message","role":"user","content":[{"type":"input_text","text":"look it up"}]},{"type":"web_search_call","id":"ws_123","status":"completed","action":{"type":"search","query":"kwin inputmethod"}},{"type":"message","role":"assistant","content":[{"type":"output_text","text":"found"}]},{"type":"message","role":"user","content":[{"type":"input_text","text":"summarize"}]}],"tools":[],"tool_choice":"auto","parallel_tool_calls":false,"stream":true,"store":false}`
++
++func TestOAuthWebSearchHistoryToolAcrossPaths(t *testing.T) {
++	oauth := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}
++	transform := func(compact bool) func([]byte) ([]byte, bool, error) {
++		return func(b []byte) ([]byte, bool, error) {
++			var req map[string]any
++			if err := json.Unmarshal(b, &req); err != nil {
++				return nil, false, err
++			}
++			result := applyCodexOAuthTransform(req, true, compact)
++			out, err := json.Marshal(req)
++			return out, result.Modified, err
++		}
++	}
++	tests := []struct {
++		name      string
++		normalize func([]byte) ([]byte, bool, error)
++		inject    bool
++	}{
++		{"transformed OAuth", transform(false), true},
++		{"transformed OAuth compact", transform(true), false},
++		{"OAuth websocket", func(b []byte) ([]byte, bool, error) {
++			return normalizeOpenAIResponsesWebSocketCompatibilityBody(b, oauth, false)
++		}, true},
++		{"OAuth passthrough compact", func(b []byte) ([]byte, bool, error) {
++			return normalizeOpenAIResponsesCompatibilityBodyWithOptions(b, oauth, openAIResponsesCompatibilityOptions{Compact: true})
++		}, false},
++		{"API key websocket", func(b []byte) ([]byte, bool, error) {
++			return normalizeOpenAIResponsesWebSocketCompatibilityBody(b, &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}, false)
++		}, false},
++	}
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			out, _, err := tt.normalize([]byte(openAIWebSearchHistoryCompactionBody))
++			require.NoError(t, err)
++			require.Equal(t, "web_search_call", gjson.GetBytes(out, "input.1.type").String())
++			if !tt.inject {
++				require.False(t, gjsonToolsContainWebSearch(gjson.GetBytes(out, "tools")))
++				return
++			}
++			tools := gjson.GetBytes(out, "tools").Array()
++			require.Len(t, tools, 1)
++			require.Equal(t, "web_search", tools[0].Get("type").String())
++			require.False(t, tools[0].Get("external_web_access").Bool())
++			require.True(t, tools[0].Get("external_web_access").Exists())
++			require.Equal(t, "none", gjson.GetBytes(out, "tool_choice").String())
++		})
++	}
++}
++
++func TestEnsureOpenAIOAuthWebSearchToolForHistory(t *testing.T) {
++	const (
++		user    = `{"type":"message","role":"user","content":[{"type":"input_text","text":"q"}]}`
++		search  = `{"type":"web_search_call","id":"ws_1","status":"completed","action":{"type":"search","query":"q"}}`
++		trigger = `{"type":"compaction_trigger"}`
++		history = `[` + user + `,` + search + `]`
++	)
++	tests := []struct {
++		name       string
++		body       string
++		lite       bool
++		changed    bool
++		toolsPath  string
++		toolCount  int
++		toolChoice string
++		itemTypes  []string
++	}{
++		{"tools absent", `{"input":` + history + `}`, false, true, "tools", 1, "none", nil},
++		{"tools null", `{"input":` + history + `,"tools":null,"tool_choice":null}`, false, true, "tools", 1, "none", nil},
++		{"explicit none kept", `{"input":` + history + `,"tools":[],"tool_choice":"none"}`, false, true, "tools", 1, "none", nil},
++		{"required not rewritten", `{"input":` + history + `,"tools":[],"tool_choice":"required"}`, false, true, "tools", 1, "required", nil},
++		{"caller tools keep choice", `{"input":` + history + `,"tools":[{"type":"function","name":"echo"}],"tool_choice":"auto"}`, false, true, "tools", 2, "auto", nil},
++		{"web_search already declared", `{"input":` + history + `,"tools":[{"type":"web_search"}]}`, false, false, "", 0, "", nil},
++		{"web_search_preview declared", `{"input":` + history + `,"tools":[{"type":"web_search_preview"}]}`, false, false, "", 0, "", nil},
++		{"declared via additional_tools", `{"input":[{"type":"additional_tools","tools":[{"type":"web_search"}]},` + search + `]}`, false, false, "", 0, "", nil},
++		{"no web_search_call item", `{"input":[{"type":"message","role":"user","content":"web_search_call"}],"tools":[]}`, false, false, "", 0, "", nil},
++		{"string input", `{"input":"web_search_call"}`, false, false, "", 0, "", nil},
++		{"lite inserts before compaction trigger", `{"input":[` + user + `,` + search + `,` + trigger + `]}`, true, true, "input.2.tools", 1, "none",
++			[]string{"message", "web_search_call", "additional_tools", "compaction_trigger"}},
++		{"lite appends without trigger", `{"input":` + history + `,"tool_choice":"auto"}`, true, true, "input.2.tools", 1, "none",
++			[]string{"message", "web_search_call", "additional_tools"}},
++		{"lite extends caller additional_tools", `{"input":[{"type":"additional_tools","role":"developer","tools":[{"type":"function","name":"echo"}]},` + search + `,` + trigger + `],"tool_choice":"auto"}`, true, true, "input.0.tools", 2, "auto",
++			[]string{"additional_tools", "web_search_call", "compaction_trigger"}},
++		{"lite fills empty additional_tools", `{"input":[{"type":"additional_tools","role":"developer"},` + search + `]}`, true, true, "input.0.tools", 1, "none",
++			[]string{"additional_tools", "web_search_call"}},
++		{"lite keeps top-level tools untouched", `{"input":` + history + `,"tools":[{"type":"function","name":"echo"}]}`, true, true, "input.2.tools", 1, "",
++			[]string{"message", "web_search_call", "additional_tools"}},
++	}
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			out, changed, err := ensureOpenAIOAuthWebSearchToolForHistoryBody([]byte(tt.body), tt.lite)
++			require.NoError(t, err)
++			require.Equal(t, tt.changed, changed)
++			var req map[string]any
++			require.NoError(t, json.Unmarshal([]byte(tt.body), &req))
++			require.Equal(t, tt.changed, ensureOpenAIOAuthWebSearchToolForHistory(req, tt.lite))
++			if !tt.changed {
++				require.JSONEq(t, tt.body, string(out))
++				return
++			}
++			require.True(t, gjson.ValidBytes(out))
++			tools := gjson.GetBytes(out, tt.toolsPath).Array()
++			require.Len(t, tools, tt.toolCount)
++			require.Equal(t, "web_search", tools[len(tools)-1].Get("type").String())
++			require.Equal(t, tt.toolChoice, gjson.GetBytes(out, "tool_choice").String())
++			if tt.lite {
++				require.False(t, gjsonToolsContainWebSearch(gjson.GetBytes(out, "tools")), "Lite rejects top-level hosted tools")
++				var types []string
++				for _, item := range gjson.GetBytes(out, "input").Array() {
++					types = append(types, item.Get("type").String())
++				}
++				require.Equal(t, tt.itemTypes, types)
++			}
++
++			// The map variant used by the Codex transform must agree.
++			mapOut, err := json.Marshal(req)
++			require.NoError(t, err)
++			require.JSONEq(t, string(out), string(mapOut))
++		})
++	}
++}
++
++func TestEnsureOpenAIOAuthWebSearchToolForHistoryDoesNotShareToolMap(t *testing.T) {
++	first := map[string]any{"input": []any{map[string]any{"type": "web_search_call"}}}
++	second := map[string]any{"input": []any{map[string]any{"type": "web_search_call"}}}
++	require.True(t, ensureOpenAIOAuthWebSearchToolForHistory(first, false))
++	require.True(t, ensureOpenAIOAuthWebSearchToolForHistory(second, false))
++	firstTools, ok := first["tools"].([]any)
++	require.True(t, ok)
++	firstTool, ok := firstTools[0].(map[string]any)
++	require.True(t, ok)
++	firstTool["external_web_access"] = true
++	secondTools, ok := second["tools"].([]any)
++	require.True(t, ok)
++	secondTool, ok := secondTools[0].(map[string]any)
++	require.True(t, ok)
++	require.Equal(t, false, secondTool["external_web_access"])
++	require.Equal(t, false, openAIWebSearchHistoryTool["external_web_access"])
++}

@@ -96,6 +96,7 @@ const OPENCODE_ZEN_PROTOCOL_RULES: OpenCodeProtocolRule[] = [
   { pattern: 'gpt-*', protocol: 'responses' },
   { pattern: 'muse-spark-*', protocol: 'responses' },
   { pattern: 'claude-*', protocol: 'anthropic' },
+  { pattern: 'qwen3.8-max', protocol: 'chat_completions' },
   { pattern: 'qwen*', protocol: 'anthropic' },
 ]
 
@@ -141,6 +142,7 @@ export function updateOpenCodeProtocolRuleDefaults(
 }
 
 export function defaultAPIKeyBaseURL(platform: AccountPlatform): string {
+  if (platform === 'typesafe') return 'https://api.typesafe.ai'
   switch (platform) {
     case 'openai': return 'https://api.openai.com'
     case 'gemini': return 'https://generativelanguage.googleapis.com'

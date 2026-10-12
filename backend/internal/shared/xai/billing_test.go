@@ -38,7 +38,7 @@ func TestApplyCLIBillingHeaders(t *testing.T) {
 	require.Equal(t, "Bearer token", req.Header.Get("Authorization"))
 	require.Equal(t, CLITokenAuthValue, req.Header.Get(CLITokenAuthHeader))
 	require.Equal(t, CLIClientVersion, req.Header.Get(CLIClientVersionHeader))
-	require.Equal(t, "grok-pager/"+CLIClientVersion+" grok-shell/"+CLIClientVersion+" (macos; aarch64)", req.UserAgent())
+	require.Equal(t, CLIUserAgentForVersion(CLIClientVersion), req.UserAgent())
 }
 
 func TestBuildBillingSummaryWeeklyAndMonthly(t *testing.T) {

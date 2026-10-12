@@ -1,0 +1,14 @@
+HTTP_FAILURE /v1/systemone 400 {"error":{"message":"typesafe system one does not support streaming","type":"invalid_request_error"},"type":"error"}
+HTTP_FAILURE /v1/systemone 502 {"error":{"message":"Upstream service temporarily unavailable","type":"upstream_error"},"type":"error"}
+NATIVE: /health HTTP_200
+NATIVE: /ready HTTP_200
+NATIVE: embedded_frontend HTTP_200
+NATIVE: admin_login PASS
+NATIVE: persisted_key_name_quota PASS
+NATIVE: public_settings_contract PASS
+NATIVE: legacy_order_state PASS
+NATIVE: dormant_tiers_default_off PASS
+NATIVE: ordered_group_dispatch_raw_json PASS
+NATIVE: stream_rejection_and_failure_slot_release PASS
+NATIVE: reliable_usage_246_input_tokens_free_output PASS
+NATIVE: RUNTIME_PASS

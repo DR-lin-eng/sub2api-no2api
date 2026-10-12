@@ -3,15 +3,64 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/shared/requestmodel"
 	coderws "github.com/coder/websocket"
 	"github.com/stretchr/testify/require"
 )
+
+func TestReadOpenAIWSClientMessageRejectsDuplicateModels(t *testing.T) {
+	for _, followup := range []bool{false, true} {
+		for _, messageType := range []coderws.MessageType{coderws.MessageText, coderws.MessageBinary} {
+			t.Run(fmt.Sprintf("followup=%v/type=%d", followup, messageType), func(t *testing.T) {
+				result := make(chan error, 1)
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					conn, err := coderws.Accept(w, r, nil)
+					if err != nil {
+						result <- err
+						return
+					}
+					defer func() { _ = conn.CloseNow() }()
+					if followup {
+						frameConn := &openAIWSClientFrameConn{conn: conn}
+						kind, body, err := frameConn.ReadFrame(context.Background())
+						if err != nil {
+							result <- err
+							return
+						}
+						_ = conn.Write(context.Background(), kind, body)
+						_, _, err = frameConn.ReadFrame(context.Background())
+						result <- err
+					} else {
+						_, _, err = ReadOpenAIWSClientMessage(context.Background(), conn, time.Second, coderws.StatusPolicyViolation, "missing frame")
+						result <- err
+					}
+				}))
+				defer server.Close()
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				conn, _, err := coderws.Dial(ctx, "ws"+strings.TrimPrefix(server.URL, "http"), nil)
+				require.NoError(t, err)
+				defer func() { _ = conn.CloseNow() }()
+				if followup {
+					require.NoError(t, conn.Write(ctx, messageType, []byte(`{"type":"response.create","model":"gpt-6-astra"}`)))
+					_, _, err = conn.Read(ctx)
+					require.NoError(t, err)
+				}
+				require.NoError(t, conn.Write(ctx, messageType, []byte(`{"type":"response.create","model":"gpt-5.6-luna","Model":"gpt-6-astra"}`)))
+				_, _, err = conn.Read(ctx)
+				require.Equal(t, coderws.StatusPolicyViolation, coderws.CloseStatus(err))
+				require.ErrorIs(t, <-result, requestmodel.ErrDuplicateModelField)
+			})
+		}
+	}
+}
 
 func TestReadOpenAIWSClientMessage_ControlCloseFrames(t *testing.T) {
 	tests := []struct {

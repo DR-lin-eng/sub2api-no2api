@@ -1,0 +1,5 @@
+{
+  "Replace": {
+    "/workspace/backend/internal/infrastructure/repository/http_upstream_public_docker_test.go": "/audit/e2e_test.go"
+  }
+}

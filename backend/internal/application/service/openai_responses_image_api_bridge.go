@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/tidwall/gjson"
@@ -463,7 +464,14 @@ func (s *OpenAIGatewayService) resolveOpenAIResponsesImageInput(
 		}
 		return readOpenAIResponsesImageBody(resp, path.Base(parsed.Path))
 	}
-	b64, err := s.downloadGeneratedImageBase64(ctx, rawURL)
+	allowHTTP := s != nil && s.cfg != nil && s.cfg.Security.URLAllowlist.AllowInsecureHTTP
+	validated, err := urlvalidator.ValidatePublicHTTPURL(rawURL, allowHTTP)
+	if err != nil {
+		return nil, "", "", err
+	}
+	// User-supplied images and masks must not inherit the private-upstream
+	// exception. The HTTP port also pins DNS answers for every redirect hop.
+	b64, err := s.downloadGeneratedImageBase64(WithHTTPUpstreamPublicDestination(ctx), validated)
 	if err != nil {
 		return nil, "", "", err
 	}

@@ -1,0 +1,36 @@
+2026/10/08 16:07:03 Timezone initialized: UTC (UTC offset: +00:00)
+goos: linux
+goarch: arm64
+pkg: github.com/Wei-Shaw/sub2api/internal/application/service
+BenchmarkStripOpenAIResponsesInputNamespaces/tools_only/1MiB-2         	      10	    770625 ns/op	1360.81 MB/s	       0 B/op	       0 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/tools_only/1MiB-2         	      10	    770992 ns/op	1360.17 MB/s	       0 B/op	       0 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/tools_only/1MiB-2         	      10	    771633 ns/op	1359.03 MB/s	       0 B/op	       0 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/nested_only/1MiB-2        	      10	    777562 ns/op	1348.72 MB/s	       0 B/op	       0 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/nested_only/1MiB-2        	      10	    773671 ns/op	1355.50 MB/s	       0 B/op	       0 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/nested_only/1MiB-2        	      10	    770758 ns/op	1360.62 MB/s	       0 B/op	       0 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/keep_calls/1MiB-2         	      10	    773700 ns/op	1355.48 MB/s	       0 B/op	       0 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/keep_calls/1MiB-2         	      10	    771350 ns/op	1359.61 MB/s	       0 B/op	       0 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/keep_calls/1MiB-2         	      10	    777842 ns/op	1348.27 MB/s	       0 B/op	       0 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/strip_first/1MiB-2        	      10	   1203117 ns/op	 871.68 MB/s	 2113867 B/op	       7 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/strip_first/1MiB-2        	      10	   1179412 ns/op	 889.20 MB/s	 2113856 B/op	       7 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/strip_first/1MiB-2        	      10	   1165758 ns/op	 899.62 MB/s	 2113856 B/op	       7 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/strip_last/1MiB-2         	      10	   1269575 ns/op	 826.05 MB/s	 2113856 B/op	       7 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/strip_last/1MiB-2         	      10	   1225912 ns/op	 855.47 MB/s	 2113856 B/op	       7 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/strip_last/1MiB-2         	      10	   1339912 ns/op	 782.69 MB/s	 2113856 B/op	       7 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/tools_only/8MiB-2         	      10	   6179275 ns/op	1357.56 MB/s	       0 B/op	       0 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/tools_only/8MiB-2         	      10	   6198425 ns/op	1353.36 MB/s	       0 B/op	       0 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/tools_only/8MiB-2         	      10	   6198746 ns/op	1353.29 MB/s	       0 B/op	       0 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/nested_only/8MiB-2        	      10	   6002800 ns/op	1397.47 MB/s	       0 B/op	       0 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/nested_only/8MiB-2        	      10	   6016088 ns/op	1394.39 MB/s	       0 B/op	       0 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/nested_only/8MiB-2        	      10	   6178483 ns/op	1357.73 MB/s	       0 B/op	       0 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/keep_calls/8MiB-2         	      10	   6170196 ns/op	1359.56 MB/s	       0 B/op	       0 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/keep_calls/8MiB-2         	      10	   6092867 ns/op	1376.82 MB/s	       0 B/op	       0 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/keep_calls/8MiB-2         	      10	   6092596 ns/op	1376.88 MB/s	       0 B/op	       0 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/strip_first/8MiB-2        	      10	   8572362 ns/op	 978.58 MB/s	16793920 B/op	       7 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/strip_first/8MiB-2        	      10	   8540562 ns/op	 982.23 MB/s	16793920 B/op	       7 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/strip_first/8MiB-2        	      10	   8552242 ns/op	 980.89 MB/s	16793920 B/op	       7 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/strip_last/8MiB-2         	      10	   8582754 ns/op	 977.40 MB/s	16793920 B/op	       7 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/strip_last/8MiB-2         	      10	   9082942 ns/op	 923.57 MB/s	16793920 B/op	       7 allocs/op
+BenchmarkStripOpenAIResponsesInputNamespaces/strip_last/8MiB-2         	      10	   8824721 ns/op	 950.60 MB/s	16793920 B/op	       7 allocs/op
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	1.764s

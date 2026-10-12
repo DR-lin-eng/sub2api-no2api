@@ -57,7 +57,9 @@ type ImageStorageSettingService struct {
 
 	// fallback 是 config.yaml 里的配置。后台从未保存过设置时沿用它，
 	// 保证升级前已用配置文件开启该功能的部署不被打断。
-	fallback config.ImageStorageConfig
+	fallback  config.ImageStorageConfig
+	upstream  HTTPUpstream
+	allowHTTP bool
 
 	mu         sync.Mutex
 	resolution atomic.Pointer[imageStorageResolution]
@@ -130,7 +132,7 @@ func (s *ImageStorageSettingService) resolve() (*ImageResultUploader, bool) {
 		s.resolution.Store(resolved)
 		return nil, false
 	}
-	resolved.uploader = NewImageResultUploader(storage, cfg.Prefix, cfg.MaxDownloadByte, nil)
+	resolved.uploader = NewImageResultUploader(storage, cfg.Prefix, cfg.MaxDownloadByte, s.upstream, s.allowHTTP)
 	resolved.enabled = true
 	s.resolution.Store(resolved)
 	return resolved.uploader, true

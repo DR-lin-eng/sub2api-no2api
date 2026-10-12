@@ -94,8 +94,8 @@ describe('UserPlatformQuotaModal', () => {
     })
     const w = await mountAndOpen()
     const inputs = w.findAll('input[type=number]')
-    // 10 platforms x 3 windows = 30 inputs
-    expect(inputs.length).toBe(30)
+    // 11 platforms x 3 windows, including TypeSafe.
+    expect(inputs.length).toBe(33)
     // 第一个 input 是 anthropic.daily = 10
     expect((inputs[0].element as HTMLInputElement).value).toBe('10')
   })
@@ -117,9 +117,29 @@ describe('UserPlatformQuotaModal', () => {
     expect(apiMocks.updatePlatformQuotas).toHaveBeenCalledTimes(1)
     const [uid, payload] = apiMocks.updatePlatformQuotas.mock.calls[0]
     expect(uid).toBe(99)
-    expect(payload).toHaveLength(10)
+    expect(payload).toHaveLength(11)
     const openai = payload.find((p: any) => p.platform === 'openai')
     expect(openai.weekly_limit_usd).toBe(20)
+    expect(payload.find((p: any) => p.platform === 'typesafe')).toEqual({
+      platform: 'typesafe', daily_limit_usd: null, weekly_limit_usd: null, monthly_limit_usd: null,
+    })
+  })
+
+  it('loads and persists TypeSafe daily quota alongside existing platforms', async () => {
+    apiMocks.getPlatformQuotas.mockResolvedValueOnce({ platform_quotas: [
+      { platform: 'typesafe', daily_limit_usd: 12, weekly_limit_usd: null, monthly_limit_usd: null,
+        daily_usage_usd: 1, weekly_usage_usd: 0, monthly_usage_usd: 0 },
+    ] })
+    const w = await mountAndOpen()
+    const inputs = w.findAll('input[type=number]')
+    expect((inputs[30].element as HTMLInputElement).value).toBe('12')
+    await inputs[30].setValue('15')
+    await w.findAll('button').find(b => b.text() === 'admin.users.platformQuota.save')!.trigger('click')
+    await flushPromises()
+    const [, payload] = apiMocks.updatePlatformQuotas.mock.calls[0]
+    expect(payload.find((p: any) => p.platform === 'typesafe')).toEqual({
+      platform: 'typesafe', daily_limit_usd: 15, weekly_limit_usd: null, monthly_limit_usd: null,
+    })
   })
 
   it('全部清空把所有 limit 置 null（确认通过）', async () => {

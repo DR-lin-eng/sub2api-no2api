@@ -184,7 +184,7 @@ func TestLogCodexCLIOnlyDetection_RejectedIncludesRequestDetails(t *testing.T) {
 	c.Request.Header.Set("Content-Type", "application/json")
 	c.Request.Header.Set("X-Real-IP", "203.0.113.42")
 	c.Request.Header.Set("OpenAI-Beta", "assistants=v2")
-	resolver, err := clientip.NewResolver(nil)
+	resolver, err := clientip.NewResolver([]string{"172.18.0.1"})
 	require.NoError(t, err)
 	clientipMiddleware := resolver.Middleware()
 	clientipMiddleware(c)

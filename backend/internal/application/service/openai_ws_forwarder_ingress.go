@@ -393,6 +393,12 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			}
 			normalized = litePayload
 		}
+		responsesLite := isOpenAIResponsesLiteHeader(c.GetHeader(responsesLiteHeader)) || isOpenAIResponsesLiteWebSocketPayload(normalized)
+		webSearchPayload, _, webSearchErr := normalizeOpenAIOAuthWebSearchHistoryForAccount(normalized, account, false, responsesLite)
+		if webSearchErr != nil {
+			return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", webSearchErr)
+		}
+		normalized = webSearchPayload
 		apiKey := getAPIKeyFromContext(c)
 		imageGenerationAllowed := GroupAllowsImageGeneration(apiKeyGroup(apiKey))
 		codexImageGenerationExplicitToolPolicy := codexImageGenerationExplicitToolPolicyAllow
@@ -533,7 +539,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		} else if turn > 1 {
 			turnFingerprintIDs = nextCodexFingerprintTurn(fingerprintIDs)
 		}
-		fingerprinted, changed, fingerprintErr := applyCodexFingerprintClientMetadataToBody(normalized, turnFingerprintIDs)
+		fingerprinted, changed, fingerprintErr := applyCodexFingerprintClientMetadataToBody(normalized, turnFingerprintIDs, c)
 		if fingerprintErr != nil {
 			return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", fingerprintErr)
 		}
@@ -542,7 +548,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		}
 		if account.IsOpenAIOAuth() && (turnFingerprintIDs == nil || turnFingerprintIDs.mode == codexFingerprintOff) {
 			ids := resolveCodexOutboundSessionIDs(c, account, normalized, promptCacheKey)
-			rewritten, rewriteErr := rewriteCodexOutboundSessionMetadata(normalized, account, ids)
+			rewritten, rewriteErr := rewriteCodexOutboundSessionMetadata(normalized, account, ids, c)
 			if rewriteErr != nil {
 				return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", rewriteErr)
 			}
@@ -2186,6 +2192,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 				stageCodexOutboundSessionBody(c, nextPayload.payloadRaw)
 				applyCodexOutboundSessionHeaders(c, account, nextPayload.payloadRaw, nextPayload.promptCacheKey, updatedHeaders, nextPayload.fingerprintIDs)
 				applyCodexFullSimulationWSHeaders(updatedHeaders, nextPayload.fingerprintIDs)
+				applyOpenAICodexSemanticRequestHeaders(updatedHeaders, c, account, nextPayload.payloadRaw)
 				baseAcquireReq.Headers = updatedHeaders
 			}
 		}

@@ -1,0 +1,18 @@
+=== RUN   TestChatCompletionsToResponses_ToolChoiceShape
+=== RUN   TestChatCompletionsToResponses_ToolChoiceShape/named_chat_function_is_flattened
+=== RUN   TestChatCompletionsToResponses_ToolChoiceShape/flat_responses_function_is_kept
+=== RUN   TestChatCompletionsToResponses_ToolChoiceShape/auto_string_is_kept
+=== RUN   TestChatCompletionsToResponses_ToolChoiceShape/required_string_is_kept
+=== RUN   TestChatCompletionsToResponses_ToolChoiceShape/none_string_is_kept
+=== RUN   TestChatCompletionsToResponses_ToolChoiceShape/allowed_tools_policy_is_kept
+=== RUN   TestChatCompletionsToResponses_ToolChoiceShape/function_without_name_is_kept
+--- PASS: TestChatCompletionsToResponses_ToolChoiceShape (0.00s)
+    --- PASS: TestChatCompletionsToResponses_ToolChoiceShape/named_chat_function_is_flattened (0.00s)
+    --- PASS: TestChatCompletionsToResponses_ToolChoiceShape/flat_responses_function_is_kept (0.00s)
+    --- PASS: TestChatCompletionsToResponses_ToolChoiceShape/auto_string_is_kept (0.00s)
+    --- PASS: TestChatCompletionsToResponses_ToolChoiceShape/required_string_is_kept (0.00s)
+    --- PASS: TestChatCompletionsToResponses_ToolChoiceShape/none_string_is_kept (0.00s)
+    --- PASS: TestChatCompletionsToResponses_ToolChoiceShape/allowed_tools_policy_is_kept (0.00s)
+    --- PASS: TestChatCompletionsToResponses_ToolChoiceShape/function_without_name_is_kept (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	0.002s

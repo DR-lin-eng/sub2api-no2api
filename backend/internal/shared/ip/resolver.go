@@ -37,6 +37,7 @@ const (
 )
 
 type clientIPResultContextKey struct{}
+type trustedProxyContextKey struct{}
 
 var embeddedCloudflarePrefixes = []string{
 	"173.245.48.0/20",
@@ -261,6 +262,10 @@ func (r *Resolver) Middleware() gin.HandlerFunc {
 		result := r.ResolveRequest(c.Request)
 		if c.Request != nil {
 			ctx := context.WithValue(c.Request.Context(), clientIPResultContextKey{}, &result)
+			peer, valid := parsePeerAddr(c.Request.RemoteAddr)
+			snapshot := r.snapshot.Load()
+			trusted := valid && snapshot != nil && snapshot.mode != ResolutionModeDirect && isTrustedPeer(peer, snapshot)
+			ctx = context.WithValue(ctx, trustedProxyContextKey{}, trusted)
 			c.Request = c.Request.WithContext(ctx)
 		}
 		c.Next()
@@ -294,7 +299,7 @@ func (r *Resolver) ResolveRequest(req *http.Request) ClientIPResult {
 		return r.recordResult(peer, ClientIPSourceDirect)
 	}
 
-	peerIsCloudflare := !isInfrastructureAddress(peer) && containsPrefix(peer, snapshot.cloudV4, snapshot.cloudV6)
+	peerIsCloudflare := containsPrefix(peer, snapshot.cloudV4, snapshot.cloudV6)
 	if peerIsCloudflare {
 		if addr, ok := parseSingleIPHeader(req.Header, headerCFConnectingIP); ok {
 			return r.recordResult(addr, ClientIPSourceCloudflare)
@@ -385,15 +390,8 @@ func isTrustedPeer(addr netip.Addr, snapshot *resolverSnapshot) bool {
 	if addr.IsLoopback() {
 		return true
 	}
-	if snapshot.mode == ResolutionModeAutoCompat && isInfrastructureAddress(addr) {
-		return true
-	}
 	return containsPrefix(addr, snapshot.cloudV4, snapshot.cloudV6) ||
 		containsPrefix(addr, snapshot.trustedV4, snapshot.trustedV6)
-}
-
-func isInfrastructureAddress(addr netip.Addr) bool {
-	return addr.IsLoopback() || addr.IsPrivate() || addr.IsLinkLocalUnicast()
 }
 
 func containsPrefix(addr netip.Addr, v4, v6 []netip.Prefix) bool {
@@ -668,4 +666,18 @@ func validateCloudflarePrefix(prefix netip.Prefix, wantIPv4 bool) error {
 		return fmt.Errorf("cloudflare range %q is not a bounded public prefix", prefix)
 	}
 	return nil
+}
+
+// isInfrastructureAddress is used only to reject malformed Cloudflare range
+// data. It is deliberately not used as an implicit trust decision for request
+// peers; private peers must be listed explicitly in trusted_proxies.
+func isInfrastructureAddress(addr netip.Addr) bool {
+	return addr.IsLoopback() || addr.IsPrivate() || addr.IsLinkLocalUnicast()
+}
+
+// ForwardedHeadersTrusted reports the resolver's TCP-peer trust decision. It
+// applies to scheme headers as well as IP headers, without trusting their mere
+// presence or an address claimed by the client.
+func ForwardedHeadersTrusted(c *gin.Context) bool {
+	return c != nil && c.Request != nil && c.Request.Context().Value(trustedProxyContextKey{}) == true
 }

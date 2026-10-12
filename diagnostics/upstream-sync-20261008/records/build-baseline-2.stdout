@@ -1,0 +1,9 @@
+Sending build context to Docker daemon  68.57MB
+Step 1/54 : ARG NODE_IMAGE=node:24-alpine
+Step 2/54 : ARG GOLANG_IMAGE=golang:1.26.6-alpine
+Step 3/54 : ARG ALPINE_IMAGE=alpine:3.21
+Step 4/54 : ARG POSTGRES_IMAGE=postgres:18-alpine
+Step 5/54 : ARG GOPROXY=https://goproxy.cn,direct
+Step 6/54 : ARG GOSUMDB=sum.golang.google.cn
+Step 7/54 : ARG NPM_CONFIG_REGISTRY=
+Step 8/54 : FROM --platform=${BUILDPLATFORM} ${NODE_IMAGE} AS frontend-builder

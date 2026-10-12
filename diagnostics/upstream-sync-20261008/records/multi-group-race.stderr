@@ -1,0 +1,2 @@
+# github.com/Wei-Shaw/sub2api/internal/transport/http/handler [github.com/Wei-Shaw/sub2api/internal/transport/http/handler.test]
+internal/transport/http/handler/openai_gateway_ws_multigroup_pricing_test.go:20:49: unknown field GroupID in struct literal of type service.APIKeyGroupBinding

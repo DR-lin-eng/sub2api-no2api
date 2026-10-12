@@ -1,0 +1,37 @@
+2026/10/08 15:43:33 Timezone initialized: UTC (UTC offset: +00:00)
+2026/10/08 15:43:33 github.com/testcontainers/testcontainers-go - Connected to docker: 
+  Server Version: 29.2.1
+  API Version: 1.51
+  Operating System: Docker Desktop
+  Total Memory: 7836 MB
+  Labels:
+    com.docker.desktop.address=unix:///Users/lin/Library/Containers/com.docker.docker/Data/docker-cli.sock
+  Testcontainers for Go Version: v0.40.0
+  Resolved Docker Host: unix:///var/run/docker.sock
+  Resolved Docker Socket Path: /var/run/docker.sock
+  Test SessionID: 7b47cd9c86cdbdbbbb6861e86978165128c301e8ae63999b2b7fc277bb3c3f28
+  Test ProcessID: 917df9fa-eade-49aa-93c7-83a28e779a8d
+2026/10/08 15:43:33 🐳 Creating container for image postgres:18.1-alpine3.23
+2026/10/08 15:43:34 🐳 Creating container for image testcontainers/ryuk:0.13.0
+2026/10/08 15:43:34 ✅ Container created: 2af5c706965f
+2026/10/08 15:43:34 🐳 Starting container: 2af5c706965f
+2026/10/08 15:43:34 ✅ Container started: 2af5c706965f
+2026/10/08 15:43:34 ⏳ Waiting for container id 2af5c706965f image: testcontainers/ryuk:0.13.0. Waiting for: port 8080/tcp to be listening
+2026/10/08 15:43:34 Shell not found in container
+2026/10/08 15:43:34 🔔 Container is ready: 2af5c706965f
+2026/10/08 15:43:34 ✅ Container created: 60deb7884045
+2026/10/08 15:43:34 🐳 Starting container: 60deb7884045
+2026/10/08 15:43:34 ✅ Container started: 60deb7884045
+2026/10/08 15:43:34 ⏳ Waiting for container id 60deb7884045 image: postgres:18.1-alpine3.23. Waiting for: all of: [log message "database system is ready to accept connections" (occurrence: 2), port 5432/tcp to be listening]
+2026/10/08 15:43:35 🔔 Container is ready: 60deb7884045
+2026/10/08 15:43:35 🐳 Creating container for image redis:8.4-alpine
+2026/10/08 15:43:35 ✅ Container created: 7353e709b0ae
+2026/10/08 15:43:35 🐳 Starting container: 7353e709b0ae
+2026/10/08 15:43:35 ✅ Container started: 7353e709b0ae
+2026/10/08 15:43:35 ⏳ Waiting for container id 7353e709b0ae image: redis:8.4-alpine. Waiting for: all of: [port 6379/tcp to be listening, log message "* Ready to accept connections"]
+2026/10/08 15:43:35 🔔 Container is ready: 7353e709b0ae
+=== RUN   TestDashboardOutputTPSUsesExactSamplesAndSharedScan
+    ops_repo_output_tps_integration_test.go:110: 100000 rows: separate latency+TPS queries median=144.061291ms; fused scan median=144.887292ms
+--- PASS: TestDashboardOutputTPSUsesExactSamplesAndSharedScan (1.82s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/infrastructure/repository	5.249s

@@ -58,6 +58,7 @@ func (r *opsRepository) GetDashboardCoreSnapshot(
 	var usage *opsUsageCoreResult
 	var errorsResult *opsErrorCoreResult
 	var duration, ttft service.OpsPercentiles
+	var outputTPS *service.OpsOutputTPS
 	var byPlatform []*service.OpsThroughputPlatformBreakdownItem
 	var topGroups []*service.OpsThroughputGroupBreakdownItem
 
@@ -76,7 +77,7 @@ func (r *opsRepository) GetDashboardCoreSnapshot(
 		latencyCtx, cancel := context.WithTimeout(gctx, opsRawLatencyQueryTimeout)
 		defer cancel()
 		var err error
-		duration, ttft, _, err = r.queryUsageLatency(latencyCtx, filter, start, end)
+		duration, ttft, _, outputTPS, err = r.queryUsageLatencyMetrics(latencyCtx, filter, start, end, true)
 		if isQueryTimeoutErr(err) {
 			duration = service.OpsPercentiles{}
 			ttft = service.OpsPercentiles{}
@@ -156,8 +157,9 @@ func (r *opsRepository) GetDashboardCoreSnapshot(
 			Peak:    tpsPeak,
 			Avg:     roundTo1DP(float64(usage.tokenConsumed) / windowSeconds),
 		},
-		Duration: duration,
-		TTFT:     ttft,
+		OutputTPS: outputTPS,
+		Duration:  duration,
+		TTFT:      ttft,
 	}
 
 	return &service.OpsDashboardCoreSnapshot{

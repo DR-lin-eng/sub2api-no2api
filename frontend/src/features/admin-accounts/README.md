@@ -9,6 +9,7 @@
 - `data/datasources/adminAccountsDatasource.ts`: 旧 `accountsAPI` 兼容聚合与尚未迁移的账号操作。
 - `data/datasources/scheduledTestsDatasource.ts`: 账号定时测试计划、启停、删除和结果查询。
 - `presentation/pages/`: 列表查询、筛选、刷新和对话框编排。
+- `presentation/widgets/AccountPriorityCell.vue`: 优先级快捷调整、450ms 合并保存与卸载清理；直接调用账号 Action，成功后由列表 owner 合并返回账号。
 - `presentation/widgets/create/`: 创建表单的领域字段。
 - `presentation/widgets/edit/`: 编辑表单的领域字段。
 - `presentation/composables/`: 有界的表单策略、OAuth 与提交编排。

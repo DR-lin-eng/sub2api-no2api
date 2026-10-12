@@ -12,7 +12,7 @@ import (
 
 // PanelRateLimitSettings 面板 API 限流配置。
 // 认证后的面板接口按「用户 ID」维度限流（与客户端 IP 无关，反向代理/共享出口
-// 不会被误伤）；无需认证的公开接口按安全客户端 IP 维度限流（内网/回环地址跳过）。
+// 不会被误伤）；无需认证的公开接口按安全客户端 IP 维度限流（包含内网/回环直连地址）。
 type PanelRateLimitSettings struct {
 	// Enabled 总开关
 	Enabled bool `json:"enabled"`
@@ -42,11 +42,12 @@ type cachedPanelRateLimitSettings struct {
 	expiresAt int64 // unix nano
 }
 
-// DefaultPanelRateLimitSettings keeps old installations behaviorally
-// unchanged. Operators opt into panel rate limiting by persisting Enabled=true.
+// DefaultPanelRateLimitSettings protects public and authenticated panel
+// endpoints on installations that have no persisted policy yet. Operators may
+// explicitly disable it through the admin setting when compatibility requires.
 func DefaultPanelRateLimitSettings() *PanelRateLimitSettings {
 	return &PanelRateLimitSettings{
-		Enabled:     false,
+		Enabled:     true,
 		UserRPM:     240,
 		HeavyRPM:    60,
 		ExemptAdmin: true,
@@ -80,7 +81,7 @@ func normalizePanelRateLimitSettings(s *PanelRateLimitSettings) {
 }
 
 // GetPanelRateLimitSettings 获取面板 API 限流配置（直读 DB，供管理端读写路径使用）。
-// 缺失/空/解析失败 -> 返回兼容默认配置（Enabled=false）。
+// 缺失/空/解析失败 -> 返回安全默认配置（Enabled=true）。
 func (s *SettingService) GetPanelRateLimitSettings(ctx context.Context) (*PanelRateLimitSettings, error) {
 	value, err := s.settingRepo.GetValue(ctx, SettingKeyPanelRateLimitSettings)
 	if err != nil {
@@ -131,7 +132,7 @@ func (s *SettingService) SetPanelRateLimitSettings(ctx context.Context, settings
 
 // GetPanelRateLimitSettingsCached serves stale settings immediately and
 // refreshes expired entries in the background. The first request observes the
-// disabled compatibility default while the persisted value is loaded.
+// secure default while the persisted value is loaded.
 func (s *SettingService) GetPanelRateLimitSettingsCached(ctx context.Context) PanelRateLimitSettings {
 	if s == nil || s.settingRepo == nil {
 		return *DefaultPanelRateLimitSettings()

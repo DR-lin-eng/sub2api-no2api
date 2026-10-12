@@ -285,7 +285,7 @@ describe('admin UsageTable tooltip', () => {
     })
 
     expect(wrapper.findAll('[data-testid="long-context-billing-marker"]')).toHaveLength(1)
-    expect(wrapper.get('[data-testid="long-context-billing-marker"]').text()).toBe('x2')
+    expect(wrapper.get('[data-testid="long-context-billing-marker"]').text()).toBe('usage.longContext')
   })
 
   it('opens the selected usage record from the details action', async () => {

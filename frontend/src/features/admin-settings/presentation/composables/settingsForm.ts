@@ -13,10 +13,12 @@ export const tablePageSizeDefault = 20;
 
 export type SettingsForm = Omit<
   SystemSettings,
+  | "payment_recharge_bonus_tiers"
   | "wechat_connect_open_enabled"
   | "wechat_connect_mp_enabled"
   | "wechat_connect_mobile_enabled"
 > & {
+  payment_recharge_bonus_tiers: import('@/features/billing/rechargeBonus').RechargeBonusTierDraft[];
   smtp_password: string;
   turnstile_secret_key: string;
   recaptcha_secret_key: string;
@@ -132,6 +134,10 @@ export function createSettingsForm(localText: LocalText): SettingsForm {
     payment_balance_recharge_multiplier: 1,
     payment_subscription_usd_to_cny_rate: 0,
     payment_recharge_fee_rate: 0,
+    payment_recharge_bonus_enabled: false,
+    payment_recharge_bonus_tiers: [] as import('@/features/billing/rechargeBonus').RechargeBonusTierDraft[],
+    payment_recharge_bonus_mode: 'bonus' as import('@/features/billing/rechargeBonus').RechargeBonusMode,
+    payment_recharge_bonus_notice: '',
     payment_enabled_types: [],
     payment_help_image_url: "",
     payment_help_text: "",

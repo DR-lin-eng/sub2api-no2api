@@ -1,0 +1,10 @@
+# github.com/Wei-Shaw/sub2api/internal/application/service
+internal/application/service/gateway_cache_ttl_order_test.go:12:2: no required module provides package github.com/Wei-Shaw/sub2api/internal/config; to add it:
+	go get github.com/Wei-Shaw/sub2api/internal/config
+# github.com/Wei-Shaw/sub2api/internal/transport/http/handler
+internal/application/service/gateway_cache_ttl_order_test.go:12:2: no required module provides package github.com/Wei-Shaw/sub2api/internal/config; to add it:
+	go get github.com/Wei-Shaw/sub2api/internal/config
+# github.com/Wei-Shaw/sub2api/internal/application/service
+internal/application/service/openai_responses_namespace.go:216:6: setOpenAIResponsesNamespaceNames redeclared in this block
+	internal/application/service/openai_responses_namespace.go:198:6: other declaration of setOpenAIResponsesNamespaceNames
+internal/application/service/composite_route_resolver.go:111:21: undefined: matchCompositeRoute

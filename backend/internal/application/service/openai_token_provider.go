@@ -116,6 +116,88 @@ func (p *OpenAITokenProvider) SetAccountRuntimeBlocker(blocker AccountRuntimeBlo
 	p.runtimeBlocker = blocker
 }
 
+// RefreshAfterUnauthorized forces one distributed-lock-protected refresh after
+// the upstream proves that the current access token is expired. The stored
+// expires_at may still be in the future when OpenAI revokes a token early, so
+// the ordinary RefreshIfNeeded expiry gate cannot be used for this path.
+func (p *OpenAITokenProvider) RefreshAfterUnauthorized(ctx context.Context, account *Account) error {
+	if p == nil || account == nil {
+		return errors.New("openai token provider is not configured")
+	}
+	if account.Platform != PlatformOpenAI || account.Type != AccountTypeOAuth {
+		return errors.New("not an openai oauth account")
+	}
+	if account.IsOpenAIPersonalAccessToken() {
+		return errors.New("personal access token cannot be refreshed")
+	}
+	if strings.TrimSpace(account.GetOpenAIRefreshToken()) == "" {
+		return errors.New("openai refresh_token is missing")
+	}
+	if p.refreshAPI == nil || p.executor == nil {
+		return errors.New("openai token refresh is not configured")
+	}
+
+	p.ensureMetrics()
+	p.metrics.refreshRequests.Add(1)
+	p.metrics.touchNow()
+	cacheKey := OpenAITokenCacheKey(account)
+	if p.tokenCache != nil {
+		if err := p.tokenCache.DeleteAccessToken(ctx, cacheKey); err != nil {
+			slog.Warn("openai_token_force_refresh_cache_delete_failed", "account_id", account.ID, "error", err)
+		}
+	}
+
+	result, err := p.refreshAPI.RefreshNow(ctx, account, p.executor)
+	if err != nil {
+		p.metrics.refreshFailure.Add(1)
+		p.metrics.touchNow()
+		return err
+	}
+	if result == nil {
+		return errors.New("openai token force refresh returned no result")
+	}
+	if result.LockHeld {
+		p.metrics.lockContention.Add(1)
+		p.metrics.touchNow()
+		if p.tokenCache == nil {
+			return errors.New("openai token refresh lock is held and token cache is unavailable")
+		}
+		token, waitErr := p.waitForTokenAfterLockRace(ctx, cacheKey)
+		if waitErr != nil {
+			return waitErr
+		}
+		if strings.TrimSpace(token) == "" {
+			return errors.New("openai token refresh lock released without a cached token")
+		}
+		return nil
+	}
+
+	refreshedAccount := result.Account
+	if refreshedAccount == nil {
+		return errors.New("openai token force refresh returned no account")
+	}
+	if refreshedAccount.ID == account.ID && refreshedAccount.Credentials != nil {
+		account.Credentials = shallowCopyMap(refreshedAccount.Credentials)
+	}
+	if strings.TrimSpace(account.GetOpenAIAccessToken()) == "" {
+		return errors.New("openai token force refresh returned no access_token")
+	}
+	if p.tokenCache != nil {
+		ttl := 30 * time.Minute
+		if expiresAt := account.GetCredentialAsTime("expires_at"); expiresAt != nil {
+			if until := time.Until(*expiresAt); until > 0 && until < ttl {
+				ttl = until
+			}
+		}
+		if err := p.tokenCache.SetAccessToken(ctx, cacheKey, account.GetOpenAIAccessToken(), ttl); err != nil {
+			slog.Warn("openai_token_force_refresh_cache_set_failed", "account_id", account.ID, "error", err)
+		}
+	}
+	p.metrics.refreshSuccess.Add(1)
+	p.metrics.touchNow()
+	return nil
+}
+
 func (p *OpenAITokenProvider) SnapshotRuntimeMetrics() OpenAITokenRuntimeMetrics {
 	if p == nil {
 		return OpenAITokenRuntimeMetrics{}

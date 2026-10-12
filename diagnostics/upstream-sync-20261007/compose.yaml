@@ -1,0 +1,55 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: sub2api
+      POSTGRES_PASSWORD: sync_test_password
+      POSTGRES_DB: upgrade
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sub2api -d upgrade"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  redis:
+    image: redis:8-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  app:
+    image: ${SYNC_IMAGE:-sub2api-upstream-sync:20261007-baseline}
+    ports:
+      - "127.0.0.1:18089:8080"
+    environment:
+      AUTO_SETUP: "true"
+      DATA_DIR: /app/data
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 8080
+      SERVER_MODE: debug
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: sub2api
+      DATABASE_PASSWORD: sync_test_password
+      DATABASE_DBNAME: ${SYNC_DB:-upgrade}
+      DATABASE_SSLMODE: disable
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      ADMIN_EMAIL: ${SYNC_ADMIN_EMAIL-admin@sub2api.local}
+      ADMIN_PASSWORD: ${SYNC_ADMIN_PASSWORD-sync_admin_password}
+      JWT_SECRET: sync_test_jwt_secret_abcdefghijklmnopqrstuvwxyz_0123456789
+      TOTP_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      HTTP_PROXY: ""
+      HTTPS_PROXY: ""
+      ALL_PROXY: ""
+      NO_PROXY: localhost,127.0.0.1,postgres,redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-T", "5", "-O", "/dev/null", "http://localhost:8080/ready"]
+      interval: 2s
+      timeout: 3s
+      retries: 30

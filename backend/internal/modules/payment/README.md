@@ -5,6 +5,7 @@
 | 文件/目录 | 作用 |
 | --- | --- |
 | `types.go`, `currency.go`, `amount.go`, `fee.go` | 支付值对象与金额规则 |
+| `recharge_bonus.go` | 默认关闭的充值优惠、最多 20 档阶梯校验、币种精度和实付/赠送报价 |
 | `crypto.go` | 支付配置敏感字段保护 |
 | `registry.go`, `load_balancer.go` | provider 注册和实例选择 |
 | `provider/` | Stripe、支付宝、微信、Airwallex、易支付适配器 |

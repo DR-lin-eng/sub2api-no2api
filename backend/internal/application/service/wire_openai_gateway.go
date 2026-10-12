@@ -71,5 +71,6 @@ func ProvideOpenAIGatewayService(
 		svc.SetDistillationCounter(counter)
 	}
 	svc.StartCodexTurnStateAutoProbe(context.Background())
+	svc.StartLiveBillingRecovery(context.Background())
 	return svc
 }

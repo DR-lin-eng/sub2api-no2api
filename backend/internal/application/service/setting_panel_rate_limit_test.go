@@ -103,7 +103,7 @@ func TestGetPanelRateLimitSettingsDefaults(t *testing.T) {
 	settings, err := svc.GetPanelRateLimitSettings(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, DefaultPanelRateLimitSettings(), settings)
-	require.False(t, settings.Enabled, "missing settings must preserve pre-feature behavior")
+	require.True(t, settings.Enabled, "missing settings must enable abuse protection")
 }
 
 func TestGetPanelRateLimitSettingsInvalidJSONFallsBack(t *testing.T) {
@@ -189,7 +189,7 @@ func TestGetPanelRateLimitSettingsCachedAvoidsRepeatedDBReads(t *testing.T) {
 	svc := newPanelRateLimitTestService(repo)
 
 	first := svc.GetPanelRateLimitSettingsCached(context.Background())
-	require.False(t, first.Enabled, "the first request serves the compatibility default")
+	require.True(t, first.Enabled, "the first request serves the secure default")
 	require.Eventually(t, func() bool {
 		return svc.GetPanelRateLimitSettingsCached(context.Background()).UserRPM == 100
 	}, time.Second, 10*time.Millisecond)

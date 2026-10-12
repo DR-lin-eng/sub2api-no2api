@@ -1,0 +1,5 @@
+DIFF_FILE -whitespace
+upstream-*.patch -whitespace
+VERIFICATION.txt -whitespace
+records/*.stdout -whitespace
+records/*.stderr -whitespace

@@ -1,0 +1,9 @@
+BASELINE: /health HTTP_200
+BASELINE: /ready HTTP_200
+BASELINE: embedded_frontend HTTP_200
+BASELINE: admin_login PASS
+BASELINE: api_key_fixture_created PASS
+BASELINE: persisted_key_name_quota PASS
+BASELINE: public_settings_contract PASS
+BASELINE: legacy_order_state PASS
+BASELINE: RUNTIME_PASS

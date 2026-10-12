@@ -1,0 +1,1615 @@
+
+PR #7891: bbf1d37783d37d58edc8b9c07ffec53b075e4de9
+OWNERS: ["frontend/src/core/i18n/locales/en/admin/accounts.ts", "frontend/src/core/i18n/locales/zh/admin/accounts.ts"]
+diff --git a/frontend/src/i18n/locales/en/admin/accounts.ts b/frontend/src/i18n/locales/en/admin/accounts.ts
+index d11d7a9e7..7870e0e25 100644
+--- a/frontend/src/i18n/locales/en/admin/accounts.ts
++++ b/frontend/src/i18n/locales/en/admin/accounts.ts
+@@ -203,7 +203,8 @@ export default {
+         refreshSuccess: 'OpenCode Go usage refreshed',
+         refreshFailed: 'Failed to refresh OpenCode Go usage',
+         errors: {
+-          OPENCODE_GO_USAGE_REFRESH_RATE_LIMITED: 'Refresh is limited. Try again in {retry_after_seconds} seconds.'
++          OPENCODE_GO_USAGE_REFRESH_RATE_LIMITED: 'Refresh is limited. Try again in {retry_after_seconds} seconds.',
++          forbidden: 'Upstream returned 403: could be a missing/expired OpenCode Go subscription or a WAF/access-policy block; check the network path and HTTP status.'
+         }
+       },
+       types: {
+
+PR #7891: bbf1d37783d37d58edc8b9c07ffec53b075e4de9
+OWNERS: ["frontend/src/core/i18n/locales/en/admin/accounts.ts", "frontend/src/core/i18n/locales/zh/admin/accounts.ts"]
+diff --git a/frontend/src/i18n/locales/zh/admin/accounts.ts b/frontend/src/i18n/locales/zh/admin/accounts.ts
+index b002e5d54..88560960c 100644
+--- a/frontend/src/i18n/locales/zh/admin/accounts.ts
++++ b/frontend/src/i18n/locales/zh/admin/accounts.ts
+@@ -406,7 +406,8 @@ export default {
+         refreshSuccess: 'OpenCode Go 用量已刷新',
+         refreshFailed: '刷新 OpenCode Go 用量失败',
+         errors: {
+-          OPENCODE_GO_USAGE_REFRESH_RATE_LIMITED: '刷新过于频繁，请在 {retry_after_seconds} 秒后重试。'
++          OPENCODE_GO_USAGE_REFRESH_RATE_LIMITED: '刷新过于频繁，请在 {retry_after_seconds} 秒后重试。',
++          forbidden: '上游返回 403：可能是订阅缺失/失效，也可能是 WAF 或访问策略拦截，请结合网络路径与 HTTP 状态排查。'
+         }
+       },
+       types: {
+
+PR #7889: 3c274768c19c73e7403ff27f1d7a7f3b99b8f890
+OWNERS: ["frontend/src/features/admin-accounts/presentation/credentialsBuilder.ts"]
+diff --git a/frontend/src/components/account/credentialsBuilder.ts b/frontend/src/components/account/credentialsBuilder.ts
+index c85ef5267..43c487c92 100644
+--- a/frontend/src/components/account/credentialsBuilder.ts
++++ b/frontend/src/components/account/credentialsBuilder.ts
+@@ -304,6 +304,7 @@ export const DEFAULT_OPENCODE_ZEN_PROTOCOL_RULES: OpenCodeGoProtocolRule[] = [
+   { pattern: 'gpt-*', protocol: 'responses' },
+   { pattern: 'muse-spark-*', protocol: 'responses' },
+   { pattern: 'claude-*', protocol: 'anthropic' },
++  { pattern: 'qwen3.8-max', protocol: 'chat_completions' },
+   { pattern: 'qwen*', protocol: 'anthropic' }
+ ]
+ 
+
+PR #7800: 4bcad0657b37ecbf127e5cfd886ea7173157426b
+OWNERS: ["frontend/src/features/admin-channels/presentation/widgets/PricingEntryCard.vue"]
+diff --git a/frontend/src/components/admin/channel/PricingEntryCard.vue b/frontend/src/components/admin/channel/PricingEntryCard.vue
+index f2448d6d0..4c59e20a2 100644
+--- a/frontend/src/components/admin/channel/PricingEntryCard.vue
++++ b/frontend/src/components/admin/channel/PricingEntryCard.vue
+@@ -411,9 +411,11 @@ async function onModelsUpdate(newModels: string[]) {
+   const oldModels = props.entry.models
+   emit('update', { ...props.entry, models: newModels })
+ 
+-  // 只在新增模型且当前无价格时自动填充
++  // 仅在「空条目首次加入单个模型」时自动填充默认价：
++  // 条目已有模型时（即使价格留空、按各模型的官方默认价回退）追加模型不应改写整条价格，
++  // 一次加入多个模型也不应把第一个模型的价格套用到整条，否则条目内所有模型都会被静默改价。
+   const addedModels = newModels.filter(m => !oldModels.includes(m))
+-  if (addedModels.length === 0) return
++  if (oldModels.length !== 0 || addedModels.length !== 1) return
+ 
+   // 检查是否所有价格字段都为空
+   const e = props.entry
+
+PR #7904: 7fc5332b45e1ad462b1aa0bba9ca7ae595bb26e3
+OWNERS: []
+diff --git a/frontend/src/components/admin/group/GroupRateMultipliersModal.vue b/frontend/src/components/admin/group/GroupRateMultipliersModal.vue
+index ccfcf546e..87d54815f 100644
+--- a/frontend/src/components/admin/group/GroupRateMultipliersModal.vue
++++ b/frontend/src/components/admin/group/GroupRateMultipliersModal.vue
+@@ -279,6 +279,7 @@ const pageSize = ref(10)
+ const batchFactor = ref<number | null>(null)
+ 
+ let searchTimeout: ReturnType<typeof setTimeout>
++let loadVersion = 0
+ 
+ const platformColorClass = computed(() => {
+   switch (props.group?.platform) {
+@@ -319,18 +320,23 @@ const cloneEntries = (entries: GroupRateMultiplierEntry[]): LocalEntry[] => {
+ 
+ const loadEntries = async () => {
+   if (!props.group) return
++  const version = loadVersion
+   loading.value = true
++  serverEntries.value = []
++  localEntries.value = []
+   try {
+     const raw = await adminAPI.groups.getGroupRateMultipliers(props.group.id)
++    if (version !== loadVersion) return
+     // 仅显示已设置 rate_multiplier 的条目；rpm_override 在另一个弹窗管理，保留不动
+     serverEntries.value = raw.filter(e => e.rate_multiplier != null)
+     localEntries.value = cloneEntries(serverEntries.value)
+     adjustPage()
+   } catch (error) {
++    if (version !== loadVersion) return
+     appStore.showError(t('admin.groups.failedToLoad'))
+     console.error('Error loading group rate multipliers:', error)
+   } finally {
+-    loading.value = false
++    if (version === loadVersion) loading.value = false
+   }
+ }
+ 
+@@ -341,8 +347,9 @@ const adjustPage = () => {
+   }
+ }
+ 
+-watch(() => props.show, (val) => {
+-  if (val && props.group) {
++watch([() => props.show, () => props.group?.id], ([show]) => {
++  loadVersion++
++  if (show && props.group) {
+     currentPage.value = 1
+     batchFactor.value = null
+     searchQuery.value = ''
+@@ -491,6 +498,7 @@ if (typeof document !== 'undefined') {
+   document.addEventListener('click', handleClickOutside)
+ }
+ onUnmounted(() => {
++  loadVersion++
+   clearTimeout(searchTimeout)
+   document.removeEventListener('click', handleClickOutside)
+ })
+
+PR #7903: b126b94525f13da89233a01804d864e28adfd97d
+OWNERS: ["frontend/src/features/profile/presentation/widgets/ProfileEditForm.vue"]
+diff --git a/frontend/src/components/user/profile/ProfileEditForm.vue b/frontend/src/components/user/profile/ProfileEditForm.vue
+index b3605e0ed..c9ea6db1e 100644
+--- a/frontend/src/components/user/profile/ProfileEditForm.vue
++++ b/frontend/src/components/user/profile/ProfileEditForm.vue
+@@ -58,10 +58,12 @@ const authStore = useAuthStore()
+ const appStore = useAppStore()
+ 
+ const username = ref(props.initialUsername)
++let savedUsername = props.initialUsername
+ const loading = ref(false)
+ 
+ watch(() => props.initialUsername, (val) => {
+-  username.value = val
++  if (username.value === savedUsername) username.value = val
++  savedUsername = val
+ })
+ 
+ const handleUpdateProfile = async () => {
+@@ -71,10 +73,13 @@ const handleUpdateProfile = async () => {
+   }
+ 
+   loading.value = true
++  const submittedUsername = username.value
+   try {
+     const updatedUser = await userAPI.updateProfile({
+-      username: username.value
++      username: submittedUsername
+     })
++    if (username.value === submittedUsername) username.value = updatedUser.username
++    savedUsername = updatedUser.username
+     authStore.user = updatedUser
+     appStore.showSuccess(t('profile.updateSuccess'))
+   } catch (error: unknown) {
+
+PR #7902: cdbf1d6f4d1f3145ad34697ddb830babdf572f5f
+OWNERS: []
+diff --git a/frontend/src/components/admin/ErrorPassthroughRulesModal.vue b/frontend/src/components/admin/ErrorPassthroughRulesModal.vue
+index ce8d14424..dad35922e 100644
+--- a/frontend/src/components/admin/ErrorPassthroughRulesModal.vue
++++ b/frontend/src/components/admin/ErrorPassthroughRulesModal.vue
+@@ -621,8 +621,8 @@ const handleSubmit = async () => {
+ 
+ const toggleEnabled = async (rule: ErrorPassthroughRule) => {
+   try {
+-    await adminAPI.errorPassthrough.toggleEnabled(rule.id, !rule.enabled)
+-    rule.enabled = !rule.enabled
++    const updated = await adminAPI.errorPassthrough.toggleEnabled(rule.id, !rule.enabled)
++    rule.enabled = updated.enabled
+   } catch (error: any) {
+     appStore.showError(error.response?.data?.detail || t('admin.errorPassthrough.failedToToggle'))
+     console.error('Error toggling rule:', error)
+
+PR #7901: c2f0edc13716876aeeb316bdf83dcf8848fb2181
+OWNERS: []
+diff --git a/frontend/src/views/user/AirwallexPaymentView.vue b/frontend/src/views/user/AirwallexPaymentView.vue
+index db0d69031..c9af90c47 100644
+--- a/frontend/src/views/user/AirwallexPaymentView.vue
++++ b/frontend/src/views/user/AirwallexPaymentView.vue
+@@ -25,7 +25,7 @@
+ </template>
+ 
+ <script setup lang="ts">
+-import { onMounted, ref } from 'vue'
++import { onMounted, onUnmounted, ref } from 'vue'
+ import { useI18n } from 'vue-i18n'
+ import { useRoute, useRouter } from 'vue-router'
+ import AppLayout from '@/components/layout/AppLayout.vue'
+@@ -42,6 +42,9 @@ const router = useRouter()
+ 
+ const loading = ref(true)
+ const errorMessage = ref('')
++let disposed = false
++
++onUnmounted(() => { disposed = true })
+ 
+ function queryString(key: string): string {
+   const value = route.query[key]
+@@ -101,11 +104,13 @@ onMounted(async () => {
+ 
+   try {
+     const airwallex = await import('@airwallex/components-sdk')
++    if (disposed) return
+     const result = await airwallex.init({
+       env: snapshot.paymentEnv === 'prod' ? 'prod' : 'demo',
+       enabledElements: ['payments'],
+       locale: checkoutLocale,
+     })
++    if (disposed) return
+ 
+     loading.value = false
+     const checkoutOptions = {
+
+PR #7900: 1865f28469e8c66903bfb2c17ccaf31da302b41a
+OWNERS: []
+diff --git a/frontend/src/components/admin/group/GroupRPMOverridesModal.vue b/frontend/src/components/admin/group/GroupRPMOverridesModal.vue
+index 439878014..ad480017d 100644
+--- a/frontend/src/components/admin/group/GroupRPMOverridesModal.vue
++++ b/frontend/src/components/admin/group/GroupRPMOverridesModal.vue
+@@ -356,8 +356,9 @@ const handleAddLocal = () => {
+ }
+ 
+ const updateLocalRpm = (userId: number, value: string) => {
+-  const num = parseInt(value, 10)
+-  if (isNaN(num) || num < 0) return
++  if (!value.trim()) return
++  const num = Number(value)
++  if (!Number.isInteger(num) || num < 0) return
+   const entry = localEntries.value.find(e => e.user_id === userId)
+   if (entry) entry.rpm_override = num
+ }
+
+PR #7843: d1202bea5fa8f3dca267cd7ffaa7e2678d9b8b00
+OWNERS: ["frontend/src/features/admin-ops/presentation/widgets/OpsAlertRulesCard.vue"]
+diff --git a/frontend/src/views/admin/ops/components/OpsAlertRulesCard.vue b/frontend/src/views/admin/ops/components/OpsAlertRulesCard.vue
+index 91a7d1c46..6df834fe2 100644
+--- a/frontend/src/views/admin/ops/components/OpsAlertRulesCard.vue
++++ b/frontend/src/views/admin/ops/components/OpsAlertRulesCard.vue
+@@ -327,10 +327,10 @@ const editorValidation = computed(() => {
+   if (!(typeof r.window_minutes === 'number' && Number.isFinite(r.window_minutes) && [1, 5, 60].includes(r.window_minutes))) {
+     errors.push(t('admin.ops.alertRules.validation.windowRange'))
+   }
+-  if (!(typeof r.sustained_minutes === 'number' && Number.isFinite(r.sustained_minutes) && r.sustained_minutes >= 1 && r.sustained_minutes <= 1440)) {
++  if (!(typeof r.sustained_minutes === 'number' && Number.isInteger(r.sustained_minutes) && r.sustained_minutes >= 1 && r.sustained_minutes <= 1440)) {
+     errors.push(t('admin.ops.alertRules.validation.sustainedRange'))
+   }
+-  if (!(typeof r.cooldown_minutes === 'number' && Number.isFinite(r.cooldown_minutes) && r.cooldown_minutes >= 0 && r.cooldown_minutes <= 1440)) {
++  if (!(typeof r.cooldown_minutes === 'number' && Number.isInteger(r.cooldown_minutes) && r.cooldown_minutes >= 0 && r.cooldown_minutes <= 1440)) {
+     errors.push(t('admin.ops.alertRules.validation.cooldownRange'))
+   }
+   return { valid: errors.length === 0, errors }
+
+PR #7842: 486b226b69075bf7b69b0b24f0e612c0ddb07d32
+OWNERS: ["frontend/src/features/admin-ops/presentation/widgets/OpsSettingsDialog.vue"]
+diff --git a/frontend/src/views/admin/ops/components/OpsSettingsDialog.vue b/frontend/src/views/admin/ops/components/OpsSettingsDialog.vue
+index 105ea560a..2e3d8e470 100644
+--- a/frontend/src/views/admin/ops/components/OpsSettingsDialog.vue
++++ b/frontend/src/views/admin/ops/components/OpsSettingsDialog.vue
+@@ -21,6 +21,7 @@ const emit = defineEmits<{
+ }>()
+ 
+ const loading = ref(false)
++const settingsLoaded = ref(false)
+ const saving = ref(false)
+ 
+ // 运行时设置
+@@ -39,6 +40,7 @@ const metricThresholds = ref<OpsMetricThresholds>({
+ 
+ // 加载所有配置
+ async function loadAllSettings() {
++  settingsLoaded.value = false
+   loading.value = true
+   try {
+     const [runtime, email, advanced, thresholds] = await Promise.all([
+@@ -63,6 +65,7 @@ async function loadAllSettings() {
+           upstream_error_rate_percent_max: thresholds.upstream_error_rate_percent_max ?? 5
+         }
+     }
++    settingsLoaded.value = true
+   } catch (err: any) {
+     console.error('[OpsSettingsDialog] Failed to load settings', err)
+     appStore.showError(err?.response?.data?.detail || t('admin.ops.settings.loadFailed'))
+@@ -197,6 +200,7 @@ const validation = computed(() => {
+ 
+ // 保存所有配置
+ async function saveAllSettings() {
++  if (loading.value || !settingsLoaded.value || saving.value) return
+   if (!validation.value.valid) {
+     appStore.showError(validation.value.errors[0])
+     return
+@@ -641,7 +645,7 @@ async function saveAllSettings() {
+     <template #footer>
+       <div class="flex justify-end gap-2">
+         <button class="btn btn-secondary" @click="emit('close')">{{ t('common.cancel') }}</button>
+-        <button class="btn btn-primary" :disabled="saving || !validation.valid" @click="saveAllSettings">
++        <button class="btn btn-primary" :disabled="loading || !settingsLoaded || saving || !validation.valid" @click="saveAllSettings">
+           {{ saving ? t('common.saving') : t('common.save') }}
+         </button>
+       </div>
+
+PR #7841: 02aad478f39961619fcbdd8371e33e13f2b020af
+OWNERS: ["frontend/src/features/admin-ops/presentation/widgets/OpsAlertEventsCard.vue"]
+diff --git a/frontend/src/views/admin/ops/components/OpsAlertEventsCard.vue b/frontend/src/views/admin/ops/components/OpsAlertEventsCard.vue
+index a72f93527..31551f2bb 100644
+--- a/frontend/src/views/admin/ops/components/OpsAlertEventsCard.vue
++++ b/frontend/src/views/admin/ops/components/OpsAlertEventsCard.vue
+@@ -1,5 +1,5 @@
+ <script setup lang="ts">
+-import { computed, onMounted, ref, watch } from 'vue'
++import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
+ import { useMediaQuery } from '@vueuse/core'
+ import { useI18n } from 'vue-i18n'
+ import { useAppStore } from '@/stores/app'
+@@ -22,6 +22,8 @@ const loading = ref(false)
+ const loadingMore = ref(false)
+ const events = ref<AlertEvent[]>([])
+ const hasMore = ref(true)
++let listRequestId = 0
++onBeforeUnmount(() => { listRequestId++ })
+ 
+ // Detail modal
+ const showDetail = ref(false)
+@@ -92,18 +94,22 @@ function buildQuery(overrides: Partial<AlertEventsQuery> = {}): AlertEventsQuery
+ }
+ 
+ async function loadFirstPage() {
++  const requestId = ++listRequestId
++  loadingMore.value = false
+   loading.value = true
+   try {
+     const data = await opsAPI.listAlertEvents(buildQuery())
++    if (requestId !== listRequestId) return
+     events.value = data
+     hasMore.value = data.length === PAGE_SIZE
+   } catch (err: any) {
++    if (requestId !== listRequestId) return
+     console.error('[OpsAlertEventsCard] Failed to load alert events', err)
+     appStore.showError(err?.response?.data?.detail || t('admin.ops.alertEvents.loadFailed'))
+     events.value = []
+     hasMore.value = false
+   } finally {
+-    loading.value = false
++    if (requestId === listRequestId) loading.value = false
+   }
+ }
+ 
+@@ -113,11 +119,13 @@ async function loadMore() {
+   const last = events.value[events.value.length - 1]
+   if (!last) return
+ 
++  const requestId = listRequestId
+   loadingMore.value = true
+   try {
+     const data = await opsAPI.listAlertEvents(
+       buildQuery({ before_fired_at: last.fired_at || last.created_at, before_id: last.id })
+     )
++    if (requestId !== listRequestId) return
+     if (!data.length) {
+       hasMore.value = false
+       return
+@@ -125,10 +133,11 @@ async function loadMore() {
+     events.value = [...events.value, ...data]
+     if (data.length < PAGE_SIZE) hasMore.value = false
+   } catch (err: any) {
++    if (requestId !== listRequestId) return
+     console.error('[OpsAlertEventsCard] Failed to load more alert events', err)
+     hasMore.value = false
+   } finally {
+-    loadingMore.value = false
++    if (requestId === listRequestId) loadingMore.value = false
+   }
+ }
+ 
+
+PR #7840: 2c6bd63de92769d55315d5bd9463abd0d2b1920f
+OWNERS: ["frontend/src/features/admin-channel-monitor/presentation/widgets/MonitorTemplateManagerDialog.vue"]
+diff --git a/frontend/src/components/admin/monitor/MonitorTemplateManagerDialog.vue b/frontend/src/components/admin/monitor/MonitorTemplateManagerDialog.vue
+index 546568d4f..f4943b375 100644
+--- a/frontend/src/components/admin/monitor/MonitorTemplateManagerDialog.vue
++++ b/frontend/src/components/admin/monitor/MonitorTemplateManagerDialog.vue
+@@ -227,7 +227,7 @@
+ </template>
+ 
+ <script setup lang="ts">
+-import { computed, reactive, ref, watch } from 'vue'
++import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
+ import { useI18n } from 'vue-i18n'
+ import { useAppStore } from '@/stores/app'
+ import { extractApiErrorMessage } from '@/utils/apiError'
+@@ -287,6 +287,8 @@ const providerTabs = computed<{ value: Provider; label: string }[]>(() => [
+ const activeProvider = ref<Provider>(PROVIDER_ANTHROPIC)
+ const templates = ref<ChannelMonitorTemplate[]>([])
+ const loading = ref(false)
++let listRequestId = 0
++onBeforeUnmount(() => { listRequestId++ })
+ 
+ const templatesForActiveProvider = computed(() =>
+   templates.value.filter((t) => t.provider === activeProvider.value),
+@@ -354,14 +356,17 @@ function backToList() {
+ 
+ // --- data fetch ---
+ async function fetchTemplates() {
++  const requestId = ++listRequestId
+   loading.value = true
+   try {
+     const { items } = await adminAPI.channelMonitorTemplate.list()
++    if (requestId !== listRequestId) return
+     templates.value = items
+   } catch (err: unknown) {
++    if (requestId !== listRequestId) return
+     appStore.showError(extractApiErrorMessage(err, t('common.error')))
+   } finally {
+-    loading.value = false
++    if (requestId === listRequestId) loading.value = false
+   }
+ }
+ 
+@@ -371,6 +376,9 @@ watch(
+     if (show) {
+       editing.value = null
+       fetchTemplates()
++    } else {
++      listRequestId++
++      loading.value = false
+     }
+   },
+   { immediate: true },
+
+PR #7839: f3bcad3c3352eb21b351381131dc3cf1bc3373f2
+OWNERS: ["frontend/src/features/admin-accounts/presentation/widgets/ScheduledTestsPanel.vue"]
+diff --git a/frontend/src/components/admin/account/ScheduledTestsPanel.vue b/frontend/src/components/admin/account/ScheduledTestsPanel.vue
+index 1cdc47d28..36c24ed4e 100644
+--- a/frontend/src/components/admin/account/ScheduledTestsPanel.vue
++++ b/frontend/src/components/admin/account/ScheduledTestsPanel.vue
+@@ -463,7 +463,7 @@
+ </template>
+ 
+ <script setup lang="ts">
+-import { ref, reactive, watch } from 'vue'
++import { ref, reactive, watch, onBeforeUnmount } from 'vue'
+ import { useI18n } from 'vue-i18n'
+ import BaseDialog from '@/components/common/BaseDialog.vue'
+ import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+@@ -497,6 +497,13 @@ const loadingResults = ref(false)
+ const plans = ref<ScheduledTestPlan[]>([])
+ const results = ref<ScheduledTestResult[]>([])
+ const expandedPlanId = ref<number | null>(null)
++let resultsRequestId = 0
++watch(expandedPlanId, () => {
++  resultsRequestId++
++  results.value = []
++  loadingResults.value = false
++}, { flush: 'sync' })
++onBeforeUnmount(() => { resultsRequestId++ })
+ const expandedResultIds = reactive(new Set<number>())
+ const showAddForm = ref(false)
+ const showDeleteConfirm = ref(false)
+@@ -664,13 +671,17 @@ const toggleExpand = async (planId: number) => {
+   expandedPlanId.value = planId
+   expandedResultIds.clear()
+   loadingResults.value = true
++  const requestId = resultsRequestId
+   try {
+-    results.value = await adminAPI.scheduledTests.listResults(planId, 20)
++    const data = await adminAPI.scheduledTests.listResults(planId, 20)
++    if (requestId !== resultsRequestId) return
++    results.value = data
+   } catch (error: any) {
++    if (requestId !== resultsRequestId) return
+     appStore.showError(error?.message || 'Failed to load results')
+     results.value = []
+   } finally {
+-    loadingResults.value = false
++    if (requestId === resultsRequestId) loadingResults.value = false
+   }
+ }
+ 
+
+PR #7819: 4747827e355c35f9c62b2ba6b8f1969273d49a46
+OWNERS: []
+diff --git a/frontend/src/views/user/StripePaymentView.vue b/frontend/src/views/user/StripePaymentView.vue
+index 840eea912..b845cfac5 100644
+--- a/frontend/src/views/user/StripePaymentView.vue
++++ b/frontend/src/views/user/StripePaymentView.vue
+@@ -129,6 +129,7 @@ const wechatQrUrl = ref('')
+ const redirecting = ref(false)
+ const showPaymentElement = ref(false)
+ 
++let disposed = false
+ let stripeInstance: Stripe | null = null
+ let elementsInstance: StripeElements | null = null
+ let redirectTimer: ReturnType<typeof setTimeout> | null = null
+@@ -167,6 +168,7 @@ onMounted(async () => {
+ 
+     const { loadStripe } = await import('@stripe/stripe-js/pure')
+     const stripe = await loadStripe(publishableKey)
++    if (disposed) return
+     if (!stripe) { initError.value = t('payment.stripeLoadFailed'); return }
+ 
+     stripeInstance = stripe
+@@ -241,6 +243,7 @@ async function confirmWechatPay(stripe: Stripe, clientSecret: string) {
+ }
+ 
+ function mountPaymentElement(stripe: Stripe, clientSecret: string) {
++  if (disposed) return
+   const isDark = document.documentElement.classList.contains('dark')
+   const elements = stripe.elements({
+     clientSecret,
+@@ -284,7 +287,7 @@ let pollTimer: ReturnType<typeof setInterval> | null = null
+ 
+ function startPolling() {
+   const orderId = Number(route.query.order_id)
+-  if (!orderId) return
++  if (!orderId || disposed) return
+   pollTimer = setInterval(async () => {
+     const o = await paymentStore.pollOrderStatus(orderId)
+     if (!o) return
+@@ -298,6 +301,7 @@ function startPolling() {
+ }
+ 
+ function scheduleClose() {
++  if (disposed) return
+   if (window.opener) {
+     redirectTimer = setTimeout(() => { window.close() }, 2000)
+   } else {
+@@ -308,6 +312,7 @@ function scheduleClose() {
+ }
+ 
+ onUnmounted(() => {
++  disposed = true
+   if (redirectTimer) clearTimeout(redirectTimer)
+   if (pollTimer) clearInterval(pollTimer)
+ })
+
+PR #7818: b94974467b418a93638e808fa4797ee45ba200c8
+OWNERS: []
+diff --git a/frontend/src/views/user/CustomPageView.vue b/frontend/src/views/user/CustomPageView.vue
+index 910b6dafa..701e59316 100644
+--- a/frontend/src/views/user/CustomPageView.vue
++++ b/frontend/src/views/user/CustomPageView.vue
+@@ -160,6 +160,7 @@ const tocItems = ref<TocItem[]>([])
+ const tocVisible = ref(typeof window !== 'undefined' ? window.innerWidth > 768 : true)
+ const activeHeadingId = ref('')
+ let themeObserver: MutationObserver | null = null
++let markdownRequestVersion = 0
+ 
+ const embedShell = ref<HTMLElement | null>(null)
+ const openButton = ref<HTMLAnchorElement | null>(null)
+@@ -290,6 +291,7 @@ function buildPageImageUrl(slug: string, src: string): string {
+ }
+ 
+ async function fetchAndRenderMarkdown(slug: string) {
++  const version = ++markdownRequestVersion
+   loading.value = true
+   tocItems.value = []
+   activeHeadingId.value = ''
+@@ -297,11 +299,13 @@ async function fetchAndRenderMarkdown(slug: string) {
+     const resp = await fetch(buildApiUrl(`/pages/${encodeURIComponent(slug)}`), {
+       headers: authStore.token ? { Authorization: `Bearer ${authStore.token}` } : {},
+     })
++    if (version !== markdownRequestVersion) return
+     if (!resp.ok) {
+       renderedHtml.value = `<p class="text-red-500">${t('common.pageNotFound')}</p>`
+       return
+     }
+     let raw = await resp.text()
++    if (version !== markdownRequestVersion) return
+ 
+     raw = raw.replace(
+       /!\[([^\]]*)\]\(([^)]+)\)/g,
+@@ -331,12 +335,16 @@ async function fetchAndRenderMarkdown(slug: string) {
+     renderedHtml.value = withIds
+     tocItems.value = toc
+   } catch {
+-    renderedHtml.value = '<p class="text-red-500">Failed to load page</p>'
++    if (version === markdownRequestVersion) {
++      renderedHtml.value = '<p class="text-red-500">Failed to load page</p>'
++    }
+   } finally {
+-    loading.value = false
+-    await nextTick()
+-    await nextTick()
+-    injectCopyButtons()
++    if (version === markdownRequestVersion) {
++      loading.value = false
++      await nextTick()
++      await nextTick()
++      if (version === markdownRequestVersion) injectCopyButtons()
++    }
+   }
+ }
+ 
+@@ -406,6 +414,8 @@ watch(markdownSlug, (slug) => {
+   if (slug) {
+     fetchAndRenderMarkdown(slug)
+   } else {
++    markdownRequestVersion++
++    loading.value = false
+     renderedHtml.value = ''
+     tocItems.value = []
+   }
+@@ -434,6 +444,7 @@ onMounted(async () => {
+ })
+ 
+ onUnmounted(() => {
++  markdownRequestVersion++
+   if (themeObserver) {
+     themeObserver.disconnect()
+     themeObserver = null
+
+PR #7833: 48c647b5d2ef83301de61e4301b1bb12e2f0207b
+OWNERS: ["frontend/src/features/profile/presentation/widgets/ProfileIdentityBindingsSection.vue"]
+diff --git a/frontend/src/components/user/profile/ProfileIdentityBindingsSection.vue b/frontend/src/components/user/profile/ProfileIdentityBindingsSection.vue
+index 8764c07e3..e15b11287 100644
+--- a/frontend/src/components/user/profile/ProfileIdentityBindingsSection.vue
++++ b/frontend/src/components/user/profile/ProfileIdentityBindingsSection.vue
+@@ -99,6 +99,7 @@
+                   class="input"
+                   :placeholder="t('profile.authBindings.emailPlaceholder')"
+                   :disabled="isSendingEmailCode || isBindingEmail"
++                  @input="isEmailBindingFormDirty = true"
+                 />
+                 <button
+                   data-testid="profile-binding-email-send-code"
+@@ -122,6 +123,7 @@
+                   class="input"
+                   :placeholder="t('profile.authBindings.codePlaceholder')"
+                   :disabled="isBindingEmail"
++                  @input="isEmailBindingFormDirty = true"
+                 />
+                 <input
+                   v-model="emailBindingForm.password"
+@@ -130,6 +132,7 @@
+                   class="input"
+                   :placeholder="emailPasswordPlaceholder"
+                   :disabled="isBindingEmail"
++                  @input="isEmailBindingFormDirty = true"
+                 />
+                 <button
+                   data-testid="profile-binding-email-submit"
+@@ -247,6 +250,7 @@ const authStore = useAuthStore()
+ const localUser = ref<User | null>(null)
+ const isSendingEmailCode = ref(false)
+ const isBindingEmail = ref(false)
++const isEmailBindingFormDirty = ref(false)
+ const isEmailFormExpanded = ref(!props.compact)
+ const unbindingProvider = ref<BindableProvider | null>(null)
+ const emailBindingForm = reactive({
+@@ -255,15 +259,21 @@ const emailBindingForm = reactive({
+   password: '',
+ })
+ 
++function resetEmailBindingForm(user: User | null): void {
++  emailBindingForm.email =
++    typeof user?.email === 'string' && !user.email.endsWith('.invalid') ? user.email : ''
++  emailBindingForm.verifyCode = ''
++  emailBindingForm.password = ''
++  isEmailBindingFormDirty.value = false
++}
++
+ watch(
+   () => props.user,
+-  (user) => {
++  (user, previousUser) => {
+     localUser.value = null
+-    if (!user) {
+-      return
+-    }
+-    if (typeof user.email === 'string' && !user.email.endsWith('.invalid')) {
+-      emailBindingForm.email = user.email
++    // Profile polling must not overwrite an in-progress email verification flow.
++    if (user?.id !== previousUser?.id || !isEmailBindingFormDirty.value) {
++      resetEmailBindingForm(user)
+     }
+   },
+   { immediate: true }
+@@ -616,6 +626,7 @@ async function sendEmailCode(): Promise<void> {
+     return
+   }
+ 
++  isEmailBindingFormDirty.value = true
+   isSendingEmailCode.value = true
+   try {
+     await sendEmailBindingCode(emailBindingForm.email)
+@@ -632,6 +643,7 @@ async function bindEmail(): Promise<void> {
+     return
+   }
+ 
++  isEmailBindingFormDirty.value = true
+   isBindingEmail.value = true
+   try {
+     const user = await bindEmailIdentity({
+@@ -641,8 +653,7 @@ async function bindEmail(): Promise<void> {
+     })
+     const replacingBoundEmail = emailBound.value
+     applyUpdatedUser(user)
+-    emailBindingForm.verifyCode = ''
+-    emailBindingForm.password = ''
++    resetEmailBindingForm(user)
+     if (compact.value) {
+       isEmailFormExpanded.value = false
+     }
+
+PR #7897: ba3af61251d37480e9cb124e1006b0003b8c81d4
+OWNERS: ["frontend/src/features/admin-usage/presentation/widgets/UsageTable.vue"]
+diff --git a/frontend/src/components/admin/usage/UsageTable.vue b/frontend/src/components/admin/usage/UsageTable.vue
+index 364a3072e..a97cbff0a 100644
+--- a/frontend/src/components/admin/usage/UsageTable.vue
++++ b/frontend/src/components/admin/usage/UsageTable.vue
+@@ -212,8 +212,9 @@
+               <span
+                 v-if="row.long_context_billing_applied"
+                 data-testid="long-context-billing-marker"
++                :title="t('admin.usage.longContextPricingTooltip')"
+                 class="inline-flex items-center rounded px-1 py-px text-[10px] font-semibold leading-tight bg-amber-100 text-amber-700 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:ring-amber-500/30"
+-              >x2</span>
++              >{{ t('admin.usage.longContext') }}</span>
+               <!-- Cost Detail Tooltip -->
+               <div
+                 class="group relative"
+
+PR #7897: ba3af61251d37480e9cb124e1006b0003b8c81d4
+OWNERS: ["frontend/src/core/i18n/locales/en/admin/resources.ts", "frontend/src/core/i18n/locales/zh/admin/resources.ts"]
+diff --git a/frontend/src/i18n/locales/en/admin/resources.ts b/frontend/src/i18n/locales/en/admin/resources.ts
+index 049ac9a34..6b95adc0e 100644
+--- a/frontend/src/i18n/locales/en/admin/resources.ts
++++ b/frontend/src/i18n/locales/en/admin/resources.ts
+@@ -530,6 +530,8 @@ export default {
+       allTypes: 'All Types',
+       inputCost: 'Input Cost',
+       outputCost: 'Output Cost',
++      longContext: 'Long context',
++      longContextPricingTooltip: 'Long-context pricing was applied. Input and output rates depend on the pricing tier, not a uniform multiplier.',
+       cacheCreationCost: 'Cache Creation Cost',
+       cacheReadCost: 'Cache Read Cost',
+       inputTokens: 'Input Tokens',
+
+PR #7897: ba3af61251d37480e9cb124e1006b0003b8c81d4
+OWNERS: ["frontend/src/core/i18n/locales/en/admin/resources.ts", "frontend/src/core/i18n/locales/zh/admin/resources.ts"]
+diff --git a/frontend/src/i18n/locales/zh/admin/resources.ts b/frontend/src/i18n/locales/zh/admin/resources.ts
+index 9d85b1942..c07bd5a2e 100644
+--- a/frontend/src/i18n/locales/zh/admin/resources.ts
++++ b/frontend/src/i18n/locales/zh/admin/resources.ts
+@@ -527,6 +527,8 @@ export default {
+       allTypes: '全部类型',
+       inputCost: '输入费用',
+       outputCost: '输出费用',
++      longContext: '长上下文',
++      longContextPricingTooltip: '已应用长上下文计费。输入和输出费率取决于定价档位，并非统一倍率。',
+       cacheCreationCost: '缓存创建费用',
+       cacheReadCost: '缓存读取费用',
+       inputTokens: '输入 Token',
+
+PR #7853: 0ac774e3785aa2bd3a4d43808f216fcaddd88130
+OWNERS: ["frontend/src/features/admin-accounts/presentation/widgets/AccountTableFilters.vue"]
+diff --git a/frontend/src/components/admin/account/AccountTableFilters.vue b/frontend/src/components/admin/account/AccountTableFilters.vue
+index 9e48be822..ea3d01e28 100644
+--- a/frontend/src/components/admin/account/AccountTableFilters.vue
++++ b/frontend/src/components/admin/account/AccountTableFilters.vue
+@@ -1,26 +1,49 @@
+ <template>
+-  <div class="flex flex-wrap items-center gap-3">
+-    <SearchInput
+-      :model-value="searchQuery"
+-      :placeholder="t('admin.accounts.searchAccounts')"
+-      class="w-full sm:w-64"
+-      @update:model-value="$emit('update:searchQuery', $event)"
+-      @search="$emit('change')"
+-    />
+-    <Select :model-value="filters.platform" class="w-40" :options="pOpts" @update:model-value="updatePlatform" @change="$emit('change')" />
+-    <Select :model-value="filters.type" class="w-40" :options="tOpts" @update:model-value="updateType" @change="$emit('change')" />
+-    <Select :model-value="filters.status" class="w-40" :options="sOpts" @update:model-value="updateStatus" @change="$emit('change')" />
+-    <Select :model-value="filters.privacy_mode" class="w-40" :options="privacyOpts" @update:model-value="updatePrivacyMode" @change="$emit('change')" />
+-    <Select :model-value="filters.group" class="w-40" :options="gOpts" @update:model-value="updateGroup" @change="$emit('change')" />
++  <div class="min-w-0 w-full space-y-2">
++    <div class="grid grid-cols-2 items-center gap-2 sm:flex sm:flex-wrap">
++      <SearchInput
++        :model-value="searchQuery"
++        :placeholder="t('admin.accounts.searchAccounts')"
++        class="col-span-2 min-w-0 w-full sm:w-56"
++        @update:model-value="$emit('update:searchQuery', $event)"
++        @search="$emit('change')"
++      />
++      <Select :model-value="filters.platform" :aria-label="t('admin.accounts.allPlatforms')" class="min-w-0 w-full sm:w-36" :options="pOpts" @update:model-value="updatePlatform" @change="$emit('change')" />
++      <Select :model-value="filters.status" :aria-label="t('admin.accounts.allStatus')" class="min-w-0 w-full sm:w-36" :options="sOpts" @update:model-value="updateStatus" @change="$emit('change')" />
++      <button
++        type="button"
++        class="btn btn-secondary col-span-2 min-w-0 w-full sm:w-auto"
++        :aria-expanded="moreFiltersOpen"
++        :aria-controls="moreFiltersId"
++        :aria-label="activeSecondaryCount ? t('admin.accounts.moreFiltersActive', { count: activeSecondaryCount }) : t('admin.accounts.moreFilters')"
++        @click="moreFiltersOpen = !moreFiltersOpen"
++      >
++        {{ t('admin.accounts.moreFilters') }}
++        <span v-if="activeSecondaryCount" aria-hidden="true" class="rounded-full bg-primary-100 px-2 text-xs font-medium text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">{{ activeSecondaryCount }}</span>
++      </button>
++    </div>
++    <div v-show="moreFiltersOpen" :id="moreFiltersId" class="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-3">
++      <Select :model-value="filters.type" :aria-label="t('admin.accounts.allTypes')" class="min-w-0 w-full" :options="tOpts" @update:model-value="updateType" @change="$emit('change')" />
++      <Select :model-value="filters.privacy_mode" :aria-label="t('admin.accounts.allPrivacyModes')" class="min-w-0 w-full" :options="privacyOpts" @update:model-value="updatePrivacyMode" @change="$emit('change')" />
++      <Select :model-value="filters.group" :aria-label="t('admin.accounts.allGroups')" class="min-w-0 w-full" :options="gOpts" @update:model-value="updateGroup" @change="$emit('change')" />
++    </div>
+   </div>
+ </template>
+ 
+ <script setup lang="ts">
+-import { computed } from 'vue'; import { useI18n } from 'vue-i18n'; import Select from '@/components/common/Select.vue'; import SearchInput from '@/components/common/SearchInput.vue'
++import { computed, ref, useId } from 'vue'; import { useI18n } from 'vue-i18n'; import Select from '@/components/common/Select.vue'; import SearchInput from '@/components/common/SearchInput.vue'
+ import type { AdminGroup } from '@/types'
+ import { CONCRETE_PLATFORM_OPTIONS } from '@/constants/platforms'
+ const props = defineProps<{ searchQuery: string; filters: Record<string, any>; groups?: AdminGroup[] }>()
+ const emit = defineEmits(['update:searchQuery', 'update:filters', 'change']); const { t } = useI18n()
++const moreFiltersOpen = ref(false)
++const moreFiltersId = useId()
++const activeSecondaryCount = computed(() =>
++  ['type', 'privacy_mode', 'group'].filter(key => {
++    const value = props.filters[key]
++    return value !== '' && value !== null && value !== undefined
++  }).length
++)
+ const updatePlatform = (value: string | number | boolean | null) => { emit('update:filters', { ...props.filters, platform: value }) }
+ const updateType = (value: string | number | boolean | null) => { emit('update:filters', { ...props.filters, type: value }) }
+ const updateStatus = (value: string | number | boolean | null) => { emit('update:filters', { ...props.filters, status: value }) }
+
+PR #7853: 0ac774e3785aa2bd3a4d43808f216fcaddd88130
+OWNERS: ["frontend/src/core/i18n/locales/en/admin/accounts.ts", "frontend/src/core/i18n/locales/zh/admin/accounts.ts"]
+diff --git a/frontend/src/i18n/locales/en/admin/accounts.ts b/frontend/src/i18n/locales/en/admin/accounts.ts
+index 7870e0e25..e995eb5e0 100644
+--- a/frontend/src/i18n/locales/en/admin/accounts.ts
++++ b/frontend/src/i18n/locales/en/admin/accounts.ts
+@@ -79,6 +79,8 @@ export default {
+       editAccount: 'Edit Account',
+       deleteAccount: 'Delete Account',
+       searchAccounts: 'Search accounts...',
++      moreFilters: 'More filters',
++      moreFiltersActive: 'More filters ({count} active)',
+       notes: 'Notes',
+       notesPlaceholder: 'Enter notes',
+       notesHint: 'Notes are optional',
+
+PR #7853: 0ac774e3785aa2bd3a4d43808f216fcaddd88130
+OWNERS: ["frontend/src/core/i18n/locales/en/admin/accounts.ts", "frontend/src/core/i18n/locales/zh/admin/accounts.ts"]
+diff --git a/frontend/src/i18n/locales/zh/admin/accounts.ts b/frontend/src/i18n/locales/zh/admin/accounts.ts
+index 88560960c..d233f9f53 100644
+--- a/frontend/src/i18n/locales/zh/admin/accounts.ts
++++ b/frontend/src/i18n/locales/zh/admin/accounts.ts
+@@ -78,6 +78,8 @@ export default {
+       editAccount: '编辑账号',
+       deleteAccount: '删除账号',
+       searchAccounts: '搜索账号...',
++      moreFilters: '更多筛选',
++      moreFiltersActive: '更多筛选（已启用 {count} 项）',
+       notes: '备注',
+       notesPlaceholder: '请输入备注',
+       notesHint: '备注可选',
+
+PR #7853: 0ac774e3785aa2bd3a4d43808f216fcaddd88130
+OWNERS: []
+diff --git a/frontend/src/views/admin/AccountsView.vue b/frontend/src/views/admin/AccountsView.vue
+index 2502f2db8..9b9a4b59a 100644
+--- a/frontend/src/views/admin/AccountsView.vue
++++ b/frontend/src/views/admin/AccountsView.vue
+@@ -4,6 +4,7 @@
+       <template #filters>
+         <div class="flex flex-wrap-reverse items-start justify-between gap-3">
+           <AccountTableFilters
++            class="lg:w-auto lg:flex-1"
+             v-model:searchQuery="params.search"
+             :filters="params"
+             :groups="groups"
+
+PR #7911: 745ff1d3ca79a7f39520f627f6aa44d778a11580
+OWNERS: ["frontend/src/core/i18n/locales/en/admin/ops.ts", "frontend/src/core/i18n/locales/zh/admin/ops.ts"]
+diff --git a/frontend/src/api/admin/ops.ts b/frontend/src/api/admin/ops.ts
+index 8754f1958..f4c1b3740 100644
+--- a/frontend/src/api/admin/ops.ts
++++ b/frontend/src/api/admin/ops.ts
+@@ -63,6 +63,14 @@ export interface OpsDashboardOverview {
+     avg: number
+   }
+ 
++  output_tps?: {
++    p5: number | null
++    p10: number | null
++    p50: number | null
++    avg: number | null
++    sample_count: number
++  } | null
++
+   duration: OpsPercentiles
+   ttft: OpsPercentiles
+ }
+
+PR #7911: 745ff1d3ca79a7f39520f627f6aa44d778a11580
+OWNERS: ["frontend/src/features/admin-usage/presentation/widgets/UsageTable.vue"]
+diff --git a/frontend/src/components/admin/usage/UsageTable.vue b/frontend/src/components/admin/usage/UsageTable.vue
+index a97cbff0a..064642256 100644
+--- a/frontend/src/components/admin/usage/UsageTable.vue
++++ b/frontend/src/components/admin/usage/UsageTable.vue
+@@ -248,6 +248,8 @@
+               <span v-else class="text-gray-400 dark:text-gray-500">-</span>
+               <span class="text-gray-400 dark:text-gray-500">{{ t('usage.latencyDuration') }}</span>
+               <span class="font-medium tabular-nums" :class="LATENCY_TEXT_CLASSES[durationSeverity(row.duration_ms ?? 0)]">{{ formatDuration(row.duration_ms) }}</span>
++              <span class="text-gray-400 dark:text-gray-500" :title="t('usage.outputTpsHint')">{{ t('usage.outputTps') }}</span>
++              <span data-testid="output-tps" class="font-medium tabular-nums text-gray-700 dark:text-gray-300">{{ formatUsageOutputRate(row) }}</span>
+             </div>
+           </div>
+         </template>
+@@ -548,6 +550,7 @@ import {
+   LATENCY_TEXT_CLASSES,
+   durationSeverity,
+   firstTokenSeverity,
++  formatUsageOutputRate,
+ } from '@/utils/latencyHealth'
+ import {
+   BILLING_MODE_TOKEN,
+
+PR #7911: 745ff1d3ca79a7f39520f627f6aa44d778a11580
+OWNERS: ["frontend/src/core/i18n/locales/en/admin/ops.ts", "frontend/src/core/i18n/locales/zh/admin/ops.ts"]
+diff --git a/frontend/src/i18n/locales/en/admin/ops.ts b/frontend/src/i18n/locales/en/admin/ops.ts
+index 8576736b9..c68b7ebea 100644
+--- a/frontend/src/i18n/locales/en/admin/ops.ts
++++ b/frontend/src/i18n/locales/en/admin/ops.ts
+@@ -4,6 +4,8 @@ export default {
+       description: 'Operational monitoring and troubleshooting',
+       // Dashboard
+       systemHealth: 'System Health',
++      outputTps: 'Per-request output TPS',
++      outputTpsSamples: 'Valid samples: {count}',
+       overview: 'Overview',
+       noSystemMetrics: 'No system metrics collected yet.',
+       collectedAt: 'Collected at:',
+@@ -803,6 +805,7 @@ export default {
+         accountError: 'Error'
+       },
+       tooltips: {
++        outputTps: 'Percentiles of each valid usage record’s output tokens / total duration, including first-token wait, within the selected time, platform and group. Output may include reasoning tokens; they are not added again. P50 is the median; P5/P10 show slower requests. Higher is faster. Excludes images, Live and records without positive output or duration. Samples come from retained usage logs; — means no samples or temporarily unavailable statistics.',
+         totalRequests: 'Total number of requests (including both successful and failed requests) in the selected time window.',
+         throughputTrend: 'Requests/QPS + Tokens/TPS in the selected window.',
+         switchRateTrend: 'Trend of account switches / total requests over the last 5 hours (avg switches).',
+
+PR #7911: 745ff1d3ca79a7f39520f627f6aa44d778a11580
+OWNERS: ["frontend/src/core/i18n/locales/en/dashboard.ts", "frontend/src/core/i18n/locales/zh/dashboard.ts"]
+diff --git a/frontend/src/i18n/locales/en/dashboard.ts b/frontend/src/i18n/locales/en/dashboard.ts
+index 159e6e0e2..d43bed531 100644
+--- a/frontend/src/i18n/locales/en/dashboard.ts
++++ b/frontend/src/i18n/locales/en/dashboard.ts
+@@ -395,6 +395,8 @@ export default {
+     latency: 'Latency',
+     latencyFirstToken: 'First',
+     latencyDuration: 'Total',
++    outputTps: 'Output TPS',
++    outputTpsHint: 'Output tokens divided by total duration, including first-token wait, in tok/s. Output tokens may include reasoning tokens.',
+     time: 'Time',
+     ws: 'WS',
+     stream: 'Stream',
+
+PR #7911: 745ff1d3ca79a7f39520f627f6aa44d778a11580
+OWNERS: ["frontend/src/core/i18n/locales/en/admin/ops.ts", "frontend/src/core/i18n/locales/zh/admin/ops.ts"]
+diff --git a/frontend/src/i18n/locales/zh/admin/ops.ts b/frontend/src/i18n/locales/zh/admin/ops.ts
+index ace6fff1e..bc37c1245 100644
+--- a/frontend/src/i18n/locales/zh/admin/ops.ts
++++ b/frontend/src/i18n/locales/zh/admin/ops.ts
+@@ -4,6 +4,8 @@ export default {
+       description: '运维监控与排障',
+       // Dashboard
+       systemHealth: '系统健康',
++      outputTps: '单次输出 TPS',
++      outputTpsSamples: '有效样本：{count}',
+       overview: '概览',
+       noSystemMetrics: '尚未收集系统指标。',
+       collectedAt: '采集时间：',
+@@ -804,6 +806,7 @@ export default {
+         accountError: '异常'
+       },
+       tooltips: {
++        outputTps: '每条有效用量记录的输出 Token ÷ 总耗时（含首字等待），再按当前时间、平台和分组计算分位数。输出可含推理 Token，不重复相加。P50 为中位数，P5/P10 反映较慢请求；数值越高越快。排除图片、Live、无有效输出或耗时的记录。样本来自仍保留的使用明细；无样本或统计暂不可用时显示 —。',
+         totalRequests: '当前时间窗口内的总请求数和Token消耗量。',
+         throughputTrend: '当前窗口内的请求/QPS 与 token/TPS 趋势。',
+         switchRateTrend: '近5小时内账号切换次数 / 请求总数的趋势（平均切换次数）。',
+
+PR #7911: 745ff1d3ca79a7f39520f627f6aa44d778a11580
+OWNERS: ["frontend/src/core/i18n/locales/en/dashboard.ts", "frontend/src/core/i18n/locales/zh/dashboard.ts"]
+diff --git a/frontend/src/i18n/locales/zh/dashboard.ts b/frontend/src/i18n/locales/zh/dashboard.ts
+index d0cd7ceb3..15c276d6e 100644
+--- a/frontend/src/i18n/locales/zh/dashboard.ts
++++ b/frontend/src/i18n/locales/zh/dashboard.ts
+@@ -400,6 +400,8 @@ export default {
+     latency: '延迟',
+     latencyFirstToken: '首字',
+     latencyDuration: '总耗时',
++    outputTps: '输出 TPS',
++    outputTpsHint: '输出 Token ÷ 总耗时（包含首字等待），单位 tok/s。输出 Token 可能包含推理 Token。',
+     time: '时间',
+     ws: 'WS',
+     stream: '流式',
+
+PR #7911: 745ff1d3ca79a7f39520f627f6aa44d778a11580
+OWNERS: ["frontend/src/core/utils/latencyHealth.ts"]
+diff --git a/frontend/src/utils/latencyHealth.ts b/frontend/src/utils/latencyHealth.ts
+index 30b1a31c3..d3e9f36b4 100644
+--- a/frontend/src/utils/latencyHealth.ts
++++ b/frontend/src/utils/latencyHealth.ts
+@@ -1,3 +1,5 @@
++import type { UsageLog } from '@/types'
++
+ /**
+  * 请求延迟健康度分档（用于用量明细"延迟"列的纵向健康扫视）。
+  *
+@@ -67,3 +69,17 @@ export const LATENCY_BAR_TO_CLASSES: Record<LatencySeverity, string> = {
+   slow: 'to-orange-500',
+   critical: 'to-red-500',
+ }
++
++// 与运维 Token 请求统计一致：使用完整耗时，输出可能包含推理 Token。
++export const formatUsageOutputRate = (row: Pick<UsageLog,
++  'output_tokens' | 'duration_ms' | 'image_count' | 'image_output_tokens' | 'billing_mode' | 'request_type'
++>): string => {
++  const { output_tokens: outputTokens, duration_ms: durationMs } = row
++  if (row.image_count > 0 || row.image_output_tokens > 0 || row.billing_mode === 'image'
++    || (row.request_type && !['sync', 'stream', 'ws_v2', 'cyber'].includes(row.request_type))
++    || !Number.isFinite(outputTokens) || outputTokens <= 0
++    || durationMs == null || !Number.isFinite(durationMs) || durationMs <= 0) {
++    return '—'
++  }
++  return `${(outputTokens * 1000 / durationMs).toFixed(1)} tok/s`
++}
+
+PR #7911: 745ff1d3ca79a7f39520f627f6aa44d778a11580
+OWNERS: ["frontend/src/features/admin-ops/presentation/widgets/OpsDashboardHeader.vue"]
+diff --git a/frontend/src/views/admin/ops/components/OpsDashboardHeader.vue b/frontend/src/views/admin/ops/components/OpsDashboardHeader.vue
+index 41040ed77..35bb9e7a3 100644
+--- a/frontend/src/views/admin/ops/components/OpsDashboardHeader.vue
++++ b/frontend/src/views/admin/ops/components/OpsDashboardHeader.vue
+@@ -1428,6 +1428,28 @@ function handleToolbarRefresh() {
+             </div>
+           </div>
+         </div>
++
++        <!-- Per-request output speed, separate from system throughput. -->
++        <div class="rounded-2xl bg-gray-50 p-4 dark:bg-dark-900" data-testid="output-tps-card" style="order: 7;">
++          <div class="flex items-center gap-1">
++            <span class="text-[10px] font-bold uppercase text-gray-400">{{ t('admin.ops.outputTps') }}</span>
++            <HelpTooltip v-if="!props.fullscreen" :content="t('admin.ops.tooltips.outputTps')" />
++          </div>
++          <div class="mt-2 flex flex-wrap items-baseline gap-2">
++            <div class="text-3xl font-black text-gray-900 dark:text-white" data-testid="output-tps-p50">{{ overview.output_tps?.p50?.toFixed(1) ?? '—' }}</div>
++            <span class="text-xs font-bold text-gray-400">tok/s (P50)</span>
++          </div>
++          <div class="mt-3 grid grid-cols-1 gap-x-3 gap-y-1 text-xs 2xl:grid-cols-2">
++            <div v-for="metric in ['p5', 'p10', 'avg'] as const" :key="metric" class="flex items-baseline gap-1 whitespace-nowrap">
++              <span class="text-gray-500">{{ metric === 'avg' ? 'Avg' : metric.toUpperCase() }}:</span>
++              <span class="font-bold text-gray-900 dark:text-white" :data-testid="`output-tps-${metric}`">{{ overview.output_tps?.[metric]?.toFixed(1) ?? '—' }}</span>
++              <span class="text-gray-400">tok/s</span>
++            </div>
++          </div>
++          <div class="mt-2 text-xs text-gray-500" data-testid="output-tps-samples">
++            {{ t('admin.ops.outputTpsSamples', { count: overview.output_tps == null ? '—' : formatNumber(overview.output_tps.sample_count) }) }}
++          </div>
++        </div>
+       </div>
+     </div>
+ 
+
+PR #7911: 745ff1d3ca79a7f39520f627f6aa44d778a11580
+OWNERS: ["frontend/src/features/admin-ops/presentation/widgets/OpsDashboardSkeleton.vue"]
+diff --git a/frontend/src/views/admin/ops/components/OpsDashboardSkeleton.vue b/frontend/src/views/admin/ops/components/OpsDashboardSkeleton.vue
+index 9b520e757..030536096 100644
+--- a/frontend/src/views/admin/ops/components/OpsDashboardSkeleton.vue
++++ b/frontend/src/views/admin/ops/components/OpsDashboardSkeleton.vue
+@@ -43,7 +43,7 @@ const props = withDefaults(defineProps<Props>(), {
+ 
+         <div class="lg:col-span-7">
+           <div class="grid h-full grid-cols-1 content-center gap-4 sm:grid-cols-2 lg:grid-cols-3">
+-            <div v-for="i in 6" :key="i" class="h-20 animate-pulse rounded-2xl bg-gray-50 dark:bg-dark-900/30"></div>
++            <div v-for="i in 7" :key="i" class="h-20 animate-pulse rounded-2xl bg-gray-50 dark:bg-dark-900/30"></div>
+           </div>
+         </div>
+       </div>
+
+PR #7732: 9e46f2d77ec87f5230f04dc01e53a750ce5ce232
+OWNERS: ["frontend/src/common/composables/useStepUp.ts"]
+diff --git a/frontend/src/composables/useStepUp.ts b/frontend/src/composables/useStepUp.ts
+index 77ae51788..1e1fedeb6 100644
+--- a/frontend/src/composables/useStepUp.ts
++++ b/frontend/src/composables/useStepUp.ts
+@@ -68,25 +68,30 @@ export function useStepUp() {
+   const visible = ref(false)
+   const blockedReason = ref<string>('')
+   let resolver: ((ok: boolean) => void) | null = null
++  let pendingPrompt: Promise<boolean> | null = null
+ 
+   /** Open the TOTP dialog and resolve true once a grant is obtained. */
+   function prompt(): Promise<boolean> {
++    if (pendingPrompt) return pendingPrompt
+     visible.value = true
+-    return new Promise<boolean>((resolve) => {
++    pendingPrompt = new Promise<boolean>((resolve) => {
+       resolver = resolve
+     })
++    return pendingPrompt
+   }
+ 
+   function onVerified() {
+     visible.value = false
+     resolver?.(true)
+     resolver = null
++    pendingPrompt = null
+   }
+ 
+   function onCancel() {
+     visible.value = false
+     resolver?.(false)
+     resolver = null
++    pendingPrompt = null
+   }
+ 
+   /**
+
+PR #7765: 068239305ede5f7f4548d421485921f8438958c7
+OWNERS: []
+diff --git a/frontend/src/stores/adminCompliance.ts b/frontend/src/stores/adminCompliance.ts
+index 0d2cf76b5..82ecb9381 100644
+--- a/frontend/src/stores/adminCompliance.ts
++++ b/frontend/src/stores/adminCompliance.ts
+@@ -12,6 +12,7 @@ export const useAdminComplianceStore = defineStore('adminCompliance', () => {
+   const submitting = ref(false)
+   const initialized = ref(false)
+   const forceVisible = ref(false)
++  let stateVersion = 0
+ 
+   const required = computed(() => status.value?.required === true)
+   const shouldShow = computed(() => required.value || forceVisible.value)
+@@ -24,30 +25,34 @@ export const useAdminComplianceStore = defineStore('adminCompliance', () => {
+   })
+ 
+   async function fetchStatus(): Promise<AdminComplianceStatus> {
++    const version = stateVersion
+     loading.value = true
+     try {
+       const nextStatus = await adminComplianceAPI.getStatus()
++      if (version !== stateVersion) return nextStatus
+       status.value = nextStatus
+       initialized.value = true
+       forceVisible.value = nextStatus.required
+       return nextStatus
+     } finally {
+-      loading.value = false
++      if (version === stateVersion) loading.value = false
+     }
+   }
+ 
+   async function accept(phrase: string): Promise<AdminComplianceStatus> {
++    const version = stateVersion
+     submitting.value = true
+     try {
+       const nextStatus = await adminComplianceAPI.accept({
+         phrase,
+         language: currentLocale.value
+       })
++      if (version !== stateVersion) return nextStatus
+       status.value = nextStatus
+       forceVisible.value = nextStatus.required
+       return nextStatus
+     } finally {
+-      submitting.value = false
++      if (version === stateVersion) submitting.value = false
+     }
+   }
+ 
+@@ -68,6 +73,7 @@ export const useAdminComplianceStore = defineStore('adminCompliance', () => {
+   }
+ 
+   function reset(): void {
++    stateVersion++
+     status.value = null
+     loading.value = false
+     submitting.value = false
+
+PR #7764: 2c13fb595eafa5c36c6c89a79a2445c78c6d1f45
+OWNERS: []
+diff --git a/frontend/src/views/admin/PluginsView.vue b/frontend/src/views/admin/PluginsView.vue
+index 6c78fc69e..7fc17c9b4 100644
+--- a/frontend/src/views/admin/PluginsView.vue
++++ b/frontend/src/views/admin/PluginsView.vue
+@@ -380,6 +380,7 @@ const uiError = ref("");
+ const iframeHeight = ref(640);
+ const pluginFrameLoaded = ref(false);
+ const pendingBridgeRequests = new Map<string, number>();
++let uiSessionVersion = 0;
+ 
+ function errorMessage(error: unknown): string {
+   if (typeof error === "object" && error !== null && "message" in error) {
+@@ -523,6 +524,7 @@ async function testPlugin(plugin: PluginInstallation): Promise<void> {
+ }
+ 
+ async function openConfiguration(plugin: PluginInstallation): Promise<void> {
++  const version = ++uiSessionVersion;
+   configPlugin.value = plugin;
+   uiSession.value = null;
+   pluginFrameLoaded.value = false;
+@@ -531,14 +533,18 @@ async function openConfiguration(plugin: PluginInstallation): Promise<void> {
+   uiError.value = "";
+   iframeHeight.value = 640;
+   try {
+-    uiSession.value = await adminAPI.plugins.createUISession(plugin.id);
++    const session = await adminAPI.plugins.createUISession(plugin.id);
++    if (version !== uiSessionVersion) return;
++    uiSession.value = session;
+   } catch (error: unknown) {
++    if (version !== uiSessionVersion) return;
+     uiLoading.value = false;
+     uiError.value = errorMessage(error);
+   }
+ }
+ 
+ function closeConfiguration(): void {
++  uiSessionVersion++;
+   clearPendingBridgeRequests();
+   pluginFrameLoaded.value = false;
+   configPlugin.value = null;
+@@ -723,6 +729,6 @@ onMounted(() => {
+ 
+ onBeforeUnmount(() => {
+   window.removeEventListener("message", handleBridgeMessage);
+-  clearPendingBridgeRequests();
++  closeConfiguration();
+ });
+ </script>
+
+PR #7731: 3dc2a9c371dc8e0a4abc6e145399615a09c63b37
+OWNERS: ["artifacts/upstream-sync-20260918/baseline/all/frontend/src/common/widgets/feedback/BaseDialog.vue", "frontend/src/common/widgets/feedback/BaseDialog.vue"]
+diff --git a/frontend/src/components/common/BaseDialog.vue b/frontend/src/components/common/BaseDialog.vue
+index ba0fe6a05..5bdef2ba6 100644
+--- a/frontend/src/components/common/BaseDialog.vue
++++ b/frontend/src/components/common/BaseDialog.vue
+@@ -111,7 +111,7 @@ const handleClose = () => {
+ }
+ 
+ const handleEscape = (event: KeyboardEvent) => {
+-  if (props.show && props.closeOnEscape && event.key === 'Escape') {
++  if (props.show && props.closeOnEscape && event.key === 'Escape' && [...openDialogs].pop() === dialogId) {
+     emit('close')
+   }
+ }
+
+PR #7729: 0b51cbe15d1a5ac21b35e7c125cd464306410503
+OWNERS: []
+diff --git a/frontend/src/views/admin/BackupView.vue b/frontend/src/views/admin/BackupView.vue
+index b9f7600a1..82fbdc56a 100644
+--- a/frontend/src/views/admin/BackupView.vue
++++ b/frontend/src/views/admin/BackupView.vue
+@@ -537,6 +537,7 @@ const downloadPartsModalOpen = ref(false)
+ const pollingTimer = ref<ReturnType<typeof setInterval> | null>(null)
+ const restoringPollingTimer = ref<ReturnType<typeof setInterval> | null>(null)
+ const MAX_POLL_COUNT = 900
++let disposed = false
+ 
+ function updateRecordInList(updated: BackupRecord) {
+   const idx = backups.value.findIndex(r => r.id === updated.id)
+@@ -546,6 +547,7 @@ function updateRecordInList(updated: BackupRecord) {
+ }
+ 
+ function startPolling(backupId: string) {
++  if (disposed) return
+   stopPolling()
+   let count = 0
+   pollingTimer.value = setInterval(async () => {
+@@ -582,6 +584,7 @@ function stopPolling() {
+ }
+ 
+ function startRestorePolling(backupId: string) {
++  if (disposed) return
+   stopRestorePolling()
+   let count = 0
+   restoringPollingTimer.value = setInterval(async () => {
+@@ -930,6 +933,7 @@ onMounted(async () => {
+ })
+ 
+ onBeforeUnmount(() => {
++  disposed = true
+   stopPolling()
+   stopRestorePolling()
+   document.removeEventListener('visibilitychange', handleVisibilityChange)
+
+PR #7724: 3149d6285178b9f55d5e651f1787f68d6b36afca
+OWNERS: ["frontend/src/features/admin-usage/presentation/widgets/UsageCleanupDialog.vue"]
+diff --git a/frontend/src/components/admin/usage/UsageCleanupDialog.vue b/frontend/src/components/admin/usage/UsageCleanupDialog.vue
+index 3218be30c..136510a0a 100644
+--- a/frontend/src/components/admin/usage/UsageCleanupDialog.vue
++++ b/frontend/src/components/admin/usage/UsageCleanupDialog.vue
+@@ -155,6 +155,7 @@ const cancelConfirmVisible = ref(false)
+ const canceling = ref(false)
+ const cancelTarget = ref<UsageCleanupTask | null>(null)
+ let pollTimer: number | null = null
++let taskRequestId = 0
+ 
+ const noop = () => {}
+ 
+@@ -183,6 +184,7 @@ const stopPolling = () => {
+ }
+ 
+ const handleClose = () => {
++  taskRequestId++
+   stopPolling()
+   confirmVisible.value = false
+   cancelConfirmVisible.value = false
+@@ -237,12 +239,14 @@ const getUserTimezone = () => {
+ 
+ const loadTasks = async () => {
+   if (!props.show) return
++  const requestId = ++taskRequestId
+   tasksLoading.value = true
+   try {
+     const res = await adminUsageAPI.listCleanupTasks({
+       page: tasksPage.value,
+       page_size: tasksPageSize.value
+     })
++    if (requestId !== taskRequestId) return
+     tasks.value = res.items || []
+     tasksTotal.value = res.total || 0
+     if (res.page) {
+@@ -252,10 +256,11 @@ const loadTasks = async () => {
+       tasksPageSize.value = res.page_size
+     }
+   } catch (error) {
++    if (requestId !== taskRequestId) return
+     console.error('Failed to load cleanup tasks:', error)
+     appStore.showError(t('admin.usage.cleanup.loadFailed'))
+   } finally {
+-    tasksLoading.value = false
++    if (requestId === taskRequestId) tasksLoading.value = false
+   }
+ }
+ 
+@@ -376,12 +381,14 @@ watch(
+       loadTasks()
+       startPolling()
+     } else {
++      taskRequestId++
+       stopPolling()
+     }
+   }
+ )
+ 
+ onUnmounted(() => {
++  taskRequestId++
+   stopPolling()
+ })
+ </script>
+
+PR #7723: 6cfa0f4ef842770b51c3c4616c6996f63ed34409
+OWNERS: ["frontend/src/features/batch-image/presentation/composables/useBatchImageAccess.ts"]
+diff --git a/frontend/src/composables/useBatchImageAccess.ts b/frontend/src/composables/useBatchImageAccess.ts
+index caf1e8c0f..381fdc543 100644
+--- a/frontend/src/composables/useBatchImageAccess.ts
++++ b/frontend/src/composables/useBatchImageAccess.ts
+@@ -60,7 +60,7 @@ async function loadBatchImageAccess(force = false): Promise<boolean> {
+   })()
+     .catch(() => {
+       hasAllowedBatchImageKey.value = false
+-      loaded.value = true
++      loaded.value = false
+       return false
+     })
+     .finally(() => {
+
+PR #7722: 9663b5ccf05a0f2efefceef96727170e36042260
+OWNERS: ["frontend/src/common/widgets/data/AnnouncementBell.vue"]
+diff --git a/frontend/src/components/common/AnnouncementBell.vue b/frontend/src/components/common/AnnouncementBell.vue
+index e80e449f2..afe06ae15 100644
+--- a/frontend/src/components/common/AnnouncementBell.vue
++++ b/frontend/src/components/common/AnnouncementBell.vue
+@@ -373,14 +373,17 @@ function closeDetail() {
+ 
+ async function markAsRead(id: number) {
+   try {
+-    await announcementStore.markAsRead(id)
++    const marked = await announcementStore.markAsRead(id)
++    if (!marked) appStore.showError(t('common.unknownError'))
++    return marked
+   } catch (err: any) {
+     appStore.showError(err?.message || t('common.unknownError'))
++    return false
+   }
+ }
+ 
+ async function markAsReadAndClose(id: number) {
+-  await markAsRead(id)
++  if (!await markAsRead(id)) return
+   appStore.showSuccess(t('announcements.markedAsRead'))
+   closeDetail()
+ }
+
+PR #7722: 9663b5ccf05a0f2efefceef96727170e36042260
+OWNERS: []
+diff --git a/frontend/src/stores/announcements.ts b/frontend/src/stores/announcements.ts
+index e8dac58ad..9ebba0b6b 100644
+--- a/frontend/src/stores/announcements.ts
++++ b/frontend/src/stores/announcements.ts
+@@ -96,8 +96,10 @@ export const useAnnouncementStore = defineStore('announcements', () => {
+       if (ann) {
+         ann.read_at = new Date().toISOString()
+       }
++      return true
+     } catch (err: any) {
+       console.error('Failed to mark announcement as read:', err)
++      return false
+     }
+   }
+ 
+
+PR #7720: b0c2c4d623df46e2641493cb81910771d1ed82b8
+OWNERS: ["frontend/src/features/admin-usage/presentation/widgets/UsageTable.vue"]
+diff --git a/frontend/src/components/admin/usage/UsageTable.vue b/frontend/src/components/admin/usage/UsageTable.vue
+index 064642256..2410ea990 100644
+--- a/frontend/src/components/admin/usage/UsageTable.vue
++++ b/frontend/src/components/admin/usage/UsageTable.vue
+@@ -500,7 +500,7 @@
+           </div>
+           <div class="flex items-center justify-between gap-6">
+             <span class="text-gray-400">{{ t('usage.rate') }}</span>
+-            <span class="font-semibold text-blue-400">{{ formatMultiplier(tooltipData?.rate_multiplier || 1) }}x</span>
++            <span class="font-semibold text-blue-400">{{ formatMultiplier(tooltipData?.rate_multiplier ?? 1) }}x</span>
+           </div>
+           <div class="flex items-center justify-between gap-6">
+             <span class="text-gray-400">{{ t('usage.original') }}</span>
+
+PR #7719: a61833898763b2b52e211fd6c7b64b3c83d7b985
+OWNERS: ["frontend/src/features/profile/presentation/widgets/ProfileBalanceNotifyCard.vue"]
+diff --git a/frontend/src/components/user/profile/ProfileBalanceNotifyCard.vue b/frontend/src/components/user/profile/ProfileBalanceNotifyCard.vue
+index 988de6750..e2f84e996 100644
+--- a/frontend/src/components/user/profile/ProfileBalanceNotifyCard.vue
++++ b/frontend/src/components/user/profile/ProfileBalanceNotifyCard.vue
+@@ -203,6 +203,7 @@ const verifyingSaved = ref(false)
+ const sendingSavedCode = ref(false)
+ const verifyCountdown = ref(0)
+ let verifyTimer: ReturnType<typeof setInterval> | null = null
++let disposed = false
+ 
+ const canAddMore = computed(() => {
+   return emailEntries.value.length + pendingEmails.value.length < maxTotalEmails
+@@ -220,6 +221,7 @@ onMounted(() => {
+ })
+ 
+ onUnmounted(() => {
++  disposed = true
+   for (const pe of pendingEmails.value) {
+     if (pe.timer) clearInterval(pe.timer)
+   }
+@@ -281,6 +283,7 @@ async function sendCodeFor(idx: number) {
+   pe.sending = true
+   try {
+     await userAPI.sendNotifyEmailCode(pe.email)
++    if (disposed || !pendingEmails.value.includes(pe)) return
+     pe.codeSent = true
+     pe.countdown = 60
+     pe.timer = setInterval(() => {
+@@ -334,6 +337,7 @@ async function sendCodeForSaved(email: string) {
+   sendingSavedCode.value = true
+   try {
+     await userAPI.sendNotifyEmailCode(email)
++    if (disposed) return
+     verifyingEmail.value = email
+     verifyCode.value = ''
+     verifyCountdown.value = 60
+
+PR #7718: d068b866f3e12ecdd2a49040b242e47589ac00bd
+OWNERS: []
+diff --git a/frontend/src/components/admin/user/BulkEditUserModal.vue b/frontend/src/components/admin/user/BulkEditUserModal.vue
+index d511dff2f..d38399a9c 100644
+--- a/frontend/src/components/admin/user/BulkEditUserModal.vue
++++ b/frontend/src/components/admin/user/BulkEditUserModal.vue
+@@ -93,6 +93,7 @@
+ import { computed, ref, watch } from 'vue'
+ import { useI18n } from 'vue-i18n'
+ import { adminAPI } from '@/api/admin'
++import { extractApiErrorMessage } from '@/utils/apiError'
+ import type { BatchUpdateUserLimitsRequest } from '@/api/admin/users'
+ import { useAppStore } from '@/stores/app'
+ import BaseDialog from '@/components/common/BaseDialog.vue'
+@@ -203,9 +204,7 @@ const handleSubmit = async () => {
+     emit('close')
+   } catch (error: any) {
+     appStore.showError(
+-      error.response?.data?.message
+-      || error.response?.data?.detail
+-      || t('admin.users.bulkLimits.failed')
++      extractApiErrorMessage(error, t('admin.users.bulkLimits.failed'))
+     )
+   } finally {
+     submitting.value = false
+
+PR #7716: 5a6e826f83f8f6a515b216a3cf9de157f528a3a1
+OWNERS: ["frontend/src/core/utils/pricing.ts"]
+diff --git a/frontend/src/utils/pricing.ts b/frontend/src/utils/pricing.ts
+index b2fbd2e65..feef80004 100644
+--- a/frontend/src/utils/pricing.ts
++++ b/frontend/src/utils/pricing.ts
+@@ -12,7 +12,7 @@
+  */
+ export function formatScaled(value: number | null, scale: number, minFractionDigits = 0): string {
+   if (value == null) return '-'
+-  let s = (value * scale).toPrecision(10).replace(/\.?0+$/, '')
++  let s = Number((value * scale).toPrecision(10)).toString()
+   if (minFractionDigits > 0 && !s.includes('e')) {
+     const dot = s.indexOf('.')
+     const digits = dot === -1 ? 0 : s.length - dot - 1
+
+PR #7728: 80dd7288a61af1bc64cbf479b88295c265b9ba6d
+OWNERS: ["frontend/src/features/auth/presentation/widgets/PendingOAuthCreateAccountForm.vue"]
+diff --git a/frontend/src/components/auth/PendingOAuthCreateAccountForm.vue b/frontend/src/components/auth/PendingOAuthCreateAccountForm.vue
+index 5a8ed84fe..8c97d38b8 100644
+--- a/frontend/src/components/auth/PendingOAuthCreateAccountForm.vue
++++ b/frontend/src/components/auth/PendingOAuthCreateAccountForm.vue
+@@ -168,6 +168,7 @@ const captchaEnabled = computed(
+ )
+ 
+ let countdownTimer: ReturnType<typeof setInterval> | null = null
++let disposed = false
+ 
+ watch(
+   () => props.initialEmail,
+@@ -288,6 +289,7 @@ async function handleSendCode() {
+       tencent_captcha_ticket: tencentCaptchaEnabled.value ? turnstileToken.value : undefined,
+       tencent_captcha_randstr: tencentCaptchaEnabled.value ? tencentCaptchaRandstr.value : undefined
+     })
++    if (disposed) return
+     sendCodeSuccess.value = true
+     startCountdown(response.countdown)
+   } catch (error: unknown) {
+@@ -373,6 +375,7 @@ onMounted(async () => {
+ })
+ 
+ onUnmounted(() => {
++  disposed = true
+   clearCountdown()
+ })
+ </script>
+
+PR #7725: 3a012ac0cee4e54e747f0bb5cf292c4883718d94
+OWNERS: ["artifacts/upstream-sync-20260918/baseline/all/frontend/src/common/widgets/data/ProxySelector.vue", "frontend/src/common/widgets/data/ProxySelector.vue"]
+diff --git a/frontend/src/components/common/ProxySelector.vue b/frontend/src/components/common/ProxySelector.vue
+index 986609b35..a441d6cee 100644
+--- a/frontend/src/components/common/ProxySelector.vue
++++ b/frontend/src/components/common/ProxySelector.vue
+@@ -168,7 +168,7 @@
+ </template>
+ 
+ <script setup lang="ts">
+-import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
++import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+ import { useI18n } from 'vue-i18n'
+ import { adminAPI } from '@/api/admin'
+ import Icon from '@/components/icons/Icon.vue'
+@@ -245,6 +245,13 @@ const toggle = () => {
+   }
+ }
+ 
++watch(() => props.disabled, (disabled) => {
++  if (disabled) {
++    isOpen.value = false
++    searchQuery.value = ''
++  }
++})
++
+ const selectOption = (value: number | null) => {
+   emit('update:modelValue', value)
+   isOpen.value = false
+
+PR #7725: 3a012ac0cee4e54e747f0bb5cf292c4883718d94
+OWNERS: ["frontend/src/common/widgets/forms/Select.vue"]
+diff --git a/frontend/src/components/common/Select.vue b/frontend/src/components/common/Select.vue
+index 4c5537770..c062bd4fd 100644
+--- a/frontend/src/components/common/Select.vue
++++ b/frontend/src/components/common/Select.vue
+@@ -375,6 +375,10 @@ const toggle = () => {
+   isOpen.value = !isOpen.value
+ }
+ 
++watch(() => props.disabled, (disabled) => {
++  if (disabled) isOpen.value = false
++})
++
+ watch(isOpen, (open) => {
+   if (open) {
+     calculateDropdownPosition()
+
+PR #7721: 3e69643392e7ec45bbfd3402a245d397d4b79cb8
+OWNERS: ["frontend/src/core/utils/format.ts"]
+diff --git a/frontend/src/utils/format.ts b/frontend/src/utils/format.ts
+index 87204ff15..980f014c7 100644
+--- a/frontend/src/utils/format.ts
++++ b/frontend/src/utils/format.ts
+@@ -87,7 +87,7 @@ export function formatBytes(bytes: number, decimals: number = 2): string {
+   const dm = decimals < 0 ? 0 : decimals
+   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
+ 
+-  const i = Math.floor(Math.log(bytes) / Math.log(k))
++  const i = Math.max(0, Math.floor(Math.log(bytes) / Math.log(k)))
+ 
+   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i]
+ }

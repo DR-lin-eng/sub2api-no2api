@@ -1,0 +1,10 @@
+Preparing pnpm@11.17.0 for immediate activation...
+
+ RUN  v3.2.6 /workspace/frontend
+
+ ✓ src/features/keys/__tests__/UseKeyDialog.spec.ts (13 tests) 104ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  17:46:43
+   Duration  761ms (transform 282ms, setup 40ms, collect 285ms, tests 104ms, environment 130ms, prepare 41ms)

@@ -9,3 +9,5 @@
 Setup API 不在 `/api/v1` 下，当前保留专用 Axios client，并通过共享 URL helper 解析根地址；这是已有初始化入口，不是新增普通业务 client 的范例。数据库、Redis 和管理员密码只用于安装流程，不能写入日志或浏览器持久缓存。
 
 服务完成安装后，路由守卫依据 `needs_setup` 与实际登录状态决定后续跳转，不能无条件把普通用户送入管理页。当前 feature 没有独立 Vitest；从 `frontend/` 执行 `pnpm exec vitest run src/core/routes` 和 `pnpm run typecheck`，安装动作另需后端 bootstrap/setup 测试及独立空数据库。
+
+管理员密码按 UTF-8 的 8–72 字节校验，页面按钮和中英文提示使用同一边界；后端复用安装凭据 owner，并以登录邮箱及 bcrypt 规则作最终校验。

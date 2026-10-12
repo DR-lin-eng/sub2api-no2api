@@ -650,42 +650,6 @@ func (r *apiKeyRepository) ListByGroupID(ctx context.Context, groupID int64, par
 	return outKeys, paginationResultFromTotal(int64(total), params), nil
 }
 
-func apiKeyListOrder(params pagination.PaginationParams) []func(*entsql.Selector) {
-	sortBy := strings.ToLower(strings.TrimSpace(params.SortBy))
-	sortOrder := params.NormalizedSortOrder(pagination.SortOrderDesc)
-
-	var field string
-	switch sortBy {
-	case "name":
-		field = apikey.FieldName
-	case "status":
-		field = apikey.FieldStatus
-	case "expires_at":
-		field = apikey.FieldExpiresAt
-	case "last_used_at":
-		field = apikey.FieldLastUsedAt
-	case "created_at":
-		field = apikey.FieldCreatedAt
-	case "id":
-		field = apikey.FieldID
-	default:
-		field = apikey.FieldID
-	}
-
-	if sortOrder == pagination.SortOrderAsc {
-		orders := []func(*entsql.Selector){dbent.Asc(field)}
-		if field != apikey.FieldID {
-			orders = append(orders, dbent.Asc(apikey.FieldID))
-		}
-		return orders
-	}
-	orders := []func(*entsql.Selector){dbent.Desc(field)}
-	if field != apikey.FieldID {
-		orders = append(orders, dbent.Desc(apikey.FieldID))
-	}
-	return orders
-}
-
 // SearchAPIKeys searches API keys by user ID and/or keyword (name)
 func (r *apiKeyRepository) SearchAPIKeys(ctx context.Context, userID int64, keyword string, limit int) ([]service.APIKey, error) {
 	q := r.activeQuery()

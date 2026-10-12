@@ -1,0 +1,3 @@
+ id | created_at | user_id | api_key_id | model | input_tokens | output_tokens | total_cost | actual_cost | key_deleted_at | settlement_state | dead_letter_reason
+----+------------+---------+------------+-------+--------------+---------------+------------+-------------+----------------+------------------+--------------------
+(0 rows)

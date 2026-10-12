@@ -13,6 +13,7 @@ const costLineMetadata = {
   request: { key: 'usage.detail.costLines.request', order: 6 },
   image: { key: 'usage.detail.costLines.image', order: 7 },
   video: { key: 'usage.detail.costLines.video', order: 8 },
+  voice: { key: 'usage.detail.costLines.voice', order: 9 },
 } as const satisfies Record<UsageBillingCostLineKey, { key: string; order: number }>
 
 const errorCategoryKeys = {

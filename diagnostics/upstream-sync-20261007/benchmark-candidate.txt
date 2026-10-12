@@ -1,0 +1,11 @@
+goos: linux
+goarch: arm64
+pkg: github.com/Wei-Shaw/sub2api/internal/bootstrap/setup
+BenchmarkAdminEmailValidation-2      	    5000	       617.1 ns/op	     128 B/op	       7 allocs/op
+BenchmarkAdminEmailValidation-2      	    5000	       569.3 ns/op	     128 B/op	       7 allocs/op
+BenchmarkAdminEmailValidation-2      	    5000	       625.6 ns/op	     128 B/op	       7 allocs/op
+BenchmarkAdminPasswordValidation-2   	    5000	         1.050 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAdminPasswordValidation-2   	    5000	         1.042 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAdminPasswordValidation-2   	    5000	         1.867 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/bootstrap/setup	0.036s

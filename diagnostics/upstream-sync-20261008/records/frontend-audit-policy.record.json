@@ -1,0 +1,22 @@
+{
+  "label": "frontend-audit-policy",
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo",
+  "argv": [
+    "python3",
+    "tools/check_pnpm_audit_exceptions.py",
+    "--audit",
+    "diagnostics/upstream-sync-20261008/audit.json",
+    "--exceptions",
+    ".github/audit-exceptions.yml"
+  ],
+  "command": "python3 tools/check_pnpm_audit_exceptions.py --audit diagnostics/upstream-sync-20261008/audit.json --exceptions .github/audit-exceptions.yml",
+  "input": "repository sources and committed regression fixtures",
+  "stdout": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/records/frontend-audit-policy.stdout",
+  "stderr": "/private/tmp/sub2api-upstream-sync-20261008-uwsk8utn/repo/diagnostics/upstream-sync-20261008/records/frontend-audit-policy.stderr",
+  "exit": 0,
+  "started": "2026-10-08T16:53:57.269956+00:00",
+  "finished": "2026-10-08T16:53:57.323862+00:00",
+  "accepted": true,
+  "stdout_sha256": "7317bb48272e4bf48d788d5961e93a088c63cd270828b0ddbebcba4b62a59ed0",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

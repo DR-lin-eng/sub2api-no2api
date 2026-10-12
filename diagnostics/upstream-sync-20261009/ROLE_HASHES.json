@@ -1,0 +1,22 @@
+{
+  "MODIFIED_FILE": {
+    "path": "/private/tmp/sub2api-upstream-sync-20261009/diagnostics/upstream-sync-20261009/MODIFIED_FILE",
+    "sha256": "7f2086d4e704d112a6c819a97d3675e1c98bc7c4e9e6dadcf5edf97a81f865c5",
+    "bytes": 202277
+  },
+  "DIFF_FILE": {
+    "path": "/private/tmp/sub2api-upstream-sync-20261009/diagnostics/upstream-sync-20261009/DIFF_FILE",
+    "sha256": "ee4b5d5e2af08332f92c96f651049c376f605a417c1a1b4a19403fb0f80c39f1",
+    "bytes": 89663
+  },
+  "VERIFICATION.txt": {
+    "path": "/private/tmp/sub2api-upstream-sync-20261009/diagnostics/upstream-sync-20261009/VERIFICATION.txt",
+    "sha256": "2a04707c6cd2d0bbec7b67aed455aeef44105c4b04ba1b4f534e3c26941d7ccb",
+    "bytes": 400800
+  },
+  "ROLLBACK.sh": {
+    "path": "/private/tmp/sub2api-upstream-sync-20261009/diagnostics/upstream-sync-20261009/ROLLBACK.sh",
+    "sha256": "e086abd84af0aee27cbd7318e67a81b9a7670eb3ced2f11896a5737117cbbf69",
+    "bytes": 1516
+  }
+}

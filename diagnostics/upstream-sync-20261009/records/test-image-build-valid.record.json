@@ -1,0 +1,22 @@
+{
+  "command": [
+    "env",
+    "DOCKER_CONFIG=/private/tmp/sub2api-docker-config-20261009",
+    "BUILDX_CONFIG=/private/tmp/sub2api-buildx-config-20261009",
+    "DOCKER_BUILDKIT=1",
+    "docker",
+    "build",
+    "-f",
+    "/private/tmp/sub2api-test-20261009.Dockerfile",
+    "-t",
+    "sub2api-upstream-sync-test:20261009",
+    "/private/tmp"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261009",
+  "exit_status": 0,
+  "elapsed_s": 0.5624801250232849,
+  "utc": "2026-10-09T08:48:07.393183+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderr_sha256": "b4d9f5f2617ae6a91ba3a2846a6309eaeec4bb94a197b650481204893881be7e"
+}

@@ -76,21 +76,9 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	}
 	responsesLite := account.IsOpenAI() && isOpenAIResponsesLiteHeader(c.GetHeader(responsesLiteHeader))
 	if responsesLite {
-		liteBody, changed, liteErr := normalizeOpenAIResponsesLitePayloadForAccount(body, account)
-		if liteErr != nil {
-			param := "tools"
-			var validationErr *openAIResponsesLiteValidationError
-			if errors.As(liteErr, &validationErr) {
-				param = validationErr.param
-			}
-			setOpsUpstreamError(c, http.StatusBadRequest, liteErr.Error(), "")
-			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
-				"type": "invalid_request_error", "message": liteErr.Error(), "param": param,
-			}})
-			return nil, liteErr
-		}
-		if changed {
-			body = liteBody
+		body, err = normalizeOpenAIForwardLiteRequest(c, account, body)
+		if err != nil {
+			return nil, err
 		}
 	}
 	wsDecision := s.getOpenAIWSProtocolResolver().Resolve(account)
@@ -192,6 +180,9 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	}
 	if account.IsOpenCodeGo() {
 		mapped := normalizeOpenAIModelForUpstream(account, resolveOpenAIForwardModel(account, originalModel, ""))
+		if IsOpenCodeUnsupportedModel(mapped) {
+			return nil, writeOpenCodeUnsupportedModelError(c, false, mapped)
+		}
 		switch openCodeGoNativeProtocol(account, mapped) {
 		case APIProtocolAnthropic:
 			return s.forwardResponsesViaNativeAnthropic(ctx, c, account, body, "")
@@ -495,35 +486,14 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		if decodeErr != nil {
 			return nil, decodeErr
 		}
-		// The handler has already applied the group's reasoning policy before an
-		// account is selected. Honor the explicit CPA opt-in on the decoded map,
-		// avoiding another full copy of large native agent histories.
-		if reasoningOverridden, overrideErr := applyCodexPrewarmContinuationReasoningOverride(c, account, decoded); overrideErr != nil {
-			return nil, overrideErr
-		} else if reasoningOverridden {
-			markDecodedModified()
-			logOpenAIWSModeInfo("prewarm_reasoning_override account_id=%d effort=none", account.ID)
+		opts := codexForwardOAuthOptions(isCodexCLI, isCompactRequest, responsesLite, compatMessagesBridge)
+		codexResult, preparedIDs, prepareErr := s.prepareOpenAIForwardOAuthRequest(c, account, decoded, opts)
+		if prepareErr != nil {
+			return nil, prepareErr
 		}
-		codexResult := codexTransformResult{}
-		if compatMessagesBridge {
-			codexResult = applyCodexOAuthTransformWithOptions(decoded, codexOAuthTransformOptions{IsCodexCLI: isCodexCLI, IsCompact: isCompactRequest, SkipDefaultInstructions: true, PreserveToolCallIDs: true})
-			ensureCodexOAuthInstructionsField(decoded)
-			markDecodedModified()
-		} else {
-			codexResult = applyCodexOAuthTransform(decoded, isCodexCLI, isCompactRequest)
-		}
+		fingerprintIDs = preparedIDs
 		if codexResult.Modified {
 			markDecodedModified()
-		}
-		// 带真实 device_id 时补齐 client_metadata 安装标识，与真实 Codex 对齐（compact 形态不同，跳过）。
-		if !isCompactRequest && applyCodexClientMetadata(decoded, account) {
-			markDecodedModified()
-		}
-		if !isCompactRequest || s.codexFullSimulationEnabledForAccount(c, account) {
-			fingerprintIDs = resolveCodexFingerprintIDsFromGinContext(account, c)
-			if applyCodexFingerprintClientMetadata(decoded, fingerprintIDs) {
-				markDecodedModified()
-			}
 		}
 		if codexResult.NormalizedModel != "" {
 			upstreamModel = codexResult.NormalizedModel
@@ -703,6 +673,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		agentTaskRecoveryTried := false
 		wsPrevResponseRecoveryTried := false
 		wsInvalidEncryptedContentRecoveryTried := false
+		wsAuthRecoveryTried := false
 		recoverPrevResponseNotFound := func(attempt int) bool {
 			if codexContinuationRecoveryForbidden(c) {
 				return false
@@ -793,9 +764,29 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 				wsLastFailureReason,
 				&agentTaskRecoveryTried,
 				fingerprintIDs,
+				!wsAuthRecoveryTried,
 			)
 			if wsErr == nil {
 				break
+			}
+			var wsAuthRecovered *openAIWSAuthRecoveredError
+			if errors.As(wsErr, &wsAuthRecovered) {
+				wsAuthRecoveryTried = true
+				token, _, err = s.GetAccessToken(ctx, account)
+				if err != nil {
+					return nil, err
+				}
+				continue
+			}
+			if !wsAuthRecoveryTried && account.IsOpenAIOAuth() && s.openAITokenProvider != nil && isOpenAIWSDialTokenExpired(wsErr) {
+				wsAuthRecoveryTried = true
+				if refreshErr := s.openAITokenProvider.RefreshAfterUnauthorized(ctx, account); refreshErr == nil {
+					token, _, err = s.GetAccessToken(ctx, account)
+					if err != nil {
+						return nil, err
+					}
+					continue
+				}
 			}
 			var wsFailoverErr *UpstreamFailoverError
 			if errors.As(wsErr, &wsFailoverErr) && wsFailoverErr.SafeToFailoverAfterWrite {
@@ -974,6 +965,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 
 	httpInvalidEncryptedContentRetryTried := false
 	agentTaskRecoveryTried := false
+	openAIAuthRecoveryTried := false
 	rejectedFieldRetryState := newOpenAIResponsesRejectedFieldRetryState(body)
 	for {
 		// Build upstream request
@@ -1040,6 +1032,19 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(respBody))
 			upstreamMsg = sanitizeUpstreamErrorMessage(upstreamMsg)
 			upstreamCode := extractUpstreamErrorCode(respBody)
+			if resp.StatusCode == http.StatusUnauthorized && upstreamCode == "token_expired" &&
+				!openAIAuthRecoveryTried && account.IsOpenAIOAuth() && s.openAITokenProvider != nil {
+				openAIAuthRecoveryTried = true
+				if refreshErr := s.openAITokenProvider.RefreshAfterUnauthorized(ctx, account); refreshErr == nil {
+					_ = resp.Body.Close()
+					token, _, err = s.GetAccessToken(ctx, account)
+					if err != nil {
+						return nil, err
+					}
+					reqBody = nil
+					continue
+				}
+			}
 			if distillation {
 				return s.handleErrorResponse(ctx, resp, c, account, body, billingModel)
 			}
@@ -1053,10 +1058,15 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			}
 			respBody = s.redactAgentIdentitySensitiveBody(ctx, account, respBody)
 			resp.Body = io.NopCloser(bytes.NewReader(respBody))
-			if resp.StatusCode == http.StatusBadRequest && upstreamCode == "invalid_encrypted_content" {
+			invalidEncryptedContentError := upstreamCode == "invalid_encrypted_content" ||
+				(upstreamCode == "thinking_signature_invalid" &&
+					strings.Contains(upstreamMsg, "The encrypted content") &&
+					strings.Contains(upstreamMsg, "could not be verified") &&
+					strings.Contains(upstreamMsg, "could not be decrypted or parsed"))
+			if resp.StatusCode == http.StatusBadRequest && invalidEncryptedContentError {
 				s.markCodexContinuationExternalOnInvalidEncryptedContent(ctx, c)
 			}
-			if !codexContinuationRecoveryForbidden(c) && !httpInvalidEncryptedContentRetryTried && resp.StatusCode == http.StatusBadRequest && upstreamCode == "invalid_encrypted_content" {
+			if !codexContinuationRecoveryForbidden(c) && !httpInvalidEncryptedContentRetryTried && resp.StatusCode == http.StatusBadRequest && invalidEncryptedContentError {
 				decoded, decodeErr := ensureReqBody()
 				if decodeErr != nil {
 					return nil, decodeErr

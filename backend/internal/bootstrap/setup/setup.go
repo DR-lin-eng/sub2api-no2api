@@ -574,6 +574,10 @@ func createAdminUser(cfg *SetupConfig) (bool, string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	return bootstrapAdminUser(ctx, db, cfg)
+}
+
+func bootstrapAdminUser(ctx context.Context, db *sql.DB, cfg *SetupConfig) (bool, string, error) {
 	var totalUsers int64
 	if err := db.QueryRowContext(ctx, "SELECT COUNT(1) FROM users").Scan(&totalUsers); err != nil {
 		return false, "", err
@@ -587,12 +591,14 @@ func createAdminUser(cfg *SetupConfig) (bool, string, error) {
 		return false, decision.reason, nil
 	}
 
-	if strings.TrimSpace(cfg.Admin.Password) == "" {
-		password, genErr := generateSecret(16)
-		if genErr != nil {
-			return false, "", fmt.Errorf("failed to generate admin password: %w", genErr)
-		}
-		cfg.Admin.Password = password
+	emailGenerated, passwordGenerated, err := prepareAdminCredentials(&cfg.Admin)
+	if err != nil {
+		return false, "", err
+	}
+	if emailGenerated {
+		fmt.Printf("Generated admin email (login username): %s\n", cfg.Admin.Email)
+	}
+	if passwordGenerated {
 		fmt.Printf("Generated admin password (one-time): %s\n", cfg.Admin.Password)
 		fmt.Println("IMPORTANT: Save this password! It will not be shown again.")
 	}
@@ -652,10 +658,6 @@ func writeConfigFile(cfg *SetupConfig) error {
 			APIKeyPrefix    string  `yaml:"api_key_prefix"`
 			RateMultiplier  float64 `yaml:"rate_multiplier"`
 		} `yaml:"default"`
-		RateLimit struct {
-			RequestsPerMinute int `yaml:"requests_per_minute"`
-			BurstSize         int `yaml:"burst_size"`
-		} `yaml:"rate_limit"`
 		Timezone string `yaml:"timezone"`
 	}{
 		Server:   cfg.Server,
@@ -678,13 +680,6 @@ func writeConfigFile(cfg *SetupConfig) error {
 			UserBalance:     0,
 			APIKeyPrefix:    "sk-",
 			RateMultiplier:  1.0,
-		},
-		RateLimit: struct {
-			RequestsPerMinute int `yaml:"requests_per_minute"`
-			BurstSize         int `yaml:"burst_size"`
-		}{
-			RequestsPerMinute: 60,
-			BurstSize:         10,
 		},
 		Timezone: tz,
 	}
@@ -764,7 +759,7 @@ func AutoSetupFromEnv() error {
 			EnableTLS: getEnvOrDefault("REDIS_ENABLE_TLS", "false") == "true",
 		},
 		Admin: AdminConfig{
-			Email:    getEnvOrDefault("ADMIN_EMAIL", "admin@sub2api.local"),
+			Email:    getEnvOrDefault("ADMIN_EMAIL", ""),
 			Password: getEnvOrDefault("ADMIN_PASSWORD", ""),
 		},
 		Server: ServerConfig{

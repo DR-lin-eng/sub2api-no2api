@@ -1,0 +1,32 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "-e",
+    "GOMAXPROCS=2",
+    "-e",
+    "GOFLAGS=-p=2",
+    "-e",
+    "GOMEMLIMIT=800MiB",
+    "-v",
+    "/private/tmp/sub2api-upstream-sync-20261009/backend:/workspace",
+    "-v",
+    "sub2api-go-mod-20261007:/go/pkg/mod",
+    "-v",
+    "sub2api-go-build-20261007:/root/.cache/go-build",
+    "-w",
+    "/workspace",
+    "sub2api-upstream-sync-test:20260930",
+    "sh",
+    "-c",
+    "go install golang.org/x/vuln/cmd/govulncheck@latest && /go/bin/govulncheck ./..."
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261009",
+  "exit_status": 3,
+  "elapsed_s": 69.85454712499632,
+  "utc": "2026-10-09T08:43:07.252476+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "f142dcb6c147cef5574b87f39c067bf185e046ccab8b0efed4e6b4b324deec66",
+  "stderr_sha256": "cbd69eb082c7ac566c1e6b11c3537ac96523413ef704e13e6eb4c2c6923bd806"
+}

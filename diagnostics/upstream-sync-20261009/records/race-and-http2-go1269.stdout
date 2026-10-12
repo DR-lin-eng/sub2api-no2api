@@ -1,0 +1,3 @@
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	6.008s
+ok  	github.com/Wei-Shaw/sub2api/internal/infrastructure/repository	1.291s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server	1.174s

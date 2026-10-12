@@ -3,6 +3,7 @@ import {
   BILLING_MODE_IMAGE,
   BILLING_MODE_TOKEN,
   BILLING_MODE_VIDEO,
+  BILLING_MODE_LIVE,
   getDisplayBillingMode,
 } from './billingMode'
 import { textInputTokens, textOutputTokens } from './imageUsage'
@@ -10,9 +11,9 @@ import { textInputTokens, textOutputTokens } from './imageUsage'
 export type UsageBillingFormulaKind = 'direct' | 'split' | 'effective' | 'zero'
 
 export interface UsageBillingCostLine {
-  key: 'input' | 'image_input' | 'output' | 'image_output' | 'cache_creation' | 'cache_read' | 'request' | 'image' | 'video'
+  key: 'input' | 'image_input' | 'output' | 'image_output' | 'cache_creation' | 'cache_read' | 'request' | 'image' | 'video' | 'voice'
   quantity: number
-  quantityUnit: 'tokens' | 'requests' | 'images' | 'video_seconds'
+  quantityUnit: 'tokens' | 'requests' | 'images' | 'video_seconds' | 'voice_minutes'
   unitPrice: number | null
   cost: number
 }
@@ -99,6 +100,10 @@ function tokenCostLines(usage: UsageLog): UsageBillingCostLine[] {
 }
 
 function fixedPriceCostLine(usage: UsageLog, mode: string, total: number): UsageBillingCostLine {
+  if (mode === BILLING_MODE_LIVE) {
+    const quantity = Math.max(0, finite(usage.duration_ms)) / 60_000
+    return { key: 'voice', quantity, quantityUnit: 'voice_minutes', unitPrice: unitPrice(total, quantity), cost: total }
+  }
   if (mode === BILLING_MODE_IMAGE) {
     const quantity = Math.max(0, finite(usage.image_count))
     return { key: 'image', quantity, quantityUnit: 'images', unitPrice: unitPrice(total, quantity), cost: total }

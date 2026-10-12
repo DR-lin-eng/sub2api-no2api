@@ -10,6 +10,7 @@
 | [qualityrender](qualityrender/README.md) | HTML/SVG 代码匹配（预览由前端浏览器渲染） |
 | [payment](payment/README.md) | 支付金额、币种、渠道注册与提供商适配 |
 | [securityaudit](securityaudit/README.md) | Prompt 审计、同步防护、队列和审计策略 |
+| [typesafe](typesafe/README.md) | Jev 原生 System One 请求校验、响应与用量解析 |
 
 活动类型与状态的纯白名单判断集中在 `activitycenter/campaign_state.go`。
 

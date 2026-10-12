@@ -5,6 +5,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -17,10 +18,8 @@ const AES256KeySize = 32
 // The output format is "iv:authTag:ciphertext" where each component is base64-encoded,
 // matching the Node.js crypto.ts format for cross-compatibility.
 //
-// Deprecated: payment provider configs are now stored as plaintext JSON.
-// This function is kept only for seeding legacy ciphertext in tests and for
-// the transitional Decrypt fallback. Scheduled for removal after all live
-// deployments complete migration by re-saving their configs.
+// Provider configs use this format at rest. The random nonce makes repeated
+// saves of the same JSON produce independent ciphertexts.
 func Encrypt(plaintext string, key []byte) (string, error) {
 	if len(key) != AES256KeySize {
 		return "", fmt.Errorf("encryption key must be %d bytes, got %d", AES256KeySize, len(key))
@@ -60,10 +59,8 @@ func Encrypt(plaintext string, key []byte) (string, error) {
 // Decrypt decrypts a ciphertext string produced by Encrypt.
 // The input format is "iv:authTag:ciphertext" where each component is base64-encoded.
 //
-// Deprecated: payment provider configs are now stored as plaintext JSON.
-// This function remains only as a read-path fallback for pre-migration
-// ciphertext records. Scheduled for removal once all deployments re-save
-// their provider configs through the admin UI.
+// Decrypt accepts the provider-config ciphertext format and is also used to
+// read records written before the current encryption path was restored.
 func Decrypt(ciphertext string, key []byte) (string, error) {
 	if len(key) != AES256KeySize {
 		return "", fmt.Errorf("encryption key must be %d bytes, got %d", AES256KeySize, len(key))
@@ -99,6 +96,10 @@ func Decrypt(ciphertext string, key []byte) (string, error) {
 		return "", fmt.Errorf("create GCM: %w", err)
 	}
 
+	if len(nonce) != gcm.NonceSize() || len(authTag) != gcm.Overhead() {
+		return "", fmt.Errorf("invalid ciphertext nonce or authentication tag length")
+	}
+
 	// Reconstruct the sealed data: ciphertext + authTag
 	sealed := append(encrypted, authTag...)
 
@@ -108,4 +109,25 @@ func Decrypt(ciphertext string, key []byte) (string, error) {
 	}
 
 	return string(plaintext), nil
+}
+
+// DecodeProviderConfig preserves legacy plaintext reads while failing closed
+// for malformed ciphertext or unavailable keys. It never treats unreadable
+// secrets as an empty editable config.
+func DecodeProviderConfig(stored string, key []byte) (map[string]string, error) {
+	if strings.TrimSpace(stored) == "" {
+		return nil, nil
+	}
+	var cfg map[string]string
+	if err := json.Unmarshal([]byte(stored), &cfg); err == nil {
+		return cfg, nil
+	}
+	plaintext, err := Decrypt(stored, key)
+	if err != nil {
+		return nil, fmt.Errorf("decrypt provider config: %w", err)
+	}
+	if err := json.Unmarshal([]byte(plaintext), &cfg); err != nil {
+		return nil, fmt.Errorf("decode provider config: %w", err)
+	}
+	return cfg, nil
 }

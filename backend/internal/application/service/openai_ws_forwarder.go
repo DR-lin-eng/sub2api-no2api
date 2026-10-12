@@ -83,6 +83,12 @@ func wrapOpenAIWSFallback(reason string, err error) error {
 	return &openAIWSFallbackError{Reason: strings.TrimSpace(reason), Err: err}
 }
 
+type openAIWSAuthRecoveredError struct{}
+
+func (e *openAIWSAuthRecoveredError) Error() string {
+	return "openai websocket authentication recovered"
+}
+
 // OpenAIWSClientCloseError 表示应以指定 WebSocket close code 主动关闭客户端连接的错误。
 type OpenAIWSClientCloseError struct {
 	statusCode coderws.StatusCode

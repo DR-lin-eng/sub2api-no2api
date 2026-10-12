@@ -1,0 +1,14 @@
+{
+  "command": [
+    "python3",
+    "-c",
+    "import pathlib,subprocess,json,hashlib; root=pathlib.Path('/private/tmp/sub2api-upstream-sync-20261009-rollback'); role=pathlib.Path('/private/tmp/sub2api-upstream-sync-20261009/diagnostics/upstream-sync-20261009'); (root/'backend/internal/application/service/openai_oauth_web_search_history_forward_test.go').unlink(); subprocess.run(['git','apply',str(role/'DIFF_FILE')],cwd=root,check=True); m=json.loads((role/'SOURCE_HASHES.json').read_text()); assert all(hashlib.sha256((root/p).read_bytes()).hexdigest()==h for p,h in m['modified'].items()); print('DIFF_REAPPLY_PASS all 34 modified source/config/document hashes match')"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261009",
+  "exit_status": 0,
+  "elapsed_s": 0.12355341701186262,
+  "utc": "2026-10-09T09:08:07.259640+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "85ddd0286d9567ecaa2a425e9f7067cd36909dc57c17b9a9e70c60912863dcf9",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

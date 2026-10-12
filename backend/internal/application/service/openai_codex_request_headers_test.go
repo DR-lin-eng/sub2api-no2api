@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -293,4 +295,56 @@ func TestOpenAICodexLatestMetadataKeysRemainTypedInFullProjection(t *testing.T) 
 	require.Equal(t, gjson.False, gjson.Get(turnMetadata, "analytics_enabled").Type)
 	require.Equal(t, "guardian_classifier", gjson.Get(turnMetadata, "turn_trigger").String())
 	require.False(t, strings.Contains(turnMetadata, `"history_ingest_requested":"true"`))
+}
+
+func TestCodexLineageHTTPHeaderMatchesProjectedBody(t *testing.T) {
+	for _, full := range []bool{false, true} {
+		for _, passthrough := range []bool{false, true} {
+			t.Run(fmt.Sprintf("full=%t/passthrough=%t", full, passthrough), func(t *testing.T) {
+				c := newCodexSessionHeaderTestContext(t, "/v1/responses")
+				c.Request.Header.Set("session-id", "client-session")
+				body := []byte(`{"model":"gpt-5.5","input":"hi","client_metadata":{"parent_turn_id":"parent","root_turn_id":"root","x-codex-turn-metadata":"{\"parent_turn_id\":\"parent\",\"root_turn_id\":\"root\"}"}}`)
+				account := &Account{ID: 403, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+				var ids *codexFingerprintIDs
+				if full {
+					ids = &codexFingerprintIDs{mode: codexFingerprintFull, fullSimulation: true, identitySecret: "test-secret", principalKey: "principal", installationID: "install", sessionID: "session", threadID: "thread", turnID: "turn", windowID: "thread:1"}
+					var err error
+					body, _, err = applyCodexFingerprintClientMetadataToBody(body, ids, c)
+					require.NoError(t, err)
+				}
+				svc := &OpenAIGatewayService{}
+				var req *http.Request
+				var err error
+				if passthrough {
+					req, err = svc.buildUpstreamRequestOpenAIPassthroughWithFingerprint(context.Background(), c, account, body, "token", ids)
+				} else {
+					req, err = svc.buildUpstreamRequestWithFingerprint(context.Background(), c, account, body, "token", false, "", true, ids)
+				}
+				require.NoError(t, err)
+				out, err := io.ReadAll(req.Body)
+				require.NoError(t, err)
+				if req.Header.Get("Content-Encoding") == "zstd" {
+					out = decodeZstdBody(t, out)
+				}
+				turn := gjson.GetBytes(out, "client_metadata.x-codex-turn-metadata").String()
+				for _, key := range []string{"parent_turn_id", "root_turn_id"} {
+					want := gjson.Get(turn, key).String()
+					require.NotEmpty(t, want)
+					require.Equal(t, want, gjson.GetBytes(out, "client_metadata."+key).String(), key+" outer projection")
+					require.Equal(t, want, gjson.Get(req.Header.Get(openAIWSTurnMetadataHeader), key).String(), key+" header projection")
+				}
+			})
+		}
+	}
+}
+
+func TestCodexLineageSharedTurnIDNamespace(t *testing.T) {
+	ids := &codexFingerprintIDs{mode: codexFingerprintFull, fullSimulation: true, identitySecret: "test-secret", principalKey: "principal", installationID: "install", sessionID: "session", threadID: "thread", turnID: "turn"}
+	metadata := map[string]any{"parent_turn_id": "parent", "root_turn_id": "parent"}
+	body, err := json.Marshal(map[string]any{"client_metadata": metadata})
+	require.NoError(t, err)
+	out, _, err := applyCodexFingerprintClientMetadataToBody(body, ids)
+	require.NoError(t, err)
+	turn := gjson.GetBytes(out, "client_metadata.x-codex-turn-metadata").String()
+	require.Equal(t, gjson.Get(turn, "parent_turn_id").String(), gjson.Get(turn, "root_turn_id").String())
 }

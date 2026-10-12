@@ -1065,3 +1065,43 @@ func cloneEmailBindUser(user *service.User) *service.User {
 	cloned := *user
 	return &cloned
 }
+
+func (s *emailBindCacheStub) VerifyVerificationCode(ctx context.Context, email, code string, maxAttempts int) error {
+	data, err := s.GetVerificationCode(ctx, email)
+	if err != nil || data == nil {
+		return service.ErrInvalidVerifyCode
+	}
+	if data.Attempts >= maxAttempts {
+		return service.ErrVerifyCodeMaxAttempts
+	}
+	if data.Code != code {
+		data.Attempts++
+		if data.Attempts >= maxAttempts {
+			return service.ErrVerifyCodeMaxAttempts
+		}
+		return service.ErrInvalidVerifyCode
+	}
+	return s.DeleteVerificationCode(ctx, email)
+}
+
+func (s *emailBindCacheStub) VerifyNotifyVerificationCode(ctx context.Context, email, code string, maxAttempts int) error {
+	data, err := s.GetNotifyVerifyCode(ctx, email)
+	if err != nil || data == nil {
+		return service.ErrInvalidVerifyCode
+	}
+	if data.Attempts >= maxAttempts {
+		return service.ErrVerifyCodeMaxAttempts
+	}
+	if data.Code != code {
+		data.Attempts++
+		if data.Attempts >= maxAttempts {
+			return service.ErrVerifyCodeMaxAttempts
+		}
+		return service.ErrInvalidVerifyCode
+	}
+	return s.DeleteNotifyVerifyCode(ctx, email)
+}
+
+func (s *emailBindCacheStub) ConsumePasswordResetToken(context.Context, string, string, string) (bool, error) {
+	return false, nil
+}

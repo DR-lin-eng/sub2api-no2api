@@ -2,6 +2,22 @@ version: "2"
 
 linters:
   default: none
+  exclusions:
+    rules:
+      # x/net v0.60 deprecates adapters that still own our explicit HTTP/2
+      # idle-PING/proxy behavior. Keep that verified contract for this patch
+      # upgrade, as upstream #7618 does; do not globally disable SA1019.
+      - path: 'internal/infrastructure/repository/http_upstream(_http2_keepalive_test)?\.go$'
+        linters: [ staticcheck ]
+        text: 'SA1019: ((golang\.org/x/net/)?http2\.(Transport|ConfigureTransports)|h2\.(ReadIdleTimeout|PingTimeout)|\(golang\.org/x/net/http2\.Transport\)\.(ReadIdleTimeout|PingTimeout))'
+      - path: 'internal/transport/http/server/http\.go$'
+        linters: [ staticcheck ]
+        text: 'SA1019: (golang\.org/x/net/)?http2\.(ConfigureServer|Server)\b'
+      # Upstream clients can return the legacy typed GOAWAY error; retaining
+      # errors.As matching avoids downgrading existing transport failover.
+      - path: 'internal/application/service/openai_codex_models_service(_test)?\.go$'
+        linters: [ staticcheck ]
+        text: 'SA1019: (golang\.org/x/net/)?http2\.GoAwayError\b'
   enable:
     - depguard
     - errcheck

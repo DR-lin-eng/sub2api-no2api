@@ -1,0 +1,13 @@
+{
+  "command": [
+    "make",
+    "check-docs"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261009",
+  "exit_status": 0,
+  "elapsed_s": 0.649980374990264,
+  "utc": "2026-10-09T09:03:20.910147+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "ab1fbcf1c93cd55f385149bf1c995a2792e8b277a63057e99e56bdae540dc5e9",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

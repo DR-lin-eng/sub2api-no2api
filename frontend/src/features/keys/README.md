@@ -10,7 +10,7 @@ API Key feature 负责密钥列表、创建编辑、用量刷新和客户端导�
 
 `KeysPage.vue` 是请求、AbortController、localStorage、轮询和弹窗状态 owner。静态 widget 只消费 typed context，不自行加载数据。扩展字段时同步检查创建/编辑 payload、列偏好版本和 pending usage 刷新条件。
 
-API Key 的 `group_bindings` 是有序路由候选，`group_id` 始终镜像第一项以兼容旧客户端。`KeyGroupBindingsEditor.vue` 负责拖拽/上下移动、搜索添加和每组倍率保护上限；多绑定只允许同平台的标准计费分组，空倍率上限表示不限制。列表里的快速换组会替换第一项并保留仍兼容的后续候选。
+API Key 的 `group_bindings` 是有序路由候选，`group_id` 始终镜像第一项以兼容旧客户端。`KeyGroupBindingsEditor.vue` 负责拖拽/上下移动、搜索添加和每组倍率保护上限；多绑定只允许同平台的标准计费分组，空倍率上限表示不限制。列表里的快速换组会替换第一项并保留仍兼容的后续候选。按分组排序使用第一绑定的名称，由后端在分页前完成；其他绑定次序不变。
 
 验证入口：
 

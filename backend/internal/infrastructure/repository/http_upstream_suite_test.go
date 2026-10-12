@@ -25,6 +25,7 @@ func (s *HTTPUpstreamSuite) SetupTest() {
 		Security: config.SecurityConfig{
 			URLAllowlist: config.URLAllowlistConfig{
 				AllowPrivateHosts: true,
+				AllowInsecureHTTP: true,
 			},
 		},
 	}
@@ -139,7 +140,7 @@ func TestOpenAIStreamHeaderTimeoutBoundsConcurrentBlackhole(t *testing.T) {
 	}))
 	defer upstream.Close()
 
-	cfg := &config.Config{Gateway: config.GatewayConfig{
+	cfg := &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{AllowPrivateHosts: true, AllowInsecureHTTP: true}}, Gateway: config.GatewayConfig{
 		ConnectionPoolIsolation: config.ConnectionPoolIsolationAccountProxy,
 		OpenAIHTTP2:             config.GatewayOpenAIHTTP2Config{Enabled: false},
 	}}

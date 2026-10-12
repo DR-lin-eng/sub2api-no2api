@@ -336,11 +336,23 @@ func (c *gatewayCache) SaveLiveCall(ctx context.Context, record *service.LiveCal
 		"ip_address":       record.IPAddress,
 		"inbound_endpoint": record.InboundEndpoint,
 		"attestation":      record.AttestationCiphertext,
+		"codex_voice":      record.CodexVoice,
+		"session_id":       record.SessionID,
+		"thread_id":        record.ThreadID,
+	}
+	if err := encodeLiveBillingSnapshot(values, record); err != nil {
+		return err
 	}
 	key := liveCallKey(record.CallHash)
 	pipe := c.rdb.TxPipeline()
 	pipe.HSet(ctx, key, values)
-	pipe.Expire(ctx, key, ttl)
+	if record.Billing != nil {
+		// The invoice must survive call expiry and controller/node restarts.
+		pipe.Persist(ctx, key)
+		pipe.ZAdd(ctx, liveBillingPendingKey, redis.Z{Score: float64(record.ExpiresAt.UnixMilli()), Member: record.CallHash})
+	} else {
+		pipe.Expire(ctx, key, ttl)
+	}
 	_, err := pipe.Exec(ctx)
 	return err
 }
@@ -359,7 +371,7 @@ func (c *gatewayCache) GetLiveCall(ctx context.Context, callHash string) (*servi
 	}
 	createdAt := time.UnixMilli(parseInt("created_at"))
 	expiresAt := time.UnixMilli(parseInt("expires_at"))
-	return &service.LiveCallRecord{
+	record := &service.LiveCallRecord{
 		CallID:                values["call_id"],
 		CallHash:              callHash,
 		AccountID:             parseInt("account_id"),
@@ -377,7 +389,14 @@ func (c *gatewayCache) GetLiveCall(ctx context.Context, callHash string) (*servi
 		IPAddress:             values["ip_address"],
 		InboundEndpoint:       values["inbound_endpoint"],
 		AttestationCiphertext: values["attestation"],
-	}, nil
+		CodexVoice:            values["codex_voice"] == "1",
+		SessionID:             values["session_id"],
+		ThreadID:              values["thread_id"],
+	}
+	if err := decodeLiveBillingSnapshot(values, record); err != nil {
+		return nil, err
+	}
+	return record, nil
 }
 
 func (c *gatewayCache) ClaimLiveController(ctx context.Context, callHash, controller, owner string) (bool, error) {

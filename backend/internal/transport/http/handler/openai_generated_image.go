@@ -53,5 +53,8 @@ func (h *OpenAIGatewayHandler) GeneratedImage(c *gin.Context) {
 		c.Header("Content-Length", strconv.FormatInt(resp.ContentLength, 10))
 	}
 	c.Status(resp.StatusCode)
-	_, _ = io.Copy(c.Writer, resp.Body)
+	// Mapped URLs are public short-lived capabilities. Keep chunked or
+	// misleading upstream responses from turning this endpoint into an
+	// unbounded bandwidth and worker proxy.
+	_, _ = io.Copy(c.Writer, io.LimitReader(resp.Body, service.GeneratedImageProxyMaxBytes))
 }

@@ -78,7 +78,7 @@
 | Codex OAuth 行为 | [有意差异](codex/intentional-divergences.md) | [请求链路](REQUEST_LIFECYCLES.md) |
 | OAuth2 对外授权 | [OAuth2 对外授权服务](OAUTH2_PROVIDER.md) | [OAuth2 路由](../backend/internal/transport/http/server/routes/oauth2_provider.go) |
 
-垂直后端模块另有完整目录说明：[qualityrender](../backend/internal/modules/qualityrender/README.md)、[activitycenter](../backend/internal/modules/activitycenter/README.md)、[chat](../backend/internal/modules/chat/README.md)、[egress](../backend/internal/modules/egress/README.md)、[payment](../backend/internal/modules/payment/README.md)、[securityaudit](../backend/internal/modules/securityaudit/README.md)。并非所有功能都已经迁入 `modules`；存量服务仍以代码地图为准。
+垂直后端模块另有完整目录说明：[qualityrender](../backend/internal/modules/qualityrender/README.md)、[activitycenter](../backend/internal/modules/activitycenter/README.md)、[chat](../backend/internal/modules/chat/README.md)、[egress](../backend/internal/modules/egress/README.md)、[payment](../backend/internal/modules/payment/README.md)、[securityaudit](../backend/internal/modules/securityaudit/README.md)、[typesafe](../backend/internal/modules/typesafe/README.md)。并非所有功能都已经迁入 `modules`；存量服务仍以代码地图为准。
 
 ## 维护与验证
 

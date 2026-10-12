@@ -11,11 +11,13 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/Wei-Shaw/sub2api/internal/shared/apicompat"
+	"github.com/Wei-Shaw/sub2api/internal/shared/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/shared/ip"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
 
 	coderws "github.com/coder/websocket"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 )
@@ -23,6 +25,27 @@ import (
 type openAIWSTurnPricing struct {
 	mu sync.Mutex
 	at time.Time
+}
+
+func openAIWSAttemptUsageContext(parent context.Context) context.Context {
+	if parent == nil {
+		parent = context.Background()
+	}
+	// Relay turn numbers restart on account failover. Give every upstream proxy
+	// attempt its own namespace so completed turns cannot collide after a retry.
+	return context.WithValue(parent, ctxkey.UsageBillingRequestID, uuid.NewString())
+}
+
+func openAIWSTurnUsageContext(parent context.Context, turn int) context.Context {
+	if parent == nil {
+		parent = context.Background()
+	}
+	requestID, _ := parent.Value(ctxkey.UsageBillingRequestID).(string)
+	if strings.TrimSpace(requestID) == "" {
+		requestID = uuid.NewString()
+	}
+	// The turn number is assigned by the relay, never taken from client frames.
+	return context.WithValue(parent, ctxkey.UsageBillingRequestID, fmt.Sprintf("%s:turn:%d", requestID, turn))
 }
 
 func (p *openAIWSTurnPricing) freeze(at time.Time) {
@@ -594,6 +617,8 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		var turnChannelMapping openAIWSTurnChannelMappingState
 		turnChannelMapping.Store(1, reqModel, channelMappingWS)
 		var turnPricing openAIWSTurnPricing
+		var turnBillingAPIKeys openAIWSTurnBillingAPIKeys
+		attemptUsageCtx := openAIWSAttemptUsageContext(ctx)
 		hooks := &service.OpenAIWSIngressHooks{
 			ClientLifecycleContext:  clientLifecycleCtx,
 			InitialRequestModel:     reqModel,
@@ -650,7 +675,8 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				if cyberBlockedThisConn {
 					return service.NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, cyberSessionBlockedClientMsg, nil)
 				}
-				turnCtx, turnAt := h.gatewayService.WithOpenAITurnPricingContext(ctx, apiKey.GroupID)
+				turnBillingCtx := turnBillingAPIKeys.begin(ctx, h.apiKeyService, turn, apiKey)
+				turnCtx, turnAt := h.gatewayService.WithOpenAITurnPricingContext(turnBillingCtx, apiKey.GroupID)
 				if _, vetoed, reason := h.gatewayService.ProfitControlVetoLatest(turnCtx, account); vetoed {
 					reqLog.Info("openai.websocket_turn_profit_vetoed", zap.Int("turn", turn), zap.Int64("account_id", account.ID), zap.String("reason", reason))
 					return service.NewOpenAIWSClientCloseError(coderws.StatusTryAgainLater, "account is no longer eligible for this connection, please reconnect", nil)
@@ -723,6 +749,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				return nil
 			},
 			AfterTurn: func(turn int, result *service.OpenAIForwardResult, turnErr error) {
+				usageCtx := openAIWSTurnUsageContext(attemptUsageCtx, turn)
 				// F1: cyber 标记按 turn 生命周期清理——defer 保证任意早返回路径都执行；
 				// CyberBlocked 必须在 submit 前同步预捕获（task 闭包由 worker 池异步执行，
 				// 届时 defer 已清除标记）。
@@ -751,7 +778,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				}
 				turnUsageFields := turnMapping.ToUsageFields(turnRequestedModel, turnUpstreamModel)
 				cyberMarked := service.GetOpsCyberPolicy(c) != nil
-				h.recordCyberPolicyIfMarked(c, apiKey, account, subscription, turnRequestedModel, turnErr != nil, cyberBlockKey, turnUsageFields, requestPayloadHash)
+				h.recordCyberPolicyIfMarkedWithUsageContext(usageCtx, c, apiKey, account, subscription, turnRequestedModel, turnErr != nil, cyberBlockKey, turnUsageFields, requestPayloadHash)
 				cyberBlockedThisConn, cyberBlockPendingAfterFailover = advanceOpenAIWSCyberBlockState(
 					cyberBlockedThisConn, cyberBlockPendingAfterFailover, cyberMarked, turnErr,
 				)
@@ -790,11 +817,12 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
 				sessionID := service.ExtractClientSessionID(c)
 				turnRecordPricingAt := turnPricing.current()
+				turnBillingAPIKey := turnBillingAPIKeys.forTurn(turn, apiKey)
 				cyberBlocked := service.GetOpsCyberPolicy(c) != nil
-				h.submitOpenAIUsageRecordTask(ctx, result, func(taskCtx context.Context) {
+				h.submitOpenAIUsageRecordTask(usageCtx, result, func(taskCtx context.Context) {
 					if err := h.gatewayService.RecordUsage(taskCtx, &service.OpenAIRecordUsageInput{
 						Result:             result,
-						APIKey:             apiKey,
+						APIKey:             turnBillingAPIKey,
 						User:               apiKey.User,
 						Account:            account,
 						Subscription:       subscription,

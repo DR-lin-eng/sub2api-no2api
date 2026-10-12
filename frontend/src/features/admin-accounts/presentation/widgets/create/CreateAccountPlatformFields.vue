@@ -1009,6 +1009,7 @@ const accountPlatformOptions: Array<{ value: AccountPlatform; label: string; act
   { value: 'deepseek', label: 'DeepSeek', activeClass: 'text-cyan-700 dark:text-cyan-300' },
   { value: 'minimax', label: 'MiniMax', activeClass: 'text-rose-700 dark:text-rose-300' },
   { value: 'opencode_go', label: 'OpenCode', activeClass: 'text-amber-700 dark:text-amber-300' },
+  { value: 'typesafe', label: 'TypeSafe / Jev', activeClass: 'text-sky-700 dark:text-sky-300' },
 ]
 
 const props = defineProps<{ context: CreateAccountPlatformContext }>()

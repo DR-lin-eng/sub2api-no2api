@@ -48,6 +48,8 @@ var (
 
 type oauthRefreshRequestPathKey struct{}
 
+type oauthRefreshForceKey struct{}
+
 func withOAuthRefreshRequestPath(ctx context.Context) context.Context {
 	return context.WithValue(ctx, oauthRefreshRequestPathKey{}, true)
 }
@@ -55,6 +57,15 @@ func withOAuthRefreshRequestPath(ctx context.Context) context.Context {
 func isOAuthRefreshRequestPath(ctx context.Context) bool {
 	requestPath, _ := ctx.Value(oauthRefreshRequestPathKey{}).(bool)
 	return requestPath
+}
+
+func withOAuthRefreshForce(ctx context.Context) context.Context {
+	return context.WithValue(ctx, oauthRefreshForceKey{}, true)
+}
+
+func isOAuthRefreshForced(ctx context.Context) bool {
+	forced, _ := ctx.Value(oauthRefreshForceKey{}).(bool)
+	return forced
 }
 
 type contextMutex struct {
@@ -282,7 +293,7 @@ func (api *OAuthRefreshAPI) RefreshIfNeeded(
 	}
 
 	// 3. 二次检查是否仍需刷新（另一条路径可能已刷新）
-	if !executor.NeedsRefresh(freshAccount, refreshWindow) {
+	if !isOAuthRefreshForced(ctx) && !executor.NeedsRefresh(freshAccount, refreshWindow) {
 		return &OAuthRefreshResult{
 			Account: freshAccount,
 		}, nil
@@ -405,6 +416,22 @@ func (api *OAuthRefreshAPI) RefreshIfNeeded(
 		NewCredentials: newCredentials,
 		Account:        freshAccount,
 	}, nil
+}
+
+// RefreshNow refreshes an OAuth credential even when its stored expiry is still
+// in the future. Upstreams can revoke an access token before expires_at; the
+// request path uses this after a definitive 401 token_expired response.
+func (api *OAuthRefreshAPI) RefreshNow(
+	ctx context.Context,
+	account *Account,
+	executor OAuthRefreshExecutor,
+) (*OAuthRefreshResult, error) {
+	return api.RefreshIfNeeded(
+		withOAuthRefreshForce(withOAuthRefreshRequestPath(ctx)),
+		account,
+		executor,
+		0,
+	)
 }
 
 func (api *OAuthRefreshAPI) releaseRefreshLock(parent context.Context, cacheKey string) {

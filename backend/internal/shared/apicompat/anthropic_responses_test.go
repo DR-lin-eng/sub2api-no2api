@@ -939,7 +939,7 @@ func TestStreamingReasoning(t *testing.T) {
 
 	sse, err := ResponsesAnthropicEventToSSE(events[0])
 	require.NoError(t, err)
-	assert.Contains(t, sse, `"content_block":{"thinking":"","type":"thinking"}`)
+	assert.Contains(t, sse, `"content_block":{"thinking":"","signature":"","type":"thinking"}`)
 
 	// reasoning text delta
 	events = ResponsesEventToAnthropicEvents(&ResponsesStreamEvent{
@@ -1231,9 +1231,24 @@ func TestAnthropicToResponses_ThinkingDisabled(t *testing.T) {
 
 	resp, err := AnthropicToResponses(req)
 	require.NoError(t, err)
-	// Default effort applies (medium) even when thinking is disabled.
 	require.NotNil(t, resp.Reasoning)
-	assert.Equal(t, "medium", resp.Reasoning.Effort)
+	assert.Equal(t, "none", resp.Reasoning.Effort)
+	assert.Empty(t, resp.Reasoning.Summary)
+}
+
+func TestAnthropicToResponses_ThinkingDisabledOverridesOutputEffort(t *testing.T) {
+	req := &AnthropicRequest{
+		Model:        "gpt-5.6-sol",
+		MaxTokens:    1024,
+		Messages:     []AnthropicMessage{{Role: "user", Content: json.RawMessage(`"Hello"`)}},
+		Thinking:     &AnthropicThinking{Type: "disabled"},
+		OutputConfig: &AnthropicOutputConfig{Effort: "max"},
+	}
+
+	resp, err := AnthropicToResponses(req)
+	require.NoError(t, err)
+	require.NotNil(t, resp.Reasoning)
+	assert.Equal(t, "none", resp.Reasoning.Effort)
 }
 
 func TestAnthropicToResponses_NoThinking(t *testing.T) {

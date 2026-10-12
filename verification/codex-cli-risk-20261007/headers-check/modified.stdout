@@ -1,0 +1,15 @@
+2026/10/07 07:15:12 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestCodexLineageHTTPHeaderMatchesProjectedBody
+=== RUN   TestCodexLineageHTTPHeaderMatchesProjectedBody/full=false/passthrough=false
+=== RUN   TestCodexLineageHTTPHeaderMatchesProjectedBody/full=false/passthrough=true
+=== RUN   TestCodexLineageHTTPHeaderMatchesProjectedBody/full=true/passthrough=false
+=== RUN   TestCodexLineageHTTPHeaderMatchesProjectedBody/full=true/passthrough=true
+--- PASS: TestCodexLineageHTTPHeaderMatchesProjectedBody (0.00s)
+    --- PASS: TestCodexLineageHTTPHeaderMatchesProjectedBody/full=false/passthrough=false (0.00s)
+    --- PASS: TestCodexLineageHTTPHeaderMatchesProjectedBody/full=false/passthrough=true (0.00s)
+    --- PASS: TestCodexLineageHTTPHeaderMatchesProjectedBody/full=true/passthrough=false (0.00s)
+    --- PASS: TestCodexLineageHTTPHeaderMatchesProjectedBody/full=true/passthrough=true (0.00s)
+=== RUN   TestCodexLineageSharedTurnIDNamespace
+--- PASS: TestCodexLineageSharedTurnIDNamespace (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.015s

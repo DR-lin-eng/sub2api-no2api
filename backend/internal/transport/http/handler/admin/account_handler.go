@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Wei-Shaw/sub2api/internal/modules/typesafe"
 	"log"
 	"log/slog"
 	"net/http"
@@ -2780,10 +2781,9 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 		return
 	}
 
-	// Handle Antigravity accounts: return Claude + Gemini models
+	// Explicit account mappings expose their request-side names to connectivity tests.
 	if account.Platform == service.PlatformAntigravity {
-		// 直接复用 antigravity.DefaultModels()，与 /v1/models 端点保持同步
-		response.Success(c, antigravity.DefaultModels())
+		response.Success(c, antigravityAccountTestModels(account.Credentials["model_mapping"]))
 		return
 	}
 
@@ -2837,6 +2837,12 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 		return
 	}
 
+	// TypeSafe accounts serve only the native System One model.
+	if account.IsTypeSafe() {
+		response.Success(c, []claude.Model{{ID: typesafe.JevLatestModel, Type: "model", DisplayName: typesafe.JevLatestModel}})
+		return
+	}
+
 	// Handle Claude/Anthropic accounts
 	// For OAuth and Setup-Token accounts: return default models
 	if account.IsOAuth() {
@@ -2876,6 +2882,48 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 	}
 
 	response.Success(c, models)
+}
+
+// antigravityAccountTestModels uses the stored mapping rather than GetModelMapping,
+// which supplies defaults and compatibility aliases that the administrator did not configure.
+func antigravityAccountTestModels(rawMapping any) []antigravity.ClaudeModel {
+	var mappedIDs []string
+	switch mapping := rawMapping.(type) {
+	case map[string]any:
+		for id := range mapping {
+			if strings.TrimSpace(id) != "" {
+				mappedIDs = append(mappedIDs, id)
+			}
+		}
+	case map[string]string:
+		for id := range mapping {
+			if strings.TrimSpace(id) != "" {
+				mappedIDs = append(mappedIDs, id)
+			}
+		}
+	}
+	if len(mappedIDs) == 0 {
+		return antigravity.DefaultModels()
+	}
+
+	sort.Strings(mappedIDs)
+	defaultByID := make(map[string]antigravity.ClaudeModel)
+	for _, model := range antigravity.DefaultModels() {
+		defaultByID[model.ID] = model
+	}
+	models := make([]antigravity.ClaudeModel, 0, len(mappedIDs))
+	for _, id := range mappedIDs {
+		if model, ok := defaultByID[id]; ok {
+			models = append(models, model)
+			continue
+		}
+		models = append(models, antigravity.ClaudeModel{
+			ID:          id,
+			Type:        "model",
+			DisplayName: id,
+		})
+	}
+	return models
 }
 
 // SyncUpstreamModels handles syncing live supported models from an account's upstream.

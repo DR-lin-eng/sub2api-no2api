@@ -1,2 +1,7 @@
 version: 1
-exceptions: []
+exceptions:
+  - package: node-forge
+    advisory: GHSA-86w9-cpqp-85rv
+    severity: high
+    mitigation: "No fixed upstream version exists. The sole runtime owner uses RSA-OAEP encryption, AES-GCM and public-key parsing only; it never verifies PKCS#1 v1.5 signatures. credentialCryptoUsage.spec.ts gates imports and crypto calls in the mandatory frontend test set. Remove this exception when a fixed release is available or before adding signature verification."
+    expires_on: 2026-11-05

@@ -1,0 +1,15 @@
+ Container sub2api-billing-audit-20261006-app-1 Restarting
+ Container sub2api-billing-audit-20261006-app-1 Started
+PASS audit-direct-responses-balance-json tokens=1000+500 charged=0.0004500000 dedup=1 jobs=0 dead_letters=0
+PASS audit-direct-responses-balance-stream tokens=1000+500 charged=0.0004500000 dedup=1 jobs=0 dead_letters=0
+PASS audit-direct-responses-subscription-json tokens=1000+500 charged=0.0004500000 dedup=1 jobs=0 dead_letters=0
+PASS audit-direct-responses-subscription-stream tokens=1000+500 charged=0.0004500000 dedup=1 jobs=0 dead_letters=0
+PASS audit-direct-chat-balance-json tokens=1000+500 charged=0.0004500000 dedup=1 jobs=0 dead_letters=0
+PASS audit-direct-chat-balance-stream tokens=1000+500 charged=0.0004500000 dedup=1 jobs=0 dead_letters=0
+PASS audit-direct-chat-subscription-json tokens=1000+500 charged=0.0004500000 dedup=1 jobs=0 dead_letters=0
+PASS audit-direct-chat-subscription-stream tokens=1000+500 charged=0.0004500000 dedup=1 jobs=0 dead_letters=0
+PASS audit-direct-messages-balance-json tokens=1000+500 charged=0.0105000000 dedup=1 jobs=0 dead_letters=0
+PASS audit-direct-messages-balance-stream tokens=1000+500 charged=0.0105000000 dedup=1 jobs=0 dead_letters=0
+PASS audit-direct-messages-subscription-json tokens=1000+500 charged=0.0105000000 dedup=1 jobs=0 dead_letters=0
+PASS audit-direct-messages-subscription-stream tokens=1000+500 charged=0.0105000000 dedup=1 jobs=0 dead_letters=0
+RUNTIME_PASS direct scenarios=12

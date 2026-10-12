@@ -1908,3 +1908,40 @@ func generateLargeUnwrapJSON(minSize int) []byte {
 	b, _ := json.Marshal(outer)
 	return b
 }
+
+func TestAntigravityGatewayService_ForwardGeminiRedactsErrorsInBothModes(t *testing.T) {
+	for _, stream := range []bool{false, true} {
+		t.Run(map[bool]string{false: "nonstream", true: "stream"}[stream], func(t *testing.T) {
+			gin.SetMode(gin.TestMode)
+			writer := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(writer)
+			body := []byte(`{"contents":[{"role":"user","parts":[{"text":"hello"}]}]}`)
+			c.Request = httptest.NewRequest(http.MethodPost, "/antigravity/v1beta/models/gemini-2.5-flash:generateContent", bytes.NewReader(body))
+			upstream := &queuedHTTPUpstreamStub{responses: []*http.Response{{
+				StatusCode: http.StatusBadRequest,
+				Header:     http.Header{"Content-Type": []string{"text/html"}},
+				Body:       io.NopCloser(strings.NewReader(`{"error":{"code":400,"status":"INVALID_ARGUMENT","message":"invalid argument for projects/private-pool; caller pool@private.iam.gserviceaccount.com","details":[{"consumer":"projects/private-pool"}]}}`)),
+			}}}
+			svc := &AntigravityGatewayService{
+				settingService: NewSettingService(&antigravitySettingRepoStub{}, &config.Config{Gateway: config.GatewayConfig{MaxLineSize: defaultMaxLineSize}}),
+				tokenProvider:  &AntigravityTokenProvider{}, httpUpstream: upstream,
+			}
+			account := &Account{ID: 101, Platform: PlatformAntigravity, Type: AccountTypeOAuth, Status: StatusActive, Concurrency: 1,
+				Credentials: map[string]any{"access_token": "test-token", "project_id": "test-project"}}
+			action := "generateContent"
+			if stream {
+				action = "streamGenerateContent"
+			}
+			result, err := svc.ForwardGemini(context.Background(), c, account, "gemini-2.5-flash", action, stream, body, false)
+			require.Error(t, err)
+			require.Nil(t, result)
+			require.Equal(t, http.StatusBadRequest, writer.Code)
+			require.Contains(t, writer.Header().Get("Content-Type"), "application/json")
+			require.Contains(t, writer.Body.String(), `"status":"INVALID_ARGUMENT"`)
+			require.NotContains(t, writer.Body.String(), "private-pool")
+			require.NotContains(t, writer.Body.String(), "gserviceaccount.com")
+			require.NotContains(t, writer.Body.String(), "details")
+			require.Len(t, upstream.requestBodies, 1)
+		})
+	}
+}

@@ -1,0 +1,12 @@
+2026/10/09 05:43:40 Timezone initialized: UTC (UTC offset: +00:00)
+goos: linux
+goarch: arm64
+pkg: github.com/Wei-Shaw/sub2api/internal/application/service
+BenchmarkEnsureOpenAIOAuthWebSearchToolForHistoryBody-2           	  484551	      2320 ns/op	    3456 B/op	      23 allocs/op
+BenchmarkEnsureOpenAIOAuthWebSearchToolForHistoryBody-2           	  518085	      2306 ns/op	    3456 B/op	      23 allocs/op
+BenchmarkEnsureOpenAIOAuthWebSearchToolForHistoryBody-2           	  506128	      2322 ns/op	    3456 B/op	      23 allocs/op
+BenchmarkEnsureOpenAIOAuthWebSearchToolForHistoryBodyNoMarker-2   	239831138	         5.004 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEnsureOpenAIOAuthWebSearchToolForHistoryBodyNoMarker-2   	240214130	         5.014 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEnsureOpenAIOAuthWebSearchToolForHistoryBodyNoMarker-2   	240252966	         5.011 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	8.726s

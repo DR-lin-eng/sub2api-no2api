@@ -28,6 +28,7 @@ func resolveAccountStatsCost(
 	requestCount int,
 	totalCost float64,
 	serviceTier string,
+	longContextBillingEnabled ...bool,
 ) *float64 {
 	if channelService == nil || upstreamModel == "" {
 		return nil
@@ -55,7 +56,7 @@ func resolveAccountStatsCost(
 
 	// 优先级 3：模型定价文件（LiteLLM）默认价格
 	if billingService != nil {
-		return tryModelFilePricing(billingService, upstreamModel, tokens, serviceTier)
+		return tryModelFilePricing(billingService, upstreamModel, tokens, serviceTier, longContextBillingEnabled...)
 	}
 
 	return nil
@@ -64,10 +65,15 @@ func resolveAccountStatsCost(
 // tryModelFilePricing 使用模型定价文件（LiteLLM/fallback）中的价格计算费用。
 // Reuse the same pricing pipeline as user billing so image-token subsets,
 // cache TTLs, service tiers and model policies cannot drift here.
-func tryModelFilePricing(billingService *BillingService, model string, tokens UsageTokens, serviceTier string) *float64 {
-	breakdown, err := billingService.CalculateCostWithServiceTier(
-		model, tokens, 1, normalizeBillingServiceTier(serviceTier),
-	)
+func tryModelFilePricing(billingService *BillingService, model string, tokens UsageTokens, serviceTier string, longContextBillingEnabled ...bool) *float64 {
+	enabled := true
+	if len(longContextBillingEnabled) > 0 {
+		enabled = longContextBillingEnabled[0]
+	}
+	breakdown, err := billingService.CalculateCostUnified(CostInput{
+		Model: model, Tokens: tokens, RateMultiplier: 1,
+		ServiceTier: normalizeBillingServiceTier(serviceTier), LongContextBillingEnabled: &enabled,
+	})
 	if err != nil || breakdown == nil || breakdown.TotalCost <= 0 {
 		return nil
 	}
@@ -223,6 +229,7 @@ func applyAccountStatsCost(
 	upstreamModel, requestedModel string,
 	tokens UsageTokens,
 	totalCost float64,
+	longContextBillingEnabled ...bool,
 ) {
 	model := upstreamModel
 	if model == "" {
@@ -237,6 +244,6 @@ func applyAccountStatsCost(
 		serviceTier = *usageLog.ServiceTier
 	}
 	usageLog.AccountStatsCost = resolveAccountStatsCost(
-		ctx, cs, bs, accountID, groupID, model, tokens, requestCount, totalCost, serviceTier,
+		ctx, cs, bs, accountID, groupID, model, tokens, requestCount, totalCost, serviceTier, longContextBillingEnabled...,
 	)
 }

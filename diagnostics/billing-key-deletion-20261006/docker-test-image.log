@@ -1,0 +1,42 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile.test
+#1 transferring dockerfile: 210B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/golang:1.26.6-bookworm
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/docker:29-cli
+#3 DONE 0.0s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 FROM docker.io/library/docker:29-cli@sha256:018edbc908e08fcc9dbf029c812c34251e9b4719e6f71ca0e5eae2a987d014ca
+#5 resolve docker.io/library/docker:29-cli@sha256:018edbc908e08fcc9dbf029c812c34251e9b4719e6f71ca0e5eae2a987d014ca 0.0s done
+#5 DONE 0.0s
+
+#6 [stage-0 1/3] FROM docker.io/library/golang:1.26.6-bookworm@sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36
+#6 resolve docker.io/library/golang:1.26.6-bookworm@sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36 0.0s done
+#6 DONE 0.0s
+
+#7 [stage-0 2/3] COPY --from=docker:29-cli /usr/local/bin/docker /usr/local/bin/docker
+#7 CACHED
+
+#8 [stage-0 3/3] WORKDIR /workspace
+#8 CACHED
+
+#9 exporting to image
+#9 exporting layers done
+#9 exporting manifest sha256:306b1be75d367fe52870af48491f04bc51769f1d4fcf131957e04eff870843f1 done
+#9 exporting config sha256:a1b8524fcd8cedc8d5e7cfde9035c0088a02f00b6b69ef006cf28361bb7046fb done
+#9 exporting attestation manifest sha256:3d90383e5f9bb5b0c7cab80cdd0fda12b09739d01e99157743bcd4ea908340ed 0.0s done
+#9 exporting manifest list sha256:891bc8109914ab395b85c9737b823662c5fafb574e79a8dd7ab67678e8fc01c9
+#9 exporting manifest list sha256:891bc8109914ab395b85c9737b823662c5fafb574e79a8dd7ab67678e8fc01c9 done
+#9 naming to docker.io/library/sub2api-billing-audit-test:20261006 done
+#9 unpacking to docker.io/library/sub2api-billing-audit-test:20261006 done
+#9 DONE 0.1s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/ma6g46xcfbmrls7vrmo6017y9

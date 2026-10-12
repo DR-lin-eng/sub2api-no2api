@@ -1115,6 +1115,71 @@ func TestOpenAIProviderRefreshPolicy(t *testing.T) {
 	require.Equal(t, time.Minute, p.FailureTTL)
 }
 
+func TestOAuthRefreshAPI_RefreshNowForcesFutureExpiryRefresh(t *testing.T) {
+	account := &Account{
+		ID:       901,
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeOAuth,
+		Status:   StatusActive,
+		Credentials: map[string]any{
+			"access_token":  "old-access-token",
+			"refresh_token": "old-refresh-token",
+			"expires_at":    time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
+		},
+	}
+	repo := &refreshAPIAccountRepo{account: account}
+	executor := &refreshAPIExecutorStub{
+		needsRefresh: false,
+		credentials: map[string]any{
+			"access_token":  "new-access-token",
+			"refresh_token": "new-refresh-token",
+			"expires_at":    time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
+		},
+	}
+
+	result, err := NewOAuthRefreshAPI(repo, nil).RefreshNow(context.Background(), account, executor)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.True(t, result.Refreshed)
+	require.Equal(t, 1, executor.refreshCalls)
+	require.Equal(t, 1, repo.updateCredentialsCalls)
+	require.Equal(t, "new-access-token", result.Account.GetCredential("access_token"))
+}
+
+func TestOpenAITokenProvider_RefreshAfterUnauthorizedForcesRefresh(t *testing.T) {
+	account := &Account{
+		ID:       902,
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeOAuth,
+		Status:   StatusActive,
+		Credentials: map[string]any{
+			"access_token":  "old-access-token",
+			"refresh_token": "old-refresh-token",
+			"expires_at":    time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
+		},
+	}
+	repo := &refreshAPIAccountRepo{account: account}
+	cache := &refreshAPICacheStub{lockResult: true}
+	executor := &refreshAPIExecutorStub{
+		needsRefresh: false,
+		credentials: map[string]any{
+			"access_token":  "new-access-token",
+			"refresh_token": "new-refresh-token",
+			"expires_at":    time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
+		},
+	}
+	provider := NewOpenAITokenProvider(repo, cache, nil)
+	provider.SetRefreshAPI(NewOAuthRefreshAPI(repo, cache), executor)
+
+	err := provider.RefreshAfterUnauthorized(context.Background(), account)
+
+	require.NoError(t, err)
+	require.Equal(t, "new-access-token", account.GetOpenAIAccessToken())
+	require.Equal(t, 1, executor.refreshCalls)
+	require.Equal(t, 1, cache.deleteCalls)
+}
+
 func TestGeminiProviderRefreshPolicy(t *testing.T) {
 	p := GeminiProviderRefreshPolicy()
 	require.Equal(t, ProviderRefreshErrorReturn, p.OnRefreshError)

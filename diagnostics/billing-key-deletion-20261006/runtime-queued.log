@@ -1,0 +1,13 @@
+PASS audit-queued-responses-balance-json tokens=1000+500 charged=0.0004500000 dedup=1 jobs=0 dead_letters=0
+PASS audit-queued-responses-balance-stream tokens=1000+500 charged=0.0004500000 dedup=1 jobs=0 dead_letters=0
+PASS audit-queued-responses-subscription-json tokens=1000+500 charged=0.0004500000 dedup=1 jobs=0 dead_letters=0
+PASS audit-queued-responses-subscription-stream tokens=1000+500 charged=0.0004500000 dedup=1 jobs=0 dead_letters=0
+PASS audit-queued-chat-balance-json tokens=1000+500 charged=0.0004500000 dedup=1 jobs=0 dead_letters=0
+PASS audit-queued-chat-balance-stream tokens=1000+500 charged=0.0004500000 dedup=1 jobs=0 dead_letters=0
+PASS audit-queued-chat-subscription-json tokens=1000+500 charged=0.0004500000 dedup=1 jobs=0 dead_letters=0
+PASS audit-queued-chat-subscription-stream tokens=1000+500 charged=0.0004500000 dedup=1 jobs=0 dead_letters=0
+PASS audit-queued-messages-balance-json tokens=1000+500 charged=0.0105000000 dedup=1 jobs=0 dead_letters=0
+PASS audit-queued-messages-balance-stream tokens=1000+500 charged=0.0105000000 dedup=1 jobs=0 dead_letters=0
+PASS audit-queued-messages-subscription-json tokens=1000+500 charged=0.0105000000 dedup=1 jobs=0 dead_letters=0
+PASS audit-queued-messages-subscription-stream tokens=1000+500 charged=0.0105000000 dedup=1 jobs=0 dead_letters=0
+RUNTIME_PASS queued scenarios=12

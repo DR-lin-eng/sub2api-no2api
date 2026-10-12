@@ -406,8 +406,8 @@
               @query-quota="handleQueryUpstreamQuota(row)"
             />
           </template>
-          <template #cell-priority="{ value }">
-            <span class="text-sm text-gray-700 dark:text-gray-300">{{ value }}</span>
+          <template #cell-priority="{ row }">
+            <AccountPriorityCell :account="row" @updated="handleAccountUpdated" />
           </template>
           <template #header-scheduler_score="{ column }">
             <div class="flex items-center">
@@ -495,6 +495,7 @@ import AccountUsageCell from '@/features/admin-accounts/presentation/widgets/Acc
 import AccountTodayStatsCell from '@/features/admin-accounts/presentation/widgets/AccountTodayStatsCell.vue'
 import AccountHourlyUsageCell from '@/features/admin-accounts/presentation/widgets/AccountHourlyUsageCell.vue'
 import AccountGroupsCell from '@/features/admin-accounts/presentation/widgets/AccountGroupsCell.vue'
+import AccountPriorityCell from '@/features/admin-accounts/presentation/widgets/AccountPriorityCell.vue'
 import AccountCapacityCell from '@/features/admin-accounts/presentation/widgets/AccountCapacityCell.vue'
 import UpstreamBillingRateCell from '@/features/admin-accounts/presentation/widgets/UpstreamBillingRateCell.vue'
 import PlatformTypeBadge from '@/common/widgets/icons/PlatformTypeBadge.vue'

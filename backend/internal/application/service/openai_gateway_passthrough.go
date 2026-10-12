@@ -212,8 +212,18 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 		if normalized {
 			body = normalizedBody
 		}
+		if account.IsOpenAIOAuth() && !isOpenAIResponsesCompactPath(c) {
+			responsesLite := isOpenAIResponsesLiteHeader(c.GetHeader(responsesLiteHeader)) || isOpenAIResponsesLiteWebSocketPayload(body)
+			webSearchBody, webSearchChanged, webSearchErr := normalizeOpenAIOAuthWebSearchHistoryForAccount(body, account, false, responsesLite)
+			if webSearchErr != nil {
+				return nil, fmt.Errorf("normalize passthrough Responses web_search history: %w", webSearchErr)
+			}
+			if webSearchChanged {
+				body = webSearchBody
+			}
+		}
 		if !isOpenAIResponsesCompactPath(c) || (fingerprintIDs != nil && fingerprintIDs.fullSimulation) {
-			fingerprintedBody, fingerprinted, fingerprintErr := applyCodexFingerprintClientMetadataToBody(body, fingerprintIDs)
+			fingerprintedBody, fingerprinted, fingerprintErr := applyCodexFingerprintClientMetadataToBody(body, fingerprintIDs, c)
 			if fingerprintErr != nil {
 				return nil, fingerprintErr
 			}
@@ -342,6 +352,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 	if reqStream && account != nil && account.Platform == PlatformOpenAI {
 		firstOutputTimeout = s.openAIFirstOutputTimeoutWithContext(ctx, reasoningEffortValue)
 	}
+	openAIAuthRecoveryTried := false
 	for {
 		upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
 		var headerGuard *openAIFirstOutputHeaderGuard
@@ -445,6 +456,18 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 				return nil, fmt.Errorf("agent identity task recovery failed: %w", recoveryErr)
 			}
 			continue
+		}
+		if resp.StatusCode == http.StatusUnauthorized && extractUpstreamErrorCode(probeBody) == "token_expired" &&
+			!openAIAuthRecoveryTried && account.IsOpenAIOAuth() && s.openAITokenProvider != nil {
+			openAIAuthRecoveryTried = true
+			if refreshErr := s.openAITokenProvider.RefreshAfterUnauthorized(ctx, account); refreshErr == nil {
+				_ = resp.Body.Close()
+				token, _, err = s.GetAccessToken(ctx, account)
+				if err != nil {
+					return nil, err
+				}
+				continue
+			}
 		}
 
 		// Any HTTP error received from OpenAI is handed to account failover before
@@ -640,7 +663,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerpr
 	if account.IsOpenAIOAuth() && (fingerprintIDs == nil || fingerprintIDs.mode == codexFingerprintOff) {
 		codexSessionIDs = resolveCodexOutboundSessionIDs(c, account, body, promptCacheKey)
 		var rewriteErr error
-		outboundBody, rewriteErr = rewriteCodexOutboundSessionMetadata(body, account, codexSessionIDs)
+		outboundBody, rewriteErr = rewriteCodexOutboundSessionMetadata(body, account, codexSessionIDs, c)
 		if rewriteErr != nil {
 			return nil, rewriteErr
 		}

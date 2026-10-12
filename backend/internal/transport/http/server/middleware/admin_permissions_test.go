@@ -109,3 +109,32 @@ func TestDelegatedSettingsCannotModifyRoleGrantsOrMintAdministratorKeys(t *testi
 		require.Equal(t, 403, w.Code, path)
 	}
 }
+
+func TestPaymentPermissionRequiresExplicitGrant(t *testing.T) {
+	for _, method := range []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete} {
+		require.Equal(t, service.PermissionPaymentManage, requiredAdminPermission(method, "/api/v1/admin/payment/orders/1/refund"))
+	}
+	for _, role := range []struct {
+		name        string
+		permissions []string
+		want        int
+	}{
+		{"dashboard_staff", []string{service.PermissionDashboardRead}, 403},
+		{"settings_staff", []string{service.PermissionSettingsManage}, 403},
+		{"payment_staff", []string{service.PermissionPaymentManage}, 204},
+		{service.RoleAdmin, nil, 204},
+	} {
+		t.Run(role.name, func(t *testing.T) {
+			router := gin.New()
+			router.Use(func(c *gin.Context) {
+				c.Set(string(ContextKeyUserRole), role.name)
+				SetAdminPermissions(c, role.permissions)
+			})
+			router.Use(AdminPermissionMiddleware(nil))
+			router.POST("/api/v1/admin/payment/orders/:id/refund", func(c *gin.Context) { c.Status(204) })
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, httptest.NewRequest("POST", "/api/v1/admin/payment/orders/1/refund", nil))
+			require.Equal(t, role.want, rec.Code)
+		})
+	}
+}

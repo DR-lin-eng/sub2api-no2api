@@ -231,7 +231,12 @@ export default {
         codexCli: 'Codex CLI',
         codexCliWs: 'Codex CLI (WebSocket)',
         grokCli: 'Grok CLI',
+        systemOne: 'System One',
         opencode: 'OpenCode',
+      },
+      typesafe: {
+        description: 'Call Jev through the native TypeSafe System One endpoint.',
+        note: 'System One is non-streaming and is not compatible with Chat Completions, Responses, Claude Code, or Codex clients.',
       },
       antigravity: {
         description: 'Configure API access for Antigravity group. Select the configuration method based on your client.',
@@ -390,6 +395,7 @@ export default {
       requestsUnit: 'requests',
       imagesUnit: 'images',
       videoSecondsUnit: 'video-seconds',
+      voiceMinutesUnit: 'minutes',
       noUnitPrice: 'Unit price unavailable',
       costLines: {
         input: 'Text input',
@@ -401,6 +407,7 @@ export default {
         request: 'Per request',
         image: 'Image generation',
         video: 'Video generation',
+        voice: 'Voice conversation',
       },
     },
     cacheTtlOverriddenHint: 'Cache TTL Override enabled',
@@ -441,6 +448,7 @@ export default {
     billingModePerRequest: 'Per Request',
     billingModeImage: 'Image',
     billingModeVideo: 'Video',
+    billingModeLive: 'Voice Minutes',
     timeRange: 'Time Range',
     exportCsv: 'Export CSV',
     exportExcel: 'Export Excel',
@@ -477,6 +485,10 @@ export default {
     latency: 'Latency',
     latencyFirstToken: 'First',
     latencyDuration: 'Total',
+    longContext: 'Long context',
+    longContextPricingTooltip: 'Long-context pricing was applied. Input and output rates depend on the pricing tier, not a uniform multiplier.',
+    outputTps: 'Output TPS',
+    outputTpsHint: 'Output tokens divided by total duration, including first-token wait, in tok/s. Output tokens may include reasoning tokens.',
     latencyOutputSpeed: 'Speed',
     timingComparison: 'Timing comparison',
     timingLocal: 'Local',
@@ -768,7 +780,9 @@ export default {
       perUnitRequest: '/ request',
       perUnitImage: '/ image',
       perRequest: 'Per request',
-      perImage: 'Per image'
+      perImage: 'Per image',
+      perVideo: 'Per video second',
+      perUnitSecond: '/ second'
     },
     nav: {
       login: 'Sign In',

@@ -68,6 +68,8 @@ func TestParseLiveCallRequestRejectsInvalidJSONShape(t *testing.T) {
 
 func TestLiveSidebandLocationMatchesCreateRoute(t *testing.T) {
 	require.Equal(t, "/v1/live/call_123", liveSidebandLocation("/v1/live", "call_123"))
+	require.Equal(t, "/live/rtc_123", liveSidebandLocation("/live", "rtc_123"))
+	require.Equal(t, "/live/rtc_123", liveSidebandLocation("/realtime/calls", "rtc_123"))
 	require.Equal(
 		t,
 		"/backend-api/codex/call_123",

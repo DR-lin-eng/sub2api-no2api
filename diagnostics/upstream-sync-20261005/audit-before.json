@@ -1,0 +1,325 @@
+{
+  "advisories": {
+    "1240600": {
+      "findings": [
+        {
+          "version": "1.18.1",
+          "paths": [
+            ".>axios"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240600,
+      "title": "Axios: Prototype pollution gadget in fetch adapter can alter outbound requests",
+      "module_name": "axios",
+      "vulnerable_versions": ">=1.7.0 <1.20.0",
+      "patched_versions": ">=1.20.0",
+      "severity": "moderate",
+      "cwe": "CWE-1321",
+      "github_advisory_id": "GHSA-vh66-26gq-q6x8",
+      "url": "https://github.com/advisories/GHSA-vh66-26gq-q6x8"
+    },
+    "1240601": {
+      "findings": [
+        {
+          "version": "1.18.1",
+          "paths": [
+            ".>axios"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240601,
+      "title": "Axios: Prototype-Pollution Gadget in the Default Instance Allows Inherited Object.prototype.method to Override HTTP Method",
+      "module_name": "axios",
+      "vulnerable_versions": ">=1.0.0 <1.20.0",
+      "patched_versions": ">=1.20.0",
+      "severity": "moderate",
+      "cwe": "CWE-1321",
+      "github_advisory_id": "GHSA-9fr6-4gfg-395g",
+      "url": "https://github.com/advisories/GHSA-9fr6-4gfg-395g"
+    },
+    "1240603": {
+      "findings": [
+        {
+          "version": "1.18.1",
+          "paths": [
+            ".>axios"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240603,
+      "title": "Axios: ReDoS in fromDataURI data: URL parser freezes the Node event loop (DoS)",
+      "module_name": "axios",
+      "vulnerable_versions": ">=1.16.1 <1.20.0",
+      "patched_versions": ">=1.20.0",
+      "severity": "high",
+      "cwe": "CWE-1333",
+      "github_advisory_id": "GHSA-c29m-xwm3-cm6r",
+      "url": "https://github.com/advisories/GHSA-c29m-xwm3-cm6r"
+    },
+    "1240604": {
+      "findings": [
+        {
+          "version": "1.18.1",
+          "paths": [
+            ".>axios"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240604,
+      "title": "Axios: ReDoS (O(N²)) in shouldBypassProxy host normalization, reachable via untrusted redirect Location",
+      "module_name": "axios",
+      "vulnerable_versions": ">=1.15.0 <1.20.0",
+      "patched_versions": ">=1.20.0",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-1333",
+      "github_advisory_id": "GHSA-mghh-pgcx-3jjj",
+      "url": "https://github.com/advisories/GHSA-mghh-pgcx-3jjj"
+    },
+    "1240605": {
+      "findings": [
+        {
+          "version": "1.18.1",
+          "paths": [
+            ".>axios"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240605,
+      "title": "Axios: Prototype Pollution Gadget in axios toFormData Options",
+      "module_name": "axios",
+      "vulnerable_versions": ">=1.15.1 <1.20.0",
+      "patched_versions": ">=1.20.0",
+      "severity": "high",
+      "cwe": "CWE-1321",
+      "github_advisory_id": "GHSA-x97p-jq2g-jp4f",
+      "url": "https://github.com/advisories/GHSA-x97p-jq2g-jp4f"
+    },
+    "1240607": {
+      "findings": [
+        {
+          "version": "1.18.1",
+          "paths": [
+            ".>axios"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240607,
+      "title": "Axios: HTTP/2 adapter bypasses configured DNS lookup and proxy controls",
+      "module_name": "axios",
+      "vulnerable_versions": ">=1.13.0 <1.20.0",
+      "patched_versions": ">=1.20.0",
+      "severity": "high",
+      "cwe": "CWE-918",
+      "github_advisory_id": "GHSA-3pq3-5fj3-cg6v",
+      "url": "https://github.com/advisories/GHSA-3pq3-5fj3-cg6v"
+    },
+    "1240608": {
+      "findings": [
+        {
+          "version": "1.18.1",
+          "paths": [
+            ".>axios"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240608,
+      "title": "Axios: Denial of Service via Unhandled 'error' Event in HTTP/2 ClientHttp2Session Initialization",
+      "module_name": "axios",
+      "vulnerable_versions": ">=1.13.0 <1.20.0",
+      "patched_versions": ">=1.20.0",
+      "severity": "high",
+      "cwe": "CWE-400",
+      "github_advisory_id": "GHSA-542g-h47m-68v8",
+      "url": "https://github.com/advisories/GHSA-542g-h47m-68v8"
+    },
+    "1240621": {
+      "findings": [
+        {
+          "version": "3.4.14",
+          "paths": [
+            ".>dompurify"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240621,
+      "title": "DOMPurify: IN_PLACE: node-removing afterSanitize hook leaves detached subtree event handlers armed, causing DOM XSS",
+      "module_name": "dompurify",
+      "vulnerable_versions": ">=3.4.13 <=3.4.15",
+      "patched_versions": ">=3.4.16",
+      "severity": "low",
+      "cwe": "CWE-79",
+      "github_advisory_id": "GHSA-p98j-92pf-mc4p",
+      "url": "https://github.com/advisories/GHSA-p98j-92pf-mc4p"
+    },
+    "1240626": {
+      "findings": [
+        {
+          "version": "1.18.1",
+          "paths": [
+            ".>axios"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240626,
+      "title": "Axios: Header Injection via Inherited headers After Minimal Interceptor",
+      "module_name": "axios",
+      "vulnerable_versions": ">=1.0.0 <1.20.0",
+      "patched_versions": ">=1.20.0",
+      "severity": "moderate",
+      "cwe": "CWE-74, CWE-1321",
+      "github_advisory_id": "GHSA-j8rh-479h-cp32",
+      "url": "https://github.com/advisories/GHSA-j8rh-479h-cp32"
+    },
+    "1240627": {
+      "findings": [
+        {
+          "version": "1.18.1",
+          "paths": [
+            ".>axios"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240627,
+      "title": "Axios: Fetch Adapter Header Injection via Inherited FormData getHeaders",
+      "module_name": "axios",
+      "vulnerable_versions": ">=1.12.0 <1.20.0",
+      "patched_versions": ">=1.20.0",
+      "severity": "moderate",
+      "cwe": "CWE-74, CWE-693, CWE-1321",
+      "github_advisory_id": "GHSA-4hqw-qxg8-jxx2",
+      "url": "https://github.com/advisories/GHSA-4hqw-qxg8-jxx2"
+    },
+    "1240628": {
+      "findings": [
+        {
+          "version": "1.18.1",
+          "paths": [
+            ".>axios"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240628,
+      "title": "Axios: Node HTTP adapter prototype-pollution gadget allows request socket hijack via inherited createConnection",
+      "module_name": "axios",
+      "vulnerable_versions": ">=1.15.2 <1.20.0",
+      "patched_versions": ">=1.20.0",
+      "severity": "high",
+      "cwe": "CWE-441, CWE-1321",
+      "github_advisory_id": "GHSA-m8m8-qj5v-23w3",
+      "url": "https://github.com/advisories/GHSA-m8m8-qj5v-23w3"
+    },
+    "1240629": {
+      "findings": [
+        {
+          "version": "1.18.1",
+          "paths": [
+            ".>axios"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240629,
+      "title": "Axios: CIDR-form NO_PROXY entries are ignored, causing proxy exclusion bypass for internal IP ranges",
+      "module_name": "axios",
+      "vulnerable_versions": ">=1.15.0 <1.20.0",
+      "patched_versions": ">=1.20.0",
+      "severity": "moderate",
+      "cwe": "CWE-693",
+      "github_advisory_id": "GHSA-44g4-m2mj-wpvx",
+      "url": "https://github.com/advisories/GHSA-44g4-m2mj-wpvx"
+    },
+    "1240634": {
+      "findings": [
+        {
+          "version": "1.18.1",
+          "paths": [
+            ".>axios"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240634,
+      "title": "Axios: maxRedirects: 0 is not enforced by the fetch adapter, allowing redirect-based SSRF",
+      "module_name": "axios",
+      "vulnerable_versions": ">=1.17.0 <1.20.0",
+      "patched_versions": ">=1.20.0",
+      "severity": "high",
+      "cwe": "CWE-441, CWE-601",
+      "github_advisory_id": "GHSA-r4gj-5m52-g5wh",
+      "url": "https://github.com/advisories/GHSA-r4gj-5m52-g5wh"
+    },
+    "1240912": {
+      "findings": [
+        {
+          "version": "1.4.0",
+          "paths": [
+            ".>node-forge"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240912,
+      "title": "node-forge RSA PKCS#1 v1.5 signature verification accepts extra nested DigestAlgorithm elements",
+      "module_name": "node-forge",
+      "vulnerable_versions": "<=1.4.0",
+      "patched_versions": ">=1.4.1",
+      "severity": "high",
+      "cwe": "CWE-347",
+      "github_advisory_id": "GHSA-86w9-cpqp-85rv",
+      "url": "https://github.com/advisories/GHSA-86w9-cpqp-85rv"
+    }
+  },
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 1,
+      "moderate": 5,
+      "high": 8,
+      "critical": 0
+    },
+    "dependencies": 110,
+    "devDependencies": 0,
+    "optionalDependencies": 4,
+    "totalDependencies": 114
+  }
+}

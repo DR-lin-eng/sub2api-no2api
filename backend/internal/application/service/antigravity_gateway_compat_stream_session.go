@@ -62,6 +62,9 @@ func (s *antigravityCompatStreamSession) finish() (*antigravityStreamResult, err
 	if err != nil {
 		return nil, err
 	}
+	if !s.hasMeaningfulData() && !s.writer.Disconnected() {
+		return nil, antigravityCompatEmptyStreamError()
+	}
 	s.adapter.Finalize(s.writer)
 	return s.result(s.writer.Disconnected()), nil
 }
@@ -248,24 +251,18 @@ func isMeaningfulAntigravityCompatEvent(event *apicompat.AnthropicStreamEvent) b
 	if event == nil {
 		return false
 	}
-	if event.Type == "message_stop" {
-		return true
-	}
 	if event.ContentBlock != nil {
 		block := event.ContentBlock
 		return block.Type == "tool_use" ||
 			block.Text != "" ||
 			block.Thinking != "" ||
-			block.Signature != "" ||
 			block.Source != nil
 	}
 	if event.Delta != nil {
 		delta := event.Delta
 		return delta.Text != "" ||
 			delta.PartialJSON != "" ||
-			delta.Thinking != "" ||
-			delta.Signature != "" ||
-			delta.StopReason != ""
+			delta.Thinking != ""
 	}
 	return false
 }

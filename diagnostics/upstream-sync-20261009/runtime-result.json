@@ -1,0 +1,22 @@
+[
+  {
+    "stage": "baseline",
+    "result": "PASS",
+    "migrations": 301
+  },
+  {
+    "stage": "upgraded",
+    "result": "PASS",
+    "migrations": 301
+  },
+  {
+    "stage": "rollback",
+    "result": "PASS",
+    "migrations": 301
+  },
+  {
+    "stage": "restored",
+    "result": "PASS",
+    "migrations": 301
+  }
+]

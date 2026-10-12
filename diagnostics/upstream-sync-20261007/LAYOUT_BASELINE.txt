@@ -1,0 +1,3 @@
+layout error: internal/application/service/openai_ws_v2/passthrough_relay.go has 1273 lines (limit 1200); split by responsibility
+layout error: internal/application/service/payment_fulfillment_test.go has 1201 lines (limit 1200); split by responsibility
+layout error: internal/application/service/pricing_service.go has 1238 lines (limit 1200); split by responsibility
