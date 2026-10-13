@@ -1,0 +1,22 @@
+$ eslint .
+$ vue-tsc --noEmit
+
+<--- Last few GCs --->
+
+[51:0xffffb8010000]    20051 ms: Scavenge 1527.9 (1539.2) -> 1524.7 (1540.4) MB, pooled: 0 MB, 2.05 / 0.00 ms  (average mu = 0.344, current mu = 0.325) allocation failure; 
+[51:0xffffb8010000]    20634 ms: Mark-Compact (reduce) 1528.4 (1540.7) -> 1521.8 (1532.7) MB, pooled: 0 MB, 567.73 / 0.00 ms  (+ 0.9 ms in 46 steps since start of marking, biggest step 0.8 ms, walltime since start of marking 581 ms) (average mu = 0.312, c
+FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory
+----- Native stack trace -----
+
+ 1: 0x8ffeac  [node]
+ 2: 0x754b88 node::OOMErrorHandler(char const*, v8::OOMDetails const&) [node]
+ 3: 0xbfc47c  [node]
+ 4: 0xbfc554  [node]
+ 5: 0xe7893c  [node]
+ 6: 0xe7896c  [node]
+ 7: 0xe78cc4  [node]
+ 8: 0xe88474  [node]
+ 9: 0xe8c0d4  [node]
+10: 0x1882864  [node]
+Aborted
+make: *** [Makefile:56: test-frontend] Error 134

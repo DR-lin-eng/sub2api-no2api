@@ -79,7 +79,15 @@ export function getCodexFingerprintModeOptions(
   ]
 }
 
+export type TempUnschedScope = '' | 'account' | 'model'
+
+export function normalizeTempUnschedScope(value: unknown): TempUnschedScope {
+  const scope = typeof value === 'string' ? value.trim().toLowerCase() : ''
+  return scope === 'account' || scope === 'model' ? scope : ''
+}
+
 export interface TempUnschedRuleForm {
+  scope?: TempUnschedScope
   error_code: number | null
   keywords: string
   duration_minutes: number | null
@@ -87,6 +95,7 @@ export interface TempUnschedRuleForm {
 }
 
 export interface TempUnschedRulePayload {
+  scope?: 'account' | 'model'
   error_code: number
   keywords: string[]
   duration_minutes: number
@@ -151,6 +160,7 @@ export function createTempUnschedRule(
   return preset
     ? { ...preset }
     : {
+        scope: '',
         error_code: null,
         keywords: '',
         duration_minutes: 30,
@@ -186,7 +196,9 @@ export function buildTempUnschedRules(
     if (!Number.isFinite(errorCode) || errorCode < 100 || errorCode > 599) continue
     if (!Number.isFinite(duration) || duration <= 0 || keywords.length === 0) continue
 
+    const scope = normalizeTempUnschedScope(rule.scope)
     result.push({
+      ...(scope ? { scope } : {}),
       error_code: Math.trunc(errorCode),
       keywords,
       duration_minutes: Math.trunc(duration),
@@ -194,4 +206,37 @@ export function buildTempUnschedRules(
     })
   }
   return result
+}
+
+// Preserve legacy defaults while hydrating optional scope from stored credentials.
+export function parseTempUnschedRules(value: unknown): TempUnschedRuleForm[] {
+  if (!Array.isArray(value)) return []
+  const positiveInteger = (input: unknown) => {
+    const number = Number(input)
+    return Number.isFinite(number) && number > 0 ? Math.trunc(number) : null
+  }
+  return value.map((raw) => {
+    const entry = raw !== null && typeof raw === 'object' ? raw as Record<string, unknown> : {}
+    return {
+      scope: normalizeTempUnschedScope(entry.scope),
+      error_code: positiveInteger(entry.error_code),
+      keywords: formatTempUnschedKeywords(entry.keywords),
+      duration_minutes: positiveInteger(entry.duration_minutes),
+      description: typeof entry.description === 'string' ? entry.description : '',
+    }
+  })
+}
+
+function formatTempUnschedKeywords(value: unknown) {
+  if (Array.isArray(value)) {
+    return value
+      .filter((item): item is string => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0)
+      .join(', ')
+  }
+  if (typeof value === 'string') {
+    return value
+  }
+  return ''
 }

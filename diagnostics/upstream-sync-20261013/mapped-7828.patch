@@ -1,0 +1,1493 @@
+diff --git a/backend/internal/application/service/account.go b/backend/internal/application/service/account.go
+index d394e551a..d11063627 100644
+--- a/backend/internal/application/service/account.go
++++ b/backend/internal/application/service/account.go
+@@ -129,11 +129,20 @@ func isOpenAIPersonalAccessTokenAuthMode(value string) bool {
+ 	}
+ }
+ 
++// TempUnschedulableRule.Scope 的取值：命中后隔离的粒度。
++const (
++	TempUnschedScopeAccount = "account"
++	TempUnschedScopeModel   = "model"
++)
++
+ type TempUnschedulableRule struct {
+ 	ErrorCode       int      `json:"error_code"`
+ 	Keywords        []string `json:"keywords"`
+ 	DurationMinutes int      `json:"duration_minutes"`
+ 	Description     string   `json:"description"`
++	// Scope 决定命中后的隔离粒度：account 暂停整个账号，model 只冷却本次请求的模型。
++	// 为空时模型已知且非 401 走模型级，否则账号级。
++	Scope string `json:"scope,omitempty"`
+ }
+ 
+ func (a *Account) IsActive() bool {
+@@ -467,6 +476,7 @@ func (a *Account) GetTempUnschedulableRules() []TempUnschedulableRule {
+ 			Keywords:        parseTempUnschedStrings(entry["keywords"]),
+ 			DurationMinutes: parseTempUnschedInt(entry["duration_minutes"]),
+ 			Description:     parseTempUnschedString(entry["description"]),
++			Scope:           normalizeTempUnschedScope(entry["scope"]),
+ 		}
+ 
+ 		if rule.ErrorCode <= 0 || rule.DurationMinutes <= 0 || len(rule.Keywords) == 0 {
+@@ -479,6 +489,18 @@ func (a *Account) GetTempUnschedulableRules() []TempUnschedulableRule {
+ 	return rules
+ }
+ 
++// normalizeTempUnschedScope 只认 account / model 两个值，其余一律视为未设置。
++func normalizeTempUnschedScope(raw any) string {
++	switch strings.ToLower(strings.TrimSpace(parseTempUnschedString(raw))) {
++	case TempUnschedScopeAccount:
++		return TempUnschedScopeAccount
++	case TempUnschedScopeModel:
++		return TempUnschedScopeModel
++	default:
++		return ""
++	}
++}
++
+ func parseTempUnschedString(value any) string {
+ 	s, ok := value.(string)
+ 	if !ok {
+diff --git a/backend/internal/application/service/gateway_anthropic_passthrough.go b/backend/internal/application/service/gateway_anthropic_passthrough.go
+index 31df1cb77..b998f69ee 100644
+--- a/backend/internal/application/service/gateway_anthropic_passthrough.go
++++ b/backend/internal/application/service/gateway_anthropic_passthrough.go
+@@ -184,7 +184,7 @@ func (s *GatewayService) forwardAnthropicAPIKeyPassthroughWithInput(
+ 			logger.LegacyPrintf("service.gateway", "[Anthropic Passthrough] Upstream error (retry exhausted, failover): Account=%d(%s) Status=%d RequestID=%s Body=%s",
+ 				account.ID, account.Name, resp.StatusCode, resp.Header.Get("x-request-id"), truncateString(string(respBody), 1000))
+ 
+-			s.handleRetryExhaustedSideEffects(ctx, resp, account)
++			s.handleRetryExhaustedSideEffects(ctx, resp, account, input.RequestModel)
+ 			appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
+ 				ProxyID:            opsUpstreamProxyID(account),
+ 				ProxyName:          opsUpstreamProxyName(account),
+@@ -209,7 +209,7 @@ func (s *GatewayService) forwardAnthropicAPIKeyPassthroughWithInput(
+ 				RetryableOnSameAccount: account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode),
+ 			}
+ 		}
+-		return s.handleRetryExhaustedError(ctx, resp, c, account)
++		return s.handleRetryExhaustedError(ctx, resp, c, account, input.RequestModel)
+ 	}
+ 
+ 	if resp.StatusCode >= 400 && s.shouldFailoverUpstreamError(resp.StatusCode) {
+diff --git a/backend/internal/application/service/gateway_bedrock.go b/backend/internal/application/service/gateway_bedrock.go
+index 97ee44341..60d6937fb 100644
+--- a/backend/internal/application/service/gateway_bedrock.go
++++ b/backend/internal/application/service/gateway_bedrock.go
+@@ -130,7 +130,9 @@ func (s *GatewayService) forwardBedrock(
+ 
+ 	// 错误/failover 处理
+ 	if resp.StatusCode >= 400 {
+-		return s.handleBedrockUpstreamErrors(ctx, resp, c, account)
++		// 账号状态按模型隔离时用调度器的模型键（账号映射后的模型名），不是发往上游的 Bedrock 模型 ID；
++		// 两者不一致会让模型级冷却写到调度器不会读取的键上。
++		return s.handleBedrockUpstreamErrors(ctx, resp, c, account, account.GetMappedModel(reqModel))
+ 	}
+ 
+ 	// Bedrock 分支绕过通用 Forward 成功路径，这里保持上游接受回调语义一致。
+@@ -263,12 +265,14 @@ func (s *GatewayService) executeBedrockUpstream(
+ 	return resp, nil
+ }
+ 
+-// handleBedrockUpstreamErrors 处理 Bedrock 上游 4xx/5xx 错误（failover + 错误响应）
++// handleBedrockUpstreamErrors 处理 Bedrock 上游 4xx/5xx 错误（failover + 错误响应）；
++// modelKey 是调度器按模型隔离账号状态时使用的模型键（account.GetMappedModel 的结果）。
+ func (s *GatewayService) handleBedrockUpstreamErrors(
+ 	ctx context.Context,
+ 	resp *http.Response,
+ 	c *gin.Context,
+ 	account *Account,
++	modelKey string,
+ ) (*ForwardResult, error) {
+ 	// retry exhausted + failover
+ 	if s.shouldRetryUpstreamError(account, resp.StatusCode) {
+@@ -280,7 +284,7 @@ func (s *GatewayService) handleBedrockUpstreamErrors(
+ 			logger.LegacyPrintf("service.gateway", "[Bedrock] Upstream error (retry exhausted, failover): Account=%d(%s) Status=%d Body=%s",
+ 				account.ID, account.Name, resp.StatusCode, truncateString(string(respBody), 1000))
+ 
+-			s.handleRetryExhaustedSideEffects(ctx, resp, account)
++			s.handleRetryExhaustedSideEffects(ctx, resp, account, modelKey)
+ 			appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
+ 				ProxyID:            opsUpstreamProxyID(account),
+ 				ProxyName:          opsUpstreamProxyName(account),
+@@ -297,7 +301,7 @@ func (s *GatewayService) handleBedrockUpstreamErrors(
+ 				RetryableOnSameAccount: account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode),
+ 			}
+ 		}
+-		return s.handleRetryExhaustedError(ctx, resp, c, account)
++		return s.handleRetryExhaustedError(ctx, resp, c, account, modelKey)
+ 	}
+ 
+ 	// non-retryable failover
+@@ -306,7 +310,7 @@ func (s *GatewayService) handleBedrockUpstreamErrors(
+ 		_ = resp.Body.Close()
+ 		resp.Body = io.NopCloser(bytes.NewReader(respBody))
+ 
+-		s.handleFailoverSideEffects(ctx, resp, account)
++		s.handleFailoverSideEffects(ctx, resp, account, modelKey)
+ 		appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
+ 			ProxyID:            opsUpstreamProxyID(account),
+ 			ProxyName:          opsUpstreamProxyName(account),
+@@ -325,7 +329,7 @@ func (s *GatewayService) handleBedrockUpstreamErrors(
+ 	}
+ 
+ 	// other errors
+-	return s.handleErrorResponse(ctx, resp, c, account)
++	return s.handleErrorResponse(ctx, resp, c, account, modelKey)
+ }
+ 
+ // buildUpstreamRequestBedrock 构建 Bedrock 上游请求
+diff --git a/backend/internal/application/service/gateway_count_tokens.go b/backend/internal/application/service/gateway_count_tokens.go
+index 2a5f4a040..ec3c2bad0 100644
+--- a/backend/internal/application/service/gateway_count_tokens.go
++++ b/backend/internal/application/service/gateway_count_tokens.go
+@@ -42,13 +42,15 @@ func (s *GatewayService) ForwardCountTokens(ctx context.Context, c *gin.Context,
+ 
+ 	if account != nil && account.IsAnthropicAPIKeyPassthroughEnabled() {
+ 		passthroughBody := parsed.Body.Bytes()
++		passthroughModel := parsed.Model
+ 		if reqModel := parsed.Model; reqModel != "" {
+ 			if mappedModel := account.GetMappedModel(reqModel); mappedModel != reqModel {
+ 				passthroughBody = s.replaceModelInBody(passthroughBody, mappedModel)
++				passthroughModel = mappedModel
+ 				logger.LegacyPrintf("service.gateway", "CountTokens passthrough model mapping: %s -> %s (account: %s)", reqModel, mappedModel, account.Name)
+ 			}
+ 		}
+-		return s.forwardCountTokensAnthropicAPIKeyPassthrough(ctx, c, account, passthroughBody)
++		return s.forwardCountTokensAnthropicAPIKeyPassthrough(ctx, c, account, passthroughBody, passthroughModel)
+ 	}
+ 
+ 	// Bedrock 不支持 count_tokens 端点
+@@ -220,8 +222,8 @@ func (s *GatewayService) ForwardCountTokens(ctx context.Context, c *gin.Context,
+ 
+ 	// 处理错误响应
+ 	if resp.StatusCode >= 400 {
+-		// 标记账号状态（429/529等）
+-		s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
++		// 标记账号状态（429/529等）；传入实际发往上游的模型，临时不可调度规则才能按模型隔离
++		s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody, reqModel)
+ 
+ 		upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(respBody))
+ 		upstreamMsg = sanitizeUpstreamErrorMessage(upstreamMsg)
+@@ -267,7 +269,9 @@ func (s *GatewayService) ForwardCountTokens(ctx context.Context, c *gin.Context,
+ 	return nil
+ }
+ 
+-func (s *GatewayService) forwardCountTokensAnthropicAPIKeyPassthrough(ctx context.Context, c *gin.Context, account *Account, body []byte) error {
++// forwardCountTokensAnthropicAPIKeyPassthrough 透传 count_tokens 请求；upstreamModel 是 body 中实际发往上游的模型，
++// 仅用于上游错误处理按模型隔离。
++func (s *GatewayService) forwardCountTokensAnthropicAPIKeyPassthrough(ctx context.Context, c *gin.Context, account *Account, body []byte, upstreamModel string) error {
+ 	token, tokenType, err := s.GetAccessToken(ctx, account)
+ 	if err != nil {
+ 		s.countTokensError(c, http.StatusBadGateway, "upstream_error", "Failed to get access token")
+@@ -322,7 +326,7 @@ func (s *GatewayService) forwardCountTokensAnthropicAPIKeyPassthrough(ctx contex
+ 
+ 	if resp.StatusCode >= 400 {
+ 		if s.rateLimitService != nil {
+-			s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
++			s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody, upstreamModel)
+ 		}
+ 
+ 		upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(respBody))
+diff --git a/backend/internal/application/service/gateway_forward.go b/backend/internal/application/service/gateway_forward.go
+index c47e90967..388f2495a 100644
+--- a/backend/internal/application/service/gateway_forward.go
++++ b/backend/internal/application/service/gateway_forward.go
+@@ -689,7 +689,7 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
+ 			logger.LegacyPrintf("service.gateway", "[Forward] Upstream error (retry exhausted, failover): Account=%d(%s) Status=%d RequestID=%s Body=%s",
+ 				account.ID, account.Name, resp.StatusCode, resp.Header.Get("x-request-id"), truncateString(string(respBody), 1000))
+ 
+-			s.handleRetryExhaustedSideEffects(ctx, resp, account)
++			s.handleRetryExhaustedSideEffects(ctx, resp, account, reqModel)
+ 			appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
+ 				ProxyID:            opsUpstreamProxyID(account),
+ 				ProxyName:          opsUpstreamProxyName(account),
+@@ -713,7 +713,7 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
+ 				RetryableOnSameAccount: account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode),
+ 			}
+ 		}
+-		return s.handleRetryExhaustedError(ctx, resp, c, account)
++		return s.handleRetryExhaustedError(ctx, resp, c, account, reqModel)
+ 	}
+ 
+ 	// 处理可切换账号的错误
+diff --git a/backend/internal/application/service/gateway_upstream_response.go b/backend/internal/application/service/gateway_upstream_response.go
+index 6aaaaf4b1..fb9368b6c 100644
+--- a/backend/internal/application/service/gateway_upstream_response.go
++++ b/backend/internal/application/service/gateway_upstream_response.go
+@@ -527,13 +527,19 @@ func (s *GatewayService) handleErrorResponse(ctx context.Context, resp *http.Res
+ 	return nil, fmt.Errorf("upstream error: %d message=%s", resp.StatusCode, upstreamMsg)
+ }
+ 
+-func (s *GatewayService) handleRetryExhaustedSideEffects(ctx context.Context, resp *http.Response, account *Account) {
++// handleRetryExhaustedSideEffects 在重试耗尽后标记账号状态；requestedModel 是实际发往上游的模型，
++// 临时不可调度规则据此按模型隔离。
++func (s *GatewayService) handleRetryExhaustedSideEffects(ctx context.Context, resp *http.Response, account *Account, requestedModel ...string) {
+ 	body, _ := s.readUpstreamErrorBody(resp)
+ 	statusCode := resp.StatusCode
+ 
+ 	// OAuth/Setup Token 账号的 403：标记账号异常
+ 	if account.IsOAuth() && statusCode == 403 {
+-		s.rateLimitService.HandleUpstreamError(ctx, account, statusCode, resp.Header, body)
++		if len(requestedModel) > 0 {
++			s.rateLimitService.HandleUpstreamError(ctx, account, statusCode, resp.Header, body, requestedModel[0])
++		} else {
++			s.rateLimitService.HandleUpstreamError(ctx, account, statusCode, resp.Header, body)
++		}
+ 		logger.LegacyPrintf("service.gateway", "Account %d: marked as error after %d retries for status %d", account.ID, maxRetryAttempts, statusCode)
+ 	} else {
+ 		// API Key 未配置错误码：不标记账号状态
+@@ -553,14 +559,14 @@ func (s *GatewayService) handleFailoverSideEffects(ctx context.Context, resp *ht
+ // handleRetryExhaustedError 处理重试耗尽后的错误
+ // OAuth 403：标记账号异常
+ // API Key 未配置错误码：仅返回错误，不标记账号
+-func (s *GatewayService) handleRetryExhaustedError(ctx context.Context, resp *http.Response, c *gin.Context, account *Account) (*ForwardResult, error) {
++func (s *GatewayService) handleRetryExhaustedError(ctx context.Context, resp *http.Response, c *gin.Context, account *Account, requestedModel ...string) (*ForwardResult, error) {
+ 	MarkResponseCommitted(c)
+ 	// Capture upstream error body before side-effects consume the stream.
+ 	respBody, _ := s.readUpstreamErrorBody(resp)
+ 	_ = resp.Body.Close()
+ 	resp.Body = io.NopCloser(bytes.NewReader(respBody))
+ 
+-	s.handleRetryExhaustedSideEffects(ctx, resp, account)
++	s.handleRetryExhaustedSideEffects(ctx, resp, account, requestedModel...)
+ 
+ 	upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(respBody))
+ 	upstreamMsg = sanitizeUpstreamErrorMessage(upstreamMsg)
+diff --git a/backend/internal/application/service/openai_account_runtime_block_fastpath.go b/backend/internal/application/service/openai_account_runtime_block_fastpath.go
+index cc8b51cfd..942ea07bc 100644
+--- a/backend/internal/application/service/openai_account_runtime_block_fastpath.go
++++ b/backend/internal/application/service/openai_account_runtime_block_fastpath.go
+@@ -158,7 +158,8 @@ func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Cont
+ 	// Isolate a custom temporary-unschedulable match to the known upstream
+ 	// model before entering the generic account error path. This keeps the
+ 	// account available to other models and avoids the account runtime blocker.
+-	if s.rateLimitService != nil && statusCode != http.StatusUnauthorized && len(canonicalModel) > 0 && strings.TrimSpace(canonicalModel[0]) != "" &&
++	if s.rateLimitService != nil && len(canonicalModel) > 0 && strings.TrimSpace(canonicalModel[0]) != "" &&
++		tempUnschedRulesApply(account, statusCode, responseBody, canonicalModel[0]) &&
+ 		s.rateLimitService.HandleTempUnschedulable(stateCtx, account, statusCode, responseBody, canonicalModel[0]) {
+ 		return true
+ 	}
+@@ -173,7 +174,8 @@ func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Cont
+ 		return false
+ 	}
+ 	shouldDisable := s.rateLimitService.HandleUpstreamError(stateCtx, account, statusCode, headers, responseBody)
+-	modelTempMatched := statusCode != http.StatusUnauthorized && tempUnschedulableModel(stateCtx, nil) != "" &&
++	tempModel := tempUnschedulableModel(stateCtx, nil)
++	modelTempMatched := tempModel != "" && tempUnschedRulesApply(account, statusCode, responseBody, tempModel) &&
+ 		len(matchTempUnschedulableRules(account, statusCode, responseBody)) > 0
+ 	if shouldDisable && !modelTempMatched {
+ 		s.BlockAccountScheduling(account, time.Time{}, "upstream_disable")
+diff --git a/backend/internal/application/service/openai_gateway_count_tokens.go b/backend/internal/application/service/openai_gateway_count_tokens.go
+index 9579f2054..60bed92f8 100644
+--- a/backend/internal/application/service/openai_gateway_count_tokens.go
++++ b/backend/internal/application/service/openai_gateway_count_tokens.go
+@@ -104,7 +104,7 @@ func (s *OpenAIGatewayService) ForwardResponsesInputTokens(
+ 			return nil
+ 		}
+ 		if s.rateLimitService != nil {
+-			s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
++			s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody, prepared.UpstreamModel)
+ 		}
+ 		upstreamMsg := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(respBody)))
+ 		setOpsUpstreamError(c, resp.StatusCode, upstreamMsg, "")
+@@ -346,7 +346,7 @@ func (s *OpenAIGatewayService) ForwardCountTokensAsAnthropic(
+ 		}
+ 
+ 		if s.rateLimitService != nil {
+-			s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
++			s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody, prepared.UpstreamModel)
+ 		}
+ 
+ 		if isOpenAIInputTokensUnsupported(resp.StatusCode, respBody) {
+diff --git a/backend/internal/application/service/ratelimit_service.go b/backend/internal/application/service/ratelimit_service.go
+index 9481b1112..7aa64632c 100644
+--- a/backend/internal/application/service/ratelimit_service.go
++++ b/backend/internal/application/service/ratelimit_service.go
+@@ -310,8 +310,9 @@ func (s *RateLimitService) CheckErrorPolicy(ctx context.Context, account *Accoun
+ 	}
+ 	if account.IsPoolMode() {
+ 		// 池模式只跳过默认账号状态处理；管理员显式配置的临时不可调度规则仍应生效。
+-		// 401 保留现有认证错误语义，避免改变重复 401 的升级行为。
+-		if statusCode != http.StatusUnauthorized && s.tryTempUnschedulable(ctx, account, statusCode, responseBody) {
++		// 401 只在非凭据级且命中显式模型级规则时由规则处理，其余保留现有认证错误语义。
++		if tempUnschedRulesApply(account, statusCode, responseBody, tempUnschedulableModel(ctx, nil)) &&
++			s.tryTempUnschedulable(ctx, account, statusCode, responseBody) {
+ 			return ErrorPolicyTempUnscheduled
+ 		}
+ 		return ErrorPolicySkipped
+@@ -337,9 +338,10 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
+ 	customErrorCodesEnabled := account.IsCustomErrorCodesEnabled()
+ 
+ 	// 池模式默认不标记本地账号状态；但管理员显式配置的临时不可调度规则优先。
+-	// 401 保留现有认证错误语义，不在这里改变池模式的认证处理。
++	// 401 只在非凭据级且命中显式模型级规则时由规则处理，其余保留池模式现有的认证处理。
+ 	if account.IsPoolMode() && !customErrorCodesEnabled {
+-		if statusCode != http.StatusUnauthorized && s.tryTempUnschedulable(ctx, account, statusCode, responseBody) {
++		if tempUnschedRulesApply(account, statusCode, responseBody, tempUnschedulableModel(ctx, nil)) &&
++			s.tryTempUnschedulable(ctx, account, statusCode, responseBody) {
+ 			return true
+ 		}
+ 		slog.Info("pool_mode_error_skipped", "account_id", account.ID, "status_code", statusCode)
+@@ -385,9 +387,9 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
+ 		}
+ 	}
+ 
+-	// 先尝试临时不可调度规则（401除外）
++	// 先尝试临时不可调度规则（401 仅限非凭据级且命中显式模型级规则）
+ 	// 如果匹配成功，直接返回，不执行后续禁用逻辑
+-	if statusCode != 401 {
++	if tempUnschedRulesApply(account, statusCode, responseBody, tempUnschedulableModel(ctx, requestedModel)) {
+ 		if s.tryTempUnschedulable(ctx, account, statusCode, responseBody, firstRequestedModel(requestedModel)) {
+ 			return true
+ 		}
+@@ -2587,6 +2589,62 @@ func firstRequestedModel(requestedModel []string) string {
+ 	return strings.TrimSpace(requestedModel[0])
+ }
+ 
++// tempUnschedRulesApply 决定本次错误是否交给临时不可调度规则处理。
++// 401 默认留给认证错误处理；只有首条命中规则按模型级生效时，才由规则只冷却该模型。
++func tempUnschedRulesApply(account *Account, statusCode int, responseBody []byte, modelKey string) bool {
++	if statusCode != http.StatusUnauthorized {
++		return true
++	}
++	matches := matchTempUnschedulableRules(account, statusCode, responseBody)
++	return len(matches) > 0 && tempUnschedHitUsesModelScope(account, matches[0].rule, modelKey, statusCode, responseBody)
++}
++
++// tempUnschedHitUsesModelScope 决定一次命中是否按模型级冷却：凭据级 401 始终按账号处理，
++// 其余由规则作用范围决定。
++func tempUnschedHitUsesModelScope(account *Account, rule TempUnschedulableRule, modelKey string, statusCode int, responseBody []byte) bool {
++	if statusCode == http.StatusUnauthorized && unauthorizedRequiresCredentialHandling(account, responseBody) {
++		return false
++	}
++	return tempUnschedRuleUsesModelScope(rule, modelKey, statusCode)
++}
++
++// unauthorizedRequiresCredentialHandling 识别凭据级 401：OAuth 账号与 Spark 影子
++// （失效缓存、刷新窗口、缺 refresh_token 停用），以及 OpenAI 明确的凭据失效
++// （token_invalidated / token_revoked、{"detail":"Unauthorized"}）。
++func unauthorizedRequiresCredentialHandling(account *Account, responseBody []byte) bool {
++	if account == nil {
++		return false
++	}
++	if account.Type == AccountTypeOAuth || account.IsShadow() {
++		return true
++	}
++	if account.Platform != PlatformOpenAI {
++		return false
++	}
++	switch extractUpstreamErrorCode(responseBody) {
++	case "token_invalidated", "token_revoked":
++		return true
++	}
++	return gjson.GetBytes(responseBody, "detail").String() == "Unauthorized"
++}
++
++// tempUnschedRuleUsesModelScope 决定一次命中按模型级冷却还是账号级暂停。
++// 显式 scope 完全由规则决定；scope 为空时模型已知且非 401 走模型级。
++// 模型未知时无法隔离，一律账号级。
++func tempUnschedRuleUsesModelScope(rule TempUnschedulableRule, modelKey string, statusCode int) bool {
++	if strings.TrimSpace(modelKey) == "" {
++		return false
++	}
++	switch rule.Scope {
++	case TempUnschedScopeAccount:
++		return false
++	case TempUnschedScopeModel:
++		return true
++	default:
++		return statusCode != http.StatusUnauthorized
++	}
++}
++
+ type tempUnschedulableModelContextKey struct{}
+ 
+ func withTempUnschedulableModel(ctx context.Context, requestedModel []string) context.Context {
+@@ -2651,10 +2709,17 @@ func (s *RateLimitService) tryTempUnschedulable(ctx context.Context, account *Ac
+ 	if !account.IsTempUnschedulableEnabled() {
+ 		return false
+ 	}
++	matches := matchTempUnschedulableRules(account, statusCode, responseBody)
++	if len(matches) == 0 {
++		return false
++	}
++	modelKey := tempUnschedulableModel(ctx, requestedModel)
+ 	// 401 首次命中可临时不可调度（给 token 刷新窗口）；
+ 	// 若历史上已因 401 进入过临时不可调度，则本次应升级为 error（返回 false 交由默认错误逻辑处理）。
+ 	// Antigravity 跳过：其 401 由 applyErrorPolicy 的 temp_unschedulable_rules 自行控制，无需升级逻辑。
+-	if statusCode == http.StatusUnauthorized && account.Platform != PlatformAntigravity {
++	// 模型级命中只冷却模型、不写账号级状态，不参与升级。
++	if statusCode == http.StatusUnauthorized && account.Platform != PlatformAntigravity &&
++		!tempUnschedHitUsesModelScope(account, matches[0].rule, modelKey, statusCode, responseBody) {
+ 		reason := account.TempUnschedulableReason
+ 		// 缓存可能没有 reason，从 DB 回退读取
+ 		if reason == "" {
+@@ -2668,8 +2733,8 @@ func (s *RateLimitService) tryTempUnschedulable(ctx context.Context, account *Ac
+ 			return false
+ 		}
+ 	}
+-	for _, match := range matchTempUnschedulableRules(account, statusCode, responseBody) {
+-		if s.triggerTempUnschedulable(ctx, account, match.rule, match.ruleIndex, statusCode, match.matchedKeyword, responseBody, tempUnschedulableModel(ctx, requestedModel)) {
++	for _, match := range matches {
++		if s.triggerTempUnschedulable(ctx, account, match.rule, match.ruleIndex, statusCode, match.matchedKeyword, responseBody, modelKey) {
+ 			return true
+ 		}
+ 	}
+@@ -2719,6 +2784,8 @@ func (s *RateLimitService) triggerTempUnschedulable(ctx context.Context, account
+ 
+ 	now := time.Now()
+ 	until := now.Add(time.Duration(rule.DurationMinutes) * time.Minute)
++	modelKey := firstRequestedModel(requestedModel)
++	modelScoped := tempUnschedHitUsesModelScope(account, rule, modelKey, statusCode, responseBody)
+ 
+ 	state := &TempUnschedState{
+ 		UntilUnix:       until.Unix(),
+@@ -2727,6 +2794,11 @@ func (s *RateLimitService) triggerTempUnschedulable(ctx context.Context, account
+ 		MatchedKeyword:  matchedKeyword,
+ 		RuleIndex:       ruleIndex,
+ 		ErrorMessage:    truncateTempUnschedMessage(responseBody, tempUnschedMessageMaxBytes),
++		Scope:           TempUnschedScopeAccount,
++	}
++	if modelScoped {
++		state.Scope = TempUnschedScopeModel
++		state.Model = modelKey
+ 	}
+ 
+ 	reason := ""
+@@ -2737,18 +2809,16 @@ func (s *RateLimitService) triggerTempUnschedulable(ctx context.Context, account
+ 		reason = strings.TrimSpace(state.ErrorMessage)
+ 	}
+ 
+-	// Persist known-model failures under the model key so the scheduler excludes
+-	// only this (account, model) pair. Authentication and model-unknown failures
+-	// retain the legacy account-wide temporary-unschedulable behavior below.
+-	modelKey := firstRequestedModel(requestedModel)
+-	if modelKey != "" && statusCode != http.StatusUnauthorized {
++	// Persist model-scoped hits under the model key so the scheduler excludes
++	// only this (account, model) pair; every other hit pauses the whole account below.
++	if modelScoped {
+ 		if err := s.accountRepo.SetModelRateLimit(ctx, account.ID, modelKey, until, reason); err != nil {
+ 			slog.Warn("temp_unsched_model_rate_limit_set_failed", "account_id", account.ID, "model", modelKey, "error", err)
+ 			// The rule matched, so fail over the current request even if persistence
+ 			// failed; never widen a model-scoped failure into an account-wide block.
+ 			return true
+ 		}
+-		slog.Info("account_model_temp_unschedulable", "account_id", account.ID, "model", modelKey, "until", until, "rule_index", ruleIndex, "status_code", statusCode)
++		slog.Info("account_model_temp_unschedulable", "account_id", account.ID, "model", modelKey, "until", until, "rule_index", ruleIndex, "rule_scope", rule.Scope, "status_code", statusCode)
+ 		return true
+ 	}
+ 
+@@ -2764,7 +2834,7 @@ func (s *RateLimitService) triggerTempUnschedulable(ctx context.Context, account
+ 		}
+ 	}
+ 
+-	slog.Info("account_temp_unschedulable", "account_id", account.ID, "until", until, "rule_index", ruleIndex, "status_code", statusCode)
++	slog.Info("account_temp_unschedulable", "account_id", account.ID, "until", until, "rule_index", ruleIndex, "rule_scope", rule.Scope, "status_code", statusCode)
+ 	return true
+ }
+ 
+diff --git a/backend/internal/application/service/temp_unsched.go b/backend/internal/application/service/temp_unsched.go
+index 92b7da3f7..67ecb8e70 100644
+--- a/backend/internal/application/service/temp_unsched.go
++++ b/backend/internal/application/service/temp_unsched.go
+@@ -16,6 +16,8 @@ type TempUnschedState struct {
+ 	TriggerCount         int64  `json:"trigger_count,omitempty"`          // 本次触发累计命中次数
+ 	TriggerThreshold     int    `json:"trigger_threshold,omitempty"`      // 触发阈值
+ 	TriggerWindowMinutes int    `json:"trigger_window_minutes,omitempty"` // 计数窗口（分钟）
++	Scope                string `json:"scope,omitempty"`                  // 隔离粒度：account / model
++	Model                string `json:"model,omitempty"`                  // 模型级时被冷却的模型键
+ }
+ 
+ // TempUnschedCache 临时不可调度缓存接口
+diff --git a/backend/internal/application/service/temp_unsched_scope_test.go b/backend/internal/application/service/temp_unsched_scope_test.go
+new file mode 100644
+index 000000000..71b3ccc5b
+--- /dev/null
++++ b/backend/internal/application/service/temp_unsched_scope_test.go
+@@ -0,0 +1,493 @@
++//go:build unit
++
++package service
++
++import (
++	"bytes"
++	"context"
++	"encoding/json"
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++	"time"
++
++	"github.com/Wei-Shaw/sub2api/internal/platform/config"
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++	"github.com/tidwall/gjson"
++)
++
++type tempUnschedScopeRepoStub struct {
++	modelNotFoundAccountRepoStub
++	tempReasons []string
++	errorCalls  int
++}
++
++func (r *tempUnschedScopeRepoStub) SetError(context.Context, int64, string) error {
++	r.errorCalls++
++	return nil
++}
++
++func (r *tempUnschedScopeRepoStub) SetTempUnschedulable(_ context.Context, _ int64, _ time.Time, reason string) error {
++	r.tempCalls++
++	r.tempReasons = append(r.tempReasons, reason)
++	return nil
++}
++
++func newTempUnschedScopeAccount(scope string, extra map[string]any) *Account {
++	rule := map[string]any{
++		"error_code":       float64(http.StatusServiceUnavailable),
++		"keywords":         []any{"unavailable"},
++		"duration_minutes": float64(10),
++	}
++	if scope != "" {
++		rule["scope"] = scope
++	}
++	for k, v := range extra {
++		rule[k] = v
++	}
++	return &Account{
++		ID:          202,
++		Platform:    PlatformOpenAI,
++		Type:        AccountTypeAPIKey,
++		Status:      StatusActive,
++		Schedulable: true,
++		Credentials: map[string]any{
++			"temp_unschedulable_enabled": true,
++			"temp_unschedulable_rules":   []any{rule},
++		},
++	}
++}
++
++var tempUnschedScopeBody = []byte(`{"error":{"message":"upstream unavailable"}}`)
++
++var (
++	tempUnschedScope401Body         = []byte(`{"error":{"message":"unauthorized"}}`)
++	tempUnschedScopeRevoked401Body  = []byte(`{"error":{"code":"token_revoked","message":"unauthorized"}}`)
++	tempUnschedScopeDetail401Body   = []byte(`{"detail":"Unauthorized"}`)
++	tempUnschedScopePrevious401Mark = `{"status_code":401,"until_unix":1735689600}`
++)
++
++func tempUnschedScope401Rule(scope string) map[string]any {
++	rule := map[string]any{
++		"error_code":       float64(http.StatusUnauthorized),
++		"keywords":         []any{"unauthorized"},
++		"duration_minutes": float64(10),
++	}
++	if scope != "" {
++		rule["scope"] = scope
++	}
++	return rule
++}
++
++func newTempUnschedScope401Account(platform string, scopes ...string) *Account {
++	account := newTempUnschedScopeAccount("", nil)
++	account.Platform = platform
++	rules := make([]any, 0, len(scopes))
++	for _, scope := range scopes {
++		rules = append(rules, tempUnschedScope401Rule(scope))
++	}
++	account.Credentials["temp_unschedulable_rules"] = rules
++	return account
++}
++
++func TestGetTempUnschedulableRules_ParsesScope(t *testing.T) {
++	mk := func(keyword string, scope any) map[string]any {
++		rule := map[string]any{
++			"error_code":       float64(http.StatusServiceUnavailable),
++			"keywords":         []any{keyword},
++			"duration_minutes": float64(1),
++		}
++		if scope != nil {
++			rule["scope"] = scope
++		}
++		return rule
++	}
++	account := &Account{Credentials: map[string]any{
++		"temp_unschedulable_rules": []any{
++			mk("a", "account"),
++			mk("b", " Model "),
++			mk("c", "whatever"),
++			mk("d", nil),
++		},
++	}}
++
++	rules := account.GetTempUnschedulableRules()
++
++	require.Len(t, rules, 4)
++	require.Equal(t, TempUnschedScopeAccount, rules[0].Scope)
++	require.Equal(t, TempUnschedScopeModel, rules[1].Scope, "大小写与首尾空白应被归一化")
++	require.Empty(t, rules[2].Scope, "未知取值视为未设置")
++	require.Empty(t, rules[3].Scope)
++}
++
++func TestTempUnschedRuleUsesModelScope(t *testing.T) {
++	cases := []struct {
++		name   string
++		scope  string
++		model  string
++		status int
++		want   bool
++	}{
++		{"缺省 模型已知 非401 走模型级", "", "gpt-5.4", http.StatusServiceUnavailable, true},
++		{"缺省 401 走账号级", "", "gpt-5.4", http.StatusUnauthorized, false},
++		{"缺省 模型未知 走账号级", "", "", http.StatusServiceUnavailable, false},
++		{"显式账号级 模型已知 仍账号级", TempUnschedScopeAccount, "gpt-5.4", http.StatusServiceUnavailable, false},
++		{"显式模型级 401 仍模型级", TempUnschedScopeModel, "gpt-5.4", http.StatusUnauthorized, true},
++		{"显式模型级 模型未知 兜底账号级", TempUnschedScopeModel, "  ", http.StatusServiceUnavailable, false},
++	}
++	for _, tc := range cases {
++		t.Run(tc.name, func(t *testing.T) {
++			got := tempUnschedRuleUsesModelScope(TempUnschedulableRule{Scope: tc.scope}, tc.model, tc.status)
++			require.Equal(t, tc.want, got)
++		})
++	}
++}
++
++func TestHandleTempUnschedulable_ExplicitAccountScopePausesWholeAccountWithKnownModel(t *testing.T) {
++	repo := &tempUnschedScopeRepoStub{}
++	svc := &RateLimitService{accountRepo: repo}
++	account := newTempUnschedScopeAccount(TempUnschedScopeAccount, nil)
++
++	handled := svc.HandleTempUnschedulable(context.Background(), account, http.StatusServiceUnavailable, tempUnschedScopeBody, "gpt-5.4")
++
++	require.True(t, handled)
++	require.Equal(t, 1, repo.tempCalls)
++	require.Empty(t, repo.modelRateLimitCalls)
++
++	var state TempUnschedState
++	require.NoError(t, json.Unmarshal([]byte(repo.tempReasons[0]), &state))
++	require.Equal(t, TempUnschedScopeAccount, state.Scope)
++	require.Empty(t, state.Model)
++}
++
++func TestCheckErrorPolicy_ExplicitModelScopeKeeps401ModelScoped(t *testing.T) {
++	repo := &tempUnschedScopeRepoStub{}
++	svc := &RateLimitService{accountRepo: repo}
++	account := newTempUnschedScopeAccount(TempUnschedScopeModel, map[string]any{
++		"error_code": float64(http.StatusUnauthorized),
++		"keywords":   []any{"unauthorized"},
++	})
++
++	result := svc.CheckErrorPolicy(context.Background(), account, http.StatusUnauthorized,
++		[]byte(`{"error":{"message":"unauthorized"}}`), "gpt-5.4")
++
++	require.Equal(t, ErrorPolicyTempUnscheduled, result)
++	require.Zero(t, repo.tempCalls, "运营人员显式选了模型级，401 也不应连累整个账号")
++	require.Len(t, repo.modelRateLimitCalls, 1)
++	require.Equal(t, "gpt-5.4", repo.modelRateLimitCalls[0].scope)
++
++	var state TempUnschedState
++	require.NoError(t, json.Unmarshal([]byte(repo.modelRateLimitCalls[0].reason), &state))
++	require.Equal(t, TempUnschedScopeModel, state.Scope)
++	require.Equal(t, "gpt-5.4", state.Model)
++	require.Equal(t, http.StatusUnauthorized, state.StatusCode)
++}
++
++func TestHandleTempUnschedulable_ExplicitModelScopeFallsBackToAccountWhenModelUnknown(t *testing.T) {
++	repo := &tempUnschedScopeRepoStub{}
++	svc := &RateLimitService{accountRepo: repo}
++	account := newTempUnschedScopeAccount(TempUnschedScopeModel, nil)
++
++	handled := svc.HandleTempUnschedulable(context.Background(), account, http.StatusServiceUnavailable, tempUnschedScopeBody)
++
++	require.True(t, handled)
++	require.Equal(t, 1, repo.tempCalls)
++	require.Empty(t, repo.modelRateLimitCalls)
++}
++
++func TestOpenAIFailoverSideEffects_401FollowsTempUnschedScope(t *testing.T) {
++	cases := []struct {
++		name         string
++		scopes       []string
++		body         []byte
++		poolMode     bool
++		oauth        bool
++		wantModel    bool
++		wantTemp     bool
++		wantSetError bool
++		wantBlocked  bool
++	}{
++		{name: "显式模型级 只冷却模型", scopes: []string{TempUnschedScopeModel}, wantModel: true},
++		{name: "显式模型级 池模式 只冷却模型", scopes: []string{TempUnschedScopeModel}, poolMode: true, wantModel: true},
++		{name: "缺省 走认证错误处理", scopes: []string{""}, wantSetError: true, wantBlocked: true},
++		{name: "显式账号级 走认证错误处理", scopes: []string{TempUnschedScopeAccount}, wantSetError: true, wantBlocked: true},
++		{name: "首条命中为账号级 走认证错误处理", scopes: []string{TempUnschedScopeAccount, TempUnschedScopeModel}, wantSetError: true, wantBlocked: true},
++		{name: "缺省 池模式 保持跳过", scopes: []string{""}, poolMode: true},
++		{name: "显式模型级 token_revoked 走认证错误处理", scopes: []string{TempUnschedScopeModel}, body: tempUnschedScopeRevoked401Body, wantSetError: true, wantBlocked: true},
++		{name: "显式模型级 detail Unauthorized 走认证错误处理", scopes: []string{TempUnschedScopeModel}, body: tempUnschedScopeDetail401Body, wantSetError: true, wantBlocked: true},
++		{name: "显式模型级 token_revoked 池模式 保持跳过", scopes: []string{TempUnschedScopeModel}, body: tempUnschedScopeRevoked401Body, poolMode: true},
++		{name: "显式模型级 OAuth 走刷新窗口", scopes: []string{TempUnschedScopeModel}, oauth: true, wantTemp: true, wantBlocked: true},
++	}
++	for _, tc := range cases {
++		t.Run(tc.name, func(t *testing.T) {
++			repo := &tempUnschedScopeRepoStub{}
++			gateway := &OpenAIGatewayService{rateLimitService: &RateLimitService{accountRepo: repo, cfg: &config.Config{}}}
++			account := newTempUnschedScope401Account(PlatformOpenAI, tc.scopes...)
++			if tc.poolMode {
++				account.Credentials["pool_mode"] = true
++			}
++			if tc.oauth {
++				account.Type = AccountTypeOAuth
++				account.Credentials["refresh_token"] = "rt"
++			}
++			body := tc.body
++			if body == nil {
++				body = tempUnschedScope401Body
++			}
++
++			require.True(t, gateway.shouldFailoverOpenAIUpstreamResponse(account, http.StatusUnauthorized, "unauthorized", body))
++			gateway.handleFailoverSideEffects(context.Background(), &http.Response{
++				StatusCode: http.StatusUnauthorized,
++				Header:     http.Header{},
++			}, account, body, "gpt-5.4")
++
++			require.Equal(t, tc.wantTemp, repo.tempCalls == 1, "SetTempUnschedulable=%d", repo.tempCalls)
++			require.Equal(t, tc.wantSetError, repo.errorCalls == 1, "SetError=%d", repo.errorCalls)
++			require.Equal(t, tc.wantBlocked, gateway.isOpenAIAccountRuntimeBlocked(account))
++			if tc.wantModel {
++				require.Len(t, repo.modelRateLimitCalls, 1)
++				require.Equal(t, "gpt-5.4", repo.modelRateLimitCalls[0].scope)
++			} else {
++				require.Empty(t, repo.modelRateLimitCalls)
++			}
++		})
++	}
++}
++
++func TestHandleUpstreamError_ExplicitModelScope401(t *testing.T) {
++	t.Run("模型已知 只冷却模型", func(t *testing.T) {
++		repo := &tempUnschedScopeRepoStub{}
++		svc := &RateLimitService{accountRepo: repo}
++		account := newTempUnschedScope401Account(PlatformAnthropic, TempUnschedScopeModel)
++
++		shouldDisable := svc.HandleUpstreamError(context.Background(), account, http.StatusUnauthorized, http.Header{}, tempUnschedScope401Body, "claude-sonnet-4-5")
++
++		require.True(t, shouldDisable)
++		require.Zero(t, repo.errorCalls)
++		require.Zero(t, repo.tempCalls)
++		require.Len(t, repo.modelRateLimitCalls, 1)
++		require.Equal(t, "claude-sonnet-4-5", repo.modelRateLimitCalls[0].scope)
++	})
++
++	t.Run("模型未知 按账号级规则走认证错误处理", func(t *testing.T) {
++		repo := &tempUnschedScopeRepoStub{}
++		svc := &RateLimitService{accountRepo: repo}
++		account := newTempUnschedScope401Account(PlatformAnthropic, TempUnschedScopeModel)
++
++		shouldDisable := svc.HandleUpstreamError(context.Background(), account, http.StatusUnauthorized, http.Header{}, tempUnschedScope401Body)
++
++		require.True(t, shouldDisable)
++		require.Equal(t, 1, repo.errorCalls)
++		require.Empty(t, repo.modelRateLimitCalls)
++	})
++}
++
++func TestCheckErrorPolicy_401FollowsTempUnschedScope(t *testing.T) {
++	cases := []struct {
++		name        string
++		scope       string
++		body        []byte
++		oauth       bool
++		previous401 bool
++		want        ErrorPolicyResult
++		wantModel   bool
++		wantTemp    bool
++	}{
++		{name: "显式模型级 不参与重复 401 升级", scope: TempUnschedScopeModel, previous401: true, want: ErrorPolicyTempUnscheduled, wantModel: true},
++		{name: "缺省 第二次 401 升级", previous401: true, want: ErrorPolicyNone},
++		{name: "显式模型级 token_revoked 按账号暂停", scope: TempUnschedScopeModel, body: tempUnschedScopeRevoked401Body, want: ErrorPolicyTempUnscheduled, wantTemp: true},
++		{name: "显式模型级 detail Unauthorized 按账号暂停", scope: TempUnschedScopeModel, body: tempUnschedScopeDetail401Body, want: ErrorPolicyTempUnscheduled, wantTemp: true},
++		{name: "显式模型级 OAuth 按账号暂停", scope: TempUnschedScopeModel, oauth: true, want: ErrorPolicyTempUnscheduled, wantTemp: true},
++		{name: "显式模型级 凭据级第二次 401 升级", scope: TempUnschedScopeModel, body: tempUnschedScopeDetail401Body, previous401: true, want: ErrorPolicyNone},
++	}
++	for _, tc := range cases {
++		t.Run(tc.name, func(t *testing.T) {
++			repo := &tempUnschedScopeRepoStub{}
++			svc := &RateLimitService{accountRepo: repo}
++			account := newTempUnschedScope401Account(PlatformOpenAI, tc.scope)
++			if tc.oauth {
++				account.Type = AccountTypeOAuth
++			}
++			if tc.previous401 {
++				account.TempUnschedulableReason = tempUnschedScopePrevious401Mark
++			}
++			body := tc.body
++			if body == nil {
++				body = tempUnschedScope401Body
++			}
++
++			result := svc.CheckErrorPolicy(context.Background(), account, http.StatusUnauthorized, body, "gpt-5.4")
++
++			require.Equal(t, tc.want, result)
++			require.Equal(t, tc.wantTemp, repo.tempCalls == 1, "SetTempUnschedulable=%d", repo.tempCalls)
++			require.Equal(t, tc.wantModel, len(repo.modelRateLimitCalls) == 1)
++		})
++	}
++}
++
++// 计数入口把实际发往上游的模型交给错误处理：显式模型级 401 规则只冷却该模型，不把整号置为 error。
++func TestCountTokensEntries_ExplicitModelScope401OnlyCoolsModel(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	unauthorized := func() *http.Response {
++		return &http.Response{
++			StatusCode: http.StatusUnauthorized,
++			Header:     http.Header{"Content-Type": []string{"application/json"}},
++			Body:       io.NopCloser(strings.NewReader(`{"error":{"message":"unauthorized"}}`)),
++		}
++	}
++	cfg := &config.Config{
++		Gateway:  config.GatewayConfig{MaxLineSize: defaultMaxLineSize},
++		Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false, AllowInsecureHTTP: true}},
++	}
++	newContext := func(path string, body []byte) (*gin.Context, *httptest.ResponseRecorder) {
++		rec := httptest.NewRecorder()
++		c, _ := gin.CreateTestContext(rec)
++		c.Request = httptest.NewRequest(http.MethodPost, path, bytes.NewReader(body))
++		return c, rec
++	}
++
++	t.Run("openai count_tokens as anthropic", func(t *testing.T) {
++		repo := &tempUnschedScopeRepoStub{}
++		upstream := &httpUpstreamRecorder{resp: unauthorized()}
++		svc := &OpenAIGatewayService{cfg: cfg, httpUpstream: upstream, rateLimitService: &RateLimitService{accountRepo: repo, cfg: cfg}}
++		account := newTempUnschedScope401Account(PlatformOpenAI, TempUnschedScopeModel)
++		account.Credentials["api_key"] = "sk-test"
++		account.Credentials["base_url"] = "http://upstream.example"
++		account.Concurrency = 1
++		body := []byte(`{"model":"claude-sonnet-4-5","messages":[{"role":"user","content":"hello"}]}`)
++		c, _ := newContext("/v1/messages/count_tokens", body)
++
++		require.Error(t, svc.ForwardCountTokensAsAnthropic(context.Background(), c, account, body, "gpt-5.4"))
++
++		require.Equal(t, "gpt-5.4", gjson.GetBytes(upstream.lastBody, "model").String())
++		require.Zero(t, repo.errorCalls)
++		require.Zero(t, repo.tempCalls)
++		require.Len(t, repo.modelRateLimitCalls, 1)
++		require.Equal(t, "gpt-5.4", repo.modelRateLimitCalls[0].scope)
++	})
++
++	t.Run("openai responses input_tokens", func(t *testing.T) {
++		repo := &tempUnschedScopeRepoStub{}
++		upstream := &httpUpstreamRecorder{resp: unauthorized()}
++		svc := &OpenAIGatewayService{cfg: cfg, httpUpstream: upstream, rateLimitService: &RateLimitService{accountRepo: repo, cfg: cfg}}
++		account := newTempUnschedScope401Account(PlatformOpenAI, TempUnschedScopeModel)
++		account.Credentials["api_key"] = "sk-test"
++		account.Credentials["model_mapping"] = map[string]any{"gpt-5.4": "gpt-5.4-upstream"}
++		account.Concurrency = 1
++		body := []byte(`{"model":"gpt-5.4","input":"hello"}`)
++		c, _ := newContext("/v1/responses/input_tokens", body)
++
++		require.Error(t, svc.ForwardResponsesInputTokens(context.Background(), c, account, body))
++
++		require.NotNil(t, upstream.lastReq)
++		require.Equal(t, "gpt-5.4-upstream", gjson.GetBytes(upstream.lastBody, "model").String())
++		require.Zero(t, repo.errorCalls)
++		require.Zero(t, repo.tempCalls)
++		require.Len(t, repo.modelRateLimitCalls, 1)
++		require.Equal(t, "gpt-5.4-upstream", repo.modelRateLimitCalls[0].scope)
++	})
++
++	for _, passthrough := range []bool{false, true} {
++		name := "anthropic count_tokens"
++		if passthrough {
++			name = "anthropic count_tokens api key passthrough"
++		}
++		t.Run(name, func(t *testing.T) {
++			repo := &tempUnschedScopeRepoStub{}
++			upstream := &anthropicHTTPUpstreamRecorder{resp: unauthorized()}
++			svc := &GatewayService{
++				cfg:                  cfg,
++				responseHeaderFilter: compileResponseHeaderFilter(cfg),
++				httpUpstream:         upstream,
++				rateLimitService:     &RateLimitService{accountRepo: repo, cfg: cfg},
++			}
++			account := newTempUnschedScope401Account(PlatformAnthropic, TempUnschedScopeModel)
++			account.Credentials["api_key"] = "upstream-anthropic-key"
++			account.Credentials["base_url"] = "https://api.anthropic.com"
++			account.Credentials["model_mapping"] = map[string]any{"claude-sonnet-4-5": "claude-sonnet-4-5-upstream"}
++			account.Concurrency = 1
++			if passthrough {
++				account.Extra = map[string]any{"anthropic_passthrough": true}
++			}
++			body := []byte(`{"model":"claude-sonnet-4-5","messages":[{"role":"user","content":"hello"}]}`)
++			c, _ := newContext("/v1/messages/count_tokens", body)
++			parsed := &ParsedRequest{Body: NewRequestBodyRef(body), Model: "claude-sonnet-4-5"}
++
++			require.Error(t, svc.ForwardCountTokens(context.Background(), c, account, parsed))
++
++			require.NotNil(t, upstream.lastReq)
++			require.Equal(t, "claude-sonnet-4-5-upstream", gjson.GetBytes(upstream.lastBody, "model").String())
++			require.Zero(t, repo.errorCalls)
++			require.Zero(t, repo.tempCalls)
++			require.Len(t, repo.modelRateLimitCalls, 1)
++			require.Equal(t, "claude-sonnet-4-5-upstream", repo.modelRateLimitCalls[0].scope)
++		})
++	}
++}
++
++// Bedrock 故障转移入口与重试耗尽入口把实际发往上游的模型交给错误处理：显式模型级规则只冷却该模型。
++func TestAnthropicFailoverEntries_ExplicitModelScopeOnlyCoolsModel(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	cfg := &config.Config{Gateway: config.GatewayConfig{MaxLineSize: defaultMaxLineSize}}
++	newResponse := func(status int, body string) *http.Response {
++		return &http.Response{
++			StatusCode: status,
++			Header:     http.Header{"Content-Type": []string{"application/json"}},
++			Body:       io.NopCloser(strings.NewReader(body)),
++		}
++	}
++
++	t.Run("bedrock failover 401", func(t *testing.T) {
++		repo := &tempUnschedScopeRepoStub{}
++		upstream := &anthropicHTTPUpstreamRecorder{resp: newResponse(http.StatusUnauthorized, `{"message":"unauthorized"}`)}
++		svc := &GatewayService{cfg: cfg, httpUpstream: upstream, rateLimitService: &RateLimitService{accountRepo: repo, cfg: cfg}}
++		account := newTempUnschedScope401Account(PlatformAnthropic, TempUnschedScopeModel)
++		account.Type = AccountTypeBedrock
++		account.Status = StatusActive
++		account.Schedulable = true
++		account.Credentials["auth_mode"] = "apikey"
++		account.Credentials["api_key"] = "bedrock-key"
++		body := []byte(`{"model":"claude-sonnet-4-5","messages":[{"role":"user","content":"hello"}]}`)
++		rec := httptest.NewRecorder()
++		c, _ := gin.CreateTestContext(rec)
++		c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewReader(body))
++		parsed := &ParsedRequest{Body: NewRequestBodyRef(body), Model: "claude-sonnet-4-5"}
++
++		_, err := svc.forwardBedrock(context.Background(), c, account, parsed, time.Now())
++
++		var failover *UpstreamFailoverError
++		require.ErrorAs(t, err, &failover)
++		require.NotNil(t, upstream.lastReq)
++		require.Contains(t, upstream.lastReq.URL.Path, "anthropic.claude-sonnet-4-5-", "上游收到 Bedrock 模型 ID")
++		require.Zero(t, repo.errorCalls)
++		require.Zero(t, repo.tempCalls)
++		require.Len(t, repo.modelRateLimitCalls, 1)
++		// 冷却键必须是调度器查找的键（账号映射后的模型名），而不是 Bedrock 模型 ID。
++		scope := repo.modelRateLimitCalls[0].scope
++		require.Equal(t, "claude-sonnet-4-5", scope)
++		require.True(t, account.IsSchedulableForModelWithContext(context.Background(), "claude-sonnet-4-5"))
++		setAccountModelRateLimitSnapshot(account, scope, time.Now().Add(10*time.Minute), "temp_unschedulable", time.Now())
++		require.False(t, account.IsSchedulableForModelWithContext(context.Background(), "claude-sonnet-4-5"), "调度器按同一个键排除该模型")
++	})
++
++	t.Run("oauth retry exhausted 403", func(t *testing.T) {
++		repo := &tempUnschedScopeRepoStub{}
++		svc := &GatewayService{cfg: cfg, rateLimitService: &RateLimitService{accountRepo: repo, cfg: cfg}}
++		account := newTempUnschedScopeAccount(TempUnschedScopeModel, map[string]any{
++			"error_code": float64(http.StatusForbidden),
++			"keywords":   []any{"forbidden"},
++		})
++		account.Platform = PlatformAnthropic
++		account.Type = AccountTypeOAuth
++
++		svc.handleRetryExhaustedSideEffects(context.Background(), newResponse(http.StatusForbidden, `{"error":{"message":"forbidden"}}`), account, "claude-sonnet-4-5")
++
++		require.Zero(t, repo.errorCalls)
++		require.Zero(t, repo.tempCalls)
++		require.Len(t, repo.modelRateLimitCalls, 1)
++		require.Equal(t, "claude-sonnet-4-5", repo.modelRateLimitCalls[0].scope)
++	})
++}
+diff --git a/frontend/src/components/account/CreateAccountModal.vue b/frontend/src/components/account/CreateAccountModal.vue
+index 315feae30..93deb2f4c 100644
+--- a/frontend/src/components/account/CreateAccountModal.vue
++++ b/frontend/src/components/account/CreateAccountModal.vue
+@@ -2733,6 +2733,44 @@
+                     :placeholder="t('admin.accounts.tempUnschedulable.durationPlaceholder')"
+                   />
+                 </div>
++                <div class="sm:col-span-2">
++                  <label class="input-label">{{ t('admin.accounts.tempUnschedulable.scope') }}</label>
++                  <div
++                    class="grid grid-cols-1 gap-2 sm:grid-cols-2"
++                    role="radiogroup"
++                    :aria-label="t('admin.accounts.tempUnschedulable.scope')"
++                  >
++                    <button
++                      v-for="option in tempUnschedScopeOptions"
++                      :key="option.value"
++                      type="button"
++                      role="radio"
++                      :aria-checked="rule.scope === option.value"
++                      :data-testid="`temp-unsched-scope-${option.value}`"
++                      @click="rule.scope = option.value"
++                      :class="[
++                        'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
++                        rule.scope === option.value
++                          ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
++                          : 'border-gray-200 hover:border-gray-400 dark:border-dark-600 dark:hover:border-gray-600'
++                      ]"
++                    >
++                      <span
++                        :class="[
++                          'flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2',
++                          rule.scope === option.value ? 'border-primary-500' : 'border-gray-300 dark:border-dark-500'
++                        ]"
++                      >
++                        <span v-if="rule.scope === option.value" class="h-1.5 w-1.5 rounded-full bg-primary-500" />
++                      </span>
++                      <span>
++                        <span class="block text-sm font-medium text-gray-900 dark:text-white">{{ option.label }}</span>
++                        <span class="text-xs text-gray-500 dark:text-gray-400">{{ option.description }}</span>
++                      </span>
++                    </button>
++                  </div>
++                  <p class="input-hint">{{ t('admin.accounts.tempUnschedulable.scopeHint') }}</p>
++                </div>
+                 <div class="sm:col-span-2">
+                   <label class="input-label">{{ t('admin.accounts.tempUnschedulable.keywords') }}</label>
+                   <input
+@@ -4108,7 +4146,8 @@ import type {
+   CodexSessionImportMessage,
+   OpenAICompactMode,
+   OpenAIResponsesMode,
+-  OpenAIEndpointCapability
++  OpenAIEndpointCapability,
++  TempUnschedulableScope
+ } from '@/types'
+ import BaseDialog from '@/components/common/BaseDialog.vue'
+ import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+@@ -4344,6 +4383,8 @@ interface TempUnschedRuleForm {
+   keywords: string
+   duration_minutes: number | null
+   description: string
++  // 作用范围：account 暂停整个账号，model 只冷却本次请求的模型。
++  scope: TempUnschedulableScope
+ }
+ 
+ // State
+@@ -4931,6 +4972,19 @@ const geminiHelpLinks = {
+ 
+ // Computed: current preset mappings based on platform
+ const presetMappings = computed(() => getPresetMappingsByPlatform(form.platform))
++const tempUnschedScopeOptions = computed<Array<{ value: TempUnschedulableScope; label: string; description: string }>>(() => [
++  {
++    value: 'model',
++    label: t('admin.accounts.tempUnschedulable.scopeModel'),
++    description: t('admin.accounts.tempUnschedulable.scopeModelDesc')
++  },
++  {
++    value: 'account',
++    label: t('admin.accounts.tempUnschedulable.scopeAccount'),
++    description: t('admin.accounts.tempUnschedulable.scopeAccountDesc')
++  }
++])
++
+ const tempUnschedPresets = computed(() => [
+   {
+     label: t('admin.accounts.tempUnschedulable.presets.overloadLabel'),
+@@ -4938,7 +4992,8 @@ const tempUnschedPresets = computed(() => [
+       error_code: 529,
+       keywords: 'overloaded, too many',
+       duration_minutes: 60,
+-      description: t('admin.accounts.tempUnschedulable.presets.overloadDesc')
++      description: t('admin.accounts.tempUnschedulable.presets.overloadDesc'),
++      scope: 'model' as const
+     }
+   },
+   {
+@@ -4947,7 +5002,8 @@ const tempUnschedPresets = computed(() => [
+       error_code: 429,
+       keywords: 'rate limit, too many requests',
+       duration_minutes: 10,
+-      description: t('admin.accounts.tempUnschedulable.presets.rateLimitDesc')
++      description: t('admin.accounts.tempUnschedulable.presets.rateLimitDesc'),
++      scope: 'model' as const
+     }
+   },
+   {
+@@ -4956,7 +5012,8 @@ const tempUnschedPresets = computed(() => [
+       error_code: 503,
+       keywords: 'unavailable, maintenance',
+       duration_minutes: 30,
+-      description: t('admin.accounts.tempUnschedulable.presets.unavailableDesc')
++      description: t('admin.accounts.tempUnschedulable.presets.unavailableDesc'),
++      scope: 'model' as const
+     }
+   }
+ ])
+@@ -5343,7 +5400,8 @@ const addTempUnschedRule = (preset?: TempUnschedRuleForm) => {
+     error_code: null,
+     keywords: '',
+     duration_minutes: 30,
+-    description: ''
++    description: '',
++    scope: 'model'
+   })
+ }
+ 
+@@ -5366,6 +5424,7 @@ const buildTempUnschedRules = (rules: TempUnschedRuleForm[]) => {
+     keywords: string[]
+     duration_minutes: number
+     description: string
++    scope: TempUnschedulableScope
+   }> = []
+ 
+   for (const rule of rules) {
+@@ -5385,7 +5444,8 @@ const buildTempUnschedRules = (rules: TempUnschedRuleForm[]) => {
+       error_code: Math.trunc(errorCode),
+       keywords,
+       duration_minutes: Math.trunc(duration),
+-      description: rule.description.trim()
++      description: rule.description.trim(),
++      scope: rule.scope
+     })
+   }
+ 
+diff --git a/frontend/src/components/account/EditAccountModal.vue b/frontend/src/components/account/EditAccountModal.vue
+index 04b1c9f68..0db31ad08 100644
+--- a/frontend/src/components/account/EditAccountModal.vue
++++ b/frontend/src/components/account/EditAccountModal.vue
+@@ -1621,6 +1621,44 @@
+                     :placeholder="t('admin.accounts.tempUnschedulable.durationPlaceholder')"
+                   />
+                 </div>
++                <div class="sm:col-span-2">
++                  <label class="input-label">{{ t('admin.accounts.tempUnschedulable.scope') }}</label>
++                  <div
++                    class="grid grid-cols-1 gap-2 sm:grid-cols-2"
++                    role="radiogroup"
++                    :aria-label="t('admin.accounts.tempUnschedulable.scope')"
++                  >
++                    <button
++                      v-for="option in tempUnschedScopeOptions"
++                      :key="option.value"
++                      type="button"
++                      role="radio"
++                      :aria-checked="rule.scope === option.value"
++                      :data-testid="`temp-unsched-scope-${option.value}`"
++                      @click="rule.scope = option.value"
++                      :class="[
++                        'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
++                        rule.scope === option.value
++                          ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
++                          : 'border-gray-200 hover:border-gray-400 dark:border-dark-600 dark:hover:border-gray-600'
++                      ]"
++                    >
++                      <span
++                        :class="[
++                          'flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2',
++                          rule.scope === option.value ? 'border-primary-500' : 'border-gray-300 dark:border-dark-500'
++                        ]"
++                      >
++                        <span v-if="rule.scope === option.value" class="h-1.5 w-1.5 rounded-full bg-primary-500" />
++                      </span>
++                      <span>
++                        <span class="block text-sm font-medium text-gray-900 dark:text-white">{{ option.label }}</span>
++                        <span class="text-xs text-gray-500 dark:text-gray-400">{{ option.description }}</span>
++                      </span>
++                    </button>
++                  </div>
++                  <p class="input-hint">{{ t('admin.accounts.tempUnschedulable.scopeHint') }}</p>
++                </div>
+                 <div class="sm:col-span-2">
+                   <label class="input-label">{{ t('admin.accounts.tempUnschedulable.keywords') }}</label>
+                   <input
+@@ -3208,7 +3246,8 @@ import type {
+   GrokMediaEligibilityMode,
+   GrokMediaEligibilityState,
+   OpenCodeGoUsageState,
+-  OpenCodeGoUsageWindow
++  OpenCodeGoUsageWindow,
++  TempUnschedulableScope
+ } from '@/types'
+ import BaseDialog from '@/components/common/BaseDialog.vue'
+ import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+@@ -3443,6 +3482,8 @@ interface TempUnschedRuleForm {
+   keywords: string
+   duration_minutes: number | null
+   description: string
++  // 作用范围：account 暂停整个账号，model 只冷却本次请求的模型。
++  scope: TempUnschedulableScope
+ }
+ 
+ // State
+@@ -4076,6 +4117,19 @@ const openAICompactStatusKey = computed(() => {
+ 
+ // Computed: current preset mappings based on platform
+ const presetMappings = computed(() => getPresetMappingsByPlatform(props.account?.platform || 'anthropic'))
++const tempUnschedScopeOptions = computed<Array<{ value: TempUnschedulableScope; label: string; description: string }>>(() => [
++  {
++    value: 'model',
++    label: t('admin.accounts.tempUnschedulable.scopeModel'),
++    description: t('admin.accounts.tempUnschedulable.scopeModelDesc')
++  },
++  {
++    value: 'account',
++    label: t('admin.accounts.tempUnschedulable.scopeAccount'),
++    description: t('admin.accounts.tempUnschedulable.scopeAccountDesc')
++  }
++])
++
+ const tempUnschedPresets = computed(() => [
+   {
+     label: t('admin.accounts.tempUnschedulable.presets.overloadLabel'),
+@@ -4083,7 +4137,8 @@ const tempUnschedPresets = computed(() => [
+       error_code: 529,
+       keywords: 'overloaded, too many',
+       duration_minutes: 60,
+-      description: t('admin.accounts.tempUnschedulable.presets.overloadDesc')
++      description: t('admin.accounts.tempUnschedulable.presets.overloadDesc'),
++      scope: 'model' as const
+     }
+   },
+   {
+@@ -4092,7 +4147,8 @@ const tempUnschedPresets = computed(() => [
+       error_code: 429,
+       keywords: 'rate limit, too many requests',
+       duration_minutes: 10,
+-      description: t('admin.accounts.tempUnschedulable.presets.rateLimitDesc')
++      description: t('admin.accounts.tempUnschedulable.presets.rateLimitDesc'),
++      scope: 'model' as const
+     }
+   },
+   {
+@@ -4101,7 +4157,8 @@ const tempUnschedPresets = computed(() => [
+       error_code: 503,
+       keywords: 'unavailable, maintenance',
+       duration_minutes: 30,
+-      description: t('admin.accounts.tempUnschedulable.presets.unavailableDesc')
++      description: t('admin.accounts.tempUnschedulable.presets.unavailableDesc'),
++      scope: 'model' as const
+     }
+   }
+ ])
+@@ -4840,7 +4897,8 @@ const addTempUnschedRule = (preset?: TempUnschedRuleForm) => {
+     error_code: null,
+     keywords: '',
+     duration_minutes: 30,
+-    description: ''
++    description: '',
++    scope: 'model'
+   })
+ }
+ 
+@@ -4863,6 +4921,7 @@ const buildTempUnschedRules = (rules: TempUnschedRuleForm[]) => {
+     keywords: string[]
+     duration_minutes: number
+     description: string
++    scope: TempUnschedulableScope
+   }> = []
+ 
+   for (const rule of rules) {
+@@ -4882,7 +4941,8 @@ const buildTempUnschedRules = (rules: TempUnschedRuleForm[]) => {
+       error_code: Math.trunc(errorCode),
+       keywords,
+       duration_minutes: Math.trunc(duration),
+-      description: rule.description.trim()
++      description: rule.description.trim(),
++      scope: rule.scope
+     })
+   }
+ 
+@@ -4980,11 +5040,13 @@ function loadTempUnschedRules(credentials?: Record<string, unknown>) {
+ 
+   tempUnschedRules.value = rawRules.map((rule) => {
+     const entry = rule as Record<string, unknown>
++    const errorCode = toPositiveNumber(entry.error_code)
+     return {
+-      error_code: toPositiveNumber(entry.error_code),
++      error_code: errorCode,
+       keywords: formatTempUnschedKeywords(entry.keywords),
+       duration_minutes: toPositiveNumber(entry.duration_minutes),
+-      description: typeof entry.description === 'string' ? entry.description : ''
++      description: typeof entry.description === 'string' ? entry.description : '',
++      scope: resolveTempUnschedScope(entry.scope, errorCode)
+     }
+   })
+ }
+@@ -5083,6 +5145,16 @@ function formatTempUnschedKeywords(value: unknown) {
+   return ''
+ }
+ 
++// 未设置 scope 的规则由后端按「401 账号级、其余模型级」处理，这里按同一规则回显，
++// 保证打开再保存不改变规则行为。
++function resolveTempUnschedScope(value: unknown, errorCode: number | null): TempUnschedulableScope {
++  const scope = typeof value === 'string' ? value.trim().toLowerCase() : ''
++  if (scope === 'account' || scope === 'model') {
++    return scope
++  }
++  return errorCode === 401 ? 'account' : 'model'
++}
++
+ const splitTempUnschedKeywords = (value: string) => {
+   return value
+     .split(/[,;]/)
+diff --git a/frontend/src/components/account/__tests__/EditAccountModal.spec.ts b/frontend/src/components/account/__tests__/EditAccountModal.spec.ts
+index 1182e57aa..7061bc84d 100644
+--- a/frontend/src/components/account/__tests__/EditAccountModal.spec.ts
++++ b/frontend/src/components/account/__tests__/EditAccountModal.spec.ts
+@@ -1962,3 +1962,79 @@ describe('EditAccountModal gemini explicit cache upstream switch', () => {
+     expect(credentials).not.toHaveProperty('explicit_cache_upstream_max_ttl_seconds')
+   })
+ })
++
++describe('EditAccountModal temp-unschedulable rule scope', () => {
++  function buildAccountWithTempUnschedRules(rules: Array<Record<string, unknown>>) {
++    const account = buildAccount()
++    return {
++      ...account,
++      credentials: {
++        ...account.credentials,
++        temp_unschedulable_enabled: true,
++        temp_unschedulable_rules: rules
++      }
++    } as any
++  }
++
++  const checkedScopes = (wrapper: ReturnType<typeof mountModal>) =>
++    wrapper
++      .findAll('[data-testid^="temp-unsched-scope-"][aria-checked="true"]')
++      .map((radio) => radio.attributes('data-testid'))
++
++  const savedRules = () =>
++    updateAccountMock.mock.calls[0]?.[1]?.credentials?.temp_unschedulable_rules
++
++  beforeEach(() => {
++    authIsSimpleMode.value = true
++    updateAccountMock.mockReset()
++    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
++  })
++
++  it('shows rules without scope the way the backend treats them and keeps that on save', async () => {
++    const account = buildAccountWithTempUnschedRules([
++      { error_code: 401, keywords: ['unauthorized'], duration_minutes: 10 },
++      { error_code: 503, keywords: ['unavailable'], duration_minutes: 30 }
++    ])
++    updateAccountMock.mockResolvedValue(account)
++    const wrapper = mountModal(account)
++
++    expect(checkedScopes(wrapper)).toEqual(['temp-unsched-scope-account', 'temp-unsched-scope-model'])
++
++    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
++
++    expect(updateAccountMock).toHaveBeenCalledTimes(1)
++    expect(savedRules().map((rule: { scope: string }) => rule.scope)).toEqual(['account', 'model'])
++    wrapper.unmount()
++  })
++
++  it('respects an explicit scope and saves the card the operator picks', async () => {
++    const account = buildAccountWithTempUnschedRules([
++      { error_code: 401, keywords: ['unauthorized'], duration_minutes: 10, scope: 'model' },
++      { error_code: 503, keywords: ['unavailable'], duration_minutes: 30, scope: ' Account ' }
++    ])
++    updateAccountMock.mockResolvedValue(account)
++    const wrapper = mountModal(account)
++
++    expect(checkedScopes(wrapper)).toEqual(['temp-unsched-scope-model', 'temp-unsched-scope-account'])
++
++    await wrapper.findAll('[data-testid="temp-unsched-scope-model"]')[1].trigger('click')
++    expect(checkedScopes(wrapper)).toEqual(['temp-unsched-scope-model', 'temp-unsched-scope-model'])
++
++    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
++
++    expect(savedRules().map((rule: { scope: string }) => rule.scope)).toEqual(['model', 'model'])
++    wrapper.unmount()
++  })
++
++  it('defaults a newly added rule to model scope', async () => {
++    const wrapper = mountModal(buildAccountWithTempUnschedRules([]))
++
++    const addRule = wrapper
++      .findAll('button')
++      .find((button) => button.text().includes('admin.accounts.tempUnschedulable.addRule'))
++    await addRule!.trigger('click')
++
++    expect(checkedScopes(wrapper)).toEqual(['temp-unsched-scope-model'])
++    wrapper.unmount()
++  })
++})
+diff --git a/frontend/src/i18n/locales/en/admin/accounts.ts b/frontend/src/i18n/locales/en/admin/accounts.ts
+index bb6fa6855..283db4293 100644
+--- a/frontend/src/i18n/locales/en/admin/accounts.ts
++++ b/frontend/src/i18n/locales/en/admin/accounts.ts
+@@ -415,7 +415,7 @@ export default {
+       tempUnschedulable: {
+         title: 'Temp Unschedulable',
+         statusTitle: 'Temp Unschedulable Status',
+-        hint: 'Disable accounts temporarily when error code and keyword both match.',
++        hint: 'When error code and keyword both match, pause the whole account or cool down only the model for the configured duration, per the rule scope.',
+         notice: 'Rules are evaluated in order and require both error code and keyword match.',
+         addRule: 'Add Rule',
+         ruleOrder: 'Rule Order',
+@@ -431,6 +431,12 @@ export default {
+         keywords: 'Keywords',
+         keywordsPlaceholder: 'e.g. overloaded, too many requests',
+         keywordsHint: 'Separate keywords with commas; any keyword match will trigger.',
++        scope: 'Scope',
++        scopeModel: 'Model',
++        scopeModelDesc: 'Cool down only the requested model',
++        scopeAccount: 'Account',
++        scopeAccountDesc: 'Pause scheduling for the whole account',
++        scopeHint: 'Model-scoped rules fall back to account scope when the request model cannot be identified.',
+         description: 'Description',
+         descriptionPlaceholder: 'Optional note for this rule',
+         rulesInvalid: 'Add at least one rule with error code, keywords, and duration.',
+diff --git a/frontend/src/i18n/locales/zh/admin/accounts.ts b/frontend/src/i18n/locales/zh/admin/accounts.ts
+index 73a2f3f21..9a4a26c1d 100644
+--- a/frontend/src/i18n/locales/zh/admin/accounts.ts
++++ b/frontend/src/i18n/locales/zh/admin/accounts.ts
+@@ -463,7 +463,7 @@ export default {
+       tempUnschedulable: {
+         title: '临时不可调度',
+         statusTitle: '临时不可调度状态',
+-        hint: '当错误码与关键词同时匹配时，账号会在指定时间内被临时禁用。',
++        hint: '当错误码与关键词同时匹配时，按规则的作用范围在指定时间内暂停整个账号，或只冷却对应模型。',
+         notice: '规则按顺序匹配，需同时满足错误码与关键词。',
+         addRule: '添加规则',
+         ruleOrder: '规则序号',
+@@ -479,6 +479,12 @@ export default {
+         keywords: '关键词',
+         keywordsPlaceholder: '例如 overloaded, too many requests',
+         keywordsHint: '多个关键词用逗号分隔，匹配时必须命中其中之一。',
++        scope: '作用范围',
++        scopeModel: '模型级',
++        scopeModelDesc: '只冷却本次请求的模型',
++        scopeAccount: '账户级',
++        scopeAccountDesc: '暂停整个账号的调度',
++        scopeHint: '无法识别请求模型时，模型级规则按账户级处理。',
+         description: '描述',
+         descriptionPlaceholder: '可选，便于记忆规则用途',
+         rulesInvalid: '请至少填写一条包含错误码、关键词和时长的规则。',
+diff --git a/frontend/src/types/index.ts b/frontend/src/types/index.ts
+index fc667bb2c..1eac972ce 100644
+--- a/frontend/src/types/index.ts
++++ b/frontend/src/types/index.ts
+@@ -1049,11 +1049,15 @@ export interface GeminiCredentials {
+   model_mapping?: Record<string, string>
+ }
+ 
++export type TempUnschedulableScope = 'account' | 'model'
++
+ export interface TempUnschedulableRule {
+   error_code: number
+   keywords: string[]
+   duration_minutes: number
+   description: string
++  // 作用范围：account 暂停整个账号，model 只冷却本次请求的模型；缺省时 401 按 account、其余按 model 处理。
++  scope?: TempUnschedulableScope
+ }
+ 
+ export interface TempUnschedulableState {
+@@ -1061,6 +1065,8 @@ export interface TempUnschedulableState {
+   triggered_at_unix: number
+   status_code: number
+   matched_keyword: string
++  scope?: TempUnschedulableScope
++  model?: string
+   rule_index: number
+   error_message: string
+   trigger_count?: number

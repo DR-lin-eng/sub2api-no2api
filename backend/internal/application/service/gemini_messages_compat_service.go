@@ -3274,6 +3274,7 @@ func convertClaudeMessagesToGeminiContents(messages any, toolUseIDToName map[str
 		case []any:
 			// 如果只有一个 block，不过滤空白（让上游 API 报错）
 			singleBlock := len(content) == 1
+			var toolImageParts []any
 
 			for _, block := range content {
 				bm, ok := block.(map[string]any)
@@ -3314,14 +3315,19 @@ func convertClaudeMessagesToGeminiContents(messages any, toolUseIDToName map[str
 					if name == "" {
 						name = "tool"
 					}
+					text, images := extractClaudeToolResultContent(bm["content"])
+					if text == "" && len(images) > 0 {
+						text = "[image attached below]"
+					}
 					parts = append(parts, map[string]any{
 						"functionResponse": map[string]any{
 							"name": name,
 							"response": map[string]any{
-								"content": extractClaudeContentText(bm["content"]),
+								"content": text,
 							},
 						},
 					})
+					toolImageParts = append(toolImageParts, images...)
 				case "image":
 					if src, ok := bm["source"].(map[string]any); ok {
 						if srcType, _ := src["type"].(string); srcType == "base64" {
@@ -3344,6 +3350,7 @@ func convertClaudeMessagesToGeminiContents(messages any, toolUseIDToName map[str
 					}
 				}
 			}
+			parts = append(parts, toolImageParts...)
 		default:
 			// ignore
 		}
@@ -3378,6 +3385,41 @@ func extractClaudeContentText(v any) string {
 		b, _ := json.Marshal(t)
 		return string(b)
 	}
+}
+
+// Read tool-result text and images in one pass; ordinary text-only results
+// keep the existing allocation pattern and do not build an image slice.
+func extractClaudeToolResultContent(v any) (string, []any) {
+	arr, ok := v.([]any)
+	if !ok {
+		return extractClaudeContentText(v), nil
+	}
+	var text strings.Builder
+	var images []any
+	for _, part := range arr {
+		pm, ok := part.(map[string]any)
+		if !ok {
+			continue
+		}
+		switch pm["type"] {
+		case "text":
+			if value, ok := pm["text"].(string); ok {
+				_, _ = text.WriteString(value)
+			}
+		case "image":
+			source, ok := pm["source"].(map[string]any)
+			if !ok || source["type"] != "base64" {
+				continue
+			}
+			mediaType, _ := source["media_type"].(string)
+			data, _ := source["data"].(string)
+			if mediaType == "" || data == "" {
+				continue
+			}
+			images = append(images, map[string]any{"inlineData": map[string]any{"mimeType": mediaType, "data": data}})
+		}
+	}
+	return text.String(), images
 }
 
 func convertClaudeToolsToGeminiTools(tools any) []any {

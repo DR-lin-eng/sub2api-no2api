@@ -350,6 +350,11 @@ export default {
         viewTempUnschedDetails: '查看临时不可调度详情'
       },
       tempUnschedulable: {
+      scope: '暂停范围',
+      scopeAuto: '自动（保持原有行为）',
+      scopeAccount: '整个账号',
+      scopeModel: '当前模型',
+      scopeHint: '模型未知和凭据错误仍保留账号保护。所有节点升级完成后再选择显式范围。',
         title: '临时不可调度',
         statusTitle: '临时不可调度状态',
         hint: '当错误码与关键词同时匹配时，账号会在指定时间内被临时禁用。',

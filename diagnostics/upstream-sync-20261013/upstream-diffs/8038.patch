@@ -1,0 +1,193 @@
+diff --git a/backend/internal/service/gemini_messages_compat_service.go b/backend/internal/service/gemini_messages_compat_service.go
+index a54c975cb..06b3e8430 100644
+--- a/backend/internal/service/gemini_messages_compat_service.go
++++ b/backend/internal/service/gemini_messages_compat_service.go
+@@ -3366,6 +3366,7 @@ func convertClaudeMessagesToGeminiContents(messages any, toolUseIDToName map[str
+ 		case []any:
+ 			// 如果只有一个 block，不过滤空白（让上游 API 报错）
+ 			singleBlock := len(content) == 1
++			var toolImageParts []any
+ 
+ 			for _, block := range content {
+ 				bm, ok := block.(map[string]any)
+@@ -3406,14 +3407,20 @@ func convertClaudeMessagesToGeminiContents(messages any, toolUseIDToName map[str
+ 					if name == "" {
+ 						name = "tool"
+ 					}
++					text := extractClaudeContentText(bm["content"])
++					images := extractClaudeToolResultImageParts(bm["content"])
++					if text == "" && len(images) > 0 {
++						text = "[image attached below]"
++					}
+ 					parts = append(parts, map[string]any{
+ 						"functionResponse": map[string]any{
+ 							"name": name,
+ 							"response": map[string]any{
+-								"content": extractClaudeContentText(bm["content"]),
++								"content": text,
+ 							},
+ 						},
+ 					})
++					toolImageParts = append(toolImageParts, images...)
+ 				case "image":
+ 					if src, ok := bm["source"].(map[string]any); ok {
+ 						if srcType, _ := src["type"].(string); srcType == "base64" {
+@@ -3436,6 +3443,7 @@ func convertClaudeMessagesToGeminiContents(messages any, toolUseIDToName map[str
+ 					}
+ 				}
+ 			}
++			parts = append(parts, toolImageParts...)
+ 		default:
+ 			// ignore
+ 		}
+@@ -3472,6 +3480,40 @@ func extractClaudeContentText(v any) string {
+ 	}
+ }
+ 
++func extractClaudeToolResultImageParts(v any) []any {
++	arr, ok := v.([]any)
++	if !ok {
++		return nil
++	}
++
++	parts := make([]any, 0)
++	for _, part := range arr {
++		pm, ok := part.(map[string]any)
++		if !ok || pm["type"] != "image" {
++			continue
++		}
++		source, ok := pm["source"].(map[string]any)
++		if !ok {
++			continue
++		}
++		if sourceType, _ := source["type"].(string); sourceType != "base64" {
++			continue
++		}
++		mediaType, _ := source["media_type"].(string)
++		data, _ := source["data"].(string)
++		if mediaType == "" || data == "" {
++			continue
++		}
++		parts = append(parts, map[string]any{
++			"inlineData": map[string]any{
++				"mimeType": mediaType,
++				"data":     data,
++			},
++		})
++	}
++	return parts
++}
++
+ func convertClaudeToolsToGeminiTools(tools any) []any {
+ 	arr, ok := tools.([]any)
+ 	if !ok || len(arr) == 0 {
+diff --git a/backend/internal/service/gemini_messages_compat_service_test.go b/backend/internal/service/gemini_messages_compat_service_test.go
+index 07fafa949..3e6c3539d 100644
+--- a/backend/internal/service/gemini_messages_compat_service_test.go
++++ b/backend/internal/service/gemini_messages_compat_service_test.go
+@@ -704,6 +704,105 @@ func TestConvertClaudeMessagesToGeminiGenerateContent_AddsThoughtSignatureForToo
+ 	}
+ }
+ 
++func TestConvertClaudeMessagesToGeminiGenerateContent_ExtractsToolResultImages(t *testing.T) {
++	claudeReq := map[string]any{
++		"messages": []any{
++			map[string]any{
++				"role": "assistant",
++				"content": []any{
++					map[string]any{
++						"type": "tool_use",
++						"id":   "toolu_123",
++						"name": "inspect",
++						"input": map[string]any{
++							"path": "image.png",
++						},
++					},
++				},
++			},
++			map[string]any{
++				"role": "user",
++				"content": []any{
++					map[string]any{
++						"type":        "tool_result",
++						"tool_use_id": "toolu_123",
++						"content": []any{
++							map[string]any{"type": "text", "text": "found it"},
++							map[string]any{
++								"type": "image",
++								"source": map[string]any{
++									"type":       "base64",
++									"media_type": "image/png",
++									"data":       "aGVsbG8=",
++								},
++							},
++						},
++					},
++					map[string]any{
++						"type":        "tool_result",
++						"tool_use_id": "toolu_123",
++						"content": []any{
++							map[string]any{
++								"type": "image",
++								"source": map[string]any{
++									"type":       "base64",
++									"media_type": "image/jpeg",
++									"data":       "d29ybGQ=",
++								},
++							},
++						},
++					},
++				},
++			},
++		},
++	}
++	body, err := json.Marshal(claudeReq)
++	require.NoError(t, err)
++
++	converted, err := convertClaudeMessagesToGeminiGenerateContent(body)
++	require.NoError(t, err)
++
++	var geminiReq map[string]any
++	require.NoError(t, json.Unmarshal(converted, &geminiReq))
++	contents, ok := geminiReq["contents"].([]any)
++	require.True(t, ok)
++	content, ok := contents[1].(map[string]any)
++	require.True(t, ok)
++	parts, ok := content["parts"].([]any)
++	require.True(t, ok)
++	require.Len(t, parts, 4)
++
++	firstPart, ok := parts[0].(map[string]any)
++	require.True(t, ok)
++	firstResponse, ok := firstPart["functionResponse"].(map[string]any)
++	require.True(t, ok)
++	require.Equal(t, "inspect", firstResponse["name"])
++	firstResponseBody, ok := firstResponse["response"].(map[string]any)
++	require.True(t, ok)
++	require.Equal(t, "found it", firstResponseBody["content"])
++
++	secondPart, ok := parts[1].(map[string]any)
++	require.True(t, ok)
++	secondResponse, ok := secondPart["functionResponse"].(map[string]any)
++	require.True(t, ok)
++	secondResponseBody, ok := secondResponse["response"].(map[string]any)
++	require.True(t, ok)
++	require.Equal(t, "[image attached below]", secondResponseBody["content"])
++
++	firstImagePart, ok := parts[2].(map[string]any)
++	require.True(t, ok)
++	firstImage, ok := firstImagePart["inlineData"].(map[string]any)
++	require.True(t, ok)
++	require.Equal(t, "image/png", firstImage["mimeType"])
++	require.Equal(t, "aGVsbG8=", firstImage["data"])
++	secondImagePart, ok := parts[3].(map[string]any)
++	require.True(t, ok)
++	secondImage, ok := secondImagePart["inlineData"].(map[string]any)
++	require.True(t, ok)
++	require.Equal(t, "image/jpeg", secondImage["mimeType"])
++	require.Equal(t, "d29ybGQ=", secondImage["data"])
++}
++
+ func TestEnsureGeminiFunctionCallThoughtSignatures_InsertsWhenMissing(t *testing.T) {
+ 	geminiReq := map[string]any{
+ 		"contents": []any{

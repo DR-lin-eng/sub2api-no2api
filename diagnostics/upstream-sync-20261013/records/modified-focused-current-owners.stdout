@@ -1,0 +1,744 @@
+2026/10/13 08:44:43 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestGetCodingPlanProvider_KimiOfficialURLs
+=== RUN   TestGetCodingPlanProvider_KimiOfficialURLs/api.kimi.com/coding
+=== RUN   TestGetCodingPlanProvider_KimiOfficialURLs/api.kimi.com/coding/
+=== RUN   TestGetCodingPlanProvider_KimiOfficialURLs/api.kimi.com/coding/v1
+=== RUN   TestGetCodingPlanProvider_KimiOfficialURLs/api.kimi.com/coding/v1/
+=== RUN   TestGetCodingPlanProvider_KimiOfficialURLs/api.kimi.ai/coding
+=== RUN   TestGetCodingPlanProvider_KimiOfficialURLs/api.kimi.ai/coding/
+=== RUN   TestGetCodingPlanProvider_KimiOfficialURLs/api.kimi.ai/coding/v1
+=== RUN   TestGetCodingPlanProvider_KimiOfficialURLs/api.kimi.ai/coding/v1/
+=== RUN   TestGetCodingPlanProvider_KimiOfficialURLs/API.KIMI.AI/coding
+=== RUN   TestGetCodingPlanProvider_KimiOfficialURLs/API.KIMI.AI/coding/
+=== RUN   TestGetCodingPlanProvider_KimiOfficialURLs/API.KIMI.AI/coding/v1
+=== RUN   TestGetCodingPlanProvider_KimiOfficialURLs/API.KIMI.AI/coding/v1/
+=== RUN   TestGetCodingPlanProvider_KimiOfficialURLs/api.kimi.ai:443/coding
+=== RUN   TestGetCodingPlanProvider_KimiOfficialURLs/api.kimi.ai:443/coding/
+=== RUN   TestGetCodingPlanProvider_KimiOfficialURLs/api.kimi.ai:443/coding/v1
+=== RUN   TestGetCodingPlanProvider_KimiOfficialURLs/api.kimi.ai:443/coding/v1/
+--- PASS: TestGetCodingPlanProvider_KimiOfficialURLs (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiOfficialURLs/api.kimi.com/coding (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiOfficialURLs/api.kimi.com/coding/ (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiOfficialURLs/api.kimi.com/coding/v1 (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiOfficialURLs/api.kimi.com/coding/v1/ (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiOfficialURLs/api.kimi.ai/coding (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiOfficialURLs/api.kimi.ai/coding/ (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiOfficialURLs/api.kimi.ai/coding/v1 (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiOfficialURLs/api.kimi.ai/coding/v1/ (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiOfficialURLs/API.KIMI.AI/coding (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiOfficialURLs/API.KIMI.AI/coding/ (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiOfficialURLs/API.KIMI.AI/coding/v1 (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiOfficialURLs/API.KIMI.AI/coding/v1/ (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiOfficialURLs/api.kimi.ai:443/coding (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiOfficialURLs/api.kimi.ai:443/coding/ (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiOfficialURLs/api.kimi.ai:443/coding/v1 (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiOfficialURLs/api.kimi.ai:443/coding/v1/ (0.00s)
+=== RUN   TestGetCodingPlanProvider_KimiRejectsUnsafeURLs
+=== RUN   TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai.attacker.example/coding/v1
+=== RUN   TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.com.attacker.example/coding/v1
+=== RUN   TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://fake-api.kimi.ai/coding/v1
+=== RUN   TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://relay.attacker.example/api.kimi.com/coding
+=== RUN   TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://relay.attacker.example/?target=api.kimi.ai/coding/v1
+=== RUN   TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://relay.attacker.example/#api.kimi.com/coding
+=== RUN   TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai@relay.attacker.example/coding/v1
+=== RUN   TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://user@api.kimi.ai/coding/v1
+=== RUN   TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai/coding-other
+=== RUN   TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.com/coding/v10
+=== RUN   TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai/coding/v1/usages
+=== RUN   TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai/v1?target=/coding/v1
+=== RUN   TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai/coding/v1?target=attacker
+=== RUN   TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai/coding/v1?
+=== RUN   TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai/coding/v1#attacker
+=== RUN   TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai/coding/v1#
+=== RUN   TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai/%63oding/v1
+=== RUN   TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai/coding%2fv1
+=== RUN   TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai/coding/../coding/v1
+=== RUN   TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai/CODING/v1
+=== RUN   TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai:8443/coding/v1
+=== RUN   TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai:/coding/v1
+=== RUN   TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/http://api.kimi.ai/coding/v1
+=== RUN   TestGetCodingPlanProvider_KimiRejectsUnsafeURLs///api.kimi.ai/coding/v1
+=== RUN   TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai/%zz
+--- PASS: TestGetCodingPlanProvider_KimiRejectsUnsafeURLs (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai.attacker.example/coding/v1 (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.com.attacker.example/coding/v1 (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://fake-api.kimi.ai/coding/v1 (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://relay.attacker.example/api.kimi.com/coding (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://relay.attacker.example/?target=api.kimi.ai/coding/v1 (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://relay.attacker.example/#api.kimi.com/coding (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai@relay.attacker.example/coding/v1 (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://user@api.kimi.ai/coding/v1 (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai/coding-other (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.com/coding/v10 (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai/coding/v1/usages (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai/v1?target=/coding/v1 (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai/coding/v1?target=attacker (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai/coding/v1? (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai/coding/v1#attacker (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai/coding/v1# (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai/%63oding/v1 (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai/coding%2fv1 (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai/coding/../coding/v1 (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai/CODING/v1 (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai:8443/coding/v1 (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai:/coding/v1 (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/http://api.kimi.ai/coding/v1 (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiRejectsUnsafeURLs///api.kimi.ai/coding/v1 (0.00s)
+    --- PASS: TestGetCodingPlanProvider_KimiRejectsUnsafeURLs/https://api.kimi.ai/%zz (0.00s)
+=== RUN   TestGetCodingPlanProvider_UnrelatedProvidersUnchanged
+=== RUN   TestGetCodingPlanProvider_UnrelatedProvidersUnchanged/https://open.bigmodel.cn/api/coding/paas/v4
+=== RUN   TestGetCodingPlanProvider_UnrelatedProvidersUnchanged/https://api.z.ai/api/coding/paas/v4
+=== RUN   TestGetCodingPlanProvider_UnrelatedProvidersUnchanged/https://api.minimax.io/v1
+=== RUN   TestGetCodingPlanProvider_UnrelatedProvidersUnchanged/https://api.minimaxi.com/v1
+=== RUN   TestGetCodingPlanProvider_UnrelatedProvidersUnchanged/https://api.minimax.com/v1
+--- PASS: TestGetCodingPlanProvider_UnrelatedProvidersUnchanged (0.00s)
+    --- PASS: TestGetCodingPlanProvider_UnrelatedProvidersUnchanged/https://open.bigmodel.cn/api/coding/paas/v4 (0.00s)
+    --- PASS: TestGetCodingPlanProvider_UnrelatedProvidersUnchanged/https://api.z.ai/api/coding/paas/v4 (0.00s)
+    --- PASS: TestGetCodingPlanProvider_UnrelatedProvidersUnchanged/https://api.minimax.io/v1 (0.00s)
+    --- PASS: TestGetCodingPlanProvider_UnrelatedProvidersUnchanged/https://api.minimaxi.com/v1 (0.00s)
+    --- PASS: TestGetCodingPlanProvider_UnrelatedProvidersUnchanged/https://api.minimax.com/v1 (0.00s)
+=== RUN   TestRetryLoop_ErrorPolicy_TempUnschedulable
+=== RUN   TestRetryLoop_ErrorPolicy_TempUnschedulable/503_overloaded_matches_rule
+2026/10/13 08:44:43 INFO account_model_temp_unschedulable account_id=200 model=claude-sonnet-4-5 until=2026-10-13T08:54:43.988Z rule_index=0 rule_scope="" status_code=503
+2026/10/13 08:44:43 INFO temp_unschedulable_matched prefix=[ep-test] status_code=503 account_id=200
+=== RUN   TestRetryLoop_ErrorPolicy_TempUnschedulable/429_rate_limited_keyword_matches_rule
+2026/10/13 08:44:43 INFO account_model_temp_unschedulable account_id=200 model=claude-sonnet-4-5 until=2026-10-13T08:49:43.988Z rule_index=0 rule_scope="" status_code=429
+2026/10/13 08:44:43 INFO temp_unschedulable_matched prefix=[ep-test] status_code=429 account_id=200
+=== RUN   TestRetryLoop_ErrorPolicy_TempUnschedulable/503_body_no_match_continues_default_retry
+2026/10/13 08:44:43 [ep-test] status=503 retry=1/3 body=random
+2026/10/13 08:44:44 [ep-test] status=context_canceled_during_backoff
+--- PASS: TestRetryLoop_ErrorPolicy_TempUnschedulable (0.10s)
+    --- PASS: TestRetryLoop_ErrorPolicy_TempUnschedulable/503_overloaded_matches_rule (0.00s)
+    --- PASS: TestRetryLoop_ErrorPolicy_TempUnschedulable/429_rate_limited_keyword_matches_rule (0.00s)
+    --- PASS: TestRetryLoop_ErrorPolicy_TempUnschedulable/503_body_no_match_continues_default_retry (0.10s)
+=== RUN   TestHandleNonStreamingResponse_NonJSON2xxMatchesModelScopedTempUnschedulableRule
+2026/10/13 08:44:44 Account 3(): upstream returned non-JSON 2xx response, attempting failover: status=200 request_id= error=invalid character '(' looking for beginning of value
+2026/10/13 08:44:44 INFO account_model_temp_unschedulable account_id=3 model=claude-sonnet-4-6 until=2026-10-13T08:54:44.091Z rule_index=0 rule_scope="" status_code=502
+--- PASS: TestHandleNonStreamingResponse_NonJSON2xxMatchesModelScopedTempUnschedulableRule (0.00s)
+=== RUN   TestConvertClaudeMessagesToGeminiGenerateContent_ExtractsToolResultImages
+--- PASS: TestConvertClaudeMessagesToGeminiGenerateContent_ExtractsToolResultImages (0.00s)
+=== RUN   TestGlobalTempUnschedulableSettingsDefaultEnabled
+--- PASS: TestGlobalTempUnschedulableSettingsDefaultEnabled (0.00s)
+=== RUN   TestGlobalTempUnschedulableSettingsPersistAndPublish
+--- PASS: TestGlobalTempUnschedulableSettingsPersistAndPublish (0.00s)
+=== RUN   TestGlobalTempUnschedulableRuntimeCacheRefreshesAcrossInstances
+--- PASS: TestGlobalTempUnschedulableRuntimeCacheRefreshesAcrossInstances (0.00s)
+=== RUN   TestGlobalTempUnschedulableDisabledClearsOnlyTaggedRuntimeBlock
+--- PASS: TestGlobalTempUnschedulableDisabledClearsOnlyTaggedRuntimeBlock (0.00s)
+=== RUN   TestGlobalTempUnschedulableDisabledSkipsGrokCredentialTransientMutation
+--- PASS: TestGlobalTempUnschedulableDisabledSkipsGrokCredentialTransientMutation (0.00s)
+=== RUN   TestRateLimitServiceGlobalTempUnschedulableDisabledSkipsRule
+--- PASS: TestRateLimitServiceGlobalTempUnschedulableDisabledSkipsRule (0.00s)
+=== RUN   TestGlobalTempUnschedulableCleanerClearsEveryStateLayer
+--- PASS: TestGlobalTempUnschedulableCleanerClearsEveryStateLayer (0.00s)
+=== RUN   TestIsModelRateLimited_AntigravityImageDoesNotInheritGeminiFamilyLimit
+--- PASS: TestIsModelRateLimited_AntigravityImageDoesNotInheritGeminiFamilyLimit (0.00s)
+=== RUN   TestOpenAIModelTempUnschedulable_DoesNotRuntimeBlockWholeAccount
+2026/10/13 08:44:44 INFO account_model_temp_unschedulable account_id=101 model=gpt-5.4 until=2026-10-13T08:54:44.095Z rule_index=0 rule_scope="" status_code=404
+--- PASS: TestOpenAIModelTempUnschedulable_DoesNotRuntimeBlockWholeAccount (0.00s)
+=== RUN   TestOpenAIModelTempUnschedulable_WriteFailureDoesNotRuntimeBlockWholeAccount
+2026/10/13 08:44:44 WARN temp_unsched_model_rate_limit_set_failed account_id=101 model=gpt-5.4 error="write failed"
+--- PASS: TestOpenAIModelTempUnschedulable_WriteFailureDoesNotRuntimeBlockWholeAccount (0.00s)
+=== RUN   TestOpenAITempUnschedulable_UnknownModelKeepsAccountRuntimeBlock
+2026/10/13 08:44:44 INFO account_temp_unschedulable account_id=101 until=2026-10-13T08:54:44.095Z rule_index=0 rule_scope="" status_code=404
+--- PASS: TestOpenAITempUnschedulable_UnknownModelKeepsAccountRuntimeBlock (0.00s)
+=== RUN   TestDeriveOpenAIContentSessionSeed_ResponsesAPI_InputString
+--- PASS: TestDeriveOpenAIContentSessionSeed_ResponsesAPI_InputString (0.00s)
+=== RUN   TestForwardResponses_ChatFallbackPreservesProvidedStartTime
+=== RUN   TestForwardResponses_ChatFallbackPreservesProvidedStartTime/stream=false
+=== RUN   TestForwardResponses_ChatFallbackPreservesProvidedStartTime/stream=true
+--- PASS: TestForwardResponses_ChatFallbackPreservesProvidedStartTime (0.00s)
+    --- PASS: TestForwardResponses_ChatFallbackPreservesProvidedStartTime/stream=false (0.00s)
+    --- PASS: TestForwardResponses_ChatFallbackPreservesProvidedStartTime/stream=true (0.00s)
+=== RUN   TestHandleGrokAccountUpstreamErrorTempUnschedulesNonRateLimitStates
+=== RUN   TestHandleGrokAccountUpstreamErrorTempUnschedulesNonRateLimitStates/unauthorized_reauth
+=== RUN   TestHandleGrokAccountUpstreamErrorTempUnschedulesNonRateLimitStates/forbidden_entitlement
+=== RUN   TestHandleGrokAccountUpstreamErrorTempUnschedulesNonRateLimitStates/payment_required
+=== RUN   TestHandleGrokAccountUpstreamErrorTempUnschedulesNonRateLimitStates/upstream_temporary_error
+--- PASS: TestHandleGrokAccountUpstreamErrorTempUnschedulesNonRateLimitStates (0.00s)
+    --- PASS: TestHandleGrokAccountUpstreamErrorTempUnschedulesNonRateLimitStates/unauthorized_reauth (0.00s)
+    --- PASS: TestHandleGrokAccountUpstreamErrorTempUnschedulesNonRateLimitStates/forbidden_entitlement (0.00s)
+    --- PASS: TestHandleGrokAccountUpstreamErrorTempUnschedulesNonRateLimitStates/payment_required (0.00s)
+    --- PASS: TestHandleGrokAccountUpstreamErrorTempUnschedulesNonRateLimitStates/upstream_temporary_error (0.00s)
+=== RUN   TestFailoverOpenAIUpstreamCapacityShedDoesNotApplyTempUnschedulablePolicy
+--- PASS: TestFailoverOpenAIUpstreamCapacityShedDoesNotApplyTempUnschedulablePolicy (0.00s)
+=== RUN   TestFailoverOpenAIUpstreamHTTPErrorNilGinContextSkipsCustomTempUnschedulablePolicy
+--- PASS: TestFailoverOpenAIUpstreamHTTPErrorNilGinContextSkipsCustomTempUnschedulablePolicy (0.00s)
+=== RUN   TestForwardAsChatCompletions_ResponsesSupportedFallsBackWhenStructuredInputRequiresString
+=== RUN   TestForwardAsChatCompletions_ResponsesSupportedFallsBackWhenStructuredInputRequiresString/OpenAI_invalid_type
+{"level":"DEBUG","time":"2026-10-13T08:44:44.103Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.103Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+{"level":"INFO","time":"2026-10-13T08:44:44.103Z","msg":"openai chat_completions: structured Responses input rejected, falling back to raw chat completions","service":"sub2api","env":"test","account_id":101,"upstream_status":400}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.103Z","msg":"openai chat_completions raw: forwarding without protocol conversion","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false}
+=== RUN   TestForwardAsChatCompletions_ResponsesSupportedFallsBackWhenStructuredInputRequiresString/vLLM_validation
+{"level":"DEBUG","time":"2026-10-13T08:44:44.103Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.103Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+{"level":"INFO","time":"2026-10-13T08:44:44.103Z","msg":"openai chat_completions: structured Responses input rejected, falling back to raw chat completions","service":"sub2api","env":"test","account_id":101,"upstream_status":400}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.103Z","msg":"openai chat_completions raw: forwarding without protocol conversion","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false}
+--- PASS: TestForwardAsChatCompletions_ResponsesSupportedFallsBackWhenStructuredInputRequiresString (0.00s)
+    --- PASS: TestForwardAsChatCompletions_ResponsesSupportedFallsBackWhenStructuredInputRequiresString/OpenAI_invalid_type (0.00s)
+    --- PASS: TestForwardAsChatCompletions_ResponsesSupportedFallsBackWhenStructuredInputRequiresString/vLLM_validation (0.00s)
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/duplicate_error
+{"level":"DEBUG","time":"2026-10-13T08:44:44.103Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.103Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/duplicate_code
+{"level":"DEBUG","time":"2026-10-13T08:44:44.103Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.103Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/duplicate_escaped_param
+{"level":"DEBUG","time":"2026-10-13T08:44:44.103Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.103Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/duplicate_message
+{"level":"DEBUG","time":"2026-10-13T08:44:44.103Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.103Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/contradictory_error_type
+{"level":"DEBUG","time":"2026-10-13T08:44:44.104Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.104Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/contradictory_envelope_type
+{"level":"DEBUG","time":"2026-10-13T08:44:44.104Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.104Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/validation_contradictory_type
+{"level":"DEBUG","time":"2026-10-13T08:44:44.104Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.104Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/validation_contradictory_envelope_type
+{"level":"DEBUG","time":"2026-10-13T08:44:44.104Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.104Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/validation_contradictory_code
+{"level":"DEBUG","time":"2026-10-13T08:44:44.104Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.104Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/validation_contradictory_param
+{"level":"DEBUG","time":"2026-10-13T08:44:44.104Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.104Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/contradictory_envelope_code
+{"level":"DEBUG","time":"2026-10-13T08:44:44.104Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.104Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/contradictory_envelope_param
+{"level":"DEBUG","time":"2026-10-13T08:44:44.104Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.104Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/type_cannot_override_code
+{"level":"DEBUG","time":"2026-10-13T08:44:44.104Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.104Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/usage
+{"level":"DEBUG","time":"2026-10-13T08:44:44.104Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.104Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/error_usage
+{"level":"DEBUG","time":"2026-10-13T08:44:44.104Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.104Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/output
+{"level":"DEBUG","time":"2026-10-13T08:44:44.105Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.105Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/output_text
+{"level":"DEBUG","time":"2026-10-13T08:44:44.105Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.105Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/tool_calls
+{"level":"DEBUG","time":"2026-10-13T08:44:44.105Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.105Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/choices
+{"level":"DEBUG","time":"2026-10-13T08:44:44.105Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.105Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/nested_response
+{"level":"DEBUG","time":"2026-10-13T08:44:44.105Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.105Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/partial_status
+{"level":"DEBUG","time":"2026-10-13T08:44:44.105Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.105Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/incomplete_details
+{"level":"DEBUG","time":"2026-10-13T08:44:44.105Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.105Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/partial_event
+{"level":"DEBUG","time":"2026-10-13T08:44:44.105Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.105Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/caller_canceled
+{"level":"DEBUG","time":"2026-10-13T08:44:44.105Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.105Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/request_canceled
+{"level":"DEBUG","time":"2026-10-13T08:44:44.105Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.105Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/response_committed
+{"level":"DEBUG","time":"2026-10-13T08:44:44.105Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.105Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/writer_committed
+{"level":"DEBUG","time":"2026-10-13T08:44:44.105Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.105Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+--- PASS: TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/duplicate_error (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/duplicate_code (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/duplicate_escaped_param (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/duplicate_message (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/contradictory_error_type (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/contradictory_envelope_type (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/validation_contradictory_type (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/validation_contradictory_envelope_type (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/validation_contradictory_code (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/validation_contradictory_param (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/contradictory_envelope_code (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/contradictory_envelope_param (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/type_cannot_override_code (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/usage (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/error_usage (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/output (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/output_text (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/tool_calls (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/choices (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/nested_response (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/partial_status (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/incomplete_details (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/partial_event (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/caller_canceled (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/request_canceled (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/response_committed (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries/writer_committed (0.00s)
+=== RUN   TestConvertedResponsesInputStringRejectionIsNarrow
+=== RUN   TestConvertedResponsesInputStringRejectionIsNarrow/nested_content_validation
+=== RUN   TestConvertedResponsesInputStringRejectionIsNarrow/other_field_validation
+=== RUN   TestConvertedResponsesInputStringRejectionIsNarrow/generic_string_validation
+=== RUN   TestConvertedResponsesInputStringRejectionIsNarrow/wrong_status
+=== RUN   TestConvertedResponsesInputStringRejectionIsNarrow/authentication
+=== RUN   TestConvertedResponsesInputStringRejectionIsNarrow/authorization
+=== RUN   TestConvertedResponsesInputStringRejectionIsNarrow/rate_limit
+=== RUN   TestConvertedResponsesInputStringRejectionIsNarrow/server_error
+=== RUN   TestConvertedResponsesInputStringRejectionIsNarrow/wrong_parameter
+=== RUN   TestConvertedResponsesInputStringRejectionIsNarrow/wrong_code
+=== RUN   TestConvertedResponsesInputStringRejectionIsNarrow/unrelated_input_error
+--- PASS: TestConvertedResponsesInputStringRejectionIsNarrow (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionIsNarrow/nested_content_validation (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionIsNarrow/other_field_validation (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionIsNarrow/generic_string_validation (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionIsNarrow/wrong_status (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionIsNarrow/authentication (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionIsNarrow/authorization (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionIsNarrow/rate_limit (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionIsNarrow/server_error (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionIsNarrow/wrong_parameter (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionIsNarrow/wrong_code (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionIsNarrow/unrelated_input_error (0.00s)
+=== RUN   TestConvertedResponsesInputStringRejectionValidationBoundaries
+=== RUN   TestConvertedResponsesInputStringRejectionValidationBoundaries/complete_Pydantic_error
+=== RUN   TestConvertedResponsesInputStringRejectionValidationBoundaries/multiple_Pydantic_errors
+=== RUN   TestConvertedResponsesInputStringRejectionValidationBoundaries/double_quoted_keys
+=== RUN   TestConvertedResponsesInputStringRejectionValidationBoundaries/surrounding_whitespace
+=== RUN   TestConvertedResponsesInputStringRejectionValidationBoundaries/escaped_quote_in_history
+=== RUN   TestConvertedResponsesInputStringRejectionValidationBoundaries/bare_loc_and_msg
+=== RUN   TestConvertedResponsesInputStringRejectionValidationBoundaries/echoed_dictionary_in_unrelated_error
+=== RUN   TestConvertedResponsesInputStringRejectionValidationBoundaries/echoed_fake_loc_and_msg_in_input
+=== RUN   TestConvertedResponsesInputStringRejectionValidationBoundaries/echoed_fake_loc_and_msg_in_quoted_history
+=== RUN   TestConvertedResponsesInputStringRejectionValidationBoundaries/echoed_complete_error_in_quoted_history
+=== RUN   TestConvertedResponsesInputStringRejectionValidationBoundaries/truncated_error_list
+=== RUN   TestConvertedResponsesInputStringRejectionValidationBoundaries/truncated_quoted_input
+=== RUN   TestConvertedResponsesInputStringRejectionValidationBoundaries/mismatched_closing_bracket
+=== RUN   TestConvertedResponsesInputStringRejectionValidationBoundaries/elided_validation_list
+=== RUN   TestConvertedResponsesInputStringRejectionValidationBoundaries/incorrect_error_count
+=== RUN   TestConvertedResponsesInputStringRejectionValidationBoundaries/overflowed_error_count
+=== RUN   TestConvertedResponsesInputStringRejectionValidationBoundaries/duplicate_location
+=== RUN   TestConvertedResponsesInputStringRejectionValidationBoundaries/wrong_validation_type
+=== RUN   TestConvertedResponsesInputStringRejectionValidationBoundaries/missing_validation_type
+=== RUN   TestConvertedResponsesInputStringRejectionValidationBoundaries/location_and_message_in_different_errors
+=== RUN   TestConvertedResponsesInputStringRejectionValidationBoundaries/trailing_echoed_text
+=== RUN   TestConvertedResponsesInputStringRejectionValidationBoundaries/structured_string_array
+=== RUN   TestConvertedResponsesInputStringRejectionValidationBoundaries/structured_object
+=== RUN   TestConvertedResponsesInputStringRejectionValidationBoundaries/structured_echoed_history
+=== RUN   TestConvertedResponsesInputStringRejectionValidationBoundaries/structured_truncated_message
+--- PASS: TestConvertedResponsesInputStringRejectionValidationBoundaries (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionValidationBoundaries/complete_Pydantic_error (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionValidationBoundaries/multiple_Pydantic_errors (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionValidationBoundaries/double_quoted_keys (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionValidationBoundaries/surrounding_whitespace (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionValidationBoundaries/escaped_quote_in_history (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionValidationBoundaries/bare_loc_and_msg (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionValidationBoundaries/echoed_dictionary_in_unrelated_error (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionValidationBoundaries/echoed_fake_loc_and_msg_in_input (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionValidationBoundaries/echoed_fake_loc_and_msg_in_quoted_history (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionValidationBoundaries/echoed_complete_error_in_quoted_history (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionValidationBoundaries/truncated_error_list (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionValidationBoundaries/truncated_quoted_input (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionValidationBoundaries/mismatched_closing_bracket (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionValidationBoundaries/elided_validation_list (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionValidationBoundaries/incorrect_error_count (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionValidationBoundaries/overflowed_error_count (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionValidationBoundaries/duplicate_location (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionValidationBoundaries/wrong_validation_type (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionValidationBoundaries/missing_validation_type (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionValidationBoundaries/location_and_message_in_different_errors (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionValidationBoundaries/trailing_echoed_text (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionValidationBoundaries/structured_string_array (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionValidationBoundaries/structured_object (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionValidationBoundaries/structured_echoed_history (0.00s)
+    --- PASS: TestConvertedResponsesInputStringRejectionValidationBoundaries/structured_truncated_message (0.00s)
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetryRequiresCompleteErrorBody
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetryRequiresCompleteErrorBody/complete_JSON_followed_by_read_failure
+{"level":"DEBUG","time":"2026-10-13T08:44:44.108Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.108Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetryRequiresCompleteErrorBody/truncated_JSON
+{"level":"DEBUG","time":"2026-10-13T08:44:44.108Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.108Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetryRequiresCompleteErrorBody/exact_read_limit
+{"level":"DEBUG","time":"2026-10-13T08:44:44.108Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.108Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+{"level":"INFO","time":"2026-10-13T08:44:44.109Z","msg":"openai chat_completions: structured Responses input rejected, falling back to raw chat completions","service":"sub2api","env":"test","account_id":101,"upstream_status":400}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.110Z","msg":"openai chat_completions raw: forwarding without protocol conversion","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetryRequiresCompleteErrorBody/one_byte_beyond_read_limit
+{"level":"DEBUG","time":"2026-10-13T08:44:44.110Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.110Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetryRequiresCompleteErrorBody/valid_JSON_prefix_before_discarded_suffix
+{"level":"DEBUG","time":"2026-10-13T08:44:44.112Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.112Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetryRequiresCompleteErrorBody/unknown_capability_still_retries_after_read_failure
+{"level":"DEBUG","time":"2026-10-13T08:44:44.116Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.116Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+{"level":"INFO","time":"2026-10-13T08:44:44.116Z","msg":"openai chat_completions: /responses unsupported, falling back to raw chat completions","service":"sub2api","env":"test","account_id":101,"upstream_status":404,"upstream_message":"Expected a string, but got an array instead."}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.116Z","msg":"openai chat_completions raw: forwarding without protocol conversion","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetryRequiresCompleteErrorBody/unknown_capability_still_retries_beyond_read_limit
+{"level":"DEBUG","time":"2026-10-13T08:44:44.116Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.116Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+{"level":"INFO","time":"2026-10-13T08:44:44.116Z","msg":"openai chat_completions: /responses unsupported, falling back to raw chat completions","service":"sub2api","env":"test","account_id":101,"upstream_status":404,"upstream_message":"Expected a string, but got an array instead."}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.116Z","msg":"openai chat_completions raw: forwarding without protocol conversion","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false}
+--- PASS: TestForwardAsChatCompletions_StructuredInputRetryRequiresCompleteErrorBody (0.01s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetryRequiresCompleteErrorBody/complete_JSON_followed_by_read_failure (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetryRequiresCompleteErrorBody/truncated_JSON (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetryRequiresCompleteErrorBody/exact_read_limit (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetryRequiresCompleteErrorBody/one_byte_beyond_read_limit (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetryRequiresCompleteErrorBody/valid_JSON_prefix_before_discarded_suffix (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetryRequiresCompleteErrorBody/unknown_capability_still_retries_after_read_failure (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetryRequiresCompleteErrorBody/unknown_capability_still_retries_beyond_read_limit (0.00s)
+=== RUN   TestForwardAsChatCompletions_RawFallbackPreservesResponsesTiming
+=== RUN   TestForwardAsChatCompletions_RawFallbackPreservesResponsesTiming/unknown=false/stream=false
+{"level":"DEBUG","time":"2026-10-13T08:44:44.116Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.116Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+{"level":"INFO","time":"2026-10-13T08:44:44.147Z","msg":"openai chat_completions: structured Responses input rejected, falling back to raw chat completions","service":"sub2api","env":"test","account_id":101,"upstream_status":400}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.147Z","msg":"openai chat_completions raw: forwarding without protocol conversion","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false}
+=== RUN   TestForwardAsChatCompletions_RawFallbackPreservesResponsesTiming/unknown=false/stream=true
+{"level":"DEBUG","time":"2026-10-13T08:44:44.147Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":true,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.147Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+{"level":"INFO","time":"2026-10-13T08:44:44.178Z","msg":"openai chat_completions: structured Responses input rejected, falling back to raw chat completions","service":"sub2api","env":"test","account_id":101,"upstream_status":400}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.178Z","msg":"openai chat_completions raw: forwarding without protocol conversion","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":true}
+=== RUN   TestForwardAsChatCompletions_RawFallbackPreservesResponsesTiming/unknown=true/stream=false
+{"level":"DEBUG","time":"2026-10-13T08:44:44.178Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.178Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+{"level":"INFO","time":"2026-10-13T08:44:44.210Z","msg":"openai chat_completions: /responses unsupported, falling back to raw chat completions","service":"sub2api","env":"test","account_id":101,"upstream_status":404,"upstream_message":"Expected a string, but got an array instead."}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.210Z","msg":"openai chat_completions raw: forwarding without protocol conversion","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false}
+=== RUN   TestForwardAsChatCompletions_RawFallbackPreservesResponsesTiming/unknown=true/stream=true
+{"level":"DEBUG","time":"2026-10-13T08:44:44.210Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":true,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.210Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+{"level":"INFO","time":"2026-10-13T08:44:44.241Z","msg":"openai chat_completions: /responses unsupported, falling back to raw chat completions","service":"sub2api","env":"test","account_id":101,"upstream_status":404,"upstream_message":"Expected a string, but got an array instead."}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.241Z","msg":"openai chat_completions raw: forwarding without protocol conversion","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":true}
+--- PASS: TestForwardAsChatCompletions_RawFallbackPreservesResponsesTiming (0.12s)
+    --- PASS: TestForwardAsChatCompletions_RawFallbackPreservesResponsesTiming/unknown=false/stream=false (0.03s)
+    --- PASS: TestForwardAsChatCompletions_RawFallbackPreservesResponsesTiming/unknown=false/stream=true (0.03s)
+    --- PASS: TestForwardAsChatCompletions_RawFallbackPreservesResponsesTiming/unknown=true/stream=false (0.03s)
+    --- PASS: TestForwardAsChatCompletions_RawFallbackPreservesResponsesTiming/unknown=true/stream=true (0.03s)
+=== RUN   TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests
+=== RUN   TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/forced_Responses
+{"level":"DEBUG","time":"2026-10-13T08:44:44.241Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.241Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/forced_Responses_without_probe
+{"level":"DEBUG","time":"2026-10-13T08:44:44.241Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.241Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/unknown_support
+{"level":"DEBUG","time":"2026-10-13T08:44:44.241Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.241Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/Responses_shaped_Chat_ingress
+{"level":"DEBUG","time":"2026-10-13T08:44:44.241Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":true}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.241Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/native_Responses_ingress
+{"level":"DEBUG","time":"2026-10-13T08:44:44.241Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/native_CN_Responses_protocol
+{"level":"DEBUG","time":"2026-10-13T08:44:44.242Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.242Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/adaptive_Chat_ingress_stays_raw
+{"level":"DEBUG","time":"2026-10-13T08:44:44.242Z","msg":"openai chat_completions raw: forwarding without protocol conversion","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/adaptive_Responses_shaped_ingress_stays_Responses
+{"level":"DEBUG","time":"2026-10-13T08:44:44.242Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":true}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.242Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/adaptive_Responses_shaped_ingress_converts_to_Chat
+{"level":"DEBUG","time":"2026-10-13T08:44:44.242Z","msg":"openai chat_completions raw: forwarding without protocol conversion","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/model_routed_Responses_is_not_OpenAI_retry_eligible
+{"level":"DEBUG","time":"2026-10-13T08:44:44.242Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.242Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/OAuth
+{"level":"DEBUG","time":"2026-10-13T08:44:44.242Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"e389e5fc62e091be"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.242Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":true,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/authentication
+{"level":"DEBUG","time":"2026-10-13T08:44:44.242Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.242Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/authorization
+{"level":"DEBUG","time":"2026-10-13T08:44:44.242Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.242Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/rate_limit
+{"level":"DEBUG","time":"2026-10-13T08:44:44.243Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.243Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/unrelated_validation
+{"level":"DEBUG","time":"2026-10-13T08:44:44.243Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.243Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/nested_validation
+{"level":"DEBUG","time":"2026-10-13T08:44:44.243Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.243Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/echoed_validation
+{"level":"DEBUG","time":"2026-10-13T08:44:44.243Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.243Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/echoed_structured_error
+{"level":"DEBUG","time":"2026-10-13T08:44:44.243Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.243Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+--- PASS: TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/forced_Responses (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/forced_Responses_without_probe (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/unknown_support (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/Responses_shaped_Chat_ingress (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/native_Responses_ingress (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/native_CN_Responses_protocol (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/adaptive_Chat_ingress_stays_raw (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/adaptive_Responses_shaped_ingress_stays_Responses (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/adaptive_Responses_shaped_ingress_converts_to_Chat (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/model_routed_Responses_is_not_OpenAI_retry_eligible (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/OAuth (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/authentication (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/authorization (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/rate_limit (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/unrelated_validation (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/nested_validation (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/echoed_validation (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests/echoed_structured_error (0.00s)
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetryPreservesStreamingAndMapping
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetryPreservesStreamingAndMapping/account_mapping=false
+{"level":"DEBUG","time":"2026-10-13T08:44:44.243Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"client-model","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":true,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.243Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+{"level":"INFO","time":"2026-10-13T08:44:44.243Z","msg":"openai chat_completions: structured Responses input rejected, falling back to raw chat completions","service":"sub2api","env":"test","account_id":101,"upstream_status":400}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.243Z","msg":"openai chat_completions raw: forwarding without protocol conversion","service":"sub2api","env":"test","account_id":101,"original_model":"client-model","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":true}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetryPreservesStreamingAndMapping/account_mapping=true
+{"level":"DEBUG","time":"2026-10-13T08:44:44.243Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"client-model","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":true,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.243Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+{"level":"INFO","time":"2026-10-13T08:44:44.243Z","msg":"openai chat_completions: structured Responses input rejected, falling back to raw chat completions","service":"sub2api","env":"test","account_id":101,"upstream_status":400}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.243Z","msg":"openai chat_completions raw: forwarding without protocol conversion","service":"sub2api","env":"test","account_id":101,"original_model":"client-model","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":true}
+--- PASS: TestForwardAsChatCompletions_StructuredInputRetryPreservesStreamingAndMapping (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetryPreservesStreamingAndMapping/account_mapping=false (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetryPreservesStreamingAndMapping/account_mapping=true (0.00s)
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetryIsBoundedAndPreservesRawErrors
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetryIsBoundedAndPreservesRawErrors/status=400
+{"level":"DEBUG","time":"2026-10-13T08:44:44.243Z","msg":"openai chat_completions raw: forwarding without protocol conversion","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.243Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.243Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+{"level":"INFO","time":"2026-10-13T08:44:44.243Z","msg":"openai chat_completions: structured Responses input rejected, falling back to raw chat completions","service":"sub2api","env":"test","account_id":101,"upstream_status":400}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.243Z","msg":"openai chat_completions raw: forwarding without protocol conversion","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetryIsBoundedAndPreservesRawErrors/status=401
+{"level":"DEBUG","time":"2026-10-13T08:44:44.243Z","msg":"openai chat_completions raw: forwarding without protocol conversion","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.243Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.244Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+{"level":"INFO","time":"2026-10-13T08:44:44.244Z","msg":"openai chat_completions: structured Responses input rejected, falling back to raw chat completions","service":"sub2api","env":"test","account_id":101,"upstream_status":400}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.244Z","msg":"openai chat_completions raw: forwarding without protocol conversion","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false}
+=== RUN   TestForwardAsChatCompletions_StructuredInputRetryIsBoundedAndPreservesRawErrors/status=429
+{"level":"DEBUG","time":"2026-10-13T08:44:44.244Z","msg":"openai chat_completions raw: forwarding without protocol conversion","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.244Z","msg":"openai chat_completions: model mapping applied","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false,"responses_shape":false,"compat_prompt_cache_key_injected":true,"compat_prompt_cache_key_sha256":"685e3048ab3a15c7"}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.244Z","msg":"openai routing decision","service":"sub2api","env":"test","component":"service.openai_routing","transport":"http","account_id":101,"final_model":"gpt-5.4","final_service_tier":"","routing_hint_generated":false,"ws_affinity_decision":"not_applicable"}
+{"level":"INFO","time":"2026-10-13T08:44:44.244Z","msg":"openai chat_completions: structured Responses input rejected, falling back to raw chat completions","service":"sub2api","env":"test","account_id":101,"upstream_status":400}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.244Z","msg":"openai chat_completions raw: forwarding without protocol conversion","service":"sub2api","env":"test","account_id":101,"original_model":"gpt-5.4","billing_model":"gpt-5.4","upstream_model":"gpt-5.4","stream":false}
+--- PASS: TestForwardAsChatCompletions_StructuredInputRetryIsBoundedAndPreservesRawErrors (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetryIsBoundedAndPreservesRawErrors/status=400 (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetryIsBoundedAndPreservesRawErrors/status=401 (0.00s)
+    --- PASS: TestForwardAsChatCompletions_StructuredInputRetryIsBoundedAndPreservesRawErrors/status=429 (0.00s)
+=== RUN   TestTempUnscheduleOpenAITransportError_NilAccountRepo_InMemoryBlockOnly
+{"level":"WARN","time":"2026-10-13T08:44:44.246Z","msg":"openai.account_temp_unscheduled_transport_memory_only","service":"sub2api","env":"test","component":"service.openai_gateway","account_id":55,"account_name":"no-db","platform":"openai","until":"2026-10-13T08:54:44.246Z","reason":"upstream transport error (proxy/network): proxy refused"}
+--- PASS: TestTempUnscheduleOpenAITransportError_NilAccountRepo_InMemoryBlockOnly (0.00s)
+=== RUN   TestComputeRuleMetric_AccountTempUnscheduledCount
+=== PAUSE TestComputeRuleMetric_AccountTempUnscheduledCount
+=== RUN   TestRateLimitService_HandleUpstreamError_OAuth401SetsTempUnschedulable
+=== RUN   TestRateLimitService_HandleUpstreamError_OAuth401SetsTempUnschedulable/gemini
+=== RUN   TestRateLimitService_HandleUpstreamError_OAuth401SetsTempUnschedulable/antigravity_401_sets_temp_unschedulable
+{"level":"INFO","time":"2026-10-13T08:44:44.250Z","logger":"slog","msg":"antigravity_401_force_refresh_marked","service":"sub2api","env":"test","account_id":100}
+--- PASS: TestRateLimitService_HandleUpstreamError_OAuth401SetsTempUnschedulable (0.00s)
+    --- PASS: TestRateLimitService_HandleUpstreamError_OAuth401SetsTempUnschedulable/gemini (0.00s)
+    --- PASS: TestRateLimitService_HandleUpstreamError_OAuth401SetsTempUnschedulable/antigravity_401_sets_temp_unschedulable (0.00s)
+=== RUN   TestRateLimitService_HandleUpstreamError_OpenAI403FirstHitTempUnschedulable
+{"level":"ERROR","time":"2026-10-13T08:44:44.250Z","msg":"[HandleUpstreamErrorRaw] account_id=301 platform=openai type=oauth status=403 request_id= cf_ray= upstream_msg=temporary edge rejection raw_body={\"error\":{\"message\":\"temporary edge rejection\"}}","service":"sub2api","env":"test","component":"service.ratelimit","legacy_printf":true,"stacktrace":"github.com/Wei-Shaw/sub2api/internal/application/service.(*RateLimitService).HandleUpstreamError\n\t/workspace/internal/application/service/ratelimit_service.go:622\ngithub.com/Wei-Shaw/sub2api/internal/application/service.TestRateLimitService_HandleUpstreamError_OpenAI403FirstHitTempUnschedulable\n\t/workspace/internal/application/service/ratelimit_service_403_test.go:45\ntesting.tRunner\n\t/usr/local/go/src/testing/testing.go:2036"}
+{"level":"WARN","time":"2026-10-13T08:44:44.250Z","logger":"slog","msg":"openai_403_temp_unschedulable","service":"sub2api","env":"test","account_id":301,"until":"2026-10-13T08:54:44.250Z","count":1,"threshold":3,"threshold_reached":false}
+--- PASS: TestRateLimitService_HandleUpstreamError_OpenAI403FirstHitTempUnschedulable (0.00s)
+=== RUN   TestHandleUpstreamError_AnthropicWindowLimitPreemptsTempUnschedRule
+{"level":"INFO","time":"2026-10-13T08:44:44.250Z","logger":"slog","msg":"anthropic_window_rate_limited","service":"sub2api","env":"test","account_id":42,"window":"5h","reset_at":"2026-10-13T11:44:44.000Z","reset_in":10799000}
+--- PASS: TestHandleUpstreamError_AnthropicWindowLimitPreemptsTempUnschedRule (0.00s)
+=== RUN   TestRateLimitService_ClearRateLimit_AlsoClearsTempUnschedulable
+--- PASS: TestRateLimitService_ClearRateLimit_AlsoClearsTempUnschedulable (0.00s)
+=== RUN   TestRateLimitService_ClearRateLimit_ClearTempUnschedulableFailed
+--- PASS: TestRateLimitService_ClearRateLimit_ClearTempUnschedulableFailed (0.00s)
+=== RUN   TestRateLimitService_ClearRateLimit_WithoutTempUnschedCache
+--- PASS: TestRateLimitService_ClearRateLimit_WithoutTempUnschedCache (0.00s)
+=== RUN   TestRateLimitService_HandleUpstreamError_ModelNotFoundWriteFailureDoesNotTempUnschedule
+{"level":"WARN","time":"2026-10-13T08:44:44.250Z","logger":"slog","msg":"upstream_model_not_found_set_model_rate_limit_failed","service":"sub2api","env":"test","account_id":101,"model":"gpt-5.4","reason":"upstream_404_model_not_found","error":"write failed"}
+--- PASS: TestRateLimitService_HandleUpstreamError_ModelNotFoundWriteFailureDoesNotTempUnschedule (0.00s)
+=== RUN   TestRateLimitService_HandleUpstreamError_Bare404UsesModelScopedTempUnschedulableWhenModelKnown
+{"level":"INFO","time":"2026-10-13T08:44:44.250Z","logger":"slog","msg":"account_model_temp_unschedulable","service":"sub2api","env":"test","account_id":101,"model":"gpt-5.4","until":"2026-10-13T08:54:44.250Z","rule_index":0,"rule_scope":"","status_code":404}
+--- PASS: TestRateLimitService_HandleUpstreamError_Bare404UsesModelScopedTempUnschedulableWhenModelKnown (0.00s)
+=== RUN   TestRateLimitService_HandleUpstreamError_Bare404WithoutModelKeepsAccountTempUnschedulable
+{"level":"INFO","time":"2026-10-13T08:44:44.250Z","logger":"slog","msg":"account_temp_unschedulable","service":"sub2api","env":"test","account_id":101,"until":"2026-10-13T08:54:44.250Z","rule_index":0,"rule_scope":"","status_code":404}
+--- PASS: TestRateLimitService_HandleUpstreamError_Bare404WithoutModelKeepsAccountTempUnschedulable (0.00s)
+=== RUN   TestRateLimitService_HandleTempUnschedulable_PoolModeWithoutCustomPolicySkipsState
+--- PASS: TestRateLimitService_HandleTempUnschedulable_PoolModeWithoutCustomPolicySkipsState (0.00s)
+=== RUN   TestRateLimitService_HandleTempUnschedulable_PoolModeCustomPolicyUsesModelScope
+{"level":"INFO","time":"2026-10-13T08:44:44.250Z","logger":"slog","msg":"account_model_temp_unschedulable","service":"sub2api","env":"test","account_id":101,"model":"gpt-5.4","until":"2026-10-13T08:54:44.250Z","rule_index":0,"rule_scope":"","status_code":404}
+--- PASS: TestRateLimitService_HandleTempUnschedulable_PoolModeCustomPolicyUsesModelScope (0.00s)
+=== RUN   TestRateLimitService_TempUnschedulableContextPreservesModelForPoolDependency
+{"level":"INFO","time":"2026-10-13T08:44:44.250Z","logger":"slog","msg":"account_model_temp_unschedulable","service":"sub2api","env":"test","account_id":101,"model":"gpt-5.4","until":"2026-10-13T08:54:44.250Z","rule_index":0,"rule_scope":"","status_code":404}
+--- PASS: TestRateLimitService_TempUnschedulableContextPreservesModelForPoolDependency (0.00s)
+=== RUN   TestRateLimitService_HandleTempUnschedulable_AuthenticationFailureStaysAccountScoped
+{"level":"INFO","time":"2026-10-13T08:44:44.250Z","logger":"slog","msg":"account_temp_unschedulable","service":"sub2api","env":"test","account_id":101,"until":"2026-10-13T08:54:44.250Z","rule_index":0,"rule_scope":"","status_code":401}
+--- PASS: TestRateLimitService_HandleTempUnschedulable_AuthenticationFailureStaysAccountScoped (0.00s)
+=== RUN   TestRateLimitService_ModelTempUnschedulableIsolatesSchedulerByModel
+{"level":"INFO","time":"2026-10-13T08:44:44.250Z","logger":"slog","msg":"account_model_temp_unschedulable","service":"sub2api","env":"test","account_id":101,"model":"upstream-a","until":"2026-10-13T08:54:44.250Z","rule_index":0,"rule_scope":"","status_code":404}
+--- PASS: TestRateLimitService_ModelTempUnschedulableIsolatesSchedulerByModel (0.00s)
+=== RUN   TestGetTempUnschedulableRules_ParsesScope
+--- PASS: TestGetTempUnschedulableRules_ParsesScope (0.00s)
+=== RUN   TestTempUnschedRuleUsesModelScope
+=== RUN   TestTempUnschedRuleUsesModelScope/缺省_模型已知_非401_走模型级
+=== RUN   TestTempUnschedRuleUsesModelScope/缺省_401_走账号级
+=== RUN   TestTempUnschedRuleUsesModelScope/缺省_模型未知_走账号级
+=== RUN   TestTempUnschedRuleUsesModelScope/显式账号级_模型已知_仍账号级
+=== RUN   TestTempUnschedRuleUsesModelScope/显式模型级_401_仍模型级
+=== RUN   TestTempUnschedRuleUsesModelScope/显式模型级_模型未知_兜底账号级
+--- PASS: TestTempUnschedRuleUsesModelScope (0.00s)
+    --- PASS: TestTempUnschedRuleUsesModelScope/缺省_模型已知_非401_走模型级 (0.00s)
+    --- PASS: TestTempUnschedRuleUsesModelScope/缺省_401_走账号级 (0.00s)
+    --- PASS: TestTempUnschedRuleUsesModelScope/缺省_模型未知_走账号级 (0.00s)
+    --- PASS: TestTempUnschedRuleUsesModelScope/显式账号级_模型已知_仍账号级 (0.00s)
+    --- PASS: TestTempUnschedRuleUsesModelScope/显式模型级_401_仍模型级 (0.00s)
+    --- PASS: TestTempUnschedRuleUsesModelScope/显式模型级_模型未知_兜底账号级 (0.00s)
+=== RUN   TestHandleTempUnschedulable_ExplicitAccountScopePausesWholeAccountWithKnownModel
+{"level":"INFO","time":"2026-10-13T08:44:44.252Z","logger":"slog","msg":"account_temp_unschedulable","service":"sub2api","env":"test","account_id":202,"until":"2026-10-13T08:54:44.252Z","rule_index":0,"rule_scope":"account","status_code":503}
+--- PASS: TestHandleTempUnschedulable_ExplicitAccountScopePausesWholeAccountWithKnownModel (0.00s)
+=== RUN   TestHandleTempUnschedulable_ExplicitModelScopeFallsBackToAccountWhenModelUnknown
+{"level":"INFO","time":"2026-10-13T08:44:44.252Z","logger":"slog","msg":"account_temp_unschedulable","service":"sub2api","env":"test","account_id":202,"until":"2026-10-13T08:54:44.252Z","rule_index":0,"rule_scope":"model","status_code":503}
+--- PASS: TestHandleTempUnschedulable_ExplicitModelScopeFallsBackToAccountWhenModelUnknown (0.00s)
+=== RUN   TestOpenAIFailoverSideEffects_401FollowsTempUnschedScope
+=== RUN   TestOpenAIFailoverSideEffects_401FollowsTempUnschedScope/显式模型级_只冷却模型
+{"level":"INFO","time":"2026-10-13T08:44:44.253Z","logger":"slog","msg":"account_model_temp_unschedulable","service":"sub2api","env":"test","account_id":202,"model":"gpt-5.4","until":"2026-10-13T08:54:44.253Z","rule_index":0,"rule_scope":"model","status_code":401}
+=== RUN   TestOpenAIFailoverSideEffects_401FollowsTempUnschedScope/显式模型级_池模式_只冷却模型
+{"level":"INFO","time":"2026-10-13T08:44:44.253Z","logger":"slog","msg":"account_model_temp_unschedulable","service":"sub2api","env":"test","account_id":202,"model":"gpt-5.4","until":"2026-10-13T08:54:44.253Z","rule_index":0,"rule_scope":"model","status_code":401}
+=== RUN   TestOpenAIFailoverSideEffects_401FollowsTempUnschedScope/缺省_走认证错误处理
+{"level":"WARN","time":"2026-10-13T08:44:44.253Z","logger":"slog","msg":"account_disabled_auth_error","service":"sub2api","env":"test","account_id":202,"error":"Authentication failed (401): unauthorized"}
+=== RUN   TestOpenAIFailoverSideEffects_401FollowsTempUnschedScope/显式账号级_走认证错误处理
+{"level":"WARN","time":"2026-10-13T08:44:44.253Z","logger":"slog","msg":"account_disabled_auth_error","service":"sub2api","env":"test","account_id":202,"error":"Authentication failed (401): unauthorized"}
+=== RUN   TestOpenAIFailoverSideEffects_401FollowsTempUnschedScope/首条命中为账号级_走认证错误处理
+{"level":"WARN","time":"2026-10-13T08:44:44.253Z","logger":"slog","msg":"account_disabled_auth_error","service":"sub2api","env":"test","account_id":202,"error":"Authentication failed (401): unauthorized"}
+=== RUN   TestOpenAIFailoverSideEffects_401FollowsTempUnschedScope/缺省_池模式_保持跳过
+{"level":"INFO","time":"2026-10-13T08:44:44.253Z","logger":"slog","msg":"pool_mode_error_skipped","service":"sub2api","env":"test","account_id":202,"status_code":401}
+=== RUN   TestOpenAIFailoverSideEffects_401FollowsTempUnschedScope/显式模型级_token_revoked_走认证错误处理
+{"level":"WARN","time":"2026-10-13T08:44:44.253Z","logger":"slog","msg":"account_disabled_auth_error","service":"sub2api","env":"test","account_id":202,"error":"Token revoked (401): unauthorized"}
+=== RUN   TestOpenAIFailoverSideEffects_401FollowsTempUnschedScope/显式模型级_detail_Unauthorized_走认证错误处理
+{"level":"WARN","time":"2026-10-13T08:44:44.253Z","logger":"slog","msg":"account_disabled_auth_error","service":"sub2api","env":"test","account_id":202,"error":"Unauthorized (401): Unauthorized"}
+=== RUN   TestOpenAIFailoverSideEffects_401FollowsTempUnschedScope/显式模型级_token_revoked_池模式_保持跳过
+{"level":"INFO","time":"2026-10-13T08:44:44.253Z","logger":"slog","msg":"pool_mode_error_skipped","service":"sub2api","env":"test","account_id":202,"status_code":401}
+=== RUN   TestOpenAIFailoverSideEffects_401FollowsTempUnschedScope/显式模型级_OAuth_走刷新窗口
+--- PASS: TestOpenAIFailoverSideEffects_401FollowsTempUnschedScope (0.00s)
+    --- PASS: TestOpenAIFailoverSideEffects_401FollowsTempUnschedScope/显式模型级_只冷却模型 (0.00s)
+    --- PASS: TestOpenAIFailoverSideEffects_401FollowsTempUnschedScope/显式模型级_池模式_只冷却模型 (0.00s)
+    --- PASS: TestOpenAIFailoverSideEffects_401FollowsTempUnschedScope/缺省_走认证错误处理 (0.00s)
+    --- PASS: TestOpenAIFailoverSideEffects_401FollowsTempUnschedScope/显式账号级_走认证错误处理 (0.00s)
+    --- PASS: TestOpenAIFailoverSideEffects_401FollowsTempUnschedScope/首条命中为账号级_走认证错误处理 (0.00s)
+    --- PASS: TestOpenAIFailoverSideEffects_401FollowsTempUnschedScope/缺省_池模式_保持跳过 (0.00s)
+    --- PASS: TestOpenAIFailoverSideEffects_401FollowsTempUnschedScope/显式模型级_token_revoked_走认证错误处理 (0.00s)
+    --- PASS: TestOpenAIFailoverSideEffects_401FollowsTempUnschedScope/显式模型级_detail_Unauthorized_走认证错误处理 (0.00s)
+    --- PASS: TestOpenAIFailoverSideEffects_401FollowsTempUnschedScope/显式模型级_token_revoked_池模式_保持跳过 (0.00s)
+    --- PASS: TestOpenAIFailoverSideEffects_401FollowsTempUnschedScope/显式模型级_OAuth_走刷新窗口 (0.00s)
+=== RUN   TestCheckErrorPolicy_401FollowsTempUnschedScope
+=== RUN   TestCheckErrorPolicy_401FollowsTempUnschedScope/显式模型级_不参与重复_401_升级
+{"level":"INFO","time":"2026-10-13T08:44:44.253Z","logger":"slog","msg":"account_model_temp_unschedulable","service":"sub2api","env":"test","account_id":202,"model":"gpt-5.4","until":"2026-10-13T08:54:44.253Z","rule_index":0,"rule_scope":"model","status_code":401}
+=== RUN   TestCheckErrorPolicy_401FollowsTempUnschedScope/缺省_第二次_401_升级
+{"level":"INFO","time":"2026-10-13T08:44:44.253Z","logger":"slog","msg":"401_escalated_to_error","service":"sub2api","env":"test","account_id":202,"reason":"previous temp-unschedulable was also 401"}
+=== RUN   TestCheckErrorPolicy_401FollowsTempUnschedScope/显式模型级_token_revoked_按账号暂停
+{"level":"INFO","time":"2026-10-13T08:44:44.254Z","logger":"slog","msg":"account_temp_unschedulable","service":"sub2api","env":"test","account_id":202,"until":"2026-10-13T08:54:44.254Z","rule_index":0,"rule_scope":"model","status_code":401}
+=== RUN   TestCheckErrorPolicy_401FollowsTempUnschedScope/显式模型级_detail_Unauthorized_按账号暂停
+{"level":"INFO","time":"2026-10-13T08:44:44.254Z","logger":"slog","msg":"account_temp_unschedulable","service":"sub2api","env":"test","account_id":202,"until":"2026-10-13T08:54:44.254Z","rule_index":0,"rule_scope":"model","status_code":401}
+=== RUN   TestCheckErrorPolicy_401FollowsTempUnschedScope/显式模型级_OAuth_按账号暂停
+{"level":"INFO","time":"2026-10-13T08:44:44.254Z","logger":"slog","msg":"account_temp_unschedulable","service":"sub2api","env":"test","account_id":202,"until":"2026-10-13T08:54:44.254Z","rule_index":0,"rule_scope":"model","status_code":401}
+=== RUN   TestCheckErrorPolicy_401FollowsTempUnschedScope/显式模型级_凭据级第二次_401_升级
+{"level":"INFO","time":"2026-10-13T08:44:44.254Z","logger":"slog","msg":"401_escalated_to_error","service":"sub2api","env":"test","account_id":202,"reason":"previous temp-unschedulable was also 401"}
+--- PASS: TestCheckErrorPolicy_401FollowsTempUnschedScope (0.00s)
+    --- PASS: TestCheckErrorPolicy_401FollowsTempUnschedScope/显式模型级_不参与重复_401_升级 (0.00s)
+    --- PASS: TestCheckErrorPolicy_401FollowsTempUnschedScope/缺省_第二次_401_升级 (0.00s)
+    --- PASS: TestCheckErrorPolicy_401FollowsTempUnschedScope/显式模型级_token_revoked_按账号暂停 (0.00s)
+    --- PASS: TestCheckErrorPolicy_401FollowsTempUnschedScope/显式模型级_detail_Unauthorized_按账号暂停 (0.00s)
+    --- PASS: TestCheckErrorPolicy_401FollowsTempUnschedScope/显式模型级_OAuth_按账号暂停 (0.00s)
+    --- PASS: TestCheckErrorPolicy_401FollowsTempUnschedScope/显式模型级_凭据级第二次_401_升级 (0.00s)
+=== RUN   TestMatchTempUnschedKeyword
+=== RUN   TestMatchTempUnschedKeyword/match_first
+=== RUN   TestMatchTempUnschedKeyword/match_second
+=== RUN   TestMatchTempUnschedKeyword/no_match
+=== RUN   TestMatchTempUnschedKeyword/empty_body
+=== RUN   TestMatchTempUnschedKeyword/empty_keywords
+=== RUN   TestMatchTempUnschedKeyword/whitespace_keyword
+=== RUN   TestMatchTempUnschedKeyword/case_insensitive_body_lowered
+--- PASS: TestMatchTempUnschedKeyword (0.00s)
+    --- PASS: TestMatchTempUnschedKeyword/match_first (0.00s)
+    --- PASS: TestMatchTempUnschedKeyword/match_second (0.00s)
+    --- PASS: TestMatchTempUnschedKeyword/no_match (0.00s)
+    --- PASS: TestMatchTempUnschedKeyword/empty_body (0.00s)
+    --- PASS: TestMatchTempUnschedKeyword/empty_keywords (0.00s)
+    --- PASS: TestMatchTempUnschedKeyword/whitespace_keyword (0.00s)
+    --- PASS: TestMatchTempUnschedKeyword/case_insensitive_body_lowered (0.00s)
+=== RUN   TestAccountIsSchedulable_TempUnschedulable
+=== RUN   TestAccountIsSchedulable_TempUnschedulable/temp_unschedulable_active
+=== RUN   TestAccountIsSchedulable_TempUnschedulable/temp_unschedulable_expired
+=== RUN   TestAccountIsSchedulable_TempUnschedulable/no_temp_unschedulable
+=== RUN   TestAccountIsSchedulable_TempUnschedulable/temp_unschedulable_with_rate_limit
+--- PASS: TestAccountIsSchedulable_TempUnschedulable (0.00s)
+    --- PASS: TestAccountIsSchedulable_TempUnschedulable/temp_unschedulable_active (0.00s)
+    --- PASS: TestAccountIsSchedulable_TempUnschedulable/temp_unschedulable_expired (0.00s)
+    --- PASS: TestAccountIsSchedulable_TempUnschedulable/no_temp_unschedulable (0.00s)
+    --- PASS: TestAccountIsSchedulable_TempUnschedulable/temp_unschedulable_with_rate_limit (0.00s)
+=== RUN   TestAccount_IsTempUnschedulableEnabled
+=== RUN   TestAccount_IsTempUnschedulableEnabled/enabled
+=== RUN   TestAccount_IsTempUnschedulableEnabled/disabled
+=== RUN   TestAccount_IsTempUnschedulableEnabled/not_set
+=== RUN   TestAccount_IsTempUnschedulableEnabled/nil_credentials
+--- PASS: TestAccount_IsTempUnschedulableEnabled (0.00s)
+    --- PASS: TestAccount_IsTempUnschedulableEnabled/enabled (0.00s)
+    --- PASS: TestAccount_IsTempUnschedulableEnabled/disabled (0.00s)
+    --- PASS: TestAccount_IsTempUnschedulableEnabled/not_set (0.00s)
+    --- PASS: TestAccount_IsTempUnschedulableEnabled/nil_credentials (0.00s)
+=== RUN   TestAccount_GetTempUnschedulableRules
+=== RUN   TestAccount_GetTempUnschedulableRules/has_rules
+=== RUN   TestAccount_GetTempUnschedulableRules/empty_rules
+=== RUN   TestAccount_GetTempUnschedulableRules/no_rules
+=== RUN   TestAccount_GetTempUnschedulableRules/nil_credentials
+--- PASS: TestAccount_GetTempUnschedulableRules (0.00s)
+    --- PASS: TestAccount_GetTempUnschedulableRules/has_rules (0.00s)
+    --- PASS: TestAccount_GetTempUnschedulableRules/empty_rules (0.00s)
+    --- PASS: TestAccount_GetTempUnschedulableRules/no_rules (0.00s)
+    --- PASS: TestAccount_GetTempUnschedulableRules/nil_credentials (0.00s)
+=== RUN   TestTempUnschedulableRule_Parse
+--- PASS: TestTempUnschedulableRule_Parse (0.00s)
+=== RUN   TestTruncateTempUnschedMessage
+=== RUN   TestTruncateTempUnschedMessage/short_message
+=== RUN   TestTruncateTempUnschedMessage/truncate_long_message
+=== RUN   TestTruncateTempUnschedMessage/empty_body
+=== RUN   TestTruncateTempUnschedMessage/zero_max_bytes
+=== RUN   TestTruncateTempUnschedMessage/whitespace_trimmed
+--- PASS: TestTruncateTempUnschedMessage (0.00s)
+    --- PASS: TestTruncateTempUnschedMessage/short_message (0.00s)
+    --- PASS: TestTruncateTempUnschedMessage/truncate_long_message (0.00s)
+    --- PASS: TestTruncateTempUnschedMessage/empty_body (0.00s)
+    --- PASS: TestTruncateTempUnschedMessage/zero_max_bytes (0.00s)
+    --- PASS: TestTruncateTempUnschedMessage/whitespace_trimmed (0.00s)
+=== RUN   TestTempUnschedState
+--- PASS: TestTempUnschedState (0.00s)
+=== RUN   TestAccount_TempUnschedulableUntil
+=== RUN   TestAccount_TempUnschedulableUntil/active_temp_unsched_not_schedulable
+=== RUN   TestAccount_TempUnschedulableUntil/expired_temp_unsched_is_schedulable
+=== RUN   TestAccount_TempUnschedulableUntil/nil_temp_unsched_is_schedulable
+--- PASS: TestAccount_TempUnschedulableUntil (0.00s)
+    --- PASS: TestAccount_TempUnschedulableUntil/active_temp_unsched_not_schedulable (0.00s)
+    --- PASS: TestAccount_TempUnschedulableUntil/expired_temp_unsched_is_schedulable (0.00s)
+    --- PASS: TestAccount_TempUnschedulableUntil/nil_temp_unsched_is_schedulable (0.00s)
+=== RUN   TestTokenRefreshService_RefreshWithRetry_ClearsTempUnschedulable
+{"level":"INFO","time":"2026-10-13T08:44:44.255Z","logger":"slog","msg":"token_refresh.cleared_temp_unschedulable","service":"sub2api","env":"test","account_id":15}
+{"level":"DEBUG","time":"2026-10-13T08:44:44.256Z","logger":"slog","msg":"token_refresh.token_cache_invalidated","service":"sub2api","env":"test","account_id":15}
+--- PASS: TestTokenRefreshService_RefreshWithRetry_ClearsTempUnschedulable (0.00s)
+=== RUN   TestTokenRefreshService_RefreshWithRetry_NoRefreshTokenDoesNotTempUnschedule
+--- PASS: TestTokenRefreshService_RefreshWithRetry_NoRefreshTokenDoesNotTempUnschedule (0.00s)
+=== RUN   TestUpstream20261013ObservedBehavior
+KIMI_INTERNATIONAL_PROVIDER="kimi"
+ANTIGRAVITY_FAMILY_LIMIT image=false text=true
+GEMINI_TOOL_RESULT images=1 parts=2
+{"level":"INFO","time":"2026-10-13T08:44:44.256Z","logger":"slog","msg":"account_temp_unschedulable","service":"sub2api","env":"test","account_id":123,"until":"2026-10-13T08:45:44.256Z","rule_index":0,"rule_scope":"account","status_code":502}
+EXPLICIT_ACCOUNT_SCOPE account_writes=1 model_writes=0
+--- PASS: TestUpstream20261013ObservedBehavior (0.00s)
+=== CONT  TestComputeRuleMetric_AccountTempUnscheduledCount
+--- PASS: TestComputeRuleMetric_AccountTempUnscheduledCount (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.291s

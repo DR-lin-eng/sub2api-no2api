@@ -277,6 +277,12 @@ Happy Eyeballs 回退 IPv4。连接池键包含源地址和绑定版本，轮换
   不受此规则影响。
 - 客户端取消应停止上游读取和后台转发，不能继续占用账号或累计无主缓存。
 
+### 上游错误与临时不可调度范围
+
+`credentials.temp_unschedulable_rules[].scope` 是可选字段：未设置时保留既有的模型已知且非 401 使用模型冷却的行为，`account` 暂停整个账号，`model` 只冷却当前调度模型。模型未知、OAuth/影子账号的认证失效以及 OpenAI 明确凭据撤销仍保留账号保护。token 计数、Bedrock 和重试耗尽都传递调度器读取的模型键，运行态阻断采用相同范围。滚动升级先更新全部节点再启用新 scope，回退前恢复自动范围。
+
+Chat 转为 Responses 后，只有 auto 且已确认支持 Responses 的 OpenAI API Key 账号收到完整、无歧义的 input-string 类型拒绝，才允许一次原生 Chat 回退；已经输出、取消、原生 Responses、强制协议和无关错误不触发这项新回退。两次尝试共享原始开始时间，可靠计费和客户端断开后 drain 继续使用原 owner。审查和 Docker 证据见 [2026-10-13 同步记录](UPSTREAM_SYNC_20261013.md)。
+
 ### Codex OAuth A/B/C 模拟
 
 管理员面板的“网关服务 -> Codex OAuth A/B/C 模拟”通过

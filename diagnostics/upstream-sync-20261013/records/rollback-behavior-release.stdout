@@ -1,0 +1,10 @@
+2026/10/13 09:47:26 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestUpstream20261013ObservedBehavior
+KIMI_INTERNATIONAL_PROVIDER=""
+ANTIGRAVITY_FAMILY_LIMIT image=true text=true
+GEMINI_TOOL_RESULT images=0 parts=1
+2026/10/13 09:47:26 INFO account_model_temp_unschedulable account_id=123 model=model-a until=2026-10-13T09:48:26.587Z rule_index=0 status_code=502
+EXPLICIT_ACCOUNT_SCOPE account_writes=0 model_writes=1
+--- PASS: TestUpstream20261013ObservedBehavior (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.015s

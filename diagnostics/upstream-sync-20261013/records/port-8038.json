@@ -1,0 +1,12 @@
+{
+  "command": [
+    "git",
+    "apply",
+    "--reject",
+    "/private/tmp/sub2api-upstream-sync-20261013-e3d4/evidence/selected-8038.patch"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261013-e3d4/repo",
+  "stdout": "",
+  "stderr": "Checking patch backend/internal/application/service/gemini_messages_compat_service.go...\nHunk #1 succeeded at 3274 (offset -92 lines).\nHunk #2 succeeded at 3315 (offset -92 lines).\nHunk #3 succeeded at 3351 (offset -92 lines).\nHunk #4 succeeded at 3388 (offset -92 lines).\nChecking patch backend/internal/application/service/gemini_messages_compat_service_test.go...\nHunk #1 succeeded at 730 (offset 26 lines).\nApplied patch backend/internal/application/service/gemini_messages_compat_service.go cleanly.\nApplied patch backend/internal/application/service/gemini_messages_compat_service_test.go cleanly.\n",
+  "exit_status": 0
+}

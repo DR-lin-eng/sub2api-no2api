@@ -1,0 +1,12 @@
+baseline: readiness/frontend/encrypted-login/persisted-key/legacy-order/data-snapshot PASS
+baseline: group default/admin/user locale and mixed-version writer PASS
+baseline: legacy rules and optional scope persistence PASS
+upgraded: readiness/frontend/encrypted-login/persisted-key/legacy-order/data-snapshot PASS
+upgraded: group default/admin/user locale and mixed-version writer PASS
+upgraded: legacy rules and optional scope persistence PASS
+rollback: readiness/frontend/encrypted-login/persisted-key/legacy-order/data-snapshot PASS
+rollback: group default/admin/user locale and mixed-version writer PASS
+rollback: legacy rules and optional scope persistence PASS
+restored: readiness/frontend/encrypted-login/persisted-key/legacy-order/data-snapshot PASS
+restored: group default/admin/user locale and mixed-version writer PASS
+restored: legacy rules and optional scope persistence PASS

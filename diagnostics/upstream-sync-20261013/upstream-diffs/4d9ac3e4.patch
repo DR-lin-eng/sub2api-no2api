@@ -1,0 +1,7 @@
+diff --git a/backend/cmd/server/VERSION b/backend/cmd/server/VERSION
+index b005e307c..9097948ff 100644
+--- a/backend/cmd/server/VERSION
++++ b/backend/cmd/server/VERSION
+@@ -1 +1 @@
+-0.2.15
++0.2.16

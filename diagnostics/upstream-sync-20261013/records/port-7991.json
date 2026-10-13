@@ -1,0 +1,12 @@
+{
+  "command": [
+    "git",
+    "apply",
+    "--reject",
+    "/private/tmp/sub2api-upstream-sync-20261013-e3d4/evidence/selected-7991.patch"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261013-e3d4/repo",
+  "stdout": "",
+  "stderr": "Checking patch backend/internal/application/service/account.go...\nHunk #1 succeeded at 1915 (offset 311 lines).\nHunk #2 succeeded at 1926 (offset 309 lines).\nChecking patch backend/internal/application/service/account_kimi_coding_test.go...\nApplied patch backend/internal/application/service/account.go cleanly.\nApplied patch backend/internal/application/service/account_kimi_coding_test.go cleanly.\n",
+  "exit_status": 0
+}

@@ -85,6 +85,15 @@
               </div>
 
               <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div class="sm:col-span-2">
+                  <label class="input-label">{{ t('admin.accounts.tempUnschedulable.scope') }}</label>
+                  <select v-model="rule.scope" class="input">
+                    <option value="">{{ t('admin.accounts.tempUnschedulable.scopeAuto') }}</option>
+                    <option value="account">{{ t('admin.accounts.tempUnschedulable.scopeAccount') }}</option>
+                    <option value="model">{{ t('admin.accounts.tempUnschedulable.scopeModel') }}</option>
+                  </select>
+                  <p class="input-hint">{{ t('admin.accounts.tempUnschedulable.scopeHint') }}</p>
+                </div>
                 <div>
                   <label class="input-label">{{ t('admin.accounts.tempUnschedulable.errorCode') }}</label>
                   <input

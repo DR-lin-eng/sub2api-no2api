@@ -1,0 +1,6 @@
+{
+  "exit_status": 1,
+  "source": "strict source replacement for openai_gateway_count_tokens.go",
+  "stderr": "expected 1 matching unscoped HandleUpstreamError call, found 0",
+  "correction": "The only current call is already scoped by prepared.UpstreamModel; retained it and resumed at the next unfinished edit."
+}

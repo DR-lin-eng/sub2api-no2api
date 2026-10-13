@@ -1,0 +1,46 @@
+{
+  "baseline": {
+    "ToolText/1": {
+      "ns": 581.1,
+      "bytes": 2472,
+      "allocs": 15
+    },
+    "ToolText/1024": {
+      "ns": 615390.0,
+      "bytes": 5234600,
+      "allocs": 37
+    },
+    "RateLimitText": {
+      "ns": 123.6,
+      "bytes": 48,
+      "allocs": 2
+    },
+    "LegacyRules": {
+      "ns": 113.3,
+      "bytes": 160,
+      "allocs": 3
+    }
+  },
+  "modified": {
+    "ToolText/1": {
+      "ns": 575.8,
+      "bytes": 2472,
+      "allocs": 15
+    },
+    "ToolText/1024": {
+      "ns": 583513.0,
+      "bytes": 5234600,
+      "allocs": 37
+    },
+    "RateLimitText": {
+      "ns": 118.7,
+      "bytes": 48,
+      "allocs": 2
+    },
+    "LegacyRules": {
+      "ns": 131.1,
+      "bytes": 192,
+      "allocs": 3
+    }
+  }
+}

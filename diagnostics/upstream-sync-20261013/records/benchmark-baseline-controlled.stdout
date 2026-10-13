@@ -1,0 +1,18 @@
+2026/10/13 08:58:47 Timezone initialized: UTC (UTC offset: +00:00)
+goos: linux
+goarch: arm64
+pkg: github.com/Wei-Shaw/sub2api/internal/application/service
+BenchmarkUpstream20261013/ToolText/1-2         	 2077669	       585.0 ns/op	    2472 B/op	      15 allocs/op
+BenchmarkUpstream20261013/ToolText/1-2         	 2076159	       581.1 ns/op	    2472 B/op	      15 allocs/op
+BenchmarkUpstream20261013/ToolText/1-2         	 1852083	       576.4 ns/op	    2472 B/op	      15 allocs/op
+BenchmarkUpstream20261013/ToolText/1024-2      	    1812	    585101 ns/op	 5234600 B/op	      37 allocs/op
+BenchmarkUpstream20261013/ToolText/1024-2      	    2041	    615390 ns/op	 5234600 B/op	      37 allocs/op
+BenchmarkUpstream20261013/ToolText/1024-2      	    2024	    633162 ns/op	 5234600 B/op	      37 allocs/op
+BenchmarkUpstream20261013/RateLimitText-2      	 9882300	       121.5 ns/op	      48 B/op	       2 allocs/op
+BenchmarkUpstream20261013/RateLimitText-2      	10289844	       123.6 ns/op	      48 B/op	       2 allocs/op
+BenchmarkUpstream20261013/RateLimitText-2      	 8562776	       128.4 ns/op	      48 B/op	       2 allocs/op
+BenchmarkUpstream20261013/LegacyRules-2        	 9310944	       122.7 ns/op	     160 B/op	       3 allocs/op
+BenchmarkUpstream20261013/LegacyRules-2        	11053522	       113.3 ns/op	     160 B/op	       3 allocs/op
+BenchmarkUpstream20261013/LegacyRules-2        	10863295	       109.0 ns/op	     160 B/op	       3 allocs/op
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	17.057s

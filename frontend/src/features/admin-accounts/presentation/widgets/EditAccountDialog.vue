@@ -145,6 +145,7 @@ import {
   addPresetModelMapping,
   buildTempUnschedRules,
   createTempUnschedRule,
+  parseTempUnschedRules,
   formatPoolModeRetryStatusCodes,
   getCodexFingerprintModeOptions,
   isOpenAIPersonalAccessTokenCredentials,
@@ -1267,21 +1268,7 @@ const applyTempUnschedConfig = (credentials: Record<string, unknown>) => {
 
 function loadTempUnschedRules(credentials?: Record<string, unknown>) {
   tempUnschedEnabled.value = credentials?.temp_unschedulable_enabled === true
-  const rawRules = credentials?.temp_unschedulable_rules
-  if (!Array.isArray(rawRules)) {
-    tempUnschedRules.value = []
-    return
-  }
-
-  tempUnschedRules.value = rawRules.map((rule) => {
-    const entry = rule as Record<string, unknown>
-    return {
-      error_code: toPositiveNumber(entry.error_code),
-      keywords: formatTempUnschedKeywords(entry.keywords),
-      duration_minutes: toPositiveNumber(entry.duration_minutes),
-      description: typeof entry.description === 'string' ? entry.description : ''
-    }
-  })
+  tempUnschedRules.value = parseTempUnschedRules(credentials?.temp_unschedulable_rules)
 }
 
 // Load quota control settings from account (Anthropic OAuth/SetupToken only)
@@ -1378,27 +1365,7 @@ function loadQuotaControlSettings(account: Account) {
 
 }
 
-function formatTempUnschedKeywords(value: unknown) {
-  if (Array.isArray(value)) {
-    return value
-      .filter((item): item is string => typeof item === 'string')
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0)
-      .join(', ')
-  }
-  if (typeof value === 'string') {
-    return value
-  }
-  return ''
-}
 
-function toPositiveNumber(value: unknown) {
-  const num = Number(value)
-  if (!Number.isFinite(num) || num <= 0) {
-    return null
-  }
-  return Math.trunc(num)
-}
 
 function normalizeTLSFingerprintProfileID(value: unknown): number | null {
   if (value === null || value === undefined || value === '') return null

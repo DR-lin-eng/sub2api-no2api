@@ -1,0 +1,18 @@
+# github.com/Wei-Shaw/sub2api/internal/application/service [github.com/Wei-Shaw/sub2api/internal/application/service.test]
+internal/application/service/openai_gateway_responses_chat_fallback_test.go:21:6: TestForwardResponses_ForceChatCompletionsRoutesNonStreamingToChatCompletions redeclared in this block
+	internal/application/service/openai_gateway_fallback_timing_test.go:44:6: other declaration of TestForwardResponses_ForceChatCompletionsRoutesNonStreamingToChatCompletions
+internal/application/service/openai_gateway_responses_chat_fallback_test.go:57:6: TestForwardResponses_PassthroughFlagWithUnsupportedResponsesUsesAccountMapping redeclared in this block
+	internal/application/service/openai_gateway_fallback_timing_test.go:115:6: other declaration of TestForwardResponses_PassthroughFlagWithUnsupportedResponsesUsesAccountMapping
+internal/application/service/openai_gateway_responses_chat_fallback_test.go:93:6: TestForwardResponses_ForceChatCompletionsRoutesStreamingToChatCompletions redeclared in this block
+	internal/application/service/openai_gateway_fallback_timing_test.go:159:6: other declaration of TestForwardResponses_ForceChatCompletionsRoutesStreamingToChatCompletions
+internal/application/service/openai_gateway_responses_chat_fallback_test.go:246:6: TestForwardResponses_DeepSeekReasoningOnlyStreamProducesVisibleText redeclared in this block
+	internal/application/service/openai_gateway_fallback_timing_test.go:245:6: other declaration of TestForwardResponses_DeepSeekReasoningOnlyStreamProducesVisibleText
+internal/application/service/openai_gateway_responses_chat_fallback_test.go:360:6: TestForwardResponses_AutoSupportedAccountStillUsesResponsesEndpoint redeclared in this block
+	internal/application/service/openai_gateway_fallback_timing_test.go:284:6: other declaration of TestForwardResponses_AutoSupportedAccountStillUsesResponsesEndpoint
+internal/application/service/openai_gateway_responses_chat_fallback_test.go:395:6: forceChatResponsesFallbackAccount redeclared in this block
+	internal/application/service/openai_gateway_fallback_timing_test.go:319:6: other declaration of forceChatResponsesFallbackAccount
+internal/application/service/openai_gateway_fallback_timing_test.go:18:9: undefined: fmt
+internal/application/service/openai_gateway_fallback_timing_test.go:19:19: undefined: fmt
+internal/application/service/openai_gateway_fallback_timing_test.go:330:10: undefined: sync
+internal/application/service/account.go:1952:17: undefined: url
+internal/application/service/openai_gateway_fallback_timing_test.go:19:19: too many errors

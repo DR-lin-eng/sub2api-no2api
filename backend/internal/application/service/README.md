@@ -69,3 +69,5 @@ OAuth 历史 `web_search_call` 的缓存搜索声明由 `openai_oauth_web_search
 GPT-6.1 Sol 的订阅模型长上下文豁免由 `openai_subscription_long_context.go` 判断实际凭据与发送模型，通过 `CostInput.DisableModelLongContextPricing` 接入既有计费流程；自定义价格区间保留。分组展示译文由 `group_i18n.go` 规范化，HTTP 输出负责语言选择。同步和回退证据见 [2026-10-12 同步记录](../../../../docs/UPSTREAM_SYNC_20261012.md)。
 
 `subscription_progress.go` 保存订阅进度值；名称译文仅作为不序列化的输出参数从已加载分组带到 handler，单条与批量用户进度保持同一语言规则，不增加数据库查询。
+
+临时不可调度的可选规则范围由 `temp_unsched_scope.go` 选择；重试耗尽、Bedrock 和 token 计数透传调度器使用的模型键。`openai_responses_input_rejection.go` 只识别转换后结构化 input 的明确类型拒绝，Chat 回退保留原始开始时间。冻结差异、滚动升级启用顺序和新缓存能力的专项边界见 [2026-10-13 同步审查](../../../../docs/UPSTREAM_SYNC_20261013.md)。

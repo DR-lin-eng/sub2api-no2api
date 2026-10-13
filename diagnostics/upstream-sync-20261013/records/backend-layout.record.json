@@ -1,0 +1,21 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "-v",
+    "/private/tmp/sub2api-upstream-sync-20261013-e3d4/repo/backend:/workspace",
+    "-w",
+    "/workspace",
+    "sub2api-upstream-sync-test:20261009-docker",
+    "make",
+    "check-layout"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261013-e3d4/repo",
+  "exit_status": 2,
+  "elapsed_s": 1.814803541987203,
+  "utc": "2026-10-13T08:45:15.864287+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "bc47e5caa9ee997120b50f2387547331f77907d12d8228a259881f576e7443fe",
+  "stderr_sha256": "08858c1c49be187f58ad5d87790f42a626553d98f3de75dead350c77dcf4c280"
+}

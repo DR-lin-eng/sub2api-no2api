@@ -302,6 +302,11 @@ export default {
         },
       },
       tempUnschedulable: {
+      scope: 'Pause scope',
+      scopeAuto: 'Automatic (existing behavior)',
+      scopeAccount: 'Entire account',
+      scopeModel: 'Current model',
+      scopeHint: 'Missing model and credential errors keep account protection. Select an explicit scope after all nodes have upgraded.',
         title: 'Temp Unschedulable',
         statusTitle: 'Temp Unschedulable Status',
         hint: 'Disable accounts temporarily when error code and keyword both match.',
