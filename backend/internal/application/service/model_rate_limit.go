@@ -84,7 +84,7 @@ func (a *Account) modelRateLimitKeysForRequest(ctx context.Context, requestedMod
 	keys := []string{modelKey}
 	switch a.Platform {
 	case PlatformAntigravity:
-		if isAntigravityGeminiModel(modelKey) && modelKey != antigravityGeminiModelRateLimitKey {
+		if isAntigravityGeminiTextModel(modelKey) && modelKey != antigravityGeminiModelRateLimitKey {
 			keys = append(keys, antigravityGeminiModelRateLimitKey)
 		}
 	case PlatformOpenAI:
@@ -153,17 +153,13 @@ func resolveFinalAntigravityModelKey(ctx context.Context, account *Account, requ
 	return modelKey
 }
 
-func isAntigravityGeminiModel(model string) bool {
-	return strings.HasPrefix(normalizeAntigravityModelName(model), "gemini-")
-}
-
 func antigravityModelRateLimitKeys(model string) []string {
 	model = strings.TrimSpace(model)
 	if model == "" {
 		return nil
 	}
 	keys := []string{model}
-	if isAntigravityGeminiModel(model) && model != antigravityGeminiModelRateLimitKey {
+	if isAntigravityGeminiTextModel(model) && model != antigravityGeminiModelRateLimitKey {
 		keys = append(keys, antigravityGeminiModelRateLimitKey)
 	}
 	return keys
@@ -201,4 +197,9 @@ func (a *Account) bypassesLocalOpenAI429ModelRateLimit(reason string) bool {
 	return isOpenAIQuotaModelRateLimitReason(reason) ||
 		reason == openAIImageRateLimitReason ||
 		tempUnschedulableReasonHasStatusCode(reason, 429)
+}
+
+func isAntigravityGeminiTextModel(model string) bool {
+	normalized := normalizeAntigravityModelName(model)
+	return strings.HasPrefix(normalized, "gemini-") && !strings.Contains(normalized, "-image")
 }

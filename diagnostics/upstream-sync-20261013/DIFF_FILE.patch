@@ -1,0 +1,2832 @@
+diff --git a/.gitignore b/.gitignore
+index fe91891af..468b82ad6 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -180,3 +180,5 @@ frontend/coverage/
+ aicodex
+ output/
+ .bin/
++
++!docs/UPSTREAM_SYNC_20261013.md
+diff --git a/backend/internal/application/service/README.md b/backend/internal/application/service/README.md
+index 52f5d80ee..aae706591 100644
+--- a/backend/internal/application/service/README.md
++++ b/backend/internal/application/service/README.md
+@@ -69,3 +69,5 @@ OAuth 历史 `web_search_call` 的缓存搜索声明由 `openai_oauth_web_search
+ GPT-6.1 Sol 的订阅模型长上下文豁免由 `openai_subscription_long_context.go` 判断实际凭据与发送模型，通过 `CostInput.DisableModelLongContextPricing` 接入既有计费流程；自定义价格区间保留。分组展示译文由 `group_i18n.go` 规范化，HTTP 输出负责语言选择。同步和回退证据见 [2026-10-12 同步记录](../../../../docs/UPSTREAM_SYNC_20261012.md)。
+ 
+ `subscription_progress.go` 保存订阅进度值；名称译文仅作为不序列化的输出参数从已加载分组带到 handler，单条与批量用户进度保持同一语言规则，不增加数据库查询。
++
++临时不可调度的可选规则范围由 `temp_unsched_scope.go` 选择；重试耗尽、Bedrock 和 token 计数透传调度器使用的模型键。`openai_responses_input_rejection.go` 只识别转换后结构化 input 的明确类型拒绝，Chat 回退保留原始开始时间。冻结差异、滚动升级启用顺序和新缓存能力的专项边界见 [2026-10-13 同步审查](../../../../docs/UPSTREAM_SYNC_20261013.md)。
+diff --git a/backend/internal/application/service/account.go b/backend/internal/application/service/account.go
+index ae767f841..d2ee6e01a 100644
+--- a/backend/internal/application/service/account.go
++++ b/backend/internal/application/service/account.go
+@@ -7,6 +7,7 @@ import (
+ 	"github.com/Wei-Shaw/sub2api/internal/modules/typesafe"
+ 	"hash/fnv"
+ 	"log/slog"
++	"net/url"
+ 	"reflect"
+ 	"sort"
+ 	"strconv"
+@@ -253,11 +254,20 @@ func isOpenAIPersonalAccessTokenAuthMode(value string) bool {
+ 	}
+ }
+ 
++// TempUnschedulableRule.Scope 的取值：命中后隔离的粒度。
++const (
++	TempUnschedScopeAccount = "account"
++	TempUnschedScopeModel   = "model"
++)
++
+ type TempUnschedulableRule struct {
+ 	ErrorCode       int      `json:"error_code"`
+ 	Keywords        []string `json:"keywords"`
+ 	DurationMinutes int      `json:"duration_minutes"`
+ 	Description     string   `json:"description"`
++	// Scope 决定命中后的隔离粒度：account 暂停整个账号，model 只冷却本次请求的模型。
++	// 为空时模型已知且非 401 走模型级，否则账号级。
++	Scope string `json:"scope,omitempty"`
+ }
+ 
+ func (a *Account) IsActive() bool {
+@@ -584,6 +594,7 @@ func (a *Account) GetTempUnschedulableRules() []TempUnschedulableRule {
+ 			Keywords:        parseTempUnschedStrings(entry["keywords"]),
+ 			DurationMinutes: parseTempUnschedInt(entry["duration_minutes"]),
+ 			Description:     parseTempUnschedString(entry["description"]),
++			Scope:           normalizeTempUnschedScope(entry["scope"]),
+ 		}
+ 
+ 		if rule.ErrorCode <= 0 || rule.DurationMinutes <= 0 || len(rule.Keywords) == 0 {
+@@ -596,6 +607,18 @@ func (a *Account) GetTempUnschedulableRules() []TempUnschedulableRule {
+ 	return rules
+ }
+ 
++// normalizeTempUnschedScope 只认 account / model 两个值，其余一律视为未设置。
++func normalizeTempUnschedScope(raw any) string {
++	switch strings.ToLower(strings.TrimSpace(parseTempUnschedString(raw))) {
++	case TempUnschedScopeAccount:
++		return TempUnschedScopeAccount
++	case TempUnschedScopeModel:
++		return TempUnschedScopeModel
++	default:
++		return ""
++	}
++}
++
+ func parseTempUnschedString(value any) string {
+ 	s, ok := value.(string)
+ 	if !ok {
+@@ -1915,7 +1938,7 @@ func (a *Account) GetCodingPlanProvider() string {
+ 	}
+ 	baseURL := strings.ToLower(a.GetOpenAIBaseURL())
+ 	switch {
+-	case strings.Contains(baseURL, "api.kimi.com/coding"):
++	case isKimiCodingBaseURL(a.GetOpenAIBaseURL()):
+ 		return PlatformKimi
+ 	case strings.Contains(baseURL, "bigmodel.cn"), strings.Contains(baseURL, "api.z.ai"):
+ 		return PlatformZhipu
+@@ -1926,6 +1949,24 @@ func (a *Account) GetCodingPlanProvider() string {
+ 	}
+ }
+ 
++func isKimiCodingBaseURL(baseURL string) bool {
++	parsed, err := url.Parse(baseURL)
++	if err != nil || parsed.Scheme != "https" || parsed.User != nil || parsed.Opaque != "" ||
++		parsed.RawQuery != "" || parsed.ForceQuery || strings.Contains(baseURL, "#") {
++		return false
++	}
++	host := strings.ToLower(parsed.Host)
++	if host != "api.kimi.com" && host != "api.kimi.ai" && host != "api.kimi.com:443" && host != "api.kimi.ai:443" {
++		return false
++	}
++	switch parsed.EscapedPath() {
++	case "/coding", "/coding/", "/coding/v1", "/coding/v1/":
++		return true
++	default:
++		return false
++	}
++}
++
+ func (a *Account) GetOpenAIAccessToken() string {
+ 	if !a.IsOpenAI() {
+ 		return ""
+diff --git a/backend/internal/application/service/gateway_anthropic_passthrough.go b/backend/internal/application/service/gateway_anthropic_passthrough.go
+index 77f1a2cf5..cc62c8fbc 100644
+--- a/backend/internal/application/service/gateway_anthropic_passthrough.go
++++ b/backend/internal/application/service/gateway_anthropic_passthrough.go
+@@ -201,7 +201,7 @@ func (s *GatewayService) forwardAnthropicAPIKeyPassthroughWithInput(
+ 			logger.LegacyPrintf("service.gateway", "[Anthropic Passthrough] Upstream error (retry exhausted, failover): Account=%d(%s) Status=%d RequestID=%s Body=%s",
+ 				account.ID, account.Name, resp.StatusCode, resp.Header.Get("x-request-id"), truncateString(string(respBody), 1000))
+ 
+-			s.handleRetryExhaustedSideEffects(ctx, resp, account)
++			s.handleRetryExhaustedSideEffects(ctx, resp, account, input.RequestModel)
+ 			appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
+ 				Platform:           account.Platform,
+ 				AccountID:          account.ID,
+@@ -224,7 +224,7 @@ func (s *GatewayService) forwardAnthropicAPIKeyPassthroughWithInput(
+ 				RetryableOnSameAccount: account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode),
+ 			}
+ 		}
+-		return s.handleRetryExhaustedError(ctx, resp, c, account)
++		return s.handleRetryExhaustedError(ctx, resp, c, account, input.RequestModel)
+ 	}
+ 
+ 	if resp.StatusCode >= 400 && s.shouldFailoverUpstreamError(resp.StatusCode) {
+diff --git a/backend/internal/application/service/gateway_bedrock.go b/backend/internal/application/service/gateway_bedrock.go
+index 217138d4f..a273b9a81 100644
+--- a/backend/internal/application/service/gateway_bedrock.go
++++ b/backend/internal/application/service/gateway_bedrock.go
+@@ -127,7 +127,9 @@ func (s *GatewayService) forwardBedrock(
+ 
+ 	// 错误/failover 处理
+ 	if resp.StatusCode >= 400 {
+-		return s.handleBedrockUpstreamErrors(ctx, resp, c, account)
++		// 账号状态按模型隔离时用调度器的模型键（账号映射后的模型名），不是发往上游的 Bedrock 模型 ID；
++		// 两者不一致会让模型级冷却写到调度器不会读取的键上。
++		return s.handleBedrockUpstreamErrors(ctx, resp, c, account, account.GetMappedModel(reqModel))
+ 	}
+ 
+ 	// Bedrock 分支绕过通用 Forward 成功路径，这里保持上游接受回调语义一致。
+@@ -273,12 +275,14 @@ func (s *GatewayService) executeBedrockUpstream(
+ 	return resp, nil
+ }
+ 
+-// handleBedrockUpstreamErrors 处理 Bedrock 上游 4xx/5xx 错误（failover + 错误响应）
++// handleBedrockUpstreamErrors 处理 Bedrock 上游 4xx/5xx 错误（failover + 错误响应）；
++// modelKey 是调度器按模型隔离账号状态时使用的模型键（account.GetMappedModel 的结果）。
+ func (s *GatewayService) handleBedrockUpstreamErrors(
+ 	ctx context.Context,
+ 	resp *http.Response,
+ 	c *gin.Context,
+ 	account *Account,
++	modelKey string,
+ ) (*ForwardResult, error) {
+ 	// retry exhausted + failover
+ 	if s.shouldRetryUpstreamError(account, resp.StatusCode) {
+@@ -290,7 +294,7 @@ func (s *GatewayService) handleBedrockUpstreamErrors(
+ 			logger.LegacyPrintf("service.gateway", "[Bedrock] Upstream error (retry exhausted, failover): Account=%d(%s) Status=%d Body=%s",
+ 				account.ID, account.Name, resp.StatusCode, truncateString(string(respBody), 1000))
+ 
+-			s.handleRetryExhaustedSideEffects(ctx, resp, account)
++			s.handleRetryExhaustedSideEffects(ctx, resp, account, modelKey)
+ 			appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
+ 				Platform:           account.Platform,
+ 				AccountID:          account.ID,
+@@ -305,7 +309,7 @@ func (s *GatewayService) handleBedrockUpstreamErrors(
+ 				RetryableOnSameAccount: account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode),
+ 			}
+ 		}
+-		return s.handleRetryExhaustedError(ctx, resp, c, account)
++		return s.handleRetryExhaustedError(ctx, resp, c, account, modelKey)
+ 	}
+ 
+ 	// non-retryable failover
+@@ -314,7 +318,7 @@ func (s *GatewayService) handleBedrockUpstreamErrors(
+ 		_ = resp.Body.Close()
+ 		resp.Body = io.NopCloser(bytes.NewReader(respBody))
+ 
+-		s.handleFailoverSideEffects(ctx, resp, account)
++		s.handleFailoverSideEffects(ctx, resp, account, modelKey)
+ 		appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
+ 			Platform:           account.Platform,
+ 			AccountID:          account.ID,
+@@ -331,7 +335,7 @@ func (s *GatewayService) handleBedrockUpstreamErrors(
+ 	}
+ 
+ 	// other errors
+-	return s.handleErrorResponse(ctx, resp, c, account)
++	return s.handleErrorResponse(ctx, resp, c, account, modelKey)
+ }
+ 
+ // buildUpstreamRequestBedrock 构建 Bedrock 上游请求
+diff --git a/backend/internal/application/service/gateway_count_tokens.go b/backend/internal/application/service/gateway_count_tokens.go
+index e0235b162..786b6aeba 100644
+--- a/backend/internal/application/service/gateway_count_tokens.go
++++ b/backend/internal/application/service/gateway_count_tokens.go
+@@ -25,13 +25,15 @@ func (s *GatewayService) ForwardCountTokens(ctx context.Context, c *gin.Context,
+ 
+ 	if account != nil && account.IsAnthropicAPIKeyPassthroughEnabled() {
+ 		passthroughBody := parsed.Body.Bytes()
++		passthroughModel := parsed.Model
+ 		if reqModel := parsed.Model; reqModel != "" {
+ 			if mappedModel := account.GetMappedModel(reqModel); mappedModel != reqModel {
+ 				passthroughBody = s.replaceModelInBody(passthroughBody, mappedModel)
++				passthroughModel = mappedModel
+ 				logger.LegacyPrintf("service.gateway", "CountTokens passthrough model mapping: %s -> %s (account: %s)", reqModel, mappedModel, account.Name)
+ 			}
+ 		}
+-		return s.forwardCountTokensAnthropicAPIKeyPassthrough(ctx, c, account, passthroughBody)
++		return s.forwardCountTokensAnthropicAPIKeyPassthrough(ctx, c, account, passthroughBody, passthroughModel)
+ 	}
+ 
+ 	// Bedrock 不支持 count_tokens 端点
+@@ -209,8 +211,8 @@ func (s *GatewayService) ForwardCountTokens(ctx context.Context, c *gin.Context,
+ 
+ 	// 处理错误响应
+ 	if resp.StatusCode >= 400 {
+-		// 标记账号状态（429/529等）
+-		s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
++		// 标记账号状态（429/529等）；传入实际发往上游的模型，临时不可调度规则才能按模型隔离
++		s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody, reqModel)
+ 
+ 		upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(respBody))
+ 		upstreamMsg = sanitizeUpstreamErrorMessage(upstreamMsg)
+@@ -256,7 +258,9 @@ func (s *GatewayService) ForwardCountTokens(ctx context.Context, c *gin.Context,
+ 	return nil
+ }
+ 
+-func (s *GatewayService) forwardCountTokensAnthropicAPIKeyPassthrough(ctx context.Context, c *gin.Context, account *Account, body []byte) error {
++// forwardCountTokensAnthropicAPIKeyPassthrough 透传 count_tokens 请求；upstreamModel 是 body 中实际发往上游的模型，
++// 仅用于上游错误处理按模型隔离。
++func (s *GatewayService) forwardCountTokensAnthropicAPIKeyPassthrough(ctx context.Context, c *gin.Context, account *Account, body []byte, upstreamModel string) error {
+ 	token, tokenType, err := s.GetAccessToken(ctx, account)
+ 	if err != nil {
+ 		s.countTokensError(c, http.StatusBadGateway, "upstream_error", "Failed to get access token")
+@@ -309,7 +313,7 @@ func (s *GatewayService) forwardCountTokensAnthropicAPIKeyPassthrough(ctx contex
+ 
+ 	if resp.StatusCode >= 400 {
+ 		if s.rateLimitService != nil {
+-			s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
++			s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody, upstreamModel)
+ 		}
+ 
+ 		upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(respBody))
+diff --git a/backend/internal/application/service/gateway_forward.go b/backend/internal/application/service/gateway_forward.go
+index 4bacac647..a58d17847 100644
+--- a/backend/internal/application/service/gateway_forward.go
++++ b/backend/internal/application/service/gateway_forward.go
+@@ -713,7 +713,7 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
+ 			logger.LegacyPrintf("service.gateway", "[Forward] Upstream error (retry exhausted, failover): Account=%d(%s) Status=%d RequestID=%s Body=%s",
+ 				account.ID, account.Name, resp.StatusCode, resp.Header.Get("x-request-id"), truncateString(string(respBody), 1000))
+ 
+-			s.handleRetryExhaustedSideEffects(ctx, resp, account)
++			s.handleRetryExhaustedSideEffects(ctx, resp, account, reqModel)
+ 			appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
+ 				Platform:           account.Platform,
+ 				AccountID:          account.ID,
+@@ -735,7 +735,7 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
+ 				RetryableOnSameAccount: account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode),
+ 			}
+ 		}
+-		return s.handleRetryExhaustedError(ctx, resp, c, account)
++		return s.handleRetryExhaustedError(ctx, resp, c, account, reqModel)
+ 	}
+ 
+ 	// 处理可切换账号的错误
+diff --git a/backend/internal/application/service/gateway_upstream_response.go b/backend/internal/application/service/gateway_upstream_response.go
+index 42d618a12..44284058d 100644
+--- a/backend/internal/application/service/gateway_upstream_response.go
++++ b/backend/internal/application/service/gateway_upstream_response.go
+@@ -524,13 +524,19 @@ func (s *GatewayService) handleErrorResponse(ctx context.Context, resp *http.Res
+ 	return nil, fmt.Errorf("upstream error: %d message=%s", resp.StatusCode, upstreamMsg)
+ }
+ 
+-func (s *GatewayService) handleRetryExhaustedSideEffects(ctx context.Context, resp *http.Response, account *Account) {
++// handleRetryExhaustedSideEffects 在重试耗尽后标记账号状态；requestedModel 是实际发往上游的模型，
++// 临时不可调度规则据此按模型隔离。
++func (s *GatewayService) handleRetryExhaustedSideEffects(ctx context.Context, resp *http.Response, account *Account, requestedModel ...string) {
+ 	body, _ := s.readUpstreamErrorBody(resp)
+ 	statusCode := resp.StatusCode
+ 
+ 	// OAuth/Setup Token 账号的 403：标记账号异常
+ 	if account.IsOAuth() && statusCode == 403 {
+-		s.rateLimitService.HandleUpstreamError(ctx, account, statusCode, resp.Header, body)
++		if len(requestedModel) > 0 {
++			s.rateLimitService.HandleUpstreamError(ctx, account, statusCode, resp.Header, body, requestedModel[0])
++		} else {
++			s.rateLimitService.HandleUpstreamError(ctx, account, statusCode, resp.Header, body)
++		}
+ 		logger.LegacyPrintf("service.gateway", "Account %d: marked as error after %d retries for status %d", account.ID, maxRetryAttempts, statusCode)
+ 	} else {
+ 		// API Key 未配置错误码：不标记账号状态
+@@ -550,14 +556,14 @@ func (s *GatewayService) handleFailoverSideEffects(ctx context.Context, resp *ht
+ // handleRetryExhaustedError 处理重试耗尽后的错误
+ // OAuth 403：标记账号异常
+ // API Key 未配置错误码：仅返回错误，不标记账号
+-func (s *GatewayService) handleRetryExhaustedError(ctx context.Context, resp *http.Response, c *gin.Context, account *Account) (*ForwardResult, error) {
++func (s *GatewayService) handleRetryExhaustedError(ctx context.Context, resp *http.Response, c *gin.Context, account *Account, requestedModel ...string) (*ForwardResult, error) {
+ 	MarkResponseCommitted(c)
+ 	// Capture upstream error body before side-effects consume the stream.
+ 	respBody, _ := s.readUpstreamErrorBody(resp)
+ 	_ = resp.Body.Close()
+ 	resp.Body = io.NopCloser(bytes.NewReader(respBody))
+ 
+-	s.handleRetryExhaustedSideEffects(ctx, resp, account)
++	s.handleRetryExhaustedSideEffects(ctx, resp, account, requestedModel...)
+ 
+ 	upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(respBody))
+ 	upstreamMsg = sanitizeUpstreamErrorMessage(upstreamMsg)
+diff --git a/backend/internal/application/service/gemini_messages_compat_service.go b/backend/internal/application/service/gemini_messages_compat_service.go
+index f682b314b..565d12474 100644
+--- a/backend/internal/application/service/gemini_messages_compat_service.go
++++ b/backend/internal/application/service/gemini_messages_compat_service.go
+@@ -3274,6 +3274,7 @@ func convertClaudeMessagesToGeminiContents(messages any, toolUseIDToName map[str
+ 		case []any:
+ 			// 如果只有一个 block，不过滤空白（让上游 API 报错）
+ 			singleBlock := len(content) == 1
++			var toolImageParts []any
+ 
+ 			for _, block := range content {
+ 				bm, ok := block.(map[string]any)
+@@ -3314,14 +3315,19 @@ func convertClaudeMessagesToGeminiContents(messages any, toolUseIDToName map[str
+ 					if name == "" {
+ 						name = "tool"
+ 					}
++					text, images := extractClaudeToolResultContent(bm["content"])
++					if text == "" && len(images) > 0 {
++						text = "[image attached below]"
++					}
+ 					parts = append(parts, map[string]any{
+ 						"functionResponse": map[string]any{
+ 							"name": name,
+ 							"response": map[string]any{
+-								"content": extractClaudeContentText(bm["content"]),
++								"content": text,
+ 							},
+ 						},
+ 					})
++					toolImageParts = append(toolImageParts, images...)
+ 				case "image":
+ 					if src, ok := bm["source"].(map[string]any); ok {
+ 						if srcType, _ := src["type"].(string); srcType == "base64" {
+@@ -3344,6 +3350,7 @@ func convertClaudeMessagesToGeminiContents(messages any, toolUseIDToName map[str
+ 					}
+ 				}
+ 			}
++			parts = append(parts, toolImageParts...)
+ 		default:
+ 			// ignore
+ 		}
+@@ -3380,6 +3387,41 @@ func extractClaudeContentText(v any) string {
+ 	}
+ }
+ 
++// Read tool-result text and images in one pass; ordinary text-only results
++// keep the existing allocation pattern and do not build an image slice.
++func extractClaudeToolResultContent(v any) (string, []any) {
++	arr, ok := v.([]any)
++	if !ok {
++		return extractClaudeContentText(v), nil
++	}
++	var text strings.Builder
++	var images []any
++	for _, part := range arr {
++		pm, ok := part.(map[string]any)
++		if !ok {
++			continue
++		}
++		switch pm["type"] {
++		case "text":
++			if value, ok := pm["text"].(string); ok {
++				_, _ = text.WriteString(value)
++			}
++		case "image":
++			source, ok := pm["source"].(map[string]any)
++			if !ok || source["type"] != "base64" {
++				continue
++			}
++			mediaType, _ := source["media_type"].(string)
++			data, _ := source["data"].(string)
++			if mediaType == "" || data == "" {
++				continue
++			}
++			images = append(images, map[string]any{"inlineData": map[string]any{"mimeType": mediaType, "data": data}})
++		}
++	}
++	return text.String(), images
++}
++
+ func convertClaudeToolsToGeminiTools(tools any) []any {
+ 	arr, ok := tools.([]any)
+ 	if !ok || len(arr) == 0 {
+diff --git a/backend/internal/application/service/model_rate_limit.go b/backend/internal/application/service/model_rate_limit.go
+index bd63694d9..d4d2f63c1 100644
+--- a/backend/internal/application/service/model_rate_limit.go
++++ b/backend/internal/application/service/model_rate_limit.go
+@@ -84,7 +84,7 @@ func (a *Account) modelRateLimitKeysForRequest(ctx context.Context, requestedMod
+ 	keys := []string{modelKey}
+ 	switch a.Platform {
+ 	case PlatformAntigravity:
+-		if isAntigravityGeminiModel(modelKey) && modelKey != antigravityGeminiModelRateLimitKey {
++		if isAntigravityGeminiTextModel(modelKey) && modelKey != antigravityGeminiModelRateLimitKey {
+ 			keys = append(keys, antigravityGeminiModelRateLimitKey)
+ 		}
+ 	case PlatformOpenAI:
+@@ -153,17 +153,13 @@ func resolveFinalAntigravityModelKey(ctx context.Context, account *Account, requ
+ 	return modelKey
+ }
+ 
+-func isAntigravityGeminiModel(model string) bool {
+-	return strings.HasPrefix(normalizeAntigravityModelName(model), "gemini-")
+-}
+-
+ func antigravityModelRateLimitKeys(model string) []string {
+ 	model = strings.TrimSpace(model)
+ 	if model == "" {
+ 		return nil
+ 	}
+ 	keys := []string{model}
+-	if isAntigravityGeminiModel(model) && model != antigravityGeminiModelRateLimitKey {
++	if isAntigravityGeminiTextModel(model) && model != antigravityGeminiModelRateLimitKey {
+ 		keys = append(keys, antigravityGeminiModelRateLimitKey)
+ 	}
+ 	return keys
+@@ -202,3 +198,8 @@ func (a *Account) bypassesLocalOpenAI429ModelRateLimit(reason string) bool {
+ 		reason == openAIImageRateLimitReason ||
+ 		tempUnschedulableReasonHasStatusCode(reason, 429)
+ }
++
++func isAntigravityGeminiTextModel(model string) bool {
++	normalized := normalizeAntigravityModelName(model)
++	return strings.HasPrefix(normalized, "gemini-") && !strings.Contains(normalized, "-image")
++}
+diff --git a/backend/internal/application/service/openai_account_runtime_block_fastpath.go b/backend/internal/application/service/openai_account_runtime_block_fastpath.go
+index e4e35e145..b1a9e19dc 100644
+--- a/backend/internal/application/service/openai_account_runtime_block_fastpath.go
++++ b/backend/internal/application/service/openai_account_runtime_block_fastpath.go
+@@ -123,7 +123,8 @@ func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Cont
+ 	// Isolate a custom temporary-unschedulable match to the known upstream
+ 	// model before entering the generic account error path. This keeps the
+ 	// account available to other models and avoids the account runtime blocker.
+-	if s.rateLimitService != nil && statusCode != http.StatusUnauthorized && len(canonicalModel) > 0 && strings.TrimSpace(canonicalModel[0]) != "" &&
++	if s.rateLimitService != nil && len(canonicalModel) > 0 && strings.TrimSpace(canonicalModel[0]) != "" &&
++		tempUnschedRulesApply(account, statusCode, responseBody, canonicalModel[0]) &&
+ 		s.rateLimitService.HandleTempUnschedulable(stateCtx, account, statusCode, responseBody, canonicalModel[0]) {
+ 		return true
+ 	}
+@@ -147,8 +148,8 @@ func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Cont
+ 		genericModelScope = ""
+ 	}
+ 	shouldDisable := s.rateLimitService.HandleUpstreamError(stateCtx, account, statusCode, headers, responseBody, genericModelScope)
+-	modelTempMatched := statusCode != http.StatusUnauthorized && strings.TrimSpace(modelScope) != "" &&
+-		len(matchTempUnschedulableRules(account, statusCode, responseBody)) > 0
++	matches := matchTempUnschedulableRules(account, statusCode, responseBody)
++	modelTempMatched := len(matches) > 0 && tempUnschedHitUsesModelScope(account, matches[0].rule, tempUnschedulableModel(stateCtx, []string{genericModelScope}), statusCode, responseBody)
+ 	if shouldDisable {
+ 		if !globalTempUnschedulableEnabled(ctx, s.settingService) &&
+ 			((statusCode == http.StatusUnauthorized && account.Type == AccountTypeOAuth) ||
+diff --git a/backend/internal/application/service/openai_gateway_cc_pipeline.go b/backend/internal/application/service/openai_gateway_cc_pipeline.go
+index 7fe9ffcb1..0dabf0647 100644
+--- a/backend/internal/application/service/openai_gateway_cc_pipeline.go
++++ b/backend/internal/application/service/openai_gateway_cc_pipeline.go
+@@ -67,13 +67,26 @@ func (s *OpenAIGatewayService) newStreamHeaderWriter(c *gin.Context, upstream ht
+ // （下游 handleXxxErrorResponse 需要再次读取），返回原始错误体与脱敏后的
+ // 上游错误消息。
+ func (s *OpenAIGatewayService) readOpenAIUpstreamError(resp *http.Response) ([]byte, string) {
+-	respBody := s.readUpstreamErrorBody(resp)
++	respBody, upstreamMsg, _ := s.readOpenAIUpstreamErrorWithCompleteness(resp)
++	return respBody, upstreamMsg
++}
++
++func (s *OpenAIGatewayService) readOpenAIUpstreamErrorWithCompleteness(resp *http.Response) ([]byte, string, bool) {
++	limit := openAIUpstreamErrorBodyReadLimitForConfig(nil)
++	if s != nil {
++		limit = openAIUpstreamErrorBodyReadLimitForConfig(s.cfg)
++	}
++	respBody, readErr := io.ReadAll(io.LimitReader(resp.Body, limit+1))
++	complete := readErr == nil && int64(len(respBody)) <= limit
++	if int64(len(respBody)) > limit {
++		respBody = respBody[:limit]
++	}
+ 	_ = resp.Body.Close()
+ 	resp.Body = io.NopCloser(bytes.NewReader(respBody))
+ 
+ 	upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(respBody))
+ 	upstreamMsg = sanitizeUpstreamErrorMessage(upstreamMsg)
+-	return respBody, upstreamMsg
++	return respBody, upstreamMsg, complete
+ }
+ 
+ // failoverOpenAIUpstreamHTTPError 对 >=400 的上游响应做 failover 判定：命中时
+diff --git a/backend/internal/application/service/openai_gateway_chat_completions.go b/backend/internal/application/service/openai_gateway_chat_completions.go
+index fb89ce25f..3f88a5e38 100644
+--- a/backend/internal/application/service/openai_gateway_chat_completions.go
++++ b/backend/internal/application/service/openai_gateway_chat_completions.go
+@@ -387,7 +387,7 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
+ 
+ 	// 8. Handle error response with failover
+ 	if resp.StatusCode >= 400 {
+-		respBody, upstreamMsg := s.readOpenAIUpstreamError(resp)
++		respBody, upstreamMsg, completeErrorBody := s.readOpenAIUpstreamErrorWithCompleteness(resp)
+ 		if distillation {
+ 			return s.handleChatCompletionsErrorResponse(resp, c, account, billingModel)
+ 		}
+@@ -406,7 +406,24 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
+ 				zap.Int("upstream_status", resp.StatusCode),
+ 				zap.String("upstream_message", upstreamMsg),
+ 			)
+-			return s.forwardAsRawChatCompletions(ctx, c, account, body, defaultMappedModel)
++			return s.forwardAsRawChatCompletionsWithStartTime(ctx, c, account, body, defaultMappedModel, startTime)
++		}
++		responsesMode, _ := account.Extra[openai_compat.ExtraKeyResponsesMode].(string)
++		if account.IsOpenAIApiKey() &&
++			openai_compat.NormalizeResponsesSupportMode(responsesMode) == openai_compat.ResponsesSupportModeAuto &&
++			openai_compat.ResolveResponsesSupport(account.Extra) == openai_compat.ResponsesSupportYes &&
++			!isResponsesShape &&
++			(ctx == nil || ctx.Err() == nil) &&
++			(c.Request == nil || c.Request.Context().Err() == nil) &&
++			!IsResponseCommitted(c) &&
++			!c.Writer.Written() &&
++			completeErrorBody &&
++			isConvertedResponsesInputStringRejection(resp.StatusCode, respBody) {
++			logger.L().Info("openai chat_completions: structured Responses input rejected, falling back to raw chat completions",
++				zap.Int64("account_id", account.ID),
++				zap.Int("upstream_status", resp.StatusCode),
++			)
++			return s.forwardAsRawChatCompletionsWithStartTime(ctx, c, account, body, defaultMappedModel, startTime)
+ 		}
+ 		if foErr := s.failoverOpenAIUpstreamHTTPError(ctx, c, account, resp, respBody, upstreamMsg, upstreamModel); foErr != nil {
+ 			return nil, foErr
+diff --git a/backend/internal/application/service/openai_gateway_chat_completions_raw.go b/backend/internal/application/service/openai_gateway_chat_completions_raw.go
+index 98e0a25d4..316e94888 100644
+--- a/backend/internal/application/service/openai_gateway_chat_completions_raw.go
++++ b/backend/internal/application/service/openai_gateway_chat_completions_raw.go
+@@ -59,7 +59,10 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
+ 	body []byte,
+ 	defaultMappedModel string,
+ ) (*OpenAIForwardResult, error) {
+-	startTime := time.Now()
++	return s.forwardAsRawChatCompletionsWithStartTime(ctx, c, account, body, defaultMappedModel, time.Now())
++}
++
++func (s *OpenAIGatewayService) forwardAsRawChatCompletionsWithStartTime(ctx context.Context, c *gin.Context, account *Account, body []byte, defaultMappedModel string, startTime time.Time) (*OpenAIForwardResult, error) {
+ 	SetActualOpenAIUpstreamEndpoint(c, grokChatRawEndpoint)
+ 
+ 	// 1. Parse minimal fields needed for routing/billing
+diff --git a/backend/internal/application/service/openai_gateway_count_tokens.go b/backend/internal/application/service/openai_gateway_count_tokens.go
+index 23d1c7050..889760e3f 100644
+--- a/backend/internal/application/service/openai_gateway_count_tokens.go
++++ b/backend/internal/application/service/openai_gateway_count_tokens.go
+@@ -102,7 +102,7 @@ func (s *OpenAIGatewayService) ForwardResponsesInputTokens(
+ 			return nil
+ 		}
+ 		if s.rateLimitService != nil {
+-			s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
++			s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody, prepared.UpstreamModel)
+ 		}
+ 		upstreamMsg := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(respBody)))
+ 		setOpsUpstreamError(c, resp.StatusCode, upstreamMsg, "")
+diff --git a/backend/internal/application/service/openai_gateway_forward.go b/backend/internal/application/service/openai_gateway_forward.go
+index 9849a08c4..326138476 100644
+--- a/backend/internal/application/service/openai_gateway_forward.go
++++ b/backend/internal/application/service/openai_gateway_forward.go
+@@ -189,7 +189,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
+ 		case APIProtocolResponses:
+ 			// Continue through the native Responses path below.
+ 		default:
+-			return s.forwardResponsesViaRawChatCompletions(ctx, c, account, body)
++			return s.forwardResponsesViaRawChatCompletions(ctx, c, account, body, startTime)
+ 		}
+ 	}
+ 	if account.IsAnthropicProtocol() {
+@@ -197,7 +197,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
+ 	}
+ 
+ 	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) || shouldForwardDeepSeekCompatViaChatCompletions(c, account, body) {
+-		return s.forwardResponsesViaRawChatCompletions(ctx, c, account, body)
++		return s.forwardResponsesViaRawChatCompletions(ctx, c, account, body, startTime)
+ 	}
+ 
+ 	compatMessagesBridge := isOpenAICompatMessagesBridgeBody(body)
+diff --git a/backend/internal/application/service/openai_gateway_responses_chat_fallback.go b/backend/internal/application/service/openai_gateway_responses_chat_fallback.go
+index 7dcb24446..3b6fe5276 100644
+--- a/backend/internal/application/service/openai_gateway_responses_chat_fallback.go
++++ b/backend/internal/application/service/openai_gateway_responses_chat_fallback.go
+@@ -23,8 +23,8 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
+ 	c *gin.Context,
+ 	account *Account,
+ 	body []byte,
++	startTime time.Time,
+ ) (*OpenAIForwardResult, error) {
+-	startTime := time.Now()
+ 
+ 	var responsesReq apicompat.ResponsesRequest
+ 	if err := json.Unmarshal(body, &responsesReq); err != nil {
+diff --git a/backend/internal/application/service/ratelimit_service.go b/backend/internal/application/service/ratelimit_service.go
+index d74641451..e3cd63cdb 100644
+--- a/backend/internal/application/service/ratelimit_service.go
++++ b/backend/internal/application/service/ratelimit_service.go
+@@ -404,8 +404,9 @@ func (s *RateLimitService) CheckErrorPolicy(ctx context.Context, account *Accoun
+ 	}
+ 	if account.IsPoolMode() {
+ 		// 池模式只跳过默认账号状态处理；管理员显式配置的临时不可调度规则仍应生效。
+-		// 401 保留现有认证错误语义，避免改变重复 401 的升级行为。
+-		if statusCode != http.StatusUnauthorized && s.tryTempUnschedulable(ctx, account, statusCode, responseBody) {
++		// 401 只在非凭据级且命中显式模型级规则时由规则处理，其余保留现有认证错误语义。
++		if tempUnschedRulesApply(account, statusCode, responseBody, tempUnschedulableModel(ctx, nil)) &&
++			s.tryTempUnschedulable(ctx, account, statusCode, responseBody) {
+ 			return ErrorPolicyTempUnscheduled
+ 		}
+ 		return ErrorPolicySkipped
+@@ -433,9 +434,10 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
+ 	customErrorCodesEnabled := account.IsCustomErrorCodesEnabled()
+ 
+ 	// 池模式默认不标记本地账号状态；但管理员显式配置的临时不可调度规则优先。
+-	// 401 保留现有认证错误语义，不在这里改变池模式的认证处理。
++	// 401 只在非凭据级且命中显式模型级规则时由规则处理，其余保留池模式现有的认证处理。
+ 	if account.IsPoolMode() && !customErrorCodesEnabled {
+-		if statusCode != http.StatusUnauthorized && s.tryTempUnschedulable(ctx, account, statusCode, responseBody) {
++		if tempUnschedRulesApply(account, statusCode, responseBody, tempUnschedulableModel(ctx, nil)) &&
++			s.tryTempUnschedulable(ctx, account, statusCode, responseBody) {
+ 			return true
+ 		}
+ 		slog.Info("pool_mode_error_skipped", "account_id", account.ID, "status_code", statusCode)
+@@ -468,9 +470,9 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
+ 		}
+ 	}
+ 
+-	// 先尝试临时不可调度规则（401除外）
++	// 先尝试临时不可调度规则（401 仅限非凭据级且命中显式模型级规则）
+ 	// 如果匹配成功，直接返回，不执行后续禁用逻辑
+-	if statusCode != 401 {
++	if tempUnschedRulesApply(account, statusCode, responseBody, tempUnschedulableModel(ctx, requestedModel)) {
+ 		if s.tryTempUnschedulable(ctx, account, statusCode, responseBody, firstRequestedModel(requestedModel)) {
+ 			return true
+ 		}
+@@ -2644,10 +2646,17 @@ func (s *RateLimitService) tryTempUnschedulable(ctx context.Context, account *Ac
+ 	if !account.IsTempUnschedulableEnabled() {
+ 		return false
+ 	}
++	matches := matchTempUnschedulableRules(account, statusCode, responseBody)
++	if len(matches) == 0 {
++		return false
++	}
++	modelKey := tempUnschedulableModel(ctx, requestedModel)
+ 	// 401 首次命中可临时不可调度（给 token 刷新窗口）；
+ 	// 若历史上已因 401 进入过临时不可调度，则本次应升级为 error（返回 false 交由默认错误逻辑处理）。
+ 	// Antigravity 跳过：其 401 由 applyErrorPolicy 的 temp_unschedulable_rules 自行控制，无需升级逻辑。
+-	if statusCode == http.StatusUnauthorized && account.Platform != PlatformAntigravity {
++	// 模型级命中只冷却模型、不写账号级状态，不参与升级。
++	if statusCode == http.StatusUnauthorized && account.Platform != PlatformAntigravity &&
++		!tempUnschedHitUsesModelScope(account, matches[0].rule, modelKey, statusCode, responseBody) {
+ 		reason := account.TempUnschedulableReason
+ 		// 缓存可能没有 reason，从 DB 回退读取
+ 		if reason == "" {
+@@ -2661,8 +2670,8 @@ func (s *RateLimitService) tryTempUnschedulable(ctx context.Context, account *Ac
+ 			return false
+ 		}
+ 	}
+-	for _, match := range matchTempUnschedulableRules(account, statusCode, responseBody) {
+-		if s.triggerTempUnschedulable(ctx, account, match.rule, match.ruleIndex, statusCode, match.matchedKeyword, responseBody, tempUnschedulableModel(ctx, requestedModel)) {
++	for _, match := range matches {
++		if s.triggerTempUnschedulable(ctx, account, match.rule, match.ruleIndex, statusCode, match.matchedKeyword, responseBody, modelKey) {
+ 			return true
+ 		}
+ 	}
+@@ -2715,6 +2724,8 @@ func (s *RateLimitService) triggerTempUnschedulable(ctx context.Context, account
+ 
+ 	now := time.Now()
+ 	until := now.Add(time.Duration(rule.DurationMinutes) * time.Minute)
++	modelKey := firstRequestedModel(requestedModel)
++	modelScoped := tempUnschedHitUsesModelScope(account, rule, modelKey, statusCode, responseBody)
+ 
+ 	state := &TempUnschedState{
+ 		UntilUnix:       until.Unix(),
+@@ -2723,6 +2734,11 @@ func (s *RateLimitService) triggerTempUnschedulable(ctx context.Context, account
+ 		MatchedKeyword:  matchedKeyword,
+ 		RuleIndex:       ruleIndex,
+ 		ErrorMessage:    truncateTempUnschedMessage(responseBody, tempUnschedMessageMaxBytes),
++		Scope:           TempUnschedScopeAccount,
++	}
++	if modelScoped {
++		state.Scope = TempUnschedScopeModel
++		state.Model = modelKey
+ 	}
+ 
+ 	reason := ""
+@@ -2733,18 +2749,16 @@ func (s *RateLimitService) triggerTempUnschedulable(ctx context.Context, account
+ 		reason = strings.TrimSpace(state.ErrorMessage)
+ 	}
+ 
+-	// Persist known-model failures under the model key so the scheduler excludes
+-	// only this (account, model) pair. Authentication and model-unknown failures
+-	// retain the legacy account-wide temporary-unschedulable behavior below.
+-	modelKey := firstRequestedModel(requestedModel)
+-	if modelKey != "" && statusCode != http.StatusUnauthorized {
++	// Persist model-scoped hits under the model key so the scheduler excludes
++	// only this (account, model) pair; every other hit pauses the whole account below.
++	if modelScoped {
+ 		if err := s.accountRepo.SetModelRateLimit(ctx, account.ID, modelKey, until, reason); err != nil {
+ 			slog.Warn("temp_unsched_model_rate_limit_set_failed", "account_id", account.ID, "model", modelKey, "error", err)
+ 			// The rule matched, so fail over the current request even if persistence
+ 			// failed; never widen a model-scoped failure into an account-wide block.
+ 			return true
+ 		}
+-		slog.Info("account_model_temp_unschedulable", "account_id", account.ID, "model", modelKey, "until", until, "rule_index", ruleIndex, "status_code", statusCode)
++		slog.Info("account_model_temp_unschedulable", "account_id", account.ID, "model", modelKey, "until", until, "rule_index", ruleIndex, "rule_scope", rule.Scope, "status_code", statusCode)
+ 		return true
+ 	}
+ 
+@@ -2760,7 +2774,7 @@ func (s *RateLimitService) triggerTempUnschedulable(ctx context.Context, account
+ 		}
+ 	}
+ 
+-	slog.Info("account_temp_unschedulable", "account_id", account.ID, "until", until, "rule_index", ruleIndex, "status_code", statusCode)
++	slog.Info("account_temp_unschedulable", "account_id", account.ID, "until", until, "rule_index", ruleIndex, "rule_scope", rule.Scope, "status_code", statusCode)
+ 	return true
+ }
+ 
+diff --git a/backend/internal/application/service/temp_unsched.go b/backend/internal/application/service/temp_unsched.go
+index 46b249b53..e1b09e8d9 100644
+--- a/backend/internal/application/service/temp_unsched.go
++++ b/backend/internal/application/service/temp_unsched.go
+@@ -20,6 +20,8 @@ type TempUnschedState struct {
+ 	MatchedKeyword  string `json:"matched_keyword"`   // 匹配的关键词
+ 	RuleIndex       int    `json:"rule_index"`        // 触发的规则索引
+ 	ErrorMessage    string `json:"error_message"`     // 错误消息
++	Scope           string `json:"scope,omitempty"`
++	Model           string `json:"model,omitempty"`
+ }
+ 
+ func tempUnschedulableReasonHasStatusCode(reason string, statusCode int) bool {
+diff --git a/backend/internal/platform/config/config_test.go b/backend/internal/platform/config/config_test.go
+index e3775f86e..3748f3388 100644
+--- a/backend/internal/platform/config/config_test.go
++++ b/backend/internal/platform/config/config_test.go
+@@ -754,6 +754,7 @@ func TestLoadDefaultSecurityToggles(t *testing.T) {
+ 
+ 	wantHosts := []string{
+ 		"api.kimi.com",
++		"api.kimi.ai",
+ 		"api.moonshot.ai",
+ 		"api.moonshot.cn",
+ 	}
+diff --git a/backend/internal/platform/config/defaults_runtime.go b/backend/internal/platform/config/defaults_runtime.go
+index 29b946474..2ba0310fc 100644
+--- a/backend/internal/platform/config/defaults_runtime.go
++++ b/backend/internal/platform/config/defaults_runtime.go
+@@ -76,6 +76,7 @@ func setRuntimeDefaults() {
+ 		"api.openai.com",
+ 		"api.anthropic.com",
+ 		"api.kimi.com",
++		"api.kimi.ai",
+ 		"api.moonshot.ai",
+ 		"api.moonshot.cn",
+ 		"open.bigmodel.cn",
+diff --git a/deploy/config.example.yaml b/deploy/config.example.yaml
+index e7fdc93d9..e8692bcf3 100644
+--- a/deploy/config.example.yaml
++++ b/deploy/config.example.yaml
+@@ -181,6 +181,7 @@ security:
+       - "api.openai.com"
+       - "api.anthropic.com"
+       - "api.kimi.com"
++      - "api.kimi.ai"
+       - "api.moonshot.ai"
+       - "api.moonshot.cn"
+       - "open.bigmodel.cn"
+diff --git a/docs/README.md b/docs/README.md
+index 6ecc6c84c..2a779fb9b 100644
+--- a/docs/README.md
++++ b/docs/README.md
+@@ -75,6 +75,7 @@
+ | [上游主线同步审查记录（2026-10-08）](UPSTREAM_SYNC_20261008.md) | 57 个冻结主线 PR 的关闭/重开台账、WS 逐轮计费、TPS 与 namespace 性能、Docker 平滑升级和发布跟踪 |
+ | [上游主线同步审查记录（2026-10-09）](UPSTREAM_SYNC_20261009.md) | 两个冻结 PR 的精准修复、安全工具链、搜索历史性能、关闭/专项暂缓台账和 Docker 验证 |
+ | [上游主线同步审查记录（2026-10-12）](UPSTREAM_SYNC_20261012.md) | 17 个增量 PR 的当前 owner 适配、分组多语言、计费与审核并发性能、Docker 与升级回退边界 |
++| [上游主线同步审查记录（2026-10-13）](UPSTREAM_SYNC_20261013.md) | 7 个增量 PR 的当前 owner 适配、明确暂缓、范围隔离、Docker 升级回退与 CI |
+ | [API Key 删除与计费竞争条件审查（2026-10-06）](../diagnostics/billing-key-deletion-20261006/REPORT.md) | 旧版本漏扣回放、当前修复边界、真实数据库与 24 个 Docker HTTP 场景 |
+ | [GPT-6 Astra 接入记录](GPT6_ASTRA.md) | OpenAI 官方模型目录、能力、价格和本项目兼容计费映射 |
+ | [GPT-6 模型目录与价格](GPT6_MODELS.md) | GPT-6 Astra、Sol、Luna 的官方能力、价格与本项目实现位置 |
+diff --git a/docs/REQUEST_LIFECYCLES.md b/docs/REQUEST_LIFECYCLES.md
+index 5ae0d74c1..1eb6c1363 100644
+--- a/docs/REQUEST_LIFECYCLES.md
++++ b/docs/REQUEST_LIFECYCLES.md
+@@ -277,6 +277,12 @@ Happy Eyeballs 回退 IPv4。连接池键包含源地址和绑定版本，轮换
+   不受此规则影响。
+ - 客户端取消应停止上游读取和后台转发，不能继续占用账号或累计无主缓存。
+ 
++### 上游错误与临时不可调度范围
++
++`credentials.temp_unschedulable_rules[].scope` 是可选字段：未设置时保留既有的模型已知且非 401 使用模型冷却的行为，`account` 暂停整个账号，`model` 只冷却当前调度模型。模型未知、OAuth/影子账号的认证失效以及 OpenAI 明确凭据撤销仍保留账号保护。token 计数、Bedrock 和重试耗尽都传递调度器读取的模型键，运行态阻断采用相同范围。滚动升级先更新全部节点再启用新 scope，回退前恢复自动范围。
++
++Chat 转为 Responses 后，只有 auto 且已确认支持 Responses 的 OpenAI API Key 账号收到完整、无歧义的 input-string 类型拒绝，才允许一次原生 Chat 回退；已经输出、取消、原生 Responses、强制协议和无关错误不触发这项新回退。两次尝试共享原始开始时间，可靠计费和客户端断开后 drain 继续使用原 owner。审查和 Docker 证据见 [2026-10-13 同步记录](UPSTREAM_SYNC_20261013.md)。
++
+ ### Codex OAuth A/B/C 模拟
+ 
+ 管理员面板的“网关服务 -> Codex OAuth A/B/C 模拟”通过
+diff --git a/frontend/src/core/i18n/locales/en/admin/accounts.ts b/frontend/src/core/i18n/locales/en/admin/accounts.ts
+index 671bda29d..3378f48a6 100644
+--- a/frontend/src/core/i18n/locales/en/admin/accounts.ts
++++ b/frontend/src/core/i18n/locales/en/admin/accounts.ts
+@@ -302,6 +302,11 @@ export default {
+         },
+       },
+       tempUnschedulable: {
++      scope: 'Pause scope',
++      scopeAuto: 'Automatic (existing behavior)',
++      scopeAccount: 'Entire account',
++      scopeModel: 'Current model',
++      scopeHint: 'Missing model and credential errors keep account protection. Select an explicit scope after all nodes have upgraded.',
+         title: 'Temp Unschedulable',
+         statusTitle: 'Temp Unschedulable Status',
+         hint: 'Disable accounts temporarily when error code and keyword both match.',
+diff --git a/frontend/src/core/i18n/locales/zh/admin/accounts.ts b/frontend/src/core/i18n/locales/zh/admin/accounts.ts
+index 6845ae686..6a7c89469 100644
+--- a/frontend/src/core/i18n/locales/zh/admin/accounts.ts
++++ b/frontend/src/core/i18n/locales/zh/admin/accounts.ts
+@@ -350,6 +350,11 @@ export default {
+         viewTempUnschedDetails: '查看临时不可调度详情'
+       },
+       tempUnschedulable: {
++      scope: '暂停范围',
++      scopeAuto: '自动（保持原有行为）',
++      scopeAccount: '整个账号',
++      scopeModel: '当前模型',
++      scopeHint: '模型未知和凭据错误仍保留账号保护。所有节点升级完成后再选择显式范围。',
+         title: '临时不可调度',
+         statusTitle: '临时不可调度状态',
+         hint: '当错误码与关键词同时匹配时，账号会在指定时间内被临时禁用。',
+diff --git a/frontend/src/features/admin-accounts/README.md b/frontend/src/features/admin-accounts/README.md
+index bd1393c5f..60da2c1bd 100644
+--- a/frontend/src/features/admin-accounts/README.md
++++ b/frontend/src/features/admin-accounts/README.md
+@@ -57,3 +57,5 @@ OAuth composable 和创建账号的 OAuth 兑换编排直接依赖账号 OAuth A
+ pnpm exec vitest run src/features/admin-accounts
+ pnpm run typecheck
+ ```
++
++临时不可调度规则的 scope 归一化、旧值解析和可选字段序列化由 `presentation/accountFormPolicy.ts` 维护，创建/编辑 advanced widget 共用该协议；自动范围省略 scope。显式范围须在所有节点升级后启用，详见 [同步与回退边界](../../../../docs/UPSTREAM_SYNC_20261013.md)。
+diff --git a/frontend/src/features/admin-accounts/data/dtos/adminAccountDtos.ts b/frontend/src/features/admin-accounts/data/dtos/adminAccountDtos.ts
+index a5cc1e0b8..f9bf0b708 100644
+--- a/frontend/src/features/admin-accounts/data/dtos/adminAccountDtos.ts
++++ b/frontend/src/features/admin-accounts/data/dtos/adminAccountDtos.ts
+@@ -9,6 +9,7 @@ export interface ClaudeModel {
+ }
+ 
+ export interface TempUnschedulableRule {
++  scope?: 'account' | 'model'
+   error_code: number
+   keywords: string[]
+   duration_minutes: number
+@@ -16,6 +17,8 @@ export interface TempUnschedulableRule {
+ }
+ 
+ export interface TempUnschedulableState {
++  scope?: 'account' | 'model'
++  model?: string
+   until_unix: number
+   triggered_at_unix: number
+   status_code: number
+diff --git a/frontend/src/features/admin-accounts/presentation/accountFormPolicy.ts b/frontend/src/features/admin-accounts/presentation/accountFormPolicy.ts
+index 5259b7c72..df8061849 100644
+--- a/frontend/src/features/admin-accounts/presentation/accountFormPolicy.ts
++++ b/frontend/src/features/admin-accounts/presentation/accountFormPolicy.ts
+@@ -79,7 +79,15 @@ export function getCodexFingerprintModeOptions(
+   ]
+ }
+ 
++export type TempUnschedScope = '' | 'account' | 'model'
++
++export function normalizeTempUnschedScope(value: unknown): TempUnschedScope {
++  const scope = typeof value === 'string' ? value.trim().toLowerCase() : ''
++  return scope === 'account' || scope === 'model' ? scope : ''
++}
++
+ export interface TempUnschedRuleForm {
++  scope?: TempUnschedScope
+   error_code: number | null
+   keywords: string
+   duration_minutes: number | null
+@@ -87,6 +95,7 @@ export interface TempUnschedRuleForm {
+ }
+ 
+ export interface TempUnschedRulePayload {
++  scope?: 'account' | 'model'
+   error_code: number
+   keywords: string[]
+   duration_minutes: number
+@@ -151,6 +160,7 @@ export function createTempUnschedRule(
+   return preset
+     ? { ...preset }
+     : {
++        scope: '',
+         error_code: null,
+         keywords: '',
+         duration_minutes: 30,
+@@ -186,7 +196,9 @@ export function buildTempUnschedRules(
+     if (!Number.isFinite(errorCode) || errorCode < 100 || errorCode > 599) continue
+     if (!Number.isFinite(duration) || duration <= 0 || keywords.length === 0) continue
+ 
++    const scope = normalizeTempUnschedScope(rule.scope)
+     result.push({
++      ...(scope ? { scope } : {}),
+       error_code: Math.trunc(errorCode),
+       keywords,
+       duration_minutes: Math.trunc(duration),
+@@ -195,3 +207,36 @@ export function buildTempUnschedRules(
+   }
+   return result
+ }
++
++// Preserve legacy defaults while hydrating optional scope from stored credentials.
++export function parseTempUnschedRules(value: unknown): TempUnschedRuleForm[] {
++  if (!Array.isArray(value)) return []
++  const positiveInteger = (input: unknown) => {
++    const number = Number(input)
++    return Number.isFinite(number) && number > 0 ? Math.trunc(number) : null
++  }
++  return value.map((raw) => {
++    const entry = raw !== null && typeof raw === 'object' ? raw as Record<string, unknown> : {}
++    return {
++      scope: normalizeTempUnschedScope(entry.scope),
++      error_code: positiveInteger(entry.error_code),
++      keywords: formatTempUnschedKeywords(entry.keywords),
++      duration_minutes: positiveInteger(entry.duration_minutes),
++      description: typeof entry.description === 'string' ? entry.description : '',
++    }
++  })
++}
++
++function formatTempUnschedKeywords(value: unknown) {
++  if (Array.isArray(value)) {
++    return value
++      .filter((item): item is string => typeof item === 'string')
++      .map((item) => item.trim())
++      .filter((item) => item.length > 0)
++      .join(', ')
++  }
++  if (typeof value === 'string') {
++    return value
++  }
++  return ''
++}
+diff --git a/frontend/src/features/admin-accounts/presentation/widgets/EditAccountDialog.vue b/frontend/src/features/admin-accounts/presentation/widgets/EditAccountDialog.vue
+index da30e9cd8..75dabe092 100644
+--- a/frontend/src/features/admin-accounts/presentation/widgets/EditAccountDialog.vue
++++ b/frontend/src/features/admin-accounts/presentation/widgets/EditAccountDialog.vue
+@@ -145,6 +145,7 @@ import {
+   addPresetModelMapping,
+   buildTempUnschedRules,
+   createTempUnschedRule,
++  parseTempUnschedRules,
+   formatPoolModeRetryStatusCodes,
+   getCodexFingerprintModeOptions,
+   isOpenAIPersonalAccessTokenCredentials,
+@@ -1267,21 +1268,7 @@ const applyTempUnschedConfig = (credentials: Record<string, unknown>) => {
+ 
+ function loadTempUnschedRules(credentials?: Record<string, unknown>) {
+   tempUnschedEnabled.value = credentials?.temp_unschedulable_enabled === true
+-  const rawRules = credentials?.temp_unschedulable_rules
+-  if (!Array.isArray(rawRules)) {
+-    tempUnschedRules.value = []
+-    return
+-  }
+-
+-  tempUnschedRules.value = rawRules.map((rule) => {
+-    const entry = rule as Record<string, unknown>
+-    return {
+-      error_code: toPositiveNumber(entry.error_code),
+-      keywords: formatTempUnschedKeywords(entry.keywords),
+-      duration_minutes: toPositiveNumber(entry.duration_minutes),
+-      description: typeof entry.description === 'string' ? entry.description : ''
+-    }
+-  })
++  tempUnschedRules.value = parseTempUnschedRules(credentials?.temp_unschedulable_rules)
+ }
+ 
+ // Load quota control settings from account (Anthropic OAuth/SetupToken only)
+@@ -1378,27 +1365,7 @@ function loadQuotaControlSettings(account: Account) {
+ 
+ }
+ 
+-function formatTempUnschedKeywords(value: unknown) {
+-  if (Array.isArray(value)) {
+-    return value
+-      .filter((item): item is string => typeof item === 'string')
+-      .map((item) => item.trim())
+-      .filter((item) => item.length > 0)
+-      .join(', ')
+-  }
+-  if (typeof value === 'string') {
+-    return value
+-  }
+-  return ''
+-}
+ 
+-function toPositiveNumber(value: unknown) {
+-  const num = Number(value)
+-  if (!Number.isFinite(num) || num <= 0) {
+-    return null
+-  }
+-  return Math.trunc(num)
+-}
+ 
+ function normalizeTLSFingerprintProfileID(value: unknown): number | null {
+   if (value === null || value === undefined || value === '') return null
+diff --git a/frontend/src/features/admin-accounts/presentation/widgets/create/CreateAccountAdvancedFields.vue b/frontend/src/features/admin-accounts/presentation/widgets/create/CreateAccountAdvancedFields.vue
+index 992d36c97..32c1a834e 100644
+--- a/frontend/src/features/admin-accounts/presentation/widgets/create/CreateAccountAdvancedFields.vue
++++ b/frontend/src/features/admin-accounts/presentation/widgets/create/CreateAccountAdvancedFields.vue
+@@ -85,6 +85,15 @@
+               </div>
+ 
+               <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
++                <div class="sm:col-span-2">
++                  <label class="input-label">{{ t('admin.accounts.tempUnschedulable.scope') }}</label>
++                  <select v-model="rule.scope" class="input">
++                    <option value="">{{ t('admin.accounts.tempUnschedulable.scopeAuto') }}</option>
++                    <option value="account">{{ t('admin.accounts.tempUnschedulable.scopeAccount') }}</option>
++                    <option value="model">{{ t('admin.accounts.tempUnschedulable.scopeModel') }}</option>
++                  </select>
++                  <p class="input-hint">{{ t('admin.accounts.tempUnschedulable.scopeHint') }}</p>
++                </div>
+                 <div>
+                   <label class="input-label">{{ t('admin.accounts.tempUnschedulable.errorCode') }}</label>
+                   <input
+diff --git a/frontend/src/features/admin-accounts/presentation/widgets/edit/EditAccountAdvancedFields.vue b/frontend/src/features/admin-accounts/presentation/widgets/edit/EditAccountAdvancedFields.vue
+index e7e9adc2b..240aae8c1 100644
+--- a/frontend/src/features/admin-accounts/presentation/widgets/edit/EditAccountAdvancedFields.vue
++++ b/frontend/src/features/admin-accounts/presentation/widgets/edit/EditAccountAdvancedFields.vue
+@@ -85,6 +85,15 @@
+               </div>
+ 
+               <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
++                <div class="sm:col-span-2">
++                  <label class="input-label">{{ t('admin.accounts.tempUnschedulable.scope') }}</label>
++                  <select v-model="rule.scope" class="input">
++                    <option value="">{{ t('admin.accounts.tempUnschedulable.scopeAuto') }}</option>
++                    <option value="account">{{ t('admin.accounts.tempUnschedulable.scopeAccount') }}</option>
++                    <option value="model">{{ t('admin.accounts.tempUnschedulable.scopeModel') }}</option>
++                  </select>
++                  <p class="input-hint">{{ t('admin.accounts.tempUnschedulable.scopeHint') }}</p>
++                </div>
+                 <div>
+                   <label class="input-label">{{ t('admin.accounts.tempUnschedulable.errorCode') }}</label>
+                   <input
+diff --git a/backend/internal/application/service/account_kimi_coding_test.go b/backend/internal/application/service/account_kimi_coding_test.go
+new file mode 100644
+index 000000000..d2d79e1e0
+--- /dev/null
++++ b/backend/internal/application/service/account_kimi_coding_test.go
+@@ -0,0 +1,83 @@
++package service
++
++import (
++	"testing"
++
++	"github.com/stretchr/testify/require"
++)
++
++func TestGetCodingPlanProvider_KimiOfficialURLs(t *testing.T) {
++	for _, host := range []string{"api.kimi.com", "api.kimi.ai", "API.KIMI.AI", "api.kimi.ai:443"} {
++		for _, path := range []string{"/coding", "/coding/", "/coding/v1", "/coding/v1/"} {
++			t.Run(host+path, func(t *testing.T) {
++				account := &Account{Platform: PlatformKimi, Type: AccountTypeAPIKey, Credentials: map[string]any{
++					"account_mode": AccountModeCoding,
++					"base_url":     "https://" + host + path,
++				}}
++				require.Equal(t, PlatformKimi, account.GetCodingPlanProvider())
++				require.Equal(t, "https://"+host+"/coding/v1/usages", kimiQuotaURL(account.GetOpenAIBaseURL()))
++				account.Credentials["account_mode"] = AccountModePayG
++				require.Empty(t, account.GetCodingPlanProvider())
++			})
++		}
++	}
++}
++
++func TestGetCodingPlanProvider_KimiRejectsUnsafeURLs(t *testing.T) {
++	for _, baseURL := range []string{
++		"https://api.kimi.ai.attacker.example/coding/v1",
++		"https://api.kimi.com.attacker.example/coding/v1",
++		"https://fake-api.kimi.ai/coding/v1",
++		"https://relay.attacker.example/api.kimi.com/coding",
++		"https://relay.attacker.example/?target=api.kimi.ai/coding/v1",
++		"https://relay.attacker.example/#api.kimi.com/coding",
++		"https://api.kimi.ai@relay.attacker.example/coding/v1",
++		"https://user@api.kimi.ai/coding/v1",
++		"https://api.kimi.ai/coding-other",
++		"https://api.kimi.com/coding/v10",
++		"https://api.kimi.ai/coding/v1/usages",
++		"https://api.kimi.ai/v1?target=/coding/v1",
++		"https://api.kimi.ai/coding/v1?target=attacker",
++		"https://api.kimi.ai/coding/v1?",
++		"https://api.kimi.ai/coding/v1#attacker",
++		"https://api.kimi.ai/coding/v1#",
++		"https://api.kimi.ai/%63oding/v1",
++		"https://api.kimi.ai/coding%2fv1",
++		"https://api.kimi.ai/coding/../coding/v1",
++		"https://api.kimi.ai/CODING/v1",
++		"https://api.kimi.ai:8443/coding/v1",
++		"https://api.kimi.ai:/coding/v1",
++		"http://api.kimi.ai/coding/v1",
++		"//api.kimi.ai/coding/v1",
++		"https://api.kimi.ai/%zz",
++	} {
++		t.Run(baseURL, func(t *testing.T) {
++			account := &Account{Platform: PlatformKimi, Type: AccountTypeAPIKey, Credentials: map[string]any{
++				"account_mode": AccountModeCoding,
++				"base_url":     baseURL,
++			}}
++			require.Empty(t, account.GetCodingPlanProvider())
++		})
++	}
++}
++
++func TestGetCodingPlanProvider_UnrelatedProvidersUnchanged(t *testing.T) {
++	for _, testCase := range []struct {
++		platform string
++		baseURL  string
++	}{
++		{PlatformZhipu, "https://open.bigmodel.cn/api/coding/paas/v4"},
++		{PlatformZhipu, "https://api.z.ai/api/coding/paas/v4"},
++		{PlatformMiniMax, "https://api.minimax.io/v1"},
++		{PlatformMiniMax, "https://api.minimaxi.com/v1"},
++		{PlatformMiniMax, "https://api.minimax.com/v1"},
++	} {
++		t.Run(testCase.baseURL, func(t *testing.T) {
++			account := &Account{Platform: testCase.platform, Type: AccountTypeAPIKey, Credentials: map[string]any{
++				"account_mode": AccountModeCoding,
++				"base_url":     testCase.baseURL,
++			}}
++			require.Equal(t, testCase.platform, account.GetCodingPlanProvider())
++		})
++	}
++}
+diff --git a/backend/internal/application/service/gemini_tool_result_images_test.go b/backend/internal/application/service/gemini_tool_result_images_test.go
+new file mode 100644
+index 000000000..bc9f83c2b
+--- /dev/null
++++ b/backend/internal/application/service/gemini_tool_result_images_test.go
+@@ -0,0 +1,108 @@
++//go:build unit
++
++package service
++
++import (
++	"encoding/json"
++	"github.com/stretchr/testify/require"
++	"testing"
++)
++
++func TestConvertClaudeMessagesToGeminiGenerateContent_ExtractsToolResultImages(t *testing.T) {
++	claudeReq := map[string]any{
++		"messages": []any{
++			map[string]any{
++				"role": "assistant",
++				"content": []any{
++					map[string]any{
++						"type": "tool_use",
++						"id":   "toolu_123",
++						"name": "inspect",
++						"input": map[string]any{
++							"path": "image.png",
++						},
++					},
++				},
++			},
++			map[string]any{
++				"role": "user",
++				"content": []any{
++					map[string]any{
++						"type":        "tool_result",
++						"tool_use_id": "toolu_123",
++						"content": []any{
++							map[string]any{"type": "text", "text": "found it"},
++							map[string]any{
++								"type": "image",
++								"source": map[string]any{
++									"type":       "base64",
++									"media_type": "image/png",
++									"data":       "aGVsbG8=",
++								},
++							},
++						},
++					},
++					map[string]any{
++						"type":        "tool_result",
++						"tool_use_id": "toolu_123",
++						"content": []any{
++							map[string]any{
++								"type": "image",
++								"source": map[string]any{
++									"type":       "base64",
++									"media_type": "image/jpeg",
++									"data":       "d29ybGQ=",
++								},
++							},
++						},
++					},
++				},
++			},
++		},
++	}
++	body, err := json.Marshal(claudeReq)
++	require.NoError(t, err)
++
++	converted, err := convertClaudeMessagesToGeminiGenerateContent(body)
++	require.NoError(t, err)
++
++	var geminiReq map[string]any
++	require.NoError(t, json.Unmarshal(converted, &geminiReq))
++	contents, ok := geminiReq["contents"].([]any)
++	require.True(t, ok)
++	content, ok := contents[1].(map[string]any)
++	require.True(t, ok)
++	parts, ok := content["parts"].([]any)
++	require.True(t, ok)
++	require.Len(t, parts, 4)
++
++	firstPart, ok := parts[0].(map[string]any)
++	require.True(t, ok)
++	firstResponse, ok := firstPart["functionResponse"].(map[string]any)
++	require.True(t, ok)
++	require.Equal(t, "inspect", firstResponse["name"])
++	firstResponseBody, ok := firstResponse["response"].(map[string]any)
++	require.True(t, ok)
++	require.Equal(t, "found it", firstResponseBody["content"])
++
++	secondPart, ok := parts[1].(map[string]any)
++	require.True(t, ok)
++	secondResponse, ok := secondPart["functionResponse"].(map[string]any)
++	require.True(t, ok)
++	secondResponseBody, ok := secondResponse["response"].(map[string]any)
++	require.True(t, ok)
++	require.Equal(t, "[image attached below]", secondResponseBody["content"])
++
++	firstImagePart, ok := parts[2].(map[string]any)
++	require.True(t, ok)
++	firstImage, ok := firstImagePart["inlineData"].(map[string]any)
++	require.True(t, ok)
++	require.Equal(t, "image/png", firstImage["mimeType"])
++	require.Equal(t, "aGVsbG8=", firstImage["data"])
++	secondImagePart, ok := parts[3].(map[string]any)
++	require.True(t, ok)
++	secondImage, ok := secondImagePart["inlineData"].(map[string]any)
++	require.True(t, ok)
++	require.Equal(t, "image/jpeg", secondImage["mimeType"])
++	require.Equal(t, "d29ybGQ=", secondImage["data"])
++}
+diff --git a/backend/internal/application/service/model_rate_limit_image_scope_test.go b/backend/internal/application/service/model_rate_limit_image_scope_test.go
+new file mode 100644
+index 000000000..f8241b39b
+--- /dev/null
++++ b/backend/internal/application/service/model_rate_limit_image_scope_test.go
+@@ -0,0 +1,35 @@
++//go:build unit
++
++package service
++
++import (
++	"context"
++	"github.com/stretchr/testify/require"
++	"testing"
++	"time"
++)
++
++func TestIsModelRateLimited_AntigravityImageDoesNotInheritGeminiFamilyLimit(t *testing.T) {
++	future := time.Now().Add(10 * time.Minute).Format(time.RFC3339)
++	account := &Account{
++		Platform: PlatformAntigravity,
++		Extra: map[string]any{
++			modelRateLimitsKey: map[string]any{
++				antigravityGeminiModelRateLimitKey: map[string]any{
++					"rate_limit_reset_at": future,
++				},
++			},
++		},
++	}
++
++	for _, model := range []string{"gemini-3.1-flash-image", "gemini-3.1-flash-image-preview", "gemini-3-pro-image"} {
++		require.False(t, account.isModelRateLimitedWithContext(context.Background(), model), model)
++	}
++	require.True(t, account.isModelRateLimitedWithContext(context.Background(), "gemini-3-flash"))
++	rawLimits, ok := account.Extra[modelRateLimitsKey].(map[string]any)
++	require.True(t, ok)
++	rawLimits["gemini-3.1-flash-image"] = map[string]any{
++		"rate_limit_reset_at": future,
++	}
++	require.True(t, account.isModelRateLimitedWithContext(context.Background(), "gemini-3-pro-image-preview"))
++}
+diff --git a/backend/internal/application/service/openai_gateway_fallback_timing_test.go b/backend/internal/application/service/openai_gateway_fallback_timing_test.go
+new file mode 100644
+index 000000000..1af9ce84d
+--- /dev/null
++++ b/backend/internal/application/service/openai_gateway_fallback_timing_test.go
+@@ -0,0 +1,45 @@
++//go:build unit
++
++package service
++
++import (
++	"bytes"
++	"context"
++	"fmt"
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++	"time"
++)
++
++func TestForwardResponses_ChatFallbackPreservesProvidedStartTime(t *testing.T) {
++	for _, stream := range []bool{false, true} {
++		t.Run(fmt.Sprintf("stream=%t", stream), func(t *testing.T) {
++			body := []byte(fmt.Sprintf(`{"model":"gpt-5.4","input":"hello","stream":%t}`, stream))
++			rec := httptest.NewRecorder()
++			c, _ := gin.CreateTestContext(rec)
++			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
++			responseBody := `{"id":"chatcmpl_timing","choices":[{"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}`
++			contentType := "application/json"
++			if stream {
++				responseBody = "data: {\"id\":\"chatcmpl_timing\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"ok\"},\"finish_reason\":\"stop\"}]}\n\ndata: {\"choices\":[],\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":1,\"total_tokens\":2}}\n\ndata: [DONE]\n\n"
++				contentType = "text/event-stream"
++			}
++			upstream := &httpUpstreamRecorder{resp: &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": []string{contentType}}, Body: io.NopCloser(strings.NewReader(responseBody))}}
++			svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
++			startTime := time.Now().Add(-time.Minute)
++			result, err := svc.forwardResponsesViaRawChatCompletions(context.Background(), c, forceChatResponsesFallbackAccount(), body, startTime)
++			require.NoError(t, err)
++			require.NotNil(t, result)
++			require.GreaterOrEqual(t, result.Duration, time.Minute)
++			if stream {
++				require.NotNil(t, result.FirstTokenMs)
++				require.GreaterOrEqual(t, *result.FirstTokenMs, int(time.Minute.Milliseconds()))
++			}
++		})
++	}
++}
+diff --git a/backend/internal/application/service/openai_gateway_structured_input_fallback_test.go b/backend/internal/application/service/openai_gateway_structured_input_fallback_test.go
+new file mode 100644
+index 000000000..464519c4c
+--- /dev/null
++++ b/backend/internal/application/service/openai_gateway_structured_input_fallback_test.go
+@@ -0,0 +1,562 @@
++//go:build unit
++
++package service
++
++import (
++	"bytes"
++	"context"
++	"encoding/json"
++	"errors"
++	"fmt"
++	"github.com/Wei-Shaw/sub2api/internal/platform/config"
++	"github.com/Wei-Shaw/sub2api/internal/shared/openai_compat"
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++	"github.com/tidwall/gjson"
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++	"time"
++)
++
++func TestForwardAsChatCompletions_ResponsesSupportedFallsBackWhenStructuredInputRequiresString(t *testing.T) {
++	for name, rejection := range map[string]string{
++		"OpenAI invalid type": `{"error":{"type":"invalid_request_error","code":"invalid_type","param":"input","message":"Invalid type for 'input': expected a string, but got an array instead."}}`,
++		"vLLM validation":     `{"error":{"message":"1 validation error: [{'type':'string_type', 'loc':('body','input','str'), 'msg':'Input should be a valid string', 'input':[{'role':'user','content':'hi'}, {'role':'assistant','content':[{'type':'output_text'}]}, ResponseFunctionToolCall(type='function_call'), {'type':'function_call_output'}]}]"}}`,
++	} {
++		t.Run(name, func(t *testing.T) {
++			gin.SetMode(gin.TestMode)
++
++			body := []byte(`{"model":"gpt-5.4","messages":[{"role":"user","content":"hello"},{"role":"assistant","content":[{"type":"text","text":"checking"},{"type":"thinking","thinking":"think"}],"tool_calls":[{"id":"call_1","type":"function","function":{"name":"lookup","arguments":"{}"}}]},{"role":"tool","tool_call_id":"call_1","content":"done"},{"role":"user","content":"what now"}],"stream":false}`)
++			originalBody := append([]byte(nil), body...)
++			logs, releaseLogs := captureStructuredLog(t)
++			defer releaseLogs()
++			rec := httptest.NewRecorder()
++			c, _ := gin.CreateTestContext(rec)
++			c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
++			c.Request.Header.Set("Content-Type", "application/json")
++
++			upstream := &httpUpstreamRecorder{responses: []*http.Response{
++				{
++					StatusCode: http.StatusBadRequest,
++					Header:     http.Header{"Content-Type": []string{"application/json"}},
++					Body: io.NopCloser(strings.NewReader(
++						rejection,
++					)),
++				},
++				{
++					StatusCode: http.StatusOK,
++					Header:     http.Header{"Content-Type": []string{"application/json"}, "x-request-id": []string{"rid_raw_fallback"}},
++					Body: io.NopCloser(strings.NewReader(
++						`{"id":"chatcmpl_fallback","object":"chat.completion","model":"gpt-5.4","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}`,
++					)),
++				},
++			}}
++			svc := &OpenAIGatewayService{
++				cfg:          structuredInputRetryTestConfig(),
++				httpUpstream: upstream,
++			}
++			account := structuredInputRetryTestAccount()
++
++			result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
++			require.NoError(t, err)
++			require.NotNil(t, result)
++			require.Len(t, upstream.requests, 2)
++			require.Equal(t, "/v1/responses", upstream.requests[0].URL.Path)
++			require.True(t, gjson.GetBytes(upstream.bodies[0], "input").IsArray())
++			require.Equal(t, "/v1/chat/completions", upstream.requests[1].URL.Path)
++			require.JSONEq(t, string(body), string(upstream.bodies[1]))
++			require.Equal(t, originalBody, body)
++			require.Equal(t, "/v1/chat/completions", result.UpstreamEndpoint)
++			require.Equal(t, "/v1/chat/completions", GetActualOpenAIUpstreamEndpoint(c))
++			require.Equal(t, "ok", gjson.Get(rec.Body.String(), "choices.0.message.content").String())
++			require.True(t, logs.ContainsMessage("structured Responses input rejected"))
++			logs.mu.Lock()
++			defer logs.mu.Unlock()
++			for _, event := range logs.events {
++				require.NotContains(t, event.Fields, "upstream_message")
++				require.NotContains(t, event.Fields, "upstream_body")
++				require.NotContains(t, event.Message, rejection)
++			}
++		})
++	}
++}
++
++type openAIChatFallbackBoundaryReader struct {
++	io.Reader
++	beforeRead func()
++}
++
++func (reader *openAIChatFallbackBoundaryReader) Read(buffer []byte) (int, error) {
++	if reader.beforeRead != nil {
++		reader.beforeRead()
++		reader.beforeRead = nil
++	}
++	return reader.Reader.Read(buffer)
++}
++
++func TestForwardAsChatCompletions_StructuredInputRetrySafetyBoundaries(t *testing.T) {
++	rejection := `{"error":{"code":"invalid_type","param":"input","message":"Expected a string, but got an array instead."}}`
++	validation := `"message":"1 validation error: [{'type':'string_type','loc':('body','input','str'),'msg':'Input should be a valid string'}]"`
++	for _, test := range []struct {
++		name string
++		body string
++	}{
++		{name: "duplicate error", body: strings.TrimSuffix(rejection, "}") + `,"error":{"code":"rate_limit_exceeded"}}`},
++		{name: "duplicate code", body: strings.Replace(rejection, `"code":"invalid_type"`, `"code":"invalid_type","code":"rate_limit_exceeded"`, 1)},
++		{name: "duplicate escaped param", body: strings.Replace(rejection, `"param":"input"`, `"param":"input","p\u0061ram":"tools"`, 1)},
++		{name: "duplicate message", body: strings.Replace(rejection, `"message":"Expected a string, but got an array instead."`, `"message":"Expected a string, but got an array instead.","message":"Input is too long."`, 1)},
++		{name: "contradictory error type", body: strings.Replace(rejection, `"error":{`, `"error":{"type":"authentication_error",`, 1)},
++		{name: "contradictory envelope type", body: strings.TrimSuffix(rejection, "}") + `,"type":"rate_limit_error"}`},
++		{name: "validation contradictory type", body: `{"error":{"type":"rate_limit_error",` + validation + `}}`},
++		{name: "validation contradictory envelope type", body: `{"type":"authentication_error","error":{` + validation + `}}`},
++		{name: "validation contradictory code", body: `{"error":{"code":"rate_limit_exceeded",` + validation + `}}`},
++		{name: "validation contradictory param", body: `{"error":{"param":"tools",` + validation + `}}`},
++		{name: "contradictory envelope code", body: strings.TrimSuffix(rejection, "}") + `,"code":"rate_limit_exceeded"}`},
++		{name: "contradictory envelope param", body: strings.TrimSuffix(rejection, "}") + `,"param":"tools"}`},
++		{name: "type cannot override code", body: strings.Replace(rejection, `"code":"invalid_type"`, `"code":"rate_limit_exceeded","type":"invalid_type"`, 1)},
++		{name: "usage", body: strings.TrimSuffix(rejection, "}") + `,"usage":{"input_tokens":12,"output_tokens":3}}`},
++		{name: "error usage", body: strings.Replace(rejection, `"error":{`, `"error":{"usage":{"input_tokens":12},`, 1)},
++		{name: "output", body: strings.TrimSuffix(rejection, "}") + `,"output":[{"type":"message","content":[{"type":"output_text","text":"partial"}]}]}`},
++		{name: "output text", body: strings.TrimSuffix(rejection, "}") + `,"output_text":"partial"}`},
++		{name: "tool calls", body: strings.TrimSuffix(rejection, "}") + `,"tool_calls":[{"id":"call_partial","type":"function","function":{"name":"lookup","arguments":"{}"}}]}`},
++		{name: "choices", body: strings.TrimSuffix(rejection, "}") + `,"choices":[{"delta":{"content":"partial"}}]}`},
++		{name: "nested response", body: strings.TrimSuffix(rejection, "}") + `,"response":{"status":"incomplete","usage":{"input_tokens":12},"output":[]}}`},
++		{name: "partial status", body: strings.TrimSuffix(rejection, "}") + `,"status":"in_progress"}`},
++		{name: "incomplete details", body: strings.TrimSuffix(rejection, "}") + `,"incomplete_details":{"reason":"max_output_tokens"}}`},
++		{name: "partial event", body: strings.TrimSuffix(rejection, "}") + `,"type":"response.output_text.delta","delta":"partial"}`},
++		{name: "caller canceled"},
++		{name: "request canceled"},
++		{name: "response committed"},
++		{name: "writer committed"},
++	} {
++		t.Run(test.name, func(t *testing.T) {
++			body := []byte(`{"model":"gpt-5.4","messages":[{"role":"user","content":"hello"}],"stream":false}`)
++			c, _ := gin.CreateTestContext(httptest.NewRecorder())
++			ctx, cancel := context.WithCancel(context.Background())
++			defer cancel()
++			requestCtx, cancelRequest := context.WithCancel(context.Background())
++			defer cancelRequest()
++			c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body)).WithContext(requestCtx)
++			errorBody := test.body
++			if errorBody == "" {
++				errorBody = rejection
++			}
++			reader := &openAIChatFallbackBoundaryReader{Reader: strings.NewReader(errorBody), beforeRead: func() {
++				switch test.name {
++				case "caller canceled":
++					cancel()
++				case "request canceled":
++					cancelRequest()
++				case "response committed":
++					MarkResponseCommitted(c)
++				case "writer committed":
++					c.Writer.WriteHeaderNow()
++				}
++			}}
++			upstream := &httpUpstreamRecorder{resp: &http.Response{
++				StatusCode: http.StatusBadRequest,
++				Header:     http.Header{"Content-Type": []string{"application/json"}},
++				Body:       io.NopCloser(reader),
++			}}
++			svc := &OpenAIGatewayService{cfg: structuredInputRetryTestConfig(), httpUpstream: upstream}
++			result, err := svc.ForwardAsChatCompletions(ctx, c, structuredInputRetryTestAccount(), body, "", "")
++			require.Error(t, err)
++			require.Nil(t, result)
++			require.Len(t, upstream.requests, 1)
++			require.Equal(t, "/v1/responses", upstream.requests[0].URL.Path)
++		})
++	}
++}
++
++func TestConvertedResponsesInputStringRejectionIsNarrow(t *testing.T) {
++	matching := []byte(`{"error":{"code":"invalid_type","param":"input","message":"Expected a string for input, but got an object instead."}}`)
++	require.True(t, isConvertedResponsesInputStringRejection(http.StatusBadRequest, matching))
++	require.True(t, isConvertedResponsesInputStringRejection(http.StatusBadRequest, []byte(`{"error":{"type":"invalid_type","param":"input","message":"Invalid type for 'input': expected a string, but got an array instead."}}`)))
++
++	for _, tc := range []struct {
++		name   string
++		status int
++		body   string
++	}{
++		{name: "nested content validation", status: http.StatusBadRequest, body: `{"error":{"message":"'loc':('body','input',0,'content','str'), 'msg':'Input should be a valid string'"}}`},
++		{name: "other field validation", status: http.StatusBadRequest, body: `{"error":{"message":"'loc':('body','model','str'), 'msg':'Input should be a valid string'"}}`},
++		{name: "generic string validation", status: http.StatusBadRequest, body: `{"error":{"message":"Input should be a valid string"}}`},
++		{name: "wrong status", status: http.StatusUnprocessableEntity, body: string(matching)},
++		{name: "authentication", status: http.StatusUnauthorized, body: string(matching)},
++		{name: "authorization", status: http.StatusForbidden, body: string(matching)},
++		{name: "rate limit", status: http.StatusTooManyRequests, body: string(matching)},
++		{name: "server error", status: http.StatusInternalServerError, body: string(matching)},
++		{name: "wrong parameter", status: http.StatusBadRequest, body: `{"error":{"code":"invalid_type","param":"tools","message":"Expected a string, but got an array instead."}}`},
++		{name: "wrong code", status: http.StatusBadRequest, body: `{"error":{"code":"invalid_request_error","param":"input","message":"Expected a string, but got an array instead."}}`},
++		{name: "unrelated input error", status: http.StatusBadRequest, body: `{"error":{"code":"invalid_type","param":"input","message":"Input is too long."}}`},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			require.False(t, isConvertedResponsesInputStringRejection(tc.status, []byte(tc.body)))
++		})
++	}
++}
++
++func TestConvertedResponsesInputStringRejectionValidationBoundaries(t *testing.T) {
++	validation := `{'type': 'string_type', 'loc': ('body', 'input', 'str'), 'msg': 'Input should be a valid string', 'input': [{'role': 'user', 'content': 'hello'}]}`
++	for _, test := range []struct {
++		name    string
++		message string
++		want    bool
++	}{
++		{name: "complete Pydantic error", message: "1 validation error: [" + validation + "]", want: true},
++		{name: "multiple Pydantic errors", message: "2 validation errors for Request: [" + strings.Replace(validation, "'input', 'str'", "'model', 'str'", 1) + ", " + validation + "]", want: true},
++		{name: "double quoted keys", message: "1 validation error: [" + strings.ReplaceAll(validation, "'", `"`) + "]", want: true},
++		{name: "surrounding whitespace", message: " \n1 validation error: [" + validation + "]\n ", want: true},
++		{name: "escaped quote in history", message: `1 validation error: [{'type':'string_type','loc':('body','input','str'),'msg':'Input should be a valid string','input':[{'content':'can\'t [close] this }'}]}]`, want: true},
++		{name: "bare loc and msg", message: `'loc':('body','input','str'), 'msg':'Input should be a valid string'`},
++		{name: "echoed dictionary in unrelated error", message: "Invalid history: " + validation},
++		{name: "echoed fake loc and msg in input", message: `1 validation error: [{'type':'string_type','loc':('body','model','str'),'msg':'Input should be a valid string','input':{'loc':('body','input','str'),'msg':'Input should be a valid string'}}]`},
++		{name: "echoed fake loc and msg in quoted history", message: `1 validation error: [{'type':'string_type','loc':('body','input',0,'content','str'),'msg':'Input should be a valid string','input':"'loc':('body','input','str'), 'msg':'Input should be a valid string'"}]`},
++		{name: "echoed complete error in quoted history", message: `1 validation error: [{'type':'string_type','loc':('body','model','str'),'msg':'Input should be a valid string','input':"1 validation error: [{'type':'string_type','loc':('body','input','str'),'msg':'Input should be a valid string'}]"}]`},
++		{name: "truncated error list", message: "1 validation error: [" + validation},
++		{name: "truncated quoted input", message: `1 validation error: [{'type':'string_type','loc':('body','input','str'),'msg':'Input should be a valid string','input':'history}]`},
++		{name: "mismatched closing bracket", message: "1 validation error: [" + strings.TrimSuffix(validation, "}") + ")]"},
++		{name: "elided validation list", message: "240 validation errors: ... " + validation},
++		{name: "incorrect error count", message: "2 validation errors: [" + validation + "]"},
++		{name: "overflowed error count", message: "999999999999999999999999 validation errors: [" + validation + "]"},
++		{name: "duplicate location", message: "1 validation error: [" + strings.Replace(validation, "'input':", "'loc': ('body', 'model', 'str'), 'input':", 1) + "]"},
++		{name: "wrong validation type", message: "1 validation error: [" + strings.Replace(validation, "string_type", "value_error", 1) + "]"},
++		{name: "missing validation type", message: "1 validation error: [" + strings.Replace(validation, "'type': 'string_type', ", "", 1) + "]"},
++		{name: "location and message in different errors", message: "2 validation errors: [" + strings.Replace(validation, "Input should be a valid string", "Invalid history", 1) + ", " + strings.Replace(validation, "'input', 'str'", "'model', 'str'", 1) + "]"},
++		{name: "trailing echoed text", message: "1 validation error: [" + validation + "] echoed history"},
++		{name: "structured string array", message: "Expected a string, but got an array instead.", want: true},
++		{name: "structured object", message: "Invalid type for 'input': expected a string, but got an object instead.", want: true},
++		{name: "structured echoed history", message: "Invalid history containing 'expected a string' and 'got an array'"},
++		{name: "structured truncated message", message: "Expected a string, but got an array"},
++	} {
++		t.Run(test.name, func(t *testing.T) {
++			body, err := json.Marshal(map[string]any{"error": map[string]string{"message": test.message, "code": "invalid_type", "param": "input"}})
++			require.NoError(t, err)
++			require.Equal(t, test.want, isConvertedResponsesInputStringRejection(http.StatusBadRequest, body))
++			if test.want {
++				require.False(t, isConvertedResponsesInputStringRejection(http.StatusBadRequest, body[:len(body)-1]))
++				require.False(t, isConvertedResponsesInputStringRejection(http.StatusBadRequest, append(body, []byte(" trailing")...)))
++			}
++		})
++	}
++}
++
++func TestForwardAsChatCompletions_StructuredInputRetryRequiresCompleteErrorBody(t *testing.T) {
++	rejection := `{"error":{"code":"invalid_type","param":"input","message":"Expected a string, but got an array instead."}}`
++	limit := int(openAIUpstreamErrorBodyReadLimitForConfig(structuredInputRetryTestConfig()))
++	for _, test := range []struct {
++		name    string
++		payload string
++		readErr error
++		unknown bool
++		want    bool
++	}{
++		{name: "complete JSON followed by read failure", payload: rejection, readErr: io.ErrUnexpectedEOF},
++		{name: "truncated JSON", payload: rejection[:len(rejection)-1]},
++		{name: "exact read limit", payload: rejection + strings.Repeat(" ", limit-len(rejection)), want: true},
++		{name: "one byte beyond read limit", payload: rejection + strings.Repeat(" ", limit-len(rejection)+1)},
++		{name: "valid JSON prefix before discarded suffix", payload: rejection + strings.Repeat(" ", limit-len(rejection)) + "trailing"},
++		{name: "unknown capability still retries after read failure", payload: rejection, readErr: io.ErrUnexpectedEOF, unknown: true, want: true},
++		{name: "unknown capability still retries beyond read limit", payload: rejection + strings.Repeat(" ", limit-len(rejection)+1), unknown: true, want: true},
++	} {
++		t.Run(test.name, func(t *testing.T) {
++			body := []byte(`{"model":"gpt-5.4","messages":[{"role":"user","content":"hello"}]}`)
++			rec := httptest.NewRecorder()
++			c, _ := gin.CreateTestContext(rec)
++			c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
++			errorBody := io.NopCloser(strings.NewReader(test.payload))
++			if test.readErr != nil {
++				errorBody = &openAIChatStreamReadErrorCloser{payload: []byte(test.payload), err: test.readErr}
++			}
++			account := structuredInputRetryTestAccount()
++			status := http.StatusBadRequest
++			if test.unknown {
++				delete(account.Extra, openai_compat.ExtraKeyResponsesSupported)
++				status = http.StatusNotFound
++			}
++			upstream := &httpUpstreamRecorder{responses: []*http.Response{
++				{StatusCode: status, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: errorBody},
++				{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: io.NopCloser(strings.NewReader(`{"id":"chatcmpl_retry","choices":[{"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}`))},
++			}}
++			svc := &OpenAIGatewayService{cfg: structuredInputRetryTestConfig(), httpUpstream: upstream}
++			result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
++			if test.want {
++				require.NoError(t, err)
++				require.NotNil(t, result)
++				require.Len(t, upstream.requests, 2)
++			} else {
++				require.Error(t, err)
++				require.Nil(t, result)
++				require.Len(t, upstream.requests, 1)
++			}
++		})
++	}
++}
++
++type openAIChatFallbackDelayReader struct {
++	io.Reader
++	elapsed time.Duration
++}
++
++func (reader *openAIChatFallbackDelayReader) Read(buffer []byte) (int, error) {
++	if reader.elapsed == 0 {
++		started := time.Now()
++		time.Sleep(30 * time.Millisecond)
++		reader.elapsed = time.Since(started)
++	}
++	return reader.Reader.Read(buffer)
++}
++
++func TestForwardAsChatCompletions_RawFallbackPreservesResponsesTiming(t *testing.T) {
++	for _, unknown := range []bool{false, true} {
++		for _, stream := range []bool{false, true} {
++			t.Run(fmt.Sprintf("unknown=%t/stream=%t", unknown, stream), func(t *testing.T) {
++				body := []byte(fmt.Sprintf(`{"model":"gpt-5.4","messages":[{"role":"user","content":"hello"}],"stream":%t}`, stream))
++				rec := httptest.NewRecorder()
++				c, _ := gin.CreateTestContext(rec)
++				c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
++				account := structuredInputRetryTestAccount()
++				status := http.StatusBadRequest
++				if unknown {
++					delete(account.Extra, openai_compat.ExtraKeyResponsesSupported)
++					status = http.StatusNotFound
++				}
++				initialBody := &openAIChatFallbackDelayReader{Reader: strings.NewReader(`{"error":{"code":"invalid_type","param":"input","message":"Expected a string, but got an array instead."}}`)}
++				responseBody := `{"id":"chatcmpl_retry","choices":[{"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}`
++				contentType := "application/json"
++				if stream {
++					responseBody = "data: {\"id\":\"chatcmpl_retry\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"ok\"},\"finish_reason\":\"stop\"}]}\n\ndata: {\"choices\":[],\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":1,\"total_tokens\":2}}\n\ndata: [DONE]\n\n"
++					contentType = "text/event-stream"
++				}
++				upstream := &httpUpstreamRecorder{responses: []*http.Response{
++					{StatusCode: status, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: io.NopCloser(initialBody)},
++					{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": []string{contentType}}, Body: io.NopCloser(strings.NewReader(responseBody))},
++				}}
++				svc := &OpenAIGatewayService{cfg: structuredInputRetryTestConfig(), httpUpstream: upstream}
++				result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
++				require.NoError(t, err)
++				require.NotNil(t, result)
++				require.Len(t, upstream.requests, 2)
++				require.Equal(t, "/v1/responses", upstream.requests[0].URL.Path)
++				require.Equal(t, "/v1/chat/completions", upstream.requests[1].URL.Path)
++				require.GreaterOrEqual(t, result.Duration, initialBody.elapsed)
++				if stream {
++					require.NotNil(t, result.FirstTokenMs)
++					require.GreaterOrEqual(t, *result.FirstTokenMs, int(initialBody.elapsed.Milliseconds()))
++				}
++			})
++		}
++	}
++}
++
++func TestForwardAsChatCompletions_StructuredInputRejectionDoesNotRetryIneligibleRequests(t *testing.T) {
++	rejection := `{"error":{"code":"invalid_type","param":"input","message":"Expected a string, but got an array instead."}}`
++	for _, test := range []struct {
++		name          string
++		mode          string
++		unknown       bool
++		platform      string
++		protocol      string
++		endpoint      string
++		accountType   string
++		responsesBody bool
++		nativeIngress bool
++		status        int
++		rejection     string
++	}{
++		{name: "forced Responses", mode: "force_responses"},
++		{name: "forced Responses without probe", mode: "force_responses", unknown: true},
++		{name: "unknown support", unknown: true},
++		{name: "Responses shaped Chat ingress", responsesBody: true},
++		{name: "native Responses ingress", responsesBody: true, nativeIngress: true},
++		{name: "native CN Responses protocol", platform: PlatformDeepseek},
++		{name: "adaptive Chat ingress stays raw", platform: PlatformKimi, protocol: APIProtocolAdaptive, endpoint: "/chat/completions"},
++		{name: "adaptive Responses shaped ingress stays Responses", platform: PlatformKimi, protocol: APIProtocolAdaptive, responsesBody: true},
++		{name: "adaptive Responses shaped ingress converts to Chat", platform: PlatformZhipu, protocol: APIProtocolAdaptive, responsesBody: true, endpoint: "/chat/completions"},
++		{name: "model routed Responses is not OpenAI retry eligible", platform: PlatformMiniMax, protocol: APIProtocolResponses},
++		{name: "OAuth", accountType: AccountTypeOAuth},
++		{name: "authentication", status: http.StatusUnauthorized},
++		{name: "authorization", status: http.StatusForbidden},
++		{name: "rate limit", status: http.StatusTooManyRequests},
++		{name: "unrelated validation", rejection: `{"error":{"code":"invalid_type","param":"tools","message":"Expected a string, but got an array instead."}}`},
++		{name: "nested validation", rejection: `{"error":{"message":"'loc':('body','input',0,'content','str'), 'msg':'Input should be a valid string'"}}`},
++		{name: "echoed validation", rejection: `{"error":{"message":"1 validation error: [{'type':'string_type','loc':('body','model','str'),'msg':'Input should be a valid string','input':{'loc':('body','input','str'),'msg':'Input should be a valid string'}}]"}}`},
++		{name: "echoed structured error", rejection: `{"error":{"code":"invalid_type","param":"input","message":"Invalid history containing expected a string but got an array"}}`},
++	} {
++		t.Run(test.name, func(t *testing.T) {
++			body := []byte(`{"model":"gpt-5.4","messages":[{"role":"user","content":"hello"}],"stream":false}`)
++			if test.responsesBody {
++				body = []byte(`{"model":"gpt-5.4","input":[{"role":"user","content":"hello"}],"stream":false}`)
++			}
++			rec := httptest.NewRecorder()
++			c, _ := gin.CreateTestContext(rec)
++			c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
++			account := structuredInputRetryTestAccount()
++			account.Extra = map[string]any{openai_compat.ExtraKeyResponsesSupported: true, openai_compat.ExtraKeyResponsesMode: test.mode}
++			if test.unknown {
++				delete(account.Extra, openai_compat.ExtraKeyResponsesSupported)
++			}
++			if test.platform != "" {
++				account.Platform = test.platform
++				account.Credentials["api_protocol"] = APIProtocolResponses
++			}
++			if test.protocol != "" {
++				account.Credentials["api_protocol"] = test.protocol
++			}
++			if test.accountType != "" {
++				account.Type = test.accountType
++				account.Credentials["access_token"] = "test-token"
++			}
++			status := test.status
++			if status == 0 {
++				status = http.StatusBadRequest
++			}
++			errorBody := rejection
++			if test.rejection != "" {
++				errorBody = test.rejection
++			}
++			upstream := &httpUpstreamRecorder{resp: &http.Response{
++				StatusCode: status,
++				Header:     http.Header{"Content-Type": []string{"application/json"}},
++				Body:       io.NopCloser(strings.NewReader(errorBody)),
++			}}
++			svc := &OpenAIGatewayService{cfg: structuredInputRetryTestConfig(), httpUpstream: upstream}
++			var result *OpenAIForwardResult
++			var err error
++			if test.nativeIngress {
++				c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
++				result, err = svc.Forward(context.Background(), c, account, body)
++			} else {
++				result, err = svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
++			}
++			require.Error(t, err)
++			require.Nil(t, result)
++			require.Len(t, upstream.requests, 1)
++			endpoint := test.endpoint
++			if endpoint == "" {
++				endpoint = "/responses"
++			}
++			require.True(t, strings.HasSuffix(upstream.requests[0].URL.Path, endpoint))
++			var failover *UpstreamFailoverError
++			if status == http.StatusUnauthorized || status == http.StatusForbidden || status == http.StatusTooManyRequests {
++				require.ErrorAs(t, err, &failover)
++				require.Equal(t, status, failover.StatusCode)
++			} else {
++				require.False(t, errors.As(err, &failover))
++				require.True(t, c.Writer.Written())
++			}
++		})
++	}
++}
++
++func TestForwardAsChatCompletions_StructuredInputRetryPreservesStreamingAndMapping(t *testing.T) {
++	for _, useAccountMapping := range []bool{false, true} {
++		t.Run(fmt.Sprintf("account_mapping=%t", useAccountMapping), func(t *testing.T) {
++			body := []byte(`{"model":"client-model","messages":[{"role":"user","content":"hello"}],"stream":true,"stream_options":{"include_usage":false},"vendor_option":"preserve"}`)
++			originalBody := append([]byte(nil), body...)
++			rec := httptest.NewRecorder()
++			c, _ := gin.CreateTestContext(rec)
++			c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
++			account := structuredInputRetryTestAccount()
++			account.Extra = map[string]any{openai_compat.ExtraKeyResponsesSupported: true, openai_compat.ExtraKeyResponsesMode: "auto"}
++			mappedModel := "gpt-5.4"
++			if useAccountMapping {
++				account.Credentials["model_mapping"] = map[string]any{"client-model": mappedModel}
++			}
++			stream := "data: {\"id\":\"chatcmpl_retry\",\"object\":\"chat.completion.chunk\",\"model\":\"gpt-5.4\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"ok\"},\"finish_reason\":\"stop\"}]}\n\ndata: {\"choices\":[],\"usage\":{\"prompt_tokens\":9,\"completion_tokens\":4,\"total_tokens\":13}}\n\ndata: [DONE]\n\n"
++			upstream := &httpUpstreamRecorder{responses: []*http.Response{
++				{StatusCode: http.StatusBadRequest, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: io.NopCloser(strings.NewReader(`{"error":{"code":"invalid_type","param":"input","message":"Expected a string, but got an array instead."}}`))},
++				{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": []string{"text/event-stream"}}, Body: io.NopCloser(strings.NewReader(stream))},
++			}}
++			svc := &OpenAIGatewayService{cfg: structuredInputRetryTestConfig(), httpUpstream: upstream}
++			defaultMappedModel := mappedModel
++			if useAccountMapping {
++				defaultMappedModel = ""
++			}
++			result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", defaultMappedModel)
++			require.NoError(t, err)
++			require.Len(t, upstream.requests, 2)
++			for _, outbound := range upstream.bodies {
++				require.Equal(t, mappedModel, gjson.GetBytes(outbound, "model").String())
++				require.True(t, gjson.GetBytes(outbound, "stream").Bool())
++			}
++			require.JSONEq(t, gjson.GetBytes(body, "messages").Raw, gjson.GetBytes(upstream.bodies[1], "messages").Raw)
++			require.Equal(t, "preserve", gjson.GetBytes(upstream.bodies[1], "vendor_option").String())
++			require.True(t, gjson.GetBytes(upstream.bodies[1], "stream_options.include_usage").Bool())
++			require.Equal(t, originalBody, body)
++			require.True(t, result.Stream)
++			require.Equal(t, mappedModel, result.BillingModel)
++			require.Equal(t, mappedModel, result.UpstreamModel)
++			require.Equal(t, 9, result.Usage.InputTokens)
++			require.Equal(t, 4, result.Usage.OutputTokens)
++			require.Equal(t, "/v1/chat/completions", result.UpstreamEndpoint)
++			require.Contains(t, rec.Header().Get("Content-Type"), "text/event-stream")
++			require.Contains(t, rec.Body.String(), "data: [DONE]")
++		})
++	}
++}
++
++func TestForwardAsChatCompletions_StructuredInputRetryIsBoundedAndPreservesRawErrors(t *testing.T) {
++	for _, status := range []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusTooManyRequests} {
++		t.Run(fmt.Sprintf("status=%d", status), func(t *testing.T) {
++			rejection := `{"error":{"code":"invalid_type","param":"input","message":"Expected a string, but got an array instead."}}`
++			response := func(status int) *http.Response {
++				return &http.Response{StatusCode: status, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: io.NopCloser(strings.NewReader(rejection))}
++			}
++			body := []byte(`{"model":"gpt-5.4","messages":[{"role":"user","content":"hello"}],"stream":false}`)
++			account := structuredInputRetryTestAccount()
++			account.Extra = map[string]any{openai_compat.ExtraKeyResponsesSupported: true}
++			forward := func(retry bool) (*httptest.ResponseRecorder, error) {
++				rec := httptest.NewRecorder()
++				c, _ := gin.CreateTestContext(rec)
++				c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
++				upstream := &httpUpstreamRecorder{responses: []*http.Response{response(status)}}
++				if retry {
++					upstream.responses = append([]*http.Response{response(http.StatusBadRequest)}, upstream.responses...)
++				}
++				svc := &OpenAIGatewayService{cfg: structuredInputRetryTestConfig(), httpUpstream: upstream}
++				var result *OpenAIForwardResult
++				var err error
++				if retry {
++					result, err = svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
++					require.Len(t, upstream.requests, 2)
++					require.Equal(t, "/v1/chat/completions", upstream.requests[1].URL.Path)
++				} else {
++					result, err = svc.forwardAsRawChatCompletions(context.Background(), c, account, body, "")
++					require.Len(t, upstream.requests, 1)
++				}
++				require.Nil(t, result)
++				require.Error(t, err)
++				return rec, err
++			}
++			baseline, baselineErr := forward(false)
++			retried, retryErr := forward(true)
++			require.Equal(t, baseline.Code, retried.Code)
++			require.Equal(t, baseline.Body.String(), retried.Body.String())
++			require.Equal(t, baselineErr.Error(), retryErr.Error())
++			require.IsType(t, baselineErr, retryErr)
++		})
++	}
++}
++
++func structuredInputRetryTestConfig() *config.Config {
++	return &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{
++		Enabled:           false,
++		AllowInsecureHTTP: true,
++	}}}
++}
++
++func structuredInputRetryTestAccount() *Account {
++	return &Account{
++		ID:          101,
++		Name:        "raw-openai-apikey",
++		Platform:    PlatformOpenAI,
++		Type:        AccountTypeAPIKey,
++		Concurrency: 1,
++		Credentials: map[string]any{"api_key": "sk-test", "base_url": "http://upstream.example"},
++		Extra:       map[string]any{openai_compat.ExtraKeyResponsesSupported: true},
++	}
++}
+diff --git a/backend/internal/application/service/openai_responses_input_rejection.go b/backend/internal/application/service/openai_responses_input_rejection.go
+new file mode 100644
+index 000000000..3cd1a32d1
+--- /dev/null
++++ b/backend/internal/application/service/openai_responses_input_rejection.go
+@@ -0,0 +1,159 @@
++package service
++
++import (
++	"encoding/json"
++	"github.com/tidwall/gjson"
++	"net/http"
++	"regexp"
++	"strconv"
++	"strings"
++)
++
++var responsesInputStringValidationError = regexp.MustCompile(`^['"]loc['"]\s*:\s*\(\s*['"]body['"]\s*,\s*['"]input['"]\s*,\s*['"]str['"]\s*\)$`)
++var responsesStringValidationMessage = regexp.MustCompile(`^['"]msg['"]\s*:\s*['"]Input should be a valid string['"]$`)
++var responsesStringValidationType = regexp.MustCompile(`^['"]type['"]\s*:\s*['"]string_type['"]$`)
++var responsesValidationErrors = regexp.MustCompile(`(?s)^([1-9][0-9]*) validation errors?(?: for [^\r\n:]+)?:\s*(\[.*\])$`)
++var responsesInvalidInputTypeMessage = regexp.MustCompile(`(?i)^(?:Invalid type for ['"]input['"]:\s*)?Expected a string(?: for input)?, but got an (?:array|object) instead\.?$`)
++
++func isResponsesInputStringValidationMessage(message string) bool {
++	match := responsesValidationErrors.FindStringSubmatch(strings.TrimSpace(message))
++	if match == nil {
++		return false
++	}
++	entries, ok := splitResponsesValidationFields(match[2][1 : len(match[2])-1])
++	count, err := strconv.Atoi(match[1])
++	if !ok || err != nil || count != len(entries) {
++		return false
++	}
++	matched := false
++	for _, entry := range entries {
++		if !strings.HasPrefix(entry, "{") || !strings.HasSuffix(entry, "}") {
++			return false
++		}
++		fields, ok := splitResponsesValidationFields(entry[1 : len(entry)-1])
++		if !ok {
++			return false
++		}
++		location, message, stringType := false, false, false
++		keys := make(map[string]bool, len(fields))
++		for _, field := range fields {
++			key, value, found := strings.Cut(field, ":")
++			key = strings.TrimSpace(key)
++			if !found || len(key) < 3 || (key[0] != '\'' && key[0] != '"') || key[len(key)-1] != key[0] || strings.TrimSpace(value) == "" || keys[key[1:len(key)-1]] {
++				return false
++			}
++			keys[key[1:len(key)-1]] = true
++			location = location || responsesInputStringValidationError.MatchString(field)
++			message = message || responsesStringValidationMessage.MatchString(field)
++			stringType = stringType || responsesStringValidationType.MatchString(field)
++		}
++		matched = matched || (location && message && stringType)
++	}
++	return matched
++}
++
++func splitResponsesValidationFields(value string) ([]string, bool) {
++	var fields []string
++	var brackets []byte
++	var quote byte
++	escaped := false
++	start := 0
++	for index := 0; index < len(value); index++ {
++		character := value[index]
++		if quote != 0 {
++			if escaped {
++				escaped = false
++			} else if character == '\\' {
++				escaped = true
++			} else if character == quote {
++				quote = 0
++			}
++			continue
++		}
++		switch character {
++		case '\'', '"':
++			quote = character
++		case '{', '[', '(':
++			brackets = append(brackets, character)
++		case '}', ']', ')':
++			if len(brackets) == 0 {
++				return nil, false
++			}
++			opening := brackets[len(brackets)-1]
++			if (character == '}' && opening != '{') || (character == ']' && opening != '[') || (character == ')' && opening != '(') {
++				return nil, false
++			}
++			brackets = brackets[:len(brackets)-1]
++		case ',':
++			if len(brackets) == 0 {
++				field := strings.TrimSpace(value[start:index])
++				if field == "" {
++					return nil, false
++				}
++				fields = append(fields, field)
++				start = index + 1
++			}
++		}
++	}
++	if quote != 0 || len(brackets) != 0 {
++		return nil, false
++	}
++	if field := strings.TrimSpace(value[start:]); field != "" {
++		fields = append(fields, field)
++	}
++	return fields, len(fields) > 0
++}
++
++func isConvertedResponsesInputStringRejection(status int, responseBody []byte) bool {
++	if status != http.StatusBadRequest || !json.Valid(responseBody) {
++		return false
++	}
++	envelope := gjson.ParseBytes(responseBody)
++	for _, object := range []gjson.Result{envelope, envelope.Get("error")} {
++		if !object.IsObject() {
++			return false
++		}
++		keys := make(map[string]bool)
++		unambiguous := true
++		object.ForEach(func(key, value gjson.Result) bool {
++			name := key.String()
++			if keys[name] {
++				unambiguous = false
++				return false
++			}
++			keys[name] = true
++			switch name {
++			case "usage", "output", "output_text", "choices", "tool_calls", "response", "status", "incomplete_details":
++				unambiguous = false
++			case "code":
++				code := strings.ToLower(strings.TrimSpace(value.String()))
++				unambiguous = code == "" || code == "invalid_type" || code == "invalid_request_error"
++			case "param":
++				param := strings.ToLower(strings.TrimSpace(value.String()))
++				unambiguous = param == "" || param == "input"
++			case "type":
++				errorType := strings.ToLower(strings.TrimSpace(value.String()))
++				unambiguous = errorType == "" || errorType == "invalid_type" || errorType == "invalid_request_error"
++			}
++			return unambiguous
++		})
++		if !unambiguous {
++			return false
++		}
++	}
++	message := gjson.GetBytes(responseBody, "error.message").String()
++	if isResponsesInputStringValidationMessage(message) {
++		return true
++	}
++	code := strings.ToLower(strings.TrimSpace(gjson.GetBytes(responseBody, "error.code").String()))
++	typ := strings.ToLower(strings.TrimSpace(gjson.GetBytes(responseBody, "error.type").String()))
++	if code != "invalid_type" && typ != "invalid_type" {
++		return false
++	}
++	param := strings.ToLower(strings.TrimSpace(gjson.GetBytes(responseBody, "error.param").String()))
++	if param != "input" {
++		return false
++	}
++	message = strings.ToLower(strings.TrimSpace(message))
++	return responsesInvalidInputTypeMessage.MatchString(message)
++}
+diff --git a/backend/internal/application/service/temp_unsched_scope.go b/backend/internal/application/service/temp_unsched_scope.go
+new file mode 100644
+index 000000000..2e2f8c22a
+--- /dev/null
++++ b/backend/internal/application/service/temp_unsched_scope.go
+@@ -0,0 +1,66 @@
++package service
++
++import (
++	"github.com/tidwall/gjson"
++	"net/http"
++	"strings"
++)
++
++// tempUnschedRulesApply 决定本次错误是否交给临时不可调度规则处理。
++// 401 默认留给认证错误处理；只有首条命中规则按模型级生效时，才由规则只冷却该模型。
++func tempUnschedRulesApply(account *Account, statusCode int, responseBody []byte, modelKey string) bool {
++	if statusCode != http.StatusUnauthorized {
++		return true
++	}
++	if strings.TrimSpace(modelKey) == "" || unauthorizedRequiresCredentialHandling(account, responseBody) {
++		return false
++	}
++	matches := matchTempUnschedulableRules(account, statusCode, responseBody)
++	return len(matches) > 0 && tempUnschedHitUsesModelScope(account, matches[0].rule, modelKey, statusCode, responseBody)
++}
++
++// tempUnschedHitUsesModelScope 决定一次命中是否按模型级冷却：凭据级 401 始终按账号处理，
++// 其余由规则作用范围决定。
++func tempUnschedHitUsesModelScope(account *Account, rule TempUnschedulableRule, modelKey string, statusCode int, responseBody []byte) bool {
++	if statusCode == http.StatusUnauthorized && unauthorizedRequiresCredentialHandling(account, responseBody) {
++		return false
++	}
++	return tempUnschedRuleUsesModelScope(rule, modelKey, statusCode)
++}
++
++// unauthorizedRequiresCredentialHandling 识别凭据级 401：OAuth 账号与 Spark 影子
++// （失效缓存、刷新窗口、缺 refresh_token 停用），以及 OpenAI 明确的凭据失效
++// （token_invalidated / token_revoked、{"detail":"Unauthorized"}）。
++func unauthorizedRequiresCredentialHandling(account *Account, responseBody []byte) bool {
++	if account == nil {
++		return false
++	}
++	if account.Type == AccountTypeOAuth || account.IsShadow() {
++		return true
++	}
++	if account.Platform != PlatformOpenAI {
++		return false
++	}
++	switch extractUpstreamErrorCode(responseBody) {
++	case "token_invalidated", "token_revoked":
++		return true
++	}
++	return gjson.GetBytes(responseBody, "detail").String() == "Unauthorized"
++}
++
++// tempUnschedRuleUsesModelScope 决定一次命中按模型级冷却还是账号级暂停。
++// 显式 scope 完全由规则决定；scope 为空时模型已知且非 401 走模型级。
++// 模型未知时无法隔离，一律账号级。
++func tempUnschedRuleUsesModelScope(rule TempUnschedulableRule, modelKey string, statusCode int) bool {
++	if strings.TrimSpace(modelKey) == "" {
++		return false
++	}
++	switch rule.Scope {
++	case TempUnschedScopeAccount:
++		return false
++	case TempUnschedScopeModel:
++		return true
++	default:
++		return statusCode != http.StatusUnauthorized
++	}
++}
+diff --git a/backend/internal/application/service/temp_unsched_scope_test.go b/backend/internal/application/service/temp_unsched_scope_test.go
+new file mode 100644
+index 000000000..2ed50b46b
+--- /dev/null
++++ b/backend/internal/application/service/temp_unsched_scope_test.go
+@@ -0,0 +1,493 @@
++//go:build unit
++
++package service
++
++import (
++	"bytes"
++	"context"
++	"encoding/json"
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++	"time"
++
++	"github.com/Wei-Shaw/sub2api/internal/platform/config"
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++	"github.com/tidwall/gjson"
++)
++
++type tempUnschedScopeRepoStub struct {
++	modelNotFoundAccountRepoStub
++	tempReasons []string
++	errorCalls  int
++}
++
++func (r *tempUnschedScopeRepoStub) SetError(context.Context, int64, string) error {
++	r.errorCalls++
++	return nil
++}
++
++func (r *tempUnschedScopeRepoStub) SetTempUnschedulable(_ context.Context, _ int64, _ time.Time, reason string) error {
++	r.tempCalls++
++	r.tempReasons = append(r.tempReasons, reason)
++	return nil
++}
++
++func newTempUnschedScopeAccount(scope string, extra map[string]any) *Account {
++	rule := map[string]any{
++		"error_code":       float64(http.StatusServiceUnavailable),
++		"keywords":         []any{"unavailable"},
++		"duration_minutes": float64(10),
++	}
++	if scope != "" {
++		rule["scope"] = scope
++	}
++	for k, v := range extra {
++		rule[k] = v
++	}
++	return &Account{
++		ID:          202,
++		Platform:    PlatformOpenAI,
++		Type:        AccountTypeAPIKey,
++		Status:      StatusActive,
++		Schedulable: true,
++		Credentials: map[string]any{
++			"temp_unschedulable_enabled": true,
++			"temp_unschedulable_rules":   []any{rule},
++		},
++	}
++}
++
++var tempUnschedScopeBody = []byte(`{"error":{"message":"upstream unavailable"}}`)
++
++var (
++	tempUnschedScope401Body         = []byte(`{"error":{"message":"unauthorized"}}`)
++	tempUnschedScopeRevoked401Body  = []byte(`{"error":{"code":"token_revoked","message":"unauthorized"}}`)
++	tempUnschedScopeDetail401Body   = []byte(`{"detail":"Unauthorized"}`)
++	tempUnschedScopePrevious401Mark = `{"status_code":401,"until_unix":1735689600}`
++)
++
++func tempUnschedScope401Rule(scope string) map[string]any {
++	rule := map[string]any{
++		"error_code":       float64(http.StatusUnauthorized),
++		"keywords":         []any{"unauthorized"},
++		"duration_minutes": float64(10),
++	}
++	if scope != "" {
++		rule["scope"] = scope
++	}
++	return rule
++}
++
++func newTempUnschedScope401Account(platform string, scopes ...string) *Account {
++	account := newTempUnschedScopeAccount("", nil)
++	account.Platform = platform
++	rules := make([]any, 0, len(scopes))
++	for _, scope := range scopes {
++		rules = append(rules, tempUnschedScope401Rule(scope))
++	}
++	account.Credentials["temp_unschedulable_rules"] = rules
++	return account
++}
++
++func TestGetTempUnschedulableRules_ParsesScope(t *testing.T) {
++	mk := func(keyword string, scope any) map[string]any {
++		rule := map[string]any{
++			"error_code":       float64(http.StatusServiceUnavailable),
++			"keywords":         []any{keyword},
++			"duration_minutes": float64(1),
++		}
++		if scope != nil {
++			rule["scope"] = scope
++		}
++		return rule
++	}
++	account := &Account{Credentials: map[string]any{
++		"temp_unschedulable_rules": []any{
++			mk("a", "account"),
++			mk("b", " Model "),
++			mk("c", "whatever"),
++			mk("d", nil),
++		},
++	}}
++
++	rules := account.GetTempUnschedulableRules()
++
++	require.Len(t, rules, 4)
++	require.Equal(t, TempUnschedScopeAccount, rules[0].Scope)
++	require.Equal(t, TempUnschedScopeModel, rules[1].Scope, "大小写与首尾空白应被归一化")
++	require.Empty(t, rules[2].Scope, "未知取值视为未设置")
++	require.Empty(t, rules[3].Scope)
++}
++
++func TestTempUnschedRuleUsesModelScope(t *testing.T) {
++	cases := []struct {
++		name   string
++		scope  string
++		model  string
++		status int
++		want   bool
++	}{
++		{"缺省 模型已知 非401 走模型级", "", "gpt-5.4", http.StatusServiceUnavailable, true},
++		{"缺省 401 走账号级", "", "gpt-5.4", http.StatusUnauthorized, false},
++		{"缺省 模型未知 走账号级", "", "", http.StatusServiceUnavailable, false},
++		{"显式账号级 模型已知 仍账号级", TempUnschedScopeAccount, "gpt-5.4", http.StatusServiceUnavailable, false},
++		{"显式模型级 401 仍模型级", TempUnschedScopeModel, "gpt-5.4", http.StatusUnauthorized, true},
++		{"显式模型级 模型未知 兜底账号级", TempUnschedScopeModel, "  ", http.StatusServiceUnavailable, false},
++	}
++	for _, tc := range cases {
++		t.Run(tc.name, func(t *testing.T) {
++			got := tempUnschedRuleUsesModelScope(TempUnschedulableRule{Scope: tc.scope}, tc.model, tc.status)
++			require.Equal(t, tc.want, got)
++		})
++	}
++}
++
++func TestHandleTempUnschedulable_ExplicitAccountScopePausesWholeAccountWithKnownModel(t *testing.T) {
++	repo := &tempUnschedScopeRepoStub{}
++	svc := &RateLimitService{accountRepo: repo}
++	account := newTempUnschedScopeAccount(TempUnschedScopeAccount, nil)
++
++	handled := svc.HandleTempUnschedulable(context.Background(), account, http.StatusServiceUnavailable, tempUnschedScopeBody, "gpt-5.4")
++
++	require.True(t, handled)
++	require.Equal(t, 1, repo.tempCalls)
++	require.Empty(t, repo.modelRateLimitCalls)
++
++	var state TempUnschedState
++	require.NoError(t, json.Unmarshal([]byte(repo.tempReasons[0]), &state))
++	require.Equal(t, TempUnschedScopeAccount, state.Scope)
++	require.Empty(t, state.Model)
++}
++
++func TestCheckErrorPolicy_ExplicitModelScopeKeeps401ModelScoped(t *testing.T) {
++	repo := &tempUnschedScopeRepoStub{}
++	svc := &RateLimitService{accountRepo: repo}
++	account := newTempUnschedScopeAccount(TempUnschedScopeModel, map[string]any{
++		"error_code": float64(http.StatusUnauthorized),
++		"keywords":   []any{"unauthorized"},
++	})
++
++	result := svc.CheckErrorPolicy(context.Background(), account, http.StatusUnauthorized,
++		[]byte(`{"error":{"message":"unauthorized"}}`), "gpt-5.4")
++
++	require.Equal(t, ErrorPolicyTempUnscheduled, result)
++	require.Zero(t, repo.tempCalls, "运营人员显式选了模型级，401 也不应连累整个账号")
++	require.Len(t, repo.modelRateLimitCalls, 1)
++	require.Equal(t, "gpt-5.4", repo.modelRateLimitCalls[0].scope)
++
++	var state TempUnschedState
++	require.NoError(t, json.Unmarshal([]byte(repo.modelRateLimitCalls[0].reason), &state))
++	require.Equal(t, TempUnschedScopeModel, state.Scope)
++	require.Equal(t, "gpt-5.4", state.Model)
++	require.Equal(t, http.StatusUnauthorized, state.StatusCode)
++}
++
++func TestHandleTempUnschedulable_ExplicitModelScopeFallsBackToAccountWhenModelUnknown(t *testing.T) {
++	repo := &tempUnschedScopeRepoStub{}
++	svc := &RateLimitService{accountRepo: repo}
++	account := newTempUnschedScopeAccount(TempUnschedScopeModel, nil)
++
++	handled := svc.HandleTempUnschedulable(context.Background(), account, http.StatusServiceUnavailable, tempUnschedScopeBody)
++
++	require.True(t, handled)
++	require.Equal(t, 1, repo.tempCalls)
++	require.Empty(t, repo.modelRateLimitCalls)
++}
++
++func TestOpenAIFailoverSideEffects_401FollowsTempUnschedScope(t *testing.T) {
++	cases := []struct {
++		name         string
++		scopes       []string
++		body         []byte
++		poolMode     bool
++		oauth        bool
++		wantModel    bool
++		wantTemp     bool
++		wantSetError bool
++		wantBlocked  bool
++	}{
++		{name: "显式模型级 只冷却模型", scopes: []string{TempUnschedScopeModel}, wantModel: true},
++		{name: "显式模型级 池模式 只冷却模型", scopes: []string{TempUnschedScopeModel}, poolMode: true, wantModel: true},
++		{name: "缺省 走认证错误处理", scopes: []string{""}, wantSetError: true, wantBlocked: true},
++		{name: "显式账号级 走认证错误处理", scopes: []string{TempUnschedScopeAccount}, wantSetError: true, wantBlocked: true},
++		{name: "首条命中为账号级 走认证错误处理", scopes: []string{TempUnschedScopeAccount, TempUnschedScopeModel}, wantSetError: true, wantBlocked: true},
++		{name: "缺省 池模式 保持跳过", scopes: []string{""}, poolMode: true},
++		{name: "显式模型级 token_revoked 走认证错误处理", scopes: []string{TempUnschedScopeModel}, body: tempUnschedScopeRevoked401Body, wantSetError: true, wantBlocked: true},
++		{name: "显式模型级 detail Unauthorized 走认证错误处理", scopes: []string{TempUnschedScopeModel}, body: tempUnschedScopeDetail401Body, wantSetError: true, wantBlocked: true},
++		{name: "显式模型级 token_revoked 池模式 保持跳过", scopes: []string{TempUnschedScopeModel}, body: tempUnschedScopeRevoked401Body, poolMode: true},
++		{name: "显式模型级 OAuth 走刷新窗口", scopes: []string{TempUnschedScopeModel}, oauth: true, wantTemp: true, wantBlocked: true},
++	}
++	for _, tc := range cases {
++		t.Run(tc.name, func(t *testing.T) {
++			repo := &tempUnschedScopeRepoStub{}
++			gateway := &OpenAIGatewayService{rateLimitService: &RateLimitService{accountRepo: repo, cfg: &config.Config{}}}
++			account := newTempUnschedScope401Account(PlatformOpenAI, tc.scopes...)
++			if tc.poolMode {
++				account.Credentials["pool_mode"] = true
++			}
++			if tc.oauth {
++				account.Type = AccountTypeOAuth
++				account.Credentials["refresh_token"] = "rt"
++			}
++			body := tc.body
++			if body == nil {
++				body = tempUnschedScope401Body
++			}
++
++			require.True(t, gateway.shouldFailoverOpenAIUpstreamResponse(http.StatusUnauthorized, "unauthorized", body))
++			gateway.handleFailoverSideEffects(context.Background(), &http.Response{
++				StatusCode: http.StatusUnauthorized,
++				Header:     http.Header{},
++			}, account, body, "gpt-5.4")
++
++			require.Equal(t, tc.wantTemp, repo.tempCalls == 1, "SetTempUnschedulable=%d", repo.tempCalls)
++			require.Equal(t, tc.wantSetError, repo.errorCalls == 1, "SetError=%d", repo.errorCalls)
++			require.Equal(t, tc.wantBlocked, gateway.isOpenAIAccountRuntimeBlocked(account))
++			if tc.wantModel {
++				require.Len(t, repo.modelRateLimitCalls, 1)
++				require.Equal(t, "gpt-5.4", repo.modelRateLimitCalls[0].scope)
++			} else {
++				require.Empty(t, repo.modelRateLimitCalls)
++			}
++		})
++	}
++}
++
++func TestHandleUpstreamError_ExplicitModelScope401(t *testing.T) {
++	t.Run("模型已知 只冷却模型", func(t *testing.T) {
++		repo := &tempUnschedScopeRepoStub{}
++		svc := &RateLimitService{accountRepo: repo}
++		account := newTempUnschedScope401Account(PlatformAnthropic, TempUnschedScopeModel)
++
++		shouldDisable := svc.HandleUpstreamError(context.Background(), account, http.StatusUnauthorized, http.Header{}, tempUnschedScope401Body, "claude-sonnet-4-5")
++
++		require.True(t, shouldDisable)
++		require.Zero(t, repo.errorCalls)
++		require.Zero(t, repo.tempCalls)
++		require.Len(t, repo.modelRateLimitCalls, 1)
++		require.Equal(t, "claude-sonnet-4-5", repo.modelRateLimitCalls[0].scope)
++	})
++
++	t.Run("模型未知 按账号级规则走认证错误处理", func(t *testing.T) {
++		repo := &tempUnschedScopeRepoStub{}
++		svc := &RateLimitService{accountRepo: repo}
++		account := newTempUnschedScope401Account(PlatformAnthropic, TempUnschedScopeModel)
++
++		shouldDisable := svc.HandleUpstreamError(context.Background(), account, http.StatusUnauthorized, http.Header{}, tempUnschedScope401Body)
++
++		require.True(t, shouldDisable)
++		require.Equal(t, 1, repo.errorCalls)
++		require.Empty(t, repo.modelRateLimitCalls)
++	})
++}
++
++func TestCheckErrorPolicy_401FollowsTempUnschedScope(t *testing.T) {
++	cases := []struct {
++		name        string
++		scope       string
++		body        []byte
++		oauth       bool
++		previous401 bool
++		want        ErrorPolicyResult
++		wantModel   bool
++		wantTemp    bool
++	}{
++		{name: "显式模型级 不参与重复 401 升级", scope: TempUnschedScopeModel, previous401: true, want: ErrorPolicyTempUnscheduled, wantModel: true},
++		{name: "缺省 第二次 401 升级", previous401: true, want: ErrorPolicyNone},
++		{name: "显式模型级 token_revoked 按账号暂停", scope: TempUnschedScopeModel, body: tempUnschedScopeRevoked401Body, want: ErrorPolicyTempUnscheduled, wantTemp: true},
++		{name: "显式模型级 detail Unauthorized 按账号暂停", scope: TempUnschedScopeModel, body: tempUnschedScopeDetail401Body, want: ErrorPolicyTempUnscheduled, wantTemp: true},
++		{name: "显式模型级 OAuth 按账号暂停", scope: TempUnschedScopeModel, oauth: true, want: ErrorPolicyTempUnscheduled, wantTemp: true},
++		{name: "显式模型级 凭据级第二次 401 升级", scope: TempUnschedScopeModel, body: tempUnschedScopeDetail401Body, previous401: true, want: ErrorPolicyNone},
++	}
++	for _, tc := range cases {
++		t.Run(tc.name, func(t *testing.T) {
++			repo := &tempUnschedScopeRepoStub{}
++			svc := &RateLimitService{accountRepo: repo}
++			account := newTempUnschedScope401Account(PlatformOpenAI, tc.scope)
++			if tc.oauth {
++				account.Type = AccountTypeOAuth
++			}
++			if tc.previous401 {
++				account.TempUnschedulableReason = tempUnschedScopePrevious401Mark
++			}
++			body := tc.body
++			if body == nil {
++				body = tempUnschedScope401Body
++			}
++
++			result := svc.CheckErrorPolicy(context.Background(), account, http.StatusUnauthorized, body, "gpt-5.4")
++
++			require.Equal(t, tc.want, result)
++			require.Equal(t, tc.wantTemp, repo.tempCalls == 1, "SetTempUnschedulable=%d", repo.tempCalls)
++			require.Equal(t, tc.wantModel, len(repo.modelRateLimitCalls) == 1)
++		})
++	}
++}
++
++// 计数入口把实际发往上游的模型交给错误处理：显式模型级 401 规则只冷却该模型，不把整号置为 error。
++func TestCountTokensEntries_ExplicitModelScope401OnlyCoolsModel(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	unauthorized := func() *http.Response {
++		return &http.Response{
++			StatusCode: http.StatusUnauthorized,
++			Header:     http.Header{"Content-Type": []string{"application/json"}},
++			Body:       io.NopCloser(strings.NewReader(`{"error":{"message":"unauthorized"}}`)),
++		}
++	}
++	cfg := &config.Config{
++		Gateway:  config.GatewayConfig{MaxLineSize: defaultMaxLineSize},
++		Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false, AllowInsecureHTTP: true}},
++	}
++	newContext := func(path string, body []byte) (*gin.Context, *httptest.ResponseRecorder) {
++		rec := httptest.NewRecorder()
++		c, _ := gin.CreateTestContext(rec)
++		c.Request = httptest.NewRequest(http.MethodPost, path, bytes.NewReader(body))
++		return c, rec
++	}
++
++	t.Run("openai count_tokens as anthropic", func(t *testing.T) {
++		repo := &tempUnschedScopeRepoStub{}
++		upstream := &httpUpstreamRecorder{resp: unauthorized()}
++		svc := &OpenAIGatewayService{cfg: cfg, httpUpstream: upstream, rateLimitService: &RateLimitService{accountRepo: repo, cfg: cfg}}
++		account := newTempUnschedScope401Account(PlatformOpenAI, TempUnschedScopeModel)
++		account.Credentials["api_key"] = "sk-test"
++		account.Credentials["base_url"] = "http://upstream.example"
++		account.Concurrency = 1
++		body := []byte(`{"model":"claude-sonnet-4-5","messages":[{"role":"user","content":"hello"}]}`)
++		c, _ := newContext("/v1/messages/count_tokens", body)
++
++		require.Error(t, svc.ForwardCountTokensAsAnthropic(context.Background(), c, account, body, "gpt-5.4"))
++
++		require.Equal(t, "gpt-5.4", gjson.GetBytes(upstream.lastBody, "model").String())
++		require.Zero(t, repo.errorCalls)
++		require.Zero(t, repo.tempCalls)
++		require.Len(t, repo.modelRateLimitCalls, 1)
++		require.Equal(t, "gpt-5.4", repo.modelRateLimitCalls[0].scope)
++	})
++
++	t.Run("openai responses input_tokens", func(t *testing.T) {
++		repo := &tempUnschedScopeRepoStub{}
++		upstream := &httpUpstreamRecorder{resp: unauthorized()}
++		svc := &OpenAIGatewayService{cfg: cfg, httpUpstream: upstream, rateLimitService: &RateLimitService{accountRepo: repo, cfg: cfg}}
++		account := newTempUnschedScope401Account(PlatformOpenAI, TempUnschedScopeModel)
++		account.Credentials["api_key"] = "sk-test"
++		account.Credentials["model_mapping"] = map[string]any{"gpt-5.4": "gpt-5.4-upstream"}
++		account.Concurrency = 1
++		body := []byte(`{"model":"gpt-5.4","input":"hello"}`)
++		c, _ := newContext("/v1/responses/input_tokens", body)
++
++		require.Error(t, svc.ForwardResponsesInputTokens(context.Background(), c, account, body))
++
++		require.NotNil(t, upstream.lastReq)
++		require.Equal(t, "gpt-5.4-upstream", gjson.GetBytes(upstream.lastBody, "model").String())
++		require.Zero(t, repo.errorCalls)
++		require.Zero(t, repo.tempCalls)
++		require.Len(t, repo.modelRateLimitCalls, 1)
++		require.Equal(t, "gpt-5.4-upstream", repo.modelRateLimitCalls[0].scope)
++	})
++
++	for _, passthrough := range []bool{false, true} {
++		name := "anthropic count_tokens"
++		if passthrough {
++			name = "anthropic count_tokens api key passthrough"
++		}
++		t.Run(name, func(t *testing.T) {
++			repo := &tempUnschedScopeRepoStub{}
++			upstream := &anthropicHTTPUpstreamRecorder{resp: unauthorized()}
++			svc := &GatewayService{
++				cfg:                  cfg,
++				responseHeaderFilter: compileResponseHeaderFilter(cfg),
++				httpUpstream:         upstream,
++				rateLimitService:     &RateLimitService{accountRepo: repo, cfg: cfg},
++			}
++			account := newTempUnschedScope401Account(PlatformAnthropic, TempUnschedScopeModel)
++			account.Credentials["api_key"] = "upstream-anthropic-key"
++			account.Credentials["base_url"] = "https://api.anthropic.com"
++			account.Credentials["model_mapping"] = map[string]any{"claude-sonnet-4-5": "claude-sonnet-4-5-upstream"}
++			account.Concurrency = 1
++			if passthrough {
++				account.Extra = map[string]any{"anthropic_passthrough": true}
++			}
++			body := []byte(`{"model":"claude-sonnet-4-5","messages":[{"role":"user","content":"hello"}]}`)
++			c, _ := newContext("/v1/messages/count_tokens", body)
++			parsed := &ParsedRequest{Body: NewRequestBodyRef(body), Model: "claude-sonnet-4-5"}
++
++			require.Error(t, svc.ForwardCountTokens(context.Background(), c, account, parsed))
++
++			require.NotNil(t, upstream.lastReq)
++			require.Equal(t, "claude-sonnet-4-5-upstream", gjson.GetBytes(upstream.lastBody, "model").String())
++			require.Zero(t, repo.errorCalls)
++			require.Zero(t, repo.tempCalls)
++			require.Len(t, repo.modelRateLimitCalls, 1)
++			require.Equal(t, "claude-sonnet-4-5-upstream", repo.modelRateLimitCalls[0].scope)
++		})
++	}
++}
++
++// Bedrock 故障转移入口与重试耗尽入口把实际发往上游的模型交给错误处理：显式模型级规则只冷却该模型。
++func TestAnthropicFailoverEntries_ExplicitModelScopeOnlyCoolsModel(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	cfg := &config.Config{Gateway: config.GatewayConfig{MaxLineSize: defaultMaxLineSize}}
++	newResponse := func(status int, body string) *http.Response {
++		return &http.Response{
++			StatusCode: status,
++			Header:     http.Header{"Content-Type": []string{"application/json"}},
++			Body:       io.NopCloser(strings.NewReader(body)),
++		}
++	}
++
++	t.Run("bedrock failover 401", func(t *testing.T) {
++		repo := &tempUnschedScopeRepoStub{}
++		upstream := &anthropicHTTPUpstreamRecorder{resp: newResponse(http.StatusUnauthorized, `{"message":"unauthorized"}`)}
++		svc := &GatewayService{cfg: cfg, httpUpstream: upstream, rateLimitService: &RateLimitService{accountRepo: repo, cfg: cfg}}
++		account := newTempUnschedScope401Account(PlatformAnthropic, TempUnschedScopeModel)
++		account.Type = AccountTypeBedrock
++		account.Status = StatusActive
++		account.Schedulable = true
++		account.Credentials["auth_mode"] = "apikey"
++		account.Credentials["api_key"] = "bedrock-key"
++		body := []byte(`{"model":"claude-sonnet-4-5","messages":[{"role":"user","content":"hello"}]}`)
++		rec := httptest.NewRecorder()
++		c, _ := gin.CreateTestContext(rec)
++		c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewReader(body))
++		parsed := &ParsedRequest{Body: NewRequestBodyRef(body), Model: "claude-sonnet-4-5"}
++
++		_, err := svc.forwardBedrock(context.Background(), c, account, parsed, time.Now())
++
++		var failover *UpstreamFailoverError
++		require.ErrorAs(t, err, &failover)
++		require.NotNil(t, upstream.lastReq)
++		require.Contains(t, upstream.lastReq.URL.Path, "anthropic.claude-sonnet-4-5-", "上游收到 Bedrock 模型 ID")
++		require.Zero(t, repo.errorCalls)
++		require.Zero(t, repo.tempCalls)
++		require.Len(t, repo.modelRateLimitCalls, 1)
++		// 冷却键必须是调度器查找的键（账号映射后的模型名），而不是 Bedrock 模型 ID。
++		scope := repo.modelRateLimitCalls[0].scope
++		require.Equal(t, "claude-sonnet-4-5", scope)
++		require.True(t, account.IsSchedulableForModelWithContext(context.Background(), "claude-sonnet-4-5"))
++		account.Extra = map[string]any{modelRateLimitsKey: map[string]any{scope: map[string]any{"rate_limit_reset_at": time.Now().Add(10 * time.Minute).Format(time.RFC3339), "reason": "temp_unschedulable"}}}
++		require.False(t, account.IsSchedulableForModelWithContext(context.Background(), "claude-sonnet-4-5"), "调度器按同一个键排除该模型")
++	})
++
++	t.Run("oauth retry exhausted 403", func(t *testing.T) {
++		repo := &tempUnschedScopeRepoStub{}
++		svc := &GatewayService{cfg: cfg, rateLimitService: &RateLimitService{accountRepo: repo, cfg: cfg}}
++		account := newTempUnschedScopeAccount(TempUnschedScopeModel, map[string]any{
++			"error_code": float64(http.StatusForbidden),
++			"keywords":   []any{"forbidden"},
++		})
++		account.Platform = PlatformAnthropic
++		account.Type = AccountTypeOAuth
++
++		svc.handleRetryExhaustedSideEffects(context.Background(), newResponse(http.StatusForbidden, `{"error":{"message":"forbidden"}}`), account, "claude-sonnet-4-5")
++
++		require.Zero(t, repo.errorCalls)
++		require.Zero(t, repo.tempCalls)
++		require.Len(t, repo.modelRateLimitCalls, 1)
++		require.Equal(t, "claude-sonnet-4-5", repo.modelRateLimitCalls[0].scope)
++	})
++}
+diff --git a/backend/internal/application/service/upstream_20261013_benchmark_test.go b/backend/internal/application/service/upstream_20261013_benchmark_test.go
+new file mode 100644
+index 000000000..81ce4d5dd
+--- /dev/null
++++ b/backend/internal/application/service/upstream_20261013_benchmark_test.go
+@@ -0,0 +1,46 @@
++//go:build unit
++
++package service
++
++import (
++	"context"
++	"fmt"
++	"strings"
++	"testing"
++)
++
++func BenchmarkUpstream20261013(b *testing.B) {
++	for _, blocks := range []int{1, 1024} {
++		b.Run(fmt.Sprintf("ToolText/%d", blocks), func(b *testing.B) {
++			content := make([]any, blocks)
++			for i := range content {
++				content[i] = map[string]any{"type": "text", "text": strings.Repeat("x", 1024)}
++			}
++			input := []any{map[string]any{"role": "user", "content": []any{map[string]any{"type": "tool_result", "tool_use_id": "t", "content": content}}}}
++			b.ReportAllocs()
++			b.ResetTimer()
++			for range b.N {
++				_, err := convertClaudeMessagesToGeminiContents(input, map[string]string{"t": "inspect"})
++				if err != nil {
++					b.Fatal(err)
++				}
++			}
++		})
++	}
++	b.Run("RateLimitText", func(b *testing.B) {
++		account := &Account{Platform: PlatformAntigravity}
++		b.ReportAllocs()
++		b.ResetTimer()
++		for range b.N {
++			account.isModelRateLimitedWithContext(context.Background(), "gemini-3-flash")
++		}
++	})
++	b.Run("LegacyRules", func(b *testing.B) {
++		account := &Account{Credentials: map[string]any{"temp_unschedulable_enabled": true, "temp_unschedulable_rules": []any{map[string]any{"error_code": 503, "keywords": []any{"busy"}, "duration_minutes": 10}}}}
++		b.ReportAllocs()
++		b.ResetTimer()
++		for range b.N {
++			matchTempUnschedulableRules(account, 503, []byte("upstream busy"))
++		}
++	})
++}
+diff --git a/backend/internal/application/service/upstream_20261013_observed_test.go b/backend/internal/application/service/upstream_20261013_observed_test.go
+new file mode 100644
+index 000000000..41f048d6b
+--- /dev/null
++++ b/backend/internal/application/service/upstream_20261013_observed_test.go
+@@ -0,0 +1,40 @@
++//go:build unit
++
++package service
++
++import (
++	"context"
++	"encoding/json"
++	"fmt"
++	"testing"
++	"time"
++)
++
++func TestUpstream20261013ObservedBehavior(t *testing.T) {
++	account := &Account{Platform: PlatformKimi, Type: AccountTypeAPIKey, Credentials: map[string]any{"account_mode": AccountModeCoding, "base_url": "https://api.kimi.ai/coding/v1"}}
++	fmt.Printf("KIMI_INTERNATIONAL_PROVIDER=%q\n", account.GetCodingPlanProvider())
++	gravity := &Account{Platform: PlatformAntigravity, Extra: map[string]any{modelRateLimitsKey: map[string]any{antigravityGeminiModelRateLimitKey: map[string]any{"rate_limit_reset_at": time.Now().Add(time.Hour).Format(time.RFC3339)}}}}
++	fmt.Printf("ANTIGRAVITY_FAMILY_LIMIT image=%t text=%t\n", gravity.isModelRateLimitedWithContext(context.Background(), "gemini-3.1-flash-image-preview"), gravity.isModelRateLimitedWithContext(context.Background(), "gemini-3-flash"))
++	input := []byte(`{"messages":[{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":[{"type":"image","source":{"type":"base64","media_type":"image/png","data":"aGVsbG8="}}]}]}]}`)
++	body, err := convertClaudeMessagesToGeminiGenerateContent(input)
++	if err != nil {
++		t.Fatal(err)
++	}
++	var decoded map[string]any
++	if err = json.Unmarshal(body, &decoded); err != nil {
++		t.Fatal(err)
++	}
++	parts := decoded["contents"].([]any)[0].(map[string]any)["parts"].([]any)
++	images := 0
++	for _, part := range parts {
++		if _, ok := part.(map[string]any)["inlineData"]; ok {
++			images++
++		}
++	}
++	fmt.Printf("GEMINI_TOOL_RESULT images=%d parts=%d\n", images, len(parts))
++	repo := &modelNotFoundAccountRepoStub{}
++	svc := &RateLimitService{accountRepo: repo}
++	ruleAccount := &Account{ID: 123, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{"temp_unschedulable_enabled": true, "temp_unschedulable_rules": []any{map[string]any{"error_code": 502, "keywords": []any{"temporary failure"}, "duration_minutes": 1, "scope": "account"}}}}
++	svc.HandleTempUnschedulable(context.Background(), ruleAccount, 502, []byte("temporary failure"), "model-a")
++	fmt.Printf("EXPLICIT_ACCOUNT_SCOPE account_writes=%d model_writes=%d\n", repo.tempCalls, len(repo.modelRateLimitCalls))
++}
+diff --git a/docs/UPSTREAM_SYNC_20261013.md b/docs/UPSTREAM_SYNC_20261013.md
+new file mode 100644
+index 000000000..fff8b65f2
+--- /dev/null
++++ b/docs/UPSTREAM_SYNC_20261013.md
+@@ -0,0 +1,43 @@
++# 上游主线同步审查（2026-10-13）
++
++本轮以本项目 main `8773001a188f0b1fed3dff5d23b1700c70e3cf5e` 为基线，延续上次已审查边界 `ab80abc6d1f929a6864c8804fd077b509d21fda2`，冻结上游至 `4d9ac3e482106d2da3a39fe3e546d8d6801f1cc1`。范围为 7 个新合并 PR 和上游 VERSION 提交。执行使用独立可写副本，原 e3d4 工作区保持原始字节；本项目版本线不被上游 VERSION 覆盖。
++
++## 逐 PR 结论
++
++| PR | 决定 | 当前 owner 与兼容边界 |
++| --- | --- | --- |
++| [#7828](https://github.com/Wei-Shaw/sub2api/pull/7828) | 适配并关闭冻结差异 | 账号规则新增可选 `scope`，覆盖限流策略、运行态阻断、Bedrock、重试耗尽、count_tokens 和 admin-accounts 创建/编辑。未设置范围保持既有行为；凭据失效仍保留账号保护。 |
++| [#8046](https://github.com/Wei-Shaw/sub2api/pull/8046) | 适配并关闭冻结差异 | Antigravity 图片模型不继承或写入 Gemini 文本模型族冷却；模型自身的冷却仍生效。模型类型只归一化一次。 |
++| [#8038](https://github.com/Wei-Shaw/sub2api/pull/8038) | 适配并重构，关闭冻结差异 | 复用 Gemini Messages converter，在单次遍历中提取工具结果的文字和 base64 图片，functionResponse 后追加图片。不新增远程图片下载。 |
++| [#7991](https://github.com/Wei-Shaw/sub2api/pull/7991) | 适配并关闭冻结差异 | 精确解析 Kimi 官方 HTTPS 主机及 coding 路径，支持 `api.kimi.ai`；默认白名单和示例配置同步。保留现有账号代理/IPv6 额度出口。 |
++| [#7810](https://github.com/Wei-Shaw/sub2api/pull/7810) | 适配并关闭冻结差异 | 仅在 auto、已确认支持 Responses 的 OpenAI API Key 账号上，完整且明确的 input-string 拒绝可回退一次原生 Chat。未提交响应、未取消才可回退；跨尝试使用原始开始时间。 |
++| [#7957](https://github.com/Wei-Shaw/sub2api/pull/7957) | 专项暂缓，不标记关闭 | 本项目当前 native/reverse converter 缺少上游 Claude 5.5 的签名历史往返、adaptive/disabled thinking 与采样/工具策略前置能力。只添加目录和价格会公开一个协议不完整的模型。需在当前 owner 补齐流式/非流式签名、努力等级、强制工具、采样和 100k 计费边界矩阵后再注册 Haiku 5.5。 |
++| [#8006](https://github.com/Wei-Shaw/sub2api/pull/8006) | 专项暂缓，不标记关闭 | cachedContents 引入新资源 API、按 token-hour 的存储计费、账号绑定、mutation lease 和恢复 worker；原迁移 243–245 与本项目渠道/OpenCode/代理健康迁移冲突。需建立原生缓存模块、接入当前可靠结算并使用新迁移编号，验证旧/新 writer、租约过期、取消、崩溃恢复和有界查询后显式开启。 |
++
++机器台账 [UPSTREAM_PRS.json](../diagnostics/upstream-sync-20261013/UPSTREAM_PRS.json) 保存 merge SHA、原始 diff SHA-256、关闭结果及重开条件。此前台账不修改；包括 #7618、#7738、#8033 的独立暂缓，不因 tracking merge 变成已实现。上游广告和赞助内容不进入本项目三语 README。
++
++## 平滑升级与性能
++
++本轮没有 Ent/Wire 修改、数据库迁移或依赖升级。`scope` 是凭据 JSON 的可选字段，自动范围不序列化该字段。旧规则保持原有的“模型已知且非 401 使用模型冷却”行为；显式模型范围不会扩大为账号阻断，模型未知时仍按账号保护，OAuth/影子账号及明确失效的 OpenAI 凭据保留认证处置。
++
++滚动升级时先更新全部后端节点和管理端，再设置新的显式 scope；旧版本忽略这个字段，回退前应恢复自动范围，避免不同版本执行不同范围。账号配置中未改动的凭据和字段继续由现有更新 owner 保留。Gemini 文本工具结果使用单次遍历，文本路径不分配图片数组；Antigravity 模型类型只归一化一次。Responses 拒绝分析仅在错误分支执行，错误体仍有读取上限且检查完整性，成功请求不运行正则；没有增加成功请求的 SQL、Redis 往返、后台任务或 goroutine。
++
++性能与最终验证结果以 [VERIFICATION.txt](../diagnostics/upstream-sync-20261013/VERIFICATION.txt) 的原始命令、逐字输出、退出码和哈希为准。性能比较使用同一 Docker Go 1.26.9、linux/arm64、GOMAXPROCS=2、受限内存，按基线和候选顺序执行；不把微基准描述成全网关吞吐提升。
++
++Docker 同条件三轮中位数：单块工具文字 `581.1 → 575.8ns`，1 MiB 工具文字 `615.39 → 583.513µs`，两者分配数和分配字节不变；Antigravity 文本限额检查 `123.6 → 118.7ns`，仍为 `48B / 2 allocs`。旧规则错误匹配 `113.3 → 131.1ns`，仍为 3 次分配，因可选 scope 的规则值增加 `160 → 192B`；这发生在错误匹配路径，保留这项实际开销，不宣称全路径零成本。
++
++对 #8006 的额外静态审查发现：`GeminiExplicitCacheExclusions` 即使缓存已绑定账号也构造 O(N) 候选排除 map；专项实现应使用现有账号快照与分组准入直接验证绑定账号。恢复查询已有 batch 上限，但会增加周期性数据库 worker，需补多实例负载验证。`doUpstream` 使用上游旧的通用 HTTP 入口，接入时必须改用本项目完整账号代理/IPv6/TLS 出口并验证失败关闭。这些代码本轮没有进入运行路径。
++
++## 验证与回退角色
++
++可重建源码归档为 [MODIFIED_FILE.tar.gz](../diagnostics/upstream-sync-20261013/MODIFIED_FILE.tar.gz)，补丁为 [DIFF_FILE.patch](../diagnostics/upstream-sync-20261013/DIFF_FILE.patch)，执行记录为 [VERIFICATION.txt](../diagnostics/upstream-sync-20261013/VERIFICATION.txt)，回退脚本为 [ROLLBACK.sh](../diagnostics/upstream-sync-20261013/ROLLBACK.sh)。回退脚本仅用于独立源码副本，从 sibling baseline 归档恢复原字节并删除新增路径，不操作原工作区。
++
++同一 Docker fixture 的基线表现为：国际 Kimi provider 为空、图片继承 Gemini 文本族限制、工具结果 0 张图片、显式 account 规则仍写模型冷却。候选表现为：provider=kimi、图片不继承文本族限制、保留 1 张工具结果图片、显式 account 规则写账号暂停。独立回退与重施的命令、行为及全部原文件哈希验证保存在同一证据目录。
++
++后端维护门禁中的 `payment_fulfillment_test.go` 1201 行、`pricing_service.go` 1238 行在精确基线和候选一致；本轮不修改这两个既有问题或扩大 allowlist。新增 Gemini 图片测试独立成文件，账号规则解析收回 feature 内的纯规则 owner，编辑表单保持维护目标以内。Docker 生产镜像、同 PostgreSQL/Redis 数据的升级/回退、完整单元/集成、聚焦 race、前端必需门禁及远端 CI 分别记录，不把本地结果代替发布结果。
++
++最终 Docker Go `make test-unit`、`make test-integration`、聚焦 `-race` 和 `golangci-lint` 均通过，lint 为 0 issues。初次并行运行中的编译进程被杀和限时用例超时保留为资源错误记录；受限内存、顺序运行后通过，不修改这些既有超时断言。
++
++前端最终 `make test-frontend` 的 lint/typecheck 和 247 个必需用例通过，创建/编辑/范围兼容的 80 个聚焦用例通过。初次 3 GiB 容器自动将 Node heap 限到约 1.5 GiB 而耗尽；仅调整测试容器为 4 GiB、Node heap 为 3 GiB 后通过，不更改生产配置。
++
++最终完整生产镜像构建通过。同一 PostgreSQL/Redis 上的 baseline → upgraded → rollback → restored 四阶段全部通过：ready/前端、加密登录、既有 API Key、旧订单和持久数据快照保持一致，迁移数量四阶段相同；译文与不带 scope 的旧规则兼容，新 scope 在镜像替换及旧 writer 更新其他字段后仍保留。该矩阵验证字段持久兼容；显式范围的跨旧/新节点执行差异仍按上述升级启用顺序约束。
+diff --git a/frontend/src/features/admin-accounts/__tests__/tempUnschedScope.spec.ts b/frontend/src/features/admin-accounts/__tests__/tempUnschedScope.spec.ts
+new file mode 100644
+index 000000000..a2af3a15a
+--- /dev/null
++++ b/frontend/src/features/admin-accounts/__tests__/tempUnschedScope.spec.ts
+@@ -0,0 +1,23 @@
++import { describe, expect, it } from 'vitest'
++import { buildTempUnschedRules, normalizeTempUnschedScope, parseTempUnschedRules } from '../presentation/accountFormPolicy'
++
++describe('temporary pause scope compatibility', () => {
++  const rule = { error_code: 503, keywords: 'busy', duration_minutes: 10, description: '' }
++  it('omits the field on legacy and automatic rules', () => {
++    expect(buildTempUnschedRules([rule])[0]).not.toHaveProperty('scope')
++    expect(buildTempUnschedRules([{ ...rule, scope: '' }])[0]).not.toHaveProperty('scope')
++  })
++  it('preserves each explicit scope when saving credentials', () => {
++    for (const scope of ['account', 'model'] as const) {
++      expect(buildTempUnschedRules([{ ...rule, scope }])[0].scope).toBe(scope)
++    }
++  })
++  it('hydrates and saves existing rules without losing explicit scope or keyword order', () => {
++    const stored = [{ ...rule, keywords: ['busy', 'retry'], scope: 'model' }]
++    expect(buildTempUnschedRules(parseTempUnschedRules(stored))).toEqual(stored)
++  })
++  it('normalizes stored values and falls back on invalid or future values', () => {
++    expect(normalizeTempUnschedScope(' MODEL ')).toBe('model')
++    for (const value of [null, 7, {}, 'future']) expect(normalizeTempUnschedScope(value)).toBe('')
++  })
++})

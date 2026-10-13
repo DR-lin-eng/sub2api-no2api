@@ -1,0 +1,742 @@
+diff --git a/Makefile b/Makefile
+index 55d9b7353..4a853cefd 100644
+--- a/Makefile
++++ b/Makefile
+@@ -5,6 +5,7 @@ FRONTEND_CRITICAL_VITEST := \
+ 	src/api/__tests__/client.spec.ts \
+ 	src/api/__tests__/tokenRefresh.spec.ts \
+ 	src/api/__tests__/keys.bulkUpdate.spec.ts \
++	src/composables/__tests__/useModelWhitelist.spec.ts \
+ 	src/components/account/__tests__/OpenAIReferralCell.spec.ts \
+ 	src/components/account/__tests__/OpenAIReferralCell.transport.spec.ts \
+ 	src/components/account/__tests__/OpenAIQuotaResetCell.spark_shadow.spec.ts \
+diff --git a/backend/internal/shared/apicompat/anthropic_responses_test.go b/backend/internal/shared/apicompat/anthropic_responses_test.go
+index 5902128b9..700af63d4 100644
+--- a/backend/internal/shared/apicompat/anthropic_responses_test.go
++++ b/backend/internal/shared/apicompat/anthropic_responses_test.go
+@@ -1940,6 +1940,72 @@ func TestSonnet55SignedThinkingResponsesRoundTrip(t *testing.T) {
+ 	require.Equal(t, "tool_use", blocks[2].Type)
+ }
+ 
++func TestHaiku55ResponsesThinkingAndSampling(t *testing.T) {
++	for _, effort := range []string{"", "low", "medium", "high", "xhigh", "max", "none"} {
++		req := &ResponsesRequest{Model: "claude-haiku-5-5", Input: json.RawMessage(`"hello"`), Reasoning: &ResponsesReasoning{Effort: effort}}
++		out, err := ResponsesToAnthropicRequest(req)
++		require.NoError(t, err, effort)
++		require.Zero(t, out.Thinking.BudgetTokens)
++		if effort == "none" {
++			require.Equal(t, "disabled", out.Thinking.Type)
++			require.Equal(t, "low", out.OutputConfig.Effort)
++		} else {
++			require.Equal(t, "adaptive", out.Thinking.Type)
++			if effort == "" {
++				effort = "medium"
++			}
++			require.Equal(t, effort, out.OutputConfig.Effort)
++		}
++	}
++	// Haiku 5.5 accepts forced tool_choice, unlike opus/sonnet 5.5.
++	for _, choice := range []string{`"required"`, `{"type":"function","name":"lookup"}`} {
++		out, err := ResponsesToAnthropicRequest(&ResponsesRequest{Model: "claude-haiku-5-5", Input: json.RawMessage(`"hello"`), ToolChoice: json.RawMessage(choice)})
++		require.NoError(t, err, choice)
++		require.NotEmpty(t, out.ToolChoice)
++	}
++	temperature := 0.7
++	_, err := ResponsesToAnthropicRequest(&ResponsesRequest{Model: "claude-haiku-5-5", Input: json.RawMessage(`"hello"`), Temperature: &temperature})
++	require.ErrorContains(t, err, "temperature")
++	for _, topP := range []float64{0.5, 0.995, 1} {
++		_, err = ResponsesToAnthropicRequest(&ResponsesRequest{Model: "claude-haiku-5-5", Input: json.RawMessage(`"hello"`), TopP: &topP})
++		require.ErrorContains(t, err, "top_p", "top_p=%v", topP)
++	}
++	_, err = ResponsesToAnthropicRequest(&ResponsesRequest{Model: "claude-haiku-5-5", Input: json.RawMessage(`"hello"`), Reasoning: &ResponsesReasoning{Effort: "minimal"}})
++	require.ErrorContains(t, err, "reasoning effort")
++
++	temperature = 1
++	topP := 0.99
++	_, err = ResponsesToAnthropicRequest(&ResponsesRequest{Model: "claude-haiku-5-5", Input: json.RawMessage(`"hello"`), Temperature: &temperature})
++	require.NoError(t, err)
++	_, err = ResponsesToAnthropicRequest(&ResponsesRequest{Model: "claude-haiku-5-5", Input: json.RawMessage(`"hello"`), TopP: &topP})
++	require.NoError(t, err)
++	_, err = ResponsesToAnthropicRequest(&ResponsesRequest{Model: "claude-haiku-5-5", Input: json.RawMessage(`"hello"`), Temperature: &temperature, TopP: &topP})
++	require.ErrorContains(t, err, "together")
++}
++
++func TestHaiku55SignedThinkingResponsesRoundTrip(t *testing.T) {
++	block := AnthropicContentBlock{Type: "thinking", Thinking: "", Signature: "signed-haiku-block"}
++	response := AnthropicToResponsesResponse(&AnthropicResponse{Model: "claude-haiku-5-5", Content: []AnthropicContentBlock{block, {Type: "text", Text: "progress"}, {Type: "tool_use", ID: "toolu_1", Name: "lookup", Input: json.RawMessage(`{}`)}}})
++	require.Len(t, response.Output, 3)
++	require.NotEmpty(t, response.Output[0].EncryptedContent)
++	require.Equal(t, "message", response.Output[1].Type)
++	raw, err := json.Marshal(response.Output)
++	require.NoError(t, err)
++	var items []ResponsesInputItem
++	require.NoError(t, json.Unmarshal(raw, &items))
++	items = append(items, ResponsesInputItem{Type: "function_call_output", CallID: response.Output[2].CallID, Output: "ok"})
++	raw, err = json.Marshal(items)
++	require.NoError(t, err)
++	converted, err := ResponsesToAnthropicRequest(&ResponsesRequest{Model: "claude-haiku-5-5", Input: raw})
++	require.NoError(t, err)
++	require.Len(t, converted.Messages, 2)
++	var blocks []AnthropicContentBlock
++	require.NoError(t, json.Unmarshal(converted.Messages[0].Content, &blocks))
++	require.Equal(t, block, blocks[0])
++	require.Equal(t, "text", blocks[1].Type)
++	require.Equal(t, "tool_use", blocks[2].Type)
++}
++
+ func TestGPT6ChatSamplingAndCacheFields(t *testing.T) {
+ 	temperature := 0.7
+ 	for _, model := range []string{"gpt-6-sol", "gpt-6-luna"} {
+diff --git a/backend/internal/shared/apicompat/anthropic_to_responses_response.go b/backend/internal/shared/apicompat/anthropic_to_responses_response.go
+index 186ee3baa..2e7c85d3c 100644
+--- a/backend/internal/shared/apicompat/anthropic_to_responses_response.go
++++ b/backend/internal/shared/apicompat/anthropic_to_responses_response.go
+@@ -53,7 +53,7 @@ func AnthropicToResponsesResponse(resp *AnthropicResponse) *ResponsesResponse {
+ 	for _, block := range resp.Content {
+ 		switch block.Type {
+ 		case "thinking", "redacted_thinking":
+-			if (claude.IsOpus55(resp.Model) || claude.IsSonnet55(resp.Model)) && (block.Signature != "" || block.Data != "") {
++			if (claude.IsOpus55(resp.Model) || claude.IsSonnet55(resp.Model) || claude.IsHaiku55(resp.Model)) && (block.Signature != "" || block.Data != "") {
+ 				item := ResponsesOutput{Type: "reasoning", ID: generateItemID(), EncryptedContent: encodeAnthropicThinking(block)}
+ 				if block.Thinking != "" {
+ 					item.Summary = []ResponsesSummary{{Type: "summary_text", Text: block.Thinking}}
+@@ -72,7 +72,7 @@ func AnthropicToResponsesResponse(resp *AnthropicResponse) *ResponsesResponse {
+ 				})
+ 			}
+ 		case "text":
+-			if (claude.IsOpus55(resp.Model) || claude.IsSonnet55(resp.Model)) && block.Text != "" {
++			if (claude.IsOpus55(resp.Model) || claude.IsSonnet55(resp.Model) || claude.IsHaiku55(resp.Model)) && block.Text != "" {
+ 				outputs = append(outputs, ResponsesOutput{Type: "message", ID: generateItemID(), Role: "assistant", Status: "completed", Content: []ResponsesContentPart{{Type: "output_text", Text: block.Text}}})
+ 				continue
+ 			}
+@@ -285,7 +285,7 @@ func ResponsesEventToSSE(evt ResponsesStreamEvent) (string, error) {
+ func anthToResHandleMessageStart(evt *AnthropicStreamEvent, state *AnthropicEventToResponsesState) []ResponsesStreamEvent {
+ 	if evt.Message != nil {
+ 		state.ResponseID = evt.Message.ID
+-		state.PreserveThinkingSignatures = state.PreserveThinkingSignatures || claude.IsOpus55(evt.Message.Model) || claude.IsSonnet55(evt.Message.Model)
++		state.PreserveThinkingSignatures = state.PreserveThinkingSignatures || claude.IsOpus55(evt.Message.Model) || claude.IsSonnet55(evt.Message.Model) || claude.IsHaiku55(evt.Message.Model)
+ 		if state.Model == "" {
+ 			state.Model = evt.Message.Model
+ 		}
+diff --git a/backend/internal/shared/apicompat/responses_to_anthropic_request.go b/backend/internal/shared/apicompat/responses_to_anthropic_request.go
+index 34d905188..3ba7f638f 100644
+--- a/backend/internal/shared/apicompat/responses_to_anthropic_request.go
++++ b/backend/internal/shared/apicompat/responses_to_anthropic_request.go
+@@ -16,7 +16,8 @@ import (
+ func ResponsesToAnthropicRequest(req *ResponsesRequest) (*AnthropicRequest, error) {
+ 	isOpus55 := claude.IsOpus55(req.Model)
+ 	isSonnet55 := claude.IsSonnet55(req.Model)
+-	system, messages, err := convertResponsesInputToAnthropic(req.Instructions, req.Input, isOpus55 || isSonnet55)
++	isHaiku55 := claude.IsHaiku55(req.Model)
++	system, messages, err := convertResponsesInputToAnthropic(req.Instructions, req.Input, isOpus55 || isSonnet55 || isHaiku55)
+ 	if err != nil {
+ 		return nil, err
+ 	}
+@@ -56,11 +57,13 @@ func ResponsesToAnthropicRequest(req *ResponsesRequest) (*AnthropicRequest, erro
+ 		out.ToolChoice = tc
+ 	}
+ 
+-	// The 5.5 models reject manual thinking and forced tool use. Sonnet 5.5
+-	// additionally supports between_tools to disable up-front thinking.
++	// The 5.5 models reject manual thinking. Opus/Sonnet 5.5 additionally reject
++	// forced tool use; Haiku 5.5 accepts it (starts with the tool call, no thinking
++	// block). Sonnet 5.5 supports between_tools to disable up-front thinking;
++	// Haiku 5.5 uses disabled (at high effort or below) instead.
+ 	// Resolve the upstream model before conversion: client aliases need not
+ 	// identify a Claude model.
+-	if isOpus55 || isSonnet55 {
++	if isOpus55 || isSonnet55 || isHaiku55 {
+ 		var choice struct {
+ 			Type string `json:"type"`
+ 		}
+@@ -69,7 +72,7 @@ func ResponsesToAnthropicRequest(req *ResponsesRequest) (*AnthropicRequest, erro
+ 				return nil, fmt.Errorf("invalid tool_choice: %w", err)
+ 			}
+ 		}
+-		if choice.Type == "any" || choice.Type == "tool" {
++		if (choice.Type == "any" || choice.Type == "tool") && !isHaiku55 {
+ 			return nil, fmt.Errorf("%s does not support forced tool_choice; use auto or none", req.Model)
+ 		}
+ 		effort := "medium"
+@@ -82,6 +85,17 @@ func ResponsesToAnthropicRequest(req *ResponsesRequest) (*AnthropicRequest, erro
+ 				return nil, fmt.Errorf("claude-sonnet-5-5 does not support non-default top_p")
+ 			}
+ 		}
++		if isHaiku55 {
++			if req.Temperature != nil && *req.Temperature != 1 {
++				return nil, fmt.Errorf("claude-haiku-5-5 does not support non-default temperature")
++			}
++			if req.TopP != nil && *req.TopP != 0.99 {
++				return nil, fmt.Errorf("claude-haiku-5-5 does not support non-default top_p")
++			}
++			if req.Temperature != nil && req.TopP != nil {
++				return nil, fmt.Errorf("claude-haiku-5-5 does not allow temperature and top_p together; omit both")
++			}
++		}
+ 		if req.Reasoning != nil && req.Reasoning.Effort != "" {
+ 			effort = req.Reasoning.Effort
+ 		}
+@@ -96,6 +110,16 @@ func ResponsesToAnthropicRequest(req *ResponsesRequest) (*AnthropicRequest, erro
+ 			out.OutputConfig.Effort = "low"
+ 			return out, nil
+ 		}
++		if isHaiku55 && effort == "none" {
++			// Haiku 5.5's lowest thinking mode is disabled (valid at high
++			// effort or below); low keeps token spend minimal like Sonnet above.
++			out.Thinking = &AnthropicThinking{Type: "disabled"}
++			if out.OutputConfig == nil {
++				out.OutputConfig = &AnthropicOutputConfig{}
++			}
++			out.OutputConfig.Effort = "low"
++			return out, nil
++		}
+ 		switch effort {
+ 		case "low", "medium", "high", "xhigh", "max":
+ 		default:
+diff --git a/backend/internal/shared/claude/constants.go b/backend/internal/shared/claude/constants.go
+index 5e0f9fc27..1d0d6d3a3 100644
+--- a/backend/internal/shared/claude/constants.go
++++ b/backend/internal/shared/claude/constants.go
+@@ -223,6 +223,12 @@ var DefaultModels = []Model{
+ 		DisplayName: "Claude Haiku 4.5",
+ 		CreatedAt:   "2025-10-01T00:00:00Z",
+ 	},
++	{
++		ID:          "claude-haiku-5-5",
++		Type:        "model",
++		DisplayName: "Claude Haiku 5.5",
++		CreatedAt:   "2026-10-07T00:00:00Z",
++	},
+ }
+ 
+ // DefaultModelIDs 返回默认模型的 ID 列表
+diff --git a/backend/internal/shared/claude/constants_model_test.go b/backend/internal/shared/claude/constants_model_test.go
+index 4a58d540d..0a15c8d21 100644
+--- a/backend/internal/shared/claude/constants_model_test.go
++++ b/backend/internal/shared/claude/constants_model_test.go
+@@ -43,3 +43,16 @@ func TestDefaultModelsContainsSonnet55(t *testing.T) {
+ 	}
+ 	t.Fatal("claude-sonnet-5-5 missing from DefaultModels")
+ }
++
++func TestDefaultModelsContainsHaiku55(t *testing.T) {
++	t.Parallel()
++
++	for _, model := range DefaultModels {
++		if model.ID == "claude-haiku-5-5" {
++			require.Equal(t, "Claude Haiku 5.5", model.DisplayName)
++			require.Equal(t, "2026-10-07T00:00:00Z", model.CreatedAt)
++			return
++		}
++	}
++	t.Fatal("claude-haiku-5-5 missing from DefaultModels")
++}
+diff --git a/backend/internal/shared/claude/effort_catalog.go b/backend/internal/shared/claude/effort_catalog.go
+index a3039faac..2764adc07 100644
+--- a/backend/internal/shared/claude/effort_catalog.go
++++ b/backend/internal/shared/claude/effort_catalog.go
+@@ -27,6 +27,7 @@ var effortFamilies = []struct {
+ 	{family: "claude-opus-4-5", levels: effortLowMediumHigh},
+ 	{family: "claude-opus-5-5", levels: effortLowMediumHighXHighMax},
+ 	{family: "claude-opus-5", levels: effortLowMediumHighXHighMax},
++	{family: "claude-haiku-5-5", levels: effortLowMediumHighXHighMax},
+ }
+ 
+ // EffortLevelsForModel returns the output_config.effort values accepted by a
+@@ -51,6 +52,11 @@ func IsSonnet55(model string) bool {
+ 	return normalizeEffortModelID(model) == "claude-sonnet-5-5"
+ }
+ 
++// IsHaiku55 identifies the fixed Haiku 5.5 ID after provider/local suffix normalization.
++func IsHaiku55(model string) bool {
++	return normalizeEffortModelID(model) == "claude-haiku-5-5"
++}
++
+ func normalizeEffortModelID(model string) string {
+ 	id := strings.ToLower(strings.TrimSpace(model))
+ 	id = strings.TrimPrefix(id, "models/")
+@@ -70,6 +76,9 @@ func normalizeEffortModelID(model string) string {
+ 	if id == "claude-sonnet-5.5" {
+ 		id = "claude-sonnet-5-5"
+ 	}
++	if id == "claude-haiku-5.5" {
++		id = "claude-haiku-5-5"
++	}
+ 	if mapped, ok := ModelIDReverseOverrides[id]; ok {
+ 		id = mapped
+ 	}
+diff --git a/backend/internal/shared/claude/effort_catalog_test.go b/backend/internal/shared/claude/effort_catalog_test.go
+index e8f8e2f15..12f7cd451 100644
+--- a/backend/internal/shared/claude/effort_catalog_test.go
++++ b/backend/internal/shared/claude/effort_catalog_test.go
+@@ -18,6 +18,9 @@ func TestEffortLevelsForModel(t *testing.T) {
+ 		{model: "claude-opus-5", want: []string{"low", "medium", "high", "xhigh", "max"}},
+ 		{model: "anthropic/claude-opus-5.5", want: []string{"low", "medium", "high", "xhigh", "max"}},
+ 		{model: "claude-sonnet-5-5", want: []string{"low", "medium", "high", "xhigh", "max"}},
++		{model: "claude-haiku-5-5", want: []string{"low", "medium", "high", "xhigh", "max"}},
++		{model: "anthropic/claude-haiku-5.5", want: []string{"low", "medium", "high", "xhigh", "max"}},
++		{model: "us.anthropic.claude-haiku-5-5", want: []string{"low", "medium", "high", "xhigh", "max"}},
+ 		{model: "us.anthropic.claude-sonnet-5-5", want: []string{"low", "medium", "high", "xhigh", "max"}},
+ 		{model: "claude-opus-4-5-20251101", want: []string{"low", "medium", "high"}},
+ 		{model: "claude-haiku-4-5-20251001", want: nil},
+@@ -57,3 +60,19 @@ func TestIsSonnet55(t *testing.T) {
+ 		require.False(t, IsSonnet55(model), model)
+ 	}
+ }
++
++func TestIsHaiku55(t *testing.T) {
++	t.Parallel()
++	for _, model := range []string{
++		"claude-haiku-5-5",
++		"anthropic/claude-haiku-5.5",
++		"anthropic.claude-haiku-5-5",
++		"us.anthropic.claude-haiku-5-5",
++		"global.anthropic.claude-haiku-5-5-thinking",
++	} {
++		require.True(t, IsHaiku55(model), model)
++	}
++	for _, model := range []string{"claude-haiku-5", "claude-haiku-4-5", "claude-haiku-4-5-20251001", "claude-sonnet-5-5", "claude-opus-5-5"} {
++		require.False(t, IsHaiku55(model), model)
++	}
++}
+diff --git a/backend/internal/application/service/billing_service.go b/backend/internal/application/service/billing_service.go
+index d3b609974..967f2ba77 100644
+--- a/backend/internal/application/service/billing_service.go
++++ b/backend/internal/application/service/billing_service.go
+@@ -444,6 +444,20 @@ func (s *BillingService) initFallbackPricing() {
+ 		CacheCreation1hPrice:       4e-6,
+ 		SupportsCacheBreakdown:     true,
+ 	}
++	// Claude Haiku 5.5（2026-10-07，$0.10/$0.50，prompt 超 100k tokens 整单 5x）。
++	// 长文本阶梯与目录 *_above_100k_tokens 绝对价同口径，缺目录时回退也不丢阶梯。
++	s.fallbackPrices["claude-haiku-5-5"] = &ModelPricing{
++		InputPricePerToken:          0.1e-6,
++		OutputPricePerToken:         0.5e-6,
++		CacheCreationPricePerToken:  0.125e-6,
++		CacheReadPricePerToken:      0.01e-6,
++		CacheCreation5mPrice:        0.125e-6,
++		CacheCreation1hPrice:        0.2e-6,
++		SupportsCacheBreakdown:      true,
++		LongContextInputThreshold:   100000,
++		LongContextInputMultiplier:  5,
++		LongContextOutputMultiplier: 5,
++	}
+ 	// Claude Fable 5.x uses the same input/output and cache-write prices, while
+ 	// Fable 5.1 reduces cache reads from $1 to $0.25 per MTok.
+ 	s.fallbackPrices["claude-fable-5"] = &ModelPricing{
+@@ -1017,6 +1031,9 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
+ 	if claude.IsSonnet55(modelLower) {
+ 		return s.fallbackPrices["claude-sonnet-5-5"]
+ 	}
++	if claude.IsHaiku55(modelLower) {
++		return s.fallbackPrices["claude-haiku-5-5"]
++	}
+ 	if strings.Contains(modelLower, "opus") {
+ 		// "opus-5" 必须先判：不能用裸 "5" 匹配，否则 claude-opus-4-5 会被误判。
+ 		if strings.Contains(modelLower, "opus-5") || strings.Contains(modelLower, "opus5") {
+diff --git a/backend/internal/application/service/billing_service_test.go b/backend/internal/application/service/billing_service_test.go
+index b8ae7b349..45544508e 100644
+--- a/backend/internal/application/service/billing_service_test.go
++++ b/backend/internal/application/service/billing_service_test.go
+@@ -2055,6 +2055,33 @@ func TestNewModelPricingCatalogFallbackAndContext(t *testing.T) {
+ 				require.False(t, cost.LongContextBillingApplied)
+ 			})
+ 		}
++		// claude-haiku-5-5：prompt 超 100k tokens 整单 5x（官方定价），
++		// billing/catalog/fallback 三源口径一致（issue #7919）。
++		for _, model := range []string{
++			"claude-haiku-5-5",
++			"anthropic/claude-haiku-5.5",
++		} {
++			t.Run(source+"/"+model, func(t *testing.T) {
++				for _, n := range []int{99999, 100000, 100001} {
++					tokens := UsageTokens{
++						InputTokens: n - 3000, OutputTokens: 500,
++						CacheReadTokens: 2000, CacheCreationTokens: 1000,
++					}
++					cost, err := svc.CalculateCost(model, tokens, 1)
++					require.NoError(t, err)
++					im, om := 1.0, 1.0
++					if n > 100000 {
++						im, om = 5.0, 5.0
++					}
++					require.InDelta(t, float64(tokens.InputTokens)*1e-7*im, cost.InputCost, 1e-10)
++					require.InDelta(t, 1000*1.25e-7*im, cost.CacheCreationCost, 1e-10)
++					require.InDelta(t, 2000*1e-8*im, cost.CacheReadCost, 1e-10)
++					require.InDelta(t, 500*5e-7*om, cost.OutputCost, 1e-10)
++					require.InDelta(t, cost.InputCost+cost.OutputCost+cost.CacheCreationCost+cost.CacheReadCost, cost.TotalCost, 1e-10)
++					require.Equal(t, n > 100000, cost.LongContextBillingApplied)
++				}
++			})
++		}
+ 	}
+ }
+ 
+diff --git a/backend/internal/application/service/gateway_claude_oauth_body.go b/backend/internal/application/service/gateway_claude_oauth_body.go
+index 085cfefbd..8a3eea412 100644
+--- a/backend/internal/application/service/gateway_claude_oauth_body.go
++++ b/backend/internal/application/service/gateway_claude_oauth_body.go
+@@ -263,7 +263,11 @@ func normalizeClaudeOAuthRequestBody(body []byte, modelID string, opts claudeOAu
+ 	// temperature：真实 Claude Code CLI 总是发送 temperature（默认 1，客户端可覆盖）。
+ 	// 之前的实现直接 delete 会导致 payload 缺字段，与真实 CLI 字节级不一致。
+ 	// 策略：客户端传了什么就透传；没传则补默认 1。
+-	if !gjson.GetBytes(out, "temperature").Exists() && !claude.IsOpus55(modelID) {
++	// 例外：采样锁定的模型（sonnet-5-5/haiku-5-5）上 temperature+top_p 共存即 400，
++	// 客户端只传 top_p 时不得再补 temperature，否则网关自己制造 400（issue #7919）。
++	samplingLocked := claude.IsSonnet55(modelID) || claude.IsHaiku55(modelID)
++	if !gjson.GetBytes(out, "temperature").Exists() && !claude.IsOpus55(modelID) &&
++		(!samplingLocked || !gjson.GetBytes(out, "top_p").Exists()) {
+ 		if next, ok := setJSONValueBytes(out, "temperature", 1); ok {
+ 			out = next
+ 			modified = true
+diff --git a/backend/internal/application/service/gateway_context_management_test.go b/backend/internal/application/service/gateway_context_management_test.go
+index 60dc89489..1e7a7d3ee 100644
+--- a/backend/internal/application/service/gateway_context_management_test.go
++++ b/backend/internal/application/service/gateway_context_management_test.go
+@@ -371,6 +371,25 @@ func TestNormalizeClaudeOAuthRequestBody_HaikuShortModelStillNormalizesToDatedID
+ 	require.Equal(t, "claude-haiku-4-5-20251001", gjson.GetBytes(out, "model").String())
+ }
+ 
++// issue #7919：采样锁定的模型上 temperature+top_p 共存即 400，
++// 只传 top_p 时不得再补 temperature，否则网关自己制造 400。
++func TestNormalizeClaudeOAuthRequestBody_SkipsTemperatureTopUpWithTopPOnLockedModels(t *testing.T) {
++	for _, model := range []string{"claude-haiku-5-5", "claude-sonnet-5-5"} {
++		body := []byte(`{"model":"` + model + `","top_p":0.99,"messages":[]}`)
++		out, _ := normalizeClaudeOAuthRequestBody(body, model, claudeOAuthNormalizeOptions{})
++		require.False(t, gjson.GetBytes(out, "temperature").Exists(),
++			"model %s with top_p must not gain temperature", model)
++		require.Equal(t, 0.99, gjson.GetBytes(out, "top_p").Float())
++	}
++}
++
++func TestNormalizeClaudeOAuthRequestBody_StillTopsUpTemperatureWithoutTopP(t *testing.T) {
++	body := []byte(`{"model":"claude-haiku-5-5","messages":[]}`)
++	out, _ := normalizeClaudeOAuthRequestBody(body, "claude-haiku-5-5", claudeOAuthNormalizeOptions{})
++	require.Equal(t, int64(1), gjson.GetBytes(out, "temperature").Int(),
++		"无 top_p 时 temperature:1 补齐保持不变")
++}
++
+ func TestApplyClaudeCodeOAuthMimicryToBody_HaikuRewritesSystem(t *testing.T) {
+ 	account := &Account{ID: 405, Platform: PlatformAnthropic, Type: AccountTypeOAuth}
+ 	body := []byte(`{"model":"claude-haiku-4-5","system":"Pi project instructions","messages":[{"role":"user","content":"hello"}]}`)
+diff --git a/backend/internal/application/service/gateway_request.go b/backend/internal/application/service/gateway_request.go
+index 678d7d3d3..b77fac318 100644
+--- a/backend/internal/application/service/gateway_request.go
++++ b/backend/internal/application/service/gateway_request.go
+@@ -570,7 +570,7 @@ func StripEmptyTextBlocks(body []byte) []byte {
+ // isClaude55SignedThinkingModel identifies models whose default thinking mode
+ // requires signed history to survive protocol conversion and request filtering.
+ func isClaude55SignedThinkingModel(model string) bool {
+-	return claude.IsOpus55(model) || claude.IsSonnet55(model)
++	return claude.IsOpus55(model) || claude.IsSonnet55(model) || claude.IsHaiku55(model)
+ }
+ 
+ // validateClaude55Request rejects settings that the upstream cannot honor.
+@@ -580,14 +580,31 @@ func validateClaude55Request(body []byte, model string) error {
+ 		return nil
+ 	}
+ 	isSonnet55 := claude.IsSonnet55(model)
+-	switch gjson.GetBytes(body, "thinking.type").String() {
++	isHaiku55 := claude.IsHaiku55(model)
++	thinkingType := gjson.GetBytes(body, "thinking.type").String()
++	switch thinkingType {
+ 	case "disabled", "enabled":
++		if isHaiku55 {
++			// haiku-5-5：enabled 一律 400（用 adaptive）；disabled 仅 high 及以下
++			// 可用，xhigh/max 上 400。见官方 migration guide。
++			if thinkingType == "enabled" {
++				return fmt.Errorf("claude-haiku-5-5 requires adaptive thinking; omit thinking or use thinking.type=adaptive and output_config.effort")
++			}
++			switch gjson.GetBytes(body, "output_config.effort").String() {
++			case "xhigh", "max":
++				return fmt.Errorf("claude-haiku-5-5 thinking.type=disabled supports only low, medium or high effort")
++			}
++			break
++		}
+ 		if isSonnet55 {
+ 			return fmt.Errorf("claude-sonnet-5-5 requires adaptive thinking or thinking.type=between_tools; omit thinking or use one of those modes")
+ 		}
+ 		return fmt.Errorf("claude-opus-5-5 requires adaptive thinking; omit thinking or use thinking.type=adaptive and output_config.effort")
+ 	case "between_tools":
+ 		if !isSonnet55 {
++			if isHaiku55 {
++				return fmt.Errorf("claude-haiku-5-5 requires adaptive thinking; thinking.type=between_tools is unsupported (use thinking.type=disabled at high effort or below)")
++			}
+ 			return fmt.Errorf("claude-opus-5-5 requires adaptive thinking; thinking.type=between_tools is unsupported")
+ 		}
+ 		effort := gjson.GetBytes(body, "output_config.effort").String()
+@@ -604,22 +621,34 @@ func validateClaude55Request(body []byte, model string) error {
+ 	if isSonnet55 {
+ 		modelName = "claude-sonnet-5-5"
+ 	}
+-	if gjson.GetBytes(body, "tool_choice").String() == "required" {
+-		return fmt.Errorf("%s does not support forced tool_choice; use auto or none", modelName)
++	if isHaiku55 {
++		modelName = "claude-haiku-5-5"
+ 	}
+-	switch gjson.GetBytes(body, "tool_choice.type").String() {
+-	case "any", "tool", "function", "custom", "namespace":
+-		return fmt.Errorf("%s does not support forced tool_choice; use auto or none", modelName)
++	// haiku-5-5 接受强制 tool_choice（响应以 tool call 开头、无 thinking 块），
++	// 与 opus/sonnet-5-5 不同，不拦截。见官方 migration guide。
++	if !isHaiku55 {
++		if gjson.GetBytes(body, "tool_choice").String() == "required" {
++			return fmt.Errorf("%s does not support forced tool_choice; use auto or none", modelName)
++		}
++		switch gjson.GetBytes(body, "tool_choice.type").String() {
++		case "any", "tool", "function", "custom", "namespace":
++			return fmt.Errorf("%s does not support forced tool_choice; use auto or none", modelName)
++		}
+ 	}
+-	if isSonnet55 {
++	if isSonnet55 || isHaiku55 {
+ 		if temperature := gjson.GetBytes(body, "temperature"); temperature.Exists() && (temperature.Type != gjson.Number || temperature.Float() != 1) {
+-			return fmt.Errorf("claude-sonnet-5-5 does not support non-default temperature")
++			return fmt.Errorf("%s does not support non-default temperature", modelName)
+ 		}
+-		if topP := gjson.GetBytes(body, "top_p"); topP.Exists() && (topP.Type != gjson.Number || topP.Float() < 0.99 || topP.Float() > 1) {
+-			return fmt.Errorf("claude-sonnet-5-5 does not support non-default top_p")
++		// Haiku 5.5 只接受显式 top_p=0.99；保留 Sonnet 5.5 既有的区间策略。
++		if topP := gjson.GetBytes(body, "top_p"); topP.Exists() && (topP.Type != gjson.Number ||
++			(isHaiku55 && topP.Float() != 0.99) || (isSonnet55 && (topP.Float() < 0.99 || topP.Float() > 1))) {
++			return fmt.Errorf("%s does not support non-default top_p", modelName)
+ 		}
+ 		if gjson.GetBytes(body, "top_k").Exists() {
+-			return fmt.Errorf("claude-sonnet-5-5 does not support top_k")
++			return fmt.Errorf("%s does not support top_k", modelName)
++		}
++		if isHaiku55 && gjson.GetBytes(body, "temperature").Exists() && gjson.GetBytes(body, "top_p").Exists() {
++			return fmt.Errorf("%s does not allow temperature and top_p together; omit both", modelName)
+ 		}
+ 	}
+ 	return nil
+diff --git a/backend/internal/application/service/gateway_request_haiku55_test.go b/backend/internal/application/service/gateway_request_haiku55_test.go
+new file mode 100644
+index 000000000..c81309792
+--- /dev/null
++++ b/backend/internal/application/service/gateway_request_haiku55_test.go
+@@ -0,0 +1,55 @@
++//go:build unit
++
++package service
++
++import (
++	"strings"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++)
++
++// issue #7919：claude-haiku-5-5 请求校验（官方 migration guide 口径）。
++func TestValidateClaude55Request_Haiku55(t *testing.T) {
++	const model = "claude-haiku-5-5"
++	const prefix = `{"model":"claude-haiku-5-5","max_tokens":16000,"messages":[{"role":"user","content":"hi"}]`
++	cases := []struct {
++		name string
++		// extra 为追加进最小合法请求的 JSON 片段（含前导逗号）
++		extra   string
++		wantErr string // 为空表示期望通过
++	}{
++		{name: "adaptive thinking passes", extra: `,"thinking":{"type":"adaptive"},"output_config":{"effort":"medium"}`},
++		{name: "omitted thinking passes", extra: ``},
++		{name: "enabled thinking rejected", extra: `,"thinking":{"type":"enabled","budget_tokens":8000}`, wantErr: "requires adaptive thinking"},
++		{name: "拒绝 between_tools 并返回 Haiku 错误说明", extra: `,"thinking":{"type":"between_tools"}`, wantErr: "claude-haiku-5-5 requires adaptive thinking; thinking.type=between_tools is unsupported"},
++		{name: "disabled thinking allowed at medium effort", extra: `,"thinking":{"type":"disabled"},"output_config":{"effort":"medium"}`},
++		{name: "disabled thinking allowed when effort omitted", extra: `,"thinking":{"type":"disabled"}`},
++		{name: "disabled thinking rejected at xhigh", extra: `,"thinking":{"type":"disabled"},"output_config":{"effort":"xhigh"}`, wantErr: "supports only low, medium or high effort"},
++		{name: "disabled thinking rejected at max", extra: `,"thinking":{"type":"disabled"},"output_config":{"effort":"max"}`, wantErr: "supports only low, medium or high effort"},
++		{name: "temperature 1 passes", extra: `,"temperature":1`},
++		{name: "non-default temperature rejected", extra: `,"temperature":0.5`, wantErr: "non-default temperature"},
++		{name: "top_p 0.99 passes", extra: `,"top_p":0.99`},
++		{name: "拒绝 top_p=0.995", extra: `,"top_p":0.995`, wantErr: "non-default top_p"},
++		{name: "拒绝 top_p=1", extra: `,"top_p":1`, wantErr: "non-default top_p"},
++		{name: "拒绝字符串 top_p", extra: `,"top_p":"0.99"`, wantErr: "non-default top_p"},
++		{name: "top_p 0.5 rejected", extra: `,"top_p":0.5`, wantErr: "non-default top_p"},
++		{name: "top_k rejected", extra: `,"top_k":5`, wantErr: "does not support top_k"},
++		{name: "temperature and top_p together rejected", extra: `,"temperature":1,"top_p":0.99`, wantErr: "does not allow temperature and top_p together"},
++		{name: "forced tool_choice any allowed", extra: `,"tool_choice":{"type":"any"}`},
++		{name: "forced tool_choice required allowed", extra: `,"tool_choice":"required"`},
++	}
++	for _, tc := range cases {
++		t.Run(tc.name, func(t *testing.T) {
++			body := []byte(prefix + tc.extra + "}")
++			err := validateClaude55Request(body, model)
++			if tc.wantErr == "" {
++				require.NoError(t, err)
++				return
++			}
++			require.Error(t, err)
++			require.True(t, strings.Contains(err.Error(), tc.wantErr),
++				"error %q should contain %q", err.Error(), tc.wantErr)
++		})
++	}
++}
+diff --git a/backend/internal/application/service/gateway_upstream_request.go b/backend/internal/application/service/gateway_upstream_request.go
+index 06ee09822..cdf2319eb 100644
+--- a/backend/internal/application/service/gateway_upstream_request.go
++++ b/backend/internal/application/service/gateway_upstream_request.go
+@@ -419,11 +419,13 @@ func defaultAPIKeyBetaHeader(body []byte) string {
+ 
+ // The legacy streaming beta is incompatible with the stable computer and
+ // browser toolsets. The per-tool eager_input_streaming field remains available.
++// Applies to Sonnet 5.5 and Haiku 5.5, which share the computer_toolset_20260801
++// / browser_toolset_20260801 toolsets (Haiku 5.5 migration guide).
+ func filterSonnet55ToolsetBeta(header string, body []byte, modelID string) string {
+ 	if at := strings.IndexByte(modelID, '@'); at >= 0 {
+ 		modelID = modelID[:at] // Vertex's dated model ID
+ 	}
+-	if !claude.IsSonnet55(modelID) {
++	if !claude.IsSonnet55(modelID) && !claude.IsHaiku55(modelID) {
+ 		return header
+ 	}
+ 	for _, tool := range gjson.GetBytes(body, "tools").Array() {
+diff --git a/backend/internal/application/service/openai_codex_models_service.go b/backend/internal/application/service/openai_codex_models_service.go
+index 911672d5d..ae58ddf20 100644
+--- a/backend/internal/application/service/openai_codex_models_service.go
++++ b/backend/internal/application/service/openai_codex_models_service.go
+@@ -487,7 +487,7 @@ func newConfiguredCodexModelDescriptor(modelID string) configuredCodexModelDescr
+ 	}
+ 
+ 	if isClaudeCodexModel(modelID) {
+-		if claude.IsOpus55(modelID) || claude.IsSonnet55(modelID) {
++		if claude.IsOpus55(modelID) || claude.IsSonnet55(modelID) || claude.IsHaiku55(modelID) {
+ 			descriptor.ContextWindow = 1_000_000
+ 			descriptor.MaxContextWindow = 1_000_000
+ 		}
+diff --git a/backend/internal/application/service/openai_codex_models_service_test.go b/backend/internal/application/service/openai_codex_models_service_test.go
+index 1b5d70133..b702eadc0 100644
+--- a/backend/internal/application/service/openai_codex_models_service_test.go
++++ b/backend/internal/application/service/openai_codex_models_service_test.go
+@@ -334,6 +334,14 @@ func TestNewConfiguredCodexModelDescriptorUsesProviderMetadataAndSafeFallback(t
+ 	require.Equal(t, "none", *claudeHaiku.DefaultReasoningLevel)
+ 	require.Equal(t, []string{"none"}, effortsFromConfiguredCodexLevels(claudeHaiku.SupportedReasoningLevels))
+ 
++	claudeHaiku55 := newConfiguredCodexModelDescriptor("claude-haiku-5-5")
++	require.Equal(t, "Claude Haiku 5.5", claudeHaiku55.DisplayName)
++	require.Equal(t, int64(1_000_000), claudeHaiku55.ContextWindow)
++	require.Equal(t, int64(1_000_000), claudeHaiku55.MaxContextWindow)
++	require.NotNil(t, claudeHaiku55.DefaultReasoningLevel)
++	require.Equal(t, "medium", *claudeHaiku55.DefaultReasoningLevel)
++	require.Equal(t, []string{"low", "medium", "high", "xhigh", "max"}, effortsFromConfiguredCodexLevels(claudeHaiku55.SupportedReasoningLevels))
++
+ 	gpt56 := newConfiguredCodexModelDescriptor("gpt-5.6-sol")
+ 	require.Equal(t, "GPT-5.6 Sol", gpt56.DisplayName)
+ 	require.Equal(t, "OpenAI GPT coding model routed through Sub2API.", gpt56.Description)
+diff --git a/backend/internal/application/service/pricing_service.go b/backend/internal/application/service/pricing_service.go
+index f2a1eee9f..ac29fd0f3 100644
+--- a/backend/internal/application/service/pricing_service.go
++++ b/backend/internal/application/service/pricing_service.go
+@@ -139,6 +139,14 @@ var (
+ 		CacheReadInputTokenCost: 0.2e-6,
+ 		LiteLLMProvider:         "anthropic", Mode: "chat", SupportsPromptCaching: true,
+ 	}
++	claudeHaiku55FallbackPricing = &LiteLLMModelPricing{
++		InputCostPerToken: 1e-7, OutputCostPerToken: 5e-7,
++		CacheCreationInputTokenCost: 1.25e-7, CacheCreationInputTokenCostAbove1hr: 2e-7,
++		CacheReadInputTokenCost:        1e-8,
++		LongContextInputTokenThreshold: 100000,
++		LongContextInputCostMultiplier: 5, LongContextOutputCostMultiplier: 5,
++		LiteLLMProvider: "anthropic", Mode: "chat", SupportsPromptCaching: true,
++	}
+ 	openAIGPT56SolFallbackPricing = &LiteLLMModelPricing{
+ 		InputCostPerToken:                   5e-06,
+ 		InputCostPerTokenPriority:           1e-05,
+@@ -1408,6 +1416,12 @@ func (s *PricingService) matchByModelFamily(model string) *LiteLLMModelPricing {
+ 		}
+ 		return claudeSonnet55FallbackPricing
+ 	}
++	if claude.IsHaiku55(model) {
++		if pricing, ok := s.pricingData["claude-haiku-5-5"]; ok {
++			return pricing
++		}
++		return claudeHaiku55FallbackPricing
++	}
+ 	// modelFamily 定义一个模型系列的匹配和定价查找规则。
+ 	type modelFamily struct {
+ 		name    string   // 系列名称
+diff --git a/backend/resources/model-pricing/model_prices_and_context_window.json b/backend/resources/model-pricing/model_prices_and_context_window.json
+index 99db4dbbd..174366de0 100644
+--- a/backend/resources/model-pricing/model_prices_and_context_window.json
++++ b/backend/resources/model-pricing/model_prices_and_context_window.json
+@@ -381,6 +381,40 @@
+     "supports_tool_choice": true,
+     "supports_vision": true
+   },
++  "claude-haiku-5-5": {
++    "cache_creation_input_token_cost": 1.25e-07,
++    "cache_creation_input_token_cost_above_1hr": 2e-07,
++    "cache_creation_input_token_cost_above_100k_tokens": 6.25e-07,
++    "cache_creation_input_token_cost_above_1hr_above_100k_tokens": 1e-06,
++    "cache_read_input_token_cost": 1e-08,
++    "cache_read_input_token_cost_above_100k_tokens": 5e-08,
++    "input_cost_per_token": 1e-07,
++    "input_cost_per_token_above_100k_tokens": 5e-07,
++    "litellm_provider": "anthropic",
++    "max_input_tokens": 1000000,
++    "max_output_tokens": 128000,
++    "max_tokens": 128000,
++    "mode": "chat",
++    "output_cost_per_token": 5e-07,
++    "output_cost_per_token_above_100k_tokens": 2.5e-06,
++    "source": "https://platform.claude.com/docs/en/models/haiku-5-5/overview",
++    "supports_adaptive_thinking": true,
++    "supports_assistant_prefill": false,
++    "supports_computer_use": true,
++    "supports_function_calling": true,
++    "supports_max_reasoning_effort": true,
++    "supports_output_config": true,
++    "supports_pdf_input": true,
++    "supports_prompt_caching": true,
++    "supports_reasoning": true,
++    "supports_response_schema": true,
++    "supports_sampling_params": false,
++    "supports_tool_choice": true,
++    "supports_vision": true,
++    "supports_xhigh_reasoning_effort": true,
++    "input_cost_per_token_batches": 5e-08,
++    "output_cost_per_token_batches": 2.5e-07
++  },
+   "claude-opus-4-1": {
+     "cache_creation_input_token_cost": 1.875e-05,
+     "cache_creation_input_token_cost_above_1hr": 3e-05,
+diff --git a/frontend/src/composables/__tests__/useModelWhitelist.spec.ts b/frontend/src/composables/__tests__/useModelWhitelist.spec.ts
+index 75c2b371b..fab6c2fc3 100644
+--- a/frontend/src/composables/__tests__/useModelWhitelist.spec.ts
++++ b/frontend/src/composables/__tests__/useModelWhitelist.spec.ts
+@@ -100,6 +100,16 @@ describe('useModelWhitelist', () => {
+     ]))
+   })
+ 
++  it('Claude 默认白名单保存后允许 Haiku 5.5，预设使用同一模型 ID', () => {
++    const models: string[] = getModelsByPlatform('anthropic')
++    const mapping: Record<string, string> | null = buildModelMappingObject('whitelist', models, [])
++
++    expect(mapping?.['claude-haiku-5-5']).toBe('claude-haiku-5-5')
++    expect(getPresetMappingsByPlatform('anthropic')).toEqual(expect.arrayContaining([
++      expect.objectContaining({ label: 'Haiku 5.5', from: 'claude-haiku-5-5', to: 'claude-haiku-5-5' })
++    ]))
++  })
++
+   it('xAI 模型列表包含 Grok 4.5 官方模型和别名', () => {
+     const models = getModelsByPlatform('grok')
+ 
+diff --git a/frontend/src/composables/useModelWhitelist.ts b/frontend/src/composables/useModelWhitelist.ts
+index 4b9a117fa..12c5ef2d3 100644
+--- a/frontend/src/composables/useModelWhitelist.ts
++++ b/frontend/src/composables/useModelWhitelist.ts
+@@ -39,6 +39,7 @@ export const claudeModels = [
+   'claude-opus-5-5',
+   'claude-opus-5',
+   'claude-sonnet-5-5',
++  'claude-haiku-5-5',
+   'claude-sonnet-5',
+   'claude-sonnet-4-6',
+   'claude-fable-5-1',
+@@ -299,6 +300,7 @@ const anthropicPresetMappings = [
+   { label: 'Opus 5', from: 'claude-opus-5', to: 'claude-opus-5', color: 'bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-400' },
+   { label: 'Haiku 3.5', from: 'claude-3-5-haiku-20241022', to: 'claude-3-5-haiku-20241022', color: 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400' },
+   { label: 'Haiku 4.5', from: 'claude-haiku-4-5-20251001', to: 'claude-haiku-4-5-20251001', color: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400' },
++  { label: 'Haiku 5.5', from: 'claude-haiku-5-5', to: 'claude-haiku-5-5', color: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400' },
+   { label: 'Opus->Sonnet', from: 'claude-opus-4-6', to: 'claude-sonnet-4-5-20250929', color: 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400' }
+ ]
+ 

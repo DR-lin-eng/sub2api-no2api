@@ -189,7 +189,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		case APIProtocolResponses:
 			// Continue through the native Responses path below.
 		default:
-			return s.forwardResponsesViaRawChatCompletions(ctx, c, account, body)
+			return s.forwardResponsesViaRawChatCompletions(ctx, c, account, body, startTime)
 		}
 	}
 	if account.IsAnthropicProtocol() {
@@ -197,7 +197,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	}
 
 	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) || shouldForwardDeepSeekCompatViaChatCompletions(c, account, body) {
-		return s.forwardResponsesViaRawChatCompletions(ctx, c, account, body)
+		return s.forwardResponsesViaRawChatCompletions(ctx, c, account, body, startTime)
 	}
 
 	compatMessagesBridge := isOpenAICompatMessagesBridgeBody(body)

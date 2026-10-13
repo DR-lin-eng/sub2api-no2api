@@ -1,0 +1,10 @@
+diff a/backend/internal/application/service/openai_gateway_count_tokens.go b/backend/internal/application/service/openai_gateway_count_tokens.go	(rejected hunks)
+@@ -346,7 +346,7 @@ func (s *OpenAIGatewayService) ForwardCountTokensAsAnthropic(
+ 		}
+ 
+ 		if s.rateLimitService != nil {
+-			s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
++			s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody, prepared.UpstreamModel)
+ 		}
+ 
+ 		if isOpenAIInputTokensUnsupported(resp.StatusCode, respBody) {

@@ -57,3 +57,5 @@ OAuth composable 和创建账号的 OAuth 兑换编排直接依赖账号 OAuth A
 pnpm exec vitest run src/features/admin-accounts
 pnpm run typecheck
 ```
+
+临时不可调度规则的 scope 归一化、旧值解析和可选字段序列化由 `presentation/accountFormPolicy.ts` 维护，创建/编辑 advanced widget 共用该协议；自动范围省略 scope。显式范围须在所有节点升级后启用，详见 [同步与回退边界](../../../../docs/UPSTREAM_SYNC_20261013.md)。

@@ -1,0 +1,11 @@
+diff a/backend/internal/application/service/openai_account_runtime_block_fastpath.go b/backend/internal/application/service/openai_account_runtime_block_fastpath.go	(rejected hunks)
+@@ -173,7 +174,8 @@ func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Cont
+ 		return false
+ 	}
+ 	shouldDisable := s.rateLimitService.HandleUpstreamError(stateCtx, account, statusCode, headers, responseBody)
+-	modelTempMatched := statusCode != http.StatusUnauthorized && tempUnschedulableModel(stateCtx, nil) != "" &&
++	tempModel := tempUnschedulableModel(stateCtx, nil)
++	modelTempMatched := tempModel != "" && tempUnschedRulesApply(account, statusCode, responseBody, tempModel) &&
+ 		len(matchTempUnschedulableRules(account, statusCode, responseBody)) > 0
+ 	if shouldDisable && !modelTempMatched {
+ 		s.BlockAccountScheduling(account, time.Time{}, "upstream_disable")

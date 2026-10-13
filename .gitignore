@@ -180,3 +180,5 @@ frontend/coverage/
 aicodex
 output/
 .bin/
+
+!docs/UPSTREAM_SYNC_20261013.md

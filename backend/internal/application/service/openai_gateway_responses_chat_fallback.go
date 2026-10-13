@@ -23,8 +23,8 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 	c *gin.Context,
 	account *Account,
 	body []byte,
+	startTime time.Time,
 ) (*OpenAIForwardResult, error) {
-	startTime := time.Now()
 
 	var responsesReq apicompat.ResponsesRequest
 	if err := json.Unmarshal(body, &responsesReq); err != nil {

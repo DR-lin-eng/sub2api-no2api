@@ -1,0 +1,26 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus",
+    "2",
+    "--memory",
+    "4g",
+    "-v",
+    "/private/tmp/sub2api-upstream-sync-20261013-e3d4/repo:/workspace",
+    "-w",
+    "/workspace",
+    "node:24-bookworm-slim",
+    "sh",
+    "-c",
+    "apt-get update -qq && apt-get install -y --no-install-recommends make && corepack enable && corepack prepare pnpm@11.17.0 --activate && make test-frontend && cd frontend && pnpm exec vitest run src/features/admin-accounts/__tests__/tempUnschedScope.spec.ts src/features/admin-accounts/__tests__/EditAccountModal.spec.ts src/features/admin-accounts/__tests__/CreateAccountModal.spec.ts"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261013-e3d4/repo",
+  "exit_status": 2,
+  "elapsed_s": 240.231343249965,
+  "utc": "2026-10-13T08:54:00.255100+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "8f11fd389f040d3d603020762f8cee1088b6c167f0782e0db0835146cd24e503",
+  "stderr_sha256": "ae0bc47e88138911811d5f76756bf6210bb28d1251a93dea034b3f8448e5b7bf"
+}

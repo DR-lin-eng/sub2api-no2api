@@ -1,0 +1,26 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus",
+    "2",
+    "--memory",
+    "3g",
+    "-v",
+    "/private/tmp/sub2api-upstream-sync-20261013-e3d4/repo:/workspace",
+    "-w",
+    "/workspace",
+    "sub2api-upstream-sync-node:20261013",
+    "sh",
+    "-c",
+    "make test-frontend && pnpm --dir frontend exec vitest run src/features/admin-accounts/__tests__/tempUnschedScope.spec.ts src/features/admin-accounts/__tests__/EditAccountModal.spec.ts src/features/admin-accounts/__tests__/CreateAccountModal.spec.ts"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261013-e3d4/repo",
+  "exit_status": 2,
+  "elapsed_s": 37.957973334006965,
+  "utc": "2026-10-13T09:39:09.101052+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "f3b7ca5952539a178a666e4b5899206a037e7c169a550f5c2a2b7c243097c0f1",
+  "stderr_sha256": "0e80b1a2d69983c40476c0ec4141870ef36f37bd6e830042b614f28ee59bd526"
+}

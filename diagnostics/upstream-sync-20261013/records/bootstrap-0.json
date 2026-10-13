@@ -1,0 +1,14 @@
+{
+  "command": [
+    "git",
+    "clone",
+    "--no-hardlinks",
+    "--no-checkout",
+    "/Users/lin/.codex/worktrees/e3d4/sub2api-no2api",
+    "/private/tmp/sub2api-upstream-sync-20261013-e3d4/repo"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261013-e3d4",
+  "stdout": "",
+  "stderr": "Cloning into '/private/tmp/sub2api-upstream-sync-20261013-e3d4/repo'...\ndone.\n",
+  "exit_status": 0
+}

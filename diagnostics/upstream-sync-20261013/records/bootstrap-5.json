@@ -1,0 +1,13 @@
+{
+  "command": [
+    "git",
+    "checkout",
+    "-b",
+    "codex/upstream-sync-20261013",
+    "origin/main"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261013-e3d4/repo",
+  "stdout": "branch 'codex/upstream-sync-20261013' set up to track 'origin/main'.\n",
+  "stderr": "Switched to a new branch 'codex/upstream-sync-20261013'\n",
+  "exit_status": 0
+}

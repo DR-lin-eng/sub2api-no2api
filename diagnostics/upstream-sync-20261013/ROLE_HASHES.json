@@ -1,0 +1,22 @@
+{
+  "MODIFIED_FILE.tar.gz": {
+    "path": "/private/tmp/sub2api-upstream-sync-20261013-e3d4/evidence/MODIFIED_FILE.tar.gz",
+    "bytes": 333217,
+    "sha256": "d6771c2a959667180dfd607062b337772fbcb343615449897031358cb2be9109"
+  },
+  "DIFF_FILE.patch": {
+    "path": "/private/tmp/sub2api-upstream-sync-20261013-e3d4/evidence/DIFF_FILE.patch",
+    "bytes": 143145,
+    "sha256": "cbc17530ad654201719b22a916e33ac686dce1ceadff09ff3eb4b6238b6c2905"
+  },
+  "VERIFICATION.txt": {
+    "path": "/private/tmp/sub2api-upstream-sync-20261013-e3d4/evidence/VERIFICATION.txt",
+    "bytes": 2935658,
+    "sha256": "4377de6e19e8eb427bf5d294aead5e9b8cde002139118d1b4a3898cb5db20538"
+  },
+  "ROLLBACK.sh": {
+    "path": "/private/tmp/sub2api-upstream-sync-20261013-e3d4/evidence/ROLLBACK.sh",
+    "bytes": 1607,
+    "sha256": "66d7215b31a40f70507f148a225a55d8eead3d9d5e5ae7d2dffbeeb22544a7a8"
+  }
+}

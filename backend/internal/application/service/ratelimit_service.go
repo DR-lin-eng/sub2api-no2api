@@ -404,8 +404,9 @@ func (s *RateLimitService) CheckErrorPolicy(ctx context.Context, account *Accoun
 	}
 	if account.IsPoolMode() {
 		// 池模式只跳过默认账号状态处理；管理员显式配置的临时不可调度规则仍应生效。
-		// 401 保留现有认证错误语义，避免改变重复 401 的升级行为。
-		if statusCode != http.StatusUnauthorized && s.tryTempUnschedulable(ctx, account, statusCode, responseBody) {
+		// 401 只在非凭据级且命中显式模型级规则时由规则处理，其余保留现有认证错误语义。
+		if tempUnschedRulesApply(account, statusCode, responseBody, tempUnschedulableModel(ctx, nil)) &&
+			s.tryTempUnschedulable(ctx, account, statusCode, responseBody) {
 			return ErrorPolicyTempUnscheduled
 		}
 		return ErrorPolicySkipped
@@ -433,9 +434,10 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 	customErrorCodesEnabled := account.IsCustomErrorCodesEnabled()
 
 	// 池模式默认不标记本地账号状态；但管理员显式配置的临时不可调度规则优先。
-	// 401 保留现有认证错误语义，不在这里改变池模式的认证处理。
+	// 401 只在非凭据级且命中显式模型级规则时由规则处理，其余保留池模式现有的认证处理。
 	if account.IsPoolMode() && !customErrorCodesEnabled {
-		if statusCode != http.StatusUnauthorized && s.tryTempUnschedulable(ctx, account, statusCode, responseBody) {
+		if tempUnschedRulesApply(account, statusCode, responseBody, tempUnschedulableModel(ctx, nil)) &&
+			s.tryTempUnschedulable(ctx, account, statusCode, responseBody) {
 			return true
 		}
 		slog.Info("pool_mode_error_skipped", "account_id", account.ID, "status_code", statusCode)
@@ -468,9 +470,9 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 		}
 	}
 
-	// 先尝试临时不可调度规则（401除外）
+	// 先尝试临时不可调度规则（401 仅限非凭据级且命中显式模型级规则）
 	// 如果匹配成功，直接返回，不执行后续禁用逻辑
-	if statusCode != 401 {
+	if tempUnschedRulesApply(account, statusCode, responseBody, tempUnschedulableModel(ctx, requestedModel)) {
 		if s.tryTempUnschedulable(ctx, account, statusCode, responseBody, firstRequestedModel(requestedModel)) {
 			return true
 		}
@@ -2644,10 +2646,17 @@ func (s *RateLimitService) tryTempUnschedulable(ctx context.Context, account *Ac
 	if !account.IsTempUnschedulableEnabled() {
 		return false
 	}
+	matches := matchTempUnschedulableRules(account, statusCode, responseBody)
+	if len(matches) == 0 {
+		return false
+	}
+	modelKey := tempUnschedulableModel(ctx, requestedModel)
 	// 401 首次命中可临时不可调度（给 token 刷新窗口）；
 	// 若历史上已因 401 进入过临时不可调度，则本次应升级为 error（返回 false 交由默认错误逻辑处理）。
 	// Antigravity 跳过：其 401 由 applyErrorPolicy 的 temp_unschedulable_rules 自行控制，无需升级逻辑。
-	if statusCode == http.StatusUnauthorized && account.Platform != PlatformAntigravity {
+	// 模型级命中只冷却模型、不写账号级状态，不参与升级。
+	if statusCode == http.StatusUnauthorized && account.Platform != PlatformAntigravity &&
+		!tempUnschedHitUsesModelScope(account, matches[0].rule, modelKey, statusCode, responseBody) {
 		reason := account.TempUnschedulableReason
 		// 缓存可能没有 reason，从 DB 回退读取
 		if reason == "" {
@@ -2661,8 +2670,8 @@ func (s *RateLimitService) tryTempUnschedulable(ctx context.Context, account *Ac
 			return false
 		}
 	}
-	for _, match := range matchTempUnschedulableRules(account, statusCode, responseBody) {
-		if s.triggerTempUnschedulable(ctx, account, match.rule, match.ruleIndex, statusCode, match.matchedKeyword, responseBody, tempUnschedulableModel(ctx, requestedModel)) {
+	for _, match := range matches {
+		if s.triggerTempUnschedulable(ctx, account, match.rule, match.ruleIndex, statusCode, match.matchedKeyword, responseBody, modelKey) {
 			return true
 		}
 	}
@@ -2715,6 +2724,8 @@ func (s *RateLimitService) triggerTempUnschedulable(ctx context.Context, account
 
 	now := time.Now()
 	until := now.Add(time.Duration(rule.DurationMinutes) * time.Minute)
+	modelKey := firstRequestedModel(requestedModel)
+	modelScoped := tempUnschedHitUsesModelScope(account, rule, modelKey, statusCode, responseBody)
 
 	state := &TempUnschedState{
 		UntilUnix:       until.Unix(),
@@ -2723,6 +2734,11 @@ func (s *RateLimitService) triggerTempUnschedulable(ctx context.Context, account
 		MatchedKeyword:  matchedKeyword,
 		RuleIndex:       ruleIndex,
 		ErrorMessage:    truncateTempUnschedMessage(responseBody, tempUnschedMessageMaxBytes),
+		Scope:           TempUnschedScopeAccount,
+	}
+	if modelScoped {
+		state.Scope = TempUnschedScopeModel
+		state.Model = modelKey
 	}
 
 	reason := ""
@@ -2733,18 +2749,16 @@ func (s *RateLimitService) triggerTempUnschedulable(ctx context.Context, account
 		reason = strings.TrimSpace(state.ErrorMessage)
 	}
 
-	// Persist known-model failures under the model key so the scheduler excludes
-	// only this (account, model) pair. Authentication and model-unknown failures
-	// retain the legacy account-wide temporary-unschedulable behavior below.
-	modelKey := firstRequestedModel(requestedModel)
-	if modelKey != "" && statusCode != http.StatusUnauthorized {
+	// Persist model-scoped hits under the model key so the scheduler excludes
+	// only this (account, model) pair; every other hit pauses the whole account below.
+	if modelScoped {
 		if err := s.accountRepo.SetModelRateLimit(ctx, account.ID, modelKey, until, reason); err != nil {
 			slog.Warn("temp_unsched_model_rate_limit_set_failed", "account_id", account.ID, "model", modelKey, "error", err)
 			// The rule matched, so fail over the current request even if persistence
 			// failed; never widen a model-scoped failure into an account-wide block.
 			return true
 		}
-		slog.Info("account_model_temp_unschedulable", "account_id", account.ID, "model", modelKey, "until", until, "rule_index", ruleIndex, "status_code", statusCode)
+		slog.Info("account_model_temp_unschedulable", "account_id", account.ID, "model", modelKey, "until", until, "rule_index", ruleIndex, "rule_scope", rule.Scope, "status_code", statusCode)
 		return true
 	}
 
@@ -2760,7 +2774,7 @@ func (s *RateLimitService) triggerTempUnschedulable(ctx context.Context, account
 		}
 	}
 
-	slog.Info("account_temp_unschedulable", "account_id", account.ID, "until", until, "rule_index", ruleIndex, "status_code", statusCode)
+	slog.Info("account_temp_unschedulable", "account_id", account.ID, "until", until, "rule_index", ruleIndex, "rule_scope", rule.Scope, "status_code", statusCode)
 	return true
 }
 

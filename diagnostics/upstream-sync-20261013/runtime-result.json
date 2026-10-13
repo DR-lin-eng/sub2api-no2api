@@ -1,0 +1,30 @@
+[
+  {
+    "stage": "baseline",
+    "result": "PASS",
+    "migrations": 302,
+    "locale_contract": "PASS",
+    "scope_persistence": "PASS"
+  },
+  {
+    "stage": "upgraded",
+    "result": "PASS",
+    "migrations": 302,
+    "locale_contract": "PASS",
+    "scope_persistence": "PASS"
+  },
+  {
+    "stage": "rollback",
+    "result": "PASS",
+    "migrations": 302,
+    "locale_contract": "PASS",
+    "scope_persistence": "PASS"
+  },
+  {
+    "stage": "restored",
+    "result": "PASS",
+    "migrations": 302,
+    "locale_contract": "PASS",
+    "scope_persistence": "PASS"
+  }
+]

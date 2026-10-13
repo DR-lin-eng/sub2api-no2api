@@ -1,0 +1,4 @@
+debconf: delaying package configuration, since apt-utils is not installed
+$ eslint .
+$ vue-tsc --noEmit
+make: *** [Makefile:56: test-frontend] Error 2

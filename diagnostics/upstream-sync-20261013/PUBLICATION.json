@@ -1,0 +1,35 @@
+{
+  "repository": "DR-lin-eng/sub2api-no2api",
+  "branch": "codex/upstream-sync-20261013",
+  "baseline_sha": "8773001a188f0b1fed3dff5d23b1700c70e3cf5e",
+  "upstream_sha": "4d9ac3e482106d2da3a39fe3e546d8d6801f1cc1",
+  "status": "local-validation-complete",
+  "ported_prs": [
+    7828,
+    8046,
+    8038,
+    7991,
+    7810
+  ],
+  "deferred_prs": [
+    7957,
+    8006
+  ],
+  "head_sha": null,
+  "pull_request": null,
+  "merge_sha": null,
+  "checks": [],
+  "local_checks": [
+    "backend-unit-bounded",
+    "backend-integration",
+    "backend-race",
+    "backend-lint",
+    "frontend-final-memory-corrected",
+    "build-baseline",
+    "build-candidate-final",
+    "runtime-upgrade-rollback",
+    "baseline-behavior-bounded",
+    "modified-behavior",
+    "rollback-behavior"
+  ]
+}
