@@ -755,9 +755,7 @@ func (s *OpenAIGatewayService) handleChatStreamingResponse(
 		if clientDisconnected {
 			return false
 		}
-		if len(pendingSSE) == 0 {
-			return true
-		}
+		// Immediate chunks also need SSE headers and the per-event flush path.
 		if !clientOutputStarted {
 			writeStreamHeaders()
 		}
