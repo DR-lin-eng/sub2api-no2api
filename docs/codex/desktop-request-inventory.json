@@ -1,0 +1,1306 @@
+{
+  "schema_version": 1,
+  "original_report_path": "/Volumes/移动/一些资料文档/codexapprea/ChatGPT_Codex_桌面端_深度分析报告.md",
+  "original_report_sha256": "6d3c58db54a1c50a7e91a72f291d9bb790f9910c8fc7a5c6b653be025d9840f7",
+  "client_version": "26.1007.71326",
+  "build": "20398",
+  "evidence_kind": "static_code, local_protocol, isolated_Redis_and_user_authorized_live_Responses",
+  "live_upstream_verified": true,
+  "report_explicit_header_spellings": [
+    "authorization",
+    "chatgpt-account-id",
+    "content-type",
+    "oai-device-id",
+    "oai-did",
+    "oai-language",
+    "oai-package-name",
+    "oai-product-sku",
+    "oai-sites-id-token",
+    "sec-ch-ua",
+    "sec-ch-ua-mobile",
+    "sec-ch-ua-platform",
+    "user-agent",
+    "x-client-request-id",
+    "x-codex-client-id",
+    "x-codex-client-session-token",
+    "x-codex-git-source",
+    "x-codex-installation-id",
+    "x-codex-parent-thread-id",
+    "x-codex-protocol-version",
+    "x-codex-routing-hint",
+    "x-codex-subscribe-cursor",
+    "x-codex-turn-metadata",
+    "x-codex-turn-state",
+    "x-codex-websocket-max-unfragmented-message-bytes",
+    "x-codex-window-id",
+    "x-codex-ws-stream-request-start-ms",
+    "x-oai-attestation",
+    "x-oai-is",
+    "x-oai-is-update",
+    "x-oai-request-id",
+    "x-openai-account-routing-override",
+    "x-openai-aeon-messaging-trace",
+    "x-openai-allow-environmentless-fallback",
+    "x-openai-expected-account-id",
+    "x-openai-fedramp",
+    "x-openai-internal-codex-responses-lite",
+    "x-openai-product-sku",
+    "x-openai-request-id",
+    "x-openai-subagent-request",
+    "x-openai-use-sheep"
+  ],
+  "headers": [
+    {
+      "id": "H01",
+      "name": "Authorization",
+      "direction": "request",
+      "scope": "模型/desktop/remote-control",
+      "value_template_and_source": "Bearer <ACCESS_TOKEN>；remote-control 用自己的 <REMOTE_CONTROL_TOKEN>",
+      "project_observed_status": "认证已构造；模型 token 与 remote-control token 分开",
+      "live_upstream_verified": true,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/account.go:1948",
+        "backend/internal/application/service/account_header_override.go:29",
+        "backend/internal/application/service/account_test_grok.go:78",
+        "backend/internal/application/service/account_test_logging.go:44",
+        "backend/internal/application/service/account_test_service.go:361",
+        "backend/internal/application/service/account_usage_service.go:1022",
+        "backend/internal/application/service/agnes_video.go:179",
+        "backend/internal/application/service/anthropic_apikey_auth.go:12"
+      ]
+    },
+    {
+      "id": "H02",
+      "name": "chatgpt-account-id",
+      "direction": "request",
+      "scope": "模型/账号 API",
+      "value_template_and_source": "<ACCOUNT_ID>；token account claim",
+      "project_observed_status": "凭据账号构造；shadow 使用母账号；已知矛盾拒绝",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/account_header_override.go:68",
+        "backend/internal/application/service/openai_chatgpt_headers.go:13",
+        "backend/internal/application/service/openai_codex_models_service.go:365",
+        "backend/internal/application/service/openai_excel_bps.go:57",
+        "backend/internal/application/service/openai_quota_service.go:541",
+        "backend/internal/application/service/openai_workspace_routing.go:366",
+        "backend/internal/application/service/openai_ws_forwarder_v2.go:237"
+      ]
+    },
+    {
+      "id": "H03",
+      "name": "Content-Type",
+      "direction": "request",
+      "scope": "JSON/OTel/OAuth",
+      "value_template_and_source": "JSON 为 application/json；token exchange 为 form-urlencoded",
+      "project_observed_status": "模型/透传 JSON 已归一；OAuth form 独立",
+      "live_upstream_verified": true,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/account_header_override.go:28",
+        "backend/internal/application/service/account_test_grok.go:57",
+        "backend/internal/application/service/account_test_service.go:328",
+        "backend/internal/application/service/account_test_service_typesafe.go:56",
+        "backend/internal/application/service/account_usage_service.go:1007",
+        "backend/internal/application/service/agnes_video.go:186",
+        "backend/internal/application/service/antigravity_gateway_compat_stream.go:121",
+        "backend/internal/application/service/antigravity_gateway_streaming.go:124"
+      ]
+    },
+    {
+      "id": "H04",
+      "name": "User-Agent",
+      "direction": "request",
+      "scope": "surface/engine/browser",
+      "value_template_and_source": "surface 为 Codex Desktop/26.1007.71326 (Mac OS; arm64)；engine=<ENGINE_UA>；browser=<BROWSER_RUNTIME_UA>",
+      "project_observed_status": "模型用配对 engine profile；surface UA 不能当模型实测 UA",
+      "live_upstream_verified": true,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/account_test_service.go:176",
+        "backend/internal/application/service/account_usage_service.go:446",
+        "backend/internal/application/service/admin_proxy.go:384",
+        "backend/internal/application/service/claude_code_validator.go:18",
+        "backend/internal/application/service/domain_constants.go:717",
+        "backend/internal/application/service/gateway_billing_header.go:22",
+        "backend/internal/application/service/gateway_count_tokens.go:63",
+        "backend/internal/application/service/gateway_forward.go:186"
+      ]
+    },
+    {
+      "id": "H05",
+      "name": "originator",
+      "direction": "request",
+      "scope": "surface/engine/browser",
+      "value_template_and_source": "surface: Codex Desktop；engine=<ENGINE_ORIGINATOR>；browser: Codex Browser",
+      "project_observed_status": "模型配对 UA；原报告 codex-desktop 不能覆盖已证实 surface 默认值",
+      "live_upstream_verified": true,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/account_test_service.go:733",
+        "backend/internal/application/service/account_usage_service.go:1027",
+        "backend/internal/application/service/openai_alpha_search.go:260",
+        "backend/internal/application/service/openai_client_restriction_detector.go:22",
+        "backend/internal/application/service/openai_codex_fingerprint.go:43",
+        "backend/internal/application/service/openai_codex_identity.go:32",
+        "backend/internal/application/service/openai_codex_identity_plan.go:93",
+        "backend/internal/application/service/openai_codex_models_service.go:324"
+      ]
+    },
+    {
+      "id": "H06",
+      "name": "OAI-Device-Id",
+      "direction": "request_conditional",
+      "scope": "user-verification",
+      "value_template_and_source": "<DEVICE_ID>；helper device 参数存在即附加，GET/POST 均可",
+      "project_observed_status": "模型不发送；尚无 user-verification 注册链",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": []
+    },
+    {
+      "id": "H07",
+      "name": "oai-did",
+      "direction": "request",
+      "scope": "browser/device cookie",
+      "value_template_and_source": "<DEVICE_ID>；设备管理器持久身份",
+      "project_observed_status": "不是 installation UUID 的已证实 wire 别名；模型不发送",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": []
+    },
+    {
+      "id": "H08",
+      "name": "OAI-Language",
+      "direction": "unresolved_or_quota_request",
+      "scope": "CLI 符号/项目 quota",
+      "value_template_and_source": "<LOCALE>；真实 locale；项目 quota 为 zh-CN",
+      "project_observed_status": "quota 已构造；模型未见构造；quota 的值不能算模型覆盖",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/openai_quota_service.go:723"
+      ]
+    },
+    {
+      "id": "H09",
+      "name": "OAI-Package-Name",
+      "direction": "request_conditional",
+      "scope": "DeviceCheck attachToken",
+      "value_template_and_source": "<BUNDLE_ID>；报告 com.openai.codex",
+      "project_observed_status": "与 x-sentinel-dc 同步附加；模型不发送",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": []
+    },
+    {
+      "id": "H10",
+      "name": "OAI-Product-Sku",
+      "direction": "request",
+      "scope": "desktop GET helper Wr",
+      "value_template_and_source": "CODEX；已确认源码固定公开字面值",
+      "project_observed_status": "当前模型/quota 未见构造；已登记缺口",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": []
+    },
+    {
+      "id": "H11",
+      "name": "X-OpenAI-Product-Sku",
+      "direction": "unresolved",
+      "scope": "CLI strings",
+      "value_template_and_source": "<PRODUCT_SKU>；具体来源待确认",
+      "project_observed_status": "不可默认为 OAI-Product-Sku 的同值别名；未见模型构造",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": []
+    },
+    {
+      "id": "H12",
+      "name": "OAI-Sites-ID-Token",
+      "direction": "request_conditional",
+      "scope": "支持的 HTTPS Site",
+      "value_template_and_source": "<SITE_ID_TOKEN>；session_bootstrap 签发",
+      "project_observed_status": "不是模型 OAuth 头；Site flow 独立",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": []
+    },
+    {
+      "id": "H13",
+      "name": "sec-ch-ua",
+      "direction": "request",
+      "scope": "Codex Browser",
+      "value_template_and_source": "<CHROMIUM_CLIENT_HINTS>；browser runtime",
+      "project_observed_status": "完整真实值尚未抓包；Go engine 不伪造 browser hints",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": []
+    },
+    {
+      "id": "H14",
+      "name": "sec-ch-ua-mobile",
+      "direction": "request",
+      "scope": "Codex Browser",
+      "value_template_and_source": "?0；桌面 browser 场景",
+      "project_observed_status": "普通模型不发送",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": []
+    },
+    {
+      "id": "H15",
+      "name": "sec-ch-ua-platform",
+      "direction": "request",
+      "scope": "Codex Browser",
+      "value_template_and_source": "<BROWSER_PLATFORM>；实际 Chromium 平台",
+      "project_observed_status": "普通模型不发送；不得与 UA 平台冲突",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": []
+    },
+    {
+      "id": "H16",
+      "name": "x-client-request-id",
+      "direction": "request",
+      "scope": "模型 HTTP/WS",
+      "value_template_and_source": "<CLIENT_REQUEST_ID>；同 request plan",
+      "project_observed_status": "已构造；full 为 thread ID，旧 session 模式为 turn ID",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/account_header_override.go:70",
+        "backend/internal/application/service/gateway_service.go:446",
+        "backend/internal/application/service/gateway_upstream_request.go:175",
+        "backend/internal/application/service/header_util.go:45",
+        "backend/internal/application/service/openai_codex_fingerprint.go:49",
+        "backend/internal/application/service/openai_codex_session_headers.go:50",
+        "backend/internal/application/service/openai_gateway_request_build.go:184",
+        "backend/internal/application/service/openai_gateway_service.go:78"
+      ]
+    },
+    {
+      "id": "H17",
+      "name": "x-codex-client-id",
+      "direction": "unresolved",
+      "scope": "remote-control client",
+      "value_template_and_source": "<CLIENT_ID>；client enrollment/refresh",
+      "project_observed_status": "项目已有 server 角色协议，不能算 desktop client 已覆盖",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": []
+    },
+    {
+      "id": "H18",
+      "name": "x-codex-client-session-token",
+      "direction": "request",
+      "scope": "remote-control client 后续请求",
+      "value_template_and_source": "Bearer <REMOTE_CONTROL_TOKEN>；refresh/finish 返回",
+      "project_observed_status": "模型不发送；server 角色的 Authorization 不是它的替代",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": []
+    },
+    {
+      "id": "H19",
+      "name": "x-codex-git-source",
+      "direction": "unresolved",
+      "scope": "desktop git 来源",
+      "value_template_and_source": "<GIT_SOURCE>；真实 git 操作分类",
+      "project_observed_status": "模型白名单未发送；需逐调用点确认",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": []
+    },
+    {
+      "id": "H20",
+      "name": "x-codex-installation-id",
+      "direction": "request_or_metadata",
+      "scope": "模型/Compact/remote-control",
+      "value_template_and_source": "<INSTALLATION_ID>；真实持久安装 UUID；项目账号 device 值或稳定派生",
+      "project_observed_status": "普通/device/session 可直接头；full 普通 Responses/WS 只有 body，Compact 可直接头；明确 wire 差异",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/openai_codex_fingerprint.go:50",
+        "backend/internal/application/service/openai_codex_metadata_sanitize.go:142",
+        "backend/internal/application/service/openai_codex_transform.go:1446",
+        "backend/internal/application/service/openai_gateway_service.go:80",
+        "backend/internal/application/service/openai_ws_forwarder_payload.go:122",
+        "backend/internal/shared/openai/engine_fingerprint_signal.go:33",
+        "backend/internal/shared/remotecontrol/protocol.go:27"
+      ]
+    },
+    {
+      "id": "H21",
+      "name": "x-codex-parent-thread-id",
+      "direction": "request_conditional",
+      "scope": "子线程模型",
+      "value_template_and_source": "<PARENT_THREAD_ID>；同 principal lineage",
+      "project_observed_status": "有来源时重建，无父线程省略",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/openai_codex_fingerprint.go:51",
+        "backend/internal/application/service/openai_codex_metadata_sanitize.go:145",
+        "backend/internal/application/service/openai_codex_session_headers.go:51"
+      ]
+    },
+    {
+      "id": "H22",
+      "name": "x-codex-protocol-version",
+      "direction": "request",
+      "scope": "remote-control/app-server 协议",
+      "value_template_and_source": "<PROTOCOL_VERSION>；独立协议协商",
+      "project_observed_status": "server WS 已发送 3；不得外推其他角色/模型",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/shared/remotecontrol/protocol.go:26"
+      ]
+    },
+    {
+      "id": "H23",
+      "name": "x-codex-routing-hint",
+      "direction": "request",
+      "scope": "模型 HTTP/WS",
+      "value_template_and_source": "model=<MODEL>[;tier=<TIER>]；最终模型和有效 tier",
+      "project_observed_status": "已生成 model 与 priority/flex；未扩展任意 tier",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/openai_routing_hint.go:15"
+      ]
+    },
+    {
+      "id": "H24",
+      "name": "x-codex-subscribe-cursor",
+      "direction": "request_conditional",
+      "scope": "remote-control subscription",
+      "value_template_and_source": "<SUBSCRIBE_CURSOR>；真实订阅进度",
+      "project_observed_status": "server WS 可选生成；模型不发送",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/shared/remotecontrol/protocol.go:29"
+      ]
+    },
+    {
+      "id": "H25",
+      "name": "x-codex-turn-metadata",
+      "direction": "request_and_metadata",
+      "scope": "模型 HTTP/WS",
+      "value_template_and_source": "<TURN_METADATA_JSON>；当前轮次的一份投影",
+      "project_observed_status": "已有归一/投影；28 项实际 provenance 另表，不能算真实桌面采集",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/account_header_override.go:63",
+        "backend/internal/application/service/openai_alpha_search.go:251",
+        "backend/internal/application/service/openai_codex_fingerprint.go:52",
+        "backend/internal/application/service/openai_codex_metadata_sanitize.go:101",
+        "backend/internal/application/service/openai_codex_request_headers.go:47",
+        "backend/internal/application/service/openai_codex_session_headers.go:64",
+        "backend/internal/application/service/openai_gateway_chat_completions_raw.go:22",
+        "backend/internal/application/service/openai_gateway_service.go:82"
+      ]
+    },
+    {
+      "id": "H26",
+      "name": "x-codex-turn-state",
+      "direction": "request_and_metadata",
+      "scope": "模型 HTTP/WS",
+      "value_template_and_source": "<TURN_STATE>；opaque 上游状态",
+      "project_observed_status": "有观察/回带；配置随机池是有意差异，不等于同客户端真实状态连续性",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/account_header_override.go:62",
+        "backend/internal/application/service/openai_alpha_search.go:445",
+        "backend/internal/application/service/openai_codex_continuation.go:563",
+        "backend/internal/application/service/openai_codex_fingerprint.go:53",
+        "backend/internal/application/service/openai_codex_turn_state.go:13",
+        "backend/internal/application/service/openai_codex_turn_state_auto_replay.go:54",
+        "backend/internal/application/service/openai_codex_turn_state_probe.go:783",
+        "backend/internal/application/service/openai_gateway_chat_completions_raw.go:22"
+      ]
+    },
+    {
+      "id": "H27",
+      "name": "x-codex-websocket-max-unfragmented-message-bytes",
+      "direction": "handshake_response",
+      "scope": "本地/SSH app-server RPC",
+      "value_template_and_source": "<MAX_UNFRAGMENTED_BYTES>；握手响应；回退 16777216",
+      "project_observed_status": "bundle 已证实读响应；不能补成每次模型必发头",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": []
+    },
+    {
+      "id": "H28",
+      "name": "x-codex-window-id",
+      "direction": "request_and_metadata",
+      "scope": "模型窗口",
+      "value_template_and_source": "<WINDOW_ID>；同窗口来源",
+      "project_observed_status": "session/full 可生成；普通 OAuth 按既有可信投影边界",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/openai_codex_fingerprint.go:54",
+        "backend/internal/application/service/openai_codex_identity.go:154",
+        "backend/internal/application/service/openai_codex_metadata_sanitize.go:143",
+        "backend/internal/application/service/openai_gateway_service.go:83",
+        "backend/internal/application/service/openai_ws_forwarder_payload.go:121",
+        "backend/internal/shared/openai/engine_fingerprint_signal.go:28"
+      ]
+    },
+    {
+      "id": "H29",
+      "name": "x-codex-ws-stream-request-start-ms",
+      "direction": "metadata",
+      "scope": "模型 WS 每轮流",
+      "value_template_and_source": "<WS_REQUEST_START_MS>；真实帧发送时刻",
+      "project_observed_status": "仅见兼容键定义，未见时间生成；明确未完成项",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/openai_codex_fingerprint.go:83",
+        "backend/internal/application/service/openai_codex_metadata_sanitize.go:147"
+      ]
+    },
+    {
+      "id": "H30",
+      "name": "x-oai-attestation",
+      "direction": "unresolved",
+      "scope": "CLI attestation",
+      "value_template_and_source": "<ATTESTATION_ENVELOPE>；AttestationGenerate 真实输出",
+      "project_observed_status": "已接入 HTTP、普通/托管/透传 WS 的实际发送点；本地 provider 生成真实 callback token，Linux 返回 error_code=1，当前 macOS 返回 error_code=3；外层 s=0 只表示回调成功，不等于 Apple 证明成功。可用 gateway.openai_oauth_attestation_enabled 开启。",
+      "live_upstream_verified": true,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/openai_codex_fingerprint.go:57",
+        "backend/internal/application/service/openai_live_attestation.go:18"
+      ],
+      "live_boundary": "HTTP 200 with truthful device-unavailable CBOR, not valid Apple proof"
+    },
+    {
+      "id": "H31",
+      "name": "X-OAI-IS",
+      "direction": "request_conditional",
+      "scope": "attachIntegrityState desktop HTTP",
+      "value_template_and_source": "<INTEGRITY_STATE>；服务端签发；ois1.A.B.C；最多 2048 字符",
+      "project_observed_status": "已按 principal、安装身份、第一方 origin 隔离；在实际发送点取状态，Redis 原子 CAS、独立 send receipt、防乱序、超时与有界本地存储；真实模型请求本次没有收到 update，真实闭环未证明。",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": []
+    },
+    {
+      "id": "H32",
+      "name": "X-OAI-IS-Update",
+      "direction": "response",
+      "scope": "上述 desktop HTTP 响应",
+      "value_template_and_source": "<NEXT_INTEGRITY_STATE>；响应签发；expectedState CAS",
+      "project_observed_status": "仅消费第一方响应中的合法单值；Redis 原子比较 expected 后更新。普通 HTTP、managed WS/prewarm 和 passthrough WS 均有响应观察；不接受客户端注入或其他 origin 更新。",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": []
+    },
+    {
+      "id": "H33",
+      "name": "x-oai-request-id",
+      "direction": "unresolved",
+      "scope": "CLI strings",
+      "value_template_and_source": "<REQUEST_ID>；方向/调用点待确认",
+      "project_observed_status": "模型未见构造；不默认等同 x-client-request-id",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": []
+    },
+    {
+      "id": "H34",
+      "name": "X-OpenAI-Account-Routing-Override",
+      "direction": "trusted_request",
+      "scope": "workspace routing",
+      "value_template_and_source": "<ROUTING_OVERRIDE>；可信 backend auth/discovery",
+      "project_observed_status": "客户端值删除；服务端结果可重建，不是一律不发",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/account_header_override.go:67",
+        "backend/internal/application/service/openai_workspace_routing.go:20"
+      ]
+    },
+    {
+      "id": "H35",
+      "name": "X-OpenAI-Aeon-Messaging-Trace",
+      "direction": "local_control",
+      "scope": "desktop messaging tracing",
+      "value_template_and_source": "<TRACE_FLAG>；主进程读取后删除",
+      "project_observed_status": "触发 trace 处理；不是每次模型必须发送的线缆头",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": []
+    },
+    {
+      "id": "H36",
+      "name": "X-OpenAI-Allow-Environmentless-Fallback",
+      "direction": "unresolved",
+      "scope": "CLI strings",
+      "value_template_and_source": "<ENVIRONMENTLESS_FALLBACK>；调用条件/值待确认",
+      "project_observed_status": "当前模型未见构造，保留差异",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": []
+    },
+    {
+      "id": "H37",
+      "name": "X-OpenAI-Expected-Account-Id",
+      "direction": "local_control",
+      "scope": "performDesktopFetch 入站",
+      "value_template_and_source": "<EXPECTED_ACCOUNT_ID>；消费后本地比较",
+      "project_observed_status": "不是上游必发头；完整 principal 还涉及 userId",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": []
+    },
+    {
+      "id": "H38",
+      "name": "X-OpenAI-Fedramp",
+      "direction": "request_conditional",
+      "scope": "FedRAMP account API",
+      "value_template_and_source": "true；真实 token/account claim 为 true",
+      "project_observed_status": "按账号发送，否则删除；不可固定 true",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/openai_chatgpt_headers.go:14",
+        "backend/internal/application/service/openai_quota_service.go:732"
+      ]
+    },
+    {
+      "id": "H39",
+      "name": "x-openai-internal-codex-responses-lite",
+      "direction": "request_and_metadata",
+      "scope": "Responses Lite",
+      "value_template_and_source": "<RESPONSES_LITE_FLAG>；实际协议选择",
+      "project_observed_status": "项目按 handshake/body 重建；普通请求不强开",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/image_generation_intent.go:13"
+      ]
+    },
+    {
+      "id": "H40",
+      "name": "x-openai-request-id",
+      "direction": "response_or_unresolved",
+      "scope": "响应 tracing/CLI strings",
+      "value_template_and_source": "<UPSTREAM_REQUEST_ID>；bundle 证实读响应",
+      "project_observed_status": "不凭字符串要求模型请求必须发送",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": []
+    },
+    {
+      "id": "H41",
+      "name": "x-openai-subagent-request",
+      "direction": "unresolved",
+      "scope": "CLI strings",
+      "value_template_and_source": "<SUBAGENT_REQUEST_MARKER>；类型/值未证实",
+      "project_observed_status": "项目是 x-openai-subagent；后缀不同，未证实 alias",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": []
+    },
+    {
+      "id": "H42",
+      "name": "x-openai-use-sheep",
+      "direction": "request",
+      "scope": "user-verification",
+      "value_template_and_source": "1；固定公开字面值",
+      "project_observed_status": "普通模型不发送；user-verification flow 未建立",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": []
+    },
+    {
+      "id": "H43",
+      "name": "Accept",
+      "direction": "request",
+      "scope": "Responses/Compact/manifest",
+      "value_template_and_source": "Responses=text/event-stream；Compact/manifest=application/json",
+      "project_observed_status": "模型已归一；其他端点依其协议",
+      "live_upstream_verified": true,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/account.go:188",
+        "backend/internal/application/service/account_header_override.go:30",
+        "backend/internal/application/service/account_test_grok.go:77",
+        "backend/internal/application/service/account_test_reasoning.go:16",
+        "backend/internal/application/service/account_test_service.go:731",
+        "backend/internal/application/service/account_typesafe.go:13",
+        "backend/internal/application/service/account_usage_service.go:1024",
+        "backend/internal/application/service/admin_compliance.go:47"
+      ]
+    },
+    {
+      "id": "H44",
+      "name": "session-id",
+      "direction": "request",
+      "scope": "engine HTTP/WS",
+      "value_template_and_source": "<SESSION_ID>；真实 session，项目 principal 派生",
+      "project_observed_status": "已构造；full 与 thread/prompt_cache_key 关联",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/account_header_override.go:32",
+        "backend/internal/application/service/gateway_count_tokens.go:581",
+        "backend/internal/application/service/gateway_service.go:445",
+        "backend/internal/application/service/gateway_upstream_request.go:145",
+        "backend/internal/application/service/gateway_usage_billing.go:50",
+        "backend/internal/application/service/header_util.go:44",
+        "backend/internal/application/service/openai_claude_session.go:9",
+        "backend/internal/application/service/openai_codex_fingerprint.go:44"
+      ]
+    },
+    {
+      "id": "H45",
+      "name": "thread-id",
+      "direction": "request",
+      "scope": "engine HTTP/WS",
+      "value_template_and_source": "<THREAD_ID>；真实 thread",
+      "project_observed_status": "已构造；不得给无关系的线程共用无来源固定值",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/account_header_override.go:60",
+        "backend/internal/application/service/openai_codex_fingerprint.go:46",
+        "backend/internal/application/service/openai_codex_identity_plan.go:254",
+        "backend/internal/application/service/openai_codex_metadata_sanitize.go:145",
+        "backend/internal/application/service/openai_codex_session_headers.go:49",
+        "backend/internal/application/service/openai_gateway_request_build.go:184",
+        "backend/internal/application/service/openai_gateway_service.go:77",
+        "backend/internal/application/service/openai_live.go:521"
+      ]
+    },
+    {
+      "id": "H46",
+      "name": "session_id",
+      "direction": "legacy_request_and_metadata",
+      "scope": "报告符号/项目兼容",
+      "value_template_and_source": "<SESSION_ID>；client_metadata/turn JSON",
+      "project_observed_status": "普通兼容可发 underscore；full 不发；不能忽略 hyphen 差异",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/account.go:2100",
+        "backend/internal/application/service/account_header_override.go:32",
+        "backend/internal/application/service/account_test_service.go:963",
+        "backend/internal/application/service/antigravity_gateway_retry.go:760",
+        "backend/internal/application/service/antigravity_oauth_service.go:30",
+        "backend/internal/application/service/domain_constants.go:630",
+        "backend/internal/application/service/gateway_claude_oauth_body.go:337",
+        "backend/internal/application/service/gateway_count_tokens.go:581"
+      ]
+    },
+    {
+      "id": "H47",
+      "name": "conversation_id",
+      "direction": "legacy_request",
+      "scope": "项目兼容",
+      "value_template_and_source": "<CONVERSATION_ID>；账号/用户隔离",
+      "project_observed_status": "项目兼容项；报告没证明 agent 必需",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/account_header_override.go:61",
+        "backend/internal/application/service/account_quality_conversation.go:25",
+        "backend/internal/application/service/account_test_service.go:65",
+        "backend/internal/application/service/openai_alpha_search.go:279",
+        "backend/internal/application/service/openai_codex_fingerprint.go:42",
+        "backend/internal/application/service/openai_codex_identity_plan.go:262",
+        "backend/internal/application/service/openai_codex_session_headers.go:48",
+        "backend/internal/application/service/openai_cyber_session_block.go:22"
+      ]
+    },
+    {
+      "id": "H48",
+      "name": "version",
+      "direction": "request",
+      "scope": "项目 engine profile",
+      "value_template_and_source": "<ENGINE_VERSION>；UA 首版本",
+      "project_observed_status": "项目已配对；不可拿 surface appVersion 当通用 engine version",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/account.go:165",
+        "backend/internal/application/service/account_header_override.go:53",
+        "backend/internal/application/service/account_quality_artifact.go:13",
+        "backend/internal/application/service/account_quality_code_match.go:32",
+        "backend/internal/application/service/account_quality_monitor.go:365",
+        "backend/internal/application/service/account_quality_public.go:36",
+        "backend/internal/application/service/account_test_service.go:167",
+        "backend/internal/application/service/account_usage_service.go:128"
+      ]
+    },
+    {
+      "id": "H49",
+      "name": "OpenAI-Beta",
+      "direction": "request_conditional",
+      "scope": "WS/quota",
+      "value_template_and_source": "v2=responses_websockets=2026-02-06；quota=codex-1",
+      "project_observed_status": "项目现状；普通 HTTP 去除旧 responses=experimental；非真实新客户端 capture",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/account_test_service.go:732",
+        "backend/internal/application/service/account_usage_service.go:1025",
+        "backend/internal/application/service/openai_alpha_search.go:250",
+        "backend/internal/application/service/openai_codex_identity.go:146",
+        "backend/internal/application/service/openai_gateway_grok.go:1228",
+        "backend/internal/application/service/openai_gateway_grok_cache.go:215",
+        "backend/internal/application/service/openai_gateway_messages.go:416",
+        "backend/internal/application/service/openai_gateway_passthrough.go:822"
+      ]
+    },
+    {
+      "id": "H50",
+      "name": "x-codex-beta-features",
+      "direction": "request_conditional",
+      "scope": "native compact/模型",
+      "value_template_and_source": "<BETA_FEATURES>；实际 feature set",
+      "project_observed_status": "项目已有 remote compaction v2 策略，新增协议不能漏记",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/openai_alpha_search.go:444",
+        "backend/internal/application/service/openai_compact_body_signal.go:34",
+        "backend/internal/application/service/openai_gateway_service.go:79",
+        "backend/internal/application/service/openai_ws_forwarder_payload.go:115",
+        "backend/internal/application/service/openai_ws_pool.go:2414"
+      ]
+    },
+    {
+      "id": "H51",
+      "name": "x-openai-subagent",
+      "direction": "request_and_metadata",
+      "scope": "项目 subagent",
+      "value_template_and_source": "<SUBAGENT_KIND>；真实当轮语义",
+      "project_observed_status": "按语义重建，不能宣称等同 report 的 -request",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/account_header_override.go:66",
+        "backend/internal/application/service/openai_codex_fingerprint.go:58",
+        "backend/internal/application/service/openai_codex_metadata_sanitize.go:146",
+        "backend/internal/application/service/openai_codex_request_headers.go:45",
+        "backend/internal/application/service/openai_codex_session_headers.go:82",
+        "backend/internal/application/service/openai_ws_pool.go:2445"
+      ]
+    },
+    {
+      "id": "H52",
+      "name": "x-codex-guardian",
+      "direction": "request_conditional",
+      "scope": "guardian",
+      "value_template_and_source": "reviewer/classifier；匹配 subagent/source/trigger",
+      "project_observed_status": "项目按条件重建",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/account_header_override.go:64",
+        "backend/internal/application/service/openai_codex_request_headers.go:12",
+        "backend/internal/application/service/openai_ws_pool.go:2446"
+      ]
+    },
+    {
+      "id": "H53",
+      "name": "x-openai-memgen-request",
+      "direction": "request_conditional",
+      "scope": "memory consolidation",
+      "value_template_and_source": "true；一致的 kind/source/trigger",
+      "project_observed_status": "项目按完整语义条件附加",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/account_header_override.go:65",
+        "backend/internal/application/service/openai_codex_request_headers.go:13",
+        "backend/internal/application/service/openai_ws_pool.go:2447"
+      ]
+    },
+    {
+      "id": "H54",
+      "name": "x-responsesapi-include-timing-metrics",
+      "direction": "request_conditional",
+      "scope": "项目 timing",
+      "value_template_and_source": "<TIMING_METRICS_FLAG>；调用参数",
+      "project_observed_status": "项目白名单透传；不是 desktop 硬件证明",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/openai_gateway_service.go:84",
+        "backend/internal/application/service/openai_ws_forwarder_payload.go:124",
+        "backend/internal/application/service/openai_ws_pool.go:2448"
+      ]
+    },
+    {
+      "id": "H55",
+      "name": "x-sentinel-dc",
+      "direction": "request_conditional",
+      "scope": "challenge 或 POST messaging",
+      "value_template_and_source": "{\"token\":\"<DEVICECHECK_ENVELOPE>\"}；真实 DeviceCheck output",
+      "project_observed_status": "已接入受控 Desktop 发送链：raw Apple token，精确端点 allow-list，/backend-api/devicecheck 注册并复用 _devicecheck cookie；Linux raw provider 和当前 macOS 均不可用，未伪造成功注册。",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": []
+    },
+    {
+      "id": "H56",
+      "name": "Cookie",
+      "direction": "request_conditional",
+      "scope": "surface/device cookie/Site",
+      "value_template_and_source": "<COOKIE_JAR_VALUES>；Electron session 管理",
+      "project_observed_status": "只复用同账号/安装/origin 的 _devicecheck cookie，按 Path/Domain/Secure/过期校验；本地 mock 注册闭环通过，真实 Apple token 未取得，真实注册未证明。",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/account_credentials_redact.go:9",
+        "backend/internal/application/service/account_header_override.go:29",
+        "backend/internal/application/service/audit_log.go:129",
+        "backend/internal/application/service/auth_service.go:1785",
+        "backend/internal/application/service/content_moderation_redact.go:10",
+        "backend/internal/application/service/gateway_anthropic_passthrough.go:359",
+        "backend/internal/application/service/gateway_count_tokens.go:427",
+        "backend/internal/application/service/gateway_upstream_request.go:326"
+      ]
+    },
+    {
+      "id": "H57",
+      "name": "traceparent",
+      "direction": "request_conditional",
+      "scope": "messaging tracing/OTel",
+      "value_template_and_source": "<TRACEPARENT>；同一 W3C trace context",
+      "project_observed_status": "bundle 条件附加；metadata 兼容键不等于完整实际 trace 传播",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/openai_codex_fingerprint.go:85"
+      ]
+    },
+    {
+      "id": "H58",
+      "name": "tracestate",
+      "direction": "request_conditional",
+      "scope": "同上",
+      "value_template_and_source": "<TRACESTATE>；同一 trace context",
+      "project_observed_status": "有 context 值才发送；project wire 传播尚需核对",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/openai_codex_fingerprint.go:86"
+      ]
+    },
+    {
+      "id": "H59",
+      "name": "X-Codex-Surface",
+      "direction": "unresolved",
+      "scope": "renderer/desktop 符号",
+      "value_template_and_source": "<SURFACE>；读写条件未完整确定",
+      "project_observed_status": "已定位常量，不构成所有模型必发头的证据",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": []
+    },
+    {
+      "id": "H60",
+      "name": "X-OpenAI-Attach-Auth",
+      "direction": "local_control",
+      "scope": "performDesktopFetch 入站",
+      "value_template_and_source": "1/true 开启，0/false 关闭；读取删除",
+      "project_observed_status": "本地控制，不发送上游",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": []
+    },
+    {
+      "id": "H61",
+      "name": "X-OpenAI-Attach-Desktop-Surface",
+      "direction": "local_control",
+      "scope": "同上",
+      "value_template_and_source": "1/true；读取删除",
+      "project_observed_status": "触发按需 originator/User-Agent 补齐",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": []
+    },
+    {
+      "id": "H62",
+      "name": "X-OpenAI-Attach-DeviceCheck-Token",
+      "direction": "local_control",
+      "scope": "同上",
+      "value_template_and_source": "1/true；读取删除",
+      "project_observed_status": "通过 surface/允许端点检查后附加真实 x-sentinel-dc",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": []
+    },
+    {
+      "id": "H63",
+      "name": "X-OpenAI-Attach-Integrity-State",
+      "direction": "local_control",
+      "scope": "同上",
+      "value_template_and_source": "1/true；读取删除",
+      "project_observed_status": "触发当前有效 X-OAI-IS 回带",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": []
+    },
+    {
+      "id": "H64",
+      "name": "x-codex-server-id",
+      "direction": "request",
+      "scope": "项目 remote-control server",
+      "value_template_and_source": "<SERVER_ID>；server enrollment",
+      "project_observed_status": "server 已构造；不是 client_id",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/shared/remotecontrol/protocol.go:24"
+      ]
+    },
+    {
+      "id": "H65",
+      "name": "x-codex-name",
+      "direction": "request",
+      "scope": "同上",
+      "value_template_and_source": "base64(<SERVER_NAME>)",
+      "project_observed_status": "server 已构造",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/shared/remotecontrol/protocol.go:25"
+      ]
+    },
+    {
+      "id": "H66",
+      "name": "x-codex-host-device-kind",
+      "direction": "request_conditional",
+      "scope": "remote-control server",
+      "value_template_and_source": "<HOST_DEVICE_KIND>；真实宿主",
+      "project_observed_status": "server 可选生成；不能当硬件证明",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/openai_codex_fingerprint.go:55",
+        "backend/internal/shared/remotecontrol/protocol.go:28"
+      ]
+    },
+    {
+      "id": "H67",
+      "name": "x-openai-internal-codex-residency",
+      "direction": "unresolved",
+      "scope": "项目保留过滤项",
+      "value_template_and_source": "<RESIDENCY>；真实 server selection 未知",
+      "project_observed_status": "full 清理，未确认应如何可信重建",
+      "live_upstream_verified": false,
+      "project_symbol_occurrence_refs": [
+        "backend/internal/application/service/openai_codex_fingerprint.go:56"
+      ]
+    }
+  ],
+  "turn_metadata": [
+    {
+      "name": "session_id",
+      "location": "body.client_metadata / x-codex-turn-metadata JSON",
+      "value_source_slot": "<SESSION_ID>",
+      "project_observed_status": "有 request/identity plan 投影；逐 mode 说明来源，不等于真实 desktop 采集",
+      "independent_http_header_required": false
+    },
+    {
+      "name": "thread_id",
+      "location": "body.client_metadata / x-codex-turn-metadata JSON",
+      "value_source_slot": "<THREAD_ID>",
+      "project_observed_status": "有 request/identity plan 投影；逐 mode 说明来源，不等于真实 desktop 采集",
+      "independent_http_header_required": false
+    },
+    {
+      "name": "turn_id",
+      "location": "body.client_metadata / x-codex-turn-metadata JSON",
+      "value_source_slot": "<TURN_ID>",
+      "project_observed_status": "有 request/identity plan 投影；逐 mode 说明来源，不等于真实 desktop 采集",
+      "independent_http_header_required": false
+    },
+    {
+      "name": "window_id",
+      "location": "body.client_metadata / x-codex-turn-metadata JSON",
+      "value_source_slot": "<WINDOW_ID>",
+      "project_observed_status": "有 request/identity plan 投影；逐 mode 说明来源，不等于真实 desktop 采集",
+      "independent_http_header_required": false
+    },
+    {
+      "name": "window_number",
+      "location": "body.client_metadata / x-codex-turn-metadata JSON",
+      "value_source_slot": "<WINDOW_NUMBER>",
+      "project_observed_status": "有 request/identity plan 投影；逐 mode 说明来源，不等于真实 desktop 采集",
+      "independent_http_header_required": false
+    },
+    {
+      "name": "context_window_id",
+      "location": "body.client_metadata / x-codex-turn-metadata JSON",
+      "value_source_slot": "<CONTEXT_WINDOW_ID>",
+      "project_observed_status": "有 request/identity plan 投影；逐 mode 说明来源，不等于真实 desktop 采集",
+      "independent_http_header_required": false
+    },
+    {
+      "name": "agent_name",
+      "location": "body.client_metadata / x-codex-turn-metadata JSON",
+      "value_source_slot": "<AGENT_NAME>",
+      "project_observed_status": "在保留/额外字段规则中逐 mode 核对；尚无真实 desktop 运行态采集证据，不计为完整实现",
+      "independent_http_header_required": false
+    },
+    {
+      "name": "turn_started_at_unix_ms",
+      "location": "body.client_metadata / x-codex-turn-metadata JSON",
+      "value_source_slot": "<TURN_STARTED_AT_UNIX_MS>",
+      "project_observed_status": "有 request/identity plan 投影；逐 mode 说明来源，不等于真实 desktop 采集",
+      "independent_http_header_required": false
+    },
+    {
+      "name": "request_kind",
+      "location": "body.client_metadata / x-codex-turn-metadata JSON",
+      "value_source_slot": "<REQUEST_KIND>",
+      "project_observed_status": "有 request/identity plan 投影；逐 mode 说明来源，不等于真实 desktop 采集",
+      "independent_http_header_required": false
+    },
+    {
+      "name": "compaction",
+      "location": "body.client_metadata / x-codex-turn-metadata JSON",
+      "value_source_slot": "<COMPACTION>",
+      "project_observed_status": "在保留/额外字段规则中逐 mode 核对；尚无真实 desktop 运行态采集证据，不计为完整实现",
+      "independent_http_header_required": false
+    },
+    {
+      "name": "code_mode_tool_names",
+      "location": "body.client_metadata / x-codex-turn-metadata JSON",
+      "value_source_slot": "<CODE_MODE_TOOL_NAMES>",
+      "project_observed_status": "当前 forbidden turn metadata 项；明确差异，待新 runtime 证据决定位置",
+      "independent_http_header_required": false
+    },
+    {
+      "name": "tool_namespaces_info",
+      "location": "body.client_metadata / x-codex-turn-metadata JSON",
+      "value_source_slot": "<TOOL_NAMESPACES_INFO>",
+      "project_observed_status": "在保留/额外字段规则中逐 mode 核对；尚无真实 desktop 运行态采集证据，不计为完整实现",
+      "independent_http_header_required": false
+    },
+    {
+      "name": "forked_from_thread_id",
+      "location": "body.client_metadata / x-codex-turn-metadata JSON",
+      "value_source_slot": "<FORKED_FROM_THREAD_ID>",
+      "project_observed_status": "按存在的 lineage/subagent 语义保留/重建；无来源不能制造拓扑",
+      "independent_http_header_required": false
+    },
+    {
+      "name": "forked_from_ordinal_exclusive",
+      "location": "body.client_metadata / x-codex-turn-metadata JSON",
+      "value_source_slot": "<FORKED_FROM_ORDINAL_EXCLUSIVE>",
+      "project_observed_status": "按存在的 lineage/subagent 语义保留/重建；无来源不能制造拓扑",
+      "independent_http_header_required": false
+    },
+    {
+      "name": "parent_turn_id",
+      "location": "body.client_metadata / x-codex-turn-metadata JSON",
+      "value_source_slot": "<PARENT_TURN_ID>",
+      "project_observed_status": "按存在的 lineage/subagent 语义保留/重建；无来源不能制造拓扑",
+      "independent_http_header_required": false
+    },
+    {
+      "name": "root_turn_id",
+      "location": "body.client_metadata / x-codex-turn-metadata JSON",
+      "value_source_slot": "<ROOT_TURN_ID>",
+      "project_observed_status": "按存在的 lineage/subagent 语义保留/重建；无来源不能制造拓扑",
+      "independent_http_header_required": false
+    },
+    {
+      "name": "subagent_kind",
+      "location": "body.client_metadata / x-codex-turn-metadata JSON",
+      "value_source_slot": "<SUBAGENT_KIND>",
+      "project_observed_status": "按存在的 lineage/subagent 语义保留/重建；无来源不能制造拓扑",
+      "independent_http_header_required": false
+    },
+    {
+      "name": "thread_source",
+      "location": "body.client_metadata / x-codex-turn-metadata JSON",
+      "value_source_slot": "<THREAD_SOURCE>",
+      "project_observed_status": "在保留/额外字段规则中逐 mode 核对；尚无真实 desktop 运行态采集证据，不计为完整实现",
+      "independent_http_header_required": false
+    },
+    {
+      "name": "turn_trigger",
+      "location": "body.client_metadata / x-codex-turn-metadata JSON",
+      "value_source_slot": "<TURN_TRIGGER>",
+      "project_observed_status": "在保留/额外字段规则中逐 mode 核对；尚无真实 desktop 运行态采集证据，不计为完整实现",
+      "independent_http_header_required": false
+    },
+    {
+      "name": "sandbox",
+      "location": "body.client_metadata / x-codex-turn-metadata JSON",
+      "value_source_slot": "<SANDBOX>",
+      "project_observed_status": "在保留/额外字段规则中逐 mode 核对；尚无真实 desktop 运行态采集证据，不计为完整实现",
+      "independent_http_header_required": false
+    },
+    {
+      "name": "sandbox_mode",
+      "location": "body.client_metadata / x-codex-turn-metadata JSON",
+      "value_source_slot": "<SANDBOX_MODE>",
+      "project_observed_status": "在保留/额外字段规则中逐 mode 核对；尚无真实 desktop 运行态采集证据，不计为完整实现",
+      "independent_http_header_required": false
+    },
+    {
+      "name": "auto_review_enabled",
+      "location": "body.client_metadata / x-codex-turn-metadata JSON",
+      "value_source_slot": "<AUTO_REVIEW_ENABLED>",
+      "project_observed_status": "在保留/额外字段规则中逐 mode 核对；尚无真实 desktop 运行态采集证据，不计为完整实现",
+      "independent_http_header_required": false
+    },
+    {
+      "name": "node_repl_auto_review_required",
+      "location": "body.client_metadata / x-codex-turn-metadata JSON",
+      "value_source_slot": "<NODE_REPL_AUTO_REVIEW_REQUIRED>",
+      "project_observed_status": "在保留/额外字段规则中逐 mode 核对；尚无真实 desktop 运行态采集证据，不计为完整实现",
+      "independent_http_header_required": false
+    },
+    {
+      "name": "node_repl_disabled",
+      "location": "body.client_metadata / x-codex-turn-metadata JSON",
+      "value_source_slot": "<NODE_REPL_DISABLED>",
+      "project_observed_status": "在保留/额外字段规则中逐 mode 核对；尚无真实 desktop 运行态采集证据，不计为完整实现",
+      "independent_http_header_required": false
+    },
+    {
+      "name": "workspaces",
+      "location": "body.client_metadata / x-codex-turn-metadata JSON",
+      "value_source_slot": "<WORKSPACES>",
+      "project_observed_status": "项目结构脱敏路径/remote 凭据；与 desktop 原始 workspace 明确有差异",
+      "independent_http_header_required": false
+    },
+    {
+      "name": "history_ingest_requested",
+      "location": "body.client_metadata / x-codex-turn-metadata JSON",
+      "value_source_slot": "<HISTORY_INGEST_REQUESTED>",
+      "project_observed_status": "在保留/额外字段规则中逐 mode 核对；尚无真实 desktop 运行态采集证据，不计为完整实现",
+      "independent_http_header_required": false
+    },
+    {
+      "name": "analytics_enabled",
+      "location": "body.client_metadata / x-codex-turn-metadata JSON",
+      "value_source_slot": "<ANALYTICS_ENABLED>",
+      "project_observed_status": "在保留/额外字段规则中逐 mode 核对；尚无真实 desktop 运行态采集证据，不计为完整实现",
+      "independent_http_header_required": false
+    },
+    {
+      "name": "responses_api_metadata",
+      "location": "body.client_metadata / x-codex-turn-metadata JSON",
+      "value_source_slot": "<RESPONSES_API_METADATA>",
+      "project_observed_status": "报告限制 16 键/值 128 字节；project bounded extras 不等于同一字段完整实现",
+      "independent_http_header_required": false
+    }
+  ],
+  "bundle_evidence": {
+    "bootstrap-DOZRFVdo.js": {
+      "path": "/private/tmp/codex_mainproc/.vite/build/bootstrap-DOZRFVdo.js",
+      "sha256": "8602f1022fc835148268e8cdfcfb939d8ab5a969e4fd0b4141e264ce8ec4be4d",
+      "anchors": [
+        {
+          "anchor": "Gt=`Codex Desktop`",
+          "character_offset": 11313,
+          "utf8_byte_offset": 11313,
+          "excerpt": "Gt=`Codex Desktop`,Kt=`codex_desktop`;function qt(e){return`codex_desktop:worker:${e}:from-view`}function Jt(e){return`codex_desktop:worker:${e}:for-view`}var Yt={darwin:`Mac OS`,linux:`X11; Linux`,win32:`Windows NT 10.0`};function Xt({appVersion:e,platform:t=process.platform,arch:n=process.arch}){return`Codex Desktop/${e} (${Yt[t]??t}; ${n})`}function Zt(){let e=process.env.CODEX_APP_VERSION?.trim();return!f.app.isPackaged&&e?e:f.app.getVersion()}var Qt=class extends Error{constructor(e){super(`Sign in to ChatGPT to ${e}.`)}};function $t(e){let t=process.env.CODEX_API_BASE_URL;return t&&t.trim().length>0?t.replace(/\\/+$/,``):(process.env.CODEX_API_ENDPOINT??``).toLowerCase()===`localhost`?e.devApiBaseUrl:e.prodApiBaseUrl}function en(e,t){return r.$n($t(e),t)}async function tn({action:e,appServerClient:t,desktopOriginator:n,headers:r={},r"
+        },
+        {
+          "anchor": "function Xt({appVersion:",
+          "character_offset": 11536,
+          "utf8_byte_offset": 11536,
+          "excerpt": "function Xt({appVersion:e,platform:t=process.platform,arch:n=process.arch}){return`Codex Desktop/${e} (${Yt[t]??t}; ${n})`}function Zt(){let e=process.env.CODEX_APP_VERSION?.trim();return!f.app.isPackaged&&e?e:f.app.getVersion()}var Qt=class extends Error{constructor(e){super(`Sign in to ChatGPT to ${e}.`)}};function $t(e){let t=process.env.CODEX_API_BASE_URL;return t&&t.trim().length>0?t.replace(/\\/+$/,``):(process.env.CODEX_API_ENDPOINT??``).toLowerCase()===`localhost`?e.devApiBaseUrl:e.prodApiBaseUrl}function en(e,t){return r.$n($t(e),t)}async function tn({action:e,appServerClient:t,desktopOriginator:n,headers:r={},refreshToken:i=!1}){let a=await t.getAuthToken({refreshToken:i});if(!a)throw Error(`Sign in to ChatGPT to ${e}.`);let o={...r};return on(o,a,{desktopOriginator:n}),o}async function nn({action:e,appServerClient:t,desktopApiOp"
+        },
+        {
+          "anchor": "function on(e,t,{desktopOriginator:",
+          "character_offset": 13870,
+          "utf8_byte_offset": 13870,
+          "excerpt": "function on(e,t,{desktopOriginator:n,includeSurfaceHeaders:r=!0}){let a=i.ii(t);if(un(e,`Authorization`,`Bearer ${t}`),a?.accountId&&un(e,`ChatGPT-Account-Id`,a.accountId),a?.isFedramp===!0)un(e,`X-OpenAI-Fedramp`,`true`);else{let t=dn(e,`X-OpenAI-Fedramp`);t!=null&&delete e[t]}r&&sn(e,{desktopOriginator:n})}function sn(e,{desktopOriginator:t}){ln(e,`originator`)||un(e,`originator`,t),ln(e,`User-Agent`)||un(e,`User-Agent`,Xt({appVersion:Zt()}))}function cn(e){return i.ii(e)?.accountId??null}function ln(e,t){return dn(e,t)!=null}function un(e,t,n){let r=dn(e,t);r&&delete e[r],e[t]=n}function dn(e,t){let n=t.toLowerCase();return Object.keys(e).find(e=>e.toLowerCase()===n)}var fn=`codex/app/appcast`,pn=`wham/app/appcast`,mn=c.i(`production-appcast`);function hn({beta:e,installationId:t,planType:n}){let r=process.arch;if(r!==`arm64`&&r!==`x64"
+        },
+        {
+          "anchor": "function sn(e,{desktopOriginator:",
+          "character_offset": 14180,
+          "utf8_byte_offset": 14180,
+          "excerpt": "function sn(e,{desktopOriginator:t}){ln(e,`originator`)||un(e,`originator`,t),ln(e,`User-Agent`)||un(e,`User-Agent`,Xt({appVersion:Zt()}))}function cn(e){return i.ii(e)?.accountId??null}function ln(e,t){return dn(e,t)!=null}function un(e,t,n){let r=dn(e,t);r&&delete e[r],e[t]=n}function dn(e,t){let n=t.toLowerCase();return Object.keys(e).find(e=>e.toLowerCase()===n)}var fn=`codex/app/appcast`,pn=`wham/app/appcast`,mn=c.i(`production-appcast`);function hn({beta:e,installationId:t,planType:n}){let r=process.arch;if(r!==`arm64`&&r!==`x64`)return mn().warning(`Unsupported production appcast architecture`),null;let a=f.app.getVersion();try{if(i.Ci(i.Oi(a))!==a)return mn().warning(`Invalid production appcast app version`),null}catch{return mn().warning(`Invalid production appcast app version`),null}let o=gn();return o.searchParams.set(`installa"
+        }
+      ]
+    },
+    "main-CwxgTOle.js": {
+      "path": "/private/tmp/codex_mainproc/.vite/build/main-CwxgTOle.js",
+      "sha256": "87d52265eb13608a380fabcac47ecf13a39b981115c0960c18af563ea6d32d51",
+      "anchors": [
+        {
+          "anchor": "var db=`X-OAI-IS`",
+          "character_offset": 656081,
+          "utf8_byte_offset": 656095,
+          "excerpt": "var db=`X-OAI-IS`,fb=`X-OAI-IS-Update`,pb=/^ois1\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$/;function mb(e){return typeof e!=`string`||e.length===0||e.length>2048||e.trim()!==e?!1:pb.test(e)}function hb(e){let t=e.get(fb);return mb(t)?t:null}function gb({currentState:e,expectedState:t,nextState:n}){return mb(n)?(mb(e)?e:null)===t:!1}var _b=class{globalState;constructor(e){this.globalState=e}getRequestState(){let e=this.globalState.get(l.O);return mb(e)?e:null}clear(){this.globalState.delete(l.O)}storeResponseUpdate(e,t){let n=hb(e);if(!mb(n))return!1;let r=!1;return this.globalState.update(l.O,e=>gb({currentState:e,expectedState:t,nextState:n})?(r=!0,n):e??void 0),r}},vb=`X-OpenAI-Aeon-Messaging-Trace`,yb=n.O({request_id:n.N().optional()}),bb=class{trace;rpcRequestId;clientRequestId;logger=f.i(`orbit-messaging`);constructor(e,t,n){t"
+        },
+        {
+          "anchor": "function gb({currentState:",
+          "character_offset": 656329,
+          "utf8_byte_offset": 656343,
+          "excerpt": "function gb({currentState:e,expectedState:t,nextState:n}){return mb(n)?(mb(e)?e:null)===t:!1}var _b=class{globalState;constructor(e){this.globalState=e}getRequestState(){let e=this.globalState.get(l.O);return mb(e)?e:null}clear(){this.globalState.delete(l.O)}storeResponseUpdate(e,t){let n=hb(e);if(!mb(n))return!1;let r=!1;return this.globalState.update(l.O,e=>gb({currentState:e,expectedState:t,nextState:n})?(r=!0,n):e??void 0),r}},vb=`X-OpenAI-Aeon-Messaging-Trace`,yb=n.O({request_id:n.N().optional()}),bb=class{trace;rpcRequestId;clientRequestId;logger=f.i(`orbit-messaging`);constructor(e,t,n){this.trace=e,this.rpcRequestId=t,this.clientRequestId=n}getTraceContext(){return this.trace==null?null:c.Jt()??this.trace}responseReceived(e){let t=e.headers.get(`x-request-id`)??e.headers.get(`x-openai-request-id`);this.trace!=null&&c.en({\"http.res"
+        },
+        {
+          "anchor": "async attachToken(e)",
+          "character_offset": 1101119,
+          "utf8_byte_offset": 1101146,
+          "excerpt": "async attachToken(e){let t=await this.requireToken();e[`x-sentinel-dc`]=JSON.stringify({token:t});for(let t of Object.keys(e))t.toLowerCase()===`oai-package-name`&&delete e[t];e[`OAI-Package-Name`]=this.options.bundleIdentifier}async registerCookie(e){let t=await this.requireToken(),n=await _.net.fetch(this.options.url,{body:JSON.stringify({bundle_id:this.options.bundleIdentifier,device_token:t}),credentials:`include`,headers:{...e,\"Content-Type\":`application/json`},method:`POST`}).catch(e=>{throw e instanceof Error&&(e.name===`AbortError`||e.message.startsWith(`net::ERR_ABORTED`))?e:this.reportFailure(`registration_network_failed`,`registration`,`DeviceCheck registration request failed`,{errorKind:r.Zn(e)})});if(!n.ok)throw this.reportFailure(`registration_http_failed`,`registration`,`DeviceCheck registration failed (${n.status})`,{httpS"
+        },
+        {
+          "anchor": "async registerCookie(e)",
+          "character_offset": 1101347,
+          "utf8_byte_offset": 1101374,
+          "excerpt": "async registerCookie(e){let t=await this.requireToken(),n=await _.net.fetch(this.options.url,{body:JSON.stringify({bundle_id:this.options.bundleIdentifier,device_token:t}),credentials:`include`,headers:{...e,\"Content-Type\":`application/json`},method:`POST`}).catch(e=>{throw e instanceof Error&&(e.name===`AbortError`||e.message.startsWith(`net::ERR_ABORTED`))?e:this.reportFailure(`registration_network_failed`,`registration`,`DeviceCheck registration request failed`,{errorKind:r.Zn(e)})});if(!n.ok)throw this.reportFailure(`registration_http_failed`,`registration`,`DeviceCheck registration failed (${n.status})`,{httpStatus:n.status});let[i]=await _.session.defaultSession.cookies.get({name:VT,url:this.options.url});if(i==null)throw this.reportFailure(`missing_cookie`,`cookie`,`DeviceCheck registration returned no cookie`);return i}async requi"
+        },
+        {
+          "anchor": "storeResponseUpdate(y.headers,d)",
+          "character_offset": 701053,
+          "utf8_byte_offset": 701067,
+          "excerpt": "storeResponseUpdate(y.headers,d),y},O=performance.now();if(y=await m(`host.auth`,()=>C({errorStatus:432,failureMessage:b?`Failed to retrieve restricted authentication token`:`Failed to retrieve authentication token`,refreshToken:!1,state:y})),x)try{if(S=await i.xi(this.getAppServerConnection(l.h).getBackendRequestAuth({refreshToken:!1}),p),S==null)throw t==null?Error(`No authenticated workspace is available`):new DOMException(`Authenticated principal changed`,`AbortError`);let e=this.findHeaderKey(n,`authorization`),r=e==null?null:n[e]?.replace(/^Bearer /i,``),a=y.attachAuth?y.token:r;g.st(a,S),p=AbortSignal.any([p,S.signal]),p.throwIfAborted()}catch(e){throw e instanceof Error&&e.name===`AbortError`?e:new ob(`Workspace routing is unavailable`,432,e)}let k=t??(b?null:i.ri(y.token));w.authMs=ax(O),T.hasToken=y.token!=null,T.tokenSource=y.t"
+        },
+        {
+          "anchor": "headers:{\"x-codex-client-session-token\"",
+          "character_offset": 3014498,
+          "utf8_byte_offset": 3019365,
+          "excerpt": "headers:{\"x-codex-client-session-token\":`Bearer ${_.remote_control_token}`},tokenExpiresAt:v.tokenExpiresAt,scopes:v.scopes,requiresDeviceKeyProof:!0}}function $We(e){if(e==null)return;let t=Date.parse(e);if(Number.isFinite(t))return Math.floor(t/1e3)}function Q3(e,t){if(e.client_id!==t.clientId||e.account_user_id!==t.accountUserId)throw Error(`Remote control token response does not match local enrollment.`);let n=$We(e.expires_at);if(n==null||n<=Math.floor(Date.now()/1e3))throw Error(`Remote control token response has invalid expiration.`);if(e.scopes.length!==G3.length||!G3.every((t,n)=>e.scopes[n]===t))throw Error(`Remote control token response has unexpected scopes.`);return{tokenExpiresAt:n,scopes:[...G3]}}function eGe(e){return e[`ChatGPT-Account-Id`]??e[`chatgpt-account-id`]??null}function $3(e,t){let n=t.toLowerCase();for(let[t,r]"
+        },
+        {
+          "anchor": "headers[bGe]",
+          "character_offset": 3029648,
+          "utf8_byte_offset": 3034515,
+          "excerpt": "headers[bGe]);Number.isSafeInteger(t)&&t>0&&(r=t)}),n.once(`close`,()=>{t.current?.destroy()});try{await CGe(n)}catch(e){throw n.once(`error`,()=>void 0),t.current?.destroy(),n.terminate(),e}let i=new c.k(n,void 0,r);return c.O(n,{onPongTimeout:()=>{i.terminationReason=`pong_timeout`,n.terminate()}}),this.hasConnected=!0,i})}startShellEnvLoadForSsh(){let e={caller:`ssh_connect`,pathEntryCount:E6(process.env.PATH??null),resultSource:`pending`,status:`loading`};return{getState:()=>e,promise:l.s({caller:`ssh_connect`,timeoutMs:f6.shellEnvLoad}).then(t=>(e=TGe(t),t))}}async waitForShellEnvIfProxyCommandNeedsPath(e,t){if(await Promise.resolve(),e.getState().status!==`loading`)return;let n=await this.getSshProxyCommandShellEnvDependency();if(this.logger.info(`ssh_websocket_v0.shell_env_wait_decision`,{safe:{needsShellEnv:n.needsShellEnv,pathEnt"
+        },
+        {
+          "anchor": "var gAe=3e3,_Ae=`OAI-Sites-ID-Token`",
+          "character_offset": 1859784,
+          "utf8_byte_offset": 1859813,
+          "excerpt": "var gAe=3e3,_Ae=`OAI-Sites-ID-Token`,vAe=n.O({status:n.w(`issued`),id_token:n.N().min(1),expires_in:n.D().positive()});function yAe(e){return async(t,n)=>{let r=URL.parse(t);if(!K().autoAuthForSites||n?.aborted||r?.protocol!==`https:`||r.port!==``||r.username!==``||r.password!==``||![`.chatgpt.site`,`.appgardenapps.dev`].some(e=>r.hostname.endsWith(e)))return null;let i=Date.now(),a=new AbortController,o=n==null?a.signal:AbortSignal.any([a.signal,n]),s;try{return await Promise.race([(async()=>{if(o.throwIfAborted(),!K().autoAuthForSites)return null;let n=await g.ct({action:`sign in to a Site`,appServerClient:e,desktopApiOptions:{desktopOriginator:g.ht,devApiBaseUrl:g.gt,prodApiBaseUrl:g.It},path:`/codex/sites/session_bootstrap`,beforeSend:()=>{if(!K().autoAuthForSites)throw new DOMException(`Site authentication disabled`,`AbortError`)},re"
+        },
+        {
+          "anchor": "function xb({request:e,headers:t",
+          "character_offset": 658187,
+          "utf8_byte_offset": 658201,
+          "excerpt": "function xb({request:e,headers:t,resolvedUrl:n,rpcRequestId:i,allowedUrl:a}){let o=r.Xn(t,vb);if(o==null)return;let s=t[o]===`1`;if(delete t[o],!s||!a)return;let c=new URL(n).pathname,l=/^\\/(?:backend-api|api)\\/messaging\\/rooms\\/[^/]+(\\/messages)?$/.exec(c);if(l==null||e.method!==`GET`&&(e.method!==`POST`||l[1]!==`/messages`))return;let u=new Headers(t),d=u.get(`traceparent`),f;if(e.method===`POST`&&c.endsWith(`/messages`)&&typeof e.body==`string`)try{f=yb.safeParse(JSON.parse(e.body)).data?.request_id}catch{}return new bb(d==null?void 0:{traceparent:d,tracestate:u.get(`tracestate`)??void 0},i,f)}function Sb(e,t=`ui`){let n=new Map,i=new Set;for(let a of e)for(let e of a.plugins){if(r.ts(e.name,r.io(e.id)??a.name,t))continue;let o=Tb(e);e.installed||i.add(o);let s={description:e.interface?.shortDescription??null,displayName:e.interface?.d"
+        }
+      ]
+    },
+    "src-CP7XXlpZ.js": {
+      "path": "/private/tmp/codex_mainproc/.vite/build/src-CP7XXlpZ.js",
+      "sha256": "79623d50989f9efbcb8e5752c56b3cc608a0f5993c05112e03e11b718ac7a586",
+      "anchors": [
+        {
+          "anchor": "tc=`X-Codex-Surface`",
+          "character_offset": 88303,
+          "utf8_byte_offset": 88303,
+          "excerpt": "tc=`X-Codex-Surface`,nc=`X-OpenAI-Attach-Auth`,rc=`X-OpenAI-Attach-Desktop-Surface`,ic=`X-OpenAI-Attach-DeviceCheck-Token`,ac=`X-OpenAI-Attach-Integrity-State`,oc=`X-OpenAI-Expected-Account-Id`;function sc(e,t){let n=e.replace(/\\/+$/,``),r=t.replace(/^\\/+/,``);return r.startsWith(`public-api/`)&&(n.endsWith(`/backend-api`)?n=n.slice(0,-12):n.endsWith(`/api`)&&(n=n.slice(0,-4),r=r.replace(/^public-api\\//,`public/`))),`${n}/${r}`}function cc(e){return pc(e,nc)}function lc(e){return pc(e,rc)}function uc(e){return pc(e,ic)}function dc(e){return pc(e,ac)}function fc(e){let t=hc(e,oc);if(t==null)return;let n=e[t];return delete e[t],n}function pc(e,t){let n=hc(e,t);if(n==null)return!1;let r=e[n];return delete e[n],r!==`0`&&r.toLowerCase()!==`false`}function mc(e,t){return hc(e,t)!=null}function hc(e,t){let n=t.toLowerCase();return Object.keys(e)"
+        },
+        {
+          "anchor": "function fc(e){let t=hc(e,oc)",
+          "character_offset": 88859,
+          "utf8_byte_offset": 88859,
+          "excerpt": "function fc(e){let t=hc(e,oc);if(t==null)return;let n=e[t];return delete e[t],n}function pc(e,t){let n=hc(e,t);if(n==null)return!1;let r=e[n];return delete e[n],r!==`0`&&r.toLowerCase()!==`false`}function mc(e,t){return hc(e,t)!=null}function hc(e,t){let n=t.toLowerCase();return Object.keys(e).find(e=>e.toLowerCase()===n)}var gc=t.O({code:t.d([`EAI_AGAIN`,`EADDRINFO`,`ECONNREFUSED`,`ECONNRESET`,`EHOSTUNREACH`,`ENETUNREACH`,`ENOTFOUND`,`ETIMEDOUT`,`UND_ERR_CONNECT_TIMEOUT`,`UND_ERR_HEADERS_TIMEOUT`,`UND_ERR_BODY_TIMEOUT`,`UND_ERR_SOCKET`])});function _c(e){if(e instanceof Error&&e.name!==`AbortError`&&!e.message.startsWith(`net::ERR_ABORTED`)&&(e.message.startsWith(`net::`)||e.name===`NetworkError`||e instanceof TypeError&&/^(?:failed to fetch|fetch failed|load failed|networkerror when attempting to fetch resource\\.?|network error)$/i.test"
+        },
+        {
+          "anchor": "function pc(e,t){let n=hc(e,t)",
+          "character_offset": 88939,
+          "utf8_byte_offset": 88939,
+          "excerpt": "function pc(e,t){let n=hc(e,t);if(n==null)return!1;let r=e[n];return delete e[n],r!==`0`&&r.toLowerCase()!==`false`}function mc(e,t){return hc(e,t)!=null}function hc(e,t){let n=t.toLowerCase();return Object.keys(e).find(e=>e.toLowerCase()===n)}var gc=t.O({code:t.d([`EAI_AGAIN`,`EADDRINFO`,`ECONNREFUSED`,`ECONNRESET`,`EHOSTUNREACH`,`ENETUNREACH`,`ENOTFOUND`,`ETIMEDOUT`,`UND_ERR_CONNECT_TIMEOUT`,`UND_ERR_HEADERS_TIMEOUT`,`UND_ERR_BODY_TIMEOUT`,`UND_ERR_SOCKET`])});function _c(e){if(e instanceof Error&&e.name!==`AbortError`&&!e.message.startsWith(`net::ERR_ABORTED`)&&(e.message.startsWith(`net::`)||e.name===`NetworkError`||e instanceof TypeError&&/^(?:failed to fetch|fetch failed|load failed|networkerror when attempting to fetch resource\\.?|network error)$/i.test(e.message)||gc.safeParse(e).success||gc.safeParse(e.cause).success))return`netw"
+        }
+      ]
+    },
+    "src-DCNiwad_.js": {
+      "path": "/private/tmp/codex_mainproc/.vite/build/src-DCNiwad_.js",
+      "sha256": "86fb2066bbc2f7428864b76b46ef570b09eb1e92e81e9d6f089f5b048a66df25",
+      "anchors": [
+        {
+          "anchor": "ar=`CODEX`,or=`OAI-Product-Sku`",
+          "character_offset": 77810,
+          "utf8_byte_offset": 77810,
+          "excerpt": "ar=`CODEX`,or=`OAI-Product-Sku`,sr=3,cr=`https://chatgpt.com/backend-api`,lr=`http://localhost:8000/api`,ur={enabled:!1,destructive_enabled:!1,open_world_enabled:!1},dr=t.O({personalization_toggle_blurb:t.L().nullable().optional()}).loose(),fr=t.C(()=>t.I([t.N(),t.D(),t._(),t.p(),t.h(fr),t.j(t.N(),fr)])),pr=t.j(t.N(),fr),mr=t.j(t.N(),pr),hr=t.I([t.O({mcpServers:mr}).loose().transform(({mcpServers:e})=>e),mr]),gr=t.O({mcpServers:t.N().trim().min(1)}).loose(),_r=t.O({title:t.N().min(1),description:t.N().min(1),prompt:t.N().min(1),appId:t.N(),pluginId:t.N().nullable()}),vr=t.O({items:t.h(n.yt)}),yr=t.O({suggestions:t.h(_r).max(3)}),br=Fn(yr),xr=new Map;function Sr(e,t,n){let r=(0,x.createHash)(`sha1`).update(e).update(`\\0`).update(t);return n!=null&&r.update(`\\0`).update(n),r.digest(`hex`)}function Cr(e,t,n){return n==null?`${e}\\0${t}`:`${e}"
+        },
+        {
+          "anchor": "function Wr(e){let t={Authorization:",
+          "character_offset": 88577,
+          "utf8_byte_offset": 88577,
+          "excerpt": "function Wr(e){let t={Authorization:`Bearer ${e}`,originator:process.env.CODEX_INTERNAL_ORIGINATOR_OVERRIDE??`Codex Desktop`,[or]:ar},n=Kn(e);return n?.accountId!=null&&(t[`ChatGPT-Account-Id`]=n.accountId),n?.isFedramp===!0&&(t[`X-OpenAI-Fedramp`]=`true`),t}function Gr(e){let t=process.env.CODEX_API_BASE_URL?.trim();return`${(t!=null&&t.length>0?t:(process.env.CODEX_API_ENDPOINT??``).toLowerCase()===`localhost`?lr:cr).replace(/\\/+$/,``)}/${e.replace(/^\\/+/,``)}`}function Kr(e){return new URL(e,Gr(`/`)).toString()}function qr(e){return{id:Jr(e),name:e.name}}function Jr(e){let t=e.name.trim().toLowerCase().replace(/[^a-z0-9]+/g,`-`).replace(/^-+|-+$/g,``);return t.length>0?t:e.id.startsWith(ir)?e.id.slice(10).replaceAll(`_`,`-`):e.id}function Yr(e,t){let n={};if(t!=null){for(let e of t.disabledPluginIds)n[`plugins.${e}.enabled`]=!1;for(let"
+        }
+      ]
+    },
+    "early-bootstrap.js": {
+      "path": "/private/tmp/codex_mainproc/.vite/build/early-bootstrap.js",
+      "sha256": "036bde993c50a1a34d0f7a0ee4f3d57b5592b4cfe3b2a87b4022b263bf0367aa",
+      "anchors": [
+        {
+          "anchor": "value:`CodexBrowser`",
+          "character_offset": 1535,
+          "utf8_byte_offset": 1535,
+          "excerpt": "value:`CodexBrowser`}]:[]}var l=`WebRTC-Sctp-Snap/Enabled/WebRTC-IceHandshakeDtls/Enabled/WebRTC-ForceDtls13/Enabled/`;for(let e of a({buildFlavor:t.t.resolve(),env:process.env}))r.app.commandLine.appendSwitch(e.name,e.value);r.app.commandLine.appendSwitch(`force-fieldtrials`,l),i();var u=new Set(r.app.commandLine.getSwitchValue(`disable-blink-features`).split(`,`).filter(Boolean));u.add(`ReplacedNormalFlowStackingInlinePaint`),r.app.commandLine.removeSwitch(`disable-blink-features`),r.app.commandLine.appendSwitch(`disable-blink-features`,[...u].join(`,`)),r.app.commandLine.appendSwitch(`enable-features`,[r.app.commandLine.getSwitchValue(`enable-features`),`DocumentPolicyIncludeJSCallStacksInCrashReports`].filter(e=>e!==``).join(`,`));for(let e of c({isPackaged:r.app.isPackaged}))r.app.commandLine.hasSwitch(e.name)||r.app.commandLine.appe"
+        }
+      ]
+    }
+  },
+  "project_target": "/Users/lin/.codex/worktrees/e94a/sub2api-no2api",
+  "project_modified_source": "/private/tmp/sub2api-full-align-20261014/MODIFIED_FILE",
+  "live_verification": {
+    "supplied_account": "file path only; secrets omitted",
+    "usage_http_status": 200,
+    "http_completed": true,
+    "sse_completed": true,
+    "websocket_completed": true,
+    "exported_proxy_worked": false,
+    "successful_egress": "direct",
+    "apple_devicecheck_available": false,
+    "integrity_update_received": false,
+    "installed_app_version": "26.1007.30912",
+    "analyzed_app_version": "26.1007.71326"
+  }
+}

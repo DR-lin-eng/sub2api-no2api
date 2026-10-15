@@ -291,6 +291,13 @@ gateway:
   #
   # 注意：开启后会影响所有客户端的行为（不仅限于 VS Code / Codex CLI），请谨慎开启。
   force_codex_cli: false
+  # Emit a fresh app-server x-oai-attestation envelope on first-party OAuth
+  # HTTP/WS sends. A native macOS DeviceCheck provider is required for s=0;
+  # unavailable providers emit explicit failure status without a fabricated t.
+  openai_oauth_attestation_enabled: false
+  # Desktop-only generation and _devicecheck cookie registration; does not
+  # add DeviceCheck to ordinary Responses model requests.
+  openai_desktop_devicecheck_enabled: false
   # Disable canonical Codex outbound identity enforcement.
   # 默认 false（强制统一开启）；仅在上游身份策略改变时用于回滚。
   # 旧键 disable_codex_originator_normalization 仍作为兼容别名接受。

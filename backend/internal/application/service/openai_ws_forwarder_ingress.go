@@ -886,8 +886,11 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		WSURL:      wsURL,
 		Headers:    wsHeaders,
 		TLSProfile: s.resolveTLSProfile(account),
-		HeadersFactory: func(factoryCtx context.Context, headers http.Header) (http.Header, error) {
-			return s.refreshOpenAIAgentIdentityHeaders(factoryCtx, account, headers)
+		ProofFactory: func(factoryCtx context.Context, headers http.Header) (context.Context, http.Header, error) {
+			return s.prepareOpenAIWSProof(factoryCtx, account, wsURL, headers)
+		},
+		HandshakeObserver: func(dialCtx context.Context, headers http.Header) {
+			s.captureIntegrityState(dialCtx, headers)
 		},
 		EgressRoute: account.EgressRoute(),
 		ProxyURL: func() string {

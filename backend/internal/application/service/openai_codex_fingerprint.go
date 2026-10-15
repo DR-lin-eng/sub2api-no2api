@@ -595,6 +595,7 @@ func applyCodexFingerprintClientMetadataMap(metadata map[string]any, ids *codexF
 	if metadata == nil || ids == nil || ids.installationID == "" {
 		return false
 	}
+	discardCodexNonTransferableMetadata(metadata)
 	if ids.fullSimulation {
 		sanitizeCodexTurnMetadataMapInPlace(metadata)
 		projectCodexFullSimulationMetadata(metadata)
@@ -639,6 +640,7 @@ func projectCodexFullSimulationMetadata(metadata map[string]any) {
 	if len(metadata) == 0 {
 		return
 	}
+	discardCodexNonTransferableMetadata(metadata)
 	extra := make(map[string]string)
 	for _, key := range sortedCodexMetadataKeys(metadata) {
 		value := metadata[key]
@@ -698,6 +700,7 @@ func projectCodexFullSimulationTurnMetadata(metadata map[string]any) {
 	if metadata == nil {
 		return
 	}
+	discardCodexNonTransferableMetadata(metadata)
 	count := 0
 	for _, key := range sortedCodexMetadataKeys(metadata) {
 		value := metadata[key]

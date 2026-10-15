@@ -807,6 +807,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerpr
 	applyCodexSimulationProfileHeaders(req.Header, fingerprintIDs)
 	applyOpenAICodexSemanticRequestHeaders(req.Header, c, account, outboundBody)
 	applyOpenAIWorkspaceRoutingHeader(req.Header, workspaceRouting)
+	normalizeOpenAICodexHTTPProtocolHeaders(req, c, account)
 
 	return req, nil
 }

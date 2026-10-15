@@ -78,10 +78,15 @@ type openAIWSAcquireRequest struct {
 	// HeadersFactory is evaluated inside dialConn. It exists so credentials
 	// whose authorization is per-dial (Agent Identity) are never cached in
 	// lastAcquire or delayed prewarm state.
-	HeadersFactory  func(context.Context, http.Header) (http.Header, error)
-	ProxyURL        string
-	EgressRoute     platformegress.Route
-	PreferredConnID string
+	HeadersFactory func(context.Context, http.Header) (http.Header, error)
+	// ProofFactory runs only when opening a real socket, including prewarm.
+	// A receipt travels with that dial so handshake updates cannot be applied
+	// later using another turn's expected integrity state.
+	ProofFactory      func(context.Context, http.Header) (context.Context, http.Header, error)
+	HandshakeObserver func(context.Context, http.Header)
+	ProxyURL          string
+	EgressRoute       platformegress.Route
+	PreferredConnID   string
 	// ForceNewConn: 强制本次获取新连接（避免复用导致连接内续链状态互相污染）。
 	ForceNewConn bool
 	// ForcePreferredConn: 强制本次只使用 PreferredConnID，禁止漂移到其它连接。
@@ -2150,6 +2155,12 @@ func (p *openAIWSConnPool) dialConn(ctx context.Context, req openAIWSAcquireRequ
 			return nil, err
 		}
 	}
+	if req.ProofFactory != nil {
+		ctx, headers, err = req.ProofFactory(ctx, headers)
+		if err != nil {
+			return nil, err
+		}
+	}
 	conn, status, handshakeHeaders, err := dialOpenAIWSRouteWithProfile(
 		p.clientDialer,
 		ctx,
@@ -2158,6 +2169,9 @@ func (p *openAIWSConnPool) dialConn(ctx context.Context, req openAIWSAcquireRequ
 		openAIWSAcquireRoute(req),
 		req.TLSProfile,
 	)
+	if req.HandshakeObserver != nil && handshakeHeaders != nil {
+		req.HandshakeObserver(ctx, handshakeHeaders)
+	}
 	if err != nil {
 		var handshakeErr *openAIWSHandshakeError
 		var responseBody []byte

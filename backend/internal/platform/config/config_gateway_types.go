@@ -32,6 +32,10 @@ type GatewayConfig struct {
 	// ForceCodexCLI: 强制将 OpenAI `/v1/responses` 请求按 Codex CLI 处理。
 	// 用于网关未透传/改写 User-Agent 时的兼容兜底（默认关闭，避免影响其他客户端）。
 	ForceCodexCLI bool `mapstructure:"force_codex_cli"`
+	// OpenAIOAuthAttestationEnabled generates the app-server proof envelope at
+	// the actual first-party HTTP/WS send. Requires a genuine native provider.
+	OpenAIOAuthAttestationEnabled   bool `mapstructure:"openai_oauth_attestation_enabled"`
+	OpenAIDesktopDeviceCheckEnabled bool `mapstructure:"openai_desktop_devicecheck_enabled"`
 	// DisableCodexIdentityEnforcement disables canonical Codex outbound identity
 	// enforcement. The inverted name keeps the zero value secure.
 	DisableCodexIdentityEnforcement bool `mapstructure:"disable_codex_identity_enforcement"`

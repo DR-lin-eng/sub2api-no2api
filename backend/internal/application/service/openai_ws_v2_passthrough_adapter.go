@@ -947,11 +947,12 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	statusCode := 0
 	var handshakeHeaders http.Header
 	for {
-		headers, err = s.refreshOpenAIAgentIdentityHeaders(ctx, account, headers)
+		proofCtx := ctx
+		proofCtx, headers, err = s.prepareOpenAIWSProof(ctx, account, wsURL, headers)
 		if err != nil {
 			return fmt.Errorf("refresh ws authentication headers: %w", err)
 		}
-		dialCtx, cancelDial := context.WithTimeout(ctx, s.openAIWSDialTimeout())
+		dialCtx, cancelDial := context.WithTimeout(proofCtx, s.openAIWSDialTimeout())
 		upstreamConn, statusCode, handshakeHeaders, err = dialOpenAIWSRouteWithProfile(
 			dialer,
 			dialCtx,
@@ -960,6 +961,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 			accountEgressRoute(account, proxyURL),
 			s.resolveTLSProfile(account),
 		)
+		s.captureIntegrityState(proofCtx, handshakeHeaders)
 		cancelDial()
 		if err == nil {
 			break

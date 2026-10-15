@@ -27,6 +27,12 @@ full simulation 的 session、thread、turn 以及上下文窗口 ID 使用 UUID
 
 ## 默认 OAuth 出站身份
 
+桌面静态报告的端点边界与本轮一致性校验见
+[OpenAI OAuth 与 Codex 桌面请求对照](desktop-request-alignment.md)。普通 HTTP 与透传的
+OAuth 出站统一使用 JSON 请求、Responses SSE/Compact JSON；token 中存在可用账号 claim 时，
+无论 workspace discovery 是否启用都拒绝与凭据账号矛盾的绑定。设备证明、完整性状态与
+远程控制凭据不得通过 `client_metadata` 或 turn metadata 移植到另一账号。
+
 即使 full simulation 关闭，普通 Codex OAuth 请求也不能直接复用下游会话标识。HTTP 与 WebSocket
 从 `session-id` / `session_id`、`thread-id`、`client_metadata` 和 `prompt_cache_key` 中选择稳定信号，
 再按账号的 `CodexVirtualClientKey` 命名空间派生 `session-id`、`thread-id`，并固定

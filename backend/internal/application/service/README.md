@@ -48,6 +48,8 @@
 | `openai_codex_continuation.go` | Codex continuation 分类、owner 策略、跨主体 sanitizer 与成功回写 |
 | `openai_oauth_gateway_rate_limit.go` | 统一配置、按账号分桶且跨实例共享的 OpenAI OAuth RPM/burst 准入、逻辑请求去重与协议错误投影 |
 | `openai_request_integrity_observe.go` | OpenAI OAuth 兼容转换前后语义字段的只观察差异诊断 |
+| `openai_chatgpt_headers.go`, `openai_codex_request_headers.go`, `openai_codex_metadata_sanitize.go` | OpenAI OAuth 凭据 principal 校验、HTTP JSON/SSE/Compact 媒体类型和证明/完整性状态的跨账号边界 |
+| `openai_integrity_state.go`, `openai_oauth_proof.go`, `openai_desktop_devicecheck.go` | 发送点 proof 生成、immutable receipt、principal/installation/origin 状态隔离与 Redis 原子 CAS；独立 Desktop DeviceCheck 注册/cookie 链 |
 | `openai_quota_account_transport.go` | OpenAI quota/reset 通过账号级 HTTP/TLS upstream 的辅助请求路径 |
 | `account_quality_runtime_snapshot.go` | 质量巡检私有 artifact 的非敏感请求运行画像快照 |
 | `ratelimit_oauth_401_delete.go` | 网关 OAuth 401 自动删除准入、凭据 CAS 结果和运行态清理 |

@@ -4,6 +4,8 @@
 
 ## 文件索引
 
+`gateway_cache_integrity.go` 保存第一方 OAuth integrity 状态的共享读取与 Lua 原子 expected-state CAS。
+
 | 前缀 | 职责 |
 | --- | --- |
 | `account*`, `user*`, `group*`, `api_key*` | 核心身份和账号持久化 |
