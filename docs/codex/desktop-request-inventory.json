@@ -444,14 +444,14 @@
     {
       "id": "H30",
       "name": "x-oai-attestation",
-      "direction": "unresolved",
+      "direction": "request_conditional",
       "scope": "CLI attestation",
       "value_template_and_source": "<ATTESTATION_ENVELOPE>；AttestationGenerate 真实输出",
-      "project_observed_status": "已接入 HTTP、普通/托管/透传 WS 的实际发送点；本地 provider 生成真实 callback token，Linux 返回 error_code=1，当前 macOS 返回 error_code=3；外层 s=0 只表示回调成功，不等于 Apple 证明成功。可用 gateway.openai_oauth_attestation_enabled 开启。 Ghidra 补充：native 模块加载失败也返回 error_code=4 与实际 signals；Intel macOS error 2 保留 signals，Windows 按同版本源码为 error 1。",
+      "project_observed_status": "已接入 HTTP、普通/托管/透传 WS 的实际发送点；本地 provider 生成真实 callback token，Linux 返回 error_code=1，当前 macOS 返回 error_code=3；外层 s=0 只表示回调成功，不等于 Apple 证明成功。可用 gateway.openai_oauth_attestation_enabled 开启。 Ghidra 补充：native 模块加载失败也返回 error_code=4 与实际 signals；Intel macOS error 2 保留 signals，Windows 按同版本源码为 error 1。 CLI 生命周期更新：100ms 等待、提前取消跳过 provider、取消子 context、迟到结果隔离与最多 64 个未完成 callback；无 provider 省略头，成功回调保留 opaque token，Live 保持独立 native v1 校验。",
       "live_upstream_verified": true,
       "project_symbol_occurrence_refs": [
-        "backend/internal/application/service/openai_codex_fingerprint.go:57",
-        "backend/internal/application/service/openai_live_attestation.go:18"
+        "backend/internal/platform/liveattestation/codex.go:104",
+        "backend/internal/application/service/openai_oauth_proof.go:16"
       ],
       "live_boundary": "HTTP 200 with truthful device-unavailable CBOR, not valid Apple proof"
     },
@@ -1289,7 +1289,7 @@
     }
   },
   "project_target": "/Users/lin/.codex/worktrees/e94a/sub2api-no2api",
-  "project_modified_source": "/private/tmp/sub2api-full-align-20261014/MODIFIED_FILE",
+  "project_modified_source": "/Users/lin/.codex/visualizations/2026/10/14/01a139e9-89a2-7e90-8337-ef992ce16063/ghidra-native-followup/PUBLISH",
   "live_verification": {
     "supplied_account": "file path only; secrets omitted",
     "usage_http_status": 200,
@@ -1310,5 +1310,14 @@
     "native_hardware_key_verified": false,
     "upstream_remote_enrollment_verified": false,
     "hardware_proof_is_not_a_model_request_header": true
+  },
+  "attestation_lifecycle_alignment": {
+    "report_sha256": "b583aab74db5e436e0020380fc6cca2a76b3b4bb3ecf2f524905c8488516c7ca",
+    "public_source_revision": "3ee47c10513f1bb57d869ea650aba28638e3d11c",
+    "public_source_matches_binary_proven": false,
+    "callback_timeout_ms": 100,
+    "native_provider_only": true,
+    "thread_wire_parameter_added": false,
+    "hmac_added": false
   }
 }

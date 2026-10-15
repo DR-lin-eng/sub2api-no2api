@@ -25,7 +25,7 @@ func (s *OpenAIGatewayService) prepareOpenAIOAuthProof(ctx context.Context, acco
 	// Live already generates its own genuine backend-owned proof. Preserve it
 	// on that exact endpoint; the Responses proof has a separate send lifecycle.
 	liveHeader := ""
-	if strings.HasSuffix(path, "/realtime/calls") && liveattestation.ValidCodexHeader(headers.Get("x-oai-attestation")) {
+	if strings.HasSuffix(path, "/realtime/calls") && liveattestation.ValidLiveHeader(headers.Get("x-oai-attestation")) {
 		liveHeader = headers.Get("x-oai-attestation")
 	}
 	for _, name := range []string{"X-OAI-IS", "X-OAI-IS-Update", "x-oai-attestation", "X-OpenAI-Expected-Account-Id", "X-OpenAI-Attach-Auth", "X-OpenAI-Attach-Desktop-Surface", "X-OpenAI-Attach-DeviceCheck-Token", "X-OpenAI-Attach-Integrity-State"} {
@@ -56,9 +56,11 @@ func (s *OpenAIGatewayService) prepareOpenAIOAuthProof(ctx context.Context, acco
 	}
 	modelProofPath := path == "/backend-api/codex/responses" || path == "/backend-api/codex/responses/compact"
 	if origin != "" && modelProofPath && s.cfg != nil && s.cfg.Gateway.OpenAIOAuthAttestationEnabled {
-		// A genuine provider returns s=0 with its opaque native token. Generator
-		// failures use the upstream app-server status envelope without a t value.
-		headers.Set("x-oai-attestation", liveattestation.CodexHeader(ctx, s.liveAttestation))
+		// The selected local callback returns an opaque token or an app-server
+		// failure status. No capable provider means the header is absent.
+		if header := liveattestation.CodexHeader(ctx, s.liveAttestation); header != "" {
+			headers.Set("x-oai-attestation", header)
+		}
 	}
 	return ctx, nil
 }
