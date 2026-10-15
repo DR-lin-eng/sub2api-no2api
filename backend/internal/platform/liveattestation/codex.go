@@ -8,6 +8,7 @@ import (
 	"errors"
 	"math"
 	"strings"
+	"time"
 )
 
 // CodexTokenProvider corresponds to the desktop attestation/generate callback.
@@ -90,45 +91,92 @@ func appendCBORHead(body []byte, major byte, value uint32) []byte {
 	}
 }
 
-// CodexHeader mirrors app-server/src/attestation.rs. The provider supplies the
-// real opaque device envelope, never a client-supplied request header. Failure
-// status 1/2/3/4 denotes timeout/failed/canceled/malformed, without a success t.
+const codexGenerateTimeout = 100 * time.Millisecond
+
+// Keep uncooperative providers from accumulating unbounded goroutines after
+// their callers time out. Waiting for a slot consumes the same request budget.
+var codexGenerationSlots = make(chan struct{}, 64)
+
+// CodexHeader bounds the selected local callback like app-server/attestation.rs.
+// A nil provider means no capable host and omits the header. Status 1/2/3/4
+// denotes timeout/failed/canceled/malformed, without a success t. Tokens remain
+// opaque; callback success does not establish successful hardware attestation.
 func CodexHeader(ctx context.Context, provider Provider) string {
+	return codexHeader(ctx, provider, codexGenerationSlots)
+}
+
+func codexHeader(ctx context.Context, provider Provider, slots chan struct{}) string {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	if provider == nil {
-		return `{"v":1,"s":2}`
+		return ""
 	}
-	header := ""
-	var err error
-	if callback, ok := provider.(CodexTokenProvider); ok {
-		var token string
-		token, err = callback.GenerateCodexToken(ctx)
-		if err == nil {
-			encoded, encodeErr := json.Marshal(struct {
-				Version int    `json:"v"`
-				Status  int    `json:"s"`
-				Token   string `json:"t"`
-			}{1, 0, token})
-			header, err = string(encoded), encodeErr
+	ctx, cancel := context.WithTimeout(ctx, codexGenerateTimeout)
+	defer cancel()
+	if ctx.Err() != nil {
+		return codexContextStatus(ctx.Err())
+	}
+	select {
+	case slots <- struct{}{}:
+	case <-ctx.Done():
+		return codexContextStatus(ctx.Err())
+	}
+	if ctx.Err() != nil {
+		<-slots
+		return codexContextStatus(ctx.Err())
+	}
+	type result struct {
+		header string
+		err    error
+	}
+	response := make(chan result, 1)
+	go func() {
+		defer func() { <-slots }()
+		header, err := generateCodexHeader(ctx, provider)
+		response <- result{header, err}
+	}()
+	select {
+	case <-ctx.Done():
+		return codexContextStatus(ctx.Err())
+	case generated := <-response:
+		if ctx.Err() != nil {
+			return codexContextStatus(ctx.Err())
 		}
-	} else {
-		header, err = provider.Generate(ctx)
+		if errors.Is(generated.err, context.DeadlineExceeded) || errors.Is(generated.err, context.Canceled) {
+			return codexContextStatus(generated.err)
+		}
+		if generated.err != nil {
+			return `{"v":1,"s":2}`
+		}
+		if !ValidCodexHeader(generated.header) {
+			return `{"v":1,"s":4}`
+		}
+		return generated.header
 	}
-	if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+}
+
+func codexContextStatus(err error) string {
+	if errors.Is(err, context.DeadlineExceeded) {
 		return `{"v":1,"s":1}`
 	}
-	if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
-		return `{"v":1,"s":3}`
+	return `{"v":1,"s":3}`
+}
+
+func generateCodexHeader(ctx context.Context, provider Provider) (string, error) {
+	if callback, ok := provider.(CodexTokenProvider); ok {
+		token, err := callback.GenerateCodexToken(ctx)
+		if err != nil {
+			return "", err
+		}
+		encoded, err := json.Marshal(struct {
+			Version int    `json:"v"`
+			Status  int    `json:"s"`
+			Token   string `json:"t"`
+		}{1, 0, token})
+		return string(encoded), err
 	}
-	if err != nil {
-		return `{"v":1,"s":2}`
-	}
-	if !ValidCodexHeader(header) {
-		return `{"v":1,"s":4}`
-	}
-	return header
+	return provider.Generate(ctx)
 }
 
 func ValidCodexHeader(header string) bool {
@@ -146,10 +194,23 @@ func ValidCodexHeader(header string) bool {
 	if *envelope.Status > 0 && *envelope.Status <= 4 {
 		return envelope.Token == nil
 	}
-	if *envelope.Status != 0 || envelope.Token == nil || !strings.HasPrefix(*envelope.Token, "v1.") || len(*envelope.Token) <= 3 {
+	return *envelope.Status == 0 && envelope.Token != nil
+}
+
+// ValidLiveHeader retains Live's native v1 token contract independently of the
+// app-server callback, which accepts an opaque string (including an empty one).
+func ValidLiveHeader(header string) bool {
+	if !ValidCodexHeader(header) {
 		return false
 	}
-	for _, c := range strings.TrimPrefix(*envelope.Token, "v1.") {
+	var envelope struct {
+		Status int    `json:"s"`
+		Token  string `json:"t"`
+	}
+	if json.Unmarshal([]byte(header), &envelope) != nil || envelope.Status != 0 || !strings.HasPrefix(envelope.Token, "v1.") || len(envelope.Token) <= 3 {
+		return false
+	}
+	for _, c := range strings.TrimPrefix(envelope.Token, "v1.") {
 		allowed := (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_'
 		if !allowed {
 			return false
