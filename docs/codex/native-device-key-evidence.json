@@ -1,0 +1,82 @@
+{
+  "version": "26.1007.71326",
+  "evidence": {
+    "report": {
+      "sha256": "d8c7fbca2ca9905b90aa11c3888c4dc774a474cb0c4df276bff466dd73ca5ab9",
+      "bytes": 21679
+    },
+    "desktop_main": {
+      "sha256": "87d52265eb13608a380fabcac47ecf13a39b981115c0960c18af563ea6d32d51",
+      "bytes": 3827852
+    },
+    "desktop_transport": {
+      "sha256": "86fb2066bbc2f7428864b76b46ef570b09eb1e92e81e9d6f089f5b048a66df25",
+      "bytes": 1591385
+    },
+    "linux_native": {
+      "sha256": "ec07c088e272c8f5c65fbb881f695c45f8f4ff7a0ce0f0d8618ebab5e586fec5",
+      "bytes": 91880
+    }
+  },
+  "desktop_main_anchors": {
+    "function si(": {
+      "character_offset": 62717,
+      "utf8_byte_offset": 62717,
+      "excerpt": "function si({arch:e=process.arch,platform:t=process.platform}={}){return t===`darwin`&&e===`arm64`}function ste({addon:e,arch:t=process.arch,bundleIdentifier:n,getSignals:r,platform:i=process.platform,resourcesPath:a=process.resourcesPath}){return o=>o.method===`attestation/generate`?oi({platform:i})?cte({addon:e,arch:t,bundleIdentifier:n,signals:r(),platform:i,resourcesPath:a}):Promise.resolve(li(1,Date.now(),n)):null}async function cte({addon:e,arch:t=process.arch,bundleIdentifier:n,signals:r,platform:i=process.platform,resourcesPath:a=process.resourcesPath}){let o=Date.now();if(!oi({platform:i}))return li(1,o,n);if(i!==`darwin`)return li(1,o,n,r);if(!si({arch:t,platform:i}))return li(2,o,n,r);let s;try{s=await(e??ci(a)).generateToken()}catch(e){return li(4,o,n,r,{error:e})}return s.supp"
+    },
+    "function cte(": {
+      "character_offset": 63146,
+      "utf8_byte_offset": 63146,
+      "excerpt": "function cte({addon:e,arch:t=process.arch,bundleIdentifier:n,signals:r,platform:i=process.platform,resourcesPath:a=process.resourcesPath}){let o=Date.now();if(!oi({platform:i}))return li(1,o,n);if(i!==`darwin`)return li(1,o,n,r);if(!si({arch:t,platform:i}))return li(2,o,n,r);let s;try{s=await(e??ci(a)).generateToken()}catch(e){return li(4,o,n,r,{error:e})}return s.supported?s.tokenBase64==null?li(4,o,n,r,{deviceCheckLatencyMs:s.latencyMs}):(ai().info(`DeviceCheck attestation generated`,{safe:{durationMs:Date.now()-o,deviceCheckLatencyMs:s.latencyMs??null},sensitive:{}}),{token:ui({bundleIdentifier:n,signals:r,token:s.tokenBase64,latencyMs:s.latencyMs})}):li(3,o,n,r,{deviceCheckLatencyMs:s.latencyMs})}async function lte({addon:e,arch:t=process.arch,platform:n=process.platform,resourcesPath:"
+    },
+    "function ui(": {
+      "character_offset": 65389,
+      "utf8_byte_offset": 65389,
+      "excerpt": "function ui(e){let t=`token`in e?[di(`token`,e.token)]:[hte(`error_code`,e.errorCode)];return t.push(di(`bundle_id`,e.bundleIdentifier)),e.signals!=null&&t.push(dte(e.signals)),e.latencyMs!=null&&t.push(gte(`t`,e.latencyMs)),`${ate}.${_te(Buffer.concat([Buffer.from([160+t.length]),...t]))}`}function dte(e){let t=fte([[0,pi(e.schemaVersion)],[1,pte(e.preferredLanguages.map(fi))],[2,fi(e.locale)],[3,fi(e.timezone)],[4,pi(e.screenSizeSum)],[5,mte(e.screenScale)],[6,fi(e.appSessionId)]]);return Buffer.concat([fi(`f`),hi(64,t.length),t])}function fte(e){return Buffer.concat([hi(160,e.length),...e.flatMap(([e,t])=>[pi(e),t])])}function pte(e){return Buffer.concat([hi(128,e.length),...e])}function mte(e){return Number.isSafeInteger(e)&&e>=0?pi(e):mi(e)}function di(e,t){return Buffer.concat([fi(e)"
+    },
+    "function nGe(": {
+      "character_offset": 3016686,
+      "utf8_byte_offset": 3021553,
+      "excerpt": "function nGe({accountUserId:e,stepUpToken:t}){let n=i6(t);iGe({payload:n});let i=r.Et.parse(n),a=i[`https://api.openai.com/auth`],o=a.chatgpt_account_user_id??a.account_user_id,s=rGe(i);if(o!==e)throw new KWe;if(Math.floor(Date.now()/1e3)-i.iat>K3)throw Error(`Remote control enrollment step-up token is not fresh.`);if(Date.now()-i.pwd_auth_time>K3*1e3)throw Error(`Remote control enrollment step-up token does not have fresh password auth.`);if(s.length!==1||s[0]!==qWe)throw Error(`Remote control enrollment step-up token is missing required authorization.`);return{accountUserId:o??null,issuedAt:i.iat,passwordAuthTime:i.pwd_auth_time,scopes:s}}function rGe({scope:e,scp:t}){let n=new Set;for(let t of e?.split(/\\s+/)??[])t.length>0&&n.add(t);for(let e of t??[])e.length>0&&n.add(e);return[...n]}"
+    },
+    "function l6(": {
+      "character_offset": 3021705,
+      "utf8_byte_offset": 3026572,
+      "excerpt": "function l6(e){return(0,R.createHash)(`sha256`).update(JSON.stringify({algorithm:e.algorithm,keyId:e.keyId,protectionClass:e.protectionClass,publicKeySpkiDerBase64:e.publicKeySpkiDerBase64})).digest(`base64url`)}async function u6({auth:e,challenge:t,deviceKeyClient:n,desktopApiOptions:r,enrollment:i,expectedPath:a,requireDeviceIdentityHash:o}){let s=oGe(r,a,e);if(t.purpose!==`remote_control_client_enrollment`||t.audience!==`remote_control_client_enrollment`||t.account_user_id!==i.accountUserId||t.client_id!==i.clientId||t.target_origin!==s.targetOrigin||t.target_path!==s.targetPath)throw W3().warning(`remote_control_client_enrollment_challenge_mismatch`,{safe:{},sensitive:{accountUserId:t.account_user_id,clientId:t.client_id,enrollmentAccountUserId:i.accountUserId,enrollmentClientId:i.clie"
+    },
+    "function u6(": {
+      "character_offset": 3021923,
+      "utf8_byte_offset": 3026790,
+      "excerpt": "function u6({auth:e,challenge:t,deviceKeyClient:n,desktopApiOptions:r,enrollment:i,expectedPath:a,requireDeviceIdentityHash:o}){let s=oGe(r,a,e);if(t.purpose!==`remote_control_client_enrollment`||t.audience!==`remote_control_client_enrollment`||t.account_user_id!==i.accountUserId||t.client_id!==i.clientId||t.target_origin!==s.targetOrigin||t.target_path!==s.targetPath)throw W3().warning(`remote_control_client_enrollment_challenge_mismatch`,{safe:{},sensitive:{accountUserId:t.account_user_id,clientId:t.client_id,enrollmentAccountUserId:i.accountUserId,enrollmentClientId:i.clientId,expectedTargetOrigin:s.targetOrigin,expectedTargetPath:s.targetPath,targetOrigin:t.target_origin,targetPath:t.target_path}}),Error(`Remote control enrollment challenge does not match local enrollment.`);if(o&&t.de"
+    },
+    "async function mGe(": {
+      "character_offset": 3024067,
+      "utf8_byte_offset": 3028934,
+      "excerpt": "async function mGe({challenge:e,deviceKeyClient:t,enrollmentKey:n,globalState:r}){let i=await s6({deviceKeyClient:t,enrollmentKey:Y3(n,e.accountUserId),globalState:r});if(W3().debug(`remote_control_websocket_device_key_challenge`,{safe:{audience:e.audience,hasLocalEnrollment:i!=null},sensitive:{accountUserId:e.accountUserId,clientId:e.clientId,localEnrollmentAccountUserId:i?.accountUserId??null,localEnrollmentClientId:i?.clientId??null,sessionId:e.sessionId,targetOrigin:e.targetOrigin,targetPath:e.targetPath}}),i==null||i.accountUserId!==e.accountUserId||i.clientId!==e.clientId)throw W3().warning(`remote_control_websocket_device_key_challenge_mismatch`,{safe:{hasLocalEnrollment:i!=null},sensitive:{accountUserId:e.accountUserId,clientId:e.clientId,localEnrollmentAccountUserId:i?.accountUser"
+    },
+    "function CKe(": {
+      "character_offset": 3093312,
+      "utf8_byte_offset": 3098180,
+      "excerpt": "function CKe(e){return Buffer.from(JSON.stringify({domain:xKe,payload:wKe(e)}),`utf8`)}function wKe(e){switch(e.type){case`remoteControlClientConnection`:if(r8(e.nonce),e.audience!==`remote_control_client_websocket`)throw Error(`Invalid remote-control device-key connection audience`);if(e.scopes.length!==1||e.scopes[0]!==`remote_control_controller_websocket`)throw Error(`Invalid remote-control device-key connection scopes`);return i8(e.tokenSha256Base64url),{accountUserId:e.accountUserId,audience:e.audience,clientId:e.clientId,nonce:e.nonce,scopes:e.scopes,sessionId:e.sessionId,targetOrigin:e.targetOrigin,targetPath:e.targetPath,tokenExpiresAt:e.tokenExpiresAt,tokenSha256Base64url:e.tokenSha256Base64url,type:e.type};case`remoteControlClientEnrollment`:if(r8(e.nonce),e.audience!==`remote_co"
+    },
+    "function wKe(": {
+      "character_offset": 3093399,
+      "utf8_byte_offset": 3098267,
+      "excerpt": "function wKe(e){switch(e.type){case`remoteControlClientConnection`:if(r8(e.nonce),e.audience!==`remote_control_client_websocket`)throw Error(`Invalid remote-control device-key connection audience`);if(e.scopes.length!==1||e.scopes[0]!==`remote_control_controller_websocket`)throw Error(`Invalid remote-control device-key connection scopes`);return i8(e.tokenSha256Base64url),{accountUserId:e.accountUserId,audience:e.audience,clientId:e.clientId,nonce:e.nonce,scopes:e.scopes,sessionId:e.sessionId,targetOrigin:e.targetOrigin,targetPath:e.targetPath,tokenExpiresAt:e.tokenExpiresAt,tokenSha256Base64url:e.tokenSha256Base64url,type:e.type};case`remoteControlClientEnrollment`:if(r8(e.nonce),e.audience!==`remote_control_client_enrollment`)throw Error(`Invalid remote-control device-key enrollment audi"
+    }
+  },
+  "prior_ghidra_sign_and_verify_sha256": "ae894dd752e0da557d389c7b78c6467aa1808a965dbfdb90dee1e5092f1f969a",
+  "prior_ghidra_hid_sha256": "ec84c4b58ae758690030060006bc21eb42c91e6c974ab90a188d9a5c313b5c31",
+  "prior_evidence_boundary": "The two temporary Ghidra outputs were examined earlier in this task. Host restart removed those outputs. This continuation rechecks preserved JS and native files; no completed CLI decompilation is claimed.",
+  "corrections": {
+    "envelope_encoding": "CBOR map; not custom TLV or fixed 0xa0 prefix",
+    "windows_error_code": 1,
+    "windows_report_error_code": 2,
+    "windows_matrix_source": "cte: if(platform !== darwin) return li(1, ...signals)",
+    "native_key_algorithm": "ecdsa_p256_sha256",
+    "signed_payload_domain": "codex-device-key-sign-payload/v1",
+    "signature_format": "ECDSA P-256 over SHA-256(payload), ASN.1 DER then standard base64",
+    "hardware_provenance": "Signature proves possession; hardware classification also depends on trusted native provider and enrollment.",
+    "cli_decompilation": "Previously inspected output contained 0 matched strings and 0 referencing functions; not a completed decompilation."
+  }
+}

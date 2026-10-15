@@ -1,0 +1,35 @@
+{
+  "source_sha256": "87d52265eb13608a380fabcac47ecf13a39b981115c0960c18af563ea6d32d51",
+  "cases": [
+    {
+      "signals": {
+        "schemaVersion": 1,
+        "preferredLanguages": [
+          "zh-CN",
+          "en-US"
+        ],
+        "locale": "zh-CN",
+        "timezone": "Asia/Shanghai",
+        "screenSizeSum": 9000,
+        "screenScale": 1.5,
+        "appSessionId": "fixture-app-session"
+      },
+      "token": "v1.o2plcnJvcl9jb2RlAmlidW5kbGVfaWRwY29tLm9wZW5haS5jb2RleGFmWEqnAAEBgmV6aC1DTmVlbi1VUwJlemgtQ04DbUFzaWEvU2hhbmdoYWkEGSMoBfs_-AAAAAAAAAZzZml4dHVyZS1hcHAtc2Vzc2lvbg"
+    },
+    {
+      "signals": {
+        "schemaVersion": 1,
+        "preferredLanguages": [
+          "zh-CN",
+          "en-US"
+        ],
+        "locale": "zh-CN",
+        "timezone": "Asia/Shanghai",
+        "screenSizeSum": 9000,
+        "screenScale": 2,
+        "appSessionId": "fixture-app-session"
+      },
+      "token": "v1.o2plcnJvcl9jb2RlAmlidW5kbGVfaWRwY29tLm9wZW5haS5jb2RleGFmWEKnAAEBgmV6aC1DTmVlbi1VUwJlemgtQ04DbUFzaWEvU2hhbmdoYWkEGSMoBQIGc2ZpeHR1cmUtYXBwLXNlc3Npb24"
+    }
+  ]
+}

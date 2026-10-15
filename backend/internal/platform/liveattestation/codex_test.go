@@ -4,9 +4,33 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"os"
 	"testing"
 )
+
+func TestUnavailableSignalCBORMatchesDesktopJavaScript(t *testing.T) {
+	data, err := os.ReadFile("testdata/desktop_unavailable_cbor.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		Cases []struct {
+			Signals deviceSignals `json:"signals"`
+			Token   string        `json:"token"`
+		} `json:"cases"`
+	}
+	if err := json.Unmarshal(data, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range fixture.Cases {
+		if actual := codexUnavailableWithSignals(2, &test.Signals); actual != test.Token {
+			t.Fatal("unavailable CBOR differs from actual desktop JavaScript")
+		}
+	}
+	t.Log("INTEGER_SCALE_CBOR_JS_MATCH=true FLOAT64_SCALE_CBOR_JS_MATCH=true")
+}
 
 func TestLinuxCodexAttestationReportsUnsupportedWithoutAppleToken(t *testing.T) {
 	encoded := codexUnavailableToken(1)

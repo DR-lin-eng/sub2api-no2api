@@ -977,3 +977,12 @@ X-OAI-IS：已将状态绑定到实际 send receipt、principal/安装/第一方
 两个 proof 开关均默认关闭，配置位于 deploy/config.example.yaml：gateway.openai_oauth_attestation_enabled 与 gateway.openai_desktop_devicecheck_enabled。不开启时维持原协议；开启后生成值来自 provider 或真实平台不可用状态。模型 Responses 不会附加 DeviceCheck raw token，非第一方 relay 不继承 attestation/integrity 证明；第一方 proof 请求禁止自动跨域重定向。
 
 受限原生执行已修正 headless NSScreen 无显示器时的信号读取、多显示器总尺寸和 latency Float64 编码；未通过伪造屏幕/硬件/签名绕过 native unsupported。支持设备或真实证明提供者是成功 Apple 注册的外部条件，不能靠固定字符串补齐。
+
+
+# 附录 F Ghidra 原生层报告补充
+
+新报告指向的设备密钥证明属于 controller Remote Control 会话，与模型 x-oai-attestation、Desktop DeviceCheck cookie 注册均为独立协议。当前代码已增加 native TPM/SE/Keychain provider、controller enroll/refresh、fresh step-up 检查、设备身份摘要和 WS device_key_proof。生产代码不使用本地软件 fixture 代替硬件密钥。实现与证据见 [原生证明对照](native-device-key-alignment.md)。
+
+与同版本 bundle 交叉核对后，enroll/refresh start/finish 使用 POST；签名载荷为固定 domain 包装的有序 JSON；attestation 是 CBOR map，f 是 CBOR byte string；Windows error_code=1，Intel Mac error_code=2。报告对应表述以对照文档的源码证据修正。新增 sky.node/CUA 执行层分析没有提供新的网关请求字段。
+
+本地 HTTP/WS 注册、刷新和签名验签通过；Go 的身份 hash、两种载荷与 CBOR 都按原 JS 纯函数生成 golden 逐字节比较。native 模块缺失时返回 error_code=4 与实际系统 signals，旧 Live/raw 路径继续拒绝；同输入基线/修改/回退结果记录在交付 ledger。此前真实 native hardware_only 与 allow_os_protected_nonextractable 两策略均未能创建 key，真实硬件成功和上游 fresh step-up 注册仍未验证。

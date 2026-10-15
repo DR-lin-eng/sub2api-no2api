@@ -6,6 +6,7 @@
 | --- | --- |
 | `config/` | 环境变量、配置默认值、校验和配置注入 |
 | `middleware/` | 非 HTTP 专属的凭据加密、验证码和限流组件 |
+| `devicekey/` | 官方 native TPM/SE/Keychain 密钥 create/public/sign/delete 桥 |
 | `liveattestation/` | macOS 原生 DeviceCheck、独立 raw token 与 Codex callback/Live envelope；Linux 明确报告 unsupported 平台，不伪造 Apple token |
 
 HTTP 请求链中间件位于 `transport/http/server/middleware`，不要与本目录混放。

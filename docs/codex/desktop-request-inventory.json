@@ -281,7 +281,7 @@
       "direction": "request",
       "scope": "remote-control client 后续请求",
       "value_template_and_source": "Bearer <REMOTE_CONTROL_TOKEN>；refresh/finish 返回",
-      "project_observed_status": "模型不发送；server 角色的 Authorization 不是它的替代",
+      "project_observed_status": "模型不发送；独立 controller client enroll/refresh 已使用专用 session token，WebSocket v3 首次 challenge 校验 token 摘要、scopes 与有效期后发送 TPM/SE device_key_proof；server enrollment 保持独立。真实上游注册需要 fresh step-up，本轮只证明本地完整协议。",
       "live_upstream_verified": false,
       "project_symbol_occurrence_refs": []
     },
@@ -447,7 +447,7 @@
       "direction": "unresolved",
       "scope": "CLI attestation",
       "value_template_and_source": "<ATTESTATION_ENVELOPE>；AttestationGenerate 真实输出",
-      "project_observed_status": "已接入 HTTP、普通/托管/透传 WS 的实际发送点；本地 provider 生成真实 callback token，Linux 返回 error_code=1，当前 macOS 返回 error_code=3；外层 s=0 只表示回调成功，不等于 Apple 证明成功。可用 gateway.openai_oauth_attestation_enabled 开启。",
+      "project_observed_status": "已接入 HTTP、普通/托管/透传 WS 的实际发送点；本地 provider 生成真实 callback token，Linux 返回 error_code=1，当前 macOS 返回 error_code=3；外层 s=0 只表示回调成功，不等于 Apple 证明成功。可用 gateway.openai_oauth_attestation_enabled 开启。 Ghidra 补充：native 模块加载失败也返回 error_code=4 与实际 signals；Intel macOS error 2 保留 signals，Windows 按同版本源码为 error 1。",
       "live_upstream_verified": true,
       "project_symbol_occurrence_refs": [
         "backend/internal/application/service/openai_codex_fingerprint.go:57",
@@ -1302,5 +1302,13 @@
     "integrity_update_received": false,
     "installed_app_version": "26.1007.30912",
     "analyzed_app_version": "26.1007.71326"
+  },
+  "native_device_key_alignment": {
+    "report": "native-device-key-alignment.md",
+    "evidence": "native-device-key-evidence.json",
+    "local_enrollment_refresh_ws_verified": true,
+    "native_hardware_key_verified": false,
+    "upstream_remote_enrollment_verified": false,
+    "hardware_proof_is_not_a_model_request_header": true
   }
 }
