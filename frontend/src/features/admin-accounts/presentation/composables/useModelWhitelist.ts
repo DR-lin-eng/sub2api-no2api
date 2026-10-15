@@ -24,6 +24,7 @@ const openaiModels = [
 
 // Anthropic Claude
 export const claudeModels = [
+  'claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5',
   'claude-3-5-sonnet-20241022', 'claude-3-5-sonnet-20240620',
   'claude-3-5-haiku-20241022',
   'claude-3-7-sonnet-20250219',
@@ -59,6 +60,14 @@ const geminiModels = [
 // Antigravity 官方支持的模型（精确匹配）
 // 基于官方 API 返回的模型列表，只支持 Claude 4.5+ 和 Gemini 2.5+
 const antigravityModels = [
+  'claude-opus-5-5',
+  'claude-opus-5-5-low',
+  'claude-opus-5-5-medium',
+  'claude-opus-5-5-high',
+  'claude-sonnet-5-5',
+  'claude-sonnet-5-5-low',
+  'claude-sonnet-5-5-medium',
+  'claude-sonnet-5-5-high',
   // Claude 4.5+ / 5.5 系列
   'claude-fable-5-1',
   'claude-fable-5',
@@ -292,6 +301,9 @@ export const allModels = allModelsList.map(m => ({ value: m, label: m }))
 // =====================
 
 const anthropicPresetMappings = [
+  { label: 'Opus 5.5', from: 'claude-opus-5-5', to: 'claude-opus-5-5', color: 'bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-400' },
+  { label: 'Sonnet 5.5', from: 'claude-sonnet-5-5', to: 'claude-sonnet-5-5', color: 'bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-400' },
+  { label: 'Haiku 5.5', from: 'claude-haiku-5-5', to: 'claude-haiku-5-5', color: 'bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-400' },
   { label: 'Fable 5.1', from: 'claude-fable-5-1', to: 'claude-fable-5-1', color: 'bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-rose-900/30 dark:text-rose-400' },
   { label: 'Fable 5', from: 'claude-fable-5', to: 'claude-fable-5', color: 'bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-rose-900/30 dark:text-rose-400' },
   { label: 'Sonnet 5', from: 'claude-sonnet-5', to: 'claude-sonnet-5', color: 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400' },
@@ -359,6 +371,14 @@ const grokPresetMappings = [
 
 // Antigravity 预设映射（支持通配符）
 const antigravityPresetMappings = [
+  { label: 'Opus 5.5', from: 'claude-opus-5-5', to: 'claude-opus-5-5-high', color: 'bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-400' },
+  { label: 'Opus 5.5-low', from: 'claude-opus-5-5-low', to: 'claude-opus-5-5-low', color: 'bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-400' },
+  { label: 'Opus 5.5-medium', from: 'claude-opus-5-5-medium', to: 'claude-opus-5-5-medium', color: 'bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-400' },
+  { label: 'Opus 5.5-high', from: 'claude-opus-5-5-high', to: 'claude-opus-5-5-high', color: 'bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-400' },
+  { label: 'Sonnet 5.5', from: 'claude-sonnet-5-5', to: 'claude-sonnet-5-5-high', color: 'bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-400' },
+  { label: 'Sonnet 5.5-low', from: 'claude-sonnet-5-5-low', to: 'claude-sonnet-5-5-low', color: 'bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-400' },
+  { label: 'Sonnet 5.5-medium', from: 'claude-sonnet-5-5-medium', to: 'claude-sonnet-5-5-medium', color: 'bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-400' },
+  { label: 'Sonnet 5.5-high', from: 'claude-sonnet-5-5-high', to: 'claude-sonnet-5-5-high', color: 'bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-400' },
   // Claude 5.5 / Gemini 4 Argon / 3.8 Flash 推荐映射
   { label: '4 Argon→High', from: 'gemini-4-argon', to: 'gemini-4-argon-high', color: 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400' },
   { label: '4 Argon High', from: 'gemini-4-argon-high', to: 'gemini-4-argon-high', color: 'bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400' },

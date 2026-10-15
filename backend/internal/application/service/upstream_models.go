@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog"
 	"github.com/Wei-Shaw/sub2api/internal/shared/claude"
 	"github.com/Wei-Shaw/sub2api/internal/shared/geminicli"
 )
@@ -74,7 +75,7 @@ func newUpstreamModelSyncUpstreamError(message string, err error) error {
 }
 
 // FetchUpstreamSupportedModels fetches the live model list from the account's upstream API format.
-func (s *AccountTestService) FetchUpstreamSupportedModels(ctx context.Context, account *Account) ([]string, error) {
+func (s *AccountTestService) fetchUpstreamSupportedModels(ctx context.Context, account *Account) ([]string, error) {
 	if s == nil {
 		return nil, newUpstreamModelSyncConfigError("Account test service is not configured", nil)
 	}
@@ -99,41 +100,70 @@ func (s *AccountTestService) FetchUpstreamSupportedModels(ctx context.Context, a
 	}
 
 	proxyURL := upstreamModelsProxyURL(account)
-	resp, err := s.doUpstreamModelsRequest(req, proxyURL, account)
-	if err != nil {
-		return nil, newUpstreamModelSyncUpstreamError("Failed to request upstream model list", err)
+	models := []string{}
+	seenCursors := map[string]bool{}
+	totalBytes := 0
+	for page := 0; page < 8; page++ {
+		resp, err := s.doUpstreamModelsRequest(req, proxyURL, account)
+		if err != nil {
+			return nil, newUpstreamModelSyncUpstreamError("Failed to request upstream model list", err)
+		}
+		bodyLimit := min(resolveModelsListReadLimit(s.cfg), int64(modelcatalog.MaxBodyBytes-totalBytes))
+		body, readErr := io.ReadAll(io.LimitReader(resp.Body, bodyLimit+1))
+		_ = resp.Body.Close()
+		if readErr != nil {
+			return nil, newUpstreamModelSyncUpstreamError("Failed to read upstream model list", readErr)
+		}
+		if int64(len(body)) > bodyLimit {
+			return nil, newUpstreamModelSyncUpstreamError("Upstream model list response is too large", nil)
+		}
+		totalBytes += len(body)
+		if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+			return nil, newUpstreamModelSyncUpstreamError(fmt.Sprintf("Upstream model list request failed with HTTP %d", resp.StatusCode), nil)
+		}
+		extractModels := extractUpstreamModelIDs
+		if account.IsGrok() {
+			extractModels = extractGrokUpstreamModelIDs
+		}
+		ids, err := extractModels(body)
+		if err != nil {
+			return nil, newUpstreamModelSyncUpstreamError("Upstream model list response was not valid JSON", err)
+		}
+		if err := captureUpstreamModelCatalog(ctx, body, ids); err != nil {
+			return nil, err
+		}
+		models = append(models, ids...)
+		if len(models) > modelcatalog.MaxModels {
+			return nil, newUpstreamModelSyncUpstreamError("Upstream model list exceeds model limit", nil)
+		}
+		var pagination struct {
+			HasMore       bool   `json:"has_more"`
+			LastID        string `json:"last_id"`
+			NextPageToken string `json:"nextPageToken"`
+		}
+		_ = json.Unmarshal(body, &pagination)
+		key, cursor := "pageToken", pagination.NextPageToken
+		if pagination.HasMore {
+			key, cursor = "after_id", pagination.LastID
+			if cursor == "" {
+				return nil, newUpstreamModelSyncUpstreamError("Upstream model list pagination is incomplete", nil)
+			}
+		}
+		if cursor == "" {
+			if len(models) == 0 {
+				return nil, newUpstreamModelSyncUpstreamError("Upstream returned no supported models", nil)
+			}
+			return dedupeAndSortModelIDs(models), nil
+		}
+		if seenCursors[key+cursor] {
+			return nil, newUpstreamModelSyncUpstreamError("Upstream model list pagination repeated", nil)
+		}
+		seenCursors[key+cursor] = true
+		query := req.URL.Query()
+		query.Set(key, cursor)
+		req.URL.RawQuery = query.Encode()
 	}
-	defer func() { _ = resp.Body.Close() }()
-
-	bodyLimit := resolveModelsListReadLimit(s.cfg)
-	body, err := io.ReadAll(io.LimitReader(resp.Body, bodyLimit+1))
-	if err != nil {
-		return nil, newUpstreamModelSyncUpstreamError("Failed to read upstream model list", err)
-	}
-	if int64(len(body)) > bodyLimit {
-		return nil, newUpstreamModelSyncUpstreamError("Upstream model list response is too large", fmt.Errorf("response exceeds %d bytes", bodyLimit))
-	}
-
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return nil, newUpstreamModelSyncUpstreamError(
-			fmt.Sprintf("Upstream model list request failed with HTTP %d", resp.StatusCode),
-			fmt.Errorf("upstream model list returned HTTP %d", resp.StatusCode),
-		)
-	}
-
-	extractModels := extractUpstreamModelIDs
-	if account.IsGrok() {
-		extractModels = extractGrokUpstreamModelIDs
-	}
-	models, err := extractModels(body)
-	if err != nil {
-		return nil, newUpstreamModelSyncUpstreamError("Upstream model list response was not valid JSON", err)
-	}
-	if len(models) == 0 {
-		return nil, newUpstreamModelSyncUpstreamError("Upstream returned no supported models", nil)
-	}
-
-	return models, nil
+	return nil, newUpstreamModelSyncUpstreamError("Upstream model list exceeds pagination limit", nil)
 }
 
 func (s *AccountTestService) fetchOpenAIOAuthUpstreamModels(ctx context.Context, account *Account) ([]string, error) {
@@ -173,6 +203,9 @@ func (s *AccountTestService) fetchOpenAIOAuthUpstreamModels(ctx context.Context,
 	}
 	if len(models) == 0 {
 		return nil, newUpstreamModelSyncUpstreamError("OpenAI models manifest returned no supported models", nil)
+	}
+	if err := captureUpstreamModelCatalog(ctx, manifest.Body, models); err != nil {
+		return nil, err
 	}
 	sort.Strings(models)
 	return models, nil
@@ -483,7 +516,7 @@ func (s *AccountTestService) fetchAntigravityOAuthUpstreamModels(ctx context.Con
 	if err != nil {
 		return nil, newUpstreamModelSyncConfigError("Failed to configure Antigravity client", err)
 	}
-	modelsResp, _, err := client.FetchAvailableModelsFromURL(ctx, resolveAntigravityForwardBaseURL(account), accessToken, strings.TrimSpace(account.GetCredential("project_id")), resolveModelsListReadLimit(s.cfg))
+	modelsResp, rawModels, err := client.FetchAvailableModelsFromURL(ctx, resolveAntigravityForwardBaseURL(account), accessToken, strings.TrimSpace(account.GetCredential("project_id")), resolveModelsListReadLimit(s.cfg))
 	if err != nil {
 		return nil, newUpstreamModelSyncUpstreamError("Failed to fetch Antigravity available models", err)
 	}
@@ -494,6 +527,13 @@ func (s *AccountTestService) fetchAntigravityOAuthUpstreamModels(ctx context.Con
 	models := make([]string, 0, len(modelsResp.Models))
 	for modelID := range modelsResp.Models {
 		models = append(models, strings.TrimSpace(modelID))
+	}
+	rawBody, err := json.Marshal(rawModels)
+	if err != nil {
+		return nil, err
+	}
+	if err := captureUpstreamModelCatalog(ctx, rawBody, models); err != nil {
+		return nil, err
 	}
 	return dedupeAndSortModelIDs(models), nil
 }
@@ -539,6 +579,7 @@ func buildGeminiModelsURL(base string) string {
 }
 
 type upstreamModelEntry struct {
+	Slug         string          `json:"slug"`
 	ID           string          `json:"id"`
 	Model        string          `json:"model"`
 	ModelID      string          `json:"modelId"`
@@ -548,6 +589,7 @@ type upstreamModelEntry struct {
 }
 
 type upstreamModelEntryMetadata struct {
+	Slug         string `json:"slug"`
 	ID           string `json:"id"`
 	Model        string `json:"model"`
 	ModelID      string `json:"modelId"`
@@ -603,6 +645,9 @@ func extractUpstreamModelIDsWithSelector(body []byte, selectID func(upstreamMode
 
 func upstreamModelEntryID(entry upstreamModelEntry) string {
 	modelID := strings.TrimSpace(entry.ID)
+	if modelID == "" {
+		modelID = strings.TrimSpace(entry.Slug)
+	}
 	if modelID == "" {
 		modelID = strings.TrimSpace(entry.Name)
 	}

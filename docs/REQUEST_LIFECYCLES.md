@@ -567,3 +567,11 @@ frontend/src
 ## 2026-10-15 协议适配边界
 
 原生 Anthropic 请求构造器在出站前拒绝其它供应商 OAuth/setup-token；count_tokens 在取 token 前返回兼容 404。协议专属 Anthropic base URL 覆盖通用 provider 地址，但不会改变已配置的鉴权方式。Gemini 每个上游响应只执行一次错误策略，明确的 Vertex SA account-not-found 从凭据阶段进入原有换号流程；共享容量 429 不等同于账号配额。兼容转换的可选输出下限、升级顺序与未关闭目录子项见 [2026-10-15 同步审查](UPSTREAM_SYNC_20261015.md)。
+
+## Claude 5.5 与模型元数据发现
+
+Messages、count_tokens 和 Responses/Chat 桥接在访问凭据前按已映射上游模型校验 5.5 参数。Responses 推理块通过有界 `anthropic-thinking-v1:` 帧携带原始 thinking/signature 或 redacted data；网关不签发签名，最终校验仍由提供方负责。分片签名与文本使用线性 builder；超出回放边界显式返回失败状态。旧模型维持原有转换策略。
+
+管理端模型同步调用应用层 `SyncUpstreamModelCatalog`；预览调用无持久化的 Fetch。OAuth worker 复用同一有界探测与仓储端口。完整成功快照原子写入账号 Extra，并保护账号身份、刷新代次和未知版本；失败/分页不完整不替换旧数据。旧 `UpdateExtra` 写入保留新增键，普通账号编辑从行锁下读取最新快照。
+
+Codex 模型发现的共享缓存只存上游结果。账号投影再合并已验证元数据，执行已有映射和分组限制，并按最终响应计算 ETag；显式管理员覆盖优先于上游字段，上游显式 false/空数组优先于回退值。此流程不为网关请求新增 DB 或外部目录访问。边界见 [modelcatalog](../backend/internal/modules/modelcatalog/README.md)。

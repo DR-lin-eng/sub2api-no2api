@@ -546,7 +546,8 @@ func lockAndMergeAccountProbeExtra(
 			extra -> 'upstream_billing_probe',
 			extra -> 'ollama_cloud_usage_session',
 			extra -> 'ollama_cloud_usage_auto_refresh',
-			extra -> 'ollama_cloud_usage_snapshot'
+			extra -> 'ollama_cloud_usage_snapshot',
+			extra -> 'upstream_model_metadata'
 		FROM accounts
 		WHERE id = $1 AND deleted_at IS NULL
 		FOR NO KEY UPDATE
@@ -572,6 +573,7 @@ func lockAndMergeAccountProbeExtra(
 		currentOllamaSession         []byte
 		currentOllamaAutoRefresh     []byte
 		currentOllamaSnapshot        []byte
+		currentModelMetadata         []byte
 	)
 	if err := rows.Scan(
 		&identityUnchanged,
@@ -583,6 +585,7 @@ func lockAndMergeAccountProbeExtra(
 		&currentOllamaSession,
 		&currentOllamaAutoRefresh,
 		&currentOllamaSnapshot,
+		&currentModelMetadata,
 	); err != nil {
 		return nil, err
 	}
@@ -591,6 +594,14 @@ func lockAndMergeAccountProbeExtra(
 	}
 
 	extra := copyJSONMap(normalizeJSONMap(account.Extra))
+	delete(extra, service.UpstreamModelMetadataExtraKey)
+	if identityUnchanged {
+		if value, ok, err := decodeAccountExtraJSON(currentModelMetadata); err != nil {
+			return nil, err
+		} else if ok {
+			extra[service.UpstreamModelMetadataExtraKey] = value
+		}
+	}
 	for _, key := range []string{
 		service.UpstreamBillingProbeEnabledExtraKey,
 		service.UpstreamBillingRateSyncEnabledExtraKey,

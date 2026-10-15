@@ -362,6 +362,8 @@ func (s *BillingService) initFallbackPricing() {
 	s.fallbackPrices["claude-opus-4.8"] = s.fallbackPrices["claude-opus-4.7"]
 	s.fallbackPrices["claude-opus-5"] = s.fallbackPrices["claude-opus-4.8"]
 
+	s.initClaude55FallbackPricing()
+
 	// Gemini 3.1 Pro
 	s.fallbackPrices["gemini-3.1-pro"] = &ModelPricing{
 		InputPricePerToken:         2e-6,   // $2 per MTok
@@ -833,6 +835,10 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 	modelLower := normalizeAntigravityClaudeTierAlias(strings.ToLower(model))
 	if modelLower == "jev-latest" {
 		return s.fallbackPrices["jev-latest"]
+	}
+
+	if id := claude55PricingID(modelLower); id != "" {
+		return s.fallbackPrices[id]
 	}
 
 	// 按模型系列匹配
@@ -1593,6 +1599,7 @@ func (s *BillingService) applyModelSpecificPricingPolicyEx(model string, pricing
 		}
 		pricing = &cloned
 	}
+	pricing = applyHaiku55DefaultPolicy(model, pricing, forceDeepSeekRates)
 	normalized := normalizeKnownOpenAICodexModel(model)
 	isGPT6 := isOpenAIGPT6Model(normalized)
 	isGPT56 := isOpenAIGPT56Model(normalized)

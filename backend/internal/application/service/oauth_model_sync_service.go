@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog"
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	"github.com/google/uuid"
 )
@@ -379,7 +380,18 @@ func isOAuthModelSyncEligibleAccount(account *Account) bool {
 func (s *OAuthModelSyncService) syncAccount(ctx context.Context, account Account) bool {
 	accountCtx, cancel := context.WithTimeout(ctx, s.opts.AccountTimeout)
 	defer cancel()
-	models, err := s.fetcher.FetchUpstreamSupportedModels(accountCtx, &account)
+	started := time.Now()
+	var models []string
+	var catalog *modelcatalog.Catalog
+	var err error
+	if fetcher, ok := s.fetcher.(upstreamModelCatalogFetcher); ok {
+		catalog, err = fetcher.FetchUpstreamModelCatalog(accountCtx, &account)
+		if catalog != nil {
+			models = catalog.Models
+		}
+	} else {
+		models, err = s.fetcher.FetchUpstreamSupportedModels(accountCtx, &account)
+	}
 	if err != nil {
 		// Keep the previous snapshot on failure. Replacing it with an empty list
 		// would make a transient 429/timeout look like a permanent capability
@@ -396,6 +408,17 @@ func (s *OAuthModelSyncService) syncAccount(ctx context.Context, account Account
 	if len(normalized) == 0 {
 		slog.Warn("oauth_model_sync.account_empty", "account_id", account.ID)
 		return false
+	}
+	if repo, ok := s.repo.(upstreamModelCatalogRepository); ok && catalog != nil {
+		snapshot, err := catalog.Snapshot(account.Platform, started)
+		if err == nil {
+			err = repo.UpdateUpstreamModelCatalog(accountCtx, &account, snapshot)
+		}
+		if err != nil {
+			slog.Warn("oauth_model_sync.catalog_persist_failed", "account_id", account.ID, "error", err)
+			return false
+		}
+		return true
 	}
 	if err := s.repo.UpdateExtra(ctx, account.ID, map[string]any{
 		OAuthSupportedModelsExtraKey:         normalized,

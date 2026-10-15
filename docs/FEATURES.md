@@ -92,3 +92,5 @@ git diff --check
 ```
 
 文档检查覆盖目录 README 的存在、索引登记和维护文档的本地链接；它不证明页面交互、权限或业务行为已经通过运行测试。修改业务时仍须按 [代码地图](CODE_MAP.md) 和子目录说明运行对应测试。
+
+模型发现元数据的纯规则见 [modelcatalog](../backend/internal/modules/modelcatalog/README.md)，刷新与持久化由 `upstream_model_catalog.go` 和 `oauth_model_sync_service.go` 编排，Codex 客户端投影由 `openai_codex_models_metadata.go` 负责。

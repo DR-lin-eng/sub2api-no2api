@@ -40,6 +40,19 @@ describe('useModelWhitelist', () => {
     expect(models).toContain('gemini-3-pro-image')
   })
 
+  it('Claude 5.5 models and provider-specific presets stay aligned', () => {
+    for (const family of ['opus', 'sonnet', 'haiku']) {
+      const id = `claude-${family}-5-5`
+      expect(getModelsByPlatform('claude')).toContain(id)
+      expect(getPresetMappingsByPlatform('claude')).toEqual(expect.arrayContaining([expect.objectContaining({ from: id, to: id })]))
+    }
+    for (const family of ['opus', 'sonnet']) {
+      const id = `claude-${family}-5-5`
+      for (const tier of ['low', 'medium', 'high']) expect(getModelsByPlatform('antigravity')).toContain(`${id}-${tier}`)
+      expect(getPresetMappingsByPlatform('antigravity')).toEqual(expect.arrayContaining([expect.objectContaining({ from: id, to: `${id}-high` })]))
+    }
+  })
+
   it('Claude 模型列表包含新发布的 Claude 模型', () => {
     expect(getModelsByPlatform('claude')).toContain('claude-fable-5-1')
     expect(getModelsByPlatform('antigravity')).toContain('claude-fable-5-1')

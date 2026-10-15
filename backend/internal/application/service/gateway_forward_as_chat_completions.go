@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/shared/apicompat"
-	"github.com/Wei-Shaw/sub2api/internal/shared/claude"
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
 	"github.com/Wei-Shaw/sub2api/internal/shared/responseheaders"
 	"github.com/gin-gonic/gin"
@@ -50,32 +49,18 @@ func (s *GatewayService) ForwardAsChatCompletions(
 		return nil, fmt.Errorf("convert chat completions to responses: %w", err)
 	}
 
+	mappedModel := resolveClaudeForwardModel(account, originalModel)
+	responsesReq.Model = mappedModel
+
 	anthropicReq, err := apicompat.ResponsesToAnthropicRequest(responsesReq)
 	if err != nil {
+		writeChatCompletionsError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
 		return nil, fmt.Errorf("convert responses to anthropic: %w", err)
 	}
 
 	// 3. Force upstream streaming
 	anthropicReq.Stream = true
 	reqStream := true
-
-	// 4. Model mapping
-	mappedModel := originalModel
-	if account.Type == AccountTypeAPIKey || account.Type == AccountTypeServiceAccount {
-		mappedModel = account.GetMappedModel(originalModel)
-	}
-	if mappedModel == originalModel && account.Platform == PlatformAnthropic && account.Type == AccountTypeServiceAccount {
-		normalized := normalizeVertexAnthropicModelID(claude.NormalizeModelID(originalModel))
-		if normalized != originalModel {
-			mappedModel = normalized
-		}
-	} else if mappedModel == originalModel && account.Platform == PlatformAnthropic && account.Type != AccountTypeAPIKey {
-		normalized := claude.NormalizeModelID(originalModel)
-		if normalized != originalModel {
-			mappedModel = normalized
-		}
-	}
-	anthropicReq.Model = mappedModel
 
 	logger.L().Debug("gateway forward_as_chat_completions: model mapping applied",
 		zap.Int64("account_id", account.ID),
@@ -88,6 +73,11 @@ func (s *GatewayService) ForwardAsChatCompletions(
 	anthropicBody, err := json.Marshal(anthropicReq)
 	if err != nil {
 		return nil, fmt.Errorf("marshal anthropic request: %w", err)
+	}
+
+	if err := validateClaude55Request(anthropicBody, mappedModel); err != nil {
+		writeChatCompletionsError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+		return nil, err
 	}
 
 	// 6. Apply Claude Code mimicry for OAuth accounts.
@@ -253,6 +243,8 @@ func (s *GatewayService) handleCCBufferedFromAnthropic(
 	scanner.Buffer(make([]byte, 0, 64*1024), maxLineSize)
 
 	var finalResp *apicompat.AnthropicResponse
+	var thinkingCollector apicompat.AnthropicSignedThinkingCollector
+	preserveSignedThinking := isClaude55SignedThinkingModel(mappedModel)
 	var usage ClaudeUsage
 
 	for scanner.Scan() {
@@ -293,6 +285,9 @@ func (s *GatewayService) handleCCBufferedFromAnthropic(
 		}
 		if event.Type == "content_block_start" && event.ContentBlock != nil && finalResp != nil {
 			finalResp.Content = append(finalResp.Content, *event.ContentBlock)
+			if preserveSignedThinking {
+				thinkingCollector.Start(len(finalResp.Content)-1, *event.ContentBlock)
+			}
 		}
 		if event.Type == "content_block_delta" && event.Delta != nil && finalResp != nil && event.Index != nil {
 			idx := *event.Index
@@ -300,8 +295,12 @@ func (s *GatewayService) handleCCBufferedFromAnthropic(
 				switch event.Delta.Type {
 				case "text_delta":
 					finalResp.Content[idx].Text += event.Delta.Text
-				case "thinking_delta":
-					finalResp.Content[idx].Thinking += event.Delta.Thinking
+				case "thinking_delta", "signature_delta":
+					if preserveSignedThinking {
+						thinkingCollector.Delta(idx, event.Delta)
+					} else if event.Delta.Type == "thinking_delta" {
+						finalResp.Content[idx].Thinking += event.Delta.Thinking
+					}
 				case "input_json_delta":
 					finalResp.Content[idx].Input = appendRawJSON(finalResp.Content[idx].Input, event.Delta.PartialJSON)
 				}
@@ -334,7 +333,18 @@ func (s *GatewayService) handleCCBufferedFromAnthropic(
 	}
 
 	// Chain: Anthropic → Responses → Chat Completions
+	if isClaude55SignedThinkingModel(mappedModel) {
+		finalResp.Model = mappedModel
+	}
+	var thinkingReplayError *apicompat.ResponsesError
+	if preserveSignedThinking {
+		thinkingReplayError = thinkingCollector.Apply(finalResp)
+	}
 	responsesResp := apicompat.AnthropicToResponsesResponse(finalResp)
+	if thinkingReplayError != nil {
+		responsesResp.Status = "failed"
+		responsesResp.Error = thinkingReplayError
+	}
 	ccResp := apicompat.ResponsesToChatCompletions(responsesResp, originalModel)
 
 	if s.responseHeaderFilter != nil {
@@ -348,7 +358,9 @@ func (s *GatewayService) handleCCBufferedFromAnthropic(
 	c.Writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 	// Marshal then bytes-replace so tool name mapping is reversed at byte level
 	// (parity with Parrot non-stream flow that marshals → restore → emit).
-	if respBytes, err := json.Marshal(ccResp); err == nil {
+	if responsesResp.Error != nil {
+		writeChatCompletionsError(c, http.StatusBadGateway, responsesResp.Error.Code, responsesResp.Error.Message)
+	} else if respBytes, err := json.Marshal(ccResp); err == nil {
 		respBytes = reverseToolNamesIfPresent(c, respBytes)
 		c.Data(http.StatusOK, "application/json; charset=utf-8", respBytes)
 	} else {
@@ -391,6 +403,7 @@ func (s *GatewayService) handleCCStreamingFromAnthropic(
 	// Use Anthropic→Responses state machine, then convert Responses→CC
 	anthState := apicompat.NewAnthropicEventToResponsesState()
 	anthState.Model = originalModel
+	anthState.PreserveThinkingSignatures = isClaude55SignedThinkingModel(mappedModel)
 	ccState := apicompat.NewResponsesEventToChatState()
 	ccState.Model = originalModel
 	ccState.IncludeUsage = includeUsage
