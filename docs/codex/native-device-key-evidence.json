@@ -2,8 +2,8 @@
   "version": "26.1007.71326",
   "evidence": {
     "report": {
-      "sha256": "d8c7fbca2ca9905b90aa11c3888c4dc774a474cb0c4df276bff466dd73ca5ab9",
-      "bytes": 21679
+      "sha256": "b583aab74db5e436e0020380fc6cca2a76b3b4bb3ecf2f524905c8488516c7ca",
+      "bytes": 25016
     },
     "desktop_main": {
       "sha256": "87d52265eb13608a380fabcac47ecf13a39b981115c0960c18af563ea6d32d51",
@@ -16,6 +16,43 @@
     "linux_native": {
       "sha256": "ec07c088e272c8f5c65fbb881f695c45f8f4ff7a0ce0f0d8618ebab5e586fec5",
       "bytes": 91880
+    },
+    "cli_decompilation_v1": {
+      "sha256": "a9d92083820ef139c7c7895b156a109e79876b61e877c64e0453db7f59272710",
+      "bytes": 64525,
+      "matched_strings": 20,
+      "referencing_functions": 7
+    },
+    "cli_decompilation_v2": {
+      "sha256": "72caf773bfd1b1d90a70533d62cda804d231b86c5753fc4c14029e011239ea14",
+      "bytes": 48350,
+      "raw_string_addresses": 49,
+      "panic_locations": 3,
+      "functions": 2,
+      "attestation_state_machine": "FUN_039d5bc8 @ 0x039d5bc8"
+    },
+    "mac_create_private_key": {
+      "sha256": "16c538e0fd19566ef366fe37f5357c16b56ddfdefb46db7582c419957c65633b",
+      "bytes": 14712
+    },
+    "public_attestation_source": {
+      "sha256": "28f9776283803b3a691f3f5736df6df060b77f6dfe22002b38c4df2056a229ef",
+      "bytes": 6898,
+      "repository": "openai/codex",
+      "revision": "3ee47c10513f1bb57d869ea650aba28638e3d11c",
+      "path": "codex-rs/app-server/src/attestation.rs",
+      "same_binary_revision_proven": false
+    },
+    "public_attestation_protocol": {
+      "repository": "openai/codex",
+      "revision": "3ee47c10513f1bb57d869ea650aba28638e3d11c",
+      "path": "codex-rs/app-server-protocol/src/protocol/common.rs",
+      "sha256": "0e42a89d3bba3ac938867aea4ab653660e5c8d59343b9b9a5fe7e3d6c9a96564",
+      "bytes": 174205,
+      "anchors": [
+        "attestation/generate request mapping",
+        "serialize_attestation_generate_request: params {}"
+      ]
     }
   },
   "desktop_main_anchors": {
@@ -67,7 +104,7 @@
   },
   "prior_ghidra_sign_and_verify_sha256": "ae894dd752e0da557d389c7b78c6467aa1808a965dbfdb90dee1e5092f1f969a",
   "prior_ghidra_hid_sha256": "ec84c4b58ae758690030060006bc21eb42c91e6c974ab90a188d9a5c313b5c31",
-  "prior_evidence_boundary": "The two temporary Ghidra outputs were examined earlier in this task. Host restart removed those outputs. This continuation rechecks preserved JS and native files; no completed CLI decompilation is claimed.",
+  "prior_evidence_boundary": "Older temporary sign/verify and HID outputs were lost after restart. New persisted CLI v1/v2 outputs and macOS CreatePrivateKey were reopened and hashed; public Rust source has separate revision provenance.",
   "corrections": {
     "envelope_encoding": "CBOR map; not custom TLV or fixed 0xa0 prefix",
     "windows_error_code": 1,
@@ -77,6 +114,36 @@
     "signed_payload_domain": "codex-device-key-sign-payload/v1",
     "signature_format": "ECDSA P-256 over SHA-256(payload), ASN.1 DER then standard base64",
     "hardware_provenance": "Signature proves possession; hardware classification also depends on trusted native provider and enrollment.",
-    "cli_decompilation": "Previously inspected output contained 0 matched strings and 0 referencing functions; not a completed decompilation."
+    "cli_decompilation": "Completed saved outputs now contain 20 strings/7 functions (v1), 49 raw addresses/3 panic locations/2 functions (v2); replaces prior 0-hit output.",
+    "callback_parameters": "Pinned public source routes host selection internally by thread, sends AttestationGenerateParams {}, thread_id None; nearby ThreadNameUpdatedNotification decompilation is not proof of a wire thread_id.",
+    "callback_timeout": "Pinned public source uses fixed 100ms; timeout_seconds is a tracing field. Not proven identical binary revision.",
+    "envelope_fields": "Public Rust source serializes only v,s and optional t; token is opaque. No HMAC/session field established."
+  },
+  "prior_report_snapshots": [
+    {
+      "sha256": "d8c7fbca2ca9905b90aa11c3888c4dc774a474cb0c4df276bff466dd73ca5ab9",
+      "bytes": 21679
+    }
+  ],
+  "local_callback_lifecycle": {
+    "timeout_ms": 100,
+    "max_inflight_callbacks": 64,
+    "no_provider": "header omitted",
+    "pre_canceled": "provider not called; s=3",
+    "timeout": "cancel child context; s=1",
+    "failure": "s=2",
+    "canceled": "s=3",
+    "malformed": "s=4",
+    "success": "s=0 with opaque string t",
+    "late_response": "discarded for originating request",
+    "app_server_multihost_routing_implemented": false,
+    "header_max_bytes": 16384,
+    "native_live_validation": "separate v1 contract"
+  },
+  "local_native_probe": {
+    "callback_budget_ms": 100,
+    "observed_status": 1,
+    "apple_proof_verified": false,
+    "native_error_payload_probe": "Runs GenerateCodexToken directly, independently of callback wait; error_code=4/signals on missing module are a separate assertion."
   }
 }

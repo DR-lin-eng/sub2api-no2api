@@ -70,3 +70,5 @@ DeviceCheck 已连接到准确的 Desktop messages/challenge 路径，并在 mes
 
 
 Ghidra 后续新增的 controller TPM/SE 证明、CBOR/Windows 平台表修正和 native-load 失败语义见 [原生层对照](native-device-key-alignment.md)。硬件证明仅进入远程控制 enrollment/WS challenge，不附加到普通模型请求；成功硬件签名及真实上游 enrollment 仍需实际环境。
+
+2026-10-15 CLI 反编译更新：所选本地 attestation callback 现在使用 100ms 预算，提前取消不会调用 provider，无 provider 时省略头；opaque token 与 Live native v1 校验分离。超时取消子 context，迟到结果不跨请求复用，未完成 callback 有 64 个全进程上限。线程选宿主与空回调参数的公开源码证据、二进制版本边界见 [原生证明对照](native-device-key-alignment.md)。

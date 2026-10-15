@@ -63,7 +63,7 @@ func TestCodexEnvelopeFailureSemantics(t *testing.T) {
 		{"timeout", "", `{"v":1,"s":1}`, context.DeadlineExceeded},
 		{"canceled", "", `{"v":1,"s":3}`, context.Canceled},
 		{"failed", "", `{"v":1,"s":2}`, errors.New("native failed")},
-		{"malformed", `{"v":1,"s":0,"t":""}`, `{"v":1,"s":4}`, nil},
+		{"malformed", `{"v":1,"s":0,"t":42}`, `{"v":1,"s":4}`, nil},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			actual := CodexHeader(context.Background(), codexFixtureProvider{value: test.value, err: test.err})

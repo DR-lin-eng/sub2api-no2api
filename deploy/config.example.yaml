@@ -295,8 +295,8 @@ gateway:
   # 注意：开启后会影响所有客户端的行为（不仅限于 VS Code / Codex CLI），请谨慎开启。
   force_codex_cli: false
   # Emit a fresh app-server x-oai-attestation envelope on first-party OAuth
-  # HTTP/WS sends. A native macOS DeviceCheck provider is required for s=0;
-  # unavailable providers emit explicit failure status without a fabricated t.
+  # HTTP/WS sends, with a 100ms callback budget. s=0 means callback success;
+  # its token can report a native device error. No provider omits the header.
   openai_oauth_attestation_enabled: false
   # Desktop-only generation and _devicecheck cookie registration; does not
   # add DeviceCheck to ordinary Responses model requests.

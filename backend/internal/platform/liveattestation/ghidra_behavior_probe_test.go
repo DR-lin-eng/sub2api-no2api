@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,8 +13,8 @@ import (
 	"testing"
 )
 
-// This probe uses only the provider API/fields already present in main. The
-// same source compiles before the change, after it, and after rollback.
+// Exercise native callback encoding separately from the app-server's 100ms
+// wait, which may expire before cold native process/signal collection finishes.
 func TestGhidraAttestationMissingNativeModuleBehavior(t *testing.T) {
 	if runtime.GOARCH != "arm64" {
 		t.Skip("Apple Silicon callback behavior")
@@ -37,14 +36,14 @@ func TestGhidraAttestationMissingNativeModuleBehavior(t *testing.T) {
 		t.Fatal(err)
 	}
 	provider := &darwinProvider{appSessionID: "fixture-app-session", appPaths: []string{app}}
-	header := CodexHeader(context.Background(), provider)
-	var response struct {
-		Status int    `json:"s"`
-		Token  string `json:"t"`
-	}
-	if err := json.Unmarshal([]byte(header), &response); err != nil {
+	token, err := provider.GenerateCodexToken(context.Background())
+	if err != nil {
 		t.Fatal(err)
 	}
+	response := struct {
+		Status int
+		Token  string
+	}{Status: 0, Token: token}
 	var body []byte
 	if response.Token != "" {
 		var err error

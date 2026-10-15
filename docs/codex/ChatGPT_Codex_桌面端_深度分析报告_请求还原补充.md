@@ -986,3 +986,12 @@ X-OAI-IS：已将状态绑定到实际 send receipt、principal/安装/第一方
 与同版本 bundle 交叉核对后，enroll/refresh start/finish 使用 POST；签名载荷为固定 domain 包装的有序 JSON；attestation 是 CBOR map，f 是 CBOR byte string；Windows error_code=1，Intel Mac error_code=2。报告对应表述以对照文档的源码证据修正。新增 sky.node/CUA 执行层分析没有提供新的网关请求字段。
 
 本地 HTTP/WS 注册、刷新和签名验签通过；Go 的身份 hash、两种载荷与 CBOR 都按原 JS 纯函数生成 golden 逐字节比较。native 模块缺失时返回 error_code=4 与实际系统 signals，旧 Live/raw 路径继续拒绝；同输入基线/修改/回退结果记录在交付 ledger。此前真实 native hardware_only 与 allow_os_protected_nonextractable 两策略均未能创建 key，真实硬件成功和上游 fresh step-up 注册仍未验证。
+
+
+## 附录 G：CLI attestation 反编译更新（2026-10-15）
+
+新版 Ghidra 报告和现存 v1/v2 产物已复核：分别为 20 字符串/7 函数、49 地址/3 panic Location/2 函数。v2 的 `FUN_039d5bc8` 确认 attestation.rs 异步状态机、thread_state 联动与 Tokio timer；此前“0 命中/CLI 尚未完成”的记录已由此替代。
+
+公开 Rust revision `3ee47c10513f1bb57d869ea650aba28638e3d11c` 交叉核对到固定 100ms、按线程选择支持 requestAttestation 的宿主、回调参数 `{}` 与 `{v,s,t?}` 封装；该源码与被分析二进制同 revision 尚未证明。`timeout_seconds` 是日志字段，不能据此添加秒级配置；`0x432edc0` 的相邻字符串也不证明 thread_id 是 callback 参数。未发现可支持新增 HMAC 的字段级证据。
+
+本轮在现有本地 provider 架构中落实等待上限、取消、无 provider 省略头、opaque token 保留及有界并发。HTTP、Compact、WS dial 与预热仍在实际发送时生成证明；s=0 不证明 Apple token 有效。Sub2API 尚无 app-server 多宿主 capability/线程注册链，未据此声称实现完整桌面宿主协议。当前 Apple 证明、真实 integrity update 与硬件密钥验证边界不变。源码位置、哈希和本地验证入口见 [原生证明对照](native-device-key-alignment.md) 与 [证据清单](native-device-key-evidence.json)。
