@@ -1,0 +1,29 @@
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog	0.006s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/claude	0.001s
+--- FAIL: TestClaude55BufferedSignedReplayOrder (0.00s)
+    --- FAIL: TestClaude55BufferedSignedReplayOrder/claude-opus-5-5 (0.00s)
+        claude55_replay_test.go:23: 
+            	Error Trace:	/workspace/internal/shared/apicompat/claude55_replay_test.go:23
+            	Error:      	Not equal: 
+            	            	expected: apicompat.AnthropicContentBlock(apicompat.AnthropicContentBlock{Type:"thinking", CacheControl:(*apicompat.AnthropicCacheControl)(nil), Text:"", Thinking:"check", Signature:"provider-signature", Data:"", Source:(*apicompat.AnthropicImageSource)(nil), ID:"", Name:"", Input:json.RawMessage(nil), ToolUseID:"", Content:json.RawMessage(nil), IsError:false})
+            	            	actual  : uint8(0x5b)
+            	Test:       	TestClaude55BufferedSignedReplayOrder/claude-opus-5-5
+    --- FAIL: TestClaude55BufferedSignedReplayOrder/claude-sonnet-5-5 (0.00s)
+        claude55_replay_test.go:23: 
+            	Error Trace:	/workspace/internal/shared/apicompat/claude55_replay_test.go:23
+            	Error:      	Not equal: 
+            	            	expected: apicompat.AnthropicContentBlock(apicompat.AnthropicContentBlock{Type:"thinking", CacheControl:(*apicompat.AnthropicCacheControl)(nil), Text:"", Thinking:"check", Signature:"provider-signature", Data:"", Source:(*apicompat.AnthropicImageSource)(nil), ID:"", Name:"", Input:json.RawMessage(nil), ToolUseID:"", Content:json.RawMessage(nil), IsError:false})
+            	            	actual  : uint8(0x5b)
+            	Test:       	TestClaude55BufferedSignedReplayOrder/claude-sonnet-5-5
+    --- FAIL: TestClaude55BufferedSignedReplayOrder/claude-haiku-5-5 (0.00s)
+        claude55_replay_test.go:23: 
+            	Error Trace:	/workspace/internal/shared/apicompat/claude55_replay_test.go:23
+            	Error:      	Not equal: 
+            	            	expected: apicompat.AnthropicContentBlock(apicompat.AnthropicContentBlock{Type:"thinking", CacheControl:(*apicompat.AnthropicCacheControl)(nil), Text:"", Thinking:"check", Signature:"provider-signature", Data:"", Source:(*apicompat.AnthropicImageSource)(nil), ID:"", Name:"", Input:json.RawMessage(nil), ToolUseID:"", Content:json.RawMessage(nil), IsError:false})
+            	            	actual  : uint8(0x5b)
+            	Test:       	TestClaude55BufferedSignedReplayOrder/claude-haiku-5-5
+FAIL
+FAIL	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	0.146s
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.030s
+ok  	github.com/Wei-Shaw/sub2api/internal/infrastructure/repository	0.015s
+FAIL

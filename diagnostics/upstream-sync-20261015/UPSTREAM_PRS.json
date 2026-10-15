@@ -119,23 +119,47 @@
     "title": "Merge pull request #8093 from baryon/contrib/gemini-4-argon-support",
     "diff_sha256": "4465e6811f0971ee6be6958e0a3600637bcc11d65c6994e37d662a2b6354b8c1",
     "url": "https://github.com/Wei-Shaw/sub2api/pull/8093",
-    "status": "partially-ported-with-explicit-deferrals",
-    "fully_closed": false,
-    "decision": "Adapt compatible Gemini/Antigravity generation, function signatures and ordered nonstream collection, tool images, paid tiers, endpoint-pinned discovery, Hub UA and current feature widgets. Keep earlier Claude 5.5 and descriptor-catalog deferrals explicit.",
+    "status": "ported",
+    "fully_closed": true,
+    "decision": "Complete the two recorded open subitems in native shared/application/modelcatalog owners; previous compatible subitems and independent main behavior stay closed.",
     "current_owners": [
       "backend/internal/application/service/antigravity_gateway_streaming.go",
       "backend/internal/application/service/antigravity_gateway_service.go",
       "backend/internal/application/service/antigravity_gateway_gemini.go",
       "backend/internal/application/service/antigravity_gateway_retry.go",
-      "backend/internal/application/service/upstream_models.go"
+      "backend/internal/application/service/upstream_models.go",
+      "backend/internal/shared/apicompat/anthropic_thinking_wire.go",
+      "backend/internal/shared/apicompat/anthropic_thinking_collector.go",
+      "backend/internal/application/service/gateway_claude55_policy.go",
+      "backend/internal/application/service/pricing_claude55.go",
+      "backend/internal/modules/modelcatalog",
+      "backend/internal/application/service/upstream_model_catalog.go",
+      "backend/internal/application/service/openai_codex_models_metadata.go",
+      "backend/internal/infrastructure/repository/account_repo_model_catalog.go"
     ],
-    "reopen_condition": "Reopen only the explicitly deferred subitems when their recorded prerequisites are met; compatible closed subitems stay closed.",
+    "reopen_condition": "Only changed upstream behavior or an observed regression in the recorded owners. Both previously deferred subitems are closed; do not repeat their frozen diffs.",
     "evidence": [
       "VERIFICATION.txt",
       "SOURCE_HASHES.json",
       "records/backend-unit-final.record.json",
       "records/backend-integration.record.json",
-      "records/runtime-upgrade-rollback.record.json"
+      "records/runtime-upgrade-rollback.record.json",
+      "open-items/TRANSACTION.json",
+      "open-items/PERFORMANCE.json",
+      "open-items/runtime-result.json",
+      "VERIFICATION.txt",
+      "records/open-items-unit-complete.record.json",
+      "records/open-items-integration-complete.record.json",
+      "records/open-items-race-complete.record.json",
+      "records/open-items-lint-complete.record.json",
+      "records/open-items-image-complete.record.json",
+      "records/open-items-runtime-upgrade-rollback.record.json",
+      "records/open-items-frontend.record.json",
+      "records/open-items-combined-source-transaction.record.json",
+      "records/open-items-combined-focused.record.json",
+      "records/open-items-rolling-writer-integration.record.json",
+      "records/open-items-migration-tests.record.json",
+      "records/open-items-image-metadata-guard.record.json"
     ],
     "subitems": [
       {
@@ -163,21 +187,77 @@
       },
       {
         "id": "claude55-registration",
-        "status": "deferred",
-        "closed": false,
+        "status": "ported-and-verified",
+        "closed": true,
         "prior": "diagnostics/upstream-sync-20261013/UPSTREAM_PRS.json PR 7957",
         "reason": "Current built-in price cards do not contain Opus/Sonnet 5.5; native signed-thinking/adaptive/forced-tool contracts remain incomplete. Do not advertise six unsupported tier IDs.",
-        "reopen_condition": "Deliver current-owner signed-history, effort/tool/sampling and 5.5 pricing matrix before registering these IDs."
+        "reopen_condition": "Only changed upstream behavior or a concrete regression in current owners; frozen behavior is closed.",
+        "previous_deferral": {
+          "status": "deferred",
+          "closed": false,
+          "reason": "Current built-in price cards do not contain Opus/Sonnet 5.5; native signed-thinking/adaptive/forced-tool contracts remain incomplete. Do not advertise six unsupported tier IDs.",
+          "reopen_condition": "Deliver current-owner signed-history, effort/tool/sampling and 5.5 pricing matrix before registering these IDs."
+        },
+        "evidence": [
+          "open-items/TRANSACTION.json",
+          "open-items/PERFORMANCE.json",
+          "open-items/runtime-result.json",
+          "VERIFICATION.txt",
+          "records/open-items-unit-complete.record.json",
+          "records/open-items-integration-complete.record.json",
+          "records/open-items-race-complete.record.json",
+          "records/open-items-lint-complete.record.json",
+          "records/open-items-image-complete.record.json",
+          "records/open-items-runtime-upgrade-rollback.record.json",
+          "records/open-items-frontend.record.json",
+          "records/open-items-combined-source-transaction.record.json",
+          "records/open-items-combined-focused.record.json",
+          "records/open-items-rolling-writer-integration.record.json",
+          "records/open-items-migration-tests.record.json",
+          "records/open-items-image-metadata-guard.record.json"
+        ],
+        "decision": "Native signed thinking, buffered/stream replay, model policy/pricing and six tier registration verified."
       },
       {
         "id": "descriptor-catalog-and-codex-metadata-expansion",
-        "status": "deferred",
-        "closed": false,
+        "status": "ported-and-verified",
+        "closed": true,
         "prior": "diagnostics/upstream-sync-20261012/UPSTREAM_PRS.json PR 8033",
         "reason": "Current upstream-model owner returns an ID list and local Codex manifest owner has no upstream descriptor persistence/precedence contract. Do not replace these owners with a new legacy catalog.",
-        "reopen_condition": "Define the descriptor owner, precedence, bounded refresh/query and mixed-writer upgrade/rollback matrix; then adapt only these open subitems."
+        "reopen_condition": "Only changed upstream behavior or a concrete regression in current owners; frozen behavior is closed.",
+        "previous_deferral": {
+          "status": "deferred",
+          "closed": false,
+          "reason": "Current upstream-model owner returns an ID list and local Codex manifest owner has no upstream descriptor persistence/precedence contract. Do not replace these owners with a new legacy catalog.",
+          "reopen_condition": "Define the descriptor owner, precedence, bounded refresh/query and mixed-writer upgrade/rollback matrix; then adapt only these open subitems."
+        },
+        "evidence": [
+          "open-items/TRANSACTION.json",
+          "open-items/PERFORMANCE.json",
+          "open-items/runtime-result.json",
+          "VERIFICATION.txt",
+          "records/open-items-unit-complete.record.json",
+          "records/open-items-integration-complete.record.json",
+          "records/open-items-race-complete.record.json",
+          "records/open-items-lint-complete.record.json",
+          "records/open-items-image-complete.record.json",
+          "records/open-items-runtime-upgrade-rollback.record.json",
+          "records/open-items-frontend.record.json",
+          "records/open-items-combined-source-transaction.record.json",
+          "records/open-items-combined-focused.record.json",
+          "records/open-items-rolling-writer-integration.record.json",
+          "records/open-items-migration-tests.record.json",
+          "records/open-items-image-metadata-guard.record.json"
+        ],
+        "decision": "Native bounded metadata owner, persistence CAS, explicit-field precedence, generated catalog and Codex account projection verified."
       }
-    ]
+    ],
+    "previous_decision": {
+      "status": "partially-ported-with-explicit-deferrals",
+      "fully_closed": false,
+      "decision": "Adapt compatible Gemini/Antigravity generation, function signatures and ordered nonstream collection, tool images, paid tiers, endpoint-pinned discovery, Hub UA and current feature widgets. Keep earlier Claude 5.5 and descriptor-catalog deferrals explicit.",
+      "reopen_condition": "Reopen only the explicitly deferred subitems when their recorded prerequisites are met; compatible closed subitems stay closed."
+    }
   },
   {
     "pr": 8094,

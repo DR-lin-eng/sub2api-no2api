@@ -1,0 +1,6 @@
+{
+  "Replace": {
+    "/workspace/internal/shared/apicompat/open_items_observed_test.go": "/evidence/behavior_protocol_test.go",
+    "/workspace/internal/application/service/open_items_observed_test.go": "/evidence/behavior_metadata_test.go"
+  }
+}

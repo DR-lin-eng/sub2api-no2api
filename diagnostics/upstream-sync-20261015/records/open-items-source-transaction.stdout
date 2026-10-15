@@ -1,0 +1,121 @@
+{"command": ["docker", "run", "--rm", "--cpus", "2", "--memory", "4g", "-e", "GOMAXPROCS=2", "-e", "GOFLAGS=-p=1", "-e", "GOMEMLIMIT=2200MiB", "-v", "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/baseline/backend:/workspace", "-v", "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015:/evidence:ro", "-v", "sub2api-gomod-20261009:/go/pkg/mod", "-v", "sub2api-gobuild-20261013:/root/.cache/go-build", "-w", "/workspace", "sub2api-upstream-sync-test:20261009-docker", "go", "test", "-tags=unit", "-overlay=/evidence/open-items/transaction-overlay.json", "-run", "^TestUpstreamSyncBehavior$|^TestUpstreamMediaBehavior$|^TestOpenItemsBehavior$", "-v", "-count=1", "./internal/shared/apicompat", "./internal/application/service", "./internal/transport/http/handler/admin", "./internal/shared/antigravity"], "cwd": "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo", "exit_status": 0, "elapsed_s": 66.14489370800038, "utc": "2026-10-15T15:45:42.256816+00:00", "input": "exact repository sources and committed fixtures", "stdout_sha256": "b53a52ebea4ec3b1dc1cc970f203a8eac3e52e939dbe3b41661f7d46fd5ba84d", "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}
+=== RUN   TestOpenItemsBehavior
+OPEN_PROTOCOL encrypted=false replay_signature=false thinking=enabled opus55=false sonnet55=false haiku55=false
+--- PASS: TestOpenItemsBehavior (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	0.006s
+2026/10/15 15:45:40 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestOpenItemsBehavior
+OPEN_METADATA explicit_context=0 fallback_context=0 max_output=0
+--- PASS: TestOpenItemsBehavior (0.00s)
+=== RUN   TestUpstreamSyncBehavior
+OBSERVED_SERVICE {"anthropic_url":"https://api.deepseek.com/v1/messages?beta=true","argon_default_mapping":"","argon_input_price":0,"foreign_oauth_rejected":false,"zhipu_tiers":[{"window":"5h","used_percent":90,"reset_at":"1970-01-01T00:33:20Z"},{"window":"weekly","used_percent":10,"reset_at":"1970-01-01T00:50:00Z"}]}
+--- PASS: TestUpstreamSyncBehavior (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.090s
+=== RUN   TestUpstreamSyncBehavior
+OBSERVED_ADMIN cross_workspace_identity_overlap=true
+--- PASS: TestUpstreamSyncBehavior (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin	0.018s
+=== RUN   TestUpstreamMediaBehavior
+OBSERVED_MEDIA inline_images=0 function_text=loaded
+--- PASS: TestUpstreamMediaBehavior (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/antigravity	0.005s
+
+
+{"command": ["docker", "run", "--rm", "--cpus", "2", "--memory", "4g", "-e", "GOMAXPROCS=2", "-e", "GOFLAGS=-p=1", "-e", "GOMEMLIMIT=2200MiB", "-v", "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/backend:/workspace", "-v", "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015:/evidence:ro", "-v", "sub2api-gomod-20261009:/go/pkg/mod", "-v", "sub2api-gobuild-20261013:/root/.cache/go-build", "-w", "/workspace", "sub2api-upstream-sync-test:20261009-docker", "go", "test", "-tags=unit", "-overlay=/evidence/open-items/transaction-overlay.json", "-run", "^TestUpstreamSyncBehavior$|^TestUpstreamMediaBehavior$|^TestOpenItemsBehavior$", "-v", "-count=1", "./internal/shared/apicompat", "./internal/application/service", "./internal/transport/http/handler/admin", "./internal/shared/antigravity"], "cwd": "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo", "exit_status": 0, "elapsed_s": 93.29195758300011, "utc": "2026-10-15T15:47:15.601310+00:00", "input": "exact repository sources and committed fixtures", "stdout_sha256": "8cab715afe18cb6026c37856774bfb61fd8b3a55d7b0873fd6b0e33fb2a45f3c", "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}
+=== RUN   TestOpenItemsBehavior
+OPEN_PROTOCOL encrypted=true replay_signature=true thinking=adaptive opus55=true sonnet55=true haiku55=true
+--- PASS: TestOpenItemsBehavior (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	0.006s
+2026/10/15 15:47:07 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestOpenItemsBehavior
+OPEN_METADATA explicit_context=777777 fallback_context=500000 max_output=32768
+--- PASS: TestOpenItemsBehavior (0.00s)
+=== RUN   TestUpstreamSyncBehavior
+OBSERVED_SERVICE {"anthropic_url":"https://anthropic.example.com/v1/messages?beta=true","argon_default_mapping":"gemini-4-argon-high","argon_input_price":0.000002,"foreign_oauth_rejected":true,"zhipu_tiers":[{"window":"5h","used_percent":10,"reset_at":"1970-01-01T00:50:00Z"},{"window":"weekly","used_percent":90,"reset_at":"1970-01-01T00:33:20Z"}]}
+--- PASS: TestUpstreamSyncBehavior (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.122s
+=== RUN   TestUpstreamSyncBehavior
+OBSERVED_ADMIN cross_workspace_identity_overlap=false
+--- PASS: TestUpstreamSyncBehavior (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin	0.017s
+=== RUN   TestUpstreamMediaBehavior
+OBSERVED_MEDIA inline_images=1 function_text=loaded
+--- PASS: TestUpstreamMediaBehavior (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/antigravity	0.005s
+
+
+ALL_ORIGINAL_HASHES_PASS 5266
+PATCH_AND_NATIVE_ARCHIVE_PASS 118
+ROLLBACK_PASS
+ALL_ORIGINAL_HASHES_PASS 5266
+{"command": ["docker", "run", "--rm", "--cpus", "2", "--memory", "4g", "-e", "GOMAXPROCS=2", "-e", "GOFLAGS=-p=1", "-e", "GOMEMLIMIT=2200MiB", "-v", "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/open-items/rollback-cumulative/backend:/workspace", "-v", "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015:/evidence:ro", "-v", "sub2api-gomod-20261009:/go/pkg/mod", "-v", "sub2api-gobuild-20261013:/root/.cache/go-build", "-w", "/workspace", "sub2api-upstream-sync-test:20261009-docker", "go", "test", "-tags=unit", "-overlay=/evidence/open-items/transaction-overlay.json", "-run", "^TestUpstreamSyncBehavior$|^TestUpstreamMediaBehavior$|^TestOpenItemsBehavior$", "-v", "-count=1", "./internal/shared/apicompat", "./internal/application/service", "./internal/transport/http/handler/admin", "./internal/shared/antigravity"], "cwd": "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo", "exit_status": 0, "elapsed_s": 6.9364864170001965, "utc": "2026-10-15T15:47:24.242577+00:00", "input": "exact repository sources and committed fixtures", "stdout_sha256": "0caa87e37e7ad2ec050178a7c495c362fe5bef28958555917d02a123b6df0c92", "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}
+=== RUN   TestOpenItemsBehavior
+OPEN_PROTOCOL encrypted=false replay_signature=false thinking=enabled opus55=false sonnet55=false haiku55=false
+--- PASS: TestOpenItemsBehavior (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	0.007s
+2026/10/15 15:47:22 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestOpenItemsBehavior
+OPEN_METADATA explicit_context=0 fallback_context=0 max_output=0
+--- PASS: TestOpenItemsBehavior (0.00s)
+=== RUN   TestUpstreamSyncBehavior
+OBSERVED_SERVICE {"anthropic_url":"https://api.deepseek.com/v1/messages?beta=true","argon_default_mapping":"","argon_input_price":0,"foreign_oauth_rejected":false,"zhipu_tiers":[{"window":"5h","used_percent":90,"reset_at":"1970-01-01T00:33:20Z"},{"window":"weekly","used_percent":10,"reset_at":"1970-01-01T00:50:00Z"}]}
+--- PASS: TestUpstreamSyncBehavior (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.092s
+=== RUN   TestUpstreamSyncBehavior
+OBSERVED_ADMIN cross_workspace_identity_overlap=true
+--- PASS: TestUpstreamSyncBehavior (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin	0.017s
+=== RUN   TestUpstreamMediaBehavior
+OBSERVED_MEDIA inline_images=0 function_text=loaded
+--- PASS: TestUpstreamMediaBehavior (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/antigravity	0.003s
+
+
+BASELINE_FILES.tar.gz ae1cee444b4431b1101961738a9ab5324e2c9f8f98a09b3476610acc4527b1f3 513337
+MODIFIED_FILE.tar.gz 88c5e3a905c4410b443485edee9aff077b865a0a4fa4f554056b3fe393e4eb35 566616
+DIFF_FILE.patch 2f16d155178dbae219cd6e1487231f531012fd8bcf7f39502c092953ced0beb6 424291
+ROLLBACK.sh 743dd9a532b6e03dfe898c1cdbcea464ba47d39aded4fa081b108df6d68d7cf3 1607
+BASELINE ec1ead14315d303db19cf3116754eb89a853838c PATHS 118 ADDED 38
+{"command": ["docker", "run", "--rm", "--cpus", "2", "--memory", "4g", "-e", "GOMAXPROCS=2", "-e", "GOFLAGS=-p=1", "-e", "GOMEMLIMIT=2200MiB", "-v", "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/open-items/rollback-cumulative/backend:/workspace", "-v", "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015:/evidence:ro", "-v", "sub2api-gomod-20261009:/go/pkg/mod", "-v", "sub2api-gobuild-20261013:/root/.cache/go-build", "-w", "/workspace", "sub2api-upstream-sync-test:20261009-docker", "go", "test", "-tags=unit", "-overlay=/evidence/open-items/transaction-overlay.json", "-run", "^TestUpstreamSyncBehavior$|^TestUpstreamMediaBehavior$|^TestOpenItemsBehavior$", "-v", "-count=1", "./internal/shared/apicompat", "./internal/application/service", "./internal/transport/http/handler/admin", "./internal/shared/antigravity"], "cwd": "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo", "exit_status": 0, "elapsed_s": 10.746823833000235, "utc": "2026-10-15T15:47:37.493426+00:00", "input": "exact repository sources and committed fixtures", "stdout_sha256": "5f3d5e5842f2672c7ebeb154074708e22a44390b1489338f304305f25bb4178c", "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}
+=== RUN   TestOpenItemsBehavior
+OPEN_PROTOCOL encrypted=true replay_signature=true thinking=adaptive opus55=true sonnet55=true haiku55=true
+--- PASS: TestOpenItemsBehavior (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	0.008s
+2026/10/15 15:47:34 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestOpenItemsBehavior
+OPEN_METADATA explicit_context=777777 fallback_context=500000 max_output=32768
+--- PASS: TestOpenItemsBehavior (0.00s)
+=== RUN   TestUpstreamSyncBehavior
+OBSERVED_SERVICE {"anthropic_url":"https://anthropic.example.com/v1/messages?beta=true","argon_default_mapping":"gemini-4-argon-high","argon_input_price":0.000002,"foreign_oauth_rejected":true,"zhipu_tiers":[{"window":"5h","used_percent":10,"reset_at":"1970-01-01T00:50:00Z"},{"window":"weekly","used_percent":90,"reset_at":"1970-01-01T00:33:20Z"}]}
+--- PASS: TestUpstreamSyncBehavior (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.109s
+=== RUN   TestUpstreamSyncBehavior
+OBSERVED_ADMIN cross_workspace_identity_overlap=false
+--- PASS: TestUpstreamSyncBehavior (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin	0.017s
+=== RUN   TestUpstreamMediaBehavior
+OBSERVED_MEDIA inline_images=1 function_text=loaded
+--- PASS: TestUpstreamMediaBehavior (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/antigravity	0.007s
+
+
+REOPENED_ROLE /Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015/MODIFIED_FILE.tar.gz 88c5e3a905c4410b443485edee9aff077b865a0a4fa4f554056b3fe393e4eb35 566616
+REOPENED_ROLE /Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015/DIFF_FILE.patch 2f16d155178dbae219cd6e1487231f531012fd8bcf7f39502c092953ced0beb6 424291
+REOPENED_ROLE /Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015/VERIFICATION.txt ac1f3b0d06711ad3adc3c6b4a04ec208ce7e644722cb6f963c52c8e27c5a0b3d 235606
+REOPENED_ROLE /Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015/ROLLBACK.sh 743dd9a532b6e03dfe898c1cdbcea464ba47d39aded4fa081b108df6d68d7cf3 1607

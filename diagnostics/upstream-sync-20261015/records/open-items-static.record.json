@@ -1,0 +1,14 @@
+{
+  "command": [
+    "sh",
+    "-c",
+    "make check-docs; backend/scripts/check-source-layout.sh; git diff --check"
+  ],
+  "cwd": "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo",
+  "exit_status": 0,
+  "elapsed_s": 1.0963441249987227,
+  "utc": "2026-10-15T15:20:49.035745+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "ab1fbcf1c93cd55f385149bf1c995a2792e8b277a63057e99e56bdae540dc5e9",
+  "stderr_sha256": "b64d03506ab29b587f57a5c7ac1f31aa6f36f2ecf8e2ab289ea959c710723f5d"
+}

@@ -23,15 +23,15 @@
 
 此前暂缓的两个子项现已实现。Claude 5.5 的原生/反向 Responses 链路在转换前解析上游映射，完整保留 signed thinking 与 redacted thinking；流式和非流式缓冲均收集分片签名、保持块顺序，并分别按 Opus、Sonnet、Haiku 约束 effort、thinking、采样和强制工具。共享回放帧只封装签名，不签发签名；超出 8 MiB 回放边界显式返回失败状态，保留已观察用量。原生注册三种 5.5 模型，Antigravity 注册 Opus/Sonnet 的六个等级及简称映射，前端预设同步。独立定价 owner 补齐标准/缓存价格，Haiku 总输入严格超过 100000 tokens 时按整次请求 5x 计价；自定义价格与分组开关保留现有优先级。此项关闭 #7957 的同一前置条件，不重复处理此前已关闭的网关修复。
 
-模型描述由 [modelcatalog](../backend/internal/modules/modelcatalog/README.md) 独立拥有，涵盖 OpenAI/Anthropic、Codex、Gemini 和 Antigravity 同响应元数据，复用账号完整传输路径。分页最多 8 页、总响应最多 8 MiB、2048 模型，存储快照最多 1 MiB。手动同步由应用层持久化，预览不写入，后台复用现有 OAuth worker。完整成功快照按刷新开始代次和账号身份原子更新；失败或不完整分页保留旧快照，普通编辑从行锁下保留最新元数据，未知版本不被旧实现覆盖。
+模型描述由 [modelcatalog](../backend/internal/modules/modelcatalog/README.md) 独立拥有，涵盖 OpenAI/Anthropic、Codex、Gemini 和 Antigravity 同响应元数据，复用账号完整传输路径。分页最多 8 页、总响应最多 8 MiB、2048 模型，存储快照最多 1 MiB。手动同步由应用层持久化，预览不写入，后台复用现有 OAuth worker。完整成功快照按刷新开始代次和账号身份原子更新；失败或不完整分页保留旧快照，普通编辑从行锁下保留最新元数据，未知版本不被旧实现覆盖。陈旧缓存直接替换 Extra 的 PostgreSQL 回归用例需要跨版本保护，因此增加迁移 249，在数据库行内保留快照并拒绝陈旧代次，不进行附加表查询；二进制回退时保留该兼容保护。
 
 Codex 以管理员 `extra.model_metadata_overrides`、上游显式字段、账号成功快照、编译目录的顺序解析能力。显式 false 与空数组不被回退值覆盖；别名继承目标能力，可有独立管理员覆盖；元数据不扩大账号映射或分组允许列表。共享缓存与账号投影分离，最终响应重新计算 ETag，映射或元数据变化会使旧客户端条件请求失效。编译目录从本项目价格资源生成 201 个描述，GPT-6.1 Sol 默认工作上下文为 500000，上游显式 777777 保持 777777；关闭 #8033 的同一差异。网关请求不增加外部目录或 DB 查询。
 
-原先暂缓的理由保存在 `diagnostics/upstream-sync-20261015/history/pr134/`；最终关闭证据补充在 `diagnostics/upstream-sync-20261015/open-items/`。其它历史暂缓项不属于本次开放子项。
+原先暂缓的理由保存在 `diagnostics/upstream-sync-20261015/history/pr134/`；最终关闭证据补充在 `diagnostics/upstream-sync-20261015/open-items/`。其它历史暂缓项不属于本次开放子项。 补充同库矩阵的迁移数量为 `302 → 303 → 303 → 303`；旧镜像显式替换 Extra 后，元数据快照仍保留。
 
 ## 性能与兼容
 
-没有数据库迁移、Ent/Wire 修改或依赖升级。成功请求不新增数据库/Redis 往返、后台 worker、无界 goroutine 或额外重试。组合路由继续读取不可变缓存；错误策略复用结果只作用于同一响应，下一次尝试重新清空该结果。
+首轮同步没有数据库迁移；开放子项补充增加迁移 249，仅安装账号元数据保护触发器，不改列或重写数据，没有 Ent/Wire 或依赖升级。成功请求不新增数据库/Redis 往返、后台 worker、无界 goroutine 或额外重试。组合路由继续读取不可变缓存；错误策略复用结果只作用于同一响应，下一次尝试重新清空该结果。
 
 上游工具结果图片方案会在已解析文字后再次解码完整结果，包括大段 base64。本项目改为一次遍历同时取得文字和 inline media，二进制数据不进入 functionResponse 的文字字段，不新增远程图片抓取。原生 Gemini 非流式结果按原顺序收集全部 parts；不同签名的文字片段分别保留，避免合并时覆盖签名。定价别名规范化归入独立 owner，保留精确等级价格优先级。
 

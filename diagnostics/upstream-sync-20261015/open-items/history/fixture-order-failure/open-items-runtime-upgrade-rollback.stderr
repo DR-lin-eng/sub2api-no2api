@@ -1,0 +1,15 @@
+Traceback (most recent call last):
+  File "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015/open-items/runtime_check.py", line 213, in <module>
+    model_metadata(stage,state,token)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015/open-items/runtime_check.py", line 143, in model_metadata
+    snapshot=json.loads(sql('upgrade',"SELECT (extra -> 'upstream_model_metadata')::text FROM accounts WHERE id="+account_id))
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/__init__.py", line 352, in loads
+    return _default_decoder.decode(s)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/decoder.py", line 363, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)

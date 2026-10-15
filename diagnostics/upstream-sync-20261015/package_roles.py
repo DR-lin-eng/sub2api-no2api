@@ -3,8 +3,8 @@ import gzip, hashlib, io, json, pathlib, subprocess, tarfile
 ROOT = (pathlib.Path(__file__).resolve().parent.parent / "repo") if (pathlib.Path(__file__).resolve().parent.parent / "STATE.json").exists() else pathlib.Path(__file__).resolve().parents[2]
 ROLE = pathlib.Path(__file__).resolve().parent
 BASELINE = (ROLE/'BASELINE_SHA.txt').read_text().strip() if (ROLE/'BASELINE_SHA.txt').exists() else json.loads((ROLE.parent/'STATE.json').read_text())['baseline_sha']
-tracked = [p for p in subprocess.check_output(['git','diff','--name-only',BASELINE,'--'], cwd=ROOT, text=True).splitlines() if not p.startswith('diagnostics/')]
-untracked = [p for p in subprocess.check_output(['git','ls-files','--others','--exclude-standard'], cwd=ROOT, text=True).splitlines() if not p.startswith('diagnostics/')]
+tracked = [p for p in subprocess.check_output(['git','diff','--name-only','-z',BASELINE,'--'], cwd=ROOT, text=True).split('\0') if p and not p.startswith('diagnostics/')]
+untracked = [p for p in subprocess.check_output(['git','ls-files','-z','--others','--exclude-standard'], cwd=ROOT, text=True).split('\0') if p and not p.startswith('diagnostics/')]
 paths = sorted(set(p for p in tracked + untracked if p and not p.startswith('diagnostics/')))
 (ROLE/'BASELINE_SHA.txt').write_text(BASELINE+'\n')
 (ROLE/'SOURCE_PATHS.txt').write_text('\n'.join(paths)+'\n')

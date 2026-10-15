@@ -1,0 +1,5 @@
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog	0.006s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/claude	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	0.150s
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.035s
+ok  	github.com/Wei-Shaw/sub2api/internal/infrastructure/repository	0.014s

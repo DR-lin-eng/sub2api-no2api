@@ -1,0 +1,3844 @@
+diff --git a/backend/internal/application/service/README.md b/backend/internal/application/service/README.md
+index 891b5808a..89c6fc08c 100644
+--- a/backend/internal/application/service/README.md
++++ b/backend/internal/application/service/README.md
+@@ -74,3 +74,5 @@ GPT-6.1 Sol 的订阅模型长上下文豁免由 `openai_subscription_long_conte
+ `subscription_progress.go` 保存订阅进度值；名称译文仅作为不序列化的输出参数从已加载分组带到 handler，单条与批量用户进度保持同一语言规则，不增加数据库查询。
+ 
+ 临时不可调度的可选规则范围由 `temp_unsched_scope.go` 选择；重试耗尽、Bedrock 和 token 计数透传调度器使用的模型键。`openai_responses_input_rejection.go` 只识别转换后结构化 input 的明确类型拒绝，Chat 回退保留原始开始时间。冻结差异、滚动升级启用顺序和新缓存能力的专项边界见 [2026-10-13 同步审查](../../../../docs/UPSTREAM_SYNC_20261013.md)。
++
++`apicompat_config.go` 将可配置输出下限带入现有协议转换；`gateway_anthropic_credentials.go` 在原生 Anthropic 构造器和 token 计数入口检查凭据协议。`gemini_vertex_token_error.go` 保存固定 token 端点的明确 SA 失效分类，错误策略结果只在同一次响应内复用。`billing_gemini_argon.go` 与 `pricing_antigravity_aliases.go` 分别保存 Argon 回退价和模型别名规范化。升级、端点发现与未关闭子项见 [2026-10-15 同步审查](../../../../docs/UPSTREAM_SYNC_20261015.md)。
+diff --git a/backend/internal/application/service/account_test_service.go b/backend/internal/application/service/account_test_service.go
+index 8b2e9ebe3..2ce530854 100644
+--- a/backend/internal/application/service/account_test_service.go
++++ b/backend/internal/application/service/account_test_service.go
+@@ -1159,12 +1159,12 @@ func (s *AccountTestService) routeAntigravityTest(c *gin.Context, account *Accou
+ 		}
+ 		return s.testClaudeAccountConnection(c, account, modelID)
+ 	}
+-	return s.testAntigravityAccountConnection(c, account, modelID)
++	return s.testAntigravityAccountConnection(c, account, modelID, prompt)
+ }
+ 
+ // testAntigravityAccountConnection tests an Antigravity account's connection
+ // 支持 Claude 和 Gemini 两种协议，使用非流式请求
+-func (s *AccountTestService) testAntigravityAccountConnection(c *gin.Context, account *Account, modelID string) error {
++func (s *AccountTestService) testAntigravityAccountConnection(c *gin.Context, account *Account, modelID string, prompt string) error {
+ 	ctx := c.Request.Context()
+ 
+ 	// 默认模型：Claude 使用当前可用的 Sonnet 4.6，Gemini 使用 gemini-3-pro-preview
+@@ -1184,8 +1184,8 @@ func (s *AccountTestService) testAntigravityAccountConnection(c *gin.Context, ac
+ 	// Send test_start event
+ 	s.sendEvent(c, TestEvent{Type: "test_start", Model: testModelID})
+ 
+-	// 调用 AntigravityGatewayService.TestConnection（复用协议转换逻辑）
+-	result, err := s.antigravityGatewayService.TestConnection(ctx, account, testModelID)
++	// 调用 AntigravityGatewayService.TestConnectionWithPrompt（复用协议转换逻辑）
++	result, err := s.antigravityGatewayService.TestConnectionWithPrompt(ctx, account, testModelID, prompt)
+ 	if err != nil {
+ 		return s.sendErrorAndEnd(c, err.Error())
+ 	}
+@@ -1194,6 +1194,13 @@ func (s *AccountTestService) testAntigravityAccountConnection(c *gin.Context, ac
+ 	if result.Text != "" {
+ 		s.sendEvent(c, TestEvent{Type: "content", Text: result.Text})
+ 	}
++	for _, img := range result.Images {
++		s.sendEvent(c, TestEvent{
++			Type:     "image",
++			ImageURL: img.ImageURL,
++			MimeType: img.MimeType,
++		})
++	}
+ 
+ 	s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
+ 	return nil
+diff --git a/backend/internal/application/service/antigravity_gateway_compat.go b/backend/internal/application/service/antigravity_gateway_compat.go
+index 920d2825a..f6438b472 100644
+--- a/backend/internal/application/service/antigravity_gateway_compat.go
++++ b/backend/internal/application/service/antigravity_gateway_compat.go
+@@ -74,7 +74,7 @@ func (s *AntigravityGatewayService) ForwardAsChatCompletions(
+ 		return nil, s.writeAntigravityCompatError(c, http.StatusBadRequest, "invalid_request_error", "model is required")
+ 	}
+ 
+-	responsesRequest, err := apicompat.ChatCompletionsToResponses(&request)
++	responsesRequest, err := chatCompletionsToResponses(settingServiceConfig(s.settingService), &request)
+ 	if err != nil {
+ 		return nil, s.writeAntigravityCompatError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+ 	}
+diff --git a/backend/internal/application/service/antigravity_gateway_gemini.go b/backend/internal/application/service/antigravity_gateway_gemini.go
+index c802590cd..9e3aa0705 100644
+--- a/backend/internal/application/service/antigravity_gateway_gemini.go
++++ b/backend/internal/application/service/antigravity_gateway_gemini.go
+@@ -132,6 +132,7 @@ func (s *AntigravityGatewayService) ForwardGemini(ctx context.Context, c *gin.Co
+ 	}
+ 
+ 	// 包装请求
++	injectedBody = ensureGeminiFunctionCallThoughtSignatures(injectedBody)
+ 	wrappedBody, err := s.wrapV1InternalRequest(projectID, mappedModel, injectedBody)
+ 	if err != nil {
+ 		return nil, s.writeGoogleError(c, http.StatusInternalServerError, "Failed to build upstream request")
+diff --git a/backend/internal/application/service/antigravity_gateway_retry.go b/backend/internal/application/service/antigravity_gateway_retry.go
+index 55183bbdd..99f51990a 100644
+--- a/backend/internal/application/service/antigravity_gateway_retry.go
++++ b/backend/internal/application/service/antigravity_gateway_retry.go
+@@ -71,16 +71,10 @@ func resolveAntigravityForwardBaseURL(account *Account) string {
+ }
+ 
+ func accountHasAntigravityPaidTier(account *Account) bool {
+-	if account == nil || account.Credentials == nil {
+-		return false
+-	}
+-	planType := strings.ToLower(strings.TrimSpace(account.GetCredential("plan_type")))
+-	switch planType {
+-	case "pro", "ultra", "g1-pro-tier", "g1-ultra-tier":
+-		return true
+-	default:
++	if account == nil {
+ 		return false
+ 	}
++	return antigravity.IsPaidPlanType(account.GetCredential("plan_type"))
+ }
+ 
+ // smartRetryAction 智能重试的处理结果
+diff --git a/backend/internal/application/service/antigravity_gateway_service.go b/backend/internal/application/service/antigravity_gateway_service.go
+index 7728ecf82..2a9ce046c 100644
+--- a/backend/internal/application/service/antigravity_gateway_service.go
++++ b/backend/internal/application/service/antigravity_gateway_service.go
+@@ -332,16 +332,32 @@ func (s *AntigravityGatewayService) IsModelSupported(requestedModel string) bool
+ 		strings.HasPrefix(requestedModel, "gemini-")
+ }
+ 
++// TestConnectionImage 测试连接返回的图片结果
++type TestConnectionImage struct {
++	ImageURL string
++	MimeType string
++}
++
+ // TestConnectionResult 测试连接结果
+ type TestConnectionResult struct {
+-	Text        string // 响应文本
+-	MappedModel string // 实际使用的模型
++	Text        string                // 响应文本
++	Images      []TestConnectionImage // 响应图片（图片生成模型）
++	MappedModel string                // 实际使用的模型
++}
++
++func shouldUseAntigravityGeminiTestRequest(_, mappedModel string) bool {
++	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(mappedModel)), "gemini-")
+ }
+ 
+ // TestConnection 测试 Antigravity 账号连接。
+ // 复用 antigravityRetryLoop 的完整重试 / credits overages / 智能重试逻辑，
+ // 与真实调度行为一致。差异：不做账号切换（测试指定账号）、不记录 ops 错误。
+ func (s *AntigravityGatewayService) TestConnection(ctx context.Context, account *Account, modelID string) (*TestConnectionResult, error) {
++	return s.TestConnectionWithPrompt(ctx, account, modelID, "")
++}
++
++// TestConnectionWithPrompt 测试 Antigravity 账号连接，支持为图片生成模型指定测试提示词。
++func (s *AntigravityGatewayService) TestConnectionWithPrompt(ctx context.Context, account *Account, modelID string, prompt string) (*TestConnectionResult, error) {
+ 
+ 	// 获取 token
+ 	if s.tokenProvider == nil {
+@@ -365,8 +381,8 @@ func (s *AntigravityGatewayService) TestConnection(ctx context.Context, account
+ 
+ 	// 构建请求体
+ 	var requestBody []byte
+-	if strings.HasPrefix(modelID, "gemini-") {
+-		requestBody, err = s.buildGeminiTestRequest(projectID, mappedModel)
++	if shouldUseAntigravityGeminiTestRequest(modelID, mappedModel) {
++		requestBody, err = s.buildGeminiTestRequestWithPrompt(projectID, mappedModel, prompt)
+ 	} else {
+ 		requestBody, err = s.buildClaudeTestRequest(projectID, mappedModel)
+ 	}
+@@ -422,8 +438,8 @@ func (s *AntigravityGatewayService) TestConnection(ctx context.Context, account
+ 		return nil, fmt.Errorf("API 返回 %d: %s", result.resp.StatusCode, string(respBody))
+ 	}
+ 
+-	text := extractTextFromSSEResponse(respBody)
+-	return &TestConnectionResult{Text: text, MappedModel: mappedModel}, nil
++	text, images := extractContentFromSSEResponse(respBody)
++	return &TestConnectionResult{Text: text, Images: images, MappedModel: mappedModel}, nil
+ }
+ 
+ // testConnectionHandleError 是 TestConnection 使用的轻量 handleError 回调。
+@@ -439,9 +455,39 @@ func testConnectionHandleError(
+ 	return nil
+ }
+ 
+-// buildGeminiTestRequest 构建 Gemini 格式测试请求
+-// 使用最小 token 消耗：输入 "." + maxOutputTokens: 1
+-func (s *AntigravityGatewayService) buildGeminiTestRequest(projectID, model string) ([]byte, error) {
++// buildGeminiTestRequestWithPrompt 构建 Gemini 格式测试请求
++// 文本模型使用最小 token 消耗：输入 "." + maxOutputTokens: 1；图片模型使用图片生成配置
++func (s *AntigravityGatewayService) buildGeminiTestRequestWithPrompt(projectID, model, prompt string) ([]byte, error) {
++	if isImageGenerationModel(model) {
++		imagePrompt := strings.TrimSpace(prompt)
++		if imagePrompt == "" {
++			imagePrompt = defaultGeminiImageTestPrompt
++		}
++		payload := map[string]any{
++			"contents": []map[string]any{
++				{
++					"role": "user",
++					"parts": []map[string]any{
++						{"text": imagePrompt},
++					},
++				},
++			},
++			"systemInstruction": map[string]any{
++				"parts": []map[string]any{
++					{"text": antigravity.GetDefaultIdentityPatch()},
++				},
++			},
++			"generationConfig": map[string]any{
++				"responseModalities": []string{"TEXT", "IMAGE"},
++				"imageConfig": map[string]any{
++					"aspectRatio": "1:1",
++				},
++			},
++		}
++		payloadBytes, _ := json.Marshal(payload)
++		return s.wrapV1InternalRequest(projectID, model, payloadBytes)
++	}
++
+ 	payload := map[string]any{
+ 		"contents": []map[string]any{
+ 			{
+@@ -460,6 +506,11 @@ func (s *AntigravityGatewayService) buildGeminiTestRequest(projectID, model stri
+ 		"generationConfig": map[string]any{
+ 			"maxOutputTokens": 1,
+ 		},
++		"toolConfig": map[string]any{
++			"functionCallingConfig": map[string]any{
++				"mode": "VALIDATED",
++			},
++		},
+ 	}
+ 	payloadBytes, _ := json.Marshal(payload)
+ 	return s.wrapV1InternalRequest(projectID, model, payloadBytes)
+@@ -492,9 +543,10 @@ func (s *AntigravityGatewayService) getClaudeTransformOptions(ctx context.Contex
+ 	return opts
+ }
+ 
+-// extractTextFromSSEResponse 从 SSE 流式响应中提取文本
+-func extractTextFromSSEResponse(respBody []byte) string {
++// extractContentFromSSEResponse 从 SSE 流式响应中提取文本和内联图片
++func extractContentFromSSEResponse(respBody []byte) (string, []TestConnectionImage) {
+ 	var texts []string
++	var images []TestConnectionImage
+ 	lines := bytes.Split(respBody, []byte("\n"))
+ 
+ 	for _, line := range lines {
+@@ -520,7 +572,7 @@ func extractTextFromSSEResponse(respBody []byte) string {
+ 			continue
+ 		}
+ 
+-		// 尝试从 response.candidates[0].content.parts[].text 提取
++		// 尝试从 response.candidates[0].content.parts[] 提取
+ 		response, ok := data["response"].(map[string]any)
+ 		if !ok {
+ 			// 尝试直接从 candidates 提取（某些响应格式）
+@@ -552,11 +604,21 @@ func extractTextFromSSEResponse(respBody []byte) string {
+ 				if text, ok := partMap["text"].(string); ok && text != "" {
+ 					texts = append(texts, text)
+ 				}
++				if inlineData, ok := partMap["inlineData"].(map[string]any); ok {
++					mimeType, _ := inlineData["mimeType"].(string)
++					b64Data, _ := inlineData["data"].(string)
++					if strings.HasPrefix(strings.ToLower(mimeType), "image/") && b64Data != "" {
++						images = append(images, TestConnectionImage{
++							ImageURL: fmt.Sprintf("data:%s;base64,%s", mimeType, b64Data),
++							MimeType: mimeType,
++						})
++					}
++				}
+ 			}
+ 		}
+ 	}
+ 
+-	return strings.Join(texts, "")
++	return strings.Join(texts, ""), images
+ }
+ 
+ // injectIdentityPatchToGeminiRequest 为 Gemini 格式请求注入身份提示词
+diff --git a/backend/internal/application/service/antigravity_gateway_streaming.go b/backend/internal/application/service/antigravity_gateway_streaming.go
+index b2563acee..0699606dd 100644
+--- a/backend/internal/application/service/antigravity_gateway_streaming.go
++++ b/backend/internal/application/service/antigravity_gateway_streaming.go
+@@ -338,8 +338,7 @@ func (s *AntigravityGatewayService) handleGeminiStreamToNonStreaming(c *gin.Cont
+ 	var firstTokenMs *int
+ 	var last map[string]any
+ 	var lastWithParts map[string]any
+-	var collectedImageParts []map[string]any // 收集所有包含图片的 parts
+-	var collectedTextParts []string          // 收集所有文本片段
++	var collectedParts []map[string]any // 收集所有 parts（text、thinking、functionCall、inlineData 等）
+ 
+ 	type scanEvent struct {
+ 		line string
+@@ -455,19 +454,10 @@ func (s *AntigravityGatewayService) handleGeminiStreamToNonStreaming(c *gin.Cont
+ 				}
+ 			}
+ 
+-			// 保留最后一个有 parts 的响应
++			// 保留最后一个有 parts 的响应，并收集所有 parts
+ 			if parts := extractGeminiParts(parsed); len(parts) > 0 {
+ 				lastWithParts = parsed
+-				// 收集包含图片和文本的 parts
+-				for _, part := range parts {
+-					if inlineData, ok := part["inlineData"].(map[string]any); ok {
+-						collectedImageParts = append(collectedImageParts, part)
+-						_ = inlineData // 避免 unused 警告
+-					}
+-					if text, ok := part["text"].(string); ok && text != "" {
+-						collectedTextParts = append(collectedTextParts, text)
+-					}
+-				}
++				collectedParts = append(collectedParts, parts...)
+ 			}
+ 
+ 		case <-intervalCh:
+@@ -494,14 +484,9 @@ returnResponse:
+ 		}
+ 	}
+ 
+-	// 如果收集到了图片 parts，需要合并到最终响应中
+-	if len(collectedImageParts) > 0 {
+-		finalResponse = mergeImagePartsToResponse(finalResponse, collectedImageParts)
+-	}
+-
+-	// 如果收集到了文本，需要合并到最终响应中
+-	if len(collectedTextParts) > 0 {
+-		finalResponse = mergeTextPartsToResponse(finalResponse, collectedTextParts)
++	// 将收集的所有 parts 合并到最终响应中
++	if len(collectedParts) > 0 {
++		finalResponse = mergeCollectedPartsToResponse(finalResponse, collectedParts)
+ 	}
+ 
+ 	respBody, err := json.Marshal(finalResponse)
+@@ -564,21 +549,27 @@ func mergeCollectedPartsToResponse(response map[string]any, collectedParts []map
+ 		return response
+ 	}
+ 
+-	result, _, setParts := getOrCreateGeminiParts(response)
++	result, existingParts, setParts := getOrCreateGeminiParts(response)
+ 
+ 	// 合并策略：
+ 	// 1. 保持原始顺序
+-	// 2. 连续的普通 text parts 合并为一个
++	// 2. 连续的普通 text parts 合并为一个，并保留关联的 thoughtSignature
+ 	// 3. thinking、functionCall、inlineData 等保持原样
+ 	var mergedParts []any
+ 	var textBuffer strings.Builder
++	var textSignature string
+ 
+ 	flushTextBuffer := func() {
+-		if textBuffer.Len() > 0 {
+-			mergedParts = append(mergedParts, map[string]any{
++		if textBuffer.Len() > 0 || textSignature != "" {
++			part := map[string]any{
+ 				"text": textBuffer.String(),
+-			})
++			}
++			if textSignature != "" {
++				part["thoughtSignature"] = textSignature
++			}
++			mergedParts = append(mergedParts, part)
+ 			textBuffer.Reset()
++			textSignature = ""
+ 		}
+ 	}
+ 
+@@ -591,8 +582,15 @@ func mergeCollectedPartsToResponse(response map[string]any, collectedParts []map
+ 				flushTextBuffer()
+ 				mergedParts = append(mergedParts, part)
+ 			} else {
+-				// 普通 text，累积到 buffer
++				// A signature belongs to its text segment; keep different signed segments separate.
++				sig, _ := part["thoughtSignature"].(string)
++				if textSignature != "" && sig != "" && textSignature != sig {
++					flushTextBuffer()
++				}
+ 				_, _ = textBuffer.WriteString(text)
++				if sig != "" {
++					textSignature = sig
++				}
+ 			}
+ 		} else {
+ 			// 非 text part（functionCall、inlineData 等），先刷新 text buffer，然后保留原样
+@@ -604,73 +602,11 @@ func mergeCollectedPartsToResponse(response map[string]any, collectedParts []map
+ 	// 刷新剩余的 text
+ 	flushTextBuffer()
+ 
+-	setParts(mergedParts)
+-	return result
+-}
+-
+-// mergeImagePartsToResponse 将收集到的图片 parts 合并到 Gemini 响应中
+-func mergeImagePartsToResponse(response map[string]any, imageParts []map[string]any) map[string]any {
+-	if len(imageParts) == 0 {
+-		return response
++	if len(mergedParts) == 0 {
++		mergedParts = existingParts
+ 	}
+ 
+-	result, existingParts, setParts := getOrCreateGeminiParts(response)
+-
+-	// 检查现有 parts 中是否已经有图片
+-	for _, p := range existingParts {
+-		if pm, ok := p.(map[string]any); ok {
+-			if _, hasInline := pm["inlineData"]; hasInline {
+-				return result // 已有图片，不重复添加
+-			}
+-		}
+-	}
+-
+-	// 添加收集到的图片 parts
+-	for _, imgPart := range imageParts {
+-		existingParts = append(existingParts, imgPart)
+-	}
+-	setParts(existingParts)
+-	return result
+-}
+-
+-// mergeTextPartsToResponse 将收集到的文本合并到 Gemini 响应中
+-func mergeTextPartsToResponse(response map[string]any, textParts []string) map[string]any {
+-	if len(textParts) == 0 {
+-		return response
+-	}
+-
+-	mergedText := strings.Join(textParts, "")
+-	result, existingParts, setParts := getOrCreateGeminiParts(response)
+-
+-	// 查找并更新第一个 text part，或创建新的
+-	newParts := make([]any, 0, len(existingParts)+1)
+-	textUpdated := false
+-
+-	for _, p := range existingParts {
+-		pm, ok := p.(map[string]any)
+-		if !ok {
+-			newParts = append(newParts, p)
+-			continue
+-		}
+-		if _, hasText := pm["text"]; hasText && !textUpdated {
+-			// 用累积的文本替换
+-			newPart := make(map[string]any)
+-			for k, v := range pm {
+-				newPart[k] = v
+-			}
+-			newPart["text"] = mergedText
+-			newParts = append(newParts, newPart)
+-			textUpdated = true
+-		} else {
+-			newParts = append(newParts, pm)
+-		}
+-	}
+-
+-	if !textUpdated {
+-		newParts = append([]any{map[string]any{"text": mergedText}}, newParts...)
+-	}
+-
+-	setParts(newParts)
++	setParts(mergedParts)
+ 	return result
+ }
+ 
+diff --git a/backend/internal/application/service/billing_service.go b/backend/internal/application/service/billing_service.go
+index 718e318ab..34533eecd 100644
+--- a/backend/internal/application/service/billing_service.go
++++ b/backend/internal/application/service/billing_service.go
+@@ -296,6 +296,7 @@ func NewBillingService(cfg *config.Config, pricingService *PricingService) *Bill
+ // initFallbackPricing 初始化硬编码回退价格（当动态价格不可用时使用）
+ // 价格单位：USD per token（与LiteLLM格式一致）
+ func (s *BillingService) initFallbackPricing() {
++	s.initGeminiArgonFallbackPricing()
+ 	// Claude 4.5 Opus
+ 	s.fallbackPrices["claude-opus-4.5"] = &ModelPricing{
+ 		InputPricePerToken:         5e-6,    // $5 per MTok
+@@ -829,7 +830,7 @@ func (s *BillingService) initFallbackPricing() {
+ 
+ // getFallbackPricing 根据模型系列获取回退价格
+ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
+-	modelLower := strings.ToLower(model)
++	modelLower := normalizeAntigravityClaudeTierAlias(strings.ToLower(model))
+ 	if modelLower == "jev-latest" {
+ 		return s.fallbackPrices["jev-latest"]
+ 	}
+@@ -883,6 +884,12 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
+ 		return s.fallbackPrices["gemini-3.8-flash"]
+ 	}
+ 
++	if strings.Contains(modelLower, "gemini-4-argon-cyber") {
++		return s.fallbackPrices["gemini-4-argon-cyber-permissive"]
++	}
++	if strings.Contains(modelLower, "gemini-4-argon") {
++		return s.fallbackPrices["gemini-4-argon"]
++	}
+ 	if strings.Contains(modelLower, "deepseek-v4-flash-vision-exp") {
+ 		return s.fallbackPrices["deepseek-v4-flash-vision-exp"]
+ 	}
+diff --git a/backend/internal/application/service/cn_provider_quota_service.go b/backend/internal/application/service/cn_provider_quota_service.go
+index 4f53a20e5..8e5067c2f 100644
+--- a/backend/internal/application/service/cn_provider_quota_service.go
++++ b/backend/internal/application/service/cn_provider_quota_service.go
+@@ -475,7 +475,7 @@ func minimaxResetTime(v gjson.Result) string {
+ 	return time.UnixMilli(ms).UTC().Format(time.RFC3339)
+ }
+ 
+-// cnZhipuWindow 标识智谱 TOKENS_LIMIT 条目所属窗口。
++// cnZhipuWindow 标识智谱额度条目（TOKENS_LIMIT / CREDIT_LIMIT）所属窗口。
+ type cnZhipuWindow int
+ 
+ const (
+@@ -507,7 +507,8 @@ func classifyZhipuWindowUnit(unit int64) cnZhipuWindow {
+ //
+ // CREDIT_LIMIT（信用额度）与 TOKENS_LIMIT（token 窗口）度量不同：两者同时返回时
+ // 只让 TOKENS_LIMIT 参与 5h/weekly 槽位竞争，避免信用额度百分比污染阈值停调
+-// 快照；仅当无任何 TOKENS_LIMIT 条目时才降级用 CREDIT_LIMIT 展示。
++// 快照；仅当无任何 TOKENS_LIMIT 条目时才降级用 CREDIT_LIMIT 展示 —— 此时
++// CREDIT_LIMIT 同样按 unit 分类（它也携带 unit），不依赖 reset 时间排序。
+ // 老套餐只回 1 条 TOKENS_LIMIT，自然降级为仅 5h；新套餐回 2 条。
+ func parseZhipuTokenTiers(data gjson.Result) []CNQuotaTier {
+ 	type entry struct {
+@@ -515,6 +516,7 @@ func parseZhipuTokenTiers(data gjson.Result) []CNQuotaTier {
+ 		hasReset   bool
+ 		percentage float64
+ 		resetISO   string
++		unit       int64
+ 	}
+ 	var (
+ 		fiveHour     entry
+@@ -524,8 +526,8 @@ func parseZhipuTokenTiers(data gjson.Result) []CNQuotaTier {
+ 		unclassified []entry
+ 	)
+ 
+-	classify := func(item gjson.Result, e entry) {
+-		switch classifyZhipuWindowUnit(item.Get("unit").Int()) {
++	classify := func(unit int64, e entry) {
++		switch classifyZhipuWindowUnit(unit) {
+ 		case cnZhipuWindow5h:
+ 			if !fiveHourSet {
+ 				fiveHour, fiveHourSet = e, true
+@@ -570,10 +572,10 @@ func parseZhipuTokenTiers(data gjson.Result) []CNQuotaTier {
+ 				hasReset = resetISO != ""
+ 			}
+ 		}
+-		e := entry{resetMs: resetMs, hasReset: hasReset, percentage: percentage, resetISO: resetISO}
++		e := entry{resetMs: resetMs, hasReset: hasReset, percentage: percentage, resetISO: resetISO, unit: item.Get("unit").Int()}
+ 		if limitType == "TOKENS_LIMIT" {
+ 			hasTokensLimit = true
+-			classify(item, e)
++			classify(e.unit, e)
+ 		} else {
+ 			creditFallback = append(creditFallback, e)
+ 		}
+@@ -581,8 +583,17 @@ func parseZhipuTokenTiers(data gjson.Result) []CNQuotaTier {
+ 	})
+ 
+ 	// 无任何 TOKENS_LIMIT 条目（部分套餐只报信用额度）：降级用 CREDIT_LIMIT 展示。
++	// CREDIT_LIMIT 条目同样带 unit（3=5h / 6=weekly；实测 GLM Coding Plan 两条窗口
++	// 都是 CREDIT_LIMIT），必须和 TOKENS_LIMIT 一样先按 unit 显式分类 —— 否则会退化
++	// 成 reset 时间启发式，而周期末尾周窗口比 5h 更早重置，时间排序必然把两档标反。
+ 	if !hasTokensLimit {
+-		unclassified = append(unclassified, creditFallback...)
++		for _, e := range creditFallback {
++			if classifyZhipuWindowUnit(e.unit) != cnZhipuWindowUnknown {
++				classify(e.unit, e)
++				continue
++			}
++			unclassified = append(unclassified, e)
++		}
+ 	}
+ 
+ 	// 无 reset 的条目排前，再按 reset 升序，依次填入仍空缺的槽位。
+diff --git a/backend/internal/application/service/gateway_anthropic_passthrough.go b/backend/internal/application/service/gateway_anthropic_passthrough.go
+index cc62c8fbc..73e13cd3b 100644
+--- a/backend/internal/application/service/gateway_anthropic_passthrough.go
++++ b/backend/internal/application/service/gateway_anthropic_passthrough.go
+@@ -310,7 +310,7 @@ func (s *GatewayService) buildUpstreamRequestAnthropicAPIKeyPassthrough(
+ ) (*http.Request, []byte, error) {
+ 	body = stripDeferredToolCacheControl(body)
+ 	targetURL := claudeAPIURL
+-	baseURL := account.GetBaseURL()
++	baseURL := getAnthropicGatewayBaseURL(account)
+ 	if baseURL != "" {
+ 		validatedURL, err := s.validateUpstreamBaseURL(baseURL)
+ 		if err != nil {
+diff --git a/backend/internal/application/service/gateway_count_tokens.go b/backend/internal/application/service/gateway_count_tokens.go
+index 786b6aeba..095917baa 100644
+--- a/backend/internal/application/service/gateway_count_tokens.go
++++ b/backend/internal/application/service/gateway_count_tokens.go
+@@ -23,6 +23,10 @@ func (s *GatewayService) ForwardCountTokens(ctx context.Context, c *gin.Context,
+ 		return fmt.Errorf("parse request: empty request")
+ 	}
+ 
++	if account != nil && (account.Platform == PlatformAntigravity || !anthropicMessagesCredentialAllowed(account)) {
++		s.countTokensError(c, http.StatusNotFound, "not_found_error", "count_tokens endpoint is not supported for this platform")
++		return nil
++	}
+ 	if account != nil && account.IsAnthropicAPIKeyPassthroughEnabled() {
+ 		passthroughBody := parsed.Body.Bytes()
+ 		passthroughModel := parsed.Model
+@@ -384,7 +388,7 @@ func (s *GatewayService) buildCountTokensRequestAnthropicAPIKeyPassthrough(
+ ) (*http.Request, error) {
+ 	body = stripDeferredToolCacheControl(body)
+ 	targetURL := claudeAPICountTokensURL
+-	baseURL := account.GetBaseURL()
++	baseURL := getAnthropicGatewayBaseURL(account)
+ 	if baseURL != "" {
+ 		validatedURL, err := s.validateUpstreamBaseURL(baseURL)
+ 		if err != nil {
+@@ -449,8 +453,9 @@ func (s *GatewayService) buildCountTokensRequest(ctx context.Context, c *gin.Con
+ 	body = stripDeferredToolCacheControl(body)
+ 	// 确定目标 URL
+ 	targetURL := claudeAPICountTokensURL
++	baseURL := ""
+ 	if account.Type == AccountTypeAPIKey {
+-		baseURL := account.GetBaseURL()
++		baseURL = getAnthropicGatewayBaseURL(account)
+ 		if baseURL != "" {
+ 			validatedURL, err := s.validateUpstreamBaseURL(baseURL)
+ 			if err != nil {
+diff --git a/backend/internal/application/service/gateway_forward_as_chat_completions.go b/backend/internal/application/service/gateway_forward_as_chat_completions.go
+index 1373140e7..26290d766 100644
+--- a/backend/internal/application/service/gateway_forward_as_chat_completions.go
++++ b/backend/internal/application/service/gateway_forward_as_chat_completions.go
+@@ -45,7 +45,7 @@ func (s *GatewayService) ForwardAsChatCompletions(
+ 	includeUsage := ccReq.StreamOptions != nil && ccReq.StreamOptions.IncludeUsage
+ 
+ 	// 2. Convert CC → Responses → Anthropic (chained conversion)
+-	responsesReq, err := apicompat.ChatCompletionsToResponses(&ccReq)
++	responsesReq, err := chatCompletionsToResponses(s.cfg, &ccReq)
+ 	if err != nil {
+ 		return nil, fmt.Errorf("convert chat completions to responses: %w", err)
+ 	}
+diff --git a/backend/internal/application/service/gateway_upstream_request.go b/backend/internal/application/service/gateway_upstream_request.go
+index 8fe4d13a5..52475a578 100644
+--- a/backend/internal/application/service/gateway_upstream_request.go
++++ b/backend/internal/application/service/gateway_upstream_request.go
+@@ -19,6 +19,9 @@ import (
+ )
+ 
+ func (s *GatewayService) buildUpstreamRequest(ctx context.Context, c *gin.Context, account *Account, body []byte, token, tokenType, modelID string, reqStream bool, mimicClaudeCode bool) (*http.Request, []byte, error) {
++	if err := checkAnthropicMessagesCredential(account); err != nil {
++		return nil, nil, err
++	}
+ 	if account.Platform == PlatformAnthropic && account.Type == AccountTypeServiceAccount {
+ 		req, err := s.buildUpstreamRequestAnthropicVertex(ctx, c, account, body, token, modelID, reqStream)
+ 		return req, body, err
+@@ -29,8 +32,9 @@ func (s *GatewayService) buildUpstreamRequest(ctx context.Context, c *gin.Contex
+ 
+ 	// 确定目标URL
+ 	targetURL := claudeAPIURL
++	baseURL := ""
+ 	if account.Type == AccountTypeAPIKey {
+-		baseURL := account.GetBaseURL()
++		baseURL = getAnthropicGatewayBaseURL(account)
+ 		if baseURL != "" {
+ 			validatedURL, err := s.validateUpstreamBaseURL(baseURL)
+ 			if err != nil {
+@@ -220,6 +224,16 @@ func (s *GatewayService) buildUpstreamRequest(ctx context.Context, c *gin.Contex
+ 	return req, body, nil
+ }
+ 
++func getAnthropicGatewayBaseURL(account *Account) string {
++	if account == nil {
++		return ""
++	}
++	if baseURL := account.GetAnthropicProtocolBaseURL(); baseURL != "" {
++		return baseURL
++	}
++	return account.GetBaseURL()
++}
++
+ // vertexSupportedBetaTokens 是 Vertex AI 的 Anthropic 端点接受的 anthropic-beta
+ // 白名单。Vertex 对任何未知 token 直接 HTTP 400，故采用白名单（与 Bedrock 的
+ // bedrockSupportedBetaTokens 同思路）而非黑名单：未来 Claude Code 新增的、Vertex 尚未
+diff --git a/backend/internal/application/service/gemini_chat_completions_compat_service.go b/backend/internal/application/service/gemini_chat_completions_compat_service.go
+index 43b449b99..3250c1e6e 100644
+--- a/backend/internal/application/service/gemini_chat_completions_compat_service.go
++++ b/backend/internal/application/service/gemini_chat_completions_compat_service.go
+@@ -42,7 +42,7 @@ func (s *GeminiMessagesCompatService) ForwardAsChatCompletions(
+ 	clientStream := ccReq.Stream
+ 	includeUsage := ccReq.StreamOptions != nil && ccReq.StreamOptions.IncludeUsage
+ 
+-	responsesReq, err := apicompat.ChatCompletionsToResponses(&ccReq)
++	responsesReq, err := chatCompletionsToResponses(s.cfg, &ccReq)
+ 	if err != nil {
+ 		return nil, s.writeChatCompletionsError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+ 	}
+@@ -113,12 +113,18 @@ func (s *GeminiMessagesCompatService) forwardClaudeBodyAsChatCompletions(
+ 	)
+ 
+ 	var resp *http.Response
++	// checkedPolicy 是循环内对当前 resp 的错误策略检查结果，未检查时为 nil。
++	var checkedPolicy *ErrorPolicyResult
+ 	for attempt := 1; attempt <= geminiMaxRetries; attempt++ {
++		checkedPolicy = nil
+ 		upstreamReq, idHeader, err := buildReq(ctx)
+ 		if err != nil {
+ 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+ 				return nil, err
+ 			}
++			if failoverErr := s.handleVertexServiceAccountNotFound(ctx, c, account, err); failoverErr != nil {
++				return nil, failoverErr
++			}
+ 			return nil, s.writeChatCompletionsError(c, http.StatusBadGateway, "upstream_error", err.Error())
+ 		}
+ 		requestIDHeader = idHeader
+@@ -143,11 +149,9 @@ func (s *GeminiMessagesCompatService) forwardClaudeBodyAsChatCompletions(
+ 			return nil, s.writeChatCompletionsError(c, http.StatusBadGateway, "upstream_error", "Upstream request failed after retries: "+safeErr)
+ 		}
+ 
+-		if matched, rebuilt := s.checkErrorPolicyInLoop(ctx, account, resp, mappedModel); matched {
+-			resp = rebuilt
++		checkedPolicy, resp = s.checkErrorPolicyInLoop(ctx, account, resp, mappedModel)
++		if checkedPolicy != nil && *checkedPolicy != ErrorPolicyNone {
+ 			break
+-		} else {
+-			resp = rebuilt
+ 		}
+ 
+ 		if resp.StatusCode >= 400 && s.shouldRetryGeminiUpstreamError(account, resp.StatusCode) {
+@@ -213,7 +217,7 @@ func (s *GeminiMessagesCompatService) forwardClaudeBodyAsChatCompletions(
+ 		respBody := s.readUpstreamErrorBody(resp)
+ 		policy := ErrorPolicyNone
+ 		if s.rateLimitService != nil {
+-			policy = s.rateLimitService.CheckErrorPolicy(ctx, account, resp.StatusCode, respBody, mappedModel)
++			policy = s.finalErrorPolicy(ctx, account, resp.StatusCode, respBody, mappedModel, checkedPolicy)
+ 		}
+ 		if policy == ErrorPolicyNone || policy == ErrorPolicyMatched {
+ 			s.handleGeminiUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
+diff --git a/backend/internal/application/service/gemini_messages_compat_service.go b/backend/internal/application/service/gemini_messages_compat_service.go
+index 565d12474..18271da80 100644
+--- a/backend/internal/application/service/gemini_messages_compat_service.go
++++ b/backend/internal/application/service/gemini_messages_compat_service.go
+@@ -685,13 +685,19 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
+ 	}
+ 
+ 	var resp *http.Response
++	// checkedPolicy 是循环内对当前 resp 的错误策略检查结果，未检查时为 nil。
++	var checkedPolicy *ErrorPolicyResult
+ 	signatureRetryStage := 0
+ 	for attempt := 1; attempt <= geminiMaxRetries; attempt++ {
++		checkedPolicy = nil
+ 		upstreamReq, idHeader, err := buildReq(ctx)
+ 		if err != nil {
+ 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+ 				return nil, err
+ 			}
++			if failoverErr := s.handleVertexServiceAccountNotFound(ctx, c, account, err); failoverErr != nil {
++				return nil, failoverErr
++			}
+ 			// Local build error: don't retry.
+ 			if strings.Contains(err.Error(), "missing project_id") {
+ 				return nil, s.writeClaudeError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+@@ -789,11 +795,11 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
+ 		}
+ 
+ 		// 错误策略优先：匹配则跳过重试直接处理。
+-		if matched, rebuilt := s.checkErrorPolicyInLoop(ctx, account, resp, mappedModel); matched {
+-			resp = rebuilt
++		checked, rebuilt := s.checkErrorPolicyInLoop(ctx, account, resp, mappedModel)
++		resp = rebuilt
++		checkedPolicy = checked
++		if checked != nil && *checked != ErrorPolicyNone {
+ 			break
+-		} else {
+-			resp = rebuilt
+ 		}
+ 
+ 		if resp.StatusCode >= 400 && s.shouldRetryGeminiUpstreamError(account, resp.StatusCode) {
+@@ -809,7 +815,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
+ 				break
+ 			}
+ 			if resp.StatusCode == 429 {
+-				// Mark as rate-limited early so concurrent requests avoid this account.
++				// Apply account-scoped 429 handling early so concurrent requests avoid a rate-limited account.
+ 				s.handleGeminiUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
+ 			}
+ 			if attempt < geminiMaxRetries {
+@@ -859,7 +865,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
+ 		respBody := s.readUpstreamErrorBody(resp)
+ 		// 统一错误策略：自定义错误码 + 临时不可调度
+ 		if s.rateLimitService != nil {
+-			policy := s.rateLimitService.CheckErrorPolicy(ctx, account, resp.StatusCode, respBody, mappedModel)
++			policy := s.finalErrorPolicy(ctx, account, resp.StatusCode, respBody, mappedModel, checkedPolicy)
+ 			switch policy {
+ 			case ErrorPolicySkipped:
+ 				upstreamReqID := resp.Header.Get(requestIDHeader)
+@@ -1223,12 +1229,18 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
+ 	}
+ 
+ 	var resp *http.Response
++	// checkedPolicy 是循环内对当前 resp 的错误策略检查结果，未检查时为 nil。
++	var checkedPolicy *ErrorPolicyResult
+ 	for attempt := 1; attempt <= geminiMaxRetries; attempt++ {
++		checkedPolicy = nil
+ 		upstreamReq, idHeader, err := buildReq(ctx)
+ 		if err != nil {
+ 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+ 				return nil, err
+ 			}
++			if failoverErr := s.handleVertexServiceAccountNotFound(ctx, c, account, err); failoverErr != nil {
++				return nil, failoverErr
++			}
+ 			// Local build error: don't retry.
+ 			if strings.Contains(err.Error(), "missing project_id") {
+ 				return nil, s.writeGoogleError(c, http.StatusBadRequest, err.Error())
+@@ -1271,11 +1283,11 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
+ 		}
+ 
+ 		// 错误策略优先：匹配则跳过重试直接处理。
+-		if matched, rebuilt := s.checkErrorPolicyInLoop(ctx, account, resp, mappedModel); matched {
+-			resp = rebuilt
++		checked, rebuilt := s.checkErrorPolicyInLoop(ctx, account, resp, mappedModel)
++		resp = rebuilt
++		checkedPolicy = checked
++		if checked != nil && *checked != ErrorPolicyNone {
+ 			break
+-		} else {
+-			resp = rebuilt
+ 		}
+ 
+ 		if resp.StatusCode >= 400 && s.shouldRetryGeminiUpstreamError(account, resp.StatusCode) {
+@@ -1380,7 +1392,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
+ 
+ 		// 统一错误策略：自定义错误码 + 临时不可调度
+ 		if s.rateLimitService != nil {
+-			policy := s.rateLimitService.CheckErrorPolicy(ctx, account, resp.StatusCode, respBody, mappedModel)
++			policy := s.finalErrorPolicy(ctx, account, resp.StatusCode, respBody, mappedModel, checkedPolicy)
+ 			switch policy {
+ 			case ErrorPolicySkipped:
+ 				if failoverErr := s.skippedErrorPolicyFailoverError(c, account, resp.StatusCode, respBody, requestID); failoverErr != nil {
+@@ -1579,14 +1591,14 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
+ 	}, nil
+ }
+ 
+-// checkErrorPolicyInLoop 在重试循环内预检查错误策略。
+-// 返回 true 表示策略已匹配（调用者应 break），resp 已重建可直接使用。
+-// 返回 false 表示 ErrorPolicyNone，resp 已重建，调用者继续走重试逻辑。
++// checkErrorPolicyInLoop 在重试循环内对上游错误响应检查错误策略，resp 已重建可直接使用。
++// checked 为 nil 表示未检查（非错误响应或未配置限流服务）；否则指向检查结果，
++// 非 ErrorPolicyNone 时调用者应 break 并由循环外的错误处理复用该结果。
+ func (s *GeminiMessagesCompatService) checkErrorPolicyInLoop(
+ 	ctx context.Context, account *Account, resp *http.Response, mappedModel string,
+-) (matched bool, rebuilt *http.Response) {
++) (checked *ErrorPolicyResult, rebuilt *http.Response) {
+ 	if resp.StatusCode < 400 || s.rateLimitService == nil {
+-		return false, resp
++		return nil, resp
+ 	}
+ 	body := s.readUpstreamErrorBody(resp)
+ 	_ = resp.Body.Close()
+@@ -1596,7 +1608,7 @@ func (s *GeminiMessagesCompatService) checkErrorPolicyInLoop(
+ 		Body:       io.NopCloser(bytes.NewReader(body)),
+ 	}
+ 	policy := s.rateLimitService.CheckErrorPolicy(ctx, account, resp.StatusCode, body, mappedModel)
+-	return policy != ErrorPolicyNone, rebuilt
++	return &policy, rebuilt
+ }
+ 
+ func (s *GeminiMessagesCompatService) shouldRetryGeminiUpstreamError(account *Account, statusCode int) bool {
+@@ -2967,6 +2979,11 @@ func (s *GeminiMessagesCompatService) handleGeminiUpstreamError(ctx context.Cont
+ 			} else {
+ 				logger.LegacyPrintf("service.gemini_messages_compat", "[Gemini 429] Account %d (Google One OAuth, tier=%s, project=%s) rate limited, cooldown=%v", account.ID, tierID, projectID, time.Until(ra).Truncate(time.Second))
+ 			}
++		} else if account.IsVertexServiceAccount() {
++			if isVertexSharedCapacity429(body) {
++				return
++			}
++			ra = time.Now().Add(time.Minute)
+ 		} else {
+ 			// API Key / AI Studio OAuth: PST 午夜
+ 			if ts := nextGeminiDailyResetUnix(); ts != nil {
+@@ -3725,3 +3742,33 @@ func (s *GeminiMessagesCompatService) extractImageInputSize(body []byte) string
+ 
+ 	return ""
+ }
++
++func (s *GeminiMessagesCompatService) finalErrorPolicy(
++	ctx context.Context, account *Account, statusCode int, body []byte, mappedModel string, checked *ErrorPolicyResult,
++) ErrorPolicyResult {
++	if checked != nil {
++		return *checked
++	}
++	return s.rateLimitService.CheckErrorPolicy(ctx, account, statusCode, body, mappedModel)
++}
++
++func isVertexSharedCapacity429(body []byte) bool {
++	errObj := gjson.GetBytes(body, "error")
++	if !errObj.Exists() {
++		errObj = gjson.GetBytes(body, "0.error")
++	}
++	if !errObj.IsObject() {
++		return false
++	}
++	if !strings.EqualFold(strings.TrimSpace(errObj.Get("status").String()), "RESOURCE_EXHAUSTED") {
++		return false
++	}
++	if len(errObj.Get("details").Array()) > 0 {
++		return false
++	}
++	msg := strings.ToLower(errObj.Get("message").String())
++	if !strings.Contains(msg, "resource exhausted") || !strings.Contains(msg, "try again later") {
++		return false
++	}
++	return !strings.Contains(msg, "quota") && !strings.Contains(msg, "provisioned throughput")
++}
+diff --git a/backend/internal/application/service/openai_gateway_chat_completions.go b/backend/internal/application/service/openai_gateway_chat_completions.go
+index e2093e381..f450f6a50 100644
+--- a/backend/internal/application/service/openai_gateway_chat_completions.go
++++ b/backend/internal/application/service/openai_gateway_chat_completions.go
+@@ -259,7 +259,7 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
+ 	} else {
+ 		// Normal path: convert Chat Completions → Responses.
+ 		// ChatCompletionsToResponses always sets Stream=true (upstream always streams).
+-		responsesReq, err = apicompat.ChatCompletionsToResponses(&chatReq)
++		responsesReq, err = chatCompletionsToResponses(s.cfg, &chatReq)
+ 		if err != nil {
+ 			return nil, fmt.Errorf("convert chat completions to responses: %w", err)
+ 		}
+diff --git a/backend/internal/application/service/openai_gateway_chat_completions_anthropic_native.go b/backend/internal/application/service/openai_gateway_chat_completions_anthropic_native.go
+index 6efae49ac..42cd448f5 100644
+--- a/backend/internal/application/service/openai_gateway_chat_completions_anthropic_native.go
++++ b/backend/internal/application/service/openai_gateway_chat_completions_anthropic_native.go
+@@ -57,7 +57,7 @@ func (s *OpenAIGatewayService) forwardChatCompletionsViaNativeAnthropic(
+ 	includeUsage := ccReq.StreamOptions != nil && ccReq.StreamOptions.IncludeUsage
+ 
+ 	// 2. Convert CC → Responses → Anthropic (chained conversion)
+-	responsesReq, err := apicompat.ChatCompletionsToResponses(&ccReq)
++	responsesReq, err := chatCompletionsToResponses(s.cfg, &ccReq)
+ 	if err != nil {
+ 		writeChatCompletionsError(c, http.StatusBadRequest, "invalid_request_error", "Failed to convert request")
+ 		return nil, fmt.Errorf("convert chat completions to responses: %w", err)
+diff --git a/backend/internal/application/service/openai_gateway_grok_chat_bridge.go b/backend/internal/application/service/openai_gateway_grok_chat_bridge.go
+index eec583fae..9d4846cd3 100644
+--- a/backend/internal/application/service/openai_gateway_grok_chat_bridge.go
++++ b/backend/internal/application/service/openai_gateway_grok_chat_bridge.go
+@@ -617,7 +617,7 @@ func (s *OpenAIGatewayService) forwardGrokChatCompletionsViaResponses(
+ 		return s.forwardAsRawChatCompletions(ctx, c, account, body, defaultMappedModel)
+ 	}
+ 
+-	responsesReq, err := apicompat.ChatCompletionsToResponses(&chatReq)
++	responsesReq, err := chatCompletionsToResponses(s.cfg, &chatReq)
+ 	if err != nil {
+ 		return nil, fmt.Errorf("convert grok chat completions to responses: %w", err)
+ 	}
+diff --git a/backend/internal/application/service/openai_gateway_messages.go b/backend/internal/application/service/openai_gateway_messages.go
+index 749a309d9..c526323cd 100644
+--- a/backend/internal/application/service/openai_gateway_messages.go
++++ b/backend/internal/application/service/openai_gateway_messages.go
+@@ -179,7 +179,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
+ 	}
+ 
+ 	// 3. Convert Anthropic → Responses after compatibility-only replay guard.
+-	responsesReq, err := apicompat.AnthropicToResponses(&anthropicReq)
++	responsesReq, err := anthropicToResponses(s.cfg, &anthropicReq)
+ 	if err != nil {
+ 		return nil, fmt.Errorf("convert anthropic to responses: %w", err)
+ 	}
+diff --git a/backend/internal/application/service/openai_gateway_messages_chat_fallback.go b/backend/internal/application/service/openai_gateway_messages_chat_fallback.go
+index bd4eaa297..b4607f3fb 100644
+--- a/backend/internal/application/service/openai_gateway_messages_chat_fallback.go
++++ b/backend/internal/application/service/openai_gateway_messages_chat_fallback.go
+@@ -64,7 +64,7 @@ func (s *OpenAIGatewayService) forwardAnthropicViaRawChatCompletions(
+ 	}
+ 
+ 	// 2. Anthropic → Chat Completions (direct, no Responses intermediary)
+-	chatReq, err := apicompat.AnthropicToChatCompletionsRequest(&anthropicReq)
++	chatReq, err := apicompat.AnthropicToChatCompletionsRequestWithMinOutputTokens(&anthropicReq, configuredMinOutputTokens(s.cfg))
+ 	if err != nil {
+ 		writeAnthropicError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+ 		return nil, fmt.Errorf("convert anthropic to chat completions: %w", err)
+diff --git a/backend/internal/application/service/pricing_service.go b/backend/internal/application/service/pricing_service.go
+index 480e1f645..cdfc5dd24 100644
+--- a/backend/internal/application/service/pricing_service.go
++++ b/backend/internal/application/service/pricing_service.go
+@@ -793,7 +793,7 @@ func (s *PricingService) buildModelLookupCandidates(modelLower string) []string
+ 	// one later. Today Antigravity's Gemini 3.6 Flash tiers share the base rate,
+ 	// so the normalized base remains the fallback after the exact aliases.
+ 	candidates := rawCandidates
+-	if normalizeGeminiThinkingTierAlias(lastSegment(modelLower)) != lastSegment(modelLower) {
++	if isAntigravityThinkingTierAlias(lastSegment(modelLower)) {
+ 		candidates = append(candidates, normalized)
+ 	} else {
+ 		// Prefer canonical model names for all other aliases (including models/xxx).
+@@ -819,51 +819,6 @@ func (s *PricingService) buildModelLookupCandidates(modelLower string) []string
+ 	return out
+ }
+ 
+-func normalizeModelNameForPricing(model string) string {
+-	// Common Gemini/VertexAI forms:
+-	// - models/gemini-2.0-flash-exp
+-	// - publishers/google/models/gemini-2.5-pro
+-	// - projects/.../locations/.../publishers/google/models/gemini-2.5-pro
+-	model = strings.TrimSpace(model)
+-	model = strings.TrimLeft(model, "/")
+-	model = strings.TrimPrefix(model, "models/")
+-	model = strings.TrimPrefix(model, "publishers/google/models/")
+-
+-	if idx := strings.LastIndex(model, "/publishers/google/models/"); idx != -1 {
+-		model = model[idx+len("/publishers/google/models/"):]
+-	}
+-	if idx := strings.LastIndex(model, "/models/"); idx != -1 {
+-		model = model[idx+len("/models/"):]
+-	}
+-
+-	model = strings.TrimLeft(model, "/")
+-	if canonical := canonicalizeOpenAIModelAliasSpelling(model); canonical != "" {
+-		if canonical == "gpt-5.6" {
+-			return "gpt-5.6-sol"
+-		}
+-		if suffix, ok := strings.CutPrefix(canonical, "gpt-5.6-"); ok && (suffix == "max" || isKnownCodexModelSuffix(suffix)) {
+-			return "gpt-5.6-sol"
+-		}
+-		return canonical
+-	}
+-	return normalizeGeminiThinkingTierAlias(model)
+-}
+-
+-// normalizeGeminiThinkingTierAlias maps Antigravity's Gemini 3.6 Flash
+-// thinking-tier model IDs to the public base model. The tier controls reasoning
+-// behavior, not the published token rate, so this keeps -high/-low/-medium and
+-// -tiered requests on the same price card as gemini-3.6-flash.
+-func normalizeGeminiThinkingTierAlias(model string) string {
+-	for _, baseModel := range []string{"gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.8-flash"} {
+-		for _, tier := range []string{"-high", "-low", "-medium", "-tiered"} {
+-			if model == baseModel+tier {
+-				return baseModel
+-			}
+-		}
+-	}
+-	return model
+-}
+-
+ func lastSegment(model string) string {
+ 	if idx := strings.LastIndex(model, "/"); idx != -1 {
+ 		return model[idx+1:]
+diff --git a/backend/internal/application/service/upstream_models.go b/backend/internal/application/service/upstream_models.go
+index 0a497371e..c0db6574b 100644
+--- a/backend/internal/application/service/upstream_models.go
++++ b/backend/internal/application/service/upstream_models.go
+@@ -483,7 +483,7 @@ func (s *AccountTestService) fetchAntigravityOAuthUpstreamModels(ctx context.Con
+ 	if err != nil {
+ 		return nil, newUpstreamModelSyncConfigError("Failed to configure Antigravity client", err)
+ 	}
+-	modelsResp, _, err := client.FetchAvailableModels(ctx, accessToken, strings.TrimSpace(account.GetCredential("project_id")), resolveModelsListReadLimit(s.cfg))
++	modelsResp, _, err := client.FetchAvailableModelsFromURL(ctx, resolveAntigravityForwardBaseURL(account), accessToken, strings.TrimSpace(account.GetCredential("project_id")), resolveModelsListReadLimit(s.cfg))
+ 	if err != nil {
+ 		return nil, newUpstreamModelSyncUpstreamError("Failed to fetch Antigravity available models", err)
+ 	}
+diff --git a/backend/internal/application/service/vertex_service_account.go b/backend/internal/application/service/vertex_service_account.go
+index 192514501..c108f9224 100644
+--- a/backend/internal/application/service/vertex_service_account.go
++++ b/backend/internal/application/service/vertex_service_account.go
+@@ -35,6 +35,9 @@ var (
+ 	vertexAnthropicAlreadyDatedIDPattern = regexp.MustCompile(`^.+@[0-9]{8}$`)
+ )
+ 
++// vertexServiceAccountTokenURL 是换取 SA access token 的端点，测试中替换为本地服务。
++var vertexServiceAccountTokenURL = vertexDefaultTokenURL
++
+ type vertexServiceAccountKey struct {
+ 	Type         string `json:"type"`
+ 	ProjectID    string `json:"project_id"`
+@@ -127,7 +130,7 @@ func parseVertexServiceAccountJSON(raw []byte) (*vertexServiceAccountKey, error)
+ 		return nil, errors.New("service account json missing project_id")
+ 	}
+ 	// Always use the well-known Google token endpoint to prevent SSRF via crafted token_uri.
+-	key.TokenURI = vertexDefaultTokenURL
++	key.TokenURI = vertexServiceAccountTokenURL
+ 	return &key, nil
+ }
+ 
+@@ -256,7 +259,12 @@ func exchangeVertexServiceAccountToken(ctx context.Context, key *vertexServiceAc
+ 		if msg == "" {
+ 			msg = string(bytes.TrimSpace(body))
+ 		}
+-		return "", 0, fmt.Errorf("service account token request returned %d: %s", resp.StatusCode, msg)
++		return "", 0, &vertexTokenRequestError{
++			StatusCode:  resp.StatusCode,
++			Code:        strings.TrimSpace(parsed.Error),
++			Description: strings.TrimSpace(parsed.ErrorDesc),
++			Message:     msg,
++		}
+ 	}
+ 	if strings.TrimSpace(parsed.AccessToken) == "" {
+ 		return "", 0, errors.New("service account token response missing access_token")
+@@ -366,3 +374,30 @@ func buildVertexAnthropicRequestBody(body []byte) ([]byte, error) {
+ 	payload["anthropic_version"] = vertexAnthropicVersion
+ 	return json.Marshal(payload)
+ }
++
++// vertexTokenRequestError 是 token 端点对换取 SA access token 请求返回的非 2xx 响应。
++type vertexTokenRequestError struct {
++	StatusCode  int
++	Code        string // 响应的 error 字段，如 invalid_grant
++	Description string // 响应的 error_description 字段
++	Message     string
++}
++
++func (e *vertexTokenRequestError) Error() string {
++	return fmt.Sprintf("service account token request returned %d: %s", e.StatusCode, e.Message)
++}
++
++// vertexServiceAccountNotFoundError 识别 SA 已不存在：token 端点返回
++// 400 {"error":"invalid_grant","error_description":"Invalid grant: account not found"}。
++// 该凭据再也换不到 token，账号需要人工更换凭据。
++func vertexServiceAccountNotFoundError(err error) (*vertexTokenRequestError, bool) {
++	var tokenErr *vertexTokenRequestError
++	if !errors.As(err, &tokenErr) {
++		return nil, false
++	}
++	if tokenErr.StatusCode != http.StatusBadRequest || tokenErr.Code != "invalid_grant" ||
++		!strings.Contains(strings.ToLower(tokenErr.Description), "account not found") {
++		return nil, false
++	}
++	return tokenErr, true
++}
+diff --git a/backend/internal/domain/constants.go b/backend/internal/domain/constants.go
+index 5fded16bf..31a2c9da5 100644
+--- a/backend/internal/domain/constants.go
++++ b/backend/internal/domain/constants.go
+@@ -148,6 +148,11 @@ var DefaultAntigravityModelMapping = map[string]string{
+ 	"gemini-3.8-flash-low":    "gemini-3.8-flash-low",
+ 	"gemini-3.8-flash-medium": "gemini-3.8-flash-medium",
+ 	"gemini-3.8-flash-tiered": "gemini-3.8-flash-tiered",
++	// Gemini 4 Argon tiered models
++	"gemini-4-argon":        "gemini-4-argon-high",
++	"gemini-4-argon-high":   "gemini-4-argon-high",
++	"gemini-4-argon-low":    "gemini-4-argon-low",
++	"gemini-4-argon-medium": "gemini-4-argon-medium",
+ 	// Gemini 3 image 兼容映射（向 3.1 image 迁移）
+ 	"gemini-3-pro-image":         "gemini-3.1-flash-image",
+ 	"gemini-3-pro-image-preview": "gemini-3.1-flash-image",
+diff --git a/backend/internal/domain/constants_test.go b/backend/internal/domain/constants_test.go
+index 2a3133be5..294b21cfb 100644
+--- a/backend/internal/domain/constants_test.go
++++ b/backend/internal/domain/constants_test.go
+@@ -85,6 +85,20 @@ func TestDefaultAntigravityModelMapping_Gemini37And38FlashModels(t *testing.T) {
+ 	}
+ }
+ 
++func TestDefaultAntigravityModelMapping_Gemini4ArgonAndClaude55Models(t *testing.T) {
++	cases := map[string]string{
++		"gemini-4-argon":        "gemini-4-argon-high",
++		"gemini-4-argon-high":   "gemini-4-argon-high",
++		"gemini-4-argon-low":    "gemini-4-argon-low",
++		"gemini-4-argon-medium": "gemini-4-argon-medium",
++	}
++	for from, want := range cases {
++		if got := DefaultAntigravityModelMapping[from]; got != want {
++			t.Fatalf("expected %s to map to %q, got %q", from, want, got)
++		}
++	}
++}
++
+ func TestDefaultBedrockModelMapping_ContainsNewClaudeModels(t *testing.T) {
+ 	t.Parallel()
+ 
+diff --git a/backend/internal/platform/config/README.md b/backend/internal/platform/config/README.md
+index a158ea952..860333895 100644
+--- a/backend/internal/platform/config/README.md
++++ b/backend/internal/platform/config/README.md
+@@ -29,3 +29,5 @@
+ | `*_test.go` | 环境可达性、图片存储和配置回归 |
+ 
+ 新增配置必须定义默认值、环境变量映射和校验；面向前端的公开设置还需同步 DTO 与 HTML 注入结构。
++
++`gateway.min_output_tokens` / `GATEWAY_MIN_OUTPUT_TOKENS` 控制兼容转换中的输出下限，默认 128、至少 16。滚动升级和回退先保留默认值，所有节点更新后再显式修改；原生 Responses/WS 不经过该转换下限。
+diff --git a/backend/internal/platform/config/config_gateway_types.go b/backend/internal/platform/config/config_gateway_types.go
+index 15dfb7ee5..30d2ff26d 100644
+--- a/backend/internal/platform/config/config_gateway_types.go
++++ b/backend/internal/platform/config/config_gateway_types.go
+@@ -6,6 +6,8 @@ import (
+ )
+ 
+ type GatewayConfig struct {
++	// MinOutputTokens is the output floor for compatibility conversions.
++	MinOutputTokens int `mapstructure:"min_output_tokens"`
+ 	// 等待上游响应头的超时时间（秒），0表示无超时
+ 	// 注意：这不影响流式数据传输，只控制等待响应头的时间
+ 	ResponseHeaderTimeout int `mapstructure:"response_header_timeout"`
+diff --git a/backend/internal/platform/config/defaults_gateway.go b/backend/internal/platform/config/defaults_gateway.go
+index 9427e5450..11239437d 100644
+--- a/backend/internal/platform/config/defaults_gateway.go
++++ b/backend/internal/platform/config/defaults_gateway.go
+@@ -7,6 +7,7 @@ import (
+ )
+ 
+ func setGatewayDefaults() {
++	viper.SetDefault("gateway.min_output_tokens", 128)
+ 	// Gateway
+ 	viper.SetDefault("gateway.response_header_timeout", 600) // 600秒(10分钟)等待上游响应头，LLM高负载时可能排队较久
+ 	viper.SetDefault("gateway.openai_first_output_timeout_seconds", 90)
+diff --git a/backend/internal/platform/config/validate_gateway.go b/backend/internal/platform/config/validate_gateway.go
+index 652f8ad53..c4cc73b00 100644
+--- a/backend/internal/platform/config/validate_gateway.go
++++ b/backend/internal/platform/config/validate_gateway.go
+@@ -8,6 +8,9 @@ import (
+ )
+ 
+ func validateGatewayTransport(c *Config) error {
++	if c.Gateway.MinOutputTokens < 16 {
++		return fmt.Errorf("gateway.min_output_tokens must be at least 16")
++	}
+ 	if c.Gateway.MaxBodySize <= 0 {
+ 		return fmt.Errorf("gateway.max_body_size must be positive")
+ 	}
+diff --git a/backend/internal/shared/antigravity/README.md b/backend/internal/shared/antigravity/README.md
+index 023729cd9..b1a6c81d3 100644
+--- a/backend/internal/shared/antigravity/README.md
++++ b/backend/internal/shared/antigravity/README.md
+@@ -3,3 +3,5 @@
+ Antigravity 上游客户端与 Claude/Gemini 请求、响应、流和 schema 转换。文件按 `client`, `oauth`, `request_*`, `response_*`, `stream_*`, `*_types` 前缀组织。
+ 
+ `StreamingProcessor` 保留 SSE byte 输出；同进程协议桥接优先使用 `ProcessLineEvents` / `FinishEvents` typed sink，避免事件重复序列化和解析。
++
++工具结果文字和 base64 图片/文档在同一次解码中提取，媒体位于 functionResponse 后的 inline parts。`FetchAvailableModelsFromURL` 将目录发现固定到生成端点，禁止重定向和端点回退；账号出口上下文由 application 调用方保留。Hub UA 版本仍允许已保存设置和环境变量覆盖。
+diff --git a/backend/internal/shared/antigravity/claude_types.go b/backend/internal/shared/antigravity/claude_types.go
+index 61e32b615..62387becb 100644
+--- a/backend/internal/shared/antigravity/claude_types.go
++++ b/backend/internal/shared/antigravity/claude_types.go
+@@ -208,6 +208,9 @@ var geminiModels = []modelDef{
+ 	{ID: "gemini-3.8-flash-low", DisplayName: "Gemini 3.8 Flash Low", CreatedAt: "2026-09-02T00:00:00Z", IsReasoning: true},
+ 	{ID: "gemini-3.8-flash-medium", DisplayName: "Gemini 3.8 Flash Medium", CreatedAt: "2026-09-02T00:00:00Z", IsReasoning: true},
+ 	{ID: "gemini-3.8-flash-tiered", DisplayName: "Gemini 3.8 Flash", CreatedAt: "2026-09-02T00:00:00Z", IsReasoning: true},
++	{ID: "gemini-4-argon-high", DisplayName: "Gemini 4 Argon (High)", CreatedAt: "2026-10-13T00:00:00Z", IsReasoning: true},
++	{ID: "gemini-4-argon-low", DisplayName: "Gemini 4 Argon (Low)", CreatedAt: "2026-10-13T00:00:00Z", IsReasoning: true},
++	{ID: "gemini-4-argon-medium", DisplayName: "Gemini 4 Argon (Medium)", CreatedAt: "2026-10-13T00:00:00Z", IsReasoning: true},
+ 	{ID: "gemini-3-pro-preview", DisplayName: "Gemini 3 Pro Preview", CreatedAt: "2025-06-01T00:00:00Z", IsReasoning: true},
+ 	{ID: "gemini-3-pro-image", DisplayName: "Gemini 3 Pro Image", CreatedAt: "2025-06-01T00:00:00Z"},
+ }
+@@ -277,6 +280,9 @@ func FallbackGeminiModel(model string) GeminiModel {
+ // IsGeminiReasoningModel 判断是否为不支持参数和强制 ToolConfig 的 Gemini 推理模型
+ func IsGeminiReasoningModel(modelID string) bool {
+ 	lowerID := strings.ToLower(modelID)
++	if strings.Contains(lowerID, "gemini-pro-agent") || strings.Contains(lowerID, "gemini-4-argon") {
++		return true
++	}
+ 	for _, m := range geminiModels {
+ 		if strings.Contains(lowerID, m.ID) && m.IsReasoning {
+ 			return true
+diff --git a/backend/internal/shared/antigravity/claude_types_test.go b/backend/internal/shared/antigravity/claude_types_test.go
+index 4b49fdb9b..d572e943d 100644
+--- a/backend/internal/shared/antigravity/claude_types_test.go
++++ b/backend/internal/shared/antigravity/claude_types_test.go
+@@ -36,6 +36,9 @@ func TestDefaultModels_ContainsNewAndLegacyImageModels(t *testing.T) {
+ 		"gemini-3.8-flash-low",
+ 		"gemini-3.8-flash-medium",
+ 		"gemini-3.8-flash-tiered",
++		"gemini-4-argon-high",
++		"gemini-4-argon-low",
++		"gemini-4-argon-medium",
+ 	}
+ 
+ 	for _, id := range requiredIDs {
+diff --git a/backend/internal/shared/antigravity/client.go b/backend/internal/shared/antigravity/client.go
+index 0a44b2d9b..38d9aba32 100644
+--- a/backend/internal/shared/antigravity/client.go
++++ b/backend/internal/shared/antigravity/client.go
+@@ -239,10 +239,39 @@ func TierIDToPlanType(tierID string) string {
+ 		if tierID == "" {
+ 			return "Free"
+ 		}
++		// Google 新增的细分档位（如 g1-ultra-lite-tier、g1-pro-plus-tier）仍归入 Ultra / Pro。
++		if plan := paidPlanFromTierID(tierID); plan != "" {
++			return plan
++		}
+ 		return tierID
+ 	}
+ }
+ 
++// paidPlanFromTierID 识别 g1-ultra-*-tier / g1-pro-*-tier 形式的付费档位 ID，未知时返回空串。
++func paidPlanFromTierID(tierID string) string {
++	id := strings.ToLower(strings.TrimSpace(tierID))
++	if !strings.HasSuffix(id, "-tier") {
++		return ""
++	}
++	switch {
++	case strings.HasPrefix(id, "g1-ultra-"):
++		return "Ultra"
++	case strings.HasPrefix(id, "g1-pro-"):
++		return "Pro"
++	default:
++		return ""
++	}
++}
++
++// IsPaidPlanType 判断账号记录的 plan_type 是否为付费套餐，兼容旧记录里直接保存的档位 ID。
++func IsPaidPlanType(planType string) bool {
++	switch strings.ToLower(strings.TrimSpace(planType)) {
++	case "pro", "ultra":
++		return true
++	}
++	return paidPlanFromTierID(planType) != ""
++}
++
+ // Client Antigravity API 客户端
+ type Client struct {
+ 	httpClient *http.Client
+@@ -667,6 +696,18 @@ const defaultFetchAvailableModelsBodyLimit int64 = 8 << 20
+ // FetchAvailableModels 获取可用模型和配额信息，返回解析后的结构体和原始 JSON
+ // 支持 URL fallback：sandbox → daily → prod
+ func (c *Client) FetchAvailableModels(ctx context.Context, accessToken, projectID string, bodyLimitOverride ...int64) (*FetchAvailableModelsResponse, map[string]any, error) {
++	return c.fetchAvailableModels(ctx, BaseURLs, accessToken, projectID, false, bodyLimitOverride...)
++}
++
++// FetchAvailableModelsFromURL pins discovery to generation's endpoint.
++func (c *Client) FetchAvailableModelsFromURL(ctx context.Context, baseURL, accessToken, projectID string, bodyLimitOverride ...int64) (*FetchAvailableModelsResponse, map[string]any, error) {
++	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
++	if baseURL == "" {
++		return nil, nil, errors.New("fetchAvailableModels base URL is required")
++	}
++	return c.fetchAvailableModels(ctx, []string{baseURL}, accessToken, projectID, true, bodyLimitOverride...)
++}
++func (c *Client) fetchAvailableModels(ctx context.Context, availableURLs []string, accessToken, projectID string, fixedEndpoint bool, bodyLimitOverride ...int64) (*FetchAvailableModelsResponse, map[string]any, error) {
+ 	if c == nil || c.httpClient == nil {
+ 		return nil, nil, errors.New("antigravity client is not configured")
+ 	}
+@@ -684,10 +725,10 @@ func (c *Client) FetchAvailableModels(ctx context.Context, accessToken, projectI
+ 		return nil, nil, fmt.Errorf("序列化请求失败: %w", err)
+ 	}
+ 
+-	// 固定顺序：prod -> daily
+-	availableURLs := BaseURLs
+-
+ 	fetchClient := c.fetchAvailableModelsHTTPClient()
++	if fixedEndpoint {
++		fetchClient.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
++	}
+ 	var lastErr error
+ 	for urlIdx, baseURL := range availableURLs {
+ 		apiURL := baseURL + "/v1internal:fetchAvailableModels"
+diff --git a/backend/internal/shared/antigravity/client_test.go b/backend/internal/shared/antigravity/client_test.go
+index b6c2e6a50..62144c62f 100644
+--- a/backend/internal/shared/antigravity/client_test.go
++++ b/backend/internal/shared/antigravity/client_test.go
+@@ -6,6 +6,7 @@ import (
+ 	"context"
+ 	"encoding/json"
+ 	"fmt"
++	"io"
+ 	"net"
+ 	"net/http"
+ 	"net/http/httptest"
+@@ -258,6 +259,8 @@ func TestTierIDToPlanType(t *testing.T) {
+ 		{"free-tier", "Free"},
+ 		{"g1-pro-tier", "Pro"},
+ 		{"g1-ultra-tier", "Ultra"},
++		{"g1-ultra-lite-tier", "Ultra"},
++		{"G1-Pro-Plus-Tier", "Pro"},
+ 		{"FREE-TIER", "Free"},
+ 		{"", "Free"},
+ 		{"unknown-tier", "unknown-tier"},
+@@ -1466,6 +1469,113 @@ func TestClient_LoadCodeAssist_ContextCanceled_RealCall(t *testing.T) {
+ // Client.FetchAvailableModels - 真正调用方法的测试
+ // ---------------------------------------------------------------------------
+ 
++func TestClient_FetchAvailableModelsFromURL_UsesSelectedEndpoint(t *testing.T) {
++	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		if r.URL.Path != "/v1internal:fetchAvailableModels" || r.Method != http.MethodPost {
++			t.Errorf("unexpected model list request: %s %s", r.Method, r.URL.Path)
++		}
++		if r.Header.Get("Authorization") != "Bearer selected-token" {
++			t.Errorf("unexpected authorization header")
++		}
++		var body FetchAvailableModelsRequest
++		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Project != "selected-project" {
++			t.Errorf("unexpected project request: %+v, %v", body, err)
++		}
++		_, _ = w.Write([]byte(`{"models":{"gemini-3.8-flash-high":{"displayName":"Gemini 3.8 Flash High","supportsImages":true,"supportsThinking":true,"thinkingBudget":24576,"maxTokens":1048576,"maxOutputTokens":65536}}}`))
++	}))
++	defer server.Close()
++
++	client := mustNewClient(t, "")
++	response, raw, err := client.FetchAvailableModelsFromURL(context.Background(), server.URL, "selected-token", "selected-project", defaultFetchAvailableModelsBodyLimit)
++	if err != nil {
++		t.Fatalf("selected endpoint should return its catalog: %v", err)
++	}
++	model, ok := response.Models["gemini-3.8-flash-high"]
++	if !ok || model.SupportsThinking == nil || !*model.SupportsThinking || model.MaxTokens == nil || *model.MaxTokens != 1048576 {
++		t.Fatalf("selected endpoint metadata must remain available: %+v", model)
++	}
++	if raw["models"] == nil {
++		t.Fatal("selected endpoint raw catalog must remain available")
++	}
++}
++
++func TestClient_FetchAvailableModelsFromURL_DoesNotFollowAnotherEndpoint(t *testing.T) {
++	otherEndpointCalls := 0
++	other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		otherEndpointCalls++
++		_, _ = w.Write([]byte(`{"models":{"other-endpoint-model":{}}}`))
++	}))
++	defer other.Close()
++	selected := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		http.Redirect(w, r, other.URL+"/v1internal:fetchAvailableModels", http.StatusTemporaryRedirect)
++	}))
++	defer selected.Close()
++	withMockBaseURLs(t, []string{selected.URL, other.URL})
++
++	response, _, err := mustNewClient(t, "").FetchAvailableModelsFromURL(context.Background(), selected.URL, "token", "project", defaultFetchAvailableModelsBodyLimit)
++	if err == nil || response != nil {
++		t.Fatalf("selected endpoint redirect must not produce another endpoint's catalog: %v, %v", response, err)
++	}
++	if otherEndpointCalls != 0 {
++		t.Fatalf("model discovery must stay on selected endpoint; other endpoint received %d requests", otherEndpointCalls)
++	}
++}
++
++func TestClient_FetchAvailableModelsFromURL_DoesNotFallbackOnFailure(t *testing.T) {
++	for _, status := range []int{http.StatusNotFound, http.StatusTooManyRequests, http.StatusInternalServerError, http.StatusForbidden} {
++		t.Run(fmt.Sprint(status), func(t *testing.T) {
++			otherEndpointCalls := 0
++			other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++				otherEndpointCalls++
++				_, _ = w.Write([]byte(`{"models":{"other-endpoint-model":{}}}`))
++			}))
++			defer other.Close()
++			selected := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++				w.WriteHeader(status)
++				_, _ = w.Write([]byte(`{"error":"selected endpoint unavailable"}`))
++			}))
++			defer selected.Close()
++			withMockBaseURLs(t, []string{selected.URL, other.URL})
++
++			response, raw, err := mustNewClient(t, "").FetchAvailableModelsFromURL(context.Background(), selected.URL, "token", "project", defaultFetchAvailableModelsBodyLimit)
++			if err == nil || response != nil || raw != nil {
++				t.Fatalf("selected endpoint HTTP %d must fail without another catalog: %v, %v", status, response, err)
++			}
++			if otherEndpointCalls != 0 {
++				t.Fatalf("another endpoint must not receive fallback requests: %d", otherEndpointCalls)
++			}
++			if status == http.StatusForbidden {
++				if _, ok := err.(*ForbiddenError); !ok {
++					t.Fatalf("403 must preserve typed forbidden error: %T", err)
++				}
++			}
++		})
++	}
++}
++
++func TestClient_FetchAvailableModelsFromURL_ValidatesResponseAndLimit(t *testing.T) {
++	for _, tc := range []struct {
++		name  string
++		body  string
++		limit int64
++	}{
++		{name: "invalid JSON", body: `not JSON`, limit: defaultFetchAvailableModelsBodyLimit},
++		{name: "oversized response", body: `{"models":{"model":{}}}`, limit: 8},
++		{name: "nonpositive limit", body: `{"models":{"model":{}}}`, limit: 0},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++				_, _ = io.WriteString(w, tc.body)
++			}))
++			defer server.Close()
++			_, _, err := mustNewClient(t, "").FetchAvailableModelsFromURL(context.Background(), server.URL, "token", "project", tc.limit)
++			if err == nil {
++				t.Fatal("invalid model catalog response or limit must fail")
++			}
++		})
++	}
++}
++
+ func TestClient_FetchAvailableModels_Success_RealCall(t *testing.T) {
+ 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+ 		if r.Method != http.MethodPost {
+@@ -1757,6 +1867,51 @@ func TestClient_FetchAvailableModels_404Fallback_RealCall(t *testing.T) {
+ 	}
+ }
+ 
++func TestClient_HubUserAgentAndIDEVersionUseContextOverride(t *testing.T) {
++	withTestUserAgentVersionResolver(t)
++	ctx := context.WithValue(context.Background(), userAgentVersionTestContextKey{}, "3.4.5")
++	const expectedUserAgent = "antigravity/hub/3.4.5 windows/amd64"
++	for _, action := range []string{"generateContent", "streamGenerateContent"} {
++		req, err := NewAPIRequestWithURL(ctx, "https://upstream.example", action, "test-token", []byte(`{}`))
++		if err != nil {
++			t.Fatal(err)
++		}
++		if got := req.Header.Get("User-Agent"); got != expectedUserAgent {
++			t.Fatalf("generation request must use the context Hub user agent: %q", got)
++		}
++	}
++	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		if got := r.Header.Get("User-Agent"); got != expectedUserAgent {
++			t.Errorf("client API must use the context Hub user agent: %q", got)
++		}
++		switch r.URL.Path {
++		case "/v1internal:loadCodeAssist":
++			var body LoadCodeAssistRequest
++			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
++				t.Error(err)
++			}
++			if body.Metadata.IDEVersion != "3.4.5" {
++				t.Errorf("ideVersion must match the user agent version: %q", body.Metadata.IDEVersion)
++			}
++			_, _ = io.WriteString(w, `{"cloudaicompanionProject":"test-project"}`)
++		case "/v1internal:fetchAvailableModels":
++			_, _ = io.WriteString(w, `{"models":{"gemini-4-argon-high":{}}}`)
++		default:
++			t.Errorf("unexpected client endpoint: %s", r.URL.Path)
++			w.WriteHeader(http.StatusNotFound)
++		}
++	}))
++	defer server.Close()
++	withMockBaseURLs(t, []string{server.URL})
++	client := mustNewClient(t, "")
++	if _, _, err := client.LoadCodeAssist(ctx, "test-token"); err != nil {
++		t.Fatal(err)
++	}
++	if _, _, err := client.FetchAvailableModelsFromURL(ctx, server.URL, "test-token", "test-project", defaultFetchAvailableModelsBodyLimit); err != nil {
++		t.Fatal(err)
++	}
++}
++
+ func TestExtractProjectIDFromOnboardResponse(t *testing.T) {
+ 	t.Parallel()
+ 
+diff --git a/backend/internal/shared/antigravity/oauth.go b/backend/internal/shared/antigravity/oauth.go
+index 5dbeea6fd..ce394f3f7 100644
+--- a/backend/internal/shared/antigravity/oauth.go
++++ b/backend/internal/shared/antigravity/oauth.go
+@@ -36,7 +36,7 @@ const (
+ 	AntigravityUserAgentVersionEnv = "ANTIGRAVITY_USER_AGENT_VERSION"
+ 
+ 	// DefaultUserAgentVersion 是未通过环境变量或后台设置覆盖时使用的默认版本号。
+-	DefaultUserAgentVersion = "1.23.2"
++	DefaultUserAgentVersion = "2.23.0"
+ 
+ 	// 固定的 redirect_uri（用户需手动复制 code）
+ 	RedirectURI = "http://localhost:8085/callback"
+@@ -125,9 +125,9 @@ func GetUserAgentVersionForContext(ctx context.Context) string {
+ // BuildUserAgent 使用指定版本号构造 User-Agent；版本为空或非法时回退默认值。
+ func BuildUserAgent(version string) string {
+ 	if normalized := NormalizeUserAgentVersion(version); normalized != "" {
+-		return fmt.Sprintf("antigravity/%s windows/amd64", normalized)
++		return fmt.Sprintf("antigravity/hub/%s windows/amd64", normalized)
+ 	}
+-	return fmt.Sprintf("antigravity/%s windows/amd64", defaultUserAgentVersion)
++	return fmt.Sprintf("antigravity/hub/%s windows/amd64", defaultUserAgentVersion)
+ }
+ 
+ // GetUserAgentForContext 返回当前请求应使用的 User-Agent。
+diff --git a/backend/internal/shared/antigravity/oauth_test.go b/backend/internal/shared/antigravity/oauth_test.go
+index d786424ff..d9363988c 100644
+--- a/backend/internal/shared/antigravity/oauth_test.go
++++ b/backend/internal/shared/antigravity/oauth_test.go
+@@ -3,16 +3,119 @@
+ package antigravity
+ 
+ import (
++	"context"
+ 	"crypto/sha256"
+ 	"encoding/base64"
+ 	"encoding/hex"
+ 	"net/url"
+ 	"os"
++	"os/exec"
+ 	"strings"
+ 	"testing"
+ 	"time"
+ )
+ 
++func TestBuildUserAgentUsesHubClientFamily(t *testing.T) {
++	if got := BuildUserAgent(" 2.23.0 "); got != "antigravity/hub/2.23.0 windows/amd64" {
++		t.Fatalf("Hub client family must be sent with the configured version: %q", got)
++	}
++}
++
++func TestBuildUserAgentValidatesCustomVersion(t *testing.T) {
++	previous := defaultUserAgentVersion
++	defaultUserAgentVersion = "2.23.0"
++	t.Cleanup(func() { defaultUserAgentVersion = previous })
++	for _, tc := range []struct {
++		version string
++		want    string
++	}{
++		{version: " 3.4.5 ", want: "antigravity/hub/3.4.5 windows/amd64"},
++		{version: "", want: "antigravity/hub/2.23.0 windows/amd64"},
++		{version: "hub/3.4.5", want: "antigravity/hub/2.23.0 windows/amd64"},
++		{version: "3.4", want: "antigravity/hub/2.23.0 windows/amd64"},
++		{version: "3.4.5\r\nInjected: header", want: "antigravity/hub/2.23.0 windows/amd64"},
++	} {
++		t.Run(tc.version, func(t *testing.T) {
++			if got := BuildUserAgent(tc.version); got != tc.want {
++				t.Fatalf("custom version must be validated before building Hub user agent: got %q, want %q", got, tc.want)
++			}
++		})
++	}
++}
++
++type userAgentVersionTestContextKey struct{}
++
++func withTestUserAgentVersionResolver(t *testing.T) {
++	t.Helper()
++	userAgentVersionMu.RLock()
++	previous := userAgentVersionResolver
++	userAgentVersionMu.RUnlock()
++	SetUserAgentVersionResolver(func(ctx context.Context) string {
++		version, _ := ctx.Value(userAgentVersionTestContextKey{}).(string)
++		return version
++	})
++	t.Cleanup(func() { SetUserAgentVersionResolver(previous) })
++}
++
++func TestGetUserAgentForContextPreservesVersionOverride(t *testing.T) {
++	withTestUserAgentVersionResolver(t)
++	previous := defaultUserAgentVersion
++	defaultUserAgentVersion = "2.23.0"
++	t.Cleanup(func() { defaultUserAgentVersion = previous })
++	for _, tc := range []struct {
++		version string
++		want    string
++	}{
++		{version: " 3.4.5 ", want: "antigravity/hub/3.4.5 windows/amd64"},
++		{version: "invalid", want: "antigravity/hub/2.23.0 windows/amd64"},
++	} {
++		ctx := context.WithValue(context.Background(), userAgentVersionTestContextKey{}, tc.version)
++		if got := GetUserAgentForContext(ctx); got != tc.want {
++			t.Fatalf("context version override must use Hub family: got %q, want %q", got, tc.want)
++		}
++	}
++	if got := GetUserAgentForContext(nil); got != "antigravity/hub/2.23.0 windows/amd64" {
++		t.Fatalf("nil context must keep the default Hub user agent: %q", got)
++	}
++}
++
++func TestGetUserAgentEnvironmentOverride(t *testing.T) {
++	const expectedVersionEnv = "SUB2API_TEST_EXPECTED_ANTIGRAVITY_VERSION"
++	if expected := os.Getenv(expectedVersionEnv); expected != "" {
++		if got := GetDefaultUserAgentVersion(); got != expected {
++			t.Fatalf("environment version must be loaded during initialization: got %q, want %q", got, expected)
++		}
++		if got := GetUserAgent(); got != "antigravity/hub/"+expected+" windows/amd64" {
++			t.Fatalf("environment override must keep Hub family: %q", got)
++		}
++		return
++	}
++	for _, tc := range []struct {
++		version string
++		want    string
++	}{
++		{version: " 3.4.5 ", want: "3.4.5"},
++		{version: "invalid", want: "2.23.0"},
++	} {
++		t.Run(tc.version, func(t *testing.T) {
++			binary, err := os.Executable()
++			if err != nil {
++				t.Fatal(err)
++			}
++			command := exec.Command(binary, "-test.run=^TestGetUserAgentEnvironmentOverride$")
++			for _, variable := range os.Environ() {
++				if !strings.HasPrefix(variable, AntigravityUserAgentVersionEnv+"=") && !strings.HasPrefix(variable, expectedVersionEnv+"=") {
++					command.Env = append(command.Env, variable)
++				}
++			}
++			command.Env = append(command.Env, AntigravityUserAgentVersionEnv+"="+tc.version, expectedVersionEnv+"="+tc.want)
++			if output, err := command.CombinedOutput(); err != nil {
++				t.Fatalf("environment override failed: %v\n%s", err, output)
++			}
++		})
++	}
++}
++
+ // ---------------------------------------------------------------------------
+ // getClientSecret
+ // ---------------------------------------------------------------------------
+@@ -691,7 +794,7 @@ func TestConstants_值正确(t *testing.T) {
+ 	if RedirectURI != "http://localhost:8085/callback" {
+ 		t.Errorf("RedirectURI 不匹配: got %s", RedirectURI)
+ 	}
+-	if GetUserAgent() != "antigravity/1.23.2 windows/amd64" {
++	if GetUserAgent() != "antigravity/hub/2.23.0 windows/amd64" {
+ 		t.Errorf("UserAgent 不匹配: got %s", GetUserAgent())
+ 	}
+ 	if SessionTTL != 30*time.Minute {
+diff --git a/backend/internal/shared/antigravity/request_transformer.go b/backend/internal/shared/antigravity/request_transformer.go
+index f7b0a29e4..b2a33ec07 100644
+--- a/backend/internal/shared/antigravity/request_transformer.go
++++ b/backend/internal/shared/antigravity/request_transformer.go
+@@ -544,7 +544,7 @@ func buildParts(content json.RawMessage, toolIDToName map[string]string, allowDu
+ 			}
+ 
+ 			// 解析 content
+-			resultContent := parseToolResultContent(block.Content, block.IsError)
++			resultContent, inlineParts := parseToolResultContentWithInlineParts(block.Content, block.IsError)
+ 
+ 			parts = append(parts, GeminiPart{
+ 				FunctionResponse: &GeminiFunctionResponse{
+@@ -555,54 +555,60 @@ func buildParts(content json.RawMessage, toolIDToName map[string]string, allowDu
+ 					ID: block.ToolUseID,
+ 				},
+ 			})
++			parts = append(parts, inlineParts...)
+ 		}
+ 	}
+ 
+ 	return parts, strippedThinking, nil
+ }
+ 
+-// parseToolResultContent 解析 tool_result 的 content
+-func parseToolResultContent(content json.RawMessage, isError bool) string {
++// parseToolResultContentWithInlineParts decodes once and keeps binary data out
++// of the functionResponse text consumed by older clients.
++func parseToolResultContentWithInlineParts(content json.RawMessage, isError bool) (string, []GeminiPart) {
++	fallback := "Command executed successfully."
++	if isError {
++		fallback = "Tool execution failed with no output."
++	}
+ 	if len(content) == 0 {
+-		if isError {
+-			return "Tool execution failed with no output."
+-		}
+-		return "Command executed successfully."
++		return fallback, nil
+ 	}
+-
+-	// 尝试解析为字符串
+ 	var str string
+ 	if err := json.Unmarshal(content, &str); err == nil {
+ 		if strings.TrimSpace(str) == "" {
+-			if isError {
+-				return "Tool execution failed with no output."
+-			}
+-			return "Command executed successfully."
++			return fallback, nil
+ 		}
+-		return str
++		return str, nil
+ 	}
+-
+-	// 尝试解析为数组
+ 	var arr []map[string]any
+ 	if err := json.Unmarshal(content, &arr); err == nil {
+ 		var texts []string
++		var inlineParts []GeminiPart
+ 		for _, item := range arr {
+-			if text, ok := item["text"].(string); ok {
+-				texts = append(texts, text)
++			if value, ok := item["text"].(string); ok {
++				texts = append(texts, value)
+ 			}
+-		}
+-		result := strings.Join(texts, "\n")
+-		if strings.TrimSpace(result) == "" {
+-			if isError {
+-				return "Tool execution failed with no output."
++			kind, _ := item["type"].(string)
++			if kind != "image" && kind != "document" {
++				continue
++			}
++			source, _ := item["source"].(map[string]any)
++			if source["type"] != "base64" {
++				continue
+ 			}
+-			return "Command executed successfully."
++			data, _ := source["data"].(string)
++			if strings.TrimSpace(data) == "" {
++				continue
++			}
++			mime, _ := source["media_type"].(string)
++			inlineParts = append(inlineParts, GeminiPart{InlineData: &GeminiInlineData{MimeType: mime, Data: data}})
++		}
++		value := strings.Join(texts, "\n")
++		if strings.TrimSpace(value) == "" {
++			value = fallback
+ 		}
+-		return result
++		return value, inlineParts
+ 	}
+-
+-	// 返回原始 JSON
+-	return string(content)
++	return string(content), nil
+ }
+ 
+ // buildGenerationConfig 构建 generationConfig
+diff --git a/backend/internal/shared/apicompat/anthropic_to_responses.go b/backend/internal/shared/apicompat/anthropic_to_responses.go
+index 487dea1fa..7ff79a69c 100644
+--- a/backend/internal/shared/apicompat/anthropic_to_responses.go
++++ b/backend/internal/shared/apicompat/anthropic_to_responses.go
+@@ -11,6 +11,11 @@ import (
+ // Chat Completions intermediary round-trip (e.g. thinking, cache_control,
+ // structured system prompts).
+ func AnthropicToResponses(req *AnthropicRequest) (*ResponsesRequest, error) {
++	return AnthropicToResponsesWithMinOutputTokens(req, DefaultMinMaxOutputTokens)
++}
++
++// AnthropicToResponsesWithMinOutputTokens applies a configured compatibility floor.
++func AnthropicToResponsesWithMinOutputTokens(req *AnthropicRequest, minOutputTokens int) (*ResponsesRequest, error) {
+ 	input, err := convertAnthropicToResponsesInput(req.System, req.Messages)
+ 	if err != nil {
+ 		return nil, err
+@@ -45,8 +50,8 @@ func AnthropicToResponses(req *AnthropicRequest) (*ResponsesRequest, error) {
+ 
+ 	if req.MaxTokens > 0 {
+ 		v := req.MaxTokens
+-		if v < minMaxOutputTokens {
+-			v = minMaxOutputTokens
++		if v < minOutputTokens {
++			v = minOutputTokens
+ 		}
+ 		out.MaxOutputTokens = &v
+ 	}
+diff --git a/backend/internal/shared/apicompat/chatcompletions_anthropic_bridge.go b/backend/internal/shared/apicompat/chatcompletions_anthropic_bridge.go
+index 3da5e15e8..0e23a1778 100644
+--- a/backend/internal/shared/apicompat/chatcompletions_anthropic_bridge.go
++++ b/backend/internal/shared/apicompat/chatcompletions_anthropic_bridge.go
+@@ -40,6 +40,12 @@ import (
+ // ResponsesToChatCompletionsRequest but avoids materializing the intermediate
+ // ResponsesRequest and the extra marshal/unmarshal cycle.
+ func AnthropicToChatCompletionsRequest(req *AnthropicRequest) (*ChatCompletionsRequest, error) {
++	return AnthropicToChatCompletionsRequestWithMinOutputTokens(req, DefaultMinMaxOutputTokens)
++}
++
++// AnthropicToChatCompletionsRequestWithMinOutputTokens converts an Anthropic
++// Messages request using the supplied max_completion_tokens floor.
++func AnthropicToChatCompletionsRequestWithMinOutputTokens(req *AnthropicRequest, minOutputTokens int) (*ChatCompletionsRequest, error) {
+ 	if req == nil {
+ 		return nil, fmt.Errorf("anthropic request is nil")
+ 	}
+@@ -63,8 +69,8 @@ func AnthropicToChatCompletionsRequest(req *AnthropicRequest) (*ChatCompletionsR
+ 
+ 	if req.MaxTokens > 0 {
+ 		v := req.MaxTokens
+-		if v < minMaxOutputTokens {
+-			v = minMaxOutputTokens
++		if v < minOutputTokens {
++			v = minOutputTokens
+ 		}
+ 		out.MaxCompletionTokens = &v
+ 	}
+diff --git a/backend/internal/shared/apicompat/chatcompletions_anthropic_bridge_test.go b/backend/internal/shared/apicompat/chatcompletions_anthropic_bridge_test.go
+index 00726f5ef..56f0c6d13 100644
+--- a/backend/internal/shared/apicompat/chatcompletions_anthropic_bridge_test.go
++++ b/backend/internal/shared/apicompat/chatcompletions_anthropic_bridge_test.go
+@@ -250,6 +250,43 @@ func TestAnthropicToChatCompletionsRequest_MaxTokensFloor(t *testing.T) {
+ 	require.Equal(t, minMaxOutputTokens, *out.MaxCompletionTokens)
+ }
+ 
++func TestAnthropicToChatCompletionsRequestWithMinOutputTokens_ConfiguredFloor(t *testing.T) {
++	req := &AnthropicRequest{
++		Model:     "claude-sonnet-4-20250514",
++		MaxTokens: 16,
++		Messages:  []AnthropicMessage{{Role: "user", Content: json.RawMessage(`"hi"`)}},
++	}
++
++	out, err := AnthropicToChatCompletionsRequestWithMinOutputTokens(req, 64)
++	require.NoError(t, err)
++	require.NotNil(t, out.MaxCompletionTokens)
++	require.Equal(t, 64, *out.MaxCompletionTokens)
++}
++
++func TestAnthropicToResponses_ConfiguredMaxTokensFloor(t *testing.T) {
++	for _, input := range []int{16, 64, 127} {
++		req := &AnthropicRequest{
++			Model:     "claude-sonnet-4-20250514",
++			MaxTokens: input,
++			Messages:  []AnthropicMessage{{Role: "user", Content: json.RawMessage(`"hi"`)}},
++		}
++		out, err := AnthropicToResponsesWithMinOutputTokens(req, 16)
++		require.NoError(t, err)
++		require.NotNil(t, out.MaxOutputTokens)
++		require.Equal(t, input, *out.MaxOutputTokens)
++	}
++
++	req := &AnthropicRequest{
++		Model:     "claude-sonnet-4-20250514",
++		MaxTokens: 1,
++		Messages:  []AnthropicMessage{{Role: "user", Content: json.RawMessage(`"hi"`)}},
++	}
++	out, err := AnthropicToResponsesWithMinOutputTokens(req, 16)
++	require.NoError(t, err)
++	require.NotNil(t, out.MaxOutputTokens)
++	require.Equal(t, 16, *out.MaxOutputTokens)
++}
++
+ func TestAnthropicToChatCompletionsRequest_ReasoningEffortMapping(t *testing.T) {
+ 	req := &AnthropicRequest{
+ 		Model:        "gpt-5.4",
+diff --git a/backend/internal/shared/apicompat/chatcompletions_responses_test.go b/backend/internal/shared/apicompat/chatcompletions_responses_test.go
+index 3ebd929cf..01bdb982d 100644
+--- a/backend/internal/shared/apicompat/chatcompletions_responses_test.go
++++ b/backend/internal/shared/apicompat/chatcompletions_responses_test.go
+@@ -2,6 +2,7 @@ package apicompat
+ 
+ import (
+ 	"encoding/json"
++	"fmt"
+ 	"testing"
+ 
+ 	"github.com/stretchr/testify/assert"
+@@ -317,6 +318,46 @@ func mustMarshalJSON(t *testing.T, value any) []byte {
+ }
+ 
+ func TestChatCompletionsToResponses_MaxTokens(t *testing.T) {
++	t.Run("default floor", func(t *testing.T) {
++		maxTokens := 1
++		req := &ChatCompletionsRequest{
++			Model:     "gpt-4o",
++			MaxTokens: &maxTokens,
++			Messages:  []ChatMessage{{Role: "user", Content: json.RawMessage(`"Hi"`)}},
++		}
++		resp, err := ChatCompletionsToResponses(req)
++		require.NoError(t, err)
++		require.NotNil(t, resp.MaxOutputTokens)
++		assert.Equal(t, DefaultMinMaxOutputTokens, *resp.MaxOutputTokens)
++	})
++
++	t.Run("configured floor", func(t *testing.T) {
++		for _, input := range []int{16, 64, 127, 128} {
++			input := input
++			t.Run(fmt.Sprintf("input_%d", input), func(t *testing.T) {
++				req := &ChatCompletionsRequest{
++					Model:     "gpt-4o",
++					MaxTokens: &input,
++					Messages:  []ChatMessage{{Role: "user", Content: json.RawMessage(`"Hi"`)}},
++				}
++				resp, err := ChatCompletionsToResponsesWithMinOutputTokens(req, 16)
++				require.NoError(t, err)
++				require.NotNil(t, resp.MaxOutputTokens)
++				assert.Equal(t, input, *resp.MaxOutputTokens)
++			})
++		}
++		input := 1
++		req := &ChatCompletionsRequest{
++			Model:     "gpt-4o",
++			MaxTokens: &input,
++			Messages:  []ChatMessage{{Role: "user", Content: json.RawMessage(`"Hi"`)}},
++		}
++		resp, err := ChatCompletionsToResponsesWithMinOutputTokens(req, 16)
++		require.NoError(t, err)
++		require.NotNil(t, resp.MaxOutputTokens)
++		assert.Equal(t, 16, *resp.MaxOutputTokens)
++	})
++
+ 	t.Run("max_tokens", func(t *testing.T) {
+ 		maxTokens := 100
+ 		req := &ChatCompletionsRequest{
+@@ -345,6 +386,21 @@ func TestChatCompletionsToResponses_MaxTokens(t *testing.T) {
+ 		require.NotNil(t, resp.MaxOutputTokens)
+ 		assert.Equal(t, 500, *resp.MaxOutputTokens)
+ 	})
++
++	t.Run("max_completion_tokens_preferred before configured floor", func(t *testing.T) {
++		maxTokens := 500
++		maxCompletion := 1
++		req := &ChatCompletionsRequest{
++			Model:               "gpt-4o",
++			MaxTokens:           &maxTokens,
++			MaxCompletionTokens: &maxCompletion,
++			Messages:            []ChatMessage{{Role: "user", Content: json.RawMessage(`"Hi"`)}},
++		}
++		resp, err := ChatCompletionsToResponsesWithMinOutputTokens(req, 16)
++		require.NoError(t, err)
++		require.NotNil(t, resp.MaxOutputTokens)
++		assert.Equal(t, 16, *resp.MaxOutputTokens)
++	})
+ }
+ 
+ func TestChatCompletionsToResponses_ReasoningEffort(t *testing.T) {
+diff --git a/backend/internal/shared/apicompat/chatcompletions_to_responses.go b/backend/internal/shared/apicompat/chatcompletions_to_responses.go
+index 45369e1b8..764469162 100644
+--- a/backend/internal/shared/apicompat/chatcompletions_to_responses.go
++++ b/backend/internal/shared/apicompat/chatcompletions_to_responses.go
+@@ -16,6 +16,11 @@ type chatMessageContent struct {
+ // true. store is always false and reasoning.encrypted_content is always
+ // included so that the response translator has full context.
+ func ChatCompletionsToResponses(req *ChatCompletionsRequest) (*ResponsesRequest, error) {
++	return ChatCompletionsToResponsesWithMinOutputTokens(req, DefaultMinMaxOutputTokens)
++}
++
++// ChatCompletionsToResponsesWithMinOutputTokens applies a configured compatibility floor.
++func ChatCompletionsToResponsesWithMinOutputTokens(req *ChatCompletionsRequest, minOutputTokens int) (*ResponsesRequest, error) {
+ 	input, err := convertChatMessagesToResponsesInput(req.Messages)
+ 	if err != nil {
+ 		return nil, err
+@@ -56,8 +61,8 @@ func ChatCompletionsToResponses(req *ChatCompletionsRequest) (*ResponsesRequest,
+ 	}
+ 	if maxTokens > 0 {
+ 		v := maxTokens
+-		if v < minMaxOutputTokens {
+-			v = minMaxOutputTokens
++		if v < minOutputTokens {
++			v = minOutputTokens
+ 		}
+ 		out.MaxOutputTokens = &v
+ 	}
+diff --git a/backend/internal/shared/apicompat/types.go b/backend/internal/shared/apicompat/types.go
+index a7de25a60..d1f718bd9 100644
+--- a/backend/internal/shared/apicompat/types.go
++++ b/backend/internal/shared/apicompat/types.go
+@@ -844,6 +844,9 @@ func (d ChatDelta) reasoningText() *string {
+ // Shared constants
+ // ---------------------------------------------------------------------------
+ 
+-// minMaxOutputTokens is the floor for max_output_tokens in a Responses request.
+-// Very small values may cause upstream API errors, so we enforce a minimum.
+-const minMaxOutputTokens = 128
++// DefaultMinMaxOutputTokens is the default floor for max_output_tokens in a
++// Responses request. Very small values may cause upstream API errors, so we
++// enforce a minimum.
++const DefaultMinMaxOutputTokens = 128
++
++const minMaxOutputTokens = DefaultMinMaxOutputTokens
+diff --git a/backend/internal/shared/gemini/models.go b/backend/internal/shared/gemini/models.go
+index d5d4ed64c..1d38fc990 100644
+--- a/backend/internal/shared/gemini/models.go
++++ b/backend/internal/shared/gemini/models.go
+@@ -28,6 +28,7 @@ func DefaultModels() []Model {
+ 		{Name: "models/gemini-3.1-pro-preview", SupportedGenerationMethods: methods},
+ 		{Name: "models/gemini-3.1-pro-preview-customtools", SupportedGenerationMethods: methods},
+ 		{Name: "models/gemini-3.1-flash-image", SupportedGenerationMethods: methods},
++		{Name: "models/gemini-4-argon", SupportedGenerationMethods: methods},
+ 	}
+ }
+ 
+diff --git a/backend/internal/shared/geminicli/models.go b/backend/internal/shared/geminicli/models.go
+index bbd9a6c46..e67abaf35 100644
+--- a/backend/internal/shared/geminicli/models.go
++++ b/backend/internal/shared/geminicli/models.go
+@@ -11,6 +11,7 @@ type Model struct {
+ 
+ // DefaultModels is the curated Gemini model list used by the admin UI "test account" flow.
+ var DefaultModels = []Model{
++	{ID: "gemini-4-argon", Type: "model", DisplayName: "Gemini 4 Argon"},
+ 	{ID: "gemini-2.0-flash", Type: "model", DisplayName: "Gemini 2.0 Flash", CreatedAt: ""},
+ 	{ID: "gemini-2.5-flash", Type: "model", DisplayName: "Gemini 2.5 Flash", CreatedAt: ""},
+ 	{ID: "gemini-2.5-flash-image", Type: "model", DisplayName: "Gemini 2.5 Flash Image", CreatedAt: ""},
+diff --git a/backend/internal/transport/http/handler/admin/README.md b/backend/internal/transport/http/handler/admin/README.md
+index ef75a3ccb..ee3b83d22 100644
+--- a/backend/internal/transport/http/handler/admin/README.md
++++ b/backend/internal/transport/http/handler/admin/README.md
+@@ -20,3 +20,5 @@
+ | `setting_handler_audit*.go` | 按设置域比较更新前后值，并按兼容顺序生成审计字段列表 |
+ 
+ 设置更新的校验顺序、字段省略语义和持久化后副作用属于兼容性边界；扩展字段时应在对应阶段补齐映射与回归测试，不应重新堆回入口 handler。
++
++Codex 导入的存量索引与批内索引共用 workspace/account + user 组合键，长度编码避免分隔符碰撞；没有 refresh token 的 session 仍按 access-token 指纹去重，不跨 workspace 合并同一 user。
+diff --git a/backend/internal/transport/http/handler/admin/account_codex_import.go b/backend/internal/transport/http/handler/admin/account_codex_import.go
+index 7f71c7828..dba367f19 100644
+--- a/backend/internal/transport/http/handler/admin/account_codex_import.go
++++ b/backend/internal/transport/http/handler/admin/account_codex_import.go
+@@ -908,14 +908,16 @@ func buildCodexAgentIdentityKeys(accountID string) []string {
+ 	return []string{"account:" + accountID}
+ }
+ 
+-// buildCodexStoredIdentityKeys 生成存量账号索引键，保留 user/account 维度，
+-// 让 accessToken-only 账号后续升级为完整 OAuth 时仍能命中并更新原账号。
++// buildCodexStoredIdentityKeys 生成存量账号索引键，按 workspace/account
++// 和 user 组合隔离身份，避免同一用户在不同 workspace 的账号误合并。
+ func buildCodexStoredIdentityKeys(accountID, userID, email, accessToken string) []string {
+ 	keys := make([]string, 0, 3)
+ 	accountID = strings.TrimSpace(accountID)
+ 	userID = strings.TrimSpace(userID)
+ 	accessToken = strings.TrimSpace(accessToken)
+-	if userID != "" {
++	if accountID != "" && userID != "" {
++		keys = append(keys, "account_user:"+codexCompositeIdentityKey(accountID, userID))
++	} else if userID != "" {
+ 		keys = append(keys, "user:"+userID)
+ 	}
+ 	if accountID == "" && userID == "" {
+@@ -932,6 +934,10 @@ func buildCodexStoredIdentityKeys(accountID, userID, email, accessToken string)
+ 	return keys
+ }
+ 
++func codexCompositeIdentityKey(accountID, userID string) string {
++	return fmt.Sprintf("%d:%s%d:%s", len(accountID), accountID, len(userID), userID)
++}
++
+ func buildCodexAccountIndex(accounts []service.Account) *codexAccountIndex {
+ 	index := &codexAccountIndex{
+ 		accountsByKey:   map[string][]service.Account{},
+diff --git a/backend/internal/transport/http/handler/admin/account_codex_import_test.go b/backend/internal/transport/http/handler/admin/account_codex_import_test.go
+index 9e19c960a..61e62a8b5 100644
+--- a/backend/internal/transport/http/handler/admin/account_codex_import_test.go
++++ b/backend/internal/transport/http/handler/admin/account_codex_import_test.go
+@@ -303,8 +303,8 @@ func TestResolveCodexImportExpiryForNoRefreshTokenUsesEarlierRequestExpiry(t *te
+ 
+ func TestCodexIdentityKeysPreferStrongIdentifiers(t *testing.T) {
+ 	keys := buildCodexImportIdentityKeys("acct-1", "user-1", "same@example.com", "token", "refresh")
+-	if len(keys) == 0 || keys[0] != "user:user-1" {
+-		t.Fatalf("user key should have highest priority when refresh token exists: %v", keys)
++	if len(keys) == 0 || keys[0] != "account_user:6:acct-16:user-1" {
++		t.Fatalf("workspace-scoped user key should have highest priority when refresh token exists: %v", keys)
+ 	}
+ 	if keys[len(keys)-1] != "account:acct-1" {
+ 		t.Fatalf("shared account key should be the last fallback: %v", keys)
+@@ -465,12 +465,84 @@ func TestCodexAccountIndexKeepsAllCandidatesForSharedAccountKey(t *testing.T) {
+ 		if got == nil || got.ID != member.ID {
+ 			t.Fatalf("Find by user key = %v, want member account ID %d", got, member.ID)
+ 		}
+-		if matchedKey != "user:user-2" {
+-			t.Fatalf("matched key = %q, want user:user-2", matchedKey)
++		if matchedKey != "account_user:6:team-16:user-2" {
++			t.Fatalf("matched key = %q, want account_user:6:team-16:user-2", matchedKey)
+ 		}
+ 	}
+ }
+ 
++func TestImportCodexSessionsSameUserDifferentWorkspacesCreatesSeparateAccounts(t *testing.T) {
++	svc := newCodexImportMemoryAdminService(nil)
++	handler := NewAccountHandler(svc, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
++	req := CodexSessionImportRequest{SkipDefaultGroupBind: boolPtr(true)}
++	entries := []codexImportEntry{
++		{Index: 1, Value: buildCodexRefreshImportValue(t, "workspace-1", "shared-user", "refresh-1")},
++		{Index: 2, Value: buildCodexRefreshImportValue(t, "workspace-2", "shared-user", "refresh-2")},
++	}
++
++	result, err := handler.importCodexSessions(context.Background(), req, entries)
++	if err != nil {
++		t.Fatalf("importCodexSessions error = %v", err)
++	}
++	if result.Created != 2 || result.Updated != 0 || result.Skipped != 0 || result.Failed != 0 {
++		t.Fatalf("result = %+v, want two created accounts", result)
++	}
++	if len(svc.createdAccounts) != 2 {
++		t.Fatalf("created accounts = %d, want 2", len(svc.createdAccounts))
++	}
++	if got := svc.createdAccounts[0].Credentials["chatgpt_account_id"]; got != "workspace-1" {
++		t.Fatalf("first workspace = %v, want workspace-1", got)
++	}
++	if got := svc.createdAccounts[1].Credentials["chatgpt_account_id"]; got != "workspace-2" {
++		t.Fatalf("second workspace = %v, want workspace-2", got)
++	}
++}
++
++func TestCodexImportIdentityKeySeparatesDelimiterValues(t *testing.T) {
++	left := buildCodexImportIdentityKeys("ab:c", "shared-user", "", "", "refresh")
++	right := buildCodexImportIdentityKeys("ab", "c:shared-user", "", "", "refresh")
++	if left[0] == right[0] {
++		t.Fatalf("composite identity keys collided: %q", left[0])
++	}
++}
++
++func TestImportCodexSessionsSameWorkspaceAccountUpdatesAndDifferentUserIsolated(t *testing.T) {
++	svc := newCodexImportMemoryAdminService(nil)
++	handler := NewAccountHandler(svc, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
++	req := CodexSessionImportRequest{SkipDefaultGroupBind: boolPtr(true)}
++	initialEntries := []codexImportEntry{
++		{Index: 1, Value: buildCodexRefreshImportValue(t, "workspace-1", "user-1", "refresh-1")},
++		{Index: 2, Value: buildCodexRefreshImportValue(t, "workspace-1", "user-2", "refresh-2")},
++	}
++
++	initialResult, err := handler.importCodexSessions(context.Background(), req, initialEntries)
++	if err != nil {
++		t.Fatalf("importCodexSessions error = %v", err)
++	}
++	if initialResult.Created != 2 || initialResult.Updated != 0 || initialResult.Skipped != 0 || initialResult.Failed != 0 {
++		t.Fatalf("initial result = %+v, want two created accounts", initialResult)
++	}
++
++	updateResult, err := handler.importCodexSessions(context.Background(), req, []codexImportEntry{
++		{Index: 3, Value: buildCodexRefreshImportValue(t, "workspace-1", "user-1", "refresh-3")},
++	})
++	if err != nil {
++		t.Fatalf("importCodexSessions update error = %v", err)
++	}
++	if updateResult.Created != 0 || updateResult.Updated != 1 || updateResult.Skipped != 0 || updateResult.Failed != 0 {
++		t.Fatalf("update result = %+v, want one updated account", updateResult)
++	}
++	if len(svc.createdAccounts) != 2 || len(svc.updatedAccounts) != 1 {
++		t.Fatalf("created = %d, updated = %d, want 2 and 1", len(svc.createdAccounts), len(svc.updatedAccounts))
++	}
++	if svc.updatedAccounts[0].id != 100 {
++		t.Fatalf("updated account ID = %d, want user-1 account ID 100", svc.updatedAccounts[0].id)
++	}
++	if got := svc.updatedAccounts[0].input.Credentials["chatgpt_user_id"]; got != "user-1" {
++		t.Fatalf("updated user = %v, want user-1", got)
++	}
++}
++
+ func TestCodexAccountIndexUpsertReplacesSameAccount(t *testing.T) {
+ 	legacy := service.Account{
+ 		ID: 40,
+diff --git a/backend/internal/transport/http/handler/admin/account_handler.go b/backend/internal/transport/http/handler/admin/account_handler.go
+index 78045faa0..366fecb29 100644
+--- a/backend/internal/transport/http/handler/admin/account_handler.go
++++ b/backend/internal/transport/http/handler/admin/account_handler.go
+@@ -2891,13 +2891,13 @@ func antigravityAccountTestModels(rawMapping any) []antigravity.ClaudeModel {
+ 	switch mapping := rawMapping.(type) {
+ 	case map[string]any:
+ 		for id := range mapping {
+-			if strings.TrimSpace(id) != "" {
++			if strings.TrimSpace(id) != "" && !strings.Contains(id, "*") {
+ 				mappedIDs = append(mappedIDs, id)
+ 			}
+ 		}
+ 	case map[string]string:
+ 		for id := range mapping {
+-			if strings.TrimSpace(id) != "" {
++			if strings.TrimSpace(id) != "" && !strings.Contains(id, "*") {
+ 				mappedIDs = append(mappedIDs, id)
+ 			}
+ 		}
+diff --git a/backend/internal/transport/http/handler/admin/account_handler_available_models_test.go b/backend/internal/transport/http/handler/admin/account_handler_available_models_test.go
+index 6e7ee4c87..0dd4a7bdd 100644
+--- a/backend/internal/transport/http/handler/admin/account_handler_available_models_test.go
++++ b/backend/internal/transport/http/handler/admin/account_handler_available_models_test.go
+@@ -357,11 +357,12 @@ func TestAccountHandlerGetAvailableModels_Antigravity(t *testing.T) {
+ 		{name: "empty JSON mapping", credentials: map[string]any{"model_mapping": map[string]any{}}, want: defaults},
+ 		{name: "empty string mapping", credentials: map[string]any{"model_mapping": map[string]string{}}, want: defaults},
+ 		{name: "blank key", credentials: map[string]any{"model_mapping": map[string]any{" ": "upstream-model"}}, want: defaults},
+-		{name: "JSON mapping keys and metadata", credentials: map[string]any{"model_mapping": map[string]any{
+-			known.ID: known.ID, custom.ID: "upstream-model",
++		{name: "wildcard only falls back to defaults", credentials: map[string]any{"model_mapping": map[string]any{"claude-*": "claude-sonnet-4-6", "gemini-3*": "gemini-3-flash"}}, want: defaults},
++		{name: "JSON mapping keys and metadata skips wildcards", credentials: map[string]any{"model_mapping": map[string]any{
++			known.ID: known.ID, custom.ID: "upstream-model", "claude-*": "claude-sonnet-4-6",
+ 		}}, want: []antigravity.ClaudeModel{custom, known}},
+-		{name: "string mapping keys and metadata", credentials: map[string]any{"model_mapping": map[string]string{
+-			known.ID: known.ID, custom.ID: "upstream-model",
++		{name: "string mapping keys and metadata skips wildcards", credentials: map[string]any{"model_mapping": map[string]string{
++			known.ID: known.ID, custom.ID: "upstream-model", "gemini-*": "gemini-3-flash",
+ 		}}, want: []antigravity.ClaudeModel{custom, known}},
+ 	}
+ 	for _, tc := range cases {
+diff --git a/backend/internal/transport/http/handler/gemini_v1beta_handler.go b/backend/internal/transport/http/handler/gemini_v1beta_handler.go
+index ab238e0bd..23f709414 100644
+--- a/backend/internal/transport/http/handler/gemini_v1beta_handler.go
++++ b/backend/internal/transport/http/handler/gemini_v1beta_handler.go
+@@ -39,9 +39,11 @@ func (h *GatewayHandler) GeminiV1BetaListModels(c *gin.Context) {
+ 		googleError(c, http.StatusUnauthorized, "Invalid API key")
+ 		return
+ 	}
+-	// 检查平台：优先使用强制平台（/antigravity 路由），否则要求 gemini 分组
++	// 检查平台：优先使用强制平台（/antigravity 路由），否则要求 gemini 分组（composite 分组允许路由到 antigravity）
+ 	forcePlatform, hasForcePlatform := middleware.GetForcePlatformFromContext(c)
+-	if !hasForcePlatform && effectiveAPIKeyPlatform(c, apiKey) != service.PlatformGemini {
++	effectivePlatform := effectiveAPIKeyPlatform(c, apiKey)
++	if !hasForcePlatform && effectivePlatform != service.PlatformGemini &&
++		!servesCompositeAntigravityGemini(apiKey, effectivePlatform) {
+ 		googleError(c, http.StatusBadRequest, "API key group platform is not gemini")
+ 		return
+ 	}
+@@ -138,9 +140,11 @@ func (h *GatewayHandler) GeminiV1BetaGetModel(c *gin.Context) {
+ 		googleError(c, http.StatusUnauthorized, "Invalid API key")
+ 		return
+ 	}
+-	// 检查平台：优先使用强制平台（/antigravity 路由），否则要求 gemini 分组
++	// 检查平台：优先使用强制平台（/antigravity 路由），否则要求 gemini 分组（composite 分组允许路由到 antigravity）
+ 	forcePlatform, hasForcePlatform := middleware.GetForcePlatformFromContext(c)
+-	if !hasForcePlatform && effectiveAPIKeyPlatform(c, apiKey) != service.PlatformGemini {
++	effectivePlatform := effectiveAPIKeyPlatform(c, apiKey)
++	if !hasForcePlatform && effectivePlatform != service.PlatformGemini &&
++		!servesCompositeAntigravityGemini(apiKey, effectivePlatform) {
+ 		googleError(c, http.StatusBadRequest, "API key group platform is not gemini")
+ 		return
+ 	}
+@@ -157,9 +161,13 @@ func (h *GatewayHandler) GeminiV1BetaGetModel(c *gin.Context) {
+ 	if resolvedModel, ok := service.ResolvedUpstreamModelFromContext(c.Request.Context()); ok && strings.TrimSpace(resolvedModel) != "" {
+ 		modelName = strings.TrimSpace(resolvedModel)
+ 	}
++	if !hasForcePlatform && servesCompositeAntigravityGemini(apiKey, effectivePlatform) && !isAntigravityGeminiModel(modelName) {
++		googleError(c, http.StatusBadRequest, "API key group platform is not gemini")
++		return
++	}
+ 
+-	// 强制 antigravity 模式：返回 antigravity 模型信息
+-	if forcePlatform == service.PlatformAntigravity {
++	// 强制 antigravity 模式或 composite 路由到 antigravity：返回 antigravity 模型信息
++	if forcePlatform == service.PlatformAntigravity || effectivePlatform == service.PlatformAntigravity {
+ 		c.JSON(http.StatusOK, antigravity.FallbackGeminiModel(modelName))
+ 		return
+ 	}
+@@ -242,9 +250,11 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
+ 		zap.Any("group_id", apiKey.GroupID),
+ 	)
+ 
+-	// 检查平台：优先使用强制平台（/antigravity 路由，中间件已设置 request.Context），否则要求 gemini 分组
++	// 检查平台：优先使用强制平台（/antigravity 路由，中间件已设置 request.Context），否则要求 gemini 分组（composite 分组允许路由到 antigravity）
++	effectivePlatform := effectiveAPIKeyPlatform(c, apiKey)
+ 	if !middleware.HasForcePlatform(c) {
+-		if effectiveAPIKeyPlatform(c, apiKey) != service.PlatformGemini {
++		if effectivePlatform != service.PlatformGemini &&
++			!servesCompositeAntigravityGemini(apiKey, effectivePlatform) {
+ 			googleError(c, http.StatusBadRequest, "API key group platform is not gemini")
+ 			return
+ 		}
+@@ -262,6 +272,10 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
+ 	if resolvedModel, ok := service.ResolvedUpstreamModelFromContext(c.Request.Context()); ok && strings.TrimSpace(resolvedModel) != "" {
+ 		modelName = strings.TrimSpace(resolvedModel)
+ 	}
++	if !middleware.HasForcePlatform(c) && servesCompositeAntigravityGemini(apiKey, effectivePlatform) && !isAntigravityGeminiModel(modelName) {
++		googleError(c, http.StatusBadRequest, "API key group platform is not gemini")
++		return
++	}
+ 
+ 	stream := action == "streamGenerateContent"
+ 	reqLog = reqLog.With(zap.String("model", modelName), zap.String("action", action), zap.Bool("stream", stream))
+@@ -456,7 +470,11 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
+ 				return
+ 			}
+ 			if len(fs.FailedAccountIDs) == 0 {
+-				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, modelName, modelName, service.PlatformGemini)
++				diagPlatform := service.PlatformGemini
++				if p := effectiveAPIKeyPlatform(c, apiKey); p == service.PlatformAntigravity {
++					diagPlatform = service.PlatformAntigravity
++				}
++				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, modelName, modelName, diagPlatform)
+ 				if !cls.ModelNotFound {
+ 					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
+ 				}
+@@ -925,3 +943,16 @@ func derefGroupID(groupID *int64) int64 {
+ 	}
+ 	return *groupID
+ }
++
++func servesCompositeAntigravityGemini(apiKey *service.APIKey, effectivePlatform string) bool {
++	return apiKey.Group != nil && apiKey.Group.Platform == service.PlatformComposite && effectivePlatform == service.PlatformAntigravity
++}
++
++func isAntigravityGeminiModel(model string) bool {
++	trimmed := strings.ToLower(strings.TrimSpace(strings.TrimPrefix(model, "models/")))
++	if trimmed == "" || strings.HasPrefix(trimmed, "claude-") {
++		return false
++	}
++	detected, ok := service.DetectModelPlatform(trimmed)
++	return ok && detected == service.PlatformGemini
++}
+diff --git a/backend/resources/model-pricing/model_prices_and_context_window.json b/backend/resources/model-pricing/model_prices_and_context_window.json
+index 4f3161bda..c3af7ca91 100644
+--- a/backend/resources/model-pricing/model_prices_and_context_window.json
++++ b/backend/resources/model-pricing/model_prices_and_context_window.json
+@@ -2435,6 +2435,40 @@
+     "supports_reasoning": true,
+     "supports_service_tier": true
+   },
++  "gemini-4-argon": {
++    "cache_read_input_token_cost": 1e-07,
++    "cache_read_input_token_cost_priority": 1.8e-07,
++    "input_cost_per_token": 2e-06,
++    "input_cost_per_token_priority": 3.6e-06,
++    "litellm_provider": "gemini",
++    "max_input_tokens": 1048576,
++    "max_output_tokens": 65536,
++    "max_tokens": 65536,
++    "mode": "chat",
++    "output_cost_per_token": 1e-05,
++    "output_cost_per_token_priority": 1.8e-05,
++    "source": "https://ai.google.dev/gemini-api/docs/pricing",
++    "supports_prompt_caching": true,
++    "supports_reasoning": true,
++    "supports_service_tier": true
++  },
++  "gemini-4-argon-cyber-permissive": {
++    "cache_read_input_token_cost": 2e-07,
++    "cache_read_input_token_cost_priority": 3.6e-07,
++    "input_cost_per_token": 4e-06,
++    "input_cost_per_token_priority": 7.2e-06,
++    "litellm_provider": "vertex_ai-language-models",
++    "max_input_tokens": 1048576,
++    "max_output_tokens": 65536,
++    "max_tokens": 65536,
++    "mode": "chat",
++    "output_cost_per_token": 2e-05,
++    "output_cost_per_token_priority": 3.6e-05,
++    "source": "https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing",
++    "supports_prompt_caching": true,
++    "supports_reasoning": true,
++    "supports_service_tier": true
++  },
+   "gemini-embedding-001": {
+     "input_cost_per_token": 1.5e-07,
+     "litellm_provider": "vertex_ai-embedding-models",
+diff --git a/deploy/config.example.yaml b/deploy/config.example.yaml
+index 8f7aab5cf..1ca1ce7c4 100644
+--- a/deploy/config.example.yaml
++++ b/deploy/config.example.yaml
+@@ -244,6 +244,9 @@ security:
+ # 网关配置
+ # =============================================================================
+ gateway:
++  # Minimum max_output_tokens when converting Chat Completions or Anthropic requests to Responses (minimum 16, default 128)
++  # Chat Completions 或 Anthropic 请求转换为 Responses 时的最小 max_output_tokens（最小 16，默认 128）
++  min_output_tokens: 128
+   # Timeout for waiting upstream response headers (seconds)
+   # 等待上游响应头超时时间（秒）
+   response_header_timeout: 600
+diff --git a/docs/README.md b/docs/README.md
+index 890e7a78a..2a8095b65 100644
+--- a/docs/README.md
++++ b/docs/README.md
+@@ -79,6 +79,7 @@
+ | [上游主线同步审查记录（2026-10-09）](UPSTREAM_SYNC_20261009.md) | 两个冻结 PR 的精准修复、安全工具链、搜索历史性能、关闭/专项暂缓台账和 Docker 验证 |
+ | [上游主线同步审查记录（2026-10-12）](UPSTREAM_SYNC_20261012.md) | 17 个增量 PR 的当前 owner 适配、分组多语言、计费与审核并发性能、Docker 与升级回退边界 |
+ | [上游主线同步审查记录（2026-10-13）](UPSTREAM_SYNC_20261013.md) | 7 个增量 PR 的当前 owner 适配、明确暂缓、范围隔离、Docker 升级回退与 CI |
++| [上游主线同步审查记录（2026-10-15）](UPSTREAM_SYNC_20261015.md) | 10 个冻结 PR 的当前 owner 适配、图片解码重构、升级回退和关闭/专项暂缓台账 |
+ | [API Key 删除与计费竞争条件审查（2026-10-06）](../diagnostics/billing-key-deletion-20261006/REPORT.md) | 旧版本漏扣回放、当前修复边界、真实数据库与 24 个 Docker HTTP 场景 |
+ | [GPT-6 Astra 接入记录](GPT6_ASTRA.md) | OpenAI 官方模型目录、能力、价格和本项目兼容计费映射 |
+ | [GPT-6 模型目录与价格](GPT6_MODELS.md) | GPT-6 Astra、Sol、Luna 的官方能力、价格与本项目实现位置 |
+diff --git a/docs/REQUEST_LIFECYCLES.md b/docs/REQUEST_LIFECYCLES.md
+index e680322da..27e8ef3f5 100644
+--- a/docs/REQUEST_LIFECYCLES.md
++++ b/docs/REQUEST_LIFECYCLES.md
+@@ -563,3 +563,7 @@ frontend/src
+ ## Codex controller 设备密钥证明
+ 
+ `NewCodexRemoteControlClient` 解析 OAuth 凭据 owner 并绑定账号级 HTTP transport、安装身份与 native resources。manager 显式请求 step-up 后执行 client enroll start/finish，刷新时校验已存公钥与服务端 device identity hash；session token 只保留内存。WebSocket 使用 client-session-token 与 v3 头，收到正确 origin/path、账号、scopes、token 摘要和有效期的 challenge 后调用 native TPM/SE 签名，再交还连接。server enrollment/pairing 仍使用原 owner。接口与证据见 [原生证明对照](codex/native-device-key-alignment.md)。
++
++## 2026-10-15 协议适配边界
++
++原生 Anthropic 请求构造器在出站前拒绝其它供应商 OAuth/setup-token；count_tokens 在取 token 前返回兼容 404。协议专属 Anthropic base URL 覆盖通用 provider 地址，但不会改变已配置的鉴权方式。Gemini 每个上游响应只执行一次错误策略，明确的 Vertex SA account-not-found 从凭据阶段进入原有换号流程；共享容量 429 不等同于账号配额。兼容转换的可选输出下限、升级顺序与未关闭目录子项见 [2026-10-15 同步审查](UPSTREAM_SYNC_20261015.md)。
+diff --git a/docs/UPSTREAM_SYNC_20261015.md b/docs/UPSTREAM_SYNC_20261015.md
+new file mode 100644
+index 000000000..ddbec544c
+--- /dev/null
++++ b/docs/UPSTREAM_SYNC_20261015.md
+@@ -0,0 +1,52 @@
++# 上游主线同步审查（2026-10-15）
++
++本轮基线为本项目 main `ec1ead14315d303db19cf3116754eb89a853838c`，沿用前轮审查边界 `4d9ac3e482106d2da3a39fe3e546d8d6801f1cc1`，冻结上游至 `698d142468ab15374bc22bd5247759e5b7352006`。初始范围为 9 个新合并 PR；两个赞助更新提交不进入本项目 README 或资源。本项目版本、模块归属、现有依赖和迁移编号保持独立。执行期间上游另合入 #8120，本轮补充审查并冻结至 `1b2243a4f50621508e79aef4b498a2937a6238ee`；原始冻结输入保留，补充记录不覆盖它。
++
++## 逐 PR 决定
++
++| PR | 决定 | 当前实现和边界 |
++| --- | --- | --- |
++| [#8106](https://github.com/Wei-Shaw/sub2api/pull/8106) | 适配并关闭 | Anthropic 原生构造器拒绝其它供应商的 OAuth/setup-token；count_tokens 在取凭据前返回兼容的 404。API Key 的多协议兼容保留。当前组合路由已经使用显式路由快照和 detector，不引入上游逐请求账号列表查询。 |
++| [#8087](https://github.com/Wei-Shaw/sub2api/pull/8087) | 适配并关闭 | 智谱仅返回 CREDIT_LIMIT 时也按 unit 区分 5h/weekly，避免周窗口先重置时标反；TOKENS_LIMIT 优先和未知 unit 的回退保持。 |
++| [#8060](https://github.com/Wei-Shaw/sub2api/pull/8060) | 适配并关闭 | Vertex 无错误明细的共享容量 429 不暂停账号，继续受原有有界重试和换号约束；项目配额和其它 service-account 429 无重置时间时使用一分钟兜底。 |
++| [#8076](https://github.com/Wei-Shaw/sub2api/pull/8076) | 适配并关闭 | 原生 Gemini、Messages 和 Chat 三条路径对同一个上游响应只执行一次错误策略；固定 Google token 端点返回明确的 SA account-not-found 时停止该凭据并交给原换号流程。其它 token 错误不扩大为永久失效。 |
++| [#8078](https://github.com/Wei-Shaw/sub2api/pull/8078) | 适配并关闭 | 补充 Argon/Cyber 目录和硬编码回退价；思考等级共用基础价，显式等级价仍优先，Argon 不新增长上下文加价。 |
++| [#8093](https://github.com/Wei-Shaw/sub2api/pull/8093) | 兼容部分关闭，两个子项专项暂缓 | 补齐 Gemini 4 Argon、Antigravity 工具图片、函数签名、非流式 parts 顺序、图片测试提示、付费档位和 Hub UA。发现模型使用生成请求相同的端点，保留当前账号完整代理/IPv6 上下文，不回退或重定向到其它端点。Claude 5.5 注册和 descriptor/Codex 元数据扩展仍暂缓，见下文。 |
++| [#8094](https://github.com/Wei-Shaw/sub2api/pull/8094) | 适配并关闭 | 在当前配置和转换 owner 中加入 `gateway.min_output_tokens`，默认 128、最小 16；覆盖本项目已有 Chat/Anthropic 转换和原生 Chat 回退。原生 Responses/WS 不另行引入上游旧入口改写器。 |
++| [#8079](https://github.com/Wei-Shaw/sub2api/pull/8079) | 适配并关闭 | 原生和透传 Messages/count_tokens 使用协议专属 Anthropic base URL；保留本项目既有鉴权方式和 max_tokens 规则。 |
++| [#8088](https://github.com/Wei-Shaw/sub2api/pull/8088) | 适配并关闭 | Codex 导入按长度编码的 workspace/account 与 user 组合匹配，避免同用户跨 workspace 误合并；access-token-only 指纹、account fallback、批内去重和存量更新继续使用当前索引。 |
++| [#8120](https://github.com/Wei-Shaw/sub2api/pull/8120) | 有意保留本地布局并关闭冻结差异 | 这是上游账号筛选的纯布局回退。本项目保留已有可访问的折叠式次级筛选及 OAuth 额度/Excel BPS 控件；不复制会改变现有交互并丢失本地筛选的旧模板。当前 owner 与基线字节一致。 |
++
++[机器台账](../diagnostics/upstream-sync-20261015/UPSTREAM_PRS.json) 记录每个冻结 merge SHA、原始 diff SHA-256、当前 owner、已关闭子项和重开条件。8 个 PR 适配并完整关闭，#8120 的有意布局差异关闭，#8093 的兼容子项关闭，开放子项不因 ancestry tracking merge 变成已实现。此前台账不改写；已处理差异只在上游行为变化或当前 owner 出现回归时重开。
++
++## 仍开放的子项
++
++Claude 5.5 注册沿用 #7957 的前置条件：当前内置目录没有 Opus/Sonnet 5.5 价格卡，签名历史、adaptive/disabled thinking、强制工具和采样矩阵也没有完整闭合。本轮不公开上游新增的六个 Claude 5.5 等级 ID。管理员既有自定义模型和价格配置仍按原契约处理。
++
++上游 descriptor/Codex 元数据扩展依赖当前尚未建立的目录持久化和优先级 owner，与前轮 #8033 暂缓相关。现有上游模型同步返回 ID 列表，不能直接换成带新持久状态的旧目录实现。后续需先定义元数据优先级、有界刷新/查询和混合版本 writer 的升级回退矩阵；本轮已关闭的生成、图片和端点修复无需重做。
++
++## 性能与兼容
++
++没有数据库迁移、Ent/Wire 修改或依赖升级。成功请求不新增数据库/Redis 往返、后台 worker、无界 goroutine 或额外重试。组合路由继续读取不可变缓存；错误策略复用结果只作用于同一响应，下一次尝试重新清空该结果。
++
++上游工具结果图片方案会在已解析文字后再次解码完整结果，包括大段 base64。本项目改为一次遍历同时取得文字和 inline media，二进制数据不进入 functionResponse 的文字字段，不新增远程图片抓取。原生 Gemini 非流式结果按原顺序收集全部 parts；不同签名的文字片段分别保留，避免合并时覆盖签名。定价别名规范化归入独立 owner，保留精确等级价格优先级。
++
++性能对比使用相同 Docker Go 工具链、linux/arm64、CPU/内存限制和输入，分别记录基线、上游双解码参考、候选及回退结果。数字和分配量以 [VERIFICATION.txt](../diagnostics/upstream-sync-20261015/VERIFICATION.txt) 为准，不将微基准解释为全网关吞吐。
++
++
++同条件三轮中位数如下；时间单位为 ms/op：
++
++| 1 MiB 工具结果 | 基线 | 上游双解码参考 | 本项目候选 | 独立源码回退 |
++| --- | ---: | ---: | ---: | ---: |
++| 文字 | 16.886 | 20.334 | 16.403 | 16.596 |
++| 图片 | 16.009 | 19.882 | 15.420 | 15.670 |
++
++1 MiB 图片结果的分配由双解码参考的 3,157,482 B / 73 次降为候选 2,108,324 B / 59 次，分配字节约少 33%，时间约少 22%。与会丢弃图片的基线相比，候选多 226 B / 3 次分配；1 KiB 图片路径约 `20.426 → 22.531µs`，如实保留新 inline parts 的小对象开销。文字路径分配次数保持 43。原始样本和环境见 [PERFORMANCE.json](../diagnostics/upstream-sync-20261015/PERFORMANCE.json)。
++
++`gateway.min_output_tokens` 缺省保持 128；环境变量为 `GATEWAY_MIN_OUTPUT_TOKENS`。滚动升级先保持默认配置，全部节点更新后再降低或提高该值。旧节点不识别新配置，会继续使用 128；回退前恢复默认值可避免混合节点的转换上限差异。账号字段、余额、订阅、API Key 和订单不需要数据转换。
++
++## 验证和回退
++
++执行记录保存 Docker 单元/集成、并发 race、lint、前端必需检查、相关账号用例、生产镜像和同 PostgreSQL/Redis 的 baseline → upgraded → rollback → restored 四阶段结果。具体通过项、原始失败、命令、输入、stdout/stderr、退出码和哈希均在 [VERIFICATION.txt](../diagnostics/upstream-sync-20261015/VERIFICATION.txt)，已有门禁债务单列在 [KNOWN_BASELINE_FAILURES.json](../diagnostics/upstream-sync-20261015/KNOWN_BASELINE_FAILURES.json)。前端创建表单 1512 行的既有维护用例在精确基线同样失败；本轮不扩大 allowlist 或修改该表单。后端未触及的支付测试 1201 行也保留为原有门禁结果。
++
++四个可重建角色为 [MODIFIED_FILE.tar.gz](../diagnostics/upstream-sync-20261015/MODIFIED_FILE.tar.gz)、[DIFF_FILE.patch](../diagnostics/upstream-sync-20261015/DIFF_FILE.patch)、[VERIFICATION.txt](../diagnostics/upstream-sync-20261015/VERIFICATION.txt) 和 [ROLLBACK.sh](../diagnostics/upstream-sync-20261015/ROLLBACK.sh)。源码回退脚本接受独立副本，从 sibling baseline 归档恢复原字节并删除本轮新增路径；验证同时核对全部原始源码哈希和补丁重施。原始 7d88 工作区不参与修改或回退。
+diff --git a/frontend/src/features/admin-accounts/presentation/composables/__tests__/useModelWhitelist.spec.ts b/frontend/src/features/admin-accounts/presentation/composables/__tests__/useModelWhitelist.spec.ts
+index d7a498789..404405149 100644
+--- a/frontend/src/features/admin-accounts/presentation/composables/__tests__/useModelWhitelist.spec.ts
++++ b/frontend/src/features/admin-accounts/presentation/composables/__tests__/useModelWhitelist.spec.ts
+@@ -4,7 +4,7 @@ vi.mock('@/features/admin-accounts/data/datasources/adminAccountQueries', () =>
+   getAntigravityDefaultModelMapping: vi.fn()
+ }))
+ 
+-import { buildModelMappingObject, getModelsByPlatform, splitModelMappingObject } from '../useModelWhitelist'
++import { buildModelMappingObject, getModelsByPlatform, getPresetMappingsByPlatform, splitModelMappingObject } from '../useModelWhitelist'
+ 
+ describe('useModelWhitelist', () => {
+   it('openai 模型列表包含 GPT-5.4 官方快照', () => {
+@@ -109,6 +109,21 @@ describe('useModelWhitelist', () => {
+     expect(models).toContain('gemini-3.1-pro')
+   })
+ 
++  it('Gemini 4 Argon 在 gemini 与 antigravity 平台使用对应真实模型 ID 与预设映射', () => {
++    expect(getModelsByPlatform('gemini')).toContain('gemini-4-argon')
++    const agModels = getModelsByPlatform('antigravity')
++    expect(agModels).not.toContain('gemini-4-argon')
++    expect(agModels).toContain('gemini-4-argon-high')
++    expect(agModels).toContain('gemini-4-argon-medium')
++    expect(agModels).toContain('gemini-4-argon-low')
++    expect(getPresetMappingsByPlatform('antigravity')).toEqual(expect.arrayContaining([
++      expect.objectContaining({ from: 'gemini-4-argon', to: 'gemini-4-argon-high' }),
++      expect.objectContaining({ from: 'gemini-4-argon-high', to: 'gemini-4-argon-high' }),
++      expect.objectContaining({ from: 'gemini-4-argon-medium', to: 'gemini-4-argon-medium' }),
++      expect.objectContaining({ from: 'gemini-4-argon-low', to: 'gemini-4-argon-low' })
++    ]))
++  })
++
+   it('whitelist 模式会忽略通配符条目', () => {
+     const mapping = buildModelMappingObject('whitelist', ['claude-*', 'gemini-3.1-flash-image'], [])
+     expect(mapping).toEqual({
+diff --git a/frontend/src/features/admin-accounts/presentation/composables/useModelWhitelist.ts b/frontend/src/features/admin-accounts/presentation/composables/useModelWhitelist.ts
+index cc8edeaec..d1cb4b50b 100644
+--- a/frontend/src/features/admin-accounts/presentation/composables/useModelWhitelist.ts
++++ b/frontend/src/features/admin-accounts/presentation/composables/useModelWhitelist.ts
+@@ -52,13 +52,14 @@ const geminiModels = [
+   'gemini-2.5-pro',
+   'gemini-3.5-flash',
+   'gemini-3-flash-preview',
+-  'gemini-3-pro-preview'
++  'gemini-3-pro-preview',
++  'gemini-4-argon'
+ ]
+ 
+ // Antigravity 官方支持的模型（精确匹配）
+ // 基于官方 API 返回的模型列表，只支持 Claude 4.5+ 和 Gemini 2.5+
+ const antigravityModels = [
+-  // Claude 4.5+ 系列
++  // Claude 4.5+ / 5.5 系列
+   'claude-fable-5-1',
+   'claude-fable-5',
+   'claude-opus-4-6',
+@@ -84,7 +85,28 @@ const antigravityModels = [
+   'gemini-3.1-pro',
+   'gemini-3.1-pro-high',
+   'gemini-3.1-pro-low',
++  'gemini-pro-agent',
+   'gemini-3-pro-image',
++  // Gemini 3.6 / 3.7 / 3.8 Flash 系列
++  'gemini-3.6-flash',
++  'gemini-3.6-flash-low',
++  'gemini-3.6-flash-medium',
++  'gemini-3.6-flash-high',
++  'gemini-3.6-flash-tiered',
++  'gemini-3.7-flash',
++  'gemini-3.7-flash-low',
++  'gemini-3.7-flash-medium',
++  'gemini-3.7-flash-high',
++  'gemini-3.7-flash-tiered',
++  'gemini-3.8-flash',
++  'gemini-3.8-flash-low',
++  'gemini-3.8-flash-medium',
++  'gemini-3.8-flash-high',
++  'gemini-3.8-flash-tiered',
++  // Gemini 4 Argon 系列
++  'gemini-4-argon-low',
++  'gemini-4-argon-medium',
++  'gemini-4-argon-high',
+   // 其他
+   'gpt-oss-120b-medium',
+   'tab_flash_lite_preview'
+@@ -337,6 +359,13 @@ const grokPresetMappings = [
+ 
+ // Antigravity 预设映射（支持通配符）
+ const antigravityPresetMappings = [
++  // Claude 5.5 / Gemini 4 Argon / 3.8 Flash 推荐映射
++  { label: '4 Argon→High', from: 'gemini-4-argon', to: 'gemini-4-argon-high', color: 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400' },
++  { label: '4 Argon High', from: 'gemini-4-argon-high', to: 'gemini-4-argon-high', color: 'bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400' },
++  { label: '4 Argon Medium', from: 'gemini-4-argon-medium', to: 'gemini-4-argon-medium', color: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400' },
++  { label: '4 Argon Low', from: 'gemini-4-argon-low', to: 'gemini-4-argon-low', color: 'bg-lime-100 text-lime-700 hover:bg-lime-200 dark:bg-lime-900/30 dark:text-lime-400' },
++  { label: '3.8 Flash', from: 'gemini-3.8-flash', to: 'gemini-3.8-flash', color: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400' },
++  { label: '3.8 Flash High', from: 'gemini-3.8-flash-high', to: 'gemini-3.8-flash-high', color: 'bg-teal-100 text-teal-700 hover:bg-teal-200 dark:bg-teal-900/30 dark:text-teal-400' },
+   // Claude 通配符映射
+   { label: 'Claude→Sonnet', from: 'claude-*', to: 'claude-sonnet-4-5', color: 'bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400' },
+   { label: 'Fable 5.1', from: 'claude-fable-5-1', to: 'claude-fable-5-1', color: 'bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-rose-900/30 dark:text-rose-400' },
+@@ -348,7 +377,8 @@ const antigravityPresetMappings = [
+   { label: 'Sonnet4.5→4.6', from: 'claude-sonnet-4-5-20250929', to: 'claude-sonnet-4-6', color: 'bg-cyan-100 text-cyan-700 hover:bg-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-400' },
+   { label: 'Sonnet3.5→4.6', from: 'claude-3-5-sonnet-20241022', to: 'claude-sonnet-4-6', color: 'bg-teal-100 text-teal-700 hover:bg-teal-200 dark:bg-teal-900/30 dark:text-teal-400' },
+   { label: 'Opus4.5→4.6', from: 'claude-opus-4-5-20251101', to: 'claude-opus-4-6-thinking', color: 'bg-violet-100 text-violet-700 hover:bg-violet-200 dark:bg-violet-900/30 dark:text-violet-400' },
+-  // Gemini 3→3.1 映射
++  // Gemini 3→3.1 / 4 Argon 映射
++  { label: '3.1-Pro→4-Argon-High', from: 'gemini-3.1-pro*', to: 'gemini-4-argon-high', color: 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400' },
+   { label: '3-Pro-Preview→Pro-Agent', from: 'gemini-3-pro-preview', to: 'gemini-pro-agent', color: 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400' },
+   { label: '3-Pro-High→Pro-Agent', from: 'gemini-3-pro-high', to: 'gemini-pro-agent', color: 'bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400' },
+   { label: '3-Pro-Low→3.1-Pro-Low', from: 'gemini-3-pro-low', to: 'gemini-3.1-pro-low', color: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400' },
+@@ -358,6 +388,7 @@ const antigravityPresetMappings = [
+   { label: '3.1-Pro-Low透传', from: 'gemini-3.1-pro-low', to: 'gemini-3.1-pro-low', color: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400' },
+   { label: '3.1-Pro-Preview→Pro-Agent', from: 'gemini-3.1-pro-preview', to: 'gemini-pro-agent', color: 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400' },
+   // Gemini 通配符映射
++  { label: 'Gemini 3→3.8 Flash', from: 'gemini-3*', to: 'gemini-3.8-flash-high', color: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400' },
+   { label: 'Gemini 3→Flash', from: 'gemini-3*', to: 'gemini-3-flash', color: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400' },
+   { label: 'Gemini 2.5→Flash', from: 'gemini-2.5*', to: 'gemini-2.5-flash', color: 'bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400' },
+   { label: '2.5-Flash-Image透传', from: 'gemini-2.5-flash-image', to: 'gemini-2.5-flash-image', color: 'bg-sky-100 text-sky-700 hover:bg-sky-200 dark:bg-sky-900/30 dark:text-sky-400' },
+diff --git a/frontend/src/features/admin-accounts/presentation/widgets/AccountTestDialog.vue b/frontend/src/features/admin-accounts/presentation/widgets/AccountTestDialog.vue
+index 2aab3a552..1cfeec8a3 100644
+--- a/frontend/src/features/admin-accounts/presentation/widgets/AccountTestDialog.vue
++++ b/frontend/src/features/admin-accounts/presentation/widgets/AccountTestDialog.vue
+@@ -323,7 +323,7 @@ const supportsGeminiImageTest = computed(() => {
+   const modelID = selectedModelId.value.toLowerCase()
+   const isGeminiAccount =
+     props.account?.platform === 'gemini' ||
+-    (props.account?.platform === 'antigravity' && props.account?.type === 'apikey')
++    props.account?.platform === 'antigravity'
+   if (!isGeminiAccount) return false
+ 
+   return (
+diff --git a/frontend/src/features/admin-accounts/presentation/widgets/AdminAccountTestDialog.vue b/frontend/src/features/admin-accounts/presentation/widgets/AdminAccountTestDialog.vue
+index f90af96bb..5eae028e6 100644
+--- a/frontend/src/features/admin-accounts/presentation/widgets/AdminAccountTestDialog.vue
++++ b/frontend/src/features/admin-accounts/presentation/widgets/AdminAccountTestDialog.vue
+@@ -324,7 +324,7 @@ const supportsGeminiImageTest = computed(() => {
+   const modelID = selectedModelId.value.toLowerCase()
+   const isGeminiAccount =
+     props.account?.platform === 'gemini' ||
+-    (props.account?.platform === 'antigravity' && props.account?.type === 'apikey')
++    props.account?.platform === 'antigravity'
+   if (!isGeminiAccount) return false
+ 
+   return (
+diff --git a/backend/internal/application/service/antigravity_argon_forward_test.go b/backend/internal/application/service/antigravity_argon_forward_test.go
+new file mode 100644
+index 000000000..85983eb89
+--- /dev/null
++++ b/backend/internal/application/service/antigravity_argon_forward_test.go
+@@ -0,0 +1,189 @@
++//go:build unit
++
++package service
++
++import (
++	"bytes"
++	"context"
++	"encoding/json"
++	"github.com/Wei-Shaw/sub2api/internal/platform/config"
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++)
++
++func TestAntigravityGatewayService_ForwardGemini_NonStreamPreservesFunctionCallAndThoughtSignature(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	body := []byte(`{"contents":[{"role":"user","parts":[{"text":"Call get_weather for Tokyo."}]}],"tools":[{"functionDeclarations":[{"name":"get_weather","description":"Get weather","parameters":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}}]}]}`)
++
++	writer := httptest.NewRecorder()
++	c, _ := gin.CreateTestContext(writer)
++	c.Request = httptest.NewRequest(http.MethodPost, "/v1beta/models/gemini-4-argon:generateContent", bytes.NewReader(body))
++
++	sseStream := strings.Join([]string{
++		`data: {"response":{"candidates":[{"content":{"role":"model","parts":[{"thoughtSignature":"sig_fc_1","functionCall":{"name":"get_weather","args":{"city":"Tokyo"},"id":"call_1"}}]}}],"usageMetadata":{"promptTokenCount":300,"candidatesTokenCount":16,"totalTokenCount":328,"thoughtsTokenCount":12},"modelVersion":"gemini-4-argon","responseId":"resp_1"}}`,
++		"",
++		`data: {"response":{"candidates":[{"content":{"role":"model","parts":[{"text":""}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":300,"candidatesTokenCount":22,"totalTokenCount":334,"thoughtsTokenCount":12},"modelVersion":"gemini-4-argon","responseId":"resp_1"}}`,
++		"",
++	}, "\n")
++
++	upstream := &queuedHTTPUpstreamStub{
++		responses: []*http.Response{{
++			StatusCode: http.StatusOK,
++			Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
++			Body:       io.NopCloser(strings.NewReader(sseStream)),
++		}},
++	}
++	svc := &AntigravityGatewayService{
++		settingService: NewSettingService(&antigravitySettingRepoStub{}, &config.Config{Gateway: config.GatewayConfig{MaxLineSize: defaultMaxLineSize}}),
++		tokenProvider:  &AntigravityTokenProvider{},
++		httpUpstream:   upstream,
++	}
++	account := &Account{
++		ID:          109,
++		Name:        "antigravity-fc-nonstream",
++		Platform:    PlatformAntigravity,
++		Type:        AccountTypeOAuth,
++		Status:      StatusActive,
++		Concurrency: 1,
++		Credentials: map[string]any{
++			"access_token": "test-access-token",
++			"project_id":   "test-project",
++			"model_mapping": map[string]any{
++				"gemini-4-argon": "gemini-4-argon",
++			},
++		},
++	}
++
++	result, err := svc.ForwardGemini(context.Background(), c, account, "gemini-4-argon", "generateContent", false, body, false)
++	require.NoError(t, err)
++	require.NotNil(t, result)
++	require.Equal(t, http.StatusOK, writer.Code)
++
++	var respPayload map[string]any
++	require.NoError(t, json.Unmarshal(writer.Body.Bytes(), &respPayload))
++	candidates, ok := respPayload["candidates"].([]any)
++	require.True(t, ok)
++	require.Len(t, candidates, 1)
++	candidate, ok := candidates[0].(map[string]any)
++	require.True(t, ok)
++	require.Equal(t, "STOP", candidate["finishReason"])
++
++	content, ok := candidate["content"].(map[string]any)
++	require.True(t, ok)
++	parts, ok := content["parts"].([]any)
++	require.True(t, ok)
++	require.Len(t, parts, 1, "trailing empty text part should not overwrite or pollute functionCall part")
++
++	part0, ok := parts[0].(map[string]any)
++	require.True(t, ok)
++	require.Equal(t, "sig_fc_1", part0["thoughtSignature"])
++	fc, ok := part0["functionCall"].(map[string]any)
++	require.True(t, ok)
++	require.Equal(t, "get_weather", fc["name"])
++	require.Equal(t, "call_1", fc["id"])
++	require.Equal(t, map[string]any{"city": "Tokyo"}, fc["args"])
++}
++
++func TestAntigravityGatewayService_ForwardGemini_StreamAndFunctionResponseFollowUp(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++
++	// 1) Stream request with functionDeclarations returns unwrapped functionCall and thoughtSignature
++	streamReqBody := []byte(`{"contents":[{"role":"user","parts":[{"text":"Call get_weather for Tokyo."}]}],"tools":[{"functionDeclarations":[{"name":"get_weather","parameters":{"type":"object","properties":{"city":{"type":"string"}}}}]}]}`)
++	streamWriter := httptest.NewRecorder()
++	streamCtx, _ := gin.CreateTestContext(streamWriter)
++	streamCtx.Request = httptest.NewRequest(http.MethodPost, "/v1beta/models/gemini-4-argon:streamGenerateContent?alt=sse", bytes.NewReader(streamReqBody))
++
++	streamSSE := strings.Join([]string{
++		`data: {"response":{"candidates":[{"content":{"role":"model","parts":[{"thoughtSignature":"sig_stream_1","functionCall":{"name":"get_weather","args":{"city":"Tokyo"},"id":"call_s1"}}]}}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":5}}}`,
++		"",
++		`data: {"response":{"candidates":[{"content":{"role":"model","parts":[{"text":""}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":6}}}`,
++		"",
++	}, "\n")
++
++	// 2) Non-stream follow-up with functionCall (missing thoughtSignature) + functionResponse (with inlineData image)
++	followUpReqBody := []byte(`{"contents":[{"role":"user","parts":[{"text":"Call get_weather for Tokyo."}]},{"role":"model","parts":[{"functionCall":{"name":"get_weather","args":{"city":"Tokyo"},"id":"call_s1"}}]},{"role":"user","parts":[{"functionResponse":{"name":"get_weather","id":"call_s1","response":{"weather":"Sunny"},"parts":[{"inlineData":{"mimeType":"image/png","data":"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="}}]}}]}],"tools":[{"functionDeclarations":[{"name":"get_weather","parameters":{"type":"object","properties":{"city":{"type":"string"}}}}]}]}`)
++	followUpWriter := httptest.NewRecorder()
++	followUpCtx, _ := gin.CreateTestContext(followUpWriter)
++	followUpCtx.Request = httptest.NewRequest(http.MethodPost, "/v1beta/models/gemini-4-argon:generateContent", bytes.NewReader(followUpReqBody))
++
++	followUpSSE := strings.Join([]string{
++		`data: {"response":{"candidates":[{"content":{"role":"model","parts":[{"text":"It is sunny in "}]}}],"usageMetadata":{"promptTokenCount":20,"candidatesTokenCount":4}}}`,
++		"",
++		`data: {"response":{"candidates":[{"content":{"role":"model","parts":[{"text":"Tokyo."}]}}],"usageMetadata":{"promptTokenCount":20,"candidatesTokenCount":6}}}`,
++		"",
++		`data: {"response":{"candidates":[{"content":{"role":"model","parts":[{"thoughtSignature":"sig_final","text":""}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":20,"candidatesTokenCount":8}}}`,
++		"",
++	}, "\n")
++
++	upstream := &queuedHTTPUpstreamStub{
++		responses: []*http.Response{
++			{
++				StatusCode: http.StatusOK,
++				Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
++				Body:       io.NopCloser(strings.NewReader(streamSSE)),
++			},
++			{
++				StatusCode: http.StatusOK,
++				Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
++				Body:       io.NopCloser(strings.NewReader(followUpSSE)),
++			},
++		},
++	}
++
++	svc := &AntigravityGatewayService{
++		settingService: NewSettingService(&antigravitySettingRepoStub{}, &config.Config{Gateway: config.GatewayConfig{MaxLineSize: defaultMaxLineSize}}),
++		tokenProvider:  &AntigravityTokenProvider{},
++		httpUpstream:   upstream,
++	}
++	account := &Account{
++		ID:          110,
++		Name:        "antigravity-fc-stream",
++		Platform:    PlatformAntigravity,
++		Type:        AccountTypeOAuth,
++		Status:      StatusActive,
++		Concurrency: 1,
++		Credentials: map[string]any{
++			"access_token": "test-access-token",
++			"project_id":   "test-project",
++			"model_mapping": map[string]any{
++				"gemini-4-argon": "gemini-4-argon",
++			},
++		},
++	}
++
++	res1, err := svc.ForwardGemini(context.Background(), streamCtx, account, "gemini-4-argon", "streamGenerateContent", true, streamReqBody, false)
++	require.NoError(t, err)
++	require.NotNil(t, res1)
++	require.Contains(t, streamWriter.Body.String(), `"functionCall":{"name":"get_weather","args":{"city":"Tokyo"},"id":"call_s1"}`)
++	require.Contains(t, streamWriter.Body.String(), `"thoughtSignature":"sig_stream_1"`)
++
++	res2, err := svc.ForwardGemini(context.Background(), followUpCtx, account, "gemini-4-argon", "generateContent", false, followUpReqBody, false)
++	require.NoError(t, err)
++	require.NotNil(t, res2)
++	require.Len(t, upstream.requestBodies, 2)
++
++	// Verify follow-up request had dummy thoughtSignature injected on functionCall and preserved functionResponse image part
++	secondSent := string(upstream.requestBodies[1])
++	require.Contains(t, secondSent, `"thoughtSignature":"skip_thought_signature_validator"`)
++	require.Contains(t, secondSent, `"mimeType":"image/png"`)
++
++	var followUpResp map[string]any
++	require.NoError(t, json.Unmarshal(followUpWriter.Body.Bytes(), &followUpResp))
++	cands, ok := followUpResp["candidates"].([]any)
++	require.True(t, ok)
++	cand0, ok := cands[0].(map[string]any)
++	require.True(t, ok)
++	content, ok := cand0["content"].(map[string]any)
++	require.True(t, ok)
++	parts, ok := content["parts"].([]any)
++	require.True(t, ok)
++	require.NotEmpty(t, parts)
++	firstPart, ok := parts[0].(map[string]any)
++	require.True(t, ok)
++	require.Equal(t, "It is sunny in Tokyo.", firstPart["text"])
++}
+diff --git a/backend/internal/application/service/apicompat_config.go b/backend/internal/application/service/apicompat_config.go
+new file mode 100644
+index 000000000..714cdfbac
+--- /dev/null
++++ b/backend/internal/application/service/apicompat_config.go
+@@ -0,0 +1,28 @@
++package service
++
++import (
++	"github.com/Wei-Shaw/sub2api/internal/platform/config"
++	"github.com/Wei-Shaw/sub2api/internal/shared/apicompat"
++)
++
++func configuredMinOutputTokens(cfg *config.Config) int {
++	if cfg != nil && cfg.Gateway.MinOutputTokens >= 16 {
++		return cfg.Gateway.MinOutputTokens
++	}
++	return apicompat.DefaultMinMaxOutputTokens
++}
++
++func chatCompletionsToResponses(cfg *config.Config, req *apicompat.ChatCompletionsRequest) (*apicompat.ResponsesRequest, error) {
++	return apicompat.ChatCompletionsToResponsesWithMinOutputTokens(req, configuredMinOutputTokens(cfg))
++}
++
++func anthropicToResponses(cfg *config.Config, req *apicompat.AnthropicRequest) (*apicompat.ResponsesRequest, error) {
++	return apicompat.AnthropicToResponsesWithMinOutputTokens(req, configuredMinOutputTokens(cfg))
++}
++
++func settingServiceConfig(settingService *SettingService) *config.Config {
++	if settingService == nil {
++		return nil
++	}
++	return settingService.cfg
++}
+diff --git a/backend/internal/application/service/billing_gemini_argon.go b/backend/internal/application/service/billing_gemini_argon.go
+new file mode 100644
+index 000000000..c950c4f98
+--- /dev/null
++++ b/backend/internal/application/service/billing_gemini_argon.go
+@@ -0,0 +1,7 @@
++package service
++
++// Argon promotional rates run through 2026-11-30; Cyber has a separate rate.
++func (s *BillingService) initGeminiArgonFallbackPricing() {
++	s.fallbackPrices["gemini-4-argon"] = &ModelPricing{InputPricePerToken: 2e-6, OutputPricePerToken: 10e-6, CacheReadPricePerToken: 0.1e-6}
++	s.fallbackPrices["gemini-4-argon-cyber-permissive"] = &ModelPricing{InputPricePerToken: 4e-6, OutputPricePerToken: 20e-6, CacheReadPricePerToken: 0.2e-6}
++}
+diff --git a/backend/internal/application/service/cn_provider_zhipu_credit_test.go b/backend/internal/application/service/cn_provider_zhipu_credit_test.go
+new file mode 100644
+index 000000000..400b62536
+--- /dev/null
++++ b/backend/internal/application/service/cn_provider_zhipu_credit_test.go
+@@ -0,0 +1,63 @@
++//go:build unit
++
++package service
++
++import (
++	"github.com/stretchr/testify/require"
++	"github.com/tidwall/gjson"
++	"testing"
++)
++
++// TestParseZhipuTokenTiers_CreditLimitUnitClassification GLM Coding Plan 当前把 5h / weekly
++// 两条窗口都标成 CREDIT_LIMIT（实测 level=lite）。CREDIT_LIMIT 同样携带 unit，
++// 必须和 TOKENS_LIMIT 一样按 unit 显式分类，否则会退化成 reset 时间排序 ——
++// 此处刻意让 weekly 的 nextResetTime 早于 5h（周期末尾），两档会被标反。
++func TestParseZhipuTokenTiers_CreditLimitUnitClassification(t *testing.T) {
++	t.Parallel()
++	data := gjson.Parse(`{
++		"limits": [
++			{"type":"CREDIT_LIMIT","unit":3,"number":5,"percentage":14,"nextResetTime":1700000099999},
++			{"type":"CREDIT_LIMIT","unit":6,"number":1,"percentage":90,"nextResetTime":1700000000000}
++		]
++	}`)
++	tiers := parseZhipuTokenTiers(data)
++	require.Len(t, tiers, 2)
++	require.Equal(t, "5h", tiers[0].Window)
++	require.InDelta(t, 14.0, tiers[0].UsedPercent, 1e-9)
++	require.Equal(t, "weekly", tiers[1].Window)
++	require.InDelta(t, 90.0, tiers[1].UsedPercent, 1e-9)
++}
++
++// TestParseZhipuTokenTiers_CreditLimitWithoutUnitFallback CREDIT_LIMIT 缺 unit 时，
++// 保留原有 fallback：无 nextResetTime 的优先归 5h，其余按 reset 升序填入剩余槽位。
++func TestParseZhipuTokenTiers_CreditLimitWithoutUnitFallback(t *testing.T) {
++	t.Parallel()
++	data := gjson.Parse(`{
++		"limits": [
++			{"type":"CREDIT_LIMIT","percentage":30,"nextResetTime":1700000000000},
++			{"type":"CREDIT_LIMIT","percentage":80}
++		]
++	}`)
++	tiers := parseZhipuTokenTiers(data)
++	require.Len(t, tiers, 2)
++	require.Equal(t, "5h", tiers[0].Window)
++	require.InDelta(t, 80.0, tiers[0].UsedPercent, 1e-9)
++	require.Equal(t, "weekly", tiers[1].Window)
++	require.InDelta(t, 30.0, tiers[1].UsedPercent, 1e-9)
++}
++
++// TestParseZhipuTokenTiers_TokensLimitWinsOverCreditLimit 两种 type 同时返回时，
++// TOKENS_LIMIT 仍然优先占槽、CREDIT_LIMIT 不参与（原有语义保持不变）。
++func TestParseZhipuTokenTiers_TokensLimitWinsOverCreditLimit(t *testing.T) {
++	t.Parallel()
++	data := gjson.Parse(`{
++		"limits": [
++			{"type":"TOKENS_LIMIT","unit":3,"percentage":20,"nextResetTime":1700000000000},
++			{"type":"CREDIT_LIMIT","unit":6,"percentage":99,"nextResetTime":1700000099999}
++		]
++	}`)
++	tiers := parseZhipuTokenTiers(data)
++	require.Len(t, tiers, 1)
++	require.Equal(t, "5h", tiers[0].Window)
++	require.InDelta(t, 20.0, tiers[0].UsedPercent, 1e-9)
++}
+diff --git a/backend/internal/application/service/gateway_anthropic_base_url_test.go b/backend/internal/application/service/gateway_anthropic_base_url_test.go
+new file mode 100644
+index 000000000..f965767f4
+--- /dev/null
++++ b/backend/internal/application/service/gateway_anthropic_base_url_test.go
+@@ -0,0 +1,106 @@
++//go:build unit
++
++package service
++
++import (
++	"context"
++	"net/http"
++	"net/http/httptest"
++	"testing"
++
++	"github.com/Wei-Shaw/sub2api/internal/platform/config"
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++	"github.com/tidwall/gjson"
++)
++
++func gatewayAnthropicBaseURLAccount(apiBaseURLs map[string]any) *Account {
++	return &Account{
++		ID:       8074,
++		Platform: PlatformDeepseek,
++		Type:     AccountTypeAPIKey,
++		Credentials: map[string]any{
++			"api_key":       "test-key",
++			"base_url":      "https://api.deepseek.com",
++			"api_protocol":  APIProtocolAdaptive,
++			"api_base_urls": apiBaseURLs,
++		},
++	}
++}
++
++func gatewayAnthropicBaseURLContext(t *testing.T) *gin.Context {
++	t.Helper()
++	gin.SetMode(gin.TestMode)
++	c, _ := gin.CreateTestContext(httptest.NewRecorder())
++	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
++	return c
++}
++
++func TestGatewayService_AdaptiveAnthropicBaseURLRouting(t *testing.T) {
++	svc := &GatewayService{cfg: &config.Config{}}
++	body := []byte(`{"model":"deepseek-chat","max_tokens":64,"messages":[{"role":"user","content":"hi"}]}`)
++
++	t.Run("base present is used by messages and count_tokens", func(t *testing.T) {
++		account := gatewayAnthropicBaseURLAccount(map[string]any{
++			APIProtocolAnthropic:       "https://anthropic.example.com",
++			APIProtocolChatCompletions: "https://chat.example.com",
++		})
++		c := gatewayAnthropicBaseURLContext(t)
++
++		req, _, err := svc.buildUpstreamRequest(context.Background(), c, account, body, "test-key", "apikey", "deepseek-chat", false, false)
++		require.NoError(t, err)
++		require.Equal(t, "https://anthropic.example.com/v1/messages?beta=true", req.URL.String())
++
++		countReq, _, err := svc.buildCountTokensRequest(context.Background(), c, account, body, "test-key", "apikey", "deepseek-chat", false)
++		require.NoError(t, err)
++		require.Equal(t, "https://anthropic.example.com/v1/messages/count_tokens?beta=true", countReq.URL.String())
++	})
++
++	t.Run("missing anthropic base uses provider fallback", func(t *testing.T) {
++		account := gatewayAnthropicBaseURLAccount(map[string]any{
++			APIProtocolChatCompletions: "https://chat.example.com",
++		})
++		req, _, err := svc.buildUpstreamRequest(context.Background(), gatewayAnthropicBaseURLContext(t), account, body, "test-key", "apikey", "deepseek-chat", false, false)
++		require.NoError(t, err)
++		require.Equal(t, "https://api.deepseek.com/anthropic/v1/messages?beta=true", req.URL.String())
++	})
++
++	t.Run("ordinary anthropic api key keeps base_url fallback", func(t *testing.T) {
++		account := &Account{
++			Platform: PlatformAnthropic,
++			Type:     AccountTypeAPIKey,
++			Credentials: map[string]any{
++				"api_key":  "test-key",
++				"base_url": "https://custom-anthropic.example.com",
++			},
++		}
++		req, _, err := svc.buildUpstreamRequest(context.Background(), gatewayAnthropicBaseURLContext(t), account, body, "test-key", "apikey", "deepseek-chat", false, false)
++		require.NoError(t, err)
++		require.Equal(t, "https://custom-anthropic.example.com/v1/messages?beta=true", req.URL.String())
++	})
++}
++
++func TestGatewayService_AnthropicPassthroughAndCountTokensUseSelectedBase(t *testing.T) {
++	svc := &GatewayService{cfg: &config.Config{}}
++	account := gatewayAnthropicBaseURLAccount(map[string]any{
++		APIProtocolAnthropic: "https://ollama.com",
++	})
++	body := []byte(`{"model":"deepseek-v4-flash","max_tokens":256000,"messages":[{"role":"user","content":"hi"}]}`)
++	c := gatewayAnthropicBaseURLContext(t)
++
++	passthroughReq, wireBody, err := svc.buildUpstreamRequestAnthropicAPIKeyPassthrough(context.Background(), c, account, body, "test-key")
++	require.NoError(t, err)
++	require.Equal(t, "https://ollama.com/v1/messages?beta=true", passthroughReq.URL.String())
++	require.Equal(t, "test-key", passthroughReq.Header.Get("X-Api-Key"))
++	require.Equal(t, int64(256000), gjson.GetBytes(wireBody, "max_tokens").Int())
++
++	countPassthroughReq, err := svc.buildCountTokensRequestAnthropicAPIKeyPassthrough(context.Background(), c, account, body, "test-key")
++	require.NoError(t, err)
++	require.Equal(t, "https://ollama.com/v1/messages/count_tokens?beta=true", countPassthroughReq.URL.String())
++	require.Equal(t, "test-key", countPassthroughReq.Header.Get("X-Api-Key"))
++
++	countReq, _, err := svc.buildCountTokensRequest(context.Background(), c, account, body, "test-key", "apikey", "deepseek-v4-flash", false)
++	require.NoError(t, err)
++	require.Equal(t, "https://ollama.com/v1/messages/count_tokens?beta=true", countReq.URL.String())
++	require.Equal(t, "test-key", countReq.Header.Get("X-Api-Key"))
++}
+diff --git a/backend/internal/application/service/gateway_anthropic_credentials.go b/backend/internal/application/service/gateway_anthropic_credentials.go
+new file mode 100644
+index 000000000..7cc9fde6e
+--- /dev/null
++++ b/backend/internal/application/service/gateway_anthropic_credentials.go
+@@ -0,0 +1,17 @@
++package service
++
++import "net/http"
++
++const anthropicMessagesForeignOAuthReason GatewayFailureReason = "anthropic_messages_foreign_oauth"
++
++// OAuth credentials are valid only for their issuer's native protocol.
++// API keys retain their existing multi-protocol compatibility contract.
++func anthropicMessagesCredentialAllowed(account *Account) bool {
++	return account == nil || !account.IsOAuth() || account.Platform == PlatformAnthropic
++}
++func checkAnthropicMessagesCredential(account *Account) error {
++	if anthropicMessagesCredentialAllowed(account) {
++		return nil
++	}
++	return &UpstreamFailoverError{StatusCode: http.StatusBadGateway, Reason: anthropicMessagesForeignOAuthReason}
++}
+diff --git a/backend/internal/application/service/gemini_error_policy_single_check_test.go b/backend/internal/application/service/gemini_error_policy_single_check_test.go
+new file mode 100644
+index 000000000..aa83d6922
+--- /dev/null
++++ b/backend/internal/application/service/gemini_error_policy_single_check_test.go
+@@ -0,0 +1,201 @@
++//go:build unit
++
++package service
++
++import (
++	"bytes"
++	"context"
++	"errors"
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++	"time"
++
++	"github.com/Wei-Shaw/sub2api/internal/platform/config"
++	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++)
++
++// ---------------------------------------------------------------------------
++// Gemini 三条转发路径对每个上游错误响应只检查一次错误策略：
++//   - 重试循环内已检查的最终响应，循环外的错误处理复用该结果；
++//   - 账号级 401 规则首次命中只临时不可调度，账号上已有 401 暂停记录时才升级为 error；
++//   - 循环内未检查的最终响应（如 Claude 兼容层的非签名 400）在循环外检查。
++// ---------------------------------------------------------------------------
++
++type geminiSingleCheckRepoStub struct {
++	errorPolicyRepoStub
++	tempReason string
++}
++
++func (r *geminiSingleCheckRepoStub) SetTempUnschedulable(_ context.Context, _ int64, _ time.Time, reason string) error {
++	r.tempCalls++
++	r.tempReason = reason
++	return nil
++}
++
++func (r *geminiSingleCheckRepoStub) GetByID(_ context.Context, id int64) (*Account, error) {
++	return &Account{ID: id, TempUnschedulableReason: r.tempReason}, nil
++}
++
++type geminiSequenceUpstreamResponse struct {
++	status int
++	body   string
++}
++
++type geminiSequenceUpstreamStub struct {
++	responses []geminiSequenceUpstreamResponse
++	calls     int
++}
++
++func (s *geminiSequenceUpstreamStub) Do(*http.Request, string, int64, int) (*http.Response, error) {
++	r := s.responses[min(s.calls, len(s.responses)-1)]
++	s.calls++
++	return &http.Response{
++		StatusCode: r.status,
++		Header:     http.Header{"Content-Type": []string{"application/json"}},
++		Body:       io.NopCloser(strings.NewReader(r.body)),
++	}, nil
++}
++
++func (s *geminiSequenceUpstreamStub) DoWithTLS(req *http.Request, proxyURL string, accountID int64, concurrency int, _ *tlsfingerprint.Profile) (*http.Response, error) {
++	return s.Do(req, proxyURL, accountID, concurrency)
++}
++
++func newGeminiSingleCheckService(responses ...geminiSequenceUpstreamResponse) (*GeminiMessagesCompatService, *geminiSequenceUpstreamStub, *geminiSingleCheckRepoStub) {
++	repo := &geminiSingleCheckRepoStub{}
++	rateLimit := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
++	upstream := &geminiSequenceUpstreamStub{responses: responses}
++	svc := &GeminiMessagesCompatService{
++		accountRepo:      repo,
++		httpUpstream:     upstream,
++		rateLimitService: rateLimit,
++		cfg:              &config.Config{},
++	}
++	return svc, upstream, repo
++}
++
++func geminiAPIKeyAccountWithTempRule(rule map[string]any) *Account {
++	return &Account{
++		ID:       830,
++		Platform: PlatformGemini,
++		Type:     AccountTypeAPIKey,
++		Credentials: map[string]any{
++			"api_key":                    "test-key",
++			"temp_unschedulable_enabled": true,
++			"temp_unschedulable_rules":   []any{rule},
++		},
++	}
++}
++
++const geminiSingleCheck401Body = `{"error":{"code":401,"message":"API key expired. Please renew the API key.","status":"UNAUTHENTICATED"}}`
++
++func geminiAccountScoped401Rule() map[string]any {
++	return map[string]any{
++		"error_code":       float64(401),
++		"keywords":         []any{"expired"},
++		"duration_minutes": float64(30),
++		"scope":            TempUnschedScopeAccount,
++	}
++}
++
++// geminiSingleCheckForwarders 以三条转发路径各发一次请求，返回转发错误与 gin.Context。
++var geminiSingleCheckForwarders = []struct {
++	name    string
++	forward func(t *testing.T, svc *GeminiMessagesCompatService, account *Account) (error, *gin.Context)
++}{
++	{
++		name: "native",
++		forward: func(t *testing.T, svc *GeminiMessagesCompatService, account *Account) (error, *gin.Context) {
++			c, _ := newGeminiNativeTestContext(t)
++			_, err := svc.ForwardNative(context.Background(), c, account, "gemini-2.5-flash", "generateContent", false,
++				[]byte(`{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}`))
++			return err, c
++		},
++	},
++	{
++		name: "claude_compat",
++		forward: func(t *testing.T, svc *GeminiMessagesCompatService, account *Account) (error, *gin.Context) {
++			c, _ := gin.CreateTestContext(httptest.NewRecorder())
++			body := []byte(`{"model":"gemini-2.5-flash","max_tokens":16,"messages":[{"role":"user","content":"hello"}]}`)
++			c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewReader(body))
++			_, err := svc.Forward(context.Background(), c, account, body)
++			return err, c
++		},
++	},
++	{
++		name: "chat_completions_compat",
++		forward: func(t *testing.T, svc *GeminiMessagesCompatService, account *Account) (error, *gin.Context) {
++			c, _ := gin.CreateTestContext(httptest.NewRecorder())
++			body := []byte(`{"model":"gemini-2.5-flash","messages":[{"role":"user","content":"hi"}]}`)
++			c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
++			_, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body)
++			return err, c
++		},
++	},
++}
++
++func TestGeminiForward_First401RuleHitOnlyTempUnschedules(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	for _, fw := range geminiSingleCheckForwarders {
++		t.Run(fw.name, func(t *testing.T) {
++			svc, upstream, repo := newGeminiSingleCheckService(geminiSequenceUpstreamResponse{status: http.StatusUnauthorized, body: geminiSingleCheck401Body})
++
++			err, _ := fw.forward(t, svc, geminiAPIKeyAccountWithTempRule(geminiAccountScoped401Rule()))
++
++			var failoverErr *UpstreamFailoverError
++			require.True(t, errors.As(err, &failoverErr), "规则命中应换号，got %T: %v", err, err)
++			require.Equal(t, http.StatusUnauthorized, failoverErr.StatusCode)
++			require.Equal(t, 1, upstream.calls)
++			require.Equal(t, 1, repo.tempCalls, "首次 401 命中规则应临时不可调度")
++			require.Zero(t, repo.setErrCalls, "首次 401 命中规则不应升级为 error")
++		})
++	}
++}
++
++func TestGeminiForward_Repeated401RuleHitEscalatesToError(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	for _, fw := range geminiSingleCheckForwarders {
++		t.Run(fw.name, func(t *testing.T) {
++			svc, _, repo := newGeminiSingleCheckService(geminiSequenceUpstreamResponse{status: http.StatusUnauthorized, body: geminiSingleCheck401Body})
++			repo.tempReason = `{"until_unix":1,"triggered_at_unix":1,"status_code":401,"matched_keyword":"expired","rule_index":0,"scope":"account"}`
++
++			_, _ = fw.forward(t, svc, geminiAPIKeyAccountWithTempRule(geminiAccountScoped401Rule()))
++
++			require.Zero(t, repo.tempCalls, "已有 401 暂停记录时直接升级，不临时不可调度")
++			require.Equal(t, 1, repo.setErrCalls, "已有 401 暂停记录时应升级为 error")
++			require.Contains(t, repo.lastErrorMsg, "Authentication failed (401)")
++		})
++	}
++}
++
++func TestGeminiForward_UncheckedFinalResponseIsCheckedAfterLoop(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	if testing.Short() {
++		t.Skip("包含一次 1s 的重试退避")
++	}
++	// 第一次 503 在循环内检查后重试；第二次非签名 400 走 Claude 兼容层的签名分支，循环内不检查。
++	svc, upstream, repo := newGeminiSingleCheckService(
++		geminiSequenceUpstreamResponse{status: http.StatusServiceUnavailable, body: `{"error":{"code":503,"message":"backend busy","status":"UNAVAILABLE"}}`},
++		geminiSequenceUpstreamResponse{status: http.StatusBadRequest, body: `{"error":{"code":400,"message":"quota project misconfigured","status":"FAILED_PRECONDITION"}}`},
++	)
++	account := geminiAPIKeyAccountWithTempRule(map[string]any{
++		"error_code":       float64(400),
++		"keywords":         []any{"misconfigured"},
++		"duration_minutes": float64(30),
++		"scope":            TempUnschedScopeAccount,
++	})
++	c, _ := gin.CreateTestContext(httptest.NewRecorder())
++	body := []byte(`{"model":"gemini-2.5-flash","max_tokens":16,"messages":[{"role":"user","content":"hello"}]}`)
++	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewReader(body))
++
++	_, err := svc.Forward(context.Background(), c, account, body)
++
++	var failoverErr *UpstreamFailoverError
++	require.True(t, errors.As(err, &failoverErr), "400 规则命中应换号，got %T: %v", err, err)
++	require.Equal(t, 2, upstream.calls)
++	require.Equal(t, 1, repo.tempCalls, "循环内未检查的最终响应应在循环外检查")
++}
+diff --git a/backend/internal/application/service/gemini_native_context_test.go b/backend/internal/application/service/gemini_native_context_test.go
+new file mode 100644
+index 000000000..217a4ac81
+--- /dev/null
++++ b/backend/internal/application/service/gemini_native_context_test.go
+@@ -0,0 +1,19 @@
++//go:build unit
++
++package service
++
++import (
++	"github.com/gin-gonic/gin"
++	"net/http"
++	"net/http/httptest"
++	"testing"
++)
++
++func newGeminiNativeTestContext(t *testing.T) (*gin.Context, *httptest.ResponseRecorder) {
++	t.Helper()
++	gin.SetMode(gin.TestMode)
++	rec := httptest.NewRecorder()
++	c, _ := gin.CreateTestContext(rec)
++	c.Request = httptest.NewRequest(http.MethodPost, "/v1beta/models/gemini-2.5-flash:generateContent", nil)
++	return c, rec
++}
+diff --git a/backend/internal/application/service/gemini_vertex_token_error.go b/backend/internal/application/service/gemini_vertex_token_error.go
+new file mode 100644
+index 000000000..6d6f70f35
+--- /dev/null
++++ b/backend/internal/application/service/gemini_vertex_token_error.go
+@@ -0,0 +1,59 @@
++package service
++
++import (
++	"context"
++	"log/slog"
++	"net/http"
++
++	"github.com/gin-gonic/gin"
++)
++
++// vertexServiceAccountNotFoundReason 标识换取 SA access token 时 SA 已不存在。
++const vertexServiceAccountNotFoundReason GatewayFailureReason = "vertex_service_account_not_found"
++
++// geminiVertexCredentialFailoverBody 是 SA 凭据失效时挂在 failover 错误上的 Google 格式错误体，
++// 供 handler 在换号耗尽后做透传规则匹配与错误信息提取。
++var geminiVertexCredentialFailoverBody = []byte(`{"error":{"code":401,"message":"Upstream authentication failed","status":"UNAUTHENTICATED"}}`)
++
++// handleVertexServiceAccountNotFound 处理 Gemini 三条转发路径（原生 / Claude 兼容 /
++// Chat Completions 兼容）构造上游请求时换取 SA access token 失败、且 SA 已不存在的情况：
++//
++//   - 账号置为 error 并停止调度，错误信息带上 token 端点的 error_description；
++//   - 记录凭据获取阶段（stage=account_auth）的 Ops 事件，token 端点的状态码只出现在 Message 中；
++//   - 返回 *UpstreamFailoverError(401)，由 handler 的 failover 循环换号。
++//
++// 不是该类失败时返回 nil，由调用方继续处理。本函数不写响应。
++func (s *GeminiMessagesCompatService) handleVertexServiceAccountNotFound(ctx context.Context, c *gin.Context, account *Account, err error) *UpstreamFailoverError {
++	tokenErr, ok := vertexServiceAccountNotFoundError(err)
++	if !ok {
++		return nil
++	}
++
++	msg := "Service account token rejected (400): " + tokenErr.Description
++	stateCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), openAIAccountStateUpdateTimeout)
++	defer cancel()
++	if s.rateLimitService != nil {
++		s.rateLimitService.handleAuthError(stateCtx, account, msg)
++	} else if s.accountRepo != nil {
++		if setErr := s.accountRepo.SetError(stateCtx, account.ID, msg); setErr != nil {
++			slog.Warn("account_set_error_failed", "account_id", account.ID, "error", setErr)
++		}
++	}
++
++	event := OpsUpstreamErrorEvent{
++		Platform:    account.Platform,
++		AccountID:   account.ID,
++		AccountName: account.Name,
++		Kind:        "failover",
++		Stage:       string(GatewayFailureStageAccountAuth),
++		Scope:       string(GatewayFailureScopeAccount),
++		Reason:      string(vertexServiceAccountNotFoundReason),
++		Message:     sanitizeUpstreamErrorMessage(err.Error()),
++	}
++	appendOpsUpstreamError(c, event)
++
++	return &UpstreamFailoverError{
++		StatusCode:   http.StatusUnauthorized,
++		ResponseBody: geminiVertexCredentialFailoverBody,
++	}
++}
+diff --git a/backend/internal/application/service/gemini_vertex_token_error_test.go b/backend/internal/application/service/gemini_vertex_token_error_test.go
+new file mode 100644
+index 000000000..0a15b69c9
+--- /dev/null
++++ b/backend/internal/application/service/gemini_vertex_token_error_test.go
+@@ -0,0 +1,207 @@
++//go:build unit
++
++package service
++
++import (
++	"bytes"
++	"context"
++	"crypto/rand"
++	"crypto/rsa"
++	"crypto/x509"
++	"encoding/json"
++	"encoding/pem"
++	"errors"
++	"fmt"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++
++	"github.com/Wei-Shaw/sub2api/internal/platform/config"
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++)
++
++// ---------------------------------------------------------------------------
++// 换取 SA access token 时 SA 已不存在（token 端点 400 invalid_grant
++// "Invalid grant: account not found"）的契约，三条转发路径一致：
++//   - 账号置为 error 并停止调度，错误信息带 token 端点的 error_description；
++//   - 不发出上游请求，返回 *UpstreamFailoverError(401) 交给 handler 换号，service 不写响应；
++//   - Ops 事件记为凭据获取阶段（stage=account_auth）；
++//   - 其他换 token 失败不改账号状态、不换号，直接回写 502。
++// ---------------------------------------------------------------------------
++
++const vertexAccountNotFoundTokenBody = `{"error":"invalid_grant","error_description":"Invalid grant: account not found"}`
++
++func newVertexTokenTestAccount(t *testing.T) *Account {
++	t.Helper()
++	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
++	require.NoError(t, err)
++	pemBytes := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(privateKey)})
++	saJSON, err := json.Marshal(map[string]string{
++		"type":           "service_account",
++		"project_id":     "proj-1",
++		"private_key_id": "kid-1",
++		"private_key":    string(pemBytes),
++		"client_email":   "svc@proj-1.iam.gserviceaccount.com",
++	})
++	require.NoError(t, err)
++	return &Account{
++		ID:       820,
++		Platform: PlatformGemini,
++		Type:     AccountTypeServiceAccount,
++		Credentials: map[string]any{
++			"service_account_json": string(saJSON),
++			"project_id":           "proj-1",
++			"location":             "global",
++		},
++	}
++}
++
++func useVertexTokenEndpoint(t *testing.T, status int, body string) {
++	t.Helper()
++	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
++		w.Header().Set("Content-Type", "application/json")
++		w.WriteHeader(status)
++		_, _ = w.Write([]byte(body))
++	}))
++	t.Cleanup(server.Close)
++	original := vertexServiceAccountTokenURL
++	vertexServiceAccountTokenURL = server.URL
++	t.Cleanup(func() { vertexServiceAccountTokenURL = original })
++}
++
++func newVertexTokenErrorService() (*GeminiMessagesCompatService, *geminiCompatHTTPUpstreamStub, *errorPolicyRepoStub) {
++	repo := &errorPolicyRepoStub{}
++	httpStub := &geminiCompatHTTPUpstreamStub{}
++	svc := &GeminiMessagesCompatService{
++		accountRepo:      repo,
++		httpUpstream:     httpStub,
++		tokenProvider:    NewGeminiTokenProvider(repo, nil, nil),
++		rateLimitService: NewRateLimitService(repo, nil, &config.Config{}, nil, nil),
++		cfg:              &config.Config{},
++	}
++	return svc, httpStub, repo
++}
++
++func requireVertexAccountNotFoundHandled(t *testing.T, c *gin.Context, err error, httpStub *geminiCompatHTTPUpstreamStub, repo *errorPolicyRepoStub) {
++	t.Helper()
++	var failoverErr *UpstreamFailoverError
++	require.True(t, errors.As(err, &failoverErr), "SA 不存在应换号，got %T: %v", err, err)
++	require.Equal(t, http.StatusUnauthorized, failoverErr.StatusCode)
++	require.Equal(t, string(geminiVertexCredentialFailoverBody), string(failoverErr.ResponseBody))
++	require.True(t, failoverErr.ShouldRetryNextAccount())
++	require.False(t, failoverErr.RetryableOnSameAccount)
++
++	require.Equal(t, 1, repo.setErrCalls, "SA 不存在应把账号置为 error")
++	require.Equal(t, "Service account token rejected (400): Invalid grant: account not found", repo.lastErrorMsg)
++	require.Zero(t, httpStub.calls, "换不到 token 时不应发出上游请求")
++	require.False(t, c.Writer.Written(), "换号场景不应写客户端响应")
++
++	raw, ok := c.Get(OpsUpstreamErrorsKey)
++	require.True(t, ok, "应记录 ops 上游错误事件")
++	events := raw.([]*OpsUpstreamErrorEvent)
++	require.Len(t, events, 1)
++	require.Equal(t, "failover", events[0].Kind)
++	require.Equal(t, int64(820), events[0].AccountID)
++	require.Equal(t, string(GatewayFailureStageAccountAuth), events[0].Stage)
++	require.Equal(t, string(GatewayFailureScopeAccount), events[0].Scope)
++	require.Equal(t, string(vertexServiceAccountNotFoundReason), events[0].Reason)
++	require.Zero(t, events[0].UpstreamStatusCode, "换 token 失败不占用上游状态码")
++	require.Contains(t, events[0].Message, "service account token request returned 400: Invalid grant: account not found")
++}
++
++func TestExchangeVertexServiceAccountToken_AccountNotFoundIsRecognized(t *testing.T) {
++	useVertexTokenEndpoint(t, http.StatusBadRequest, vertexAccountNotFoundTokenBody)
++	key, err := parseVertexServiceAccountKey(newVertexTokenTestAccount(t))
++	require.NoError(t, err)
++
++	_, _, err = exchangeVertexServiceAccountToken(contextWithTestTimeout(t), key, "")
++
++	require.EqualError(t, err, "service account token request returned 400: Invalid grant: account not found")
++	tokenErr, ok := vertexServiceAccountNotFoundError(fmt.Errorf("build request: %w", err))
++	require.True(t, ok)
++	require.Equal(t, "invalid_grant", tokenErr.Code)
++	require.Equal(t, "Invalid grant: account not found", tokenErr.Description)
++}
++
++func TestVertexServiceAccountNotFoundError_OnlyMatchesAccountNotFound(t *testing.T) {
++	tests := []struct {
++		name string
++		err  error
++	}{
++		{"other_invalid_grant", &vertexTokenRequestError{StatusCode: 400, Code: "invalid_grant", Description: "Invalid JWT Signature."}},
++		{"not_400", &vertexTokenRequestError{StatusCode: 401, Code: "invalid_grant", Description: "Invalid grant: account not found"}},
++		{"other_code", &vertexTokenRequestError{StatusCode: 400, Code: "invalid_request", Description: "Invalid grant: account not found"}},
++		{"server_error", &vertexTokenRequestError{StatusCode: 500, Message: "backend error"}},
++		{"plain_error", errors.New("service account token request returned 400: Invalid grant: account not found")},
++	}
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			_, ok := vertexServiceAccountNotFoundError(tt.err)
++			require.False(t, ok)
++		})
++	}
++}
++
++func TestGeminiForwardNative_VertexServiceAccountNotFoundDisablesAndFailsOver(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	useVertexTokenEndpoint(t, http.StatusBadRequest, vertexAccountNotFoundTokenBody)
++	svc, httpStub, repo := newVertexTokenErrorService()
++	c, _ := newGeminiNativeTestContext(t)
++
++	result, err := svc.ForwardNative(context.Background(), c, newVertexTokenTestAccount(t),
++		"gemini-3.8-flash", "streamGenerateContent", true, []byte(`{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}`))
++
++	require.Nil(t, result)
++	requireVertexAccountNotFoundHandled(t, c, err, httpStub, repo)
++}
++
++func TestGeminiForward_VertexServiceAccountNotFoundDisablesAndFailsOver(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	useVertexTokenEndpoint(t, http.StatusBadRequest, vertexAccountNotFoundTokenBody)
++	svc, httpStub, repo := newVertexTokenErrorService()
++	rec := httptest.NewRecorder()
++	c, _ := gin.CreateTestContext(rec)
++	body := []byte(`{"model":"gemini-3.8-flash","max_tokens":16,"messages":[{"role":"user","content":"hello"}]}`)
++	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewReader(body))
++
++	result, err := svc.Forward(context.Background(), c, newVertexTokenTestAccount(t), body)
++
++	require.Nil(t, result)
++	requireVertexAccountNotFoundHandled(t, c, err, httpStub, repo)
++}
++
++func TestGeminiForwardAsChatCompletions_VertexServiceAccountNotFoundDisablesAndFailsOver(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	useVertexTokenEndpoint(t, http.StatusBadRequest, vertexAccountNotFoundTokenBody)
++	svc, httpStub, repo := newVertexTokenErrorService()
++	rec := httptest.NewRecorder()
++	c, _ := gin.CreateTestContext(rec)
++	body := []byte(`{"model":"gemini-3.8-flash","messages":[{"role":"user","content":"hi"}]}`)
++	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
++
++	result, err := svc.ForwardAsChatCompletions(context.Background(), c, newVertexTokenTestAccount(t), body)
++
++	require.Nil(t, result)
++	requireVertexAccountNotFoundHandled(t, c, err, httpStub, repo)
++}
++
++func TestGeminiForwardNative_OtherVertexTokenErrorKeepsAccountState(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	useVertexTokenEndpoint(t, http.StatusBadRequest, `{"error":"invalid_grant","error_description":"Invalid JWT Signature."}`)
++	svc, httpStub, repo := newVertexTokenErrorService()
++	c, rec := newGeminiNativeTestContext(t)
++
++	result, err := svc.ForwardNative(context.Background(), c, newVertexTokenTestAccount(t),
++		"gemini-3.8-flash", "generateContent", false, []byte(`{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}`))
++
++	require.Nil(t, result)
++	require.Error(t, err)
++	var failoverErr *UpstreamFailoverError
++	require.False(t, errors.As(err, &failoverErr), "未识别的换 token 失败不换号")
++	require.Zero(t, repo.setErrCalls, "未识别的换 token 失败不改账号状态")
++	require.Zero(t, httpStub.calls)
++	require.Equal(t, http.StatusBadGateway, rec.Code)
++	require.True(t, strings.Contains(rec.Body.String(), "Invalid JWT Signature."))
++}
+diff --git a/backend/internal/application/service/pricing_antigravity_aliases.go b/backend/internal/application/service/pricing_antigravity_aliases.go
+new file mode 100644
+index 000000000..aadd58725
+--- /dev/null
++++ b/backend/internal/application/service/pricing_antigravity_aliases.go
+@@ -0,0 +1,59 @@
++package service
++
++import "strings"
++
++func normalizeGeminiThinkingTierAlias(model string) string {
++	for _, baseModel := range []string{"gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.8-flash", "gemini-4-argon"} {
++		for _, tier := range []string{"-high", "-low", "-medium", "-tiered"} {
++			if model == baseModel+tier {
++				return baseModel
++			}
++		}
++	}
++	return model
++}
++
++func normalizeAntigravityClaudeTierAlias(model string) string {
++	for _, baseModel := range []string{"claude-opus-5-5", "claude-sonnet-5-5"} {
++		for _, tier := range []string{"-high", "-low", "-medium"} {
++			if model == baseModel+tier {
++				return baseModel
++			}
++		}
++	}
++	return model
++}
++
++func isAntigravityThinkingTierAlias(model string) bool {
++	return normalizeGeminiThinkingTierAlias(model) != model || normalizeAntigravityClaudeTierAlias(model) != model
++}
++
++func normalizeModelNameForPricing(model string) string {
++	// Common Gemini/VertexAI forms:
++	// - models/gemini-2.0-flash-exp
++	// - publishers/google/models/gemini-2.5-pro
++	// - projects/.../locations/.../publishers/google/models/gemini-2.5-pro
++	model = strings.TrimSpace(model)
++	model = strings.TrimLeft(model, "/")
++	model = strings.TrimPrefix(model, "models/")
++	model = strings.TrimPrefix(model, "publishers/google/models/")
++
++	if idx := strings.LastIndex(model, "/publishers/google/models/"); idx != -1 {
++		model = model[idx+len("/publishers/google/models/"):]
++	}
++	if idx := strings.LastIndex(model, "/models/"); idx != -1 {
++		model = model[idx+len("/models/"):]
++	}
++
++	model = strings.TrimLeft(model, "/")
++	if canonical := canonicalizeOpenAIModelAliasSpelling(model); canonical != "" {
++		if canonical == "gpt-5.6" {
++			return "gpt-5.6-sol"
++		}
++		if suffix, ok := strings.CutPrefix(canonical, "gpt-5.6-"); ok && (suffix == "max" || isKnownCodexModelSuffix(suffix)) {
++			return "gpt-5.6-sol"
++		}
++		return canonical
++	}
++	return normalizeAntigravityClaudeTierAlias(normalizeGeminiThinkingTierAlias(model))
++}
+diff --git a/backend/internal/application/service/upstream_compat_boundaries_test.go b/backend/internal/application/service/upstream_compat_boundaries_test.go
+new file mode 100644
+index 000000000..3372905ad
+--- /dev/null
++++ b/backend/internal/application/service/upstream_compat_boundaries_test.go
+@@ -0,0 +1,132 @@
++//go:build unit
++
++package service
++
++import (
++	"context"
++	"errors"
++	"net/http"
++	"net/http/httptest"
++	"testing"
++	"time"
++
++	"github.com/Wei-Shaw/sub2api/internal/platform/config"
++	"github.com/Wei-Shaw/sub2api/internal/shared/apicompat"
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++)
++
++func TestAnthropicForeignOAuthBoundary(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	for _, platform := range []string{PlatformOpenAI, PlatformGemini, PlatformAntigravity, PlatformGrok, "unknown"} {
++		for _, kind := range []string{AccountTypeOAuth, AccountTypeSetupToken} {
++			t.Run(platform+kind, func(t *testing.T) {
++				account := &Account{Platform: platform, Type: kind}
++				svc := &GatewayService{}
++				c, _ := gin.CreateTestContext(httptest.NewRecorder())
++				c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
++				req, _, err := svc.buildUpstreamRequest(context.Background(), c, account, nil, "fixture-token", "oauth", "gpt-6", false, false)
++				require.Nil(t, req)
++				var fail *UpstreamFailoverError
++				require.True(t, errors.As(err, &fail))
++				require.Equal(t, anthropicMessagesForeignOAuthReason, fail.Reason)
++				recorder := httptest.NewRecorder()
++				c, _ = gin.CreateTestContext(recorder)
++				c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages/count_tokens", nil)
++				require.NoError(t, svc.ForwardCountTokens(context.Background(), c, account, &ParsedRequest{}))
++				require.Equal(t, http.StatusNotFound, recorder.Code)
++			})
++		}
++	}
++	require.True(t, anthropicMessagesCredentialAllowed(&Account{Platform: PlatformAnthropic, Type: AccountTypeOAuth}))
++	require.True(t, anthropicMessagesCredentialAllowed(&Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}))
++}
++
++type vertexCapacityRepo struct {
++	AccountRepository
++	resets []time.Time
++}
++
++func (r *vertexCapacityRepo) SetRateLimited(_ context.Context, _ int64, at time.Time) error {
++	r.resets = append(r.resets, at)
++	return nil
++}
++
++func TestVertexSharedCapacityDoesNotCoolAccount(t *testing.T) {
++	shared := []byte(`{"error":{"code":429,"status":"RESOURCE_EXHAUSTED","message":"Resource exhausted. Please try again later."}}`)
++	for _, tt := range []struct {
++		name   string
++		body   []byte
++		shared bool
++	}{
++		{"shared", shared, true},
++		{"array", []byte(`[{"error":{"status":"RESOURCE_EXHAUSTED","message":"Resource exhausted. Please try again later."}}]`), true},
++		{"quota", []byte(`{"error":{"status":"RESOURCE_EXHAUSTED","message":"Resource exhausted. quota exceeded; try again later"}}`), false},
++		{"details", []byte(`{"error":{"status":"RESOURCE_EXHAUSTED","message":"Resource exhausted. Please try again later.","details":[{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"60s"}]}}`), false},
++		{"malformed", []byte(`not-json`), false},
++	} {
++		t.Run(tt.name, func(t *testing.T) { require.Equal(t, tt.shared, isVertexSharedCapacity429(tt.body)) })
++	}
++	repo := &vertexCapacityRepo{}
++	svc := &GeminiMessagesCompatService{accountRepo: repo}
++	account := &Account{ID: 8060, Platform: PlatformGemini, Type: AccountTypeServiceAccount}
++	svc.handleGeminiUpstreamError(context.Background(), account, 429, nil, shared)
++	require.Empty(t, repo.resets)
++	svc.handleGeminiUpstreamError(context.Background(), account, 429, nil, []byte(`{"error":{"status":"RESOURCE_EXHAUSTED","message":"project quota exhausted"}}`))
++	require.Len(t, repo.resets, 1)
++	require.InDelta(t, 60, time.Until(repo.resets[0]).Seconds(), 2)
++}
++
++func TestConfiguredMinOutputTokens(t *testing.T) {
++	require.Equal(t, 128, configuredMinOutputTokens(nil))
++	for _, floor := range []int{0, 15, 16, 64, 128, 512} {
++		cfg := &config.Config{Gateway: config.GatewayConfig{MinOutputTokens: floor}}
++		want := floor
++		if want < 16 {
++			want = 128
++		}
++		response, err := anthropicToResponses(cfg, &apicompat.AnthropicRequest{Model: "gpt-6", MaxTokens: 1})
++		require.NoError(t, err)
++		require.Equal(t, want, *response.MaxOutputTokens)
++	}
++}
++
++func TestGeminiArgonFallbackPricing(t *testing.T) {
++	svc := NewBillingService(&config.Config{}, nil)
++	for _, tt := range []struct {
++		model                string
++		input, output, cache float64
++	}{
++		{"gemini-4-argon", 2e-6, 10e-6, 0.1e-6},
++		{"gemini-4-argon-high", 2e-6, 10e-6, 0.1e-6},
++		{"gemini-4-argon-medium", 2e-6, 10e-6, 0.1e-6},
++		{"gemini-4-argon-low", 2e-6, 10e-6, 0.1e-6},
++		{"gemini-4-argon-cyber-permissive", 4e-6, 20e-6, 0.2e-6},
++	} {
++		t.Run(tt.model, func(t *testing.T) {
++			price := svc.getFallbackPricing(tt.model)
++			require.NotNil(t, price)
++			require.Equal(t, tt.input, price.InputPricePerToken)
++			require.Equal(t, tt.output, price.OutputPricePerToken)
++			require.Equal(t, tt.cache, price.CacheReadPricePerToken)
++			require.Zero(t, price.LongContextInputThreshold)
++		})
++	}
++}
++
++func TestGeminiArgonExplicitTierPriceTakesPrecedence(t *testing.T) {
++	base := &LiteLLMModelPricing{InputCostPerToken: 2e-6}
++	exact := &LiteLLMModelPricing{InputCostPerToken: 3e-6}
++	svc := &PricingService{pricingData: map[string]*LiteLLMModelPricing{"gemini-4-argon": base, "gemini-4-argon-low": exact}}
++	require.Same(t, exact, svc.GetModelPricing("models/gemini-4-argon-low"))
++	require.Same(t, base, svc.GetModelPricing("publishers/google/models/gemini-4-argon-high"))
++}
++func TestGeminiMergePreservesDistinctTextSignatures(t *testing.T) {
++	response := mergeCollectedPartsToResponse(map[string]any{}, []map[string]any{{"text": "alpha", "thoughtSignature": "signature-a"}, {"text": "beta", "thoughtSignature": "signature-b"}})
++	parts := extractGeminiParts(response)
++	require.Len(t, parts, 2)
++	require.Equal(t, "alpha", parts[0]["text"])
++	require.Equal(t, "signature-a", parts[0]["thoughtSignature"])
++	require.Equal(t, "beta", parts[1]["text"])
++	require.Equal(t, "signature-b", parts[1]["thoughtSignature"])
++}
+diff --git a/backend/internal/platform/config/min_output_tokens_test.go b/backend/internal/platform/config/min_output_tokens_test.go
+new file mode 100644
+index 000000000..35f586739
+--- /dev/null
++++ b/backend/internal/platform/config/min_output_tokens_test.go
+@@ -0,0 +1,17 @@
++package config
++
++import (
++	"testing"
++
++	"github.com/stretchr/testify/require"
++)
++
++func TestMinOutputTokensValidation(t *testing.T) {
++	for _, n := range []int{-1, 0, 15} {
++		err := validateGatewayTransport(&Config{Gateway: GatewayConfig{MinOutputTokens: n}})
++		require.ErrorContains(t, err, "gateway.min_output_tokens")
++	}
++	err := validateGatewayTransport(&Config{Gateway: GatewayConfig{MinOutputTokens: 16}})
++	require.Error(t, err)
++	require.NotContains(t, err.Error(), "min_output_tokens")
++}
+diff --git a/backend/internal/shared/antigravity/tool_result_media_test.go b/backend/internal/shared/antigravity/tool_result_media_test.go
+new file mode 100644
+index 000000000..d27697ff1
+--- /dev/null
++++ b/backend/internal/shared/antigravity/tool_result_media_test.go
+@@ -0,0 +1,70 @@
++//go:build unit
++
++package antigravity
++
++import (
++	"encoding/json"
++	"github.com/stretchr/testify/require"
++	"testing"
++)
++
++func TestTransformClaudeToGemini_ToolResultImagesReachUpstream(t *testing.T) {
++	claudeReq := &ClaudeRequest{
++		Model: "claude-sonnet-4-5",
++		Messages: []ClaudeMessage{
++			{
++				Role: "assistant",
++				Content: json.RawMessage(`[
++					{"type":"tool_use","id":"toolu_img_1","name":"read_image","input":{"path":"colors.png"}}
++				]`),
++			},
++			{
++				Role: "user",
++				Content: json.RawMessage(`[
++					{
++						"type":"tool_result",
++						"tool_use_id":"toolu_img_1",
++						"content":[
++							{"type":"text","text":"loaded colors.png"},
++							{"type":"image","source":{"type":"base64","media_type":"image/png","data":"aGVsbG8="}}
++						]
++					},
++					{
++						"type":"tool_result",
++						"tool_use_id":"toolu_img_1",
++						"content":[
++							{"type":"image","source":{"type":"base64","media_type":"image/jpeg","data":"d29ybGQ="}}
++						]
++					}
++				]`),
++			},
++		},
++	}
++
++	body, err := TransformClaudeToGeminiWithOptions(claudeReq, "project-1", "claude-sonnet-4-5", DefaultTransformOptions())
++	require.NoError(t, err)
++
++	var req V1InternalRequest
++	require.NoError(t, json.Unmarshal(body, &req))
++	require.Len(t, req.Request.Contents, 2)
++
++	userParts := req.Request.Contents[1].Parts
++	require.Len(t, userParts, 4)
++
++	require.NotNil(t, userParts[0].FunctionResponse)
++	require.Equal(t, "read_image", userParts[0].FunctionResponse.Name)
++	require.Equal(t, "toolu_img_1", userParts[0].FunctionResponse.ID)
++	require.Equal(t, "loaded colors.png", userParts[0].FunctionResponse.Response["result"])
++
++	require.NotNil(t, userParts[1].InlineData)
++	require.Equal(t, "image/png", userParts[1].InlineData.MimeType)
++	require.Equal(t, "aGVsbG8=", userParts[1].InlineData.Data)
++
++	require.NotNil(t, userParts[2].FunctionResponse)
++	require.Equal(t, "read_image", userParts[2].FunctionResponse.Name)
++	require.Equal(t, "Command executed successfully.", userParts[2].FunctionResponse.Response["result"])
++
++	require.NotNil(t, userParts[3].InlineData)
++	require.Equal(t, "image/jpeg", userParts[3].InlineData.MimeType)
++	require.Equal(t, "d29ybGQ=", userParts[3].InlineData.Data)
++}

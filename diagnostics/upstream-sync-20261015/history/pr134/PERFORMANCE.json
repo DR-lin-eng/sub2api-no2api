@@ -1,0 +1,90 @@
+{
+  "baseline": {
+    "BenchmarkUpstream20261015ToolResult/text/1024-2": {
+      "median_ns_per_op": 22902.0,
+      "median_bytes_per_op": 4312,
+      "median_allocs_per_op": 43
+    },
+    "BenchmarkUpstream20261015ToolResult/text/1048576-2": {
+      "median_ns_per_op": 16885859.0,
+      "median_bytes_per_op": 2107488,
+      "median_allocs_per_op": 43
+    },
+    "BenchmarkUpstream20261015ToolResult/image/1024-2": {
+      "median_ns_per_op": 20426.0,
+      "median_bytes_per_op": 4920,
+      "median_allocs_per_op": 56
+    },
+    "BenchmarkUpstream20261015ToolResult/image/1048576-2": {
+      "median_ns_per_op": 16008770.0,
+      "median_bytes_per_op": 2108098,
+      "median_allocs_per_op": 56
+    }
+  },
+  "upstream-double-decode": {
+    "BenchmarkUpstream20261015ToolResult/text/1024-2": {
+      "median_ns_per_op": 27101.0,
+      "median_bytes_per_op": 5776,
+      "median_allocs_per_op": 52
+    },
+    "BenchmarkUpstream20261015ToolResult/text/1048576-2": {
+      "median_ns_per_op": 20334011.0,
+      "median_bytes_per_op": 3156525,
+      "median_allocs_per_op": 52
+    },
+    "BenchmarkUpstream20261015ToolResult/image/1024-2": {
+      "median_ns_per_op": 25883.0,
+      "median_bytes_per_op": 6752,
+      "median_allocs_per_op": 73
+    },
+    "BenchmarkUpstream20261015ToolResult/image/1048576-2": {
+      "median_ns_per_op": 19882056.0,
+      "median_bytes_per_op": 3157482,
+      "median_allocs_per_op": 73
+    }
+  },
+  "candidate": {
+    "BenchmarkUpstream20261015ToolResult/text/1024-2": {
+      "median_ns_per_op": 20419.0,
+      "median_bytes_per_op": 4312,
+      "median_allocs_per_op": 43
+    },
+    "BenchmarkUpstream20261015ToolResult/text/1048576-2": {
+      "median_ns_per_op": 16402794.0,
+      "median_bytes_per_op": 2107489,
+      "median_allocs_per_op": 43
+    },
+    "BenchmarkUpstream20261015ToolResult/image/1024-2": {
+      "median_ns_per_op": 22531.0,
+      "median_bytes_per_op": 5144,
+      "median_allocs_per_op": 59
+    },
+    "BenchmarkUpstream20261015ToolResult/image/1048576-2": {
+      "median_ns_per_op": 15419681.0,
+      "median_bytes_per_op": 2108324,
+      "median_allocs_per_op": 59
+    }
+  },
+  "rollback": {
+    "BenchmarkUpstream20261015ToolResult/text/1024-2": {
+      "median_ns_per_op": 24530.0,
+      "median_bytes_per_op": 4312,
+      "median_allocs_per_op": 43
+    },
+    "BenchmarkUpstream20261015ToolResult/text/1048576-2": {
+      "median_ns_per_op": 16596307.0,
+      "median_bytes_per_op": 2107489,
+      "median_allocs_per_op": 43
+    },
+    "BenchmarkUpstream20261015ToolResult/image/1024-2": {
+      "median_ns_per_op": 21171.0,
+      "median_bytes_per_op": 4920,
+      "median_allocs_per_op": 56
+    },
+    "BenchmarkUpstream20261015ToolResult/image/1048576-2": {
+      "median_ns_per_op": 15670213.0,
+      "median_bytes_per_op": 2108099,
+      "median_allocs_per_op": 56
+    }
+  }
+}

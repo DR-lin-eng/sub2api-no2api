@@ -1,0 +1,32 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus",
+    "2",
+    "--memory",
+    "4g",
+    "-e",
+    "NODE_OPTIONS=--max-old-space-size=3072",
+    "-v",
+    "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo:/workspace",
+    "-v",
+    "sub2api-upstream-sync-node-20261015:/workspace/frontend/node_modules",
+    "-v",
+    "sub2api-upstream-sync-pnpm-20261013:/pnpm/store",
+    "-w",
+    "/workspace",
+    "sub2api-upstream-sync-node:20261013",
+    "sh",
+    "-c",
+    "make test-frontend && pnpm --dir frontend exec vitest run src/features/admin-accounts/presentation/composables/__tests__/useModelWhitelist.spec.ts"
+  ],
+  "cwd": "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo",
+  "exit_status": 0,
+  "elapsed_s": 61.81159691600078,
+  "utc": "2026-10-15T15:19:36.146079+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "3e4652d15e63cad4177425f809c85362093d0322c3d2c814143254951c6fba5b",
+  "stderr_sha256": "1ca6770fa73f51b7548b34ec7c562186021bd47a430b243fbdab371e552664fe"
+}

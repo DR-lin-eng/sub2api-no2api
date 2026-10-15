@@ -1,0 +1,23 @@
+goos: linux
+goarch: arm64
+pkg: github.com/Wei-Shaw/sub2api/internal/shared/apicompat
+BenchmarkOpenThinkingFragments-2   	     189	   3309553 ns/op	 316.83 MB/s	12581681 B/op	    1072 allocs/op
+BenchmarkOpenThinkingFragments-2   	     160	   3220754 ns/op	 325.57 MB/s	12627532 B/op	    1073 allocs/op
+BenchmarkOpenThinkingFragments-2   	     178	   3430824 ns/op	 305.63 MB/s	12648900 B/op	    1073 allocs/op
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	3.355s
+2026/10/15 15:27:51 Timezone initialized: UTC (UTC offset: +00:00)
+goos: linux
+goarch: arm64
+pkg: github.com/Wei-Shaw/sub2api/internal/application/service
+BenchmarkOpenClaude55Validation/upstream-2         	     548	   1118472 ns/op	 937.60 MB/s	      16 B/op	       1 allocs/op
+BenchmarkOpenClaude55Validation/upstream-2         	     553	   1092438 ns/op	 959.95 MB/s	      16 B/op	       1 allocs/op
+BenchmarkOpenClaude55Validation/upstream-2         	     532	   1098635 ns/op	 954.53 MB/s	      16 B/op	       1 allocs/op
+BenchmarkOpenClaude55Validation/native-2           	    3225	    210004 ns/op	4993.63 MB/s	       0 B/op	       0 allocs/op
+BenchmarkOpenClaude55Validation/native-2           	    3058	    183961 ns/op	5700.57 MB/s	       0 B/op	       0 allocs/op
+BenchmarkOpenClaude55Validation/native-2           	    3244	    185330 ns/op	5658.47 MB/s	       0 B/op	       0 allocs/op
+BenchmarkCodexCatalogProjection-2                  	   35745	     21332 ns/op	   12117 B/op	     191 allocs/op
+BenchmarkCodexCatalogProjection-2                  	   31454	     17539 ns/op	   12117 B/op	     191 allocs/op
+BenchmarkCodexCatalogProjection-2                  	   34476	     17827 ns/op	   12117 B/op	     191 allocs/op
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	6.543s

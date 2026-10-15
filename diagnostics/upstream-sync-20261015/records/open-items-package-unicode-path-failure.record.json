@@ -1,0 +1,13 @@
+{
+  "command": [
+    "python3",
+    "diagnostics/upstream-sync-20261015/package_roles.py"
+  ],
+  "cwd": "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo",
+  "exit_status": 1,
+  "elapsed_s": 0.15660849999949278,
+  "utc": "2026-10-15T15:49:49.275156+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderr_sha256": "ee07fff7cae6746936dc05f113b439802cb440dfa60b934bb880cfc8102c61bb"
+}

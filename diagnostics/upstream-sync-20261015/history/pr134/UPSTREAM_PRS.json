@@ -1,0 +1,271 @@
+[
+  {
+    "pr": 8106,
+    "merge_sha": "3856a02856ca788cc1714362b1dc8a5a4d06b131",
+    "title": "Merge pull request #8106 from Wei-Shaw/fix/composite-oauth-ambiguous-misroute",
+    "diff_sha256": "952abecad53c0bac30252fff9be3e97b3c51f6a1f440cba2289e6df04879396f",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8106",
+    "status": "ported",
+    "fully_closed": true,
+    "decision": "Reject foreign OAuth/setup-token credentials before the native Anthropic request constructor and count_tokens token access. Keep the local explicit-route/detector snapshot instead of importing upstream per-request account ownership SQL.",
+    "current_owners": [
+      "backend/internal/application/service/gateway_anthropic_credentials.go",
+      "backend/internal/application/service/gateway_upstream_request.go",
+      "backend/internal/application/service/gateway_count_tokens.go"
+    ],
+    "reopen_condition": "Only changed upstream behavior or an observed regression in a recorded current owner; do not replay this frozen diff.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_HASHES.json",
+      "records/backend-unit-final.record.json",
+      "records/backend-integration.record.json",
+      "records/runtime-upgrade-rollback.record.json"
+    ],
+    "performance_review": "Local routing remains the cached immutable explicit-route/detector path; no per-request account-list scan or database lookup is added."
+  },
+  {
+    "pr": 8087,
+    "merge_sha": "fdc7f1fa011a912afb9f7948cb9dc46059c98ddd",
+    "title": "Merge pull request #8087 from coder-zhw/fix/zhipu-credit-limit-window-classification",
+    "diff_sha256": "e1ac92287debb8ba9ca5c1db7b079210eaf393db51406037b869b7e0160fd1bd",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8087",
+    "status": "ported",
+    "fully_closed": true,
+    "decision": "Classify CREDIT_LIMIT by explicit unit exactly as TOKENS_LIMIT when token limits are absent; keep token-limit precedence and unknown-unit fallback.",
+    "current_owners": [
+      "backend/internal/application/service/cn_provider_quota_service.go"
+    ],
+    "reopen_condition": "Only changed upstream behavior or an observed regression in a recorded current owner; do not replay this frozen diff.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_HASHES.json",
+      "records/backend-unit-final.record.json",
+      "records/backend-integration.record.json",
+      "records/runtime-upgrade-rollback.record.json"
+    ]
+  },
+  {
+    "pr": 8060,
+    "merge_sha": "3b83e045ed5ddc8246ebe8b3c4045a1c7ff5968b",
+    "title": "Merge pull request #8060 from feeeei/fix/gemini-vertex-shared-capacity-429",
+    "diff_sha256": "ec5e070642d1925d1c9bd38ea8bddfdcf3ed1f5032847359054258376738186e",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8060",
+    "status": "ported",
+    "fully_closed": true,
+    "decision": "Vertex shared-capacity RESOURCE_EXHAUSTED without quota/error details remains request-scoped; project quota and unknown service-account 429 receive a short one-minute fallback.",
+    "current_owners": [
+      "backend/internal/application/service/gemini_messages_compat_service.go"
+    ],
+    "reopen_condition": "Only changed upstream behavior or an observed regression in a recorded current owner; do not replay this frozen diff.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_HASHES.json",
+      "records/backend-unit-final.record.json",
+      "records/backend-integration.record.json",
+      "records/runtime-upgrade-rollback.record.json"
+    ]
+  },
+  {
+    "pr": 8076,
+    "merge_sha": "abdc82725f1c6f1530d2a5835b0af653d352994e",
+    "title": "Merge pull request #8076 from feeeei/fix/gemini-vertex-sa-and-error-policy",
+    "diff_sha256": "4dbc16d8ce8ef440484ba9e3b40bcc0cc8db3a3de8ef14b2c73fa2864afe666b",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8076",
+    "status": "ported",
+    "fully_closed": true,
+    "decision": "Reuse each response policy result across retry/final handling. Typed pinned Google token-endpoint account-not-found errors disable the credential and fail over in native, Messages and Chat paths.",
+    "current_owners": [
+      "backend/internal/application/service/gemini_messages_compat_service.go",
+      "backend/internal/application/service/gemini_chat_completions_compat_service.go",
+      "backend/internal/application/service/gemini_vertex_token_error.go",
+      "backend/internal/application/service/vertex_service_account.go"
+    ],
+    "reopen_condition": "Only changed upstream behavior or an observed regression in a recorded current owner; do not replay this frozen diff.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_HASHES.json",
+      "records/backend-unit-final.record.json",
+      "records/backend-integration.record.json",
+      "records/runtime-upgrade-rollback.record.json"
+    ],
+    "performance_review": "Success handling returns before reading errors. Each error response executes side-effecting policy exactly once; no new success-path SQL/Redis calls, workers or retries."
+  },
+  {
+    "pr": 8078,
+    "merge_sha": "dcde68aa5881ba7eea569ff1d98a860fba1d8b8c",
+    "title": "Merge pull request #8078 from feeeei/feat/gemini-4-argon-pricing",
+    "diff_sha256": "ce3d402d6f896857322e35b19ccf33fd2159115777ead944d5a35bb7aace6a10",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8078",
+    "status": "ported",
+    "fully_closed": true,
+    "decision": "Add Argon and Cyber catalog/fallback rates, canonical thinking aliases and exact custom-tier precedence; no long-context surcharge is introduced for Argon.",
+    "current_owners": [
+      "backend/internal/application/service/billing_gemini_argon.go",
+      "backend/internal/application/service/billing_service.go",
+      "backend/internal/application/service/pricing_antigravity_aliases.go"
+    ],
+    "reopen_condition": "Only changed upstream behavior or an observed regression in a recorded current owner; do not replay this frozen diff.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_HASHES.json",
+      "records/backend-unit-final.record.json",
+      "records/backend-integration.record.json",
+      "records/runtime-upgrade-rollback.record.json"
+    ]
+  },
+  {
+    "pr": 8093,
+    "merge_sha": "857a76d4a0e7b2389926c340555a2f8f5b24a0ae",
+    "title": "Merge pull request #8093 from baryon/contrib/gemini-4-argon-support",
+    "diff_sha256": "4465e6811f0971ee6be6958e0a3600637bcc11d65c6994e37d662a2b6354b8c1",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8093",
+    "status": "partially-ported-with-explicit-deferrals",
+    "fully_closed": false,
+    "decision": "Adapt compatible Gemini/Antigravity generation, function signatures and ordered nonstream collection, tool images, paid tiers, endpoint-pinned discovery, Hub UA and current feature widgets. Keep earlier Claude 5.5 and descriptor-catalog deferrals explicit.",
+    "current_owners": [
+      "backend/internal/application/service/antigravity_gateway_streaming.go",
+      "backend/internal/application/service/antigravity_gateway_service.go",
+      "backend/internal/application/service/antigravity_gateway_gemini.go",
+      "backend/internal/application/service/antigravity_gateway_retry.go",
+      "backend/internal/application/service/upstream_models.go"
+    ],
+    "reopen_condition": "Reopen only the explicitly deferred subitems when their recorded prerequisites are met; compatible closed subitems stay closed.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_HASHES.json",
+      "records/backend-unit-final.record.json",
+      "records/backend-integration.record.json",
+      "records/runtime-upgrade-rollback.record.json"
+    ],
+    "subitems": [
+      {
+        "id": "gemini4-generation-and-native-catalog",
+        "status": "ported",
+        "closed": true
+      },
+      {
+        "id": "tool-result-inline-media",
+        "status": "ported-and-refactored",
+        "closed": true,
+        "performance": "One decode supplies text and media instead of upstream double decoding, including MiB base64 data."
+      },
+      {
+        "id": "nonstream-ordered-parts-and-signatures",
+        "status": "ported-and-corrected",
+        "closed": true,
+        "decision": "Keep function calls and all parts in order, and preserve different signatures on separate text segments."
+      },
+      {
+        "id": "full-account-egress-endpoint-discovery",
+        "status": "ported",
+        "closed": true,
+        "decision": "Keep the existing account proxy/IPv6 context and pin fetchAvailableModels to generation endpoint without redirects/fallback."
+      },
+      {
+        "id": "claude55-registration",
+        "status": "deferred",
+        "closed": false,
+        "prior": "diagnostics/upstream-sync-20261013/UPSTREAM_PRS.json PR 7957",
+        "reason": "Current built-in price cards do not contain Opus/Sonnet 5.5; native signed-thinking/adaptive/forced-tool contracts remain incomplete. Do not advertise six unsupported tier IDs.",
+        "reopen_condition": "Deliver current-owner signed-history, effort/tool/sampling and 5.5 pricing matrix before registering these IDs."
+      },
+      {
+        "id": "descriptor-catalog-and-codex-metadata-expansion",
+        "status": "deferred",
+        "closed": false,
+        "prior": "diagnostics/upstream-sync-20261012/UPSTREAM_PRS.json PR 8033",
+        "reason": "Current upstream-model owner returns an ID list and local Codex manifest owner has no upstream descriptor persistence/precedence contract. Do not replace these owners with a new legacy catalog.",
+        "reopen_condition": "Define the descriptor owner, precedence, bounded refresh/query and mixed-writer upgrade/rollback matrix; then adapt only these open subitems."
+      }
+    ]
+  },
+  {
+    "pr": 8094,
+    "merge_sha": "58b5e858c82dcf14a637762ee1e6c37ec9f86aad",
+    "title": "Merge pull request #8094 from wucm667/feat/issue-8092-configurable-min-output",
+    "diff_sha256": "38c59c02aca5d5cef292673efa66fac8ca7c4eb240728d11dbe080afa49a9618",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8094",
+    "status": "ported",
+    "fully_closed": true,
+    "decision": "Add gateway.min_output_tokens with default 128 and validation >=16 through the current configuration owners and existing conversion callers. Native Responses/WS and count-only helper semantics stay with their existing owners.",
+    "current_owners": [
+      "backend/internal/application/service/apicompat_config.go",
+      "backend/internal/platform/config/config_gateway_types.go",
+      "backend/internal/platform/config/defaults_gateway.go",
+      "backend/internal/platform/config/validate_gateway.go",
+      "backend/internal/shared/apicompat"
+    ],
+    "reopen_condition": "Only changed upstream behavior or an observed regression in a recorded current owner; do not replay this frozen diff.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_HASHES.json",
+      "records/backend-unit-final.record.json",
+      "records/backend-integration.record.json",
+      "records/runtime-upgrade-rollback.record.json"
+    ]
+  },
+  {
+    "pr": 8079,
+    "merge_sha": "ddef05527eca7f369b107fd87c4811d696284f38",
+    "title": "Merge pull request #8079 from wucm667/fix/issue-8074-anthropic-base-url",
+    "diff_sha256": "85e356537dc3d1be772c4412bbc1d80a90f0ba9539cd181ba466d41845f9f98e",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8079",
+    "status": "ported",
+    "fully_closed": true,
+    "decision": "Choose the Anthropic protocol-specific base URL in native and passthrough Messages/count_tokens builders. Preserve local auth-scheme and output-cap contracts.",
+    "current_owners": [
+      "backend/internal/application/service/gateway_upstream_request.go",
+      "backend/internal/application/service/gateway_anthropic_passthrough.go",
+      "backend/internal/application/service/gateway_count_tokens.go"
+    ],
+    "reopen_condition": "Only changed upstream behavior or an observed regression in a recorded current owner; do not replay this frozen diff.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_HASHES.json",
+      "records/backend-unit-final.record.json",
+      "records/backend-integration.record.json",
+      "records/runtime-upgrade-rollback.record.json"
+    ]
+  },
+  {
+    "pr": 8088,
+    "merge_sha": "698d142468ab15374bc22bd5247759e5b7352006",
+    "title": "Merge pull request #8088 from wucm667/fix/issue-8077-workspace-aware-import",
+    "diff_sha256": "e0153b97a13fdd3ed927c9ba7ac555ad32afc1ceab21449294b92d0de47955c5",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8088",
+    "status": "ported",
+    "fully_closed": true,
+    "decision": "Use a length-delimited workspace/account plus user identity key; preserve access-token-only fingerprints, account fallback, in-batch duplicate checks and updates of stored records.",
+    "current_owners": [
+      "backend/internal/transport/http/handler/admin/account_codex_import.go"
+    ],
+    "reopen_condition": "Only changed upstream behavior or an observed regression in a recorded current owner; do not replay this frozen diff.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_HASHES.json",
+      "records/backend-unit-final.record.json",
+      "records/backend-integration.record.json",
+      "records/runtime-upgrade-rollback.record.json"
+    ]
+  },
+  {
+    "pr": 8120,
+    "merge_sha": "1b2243a4f50621508e79aef4b498a2937a6238ee",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8120",
+    "diff_sha256": "5391c714af6d14ade3ca4c8d2e53f68ac690770f182d6be6b3cb5557ec01e0e3",
+    "status": "covered",
+    "resolution": "intentional-local-divergence",
+    "fully_closed": true,
+    "decision": "Keep the current feature-owned accessible collapsible secondary filters and local OAuth-quota/Excel-BPS controls. Upstream is reverting its compact layout to always-visible controls; it is not a backend/query fix. Applying that legacy template would remove local controls and change existing behavior. Close this immutable layout-only diff as an intentional local decision.",
+    "current_owners": [
+      "frontend/src/features/admin-accounts/presentation/widgets/AccountTableFilters.vue",
+      "frontend/src/features/admin-accounts/presentation/pages/AccountsPage.vue"
+    ],
+    "performance_review": "No query, network, data or runtime code change is adopted. Current owner hashes remain equal to the baseline and its feature tests already pass.",
+    "reopen_condition": "Only a new layout request, observed local usability/accessibility regression, or changed upstream behavior; do not replay this frozen revert.",
+    "evidence": [
+      "records/frontend-final.record.json",
+      "LATE_UPSTREAM_REVIEW.json"
+    ]
+  }
+]

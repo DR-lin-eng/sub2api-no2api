@@ -1,0 +1,8 @@
+Observed lint exit status: 1
+Error source: gateway_claude55_buffered_test.go:34:19, errcheck for strings.Builder.WriteString.
+The source fixture was corrected with explicit discarded returns.
+internal/application/service/gateway_claude55_buffered_test.go:34:19: Error return value of `(*strings.Builder).WriteString` is not checked (errcheck)
+		wire.WriteString("event: " + event.Type + "\ndata: " + string(raw) + "\n\n")
+		                ^
+1 issues:
+* errcheck: 1

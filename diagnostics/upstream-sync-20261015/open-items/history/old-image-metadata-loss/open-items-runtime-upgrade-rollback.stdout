@@ -1,0 +1,10 @@
+baseline: readiness/frontend/encrypted-login/persisted-key/legacy-order/data-snapshot PASS
+baseline: existing locale contract PASS
+baseline: metadata snapshot and old image ordinary edit PASS
+baseline: legacy rules and optional scope persistence PASS
+upgraded: readiness/frontend/encrypted-login/persisted-key/legacy-order/data-snapshot PASS
+upgraded: existing locale contract PASS
+upgraded: metadata snapshot and old image ordinary edit PASS
+upgraded: legacy rules and optional scope persistence PASS
+rollback: readiness/frontend/encrypted-login/persisted-key/legacy-order/data-snapshot PASS
+rollback: existing locale contract PASS

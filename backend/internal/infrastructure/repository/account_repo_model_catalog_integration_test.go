@@ -52,6 +52,21 @@ func TestModelCatalogPostgresRefreshAndLegacyWrites(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, modelcatalog.ReadSnapshot(loaded.Extra).Models, "new")
 	require.Equal(t, "preserve", loaded.Extra["other"])
+	// Simulate the old binary replacing extra from a stale cache. This is a
+	// raw SQL replacement: it deliberately bypasses the new repository guard.
+	_, err = client.ExecContext(ctx, `UPDATE accounts SET extra = '{"legacy_edit":true}'::jsonb WHERE id=$1`, account.ID)
+	require.NoError(t, err)
+	loaded, err = repo.GetByID(ctx, account.ID)
+	require.NoError(t, err)
+	require.Contains(t, modelcatalog.ReadSnapshot(loaded.Extra).Models, "new")
+	require.Equal(t, true, loaded.Extra["legacy_edit"])
+	staleJSON, err := json.Marshal(map[string]any{modelcatalog.ExtraKey: old})
+	require.NoError(t, err)
+	_, err = client.ExecContext(ctx, `UPDATE accounts SET extra=$2::jsonb WHERE id=$1`, account.ID, string(staleJSON))
+	require.NoError(t, err)
+	loaded, err = repo.GetByID(ctx, account.ID)
+	require.NoError(t, err)
+	require.Contains(t, modelcatalog.ReadSnapshot(loaded.Extra).Models, "new")
 	// The old background writer knows only the ID list and merges its fields.
 	require.NoError(t, repo.UpdateExtra(ctx, account.ID, map[string]any{service.OAuthSupportedModelsExtraKey: []string{"legacy-id"}}))
 	staleEdit.Name = "ordinary stale edit"
@@ -63,6 +78,8 @@ func TestModelCatalogPostgresRefreshAndLegacyWrites(t *testing.T) {
 	future := map[string]any{"version": 99, "generation": 9999999999999999, "models": map[string]any{}}
 	require.NoError(t, repo.UpdateExtra(ctx, account.ID, map[string]any{modelcatalog.ExtraKey: future}))
 	require.ErrorIs(t, repo.UpdateUpstreamModelCatalog(ctx, account, snapshot(time.Now(), "replacement")), service.ErrUpstreamModelCatalogChanged)
+	_, err = client.ExecContext(ctx, `UPDATE accounts SET extra=$2::jsonb WHERE id=$1`, account.ID, string(staleJSON))
+	require.NoError(t, err)
 	require.NoError(t, repo.Update(ctx, staleEdit))
 	loaded, err = repo.GetByID(ctx, account.ID)
 	require.NoError(t, err)

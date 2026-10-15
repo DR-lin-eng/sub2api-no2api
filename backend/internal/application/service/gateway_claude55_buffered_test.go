@@ -31,7 +31,7 @@ func TestClaude55BufferedBridgesRetainFragmentedSignaturesAndUsage(t *testing.T)
 	for _, event := range events {
 		event.Index = &index
 		raw, _ := json.Marshal(event)
-		wire.WriteString("event: " + event.Type + "\ndata: " + string(raw) + "\n\n")
+		_, _ = wire.WriteString("event: " + event.Type + "\ndata: " + string(raw) + "\n\n")
 	}
 	for _, native := range []bool{false, true} {
 		recorder := httptest.NewRecorder()
