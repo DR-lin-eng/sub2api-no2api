@@ -230,6 +230,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 	applyCodexSimulationProfileHeaders(req.Header, fingerprintIDs)
 	applyOpenAICodexSemanticRequestHeaders(req.Header, c, account, outboundBody)
 	applyOpenAIWorkspaceRoutingHeader(req.Header, workspaceRouting)
+	normalizeOpenAICodexHTTPProtocolHeaders(req, c, account)
 
 	return req, nil
 }

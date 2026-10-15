@@ -373,6 +373,18 @@ principal；若 `previous_response_id -> account_id` 或当前节点的原始连
 
 ## 浏览器管理请求
 
+### OAuth 设备证明与完整性状态
+
+OpenAI OAuth 的实际 HTTP/WS 发送点执行 `openai_oauth_proof.go`，在身份投影后按需调用本地
+Codex attestation provider；托管 WS 包括预热只在真正拨号时生成证明，复用连接不重新套用旧握手。
+integrity 状态按 principal、安装身份和第一方 origin 隔离，immutable send receipt 固定该次 expected
+state；Redis Lua CAS 拒绝其他实例的过期更新。缓存不可用不回带 stale 本地 shadow。
+
+Desktop messages/challenge 有独立的 native raw DeviceCheck 路径；messages 发送前通过同账号出口
+注册 `/devicecheck` 并校验 `_devicecheck` cookie。普通模型 Responses 不附加 raw DeviceCheck。
+proof 开关、平台不可用分支与真实账号测试边界见
+[桌面对照](codex/desktop-request-alignment.md)和[请求还原补充](codex/ChatGPT_Codex_桌面端_深度分析报告_请求还原补充.md)。
+
 OpenAI 用量记录同时保留本地观测计时和可选上游遥测。用量明细展示优先采用有效上游值，
 管理员获得两套计时和来源；用户保持原有字段与界面。调度、计费和 Ops 本地口径不变，
 详细边界见 [OpenAI 请求计时](OPENAI_TIMING.md)。

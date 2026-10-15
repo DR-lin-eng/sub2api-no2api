@@ -12,6 +12,29 @@ const (
 	codexWorkspaceMetadataMaxBytes = 8192
 )
 
+var codexMetadataHeaderKeyNormalizer = strings.NewReplacer("-", "", "_", "", ".", "")
+
+// Device/attestation/integrity and remote-control credentials belong to the
+// issuing installation or principal. They must not be flattened into another
+// account's Responses metadata. This is a top-level envelope filter: identical
+// names inside input/tool arguments remain ordinary user data.
+func discardCodexNonTransferableMetadata(metadata map[string]any) bool {
+	changed := false
+	for key := range metadata {
+		normalized := strings.ToLower(strings.TrimSpace(key))
+		normalized = codexMetadataHeaderKeyNormalizer.Replace(normalized)
+		switch normalized {
+		case "authorization", "proxyauthorization", "cookie", "setcookie",
+			"xapikey", "xoaiattestation", "xoaiis", "xoaiisupdate",
+			"oaideviceid", "oaidid", "xcodexclientid", "xcodexclientsessiontoken",
+			"chatgptaccountid", "xopenaiexpectedaccountid", "xopenaiaccountroutingoverride":
+			delete(metadata, key)
+			changed = true
+		}
+	}
+	return changed
+}
+
 // sanitizeCodexTurnMetadataValue keeps the official workspace projection
 // useful for upstream risk evaluation while removing local paths and remote
 // credential material. Invalid metadata is left untouched so the existing
@@ -47,6 +70,9 @@ func sanitizedCodexTurnMetadataMap(metadata map[string]any) (map[string]any, boo
 	sanitized, ok := value.(map[string]any)
 	if !ok {
 		return metadata, changed, true
+	}
+	if discardCodexNonTransferableMetadata(sanitized) {
+		changed = true
 	}
 	return sanitized, changed, true
 }
@@ -189,7 +215,7 @@ func sanitizeOpenAICodexClientMetadataMap(metadata map[string]any, account *Acco
 	if metadata == nil {
 		return false
 	}
-	changed := false
+	changed := discardCodexNonTransferableMetadata(metadata)
 
 	if raw, exists := metadata["x-codex-turn-metadata"]; exists {
 		text, ok := raw.(string)

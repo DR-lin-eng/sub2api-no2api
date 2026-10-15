@@ -45,6 +45,8 @@
 | [组合分组](COMPOSITE_GROUPS.md) | Composite group 的平台解析和使用约束 |
 | [Excel BPS 与 DeepSeek 兼容](BPS_DEEPSEEK_COMPAT.md) | 账号级 BPS 开关/筛选/批量更新、Responses 与 Chat Completions 兼容入口 |
 | [Codex OAuth 模拟的有意差异](codex/intentional-divergences.md) | 固定 Codex 源码 revision、纯 Go A/B 身份与 continuation 边界、暂缓的传输层差异 |
+| [OpenAI OAuth 与 Codex 桌面请求对照](codex/desktop-request-alignment.md) | 桌面静态报告的端点边界、OAuth principal 校验、HTTP 媒体类型与证明字段归属 |
+| [Codex 桌面深度报告与请求还原补充](codex/ChatGPT_Codex_桌面端_深度分析报告_请求还原补充.md) | 完整头部清单、逐端点模板、真实值来源、bundle 证据与项目待补齐字段 |
 | [Codex CLI 语音](CODEX_VOICE.md) | `/voice` 的 V3 协议、Sideband 配置、分钟价格和结算恢复 |
 | [CPA 多号池动态负载](CPA_POOL_DYNAMIC_LOAD_BALANCING_CN.md) | CPA 凭据容量、动态分流和运维检查 |
 | [调度候选索引优化](SCHEDULER_CANDIDATE_INDEX_OPTIMIZATION_CN.md) | 实验调度引擎、索引一致性和回退行为 |

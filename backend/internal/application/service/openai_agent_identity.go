@@ -400,6 +400,9 @@ func (s *OpenAIGatewayService) buildOpenAIAuthenticationHeaders(ctx context.Cont
 		}
 		return agentHeaders, nil
 	}
+	if err := validateOpenAIOAuthRequestPrincipal(credAccount, token); err != nil {
+		return nil, err
+	}
 	headers.Set("Authorization", "Bearer "+token)
 	return headers, nil
 }

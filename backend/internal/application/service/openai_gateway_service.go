@@ -501,6 +501,11 @@ type OpenAIGatewayService struct {
 	openAIWorkspaceRoutingEnabled  bool
 	openAIWorkspaceRoutingCache    sync.Map
 	openAIWorkspaceRoutingSF       singleflight.Group
+	openAIIntegrityMu              sync.Mutex
+	openAIIntegrityStates          map[string]openAIIntegrityBinding
+	openAIDeviceCookieMu           sync.Mutex
+	openAIDeviceCookies            map[string]openAIDeviceCookieBinding
+	openAIDeviceCookieSF           singleflight.Group
 	sessionIDAdmissionCache        OpenAISessionIDAdmissionCache
 	oauthGatewayRateLimitCache     OpenAIOAuthGatewayRateLimitCache
 	sessionIDRateMetrics           *OpenAISessionIDRateMetrics
@@ -629,6 +634,7 @@ func NewOpenAIGatewayService(
 		userPlatformQuotaRepo:   userPlatformQuotaRepo,
 		liveAttestation:         liveattestation.NewProvider(),
 		liveAttestationCipher:   newLiveAttestationCipher(cfg),
+		openAIIntegrityStates:   make(map[string]openAIIntegrityBinding),
 		responseHeaderFilter:    compileResponseHeaderFilter(cfg),
 		codexSnapshotThrottle:   newAccountWriteThrottle(openAICodexSnapshotPersistMinInterval),
 		openaiModelTransient:    newOpenAIAccountModelTransientState(openAIModelTransientDefaultMax),
