@@ -157,12 +157,16 @@ func TestOpenAIOAuthDesktopAlignmentProofMetadata(t *testing.T) {
 			}
 			var projected map[string]any
 			require.NoError(t, json.Unmarshal(body, &projected))
-			outer = projected["client_metadata"].(map[string]any)
+			var ok bool
+			outer, ok = projected["client_metadata"].(map[string]any)
+			require.True(t, ok)
 			if mode == "full" {
 				projectCodexFullSimulationMetadata(outer)
 			}
 			turn = map[string]any{}
-			require.NoError(t, json.Unmarshal([]byte(outer["x-codex-turn-metadata"].(string)), &turn))
+			turnMetadata, ok := outer["x-codex-turn-metadata"].(string)
+			require.True(t, ok)
+			require.NoError(t, json.Unmarshal([]byte(turnMetadata), &turn))
 			retained := 0
 			for _, key := range proofKeys {
 				if _, ok := outer[key]; ok {

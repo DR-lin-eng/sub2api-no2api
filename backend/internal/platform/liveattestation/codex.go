@@ -85,7 +85,8 @@ func ValidCodexHeader(header string) bool {
 		return false
 	}
 	for _, c := range strings.TrimPrefix(*envelope.Token, "v1.") {
-		if !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_') {
+		allowed := (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_'
+		if !allowed {
 			return false
 		}
 	}

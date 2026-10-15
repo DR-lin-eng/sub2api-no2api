@@ -947,7 +947,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	statusCode := 0
 	var handshakeHeaders http.Header
 	for {
-		proofCtx := ctx
+		var proofCtx context.Context
 		proofCtx, headers, err = s.prepareOpenAIWSProof(ctx, account, wsURL, headers)
 		if err != nil {
 			return fmt.Errorf("refresh ws authentication headers: %w", err)
