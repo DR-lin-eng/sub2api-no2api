@@ -3,8 +3,10 @@ package liveattestation
 import (
 	"context"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"math"
 	"strings"
 )
 
@@ -14,15 +16,78 @@ type CodexTokenProvider interface {
 	GenerateCodexToken(context.Context) (string, error)
 }
 
+type deviceSignals struct {
+	SchemaVersion      int      `json:"schemaVersion"`
+	PreferredLanguages []string `json:"preferredLanguages"`
+	Locale             string   `json:"locale"`
+	Timezone           string   `json:"timezone"`
+	ScreenSizeSum      int      `json:"screenSizeSum"`
+	ScreenScale        float64  `json:"screenScale"`
+	AppSessionID       string   `json:"appSessionId"`
+}
+
 func codexUnavailableToken(code byte) string {
-	// Same CBOR field order/types as the Linux desktop's ui/li helpers.
-	body := []byte{0xa2, 0x6a}
-	body = append(body, []byte("error_code")...)
-	body = append(body, code, 0x69)
-	body = append(body, []byte("bundle_id")...)
-	body = append(body, 0x70)
-	body = append(body, []byte("com.openai.codex")...)
+	return codexUnavailableWithSignals(code, nil)
+}
+
+func codexUnavailableWithSignals(code byte, signals *deviceSignals) string {
+	fields := byte(2)
+	if signals != nil {
+		fields++
+	}
+	body := []byte{0xa0 + fields}
+	body = appendCBORText(body, "error_code")
+	body = appendCBORHead(body, 0, uint32(code))
+	body = appendCBORText(body, "bundle_id")
+	body = appendCBORText(body, "com.openai.codex")
+	if signals != nil {
+		fingerprint := []byte{0xa7, 0x00}
+		fingerprint = appendCBORHead(fingerprint, 0, uint32(max(0, signals.SchemaVersion)))
+		fingerprint = append(fingerprint, 0x01)
+		fingerprint = appendCBORHead(fingerprint, 0x80, uint32(len(signals.PreferredLanguages)))
+		for _, language := range signals.PreferredLanguages {
+			fingerprint = appendCBORText(fingerprint, language)
+		}
+		fingerprint = append(fingerprint, 0x02)
+		fingerprint = appendCBORText(fingerprint, signals.Locale)
+		fingerprint = append(fingerprint, 0x03)
+		fingerprint = appendCBORText(fingerprint, signals.Timezone)
+		fingerprint = append(fingerprint, 0x04)
+		fingerprint = appendCBORHead(fingerprint, 0, uint32(max(0, signals.ScreenSizeSum)))
+		fingerprint = append(fingerprint, 0x05)
+		if signals.ScreenScale >= 0 && signals.ScreenScale <= math.MaxUint32 && signals.ScreenScale == math.Trunc(signals.ScreenScale) {
+			fingerprint = appendCBORHead(fingerprint, 0, uint32(signals.ScreenScale))
+		} else {
+			fingerprint = append(fingerprint, 0xfb)
+			fingerprint = binary.BigEndian.AppendUint64(fingerprint, math.Float64bits(signals.ScreenScale))
+		}
+		fingerprint = append(fingerprint, 0x06)
+		fingerprint = appendCBORText(fingerprint, signals.AppSessionID)
+		body = appendCBORText(body, "f")
+		body = appendCBORHead(body, 0x40, uint32(len(fingerprint)))
+		body = append(body, fingerprint...)
+	}
 	return "v1." + base64.RawURLEncoding.EncodeToString(body)
+}
+
+func appendCBORText(body []byte, value string) []byte {
+	body = appendCBORHead(body, 0x60, uint32(len(value)))
+	return append(body, []byte(value)...)
+}
+
+func appendCBORHead(body []byte, major byte, value uint32) []byte {
+	switch {
+	case value < 24:
+		return append(body, major+byte(value))
+	case value <= 255:
+		return append(body, major+24, byte(value))
+	case value <= 65535:
+		body = append(body, major+25)
+		return binary.BigEndian.AppendUint16(body, uint16(value))
+	default:
+		body = append(body, major+26)
+		return binary.BigEndian.AppendUint32(body, value)
+	}
 }
 
 // CodexHeader mirrors app-server/src/attestation.rs. The provider supplies the

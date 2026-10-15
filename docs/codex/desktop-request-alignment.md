@@ -67,3 +67,6 @@ X-OAI-IS 已改为 immutable send receipt、principal/installation/origin namesp
 DeviceCheck 已连接到准确的 Desktop messages/challenge 路径，并在 messages 发送前注册 /devicecheck、验证与复用 _devicecheck cookie。真实 native 测试确认本机设备不支持 raw Apple token；local mock 流程和真实 Redis 竞态通过，真实 Apple 注册尚未验证。
 
 用户授权账号的真实非流式、SSE 和 WS 模型请求完成；wham/usage HTTP 200。成功模型请求未返回 integrity update，因此没有把本地 CAS 测试称为真实 X-OAI-IS 闭环。最新状态以深度补充报告附录 E 和机器清单为准。
+
+
+Ghidra 后续新增的 controller TPM/SE 证明、CBOR/Windows 平台表修正和 native-load 失败语义见 [原生层对照](native-device-key-alignment.md)。硬件证明仅进入远程控制 enrollment/WS challenge，不附加到普通模型请求；成功硬件签名及真实上游 enrollment 仍需实际环境。

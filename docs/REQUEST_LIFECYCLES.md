@@ -558,3 +558,8 @@ frontend/src
 - S3 共享客户端覆盖测试、上传、下载、删除、旧数据库配置、图片配置及 config.yaml 回落。自定义 endpoint 仅接受无凭据、查询或片段的 HTTP(S) URL；空 endpoint 保留 AWS 默认端点。连接时校验所有 DNS 地址，并直接连接已校验的公网 IP，保留原 Host、签名和 TLS 身份；不使用环境代理，不跟随 HTTP 重定向。此策略独立于普通上游的私网例外，私网 MinIO、回环/链路本地对象存储及环境代理部署需改用可直接访问的公网存储端点。
 - `PgDumper.Restore` 先将完整解压 SQL 写入权限 0600 的临时文件，读取或 gzip 校验失败时不启动恢复。仅移除 pg_dump 的精确外层 `\restrict`/`\unrestrict` 包装，SQL 和 COPY 数据保持原字节；旧版无包装 SQL 继续支持。随后使用独立随机限制键执行 psql，并设置 `--no-psqlrc`、`ON_ERROR_STOP=1` 和单事务；不能建立限制模式的旧客户端会失败关闭。客户端须支持 `\restrict`，项目 Docker 镜像提供 PostgreSQL 18 客户端。
 - 恢复需要额外容纳完整解压 SQL 的临时磁盘空间，结束或失败时删除临时文件。客户端限制阻断 `\!`、`\copy PROGRAM`、输出管道及其他 psql 元命令；备份中的 SQL 仍按数据库角色权限执行，不能将此保护理解为任意 SQL 沙箱或数据库超级用户隔离。
+
+
+## Codex controller 设备密钥证明
+
+`NewCodexRemoteControlClient` 解析 OAuth 凭据 owner 并绑定账号级 HTTP transport、安装身份与 native resources。manager 显式请求 step-up 后执行 client enroll start/finish，刷新时校验已存公钥与服务端 device identity hash；session token 只保留内存。WebSocket 使用 client-session-token 与 v3 头，收到正确 origin/path、账号、scopes、token 摘要和有效期的 challenge 后调用 native TPM/SE 签名，再交还连接。server enrollment/pairing 仍使用原 owner。接口与证据见 [原生证明对照](codex/native-device-key-alignment.md)。

@@ -28,16 +28,6 @@ type darwinProvider struct {
 	appPaths     []string
 }
 
-type deviceSignals struct {
-	SchemaVersion      int      `json:"schemaVersion"`
-	PreferredLanguages []string `json:"preferredLanguages"`
-	Locale             string   `json:"locale"`
-	Timezone           string   `json:"timezone"`
-	ScreenSizeSum      int      `json:"screenSizeSum"`
-	ScreenScale        float64  `json:"screenScale"`
-	AppSessionID       string   `json:"appSessionId"`
-}
-
 type macOSSignals struct {
 	Locale        string   `json:"locale"`
 	Languages     []string `json:"languages"`
@@ -67,6 +57,10 @@ func (p *darwinProvider) Check(ctx context.Context) error {
 }
 
 func (p *darwinProvider) resolveRuntime(ctx context.Context) (string, string, string, error) {
+	return p.resolveNativeRuntime(ctx, false)
+}
+
+func (p *darwinProvider) resolveNativeRuntime(ctx context.Context, codexMode bool) (string, string, string, error) {
 	if runtime.GOARCH != "arm64" {
 		return "", "", "", errors.New("live attestation currently requires Apple Silicon; Intel macOS is not supported")
 	}
@@ -81,6 +75,11 @@ func (p *darwinProvider) resolveRuntime(ctx context.Context) (string, string, st
 		nodePath:   "bundled Node.js runtime",
 		modulePath: "DeviceCheck native module",
 	} {
+		// Electron catches native-module loading failures inside its callback
+		// and returns error_code=4. Live/raw DeviceCheck still require the module.
+		if codexMode && filePath == modulePath {
+			continue
+		}
 		if info, statErr := os.Stat(filePath); statErr != nil || info.IsDir() {
 			return "", "", "", fmt.Errorf("%w: ChatGPT app is missing its %s", ErrChatGPTAppMissing, label)
 		}
@@ -101,7 +100,13 @@ func (p *darwinProvider) GenerateCodexToken(ctx context.Context) (string, error)
 		return "", err
 	}
 	if runtime.GOARCH != "arm64" {
-		return codexUnavailableToken(2), nil
+		runCtx, cancel := context.WithTimeout(ctx, attestationTimeout)
+		defer cancel()
+		signals, err := p.readSignals(runCtx)
+		if err != nil {
+			return "", err
+		}
+		return codexUnavailableWithSignals(2, &signals), nil
 	}
 	header, err := p.generate(ctx, true)
 	if err != nil {
@@ -119,7 +124,7 @@ func (p *darwinProvider) GenerateCodexToken(ctx context.Context) (string, error)
 func (p *darwinProvider) generate(ctx context.Context, codexMode bool) (string, error) {
 	runCtx, cancel := context.WithTimeout(ctx, attestationTimeout)
 	defer cancel()
-	nodePath, modulePath, bundleID, err := p.resolveRuntime(runCtx)
+	nodePath, modulePath, bundleID, err := p.resolveNativeRuntime(runCtx, codexMode)
 	if err != nil {
 		return "", err
 	}
@@ -316,7 +321,6 @@ func truncateSignal(value string, limit int, fallback string) string {
 }
 
 const deviceCheckScript = `
-const addon = require(process.env.SUB2API_DEVICECHECK_MODULE);
 const signals = JSON.parse(process.env.SUB2API_ATTESTATION_SIGNALS);
 const bundleID = process.env.SUB2API_ATTESTATION_BUNDLE_ID;
 
@@ -358,7 +362,10 @@ function base64url(value) {
 (async () => {
   const codexMode = process.env.SUB2API_CODEX_TOKEN === "1";
   let result, errorCode;
-  try { result = await addon.generateToken(); }
+  try {
+    const addon = require(process.env.SUB2API_DEVICECHECK_MODULE);
+    result = await addon.generateToken();
+  }
   catch (error) { if (!codexMode) throw error; errorCode = 4; result = {}; }
   if (!result || !result.supported) {
     if (!codexMode) throw new Error("DeviceCheck is not supported on this Mac");
