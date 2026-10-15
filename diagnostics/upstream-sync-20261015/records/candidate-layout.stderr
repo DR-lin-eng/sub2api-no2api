@@ -1,0 +1,2 @@
+layout error: internal/application/service/payment_fulfillment_test.go has 1201 lines (limit 1200); split by responsibility
+make: *** [check-layout] Error 1

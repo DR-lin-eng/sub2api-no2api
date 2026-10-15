@@ -1,0 +1,16 @@
+2026/10/15 13:04:34 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestUpstreamSyncBehavior
+OBSERVED_SERVICE {"anthropic_url":"https://api.deepseek.com/v1/messages?beta=true","argon_default_mapping":"","argon_input_price":0,"foreign_oauth_rejected":false,"zhipu_tiers":[{"window":"5h","used_percent":90,"reset_at":"1970-01-01T00:33:20Z"},{"window":"weekly","used_percent":10,"reset_at":"1970-01-01T00:50:00Z"}]}
+--- PASS: TestUpstreamSyncBehavior (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.077s
+=== RUN   TestUpstreamSyncBehavior
+OBSERVED_ADMIN cross_workspace_identity_overlap=true
+--- PASS: TestUpstreamSyncBehavior (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin	0.036s
+=== RUN   TestUpstreamMediaBehavior
+OBSERVED_MEDIA inline_images=0 function_text=loaded
+--- PASS: TestUpstreamMediaBehavior (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/antigravity	0.005s

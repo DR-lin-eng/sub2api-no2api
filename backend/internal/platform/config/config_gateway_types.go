@@ -6,6 +6,8 @@ import (
 )
 
 type GatewayConfig struct {
+	// MinOutputTokens is the output floor for compatibility conversions.
+	MinOutputTokens int `mapstructure:"min_output_tokens"`
 	// 等待上游响应头的超时时间（秒），0表示无超时
 	// 注意：这不影响流式数据传输，只控制等待响应头的时间
 	ResponseHeaderTimeout int `mapstructure:"response_header_timeout"`

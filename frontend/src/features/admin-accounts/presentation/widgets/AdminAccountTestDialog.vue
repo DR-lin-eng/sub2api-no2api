@@ -324,7 +324,7 @@ const supportsGeminiImageTest = computed(() => {
   const modelID = selectedModelId.value.toLowerCase()
   const isGeminiAccount =
     props.account?.platform === 'gemini' ||
-    (props.account?.platform === 'antigravity' && props.account?.type === 'apikey')
+    props.account?.platform === 'antigravity'
   if (!isGeminiAccount) return false
 
   return (

@@ -1,0 +1,20 @@
+OBSERVED_MEDIA inline_images=1 function_text=loaded
+OBSERVED_MEDIA inline_images=1 function_text=loaded
+OBSERVED_MEDIA inline_images=1 function_text=loaded
+goos: linux
+goarch: arm64
+pkg: github.com/Wei-Shaw/sub2api/internal/shared/antigravity
+BenchmarkUpstream20261015ToolResult/text/1024-2         	   13920	     22455 ns/op	    4312 B/op	      43 allocs/op
+BenchmarkUpstream20261015ToolResult/text/1024-2         	   13255	     20401 ns/op	    4312 B/op	      43 allocs/op
+BenchmarkUpstream20261015ToolResult/text/1024-2         	   16309	     20419 ns/op	    4312 B/op	      43 allocs/op
+BenchmarkUpstream20261015ToolResult/text/1048576-2      	      18	  16219389 ns/op	 2107489 B/op	      43 allocs/op
+BenchmarkUpstream20261015ToolResult/text/1048576-2      	      16	  16782505 ns/op	 2107490 B/op	      43 allocs/op
+BenchmarkUpstream20261015ToolResult/text/1048576-2      	      18	  16402794 ns/op	 2107488 B/op	      43 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1024-2        	   12489	     22532 ns/op	    5144 B/op	      59 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1024-2        	   12820	     22531 ns/op	    5144 B/op	      59 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1024-2        	   12019	     21044 ns/op	    5144 B/op	      59 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1048576-2     	      19	  16009590 ns/op	 2108324 B/op	      59 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1048576-2     	      18	  14825150 ns/op	 2108332 B/op	      59 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1048576-2     	      20	  15419681 ns/op	 2108321 B/op	      59 allocs/op
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/antigravity	4.981s
