@@ -1,0 +1,19 @@
+{
+  "active_object": "selective upstream sync 20261015",
+  "baseline_sha": "ec1ead14315d303db19cf3116754eb89a853838c",
+  "upstream_sha": "698d142468ab15374bc22bd5247759e5b7352006",
+  "last_confirmed_result": "All local required Docker checks, runtime/rollback and final source transaction passed; known baseline maintenance debt isolated",
+  "next_executable_action": "Commit and push the reviewed candidate, create PR, then verify exact-head PR/main workflows and GHCR manifests",
+  "input_paths": [
+    "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/records",
+    "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/upstream-diffs"
+  ],
+  "acceptance_event": "exact head PR/main workflows and GHCR verification",
+  "supplemental_upstream_sha": "1b2243a4f50621508e79aef4b498a2937a6238ee",
+  "role_paths": [
+    "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015/MODIFIED_FILE.tar.gz",
+    "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015/DIFF_FILE.patch",
+    "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015/VERIFICATION.txt",
+    "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015/ROLLBACK.sh"
+  ]
+}

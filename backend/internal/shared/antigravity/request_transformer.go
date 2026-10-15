@@ -544,7 +544,7 @@ func buildParts(content json.RawMessage, toolIDToName map[string]string, allowDu
 			}
 
 			// 解析 content
-			resultContent := parseToolResultContent(block.Content, block.IsError)
+			resultContent, inlineParts := parseToolResultContentWithInlineParts(block.Content, block.IsError)
 
 			parts = append(parts, GeminiPart{
 				FunctionResponse: &GeminiFunctionResponse{
@@ -555,54 +555,60 @@ func buildParts(content json.RawMessage, toolIDToName map[string]string, allowDu
 					ID: block.ToolUseID,
 				},
 			})
+			parts = append(parts, inlineParts...)
 		}
 	}
 
 	return parts, strippedThinking, nil
 }
 
-// parseToolResultContent 解析 tool_result 的 content
-func parseToolResultContent(content json.RawMessage, isError bool) string {
-	if len(content) == 0 {
-		if isError {
-			return "Tool execution failed with no output."
-		}
-		return "Command executed successfully."
+// parseToolResultContentWithInlineParts decodes once and keeps binary data out
+// of the functionResponse text consumed by older clients.
+func parseToolResultContentWithInlineParts(content json.RawMessage, isError bool) (string, []GeminiPart) {
+	fallback := "Command executed successfully."
+	if isError {
+		fallback = "Tool execution failed with no output."
 	}
-
-	// 尝试解析为字符串
+	if len(content) == 0 {
+		return fallback, nil
+	}
 	var str string
 	if err := json.Unmarshal(content, &str); err == nil {
 		if strings.TrimSpace(str) == "" {
-			if isError {
-				return "Tool execution failed with no output."
-			}
-			return "Command executed successfully."
+			return fallback, nil
 		}
-		return str
+		return str, nil
 	}
-
-	// 尝试解析为数组
 	var arr []map[string]any
 	if err := json.Unmarshal(content, &arr); err == nil {
 		var texts []string
+		var inlineParts []GeminiPart
 		for _, item := range arr {
-			if text, ok := item["text"].(string); ok {
-				texts = append(texts, text)
+			if value, ok := item["text"].(string); ok {
+				texts = append(texts, value)
 			}
-		}
-		result := strings.Join(texts, "\n")
-		if strings.TrimSpace(result) == "" {
-			if isError {
-				return "Tool execution failed with no output."
+			kind, _ := item["type"].(string)
+			if kind != "image" && kind != "document" {
+				continue
 			}
-			return "Command executed successfully."
+			source, _ := item["source"].(map[string]any)
+			if source["type"] != "base64" {
+				continue
+			}
+			data, _ := source["data"].(string)
+			if strings.TrimSpace(data) == "" {
+				continue
+			}
+			mime, _ := source["media_type"].(string)
+			inlineParts = append(inlineParts, GeminiPart{InlineData: &GeminiInlineData{MimeType: mime, Data: data}})
 		}
-		return result
+		value := strings.Join(texts, "\n")
+		if strings.TrimSpace(value) == "" {
+			value = fallback
+		}
+		return value, inlineParts
 	}
-
-	// 返回原始 JSON
-	return string(content)
+	return string(content), nil
 }
 
 // buildGenerationConfig 构建 generationConfig

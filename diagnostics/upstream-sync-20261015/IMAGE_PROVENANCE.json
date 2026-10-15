@@ -1,0 +1,20 @@
+[
+  {
+    "tags": [
+      "sub2api-upstream-sync:20261015-baseline"
+    ],
+    "id": "sha256:ad9b96a646b769a6fde55d92b1acfb7c20768df49f9e2d041092faab6879bea7",
+    "created": "2026-10-15T11:38:33.685441305Z",
+    "architecture": "arm64",
+    "os": "linux"
+  },
+  {
+    "tags": [
+      "sub2api-upstream-sync:20261015-candidate"
+    ],
+    "id": "sha256:04d2759b503c7b90c3af20f821146b4f5d43e5995c578ffac6b2b9ae11516fde",
+    "created": "2026-10-15T13:18:24.244276133Z",
+    "architecture": "arm64",
+    "os": "linux"
+  }
+]

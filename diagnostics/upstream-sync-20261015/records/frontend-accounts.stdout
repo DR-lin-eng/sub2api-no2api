@@ -1,0 +1,247 @@
+? Verifying lockfile against supply-chain policies (483 entries)...
+Lockfile is up to date, resolution step is skipped
+Already up to date
+[WARN] Request took 10092ms: https://registry.npmjs.org/ansi-regex
+[WARN] Request took 10316ms: https://registry.npmjs.org/@vue%2Freactivity
+[WARN] Request took 10232ms: https://registry.npmjs.org/@vue%2Fserver-renderer
+[WARN] Request took 10140ms: https://registry.npmjs.org/any-promise
+[WARN] Request took 10107ms: https://registry.npmjs.org/assertion-error
+[WARN] Request took 10522ms: https://registry.npmjs.org/ansi-styles
+[WARN] Request took 10145ms: https://registry.npmjs.org/anymatch
+[WARN] Request took 10146ms: https://registry.npmjs.org/arg
+[WARN] Request took 10606ms: https://registry.npmjs.org/@vue%2Fshared
+[WARN] Request took 10646ms: https://registry.npmjs.org/@vue%2Fruntime-core
+[WARN] Request took 10145ms: https://registry.npmjs.org/boolbase
+[WARN] Request took 11080ms: https://registry.npmjs.org/@vueuse%2Fmetadata
+[WARN] Request took 11120ms: https://registry.npmjs.org/@vue%2Ftest-utils
+[WARN] Request took 11195ms: https://registry.npmjs.org/brace-expansion
+[WARN] Request took 12697ms: https://registry.npmjs.org/@vue%2Fruntime-dom
+[WARN] Request took 12608ms: https://registry.npmjs.org/ajv
+[WARN] Request took 12805ms: https://registry.npmjs.org/call-bind-apply-helpers
+[WARN] Request took 12819ms: https://registry.npmjs.org/braces
+[WARN] Request took 15187ms: https://registry.npmjs.org/camelcase-css
+[WARN] Request took 15183ms: https://registry.npmjs.org/camelcase
+[WARN] Request took 17175ms: https://registry.npmjs.org/@vueuse%2Fshared
+[WARN] Request took 16260ms: https://registry.npmjs.org/axios
+[WARN] Request took 16269ms: https://registry.npmjs.org/autoprefixer
+[WARN] Request took 19223ms: https://registry.npmjs.org/@vue%2Fcompiler-core
+[WARN] Request took 19577ms: https://registry.npmjs.org/cac
+[WARN] Request took 19592ms: https://registry.npmjs.org/browserslist
+[WARN] Request took 12143ms: https://registry.npmjs.org/dunder-proto
+[WARN] Request took 12112ms: https://registry.npmjs.org/editorconfig
+[WARN] Request took 11880ms: https://registry.npmjs.org/entities
+[WARN] Request took 12665ms: https://registry.npmjs.org/es-define-property
+[WARN] Request took 12895ms: https://registry.npmjs.org/es-errors
+[WARN] Request took 11340ms: https://registry.npmjs.org/espree
+[WARN] Request took 12256ms: https://registry.npmjs.org/es-object-atoms
+[WARN] Request took 10958ms: https://registry.npmjs.org/esquery
+[WARN] Request took 31471ms: https://registry.npmjs.org/pnpm
+
+   ╭───────────────────────────────────────────────╮
+   │                                               │
+   │     Update available! 11.17.0 → 12.11.2.      │
+   │     Changelog: https://pnpm.io/v/12.11.2      │
+   │   To update, run: corepack use pnpm@12.11.2   │
+   │                                               │
+   ╰───────────────────────────────────────────────╯
+
+[WARN] Request took 11180ms: https://registry.npmjs.org/esrecurse
+[WARN] Request took 11922ms: https://registry.npmjs.org/estraverse
+[WARN] Request took 12157ms: https://registry.npmjs.org/esutils
+[WARN] Request took 14005ms: https://registry.npmjs.org/estree-walker
+[WARN] Request took 12933ms: https://registry.npmjs.org/fast-deep-equal
+[WARN] Request took 10247ms: https://registry.npmjs.org/fast-glob
+[WARN] Request took 24505ms: https://registry.npmjs.org/data-urls
+[WARN] Request took 10131ms: https://registry.npmjs.org/file-saver
+[WARN] Request took 10071ms: https://registry.npmjs.org/find-up
+[WARN] Request took 26344ms: https://registry.npmjs.org/decimal.js
+[WARN] Request took 29536ms: https://registry.npmjs.org/check-error
+[WARN] Request took 10688ms: https://registry.npmjs.org/flatted
+[WARN] Request took 19613ms: https://registry.npmjs.org/eslint
+[WARN] GET https://registry.npmjs.org/glob-parent error (UND_ERR_SOCKET). Will retry in 10 seconds. 2 retries left.
+[WARN] Request took 33236ms: https://registry.npmjs.org/cap-widget
+[WARN] Request took 17017ms: https://registry.npmjs.org/fast-json-stable-stringify
+[WARN] Request took 10751ms: https://registry.npmjs.org/get-intrinsic
+[WARN] Request took 44359ms: https://registry.npmjs.org/@typescript-eslint%2Fscope-manager
+[WARN] Request took 14929ms: https://registry.npmjs.org/form-data
+[WARN] Request took 44615ms: https://registry.npmjs.org/@vue%2Fcompiler-dom
+[WARN] Request took 36366ms: https://registry.npmjs.org/cliui
+[WARN] Request took 46419ms: https://registry.npmjs.org/@typescript-eslint%2Fvisitor-keys
+[WARN] Request took 47357ms: https://registry.npmjs.org/@types%2Fnode
+[WARN] Request took 16203ms: https://registry.npmjs.org/glob-parent
+[WARN] Request took 39414ms: https://registry.npmjs.org/eastasianwidth
+[WARN] Request took 16226ms: https://registry.npmjs.org/has-symbols
+[WARN] Request took 22325ms: https://registry.npmjs.org/function-bind
+[WARN] Request took 41873ms: https://registry.npmjs.org/dlv
+[WARN] Request took 52765ms: https://registry.npmjs.org/@vue%2Fcompiler-sfc
+[WARN] Request took 53161ms: https://registry.npmjs.org/@vueuse%2Fcore
+[WARN] Request took 42053ms: https://registry.npmjs.org/emoji-regex
+[WARN] Request took 44851ms: https://registry.npmjs.org/config-chain
+[WARN] Request took 10272ms: https://registry.npmjs.org/ms
+[WARN] Request took 39056ms: https://registry.npmjs.org/esbuild
+[WARN] Request took 45862ms: https://registry.npmjs.org/deep-eql
+[WARN] Request took 32790ms: https://registry.npmjs.org/fdir
+[WARN] Request took 10775ms: https://registry.npmjs.org/jsdom
+[WARN] Request took 25170ms: https://registry.npmjs.org/glob
+[WARN] Request took 54464ms: https://registry.npmjs.org/caniuse-lite
+[WARN] GET https://registry.npmjs.org/@typescript-eslint%2Feslint-plugin error (23). Will retry in 10 seconds. 2 retries left.
+[WARN] GET https://registry.npmjs.org/@typescript-eslint%2Fparser error (23). Will retry in 10 seconds. 2 retries left.
+[WARN] GET https://registry.npmjs.org/@typescript-eslint%2Ftype-utils error (23). Will retry in 10 seconds. 2 retries left.
+[WARN] GET https://registry.npmjs.org/@typescript-eslint%2Ftypes error (23). Will retry in 10 seconds. 2 retries left.
+[WARN] GET https://registry.npmjs.org/@typescript-eslint%2Ftypescript-estree error (23). Will retry in 10 seconds. 2 retries left.
+[WARN] GET https://registry.npmjs.org/@typescript-eslint%2Futils error (23). Will retry in 10 seconds. 2 retries left.
+[WARN] GET https://registry.npmjs.org/@volar%2Fsource-map error (23). Will retry in 10 seconds. 2 retries left.
+[WARN] GET https://registry.npmjs.org/@vue%2Fcompiler-ssr error (23). Will retry in 10 seconds. 2 retries left.
+[WARN] Request took 25171ms: https://registry.npmjs.org/gopd
+[WARN] Request took 50244ms: https://registry.npmjs.org/driver.js
+[WARN] Request took 12008ms: https://registry.npmjs.org/proper-lockfile
+[WARN] Request took 10361ms: https://registry.npmjs.org/supports-color
+[WARN] Request took 10496ms: https://registry.npmjs.org/strip-literal
+[WARN] Request took 56176ms: https://registry.npmjs.org/dompurify
+[WARN] Request took 22764ms: https://registry.npmjs.org/micromatch
+[WARN] Request took 12804ms: https://registry.npmjs.org/tldts-core
+[WARN] GET https://registry.npmjs.org/commander error (23). Will retry in 10 seconds. 2 retries left.
+[WARN] GET https://registry.npmjs.org/cross-spawn error (23). Will retry in 10 seconds. 2 retries left.
+[WARN] GET https://registry.npmjs.org/csstype error (23). Will retry in 10 seconds. 2 retries left.
+[WARN] GET https://registry.npmjs.org/de-indent error (23). Will retry in 10 seconds. 2 retries left.
+[WARN] GET https://registry.npmjs.org/debug error (23). Will retry in 10 seconds. 2 retries left.
+[WARN] GET https://registry.npmjs.org/delayed-stream error (23). Will retry in 10 seconds. 2 retries left.
+[WARN] GET https://registry.npmjs.org/electron-to-chromium error (23). Will retry in 10 seconds. 2 retries left.
+[WARN] Request took 25930ms: https://registry.npmjs.org/path-scurry
+[WARN] Request took 29630ms: https://registry.npmjs.org/minipass
+[WARN] Request took 25067ms: https://registry.npmjs.org/source-map-js
+[WARN] GET https://registry.npmjs.org/expect-type error (23). Will retry in 10 seconds. 2 retries left.
+[WARN] Request took 70961ms: https://registry.npmjs.org/delayed-stream
+[WARN] Request took 28277ms: https://registry.npmjs.org/safer-buffer
+[WARN] Request took 70967ms: https://registry.npmjs.org/de-indent
+[WARN] Request took 26875ms: https://registry.npmjs.org/tailwindcss
+[WARN] Request took 72575ms: https://registry.npmjs.org/debug
+[WARN] GET https://registry.npmjs.org/fast-levenshtein error (23). Will retry in 10 seconds. 2 retries left.
+[WARN] Request took 29751ms: https://registry.npmjs.org/semver
+[WARN] Request took 20766ms: https://registry.npmjs.org/ws
+[WARN] Request took 15848ms: https://registry.npmjs.org/@volar%2Fsource-map
+[WARN] Request took 59365ms: https://registry.npmjs.org/flat-cache
+[WARN] GET https://registry.npmjs.org/file-entry-cache error (23). Will retry in 10 seconds. 2 retries left.
+[WARN] GET https://registry.npmjs.org/fill-range error (23). Will retry in 10 seconds. 2 retries left.
+[WARN] Request took 34103ms: https://registry.npmjs.org/tldts
+[WARN] Request took 70441ms: https://registry.npmjs.org/fast-levenshtein
+[WARN] Request took 42549ms: https://registry.npmjs.org/punycode
+[WARN] Request took 25455ms: https://registry.npmjs.org/@vue%2Fcompiler-ssr
+[WARN] Request took 26822ms: https://registry.npmjs.org/@typescript-eslint%2Ftypes
+[WARN] Request took 43896ms: https://registry.npmjs.org/sucrase
+[WARN] Request took 32579ms: https://registry.npmjs.org/@typescript-eslint%2Futils
+[WARN] Request took 52153ms: https://registry.npmjs.org/resolve
+[WARN] GET https://registry.npmjs.org/magic-string error (23). Will retry in 10 seconds. 2 retries left.
+[WARN] GET https://registry.npmjs.org/magicast error (23). Will retry in 10 seconds. 2 retries left.
+[WARN] Request took 36574ms: https://registry.npmjs.org/@typescript-eslint%2Ftypescript-estree
+[WARN] Request took 46034ms: https://registry.npmjs.org/vue-tsc
+[WARN] Request took 84121ms: https://registry.npmjs.org/file-entry-cache
+[WARN] Request took 45093ms: https://registry.npmjs.org/@typescript-eslint%2Feslint-plugin
+[WARN] Request took 32913ms: https://registry.npmjs.org/electron-to-chromium
+[WARN] Request took 70385ms: https://registry.npmjs.org/magic-string
+[WARN] Request took 46377ms: https://registry.npmjs.org/@typescript-eslint%2Ftype-utils
+[WARN] Request took 73455ms: https://registry.npmjs.org/magicast
+[WARN] GET https://registry.npmjs.org/typescript error (23). Will retry in 10 seconds. 2 retries left.
+[WARN] Request took 100685ms: https://registry.npmjs.org/expect-type
+[WARN] Request took 54061ms: https://registry.npmjs.org/@typescript-eslint%2Fparser
+[WARN] GET https://registry.npmjs.org/csstype error (23). Will retry in 1 minute. 1 retries left.
+[WARN] Request took 17850ms: https://registry.npmjs.org/typescript
+✓ Lockfile passes supply-chain policies (483 entries in 3m 23.5s)
+
+Done in 3m 23.9s using pnpm v11.17.0
+
+ RUN  v3.2.6 /workspace/frontend
+
+ ❯ src/features/admin-accounts/__tests__/adminAccountsModularization.spec.ts (13 tests | 1 failed) 51ms
+   ✓ admin accounts modularization > owns account-only DTOs in feature data while preserving compatibility exports 6ms
+   × admin accounts modularization > keeps every feature runtime module within the maintenance target 30ms
+     → presentation/widgets/CreateAccountDialog.vue: expected 1512 to be less than or equal to 1500
+   ✓ admin accounts modularization > keeps the table and field modules statically owned by the accounts route chunk 0ms
+   ✓ admin accounts modularization > keeps request lifecycle out of the table-only view 0ms
+   ✓ admin accounts modularization > routes page requests through feature owners instead of the admin compatibility barrel 0ms
+   ✓ admin accounts modularization > routes bulk edit actions through the account action owner 0ms
+   ✓ admin accounts modularization > reads the global quota notification switch from its settings owner 0ms
+   ✓ admin accounts modularization > routes scheduled test lifecycle calls through their datasource owner 0ms
+   ✓ admin accounts modularization > routes OAuth composables through feature-owned action datasources 0ms
+   ✓ admin accounts modularization > routes reauthorization widgets through account action owners 0ms
+   ✓ admin accounts modularization > routes create and edit workflows through explicit account and settings owners 0ms
+   ✓ admin accounts modularization > routes account import and CRS sync through query/action owners 14ms
+   ✓ admin accounts modularization > preserves quota hydration, bounded batches, feedback timing, and refresh cadence 0ms
+ ❯ src/features/admin-accounts/presentation/composables/__tests__/useModelWhitelist.spec.ts (16 tests | 1 failed) 6ms
+   ✓ useModelWhitelist > openai 模型列表包含 GPT-5.4 官方快照 1ms
+   ✓ useModelWhitelist > openai 模型列表不再暴露已下线的 ChatGPT 登录 Codex 模型 0ms
+   ✓ useModelWhitelist > antigravity 模型列表包含图片模型兼容项 0ms
+   ✓ useModelWhitelist > Claude 模型列表包含新发布的 Claude 模型 0ms
+   ✓ useModelWhitelist > xAI 模型列表包含 Grok 4.6、4.5 官方模型和别名 0ms
+   ✓ useModelWhitelist > combined 模式支持 Grok 4.5 官方别名映射 0ms
+   ✓ useModelWhitelist > grok 模型列表包含 Composer 默认项和兼容别名 0ms
+   ✓ useModelWhitelist > gemini 模型列表包含原生生图模型 0ms
+   ✓ useModelWhitelist > antigravity 模型列表会把新的 Gemini 图片模型排在前面 0ms
+   ✓ useModelWhitelist > antigravity 模型列表包含 Gemini 3.1 Pro 通用别名 0ms
+   × useModelWhitelist > Gemini 4 Argon 在 gemini 与 antigravity 平台使用对应真实模型 ID 与预设映射 2ms
+     → getPresetMappingsByPlatform is not defined
+   ✓ useModelWhitelist > whitelist 模式会忽略通配符条目 0ms
+   ✓ useModelWhitelist > whitelist 模式会保留 GPT-5.4 官方快照的精确映射 0ms
+   ✓ useModelWhitelist > whitelist keeps GPT-5.4 mini exact mappings 0ms
+   ✓ useModelWhitelist > combined 模式会同时保留白名单身份映射和模型映射 0ms
+   ✓ useModelWhitelist > splitModelMappingObject 会把身份映射还原成白名单，其余保留为映射 0ms
+ ✓ src/features/admin-accounts/__tests__/EditAccountModal.spec.ts (47 tests) 651ms
+ ✓ src/features/admin-accounts/__tests__/BulkEditAccountModal.spec.ts (40 tests) 464ms
+ ✓ src/features/admin-accounts/__tests__/CreateAccountModal.spec.ts (29 tests) 537ms
+ ✓ src/features/admin-accounts/__tests__/AccountsPage.schedulerScore.spec.ts (9 tests) 156ms
+ ✓ src/features/admin-accounts/__tests__/AccountUsageCell.spec.ts (37 tests) 122ms
+ ✓ src/features/admin-accounts/__tests__/AccountsPage.sparkShadow.spec.ts (8 tests) 146ms
+ ✓ src/features/admin-accounts/__tests__/EditAccountModal.grokUpstream.spec.ts (11 tests) 132ms
+ ✓ src/features/admin-accounts/__tests__/AccountsPage.upstreamQuota.spec.ts (3 tests) 97ms
+ ✓ src/features/admin-accounts/__tests__/AccountsPage.bulkEdit.spec.ts (5 tests) 111ms
+ ✓ src/features/admin-accounts/__tests__/UpstreamBillingRateCell.spec.ts (11 tests) 85ms
+ ✓ src/features/admin-accounts/__tests__/OpenAIQuotaResetCell.spark_shadow.spec.ts (20 tests) 89ms
+ ✓ src/features/admin-accounts/__tests__/EditAccountDialog.cpa.spec.ts (4 tests) 90ms
+ ✓ src/features/admin-accounts/__tests__/AccountsPage.usageWindowsHint.spec.ts (3 tests) 63ms
+ ✓ src/features/admin-accounts/__tests__/AdminAccountTestDialog.spec.ts (6 tests) 61ms
+ ✓ src/features/admin-accounts/presentation/widgets/__tests__/ScheduledTestsPanel.results.spec.ts (4 tests) 62ms
+ ✓ src/features/admin-accounts/__tests__/AccountActionMenu.position.spec.ts (10 tests) 60ms
+ ✓ src/features/admin-accounts/__tests__/OllamaCloudUsageSettings.spec.ts (5 tests) 47ms
+ ✓ src/features/admin-accounts/__tests__/AccountActionMenu.spark_shadow.spec.ts (11 tests) 39ms
+ ✓ src/features/admin-accounts/__tests__/ModelWhitelistSelector.spec.ts (4 tests) 40ms
+ ✓ src/features/admin-accounts/__tests__/AccountTestModal.spec.ts (3 tests) 41ms
+ ✓ src/features/admin-accounts/__tests__/AccountTableFilters.spec.ts (2 tests) 31ms
+ ✓ src/features/admin-accounts/__tests__/AccountPriorityCell.spec.ts (8 tests) 36ms
+ ✓ src/features/admin-accounts/__tests__/SyncFromCrsDialog.spec.ts (3 tests) 38ms
+ ✓ src/features/admin-accounts/__tests__/AccountStatusIndicator.spec.ts (7 tests) 29ms
+ ✓ src/features/admin-accounts/__tests__/CNProviderUsageCell.spec.ts (5 tests) 26ms
+ ✓ src/features/admin-accounts/__tests__/UsageProgressBar.spec.ts (8 tests) 30ms
+ ✓ src/features/admin-accounts/__tests__/AccountCapacityCell.cpa.spec.ts (5 tests) 22ms
+ ✓ src/features/admin-accounts/__tests__/AccountActionMenu.cpa.spec.ts (2 tests) 21ms
+ ✓ src/features/admin-accounts/__tests__/OllamaCloudUsageCell.spec.ts (2 tests) 18ms
+ ✓ src/features/admin-accounts/__tests__/AccountBulkActionsBar.spec.ts (3 tests) 15ms
+ ✓ src/features/admin-accounts/__tests__/GrokQuotaProbeCell.spec.ts (1 test) 13ms
+ ✓ src/features/admin-accounts/__tests__/credentialsBuilder.spec.ts (57 tests) 11ms
+ ✓ src/features/admin-accounts/__tests__/adminAccountActions.spec.ts (9 tests) 4ms
+ ✓ src/features/admin-accounts/__tests__/adminAccountQueries.spec.ts (9 tests) 4ms
+ ✓ src/features/admin-accounts/__tests__/accountSelection.spec.ts (7 tests) 5ms
+ ✓ src/features/admin-accounts/__tests__/adminAccounts.duplicate.spec.ts (3 tests) 4ms
+ ✓ src/features/admin-accounts/__tests__/adminAccounts.upstreamBillingProbe.spec.ts (4 tests) 4ms
+ ✓ src/features/admin-accounts/__tests__/adminGrok.spec.ts (4 tests) 3ms
+ ✓ src/features/admin-accounts/__tests__/adminAccounts.ollamaCloudUsage.spec.ts (3 tests) 3ms
+ ✓ src/features/admin-accounts/__tests__/scheduledTestsDatasource.spec.ts (3 tests) 3ms
+ ✓ src/features/admin-accounts/__tests__/tempUnschedScope.spec.ts (4 tests) 2ms
+ ✓ src/features/admin-accounts/__tests__/adminAccountOAuthActions.spec.ts (3 tests) 3ms
+ ✓ src/features/admin-accounts/presentation/composables/__tests__/useQuotaNotifyState.spec.ts (2 tests) 2ms
+ ✓ src/features/admin-accounts/__tests__/accountSortState.spec.ts (3 tests) 2ms
+ ✓ src/features/admin-accounts/presentation/composables/__tests__/useOpenAIOAuth.spec.ts (4 tests) 2ms
+ ✓ src/features/admin-accounts/presentation/composables/__tests__/useGrokOAuth.spec.ts (2 tests) 2ms
+ ✓ src/features/admin-accounts/__tests__/accountFormPolicy.codexFingerprint.spec.ts (9 tests) 2ms
+ ✓ src/features/admin-accounts/__tests__/CreateAccountModal.grok.spec.ts (3 tests) 1ms
+ ✓ src/features/admin-accounts/__tests__/codexFingerprintSignals.spec.ts (3 tests) 1ms
+ ✓ src/features/admin-accounts/__tests__/grokPlanResolver.spec.ts (4 tests) 2ms
+ ✓ src/features/admin-accounts/__tests__/accountLocale.spec.ts (4 tests) 1ms
+ ✓ src/features/admin-accounts/__tests__/accountExpiry.spec.ts (5 tests) 1ms
+ ✓ src/features/admin-accounts/presentation/composables/__tests__/useAntigravityOAuth.spec.ts (2 tests) 2ms
+ ✓ src/features/admin-accounts/__tests__/typesafeCapabilities.spec.ts (1 test) 1ms
+
+ Test Files  2 failed | 54 passed (56)
+      Tests  2 failed | 491 passed (493)
+   Start at  12:45:11
+   Duration  24.57s (transform 3.08s, setup 1.64s, collect 5.62s, tests 3.50s, environment 8.58s, prepare 1.48s)
+

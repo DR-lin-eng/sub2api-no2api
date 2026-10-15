@@ -1,0 +1,5 @@
+internal/shared/antigravity/request_transformer.go:566:6: func parseToolResultContent is unused (unused)
+func parseToolResultContent(content json.RawMessage, isError bool) string {
+     ^
+1 issues:
+* unused: 1

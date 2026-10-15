@@ -1,0 +1,27 @@
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/admin-accounts/__tests__/adminAccountsModularization.spec.ts > admin accounts modularization > keeps every feature runtime module within the maintenance target
+AssertionError: presentation/widgets/CreateAccountDialog.vue: expected 1512 to be less than or equal to 1500
+ ❯ src/features/admin-accounts/__tests__/adminAccountsModularization.spec.ts:114:63
+    112|     for (const runtime of collectRuntimeSources(featureDir)) {
+    113|       const target = maintenanceTargets.get(runtime.path) ?? 1500
+    114|       expect(runtime.source.split('\n').length, runtime.path).toBeLess…
+       |                                                               ^
+    115|     }
+    116|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/features/admin-accounts/presentation/composables/__tests__/useModelWhitelist.spec.ts > useModelWhitelist > Gemini 4 Argon 在 gemini 与 antigravity 平台使用对应真实模型 ID 与预设映射
+ReferenceError: getPresetMappingsByPlatform is not defined
+ ❯ src/features/admin-accounts/presentation/composables/__tests__/useModelWhitelist.spec.ts:119:5
+    117|     expect(agModels).toContain('gemini-4-argon-medium')
+    118|     expect(agModels).toContain('gemini-4-argon-low')
+    119|     expect(getPresetMappingsByPlatform('antigravity')).toEqual(expect.…
+       |     ^
+    120|       expect.objectContaining({ from: 'gemini-4-argon', to: 'gemini-4-…
+    121|       expect.objectContaining({ from: 'gemini-4-argon-high', to: 'gemi…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+

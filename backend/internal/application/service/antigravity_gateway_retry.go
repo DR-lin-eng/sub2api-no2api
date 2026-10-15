@@ -71,16 +71,10 @@ func resolveAntigravityForwardBaseURL(account *Account) string {
 }
 
 func accountHasAntigravityPaidTier(account *Account) bool {
-	if account == nil || account.Credentials == nil {
+	if account == nil {
 		return false
 	}
-	planType := strings.ToLower(strings.TrimSpace(account.GetCredential("plan_type")))
-	switch planType {
-	case "pro", "ultra", "g1-pro-tier", "g1-ultra-tier":
-		return true
-	default:
-		return false
-	}
+	return antigravity.IsPaidPlanType(account.GetCredential("plan_type"))
 }
 
 // smartRetryAction 智能重试的处理结果

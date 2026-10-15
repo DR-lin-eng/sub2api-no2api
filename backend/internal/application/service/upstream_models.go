@@ -483,7 +483,7 @@ func (s *AccountTestService) fetchAntigravityOAuthUpstreamModels(ctx context.Con
 	if err != nil {
 		return nil, newUpstreamModelSyncConfigError("Failed to configure Antigravity client", err)
 	}
-	modelsResp, _, err := client.FetchAvailableModels(ctx, accessToken, strings.TrimSpace(account.GetCredential("project_id")), resolveModelsListReadLimit(s.cfg))
+	modelsResp, _, err := client.FetchAvailableModelsFromURL(ctx, resolveAntigravityForwardBaseURL(account), accessToken, strings.TrimSpace(account.GetCredential("project_id")), resolveModelsListReadLimit(s.cfg))
 	if err != nil {
 		return nil, newUpstreamModelSyncUpstreamError("Failed to fetch Antigravity available models", err)
 	}

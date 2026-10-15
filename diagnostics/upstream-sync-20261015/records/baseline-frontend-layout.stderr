@@ -1,0 +1,15 @@
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/admin-accounts/__tests__/adminAccountsModularization.spec.ts > admin accounts modularization > keeps every feature runtime module within the maintenance target
+AssertionError: presentation/widgets/CreateAccountDialog.vue: expected 1512 to be less than or equal to 1500
+ ❯ src/features/admin-accounts/__tests__/adminAccountsModularization.spec.ts:114:63
+    112|     for (const runtime of collectRuntimeSources(featureDir)) {
+    113|       const target = maintenanceTargets.get(runtime.path) ?? 1500
+    114|       expect(runtime.source.split('\n').length, runtime.path).toBeLess…
+       |                                                               ^
+    115|     }
+    116|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

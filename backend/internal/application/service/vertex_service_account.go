@@ -35,6 +35,9 @@ var (
 	vertexAnthropicAlreadyDatedIDPattern = regexp.MustCompile(`^.+@[0-9]{8}$`)
 )
 
+// vertexServiceAccountTokenURL 是换取 SA access token 的端点，测试中替换为本地服务。
+var vertexServiceAccountTokenURL = vertexDefaultTokenURL
+
 type vertexServiceAccountKey struct {
 	Type         string `json:"type"`
 	ProjectID    string `json:"project_id"`
@@ -127,7 +130,7 @@ func parseVertexServiceAccountJSON(raw []byte) (*vertexServiceAccountKey, error)
 		return nil, errors.New("service account json missing project_id")
 	}
 	// Always use the well-known Google token endpoint to prevent SSRF via crafted token_uri.
-	key.TokenURI = vertexDefaultTokenURL
+	key.TokenURI = vertexServiceAccountTokenURL
 	return &key, nil
 }
 
@@ -256,7 +259,12 @@ func exchangeVertexServiceAccountToken(ctx context.Context, key *vertexServiceAc
 		if msg == "" {
 			msg = string(bytes.TrimSpace(body))
 		}
-		return "", 0, fmt.Errorf("service account token request returned %d: %s", resp.StatusCode, msg)
+		return "", 0, &vertexTokenRequestError{
+			StatusCode:  resp.StatusCode,
+			Code:        strings.TrimSpace(parsed.Error),
+			Description: strings.TrimSpace(parsed.ErrorDesc),
+			Message:     msg,
+		}
 	}
 	if strings.TrimSpace(parsed.AccessToken) == "" {
 		return "", 0, errors.New("service account token response missing access_token")
@@ -365,4 +373,31 @@ func buildVertexAnthropicRequestBody(body []byte) ([]byte, error) {
 	delete(payload, "model")
 	payload["anthropic_version"] = vertexAnthropicVersion
 	return json.Marshal(payload)
+}
+
+// vertexTokenRequestError 是 token 端点对换取 SA access token 请求返回的非 2xx 响应。
+type vertexTokenRequestError struct {
+	StatusCode  int
+	Code        string // 响应的 error 字段，如 invalid_grant
+	Description string // 响应的 error_description 字段
+	Message     string
+}
+
+func (e *vertexTokenRequestError) Error() string {
+	return fmt.Sprintf("service account token request returned %d: %s", e.StatusCode, e.Message)
+}
+
+// vertexServiceAccountNotFoundError 识别 SA 已不存在：token 端点返回
+// 400 {"error":"invalid_grant","error_description":"Invalid grant: account not found"}。
+// 该凭据再也换不到 token，账号需要人工更换凭据。
+func vertexServiceAccountNotFoundError(err error) (*vertexTokenRequestError, bool) {
+	var tokenErr *vertexTokenRequestError
+	if !errors.As(err, &tokenErr) {
+		return nil, false
+	}
+	if tokenErr.StatusCode != http.StatusBadRequest || tokenErr.Code != "invalid_grant" ||
+		!strings.Contains(strings.ToLower(tokenErr.Description), "account not found") {
+		return nil, false
+	}
+	return tokenErr, true
 }

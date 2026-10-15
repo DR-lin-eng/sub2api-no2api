@@ -1,0 +1,28 @@
+{
+  "initial_frozen_upstream_sha": "698d142468ab15374bc22bd5247759e5b7352006",
+  "supplemental_frozen_upstream_sha": "1b2243a4f50621508e79aef4b498a2937a6238ee",
+  "entry": {
+    "pr": 8120,
+    "merge_sha": "1b2243a4f50621508e79aef4b498a2937a6238ee",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8120",
+    "diff_sha256": "5391c714af6d14ade3ca4c8d2e53f68ac690770f182d6be6b3cb5557ec01e0e3",
+    "status": "covered",
+    "resolution": "intentional-local-divergence",
+    "fully_closed": true,
+    "decision": "Keep the current feature-owned accessible collapsible secondary filters and local OAuth-quota/Excel-BPS controls. Upstream is reverting its compact layout to always-visible controls; it is not a backend/query fix. Applying that legacy template would remove local controls and change existing behavior. Close this immutable layout-only diff as an intentional local decision.",
+    "current_owners": [
+      "frontend/src/features/admin-accounts/presentation/widgets/AccountTableFilters.vue",
+      "frontend/src/features/admin-accounts/presentation/pages/AccountsPage.vue"
+    ],
+    "performance_review": "No query, network, data or runtime code change is adopted. Current owner hashes remain equal to the baseline and its feature tests already pass.",
+    "reopen_condition": "Only a new layout request, observed local usability/accessibility regression, or changed upstream behavior; do not replay this frozen revert.",
+    "evidence": [
+      "records/frontend-final.record.json",
+      "LATE_UPSTREAM_REVIEW.json"
+    ]
+  },
+  "unchanged_owners": {
+    "frontend/src/features/admin-accounts/presentation/widgets/AccountTableFilters.vue": "9144f04dddb32eb6a2344afd9c884d9a87587e8364667beee8f936cea26607f6",
+    "frontend/src/features/admin-accounts/presentation/pages/AccountsPage.vue": "4837790ee60ee5bcba2c7d32cc8aa063f8b5a7bb390d24a51d943de768161637"
+  }
+}

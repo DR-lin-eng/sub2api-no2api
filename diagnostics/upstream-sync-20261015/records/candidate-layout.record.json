@@ -1,0 +1,15 @@
+{
+  "command": [
+    "make",
+    "-C",
+    "backend",
+    "check-layout"
+  ],
+  "cwd": "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo",
+  "exit_status": 2,
+  "elapsed_s": 0.17737429199996768,
+  "utc": "2026-10-15T13:02:11.838585+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "bc47e5caa9ee997120b50f2387547331f77907d12d8228a259881f576e7443fe",
+  "stderr_sha256": "7b93e70b48de124a796e16c9a4c4db74899f7e8c232e0b1ec9d2f491e06af33f"
+}

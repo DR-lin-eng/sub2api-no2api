@@ -1,0 +1,16 @@
+[
+  {
+    "path": "frontend/src/features/admin-accounts/presentation/widgets/CreateAccountDialog.vue",
+    "sha256": "ba6733d4af023c7dce3ef0d93df35bb362dd60f8cd57d09bb4cd2fc790d3cb74",
+    "classification": "existing-baseline-failure",
+    "reason": "1512 physical lines exceeds the existing maintenance test limit of 1500; exact baseline reproduced 1 failure / 12 passes",
+    "reopen_condition": "Only if source hash changes or this debt is explicitly selected as a separate task."
+  },
+  {
+    "path": "backend/internal/application/service/payment_fulfillment_test.go",
+    "sha256": "e9d8e9b9241dc0a0a777b9f54af0bb6b3fd55e0b502c7d24f6b6dd80eb1320e7",
+    "classification": "existing-baseline-failure",
+    "reason": "1201 lines exceeds existing layout limit; untouched by this synchronization",
+    "reopen_condition": "Only if source hash changes or this debt is explicitly selected as a separate task."
+  }
+]
