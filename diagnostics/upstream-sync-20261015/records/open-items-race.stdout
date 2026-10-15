@@ -1,0 +1,5 @@
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog	1.012s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/claude	1.006s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	2.840s
+FAIL	github.com/Wei-Shaw/sub2api/internal/application/service [build failed]
+FAIL

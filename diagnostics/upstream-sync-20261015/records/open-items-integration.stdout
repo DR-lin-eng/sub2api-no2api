@@ -1,0 +1,29 @@
+2026/10/15 15:18:00 Timezone initialized: UTC (UTC offset: +00:00)
+2026/10/15 15:18:00 github.com/testcontainers/testcontainers-go - Connected to docker: 
+  Server Version: 29.2.1
+  API Version: 1.51
+  Operating System: Docker Desktop
+  Total Memory: 7836 MB
+  Labels:
+    com.docker.desktop.address=unix:///Users/lin/Library/Containers/com.docker.docker/Data/docker-cli.sock
+  Testcontainers for Go Version: v0.40.0
+  Resolved Docker Host: unix:///var/run/docker.sock
+  Resolved Docker Socket Path: /var/run/docker.sock
+  Test SessionID: 8b2e84d441bcf2597f9cc009ad65e276627e1eaf84a2db8c5bef9c76b88d027b
+  Test ProcessID: d1488cb0-7e56-4074-88aa-5f05dcf22e54
+2026/10/15 15:18:00 🐳 Creating container for image postgres:18.1-alpine3.23
+2026/10/15 15:18:00 ✅ Container created: abbca86fbc2d
+2026/10/15 15:18:00 🐳 Starting container: abbca86fbc2d
+2026/10/15 15:18:00 ✅ Container started: abbca86fbc2d
+2026/10/15 15:18:00 ⏳ Waiting for container id abbca86fbc2d image: postgres:18.1-alpine3.23. Waiting for: all of: [log message "database system is ready to accept connections" (occurrence: 2), port 5432/tcp to be listening]
+2026/10/15 15:18:01 🔔 Container is ready: abbca86fbc2d
+2026/10/15 15:18:01 🐳 Creating container for image redis:8.4-alpine
+2026/10/15 15:18:01 ✅ Container created: 661804399a8c
+2026/10/15 15:18:01 🐳 Starting container: 661804399a8c
+2026/10/15 15:18:02 ✅ Container started: 661804399a8c
+2026/10/15 15:18:02 ⏳ Waiting for container id 661804399a8c image: redis:8.4-alpine. Waiting for: all of: [port 6379/tcp to be listening, log message "* Ready to accept connections"]
+2026/10/15 15:18:02 🔔 Container is ready: 661804399a8c
+=== RUN   TestModelCatalogPostgresRefreshAndLegacyWrites
+--- PASS: TestModelCatalogPostgresRefreshAndLegacyWrites (0.05s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/infrastructure/repository	3.514s

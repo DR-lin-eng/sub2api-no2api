@@ -7,7 +7,31 @@
     "status": "deferred",
     "fully_closed": false,
     "decision": "Claude 5.5 signed-thinking prerequisites are absent in current native and reverse protocol owners; do not advertise a partially functioning model or overwrite the established thinking filtering policy.",
-    "reopen_condition": "Implement the shared signed-history round trip, adaptive/disabled effort, forced-tool and sampling matrix in the current owners, then validate buffered/streaming and billing thresholds before registering Haiku 5.5."
+    "reopen_condition": "Implement the shared signed-history round trip, adaptive/disabled effort, forced-tool and sampling matrix in the current owners, then validate buffered/streaming and billing thresholds before registering Haiku 5.5.",
+    "resolved_by": {
+      "effective_status": "ported",
+      "fully_closed": true,
+      "ledger": "diagnostics/upstream-sync-20261015/open-items/CLOSED_DIFFERENCES.json",
+      "evidence": [
+        "open-items/TRANSACTION.json",
+        "open-items/PERFORMANCE.json",
+        "open-items/runtime-result.json",
+        "VERIFICATION.txt",
+        "records/open-items-unit-complete.record.json",
+        "records/open-items-integration-complete.record.json",
+        "records/open-items-race-complete.record.json",
+        "records/open-items-lint-complete.record.json",
+        "records/open-items-image-complete.record.json",
+        "records/open-items-runtime-upgrade-rollback.record.json",
+        "records/open-items-frontend.record.json",
+        "records/open-items-combined-source-transaction.record.json",
+        "records/open-items-combined-focused.record.json",
+        "records/open-items-rolling-writer-integration.record.json",
+        "records/open-items-migration-tests.record.json",
+        "records/open-items-image-metadata-guard.record.json"
+      ],
+      "note": "Original historical deferral retained above; this later supplemental resolution closes that frozen behavior."
+    }
   },
   {
     "pr": 8006,

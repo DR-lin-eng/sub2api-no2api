@@ -94,8 +94,23 @@ export interface CPATestResult extends CPACapacityStatus {
   latency_ms: number
 }
 
+export interface UpstreamModelDescriptor {
+  id: string
+  display_name?: string
+  description?: string
+  context_window?: number
+  max_context_window?: number
+  max_output_tokens?: number
+  supports_reasoning?: boolean
+  supported_reasoning_levels?: Array<string | { effort: string; description?: string }>
+  default_reasoning_level?: string
+  input_modalities?: string[]
+  output_modalities?: string[]
+}
+
 export interface SyncUpstreamModelsResult {
   models: string[]
+  metadata?: Record<string, UpstreamModelDescriptor>
 }
 
 export interface SyncUpstreamPreviewParams {

@@ -1,0 +1,126 @@
+{
+  "baseline": {
+    "BenchmarkOpenThinkingFragments-2": {
+      "samples": [
+        {
+          "ns_op": 93108340.0,
+          "bytes_op": 541200341,
+          "allocs_op": 2059
+        },
+        {
+          "ns_op": 98067313.0,
+          "bytes_op": 541201233,
+          "allocs_op": 2060
+        },
+        {
+          "ns_op": 103105111.0,
+          "bytes_op": 541200285,
+          "allocs_op": 2059
+        }
+      ],
+      "median": {
+        "ns_op": 98067313.0,
+        "bytes_op": 541200341,
+        "allocs_op": 2059
+      }
+    }
+  },
+  "modified": {
+    "BenchmarkOpenThinkingFragments-2": {
+      "samples": [
+        {
+          "ns_op": 3309553.0,
+          "bytes_op": 12581681,
+          "allocs_op": 1072
+        },
+        {
+          "ns_op": 3220754.0,
+          "bytes_op": 12627532,
+          "allocs_op": 1073
+        },
+        {
+          "ns_op": 3430824.0,
+          "bytes_op": 12648900,
+          "allocs_op": 1073
+        }
+      ],
+      "median": {
+        "ns_op": 3309553.0,
+        "bytes_op": 12627532,
+        "allocs_op": 1073
+      }
+    },
+    "BenchmarkOpenClaude55Validation/upstream-2": {
+      "samples": [
+        {
+          "ns_op": 1118472.0,
+          "bytes_op": 16,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 1092438.0,
+          "bytes_op": 16,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 1098635.0,
+          "bytes_op": 16,
+          "allocs_op": 1
+        }
+      ],
+      "median": {
+        "ns_op": 1098635.0,
+        "bytes_op": 16,
+        "allocs_op": 1
+      }
+    },
+    "BenchmarkOpenClaude55Validation/native-2": {
+      "samples": [
+        {
+          "ns_op": 210004.0,
+          "bytes_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 183961.0,
+          "bytes_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 185330.0,
+          "bytes_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "median": {
+        "ns_op": 185330.0,
+        "bytes_op": 0,
+        "allocs_op": 0
+      }
+    },
+    "BenchmarkCodexCatalogProjection-2": {
+      "samples": [
+        {
+          "ns_op": 21332.0,
+          "bytes_op": 12117,
+          "allocs_op": 191
+        },
+        {
+          "ns_op": 17539.0,
+          "bytes_op": 12117,
+          "allocs_op": 191
+        },
+        {
+          "ns_op": 17827.0,
+          "bytes_op": 12117,
+          "allocs_op": 191
+        }
+      ],
+      "median": {
+        "ns_op": 17827.0,
+        "bytes_op": 12117,
+        "allocs_op": 191
+      }
+    }
+  }
+}

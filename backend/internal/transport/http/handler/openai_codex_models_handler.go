@@ -93,7 +93,7 @@ func (h *OpenAIGatewayHandler) CodexModels(c *gin.Context) {
 			if accountRelease != nil {
 				defer accountRelease()
 			}
-			if apiKey.Group.ModelAllowlistEnabled() || service.CodexManifestMappingEnabled(account) {
+			if apiKey.Group.ModelAllowlistEnabled() || service.CodexManifestProjectionEnabled(account) {
 				return h.gatewayService.FetchCodexModelsManifest(c.Request.Context(), account, c.Query("client_version"), "")
 			}
 			return h.gatewayService.FetchCodexModelsManifest(c.Request.Context(), account, c.Query("client_version"), c.GetHeader("If-None-Match"))
@@ -114,7 +114,7 @@ func (h *OpenAIGatewayHandler) CodexModels(c *gin.Context) {
 		if c.Request.Context().Err() != nil {
 			return
 		}
-		if service.CodexManifestMappingEnabled(account) {
+		if service.CodexManifestProjectionEnabled(account) {
 			ifNoneMatch := c.GetHeader("If-None-Match")
 			if apiKey.Group.ModelAllowlistEnabled() {
 				ifNoneMatch = ""

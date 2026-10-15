@@ -1,0 +1,12 @@
+{
+  "command": [
+    "backend/scripts/check-source-layout.sh"
+  ],
+  "cwd": "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo",
+  "exit_status": 1,
+  "elapsed_s": 0.14121583299856866,
+  "utc": "2026-10-15T15:36:58.361746+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderr_sha256": "b64d03506ab29b587f57a5c7ac1f31aa6f36f2ecf8e2ab289ea959c710723f5d"
+}

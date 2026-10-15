@@ -1,0 +1,11 @@
+=== RUN   TestOpenItemsBehavior
+OPEN_PROTOCOL encrypted=false replay_signature=false thinking=enabled opus55=false sonnet55=false haiku55=false
+--- PASS: TestOpenItemsBehavior (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	0.002s
+2026/10/15 14:27:59 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestOpenItemsBehavior
+OPEN_METADATA explicit_context=0 fallback_context=0 max_output=0
+--- PASS: TestOpenItemsBehavior (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.015s

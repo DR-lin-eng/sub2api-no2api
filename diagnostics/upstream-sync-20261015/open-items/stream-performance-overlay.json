@@ -1,0 +1,5 @@
+{
+  "Replace": {
+    "/workspace/internal/shared/apicompat/open_items_performance_test.go": "/evidence/performance_stream_test.go"
+  }
+}

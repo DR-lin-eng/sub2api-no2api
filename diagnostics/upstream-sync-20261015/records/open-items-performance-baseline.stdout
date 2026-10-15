@@ -1,0 +1,8 @@
+goos: linux
+goarch: arm64
+pkg: github.com/Wei-Shaw/sub2api/internal/shared/apicompat
+BenchmarkOpenThinkingFragments-2   	       6	  93108340 ns/op	  11.26 MB/s	541200341 B/op	    2059 allocs/op
+BenchmarkOpenThinkingFragments-2   	       6	  98067313 ns/op	  10.69 MB/s	541201233 B/op	    2060 allocs/op
+BenchmarkOpenThinkingFragments-2   	       6	 103105111 ns/op	  10.17 MB/s	541200285 B/op	    2059 allocs/op
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	2.793s

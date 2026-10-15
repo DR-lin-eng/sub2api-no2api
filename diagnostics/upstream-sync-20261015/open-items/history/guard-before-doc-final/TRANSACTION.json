@@ -1,0 +1,38 @@
+{
+  "cumulative_baseline": "ec1ead14315d303db19cf3116754eb89a853838c",
+  "new_behavior_baseline": "0d15c90ef5ba68022d24fad44beac58c96452bd7",
+  "original_files": 5266,
+  "modified_paths": 131,
+  "patch_reconstructed": true,
+  "rollback_all_original_hashes": true,
+  "goal_reapplied": true,
+  "modified_archive_sha256": "765885c00ba3377514e67a032a770ef359b3e5cee210c3e5b7c4b7e9c63ab13c",
+  "baseline": [
+    "OPEN_PROTOCOL encrypted=false replay_signature=false thinking=enabled opus55=false sonnet55=false haiku55=false",
+    "OPEN_METADATA explicit_context=0 fallback_context=0 max_output=0",
+    "OBSERVED_SERVICE {\"anthropic_url\":\"https://api.deepseek.com/v1/messages?beta=true\",\"argon_default_mapping\":\"\",\"argon_input_price\":0,\"foreign_oauth_rejected\":false,\"zhipu_tiers\":[{\"window\":\"5h\",\"used_percent\":90,\"reset_at\":\"1970-01-01T00:33:20Z\"},{\"window\":\"weekly\",\"used_percent\":10,\"reset_at\":\"1970-01-01T00:50:00Z\"}]}",
+    "OBSERVED_ADMIN cross_workspace_identity_overlap=true",
+    "OBSERVED_MEDIA inline_images=0 function_text=loaded"
+  ],
+  "modified": [
+    "OPEN_PROTOCOL encrypted=true replay_signature=true thinking=adaptive opus55=true sonnet55=true haiku55=true",
+    "OPEN_METADATA explicit_context=777777 fallback_context=500000 max_output=32768",
+    "OBSERVED_SERVICE {\"anthropic_url\":\"https://anthropic.example.com/v1/messages?beta=true\",\"argon_default_mapping\":\"gemini-4-argon-high\",\"argon_input_price\":0.000002,\"foreign_oauth_rejected\":true,\"zhipu_tiers\":[{\"window\":\"5h\",\"used_percent\":10,\"reset_at\":\"1970-01-01T00:50:00Z\"},{\"window\":\"weekly\",\"used_percent\":90,\"reset_at\":\"1970-01-01T00:33:20Z\"}]}",
+    "OBSERVED_ADMIN cross_workspace_identity_overlap=false",
+    "OBSERVED_MEDIA inline_images=1 function_text=loaded"
+  ],
+  "rollback": [
+    "OPEN_PROTOCOL encrypted=false replay_signature=false thinking=enabled opus55=false sonnet55=false haiku55=false",
+    "OPEN_METADATA explicit_context=0 fallback_context=0 max_output=0",
+    "OBSERVED_SERVICE {\"anthropic_url\":\"https://api.deepseek.com/v1/messages?beta=true\",\"argon_default_mapping\":\"\",\"argon_input_price\":0,\"foreign_oauth_rejected\":false,\"zhipu_tiers\":[{\"window\":\"5h\",\"used_percent\":90,\"reset_at\":\"1970-01-01T00:33:20Z\"},{\"window\":\"weekly\",\"used_percent\":10,\"reset_at\":\"1970-01-01T00:50:00Z\"}]}",
+    "OBSERVED_ADMIN cross_workspace_identity_overlap=true",
+    "OBSERVED_MEDIA inline_images=0 function_text=loaded"
+  ],
+  "reapplied": [
+    "OPEN_PROTOCOL encrypted=true replay_signature=true thinking=adaptive opus55=true sonnet55=true haiku55=true",
+    "OPEN_METADATA explicit_context=777777 fallback_context=500000 max_output=32768",
+    "OBSERVED_SERVICE {\"anthropic_url\":\"https://anthropic.example.com/v1/messages?beta=true\",\"argon_default_mapping\":\"gemini-4-argon-high\",\"argon_input_price\":0.000002,\"foreign_oauth_rejected\":true,\"zhipu_tiers\":[{\"window\":\"5h\",\"used_percent\":10,\"reset_at\":\"1970-01-01T00:50:00Z\"},{\"window\":\"weekly\",\"used_percent\":90,\"reset_at\":\"1970-01-01T00:33:20Z\"}]}",
+    "OBSERVED_ADMIN cross_workspace_identity_overlap=false",
+    "OBSERVED_MEDIA inline_images=1 function_text=loaded"
+  ]
+}

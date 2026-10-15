@@ -59,3 +59,5 @@ pnpm run typecheck
 ```
 
 临时不可调度规则的 scope 归一化、旧值解析和可选字段序列化由 `presentation/accountFormPolicy.ts` 维护，创建/编辑 advanced widget 共用该协议；自动范围省略 scope。显式范围须在所有节点升级后启用，详见 [同步与回退边界](../../../../docs/UPSTREAM_SYNC_20261013.md)。
+
+Claude 5.5 的原生白名单、Antigravity 分档模型和映射预设由 `presentation/composables/useModelWhitelist.ts` 维护。同步结果在原 `models` 列表之外可附带 `metadata`；已有列表调用保持兼容。

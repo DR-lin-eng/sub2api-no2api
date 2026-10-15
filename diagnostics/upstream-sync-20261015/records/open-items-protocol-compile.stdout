@@ -1,0 +1,4 @@
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	0.004s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/claude	0.001s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/antigravity	0.002s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.030s

@@ -1,0 +1,23 @@
+{
+  "8093": {
+    "status": "ported",
+    "fully_closed": true,
+    "ledger": "../UPSTREAM_PRS.json",
+    "subitems": [
+      "claude55-registration",
+      "descriptor-catalog-and-codex-metadata-expansion"
+    ]
+  },
+  "7957": {
+    "status": "ported",
+    "fully_closed": true,
+    "merge_sha": "7c5afa4c361b7b69afeb9aaf5b47c0bbe9af0180",
+    "behavior": "Haiku 5.5 signed thinking, model policy, price/100k boundary and registration"
+  },
+  "8033": {
+    "status": "ported",
+    "fully_closed": true,
+    "merge_sha": "9591136d45cef26453348ed9532a7ebbce7cf99c",
+    "behavior": "GPT-6.1 Sol default 500k context with explicit upstream/admin precedence"
+  }
+}

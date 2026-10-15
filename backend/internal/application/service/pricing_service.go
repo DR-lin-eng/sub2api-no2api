@@ -736,7 +736,7 @@ func (s *PricingService) GetModelPricing(modelName string) *LiteLLMModelPricing 
 
 	// 标准化模型名称（同时兼容 "models/xxx"、VertexAI 资源名等前缀）
 	modelLower := strings.ToLower(strings.TrimSpace(modelName))
-	lookupCandidates := s.buildModelLookupCandidates(modelLower)
+	lookupCandidates := append(s.buildModelLookupCandidates(modelLower), claude55PricingID(modelLower))
 
 	// 1. 精确匹配
 	for _, candidate := range lookupCandidates {
@@ -746,6 +746,10 @@ func (s *PricingService) GetModelPricing(modelName string) *LiteLLMModelPricing 
 		if pricing, ok := s.pricingData[candidate]; ok {
 			return pricing
 		}
+	}
+
+	if claude55PricingID(modelLower) != "" {
+		return nil // Never price a missing 5.5 entry as an older Claude family.
 	}
 
 	// 2. 处理常见的模型名称变体

@@ -17,6 +17,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
 	"github.com/Wei-Shaw/sub2api/internal/shared/httpclient"
 	"github.com/tidwall/gjson"
@@ -38,10 +39,12 @@ const (
 
 // CodexModelsManifest carries the client representation plus caching metadata.
 type CodexModelsManifest struct {
-	Body         []byte
-	ETag         string
-	upstreamETag string
-	NotModified  bool
+	Body           []byte
+	ETag           string
+	upstreamETag   string
+	rawBody        []byte
+	apiKeyUpstream bool
+	NotModified    bool
 }
 
 type codexModelsManifestUpstreamError struct {
@@ -552,7 +555,7 @@ func (s *OpenAIGatewayService) fetchCodexModelsManifestUpstream(ctx context.Cont
 	}
 	upstreamBody := body
 	if request.useAPIKeyUpstream {
-		body = convertOpenAIModelListToCodexManifest(body)
+		body = convertOpenAIModelListToCodexManifestRaw(body)
 	}
 	if err := validateCodexModelsManifestEnvelope(body); err != nil {
 		return nil, &codexModelsManifestUpstreamError{
@@ -565,6 +568,7 @@ func (s *OpenAIGatewayService) fetchCodexModelsManifestUpstream(ctx context.Cont
 			retryable: true,
 		}
 	}
+	metadataBody := body
 	if request.useAPIKeyUpstream {
 		body, err = adjustAPIKeyCodexModelsManifest(body)
 		if err != nil {
@@ -580,7 +584,7 @@ func (s *OpenAIGatewayService) fetchCodexModelsManifestUpstream(ctx context.Cont
 		}
 	}
 	etag := resp.Header.Get("ETag")
-	manifest := &CodexModelsManifest{Body: body, ETag: etag}
+	manifest := &CodexModelsManifest{Body: body, ETag: etag, rawBody: metadataBody, apiKeyUpstream: request.useAPIKeyUpstream}
 	if request.useAPIKeyUpstream {
 		manifest.upstreamETag = etag
 		if !bytes.Equal(body, upstreamBody) {
@@ -719,6 +723,12 @@ func codexManifestKnownPriorityTierModel(modelID string) bool {
 // standard list shape, or yield no usable model IDs are returned unchanged so
 // envelope validation reports the original payload.
 func convertOpenAIModelListToCodexManifest(body []byte) []byte {
+	return convertOpenAIModelListToCodexManifestWithFallback(body, true)
+}
+func convertOpenAIModelListToCodexManifestRaw(body []byte) []byte {
+	return convertOpenAIModelListToCodexManifestWithFallback(body, false)
+}
+func convertOpenAIModelListToCodexManifestWithFallback(body []byte, includeFallback bool) []byte {
 	var envelope map[string]json.RawMessage
 	if err := json.Unmarshal(body, &envelope); err != nil || envelope == nil {
 		return body
@@ -730,27 +740,33 @@ func convertOpenAIModelListToCodexManifest(body []byte) []byte {
 	if !ok {
 		return body
 	}
-	var entries []struct {
-		ID string `json:"id"`
-	}
-	if err := json.Unmarshal(data, &entries); err != nil {
+	var entries []modelcatalog.Descriptor
+	if json.Unmarshal(data, &entries) != nil || len(entries) > modelcatalog.MaxModels {
 		return body
 	}
-	type codexModelEntry struct {
-		Slug string `json:"slug"`
-	}
-	models := make([]codexModelEntry, 0, len(entries))
+	models := make([]modelcatalog.Descriptor, 0, len(entries))
 	for _, entry := range entries {
-		id := strings.TrimSpace(entry.ID)
-		if id == "" {
+		var id string
+		if json.Unmarshal(entry["id"], &id) != nil {
 			continue
 		}
-		models = append(models, codexModelEntry{Slug: id})
+		id = strings.TrimSpace(id)
+		if !modelcatalog.ValidID(id) {
+			continue
+		}
+		model := modelcatalog.Normalize(entry, id)
+		if includeFallback {
+			model = modelcatalog.Fill(model, modelcatalog.KnownFallback(id))
+		}
+		delete(model, "id")
+		model["slug"], _ = json.Marshal(id)
+		normalizeCodexReasoningLevels(model)
+		models = append(models, model)
 	}
 	if len(models) == 0 {
 		return body
 	}
-	converted, err := json.Marshal(map[string][]codexModelEntry{"models": models})
+	converted, err := json.Marshal(map[string]any{"models": models})
 	if err != nil {
 		return body
 	}

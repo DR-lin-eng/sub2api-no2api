@@ -19,7 +19,27 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-const completedCodexSolManifest = `{"models":[{"input_modalities":["text","image"],"service_tiers":[{"id":"priority","name":"Fast","description":"Priority processing for lower latency."}],"slug":"gpt-5.6-sol"}]}`
+func assertCompletedCodexSolManifest(t *testing.T, body string) {
+	t.Helper()
+	if !gjson.Valid(body) {
+		t.Fatalf("invalid manifest: %s", body)
+	}
+	if got := gjson.Get(body, "models.0.slug").String(); got != "gpt-5.6-sol" {
+		t.Fatalf("slug: %s", got)
+	}
+	if got := gjson.Get(body, "models.0.context_window").Int(); got != 1050000 {
+		t.Fatalf("context: %d", got)
+	}
+	if got := gjson.Get(body, "models.0.max_output_tokens").Int(); got != 128000 {
+		t.Fatalf("max output: %d", got)
+	}
+	if got := gjson.Get(body, "models.0.input_modalities").Raw; got != `["text","image"]` {
+		t.Fatalf("modalities: %s", got)
+	}
+	if got := gjson.Get(body, "models.0.service_tiers.0.id").String(); got != "priority" {
+		t.Fatalf("tier: %s", got)
+	}
+}
 
 type codexModelsFailoverAccountRepo struct {
 	service.AccountRepository
@@ -152,9 +172,7 @@ func TestCodexModelsFailsOverFromRetryableUpstreamStatus(t *testing.T) {
 			if recorder.Code != http.StatusOK {
 				t.Fatalf("status: got %d, want %d; body=%s", recorder.Code, http.StatusOK, recorder.Body.String())
 			}
-			if got, want := recorder.Body.String(), completedCodexSolManifest; got != want {
-				t.Fatalf("body: got %q, want %q", got, want)
-			}
+			assertCompletedCodexSolManifest(t, recorder.Body.String())
 		})
 	}
 }
@@ -187,9 +205,7 @@ func TestCodexModelsFailsOverFromInvalidManifestEnvelope(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status: got %d, want %d; body=%s", recorder.Code, http.StatusOK, recorder.Body.String())
 	}
-	if got, want := recorder.Body.String(), completedCodexSolManifest; got != want {
-		t.Fatalf("body: got %q, want %q", got, want)
-	}
+	assertCompletedCodexSolManifest(t, recorder.Body.String())
 }
 
 func TestCodexModelsDoesNotFailOverFromPermanentUpstreamStatus(t *testing.T) {

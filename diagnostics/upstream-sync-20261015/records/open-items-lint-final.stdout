@@ -1,0 +1,11 @@
+internal/application/service/gateway_forward_as_chat_completions.go:246:34: undefined: apicompat.AnthropicSignedThinkingCollector (typecheck)
+	var thinkingCollector apicompat.AnthropicSignedThinkingCollector
+	                                ^
+internal/application/service/gateway_forward_as_responses.go:359:34: undefined: apicompat.AnthropicSignedThinkingCollector (typecheck)
+	var thinkingCollector apicompat.AnthropicSignedThinkingCollector
+	                                ^
+internal/application/service/openai_gateway_chat_completions_anthropic_native.go:171:34: undefined: apicompat.AnthropicSignedThinkingCollector (typecheck)
+	var thinkingCollector apicompat.AnthropicSignedThinkingCollector
+	                                ^
+3 issues:
+* typecheck: 3

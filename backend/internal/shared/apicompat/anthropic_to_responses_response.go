@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/Wei-Shaw/sub2api/internal/shared/claude"
 )
 
 // ---------------------------------------------------------------------------
@@ -34,7 +36,18 @@ func AnthropicToResponsesResponse(resp *AnthropicResponse) *ResponsesResponse {
 
 	for _, block := range resp.Content {
 		switch block.Type {
-		case "thinking":
+		case "thinking", "redacted_thinking":
+			if isAnthropicSignedThinkingModel(resp.Model) && (block.Signature != "" || block.Data != "") {
+				item := ResponsesOutput{Type: "reasoning", ID: generateItemID(), EncryptedContent: encodeAnthropicThinking(block)}
+				if item.EncryptedContent == "" {
+					out.Error = &ResponsesError{Code: "thinking_replay_limit", Message: "Signed thinking exceeds the replay limit"}
+				}
+				if block.Thinking != "" {
+					item.Summary = []ResponsesSummary{{Type: "summary_text", Text: block.Thinking}}
+				}
+				outputs = append(outputs, item)
+				continue
+			}
 			if block.Thinking != "" {
 				outputs = append(outputs, ResponsesOutput{
 					Type: "reasoning",
@@ -46,6 +59,10 @@ func AnthropicToResponsesResponse(resp *AnthropicResponse) *ResponsesResponse {
 				})
 			}
 		case "text":
+			if isAnthropicSignedThinkingModel(resp.Model) && block.Text != "" {
+				outputs = append(outputs, ResponsesOutput{Type: "message", ID: generateItemID(), Role: "assistant", Status: "completed", Content: []ResponsesContentPart{{Type: "output_text", Text: block.Text}}})
+				continue
+			}
 			if block.Text != "" {
 				msgParts = append(msgParts, ResponsesContentPart{
 					Type: "output_text",
@@ -92,6 +109,9 @@ func AnthropicToResponsesResponse(resp *AnthropicResponse) *ResponsesResponse {
 
 	// Map stop_reason → status
 	out.Status = anthropicStopReasonToResponsesStatus(AnthropicStopReasonString(resp.StopReason), resp.Content)
+	if out.Error != nil {
+		out.Status = "failed"
+	}
 	if out.Status == "incomplete" {
 		out.IncompleteDetails = &ResponsesIncompleteDetails{Reason: "max_output_tokens"}
 	}
@@ -163,10 +183,16 @@ type AnthropicEventToResponsesState struct {
 	CurrentName   string
 
 	// Content of the currently open item, folded into Outputs when it closes.
-	CurrentContent   []ResponsesContentPart // message
-	CurrentArgs      string                 // function_call
-	PendingToolInput string                 // Inline arguments, used only when no delta arrives.
-	CurrentSummary   string                 // reasoning
+	CurrentContent             []ResponsesContentPart // message
+	CurrentArgs                string                 // function_call
+	PendingToolInput           string                 // Inline arguments, used only when no delta arrives.
+	CurrentSummary             string                 // reasoning
+	CurrentThinking            AnthropicContentBlock
+	PreserveThinkingSignatures bool
+	thinkingSignature          strings.Builder
+	thinkingText               strings.Builder
+	thinkingOverflow           bool
+	ThinkingReplayError        string
 
 	// Outputs accumulates every closed output item so that response.completed
 	// can carry the full output list. The OpenAI SDK's get_final_response()
@@ -248,6 +274,7 @@ func ResponsesEventToSSE(evt ResponsesStreamEvent) (string, error) {
 func anthToResHandleMessageStart(evt *AnthropicStreamEvent, state *AnthropicEventToResponsesState) []ResponsesStreamEvent {
 	if evt.Message != nil {
 		state.ResponseID = evt.Message.ID
+		state.PreserveThinkingSignatures = state.PreserveThinkingSignatures || isAnthropicSignedThinkingModel(evt.Message.Model) || isAnthropicSignedThinkingModel(state.Model)
 		if state.Model == "" {
 			state.Model = evt.Message.Model
 		}
@@ -279,8 +306,19 @@ func anthToResHandleContentBlockStart(evt *AnthropicStreamEvent, state *Anthropi
 	var events []ResponsesStreamEvent
 
 	switch evt.ContentBlock.Type {
-	case "thinking":
+	case "thinking", "redacted_thinking":
+		if evt.ContentBlock.Type == "redacted_thinking" && !state.PreserveThinkingSignatures {
+			return nil
+		}
 		events = append(events, closeCurrentResponsesItem(state)...)
+		state.CurrentThinking = *evt.ContentBlock
+		if len(evt.ContentBlock.Signature)+len(evt.ContentBlock.Thinking)+len(evt.ContentBlock.Data) > maxAnthropicThinkingEnvelopeBytes {
+			state.thinkingOverflow = true
+		} else {
+			_, _ = state.thinkingSignature.WriteString(evt.ContentBlock.Signature)
+			_, _ = state.thinkingText.WriteString(evt.ContentBlock.Thinking)
+		}
+		state.CurrentSummary = evt.ContentBlock.Thinking
 
 		state.CurrentItemID = generateItemID()
 		state.CurrentItemType = "reasoning"
@@ -377,7 +415,15 @@ func anthToResHandleContentBlockDelta(evt *AnthropicStreamEvent, state *Anthropi
 		if evt.Delta.Thinking == "" {
 			return nil
 		}
-		state.CurrentSummary += evt.Delta.Thinking
+		if state.PreserveThinkingSignatures {
+			if state.thinkingText.Len()+state.thinkingSignature.Len()+len(state.CurrentThinking.Data)+len(evt.Delta.Thinking) <= maxAnthropicThinkingEnvelopeBytes {
+				_, _ = state.thinkingText.WriteString(evt.Delta.Thinking)
+			} else {
+				state.thinkingOverflow = true
+			}
+		} else {
+			state.CurrentSummary += evt.Delta.Thinking
+		}
 		return []ResponsesStreamEvent{makeResponsesEvent(state, "response.reasoning_summary_text.delta", &ResponsesStreamEvent{
 			OutputIndex:  state.OutputIndex,
 			SummaryIndex: 0,
@@ -400,7 +446,13 @@ func anthToResHandleContentBlockDelta(evt *AnthropicStreamEvent, state *Anthropi
 		})}
 
 	case "signature_delta":
-		// Anthropic signature deltas have no Responses equivalent; skip
+		if state.PreserveThinkingSignatures && state.CurrentItemType == "reasoning" {
+			if state.thinkingText.Len()+state.thinkingSignature.Len()+len(state.CurrentThinking.Data)+len(evt.Delta.Signature) <= maxAnthropicThinkingEnvelopeBytes {
+				_, _ = state.thinkingSignature.WriteString(evt.Delta.Signature)
+			} else {
+				state.thinkingOverflow = true
+			}
+		}
 		return nil
 	}
 
@@ -410,12 +462,16 @@ func anthToResHandleContentBlockDelta(evt *AnthropicStreamEvent, state *Anthropi
 func anthToResHandleContentBlockStop(evt *AnthropicStreamEvent, state *AnthropicEventToResponsesState) []ResponsesStreamEvent {
 	switch state.CurrentItemType {
 	case "reasoning":
+		if state.PreserveThinkingSignatures {
+			state.CurrentSummary = state.thinkingText.String()
+		}
 		// Emit reasoning summary done + output item done
 		events := []ResponsesStreamEvent{
 			makeResponsesEvent(state, "response.reasoning_summary_text.done", &ResponsesStreamEvent{
 				OutputIndex:  state.OutputIndex,
 				SummaryIndex: 0,
 				ItemID:       state.CurrentItemID,
+				Text:         state.CurrentSummary,
 			}),
 		}
 		events = append(events, closeCurrentResponsesItem(state)...)
@@ -542,6 +598,17 @@ func closeCurrentResponsesItem(state *AnthropicEventToResponsesState) []Response
 		}
 		item.Arguments = args
 	case "reasoning":
+		if state.PreserveThinkingSignatures && !state.thinkingOverflow {
+			state.CurrentThinking.Thinking = state.thinkingText.String()
+			state.CurrentThinking.Signature = state.thinkingSignature.String()
+			if state.CurrentThinking.Signature != "" || state.CurrentThinking.Data != "" {
+				item.EncryptedContent = encodeAnthropicThinking(state.CurrentThinking)
+			}
+			state.CurrentSummary = state.CurrentThinking.Thinking
+		}
+		if state.PreserveThinkingSignatures && (state.thinkingOverflow || ((state.CurrentThinking.Signature != "" || state.CurrentThinking.Data != "") && item.EncryptedContent == "")) {
+			state.ThinkingReplayError = "Signed thinking exceeds the replay limit"
+		}
 		if state.CurrentSummary != "" {
 			item.Summary = []ResponsesSummary{{Type: "summary_text", Text: state.CurrentSummary}}
 		}
@@ -557,6 +624,10 @@ func closeCurrentResponsesItem(state *AnthropicEventToResponsesState) []Response
 	state.CurrentArgs = ""
 	state.PendingToolInput = ""
 	state.CurrentSummary = ""
+	state.CurrentThinking = AnthropicContentBlock{}
+	state.thinkingSignature.Reset()
+	state.thinkingText.Reset()
+	state.thinkingOverflow = false
 	state.TextAccum = ""
 	state.OutputIndex++
 	state.ContentIndex = 0
@@ -607,9 +678,19 @@ func makeResponsesCompletedEvent(
 		}
 	}
 
+	var responseError *ResponsesError
+	if state.ThinkingReplayError != "" {
+		status = "failed"
+		incompleteDetails = nil
+		responseError = &ResponsesError{Code: "thinking_replay_limit", Message: state.ThinkingReplayError}
+	}
 	eventType := "response.completed"
 	if status == "incomplete" {
 		eventType = "response.incomplete"
+	}
+
+	if status == "failed" {
+		eventType = "response.failed"
 	}
 
 	// Carry the output items accumulated over the stream. The SDK's
@@ -632,6 +713,7 @@ func makeResponsesCompletedEvent(
 			Output:            outputs,
 			Usage:             usage,
 			IncompleteDetails: incompleteDetails,
+			Error:             responseError,
 		},
 	}
 }
@@ -665,4 +747,8 @@ func seedToolArguments(input json.RawMessage) string {
 		return ""
 	}
 	return trimmed
+}
+
+func isAnthropicSignedThinkingModel(model string) bool {
+	return claude.IsOpus55(model) || claude.IsSonnet55(model) || claude.IsHaiku55(model)
 }
