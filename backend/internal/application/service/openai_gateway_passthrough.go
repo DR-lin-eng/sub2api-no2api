@@ -808,6 +808,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerpr
 	applyOpenAICodexSemanticRequestHeaders(req.Header, c, account, outboundBody)
 	applyOpenAIWorkspaceRoutingHeader(req.Header, workspaceRouting)
 	normalizeOpenAICodexHTTPProtocolHeaders(req, c, account)
+	req = req.WithContext(withOpenAIProofIdentity(req.Context(), newOpenAIProofIdentityFromHeaders(account, fingerprintIDs, req.Header)))
 
 	return req, nil
 }

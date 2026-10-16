@@ -145,5 +145,25 @@
     "observed_status": 1,
     "apple_proof_verified": false,
     "native_error_payload_probe": "Runs GenerateCodexToken directly, independently of callback wait; error_code=4/signals on missing module are a separate assertion."
+  },
+  "account_proof_binding": {
+    "date": "2026-10-16",
+    "source": "server-selected credential owner and outbound identity snapshot",
+    "scope_fields": [
+      "owner principal/user with local owner fallback",
+      "installation",
+      "origin",
+      "thread context"
+    ],
+    "provider": "immutable native provider copy per scope",
+    "app_session_identity": "stable per process and scope; not a physical device claim",
+    "raw_devicecheck_cookie_integrity_namespace": "openai:integrity:v3:",
+    "legacy_state_imported": false,
+    "unknown_principal_user_fallback": "resolved credential owner local id",
+    "full_metadata_only_installation_supported": true,
+    "http_ws_retry_prewarm_scope_rebuilt": true,
+    "live_generation_after_account_selection": true,
+    "physical_device_per_account_created": false,
+    "app_server_multihost_registration_added": false
   }
 }

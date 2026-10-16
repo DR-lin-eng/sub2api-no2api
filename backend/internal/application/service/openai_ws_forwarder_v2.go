@@ -245,13 +245,11 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	defer acquireCancel()
 
 	lease, err := s.getOpenAIWSConnPool().Acquire(acquireCtx, openAIWSAcquireRequest{
-		Account:    account,
-		WSURL:      wsURL,
-		Headers:    wsHeaders,
-		TLSProfile: s.resolveTLSProfile(account),
-		ProofFactory: func(factoryCtx context.Context, headers http.Header) (context.Context, http.Header, error) {
-			return s.prepareOpenAIWSProof(factoryCtx, account, wsURL, headers)
-		},
+		Account:      account,
+		WSURL:        wsURL,
+		Headers:      wsHeaders,
+		TLSProfile:   s.resolveTLSProfile(account),
+		ProofFactory: s.newOpenAIWSProofFactory(account, wsURL, fingerprintIDs, wsHeaders),
 		HandshakeObserver: func(dialCtx context.Context, headers http.Header) {
 			s.captureIntegrityState(dialCtx, headers)
 		},

@@ -564,6 +564,8 @@ frontend/src
 
 启用 `gateway.openai_oauth_attestation_enabled` 后，第一方 OAuth HTTP/Compact 与 WS 实际发送点调用所选本地 provider。`CodexHeader` 在 100ms 总预算内等待 callback，提前取消直接返回 s=3，超时取消子 context 并返回 s=1；没有 provider 则省略头。opaque token 仅作 JSON 字符串封装，不能证明硬件可信；Live native v1 校验独立保留。全进程 64 个未完成 callback 的上限阻止不合作 provider 无界累积，迟到结果不跨请求使用。多宿主 app-server 线程注册不属于当前网关能力，版本与证据见 [原生证明对照](codex/native-device-key-alignment.md)。
 
+Codex 模型证明、Desktop DeviceCheck 与 Live 的本地生成器按已选账号的凭据 owner 和安装身份选择作用域；HTTP/透传与 WS 预热/重试保存服务端身份快照，包含 full 模式 metadata-only 的 installation ID。换号清除旧 scope，DeviceCheck cookie 与完整性状态共用 v3 命名空间，Live 在选定账号后生成证明并正确释放失败槽位。账号独立的应用会话不改变 native 证明的实际硬件来源；具体升级边界见 [原生证明对照](codex/native-device-key-alignment.md)。
+
 ## Codex controller 设备密钥证明
 
 `NewCodexRemoteControlClient` 解析 OAuth 凭据 owner 并绑定账号级 HTTP transport、安装身份与 native resources。manager 显式请求 step-up 后执行 client enroll start/finish，刷新时校验已存公钥与服务端 device identity hash；session token 只保留内存。WebSocket 使用 client-session-token 与 v3 头，收到正确 origin/path、账号、scopes、token 摘要和有效期的 challenge 后调用 native TPM/SE 签名，再交还连接。server enrollment/pairing 仍使用原 owner。接口与证据见 [原生证明对照](codex/native-device-key-alignment.md)。

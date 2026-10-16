@@ -41,3 +41,16 @@ HTTP、Compact、托管/透传 WS 与预热复用发送点处理。等待包含�
 真实 native 模块已加载并尝试 hardware-only 创建；当前环境未能创建硬件 key。测试对此记录 unavailable，未视为硬件签名成功。真实上游 enrollment 需要用户取得有效的新鲜 step-up 授权；本地 fixture 不代表上游已接受。既有 Apple DeviceCheck 成功与真实 `X-OAI-IS-Update` 的验证边界继续保留。
 
 本机新增原生发送探针在 100ms 截止时实际返回 s=1，未取得 Apple 证明。设备模块缺失时的 CBOR 编码探针单独调用 `GenerateCodexToken`，与外层 callback 等待测试分开，避免把冷启动超过预算误判为编码错误。
+
+
+## 账号、安装身份与线程的本地证明绑定（2026-10-16）
+
+网关不提供 app-server 多宿主注册；改用服务端已选账号的凭据 owner、安装身份与线程构造不可变 `RequestScope`，在实际 HTTP/WS 发送、预热与重试时选择本地 provider。HTTP/透传构造器保存本轮身份快照；WS factory 在创建时复制同一快照，因此 full 模式只放在 body metadata 中的 installation ID 也能参与绑定。客户端传入的 installation header 不决定 provider，换号时不继承前一账号的 scope。
+
+macOS provider 按 scope 派生进程内稳定、彼此独立的 `appSessionId`，以副本生成 native 证明；原 provider 不被修改。原生设备、locale、显示器与 Apple token 来源仍是实际运行环境。不同逻辑安装 ID 或 appSessionId 不代表不同物理设备，不能据此声称改变了硬件风控判定；Linux 仍只返回实际的平台不支持状态。
+
+DeviceCheck raw token、`_devicecheck` cookie 和 `X-OAI-IS` 使用同一凭据 owner/安装/origin 作用域；Desktop 的 `oai-did` 从该作用域设置。Live 在选定账号后生成并加密相应 scope 的证明，每次 failover 重新生成，生成失败会释放已选账号槽位。Codex callback 的 100ms 预算也覆盖本地 scoped provider 的选择；结果不会跨请求缓存或转交给其他线程。
+
+完整性状态升级为 `openai:integrity:v3:`。上游 principal 或 user 缺失时使用实际凭据 owner 的本地 ID 作为隔离后备，避免重复设备 ID 合并不同账号。相同 principal/owner、安装与 origin 的 token 刷新保持 scope；principal 修复、安装变化或 origin 变化产生新 scope。新版本不导入 v2 状态，首次使用等待新的上游更新；混合版本各自使用命名空间，无数据库迁移。回滚恢复旧版本的 v2 行为。
+
+验证包含：多账号并发、线程归属、安装变化、影子账号 owner、重试/换号、HTTP/Compact/透传 metadata-only 安装、WS dial/预热快照、DeviceCheck cookie/raw generator 同域，以及 native provider 在原生调用前拒绝错误或缺失的 scope。没有新增 HMAC、伪造硬件证明或客户端证明上传入口；真实 Apple 证明与上游完整性更新的证据边界保持明确。

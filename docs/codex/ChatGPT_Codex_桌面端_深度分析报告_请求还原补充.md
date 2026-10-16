@@ -987,6 +987,12 @@ X-OAI-IS：已将状态绑定到实际 send receipt、principal/安装/第一方
 
 本地 HTTP/WS 注册、刷新和签名验签通过；Go 的身份 hash、两种载荷与 CBOR 都按原 JS 纯函数生成 golden 逐字节比较。native 模块缺失时返回 error_code=4 与实际系统 signals，旧 Live/raw 路径继续拒绝；同输入基线/修改/回退结果记录在交付 ledger。此前真实 native hardware_only 与 allow_os_protected_nonextractable 两策略均未能创建 key，真实硬件成功和上游 fresh step-up 注册仍未验证。
 
+## 附录 H：账号设备证明作用域更新（2026-10-16）
+
+当前网关不实现多个桌面宿主的 app-server 注册，但会在账号选择后建立服务端拥有的证明作用域：credential owner、账号安装身份、origin 和已投影线程身份共同决定本次 provider、cookie 和 integrity receipt。Responses/Compact、透传与托管 WS、预热、DeviceCheck 注册和 Live 创建均从该作用域生成；换号、影子账号 owner、安装身份变化或 failover 不复用旧账号证明。入站 `x-codex-installation-id`、`thread-id` 和 `oai-did` 只作为待清理输入。
+
+macOS scoped provider 只在进程内派生不同的 app session，并仍调用同一部署机上的 native module；它没有创造不同物理设备，也没有伪造 Apple DeviceCheck。当前真实 Apple proof、硬件 key 签名和上游 `X-OAI-IS-Update` 仍未验证成功。完整代码和验证边界见 [原生证明对照](native-device-key-alignment.md)。
+
 
 ## 附录 G：CLI attestation 反编译更新（2026-10-15）
 

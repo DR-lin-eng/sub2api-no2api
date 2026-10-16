@@ -164,6 +164,12 @@ func codexContextStatus(err error) string {
 }
 
 func generateCodexHeader(ctx context.Context, provider Provider) (string, error) {
+	if scope, ok := RequestScopeFromContext(ctx); ok {
+		provider = ProviderForScope(provider, scope.Key)
+		if provider == nil {
+			return "", ErrScopeMismatch
+		}
+	}
 	if callback, ok := provider.(CodexTokenProvider); ok {
 		token, err := callback.GenerateCodexToken(ctx)
 		if err != nil {

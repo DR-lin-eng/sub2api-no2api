@@ -36,7 +36,11 @@ func (s *OpenAIGatewayService) buildOpenAIDeviceCheckHeaders(ctx context.Context
 	if s == nil {
 		return nil, liveattestation.ErrUnsupportedPlatform
 	}
-	provider, ok := s.liveAttestation.(liveattestation.DeviceCheckTokenProvider)
+	scope, bound := liveattestation.RequestScopeFromContext(ctx)
+	if !bound {
+		return nil, liveattestation.ErrScopeMismatch
+	}
+	provider, ok := liveattestation.ProviderForScope(s.liveAttestation, scope.Key).(liveattestation.DeviceCheckTokenProvider)
 	if !ok {
 		return nil, liveattestation.ErrUnsupportedPlatform
 	}
@@ -61,6 +65,9 @@ func (s *OpenAIGatewayService) attachDesktopDeviceCheck(req *http.Request, accou
 		// details. The caller only needs to know no valid proof was produced.
 		return errors.New("native DeviceCheck generation is unavailable")
 	}
+	scope, _ := liveattestation.RequestScopeFromContext(req.Context())
+	deleteOpenAIHeaderEqualFold(req.Header, "oai-did")
+	req.Header.Set("oai-did", scope.InstallationID)
 	if req.Method == http.MethodPost && openAIDeviceCheckMessagesPath.MatchString(req.URL.Path) {
 		var token struct {
 			Token string `json:"token"`
@@ -84,7 +91,8 @@ func (s *OpenAIGatewayService) attachDesktopDeviceCheck(req *http.Request, accou
 }
 
 func (s *OpenAIGatewayService) ensureDesktopDeviceCookie(req *http.Request, account, owner *Account, token string) (*cookiejar.Jar, error) {
-	key := openAIIntegrityKey(account, owner, openAIDesktopProofOrigin(req.URL.String()))
+	scope := openAIProofScope(req.Context(), account, owner, openAIDesktopProofOrigin(req.URL.String()), req.Header)
+	key := scope.Key
 	value, err, _ := s.openAIDeviceCookieSF.Do(key, func() (any, error) {
 		s.openAIDeviceCookieMu.Lock()
 		binding := s.openAIDeviceCookies[key]

@@ -447,7 +447,7 @@
       "direction": "request_conditional",
       "scope": "CLI attestation",
       "value_template_and_source": "<ATTESTATION_ENVELOPE>；AttestationGenerate 真实输出",
-      "project_observed_status": "已接入 HTTP、普通/托管/透传 WS 的实际发送点；本地 provider 生成真实 callback token，Linux 返回 error_code=1，当前 macOS 返回 error_code=3；外层 s=0 只表示回调成功，不等于 Apple 证明成功。可用 gateway.openai_oauth_attestation_enabled 开启。 Ghidra 补充：native 模块加载失败也返回 error_code=4 与实际 signals；Intel macOS error 2 保留 signals，Windows 按同版本源码为 error 1。 CLI 生命周期更新：100ms 等待、提前取消跳过 provider、取消子 context、迟到结果隔离与最多 64 个未完成 callback；无 provider 省略头，成功回调保留 opaque token，Live 保持独立 native v1 校验。",
+      "project_observed_status": "已接入 HTTP、普通/托管/透传 WS 的实际发送点；本地 provider 生成真实 callback token，Linux 返回 error_code=1，当前 macOS 返回 error_code=3；外层 s=0 只表示回调成功，不等于 Apple 证明成功。可用 gateway.openai_oauth_attestation_enabled 开启。 Ghidra 补充：native 模块加载失败也返回 error_code=4 与实际 signals；Intel macOS error 2 保留 signals，Windows 按同版本源码为 error 1。 CLI 生命周期更新：100ms 等待、提前取消跳过 provider、取消子 context、迟到结果隔离与最多 64 个未完成 callback；无 provider 省略头，成功回调保留 opaque token，Live 保持独立 native v1 校验。 账号绑定补充：由服务端身份快照选择 scoped provider，按 owner/installation/origin 隔离，并绑定当次线程；不同 appSessionId 不构成不同物理设备证明。",
       "live_upstream_verified": true,
       "project_symbol_occurrence_refs": [
         "backend/internal/platform/liveattestation/codex.go:104",
@@ -461,7 +461,7 @@
       "direction": "request_conditional",
       "scope": "attachIntegrityState desktop HTTP",
       "value_template_and_source": "<INTEGRITY_STATE>；服务端签发；ois1.A.B.C；最多 2048 字符",
-      "project_observed_status": "已按 principal、安装身份、第一方 origin 隔离；在实际发送点取状态，Redis 原子 CAS、独立 send receipt、防乱序、超时与有界本地存储；真实模型请求本次没有收到 update，真实闭环未证明。",
+      "project_observed_status": "已按 principal、安装身份、第一方 origin 隔离；在实际发送点取状态，Redis 原子 CAS、独立 send receipt、防乱序、超时与有界本地存储；真实模型请求本次没有收到 update，真实闭环未证明。 v3 命名空间与证明 scope 一致；缺少 principal/user 时按凭据 owner 本地 ID 隔离，不导入旧 v2 状态。",
       "live_upstream_verified": false,
       "project_symbol_occurrence_refs": []
     },
@@ -1319,5 +1319,12 @@
     "native_provider_only": true,
     "thread_wire_parameter_added": false,
     "hmac_added": false
+  },
+  "account_proof_binding": {
+    "reference": "native-device-key-alignment.md",
+    "namespace_version": 3,
+    "scope": "credential owner / installation / origin; per-send thread context",
+    "native_hardware_source": "actual deployment device",
+    "distinct_physical_devices_per_account_verified": false
   }
 }
