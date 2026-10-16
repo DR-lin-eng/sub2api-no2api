@@ -69,6 +69,11 @@ func TestDefaultModelIDsForCompositeIncludesAntigravityDefaults(t *testing.T) {
 	require.Contains(t, compositeIDs, antigravityIDs[0])
 }
 
+func TestOpenAIModelListingKeepsAuthoritativeEmptyCatalog(t *testing.T) {
+	require.Empty(t, modelListingSource(service.PlatformOpenAI, []string{}, []string{"gpt-5.5"}))
+	require.Empty(t, customModelsListSource(service.PlatformOpenAI, []string{}, []string{"gpt-5.5"}))
+}
+
 func TestGatewayModels_SingleModelReturnsCompleteEntry(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()

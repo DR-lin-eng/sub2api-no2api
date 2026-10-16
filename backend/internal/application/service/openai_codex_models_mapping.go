@@ -129,9 +129,15 @@ func ProjectCodexModelsManifestForAccount(manifest *CodexModelsManifest, account
 	if manifest.rawBody != nil {
 		source = manifest.rawBody
 	}
-	enriched, err := enrichCodexModelsManifest(source, account)
-	if err != nil {
-		return nil, err
+	enriched := source
+	var err error
+	// Passthrough keeps the existing manifest metadata and bytes. Its new
+	// projection gate exists solely to remove retired ChatGPT targets.
+	if !account.IsOpenAIPassthroughEnabled() {
+		enriched, err = enrichCodexModelsManifest(source, account)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if manifest.apiKeyUpstream {
 		enriched, err = adjustAPIKeyCodexModelsManifest(enriched)
@@ -140,6 +146,10 @@ func ProjectCodexModelsManifestForAccount(manifest *CodexModelsManifest, account
 		}
 	}
 	body, err := projectCodexAccountModelsBody(enriched, account, group)
+	if err != nil {
+		return nil, err
+	}
+	body, err = filterRetiredCodexModelsBody(body, account)
 	if err != nil {
 		return nil, err
 	}

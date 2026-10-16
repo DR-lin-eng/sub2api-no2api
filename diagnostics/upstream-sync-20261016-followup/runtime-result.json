@@ -1,0 +1,38 @@
+[
+  {
+    "stage": "BASELINE",
+    "result": "PASS",
+    "responses_json_created_at": false,
+    "responses_stream_created_at": false,
+    "migration_count": 303,
+    "persisted_invariants_sha256": "b8662022d88abc7c9f95ab512d22afd85381ab53fc82da84e24f8029241be346",
+    "health_ready_frontend_encrypted_login_key_subscription": "PASS"
+  },
+  {
+    "stage": "MODIFIED",
+    "result": "PASS",
+    "responses_json_created_at": true,
+    "responses_stream_created_at": true,
+    "migration_count": 303,
+    "persisted_invariants_sha256": "b8662022d88abc7c9f95ab512d22afd85381ab53fc82da84e24f8029241be346",
+    "health_ready_frontend_encrypted_login_key_subscription": "PASS"
+  },
+  {
+    "stage": "ROLLBACK",
+    "result": "PASS",
+    "responses_json_created_at": false,
+    "responses_stream_created_at": false,
+    "migration_count": 303,
+    "persisted_invariants_sha256": "b8662022d88abc7c9f95ab512d22afd85381ab53fc82da84e24f8029241be346",
+    "health_ready_frontend_encrypted_login_key_subscription": "PASS"
+  },
+  {
+    "stage": "RESTORED",
+    "result": "PASS",
+    "responses_json_created_at": true,
+    "responses_stream_created_at": true,
+    "migration_count": 303,
+    "persisted_invariants_sha256": "b8662022d88abc7c9f95ab512d22afd85381ab53fc82da84e24f8029241be346",
+    "health_ready_frontend_encrypted_login_key_subscription": "PASS"
+  }
+]

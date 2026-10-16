@@ -563,7 +563,7 @@ func TestGetAvailableModels_UsesOAuthCapabilitySnapshotWithoutMapping(t *testing
 		modelsListCacheTTL: time.Minute,
 	}
 
-	require.Equal(t, []string{"gpt-5.5", "gpt-5.6"}, svc.GetAvailableModels(context.Background(), &groupID, PlatformOpenAI))
+	require.Equal(t, []string{"gpt-5.6"}, svc.GetAvailableModels(context.Background(), &groupID, PlatformOpenAI))
 }
 
 func TestGetAvailableModelsKeepsExplicitMappingWhileOAuthSnapshotIsPending(t *testing.T) {

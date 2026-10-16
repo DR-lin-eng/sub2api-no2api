@@ -1,0 +1,14 @@
+{
+  "command": [
+    "make",
+    "-C",
+    "backend",
+    "check-layout"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261016-baseline",
+  "started_at": "2026-10-16T08:03:04.145975+00:00",
+  "elapsed_seconds": 0.932,
+  "exit_status": 2,
+  "stdout": "./scripts/check-source-layout.sh\n",
+  "stderr": "layout error: internal/application/service/payment_fulfillment_test.go has 1201 lines (limit 1200); split by responsibility\nmake: *** [check-layout] Error 1\n"
+}

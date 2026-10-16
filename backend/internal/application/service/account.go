@@ -1075,6 +1075,10 @@ func (a *Account) IsModelSupported(requestedModel string) bool {
 // needed for channel aliases: the client-facing alias may be unknown to Codex,
 // while the channel has already mapped it to a supported model.
 func (a *Account) IsModelSupportedForRequest(requestedModel, routedModel string) bool {
+	return supportsOpenAIRequestModel(a, requestedModel, routedModel, false)
+}
+
+func (a *Account) isModelMappingSupportedForRequest(requestedModel, routedModel string) bool {
 	// 透传模式仅替换认证、模型语义完全交由上游决定，因此放行所有模型。
 	// 该短路必须在 model_mapping 判定之前：账号从"白名单模式"切换到透传后，
 	// credentials 里常残留旧的非空 model_mapping，若不在此放行，透传账号会被
@@ -2661,7 +2665,10 @@ const (
 // 三态：default（跟随渠道）/ enabled（强制开启）/ disabled（强制关闭）。
 // 兼容旧 bool 值：true→enabled, false→default（并记录 debug 日志）。
 func (a *Account) GetWebSearchEmulationMode() string {
-	if a == nil || a.Platform != PlatformAnthropic || a.Type != AccountTypeAPIKey || a.Extra == nil {
+	// OpenAI API-key accounts reach this through the /v1/messages bridge. Their
+	// Chat Completions upstreams do not understand Anthropic web_search tools.
+	if a == nil || a.Type != AccountTypeAPIKey || a.Extra == nil ||
+		(a.Platform != PlatformAnthropic && a.Platform != PlatformOpenAI) {
 		return WebSearchModeDefault
 	}
 	raw := a.Extra[featureKeyWebSearchEmulation]

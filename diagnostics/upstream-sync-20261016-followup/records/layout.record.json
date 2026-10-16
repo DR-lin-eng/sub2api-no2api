@@ -1,0 +1,13 @@
+{
+  "command": [
+    "sh",
+    "-c",
+    "make check-docs; make -C backend check-layout"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261016",
+  "started_at": "2026-10-16T07:50:56.440064+00:00",
+  "elapsed_seconds": 3.414,
+  "exit_status": 2,
+  "stdout": "Documentation checks passed.\n./scripts/check-source-layout.sh\n",
+  "stderr": "layout error: internal/application/service/payment_fulfillment_test.go has 1201 lines (limit 1200); split by responsibility\nmake: *** [check-layout] Error 1\n"
+}

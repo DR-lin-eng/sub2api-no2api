@@ -1,0 +1,702 @@
+diff --git a/backend/internal/service/openai_gateway_passthrough.go b/backend/internal/service/openai_gateway_passthrough.go
+index 6feadb8fb..c34179f6f 100644
+--- a/backend/internal/service/openai_gateway_passthrough.go
++++ b/backend/internal/service/openai_gateway_passthrough.go
+@@ -1901,6 +1901,9 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
+ 	responseFailedPending := false
+ 	var bareErrorPayload []byte
+ 	bareErrorAccountSideEffectsPending := false
++	// Passthrough leaves upstream events untouched; the tracker only learns the
++	// upstream created_at so a synthesized response.failed matches the stream.
++	var createdAtTracker responsesCreatedAtStamper
+ 	upstreamRequestID := strings.TrimSpace(resp.Header.Get("x-request-id"))
+ 	// pendingLines 在首个可见输出前保留前导事件，确保无输出失败仍可安全 failover。
+ 	pendingLines := make([]string, 0, 8)
+@@ -1975,7 +1978,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
+ 		if clientDisconnected || !writePendingLines() {
+ 			return
+ 		}
+-		if _, err := fmt.Fprint(w, buildOpenAIResponseFailedSSE(responseID, originalModel, bareErrorPayload, failedMessage)); err != nil {
++		if _, err := fmt.Fprint(w, buildOpenAIResponseFailedSSE(responseID, originalModel, createdAtTracker.Value(), bareErrorPayload, failedMessage)); err != nil {
+ 			clientDisconnected = true
+ 			return
+ 		}
+@@ -2050,6 +2053,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
+ 				}
+ 			}
+ 			eventType := effectiveOpenAISSEEventType(dataBytes, rawEventType)
++			createdAtTracker.Observe(dataBytes, eventType)
+ 			if codexFailureTerminal && sawBareError && !sawResponseFailed && eventType != "response.failed" {
+ 				suppressCurrentEvent = true
+ 			}
+diff --git a/backend/internal/service/openai_gateway_response_flush_test.go b/backend/internal/service/openai_gateway_response_flush_test.go
+index 56e071041..bfb49bde4 100644
+--- a/backend/internal/service/openai_gateway_response_flush_test.go
++++ b/backend/internal/service/openai_gateway_response_flush_test.go
+@@ -371,7 +371,7 @@ func TestOpenAIResponseFlush_KeepaliveDoesNotSplitOpenEvent(t *testing.T) {
+ func TestOpenAIResponseFlush_FailedAndErrorEventsFlushAtBoundaries(t *testing.T) {
+ 	t.Run("failed at EOF", func(t *testing.T) {
+ 		body := "data: {\"type\":\"response.output_text.delta\",\"delta\":\"a\"}\n\n" +
+-			"data: {\"type\":\"response.failed\",\"response\":{\"error\":{\"code\":\"safety_error\",\"message\":\"blocked\"},\"usage\":{\"input_tokens\":3,\"output_tokens\":1}}}\n"
++			"data: {\"type\":\"response.failed\",\"response\":{\"created_at\":1700000000,\"error\":{\"code\":\"safety_error\",\"message\":\"blocked\"},\"usage\":{\"input_tokens\":3,\"output_tokens\":1}}}\n"
+ 		recorder := newOpenAIResponseFlushRecorder()
+ 
+ 		result, err := runOpenAIResponseFlushTest(recorder, io.NopCloser(strings.NewReader(body)), config.GatewayConfig{})
+@@ -381,7 +381,7 @@ func TestOpenAIResponseFlush_FailedAndErrorEventsFlushAtBoundaries(t *testing.T)
+ 		require.Equal(t, 3, result.usage.InputTokens)
+ 		gotBody, flushes := recorder.snapshot()
+ 		expectedBody := "data: {\"type\":\"response.output_text.delta\",\"delta\":\"a\"}\n\n" +
+-			"data: {\"type\":\"response.failed\",\"response\":{\"error\":{\"code\":\"safety_error\",\"message\":\"blocked\"}}}\n"
++			"data: {\"type\":\"response.failed\",\"response\":{\"created_at\":1700000000,\"error\":{\"code\":\"safety_error\",\"message\":\"blocked\"}}}\n"
+ 		require.Equal(t, expectedBody, gotBody)
+ 		require.Len(t, flushes, 2)
+ 		require.Contains(t, flushes[1], "response.failed")
+@@ -669,7 +669,7 @@ func (r *hangingOpenAISSEAfterTerminal) Close() error {
+ }
+ 
+ func TestOpenAIResponseFlush_TerminalEventEndsStreamWithoutEOF(t *testing.T) {
+-	body := "data: {\"type\":\"response.completed\",\"response\":{\"status\":\"completed\",\"output\":[],\"usage\":{\"input_tokens\":7,\"output_tokens\":5}}}\n\n"
++	body := "data: {\"type\":\"response.completed\",\"response\":{\"created_at\":1700000000,\"status\":\"completed\",\"output\":[],\"usage\":{\"input_tokens\":7,\"output_tokens\":5}}}\n\n"
+ 	reader := &hangingOpenAISSEAfterTerminal{payload: []byte(body), release: make(chan struct{})}
+ 	recorder := newOpenAIResponseFlushRecorder()
+ 	resultCh, errCh := runOpenAIResponseFlushTestAsync(recorder, reader, config.GatewayConfig{StreamKeepaliveInterval: 1, StreamDataIntervalTimeout: 30})
+diff --git a/backend/internal/service/openai_gateway_response_handling.go b/backend/internal/service/openai_gateway_response_handling.go
+index d4c8f723b..f8b007830 100644
+--- a/backend/internal/service/openai_gateway_response_handling.go
++++ b/backend/internal/service/openai_gateway_response_handling.go
+@@ -341,6 +341,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
+ 	}
+ 
+ 	needModelReplace := originalModel != mappedModel
++	var createdAtStamper responsesCreatedAtStamper
+ 	streamOutputAccumulator := apicompat.NewBufferedResponseAccumulator()
+ 	streamDoneItems := newResponsesStreamOutputItems()
+ 	streamImageOutputs := make([]json.RawMessage, 0, 1)
+@@ -382,7 +383,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
+ 		}
+ 		if codexFailureTerminal && sawBareError && !sawResponseFailed && !clientDisconnected {
+ 			applyAttemptResponseHeaders()
+-			if _, err := writePendingString(buildOpenAIResponseFailedSSE(responseID, originalModel, bareErrorPayload, failedMessage)); err != nil {
++			if _, err := writePendingString(buildOpenAIResponseFailedSSE(responseID, originalModel, createdAtStamper.Value(), bareErrorPayload, failedMessage)); err != nil {
+ 				handlePendingWriteError(err)
+ 			} else {
+ 				failureDelivered = true
+@@ -667,6 +668,11 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
+ 				data = string(sanitizedData)
+ 				line = "data: " + data
+ 			}
++			if stampedData, stamped := createdAtStamper.Stamp(dataBytes, eventType); stamped {
++				dataBytes = stampedData
++				data = string(stampedData)
++				line = "data: " + data
++			}
+ 			// Replace model in response if needed.
+ 			if needModelReplace {
+ 				line = s.replaceModelInSSELine(line, mappedModel, originalModel)
+@@ -1667,6 +1673,7 @@ func (s *OpenAIGatewayService) handleNonStreamingResponse(ctx context.Context, r
+ 		return nil, fmt.Errorf("restore OpenAI namespace response: %w", err)
+ 	}
+ 	body = restoreCodexToolNamesFromContext(c, body)
++	body = ensureOpenAIResponseObjectCreatedAt(body)
+ 	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
+ 	// Codex 协议要求 /responses/compact JSON 响应携带 x-codex-turn-state
+ 	// （codex-api/src/endpoint/compact.rs 从响应头捕获），显式回传。
+@@ -1767,7 +1774,7 @@ func (s *OpenAIGatewayService) handleSSEToJSON(resp *http.Response, c *gin.Conte
+ 			return nil, fmt.Errorf("restore OpenAI namespace response: %w", restoreErr)
+ 		}
+ 		restoredBody = restoreCodexToolNamesFromContext(c, restoredBody)
+-		body = restoredBody
++		body = ensureOpenAIResponseObjectCreatedAt(restoredBody)
+ 	} else {
+ 		if originalModel != mappedModel {
+ 			bodyText = s.replaceModelInSSEBody(bodyText, mappedModel, originalModel)
+@@ -1828,7 +1835,10 @@ func extractOpenAISSEErrorMessage(payload []byte) string {
+ 	return sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(payload)))
+ }
+ 
+-func buildOpenAIResponseFailedSSE(responseID, model string, source []byte, fallbackMessage string) string {
++// buildOpenAIResponseFailedSSE synthesizes the response.failed terminal for a
++// stream that ended on a bare error. created_at and sequence_number are always
++// written: strict clients (grok-build, Codex) reject the frame without them.
++func buildOpenAIResponseFailedSSE(responseID, model string, createdAt int64, source []byte, fallbackMessage string) string {
+ 	responseID = strings.TrimSpace(responseID)
+ 	if responseID == "" {
+ 		responseID = "resp_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+@@ -1855,23 +1865,31 @@ func buildOpenAIResponseFailedSSE(responseID, model string, source []byte, fallb
+ 	if errorType != "" {
+ 		errorBody["type"] = errorType
+ 	}
++	if createdAt <= 0 {
++		createdAt = time.Now().Unix()
++	}
++	sequenceNumber := openAIResponsesFailedSequenceNumber(source)
+ 	response := gin.H{
+-		"id":     responseID,
+-		"object": "response",
+-		"status": "failed",
+-		"output": []any{},
+-		"error":  errorBody,
++		"id":         responseID,
++		"object":     "response",
++		"created_at": createdAt,
++		"status":     "failed",
++		"output":     []any{},
++		"error":      errorBody,
+ 	}
+ 	if model = strings.TrimSpace(model); model != "" {
+ 		response["model"] = model
+ 	}
+ 	payload, err := marshalOpenAIUpstreamJSON(gin.H{
+-		"type":     "response.failed",
+-		"response": response,
++		"type":            "response.failed",
++		"sequence_number": sequenceNumber,
++		"response":        response,
+ 	})
+ 	if err != nil {
+ 		// All values above are JSON primitives, so this is only a defensive fallback.
+-		payload = []byte(`{"type":"response.failed","response":{"status":"failed","output":[],"error":{"code":"upstream_error","message":"Upstream response failed"}}}`)
++		payload = []byte(`{"type":"response.failed","sequence_number":` + strconv.FormatInt(sequenceNumber, 10) +
++			`,"response":{"object":"response","created_at":` + strconv.FormatInt(createdAt, 10) +
++			`,"status":"failed","output":[],"error":{"code":"upstream_error","message":"Upstream response failed"}}}`)
+ 	}
+ 	return "event: response.failed\ndata: " + string(payload) + "\n\n"
+ }
+diff --git a/backend/internal/service/openai_responses_created_at.go b/backend/internal/service/openai_responses_created_at.go
+new file mode 100644
+index 000000000..4387b02b5
+--- /dev/null
++++ b/backend/internal/service/openai_responses_created_at.go
+@@ -0,0 +1,94 @@
++package service
++
++import (
++	"strings"
++	"time"
++
++	"github.com/tidwall/gjson"
++	"github.com/tidwall/sjson"
++)
++
++// Strict Responses clients (Rust serde: grok-build, Codex) declare
++// Response.created_at as required — a response object without it fails the
++// whole turn with `missing field 'created_at'` (issues #5601, #8118).
++// Official upstreams always send it, but vendor gateways in front of Grok
++// subscriptions and gateway-synthesized terminal frames may not, so every
++// Response object leaving the gateway is stamped when the field is absent.
++
++// responsesCreatedAtStamper keeps one created_at per Responses stream: the
++// upstream's own value once seen, otherwise a single timestamp taken on first
++// use, so response.created and the terminal event always agree.
++type responsesCreatedAtStamper struct {
++	createdAt int64
++}
++
++func (s *responsesCreatedAtStamper) learn(value gjson.Result) {
++	if s.createdAt == 0 && value.Type == gjson.Number && value.Int() > 0 {
++		s.createdAt = value.Int()
++	}
++}
++
++// Value returns the stream's created_at, fixing it to now on first use.
++func (s *responsesCreatedAtStamper) Value() int64 {
++	if s.createdAt <= 0 {
++		s.createdAt = time.Now().Unix()
++	}
++	return s.createdAt
++}
++
++// Observe records the upstream created_at without modifying the payload.
++func (s *responsesCreatedAtStamper) Observe(payload []byte, eventType string) {
++	if !strings.HasPrefix(strings.TrimSpace(eventType), "response.") {
++		return
++	}
++	s.learn(gjson.GetBytes(payload, "response.created_at"))
++}
++
++// Stamp adds response.created_at to a Responses lifecycle event whose
++// response object lacks it (absent or null). Any other value is left as-is.
++func (s *responsesCreatedAtStamper) Stamp(payload []byte, eventType string) ([]byte, bool) {
++	if !strings.HasPrefix(strings.TrimSpace(eventType), "response.") {
++		return payload, false
++	}
++	response := gjson.GetBytes(payload, "response")
++	if !response.IsObject() {
++		return payload, false
++	}
++	createdAt := response.Get("created_at")
++	if createdAt.Exists() && createdAt.Type != gjson.Null {
++		s.learn(createdAt)
++		return payload, false
++	}
++	stamped, err := sjson.SetBytes(payload, "response.created_at", s.Value())
++	if err != nil {
++		return payload, false
++	}
++	return stamped, true
++}
++
++// ensureOpenAIResponseObjectCreatedAt stamps created_at onto a non-streaming
++// Response object (`"object":"response"`) that lacks it.
++func ensureOpenAIResponseObjectCreatedAt(body []byte) []byte {
++	if gjson.GetBytes(body, "object").String() != "response" {
++		return body
++	}
++	createdAt := gjson.GetBytes(body, "created_at")
++	if createdAt.Exists() && createdAt.Type != gjson.Null {
++		return body
++	}
++	stamped, err := sjson.SetBytes(body, "created_at", time.Now().Unix())
++	if err != nil {
++		return body
++	}
++	return stamped
++}
++
++// openAIResponsesFailedSequenceNumber reuses the sequence slot of the bare
++// error event a synthesized response.failed replaces (that error frame is
++// suppressed), keeping the client-visible sequence monotonic; 0 when unknown.
++func openAIResponsesFailedSequenceNumber(source []byte) int64 {
++	if seq := gjson.GetBytes(source, "sequence_number"); seq.Type == gjson.Number && seq.Int() >= 0 {
++		return seq.Int()
++	}
++	return 0
++}
+diff --git a/backend/internal/service/openai_responses_created_at_test.go b/backend/internal/service/openai_responses_created_at_test.go
+new file mode 100644
+index 000000000..b4aaac3df
+--- /dev/null
++++ b/backend/internal/service/openai_responses_created_at_test.go
+@@ -0,0 +1,355 @@
++package service
++
++import (
++	"context"
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++
++	"github.com/Wei-Shaw/sub2api/internal/config"
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++	"github.com/tidwall/gjson"
++)
++
++// issue #8118：grok-build（Rust serde）把 Response.created_at 当必填字段，缺失即
++// `missing field 'created_at'` 整轮读不出响应。网关送出的每个 Response 对象都必须带它。
++
++// sseDataPayloads 按顺序取出 SSE 文本里的全部 data 负载（跳过 [DONE]）。
++func sseDataPayloads(body string) []string {
++	var payloads []string
++	for _, line := range strings.Split(body, "\n") {
++		data, ok := strings.CutPrefix(line, "data: ")
++		if !ok || strings.TrimSpace(data) == "[DONE]" {
++			continue
++		}
++		payloads = append(payloads, data)
++	}
++	return payloads
++}
++
++func TestResponsesCreatedAtStamper_StampsMissingAndKeepsStreamStable(t *testing.T) {
++	var stamper responsesCreatedAtStamper
++
++	created, changed := stamper.Stamp([]byte(`{"type":"response.created","response":{"id":"resp_1","status":"in_progress"}}`), "response.created")
++	require.True(t, changed)
++	first := gjson.GetBytes(created, "response.created_at")
++	require.Equal(t, gjson.Number, first.Type)
++	require.Positive(t, first.Int())
++
++	completed, changed := stamper.Stamp([]byte(`{"type":"response.completed","response":{"id":"resp_1","status":"completed","output":[]}}`), "response.completed")
++	require.True(t, changed)
++	require.Equal(t, first.Int(), gjson.GetBytes(completed, "response.created_at").Int(), "同一条流的 created_at 必须一致")
++}
++
++func TestResponsesCreatedAtStamper_PreservesUpstreamValue(t *testing.T) {
++	var stamper responsesCreatedAtStamper
++	upstream := []byte(`{"type":"response.created","response":{"id":"resp_1","created_at":1700000000}}`)
++
++	out, changed := stamper.Stamp(upstream, "response.created")
++	require.False(t, changed)
++	require.Equal(t, string(upstream), string(out), "上游已带 created_at 时字节不变")
++
++	completed, changed := stamper.Stamp([]byte(`{"type":"response.completed","response":{"id":"resp_1"}}`), "response.completed")
++	require.True(t, changed)
++	require.EqualValues(t, 1700000000, gjson.GetBytes(completed, "response.created_at").Int(), "后续缺失时沿用上游值")
++	require.EqualValues(t, 1700000000, stamper.Value())
++}
++
++func TestResponsesCreatedAtStamper_NullIsTreatedAsMissing(t *testing.T) {
++	var stamper responsesCreatedAtStamper
++	out, changed := stamper.Stamp([]byte(`{"type":"response.created","response":{"id":"resp_1","created_at":null}}`), "response.created")
++	require.True(t, changed)
++	require.Equal(t, gjson.Number, gjson.GetBytes(out, "response.created_at").Type)
++}
++
++func TestResponsesCreatedAtStamper_LeavesOtherEventsUntouched(t *testing.T) {
++	cases := []struct {
++		name      string
++		eventType string
++		payload   string
++	}{
++		{"delta", "response.output_text.delta", `{"type":"response.output_text.delta","delta":"hi"}`},
++		{"bare_error", "error", `{"type":"error","error":{"message":"boom"}}`},
++		{"error_with_response_field", "error", `{"type":"error","response":{"id":"resp_1"}}`},
++		{"response_not_object", "response.created", `{"type":"response.created","response":"resp_1"}`},
++		{"non_numeric_created_at", "response.created", `{"type":"response.created","response":{"created_at":"2026-10-16T00:00:00Z"}}`},
++		{"invalid_json", "response.created", `not json`},
++	}
++	for _, tc := range cases {
++		t.Run(tc.name, func(t *testing.T) {
++			var stamper responsesCreatedAtStamper
++			out, changed := stamper.Stamp([]byte(tc.payload), tc.eventType)
++			require.False(t, changed)
++			require.Equal(t, tc.payload, string(out))
++		})
++	}
++}
++
++func TestResponsesCreatedAtStamper_ObserveLearnsWithoutStamping(t *testing.T) {
++	var stamper responsesCreatedAtStamper
++	stamper.Observe([]byte(`{"type":"error","response":{"created_at":1600000000}}`), "error")
++	stamper.Observe([]byte(`{"type":"response.created","response":{"created_at":1700000000}}`), "response.created")
++	stamper.Observe([]byte(`{"type":"response.in_progress","response":{"created_at":1800000000}}`), "response.in_progress")
++	require.EqualValues(t, 1700000000, stamper.Value(), "记首个生命周期事件的上游值")
++}
++
++func TestEnsureOpenAIResponseObjectCreatedAt(t *testing.T) {
++	stamped := ensureOpenAIResponseObjectCreatedAt([]byte(`{"id":"resp_1","object":"response","status":"completed"}`))
++	require.Equal(t, gjson.Number, gjson.GetBytes(stamped, "created_at").Type)
++	require.Positive(t, gjson.GetBytes(stamped, "created_at").Int())
++
++	for _, body := range []string{
++		`{"id":"resp_1","object":"response","created_at":1700000000}`,
++		`{"id":"cmp_1","object":"response.compaction","output":[]}`,
++		`{"id":"resp_1","output":[]}`,
++		`not json`,
++	} {
++		require.Equal(t, body, string(ensureOpenAIResponseObjectCreatedAt([]byte(body))))
++	}
++}
++
++func TestBuildOpenAIResponseFailedSSE_CarriesCreatedAtAndSequenceNumber(t *testing.T) {
++	frame := buildOpenAIResponseFailedSSE("resp_1", "gpt-5.5", 1700000000,
++		[]byte(`{"type":"error","sequence_number":7,"error":{"code":"server_is_overloaded","message":"busy"}}`), "")
++	payloads := sseDataPayloads(frame)
++	require.Len(t, payloads, 1)
++	event := payloads[0]
++	require.Equal(t, "response.failed", gjson.Get(event, "type").String())
++	require.EqualValues(t, 7, gjson.Get(event, "sequence_number").Int(), "沿用被替换的裸 error 帧序号")
++	require.EqualValues(t, 1700000000, gjson.Get(event, "response.created_at").Int())
++	require.Equal(t, "resp_1", gjson.Get(event, "response.id").String())
++	require.Equal(t, "failed", gjson.Get(event, "response.status").String())
++
++	frame = buildOpenAIResponseFailedSSE("", "", 0, []byte(`{"type":"error","error":{"message":"boom"}}`), "")
++	event = sseDataPayloads(frame)[0]
++	require.True(t, gjson.Get(event, "sequence_number").Exists(), "sequence_number 未知时也必须写出")
++	require.EqualValues(t, 0, gjson.Get(event, "sequence_number").Int())
++	require.Positive(t, gjson.Get(event, "response.created_at").Int(), "未知 created_at 时取当前时间")
++}
++
++func TestBuildOpenAIWSHTTPBridgeFailedEvent_CarriesCreatedAtAndSequenceNumber(t *testing.T) {
++	event := buildOpenAIWSHTTPBridgeFailedEvent("resp_1", "gpt-5.5", 1700000000,
++		[]byte(`{"type":"error","sequence_number":4,"error":{"message":"boom"}}`), "")
++	require.Equal(t, "response.failed", gjson.GetBytes(event, "type").String())
++	require.EqualValues(t, 4, gjson.GetBytes(event, "sequence_number").Int())
++	require.EqualValues(t, 1700000000, gjson.GetBytes(event, "response.created_at").Int())
++
++	event = buildOpenAIWSHTTPBridgeFailedEvent("resp_1", "", 0, []byte(`{"type":"error","error":{"message":"boom"}}`), "")
++	require.EqualValues(t, 0, gjson.GetBytes(event, "sequence_number").Int())
++	require.Positive(t, gjson.GetBytes(event, "response.created_at").Int())
++}
++
++// Grok 账号挂在不发 created_at 的上游（第三方中转）后面：每个生命周期事件都要补齐，
++// 且同一条流取同一个值；增量事件字节不变。
++func TestHandleStreamingResponse_GrokStampsMissingCreatedAt(t *testing.T) {
++	delta := `{"type":"response.output_text.delta","sequence_number":2,"item_id":"msg_1","output_index":0,"content_index":0,"delta":"hi"}`
++	body := "event: response.created\n" +
++		`data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_grok","object":"response","model":"grok-4.5","status":"in_progress","output":[]}}` + "\n\n" +
++		"event: response.in_progress\n" +
++		`data: {"type":"response.in_progress","sequence_number":1,"response":{"id":"resp_grok","object":"response","model":"grok-4.5","status":"in_progress","output":[]}}` + "\n\n" +
++		"event: response.output_text.delta\n" +
++		"data: " + delta + "\n\n" +
++		"event: response.completed\n" +
++		`data: {"type":"response.completed","sequence_number":3,"response":{"id":"resp_grok","object":"response","model":"grok-4.5","status":"completed","output":[{"type":"message","id":"msg_1","role":"assistant","status":"completed","content":[{"type":"output_text","text":"hi","annotations":[]}]}],"usage":{"input_tokens":3,"output_tokens":1,"total_tokens":4}}}` + "\n\n"
++	recorder := newOpenAIResponseFlushRecorder()
++	account := &Account{ID: 8118, Platform: PlatformGrok, Type: AccountTypeAPIKey}
++
++	result, err := runOpenAIResponseFlushTestWithAccount(recorder, io.NopCloser(strings.NewReader(body)), config.GatewayConfig{}, account)
++
++	require.NoError(t, err)
++	require.NotNil(t, result)
++	require.Equal(t, 3, result.usage.InputTokens)
++	gotBody, _ := recorder.snapshot()
++	payloads := sseDataPayloads(gotBody)
++	require.Len(t, payloads, 4)
++	createdAt := gjson.Get(payloads[0], "response.created_at")
++	require.Equal(t, gjson.Number, createdAt.Type)
++	require.Positive(t, createdAt.Int())
++	for _, index := range []int{1, 3} {
++		require.Equal(t, createdAt.Int(), gjson.Get(payloads[index], "response.created_at").Int(), "payload %d", index)
++	}
++	require.Equal(t, delta, payloads[2], "非生命周期事件不得改动")
++	require.Equal(t, "hi", gjson.Get(payloads[3], "response.output.0.content.0.text").String())
++}
++
++// 官方上游自带 created_at：网关输出必须与上游逐字节一致（不引入任何改写）。
++func TestHandleStreamingResponse_GrokKeepsUpstreamCreatedAtBytes(t *testing.T) {
++	body := "event: response.created\n" +
++		`data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_grok","object":"response","created_at":1774274151,"model":"grok-4.5","status":"in_progress","output":[]}}` + "\n\n" +
++		"event: response.completed\n" +
++		`data: {"type":"response.completed","sequence_number":1,"response":{"id":"resp_grok","object":"response","created_at":1774274151,"model":"grok-4.5","status":"completed","output":[{"type":"message","id":"msg_1","role":"assistant","status":"completed","content":[{"type":"output_text","text":"hi","annotations":[]}]}],"usage":{"input_tokens":3,"output_tokens":1,"total_tokens":4}}}` + "\n\n"
++	recorder := newOpenAIResponseFlushRecorder()
++	account := &Account{ID: 8118, Platform: PlatformGrok, Type: AccountTypeOAuth}
++
++	_, err := runOpenAIResponseFlushTestWithAccount(recorder, io.NopCloser(strings.NewReader(body)), config.GatewayConfig{}, account)
++
++	require.NoError(t, err)
++	gotBody, _ := recorder.snapshot()
++	require.Equal(t, body, gotBody)
++}
++
++// OpenAI OAuth 流以裸 error 结束：合成的 response.failed 必须带 created_at
++// （与本流 response.created 一致）和 sequence_number。
++func TestHandleStreamingResponse_BareErrorSynthesizedFailedCarriesCreatedAt(t *testing.T) {
++	body := `data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_bare","object":"response","created_at":1700000000,"status":"in_progress","output":[]}}` + "\n\n" +
++		`data: {"type":"response.output_text.delta","sequence_number":1,"item_id":"msg_1","output_index":0,"content_index":0,"delta":"partial"}` + "\n\n" +
++		`data: {"type":"error","sequence_number":2,"error":{"code":"server_is_overloaded","message":"busy"}}` + "\n\n" +
++		"data: [DONE]\n\n"
++	recorder := newOpenAIResponseFlushRecorder()
++
++	result, err := runOpenAIResponseFlushTest(recorder, io.NopCloser(strings.NewReader(body)), config.GatewayConfig{})
++
++	require.Error(t, err)
++	require.NotNil(t, result)
++	gotBody, _ := recorder.snapshot()
++	require.NotContains(t, gotBody, `"type":"error"`)
++	var failed string
++	for _, payload := range sseDataPayloads(gotBody) {
++		if gjson.Get(payload, "type").String() == "response.failed" {
++			failed = payload
++		}
++	}
++	require.NotEmpty(t, failed, "必须合成 response.failed: %s", gotBody)
++	require.EqualValues(t, 1700000000, gjson.Get(failed, "response.created_at").Int())
++	require.EqualValues(t, 2, gjson.Get(failed, "sequence_number").Int())
++	require.Equal(t, "resp_bare", gjson.Get(failed, "response.id").String())
++}
++
++func TestHandleStreamingResponsePassthrough_BareErrorSynthesizedFailedCarriesCreatedAt(t *testing.T) {
++	upstream := `data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_pt","object":"response","created_at":1700000000,"status":"in_progress","output":[]}}` + "\n\n" +
++		"event: error\n" +
++		`data: {"type":"error","sequence_number":1,"error":{"code":"content_policy","message":"request blocked by policy"}}` + "\n\n" +
++		"data: [DONE]\n\n"
++
++	_, recorder, _, err := runPassthroughFlushTest(t, io.NopCloser(strings.NewReader(upstream)), -1)
++
++	require.Error(t, err)
++	var failed string
++	for _, payload := range sseDataPayloads(recorder.Body.String()) {
++		if gjson.Get(payload, "type").String() == "response.failed" {
++			failed = payload
++		}
++	}
++	require.NotEmpty(t, failed, "必须合成 response.failed: %s", recorder.Body.String())
++	require.EqualValues(t, 1700000000, gjson.Get(failed, "response.created_at").Int())
++	require.EqualValues(t, 1, gjson.Get(failed, "sequence_number").Int())
++}
++
++func TestProxyOpenAIWSHTTPBridgeTurn_GrokStampsMissingCreatedAt(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	upstream := &httpUpstreamRecorder{resp: &http.Response{
++		StatusCode: http.StatusOK,
++		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
++		Body: io.NopCloser(strings.NewReader(strings.Join([]string{
++			`data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_ws","object":"response","model":"grok-4.5","status":"in_progress"}}`,
++			"",
++			`data: {"type":"response.completed","sequence_number":1,"response":{"id":"resp_ws","object":"response","model":"grok-4.5","status":"completed","usage":{"input_tokens":1,"output_tokens":1}}}`,
++			"",
++		}, "\n"))),
++	}}
++	svc := &OpenAIGatewayService{
++		cfg:          &config.Config{Gateway: config.GatewayConfig{MaxLineSize: defaultMaxLineSize}},
++		httpUpstream: upstream,
++	}
++	account := &Account{ID: 8118, Platform: PlatformGrok, Type: AccountTypeOAuth, Concurrency: 1}
++	payload := []byte(`{"type":"response.create","model":"grok-4.5","stream":true,"input":"hi"}`)
++	recorder := httptest.NewRecorder()
++	c, _ := gin.CreateTestContext(recorder)
++	c.Request = httptest.NewRequest(http.MethodGet, "/v1/responses", nil)
++	var events [][]byte
++
++	result, err := svc.proxyOpenAIWSHTTPBridgeTurn(
++		context.Background(), c, account, "access-token", payload, len(payload),
++		"grok-4.5", "", "", "", "", 1,
++		func(message []byte) error {
++			events = append(events, append([]byte(nil), message...))
++			return nil
++		},
++	)
++
++	require.NoError(t, err)
++	require.NotNil(t, result)
++	require.Len(t, events, 2)
++	createdAt := gjson.GetBytes(events[0], "response.created_at")
++	require.Equal(t, gjson.Number, createdAt.Type)
++	require.Positive(t, createdAt.Int())
++	require.Equal(t, createdAt.Int(), gjson.GetBytes(events[1], "response.created_at").Int())
++}
++
++func TestProxyOpenAIWSHTTPBridgeTurn_BareErrorSynthesizedFailedCarriesCreatedAt(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	body := `data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_eof","created_at":1700000000,"status":"in_progress"}}` + "\n\n" +
++		`data: {"type":"error","sequence_number":1,"error":{"code":"invalid_request","message":"bad request"}}` + "\n\n"
++	upstream := &httpUpstreamRecorder{resp: &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(body))}}
++	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
++	account := &Account{ID: 112, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Concurrency: 1}
++	recorder := httptest.NewRecorder()
++	c, _ := gin.CreateTestContext(recorder)
++	c.Request = httptest.NewRequest(http.MethodGet, "/v1/responses", nil)
++	payload := []byte(`{"type":"response.create","model":"gpt-5","input":"hi"}`)
++	var writes [][]byte
++
++	_, err := svc.proxyOpenAIWSHTTPBridgeTurn(context.Background(), c, account, "sk-test", payload, len(payload), "gpt-5", "", "", "", "", 2, func(message []byte) error {
++		writes = append(writes, append([]byte(nil), message...))
++		return nil
++	})
++
++	require.EqualError(t, err, "bad request")
++	require.Len(t, writes, 2)
++	require.Equal(t, "response.failed", gjson.GetBytes(writes[1], "type").String())
++	require.EqualValues(t, 1700000000, gjson.GetBytes(writes[1], "response.created_at").Int())
++	require.EqualValues(t, 1, gjson.GetBytes(writes[1], "sequence_number").Int())
++}
++
++func TestHandleNonStreamingResponse_StampsMissingCreatedAt(t *testing.T) {
++	run := func(t *testing.T, upstreamBody string) string {
++		t.Helper()
++		gin.SetMode(gin.TestMode)
++		rec := httptest.NewRecorder()
++		c, _ := gin.CreateTestContext(rec)
++		c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
++		svc := &OpenAIGatewayService{cfg: &config.Config{}, toolCorrector: NewCodexToolCorrector()}
++		resp := &http.Response{
++			StatusCode: http.StatusOK,
++			Header:     http.Header{"Content-Type": []string{"application/json"}},
++			Body:       io.NopCloser(strings.NewReader(upstreamBody)),
++		}
++		result, err := svc.handleNonStreamingResponse(context.Background(), resp, c, &Account{ID: 8118, Platform: PlatformGrok, Type: AccountTypeAPIKey}, "grok-4.5", "grok-4.5")
++		require.NoError(t, err)
++		require.NotNil(t, result)
++		require.Equal(t, 3, result.usage.InputTokens)
++		return rec.Body.String()
++	}
++
++	missing := run(t, `{"id":"resp_1","object":"response","model":"grok-4.5","status":"completed","output":[],"usage":{"input_tokens":3,"output_tokens":1,"total_tokens":4}}`)
++	require.Equal(t, gjson.Number, gjson.Get(missing, "created_at").Type)
++	require.Positive(t, gjson.Get(missing, "created_at").Int())
++
++	present := `{"id":"resp_1","object":"response","created_at":1700000000,"model":"grok-4.5","status":"completed","output":[],"usage":{"input_tokens":3,"output_tokens":1,"total_tokens":4}}`
++	require.Equal(t, present, run(t, present))
++}
++
++func TestHandleSSEToJSON_StampsMissingCreatedAt(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	rec := httptest.NewRecorder()
++	c, _ := gin.CreateTestContext(rec)
++	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
++	svc := &OpenAIGatewayService{cfg: &config.Config{}, toolCorrector: NewCodexToolCorrector()}
++	body := `data: {"type":"response.completed","response":{"id":"resp_1","object":"response","status":"completed","output":[{"type":"message","id":"msg_1","role":"assistant","status":"completed","content":[{"type":"output_text","text":"hi","annotations":[]}]}],"usage":{"input_tokens":3,"output_tokens":1,"total_tokens":4}}}` + "\n\n"
++	resp := &http.Response{
++		StatusCode: http.StatusOK,
++		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
++		Body:       io.NopCloser(strings.NewReader(body)),
++	}
++
++	result, err := svc.handleNonStreamingResponse(context.Background(), resp, c, &Account{ID: 8118, Platform: PlatformGrok, Type: AccountTypeOAuth}, "grok-4.5", "grok-4.5")
++
++	require.NoError(t, err)
++	require.NotNil(t, result)
++	out := rec.Body.String()
++	require.Equal(t, "resp_1", gjson.Get(out, "id").String())
++	require.Positive(t, gjson.Get(out, "created_at").Int())
++}
+diff --git a/backend/internal/service/openai_ws_http_bridge.go b/backend/internal/service/openai_ws_http_bridge.go
+index cc7fa4d6a..066c769c2 100644
+--- a/backend/internal/service/openai_ws_http_bridge.go
++++ b/backend/internal/service/openai_ws_http_bridge.go
+@@ -9,6 +9,7 @@ import (
+ 	"io"
+ 	"net/http"
+ 	"slices"
++	"strconv"
+ 	"strings"
+ 	"time"
+ 
+@@ -369,7 +370,10 @@ func buildOpenAIWSHTTPBridgeErrorEvent(statusCode int, message string) []byte {
+ 	return body
+ }
+ 
+-func buildOpenAIWSHTTPBridgeFailedEvent(responseID, model string, source []byte, fallbackMessage string) []byte {
++// buildOpenAIWSHTTPBridgeFailedEvent synthesizes response.failed for a turn that
++// ended on a bare error. created_at and sequence_number are always written:
++// strict clients (grok-build, Codex) reject the frame without them.
++func buildOpenAIWSHTTPBridgeFailedEvent(responseID, model string, createdAt int64, source []byte, fallbackMessage string) []byte {
+ 	errorType := strings.TrimSpace(gjson.GetBytes(source, "error.type").String())
+ 	if errorType == "" {
+ 		errorType = strings.TrimSpace(gjson.GetBytes(source, "response.error.type").String())
+@@ -392,16 +396,22 @@ func buildOpenAIWSHTTPBridgeFailedEvent(responseID, model string, source []byte,
+ 	if errorType != "" {
+ 		errorBody["type"] = errorType
+ 	}
++	if createdAt <= 0 {
++		createdAt = time.Now().Unix()
++	}
++	sequenceNumber := openAIResponsesFailedSequenceNumber(source)
+ 	response := map[string]any{
+-		"id": responseID, "object": "response", "status": "failed",
++		"id": responseID, "object": "response", "created_at": createdAt, "status": "failed",
+ 		"output": []any{}, "error": errorBody,
+ 	}
+ 	if model = strings.TrimSpace(model); model != "" {
+ 		response["model"] = model
+ 	}
+-	body, err := json.Marshal(map[string]any{"type": "response.failed", "sequence_number": 0, "response": response})
++	body, err := json.Marshal(map[string]any{"type": "response.failed", "sequence_number": sequenceNumber, "response": response})
+ 	if err != nil {
+-		return []byte(`{"type":"response.failed","sequence_number":0,"response":{"status":"failed","output":[],"error":{"code":"upstream_error","message":"Upstream response failed"}}}`)
++		return []byte(`{"type":"response.failed","sequence_number":` + strconv.FormatInt(sequenceNumber, 10) +
++			`,"response":{"object":"response","created_at":` + strconv.FormatInt(createdAt, 10) +
++			`,"status":"failed","output":[],"error":{"code":"upstream_error","message":"Upstream response failed"}}}`)
+ 	}
+ 	return body
+ }
+@@ -641,6 +651,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurn(
+ 	officialOpenAIResponses := account != nil && account.Platform == PlatformOpenAI
+ 	bareErrorPending := false
+ 	var bareErrorPayload []byte
++	var createdAtStamper responsesCreatedAtStamper
+ 	bareErrorMessage := ""
+ 	failureAccountSideEffectsApplied := false
+ 	mappedModel := actualModel
+@@ -712,7 +723,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurn(
+ 		if clientDisconnected {
+ 			return nil
+ 		}
+-		clientMessage := buildOpenAIWSHTTPBridgeFailedEvent(responseID, originalModel, bareErrorPayload, bareErrorMessage)
++		clientMessage := buildOpenAIWSHTTPBridgeFailedEvent(responseID, originalModel, createdAtStamper.Value(), bareErrorPayload, bareErrorMessage)
+ 		if rewritten, changed := sanitizeOpenAICapacityShedErrorCodeForClient(clientMessage); changed {
+ 			clientMessage = rewritten
+ 		}
+@@ -794,6 +805,9 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurn(
+ 				upstreamMessage = corrected
+ 			}
+ 		}
++		if stamped, changed := createdAtStamper.Stamp(upstreamMessage, eventType); changed {
++			upstreamMessage = stamped
++		}
+ 		replayCollector.AddEvent(eventType, upstreamMessage)
+ 
+ 		var upstreamEventErr error

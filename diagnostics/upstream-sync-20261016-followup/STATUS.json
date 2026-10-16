@@ -1,0 +1,16 @@
+{
+  "ACTIVE_OBJECT": "/Users/lin/.codex/worktrees/2ca9/sub2api-no2api",
+  "WORK_COPY": "/private/tmp/sub2api-upstream-sync-20261016",
+  "BRANCH": "codex/upstream-sync-20261016-followup",
+  "LAST_CONFIRMED_RESULT": "Docker complete unit/integration and frontend gates passed; final image same-database four-stage matrix passed; baseline/modified/rollback source probe behaviors observed and original target unchanged. Narrow passthrough manifest metadata preservation fix added after the broad tests.",
+  "NEXT_EXECUTABLE_ACTION": "Read completion of lint session 65442; fix only reported current-patch failures; run focused model/catalog/probe and race on final source, rebuild image after last compatibility fix, refresh/reopen same roles, commit, tracking merge frozen upstream, push, create/attach PR, track CI, merge and verify main CI/GHCR.",
+  "INPUT_PATHS": [
+    "SOURCE_TRANSACTION.json",
+    "UPSTREAM_PRS.json",
+    "UPSTREAM_REVIEW_INPUT.json",
+    "ROLES.json",
+    "records/"
+  ],
+  "ACCEPTANCE_EVENT": "Same-input rollback/reapply hash proof and final-source checks, merged PR/main SHA, successful CI/Security/Docker and matching dual-architecture GHCR revision.",
+  "status": "in_progress"
+}

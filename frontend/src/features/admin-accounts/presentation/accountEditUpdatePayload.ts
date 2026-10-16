@@ -781,21 +781,23 @@ function applyAnthropicAPIKeyExtra(
   account: Account,
   context: EditAccountUpdatePayloadContext,
 ): void {
-  if (account.platform !== 'anthropic' || account.type !== 'apikey') return
+  if ((account.platform !== 'anthropic' && account.platform !== 'openai') || account.type !== 'apikey') return
   const extra: UpdatePayload = {
     ...((payload.extra as UpdatePayload | undefined) ||
       (account.extra as UpdatePayload | undefined) ||
       {}),
   }
-  if (context.anthropicPassthroughEnabled.value) {
-    extra.anthropic_passthrough = true
-  } else {
-    delete extra.anthropic_passthrough
-  }
-  if (context.anthropicAPIKeyAuthScheme.value === 'authorization_bearer') {
-    extra.anthropic_apikey_auth_scheme = 'authorization_bearer'
-  } else {
-    delete extra.anthropic_apikey_auth_scheme
+  if (account.platform === 'anthropic') {
+    if (context.anthropicPassthroughEnabled.value) {
+      extra.anthropic_passthrough = true
+    } else {
+      delete extra.anthropic_passthrough
+    }
+    if (context.anthropicAPIKeyAuthScheme.value === 'authorization_bearer') {
+      extra.anthropic_apikey_auth_scheme = 'authorization_bearer'
+    } else {
+      delete extra.anthropic_apikey_auth_scheme
+    }
   }
   if (context.webSearchEmulationMode.value === 'default') {
     delete extra.web_search_emulation

@@ -1,0 +1,130 @@
+[
+  {
+    "pr": 8114,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8114",
+    "merge_sha": "455d317d6a87d8519a52c8769a0727824c403171",
+    "title": "Gemini compatibility thinking and streaming summaries",
+    "status": "ported",
+    "fully_closed": true,
+    "diff_sha256": "381e9ee41178e6d7276e367f038e3290de7d5f0b607e2266fc5ce33ac9118ed5",
+    "current_owners": [
+      "backend/internal/application/service/gemini_compat_thinking.go",
+      "backend/internal/application/service/gemini_messages_compat_service.go",
+      "backend/internal/application/service/gemini_chat_completions_compat_service.go"
+    ],
+    "performance_review": "Build thinkingConfig then apply once; do not repeat full-history copies for every field.",
+    "reopen_condition": "Only a new upstream semantic change or an observed regression in the listed current owners. Do not replay this frozen diff; all earlier closure and deferred boundaries are inherited.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_TRANSACTION.json",
+      "runtime-result.json",
+      "records/source-baseline.record.json",
+      "records/source-modified.record.json",
+      "records/source-rollback-serial.record.json"
+    ]
+  },
+  {
+    "pr": 8121,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8121",
+    "merge_sha": "43157c478ec29cb765043e2f0cba4f69728dd2f2",
+    "title": "Respect GPT-5.5 retirement on ChatGPT-backed upstreams",
+    "status": "ported",
+    "fully_closed": true,
+    "diff_sha256": "f4e96dac3fb4e2b4ab8824473fb229832d96d08cc18293ebb1606d944fe66374",
+    "current_owners": [
+      "backend/internal/application/service/openai_model_retirement.go",
+      "backend/internal/application/service/account.go",
+      "backend/internal/application/service/openai_account_scheduler.go",
+      "backend/internal/application/service/openai_gateway_scheduling.go",
+      "backend/internal/application/service/openai_ws_forwarder_support.go",
+      "backend/internal/application/service/openai_codex_models_mapping.go"
+    ],
+    "performance_review": "Use already-loaded account mappings and model cache; no database or catalog lookups on generation hot path.",
+    "reopen_condition": "Only a new upstream semantic change or an observed regression in the listed current owners. Do not replay this frozen diff; all earlier closure and deferred boundaries are inherited.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_TRANSACTION.json",
+      "runtime-result.json",
+      "records/source-baseline.record.json",
+      "records/source-modified.record.json",
+      "records/source-rollback-serial.record.json"
+    ],
+    "covered_subitems": [
+      {
+        "item": "Default compact model",
+        "decision": "Project already uses GPT-5.4; do not replace with upstream GPT-5.5."
+      },
+      {
+        "item": "Pinned/group-aggregated Codex manifests",
+        "decision": "Project retains its account-selected manifest owner and prior intentional divergence; retirement is applied after its public alias projection."
+      }
+    ]
+  },
+  {
+    "pr": 8080,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8080",
+    "merge_sha": "b14f316ca2def2fbf379a7413c3f4309cc70acdd",
+    "title": "OpenAI API-key Messages WebSearch emulation",
+    "status": "ported",
+    "fully_closed": true,
+    "diff_sha256": "b103923cc5bc0db8c331d879de07a0878adecd9f7602b48fac77e766bce77497",
+    "current_owners": [
+      "backend/internal/application/service/gateway_websearch_emulation.go",
+      "backend/internal/application/service/openai_gateway_messages.go"
+    ],
+    "performance_review": "Share the existing bounded provider manager and egress context; OpenAI OAuth/setup-token guard precedes channel/config lookups.",
+    "reopen_condition": "Only a new upstream semantic change or an observed regression in the listed current owners. Do not replay this frozen diff; all earlier closure and deferred boundaries are inherited.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_TRANSACTION.json",
+      "runtime-result.json",
+      "records/source-baseline.record.json",
+      "records/source-modified.record.json",
+      "records/source-rollback-serial.record.json"
+    ],
+    "frontend_owners": [
+      "frontend/src/features/admin-accounts/presentation/accountFormPolicy.ts",
+      "frontend/src/features/admin-accounts/presentation/accountEditUpdatePayload.ts",
+      "frontend/src/features/admin-accounts/presentation/widgets/create/CreateAccountAdvancedFields.vue",
+      "frontend/src/features/admin-accounts/presentation/widgets/edit/EditAccountAdvancedFields.vue"
+    ]
+  },
+  {
+    "pr": 8140,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8140",
+    "merge_sha": "060d0160417782cd962a0c7f460f6cd4565d4916",
+    "title": "Responses created_at compatibility",
+    "status": "ported",
+    "fully_closed": true,
+    "diff_sha256": "504c676cbe564e9c2169c4c15c36113d59e6eb7cf6cd3c2471132e33be9ccb19",
+    "current_owners": [
+      "backend/internal/application/service/openai_responses_created_at.go",
+      "backend/internal/application/service/openai_gateway_response_handling.go",
+      "backend/internal/application/service/openai_ws_http_bridge.go"
+    ],
+    "performance_review": "Call-local read-only string view avoids copying terminal output when timestamp already exists; delta events do not create patches.",
+    "reopen_condition": "Only a new upstream semantic change or an observed regression in the listed current owners. Do not replay this frozen diff; all earlier closure and deferred boundaries are inherited.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_TRANSACTION.json",
+      "runtime-result.json",
+      "records/source-baseline.record.json",
+      "records/source-modified.record.json",
+      "records/source-rollback-serial.record.json"
+    ],
+    "covered_subitems": [
+      {
+        "item": "apicompat synthesized response timestamps and compact failure created_at/sequence_number",
+        "decision": "Already covered at baseline; preserved current implementations."
+      },
+      {
+        "item": "New upstream bare-error-to-response.failed synthesis",
+        "decision": "Current fork does not have these new synthesis branches; preserve existing error, retry and usage semantics. Native error frames carry no Response object."
+      },
+      {
+        "item": "Raw passthrough payloads",
+        "decision": "Preserve current byte contract, matching upstream decision to observe rather than stamp raw passthrough events."
+      }
+    ]
+  }
+]

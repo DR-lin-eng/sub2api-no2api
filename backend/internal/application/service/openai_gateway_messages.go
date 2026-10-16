@@ -58,6 +58,19 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	beginUpstreamResponseModelObservation(c)
 	beginOpenAITimingObservation(c)
 	ClearActualOpenAIUpstreamEndpoint(c)
+	// Chat Completions conversion drops Anthropic web_search tools. For an
+	// explicitly enabled OpenAI API-key account, satisfy a web-search-only
+	// /v1/messages request locally and keep OAuth/native search untouched.
+	groupID := getOpenAIGroupIDFromContext(c)
+	if shouldEmulateWebSearchFor(ctx, s.settingService, s.channelService, account, &groupID, body) {
+		stream := gjson.GetBytes(body, "stream").Bool()
+		searchCtx := withAccountEgressContext(ctx, account, resolveAccountProxyURL(account), s.cfg)
+		res, err := writeEmulatedWebSearch(searchCtx, c, account, body, gjson.GetBytes(body, "model").String(), stream)
+		if err != nil {
+			return nil, err
+		}
+		return &OpenAIForwardResult{Model: res.Model, Stream: stream, Duration: res.Duration}, nil
+	}
 	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) {
 		SetActualOpenAIUpstreamEndpoint(c, "/v1/chat/completions")
 	}

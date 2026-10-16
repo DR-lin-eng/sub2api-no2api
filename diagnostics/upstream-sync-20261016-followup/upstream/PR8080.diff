@@ -1,0 +1,289 @@
+diff --git a/backend/internal/service/account.go b/backend/internal/service/account.go
+index d21ba973a..06b94b754 100644
+--- a/backend/internal/service/account.go
++++ b/backend/internal/service/account.go
+@@ -2347,7 +2347,10 @@ const (
+ // 三态：default（跟随渠道）/ enabled（强制开启）/ disabled（强制关闭）。
+ // 兼容旧 bool 值：true→enabled, false→default（并记录 debug 日志）。
+ func (a *Account) GetWebSearchEmulationMode() string {
+-	if a == nil || a.Platform != PlatformAnthropic || a.Type != AccountTypeAPIKey || a.Extra == nil {
++	// OpenAI API Key accounts reach this via /v1/messages; their upstreams
++	// (DeepSeek etc. over Chat Completions) have no web_search tool.
++	if a == nil || a.Type != AccountTypeAPIKey || a.Extra == nil ||
++		(a.Platform != PlatformAnthropic && a.Platform != PlatformOpenAI) {
+ 		return WebSearchModeDefault
+ 	}
+ 	raw := a.Extra[featureKeyWebSearchEmulation]
+diff --git a/backend/internal/service/account_websearch_test.go b/backend/internal/service/account_websearch_test.go
+index 6ed69d4cf..66fda055c 100644
+--- a/backend/internal/service/account_websearch_test.go
++++ b/backend/internal/service/account_websearch_test.go
+@@ -86,12 +86,30 @@ func TestGetWebSearchEmulationMode_MissingField(t *testing.T) {
+ 	require.Equal(t, WebSearchModeDefault, a.GetWebSearchEmulationMode())
+ }
+ 
+-func TestGetWebSearchEmulationMode_NonAnthropicPlatform(t *testing.T) {
++func TestGetWebSearchEmulationMode_OpenAIAPIKey(t *testing.T) {
+ 	a := &Account{
+ 		Platform: PlatformOpenAI,
+ 		Type:     AccountTypeAPIKey,
+ 		Extra:    map[string]any{featureKeyWebSearchEmulation: "enabled"},
+ 	}
++	require.Equal(t, WebSearchModeEnabled, a.GetWebSearchEmulationMode())
++}
++
++func TestGetWebSearchEmulationMode_OpenAIOAuth(t *testing.T) {
++	a := &Account{
++		Platform: PlatformOpenAI,
++		Type:     AccountTypeOAuth,
++		Extra:    map[string]any{featureKeyWebSearchEmulation: "enabled"},
++	}
++	require.Equal(t, WebSearchModeDefault, a.GetWebSearchEmulationMode())
++}
++
++func TestGetWebSearchEmulationMode_OtherPlatform(t *testing.T) {
++	a := &Account{
++		Platform: PlatformGemini,
++		Type:     AccountTypeAPIKey,
++		Extra:    map[string]any{featureKeyWebSearchEmulation: "enabled"},
++	}
+ 	require.Equal(t, WebSearchModeDefault, a.GetWebSearchEmulationMode())
+ }
+ 
+diff --git a/backend/internal/service/gateway_websearch_emulation.go b/backend/internal/service/gateway_websearch_emulation.go
+index 2f9c8e0c2..842510901 100644
+--- a/backend/internal/service/gateway_websearch_emulation.go
++++ b/backend/internal/service/gateway_websearch_emulation.go
+@@ -52,13 +52,27 @@ func getWebSearchManager() *websearch.Manager {
+ // Judgment chain: manager exists → only web_search tool → global enabled → account/channel enabled.
+ // Account-level mode: "enabled" (force on), "disabled" (force off), "default" (follow channel).
+ func (s *GatewayService) shouldEmulateWebSearch(ctx context.Context, account *Account, groupID *int64, body []byte) bool {
+-	if getWebSearchManager() == nil {
++	return shouldEmulateWebSearchFor(ctx, s.settingService, s.channelService, account, groupID, body)
++}
++
++// shouldEmulateWebSearchFor is shared by the Anthropic gateway and the OpenAI
++// gateway's /v1/messages path.
++func shouldEmulateWebSearchFor(
++	ctx context.Context, settingService *SettingService, channelService *ChannelService,
++	account *Account, groupID *int64, body []byte,
++) bool {
++	if getWebSearchManager() == nil || account == nil || settingService == nil {
++		return false
++	}
++	// OpenAI OAuth/setup-token accounts retain native search regardless of
++	// channel configuration. Only API key accounts opt into emulation.
++	if account.Platform == PlatformOpenAI && account.Type != AccountTypeAPIKey {
+ 		return false
+ 	}
+ 	if !isOnlyWebSearchToolInBody(body) {
+ 		return false
+ 	}
+-	if !s.settingService.IsWebSearchEmulationEnabled(ctx) {
++	if !settingService.IsWebSearchEmulationEnabled(ctx) {
+ 		return false
+ 	}
+ 
+@@ -69,10 +83,10 @@ func (s *GatewayService) shouldEmulateWebSearch(ctx context.Context, account *Ac
+ 	case WebSearchModeDisabled:
+ 		return false
+ 	default: // "default" → follow channel config
+-		if groupID == nil || s.channelService == nil {
++		if groupID == nil || channelService == nil {
+ 			return false
+ 		}
+-		ch, err := s.channelService.GetChannelForGroup(ctx, *groupID)
++		ch, err := channelService.GetChannelForGroup(ctx, *groupID)
+ 		if err != nil || ch == nil {
+ 			return false
+ 		}
+@@ -143,14 +157,21 @@ func extractWebSearchTextFromContent(content gjson.Result) string {
+ func (s *GatewayService) handleWebSearchEmulation(
+ 	ctx context.Context, c *gin.Context, account *Account, parsed *ParsedRequest,
+ ) (*ForwardResult, error) {
+-	startTime := time.Now()
+-
+ 	// Release the serial queue lock immediately — we don't need upstream.
+ 	if parsed.OnUpstreamAccepted != nil {
+ 		parsed.OnUpstreamAccepted()
+ 	}
++	return writeEmulatedWebSearch(ctx, c, account, parsed.Body.Bytes(), parsed.Model, parsed.Stream)
++}
++
++// writeEmulatedWebSearch runs the search for the last user message and writes
++// an Anthropic Messages response (SSE when stream is true).
++func writeEmulatedWebSearch(
++	ctx context.Context, c *gin.Context, account *Account, body []byte, model string, stream bool,
++) (*ForwardResult, error) {
++	startTime := time.Now()
+ 
+-	query := extractSearchQueryFromBody(parsed.Body.Bytes())
++	query := extractSearchQueryFromBody(body)
+ 	if query == "" {
+ 		return nil, fmt.Errorf("web search emulation: no query found in messages")
+ 	}
+@@ -173,12 +194,11 @@ func (s *GatewayService) handleWebSearchEmulation(
+ 	slog.Info("web search emulation: search completed",
+ 		"provider", providerName, "results_count", len(resp.Results))
+ 
+-	model := parsed.Model
+ 	if model == "" {
+ 		model = defaultWebSearchModel
+ 	}
+ 
+-	if parsed.Stream {
++	if stream {
+ 		return writeWebSearchStreamResponse(c, query, resp, model, startTime)
+ 	}
+ 	return writeWebSearchNonStreamResponse(c, query, resp, model, startTime)
+diff --git a/backend/internal/service/gateway_websearch_emulation_test.go b/backend/internal/service/gateway_websearch_emulation_test.go
+index de1f00144..0c05563f6 100644
+--- a/backend/internal/service/gateway_websearch_emulation_test.go
++++ b/backend/internal/service/gateway_websearch_emulation_test.go
+@@ -378,3 +378,88 @@ func TestShouldEmulateWebSearch_DefaultMode_NilChannelService(t *testing.T) {
+ 	// nil channelService + default mode → returns false
+ 	require.False(t, svc.shouldEmulateWebSearch(context.Background(), account, &groupID, webSearchToolBody))
+ }
++
++func TestShouldEmulateWebSearchFor_OpenAIAPIKeyAccountEnabled(t *testing.T) {
++	mgr := websearch.NewManager([]websearch.ProviderConfig{{Type: "brave", APIKey: "k"}}, nil)
++	SetWebSearchManager(mgr)
++	defer SetWebSearchManager(nil)
++
++	setGlobalWebSearchConfig(&WebSearchEmulationConfig{
++		Enabled:   true,
++		Providers: []WebSearchProviderConfig{{Type: "brave", APIKey: "k"}},
++	})
++	defer clearGlobalWebSearchConfig()
++
++	settingSvc := newSettingServiceForWebSearchTest(true)
++	account := &Account{
++		ID:       1,
++		Platform: PlatformOpenAI,
++		Type:     AccountTypeAPIKey,
++		Extra:    map[string]any{featureKeyWebSearchEmulation: WebSearchModeEnabled},
++	}
++	groupID := int64(0)
++	require.True(t, shouldEmulateWebSearchFor(context.Background(), settingSvc, nil, account, &groupID, webSearchToolBody))
++	require.False(t, shouldEmulateWebSearchFor(context.Background(), settingSvc, nil, account, &groupID, nonWebSearchToolBody))
++}
++
++// Exercise the shared interception gate, including channel inheritance.
++func TestShouldEmulateWebSearchFor_AccountChannelModes(t *testing.T) {
++	previousManager := getWebSearchManager()
++	previousConfig := webSearchEmulationCache.Load()
++	SetWebSearchManager(websearch.NewManager([]websearch.ProviderConfig{{Type: "brave", APIKey: "k"}}, nil))
++	t.Cleanup(func() {
++		SetWebSearchManager(previousManager)
++		if previousConfig == nil {
++			clearGlobalWebSearchConfig()
++		} else {
++			webSearchEmulationCache.Store(previousConfig)
++		}
++	})
++
++	settingSvc := newSettingServiceForWebSearchTest(true)
++	groupID := int64(42)
++	for _, platform := range []string{PlatformOpenAI, PlatformAnthropic} {
++		for _, accountType := range []string{AccountTypeAPIKey, AccountTypeOAuth, AccountTypeSetupToken} {
++			for _, mode := range []string{WebSearchModeDefault, WebSearchModeEnabled, WebSearchModeDisabled} {
++				for _, channelEnabled := range []bool{false, true} {
++					channelMode := "channel_off"
++					if channelEnabled {
++						channelMode = "channel_on"
++					}
++					t.Run(platform+"/"+accountType+"/"+mode+"/"+channelMode, func(t *testing.T) {
++						account := &Account{
++							Platform: platform, Type: accountType,
++							Extra: map[string]any{featureKeyWebSearchEmulation: mode},
++						}
++						channelSvc := newChannelServiceWithCache(groupID, &Channel{
++							ID: 10, Status: StatusActive,
++							FeaturesConfig: map[string]any{
++								featureKeyWebSearchEmulation: map[string]any{platform: channelEnabled},
++							},
++						})
++						want := channelEnabled
++						if accountType == AccountTypeAPIKey {
++							switch mode {
++							case WebSearchModeEnabled:
++								want = true
++							case WebSearchModeDisabled:
++								want = false
++							}
++						} else if platform == PlatformOpenAI {
++							want = false
++						}
++						for _, globalEnabled := range []bool{false, true} {
++							setGlobalWebSearchConfig(&WebSearchEmulationConfig{
++								Enabled:   globalEnabled,
++								Providers: []WebSearchProviderConfig{{Type: "brave", APIKey: "k"}},
++							})
++							require.Equal(t, globalEnabled && want, shouldEmulateWebSearchFor(
++								context.Background(), settingSvc, channelSvc, account, &groupID, webSearchToolBody),
++								"globalEnabled=%v", globalEnabled)
++						}
++					})
++				}
++			}
++		}
++	}
++}
+diff --git a/backend/internal/service/openai_gateway_messages.go b/backend/internal/service/openai_gateway_messages.go
+index 18c4fb137..45f890a37 100644
+--- a/backend/internal/service/openai_gateway_messages.go
++++ b/backend/internal/service/openai_gateway_messages.go
+@@ -45,6 +45,16 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
+ 	rememberOpenCodeInboundBody(c, body)
+ 	beginUpstreamResponseModelObservation(c)
+ 	ClearActualOpenAIUpstreamEndpoint(c)
++	// Web Search 模拟：Chat Completions 转换会丢掉 web_search 工具，纯 web_search
++	// 请求在此直接调用搜索 API 构造 Anthropic 响应，不访问上游。
++	if groupID := getOpenAIGroupIDFromContext(c); shouldEmulateWebSearchFor(ctx, s.settingService, s.channelService, account, &groupID, body) {
++		stream := gjson.GetBytes(body, "stream").Bool()
++		res, err := writeEmulatedWebSearch(ctx, c, account, body, gjson.GetBytes(body, "model").String(), stream)
++		if err != nil {
++			return nil, err
++		}
++		return &OpenAIForwardResult{Model: res.Model, Stream: stream, Duration: res.Duration}, nil
++	}
+ 	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) {
+ 		SetActualOpenAIUpstreamEndpoint(c, "/v1/chat/completions")
+ 	}
+diff --git a/frontend/src/components/account/EditAccountModal.vue b/frontend/src/components/account/EditAccountModal.vue
+index 0db31ad08..bbddaaf44 100644
+--- a/frontend/src/components/account/EditAccountModal.vue
++++ b/frontend/src/components/account/EditAccountModal.vue
+@@ -2248,9 +2248,9 @@
+         </div>
+       </div>
+ 
+-      <!-- Anthropic API Key: Web Search Emulation (hidden when global disabled) -->
++      <!-- Anthropic / OpenAI API Key: Web Search Emulation (hidden when global disabled) -->
+       <div
+-        v-if="account?.platform === 'anthropic' && account?.type === 'apikey' && webSearchGlobalEnabled"
++        v-if="(account?.platform === 'anthropic' || account?.platform === 'openai') && account?.type === 'apikey' && webSearchGlobalEnabled"
+         class="border-t border-gray-200 pt-4 dark:border-dark-600"
+       >
+         <div class="flex items-center justify-between">
+@@ -4425,6 +4425,8 @@ const syncFormFromAccount = (newAccount: Account | null) => {
+     anthropicAPIKeyAuthScheme.value = extra?.anthropic_apikey_auth_scheme === 'authorization_bearer'
+       ? 'authorization_bearer'
+       : 'x_api_key'
++  }
++  if ((newAccount.platform === 'anthropic' || newAccount.platform === 'openai') && newAccount.type === 'apikey') {
+     // 三态：string "default"/"enabled"/"disabled"，向后兼容旧 bool
+     const wsVal = extra?.web_search_emulation
+     if (wsVal === 'enabled' || wsVal === 'disabled') {
+@@ -5932,6 +5934,11 @@ const handleSubmit = async () => {
+           newExtra.images_url_to_b64_json = true
+         } else {
+           delete newExtra.images_url_to_b64_json
++        }
++        if (webSearchEmulationMode.value === 'default') {
++          delete newExtra.web_search_emulation
++        } else {
++          newExtra.web_search_emulation = webSearchEmulationMode.value
+         }
+ 		}
+ 		if (autoPause5hThreshold.value != null && autoPause5hThreshold.value > 0) {
