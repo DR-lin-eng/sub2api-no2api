@@ -99,6 +99,11 @@ try:
         assert current_uid==uid and original_snapshot==snapshot(uid,key_id),stage+' persisted invariant changed'
         status,key_info=request(f'/api/v1/keys/{key_id}',token=token)
         assert status==200 and key_info['data']['quota']==12.34
+        status,models=request('/v1/models',token=api_key)
+        assert status==200 and models['data'], (stage,'models',status)
+        standard_models=all(all(field in model for field in ['object','created','owned_by']) for model in models['data'])
+        assert standard_models==fixed,(stage,'OpenAI model wire fields',standard_models)
+        assert all(model.get('created_at')=='2024-01-01T00:00:00Z' for model in models['data']), 'legacy model display field changed'
         flags=[]
         for stream in [False,True]:
             status,result=request('/v1/responses',{'model':'gpt-5.4','stream':stream,'input':'fixture hi'},api_key)
@@ -114,7 +119,7 @@ try:
         row={'stage':stage,'result':'PASS','responses_json_created_at':flags[0],'responses_stream_created_at':flags[1],
              'migration_count':int(sql('SELECT COUNT(*) FROM schema_migrations')),
              'persisted_invariants_sha256':hashlib.sha256(original_snapshot.encode()).hexdigest(),
-             'health_ready_frontend_encrypted_login_key_subscription':'PASS'}
+             'models_standard_fields':standard_models,'health_ready_frontend_encrypted_login_key_subscription':'PASS'}
         REPORT.append(row)
         print(json.dumps(row),flush=True)
     (ROOT/'runtime-result.json').write_text(json.dumps(REPORT,indent=2)+'\n')

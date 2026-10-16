@@ -1,5 +1,6 @@
 {
-  "image": "sub2api:upstream-sync-20261016-followup-final",
+  "image": "sub2api:upstream-sync-20261016-followup-final-v2",
+  "image_id": "sha256:fb3a24d75e6426cebf09d83ee75e338f16970deec69b480f2f4d2e7e6a82112c",
   "program_files": {
     "backend/internal/application/service/account.go": "1f77075a285c1ab2a7dc0304d6d92d3a3654253a5efabd88a957cd9c73c1a48a",
     "backend/internal/application/service/gateway_model_availability.go": "57cbd99171306a1e182bac72c252e5bc9078946bae67738fc29814fbc2f35821",
@@ -9,7 +10,7 @@
     "backend/internal/application/service/gemini_compat_thinking.go": "7f0c45ff038eabc72641fdf0d5f9aa229a63e3bbb526bb30ece44cd509446716",
     "backend/internal/application/service/gemini_messages_compat_service.go": "deb0c9187f51e3d684974fb97fdf74b9789b1b69769f880200470d1f1002f261",
     "backend/internal/application/service/openai_account_scheduler.go": "48473942f3171175faad5c3fe1cdacf757e2ef06f627eccb8ff4b950288d0782",
-    "backend/internal/application/service/openai_codex_models_mapping.go": "bbaec5bfe73b7a2ef28e8394058d30e8ee34f80ab8c9d2fbbbc2538b9bd26c15",
+    "backend/internal/application/service/openai_codex_models_mapping.go": "67a04ee469909bb66b06f6b6da9cb2934ae296310c4c8665124d3dd35cc5aca1",
     "backend/internal/application/service/openai_codex_models_metadata.go": "dda6eb9cd31424ab5260b92d811ea64d322ddc2b785935d784f0cd60977fa087",
     "backend/internal/application/service/openai_gateway_messages.go": "2fdc619aec79bb90f503ce7074b86d44e3068b8c6229b679eb95c252e9ee59d0",
     "backend/internal/application/service/openai_gateway_model_availability.go": "12824687e6599c50e7f287b8be691ac61083bcdbe421f4fd2e721e9b7b298399",
@@ -20,7 +21,7 @@
     "backend/internal/application/service/openai_responses_created_at.go": "779c4f7e5d40fba97095a17066eee8d35f303a462f246c4b5231b26c0883cf3e",
     "backend/internal/application/service/openai_ws_forwarder_support.go": "549bd5cb4bf7c20767db26f9d113fac0778cda56ba558eba3bc3c237ee14469c",
     "backend/internal/application/service/openai_ws_http_bridge.go": "7edeaeca9a3518a7268006e37c5e0ec81eb28d46b652f546030ab0b2a92c1d59",
-    "backend/internal/transport/http/handler/gateway_handler_models.go": "78b895167c9b84b8bf95d21cabbe0a65b26ca1bc64e5f598bad35db574d791e5",
+    "backend/internal/transport/http/handler/gateway_handler_models.go": "bf32fabf0275af4d587368007a1032fd97ac3df8a3bb2f33844d9ed02460e548",
     "backend/internal/transport/http/handler/no_account_error.go": "ff703c0231402146054d6ba66e0dbd841c79c74e878c832874200e9db1376646",
     "frontend/src/features/admin-accounts/presentation/accountEditUpdatePayload.ts": "dbcfa71c3c7bc601993828a2cfcd396a286db4d7f1a5c18c52e50e5dd280dc72",
     "frontend/src/features/admin-accounts/presentation/accountFormPolicy.ts": "ec2a6946b8bafbadc19d99b85e2310ca7a8afa119f4050f164d67aa8347e2edb",
@@ -29,5 +30,5 @@
     "frontend/src/features/admin-accounts/presentation/widgets/create/CreateAccountAdvancedFields.vue": "76c2f11ea5f41010679c66dda41a5f87ea488b387c1fd1f8b3c0cc71ec6d6cd1",
     "frontend/src/features/admin-accounts/presentation/widgets/edit/EditAccountAdvancedFields.vue": "09c7b58caed4050dd1e6eb65d2ceedfe2798c5a637bcd7537d0b645e30fa4904"
   },
-  "note": "Test-only changes after image build do not change runtime input; final image runtime matrix is recorded separately."
+  "runtime_record": "records/runtime-matrix-v2.record.json"
 }

@@ -2,8 +2,8 @@
   "ACTIVE_OBJECT": "/Users/lin/.codex/worktrees/2ca9/sub2api-no2api",
   "WORK_COPY": "/private/tmp/sub2api-upstream-sync-20261016",
   "BRANCH": "codex/upstream-sync-20261016-followup",
-  "LAST_CONFIRMED_RESULT": "Docker complete unit/integration and frontend gates passed; final image same-database four-stage matrix passed; baseline/modified/rollback source probe behaviors observed and original target unchanged. Narrow passthrough manifest metadata preservation fix added after the broad tests.",
-  "NEXT_EXECUTABLE_ACTION": "Read completion of lint session 65442; fix only reported current-patch failures; run focused model/catalog/probe and race on final source, rebuild image after last compatibility fix, refresh/reopen same roles, commit, tracking merge frozen upstream, push, create/attach PR, track CI, merge and verify main CI/GHCR.",
+  "LAST_CONFIRMED_RESULT": "Final native roles verified; source rollback/reapply and final-v2 Docker HTTP runtime matrix passed. Full unit/integration, focused handler/source, race, lint and frontend gates passed. PR #139 first-head CI/Security/Docker passed.",
+  "NEXT_EXECUTABLE_ACTION": "Push this final compatibility/evidence commit; verify exact-head CI, ready/merge PR #139, then verify main SHA, main CI/Security/Docker and GHCR dual-architecture revision.",
   "INPUT_PATHS": [
     "SOURCE_TRANSACTION.json",
     "UPSTREAM_PRS.json",
@@ -12,5 +12,7 @@
     "records/"
   ],
   "ACCEPTANCE_EVENT": "Same-input rollback/reapply hash proof and final-source checks, merged PR/main SHA, successful CI/Security/Docker and matching dual-architecture GHCR revision.",
-  "status": "in_progress"
+  "status": "local_verification_complete",
+  "PR": "https://github.com/DR-lin-eng/sub2api-no2api/pull/139",
+  "PUSHED_HEAD": "ba5fdffdea8323b98388c69594ff29ecddfdd4b0"
 }

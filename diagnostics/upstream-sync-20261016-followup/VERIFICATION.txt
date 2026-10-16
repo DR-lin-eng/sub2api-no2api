@@ -47,6 +47,7 @@ Inputs: immutable local HTTP/SQL/search configuration fixtures; all provider cre
     "backend/internal/transport/http/handler/no_account_error.go",
     "docs/README.md",
     "docs/REQUEST_LIFECYCLES.md",
+    "docs/UPSTREAM_SYNC_20261016_FOLLOWUP.md",
     "frontend/src/features/admin-accounts/README.md",
     "frontend/src/features/admin-accounts/presentation/accountEditUpdatePayload.ts",
     "frontend/src/features/admin-accounts/presentation/accountFormPolicy.ts",
@@ -63,7 +64,8 @@ Inputs: immutable local HTTP/SQL/search configuration fixtures; all provider cre
     "backend/internal/application/service/openai_model_retirement_test.go",
     "backend/internal/application/service/openai_responses_created_at.go",
     "backend/internal/application/service/openai_responses_created_at_test.go",
-    "backend/internal/application/service/upstream_followup_benchmark_test.go"
+    "backend/internal/application/service/upstream_followup_benchmark_test.go",
+    "docs/UPSTREAM_SYNC_20261016_FOLLOWUP.md"
   ],
   "baseline_hashes": {
     "backend/internal/application/service/README.md": "1dec050ae95fdcefcf53b851f4841c5013b53a58dd0723466c75fca5d409184d",
@@ -136,11 +138,12 @@ Inputs: immutable local HTTP/SQL/search configuration fixtures; all provider cre
     "backend/internal/application/service/openai_ws_forwarder_support.go": "549bd5cb4bf7c20767db26f9d113fac0778cda56ba558eba3bc3c237ee14469c",
     "backend/internal/application/service/openai_ws_http_bridge.go": "7edeaeca9a3518a7268006e37c5e0ec81eb28d46b652f546030ab0b2a92c1d59",
     "backend/internal/application/service/upstream_followup_benchmark_test.go": "cc6cc436d8b62a827e238b8179f9cbbc025eb5bae3f6e44f7718be48f4602d73",
-    "backend/internal/transport/http/handler/gateway_handler_models.go": "78b895167c9b84b8bf95d21cabbe0a65b26ca1bc64e5f598bad35db574d791e5",
-    "backend/internal/transport/http/handler/gateway_models_test.go": "66873b6b607c1be1d8b7377147c257e94ec7c971244f23ae468dc139cccf2a7b",
+    "backend/internal/transport/http/handler/gateway_handler_models.go": "bf32fabf0275af4d587368007a1032fd97ac3df8a3bb2f33844d9ed02460e548",
+    "backend/internal/transport/http/handler/gateway_models_test.go": "f87af27fb262d056cebdfe05abdb3f55586cba48229d5836f0f5576fe61cdd9a",
     "backend/internal/transport/http/handler/no_account_error.go": "ff703c0231402146054d6ba66e0dbd841c79c74e878c832874200e9db1376646",
     "docs/README.md": "d21ab47a792870a7a6dfafaa622814974837190fbc8a2ae901b9b7878a5988d2",
     "docs/REQUEST_LIFECYCLES.md": "df819e5cfd1afab4f8e6f9fba44dc39d637c047ef2057804a5197926bfd9d022",
+    "docs/UPSTREAM_SYNC_20261016_FOLLOWUP.md": "38bb761524d0ce795dcc9f0225959ea5dda0fc9aa63a80af24276347758bfab9",
     "frontend/src/features/admin-accounts/README.md": "0258ae7ccc7ce345e02f3611a09bc584846783d8d7033e663debe109e10ec153",
     "frontend/src/features/admin-accounts/presentation/accountEditUpdatePayload.ts": "dbcfa71c3c7bc601993828a2cfcd396a286db4d7f1a5c18c52e50e5dd280dc72",
     "frontend/src/features/admin-accounts/presentation/accountFormPolicy.ts": "ec2a6946b8bafbadc19d99b85e2310ca7a8afa119f4050f164d67aa8347e2edb",
@@ -149,7 +152,7 @@ Inputs: immutable local HTTP/SQL/search configuration fixtures; all provider cre
     "frontend/src/features/admin-accounts/presentation/widgets/create/CreateAccountAdvancedFields.vue": "76c2f11ea5f41010679c66dda41a5f87ea488b387c1fd1f8b3c0cc71ec6d6cd1",
     "frontend/src/features/admin-accounts/presentation/widgets/edit/EditAccountAdvancedFields.vue": "09c7b58caed4050dd1e6eb65d2ceedfe2798c5a637bcd7537d0b645e30fa4904"
   },
-  "diff_sha256": "62794ed9f0a051846fbe0e4deb1f4b6240d2a6c2b8a4a75f49325d83c2f90847"
+  "diff_sha256": "69cf4b034288dc42c36402f9906884f132889b65025e1f75351ce264c09d16fe"
 }
 
 RECORD backend-integration-final.record.json
@@ -328,6 +331,18 @@ go: downloading go.opentelemetry.io/auto/sdk v1.2.1
 
 STDERR END
 
+RECORD backend-lint-final.record.json
+COMMAND docker run --rm --cpus 2 --memory 6g -e GOMAXPROCS=2 -e GOFLAGS=-p=1 -e GOMEMLIMIT=3500MiB -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v sub2api-followup-lint-cache-20261016:/root/.cache/golangci-lint -v sub2api-sync-tools-20261009:/tools -v /private/tmp/sub2api-upstream-sync-20261016/backend:/workspace -w /workspace sub2api-upstream-sync-test:20261009-docker /tools/golangci-lint run --concurrency=1 --timeout=30m ./...
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+0 issues.
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
 RECORD backend-lint-serial.record.json
 COMMAND docker run --rm --cpus 4 --memory 5g -e GOMAXPROCS=4 -e GOFLAGS=-p=1 -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v sub2api-sync-tools-20261009:/tools -v /private/tmp/sub2api-upstream-sync-20261016/backend:/workspace -w /workspace sub2api-upstream-sync-test:20261009-docker /tools/golangci-lint run --timeout=30m ./...
 CWD /private/tmp/sub2api-upstream-sync-20261016
@@ -407,11 +422,215 @@ STDERR BEGIN
 
 STDERR END
 
+RECORD docs-v2.record.json
+COMMAND make check-docs
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+Documentation checks passed.
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
 RECORD empty-catalog-cache.record.json
 COMMAND docker run --rm --cpus 2 --memory 3g -e GOMAXPROCS=2 -e GOFLAGS=-p=1 -e GOMEMLIMIT=1500MiB -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v /private/tmp/sub2api-upstream-sync-20261016/backend:/workspace -w /workspace sub2api-upstream-sync-test:20261009-docker go test -tags unit ./internal/application/service -run '^TestRetirementEmptyModelCatalogStaysAuthoritativeInCache$' -count=1
 CWD /private/tmp/sub2api-upstream-sync-20261016
 EXIT 137
 STDOUT BEGIN
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD focused-race-final.record.json
+COMMAND docker run --rm --cpus 2 --memory 6g -e GOMAXPROCS=2 -e GOFLAGS=-p=1 -e GOMEMLIMIT=4000MiB -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v /private/tmp/sub2api-upstream-sync-20261016/backend:/workspace -w /workspace sub2api-upstream-sync-test:20261009-docker go test -race -tags unit ./internal/application/service -run 'Test(Retire|Retirement|ResponsesCreatedAt|ShouldEmulateWebSearch|GetWebSearchEmulationMode|ApplyGeminiCompat|GeminiForwardAsChat|GeminiMessagesForward|GeminiMessagesHandle|ConvertClaudeMessagesToGemini_Drops)' -count=1
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	3.482s
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD focused-source-final.record.json
+COMMAND docker run --rm --cpus 2 --memory 5g -e GOMAXPROCS=2 -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v /private/tmp/sub2api-upstream-sync-20261016:/workspace -v /private/tmp/sub2api-upstream-sync-20261016/diagnostics/upstream-sync-20261016-followup:/evidence -w /workspace/backend golang:1.26.9 go test -tags unit -overlay /evidence/probes/overlay.json ./internal/application/service -run 'Test(UpstreamFollowupTransactionProbe|Retire|Retirement|CodexManifest|OpenAIModelListing|ApplyGeminiCompat|GeminiForwardAsChat|GeminiMessagesForward|GeminiMessagesHandle|ConvertClaudeMessagesToGemini_Drops|ResponsesCreatedAt|ShouldEmulateWebSearch)' -count=1 -v
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+2026/10/16 08:25:48 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestShouldEmulateWebSearch_NilManager
+--- PASS: TestShouldEmulateWebSearch_NilManager (0.00s)
+=== RUN   TestShouldEmulateWebSearch_NotOnlyWebSearchTool
+--- PASS: TestShouldEmulateWebSearch_NotOnlyWebSearchTool (0.00s)
+=== RUN   TestShouldEmulateWebSearch_GlobalDisabled
+--- PASS: TestShouldEmulateWebSearch_GlobalDisabled (0.00s)
+=== RUN   TestShouldEmulateWebSearch_AccountDisabled
+--- PASS: TestShouldEmulateWebSearch_AccountDisabled (0.00s)
+=== RUN   TestShouldEmulateWebSearch_AccountEnabled
+--- PASS: TestShouldEmulateWebSearch_AccountEnabled (0.00s)
+=== RUN   TestShouldEmulateWebSearch_OpenAIAPIKeyEnabled
+--- PASS: TestShouldEmulateWebSearch_OpenAIAPIKeyEnabled (0.00s)
+=== RUN   TestShouldEmulateWebSearch_OpenAIOAuthKeepsNativeSearch
+--- PASS: TestShouldEmulateWebSearch_OpenAIOAuthKeepsNativeSearch (0.00s)
+=== RUN   TestShouldEmulateWebSearch_DefaultMode_ChannelEnabled
+--- PASS: TestShouldEmulateWebSearch_DefaultMode_ChannelEnabled (0.00s)
+=== RUN   TestShouldEmulateWebSearch_DefaultMode_ChannelDisabled
+--- PASS: TestShouldEmulateWebSearch_DefaultMode_ChannelDisabled (0.00s)
+=== RUN   TestShouldEmulateWebSearch_DefaultMode_NilGroupID
+--- PASS: TestShouldEmulateWebSearch_DefaultMode_NilGroupID (0.00s)
+=== RUN   TestShouldEmulateWebSearch_DefaultMode_NilChannelService
+--- PASS: TestShouldEmulateWebSearch_DefaultMode_NilChannelService (0.00s)
+=== RUN   TestApplyGeminiCompatThinkingConfig
+=== RUN   TestApplyGeminiCompatThinkingConfig/effort_medium_on_flash
+=== RUN   TestApplyGeminiCompatThinkingConfig/effort_low
+=== RUN   TestApplyGeminiCompatThinkingConfig/effort_none_on_flash
+=== RUN   TestApplyGeminiCompatThinkingConfig/effort_minimal_on_pro
+=== RUN   TestApplyGeminiCompatThinkingConfig/effort_medium_on_gemini_3_pro
+=== RUN   TestApplyGeminiCompatThinkingConfig/effort_medium_on_gemini_3.1_pro
+=== RUN   TestApplyGeminiCompatThinkingConfig/effort_max
+=== RUN   TestApplyGeminiCompatThinkingConfig/effort_xhigh
+=== RUN   TestApplyGeminiCompatThinkingConfig/thinking_disabled_wins_over_effort
+=== RUN   TestApplyGeminiCompatThinkingConfig/budget_only_maps_to_high
+=== RUN   TestApplyGeminiCompatThinkingConfig/budget_only_maps_to_medium
+=== RUN   TestApplyGeminiCompatThinkingConfig/budget_only_maps_to_low
+=== RUN   TestApplyGeminiCompatThinkingConfig/adaptive_keeps_default_level
+=== RUN   TestApplyGeminiCompatThinkingConfig/no_thinking_params_streams_thoughts_only
+=== RUN   TestApplyGeminiCompatThinkingConfig/unknown_effort_ignored
+=== RUN   TestApplyGeminiCompatThinkingConfig/level_with_thoughts
+=== RUN   TestApplyGeminiCompatThinkingConfig/gemini_4_uses_level
+=== RUN   TestApplyGeminiCompatThinkingConfig/medium_outside_verified_models_becomes_high
+=== RUN   TestApplyGeminiCompatThinkingConfig/medium_budget_outside_verified_models_becomes_high
+=== RUN   TestApplyGeminiCompatThinkingConfig/medium_on_unverified_pro_becomes_high
+=== RUN   TestApplyGeminiCompatThinkingConfig/medium_on_flash_lite
+=== RUN   TestApplyGeminiCompatThinkingConfig/tier_suffix_model_keeps_name_tier
+=== RUN   TestApplyGeminiCompatThinkingConfig/tiered_suffix_model_keeps_name_tier
+=== RUN   TestApplyGeminiCompatThinkingConfig/2.5_flash_low
+=== RUN   TestApplyGeminiCompatThinkingConfig/2.5_flash_high
+=== RUN   TestApplyGeminiCompatThinkingConfig/2.5_flash_none_disables_thinking_and_thoughts
+=== RUN   TestApplyGeminiCompatThinkingConfig/2.5_pro_cannot_disable_thinking
+=== RUN   TestApplyGeminiCompatThinkingConfig/2.5_pro_high
+=== RUN   TestApplyGeminiCompatThinkingConfig/2.5_pro_budget_clamps_up
+=== RUN   TestApplyGeminiCompatThinkingConfig/2.5_flash_budget_clamps_down
+=== RUN   TestApplyGeminiCompatThinkingConfig/2.5_flash_lite_budget_clamps_up
+=== RUN   TestApplyGeminiCompatThinkingConfig/2.5_adaptive_keeps_dynamic_budget
+=== RUN   TestApplyGeminiCompatThinkingConfig/2.0_untouched
+=== RUN   TestApplyGeminiCompatThinkingConfig/image_model_untouched
+=== RUN   TestApplyGeminiCompatThinkingConfig/unparsable_model_untouched
+=== RUN   TestApplyGeminiCompatThinkingConfig/non_gemini_model_untouched
+=== RUN   TestApplyGeminiCompatThinkingConfig/models_prefix
+--- PASS: TestApplyGeminiCompatThinkingConfig (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/effort_medium_on_flash (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/effort_low (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/effort_none_on_flash (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/effort_minimal_on_pro (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/effort_medium_on_gemini_3_pro (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/effort_medium_on_gemini_3.1_pro (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/effort_max (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/effort_xhigh (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/thinking_disabled_wins_over_effort (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/budget_only_maps_to_high (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/budget_only_maps_to_medium (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/budget_only_maps_to_low (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/adaptive_keeps_default_level (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/no_thinking_params_streams_thoughts_only (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/unknown_effort_ignored (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/level_with_thoughts (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/gemini_4_uses_level (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/medium_outside_verified_models_becomes_high (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/medium_budget_outside_verified_models_becomes_high (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/medium_on_unverified_pro_becomes_high (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/medium_on_flash_lite (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/tier_suffix_model_keeps_name_tier (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/tiered_suffix_model_keeps_name_tier (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/2.5_flash_low (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/2.5_flash_high (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/2.5_flash_none_disables_thinking_and_thoughts (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/2.5_pro_cannot_disable_thinking (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/2.5_pro_high (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/2.5_pro_budget_clamps_up (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/2.5_flash_budget_clamps_down (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/2.5_flash_lite_budget_clamps_up (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/2.5_adaptive_keeps_dynamic_budget (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/2.0_untouched (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/image_model_untouched (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/unparsable_model_untouched (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/non_gemini_model_untouched (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/models_prefix (0.00s)
+=== RUN   TestGeminiForwardAsChatCompletions_StreamsThoughtsAsReasoningContent
+--- PASS: TestGeminiForwardAsChatCompletions_StreamsThoughtsAsReasoningContent (0.00s)
+=== RUN   TestGeminiForwardAsChatCompletions_NonStreamForwardsEffortWithoutThoughts
+--- PASS: TestGeminiForwardAsChatCompletions_NonStreamForwardsEffortWithoutThoughts (0.00s)
+=== RUN   TestGeminiMessagesForward_IncludeThoughtsFollowsClientThinking
+=== RUN   TestGeminiMessagesForward_IncludeThoughtsFollowsClientThinking/stream_with_adaptive_thinking
+=== RUN   TestGeminiMessagesForward_IncludeThoughtsFollowsClientThinking/stream_without_thinking
+=== RUN   TestGeminiMessagesForward_IncludeThoughtsFollowsClientThinking/non_stream_with_thinking
+--- PASS: TestGeminiMessagesForward_IncludeThoughtsFollowsClientThinking (0.00s)
+    --- PASS: TestGeminiMessagesForward_IncludeThoughtsFollowsClientThinking/stream_with_adaptive_thinking (0.00s)
+    --- PASS: TestGeminiMessagesForward_IncludeThoughtsFollowsClientThinking/stream_without_thinking (0.00s)
+    --- PASS: TestGeminiMessagesForward_IncludeThoughtsFollowsClientThinking/non_stream_with_thinking (0.00s)
+=== RUN   TestGeminiMessagesHandleStreamingResponse_EmitsThinkingBlockBeforeText
+--- PASS: TestGeminiMessagesHandleStreamingResponse_EmitsThinkingBlockBeforeText (0.00s)
+=== RUN   TestConvertClaudeMessagesToGemini_DropsHistoryThinkingBlocks
+--- PASS: TestConvertClaudeMessagesToGemini_DropsHistoryThinkingBlocks (0.00s)
+=== RUN   TestGeminiForwardAsChatCompletions_DropsHistoryReasoningContent
+--- PASS: TestGeminiForwardAsChatCompletions_DropsHistoryReasoningContent (0.00s)
+=== RUN   TestGeminiMessagesForward_SignatureRetryKeepsClientThinkingParams
+2026/10/16 08:25:48 Gemini account 611: detected signature-related 400, retrying with downgraded Claude blocks (thinking-only)
+2026/10/16 08:25:49 Gemini account 611: detected signature-related 400, retrying with downgraded Claude blocks (thinking+tools)
+--- PASS: TestGeminiMessagesForward_SignatureRetryKeepsClientThinkingParams (2.21s)
+=== RUN   TestGeminiForwardAsChatCompletions_OAuthRoutesToGeminiAndReturnsChatFormat
+--- PASS: TestGeminiForwardAsChatCompletions_OAuthRoutesToGeminiAndReturnsChatFormat (0.00s)
+=== RUN   TestGeminiForwardAsChatCompletions_StreamsOpenAIChunksFromGeminiSSE
+--- PASS: TestGeminiForwardAsChatCompletions_StreamsOpenAIChunksFromGeminiSSE (0.00s)
+=== RUN   TestGeminiForwardAsChatCompletions_StreamsInlineImages
+--- PASS: TestGeminiForwardAsChatCompletions_StreamsInlineImages (0.00s)
+=== RUN   TestGeminiForwardAsChatCompletions_FunctionNamedWebSearchStaysClientSide
+--- PASS: TestGeminiForwardAsChatCompletions_FunctionNamedWebSearchStaysClientSide (0.00s)
+=== RUN   TestGeminiMessagesHandleStreamingResponse_ClosesToolBlockBeforeText
+--- PASS: TestGeminiMessagesHandleStreamingResponse_ClosesToolBlockBeforeText (0.00s)
+=== RUN   TestGeminiForwardAsChatCompletions_VertexServiceAccountNotFoundDisablesAndFailsOver
+2026/10/16 08:25:50 WARN account_disabled_auth_error account_id=820 error="Service account token rejected (400): Invalid grant: account not found"
+--- PASS: TestGeminiForwardAsChatCompletions_VertexServiceAccountNotFoundDisablesAndFailsOver (0.10s)
+=== RUN   TestCodexManifestAccountMappingPreservesMetadataAndCache
+--- PASS: TestCodexManifestAccountMappingPreservesMetadataAndCache (0.00s)
+=== RUN   TestCodexManifestIdentityMappingKeepsExactBytesAndETag
+--- PASS: TestCodexManifestIdentityMappingKeepsExactBytesAndETag (0.00s)
+=== RUN   TestCodexManifestNullServiceTiersUsesEmptyArray
+--- PASS: TestCodexManifestNullServiceTiersUsesEmptyArray (0.00s)
+=== RUN   TestRetiredOpenAISubscriptionModelScopesUpstreamAccount
+--- PASS: TestRetiredOpenAISubscriptionModelScopesUpstreamAccount (0.00s)
+=== RUN   TestRetiredOpenAIModelFilteringKeepsMixedAPIKeySupport
+--- PASS: TestRetiredOpenAIModelFilteringKeepsMixedAPIKeySupport (0.00s)
+=== RUN   TestRetirementMappingKeepsReplacementAndBlocksRetiredAlias
+--- PASS: TestRetirementMappingKeepsReplacementAndBlocksRetiredAlias (0.00s)
+=== RUN   TestRetirementRoutingSkipsSubscriptionInBothSchedulers
+=== RUN   TestRetirementRoutingSkipsSubscriptionInBothSchedulers/legacy_scheduler
+=== RUN   TestRetirementRoutingSkipsSubscriptionInBothSchedulers/advanced_scheduler
+--- PASS: TestRetirementRoutingSkipsSubscriptionInBothSchedulers (0.00s)
+    --- PASS: TestRetirementRoutingSkipsSubscriptionInBothSchedulers/legacy_scheduler (0.00s)
+    --- PASS: TestRetirementRoutingSkipsSubscriptionInBothSchedulers/advanced_scheduler (0.00s)
+=== RUN   TestRetirementEmptyModelCatalogStaysAuthoritativeInCache
+--- PASS: TestRetirementEmptyModelCatalogStaysAuthoritativeInCache (0.00s)
+=== RUN   TestRetirementPassthroughManifestPreservesNonRetiredBytes
+--- PASS: TestRetirementPassthroughManifestPreservesNonRetiredBytes (0.00s)
+=== RUN   TestResponsesCreatedAtStamperAddsStableTimestampOnlyWhenMissing
+--- PASS: TestResponsesCreatedAtStamperAddsStableTimestampOnlyWhenMissing (0.00s)
+=== RUN   TestResponsesCreatedAtStamperLearnsUpstreamValue
+--- PASS: TestResponsesCreatedAtStamperLearnsUpstreamValue (0.00s)
+=== RUN   TestUpstreamFollowupTransactionProbe
+OBSERVED responses_json_created_at=true
+OBSERVED responses_stream_created_at=true
+OBSERVED openai_apikey_search=true
+OBSERVED oauth_gpt55_supported=false apikey_gpt55_supported=true
+OBSERVED gemini_forwarded_thinking="high"
+--- PASS: TestUpstreamFollowupTransactionProbe (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	2.371s
 
 STDOUT END
 STDERR BEGIN
@@ -626,6 +845,18 @@ STDERR BEGIN
 debconf: delaying package configuration, since apt-utils is not installed
 $ eslint .
 $ vue-tsc --noEmit
+
+STDERR END
+
+RECORD handler-final.record.json
+COMMAND docker run --rm --cpus 2 --memory 5g -e GOMAXPROCS=2 -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v /private/tmp/sub2api-upstream-sync-20261016:/workspace -w /workspace/backend golang:1.26.9 go test -tags unit ./internal/transport/http/handler -run 'Test(OpenAIModelListing|GatewayModels|ClassifyNoAccountError)' -count=1
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	0.033s
+
+STDOUT END
+STDERR BEGIN
 
 STDERR END
 
@@ -1130,6 +1361,166 @@ DEPRECATED: The legacy builder is deprecated and will be removed in a future rel
 
 STDERR END
 
+RECORD production-build-v2.record.json
+COMMAND env DOCKER_BUILDKIT=0 docker build -f deploy/Dockerfile --build-arg COMMIT=upstream-followup-final-b0a02a33 -t sub2api:upstream-sync-20261016-followup-final-v2 .
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+Sending build context to Docker daemon  284.8MB
+
+Step 1/45 : ARG NODE_IMAGE=node:24-alpine
+Step 2/45 : ARG GOLANG_IMAGE=golang:1.26.9-alpine
+Step 3/45 : ARG ALPINE_IMAGE=alpine:3.20
+Step 4/45 : ARG GOPROXY=https://goproxy.cn,direct
+Step 5/45 : ARG GOSUMDB=sum.golang.google.cn
+Step 6/45 : FROM ${NODE_IMAGE} AS frontend-builder
+ ---> ebfe2f904627
+Step 7/45 : WORKDIR /app/frontend
+ ---> Using cache
+ ---> 9a2f0f1a7285
+Step 8/45 : ENV NODE_OPTIONS=--max-old-space-size=2048
+ ---> Using cache
+ ---> 39b0fc47936b
+Step 9/45 : RUN corepack enable && corepack prepare pnpm@11.17.0 --activate
+ ---> Using cache
+ ---> d76e58b1300e
+Step 10/45 : COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
+ ---> Using cache
+ ---> 678823c01854
+Step 11/45 : RUN pnpm install --frozen-lockfile
+ ---> Using cache
+ ---> 5619331b667f
+Step 12/45 : COPY frontend/ ./
+ ---> Using cache
+ ---> 22563306578c
+Step 13/45 : COPY docs/legal/ /app/docs/legal/
+ ---> Using cache
+ ---> a0511239e58b
+Step 14/45 : RUN pnpm run build
+ ---> Using cache
+ ---> 3495fff0dd0c
+Step 15/45 : FROM ${GOLANG_IMAGE} AS backend-builder
+ ---> 3082400e369f
+Step 16/45 : ARG VERSION=
+ ---> Using cache
+ ---> 1fd2d2a7cfba
+Step 17/45 : ARG COMMIT=docker
+ ---> Using cache
+ ---> 1fa04c06fb15
+Step 18/45 : ARG DATE
+ ---> Using cache
+ ---> 21e023f70ad1
+Step 19/45 : ARG GOPROXY
+ ---> Using cache
+ ---> 94f182bea8b2
+Step 20/45 : ARG GOSUMDB
+ ---> Using cache
+ ---> a7a88de5be32
+Step 21/45 : ENV GOPROXY=${GOPROXY}
+ ---> Using cache
+ ---> 4bb80cbf8467
+Step 22/45 : ENV GOSUMDB=${GOSUMDB}
+ ---> Using cache
+ ---> acea45a8d58c
+Step 23/45 : RUN apk add --no-cache git ca-certificates tzdata
+ ---> Running in b795866bf04a
+( 1/13) Installing brotli-libs (1.2.0-r1)
+( 2/13) Installing c-ares (1.34.8-r0)
+( 3/13) Installing libunistring (1.4.2-r0)
+( 4/13) Installing libidn2 (2.3.8-r0)
+( 5/13) Installing nghttp2-libs (1.70.0-r0)
+( 6/13) Installing libpsl (0.21.5-r3)
+( 7/13) Installing zstd-libs (1.5.7-r2)
+( 8/13) Installing libcurl (8.22.0-r0)
+( 9/13) Installing libexpat (2.8.5-r0)
+(10/13) Installing pcre2 (10.49-r0)
+(11/13) Installing git (2.54.0-r0)
+(12/13) Installing git-init-template (2.54.0-r0)
+(13/13) Installing tzdata (2026e-r0)
+Executing busybox-1.37.0-r31.trigger
+OK: 22.0 MiB in 30 packages
+ ---> Removed intermediate container b795866bf04a
+ ---> 69b6e521c852
+Step 24/45 : WORKDIR /app/backend
+ ---> Running in 5a82d4e07666
+ ---> Removed intermediate container 5a82d4e07666
+ ---> 4dd06e04993b
+Step 25/45 : COPY backend/go.mod backend/go.sum ./
+ ---> c0ceb3fc4a8d
+Step 26/45 : RUN go mod download
+ ---> Running in d45f14f26c55
+ ---> Removed intermediate container d45f14f26c55
+ ---> b1b036a99e20
+Step 27/45 : COPY backend/ ./
+ ---> 6e2914b7e031
+Step 28/45 : COPY --from=frontend-builder /app/backend/internal/transport/webassets/dist ./internal/transport/webassets/dist
+ ---> 7a0fe01d91a8
+Step 29/45 : RUN VERSION_VALUE="${VERSION}" &&     if [ -z "${VERSION_VALUE}" ]; then VERSION_VALUE="$(./scripts/resolve-version.sh)"; fi &&     DATE_VALUE="${DATE:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}" &&     CGO_ENABLED=0 GOOS=linux go build     -tags embed     -ldflags="-s -w -X main.Version=${VERSION_VALUE} -X main.Commit=${COMMIT} -X main.Date=${DATE_VALUE} -X main.BuildType=release"     -o /app/sub2api     ./cmd/server
+ ---> Running in cbe1bb9aadfb
+ ---> Removed intermediate container cbe1bb9aadfb
+ ---> 60a44b2ae73d
+Step 30/45 : FROM ${ALPINE_IMAGE}
+ ---> d9e853e87e55
+Step 31/45 : LABEL maintainer="DR-lin-eng <github.com/DR-lin-eng>"
+ ---> Using cache
+ ---> dc139a924356
+Step 32/45 : LABEL description="Sub2API - AI API Gateway Platform"
+ ---> Using cache
+ ---> a2965f4affc6
+Step 33/45 : LABEL org.opencontainers.image.source="https://github.com/DR-lin-eng/sub2api-no2api"
+ ---> Using cache
+ ---> b49126b174e7
+Step 34/45 : RUN apk add --no-cache ca-certificates tzdata curl su-exec && rm -rf /var/cache/apk/*
+ ---> Using cache
+ ---> 3ac74804f1d1
+Step 35/45 : RUN addgroup -g 1000 sub2api && adduser -u 1000 -G sub2api -s /bin/sh -D sub2api
+ ---> Using cache
+ ---> 2a1478256a20
+Step 36/45 : WORKDIR /app
+ ---> Using cache
+ ---> 91cc0fe688c4
+Step 37/45 : COPY --from=backend-builder /app/sub2api /app/sub2api
+ ---> 70d60b0d499a
+Step 38/45 : COPY --from=backend-builder --chown=sub2api:sub2api /app/backend/resources /app/resources
+ ---> 05926c324e58
+Step 39/45 : RUN mkdir -p /app/data && chown -R sub2api:sub2api /app
+ ---> Running in 3fc970c80b3d
+ ---> Removed intermediate container 3fc970c80b3d
+ ---> a93fded268b0
+Step 40/45 : COPY deploy/docker-entrypoint.sh /app/docker-entrypoint.sh
+ ---> bce672a6669c
+Step 41/45 : RUN chmod +x /app/docker-entrypoint.sh
+ ---> Running in 30793de1705b
+ ---> Removed intermediate container 30793de1705b
+ ---> cf7059ab1363
+Step 42/45 : EXPOSE 8080
+ ---> Running in 38b957e58c81
+ ---> Removed intermediate container 38b957e58c81
+ ---> fe0f2027e56b
+Step 43/45 : HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3     CMD wget -q -T 5 -O /dev/null http://localhost:${SERVER_PORT:-8080}/ready || exit 1
+ ---> Running in c847e6b85ef1
+ ---> Removed intermediate container c847e6b85ef1
+ ---> 7f6564c01524
+Step 44/45 : ENTRYPOINT ["/app/docker-entrypoint.sh"]
+ ---> Running in d70893ae703f
+ ---> Removed intermediate container d70893ae703f
+ ---> 6c3d0a086b9c
+Step 45/45 : CMD ["/app/sub2api"]
+ ---> Running in cd4d3e9fd224
+ ---> Removed intermediate container cd4d3e9fd224
+ ---> fb3a24d75e64
+Successfully built fb3a24d75e64
+Successfully tagged sub2api:upstream-sync-20261016-followup-final-v2
+
+STDOUT END
+STDERR BEGIN
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            BuildKit is currently disabled; enable it by removing the DOCKER_BUILDKIT=0
+            environment-variable.
+
+
+STDERR END
+
 RECORD reapply-source.record.json
 COMMAND git apply /private/tmp/sub2api-upstream-sync-20261016/diagnostics/upstream-sync-20261016-followup/DIFF_FILE.patch
 CWD /private/tmp/sub2api-upstream-sync-20261016-rollback
@@ -1147,6 +1538,18 @@ CWD /private/tmp/sub2api-upstream-sync-20261016
 EXIT 0
 STDOUT BEGIN
 ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.016s
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD rollback-final-restore.record.json
+COMMAND /bin/sh diagnostics/upstream-sync-20261016-followup/ROLLBACK.sh /private/tmp/sub2api-upstream-sync-20261016-rollback
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+Restored pristine source bytes in /private/tmp/sub2api-upstream-sync-20261016-rollback
 
 STDOUT END
 STDERR BEGIN
@@ -1189,6 +1592,21 @@ STDOUT BEGIN
 {"stage": "MODIFIED", "result": "PASS", "responses_json_created_at": true, "responses_stream_created_at": true, "migration_count": 303, "persisted_invariants_sha256": "23383255e3cb271ed664525276673c57f1da27abbf9b086d500d5ee514f086cd", "health_ready_frontend_encrypted_login_key_subscription": "PASS"}
 {"stage": "ROLLBACK", "result": "PASS", "responses_json_created_at": false, "responses_stream_created_at": false, "migration_count": 303, "persisted_invariants_sha256": "23383255e3cb271ed664525276673c57f1da27abbf9b086d500d5ee514f086cd", "health_ready_frontend_encrypted_login_key_subscription": "PASS"}
 {"stage": "RESTORED", "result": "PASS", "responses_json_created_at": true, "responses_stream_created_at": true, "migration_count": 303, "persisted_invariants_sha256": "23383255e3cb271ed664525276673c57f1da27abbf9b086d500d5ee514f086cd", "health_ready_frontend_encrypted_login_key_subscription": "PASS"}
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD runtime-matrix-v2.record.json
+COMMAND env SYNC_CANDIDATE_IMAGE=sub2api:upstream-sync-20261016-followup-final-v2 python3 diagnostics/upstream-sync-20261016-followup/runtime_check.py
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+{"stage": "BASELINE", "result": "PASS", "responses_json_created_at": false, "responses_stream_created_at": false, "migration_count": 303, "persisted_invariants_sha256": "b93ef7c1a474c73d215cadf2a16f6ef1a33ffe4af5c132043ddc60432a538b2c", "models_standard_fields": false, "health_ready_frontend_encrypted_login_key_subscription": "PASS"}
+{"stage": "MODIFIED", "result": "PASS", "responses_json_created_at": true, "responses_stream_created_at": true, "migration_count": 303, "persisted_invariants_sha256": "b93ef7c1a474c73d215cadf2a16f6ef1a33ffe4af5c132043ddc60432a538b2c", "models_standard_fields": true, "health_ready_frontend_encrypted_login_key_subscription": "PASS"}
+{"stage": "ROLLBACK", "result": "PASS", "responses_json_created_at": false, "responses_stream_created_at": false, "migration_count": 303, "persisted_invariants_sha256": "b93ef7c1a474c73d215cadf2a16f6ef1a33ffe4af5c132043ddc60432a538b2c", "models_standard_fields": false, "health_ready_frontend_encrypted_login_key_subscription": "PASS"}
+{"stage": "RESTORED", "result": "PASS", "responses_json_created_at": true, "responses_stream_created_at": true, "migration_count": 303, "persisted_invariants_sha256": "b93ef7c1a474c73d215cadf2a16f6ef1a33ffe4af5c132043ddc60432a538b2c", "models_standard_fields": true, "health_ready_frontend_encrypted_login_key_subscription": "PASS"}
 
 STDOUT END
 STDERR BEGIN
@@ -1255,6 +1673,72 @@ OBSERVED gemini_forwarded_thinking="high"
 --- PASS: TestUpstreamFollowupTransactionProbe (0.00s)
 PASS
 ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.024s
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD source-reapplied-final.record.json
+COMMAND docker run --rm --cpus 2 --memory 5g -e GOMAXPROCS=2 -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v /private/tmp/sub2api-upstream-sync-20261016-rollback:/workspace -v /private/tmp/sub2api-upstream-sync-20261016/diagnostics/upstream-sync-20261016-followup:/evidence -w /workspace/backend golang:1.26.9 go test -tags unit -overlay /evidence/probes/overlay.json ./internal/application/service -run '^TestUpstreamFollowupTransactionProbe$' -count=1 -v
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+2026/10/16 08:43:11 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestUpstreamFollowupTransactionProbe
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+OBSERVED responses_json_created_at=true
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+OBSERVED responses_stream_created_at=true
+OBSERVED openai_apikey_search=true
+OBSERVED oauth_gpt55_supported=false apikey_gpt55_supported=true
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+OBSERVED gemini_forwarded_thinking="high"
+--- PASS: TestUpstreamFollowupTransactionProbe (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.034s
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD source-rollback-final.record.json
+COMMAND docker run --rm --cpus 2 --memory 5g -e GOMAXPROCS=2 -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v /private/tmp/sub2api-upstream-sync-20261016-rollback:/workspace -v /private/tmp/sub2api-upstream-sync-20261016/diagnostics/upstream-sync-20261016-followup:/evidence -w /workspace/backend golang:1.26.9 go test -tags unit -overlay /evidence/probes/overlay.json ./internal/application/service -run '^TestUpstreamFollowupTransactionProbe$' -count=1 -v
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+2026/10/16 08:43:01 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestUpstreamFollowupTransactionProbe
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+OBSERVED responses_json_created_at=false
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+OBSERVED responses_stream_created_at=false
+OBSERVED openai_apikey_search=false
+OBSERVED oauth_gpt55_supported=true apikey_gpt55_supported=true
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+OBSERVED gemini_forwarded_thinking=""
+--- PASS: TestUpstreamFollowupTransactionProbe (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.034s
 
 STDOUT END
 STDERR BEGIN

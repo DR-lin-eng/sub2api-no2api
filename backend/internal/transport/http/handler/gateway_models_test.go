@@ -74,6 +74,22 @@ func TestOpenAIModelListingKeepsAuthoritativeEmptyCatalog(t *testing.T) {
 	require.Empty(t, customModelsListSource(service.PlatformOpenAI, []string{}, []string{"gpt-5.5"}))
 }
 
+func TestOpenAIModelListingPreservesStandardAndLegacyFields(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	writeModelsList(c, service.PlatformOpenAI, []string{"gpt-6.1-sol", "custom-alias"})
+	var result gatewayModelsResponseForTest
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &result))
+	require.Len(t, result.Data, 2)
+	for _, model := range result.Data {
+		require.Equal(t, "model", model.Object)
+		require.Equal(t, "openai", model.OwnedBy)
+		require.Positive(t, model.Created)
+		require.Equal(t, "2024-01-01T00:00:00Z", model.CreatedAt)
+	}
+}
+
 func TestGatewayModels_SingleModelReturnsCompleteEntry(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()

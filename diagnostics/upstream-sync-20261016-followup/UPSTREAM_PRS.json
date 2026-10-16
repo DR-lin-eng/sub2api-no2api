@@ -17,10 +17,10 @@
     "evidence": [
       "VERIFICATION.txt",
       "SOURCE_TRANSACTION.json",
-      "runtime-result.json",
       "records/source-baseline.record.json",
-      "records/source-modified.record.json",
-      "records/source-rollback-serial.record.json"
+      "records/source-reapplied-final.record.json",
+      "records/source-rollback-final.record.json",
+      "records/runtime-matrix-v2.record.json"
     ]
   },
   {
@@ -44,10 +44,10 @@
     "evidence": [
       "VERIFICATION.txt",
       "SOURCE_TRANSACTION.json",
-      "runtime-result.json",
       "records/source-baseline.record.json",
-      "records/source-modified.record.json",
-      "records/source-rollback-serial.record.json"
+      "records/source-reapplied-final.record.json",
+      "records/source-rollback-final.record.json",
+      "records/runtime-matrix-v2.record.json"
     ],
     "covered_subitems": [
       {
@@ -58,7 +58,8 @@
         "item": "Pinned/group-aggregated Codex manifests",
         "decision": "Project retains its account-selected manifest owner and prior intentional divergence; retirement is applied after its public alias projection."
       }
-    ]
+    ],
+    "compatibility": "Retirement-filtered OpenAI listings retain object/created/owned_by and the legacy display fields; raw passthrough manifest projection only filters retirement and does not enrich unrelated metadata."
   },
   {
     "pr": 8080,
@@ -77,10 +78,10 @@
     "evidence": [
       "VERIFICATION.txt",
       "SOURCE_TRANSACTION.json",
-      "runtime-result.json",
       "records/source-baseline.record.json",
-      "records/source-modified.record.json",
-      "records/source-rollback-serial.record.json"
+      "records/source-reapplied-final.record.json",
+      "records/source-rollback-final.record.json",
+      "records/runtime-matrix-v2.record.json"
     ],
     "frontend_owners": [
       "frontend/src/features/admin-accounts/presentation/accountFormPolicy.ts",
@@ -107,10 +108,10 @@
     "evidence": [
       "VERIFICATION.txt",
       "SOURCE_TRANSACTION.json",
-      "runtime-result.json",
       "records/source-baseline.record.json",
-      "records/source-modified.record.json",
-      "records/source-rollback-serial.record.json"
+      "records/source-reapplied-final.record.json",
+      "records/source-rollback-final.record.json",
+      "records/runtime-matrix-v2.record.json"
     ],
     "covered_subitems": [
       {

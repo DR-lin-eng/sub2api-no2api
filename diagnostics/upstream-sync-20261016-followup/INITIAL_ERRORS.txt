@@ -26,3 +26,8 @@ Runtime invalid fixture:
 All captured subsequent command failures, successful corrected commands, literal streams, and exits are in records/. Source-rollback compile killed and initial lint compile killed are resource failures, not baseline application behaviors. Full large unit records are preserved as compressed JSON with uncompressed SHA256.
 
 Resource correction: backend-lint-v2, source-rollback-v2 and empty-catalog-cache were explicitly stopped with exit 137 after observing three concurrent analysis/compile processes each at about 2 GiB RSS. This is recorded as a harness cancellation, not a failed application assertion. Replacements run serially with a larger per-process budget.
+
+Final documentation staging:
+  git add docs/UPSTREAM_SYNC_20261016_FOLLOWUP.md
+  exit 1: .gitignore:140 docs/* ignores new topic files.
+  Corrected with a path-scoped git add -f for the requested new review document; regenerated the same source roles to include its creation/removal. No ignore policy was broadened.

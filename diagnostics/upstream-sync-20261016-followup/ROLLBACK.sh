@@ -24,6 +24,7 @@ backend/internal/application/service/openai_model_retirement_test.go
 backend/internal/application/service/openai_responses_created_at.go
 backend/internal/application/service/openai_responses_created_at_test.go
 backend/internal/application/service/upstream_followup_benchmark_test.go
+docs/UPSTREAM_SYNC_20261016_FOLLOWUP.md
 ADDED_SOURCE_PATHS
 tar -xzf "$baseline" -C "$target"
 echo "Restored pristine source bytes in $target"

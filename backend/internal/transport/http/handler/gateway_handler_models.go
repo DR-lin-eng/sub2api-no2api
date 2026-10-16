@@ -211,6 +211,10 @@ func (h *GatewayHandler) compositeAvailableModels(ctx context.Context, groupID *
 }
 
 func writeModelsList(c *gin.Context, platform string, modelIDs []string) {
+	if platform == service.PlatformOpenAI {
+		writeOpenAIModelsList(c, modelIDs, true)
+		return
+	}
 	if platform == service.PlatformGrok {
 		writeGrokModelsList(c, modelIDs)
 		return
@@ -339,26 +343,34 @@ func grokModelSupportsConfigurableReasoning(modelID string) bool {
 	}
 }
 
-func writeOpenAIModelsList(c *gin.Context, modelIDs []string) {
+func writeOpenAIModelsList(c *gin.Context, modelIDs []string, legacyCreatedAt ...bool) {
 	defaultsByID := make(map[string]openai.Model, len(openai.DefaultModels))
 	for _, model := range openai.DefaultModels {
 		defaultsByID[model.ID] = model
 	}
 
-	models := make([]openai.Model, 0, len(modelIDs))
+	type listedModel struct {
+		openai.Model
+		CreatedAt string `json:"created_at,omitempty"`
+	}
+	createdAt := ""
+	if len(legacyCreatedAt) > 0 && legacyCreatedAt[0] {
+		createdAt = "2024-01-01T00:00:00Z"
+	}
+	models := make([]listedModel, 0, len(modelIDs))
 	for _, modelID := range modelIDs {
 		if model, ok := defaultsByID[modelID]; ok {
-			models = append(models, model)
+			models = append(models, listedModel{Model: model, CreatedAt: createdAt})
 			continue
 		}
-		models = append(models, openai.Model{
+		models = append(models, listedModel{Model: openai.Model{
 			ID:          modelID,
 			Object:      "model",
 			Created:     1704067200,
 			OwnedBy:     "openai",
 			Type:        "model",
 			DisplayName: modelID,
-		})
+		}, CreatedAt: createdAt})
 	}
 	writeModelsListResponse(c, models)
 }

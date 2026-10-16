@@ -1,0 +1,55 @@
+{
+  "pr": 139,
+  "head": "ba5fdffdea8323b98388c69594ff29ecddfdd4b0",
+  "runs": [
+    {
+      "conclusion": "success",
+      "databaseId": 38873537087,
+      "event": "pull_request",
+      "headSha": "ba5fdffdea8323b98388c69594ff29ecddfdd4b0",
+      "name": "Security Scan",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 38873537089,
+      "event": "pull_request",
+      "headSha": "ba5fdffdea8323b98388c69594ff29ecddfdd4b0",
+      "name": "Docker Image",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 38873537108,
+      "event": "pull_request",
+      "headSha": "ba5fdffdea8323b98388c69594ff29ecddfdd4b0",
+      "name": "CI",
+      "status": "completed"
+    },
+    {
+      "conclusion": "skipped",
+      "databaseId": 38873534830,
+      "event": "pull_request_target",
+      "headSha": "ba5fdffdea8323b98388c69594ff29ecddfdd4b0",
+      "name": "CLA Assistant",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 38873526871,
+      "event": "push",
+      "headSha": "ba5fdffdea8323b98388c69594ff29ecddfdd4b0",
+      "name": "Security Scan",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 38873526919,
+      "event": "push",
+      "headSha": "ba5fdffdea8323b98388c69594ff29ecddfdd4b0",
+      "name": "CI",
+      "status": "completed"
+    }
+  ],
+  "scope": "First pushed revision; final compatibility/evidence follow-up will have its own exact-head checks."
+}

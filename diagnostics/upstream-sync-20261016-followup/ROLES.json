@@ -1,22 +1,22 @@
 {
   "MODIFIED_FILE.tar.gz": {
     "path": "/private/tmp/sub2api-upstream-sync-20261016/diagnostics/upstream-sync-20261016-followup/MODIFIED_FILE.tar.gz",
-    "bytes": 326023,
-    "sha256": "4294c2b374046600da4cf4c43fbdc9aa6c22f8358b53ab912480ad72867d7e8c"
+    "bytes": 329430,
+    "sha256": "091b34725cf198623c8db629869951b9542146899a1f5729fb3fd937e8efd880"
   },
   "DIFF_FILE.patch": {
     "path": "/private/tmp/sub2api-upstream-sync-20261016/diagnostics/upstream-sync-20261016-followup/DIFF_FILE.patch",
-    "bytes": 111929,
-    "sha256": "62794ed9f0a051846fbe0e4deb1f4b6240d2a6c2b8a4a75f49325d83c2f90847"
+    "bytes": 121704,
+    "sha256": "69cf4b034288dc42c36402f9906884f132889b65025e1f75351ce264c09d16fe"
   },
   "VERIFICATION.txt": {
     "path": "/private/tmp/sub2api-upstream-sync-20261016/diagnostics/upstream-sync-20261016-followup/VERIFICATION.txt",
-    "bytes": 164096,
-    "sha256": "0fb2a3afaa370dc49720833f7ef3f34c1882afb5c1fad3b509d631b01717b214"
+    "bytes": 191564,
+    "sha256": "a51c0dca136bfa5dc295bba6807cb24e1ee4714e24d767e13ef6f5e20bf85b0d"
   },
   "ROLLBACK.sh": {
     "path": "/private/tmp/sub2api-upstream-sync-20261016/diagnostics/upstream-sync-20261016-followup/ROLLBACK.sh",
-    "bytes": 1375,
-    "sha256": "40857a9337bcb88d21e901b2586c4e6b6ba471d95a87c99bf7994001b39334d6"
+    "bytes": 1415,
+    "sha256": "a08a7d69b6cb2337beb60d246c2da47e6e8bb9b6adb054a8428cdf1b9187c479"
   }
 }

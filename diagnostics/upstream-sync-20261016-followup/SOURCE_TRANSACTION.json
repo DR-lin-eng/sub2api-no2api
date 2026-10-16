@@ -40,6 +40,7 @@
     "backend/internal/transport/http/handler/no_account_error.go",
     "docs/README.md",
     "docs/REQUEST_LIFECYCLES.md",
+    "docs/UPSTREAM_SYNC_20261016_FOLLOWUP.md",
     "frontend/src/features/admin-accounts/README.md",
     "frontend/src/features/admin-accounts/presentation/accountEditUpdatePayload.ts",
     "frontend/src/features/admin-accounts/presentation/accountFormPolicy.ts",
@@ -56,7 +57,8 @@
     "backend/internal/application/service/openai_model_retirement_test.go",
     "backend/internal/application/service/openai_responses_created_at.go",
     "backend/internal/application/service/openai_responses_created_at_test.go",
-    "backend/internal/application/service/upstream_followup_benchmark_test.go"
+    "backend/internal/application/service/upstream_followup_benchmark_test.go",
+    "docs/UPSTREAM_SYNC_20261016_FOLLOWUP.md"
   ],
   "baseline_hashes": {
     "backend/internal/application/service/README.md": "1dec050ae95fdcefcf53b851f4841c5013b53a58dd0723466c75fca5d409184d",
@@ -129,11 +131,12 @@
     "backend/internal/application/service/openai_ws_forwarder_support.go": "549bd5cb4bf7c20767db26f9d113fac0778cda56ba558eba3bc3c237ee14469c",
     "backend/internal/application/service/openai_ws_http_bridge.go": "7edeaeca9a3518a7268006e37c5e0ec81eb28d46b652f546030ab0b2a92c1d59",
     "backend/internal/application/service/upstream_followup_benchmark_test.go": "cc6cc436d8b62a827e238b8179f9cbbc025eb5bae3f6e44f7718be48f4602d73",
-    "backend/internal/transport/http/handler/gateway_handler_models.go": "78b895167c9b84b8bf95d21cabbe0a65b26ca1bc64e5f598bad35db574d791e5",
-    "backend/internal/transport/http/handler/gateway_models_test.go": "66873b6b607c1be1d8b7377147c257e94ec7c971244f23ae468dc139cccf2a7b",
+    "backend/internal/transport/http/handler/gateway_handler_models.go": "bf32fabf0275af4d587368007a1032fd97ac3df8a3bb2f33844d9ed02460e548",
+    "backend/internal/transport/http/handler/gateway_models_test.go": "f87af27fb262d056cebdfe05abdb3f55586cba48229d5836f0f5576fe61cdd9a",
     "backend/internal/transport/http/handler/no_account_error.go": "ff703c0231402146054d6ba66e0dbd841c79c74e878c832874200e9db1376646",
     "docs/README.md": "d21ab47a792870a7a6dfafaa622814974837190fbc8a2ae901b9b7878a5988d2",
     "docs/REQUEST_LIFECYCLES.md": "df819e5cfd1afab4f8e6f9fba44dc39d637c047ef2057804a5197926bfd9d022",
+    "docs/UPSTREAM_SYNC_20261016_FOLLOWUP.md": "38bb761524d0ce795dcc9f0225959ea5dda0fc9aa63a80af24276347758bfab9",
     "frontend/src/features/admin-accounts/README.md": "0258ae7ccc7ce345e02f3611a09bc584846783d8d7033e663debe109e10ec153",
     "frontend/src/features/admin-accounts/presentation/accountEditUpdatePayload.ts": "dbcfa71c3c7bc601993828a2cfcd396a286db4d7f1a5c18c52e50e5dd280dc72",
     "frontend/src/features/admin-accounts/presentation/accountFormPolicy.ts": "ec2a6946b8bafbadc19d99b85e2310ca7a8afa119f4050f164d67aa8347e2edb",
@@ -142,5 +145,5 @@
     "frontend/src/features/admin-accounts/presentation/widgets/create/CreateAccountAdvancedFields.vue": "76c2f11ea5f41010679c66dda41a5f87ea488b387c1fd1f8b3c0cc71ec6d6cd1",
     "frontend/src/features/admin-accounts/presentation/widgets/edit/EditAccountAdvancedFields.vue": "09c7b58caed4050dd1e6eb65d2ceedfe2798c5a637bcd7537d0b645e30fa4904"
   },
-  "diff_sha256": "62794ed9f0a051846fbe0e4deb1f4b6240d2a6c2b8a4a75f49325d83c2f90847"
+  "diff_sha256": "69cf4b034288dc42c36402f9906884f132889b65025e1f75351ce264c09d16fe"
 }
