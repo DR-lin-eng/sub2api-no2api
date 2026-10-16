@@ -62,6 +62,10 @@ vi.mock('@stripe/stripe-js/pure', () => ({
 
 import StripePaymentView from '../presentation/pages/StripePaymentPage.vue'
 import { formatPaymentAmount } from '@/features/billing/paymentDisplay'
+import {
+  PAYMENT_RECOVERY_STORAGE_KEY,
+  type PaymentRecoverySnapshot,
+} from '@/features/billing/presentation/paymentFlowResolver'
 import type { PaymentOrder } from '@/features/billing/paymentContracts'
 
 function orderFactory(overrides: Partial<PaymentOrder> = {}): PaymentOrder {
@@ -83,6 +87,30 @@ function orderFactory(overrides: Partial<PaymentOrder> = {}): PaymentOrder {
   }
 }
 
+function writeSnapshot(overrides: Partial<PaymentRecoverySnapshot> = {}) {
+  const snapshot: PaymentRecoverySnapshot = {
+    orderId: 42,
+    amount: 100,
+    qrCode: '',
+    expiresAt: '2099-01-01T00:30:00.000Z',
+    paymentType: 'stripe',
+    payUrl: '/payment/stripe?order_id=42',
+    outTradeNo: 'sub2_stripe_42',
+    clientSecret: 'pi_secret_42',
+    intentId: '',
+    currency: 'CNY',
+    countryCode: '',
+    paymentEnv: '',
+    payAmount: 103,
+    orderType: 'balance',
+    paymentMode: '',
+    resumeToken: '',
+    createdAt: Date.UTC(2099, 0, 1),
+    ...overrides,
+  }
+  window.localStorage.setItem(PAYMENT_RECOVERY_STORAGE_KEY, JSON.stringify(snapshot))
+}
+
 function mountView() {
   return shallowMount(StripePaymentView, {
     global: {
@@ -98,10 +126,9 @@ describe('StripePaymentView', () => {
   beforeEach(() => {
     routeState.query = {
       order_id: '42',
-      client_secret: 'pi_secret_42',
     }
     routerPush.mockReset()
-    getOrder.mockReset()
+    getOrder.mockReset().mockResolvedValue({ data: orderFactory() })
     paymentStore.config = { stripe_publishable_key: 'pk_test' }
     paymentStore.fetchConfig.mockReset().mockResolvedValue(undefined)
     paymentStore.pollOrderStatus.mockReset()
@@ -116,9 +143,54 @@ describe('StripePaymentView', () => {
     stripeInstance.confirmAlipayPayment.mockReset()
     stripeInstance.confirmWechatPayPayment.mockReset()
     window.localStorage.clear()
+    writeSnapshot()
   })
 
-  it('本地恢复快照缺失时使用订单接口返回的 Stripe 币种展示金额', async () => {
+  it('uses the snapshot secret for the same order and ignores a URL secret', async () => {
+    routeState.query.method = 'alipay'
+    routeState.query.client_secret = 'pi_other_secret'
+    mountView()
+    await flushPromises()
+    await flushPromises()
+
+    expect(getOrder).toHaveBeenCalledWith(42)
+    expect(stripeInstance.confirmAlipayPayment).toHaveBeenCalledWith('pi_secret_42', expect.any(Object))
+  })
+
+  it.each([
+    { label: 'missing snapshot', snapshot: null },
+    { label: 'different order', snapshot: { orderId: 7, clientSecret: 'pi_secret_7' } },
+    { label: 'different resume token', snapshot: { resumeToken: 'other-token' } },
+    { label: 'expired snapshot', snapshot: { expiresAt: '2000-01-01T00:00:00Z' } },
+  ])('rejects $label before loading Stripe', async ({ snapshot }) => {
+    window.localStorage.clear()
+    if (snapshot) writeSnapshot({ resumeToken: 'bound-token', ...snapshot })
+    routeState.query = { order_id: '42', client_secret: 'pi_other_secret', method: 'alipay', resume_token: 'bound-token' }
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(getOrder).not.toHaveBeenCalled()
+    expect(loadStripe).not.toHaveBeenCalled()
+    expect(stripeInstance.confirmAlipayPayment).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('payment.stripeMissingParams')
+  })
+
+  it('shows the missing snapshot state when browser storage is unavailable', async () => {
+    const storageRead = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('Storage unavailable', 'SecurityError')
+    })
+    try {
+      const wrapper = mountView()
+      await flushPromises()
+      expect(loadStripe).not.toHaveBeenCalled()
+      expect(wrapper.text()).toContain('payment.stripeMissingParams')
+    } finally {
+      storageRead.mockRestore()
+    }
+  })
+
+  it('本地恢复快照未记录币种时使用订单接口返回的 Stripe 币种展示金额', async () => {
+    writeSnapshot({ currency: '' })
     getOrder.mockResolvedValue({
       data: orderFactory({ currency: 'HKD', pay_amount: 103 }),
     })

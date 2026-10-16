@@ -1,0 +1,6 @@
+{
+  "Replace": {
+    "/workspace/internal/application/service/upstream_transaction_probe_test.go": "/fixture/service_probe_test.go",
+    "/workspace/internal/modules/payment/provider/upstream_transaction_probe_test.go": "/fixture/provider_probe_test.go"
+  }
+}

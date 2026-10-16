@@ -1,0 +1,7 @@
+1. docker version: exit 1; Cannot connect to the Docker daemon at unix:///Users/lin/.docker/run/docker.sock.
+2. exec_command: process creation failed before command execution; requested workdir did not yet exist (os error 2); corrected by using existing parent cwd.
+3. open -a Docker application path inside sandbox: exit 1; kLSNoExecutableErr (-10827). Corrected by launching the same installed Docker application with escalation authorized by the requested Docker tests; exit 0.
+4. docker desktop start inside sandbox: could not create docker-desktop.log (operation not permitted). Host launch completed and Docker engine 29.2.1 was used for real builds/tests.
+5. Original sandbox docker desktop start completed exit 1: Failed to start Docker Desktop; Docker Desktop is still starting: context canceled. Independent escalated host launch and all actual Docker gates succeeded.
+6. Packaging review found the new sync document matched .gitignore docs/*; explicitly staged that single requested document with git add -f, preserving the existing ignore policy. Source roles rebuilt to include it.
+7. git diff --cached --check over raw evidence returned exit 2 for normative unified-diff context spaces and literal command logs. Preserved exact artifacts; corrected the code check to git diff --cached --check -- backend frontend docs.

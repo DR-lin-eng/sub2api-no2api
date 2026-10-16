@@ -1,0 +1,13 @@
+{
+  "command": [
+    "docker",
+    "pull",
+    "ghcr.io/dr-lin-eng/sub2api-no2api:sha-ed58484"
+  ],
+  "cwd": "/Users/lin/.codex/visualizations/2026/10/16/01a1429b-cf2c-7b51-8878-a3f391ef02d4/upstream-sync-20261016/repo",
+  "started_at": "2026-10-16T03:02:22.808566+00:00",
+  "elapsed_seconds": 27.421,
+  "exit_status": 0,
+  "stdout": "sha-ed58484: Pulling from dr-lin-eng/sub2api-no2api\n401fba96e067: Pulling fs layer\n1d5f14580192: Pulling fs layer\n8d925a81db57: Pulling fs layer\nbfd2610319f4: Pulling fs layer\n6720fdc682ae: Pulling fs layer\n44136fa355b3: Already exists\na76935388d04: Download complete\nbfd2610319f4: Download complete\n8d925a81db57: Download complete\n401fba96e067: Download complete\n1d5f14580192: Download complete\n6720fdc682ae: Download complete\n1d5f14580192: Pull complete\n6720fdc682ae: Pull complete\nbfd2610319f4: Pull complete\n8d925a81db57: Pull complete\n401fba96e067: Pull complete\nDigest: sha256:4cb2099a93871fefd9f947cd93c78a7a9f75180e03872638b5b10079d3d83a6f\nStatus: Downloaded newer image for ghcr.io/dr-lin-eng/sub2api-no2api:sha-ed58484\nghcr.io/dr-lin-eng/sub2api-no2api:sha-ed58484\n",
+  "stderr": ""
+}
