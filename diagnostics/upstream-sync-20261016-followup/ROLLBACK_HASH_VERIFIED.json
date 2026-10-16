@@ -1,7 +1,8 @@
 {
   "baseline_sha": "eb130c485520fa27536e33064f39894972205362",
   "matching_original_files": 36,
-  "removed_added_files": 8,
-  "restored_copy": "/private/tmp/sub2api-upstream-sync-20261016-rollback",
+  "removed_added_files": 9,
+  "restored_copy": "/private/tmp/sub2api-final-source-20261016-ti2n1oz6",
+  "diff_sha256": "69cf4b034288dc42c36402f9906884f132889b65025e1f75351ce264c09d16fe",
   "result": "PASS"
 }

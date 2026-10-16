@@ -1,5 +1,6 @@
 {
-  "reapplied_copy": "/private/tmp/sub2api-upstream-sync-20261016-rollback",
-  "modified_paths": 44,
+  "reapplied_copy": "/private/tmp/sub2api-final-source-20261016-ti2n1oz6",
+  "modified_paths": 45,
+  "diff_sha256": "69cf4b034288dc42c36402f9906884f132889b65025e1f75351ce264c09d16fe",
   "result": "PASS"
 }
