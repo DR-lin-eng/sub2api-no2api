@@ -5,6 +5,27 @@ export interface ModelMapping {
   to: string
 }
 
+export function buildAPIKeySearchExtra(
+  base: Record<string, unknown> | undefined,
+  platform: string,
+  category: string,
+  searchMode: string,
+  anthropicPassthrough: boolean,
+  anthropicAuthScheme: string,
+): Record<string, unknown> | undefined {
+  if (category !== 'apikey' || (platform !== 'anthropic' && platform !== 'openai')) return base
+  const extra = { ...(base || {}) }
+  if (platform === 'anthropic') {
+    if (anthropicPassthrough) extra.anthropic_passthrough = true
+    else delete extra.anthropic_passthrough
+    if (anthropicAuthScheme === 'authorization_bearer') extra.anthropic_apikey_auth_scheme = anthropicAuthScheme
+    else delete extra.anthropic_apikey_auth_scheme
+  }
+  if (searchMode === 'default') delete extra.web_search_emulation
+  else extra.web_search_emulation = searchMode
+  return Object.keys(extra).length > 0 ? extra : undefined
+}
+
 export function isOpenAIPersonalAccessTokenCredentials(credentials?: Record<string, unknown>): boolean {
   const authMode = String(credentials?.auth_mode ?? credentials?.openai_auth_mode ?? '')
     .trim()

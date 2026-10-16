@@ -1,0 +1,13 @@
+{
+  "command": [
+    "git",
+    "diff",
+    "--check"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261016",
+  "started_at": "2026-10-16T08:19:41.072763+00:00",
+  "elapsed_seconds": 0.087,
+  "exit_status": 0,
+  "stdout": "",
+  "stderr": ""
+}

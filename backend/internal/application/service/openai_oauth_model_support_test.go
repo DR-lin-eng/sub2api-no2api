@@ -32,7 +32,6 @@ func TestIsModelSupported_OpenAIOAuthEmptyMapping_ServableModels(t *testing.T) {
 		"gpt-image-1",       // 图像生成模型
 		"claude-sonnet-4-6", // /v1/messages 调度默认映射兜底
 		"claude-3-opus-20240229",
-		"gpt-5.5",
 	}
 	for _, model := range servable {
 		require.True(t, account.IsModelSupported(model), "expected %q to be servable by empty-mapping OpenAI OAuth account", model)
@@ -159,14 +158,14 @@ func TestIsOpenAIOAuthServableModel(t *testing.T) {
 func TestIsModelSupported_OpenAIOAuthUsesLiveCapabilitySnapshot(t *testing.T) {
 	account := newOpenAIOAuthAccountForModelTest()
 	account.Extra = map[string]any{
-		OpenAIOAuthSupportedModelsExtraKey: []any{"gpt-5.5", "gpt-image-2"},
+		OpenAIOAuthSupportedModelsExtraKey: []any{"gpt-5.6", "gpt-image-2"},
 	}
 
 	// A model known to the static catalog but absent from the latest upstream
 	// manifest is rejected, while a manifest model and its reasoning suffix are
 	// accepted. Explicit mappings remain a separate opt-in path.
-	require.True(t, account.IsModelSupported("gpt-5.5"))
-	require.True(t, account.IsModelSupported("gpt-5.5-high"))
+	require.True(t, account.IsModelSupported("gpt-5.6"))
+	require.True(t, account.IsModelSupported("gpt-5.6-high"))
 	require.True(t, account.IsModelSupported("gpt-image-2"))
 	require.False(t, account.IsModelSupported("gpt-5.4"))
 }

@@ -1,0 +1,822 @@
+diff --git a/backend/internal/handler/gateway_handler.go b/backend/internal/handler/gateway_handler.go
+index 4ed38abb1..e990e3dd0 100644
+--- a/backend/internal/handler/gateway_handler.go
++++ b/backend/internal/handler/gateway_handler.go
+@@ -1193,7 +1193,7 @@ func (h *GatewayHandler) Models(c *gin.Context) {
+ 		return
+ 	}
+ 
+-	if len(availableModels) > 0 {
++	if len(availableModels) > 0 || (platform == service.PlatformOpenAI && availableModels != nil) {
+ 		writeModelsList(c, platform, availableModels)
+ 		return
+ 	}
+@@ -1308,7 +1308,7 @@ func (h *GatewayHandler) compositeAvailableModels(ctx context.Context, groupID *
+ 			continue
+ 		}
+ 		platformModels := h.gatewayService.GetAvailableModels(ctx, groupID, platform)
+-		if len(platformModels) == 0 {
++		if len(platformModels) == 0 && (platform != service.PlatformOpenAI || platformModels == nil) {
+ 			// CN 供应商没有静态默认模型列表（defaultModelIDsForPlatform 的
+ 			// default 分支是 Claude 列表），composite 下只暴露账号映射键。
+ 			if _, ok := schedulablePlatforms[platform]; ok && !service.IsMultiProtocolAPIKeyProvider(platform) {
+@@ -1457,6 +1457,9 @@ func writeOpenAIModelsList(c *gin.Context, modelIDs []string) {
+ // 与平台默认列表（fallbackModels）。账号映射为空时回落默认列表；Anthropic
+ // 平台两者取并集，其余平台以账号映射键为准。
+ func modelListingSource(platform string, availableModels, fallbackModels []string) []string {
++	if platform == service.PlatformOpenAI && availableModels != nil {
++		return availableModels
++	}
+ 	if len(availableModels) == 0 {
+ 		return fallbackModels
+ 	}
+diff --git a/backend/internal/handler/gateway_models_test.go b/backend/internal/handler/gateway_models_test.go
+index 25b05a8c7..3724973da 100644
+--- a/backend/internal/handler/gateway_models_test.go
++++ b/backend/internal/handler/gateway_models_test.go
+@@ -324,6 +324,12 @@ func TestGatewayModels_UnmappedOpenAIAccountsSupplementMappedModels(t *testing.T
+ 			Credentials: map[string]any{"model_mapping": map[string]any{alias: "gpt-5.6-sol"}},
+ 		},
+ 	}
++	subscriptionDefaults := make([]string, 0)
++	for _, model := range openai.DefaultModelIDs() {
++		if model != "gpt-5.5" {
++			subscriptionDefaults = append(subscriptionDefaults, model)
++		}
++	}
+ 	tests := []struct {
+ 		name     string
+ 		accounts []service.Account
+@@ -333,7 +339,7 @@ func TestGatewayModels_UnmappedOpenAIAccountsSupplementMappedModels(t *testing.T
+ 		{
+ 			name:     "unmapped parent and Spark shadow retain defaults and aliases",
+ 			accounts: accounts,
+-			want:     append(openai.DefaultModelIDs(), alias),
++			want:     append(append([]string{}, subscriptionDefaults...), alias),
+ 		},
+ 		{
+ 			name:     "unmapped API key account also contributes defaults",
+@@ -343,7 +349,7 @@ func TestGatewayModels_UnmappedOpenAIAccountsSupplementMappedModels(t *testing.T
+ 		{
+ 			name:     "unmapped accounts alone retain default response shape",
+ 			accounts: accounts[:1],
+-			want:     openai.DefaultModelIDs(),
++			want:     subscriptionDefaults,
+ 		},
+ 		{
+ 			name:     "custom list can select defaults and aliases",
+@@ -372,7 +378,7 @@ func TestGatewayModels_UnmappedOpenAIAccountsSupplementMappedModels(t *testing.T
+ 				Credentials: map[string]any{"model_mapping": map[string]any{"stale-model": "stale-model"}},
+ 				Extra:       map[string]any{"openai_passthrough": true},
+ 			}}, accounts[1:]...),
+-			want: append(openai.DefaultModelIDs(), alias),
++			want: append(append([]string{}, subscriptionDefaults...), alias),
+ 		},
+ 		{
+ 			name:     "unmapped accounts from another platform do not add defaults",
+diff --git a/backend/internal/handler/no_account_error.go b/backend/internal/handler/no_account_error.go
+index 76b78eaee..4614d13e5 100644
+--- a/backend/internal/handler/no_account_error.go
++++ b/backend/internal/handler/no_account_error.go
+@@ -123,10 +123,14 @@ func classifyNoAccountError(
+ 
+ 	result := diag.DiagnoseModelAvailabilityForPlatform(ctx, apiKey.GroupID, routingModel, platform)
+ 	if result.HasAccountsInPool && !result.HasModelSupport {
++		message := fmt.Sprintf("Model %q is not supported by any configured account in this group", displayModel)
++		if result.HasRetiredSubscriptionModel {
++			message = fmt.Sprintf("Model %q targets GPT-5.5, which retired from Codex with ChatGPT sign-in on October 14, 2026. Select an available replacement such as GPT-6.1 Sol or GPT-6 Luna, or configure an API-key upstream that supports GPT-5.5.", displayModel)
++		}
+ 		return noAccountErrorClassification{
+ 			Status:        http.StatusNotFound,
+ 			ErrType:       "model_not_found",
+-			Message:       fmt.Sprintf("Model %q is not supported by any configured account in this group", displayModel),
++			Message:       message,
+ 			ModelNotFound: true,
+ 		}
+ 	}
+diff --git a/backend/internal/handler/no_account_error_test.go b/backend/internal/handler/no_account_error_test.go
+index 186d08ccb..e46b98bb2 100644
+--- a/backend/internal/handler/no_account_error_test.go
++++ b/backend/internal/handler/no_account_error_test.go
+@@ -303,3 +303,22 @@ func TestClassifySelectionFailureError_StillUpgradesNonModelNotFoundFallback(t *
+ 	require.Equal(t, "rate_limit_error", got.ErrType)
+ 	require.False(t, got.ModelNotFound)
+ }
++
++func TestClassifyNoAccountError_GPT55Retirement(t *testing.T) {
++	groupID := int64(1)
++	apiKey := &service.APIKey{GroupID: &groupID}
++	fd := &fakeDiagnoser{resp: service.ModelAvailabilityDiagnosis{HasAccountsInPool: true, HasRetiredSubscriptionModel: true}}
++	cls := classifyNoAccountError(context.Background(), fd, apiKey, "gpt-5.5", "legacy", service.PlatformOpenAI)
++	require.Equal(t, http.StatusNotFound, cls.Status)
++	require.Equal(t, "model_not_found", cls.ErrType)
++	require.Contains(t, cls.Message, "retired")
++	require.Contains(t, cls.Message, "API-key")
++	fd.resp.HasModelSupport = true
++	cls = classifyNoAccountError(context.Background(), fd, apiKey, "gpt-5.5", "legacy", service.PlatformOpenAI)
++	require.Equal(t, http.StatusServiceUnavailable, cls.Status, "a temporarily unavailable API pool is not a retirement error")
++}
++
++func TestGPT55RetirementEmptyListingDoesNotUseDefaults(t *testing.T) {
++	require.Empty(t, modelListingSource(service.PlatformOpenAI, []string{}, []string{"gpt-5.5"}))
++	require.Equal(t, []string{"gpt-5.5"}, modelListingSource(service.PlatformOpenAI, nil, []string{"gpt-5.5"}))
++}
+diff --git a/backend/internal/server/routes/gateway_models_pinned_test.go b/backend/internal/server/routes/gateway_models_pinned_test.go
+index c4ca010ad..cf4c91f02 100644
+--- a/backend/internal/server/routes/gateway_models_pinned_test.go
++++ b/backend/internal/server/routes/gateway_models_pinned_test.go
+@@ -27,6 +27,14 @@ func (r *pinnedModelsRoutesRepository) ListByGroup(context.Context, int64) ([]se
+ 	return []service.Account{r.account}, nil
+ }
+ 
++func (r *pinnedModelsRoutesRepository) ListSchedulableByGroupID(context.Context, int64) ([]service.Account, error) {
++	return []service.Account{r.account}, nil
++}
++
++func (r *pinnedModelsRoutesRepository) ListModelAvailabilityCandidates(context.Context, *int64, []string, bool) ([]service.Account, error) {
++	return []service.Account{r.account}, nil
++}
++
+ type pinnedModelsRoutesUpstream struct {
+ 	service.HTTPUpstream
+ 	ordinaryCalls atomic.Int32
+diff --git a/backend/internal/service/account.go b/backend/internal/service/account.go
+index 7d1428ff8..d21ba973a 100644
+--- a/backend/internal/service/account.go
++++ b/backend/internal/service/account.go
+@@ -914,6 +914,10 @@ func resolveRequestedModelInMapping(mapping map[string]string, requestedModel st
+ // （isDeepseekServableModel）——未知模型名透传上游只会得到 404/400，并误触发
+ // per-(账号,模型) 30 分钟冷却；带 [1m] 上下文后缀的写法先归一化再比对。
+ func (a *Account) IsModelSupported(requestedModel string) bool {
++	return supportsOpenAIRequestModel(a, requestedModel, false)
++}
++
++func (a *Account) isModelMappingSupported(requestedModel string) bool {
+ 	// 透传模式仅替换认证、模型语义完全交由上游决定，因此放行所有模型。
+ 	// 该短路必须在 model_mapping 判定之前：账号从"白名单模式"切换到透传后，
+ 	// credentials 里常残留旧的非空 model_mapping，若不在此放行，透传账号会被
+diff --git a/backend/internal/service/gateway_model_availability.go b/backend/internal/service/gateway_model_availability.go
+index bc78a7859..1edc1d809 100644
+--- a/backend/internal/service/gateway_model_availability.go
++++ b/backend/internal/service/gateway_model_availability.go
+@@ -21,6 +21,9 @@ type ModelAvailabilityDiagnosis struct {
+ 	// HasModelSupport is true if at least one account's model mapping admits
+ 	// the requested model.
+ 	HasModelSupport bool
++	// HasRetiredSubscriptionModel records a ChatGPT upstream blocked by model
++	// retirement, so an unsupported request can include migration guidance.
++	HasRetiredSubscriptionModel bool
+ }
+ 
+ // ModelAvailabilityDiagnoser is implemented by gateway services that can
+diff --git a/backend/internal/service/gateway_service.go b/backend/internal/service/gateway_service.go
+index e94934dcf..2dbec0cca 100644
+--- a/backend/internal/service/gateway_service.go
++++ b/backend/internal/service/gateway_service.go
+@@ -22,6 +22,7 @@ import (
+ 	"github.com/Wei-Shaw/sub2api/internal/config"
+ 	"github.com/Wei-Shaw/sub2api/internal/domain"
+ 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
++	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
+ 	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
+ 	"github.com/Wei-Shaw/sub2api/internal/util/responseheaders"
+ 	"github.com/cespare/xxhash/v2"
+@@ -1461,6 +1462,12 @@ func (s *GatewayService) GetAvailableModels(ctx context.Context, groupID *int64,
+ 	}
+ 
+ 	// If no account has model_mapping, return nil (use default)
++	if !hasAnyMapping && platform == PlatformOpenAI {
++		models := filterRetiredOpenAIModelIDs(accounts, openai.DefaultModelIDs())
++		if len(models) != len(openai.DefaultModels) {
++			return models
++		}
++	}
+ 	if !hasAnyMapping {
+ 		if s.modelsListCache != nil {
+ 			s.modelsListCache.Set(cacheKey, []string(nil), s.modelsListCacheTTL)
+@@ -1478,6 +1485,12 @@ func (s *GatewayService) GetAvailableModels(ctx context.Context, groupID *int64,
+ 
+ 	if platform == PlatformOpenAI {
+ 		models = supplementUnmappedOpenAIModels(accounts, models)
++		models = filterRetiredOpenAIModelIDs(accounts, models)
++		// nil means "use defaults" to listing callers; an empty filtered catalog
++		// must remain authoritative instead of resurrecting retired defaults.
++		if len(models) == 0 {
++			return models
++		}
+ 	}
+ 
+ 	if s.modelsListCache != nil {
+diff --git a/backend/internal/service/openai_account_scheduler.go b/backend/internal/service/openai_account_scheduler.go
+index ae4e2c232..2cbf1211f 100644
+--- a/backend/internal/service/openai_account_scheduler.go
++++ b/backend/internal/service/openai_account_scheduler.go
+@@ -1812,7 +1812,7 @@ func (s *defaultOpenAIAccountScheduler) isAccountRequestCompatibleReason(ctx con
+ 	}) {
+ 		return false, "shadow_parent_unhealthy"
+ 	}
+-	if req.RequestedModel != "" && !account.IsModelSupported(req.RequestedModel) {
++	if req.RequestedModel != "" && !supportsOpenAIRequestModel(account, req.RequestedModel, req.RequireCompact) {
+ 		return false, "model_not_supported"
+ 	}
+ 	if req.GroupID != nil && s != nil && s.service != nil &&
+diff --git a/backend/internal/service/openai_codex_models_service.go b/backend/internal/service/openai_codex_models_service.go
+index 40dbd0029..61c4d5d44 100644
+--- a/backend/internal/service/openai_codex_models_service.go
++++ b/backend/internal/service/openai_codex_models_service.go
+@@ -187,13 +187,13 @@ func (s *OpenAIGatewayService) MergeGroupConfiguredCodexModels(
+ 		return nil
+ 	}
+ 
++	visible, accounts, err := loadCodexGroupCatalogAccounts(ctx, s.accountRepo, group.ID)
++	if err != nil {
++		return fmt.Errorf("load group configured Codex models: %w", err)
++	}
+ 	var configuredModels []string
+ 	if !group.CodexModelsManifestConfig.Enabled {
+-		var err error
+-		configuredModels, err = s.groupConfiguredCodexModelIDs(ctx, group)
+-		if err != nil {
+-			return fmt.Errorf("load group configured Codex models: %w", err)
+-		}
++		configuredModels = openAIConfiguredCodexModelIDsForGroup(visible, group)
+ 	}
+ 	body, changed, err := mergeConfiguredCodexModelsManifest(
+ 		manifest.Body,
+@@ -211,7 +211,12 @@ func (s *OpenAIGatewayService) MergeGroupConfiguredCodexModels(
+ 		}
+ 		changed = true
+ 	}
+-	if changed {
++	filtered, retired, err := filterRetiredOpenAIPublicModelsBody(body, accounts, true)
++	if err != nil {
++		return fmt.Errorf("filter retired Codex models: %w", err)
++	}
++	body = filtered
++	if changed || retired {
+ 		manifest.Body = body
+ 		manifest.ETag = codexModelsManifestBodyETag(body)
+ 	}
+@@ -222,17 +227,6 @@ func (s *OpenAIGatewayService) MergeGroupConfiguredCodexModels(
+ 	return nil
+ }
+ 
+-func (s *OpenAIGatewayService) groupConfiguredCodexModelIDs(ctx context.Context, group *Group) ([]string, error) {
+-	if group == nil {
+-		return nil, nil
+-	}
+-	accounts, err := s.accountRepo.ListSchedulableByGroupID(ctx, group.ID)
+-	if err != nil {
+-		return nil, err
+-	}
+-	return openAIConfiguredCodexModelIDsForGroup(accounts, group), nil
+-}
+-
+ // loadCodexGroupCatalogAccounts separates picker membership from capability
+ // intersection. visible accounts are currently schedulable and decide which
+ // public aliases appear. catalog accounts are persistently enabled group
+@@ -300,7 +294,7 @@ func openAIConfiguredCodexModelIDs(accounts []Account) []string {
+ func openAIConfiguredCodexModelIDsForGroup(accounts []Account, group *Group) []string {
+ 	models := supplementUnmappedOpenAIModels(accounts, openAIConfiguredCodexModelIDs(accounts))
+ 	if group == nil || !group.ModelAllowlistEnabled() {
+-		return models
++		return filterRetiredOpenAIModelIDs(accounts, models)
+ 	}
+ 
+ 	seen := make(map[string]struct{}, len(models)+len(group.ModelAllowlist.Models))
+@@ -329,7 +323,7 @@ func openAIConfiguredCodexModelIDsForGroup(accounts []Account, group *Group) []s
+ 		}
+ 	}
+ 	sort.Strings(models)
+-	return models
++	return filterRetiredOpenAIModelIDs(accounts, models)
+ }
+ 
+ const (
+@@ -908,6 +902,19 @@ func buildCodexModelsManifestForAccounts(
+ 	compositeRoutes []CompositeModelRoute,
+ 	compositeRoutesAvailable bool,
+ ) ([]byte, error) {
++	if effectivePlatform == PlatformOpenAI {
++		modelIDs = filterRetiredOpenAIModelIDs(accounts, modelIDs)
++	} else if effectivePlatform == PlatformComposite {
++		filtered := make([]string, 0, len(modelIDs))
++		for _, modelID := range modelIDs {
++			platform, target, resolved := resolveCodexCompositeModelTarget(modelID, accounts, compositeRoutes, compositeRoutesAvailable)
++			if resolved && platform == PlatformOpenAI && openAIModelRetiredForAccounts(accounts, target) {
++				continue
++			}
++			filtered = append(filtered, modelID)
++		}
++		modelIDs = filtered
++	}
+ 	imageInputModels := make(map[string]bool, len(modelIDs))
+ 	searchToolModels := make(map[string]bool, len(modelIDs))
+ 	metadataModels := codexCatalogMetadataModels(
+diff --git a/backend/internal/service/openai_compact_fallback.go b/backend/internal/service/openai_compact_fallback.go
+index 70aef1d37..4cce8e539 100644
+--- a/backend/internal/service/openai_compact_fallback.go
++++ b/backend/internal/service/openai_compact_fallback.go
+@@ -57,6 +57,9 @@ func (s *OpenAIGatewayService) resolveOpenAICompactFallbackModel(account *Accoun
+ 	if account != nil {
+ 		if mapped, matched := account.ResolveCompactMappedModel(requestedModel); matched {
+ 			if mapped = strings.TrimSpace(mapped); mapped != "" {
++				if isRetiredOpenAISubscriptionModel(account, mapped) {
++					return ""
++				}
+ 				return mapped
+ 			}
+ 		}
+@@ -68,7 +71,11 @@ func (s *OpenAIGatewayService) resolveOpenAICompactFallbackModel(account *Accoun
+ 	if fallback == "" {
+ 		return ""
+ 	}
+-	return strings.TrimSpace(resolveOpenAIAccountUpstreamModelForRequest(account, fallback, false))
++	resolved := strings.TrimSpace(resolveOpenAIAccountUpstreamModelForRequest(account, fallback, false))
++	if isRetiredOpenAISubscriptionModel(account, resolved) {
++		return ""
++	}
++	return resolved
+ }
+ 
+ func isOpenAICompactModelFailure(statusCode int, upstreamMsg string, upstreamBody []byte) bool {
+diff --git a/backend/internal/service/openai_gateway_model_availability.go b/backend/internal/service/openai_gateway_model_availability.go
+index 35adea0d7..21693a4d2 100644
+--- a/backend/internal/service/openai_gateway_model_availability.go
++++ b/backend/internal/service/openai_gateway_model_availability.go
+@@ -56,6 +56,9 @@ func (s *OpenAIGatewayService) DiagnoseModelAvailabilityForPlatform(
+ 	diag := ModelAvailabilityDiagnosis{}
+ 	for i := range accounts {
+ 		diag.HasAccountsInPool = true
++		if isRetiredOpenAISubscriptionModel(&accounts[i], resolveOpenAIAccountUpstreamModelForRequest(&accounts[i], requestedModel, false)) {
++			diag.HasRetiredSubscriptionModel = true
++		}
+ 		// Mirrors the per-candidate filter used during account selection
+ 		// (openai_account_scheduler.isAccountRequestCompatible): empty
+ 		// model_mapping accepts everything; otherwise the explicit / wildcard
+diff --git a/backend/internal/service/openai_gateway_scheduling.go b/backend/internal/service/openai_gateway_scheduling.go
+index 04fc18bb9..af0b73d9d 100644
+--- a/backend/internal/service/openai_gateway_scheduling.go
++++ b/backend/internal/service/openai_gateway_scheduling.go
+@@ -440,7 +440,7 @@ func openAICompatibleAccountEligibilityFailureReasonBeforeProfit(ctx context.Con
+ 			return "quota_auto_pause"
+ 		}
+ 	}
+-	if requestedModel != "" && !account.IsModelSupported(requestedModel) {
++	if requestedModel != "" && !supportsOpenAIRequestModel(account, requestedModel, requireCompact) {
+ 		return "model_not_supported"
+ 	}
+ 	if !account.SupportsOpenAIEndpointCapability(requiredCapability) {
+diff --git a/backend/internal/service/openai_model_retirement.go b/backend/internal/service/openai_model_retirement.go
+new file mode 100644
+index 000000000..d928c8ef2
+--- /dev/null
++++ b/backend/internal/service/openai_model_retirement.go
+@@ -0,0 +1,91 @@
++package service
++
++import (
++	"encoding/json"
++	"strings"
++)
++
++// GPT-5.5 retired from Codex with ChatGPT sign-in on 2026-10-14 at
++// 19:00 UTC. API-key upstreams remain supported. Do not infer upstream
++// eligibility from the API key a client uses to authenticate to this gateway.
++// https://learn.chatgpt.com/docs/models#gpt-55-retirement
++func isRetiredOpenAISubscriptionModel(account *Account, upstreamModel string) bool {
++	if account == nil || !account.IsOpenAI() || (!account.IsOpenAIOAuthLike() && !account.IsShadow()) {
++		return false
++	}
++	model := canonicalizeOpenAIModelAliasSpelling(upstreamModel)
++	return model == "gpt-5.5" || strings.HasPrefix(model, "gpt-5.5-")
++}
++
++// Only remove entries blocked by retirement. Unknown models and other platforms
++// retain their existing listing policy. An explicitly mapped replacement is
++// allowed, but a public alias targeting retired GPT-5.5 is not.
++func openAIModelRetiredForAccounts(accounts []Account, modelID string) bool {
++	retired := false
++	for i := range accounts {
++		account := &accounts[i]
++		if !account.IsOpenAI() {
++			continue
++		}
++		target := resolveOpenAIAccountUpstreamModelForRequest(account, modelID, false)
++		if isRetiredOpenAISubscriptionModel(account, target) {
++			retired = true
++		} else if account.IsModelSupported(modelID) {
++			return false
++		}
++	}
++	return retired
++}
++
++func filterRetiredOpenAIModelIDs(accounts []Account, models []string) []string {
++	filtered := make([]string, 0, len(models))
++	for _, model := range models {
++		if !openAIModelRetiredForAccounts(accounts, model) {
++			filtered = append(filtered, model)
++		}
++	}
++	return filtered
++}
++
++// Entries must already use client-visible names, not raw upstream IDs. Resolve
++// each public name exactly as routing does, after projection and before the
++// final client ETag is calculated. Preserve unknown fields.
++func filterRetiredOpenAIPublicModelsBody(body []byte, accounts []Account, codex bool) ([]byte, bool, error) {
++	field, idField := "data", "id"
++	if codex {
++		field, idField = "models", "slug"
++	}
++	envelope, entries, err := modelCatalogEntries(body, field)
++	if err != nil {
++		return nil, false, err
++	}
++	filtered := make([]json.RawMessage, 0, len(entries))
++	for _, raw := range entries {
++		var entry map[string]json.RawMessage
++		var id string
++		if json.Unmarshal(raw, &entry) == nil {
++			_ = json.Unmarshal(entry[idField], &id)
++		}
++		if !openAIModelRetiredForAccounts(accounts, id) {
++			filtered = append(filtered, raw)
++		}
++	}
++	if len(filtered) == len(entries) {
++		return body, false, nil
++	}
++	envelope[field], err = json.Marshal(filtered)
++	if err != nil {
++		return nil, false, err
++	}
++	encoded, err := json.Marshal(envelope)
++	return encoded, true, err
++}
++
++// Compact-only administrator mappings are evaluated against their actual
++// target, without treating an old client-visible name as a retired target.
++func supportsOpenAIRequestModel(account *Account, requestedModel string, requireCompact bool) bool {
++	if isRetiredOpenAISubscriptionModel(account, resolveOpenAIAccountUpstreamModelForRequest(account, requestedModel, requireCompact)) {
++		return false
++	}
++	return account.isModelMappingSupported(requestedModel)
++}
+diff --git a/backend/internal/service/openai_model_retirement_test.go b/backend/internal/service/openai_model_retirement_test.go
+new file mode 100644
+index 000000000..cee310c84
+--- /dev/null
++++ b/backend/internal/service/openai_model_retirement_test.go
+@@ -0,0 +1,236 @@
++package service
++
++import (
++	"context"
++	"encoding/json"
++	"io"
++	"net/http"
++	"strings"
++	"testing"
++
++	"github.com/Wei-Shaw/sub2api/internal/config"
++	"github.com/stretchr/testify/require"
++	"github.com/tidwall/gjson"
++)
++
++func TestGPT55RetirementModelSupport(t *testing.T) {
++	for _, typ := range []string{AccountTypeOAuth, AccountTypeSetupToken, AccountTypeAPIKey} {
++		for _, passthrough := range []bool{false, true} {
++			t.Run(typ+"/passthrough="+map[bool]string{true: "true", false: "false"}[passthrough], func(t *testing.T) {
++				account := &Account{Platform: PlatformOpenAI, Type: typ, Extra: map[string]any{"openai_passthrough": passthrough}}
++				for _, model := range []string{"gpt-5.5", "openai/gpt-5.5-high", "gpt-5.5-2026-04-23", "GPT_5.5", "gpt-5.5-openai-compact"} {
++					require.Equal(t, typ == AccountTypeAPIKey, account.IsModelSupported(model), model)
++				}
++				require.True(t, account.IsModelSupported("gpt-6.1-sol"))
++			})
++		}
++	}
++	for _, mapping := range []map[string]any{
++		{"legacy": "gpt-5.5"}, {"legacy*": "gpt-5.5"},
++	} {
++		account := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"model_mapping": mapping}}
++		require.False(t, account.IsModelSupported("legacy"))
++	}
++	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"model_mapping": map[string]any{"gpt-5.5": "gpt-6.1-sol"}}}
++	require.True(t, account.IsModelSupported("gpt-5.5"), "explicit administrator replacement remains authoritative")
++	account.Type = AccountTypeAPIKey
++	require.True(t, account.IsModelSupported("gpt-5.5"))
++	parent := int64(3)
++	shadow := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ParentAccountID: &parent}
++	require.False(t, shadow.IsModelSupported("gpt-5.5"))
++	require.False(t, isRetiredOpenAISubscriptionModel(&Account{Platform: PlatformAnthropic, Type: AccountTypeOAuth}, "gpt-5.5"))
++	require.False(t, isRetiredOpenAISubscriptionModel(account, "gpt-5.50"))
++}
++
++func TestGPT55RetirementCatalogs(t *testing.T) {
++	oauth := Account{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
++	api := Account{ID: 2, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
++	group := &Group{ID: 1, Platform: PlatformOpenAI}
++	for _, tc := range []struct {
++		name      string
++		accounts  []Account
++		wantGPT55 bool
++	}{
++		{"oauth", []Account{oauth}, false}, {"api", []Account{api}, true}, {"mixed", []Account{oauth, api}, true},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			repo := codexModelsVisibilityAccountRepo{byGroup: map[int64][]Account{1: tc.accounts}}
++			gateway := &GatewayService{accountRepo: repo}
++			models := gateway.GetAvailableModels(context.Background(), &group.ID, PlatformOpenAI)
++			if models != nil {
++				require.Equal(t, tc.wantGPT55, containsModelID(models, "gpt-5.5"))
++			}
++			body, err := buildCodexModelsManifestForAccounts(PlatformOpenAI, []string{"gpt-5.5", "gpt-6.1-sol"}, tc.accounts, group, nil, true)
++			require.NoError(t, err)
++			require.Equal(t, tc.wantGPT55, containsManifestModel(body, "gpt-5.5"))
++			// A stale/pinned upstream body must be filtered before evaluating its old ETag.
++			original := []byte(`{"models":[{"slug":"gpt-5.5","unknown":1},{"slug":"gpt-6.1-sol","unknown":2}],"unknown_top":3}`)
++			etag := CodexModelsManifestETag(original)
++			manifest := &OpenAIModelsResponse{Body: original, ETag: etag}
++			service := &OpenAIGatewayService{accountRepo: repo}
++			require.NoError(t, service.MergeGroupConfiguredCodexModels(context.Background(), group, manifest, etag))
++			if !tc.wantGPT55 {
++				require.False(t, manifest.NotModified)
++				require.NotEqual(t, etag, manifest.ETag)
++				require.False(t, containsManifestModel(manifest.Body, "gpt-5.5"))
++				require.Equal(t, int64(3), gjson.GetBytes(manifest.Body, "unknown_top").Int())
++				require.Equal(t, int64(2), gjson.GetBytes(manifest.Body, "models.0.unknown").Int())
++			}
++		})
++	}
++	// All configured entries retired: plain discovery must remain an authoritative empty list.
++	oauth.Credentials = map[string]any{"model_mapping": map[string]any{"gpt-5.5": "gpt-5.5"}}
++	repo := codexModelsVisibilityAccountRepo{byGroup: map[int64][]Account{1: {oauth}}}
++	models := (&GatewayService{accountRepo: repo}).GetAvailableModels(context.Background(), &group.ID, PlatformOpenAI)
++	require.NotNil(t, models)
++	require.Empty(t, models)
++}
++
++func containsModelID(models []string, id string) bool {
++	for _, model := range models {
++		if model == id {
++			return true
++		}
++	}
++	return false
++}
++func containsManifestModel(body []byte, id string) bool {
++	for _, m := range gjson.GetBytes(body, "models").Array() {
++		if m.Get("slug").String() == id {
++			return true
++		}
++	}
++	return false
++}
++
++func TestGPT55RetirementAccountProjection(t *testing.T) {
++	body := []byte(`{"object":"list","data":[{"id":"gpt-5.5"},{"id":"gpt-6.1-sol","unknown":true}],"unknown_top":true}`)
++	for _, typ := range []string{AccountTypeOAuth, AccountTypeAPIKey} {
++		account := &Account{Platform: PlatformOpenAI, Type: typ}
++		got, err := projectAccountModelsBody(body, account, nil, false)
++		require.NoError(t, err)
++		require.Equal(t, typ == AccountTypeAPIKey, strings.Contains(string(got), "gpt-5.5"))
++		require.True(t, gjson.GetBytes(got, "unknown_top").Bool())
++		require.True(t, json.Valid(got))
++	}
++}
++
++func TestGPT55RetirementProjectionUsesPublicNames(t *testing.T) {
++	for _, codex := range []bool{false, true} {
++		field, idField := "data", "id"
++		if codex {
++			field, idField = "models", "slug"
++		}
++		for _, tc := range []struct {
++			name        string
++			mapping     map[string]any
++			passthrough bool
++			api         bool
++			want        map[string]string
++		}{
++			{"one-hop", map[string]any{"legacy": "gpt-5.5", "gpt-5.5": "gpt-6.1-sol"}, false, false, map[string]string{"gpt-5.5": "live"}},
++			{"crossed", map[string]any{"gpt-6.1-sol": "gpt-5.5", "gpt-5.5": "gpt-6.1-sol"}, false, false, map[string]string{"gpt-5.5": "live"}},
++			{"wildcard", map[string]any{"legacy*": "gpt-5.5", "gpt-5.5": "gpt-6.1-sol"}, false, false, map[string]string{"gpt-5.5": "live"}},
++			{"passthrough", map[string]any{"gpt-6.1-sol": "gpt-5.5", "gpt-5.5": "gpt-6.1-sol"}, true, false, map[string]string{"gpt-6.1-sol": "live"}},
++			{"api", map[string]any{"legacy": "gpt-5.5", "gpt-5.5": "gpt-6.1-sol"}, false, true, map[string]string{"legacy": "retired", "gpt-5.5": "live"}},
++		} {
++			t.Run(field+"/"+tc.name, func(t *testing.T) {
++				account := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth,
++					Credentials: map[string]any{"model_mapping": tc.mapping}, Extra: map[string]any{"openai_passthrough": tc.passthrough}}
++				if tc.api {
++					account.Type = AccountTypeAPIKey
++				}
++				group := &Group{Platform: PlatformOpenAI, ModelAllowlist: GroupModelAllowlist{Enabled: true, Models: []string{"legacy", "gpt-5.5", "gpt-6.1-sol"}}}
++				body, err := json.Marshal(map[string]any{field: []map[string]any{
++					{idField: "gpt-5.5", "source": "retired"}, {idField: "gpt-6.1-sol", "source": "live"},
++				}, "unknown_top": true})
++				require.NoError(t, err)
++				original := string(body)
++				got, err := projectAccountModelsBody(body, account, group, codex)
++				require.NoError(t, err)
++				require.Equal(t, original, string(body), "shared upstream cache must remain unchanged")
++				require.True(t, gjson.GetBytes(got, "unknown_top").Bool())
++				entries := gjson.GetBytes(got, field).Array()
++				require.Len(t, entries, len(tc.want), string(got))
++				for _, entry := range entries {
++					id := entry.Get(idField).String()
++					require.Contains(t, tc.want, id)
++					require.Equal(t, tc.want[id], entry.Get("source").String(), "metadata must come from the one-hop upstream target")
++					require.True(t, account.IsModelSupported(id), "catalog and routing must agree for %s", id)
++				}
++				if codex {
++					response := &OpenAIModelsResponse{Body: body, ETag: CodexModelsManifestETag(body)}
++					require.NoError(t, ApplyPinnedCodexModelsMapping(response, account, group))
++					require.JSONEq(t, string(got), string(response.Body))
++					require.Equal(t, codexModelsManifestBodyETag(response.Body), response.ETag)
++					group.ID = 1
++					group.CodexModelsManifestConfig.Enabled = true
++					service := &OpenAIGatewayService{accountRepo: codexModelsVisibilityAccountRepo{byGroup: map[int64][]Account{1: {*account}}}}
++					require.NoError(t, service.MergeGroupConfiguredCodexModels(context.Background(), group, response, CodexModelsManifestETag(body)))
++					require.False(t, response.NotModified, "an upstream ETag must not hide the projected catalog")
++					require.Equal(t, codexModelsManifestBodyETag(response.Body), response.ETag)
++					require.NoError(t, service.MergeGroupConfiguredCodexModels(context.Background(), group, response, response.ETag))
++					require.True(t, response.NotModified, "the final public ETag must support conditional requests")
++				}
++			})
++		}
++	}
++}
++
++func TestGPT55RetirementCompactFallbackKeepsSelectedModel(t *testing.T) {
++	for _, passthrough := range []bool{false, true} {
++		account := &Account{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Concurrency: 1,
++			Credentials: map[string]any{"access_token": "test-token"}, Extra: map[string]any{"openai_passthrough": passthrough}}
++		upstream := &httpUpstreamRecorder{resp: &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: io.NopCloser(strings.NewReader(`{"id":"compact","output":[],"usage":{"input_tokens":1,"output_tokens":1}}`))}}
++		svc := &OpenAIGatewayService{cfg: &config.Config{Gateway: config.GatewayConfig{OpenAICompactModel: "gpt-5.5"}}, httpUpstream: upstream}
++		require.Empty(t, svc.resolveOpenAICompactFallbackModel(account, "gpt-6.1-sol"))
++		c := newOpenAICompactFallbackTestContext(t, "/v1/responses/compact")
++		_, err := svc.Forward(context.Background(), c, account, []byte(`{"model":"gpt-6.1-sol","input":[],"instructions":"compact","stream":false}`))
++		require.NoError(t, err)
++		require.Equal(t, "gpt-6.1-sol", gjson.GetBytes(upstream.lastBody, "model").String())
++		account.Type = AccountTypeAPIKey
++		require.Equal(t, "gpt-5.5", svc.resolveOpenAICompactFallbackModel(account, "gpt-6.1-sol"))
++	}
++}
++
++func TestGPT55RetirementSchedulerAndDiagnosis(t *testing.T) {
++	ctx := context.Background()
++	groupID := int64(1)
++	oauth := Account{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true}
++	api := Account{ID: 2, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true}
++	for _, typ := range []string{AccountTypeOAuth, AccountTypeSetupToken, AccountTypeAPIKey} {
++		account := oauth
++		account.Type = typ
++		scheduler := &defaultOpenAIAccountScheduler{}
++		ok, _ := scheduler.isAccountRequestCompatibleReason(ctx, &account, OpenAIAccountScheduleRequest{RequestedModel: "gpt-5.5"})
++		require.Equal(t, typ == AccountTypeAPIKey, ok)
++		reason := openAICompatibleAccountEligibilityFailureReasonBeforeProfit(ctx, &account, PlatformOpenAI, "gpt-5.5", false, "")
++		require.Equal(t, typ == AccountTypeAPIKey, reason == "")
++	}
++	oauth.Credentials = map[string]any{"compact_model_mapping": map[string]any{"gpt-6.1-sol": "gpt-5.5"}}
++	scheduler := &defaultOpenAIAccountScheduler{}
++	ok, reason := scheduler.isAccountRequestCompatibleReason(ctx, &oauth, OpenAIAccountScheduleRequest{RequestedModel: "gpt-6.1-sol", RequireCompact: true})
++	require.False(t, ok)
++	require.Equal(t, "model_not_supported", reason)
++	svc := &OpenAIGatewayService{cfg: &config.Config{Gateway: config.GatewayConfig{OpenAICompactModel: "gpt-6.1-sol"}}}
++	require.Empty(t, svc.resolveOpenAICompactFallbackModel(&oauth, "gpt-6.1-sol"), "native compact retries must not use a retired explicit target")
++	oauth.Credentials = map[string]any{"compact_model_mapping": map[string]any{"gpt-5.5": "gpt-6.1-sol"}}
++	ok, _ = scheduler.isAccountRequestCompatibleReason(ctx, &oauth, OpenAIAccountScheduleRequest{RequestedModel: "gpt-5.5", RequireCompact: true})
++	require.True(t, ok, "an explicit compact replacement remains usable")
++	for _, accounts := range [][]Account{{oauth}, {oauth, api}} {
++		svc := &OpenAIGatewayService{accountRepo: codexModelsVisibilityAccountRepo{byGroup: map[int64][]Account{groupID: accounts}}}
++		diagnosis := svc.DiagnoseModelAvailabilityForPlatform(ctx, &groupID, "gpt-5.5", PlatformOpenAI)
++		require.True(t, diagnosis.HasAccountsInPool)
++		require.True(t, diagnosis.HasRetiredSubscriptionModel)
++		require.Equal(t, len(accounts) == 2, diagnosis.HasModelSupport)
++	}
++}
++
++func TestGPT55RetirementEmptyListingSource(t *testing.T) {
++	// A configured alias targeting retired GPT-5.5 must not reappear in a generated catalog.
++	account := Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"model_mapping": map[string]any{"legacy": "gpt-5.5"}}}
++	require.Empty(t, openAIConfiguredCodexModelIDsForGroup([]Account{account}, nil))
++	body, err := buildCodexModelsManifestForAccounts(PlatformComposite, []string{"gpt-5.5", "gpt-6.1-sol"}, []Account{account}, nil, nil, true)
++	require.NoError(t, err)
++	require.False(t, containsManifestModel(body, "gpt-5.5"))
++}
+diff --git a/backend/internal/service/openai_models_list.go b/backend/internal/service/openai_models_list.go
+index 9b27a03cd..dedb9f559 100644
+--- a/backend/internal/service/openai_models_list.go
++++ b/backend/internal/service/openai_models_list.go
+@@ -161,10 +161,22 @@ func standardOpenAIModelsBody(body []byte, fromManifest bool) ([]byte, error) {
+ 	}{Object: "list", Data: models})
+ }
+ 
+-// projectAccountModelsBody applies the same public-name mapping to both model
+-// representations while retaining the source entry's metadata. It never changes
+-// the shared response and never synthesizes models absent from this account.
++// projectAccountModelsBody projects upstream entries to public names before
++// checking their routing eligibility. Applying account mappings to source IDs
++// would interpret upstream names as aliases and can retain retired targets or
++// discard metadata needed by a valid replacement alias.
+ func projectAccountModelsBody(body []byte, account *Account, group *Group, codex bool) ([]byte, error) {
++	projected, err := projectAccountModelAliases(body, account, group, codex)
++	if err != nil {
++		return nil, err
++	}
++	filtered, _, err := filterRetiredOpenAIPublicModelsBody(projected, []Account{*account}, codex)
++	return filtered, err
++}
++
++// projectAccountModelAliases retains the source entry's metadata, never changes
++// the shared response, and never synthesizes models absent from this account.
++func projectAccountModelAliases(body []byte, account *Account, group *Group, codex bool) ([]byte, error) {
+ 	if account.IsOpenAIPassthroughEnabled() || len(account.GetModelMapping()) == 0 {
+ 		return body, nil
+ 	}
+diff --git a/backend/internal/service/openai_ws_forwarder_support.go b/backend/internal/service/openai_ws_forwarder_support.go
+index 02332f188..704156f13 100644
+--- a/backend/internal/service/openai_ws_forwarder_support.go
++++ b/backend/internal/service/openai_ws_forwarder_support.go
+@@ -571,7 +571,7 @@ func (s *OpenAIGatewayService) resolveAccountByPreviousResponseIDForCapability(
+ 		_ = store.DeleteResponseAccount(ctx, derefGroupID(groupID), responseID)
+ 		return 0, nil, "", nil
+ 	}
+-	if requestedModel != "" && !account.IsModelSupported(requestedModel) {
++	if requestedModel != "" && !supportsOpenAIRequestModel(account, requestedModel, requireCompact) {
+ 		return 0, nil, "", nil
+ 	}
+ 	if !account.SupportsOpenAIEndpointCapability(requiredCapability) {
+@@ -610,7 +610,7 @@ func (s *OpenAIGatewayService) resolveAccountByPreviousResponseIDForCapability(
+ 			_ = store.DeleteResponseAccount(ctx, derefGroupID(groupID), responseID)
+ 			return 0, nil, "", nil
+ 		}
+-		if requestedModel != "" && !latest.IsModelSupported(requestedModel) {
++		if requestedModel != "" && !supportsOpenAIRequestModel(latest, requestedModel, requireCompact) {
+ 			return 0, nil, "", nil
+ 		}
+ 		if !latest.SupportsOpenAIEndpointCapability(requiredCapability) {
+diff --git a/deploy/config.example.yaml b/deploy/config.example.yaml
+index 36e92361d..d4ccebd23 100644
+--- a/deploy/config.example.yaml
++++ b/deploy/config.example.yaml
+@@ -324,6 +324,8 @@ gateway:
+   # OpenAI /responses/compact 上游模型（默认 gpt-5.5）。
+   # Use this to avoid compact failures when newer models are not yet supported by the compact endpoint.
+   # 当 compact 端点暂未支持更新模型时，可通过这里降级规避失败。
++  # GPT-5.5 is API-only after its ChatGPT Codex retirement; subscription
++  # requests skip this retired fallback and keep their selected model.
+   openai_compact_model: "gpt-5.5"
+   # ChatGPT Frameless Live 单会话硬上限（秒）。
+   live:
+diff --git a/docs/OPENAI_GPT55_RETIREMENT.md b/docs/OPENAI_GPT55_RETIREMENT.md
+new file mode 100644
+index 000000000..3c261373d
+--- /dev/null
++++ b/docs/OPENAI_GPT55_RETIREMENT.md
+@@ -0,0 +1,43 @@
++# GPT-5.5 retirement on ChatGPT-backed Codex accounts
++
++OpenAI retired GPT-5.5 from Codex with ChatGPT sign-in on October 14,
++2026 at 19:00 UTC (October 15 at 03:00 in Asia/Shanghai). Official API access
++is unaffected. See the [official migration notice](https://learn.chatgpt.com/docs/models#gpt-55-retirement).
++
++Sub2API applies this distinction to the upstream account, not the key used by
++clients to authenticate to Sub2API:
++
++- OpenAI OAuth and SetupToken accounts, including credential shadows, cannot
++  serve GPT-5.5. Normal, sticky, and compact scheduling exclude these targets.
++- API-key accounts retain GPT-5.5 support. In mixed groups, only eligible API-key
++  upstreams can serve it. Their actual model availability remains authoritative.
++- Public model lists and Codex catalogs omit models whose targets are retired on
++  the group's ChatGPT accounts and have no supporting API-key account. This also
++  filters stale/pinned catalog entries before calculating the client ETag.
++- Explicit administrator mappings to a supported replacement remain valid.
++  Aliases mapped *to* GPT-5.5 are excluded from ChatGPT account routing.
++  Remote catalogs are projected to public aliases before retirement filtering,
++  using the same single mapping step as routing. Source metadata and shared
++  upstream caches are preserved, including when source IDs are also alias keys.
++- Unsupported requests return the existing `model_not_found` error with migration
++  guidance when the availability diagnosis identifies a retired subscription
++  target. Client chat requests are not silently rewritten to a replacement.
++
++## Administrator migration
++
++Review group/account mappings, client defaults, custom agents and scheduled tasks
++that select GPT-5.5. OpenAI recommends GPT-6.1 Sol for eligible paid plans or
++GPT-6 Luna for Free/Go in the desktop app, subject to model availability. Check
++availability on the upstream account before selecting a replacement.
++
++The global `gateway.openai_compact_model` setting remains compatible with API-key
++upstreams. If that fallback resolves to retired GPT-5.5 on a ChatGPT account, it
++is not applied; compact requests keep their selected model. A compact-only
++account mapping targeting retired GPT-5.5 is ineligible for scheduling: update
++that explicit mapping. No stored settings are automatically rewritten.
++
++Changing the public registry, deleting GPT-5.5 pricing/history, or globally
++mapping GPT-5.5 to a new model is unnecessary and would affect valid API usage.
++
++Regression tests use local fixtures and stub upstream responses. They do not
++establish real subscription access to a replacement model.

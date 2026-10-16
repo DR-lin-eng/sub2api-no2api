@@ -1,0 +1,7 @@
+{
+  "copy": "/private/tmp/sub2api-final-source-20261016-ti2n1oz6",
+  "source_paths": 45,
+  "diff_sha256": "69cf4b034288dc42c36402f9906884f132889b65025e1f75351ce264c09d16fe",
+  "baseline_restore_and_goal_reapply": "PASS",
+  "result": "PASS"
+}

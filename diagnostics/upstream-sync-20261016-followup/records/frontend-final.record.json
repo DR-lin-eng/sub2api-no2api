@@ -1,0 +1,21 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "-v",
+    "/private/tmp/sub2api-upstream-sync-20261016:/workspace",
+    "-w",
+    "/workspace",
+    "node:24-bookworm-slim",
+    "sh",
+    "-c",
+    "corepack enable; make test-frontend; pnpm --dir frontend exec vitest run src/features/admin-accounts --reporter=dot"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261016",
+  "started_at": "2026-10-16T07:40:06.428647+00:00",
+  "elapsed_seconds": 19.951,
+  "exit_status": 1,
+  "stdout": "",
+  "stderr": "sh: 1: make: not found\n! Corepack is about to download https://registry.npmjs.org/pnpm/-/pnpm-12.11.2.tgz\nDownloading the pnpm 12.11.2 binary for linux-arm64...\nError: ERR_PNPM_BAD_PM_VERSION\n\n  × This project is configured to use 11.17.0 of pnpm. Your current pnpm is\n  │ v12.11.2\n  │ Corepack invoked pnpm with this version, and pnpm does not switch versions\n  │ when running under corepack.\n  help: Align the \"packageManager\" field in package.json with\n        \"devEngines.packageManager\", or invoke pnpm directly (without\n        corepack) so it can switch versions automatically.\n        If you want to bypass this version check, you can set the \"pmOnFail\"\n        configuration to \"warn\" or \"ignore\" (e.g. via --pm-on-fail=ignore). If\n        using \"devEngines.packageManager\", you can set its \"onFail\" to \"warn\"\n        or \"ignore\"\n\n"
+}

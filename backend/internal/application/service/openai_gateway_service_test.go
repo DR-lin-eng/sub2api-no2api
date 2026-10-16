@@ -917,7 +917,7 @@ func TestOpenAISelectAccountWithLoadAwareness_ImageRateLimitSkipsOnlyImageReques
 	}
 }
 
-func TestOpenAISelectAccountWithLoadAwareness_SparkRateLimitDoesNotBlockGPT55(t *testing.T) {
+func TestOpenAISelectAccountWithLoadAwareness_SparkRateLimitDoesNotBlockGPT56(t *testing.T) {
 	future := time.Now().Add(10 * time.Minute).Format(time.RFC3339)
 	groupID := int64(1)
 
@@ -959,12 +959,12 @@ func TestOpenAISelectAccountWithLoadAwareness_SparkRateLimitDoesNotBlockGPT55(t 
 		sparkSelection.ReleaseFunc()
 	}
 
-	gpt55Selection, err := svc.SelectAccountWithLoadAwareness(context.Background(), &groupID, "", "gpt-5.5", nil)
+	gpt56Selection, err := svc.SelectAccountWithLoadAwareness(context.Background(), &groupID, "", "gpt-5.6", nil)
 	require.NoError(t, err)
-	require.NotNil(t, gpt55Selection)
-	require.Equal(t, sparkLimited.ID, gpt55Selection.Account.ID)
-	if gpt55Selection.ReleaseFunc != nil {
-		gpt55Selection.ReleaseFunc()
+	require.NotNil(t, gpt56Selection)
+	require.Equal(t, sparkLimited.ID, gpt56Selection.Account.ID)
+	if gpt56Selection.ReleaseFunc != nil {
+		gpt56Selection.ReleaseFunc()
 	}
 }
 

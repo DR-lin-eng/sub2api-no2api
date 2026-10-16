@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    "diagnostics/upstream-sync-20261016-followup/runtime_check.py"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261016",
+  "started_at": "2026-10-16T07:49:19.353604+00:00",
+  "elapsed_seconds": 26.034,
+  "exit_status": 0,
+  "stdout": "{\"stage\": \"BASELINE\", \"result\": \"PASS\", \"responses_json_created_at\": false, \"responses_stream_created_at\": false, \"migration_count\": 303, \"persisted_invariants_sha256\": \"23383255e3cb271ed664525276673c57f1da27abbf9b086d500d5ee514f086cd\", \"health_ready_frontend_encrypted_login_key_subscription\": \"PASS\"}\n{\"stage\": \"MODIFIED\", \"result\": \"PASS\", \"responses_json_created_at\": true, \"responses_stream_created_at\": true, \"migration_count\": 303, \"persisted_invariants_sha256\": \"23383255e3cb271ed664525276673c57f1da27abbf9b086d500d5ee514f086cd\", \"health_ready_frontend_encrypted_login_key_subscription\": \"PASS\"}\n{\"stage\": \"ROLLBACK\", \"result\": \"PASS\", \"responses_json_created_at\": false, \"responses_stream_created_at\": false, \"migration_count\": 303, \"persisted_invariants_sha256\": \"23383255e3cb271ed664525276673c57f1da27abbf9b086d500d5ee514f086cd\", \"health_ready_frontend_encrypted_login_key_subscription\": \"PASS\"}\n{\"stage\": \"RESTORED\", \"result\": \"PASS\", \"responses_json_created_at\": true, \"responses_stream_created_at\": true, \"migration_count\": 303, \"persisted_invariants_sha256\": \"23383255e3cb271ed664525276673c57f1da27abbf9b086d500d5ee514f086cd\", \"health_ready_frontend_encrypted_login_key_subscription\": \"PASS\"}\n",
+  "stderr": ""
+}

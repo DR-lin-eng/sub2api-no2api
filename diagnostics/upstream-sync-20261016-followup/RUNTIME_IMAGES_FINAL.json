@@ -1,0 +1,13 @@
+{
+  "baseline_image": "ghcr.io/dr-lin-eng/sub2api-no2api:sha-eb130c4",
+  "candidate_image": "sub2api:upstream-sync-20261016-followup-final-v2",
+  "candidate_id": "sha256:fb3a24d75e6426cebf09d83ee75e338f16970deec69b480f2f4d2e7e6a82112c",
+  "candidate_platform": "linux/arm64",
+  "matrix_record": "records/runtime-matrix-v2.record.json",
+  "migration_counts": [
+    303,
+    303,
+    303,
+    303
+  ]
+}

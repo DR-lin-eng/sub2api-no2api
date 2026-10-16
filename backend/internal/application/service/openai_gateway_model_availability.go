@@ -62,6 +62,9 @@ func (s *OpenAIGatewayService) DiagnoseModelAvailabilityForPlatform(
 	now := time.Now()
 	for i := range accounts {
 		diag.HasAccountsInPool = true
+		if isRetiredOpenAISubscriptionModel(&accounts[i], resolveOpenAIAccountUpstreamModelForRequest(&accounts[i], routedModel, false)) {
+			diag.HasRetiredSubscriptionModel = true
+		}
 		// Mirrors the per-candidate filter used during account selection,
 		// including the routed channel model used for empty-map OAuth accounts.
 		if accounts[i].IsModelSupportedForRequest(requestedModel, routedModel) {

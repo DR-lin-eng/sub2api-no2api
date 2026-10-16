@@ -82,10 +82,14 @@ func classifyNoAccountError(
 
 	result := diag.DiagnoseModelAvailabilityForPlatform(ctx, apiKey.GroupID, routingModel, platform)
 	if result.HasAccountsInPool && !result.HasModelSupport {
+		message := fmt.Sprintf("Model %q is not supported by any configured account in this group", displayModel)
+		if result.HasRetiredSubscriptionModel {
+			message += "; GPT-5.5 is retired on ChatGPT-backed Codex accounts. Choose an available replacement or configure an API-key upstream that supports this model."
+		}
 		return noAccountErrorClassification{
 			Status:        http.StatusNotFound,
 			ErrType:       "model_not_found",
-			Message:       fmt.Sprintf("Model %q is not supported by any configured account in this group", displayModel),
+			Message:       message,
 			ModelNotFound: true,
 		}
 	}

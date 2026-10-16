@@ -1,0 +1,1816 @@
+TARGET=/Users/lin/.codex/worktrees/2ca9/sub2api-no2api
+WORK_COPY=/private/tmp/sub2api-upstream-sync-20261016
+BASELINE=eb130c485520fa27536e33064f39894972205362
+UPSTREAM=b0a02a3304a0a78cdd003ddda1dd23ba02c03084
+Changed fields: response.created_at; accounts.extra.web_search_emulation; actual upstream GPT-5.5 eligibility; generationConfig.thinkingConfig and streamed thinking/reasoning_content.
+Original linked checkout is preserved. Source roles contain only this batch, based on the freshly fetched project main.
+Inputs: immutable local HTTP/SQL/search configuration fixtures; all provider credentials are test fixtures. Runtime random credentials are excluded from logs.
+{
+  "target": "/Users/lin/.codex/worktrees/2ca9/sub2api-no2api",
+  "work_copy": "/private/tmp/sub2api-upstream-sync-20261016",
+  "baseline_sha": "eb130c485520fa27536e33064f39894972205362",
+  "source_paths": [
+    "backend/internal/application/service/README.md",
+    "backend/internal/application/service/account.go",
+    "backend/internal/application/service/account_websearch_test.go",
+    "backend/internal/application/service/gateway_hotpath_optimization_test.go",
+    "backend/internal/application/service/gateway_model_availability.go",
+    "backend/internal/application/service/gateway_service.go",
+    "backend/internal/application/service/gateway_websearch_emulation.go",
+    "backend/internal/application/service/gateway_websearch_emulation_test.go",
+    "backend/internal/application/service/gemini_chat_completions_compat_service.go",
+    "backend/internal/application/service/gemini_compat_thinking.go",
+    "backend/internal/application/service/gemini_compat_thinking_test.go",
+    "backend/internal/application/service/gemini_compat_thinking_upstream_test.go",
+    "backend/internal/application/service/gemini_messages_compat_service.go",
+    "backend/internal/application/service/openai_account_scheduler.go",
+    "backend/internal/application/service/openai_codex_models_mapping.go",
+    "backend/internal/application/service/openai_codex_models_metadata.go",
+    "backend/internal/application/service/openai_gateway_messages.go",
+    "backend/internal/application/service/openai_gateway_model_availability.go",
+    "backend/internal/application/service/openai_gateway_response_flush_test.go",
+    "backend/internal/application/service/openai_gateway_response_handling.go",
+    "backend/internal/application/service/openai_gateway_scheduling.go",
+    "backend/internal/application/service/openai_gateway_service_test.go",
+    "backend/internal/application/service/openai_model_mapping.go",
+    "backend/internal/application/service/openai_model_retirement.go",
+    "backend/internal/application/service/openai_model_retirement_test.go",
+    "backend/internal/application/service/openai_oauth_model_support_test.go",
+    "backend/internal/application/service/openai_responses_created_at.go",
+    "backend/internal/application/service/openai_responses_created_at_test.go",
+    "backend/internal/application/service/openai_unknown_model_routing_test.go",
+    "backend/internal/application/service/openai_ws_forwarder_support.go",
+    "backend/internal/application/service/openai_ws_http_bridge.go",
+    "backend/internal/application/service/upstream_followup_benchmark_test.go",
+    "backend/internal/transport/http/handler/gateway_handler_models.go",
+    "backend/internal/transport/http/handler/gateway_models_test.go",
+    "backend/internal/transport/http/handler/no_account_error.go",
+    "docs/README.md",
+    "docs/REQUEST_LIFECYCLES.md",
+    "docs/UPSTREAM_SYNC_20261016_FOLLOWUP.md",
+    "frontend/src/features/admin-accounts/README.md",
+    "frontend/src/features/admin-accounts/presentation/accountEditUpdatePayload.ts",
+    "frontend/src/features/admin-accounts/presentation/accountFormPolicy.ts",
+    "frontend/src/features/admin-accounts/presentation/widgets/CreateAccountDialog.vue",
+    "frontend/src/features/admin-accounts/presentation/widgets/EditAccountDialog.vue",
+    "frontend/src/features/admin-accounts/presentation/widgets/create/CreateAccountAdvancedFields.vue",
+    "frontend/src/features/admin-accounts/presentation/widgets/edit/EditAccountAdvancedFields.vue"
+  ],
+  "added_source_paths": [
+    "backend/internal/application/service/gemini_compat_thinking.go",
+    "backend/internal/application/service/gemini_compat_thinking_test.go",
+    "backend/internal/application/service/gemini_compat_thinking_upstream_test.go",
+    "backend/internal/application/service/openai_model_retirement.go",
+    "backend/internal/application/service/openai_model_retirement_test.go",
+    "backend/internal/application/service/openai_responses_created_at.go",
+    "backend/internal/application/service/openai_responses_created_at_test.go",
+    "backend/internal/application/service/upstream_followup_benchmark_test.go",
+    "docs/UPSTREAM_SYNC_20261016_FOLLOWUP.md"
+  ],
+  "baseline_hashes": {
+    "backend/internal/application/service/README.md": "1dec050ae95fdcefcf53b851f4841c5013b53a58dd0723466c75fca5d409184d",
+    "backend/internal/application/service/account.go": "74faa7ed9536da2784422b9f5e9f3509b4b7c5743f45d201035fa93cb8eca85e",
+    "backend/internal/application/service/account_websearch_test.go": "b1b0f59d6bfdca0835246c9090fe20bff1700e2502edd138401a42d570a1bac5",
+    "backend/internal/application/service/gateway_hotpath_optimization_test.go": "ecd501cc877a320e5e7add8749129a0196eea5f8c3c9c5a124c65ea8984b8e38",
+    "backend/internal/application/service/gateway_model_availability.go": "d81aca5415ff2669f944d2edb8f99f3eec323768153d16c993b273660ed8628f",
+    "backend/internal/application/service/gateway_service.go": "ef3fed406398e29e29a6743088496633099e21eb01fe3a55534f92d19fbf5e0f",
+    "backend/internal/application/service/gateway_websearch_emulation.go": "1d089b262627a41d2702907a314c368b12b5fa5566e039f83a30c50e396ddd5a",
+    "backend/internal/application/service/gateway_websearch_emulation_test.go": "39d86172199c65f9126ed2dab69881cee80910aa50aaae139887d7fed9f1ccea",
+    "backend/internal/application/service/gemini_chat_completions_compat_service.go": "21f6d8f0c9cba18e5e78f9cbc609aa9306ddccc36f1d3f735628ef4a7e841e3f",
+    "backend/internal/application/service/gemini_messages_compat_service.go": "430e82aca1226ac3a4f1de043b7d48d2af3c0ed110e99bc41b435c9e8049c4ab",
+    "backend/internal/application/service/openai_account_scheduler.go": "e906c571a59155046458ab1e815ed37389dfbde32546a13b233ca0a870063225",
+    "backend/internal/application/service/openai_codex_models_mapping.go": "7f371fe6820ea96519384af0ea52efa5da59b816b3d3eaf1a525fd21ebc183da",
+    "backend/internal/application/service/openai_codex_models_metadata.go": "4cdc456e87f1f3c7e852ffbaf2a7b087c13d2330746c87c339010a30d5efa9d4",
+    "backend/internal/application/service/openai_gateway_messages.go": "ac23cbc16d0efa25aa0299529a8f497398d2e2efed7032b7a59c227287c569ea",
+    "backend/internal/application/service/openai_gateway_model_availability.go": "55a0baa152b212b6f4942bd42580a6097713f488a9f8a6b16233c461bc225a98",
+    "backend/internal/application/service/openai_gateway_response_flush_test.go": "ef7ceef54b1051166064e6d31393bf1a5b03f72902fece7660a60f4a2d2e9135",
+    "backend/internal/application/service/openai_gateway_response_handling.go": "1302f7a50b0d55cfa73e46c1b468e61d4b1364e93280f8b0da9f86f67727e1c4",
+    "backend/internal/application/service/openai_gateway_scheduling.go": "a18759daef2849089f5748a15236fca5620fe7d4897b6a75fd03c3436d2ccb6b",
+    "backend/internal/application/service/openai_gateway_service_test.go": "9511a4d3ab039dc4f8784d48c53546c5c1450ebe800fbaff6aeb0cccbd06fa82",
+    "backend/internal/application/service/openai_model_mapping.go": "0623d37936f961a01090c06419db73e0a8d09f570e6eb1e486015c33c2fddf77",
+    "backend/internal/application/service/openai_oauth_model_support_test.go": "35f9d74c2e0615dbdc2d572367e064cee35934a3a73cb8a62ef61b16a2e43271",
+    "backend/internal/application/service/openai_unknown_model_routing_test.go": "94b33d2f8f9bf0be4d7ac54d63ecdd9798f9a6da32cc047a0f347e294f28627b",
+    "backend/internal/application/service/openai_ws_forwarder_support.go": "02c16d4534fab6bc0d5e26f3890a2771d029f119e002ce9aaa10692df81f0215",
+    "backend/internal/application/service/openai_ws_http_bridge.go": "ec5c5f7b851c1be2e9a442ff99bbe7559068e71c1761bd33d873930571c2d53d",
+    "backend/internal/transport/http/handler/gateway_handler_models.go": "f5d7c8baa6691d47a55739c7b183bb0ec1d989feaf777b4b7bf099ea5d671e8b",
+    "backend/internal/transport/http/handler/gateway_models_test.go": "168a4ea9b43734785a3c1ecebebf8212c827fd76206b5ee5db836a0304ac6119",
+    "backend/internal/transport/http/handler/no_account_error.go": "6d701f9417616c6e89674cdc06663ad7543feef9daada8f0ba5cfd82c0a8dd99",
+    "docs/README.md": "3bf9a58f3a62e0856c23f89fef1e730bc8e201552a634add723f62e79e50afa6",
+    "docs/REQUEST_LIFECYCLES.md": "723b1827346409a487328b425fac150dda9db1fb8410e0380ead6bb52f4f9715",
+    "frontend/src/features/admin-accounts/README.md": "62a9426fa60d8fc078e976a1260867da416f2aefb7f285f5dad515aee599a4ad",
+    "frontend/src/features/admin-accounts/presentation/accountEditUpdatePayload.ts": "fc4c1e5ae0f9b253113816a579364a4c0a85e6c10c8dee3e3f962fb96d61a0b9",
+    "frontend/src/features/admin-accounts/presentation/accountFormPolicy.ts": "bc3a87db95029c8e3cbc3bcae03db37f02d4d3b690488457e51c3603566547ae",
+    "frontend/src/features/admin-accounts/presentation/widgets/CreateAccountDialog.vue": "ba6733d4af023c7dce3ef0d93df35bb362dd60f8cd57d09bb4cd2fc790d3cb74",
+    "frontend/src/features/admin-accounts/presentation/widgets/EditAccountDialog.vue": "f0bc3099d1e5d2abf0fc8c1d15e1f0ebefbbef24b2d01c731b8d8629664c8975",
+    "frontend/src/features/admin-accounts/presentation/widgets/create/CreateAccountAdvancedFields.vue": "de216bf83f02cc54160d6e80b59c2ab595ca360fca93e184ed4cb79df4df7280",
+    "frontend/src/features/admin-accounts/presentation/widgets/edit/EditAccountAdvancedFields.vue": "96e53d1f04a2e5da49a17051eaf9cfe262967c5ada5b18e69afcee9228ab54be"
+  },
+  "modified_hashes": {
+    "backend/internal/application/service/README.md": "eb73acc704d8d21012ff979040f94b39a78ce2a2a79af3e2d209a29165089dd0",
+    "backend/internal/application/service/account.go": "1f77075a285c1ab2a7dc0304d6d92d3a3654253a5efabd88a957cd9c73c1a48a",
+    "backend/internal/application/service/account_websearch_test.go": "a985d30118a866d0d256c20f9b1812db661cf433d4a02c987623a2ea319dfc8b",
+    "backend/internal/application/service/gateway_hotpath_optimization_test.go": "3495b915c895db698094a36f4c0aaceb9dda93060c025433babdd405c35646db",
+    "backend/internal/application/service/gateway_model_availability.go": "57cbd99171306a1e182bac72c252e5bc9078946bae67738fc29814fbc2f35821",
+    "backend/internal/application/service/gateway_service.go": "f00ca1f9daa22d2339e76fdc7de623d8b147bb8854406b951fca4c5b665a8751",
+    "backend/internal/application/service/gateway_websearch_emulation.go": "93cf25b114a909215042a6a853ccf9996e029e3f4f5a1f3f7fa655a9c6361304",
+    "backend/internal/application/service/gateway_websearch_emulation_test.go": "8ddb7eb94a1d18fe2f88c603c9d525e944cb7969079a1dce8b8578074f8a5a1a",
+    "backend/internal/application/service/gemini_chat_completions_compat_service.go": "7c2af5851b903c0bc38e27843857713f9da863cf00df8bc3f1e04704027f1463",
+    "backend/internal/application/service/gemini_compat_thinking.go": "7f0c45ff038eabc72641fdf0d5f9aa229a63e3bbb526bb30ece44cd509446716",
+    "backend/internal/application/service/gemini_compat_thinking_test.go": "cd31aa80f00b5162c34f4f3914f8ff08928ae4bb5989fe3c256b24f15a692fe0",
+    "backend/internal/application/service/gemini_compat_thinking_upstream_test.go": "b2255d52ea28503dad1b9d9c263983af5660794882fd6f69eea84c15c3085a20",
+    "backend/internal/application/service/gemini_messages_compat_service.go": "deb0c9187f51e3d684974fb97fdf74b9789b1b69769f880200470d1f1002f261",
+    "backend/internal/application/service/openai_account_scheduler.go": "48473942f3171175faad5c3fe1cdacf757e2ef06f627eccb8ff4b950288d0782",
+    "backend/internal/application/service/openai_codex_models_mapping.go": "67a04ee469909bb66b06f6b6da9cb2934ae296310c4c8665124d3dd35cc5aca1",
+    "backend/internal/application/service/openai_codex_models_metadata.go": "dda6eb9cd31424ab5260b92d811ea64d322ddc2b785935d784f0cd60977fa087",
+    "backend/internal/application/service/openai_gateway_messages.go": "2fdc619aec79bb90f503ce7074b86d44e3068b8c6229b679eb95c252e9ee59d0",
+    "backend/internal/application/service/openai_gateway_model_availability.go": "12824687e6599c50e7f287b8be691ac61083bcdbe421f4fd2e721e9b7b298399",
+    "backend/internal/application/service/openai_gateway_response_flush_test.go": "31e52f1b6322f34c5745d62a0133aa27b300f4d5535daeaa2c724ce34706ffc6",
+    "backend/internal/application/service/openai_gateway_response_handling.go": "1b5bbee2633da99a9f4e8e8b6bcbcecb8a3b0aa4a8e60f15448f5e5b568442a5",
+    "backend/internal/application/service/openai_gateway_scheduling.go": "6d103bf17302ff485a38304e7e0ce668f992bfff2bf582983bfba4b08333c01a",
+    "backend/internal/application/service/openai_gateway_service_test.go": "693ac6d328d5938171a09293058c040591be1eb031c8c1d2c75d270f5cdca580",
+    "backend/internal/application/service/openai_model_mapping.go": "a963f5302d579f8ef11354cabceb58b1f757d9bffe423b257fea8d7ea768ca2d",
+    "backend/internal/application/service/openai_model_retirement.go": "0a28f5f873e31c70507ea724c49a8572f11bc4f3480e8cc55a2a37adfb0b7c12",
+    "backend/internal/application/service/openai_model_retirement_test.go": "868e64a84d2f581009ce3115f01e8edd96ca9041d0877b56ef46f1bf1ff25a2c",
+    "backend/internal/application/service/openai_oauth_model_support_test.go": "e8e8715d7fb9c368c27d3118aaca52791ffd505512bfb9c9c44ff873b0a9a4c2",
+    "backend/internal/application/service/openai_responses_created_at.go": "779c4f7e5d40fba97095a17066eee8d35f303a462f246c4b5231b26c0883cf3e",
+    "backend/internal/application/service/openai_responses_created_at_test.go": "ec8af448d01c63835eb15dbfccb415d165ef0fb0a59fd5bca38a4eee26c658eb",
+    "backend/internal/application/service/openai_unknown_model_routing_test.go": "ceab3d16219596c321d6f26b3f4dc5112211068be75a85a360f43b906376de59",
+    "backend/internal/application/service/openai_ws_forwarder_support.go": "549bd5cb4bf7c20767db26f9d113fac0778cda56ba558eba3bc3c237ee14469c",
+    "backend/internal/application/service/openai_ws_http_bridge.go": "7edeaeca9a3518a7268006e37c5e0ec81eb28d46b652f546030ab0b2a92c1d59",
+    "backend/internal/application/service/upstream_followup_benchmark_test.go": "cc6cc436d8b62a827e238b8179f9cbbc025eb5bae3f6e44f7718be48f4602d73",
+    "backend/internal/transport/http/handler/gateway_handler_models.go": "bf32fabf0275af4d587368007a1032fd97ac3df8a3bb2f33844d9ed02460e548",
+    "backend/internal/transport/http/handler/gateway_models_test.go": "f87af27fb262d056cebdfe05abdb3f55586cba48229d5836f0f5576fe61cdd9a",
+    "backend/internal/transport/http/handler/no_account_error.go": "ff703c0231402146054d6ba66e0dbd841c79c74e878c832874200e9db1376646",
+    "docs/README.md": "d21ab47a792870a7a6dfafaa622814974837190fbc8a2ae901b9b7878a5988d2",
+    "docs/REQUEST_LIFECYCLES.md": "df819e5cfd1afab4f8e6f9fba44dc39d637c047ef2057804a5197926bfd9d022",
+    "docs/UPSTREAM_SYNC_20261016_FOLLOWUP.md": "38bb761524d0ce795dcc9f0225959ea5dda0fc9aa63a80af24276347758bfab9",
+    "frontend/src/features/admin-accounts/README.md": "0258ae7ccc7ce345e02f3611a09bc584846783d8d7033e663debe109e10ec153",
+    "frontend/src/features/admin-accounts/presentation/accountEditUpdatePayload.ts": "dbcfa71c3c7bc601993828a2cfcd396a286db4d7f1a5c18c52e50e5dd280dc72",
+    "frontend/src/features/admin-accounts/presentation/accountFormPolicy.ts": "ec2a6946b8bafbadc19d99b85e2310ca7a8afa119f4050f164d67aa8347e2edb",
+    "frontend/src/features/admin-accounts/presentation/widgets/CreateAccountDialog.vue": "e4251ca336662b14120b83ec23922ef758f73c327007fc1e50b8e8fbd9aea6ee",
+    "frontend/src/features/admin-accounts/presentation/widgets/EditAccountDialog.vue": "c5feaa8a12b930b0c05a1fe21e5a8401cc28cb69c3da46151b739a25d98b82ad",
+    "frontend/src/features/admin-accounts/presentation/widgets/create/CreateAccountAdvancedFields.vue": "76c2f11ea5f41010679c66dda41a5f87ea488b387c1fd1f8b3c0cc71ec6d6cd1",
+    "frontend/src/features/admin-accounts/presentation/widgets/edit/EditAccountAdvancedFields.vue": "09c7b58caed4050dd1e6eb65d2ceedfe2798c5a637bcd7537d0b645e30fa4904"
+  },
+  "diff_sha256": "69cf4b034288dc42c36402f9906884f132889b65025e1f75351ce264c09d16fe"
+}
+
+RECORD backend-integration-final.record.json
+COMMAND docker run --rm --cpus 2 --memory 4g -e GOMAXPROCS=2 -e GOFLAGS=-p=1 -e CI=true -e DOCKER_HOST=unix:///var/run/docker.sock -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -v /var/run/docker.sock:/var/run/docker.sock -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v /private/tmp/sub2api-upstream-sync-20261016/backend:/workspace -w /workspace sub2api-upstream-sync-test:20261009-docker make test-integration
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+go test -tags=integration ./...
+ok  	github.com/Wei-Shaw/sub2api/cmd/cleanup-ingress-reject-logs	0.030s
+?   	github.com/Wei-Shaw/sub2api/cmd/jwtgen	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/cmd/profit-preview	0.011s
+ok  	github.com/Wei-Shaw/sub2api/cmd/server	0.014s
+?   	github.com/Wei-Shaw/sub2api/ent	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/account	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/accountegressbinding	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/accountgroup	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/announcement	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/announcementread	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/apikey	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/authidentity	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/authidentitychannel	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/batchimageevent	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/batchimageitem	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/batchimagejob	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/channelmonitor	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatasset	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatconversation	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatmessage	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatmessageasset	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatquickreply	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/compositemodelroute	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/custommodelconfig	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/custommodelrequesttemplate	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/enttest	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/group	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/hook	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/idempotencyrecord	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/intercept	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/ipv6egresspool	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/ent/migrate	0.003s
+?   	github.com/Wei-Shaw/sub2api/ent/paymentauditlog	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/paymentorder	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/paymentproviderinstance	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/pendingauthsession	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/predicate	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/promocode	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/promocodeusage	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/proxy	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/redeemcode	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/redeemcodeusage	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/runtime	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/ent/schema	2.026s
+?   	github.com/Wei-Shaw/sub2api/ent/schema/mixins	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/securitysecret	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/setting	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/subscriptionplan	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/tlsfingerprintprofile	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/usagecleanuptask	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/usagelog	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/user	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/userallowedgroup	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/userattributedefinition	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/userattributevalue	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/userplatformquota	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/usersubscription	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	145.186s
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2	6.315s
+ok  	github.com/Wei-Shaw/sub2api/internal/bootstrap/setup	0.124s
+ok  	github.com/Wei-Shaw/sub2api/internal/domain	0.003s
+?   	github.com/Wei-Shaw/sub2api/internal/domain/model	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/infrastructure/repository	59.352s
+ok  	github.com/Wei-Shaw/sub2api/internal/integration	0.097s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/activitycenter	0.013s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/chat	0.007s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/codexremotecontrol	0.029s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/egress	0.004s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog	0.024s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/payment	0.011s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/payment/provider	0.023s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/qualityrender	0.004s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/securityaudit	0.295s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/typesafe	0.015s
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/config	1.651s
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/devicekey	0.004s
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/egress	0.004s
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/liveattestation	0.310s
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/middleware	21.603s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/anthropicfp	0.006s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/antigravity	0.009s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	0.321s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/basispoints	3.646s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/chatgptcookies	0.008s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/claude	0.011s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation	0.007s
+?   	github.com/Wei-Shaw/sub2api/internal/shared/ctxkey	[no test files]
+?   	github.com/Wei-Shaw/sub2api/internal/shared/errors	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/gemini	0.006s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/geminicli	0.009s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/googleapi	0.007s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/httpclient	0.041s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/httputil	0.130s
+?   	github.com/Wei-Shaw/sub2api/internal/shared/ip	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/logger	0.013s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/logredact	0.009s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/oauth	0.005s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/oauthstate	0.025s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/openai	0.007s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/openai_compat	0.003s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/openaitiming	0.008s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/pagination	0.003s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/proxyurl	0.003s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/proxyutil	0.005s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/remotecontrol	0.017s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/requestmodel	0.006s
+?   	github.com/Wei-Shaw/sub2api/internal/shared/response	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/responseheaders	0.004s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/servertiming	0.010s
+?   	github.com/Wei-Shaw/sub2api/internal/shared/sysutil	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/timezone	0.008s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint	6.807s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator	0.008s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/usagestats	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/websearch	0.025s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/wsutil	0.075s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/xai	0.008s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	34.172s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin	0.428s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto	0.037s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/quotaview	0.042s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/supportchatasset	0.011s
+?   	github.com/Wei-Shaw/sub2api/internal/transport/http/server	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware	0.151s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes	16.504s
+?   	github.com/Wei-Shaw/sub2api/internal/transport/webassets	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/migrations	0.021s
+
+STDOUT END
+STDERR BEGIN
+go: downloading github.com/testcontainers/testcontainers-go/modules/postgres v0.40.0
+go: downloading github.com/testcontainers/testcontainers-go/modules/redis v0.40.0
+go: downloading github.com/testcontainers/testcontainers-go v0.40.0
+go: downloading github.com/mdelapenya/tlscert v0.2.0
+go: downloading dario.cat/mergo v1.0.2
+go: downloading github.com/cenkalti/backoff/v4 v4.3.0
+go: downloading github.com/containerd/errdefs v1.0.0
+go: downloading github.com/containerd/platforms v0.2.1
+go: downloading github.com/cpuguy83/dockercfg v0.3.2
+go: downloading github.com/docker/docker v28.5.1+incompatible
+go: downloading github.com/docker/go-connections v0.6.0
+go: downloading github.com/moby/go-archive v0.1.0
+go: downloading github.com/moby/patternmatcher v0.6.0
+go: downloading github.com/moby/term v0.5.0
+go: downloading github.com/opencontainers/image-spec v1.1.1
+go: downloading github.com/containerd/log v0.1.0
+go: downloading github.com/docker/go-units v0.5.0
+go: downloading github.com/moby/docker-image-spec v1.3.1
+go: downloading github.com/opencontainers/go-digest v1.0.0
+go: downloading github.com/containerd/errdefs/pkg v0.3.0
+go: downloading github.com/distribution/reference v0.6.0
+go: downloading go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.49.0
+go: downloading github.com/morikuni/aec v1.0.0
+go: downloading github.com/moby/sys/sequential v0.6.0
+go: downloading github.com/moby/sys/user v0.4.0
+go: downloading github.com/moby/sys/userns v0.1.0
+go: downloading github.com/sirupsen/logrus v1.9.3
+go: downloading github.com/felixge/httpsnoop v1.0.4
+go: downloading go.opentelemetry.io/otel/metric v1.42.0
+go: downloading github.com/go-logr/logr v1.4.3
+go: downloading github.com/go-logr/stdr v1.2.2
+go: downloading go.opentelemetry.io/auto/sdk v1.2.1
+
+STDERR END
+
+RECORD backend-lint-final.record.json
+COMMAND docker run --rm --cpus 2 --memory 6g -e GOMAXPROCS=2 -e GOFLAGS=-p=1 -e GOMEMLIMIT=3500MiB -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v sub2api-followup-lint-cache-20261016:/root/.cache/golangci-lint -v sub2api-sync-tools-20261009:/tools -v /private/tmp/sub2api-upstream-sync-20261016/backend:/workspace -w /workspace sub2api-upstream-sync-test:20261009-docker /tools/golangci-lint run --concurrency=1 --timeout=30m ./...
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+0 issues.
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD backend-lint-serial.record.json
+COMMAND docker run --rm --cpus 4 --memory 5g -e GOMAXPROCS=4 -e GOFLAGS=-p=1 -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v sub2api-sync-tools-20261009:/tools -v /private/tmp/sub2api-upstream-sync-20261016/backend:/workspace -w /workspace sub2api-upstream-sync-test:20261009-docker /tools/golangci-lint run --timeout=30m ./...
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 137
+STDOUT BEGIN
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD backend-lint-v1.record.json
+COMMAND docker run --rm --cpus 2 --memory 4g -e GOMAXPROCS=2 -e GOFLAGS=-p=1 -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v sub2api-sync-tools-20261009:/tools -v /private/tmp/sub2api-upstream-sync-20261016/backend:/workspace -w /workspace sub2api-upstream-sync-test:20261009-docker /tools/golangci-lint run --timeout=30m ./...
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 1
+STDOUT BEGIN
+internal/application/service/account.go:1: : /usr/local/go/pkg/tool/linux_arm64/compile: signal: killed (typecheck)
+// Package service provides business logic and domain services for the application.
+1 issues:
+* typecheck: 1
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD backend-lint-v2.record.json
+COMMAND docker run --rm --cpus 2 --memory 3g -e GOMAXPROCS=2 -e GOFLAGS=-p=1 -e GOMEMLIMIT=1500MiB -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v sub2api-sync-tools-20261009:/tools -v /private/tmp/sub2api-upstream-sync-20261016/backend:/workspace -w /workspace sub2api-upstream-sync-test:20261009-docker /tools/golangci-lint run --timeout=30m ./...
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 137
+STDOUT BEGIN
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD backend-unit-final.record.json
+COMMAND docker run --rm --cpus 3 --memory 5g -e GOMAXPROCS=3 -e GOFLAGS=-p=2 -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v /private/tmp/sub2api-upstream-sync-20261016:/workspace -w /workspace/backend golang:1.26.9 go test -json -tags unit ./...
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+FULL LITERAL STDOUT/STDERR JSON: records/backend-unit-final.record.json.gz
+UNCOMPRESSED SHA256 f3bd980126956dd39fe83e84f39c5440c7b660a4b5cb7541f0ba385fb7cdd4dc
+PACKAGE OUTCOMES [{"Time": "2026-10-16T07:52:05.721210967Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/cmd/cleanup-ingress-reject-logs", "Elapsed": 0.001}, {"Time": "2026-10-16T07:52:05.723474426Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/cmd/jwtgen", "Elapsed": 0}, {"Time": "2026-10-16T07:52:05.723965426Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/cmd/profit-preview", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.737454347Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/cmd/server", "Elapsed": 0.001}, {"Time": "2026-10-16T07:52:14.74102518Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741046888Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/account", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741058722Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/accountegressbinding", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.74107193Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/accountgroup", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741084138Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/announcement", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741114472Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/announcementread", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741140597Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/apikey", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741147347Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/authidentity", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741183847Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/authidentitychannel", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741194847Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/batchimageevent", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741355222Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/batchimageitem", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741478638Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/batchimagejob", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741486972Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/channelmonitor", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.74150368Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741524013Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741537347Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741543305Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/chatasset", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.74155568Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/chatconversation", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.74156268Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/chatmessage", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741566847Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/chatmessageasset", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741571597Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/chatquickreply", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741595513Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/compositemodelroute", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741603597Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/custommodelconfig", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741611263Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/custommodelrequesttemplate", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741629138Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/enttest", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741648305Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741662222Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/group", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.74167268Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/hook", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741694555Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/idempotencyrecord", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741706555Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741720222Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/intercept", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741730597Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/ipv6egresspool", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741774638Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/ent/migrate", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.74186218Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/paymentauditlog", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741887263Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/paymentorder", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741899347Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/paymentproviderinstance", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741910055Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/pendingauthsession", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741922013Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/predicate", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741936722Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/promocode", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741942763Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/promocodeusage", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741949305Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/proxy", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741961763Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/redeemcode", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741975847Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/redeemcodeusage", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.741985472Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/runtime", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.74200793Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/ent/schema", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.74206243Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/schema/mixins", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.74206668Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/securitysecret", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.74207293Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/setting", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.742077222Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/subscriptionplan", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.742093847Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/tlsfingerprintprofile", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.74210468Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/usagecleanuptask", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.742125055Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/usagelog", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.742134805Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/user", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.742145055Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/userallowedgroup", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.742161638Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/userattributedefinition", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.74217918Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/userattributevalue", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.74218443Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/userplatformquota", "Elapsed": 0}, {"Time": "2026-10-16T07:52:14.74220043Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/usersubscription", "Elapsed": 0}, {"Time": "2026-10-16T07:52:15.384429305Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2", "Elapsed": 0.001}, {"Time": "2026-10-16T07:52:15.532227389Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/bootstrap/setup", "Elapsed": 0.002}, {"Time": "2026-10-16T07:52:15.533211639Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/domain", "Elapsed": 0}, {"Time": "2026-10-16T07:52:15.53326693Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/internal/domain/model", "Elapsed": 0}, {"Time": "2026-10-16T07:52:36.564796009Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/infrastructure/repository", "Elapsed": 7.455}, {"Time": "2026-10-16T07:52:36.572551634Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/modules/activitycenter", "Elapsed": 0.001}, {"Time": "2026-10-16T07:52:36.573076968Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/modules/chat", "Elapsed": 0}, {"Time": "2026-10-16T07:52:36.573632926Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/modules/codexremotecontrol", "Elapsed": 0}, {"Time": "2026-10-16T07:52:36.573916843Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/modules/egress", "Elapsed": 0}, {"Time": "2026-10-16T07:52:36.574325718Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog", "Elapsed": 0}, {"Time": "2026-10-16T07:52:36.578676468Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/modules/payment", "Elapsed": 0.004}, {"Time": "2026-10-16T07:52:36.585252843Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/modules/payment/provider", "Elapsed": 0.006}, {"Time": "2026-10-16T07:52:36.586003676Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/modules/qualityrender", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.82495151Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/modules/securityaudit", "Elapsed": 0.004}, {"Time": "2026-10-16T07:52:38.826701635Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/modules/typesafe", "Elapsed": 0.001}, {"Time": "2026-10-16T07:52:38.829319427Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/platform/config", "Elapsed": 0.003}, {"Time": "2026-10-16T07:52:38.829601635Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/platform/devicekey", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.829815052Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/platform/egress", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.830010677Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/platform/liveattestation", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.830337885Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/platform/middleware", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.830581594Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/anthropicfp", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.832949552Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/antigravity", "Elapsed": 0.002}, {"Time": "2026-10-16T07:52:38.837161135Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/apicompat", "Elapsed": 0.004}, {"Time": "2026-10-16T07:52:38.840062885Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/basispoints", "Elapsed": 0.003}, {"Time": "2026-10-16T07:52:38.840182094Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/chatgptcookies", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.840348094Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/claude", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.840765427Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.840855844Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/ctxkey", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.841002552Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/errors", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.841058469Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/gemini", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.84153376Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/geminicli", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.841800469Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/googleapi", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.841908844Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/httpclient", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.842334885Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/httputil", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.842572385Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/ip", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.84272426Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/logger", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.842819719Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/logredact", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.842899844Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/oauth", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.842963385Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/oauthstate", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.84412476Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/openai", "Elapsed": 0.001}, {"Time": "2026-10-16T07:52:38.84441326Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/openai_compat", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.844534969Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/openaitiming", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.844978385Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/pagination", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.845136719Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/proxyurl", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.845374885Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/proxyutil", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.84548451Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/remotecontrol", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.845701344Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/requestmodel", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.846189594Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/response", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.846266219Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/responseheaders", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.846410302Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/servertiming", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.84647101Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/sysutil", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.84660001Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/timezone", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.84677251Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.847253427Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.847435302Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/usagestats", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.847844385Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/websearch", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.848090719Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/wsutil", "Elapsed": 0}, {"Time": "2026-10-16T07:52:38.848746969Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/xai", "Elapsed": 0.001}, {"Time": "2026-10-16T07:52:39.005642219Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/internal/testutil", "Elapsed": 0}, {"Time": "2026-10-16T07:53:28.789716172Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler", "Elapsed": 42.657}, {"Time": "2026-10-16T07:53:42.674814846Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin", "Elapsed": 0.028}, {"Time": "2026-10-16T07:53:48.596653209Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto", "Elapsed": 0.011}, {"Time": "2026-10-16T07:53:52.323161961Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/quotaview", "Elapsed": 0.006}, {"Time": "2026-10-16T07:53:52.327862086Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/supportchatasset", "Elapsed": 0.002}, {"Time": "2026-10-16T07:54:03.025270549Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/server", "Elapsed": 0.011}, {"Time": "2026-10-16T07:54:31.044761215Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware", "Elapsed": 0.315}, {"Time": "2026-10-16T07:54:54.523796962Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes", "Elapsed": 7.313}, {"Time": "2026-10-16T07:54:54.540212795Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/transport/webassets", "Elapsed": 0.005}, {"Time": "2026-10-16T07:54:54.546542504Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/migrations", "Elapsed": 0.005}, {"Time": "2026-10-16T07:56:06.227157009Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/application/service", "Elapsed": 231.485}]
+
+RECORD backend-unit-v4.record.json
+COMMAND docker run --rm --cpus 3 --memory 5g -e GOMAXPROCS=3 -e GOFLAGS=-p=2 -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v /private/tmp/sub2api-upstream-sync-20261016:/workspace -w /workspace/backend golang:1.26.9 go test -json -tags unit ./...
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 1
+FULL LITERAL STDOUT/STDERR JSON: records/backend-unit-v4.record.json.gz
+UNCOMPRESSED SHA256 0dcf2ffd18381cd8f51789cc47429420c7ad404e01fafd87d64a2e8f32790996
+PACKAGE OUTCOMES [{"Time": "2026-10-16T07:40:37.706143968Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/cmd/cleanup-ingress-reject-logs", "Elapsed": 0.013}, {"Time": "2026-10-16T07:40:37.79098226Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/cmd/jwtgen", "Elapsed": 0}, {"Time": "2026-10-16T07:40:38.163493135Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/cmd/profit-preview", "Elapsed": 0.011}, {"Time": "2026-10-16T07:40:42.100389554Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/cmd/server", "Elapsed": 0.013}, {"Time": "2026-10-16T07:40:42.102592929Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.10259997Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/account", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.102607054Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/accountegressbinding", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.102613304Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/accountgroup", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.102621762Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/announcement", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.102629387Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/announcementread", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.10263772Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/apikey", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.102657429Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/authidentity", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.102669095Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/authidentitychannel", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.102674304Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/batchimageevent", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.102678095Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/batchimageitem", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.102683012Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/batchimagejob", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.102686637Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/channelmonitor", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.102691137Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.102694929Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.10269922Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.102703887Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/chatasset", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.10271022Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/chatconversation", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.102719845Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/chatmessage", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.102725137Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/chatmessageasset", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.102729137Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/chatquickreply", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.102734262Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/compositemodelroute", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.10273847Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/custommodelconfig", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.102746929Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/custommodelrequesttemplate", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.102753845Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/enttest", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.102758179Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.102767387Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/group", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.102774095Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/hook", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.102778554Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/idempotencyrecord", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.102782429Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.102786262Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/intercept", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.102793387Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/ipv6egresspool", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.106257804Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/ent/migrate", "Elapsed": 0.003}, {"Time": "2026-10-16T07:40:42.106681095Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/paymentauditlog", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.106686762Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/paymentorder", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.106691512Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/paymentproviderinstance", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.106698554Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/pendingauthsession", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.10670747Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/predicate", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.10671247Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/promocode", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.106718262Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/promocodeusage", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.106726137Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/proxy", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.106730137Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/redeemcode", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.106733845Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/redeemcodeusage", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.106738429Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/runtime", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.482645137Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/schema/mixins", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.482651762Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/securitysecret", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.482658054Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/setting", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.482663262Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/subscriptionplan", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.482669971Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/tlsfingerprintprofile", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.482675554Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/usagecleanuptask", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.482680262Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/usagelog", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.482686887Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/user", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.482699304Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/userallowedgroup", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.482703721Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/userattributedefinition", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.482707721Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/userattributevalue", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.482711846Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/userplatformquota", "Elapsed": 0}, {"Time": "2026-10-16T07:40:42.482718346Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/ent/usersubscription", "Elapsed": 0}, {"Time": "2026-10-16T07:40:43.638687429Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/ent/schema", "Elapsed": 1.195}, {"Time": "2026-10-16T07:41:22.501398044Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2", "Elapsed": 4.218}, {"Time": "2026-10-16T07:41:22.575582628Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/bootstrap/setup", "Elapsed": 0.073}, {"Time": "2026-10-16T07:41:22.579221253Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/domain", "Elapsed": 0.003}, {"Time": "2026-10-16T07:41:22.579638044Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/internal/domain/model", "Elapsed": 0}, {"Time": "2026-10-16T07:41:29.310952923Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/infrastructure/repository", "Elapsed": 6.731}, {"Time": "2026-10-16T07:41:29.319980006Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/modules/activitycenter", "Elapsed": 0.004}, {"Time": "2026-10-16T07:41:29.323735048Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/modules/chat", "Elapsed": 0.003}, {"Time": "2026-10-16T07:41:29.333263089Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/modules/codexremotecontrol", "Elapsed": 0.009}, {"Time": "2026-10-16T07:41:29.337370756Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/modules/egress", "Elapsed": 0.004}, {"Time": "2026-10-16T07:41:29.348801839Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog", "Elapsed": 0.011}, {"Time": "2026-10-16T07:41:29.357312506Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/modules/payment", "Elapsed": 0.008}, {"Time": "2026-10-16T07:41:29.389984923Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/modules/payment/provider", "Elapsed": 0.031}, {"Time": "2026-10-16T07:41:29.394163339Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/modules/qualityrender", "Elapsed": 0.003}, {"Time": "2026-10-16T07:41:29.627711131Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/modules/securityaudit", "Elapsed": 0.233}, {"Time": "2026-10-16T07:41:29.641228173Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/modules/typesafe", "Elapsed": 0.011}, {"Time": "2026-10-16T07:41:30.834665215Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/platform/config", "Elapsed": 1.193}, {"Time": "2026-10-16T07:41:30.83863559Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/platform/devicekey", "Elapsed": 0.003}, {"Time": "2026-10-16T07:41:30.841730715Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/platform/egress", "Elapsed": 0.003}, {"Time": "2026-10-16T07:41:31.152785007Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/platform/liveattestation", "Elapsed": 0.311}, {"Time": "2026-10-16T07:41:35.470108384Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/platform/middleware", "Elapsed": 4.315}, {"Time": "2026-10-16T07:41:35.481150676Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/anthropicfp", "Elapsed": 0.007}, {"Time": "2026-10-16T07:41:35.517879009Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/antigravity", "Elapsed": 0.036}, {"Time": "2026-10-16T07:41:35.688944717Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/apicompat", "Elapsed": 0.17}, {"Time": "2026-10-16T07:41:37.170581968Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/basispoints", "Elapsed": 1.4809999999999999}, {"Time": "2026-10-16T07:41:37.173728385Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/chatgptcookies", "Elapsed": 0.002}, {"Time": "2026-10-16T07:41:37.176512343Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/claude", "Elapsed": 0.002}, {"Time": "2026-10-16T07:41:37.179074801Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation", "Elapsed": 0.002}, {"Time": "2026-10-16T07:41:37.179474468Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/ctxkey", "Elapsed": 0}, {"Time": "2026-10-16T07:41:37.181664718Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/errors", "Elapsed": 0.002}, {"Time": "2026-10-16T07:41:37.183456885Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/gemini", "Elapsed": 0.001}, {"Time": "2026-10-16T07:41:37.187903551Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/geminicli", "Elapsed": 0.004}, {"Time": "2026-10-16T07:41:37.191308593Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/googleapi", "Elapsed": 0.003}, {"Time": "2026-10-16T07:41:37.199220676Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/httpclient", "Elapsed": 0.007}, {"Time": "2026-10-16T07:41:37.223031176Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/httputil", "Elapsed": 0.023}, {"Time": "2026-10-16T07:41:37.233471926Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/ip", "Elapsed": 0.01}, {"Time": "2026-10-16T07:41:37.237481093Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/logger", "Elapsed": 0.003}, {"Time": "2026-10-16T07:41:37.239852301Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/logredact", "Elapsed": 0.002}, {"Time": "2026-10-16T07:41:37.242175926Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/oauth", "Elapsed": 0.002}, {"Time": "2026-10-16T07:41:37.24789201Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/oauthstate", "Elapsed": 0.005}, {"Time": "2026-10-16T07:41:37.252395676Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/openai", "Elapsed": 0.004}, {"Time": "2026-10-16T07:41:37.254852093Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/openai_compat", "Elapsed": 0.002}, {"Time": "2026-10-16T07:41:37.25778551Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/openaitiming", "Elapsed": 0.003}, {"Time": "2026-10-16T07:41:37.259733676Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/pagination", "Elapsed": 0.001}, {"Time": "2026-10-16T07:41:37.261668718Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/proxyurl", "Elapsed": 0.002}, {"Time": "2026-10-16T07:41:37.26570501Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/proxyutil", "Elapsed": 0.004}, {"Time": "2026-10-16T07:41:37.27299201Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/remotecontrol", "Elapsed": 0.007}, {"Time": "2026-10-16T07:41:37.276709968Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/requestmodel", "Elapsed": 0.003}, {"Time": "2026-10-16T07:41:37.283851718Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/response", "Elapsed": 0.007}, {"Time": "2026-10-16T07:41:37.286346968Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/responseheaders", "Elapsed": 0.002}, {"Time": "2026-10-16T07:41:37.289890135Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/servertiming", "Elapsed": 0.003}, {"Time": "2026-10-16T07:41:37.29032601Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/sysutil", "Elapsed": 0}, {"Time": "2026-10-16T07:41:37.293583635Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/timezone", "Elapsed": 0.003}, {"Time": "2026-10-16T07:41:37.314243801Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint", "Elapsed": 0.02}, {"Time": "2026-10-16T07:41:37.317950093Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator", "Elapsed": 0.003}, {"Time": "2026-10-16T07:41:37.320240135Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/usagestats", "Elapsed": 0.002}, {"Time": "2026-10-16T07:41:37.326342676Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/websearch", "Elapsed": 0.006}, {"Time": "2026-10-16T07:41:37.382798301Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/wsutil", "Elapsed": 0.056}, {"Time": "2026-10-16T07:41:37.38700401Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/shared/xai", "Elapsed": 0.004}, {"Time": "2026-10-16T07:41:37.38745351Z", "Action": "skip", "Package": "github.com/Wei-Shaw/sub2api/internal/testutil", "Elapsed": 0}, {"Time": "2026-10-16T07:42:19.364452001Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler", "Elapsed": 41.976}, {"Time": "2026-10-16T07:42:27.018706255Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin", "Elapsed": 0.574}, {"Time": "2026-10-16T07:42:28.853968797Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto", "Elapsed": 0.035}, {"Time": "2026-10-16T07:42:30.274061506Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/quotaview", "Elapsed": 0.016}, {"Time": "2026-10-16T07:42:30.557355132Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/supportchatasset", "Elapsed": 0.006}, {"Time": "2026-10-16T07:42:34.993925967Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/server", "Elapsed": 1.788}, {"Time": "2026-10-16T07:42:42.702240887Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware", "Elapsed": 0.171}, {"Time": "2026-10-16T07:42:53.891122212Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes", "Elapsed": 7.135}, {"Time": "2026-10-16T07:42:54.246062504Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/internal/transport/webassets", "Elapsed": 0.006}, {"Time": "2026-10-16T07:42:54.595614337Z", "Action": "pass", "Package": "github.com/Wei-Shaw/sub2api/migrations", "Elapsed": 0.005}, {"Time": "2026-10-16T07:44:41.900988887Z", "Action": "fail", "Package": "github.com/Wei-Shaw/sub2api/internal/application/service", "Elapsed": 203.895}]
+
+RECORD baseline-layout.record.json
+COMMAND make -C backend check-layout
+CWD /private/tmp/sub2api-upstream-sync-20261016-baseline
+EXIT 2
+STDOUT BEGIN
+./scripts/check-source-layout.sh
+
+STDOUT END
+STDERR BEGIN
+layout error: internal/application/service/payment_fulfillment_test.go has 1201 lines (limit 1200); split by responsibility
+make: *** [check-layout] Error 1
+
+STDERR END
+
+RECORD docs-final.record.json
+COMMAND make check-docs
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+Documentation checks passed.
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD docs-v2.record.json
+COMMAND make check-docs
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+Documentation checks passed.
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD empty-catalog-cache.record.json
+COMMAND docker run --rm --cpus 2 --memory 3g -e GOMAXPROCS=2 -e GOFLAGS=-p=1 -e GOMEMLIMIT=1500MiB -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v /private/tmp/sub2api-upstream-sync-20261016/backend:/workspace -w /workspace sub2api-upstream-sync-test:20261009-docker go test -tags unit ./internal/application/service -run '^TestRetirementEmptyModelCatalogStaysAuthoritativeInCache$' -count=1
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 137
+STDOUT BEGIN
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD focused-race-final.record.json
+COMMAND docker run --rm --cpus 2 --memory 6g -e GOMAXPROCS=2 -e GOFLAGS=-p=1 -e GOMEMLIMIT=4000MiB -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v /private/tmp/sub2api-upstream-sync-20261016/backend:/workspace -w /workspace sub2api-upstream-sync-test:20261009-docker go test -race -tags unit ./internal/application/service -run 'Test(Retire|Retirement|ResponsesCreatedAt|ShouldEmulateWebSearch|GetWebSearchEmulationMode|ApplyGeminiCompat|GeminiForwardAsChat|GeminiMessagesForward|GeminiMessagesHandle|ConvertClaudeMessagesToGemini_Drops)' -count=1
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	3.482s
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD focused-source-final.record.json
+COMMAND docker run --rm --cpus 2 --memory 5g -e GOMAXPROCS=2 -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v /private/tmp/sub2api-upstream-sync-20261016:/workspace -v /private/tmp/sub2api-upstream-sync-20261016/diagnostics/upstream-sync-20261016-followup:/evidence -w /workspace/backend golang:1.26.9 go test -tags unit -overlay /evidence/probes/overlay.json ./internal/application/service -run 'Test(UpstreamFollowupTransactionProbe|Retire|Retirement|CodexManifest|OpenAIModelListing|ApplyGeminiCompat|GeminiForwardAsChat|GeminiMessagesForward|GeminiMessagesHandle|ConvertClaudeMessagesToGemini_Drops|ResponsesCreatedAt|ShouldEmulateWebSearch)' -count=1 -v
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+2026/10/16 08:25:48 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestShouldEmulateWebSearch_NilManager
+--- PASS: TestShouldEmulateWebSearch_NilManager (0.00s)
+=== RUN   TestShouldEmulateWebSearch_NotOnlyWebSearchTool
+--- PASS: TestShouldEmulateWebSearch_NotOnlyWebSearchTool (0.00s)
+=== RUN   TestShouldEmulateWebSearch_GlobalDisabled
+--- PASS: TestShouldEmulateWebSearch_GlobalDisabled (0.00s)
+=== RUN   TestShouldEmulateWebSearch_AccountDisabled
+--- PASS: TestShouldEmulateWebSearch_AccountDisabled (0.00s)
+=== RUN   TestShouldEmulateWebSearch_AccountEnabled
+--- PASS: TestShouldEmulateWebSearch_AccountEnabled (0.00s)
+=== RUN   TestShouldEmulateWebSearch_OpenAIAPIKeyEnabled
+--- PASS: TestShouldEmulateWebSearch_OpenAIAPIKeyEnabled (0.00s)
+=== RUN   TestShouldEmulateWebSearch_OpenAIOAuthKeepsNativeSearch
+--- PASS: TestShouldEmulateWebSearch_OpenAIOAuthKeepsNativeSearch (0.00s)
+=== RUN   TestShouldEmulateWebSearch_DefaultMode_ChannelEnabled
+--- PASS: TestShouldEmulateWebSearch_DefaultMode_ChannelEnabled (0.00s)
+=== RUN   TestShouldEmulateWebSearch_DefaultMode_ChannelDisabled
+--- PASS: TestShouldEmulateWebSearch_DefaultMode_ChannelDisabled (0.00s)
+=== RUN   TestShouldEmulateWebSearch_DefaultMode_NilGroupID
+--- PASS: TestShouldEmulateWebSearch_DefaultMode_NilGroupID (0.00s)
+=== RUN   TestShouldEmulateWebSearch_DefaultMode_NilChannelService
+--- PASS: TestShouldEmulateWebSearch_DefaultMode_NilChannelService (0.00s)
+=== RUN   TestApplyGeminiCompatThinkingConfig
+=== RUN   TestApplyGeminiCompatThinkingConfig/effort_medium_on_flash
+=== RUN   TestApplyGeminiCompatThinkingConfig/effort_low
+=== RUN   TestApplyGeminiCompatThinkingConfig/effort_none_on_flash
+=== RUN   TestApplyGeminiCompatThinkingConfig/effort_minimal_on_pro
+=== RUN   TestApplyGeminiCompatThinkingConfig/effort_medium_on_gemini_3_pro
+=== RUN   TestApplyGeminiCompatThinkingConfig/effort_medium_on_gemini_3.1_pro
+=== RUN   TestApplyGeminiCompatThinkingConfig/effort_max
+=== RUN   TestApplyGeminiCompatThinkingConfig/effort_xhigh
+=== RUN   TestApplyGeminiCompatThinkingConfig/thinking_disabled_wins_over_effort
+=== RUN   TestApplyGeminiCompatThinkingConfig/budget_only_maps_to_high
+=== RUN   TestApplyGeminiCompatThinkingConfig/budget_only_maps_to_medium
+=== RUN   TestApplyGeminiCompatThinkingConfig/budget_only_maps_to_low
+=== RUN   TestApplyGeminiCompatThinkingConfig/adaptive_keeps_default_level
+=== RUN   TestApplyGeminiCompatThinkingConfig/no_thinking_params_streams_thoughts_only
+=== RUN   TestApplyGeminiCompatThinkingConfig/unknown_effort_ignored
+=== RUN   TestApplyGeminiCompatThinkingConfig/level_with_thoughts
+=== RUN   TestApplyGeminiCompatThinkingConfig/gemini_4_uses_level
+=== RUN   TestApplyGeminiCompatThinkingConfig/medium_outside_verified_models_becomes_high
+=== RUN   TestApplyGeminiCompatThinkingConfig/medium_budget_outside_verified_models_becomes_high
+=== RUN   TestApplyGeminiCompatThinkingConfig/medium_on_unverified_pro_becomes_high
+=== RUN   TestApplyGeminiCompatThinkingConfig/medium_on_flash_lite
+=== RUN   TestApplyGeminiCompatThinkingConfig/tier_suffix_model_keeps_name_tier
+=== RUN   TestApplyGeminiCompatThinkingConfig/tiered_suffix_model_keeps_name_tier
+=== RUN   TestApplyGeminiCompatThinkingConfig/2.5_flash_low
+=== RUN   TestApplyGeminiCompatThinkingConfig/2.5_flash_high
+=== RUN   TestApplyGeminiCompatThinkingConfig/2.5_flash_none_disables_thinking_and_thoughts
+=== RUN   TestApplyGeminiCompatThinkingConfig/2.5_pro_cannot_disable_thinking
+=== RUN   TestApplyGeminiCompatThinkingConfig/2.5_pro_high
+=== RUN   TestApplyGeminiCompatThinkingConfig/2.5_pro_budget_clamps_up
+=== RUN   TestApplyGeminiCompatThinkingConfig/2.5_flash_budget_clamps_down
+=== RUN   TestApplyGeminiCompatThinkingConfig/2.5_flash_lite_budget_clamps_up
+=== RUN   TestApplyGeminiCompatThinkingConfig/2.5_adaptive_keeps_dynamic_budget
+=== RUN   TestApplyGeminiCompatThinkingConfig/2.0_untouched
+=== RUN   TestApplyGeminiCompatThinkingConfig/image_model_untouched
+=== RUN   TestApplyGeminiCompatThinkingConfig/unparsable_model_untouched
+=== RUN   TestApplyGeminiCompatThinkingConfig/non_gemini_model_untouched
+=== RUN   TestApplyGeminiCompatThinkingConfig/models_prefix
+--- PASS: TestApplyGeminiCompatThinkingConfig (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/effort_medium_on_flash (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/effort_low (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/effort_none_on_flash (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/effort_minimal_on_pro (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/effort_medium_on_gemini_3_pro (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/effort_medium_on_gemini_3.1_pro (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/effort_max (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/effort_xhigh (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/thinking_disabled_wins_over_effort (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/budget_only_maps_to_high (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/budget_only_maps_to_medium (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/budget_only_maps_to_low (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/adaptive_keeps_default_level (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/no_thinking_params_streams_thoughts_only (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/unknown_effort_ignored (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/level_with_thoughts (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/gemini_4_uses_level (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/medium_outside_verified_models_becomes_high (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/medium_budget_outside_verified_models_becomes_high (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/medium_on_unverified_pro_becomes_high (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/medium_on_flash_lite (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/tier_suffix_model_keeps_name_tier (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/tiered_suffix_model_keeps_name_tier (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/2.5_flash_low (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/2.5_flash_high (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/2.5_flash_none_disables_thinking_and_thoughts (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/2.5_pro_cannot_disable_thinking (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/2.5_pro_high (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/2.5_pro_budget_clamps_up (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/2.5_flash_budget_clamps_down (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/2.5_flash_lite_budget_clamps_up (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/2.5_adaptive_keeps_dynamic_budget (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/2.0_untouched (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/image_model_untouched (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/unparsable_model_untouched (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/non_gemini_model_untouched (0.00s)
+    --- PASS: TestApplyGeminiCompatThinkingConfig/models_prefix (0.00s)
+=== RUN   TestGeminiForwardAsChatCompletions_StreamsThoughtsAsReasoningContent
+--- PASS: TestGeminiForwardAsChatCompletions_StreamsThoughtsAsReasoningContent (0.00s)
+=== RUN   TestGeminiForwardAsChatCompletions_NonStreamForwardsEffortWithoutThoughts
+--- PASS: TestGeminiForwardAsChatCompletions_NonStreamForwardsEffortWithoutThoughts (0.00s)
+=== RUN   TestGeminiMessagesForward_IncludeThoughtsFollowsClientThinking
+=== RUN   TestGeminiMessagesForward_IncludeThoughtsFollowsClientThinking/stream_with_adaptive_thinking
+=== RUN   TestGeminiMessagesForward_IncludeThoughtsFollowsClientThinking/stream_without_thinking
+=== RUN   TestGeminiMessagesForward_IncludeThoughtsFollowsClientThinking/non_stream_with_thinking
+--- PASS: TestGeminiMessagesForward_IncludeThoughtsFollowsClientThinking (0.00s)
+    --- PASS: TestGeminiMessagesForward_IncludeThoughtsFollowsClientThinking/stream_with_adaptive_thinking (0.00s)
+    --- PASS: TestGeminiMessagesForward_IncludeThoughtsFollowsClientThinking/stream_without_thinking (0.00s)
+    --- PASS: TestGeminiMessagesForward_IncludeThoughtsFollowsClientThinking/non_stream_with_thinking (0.00s)
+=== RUN   TestGeminiMessagesHandleStreamingResponse_EmitsThinkingBlockBeforeText
+--- PASS: TestGeminiMessagesHandleStreamingResponse_EmitsThinkingBlockBeforeText (0.00s)
+=== RUN   TestConvertClaudeMessagesToGemini_DropsHistoryThinkingBlocks
+--- PASS: TestConvertClaudeMessagesToGemini_DropsHistoryThinkingBlocks (0.00s)
+=== RUN   TestGeminiForwardAsChatCompletions_DropsHistoryReasoningContent
+--- PASS: TestGeminiForwardAsChatCompletions_DropsHistoryReasoningContent (0.00s)
+=== RUN   TestGeminiMessagesForward_SignatureRetryKeepsClientThinkingParams
+2026/10/16 08:25:48 Gemini account 611: detected signature-related 400, retrying with downgraded Claude blocks (thinking-only)
+2026/10/16 08:25:49 Gemini account 611: detected signature-related 400, retrying with downgraded Claude blocks (thinking+tools)
+--- PASS: TestGeminiMessagesForward_SignatureRetryKeepsClientThinkingParams (2.21s)
+=== RUN   TestGeminiForwardAsChatCompletions_OAuthRoutesToGeminiAndReturnsChatFormat
+--- PASS: TestGeminiForwardAsChatCompletions_OAuthRoutesToGeminiAndReturnsChatFormat (0.00s)
+=== RUN   TestGeminiForwardAsChatCompletions_StreamsOpenAIChunksFromGeminiSSE
+--- PASS: TestGeminiForwardAsChatCompletions_StreamsOpenAIChunksFromGeminiSSE (0.00s)
+=== RUN   TestGeminiForwardAsChatCompletions_StreamsInlineImages
+--- PASS: TestGeminiForwardAsChatCompletions_StreamsInlineImages (0.00s)
+=== RUN   TestGeminiForwardAsChatCompletions_FunctionNamedWebSearchStaysClientSide
+--- PASS: TestGeminiForwardAsChatCompletions_FunctionNamedWebSearchStaysClientSide (0.00s)
+=== RUN   TestGeminiMessagesHandleStreamingResponse_ClosesToolBlockBeforeText
+--- PASS: TestGeminiMessagesHandleStreamingResponse_ClosesToolBlockBeforeText (0.00s)
+=== RUN   TestGeminiForwardAsChatCompletions_VertexServiceAccountNotFoundDisablesAndFailsOver
+2026/10/16 08:25:50 WARN account_disabled_auth_error account_id=820 error="Service account token rejected (400): Invalid grant: account not found"
+--- PASS: TestGeminiForwardAsChatCompletions_VertexServiceAccountNotFoundDisablesAndFailsOver (0.10s)
+=== RUN   TestCodexManifestAccountMappingPreservesMetadataAndCache
+--- PASS: TestCodexManifestAccountMappingPreservesMetadataAndCache (0.00s)
+=== RUN   TestCodexManifestIdentityMappingKeepsExactBytesAndETag
+--- PASS: TestCodexManifestIdentityMappingKeepsExactBytesAndETag (0.00s)
+=== RUN   TestCodexManifestNullServiceTiersUsesEmptyArray
+--- PASS: TestCodexManifestNullServiceTiersUsesEmptyArray (0.00s)
+=== RUN   TestRetiredOpenAISubscriptionModelScopesUpstreamAccount
+--- PASS: TestRetiredOpenAISubscriptionModelScopesUpstreamAccount (0.00s)
+=== RUN   TestRetiredOpenAIModelFilteringKeepsMixedAPIKeySupport
+--- PASS: TestRetiredOpenAIModelFilteringKeepsMixedAPIKeySupport (0.00s)
+=== RUN   TestRetirementMappingKeepsReplacementAndBlocksRetiredAlias
+--- PASS: TestRetirementMappingKeepsReplacementAndBlocksRetiredAlias (0.00s)
+=== RUN   TestRetirementRoutingSkipsSubscriptionInBothSchedulers
+=== RUN   TestRetirementRoutingSkipsSubscriptionInBothSchedulers/legacy_scheduler
+=== RUN   TestRetirementRoutingSkipsSubscriptionInBothSchedulers/advanced_scheduler
+--- PASS: TestRetirementRoutingSkipsSubscriptionInBothSchedulers (0.00s)
+    --- PASS: TestRetirementRoutingSkipsSubscriptionInBothSchedulers/legacy_scheduler (0.00s)
+    --- PASS: TestRetirementRoutingSkipsSubscriptionInBothSchedulers/advanced_scheduler (0.00s)
+=== RUN   TestRetirementEmptyModelCatalogStaysAuthoritativeInCache
+--- PASS: TestRetirementEmptyModelCatalogStaysAuthoritativeInCache (0.00s)
+=== RUN   TestRetirementPassthroughManifestPreservesNonRetiredBytes
+--- PASS: TestRetirementPassthroughManifestPreservesNonRetiredBytes (0.00s)
+=== RUN   TestResponsesCreatedAtStamperAddsStableTimestampOnlyWhenMissing
+--- PASS: TestResponsesCreatedAtStamperAddsStableTimestampOnlyWhenMissing (0.00s)
+=== RUN   TestResponsesCreatedAtStamperLearnsUpstreamValue
+--- PASS: TestResponsesCreatedAtStamperLearnsUpstreamValue (0.00s)
+=== RUN   TestUpstreamFollowupTransactionProbe
+OBSERVED responses_json_created_at=true
+OBSERVED responses_stream_created_at=true
+OBSERVED openai_apikey_search=true
+OBSERVED oauth_gpt55_supported=false apikey_gpt55_supported=true
+OBSERVED gemini_forwarded_thinking="high"
+--- PASS: TestUpstreamFollowupTransactionProbe (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	2.371s
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD focused-v2.record.json
+COMMAND docker run --rm -e GOMAXPROCS=2 -e GOFLAGS=-p=2 -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v /private/tmp/sub2api-upstream-sync-20261016:/workspace -w /workspace/backend golang:1.26.9 sh -c 'gofmt -w $(git diff --name-only -- "*.go") internal/application/service/*retirement*.go internal/application/service/*created_at*.go internal/application/service/gemini_compat_thinking*.go; go test -tags unit ./internal/application/service ./internal/transport/http/handler -run "Test(ApplyGeminiCompat|GeminiForwardAsChat|GeminiMessagesForward|GeminiMessagesHandle|ConvertClaudeMessagesToGemini_Drops|Retired|AccountModelSupport|ResponsesCreatedAt|ShouldEmulateWebSearch|OpenAIModelListing)" -count=1'
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 1
+STDOUT BEGIN
+FAIL	github.com/Wei-Shaw/sub2api/internal/application/service [build failed]
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	0.015s
+FAIL
+
+STDOUT END
+STDERR BEGIN
+lstat backend/internal/application/service/account.go: no such file or directory
+lstat backend/internal/application/service/account_websearch_test.go: no such file or directory
+lstat backend/internal/application/service/gateway_model_availability.go: no such file or directory
+lstat backend/internal/application/service/gateway_service.go: no such file or directory
+lstat backend/internal/application/service/gateway_websearch_emulation.go: no such file or directory
+lstat backend/internal/application/service/gateway_websearch_emulation_test.go: no such file or directory
+lstat backend/internal/application/service/gemini_chat_completions_compat_service.go: no such file or directory
+lstat backend/internal/application/service/gemini_messages_compat_service.go: no such file or directory
+lstat backend/internal/application/service/openai_account_scheduler.go: no such file or directory
+lstat backend/internal/application/service/openai_codex_models_mapping.go: no such file or directory
+lstat backend/internal/application/service/openai_codex_models_metadata.go: no such file or directory
+lstat backend/internal/application/service/openai_gateway_messages.go: no such file or directory
+lstat backend/internal/application/service/openai_gateway_model_availability.go: no such file or directory
+lstat backend/internal/application/service/openai_gateway_response_flush_test.go: no such file or directory
+lstat backend/internal/application/service/openai_gateway_response_handling.go: no such file or directory
+lstat backend/internal/application/service/openai_gateway_scheduling.go: no such file or directory
+lstat backend/internal/application/service/openai_model_mapping.go: no such file or directory
+lstat backend/internal/application/service/openai_ws_forwarder_support.go: no such file or directory
+lstat backend/internal/application/service/openai_ws_http_bridge.go: no such file or directory
+lstat backend/internal/transport/http/handler/gateway_handler_models.go: no such file or directory
+lstat backend/internal/transport/http/handler/gateway_models_test.go: no such file or directory
+lstat backend/internal/transport/http/handler/no_account_error.go: no such file or directory
+# github.com/Wei-Shaw/sub2api/internal/application/service [github.com/Wei-Shaw/sub2api/internal/application/service.test]
+internal/application/service/gemini_compat_thinking_upstream_test.go:122:29: undefined: optionalStringValue
+internal/application/service/gemini_compat_thinking_upstream_test.go:167:30: undefined: optionalStringValue
+internal/application/service/gemini_compat_thinking_upstream_test.go:207:35: undefined: optionalStringValue
+internal/application/service/gemini_compat_thinking_upstream_test.go:366:26: undefined: optionalStringValue
+
+STDERR END
+
+RECORD focused-v3.record.json
+COMMAND docker run --rm -e GOMAXPROCS=2 -e GOFLAGS=-p=2 -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v /private/tmp/sub2api-upstream-sync-20261016:/workspace -w /workspace/backend golang:1.26.9 go test -tags unit ./internal/application/service ./internal/transport/http/handler -run 'Test(ApplyGeminiCompat|GeminiForwardAsChat|GeminiMessagesForward|GeminiMessagesHandle|ConvertClaudeMessagesToGemini_Drops|Retired|AccountModelSupport|ResponsesCreatedAt|ShouldEmulateWebSearch|OpenAIModelListing)' -count=1
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	2.230s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	0.026s
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD frontend-final.record.json
+COMMAND docker run --rm -v /private/tmp/sub2api-upstream-sync-20261016:/workspace -w /workspace node:24-bookworm-slim sh -c 'corepack enable; make test-frontend; pnpm --dir frontend exec vitest run src/features/admin-accounts --reporter=dot'
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 1
+STDOUT BEGIN
+
+STDOUT END
+STDERR BEGIN
+sh: 1: make: not found
+! Corepack is about to download https://registry.npmjs.org/pnpm/-/pnpm-12.11.2.tgz
+Downloading the pnpm 12.11.2 binary for linux-arm64...
+Error: ERR_PNPM_BAD_PM_VERSION
+
+  × This project is configured to use 11.17.0 of pnpm. Your current pnpm is
+  │ v12.11.2
+  │ Corepack invoked pnpm with this version, and pnpm does not switch versions
+  │ when running under corepack.
+  help: Align the "packageManager" field in package.json with
+        "devEngines.packageManager", or invoke pnpm directly (without
+        corepack) so it can switch versions automatically.
+        If you want to bypass this version check, you can set the "pmOnFail"
+        configuration to "warn" or "ignore" (e.g. via --pm-on-fail=ignore). If
+        using "devEngines.packageManager", you can set its "onFail" to "warn"
+        or "ignore"
+
+
+STDERR END
+
+RECORD frontend-v2.record.json
+COMMAND docker run --rm -v /private/tmp/sub2api-upstream-sync-20261016:/workspace -w /workspace/frontend node:24-bookworm-slim sh -ec 'apt-get update -qq && apt-get install -y -qq make >/dev/null; corepack enable; corepack prepare pnpm@11.17.0 --activate; make -C /workspace test-frontend; pnpm exec vitest run src/features/admin-accounts --reporter=dot'
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+Preparing pnpm@11.17.0 for immediate activation...
+make: Entering directory '/workspace'
+? Verifying lockfile against supply-chain policies (483 entries)...
+Lockfile is up to date, resolution step is skipped
+Already up to date
+[WARN] Request took 10100ms: https://registry.npmjs.org/@eslint%2Fjs
+[WARN] Request took 10695ms: https://registry.npmjs.org/@esbuild%2Fwin32-arm64
+[WARN] Request took 10699ms: https://registry.npmjs.org/@esbuild%2Flinux-riscv64
+[WARN] Request took 10782ms: https://registry.npmjs.org/@esbuild%2Fdarwin-x64
+[WARN] Request took 11081ms: https://registry.npmjs.org/@esbuild%2Fopenbsd-x64
+[WARN] Request took 11131ms: https://registry.npmjs.org/@esbuild%2Fdarwin-arm64
+[WARN] Request took 11327ms: https://registry.npmjs.org/@esbuild%2Ffreebsd-arm64
+[WARN] Request took 11391ms: https://registry.npmjs.org/@intlify%2Fshared
+[WARN] Request took 11646ms: https://registry.npmjs.org/@babel%2Ftypes
+[WARN] Request took 12612ms: https://registry.npmjs.org/@esbuild%2Fwin32-ia32
+[WARN] Request took 14276ms: https://registry.npmjs.org/@babel%2Fhelper-validator-identifier
+[WARN] Request took 14655ms: https://registry.npmjs.org/@esbuild%2Fsunos-x64
+[WARN] Request took 14995ms: https://registry.npmjs.org/@csstools%2Fcss-parser-algorithms
+[WARN] Request took 15003ms: https://registry.npmjs.org/@esbuild%2Faix-ppc64
+[WARN] Request took 15658ms: https://registry.npmjs.org/@airwallex%2Fcomponents-sdk
+[WARN] GET https://registry.npmjs.org/@esbuild%2Flinux-x64 error (UND_ERR_SOCKET). Will retry in 10 seconds. 2 retries left.
+[WARN] Request took 15967ms: https://registry.npmjs.org/@esbuild%2Fopenbsd-arm64
+[WARN] Request took 16042ms: https://registry.npmjs.org/@esbuild%2Flinux-mips64el
+[WARN] Request took 16287ms: https://registry.npmjs.org/@esbuild%2Flinux-arm
+[WARN] Request took 10490ms: https://registry.npmjs.org/@typescript-eslint%2Fscope-manager
+[WARN] Request took 10086ms: https://registry.npmjs.org/@typescript-eslint%2Ftypescript-estree
+[WARN] Request took 18824ms: https://registry.npmjs.org/@eslint%2Fplugin-kit
+[WARN] GET https://registry.npmjs.org/@eslint%2Fconfig-helpers error (ECONNRESET). Will retry in 10 seconds. 2 retries left.
+[WARN] Request took 19739ms: https://registry.npmjs.org/@types%2Fnode
+[WARN] Request took 11067ms: https://registry.npmjs.org/file-entry-cache
+[WARN] Request took 27098ms: https://registry.npmjs.org/@esbuild%2Flinux-x64
+[WARN] Request took 16206ms: https://registry.npmjs.org/cac
+[WARN] Request took 12808ms: https://registry.npmjs.org/postcss
+[WARN] Request took 15420ms: https://registry.npmjs.org/electron-to-chromium
+[WARN] Request took 14448ms: https://registry.npmjs.org/rollup
+[WARN] Request took 13913ms: https://registry.npmjs.org/tailwindcss
+[WARN] Request took 32106ms: https://registry.npmjs.org/@babel%2Fparser
+[WARN] Request took 23387ms: https://registry.npmjs.org/@vue%2Fcompiler-sfc
+[WARN] Request took 12610ms: https://registry.npmjs.org/vue
+[WARN] Request took 15628ms: https://registry.npmjs.org/tldts
+[WARN] Request took 15607ms: https://registry.npmjs.org/typescript
+[WARN] Request took 33850ms: https://registry.npmjs.org/pnpm
+
+   ╭───────────────────────────────────────────────╮
+   │                                               │
+   │     Update available! 11.17.0 → 12.11.2.      │
+   │     Changelog: https://pnpm.io/v/12.11.2      │
+   │   To update, run: corepack use pnpm@12.11.2   │
+   │                                               │
+   ╰───────────────────────────────────────────────╯
+
+[WARN] Request took 34519ms: https://registry.npmjs.org/@eslint%2Fconfig-helpers
+[WARN] Request took 17934ms: https://registry.npmjs.org/tldts-core
+[WARN] Request took 31166ms: https://registry.npmjs.org/@typescript-eslint%2Fparser
+[WARN] Request took 33133ms: https://registry.npmjs.org/@typescript-eslint%2Feslint-plugin
+[WARN] Request took 33673ms: https://registry.npmjs.org/@typescript-eslint%2Fvisitor-keys
+[WARN] Request took 34515ms: https://registry.npmjs.org/@typescript-eslint%2Ftypes
+✓ Lockfile passes supply-chain policies (483 entries in 42.4s)
+
+Done in 42.7s using pnpm v11.17.0
+make[1]: Entering directory '/workspace'
+
+ RUN  v3.2.6 /workspace/frontend
+
+ ✓ src/features/billing/__tests__/PaymentResultPage.spec.ts (15 tests) 93ms
+ ✓ src/__tests__/dynamicLocaleMapping.spec.ts (1 test) 498ms
+   ✓ dynamic locale mapping gate > requires every dynamic translation key construction to be explicitly reviewed  496ms
+ ✓ src/features/admin-usage/__tests__/UsageTable.spec.ts (22 tests) 140ms
+ ✓ src/features/profile/__tests__/ProfileInfoCard.spec.ts (8 tests) 89ms
+ ✓ src/features/auth/__tests__/WechatCallbackView.spec.ts (25 tests) 172ms
+ ✓ src/features/auth/__tests__/LinuxDoCallbackView.spec.ts (17 tests) 176ms
+ ✓ src/features/billing/__tests__/PaymentPage.spec.ts (13 tests) 182ms
+ ✓ src/common/pages/__tests__/HomePageCompact.spec.ts (11 tests) 94ms
+ ✓ src/features/admin-usage/__tests__/UsageDetailDialog.spec.ts (4 tests) 80ms
+ ✓ src/common/widgets/data/__tests__/GroupOptionItem.spec.ts (11 tests) 72ms
+ ✓ src/core/utils/__tests__/usageLocale.spec.ts (4 tests) 4ms
+ ✓ src/features/billing/__tests__/paymentLocaleScopes.spec.ts (4 tests) 36ms
+ ✓ src/features/auth/__tests__/authProfileLocaleScopes.spec.ts (4 tests) 55ms
+ ✓ src/__tests__/dynamicHtmlSecurity.spec.ts (4 tests) 18ms
+ ✓ src/features/channel-monitor-user/__tests__/channelMonitorLocale.spec.ts (6 tests) 2ms
+ ✓ src/core/utils/__tests__/embedded-url.spec.ts (7 tests) 7ms
+ ✓ src/core/utils/__tests__/homeContent.spec.ts (5 tests) 42ms
+ ✓ src/features/admin-settings/__tests__/SettingsPage.spec.ts (54 tests) 3409ms
+ ✓ src/features/admin-usage/__tests__/UsageStatsCards.spec.ts (4 tests) 33ms
+ ✓ src/features/prompt-audit/__tests__/promptAuditLocale.spec.ts (4 tests) 2ms
+ ✓ src/features/channels-user/__tests__/CustomLandingPage.security.spec.ts (4 tests) 2ms
+ ✓ src/core/__tests__/credentialCryptoUsage.spec.ts (2 tests) 450ms
+   ✓ credential crypto dependency scope > confines node-forge imports to the credential encryption fallback  434ms
+ ✓ src/features/subscriptions/__tests__/subscriptionStatus.spec.ts (4 tests) 2ms
+ ✓ src/features/channels-user/__tests__/customPageHtml.spec.ts (3 tests) 24ms
+ ✓ src/features/admin-backup/presentation/pages/__tests__/backupStatus.spec.ts (4 tests) 2ms
+ ✓ src/features/prompt-audit/__tests__/RuntimeOverview.spec.ts (1 test) 15ms
+ ✓ src/core/routes/__tests__/adminRouteAccess.spec.ts (1 test) 20ms
+ ✓ src/common/widgets/layout/__tests__/AppHeaderResponsive.spec.ts (2 tests) 2ms
+ ✓ src/core/i18n/__tests__/routeLocaleCoverage.spec.ts (3 tests) 8967ms
+   ✓ locale coverage > resolves every static locale key used by runtime source  3501ms
+   ✓ locale coverage > loads every statically reachable message for every route  5449ms
+
+ Test Files  29 passed (29)
+      Tests  247 passed (247)
+   Start at  07:46:46
+   Duration  13.91s (transform 7.57s, setup 6.57s, collect 19.90s, tests 14.69s, environment 47.66s, prepare 6.10s)
+
+make[1]: Leaving directory '/workspace'
+make: Leaving directory '/workspace'
+
+ RUN  v3.2.6 /workspace/frontend
+
+··············································································································································································································································································································································································································································································································
+
+ Test Files  56 passed (56)
+      Tests  494 passed (494)
+   Start at  07:47:01
+   Duration  18.02s (transform 7.71s, setup 11.00s, collect 25.12s, tests 5.14s, environment 89.60s, prepare 11.50s)
+
+
+STDOUT END
+STDERR BEGIN
+debconf: delaying package configuration, since apt-utils is not installed
+$ eslint .
+$ vue-tsc --noEmit
+
+STDERR END
+
+RECORD handler-final.record.json
+COMMAND docker run --rm --cpus 2 --memory 5g -e GOMAXPROCS=2 -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v /private/tmp/sub2api-upstream-sync-20261016:/workspace -w /workspace/backend golang:1.26.9 go test -tags unit ./internal/transport/http/handler -run 'Test(OpenAIModelListing|GatewayModels|ClassifyNoAccountError)' -count=1
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	0.033s
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD layout.record.json
+COMMAND sh -c 'make check-docs; make -C backend check-layout'
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 2
+STDOUT BEGIN
+Documentation checks passed.
+./scripts/check-source-layout.sh
+
+STDOUT END
+STDERR BEGIN
+layout error: internal/application/service/payment_fulfillment_test.go has 1201 lines (limit 1200); split by responsibility
+make: *** [check-layout] Error 1
+
+STDERR END
+
+RECORD performance-final.record.json
+COMMAND docker run --rm --cpus 2 --memory 4g -e GOMAXPROCS=2 -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v /private/tmp/sub2api-upstream-sync-20261016:/workspace -w /workspace/backend golang:1.26.9 go test -tags unit ./internal/application/service -run '^$' -bench 'Benchmark(ResponsesCreatedAtStamper|FollowupGeminiThinking)' -benchmem -benchtime=10x -count=3
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+2026/10/16 07:56:50 Timezone initialized: UTC (UTC offset: +00:00)
+goos: linux
+goarch: arm64
+pkg: github.com/Wei-Shaw/sub2api/internal/application/service
+BenchmarkResponsesCreatedAtStamperExisting-2   	      10	      2908 ns/op	       8 B/op	       0 allocs/op
+BenchmarkResponsesCreatedAtStamperExisting-2   	      10	      1475 ns/op	       8 B/op	       0 allocs/op
+BenchmarkResponsesCreatedAtStamperExisting-2   	      10	      1729 ns/op	       8 B/op	       0 allocs/op
+BenchmarkResponsesCreatedAtStamperMissing-2    	      10	      2525 ns/op	     350 B/op	       6 allocs/op
+BenchmarkResponsesCreatedAtStamperMissing-2    	      10	      2783 ns/op	     350 B/op	       6 allocs/op
+BenchmarkResponsesCreatedAtStamperMissing-2    	      10	      2642 ns/op	     350 B/op	       6 allocs/op
+BenchmarkFollowupGeminiThinking/upstream_two_writes-2         	      10	   8894471 ns/op	16794428 B/op	      10 allocs/op
+BenchmarkFollowupGeminiThinking/upstream_two_writes-2         	      10	   9624821 ns/op	16794428 B/op	      10 allocs/op
+BenchmarkFollowupGeminiThinking/upstream_two_writes-2         	      10	   8873567 ns/op	16794428 B/op	      10 allocs/op
+BenchmarkFollowupGeminiThinking/candidate_one_write-2         	      10	   7914612 ns/op	 8397680 B/op	      15 allocs/op
+BenchmarkFollowupGeminiThinking/candidate_one_write-2         	      10	   9239746 ns/op	 8397680 B/op	      15 allocs/op
+BenchmarkFollowupGeminiThinking/candidate_one_write-2         	      10	   8910579 ns/op	 8397662 B/op	      15 allocs/op
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.707s
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD production-build-final.record.json
+COMMAND env DOCKER_BUILDKIT=0 docker build -f deploy/Dockerfile --build-arg COMMIT=upstream-followup-b0a02a33 -t sub2api:upstream-sync-20261016-followup-final .
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+Sending build context to Docker daemon  337.5MB
+
+Step 1/45 : ARG NODE_IMAGE=node:24-alpine
+Step 2/45 : ARG GOLANG_IMAGE=golang:1.26.9-alpine
+Step 3/45 : ARG ALPINE_IMAGE=alpine:3.20
+Step 4/45 : ARG GOPROXY=https://goproxy.cn,direct
+Step 5/45 : ARG GOSUMDB=sum.golang.google.cn
+Step 6/45 : FROM ${NODE_IMAGE} AS frontend-builder
+ ---> ebfe2f904627
+Step 7/45 : WORKDIR /app/frontend
+ ---> Using cache
+ ---> 9a2f0f1a7285
+Step 8/45 : ENV NODE_OPTIONS=--max-old-space-size=2048
+ ---> Using cache
+ ---> 39b0fc47936b
+Step 9/45 : RUN corepack enable && corepack prepare pnpm@11.17.0 --activate
+ ---> Using cache
+ ---> d76e58b1300e
+Step 10/45 : COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
+ ---> Using cache
+ ---> 678823c01854
+Step 11/45 : RUN pnpm install --frozen-lockfile
+ ---> Using cache
+ ---> 5619331b667f
+Step 12/45 : COPY frontend/ ./
+ ---> 22563306578c
+Step 13/45 : COPY docs/legal/ /app/docs/legal/
+ ---> a0511239e58b
+Step 14/45 : RUN pnpm run build
+ ---> Running in c5586987da56
+✓ Lockfile passes supply-chain policies (verified 7d ago)
+Lockfile is up to date, resolution step is skipped
+Already up to date
+
+Done in 1.6s using pnpm v11.17.0
+[WARN] Request took 15240ms: https://registry.npmjs.org/pnpm
+
+   ╭───────────────────────────────────────────────╮
+   │                                               │
+   │     Update available! 11.17.0 → 12.11.2.      │
+   │     Changelog: https://pnpm.io/v/12.11.2      │
+   │   To update, run: corepack use pnpm@12.11.2   │
+   │                                               │
+   ╰───────────────────────────────────────────────╯
+
+[91m$ vue-tsc -b && vite build --config vite.config.ts
+[0mvite v6.4.3 building for production...
+transforming...
+✓ 1560 modules transformed.
+rendering chunks...
+[91m[plugin vite:reporter] 
+(!) /app/frontend/src/core/stores/appStore.ts is dynamically imported by /app/frontend/src/core/i18n/index.ts but also statically imported by /app/frontend/src/App.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/common/composables/useClipboard.ts, /app/frontend/src/common/pages/HomePage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/common/pages/LegalDocumentPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/common/widgets/data/AnnouncementBell.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/common/widgets/data/GroupBadge.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/common/widgets/data/GroupOptionItem.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/common/widgets/feedback/Toast.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/common/widgets/layout/AppSidebar.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/common/widgets/layout/AuthLayout.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/core/routes/index.ts, /app/frontend/src/core/services/featureFlags.ts, /app/frontend/src/features/activity-center/presentation/pages/ActivityCenterDetailPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/activity-center/presentation/pages/ActivityCenterPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/activity-center/presentation/pages/ActivityRecordsPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/activity-center/presentation/pages/AdminActivityCenterPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-account-inspection/presentation/pages/AccountInspectionPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-account-quality/presentation/pages/AccountQualityPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-accounts/presentation/composables/useAccountOAuth.ts, /app/frontend/src/features/admin-accounts/presentation/composables/useAntigravityOAuth.ts, /app/frontend/src/features/admin-accounts/presentation/composables/useGeminiOAuth.ts, /app/frontend/src/features/admin-accounts/presentation/composables/useGrokOAuth.ts, /app/frontend/src/features/admin-accounts/presentation/composables/useOpenAIOAuth.ts, /app/frontend/src/features/admin-accounts/presentation/pages/AccountsPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-accounts/presentation/widgets/AccountPriorityCell.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-accounts/presentation/widgets/AdminReAuthAccountDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-accounts/presentation/widgets/BulkEditAccountDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-accounts/presentation/widgets/CreateAccountDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-accounts/presentation/widgets/EditAccountDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-accounts/presentation/widgets/HeaderOverrideJsonTools.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-accounts/presentation/widgets/ImportDataDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-accounts/presentation/widgets/ModelWhitelistSelector.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-accounts/presentation/widgets/OllamaCloudUsageSettings.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-accounts/presentation/widgets/ReAuthAccountDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-accounts/presentation/widgets/ScheduledTestsPanel.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-accounts/presentation/widgets/SyncFromCrsDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-accounts/presentation/widgets/TempUnschedStatusDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-channel-monitor/presentation/pages/ChannelMonitorPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-channel-monitor/presentation/widgets/MonitorFormDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-channel-monitor/presentation/widgets/MonitorTemplateApplyPickerDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-channel-monitor/presentation/widgets/MonitorTemplateManagerDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-channels/presentation/pages/ChannelsPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-dashboard/presentation/pages/DashboardPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-egress/presentation/pages/EgressPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-groups/presentation/composables/useCreateGroupController.ts, /app/frontend/src/features/admin-groups/presentation/composables/useEditGroupController.ts, /app/frontend/src/features/admin-groups/presentation/composables/useGroupsListController.ts, /app/frontend/src/features/admin-groups/presentation/widgets/CompositeRoutesDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-groups/presentation/widgets/GroupRPMOverridesDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-groups/presentation/widgets/GroupRateMultipliersDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-ops/presentation/pages/OpsDashboardPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-ops/presentation/widgets/OpsAlertEventsCard.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-ops/presentation/widgets/OpsAlertRulesCard.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-ops/presentation/widgets/OpsErrorDetailDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-ops/presentation/widgets/OpsRequestDetailsDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-ops/presentation/widgets/OpsSettingsDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-ops/presentation/widgets/OpsSystemLogTable.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-orders/presentation/pages/AdminOrdersPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-orders/presentation/pages/AdminPaymentDashboardPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-orders/presentation/pages/AdminPaymentPlansPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-orders/presentation/widgets/PlanEditDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-promo/presentation/pages/PromoCodesPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-proxies/presentation/pages/ProxiesPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-proxies/presentation/widgets/ImportDataDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-redeem/presentation/pages/RedeemPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-risk-control/presentation/pages/RiskControlPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-settings/presentation/composables/useSettingsAdminApiKeys.ts, /app/frontend/src/features/admin-settings/presentation/composables/useSettingsAffiliate.ts, /app/frontend/src/features/admin-settings/presentation/composables/useSettingsGatewayPolicies.ts, /app/frontend/src/features/admin-settings/presentation/composables/useSettingsPage.ts, /app/frontend/src/features/admin-settings/presentation/composables/useSettingsPaymentProviders.ts, /app/frontend/src/features/admin-settings/presentation/composables/useSettingsWebSearch.ts, /app/frontend/src/features/admin-settings/presentation/widgets/AdminComplianceDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-settings/presentation/widgets/EmailTemplateEditor.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-settings/presentation/widgets/ErrorPassthroughRulesDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-settings/presentation/widgets/PanelRateLimitSettingsCard.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-settings/presentation/widgets/TLSFingerprintProfilesDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-settings/presentation/widgets/settings-tabs/SettingsOAuth2ProviderPanel.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-settings/presentation/widgets/settings-tabs/SettingsPermissionGroupsTab.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-subscriptions/presentation/pages/SubscriptionsPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-usage/presentation/pages/UsagePage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-usage/presentation/widgets/UsageCleanupDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-users/presentation/pages/UsersPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-users/presentation/widgets/BulkEditUserDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-users/presentation/widgets/GroupReplaceDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-users/presentation/widgets/UserAllowedGroupsDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-users/presentation/widgets/UserApiKeysDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-users/presentation/widgets/UserAttributesConfigDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-users/presentation/widgets/UserBalanceDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-users/presentation/widgets/UserCreateDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-users/presentation/widgets/UserEditDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-users/presentation/widgets/UserPlatformQuotaDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/affiliate/presentation/pages/AffiliatePage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/affiliate/presentation/widgets/AdminAffiliateRecordsTable.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/announcements/presentation/pages/AnnouncementsPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/announcements/presentation/widgets/AnnouncementReadStatusDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/pages/DingTalkCallbackPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/pages/DingTalkEmailCompletionPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/pages/EmailVerifyPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/pages/ForgotPasswordPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/pages/LinuxDoCallbackPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/pages/LoginPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/pages/OAuthCallbackPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/pages/OidcCallbackPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/pages/RegisterPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/pages/ResetPasswordPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/pages/WechatCallbackPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/widgets/PendingOAuthCreateAccountForm.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/widgets/TotpLoginDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/widgets/TotpStepUpDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/widgets/WechatOAuthSection.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/batch-image/presentation/composables/useBatchImageGuideController.ts, /app/frontend/src/features/billing/presentation/pages/RedeemPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/channel-monitor-user/presentation/composables/useChannelMonitorFormat.ts, /app/frontend/src/features/channel-monitor-user/presentation/pages/ChannelStatusSharePage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/channel-monitor-user/presentation/widgets/MonitorDetailDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/channels-user/presentation/pages/AvailableChannelsPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/channels-user/presentation/pages/ChannelStatusPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/channels-user/presentation/pages/CustomLandingPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/channels-user/presentation/widgets/AvailableChannelsMobileList.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/channels-user/presentation/widgets/AvailableChannelsTable.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/keys/presentation/pages/KeysPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/model-plaza/presentation/pages/ModelPlazaPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/model-plaza/presentation/widgets/PlazaGroupSection.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/model-plaza/presentation/widgets/PlazaNavBar.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/passkeys/presentation/widgets/ProfilePasskeyCard.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/profile/presentation/pages/ProfilePage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/profile/presentation/widgets/ProfileAvatarCard.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/profile/presentation/widgets/ProfileBalanceNotifyCard.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/profile/presentation/widgets/ProfileEditForm.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/profile/presentation/widgets/ProfileIdentityBindingsSection.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/profile/presentation/widgets/ProfilePasswordForm.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/profile/presentation/widgets/TotpDisableDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/profile/presentation/widgets/TotpSetupDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/prompt-audit/presentation/pages/PromptAuditPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/subscriptions/presentation/pages/SubscriptionsPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/subscriptions/presentation/widgets/SubscriptionPlanCard.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/support-chat/presentation/composables/useSupportBrowserNotifications.ts, /app/frontend/src/features/support-chat/presentation/composables/useSupportUnreadPolling.ts, /app/frontend/src/features/support-chat/presentation/pages/AdminSupportChatPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/support-chat/presentation/pages/SupportChatPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/support-chat/presentation/widgets/SupportBrowserNotificationButton.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/usage/presentation/pages/UsagePage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/main.ts, /app/frontend/src/stores/index.ts, dynamic import will not move module into another chunk.
+
+[0m[91m[plugin vite:reporter] 
+(!) /app/frontend/src/core/routes/title.ts is dynamically imported by /app/frontend/src/core/i18n/index.ts but also statically imported by /app/frontend/src/App.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/core/routes/index.ts, dynamic import will not move module into another chunk.
+
+[0m[91m[plugin vite:reporter] 
+(!) /app/frontend/src/features/admin-settings/presentation/stores/adminSettingsStore.ts is dynamically imported by /app/frontend/src/core/i18n/index.ts but also statically imported by /app/frontend/src/App.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/common/widgets/layout/AppHeader.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/common/widgets/layout/AppSidebar.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/core/routes/index.ts, /app/frontend/src/features/admin-settings/adminSettingsStore.ts, /app/frontend/src/features/admin-settings/presentation/composables/useSettingsPage.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /app/frontend/src/core/routes/index.ts is dynamically imported by /app/frontend/src/core/i18n/index.ts but also statically imported by /app/frontend/src/main.ts, dynamic import will not move module into another chunk.
+
+[0mcomputing gzip size...
+../backend/internal/transport/webassets/dist/index.html                                                                           0.82 kB │ gzip:   0.41 kB
+../backend/internal/transport/webassets/dist/assets/GroupOptionItem-FGxwoQeA.css                                                  0.07 kB │ gzip:   0.09 kB
+../backend/internal/transport/webassets/dist/assets/Pagination-D-j2qL74.css                                                       0.11 kB │ gzip:   0.11 kB
+../backend/internal/transport/webassets/dist/assets/EmailVerifyPage-DsC4X5xZ.css                                                  0.20 kB │ gzip:   0.14 kB
+../backend/internal/transport/webassets/dist/assets/LinuxDoCallbackPage-rXKv07pW.css                                              0.20 kB │ gzip:   0.14 kB
+../backend/internal/transport/webassets/dist/assets/WechatCallbackPage-BpBft-C2.css                                               0.20 kB │ gzip:   0.14 kB
+../backend/internal/transport/webassets/dist/assets/DingTalkCallbackPage-DMSSyOPq.css                                             0.20 kB │ gzip:   0.14 kB
+../backend/internal/transport/webassets/dist/assets/OidcCallbackPage-C8jRhGck.css                                                 0.20 kB │ gzip:   0.14 kB
+../backend/internal/transport/webassets/dist/assets/PendingOAuthCreateAccountForm-ujvp9LKY.css                                    0.20 kB │ gzip:   0.14 kB
+../backend/internal/transport/webassets/dist/assets/ForgotPasswordPage-CyOd_TOg.css                                               0.20 kB │ gzip:   0.14 kB
+../backend/internal/transport/webassets/dist/assets/ResetPasswordPage-CpEe4Vn5.css                                                0.20 kB │ gzip:   0.14 kB
+../backend/internal/transport/webassets/dist/assets/RegisterPage-fpfFo4g4.css                                                     0.20 kB │ gzip:   0.14 kB
+../backend/internal/transport/webassets/dist/assets/RedeemPage-C1Zwuk7b.css                                                       0.20 kB │ gzip:   0.14 kB
+../backend/internal/transport/webassets/dist/assets/LoginPage-Bu62WSUV.css                                                        0.20 kB │ gzip:   0.14 kB
+../backend/internal/transport/webassets/dist/assets/UsersPage-DDQH6LOQ.css                                                        0.21 kB │ gzip:   0.13 kB
+../backend/internal/transport/webassets/dist/assets/LocaleSwitcher-D7uZ_grO.css                                                   0.23 kB │ gzip:   0.15 kB
+../backend/internal/transport/webassets/dist/assets/AccountInspectionPage-CJg8XbKw.css                                            0.23 kB │ gzip:   0.17 kB
+../backend/internal/transport/webassets/dist/assets/ModelWhitelistSelector-Bovp6fik.css                                           0.25 kB │ gzip:   0.20 kB
+../backend/internal/transport/webassets/dist/assets/LoadingSpinner-1lDfrnxf.css                                                   0.27 kB │ gzip:   0.20 kB
+../backend/internal/transport/webassets/dist/assets/ActivityCenterPage-CYeM4QEU.css                                               0.33 kB │ gzip:   0.16 kB
+../backend/internal/transport/webassets/dist/assets/GroupsPage-YLF9XuyZ.css                                                       0.41 kB │ gzip:   0.15 kB
+../backend/internal/transport/webassets/dist/assets/AuthLayout-BZ7pqudw.css                                                       0.42 kB │ gzip:   0.21 kB
+../backend/internal/transport/webassets/dist/assets/AccountQualityPage-pXimz_jp.css                                               0.43 kB │ gzip:   0.25 kB
+../backend/internal/transport/webassets/dist/assets/LoginAgreementPrompt-CRCvDOtC.css                                             0.51 kB │ gzip:   0.18 kB
+../backend/internal/transport/webassets/dist/assets/OpsDashboardPage-BNoWYui_.css                                                 0.56 kB │ gzip:   0.25 kB
+../backend/internal/transport/webassets/dist/assets/BatchImageGuidePage-CDQP2HXf.css                                              0.66 kB │ gzip:   0.30 kB
+../backend/internal/transport/webassets/dist/assets/AnnouncementPopup-C9cMxyAg.css                                                0.84 kB │ gzip:   0.32 kB
+../backend/internal/transport/webassets/dist/assets/AccountsPage-BufhzMnw.css                                                     1.07 kB │ gzip:   0.45 kB
+../backend/internal/transport/webassets/dist/assets/SubscriptionsPage-DY_YIG-w.css                                                1.22 kB │ gzip:   0.45 kB
+../backend/internal/transport/webassets/dist/assets/AccountQualitySharePage-CK5et7HJ.css                                          1.25 kB │ gzip:   0.46 kB
+../backend/internal/transport/webassets/dist/assets/HumanVerificationWidget-DlHuDM34.css                                          1.40 kB │ gzip:   0.50 kB
+../backend/internal/transport/webassets/dist/assets/KeyUsagePage-o1kck5xN.css                                                     1.47 kB │ gzip:   0.56 kB
+../backend/internal/transport/webassets/dist/assets/ChannelsPage-DMSDpgDv.css                                                     1.77 kB │ gzip:   0.58 kB
+../backend/internal/transport/webassets/dist/assets/AdminComplianceDialog-Cci_kDwn.css                                            1.91 kB │ gzip:   0.37 kB
+../backend/internal/transport/webassets/dist/assets/SupportMessageList-DHVCWXjl.css                                               2.03 kB │ gzip:   0.54 kB
+../backend/internal/transport/webassets/dist/assets/HomePage-CNjx36yD.css                                                         2.56 kB │ gzip:   0.91 kB
+../backend/internal/transport/webassets/dist/assets/vendor-onboarding-CTZuBZOi.css                                                3.04 kB │ gzip:   0.97 kB
+../backend/internal/transport/webassets/dist/assets/DataTable-39qE_9UT.css                                                        3.24 kB │ gzip:   0.77 kB
+../backend/internal/transport/webassets/dist/assets/TablePageLayout-BcCQbd-k.css                                                  3.52 kB │ gzip:   0.83 kB
+../backend/internal/transport/webassets/dist/assets/LegalDocumentPage-_4qSZLXR.css                                                4.87 kB │ gzip:   0.85 kB
+../backend/internal/transport/webassets/dist/assets/ModelPlazaPage-BEaA_cpi.css                                                   5.03 kB │ gzip:   1.02 kB
+../backend/internal/transport/webassets/dist/assets/SettingsPage-CFPMcbrS.css                                                     6.09 kB │ gzip:   1.54 kB
+../backend/internal/transport/webassets/dist/assets/announcement-markdown-CUniKqBZ.css                                            8.26 kB │ gzip:   1.54 kB
+../backend/internal/transport/webassets/dist/assets/TokenUsageTrend-CIbvRRlj.css                                                  8.85 kB │ gzip:   1.40 kB
+../backend/internal/transport/webassets/dist/assets/ProxySelector-CR-kR0I1.css                                                    9.02 kB │ gzip:   1.41 kB
+../backend/internal/transport/webassets/dist/assets/Select-CYrRNmdv.css                                                           9.63 kB │ gzip:   1.51 kB
+../backend/internal/transport/webassets/dist/assets/AppHeader-CoGhakwX.css                                                       10.49 kB │ gzip:   2.09 kB
+../backend/internal/transport/webassets/dist/assets/MediaStudioPage-QRG5RGlt.css                                                 10.50 kB │ gzip:   1.28 kB
+../backend/internal/transport/webassets/dist/assets/CustomLandingPage-DOzs7hmf.css                                               11.47 kB │ gzip:   2.06 kB
+../backend/internal/transport/webassets/dist/assets/index-BEOLIW67.css                                                          270.50 kB │ gzip:  35.86 kB
+../backend/internal/transport/webassets/dist/assets/maskApiKey-ClKV8GuA.js                                                        0.11 kB │ gzip:   0.11 kB
+../backend/internal/transport/webassets/dist/assets/stableObjectKey-DullU5Fx.js                                                   0.15 kB │ gzip:   0.14 kB
+../backend/internal/transport/webassets/dist/assets/enumLocale-BmAai25m.js                                                        0.16 kB │ gzip:   0.16 kB
+../backend/internal/transport/webassets/dist/assets/paymentMethods-Blz48iUk.js                                                    0.18 kB │ gzip:   0.14 kB
+../backend/internal/transport/webassets/dist/assets/groupsUserDatasource-C9p7gZhC.js                                              0.25 kB │ gzip:   0.18 kB
+../backend/internal/transport/webassets/dist/assets/peak-rate-qZGUWdry.js                                                         0.28 kB │ gzip:   0.21 kB
+../backend/internal/transport/webassets/dist/assets/channel-DxyNqB5O.js                                                           0.32 kB │ gzip:   0.26 kB
+../backend/internal/transport/webassets/dist/assets/pendingRegistrationCredentials-BKuTlQOu.js                                    0.38 kB │ gzip:   0.23 kB
+../backend/internal/transport/webassets/dist/assets/authVerificationActions-D5vIhau2.js                                           0.53 kB │ gzip:   0.22 kB
+../backend/internal/transport/webassets/dist/assets/vendor-table-CT_UJ1D9.js                                                      0.54 kB │ gzip:   0.35 kB
+../backend/internal/transport/webassets/dist/assets/supportBrowserNotificationContent-6qc9PIhM.js                                 0.63 kB │ gzip:   0.32 kB
+../backend/internal/transport/webassets/dist/assets/totpDatasource-l3QFW21d.js                                                    0.67 kB │ gzip:   0.25 kB
+../backend/internal/transport/webassets/dist/assets/ingressRiskDatasource-zM0SySvN.js                                             0.70 kB │ gzip:   0.28 kB
+../backend/internal/transport/webassets/dist/assets/bodyScrollLock-D0PPFs43.js                                                    0.77 kB │ gzip:   0.37 kB
+../backend/internal/transport/webassets/dist/assets/SearchInput.vue_vue_type_script_setup_true_lang-BYrSH9hz.js                   0.80 kB │ gzip:   0.49 kB
+../backend/internal/transport/webassets/dist/assets/opsErrorQueries-CKCdhH7i.js                                                   0.82 kB │ gzip:   0.28 kB
+../backend/internal/transport/webassets/dist/assets/LoadingSpinner-DUhxJEK0.js                                                    0.82 kB │ gzip:   0.51 kB
+../backend/internal/transport/webassets/dist/assets/paymentLocale-CGteJrZx.js                                                     0.89 kB │ gzip:   0.34 kB
+../backend/internal/transport/webassets/dist/assets/paymentDatasource-B-XuE2Hg.js                                                 0.90 kB │ gzip:   0.36 kB
+../backend/internal/transport/webassets/dist/assets/Toggle.vue_vue_type_script_setup_true_lang-DK9-t7jl.js                        0.92 kB │ gzip:   0.53 kB
+../backend/internal/transport/webassets/dist/assets/useClipboard-Cnk905uw.js                                                      0.92 kB │ gzip:   0.57 kB
+../backend/internal/transport/webassets/dist/assets/adminUsageDatasource-BRUlcgnz.js                                              0.99 kB │ gzip:   0.38 kB
+../backend/internal/transport/webassets/dist/assets/useTableSelection-BoTa6Cf0.js                                                 0.99 kB │ gzip:   0.47 kB
+../backend/internal/transport/webassets/dist/assets/index-PGUjmfJU.js                                                             1.00 kB │ gzip:   0.46 kB
+../backend/internal/transport/webassets/dist/assets/featureFlags-B2k6rvc0.js                                                      1.01 kB │ gzip:   0.45 kB
+../backend/internal/transport/webassets/dist/assets/adminPaymentActions-CTGKripT.js                                               1.01 kB │ gzip:   0.31 kB
+../backend/internal/transport/webassets/dist/assets/credentialEncryptionFallback-LuqegFiL.js                                      1.05 kB │ gzip:   0.63 kB
+../backend/internal/transport/webassets/dist/assets/oauthAffiliate-DCMnDsLu.js                                                    1.12 kB │ gzip:   0.52 kB
+../backend/internal/transport/webassets/dist/assets/paymentDisplay-C1_ERkRx.js                                                    1.13 kB │ gzip:   0.65 kB
+../backend/internal/transport/webassets/dist/assets/useStepUp-BSVvZYnz.js                                                         1.19 kB │ gzip:   0.69 kB
+../backend/internal/transport/webassets/dist/assets/adminClusterDatasource-D9GyO8iu.js                                            1.19 kB │ gzip:   0.40 kB
+../backend/internal/transport/webassets/dist/assets/paymentStore-ojO4rmYD.js                                                      1.19 kB │ gzip:   0.59 kB
+../backend/internal/transport/webassets/dist/assets/apiError-BcAuv_LF.js                                                          1.21 kB │ gzip:   0.57 kB
+../backend/internal/transport/webassets/dist/assets/usePersistedPageSize-FO5oJMHX.js                                              1.23 kB │ gzip:   0.62 kB
+../backend/internal/transport/webassets/dist/assets/apiKeysDatasource-jgR1kqHS.js                                                 1.30 kB │ gzip:   0.45 kB
+../backend/internal/transport/webassets/dist/assets/TablePageLayout-CfTtG2Z3.js                                                   1.31 kB │ gzip:   0.62 kB
+../backend/internal/transport/webassets/dist/assets/adminAffiliatesDatasource-BpVxcKuK.js                                         1.39 kB │ gzip:   0.47 kB
+../backend/internal/transport/webassets/dist/assets/activityCenterText-BvgPWAyP.js                                                1.42 kB │ gzip:   0.56 kB
+../backend/internal/transport/webassets/dist/assets/adminDashboardDatasource-CyWnQQED.js                                          1.45 kB │ gzip:   0.41 kB
+../backend/internal/transport/webassets/dist/assets/AdminAffiliateInvitesPage-Czw-Yk_y.js                                         1.48 kB │ gzip:   0.67 kB
+../backend/internal/transport/webassets/dist/assets/AdminAffiliateRebatesPage-DAHVK7f-.js                                         1.48 kB │ gzip:   0.66 kB
+../backend/internal/transport/webassets/dist/assets/AdminAffiliateTransfersPage-DYnv_QwJ.js                                       1.49 kB │ gzip:   0.67 kB
+../backend/internal/transport/webassets/dist/assets/registrationEmailPolicy-H5rlCSwg.js                                           1.56 kB │ gzip:   0.70 kB
+../backend/internal/transport/webassets/dist/assets/ConfirmDialog.vue_vue_type_script_setup_true_lang-BxlsuNoC.js                 1.58 kB │ gzip:   0.77 kB
+../backend/internal/transport/webassets/dist/assets/subscriptionStatus-DlyJ0DKE.js                                                1.69 kB │ gzip:   0.68 kB
+../backend/internal/transport/webassets/dist/assets/EmptyState.vue_vue_type_script_setup_true_lang-B_EwhpLb.js                    1.71 kB │ gzip:   0.93 kB
+../backend/internal/transport/webassets/dist/assets/paymentUxSignals-jsAlGI-0.js                                                  1.81 kB │ gzip:   0.75 kB
+../backend/internal/transport/webassets/dist/assets/profileDatasource-BU_p3qlZ.js                                                 1.84 kB │ gzip:   0.77 kB
+../backend/internal/transport/webassets/dist/assets/AuthLayout-fIjrIy8I.js                                                        2.01 kB │ gzip:   1.05 kB
+../backend/internal/transport/webassets/dist/assets/adminGroupQueries-B52UXK2u.js                                                 2.11 kB │ gzip:   0.71 kB
+../backend/internal/transport/webassets/dist/assets/useKeyedDebouncedSearch-BjiH_tQo.js                                           2.13 kB │ gzip:   0.82 kB
+../backend/internal/transport/webassets/dist/assets/OrderStatusBadge.vue_vue_type_script_setup_true_lang-DA57Mhk3.js              2.15 kB │ gzip:   0.69 kB
+../backend/internal/transport/webassets/dist/assets/mediaStudio-CHfJaZe_.js                                                       2.18 kB │ gzip:   1.25 kB
+../backend/internal/transport/webassets/dist/assets/usageDatasource-DAgROqkP.js                                                   2.20 kB │ gzip:   0.70 kB
+../backend/internal/transport/webassets/dist/assets/Input.vue_vue_type_script_setup_true_lang-DxQ0T_Jm.js                         2.21 kB │ gzip:   1.05 kB
+../backend/internal/transport/webassets/dist/assets/modelCapabilityCache-5y92eq27.js                                              2.24 kB │ gzip:   0.89 kB
+../backend/internal/transport/webassets/dist/assets/mediaStudio-DFTTBjg2.js                                                       2.26 kB │ gzip:   1.03 kB
+../backend/internal/transport/webassets/dist/assets/adminGroupActions-C11hmKUf.js                                                 2.36 kB │ gzip:   0.88 kB
+../backend/internal/transport/webassets/dist/assets/LocaleSwitcher-CcaGzU6Y.js                                                    2.37 kB │ gzip:   1.19 kB
+../backend/internal/transport/webassets/dist/assets/NotFoundPage-CgpMwOrJ.js                                                      2.51 kB │ gzip:   1.23 kB
+../backend/internal/transport/webassets/dist/assets/WechatPaymentCallbackPage-D2k9M2Pq.js                                         2.56 kB │ gzip:   1.29 kB
+../backend/internal/transport/webassets/dist/assets/adminAccountQueries-BD8QM86D.js                                               2.63 kB │ gzip:   0.82 kB
+../backend/internal/transport/webassets/dist/assets/vendor-export-D_pqVeD8.js                                                     2.66 kB │ gzip:   1.28 kB
+../backend/internal/transport/webassets/dist/assets/HelpTooltip.vue_vue_type_script_setup_true_lang-BJv6aUFi.js                   2.84 kB │ gzip:   1.35 kB
+../backend/internal/transport/webassets/dist/assets/OrderTable.vue_vue_type_script_setup_true_lang-Djkmqqnb.js                    2.85 kB │ gzip:   1.18 kB
+../backend/internal/transport/webassets/dist/assets/adminUsersDatasource-F6Unq_ut.js                                              2.96 kB │ gzip:   1.00 kB
+../backend/internal/transport/webassets/dist/assets/rechargeBonus-Cjpd3isk.js                                                     2.99 kB │ gzip:   1.14 kB
+../backend/internal/transport/webassets/dist/assets/wxpay-UHDvuORB.js                                                             2.99 kB │ gzip:   1.29 kB
+../backend/internal/transport/webassets/dist/assets/DingTalkEmailCompletionPage-DdyRtnfL.js                                       3.01 kB │ gzip:   1.42 kB
+../backend/internal/transport/webassets/dist/assets/GroupSelector.vue_vue_type_script_setup_true_lang-BckRkBmD.js                 3.25 kB │ gzip:   1.48 kB
+../backend/internal/transport/webassets/dist/assets/vendor-vueuse-CHpQ7v9A.js                                                     3.29 kB │ gzip:   1.59 kB
+../backend/internal/transport/webassets/dist/assets/vendor-stripe-DHoWwf4u.js                                                     3.31 kB │ gzip:   1.52 kB
+../backend/internal/transport/webassets/dist/assets/GroupOptionItem-z1vEkw15.js                                                   3.32 kB │ gzip:   1.49 kB
+../backend/internal/transport/webassets/dist/assets/authOAuthActions-bIsMROag.js                                                  3.34 kB │ gzip:   1.02 kB
+../backend/internal/transport/webassets/dist/assets/BaseDialog.vue_vue_type_script_setup_true_lang-C_0kDaQu.js                    3.69 kB │ gzip:   1.68 kB
+../backend/internal/transport/webassets/dist/assets/activityCenter-B9QMRmzV.js                                                    3.71 kB │ gzip:   1.88 kB
+../backend/internal/transport/webassets/dist/assets/providerConfigSignals-DjhlsBzr.js                                             3.73 kB │ gzip:   1.27 kB
+../backend/internal/transport/webassets/dist/assets/activityCenter-CgJ4PPms.js                                                    3.84 kB │ gzip:   1.61 kB
+../backend/internal/transport/webassets/dist/assets/AirwallexPaymentPage-DUwrhKkU.js                                              4.00 kB │ gzip:   1.88 kB
+../backend/internal/transport/webassets/dist/assets/format-C9n9rDc9.js                                                            4.17 kB │ gzip:   1.61 kB
+../backend/internal/transport/webassets/dist/assets/StripePopupPage-Bt5p55FU.js                                                   4.19 kB │ gzip:   1.86 kB
+../backend/internal/transport/webassets/dist/assets/paymentFlowResolver-DhBXlY5v.js                                               4.28 kB │ gzip:   1.53 kB
+../backend/internal/transport/webassets/dist/assets/ChannelStatusPage--5CJeeLl.js                                                 4.34 kB │ gzip:   1.89 kB
+../backend/internal/transport/webassets/dist/assets/index-DkBZk3s7.js                                                             4.39 kB │ gzip:   2.04 kB
+../backend/internal/transport/webassets/dist/assets/opsSettingsQueries-BPXrA4Ly.js                                                4.42 kB │ gzip:   0.96 kB
+../backend/internal/transport/webassets/dist/assets/OAuth2AuthorizePage-p7pEahRW.js                                               4.54 kB │ gzip:   1.83 kB
+../backend/internal/transport/webassets/dist/assets/AdminComplianceDialog-ZrvTKJ6o.js                                             4.94 kB │ gzip:   2.16 kB
+../backend/internal/transport/webassets/dist/assets/ActivityRecordsPage-DzK_WhFk.js                                               5.12 kB │ gzip:   2.06 kB
+../backend/internal/transport/webassets/dist/assets/ChannelStatusSharePage-CFhKiFXu.js                                            5.13 kB │ gzip:   2.29 kB
+../backend/internal/transport/webassets/dist/assets/PaymentQRCodePage-C7oNgrUL.js                                                 5.15 kB │ gzip:   2.29 kB
+../backend/internal/transport/webassets/dist/assets/AnnouncementPopup-DZFD8hCf.js                                                 5.27 kB │ gzip:   2.19 kB
+../backend/internal/transport/webassets/dist/assets/supportChat-Ddzw80i-.js                                                       5.33 kB │ gzip:   2.71 kB
+../backend/internal/transport/webassets/dist/assets/supportChat-B63E0iC3.js                                                       5.46 kB │ gzip:   2.22 kB
+../backend/internal/transport/webassets/dist/assets/LegalDocumentPage-CJ00BQJt.js                                                 5.60 kB │ gzip:   2.23 kB
+../backend/internal/transport/webassets/dist/assets/GroupBadge.vue_vue_type_script_setup_true_lang-Cvzdq7mV.js                    5.74 kB │ gzip:   1.84 kB
+../backend/internal/transport/webassets/dist/assets/Pagination-DATeaexn.js                                                        5.80 kB │ gzip:   2.02 kB
+../backend/internal/transport/webassets/dist/assets/ProxySelector-CmhFS0LZ.js                                                     6.03 kB │ gzip:   2.36 kB
+../backend/internal/transport/webassets/dist/assets/landing-BOpieeWp.js                                                           6.10 kB │ gzip:   3.15 kB
+../backend/internal/transport/webassets/dist/assets/landing-C8MfIJly.js                                                           6.28 kB │ gzip:   2.68 kB
+../backend/internal/transport/webassets/dist/assets/ModelTagInput.vue_vue_type_script_setup_true_lang-tB0g-aho.js                 6.52 kB │ gzip:   2.44 kB
+../backend/internal/transport/webassets/dist/assets/ForgotPasswordPage-oHuJkwB6.js                                                6.80 kB │ gzip:   2.80 kB
+../backend/internal/transport/webassets/dist/assets/UserOrdersPage-Dc766Ocv.js                                                    6.84 kB │ gzip:   2.52 kB
+../backend/internal/transport/webassets/dist/assets/PendingOAuthCreateAccountForm-OFgCPPwa.js                                     6.95 kB │ gzip:   2.56 kB
+../backend/internal/transport/webassets/dist/assets/ActivityCenterPage-CHGLpdwF.js                                                7.47 kB │ gzip:   2.90 kB
+../backend/internal/transport/webassets/dist/assets/Select-C38_lLHU.js                                                            7.61 kB │ gzip:   3.01 kB
+../backend/internal/transport/webassets/dist/assets/SupportChatPage-DHtrvI8K.js                                                   7.68 kB │ gzip:   3.30 kB
+../backend/internal/transport/webassets/dist/assets/EndpointDistributionChart.vue_vue_type_script_setup_true_lang-CImKOQba.js     7.77 kB │ gzip:   2.70 kB
+../backend/internal/transport/webassets/dist/assets/ResetPasswordPage-BSGHVWeU.js                                                 7.82 kB │ gzip:   2.60 kB
+../backend/internal/transport/webassets/dist/assets/AffiliatePage-D3emFK9s.js                                                     8.64 kB │ gzip:   2.72 kB
+../backend/internal/transport/webassets/dist/assets/errorBadges-BnBpDc9b.js                                                       8.80 kB │ gzip:   3.33 kB
+../backend/internal/transport/webassets/dist/assets/TokenUsageTrend.vue_vue_type_script_setup_true_lang-BFgroKgx.js               8.81 kB │ gzip:   3.30 kB
+../backend/internal/transport/webassets/dist/assets/adminAccountsDatasource-BrtQwpoh.js                                           8.83 kB │ gzip:   2.50 kB
+../backend/internal/transport/webassets/dist/assets/platformColors-CaBqjUfd.js                                                    8.86 kB │ gzip:   1.76 kB
+../backend/internal/transport/webassets/dist/assets/PlatformIcon.vue_vue_type_script_setup_true_lang-gCtmANsz.js                  8.90 kB │ gzip:   3.73 kB
+../backend/internal/transport/webassets/dist/assets/UserBalanceHistoryDialog.vue_vue_type_script_setup_true_lang-BSuTJ0rf.js      9.14 kB │ gzip:   3.23 kB
+../backend/internal/transport/webassets/dist/assets/batchImage-DzuLlM7X.js                                                       10.10 kB │ gzip:   4.35 kB
+../backend/internal/transport/webassets/dist/assets/OAuthCallbackPage-CFnpdZY1.js                                                10.18 kB │ gzip:   3.30 kB
+../backend/internal/transport/webassets/dist/assets/StripePaymentPage-BjDw6L0C.js                                                10.21 kB │ gzip:   4.12 kB
+../backend/internal/transport/webassets/dist/assets/PaymentResultPage-BAWMoQKh.js                                                10.24 kB │ gzip:   3.30 kB
+../backend/internal/transport/webassets/dist/assets/SubscriptionsPage-C7pc040H.js                                                10.28 kB │ gzip:   3.24 kB
+../backend/internal/transport/webassets/dist/assets/batchImage-CGU_C6Pi.js                                                       11.06 kB │ gzip:   3.97 kB
+../backend/internal/transport/webassets/dist/assets/AdminPaymentDashboardPage-DFuascIp.js                                        11.11 kB │ gzip:   3.65 kB
+../backend/internal/transport/webassets/dist/assets/AdminAffiliateRecordsTable.vue_vue_type_script_setup_true_lang-DsjHGTxl.js   11.30 kB │ gzip:   3.47 kB
+../backend/internal/transport/webassets/dist/assets/CustomLandingPage-2e7Z07XW.js                                                11.74 kB │ gzip:   4.95 kB
+../backend/internal/transport/webassets/dist/assets/RedeemPage-C3ZQDV-7.js                                                       11.83 kB │ gzip:   3.89 kB
+../backend/internal/transport/webassets/dist/assets/vendor-airwallex-DhgvLXIB.js                                                 12.09 kB │ gzip:   4.29 kB
+../backend/internal/transport/webassets/dist/assets/EmailVerifyPage-CPFd-puY.js                                                  12.87 kB │ gzip:   4.75 kB
+../backend/internal/transport/webassets/dist/assets/ProviderIcon.vue_vue_type_script_setup_true_lang-fitvKaHz.js                 13.21 kB │ gzip:   4.78 kB
+../backend/internal/transport/webassets/dist/assets/admin-compliance.en-BeJzuJ2b.js                                              13.48 kB │ gzip:   5.49 kB
+../backend/internal/transport/webassets/dist/assets/ModelDistributionChart.vue_vue_type_script_setup_true_lang-CSlKIxUA.js       14.52 kB │ gzip:   4.12 kB
+../backend/internal/transport/webassets/dist/assets/LinuxDoCallbackPage-DIlUEMx4.js                                              14.72 kB │ gzip:   4.42 kB
+../backend/internal/transport/webassets/dist/assets/OidcCallbackPage-B_L1CcuK.js                                                 14.91 kB │ gzip:   4.47 kB
+../backend/internal/transport/webassets/dist/assets/DingTalkCallbackPage-TQU-Q6yR.js                                             15.23 kB │ gzip:   4.54 kB
+../backend/internal/transport/webassets/dist/assets/DataTable-DpjfqxpM.js                                                        15.68 kB │ gzip:   5.32 kB
+../backend/internal/transport/webassets/dist/assets/SetupWizardPage-DbVqYWcL.js                                                  15.85 kB │ gzip:   3.96 kB
+../backend/internal/transport/webassets/dist/assets/AdminPaymentPlansPage-DAKgTlu9.js                                            16.09 kB │ gzip:   5.01 kB
+../backend/internal/transport/webassets/dist/assets/LoginAgreementPrompt-DfrCw2R3.js                                             16.30 kB │ gzip:   5.69 kB
+../backend/internal/transport/webassets/dist/assets/HumanVerificationWidget-CxMPk9Z-.js                                          16.66 kB │ gzip:   5.99 kB
+../backend/internal/transport/webassets/dist/assets/DashboardPage-DwA7nvGs.js                                                    17.48 kB │ gzip:   5.08 kB
+../backend/internal/transport/webassets/dist/assets/PromoCodesPage-3oD5ud9n.js                                                   17.65 kB │ gzip:   5.23 kB
+../backend/internal/transport/webassets/dist/assets/proxyExpiry-BcU3VdjW.js                                                      18.29 kB │ gzip:   6.21 kB
+../backend/internal/transport/webassets/dist/assets/StateDiagnosticsPage-Cc39gwyF.js                                             18.95 kB │ gzip:   5.53 kB
+../backend/internal/transport/webassets/dist/assets/WechatCallbackPage-Dg_ivcPe.js                                               19.04 kB │ gzip:   5.43 kB
+../backend/internal/transport/webassets/dist/assets/AuditLogPage-BiOfAdLz.js                                                     19.13 kB │ gzip:   5.63 kB
+../backend/internal/transport/webassets/dist/assets/AccountQualitySharePage-CgmBvfhB.js                                          19.87 kB │ gzip:   6.02 kB
+../backend/internal/transport/webassets/dist/assets/LoginPage-Cugk7awE.js                                                        19.99 kB │ gzip:   7.19 kB
+../backend/internal/transport/webassets/dist/assets/common-Dc6YW5KE.js                                                           21.36 kB │ gzip:   8.35 kB
+../backend/internal/transport/webassets/dist/assets/HomePage-BP52E4-P.js                                                         21.75 kB │ gzip:   5.75 kB
+../backend/internal/transport/webassets/dist/assets/AvailableChannelsPage-CSx65xJ1.js                                            21.82 kB │ gzip:   5.89 kB
+../backend/internal/transport/webassets/dist/assets/AdminOrdersPage-DSQtbj_6.js                                                  21.92 kB │ gzip:   5.98 kB
+../backend/internal/transport/webassets/dist/assets/RegisterPage-C14BBUlv.js                                                     22.14 kB │ gzip:   6.49 kB
+../backend/internal/transport/webassets/dist/assets/useAutoRefresh-BrUGUD3K.js                                                   22.16 kB │ gzip:   7.09 kB
+../backend/internal/transport/webassets/dist/assets/common-EtuCWvOm.js                                                           23.29 kB │ gzip:   7.54 kB
+../backend/internal/transport/webassets/dist/assets/AccountInspectionPage-B4HWxfpX.js                                            24.18 kB │ gzip:   6.60 kB
+../backend/internal/transport/webassets/dist/assets/AccountQualityPage-92yJKE-9.js                                               24.53 kB │ gzip:   6.48 kB
+../backend/internal/transport/webassets/dist/assets/ModelPlazaPage-DO8kWj-F.js                                                   25.21 kB │ gzip:   6.97 kB
+../backend/internal/transport/webassets/dist/assets/vendor-qrcode-tm1kgRN1.js                                                    25.41 kB │ gzip:   9.98 kB
+../backend/internal/transport/webassets/dist/assets/vendor-onboarding-D8L7OIze.js                                                26.12 kB │ gzip:   7.50 kB
+../backend/internal/transport/webassets/dist/assets/OpsErrorLogTable.vue_vue_type_script_setup_true_lang-BPWhOZQ_.js             26.41 kB │ gzip:   7.44 kB
+../backend/internal/transport/webassets/dist/assets/ActivityCenterDetailPage-BSv__33x.js                                         26.70 kB │ gzip:   7.64 kB
+../backend/internal/transport/webassets/dist/assets/AnnouncementsPage-BYgdgYgR.js                                                27.95 kB │ gzip:   7.75 kB
+../backend/internal/transport/webassets/dist/assets/AdminSupportChatPage-Dbv8sz1y.js                                             27.99 kB │ gzip:   8.75 kB
+../backend/internal/transport/webassets/dist/assets/SupportMessageList-CI7CRdxs.js                                               28.00 kB │ gzip:   9.05 kB
+../backend/internal/transport/webassets/dist/assets/index-CYTv1Wjp.js                                                            28.82 kB │ gzip:   7.60 kB
+../backend/internal/transport/webassets/dist/assets/UsagePage-B4ZBNG7T.js                                                        29.86 kB │ gzip:   9.16 kB
+../backend/internal/transport/webassets/dist/assets/CustomModelConfigPage-NyPnr-cP.js                                            29.95 kB │ gzip:   7.38 kB
+../backend/internal/transport/webassets/dist/assets/RedeemPage-DL1LQRUF.js                                                       30.76 kB │ gzip:   8.50 kB
+../backend/internal/transport/webassets/dist/assets/KeyUsagePage-WS3TcWGY.js                                                     31.70 kB │ gzip:   8.32 kB
+../backend/internal/transport/webassets/dist/assets/DashboardPage-CM4zGQjA.js                                                    32.15 kB │ gzip:   8.89 kB
+../backend/internal/transport/webassets/dist/assets/misc-DU81tCqc.js                                                             33.72 kB │ gzip:  10.33 kB
+../backend/internal/transport/webassets/dist/assets/misc-CcPmaqV6.js                                                             34.92 kB │ gzip:   9.68 kB
+../backend/internal/transport/webassets/dist/assets/dashboard-x-lSrisf.js                                                        37.03 kB │ gzip:  14.32 kB
+../backend/internal/transport/webassets/dist/assets/SubscriptionsPage-pgfAoR3v.js                                                37.32 kB │ gzip:   9.87 kB
+../backend/internal/transport/webassets/dist/assets/dashboard-DaDYPQxP.js                                                        38.47 kB │ gzip:  12.82 kB
+../backend/internal/transport/webassets/dist/assets/MultiInstancePage-OMj8Al6u.js                                                38.92 kB │ gzip:   9.57 kB
+../backend/internal/transport/webassets/dist/assets/EgressPage-BQnElLnM.js                                                       41.63 kB │ gzip:  10.36 kB
+../backend/internal/transport/webassets/dist/assets/vendor-dragdrop-Du9RkeRV.js                                                  42.22 kB │ gzip:  14.91 kB
+../backend/internal/transport/webassets/dist/assets/IngressRiskPage-PQx-nJ2X.js                                                  45.76 kB │ gzip:  10.48 kB
+../backend/internal/transport/webassets/dist/assets/AdminActivityCenterPage-tKe5m74r.js                                          49.60 kB │ gzip:  12.77 kB
+../backend/internal/transport/webassets/dist/assets/UsagePage-CkGz9iGN.js                                                        50.19 kB │ gzip:  14.60 kB
+../backend/internal/transport/webassets/dist/assets/vendor-http-BCn5QfZZ.js                                                      51.44 kB │ gzip:  19.49 kB
+../backend/internal/transport/webassets/dist/assets/MediaStudioPage-ByZUqioK.js                                                  58.15 kB │ gzip:  17.81 kB
+../backend/internal/transport/webassets/dist/assets/ChannelsPage-CqZgRh7P.js                                                     59.07 kB │ gzip:  14.67 kB
+../backend/internal/transport/webassets/dist/assets/ChannelMonitorPage-DeMKHL_o.js                                               61.14 kB │ gzip:  15.45 kB
+../backend/internal/transport/webassets/dist/assets/ProxiesPage-CgPXlIEI.js                                                      62.60 kB │ gzip:  16.72 kB
+../backend/internal/transport/webassets/dist/assets/PaymentPage-D6bYuwhU.js                                                      62.90 kB │ gzip:  18.76 kB
+../backend/internal/transport/webassets/dist/assets/vendor-i18n-Dask6AFl.js                                                      63.33 kB │ gzip:  20.34 kB
+../backend/internal/transport/webassets/dist/assets/ProfilePage-iyJa9b8w.js                                                      67.35 kB │ gzip:  17.26 kB
+../backend/internal/transport/webassets/dist/assets/GroupDistributionChart.vue_vue_type_script_setup_true_lang-DDtmX0vA.js       68.31 kB │ gzip:  16.95 kB
+../backend/internal/transport/webassets/dist/assets/ModelWhitelistSelector.vue_vue_type_script_setup_true_lang-CF2RB571.js       70.34 kB │ gzip:  22.84 kB
+../backend/internal/transport/webassets/dist/assets/PromptAuditPage-B_2GedvB.js                                                  71.11 kB │ gzip:  17.44 kB
+../backend/internal/transport/webassets/dist/assets/vendor-markdown-B7-Q_RiX.js                                                  71.13 kB │ gzip:  23.84 kB
+../backend/internal/transport/webassets/dist/assets/BatchImageGuidePage-tdHKWL4_.js                                              81.45 kB │ gzip:  24.58 kB
+../backend/internal/transport/webassets/dist/assets/RiskControlPage-DH-0YLnY.js                                                  87.10 kB │ gzip:  19.94 kB
+../backend/internal/transport/webassets/dist/assets/KeysPage-D1TSziav.js                                                        104.04 kB │ gzip:  27.04 kB
+../backend/internal/transport/webassets/dist/assets/AppLayout.vue_vue_type_script_setup_true_lang-QmAqt9V5.js                   104.64 kB │ gzip:  27.79 kB
+../backend/internal/transport/webassets/dist/assets/vendor-vue-DkolTuS1.js                                                      116.36 kB │ gzip:  45.23 kB
+../backend/internal/transport/webassets/dist/assets/UsersPage-Bnwlt0sU.js                                                       117.21 kB │ gzip:  29.69 kB
+../backend/internal/transport/webassets/dist/assets/index-BURaL9eZ.js                                                           130.00 kB │ gzip:  40.17 kB
+../backend/internal/transport/webassets/dist/assets/GroupsPage-Dn8l5itq.js                                                      178.04 kB │ gzip:  39.95 kB
+../backend/internal/transport/webassets/dist/assets/vendor-chart-Bac0Z5il.js                                                    178.43 kB │ gzip:  61.39 kB
+../backend/internal/transport/webassets/dist/assets/vendor-misc-CObdS01s.js                                                     222.95 kB │ gzip:  77.82 kB
+../backend/internal/transport/webassets/dist/assets/OpsDashboardPage-CR3Mb1P9.js                                                253.60 kB │ gzip:  53.86 kB
+../backend/internal/transport/webassets/dist/assets/vendor-credential-crypto-CWkc-NaG.js                                        287.69 kB │ gzip:  77.89 kB
+../backend/internal/transport/webassets/dist/assets/index-BLon7uhx.js                                                           334.83 kB │ gzip: 116.13 kB
+../backend/internal/transport/webassets/dist/assets/index-CSJKfqSm.js                                                           348.83 kB │ gzip: 107.64 kB
+../backend/internal/transport/webassets/dist/assets/vendor-xlsx-BGhuli8m.js                                                     500.06 kB │ gzip: 163.12 kB
+[91m
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+[0m../backend/internal/transport/webassets/dist/assets/SettingsPage-s9V9VAn6.js                                                    518.79 kB │ gzip: 105.68 kB
+../backend/internal/transport/webassets/dist/assets/AccountsPage-CQ5Jbo-P.js                                                    859.99 kB │ gzip: 188.42 kB
+✓ built in 1m 41s
+ ---> Removed intermediate container c5586987da56
+ ---> 3495fff0dd0c
+Step 15/45 : FROM ${GOLANG_IMAGE} AS backend-builder
+ ---> 3082400e369f
+Step 16/45 : ARG VERSION=
+ ---> Using cache
+ ---> 1fd2d2a7cfba
+Step 17/45 : ARG COMMIT=docker
+ ---> Using cache
+ ---> 1fa04c06fb15
+Step 18/45 : ARG DATE
+ ---> Using cache
+ ---> 21e023f70ad1
+Step 19/45 : ARG GOPROXY
+ ---> Using cache
+ ---> 94f182bea8b2
+Step 20/45 : ARG GOSUMDB
+ ---> Using cache
+ ---> a7a88de5be32
+Step 21/45 : ENV GOPROXY=${GOPROXY}
+ ---> Using cache
+ ---> 4bb80cbf8467
+Step 22/45 : ENV GOSUMDB=${GOSUMDB}
+ ---> Using cache
+ ---> acea45a8d58c
+Step 23/45 : RUN apk add --no-cache git ca-certificates tzdata
+ ---> Running in b8253365008f
+( 1/13) Installing brotli-libs (1.2.0-r1)
+( 2/13) Installing c-ares (1.34.8-r0)
+( 3/13) Installing libunistring (1.4.2-r0)
+( 4/13) Installing libidn2 (2.3.8-r0)
+( 5/13) Installing nghttp2-libs (1.70.0-r0)
+( 6/13) Installing libpsl (0.21.5-r3)
+( 7/13) Installing zstd-libs (1.5.7-r2)
+( 8/13) Installing libcurl (8.22.0-r0)
+( 9/13) Installing libexpat (2.8.5-r0)
+(10/13) Installing pcre2 (10.49-r0)
+(11/13) Installing git (2.54.0-r0)
+(12/13) Installing git-init-template (2.54.0-r0)
+(13/13) Installing tzdata (2026e-r0)
+Executing busybox-1.37.0-r31.trigger
+OK: 22.0 MiB in 30 packages
+ ---> Removed intermediate container b8253365008f
+ ---> d5e38d0a9da0
+Step 24/45 : WORKDIR /app/backend
+ ---> Running in c837eb1362be
+ ---> Removed intermediate container c837eb1362be
+ ---> 9c60ef87d094
+Step 25/45 : COPY backend/go.mod backend/go.sum ./
+ ---> cd16cd331319
+Step 26/45 : RUN go mod download
+ ---> Running in 00bd445a5a4a
+ ---> Removed intermediate container 00bd445a5a4a
+ ---> 22b34ebaa77f
+Step 27/45 : COPY backend/ ./
+ ---> d9e63e3f2033
+Step 28/45 : COPY --from=frontend-builder /app/backend/internal/transport/webassets/dist ./internal/transport/webassets/dist
+ ---> baefabac846b
+Step 29/45 : RUN VERSION_VALUE="${VERSION}" &&     if [ -z "${VERSION_VALUE}" ]; then VERSION_VALUE="$(./scripts/resolve-version.sh)"; fi &&     DATE_VALUE="${DATE:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}" &&     CGO_ENABLED=0 GOOS=linux go build     -tags embed     -ldflags="-s -w -X main.Version=${VERSION_VALUE} -X main.Commit=${COMMIT} -X main.Date=${DATE_VALUE} -X main.BuildType=release"     -o /app/sub2api     ./cmd/server
+ ---> Running in aa0c1b371fc5
+ ---> Removed intermediate container aa0c1b371fc5
+ ---> 7ee51f356754
+Step 30/45 : FROM ${ALPINE_IMAGE}
+ ---> d9e853e87e55
+Step 31/45 : LABEL maintainer="DR-lin-eng <github.com/DR-lin-eng>"
+ ---> Using cache
+ ---> dc139a924356
+Step 32/45 : LABEL description="Sub2API - AI API Gateway Platform"
+ ---> Using cache
+ ---> a2965f4affc6
+Step 33/45 : LABEL org.opencontainers.image.source="https://github.com/DR-lin-eng/sub2api-no2api"
+ ---> Using cache
+ ---> b49126b174e7
+Step 34/45 : RUN apk add --no-cache ca-certificates tzdata curl su-exec && rm -rf /var/cache/apk/*
+ ---> Using cache
+ ---> 3ac74804f1d1
+Step 35/45 : RUN addgroup -g 1000 sub2api && adduser -u 1000 -G sub2api -s /bin/sh -D sub2api
+ ---> Using cache
+ ---> 2a1478256a20
+Step 36/45 : WORKDIR /app
+ ---> Using cache
+ ---> 91cc0fe688c4
+Step 37/45 : COPY --from=backend-builder /app/sub2api /app/sub2api
+ ---> ca58cd05bb49
+Step 38/45 : COPY --from=backend-builder --chown=sub2api:sub2api /app/backend/resources /app/resources
+ ---> 38c27c19b073
+Step 39/45 : RUN mkdir -p /app/data && chown -R sub2api:sub2api /app
+ ---> Running in f87c090d0f39
+ ---> Removed intermediate container f87c090d0f39
+ ---> f015bfde8430
+Step 40/45 : COPY deploy/docker-entrypoint.sh /app/docker-entrypoint.sh
+ ---> adcceaa9964e
+Step 41/45 : RUN chmod +x /app/docker-entrypoint.sh
+ ---> Running in 52d6a9e852f2
+ ---> Removed intermediate container 52d6a9e852f2
+ ---> 08731577b34f
+Step 42/45 : EXPOSE 8080
+ ---> Running in ef7d4a0719c9
+ ---> Removed intermediate container ef7d4a0719c9
+ ---> 35f5e04d4b2a
+Step 43/45 : HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3     CMD wget -q -T 5 -O /dev/null http://localhost:${SERVER_PORT:-8080}/ready || exit 1
+ ---> Running in 7415aa74e6cd
+ ---> Removed intermediate container 7415aa74e6cd
+ ---> 83ac72c10c2a
+Step 44/45 : ENTRYPOINT ["/app/docker-entrypoint.sh"]
+ ---> Running in 83893f58dc0c
+ ---> Removed intermediate container 83893f58dc0c
+ ---> 600cf53cf987
+Step 45/45 : CMD ["/app/sub2api"]
+ ---> Running in 77b480cfbe45
+ ---> Removed intermediate container 77b480cfbe45
+ ---> fbc2239d7c86
+Successfully built fbc2239d7c86
+Successfully tagged sub2api:upstream-sync-20261016-followup-final
+
+STDOUT END
+STDERR BEGIN
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            BuildKit is currently disabled; enable it by removing the DOCKER_BUILDKIT=0
+            environment-variable.
+
+
+STDERR END
+
+RECORD production-build-v2.record.json
+COMMAND env DOCKER_BUILDKIT=0 docker build -f deploy/Dockerfile --build-arg COMMIT=upstream-followup-final-b0a02a33 -t sub2api:upstream-sync-20261016-followup-final-v2 .
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+Sending build context to Docker daemon  284.8MB
+
+Step 1/45 : ARG NODE_IMAGE=node:24-alpine
+Step 2/45 : ARG GOLANG_IMAGE=golang:1.26.9-alpine
+Step 3/45 : ARG ALPINE_IMAGE=alpine:3.20
+Step 4/45 : ARG GOPROXY=https://goproxy.cn,direct
+Step 5/45 : ARG GOSUMDB=sum.golang.google.cn
+Step 6/45 : FROM ${NODE_IMAGE} AS frontend-builder
+ ---> ebfe2f904627
+Step 7/45 : WORKDIR /app/frontend
+ ---> Using cache
+ ---> 9a2f0f1a7285
+Step 8/45 : ENV NODE_OPTIONS=--max-old-space-size=2048
+ ---> Using cache
+ ---> 39b0fc47936b
+Step 9/45 : RUN corepack enable && corepack prepare pnpm@11.17.0 --activate
+ ---> Using cache
+ ---> d76e58b1300e
+Step 10/45 : COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
+ ---> Using cache
+ ---> 678823c01854
+Step 11/45 : RUN pnpm install --frozen-lockfile
+ ---> Using cache
+ ---> 5619331b667f
+Step 12/45 : COPY frontend/ ./
+ ---> Using cache
+ ---> 22563306578c
+Step 13/45 : COPY docs/legal/ /app/docs/legal/
+ ---> Using cache
+ ---> a0511239e58b
+Step 14/45 : RUN pnpm run build
+ ---> Using cache
+ ---> 3495fff0dd0c
+Step 15/45 : FROM ${GOLANG_IMAGE} AS backend-builder
+ ---> 3082400e369f
+Step 16/45 : ARG VERSION=
+ ---> Using cache
+ ---> 1fd2d2a7cfba
+Step 17/45 : ARG COMMIT=docker
+ ---> Using cache
+ ---> 1fa04c06fb15
+Step 18/45 : ARG DATE
+ ---> Using cache
+ ---> 21e023f70ad1
+Step 19/45 : ARG GOPROXY
+ ---> Using cache
+ ---> 94f182bea8b2
+Step 20/45 : ARG GOSUMDB
+ ---> Using cache
+ ---> a7a88de5be32
+Step 21/45 : ENV GOPROXY=${GOPROXY}
+ ---> Using cache
+ ---> 4bb80cbf8467
+Step 22/45 : ENV GOSUMDB=${GOSUMDB}
+ ---> Using cache
+ ---> acea45a8d58c
+Step 23/45 : RUN apk add --no-cache git ca-certificates tzdata
+ ---> Running in b795866bf04a
+( 1/13) Installing brotli-libs (1.2.0-r1)
+( 2/13) Installing c-ares (1.34.8-r0)
+( 3/13) Installing libunistring (1.4.2-r0)
+( 4/13) Installing libidn2 (2.3.8-r0)
+( 5/13) Installing nghttp2-libs (1.70.0-r0)
+( 6/13) Installing libpsl (0.21.5-r3)
+( 7/13) Installing zstd-libs (1.5.7-r2)
+( 8/13) Installing libcurl (8.22.0-r0)
+( 9/13) Installing libexpat (2.8.5-r0)
+(10/13) Installing pcre2 (10.49-r0)
+(11/13) Installing git (2.54.0-r0)
+(12/13) Installing git-init-template (2.54.0-r0)
+(13/13) Installing tzdata (2026e-r0)
+Executing busybox-1.37.0-r31.trigger
+OK: 22.0 MiB in 30 packages
+ ---> Removed intermediate container b795866bf04a
+ ---> 69b6e521c852
+Step 24/45 : WORKDIR /app/backend
+ ---> Running in 5a82d4e07666
+ ---> Removed intermediate container 5a82d4e07666
+ ---> 4dd06e04993b
+Step 25/45 : COPY backend/go.mod backend/go.sum ./
+ ---> c0ceb3fc4a8d
+Step 26/45 : RUN go mod download
+ ---> Running in d45f14f26c55
+ ---> Removed intermediate container d45f14f26c55
+ ---> b1b036a99e20
+Step 27/45 : COPY backend/ ./
+ ---> 6e2914b7e031
+Step 28/45 : COPY --from=frontend-builder /app/backend/internal/transport/webassets/dist ./internal/transport/webassets/dist
+ ---> 7a0fe01d91a8
+Step 29/45 : RUN VERSION_VALUE="${VERSION}" &&     if [ -z "${VERSION_VALUE}" ]; then VERSION_VALUE="$(./scripts/resolve-version.sh)"; fi &&     DATE_VALUE="${DATE:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}" &&     CGO_ENABLED=0 GOOS=linux go build     -tags embed     -ldflags="-s -w -X main.Version=${VERSION_VALUE} -X main.Commit=${COMMIT} -X main.Date=${DATE_VALUE} -X main.BuildType=release"     -o /app/sub2api     ./cmd/server
+ ---> Running in cbe1bb9aadfb
+ ---> Removed intermediate container cbe1bb9aadfb
+ ---> 60a44b2ae73d
+Step 30/45 : FROM ${ALPINE_IMAGE}
+ ---> d9e853e87e55
+Step 31/45 : LABEL maintainer="DR-lin-eng <github.com/DR-lin-eng>"
+ ---> Using cache
+ ---> dc139a924356
+Step 32/45 : LABEL description="Sub2API - AI API Gateway Platform"
+ ---> Using cache
+ ---> a2965f4affc6
+Step 33/45 : LABEL org.opencontainers.image.source="https://github.com/DR-lin-eng/sub2api-no2api"
+ ---> Using cache
+ ---> b49126b174e7
+Step 34/45 : RUN apk add --no-cache ca-certificates tzdata curl su-exec && rm -rf /var/cache/apk/*
+ ---> Using cache
+ ---> 3ac74804f1d1
+Step 35/45 : RUN addgroup -g 1000 sub2api && adduser -u 1000 -G sub2api -s /bin/sh -D sub2api
+ ---> Using cache
+ ---> 2a1478256a20
+Step 36/45 : WORKDIR /app
+ ---> Using cache
+ ---> 91cc0fe688c4
+Step 37/45 : COPY --from=backend-builder /app/sub2api /app/sub2api
+ ---> 70d60b0d499a
+Step 38/45 : COPY --from=backend-builder --chown=sub2api:sub2api /app/backend/resources /app/resources
+ ---> 05926c324e58
+Step 39/45 : RUN mkdir -p /app/data && chown -R sub2api:sub2api /app
+ ---> Running in 3fc970c80b3d
+ ---> Removed intermediate container 3fc970c80b3d
+ ---> a93fded268b0
+Step 40/45 : COPY deploy/docker-entrypoint.sh /app/docker-entrypoint.sh
+ ---> bce672a6669c
+Step 41/45 : RUN chmod +x /app/docker-entrypoint.sh
+ ---> Running in 30793de1705b
+ ---> Removed intermediate container 30793de1705b
+ ---> cf7059ab1363
+Step 42/45 : EXPOSE 8080
+ ---> Running in 38b957e58c81
+ ---> Removed intermediate container 38b957e58c81
+ ---> fe0f2027e56b
+Step 43/45 : HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3     CMD wget -q -T 5 -O /dev/null http://localhost:${SERVER_PORT:-8080}/ready || exit 1
+ ---> Running in c847e6b85ef1
+ ---> Removed intermediate container c847e6b85ef1
+ ---> 7f6564c01524
+Step 44/45 : ENTRYPOINT ["/app/docker-entrypoint.sh"]
+ ---> Running in d70893ae703f
+ ---> Removed intermediate container d70893ae703f
+ ---> 6c3d0a086b9c
+Step 45/45 : CMD ["/app/sub2api"]
+ ---> Running in cd4d3e9fd224
+ ---> Removed intermediate container cd4d3e9fd224
+ ---> fb3a24d75e64
+Successfully built fb3a24d75e64
+Successfully tagged sub2api:upstream-sync-20261016-followup-final-v2
+
+STDOUT END
+STDERR BEGIN
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            BuildKit is currently disabled; enable it by removing the DOCKER_BUILDKIT=0
+            environment-variable.
+
+
+STDERR END
+
+RECORD reapply-source.record.json
+COMMAND git apply /private/tmp/sub2api-upstream-sync-20261016/diagnostics/upstream-sync-20261016-followup/DIFF_FILE.patch
+CWD /private/tmp/sub2api-upstream-sync-20261016-rollback
+EXIT 0
+STDOUT BEGIN
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD retirement-v5.record.json
+COMMAND docker run --rm -e GOMAXPROCS=2 -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v /private/tmp/sub2api-upstream-sync-20261016:/workspace -w /workspace/backend golang:1.26.9 go test -tags unit ./internal/application/service -run 'Test(Retire|GetAvailableModels|IsModelSupported|OpenAIModelRouting|OpenAISelectAccountWithLoadAwareness_Spark)' -count=1
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.016s
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD rollback-final-restore.record.json
+COMMAND /bin/sh diagnostics/upstream-sync-20261016-followup/ROLLBACK.sh /private/tmp/sub2api-upstream-sync-20261016-rollback
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+Restored pristine source bytes in /private/tmp/sub2api-upstream-sync-20261016-rollback
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD rollback-source-restore.record.json
+COMMAND /bin/sh diagnostics/upstream-sync-20261016-followup/ROLLBACK.sh /private/tmp/sub2api-upstream-sync-20261016-rollback
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+Restored pristine source bytes in /private/tmp/sub2api-upstream-sync-20261016-rollback
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD runtime-matrix-final.record.json
+COMMAND env SYNC_CANDIDATE_IMAGE=sub2api:upstream-sync-20261016-followup-final python3 diagnostics/upstream-sync-20261016-followup/runtime_check.py
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+{"stage": "BASELINE", "result": "PASS", "responses_json_created_at": false, "responses_stream_created_at": false, "migration_count": 303, "persisted_invariants_sha256": "b8662022d88abc7c9f95ab512d22afd85381ab53fc82da84e24f8029241be346", "health_ready_frontend_encrypted_login_key_subscription": "PASS"}
+{"stage": "MODIFIED", "result": "PASS", "responses_json_created_at": true, "responses_stream_created_at": true, "migration_count": 303, "persisted_invariants_sha256": "b8662022d88abc7c9f95ab512d22afd85381ab53fc82da84e24f8029241be346", "health_ready_frontend_encrypted_login_key_subscription": "PASS"}
+{"stage": "ROLLBACK", "result": "PASS", "responses_json_created_at": false, "responses_stream_created_at": false, "migration_count": 303, "persisted_invariants_sha256": "b8662022d88abc7c9f95ab512d22afd85381ab53fc82da84e24f8029241be346", "health_ready_frontend_encrypted_login_key_subscription": "PASS"}
+{"stage": "RESTORED", "result": "PASS", "responses_json_created_at": true, "responses_stream_created_at": true, "migration_count": 303, "persisted_invariants_sha256": "b8662022d88abc7c9f95ab512d22afd85381ab53fc82da84e24f8029241be346", "health_ready_frontend_encrypted_login_key_subscription": "PASS"}
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD runtime-matrix-v1.record.json
+COMMAND python3 diagnostics/upstream-sync-20261016-followup/runtime_check.py
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+{"stage": "BASELINE", "result": "PASS", "responses_json_created_at": false, "responses_stream_created_at": false, "migration_count": 303, "persisted_invariants_sha256": "23383255e3cb271ed664525276673c57f1da27abbf9b086d500d5ee514f086cd", "health_ready_frontend_encrypted_login_key_subscription": "PASS"}
+{"stage": "MODIFIED", "result": "PASS", "responses_json_created_at": true, "responses_stream_created_at": true, "migration_count": 303, "persisted_invariants_sha256": "23383255e3cb271ed664525276673c57f1da27abbf9b086d500d5ee514f086cd", "health_ready_frontend_encrypted_login_key_subscription": "PASS"}
+{"stage": "ROLLBACK", "result": "PASS", "responses_json_created_at": false, "responses_stream_created_at": false, "migration_count": 303, "persisted_invariants_sha256": "23383255e3cb271ed664525276673c57f1da27abbf9b086d500d5ee514f086cd", "health_ready_frontend_encrypted_login_key_subscription": "PASS"}
+{"stage": "RESTORED", "result": "PASS", "responses_json_created_at": true, "responses_stream_created_at": true, "migration_count": 303, "persisted_invariants_sha256": "23383255e3cb271ed664525276673c57f1da27abbf9b086d500d5ee514f086cd", "health_ready_frontend_encrypted_login_key_subscription": "PASS"}
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD runtime-matrix-v2.record.json
+COMMAND env SYNC_CANDIDATE_IMAGE=sub2api:upstream-sync-20261016-followup-final-v2 python3 diagnostics/upstream-sync-20261016-followup/runtime_check.py
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+{"stage": "BASELINE", "result": "PASS", "responses_json_created_at": false, "responses_stream_created_at": false, "migration_count": 303, "persisted_invariants_sha256": "b93ef7c1a474c73d215cadf2a16f6ef1a33ffe4af5c132043ddc60432a538b2c", "models_standard_fields": false, "health_ready_frontend_encrypted_login_key_subscription": "PASS"}
+{"stage": "MODIFIED", "result": "PASS", "responses_json_created_at": true, "responses_stream_created_at": true, "migration_count": 303, "persisted_invariants_sha256": "b93ef7c1a474c73d215cadf2a16f6ef1a33ffe4af5c132043ddc60432a538b2c", "models_standard_fields": true, "health_ready_frontend_encrypted_login_key_subscription": "PASS"}
+{"stage": "ROLLBACK", "result": "PASS", "responses_json_created_at": false, "responses_stream_created_at": false, "migration_count": 303, "persisted_invariants_sha256": "b93ef7c1a474c73d215cadf2a16f6ef1a33ffe4af5c132043ddc60432a538b2c", "models_standard_fields": false, "health_ready_frontend_encrypted_login_key_subscription": "PASS"}
+{"stage": "RESTORED", "result": "PASS", "responses_json_created_at": true, "responses_stream_created_at": true, "migration_count": 303, "persisted_invariants_sha256": "b93ef7c1a474c73d215cadf2a16f6ef1a33ffe4af5c132043ddc60432a538b2c", "models_standard_fields": true, "health_ready_frontend_encrypted_login_key_subscription": "PASS"}
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD source-baseline.record.json
+COMMAND docker run --rm --cpus 2 --memory 4g -e GOMAXPROCS=2 -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v /private/tmp/sub2api-upstream-sync-20261016-baseline:/workspace -v /private/tmp/sub2api-upstream-sync-20261016/diagnostics/upstream-sync-20261016-followup:/evidence -w /workspace/backend golang:1.26.9 go test -tags unit -overlay /evidence/probes/overlay.json ./internal/application/service -run '^TestUpstreamFollowupTransactionProbe$' -count=1 -v
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+2026/10/16 07:43:11 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestUpstreamFollowupTransactionProbe
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+OBSERVED responses_json_created_at=false
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+OBSERVED responses_stream_created_at=false
+OBSERVED openai_apikey_search=false
+OBSERVED oauth_gpt55_supported=true apikey_gpt55_supported=true
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+OBSERVED gemini_forwarded_thinking=""
+--- PASS: TestUpstreamFollowupTransactionProbe (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.015s
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD source-modified.record.json
+COMMAND docker run --rm --cpus 2 --memory 4g -e GOMAXPROCS=2 -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v /private/tmp/sub2api-upstream-sync-20261016:/workspace -v /private/tmp/sub2api-upstream-sync-20261016/diagnostics/upstream-sync-20261016-followup:/evidence -w /workspace/backend golang:1.26.9 go test -tags unit -overlay /evidence/probes/overlay.json ./internal/application/service -run '^TestUpstreamFollowupTransactionProbe$' -count=1 -v
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+2026/10/16 07:46:49 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestUpstreamFollowupTransactionProbe
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+OBSERVED responses_json_created_at=true
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+OBSERVED responses_stream_created_at=true
+OBSERVED openai_apikey_search=true
+OBSERVED oauth_gpt55_supported=false apikey_gpt55_supported=true
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+OBSERVED gemini_forwarded_thinking="high"
+--- PASS: TestUpstreamFollowupTransactionProbe (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.024s
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD source-reapplied-final.record.json
+COMMAND docker run --rm --cpus 2 --memory 5g -e GOMAXPROCS=2 -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v /private/tmp/sub2api-upstream-sync-20261016-rollback:/workspace -v /private/tmp/sub2api-upstream-sync-20261016/diagnostics/upstream-sync-20261016-followup:/evidence -w /workspace/backend golang:1.26.9 go test -tags unit -overlay /evidence/probes/overlay.json ./internal/application/service -run '^TestUpstreamFollowupTransactionProbe$' -count=1 -v
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+2026/10/16 08:43:11 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestUpstreamFollowupTransactionProbe
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+OBSERVED responses_json_created_at=true
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+OBSERVED responses_stream_created_at=true
+OBSERVED openai_apikey_search=true
+OBSERVED oauth_gpt55_supported=false apikey_gpt55_supported=true
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+OBSERVED gemini_forwarded_thinking="high"
+--- PASS: TestUpstreamFollowupTransactionProbe (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.034s
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD source-rollback-final.record.json
+COMMAND docker run --rm --cpus 2 --memory 5g -e GOMAXPROCS=2 -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v /private/tmp/sub2api-upstream-sync-20261016-rollback:/workspace -v /private/tmp/sub2api-upstream-sync-20261016/diagnostics/upstream-sync-20261016-followup:/evidence -w /workspace/backend golang:1.26.9 go test -tags unit -overlay /evidence/probes/overlay.json ./internal/application/service -run '^TestUpstreamFollowupTransactionProbe$' -count=1 -v
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+2026/10/16 08:43:01 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestUpstreamFollowupTransactionProbe
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+OBSERVED responses_json_created_at=false
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+OBSERVED responses_stream_created_at=false
+OBSERVED openai_apikey_search=false
+OBSERVED oauth_gpt55_supported=true apikey_gpt55_supported=true
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+OBSERVED gemini_forwarded_thinking=""
+--- PASS: TestUpstreamFollowupTransactionProbe (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.034s
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD source-rollback-serial.record.json
+COMMAND docker run --rm --cpus 2 --memory 5g -e GOMAXPROCS=2 -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v /private/tmp/sub2api-upstream-sync-20261016-rollback:/workspace -v /private/tmp/sub2api-upstream-sync-20261016/diagnostics/upstream-sync-20261016-followup:/evidence -w /workspace/backend golang:1.26.9 go test -tags unit -overlay /evidence/probes/overlay.json ./internal/application/service -run '^TestUpstreamFollowupTransactionProbe$' -count=1 -v
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+2026/10/16 08:15:45 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestUpstreamFollowupTransactionProbe
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+OBSERVED responses_json_created_at=false
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+OBSERVED responses_stream_created_at=false
+OBSERVED openai_apikey_search=false
+OBSERVED oauth_gpt55_supported=true apikey_gpt55_supported=true
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+OBSERVED gemini_forwarded_thinking=""
+--- PASS: TestUpstreamFollowupTransactionProbe (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.030s
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD source-rollback-v2.record.json
+COMMAND docker run --rm --cpus 2 --memory 3g -e GOMAXPROCS=2 -e GOFLAGS=-p=1 -e GOMEMLIMIT=1500MiB -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v /private/tmp/sub2api-upstream-sync-20261016-rollback:/workspace -v /private/tmp/sub2api-upstream-sync-20261016/diagnostics/upstream-sync-20261016-followup:/evidence -w /workspace/backend sub2api-upstream-sync-test:20261009-docker go test -tags unit -overlay /evidence/probes/overlay.json ./internal/application/service -run '^TestUpstreamFollowupTransactionProbe$' -count=1 -v
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 137
+STDOUT BEGIN
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+
+RECORD source-rollback.record.json
+COMMAND docker run --rm --cpus 2 --memory 4g -e GOMAXPROCS=2 -v sub2api-upstream-go-mod-20261016:/go/pkg/mod -v sub2api-upstream-go-build-20261016:/root/.cache/go-build -v /private/tmp/sub2api-upstream-sync-20261016-rollback:/workspace -v /private/tmp/sub2api-upstream-sync-20261016/diagnostics/upstream-sync-20261016-followup:/evidence -w /workspace/backend golang:1.26.9 go test -tags unit -overlay /evidence/probes/overlay.json ./internal/application/service -run '^TestUpstreamFollowupTransactionProbe$' -count=1 -v
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 1
+STDOUT BEGIN
+FAIL	github.com/Wei-Shaw/sub2api/internal/application/service [build failed]
+FAIL
+
+STDOUT END
+STDERR BEGIN
+github.com/Wei-Shaw/sub2api/internal/application/service: /usr/local/go/pkg/tool/linux_arm64/compile: signal: killed
+
+STDERR END
+
+RECORD source-whitespace.record.json
+COMMAND git diff --check
+CWD /private/tmp/sub2api-upstream-sync-20261016
+EXIT 0
+STDOUT BEGIN
+
+STDOUT END
+STDERR BEGIN
+
+STDERR END
+

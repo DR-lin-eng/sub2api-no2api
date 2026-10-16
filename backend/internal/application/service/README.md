@@ -78,3 +78,5 @@ GPT-6.1 Sol 的订阅模型长上下文豁免由 `openai_subscription_long_conte
 临时不可调度的可选规则范围由 `temp_unsched_scope.go` 选择；重试耗尽、Bedrock 和 token 计数透传调度器使用的模型键。`openai_responses_input_rejection.go` 只识别转换后结构化 input 的明确类型拒绝，Chat 回退保留原始开始时间。冻结差异、滚动升级启用顺序和新缓存能力的专项边界见 [2026-10-13 同步审查](../../../../docs/UPSTREAM_SYNC_20261013.md)。
 
 `apicompat_config.go` 将可配置输出下限带入现有协议转换；`gateway_anthropic_credentials.go` 在原生 Anthropic 构造器和 token 计数入口检查凭据协议。`gemini_vertex_token_error.go` 保存固定 token 端点的明确 SA 失效分类，错误策略结果只在同一次响应内复用。`billing_gemini_argon.go` 与 `pricing_antigravity_aliases.go` 分别保存 Argon 回退价和模型别名规范化。升级、端点发现与未关闭子项见 [2026-10-15 同步审查](../../../../docs/UPSTREAM_SYNC_20261015.md)。
+
+`gemini_compat_thinking.go` 管理兼容入口的档位与历史思考清理；实际转发配置决定用量展示。`openai_model_retirement.go` 复用当前映射链检查 ChatGPT 退休目标，`openai_responses_created_at.go` 仅修补普通兼容出口缺失时间戳。搜索模拟的共享 gate/writer 保留完整账号出口；详见 [本轮增量审查](../../../../docs/UPSTREAM_SYNC_20261016_FOLLOWUP.md)。

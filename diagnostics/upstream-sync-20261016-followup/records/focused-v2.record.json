@@ -1,0 +1,29 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "-e",
+    "GOMAXPROCS=2",
+    "-e",
+    "GOFLAGS=-p=2",
+    "-v",
+    "sub2api-upstream-go-mod-20261016:/go/pkg/mod",
+    "-v",
+    "sub2api-upstream-go-build-20261016:/root/.cache/go-build",
+    "-v",
+    "/private/tmp/sub2api-upstream-sync-20261016:/workspace",
+    "-w",
+    "/workspace/backend",
+    "golang:1.26.9",
+    "sh",
+    "-c",
+    "gofmt -w $(git diff --name-only -- \"*.go\") internal/application/service/*retirement*.go internal/application/service/*created_at*.go internal/application/service/gemini_compat_thinking*.go; go test -tags unit ./internal/application/service ./internal/transport/http/handler -run \"Test(ApplyGeminiCompat|GeminiForwardAsChat|GeminiMessagesForward|GeminiMessagesHandle|ConvertClaudeMessagesToGemini_Drops|Retired|AccountModelSupport|ResponsesCreatedAt|ShouldEmulateWebSearch|OpenAIModelListing)\" -count=1"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261016",
+  "started_at": "2026-10-16T07:36:44.191255+00:00",
+  "elapsed_seconds": 28.38,
+  "exit_status": 1,
+  "stdout": "FAIL\tgithub.com/Wei-Shaw/sub2api/internal/application/service [build failed]\nok  \tgithub.com/Wei-Shaw/sub2api/internal/transport/http/handler\t0.015s\nFAIL\n",
+  "stderr": "lstat backend/internal/application/service/account.go: no such file or directory\nlstat backend/internal/application/service/account_websearch_test.go: no such file or directory\nlstat backend/internal/application/service/gateway_model_availability.go: no such file or directory\nlstat backend/internal/application/service/gateway_service.go: no such file or directory\nlstat backend/internal/application/service/gateway_websearch_emulation.go: no such file or directory\nlstat backend/internal/application/service/gateway_websearch_emulation_test.go: no such file or directory\nlstat backend/internal/application/service/gemini_chat_completions_compat_service.go: no such file or directory\nlstat backend/internal/application/service/gemini_messages_compat_service.go: no such file or directory\nlstat backend/internal/application/service/openai_account_scheduler.go: no such file or directory\nlstat backend/internal/application/service/openai_codex_models_mapping.go: no such file or directory\nlstat backend/internal/application/service/openai_codex_models_metadata.go: no such file or directory\nlstat backend/internal/application/service/openai_gateway_messages.go: no such file or directory\nlstat backend/internal/application/service/openai_gateway_model_availability.go: no such file or directory\nlstat backend/internal/application/service/openai_gateway_response_flush_test.go: no such file or directory\nlstat backend/internal/application/service/openai_gateway_response_handling.go: no such file or directory\nlstat backend/internal/application/service/openai_gateway_scheduling.go: no such file or directory\nlstat backend/internal/application/service/openai_model_mapping.go: no such file or directory\nlstat backend/internal/application/service/openai_ws_forwarder_support.go: no such file or directory\nlstat backend/internal/application/service/openai_ws_http_bridge.go: no such file or directory\nlstat backend/internal/transport/http/handler/gateway_handler_models.go: no such file or directory\nlstat backend/internal/transport/http/handler/gateway_models_test.go: no such file or directory\nlstat backend/internal/transport/http/handler/no_account_error.go: no such file or directory\n# github.com/Wei-Shaw/sub2api/internal/application/service [github.com/Wei-Shaw/sub2api/internal/application/service.test]\ninternal/application/service/gemini_compat_thinking_upstream_test.go:122:29: undefined: optionalStringValue\ninternal/application/service/gemini_compat_thinking_upstream_test.go:167:30: undefined: optionalStringValue\ninternal/application/service/gemini_compat_thinking_upstream_test.go:207:35: undefined: optionalStringValue\ninternal/application/service/gemini_compat_thinking_upstream_test.go:366:26: undefined: optionalStringValue\n"
+}

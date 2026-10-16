@@ -167,6 +167,7 @@ import {
   DEFAULT_POOL_MODE_RETRY_STATUS_CODES,
   MAX_POOL_MODE_RETRY_COUNT,
   getCodexFingerprintModeOptions,
+  buildAPIKeySearchExtra,
   normalizePoolModeRetryCount,
   parsePoolModeRetryStatusCodes,
   type CodexFingerprintMode,
@@ -1070,30 +1071,9 @@ const buildOpenAICodexImportExtra = (): Record<string, unknown> | undefined => {
   return Object.keys(extra).length > 0 ? extra : undefined
 }
 
-const buildAnthropicExtra = (base?: Record<string, unknown>): Record<string, unknown> | undefined => {
-  if (form.platform !== 'anthropic' || accountCategory.value !== 'apikey') {
-    return base
-  }
-
-  const extra: Record<string, unknown> = { ...(base || {}) }
-  if (anthropicPassthroughEnabled.value) {
-    extra.anthropic_passthrough = true
-  } else {
-    delete extra.anthropic_passthrough
-  }
-  if (anthropicAPIKeyAuthScheme.value === 'authorization_bearer') {
-    extra.anthropic_apikey_auth_scheme = 'authorization_bearer'
-  } else {
-    delete extra.anthropic_apikey_auth_scheme
-  }
-  if (webSearchEmulationMode.value === 'default') {
-    delete extra.web_search_emulation
-  } else {
-    extra.web_search_emulation = webSearchEmulationMode.value
-  }
-
-  return Object.keys(extra).length > 0 ? extra : undefined
-}
+const buildAnthropicExtra = (base?: Record<string, unknown>): Record<string, unknown> | undefined =>
+  buildAPIKeySearchExtra(base, form.platform, accountCategory.value, webSearchEmulationMode.value,
+    anthropicPassthroughEnabled.value, anthropicAPIKeyAuthScheme.value)
 
 const buildUpstreamInsufficientBalanceExtra = (
   base?: Record<string, unknown>

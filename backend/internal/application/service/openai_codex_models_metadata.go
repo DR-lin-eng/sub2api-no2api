@@ -11,7 +11,7 @@ import (
 // CodexManifestProjectionEnabled requires local conditional validation whenever
 // account metadata may affect the body, independently of upstream cache ETags.
 func CodexManifestProjectionEnabled(account *Account) bool {
-	return account != nil && !account.IsOpenAIPassthroughEnabled()
+	return account != nil && (!account.IsOpenAIPassthroughEnabled() || (account.IsOpenAI() && (account.IsOAuth() || account.IsShadow())))
 }
 
 func codexMetadataOverrides(account *Account) map[string]modelcatalog.Descriptor {

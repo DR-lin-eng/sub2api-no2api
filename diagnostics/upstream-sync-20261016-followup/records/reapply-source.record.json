@@ -1,0 +1,13 @@
+{
+  "command": [
+    "git",
+    "apply",
+    "/private/tmp/sub2api-upstream-sync-20261016/diagnostics/upstream-sync-20261016-followup/DIFF_FILE.patch"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261016-rollback",
+  "started_at": "2026-10-16T08:16:44.292191+00:00",
+  "elapsed_seconds": 0.051,
+  "exit_status": 0,
+  "stdout": "",
+  "stderr": ""
+}

@@ -1,0 +1,33 @@
+Original checkout fetch:
+  git fetch --prune origin upstream
+  error: cannot open '/Users/lin/sub2api-no2api/.git/worktrees/sub2api-no2api/FETCH_HEAD': Operation not permitted
+  Exit status was not retained by the original text-only wrapper. Corrected by cloning the same origin into the permitted work-copy directory and fetching both remotes there. Original target stayed unchanged.
+Host Go baseline:
+  go: download go1.26.9: open /Users/lin/go/pkg/mod/cache/download/golang.org/toolchain/@v/v0.0.1-go1.26.9.darwin-arm64.lock: operation not permitted
+  Combined baseline command exit 1. Corrected using Docker Go 1.26.9 with named caches.
+Docker shell login:
+  sh -lc: go: not found
+  exit 127. Corrected with non-login shell and explicit /usr/local/go/bin PATH.
+Formatting path:
+  lstat ../../workspace/transport/http/handler/gateway_handler_models.go: no such file or directory
+  Corrected to internal/transport/http/handler/gateway_handler_models.go.
+Compile duplicate:
+  computeGeminiTextDelta redeclared; existing implementation already owned by gemini_messages_compat_service.go.
+  exit 1. Removed duplicate helper and kept existing cumulative/delta behavior.
+Runtime fixture syntax:
+  zsh:3: command not found: sub2api-sync-postgres-20261016
+  exit 127. Removed erroneous space in fixture variable assignment.
+Runtime port collision:
+  Bind for 127.0.0.1:18080 failed: port is already allocated
+  exit 125. Kept the unrelated running application intact and switched to an isolated test port.
+Runtime invalid fixture:
+  Auto setup failed: initialize shared jwt secret: jwt secret must be at least 32 bytes
+  exit 1, schema count 303. Replaced fixture with random compliant secrets kept in process memory; final matrix uses isolated Compose and no saved credentials.
+All captured subsequent command failures, successful corrected commands, literal streams, and exits are in records/. Source-rollback compile killed and initial lint compile killed are resource failures, not baseline application behaviors. Full large unit records are preserved as compressed JSON with uncompressed SHA256.
+
+Resource correction: backend-lint-v2, source-rollback-v2 and empty-catalog-cache were explicitly stopped with exit 137 after observing three concurrent analysis/compile processes each at about 2 GiB RSS. This is recorded as a harness cancellation, not a failed application assertion. Replacements run serially with a larger per-process budget.
+
+Final documentation staging:
+  git add docs/UPSTREAM_SYNC_20261016_FOLLOWUP.md
+  exit 1: .gitignore:140 docs/* ignores new topic files.
+  Corrected with a path-scoped git add -f for the requested new review document; regenerated the same source roles to include its creation/removal. No ignore policy was broadened.
