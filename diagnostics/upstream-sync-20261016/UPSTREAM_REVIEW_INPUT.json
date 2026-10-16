@@ -1,0 +1,24 @@
+{
+  "baseline_sha": "ed58484ab78497352259aea855e713df20b6a115",
+  "previous_upstream_sha": "1b2243a4f50621508e79aef4b498a2937a6238ee",
+  "upstream_sha": "b8cfb7884084393e08f0e2c4027afc3755357b98",
+  "date": "2026-10-16",
+  "timezone": "Asia/Shanghai",
+  "prs": [
+    8122,
+    8133
+  ],
+  "prior_ledger": "diagnostics/upstream-sync-20261015/UPSTREAM_PRS.json",
+  "prior_ledger_sha256": "fea02f7ea8326c19e60ffccf71e9c2cccc545cc6097c088f2394a30f8350eb97",
+  "raw_diff_sha256": {
+    "8122": "ffd2ce38b167449b9171d5158d40e26afd9da1ebb3fac32b44ccfb16058667a3",
+    "8133": "56254e26f96b1b161fe6267f047d92d90dfef7245b2acc7929be9863de718b4c"
+  },
+  "unchanged_prior_decisions": [
+    "#7802 recharge bonuses and migration 247",
+    "#7673 anonymous order limiter",
+    "#7888 callback PID/signature/return query protections",
+    "#7819 Stripe SDK disposal guards"
+  ],
+  "scope": "Selectively adapt two newly merged upstream payment PRs into current modular owners. Prior closed/deferred ledgers remain immutable."
+}

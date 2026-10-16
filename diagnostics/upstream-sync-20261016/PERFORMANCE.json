@@ -1,0 +1,104 @@
+{
+  "toolchain": "Go 1.26.9",
+  "platform": "linux/arm64",
+  "cpus": 2,
+  "memory": "3GiB",
+  "GOMAXPROCS": 2,
+  "iterations_per_sample": 3000,
+  "samples_per_stage": 3,
+  "fixture_sha256": "c27d77ef617db761e2e1c8d5cd9df022b3fd82146df5c4bb2c334f83bb42b224",
+  "scope": "Local HTTP query only; serial samples after all unit/integration/lint/image/runtime work finished. Not gateway throughput.",
+  "stages": {
+    "BASELINE": {
+      "record": "records/performance-baseline.record.json",
+      "samples": [
+        {
+          "iterations": 3000,
+          "ns_per_op": 25866,
+          "bytes_per_op": 9366,
+          "allocs_per_op": 117
+        },
+        {
+          "iterations": 3000,
+          "ns_per_op": 23321,
+          "bytes_per_op": 9326,
+          "allocs_per_op": 117
+        },
+        {
+          "iterations": 3000,
+          "ns_per_op": 23171,
+          "bytes_per_op": 9326,
+          "allocs_per_op": 117
+        }
+      ],
+      "median": {
+        "ns_per_op": 23321,
+        "bytes_per_op": 9326,
+        "allocs_per_op": 117
+      }
+    },
+    "MODIFIED": {
+      "record": "records/performance-modified.record.json",
+      "samples": [
+        {
+          "iterations": 3000,
+          "ns_per_op": 32615,
+          "bytes_per_op": 10767,
+          "allocs_per_op": 139
+        },
+        {
+          "iterations": 3000,
+          "ns_per_op": 29107,
+          "bytes_per_op": 10725,
+          "allocs_per_op": 139
+        },
+        {
+          "iterations": 3000,
+          "ns_per_op": 66999,
+          "bytes_per_op": 10725,
+          "allocs_per_op": 139
+        }
+      ],
+      "median": {
+        "ns_per_op": 32615,
+        "bytes_per_op": 10725,
+        "allocs_per_op": 139
+      }
+    },
+    "ROLLBACK": {
+      "record": "records/performance-rollback.record.json",
+      "samples": [
+        {
+          "iterations": 3000,
+          "ns_per_op": 23268,
+          "bytes_per_op": 9365,
+          "allocs_per_op": 117
+        },
+        {
+          "iterations": 3000,
+          "ns_per_op": 25970,
+          "bytes_per_op": 9324,
+          "allocs_per_op": 117
+        },
+        {
+          "iterations": 3000,
+          "ns_per_op": 25724,
+          "bytes_per_op": 9329,
+          "allocs_per_op": 117
+        }
+      ],
+      "median": {
+        "ns_per_op": 25724,
+        "bytes_per_op": 9329,
+        "allocs_per_op": 117
+      }
+    }
+  },
+  "comparison": {
+    "query_bytes_delta": 1399,
+    "query_allocations_delta": 22,
+    "time_ratio_localhost_only": 1.3985249346082929,
+    "duplicate_completed_webhook_additional_upstream_queries": 0,
+    "gateway_hot_path_changed": false
+  }
+}

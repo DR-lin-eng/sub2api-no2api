@@ -1,0 +1,2998 @@
+diff --git a/backend/internal/application/service/README.md b/backend/internal/application/service/README.md
+index d1f76cfad..1fb7d3cae 100644
+--- a/backend/internal/application/service/README.md
++++ b/backend/internal/application/service/README.md
+@@ -73,6 +73,8 @@ GPT-6.1 Sol 的订阅模型长上下文豁免由 `openai_subscription_long_conte
+ 
+ `subscription_progress.go` 保存订阅进度值；名称译文仅作为不序列化的输出参数从已加载分组带到 handler，单条与批量用户进度保持同一语言规则，不增加数据库查询。
+ 
++`payment_fulfillment.go` 在本地订单校验后对首次可支付的回调执行同实例确认，已完成回调和上游查询对账复用原有路径。`payment_refund.go` 将 pending 扣减凭证和状态同事务保存，成功不重复扣减，失败同事务归还；被撤销的订阅通过既有订阅 owner 恢复。旧审计读取、混合版本退款管理暂停与回退前结清要求见 [2026-10-16 同步审查](../../../../docs/UPSTREAM_SYNC_20261016.md)。
++
+ 临时不可调度的可选规则范围由 `temp_unsched_scope.go` 选择；重试耗尽、Bedrock 和 token 计数透传调度器使用的模型键。`openai_responses_input_rejection.go` 只识别转换后结构化 input 的明确类型拒绝，Chat 回退保留原始开始时间。冻结差异、滚动升级启用顺序和新缓存能力的专项边界见 [2026-10-13 同步审查](../../../../docs/UPSTREAM_SYNC_20261013.md)。
+ 
+ `apicompat_config.go` 将可配置输出下限带入现有协议转换；`gateway_anthropic_credentials.go` 在原生 Anthropic 构造器和 token 计数入口检查凭据协议。`gemini_vertex_token_error.go` 保存固定 token 端点的明确 SA 失效分类，错误策略结果只在同一次响应内复用。`billing_gemini_argon.go` 与 `pricing_antigravity_aliases.go` 分别保存 Argon 回退价和模型别名规范化。升级、端点发现与未关闭子项见 [2026-10-15 同步审查](../../../../docs/UPSTREAM_SYNC_20261015.md)。
+diff --git a/backend/internal/application/service/payment_fulfillment.go b/backend/internal/application/service/payment_fulfillment.go
+index f44756bda..f261682df 100644
+--- a/backend/internal/application/service/payment_fulfillment.go
++++ b/backend/internal/application/service/payment_fulfillment.go
+@@ -18,6 +18,7 @@ import (
+ 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
+ 	"github.com/Wei-Shaw/sub2api/internal/modules/payment"
+ 	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
++	"github.com/Wei-Shaw/sub2api/internal/shared/servertiming"
+ )
+ 
+ // ErrOrderNotFound is returned by HandlePaymentNotification when the webhook
+@@ -28,6 +29,9 @@ import (
+ // misconfigured to point at us, or when our orders table has been wiped).
+ var ErrOrderNotFound = errors.New("payment order not found")
+ 
++// ErrPaymentUpstreamUnconfirmed asks webhook transports to return a retryable 502.
++var ErrPaymentUpstreamUnconfirmed = errors.New("payment upstream confirmation failed")
++
+ const paymentFulfillmentLeaseDuration = 5 * time.Minute
+ 
+ type paymentFulfillmentLease struct {
+@@ -37,7 +41,21 @@ type paymentFulfillmentLease struct {
+ // --- Payment Notification & Fulfillment ---
+ 
+ func (s *PaymentService) HandlePaymentNotification(ctx context.Context, n *payment.PaymentNotification, pk string) error {
+-	if n.Status != payment.NotificationStatusSuccess {
++	return s.handlePaymentNotification(ctx, n, pk, nil)
++}
++
++// HandleVerifiedPaymentNotification binds upstream confirmation to the exact
++// instance that verified the callback. Reconciliation keeps its existing entry
++// point because its notification already comes from an authoritative query.
++func (s *PaymentService) HandleVerifiedPaymentNotification(ctx context.Context, n *payment.PaymentNotification, prov payment.Provider) error {
++	if prov == nil {
++		return errors.New("verified payment provider is missing")
++	}
++	return s.handlePaymentNotification(ctx, n, prov.ProviderKey(), prov)
++}
++
++func (s *PaymentService) handlePaymentNotification(ctx context.Context, n *payment.PaymentNotification, pk string, prov payment.Provider) error {
++	if n == nil || n.Status != payment.NotificationStatusSuccess {
+ 		return nil
+ 	}
+ 	// Look up order by out_trade_no (the external order ID we sent to the provider)
+@@ -46,14 +64,47 @@ func (s *PaymentService) HandlePaymentNotification(ctx context.Context, n *payme
+ 		// Fallback only for true legacy "sub2_N" DB-ID payloads when the
+ 		// current out_trade_no lookup genuinely did not find an order.
+ 		if oid, ok := parseLegacyPaymentOrderID(n.OrderID, err); ok {
+-			return s.confirmPayment(ctx, oid, n.TradeNo, n.Amount, pk, n.Metadata)
++			if prov == nil {
++				return s.confirmPayment(ctx, oid, n.TradeNo, n.Amount, pk, n.Metadata)
++			}
++			return s.confirmPaymentWithProvider(ctx, oid, n, pk, prov)
+ 		}
+ 		if dbent.IsNotFound(err) {
+ 			return fmt.Errorf("%w: out_trade_no=%s", ErrOrderNotFound, n.OrderID)
+ 		}
+ 		return fmt.Errorf("lookup order failed for out_trade_no %s: %w", n.OrderID, err)
+ 	}
+-	return s.confirmPayment(ctx, order.ID, n.TradeNo, n.Amount, pk, n.Metadata)
++	if prov == nil {
++		return s.confirmPayment(ctx, order.ID, n.TradeNo, n.Amount, pk, n.Metadata)
++	}
++	return s.confirmPaymentWithProvider(ctx, order.ID, n, pk, prov)
++}
++
++// ConfirmNotificationUpstream asks providers that implement
++// payment.NotificationConfirmer to confirm a verified success notification
++// against the upstream order, using the same instance that verified it.
++// Failures are recorded on the order's audit trail and returned so the webhook
++// answers non-success and the gateway retries.
++func (s *PaymentService) ConfirmNotificationUpstream(ctx context.Context, prov payment.Provider, n *payment.PaymentNotification) error {
++	confirmer, ok := prov.(payment.NotificationConfirmer)
++	if !ok || n == nil || n.Status != payment.NotificationStatusSuccess {
++		return nil
++	}
++	notifiedTradeNo := n.TradeNo
++	finishProviderCall := servertiming.ObserveDependency(ctx, "payment")
++	err := confirmer.ConfirmNotification(ctx, n)
++	finishProviderCall()
++	if err == nil {
++		return nil
++	}
++	if order, lookupErr := s.entClient.PaymentOrder.Query().Where(paymentorder.OutTradeNo(n.OrderID)).Only(ctx); lookupErr == nil {
++		s.writeAuditLog(ctx, order.ID, "PAYMENT_UPSTREAM_UNCONFIRMED", prov.ProviderKey(), map[string]any{
++			"detail":  err.Error(),
++			"tradeNo": notifiedTradeNo,
++			"amount":  n.Amount,
++		})
++	}
++	return err
+ }
+ 
+ func parseLegacyPaymentOrderID(orderID string, lookupErr error) (int64, bool) {
+@@ -76,6 +127,13 @@ func parseLegacyPaymentOrderID(orderID string, lookupErr error) (int64, bool) {
+ }
+ 
+ func (s *PaymentService) confirmPayment(ctx context.Context, oid int64, tradeNo string, paid float64, pk string, metadata map[string]string) error {
++	return s.confirmPaymentWithProvider(ctx, oid, &payment.PaymentNotification{
++		TradeNo: tradeNo, Amount: paid, Metadata: metadata, Status: payment.NotificationStatusSuccess,
++	}, pk, nil)
++}
++
++func (s *PaymentService) confirmPaymentWithProvider(ctx context.Context, oid int64, n *payment.PaymentNotification, pk string, prov payment.Provider) error {
++	tradeNo, paid, metadata := n.TradeNo, n.Amount, n.Metadata
+ 	o, err := s.entClient.PaymentOrder.Get(ctx, oid)
+ 	if err != nil {
+ 		slog.Error("order not found", "orderID", oid)
+@@ -120,6 +178,19 @@ func (s *PaymentService) confirmPayment(ctx context.Context, oid int64, tradeNo
+ 		s.writeAuditLog(ctx, o.ID, "PAYMENT_AMOUNT_MISMATCH", pk, map[string]any{"expected": o.PayAmount, "paid": paid, "tradeNo": tradeNo})
+ 		return fmt.Errorf("amount mismatch: expected %s, got %s", strconv.FormatFloat(o.PayAmount, 'f', -1, 64), strconv.FormatFloat(paid, 'f', -1, 64))
+ 	}
++	if prov != nil {
++		// Paid orders and expired orders outside the recovery window
++		// cannot transition to PAID. Duplicate callbacks need no remote query.
++		recoverable := (o.Status == OrderStatusCancelled || o.Status == OrderStatusExpired) &&
++			!o.UpdatedAt.Before(time.Now().Add(-paymentGraceMinutes*time.Minute))
++		if o.Status != OrderStatusPending && !recoverable {
++			return s.alreadyProcessed(ctx, o)
++		}
++		if err := s.ConfirmNotificationUpstream(ctx, prov, n); err != nil {
++			return fmt.Errorf("%w: %v", ErrPaymentUpstreamUnconfirmed, err)
++		}
++		tradeNo = n.TradeNo
++	}
+ 	return s.toPaid(ctx, o, tradeNo, paid, pk)
+ }
+ 
+@@ -228,10 +299,37 @@ func (s *PaymentService) executeFulfillment(ctx context.Context, oid int64) erro
+ 	if err != nil {
+ 		return fmt.Errorf("get order: %w", err)
+ 	}
+-	if o.OrderType == payment.OrderTypeSubscription {
++	switch o.OrderType {
++	case payment.OrderTypeSubscription:
+ 		return s.ExecuteSubscriptionFulfillment(ctx, oid)
++	case payment.OrderTypeBalance:
++		return s.ExecuteBalanceFulfillment(ctx, oid)
++	default:
++		// 不支持的订单类型不履约：标记 FAILED 后正常返回，避免支付回调持续 500 重试。
++		return s.rejectUnsupportedOrderType(ctx, o)
++	}
++}
++
++func isSupportedPaymentOrderType(orderType string) bool {
++	return orderType == payment.OrderTypeBalance || orderType == payment.OrderTypeSubscription
++}
++
++func (s *PaymentService) rejectUnsupportedOrderType(ctx context.Context, o *dbent.PaymentOrder) error {
++	reason := "unsupported order type: " + o.OrderType
++	c, err := s.entClient.PaymentOrder.Update().
++		Where(
++			paymentorder.IDEQ(o.ID),
++			paymentorder.StatusIn(OrderStatusPaid, OrderStatusRecharging),
++		).
++		SetStatus(OrderStatusFailed).SetFailedAt(time.Now()).SetFailedReason(reason).Save(ctx)
++	if err != nil {
++		return fmt.Errorf("mark unsupported order type FAILED: %w", err)
+ 	}
+-	return s.ExecuteBalanceFulfillment(ctx, oid)
++	if c > 0 {
++		slog.Warn("payment order with unsupported order type not fulfilled", "orderID", o.ID, "orderType", o.OrderType)
++		s.writeAuditLog(ctx, o.ID, "FULFILLMENT_FAILED", "system", map[string]any{"reason": reason})
++	}
++	return nil
+ }
+ 
+ func (s *PaymentService) ExecuteBalanceFulfillment(ctx context.Context, oid int64) error {
+@@ -239,6 +337,9 @@ func (s *PaymentService) ExecuteBalanceFulfillment(ctx context.Context, oid int6
+ 	if err != nil {
+ 		return infraerrors.NotFound("NOT_FOUND", "order not found")
+ 	}
++	if o.OrderType != payment.OrderTypeBalance {
++		return infraerrors.BadRequest("INVALID_ORDER_TYPE", "order is not a balance order")
++	}
+ 	if o.Status == OrderStatusCompleted {
+ 		return nil
+ 	}
+@@ -856,6 +957,9 @@ func (s *PaymentService) RetryFulfillment(ctx context.Context, oid int64) error
+ 	if o.Status != OrderStatusFailed && o.Status != OrderStatusPaid && o.Status != OrderStatusRecharging {
+ 		return infraerrors.BadRequest("INVALID_STATUS", "only paid, failed, and recoverable recharging orders can retry")
+ 	}
++	if !isSupportedPaymentOrderType(o.OrderType) {
++		return infraerrors.BadRequest("INVALID_ORDER_TYPE", "unsupported order type")
++	}
+ 	s.writeAuditLog(ctx, oid, "RECHARGE_RETRY", "admin", map[string]any{"detail": "admin manual retry"})
+ 	return s.executeFulfillment(ctx, oid)
+ }
+diff --git a/backend/internal/application/service/payment_notification_confirm_test.go b/backend/internal/application/service/payment_notification_confirm_test.go
+new file mode 100644
+index 000000000..b0a5a5dba
+--- /dev/null
++++ b/backend/internal/application/service/payment_notification_confirm_test.go
+@@ -0,0 +1,152 @@
++//go:build unit
++
++package service
++
++import (
++	"context"
++	"errors"
++	"strconv"
++	"testing"
++	"time"
++
++	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
++	"github.com/Wei-Shaw/sub2api/internal/modules/payment"
++	"github.com/stretchr/testify/require"
++)
++
++type paymentConfirmTestProvider struct {
++	paymentFulfillmentTestProvider
++	err   error
++	calls *int
++}
++
++func (p paymentConfirmTestProvider) ConfirmNotification(_ context.Context, n *payment.PaymentNotification) error {
++	*p.calls++
++	if p.err == nil && n.TradeNo == "" {
++		n.TradeNo = "upstream-trade"
++	}
++	return p.err
++}
++
++func TestConfirmNotificationUpstreamRecordsAuditOnFailure(t *testing.T) {
++	ctx := context.Background()
++	client := newPaymentConfigServiceTestClient(t)
++	user, err := client.User.Create().
++		SetEmail("confirm-upstream@example.com").
++		SetPasswordHash("hash").
++		SetUsername("confirm-upstream-user").
++		Save(ctx)
++	require.NoError(t, err)
++	order, err := client.PaymentOrder.Create().
++		SetUserID(user.ID).
++		SetUserEmail(user.Email).
++		SetUserName(user.Username).
++		SetAmount(10).
++		SetPayAmount(10).
++		SetFeeRate(0).
++		SetRechargeCode("PAY-CONFIRM-UPSTREAM").
++		SetOutTradeNo("sub2_confirm_upstream").
++		SetPaymentType(payment.TypeAlipay).
++		SetPaymentTradeNo("").
++		SetOrderType(payment.OrderTypeBalance).
++		SetStatus(OrderStatusPending).
++		SetExpiresAt(time.Now().Add(time.Hour)).
++		SetClientIP("127.0.0.1").
++		SetSrcHost("api.example.com").
++		Save(ctx)
++	require.NoError(t, err)
++
++	svc := &PaymentService{entClient: client}
++	calls := 0
++	prov := paymentConfirmTestProvider{
++		paymentFulfillmentTestProvider: paymentFulfillmentTestProvider{key: payment.TypeEasyPay},
++		err:                            errors.New("easypay confirm: upstream reports order sub2_confirm_upstream as not paid"),
++		calls:                          &calls,
++	}
++	n := &payment.PaymentNotification{OrderID: order.OutTradeNo, TradeNo: "T-unconfirmed", Amount: 10, Status: payment.NotificationStatusSuccess}
++
++	err = svc.ConfirmNotificationUpstream(ctx, prov, n)
++	require.Error(t, err)
++	require.Equal(t, 1, calls)
++
++	count, err := client.PaymentAuditLog.Query().
++		Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(order.ID, 10)), paymentauditlog.ActionEQ("PAYMENT_UPSTREAM_UNCONFIRMED")).
++		Count(ctx)
++	require.NoError(t, err)
++	require.Equal(t, 1, count)
++
++	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
++	require.NoError(t, err)
++	require.Equal(t, OrderStatusPending, reloaded.Status)
++}
++
++func TestConfirmNotificationUpstreamPassThrough(t *testing.T) {
++	svc := &PaymentService{}
++	n := &payment.PaymentNotification{OrderID: "sub2_x", Amount: 10, Status: payment.NotificationStatusSuccess}
++
++	// Providers without the confirmer capability keep their existing flow.
++	require.NoError(t, svc.ConfirmNotificationUpstream(context.Background(), paymentFulfillmentTestProvider{key: payment.TypeStripe}, n))
++
++	calls := 0
++	prov := paymentConfirmTestProvider{paymentFulfillmentTestProvider: paymentFulfillmentTestProvider{key: payment.TypeEasyPay}, calls: &calls}
++
++	// Non-success notifications are never fulfilled, so they are not queried.
++	failed := &payment.PaymentNotification{OrderID: "sub2_x", Status: payment.ProviderStatusFailed}
++	require.NoError(t, svc.ConfirmNotificationUpstream(context.Background(), prov, failed))
++	require.Equal(t, 0, calls)
++
++	require.NoError(t, svc.ConfirmNotificationUpstream(context.Background(), prov, n))
++	require.Equal(t, 1, calls)
++	require.Equal(t, "upstream-trade", n.TradeNo)
++}
++
++func TestVerifiedPaymentConfirmsOnlyLocallyPayableOrders(t *testing.T) {
++	for _, tc := range []struct {
++		name      string
++		status    string
++		missing   bool
++		badAmount bool
++		wantCalls int
++		wantErr   error
++	}{
++		{name: "unpaid callback", status: OrderStatusPending, wantCalls: 1, wantErr: ErrPaymentUpstreamUnconfirmed},
++		{name: "completed duplicate", status: OrderStatusCompleted},
++		{name: "refunded duplicate", status: OrderStatusRefunded},
++		{name: "unknown order", status: OrderStatusPending, missing: true, wantErr: ErrOrderNotFound},
++		{name: "amount rejected locally", status: OrderStatusPending, badAmount: true},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			ctx := context.Background()
++			client := newPaymentConfigServiceTestClient(t)
++			order := createCompletedRefundableOrderForTest(t, ctx, client, "notification-local-check")
++			_, err := client.PaymentOrder.UpdateOneID(order.ID).SetStatus(tc.status).Save(ctx)
++			require.NoError(t, err)
++			calls := 0
++			prov := paymentConfirmTestProvider{
++				paymentFulfillmentTestProvider: paymentFulfillmentTestProvider{key: payment.TypeStripe},
++				err:                            errors.New("upstream is unavailable"), calls: &calls,
++			}
++			n := &payment.PaymentNotification{OrderID: order.OutTradeNo, TradeNo: order.PaymentTradeNo,
++				Amount: order.PayAmount, Status: payment.NotificationStatusSuccess}
++			if tc.missing {
++				n.OrderID = "sub2_unknown_order"
++			}
++			if tc.badAmount {
++				n.Amount = 0.01
++			}
++			svc := &PaymentService{entClient: client}
++			err = svc.HandleVerifiedPaymentNotification(ctx, n, prov)
++			if tc.wantErr != nil {
++				require.ErrorIs(t, err, tc.wantErr)
++			} else if tc.badAmount {
++				require.ErrorContains(t, err, "amount mismatch")
++			} else {
++				require.NoError(t, err)
++			}
++			require.Equal(t, tc.wantCalls, calls)
++			reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
++			require.NoError(t, err)
++			require.Equal(t, tc.status, reloaded.Status)
++		})
++	}
++}
+diff --git a/backend/internal/application/service/payment_order.go b/backend/internal/application/service/payment_order.go
+index 3ccdbef16..d6127af03 100644
+--- a/backend/internal/application/service/payment_order.go
++++ b/backend/internal/application/service/payment_order.go
+@@ -120,11 +120,16 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
+ }
+ 
+ func (s *PaymentService) validateOrderInput(ctx context.Context, req CreateOrderRequest, cfg *PaymentConfig) (*dbent.SubscriptionPlan, error) {
+-	if req.OrderType == payment.OrderTypeBalance && cfg.BalanceDisabled {
+-		return nil, infraerrors.Forbidden("BALANCE_PAYMENT_DISABLED", "balance recharge has been disabled")
+-	}
+-	if req.OrderType == payment.OrderTypeSubscription {
++	// 订单类型必须走白名单：未知类型会跳过充值开关与倍率计算，履约时却仍按余额到账。
++	switch req.OrderType {
++	case payment.OrderTypeBalance:
++		if cfg.BalanceDisabled {
++			return nil, infraerrors.Forbidden("BALANCE_PAYMENT_DISABLED", "balance recharge has been disabled")
++		}
++	case payment.OrderTypeSubscription:
+ 		return s.validateSubOrder(ctx, req)
++	default:
++		return nil, infraerrors.BadRequest("INVALID_ORDER_TYPE", "unsupported order type")
+ 	}
+ 	if math.IsNaN(req.Amount) || math.IsInf(req.Amount, 0) || req.Amount <= 0 {
+ 		return nil, infraerrors.BadRequest("INVALID_AMOUNT", "amount must be a positive number")
+diff --git a/backend/internal/application/service/payment_order_type_test.go b/backend/internal/application/service/payment_order_type_test.go
+new file mode 100644
+index 000000000..cfef7bb28
+--- /dev/null
++++ b/backend/internal/application/service/payment_order_type_test.go
+@@ -0,0 +1,80 @@
++//go:build unit
++
++package service
++
++import (
++	"context"
++	"strconv"
++	"testing"
++	"time"
++
++	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
++	"github.com/Wei-Shaw/sub2api/internal/modules/payment"
++	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
++	"github.com/stretchr/testify/require"
++)
++
++func TestValidateOrderInputRejectsUnknownOrderType(t *testing.T) {
++	svc := &PaymentService{}
++	for _, orderType := range []string{"x", "Balance", " balance", "subscription "} {
++		for _, disabled := range []bool{false, true} {
++			cfg := &PaymentConfig{BalanceDisabled: disabled}
++			plan, err := svc.validateOrderInput(context.Background(), CreateOrderRequest{OrderType: orderType, Amount: 10}, cfg)
++			require.Nil(t, plan)
++			require.Error(t, err, "order type %q must be rejected", orderType)
++			require.Equal(t, "INVALID_ORDER_TYPE", infraerrors.Reason(err), "order type %q", orderType)
++		}
++	}
++}
++
++func TestValidateOrderInputKeepsBalanceDisabledSwitch(t *testing.T) {
++	svc := &PaymentService{}
++	_, err := svc.validateOrderInput(context.Background(), CreateOrderRequest{OrderType: payment.OrderTypeBalance, Amount: 10}, &PaymentConfig{BalanceDisabled: true})
++	require.Equal(t, "BALANCE_PAYMENT_DISABLED", infraerrors.Reason(err))
++
++	plan, err := svc.validateOrderInput(context.Background(), CreateOrderRequest{OrderType: payment.OrderTypeBalance, Amount: 10}, &PaymentConfig{})
++	require.NoError(t, err)
++	require.Nil(t, plan)
++}
++
++func TestFulfillmentRejectsUnknownOrderType(t *testing.T) {
++	ctx := context.Background()
++	client := newPaymentConfigServiceTestClient(t)
++	order := createPaymentFulfillmentSubscriptionOrder(t, ctx, client, OrderStatusPaid, time.Now())
++	order, err := client.PaymentOrder.UpdateOneID(order.ID).
++		SetOrderType("x").
++		ClearPlanID().
++		ClearSubscriptionGroupID().
++		ClearSubscriptionDays().
++		Save(ctx)
++	require.NoError(t, err)
++
++	userRepo := &mockUserRepo{getByIDUser: &User{ID: order.UserID}}
++	userRepo.updateBalanceFn = func(context.Context, int64, float64) error {
++		t.Fatal("unknown order type must not credit balance")
++		return nil
++	}
++	svc := &PaymentService{entClient: client, userRepo: userRepo}
++
++	err = svc.ExecuteBalanceFulfillment(ctx, order.ID)
++	require.Equal(t, "INVALID_ORDER_TYPE", infraerrors.Reason(err))
++
++	// 不履约，但标记 FAILED 并正常返回，使支付回调得到确认而不是无限重试。
++	require.NoError(t, svc.executeFulfillment(ctx, order.ID))
++	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
++	require.NoError(t, err)
++	require.Equal(t, OrderStatusFailed, reloaded.Status)
++	require.NotNil(t, reloaded.FailedReason)
++	require.Contains(t, *reloaded.FailedReason, "unsupported order type")
++
++	// 回调重试经 alreadyProcessed 再次进入履约：幂等，不重复写审计。
++	require.NoError(t, svc.executeFulfillment(ctx, order.ID))
++	audits, err := client.PaymentAuditLog.Query().
++		Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(order.ID, 10)), paymentauditlog.ActionEQ("FULFILLMENT_FAILED")).
++		Count(ctx)
++	require.NoError(t, err)
++	require.Equal(t, 1, audits)
++
++	err = svc.RetryFulfillment(ctx, order.ID)
++	require.Equal(t, "INVALID_ORDER_TYPE", infraerrors.Reason(err))
++}
+diff --git a/backend/internal/application/service/payment_refund.go b/backend/internal/application/service/payment_refund.go
+index 6bbdad981..321b7092a 100644
+--- a/backend/internal/application/service/payment_refund.go
++++ b/backend/internal/application/service/payment_refund.go
+@@ -210,7 +210,8 @@ func (s *PaymentService) PrepareRefund(ctx context.Context, oid int64, amt float
+ 	if err != nil {
+ 		return nil, nil, infraerrors.NotFound("NOT_FOUND", "order not found")
+ 	}
+-	ok := []string{OrderStatusCompleted, OrderStatusRefundRequested, OrderStatusRefundPending, OrderStatusRefundFailed}
++	// REFUND_PENDING 只能通过 QueryAndFinalizeRefund 收敛：重新发起会重复扣减并向网关重复退款。
++	ok := []string{OrderStatusCompleted, OrderStatusRefundRequested, OrderStatusRefundFailed}
+ 	if !psSliceContains(ok, o.Status) {
+ 		return nil, nil, infraerrors.BadRequest("INVALID_STATUS", "order status does not allow refund")
+ 	}
+@@ -295,8 +296,16 @@ func (s *PaymentService) deductAvailableBalance(ctx context.Context, userID int6
+ 	return repo.DeductAvailableBalance(ctx, userID, amount)
+ }
+ 
++// invalidateRefundBalanceCache 退款扣减或归还余额后失效计费缓存，否则网关在缓存 TTL 内仍按旧余额放行。
++func (s *PaymentService) invalidateRefundBalanceCache(ctx context.Context, userID int64) {
++	if s.redeemService == nil {
++		return
++	}
++	s.redeemService.invalidateRedeemCaches(ctx, userID, &RedeemCode{Type: RedeemTypeBalance})
++}
++
+ func (s *PaymentService) ExecuteRefund(ctx context.Context, p *RefundPlan) (*RefundResult, error) {
+-	c, err := s.entClient.PaymentOrder.Update().Where(paymentorder.IDEQ(p.OrderID), paymentorder.StatusIn(OrderStatusCompleted, OrderStatusRefundRequested, OrderStatusRefundPending, OrderStatusRefundFailed)).SetStatus(OrderStatusRefunding).Save(ctx)
++	c, err := s.entClient.PaymentOrder.Update().Where(paymentorder.IDEQ(p.OrderID), paymentorder.StatusIn(OrderStatusCompleted, OrderStatusRefundRequested, OrderStatusRefundFailed)).SetStatus(OrderStatusRefunding).Save(ctx)
+ 	if err != nil {
+ 		return nil, fmt.Errorf("lock: %w", err)
+ 	}
+@@ -313,6 +322,7 @@ func (s *PaymentService) ExecuteRefund(ctx context.Context, p *RefundPlan) (*Ref
+ 				return nil, fmt.Errorf("deduction: %w", err)
+ 			}
+ 			p.BalanceToDeduct = deducted
++			s.invalidateRefundBalanceCache(ctx, p.Order.UserID)
+ 		} else {
+ 			slog.Warn("skipping balance deduction on retry (previous rollback failed)", "orderID", p.OrderID)
+ 			p.BalanceToDeduct = 0
+@@ -329,6 +339,7 @@ func (s *PaymentService) ExecuteRefund(ctx context.Context, p *RefundPlan) (*Ref
+ 						s.restoreStatus(ctx, p)
+ 						return nil, fmt.Errorf("revoke subscription: %w", revokeErr)
+ 					}
++					p.subscriptionRevoked = true
+ 				} else {
+ 					// Other errors (DB failure, not found) — abort refund
+ 					s.restoreStatus(ctx, p)
+@@ -436,31 +447,37 @@ func (s *PaymentService) QueryAndFinalizeRefund(ctx context.Context, oid int64)
+ 		return nil, infraerrors.BadRequest("REFUND_QUERY_UNSUPPORTED", "this payment provider does not support refund status query; please verify manually")
+ 	}
+ 
+-	pendingDetail := s.latestRefundPendingDetail(ctx, oid)
++	pendingDetail, err := s.latestRefundPendingDetail(ctx, oid)
++	if err != nil {
++		return nil, err
++	}
+ 	finishProviderCall := servertiming.ObserveDependency(ctx, "payment")
+ 	resp, err := queryProvider.QueryRefund(ctx, payment.RefundQueryRequest{
+-		TradeNo:  o.PaymentTradeNo,
+-		OrderID:  o.OutTradeNo,
+-		RefundID: pendingDetail.RefundID,
+-		Amount:   formatGatewayRefundAmount(o.RefundAmount, o),
++		TradeNo:     o.PaymentTradeNo,
++		OrderID:     o.OutTradeNo,
++		RefundID:    pendingDetail.RefundID,
++		Amount:      formatGatewayRefundAmount(o.RefundAmount, o),
++		RequestedAt: pendingDetail.requestedAt,
+ 	})
+ 	finishProviderCall()
+ 	if err != nil {
+ 		return nil, fmt.Errorf("query refund: %w", err)
+ 	}
+-	if err := validateRefundProviderResponse(resp); err != nil {
+-		return s.finalizeRefundFailed(ctx, o, err)
+-	}
+-
+ 	plan := s.refundFinalizePlan(o)
+-	if !pendingDetail.DeductionRollbackOK {
++	switch {
++	case pendingDetail.DeductionHeld:
++		pendingDetail.applyTo(plan)
++	case !pendingDetail.DeductionRollbackOK:
+ 		plan.BalanceToDeduct = 0
+ 		plan.SubDaysToDeduct = 0
+-	} else if o.OrderType == payment.OrderTypeSubscription {
++	case o.OrderType == payment.OrderTypeSubscription:
+ 		if early := s.prepDeduct(ctx, o, plan, true); early != nil {
+ 			return early, nil
+ 		}
+ 	}
++	if err := validateRefundProviderResponse(resp); err != nil {
++		return s.finalizeRefundFailed(ctx, plan, err)
++	}
+ 	switch strings.TrimSpace(resp.Status) {
+ 	case payment.ProviderStatusSuccess, payment.ProviderStatusRefunded:
+ 		return s.finalizePendingRefundSuccess(ctx, plan)
+@@ -468,7 +485,7 @@ func (s *PaymentService) QueryAndFinalizeRefund(ctx context.Context, oid int64)
+ 		s.writeAuditLog(ctx, oid, "REFUND_QUERY_PENDING", "admin", map[string]any{"refundID": resp.RefundID})
+ 		return &RefundResult{Success: false, Warning: "gateway refund is still pending confirmation"}, nil
+ 	default:
+-		return s.finalizeRefundFailed(ctx, o, fmt.Errorf("payment refund returned unknown status: %s", strings.TrimSpace(resp.Status)))
++		return s.finalizeRefundFailed(ctx, plan, fmt.Errorf("payment refund returned unknown status: %s", strings.TrimSpace(resp.Status)))
+ 	}
+ }
+ 
+@@ -505,6 +522,9 @@ func (s *PaymentService) finalizePendingRefundSuccess(ctx context.Context, p *Re
+ 	if err = tx.Commit(); err != nil {
+ 		return nil, fmt.Errorf("commit refund finalization: %w", err)
+ 	}
++	if !p.deductionHeld && p.DeductionType == payment.DeductionTypeBalance && p.BalanceToDeduct > 0 {
++		s.invalidateRefundBalanceCache(ctx, p.Order.UserID)
++	}
+ 	return result, nil
+ }
+ 
+@@ -533,6 +553,10 @@ func (s *PaymentService) refundFinalizePlan(o *dbent.PaymentOrder) *RefundPlan {
+ }
+ 
+ func (s *PaymentService) applyRefundFinalDeduction(ctx context.Context, p *RefundPlan) error {
++	if p.deductionHeld {
++		// 进入 pending 时扣减已保留，终态成功无需再扣。
++		return nil
++	}
+ 	if p.DeductionType == payment.DeductionTypeBalance && p.BalanceToDeduct > 0 {
+ 		deducted, err := s.deductAvailableBalance(ctx, p.Order.UserID, p.BalanceToDeduct)
+ 		if err != nil {
+@@ -554,30 +578,182 @@ func (s *PaymentService) applyRefundFinalDeduction(ctx context.Context, p *Refun
+ 	return nil
+ }
+ 
+-func (s *PaymentService) finalizeRefundFailed(ctx context.Context, o *dbent.PaymentOrder, gErr error) (*RefundResult, error) {
+-	now := time.Now()
+-	_, _ = s.entClient.PaymentOrder.UpdateOneID(o.ID).SetStatus(OrderStatusRefundFailed).SetFailedAt(now).SetFailedReason(psErrMsg(gErr)).Save(ctx)
+-	s.writeAuditLog(ctx, o.ID, "REFUND_FAILED", "admin", map[string]any{"detail": psErrMsg(gErr)})
+-	return &RefundResult{Success: false, Warning: "gateway refund failed: " + psErrMsg(gErr)}, nil
++// finalizeRefundFailed 将 REFUND_PENDING 收敛为 REFUND_FAILED，并归还进入 pending 时保留的扣减。
++// 认领状态、归还扣减与审计在同一事务内完成：两者分开提交时，进程在中间退出会留下
++// 已失败但扣减未归还、且没有 REFUND_ROLLBACK_FAILED 标记的订单，重试退款会再扣一次。
++func (s *PaymentService) finalizeRefundFailed(ctx context.Context, p *RefundPlan, gErr error) (*RefundResult, error) {
++	warning := "gateway refund failed: " + psErrMsg(gErr)
++	returnErr, err := s.finalizeRefundFailedTx(ctx, p, gErr, nil)
++	if err != nil {
++		return nil, err
++	}
++	if returnErr == nil {
++		if p.deductionHeld && p.DeductionType == payment.DeductionTypeBalance && p.BalanceToDeduct > 0 {
++			s.invalidateRefundBalanceCache(ctx, p.Order.UserID)
++		}
++		if p.deductionHeld && p.DeductionType == payment.DeductionTypeSubscription && p.Order.SubscriptionGroupID != nil {
++			if err := s.subscriptionSvc.invalidateSubscriptionCaches(p.Order.UserID, *p.Order.SubscriptionGroupID); err != nil {
++				slog.Warn("invalidate restored refund subscription", "orderID", p.OrderID, "error", err)
++			}
++		}
++		return &RefundResult{Success: false, Warning: warning}, nil
++	}
++
++	// 归还失败（整个事务已回滚，订单仍为 REFUND_PENDING）：仍收敛为 REFUND_FAILED，
++	// 并同事务写入 REFUND_ROLLBACK_FAILED，使重试退款跳过扣减，避免二次扣减。
++	slog.Error("[CRITICAL] refund failed but held deduction could not be returned", "orderID", p.OrderID, "error", returnErr)
++	if _, err := s.finalizeRefundFailedTx(ctx, p, gErr, returnErr); err != nil {
++		return nil, err
++	}
++	return &RefundResult{Success: false, Warning: warning + "; refund deduction rollback failed"}, nil
+ }
+ 
++// finalizeRefundFailedTx 在单个事务内认领 REFUND_PENDING → REFUND_FAILED。rollbackErr 为 nil 时同事务
++// 归还保留的扣减，归还失败则回滚整个事务并通过 returnErr 返回；rollbackErr 非 nil 时不再归还，
++// 改为同事务记录 REFUND_ROLLBACK_FAILED。
++func (s *PaymentService) finalizeRefundFailedTx(ctx context.Context, p *RefundPlan, gErr, rollbackErr error) (returnErr error, err error) {
++	tx, err := s.entClient.Tx(ctx)
++	if err != nil {
++		return nil, fmt.Errorf("begin refund failure finalization: %w", err)
++	}
++	committed := false
++	defer func() {
++		if !committed {
++			_ = tx.Rollback()
++		}
++	}()
++	txCtx := dbent.NewTxContext(ctx, tx)
++
++	claimed, err := tx.PaymentOrder.Update().
++		Where(paymentorder.IDEQ(p.OrderID), paymentorder.StatusEQ(OrderStatusRefundPending)).
++		SetStatus(OrderStatusRefundFailed).
++		SetFailedAt(time.Now()).
++		SetFailedReason(psErrMsg(gErr)).
++		Save(txCtx)
++	if err != nil {
++		return nil, fmt.Errorf("mark refund failed: %w", err)
++	}
++	if claimed == 0 {
++		return nil, infraerrors.Conflict("CONFLICT", "order status changed")
++	}
++
++	if p.deductionHeld && rollbackErr == nil {
++		if err := s.returnHeldRefundDeduction(txCtx, p); err != nil {
++			return err, nil
++		}
++	}
++	if rollbackErr != nil {
++		if err := createPaymentAuditLogTx(txCtx, tx.Client(), p.OrderID, "REFUND_ROLLBACK_FAILED", map[string]any{
++			"gatewayError":    psErrMsg(gErr),
++			"rollbackError":   psErrMsg(rollbackErr),
++			"balanceDeducted": p.BalanceToDeduct,
++			"subDaysDeducted": p.SubDaysToDeduct,
++		}); err != nil {
++			return nil, err
++		}
++	}
++	if err := createPaymentAuditLogTx(txCtx, tx.Client(), p.OrderID, "REFUND_FAILED", map[string]any{"detail": psErrMsg(gErr)}); err != nil {
++		return nil, err
++	}
++	if err := tx.Commit(); err != nil {
++		return nil, fmt.Errorf("commit refund failure finalization: %w", err)
++	}
++	committed = true
++	return nil, nil
++}
++
++// returnHeldRefundDeduction 归还进入 REFUND_PENDING 时保留的扣减；ctx 携带事务时随事务提交或回滚。
++func (s *PaymentService) returnHeldRefundDeduction(ctx context.Context, p *RefundPlan) error {
++	if p.DeductionType == payment.DeductionTypeBalance && p.BalanceToDeduct > 0 {
++		if err := s.userRepo.UpdateBalance(ctx, p.Order.UserID, p.BalanceToDeduct); err != nil {
++			return fmt.Errorf("return held balance deduction: %w", err)
++		}
++	}
++	if p.DeductionType == payment.DeductionTypeSubscription && p.SubDaysToDeduct > 0 && p.SubscriptionID > 0 {
++		if err := s.returnRefundSubscription(ctx, p); err != nil {
++			return fmt.Errorf("return held subscription deduction: %w", err)
++		}
++	}
++	return nil
++}
++
++func (s *PaymentService) returnRefundSubscription(ctx context.Context, p *RefundPlan) error {
++	if p.subscriptionRevoked {
++		_, err := s.subscriptionSvc.RestoreSubscription(ctx, p.SubscriptionID)
++		return err
++	}
++	_, err := s.subscriptionSvc.ExtendSubscription(ctx, p.SubscriptionID, p.SubDaysToDeduct)
++	return err
++}
++
++func createPaymentAuditLogTx(ctx context.Context, client *dbent.Client, oid int64, action string, detail map[string]any) error {
++	raw, err := json.Marshal(detail)
++	if err != nil {
++		return fmt.Errorf("marshal %s audit: %w", action, err)
++	}
++	if _, err := client.PaymentAuditLog.Create().
++		SetOrderID(strconv.FormatInt(oid, 10)).
++		SetAction(action).
++		SetDetail(string(raw)).
++		SetOperator("admin").
++		Save(ctx); err != nil {
++		return fmt.Errorf("write %s audit: %w", action, err)
++	}
++	return nil
++}
++
++// deductionRollbackOK is always serialized: older nodes must see false for a held
++// deduction and must not deduct it again when confirming a successful refund.
++// refundPendingAuditDetail 记录在 REFUND_PENDING 审计日志中。DeductionHeld 为 true 表示
++// 进入 pending 时扣减被保留；旧记录没有该字段，扣减已在 pending 时归还（DeductionRollbackOK）。
+ type refundPendingAuditDetail struct {
+-	RefundID            string `json:"refundID"`
+-	DeductionRollbackOK bool   `json:"deductionRollbackOK"`
++	RefundID            string  `json:"refundID"`
++	RefundAmount        float64 `json:"refundAmount"`
++	Reason              string  `json:"reason"`
++	Force               bool    `json:"force"`
++	DeductionRollbackOK bool    `json:"deductionRollbackOK"`
++	DeductionHeld       bool    `json:"deductionHeld,omitempty"`
++	DeductionType       string  `json:"deductionType,omitempty"`
++	BalanceDeducted     float64 `json:"balanceDeducted"`
++	SubDaysDeducted     int     `json:"subDaysDeducted"`
++	SubscriptionID      int64   `json:"subscriptionID,omitempty"`
++	SubscriptionRevoked bool    `json:"subscriptionRevoked,omitempty"`
++	// requestedAt 取自审计记录的创建时间，不参与序列化。
++	requestedAt time.Time
+ }
+ 
+-func (s *PaymentService) latestRefundPendingDetail(ctx context.Context, oid int64) refundPendingAuditDetail {
++func (d refundPendingAuditDetail) applyTo(p *RefundPlan) {
++	p.deductionHeld = true
++	p.DeductionType = d.DeductionType
++	if p.DeductionType == "" {
++		p.DeductionType = payment.DeductionTypeNone
++	}
++	p.BalanceToDeduct = d.BalanceDeducted
++	p.SubDaysToDeduct = d.SubDaysDeducted
++	p.SubscriptionID = d.SubscriptionID
++	p.subscriptionRevoked = d.SubscriptionRevoked
++}
++
++// latestRefundPendingDetail 读取最近一次 REFUND_PENDING 审计。没有记录视为旧订单（扣减已在
++// pending 时归还）；读取或解析失败必须返回错误：误判为旧记录会让保留的扣减被重复扣减或不再归还。
++func (s *PaymentService) latestRefundPendingDetail(ctx context.Context, oid int64) (refundPendingAuditDetail, error) {
++	detail := refundPendingAuditDetail{DeductionRollbackOK: true}
+ 	logEntry, err := s.entClient.PaymentAuditLog.Query().
+ 		Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(oid, 10)), paymentauditlog.ActionEQ("REFUND_PENDING")).
+-		Order(paymentauditlog.ByCreatedAt(sql.OrderDesc())).
++		Order(paymentauditlog.ByCreatedAt(sql.OrderDesc()), paymentauditlog.ByID(sql.OrderDesc())).
+ 		First(ctx)
+-	if err != nil || logEntry == nil {
+-		return refundPendingAuditDetail{DeductionRollbackOK: true}
++	if err != nil {
++		if dbent.IsNotFound(err) {
++			return detail, nil
++		}
++		return refundPendingAuditDetail{}, fmt.Errorf("load refund pending audit: %w", err)
++	}
++	if err := json.Unmarshal([]byte(logEntry.Detail), &detail); err != nil {
++		return refundPendingAuditDetail{}, fmt.Errorf("parse refund pending audit: %w", err)
+ 	}
+-	detail := refundPendingAuditDetail{DeductionRollbackOK: true}
+-	_ = json.Unmarshal([]byte(logEntry.Detail), &detail)
+ 	detail.RefundID = strings.TrimSpace(detail.RefundID)
+-	return detail
++	detail.requestedAt = logEntry.CreatedAt
++	return detail, nil
+ }
+ 
+ // getRefundProvider creates a provider using the order's original instance config.
+@@ -644,16 +820,37 @@ func (s *PaymentService) markRefundOkTx(ctx context.Context, client *dbent.Clien
+ 	return &RefundResult{Success: true, BalanceDeducted: p.BalanceToDeduct, SubDaysDeducted: p.SubDaysToDeduct}, nil
+ }
+ 
+-func (s *PaymentService) markRefundPending(ctx context.Context, p *RefundPlan, resp *payment.RefundResponse) (*RefundResult, error) {
+-	balanceDeducted := p.BalanceToDeduct
+-	subDaysDeducted := p.SubDaysToDeduct
+-	rollbackOK := s.RollbackRefund(ctx, p, nil)
+-	if rollbackOK {
+-		p.BalanceToDeduct = 0
+-		p.SubDaysToDeduct = 0
++// markRefundPending 在网关未给出终态时保留已执行的扣减：若此时归还，用户可在 pending 期间
++// 消费这部分余额，终态成功时只能扣到剩余余额。网关确认失败后由 finalizeRefundFailed 归还。
++// 订单状态与审计记录同事务写入，确保终态收敛时能读到保留的扣减。
++func (s *PaymentService) markRefundPending(ctx context.Context, p *RefundPlan, resp *payment.RefundResponse) (_ *RefundResult, err error) {
++	detail, err := json.Marshal(refundPendingAuditDetail{
++		RefundID:            refundResponseID(resp),
++		RefundAmount:        p.RefundAmount,
++		Reason:              p.Reason,
++		Force:               p.Force,
++		DeductionHeld:       true,
++		DeductionType:       p.DeductionType,
++		BalanceDeducted:     p.BalanceToDeduct,
++		SubDaysDeducted:     p.SubDaysToDeduct,
++		SubscriptionID:      p.SubscriptionID,
++		SubscriptionRevoked: p.subscriptionRevoked,
++	})
++	if err != nil {
++		return nil, fmt.Errorf("marshal refund pending audit: %w", err)
+ 	}
+ 
+-	_, err := s.entClient.PaymentOrder.UpdateOneID(p.OrderID).
++	tx, err := s.entClient.Tx(ctx)
++	if err != nil {
++		return nil, fmt.Errorf("begin mark refund pending: %w", err)
++	}
++	defer func() {
++		if err != nil {
++			_ = tx.Rollback()
++			slog.Error("[CRITICAL] gateway refund pending but order not marked", "orderID", p.OrderID, "error", err)
++		}
++	}()
++	_, err = tx.PaymentOrder.UpdateOneID(p.OrderID).
+ 		SetStatus(OrderStatusRefundPending).
+ 		SetRefundAmount(p.RefundAmount).
+ 		SetRefundReason(p.Reason).
+@@ -665,25 +862,18 @@ func (s *PaymentService) markRefundPending(ctx context.Context, p *RefundPlan, r
+ 	if err != nil {
+ 		return nil, fmt.Errorf("mark refund pending: %w", err)
+ 	}
+-
+-	detail := map[string]any{
+-		"refundID":            refundResponseID(resp),
+-		"refundAmount":        p.RefundAmount,
+-		"reason":              p.Reason,
+-		"force":               p.Force,
+-		"balanceDeducted":     p.BalanceToDeduct,
+-		"subDaysDeducted":     p.SubDaysToDeduct,
+-		"balanceRolledBack":   balanceDeducted,
+-		"subDaysRolledBack":   subDaysDeducted,
+-		"deductionRollbackOK": rollbackOK,
++	if _, err = tx.PaymentAuditLog.Create().
++		SetOrderID(strconv.FormatInt(p.OrderID, 10)).
++		SetAction("REFUND_PENDING").
++		SetDetail(string(detail)).
++		SetOperator("admin").
++		Save(ctx); err != nil {
++		return nil, fmt.Errorf("write refund pending audit: %w", err)
+ 	}
+-	s.writeAuditLog(ctx, p.OrderID, "REFUND_PENDING", "admin", detail)
+-
+-	warning := "gateway refund is pending confirmation"
+-	if !rollbackOK {
+-		warning += "; refund deduction rollback failed"
++	if err = tx.Commit(); err != nil {
++		return nil, fmt.Errorf("commit mark refund pending: %w", err)
+ 	}
+-	return &RefundResult{Success: false, Warning: warning}, nil
++	return &RefundResult{Success: false, Warning: "gateway refund is pending confirmation"}, nil
+ }
+ 
+ func refundResponseID(resp *payment.RefundResponse) string {
+@@ -700,9 +890,10 @@ func (s *PaymentService) RollbackRefund(ctx context.Context, p *RefundPlan, gErr
+ 			s.writeAuditLog(ctx, p.OrderID, "REFUND_ROLLBACK_FAILED", "admin", map[string]any{"gatewayError": psErrMsg(gErr), "rollbackError": psErrMsg(err), "balanceDeducted": p.BalanceToDeduct})
+ 			return false
+ 		}
++		s.invalidateRefundBalanceCache(ctx, p.Order.UserID)
+ 	}
+ 	if p.DeductionType == payment.DeductionTypeSubscription && p.SubDaysToDeduct > 0 && p.SubscriptionID > 0 {
+-		if _, err := s.subscriptionSvc.ExtendSubscription(ctx, p.SubscriptionID, p.SubDaysToDeduct); err != nil {
++		if err := s.returnRefundSubscription(ctx, p); err != nil {
+ 			slog.Error("[CRITICAL] subscription rollback failed", "orderID", p.OrderID, "subID", p.SubscriptionID, "days", p.SubDaysToDeduct, "error", err)
+ 			s.writeAuditLog(ctx, p.OrderID, "REFUND_ROLLBACK_FAILED", "admin", map[string]any{"gatewayError": psErrMsg(gErr), "rollbackError": psErrMsg(err), "subDaysDeducted": p.SubDaysToDeduct})
+ 			return false
+diff --git a/backend/internal/application/service/payment_refund_pending_hold_test.go b/backend/internal/application/service/payment_refund_pending_hold_test.go
+new file mode 100644
+index 000000000..d0001d098
+--- /dev/null
++++ b/backend/internal/application/service/payment_refund_pending_hold_test.go
+@@ -0,0 +1,335 @@
++//go:build unit
++
++package service
++
++import (
++	"context"
++	"encoding/json"
++	"errors"
++	"math"
++	"strconv"
++	"testing"
++	"time"
++
++	dbent "github.com/Wei-Shaw/sub2api/ent"
++	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
++	"github.com/Wei-Shaw/sub2api/internal/modules/payment"
++	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
++	"github.com/stretchr/testify/require"
++)
++
++type pendingRefundProviderTestDouble struct {
++	refundProviderTestDouble
++	queryStatus string
++	refundCalls int
++}
++
++func (p *pendingRefundProviderTestDouble) Refund(context.Context, payment.RefundRequest) (*payment.RefundResponse, error) {
++	p.refundCalls++
++	return &payment.RefundResponse{RefundID: "rf_hold", Status: payment.ProviderStatusPending}, nil
++}
++
++func (p *pendingRefundProviderTestDouble) QueryRefund(context.Context, payment.RefundQueryRequest) (*payment.RefundResponse, error) {
++	return &payment.RefundResponse{RefundID: "rf_hold", Status: p.queryStatus}, nil
++}
++
++// refundHoldWallet 模拟用户余额：DeductAvailableBalance 只能扣到当前余额。
++type refundHoldWallet struct {
++	balance      float64
++	deductCalls  int
++	restoreCalls int
++}
++
++func (w *refundHoldWallet) repo(userID int64) *mockUserRepo {
++	return &mockUserRepo{
++		getByIDUser: &User{ID: userID, Balance: w.balance},
++		deductAvailableBalanceFn: func(_ context.Context, _ int64, amount float64) (float64, error) {
++			w.deductCalls++
++			deducted := math.Min(amount, math.Max(w.balance, 0))
++			w.balance -= deducted
++			return deducted, nil
++		},
++		updateBalanceFn: func(_ context.Context, _ int64, amount float64) error {
++			w.restoreCalls++
++			w.balance += amount
++			return nil
++		},
++	}
++}
++
++func TestRefundPendingKeepsBalanceDeductedUntilGatewaySettles(t *testing.T) {
++	for _, tc := range []struct {
++		name        string
++		queryStatus string
++		wantStatus  string
++		wantBalance float64
++		wantRestore int
++	}{
++		{name: "gateway succeeds", queryStatus: payment.ProviderStatusSuccess, wantStatus: OrderStatusRefunded, wantBalance: 0},
++		{name: "gateway fails", queryStatus: payment.ProviderStatusFailed, wantStatus: OrderStatusRefundFailed, wantBalance: 100, wantRestore: 1},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			ctx := context.Background()
++			client := newPaymentConfigServiceTestClient(t)
++			order := createCompletedRefundableOrderForTest(t, ctx, client, "hold-flow")
++
++			wallet := &refundHoldWallet{balance: 100}
++			prov := &pendingRefundProviderTestDouble{queryStatus: tc.queryStatus}
++			restore := replacePaymentProviderFactoryForTest(t, prov)
++			defer restore()
++			svc := &PaymentService{entClient: client, loadBalancer: &captureLoadBalancer{}, userRepo: wallet.repo(order.UserID)}
++
++			plan, early, err := svc.PrepareRefund(ctx, order.ID, 0, "user asked", false, true)
++			require.NoError(t, err)
++			require.Nil(t, early)
++			result, err := svc.ExecuteRefund(ctx, plan)
++			require.NoError(t, err)
++			require.False(t, result.Success)
++			require.Contains(t, result.Warning, "pending confirmation")
++
++			// pending 期间余额必须保持扣减，否则用户可先消费再等网关退款成功。
++			require.Zero(t, wallet.balance)
++			require.Zero(t, wallet.restoreCalls)
++			reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
++			require.NoError(t, err)
++			require.Equal(t, OrderStatusRefundPending, reloaded.Status)
++
++			// pending 订单不能再次发起退款（会重复扣减并重复调用网关）。
++			_, _, err = svc.PrepareRefund(ctx, order.ID, 0, "again", true, true)
++			require.Equal(t, "INVALID_STATUS", infraerrors.Reason(err))
++
++			result, err = svc.QueryAndFinalizeRefund(ctx, order.ID)
++			require.NoError(t, err)
++			require.Equal(t, tc.queryStatus == payment.ProviderStatusSuccess, result.Success)
++			if result.Success {
++				require.Equal(t, 100.0, result.BalanceDeducted)
++			}
++			require.Equal(t, 1, wallet.deductCalls, "held deduction must not be applied twice")
++			require.Equal(t, tc.wantRestore, wallet.restoreCalls)
++			require.Equal(t, tc.wantBalance, wallet.balance)
++			require.Equal(t, 1, prov.refundCalls)
++
++			reloaded, err = client.PaymentOrder.Get(ctx, order.ID)
++			require.NoError(t, err)
++			require.Equal(t, tc.wantStatus, reloaded.Status)
++
++			_, err = svc.QueryAndFinalizeRefund(ctx, order.ID)
++			require.Equal(t, "INVALID_STATUS", infraerrors.Reason(err))
++			require.Equal(t, tc.wantRestore, wallet.restoreCalls)
++		})
++	}
++}
++
++func TestFinalizeRefundFailedRestoresHeldDeductionOnce(t *testing.T) {
++	ctx := context.Background()
++	client := newPaymentConfigServiceTestClient(t)
++	order := createPendingRefundOrderWithDetailForTest(t, ctx, client, "hold-failed-once",
++		`{"refundID":"rf_test","deductionHeld":true,"deductionType":"balance","balanceDeducted":60}`)
++
++	wallet := &refundHoldWallet{}
++	svc := &PaymentService{entClient: client, userRepo: wallet.repo(order.UserID)}
++	plan := svc.refundFinalizePlan(order)
++	detail, err := svc.latestRefundPendingDetail(ctx, order.ID)
++	require.NoError(t, err)
++	detail.applyTo(plan)
++
++	first, err := svc.finalizeRefundFailed(ctx, plan, context.DeadlineExceeded)
++	require.NoError(t, err)
++	require.False(t, first.Success)
++	second, err := svc.finalizeRefundFailed(ctx, plan, context.DeadlineExceeded)
++	require.Nil(t, second)
++	require.Equal(t, "CONFLICT", infraerrors.Reason(err))
++
++	require.Equal(t, 1, wallet.restoreCalls)
++	require.Equal(t, 60.0, wallet.balance)
++}
++
++func TestQueryAndFinalizeRefundHeldDeductionWithoutBalanceDeduction(t *testing.T) {
++	ctx := context.Background()
++	client := newPaymentConfigServiceTestClient(t)
++	// 管理员选择不扣余额时，终态收敛也不能按旧逻辑补扣。
++	order := createPendingRefundOrderWithDetailForTest(t, ctx, client, "hold-no-deduct",
++		`{"refundID":"rf_test","deductionHeld":true,"deductionType":"none","balanceDeducted":0}`)
++
++	wallet := &refundHoldWallet{balance: 100}
++	restore := replacePaymentProviderFactoryForTest(t, &pendingRefundProviderTestDouble{queryStatus: payment.ProviderStatusSuccess})
++	defer restore()
++	svc := &PaymentService{entClient: client, loadBalancer: &captureLoadBalancer{}, userRepo: wallet.repo(order.UserID)}
++
++	result, err := svc.QueryAndFinalizeRefund(ctx, order.ID)
++	require.NoError(t, err)
++	require.True(t, result.Success)
++	require.Zero(t, wallet.deductCalls)
++	require.Equal(t, 100.0, wallet.balance)
++}
++
++type successRefundProviderTestDouble struct {
++	refundProviderTestDouble
++	refundCalls int
++}
++
++func (p *successRefundProviderTestDouble) Refund(context.Context, payment.RefundRequest) (*payment.RefundResponse, error) {
++	p.refundCalls++
++	return &payment.RefundResponse{RefundID: "rf_retry", Status: payment.ProviderStatusSuccess}, nil
++}
++
++func countRefundAuditsForTest(t *testing.T, ctx context.Context, client *dbent.Client, orderID int64, action string) int {
++	t.Helper()
++	n, err := client.PaymentAuditLog.Query().
++		Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(orderID, 10)), paymentauditlog.ActionEQ(action)).
++		Count(ctx)
++	require.NoError(t, err)
++	return n
++}
++
++func TestFinalizeRefundFailedRecordsRollbackFailureWhenHeldDeductionCannotBeReturned(t *testing.T) {
++	ctx := context.Background()
++	client := newPaymentConfigServiceTestClient(t)
++	order := createPendingRefundOrderWithDetailForTest(t, ctx, client, "hold-return-fails",
++		`{"refundID":"rf_test","deductionHeld":true,"deductionType":"balance","balanceDeducted":60}`)
++
++	wallet := &refundHoldWallet{balance: 40}
++	repo := wallet.repo(order.UserID)
++	repo.updateBalanceFn = func(context.Context, int64, float64) error {
++		wallet.restoreCalls++
++		return errors.New("db unavailable")
++	}
++	restore := replacePaymentProviderFactoryForTest(t, &pendingRefundProviderTestDouble{queryStatus: payment.ProviderStatusFailed})
++	defer restore()
++	svc := &PaymentService{entClient: client, loadBalancer: &captureLoadBalancer{}, userRepo: repo}
++
++	result, err := svc.QueryAndFinalizeRefund(ctx, order.ID)
++	require.NoError(t, err)
++	require.False(t, result.Success)
++	require.Contains(t, result.Warning, "refund deduction rollback failed")
++	require.Equal(t, 1, wallet.restoreCalls)
++	require.Equal(t, 40.0, wallet.balance)
++
++	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
++	require.NoError(t, err)
++	require.Equal(t, OrderStatusRefundFailed, reloaded.Status)
++	require.Equal(t, 1, countRefundAuditsForTest(t, ctx, client, order.ID, "REFUND_ROLLBACK_FAILED"))
++	require.Equal(t, 1, countRefundAuditsForTest(t, ctx, client, order.ID, "REFUND_FAILED"))
++
++	// 扣减仍被保留：重试退款必须跳过扣减，否则同一笔退款会扣两次。
++	retryProvider := &successRefundProviderTestDouble{}
++	restoreRetry := replacePaymentProviderFactoryForTest(t, retryProvider)
++	defer restoreRetry()
++	plan, early, err := svc.PrepareRefund(ctx, order.ID, 0, "retry", true, true)
++	require.NoError(t, err)
++	require.Nil(t, early)
++	retried, err := svc.ExecuteRefund(ctx, plan)
++	require.NoError(t, err)
++	require.True(t, retried.Success)
++	require.Zero(t, wallet.deductCalls)
++	require.Equal(t, 40.0, wallet.balance)
++	require.Equal(t, 1, retryProvider.refundCalls)
++}
++
++func TestFinalizeRefundFailedReturnsHeldDeductionAtomically(t *testing.T) {
++	ctx := context.Background()
++	client := newPaymentConfigServiceTestClient(t)
++	order := createPendingRefundOrderWithDetailForTest(t, ctx, client, "hold-return-atomic",
++		`{"refundID":"rf_test","deductionHeld":true,"deductionType":"balance","balanceDeducted":60}`)
++
++	wallet := &refundHoldWallet{}
++	restore := replacePaymentProviderFactoryForTest(t, &pendingRefundProviderTestDouble{queryStatus: payment.ProviderStatusFailed})
++	defer restore()
++	svc := &PaymentService{entClient: client, loadBalancer: &captureLoadBalancer{}, userRepo: wallet.repo(order.UserID)}
++
++	result, err := svc.QueryAndFinalizeRefund(ctx, order.ID)
++	require.NoError(t, err)
++	require.False(t, result.Success)
++	require.NotContains(t, result.Warning, "rollback failed")
++	require.Equal(t, 1, wallet.restoreCalls)
++	require.Equal(t, 60.0, wallet.balance)
++	require.Equal(t, 1, countRefundAuditsForTest(t, ctx, client, order.ID, "REFUND_FAILED"))
++	require.Zero(t, countRefundAuditsForTest(t, ctx, client, order.ID, "REFUND_ROLLBACK_FAILED"))
++}
++
++func TestQueryAndFinalizeRefundRejectsUnreadablePendingAudit(t *testing.T) {
++	ctx := context.Background()
++	client := newPaymentConfigServiceTestClient(t)
++	// 审计无法解析时不能退化为旧逻辑：成功会二次扣减，失败会吞掉保留的扣减。
++	order := createPendingRefundOrderWithDetailForTest(t, ctx, client, "hold-bad-audit", `not-json`)
++
++	for _, queryStatus := range []string{payment.ProviderStatusSuccess, payment.ProviderStatusFailed} {
++		wallet := &refundHoldWallet{balance: 100}
++		restore := replacePaymentProviderFactoryForTest(t, &pendingRefundProviderTestDouble{queryStatus: queryStatus})
++		svc := &PaymentService{entClient: client, loadBalancer: &captureLoadBalancer{}, userRepo: wallet.repo(order.UserID)}
++
++		result, err := svc.QueryAndFinalizeRefund(ctx, order.ID)
++		restore()
++		require.Error(t, err, queryStatus)
++		require.Nil(t, result)
++		require.Zero(t, wallet.deductCalls)
++		require.Zero(t, wallet.restoreCalls)
++		require.Equal(t, 100.0, wallet.balance)
++	}
++
++	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
++	require.NoError(t, err)
++	require.Equal(t, OrderStatusRefundPending, reloaded.Status)
++}
++
++func TestRefundPendingAuditPreventsLegacyDoubleDeduction(t *testing.T) {
++	ctx := context.Background()
++	client := newPaymentConfigServiceTestClient(t)
++	order := createCompletedRefundableOrderForTest(t, ctx, client, "legacy-reader")
++	svc := &PaymentService{entClient: client}
++	_, err := svc.markRefundPending(ctx, &RefundPlan{OrderID: order.ID, Order: order,
++		RefundAmount: 60, DeductionType: payment.DeductionTypeBalance, BalanceToDeduct: 60},
++		&payment.RefundResponse{RefundID: "held", Status: payment.ProviderStatusPending})
++	require.NoError(t, err)
++	entry, err := client.PaymentAuditLog.Query().Where(paymentauditlog.ActionEQ("REFUND_PENDING")).Only(ctx)
++	require.NoError(t, err)
++	// The old binary starts this field at true. Omitting false would deduct twice.
++	legacy := struct {
++		DeductionRollbackOK bool `json:"deductionRollbackOK"`
++	}{DeductionRollbackOK: true}
++	require.NoError(t, json.Unmarshal([]byte(entry.Detail), &legacy))
++	require.False(t, legacy.DeductionRollbackOK)
++	var detail refundPendingAuditDetail
++	require.NoError(t, json.Unmarshal([]byte(entry.Detail), &detail))
++	require.True(t, detail.DeductionHeld)
++}
++
++func createCompletedRefundableOrderForTest(t *testing.T, ctx context.Context, client *dbent.Client, suffix string) *dbent.PaymentOrder {
++	t.Helper()
++	user, err := client.User.Create().
++		SetEmail(suffix + "@example.com").
++		SetPasswordHash("hash").
++		SetUsername(suffix).
++		Save(ctx)
++	require.NoError(t, err)
++	inst, err := client.PaymentProviderInstance.Create().
++		SetProviderKey(payment.TypeStripe).
++		SetName(suffix + "-provider").
++		SetConfig("{}").
++		SetSupportedTypes("stripe").
++		SetEnabled(true).
++		SetRefundEnabled(true).
++		Save(ctx)
++	require.NoError(t, err)
++	order, err := client.PaymentOrder.Create().
++		SetUserID(user.ID).
++		SetUserEmail(user.Email).
++		SetUserName(user.Username).
++		SetAmount(100).
++		SetPayAmount(100).
++		SetFeeRate(0).
++		SetRechargeCode("REFUND-" + suffix).
++		SetOutTradeNo("sub2_" + suffix).
++		SetPaymentType(payment.TypeStripe).
++		SetPaymentTradeNo("pi_" + suffix).
++		SetOrderType(payment.OrderTypeBalance).
++		SetStatus(OrderStatusCompleted).
++		SetExpiresAt(time.Now().Add(time.Hour)).
++		SetPaidAt(time.Now()).
++		SetClientIP("127.0.0.1").
++		SetSrcHost("api.example.com").
++		SetProviderInstanceID(strconv.FormatInt(inst.ID, 10)).
++		Save(ctx)
++	require.NoError(t, err)
++	return order
++}
+diff --git a/backend/internal/application/service/payment_refund_subscription_test.go b/backend/internal/application/service/payment_refund_subscription_test.go
+new file mode 100644
+index 000000000..4668103d4
+--- /dev/null
++++ b/backend/internal/application/service/payment_refund_subscription_test.go
+@@ -0,0 +1,108 @@
++//go:build unit
++
++package service
++
++import (
++	"context"
++	"testing"
++	"time"
++
++	"github.com/Wei-Shaw/sub2api/internal/modules/payment"
++	"github.com/stretchr/testify/require"
++)
++
++type refundSubscriptionRepo struct {
++	userSubRepoNoop
++	sub          UserSubscription
++	restoreCalls int
++}
++
++func (r *refundSubscriptionRepo) GetByID(context.Context, int64) (*UserSubscription, error) {
++	if r.sub.DeletedAt != nil {
++		return nil, ErrSubscriptionNotFound
++	}
++	copy := r.sub
++	return &copy, nil
++}
++
++func (r *refundSubscriptionRepo) GetByIDIncludeDeleted(context.Context, int64) (*UserSubscription, error) {
++	copy := r.sub
++	return &copy, nil
++}
++
++func (r *refundSubscriptionRepo) ExtendExpiry(_ context.Context, _ int64, expires time.Time) error {
++	r.sub.ExpiresAt = expires
++	return nil
++}
++
++func (r *refundSubscriptionRepo) UpdateStatus(_ context.Context, _ int64, status string) error {
++	r.sub.Status = status
++	return nil
++}
++
++func (r *refundSubscriptionRepo) Delete(context.Context, int64) error {
++	now := time.Now()
++	r.sub.DeletedAt = &now
++	return nil
++}
++
++func (r *refundSubscriptionRepo) ExistsActiveByUserIDAndGroupID(context.Context, int64, int64) (bool, error) {
++	return r.sub.DeletedAt == nil, nil
++}
++
++func (r *refundSubscriptionRepo) Restore(_ context.Context, _ int64, status string) (*UserSubscription, error) {
++	r.restoreCalls++
++	r.sub.DeletedAt = nil
++	r.sub.Status = status
++	copy := r.sub
++	return &copy, nil
++}
++
++func TestRefundFailureReturnsHeldSubscription(t *testing.T) {
++	for _, tc := range []struct {
++		name          string
++		remainingDays int
++		wantRevoked   bool
++	}{
++		{name: "partial entitlement deduction", remainingDays: 40},
++		{name: "full entitlement revocation", remainingDays: 5, wantRevoked: true},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			ctx := context.Background()
++			client := newPaymentConfigServiceTestClient(t)
++			order := createCompletedRefundableOrderForTest(t, ctx, client, "subscription-held-refund")
++			order, err := client.PaymentOrder.UpdateOneID(order.ID).
++				SetOrderType(payment.OrderTypeSubscription).SetSubscriptionGroupID(7).SetSubscriptionDays(30).Save(ctx)
++			require.NoError(t, err)
++			expires := time.Now().AddDate(0, 0, tc.remainingDays).Truncate(time.Second)
++			repo := &refundSubscriptionRepo{sub: UserSubscription{ID: 10, UserID: order.UserID,
++				GroupID: 7, Status: SubscriptionStatusActive, ExpiresAt: expires}}
++			groupRepo := &subscriptionGroupRepoStub{group: &Group{ID: 7}}
++			prov := &pendingRefundProviderTestDouble{queryStatus: payment.ProviderStatusFailed}
++			restore := replacePaymentProviderFactoryForTest(t, prov)
++			defer restore()
++			svc := &PaymentService{entClient: client, loadBalancer: &captureLoadBalancer{},
++				subscriptionSvc: NewSubscriptionService(groupRepo, repo, nil, nil, nil)}
++			plan := &RefundPlan{OrderID: order.ID, Order: order, RefundAmount: 100, GatewayAmount: 100,
++				DeductionType: payment.DeductionTypeSubscription, SubDaysToDeduct: 30, SubscriptionID: 10}
++			result, err := svc.ExecuteRefund(ctx, plan)
++			require.NoError(t, err)
++			require.False(t, result.Success)
++			require.Equal(t, tc.wantRevoked, repo.sub.DeletedAt != nil)
++			detail, err := svc.latestRefundPendingDetail(ctx, order.ID)
++			require.NoError(t, err)
++			require.True(t, detail.DeductionHeld)
++			require.Equal(t, tc.wantRevoked, detail.SubscriptionRevoked)
++			result, err = svc.QueryAndFinalizeRefund(ctx, order.ID)
++			require.NoError(t, err)
++			require.NotContains(t, result.Warning, "rollback failed")
++			require.Nil(t, repo.sub.DeletedAt)
++			require.True(t, repo.sub.ExpiresAt.Equal(expires), "restore the original expiry")
++			if tc.wantRevoked {
++				require.Equal(t, 1, repo.restoreCalls)
++			}
++			_, err = svc.QueryAndFinalizeRefund(ctx, order.ID)
++			require.Error(t, err)
++		})
++	}
++}
+diff --git a/backend/internal/application/service/payment_refund_test.go b/backend/internal/application/service/payment_refund_test.go
+index 0aba5dc1f..6ab0a3249 100644
+--- a/backend/internal/application/service/payment_refund_test.go
++++ b/backend/internal/application/service/payment_refund_test.go
+@@ -299,7 +299,7 @@ func TestValidateRefundProviderResponseAcceptsPending(t *testing.T) {
+ 	require.Error(t, validateRefundProviderResponse(nil))
+ }
+ 
+-func TestFinishRefundPendingMarksOrderPendingAndRollsBackDeduction(t *testing.T) {
++func TestFinishRefundPendingMarksOrderPendingAndHoldsDeduction(t *testing.T) {
+ 	ctx := context.Background()
+ 	client := newPaymentConfigServiceTestClient(t)
+ 
+@@ -357,8 +357,8 @@ func TestFinishRefundPendingMarksOrderPendingAndRollsBackDeduction(t *testing.T)
+ 	require.NotNil(t, result)
+ 	require.False(t, result.Success)
+ 	require.Contains(t, result.Warning, "pending confirmation")
+-	require.Equal(t, 40.0, rolledBack)
+-	require.Zero(t, plan.BalanceToDeduct)
++	require.Zero(t, rolledBack, "deduction must stay held while the gateway refund is pending")
++	require.Equal(t, 40.0, plan.BalanceToDeduct)
+ 
+ 	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
+ 	require.NoError(t, err)
+@@ -373,6 +373,11 @@ func TestFinishRefundPendingMarksOrderPendingAndRollsBackDeduction(t *testing.T)
+ 		Count(ctx)
+ 	require.NoError(t, err)
+ 	require.Equal(t, 1, pendingAudits)
++	detail, err := svc.latestRefundPendingDetail(ctx, order.ID)
++	require.NoError(t, err)
++	require.True(t, detail.DeductionHeld)
++	require.Equal(t, payment.DeductionTypeBalance, detail.DeductionType)
++	require.Equal(t, 40.0, detail.BalanceDeducted)
+ 	successAudits, err := client.PaymentAuditLog.Query().
+ 		Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(order.ID, 10)), paymentauditlog.ActionEQ("REFUND_SUCCESS")).
+ 		Count(ctx)
+@@ -502,6 +507,26 @@ func TestQueryAndFinalizeRefundFinalizesProviderStatuses(t *testing.T) {
+ 	}
+ }
+ 
++func TestQueryAndFinalizeRefundPassesPendingAuditTimeToProvider(t *testing.T) {
++	ctx := context.Background()
++	client := newPaymentConfigServiceTestClient(t)
++	order := createPendingRefundOrderForTest(t, ctx, client, "query-requested-at")
++	pendingAudit, err := client.PaymentAuditLog.Query().
++		Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(order.ID, 10)), paymentauditlog.ActionEQ("REFUND_PENDING")).
++		Only(ctx)
++	require.NoError(t, err)
++
++	svc := &PaymentService{entClient: client, loadBalancer: &captureLoadBalancer{}, userRepo: &mockUserRepo{}}
++	prov := &refundQueryProviderTestDouble{refundResponse: &payment.RefundResponse{RefundID: "rf_test", Status: payment.ProviderStatusPending}}
++	restore := replacePaymentProviderFactoryForTest(t, prov)
++	defer restore()
++
++	_, err = svc.QueryAndFinalizeRefund(ctx, order.ID)
++	require.NoError(t, err)
++	require.Equal(t, "rf_test", prov.lastQuery.RefundID)
++	require.True(t, pendingAudit.CreatedAt.Equal(prov.lastQuery.RequestedAt), "RequestedAt = %v, want %v", prov.lastQuery.RequestedAt, pendingAudit.CreatedAt)
++}
++
+ func TestFinalizePendingRefundSuccessRejectsStaleCallerBeforeSecondDeduction(t *testing.T) {
+ 	ctx := context.Background()
+ 	client := newPaymentConfigServiceTestClient(t)
+@@ -586,6 +611,11 @@ func TestQueryAndFinalizeRefundUnsupportedProviderReturnsClearError(t *testing.T
+ 
+ func createPendingRefundOrderForTest(t *testing.T, ctx context.Context, client *dbent.Client, suffix string) *dbent.PaymentOrder {
+ 	t.Helper()
++	return createPendingRefundOrderWithDetailForTest(t, ctx, client, suffix, `{"refundID":"rf_test","deductionRollbackOK":true}`)
++}
++
++func createPendingRefundOrderWithDetailForTest(t *testing.T, ctx context.Context, client *dbent.Client, suffix, pendingDetail string) *dbent.PaymentOrder {
++	t.Helper()
+ 
+ 	user, err := client.User.Create().
+ 		SetEmail(suffix + "@example.com").
+@@ -631,7 +661,7 @@ func createPendingRefundOrderForTest(t *testing.T, ctx context.Context, client *
+ 		SetOrderID(strconv.FormatInt(order.ID, 10)).
+ 		SetAction("REFUND_PENDING").
+ 		SetOperator("admin").
+-		SetDetail(`{"refundID":"rf_test","deductionRollbackOK":true}`).
++		SetDetail(pendingDetail).
+ 		Save(ctx)
+ 	require.NoError(t, err)
+ 	return order
+@@ -671,8 +701,10 @@ func (refundProviderTestDouble) Refund(context.Context, payment.RefundRequest) (
+ type refundQueryProviderTestDouble struct {
+ 	refundProviderTestDouble
+ 	refundResponse *payment.RefundResponse
++	lastQuery      payment.RefundQueryRequest
+ }
+ 
+-func (p *refundQueryProviderTestDouble) QueryRefund(context.Context, payment.RefundQueryRequest) (*payment.RefundResponse, error) {
++func (p *refundQueryProviderTestDouble) QueryRefund(_ context.Context, req payment.RefundQueryRequest) (*payment.RefundResponse, error) {
++	p.lastQuery = req
+ 	return p.refundResponse, nil
+ }
+diff --git a/backend/internal/application/service/payment_resume_service.go b/backend/internal/application/service/payment_resume_service.go
+index f9e934f07..92fff1715 100644
+--- a/backend/internal/application/service/payment_resume_service.go
++++ b/backend/internal/application/service/payment_resume_service.go
+@@ -244,7 +244,14 @@ func CanonicalizeReturnURL(raw string, srcHost string, srcURL string) (string, e
+ 	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+ 		return "", infraerrors.BadRequest("INVALID_RETURN_URL", "return_url must use http or https")
+ 	}
++	if parsed.User != nil {
++		return "", infraerrors.BadRequest("INVALID_RETURN_URL", "return_url must not contain user info")
++	}
++	if !isPlainReturnURLHost(parsed.Hostname()) {
++		return "", infraerrors.BadRequest("INVALID_RETURN_URL", "return_url host is invalid")
++	}
+ 	parsed.Fragment = ""
++	parsed.RawPath = ""
+ 	// The result page receives server-generated order parameters. User-supplied
+ 	// query values must not enter the provider's signed checkout payload, where
+ 	// an ampersand could be promoted into a separate EasyPay notify parameter.
+@@ -262,6 +269,25 @@ func CanonicalizeReturnURL(raw string, srcHost string, srcURL string) (string, e
+ 	return parsed.String(), nil
+ }
+ 
++// isPlainReturnURLHost reports whether host is an IP literal or a hostname
++// made only of letters, digits, '.', '-' and '_'.
++func isPlainReturnURLHost(host string) bool {
++	if host == "" {
++		return false
++	}
++	if net.ParseIP(host) != nil {
++		return true
++	}
++	for _, c := range host {
++		switch {
++		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9', c == '.', c == '-', c == '_':
++		default:
++			return false
++		}
++	}
++	return true
++}
++
+ func allowedReturnURLHost(returnURLHost string, requestHost string, refererURL string) bool {
+ 	if sameOriginHost(returnURLHost, requestHost) {
+ 		return true
+diff --git a/backend/internal/application/service/payment_resume_service_test.go b/backend/internal/application/service/payment_resume_service_test.go
+index 767730bd2..e210f90f9 100644
+--- a/backend/internal/application/service/payment_resume_service_test.go
++++ b/backend/internal/application/service/payment_resume_service_test.go
+@@ -91,6 +91,42 @@ func TestCanonicalizeReturnURL(t *testing.T) {
+ 	}
+ }
+ 
++func TestCanonicalizeReturnURLRejectsNonPlainHostAndUserinfo(t *testing.T) {
++	t.Parallel()
++
++	badHost := "a&b=c.example.com"
++	cases := []struct {
++		name    string
++		raw     string
++		srcHost string
++		srcURL  string
++	}{
++		{"host matched via referer", "https://" + badHost + "/payment/result", "app.example.com", "https://" + badHost + "/purchase"},
++		{"host matched via request host", "https://" + badHost + "/payment/result", badHost, ""},
++		{"userinfo", "https://a&b=c@app.example.com/payment/result", "app.example.com", ""},
++	}
++	for _, tc := range cases {
++		if got, err := CanonicalizeReturnURL(tc.raw, tc.srcHost, tc.srcURL); err == nil {
++			t.Fatalf("%s: CanonicalizeReturnURL accepted %q", tc.name, got)
++		}
++	}
++}
++
++func TestCanonicalizeReturnURLAllowsIPAndPortHosts(t *testing.T) {
++	t.Parallel()
++
++	for _, raw := range []string{
++		"http://127.0.0.1:3000/payment/result",
++		"http://[::1]:8080/payment/result",
++		"https://pay_site-1.example.com/payment/result",
++	} {
++		parsed, _ := url.Parse(raw)
++		if _, err := CanonicalizeReturnURL(raw, parsed.Host, ""); err != nil {
++			t.Fatalf("CanonicalizeReturnURL(%q) returned error: %v", raw, err)
++		}
++	}
++}
++
+ func TestCanonicalizeReturnURLRejectsRelativeURL(t *testing.T) {
+ 	t.Parallel()
+ 
+diff --git a/backend/internal/application/service/payment_service.go b/backend/internal/application/service/payment_service.go
+index 5fb5dd3e8..4a190b072 100644
+--- a/backend/internal/application/service/payment_service.go
++++ b/backend/internal/application/service/payment_service.go
+@@ -136,6 +136,11 @@ type RefundPlan struct {
+ 	BalanceToDeduct float64
+ 	SubDaysToDeduct int
+ 	SubscriptionID  int64
++	// deductionHeld 表示扣减已在进入 REFUND_PENDING 前执行并保留，终态收敛时不再重复扣减。
++	deductionHeld bool
++	// Revocation preserves the original expiry; refund failure must restore it
++	// through the subscription owner instead of extending a deleted row.
++	subscriptionRevoked bool
+ }
+ 
+ type RefundResult struct {
+diff --git a/backend/internal/infrastructure/repository/payment_refund_hold_integration_test.go b/backend/internal/infrastructure/repository/payment_refund_hold_integration_test.go
+new file mode 100644
+index 000000000..d7dfa68d9
+--- /dev/null
++++ b/backend/internal/infrastructure/repository/payment_refund_hold_integration_test.go
+@@ -0,0 +1,176 @@
++//go:build integration
++
++package repository
++
++import (
++	"context"
++	"errors"
++	"fmt"
++	"net/http"
++	"net/http/httptest"
++	"strconv"
++	"sync"
++	"sync/atomic"
++	"testing"
++	"time"
++
++	dbent "github.com/Wei-Shaw/sub2api/ent"
++	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
++	"github.com/Wei-Shaw/sub2api/internal/application/service"
++	"github.com/Wei-Shaw/sub2api/internal/modules/payment"
++	"github.com/stretchr/testify/require"
++	stripe "github.com/stripe/stripe-go/v85"
++)
++
++// Exercise the real payment service and repositories against PostgreSQL. Only
++// Stripe's network boundary is replaced; no merchant credentials leave the test.
++func TestPaymentRefundHoldPostgres(t *testing.T) {
++	ctx := context.Background()
++	client := testEntClient(t)
++	var gatewayStatus atomic.Value
++	gatewayStatus.Store("failed")
++	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		w.Header().Set("Content-Type", "application/json")
++		status := "pending"
++		if r.Method == http.MethodGet {
++			status = gatewayStatus.Load().(string)
++		}
++		_, _ = fmt.Fprintf(w, `{"id":"re_fixture","object":"refund","status":%q}`, status)
++	}))
++	t.Cleanup(server.Close)
++	previous := stripe.GetBackend(stripe.APIBackend)
++	stripe.SetBackend(stripe.APIBackend, stripe.GetBackendWithConfig(stripe.APIBackend,
++		&stripe.BackendConfig{URL: stripe.String(server.URL), HTTPClient: server.Client()}))
++	t.Cleanup(func() { stripe.SetBackend(stripe.APIBackend, previous) })
++
++	var failAudit atomic.Bool
++	client.PaymentAuditLog.Use(func(next dbent.Mutator) dbent.Mutator {
++		return dbent.MutateFunc(func(ctx context.Context, mutation dbent.Mutation) (dbent.Value, error) {
++			if m, ok := mutation.(*dbent.PaymentAuditLogMutation); ok {
++				if action, _ := m.Action(); action == "REFUND_FAILED" && failAudit.CompareAndSwap(true, false) {
++					return nil, errors.New("injected refund audit failure")
++				}
++			}
++			return next.Mutate(ctx, mutation)
++		})
++	})
++	users := NewUserRepository(client, nil)
++	subscriptions := NewUserSubscriptionRepository(client)
++	subscriptionService := service.NewSubscriptionService(nil, subscriptions, nil, client, nil)
++	encryptionKey := make([]byte, payment.AES256KeySize)
++	svc := service.NewPaymentService(client, payment.NewRegistry(), payment.NewDefaultLoadBalancer(client, encryptionKey), nil, subscriptionService, nil, users, nil, nil)
++	create := func(t *testing.T) *dbent.PaymentOrder {
++		t.Helper()
++		suffix := strconv.FormatInt(time.Now().UnixNano(), 10)
++		user, err := client.User.Create().SetEmail("refund-" + suffix + "@fixture.invalid").
++			SetPasswordHash("fixture").SetUsername("refund fixture").SetBalance(100).Save(ctx)
++		require.NoError(t, err)
++		config, err := payment.Encrypt(`{"secretKey":"fixture-only","currency":"CNY"}`, encryptionKey)
++		require.NoError(t, err)
++		instance, err := client.PaymentProviderInstance.Create().SetName("refund-" + suffix).
++			SetProviderKey(payment.TypeStripe).SetConfig(config).
++			SetSupportedTypes("stripe").SetEnabled(true).SetRefundEnabled(true).Save(ctx)
++		require.NoError(t, err)
++		order, err := client.PaymentOrder.Create().SetUserID(user.ID).SetUserEmail(user.Email).
++			SetUserName(user.Username).SetAmount(100).SetPayAmount(100).SetFeeRate(0).
++			SetRechargeCode("REFUND-" + suffix).SetOutTradeNo("sub2_" + suffix).
++			SetPaymentType(payment.TypeStripe).SetPaymentTradeNo("pi_fixture").
++			SetProviderInstanceID(strconv.FormatInt(instance.ID, 10)).SetOrderType(payment.OrderTypeBalance).
++			SetStatus(service.OrderStatusCompleted).SetPaidAt(time.Now()).SetExpiresAt(time.Now().Add(time.Hour)).
++			SetClientIP("127.0.0.1").SetSrcHost("fixture.invalid").Save(ctx)
++		require.NoError(t, err)
++		return order
++	}
++	begin := func(t *testing.T, order *dbent.PaymentOrder) {
++		t.Helper()
++		plan, early, err := svc.PrepareRefund(ctx, order.ID, 100, "fixture", false, true)
++		require.NoError(t, err)
++		require.Nil(t, early)
++		result, err := svc.ExecuteRefund(ctx, plan)
++		require.NoError(t, err)
++		require.False(t, result.Success)
++		reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
++		require.NoError(t, err)
++		require.Equal(t, service.OrderStatusRefundPending, reloaded.Status)
++	}
++	for _, status := range []string{"succeeded", "failed"} {
++		t.Run(status, func(t *testing.T) {
++			order := create(t)
++			begin(t, order)
++			user, err := users.GetByID(ctx, order.UserID)
++			require.NoError(t, err)
++			require.Zero(t, user.Balance, "pending funds remain deducted")
++			gatewayStatus.Store(status)
++			result, err := svc.QueryAndFinalizeRefund(ctx, order.ID)
++			require.NoError(t, err)
++			require.Equal(t, status == "succeeded", result.Success)
++			user, err = users.GetByID(ctx, order.UserID)
++			require.NoError(t, err)
++			if status == "failed" {
++				require.Equal(t, 100.0, user.Balance)
++			} else {
++				require.Zero(t, user.Balance, "successful settlement never deducts twice")
++			}
++			_, err = svc.QueryAndFinalizeRefund(ctx, order.ID)
++			require.Error(t, err)
++		})
++	}
++	t.Run("audit failure rolls back status and returned funds", func(t *testing.T) {
++		order := create(t)
++		begin(t, order)
++		gatewayStatus.Store("failed")
++		failAudit.Store(true)
++		_, err := svc.QueryAndFinalizeRefund(ctx, order.ID)
++		require.ErrorContains(t, err, "injected refund audit failure")
++		order, err = client.PaymentOrder.Get(ctx, order.ID)
++		require.NoError(t, err)
++		require.Equal(t, service.OrderStatusRefundPending, order.Status)
++		user, err := users.GetByID(ctx, order.UserID)
++		require.NoError(t, err)
++		require.Zero(t, user.Balance)
++		_, err = svc.QueryAndFinalizeRefund(ctx, order.ID)
++		require.NoError(t, err)
++		user, err = users.GetByID(ctx, order.UserID)
++		require.NoError(t, err)
++		require.Equal(t, 100.0, user.Balance)
++	})
++	t.Run("concurrent finalizers return funds once", func(t *testing.T) {
++		order := create(t)
++		begin(t, order)
++		gatewayStatus.Store("failed")
++		var wg sync.WaitGroup
++		for range 4 {
++			wg.Go(func() { _, _ = svc.QueryAndFinalizeRefund(ctx, order.ID) })
++		}
++		wg.Wait()
++		user, err := users.GetByID(ctx, order.UserID)
++		require.NoError(t, err)
++		require.Equal(t, 100.0, user.Balance)
++		count, err := client.PaymentAuditLog.Query().Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(order.ID, 10)),
++			paymentauditlog.ActionEQ("REFUND_FAILED")).Count(ctx)
++		require.NoError(t, err)
++		require.Equal(t, 1, count)
++	})
++	t.Run("failed refund restores revoked subscription", func(t *testing.T) {
++		order := create(t)
++		group, err := client.Group.Create().SetName("refund-subscription").SetPlatform("openai").Save(ctx)
++		require.NoError(t, err)
++		expires := time.Now().AddDate(0, 0, 5).Truncate(time.Second)
++		sub, err := client.UserSubscription.Create().SetUserID(order.UserID).SetGroupID(group.ID).
++			SetStartsAt(time.Now()).SetExpiresAt(expires).SetStatus(service.SubscriptionStatusActive).Save(ctx)
++		require.NoError(t, err)
++		order, err = client.PaymentOrder.UpdateOneID(order.ID).SetOrderType(payment.OrderTypeSubscription).
++			SetSubscriptionGroupID(group.ID).SetSubscriptionDays(30).Save(ctx)
++		require.NoError(t, err)
++		begin(t, order)
++		_, err = subscriptions.GetByID(ctx, sub.ID)
++		require.Error(t, err, "the pending refund revokes the full entitlement")
++		gatewayStatus.Store("failed")
++		result, err := svc.QueryAndFinalizeRefund(ctx, order.ID)
++		require.NoError(t, err)
++		require.NotContains(t, result.Warning, "rollback failed")
++		restored, err := subscriptions.GetByID(ctx, sub.ID)
++		require.NoError(t, err)
++		require.True(t, restored.ExpiresAt.Equal(expires))
++	})
++}
+diff --git a/backend/internal/modules/payment/provider/README.md b/backend/internal/modules/payment/provider/README.md
+index 16ae17481..757d14eee 100644
+--- a/backend/internal/modules/payment/provider/README.md
++++ b/backend/internal/modules/payment/provider/README.md
+@@ -3,3 +3,7 @@
+ 每个文件实现一个外部支付渠道适配器：`stripe.go`, `alipay.go`, `wxpay.go`, `airwallex.go`, `easypay.go`。`factory.go` 根据配置构造适配器。
+ 
+ 适配器负责签名、请求和响应规范化，不负责订单状态机。新增渠道必须同时提供回调验签和错误映射测试。
++
++EasyPay 的可选 `NotificationConfirmer` 通过同一实例的订单查询确认已支付状态、金额和交易号；查询兼容 PHP query/form 参数与字符串标量，传输错误不包含带商户密钥的 URL。原有 HTTPS、loopback 开发例外和禁止重定向策略保持。
++
++Alipay 退款保存 `out_request_no` 作为可查询 ID，使用审计创建时间执行十分钟无记录宽限。旧交易号格式不能推断退款请求号，返回明确的人工核实错误；业务失败或网络错误保留 pending。
+diff --git a/backend/internal/modules/payment/provider/alipay.go b/backend/internal/modules/payment/provider/alipay.go
+index 543a9b700..ef35e4ac7 100644
+--- a/backend/internal/modules/payment/provider/alipay.go
++++ b/backend/internal/modules/payment/provider/alipay.go
+@@ -10,6 +10,7 @@ import (
+ 	"time"
+ 
+ 	"github.com/Wei-Shaw/sub2api/internal/modules/payment"
++	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
+ 	"github.com/smartwalle/alipay/v3"
+ )
+ 
+@@ -24,7 +25,10 @@ const (
+ const (
+ 	alipayFundChangeYes    = "Y"
+ 	alipayErrTradeNotExist = "ACQ.TRADE_NOT_EXIST"
+-	alipayRefundSuffix     = "-refund"
++	alipayRefundStatusSucc = "REFUND_SUCCESS"
++	alipayRefundRequestSep = "-refund-"
++	// 支付宝提示退款发起后过早查询可能查不到、之后又处理成功；超过该时长仍无记录才判定失败。
++	alipayRefundQueryNotFoundGrace = 10 * time.Minute
+ )
+ 
+ var (
+@@ -37,6 +41,12 @@ var (
+ 	alipayTradePagePay = func(client *alipay.Client, param alipay.TradePagePay) (*url.URL, error) {
+ 		return client.TradePagePay(param)
+ 	}
++	alipayTradeRefund = func(ctx context.Context, client *alipay.Client, param alipay.TradeRefund) (*alipay.TradeRefundRsp, error) {
++		return client.TradeRefund(ctx, param)
++	}
++	alipayTradeFastPayRefundQuery = func(ctx context.Context, client *alipay.Client, param alipay.TradeFastPayRefundQuery) (*alipay.TradeFastPayRefundQueryRsp, error) {
++		return client.TradeFastPayRefundQuery(ctx, param)
++	}
+ )
+ 
+ // Alipay implements payment.Provider and payment.CancelableProvider using the smartwalle/alipay SDK.
+@@ -338,32 +348,76 @@ func (a *Alipay) Refund(ctx context.Context, req payment.RefundRequest) (*paymen
+ 		return nil, err
+ 	}
+ 
+-	result, err := client.TradeRefund(ctx, alipay.TradeRefund{
++	outRequestNo := fmt.Sprintf("%s%s%d", req.OrderID, alipayRefundRequestSep, time.Now().UnixNano())
++	result, err := alipayTradeRefund(ctx, client, alipay.TradeRefund{
+ 		OutTradeNo:   req.OrderID,
+ 		RefundAmount: req.Amount,
+ 		RefundReason: req.Reason,
+-		OutRequestNo: fmt.Sprintf("%s-refund-%d", req.OrderID, time.Now().UnixNano()),
++		OutRequestNo: outRequestNo,
+ 	})
+ 	if err != nil {
+ 		return nil, fmt.Errorf("alipay TradeRefund: %w", err)
+ 	}
++	if result == nil {
++		return nil, fmt.Errorf("alipay TradeRefund: empty response")
++	}
+ 
+ 	refundStatus := payment.ProviderStatusPending
+ 	if result.FundChange == alipayFundChangeYes {
+ 		refundStatus = payment.ProviderStatusSuccess
+ 	}
+ 
+-	refundID := result.TradeNo
+-	if refundID == "" {
+-		refundID = req.OrderID + alipayRefundSuffix
+-	}
+-
++	// fund_change != Y 时需凭退款请求号查询终态，因此 RefundID 记录 out_request_no。
+ 	return &payment.RefundResponse{
+-		RefundID: refundID,
++		RefundID: outRequestNo,
+ 		Status:   refundStatus,
+ 	}, nil
+ }
+ 
++// QueryRefund 通过 alipay.trade.fastpay.refund.query 查询退款终态。refund_status 为 REFUND_SUCCESS
++// 表示成功；退款发起超过宽限期仍查不到记录表示支付宝未受理或退款失败；其余情况视为仍在处理中。
++func (a *Alipay) QueryRefund(ctx context.Context, req payment.RefundQueryRequest) (*payment.RefundResponse, error) {
++	orderID := strings.TrimSpace(req.OrderID)
++	outRequestNo := strings.TrimSpace(req.RefundID)
++	// 旧版本把支付宝交易号记为 RefundID，无法据此查询退款请求，只能人工核实。
++	if orderID == "" || !strings.HasPrefix(outRequestNo, orderID+alipayRefundRequestSep) {
++		return nil, infraerrors.BadRequest("REFUND_QUERY_UNSUPPORTED", "this refund was issued without a queryable refund request number; please verify manually")
++	}
++	client, err := a.getClient()
++	if err != nil {
++		return nil, err
++	}
++	result, err := alipayTradeFastPayRefundQuery(ctx, client, alipay.TradeFastPayRefundQuery{
++		OutTradeNo:   orderID,
++		OutRequestNo: outRequestNo,
++	})
++	if err != nil {
++		return nil, fmt.Errorf("alipay query refund: %w", err)
++	}
++	if result == nil {
++		return nil, fmt.Errorf("alipay query refund: empty response")
++	}
++	// SDK 对带签名的业务失败响应（如 ACQ.SYSTEM_ERROR）不返回 error，字段为空；
++	// 不检查错误码会被误判为"无退款记录"而失败收尾。
++	if result.IsFailure() {
++		return nil, fmt.Errorf("alipay query refund: %w", result.Error)
++	}
++
++	status := payment.ProviderStatusPending
++	switch {
++	case strings.TrimSpace(result.RefundStatus) == alipayRefundStatusSucc:
++		status = payment.ProviderStatusSuccess
++	case strings.TrimSpace(result.OutRequestNo) == "" && strings.TrimSpace(result.RefundAmount) == "" &&
++		alipayRefundAbsenceIsFinal(req.RequestedAt, time.Now()):
++		status = payment.ProviderStatusFailed
++	}
++	return &payment.RefundResponse{RefundID: outRequestNo, Status: status}, nil
++}
++
++func alipayRefundAbsenceIsFinal(requestedAt, now time.Time) bool {
++	return !requestedAt.IsZero() && now.Sub(requestedAt) >= alipayRefundQueryNotFoundGrace
++}
++
+ // CancelPayment closes a pending trade on Alipay.
+ func (a *Alipay) CancelPayment(ctx context.Context, tradeNo string) error {
+ 	client, err := a.getClient()
+@@ -406,5 +460,6 @@ func parseAlipayAmount(values ...string) (float64, error) {
+ var (
+ 	_ payment.Provider                 = (*Alipay)(nil)
+ 	_ payment.CancelableProvider       = (*Alipay)(nil)
++	_ payment.RefundQueryProvider      = (*Alipay)(nil)
+ 	_ payment.MerchantIdentityProvider = (*Alipay)(nil)
+ )
+diff --git a/backend/internal/modules/payment/provider/alipay_test.go b/backend/internal/modules/payment/provider/alipay_test.go
+index a2de73b6a..9ae22790b 100644
+--- a/backend/internal/modules/payment/provider/alipay_test.go
++++ b/backend/internal/modules/payment/provider/alipay_test.go
+@@ -8,6 +8,7 @@ import (
+ 	"net/url"
+ 	"strings"
+ 	"testing"
++	"time"
+ 
+ 	"github.com/Wei-Shaw/sub2api/internal/modules/payment"
+ 	"github.com/smartwalle/alipay/v3"
+@@ -444,3 +445,129 @@ func TestParseAlipayAmount(t *testing.T) {
+ 		t.Fatal("expected error when no valid amount field exists")
+ 	}
+ }
++
++func TestAlipayRefundRecordsOutRequestNoAsRefundID(t *testing.T) {
++	origRefund := alipayTradeRefund
++	t.Cleanup(func() { alipayTradeRefund = origRefund })
++
++	for _, tc := range []struct {
++		fundChange string
++		wantStatus string
++	}{
++		{fundChange: alipayFundChangeYes, wantStatus: payment.ProviderStatusSuccess},
++		{fundChange: "N", wantStatus: payment.ProviderStatusPending},
++	} {
++		var gotOutRequestNo string
++		alipayTradeRefund = func(_ context.Context, _ *alipay.Client, param alipay.TradeRefund) (*alipay.TradeRefundRsp, error) {
++			if param.OutTradeNo != "sub2_7" || param.RefundAmount != "12.50" {
++				t.Fatalf("unexpected refund param: %+v", param)
++			}
++			gotOutRequestNo = param.OutRequestNo
++			return &alipay.TradeRefundRsp{TradeNo: "2026101522001", FundChange: tc.fundChange}, nil
++		}
++
++		provider := &Alipay{client: &alipay.Client{}}
++		resp, err := provider.Refund(context.Background(), payment.RefundRequest{OrderID: "sub2_7", Amount: "12.50", Reason: "r"})
++		if err != nil {
++			t.Fatalf("Refund() error = %v", err)
++		}
++		if resp.Status != tc.wantStatus {
++			t.Fatalf("fund_change=%s status = %q, want %q", tc.fundChange, resp.Status, tc.wantStatus)
++		}
++		if !strings.HasPrefix(gotOutRequestNo, "sub2_7-refund-") || resp.RefundID != gotOutRequestNo {
++			t.Fatalf("RefundID = %q, out_request_no = %q", resp.RefundID, gotOutRequestNo)
++		}
++	}
++}
++
++func TestAlipayQueryRefundMapsStatus(t *testing.T) {
++	origQuery := alipayTradeFastPayRefundQuery
++	t.Cleanup(func() { alipayTradeFastPayRefundQuery = origQuery })
++
++	const outRequestNo = "sub2_7-refund-1760500000000000000"
++	ok := alipay.Error{Code: alipay.CodeSuccess, Msg: "Success"}
++	settled := time.Now().Add(-alipayRefundQueryNotFoundGrace - time.Minute)
++	for _, tc := range []struct {
++		name        string
++		rsp         *alipay.TradeFastPayRefundQueryRsp
++		requestedAt time.Time
++		wantStatus  string
++	}{
++		{name: "success", rsp: &alipay.TradeFastPayRefundQueryRsp{Error: ok, OutRequestNo: outRequestNo, RefundAmount: "12.50", RefundStatus: alipayRefundStatusSucc}, requestedAt: settled, wantStatus: payment.ProviderStatusSuccess},
++		{name: "record without final status", rsp: &alipay.TradeFastPayRefundQueryRsp{Error: ok, OutRequestNo: outRequestNo, RefundAmount: "12.50"}, requestedAt: settled, wantStatus: payment.ProviderStatusPending},
++		{name: "no refund record after grace", rsp: &alipay.TradeFastPayRefundQueryRsp{Error: ok}, requestedAt: settled, wantStatus: payment.ProviderStatusFailed},
++		{name: "no refund record within grace", rsp: &alipay.TradeFastPayRefundQueryRsp{Error: ok}, requestedAt: time.Now().Add(-time.Minute), wantStatus: payment.ProviderStatusPending},
++		{name: "no refund record with unknown request time", rsp: &alipay.TradeFastPayRefundQueryRsp{Error: ok}, wantStatus: payment.ProviderStatusPending},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			alipayTradeFastPayRefundQuery = func(_ context.Context, _ *alipay.Client, param alipay.TradeFastPayRefundQuery) (*alipay.TradeFastPayRefundQueryRsp, error) {
++				if param.OutTradeNo != "sub2_7" || param.OutRequestNo != outRequestNo {
++					t.Fatalf("unexpected query param: %+v", param)
++				}
++				return tc.rsp, nil
++			}
++			provider := &Alipay{client: &alipay.Client{}}
++			resp, err := provider.QueryRefund(context.Background(), payment.RefundQueryRequest{OrderID: "sub2_7", RefundID: outRequestNo, RequestedAt: tc.requestedAt})
++			if err != nil {
++				t.Fatalf("QueryRefund() error = %v", err)
++			}
++			if resp.Status != tc.wantStatus || resp.RefundID != outRequestNo {
++				t.Fatalf("QueryRefund() = %+v, want status %q", resp, tc.wantStatus)
++			}
++		})
++	}
++}
++
++// SDK 对带签名的业务失败响应返回 err == nil，错误码只在响应体里。
++func TestAlipayQueryRefundBusinessFailureKeepsRefundPending(t *testing.T) {
++	origQuery := alipayTradeFastPayRefundQuery
++	t.Cleanup(func() { alipayTradeFastPayRefundQuery = origQuery })
++
++	for _, rspErr := range []alipay.Error{
++		{Code: "40004", Msg: "Business Failed", SubCode: "ACQ.SYSTEM_ERROR", SubMsg: "系统错误"},
++		{Code: "20000", Msg: "Service Currently Unavailable", SubCode: "isp.unknow-error"},
++		{},
++	} {
++		alipayTradeFastPayRefundQuery = func(context.Context, *alipay.Client, alipay.TradeFastPayRefundQuery) (*alipay.TradeFastPayRefundQueryRsp, error) {
++			return &alipay.TradeFastPayRefundQueryRsp{Error: rspErr}, nil
++		}
++		provider := &Alipay{client: &alipay.Client{}}
++		resp, err := provider.QueryRefund(context.Background(), payment.RefundQueryRequest{
++			OrderID:     "sub2_7",
++			RefundID:    "sub2_7-refund-1",
++			RequestedAt: time.Now().Add(-24 * time.Hour),
++		})
++		if err == nil {
++			t.Fatalf("code %q: QueryRefund() = %+v, want error", rspErr.Code, resp)
++		}
++		if rspErr.SubCode != "" && !strings.Contains(err.Error(), string(rspErr.Code)) {
++			t.Fatalf("code %q: error %q should carry the gateway code", rspErr.Code, err)
++		}
++	}
++}
++
++func TestAlipayQueryRefundErrorsKeepRefundPending(t *testing.T) {
++	origQuery := alipayTradeFastPayRefundQuery
++	t.Cleanup(func() { alipayTradeFastPayRefundQuery = origQuery })
++
++	calls := 0
++	alipayTradeFastPayRefundQuery = func(context.Context, *alipay.Client, alipay.TradeFastPayRefundQuery) (*alipay.TradeFastPayRefundQueryRsp, error) {
++		calls++
++		return nil, errors.New("ACQ.SYSTEM_ERROR")
++	}
++	provider := &Alipay{client: &alipay.Client{}}
++
++	// 旧版本记录的是支付宝交易号，无法查询退款请求，需人工核实，且不能调用网关。
++	for _, legacyID := range []string{"", "2026101522001", "sub2_7-refund", "sub2_70-refund-1"} {
++		if _, err := provider.QueryRefund(context.Background(), payment.RefundQueryRequest{OrderID: "sub2_7", RefundID: legacyID}); err == nil || !strings.Contains(err.Error(), "verify manually") {
++			t.Fatalf("legacy refund id %q: err = %v", legacyID, err)
++		}
++	}
++	if calls != 0 {
++		t.Fatalf("legacy refund ids must not reach the gateway, calls = %d", calls)
++	}
++
++	if _, err := provider.QueryRefund(context.Background(), payment.RefundQueryRequest{OrderID: "sub2_7", RefundID: "sub2_7-refund-1"}); err == nil {
++		t.Fatal("gateway error must be returned so the refund stays pending")
++	}
++}
+diff --git a/backend/internal/modules/payment/provider/easypay.go b/backend/internal/modules/payment/provider/easypay.go
+index 5ab50367a..d4bf647a7 100644
+--- a/backend/internal/modules/payment/provider/easypay.go
++++ b/backend/internal/modules/payment/provider/easypay.go
+@@ -7,8 +7,10 @@ import (
+ 	"crypto/md5"
+ 	"encoding/hex"
+ 	"encoding/json"
++	"errors"
+ 	"fmt"
+ 	"io"
++	"math"
+ 	"net"
+ 	"net/http"
+ 	"net/url"
+@@ -28,6 +30,7 @@ const (
+ 	easypayHTTPTimeout     = 10 * time.Second
+ 	maxEasypayResponseSize = 1 << 20 // 1MB
+ 	maxEasypayErrorSummary = 512
++	easypayAmountTolerance = 0.005
+ 	tradeStatusSuccess     = "TRADE_SUCCESS"
+ 	signTypeMD5            = "MD5"
+ 	paymentModePopup       = "popup"
+@@ -299,32 +302,86 @@ func (e *EasyPay) upstreamPaymentType(paymentType string) string {
+ }
+ 
+ func (e *EasyPay) QueryOrder(ctx context.Context, tradeNo string) (*payment.QueryOrderResponse, error) {
++	result, err := e.queryOrder(ctx, tradeNo)
++	if err != nil {
++		return nil, err
++	}
++	responseTradeNo := tradeNo
++	if result.tradeNo != "" {
++		responseTradeNo = result.tradeNo
++	}
++	amount, _ := strconv.ParseFloat(result.money, 64)
++	return &payment.QueryOrderResponse{
++		TradeNo:  responseTradeNo,
++		Status:   result.status,
++		Amount:   amount,
++		Metadata: e.MerchantIdentityMetadata(),
++	}, nil
++}
++
++// easyPayQueryResult is the normalized api.php?act=order answer. tradeNo is
++// the upstream trade number exactly as returned (empty when absent).
++type easyPayQueryResult struct {
++	status  string
++	money   string
++	tradeNo string
++}
++
++func (e *EasyPay) queryOrder(ctx context.Context, outTradeNo string) (*easyPayQueryResult, error) {
+ 	params := map[string]string{
+ 		"act": "order", "pid": e.config["pid"],
+-		"key": e.config["pkey"], "out_trade_no": tradeNo,
++		"key": e.config["pkey"], "out_trade_no": outTradeNo,
++	}
++	// 彩虹易支付 and ZPay read act=order parameters from $_GET only (a
++	// body-only request is answered with "No Act!"), while other forks read
++	// the form body; send them in both places.
++	query := url.Values{}
++	for k, v := range params {
++		query.Set(k, v)
+ 	}
+-	body, err := e.post(ctx, e.apiBase()+"/api.php", params)
++	body, err := e.post(ctx, e.apiBase()+"/api.php?"+query.Encode(), params)
+ 	if err != nil {
++		// The request URL carries the merchant key; never let it reach logs
++		// or audit records through *url.Error.
++		var urlErr *url.Error
++		if errors.As(err, &urlErr) {
++			err = urlErr.Err
++		}
+ 		return nil, fmt.Errorf("easypay query: %w", err)
+ 	}
++	// Scalars are decoded leniently: PHP deployments commonly serialize
++	// integer columns as strings ("status":"1").
+ 	type easyPayQueryData struct {
+-		TradeStatus *string `json:"trade_status"`
+-		Status      *int    `json:"status"`
+-		Money       *string `json:"money"`
+-		TradeNo     *string `json:"trade_no"`
++		TradeStatus *string         `json:"trade_status"`
++		Status      json.RawMessage `json:"status"`
++		Money       json.RawMessage `json:"money"`
++		TradeNo     json.RawMessage `json:"trade_no"`
++		OutTradeNo  json.RawMessage `json:"out_trade_no"`
+ 	}
+ 	var resp struct {
+-		Code        int              `json:"code"`
+-		Msg         string           `json:"msg"`
+-		TradeStatus *string          `json:"trade_status"`
+-		Status      *int             `json:"status"`
+-		Money       *string          `json:"money"`
+-		TradeNo     *string          `json:"trade_no"`
+-		Data        easyPayQueryData `json:"data"`
++		easyPayQueryData
++		Code any              `json:"code"`
++		Msg  string           `json:"msg"`
++		Data easyPayQueryData `json:"data"`
+ 	}
+ 	if err := json.Unmarshal(body, &resp); err != nil {
+ 		return nil, fmt.Errorf("easypay parse query: %w", err)
+ 	}
++	// An explicit failure code wins over any paid-looking status field that
++	// may accompany it.
++	if resp.Code != nil && !easyPayResponseCodeIsSuccess(resp.Code) {
++		msg := strings.TrimSpace(resp.Msg)
++		if msg == "" {
++			msg = summarizeEasyPayResponse(body)
++		}
++		return nil, fmt.Errorf("easypay query failed: %s", msg)
++	}
++	// When the upstream echoes the order identity it must be this order; some
++	// implementations silently ignore unknown lookup parameters.
++	if echoed := easyPayJSONScalar(pickEasyPayJSON(resp.OutTradeNo, resp.Data.OutTradeNo)); echoed != "" && echoed != strings.TrimSpace(outTradeNo) {
++		return nil, fmt.Errorf("easypay query out_trade_no mismatch: expected %s, got %s", strings.TrimSpace(outTradeNo), echoed)
++	}
++
+ 	status := payment.ProviderStatusPending
+ 	if resp.TradeStatus != nil {
+ 		if *resp.TradeStatus == tradeStatusSuccess {
+@@ -334,36 +391,74 @@ func (e *EasyPay) QueryOrder(ctx context.Context, tradeNo string) (*payment.Quer
+ 		if *resp.Data.TradeStatus == tradeStatusSuccess {
+ 			status = payment.ProviderStatusPaid
+ 		}
+-	} else if resp.Status != nil {
+-		if *resp.Status == easypayStatusPaid {
++	} else if raw := pickEasyPayJSON(resp.Status, resp.Data.Status); raw != nil {
++		if easyPayJSONScalar(raw) == strconv.Itoa(easypayStatusPaid) {
+ 			status = payment.ProviderStatusPaid
+ 		}
+-	} else if resp.Data.Status != nil && *resp.Data.Status == easypayStatusPaid {
+-		status = payment.ProviderStatusPaid
+ 	}
+ 
+-	money := ""
+-	if resp.Money != nil {
+-		money = *resp.Money
+-	} else if resp.Data.Money != nil {
+-		money = *resp.Data.Money
++	return &easyPayQueryResult{
++		status:  status,
++		money:   easyPayJSONScalar(pickEasyPayJSON(resp.Money, resp.Data.Money)),
++		tradeNo: easyPayJSONScalar(pickEasyPayJSON(resp.TradeNo, resp.Data.TradeNo)),
++	}, nil
++}
++
++// ConfirmNotification checks a verified success notification against the
++// upstream order before it is fulfilled, so crediting follows the gateway's
++// own order state (paid, amount, trade_no). The query is sent to this
++// instance's own apiBase with its own credentials.
++func (e *EasyPay) ConfirmNotification(ctx context.Context, n *payment.PaymentNotification) error {
++	if n == nil || n.Status != payment.NotificationStatusSuccess {
++		return nil
+ 	}
+-	responseTradeNo := tradeNo
+-	if resp.TradeNo != nil {
+-		if *resp.TradeNo != "" {
+-			responseTradeNo = *resp.TradeNo
++	result, err := e.queryOrder(ctx, n.OrderID)
++	if err != nil {
++		return fmt.Errorf("easypay confirm: %w", err)
++	}
++	if result.status != payment.ProviderStatusPaid {
++		return fmt.Errorf("easypay confirm: upstream reports order %s as not paid", n.OrderID)
++	}
++	queriedAmount, err := strconv.ParseFloat(result.money, 64)
++	if err != nil || queriedAmount <= 0 || math.IsNaN(queriedAmount) || math.IsInf(queriedAmount, 0) ||
++		n.Amount <= 0 || math.IsNaN(n.Amount) || math.IsInf(n.Amount, 0) ||
++		math.Abs(queriedAmount-n.Amount) > easypayAmountTolerance {
++		return fmt.Errorf("easypay confirm: amount mismatch: notified %v, upstream %q", n.Amount, result.money)
++	}
++	if result.tradeNo != "" {
++		if n.TradeNo != "" && n.TradeNo != result.tradeNo {
++			return fmt.Errorf("easypay confirm: trade_no mismatch: notified %s, upstream %s", n.TradeNo, result.tradeNo)
+ 		}
+-	} else if resp.Data.TradeNo != nil && *resp.Data.TradeNo != "" {
+-		responseTradeNo = *resp.Data.TradeNo
++		n.TradeNo = result.tradeNo
+ 	}
++	return nil
++}
+ 
+-	amount, _ := strconv.ParseFloat(money, 64)
+-	return &payment.QueryOrderResponse{
+-		TradeNo:  responseTradeNo,
+-		Status:   status,
+-		Amount:   amount,
+-		Metadata: e.MerchantIdentityMetadata(),
+-	}, nil
++func easyPayJSONScalar(raw json.RawMessage) string {
++	if len(raw) == 0 {
++		return ""
++	}
++	var str string
++	if err := json.Unmarshal(raw, &str); err == nil {
++		return strings.TrimSpace(str)
++	}
++	var num json.Number
++	if err := json.Unmarshal(raw, &num); err == nil {
++		return num.String()
++	}
++	return ""
++}
++
++// pickEasyPayJSON returns the top-level field when present, otherwise the
++// nested data field. JSON null counts as absent.
++func pickEasyPayJSON(top, nested json.RawMessage) json.RawMessage {
++	if len(top) > 0 && string(top) != "null" {
++		return top
++	}
++	if len(nested) > 0 && string(nested) != "null" {
++		return nested
++	}
++	return nil
+ }
+ 
+ func (e *EasyPay) VerifyNotification(_ context.Context, rawBody string, _ map[string]string) (*payment.PaymentNotification, error) {
+@@ -382,6 +477,9 @@ func (e *EasyPay) VerifyNotification(_ context.Context, rawBody string, _ map[st
+ 		if len(entries) != 1 {
+ 			return nil, fmt.Errorf("duplicate notify param: %s", k)
+ 		}
++		if k != "name" && strings.ContainsAny(entries[0], "&=") {
++			return nil, fmt.Errorf("invalid notify param value: %s", k)
++		}
+ 		params[k] = entries[0]
+ 	}
+ 	sign := params["sign"]
+diff --git a/backend/internal/modules/payment/provider/easypay_confirm_test.go b/backend/internal/modules/payment/provider/easypay_confirm_test.go
+new file mode 100644
+index 000000000..df6606928
+--- /dev/null
++++ b/backend/internal/modules/payment/provider/easypay_confirm_test.go
+@@ -0,0 +1,259 @@
++package provider
++
++import (
++	"context"
++	"net/http"
++	"net/http/httptest"
++	"net/url"
++	"strings"
++	"sync/atomic"
++	"testing"
++
++	"github.com/Wei-Shaw/sub2api/internal/modules/payment"
++)
++
++func newConfirmTestEasyPay(t *testing.T, body string, status int) (*EasyPay, *atomic.Int32) {
++	t.Helper()
++	var calls atomic.Int32
++	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		calls.Add(1)
++		if err := r.ParseForm(); err != nil {
++			t.Errorf("ParseForm: %v", err)
++		}
++		q := r.URL.Query()
++		if r.URL.Path != "/api.php" || q.Get("act") != "order" || q.Get("pid") != "1001" || q.Get("key") != "pkey-1" || q.Get("out_trade_no") != "sub2_ORDER1" {
++			t.Errorf("unexpected query request: path=%s query=%v", r.URL.Path, q)
++		}
++		w.WriteHeader(status)
++		_, _ = w.Write([]byte(body))
++	}))
++	t.Cleanup(server.Close)
++	provider, err := NewEasyPay("test-instance", map[string]string{
++		"pid":       "1001",
++		"pkey":      "pkey-1",
++		"apiBase":   server.URL,
++		"notifyUrl": "https://example.com/notify",
++		"returnUrl": "https://example.com/return",
++	})
++	if err != nil {
++		t.Fatalf("NewEasyPay: %v", err)
++	}
++	return provider, &calls
++}
++
++func confirmTestNotification() *payment.PaymentNotification {
++	return &payment.PaymentNotification{
++		TradeNo: "2026101600001",
++		OrderID: "sub2_ORDER1",
++		Amount:  10,
++		Status:  payment.NotificationStatusSuccess,
++	}
++}
++
++func TestEasyPayConfirmNotification(t *testing.T) {
++	t.Parallel()
++
++	tests := []struct {
++		name        string
++		body        string
++		status      int
++		notifyTrade string
++		wantErr     string
++		wantTradeNo string
++	}{
++		{
++			name:        "paid with matching amount and trade_no",
++			body:        `{"code":1,"pid":1001,"out_trade_no":"sub2_ORDER1","trade_no":"2026101600001","money":"10.00","status":1}`,
++			notifyTrade: "2026101600001",
++			wantTradeNo: "2026101600001",
++		},
++		{
++			name:        "missing notify trade_no is filled from upstream",
++			body:        `{"code":1,"trade_no":"2026101600001","money":"10.00","trade_status":"TRADE_SUCCESS"}`,
++			wantTradeNo: "2026101600001",
++		},
++		{
++			name:        "upstream not paid",
++			body:        `{"code":1,"trade_no":"2026101600001","money":"10.00","status":0}`,
++			notifyTrade: "2026101600001",
++			wantErr:     "not paid",
++		},
++		{
++			name:        "upstream failure code with paid status",
++			body:        `{"code":-1,"msg":"订单号不存在","status":1,"money":"10.00"}`,
++			notifyTrade: "2026101600001",
++			wantErr:     "订单号不存在",
++		},
++		{
++			name:        "amount mismatch",
++			body:        `{"code":1,"trade_no":"2026101600001","money":"0.01","status":1}`,
++			notifyTrade: "2026101600001",
++			wantErr:     "amount mismatch",
++		},
++		{
++			name:        "nonfinite upstream amount",
++			body:        `{"code":1,"trade_no":"2026101600001","money":"NaN","status":1}`,
++			notifyTrade: "2026101600001",
++			wantErr:     "amount mismatch",
++		},
++		{
++			name:        "missing upstream amount",
++			body:        `{"code":1,"trade_no":"2026101600001","status":1}`,
++			notifyTrade: "2026101600001",
++			wantErr:     "amount mismatch",
++		},
++		{
++			name:        "trade_no conflict",
++			body:        `{"code":1,"trade_no":"2026101699999","money":"10.00","status":1}`,
++			notifyTrade: "2026101600001",
++			wantErr:     "trade_no mismatch",
++		},
++		{
++			name:        "string status from PHP deployment",
++			body:        `{"code":"1","pid":"1001","out_trade_no":"sub2_ORDER1","trade_no":"2026101600001","money":"10.00","status":"1"}`,
++			notifyTrade: "2026101600001",
++			wantTradeNo: "2026101600001",
++		},
++		{
++			name:        "foreign order echo",
++			body:        `{"code":1,"out_trade_no":"sub2_OTHER","trade_no":"2026101600001","money":"10.00","status":1}`,
++			notifyTrade: "2026101600001",
++			wantErr:     "out_trade_no mismatch",
++		},
++		{
++			name:        "upstream HTTP error body",
++			body:        `<html>502 Bad Gateway</html>`,
++			status:      http.StatusBadGateway,
++			notifyTrade: "2026101600001",
++			wantErr:     "parse query",
++		},
++	}
++	for _, tt := range tests {
++		tt := tt
++		t.Run(tt.name, func(t *testing.T) {
++			t.Parallel()
++			status := tt.status
++			if status == 0 {
++				status = http.StatusOK
++			}
++			provider, calls := newConfirmTestEasyPay(t, tt.body, status)
++			n := confirmTestNotification()
++			n.TradeNo = tt.notifyTrade
++			err := provider.ConfirmNotification(context.Background(), n)
++			if calls.Load() != 1 {
++				t.Fatalf("upstream query calls = %d, want 1", calls.Load())
++			}
++			if tt.wantErr != "" {
++				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
++					t.Fatalf("ConfirmNotification error = %v, want containing %q", err, tt.wantErr)
++				}
++				return
++			}
++			if err != nil {
++				t.Fatalf("ConfirmNotification returned error: %v", err)
++			}
++			if n.TradeNo != tt.wantTradeNo {
++				t.Fatalf("trade_no = %q, want %q", n.TradeNo, tt.wantTradeNo)
++			}
++		})
++	}
++}
++
++func TestEasyPayConfirmNotificationSkipsNonSuccess(t *testing.T) {
++	t.Parallel()
++
++	provider, calls := newConfirmTestEasyPay(t, `{}`, http.StatusOK)
++	n := confirmTestNotification()
++	n.Status = payment.ProviderStatusFailed
++	if err := provider.ConfirmNotification(context.Background(), n); err != nil {
++		t.Fatalf("ConfirmNotification returned error: %v", err)
++	}
++	if calls.Load() != 0 {
++		t.Fatalf("upstream query calls = %d, want 0", calls.Load())
++	}
++}
++
++func TestEasyPayConfirmNotificationQueryTransportError(t *testing.T) {
++	t.Parallel()
++
++	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
++	apiBase := server.URL
++	server.Close()
++	provider := newTestEasyPay(t, apiBase)
++	err := provider.ConfirmNotification(context.Background(), confirmTestNotification())
++	if err == nil {
++		t.Fatal("ConfirmNotification must fail when the upstream is unreachable")
++	}
++	// The query URL carries the merchant key; errors are logged and stored in
++	// the payment audit trail, so they must not echo the URL.
++	if strings.Contains(err.Error(), "pkey-1") || strings.Contains(err.Error(), "key=") {
++		t.Fatalf("error contains the merchant key: %v", err)
++	}
++}
++
++func TestEasyPayNotifyRejectsForeignPid(t *testing.T) {
++	t.Parallel()
++	e := newEasyPayNotificationSecurityProvider(t)
++
++	for _, pid := range []string{"2000", ""} {
++		params := map[string]string{
++			"trade_no":     "T1",
++			"out_trade_no": "ORDER123",
++			"type":         "alipay",
++			"name":         "balance recharge",
++			"money":        "650.00",
++			"trade_status": tradeStatusSuccess,
++		}
++		if pid != "" {
++			params["pid"] = pid
++		}
++		params["sign"] = easyPaySign(params, e.config["pkey"])
++		q := url.Values{}
++		for k, v := range params {
++			q.Set(k, v)
++		}
++		if _, err := e.VerifyNotification(context.Background(), q.Encode(), nil); err == nil {
++			t.Fatalf("callback with pid %q must be rejected", pid)
++		}
++	}
++}
++
++func TestEasyPayNotifyAllowsFreeTextNameOnly(t *testing.T) {
++	t.Parallel()
++	e := newEasyPayNotificationSecurityProvider(t)
++
++	base := map[string]string{
++		"pid":          "1000",
++		"trade_no":     "T1",
++		"out_trade_no": "ORDER123",
++		"type":         "alipay",
++		"name":         "Plan A&B = Pro",
++		"money":        "650.00",
++		"trade_status": tradeStatusSuccess,
++	}
++	encode := func(params map[string]string) string {
++		signed := map[string]string{}
++		for k, v := range params {
++			signed[k] = v
++		}
++		signed["sign"] = easyPaySign(params, e.config["pkey"])
++		q := url.Values{}
++		for k, v := range signed {
++			q.Set(k, v)
++		}
++		return q.Encode()
++	}
++	if _, err := e.VerifyNotification(context.Background(), encode(base), nil); err != nil {
++		t.Fatalf("free-text name must be accepted: %v", err)
++	}
++	for _, field := range []string{"trade_no", "out_trade_no", "type", "money", "param"} {
++		params := map[string]string{}
++		for k, v := range base {
++			params[k] = v
++		}
++		params[field] = "v&k=x"
++		if _, err := e.VerifyNotification(context.Background(), encode(params), nil); err == nil {
++			t.Fatalf("value with &/= in %s must be rejected", field)
++		}
++	}
++}
+diff --git a/backend/internal/modules/payment/provider/easypay_query_test.go b/backend/internal/modules/payment/provider/easypay_query_test.go
+index 582342c16..068dab0f5 100644
+--- a/backend/internal/modules/payment/provider/easypay_query_test.go
++++ b/backend/internal/modules/payment/provider/easypay_query_test.go
+@@ -20,6 +20,7 @@ func TestEasyPayQueryOrderStatusMapping(t *testing.T) {
+ 		wantStatus  string
+ 		wantTradeNo string
+ 		wantAmount  float64
++		wantErr     bool
+ 	}{
+ 		{
+ 			name:        "top level trade success is paid",
+@@ -64,10 +65,64 @@ func TestEasyPayQueryOrderStatusMapping(t *testing.T) {
+ 			wantAmount:  3.21,
+ 		},
+ 		{
+-			name:        "query failure with missing status is pending",
+-			body:        `{"code":0,"msg":"订单不存在"}`,
++			name:    "query failure code is an error",
++			body:    `{"code":0,"msg":"订单不存在"}`,
++			wantErr: true,
++		},
++		{
++			name:    "explicit failure code wins over paid status fields",
++			body:    `{"code":-1,"msg":"签名错误","status":1,"trade_status":"TRADE_SUCCESS","money":"12.34"}`,
++			wantErr: true,
++		},
++		{
++			name:    "string failure code is an error",
++			body:    `{"code":"-1","msg":"error","status":1}`,
++			wantErr: true,
++		},
++		{
++			name:    "foreign order echo is rejected",
++			body:    `{"code":1,"pid":"pid-1","out_trade_no":"order-999","trade_status":"TRADE_SUCCESS","money":"12.34"}`,
++			wantErr: true,
++		},
++		{
++			name:    "foreign order echo in nested data is rejected",
++			body:    `{"code":1,"data":{"out_trade_no":"order-999","trade_status":"TRADE_SUCCESS","money":"12.34"}}`,
++			wantErr: true,
++		},
++		{
++			name:        "string numeric status from PHP deployments is paid",
++			body:        `{"code":"1","msg":"查询订单号成功！","trade_no":"2026101600001","out_trade_no":"order-123","pid":"1001","money":"12.34","status":"1"}`,
++			wantStatus:  payment.ProviderStatusPaid,
++			wantTradeNo: "2026101600001",
++			wantAmount:  12.34,
++		},
++		{
++			name:        "string numeric unpaid status is pending",
++			body:        `{"code":1,"trade_no":"2026101600001","money":"12.34","status":"0"}`,
+ 			wantStatus:  payment.ProviderStatusPending,
+-			wantTradeNo: orderID,
++			wantTradeNo: "2026101600001",
++			wantAmount:  12.34,
++		},
++		{
++			name:        "documented caihong response with integer pid and status is paid",
++			body:        `{"code":1,"msg":"查询订单号成功！","trade_no":"2016080622555342651","out_trade_no":"order-123","api_trade_no":"4200001","type":"alipay","pid":1001,"addtime":"2016-08-06 22:55:52","endtime":"2016-08-06 22:55:52","name":"VIP会员","money":"1.00","status":1,"param":"","buyer":""}`,
++			wantStatus:  payment.ProviderStatusPaid,
++			wantTradeNo: "2016080622555342651",
++			wantAmount:  1,
++		},
++		{
++			name:        "null top-level fields fall back to nested data",
++			body:        `{"code":1,"status":null,"money":null,"trade_no":null,"data":{"status":1,"money":"5.00","trade_no":"data-789"}}`,
++			wantStatus:  payment.ProviderStatusPaid,
++			wantTradeNo: "data-789",
++			wantAmount:  5,
++		},
++		{
++			name:        "matching identity echo with numeric fields is paid",
++			body:        `{"code":"1","pid":"pid-1","out_trade_no":"order-123","trade_status":"TRADE_SUCCESS","money":12.34,"trade_no":2026101600001}`,
++			wantStatus:  payment.ProviderStatusPaid,
++			wantTradeNo: "2026101600001",
++			wantAmount:  12.34,
+ 		},
+ 		{
+ 			name:        "missing fields are pending",
+@@ -93,9 +148,16 @@ func TestEasyPayQueryOrderStatusMapping(t *testing.T) {
+ 				if err := r.ParseForm(); err != nil {
+ 					t.Errorf("ParseForm: %v", err)
+ 				}
+-				gotForm = make(url.Values, len(r.PostForm))
++				// Parameters must be in the URL query (彩虹易支付 reads $_GET)
++				// and mirrored in the body for forks that read $_POST.
++				gotForm = r.URL.Query()
+ 				for key, values := range r.PostForm {
+-					gotForm[key] = append([]string(nil), values...)
++					if got := gotForm.Get(key); got != values[0] {
++						t.Errorf("body[%s] = %q, query has %q", key, values[0], got)
++					}
++				}
++				if len(r.PostForm) != len(gotForm) {
++					t.Errorf("body params %v do not mirror query params %v", r.PostForm, gotForm)
+ 				}
+ 				w.Header().Set("Content-Type", "application/json")
+ 				_, _ = w.Write([]byte(tt.body))
+@@ -104,6 +166,12 @@ func TestEasyPayQueryOrderStatusMapping(t *testing.T) {
+ 
+ 			provider := newTestEasyPay(t, server.URL)
+ 			resp, err := provider.QueryOrder(context.Background(), orderID)
++			if tt.wantErr {
++				if err == nil {
++					t.Fatalf("QueryOrder succeeded, want error (response=%+v)", resp)
++				}
++				return
++			}
+ 			if err != nil {
+ 				t.Fatalf("QueryOrder returned error: %v", err)
+ 			}
+diff --git a/backend/internal/modules/payment/types.go b/backend/internal/modules/payment/types.go
+index 6421c4afe..dc3ec58ff 100644
+--- a/backend/internal/modules/payment/types.go
++++ b/backend/internal/modules/payment/types.go
+@@ -2,7 +2,10 @@
+ // registry, load balancing, and shared utilities for the payment subsystem.
+ package payment
+ 
+-import "context"
++import (
++	"context"
++	"time"
++)
+ 
+ // PaymentType represents a supported payment method.
+ type PaymentType = string
+@@ -192,6 +195,8 @@ type RefundQueryRequest struct {
+ 	OrderID  string
+ 	RefundID string
+ 	Amount   string
++	// RequestedAt 为退款进入 pending 的时间；零值表示未知。
++	RequestedAt time.Time
+ }
+ 
+ // RefundResponse is returned after a refund request.
+@@ -234,6 +239,16 @@ type RefundQueryProvider interface {
+ 	QueryRefund(ctx context.Context, req RefundQueryRequest) (*RefundResponse, error)
+ }
+ 
++// NotificationConfirmer extends Provider for gateways whose verified
++// notifications are not sufficient proof of payment on their own. The webhook
++// path calls ConfirmNotification on the instance that verified the
++// notification before fulfillment; implementations query the upstream order
++// and may fill in missing notification fields (e.g. TradeNo) from it.
++type NotificationConfirmer interface {
++	Provider
++	ConfirmNotification(ctx context.Context, n *PaymentNotification) error
++}
++
+ // CancelableProvider extends Provider with the ability to cancel pending payments.
+ type CancelableProvider interface {
+ 	Provider
+diff --git a/backend/internal/transport/http/handler/payment_webhook_handler.go b/backend/internal/transport/http/handler/payment_webhook_handler.go
+index 126e01b31..e8a732010 100644
+--- a/backend/internal/transport/http/handler/payment_webhook_handler.go
++++ b/backend/internal/transport/http/handler/payment_webhook_handler.go
+@@ -103,7 +103,7 @@ func (h *PaymentWebhookHandler) handleNotify(c *gin.Context, providerKey string)
+ 		headers[strings.ToLower(k)] = c.GetHeader(k)
+ 	}
+ 
+-	resolvedProviderKey, notification, err := verifyNotificationWithProviders(c.Request.Context(), providers, rawBody, headers)
++	verifiedProvider, notification, err := verifyNotificationWithProviders(c.Request.Context(), providers, rawBody, headers)
+ 	if err != nil {
+ 		truncatedBody := rawBody
+ 		if len(truncatedBody) > webhookLogTruncateLen {
+@@ -115,13 +115,20 @@ func (h *PaymentWebhookHandler) handleNotify(c *gin.Context, providerKey string)
+ 		return
+ 	}
+ 
++	resolvedProviderKey := verifiedProvider.ProviderKey()
++
+ 	// nil notification means irrelevant event (e.g. Stripe non-payment event); return success.
+ 	if notification == nil {
+ 		writeSuccessResponse(c, resolvedProviderKey)
+ 		return
+ 	}
+ 
+-	if err := h.paymentService.HandlePaymentNotification(c.Request.Context(), notification, resolvedProviderKey); err != nil {
++	if err := h.paymentService.HandleVerifiedPaymentNotification(c.Request.Context(), notification, verifiedProvider); err != nil {
++		if errors.Is(err, service.ErrPaymentUpstreamUnconfirmed) {
++			slog.Error("[Payment Webhook] upstream confirmation failed", "provider", resolvedProviderKey, "outTradeNo", notification.OrderID, "error", err)
++			c.String(http.StatusBadGateway, "confirm failed")
++			return
++		}
+ 		// Unknown order: ack with 2xx so the provider stops retrying. This
+ 		// guards against foreign environments whose webhook endpoints are
+ 		// (mis)configured to point at us — without a 2xx, the provider will
+@@ -170,7 +177,10 @@ func extractOutTradeNo(rawBody, providerKey string) string {
+ 	return ""
+ }
+ 
+-func verifyNotificationWithProviders(ctx context.Context, providers []payment.Provider, rawBody string, headers map[string]string) (string, *payment.PaymentNotification, error) {
++// verifyNotificationWithProviders returns the provider instance that verified
++// the notification so later steps (upstream confirmation) use the same
++// merchant configuration.
++func verifyNotificationWithProviders(ctx context.Context, providers []payment.Provider, rawBody string, headers map[string]string) (payment.Provider, *payment.PaymentNotification, error) {
+ 	var lastErr error
+ 	for _, provider := range providers {
+ 		if provider == nil {
+@@ -181,12 +191,12 @@ func verifyNotificationWithProviders(ctx context.Context, providers []payment.Pr
+ 			lastErr = err
+ 			continue
+ 		}
+-		return provider.ProviderKey(), notification, nil
++		return provider, notification, nil
+ 	}
+ 	if lastErr != nil {
+-		return "", nil, lastErr
++		return nil, nil, lastErr
+ 	}
+-	return "", nil, fmt.Errorf("no webhook provider could verify notification")
++	return nil, nil, fmt.Errorf("no webhook provider could verify notification")
+ }
+ 
+ // wxpaySuccessResponse is the JSON response expected by WeChat Pay webhook.
+diff --git a/backend/internal/transport/http/handler/payment_webhook_handler_test.go b/backend/internal/transport/http/handler/payment_webhook_handler_test.go
+index e115b4c7e..dfeb19612 100644
+--- a/backend/internal/transport/http/handler/payment_webhook_handler_test.go
++++ b/backend/internal/transport/http/handler/payment_webhook_handler_test.go
+@@ -204,9 +204,9 @@ func TestVerifyNotificationWithProvidersReturnsMatchedProvider(t *testing.T) {
+ 		},
+ 	}
+ 
+-	providerKey, notification, err := verifyNotificationWithProviders(context.Background(), providers, "{}", map[string]string{"wechatpay-signature": "sig"})
++	provider, notification, err := verifyNotificationWithProviders(context.Background(), providers, "{}", map[string]string{"wechatpay-signature": "sig"})
+ 	require.NoError(t, err)
+-	require.Equal(t, payment.TypeWxpay, providerKey)
++	require.Equal(t, payment.TypeWxpay, provider.ProviderKey())
+ 	require.NotNil(t, notification)
+ 	require.Equal(t, "sub2_42", notification.OrderID)
+ }
+diff --git a/docs/README.md b/docs/README.md
+index 2a8095b65..2622dc37c 100644
+--- a/docs/README.md
++++ b/docs/README.md
+@@ -80,6 +80,7 @@
+ | [上游主线同步审查记录（2026-10-12）](UPSTREAM_SYNC_20261012.md) | 17 个增量 PR 的当前 owner 适配、分组多语言、计费与审核并发性能、Docker 与升级回退边界 |
+ | [上游主线同步审查记录（2026-10-13）](UPSTREAM_SYNC_20261013.md) | 7 个增量 PR 的当前 owner 适配、明确暂缓、范围隔离、Docker 升级回退与 CI |
+ | [上游主线同步审查记录（2026-10-15）](UPSTREAM_SYNC_20261015.md) | 10 个冻结 PR 的当前 owner 适配、图片解码重构、升级回退和关闭/专项暂缓台账 |
++| [上游主线同步审查记录（2026-10-16）](UPSTREAM_SYNC_20261016.md) | 两个支付 PR 的模块适配、pending 退款事务、易支付确认、混合版本边界与 Docker 验证 |
+ | [API Key 删除与计费竞争条件审查（2026-10-06）](../diagnostics/billing-key-deletion-20261006/REPORT.md) | 旧版本漏扣回放、当前修复边界、真实数据库与 24 个 Docker HTTP 场景 |
+ | [GPT-6 Astra 接入记录](GPT6_ASTRA.md) | OpenAI 官方模型目录、能力、价格和本项目兼容计费映射 |
+ | [GPT-6 模型目录与价格](GPT6_MODELS.md) | GPT-6 Astra、Sol、Luna 的官方能力、价格与本项目实现位置 |
+diff --git a/docs/UPSTREAM_SYNC_20261016.md b/docs/UPSTREAM_SYNC_20261016.md
+new file mode 100644
+index 000000000..62889b012
+--- /dev/null
++++ b/docs/UPSTREAM_SYNC_20261016.md
+@@ -0,0 +1,51 @@
++# 上游主线同步审查（2026-10-16）
++
++本轮以本项目 main `ed58484ab78497352259aea855e713df20b6a115` 为基线，沿用上轮冻结边界 `1b2243a4f50621508e79aef4b498a2937a6238ee`，审查上游 main 至 `b8cfb7884084393e08f0e2c4027afc3755357b98`。范围为 8 个提交、2 个已合并 PR。实现留在现有 application、payment provider、HTTP handler 和 billing feature owner；不恢复上游旧目录，不修改 Ent/Wire、依赖、数据库结构或本项目版本。
++
++## 逐 PR 决定
++
++| PR | 决定 | 当前实现与适配 |
++| --- | --- | --- |
++| [#8122](https://github.com/Wei-Shaw/sub2api/pull/8122) | 适配并关闭冻结差异 | 创建与履约仅允许 balance/subscription；未知类型不充值，失败状态写入出错时仍返回错误。pending 退款保留已扣余额/订阅权益，状态与扣减审计同事务保存；成功不再扣减，失败以 CAS 认领后在同一事务归还并写审计。保留旧审计语义；新增显式旧版兼容标记与软删除订阅恢复。Alipay 保存真实退款请求号、查询终态并保留十分钟无记录宽限。Stripe 只读本订单的本地恢复快照，URL 不再携带或提供 client secret。 |
++| [#8133](https://github.com/Wei-Shaw/sub2api/pull/8133) | 适配并关闭冻结差异 | 易支付查询同时传递 query/form 参数，兼容字符串/数字标量与 null 回退，显式失败码和订单回显冲突失败关闭。验签实例负责入账前确认，要求上游已支付、有限正金额一致和交易号一致；失败返回 502、保持待支付并留审计。确认放在本地校验之后，重复已完成回调不查询上游。补充普通主机/userinfo/RawPath 校验和签名字段分隔符检查。 |
++
++[机器台账](../diagnostics/upstream-sync-20261016/UPSTREAM_PRS.json) 保存 merge SHA、原始 diff SHA-256、owner、覆盖子项与重开条件。[冻结输入](../diagnostics/upstream-sync-20261016/UPSTREAM_REVIEW_INPUT.json) 记录前轮台账哈希。#7802 的充值优惠、#7673 的匿名查询限流、#7888 的回调 PID/重复参数/sign_type/交易号保护、#7819 的 Stripe 卸载保护继续沿用现有实现；不重放对应冻结补丁。其它历史暂缓项不因本轮支付改动自动重开。
++
++## 资金与性能审查
++
++上游 pending 审计对 `deductionRollbackOK=false` 使用 omitempty，旧读取器却以 true 为缺省值，会造成旧节点在成功查询时再次扣款。本项目始终写出该布尔值；原始旧二进制的同输入探针验证成功查询不再扣减。旧版不能归还新版持有的失败退款，混合版本与回退须遵守下节的管理操作边界。
++
++本项目订阅撤销使用软删除，不能直接对已删除订阅延长天数。扣减凭证增加 `subscriptionRevoked`；失败退款通过原有 `RestoreSubscription` 恢复撤销前到期时间，部分权益扣减仍由原有延长接口归还。资金、失败状态和审计在 PostgreSQL 中同事务提交；审计写入失败时三者回滚。并发查询只有一个 CAS 认领者归还资金。
++
++易支付新增一次最长十秒的订单确认，仅发生于尚可转为 PAID 的验签回调；上游不可用时依赖回调重试或原有对账。已完成/已退款的重复回调、金额不符和未知订单不新增远端查询，原有查询对账不再重复确认。模型网关热路径不新增查询、worker、goroutine 或重试。原有 EasyPay HTTPS、loopback HTTP 开发例外、响应大小限制与禁止重定向保持；运行夹具使用应用网络命名空间的 loopback，不放宽生产策略。
++
++查询微基准使用相同 Docker Go 1.26.9、linux/arm64、2 CPU/3 GiB、相同合法响应与 3000 次请求，保留三轮原始样本、分配量和恢复后样本于 [PERFORMANCE.json](../diagnostics/upstream-sync-20261016/PERFORMANCE.json)。这些数字包含本机 HTTP 往返，不代表全网关吞吐。重复回调的实际 HTTP 测试确认追加远端查询数为零。
++
++## 平滑升级和回退
++
++无数据库迁移，运行矩阵迁移数量为 `303 → 303 → 303 → 303`。同一 PostgreSQL/Redis 的 baseline → upgraded → rollback → restored 已验证健康/就绪、嵌入前端、加密登录、API Key、旧订单、订阅到期时间与持久快照一致；替换节点传入失效的首次安装参数也不会改写已有管理员。
++
++退款管理必须与普通请求分开安排：
++
++1. 滚动升级期间暂停管理员 `POST /api/v1/admin/payment/orders/:id/refund` 与 `/:id/refund/query`，等待已发起的 REFUNDING 操作结束，再替换全部节点；完成后恢复退款管理。网关请求、充值回调和查询对账继续使用原有入口。
++2. 二进制回退前先暂停新退款，用新版将 pending 退款查询到终态；人工核实旧 Alipay 请求号等不支持查询的记录。确认下面查询无结果，再暂停查询操作并切回旧镜像。不能让旧节点处理新版仍持有扣减的失败退款。
++3. 回退不删除审计或变更数据库。旧审计没有 `deductionHeld` 时继续执行原有归还/再扣路径；无法解析的审计返回错误，不猜测资金状态。旧 Alipay 交易号不被伪装成可查询请求号。
++
++在目标数据库只读核对：
++
++```sql
++SELECT id, status
++FROM payment_orders
++WHERE status IN ('REFUNDING', 'REFUND_PENDING')
++ORDER BY id;
++```
++
++Stripe 旧同浏览器订单仍使用既有恢复快照；新页面忽略 URL secret。无匹配、已过期、resume token 不符或浏览器禁止存储时，在 SDK 加载前显示原有缺参提示，需回到支付/恢复入口重新进入。
++
++## 验证证据
++
++Docker 全量后端 unit/integration、支付 race、真实 PostgreSQL 退款事务、前端 lint/typecheck/247 个关键用例、billing 的 154 个用例及生产镜像构建均有独立记录。PostgreSQL 新增用例覆盖成功/失败收敛、审计失败原子回滚、四个并发查询只归还一次，以及退款失败恢复已撤销订阅。四阶段实际 HTTP 场景中，未知类型为 `200 → 400 → 200 → 400`；未支付易支付回调为 `200/COMPLETED → 502/PENDING → 200/COMPLETED → 502/PENDING`；未知类型履约为 `COMPLETED → FAILED → COMPLETED → FAILED`。
++
++原有 `payment_fulfillment_test.go` 为 1201 行，精确基线与候选的 `make check-layout` 均以相同错误退出 2；该文件字节保持，不扩大 allowlist。原始失败、夹具修正、命令、输入、stdout/stderr、退出状态与哈希见 [VERIFICATION.txt](../diagnostics/upstream-sync-20261016/VERIFICATION.txt)。
++
++四个可重建角色为 [MODIFIED_FILE.tar.gz](../diagnostics/upstream-sync-20261016/MODIFIED_FILE.tar.gz)、[DIFF_FILE.patch](../diagnostics/upstream-sync-20261016/DIFF_FILE.patch)、上述验证账本和 [ROLLBACK.sh](../diagnostics/upstream-sync-20261016/ROLLBACK.sh)。源码回退接受独立副本，恢复 sibling baseline 中的原始字节、删除本轮新增源码，并验证全部基线哈希和补丁重施。源码回退不替代前述运行中退款结清要求。
+diff --git a/frontend/src/features/billing/README.md b/frontend/src/features/billing/README.md
+index 2dab2ee61..4b26fd60d 100644
+--- a/frontend/src/features/billing/README.md
++++ b/frontend/src/features/billing/README.md
+@@ -19,6 +19,7 @@ Other features must not import `billing/presentation/`. Add a specific public en
+ ## Invariants
+ 
+ - Keep Stripe and other payment SDKs lazy until the corresponding payment flow starts.
++- Stripe checkout reads its client secret only from an unexpired recovery snapshot bound to the URL order and optional resume token. URL secrets are ignored; missing or unavailable storage stops before loading the SDK.
+ - Preserve checkout-info loading, visible-method alias handling, order payloads, recovery storage, callback resume tokens, polling, and popup/redirect/QR decisions.
+ - User and administrator routes both load the shared `payment.*` vocabulary from the user locale scope; shared components must not depend on `admin.*` keys.
+ - Currency fallbacks, ISO normalization, zero-decimal currencies, legacy USD plan display, and plural validity-unit behavior must remain unchanged.
+diff --git a/frontend/src/features/billing/__tests__/StripePaymentPage.spec.ts b/frontend/src/features/billing/__tests__/StripePaymentPage.spec.ts
+index 705836d1e..01a3e4f84 100644
+--- a/frontend/src/features/billing/__tests__/StripePaymentPage.spec.ts
++++ b/frontend/src/features/billing/__tests__/StripePaymentPage.spec.ts
+@@ -62,6 +62,10 @@ vi.mock('@stripe/stripe-js/pure', () => ({
+ 
+ import StripePaymentView from '../presentation/pages/StripePaymentPage.vue'
+ import { formatPaymentAmount } from '@/features/billing/paymentDisplay'
++import {
++  PAYMENT_RECOVERY_STORAGE_KEY,
++  type PaymentRecoverySnapshot,
++} from '@/features/billing/presentation/paymentFlowResolver'
+ import type { PaymentOrder } from '@/features/billing/paymentContracts'
+ 
+ function orderFactory(overrides: Partial<PaymentOrder> = {}): PaymentOrder {
+@@ -83,6 +87,30 @@ function orderFactory(overrides: Partial<PaymentOrder> = {}): PaymentOrder {
+   }
+ }
+ 
++function writeSnapshot(overrides: Partial<PaymentRecoverySnapshot> = {}) {
++  const snapshot: PaymentRecoverySnapshot = {
++    orderId: 42,
++    amount: 100,
++    qrCode: '',
++    expiresAt: '2099-01-01T00:30:00.000Z',
++    paymentType: 'stripe',
++    payUrl: '/payment/stripe?order_id=42',
++    outTradeNo: 'sub2_stripe_42',
++    clientSecret: 'pi_secret_42',
++    intentId: '',
++    currency: 'CNY',
++    countryCode: '',
++    paymentEnv: '',
++    payAmount: 103,
++    orderType: 'balance',
++    paymentMode: '',
++    resumeToken: '',
++    createdAt: Date.UTC(2099, 0, 1),
++    ...overrides,
++  }
++  window.localStorage.setItem(PAYMENT_RECOVERY_STORAGE_KEY, JSON.stringify(snapshot))
++}
++
+ function mountView() {
+   return shallowMount(StripePaymentView, {
+     global: {
+@@ -98,10 +126,9 @@ describe('StripePaymentView', () => {
+   beforeEach(() => {
+     routeState.query = {
+       order_id: '42',
+-      client_secret: 'pi_secret_42',
+     }
+     routerPush.mockReset()
+-    getOrder.mockReset()
++    getOrder.mockReset().mockResolvedValue({ data: orderFactory() })
+     paymentStore.config = { stripe_publishable_key: 'pk_test' }
+     paymentStore.fetchConfig.mockReset().mockResolvedValue(undefined)
+     paymentStore.pollOrderStatus.mockReset()
+@@ -116,9 +143,54 @@ describe('StripePaymentView', () => {
+     stripeInstance.confirmAlipayPayment.mockReset()
+     stripeInstance.confirmWechatPayPayment.mockReset()
+     window.localStorage.clear()
++    writeSnapshot()
++  })
++
++  it('uses the snapshot secret for the same order and ignores a URL secret', async () => {
++    routeState.query.method = 'alipay'
++    routeState.query.client_secret = 'pi_other_secret'
++    mountView()
++    await flushPromises()
++    await flushPromises()
++
++    expect(getOrder).toHaveBeenCalledWith(42)
++    expect(stripeInstance.confirmAlipayPayment).toHaveBeenCalledWith('pi_secret_42', expect.any(Object))
++  })
++
++  it.each([
++    { label: 'missing snapshot', snapshot: null },
++    { label: 'different order', snapshot: { orderId: 7, clientSecret: 'pi_secret_7' } },
++    { label: 'different resume token', snapshot: { resumeToken: 'other-token' } },
++    { label: 'expired snapshot', snapshot: { expiresAt: '2000-01-01T00:00:00Z' } },
++  ])('rejects $label before loading Stripe', async ({ snapshot }) => {
++    window.localStorage.clear()
++    if (snapshot) writeSnapshot({ resumeToken: 'bound-token', ...snapshot })
++    routeState.query = { order_id: '42', client_secret: 'pi_other_secret', method: 'alipay', resume_token: 'bound-token' }
++    const wrapper = mountView()
++    await flushPromises()
++
++    expect(getOrder).not.toHaveBeenCalled()
++    expect(loadStripe).not.toHaveBeenCalled()
++    expect(stripeInstance.confirmAlipayPayment).not.toHaveBeenCalled()
++    expect(wrapper.text()).toContain('payment.stripeMissingParams')
++  })
++
++  it('shows the missing snapshot state when browser storage is unavailable', async () => {
++    const storageRead = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
++      throw new DOMException('Storage unavailable', 'SecurityError')
++    })
++    try {
++      const wrapper = mountView()
++      await flushPromises()
++      expect(loadStripe).not.toHaveBeenCalled()
++      expect(wrapper.text()).toContain('payment.stripeMissingParams')
++    } finally {
++      storageRead.mockRestore()
++    }
+   })
+ 
+-  it('本地恢复快照缺失时使用订单接口返回的 Stripe 币种展示金额', async () => {
++  it('本地恢复快照未记录币种时使用订单接口返回的 Stripe 币种展示金额', async () => {
++    writeSnapshot({ currency: '' })
+     getOrder.mockResolvedValue({
+       data: orderFactory({ currency: 'HKD', pay_amount: 103 }),
+     })
+diff --git a/frontend/src/features/billing/presentation/pages/PaymentPage.vue b/frontend/src/features/billing/presentation/pages/PaymentPage.vue
+index 347814761..fb1160d9d 100644
+--- a/frontend/src/features/billing/presentation/pages/PaymentPage.vue
++++ b/frontend/src/features/billing/presentation/pages/PaymentPage.vue
+@@ -852,7 +852,6 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
+         path: '/payment/stripe',
+         query: {
+           order_id: String(result.order_id),
+-          client_secret: result.client_secret,
+           method: stripeMethod || undefined,
+           resume_token: result.resume_token || undefined,
+         },
+@@ -1060,7 +1059,6 @@ async function attemptMobileQrFallback(err: unknown, context: MobileQrFallbackCo
+         path: '/payment/stripe',
+         query: {
+           order_id: String(result.order_id),
+-          client_secret: result.client_secret,
+           method: stripeMethod,
+           resume_token: result.resume_token || undefined,
+         },
+diff --git a/frontend/src/features/billing/presentation/pages/StripePaymentPage.vue b/frontend/src/features/billing/presentation/pages/StripePaymentPage.vue
+index 72aadd8c5..d25d11c7b 100644
+--- a/frontend/src/features/billing/presentation/pages/StripePaymentPage.vue
++++ b/frontend/src/features/billing/presentation/pages/StripePaymentPage.vue
+@@ -136,9 +136,19 @@ let redirectTimer: ReturnType<typeof setTimeout> | null = null
+ 
+ onMounted(async () => {
+   const orderId = Number(route.query.order_id)
+-  const clientSecret = String(route.query.client_secret || '')
+   const method = String(route.query.method || '')
+   const resumeToken = typeof route.query.resume_token === 'string' ? route.query.resume_token : undefined
++  // client_secret 只从本浏览器下单时写入的恢复快照读取，且快照订单必须与 URL 订单一致：
++  // 不信任 URL 中的 client_secret，避免页面展示的订单与实际收款的 PaymentIntent 被拼接错绑。
++  let restored: ReturnType<typeof readPaymentRecoverySnapshot> = null
++  try {
++    if (typeof window !== 'undefined') {
++      restored = readPaymentRecoverySnapshot(window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY), { resumeToken })
++    }
++  } catch {
++    // A browser that denies storage cannot supply the bound checkout snapshot.
++  }
++  const clientSecret = orderId && restored?.orderId === orderId ? restored.clientSecret : ''
+ 
+   if (!orderId || !clientSecret) {
+     loading.value = false
+@@ -147,15 +157,7 @@ onMounted(async () => {
+   }
+ 
+   try {
+-    if (typeof window !== 'undefined') {
+-      const restored = readPaymentRecoverySnapshot(
+-        window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY),
+-        { resumeToken },
+-      )
+-      if (restored?.orderId === orderId) {
+-        currency.value = normalizePaymentCurrency(restored.currency)
+-      }
+-    }
++    currency.value = normalizePaymentCurrency(restored?.currency)
+     const res = await paymentAPI.getOrder(orderId)
+     order.value = res.data
+     if (res.data.currency) {

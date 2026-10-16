@@ -19,6 +19,7 @@ Other features must not import `billing/presentation/`. Add a specific public en
 ## Invariants
 
 - Keep Stripe and other payment SDKs lazy until the corresponding payment flow starts.
+- Stripe checkout reads its client secret only from an unexpired recovery snapshot bound to the URL order and optional resume token. URL secrets are ignored; missing or unavailable storage stops before loading the SDK.
 - Preserve checkout-info loading, visible-method alias handling, order payloads, recovery storage, callback resume tokens, polling, and popup/redirect/QR decisions.
 - User and administrator routes both load the shared `payment.*` vocabulary from the user locale scope; shared components must not depend on `admin.*` keys.
 - Currency fallbacks, ISO normalization, zero-decimal currencies, legacy USD plan display, and plural validity-unit behavior must remain unchanged.

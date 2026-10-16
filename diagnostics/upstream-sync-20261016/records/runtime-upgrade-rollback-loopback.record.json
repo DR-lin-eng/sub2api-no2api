@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    "../runtime_check.py"
+  ],
+  "cwd": "/Users/lin/.codex/visualizations/2026/10/16/01a1429b-cf2c-7b51-8878-a3f391ef02d4/upstream-sync-20261016/repo",
+  "started_at": "2026-10-16T03:34:01.263039+00:00",
+  "elapsed_seconds": 37.112,
+  "exit_status": 0,
+  "stdout": "{\"stage\": \"baseline\", \"result\": \"PASS\", \"migration_count\": 303, \"invariants_sha256\": \"f45b932e6032af20486340436e3ee43e04f017114fb5d942c15a4dad18e9cc6e\", \"unknown_order_type_http\": 200, \"unpaid_callback_http\": 200, \"unpaid_order_state\": \"COMPLETED\", \"unsupported_fulfillment_state\": \"COMPLETED\", \"duplicate_additional_queries\": 0, \"readiness_frontend_encrypted_login_api_key_legacy_order_subscription\": \"PASS\"}\n{\"stage\": \"upgraded\", \"result\": \"PASS\", \"migration_count\": 303, \"invariants_sha256\": \"f45b932e6032af20486340436e3ee43e04f017114fb5d942c15a4dad18e9cc6e\", \"unknown_order_type_http\": 400, \"unpaid_callback_http\": 502, \"unpaid_order_state\": \"PENDING\", \"unsupported_fulfillment_state\": \"FAILED\", \"duplicate_additional_queries\": 0, \"readiness_frontend_encrypted_login_api_key_legacy_order_subscription\": \"PASS\"}\n{\"stage\": \"rollback\", \"result\": \"PASS\", \"migration_count\": 303, \"invariants_sha256\": \"f45b932e6032af20486340436e3ee43e04f017114fb5d942c15a4dad18e9cc6e\", \"unknown_order_type_http\": 200, \"unpaid_callback_http\": 200, \"unpaid_order_state\": \"COMPLETED\", \"unsupported_fulfillment_state\": \"COMPLETED\", \"duplicate_additional_queries\": 0, \"readiness_frontend_encrypted_login_api_key_legacy_order_subscription\": \"PASS\"}\n{\"stage\": \"restored\", \"result\": \"PASS\", \"migration_count\": 303, \"invariants_sha256\": \"f45b932e6032af20486340436e3ee43e04f017114fb5d942c15a4dad18e9cc6e\", \"unknown_order_type_http\": 400, \"unpaid_callback_http\": 502, \"unpaid_order_state\": \"PENDING\", \"unsupported_fulfillment_state\": \"FAILED\", \"duplicate_additional_queries\": 0, \"readiness_frontend_encrypted_login_api_key_legacy_order_subscription\": \"PASS\"}\n",
+  "stderr": ""
+}
