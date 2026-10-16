@@ -14,6 +14,8 @@ import (
 // failover selection. Its receipt belongs to this send, not a mutable Gin
 // context shared by retries or an idle WebSocket prewarm.
 func (s *OpenAIGatewayService) prepareOpenAIOAuthProof(ctx context.Context, account *Account, rawURL string, headers http.Header) (context.Context, error) {
+	// Every send, retry and failover starts a new immutable proof receipt.
+	ctx = liveattestation.WithRequestScope(ctx, liveattestation.RequestScope{})
 	if account == nil || !account.IsOpenAIOAuth() {
 		return ctx, nil
 	}
@@ -50,7 +52,15 @@ func (s *OpenAIGatewayService) prepareOpenAIOAuthProof(ctx context.Context, acco
 	if strings.HasSuffix(path, "/devicecheck") {
 		origin = ""
 	}
-	ctx = s.attachIntegrityState(ctx, headers, openAIIntegrityKey(account, owner, origin))
+	scopeOrigin := origin
+	if scopeOrigin == "" && strings.HasSuffix(path, "/devicecheck") {
+		// Registration is outside the model-proof/integrity projection, but its
+		// raw token and cookie still need the selected account's scope.
+		scopeOrigin = openAIDesktopProofOrigin(rawURL)
+	}
+	scope := openAIProofScope(ctx, account, owner, scopeOrigin, headers)
+	ctx = liveattestation.WithRequestScope(ctx, scope)
+	ctx = s.attachIntegrityState(ctx, headers, scope.Key)
 	if origin != "" && liveHeader != "" {
 		headers.Set("x-oai-attestation", liveHeader)
 	}
@@ -72,4 +82,16 @@ func (s *OpenAIGatewayService) prepareOpenAIWSProof(ctx context.Context, account
 	}
 	ctx, err = s.prepareOpenAIOAuthProof(ctx, account, rawURL, refreshed)
 	return ctx, refreshed, err
+}
+
+func (s *OpenAIGatewayService) newOpenAIWSProofFactory(account *Account, rawURL string, ids *codexFingerprintIDs, projectedHeaders ...http.Header) func(context.Context, http.Header) (context.Context, http.Header, error) {
+	var identity openAIProofIdentity
+	if len(projectedHeaders) > 0 {
+		identity = newOpenAIProofIdentityFromHeaders(account, ids, projectedHeaders[0])
+	} else {
+		identity = newOpenAIProofIdentity(account, ids)
+	}
+	return func(ctx context.Context, headers http.Header) (context.Context, http.Header, error) {
+		return s.prepareOpenAIWSProof(withOpenAIProofIdentity(ctx, identity), account, rawURL, headers)
+	}
 }

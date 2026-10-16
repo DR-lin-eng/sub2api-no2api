@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	"github.com/Wei-Shaw/sub2api/internal/platform/liveattestation"
 )
 
 const liveAttestationHeader = "x-oai-attestation"
@@ -81,7 +82,14 @@ func (s *OpenAIGatewayService) prepareLiveAttestation(ctx context.Context) (stri
 			Reason: "JWT secret is required to protect the Sideband attestation",
 		}
 	}
-	header, err := s.liveAttestation.Generate(ctx)
+	provider := s.liveAttestation
+	if scope, ok := liveattestation.RequestScopeFromContext(ctx); ok {
+		provider = liveattestation.ProviderForScope(provider, scope.Key)
+	}
+	if provider == nil {
+		return "", "", &LiveAttestationUnavailableError{Reason: "no provider for the selected identity"}
+	}
+	header, err := provider.Generate(ctx)
 	if err != nil {
 		return "", "", &LiveAttestationUnavailableError{Reason: err.Error()}
 	}

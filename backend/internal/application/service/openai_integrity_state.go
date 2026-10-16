@@ -2,8 +2,6 @@ package service
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -59,16 +57,9 @@ func openAIDesktopProofOrigin(raw string) string {
 }
 
 func openAIIntegrityKey(account *Account, owner *Account, origin string) string {
-	if account == nil || owner == nil || !owner.IsOpenAIOAuth() || origin == "" {
-		return ""
-	}
 	// A principal repair, installation change or origin change starts a new
 	// namespace. Refreshing the same principal's token preserves continuity.
-	digest := sha256.Sum256([]byte(strings.Join([]string{
-		owner.GetChatGPTAccountID(), owner.GetCredential("chatgpt_user_id"),
-		resolveConvergedInstallationID(account), origin,
-	}, "\x00")))
-	return "openai:integrity:v2:" + hex.EncodeToString(digest[:])
+	return openAIProofKey(account, owner, origin, resolveConvergedInstallationID(account))
 }
 
 func (s *OpenAIGatewayService) integritySharedCache() OpenAIIntegrityStateCache {

@@ -26,6 +26,25 @@ const (
 type darwinProvider struct {
 	appSessionID string
 	appPaths     []string
+	scopeKey     string
+	sessionRoot  string
+}
+
+func (p *darwinProvider) ForScope(scopeKey string) Provider {
+	if scopeKey == "" {
+		return nil
+	}
+	if p.scopeKey == scopeKey {
+		return p
+	}
+	root := p.sessionRoot
+	if root == "" {
+		root = p.appSessionID
+	}
+	scoped := *p
+	scoped.scopeKey, scoped.sessionRoot = scopeKey, root
+	scoped.appSessionID = uuid.NewSHA1(uuid.NameSpaceOID, []byte("sub2api:attestation-session:v1\x00"+root+"\x00"+scopeKey)).String()
+	return &scoped
 }
 
 type macOSSignals struct {
@@ -50,6 +69,9 @@ func NewProvider() Provider {
 }
 
 func (p *darwinProvider) Check(ctx context.Context) error {
+	if err := validateProviderScope(ctx, p.scopeKey); err != nil {
+		return err
+	}
 	checkCtx, cancel := context.WithTimeout(ctx, attestationTimeout)
 	defer cancel()
 	_, _, _, err := p.resolveRuntime(checkCtx)
@@ -96,6 +118,9 @@ func (p *darwinProvider) Generate(ctx context.Context) (string, error) {
 }
 
 func (p *darwinProvider) GenerateCodexToken(ctx context.Context) (string, error) {
+	if err := validateProviderScope(ctx, p.scopeKey); err != nil {
+		return "", err
+	}
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
@@ -122,6 +147,9 @@ func (p *darwinProvider) GenerateCodexToken(ctx context.Context) (string, error)
 }
 
 func (p *darwinProvider) generate(ctx context.Context, codexMode bool) (string, error) {
+	if err := validateProviderScope(ctx, p.scopeKey); err != nil {
+		return "", err
+	}
 	runCtx, cancel := context.WithTimeout(ctx, attestationTimeout)
 	defer cancel()
 	nodePath, modulePath, bundleID, err := p.resolveNativeRuntime(runCtx, codexMode)
@@ -176,6 +204,9 @@ func (p *darwinProvider) generate(ctx context.Context, codexMode bool) (string, 
 // attestation envelope used by the Live path; the two wire values must not be
 // substituted for one another.
 func (p *darwinProvider) GenerateDeviceCheckToken(ctx context.Context) (string, error) {
+	if err := validateProviderScope(ctx, p.scopeKey); err != nil {
+		return "", err
+	}
 	runCtx, cancel := context.WithTimeout(ctx, attestationTimeout)
 	defer cancel()
 	nodePath, modulePath, bundleID, err := p.resolveRuntime(runCtx)

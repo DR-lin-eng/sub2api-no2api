@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/platform/liveattestation"
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
 	coderws "github.com/coder/websocket"
 	"github.com/google/uuid"
@@ -278,11 +279,12 @@ func (s *OpenAIGatewayService) CreateLiveCall(
 		return nil, err
 	}
 	codexVoice := IsCodexVoiceSession(request.Session)
-	var attestation, attestationCiphertext string
 	if !codexVoice {
-		attestation, attestationCiphertext, err = s.prepareLiveAttestation(ctx)
-		if err != nil {
-			return nil, err
+		if s.liveAttestation == nil || s.liveAttestationCipher == nil {
+			return nil, &LiveAttestationUnavailableError{Reason: "a platform provider and attestation cipher are required"}
+		}
+		if err := s.liveAttestation.Check(ctx); err != nil {
+			return nil, &LiveAttestationUnavailableError{Reason: err.Error()}
 		}
 	}
 	if identity.Billing != nil {
@@ -321,6 +323,21 @@ func (s *OpenAIGatewayService) CreateLiveCall(
 		}
 
 		account := selection.Account
+		var attestation, attestationCiphertext string
+		if !codexVoice {
+			owner, resolveErr := resolveCredentialAccount(ctx, s.accountRepo, account)
+			if resolveErr != nil {
+				selection.ReleaseFunc()
+				return nil, resolveErr
+			}
+			scope := openAIProofScope(ctx, account, owner, "https://chatgpt.com", nil)
+			proofCtx := liveattestation.WithRequestScope(ctx, scope)
+			attestation, attestationCiphertext, err = s.prepareLiveAttestation(proofCtx)
+			if err != nil {
+				selection.ReleaseFunc()
+				return nil, err
+			}
+		}
 		var billing *LiveBillingSnapshot
 		if identity.Billing != nil {
 			snapshot := *identity.Billing
