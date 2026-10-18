@@ -128,6 +128,11 @@ func (UsageLog) Fields() []ent.Field {
 		field.Int("first_token_ms").
 			Optional().
 			Nillable(),
+		field.Int("reasoning_tokens").
+			Optional().
+			Nillable().
+			NonNegative().
+			SchemaType(map[string]string{dialect.Postgres: "integer"}),
 		field.JSON("openai_timing", map[string]any{}).
 			Optional().
 			SchemaType(map[string]string{dialect.Postgres: "jsonb"}),

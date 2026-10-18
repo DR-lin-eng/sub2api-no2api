@@ -773,6 +773,7 @@ func UsageLogFromServiceAdmin(l *service.UsageLog) *AdminUsageLog {
 	}
 	return &AdminUsageLog{
 		UsageLog:              usageLog,
+		ReasoningTokens:       l.ReasoningTokens,
 		LocalFirstTokenMs:     l.FirstTokenMs,
 		LocalDurationMs:       l.DurationMs,
 		FirstTokenSource:      firstTokenSource,

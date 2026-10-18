@@ -529,12 +529,13 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 				s.parseSSEUsageBytes(dataBytes, usage)
 				if hit, code, msg := detectOpenAICyberPolicy(dataBytes); hit {
 					MarkOpsCyberPolicy(c, CyberPolicyMark{
-						Code:           code,
-						Message:        msg,
-						Body:           truncateString(string(dataBytes), 4096),
-						UpstreamStatus: http.StatusOK,
-						UpstreamInTok:  usage.InputTokens,
-						UpstreamOutTok: usage.OutputTokens,
+						Code:            code,
+						Message:         msg,
+						Body:            truncateString(string(dataBytes), 4096),
+						UpstreamStatus:  http.StatusOK,
+						UpstreamInTok:   usage.InputTokens,
+						UpstreamOutTok:  usage.OutputTokens,
+						ReasoningTokens: usage.ReasoningTokens,
 					})
 				}
 				clientHadSemanticOutput := openAIStreamClientOutputStarted(c, clientOutputStarted)
@@ -1327,6 +1328,7 @@ func openAIUsageFromGJSON(value gjson.Result) (OpenAIUsage, bool) {
 		value.Get("prompt_tokens_details.image_tokens"),
 	)
 	return OpenAIUsage{
+		ReasoningTokens:          apicompat.ReasoningTokensFromUsage(value),
 		InputTokens:              int(inputTokens),
 		ImageInputTokens:         imageInputTokens,
 		OutputTokens:             int(outputTokens),

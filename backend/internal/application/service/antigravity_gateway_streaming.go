@@ -790,6 +790,7 @@ func (s *AntigravityGatewayService) handleClaudeStreamingResponse(c *gin.Context
 		return &ClaudeUsage{
 			InputTokens:              agUsage.InputTokens,
 			OutputTokens:             agUsage.OutputTokens,
+			ReasoningTokens:          agUsage.ReasoningTokens,
 			CacheCreationInputTokens: agUsage.CacheCreationInputTokens,
 			CacheReadInputTokens:     agUsage.CacheReadInputTokens,
 		}

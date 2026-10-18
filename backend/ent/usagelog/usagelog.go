@@ -82,6 +82,8 @@ const (
 	FieldDurationMs = "duration_ms"
 	// FieldFirstTokenMs holds the string denoting the first_token_ms field in the database.
 	FieldFirstTokenMs = "first_token_ms"
+	// FieldReasoningTokens holds the string denoting the reasoning_tokens field in the database.
+	FieldReasoningTokens = "reasoning_tokens"
 	// FieldOpenaiTiming holds the string denoting the openai_timing field in the database.
 	FieldOpenaiTiming = "openai_timing"
 	// FieldUserAgent holds the string denoting the user_agent field in the database.
@@ -196,6 +198,7 @@ var Columns = []string{
 	FieldStream,
 	FieldDurationMs,
 	FieldFirstTokenMs,
+	FieldReasoningTokens,
 	FieldOpenaiTiming,
 	FieldUserAgent,
 	FieldIPAddress,
@@ -271,6 +274,8 @@ var (
 	DefaultBillingType int8
 	// DefaultStream holds the default value on creation for the "stream" field.
 	DefaultStream bool
+	// ReasoningTokensValidator is a validator for the "reasoning_tokens" field. It is called by the builders before save.
+	ReasoningTokensValidator func(int) error
 	// UserAgentValidator is a validator for the "user_agent" field. It is called by the builders before save.
 	UserAgentValidator func(string) error
 	// IPAddressValidator is a validator for the "ip_address" field. It is called by the builders before save.
@@ -471,6 +476,11 @@ func ByDurationMs(opts ...sql.OrderTermOption) OrderOption {
 // ByFirstTokenMs orders the results by the first_token_ms field.
 func ByFirstTokenMs(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldFirstTokenMs, opts...).ToFunc()
+}
+
+// ByReasoningTokens orders the results by the reasoning_tokens field.
+func ByReasoningTokens(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldReasoningTokens, opts...).ToFunc()
 }
 
 // ByUserAgent orders the results by the user_agent field.

@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	"github.com/Wei-Shaw/sub2api/internal/shared/apicompat"
 	"github.com/Wei-Shaw/sub2api/internal/shared/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/shared/geminicli"
 	"github.com/Wei-Shaw/sub2api/internal/shared/googleapi"
@@ -2958,6 +2959,7 @@ func extractGeminiUsage(data []byte) *ClaudeUsage {
 	return &ClaudeUsage{
 		InputTokens:          prompt - cached,
 		OutputTokens:         cand + thoughts,
+		ReasoningTokens:      apicompat.ReasoningTokensFromUsage(usage),
 		CacheReadInputTokens: cached,
 		ImageOutputTokens:    imageTokens,
 	}

@@ -729,12 +729,13 @@ func (s *OpenAIGatewayService) handleAnthropicCompactStreamingResponse(
 		payload, _ := json.Marshal(gin.H{"type": "response.failed", "response": finalResponse})
 		if hit, code, msg := detectOpenAICyberPolicy(payload); hit {
 			MarkOpsCyberPolicy(c, CyberPolicyMark{
-				Code:           code,
-				Message:        msg,
-				Body:           truncateString(string(payload), 4096),
-				UpstreamStatus: http.StatusOK,
-				UpstreamInTok:  usage.InputTokens,
-				UpstreamOutTok: usage.OutputTokens,
+				Code:            code,
+				Message:         msg,
+				Body:            truncateString(string(payload), 4096),
+				UpstreamStatus:  http.StatusOK,
+				UpstreamInTok:   usage.InputTokens,
+				UpstreamOutTok:  usage.OutputTokens,
+				ReasoningTokens: usage.ReasoningTokens,
 			})
 			clientMsg := msg
 			if clientMsg == "" {
@@ -784,12 +785,13 @@ func (s *OpenAIGatewayService) handleAnthropicBufferedStreamingResponse(
 		payload, _ := json.Marshal(gin.H{"type": "response.failed", "response": finalResponse})
 		if hit, code, msg := detectOpenAICyberPolicy(payload); hit {
 			MarkOpsCyberPolicy(c, CyberPolicyMark{
-				Code:           code,
-				Message:        msg,
-				Body:           truncateString(string(payload), 4096),
-				UpstreamStatus: http.StatusOK,
-				UpstreamInTok:  usage.InputTokens,
-				UpstreamOutTok: usage.OutputTokens,
+				Code:            code,
+				Message:         msg,
+				Body:            truncateString(string(payload), 4096),
+				UpstreamStatus:  http.StatusOK,
+				UpstreamInTok:   usage.InputTokens,
+				UpstreamOutTok:  usage.OutputTokens,
+				ReasoningTokens: usage.ReasoningTokens,
 			})
 			clientMsg := msg
 			if clientMsg == "" {
@@ -1909,6 +1911,7 @@ func responsesUsageFromOpenAIUsage(usage OpenAIUsage) *apicompat.ResponsesUsage 
 
 func sumOpenAIUsage(a OpenAIUsage, b OpenAIUsage) OpenAIUsage {
 	return OpenAIUsage{
+		ReasoningTokens:          apicompat.SumReasoningTokens(a.ReasoningTokens, b.ReasoningTokens),
 		InputTokens:              a.InputTokens + b.InputTokens,
 		ImageInputTokens:         a.ImageInputTokens + b.ImageInputTokens,
 		OutputTokens:             a.OutputTokens + b.OutputTokens,
@@ -2333,12 +2336,13 @@ func (s *OpenAIGatewayService) handleAnthropicStreamingResponse(
 				payloadBytes := []byte(payload)
 				if hit, code, msg := detectOpenAICyberPolicy(payloadBytes); hit {
 					MarkOpsCyberPolicy(c, CyberPolicyMark{
-						Code:           code,
-						Message:        msg,
-						Body:           truncateString(payload, 4096),
-						UpstreamStatus: http.StatusOK,
-						UpstreamInTok:  usage.InputTokens,
-						UpstreamOutTok: usage.OutputTokens,
+						Code:            code,
+						Message:         msg,
+						Body:            truncateString(payload, 4096),
+						UpstreamStatus:  http.StatusOK,
+						UpstreamInTok:   usage.InputTokens,
+						UpstreamOutTok:  usage.OutputTokens,
+						ReasoningTokens: usage.ReasoningTokens,
 					})
 					if !clientDisconnected {
 						writeStreamHeaders()
@@ -2960,6 +2964,7 @@ func copyOpenAIUsageFromResponsesUsage(usage *apicompat.ResponsesUsage) OpenAIUs
 		return OpenAIUsage{}
 	}
 	result := OpenAIUsage{
+		ReasoningTokens:          usage.ReasoningTokenCount(),
 		InputTokens:              usage.InputTokens,
 		OutputTokens:             usage.OutputTokens,
 		CacheCreationInputTokens: usage.CacheCreationInputTokens,

@@ -209,6 +209,7 @@ func (s *AntigravityGatewayService) finishCollectedClaudeStream(
 	usage := &ClaudeUsage{
 		InputTokens:              antigravityUsage.InputTokens,
 		OutputTokens:             antigravityUsage.OutputTokens,
+		ReasoningTokens:          antigravityUsage.ReasoningTokens,
 		CacheCreationInputTokens: antigravityUsage.CacheCreationInputTokens,
 		CacheReadInputTokens:     antigravityUsage.CacheReadInputTokens,
 		ImageOutputTokens:        antigravityUsage.ImageOutputTokens,
