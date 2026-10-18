@@ -447,8 +447,8 @@ func restoreClientToolValue(value any, adapter *ResponsesClientToolMapping) bool
 }
 
 // ResponsesClientToolStreamRestorer restores client tool stream lifecycles.
-// It is intentionally stateful because custom tools need their function
-// arguments buffered until the upstream signals the call is complete.
+// It keeps per-call state to decode custom input incrementally and preserve
+// item identities and sequence numbers when proxy events are transformed.
 type ResponsesClientToolStreamRestorer struct {
 	adapter  ResponsesClientToolMapping
 	nextSeq  int
@@ -465,6 +465,8 @@ type responsesClientToolStreamCall struct {
 	clientItemID string
 	outputIdx    int
 	arguments    strings.Builder
+	inputStream  responsesCustomInputStream
+	inputDone    bool
 }
 
 func NewResponsesClientToolStreamRestorer(mapping ResponsesClientToolMapping) *ResponsesClientToolStreamRestorer {
@@ -511,7 +513,12 @@ func (r *ResponsesClientToolStreamRestorer) Restore(event ResponsesStreamEvent) 
 	case "response.function_call_arguments.delta":
 		if call := r.callFor(event); call != nil {
 			_, _ = call.arguments.WriteString(event.Delta)
-			return nil
+			if call.kind == "custom" && !call.inputDone {
+				if delta := call.inputStream.delta(call.arguments.String()); delta != "" {
+					emit(ResponsesStreamEvent{Type: "response.custom_tool_call_input.delta", OutputIndex: call.outputIdx, ItemID: call.clientItemID, Delta: delta})
+				}
+			}
+			return out
 		}
 		emit(r.restoreNamespaceEvent(event))
 	case "response.function_call_arguments.done":
@@ -520,12 +527,13 @@ func (r *ResponsesClientToolStreamRestorer) Restore(event ResponsesStreamEvent) 
 				call.arguments.Reset()
 				_, _ = call.arguments.WriteString(event.Arguments)
 			}
-			if call.kind == "custom" {
+			if call.kind == "custom" && !call.inputDone {
 				input := extractCustomToolCallInput(call.arguments.String())
-				if input != "" {
-					emit(ResponsesStreamEvent{Type: "response.custom_tool_call_input.delta", OutputIndex: call.outputIdx, ItemID: call.clientItemID, Delta: input})
+				if delta := call.inputStream.finish(input); delta != "" {
+					emit(ResponsesStreamEvent{Type: "response.custom_tool_call_input.delta", OutputIndex: call.outputIdx, ItemID: call.clientItemID, Delta: delta})
 				}
 				emit(ResponsesStreamEvent{Type: "response.custom_tool_call_input.done", OutputIndex: call.outputIdx, ItemID: call.clientItemID, CallID: call.callID, Name: call.name, Input: input})
+				call.inputDone = true
 			}
 			return out
 		}
@@ -538,6 +546,13 @@ func (r *ResponsesClientToolStreamRestorer) Restore(event ResponsesStreamEvent) 
 			if call.kind == "custom" {
 				event.Item.Type = "custom_tool_call"
 				event.Item.Input = extractCustomToolCallInput(call.arguments.String())
+				if !call.inputDone {
+					if delta := call.inputStream.finish(event.Item.Input); delta != "" {
+						emit(ResponsesStreamEvent{Type: "response.custom_tool_call_input.delta", OutputIndex: call.outputIdx, ItemID: call.clientItemID, Delta: delta})
+					}
+					emit(ResponsesStreamEvent{Type: "response.custom_tool_call_input.done", OutputIndex: call.outputIdx, ItemID: call.clientItemID, CallID: call.callID, Name: call.name, Input: event.Item.Input})
+					call.inputDone = true
+				}
 				event.Item.Arguments = ""
 				event.Item.Namespace = ""
 			} else {
@@ -639,10 +654,7 @@ func (r *ResponsesClientToolStreamRestorer) clientToolEventPayload(payload []byt
 	if _, namespaceTool := r.adapter.NamespaceTools[raw.Name]; namespaceTool {
 		return true
 	}
-	if r.calls[raw.ItemID] != nil || r.calls[raw.CallID] != nil || r.byOutput[raw.OutputIndex] != nil {
-		return true
-	}
-	return false
+	return r.callFor(ResponsesStreamEvent{ItemID: raw.ItemID, CallID: raw.CallID, Name: raw.Name, OutputIndex: raw.OutputIndex}) != nil
 }
 
 func clientToolLifecycleEvent(typ string) bool {
@@ -728,11 +740,20 @@ func (r *ResponsesClientToolStreamRestorer) callFor(event ResponsesStreamEvent) 
 	if call := r.calls[event.ItemID]; call != nil {
 		return call
 	}
-	if call := r.byOutput[event.OutputIndex]; call != nil {
+	if call := r.calls[event.CallID]; call != nil {
+		return call
+	}
+	// Explicit identities take precedence over an omitted output_index (zero).
+	// In particular, an ordinary function must not be consumed by a parallel
+	// custom call merely because both appear to have output index zero.
+	if event.ItemID != "" || event.CallID != "" {
+		return nil
+	}
+	if call := r.byOutput[event.OutputIndex]; call != nil && (event.Name == "" || call.name == event.Name) {
 		return call
 	}
 	for _, call := range r.calls {
-		if (event.CallID != "" && call.callID == event.CallID) || (event.ItemID == "" && event.Name != "" && call.name == event.Name) {
+		if event.Name != "" && call.name == event.Name {
 			return call
 		}
 	}
