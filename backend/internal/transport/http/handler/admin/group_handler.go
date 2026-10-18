@@ -234,7 +234,7 @@ type CompositeRouteRequest struct {
 	MatchType      string `json:"match_type" binding:"omitempty,oneof=exact prefix"`
 	TargetPlatform string `json:"target_platform" binding:"required,oneof=anthropic openai gemini antigravity grok kimi zhipu deepseek minimax opencode_go typesafe"`
 	UpstreamModel  string `json:"upstream_model"`
-	Endpoint       string `json:"endpoint" binding:"omitempty,oneof=any messages count_tokens responses chat_completions embeddings images gemini"`
+	Endpoint       string `json:"endpoint" binding:"omitempty,oneof=any messages count_tokens responses chat_completions embeddings decisions images gemini"`
 	Priority       int    `json:"priority"`
 	Enabled        *bool  `json:"enabled"`
 	Notes          string `json:"notes"`
@@ -242,7 +242,7 @@ type CompositeRouteRequest struct {
 
 type CompositeRoutePreviewRequest struct {
 	Model    string `json:"model" binding:"required"`
-	Endpoint string `json:"endpoint" binding:"omitempty,oneof=any messages count_tokens responses chat_completions embeddings images gemini"`
+	Endpoint string `json:"endpoint" binding:"omitempty,oneof=any messages count_tokens responses chat_completions embeddings decisions images gemini"`
 }
 
 // List handles listing all groups with pagination

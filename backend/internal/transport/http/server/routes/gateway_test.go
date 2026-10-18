@@ -86,7 +86,7 @@ func TestGatewayRoutesRejectDuplicateModelsBeforeHandlers(t *testing.T) {
 		"/v1/responses", "/responses", "/v1/responses/compact", "/responses/compact",
 		"/backend-api/codex/responses", "/backend-api/codex/responses/compact",
 		"/v1/chat/completions", "/chat/completions", "/v1/messages", "/v1/messages/count_tokens",
-		"/v1/embeddings", "/embeddings", "/v1/images/generations", "/images/edits", "/v1/live",
+		"/v1/embeddings", "/embeddings", "/v1/decisions", "/decisions", "/v1/images/generations", "/images/edits", "/v1/live",
 		"/live", "/v1/realtime/calls", "/realtime/calls", "/backend-api/codex/realtime/calls",
 	} {
 		for _, body := range []string{
@@ -238,6 +238,32 @@ func TestGatewayRoutesOpenAIImagesPathsAreRegistered(t *testing.T) {
 
 		router.ServeHTTP(w, req)
 		require.NotEqual(t, http.StatusNotFound, w.Code, "path=%s should hit OpenAI images handler", path)
+	}
+}
+
+func TestGatewayRoutesOpenAIDecisionsPathsAreRegistered(t *testing.T) {
+	router := newGatewayRoutesTestRouter()
+	registered := make(map[string]bool)
+	for _, route := range router.Routes() {
+		registered[route.Method+" "+route.Path] = true
+	}
+
+	for _, route := range []string{"POST /v1/decisions", "POST /decisions"} {
+		require.True(t, registered[route], "%s should be registered", route)
+	}
+}
+
+func TestGatewayRoutesDecisionsRejectNonOpenAIGroup(t *testing.T) {
+	router := newGatewayRoutesTestRouter(service.PlatformGrok)
+	for _, path := range []string{"/v1/decisions", "/decisions"} {
+		req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"model":"gpt-6-luna"}`))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusNotFound, w.Code, "path=%s", path)
+		require.Contains(t, w.Body.String(), "Decisions API is not supported for this platform")
 	}
 }
 

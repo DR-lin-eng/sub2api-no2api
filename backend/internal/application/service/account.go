@@ -212,6 +212,7 @@ const (
 const (
 	OpenAIEndpointCapabilityChatCompletions OpenAIEndpointCapability = "chat_completions"
 	OpenAIEndpointCapabilityEmbeddings      OpenAIEndpointCapability = "embeddings"
+	OpenAIEndpointCapabilityDecisions       OpenAIEndpointCapability = "decisions"
 	OpenAIEndpointCapabilityAlphaSearch     OpenAIEndpointCapability = "alpha_search"
 	OpenAIEndpointCapabilityLive            OpenAIEndpointCapability = "live"
 	// OpenAIEndpointCapabilityGrokMediaGeneration keeps image/video generation
@@ -2238,6 +2239,10 @@ func (a *Account) SupportsOpenAIEndpointCapability(capability OpenAIEndpointCapa
 			return false
 		}
 	case OpenAIEndpointCapabilityEmbeddings:
+		if a.Type != AccountTypeAPIKey {
+			return false
+		}
+	case OpenAIEndpointCapabilityDecisions:
 		if a.Type != AccountTypeAPIKey {
 			return false
 		}

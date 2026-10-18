@@ -45,7 +45,7 @@ export function readCodexWebSearchEnabled(credentials?: Record<string, unknown>)
 export function normalizeOpenAIEndpointCapabilities(
   values: OpenAIEndpointCapability[],
 ): OpenAIEndpointCapability[] {
-  const allowed: OpenAIEndpointCapability[] = ['chat_completions', 'embeddings']
+  const allowed: OpenAIEndpointCapability[] = ['chat_completions', 'embeddings', 'decisions']
   const selected = allowed.filter((value) => values.includes(value))
   return selected.length > 0 ? selected : allowed
 }
@@ -57,19 +57,19 @@ export function readOpenAIEndpointCapabilities(
   if (Array.isArray(raw)) {
     return normalizeOpenAIEndpointCapabilities(
       raw.filter((value): value is OpenAIEndpointCapability =>
-        value === 'chat_completions' || value === 'embeddings',
+        value === 'chat_completions' || value === 'embeddings' || value === 'decisions',
       ),
     )
   }
   if (raw !== null && typeof raw === 'object') {
     const capabilityMap = raw as Record<string, unknown>
     return normalizeOpenAIEndpointCapabilities(
-      ['chat_completions', 'embeddings'].filter(
+      ['chat_completions', 'embeddings', 'decisions'].filter(
         (value): value is OpenAIEndpointCapability => capabilityMap[value] === true,
       ),
     )
   }
-  return ['chat_completions', 'embeddings']
+  return ['chat_completions', 'embeddings', 'decisions']
 }
 
 export type CodexFingerprintMode = 'off' | 'device' | 'session' | 'full'

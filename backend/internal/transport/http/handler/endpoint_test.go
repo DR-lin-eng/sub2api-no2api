@@ -26,6 +26,7 @@ func TestNormalizeInboundEndpoint(t *testing.T) {
 		{"/v1/models", EndpointModels},
 		{"/v1/chat/completions", EndpointChatCompletions},
 		{"/v1/embeddings", EndpointEmbeddings},
+		{"/v1/decisions", EndpointDecisions},
 		{"/v1/alpha/search", EndpointAlphaSearch},
 		{"/v1/responses", EndpointResponses},
 		{"/v1/responses/input_tokens", EndpointResponsesInputTokens},
@@ -41,6 +42,7 @@ func TestNormalizeInboundEndpoint(t *testing.T) {
 		// Prefixed paths (antigravity, openai) — root Responses.
 		{"/antigravity/v1/messages", EndpointMessages},
 		{"/openai/v1/responses", EndpointResponses},
+		{"/openai/v1/decisions", EndpointDecisions},
 		{"/openai/v1/images/generations", EndpointImagesGenerations},
 		{"/openai/v1/images/edits", EndpointImagesEdits},
 		{"/openai/v1/models", EndpointModels},
@@ -53,6 +55,7 @@ func TestNormalizeInboundEndpoint(t *testing.T) {
 
 		// Bare top-level alias route "/responses" — root vs. compact.
 		{"/responses", EndpointResponses},
+		{"/decisions", EndpointDecisions},
 		{"/responses/input_tokens", EndpointResponsesInputTokens},
 		{"/responses/compact", EndpointResponsesCompact},
 		{"/responses/compact/detail", EndpointResponsesCompact},
@@ -134,6 +137,7 @@ func TestDeriveUpstreamEndpoint(t *testing.T) {
 		{"openai from messages", EndpointMessages, "/v1/messages", service.PlatformOpenAI, EndpointResponses},
 		{"openai from completions", EndpointChatCompletions, "/v1/chat/completions", service.PlatformOpenAI, EndpointResponses},
 		{"openai embeddings", EndpointEmbeddings, "/v1/embeddings", service.PlatformOpenAI, EndpointEmbeddings},
+		{"openai decisions", EndpointDecisions, "/v1/decisions", service.PlatformOpenAI, EndpointDecisions},
 		{"openai alpha search", EndpointAlphaSearch, "/backend-api/codex/alpha/search", service.PlatformOpenAI, EndpointAlphaSearch},
 		{"openai image generations", EndpointImagesGenerations, "/v1/images/generations", service.PlatformOpenAI, EndpointImagesGenerations},
 		{"openai image edits", EndpointImagesEdits, "/openai/v1/images/edits", service.PlatformOpenAI, EndpointImagesEdits},

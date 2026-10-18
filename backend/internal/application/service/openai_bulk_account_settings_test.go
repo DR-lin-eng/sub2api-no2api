@@ -25,6 +25,19 @@ func TestNormalizeBulkOpenAISettingsCanonicalizesCapabilitiesAndMode(t *testing.
 	require.Equal(t, "force_chat_completions", input.Extra["openai_responses_mode"])
 }
 
+func TestNormalizeBulkOpenAISettingsAcceptsDecisionsCapability(t *testing.T) {
+	input := &BulkUpdateAccountsInput{Credentials: map[string]any{
+		openAIEndpointCapabilitiesCredentialKey: []any{"decisions", "chat_completions"},
+	}}
+
+	settings, err := normalizeBulkOpenAISettings(input)
+
+	require.NoError(t, err)
+	require.True(t, settings.endpointCapabilities)
+	require.True(t, settings.capabilitiesIncludeChat)
+	require.Equal(t, []string{"chat_completions", "decisions"}, input.Credentials[openAIEndpointCapabilitiesCredentialKey])
+}
+
 func TestNormalizeBulkOpenAISettingsRejectsForcedResponsesWithoutChatCapability(t *testing.T) {
 	input := &BulkUpdateAccountsInput{
 		Credentials: map[string]any{
