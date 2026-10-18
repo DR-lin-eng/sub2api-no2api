@@ -1379,17 +1379,13 @@ func (s *OpenAIGatewayService) openAIImageStreamKeepaliveInterval() time.Duratio
 }
 
 func extractOpenAIImagesBillableCountFromJSONBytes(body []byte) int {
-	if count := extractOpenAIImageCountFromJSONBytes(body); count > 0 {
+	counter := newOpenAIImageOutputCounter()
+	counter.AddJSONResponse(body)
+	if count := counter.BillableCount(); count > 0 {
 		return count
 	}
 	if len(body) == 0 || !gjson.ValidBytes(body) {
 		return 0
-	}
-	if count := int(gjson.GetBytes(body, "usage.images").Int()); count > 0 {
-		return count
-	}
-	if count := int(gjson.GetBytes(body, "tool_usage.image_gen.images").Int()); count > 0 {
-		return count
 	}
 	eventType := strings.TrimSpace(gjson.GetBytes(body, "type").String())
 	if eventType == "" || !strings.HasSuffix(eventType, ".completed") {

@@ -9,12 +9,13 @@ import (
 )
 
 type openAIImageOutputCounter struct {
-	seen         map[string]struct{}
-	seenSizes    map[string]string
-	seenOrder    []string
-	dataSizes    []string
-	count        int
-	maxDataCount int
+	seen          map[string]struct{}
+	seenSizes     map[string]string
+	seenOrder     []string
+	dataSizes     []string
+	count         int
+	maxDataCount  int
+	reportedCount int
 }
 
 func newOpenAIImageOutputCounter() *openAIImageOutputCounter {
@@ -32,6 +33,20 @@ func (c *openAIImageOutputCounter) Count() int {
 		return c.maxDataCount
 	}
 	return c.count
+}
+
+// BillableCount includes provider-reported image counts for Responses image
+// generation events whose output array is intentionally empty. The ordinary
+// Count method remains output-item-only for callers that need that distinction.
+func (c *openAIImageOutputCounter) BillableCount() int {
+	if c == nil {
+		return 0
+	}
+	count := c.Count()
+	if c.reportedCount > count {
+		return c.reportedCount
+	}
+	return count
 }
 
 func (c *openAIImageOutputCounter) Sizes() []string {
@@ -60,6 +75,7 @@ func (c *openAIImageOutputCounter) AddJSONResponse(body []byte) {
 	c.addDataArray(gjson.GetBytes(body, "data"))
 	c.addOutputArray(gjson.GetBytes(body, "output"))
 	c.addOutputArray(gjson.GetBytes(body, "response.output"))
+	c.addReportedImageCount(body)
 }
 
 func (c *openAIImageOutputCounter) AddSSEData(data []byte) {
@@ -68,6 +84,7 @@ func (c *openAIImageOutputCounter) AddSSEData(data []byte) {
 	}
 	root := gjson.ParseBytes(data)
 	c.addDataArray(root.Get("data"))
+	c.addReportedImageCount(data)
 	eventType := strings.TrimSpace(root.Get("type").String())
 	switch eventType {
 	case "response.output_item.done":
@@ -120,6 +137,15 @@ func (c *openAIImageOutputCounter) addDataArray(data gjson.Result) {
 	}
 	if len(sizes) > 0 {
 		c.dataSizes = sizes
+	}
+}
+
+func (c *openAIImageOutputCounter) addReportedImageCount(body []byte) {
+	if c == nil {
+		return
+	}
+	if count := countOpenAIImageUsageFromJSONBytes(body); count > c.reportedCount {
+		c.reportedCount = count
 	}
 }
 
@@ -194,6 +220,28 @@ func countOpenAIResponseImageOutputsFromJSONBytes(body []byte) int {
 	return counter.Count()
 }
 
+func countOpenAIImageUsageFromJSONBytes(body []byte) int {
+	if len(body) == 0 || !gjson.ValidBytes(body) {
+		return 0
+	}
+	count := 0
+	for _, path := range []string{
+		"usage.images",
+		"response.usage.images",
+		"data.usage.images",
+		"data.response.usage.images",
+		"tool_usage.image_gen.images",
+		"response.tool_usage.image_gen.images",
+		"data.tool_usage.image_gen.images",
+		"data.response.tool_usage.image_gen.images",
+	} {
+		if candidate := int(gjson.GetBytes(body, path).Int()); candidate > count {
+			count = candidate
+		}
+	}
+	return count
+}
+
 func collectOpenAIResponseImageOutputSizesFromJSONBytes(body []byte) []string {
 	counter := newOpenAIImageOutputCounter()
 	counter.AddJSONResponse(body)
@@ -204,6 +252,16 @@ func countOpenAIImageOutputsFromSSEBody(body string) int {
 	counter := newOpenAIImageOutputCounter()
 	counter.AddSSEBody(body)
 	return counter.Count()
+}
+
+func extractOpenAIImagesBillableCountFromSSEBody(body string) int {
+	counter := newOpenAIImageOutputCounter()
+	counter.AddSSEBody(body)
+	count := counter.BillableCount()
+	if count > 0 {
+		return count
+	}
+	return extractOpenAIImagesBillableCountFromJSONBytes([]byte(body))
 }
 
 func collectOpenAIImageOutputSizesFromSSEBody(body string) []string {

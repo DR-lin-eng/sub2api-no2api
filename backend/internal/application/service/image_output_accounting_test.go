@@ -29,6 +29,22 @@ data: [DONE]`
 	}
 }
 
+func TestOpenAIImageOutputCounter_HostedImageGenUsageWithoutOutputItems(t *testing.T) {
+	body := []byte(`{"type":"response.completed","response":{"output":[],"tool_usage":{"image_gen":{"images":2}}}}`)
+
+	if got := countOpenAIResponseImageOutputsFromJSONBytes(body); got != 0 {
+		t.Fatalf("output-only count should remain zero, got %d", got)
+	}
+	if got := extractOpenAIImagesBillableCountFromJSONBytes(body); got != 2 {
+		t.Fatalf("expected hosted image generation usage count 2, got %d", got)
+	}
+
+	sse := "data: " + string(body) + "\n\ndata: [DONE]\n\n"
+	if got := extractOpenAIImagesBillableCountFromSSEBody(sse); got != 2 {
+		t.Fatalf("expected hosted image generation SSE count 2, got %d", got)
+	}
+}
+
 func TestOpenAIImageOutputCounter_NestedSub2API_StandardResponse(t *testing.T) {
 	// Simulate what a nested sub2api setup receives
 	// When the upstream sub2api returns a standard response, the downstream
