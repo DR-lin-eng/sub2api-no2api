@@ -143,8 +143,10 @@ type UsageLog struct {
 	GroupID        *int64
 	SubscriptionID *int64
 
-	InputTokens         int
-	OutputTokens        int
+	InputTokens  int
+	OutputTokens int
+	// ReasoningTokens is a subset of output tokens; nil means upstream did not report it.
+	ReasoningTokens     *int
 	CacheCreationTokens int
 	CacheReadTokens     int
 

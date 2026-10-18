@@ -37,6 +37,8 @@ sequenceDiagram
 
 流式事件可能在最终用量结算前已经发送给客户端；这也是结算必须可恢复、幂等且不能依赖客户端连接继续存活的原因。
 
+上游用量中的 reasoning token 作为输出 token 的子集记录在 `usage_logs.reasoning_tokens`：OpenAI Responses/Chat Completions（HTTP、SSE 和 WebSocket）读取对应的 `*_tokens_details.reasoning_tokens`，Gemini 兼容链路读取 `usageMetadata.thoughtsTokenCount`。未报告计数及历史数据保持 NULL，明确返回 0 则保存 0。该字段不加入计费总量，只由管理员 DTO 返回，并在管理端请求明细、详情和导出中独立展示；用户 DTO 和用户 audience 不展示。
+
 模型字段在鉴权之后、分组白名单和合成路由改写之前必须通过 `GatewayModelValidation`。JSON 顶层 `model`、`session` 和 `session.model` 的重复键（含大小写与转义别名），以及 multipart 重复 `model`/`session` 字段返回协议兼容的 400；该检查不依赖模型白名单开关。Responses WebSocket 在每个原始客户端帧读入时执行同一检查，歧义帧以 1008 关闭，避免调度、上游解析和计费分别采用首值或末值。工具 schema 和消息内容中的模型字段不属于这一边界。
 
 用户端 API Key 创建与分组修改统一校验每个 `group_id`/`group_bindings` 候选的 active 状态及用户授权；原绑定列表完全不变时，改名或编辑自有 Key 的消费上限仍允许保存，已经停用的旧候选由运行时路由过滤。`quota` 是 Key 的自设消费上限，余额与订阅扣费不因调整它而豁免。

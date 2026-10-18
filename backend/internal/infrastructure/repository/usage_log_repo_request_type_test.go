@@ -101,6 +101,7 @@ func TestUsageLogRepositoryCreateSyncRequestTypeAndLegacyFields(t *testing.T) {
 			sqlmock.AnyArg(), // session_id
 			createdAt,
 			nil, // openai_timing
+			nil, // reasoning_tokens
 		).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at"}).AddRow(int64(99), createdAt))
 
@@ -194,6 +195,7 @@ func TestUsageLogRepositoryCreate_PersistsServiceTier(t *testing.T) {
 			sqlmock.AnyArg(), // session_id
 			createdAt,
 			nil, // openai_timing
+			nil, // reasoning_tokens
 		).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at"}).AddRow(int64(100), createdAt))
 
@@ -841,6 +843,7 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullString{},
 			now,
 			sql.NullString{}, // openai_timing
+			sql.NullInt64{},  // reasoning_tokens
 		}})
 		require.NoError(t, err)
 		require.Equal(t, 2, log.ImageCount)
@@ -919,6 +922,7 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullString{},  // session_id
 			now,
 			sql.NullString{}, // openai_timing
+			sql.NullInt64{},  // reasoning_tokens
 		}})
 		require.NoError(t, err)
 		require.NotNil(t, log.ServiceTier)
@@ -980,6 +984,7 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullString{},  // session_id
 			now,
 			sql.NullString{}, // openai_timing
+			sql.NullInt64{},  // reasoning_tokens
 		}})
 		require.NoError(t, err)
 		require.NotNil(t, log.ServiceTier)
@@ -1041,6 +1046,7 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullString{},  // session_id
 			now,
 			sql.NullString{}, // openai_timing
+			sql.NullInt64{},  // reasoning_tokens
 		}})
 		require.NoError(t, err)
 		require.NotNil(t, log.ServiceTier)

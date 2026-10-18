@@ -1110,6 +1110,7 @@ func (s *GatewayService) buildRecordUsageLog(
 		)
 	}
 	usageLog := &UsageLog{
+		ReasoningTokens:       result.Usage.ReasoningTokens,
 		UserID:                user.ID,
 		APIKeyID:              apiKey.ID,
 		AccountID:             account.ID,

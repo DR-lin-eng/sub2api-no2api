@@ -2410,12 +2410,13 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 				s.parseSSEUsageBytes(dataBytes, usage)
 				if hit, code, msg := detectOpenAICyberPolicy(dataBytes); hit {
 					MarkOpsCyberPolicy(c, CyberPolicyMark{
-						Code:           code,
-						Message:        msg,
-						Body:           truncateString(string(dataBytes), 4096),
-						UpstreamStatus: http.StatusOK,
-						UpstreamInTok:  usage.InputTokens,
-						UpstreamOutTok: usage.OutputTokens,
+						Code:            code,
+						Message:         msg,
+						Body:            truncateString(string(dataBytes), 4096),
+						UpstreamStatus:  http.StatusOK,
+						UpstreamInTok:   usage.InputTokens,
+						UpstreamOutTok:  usage.OutputTokens,
+						ReasoningTokens: usage.ReasoningTokens,
 					})
 				}
 				clientHadSemanticOutput := openAIStreamClientOutputStarted(c, clientOutputStarted)

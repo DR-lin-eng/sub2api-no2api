@@ -501,10 +501,12 @@ type ResponsesSummary struct {
 
 // ResponsesUsage holds token counts in Responses API format.
 type ResponsesUsage struct {
-	InputTokens              int `json:"input_tokens"`
-	OutputTokens             int `json:"output_tokens"`
-	TotalTokens              int `json:"total_tokens"`
-	CacheCreationInputTokens int `json:"cache_creation_input_tokens,omitempty"`
+	// RecordedReasoningTokens preserves presence for administrator usage logs.
+	RecordedReasoningTokens  *int `json:"-"`
+	InputTokens              int  `json:"input_tokens"`
+	OutputTokens             int  `json:"output_tokens"`
+	TotalTokens              int  `json:"total_tokens"`
+	CacheCreationInputTokens int  `json:"cache_creation_input_tokens,omitempty"`
 
 	// Optional detailed breakdown
 	InputTokensDetails  *ResponsesInputTokensDetails  `json:"input_tokens_details,omitempty"`
@@ -538,6 +540,7 @@ func (u *ResponsesUsage) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	*u = ResponsesUsage(aux.responsesUsageAlias)
+	u.RecordedReasoningTokens = reasoningTokensFromJSON(data)
 	if u.InputTokens == 0 && aux.PromptTokens != 0 {
 		u.InputTokens = aux.PromptTokens
 	}

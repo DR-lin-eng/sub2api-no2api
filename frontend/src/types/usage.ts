@@ -87,6 +87,7 @@ export interface UsageLogAccountSummary {
 }
 
 export interface AdminUsageLog extends UsageLog {
+  reasoning_tokens?: number | null
   local_first_token_ms?: number | null
   local_duration_ms?: number | null
   first_token_source?: 'local' | 'openai'

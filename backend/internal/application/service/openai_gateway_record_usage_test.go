@@ -79,13 +79,14 @@ func TestRecordCyberPolicyUsageLog_BillsRealUpstreamTokens(t *testing.T) {
 	// 流式 cyber：上游 response.failed 报告了真实 token，须按真实 token 计费并扣费，
 	// 与 WS cyber / 正常请求口径一致（不再是 tokens=0 免费行）。
 	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{
-		APIKey:       &APIKey{ID: 2, User: &User{ID: 1}},
-		Account:      &Account{ID: 3},
-		RequestID:    "rid-cyber-stream",
-		Model:        "gpt-5.1",
-		Stream:       true,
-		InputTokens:  1200,
-		OutputTokens: 300,
+		APIKey:          &APIKey{ID: 2, User: &User{ID: 1}},
+		Account:         &Account{ID: 3},
+		RequestID:       "rid-cyber-stream",
+		Model:           "gpt-5.1",
+		Stream:          true,
+		InputTokens:     1200,
+		OutputTokens:    300,
+		ReasoningTokens: reasoningCount(250),
 	})
 
 	require.Equal(t, 1, usageRepo.calls)
@@ -93,6 +94,7 @@ func TestRecordCyberPolicyUsageLog_BillsRealUpstreamTokens(t *testing.T) {
 	require.Equal(t, "gpt-5.1", usageRepo.lastLog.Model)
 	require.Equal(t, 1200, usageRepo.lastLog.InputTokens)
 	require.Equal(t, 300, usageRepo.lastLog.OutputTokens)
+	require.Equal(t, reasoningCount(250), usageRepo.lastLog.ReasoningTokens)
 	require.Equal(t, RequestTypeCyberBlocked, usageRepo.lastLog.RequestType, "cyber 行须标 request_type=cyber")
 	require.True(t, usageRepo.lastLog.Stream, "cyber 不覆盖真实 stream 字段")
 

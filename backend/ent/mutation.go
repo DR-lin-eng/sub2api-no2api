@@ -53204,6 +53204,8 @@ type UsageLogMutation struct {
 	addduration_ms               *int
 	first_token_ms               *int
 	addfirst_token_ms            *int
+	reasoning_tokens             *int
+	addreasoning_tokens          *int
 	openai_timing                *map[string]interface{}
 	user_agent                   *string
 	ip_address                   *string
@@ -55092,6 +55094,76 @@ func (m *UsageLogMutation) ResetFirstTokenMs() {
 	delete(m.clearedFields, usagelog.FieldFirstTokenMs)
 }
 
+// SetReasoningTokens sets the "reasoning_tokens" field.
+func (m *UsageLogMutation) SetReasoningTokens(i int) {
+	m.reasoning_tokens = &i
+	m.addreasoning_tokens = nil
+}
+
+// ReasoningTokens returns the value of the "reasoning_tokens" field in the mutation.
+func (m *UsageLogMutation) ReasoningTokens() (r int, exists bool) {
+	v := m.reasoning_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReasoningTokens returns the old "reasoning_tokens" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldReasoningTokens(ctx context.Context) (v *int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReasoningTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReasoningTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReasoningTokens: %w", err)
+	}
+	return oldValue.ReasoningTokens, nil
+}
+
+// AddReasoningTokens adds i to the "reasoning_tokens" field.
+func (m *UsageLogMutation) AddReasoningTokens(i int) {
+	if m.addreasoning_tokens != nil {
+		*m.addreasoning_tokens += i
+	} else {
+		m.addreasoning_tokens = &i
+	}
+}
+
+// AddedReasoningTokens returns the value that was added to the "reasoning_tokens" field in this mutation.
+func (m *UsageLogMutation) AddedReasoningTokens() (r int, exists bool) {
+	v := m.addreasoning_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearReasoningTokens clears the value of the "reasoning_tokens" field.
+func (m *UsageLogMutation) ClearReasoningTokens() {
+	m.reasoning_tokens = nil
+	m.addreasoning_tokens = nil
+	m.clearedFields[usagelog.FieldReasoningTokens] = struct{}{}
+}
+
+// ReasoningTokensCleared returns if the "reasoning_tokens" field was cleared in this mutation.
+func (m *UsageLogMutation) ReasoningTokensCleared() bool {
+	_, ok := m.clearedFields[usagelog.FieldReasoningTokens]
+	return ok
+}
+
+// ResetReasoningTokens resets all changes to the "reasoning_tokens" field.
+func (m *UsageLogMutation) ResetReasoningTokens() {
+	m.reasoning_tokens = nil
+	m.addreasoning_tokens = nil
+	delete(m.clearedFields, usagelog.FieldReasoningTokens)
+}
+
 // SetOpenaiTiming sets the "openai_timing" field.
 func (m *UsageLogMutation) SetOpenaiTiming(value map[string]interface{}) {
 	m.openai_timing = &value
@@ -55956,7 +56028,7 @@ func (m *UsageLogMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UsageLogMutation) Fields() []string {
-	fields := make([]string, 0, 48)
+	fields := make([]string, 0, 49)
 	if m.user != nil {
 		fields = append(fields, usagelog.FieldUserID)
 	}
@@ -56058,6 +56130,9 @@ func (m *UsageLogMutation) Fields() []string {
 	}
 	if m.first_token_ms != nil {
 		fields = append(fields, usagelog.FieldFirstTokenMs)
+	}
+	if m.reasoning_tokens != nil {
+		fields = append(fields, usagelog.FieldReasoningTokens)
 	}
 	if m.openai_timing != nil {
 		fields = append(fields, usagelog.FieldOpenaiTiming)
@@ -56177,6 +56252,8 @@ func (m *UsageLogMutation) Field(name string) (ent.Value, bool) {
 		return m.DurationMs()
 	case usagelog.FieldFirstTokenMs:
 		return m.FirstTokenMs()
+	case usagelog.FieldReasoningTokens:
+		return m.ReasoningTokens()
 	case usagelog.FieldOpenaiTiming:
 		return m.OpenaiTiming()
 	case usagelog.FieldUserAgent:
@@ -56282,6 +56359,8 @@ func (m *UsageLogMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldDurationMs(ctx)
 	case usagelog.FieldFirstTokenMs:
 		return m.OldFirstTokenMs(ctx)
+	case usagelog.FieldReasoningTokens:
+		return m.OldReasoningTokens(ctx)
 	case usagelog.FieldOpenaiTiming:
 		return m.OldOpenaiTiming(ctx)
 	case usagelog.FieldUserAgent:
@@ -56557,6 +56636,13 @@ func (m *UsageLogMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetFirstTokenMs(v)
 		return nil
+	case usagelog.FieldReasoningTokens:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReasoningTokens(v)
+		return nil
 	case usagelog.FieldOpenaiTiming:
 		v, ok := value.(map[string]interface{})
 		if !ok {
@@ -56717,6 +56803,9 @@ func (m *UsageLogMutation) AddedFields() []string {
 	if m.addfirst_token_ms != nil {
 		fields = append(fields, usagelog.FieldFirstTokenMs)
 	}
+	if m.addreasoning_tokens != nil {
+		fields = append(fields, usagelog.FieldReasoningTokens)
+	}
 	if m.addimage_count != nil {
 		fields = append(fields, usagelog.FieldImageCount)
 	}
@@ -56770,6 +56859,8 @@ func (m *UsageLogMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedDurationMs()
 	case usagelog.FieldFirstTokenMs:
 		return m.AddedFirstTokenMs()
+	case usagelog.FieldReasoningTokens:
+		return m.AddedReasoningTokens()
 	case usagelog.FieldImageCount:
 		return m.AddedImageCount()
 	case usagelog.FieldVideoCount:
@@ -56911,6 +57002,13 @@ func (m *UsageLogMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddFirstTokenMs(v)
 		return nil
+	case usagelog.FieldReasoningTokens:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddReasoningTokens(v)
+		return nil
 	case usagelog.FieldImageCount:
 		v, ok := value.(int)
 		if !ok {
@@ -56978,6 +57076,9 @@ func (m *UsageLogMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(usagelog.FieldFirstTokenMs) {
 		fields = append(fields, usagelog.FieldFirstTokenMs)
+	}
+	if m.FieldCleared(usagelog.FieldReasoningTokens) {
+		fields = append(fields, usagelog.FieldReasoningTokens)
 	}
 	if m.FieldCleared(usagelog.FieldOpenaiTiming) {
 		fields = append(fields, usagelog.FieldOpenaiTiming)
@@ -57061,6 +57162,9 @@ func (m *UsageLogMutation) ClearField(name string) error {
 		return nil
 	case usagelog.FieldFirstTokenMs:
 		m.ClearFirstTokenMs()
+		return nil
+	case usagelog.FieldReasoningTokens:
+		m.ClearReasoningTokens()
 		return nil
 	case usagelog.FieldOpenaiTiming:
 		m.ClearOpenaiTiming()
@@ -57201,6 +57305,9 @@ func (m *UsageLogMutation) ResetField(name string) error {
 		return nil
 	case usagelog.FieldFirstTokenMs:
 		m.ResetFirstTokenMs()
+		return nil
+	case usagelog.FieldReasoningTokens:
+		m.ResetReasoningTokens()
 		return nil
 	case usagelog.FieldOpenaiTiming:
 		m.ResetOpenaiTiming()

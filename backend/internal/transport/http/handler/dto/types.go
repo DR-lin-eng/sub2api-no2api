@@ -585,6 +585,7 @@ type UsageLog struct {
 // AdminUsageLog 是管理员接口使用的 usage log DTO（包含管理员字段）。
 type AdminUsageLog struct {
 	UsageLog
+	ReasoningTokens   *int                  `json:"reasoning_tokens"`
 	LocalFirstTokenMs *int                  `json:"local_first_token_ms"`
 	LocalDurationMs   *int                  `json:"local_duration_ms"`
 	FirstTokenSource  string                `json:"first_token_source"`

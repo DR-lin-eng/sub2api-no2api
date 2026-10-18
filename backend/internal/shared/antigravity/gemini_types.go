@@ -158,6 +158,7 @@ type GeminiTokenDetail struct {
 
 // GeminiUsageMetadata Gemini 用量元数据
 type GeminiUsageMetadata struct {
+	ReasoningTokens         *int                `json:"-"`
 	PromptTokenCount        int                 `json:"promptTokenCount,omitempty"`
 	CandidatesTokenCount    int                 `json:"candidatesTokenCount,omitempty"`
 	CachedContentTokenCount int                 `json:"cachedContentTokenCount,omitempty"`

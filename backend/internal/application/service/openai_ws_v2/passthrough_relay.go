@@ -23,6 +23,7 @@ type FrameConn interface {
 }
 
 type Usage struct {
+	ReasoningTokens          *int
 	InputTokens              int
 	ImageInputTokens         int
 	OutputTokens             int

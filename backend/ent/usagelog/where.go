@@ -225,6 +225,11 @@ func FirstTokenMs(v int) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldFirstTokenMs, v))
 }
 
+// ReasoningTokens applies equality check predicate on the "reasoning_tokens" field. It's identical to ReasoningTokensEQ.
+func ReasoningTokens(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldReasoningTokens, v))
+}
+
 // UserAgent applies equality check predicate on the "user_agent" field. It's identical to UserAgentEQ.
 func UserAgent(v string) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldUserAgent, v))
@@ -1783,6 +1788,56 @@ func FirstTokenMsIsNil() predicate.UsageLog {
 // FirstTokenMsNotNil applies the NotNil predicate on the "first_token_ms" field.
 func FirstTokenMsNotNil() predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldNotNull(FieldFirstTokenMs))
+}
+
+// ReasoningTokensEQ applies the EQ predicate on the "reasoning_tokens" field.
+func ReasoningTokensEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldReasoningTokens, v))
+}
+
+// ReasoningTokensNEQ applies the NEQ predicate on the "reasoning_tokens" field.
+func ReasoningTokensNEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldReasoningTokens, v))
+}
+
+// ReasoningTokensIn applies the In predicate on the "reasoning_tokens" field.
+func ReasoningTokensIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldReasoningTokens, vs...))
+}
+
+// ReasoningTokensNotIn applies the NotIn predicate on the "reasoning_tokens" field.
+func ReasoningTokensNotIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldReasoningTokens, vs...))
+}
+
+// ReasoningTokensGT applies the GT predicate on the "reasoning_tokens" field.
+func ReasoningTokensGT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldReasoningTokens, v))
+}
+
+// ReasoningTokensGTE applies the GTE predicate on the "reasoning_tokens" field.
+func ReasoningTokensGTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldReasoningTokens, v))
+}
+
+// ReasoningTokensLT applies the LT predicate on the "reasoning_tokens" field.
+func ReasoningTokensLT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldReasoningTokens, v))
+}
+
+// ReasoningTokensLTE applies the LTE predicate on the "reasoning_tokens" field.
+func ReasoningTokensLTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldReasoningTokens, v))
+}
+
+// ReasoningTokensIsNil applies the IsNil predicate on the "reasoning_tokens" field.
+func ReasoningTokensIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldReasoningTokens))
+}
+
+// ReasoningTokensNotNil applies the NotNil predicate on the "reasoning_tokens" field.
+func ReasoningTokensNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldReasoningTokens))
 }
 
 // OpenaiTimingIsNil applies the IsNil predicate on the "openai_timing" field.

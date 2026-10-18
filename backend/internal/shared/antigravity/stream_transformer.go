@@ -40,6 +40,7 @@ type StreamingProcessor struct {
 	// 累计 usage
 	inputTokens       int
 	outputTokens      int
+	reasoningTokens   *int
 	cacheReadTokens   int
 	imageOutputTokens int
 }
@@ -144,6 +145,7 @@ func (p *StreamingProcessor) ProcessLine(line string) []byte {
 		cached := geminiResp.UsageMetadata.CachedContentTokenCount
 		p.inputTokens = geminiResp.UsageMetadata.PromptTokenCount - cached
 		p.outputTokens = geminiResp.UsageMetadata.CandidatesTokenCount + geminiResp.UsageMetadata.ThoughtsTokenCount
+		p.reasoningTokens = geminiResp.UsageMetadata.ReasoningTokens
 		p.cacheReadTokens = cached
 		p.imageOutputTokens = geminiResp.UsageMetadata.ImageOutputTokens()
 	}
@@ -185,6 +187,7 @@ func (p *StreamingProcessor) Finish() ([]byte, *ClaudeUsage) {
 	usage := &ClaudeUsage{
 		InputTokens:          p.inputTokens,
 		OutputTokens:         p.outputTokens,
+		ReasoningTokens:      p.reasoningTokens,
 		CacheReadInputTokens: p.cacheReadTokens,
 		ImageOutputTokens:    p.imageOutputTokens,
 	}
@@ -554,6 +557,7 @@ func (p *StreamingProcessor) emitFinish(finishReason string) []byte {
 	usage := ClaudeUsage{
 		InputTokens:          p.inputTokens,
 		OutputTokens:         p.outputTokens,
+		ReasoningTokens:      p.reasoningTokens,
 		CacheReadInputTokens: p.cacheReadTokens,
 		ImageOutputTokens:    p.imageOutputTokens,
 	}
