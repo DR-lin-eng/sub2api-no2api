@@ -29,7 +29,7 @@
           <tr v-for="result in visibleResults" :key="result.account_id" class="border-t border-gray-100 dark:border-dark-700">
             <td class="p-2">{{ result.account_name || result.account_id }}</td>
             <td class="p-2" :class="result.status === 'success' ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'">
-              {{ t(`admin.accounts.bulkActions.modelSyncStatus.${result.status}`) }}
+              {{ statusLabel(result.status) }}
             </td>
             <td class="p-2">{{ result.status === 'success' ? result.model_count : '—' }}</td>
             <td class="p-2">{{ result.status === 'success' ? result.added_count : '—' }}</td>
@@ -64,6 +64,13 @@ const props = defineProps<{
 }>()
 defineEmits(['close'])
 const { t } = useI18n()
+function statusLabel(status: UpstreamModelSyncResult['status']) {
+  switch (status) {
+    case 'success': return t('admin.accounts.bulkActions.modelSyncStatus.success')
+    case 'failed': return t('admin.accounts.bulkActions.modelSyncStatus.failed')
+    case 'skipped': return t('admin.accounts.bulkActions.modelSyncStatus.skipped')
+  }
+}
 const page = ref(1)
 const pageCount = computed(() => Math.max(1, Math.ceil(props.results.length / 50)))
 const visibleResults = computed(() => props.results.slice((page.value - 1) * 50, page.value * 50))
