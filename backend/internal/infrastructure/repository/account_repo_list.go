@@ -613,6 +613,51 @@ func (r *accountRepository) ListOpsAccountsForStats(ctx context.Context, platfor
 	return r.accountsToService(ctx, accounts)
 }
 
+// ListOAuthPlanExpiryAccounts returns the credential fields needed by the Ops
+// OAuth subscription expiry card without hydrating proxies, groups, or other
+// account runtime state. Shadow accounts are excluded because they do not own
+// an independent OAuth subscription.
+func (r *accountRepository) ListOAuthPlanExpiryAccounts(ctx context.Context, platformFilter string, groupIDFilter *int64) ([]service.Account, error) {
+	if r == nil || r.client == nil {
+		return []service.Account{}, nil
+	}
+
+	q := r.client.Account.Query().Where(
+		dbaccount.DeletedAtIsNil(),
+		dbaccount.TypeEQ(service.AccountTypeOAuth),
+		dbaccount.ParentAccountIDIsNil(),
+	)
+	if platformFilter = strings.ToLower(strings.TrimSpace(platformFilter)); platformFilter != "" {
+		q = q.Where(dbaccount.PlatformEQ(platformFilter))
+	}
+	if groupIDFilter != nil && *groupIDFilter > 0 {
+		q = q.Where(dbaccount.HasAccountGroupsWith(dbaccountgroup.GroupIDEQ(*groupIDFilter)))
+	}
+
+	accounts, err := q.
+		Select(
+			dbaccount.FieldID,
+			dbaccount.FieldPlatform,
+			dbaccount.FieldType,
+			dbaccount.FieldCredentials,
+			dbaccount.FieldParentAccountID,
+		).
+		Order(dbent.Asc(dbaccount.FieldID)).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]service.Account, 0, len(accounts))
+	for _, account := range accounts {
+		mapped := accountEntityToService(account)
+		if mapped != nil {
+			out = append(out, *mapped)
+		}
+	}
+	return out, nil
+}
+
 func accountListOrder(params pagination.PaginationParams) []func(*entsql.Selector) {
 	sortBy := strings.ToLower(strings.TrimSpace(params.SortBy))
 	sortOrder := params.NormalizedSortOrder(pagination.SortOrderAsc)

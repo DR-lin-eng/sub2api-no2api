@@ -1,0 +1,4 @@
+--- original-admin.go
++++ MODIFIED_FILE
+@@ -308,0 +309 @@
++		ops.GET("/oauth-plan-expiry-distribution", h.Admin.Ops.GetOAuthPlanExpiryDistribution)

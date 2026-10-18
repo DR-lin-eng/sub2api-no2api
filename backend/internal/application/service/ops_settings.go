@@ -380,27 +380,28 @@ func defaultOpsAdvancedSettingsForConfig(cfg *config.Config) *OpsAdvancedSetting
 		Aggregation: OpsAggregationSettings{
 			AggregationEnabled: false,
 		},
-		OpenAIAccountQuotaAutoPause:     OpsOpenAIAccountQuotaAutoPauseSettings{},
-		IgnoreCountTokensErrors:         true,  // count_tokens 404 是预期行为，默认忽略
-		IgnoreContextCanceled:           true,  // Default to true - client disconnects are not errors
-		IgnoreNoAvailableAccounts:       false, // Default to false - this is a real routing issue
-		IgnoreInvalidApiKeyErrors:       true,  // Legacy compatibility field; admission rejects are always excluded.
-		IgnoreInsufficientBalanceErrors: false, // 默认不忽略，余额不足可能需要关注
-		RecordBusinessLimited429:        true,
-		DisplayConcurrency:              true,
-		DisplaySwitchRateTrend:          true,
-		DisplayThroughputTrend:          true,
-		DisplayNetworkBandwidth:         true,
-		DisplayLatencyHistogram:         true,
-		DisplayErrorDistribution:        true,
-		DisplayErrorTrend:               true,
-		DisplayImageGenerationStats:     true,
-		DisplayOpenAITokenStats:         false,
-		DisplayUserUsageStats:           false,
-		DisplayAlertEvents:              true,
-		DisplaySystemLogs:               true,
-		AutoRefreshEnabled:              false,
-		AutoRefreshIntervalSec:          30,
+		OpenAIAccountQuotaAutoPause:        OpsOpenAIAccountQuotaAutoPauseSettings{},
+		IgnoreCountTokensErrors:            true,  // count_tokens 404 是预期行为，默认忽略
+		IgnoreContextCanceled:              true,  // Default to true - client disconnects are not errors
+		IgnoreNoAvailableAccounts:          false, // Default to false - this is a real routing issue
+		IgnoreInvalidApiKeyErrors:          true,  // Legacy compatibility field; admission rejects are always excluded.
+		IgnoreInsufficientBalanceErrors:    false, // 默认不忽略，余额不足可能需要关注
+		RecordBusinessLimited429:           true,
+		DisplayConcurrency:                 true,
+		DisplaySwitchRateTrend:             true,
+		DisplayThroughputTrend:             true,
+		DisplayNetworkBandwidth:            true,
+		DisplayLatencyHistogram:            true,
+		DisplayErrorDistribution:           true,
+		DisplayErrorTrend:                  true,
+		DisplayImageGenerationStats:        true,
+		DisplayOpenAITokenStats:            false,
+		DisplayUserUsageStats:              false,
+		DisplayOAuthPlanExpiryDistribution: true,
+		DisplayAlertEvents:                 true,
+		DisplaySystemLogs:                  true,
+		AutoRefreshEnabled:                 false,
+		AutoRefreshIntervalSec:             30,
 	}
 }
 

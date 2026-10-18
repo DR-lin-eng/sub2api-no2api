@@ -22,6 +22,7 @@ import {
   getConcurrencySnapshot,
   getConcurrencyStats,
   getImageGenerationStats,
+  getOAuthPlanExpiryDistribution,
   getOpenAITokenStats,
   getRealtimeTrafficSummary,
   getUserConcurrencyStats,
@@ -47,6 +48,7 @@ describe('admin ops dashboard and metrics query owners', () => {
     expect(opsAPI.getAccountAvailabilityStats).toBe(getAccountAvailabilityStats)
     expect(opsAPI.getRealtimeTrafficSummary).toBe(getRealtimeTrafficSummary)
     expect(opsAPI.getImageGenerationStats).toBe(getImageGenerationStats)
+    expect(opsAPI.getOAuthPlanExpiryDistribution).toBe(getOAuthPlanExpiryDistribution)
     expect(opsAPI.getOpenAITokenStats).toBe(getOpenAITokenStats)
     expect(opsAPI.getUserUsageStats).toBe(getUserUsageStats)
   })
@@ -111,6 +113,7 @@ describe('admin ops dashboard and metrics query owners', () => {
     await expect(getImageGenerationStats(imageParams, { signal: controller.signal })).resolves.toBe(response)
     await expect(getOpenAITokenStats(tokenParams, { signal: controller.signal })).resolves.toBe(response)
     await expect(getUserUsageStats(userParams, { signal: controller.signal })).resolves.toBe(response)
+    await expect(getOAuthPlanExpiryDistribution('openai', 7, { signal: controller.signal })).resolves.toBe(response)
 
     expect(get).toHaveBeenNthCalledWith(1, '/admin/ops/concurrency', {
       params: { platform: 'openai', group_id: 7 }
@@ -133,6 +136,10 @@ describe('admin ops dashboard and metrics query owners', () => {
     })
     expect(get).toHaveBeenNthCalledWith(8, '/admin/ops/dashboard/user-usage-stats', {
       params: userParams,
+      signal: controller.signal
+    })
+    expect(get).toHaveBeenNthCalledWith(9, '/admin/ops/oauth-plan-expiry-distribution', {
+      params: { platform: 'openai', group_id: 7 },
       signal: controller.signal
     })
   })

@@ -55,6 +55,7 @@ import {
   getConcurrencyStats,
   getImageGenerationStats,
   getOpenAITokenStats,
+  getOAuthPlanExpiryDistribution,
   getRealtimeTrafficSummary,
   getUserConcurrencyStats,
   getUserUsageStats
@@ -102,6 +103,7 @@ export const opsAPI = {
   getErrorDistribution,
   getImageGenerationStats,
   getOpenAITokenStats,
+  getOAuthPlanExpiryDistribution,
   getUserUsageStats,
   getConcurrencyStats,
   getConcurrencySnapshot,

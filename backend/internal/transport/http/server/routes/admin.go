@@ -306,6 +306,7 @@ func registerOpsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		ops.GET("/concurrency-snapshot", h.Admin.Ops.GetConcurrencySnapshot)
 		ops.GET("/user-concurrency", h.Admin.Ops.GetUserConcurrencyStats)
 		ops.GET("/account-availability", h.Admin.Ops.GetAccountAvailability)
+		ops.GET("/oauth-plan-expiry-distribution", h.Admin.Ops.GetOAuthPlanExpiryDistribution)
 		ops.GET("/realtime-traffic", h.Admin.Ops.GetRealtimeTrafficSummary)
 		ops.GET("/usage-billing/summary", h.Admin.Ops.GetUsageBillingQueueSnapshot)
 		ops.GET("/usage-billing/jobs", h.Admin.Ops.ListUsageBillingQueueJobs)

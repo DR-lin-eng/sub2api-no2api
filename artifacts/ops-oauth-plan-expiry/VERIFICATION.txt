@@ -1,0 +1,52 @@
+Changed branch/field: `registerOpsRoutes` now exposes `GET /api/v1/admin/ops/oauth-plan-expiry-distribution`; the service reads OAuth `credentials.subscription_expires_at` and renders the 1/2/4/5/10/15/20/25 day gradients. `OpsAdvancedSettings.display_oauth_plan_expiry_distribution` defaults to enabled and preserves enabled state when older persisted settings omit the field.
+
+Publication base and target:
+- Latest `origin/main` before branch: `edb91837bc5c8a047cc9f3e9b0466de47069f7a2`.
+- Target source: `/private/tmp/sub2api-oauth-plan-expiry-publish-20261018/backend/internal/transport/http/server/routes/admin.go`.
+- Baseline target SHA-256: `0daa96f8f7cc1643ecc7b4f29fb669b7f58fc93636c6e32be1723fb11305542a`.
+- MODIFIED_FILE SHA-256: `cdf7295116a62c5b01825419eb3e873f085daac94dd99a95ba8d2eb457ff96ee`.
+- MODIFIED_FILE bytes: `47426`.
+- DIFF_FILE bytes: `148`.
+
+BASELINE behavior (same request/input):
+- Latest main source has no `oauth-plan-expiry-distribution` route.
+- Existing baseline image probe: `ghcr.io/dr-lin-eng/sub2api-no2api:sha-62bb286`.
+- Command: `curl -sS -o /tmp/sub2api-baseline-expiry.json -w '%{http_code}' 'http://127.0.0.1:18094/api/v1/admin/ops/oauth-plan-expiry-distribution?platform=openai'`.
+- Literal stdout: `404`.
+- Body: `404 page not found`.
+- Exit status: `0`.
+
+MODIFIED behavior (same request/input, unauthenticated route probe):
+- Image: `sub2api-oauth-plan-expiry:publish`.
+- Command: `curl -sS -o /tmp/sub2api-modified-expiry-unauth.json -w '%{http_code}' 'http://127.0.0.1:18095/api/v1/admin/ops/oauth-plan-expiry-distribution?platform=openai'`.
+- Literal stdout: `401`.
+- Body: `{"code":"UNAUTHORIZED","message":"Authorization required"}`.
+- Exit status: `0`.
+
+MODIFIED authenticated behavior:
+- Input: five Docker-created OAuth accounts with plans plus/pro/team/free and expiry values expired, 12 hours, 36 hours, 624 hours, and missing.
+- Command: `curl -sS -H 'Authorization: Bearer $ADMIN_TOKEN' 'http://127.0.0.1:18095/api/v1/admin/ops/oauth-plan-expiry-distribution?platform=openai'` (`$ADMIN_TOKEN` was held only in process memory and is redacted here).
+- Literal result: HTTP `200`; `total_oauth_accounts=5`; `accounts_with_expiry=4`; `accounts_without_expiry=1`; buckets `expired=1`, `up_to_1=1`, `up_to_2=1`, `up_to_4=0`, `up_to_5=0`, `up_to_10=0`, `up_to_15=0`, `up_to_20=0`, `up_to_25=0`, `over_25=1`; plans `plus=2`, `free=1`, `pro=1`, `team=1`.
+- Exit status: `0`.
+
+Docker runtime and final candidate image:
+- Build command: `DOCKER_CONFIG=/private/tmp/sub2api-docker-config DOCKER_HOST=unix:///var/run/docker.sock docker build --progress=plain -t sub2api-oauth-plan-expiry:publish .`.
+- Literal build result: exit status `0`; image manifest `sha256:ddf119fae883b0ea6e58d5ff9da8132519c6eb704a900e58a5cd395ca9ab0705`.
+- Runtime stack: isolated PostgreSQL 18, Redis 8, and `sub2api-oauth-plan-expiry:publish` on `sub2api-oauth-expiry-publish-net`.
+- `/ready`: HTTP `200`, `{"ready":true}`.
+- Container state: `status=running health=healthy restarts=0`.
+
+Tests and compile checks on the latest-main publication clone:
+- Docker service tests: `go test -p 1 -gcflags='github.com/Wei-Shaw/sub2api/internal/application/service=-l' ./internal/application/service -run 'Test(GetOpsAdvancedSettings_DefaultSnapshotHidesOpenAITokenStats|GetOpsAdvancedSettings_BackfillsNewDisplayFlagsFromDefaults|BuildOAuthPlanExpiryDistribution|OpsServiceGetOAuthPlanExpiryDistribution)' -count=1`; literal output `ok  github.com/Wei-Shaw/sub2api/internal/application/service 0.038s`; exit `0`.
+- Docker repository/handler compile: `go test -p 1 -gcflags='github.com/Wei-Shaw/sub2api/internal/application/service=-l' ./internal/infrastructure/repository ./internal/transport/http/handler/admin -run '^$' -count=1`; literal output `ok github.com/Wei-Shaw/sub2api/internal/infrastructure/repository 0.015s [no tests to run]` and `ok github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin 0.028s [no tests to run]`; exit `0`.
+- Frontend typecheck: direct `vue-tsc --noEmit`; exit `0`.
+- Frontend lint: direct `eslint .`; exit `0`.
+- Frontend focused tests: direct Vitest run of `adminOpsDashboardQueries.spec.ts` and `OpsOAuthPlanExpiryDistributionCard.spec.ts`; literal result `2 files passed, 5 tests passed`; exit `0`.
+- `make check-docs` and `git diff --check`: exit `0`.
+
+ROLLBACK behavior:
+- Command: `./ROLLBACK.sh /tmp/sub2api-publish-baseline-admin.go /tmp/sub2api-publish-rollback-admin.go`.
+- Literal stdout: `restored_route=absent` and `restored_sha256=0daa96f8f7cc1643ecc7b4f29fb669b7f58fc93636c6e32be1723fb11305542a`.
+- Exit status: `0`.
+- Rollback route probe: `route_absent`; restored hash equals baseline.
+- GOAL reapply: copying MODIFIED_FILE to a separate target gives `route_present` and SHA `cdf7295116a62c5b01825419eb3e873f085daac94dd99a95ba8d2eb457ff96ee`.
