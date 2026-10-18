@@ -1,5 +1,7 @@
 # Sub2API 关键请求链路
 
+账号列表批量同步上游模型由 `admin-accounts` 的同步 composable 顺序分批调用管理端账号路由，经 `account_models_batch.go` 进入 `AccountTestService.BatchSyncUpstreamModels`。该用例复用平台模型查询，通过 repository 的行锁/JSONB 合并新增映射，同时写 scheduler outbox 并刷新缓存；失败账号保留原配置。规则与验证见 [批量同步说明](ACCOUNT_UPSTREAM_MODELS_SYNC.md)。
+
 本文给出高频链路的阅读顺序和不变量。它刻意省略平台内部的全部分支；调试具体问题时，应从命中的路由和 handler 继续追踪。
 
 ## API Key 模型请求

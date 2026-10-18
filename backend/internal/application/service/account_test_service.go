@@ -89,6 +89,7 @@ type AccountTestService struct {
 	cfg                       *config.Config
 	tlsFPProfileService       *TLSFingerprintProfileService
 	openAIModelsManifest      openAIModelsManifestFetcher
+	upstreamModelsCache       OAuthModelSyncModelsCacheInvalidator
 	customModelCapabilities   CustomModelCapabilityResolver
 	agentIdentityTaskMu       sync.Mutex
 	agentIdentityWS           agentIdentityWSConnectionInvalidator

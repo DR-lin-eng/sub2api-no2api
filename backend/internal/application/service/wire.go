@@ -314,6 +314,9 @@ func ProvideOAuthModelSyncService(
 	svc := NewOAuthModelSyncServiceFromConfig(accountRepo, accountTestService, cfg)
 	svc.SetLeaderLock(lockCache, db)
 	svc.SetModelsCacheInvalidator(gatewayService)
+	if accountTestService != nil && gatewayService != nil {
+		accountTestService.upstreamModelsCache = gatewayService
+	}
 	if cfg != nil && cfg.Deployment.WorkerEnabledResolved() && cfg.OAuthModelSync.Enabled {
 		svc.Start()
 	}

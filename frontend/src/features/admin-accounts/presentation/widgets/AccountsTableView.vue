@@ -181,9 +181,11 @@
           :all-results-selected="allResultsSelected"
           :querying-upstream-quota="bulkQueryingUpstreamQuota"
           :querying-openai-quota="bulkQueryingOpenAIQuota"
+          :syncing-upstream-models="syncingUpstreamModels"
           @delete="handleBulkDelete"
           @reset-status="handleBulkResetStatus"
           @refresh-token="handleBulkRefreshToken"
+          @sync-upstream-models="handleBulkSyncUpstreamModels"
           @query-upstream-quota="handleBulkQueryUpstreamQuota"
           @query-openai-quota="handleBulkQueryOpenAIQuota"
           @probe-upstream-billing="handleBulkProbeUpstreamBilling"
@@ -546,6 +548,8 @@ const {
   handleBulkDelete,
   handleBulkResetStatus,
   handleBulkRefreshToken,
+  syncingUpstreamModels,
+  handleBulkSyncUpstreamModels,
   handleBulkQueryUpstreamQuota,
   handleBulkQueryOpenAIQuota,
   handleBulkProbeUpstreamBilling,

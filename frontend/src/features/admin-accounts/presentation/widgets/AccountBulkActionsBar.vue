@@ -44,6 +44,13 @@
         <button @click="$emit('reset-status')" class="btn btn-secondary btn-sm">{{ t('admin.accounts.bulkActions.resetStatus') }}</button>
         <button @click="$emit('refresh-token')" class="btn btn-secondary btn-sm">{{ t('admin.accounts.bulkActions.refreshToken') }}</button>
         <button
+          :disabled="syncingUpstreamModels"
+          @click="$emit('sync-upstream-models')"
+          class="btn btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {{ t(syncingUpstreamModels ? 'admin.accounts.bulkActions.modelSyncRunning' : 'admin.accounts.bulkActions.syncUpstreamModels') }}
+        </button>
+        <button
           :disabled="queryingUpstreamQuota"
           @click="$emit('query-upstream-quota')"
           class="btn btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-50"
@@ -79,12 +86,14 @@ withDefaults(defineProps<{
   allResultsSelected?: boolean
   queryingUpstreamQuota?: boolean
   queryingOpenaiQuota?: boolean
+  syncingUpstreamModels?: boolean
 }>(), {
   totalResults: 0,
   selectingAll: false,
   allResultsSelected: false,
   queryingUpstreamQuota: false,
-  queryingOpenaiQuota: false
+  queryingOpenaiQuota: false,
+  syncingUpstreamModels: false
 })
 defineEmits([
   'delete',
@@ -96,6 +105,7 @@ defineEmits([
   'toggle-schedulable',
   'reset-status',
   'refresh-token',
+  'sync-upstream-models',
   'query-upstream-quota',
   'query-openai-quota',
   'probe-upstream-billing'
