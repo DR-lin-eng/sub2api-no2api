@@ -1,5 +1,23 @@
 import type { AccountPlatform, AccountType } from '@/types/gateway'
 
+export interface UpstreamModelSyncResult {
+  account_id: number
+  account_name?: string
+  status: 'success' | 'failed' | 'skipped'
+  model_count: number
+  added_count: number
+  error_kind?: string
+  error?: string
+}
+
+export interface BatchUpstreamModelSyncResult {
+  total: number
+  success: number
+  failed: number
+  skipped: number
+  results: UpstreamModelSyncResult[]
+}
+
 // Returned by the account models API and the compatible models endpoint.
 export interface ClaudeModel {
   id: string

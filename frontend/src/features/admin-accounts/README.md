@@ -2,6 +2,8 @@
 
 管理账号 feature 负责账号列表、创建/编辑、批量更新、授权和用量展示。
 
+账号列表的“同步上游模型”通过 `useAccountUpstreamModelSync.ts` 按每批 20 个账号调用批量同步 Action，`UpstreamModelSyncResultsDialog.vue` 展示进度与逐账号结果。成功后刷新列表，失败/跳过账号保持选中；保存规则和平台边界见 [同步说明](../../../../docs/ACCOUNT_UPSTREAM_MODELS_SYNC.md)。
+
 - `data/dtos/adminAccountDtos.ts`, `openAIQuotaDtos.ts`: 账号创建/更新、混合渠道预检、Codex 导入、OpenAI quota、模型和临时不可调度状态等账号专属协议类型；`src/types` 仅保留兼容转发。
 - `data/datasources/adminAccountQueries.ts`: 列表、ETag、详情、摘要、统计、用量、临时不可调度状态、Ollama Cloud 状态、模型、Antigravity 默认映射和上游计费设置/快照查询。
 - `data/datasources/adminAccountActions.ts`: 账号创建/更新、OAuth 凭据应用/错误清理、Codex session/PAT 导入、上游模型同步、CPA 测试、页面批量操作、导出、账号状态维护、重复账号、上游计费探测、OpenAI OAuth 主动批量额度查询和 Ollama Cloud 配置动作。

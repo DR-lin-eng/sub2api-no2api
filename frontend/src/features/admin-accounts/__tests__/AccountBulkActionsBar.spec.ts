@@ -8,6 +8,16 @@ vi.mock('vue-i18n', () => ({
 }))
 
 describe('AccountBulkActionsBar', () => {
+  it('syncs selected accounts and blocks duplicate requests while running', async () => {
+    const wrapper = mount(AccountBulkActionsBar, { props: { selectedIds: [1, 2] } })
+    const button = wrapper.findAll('button').find(item => item.text() === 'admin.accounts.bulkActions.syncUpstreamModels')!
+    await button.trigger('click')
+    expect(wrapper.emitted('sync-upstream-models')).toHaveLength(1)
+    await wrapper.setProps({ syncingUpstreamModels: true })
+    expect(button.attributes('disabled')).toBeDefined()
+    expect(button.text()).toBe('admin.accounts.bulkActions.modelSyncRunning')
+  })
+
   it('allows selecting every filtered result before selecting a page', async () => {
     const wrapper = mount(AccountBulkActionsBar, {
       props: {

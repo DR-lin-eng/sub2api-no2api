@@ -1,6 +1,7 @@
 <template>
   <AppLayout>
     <AccountsTableView :context="accountTableViewContext" />
+    <UpstreamModelSyncResultsDialog :show="showModelSyncResults" :running="syncingUpstreamModels" :results="modelSyncResults" :completed="modelSyncCompleted" :total="modelSyncTotal" @close="showModelSyncResults = false" />
     <CreateAccountModal :show="showCreate" :proxies="proxies" :groups="groups" @close="showCreate = false" @created="reload" />
     <EditAccountModal :show="showEdit" :account="edAcc" :proxies="proxies" :groups="groups" @close="showEdit = false" @updated="handleAccountUpdated" />
     <ReAuthAccountModal :show="showReAuth" :account="reAuthAcc" @close="closeReAuthModal" @reauthorized="handleAccountUpdated" />
@@ -63,6 +64,8 @@ import type DataTable from '@/common/widgets/data/DataTable.vue'
 import ConfirmDialog from '@/common/widgets/feedback/ConfirmDialog.vue'
 import { CreateAccountModal, EditAccountModal, BulkEditAccountModal, SyncFromCrsModal, TempUnschedStatusModal } from '@/features/admin-accounts/presentation/widgets'
 import AccountsTableView from '@/features/admin-accounts/presentation/widgets/AccountsTableView.vue'
+import UpstreamModelSyncResultsDialog from '@/features/admin-accounts/presentation/widgets/UpstreamModelSyncResultsDialog.vue'
+import { useAccountUpstreamModelSync } from '@/features/admin-accounts/presentation/composables/useAccountUpstreamModelSync'
 import AccountActionMenu from '@/features/admin-accounts/presentation/widgets/AccountActionMenu.vue'
 import ImportDataModal from '@/features/admin-accounts/presentation/widgets/ImportDataDialog.vue'
 import ReAuthAccountModal from '@/features/admin-accounts/presentation/widgets/AdminReAuthAccountDialog.vue'
@@ -811,6 +814,12 @@ const handleBulkResetStatus = async () => {
     appStore.showError(String(error))
   }
 }
+const { syncingUpstreamModels, showModelSyncResults, modelSyncResults, modelSyncCompleted, modelSyncTotal, syncAccountModels } = useAccountUpstreamModelSync(results => {
+  setSelectedIds(results.filter(result => result.status !== 'success').map(result => result.account_id))
+  reload()
+})
+const handleBulkSyncUpstreamModels = () => syncAccountModels([...selIds.value])
+
 const handleBulkRefreshToken = async () => {
   if (!confirm(t('common.confirm'))) return
   const accountIds = [...selIds.value]
@@ -1344,6 +1353,8 @@ const accountTableViewContext = {
   handleBulkDelete,
   handleBulkResetStatus,
   handleBulkRefreshToken,
+  syncingUpstreamModels,
+  handleBulkSyncUpstreamModels,
   handleBulkQueryUpstreamQuota,
   handleBulkQueryOpenAIQuota,
   handleBulkProbeUpstreamBilling,

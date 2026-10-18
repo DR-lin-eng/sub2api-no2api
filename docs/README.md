@@ -28,6 +28,7 @@
 | --- | --- |
 | [权限组与客服账号教程](PERMISSION_GROUPS.md) | 启用客服、自定义权限组、分配员工账号、验收和回退 |
 | [Admin API](ADMIN_API.md) | Admin API Key、权限范围和管理接口调用方式 |
+| [批量同步账号上游模型](ACCOUNT_UPSTREAM_MODELS_SYNC.md) | OAuth/API Key 账号的一键模型同步、保留规则、逐账号结果与验证 |
 | [OAuth2 对外授权服务](OAUTH2_PROVIDER.md) | 管理员控制的客户端、PKCE 授权码、用户信息与撤销接口 |
 | [降智账号 API](ACCOUNT_QUALITY_DEGRADED_ACCOUNTS_API.md) | 读取降智 OAuth 账号邮箱、account ID 及 401 认证错误 |
 | [Cloudflare 接口分类与边缘规则建议](CLOUDFLARE_EDGE_RULES.md) | 按浏览器页、自动化 API、纯 API 和强人机验证入口分类，方便编写 CF/WAF 规则 |
