@@ -25,6 +25,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		body = stripDistillationCacheFields(body)
 	}
 	integrityOriginalBody := bytes.Clone(body)
+	body = s.normalizeOpenAIRequestTimezone(account, body, "http")
 	ctx = s.WithOpenAIStreamRuntimeSettings(ctx)
 	if c != nil && c.Request != nil {
 		settings := s.openAIStreamRuntimeSettings(ctx)

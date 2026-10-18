@@ -304,6 +304,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		if s.IsDistillationGroupRequest(c, account) {
 			normalized = stripDistillationCacheFields(normalized)
 		}
+		normalized = s.normalizeOpenAIRequestTimezone(account, normalized, "ws")
 		if account.Platform == PlatformOpenAI {
 			if sanitized, changed, sanitizeErr := sanitizeOpenAIResponsesAccessPrograms(normalized); sanitizeErr != nil {
 				return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", sanitizeErr)
