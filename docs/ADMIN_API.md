@@ -181,6 +181,13 @@ curl -sS "${BASE}/api/v1/admin/ops/concurrency" \
   -H "x-api-key: ${ADMIN_API_KEY}"
 ```
 
+OAuth 账号套餐到期分布使用同一权限，按 `subscription_expires_at` 返回已到期、1/2/4/5/10/15/20/25 天及更长期限梯度；可选 `platform`、`group_id` 筛选：
+
+```bash
+curl -sS "${BASE}/api/v1/admin/ops/oauth-plan-expiry-distribution?platform=openai" \
+  -H "x-api-key: ${ADMIN_API_KEY}"
+```
+
 ## 按 OAuth 健康指标关闭调度
 
 仓库附带的 `tools/disable_oauth_accounts.py` 会扫描 `type=oauth` 账号，并按最近一小时的账号统计判断：

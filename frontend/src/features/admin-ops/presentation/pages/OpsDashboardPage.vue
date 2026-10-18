@@ -130,6 +130,15 @@
         />
       </div>
 
+      <!-- OAuth plan expiry distribution -->
+      <div v-if="opsEnabled && showOAuthPlanExpiryDistribution && !(loading && !hasLoadedOnce)" class="grid grid-cols-1 gap-6">
+        <OpsOAuthPlanExpiryDistributionCard
+          :platform-filter="platform"
+          :group-id-filter="groupId"
+          :refresh-token="dashboardRefreshToken"
+        />
+      </div>
+
       <!-- Alert Events -->
       <OpsAlertEventsCard v-if="opsEnabled && showAlertEvents && !(loading && !hasLoadedOnce)" />
 
@@ -227,6 +236,7 @@ import OpsSwitchRateTrendChart from '../widgets/OpsSwitchRateTrendChart.vue'
 import OpsAlertEventsCard from '../widgets/OpsAlertEventsCard.vue'
 import OpsOpenAITokenStatsCard from '../widgets/OpsOpenAITokenStatsCard.vue'
 import OpsUserUsageStatsCard from '../widgets/OpsUserUsageStatsCard.vue'
+import OpsOAuthPlanExpiryDistributionCard from '../widgets/OpsOAuthPlanExpiryDistributionCard.vue'
 import OpsSystemLogTable from '../widgets/OpsSystemLogTable.vue'
 import OpsRequestDetailsDialog from '../widgets/OpsRequestDetailsDialog.vue'
 import type { OpsRequestDetailsPreset } from '../opsTypeSignals'
@@ -448,6 +458,7 @@ applyRouteQueryToState()
 const showAlertEvents = ref(true)
 const showOpenAITokenStats = ref(false)
 const showUserUsageStats = ref(false)
+const showOAuthPlanExpiryDistribution = ref(true)
 const showSystemLogs = ref(true)
 const showConcurrency = ref(true)
 const showSwitchRateTrend = ref(true)
@@ -513,6 +524,7 @@ function applyDashboardAdvancedSettings(settings: OpsAdvancedSettings) {
   showAlertEvents.value = settings.display_alert_events
   showOpenAITokenStats.value = settings.display_openai_token_stats
   showUserUsageStats.value = settings.display_user_usage_stats
+  showOAuthPlanExpiryDistribution.value = settings.display_oauth_plan_expiry_distribution ?? true
   showSystemLogs.value = settings.display_system_logs
   autoRefreshEnabled.value = settings.auto_refresh_enabled
   autoRefreshIntervalMs.value = settings.auto_refresh_interval_seconds * 1000
@@ -538,6 +550,7 @@ function resetDashboardAdvancedSettings() {
   showAlertEvents.value = true
   showOpenAITokenStats.value = false
   showUserUsageStats.value = false
+  showOAuthPlanExpiryDistribution.value = true
   showSystemLogs.value = true
   autoRefreshEnabled.value = false
   autoRefreshIntervalMs.value = 30000

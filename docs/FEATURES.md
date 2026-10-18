@@ -57,7 +57,7 @@
 | 卡密管理 | `/admin/redeem` | 生成、导出、状态维护和批量编辑：[admin-redeem](../frontend/src/features/admin-redeem/README.md) |
 | 优惠码 | `/admin/promo-codes` | 注册优惠码、使用上限、有效期和使用记录：[admin-promo](../frontend/src/features/admin-promo/README.md) |
 | 全站用量 | `/admin/usage` | 管理员请求明细、成本、筛选、导出和清理任务：[admin-usage](../frontend/src/features/admin-usage/README.md) |
-| Ops | `/admin/ops` | 并发、流量、错误、日志、告警和结算队列：[admin-ops](../frontend/src/features/admin-ops/README.md) |
+| Ops | `/admin/ops` | 并发、流量、错误、日志、告警、结算队列和 OAuth 套餐到期分布：[admin-ops](../frontend/src/features/admin-ops/README.md) |
 | 风控与入口拒绝 | `/admin/risk-control`、`/admin/security-audit/ingress` | 内容审核、入口拒绝记录与 Cloudflare 联动：[admin-risk-control](../frontend/src/features/admin-risk-control/README.md) |
 | Prompt 审计 | `/admin/prompt-audit` | 审计端点池、策略、运行状态和事件管理：[prompt-audit](../frontend/src/features/prompt-audit/README.md) |
 | 操作审计 | `/admin/audit-logs` | 管理操作记录、详情和现场 TOTP 清理：[admin-audit](../frontend/src/features/admin-audit/README.md) |

@@ -1,0 +1,22 @@
+#!/bin/sh
+set -eu
+
+if [ "$#" -ne 2 ]; then
+  echo "usage: $0 BASELINE_FILE TARGET_COPY" >&2
+  exit 64
+fi
+
+baseline=$1
+target=$2
+cp "$baseline" "$target"
+expected=$(shasum -a 256 "$baseline" | awk '{print $1}')
+actual=$(shasum -a 256 "$target" | awk '{print $1}')
+test "$actual" = "$expected"
+
+if grep -Fq 'oauth-plan-expiry-distribution' "$target"; then
+  echo "rollback verification failed: OAuth expiry route remains" >&2
+  exit 1
+fi
+
+printf 'restored_route=absent\n'
+printf 'restored_sha256=%s\n' "$actual"

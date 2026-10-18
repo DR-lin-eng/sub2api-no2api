@@ -241,6 +241,15 @@ func (s *OpsService) RefreshRuntimeSettings(ctx context.Context) error {
 	if raw, ok := values[SettingKeyOpsAdvancedSettings]; ok {
 		if err := json.Unmarshal([]byte(raw), advanced); err != nil {
 			advanced = defaultOpsAdvancedSettingsForConfig(s.cfg)
+		} else {
+			// Keep newly added dashboard cards enabled for installations whose
+			// persisted settings predate the field.
+			var persistedFields map[string]json.RawMessage
+			if err := json.Unmarshal([]byte(raw), &persistedFields); err == nil {
+				if _, present := persistedFields["display_oauth_plan_expiry_distribution"]; !present {
+					advanced.DisplayOAuthPlanExpiryDistribution = advancedDefaults.DisplayOAuthPlanExpiryDistribution
+				}
+			}
 		}
 	}
 	if advanced.DataRetention.UserRequestLogRetentionDays < 1 || advanced.DataRetention.UserRequestLogRetentionDays > 3650 {

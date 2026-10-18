@@ -77,6 +77,9 @@ async function loadAllSettings() {
     if (advancedSettings.value && typeof advancedSettings.value.display_network_bandwidth !== 'boolean') {
       advancedSettings.value.display_network_bandwidth = true
     }
+    if (advancedSettings.value && typeof advancedSettings.value.display_oauth_plan_expiry_distribution !== 'boolean') {
+      advancedSettings.value.display_oauth_plan_expiry_distribution = true
+    }
     if (advancedSettings.value && typeof advancedSettings.value.record_business_limited_429 !== 'boolean') {
       advancedSettings.value.record_business_limited_429 = true
     }
@@ -793,6 +796,16 @@ async function saveAllSettings() {
                 </p>
               </div>
               <Toggle v-model="advancedSettings.display_user_usage_stats" />
+            </div>
+
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('admin.ops.settings.displayOAuthPlanExpiryDistribution') }}</label>
+                <p class="mt-1 text-xs text-gray-500">
+                  {{ t('admin.ops.settings.displayOAuthPlanExpiryDistributionHint') }}
+                </p>
+              </div>
+              <Toggle v-model="advancedSettings.display_oauth_plan_expiry_distribution" />
             </div>
 
             <div class="flex items-center justify-between">
