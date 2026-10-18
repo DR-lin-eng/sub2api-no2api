@@ -116,9 +116,10 @@ func TestResponsesCustomInputHTTPBeforeUpstreamDone(t *testing.T) {
 			account := passthroughArgsFallbackAccount()
 			account.Extra = map[string]any{"openai_passthrough": true,
 				openai_compat.ExtraKeyResponsesMode: string(openai_compat.ResponsesSupportModeForceResponses)}
-			if mode == "grok" {
+			switch mode {
+			case "grok":
 				account.Platform = PlatformGrok
-			} else if mode == "chat_fallback" {
+			case "chat_fallback":
 				account.Extra[openai_compat.ExtraKeyResponsesMode] = string(openai_compat.ResponsesSupportModeForceChatCompletions)
 			}
 			svc := &OpenAIGatewayService{cfg: passthroughArgsTestConfig(), httpUpstream: &customStreamingHTTPUpstream{endpoint: endpoint, client: upstream.Client()}}
