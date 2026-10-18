@@ -41,7 +41,7 @@ Tests and compile checks on the latest-main publication clone:
 - Docker repository/handler compile: `go test -p 1 -gcflags='github.com/Wei-Shaw/sub2api/internal/application/service=-l' ./internal/infrastructure/repository ./internal/transport/http/handler/admin -run '^$' -count=1`; literal output `ok github.com/Wei-Shaw/sub2api/internal/infrastructure/repository 0.015s [no tests to run]` and `ok github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin 0.028s [no tests to run]`; exit `0`.
 - Frontend typecheck: direct `vue-tsc --noEmit`; exit `0`.
 - Frontend lint: direct `eslint .`; exit `0`.
-- Frontend focused tests: direct Vitest run of `adminOpsDashboardQueries.spec.ts` and `OpsOAuthPlanExpiryDistributionCard.spec.ts`; literal result `2 files passed, 5 tests passed`; exit `0`.
+- Frontend focused tests: direct Vitest run of `dynamicLocaleMapping.spec.ts`, `adminOpsDashboardQueries.spec.ts`, and `OpsOAuthPlanExpiryDistributionCard.spec.ts`; literal result `3 files passed, 6 tests passed`; exit `0`.
 - `make check-docs` and `git diff --check`: exit `0`.
 
 ROLLBACK behavior:

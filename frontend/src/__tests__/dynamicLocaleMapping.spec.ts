@@ -70,6 +70,7 @@ const auditedDynamicCalls: Record<string, number> = {
   'features/admin-groups/presentation/widgets/GroupModelPricingEntry.vue :: `admin.channels.form.${field.label}`': 1,
   'features/admin-groups/presentation/widgets/ReasoningEffortPolicyFields.vue :: `admin.groups.form.${code}`': 1,
   'features/admin-ops/presentation/widgets/OpsAlertRulesCard.vue :: `admin.ops.alertRules.metricGroups.${group}`': 1,
+  'features/admin-ops/presentation/widgets/OpsOAuthPlanExpiryDistributionCard.vue :: `admin.ops.oauthPlanExpiry.buckets.${key}`': 1,
   "features/admin-orders/presentation/pages/AdminOrdersPage.vue :: 'payment.methods.' + selectedOrder.payment_type": 1,
   "features/admin-orders/presentation/pages/AdminPaymentDashboardPage.vue :: 'payment.methods.' + method.type": 1,
   "features/admin-orders/presentation/widgets/AdminOrderDetail.vue :: 'payment.methods.' + order.payment_type": 1,
