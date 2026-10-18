@@ -250,6 +250,10 @@ gateway:
   # Timeout for waiting upstream response headers (seconds)
   # 等待上游响应头超时时间（秒）
   response_header_timeout: 600
+  # Gateway-wide IANA timezone projected into OpenAI Responses environment
+  # context and web_search user_location fields.
+  # 网关统一替换 OpenAI 请求上下文中的时区；不按账号单独配置。
+  openai_request_timezone: "Asia/Singapore"
   # OpenAI Responses first semantic output timeout (seconds, 0=disabled)
   # Covers native HTTP, HTTP passthrough, and WSv2 upstream attempts, including response-header wait.
   # A timed-out request may already have incurred upstream usage; account failover can therefore duplicate upstream billing.

@@ -20,6 +20,10 @@ const (
 	WorkerModeDisabled = "false"
 
 	DeploymentUpdateDriverBinary = "binary"
+
+	// DefaultOpenAIRequestTimezone is the gateway-wide timezone projected into
+	// OpenAI Responses request context when no override is configured.
+	DefaultOpenAIRequestTimezone = "Asia/Singapore"
 )
 
 // 使用量记录队列溢出策略
