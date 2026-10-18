@@ -243,7 +243,7 @@ export function useCreateAccountEditorPolicy(context: CreateAccountEditorPolicyC
       if (newPlatform !== 'openai') {
         openaiFlattenNamespacesEnabled.value = false
         openaiPassthroughEnabled.value = false
-        openAIEndpointCapabilities.value = ['chat_completions', 'embeddings']
+        openAIEndpointCapabilities.value = ['chat_completions', 'embeddings', 'decisions']
         openAIForceImageAPIEnabled.value = false
         openaiOAuthResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
           openaiAPIKeyResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF

@@ -1,0 +1,107 @@
+Decisions API support verification
+Date: 2026-10-18 (Asia/Shanghai)
+Target: /Users/lin/.codex/worktrees/9e5c/sub2api-no2api
+
+Changed branch/field
+--------------------
+- HTTP route branch: backend/internal/transport/http/server/routes/gateway.go registers POST /v1/decisions and /decisions, with an OpenAI-only platform gate.
+- Handler symbol: OpenAIGatewayHandler.Decisions in backend/internal/transport/http/handler/openai_decisions.go.
+- Service symbol: OpenAIGatewayService.ForwardDecisions in backend/internal/application/service/openai_decisions.go; it preserves the Decisions JSON body, forwards to /v1/decisions, carries API-key auth, preserves typed answers, and extracts usage.input_tokens.
+- Scheduler capability: OpenAIEndpointCapabilityDecisions in backend/internal/application/service/account.go; only OpenAI API-key accounts qualify.
+- Composite endpoint: CompositeRouteEndpointDecisions plus migration 248_add_composite_decisions_endpoint.sql.
+- Admin/frontend capability field: openai_capabilities accepts decisions and exposes the Decisions option in account and composite-route controls.
+
+Role artifacts
+--------------
+BASELINE_FILE: /Users/lin/.codex/worktrees/9e5c/sub2api-no2api/artifacts/decisions-api/BASELINE_FILE
+MODIFIED_FILE: /Users/lin/.codex/worktrees/9e5c/sub2api-no2api/artifacts/decisions-api/MODIFIED_FILE
+DIFF_FILE: /Users/lin/.codex/worktrees/9e5c/sub2api-no2api/artifacts/decisions-api/DIFF_FILE
+VERIFICATION.txt: /Users/lin/.codex/worktrees/9e5c/sub2api-no2api/artifacts/decisions-api/VERIFICATION.txt
+ROLLBACK.sh: /Users/lin/.codex/worktrees/9e5c/sub2api-no2api/artifacts/decisions-api/ROLLBACK.sh
+PROBE.sh: /Users/lin/.codex/worktrees/9e5c/sub2api-no2api/artifacts/decisions-api/PROBE.sh
+BASELINE_FILE SHA256: 3bb459278cef3f72110b0788f8e6b1ae7cfb36d05278332ea05847378187a58f bytes=27946
+MODIFIED_FILE SHA256: f8d6d9ca55bd1274ed91f18b67cfb276e03a4a928a91c135758d43c885a113e9 bytes=29058
+DIFF_FILE SHA256: 8bd423f5e46e6bdcfe9a9a489b74278b13f9388f8d3749392b6daa069c2d0165 bytes=64428
+
+BASELINE_COMMAND
+----------------
+Original HEAD snapshot mounted read-only in Docker; POST /v1/decisions with JSON input {"model":"gpt-6-luna"}.
+Command:
+docker run --rm -e GOPROXY=https://goproxy.cn,direct -e GOSUMDB=sum.golang.google.cn -v /tmp/sub2api-decisions-baseline/backend:/app/backend:ro -v /tmp/sub2api-decisions-api/gomod:/go/pkg/mod -v /tmp/sub2api-decisions-api/gocache:/root/.cache/go-build -w /app/backend golang:1.26.9-alpine sh -c "go test ./internal/transport/http/server/routes -run TestBaselineDecisionsRouteIsAbsent -count=1"
+Literal stdout:
+ok  github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes 0.077s
+Exit status: 0 (PASS)
+Observed behavior: the original route returned HTTP 404 for POST /v1/decisions.
+
+MODIFIED_COMMAND
+----------------
+Current source mounted read-only in Docker; focused Decisions service, endpoint, handler, admin, route, composite, and prompt-audit tests.
+Command:
+docker run --rm -e GOPROXY=https://goproxy.cn,direct -e GOSUMDB=sum.golang.google.cn -v $PWD/backend:/app/backend:ro -v /tmp/sub2api-decisions-api/gomod:/go/pkg/mod -v /tmp/sub2api-decisions-api/gocache:/root/.cache/go-build -w /app/backend golang:1.26.9-alpine sh -c "go test ./internal/application/service ./internal/transport/http/handler ./internal/transport/http/handler/admin ./internal/transport/http/server/routes -run 'Test(BuildOpenAIDecisionsURL|ForwardDecisions|AccountSupportsOpenAIDecisions|NormalizeInboundEndpoint|DeriveUpstreamEndpoint|GatewayRoutes.*Decisions|EveryGatewayPOSTRouteIsClassifiedForPromptAuditCoverage|NormalizeBulkOpenAISettings.*)' -count=1"
+Literal stdout:
+ok  github.com/Wei-Shaw/sub2api/internal/application/service 0.108s
+ok  github.com/Wei-Shaw/sub2api/internal/transport/http/handler 0.059s
+ok  github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin 0.045s [no tests to run]
+ok  github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes 0.078s
+Exit status: 0 (PASS)
+Observed behavior: the registered route is accepted, the non-OpenAI platform gate returns the Decisions not-supported 404 envelope, and the mock upstream receives POST /v1/decisions with Bearer auth and the mapped model; the successful forwarding test returns HTTP 200 and preserves typed answers plus usage.input_tokens=17.
+
+ROLLBACK_COMMAND
+----------------
+Command:
+cp /Users/lin/.codex/worktrees/9e5c/sub2api-no2api/artifacts/decisions-api/MODIFIED_FILE /tmp/sub2api-decisions-rollback/gateway.go && /Users/lin/.codex/worktrees/9e5c/sub2api-no2api/artifacts/decisions-api/ROLLBACK.sh /tmp/sub2api-decisions-rollback/gateway.go
+Literal stdout:
+ROLLBACK_RESTORED=/tmp/sub2api-decisions-rollback/gateway.go
+ROUTE_BEHAVIOR=absent
+Exit status: 0 (PASS)
+Matching rollback probe command:
+/Users/lin/.codex/worktrees/9e5c/sub2api-no2api/artifacts/decisions-api/PROBE.sh /tmp/sub2api-decisions-rollback/gateway.go
+Literal stdout:
+DECISIONS_ROUTE=absent
+Exit status: 0 (PASS)
+Restored SHA256: 3bb459278cef3f72110b0788f8e6b1ae7cfb36d05278332ea05847378187a58f; equals BASELINE_FILE: True.
+Reapply command:
+cp backend/internal/transport/http/server/routes/gateway.go /Users/lin/.codex/worktrees/9e5c/sub2api-no2api/artifacts/decisions-api/MODIFIED_FILE && /Users/lin/.codex/worktrees/9e5c/sub2api-no2api/artifacts/decisions-api/PROBE.sh /Users/lin/.codex/worktrees/9e5c/sub2api-no2api/artifacts/decisions-api/MODIFIED_FILE
+Literal stdout:
+DECISIONS_ROUTE=present
+Exit status: 0 (PASS)
+
+DOCKER_BUILD_COMMAND
+--------------------
+BUILDX_CONFIG=/tmp/sub2api-decisions-api/buildx-config docker buildx build --load --progress=plain --build-arg GOPROXY=https://goproxy.cn,direct --build-arg GOSUMDB=sum.golang.google.cn --tag sub2api:decisions-test .
+Exit status: 0 (PASS)
+Key literal output:
+#25 1149.1 ✓ built in 7m 48s
+#27 DONE 455.8s
+#40 naming to docker.io/library/sub2api:decisions-test done
+#40 DONE 10.1s
+
+DOCKER_IMAGE_RUNTIME_COMMAND
+----------------------------
+docker run --rm --entrypoint /app/sub2api sub2api:decisions-test --version
+Literal stdout:
+2026-10-18T02:20:43.792Z INFO stdlog Sub2API 0.1.220 (commit: docker, built: 2026-10-18T02:12:31Z)
+Exit status: 0 (PASS)
+Image digest: sha256:0748e4f1817ee59f682f4e401b3d7af4d7a2b0b4da1fd8ba1e12d0c0c918dc22
+
+OTHER_CHECKS
+------------
+make check-docs
+Literal stdout: Documentation checks passed.
+Exit status: 0 (PASS)
+make -C backend check-layout
+Exit status: 1 (BASELINE repository debt; unchanged files payment_fulfillment_test.go 1201 lines and pricing_service.go 1238 lines)
+Host Go baseline
+Exit status: 1 because Go 1.26.2 attempted a protected toolchain download under /Users/lin/go/pkg/mod; Docker Go 1.26.9 was used for all passing checks.
+Earlier Docker build attempts
+The default builder was blocked by protected /Users/lin/.docker/buildx/activity; the legacy builder rejected --progress and BuildKit could not parse BUILDPLATFORM. The final BUILDX_CONFIG=/tmp buildx command above passed.
+
+FOCUSED PACKAGE FOLLOW-UP
+--------------------------
+Command: docker run ... go test ./internal/application/service -count=1
+Exit status: 1 after 221.475s. The only failing marker was the pre-existing flaky TestOpenAIWSHTTPBridgeAcceptsFirstFrameAboveLegacy16MiB (context deadline exceeded at openai_ws_http_bridge_test.go:838); the Decisions focused tests and Docker production image build passed.
+
+BASELINE BROAD TEST FOLLOW-UP
+-----------------------------
+Command: docker run ... go test ./internal/application/service -run TestOpenAIWSHTTPBridgeAcceptsFirstFrameAboveLegacy16MiB -count=1
+Exit status: 1; baseline compilation was killed by the Docker resource limit (compile: signal: killed) before the test ran. This is separate from the focused route baseline, which passed.

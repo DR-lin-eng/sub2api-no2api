@@ -6,7 +6,9 @@
 
 ## API Key 模型请求
 
-典型入口包括 TypeSafe 原生非流式 `/v1/systemone`、`/v1/messages`、`/v1/responses`、`/v1/chat/completions`、`/v1beta/...` 以及无 `/v1` 的兼容别名。所有绑定在 `backend/internal/transport/http/server/routes/gateway.go`。
+典型入口包括 TypeSafe 原生非流式 `/v1/systemone`、`/v1/messages`、`/v1/responses`、`/v1/decisions`、`/v1/chat/completions`、`/v1beta/...` 以及无 `/v1` 的兼容别名。所有绑定在 `backend/internal/transport/http/server/routes/gateway.go`。
+
+OpenAI Decisions 使用独立的 JSON 转发链路：`POST /v1/decisions`（并提供 `/decisions` 别名）只从 OpenAI API-key 账号中调度，原样保留 `input`、`questions` 和 typed `answers`。上游地址固定按账号 `base_url` 拼接 `/v1/decisions`；上游返回的 `usage.input_tokens`（若存在）进入统一 OpenAI 用量结算，Responses 转换器不会改写该请求。
 
 ```mermaid
 sequenceDiagram

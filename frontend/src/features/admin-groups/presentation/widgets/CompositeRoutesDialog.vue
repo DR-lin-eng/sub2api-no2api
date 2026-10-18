@@ -382,6 +382,7 @@ const endpointOptions = computed(() => [
   { value: 'responses', label: t('admin.groups.compositeRoutes.endpoints.responses') },
   { value: 'chat_completions', label: t('admin.groups.compositeRoutes.endpoints.chatCompletions') },
   { value: 'embeddings', label: t('admin.groups.compositeRoutes.endpoints.embeddings') },
+  { value: 'decisions', label: t('admin.groups.compositeRoutes.endpoints.decisions') },
   { value: 'images', label: t('admin.groups.compositeRoutes.endpoints.images') },
   { value: 'gemini', label: t('admin.groups.compositeRoutes.endpoints.gemini') },
 ])

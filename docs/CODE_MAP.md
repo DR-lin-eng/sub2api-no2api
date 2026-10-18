@@ -17,7 +17,7 @@
 | 修改前端登录/会话 | `frontend/src/features/auth/data/datasources/authSessionActions.ts`, `authOAuthActions.ts` | `presentation/stores/authStore.ts`, `core/networks/sessionRefresh.ts`, `core/routes/index.ts` | auth/profile + sessionRefresh + route guard 测试 |
 | 修改 Claude/Anthropic 网关 | `routes/gateway.go`, `handler/gateway_handler_messages.go` | `application/service/gateway*` | gateway handler + service 测试 |
 | 修改 Codex Remote Control client 证明 | `modules/codexremotecontrol/` | `shared/remotecontrol/device_key.go`, `platform/devicekey/`, `service/openai_codex_remote_control_client.go` | JS golden、HTTP/WS challenge、本地 native 可用性与回退测试 |
-| 修改 OpenAI/Codex/Responses | `handler/openai_gateway_responses.go` | `application/service/openai*` | responses/chat/WS 的流式与非流式测试 |
+| 修改 OpenAI/Codex/Responses/Decisions | `handler/openai_gateway_responses.go`, `handler/openai_decisions.go` | `application/service/openai*` | responses/chat/WS/Decisions 的流式与非流式测试 |
 | 修改 Gemini/Antigravity/Grok | `routes/gateway.go` | `application/service/gemini*`, `antigravity*`, `grok*` | 平台专项 service/handler 测试 |
 | 修改账号调度 | `application/service/gateway_scheduling.go`, `openai_account_scheduler.go` | `infrastructure/repository/scheduler*`, `concurrency*` | scheduler、并发、失败切换测试和 benchmark |
 | 修改代理自动分配/测活迁移 | `application/service/proxy_auto_assignment.go`, `proxy_health_service.go` | `infrastructure/repository/proxy_auto_assignment_repo.go`, `features/admin-proxies/` | service/handler + repository integration + admin-proxies Vitest + Docker |

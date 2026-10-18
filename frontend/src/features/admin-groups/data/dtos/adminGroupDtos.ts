@@ -39,6 +39,7 @@ export type CompositeRouteEndpoint =
   | 'responses'
   | 'chat_completions'
   | 'embeddings'
+  | 'decisions'
   | 'images'
   | 'gemini'
 
