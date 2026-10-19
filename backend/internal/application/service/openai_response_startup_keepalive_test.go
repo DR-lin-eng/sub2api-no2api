@@ -80,7 +80,7 @@ func TestOpenAIResponsesPreparationDownstreamHeaderTimeout(t *testing.T) {
 				t.Logf("CLIENT_ERROR passthrough=%t: %v", passthrough, err)
 			}
 			require.NoError(t, err, "the gateway must flush headers while preparing credentials")
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			wire, err := io.ReadAll(resp.Body)
 			require.NoError(t, err)
 			require.Equal(t, http.StatusOK, resp.StatusCode)
