@@ -644,7 +644,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		imageInputSize = imageCfg.InputSize
 	}
 
-	// Get access token
+	defer s.startOpenAIResponsePreparationKeepalive(ctx, c, account, reqStream)()
 	token, _, err := s.GetAccessToken(ctx, account)
 	if err != nil {
 		return nil, err
