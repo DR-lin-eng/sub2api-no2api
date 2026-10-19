@@ -227,6 +227,12 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	if !forceImageTool && !h.validateFunctionCallOutputRequest(c, body, reqLog) {
 		return
 	}
+	// Slow admission and account selection precede Forward's HTTP/header loop.
+	// Start the same serialized, replay-safe heartbeat before those waits.
+	if llmStream && requestPlatform == service.PlatformOpenAI {
+		stopPreparationKeepalive := service.StartOpenAIResponsesSSEKeepalive(c, h.openAICompactKeepaliveInterval(c))
+		defer stopPreparationKeepalive()
+	}
 
 	// 绑定错误透传服务，允许 service 层在非 failover 错误场景复用规则。
 	if h.errorPassthroughService != nil {

@@ -328,7 +328,8 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 		}
 	}
 
-	// Get access token
+	// Protect the credential lookup as well as the later upstream header wait.
+	defer s.startOpenAIResponsePreparationKeepalive(ctx, c, account, reqStream)()
 	token, _, err := s.GetAccessToken(ctx, account)
 	if err != nil {
 		return nil, err
