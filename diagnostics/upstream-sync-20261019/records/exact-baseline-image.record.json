@@ -1,0 +1,13 @@
+{
+  "command": [
+    "docker",
+    "pull",
+    "ghcr.io/dr-lin-eng/sub2api-no2api:sha-b75c196"
+  ],
+  "cwd": "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019",
+  "started_at": "2026-10-19T16:11:46.414047+00:00",
+  "elapsed_seconds": 7.832,
+  "exit_status": 0,
+  "stdout": "sha-b75c196: Pulling from dr-lin-eng/sub2api-no2api\nDigest: sha256:26e67558d208842df656c7aeb3df3f5b23baec94b9a2eaa1bd55e8b00d1e06b4\nStatus: Downloaded newer image for ghcr.io/dr-lin-eng/sub2api-no2api:sha-b75c196\nghcr.io/dr-lin-eng/sub2api-no2api:sha-b75c196\n",
+  "stderr": ""
+}

@@ -1,0 +1,31 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "-e",
+    "GOMAXPROCS=2",
+    "-e",
+    "GOMEMLIMIT=3GiB",
+    "-e",
+    "GOFLAGS=-p=1",
+    "-v",
+    "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/repo/backend:/app",
+    "-v",
+    "sub2api-upstream-go-mod-20261016:/go/pkg/mod",
+    "-v",
+    "sub2api-upstream-go-build-20261016:/root/.cache/go-build",
+    "-w",
+    "/app",
+    "golang:1.26.9-alpine",
+    "sh",
+    "-c",
+    "export PATH=/usr/local/go/bin:$PATH; go test -tags unit -run ^$ -bench ^BenchmarkUpstreamSyncGeminiStream$ -benchtime=500ms -benchmem -count=3 ./internal/application/service"
+  ],
+  "cwd": "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/repo",
+  "started_at": "2026-10-19T16:10:19.457659+00:00",
+  "elapsed_seconds": 47.295,
+  "exit_status": 0,
+  "stdout": "2026/10/19 16:10:58 Timezone initialized: UTC (UTC offset: +00:00)\ngoos: linux\ngoarch: arm64\npkg: github.com/Wei-Shaw/sub2api/internal/application/service\nBenchmarkUpstreamSyncGeminiStream/native-2         \t    4615\t    123250 ns/op\t  68.42 MB/s\t   49787 B/op\t     559 allocs/op\nBenchmarkUpstreamSyncGeminiStream/native-2         \t    4760\t    123629 ns/op\t  68.21 MB/s\t   49787 B/op\t     559 allocs/op\nBenchmarkUpstreamSyncGeminiStream/native-2         \t    4764\t    123754 ns/op\t  68.14 MB/s\t   49787 B/op\t     559 allocs/op\nBenchmarkUpstreamSyncGeminiStream/messages-2       \t    2839\t    209999 ns/op\t  40.16 MB/s\t  191670 B/op\t    2887 allocs/op\nBenchmarkUpstreamSyncGeminiStream/messages-2       \t    2853\t    208857 ns/op\t  40.38 MB/s\t  191669 B/op\t    2887 allocs/op\nBenchmarkUpstreamSyncGeminiStream/messages-2       \t    2853\t    210887 ns/op\t  39.99 MB/s\t  191671 B/op\t    2887 allocs/op\nBenchmarkUpstreamSyncGeminiStream/chat-2           \t    3742\t    155659 ns/op\t  54.18 MB/s\t  189303 B/op\t    2745 allocs/op\nBenchmarkUpstreamSyncGeminiStream/chat-2           \t    3817\t    155369 ns/op\t  54.28 MB/s\t  189296 B/op\t    2745 allocs/op\nBenchmarkUpstreamSyncGeminiStream/chat-2           \t    3820\t    163196 ns/op\t  51.67 MB/s\t  189294 B/op\t    2745 allocs/op\nBenchmarkUpstreamSyncGeminiStream/native-8MiB-image-2         \t      12\t  49773139 ns/op\t 168.54 MB/s\t50542073 B/op\t    2110 allocs/op\nBenchmarkUpstreamSyncGeminiStream/native-8MiB-image-2         \t      10\t  50476279 ns/op\t 166.19 MB/s\t50542072 B/op\t    2110 allocs/op\nBenchmarkUpstreamSyncGeminiStream/native-8MiB-image-2         \t      12\t  49684010 ns/op\t 168.84 MB/s\t50542072 B/op\t    2110 allocs/op\nPASS\nok  \tgithub.com/Wei-Shaw/sub2api/internal/application/service\t7.068s\n",
+  "stderr": ""
+}

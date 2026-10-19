@@ -80,3 +80,5 @@ GPT-6.1 Sol 的订阅模型长上下文豁免由 `openai_subscription_long_conte
 `apicompat_config.go` 将可配置输出下限带入现有协议转换；`gateway_anthropic_credentials.go` 在原生 Anthropic 构造器和 token 计数入口检查凭据协议。`gemini_vertex_token_error.go` 保存固定 token 端点的明确 SA 失效分类，错误策略结果只在同一次响应内复用。`billing_gemini_argon.go` 与 `pricing_antigravity_aliases.go` 分别保存 Argon 回退价和模型别名规范化。升级、端点发现与未关闭子项见 [2026-10-15 同步审查](../../../../docs/UPSTREAM_SYNC_20261015.md)。
 
 `gemini_compat_thinking.go` 管理兼容入口的档位与历史思考清理；实际转发配置决定用量展示。`openai_model_retirement.go` 复用当前映射链检查 ChatGPT 退休目标，`openai_responses_created_at.go` 仅修补普通兼容出口缺失时间戳。搜索模拟的共享 gate/writer 保留完整账号出口；详见 [本轮增量审查](../../../../docs/UPSTREAM_SYNC_20261016_FOLLOWUP.md)。
+
+`gemini_messages_stream.go`、`gemini_native_stream.go` 和 `gemini_stream_client_abort.go` 分别维护 Messages/Native SSE、请求内写失败和下游取消后的累计用量保留；Chat 保持已支持的图片 Markdown，并只对中断路径按成功写出数计图。`image_storage.go` 继续通过既有 public-destination HTTP 端口下载结果，拒绝声明、嗅探均非图片的内容。缓存专有用量、性能、升级和关闭边界见 [2026-10-19 同步审查](../../../../docs/UPSTREAM_SYNC_20261019.md)。

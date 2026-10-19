@@ -1,0 +1,31 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "-e",
+    "GOMAXPROCS=2",
+    "-e",
+    "GOMEMLIMIT=3GiB",
+    "-e",
+    "GOFLAGS=-p=1",
+    "-v",
+    "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/rollback-final/backend:/app",
+    "-v",
+    "sub2api-upstream-go-mod-20261016:/go/pkg/mod",
+    "-v",
+    "sub2api-upstream-go-build-20261016:/root/.cache/go-build",
+    "-w",
+    "/app",
+    "golang:1.26.9-alpine",
+    "sh",
+    "-c",
+    "export PATH=/usr/local/go/bin:$PATH; go test -tags unit -count=1 -run ^TestUpstreamSync20261019Probe$ -v ./internal/application/service"
+  ],
+  "cwd": "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/rollback-final",
+  "started_at": "2026-10-19T16:35:30.651954+00:00",
+  "elapsed_seconds": 42.466,
+  "exit_status": 0,
+  "stdout": "2026/10/19 16:36:12 Timezone initialized: UTC (UTC offset: +00:00)\n=== RUN   TestUpstreamSync20261019Probe\nCACHE_ONLY input=0 cache_read=30\nABORT native input=10 output=5 client_disconnect=true error=<nil>\nABORT messages input=10 output=5 client_disconnect=true error=<nil>\nABORT chat input=10 output=5 client_disconnect=true error=<nil>\nNON_IMAGE stored=0 rejected=true\n--- PASS: TestUpstreamSync20261019Probe (0.00s)\nPASS\nok  \tgithub.com/Wei-Shaw/sub2api/internal/application/service\t0.015s\n",
+  "stderr": ""
+}

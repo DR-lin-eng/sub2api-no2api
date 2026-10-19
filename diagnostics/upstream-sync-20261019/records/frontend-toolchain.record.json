@@ -1,0 +1,21 @@
+{
+  "command": [
+    "env",
+    "BUILDX_CONFIG=/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/buildx",
+    "docker",
+    "build",
+    "--progress",
+    "plain",
+    "--target",
+    "frontend-builder",
+    "-t",
+    "sub2api-sync-node:20261019",
+    "."
+  ],
+  "cwd": "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/repo",
+  "started_at": "2026-10-19T16:19:12.621658+00:00",
+  "elapsed_seconds": 15.697,
+  "exit_status": 0,
+  "stdout": "",
+  "stderr": "#0 building with \"desktop-linux\" instance using docker driver\n\n#1 [internal] load build definition from Dockerfile\n#1 transferring dockerfile: 6.10kB done\n#1 DONE 0.0s\n\n#2 resolve image config for docker-image://docker.io/docker/dockerfile:1.7\n#2 DONE 2.7s\n\n#3 docker-image://docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e\n#3 resolve docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done\n#3 CACHED\n\n#4 [internal] load metadata for docker.io/library/node:24-alpine\n#4 DONE 2.6s\n\n#5 [internal] load .dockerignore\n#5 transferring context: 1.46kB done\n#5 DONE 0.0s\n\n#6 [frontend-builder 1/8] FROM docker.io/library/node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f\n#6 resolve docker.io/library/node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f 0.0s done\n#6 DONE 0.0s\n\n#7 [internal] load build context\n#7 transferring context: 147.89kB 0.1s done\n#7 DONE 0.2s\n\n#8 [frontend-builder 2/8] WORKDIR /app/frontend\n#8 CACHED\n\n#9 [frontend-builder 3/8] RUN corepack enable && corepack prepare pnpm@11.17.0 --activate\n#9 CACHED\n\n#10 [frontend-builder 4/8] COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./\n#10 CACHED\n\n#11 [frontend-builder 6/8] COPY frontend/ ./\n#11 CACHED\n\n#12 [frontend-builder 7/8] COPY docs/legal/ /app/docs/legal/\n#12 CACHED\n\n#13 [frontend-builder 5/8] RUN --mount=type=cache,id=sub2api-pnpm-store,target=/root/.local/share/pnpm/store     if [ -n \"\" ]; then pnpm config set registry \"\"; fi &&     pnpm install --frozen-lockfile --prefer-offline\n#13 CACHED\n\n#14 [frontend-builder 8/8] RUN pnpm run build\n#14 CACHED\n\n#15 exporting to image\n#15 exporting layers\n#15 exporting layers 7.6s done\n#15 exporting manifest sha256:c05dd64dd77777794baf8518c1bf0f8b317066e525439ff8737a93991ebb86bd done\n#15 exporting config sha256:0e765dd8c815a96e6d58ba8c49d91bfbb38f710bfb50e53ddaf63094d9a63634 done\n#15 exporting attestation manifest sha256:2feeac2574e81b30f2f4e6edc80df8e48af4196e55126c5844e2cdf930bc274b 0.0s done\n#15 exporting manifest list sha256:8757a8ea7dd36f674fe2803e8875dccd1254c7ee4588c5ac9a8c1b88dc44489c done\n#15 naming to docker.io/library/sub2api-sync-node:20261019 done\n#15 unpacking to docker.io/library/sub2api-sync-node:20261019\n#15 unpacking to docker.io/library/sub2api-sync-node:20261019 1.4s done\n#15 DONE 9.0s\n\nView build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/4q49iwrwle79dqrfiwlf46724\n"
+}

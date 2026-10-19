@@ -1,0 +1,190 @@
+{
+  "baseline": {
+    "native": {
+      "samples": [
+        [
+          117253,
+          39887,
+          427
+        ],
+        [
+          115322,
+          39882,
+          427
+        ],
+        [
+          115447,
+          39882,
+          427
+        ]
+      ],
+      "median_ns": 115447,
+      "median_bytes": 39882,
+      "median_allocs": 427
+    },
+    "messages": {
+      "samples": [
+        [
+          215618,
+          191623,
+          2886
+        ],
+        [
+          214305,
+          191621,
+          2886
+        ],
+        [
+          222199,
+          191618,
+          2886
+        ]
+      ],
+      "median_ns": 215618,
+      "median_bytes": 191621,
+      "median_allocs": 2886
+    },
+    "chat": {
+      "samples": [
+        [
+          163723,
+          188439,
+          2740
+        ],
+        [
+          154867,
+          188435,
+          2740
+        ],
+        [
+          159494,
+          188429,
+          2740
+        ]
+      ],
+      "median_ns": 159494,
+      "median_bytes": 188435,
+      "median_allocs": 2740
+    },
+    "native-8MiB-image": {
+      "samples": [
+        [
+          48746663,
+          42145217,
+          2106
+        ],
+        [
+          48355101,
+          42145204,
+          2105
+        ],
+        [
+          48182708,
+          42145208,
+          2106
+        ]
+      ],
+      "median_ns": 48355101,
+      "median_bytes": 42145208,
+      "median_allocs": 2106
+    }
+  },
+  "modified": {
+    "native": {
+      "samples": [
+        [
+          123443,
+          39934,
+          429
+        ],
+        [
+          120865,
+          39931,
+          429
+        ],
+        [
+          121322,
+          39930,
+          429
+        ]
+      ],
+      "median_ns": 121322,
+      "median_bytes": 39931,
+      "median_allocs": 429
+    },
+    "messages": {
+      "samples": [
+        [
+          209899,
+          191671,
+          2887
+        ],
+        [
+          209436,
+          191676,
+          2887
+        ],
+        [
+          209842,
+          191674,
+          2887
+        ]
+      ],
+      "median_ns": 209842,
+      "median_bytes": 191674,
+      "median_allocs": 2887
+    },
+    "chat": {
+      "samples": [
+        [
+          155980,
+          188454,
+          2740
+        ],
+        [
+          157512,
+          188447,
+          2740
+        ],
+        [
+          167581,
+          188445,
+          2740
+        ]
+      ],
+      "median_ns": 157512,
+      "median_bytes": 188447,
+      "median_allocs": 2740
+    },
+    "native-8MiB-image": {
+      "samples": [
+        [
+          49625611,
+          42145249,
+          2108
+        ],
+        [
+          49606851,
+          42145249,
+          2108
+        ],
+        [
+          52423533,
+          42145249,
+          2108
+        ]
+      ],
+      "median_ns": 49625611,
+      "median_bytes": 42145249,
+      "median_allocs": 2108
+    }
+  },
+  "change_percent": {
+    "native": 5.09,
+    "messages": -2.68,
+    "chat": -1.24,
+    "native-8MiB-image": 2.63
+  },
+  "scope": "Consecutive Docker Go 1.26.9 linux/arm64 GOMAXPROCS=2, 3 samples/500ms; completed after other compile/test workloads. Sink implements StringWriter as Gin/net/http do. Successful stream microbenchmarks, not production throughput.",
+  "excluded_record": "performance-modified-final.record.json: ran concurrently with compiler/linter processes and is not comparable."
+}
