@@ -222,9 +222,12 @@ func (u *ImageResultUploader) download(ctx context.Context, rawURL string) ([]by
 	if int64(len(data)) > limit {
 		return nil, "", fmt.Errorf("downloaded image exceeds %d bytes", limit)
 	}
-	contentType := strings.TrimSpace(strings.Split(resp.Header.Get("Content-Type"), ";")[0])
+	contentType := strings.ToLower(strings.TrimSpace(strings.Split(resp.Header.Get("Content-Type"), ";")[0]))
 	if !strings.HasPrefix(contentType, "image/") {
-		contentType = detectImageContentType(data)
+		contentType = detectedImageContentType(data)
+		if contentType == "" {
+			return nil, "", errors.New("download image: content is not an image")
+		}
 	}
 	return data, contentType, nil
 }

@@ -993,6 +993,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 
 	var usage *ClaudeUsage
 	var firstTokenMs *int
+	clientDisconnect, streamFinished := false, false
 	if req.Stream {
 		streamRes, err := s.handleStreamingResponse(c, resp, startTime, originalModel)
 		if err != nil {
@@ -1000,6 +1001,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 		}
 		usage = streamRes.usage
 		firstTokenMs = streamRes.firstTokenMs
+		clientDisconnect, streamFinished = streamRes.clientDisconnect, streamRes.finished
 	} else {
 		if useUpstreamStream {
 			collected, usageObj, err := collectGeminiSSE(resp.Body, true)
@@ -1027,6 +1029,10 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 	imageInputSize := s.extractImageInputSize(body)
 	imageSize := normalizeOpenAIImageSizeTier(imageInputSize)
 	imageCount := resolveGeminiImageCount(c, originalModel, mappedModel)
+	if clientDisconnect && !streamFinished {
+		// Messages streams do not deliver inline images.
+		imageCount = 0
+	}
 
 	return &ForwardResult{
 		RequestID:                     requestID,
@@ -1039,6 +1045,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 		Duration:                      time.Since(startTime),
 		FirstTokenMs:                  firstTokenMs,
 		ReasoningEffort:               extractGeminiReasoningEffortFromBody(geminiReq),
+		ClientDisconnect:              clientDisconnect,
 		ImageCount:                    imageCount,
 		ImageSize:                     imageSize,
 		ImageInputSize:                imageInputSize,
@@ -1537,6 +1544,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 
 	var usage *ClaudeUsage
 	var firstTokenMs *int
+	clientDisconnect, streamFinished := false, false
 
 	if stream {
 		streamRes, err := s.handleNativeStreamingResponseObserved(c, resp, startTime, isOAuth, account, requestID)
@@ -1545,6 +1553,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 		}
 		usage = streamRes.usage
 		firstTokenMs = streamRes.firstTokenMs
+		clientDisconnect, streamFinished = streamRes.clientDisconnect, streamRes.finished
 	} else {
 		if useUpstreamStream {
 			var best geminiResponseSignal
@@ -1579,6 +1588,9 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 	imageInputSize := s.extractImageInputSize(body)
 	imageSize := normalizeOpenAIImageSizeTier(imageInputSize)
 	imageCount := resolveGeminiImageCount(c, originalModel, mappedModel)
+	if clientDisconnect && !streamFinished {
+		imageCount = observedGeminiImageOutputs(c)
+	}
 
 	return &ForwardResult{
 		RequestID:                     requestID,
@@ -1590,6 +1602,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 		Stream:                        stream,
 		Duration:                      time.Since(startTime),
 		FirstTokenMs:                  firstTokenMs,
+		ClientDisconnect:              clientDisconnect,
 		ImageCount:                    imageCount,
 		ImageSize:                     imageSize,
 		ImageInputSize:                imageInputSize,
@@ -1908,8 +1921,11 @@ func mapGeminiStatusToClaudeErrorType(status string) string {
 }
 
 type geminiStreamResult struct {
-	usage        *ClaudeUsage
-	firstTokenMs *int
+	usage            *ClaudeUsage
+	firstTokenMs     *int
+	clientDisconnect bool
+	finished         bool
+	deliveredImages  int
 }
 
 func (s *GeminiMessagesCompatService) handleNonStreamingResponse(c *gin.Context, resp *http.Response, originalModel string) (*ClaudeUsage, error) {
@@ -1938,317 +1954,6 @@ func (s *GeminiMessagesCompatService) handleNonStreamingResponse(c *gin.Context,
 	c.JSON(http.StatusOK, claudeResp)
 
 	return usage, nil
-}
-
-func (s *GeminiMessagesCompatService) handleStreamingResponse(c *gin.Context, resp *http.Response, startTime time.Time, originalModel string) (*geminiStreamResult, error) {
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-	c.Header("X-Accel-Buffering", "no")
-	c.Status(http.StatusOK)
-
-	flusher, ok := c.Writer.(http.Flusher)
-	if !ok {
-		return nil, errors.New("streaming not supported")
-	}
-
-	messageID := generateAnthropicMsgID()
-	messageStart := map[string]any{
-		"type": "message_start",
-		"message": map[string]any{
-			"id":            messageID,
-			"type":          "message",
-			"role":          "assistant",
-			"model":         originalModel,
-			"content":       []any{},
-			"stop_reason":   nil,
-			"stop_sequence": nil,
-			"usage": map[string]any{
-				"input_tokens":  0,
-				"output_tokens": 0,
-			},
-		},
-	}
-	writeSSE(c.Writer, "message_start", messageStart)
-	flusher.Flush()
-
-	var firstTokenMs *int
-	var usage ClaudeUsage
-	finishReason := ""
-	sawToolUse := false
-
-	nextBlockIndex := 0
-	openBlockIndex := -1
-	openBlockType := ""
-	seenText := ""
-	seenThought := ""
-	openToolIndex := -1
-	openToolID := ""
-	openToolName := ""
-	seenToolJSON := ""
-
-	reader := bufio.NewReader(resp.Body)
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil && !errors.Is(err, io.EOF) {
-			return nil, fmt.Errorf("stream read error: %w", err)
-		}
-
-		if !strings.HasPrefix(line, "data:") {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			continue
-		}
-		payload := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
-		if payload == "" || payload == "[DONE]" {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			continue
-		}
-
-		unwrappedBytes, err := unwrapGeminiResponse([]byte(payload))
-		if err != nil {
-			continue
-		}
-		observer := upstreamResponseModelObserverFromContext(c)
-		if observer == nil {
-			observer = beginUpstreamResponseModelObservation(c)
-		}
-		observer.ObserveGemini(unwrappedBytes)
-		observeGeminiImageOutputs(c, unwrappedBytes)
-
-		var geminiResp map[string]any
-		if err := json.Unmarshal(unwrappedBytes, &geminiResp); err != nil {
-			continue
-		}
-
-		if fr := extractGeminiFinishReason(geminiResp); fr != "" {
-			finishReason = fr
-		}
-
-		parts := extractGeminiParts(geminiResp)
-		for _, part := range parts {
-			if text, ok := part["text"].(string); ok && isGeminiThoughtPart(part) {
-				delta, newSeen := computeGeminiTextDelta(seenThought, text)
-				seenThought = newSeen
-				if delta == "" {
-					continue
-				}
-				if openToolIndex >= 0 {
-					writeSSE(c.Writer, "content_block_stop", map[string]any{"type": "content_block_stop", "index": openToolIndex})
-					openToolIndex = -1
-					openToolName = ""
-					seenToolJSON = ""
-				}
-				if openBlockType != "thinking" {
-					if openBlockIndex >= 0 {
-						writeSSE(c.Writer, "content_block_stop", map[string]any{"type": "content_block_stop", "index": openBlockIndex})
-					}
-					openBlockType = "thinking"
-					openBlockIndex = nextBlockIndex
-					nextBlockIndex++
-					writeSSE(c.Writer, "content_block_start", map[string]any{
-						"type": "content_block_start", "index": openBlockIndex,
-						"content_block": map[string]any{"type": "thinking", "thinking": "", "signature": ""},
-					})
-				}
-				if firstTokenMs == nil {
-					ms := int(time.Since(startTime).Milliseconds())
-					firstTokenMs = &ms
-				}
-				writeSSE(c.Writer, "content_block_delta", map[string]any{
-					"type": "content_block_delta", "index": openBlockIndex,
-					"delta": map[string]any{"type": "thinking_delta", "thinking": delta},
-				})
-				flusher.Flush()
-				continue
-			}
-			if text, ok := part["text"].(string); ok && text != "" {
-				// Close an open tool_use block before starting text, mirroring
-				// the functionCall branch (which closes open text blocks) and
-				// the chat-completions sibling's closeOpenTool(). Otherwise a
-				// tool→text sequence keeps the tool_use block open while the
-				// text block starts, emitting overlapping Anthropic content
-				// blocks that violate the SSE contract.
-				if openToolIndex >= 0 {
-					writeSSE(c.Writer, "content_block_stop", map[string]any{
-						"type":  "content_block_stop",
-						"index": openToolIndex,
-					})
-					openToolIndex = -1
-					openToolName = ""
-					seenToolJSON = ""
-				}
-
-				delta, newSeen := computeGeminiTextDelta(seenText, text)
-				seenText = newSeen
-				if delta == "" {
-					continue
-				}
-
-				if openBlockType != "text" {
-					if openBlockIndex >= 0 {
-						writeSSE(c.Writer, "content_block_stop", map[string]any{
-							"type":  "content_block_stop",
-							"index": openBlockIndex,
-						})
-					}
-					openBlockType = "text"
-					openBlockIndex = nextBlockIndex
-					nextBlockIndex++
-					writeSSE(c.Writer, "content_block_start", map[string]any{
-						"type":  "content_block_start",
-						"index": openBlockIndex,
-						"content_block": map[string]any{
-							"type": "text",
-							"text": "",
-						},
-					})
-				}
-
-				if firstTokenMs == nil {
-					ms := int(time.Since(startTime).Milliseconds())
-					firstTokenMs = &ms
-				}
-				writeSSE(c.Writer, "content_block_delta", map[string]any{
-					"type":  "content_block_delta",
-					"index": openBlockIndex,
-					"delta": map[string]any{
-						"type": "text_delta",
-						"text": delta,
-					},
-				})
-				flusher.Flush()
-				continue
-			}
-
-			if fc, ok := part["functionCall"].(map[string]any); ok && fc != nil {
-				name, _ := fc["name"].(string)
-				args := fc["args"]
-				if strings.TrimSpace(name) == "" {
-					name = "tool"
-				}
-
-				// Close any open text block before tool_use.
-				if openBlockIndex >= 0 {
-					writeSSE(c.Writer, "content_block_stop", map[string]any{
-						"type":  "content_block_stop",
-						"index": openBlockIndex,
-					})
-					openBlockIndex = -1
-					openBlockType = ""
-				}
-
-				// If we receive streamed tool args in pieces, keep a single tool block open and emit deltas.
-				if openToolIndex >= 0 && openToolName != name {
-					writeSSE(c.Writer, "content_block_stop", map[string]any{
-						"type":  "content_block_stop",
-						"index": openToolIndex,
-					})
-					openToolIndex = -1
-					openToolName = ""
-					seenToolJSON = ""
-				}
-
-				if openToolIndex < 0 {
-					openToolID = "toolu_" + randomHex(8)
-					openToolIndex = nextBlockIndex
-					openToolName = name
-					nextBlockIndex++
-					sawToolUse = true
-
-					writeSSE(c.Writer, "content_block_start", map[string]any{
-						"type":  "content_block_start",
-						"index": openToolIndex,
-						"content_block": map[string]any{
-							"type":  "tool_use",
-							"id":    openToolID,
-							"name":  name,
-							"input": map[string]any{},
-						},
-					})
-				}
-
-				argsJSONText := "{}"
-				switch v := args.(type) {
-				case nil:
-					// keep default "{}"
-				case string:
-					if strings.TrimSpace(v) != "" {
-						argsJSONText = v
-					}
-				default:
-					if b, err := json.Marshal(args); err == nil && len(b) > 0 {
-						argsJSONText = string(b)
-					}
-				}
-
-				delta, newSeen := computeGeminiTextDelta(seenToolJSON, argsJSONText)
-				seenToolJSON = newSeen
-				if delta != "" {
-					writeSSE(c.Writer, "content_block_delta", map[string]any{
-						"type":  "content_block_delta",
-						"index": openToolIndex,
-						"delta": map[string]any{
-							"type":         "input_json_delta",
-							"partial_json": delta,
-						},
-					})
-				}
-				flusher.Flush()
-			}
-		}
-
-		if u := extractGeminiUsage(unwrappedBytes); u != nil {
-			usage = *u
-		}
-
-		// Process the final unterminated line at EOF as well.
-		if errors.Is(err, io.EOF) {
-			break
-		}
-	}
-
-	if openBlockIndex >= 0 {
-		writeSSE(c.Writer, "content_block_stop", map[string]any{
-			"type":  "content_block_stop",
-			"index": openBlockIndex,
-		})
-	}
-	if openToolIndex >= 0 {
-		writeSSE(c.Writer, "content_block_stop", map[string]any{
-			"type":  "content_block_stop",
-			"index": openToolIndex,
-		})
-	}
-
-	stopReason := mapGeminiFinishReasonToClaudeStopReason(finishReason)
-	if sawToolUse {
-		stopReason = "tool_use"
-	}
-
-	usageObj := map[string]any{
-		"output_tokens": usage.OutputTokens,
-	}
-	if usage.InputTokens > 0 {
-		usageObj["input_tokens"] = usage.InputTokens
-	}
-	writeSSE(c.Writer, "message_delta", map[string]any{
-		"type": "message_delta",
-		"delta": map[string]any{
-			"stop_reason":   stopReason,
-			"stop_sequence": nil,
-		},
-		"usage": usageObj,
-	})
-	writeSSE(c.Writer, "message_stop", map[string]any{
-		"type": "message_stop",
-	})
-	flusher.Flush()
-
-	return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
 }
 
 func writeSSE(w io.Writer, event string, data any) {
@@ -2489,8 +2194,10 @@ func mergeCollectedTextParts(response map[string]any, textParts []string) map[st
 }
 
 type geminiNativeStreamResult struct {
-	usage        *ClaudeUsage
-	firstTokenMs *int
+	usage            *ClaudeUsage
+	firstTokenMs     *int
+	clientDisconnect bool
+	finished         bool
 }
 
 func isGeminiInsufficientScope(headers http.Header, body []byte) bool {
@@ -2612,122 +2319,6 @@ func (s *GeminiMessagesCompatService) handleNativeNonStreamingResponseObserved(c
 		return u, nil
 	}
 	return &ClaudeUsage{}, nil
-}
-
-// handleNativeStreamingResponse preserves the legacy helper signature.
-func (s *GeminiMessagesCompatService) handleNativeStreamingResponse(c *gin.Context, resp *http.Response, startTime time.Time, isOAuth bool) (*geminiNativeStreamResult, error) {
-	return s.handleNativeStreamingResponseObserved(c, resp, startTime, isOAuth, nil, "")
-}
-
-func (s *GeminiMessagesCompatService) handleNativeStreamingResponseObserved(c *gin.Context, resp *http.Response, startTime time.Time, isOAuth bool, account *Account, upstreamRequestID string) (*geminiNativeStreamResult, error) {
-	if s.cfg != nil && s.cfg.Gateway.GeminiDebugResponseHeaders {
-		logger.LegacyPrintf("service.gemini_messages_compat", "[GeminiAPI] ========== Streaming Response Headers ==========")
-		for key, values := range resp.Header {
-			if strings.HasPrefix(strings.ToLower(key), "x-ratelimit") {
-				logger.LegacyPrintf("service.gemini_messages_compat", "[GeminiAPI] %s: %v", key, values)
-			}
-		}
-		logger.LegacyPrintf("service.gemini_messages_compat", "[GeminiAPI] ====================================================")
-	}
-
-	if s.responseHeaderFilter != nil {
-		responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
-	}
-
-	c.Status(resp.StatusCode)
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-	c.Header("X-Accel-Buffering", "no")
-
-	// Native streaming is SSE by contract. Do not propagate an upstream
-	// text/plain (or other stale) content type to downstream SDKs.
-	c.Header("Content-Type", "text/event-stream; charset=utf-8")
-
-	flusher, ok := c.Writer.(http.Flusher)
-	if !ok {
-		return nil, errors.New("streaming not supported")
-	}
-
-	reader := bufio.NewReader(resp.Body)
-	usage := &ClaudeUsage{}
-	observer := upstreamResponseModelObserverFromContext(c)
-	if observer == nil {
-		observer = beginUpstreamResponseModelObservation(c)
-	}
-	var firstTokenMs *int
-	var best geminiResponseSignal
-	sawDataEvent := false
-	fallback := &geminiSSEFallbackBody{}
-
-	for {
-		line, err := reader.ReadString('\n')
-		if len(line) > 0 {
-			trimmed := strings.TrimRight(line, "\r\n")
-			if strings.HasPrefix(trimmed, "data:") {
-				payload := strings.TrimSpace(strings.TrimPrefix(trimmed, "data:"))
-				// Keepalive / done markers
-				if payload == "" || payload == "[DONE]" {
-					_, _ = io.WriteString(c.Writer, line)
-					flusher.Flush()
-				} else {
-					var rawToWrite string
-					rawToWrite = payload
-
-					var rawBytes []byte
-					if isOAuth {
-						innerBytes, err := unwrapGeminiResponse([]byte(payload))
-						if err == nil {
-							rawToWrite = string(innerBytes)
-							rawBytes = innerBytes
-						}
-					} else {
-						rawBytes = []byte(payload)
-					}
-					sawDataEvent = true
-					if sig, ok := detectGeminiResponseSignal(rawBytes); ok && sig.Kind > best.Kind {
-						best = sig
-					}
-
-					if u := extractGeminiUsage(rawBytes); u != nil {
-						usage = u
-					}
-					observer.ObserveGemini(rawBytes)
-					observeGeminiImageOutputs(c, rawBytes)
-
-					if firstTokenMs == nil {
-						ms := int(time.Since(startTime).Milliseconds())
-						firstTokenMs = &ms
-					}
-
-					if isOAuth {
-						// SSE format requires double newline (\n\n) to separate events
-						_, _ = fmt.Fprintf(c.Writer, "data: %s\n\n", rawToWrite)
-					} else {
-						// Pass-through for AI Studio responses.
-						_, _ = io.WriteString(c.Writer, line)
-					}
-					flusher.Flush()
-				}
-			} else {
-				if !sawDataEvent {
-					fallback.AddLine(trimmed)
-				}
-				_, _ = io.WriteString(c.Writer, line)
-				flusher.Flush()
-			}
-		}
-
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	s.finalizeGeminiSSESignal(c, account, true, upstreamRequestID, best, sawDataEvent, fallback)
-
-	return &geminiNativeStreamResult{usage: usage, firstTokenMs: firstTokenMs}, nil
 }
 
 // ForwardAIStudioGET forwards a GET request to AI Studio (generativelanguage.googleapis.com) for
@@ -2957,7 +2548,7 @@ func extractGeminiUsage(data []byte) *ClaudeUsage {
 	// 注意：Gemini 的 promptTokenCount 包含 cachedContentTokenCount，
 	// 但 Claude 的 input_tokens 不包含 cache_read_input_tokens，需要减去
 	return &ClaudeUsage{
-		InputTokens:          prompt - cached,
+		InputTokens:          max(prompt-cached, 0),
 		OutputTokens:         cand + thoughts,
 		ReasoningTokens:      apicompat.ReasoningTokensFromUsage(usage),
 		CacheReadInputTokens: cached,

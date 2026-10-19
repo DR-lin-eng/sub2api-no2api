@@ -1,0 +1,12 @@
+{
+  "command": [
+    "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/ROLLBACK.sh",
+    "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/rollback-final"
+  ],
+  "cwd": "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/rollback-final",
+  "started_at": "2026-10-19T16:36:13.176609+00:00",
+  "elapsed_seconds": 0.064,
+  "exit_status": 0,
+  "stdout": "Restored pristine source bytes in /Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/rollback-final\n",
+  "stderr": ""
+}

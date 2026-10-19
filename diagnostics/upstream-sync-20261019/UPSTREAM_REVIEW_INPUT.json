@@ -1,0 +1,75 @@
+{
+  "baseline_sha": "b75c196600d28f5831f86de9107e802d758cbea2",
+  "prior_upstream_sha": "b0a02a3304a0a78cdd003ddda1dd23ba02c03084",
+  "upstream_sha": "8f2cbb53d9d1c40e1865b07ac460571f7d4c48de",
+  "prs": [
+    {
+      "number": 8223,
+      "merge_sha": "378984d87f2b68db15626ae8f18b9e923ab82b85",
+      "diff_sha256": "eff64ceb7035ea066ae63272589b493b84e921b0035171111a93e86163100cff",
+      "diff_file": "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/records/upstream-8223.patch"
+    },
+    {
+      "number": 8168,
+      "merge_sha": "0fa02816afcaea3610171dd229dd910c058c47e4",
+      "diff_sha256": "c958d58eb0c0e2355eb9f058336c8cdae1382397316468da92ba8597d1991430",
+      "diff_file": "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/records/upstream-8168.patch"
+    },
+    {
+      "number": 8177,
+      "merge_sha": "8f2cbb53d9d1c40e1865b07ac460571f7d4c48de",
+      "diff_sha256": "a6a4cdc6f6fdd4ee2413aef2385bdefcb5974d0ca5566e264a334ab4acb50d3a",
+      "diff_file": "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/records/upstream-8177.patch"
+    }
+  ],
+  "inherited_ledgers": [
+    {
+      "path": "diagnostics/typesafe-recharge-20261006/UPSTREAM_PRS.json",
+      "sha256": "b189a49d11cff2afa6c4f73008c5272a7e746f04d122d4abefa1446875aded6a"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20260930/UPSTREAM_PRS.json",
+      "sha256": "5dea42f1f5c9b812d45fdcb71f7d015abd042d7308ca54e4c8ba6c05847a4eba"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261005/UPSTREAM_PRS.json",
+      "sha256": "f9bf1511d69a53658da2771324b3b52f2100f0af8cd6660b2fab8d5776d73397"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261007/UPSTREAM_PRS.json",
+      "sha256": "9e2846aac4805b1f986aede7e45d63d4c8f6db0fcbb0c572bb4f05143532fb73"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261008/UPSTREAM_PRS.json",
+      "sha256": "281d015cd91673351188d3cd9fb27789ecc9d914e24a89e5c95ecfa24b20de66"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261009/UPSTREAM_PRS.json",
+      "sha256": "ec0c57b0ffce136a99a6f262fbfb9503bf5a88f153522db2975ec99e7f9b7362"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261012/UPSTREAM_PRS.json",
+      "sha256": "c6896dbf52c20185ee7140fdd4c8f395dbd08488bd00c2eadba69e5636ae62e6"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261013/UPSTREAM_PRS.json",
+      "sha256": "0ff61648b9e7696163650812e6e65cd8f622a1d83b46d4d5dc4306626f81b800"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261015/UPSTREAM_PRS.json",
+      "sha256": "fea02f7ea8326c19e60ffccf71e9c2cccc545cc6097c088f2394a30f8350eb97"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261015/history/pr134/UPSTREAM_PRS.json",
+      "sha256": "edb6360f7f6f0b3627b0ac36b118103fe672f6b66da31d24760884b63471d2b5"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261016/UPSTREAM_PRS.json",
+      "sha256": "c45d52d1fcee8e782e938dd4ad632442101cddc62dd5023c0180789111893ff5"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261016-followup/UPSTREAM_PRS.json",
+      "sha256": "c2cc34abfaf8d66a7bc9868991a2da65a4b889dc3bb5119fdba4140a809c20cb"
+    }
+  ]
+}

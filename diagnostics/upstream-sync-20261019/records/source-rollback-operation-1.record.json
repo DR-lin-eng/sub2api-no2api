@@ -1,0 +1,11 @@
+{
+  "command": [
+    "git",
+    "apply",
+    "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/DIFF_FILE.patch"
+  ],
+  "cwd": "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/rollback-copy",
+  "exit_status": 0,
+  "stdout": "",
+  "stderr": ""
+}

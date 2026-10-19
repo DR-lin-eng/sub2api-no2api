@@ -1,0 +1,22 @@
+{
+  "MODIFIED_FILE.tar.gz": {
+    "path": "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/MODIFIED_FILE.tar.gz",
+    "sha256": "edfb6e9f53e6334bcb71e9d9559d809151e2b71190a05f863e2518b77a892214",
+    "bytes": 62800
+  },
+  "DIFF_FILE.patch": {
+    "path": "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/DIFF_FILE.patch",
+    "sha256": "faaa3f2951c3326d618477dfcef9a7de9a09ee50b24ef7de5e8a1725f8e5bc41",
+    "bytes": 82803
+  },
+  "VERIFICATION.txt": {
+    "path": "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/VERIFICATION.txt",
+    "sha256": "72b7d866ec407219fcb14fe95062957257c0882150cfe5c80715b93f4a7f6354",
+    "bytes": 156218
+  },
+  "ROLLBACK.sh": {
+    "path": "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/ROLLBACK.sh",
+    "sha256": "c2782d7f25f0850060e73e5405dd9f2a191e0e9937da3dd08dcc76c6a14f599d",
+    "bytes": 1386
+  }
+}

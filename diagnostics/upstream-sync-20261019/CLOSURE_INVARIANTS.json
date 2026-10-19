@@ -1,0 +1,11 @@
+{
+  "inherited_ledgers_unchanged": 12,
+  "no_schema_dependencies_frontend_or_root_readme_changes": true,
+  "original_worktree_status": "",
+  "frozen_upstream_sha": "8f2cbb53d9d1c40e1865b07ac460571f7d4c48de",
+  "reviewed_prs": [
+    8223,
+    8168,
+    8177
+  ]
+}

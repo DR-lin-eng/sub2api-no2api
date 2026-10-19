@@ -1,0 +1,152 @@
+diff --git a/backend/internal/pkg/antigravity/response_transformer.go b/backend/internal/pkg/antigravity/response_transformer.go
+index 0db6822f3..03e26ac50 100644
+--- a/backend/internal/pkg/antigravity/response_transformer.go
++++ b/backend/internal/pkg/antigravity/response_transformer.go
+@@ -277,11 +277,12 @@ func (p *NonStreamingProcessor) buildResponse(geminiResp *GeminiResponse, respon
+ 	}
+ 
+ 	// 注意：Gemini 的 promptTokenCount 包含 cachedContentTokenCount，
+-	// 但 Claude 的 input_tokens 不包含 cache_read_input_tokens，需要减去
++	// 但 Claude 的 input_tokens 不包含 cache_read_input_tokens，需要减去。
++	// prompt 被拦截时上游可能只报 cachedContentTokenCount，差值下限为 0。
+ 	usage := ClaudeUsage{}
+ 	if geminiResp.UsageMetadata != nil {
+ 		cached := geminiResp.UsageMetadata.CachedContentTokenCount
+-		usage.InputTokens = geminiResp.UsageMetadata.PromptTokenCount - cached
++		usage.InputTokens = max(geminiResp.UsageMetadata.PromptTokenCount-cached, 0)
+ 		usage.OutputTokens = geminiResp.UsageMetadata.CandidatesTokenCount + geminiResp.UsageMetadata.ThoughtsTokenCount
+ 		usage.CacheReadInputTokens = cached
+ 		usage.ImageOutputTokens = geminiResp.UsageMetadata.ImageOutputTokens()
+diff --git a/backend/internal/pkg/antigravity/stream_transformer.go b/backend/internal/pkg/antigravity/stream_transformer.go
+index faecf233e..6b52ba882 100644
+--- a/backend/internal/pkg/antigravity/stream_transformer.go
++++ b/backend/internal/pkg/antigravity/stream_transformer.go
+@@ -109,10 +109,11 @@ func (p *StreamingProcessor) ProcessLine(line string) []byte {
+ 
+ 	// 更新 usage
+ 	// 注意：Gemini 的 promptTokenCount 包含 cachedContentTokenCount，
+-	// 但 Claude 的 input_tokens 不包含 cache_read_input_tokens，需要减去
++	// 但 Claude 的 input_tokens 不包含 cache_read_input_tokens，需要减去。
++	// prompt 被拦截时上游可能只报 cachedContentTokenCount，差值下限为 0。
+ 	if geminiResp.UsageMetadata != nil {
+ 		cached := geminiResp.UsageMetadata.CachedContentTokenCount
+-		p.inputTokens = geminiResp.UsageMetadata.PromptTokenCount - cached
++		p.inputTokens = max(geminiResp.UsageMetadata.PromptTokenCount-cached, 0)
+ 		p.outputTokens = geminiResp.UsageMetadata.CandidatesTokenCount + geminiResp.UsageMetadata.ThoughtsTokenCount
+ 		p.cacheReadTokens = cached
+ 		p.imageOutputTokens = geminiResp.UsageMetadata.ImageOutputTokens()
+@@ -190,7 +191,7 @@ func (p *StreamingProcessor) emitMessageStart(v1Resp *V1InternalResponse) []byte
+ 	usage := ClaudeUsage{}
+ 	if v1Resp.Response.UsageMetadata != nil {
+ 		cached := v1Resp.Response.UsageMetadata.CachedContentTokenCount
+-		usage.InputTokens = v1Resp.Response.UsageMetadata.PromptTokenCount - cached
++		usage.InputTokens = max(v1Resp.Response.UsageMetadata.PromptTokenCount-cached, 0)
+ 		usage.OutputTokens = v1Resp.Response.UsageMetadata.CandidatesTokenCount + v1Resp.Response.UsageMetadata.ThoughtsTokenCount
+ 		usage.CacheReadInputTokens = cached
+ 		usage.ImageOutputTokens = v1Resp.Response.UsageMetadata.ImageOutputTokens()
+diff --git a/backend/internal/pkg/antigravity/usage_contract_test.go b/backend/internal/pkg/antigravity/usage_contract_test.go
+index 832bffbfb..e52431742 100644
+--- a/backend/internal/pkg/antigravity/usage_contract_test.go
++++ b/backend/internal/pkg/antigravity/usage_contract_test.go
+@@ -38,3 +38,29 @@ func TestGeminiUsageMapping_NoCacheCreationTokens(t *testing.T) {
+ 		require.Zero(t, usage.CacheCreationInputTokens)
+ 	})
+ }
++
++// usageMetadata 缺 promptTokenCount、只有 cachedContentTokenCount 时，input_tokens 下限为 0，
++// 缓存命中仍计入 cache_read_input_tokens。
++func TestGeminiUsageMapping_MissingPromptTokenCountKeepsInputNonNegative(t *testing.T) {
++	const geminiBody = `{"candidates":[{"content":{"parts":[{"text":"hi"}],"role":"model"},"finishReason":"STOP"}],` +
++		`"usageMetadata":{"cachedContentTokenCount":30}}`
++
++	t.Run("non-stream", func(t *testing.T) {
++		_, usage, err := TransformGeminiToClaude([]byte(geminiBody), "gemini-3.1-pro-preview")
++		require.NoError(t, err)
++		require.NotNil(t, usage)
++		require.Zero(t, usage.InputTokens)
++		require.Equal(t, 30, usage.CacheReadInputTokens)
++	})
++
++	t.Run("stream", func(t *testing.T) {
++		p := NewStreamingProcessor("gemini-3.1-pro-preview")
++		out := p.ProcessLine(`data: {"response":` + geminiBody + `}`)
++		require.True(t, strings.Contains(string(out), `"message_start"`))
++		require.NotContains(t, string(out), `"input_tokens":-`, "message_start 的 input_tokens 不应为负")
++		_, usage := p.Finish()
++		require.NotNil(t, usage)
++		require.Zero(t, usage.InputTokens)
++		require.Equal(t, 30, usage.CacheReadInputTokens)
++	})
++}
+diff --git a/backend/internal/service/gemini_messages_compat_service.go b/backend/internal/service/gemini_messages_compat_service.go
+index 6f41c1dfe..ee5ada050 100644
+--- a/backend/internal/service/gemini_messages_compat_service.go
++++ b/backend/internal/service/gemini_messages_compat_service.go
+@@ -3079,9 +3079,10 @@ func extractGeminiUsage(data []byte) *ClaudeUsage {
+ 	}
+ 
+ 	// 注意：Gemini 的 promptTokenCount 包含 cachedContentTokenCount，
+-	// 但 Claude 的 input_tokens 不包含 cache_read_input_tokens，需要减去
++	// 但 Claude 的 input_tokens 不包含 cache_read_input_tokens，需要减去。
++	// prompt 被拦截时上游可能只报 cachedContentTokenCount，差值下限为 0。
+ 	return &ClaudeUsage{
+-		InputTokens:          prompt - cached,
++		InputTokens:          max(prompt-cached, 0),
+ 		OutputTokens:         cand + thoughts,
+ 		CacheReadInputTokens: cached,
+ 		ImageOutputTokens:    imageTokens,
+diff --git a/backend/internal/service/gemini_messages_compat_service_test.go b/backend/internal/service/gemini_messages_compat_service_test.go
+index 3e6c3539d..31995cf99 100644
+--- a/backend/internal/service/gemini_messages_compat_service_test.go
++++ b/backend/internal/service/gemini_messages_compat_service_test.go
+@@ -947,6 +947,16 @@ func TestExtractGeminiUsage(t *testing.T) {
+ 				CacheReadInputTokens: 0,
+ 			},
+ 		},
++		{
++			name:    "prompt 被拦截只报 cachedContentTokenCount — input 下限为 0",
++			input:   `{"promptFeedback":{"blockReason":"PROHIBITED_CONTENT"},"usageMetadata":{"cachedContentTokenCount":12980}}`,
++			wantNil: false,
++			wantUsage: &ClaudeUsage{
++				InputTokens:          0,
++				OutputTokens:         0,
++				CacheReadInputTokens: 12980,
++			},
++		},
+ 		{
+ 			name:    "无 usageMetadata",
+ 			input:   `{"candidates":[]}`,
+diff --git a/backend/internal/service/gemini_native_response_signal_test.go b/backend/internal/service/gemini_native_response_signal_test.go
+index 78c061ff0..1005eca1e 100644
+--- a/backend/internal/service/gemini_native_response_signal_test.go
++++ b/backend/internal/service/gemini_native_response_signal_test.go
+@@ -180,6 +180,29 @@ func TestGeminiForwardNative_StreamPromptBlockedMarksContentPolicy(t *testing.T)
+ 	require.Empty(t, upstreamErrorEventsFromContext(t, c))
+ }
+ 
++// Vertex 拦截 prompt 时 usageMetadata 可能只带 cachedContentTokenCount、缺 promptTokenCount：
++// input 下限为 0，缓存命中照上游所报计入 cache_read。
++func TestGeminiForwardNative_StreamPromptBlockedWithOnlyCachedTokensKeepsInputNonNegative(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	body := `data: {"promptFeedback":{"blockReason":"PROHIBITED_CONTENT"},"usageMetadata":{"cachedContentTokenCount":12980,"totalTokenCount":0,"trafficType":"ON_DEMAND"},"modelVersion":"gemini-3.5-flash-lite"}
++
++`
++	svc := newGeminiSignalService("text/event-stream", body)
++	c, rec := newGeminiNativeTestContext(t)
++
++	result, err := svc.ForwardNative(context.Background(), c, geminiSignalTestAccount(),
++		"gemini-3.5-flash-lite", "streamGenerateContent", true, geminiSignalTestRequest())
++	require.NoError(t, err)
++	require.Equal(t, body, rec.Body.String())
++	require.Equal(t, 0, result.Usage.InputTokens)
++	require.Equal(t, 12980, result.Usage.CacheReadInputTokens)
++	require.Equal(t, 0, result.Usage.OutputTokens)
++
++	streamErrs := GetOpsStreamErrors(c)
++	require.Len(t, streamErrs, 1)
++	require.Equal(t, "PROHIBITED_CONTENT", streamErrs[0].Code)
++}
++
+ func TestGeminiForwardNative_EmptyStreamMarksUpstreamFailure(t *testing.T) {
+ 	gin.SetMode(gin.TestMode)
+ 	svc := newGeminiSignalService("text/event-stream", "")

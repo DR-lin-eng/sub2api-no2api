@@ -1,0 +1,31 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "-e",
+    "GOMAXPROCS=2",
+    "-e",
+    "GOMEMLIMIT=3GiB",
+    "-e",
+    "GOFLAGS=-p=1",
+    "-v",
+    "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/rollback-copy/backend:/app",
+    "-v",
+    "sub2api-upstream-go-mod-20261016:/go/pkg/mod",
+    "-v",
+    "sub2api-upstream-go-build-20261016:/root/.cache/go-build",
+    "-w",
+    "/app",
+    "golang:1.26.9-alpine",
+    "sh",
+    "-c",
+    "export PATH=/usr/local/go/bin:$PATH; go test -tags unit -run ^TestUpstreamSync20261019Probe$ -v ./internal/application/service"
+  ],
+  "cwd": "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/rollback-copy",
+  "started_at": "2026-10-19T16:17:03.970919+00:00",
+  "elapsed_seconds": 3.81,
+  "exit_status": 0,
+  "stdout": "2026/10/19 16:03:14 Timezone initialized: UTC (UTC offset: +00:00)\n=== RUN   TestUpstreamSync20261019Probe\nCACHE_ONLY input=-30 cache_read=30\nABORT native result=nil error=context canceled\nABORT messages result=nil error=stream read error: context canceled\nABORT chat result=nil error=stream read error: context canceled\nNON_IMAGE stored=1 rejected=false\n--- PASS: TestUpstreamSync20261019Probe (0.00s)\nPASS\nok  \tgithub.com/Wei-Shaw/sub2api/internal/application/service\t(cached)\n",
+  "stderr": ""
+}

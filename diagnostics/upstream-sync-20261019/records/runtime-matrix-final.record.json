@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    "runtime/check.py"
+  ],
+  "cwd": "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019",
+  "started_at": "2026-10-19T16:31:10.004956+00:00",
+  "elapsed_seconds": 85.089,
+  "exit_status": 0,
+  "stdout": "{\"stage\": \"BASELINE\", \"result\": \"PASS\", \"cache_only_input_tokens\": -30, \"cache_read_tokens\": 30, \"client_abort_usage\": {\"native\": [], \"messages\": [], \"chat\": []}, \"migration_count\": 305, \"persisted_invariants_sha256\": \"86315b086e28afdc3b8d2fd557cfb24f508b0a10ac142c84eaa56f695e096519\", \"health_ready_frontend_encrypted_login_key_subscription\": \"PASS\"}\n{\"stage\": \"MODIFIED\", \"result\": \"PASS\", \"cache_only_input_tokens\": 0, \"cache_read_tokens\": 30, \"client_abort_usage\": {\"native\": [[10, 5]], \"messages\": [[10, 5]], \"chat\": [[10, 5]]}, \"migration_count\": 305, \"persisted_invariants_sha256\": \"86315b086e28afdc3b8d2fd557cfb24f508b0a10ac142c84eaa56f695e096519\", \"health_ready_frontend_encrypted_login_key_subscription\": \"PASS\"}\n{\"stage\": \"ROLLBACK\", \"result\": \"PASS\", \"cache_only_input_tokens\": -30, \"cache_read_tokens\": 30, \"client_abort_usage\": {\"native\": [], \"messages\": [], \"chat\": []}, \"migration_count\": 305, \"persisted_invariants_sha256\": \"86315b086e28afdc3b8d2fd557cfb24f508b0a10ac142c84eaa56f695e096519\", \"health_ready_frontend_encrypted_login_key_subscription\": \"PASS\"}\n{\"stage\": \"RESTORED\", \"result\": \"PASS\", \"cache_only_input_tokens\": 0, \"cache_read_tokens\": 30, \"client_abort_usage\": {\"native\": [[10, 5]], \"messages\": [[10, 5]], \"chat\": [[10, 5]]}, \"migration_count\": 305, \"persisted_invariants_sha256\": \"86315b086e28afdc3b8d2fd557cfb24f508b0a10ac142c84eaa56f695e096519\", \"health_ready_frontend_encrypted_login_key_subscription\": \"PASS\"}\n",
+  "stderr": ""
+}

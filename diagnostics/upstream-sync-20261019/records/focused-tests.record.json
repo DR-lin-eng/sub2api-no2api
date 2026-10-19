@@ -1,0 +1,31 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "-e",
+    "GOMAXPROCS=2",
+    "-e",
+    "GOMEMLIMIT=3GiB",
+    "-e",
+    "GOFLAGS=-p=1",
+    "-v",
+    "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/repo/backend:/app",
+    "-v",
+    "sub2api-upstream-go-mod-20261016:/go/pkg/mod",
+    "-v",
+    "sub2api-upstream-go-build-20261016:/root/.cache/go-build",
+    "-w",
+    "/app",
+    "golang:1.26.9-alpine",
+    "sh",
+    "-c",
+    "export PATH=/usr/local/go/bin:$PATH; gofmt -w internal/application/service/gemini_stream_client_abort_local_test.go internal/application/service/gemini_usage_cache_only_test.go internal/application/service/image_storage_download_test.go internal/shared/antigravity/usage_cache_only_test.go; go test -tags unit -count=1 -run \"Gemini|ImageResultUploader|ImageTaskServiceComplete|PublicDestination|PublicImageHTTPSProxy\" ./internal/application/service ./internal/shared/antigravity ./internal/infrastructure/repository ./internal/shared/urlvalidator"
+  ],
+  "cwd": "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/repo",
+  "started_at": "2026-10-19T16:06:58.975428+00:00",
+  "elapsed_seconds": 65.927,
+  "exit_status": 0,
+  "stdout": "ok  \tgithub.com/Wei-Shaw/sub2api/internal/application/service\t6.517s\nok  \tgithub.com/Wei-Shaw/sub2api/internal/shared/antigravity\t0.003s\nok  \tgithub.com/Wei-Shaw/sub2api/internal/infrastructure/repository\t1.807s\nok  \tgithub.com/Wei-Shaw/sub2api/internal/shared/urlvalidator\t0.001s [no tests to run]\n",
+  "stderr": ""
+}
