@@ -573,6 +573,8 @@ const baseSettingsResponse = {
   backend_mode_enabled: false,
   stream_mode_performance_enabled: false,
   openai_ws_mode_router_v2_enabled: false,
+  openai_request_timezone_enabled: true,
+  openai_request_timezone: "Asia/Singapore",
   openai_visible_output_ttft_enabled: true,
   openai_oauth_force_relay_enabled: false,
   openai_oauth_force_relay_base_url: "https://codex-relay.oaifree.com/backend-api/codex",
@@ -1093,6 +1095,42 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(payload.openai_oauth_force_relay_enabled).toBe(true);
     expect(payload.openai_oauth_force_relay_base_url).toBe(relayURL);
     reloadedView.unmount();
+  });
+
+  it("loads, saves and restores request timezone controls from gateway settings", async () => {
+    getSettings.mockResolvedValueOnce({
+      ...baseSettingsResponse,
+      openai_request_timezone_enabled: true,
+      openai_request_timezone: "America/New_York",
+    });
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+    const input = wrapper.get('[data-testid="openai-request-timezone-input"]');
+    const toggle = wrapper.get('[data-testid="openai-request-timezone-toggle"]');
+    expect((input.element as HTMLInputElement).value).toBe("America/New_York");
+    expect((toggle.element as HTMLInputElement).checked).toBe(true);
+    await input.setValue("  Asia/Tokyo  ");
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+    let payload = updateSettings.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+    expect(payload.openai_request_timezone_enabled).toBe(true);
+    expect(payload.openai_request_timezone).toBe("Asia/Tokyo");
+    await toggle.setValue(false);
+    expect((input.element as HTMLInputElement).disabled).toBe(true);
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+    payload = updateSettings.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+    expect(payload.openai_request_timezone_enabled).toBe(false);
+    expect(payload.openai_request_timezone).toBe("Asia/Tokyo");
+    wrapper.unmount();
+    getSettings.mockResolvedValueOnce({ ...baseSettingsResponse, ...payload });
+    const reloaded = mountView();
+    await flushPromises();
+    await openGatewayTab(reloaded);
+    expect((reloaded.get('[data-testid="openai-request-timezone-toggle"]').element as HTMLInputElement).checked).toBe(false);
+    expect((reloaded.get('[data-testid="openai-request-timezone-input"]').element as HTMLInputElement).value).toBe("Asia/Tokyo");
+    reloaded.unmount();
   });
 
   it("switches OpenAI TTFT to the legacy measurement from gateway settings", async () => {

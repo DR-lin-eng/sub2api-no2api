@@ -459,6 +459,8 @@ export interface SystemSettings {
   backend_mode_enabled: boolean;
   stream_mode_performance_enabled: boolean;
   openai_ws_mode_router_v2_enabled: boolean;
+  openai_request_timezone_enabled: boolean;
+  openai_request_timezone: string;
   openai_visible_output_ttft_enabled: boolean;
   custom_menu_items: CustomMenuItem[];
   custom_endpoints: CustomEndpoint[];
@@ -845,6 +847,8 @@ export interface UpdateSettingsRequest {
   backend_mode_enabled?: boolean;
   stream_mode_performance_enabled?: boolean;
   openai_ws_mode_router_v2_enabled?: boolean;
+  openai_request_timezone_enabled?: boolean;
+  openai_request_timezone?: string;
   openai_visible_output_ttft_enabled?: boolean;
   custom_menu_items?: CustomMenuItem[];
   custom_endpoints?: CustomEndpoint[];

@@ -192,6 +192,8 @@ func buildSettingsUpdateResponsePayload(
 		BackendModeEnabled:                                     updatedSettings.BackendModeEnabled,
 		StreamModePerformanceEnabled:                           updatedSettings.StreamModePerformanceEnabled,
 		OpenAIWSModeRouterV2Enabled:                            updatedSettings.OpenAIWSModeRouterV2Enabled,
+		OpenAIRequestTimezoneEnabled:                           updatedSettings.OpenAIRequestTimezoneEnabled,
+		OpenAIRequestTimezone:                                  updatedSettings.OpenAIRequestTimezone,
 		OpenAIVisibleOutputTTFTEnabled:                         updatedSettings.OpenAIVisibleOutputTTFTEnabled,
 		OpenAIOAuthForceRelayEnabled:                           updatedSettings.OpenAIOAuthForceRelayEnabled,
 		OpenAIOAuthForceRelayBaseURL:                           updatedSettings.OpenAIOAuthForceRelayBaseURL,

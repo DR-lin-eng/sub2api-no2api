@@ -725,7 +725,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	}
 	integrityOriginalFirstMessage := append([]byte(nil), firstClientMessage...)
 	firstClientMessage = normalizeCodexBootstrapForOpenAIWS(account.ID, 1, firstClientMessage)
-	firstClientMessage = s.normalizeOpenAIRequestTimezone(account, firstClientMessage, "ws")
+	firstClientMessage = s.normalizeOpenAIRequestTimezone(ctx, account, firstClientMessage, "ws")
 	visibleOutputTTFT := s.useOpenAIVisibleOutputTTFT(ctx)
 	if isOpenAIResponsesLiteWebSocketPayload(firstClientMessage) {
 		liteFirstMessage, _, liteErr := normalizeOpenAIResponsesLitePayloadForAccount(firstClientMessage, account)
@@ -1106,7 +1106,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 			}
 			if isResponseCreate {
 				payload = normalizeCodexBootstrapForOpenAIWS(account.ID, turnNo, payload)
-				payload = s.normalizeOpenAIRequestTimezone(account, payload, "ws")
+				payload = s.normalizeOpenAIRequestTimezone(ctx, account, payload, "ws")
 			}
 			acceptedTurn := false
 			if isResponseCreate {

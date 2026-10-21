@@ -253,6 +253,7 @@ gateway:
   # Gateway-wide IANA timezone projected into OpenAI Responses environment
   # context and web_search user_location fields.
   # 网关统一替换 OpenAI 请求上下文中的时区；不按账号单独配置。
+  # 管理端“系统设置 → 网关服务 → 请求转发行为”保存的目标优先；这里作为未配置时的默认值。
   openai_request_timezone: "Asia/Singapore"
   # OpenAI Responses first semantic output timeout (seconds, 0=disabled)
   # Covers native HTTP, HTTP passthrough, and WSv2 upstream attempts, including response-header wait.

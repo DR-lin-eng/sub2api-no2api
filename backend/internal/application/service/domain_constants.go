@@ -680,6 +680,8 @@ const (
 	// measured from the first client-usable value (true) or the legacy semantic
 	// output event classifier (false). Missing values default to true.
 	SettingKeyOpenAIVisibleOutputTTFTEnabled = "openai_visible_output_ttft_enabled"
+	SettingKeyOpenAIRequestTimezoneEnabled   = "openai_request_timezone_enabled"
+	SettingKeyOpenAIRequestTimezone          = "openai_request_timezone"
 	// SettingKeyOpenAIOAuthForceRelayEnabled forces OpenAI OAuth/Codex model
 	// traffic through the administrator-selected relay. OAuth authorization and
 	// token refresh endpoints intentionally do not use this setting.
