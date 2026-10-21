@@ -236,6 +236,8 @@ OAuth 授权码、refresh token、账号隐私/授权接口仍使用 OpenAI 官�
 请求出口。地址继续经过全局 `security.url_allowlist` 校验，账号配置的出口路由和 TLS Profile
 仍按原规则应用。
 
+管理员在“系统设置 → 网关服务 → 请求转发行为”的“OpenAI 请求时区替换”中统一控制 `openai_request_timezone_enabled` 和 `openai_request_timezone`。设置随主设置接口读写并持久化到数据库，保存后当前实例立即使用新值，其他实例最多 60 秒刷新；关闭时保留客户端原始时区。未配置目标或留空时沿用 `gateway.openai_request_timezone` / `GATEWAY_OPENAI_REQUEST_TIMEZONE`（默认 `Asia/Singapore`），不改变服务器时间或计费自然日。HTTP 与 WS 首轮/后续 `response.create` 共用设置，完整的用户 `environment_context` 与搜索工具 `user_location.timezone` 执行定点替换。
+
 管理员还可以在“网关设置 -> 请求转发行为”开启
 `openai_oauth_force_relay_enabled`，并填写 `openai_oauth_force_relay_base_url`。开启后该全局
 策略优先于账号级 `custom_base_url`，覆盖 OpenAI OAuth 的 Responses、Compact、Responses WS、

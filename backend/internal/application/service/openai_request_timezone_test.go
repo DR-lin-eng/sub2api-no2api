@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -57,7 +58,7 @@ func TestNormalizeOpenAIRequestTimezoneUsesGatewayConfigAndUserInputOnly(t *test
 
 	svc := &OpenAIGatewayService{cfg: &config.Config{Gateway: config.GatewayConfig{OpenAIRequestTimezone: "Asia/Tokyo"}}}
 	account := &Account{Platform: PlatformOpenAI}
-	out := svc.normalizeOpenAIRequestTimezone(account, body, "http")
+	out := svc.normalizeOpenAIRequestTimezone(context.Background(), account, body, "http")
 	require.Equal(t, "<environment_context><current_date>2001-01-01</current_date><timezone>Asia/Tokyo</timezone></environment_context>", gjson.GetBytes(out, "input.0.content.0.text").String())
 	require.Equal(t, environment, gjson.GetBytes(out, "input.0.content.1.text").String())
 	require.Equal(t, environment, gjson.GetBytes(out, "input.1.content").String())
@@ -66,14 +67,14 @@ func TestNormalizeOpenAIRequestTimezoneUsesGatewayConfigAndUserInputOnly(t *test
 
 	// The same configured target is used on the websocket path and the second
 	// pass is idempotent, so retries do not alter the request again.
-	require.Equal(t, out, svc.normalizeOpenAIRequestTimezone(account, out, "ws"))
+	require.Equal(t, out, svc.normalizeOpenAIRequestTimezone(context.Background(), account, out, "ws"))
 	for _, nonOpenAI := range []*Account{nil, {Platform: PlatformAnthropic}} {
-		require.Equal(t, body, svc.normalizeOpenAIRequestTimezone(nonOpenAI, body, "http"))
+		require.Equal(t, body, svc.normalizeOpenAIRequestTimezone(context.Background(), nonOpenAI, body, "http"))
 	}
 }
 
 func TestNormalizeOpenAIRequestTimezoneDefaultsToSingapore(t *testing.T) {
 	body := []byte(`{"input":[{"role":"user","content":"<environment_context><timezone>Asia/Shanghai</timezone></environment_context>"}]}`)
-	out := (&OpenAIGatewayService{}).normalizeOpenAIRequestTimezone(&Account{Platform: PlatformOpenAI}, body, "http")
+	out := (&OpenAIGatewayService{}).normalizeOpenAIRequestTimezone(context.Background(), &Account{Platform: PlatformOpenAI}, body, "http")
 	require.Equal(t, "<environment_context><timezone>Asia/Singapore</timezone></environment_context>", gjson.GetBytes(out, "input.0.content").String())
 }

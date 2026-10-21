@@ -201,6 +201,8 @@ func buildSystemSettingsUpdate(prepared *preparedSettingsUpdate) *service.System
 		BackendModeEnabled:                                 req.BackendModeEnabled,
 		StreamModePerformanceEnabled:                       boolValueOrDefault(req.StreamModePerformanceEnabled, previousSettings.StreamModePerformanceEnabled),
 		OpenAIWSModeRouterV2Enabled:                        boolValueOrDefault(req.OpenAIWSModeRouterV2Enabled, previousSettings.OpenAIWSModeRouterV2Enabled),
+		OpenAIRequestTimezoneEnabled:                       boolValueOrDefault(req.OpenAIRequestTimezoneEnabled, previousSettings.OpenAIRequestTimezoneEnabled),
+		OpenAIRequestTimezone:                              stringSetting(req.OpenAIRequestTimezone, previousSettings.OpenAIRequestTimezone),
 		OpenAIVisibleOutputTTFTEnabled:                     boolValueOrDefault(req.OpenAIVisibleOutputTTFTEnabled, previousSettings.OpenAIVisibleOutputTTFTEnabled),
 		OpenAIOAuthForceRelayEnabled:                       boolValueOrDefault(req.OpenAIOAuthForceRelayEnabled, previousSettings.OpenAIOAuthForceRelayEnabled),
 		OpenAIOAuthForceRelayBaseURL:                       stringSetting(req.OpenAIOAuthForceRelayBaseURL, previousSettings.OpenAIOAuthForceRelayBaseURL),

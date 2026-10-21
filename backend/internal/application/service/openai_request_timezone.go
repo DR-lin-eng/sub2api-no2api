@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"regexp"
 	"strconv"
 	"strings"
@@ -115,11 +116,19 @@ func (s *OpenAIGatewayService) openAIRequestTimezone() string {
 // normalizeOpenAIRequestTimezone applies the gateway-wide, startup-validated
 // timezone to OpenAI Responses requests. It is deliberately account-agnostic:
 // every OpenAI account behind this gateway receives the same projection.
-func (s *OpenAIGatewayService) normalizeOpenAIRequestTimezone(account *Account, body []byte, _ string) []byte {
+func (s *OpenAIGatewayService) normalizeOpenAIRequestTimezone(ctx context.Context, account *Account, body []byte, _ string) []byte {
 	if account == nil || !account.IsOpenAI() || len(body) == 0 {
 		return body
 	}
-	return normalizeOpenAIRequestTimezone(body, s.openAIRequestTimezone())
+	target := s.openAIRequestTimezone()
+	if s != nil && s.settingService != nil {
+		enabled, configured := s.settingService.GetOpenAIRequestTimezoneSettings(ctx)
+		if !enabled {
+			return body
+		}
+		target = configured
+	}
+	return normalizeOpenAIRequestTimezone(body, target)
 }
 
 func normalizeOpenAIRequestTimezone(body []byte, target string) []byte {
