@@ -41,6 +41,7 @@ export interface GroupReasoningEffortFieldsExpose {
 export interface GroupEditorFormState {
   name: string;
   description: string;
+  i18n: import("@/types/group").GroupI18n;
   platform: GroupPlatform;
   rate_multiplier: number | string;
   is_exclusive: boolean;

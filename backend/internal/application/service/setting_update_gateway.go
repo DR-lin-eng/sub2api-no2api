@@ -8,6 +8,8 @@ import (
 )
 
 func writeGatewaySystemSettingUpdates(updates map[string]string, settings *SystemSettings) error {
+	updates[SettingKeyOpenAIRequestTimezoneEnabled] = strconv.FormatBool(settings.OpenAIRequestTimezoneEnabled)
+	updates[SettingKeyOpenAIRequestTimezone] = strings.TrimSpace(settings.OpenAIRequestTimezone)
 	updates[SettingKeyAllowUngroupedKeyScheduling] = strconv.FormatBool(settings.AllowUngroupedKeyScheduling)
 	updates[SettingKeySchedulerV2Enabled] = strconv.FormatBool(settings.SchedulerV2Enabled)
 	updates[SettingKeySchedulerV2CandidateLimit] = strconv.Itoa(settings.SchedulerV2CandidateLimit)

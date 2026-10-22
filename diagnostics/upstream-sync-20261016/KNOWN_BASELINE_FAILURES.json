@@ -1,0 +1,10 @@
+{
+  "backend_check_layout": {
+    "exit_status": 2,
+    "literal_error": "layout error: internal/application/service/payment_fulfillment_test.go has 1201 lines (limit 1200); split by responsibility",
+    "baseline_record": "records/baseline-layout.record.json",
+    "candidate_record": "records/candidate-layout.record.json",
+    "owner_unchanged": true,
+    "allowlist_expanded": false
+  }
+}

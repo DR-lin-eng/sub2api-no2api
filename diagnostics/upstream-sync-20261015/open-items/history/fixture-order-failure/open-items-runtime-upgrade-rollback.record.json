@@ -1,0 +1,13 @@
+{
+  "command": [
+    "python3",
+    "diagnostics/upstream-sync-20261015/open-items/runtime_check.py"
+  ],
+  "cwd": "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo",
+  "exit_status": 1,
+  "elapsed_s": 14.094523750000008,
+  "utc": "2026-10-15T16:10:06.941029+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "757ecf5ec511706a7ecc38e070d1b1c7b686c06080ce9747f00ad9b222254194",
+  "stderr_sha256": "2ee001c919ce4774563dc1822aee89ca4772eed3377b1db548ca018dcb48dac5"
+}

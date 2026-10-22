@@ -1,0 +1,7 @@
+{
+  "Replace": {
+    "/workspace/internal/application/service/upstream_sync_observed_test.go": "/evidence/behavior_service_test.go",
+    "/workspace/internal/transport/http/handler/admin/upstream_sync_observed_test.go": "/evidence/behavior_admin_test.go",
+    "/workspace/internal/shared/antigravity/upstream_sync_observed_test.go": "/evidence/performance_shared_test.go"
+  }
+}

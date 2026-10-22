@@ -35,7 +35,8 @@ func TestNormalizeDeepSeekResponsesIsStatelessAndAliasesImages(t *testing.T) {
 	require.False(t, gjson.GetBytes(patched, "store").Bool())
 	require.False(t, gjson.GetBytes(patched, "previous_response_id").Exists())
 	require.Equal(t, "input_image", gjson.GetBytes(patched, "input.0.content.0.type").String())
-	require.Equal(t, "https://example.test/a.png", gjson.GetBytes(patched, "input.0.content.0.url").String())
+	require.Equal(t, "https://example.test/a.png", gjson.GetBytes(patched, "input.0.content.0.image_url").String())
+	require.False(t, gjson.GetBytes(patched, "input.0.content.0.url").Exists())
 }
 
 func TestDeepSeekCompactResponseUsesPlainSummary(t *testing.T) {

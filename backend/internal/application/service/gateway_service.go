@@ -20,6 +20,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
+	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
 	"github.com/Wei-Shaw/sub2api/internal/shared/responseheaders"
 	"github.com/cespare/xxhash/v2"
 	gocache "github.com/patrickmn/go-cache"
@@ -214,7 +215,7 @@ func anthropicStreamEventIsTerminal(eventName, data string) bool {
 }
 
 func cloneStringSlice(src []string) []string {
-	if len(src) == 0 {
+	if src == nil {
 		return nil
 	}
 	dst := make([]string, len(src))
@@ -567,13 +568,14 @@ func priorityAdmissionTerminalSelection(account *Account, timeout time.Duration,
 
 // ClaudeUsage 表示Claude API返回的usage信息
 type ClaudeUsage struct {
-	InputTokens              int `json:"input_tokens"`
-	OutputTokens             int `json:"output_tokens"`
-	CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
-	CacheReadInputTokens     int `json:"cache_read_input_tokens"`
-	CacheCreation5mTokens    int // 5分钟缓存创建token（来自嵌套 cache_creation 对象）
-	CacheCreation1hTokens    int // 1小时缓存创建token（来自嵌套 cache_creation 对象）
-	ImageOutputTokens        int `json:"image_output_tokens,omitempty"`
+	ReasoningTokens          *int `json:"reasoning_tokens,omitempty"`
+	InputTokens              int  `json:"input_tokens"`
+	OutputTokens             int  `json:"output_tokens"`
+	CacheCreationInputTokens int  `json:"cache_creation_input_tokens"`
+	CacheReadInputTokens     int  `json:"cache_read_input_tokens"`
+	CacheCreation5mTokens    int  // 5分钟缓存创建token（来自嵌套 cache_creation 对象）
+	CacheCreation1hTokens    int  // 1小时缓存创建token（来自嵌套 cache_creation 对象）
+	ImageOutputTokens        int  `json:"image_output_tokens,omitempty"`
 }
 
 // ForwardResult 转发结果
@@ -1282,6 +1284,17 @@ func (s *GatewayService) GetAvailableModels(ctx context.Context, groupID *int64,
 	// expose even while another unrestricted account is waiting for its first
 	// probe.
 	if !hasExplicitMapping && (!hasSnapshot || hasUnobservedOAuth) {
+		if platform == PlatformOpenAI {
+			defaults := openai.DefaultModelIDs()
+			filtered := filterRetiredOpenAIModelIDs(accounts, defaults)
+			if len(filtered) != len(defaults) {
+				if s.modelsListCache != nil {
+					s.modelsListCache.Set(cacheKey, cloneStringSlice(filtered), s.modelsListCacheTTL)
+					modelsListCacheStoreTotal.Add(1)
+				}
+				return cloneStringSlice(filtered)
+			}
+		}
 		if s.modelsListCache != nil {
 			s.modelsListCache.Set(cacheKey, []string(nil), s.modelsListCacheTTL)
 			modelsListCacheStoreTotal.Add(1)
@@ -1295,6 +1308,9 @@ func (s *GatewayService) GetAvailableModels(ctx context.Context, groupID *int64,
 		models = append(models, model)
 	}
 	sort.Strings(models)
+	if platform == PlatformOpenAI {
+		models = filterRetiredOpenAIModelIDs(accounts, models)
+	}
 
 	if s.modelsListCache != nil {
 		s.modelsListCache.Set(cacheKey, cloneStringSlice(models), s.modelsListCacheTTL)

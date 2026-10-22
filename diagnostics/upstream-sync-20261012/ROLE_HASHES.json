@@ -1,0 +1,22 @@
+{
+  "MODIFIED_FILE": {
+    "path": "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/diagnostics/upstream-sync-20261012/MODIFIED_FILE",
+    "bytes": 582027,
+    "sha256": "532de0f8553095d4dfc5f3d50814b91b9d6ebd6fa7346bf7dada1194a14de062"
+  },
+  "DIFF_FILE": {
+    "path": "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/diagnostics/upstream-sync-20261012/DIFF_FILE",
+    "bytes": 156549,
+    "sha256": "220f0215fbe5178c22d528aa6507935760f1af504b019853f2841fb5364745ff"
+  },
+  "VERIFICATION.txt": {
+    "path": "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/diagnostics/upstream-sync-20261012/VERIFICATION.txt",
+    "bytes": 178118,
+    "sha256": "6a39f06a999703a51c241cdc283bc96c0a4dbd9fcbd292cf693492c1b1232217"
+  },
+  "ROLLBACK.sh": {
+    "path": "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/diagnostics/upstream-sync-20261012/ROLLBACK.sh",
+    "bytes": 1371,
+    "sha256": "76b4b708353b2c6a9db90970d39be488fbfb70717bdf56c96bd0263652e0ac41"
+  }
+}

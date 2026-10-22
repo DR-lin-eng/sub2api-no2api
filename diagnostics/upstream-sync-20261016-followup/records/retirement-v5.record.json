@@ -1,0 +1,32 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "-e",
+    "GOMAXPROCS=2",
+    "-v",
+    "sub2api-upstream-go-mod-20261016:/go/pkg/mod",
+    "-v",
+    "sub2api-upstream-go-build-20261016:/root/.cache/go-build",
+    "-v",
+    "/private/tmp/sub2api-upstream-sync-20261016:/workspace",
+    "-w",
+    "/workspace/backend",
+    "golang:1.26.9",
+    "go",
+    "test",
+    "-tags",
+    "unit",
+    "./internal/application/service",
+    "-run",
+    "Test(Retire|GetAvailableModels|IsModelSupported|OpenAIModelRouting|OpenAISelectAccountWithLoadAwareness_Spark)",
+    "-count=1"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261016",
+  "started_at": "2026-10-16T07:47:43.828756+00:00",
+  "elapsed_seconds": 37.925,
+  "exit_status": 0,
+  "stdout": "ok  \tgithub.com/Wei-Shaw/sub2api/internal/application/service\t0.016s\n",
+  "stderr": ""
+}

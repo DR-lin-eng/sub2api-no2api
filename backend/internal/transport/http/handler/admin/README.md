@@ -20,3 +20,5 @@
 | `setting_handler_audit*.go` | 按设置域比较更新前后值，并按兼容顺序生成审计字段列表 |
 
 设置更新的校验顺序、字段省略语义和持久化后副作用属于兼容性边界；扩展字段时应在对应阶段补齐映射与回归测试，不应重新堆回入口 handler。
+
+Codex 导入的存量索引与批内索引共用 workspace/account + user 组合键，长度编码避免分隔符碰撞；没有 refresh token 的 session 仍按 access-token 指纹去重，不跨 workspace 合并同一 user。

@@ -5,9 +5,11 @@
 | 模块 | 作用 |
 | --- | --- |
 | [activitycenter](activitycenter/README.md) | 活动配置、可见性、抽奖、签到、兑换膨胀和参与记录领域规则 |
+| [codexremotecontrol](codexremotecontrol/README.md) | Codex controller 注册、step-up、设备密钥 challenge 与会话生命周期 |
 | [chat](chat/README.md) | 在线客服会话、消息、未读状态、撤回事件、保留清理和实时广播 |
 | [egress](egress/README.md) | 账号 IPv6 出口池、绑定、探测和 HE 隧道管理 |
 | [qualityrender](qualityrender/README.md) | HTML/SVG 代码匹配（预览由前端浏览器渲染） |
+| [modelcatalog](modelcatalog/README.md) | 有界模型描述、能力字段归一化、版本化快照与元数据优先级 |
 | [payment](payment/README.md) | 支付金额、币种、渠道注册与提供商适配 |
 | [securityaudit](securityaudit/README.md) | Prompt 审计、同步防护、队列和审计策略 |
 | [typesafe](typesafe/README.md) | Jev 原生 System One 请求校验、响应与用量解析 |

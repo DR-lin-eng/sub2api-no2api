@@ -1,0 +1,19 @@
+diff a/backend/internal/application/service/gateway_bedrock.go b/backend/internal/application/service/gateway_bedrock.go	(rejected hunks)
+@@ -280,7 +284,7 @@ func (s *GatewayService) handleBedrockUpstreamErrors(
+ 			logger.LegacyPrintf("service.gateway", "[Bedrock] Upstream error (retry exhausted, failover): Account=%d(%s) Status=%d Body=%s",
+ 				account.ID, account.Name, resp.StatusCode, truncateString(string(respBody), 1000))
+ 
+-			s.handleRetryExhaustedSideEffects(ctx, resp, account)
++			s.handleRetryExhaustedSideEffects(ctx, resp, account, modelKey)
+ 			appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
+ 				ProxyID:            opsUpstreamProxyID(account),
+ 				ProxyName:          opsUpstreamProxyName(account),
+@@ -306,7 +310,7 @@ func (s *GatewayService) handleBedrockUpstreamErrors(
+ 		_ = resp.Body.Close()
+ 		resp.Body = io.NopCloser(bytes.NewReader(respBody))
+ 
+-		s.handleFailoverSideEffects(ctx, resp, account)
++		s.handleFailoverSideEffects(ctx, resp, account, modelKey)
+ 		appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
+ 			ProxyID:            opsUpstreamProxyID(account),
+ 			ProxyName:          opsUpstreamProxyName(account),

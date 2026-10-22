@@ -23,8 +23,8 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 	c *gin.Context,
 	account *Account,
 	body []byte,
+	startTime time.Time,
 ) (*OpenAIForwardResult, error) {
-	startTime := time.Now()
 
 	var responsesReq apicompat.ResponsesRequest
 	if err := json.Unmarshal(body, &responsesReq); err != nil {
@@ -323,6 +323,16 @@ func (s *OpenAIGatewayService) streamChatCompletionsAsResponses(
 	scan := s.scanCCStream(resp, "openai responses chat fallback", requestID, startTime, func(chunk *apicompat.ChatCompletionsChunk) {
 		writeEvents(apicompat.ChatCompletionsChunkToResponsesEvents(chunk, state))
 	})
+
+	if scan.PolicyPayload != nil {
+		markOpenAICyberPolicyEvent(c, scan.PolicyPayload, http.StatusOK, &scan.Usage)
+		policyErr, _ := writeOpenAIUpstreamPolicyErrorForEndpoint(c, http.StatusOK, scan.PolicyPayload)
+		return &OpenAIForwardResult{
+			RequestID: requestID, Usage: scan.Usage, Model: originalModel,
+			BillingModel: billingModel, UpstreamModel: upstreamModel, Stream: true,
+			Duration: time.Since(startTime), FirstTokenMs: scan.FirstTokenMs,
+		}, policyErr
+	}
 
 	if scan.Err != nil {
 		return &OpenAIForwardResult{

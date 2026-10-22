@@ -1,0 +1,13 @@
+{
+  "command": [
+    "python3",
+    "/private/tmp/sub2api-upstream-sync-20261013-e3d4/evidence/reapply_roles.py"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261013-e3d4/repo",
+  "exit_status": 0,
+  "elapsed_s": 0.08628416602732614,
+  "utc": "2026-10-13T09:48:47.158298+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "4bb8de67439c6e372ebcc3940982f2303f32fa913040e929612d104358f11d43",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

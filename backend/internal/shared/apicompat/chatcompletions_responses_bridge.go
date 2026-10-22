@@ -1471,6 +1471,9 @@ type ChatCompletionsToResponsesStreamState struct {
 	// toolIsCustom 记录每个工具调用宣告时的类型判定，保证 added/done 事件的
 	// 项类型一致。
 	toolIsCustom map[int]bool
+	// Allocated only for lowered custom calls; ordinary function streams keep
+	// their existing state and emission path.
+	customInputStreams map[int]*responsesCustomInputStream
 
 	// toolIsToolSearch 记录工具调用是否判定为 tool_search 代理调用。
 	toolIsToolSearch map[int]bool
@@ -1634,11 +1637,12 @@ func ChatCompletionsChunkToResponsesEvents(
 			events = append(events, announceChatToolItem(state, idx, stored, false)...)
 			if toolCall.Function.Arguments != "" {
 				stored.Function.Arguments += toolCall.Function.Arguments
-				// 未宣告（名字未到）时仅累积，宣告时统一补发；custom 调用的
-				// arguments 是包裹 input 的 JSON 片段，无法增量还原为自由文本
-				// 输入，缓冲整份 arguments 收尾时一次性下发（见 closeChatToolItems）；
-				// tool_search 调用同样收尾时随 output_item.done 全量下发。
-				if state.toolAnnounced[idx] && !state.toolIsCustom[idx] && !state.toolIsToolSearch[idx] {
+				// Wait for a late name before selecting the custom or function
+				// lifecycle. Custom input is decoded as fragments arrive;
+				// tool_search arguments remain attached to output_item.done.
+				if state.toolAnnounced[idx] && state.toolIsCustom[idx] {
+					events = append(events, appendChatCustomInputDelta(state, idx, stored)...)
+				} else if state.toolAnnounced[idx] && !state.toolIsToolSearch[idx] {
 					events = append(events, chatToResponsesEvent(state, "response.function_call_arguments.delta", &ResponsesStreamEvent{
 						OutputIndex: state.ToolOutputIndex[idx],
 						ItemID:      state.ToolItemIDs[idx],
@@ -1964,8 +1968,10 @@ func announceChatToolItem(
 			Status:    "in_progress",
 		},
 	})}
-	// 迟到宣告时补发已累积的参数增量（custom/tool_search 的输入收尾统一下发，不补发）。
-	if !isCustom && !isToolSearch && stored.Function.Arguments != "" {
+	// Replay already buffered input after a late tool name selects its type.
+	if isCustom {
+		events = append(events, appendChatCustomInputDelta(state, idx, stored)...)
+	} else if !isToolSearch && stored.Function.Arguments != "" {
 		events = append(events, chatToResponsesEvent(state, "response.function_call_arguments.delta", &ResponsesStreamEvent{
 			OutputIndex: state.ToolOutputIndex[idx],
 			ItemID:      state.ToolItemIDs[idx],
@@ -2003,14 +2009,13 @@ func closeChatToolItems(state *ChatCompletionsToResponsesStreamState) []Response
 		}
 		outputIndex := state.ToolOutputIndex[i]
 		if state.toolIsCustom[i] {
-			// custom 调用按 custom_tool_call 生命周期收尾：input 在此处一次性下发
-			// （流中不产出增量，见 ChatCompletionsChunkToResponsesEvents）。
+			// Only send input not already emitted by the incremental decoder.
 			input := extractCustomToolCallInput(arguments)
-			if input != "" {
+			if delta := chatCustomInputStream(state, i).finish(input); delta != "" {
 				events = append(events, chatToResponsesEvent(state, "response.custom_tool_call_input.delta", &ResponsesStreamEvent{
 					OutputIndex: outputIndex,
 					ItemID:      itemID,
-					Delta:       input,
+					Delta:       delta,
 				}))
 			}
 			events = append(events,

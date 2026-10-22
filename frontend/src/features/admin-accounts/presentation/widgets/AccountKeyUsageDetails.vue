@@ -129,6 +129,8 @@
 </template>
 
 <script setup lang="ts">
+import { supportsAccountQuota } from '@/features/admin-accounts/presentation/accountQuota'
+
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type {
@@ -196,7 +198,7 @@ const makeQuotaBar = (
 }
 
 const hasApiKeyQuota = computed(() => {
-  if (props.account.type !== 'apikey' && props.account.type !== 'bedrock') return false
+  if (!supportsAccountQuota(props.account.type)) return false
   return (
     (props.account.quota_daily_limit ?? 0) > 0 ||
     (props.account.quota_weekly_limit ?? 0) > 0 ||

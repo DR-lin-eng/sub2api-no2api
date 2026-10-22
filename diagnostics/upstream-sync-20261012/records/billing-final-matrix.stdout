@@ -1,0 +1,764 @@
+2026/10/12 18:09:25 Timezone initialized: UTC (UTC offset: +00:00)
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+--- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix (0.00s)
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=none/account=false/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=none/account=false/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=none/account=false/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=none/account=false/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=none/account=true/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=none/account=true/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=none/account=true/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=none/account=true/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=enabled/account=false/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=enabled/account=false/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=enabled/account=false/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=enabled/account=false/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=enabled/account=true/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=enabled/account=true/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=enabled/account=true/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=enabled/account=true/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=disabled/account=false/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=disabled/account=false/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=disabled/account=false/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=disabled/account=false/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=disabled/account=true/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=disabled/account=true/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=disabled/account=true/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=disabled/account=true/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=none/account=false/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=none/account=false/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=none/account=false/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=none/account=false/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=none/account=true/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=none/account=true/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=none/account=true/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=none/account=true/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=enabled/account=false/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=enabled/account=false/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=enabled/account=false/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=enabled/account=false/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=enabled/account=true/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=enabled/account=true/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=enabled/account=true/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=enabled/account=true/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=disabled/account=false/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=disabled/account=false/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=disabled/account=false/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=disabled/account=false/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=disabled/account=true/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=disabled/account=true/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=disabled/account=true/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=disabled/account=true/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=none/account=false/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=none/account=false/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=none/account=false/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=none/account=false/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=none/account=true/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.926 and 0.946 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=none/account=true/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=none/account=true/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 1.852 and 1.892 allowed is 1e-12, but difference was -0.039999999999999813
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=none/account=true/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=enabled/account=false/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=enabled/account=false/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=enabled/account=false/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=enabled/account=false/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=enabled/account=true/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.926 and 0.946 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=enabled/account=true/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=enabled/account=true/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 1.852 and 1.892 allowed is 1e-12, but difference was -0.039999999999999813
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=enabled/account=true/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=disabled/account=false/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=disabled/account=false/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=disabled/account=false/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=disabled/account=false/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=disabled/account=true/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=disabled/account=true/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=disabled/account=true/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=disabled/account=true/tier=priority
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+--- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix (0.00s)
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=none/account=false/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=none/account=false/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=none/account=false/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=none/account=false/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=none/account=true/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=none/account=true/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=none/account=true/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=none/account=true/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=enabled/account=false/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=enabled/account=false/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=enabled/account=false/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=enabled/account=false/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=enabled/account=true/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=enabled/account=true/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=enabled/account=true/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=enabled/account=true/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=disabled/account=false/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=disabled/account=false/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=disabled/account=false/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=disabled/account=false/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=disabled/account=true/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=disabled/account=true/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=disabled/account=true/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=disabled/account=true/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=none/account=false/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=none/account=false/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=none/account=false/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=none/account=false/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=none/account=true/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=none/account=true/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=none/account=true/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=none/account=true/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=enabled/account=false/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=enabled/account=false/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=enabled/account=false/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=enabled/account=false/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=enabled/account=true/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=enabled/account=true/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=enabled/account=true/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=enabled/account=true/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=disabled/account=false/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=disabled/account=false/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=disabled/account=false/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=disabled/account=false/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=disabled/account=true/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=disabled/account=true/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=disabled/account=true/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=disabled/account=true/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=none/account=false/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=none/account=false/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=none/account=false/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=none/account=false/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=none/account=true/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.926 and 0.946 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=none/account=true/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=none/account=true/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 1.852 and 1.892 allowed is 1e-12, but difference was -0.039999999999999813
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=none/account=true/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=enabled/account=false/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=enabled/account=false/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=enabled/account=false/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=enabled/account=false/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=enabled/account=true/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.926 and 0.946 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=enabled/account=true/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=enabled/account=true/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 1.852 and 1.892 allowed is 1e-12, but difference was -0.039999999999999813
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=enabled/account=true/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=disabled/account=false/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=disabled/account=false/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=disabled/account=false/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=disabled/account=false/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=disabled/account=true/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=disabled/account=true/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=disabled/account=true/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=disabled/account=true/tier=priority
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-6.1-sol
+--- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix (0.00s)
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=none/account=false/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=none/account=false/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=none/account=false/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=none/account=false/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=none/account=true/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=none/account=true/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=none/account=true/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=none/account=true/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=enabled/account=false/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=enabled/account=false/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=enabled/account=false/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=enabled/account=false/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=enabled/account=true/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=enabled/account=true/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=enabled/account=true/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=enabled/account=true/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=disabled/account=false/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=disabled/account=false/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=disabled/account=false/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=disabled/account=false/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=disabled/account=true/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=disabled/account=true/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=disabled/account=true/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/oauth/group=disabled/account=true/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=none/account=false/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=none/account=false/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=none/account=false/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=none/account=false/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=none/account=true/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=none/account=true/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=none/account=true/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=none/account=true/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=enabled/account=false/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=enabled/account=false/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=enabled/account=false/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=enabled/account=false/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=enabled/account=true/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=enabled/account=true/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=enabled/account=true/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=enabled/account=true/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=disabled/account=false/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=disabled/account=false/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=disabled/account=false/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=disabled/account=false/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=disabled/account=true/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=disabled/account=true/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=disabled/account=true/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/setup-token/group=disabled/account=true/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=none/account=false/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=none/account=false/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=none/account=false/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=none/account=false/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=none/account=true/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.926 and 0.946 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=none/account=true/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=none/account=true/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 1.852 and 1.892 allowed is 1e-12, but difference was -0.039999999999999813
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=none/account=true/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=enabled/account=false/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=enabled/account=false/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=enabled/account=false/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=enabled/account=false/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=enabled/account=true/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.926 and 0.946 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=enabled/account=true/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=enabled/account=true/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 1.852 and 1.892 allowed is 1e-12, but difference was -0.039999999999999813
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=enabled/account=true/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=disabled/account=false/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=disabled/account=false/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=disabled/account=false/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=disabled/account=false/tier=priority
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=disabled/account=true/tier= (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.468 and 0.478 allowed is 1e-12, but difference was -0.009999999999999953
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=disabled/account=true/tier=
+    --- FAIL: TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=disabled/account=true/tier=priority (0.00s)
+        openai_subscription_long_context_billing_test.go:47: 
+            	Error Trace:	/workspace/internal/application/service/openai_subscription_long_context_billing_test.go:47
+            	Error:      	Max difference between 0.936 and 0.956 allowed is 1e-12, but difference was -0.019999999999999907
+            	Test:       	TestRecordUsageSubscriptionLongContextBillingMatrix/apikey/group=disabled/account=true/tier=priority
+FAIL
+exit status 1
+FAIL	github.com/Wei-Shaw/sub2api/internal/application/service	0.041s
+FAIL

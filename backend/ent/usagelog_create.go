@@ -463,6 +463,20 @@ func (_c *UsageLogCreate) SetNillableFirstTokenMs(v *int) *UsageLogCreate {
 	return _c
 }
 
+// SetReasoningTokens sets the "reasoning_tokens" field.
+func (_c *UsageLogCreate) SetReasoningTokens(v int) *UsageLogCreate {
+	_c.mutation.SetReasoningTokens(v)
+	return _c
+}
+
+// SetNillableReasoningTokens sets the "reasoning_tokens" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableReasoningTokens(v *int) *UsageLogCreate {
+	if v != nil {
+		_c.SetReasoningTokens(*v)
+	}
+	return _c
+}
+
 // SetOpenaiTiming sets the "openai_timing" field.
 func (_c *UsageLogCreate) SetOpenaiTiming(v map[string]interface{}) *UsageLogCreate {
 	_c.mutation.SetOpenaiTiming(v)
@@ -890,6 +904,11 @@ func (_c *UsageLogCreate) check() error {
 	if _, ok := _c.mutation.Stream(); !ok {
 		return &ValidationError{Name: "stream", err: errors.New(`ent: missing required field "UsageLog.stream"`)}
 	}
+	if v, ok := _c.mutation.ReasoningTokens(); ok {
+		if err := usagelog.ReasoningTokensValidator(v); err != nil {
+			return &ValidationError{Name: "reasoning_tokens", err: fmt.Errorf(`ent: validator failed for field "UsageLog.reasoning_tokens": %w`, err)}
+		}
+	}
 	if v, ok := _c.mutation.UserAgent(); ok {
 		if err := usagelog.UserAgentValidator(v); err != nil {
 			return &ValidationError{Name: "user_agent", err: fmt.Errorf(`ent: validator failed for field "UsageLog.user_agent": %w`, err)}
@@ -1088,6 +1107,10 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.FirstTokenMs(); ok {
 		_spec.SetField(usagelog.FieldFirstTokenMs, field.TypeInt, value)
 		_node.FirstTokenMs = &value
+	}
+	if value, ok := _c.mutation.ReasoningTokens(); ok {
+		_spec.SetField(usagelog.FieldReasoningTokens, field.TypeInt, value)
+		_node.ReasoningTokens = &value
 	}
 	if value, ok := _c.mutation.OpenaiTiming(); ok {
 		_spec.SetField(usagelog.FieldOpenaiTiming, field.TypeJSON, value)
@@ -1873,6 +1896,30 @@ func (u *UsageLogUpsert) AddFirstTokenMs(v int) *UsageLogUpsert {
 // ClearFirstTokenMs clears the value of the "first_token_ms" field.
 func (u *UsageLogUpsert) ClearFirstTokenMs() *UsageLogUpsert {
 	u.SetNull(usagelog.FieldFirstTokenMs)
+	return u
+}
+
+// SetReasoningTokens sets the "reasoning_tokens" field.
+func (u *UsageLogUpsert) SetReasoningTokens(v int) *UsageLogUpsert {
+	u.Set(usagelog.FieldReasoningTokens, v)
+	return u
+}
+
+// UpdateReasoningTokens sets the "reasoning_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateReasoningTokens() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldReasoningTokens)
+	return u
+}
+
+// AddReasoningTokens adds v to the "reasoning_tokens" field.
+func (u *UsageLogUpsert) AddReasoningTokens(v int) *UsageLogUpsert {
+	u.Add(usagelog.FieldReasoningTokens, v)
+	return u
+}
+
+// ClearReasoningTokens clears the value of the "reasoning_tokens" field.
+func (u *UsageLogUpsert) ClearReasoningTokens() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldReasoningTokens)
 	return u
 }
 
@@ -2845,6 +2892,34 @@ func (u *UsageLogUpsertOne) UpdateFirstTokenMs() *UsageLogUpsertOne {
 func (u *UsageLogUpsertOne) ClearFirstTokenMs() *UsageLogUpsertOne {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.ClearFirstTokenMs()
+	})
+}
+
+// SetReasoningTokens sets the "reasoning_tokens" field.
+func (u *UsageLogUpsertOne) SetReasoningTokens(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetReasoningTokens(v)
+	})
+}
+
+// AddReasoningTokens adds v to the "reasoning_tokens" field.
+func (u *UsageLogUpsertOne) AddReasoningTokens(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddReasoningTokens(v)
+	})
+}
+
+// UpdateReasoningTokens sets the "reasoning_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateReasoningTokens() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateReasoningTokens()
+	})
+}
+
+// ClearReasoningTokens clears the value of the "reasoning_tokens" field.
+func (u *UsageLogUpsertOne) ClearReasoningTokens() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearReasoningTokens()
 	})
 }
 
@@ -4022,6 +4097,34 @@ func (u *UsageLogUpsertBulk) UpdateFirstTokenMs() *UsageLogUpsertBulk {
 func (u *UsageLogUpsertBulk) ClearFirstTokenMs() *UsageLogUpsertBulk {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.ClearFirstTokenMs()
+	})
+}
+
+// SetReasoningTokens sets the "reasoning_tokens" field.
+func (u *UsageLogUpsertBulk) SetReasoningTokens(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetReasoningTokens(v)
+	})
+}
+
+// AddReasoningTokens adds v to the "reasoning_tokens" field.
+func (u *UsageLogUpsertBulk) AddReasoningTokens(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddReasoningTokens(v)
+	})
+}
+
+// UpdateReasoningTokens sets the "reasoning_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateReasoningTokens() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateReasoningTokens()
+	})
+}
+
+// ClearReasoningTokens clears the value of the "reasoning_tokens" field.
+func (u *UsageLogUpsertBulk) ClearReasoningTokens() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearReasoningTokens()
 	})
 }
 

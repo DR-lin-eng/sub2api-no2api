@@ -26,25 +26,35 @@ const (
 type darwinProvider struct {
 	appSessionID string
 	appPaths     []string
+	scopeKey     string
+	sessionRoot  string
 }
 
-type deviceSignals struct {
-	SchemaVersion      int      `json:"schemaVersion"`
-	PreferredLanguages []string `json:"preferredLanguages"`
-	Locale             string   `json:"locale"`
-	Timezone           string   `json:"timezone"`
-	ScreenSizeSum      int      `json:"screenSizeSum"`
-	ScreenScale        float64  `json:"screenScale"`
-	AppSessionID       string   `json:"appSessionId"`
+func (p *darwinProvider) ForScope(scopeKey string) Provider {
+	if scopeKey == "" {
+		return nil
+	}
+	if p.scopeKey == scopeKey {
+		return p
+	}
+	root := p.sessionRoot
+	if root == "" {
+		root = p.appSessionID
+	}
+	scoped := *p
+	scoped.scopeKey, scoped.sessionRoot = scopeKey, root
+	scoped.appSessionID = uuid.NewSHA1(uuid.NameSpaceOID, []byte("sub2api:attestation-session:v1\x00"+root+"\x00"+scopeKey)).String()
+	return &scoped
 }
 
 type macOSSignals struct {
-	Locale    string   `json:"locale"`
-	Languages []string `json:"languages"`
-	Timezone  string   `json:"timezone"`
-	Width     float64  `json:"width"`
-	Height    float64  `json:"height"`
-	Scale     float64  `json:"scale"`
+	Locale        string   `json:"locale"`
+	Languages     []string `json:"languages"`
+	Timezone      string   `json:"timezone"`
+	Width         float64  `json:"width"`
+	Height        float64  `json:"height"`
+	Scale         float64  `json:"scale"`
+	ScreenSizeSum float64  `json:"screenSizeSum"`
 }
 
 func NewProvider() Provider {
@@ -59,6 +69,9 @@ func NewProvider() Provider {
 }
 
 func (p *darwinProvider) Check(ctx context.Context) error {
+	if err := validateProviderScope(ctx, p.scopeKey); err != nil {
+		return err
+	}
 	checkCtx, cancel := context.WithTimeout(ctx, attestationTimeout)
 	defer cancel()
 	_, _, _, err := p.resolveRuntime(checkCtx)
@@ -66,6 +79,10 @@ func (p *darwinProvider) Check(ctx context.Context) error {
 }
 
 func (p *darwinProvider) resolveRuntime(ctx context.Context) (string, string, string, error) {
+	return p.resolveNativeRuntime(ctx, false)
+}
+
+func (p *darwinProvider) resolveNativeRuntime(ctx context.Context, codexMode bool) (string, string, string, error) {
 	if runtime.GOARCH != "arm64" {
 		return "", "", "", errors.New("live attestation currently requires Apple Silicon; Intel macOS is not supported")
 	}
@@ -80,6 +97,11 @@ func (p *darwinProvider) resolveRuntime(ctx context.Context) (string, string, st
 		nodePath:   "bundled Node.js runtime",
 		modulePath: "DeviceCheck native module",
 	} {
+		// Electron catches native-module loading failures inside its callback
+		// and returns error_code=4. Live/raw DeviceCheck still require the module.
+		if codexMode && filePath == modulePath {
+			continue
+		}
 		if info, statErr := os.Stat(filePath); statErr != nil || info.IsDir() {
 			return "", "", "", fmt.Errorf("%w: ChatGPT app is missing its %s", ErrChatGPTAppMissing, label)
 		}
@@ -92,9 +114,45 @@ func (p *darwinProvider) resolveRuntime(ctx context.Context) (string, string, st
 }
 
 func (p *darwinProvider) Generate(ctx context.Context) (string, error) {
+	return p.generate(ctx, false)
+}
+
+func (p *darwinProvider) GenerateCodexToken(ctx context.Context) (string, error) {
+	if err := validateProviderScope(ctx, p.scopeKey); err != nil {
+		return "", err
+	}
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	if runtime.GOARCH != "arm64" {
+		runCtx, cancel := context.WithTimeout(ctx, attestationTimeout)
+		defer cancel()
+		signals, err := p.readSignals(runCtx)
+		if err != nil {
+			return "", err
+		}
+		return codexUnavailableWithSignals(2, &signals), nil
+	}
+	header, err := p.generate(ctx, true)
+	if err != nil {
+		return "", err
+	}
+	var envelope struct {
+		Token string `json:"t"`
+	}
+	if json.Unmarshal([]byte(header), &envelope) != nil || envelope.Token == "" {
+		return "", errors.New("malformed native Codex attestation")
+	}
+	return envelope.Token, nil
+}
+
+func (p *darwinProvider) generate(ctx context.Context, codexMode bool) (string, error) {
+	if err := validateProviderScope(ctx, p.scopeKey); err != nil {
+		return "", err
+	}
 	runCtx, cancel := context.WithTimeout(ctx, attestationTimeout)
 	defer cancel()
-	nodePath, modulePath, bundleID, err := p.resolveRuntime(runCtx)
+	nodePath, modulePath, bundleID, err := p.resolveNativeRuntime(runCtx, codexMode)
 	if err != nil {
 		return "", err
 	}
@@ -114,13 +172,16 @@ func (p *darwinProvider) Generate(ctx context.Context) (string, error) {
 		"SUB2API_ATTESTATION_BUNDLE_ID=" + bundleID,
 		"SUB2API_ATTESTATION_SIGNALS=" + string(signalsJSON),
 	}
+	if codexMode {
+		command.Env = append(command.Env, "SUB2API_CODEX_TOKEN=1")
+	}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	command.Stdout = &stdout
 	command.Stderr = &stderr
 	if err := command.Run(); err != nil {
 		if errors.Is(runCtx.Err(), context.DeadlineExceeded) {
-			return "", errors.New("ChatGPT DeviceCheck token generation timed out")
+			return "", fmt.Errorf("ChatGPT DeviceCheck token generation timed out: %w", context.DeadlineExceeded)
 		}
 		reason := strings.TrimSpace(stderr.String())
 		if len(reason) > 240 {
@@ -136,6 +197,60 @@ func (p *darwinProvider) Generate(ctx context.Context) (string, error) {
 		return "", errors.New("ChatGPT DeviceCheck returned a malformed attestation")
 	}
 	return header, nil
+}
+
+// GenerateDeviceCheckToken returns the raw Apple token used by the desktop
+// messaging/challenge surface. Generate keeps returning the signed v1
+// attestation envelope used by the Live path; the two wire values must not be
+// substituted for one another.
+func (p *darwinProvider) GenerateDeviceCheckToken(ctx context.Context) (string, error) {
+	if err := validateProviderScope(ctx, p.scopeKey); err != nil {
+		return "", err
+	}
+	runCtx, cancel := context.WithTimeout(ctx, attestationTimeout)
+	defer cancel()
+	nodePath, modulePath, bundleID, err := p.resolveRuntime(runCtx)
+	if err != nil {
+		return "", err
+	}
+	signals, err := p.readSignals(runCtx)
+	if err != nil {
+		return "", err
+	}
+	signalsJSON, err := json.Marshal(signals)
+	if err != nil {
+		return "", fmt.Errorf("encode DeviceCheck signals: %w", err)
+	}
+	command := exec.CommandContext(runCtx, nodePath, "-e", deviceCheckScript)
+	command.Env = []string{
+		"PATH=/usr/bin:/bin",
+		"SUB2API_DEVICECHECK_MODULE=" + modulePath,
+		"SUB2API_ATTESTATION_BUNDLE_ID=" + bundleID,
+		"SUB2API_ATTESTATION_SIGNALS=" + string(signalsJSON),
+		"SUB2API_DEVICECHECK_RAW=1",
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	command.Stdout = &stdout
+	command.Stderr = &stderr
+	if err := command.Run(); err != nil {
+		if errors.Is(runCtx.Err(), context.DeadlineExceeded) {
+			return "", fmt.Errorf("ChatGPT DeviceCheck token generation timed out: %w", context.DeadlineExceeded)
+		}
+		reason := strings.TrimSpace(stderr.String())
+		if len(reason) > 240 {
+			reason = reason[:240]
+		}
+		if reason == "" {
+			reason = err.Error()
+		}
+		return "", fmt.Errorf("ChatGPT DeviceCheck token generation failed: %s", reason)
+	}
+	token := strings.TrimSpace(stdout.String())
+	if len(token) < 20 || len(token) > 16*1024 || strings.ContainsAny(token, "\r\n \t") {
+		return "", errors.New("ChatGPT DeviceCheck returned a malformed raw token")
+	}
+	return token, nil
 }
 
 func (p *darwinProvider) findApplication() (string, error) {
@@ -162,7 +277,7 @@ func readBundleIdentifier(ctx context.Context, appPath string) (string, error) {
 		return "", fmt.Errorf("%w: cannot read its bundle identifier", ErrChatGPTAppMissing)
 	}
 	bundleID := strings.TrimSpace(string(output))
-	if !strings.HasPrefix(bundleID, "com.openai.") {
+	if bundleID != "com.openai.codex" {
 		return "", errors.New("the installed ChatGPT app has an unexpected bundle identifier")
 	}
 	return bundleID, nil
@@ -170,15 +285,26 @@ func readBundleIdentifier(ctx context.Context, appPath string) (string, error) {
 
 func (p *darwinProvider) readSignals(ctx context.Context) (deviceSignals, error) {
 	const script = `ObjC.import("Foundation"); ObjC.import("AppKit");
-const screen = $.NSScreen.mainScreen;
-const frame = screen.frame;
+let screenSizeSum = 0, width = 0, height = 0, scale = 1;
+const screens = $.NSScreen.screens;
+for (let i = 0; i < Number(screens.count); i++) {
+  const display = screens.objectAtIndex(i);
+  const dimensions = display.frame.size;
+  screenSizeSum += Number(dimensions.width) + Number(dimensions.height);
+  if (i === 0) {
+    width = Number(dimensions.width);
+    height = Number(dimensions.height);
+    scale = Number(display.backingScaleFactor);
+  }
+}
 JSON.stringify({
   locale: ObjC.unwrap($.NSLocale.currentLocale.localeIdentifier),
   languages: ObjC.deepUnwrap($.NSLocale.preferredLanguages),
   timezone: ObjC.unwrap($.NSTimeZone.localTimeZone.name),
-  width: Number(frame.size.width),
-  height: Number(frame.size.height),
-  scale: Number(screen.backingScaleFactor)
+  width,
+  height,
+  screenSizeSum,
+  scale
 })`
 	output, err := exec.CommandContext(ctx, "/usr/bin/osascript", "-l", "JavaScript", "-e", script).Output()
 	if err != nil {
@@ -208,7 +334,7 @@ JSON.stringify({
 		PreferredLanguages: languages,
 		Locale:             locale,
 		Timezone:           truncateSignal(values.Timezone, 64, "unknown"),
-		ScreenSizeSum:      max(0, int(values.Width+values.Height+0.5)),
+		ScreenSizeSum:      max(0, int(values.ScreenSizeSum+0.5)),
 		ScreenScale:        scale,
 		AppSessionID:       truncateSignal(p.appSessionID, 128, uuid.NewString()),
 	}, nil
@@ -226,7 +352,6 @@ func truncateSignal(value string, limit int, fallback string) string {
 }
 
 const deviceCheckScript = `
-const addon = require(process.env.SUB2API_DEVICECHECK_MODULE);
 const signals = JSON.parse(process.env.SUB2API_ATTESTATION_SIGNALS);
 const bundleID = process.env.SUB2API_ATTESTATION_BUNDLE_ID;
 
@@ -266,9 +391,24 @@ function base64url(value) {
 }
 
 (async () => {
-  const result = await addon.generateToken();
-  if (!result || !result.supported) throw new Error("DeviceCheck is not supported on this Mac");
-  if (!result.tokenBase64) throw new Error("DeviceCheck returned no token");
+  const codexMode = process.env.SUB2API_CODEX_TOKEN === "1";
+  let result, errorCode;
+  try {
+    const addon = require(process.env.SUB2API_DEVICECHECK_MODULE);
+    result = await addon.generateToken();
+  }
+  catch (error) { if (!codexMode) throw error; errorCode = 4; result = {}; }
+  if (!result || !result.supported) {
+    if (!codexMode) throw new Error("DeviceCheck is not supported on this Mac");
+    errorCode = errorCode || 3;
+  } else if (!result.tokenBase64) {
+    if (!codexMode) throw new Error("DeviceCheck returned no token");
+    errorCode = 4;
+  }
+  if (process.env.SUB2API_DEVICECHECK_RAW === "1") {
+    process.stdout.write(result.tokenBase64);
+    return;
+  }
   const fingerprint = map([
     [0, uint(signals.schemaVersion)],
     [1, array(signals.preferredLanguages.map(text))],
@@ -279,12 +419,15 @@ function base64url(value) {
     [6, text(signals.appSessionId)]
   ]);
   const fields = [
-    field("token", result.tokenBase64),
+    errorCode ? Buffer.concat([text("error_code"), uint(errorCode)]) : field("token", result.tokenBase64),
     field("bundle_id", bundleID),
     Buffer.concat([text("f"), head(64, fingerprint.length), fingerprint])
   ];
   if (result.latencyMs != null) {
-    fields.push(Buffer.concat([text("t"), float(result.latencyMs)]));
+    const latency = Buffer.alloc(9);
+    latency[0] = 251;
+    latency.writeDoubleBE(result.latencyMs, 1);
+    fields.push(Buffer.concat([text("t"), latency]));
   }
   const token = "v1." + base64url(Buffer.concat([Buffer.from([160 + fields.length]), ...fields]));
   process.stdout.write(JSON.stringify({v: 1, s: 0, t: token}));

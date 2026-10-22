@@ -1,0 +1,48 @@
+?   	github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.165s
+--- FAIL: TestLockAndMergeAccountProbeExtraUsesCurrentDatabaseSnapshot (0.00s)
+    --- FAIL: TestLockAndMergeAccountProbeExtraUsesCurrentDatabaseSnapshot/ordinary_edit_preserves_current_enable_flag_and_snapshot_created_after_account_load (0.00s)
+        account_repo_upstream_billing_probe_update_test.go:95: 
+            	Error Trace:	/workspace/internal/infrastructure/repository/account_repo_upstream_billing_probe_update_test.go:95
+            	Error:      	Received unexpected error:
+            	            	sql: expected 9 destination arguments in Scan, not 10
+            	Test:       	TestLockAndMergeAccountProbeExtraUsesCurrentDatabaseSnapshot/ordinary_edit_preserves_current_enable_flag_and_snapshot_created_after_account_load
+    --- FAIL: TestLockAndMergeAccountProbeExtraUsesCurrentDatabaseSnapshot/identity_change_clears_stale_snapshot (0.00s)
+        account_repo_upstream_billing_probe_update_test.go:95: 
+            	Error Trace:	/workspace/internal/infrastructure/repository/account_repo_upstream_billing_probe_update_test.go:95
+            	Error:      	Received unexpected error:
+            	            	sql: expected 9 destination arguments in Scan, not 10
+            	Test:       	TestLockAndMergeAccountProbeExtraUsesCurrentDatabaseSnapshot/identity_change_clears_stale_snapshot
+    --- FAIL: TestLockAndMergeAccountProbeExtraUsesCurrentDatabaseSnapshot/current_explicit_disable_clears_snapshot (0.00s)
+        account_repo_upstream_billing_probe_update_test.go:95: 
+            	Error Trace:	/workspace/internal/infrastructure/repository/account_repo_upstream_billing_probe_update_test.go:95
+            	Error:      	Received unexpected error:
+            	            	sql: expected 9 destination arguments in Scan, not 10
+            	Test:       	TestLockAndMergeAccountProbeExtraUsesCurrentDatabaseSnapshot/current_explicit_disable_clears_snapshot
+    --- FAIL: TestLockAndMergeAccountProbeExtraUsesCurrentDatabaseSnapshot/missing_database_snapshot_is_not_resurrected_from_stale_input (0.00s)
+        account_repo_upstream_billing_probe_update_test.go:95: 
+            	Error Trace:	/workspace/internal/infrastructure/repository/account_repo_upstream_billing_probe_update_test.go:95
+            	Error:      	Received unexpected error:
+            	            	sql: expected 9 destination arguments in Scan, not 10
+            	Test:       	TestLockAndMergeAccountProbeExtraUsesCurrentDatabaseSnapshot/missing_database_snapshot_is_not_resurrected_from_stale_input
+--- FAIL: TestLockAndMergeAccountProbeExtraProtectsOllamaManagedFields (0.00s)
+    --- FAIL: TestLockAndMergeAccountProbeExtraProtectsOllamaManagedFields/same_identity_keeps_snapshot (0.00s)
+        account_repo_upstream_billing_probe_update_test.go:131: 
+            	Error Trace:	/workspace/internal/infrastructure/repository/account_repo_upstream_billing_probe_update_test.go:131
+            	Error:      	Received unexpected error:
+            	            	sql: expected 9 destination arguments in Scan, not 10
+            	Test:       	TestLockAndMergeAccountProbeExtraProtectsOllamaManagedFields/same_identity_keeps_snapshot
+    --- FAIL: TestLockAndMergeAccountProbeExtraProtectsOllamaManagedFields/changed_identity_clears_snapshot (0.00s)
+        account_repo_upstream_billing_probe_update_test.go:131: 
+            	Error Trace:	/workspace/internal/infrastructure/repository/account_repo_upstream_billing_probe_update_test.go:131
+            	Error:      	Received unexpected error:
+            	            	sql: expected 9 destination arguments in Scan, not 10
+            	Test:       	TestLockAndMergeAccountProbeExtraProtectsOllamaManagedFields/changed_identity_clears_snapshot
+FAIL
+FAIL	github.com/Wei-Shaw/sub2api/internal/infrastructure/repository	0.014s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	0.014s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin	0.011s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto	0.010s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/quotaview	0.010s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/supportchatasset	0.004s [no tests to run]
+FAIL

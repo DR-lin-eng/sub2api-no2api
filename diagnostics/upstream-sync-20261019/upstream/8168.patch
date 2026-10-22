@@ -1,0 +1,680 @@
+diff --git a/backend/internal/service/gemini_chat_completions_compat_service.go b/backend/internal/service/gemini_chat_completions_compat_service.go
+index f85ac0577..61a635b64 100644
+--- a/backend/internal/service/gemini_chat_completions_compat_service.go
++++ b/backend/internal/service/gemini_chat_completions_compat_service.go
+@@ -250,6 +250,8 @@ func (s *GeminiMessagesCompatService) forwardClaudeBodyAsChatCompletions(
+ 
+ 	var usage *ClaudeUsage
+ 	var firstTokenMs *int
++	clientDisconnect := false
++	streamFinished := false
+ 	if clientStream {
+ 		streamRes, err := s.handleChatCompletionsStreamingResponseFromGemini(c, resp, startTime, originalModel, account.Type == AccountTypeOAuth, includeUsage)
+ 		if err != nil {
+@@ -257,6 +259,8 @@ func (s *GeminiMessagesCompatService) forwardClaudeBodyAsChatCompletions(
+ 		}
+ 		usage = streamRes.usage
+ 		firstTokenMs = streamRes.firstTokenMs
++		clientDisconnect = streamRes.clientDisconnect
++		streamFinished = streamRes.finished
+ 	} else if useUpstreamStream {
+ 		collected, usageObj, err := collectGeminiSSE(resp.Body, account.Type == AccountTypeOAuth)
+ 		if err != nil {
+@@ -287,6 +291,10 @@ func (s *GeminiMessagesCompatService) forwardClaudeBodyAsChatCompletions(
+ 	if isImageGenerationModel(originalModel) {
+ 		imageCount = 1
+ 	}
++	// 客户端在收到结束分片前断开时只计已送达的图片：Chat 流不向客户端转发图片。
++	if clientDisconnect && !streamFinished {
++		imageCount = 0
++	}
+ 
+ 	return &ForwardResult{
+ 		RequestID:        requestID,
+@@ -301,7 +309,7 @@ func (s *GeminiMessagesCompatService) forwardClaudeBodyAsChatCompletions(
+ 		ImageCount:       imageCount,
+ 		ImageSize:        imageSize,
+ 		ImageInputSize:   imageInputSize,
+-		ClientDisconnect: false,
++		ClientDisconnect: clientDisconnect,
+ 	}, nil
+ }
+ 
+@@ -532,6 +540,11 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsStreamingResponseFrom
+ 	var usage ClaudeUsage
+ 	var firstTokenMs *int
+ 	firstChunk := true
++	finishReason := ""
++	clientDisconnect := false
++	streamResult := func() *geminiStreamResult {
++		return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs, clientDisconnect: clientDisconnect, finished: finishReason != ""}
++	}
+ 
+ 	writeChatChunk := func(chunk apicompat.ChatCompletionsChunk) bool {
+ 		sse, err := apicompat.ChatChunkToSSE(chunk)
+@@ -539,6 +552,7 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsStreamingResponseFrom
+ 			return false
+ 		}
+ 		if _, err := io.WriteString(c.Writer, sse); err != nil {
++			clientDisconnect = true
+ 			return true
+ 		}
+ 		return false
+@@ -571,10 +585,9 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsStreamingResponseFrom
+ 			Usage:      apicompat.AnthropicUsage{},
+ 		},
+ 	}) {
+-		return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
++		return streamResult(), nil
+ 	}
+ 
+-	finishReason := ""
+ 	sawToolUse := false
+ 	nextBlockIndex := 0
+ 	openBlockIndex := -1
+@@ -643,12 +656,12 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsStreamingResponseFrom
+ 								}
+ 								if openToolIndex >= 0 {
+ 									if closeOpenTool() {
+-										return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
++										return streamResult(), nil
+ 									}
+ 								}
+ 								if openBlockType != "thinking" {
+ 									if closeOpenBlock() {
+-										return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
++										return streamResult(), nil
+ 									}
+ 									idx := nextBlockIndex
+ 									nextBlockIndex++
+@@ -659,21 +672,21 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsStreamingResponseFrom
+ 										Index:        &idx,
+ 										ContentBlock: &apicompat.AnthropicContentBlock{Type: "thinking"},
+ 									}) {
+-										return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
++										return streamResult(), nil
+ 									}
+ 								}
+ 								if emitAnthropicEvent(&apicompat.AnthropicStreamEvent{
+ 									Type:  "content_block_delta",
+ 									Delta: &apicompat.AnthropicDelta{Type: "thinking_delta", Thinking: delta},
+ 								}) {
+-									return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
++									return streamResult(), nil
+ 								}
+ 								continue
+ 							}
+ 							if text, ok := part["text"].(string); ok && text != "" {
+ 								if openToolIndex >= 0 {
+ 									if closeOpenTool() {
+-										return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
++										return streamResult(), nil
+ 									}
+ 								}
+ 								delta, newSeen := computeGeminiTextDelta(seenText, text)
+@@ -683,7 +696,7 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsStreamingResponseFrom
+ 								}
+ 								if openBlockType != "text" {
+ 									if closeOpenBlock() {
+-										return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
++										return streamResult(), nil
+ 									}
+ 									idx := nextBlockIndex
+ 									nextBlockIndex++
+@@ -697,7 +710,7 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsStreamingResponseFrom
+ 											Text: "",
+ 										},
+ 									}) {
+-										return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
++										return streamResult(), nil
+ 									}
+ 								}
+ 								if emitAnthropicEvent(&apicompat.AnthropicStreamEvent{
+@@ -707,7 +720,7 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsStreamingResponseFrom
+ 										Text: delta,
+ 									},
+ 								}) {
+-									return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
++									return streamResult(), nil
+ 								}
+ 								continue
+ 							}
+@@ -718,11 +731,11 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsStreamingResponseFrom
+ 									name = "tool"
+ 								}
+ 								if closeOpenBlock() {
+-									return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
++									return streamResult(), nil
+ 								}
+ 								if openToolIndex >= 0 && openToolName != name {
+ 									if closeOpenTool() {
+-										return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
++										return streamResult(), nil
+ 									}
+ 								}
+ 								if openToolIndex < 0 {
+@@ -741,7 +754,7 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsStreamingResponseFrom
+ 											Input: json.RawMessage(`{}`),
+ 										},
+ 									}) {
+-										return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
++										return streamResult(), nil
+ 									}
+ 								}
+ 
+@@ -767,7 +780,7 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsStreamingResponseFrom
+ 											PartialJSON: delta,
+ 										},
+ 									}) {
+-										return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
++										return streamResult(), nil
+ 									}
+ 								}
+ 							}
+@@ -781,15 +794,20 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsStreamingResponseFrom
+ 			break
+ 		}
+ 		if err != nil {
++			if geminiStreamAbortedWithBillableOutput(c, err, &usage) {
++				logger.LegacyPrintf("service.gemini_messages_compat", "[GeminiAPI] Client disconnected during chat completions stream, billing collected usage: %v", err)
++				clientDisconnect = true
++				return streamResult(), nil
++			}
+ 			return nil, fmt.Errorf("stream read error: %w", err)
+ 		}
+ 	}
+ 
+ 	if closeOpenBlock() {
+-		return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
++		return streamResult(), nil
+ 	}
+ 	if closeOpenTool() {
+-		return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
++		return streamResult(), nil
+ 	}
+ 
+ 	stopReason := mapGeminiFinishReasonToClaudeStopReason(finishReason)
+@@ -810,30 +828,30 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsStreamingResponseFrom
+ 			CacheReadInputTokens: usage.CacheReadInputTokens,
+ 		},
+ 	}) {
+-		return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
++		return streamResult(), nil
+ 	}
+ 	if emitAnthropicEvent(&apicompat.AnthropicStreamEvent{Type: "message_stop"}) {
+-		return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
++		return streamResult(), nil
+ 	}
+ 
+ 	for _, resEvt := range apicompat.FinalizeAnthropicResponsesStream(anthState) {
+ 		chunks := apicompat.ResponsesEventToChatChunks(&resEvt, ccState)
+ 		for _, chunk := range chunks {
+ 			if disconnected := writeChatChunk(chunk); disconnected {
+-				return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
++				return streamResult(), nil
+ 			}
+ 		}
+ 	}
+ 	for _, chunk := range apicompat.FinalizeResponsesChatStream(ccState) {
+ 		if disconnected := writeChatChunk(chunk); disconnected {
+-			return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
++			return streamResult(), nil
+ 		}
+ 	}
+ 
+ 	_, _ = io.WriteString(c.Writer, "data: [DONE]\n\n")
+ 	flusher.Flush()
+ 
+-	return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
++	return streamResult(), nil
+ }
+ 
+ func (s *GeminiMessagesCompatService) writeGeminiChatCompletionsMappedError(
+diff --git a/backend/internal/service/gemini_messages_compat_service.go b/backend/internal/service/gemini_messages_compat_service.go
+index 48b095fb3..6f41c1dfe 100644
+--- a/backend/internal/service/gemini_messages_compat_service.go
++++ b/backend/internal/service/gemini_messages_compat_service.go
+@@ -1015,6 +1015,8 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
+ 
+ 	var usage *ClaudeUsage
+ 	var firstTokenMs *int
++	clientDisconnect := false
++	streamFinished := false
+ 	if req.Stream {
+ 		streamRes, err := s.handleStreamingResponse(c, resp, startTime, originalModel)
+ 		if err != nil {
+@@ -1022,6 +1024,8 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
+ 		}
+ 		usage = streamRes.usage
+ 		firstTokenMs = streamRes.firstTokenMs
++		clientDisconnect = streamRes.clientDisconnect
++		streamFinished = streamRes.finished
+ 	} else {
+ 		if useUpstreamStream {
+ 			collected, usageObj, err := collectGeminiSSE(resp.Body, true)
+@@ -1049,6 +1053,10 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
+ 	imageInputSize := s.extractImageInputSize(body)
+ 	imageSize := normalizeOpenAIImageSizeTier(imageInputSize)
+ 	imageCount := resolveGeminiImageCount(c, originalModel, mappedModel)
++	// 客户端在收到结束分片前断开时只计已送达的图片：Claude 兼容流不向客户端转发图片。
++	if clientDisconnect && !streamFinished {
++		imageCount = 0
++	}
+ 
+ 	return &ForwardResult{
+ 		RequestID:                     requestID,
+@@ -1062,6 +1070,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
+ 		Duration:                      time.Since(startTime),
+ 		FirstTokenMs:                  firstTokenMs,
+ 		ReasoningEffort:               extractGeminiReasoningEffortFromBody(geminiReq),
++		ClientDisconnect:              clientDisconnect,
+ 		ImageCount:                    imageCount,
+ 		ImageSize:                     imageSize,
+ 		ImageInputSize:                imageInputSize,
+@@ -1530,6 +1539,8 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
+ 
+ 	var usage *ClaudeUsage
+ 	var firstTokenMs *int
++	clientDisconnect := false
++	streamFinished := false
+ 
+ 	if stream {
+ 		streamRes, err := s.handleNativeStreamingResponse(c, resp, startTime, isOAuth, account, requestID)
+@@ -1538,6 +1549,8 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
+ 		}
+ 		usage = streamRes.usage
+ 		firstTokenMs = streamRes.firstTokenMs
++		clientDisconnect = streamRes.clientDisconnect
++		streamFinished = streamRes.finished
+ 	} else {
+ 		if useUpstreamStream {
+ 			var best geminiResponseSignal
+@@ -1572,6 +1585,10 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
+ 	imageInputSize := s.extractImageInputSize(body)
+ 	imageSize := normalizeOpenAIImageSizeTier(imageInputSize)
+ 	imageCount := resolveGeminiImageCount(c, originalModel, mappedModel)
++	// 客户端在收到结束分片前断开时只计已送达的图片。
++	if clientDisconnect && !streamFinished {
++		imageCount = observedGeminiImageOutputs(c)
++	}
+ 
+ 	return &ForwardResult{
+ 		RequestID:                     requestID,
+@@ -1585,6 +1602,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
+ 		ReasoningEffort:               extractGeminiReasoningEffortFromBody(body),
+ 		Duration:                      time.Since(startTime),
+ 		FirstTokenMs:                  firstTokenMs,
++		ClientDisconnect:              clientDisconnect,
+ 		ImageCount:                    imageCount,
+ 		ImageSize:                     imageSize,
+ 		ImageInputSize:                imageInputSize,
+@@ -2068,8 +2086,10 @@ func mapGeminiStatusToClaudeErrorType(status string) string {
+ }
+ 
+ type geminiStreamResult struct {
+-	usage        *ClaudeUsage
+-	firstTokenMs *int
++	usage            *ClaudeUsage
++	firstTokenMs     *int
++	clientDisconnect bool // 客户端在流式传输中途断开，结果为断开前已收集的部分
++	finished         bool // 断开前已收到上游 finishReason
+ }
+ 
+ func (s *GeminiMessagesCompatService) handleNonStreamingResponse(c *gin.Context, resp *http.Response, originalModel string) (*ClaudeUsage, error) {
+@@ -2151,6 +2171,15 @@ func (s *GeminiMessagesCompatService) handleStreamingResponse(c *gin.Context, re
+ 	for {
+ 		line, err := reader.ReadString('\n')
+ 		if err != nil && !errors.Is(err, io.EOF) {
++			if geminiStreamAbortedWithBillableOutput(c, err, &usage) {
++				logger.LegacyPrintf("service.gemini_messages_compat", "[GeminiAPI] Client disconnected during messages stream, billing collected usage: %v", err)
++				return &geminiStreamResult{
++					usage:            &usage,
++					firstTokenMs:     firstTokenMs,
++					clientDisconnect: true,
++					finished:         finishReason != "",
++				}, nil
++			}
+ 			return nil, fmt.Errorf("stream read error: %w", err)
+ 		}
+ 
+@@ -2660,8 +2689,10 @@ func mergeCollectedTextParts(response map[string]any, textParts []string) map[st
+ }
+ 
+ type geminiNativeStreamResult struct {
+-	usage        *ClaudeUsage
+-	firstTokenMs *int
++	usage            *ClaudeUsage
++	firstTokenMs     *int
++	clientDisconnect bool // 客户端在流式传输中途断开，结果为断开前已收集的部分
++	finished         bool // 断开前已收到上游 finishReason
+ }
+ 
+ func isGeminiInsufficientScope(headers http.Header, body []byte) bool {
+@@ -2838,10 +2869,13 @@ func (s *GeminiMessagesCompatService) handleNativeStreamingResponse(c *gin.Conte
+ 	var best geminiResponseSignal
+ 	sawDataEvent := false
+ 	fallback := &geminiSSEFallbackBody{}
++	clientDisconnect := false
++	finished := false
+ 
+ 	for {
+ 		line, err := reader.ReadString('\n')
+-		if len(line) > 0 {
++		// 读错误时 line 是未以换行结尾的残行，不透传也不参与用量统计；EOF 时的末行完整有效。
++		if len(line) > 0 && (err == nil || errors.Is(err, io.EOF)) {
+ 			trimmed := strings.TrimRight(line, "\r\n")
+ 			if strings.HasPrefix(trimmed, "data:") {
+ 				payload := strings.TrimSpace(strings.TrimPrefix(trimmed, "data:"))
+@@ -2874,6 +2908,10 @@ func (s *GeminiMessagesCompatService) handleNativeStreamingResponse(c *gin.Conte
+ 					observer.ObserveGemini(rawBytes)
+ 					observeGeminiImageOutputs(c, rawBytes)
+ 
++					if gjson.GetBytes(rawBytes, "candidates.0.finishReason").String() != "" {
++						finished = true
++					}
++
+ 					if firstTokenMs == nil {
+ 						ms := int(time.Since(startTime).Milliseconds())
+ 						firstTokenMs = &ms
+@@ -2901,13 +2939,18 @@ func (s *GeminiMessagesCompatService) handleNativeStreamingResponse(c *gin.Conte
+ 			break
+ 		}
+ 		if err != nil {
+-			return nil, err
++			if !geminiStreamAbortedWithBillableOutput(c, err, usage) {
++				return nil, err
++			}
++			clientDisconnect = true
++			logger.LegacyPrintf("service.gemini_messages_compat", "[GeminiAPI] Client disconnected during native stream (account=%d), billing collected usage: %v", account.ID, err)
++			break
+ 		}
+ 	}
+ 
+ 	s.finalizeGeminiSSESignal(c, account, true, upstreamRequestID, best, sawDataEvent, fallback)
+ 
+-	return &geminiNativeStreamResult{usage: usage, firstTokenMs: firstTokenMs}, nil
++	return &geminiNativeStreamResult{usage: usage, firstTokenMs: firstTokenMs, clientDisconnect: clientDisconnect, finished: finished}, nil
+ }
+ 
+ // unwrapGeminiResponse 解包 Gemini OAuth 响应中的 response 字段
+diff --git a/backend/internal/service/gemini_stream_client_abort.go b/backend/internal/service/gemini_stream_client_abort.go
+new file mode 100644
+index 000000000..d1dba1b80
+--- /dev/null
++++ b/backend/internal/service/gemini_stream_client_abort.go
+@@ -0,0 +1,25 @@
++package service
++
++import (
++	"context"
++	"errors"
++	"io"
++
++	"github.com/gin-gonic/gin"
++)
++
++// geminiStreamAbortedWithBillableOutput 判断流式读取中断是否由客户端断开引起，且断开前
++// 已观测到可计费的输出（token 用量或已回吐的图片）。满足时调用方以已收集的结果收尾并照常计费。
++// usageMetadata 为累计值，按断开前收到的最后一份计费：读到结束分片后断开即完整用量；
++// 中途断开时中间分片可能只含输入计数或不含用量，此时按已有计数计费或不计费。
++func geminiStreamAbortedWithBillableOutput(c *gin.Context, err error, usage *ClaudeUsage) bool {
++	if err == nil || errors.Is(err, io.EOF) {
++		return false
++	}
++	clientGone := errors.Is(err, context.Canceled) ||
++		(c != nil && c.Request != nil && c.Request.Context().Err() != nil)
++	if !clientGone {
++		return false
++	}
++	return usage.hasObservedTokens() || observedGeminiImageOutputs(c) > 0
++}
+diff --git a/backend/internal/service/gemini_stream_client_abort_test.go b/backend/internal/service/gemini_stream_client_abort_test.go
+new file mode 100644
+index 000000000..0825d5152
+--- /dev/null
++++ b/backend/internal/service/gemini_stream_client_abort_test.go
+@@ -0,0 +1,244 @@
++//go:build unit
++
++package service
++
++import (
++	"bytes"
++	"context"
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"testing"
++
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++)
++
++// geminiAbortingStreamBody 先吐出 data，读完后返回 abortErr；onAbort 用于模拟客户端断开时请求 context 被取消。
++type geminiAbortingStreamBody struct {
++	data     *bytes.Reader
++	abortErr error
++	onAbort  func()
++}
++
++func (b *geminiAbortingStreamBody) Read(p []byte) (int, error) {
++	n, err := b.data.Read(p)
++	if err == io.EOF {
++		if b.onAbort != nil {
++			b.onAbort()
++		}
++		return n, b.abortErr
++	}
++	return n, err
++}
++
++func (b *geminiAbortingStreamBody) Close() error { return nil }
++
++const (
++	geminiAbortTextChunk  = `data: {"candidates":[{"content":{"parts":[{"text":"hello"}],"role":"model"}}]}` + "\n\n"
++	geminiAbortFinalChunk = `data: {"candidates":[{"content":{"parts":[{"text":" world"}],"role":"model"},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":5,"totalTokenCount":15}}` + "\n\n"
++	geminiAbortImageChunk = `data: {"candidates":[{"content":{"parts":[{"inlineData":{"mimeType":"image/png","data":"aGVsbG8="}}],"role":"model"},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":1290,"totalTokenCount":1300}}` + "\n\n"
++	geminiAbortUsageChunk = `data: {"candidates":[{"content":{"parts":[{"text":"drawing"}],"role":"model"}}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":2,"totalTokenCount":12}}` + "\n\n"
++)
++
++// newGeminiAbortingStreamService 返回的上游流在吐完 sse 后中断；clientGone=true 时中断伴随请求 context 取消。
++func newGeminiAbortingStreamService(t *testing.T, path string, reqBody []byte, sse string, clientGone bool) (*GeminiMessagesCompatService, *gin.Context, *httptest.ResponseRecorder) {
++	t.Helper()
++	gin.SetMode(gin.TestMode)
++	rec := httptest.NewRecorder()
++	c, _ := gin.CreateTestContext(rec)
++	reqCtx, cancel := context.WithCancel(context.Background())
++	t.Cleanup(cancel)
++	c.Request = httptest.NewRequest(http.MethodPost, path, bytes.NewReader(reqBody)).WithContext(reqCtx)
++
++	body := &geminiAbortingStreamBody{data: bytes.NewReader([]byte(sse)), abortErr: io.ErrUnexpectedEOF}
++	if clientGone {
++		body.abortErr = context.Canceled
++		body.onAbort = cancel
++	}
++	svc, httpStub := newGeminiVertexAPIKeyTestService()
++	httpStub.response = &http.Response{
++		StatusCode: http.StatusOK,
++		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
++		Body:       body,
++	}
++	return svc, c, rec
++}
++
++func TestGeminiForwardNative_ClientDisconnectAfterFinalChunkBillsCollectedUsage(t *testing.T) {
++	reqBody := []byte(`{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}`)
++	svc, c, _ := newGeminiAbortingStreamService(t, "/v1beta/models/gemini-3-flash-preview:streamGenerateContent", reqBody, geminiAbortTextChunk+geminiAbortFinalChunk, true)
++
++	result, err := svc.ForwardNative(context.Background(), c, geminiVertexAPIKeyTestAccount(""), "gemini-3-flash-preview", "streamGenerateContent", true, reqBody)
++	require.NoError(t, err)
++	require.NotNil(t, result)
++	require.True(t, result.ClientDisconnect)
++	require.Equal(t, 10, result.Usage.InputTokens)
++	require.Equal(t, 5, result.Usage.OutputTokens)
++	require.Zero(t, result.ImageCount)
++}
++
++func TestGeminiForwardNative_ClientDisconnectWithoutUsageStaysUnbilled(t *testing.T) {
++	reqBody := []byte(`{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}`)
++	svc, c, _ := newGeminiAbortingStreamService(t, "/v1beta/models/gemini-3-flash-preview:streamGenerateContent", reqBody, geminiAbortTextChunk, true)
++
++	result, err := svc.ForwardNative(context.Background(), c, geminiVertexAPIKeyTestAccount(""), "gemini-3-flash-preview", "streamGenerateContent", true, reqBody)
++	require.ErrorIs(t, err, context.Canceled)
++	require.Nil(t, result)
++}
++
++func TestGeminiForwardNative_UpstreamReadErrorWithLiveClientStaysError(t *testing.T) {
++	reqBody := []byte(`{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}`)
++	svc, c, _ := newGeminiAbortingStreamService(t, "/v1beta/models/gemini-3-flash-preview:streamGenerateContent", reqBody, geminiAbortTextChunk+geminiAbortFinalChunk, false)
++
++	result, err := svc.ForwardNative(context.Background(), c, geminiVertexAPIKeyTestAccount(""), "gemini-3-flash-preview", "streamGenerateContent", true, reqBody)
++	require.ErrorIs(t, err, io.ErrUnexpectedEOF)
++	require.Nil(t, result)
++}
++
++func TestGeminiForwardNative_ClientDisconnectBillsOnlyDeliveredImages(t *testing.T) {
++	reqBody := []byte(`{"contents":[{"role":"user","parts":[{"text":"draw a cat"}]}]}`)
++
++	t.Run("image delivered before disconnect", func(t *testing.T) {
++		svc, c, _ := newGeminiAbortingStreamService(t, "/v1beta/models/gemini-3-pro-image:streamGenerateContent", reqBody, geminiAbortImageChunk, true)
++		result, err := svc.ForwardNative(context.Background(), c, geminiVertexAPIKeyTestAccount(""), "gemini-3-pro-image", "streamGenerateContent", true, reqBody)
++		require.NoError(t, err)
++		require.True(t, result.ClientDisconnect)
++		require.Equal(t, 1, result.ImageCount)
++	})
++
++	t.Run("disconnect before the image arrives", func(t *testing.T) {
++		svc, c, _ := newGeminiAbortingStreamService(t, "/v1beta/models/gemini-3-pro-image:streamGenerateContent", reqBody, geminiAbortUsageChunk, true)
++		result, err := svc.ForwardNative(context.Background(), c, geminiVertexAPIKeyTestAccount(""), "gemini-3-pro-image", "streamGenerateContent", true, reqBody)
++		require.NoError(t, err)
++		require.True(t, result.ClientDisconnect)
++		require.Zero(t, result.ImageCount)
++		require.Equal(t, 2, result.Usage.OutputTokens)
++	})
++}
++
++func TestGeminiCompatForward_ClientDisconnectAfterFinalChunkBillsCollectedUsage(t *testing.T) {
++	reqBody := []byte(`{"model":"gemini-3-flash-preview","max_tokens":16,"stream":true,"messages":[{"role":"user","content":"hi"}]}`)
++
++	t.Run("client gone", func(t *testing.T) {
++		svc, c, _ := newGeminiAbortingStreamService(t, "/v1/messages", reqBody, geminiAbortTextChunk+geminiAbortFinalChunk, true)
++		result, err := svc.Forward(context.Background(), c, geminiVertexAPIKeyTestAccount(""), reqBody)
++		require.NoError(t, err)
++		require.True(t, result.ClientDisconnect)
++		require.Equal(t, 10, result.Usage.InputTokens)
++		require.Equal(t, 5, result.Usage.OutputTokens)
++	})
++
++	t.Run("upstream read error with live client", func(t *testing.T) {
++		svc, c, _ := newGeminiAbortingStreamService(t, "/v1/messages", reqBody, geminiAbortTextChunk+geminiAbortFinalChunk, false)
++		result, err := svc.Forward(context.Background(), c, geminiVertexAPIKeyTestAccount(""), reqBody)
++		require.ErrorIs(t, err, io.ErrUnexpectedEOF)
++		require.Nil(t, result)
++	})
++}
++
++func TestGeminiForwardAsChatCompletions_ClientDisconnectAfterFinalChunkBillsCollectedUsage(t *testing.T) {
++	reqBody := []byte(`{"model":"gemini-3-flash-preview","stream":true,"messages":[{"role":"user","content":"hi"}]}`)
++
++	t.Run("client gone", func(t *testing.T) {
++		svc, c, _ := newGeminiAbortingStreamService(t, "/v1/chat/completions", reqBody, geminiAbortTextChunk+geminiAbortFinalChunk, true)
++		result, err := svc.ForwardAsChatCompletions(context.Background(), c, geminiVertexAPIKeyTestAccount(""), reqBody)
++		require.NoError(t, err)
++		require.True(t, result.ClientDisconnect)
++		require.Equal(t, 10, result.Usage.InputTokens)
++		require.Equal(t, 5, result.Usage.OutputTokens)
++	})
++
++	t.Run("client gone before usage", func(t *testing.T) {
++		svc, c, _ := newGeminiAbortingStreamService(t, "/v1/chat/completions", reqBody, geminiAbortTextChunk, true)
++		result, err := svc.ForwardAsChatCompletions(context.Background(), c, geminiVertexAPIKeyTestAccount(""), reqBody)
++		require.ErrorIs(t, err, context.Canceled)
++		require.Nil(t, result)
++	})
++}
++
++func TestGeminiForwardNative_ClientDisconnectAfterFinishKeepsImageFallback(t *testing.T) {
++	// 结束分片已到达但图片不以 inlineData 回吐时，断开与正常完成同口径按模型名兜底。
++	finishWithoutInline := `data: {"candidates":[{"content":{"parts":[{"fileData":{"mimeType":"image/png","fileUri":"gs://bucket/cat.png"}}],"role":"model"},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":1290,"totalTokenCount":1300}}` + "\n\n"
++	reqBody := []byte(`{"contents":[{"role":"user","parts":[{"text":"draw a cat"}]}]}`)
++	svc, c, _ := newGeminiAbortingStreamService(t, "/v1beta/models/gemini-3-pro-image:streamGenerateContent", reqBody, finishWithoutInline, true)
++
++	result, err := svc.ForwardNative(context.Background(), c, geminiVertexAPIKeyTestAccount(""), "gemini-3-pro-image", "streamGenerateContent", true, reqBody)
++	require.NoError(t, err)
++	require.True(t, result.ClientDisconnect)
++	require.Equal(t, 1, result.ImageCount)
++}
++
++func TestGeminiForwardNative_ClientDisconnectIgnoresTruncatedTrailingLine(t *testing.T) {
++	complete := `data: {"candidates":[{"content":{"parts":[{"text":"hello"}],"role":"model"}}],"usageMetadata":{"promptTokenCount":1000,"candidatesTokenCount":300,"totalTokenCount":1300}}` + "\n\n"
++	truncated := `data: {"candidates":[{"content":{"parts":[{"text":" more"}],"role":"model"}}],"usageMetadata":{`
++	reqBody := []byte(`{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}`)
++	svc, c, _ := newGeminiAbortingStreamService(t, "/v1beta/models/gemini-3-flash-preview:streamGenerateContent", reqBody, complete+truncated, true)
++
++	result, err := svc.ForwardNative(context.Background(), c, geminiVertexAPIKeyTestAccount(""), "gemini-3-flash-preview", "streamGenerateContent", true, reqBody)
++	require.NoError(t, err)
++	require.True(t, result.ClientDisconnect)
++	require.Equal(t, 1000, result.Usage.InputTokens)
++	require.Equal(t, 300, result.Usage.OutputTokens)
++}
++
++func TestGeminiForwardAsChatCompletions_ClientDisconnectImageCount(t *testing.T) {
++	t.Run("disconnect before finish bills no image", func(t *testing.T) {
++		reqBody := []byte(`{"model":"gemini-3-pro-image","stream":true,"messages":[{"role":"user","content":"draw a cat"}]}`)
++		svc, c, _ := newGeminiAbortingStreamService(t, "/v1/chat/completions", reqBody, geminiAbortUsageChunk, true)
++		result, err := svc.ForwardAsChatCompletions(context.Background(), c, geminiVertexAPIKeyTestAccount(""), reqBody)
++		require.NoError(t, err)
++		require.True(t, result.ClientDisconnect)
++		require.Zero(t, result.ImageCount)
++		require.Equal(t, 2, result.Usage.OutputTokens)
++	})
++
++	t.Run("disconnect after finish keeps completed-request image count", func(t *testing.T) {
++		reqBody := []byte(`{"model":"gemini-3-pro-image","stream":true,"messages":[{"role":"user","content":"draw a cat"}]}`)
++		svc, c, _ := newGeminiAbortingStreamService(t, "/v1/chat/completions", reqBody, geminiAbortImageChunk, true)
++		result, err := svc.ForwardAsChatCompletions(context.Background(), c, geminiVertexAPIKeyTestAccount(""), reqBody)
++		require.NoError(t, err)
++		require.True(t, result.ClientDisconnect)
++		require.Equal(t, 1, result.ImageCount)
++	})
++}
++
++// geminiFailingResponseWriter 模拟客户端已断开：所有写入失败。
++type geminiFailingResponseWriter struct {
++	header http.Header
++}
++
++func (w *geminiFailingResponseWriter) Header() http.Header       { return w.header }
++func (w *geminiFailingResponseWriter) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }
++func (w *geminiFailingResponseWriter) WriteHeader(int)           {}
++func (w *geminiFailingResponseWriter) Flush()                    {}
++
++func TestGeminiForwardAsChatCompletions_WriteFailureOnImageModelBillsNoImage(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	reqBody := []byte(`{"model":"gemini-3-pro-image","stream":true,"messages":[{"role":"user","content":"draw a cat"}]}`)
++	c, _ := gin.CreateTestContext(&geminiFailingResponseWriter{header: http.Header{}})
++	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(reqBody))
++	svc, httpStub := newGeminiVertexAPIKeyTestService()
++	httpStub.response = &http.Response{
++		StatusCode: http.StatusOK,
++		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
++		Body:       io.NopCloser(bytes.NewReader([]byte(geminiAbortUsageChunk))),
++	}
++
++	result, err := svc.ForwardAsChatCompletions(context.Background(), c, geminiVertexAPIKeyTestAccount(""), reqBody)
++	require.NoError(t, err)
++	require.True(t, result.ClientDisconnect)
++	require.Zero(t, result.ImageCount)
++}
++
++func TestGeminiCompatForward_ClientDisconnectBeforeFinishBillsNoImage(t *testing.T) {
++	inlineWithoutFinish := `data: {"candidates":[{"content":{"parts":[{"inlineData":{"mimeType":"image/png","data":"aGVsbG8="}}],"role":"model"}}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":1290,"totalTokenCount":1300}}` + "\n\n"
++	reqBody := []byte(`{"model":"gemini-3-pro-image","max_tokens":16,"stream":true,"messages":[{"role":"user","content":"draw a cat"}]}`)
++	svc, c, _ := newGeminiAbortingStreamService(t, "/v1/messages", reqBody, inlineWithoutFinish, true)
++
++	result, err := svc.Forward(context.Background(), c, geminiVertexAPIKeyTestAccount(""), reqBody)
++	require.NoError(t, err)
++	require.True(t, result.ClientDisconnect)
++	require.Zero(t, result.ImageCount)
++	require.Equal(t, 1290, result.Usage.OutputTokens)
++}

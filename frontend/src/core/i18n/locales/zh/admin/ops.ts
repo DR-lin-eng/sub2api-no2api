@@ -208,6 +208,30 @@ export default {
           lastRequestAt: '最近请求'
         }
       },
+      oauthPlanExpiry: {
+        title: 'OAuth 套餐到期剩余分布',
+        description: '按 OAuth 账号套餐剩余天数统计，梯度为 1、2、4、5、10、15、20、25 天。',
+        updatedAt: '更新于 {value}',
+        totalAccounts: 'OAuth 账号',
+        withExpiry: '有到期时间',
+        withoutExpiry: '缺少到期时间',
+        planCount: '套餐类型',
+        planBreakdown: '套餐分布',
+        failedToLoad: '加载 OAuth 套餐到期分布失败',
+        empty: '当前筛选条件下暂无 OAuth 账号。',
+        buckets: {
+          expired: '已到期',
+          up_to_1: '0-1 天',
+          up_to_2: '1-2 天',
+          up_to_4: '2-4 天',
+          up_to_5: '4-5 天',
+          up_to_10: '5-10 天',
+          up_to_15: '10-15 天',
+          up_to_20: '15-20 天',
+          up_to_25: '20-25 天',
+          over_25: '>25 天'
+        }
+      },
       customTimeRange: {
         startTime: '开始时间',
         endTime: '结束时间'
@@ -445,6 +469,7 @@ export default {
           kind: '类型',
           platform: '平台',
           model: '模型',
+          account: '账号',
           duration: '耗时',
           ttft: '首 Token 延迟',
           status: '状态码',
@@ -791,6 +816,8 @@ export default {
         displayOpenAITokenStatsHint: '关闭后不加载 OpenAI Token 请求统计，默认关闭。',
         displayUserUsageStats: '展示用户用量统计',
         displayUserUsageStatsHint: '关闭后不加载用户用量统计；面板默认查询近 24 小时 Top 20，默认关闭。',
+      displayOAuthPlanExpiryDistribution: '展示 OAuth 套餐到期分布',
+      displayOAuthPlanExpiryDistributionHint: '关闭后不加载 OAuth 账号套餐到期剩余时间分布，默认开启。',
         displaySystemLogs: '展示系统日志',
         displaySystemLogsHint: '控制系统日志查询面板是否显示，默认开启。关闭后不会发起系统日志相关查询。',
         autoRefreshCountdown: '自动刷新：{seconds}s',

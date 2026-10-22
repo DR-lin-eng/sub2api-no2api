@@ -1,0 +1,88 @@
+[
+  {
+    "stage": "BASELINE",
+    "result": "PASS",
+    "cache_only_input_tokens": -30,
+    "cache_read_tokens": 30,
+    "client_abort_usage": {
+      "native": [],
+      "messages": [],
+      "chat": []
+    },
+    "migration_count": 305,
+    "persisted_invariants_sha256": "86315b086e28afdc3b8d2fd557cfb24f508b0a10ac142c84eaa56f695e096519",
+    "health_ready_frontend_encrypted_login_key_subscription": "PASS"
+  },
+  {
+    "stage": "MODIFIED",
+    "result": "PASS",
+    "cache_only_input_tokens": 0,
+    "cache_read_tokens": 30,
+    "client_abort_usage": {
+      "native": [
+        [
+          10,
+          5
+        ]
+      ],
+      "messages": [
+        [
+          10,
+          5
+        ]
+      ],
+      "chat": [
+        [
+          10,
+          5
+        ]
+      ]
+    },
+    "migration_count": 305,
+    "persisted_invariants_sha256": "86315b086e28afdc3b8d2fd557cfb24f508b0a10ac142c84eaa56f695e096519",
+    "health_ready_frontend_encrypted_login_key_subscription": "PASS"
+  },
+  {
+    "stage": "ROLLBACK",
+    "result": "PASS",
+    "cache_only_input_tokens": -30,
+    "cache_read_tokens": 30,
+    "client_abort_usage": {
+      "native": [],
+      "messages": [],
+      "chat": []
+    },
+    "migration_count": 305,
+    "persisted_invariants_sha256": "86315b086e28afdc3b8d2fd557cfb24f508b0a10ac142c84eaa56f695e096519",
+    "health_ready_frontend_encrypted_login_key_subscription": "PASS"
+  },
+  {
+    "stage": "RESTORED",
+    "result": "PASS",
+    "cache_only_input_tokens": 0,
+    "cache_read_tokens": 30,
+    "client_abort_usage": {
+      "native": [
+        [
+          10,
+          5
+        ]
+      ],
+      "messages": [
+        [
+          10,
+          5
+        ]
+      ],
+      "chat": [
+        [
+          10,
+          5
+        ]
+      ]
+    },
+    "migration_count": 305,
+    "persisted_invariants_sha256": "86315b086e28afdc3b8d2fd557cfb24f508b0a10ac142c84eaa56f695e096519",
+    "health_ready_frontend_encrypted_login_key_subscription": "PASS"
+  }
+]

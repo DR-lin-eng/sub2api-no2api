@@ -13,6 +13,7 @@
         </p>
       </div>
       <div class="space-y-5 p-6">
+        <SettingsOpenAIRequestTimezoneFields />
         <div class="border-b border-gray-100 pb-5 dark:border-dark-700">
           <div class="flex items-center justify-between gap-4">
             <div>
@@ -1076,6 +1077,7 @@ import Icon from '@/common/widgets/icons/Icon.vue'
 import ProxySelector from '@/common/widgets/data/ProxySelector.vue'
 import Select from '@/common/widgets/forms/Select.vue'
 import Toggle from '@/common/widgets/forms/Toggle.vue'
+import SettingsOpenAIRequestTimezoneFields from './SettingsOpenAIRequestTimezoneFields.vue'
 import { useSettingsPageContext } from '@/features/admin-settings/presentation/composables/settingsPageContext'
 
 const { addClaudeOAuthSystemPromptBlock, addWebSearchProvider, apiKeyVisible, applyClaudeOAuthSystemPromptPreset, claudeOAuthSystemPromptBlockTypeOptions, claudeOAuthSystemPromptBlocks, claudeOAuthSystemPromptCacheTTLOptions, claudeOAuthSystemPromptPresetOptions, copyApiKey, expandedProviders, form, formatSubscribedAt, getClaudeOAuthPresetLabel, markClaudeOAuthSystemPromptBlockCustom, moveClaudeOAuthSystemPromptBlock, openTestDialog, parseSubscribedAt, quotaPercentage, removeClaudeOAuthSystemPromptBlock, removeWebSearchProvider, resetClaudeOAuthSystemPromptBlocks, resetWebSearchUsage, t, testWebSearchProvider, toggleClaudeOAuthSystemPromptBlock, toggleProviderExpand, webSearchConfig, webSearchProxies, wsTestDialogOpen, wsTestLoading, wsTestQuery, wsTestResult } = useSettingsPageContext()

@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    "../runtime_check.py"
+  ],
+  "cwd": "/Users/lin/.codex/visualizations/2026/10/16/01a1429b-cf2c-7b51-8878-a3f391ef02d4/upstream-sync-20261016/repo",
+  "started_at": "2026-10-16T03:46:21.787944+00:00",
+  "elapsed_seconds": 34.53,
+  "exit_status": 0,
+  "stdout": "{\"stage\": \"baseline\", \"result\": \"PASS\", \"migration_count\": 303, \"invariants_sha256\": \"c8187b14e88ccacf6a3b72975b8a377fe1c0875872b9f6eb515df951e63f0307\", \"unknown_order_type_http\": 200, \"unpaid_callback_http\": 200, \"unpaid_order_state\": \"COMPLETED\", \"unsupported_fulfillment_state\": \"COMPLETED\", \"duplicate_additional_queries\": 0, \"readiness_frontend_encrypted_login_api_key_legacy_order_subscription\": \"PASS\"}\n{\"stage\": \"upgraded\", \"result\": \"PASS\", \"migration_count\": 303, \"invariants_sha256\": \"c8187b14e88ccacf6a3b72975b8a377fe1c0875872b9f6eb515df951e63f0307\", \"unknown_order_type_http\": 400, \"unpaid_callback_http\": 502, \"unpaid_order_state\": \"PENDING\", \"unsupported_fulfillment_state\": \"FAILED\", \"duplicate_additional_queries\": 0, \"readiness_frontend_encrypted_login_api_key_legacy_order_subscription\": \"PASS\"}\n{\"stage\": \"rollback\", \"result\": \"PASS\", \"migration_count\": 303, \"invariants_sha256\": \"c8187b14e88ccacf6a3b72975b8a377fe1c0875872b9f6eb515df951e63f0307\", \"unknown_order_type_http\": 200, \"unpaid_callback_http\": 200, \"unpaid_order_state\": \"COMPLETED\", \"unsupported_fulfillment_state\": \"COMPLETED\", \"duplicate_additional_queries\": 0, \"readiness_frontend_encrypted_login_api_key_legacy_order_subscription\": \"PASS\"}\n{\"stage\": \"restored\", \"result\": \"PASS\", \"migration_count\": 303, \"invariants_sha256\": \"c8187b14e88ccacf6a3b72975b8a377fe1c0875872b9f6eb515df951e63f0307\", \"unknown_order_type_http\": 400, \"unpaid_callback_http\": 502, \"unpaid_order_state\": \"PENDING\", \"unsupported_fulfillment_state\": \"FAILED\", \"duplicate_additional_queries\": 0, \"readiness_frontend_encrypted_login_api_key_legacy_order_subscription\": \"PASS\"}\n",
+  "stderr": ""
+}

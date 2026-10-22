@@ -1,0 +1,5 @@
+{
+  "record": "records/performance-modified-final.record.json",
+  "accepted_for_comparison": false,
+  "reason": "Concurrent final golangci-lint and integration compilation consumed the Docker VM CPUs. Baseline and modified must be rerun consecutively when those processes finish; allocation counts remain useful, timings are not comparable."
+}

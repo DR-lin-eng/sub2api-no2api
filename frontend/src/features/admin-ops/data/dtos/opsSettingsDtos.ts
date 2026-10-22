@@ -73,6 +73,7 @@ export interface OpsAdvancedSettings {
   record_business_limited_429: boolean
   display_openai_token_stats: boolean
   display_user_usage_stats: boolean
+  display_oauth_plan_expiry_distribution: boolean
   display_alert_events: boolean
   display_system_logs: boolean
   display_concurrency: boolean

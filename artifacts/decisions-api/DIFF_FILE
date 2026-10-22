@@ -1,0 +1,1295 @@
+diff --git a/backend/internal/application/service/account.go b/backend/internal/application/service/account.go
+index ae767f841..3b5a35cbe 100644
+--- a/backend/internal/application/service/account.go
++++ b/backend/internal/application/service/account.go
+@@ -211,6 +211,7 @@ const (
+ const (
+ 	OpenAIEndpointCapabilityChatCompletions OpenAIEndpointCapability = "chat_completions"
+ 	OpenAIEndpointCapabilityEmbeddings      OpenAIEndpointCapability = "embeddings"
++	OpenAIEndpointCapabilityDecisions       OpenAIEndpointCapability = "decisions"
+ 	OpenAIEndpointCapabilityAlphaSearch     OpenAIEndpointCapability = "alpha_search"
+ 	OpenAIEndpointCapabilityLive            OpenAIEndpointCapability = "live"
+ 	// OpenAIEndpointCapabilityGrokMediaGeneration keeps image/video generation
+@@ -2196,6 +2197,10 @@ func (a *Account) SupportsOpenAIEndpointCapability(capability OpenAIEndpointCapa
+ 		if a.Type != AccountTypeAPIKey {
+ 			return false
+ 		}
++	case OpenAIEndpointCapabilityDecisions:
++		if a.Type != AccountTypeAPIKey {
++			return false
++		}
+ 	default:
+ 		return false
+ 	}
+diff --git a/backend/internal/application/service/composite_model_route.go b/backend/internal/application/service/composite_model_route.go
+index ef54483b1..f25da2b23 100644
+--- a/backend/internal/application/service/composite_model_route.go
++++ b/backend/internal/application/service/composite_model_route.go
+@@ -18,6 +18,7 @@ const (
+ 	CompositeRouteEndpointResponses       = "responses"
+ 	CompositeRouteEndpointChatCompletions = "chat_completions"
+ 	CompositeRouteEndpointEmbeddings      = "embeddings"
++	CompositeRouteEndpointDecisions       = "decisions"
+ 	CompositeRouteEndpointImages          = "images"
+ 	CompositeRouteEndpointGemini          = "gemini"
+ 
+@@ -94,6 +95,7 @@ func normalizeCompositeRouteEndpoint(endpoint string) string {
+ 		CompositeRouteEndpointResponses,
+ 		CompositeRouteEndpointChatCompletions,
+ 		CompositeRouteEndpointEmbeddings,
++		CompositeRouteEndpointDecisions,
+ 		CompositeRouteEndpointImages,
+ 		CompositeRouteEndpointGemini:
+ 		return endpoint
+diff --git a/backend/internal/application/service/openai_bulk_account_settings.go b/backend/internal/application/service/openai_bulk_account_settings.go
+index 98fc62e6a..aeef93af1 100644
+--- a/backend/internal/application/service/openai_bulk_account_settings.go
++++ b/backend/internal/application/service/openai_bulk_account_settings.go
+@@ -95,7 +95,7 @@ func normalizeBulkOpenAIEndpointCapabilities(raw any) (any, bool, error) {
+ 	if raw == nil {
+ 		return nil, true, nil
+ 	}
+-	values := make([]string, 0, 2)
++	values := make([]string, 0, 3)
+ 	switch typed := raw.(type) {
+ 	case []any:
+ 		for _, item := range typed {
+@@ -111,10 +111,10 @@ func normalizeBulkOpenAIEndpointCapabilities(raw any) (any, bool, error) {
+ 		return nil, false, invalidBulkOpenAIEndpointCapabilities()
+ 	}
+ 
+-	selected := make(map[string]bool, 2)
++	selected := make(map[string]bool, 3)
+ 	for _, value := range values {
+ 		switch OpenAIEndpointCapability(value) {
+-		case OpenAIEndpointCapabilityChatCompletions, OpenAIEndpointCapabilityEmbeddings:
++		case OpenAIEndpointCapabilityChatCompletions, OpenAIEndpointCapabilityEmbeddings, OpenAIEndpointCapabilityDecisions:
+ 			selected[value] = true
+ 		default:
+ 			return nil, false, invalidBulkOpenAIEndpointCapabilities()
+@@ -125,19 +125,23 @@ func normalizeBulkOpenAIEndpointCapabilities(raw any) (any, bool, error) {
+ 	}
+ 
+ 	includeChat := selected[string(OpenAIEndpointCapabilityChatCompletions)]
+-	if includeChat && selected[string(OpenAIEndpointCapabilityEmbeddings)] {
+-		return []string{string(OpenAIEndpointCapabilityChatCompletions), string(OpenAIEndpointCapabilityEmbeddings)}, true, nil
+-	}
+-	if includeChat {
+-		return []string{string(OpenAIEndpointCapabilityChatCompletions)}, true, nil
++	canonical := make([]string, 0, len(selected))
++	for _, capability := range []OpenAIEndpointCapability{
++		OpenAIEndpointCapabilityChatCompletions,
++		OpenAIEndpointCapabilityEmbeddings,
++		OpenAIEndpointCapabilityDecisions,
++	} {
++		if selected[string(capability)] {
++			canonical = append(canonical, string(capability))
++		}
+ 	}
+-	return []string{string(OpenAIEndpointCapabilityEmbeddings)}, false, nil
++	return canonical, includeChat, nil
+ }
+ 
+ func invalidBulkOpenAIEndpointCapabilities() error {
+ 	return infraerrors.BadRequest(
+ 		"OPENAI_ENDPOINT_CAPABILITIES_INVALID",
+-		"openai_capabilities must contain chat_completions, embeddings, or both",
++		"openai_capabilities must contain chat_completions, embeddings, decisions, or a combination",
+ 	)
+ }
+ 
+diff --git a/backend/internal/application/service/openai_bulk_account_settings_test.go b/backend/internal/application/service/openai_bulk_account_settings_test.go
+index 3244ab85c..54291f83d 100644
+--- a/backend/internal/application/service/openai_bulk_account_settings_test.go
++++ b/backend/internal/application/service/openai_bulk_account_settings_test.go
+@@ -25,6 +25,19 @@ func TestNormalizeBulkOpenAISettingsCanonicalizesCapabilitiesAndMode(t *testing.
+ 	require.Equal(t, "force_chat_completions", input.Extra["openai_responses_mode"])
+ }
+ 
++func TestNormalizeBulkOpenAISettingsAcceptsDecisionsCapability(t *testing.T) {
++	input := &BulkUpdateAccountsInput{Credentials: map[string]any{
++		openAIEndpointCapabilitiesCredentialKey: []any{"decisions", "chat_completions"},
++	}}
++
++	settings, err := normalizeBulkOpenAISettings(input)
++
++	require.NoError(t, err)
++	require.True(t, settings.endpointCapabilities)
++	require.True(t, settings.capabilitiesIncludeChat)
++	require.Equal(t, []string{"chat_completions", "decisions"}, input.Credentials[openAIEndpointCapabilitiesCredentialKey])
++}
++
+ func TestNormalizeBulkOpenAISettingsRejectsForcedResponsesWithoutChatCapability(t *testing.T) {
+ 	input := &BulkUpdateAccountsInput{
+ 		Credentials: map[string]any{
+diff --git a/backend/internal/application/service/openai_endpoint_url.go b/backend/internal/application/service/openai_endpoint_url.go
+index 982ed9aff..607f6b3ae 100644
+--- a/backend/internal/application/service/openai_endpoint_url.go
++++ b/backend/internal/application/service/openai_endpoint_url.go
+@@ -31,6 +31,10 @@ func buildOpenAIResponsesInputTokensURL(base string) string {
+ 	return buildOpenAIEndpointURL(base, "/v1/responses/input_tokens")
+ }
+ 
++func buildOpenAIDecisionsURL(base string) string {
++	return buildOpenAIEndpointURL(base, "/v1/decisions")
++}
++
+ // buildOpenAIOAuthCodexResponsesURL builds the Responses endpoint used by an
+ // OpenAI OAuth account's Codex transport.  Unlike the public OpenAI API, the
+ // ChatGPT Codex endpoint is rooted at `/backend-api/codex/responses` and most
+diff --git a/backend/internal/transport/http/handler/admin/group_handler.go b/backend/internal/transport/http/handler/admin/group_handler.go
+index 663a8a4de..ee2a2a7cb 100644
+--- a/backend/internal/transport/http/handler/admin/group_handler.go
++++ b/backend/internal/transport/http/handler/admin/group_handler.go
+@@ -232,7 +232,7 @@ type CompositeRouteRequest struct {
+ 	MatchType      string `json:"match_type" binding:"omitempty,oneof=exact prefix"`
+ 	TargetPlatform string `json:"target_platform" binding:"required,oneof=anthropic openai gemini antigravity grok kimi zhipu deepseek minimax opencode_go typesafe"`
+ 	UpstreamModel  string `json:"upstream_model"`
+-	Endpoint       string `json:"endpoint" binding:"omitempty,oneof=any messages count_tokens responses chat_completions embeddings images gemini"`
++	Endpoint       string `json:"endpoint" binding:"omitempty,oneof=any messages count_tokens responses chat_completions embeddings decisions images gemini"`
+ 	Priority       int    `json:"priority"`
+ 	Enabled        *bool  `json:"enabled"`
+ 	Notes          string `json:"notes"`
+@@ -240,7 +240,7 @@ type CompositeRouteRequest struct {
+ 
+ type CompositeRoutePreviewRequest struct {
+ 	Model    string `json:"model" binding:"required"`
+-	Endpoint string `json:"endpoint" binding:"omitempty,oneof=any messages count_tokens responses chat_completions embeddings images gemini"`
++	Endpoint string `json:"endpoint" binding:"omitempty,oneof=any messages count_tokens responses chat_completions embeddings decisions images gemini"`
+ }
+ 
+ // List handles listing all groups with pagination
+diff --git a/backend/internal/transport/http/handler/endpoint.go b/backend/internal/transport/http/handler/endpoint.go
+index 97ffb3e57..3404c9972 100644
+--- a/backend/internal/transport/http/handler/endpoint.go
++++ b/backend/internal/transport/http/handler/endpoint.go
+@@ -20,6 +20,7 @@ const (
+ 	EndpointModels               = "/v1/models"
+ 	EndpointChatCompletions      = "/v1/chat/completions"
+ 	EndpointEmbeddings           = "/v1/embeddings"
++	EndpointDecisions            = "/v1/decisions"
+ 	EndpointAlphaSearch          = "/v1/alpha/search"
+ 	EndpointResponses            = "/v1/responses"
+ 	EndpointResponsesInputTokens = "/v1/responses/input_tokens"
+@@ -88,6 +89,8 @@ func NormalizeInboundEndpoint(path string) string {
+ 		return EndpointResponsesInputTokens
+ 	case strings.Contains(path, EndpointEmbeddings):
+ 		return EndpointEmbeddings
++	case strings.Contains(path, EndpointDecisions) || strings.TrimRight(path, "/") == "/decisions":
++		return EndpointDecisions
+ 	case strings.Contains(path, EndpointModels) || isModelsAliasPath(path):
+ 		return EndpointModels
+ 	case strings.Contains(path, EndpointAlphaSearch) || isBareOrSubpathOf(strings.TrimRight(path, "/"), "/alpha/search") || isBareOrSubpathOf(strings.TrimRight(path, "/"), "/backend-api/codex/alpha/search"):
+@@ -205,7 +208,7 @@ func DeriveUpstreamEndpoint(inbound, rawRequestPath, platform string) string {
+ 
+ 	switch platform {
+ 	case service.PlatformOpenAI, service.PlatformGrok:
+-		if inbound == EndpointModels || inbound == EndpointEmbeddings || inbound == EndpointAlphaSearch || inbound == EndpointResponsesInputTokens || inbound == EndpointImagesGenerations || inbound == EndpointImagesEdits || inbound == EndpointVideosGenerations || inbound == EndpointVideosEdits || inbound == EndpointVideosExtensions || inbound == EndpointVideos {
++		if inbound == EndpointModels || inbound == EndpointEmbeddings || inbound == EndpointDecisions || inbound == EndpointAlphaSearch || inbound == EndpointResponsesInputTokens || inbound == EndpointImagesGenerations || inbound == EndpointImagesEdits || inbound == EndpointVideosGenerations || inbound == EndpointVideosEdits || inbound == EndpointVideosExtensions || inbound == EndpointVideos {
+ 			return inbound
+ 		}
+ 		// Remaining OpenAI text compatibility routes forward to the Responses API.
+diff --git a/backend/internal/transport/http/handler/endpoint_test.go b/backend/internal/transport/http/handler/endpoint_test.go
+index f0305614e..e7309dcb5 100644
+--- a/backend/internal/transport/http/handler/endpoint_test.go
++++ b/backend/internal/transport/http/handler/endpoint_test.go
+@@ -26,6 +26,7 @@ func TestNormalizeInboundEndpoint(t *testing.T) {
+ 		{"/v1/models", EndpointModels},
+ 		{"/v1/chat/completions", EndpointChatCompletions},
+ 		{"/v1/embeddings", EndpointEmbeddings},
++		{"/v1/decisions", EndpointDecisions},
+ 		{"/v1/alpha/search", EndpointAlphaSearch},
+ 		{"/v1/responses", EndpointResponses},
+ 		{"/v1/responses/input_tokens", EndpointResponsesInputTokens},
+@@ -41,6 +42,7 @@ func TestNormalizeInboundEndpoint(t *testing.T) {
+ 		// Prefixed paths (antigravity, openai) — root Responses.
+ 		{"/antigravity/v1/messages", EndpointMessages},
+ 		{"/openai/v1/responses", EndpointResponses},
++		{"/openai/v1/decisions", EndpointDecisions},
+ 		{"/openai/v1/images/generations", EndpointImagesGenerations},
+ 		{"/openai/v1/images/edits", EndpointImagesEdits},
+ 		{"/openai/v1/models", EndpointModels},
+@@ -53,6 +55,7 @@ func TestNormalizeInboundEndpoint(t *testing.T) {
+ 
+ 		// Bare top-level alias route "/responses" — root vs. compact.
+ 		{"/responses", EndpointResponses},
++		{"/decisions", EndpointDecisions},
+ 		{"/responses/input_tokens", EndpointResponsesInputTokens},
+ 		{"/responses/compact", EndpointResponsesCompact},
+ 		{"/responses/compact/detail", EndpointResponsesCompact},
+@@ -134,6 +137,7 @@ func TestDeriveUpstreamEndpoint(t *testing.T) {
+ 		{"openai from messages", EndpointMessages, "/v1/messages", service.PlatformOpenAI, EndpointResponses},
+ 		{"openai from completions", EndpointChatCompletions, "/v1/chat/completions", service.PlatformOpenAI, EndpointResponses},
+ 		{"openai embeddings", EndpointEmbeddings, "/v1/embeddings", service.PlatformOpenAI, EndpointEmbeddings},
++		{"openai decisions", EndpointDecisions, "/v1/decisions", service.PlatformOpenAI, EndpointDecisions},
+ 		{"openai alpha search", EndpointAlphaSearch, "/backend-api/codex/alpha/search", service.PlatformOpenAI, EndpointAlphaSearch},
+ 		{"openai image generations", EndpointImagesGenerations, "/v1/images/generations", service.PlatformOpenAI, EndpointImagesGenerations},
+ 		{"openai image edits", EndpointImagesEdits, "/openai/v1/images/edits", service.PlatformOpenAI, EndpointImagesEdits},
+diff --git a/backend/internal/transport/http/server/routes/gateway.go b/backend/internal/transport/http/server/routes/gateway.go
+index aa3813099..67ebe1386 100644
+--- a/backend/internal/transport/http/server/routes/gateway.go
++++ b/backend/internal/transport/http/server/routes/gateway.go
+@@ -310,6 +310,19 @@ func RegisterGatewayRoutes(
+ 			}
+ 			h.OpenAIGateway.Embeddings(c)
+ 		})
++		gateway.POST("/decisions", func(c *gin.Context) {
++			if !isOpenAIOnlyEndpointGatewayPlatform(c) {
++				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
++				c.JSON(http.StatusNotFound, gin.H{
++					"error": gin.H{
++						"type":    "not_found_error",
++						"message": "Decisions API is not supported for this platform",
++					},
++				})
++				return
++			}
++			h.OpenAIGateway.Decisions(c)
++		})
+ 		gateway.POST("/images/generations", imagesHandler)
+ 		gateway.POST("/images/edits", imagesHandler)
+ 		gateway.POST("/images/generations/async", h.AsyncImage.Submit)
+@@ -406,6 +419,19 @@ func RegisterGatewayRoutes(
+ 		}
+ 		h.OpenAIGateway.Embeddings(c)
+ 	})
++	r.POST("/decisions", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), gatewayModelValidation, groupModelAllowlist, compositeTarget, requireGroupAnthropic, func(c *gin.Context) {
++		if !isOpenAIOnlyEndpointGatewayPlatform(c) {
++			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
++			c.JSON(http.StatusNotFound, gin.H{
++				"error": gin.H{
++					"type":    "not_found_error",
++					"message": "Decisions API is not supported for this platform",
++				},
++			})
++			return
++		}
++		h.OpenAIGateway.Decisions(c)
++	})
+ 	r.POST("/images/generations", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), gatewayModelValidation, groupModelAllowlist, compositeTarget, requireGroupAnthropic, imagesHandler)
+ 	r.POST("/images/edits", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), gatewayModelValidation, groupModelAllowlist, compositeTarget, requireGroupAnthropic, imagesHandler)
+ 	r.POST("/images/generations/async", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), gatewayModelValidation, groupModelAllowlist, compositeTarget, requireGroupAnthropic, h.AsyncImage.Submit)
+@@ -618,6 +644,8 @@ func compositeRouteEndpointForPath(path string) string {
+ 		return service.CompositeRouteEndpointChatCompletions
+ 	case strings.Contains(path, "/embeddings"):
+ 		return service.CompositeRouteEndpointEmbeddings
++	case strings.Contains(path, "/decisions"):
++		return service.CompositeRouteEndpointDecisions
+ 	case strings.Contains(path, "/images/"):
+ 		return service.CompositeRouteEndpointImages
+ 	case strings.Contains(path, "/v1beta/"):
+diff --git a/backend/internal/transport/http/server/routes/gateway_test.go b/backend/internal/transport/http/server/routes/gateway_test.go
+index ea6d196e6..ee1e723ee 100644
+--- a/backend/internal/transport/http/server/routes/gateway_test.go
++++ b/backend/internal/transport/http/server/routes/gateway_test.go
+@@ -86,7 +86,7 @@ func TestGatewayRoutesRejectDuplicateModelsBeforeHandlers(t *testing.T) {
+ 		"/v1/responses", "/responses", "/v1/responses/compact", "/responses/compact",
+ 		"/backend-api/codex/responses", "/backend-api/codex/responses/compact",
+ 		"/v1/chat/completions", "/chat/completions", "/v1/messages", "/v1/messages/count_tokens",
+-		"/v1/embeddings", "/embeddings", "/v1/images/generations", "/images/edits", "/v1/live",
++		"/v1/embeddings", "/embeddings", "/v1/decisions", "/decisions", "/v1/images/generations", "/images/edits", "/v1/live",
+ 		"/live", "/v1/realtime/calls", "/realtime/calls", "/backend-api/codex/realtime/calls",
+ 	} {
+ 		for _, body := range []string{
+@@ -241,6 +241,32 @@ func TestGatewayRoutesOpenAIImagesPathsAreRegistered(t *testing.T) {
+ 	}
+ }
+ 
++func TestGatewayRoutesOpenAIDecisionsPathsAreRegistered(t *testing.T) {
++	router := newGatewayRoutesTestRouter()
++	registered := make(map[string]bool)
++	for _, route := range router.Routes() {
++		registered[route.Method+" "+route.Path] = true
++	}
++
++	for _, route := range []string{"POST /v1/decisions", "POST /decisions"} {
++		require.True(t, registered[route], "%s should be registered", route)
++	}
++}
++
++func TestGatewayRoutesDecisionsRejectNonOpenAIGroup(t *testing.T) {
++	router := newGatewayRoutesTestRouter(service.PlatformGrok)
++	for _, path := range []string{"/v1/decisions", "/decisions"} {
++		req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"model":"gpt-6-luna"}`))
++		req.Header.Set("Content-Type", "application/json")
++		w := httptest.NewRecorder()
++
++		router.ServeHTTP(w, req)
++
++		require.Equal(t, http.StatusNotFound, w.Code, "path=%s", path)
++		require.Contains(t, w.Body.String(), "Decisions API is not supported for this platform")
++	}
++}
++
+ func TestGatewayRoutesCompositeVideoGenerationReachesGrokHandler(t *testing.T) {
+ 	router := newGatewayRoutesTestRouter(service.PlatformComposite)
+ 	req := httptest.NewRequest(http.MethodPost, "/v1/videos/generations", strings.NewReader(`{"model":"grok-imagine-video","prompt":"waves"}`))
+diff --git a/backend/internal/transport/http/server/routes/prompt_audit_route_coverage_test.go b/backend/internal/transport/http/server/routes/prompt_audit_route_coverage_test.go
+index c082ee457..c27d0331d 100644
+--- a/backend/internal/transport/http/server/routes/prompt_audit_route_coverage_test.go
++++ b/backend/internal/transport/http/server/routes/prompt_audit_route_coverage_test.go
+@@ -34,6 +34,7 @@ func TestEveryGatewayPOSTRouteIsClassifiedForPromptAuditCoverage(t *testing.T) {
+ 		"/responses/*subpath":       {"gateway_handler_responses.go", "openai_gateway_responses.go"},
+ 		"/chat/completions":         {"gateway_handler_chat_completions.go", "openai_chat_completions.go"},
+ 		"/embeddings":               {"openai_embeddings.go"},
++		"/decisions":                {"openai_decisions.go"},
+ 		"/alpha/search":             {"openai_alpha_search.go"},
+ 		"/x_search":                 {"openai_x_search.go"},
+ 		"/live":                     {"openai_live.go"},
+diff --git a/docs/CODE_MAP.md b/docs/CODE_MAP.md
+index 4b0d1a6e3..bc3270e26 100644
+--- a/docs/CODE_MAP.md
++++ b/docs/CODE_MAP.md
+@@ -16,7 +16,7 @@
+ | 修改 JWT/管理员鉴权 | `server/middleware/jwt_auth.go`, `admin_auth.go` | `handler/auth*`, `application/service/auth*` | auth/middleware 测试 |
+ | 修改前端登录/会话 | `frontend/src/features/auth/data/datasources/authSessionActions.ts`, `authOAuthActions.ts` | `presentation/stores/authStore.ts`, `core/networks/sessionRefresh.ts`, `core/routes/index.ts` | auth/profile + sessionRefresh + route guard 测试 |
+ | 修改 Claude/Anthropic 网关 | `routes/gateway.go`, `handler/gateway_handler_messages.go` | `application/service/gateway*` | gateway handler + service 测试 |
+-| 修改 OpenAI/Codex/Responses | `handler/openai_gateway_responses.go` | `application/service/openai*` | responses/chat/WS 的流式与非流式测试 |
++| 修改 OpenAI/Codex/Responses/Decisions | `handler/openai_gateway_responses.go`, `handler/openai_decisions.go` | `application/service/openai*` | responses/chat/WS/Decisions 的流式与非流式测试 |
+ | 修改 Gemini/Antigravity/Grok | `routes/gateway.go` | `application/service/gemini*`, `antigravity*`, `grok*` | 平台专项 service/handler 测试 |
+ | 修改账号调度 | `application/service/gateway_scheduling.go`, `openai_account_scheduler.go` | `infrastructure/repository/scheduler*`, `concurrency*` | scheduler、并发、失败切换测试和 benchmark |
+ | 修改代理自动分配/测活迁移 | `application/service/proxy_auto_assignment.go`, `proxy_health_service.go` | `infrastructure/repository/proxy_auto_assignment_repo.go`, `features/admin-proxies/` | service/handler + repository integration + admin-proxies Vitest + Docker |
+diff --git a/docs/REQUEST_LIFECYCLES.md b/docs/REQUEST_LIFECYCLES.md
+index 491e0fb43..c8f22b35e 100644
+--- a/docs/REQUEST_LIFECYCLES.md
++++ b/docs/REQUEST_LIFECYCLES.md
+@@ -4,7 +4,9 @@
+ 
+ ## API Key 模型请求
+ 
+-典型入口包括 TypeSafe 原生非流式 `/v1/systemone`、`/v1/messages`、`/v1/responses`、`/v1/chat/completions`、`/v1beta/...` 以及无 `/v1` 的兼容别名。所有绑定在 `backend/internal/transport/http/server/routes/gateway.go`。
++典型入口包括 TypeSafe 原生非流式 `/v1/systemone`、`/v1/messages`、`/v1/responses`、`/v1/decisions`、`/v1/chat/completions`、`/v1beta/...` 以及无 `/v1` 的兼容别名。所有绑定在 `backend/internal/transport/http/server/routes/gateway.go`。
++
++OpenAI Decisions 使用独立的 JSON 转发链路：`POST /v1/decisions`（并提供 `/decisions` 别名）只从 OpenAI API-key 账号中调度，原样保留 `input`、`questions` 和 typed `answers`。上游地址固定按账号 `base_url` 拼接 `/v1/decisions`；上游返回的 `usage.input_tokens`（若存在）进入统一 OpenAI 用量结算，Responses 转换器不会改写该请求。
+ 
+ ```mermaid
+ sequenceDiagram
+diff --git a/frontend/src/core/i18n/locales/en/admin/accounts.ts b/frontend/src/core/i18n/locales/en/admin/accounts.ts
+index 671bda29d..7d8d220a2 100644
+--- a/frontend/src/core/i18n/locales/en/admin/accounts.ts
++++ b/frontend/src/core/i18n/locales/en/admin/accounts.ts
+@@ -561,13 +561,14 @@ export default {
+           'Not applicable when the Responses / Chat Completions endpoint is not enabled.',
+         endpointCapabilities: 'Endpoint capabilities',
+         endpointCapabilitiesDesc:
+-          'Used by account routing. The text endpoint follows the Responses API support setting above and is shown as Responses, Chat Completions, or auto mode; Embeddings independently controls /v1/embeddings.',
++          'Used by account routing. The text endpoint follows the Responses API support setting above; Embeddings controls /v1/embeddings and Decisions controls /v1/decisions.',
+         capabilityResponses: 'Responses',
+         capabilityTextAuto: 'Responses / Chat Completions (Auto)',
+         capabilityResponsesAuto: 'Responses (auto probe)',
+         capabilityChatCompletions: 'Chat Completions',
+         capabilityChatCompletionsAuto: 'Chat Completions (auto probe)',
+         capabilityEmbeddings: 'Embeddings',
++        capabilityDecisions: 'Decisions',
+         responsesStatusAutoSupported: 'Auto probe: Responses',
+         responsesStatusAutoUnsupported: 'Auto probe: Chat Completions',
+         responsesStatusAutoUnknown: 'Auto probe: unknown',
+diff --git a/frontend/src/core/i18n/locales/en/admin/overview.ts b/frontend/src/core/i18n/locales/en/admin/overview.ts
+index 7adbf8860..872fd9fec 100644
+--- a/frontend/src/core/i18n/locales/en/admin/overview.ts
++++ b/frontend/src/core/i18n/locales/en/admin/overview.ts
+@@ -1116,6 +1116,7 @@ export default {
+           responses: 'Responses',
+           chatCompletions: 'Chat Completions',
+           embeddings: 'Embeddings',
++          decisions: 'Decisions',
+           images: 'Images',
+           gemini: 'Gemini Native'
+         },
+diff --git a/frontend/src/core/i18n/locales/zh/admin/accounts.ts b/frontend/src/core/i18n/locales/zh/admin/accounts.ts
+index 6845ae686..c176c187f 100644
+--- a/frontend/src/core/i18n/locales/zh/admin/accounts.ts
++++ b/frontend/src/core/i18n/locales/zh/admin/accounts.ts
+@@ -634,13 +634,14 @@ export default {
+         responsesModeTextDisabledHint: '未启用 Responses / Chat Completions 端点时，此设置不适用。',
+         endpointCapabilities: '端点能力',
+         endpointCapabilitiesDesc:
+-          '用于调度筛选。文本端点会跟随上方 Responses API 支持显示为 Responses、Chat Completions 或自动模式；Embeddings 独立控制 /v1/embeddings。',
++          '用于调度筛选。文本端点跟随上方 Responses API 支持；Embeddings 控制 /v1/embeddings，Decisions 控制 /v1/decisions。',
+         capabilityResponses: 'Responses',
+         capabilityTextAuto: 'Responses / Chat Completions（自动）',
+         capabilityResponsesAuto: 'Responses（自动探测）',
+         capabilityChatCompletions: 'Chat Completions',
+         capabilityChatCompletionsAuto: 'Chat Completions（自动探测）',
+         capabilityEmbeddings: 'Embeddings',
++        capabilityDecisions: 'Decisions',
+         responsesStatusAutoSupported: '自动探测：Responses',
+         responsesStatusAutoUnsupported: '自动探测：Chat Completions',
+         responsesStatusAutoUnknown: '自动探测：未探测',
+diff --git a/frontend/src/core/i18n/locales/zh/admin/overview.ts b/frontend/src/core/i18n/locales/zh/admin/overview.ts
+index 3393ee3ee..a815a8eae 100644
+--- a/frontend/src/core/i18n/locales/zh/admin/overview.ts
++++ b/frontend/src/core/i18n/locales/zh/admin/overview.ts
+@@ -1113,6 +1113,7 @@ export default {
+           responses: 'Responses',
+           chatCompletions: 'Chat Completions',
+           embeddings: 'Embeddings',
++          decisions: 'Decisions',
+           images: 'Images',
+           gemini: 'Gemini 原生'
+         },
+diff --git a/frontend/src/features/admin-accounts/__tests__/EditAccountModal.spec.ts b/frontend/src/features/admin-accounts/__tests__/EditAccountModal.spec.ts
+index 3034fca6c..27a51828f 100644
+--- a/frontend/src/features/admin-accounts/__tests__/EditAccountModal.spec.ts
++++ b/frontend/src/features/admin-accounts/__tests__/EditAccountModal.spec.ts
+@@ -1005,25 +1005,31 @@ describe('EditAccountModal', () => {
+     const embeddingsCheckbox = wrapper.get<HTMLInputElement>(
+       '[data-testid="openai-endpoint-capability-embeddings"]'
+     )
++    const decisionsCheckbox = wrapper.get<HTMLInputElement>(
++      '[data-testid="openai-endpoint-capability-decisions"]'
++    )
+ 
+     expect(chatCheckbox.element.checked).toBe(true)
+     expect(embeddingsCheckbox.element.checked).toBe(true)
++    expect(decisionsCheckbox.element.checked).toBe(true)
+ 
+     await embeddingsCheckbox.setValue(false)
+ 
+     expect(chatCheckbox.element.checked).toBe(true)
+     expect(embeddingsCheckbox.element.checked).toBe(false)
++    expect(decisionsCheckbox.element.checked).toBe(true)
+ 
+     await chatCheckbox.setValue(false)
+ 
+-    expect(chatCheckbox.element.checked).toBe(true)
++    expect(chatCheckbox.element.checked).toBe(false)
+     expect(embeddingsCheckbox.element.checked).toBe(false)
++    expect(decisionsCheckbox.element.checked).toBe(true)
+ 
+     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+ 
+     expect(updateAccountMock).toHaveBeenCalledTimes(1)
+     expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.openai_capabilities).toEqual([
+-      'chat_completions'
++      'decisions'
+     ])
+   })
+ 
+diff --git a/frontend/src/features/admin-accounts/presentation/accountBulkUpdatePayload.ts b/frontend/src/features/admin-accounts/presentation/accountBulkUpdatePayload.ts
+index 6df607f31..148e86848 100644
+--- a/frontend/src/features/admin-accounts/presentation/accountBulkUpdatePayload.ts
++++ b/frontend/src/features/admin-accounts/presentation/accountBulkUpdatePayload.ts
+@@ -153,7 +153,7 @@ export function buildBulkAccountUpdatePayload(
+   }
+   if (state.enableOpenAIEndpointCapabilities) {
+     credentials.openai_capabilities = state.openAIEndpointCapabilities.filter(
+-      capability => capability === 'chat_completions' || capability === 'embeddings'
++      capability => capability === 'chat_completions' || capability === 'embeddings' || capability === 'decisions'
+     )
+     credentialsChanged = true
+   }
+diff --git a/frontend/src/features/admin-accounts/presentation/accountFormPolicy.ts b/frontend/src/features/admin-accounts/presentation/accountFormPolicy.ts
+index 5259b7c72..3855713ea 100644
+--- a/frontend/src/features/admin-accounts/presentation/accountFormPolicy.ts
++++ b/frontend/src/features/admin-accounts/presentation/accountFormPolicy.ts
+@@ -24,7 +24,7 @@ export function readCodexWebSearchEnabled(credentials?: Record<string, unknown>)
+ export function normalizeOpenAIEndpointCapabilities(
+   values: OpenAIEndpointCapability[],
+ ): OpenAIEndpointCapability[] {
+-  const allowed: OpenAIEndpointCapability[] = ['chat_completions', 'embeddings']
++  const allowed: OpenAIEndpointCapability[] = ['chat_completions', 'embeddings', 'decisions']
+   const selected = allowed.filter((value) => values.includes(value))
+   return selected.length > 0 ? selected : allowed
+ }
+@@ -36,19 +36,19 @@ export function readOpenAIEndpointCapabilities(
+   if (Array.isArray(raw)) {
+     return normalizeOpenAIEndpointCapabilities(
+       raw.filter((value): value is OpenAIEndpointCapability =>
+-        value === 'chat_completions' || value === 'embeddings',
++        value === 'chat_completions' || value === 'embeddings' || value === 'decisions',
+       ),
+     )
+   }
+   if (raw !== null && typeof raw === 'object') {
+     const capabilityMap = raw as Record<string, unknown>
+     return normalizeOpenAIEndpointCapabilities(
+-      ['chat_completions', 'embeddings'].filter(
++      ['chat_completions', 'embeddings', 'decisions'].filter(
+         (value): value is OpenAIEndpointCapability => capabilityMap[value] === true,
+       ),
+     )
+   }
+-  return ['chat_completions', 'embeddings']
++  return ['chat_completions', 'embeddings', 'decisions']
+ }
+ 
+ export type CodexFingerprintMode = 'off' | 'device' | 'session' | 'full'
+diff --git a/frontend/src/features/admin-accounts/presentation/composables/useCreateAccountEditorPolicy.ts b/frontend/src/features/admin-accounts/presentation/composables/useCreateAccountEditorPolicy.ts
+index 73ee6aced..5a1a9df5c 100644
+--- a/frontend/src/features/admin-accounts/presentation/composables/useCreateAccountEditorPolicy.ts
++++ b/frontend/src/features/admin-accounts/presentation/composables/useCreateAccountEditorPolicy.ts
+@@ -243,7 +243,7 @@ export function useCreateAccountEditorPolicy(context: CreateAccountEditorPolicyC
+       if (newPlatform !== 'openai') {
+         openaiFlattenNamespacesEnabled.value = false
+         openaiPassthroughEnabled.value = false
+-        openAIEndpointCapabilities.value = ['chat_completions', 'embeddings']
++        openAIEndpointCapabilities.value = ['chat_completions', 'embeddings', 'decisions']
+         openAIForceImageAPIEnabled.value = false
+         openaiOAuthResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
+           openaiAPIKeyResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
+diff --git a/frontend/src/features/admin-accounts/presentation/widgets/BulkEditAccountDialog.vue b/frontend/src/features/admin-accounts/presentation/widgets/BulkEditAccountDialog.vue
+index 9b1c36e23..3a4cd830d 100644
+--- a/frontend/src/features/admin-accounts/presentation/widgets/BulkEditAccountDialog.vue
++++ b/frontend/src/features/admin-accounts/presentation/widgets/BulkEditAccountDialog.vue
+@@ -870,7 +870,7 @@ const openAICustomRelayURL = ref('')
+ const openAILongContextBillingEnabled = ref(false)
+ const tlsFingerprintEnabled = ref(false)
+ const tlsFingerprintProfileId = ref<number | null>(-1)
+-const openAIEndpointCapabilities = ref<OpenAIEndpointCapability[]>(['chat_completions', 'embeddings'])
++const openAIEndpointCapabilities = ref<OpenAIEndpointCapability[]>(['chat_completions', 'embeddings', 'decisions'])
+ const openAIResponsesMode = ref<OpenAIResponsesMode>('auto')
+ const openaiOAuthResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
+ const openaiAPIKeyResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
+@@ -944,7 +944,8 @@ const openAIResponsesModeOptions = computed(() => [
+ ])
+ const openAIEndpointCapabilityOptions = computed(() => [
+   { value: 'chat_completions' as OpenAIEndpointCapability, label: t('admin.accounts.openai.capabilityChatCompletions') },
+-  { value: 'embeddings' as OpenAIEndpointCapability, label: t('admin.accounts.openai.capabilityEmbeddings') }
++  { value: 'embeddings' as OpenAIEndpointCapability, label: t('admin.accounts.openai.capabilityEmbeddings') },
++  { value: 'decisions' as OpenAIEndpointCapability, label: t('admin.accounts.openai.capabilityDecisions') }
+ ])
+ 
+ function toggleOpenAIEndpointCapability(capability: OpenAIEndpointCapability) {
+@@ -1441,7 +1442,7 @@ watch(
+       openAILongContextBillingEnabled.value = false
+       tlsFingerprintEnabled.value = false
+       tlsFingerprintProfileId.value = -1
+-      openAIEndpointCapabilities.value = ['chat_completions', 'embeddings']
++      openAIEndpointCapabilities.value = ['chat_completions', 'embeddings', 'decisions']
+       openAIResponsesMode.value = 'auto'
+       modelRestrictionMode.value = 'whitelist'
+       allowedModels.value = []
+diff --git a/frontend/src/features/admin-accounts/presentation/widgets/CreateAccountDialog.vue b/frontend/src/features/admin-accounts/presentation/widgets/CreateAccountDialog.vue
+index 7d0eb265a..c9df38484 100644
+--- a/frontend/src/features/admin-accounts/presentation/widgets/CreateAccountDialog.vue
++++ b/frontend/src/features/admin-accounts/presentation/widgets/CreateAccountDialog.vue
+@@ -352,7 +352,7 @@ const openAILongContextBillingEnabled = ref(false)
+ const openAILongContextBillingTouched = ref(false)
+ const openAICompactMode = ref<OpenAICompactMode>('auto')
+ const openAIResponsesMode = ref<OpenAIResponsesMode>('auto')
+-const openAIEndpointCapabilities = ref<OpenAIEndpointCapability[]>(['chat_completions', 'embeddings'])
++const openAIEndpointCapabilities = ref<OpenAIEndpointCapability[]>(['chat_completions', 'embeddings', 'decisions'])
+ const openAIForceImageAPIEnabled = ref(false)
+ const openaiOAuthResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
+ const openaiAPIKeyResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
+@@ -439,14 +439,15 @@ const openAITextEndpointCapabilityLabel = computed(() => {
+ })
+ const openAIEndpointCapabilityOptions = computed<{ value: OpenAIEndpointCapability; label: string }[]>(() => [
+   { value: 'chat_completions', label: openAITextEndpointCapabilityLabel.value },
+-  { value: 'embeddings', label: t('admin.accounts.openai.capabilityEmbeddings') }
++  { value: 'embeddings', label: t('admin.accounts.openai.capabilityEmbeddings') },
++  { value: 'decisions', label: t('admin.accounts.openai.capabilityDecisions') }
+ ])
+ const openAITextGenerationCapabilityEnabled = computed(() =>
+   openAIEndpointCapabilities.value.includes('chat_completions')
+ )
+ 
+ const normalizeOpenAIEndpointCapabilities = (values: OpenAIEndpointCapability[]) => {
+-  const allowed: OpenAIEndpointCapability[] = ['chat_completions', 'embeddings']
++  const allowed: OpenAIEndpointCapability[] = ['chat_completions', 'embeddings', 'decisions']
+   const selected = allowed.filter((value) => values.includes(value))
+   return selected.length > 0 ? selected : allowed
+ }
+@@ -474,7 +475,7 @@ const toggleOpenAIEndpointCapability = (capability: OpenAIEndpointCapability, ev
+ 
+ const applyOpenAIEndpointCapabilities = (credentials: Record<string, unknown>) => {
+   const capabilities = normalizeOpenAIEndpointCapabilities(openAIEndpointCapabilities.value)
+-  if (capabilities.length === 2) {
++  if (capabilities.length === 3) {
+     delete credentials.openai_capabilities
+     return
+   }
+@@ -899,7 +900,7 @@ const resetForm = () => {
+   openAILongContextBillingTouched.value = false
+   openAICompactMode.value = 'auto'
+   openAIResponsesMode.value = 'auto'
+-  openAIEndpointCapabilities.value = ['chat_completions', 'embeddings']
++  openAIEndpointCapabilities.value = ['chat_completions', 'embeddings', 'decisions']
+   openAIForceImageAPIEnabled.value = false
+   openaiOAuthResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
+   openaiAPIKeyResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
+diff --git a/frontend/src/features/admin-accounts/presentation/widgets/EditAccountDialog.vue b/frontend/src/features/admin-accounts/presentation/widgets/EditAccountDialog.vue
+index da30e9cd8..8ba67c5a3 100644
+--- a/frontend/src/features/admin-accounts/presentation/widgets/EditAccountDialog.vue
++++ b/frontend/src/features/admin-accounts/presentation/widgets/EditAccountDialog.vue
+@@ -354,7 +354,7 @@ const editPlanType = ref<string>('')
+ const openAICompactMode = ref<OpenAICompactMode>('auto')
+ const excelBpsEnabled = ref(false)
+ const openAIResponsesMode = ref<OpenAIResponsesMode>('auto')
+-const openAIEndpointCapabilities = ref<OpenAIEndpointCapability[]>(['chat_completions', 'embeddings'])
++const openAIEndpointCapabilities = ref<OpenAIEndpointCapability[]>(['chat_completions', 'embeddings', 'decisions'])
+ const openAIForceImageAPIEnabled = ref(false)
+ const codexWebSearchEnabled = ref(true)
+ const openaiOAuthResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
+@@ -512,7 +512,8 @@ const openAITextEndpointCapabilityLabel = computed(() => {
+ })
+ const openAIEndpointCapabilityOptions = computed<{ value: OpenAIEndpointCapability; label: string }[]>(() => [
+   { value: 'chat_completions', label: openAITextEndpointCapabilityLabel.value },
+-  { value: 'embeddings', label: t('admin.accounts.openai.capabilityEmbeddings') }
++  { value: 'embeddings', label: t('admin.accounts.openai.capabilityEmbeddings') },
++  { value: 'decisions', label: t('admin.accounts.openai.capabilityDecisions') }
+ ])
+ const openAITextGenerationCapabilityEnabled = computed(() =>
+   openAIEndpointCapabilities.value.includes('chat_completions')
+@@ -555,7 +556,7 @@ const toggleOpenAIEndpointCapability = (capability: OpenAIEndpointCapability, ev
+ 
+ const applyOpenAIEndpointCapabilities = (credentials: Record<string, unknown>) => {
+   const capabilities = normalizeOpenAIEndpointCapabilities(openAIEndpointCapabilities.value)
+-  if (capabilities.length === 2) {
++  if (capabilities.length === 3) {
+     delete credentials.openai_capabilities
+     return
+   }
+@@ -774,7 +775,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
+   editPlanType.value = ''
+   openAICompactMode.value = 'auto'
+   openAIResponsesMode.value = 'auto'
+-  openAIEndpointCapabilities.value = ['chat_completions', 'embeddings']
++  openAIEndpointCapabilities.value = ['chat_completions', 'embeddings', 'decisions']
+   openAIForceImageAPIEnabled.value = false
+   codexWebSearchEnabled.value = true
+   openAICompactModelMappings.value = []
+diff --git a/frontend/src/features/admin-groups/data/dtos/adminGroupDtos.ts b/frontend/src/features/admin-groups/data/dtos/adminGroupDtos.ts
+index b53176be4..af43bf5f0 100644
+--- a/frontend/src/features/admin-groups/data/dtos/adminGroupDtos.ts
++++ b/frontend/src/features/admin-groups/data/dtos/adminGroupDtos.ts
+@@ -37,6 +37,7 @@ export type CompositeRouteEndpoint =
+   | 'responses'
+   | 'chat_completions'
+   | 'embeddings'
++  | 'decisions'
+   | 'images'
+   | 'gemini'
+ 
+diff --git a/frontend/src/features/admin-groups/presentation/groupsLocale.ts b/frontend/src/features/admin-groups/presentation/groupsLocale.ts
+index c18eb2e8f..01f65fd04 100644
+--- a/frontend/src/features/admin-groups/presentation/groupsLocale.ts
++++ b/frontend/src/features/admin-groups/presentation/groupsLocale.ts
+@@ -21,6 +21,7 @@ const compositeEndpointKeys = {
+   responses: 'admin.groups.compositeRoutes.endpoints.responses',
+   chat_completions: 'admin.groups.compositeRoutes.endpoints.chatCompletions',
+   embeddings: 'admin.groups.compositeRoutes.endpoints.embeddings',
++  decisions: 'admin.groups.compositeRoutes.endpoints.decisions',
+   images: 'admin.groups.compositeRoutes.endpoints.images',
+   gemini: 'admin.groups.compositeRoutes.endpoints.gemini',
+ } as const
+diff --git a/frontend/src/features/admin-groups/presentation/widgets/CompositeRoutesDialog.vue b/frontend/src/features/admin-groups/presentation/widgets/CompositeRoutesDialog.vue
+index 9514af6b4..aae90f12d 100644
+--- a/frontend/src/features/admin-groups/presentation/widgets/CompositeRoutesDialog.vue
++++ b/frontend/src/features/admin-groups/presentation/widgets/CompositeRoutesDialog.vue
+@@ -382,6 +382,7 @@ const endpointOptions = computed(() => [
+   { value: 'responses', label: t('admin.groups.compositeRoutes.endpoints.responses') },
+   { value: 'chat_completions', label: t('admin.groups.compositeRoutes.endpoints.chatCompletions') },
+   { value: 'embeddings', label: t('admin.groups.compositeRoutes.endpoints.embeddings') },
++  { value: 'decisions', label: t('admin.groups.compositeRoutes.endpoints.decisions') },
+   { value: 'images', label: t('admin.groups.compositeRoutes.endpoints.images') },
+   { value: 'gemini', label: t('admin.groups.compositeRoutes.endpoints.gemini') },
+ ])
+diff --git a/frontend/src/types/gateway.ts b/frontend/src/types/gateway.ts
+index 6b31ba725..b2f7ed6d5 100644
+--- a/frontend/src/types/gateway.ts
++++ b/frontend/src/types/gateway.ts
+@@ -677,7 +677,7 @@ export interface CodexUsageSnapshot {
+ 
+ export type OpenAICompactMode = 'auto' | 'force_on' | 'force_off'
+ export type OpenAIResponsesMode = 'auto' | 'force_responses' | 'force_chat_completions'
+-export type OpenAIEndpointCapability = 'chat_completions' | 'embeddings' | 'alpha_search'
++export type OpenAIEndpointCapability = 'chat_completions' | 'embeddings' | 'decisions' | 'alpha_search'
+ 
+ export interface OpenAICompactState {
+   openai_compact_mode?: OpenAICompactMode
+--- /dev/null
++++ backend/internal/application/service/openai_decisions.go
+@@ -0,0 +1,172 @@
++package service
++
++import (
++	"bytes"
++	"context"
++	"errors"
++	"fmt"
++	"net/http"
++	"strings"
++	"time"
++
++	"github.com/Wei-Shaw/sub2api/internal/shared/responseheaders"
++	"github.com/gin-gonic/gin"
++	"github.com/tidwall/gjson"
++)
++
++// ForwardDecisions forwards the public OpenAI Decisions API without routing it
++// through the Responses protocol adapter. Decisions is a JSON-only, API-key
++// endpoint; the request and typed answer payloads must remain byte-compatible
++// with the upstream API.
++func (s *OpenAIGatewayService) ForwardDecisions(
++	ctx context.Context,
++	c *gin.Context,
++	account *Account,
++	body []byte,
++) (*OpenAIForwardResult, error) {
++	startTime := time.Now()
++	if s == nil || c == nil || account == nil {
++		return nil, fmt.Errorf("service, context, and account are required")
++	}
++	if account.Type != AccountTypeAPIKey {
++		return nil, fmt.Errorf("decisions requires an OpenAI API key account")
++	}
++	if err := s.openAIAccountRuntimeBlockedFailover(account); err != nil {
++		return nil, err
++	}
++
++	requestedModel := strings.TrimSpace(gjson.GetBytes(body, "model").String())
++	if requestedModel == "" {
++		writeOpenAIDecisionsError(c, http.StatusBadRequest, "invalid_request_error", "model is required")
++		return nil, fmt.Errorf("missing model in request")
++	}
++	billingModel := resolveOpenAIForwardModel(account, requestedModel, "")
++	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
++	upstreamBody := body
++	if upstreamModel != requestedModel {
++		upstreamBody = ReplaceModelInBody(body, upstreamModel)
++	}
++
++	baseURL := account.GetOpenAIBaseURL()
++	if baseURL == "" {
++		baseURL = "https://api.openai.com"
++	}
++	validatedURL, err := s.validateUpstreamBaseURL(baseURL)
++	if err != nil {
++		return nil, fmt.Errorf("invalid base_url: %w", err)
++	}
++	targetURL := buildOpenAIDecisionsURL(validatedURL)
++	SetActualOpenAIUpstreamEndpoint(c, "/v1/decisions")
++
++	apiKey := account.GetOpenAIApiKey()
++	if apiKey == "" {
++		return nil, fmt.Errorf("account %d missing api_key", account.ID)
++	}
++	upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
++	upstreamReq, err := http.NewRequestWithContext(upstreamCtx, http.MethodPost, targetURL, bytes.NewReader(upstreamBody))
++	releaseUpstreamCtx()
++	if err != nil {
++		return nil, fmt.Errorf("build upstream request: %w", err)
++	}
++	upstreamReq = upstreamReq.WithContext(WithHTTPUpstreamProfile(upstreamReq.Context(), HTTPUpstreamProfileOpenAI))
++	upstreamReq.Header.Set("Content-Type", "application/json")
++	upstreamReq.Header.Set("Authorization", "Bearer "+apiKey)
++	upstreamReq.Header.Set("Accept", "application/json")
++	for key, values := range c.Request.Header {
++		if openaiCCRawAllowedHeaders[strings.ToLower(key)] {
++			for _, value := range values {
++				upstreamReq.Header.Add(key, value)
++			}
++		}
++	}
++	if customUA := account.GetOpenAIUserAgent(); customUA != "" {
++		upstreamReq.Header.Set("user-agent", customUA)
++	}
++	account.ApplyHeaderOverrides(upstreamReq.Header)
++
++	proxyURL := ""
++	if account.Proxy != nil {
++		proxyURL = account.Proxy.URL()
++	}
++	upstreamStart := time.Now()
++	resp, err := s.doAccountHTTPUpstream(upstreamReq, proxyURL, account)
++	SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
++	if err != nil {
++		safeErr := sanitizeUpstreamErrorMessage(err.Error())
++		setOpsUpstreamError(c, 0, safeErr, "")
++		appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
++			Platform:           account.Platform,
++			AccountID:          account.ID,
++			AccountName:        account.Name,
++			UpstreamStatusCode: 0,
++			Kind:               "request_error",
++			Message:            safeErr,
++		})
++		writeOpenAIDecisionsError(c, http.StatusBadGateway, "upstream_error", "Upstream request failed")
++		return nil, fmt.Errorf("upstream request failed: %s", safeErr)
++	}
++	defer func() { _ = resp.Body.Close() }()
++
++	respBody, err := ReadUpstreamResponseBody(resp.Body, s.cfg, c, openAITooLargeError)
++	if err != nil {
++		if !errors.Is(err, ErrUpstreamResponseBodyTooLarge) {
++			writeOpenAIDecisionsError(c, http.StatusBadGateway, "api_error", "Failed to read upstream response")
++		}
++		return nil, fmt.Errorf("read decisions response: %w", err)
++	}
++
++	if resp.StatusCode >= http.StatusBadRequest {
++		upstreamMessage := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(respBody)))
++		if s.autoDisableOnUpstreamInsufficientBalance(ctx, account, resp.StatusCode, respBody) {
++			return nil, newOpenAIUpstreamFailoverError(resp.StatusCode, resp.Header, respBody, upstreamMessage, false)
++		}
++		if s.shouldFailoverOpenAIUpstreamResponse(resp.StatusCode, upstreamMessage, respBody) {
++			shouldDisable := s.handleOpenAIAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody, upstreamModel)
++			return nil, newOpenAIUpstreamFailoverError(
++				resp.StatusCode,
++				resp.Header,
++				respBody,
++				upstreamMessage,
++				!shouldDisable && account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode),
++			)
++		}
++	}
++
++	writeOpenAIDecisionsResponse(c, resp, respBody, s.responseHeaderFilter)
++	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
++		return nil, fmt.Errorf("upstream returned status %d", resp.StatusCode)
++	}
++
++	usage, _ := extractOpenAIUsageFromJSONBytes(respBody)
++	return &OpenAIForwardResult{
++		RequestID:        firstNonEmptyString(resp.Header.Get("x-request-id"), resp.Header.Get("request-id")),
++		ResponseID:       extractOpenAIResponseIDFromJSONBytes(respBody),
++		Usage:            usage,
++		Model:            requestedModel,
++		BillingModel:     billingModel,
++		UpstreamModel:    upstreamModel,
++		UpstreamEndpoint: "/v1/decisions",
++		ResponseHeaders:  resp.Header.Clone(),
++		Duration:         time.Since(startTime),
++		Stream:           false,
++	}, nil
++}
++
++func writeOpenAIDecisionsResponse(c *gin.Context, resp *http.Response, body []byte, filter *responseheaders.CompiledHeaderFilter) {
++	if c == nil || resp == nil || c.Writer.Written() {
++		return
++	}
++	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, filter)
++	contentType := resp.Header.Get("Content-Type")
++	if contentType == "" {
++		contentType = "application/json"
++	}
++	c.Data(resp.StatusCode, contentType, body)
++}
++
++func writeOpenAIDecisionsError(c *gin.Context, statusCode int, errType, message string) {
++	if c == nil || c.Writer.Written() {
++		return
++	}
++	c.JSON(statusCode, gin.H{"error": gin.H{"type": errType, "message": message}})
++}
+--- /dev/null
++++ backend/internal/application/service/openai_decisions_test.go
+@@ -0,0 +1,98 @@
++package service
++
++import (
++	"bytes"
++	"context"
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++
++	"github.com/Wei-Shaw/sub2api/internal/platform/config"
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++	"github.com/tidwall/gjson"
++)
++
++func TestBuildOpenAIDecisionsURL(t *testing.T) {
++	tests := []struct {
++		name string
++		base string
++		want string
++	}{
++		{name: "bare domain", base: "https://api.openai.com", want: "https://api.openai.com/v1/decisions"},
++		{name: "bare v1", base: "https://api.openai.com/v1", want: "https://api.openai.com/v1/decisions"},
++		{name: "already decisions", base: "https://api.openai.com/v1/decisions", want: "https://api.openai.com/v1/decisions"},
++		{name: "versioned relay", base: "https://relay.example/api/v4", want: "https://relay.example/api/v4/decisions"},
++	}
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			require.Equal(t, tt.want, buildOpenAIDecisionsURL(tt.base))
++		})
++	}
++}
++
++func TestForwardDecisionsAPIKeyPassthrough(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	reqBody := []byte(`{"model":"gpt-6-luna","input":"I was charged twice.","questions":[{"type":"choice","name":"department","instructions":"Which department?","choices":[{"value":"billing"}]}]}`)
++	rec := httptest.NewRecorder()
++	c, _ := gin.CreateTestContext(rec)
++	c.Request = httptest.NewRequest(http.MethodPost, "/v1/decisions", bytes.NewReader(reqBody))
++	c.Request.Header.Set("Content-Type", "application/json")
++
++	upstream := &httpUpstreamRecorder{resp: &http.Response{
++		StatusCode: http.StatusOK,
++		Header: http.Header{
++			"Content-Type": []string{"application/json"},
++			"X-Request-Id": []string{"decision-rid"},
++		},
++		Body: io.NopCloser(strings.NewReader(`{"answers":[{"type":"choice","name":"department","choice":"billing"}],"usage":{"input_tokens":17}}`)),
++	}}
++	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
++	account := &Account{
++		ID:       42,
++		Platform: PlatformOpenAI,
++		Type:     AccountTypeAPIKey,
++		Credentials: map[string]any{
++			"api_key":  "sk-test",
++			"base_url": "https://relay.example/v1",
++			"model_mapping": map[string]any{
++				"gpt-6-luna": "gpt-6-luna-relay",
++			},
++		},
++	}
++
++	result, err := svc.ForwardDecisions(context.Background(), c, account, reqBody)
++
++	require.NoError(t, err)
++	require.Equal(t, http.StatusOK, rec.Code)
++	require.JSONEq(t, `{"answers":[{"type":"choice","name":"department","choice":"billing"}],"usage":{"input_tokens":17}}`, rec.Body.String())
++	require.NotNil(t, result)
++	require.Equal(t, "decision-rid", result.RequestID)
++	require.Equal(t, "gpt-6-luna", result.Model)
++	require.Equal(t, "gpt-6-luna-relay", result.UpstreamModel)
++	require.Equal(t, 17, result.Usage.InputTokens)
++	require.Equal(t, "/v1/decisions", result.UpstreamEndpoint)
++	require.Equal(t, "https://relay.example/v1/decisions", upstream.lastReq.URL.String())
++	require.Equal(t, "Bearer sk-test", upstream.lastReq.Header.Get("Authorization"))
++	require.Equal(t, "gpt-6-luna-relay", gjson.GetBytes(upstream.lastBody, "model").String())
++	require.Equal(t, "choice", gjson.GetBytes(upstream.lastBody, "questions.0.type").String())
++}
++
++func TestAccountSupportsOpenAIDecisionsOnlyForAPIKeysAndHonorsExplicitCapabilities(t *testing.T) {
++	apiKey := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
++	require.True(t, apiKey.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityDecisions))
++
++	oauth := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}
++	require.False(t, oauth.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityDecisions))
++
++	restricted := &Account{
++		Platform: PlatformOpenAI,
++		Type:     AccountTypeAPIKey,
++		Credentials: map[string]any{
++			"openai_capabilities": []any{"chat_completions"},
++		},
++	}
++	require.False(t, restricted.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityDecisions))
++}
+--- /dev/null
++++ backend/internal/transport/http/handler/openai_decisions.go
+@@ -0,0 +1,305 @@
++package handler
++
++import (
++	"context"
++	"errors"
++	"net/http"
++	"strconv"
++	"strings"
++	"time"
++
++	"github.com/Wei-Shaw/sub2api/internal/application/service"
++	pkghttputil "github.com/Wei-Shaw/sub2api/internal/shared/httputil"
++	"github.com/Wei-Shaw/sub2api/internal/shared/ip"
++	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
++	middleware2 "github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
++	"github.com/gin-gonic/gin"
++	"github.com/tidwall/gjson"
++	"go.uber.org/zap"
++)
++
++// Decisions handles the OpenAI Decisions API.
++// POST /v1/decisions
++func (h *OpenAIGatewayHandler) Decisions(c *gin.Context) {
++	streamStarted := false
++	requestStart := time.Now()
++
++	apiKey, ok := middleware2.GetAPIKeyFromContext(c)
++	if !ok {
++		h.errorResponse(c, http.StatusUnauthorized, "authentication_error", "Invalid API key")
++		return
++	}
++
++	subject, ok := middleware2.GetAuthSubjectFromContext(c)
++	if !ok {
++		h.errorResponse(c, http.StatusInternalServerError, "api_error", "User context not found")
++		return
++	}
++	reqLog := requestLogger(
++		c,
++		"handler.openai_gateway.decisions",
++		zap.Int64("user_id", subject.UserID),
++		zap.Int64("api_key_id", apiKey.ID),
++		zap.Any("group_id", apiKey.GroupID),
++	)
++	if !h.ensureResponsesDependencies(c, reqLog) {
++		return
++	}
++
++	body, err := pkghttputil.ReadRequestBodyWithPrealloc(c.Request)
++	if err != nil {
++		if maxErr, ok := extractMaxBytesError(err); ok {
++			h.errorResponse(c, http.StatusRequestEntityTooLarge, "invalid_request_error", buildBodyTooLargeMessage(maxErr.Limit))
++			return
++		}
++		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Failed to read request body")
++		return
++	}
++	if len(body) == 0 {
++		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Request body is empty")
++		return
++	}
++	h.concurrencyHelper.SetPriorityAdmissionPendingBytes(c, int64(len(body)))
++	if !gjson.ValidBytes(body) {
++		logRequestBodyParseFailure(reqLog, body, nil)
++		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")
++		return
++	}
++
++	modelResult := gjson.GetBytes(body, "model")
++	if !modelResult.Exists() || modelResult.Type != gjson.String || strings.TrimSpace(modelResult.String()) == "" {
++		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "model is required")
++		return
++	}
++	reqModel := modelResult.String()
++	ensureCompositeTargetPlatform(c, apiKey, reqModel)
++	if !compositeTargetPlatformAllowed(c, apiKey, reqModel, service.PlatformOpenAI) {
++		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Model is not supported by this OpenAI-compatible endpoint for composite groups")
++		return
++	}
++	reqLog = reqLog.With(zap.String("model", reqModel))
++	setOpsRequestContext(c, reqModel, false)
++	setOpsEndpointContext(c, "", int16(service.RequestTypeSync))
++	pricingCtx, pricingAt := h.gatewayService.WithOpenAIRequestPricingContext(c.Request.Context(), apiKey.GroupID)
++	c.Request = c.Request.WithContext(pricingCtx)
++	if decision := h.checkSecurityAudit(c, reqLog, apiKey, subject, "openai_decisions", reqModel, body); decision != nil && !decision.AllowNextStage {
++		h.openAISecurityAuditError(c, decision)
++		return
++	}
++
++	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
++
++	subscription, _ := middleware2.GetSubscriptionFromContext(c)
++	service.SetOpsLatencyMs(c, service.OpsAuthLatencyMsKey, time.Since(requestStart).Milliseconds())
++
++	userReleaseFunc, acquired := h.acquireResponsesUserSlot(c, subject.UserID, subject.Concurrency, false, &streamStarted, reqLog)
++	if !acquired {
++		return
++	}
++	if userReleaseFunc != nil {
++		defer userReleaseFunc()
++	}
++
++	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); err != nil {
++		reqLog.Info("openai_decisions.billing_check_failed", zap.Error(err))
++		status, code, message, retryAfter := billingErrorDetails(err)
++		if retryAfter > 0 {
++			c.Header("Retry-After", strconv.Itoa(retryAfter))
++		}
++		h.errorResponse(c, status, code, message)
++		return
++	}
++
++	var failedAccountIDs map[int64]struct{}
++	profitVetoCount := 0
++	var lastFailoverErr *service.UpstreamFailoverError
++	switchCount := 0
++	maxAccountSwitches := h.maxAccountSwitches
++	if maxAccountSwitches <= 0 {
++		maxAccountSwitches = 3
++	}
++	routingStart := time.Now()
++
++	for {
++		selection, _, err := h.gatewayService.SelectAccountWithSchedulerForCapability(
++			c.Request.Context(),
++			apiKey.GroupID,
++			"",
++			"",
++			reqModel,
++			failedAccountIDs,
++			service.OpenAIUpstreamTransportHTTPSSE,
++			service.OpenAIEndpointCapabilityDecisions,
++			false,
++			false,
++			true,
++		)
++		if err != nil {
++			if failoverClientGone(c) {
++				reqLog.Info("openai_decisions.account_select_aborted_client_disconnected", zap.Error(err))
++				return
++			}
++			reqLog.Warn("openai_decisions.account_select_failed",
++				zap.Error(err),
++				zap.Int("excluded_account_count", len(failedAccountIDs)),
++			)
++			if errors.Is(err, service.ErrPriorityAdmissionUnavailable) {
++				h.errorResponse(c, http.StatusServiceUnavailable, "api_error", "Service temporarily unavailable, please retry later")
++				return
++			}
++			if len(failedAccountIDs) == 0 {
++				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel, service.PlatformOpenAI)
++				if !cls.ModelNotFound {
++					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
++				}
++				h.errorResponse(c, cls.Status, cls.ErrType, cls.Message)
++				return
++			}
++			if lastFailoverErr != nil {
++				h.handleFailoverExhausted(c, lastFailoverErr, false)
++			} else {
++				h.errorResponse(c, http.StatusBadGateway, "api_error", "Upstream request failed")
++			}
++			return
++		}
++		if selection == nil || selection.Account == nil {
++			cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel, service.PlatformOpenAI)
++			if !cls.ModelNotFound {
++				markOpsRoutingCapacityLimited(c)
++			}
++			h.errorResponse(c, cls.Status, cls.ErrType, cls.Message)
++			return
++		}
++		account := selection.Account
++		setOpsSelectedAccount(c, account.ID, account.Platform)
++
++		accountReleaseFunc, acquireOutcome := h.acquireResponsesAccountSlot(c, apiKey.GroupID, "", selection, false, &streamStarted, reqLog)
++		if acquireOutcome == accountSlotAcquireProfitVeto {
++			if !recordOpenAIProfitVeto(&failedAccountIDs, account.ID, &profitVetoCount) {
++				h.handleOpenAIProfitVetoExhausted(c, streamStarted, reqLog, profitVetoCount)
++				return
++			}
++			continue
++		}
++		if acquireOutcome == accountSlotAcquireReschedule {
++			addFailedAccountID(&failedAccountIDs, account.ID)
++			continue
++		}
++		if acquireOutcome != accountSlotAcquireReady {
++			return
++		}
++		account = selection.Account
++
++		service.SetOpsLatencyMs(c, service.OpsRoutingLatencyMsKey, time.Since(routingStart).Milliseconds())
++		forwardStart := time.Now()
++
++		forwardBody := body
++		if channelMapping.Mapped {
++			forwardBody = h.gatewayService.ReplaceModelInBody(body, channelMapping.MappedModel)
++		}
++		writerSizeBeforeForward := c.Writer.Size()
++		result, err := func() (*service.OpenAIForwardResult, error) {
++			defer func() {
++				if accountReleaseFunc != nil {
++					accountReleaseFunc()
++				}
++			}()
++			return h.gatewayService.ForwardDecisions(c.Request.Context(), c, account, forwardBody)
++		}()
++
++		forwardDurationMs := time.Since(forwardStart).Milliseconds()
++		upstreamLatencyMs, _ := getContextInt64(c, service.OpsUpstreamLatencyMsKey)
++		responseLatencyMs := forwardDurationMs
++		if upstreamLatencyMs > 0 && forwardDurationMs > upstreamLatencyMs {
++			responseLatencyMs = forwardDurationMs - upstreamLatencyMs
++		}
++		service.SetOpsLatencyMs(c, service.OpsResponseLatencyMsKey, responseLatencyMs)
++
++		if err != nil {
++			var failoverErr *service.UpstreamFailoverError
++			if errors.As(err, &failoverErr) {
++				if !failoverErr.ShouldRetryNextAccount() {
++					h.handleFailoverExhausted(c, failoverErr, false)
++					return
++				}
++				if c.Writer.Size() != writerSizeBeforeForward {
++					h.handleFailoverExhausted(c, failoverErr, true)
++					return
++				}
++				h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, account.GetMappedModel(reqModel), false, nil)
++				if failoverClientGone(c) {
++					reqLog.Info("openai_decisions.failover_aborted_client_disconnected",
++						zap.Int64("account_id", account.ID),
++						zap.Int("upstream_status", failoverErr.StatusCode),
++					)
++					return
++				}
++				h.gatewayService.RecordOpenAIAccountSwitch()
++				addFailedAccountID(&failedAccountIDs, account.ID)
++				lastFailoverErr = failoverErr
++				if switchCount >= maxAccountSwitches {
++					h.handleFailoverExhausted(c, failoverErr, false)
++					return
++				}
++				switchCount++
++				reqLog.Warn("openai_decisions.upstream_failover_switching",
++					zap.Int64("account_id", account.ID),
++					zap.Int("upstream_status", failoverErr.StatusCode),
++					zap.Int("switch_count", switchCount),
++					zap.Int("max_switches", maxAccountSwitches),
++				)
++				continue
++			}
++			h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, account.GetMappedModel(reqModel), false, nil)
++			if c.Writer.Size() == writerSizeBeforeForward {
++				h.errorResponse(c, http.StatusBadGateway, "upstream_error", "Upstream request failed")
++			}
++			reqLog.Warn("openai_decisions.forward_failed",
++				zap.Int64("account_id", account.ID),
++				zap.Error(err),
++			)
++			return
++		}
++
++		h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, account.GetMappedModel(reqModel), true, nil)
++		userAgent := c.GetHeader("User-Agent")
++		clientIP := ip.GetClientIP(c)
++		inboundEndpoint := GetInboundEndpoint(c)
++		upstreamEndpoint := GetUpstreamEndpoint(c, account.Platform)
++		quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
++		sessionID := service.ExtractClientSessionID(c)
++
++		h.submitOpenAIUsageRecordTask(c.Request.Context(), result, func(ctx context.Context) {
++			if err := h.gatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
++				Result:             result,
++				APIKey:             apiKey,
++				User:               apiKey.User,
++				Account:            account,
++				Subscription:       subscription,
++				InboundEndpoint:    inboundEndpoint,
++				UpstreamEndpoint:   upstreamEndpoint,
++				UserAgent:          userAgent,
++				IPAddress:          clientIP,
++				APIKeyService:      h.apiKeyService,
++				QuotaPlatform:      quotaPlatform,
++				PricingAt:          pricingAt,
++				SessionID:          sessionID,
++				ChannelUsageFields: clientRequestedUsageFields(c, channelMapping, reqModel, result.UpstreamModel),
++			}); err != nil {
++				logger.L().With(
++					zap.String("component", "handler.openai_gateway.decisions"),
++					zap.Int64("user_id", subject.UserID),
++					zap.Int64("api_key_id", apiKey.ID),
++					zap.Any("group_id", apiKey.GroupID),
++					zap.String("model", reqModel),
++					zap.Int64("account_id", account.ID),
++				).Error("openai_decisions.record_usage_failed", zap.Error(err))
++			}
++		})
++		reqLog.Debug("openai_decisions.request_completed",
++			zap.Int64("account_id", account.ID),
++			zap.Int("switch_count", switchCount),
++		)
++		return
++	}
++}
+--- /dev/null
++++ backend/migrations/248_add_composite_decisions_endpoint.sql
+@@ -0,0 +1,7 @@
++-- Allow composite groups to route the OpenAI Decisions endpoint.
++ALTER TABLE composite_model_routes
++    DROP CONSTRAINT IF EXISTS composite_model_routes_endpoint_check;
++
++ALTER TABLE composite_model_routes
++    ADD CONSTRAINT composite_model_routes_endpoint_check
++    CHECK (endpoint IN ('any', 'messages', 'count_tokens', 'responses', 'chat_completions', 'embeddings', 'decisions', 'images', 'gemini'));

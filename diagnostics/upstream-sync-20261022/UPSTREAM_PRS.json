@@ -1,0 +1,313 @@
+[
+  {
+    "pr": 8139,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8139",
+    "merge_sha": "4942b2afc70be7291df28bce594eeef21b71e336",
+    "diff_sha256": "32096a07174f38f91d71d043fed860c00fdf414a17078ac4f9cf6993ec92da09",
+    "production_diff_sha256": "abc8a30a9ea792410c110d25f9a7a28ffbc9154cdf75061d627bb8a6f6bbfec6",
+    "status": "ported",
+    "fully_closed": true,
+    "current_owners": [
+      "backend/internal/application/service/openai_gateway_passthrough.go"
+    ],
+    "decision": "Treat queued and moderation metadata as preamble while retaining existing Codex control-frame staging, first-output timeout, pre-output retry and visible TTFT invariants.",
+    "reopen_condition": "Only new upstream semantics or an observed regression in the listed current owners; never replay this frozen diff.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_TRANSACTION.json",
+      "PERFORMANCE.json",
+      "runtime-result.json"
+    ]
+  },
+  {
+    "pr": 8142,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8142",
+    "merge_sha": "d744c22016f15f37191d90fe8850a66ccb730399",
+    "diff_sha256": "2f8242a629d4ed184e40fa1385d10d51ceaa15ff35cf3dd02401058b71553252",
+    "production_diff_sha256": "2f8242a629d4ed184e40fa1385d10d51ceaa15ff35cf3dd02401058b71553252",
+    "status": "ported",
+    "fully_closed": true,
+    "current_owners": [
+      "frontend/src/features/admin-accounts/presentation/accountFilterState.ts",
+      "frontend/src/features/admin-accounts/presentation/pages/AccountsPage.vue"
+    ],
+    "decision": "Validate and persist platform/status only in the current feature owner. Corrupt or unavailable storage falls back to empty filters; search and account data are not persisted.",
+    "reopen_condition": "Only new upstream semantics or an observed regression in the listed current owners; never replay this frozen diff.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_TRANSACTION.json",
+      "PERFORMANCE.json",
+      "runtime-result.json"
+    ]
+  },
+  {
+    "pr": 8267,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8267",
+    "merge_sha": "9a1680042a2315df7fcfa925f9235bfead528ad6",
+    "diff_sha256": "696bdb638d28079c5b787364b8497af413e815e97c9d2bc1208b2581e76525ea",
+    "production_diff_sha256": "696bdb638d28079c5b787364b8497af413e815e97c9d2bc1208b2581e76525ea",
+    "status": "covered",
+    "fully_closed": true,
+    "current_owners": [
+      "frontend/pnpm-workspace.yaml",
+      "frontend/pnpm-lock.yaml",
+      "backend/go.mod",
+      ".github/workflows/backend-ci.yml"
+    ],
+    "decision": "Current main already pins follow-redirects 1.16.1 and aligns the locally supported Go 1.26.10 across builder and CI. Retain this compatible toolchain line; do not replay dependency or workflow edits.",
+    "reopen_condition": "Only new upstream semantics or an observed regression in the listed current owners; never replay this frozen diff.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_TRANSACTION.json",
+      "PERFORMANCE.json",
+      "runtime-result.json"
+    ]
+  },
+  {
+    "pr": 8166,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8166",
+    "merge_sha": "4c7e9b5b6b0664e12fbc5a69efffc06e7a363c6c",
+    "diff_sha256": "0280c44a46a3df14a3950b0090aee59422a5f360016a7787c148782f101ef9f0",
+    "production_diff_sha256": "e7bd3349ae2b1f0b3dee70830d430f9c97b080358a68714106aedff99443b63d",
+    "status": "ported",
+    "fully_closed": true,
+    "current_owners": [
+      "backend/internal/application/service/account_quota_support.go",
+      "backend/internal/application/service/gateway_usage_billing.go",
+      "backend/internal/transport/http/handler/dto/mappers.go",
+      "frontend/src/features/admin-accounts/presentation/accountQuota.ts"
+    ],
+    "decision": "Extend quota scheduling, DTO, reliable and fallback settlement, notification, create/edit payload and quota/reset displays to service_account without extending pool mode. Deleted account quota counters do not undo completed user settlement. Retain local account-specific rate multiplier semantics.",
+    "reopen_condition": "Only new upstream semantics or an observed regression in the listed current owners; never replay this frozen diff.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_TRANSACTION.json",
+      "PERFORMANCE.json",
+      "runtime-result.json"
+    ]
+  },
+  {
+    "pr": 8167,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8167",
+    "merge_sha": "98f83b7263227cea945652e29759a5b7df9f92fb",
+    "diff_sha256": "c230adca70262cbc6f8707ef4f871ef46aea9a091b4d3228cef1f68d72a2f177",
+    "production_diff_sha256": "6870227aae2eb3dc05c9fbc7e04c821271a2f17491429b98d1343019d46a1fb5",
+    "status": "ported",
+    "fully_closed": true,
+    "current_owners": [
+      "backend/internal/application/service/gemini_image_generation_gate.go",
+      "backend/internal/transport/http/handler/gemini_image_generation_gate.go",
+      "backend/migrations/250_enable_gemini_image_generation_groups.sql",
+      "frontend/src/features/admin-groups/presentation/composables/useCreateGroupController.ts"
+    ],
+    "decision": "Enforce Gemini image model/body intent at ingress and after mappings, preserve countTokens and media-studio scoped authorization. New pure Gemini/Antigravity groups default enabled; additive migration preserves legacy effective access. Composite flags remain unchanged. Complete rolling upgrades before using false as a strict deny across instances.",
+    "reopen_condition": "Only new upstream semantics or an observed regression in the listed current owners; never replay this frozen diff.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_TRANSACTION.json",
+      "PERFORMANCE.json",
+      "runtime-result.json"
+    ]
+  },
+  {
+    "pr": 8210,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8210",
+    "merge_sha": "b7512305123aff307d3ab92840f2077eabc2529f",
+    "diff_sha256": "c75f71737fa5a2ff59754b58ab4fa11053959bff4772da193bfa2bb68ffc77c3",
+    "production_diff_sha256": "4e275379452e5b90603a76e3b8d817d686d7897bed968bd59eb824db92c34c9d",
+    "status": "ported",
+    "fully_closed": true,
+    "current_owners": [
+      "backend/internal/application/service/gateway_forward_compat_stream.go",
+      "backend/internal/application/service/gateway_stream_error_failover.go",
+      "backend/internal/application/service/gateway_forward_as_chat_completions.go",
+      "backend/internal/application/service/gateway_forward_as_responses.go",
+      "backend/internal/transport/http/handler/gateway_handler_chat_completions.go",
+      "backend/internal/transport/http/handler/gateway_handler_responses.go"
+    ],
+    "decision": "Drain detached Anthropic compatibility streams after client loss with bounded Body.Read intervals, merge final usage, mark ClientDisconnect and settle partial observed usage. A synchronous scanner/watchdog replaces the upstream per-line pump after its microbenchmark regressions; parse scanner bytes before the next scan. Retain signed thinking, local nil-restorer fast path, explicit Chat include_usage and tool restoration.",
+    "reopen_condition": "Only new upstream semantics or an observed regression in the listed current owners; never replay this frozen diff.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_TRANSACTION.json",
+      "PERFORMANCE.json",
+      "runtime-result.json"
+    ]
+  },
+  {
+    "pr": 8249,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8249",
+    "merge_sha": "b6c366380bd2639c939871a2cc8663cb4f5db32e",
+    "diff_sha256": "2a37397a43a83ec29c2282e36af4ac5723359332431d7b65cee0f0bc7dd2fb8a",
+    "production_diff_sha256": "d542eb7f064d0876d31cdd5b6f61afca0fe665321b41e5c3b8ebd0bd4ac547ae",
+    "status": "ported",
+    "fully_closed": true,
+    "current_owners": [
+      "backend/internal/application/service/request_metadata_single_account.go",
+      "backend/internal/application/service/antigravity_gateway_retry.go",
+      "backend/internal/transport/http/handler/gateway_handler_messages.go",
+      "backend/internal/transport/http/handler/gemini_v1beta_handler.go"
+    ],
+    "decision": "Mount a request-local single-account probe, evaluate only on Antigravity capacity/rate-limit paths, cache once, honor explicit flags and captured group identity. Bound the detached lookup to three seconds; ordinary traffic does not enumerate accounts for this decision.",
+    "reopen_condition": "Only new upstream semantics or an observed regression in the listed current owners; never replay this frozen diff.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_TRANSACTION.json",
+      "PERFORMANCE.json",
+      "runtime-result.json"
+    ]
+  },
+  {
+    "pr": 8250,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8250",
+    "merge_sha": "b3e66f79a81400c729dbea78183f150509478343",
+    "diff_sha256": "32b5873c120f7792603071a06a554bb99a0e335fa455799e647291b770018b8a",
+    "production_diff_sha256": "3fdf9589f2fe57c78c3b0eee3648ab0f7fd7562acb5d673d5182319694451801",
+    "status": "ported",
+    "fully_closed": true,
+    "current_owners": [
+      "backend/internal/application/service/account_model_mapping_signature.go",
+      "backend/internal/application/service/account.go"
+    ],
+    "decision": "Replace sorting/allocation with an order-independent per-entry FNV/fmix signature. Preserve cache content-change detection and all existing local mappings.",
+    "reopen_condition": "Only new upstream semantics or an observed regression in the listed current owners; never replay this frozen diff.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_TRANSACTION.json",
+      "PERFORMANCE.json",
+      "runtime-result.json"
+    ]
+  },
+  {
+    "pr": 8251,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8251",
+    "merge_sha": "a34f373973bf547ccec301c7405eb45194e1f28a",
+    "diff_sha256": "07bef7e6b6b467dddb6654dbb03e95101ee219f6e513e331454aaa22f422d8e4",
+    "production_diff_sha256": "8e8644643f0ea740e32d2916a216bb01b24392b1ad248dc9655f2571058e0c68",
+    "status": "deferred",
+    "fully_closed": false,
+    "current_owners": [
+      "backend/internal/infrastructure/repository/scheduler_cache.go",
+      "backend/internal/infrastructure/repository/scheduler_account_state_cache.go",
+      "backend/internal/application/service/scheduler_cache.go",
+      "backend/internal/application/service/account.go"
+    ],
+    "decision": "Do not introduce process-local decoded snapshot memoization into current candidate-index and account-mutation owners. Upstream reuses nested maps and pointer fields, has no entry-count cap, and permits up to ten seconds of stale reads from writers that do not publish new revision keys. Current rolling writers do not publish those keys. Requires a separate bounded immutable-snapshot design and mixed-version invalidation matrix before activation.",
+    "reopen_condition": "Only a separately designed bounded immutable snapshot and compatibility proof for all local writer/candidate-index paths. Unchanged frozen diff alone is not a reopen trigger.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_TRANSACTION.json",
+      "PERFORMANCE.json",
+      "runtime-result.json"
+    ]
+  },
+  {
+    "pr": 8269,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8269",
+    "merge_sha": "624874b313241c46a34c68eb843c021c7dbdacaf",
+    "diff_sha256": "4798f1811e3f741086ec1c404c09ade43d64bb33b44028d3f178905707289ed1",
+    "production_diff_sha256": "1f9388c903aae2946962b7244552d5f201826f781066cc1ebfb5b84ad9bc9b0a",
+    "status": "ported",
+    "fully_closed": true,
+    "current_owners": [
+      "backend/internal/infrastructure/repository/usage_billing_account_quota.go",
+      "backend/internal/infrastructure/repository/usage_billing_repo.go",
+      "backend/internal/application/service/usage_billing.go",
+      "backend/internal/application/service/gateway_usage_billing.go"
+    ],
+    "decision": "Choose quota increment SQL from daily/weekly hints, guard omitted dimensions against live JSONB configuration, and fall back to complete SQL on stale hints. Retain transactional threshold outbox, normalization/fingerprint, queue compatibility and local account-cost semantics. Existing legacy queue consumer uses the full-SQL wrapper.",
+    "reopen_condition": "Only new upstream semantics or an observed regression in the listed current owners; never replay this frozen diff.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_TRANSACTION.json",
+      "PERFORMANCE.json",
+      "runtime-result.json"
+    ]
+  },
+  {
+    "pr": 8224,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8224",
+    "merge_sha": "5e45fa482b186145b84ddb2d79bc93a509dba1d2",
+    "diff_sha256": "4d1696db1b364bbc4eea667a9a1a56fd446736359aba41bcd4159bf8c300802a",
+    "production_diff_sha256": "fb8cca546c21357615bd0bb241da735b54eaf220381ffc9d453d053392a08c16",
+    "status": "ported",
+    "fully_closed": true,
+    "current_owners": [
+      "backend/internal/application/service/openai_deepseek_compat.go"
+    ],
+    "decision": "Canonicalize DeepSeek outbound input_image to image_url, prefer the original image_url over legacy url, remove duplicate url, preserve file_id-only inputs and stateless store/previous_response_id behavior.",
+    "reopen_condition": "Only new upstream semantics or an observed regression in the listed current owners; never replay this frozen diff.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_TRANSACTION.json",
+      "PERFORMANCE.json",
+      "runtime-result.json"
+    ]
+  },
+  {
+    "pr": 8188,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8188",
+    "merge_sha": "888c6057333e011b8cfeb81a867f445d229d1432",
+    "diff_sha256": "8b179780b44bb146bf19bfd29ee3ec399680773ea7103a6b6e61169402af5123",
+    "production_diff_sha256": "41ace001a4ac13d83d689ab7c001b49ce0abe287d301567530de013fafdd06ff",
+    "status": "ported",
+    "fully_closed": true,
+    "current_owners": [
+      "backend/internal/application/service/gemini_tool_schema.go",
+      "backend/internal/application/service/gemini_messages_compat_service.go"
+    ],
+    "decision": "Normalize schema nodes separately from property names and literal objects. Convert supported string const to enum/intersection; omit unsupported non-string const without inventing types. Preserve local integral-bound and scalar-enum normalization.",
+    "reopen_condition": "Only new upstream semantics or an observed regression in the listed current owners; never replay this frozen diff.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_TRANSACTION.json",
+      "PERFORMANCE.json",
+      "runtime-result.json"
+    ]
+  },
+  {
+    "pr": 8255,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8255",
+    "merge_sha": "aa48a8bbd80c6ac956dbcbaba651f417b3cf78e3",
+    "diff_sha256": "e9f0cd97ecfb96e92e128bce68544c7316105f115aaee598849094475dabebdf",
+    "production_diff_sha256": "042dd516a0d6a3240fc60ea250d3e0242da6d16309c62a0b9ffb49a80cfcfd30",
+    "status": "ported",
+    "fully_closed": true,
+    "current_owners": [
+      "backend/internal/application/service/ratelimit_cloudflare.go",
+      "backend/internal/application/service/ratelimit_service.go"
+    ],
+    "decision": "Detect explicit Cloudflare 1010/browser_signature_banned JSON as edge rejection before platform penalties. Keep local OpenAI HTML bypass, cooldown/counter policy and real account failures.",
+    "reopen_condition": "Only new upstream semantics or an observed regression in the listed current owners; never replay this frozen diff.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_TRANSACTION.json",
+      "PERFORMANCE.json",
+      "runtime-result.json"
+    ]
+  },
+  {
+    "pr": 8275,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8275",
+    "merge_sha": "21cc926933163e015d2b632be07055759c983541",
+    "diff_sha256": "d46b21beb1ccfbecd7a4222f5db74915f8cc505111f541608aa6cf3491f9f1b2",
+    "production_diff_sha256": "d46b21beb1ccfbecd7a4222f5db74915f8cc505111f541608aa6cf3491f9f1b2",
+    "status": "covered",
+    "fully_closed": true,
+    "current_owners": [
+      "Dockerfile",
+      "backend/go.mod",
+      ".github/workflows/backend-ci.yml",
+      ".github/workflows/release.yml",
+      ".github/workflows/security-scan.yml"
+    ],
+    "decision": "The local Docker, go.mod and workflow pins are already consistently Go 1.26.10. Keep that supported patch line; upstream Go 1.27.3 is an intentional toolchain divergence, not an unimplemented runtime fix.",
+    "reopen_condition": "Only new upstream semantics or an observed regression in the listed current owners; never replay this frozen diff.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_TRANSACTION.json",
+      "PERFORMANCE.json",
+      "runtime-result.json"
+    ]
+  }
+]

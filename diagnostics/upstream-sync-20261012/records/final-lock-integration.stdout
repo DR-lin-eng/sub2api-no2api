@@ -1,0 +1,112 @@
+2026/10/12 18:00:20 Timezone initialized: UTC (UTC offset: +00:00)
+2026/10/12 18:00:20 github.com/testcontainers/testcontainers-go - Connected to docker: 
+  Server Version: 29.2.1
+  API Version: 1.51
+  Operating System: Docker Desktop
+  Total Memory: 7836 MB
+  Labels:
+    com.docker.desktop.address=unix:///Users/lin/Library/Containers/com.docker.docker/Data/docker-cli.sock
+  Testcontainers for Go Version: v0.40.0
+  Resolved Docker Host: unix:///var/run/docker.sock
+  Resolved Docker Socket Path: /var/run/docker.sock
+  Test SessionID: ab413c8598579c16ba3a95b8fcc4d547a0e42c7909ba443867e3b0a2965aa281
+  Test ProcessID: 372b383c-0a6d-4875-82af-8ae1e7c722fb
+2026/10/12 18:00:21 🐳 Creating container for image postgres:18.1-alpine3.23
+2026/10/12 18:00:21 🐳 Creating container for image testcontainers/ryuk:0.13.0
+2026/10/12 18:00:21 ✅ Container created: 2aff45ff55ff
+2026/10/12 18:00:21 🐳 Starting container: 2aff45ff55ff
+2026/10/12 18:00:22 ✅ Container started: 2aff45ff55ff
+2026/10/12 18:00:22 ⏳ Waiting for container id 2aff45ff55ff image: testcontainers/ryuk:0.13.0. Waiting for: port 8080/tcp to be listening
+2026/10/12 18:00:22 Shell not found in container
+2026/10/12 18:00:22 🔔 Container is ready: 2aff45ff55ff
+2026/10/12 18:00:22 ✅ Container created: 83111193b124
+2026/10/12 18:00:22 🐳 Starting container: 83111193b124
+2026/10/12 18:00:22 ✅ Container started: 83111193b124
+2026/10/12 18:00:22 ⏳ Waiting for container id 83111193b124 image: postgres:18.1-alpine3.23. Waiting for: all of: [log message "database system is ready to accept connections" (occurrence: 2), port 5432/tcp to be listening]
+2026/10/12 18:00:23 🔔 Container is ready: 83111193b124
+2026/10/12 18:00:23 🐳 Creating container for image redis:8.4-alpine
+2026/10/12 18:00:23 ✅ Container created: 6452f74958b5
+2026/10/12 18:00:23 🐳 Starting container: 6452f74958b5
+2026/10/12 18:00:23 ✅ Container started: 6452f74958b5
+2026/10/12 18:00:23 ⏳ Waiting for container id 6452f74958b5 image: redis:8.4-alpine. Waiting for: all of: [port 6379/tcp to be listening, log message "* Ready to accept connections"]
+2026/10/12 18:00:24 🔔 Container is ready: 6452f74958b5
+=== RUN   TestContentModerationConfigWriterRechecksGroupAfterConcurrentDelete
+--- PASS: TestContentModerationConfigWriterRechecksGroupAfterConcurrentDelete (0.12s)
+=== RUN   TestGroupDeleteConcurrentCallsUseWriteLock
+--- PASS: TestGroupDeleteConcurrentCallsUseWriteLock (0.01s)
+=== RUN   TestGroupRepoSuite
+=== RUN   TestGroupRepoSuite/TestCodexPrewarm429SoftBlocksMatchGroupCapacityCounts
+=== RUN   TestGroupRepoSuite/TestCreate
+=== RUN   TestGroupRepoSuite/TestCreateFromSourcePreservesPriorityAndFiltersIneligibleAccounts
+=== RUN   TestGroupRepoSuite/TestDelete
+=== RUN   TestGroupRepoSuite/TestDeleteAccountGroupsByGroupID
+=== RUN   TestGroupRepoSuite/TestDeleteAccountGroupsByGroupID_MultipleAccounts
+=== RUN   TestGroupRepoSuite/TestDelete_SoftDelete_NotVisibleInList
+=== RUN   TestGroupRepoSuite/TestDelete_SoftDeletedGroup_lockForUpdate
+=== RUN   TestGroupRepoSuite/TestExistsByName
+=== RUN   TestGroupRepoSuite/TestGetAccountCount
+=== RUN   TestGroupRepoSuite/TestGetAccountCount_Empty
+=== RUN   TestGroupRepoSuite/TestGetByIDLite_DoesNotUseAccountCount
+=== RUN   TestGroupRepoSuite/TestGetByID_NotFound
+=== RUN   TestGroupRepoSuite/TestGetByID_PreservesMessagesDispatchModelConfig
+=== RUN   TestGroupRepoSuite/TestI18nPreservedAndCleared
+=== RUN   TestGroupRepoSuite/TestList
+=== RUN   TestGroupRepoSuite/TestListActive
+=== RUN   TestGroupRepoSuite/TestListActiveByPlatform
+=== RUN   TestGroupRepoSuite/TestListWithAccountCountSort_AttachesActiveCount
+=== RUN   TestGroupRepoSuite/TestListWithFilters_AccountCount
+=== RUN   TestGroupRepoSuite/TestListWithFilters_ActiveAccountCount_LessThanTotal
+=== RUN   TestGroupRepoSuite/TestListWithFilters_IsExclusive
+=== RUN   TestGroupRepoSuite/TestListWithFilters_Platform
+=== RUN   TestGroupRepoSuite/TestListWithFilters_RateLimitedAccountCount
+=== RUN   TestGroupRepoSuite/TestListWithFilters_Search
+=== RUN   TestGroupRepoSuite/TestListWithFilters_Search/search_name_should_match
+=== RUN   TestGroupRepoSuite/TestListWithFilters_Search/search_description_should_match
+=== RUN   TestGroupRepoSuite/TestListWithFilters_Search/search_nonexistent_should_return_empty
+=== RUN   TestGroupRepoSuite/TestListWithFilters_Search/search_should_be_case_insensitive
+=== RUN   TestGroupRepoSuite/TestListWithFilters_Search/search_should_escape_like_wildcards
+=== RUN   TestGroupRepoSuite/TestListWithFilters_Status
+=== RUN   TestGroupRepoSuite/TestList_DefaultSortBySortOrderAsc
+=== RUN   TestGroupRepoSuite/TestList_SortBySortOrderDesc
+=== RUN   TestGroupRepoSuite/TestUpdate
+=== RUN   TestGroupRepoSuite/TestUpdateSortOrders_BatchCaseWhen
+=== RUN   TestGroupRepoSuite/TestUpdateSortOrders_MissingGroupNoPartialUpdate
+--- PASS: TestGroupRepoSuite (0.18s)
+    --- PASS: TestGroupRepoSuite/TestCodexPrewarm429SoftBlocksMatchGroupCapacityCounts (0.02s)
+    --- PASS: TestGroupRepoSuite/TestCreate (0.00s)
+    --- PASS: TestGroupRepoSuite/TestCreateFromSourcePreservesPriorityAndFiltersIneligibleAccounts (0.01s)
+    --- PASS: TestGroupRepoSuite/TestDelete (0.00s)
+    --- PASS: TestGroupRepoSuite/TestDeleteAccountGroupsByGroupID (0.00s)
+    --- PASS: TestGroupRepoSuite/TestDeleteAccountGroupsByGroupID_MultipleAccounts (0.01s)
+    --- PASS: TestGroupRepoSuite/TestDelete_SoftDelete_NotVisibleInList (0.01s)
+    --- PASS: TestGroupRepoSuite/TestDelete_SoftDeletedGroup_lockForUpdate (0.00s)
+    --- PASS: TestGroupRepoSuite/TestExistsByName (0.00s)
+    --- PASS: TestGroupRepoSuite/TestGetAccountCount (0.00s)
+    --- PASS: TestGroupRepoSuite/TestGetAccountCount_Empty (0.00s)
+    --- PASS: TestGroupRepoSuite/TestGetByIDLite_DoesNotUseAccountCount (0.00s)
+    --- PASS: TestGroupRepoSuite/TestGetByID_NotFound (0.00s)
+    --- PASS: TestGroupRepoSuite/TestGetByID_PreservesMessagesDispatchModelConfig (0.00s)
+    --- PASS: TestGroupRepoSuite/TestI18nPreservedAndCleared (0.01s)
+    --- PASS: TestGroupRepoSuite/TestList (0.01s)
+    --- PASS: TestGroupRepoSuite/TestListActive (0.01s)
+    --- PASS: TestGroupRepoSuite/TestListActiveByPlatform (0.00s)
+    --- PASS: TestGroupRepoSuite/TestListWithAccountCountSort_AttachesActiveCount (0.01s)
+    --- PASS: TestGroupRepoSuite/TestListWithFilters_AccountCount (0.00s)
+    --- PASS: TestGroupRepoSuite/TestListWithFilters_ActiveAccountCount_LessThanTotal (0.01s)
+    --- PASS: TestGroupRepoSuite/TestListWithFilters_IsExclusive (0.00s)
+    --- PASS: TestGroupRepoSuite/TestListWithFilters_Platform (0.00s)
+    --- PASS: TestGroupRepoSuite/TestListWithFilters_RateLimitedAccountCount (0.01s)
+    --- PASS: TestGroupRepoSuite/TestListWithFilters_Search (0.02s)
+        --- PASS: TestGroupRepoSuite/TestListWithFilters_Search/search_name_should_match (0.01s)
+        --- PASS: TestGroupRepoSuite/TestListWithFilters_Search/search_description_should_match (0.00s)
+        --- PASS: TestGroupRepoSuite/TestListWithFilters_Search/search_nonexistent_should_return_empty (0.00s)
+        --- PASS: TestGroupRepoSuite/TestListWithFilters_Search/search_should_be_case_insensitive (0.00s)
+        --- PASS: TestGroupRepoSuite/TestListWithFilters_Search/search_should_escape_like_wildcards (0.01s)
+    --- PASS: TestGroupRepoSuite/TestListWithFilters_Status (0.00s)
+    --- PASS: TestGroupRepoSuite/TestList_DefaultSortBySortOrderAsc (0.00s)
+    --- PASS: TestGroupRepoSuite/TestList_SortBySortOrderDesc (0.00s)
+    --- PASS: TestGroupRepoSuite/TestUpdate (0.00s)
+    --- PASS: TestGroupRepoSuite/TestUpdateSortOrders_BatchCaseWhen (0.01s)
+    --- PASS: TestGroupRepoSuite/TestUpdateSortOrders_MissingGroupNoPartialUpdate (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/infrastructure/repository	4.383s

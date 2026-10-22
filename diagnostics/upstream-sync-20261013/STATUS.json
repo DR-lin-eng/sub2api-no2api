@@ -1,0 +1,38 @@
+{
+  "target": "/Users/lin/.codex/worktrees/e3d4/sub2api-no2api",
+  "target_original_sha": "5c9372cbf4639a74df0c37c3348fa32b27a32cb0",
+  "repo": "/private/tmp/sub2api-upstream-sync-20261013-e3d4/repo",
+  "evidence": "/private/tmp/sub2api-upstream-sync-20261013-e3d4/evidence",
+  "baseline_sha": "8773001a188f0b1fed3dff5d23b1700c70e3cf5e",
+  "upstream_sha": "4d9ac3e482106d2da3a39fe3e546d8d6801f1cc1",
+  "prior_boundary": "ab80abc6d1f929a6864c8804fd077b509d21fda2",
+  "branch": "codex/upstream-sync-20261013",
+  "roles": {
+    "MODIFIED_FILE": "/private/tmp/sub2api-upstream-sync-20261013-e3d4/evidence/MODIFIED_FILE.tar.gz",
+    "DIFF_FILE": "/private/tmp/sub2api-upstream-sync-20261013-e3d4/evidence/DIFF_FILE.patch",
+    "VERIFICATION": "/private/tmp/sub2api-upstream-sync-20261013-e3d4/evidence/VERIFICATION.txt",
+    "ROLLBACK": "/private/tmp/sub2api-upstream-sync-20261013-e3d4/evidence/ROLLBACK.sh"
+  },
+  "ACTIVE_OBJECT": "/private/tmp/sub2api-upstream-sync-20261013-e3d4/repo",
+  "LAST_CONFIRMED_RESULT": "Docker Go unit/integration/race/lint and frontend lint/typecheck/247 critical+80 account tests passed; behavior and rollback hashes verified.",
+  "NEXT_EXECUTABLE_ACTION": "Resume final production Docker image build session 64689, then execute evidence/runtime_check.py and finalize/publish.",
+  "INPUT_PATHS": [
+    "/private/tmp/sub2api-upstream-sync-20261013-e3d4/evidence/validate_serial.py",
+    "/private/tmp/sub2api-upstream-sync-20261013-e3d4/evidence/UPSTREAM_PRS.json",
+    "/private/tmp/sub2api-upstream-sync-20261013-e3d4/repo/docs/UPSTREAM_SYNC_20261013.md"
+  ],
+  "ACCEPTANCE_EVENT": "Docker production upgrade/rollback, native roles reapply/hash proof, push and main merge with exact revision CI, Security Scan, Docker Image and GHCR verification.",
+  "serial_session_id": 89310,
+  "ported_prs": [
+    7828,
+    8046,
+    8038,
+    7991,
+    7810
+  ],
+  "deferred_prs": [
+    7957,
+    8006
+  ],
+  "build_session_id": 64689
+}

@@ -1,3 +1,9 @@
+export interface GroupLocaleText {
+  name?: string
+  description?: string
+}
+export type GroupI18n = Record<string, GroupLocaleText>
+
 import type { BillingMode } from '@/core/constants/channel'
 
 export type GroupPlatform =

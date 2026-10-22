@@ -2,6 +2,8 @@
 
 管理账号 feature 负责账号列表、创建/编辑、批量更新、授权和用量展示。
 
+账号列表的“同步上游模型”通过 `useAccountUpstreamModelSync.ts` 按每批 20 个账号调用批量同步 Action，`UpstreamModelSyncResultsDialog.vue` 展示进度与逐账号结果。成功后刷新列表，失败/跳过账号保持选中；保存规则和平台边界见 [同步说明](../../../../docs/ACCOUNT_UPSTREAM_MODELS_SYNC.md)。
+
 - `data/dtos/adminAccountDtos.ts`, `openAIQuotaDtos.ts`: 账号创建/更新、混合渠道预检、Codex 导入、OpenAI quota、模型和临时不可调度状态等账号专属协议类型；`src/types` 仅保留兼容转发。
 - `data/datasources/adminAccountQueries.ts`: 列表、ETag、详情、摘要、统计、用量、临时不可调度状态、Ollama Cloud 状态、模型、Antigravity 默认映射和上游计费设置/快照查询。
 - `data/datasources/adminAccountActions.ts`: 账号创建/更新、OAuth 凭据应用/错误清理、Codex session/PAT 导入、上游模型同步、CPA 测试、页面批量操作、导出、账号状态维护、重复账号、上游计费探测、OpenAI OAuth 主动批量额度查询和 Ollama Cloud 配置动作。
@@ -57,3 +59,11 @@ OAuth composable 和创建账号的 OAuth 兑换编排直接依赖账号 OAuth A
 pnpm exec vitest run src/features/admin-accounts
 pnpm run typecheck
 ```
+
+临时不可调度规则的 scope 归一化、旧值解析和可选字段序列化由 `presentation/accountFormPolicy.ts` 维护，创建/编辑 advanced widget 共用该协议；自动范围省略 scope。显式范围须在所有节点升级后启用，详见 [同步与回退边界](../../../../docs/UPSTREAM_SYNC_20261013.md)。
+
+Claude 5.5 的原生白名单、Antigravity 分档模型和映射预设由 `presentation/composables/useModelWhitelist.ts` 维护。同步结果在原 `models` 列表之外可附带 `metadata`；已有列表调用保持兼容。
+
+OpenAI 与 Anthropic API-key 的 WebSearch 模拟共用已有三态字段和全局可见条件。创建 extra 的纯转换由 `accountFormPolicy.ts` 所有，编辑 payload 由 `accountEditUpdatePayload.ts` 所有；OAuth 不显示或启用该模拟。
+
+`presentation/accountFilterState.ts` 校验并持久化账号平台/状态筛选；`presentation/accountQuota.ts` 统一 API Key、Bedrock 与 service account 的本地配额展示和编辑资格，池模式权限保持独立。

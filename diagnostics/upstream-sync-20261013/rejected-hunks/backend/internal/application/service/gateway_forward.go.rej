@@ -1,0 +1,10 @@
+diff a/backend/internal/application/service/gateway_forward.go b/backend/internal/application/service/gateway_forward.go	(rejected hunks)
+@@ -689,7 +689,7 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
+ 			logger.LegacyPrintf("service.gateway", "[Forward] Upstream error (retry exhausted, failover): Account=%d(%s) Status=%d RequestID=%s Body=%s",
+ 				account.ID, account.Name, resp.StatusCode, resp.Header.Get("x-request-id"), truncateString(string(respBody), 1000))
+ 
+-			s.handleRetryExhaustedSideEffects(ctx, resp, account)
++			s.handleRetryExhaustedSideEffects(ctx, resp, account, reqModel)
+ 			appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
+ 				ProxyID:            opsUpstreamProxyID(account),
+ 				ProxyName:          opsUpstreamProxyName(account),

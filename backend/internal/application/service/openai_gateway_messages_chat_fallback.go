@@ -64,7 +64,7 @@ func (s *OpenAIGatewayService) forwardAnthropicViaRawChatCompletions(
 	}
 
 	// 2. Anthropic → Chat Completions (direct, no Responses intermediary)
-	chatReq, err := apicompat.AnthropicToChatCompletionsRequest(&anthropicReq)
+	chatReq, err := apicompat.AnthropicToChatCompletionsRequestWithMinOutputTokens(&anthropicReq, configuredMinOutputTokens(s.cfg))
 	if err != nil {
 		writeAnthropicError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
 		return nil, fmt.Errorf("convert anthropic to chat completions: %w", err)
@@ -218,6 +218,16 @@ func (s *OpenAIGatewayService) streamChatCompletionsAsAnthropic(
 
 	scan := s.scanCCStream(resp, "openai messages chat fallback", requestID, startTime, emitChunk)
 	usage := scan.Usage
+
+	if scan.PolicyPayload != nil {
+		markOpenAICyberPolicyEvent(c, scan.PolicyPayload, http.StatusOK, &scan.Usage)
+		policyErr, _ := writeOpenAIUpstreamPolicyErrorForEndpoint(c, http.StatusOK, scan.PolicyPayload)
+		return &OpenAIForwardResult{
+			RequestID: requestID, Usage: scan.Usage, Model: originalModel,
+			BillingModel: billingModel, UpstreamModel: upstreamModel, Stream: true,
+			Duration: time.Since(startTime), FirstTokenMs: scan.FirstTokenMs,
+		}, policyErr
+	}
 
 	if scan.Err != nil {
 		// Broken upstream read: skip finalization so no synthetic message_stop

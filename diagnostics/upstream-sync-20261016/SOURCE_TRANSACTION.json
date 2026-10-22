@@ -1,0 +1,196 @@
+{
+  "baseline_sha": "ed58484ab78497352259aea855e713df20b6a115",
+  "target": "/Users/lin/.codex/worktrees/76ea/sub2api-no2api",
+  "source_paths": [
+    "backend/internal/application/service/README.md",
+    "backend/internal/application/service/payment_fulfillment.go",
+    "backend/internal/application/service/payment_notification_confirm_test.go",
+    "backend/internal/application/service/payment_order.go",
+    "backend/internal/application/service/payment_order_type_test.go",
+    "backend/internal/application/service/payment_refund.go",
+    "backend/internal/application/service/payment_refund_pending_hold_test.go",
+    "backend/internal/application/service/payment_refund_subscription_test.go",
+    "backend/internal/application/service/payment_refund_test.go",
+    "backend/internal/application/service/payment_resume_service.go",
+    "backend/internal/application/service/payment_resume_service_test.go",
+    "backend/internal/application/service/payment_service.go",
+    "backend/internal/infrastructure/repository/payment_refund_hold_integration_test.go",
+    "backend/internal/modules/payment/provider/README.md",
+    "backend/internal/modules/payment/provider/alipay.go",
+    "backend/internal/modules/payment/provider/alipay_test.go",
+    "backend/internal/modules/payment/provider/easypay.go",
+    "backend/internal/modules/payment/provider/easypay_confirm_test.go",
+    "backend/internal/modules/payment/provider/easypay_query_test.go",
+    "backend/internal/modules/payment/types.go",
+    "backend/internal/transport/http/handler/payment_webhook_handler.go",
+    "backend/internal/transport/http/handler/payment_webhook_handler_test.go",
+    "docs/README.md",
+    "docs/UPSTREAM_SYNC_20261016.md",
+    "frontend/src/features/billing/README.md",
+    "frontend/src/features/billing/__tests__/StripePaymentPage.spec.ts",
+    "frontend/src/features/billing/presentation/pages/PaymentPage.vue",
+    "frontend/src/features/billing/presentation/pages/StripePaymentPage.vue"
+  ],
+  "added_source_paths": [
+    "backend/internal/application/service/payment_notification_confirm_test.go",
+    "backend/internal/application/service/payment_order_type_test.go",
+    "backend/internal/application/service/payment_refund_pending_hold_test.go",
+    "backend/internal/application/service/payment_refund_subscription_test.go",
+    "backend/internal/infrastructure/repository/payment_refund_hold_integration_test.go",
+    "backend/internal/modules/payment/provider/easypay_confirm_test.go",
+    "docs/UPSTREAM_SYNC_20261016.md"
+  ],
+  "modified_sha256": {
+    "backend/internal/application/service/README.md": "1dec050ae95fdcefcf53b851f4841c5013b53a58dd0723466c75fca5d409184d",
+    "backend/internal/application/service/payment_fulfillment.go": "d0f579f07d237fe4d11bad52f247b5e969b17662c4b56d8d7de3c96635d49e1a",
+    "backend/internal/application/service/payment_notification_confirm_test.go": "93c83d90519f17455f03d5261321cb930388d517e4e4d689bc50cb3412794118",
+    "backend/internal/application/service/payment_order.go": "3fd9c97c21accb41878a2a90729cc120b070027096b73ae3282b4b5a078a90b9",
+    "backend/internal/application/service/payment_order_type_test.go": "370c020ea4f4e68e9cb2c94f832a80b17e36e49b06274354bcf778e7df99329f",
+    "backend/internal/application/service/payment_refund.go": "d3aa1a5c0b307b17fcb69c87eb4a713d1de29d50730ec879501a4e491cb7a651",
+    "backend/internal/application/service/payment_refund_pending_hold_test.go": "098ebc969bea88d56a804db5024affca71897b9016999e864401f3ced6bdc2c2",
+    "backend/internal/application/service/payment_refund_subscription_test.go": "81666a1be47526216d069334c8d22500bbb359f61c3c0ad63976341df5a95996",
+    "backend/internal/application/service/payment_refund_test.go": "6b363971adc21adf4d162d7d992b4fcd55c6c5d29bfe1922177e87fa82c284a6",
+    "backend/internal/application/service/payment_resume_service.go": "79a68ee1d4ae2c2efdff8f8961c15d6b1587219bb20cc0b315798c62001a6c4b",
+    "backend/internal/application/service/payment_resume_service_test.go": "8a1e66aab22cc8bf90bf93b83f16dce6cda5ab166d84df6804115540e424af52",
+    "backend/internal/application/service/payment_service.go": "5f364bbf86ef8644b8e53cacff2f4db515fed91ada24ea295c0b99bf6cc948fb",
+    "backend/internal/infrastructure/repository/payment_refund_hold_integration_test.go": "faded1d97c60df84c2403c8673f28c1b800e2ca9500db64b97f0f83f7cb40f74",
+    "backend/internal/modules/payment/provider/README.md": "890252ad8d8a17e03d6dd0ab523cbb11ef4307d949c6fafeaf5d49eb3886a768",
+    "backend/internal/modules/payment/provider/alipay.go": "d6b305e7d8344d0f4577d0159ad9228331279185f0da741cd4672c4e877e7186",
+    "backend/internal/modules/payment/provider/alipay_test.go": "c9a5695e5f87cf874411b156cbf1f4e4921a0b3186841d0bedbaaf75c5d9b83f",
+    "backend/internal/modules/payment/provider/easypay.go": "499352b4fd3d750c0cc9d3479fdf38945282ae794262be1509aa3addd5add616",
+    "backend/internal/modules/payment/provider/easypay_confirm_test.go": "b09311c18257999ab0efb64e19783d30e5a7220ca2c9fd7d583f078004bf5caf",
+    "backend/internal/modules/payment/provider/easypay_query_test.go": "80a42e2e43fc8a21bea0ebe7424a28da218f0a854b2742dafcef740d7bee45f2",
+    "backend/internal/modules/payment/types.go": "134afed0a7c3edf1b7df19aee2b3a776170b86d783902539c195899e7d80f533",
+    "backend/internal/transport/http/handler/payment_webhook_handler.go": "a78f92bc47c839d0f10e2b576a5aab8375047a8fea49886fe293f70dd0554791",
+    "backend/internal/transport/http/handler/payment_webhook_handler_test.go": "3b0cc6f9da00f2b8f1b1115df00efb8dbc0e0529bde1392ea5315f9a639a1971",
+    "docs/README.md": "3bf9a58f3a62e0856c23f89fef1e730bc8e201552a634add723f62e79e50afa6",
+    "docs/UPSTREAM_SYNC_20261016.md": "fc532d35eb751e8cf3c30c3701e1db55600f3965ab5197a5ed625ae6e9fb54bb",
+    "frontend/src/features/billing/README.md": "16638c65534e3caf76318a07cd6063b4f33d314a003f87bd4b59dc113ac31a30",
+    "frontend/src/features/billing/__tests__/StripePaymentPage.spec.ts": "24f8b4ac00f185b1d875a64a9c6b0dcc14a2aafbcc34493c79ec9acb54601094",
+    "frontend/src/features/billing/presentation/pages/PaymentPage.vue": "ca2dfbc76c512fa4adb0954201c4bdeaac2701a4b1a324b67e9ba501044ccc7a",
+    "frontend/src/features/billing/presentation/pages/StripePaymentPage.vue": "ba4505870384f9cb4a7bb15b479991c399b084c70bfd7b7958ca4bd749292e09"
+  },
+  "baseline_files_verified_after_rollback": 7193,
+  "patch_reconstruction": "PASS",
+  "rollback_source_hashes": "PASS",
+  "rollback_probe": "PASS",
+  "commands": [
+    {
+      "command": [
+        "git",
+        "apply",
+        "/Users/lin/.codex/visualizations/2026/10/16/01a1429b-cf2c-7b51-8878-a3f391ef02d4/upstream-sync-20261016/DIFF_FILE.patch"
+      ],
+      "cwd": "/Users/lin/.codex/visualizations/2026/10/16/01a1429b-cf2c-7b51-8878-a3f391ef02d4/upstream-sync-20261016/rollback-copy",
+      "stdout": "",
+      "stderr": "",
+      "exit_status": 0
+    },
+    {
+      "command": [
+        "/bin/sh",
+        "-n",
+        "/Users/lin/.codex/visualizations/2026/10/16/01a1429b-cf2c-7b51-8878-a3f391ef02d4/upstream-sync-20261016/ROLLBACK.sh"
+      ],
+      "cwd": "/Users/lin/.codex/visualizations/2026/10/16/01a1429b-cf2c-7b51-8878-a3f391ef02d4/upstream-sync-20261016",
+      "stdout": "",
+      "stderr": "",
+      "exit_status": 0
+    },
+    {
+      "command": [
+        "/Users/lin/.codex/visualizations/2026/10/16/01a1429b-cf2c-7b51-8878-a3f391ef02d4/upstream-sync-20261016/ROLLBACK.sh",
+        "/Users/lin/.codex/visualizations/2026/10/16/01a1429b-cf2c-7b51-8878-a3f391ef02d4/upstream-sync-20261016/rollback-copy"
+      ],
+      "cwd": "/Users/lin/.codex/visualizations/2026/10/16/01a1429b-cf2c-7b51-8878-a3f391ef02d4/upstream-sync-20261016",
+      "stdout": "Restored pristine source bytes in /Users/lin/.codex/visualizations/2026/10/16/01a1429b-cf2c-7b51-8878-a3f391ef02d4/upstream-sync-20261016/rollback-copy\n",
+      "stderr": "",
+      "exit_status": 0
+    },
+    {
+      "command": [
+        "git",
+        "apply",
+        "/Users/lin/.codex/visualizations/2026/10/16/01a1429b-cf2c-7b51-8878-a3f391ef02d4/upstream-sync-20261016/DIFF_FILE.patch"
+      ],
+      "cwd": "/Users/lin/.codex/visualizations/2026/10/16/01a1429b-cf2c-7b51-8878-a3f391ef02d4/upstream-sync-20261016/rollback-copy",
+      "stdout": "",
+      "stderr": "",
+      "exit_status": 0
+    }
+  ],
+  "roles": {
+    "MODIFIED_FILE.tar.gz": {
+      "path": "/Users/lin/.codex/visualizations/2026/10/16/01a1429b-cf2c-7b51-8878-a3f391ef02d4/upstream-sync-20261016/MODIFIED_FILE.tar.gz",
+      "sha256": "4bc8df45016906b08d7255a7e62c8d6efcfe811779af52cc303d8d874b76f6f5",
+      "bytes": 102916
+    },
+    "DIFF_FILE.patch": {
+      "path": "/Users/lin/.codex/visualizations/2026/10/16/01a1429b-cf2c-7b51-8878-a3f391ef02d4/upstream-sync-20261016/DIFF_FILE.patch",
+      "sha256": "d791457527ceb61e2ac53253c716aa5a07f7ec6e0c40d9ff31203b45a23ce6cb",
+      "bytes": 135258
+    },
+    "ROLLBACK.sh": {
+      "path": "/Users/lin/.codex/visualizations/2026/10/16/01a1429b-cf2c-7b51-8878-a3f391ef02d4/upstream-sync-20261016/ROLLBACK.sh",
+      "sha256": "6604416416d690127051ad8149f1ca8b2f367b7b6721a1844d1e454658c21a02",
+      "bytes": 1243
+    }
+  },
+  "rollback_probe_record": "records/source-rollback-published.record.json",
+  "baseline_probe_record": "records/source-baseline-final.record.json",
+  "baseline_rollback_observed_outputs_equal": true,
+  "goal_reapplied": "PASS",
+  "reapplied_archive_sha256": "4bc8df45016906b08d7255a7e62c8d6efcfe811779af52cc303d8d874b76f6f5",
+  "baseline_observed": [
+    "OBSERVED easypay_query_act=\"\" result=ERROR",
+    "OBSERVED easypay_query_act=\"\" result=ERROR",
+    "OBSERVED easypay_query_act=\"\" result=ERROR",
+    "OBSERVED unknown_order_type=\"\"",
+    "OBSERVED pending_status=REFUND_PENDING returned_balance=10 held_balance=0",
+    "OBSERVED held_refund_query=success state=REFUNDED balance=40 returned=0 extra_deductions=0",
+    "OBSERVED held_refund_query=failed state=REFUND_FAILED balance=40 returned=0 extra_deductions=0",
+    "OBSERVED unknown_order_type=\"\"",
+    "OBSERVED pending_status=REFUND_PENDING returned_balance=10 held_balance=0",
+    "OBSERVED held_refund_query=success state=REFUNDED balance=40 returned=0 extra_deductions=0",
+    "OBSERVED held_refund_query=failed state=REFUND_FAILED balance=40 returned=0 extra_deductions=0",
+    "OBSERVED unknown_order_type=\"\"",
+    "OBSERVED pending_status=REFUND_PENDING returned_balance=10 held_balance=0",
+    "OBSERVED held_refund_query=success state=REFUNDED balance=40 returned=0 extra_deductions=0",
+    "OBSERVED held_refund_query=failed state=REFUND_FAILED balance=40 returned=0 extra_deductions=0"
+  ],
+  "rollback_observed": [
+    "OBSERVED easypay_query_act=\"\" result=ERROR",
+    "OBSERVED easypay_query_act=\"\" result=ERROR",
+    "OBSERVED easypay_query_act=\"\" result=ERROR",
+    "OBSERVED unknown_order_type=\"\"",
+    "OBSERVED pending_status=REFUND_PENDING returned_balance=10 held_balance=0",
+    "OBSERVED held_refund_query=success state=REFUNDED balance=40 returned=0 extra_deductions=0",
+    "OBSERVED held_refund_query=failed state=REFUND_FAILED balance=40 returned=0 extra_deductions=0",
+    "OBSERVED unknown_order_type=\"\"",
+    "OBSERVED pending_status=REFUND_PENDING returned_balance=10 held_balance=0",
+    "OBSERVED held_refund_query=success state=REFUNDED balance=40 returned=0 extra_deductions=0",
+    "OBSERVED held_refund_query=failed state=REFUND_FAILED balance=40 returned=0 extra_deductions=0",
+    "OBSERVED unknown_order_type=\"\"",
+    "OBSERVED pending_status=REFUND_PENDING returned_balance=10 held_balance=0",
+    "OBSERVED held_refund_query=success state=REFUNDED balance=40 returned=0 extra_deductions=0",
+    "OBSERVED held_refund_query=failed state=REFUND_FAILED balance=40 returned=0 extra_deductions=0"
+  ],
+  "modified_probe_record": "records/source-modified-published.record.json",
+  "modified_observed": [
+    "OBSERVED easypay_query_act=\"order\" status=paid amount=10 trade_no=98765",
+    "OBSERVED easypay_query_act=\"order\" status=paid amount=10 trade_no=98765",
+    "OBSERVED easypay_query_act=\"order\" status=paid amount=10 trade_no=98765",
+    "OBSERVED unknown_order_type=\"INVALID_ORDER_TYPE\"",
+    "OBSERVED pending_status=REFUND_PENDING returned_balance=0 held_balance=10",
+    "OBSERVED held_refund_query=success state=REFUNDED balance=40 returned=0 extra_deductions=0",
+    "OBSERVED held_refund_query=failed state=REFUND_FAILED balance=100 returned=60 extra_deductions=0",
+    "OBSERVED unknown_order_type=\"INVALID_ORDER_TYPE\"",
+    "OBSERVED pending_status=REFUND_PENDING returned_balance=0 held_balance=10",
+    "OBSERVED held_refund_query=success state=REFUNDED balance=40 returned=0 extra_deductions=0",
+    "OBSERVED held_refund_query=failed state=REFUND_FAILED balance=100 returned=60 extra_deductions=0",
+    "OBSERVED unknown_order_type=\"INVALID_ORDER_TYPE\"",
+    "OBSERVED pending_status=REFUND_PENDING returned_balance=0 held_balance=10",
+    "OBSERVED held_refund_query=success state=REFUNDED balance=40 returned=0 extra_deductions=0",
+    "OBSERVED held_refund_query=failed state=REFUND_FAILED balance=100 returned=60 extra_deductions=0"
+  ]
+}

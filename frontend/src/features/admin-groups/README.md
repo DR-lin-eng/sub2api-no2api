@@ -12,6 +12,8 @@
 
 创建与编辑使用共享的静态编辑器，但继续保留独立 form、watcher 和提交 payload；模式差异通过 typed context 或显式 props/actions 表达。不要复制整套编辑模板，不要用动态组件改变路由 chunk、挂载时机或表单状态。
 
+分组译文由 `GroupI18nField.vue` 编辑默认值与 `i18n` map；创建/编辑 controller 拥有表单，旧响应没有 `i18n` 时回退空对象。管理员读取原名称，用户响应由后端按 `Accept-Language` 本地化；该字段不参与搜索、唯一性、计费或路由。
+
 分组列表的今日、昨日和累计费用使用服务端配置时区的统一口径。datasource 不发送浏览器时区；页面必须兼容滚动升级期间旧节点暂未返回 `yesterday_cost` 的情况，并将缺失值显示为 0。
 
 用户端与管理端共享的基础分组协议位于 `src/types/group.ts`；管理员专属字段由本 feature DTO 扩展，`src/types/gateway.ts` 只保留兼容重导出。跨 feature 读取分组必须直接依赖 `adminGroupQueries.ts`，不能重新经过统一 `adminAPI.groups`。

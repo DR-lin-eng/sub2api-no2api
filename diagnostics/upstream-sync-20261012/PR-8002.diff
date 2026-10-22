@@ -1,0 +1,163 @@
+diff --git a/frontend/src/components/admin/group/GroupRPMOverridesModal.vue b/frontend/src/components/admin/group/GroupRPMOverridesModal.vue
+index f1c6d97bb..50c15aac8 100644
+--- a/frontend/src/components/admin/group/GroupRPMOverridesModal.vue
++++ b/frontend/src/components/admin/group/GroupRPMOverridesModal.vue
+@@ -246,6 +246,7 @@ const currentPage = ref(1)
+ const pageSize = ref(10)
+ 
+ let searchTimeout: ReturnType<typeof setTimeout>
++let loadVersion = 0
+ 
+ const platformColorClass = computed(() => {
+   switch (props.group?.platform) {
+@@ -273,16 +274,22 @@ const cloneEntries = (entries: GroupRPMOverrideEntry[]): LocalEntry[] => {
+ 
+ const loadEntries = async () => {
+   if (!props.group) return
++  const version = loadVersion
+   loading.value = true
++  serverEntries.value = []
++  localEntries.value = []
+   try {
+-    serverEntries.value = await adminAPI.groups.getGroupRPMOverrides(props.group.id)
++    const entries = await adminAPI.groups.getGroupRPMOverrides(props.group.id)
++    if (version !== loadVersion) return
++    serverEntries.value = entries
+     localEntries.value = cloneEntries(serverEntries.value)
+     adjustPage()
+   } catch (error) {
++    if (version !== loadVersion) return
+     appStore.showError(t('admin.groups.failedToLoad'))
+     console.error('Error loading RPM overrides:', error)
+   } finally {
+-    loading.value = false
++    if (version === loadVersion) loading.value = false
+   }
+ }
+ 
+@@ -291,8 +298,9 @@ const adjustPage = () => {
+   if (currentPage.value > totalPages) currentPage.value = totalPages
+ }
+ 
+-watch(() => props.show, (val) => {
+-  if (val && props.group) {
++watch([() => props.show, () => props.group?.id], ([show]) => {
++  loadVersion++
++  if (show && props.group) {
+     currentPage.value = 1
+     searchQuery.value = ''
+     searchResults.value = []
+@@ -423,6 +431,7 @@ if (typeof document !== 'undefined') {
+   document.addEventListener('click', handleClickOutside)
+ }
+ onUnmounted(() => {
++  loadVersion++
+   clearTimeout(searchTimeout)
+   document.removeEventListener('click', handleClickOutside)
+ })
+diff --git a/frontend/src/components/admin/group/__tests__/GroupRPMOverridesModal.requests.spec.ts b/frontend/src/components/admin/group/__tests__/GroupRPMOverridesModal.requests.spec.ts
+new file mode 100644
+index 000000000..bd4c3ffc1
+--- /dev/null
++++ b/frontend/src/components/admin/group/__tests__/GroupRPMOverridesModal.requests.spec.ts
+@@ -0,0 +1,100 @@
++import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
++import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
++import type { AdminGroup } from '@/types'
++import GroupRPMOverridesModal from '../GroupRPMOverridesModal.vue'
++
++const mocks = vi.hoisted(() => ({ getGroupRPMOverrides: vi.fn(), batchSetGroupRPMOverrides: vi.fn(), showError: vi.fn() }))
++vi.mock('@/api/admin', () => ({ adminAPI: { groups: mocks } }))
++vi.mock('@/stores/app', () => ({ useAppStore: () => ({ showError: mocks.showError, showSuccess: vi.fn() }) }))
++vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
++enableAutoUnmount(afterEach)
++beforeEach(() => vi.resetAllMocks())
++afterEach(() => vi.restoreAllMocks())
++
++function deferred() {
++  let resolve!: (value: unknown) => void
++  let reject!: (reason: unknown) => void
++  const promise = new Promise((res, rej) => { resolve = res; reject = rej })
++  return { promise, resolve, reject }
++}
++
++const group = (id: number) => ({ id, name: `Group ${id}`, platform: 'openai', rpm_limit: 100 } as AdminGroup)
++const entries = (id: number) => [{ user_id: id, user_name: '', user_email: `user${id}@example.com`, user_status: 'active', rpm_override: 100 }]
++
++async function openGroup() {
++  const wrapper = mount(GroupRPMOverridesModal, {
++    props: { show: false, group: group(1) },
++    global: { stubs: {
++      BaseDialog: { props: ['show'], template: '<div v-if="show"><slot /></div>' },
++      Icon: true, PlatformIcon: true, Pagination: true
++    } }
++  })
++  await wrapper.setProps({ show: true })
++  return wrapper
++}
++
++describe('group RPM override request ownership', () => {
++  it('keeps the reopened group data when an older response finishes last', async () => {
++    const old = deferred()
++    mocks.getGroupRPMOverrides.mockReturnValueOnce(old.promise).mockResolvedValueOnce(entries(2))
++    const wrapper = await openGroup()
++    await wrapper.setProps({ show: false })
++    await wrapper.setProps({ show: true, group: group(2) })
++    await flushPromises()
++    old.resolve(entries(1))
++    await flushPromises()
++    expect(wrapper.get('tbody').text()).toContain('user2@example.com')
++    expect(wrapper.get('tbody').text()).not.toContain('user1@example.com')
++    await wrapper.get('tbody input[type="number"]').setValue('200')
++    await wrapper.findAll('button').find(button => button.text() === 'common.save')!.trigger('click')
++    expect(mocks.batchSetGroupRPMOverrides).toHaveBeenCalledWith(2, [{ user_id: 2, rpm_override: 200 }])
++  })
++
++  it('does not end the new load or report an error when an old request fails', async () => {
++    vi.spyOn(console, 'error').mockImplementation(() => {})
++    const old = deferred()
++    const current = deferred()
++    mocks.getGroupRPMOverrides.mockReturnValueOnce(old.promise).mockReturnValueOnce(current.promise)
++    const wrapper = await openGroup()
++    await wrapper.setProps({ show: false })
++    await wrapper.setProps({ show: true, group: group(2) })
++    old.reject(new Error('old request failed'))
++    await flushPromises()
++    expect(mocks.showError).not.toHaveBeenCalled()
++    expect(wrapper.find('svg.animate-spin').exists()).toBe(true)
++    current.resolve(entries(2))
++    await flushPromises()
++    expect(wrapper.get('tbody').text()).toContain('user2@example.com')
++  })
++
++  it('loads a different group while the dialog remains open', async () => {
++    mocks.getGroupRPMOverrides.mockResolvedValueOnce(entries(1)).mockResolvedValueOnce(entries(2))
++    const wrapper = await openGroup()
++    await flushPromises()
++    await wrapper.setProps({ group: group(2) })
++    await flushPromises()
++    expect(mocks.getGroupRPMOverrides).toHaveBeenLastCalledWith(2)
++    expect(wrapper.get('tbody').text()).toContain('user2@example.com')
++  })
++
++  it('discards the previous group draft before loading the next group', async () => {
++    mocks.getGroupRPMOverrides.mockResolvedValueOnce(entries(1)).mockReturnValueOnce(deferred().promise)
++    const wrapper = await openGroup()
++    await flushPromises()
++    await wrapper.get('tbody input[type="number"]').setValue('200')
++    await wrapper.setProps({ show: false })
++    await wrapper.setProps({ show: true, group: group(2) })
++    expect(wrapper.findAll('button').some(button => button.text() === 'common.save')).toBe(false)
++  })
++
++  it('ignores a request failure after unmounting', async () => {
++    vi.spyOn(console, 'error').mockImplementation(() => {})
++    const request = deferred()
++    mocks.getGroupRPMOverrides.mockReturnValue(request.promise)
++    const wrapper = await openGroup()
++    wrapper.unmount()
++    request.reject(new Error('offline'))
++    await flushPromises()
++    expect(mocks.showError).not.toHaveBeenCalled()
++  })
++})

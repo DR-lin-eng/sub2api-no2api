@@ -9,6 +9,8 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+
+	"github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator"
 )
 
 // s3ClientParams 描述构造 S3 兼容客户端所需的参数。
@@ -25,6 +27,11 @@ type s3ClientParams struct {
 // 通过 SwapComputePayloadSHA256ForUnsignedPayloadMiddleware + RequestChecksumCalculationWhenRequired
 // 规避阿里云 OSS 不兼容 s3manager 分片签名的问题（backup 与 image storage 共用此构造）。
 func newS3Client(ctx context.Context, p s3ClientParams) (*s3.Client, error) {
+	endpoint, err := urlvalidator.ValidateS3Endpoint(p.Endpoint)
+	if err != nil {
+		return nil, err
+	}
+	p.Endpoint = endpoint
 	region := p.Region
 	if region == "" {
 		region = "auto" // Cloudflare R2 默认 region
@@ -35,6 +42,7 @@ func newS3Client(ctx context.Context, p s3ClientParams) (*s3.Client, error) {
 		awsconfig.WithCredentialsProvider(
 			credentials.NewStaticCredentialsProvider(p.AccessKeyID, p.SecretAccessKey, ""),
 		),
+		awsconfig.WithHTTPClient(newS3HTTPClient()),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("load aws config: %w", err)

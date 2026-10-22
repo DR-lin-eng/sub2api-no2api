@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    "/Users/lin/.codex/visualizations/2026/10/22/01a16146-dab6-7463-bd83-4e067aea805a/verify_final_hashes.py"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261022-ieZnRf/MODIFIED_FILE",
+  "started_at": "2026-10-22T05:52:18.116803+00:00",
+  "elapsed_seconds": 0.683,
+  "exit_status": 0,
+  "stdout": "{\n  \"copy\": \"/private/tmp/sub2api-upstream-sync-20261022-ieZnRf/rollback-target\",\n  \"baseline_sha\": \"0dd415b5569e306e33e6d194d672389210a06efd\",\n  \"all_baseline_source_hashes_match\": true,\n  \"verified_source_files\": 5637,\n  \"baseline_source_manifest_sha256\": \"e0c65b123e96a743341bc97fc78025249572cb46b91381dd29531f5e832e28f6\",\n  \"restored_source_manifest_sha256\": \"e0c65b123e96a743341bc97fc78025249572cb46b91381dd29531f5e832e28f6\",\n  \"all_added_source_paths_removed\": true,\n  \"all_modified_hashes_match_after_reapply\": true,\n  \"final_diff_sha256\": \"63278539519672dfc7395769dd0260ce424e7107fa82713ba0452f6b4086d2fa\",\n  \"rollback_command\": [\n    \"/Users/lin/.codex/visualizations/2026/10/22/01a16146-dab6-7463-bd83-4e067aea805a/roles/ROLLBACK.sh\",\n    \"/private/tmp/sub2api-upstream-sync-20261022-ieZnRf/rollback-target\"\n  ],\n  \"rollback_stdout\": \"Restored pristine source bytes in /private/tmp/sub2api-upstream-sync-20261022-ieZnRf/rollback-target\\n\",\n  \"rollback_stderr\": \"\",\n  \"rollback_exit\": 0\n}\n",
+  "stderr": ""
+}

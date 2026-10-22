@@ -57,11 +57,15 @@ func (s *OpenAIGatewayService) forwardChatCompletionsViaNativeAnthropic(
 	includeUsage := ccReq.StreamOptions != nil && ccReq.StreamOptions.IncludeUsage
 
 	// 2. Convert CC → Responses → Anthropic (chained conversion)
-	responsesReq, err := apicompat.ChatCompletionsToResponses(&ccReq)
+	responsesReq, err := chatCompletionsToResponses(s.cfg, &ccReq)
 	if err != nil {
 		writeChatCompletionsError(c, http.StatusBadRequest, "invalid_request_error", "Failed to convert request")
 		return nil, fmt.Errorf("convert chat completions to responses: %w", err)
 	}
+	billingModel := resolveOpenAIForwardModel(account, originalModel, defaultMappedModel)
+	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
+	responsesReq.Model = upstreamModel
+
 	anthropicReq, err := apicompat.ResponsesToAnthropicRequest(responsesReq)
 	if err != nil {
 		writeChatCompletionsError(c, http.StatusBadRequest, "invalid_request_error", "Failed to convert request")
@@ -69,9 +73,6 @@ func (s *OpenAIGatewayService) forwardChatCompletionsViaNativeAnthropic(
 	}
 
 	// 3. Model mapping（OpenAI 网关统一入口的映射语义）
-	billingModel := resolveOpenAIForwardModel(account, originalModel, defaultMappedModel)
-	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
-	anthropicReq.Model = upstreamModel
 
 	// 4. Force upstream streaming（客户端原始终决定响应格式；
 	// 上游恒为流式，非流式由缓冲路径组装）。
@@ -89,6 +90,11 @@ func (s *OpenAIGatewayService) forwardChatCompletionsViaNativeAnthropic(
 	anthropicBody, err := json.Marshal(anthropicReq)
 	if err != nil {
 		return nil, fmt.Errorf("marshal anthropic request: %w", err)
+	}
+
+	if err := validateClaude55Request(anthropicBody, upstreamModel); err != nil {
+		writeChatCompletionsError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+		return nil, err
 	}
 
 	// 与 /v1/messages 直通路径相同的 pre-filter。
@@ -162,6 +168,8 @@ func (s *OpenAIGatewayService) handleCCBufferedFromNativeAnthropic(
 	scanner.Buffer(make([]byte, 0, 64*1024), maxLineSize)
 
 	var finalResp *apicompat.AnthropicResponse
+	var thinkingCollector apicompat.AnthropicSignedThinkingCollector
+	preserveSignedThinking := isClaude55SignedThinkingModel(upstreamModel)
 	var usage ClaudeUsage
 
 	// 读间隔上限：上游挂住 SSE 时中止组装（缓冲路径尚未提交响应头，可回 502）。
@@ -234,6 +242,9 @@ func (s *OpenAIGatewayService) handleCCBufferedFromNativeAnthropic(
 		}
 		if event.Type == "content_block_start" && event.ContentBlock != nil && finalResp != nil {
 			finalResp.Content = append(finalResp.Content, *event.ContentBlock)
+			if preserveSignedThinking {
+				thinkingCollector.Start(len(finalResp.Content)-1, *event.ContentBlock)
+			}
 		}
 		if event.Type == "content_block_delta" && event.Delta != nil && finalResp != nil && event.Index != nil {
 			idx := *event.Index
@@ -241,8 +252,12 @@ func (s *OpenAIGatewayService) handleCCBufferedFromNativeAnthropic(
 				switch event.Delta.Type {
 				case "text_delta":
 					finalResp.Content[idx].Text += event.Delta.Text
-				case "thinking_delta":
-					finalResp.Content[idx].Thinking += event.Delta.Thinking
+				case "thinking_delta", "signature_delta":
+					if preserveSignedThinking {
+						thinkingCollector.Delta(idx, event.Delta)
+					} else if event.Delta.Type == "thinking_delta" {
+						finalResp.Content[idx].Thinking += event.Delta.Thinking
+					}
 				case "input_json_delta":
 					finalResp.Content[idx].Input = appendRawJSON(finalResp.Content[idx].Input, event.Delta.PartialJSON)
 				}
@@ -264,7 +279,18 @@ func (s *OpenAIGatewayService) handleCCBufferedFromNativeAnthropic(
 		}
 	}
 
+	if isClaude55SignedThinkingModel(upstreamModel) {
+		finalResp.Model = upstreamModel
+	}
+	var thinkingReplayError *apicompat.ResponsesError
+	if preserveSignedThinking {
+		thinkingReplayError = thinkingCollector.Apply(finalResp)
+	}
 	responsesResp := apicompat.AnthropicToResponsesResponse(finalResp)
+	if thinkingReplayError != nil {
+		responsesResp.Status = "failed"
+		responsesResp.Error = thinkingReplayError
+	}
 	ccResp := apicompat.ResponsesToChatCompletions(responsesResp, originalModel)
 
 	if s.responseHeaderFilter != nil {
@@ -272,7 +298,9 @@ func (s *OpenAIGatewayService) handleCCBufferedFromNativeAnthropic(
 	}
 	// 非流式响应必须是 application/json（上游被强制流式，透传头会污染）。
 	c.Writer.Header().Set("Content-Type", "application/json; charset=utf-8")
-	if respBytes, err := json.Marshal(ccResp); err == nil {
+	if responsesResp.Error != nil {
+		writeChatCompletionsError(c, http.StatusBadGateway, responsesResp.Error.Code, responsesResp.Error.Message)
+	} else if respBytes, err := json.Marshal(ccResp); err == nil {
 		respBytes = reverseToolNamesIfPresent(c, respBytes)
 		c.Data(http.StatusOK, "application/json; charset=utf-8", respBytes)
 	} else {
@@ -318,6 +346,7 @@ func (s *OpenAIGatewayService) handleCCStreamingFromNativeAnthropic(
 
 	anthState := apicompat.NewAnthropicEventToResponsesState()
 	anthState.Model = originalModel
+	anthState.PreserveThinkingSignatures = isClaude55SignedThinkingModel(upstreamModel)
 	ccState := apicompat.NewResponsesEventToChatState()
 	ccState.Model = originalModel
 	ccState.IncludeUsage = includeUsage

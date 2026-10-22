@@ -357,6 +357,9 @@ func resolveOpenAICompactFallbackForwardModels(account *Account, requestedModel,
 		if upstreamModel == "" {
 			continue
 		}
+		if isRetiredOpenAISubscriptionModel(account, upstreamModel) {
+			continue
+		}
 		key := strings.ToLower(upstreamModel)
 		if seen[key] {
 			continue

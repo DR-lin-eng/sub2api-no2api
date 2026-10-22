@@ -1,0 +1,457 @@
+[
+  {
+    "pr": 7982,
+    "merge_sha": "b63dafa426a721562db4c5b0d91b9129098f3d8b",
+    "title": "Merge pull request #7982 from wucm667/fix/issue-7981-embedded-static-asset",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7982",
+    "diff_sha256": "63e0b47bc8fb3c8dc022b45767f5ce507e514bad1f81a3d9a8018c0be6efeab9",
+    "files": [
+      "backend/internal/web/embed_test.go"
+    ],
+    "status": "covered",
+    "decision": "embedded frontend test already uses current shipped asset owner",
+    "fully_closed": true,
+    "current_surface_closed": true,
+    "reopen_condition": "only a changed upstream behavior or regression in this exact owner",
+    "evidence": [
+      "records/go-focused-with-new-tests-retry.record.json",
+      "records/integration-group-moderation-final.record.json",
+      "records/runtime-upgrade-rollback-final2.record.json"
+    ]
+  },
+  {
+    "pr": 7983,
+    "merge_sha": "6977bb63bb1a20a8f70c57df4f1691f83e2c55a4",
+    "title": "Merge pull request #7983 from hutututtt/fix/account-group-names",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7983",
+    "diff_sha256": "aa3fda761e7f130482302abf1acc2e5ef2081b9762e8f4ac8a789869999bd5b4",
+    "files": [
+      "frontend/src/components/account/AccountGroupsCell.vue",
+      "frontend/src/components/common/GroupBadge.vue"
+    ],
+    "status": "ported",
+    "decision": "current admin-accounts AccountGroupsCell and shared GroupBadge",
+    "fully_closed": true,
+    "current_surface_closed": true,
+    "reopen_condition": "only a changed upstream behavior or regression in this exact owner",
+    "evidence": [
+      "records/go-focused-with-new-tests-retry.record.json",
+      "records/integration-group-moderation-final.record.json",
+      "records/runtime-upgrade-rollback-final2.record.json",
+      "records/ui-baseline-final.record.json",
+      "records/ui-modified-final.record.json",
+      "records/ui-rollback-final.record.json"
+    ]
+  },
+  {
+    "pr": 7974,
+    "merge_sha": "da9799542db251badcee0c6cfc08f85adfcab8cd",
+    "title": "Merge pull request #7974 from ouchihao/codex/bug-gemini-auth-url-error",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7974",
+    "diff_sha256": "59301298cae0aa7840d188a110121b52b82b3d4e60544051db73d93be9a4feb1",
+    "files": [
+      "frontend/src/composables/__tests__/useGeminiOAuth.errors.spec.ts",
+      "frontend/src/composables/useGeminiOAuth.ts"
+    ],
+    "status": "ported",
+    "decision": "current admin-accounts Gemini OAuth composable",
+    "fully_closed": true,
+    "current_surface_closed": true,
+    "reopen_condition": "only a changed upstream behavior or regression in this exact owner",
+    "evidence": [
+      "records/go-focused-with-new-tests-retry.record.json",
+      "records/integration-group-moderation-final.record.json",
+      "records/runtime-upgrade-rollback-final2.record.json"
+    ]
+  },
+  {
+    "pr": 7973,
+    "merge_sha": "0ae1b371fae6d399eabe6391bd4fc675549549d6",
+    "title": "Merge pull request #7973 from ouchihao/codex/bug-monitor-auto-detail-refresh",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7973",
+    "diff_sha256": "91f9385ee06c091cbea8ffa35529f05be31f27eeebf54a50b5be47098e242a84",
+    "files": [
+      "frontend/src/views/user/ChannelStatusV1View.vue",
+      "frontend/src/views/user/__tests__/ChannelStatusV1View.details.spec.ts"
+    ],
+    "status": "ported",
+    "decision": "current channels-user ChannelStatusPage detail refresh",
+    "fully_closed": true,
+    "current_surface_closed": true,
+    "reopen_condition": "only a changed upstream behavior or regression in this exact owner",
+    "evidence": [
+      "records/go-focused-with-new-tests-retry.record.json",
+      "records/integration-group-moderation-final.record.json",
+      "records/runtime-upgrade-rollback-final2.record.json"
+    ]
+  },
+  {
+    "pr": 7972,
+    "merge_sha": "f2b1556bd4136d3d40fb582737fb1298ec37e72f",
+    "title": "Merge pull request #7972 from ouchihao/codex/bug-group-rate-edit-validation",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7972",
+    "diff_sha256": "fd089bfb52ecea1fba74fcd2327b47279c44eb3ab9a15df157ac9d7c38402653",
+    "files": [
+      "frontend/src/components/admin/group/GroupRateMultipliersModal.vue",
+      "frontend/src/components/admin/group/__tests__/GroupRateMultipliersModal.edit.spec.ts"
+    ],
+    "status": "ported",
+    "decision": "current admin-groups GroupRateMultipliersDialog positive finite validation",
+    "fully_closed": true,
+    "current_surface_closed": true,
+    "reopen_condition": "only a changed upstream behavior or regression in this exact owner",
+    "evidence": [
+      "records/go-focused-with-new-tests-retry.record.json",
+      "records/integration-group-moderation-final.record.json",
+      "records/runtime-upgrade-rollback-final2.record.json"
+    ]
+  },
+  {
+    "pr": 7970,
+    "merge_sha": "d70265306bb21d0194cf8f668d80d808539ffaec",
+    "title": "Merge pull request #7970 from ouchihao/codex/bug-select-ime-navigation",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7970",
+    "diff_sha256": "a4762f3f64d1967cbc79c28f49406703cda5d7713f79349e42fedfadbd841b06",
+    "files": [
+      "frontend/src/components/common/Select.vue",
+      "frontend/src/components/common/__tests__/Select.ime.spec.ts"
+    ],
+    "status": "ported",
+    "decision": "current common Select IME guard",
+    "fully_closed": true,
+    "current_surface_closed": true,
+    "reopen_condition": "only a changed upstream behavior or regression in this exact owner",
+    "evidence": [
+      "records/go-focused-with-new-tests-retry.record.json",
+      "records/integration-group-moderation-final.record.json",
+      "records/runtime-upgrade-rollback-final2.record.json"
+    ]
+  },
+  {
+    "pr": 7969,
+    "merge_sha": "20b0be5b05c22730db78747fe49ce7e898040d0c",
+    "title": "Merge pull request #7969 from ouchihao/codex/bug-ops-custom-timezone",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7969",
+    "diff_sha256": "75d0fd36afd5e1cc5e725c750ef7cb2d1945b6ed82b9d2e0a018408c9f8a8fb0",
+    "files": [
+      "frontend/src/views/admin/ops/components/OpsDashboardHeader.vue",
+      "frontend/src/views/admin/ops/components/__tests__/OpsDashboardHeader.timezone.spec.ts"
+    ],
+    "status": "ported",
+    "decision": "current admin-ops OpsDashboardToolbar local datetime",
+    "fully_closed": true,
+    "current_surface_closed": true,
+    "reopen_condition": "only a changed upstream behavior or regression in this exact owner",
+    "evidence": [
+      "records/go-focused-with-new-tests-retry.record.json",
+      "records/integration-group-moderation-final.record.json",
+      "records/runtime-upgrade-rollback-final2.record.json"
+    ]
+  },
+  {
+    "pr": 7933,
+    "merge_sha": "59fb22791ea7e5987312750cc2ce8bbd91ec8a65",
+    "title": "Merge pull request #7933 from yan9651688/feat/issue-7926-ops-details-account-column",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7933",
+    "diff_sha256": "189eac180aa2561f6e98248cb12e726a88c1f0b80215fd38137c65bea3b39dea",
+    "files": [
+      "frontend/src/i18n/locales/en/admin/ops.ts",
+      "frontend/src/i18n/locales/zh/admin/ops.ts",
+      "frontend/src/views/admin/ops/components/OpsRequestDetailsModal.vue",
+      "frontend/src/views/admin/ops/components/__tests__/OpsRequestDetailsModal.spec.ts",
+      "frontend/src/views/admin/ops/utils/accountNameMap.ts"
+    ],
+    "status": "ported",
+    "decision": "current admin-ops CTE account_name projection",
+    "fully_closed": true,
+    "current_surface_closed": true,
+    "reopen_condition": "only a changed upstream behavior or regression in this exact owner",
+    "evidence": [
+      "records/go-focused-with-new-tests-retry.record.json",
+      "records/integration-group-moderation-final.record.json",
+      "records/runtime-upgrade-rollback-final2.record.json"
+    ]
+  },
+  {
+    "pr": 7738,
+    "merge_sha": "c2885c430fe01d0d88b23d52e062ccbb073d0905",
+    "title": "Merge pull request #7738 from r266-tech/codex/monitor-add-platform",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7738",
+    "diff_sha256": "981c008ceccb192cb761bbb5799cf52a63bd1baa8ae8570f1f37dab158f6bd88",
+    "files": [
+      "frontend/src/features/channel-monitor-v2/MonitorSettingsPanel.vue",
+      "frontend/src/features/channel-monitor-v2/__tests__/MonitorSettingsPanel.spec.ts",
+      "frontend/src/i18n/locales/en/channelMonitorV2.ts",
+      "frontend/src/i18n/locales/zh/channelMonitorV2.ts"
+    ],
+    "status": "deferred",
+    "decision": "current admin-channel-monitor lacks upstream v2 platform catalog owner",
+    "fully_closed": false,
+    "current_surface_closed": false,
+    "reopen_condition": "new upstream behavior or observed regression in the current owner; deferred entries require owner mapping and rolling-upgrade matrix",
+    "evidence": [
+      "records/go-focused-with-new-tests-retry.record.json",
+      "records/integration-group-moderation-final.record.json",
+      "records/runtime-upgrade-rollback-final2.record.json"
+    ]
+  },
+  {
+    "pr": 7717,
+    "merge_sha": "832677a5e6e817f3589130d568a40384f7893228",
+    "title": "Merge pull request #7717 from ouchihao/codex/bug-payment-countdown-drift",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7717",
+    "diff_sha256": "94589c96b2349dc82c5f22c665a7a4da497c5283c97a3e27a1ccf34278a46f7d",
+    "files": [
+      "frontend/src/components/payment/PaymentQRDialog.vue",
+      "frontend/src/components/payment/PaymentStatusPanel.vue",
+      "frontend/src/components/payment/__tests__/paymentCountdown.spec.ts",
+      "frontend/src/views/user/PaymentQRCodeView.vue"
+    ],
+    "status": "ported",
+    "decision": "current billing countdown deadline",
+    "fully_closed": true,
+    "current_surface_closed": true,
+    "reopen_condition": "only a changed upstream behavior or regression in this exact owner",
+    "evidence": [
+      "records/go-focused-with-new-tests-retry.record.json",
+      "records/integration-group-moderation-final.record.json",
+      "records/runtime-upgrade-rollback-final2.record.json"
+    ]
+  },
+  {
+    "pr": 7696,
+    "merge_sha": "6a6d4728a093022c08070046151dec993d11b825",
+    "title": "Merge pull request #7696 from a408665321/codex/issue-7687-timer-only",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7696",
+    "diff_sha256": "820772390279cd16aa8d8b402aa05162004f185033731d604cfda9ac3469834a",
+    "files": [
+      "frontend/src/components/account/UsageProgressBar.vue",
+      "frontend/src/components/account/__tests__/UsageProgressBar.spec.ts"
+    ],
+    "status": "ported",
+    "decision": "current admin-accounts visibility refresh",
+    "fully_closed": true,
+    "current_surface_closed": true,
+    "reopen_condition": "only a changed upstream behavior or regression in this exact owner",
+    "evidence": [
+      "records/go-focused-with-new-tests-retry.record.json",
+      "records/integration-group-moderation-final.record.json",
+      "records/runtime-upgrade-rollback-final2.record.json"
+    ]
+  },
+  {
+    "pr": 7711,
+    "merge_sha": "6d509c632d1e03351ae3dacc84fb8dc4aee4f709",
+    "title": "Merge pull request #7711 from wucm667/fix/issue-7709-risk-control-groups",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7711",
+    "diff_sha256": "47458b3e58fa84177f52ee02d39e688e14bfccc1b4c053f34ab4b5e1d304171b",
+    "files": [
+      "backend/internal/repository/group_repo.go",
+      "backend/internal/repository/group_repo_integration_test.go",
+      "backend/internal/repository/setting_repo.go",
+      "backend/internal/service/content_moderation.go"
+    ],
+    "status": "ported",
+    "decision": "current repository group/settings lock order",
+    "fully_closed": true,
+    "current_surface_closed": true,
+    "reopen_condition": "only a changed upstream behavior or regression in this exact owner",
+    "evidence": [
+      "records/go-focused-with-new-tests-retry.record.json",
+      "records/integration-group-moderation-final.record.json",
+      "records/runtime-upgrade-rollback-final2.record.json",
+      "records/final-lock-integration.record.json"
+    ]
+  },
+  {
+    "pr": 7649,
+    "merge_sha": "5dbb8f7085936def28c9db74a8e6fa0a56086b93",
+    "title": "Merge pull request #7649 from Yukinoshita-Yukino/fix/codex-image-bridge-openai-only",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7649",
+    "diff_sha256": "16e7b3d2dca3349d525cc2ea19e2141abbba6de13369adbbb10b54dfe6f9d9b8",
+    "files": [
+      "backend/internal/service/openai_gateway_service.go",
+      "backend/internal/service/openai_image_generation_controls_test.go"
+    ],
+    "status": "ported",
+    "decision": "current application OpenAI platform bridge guard",
+    "fully_closed": true,
+    "current_surface_closed": true,
+    "reopen_condition": "only a changed upstream behavior or regression in this exact owner",
+    "evidence": [
+      "records/go-focused-with-new-tests-retry.record.json",
+      "records/integration-group-moderation-final.record.json",
+      "records/runtime-upgrade-rollback-final2.record.json"
+    ]
+  },
+  {
+    "pr": 8002,
+    "merge_sha": "e468262294eb962206ce2d6e4b83f2e8bc43ef02",
+    "title": "Merge pull request #8002 from obst4cle/fix/group-rpm-override-stale-load",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8002",
+    "diff_sha256": "0f1342a55adb115b73f55a0fe993e000c7e0da95baf1eebdbd8d9d5b00954be1",
+    "files": [
+      "frontend/src/components/admin/group/GroupRPMOverridesModal.vue",
+      "frontend/src/components/admin/group/__tests__/GroupRPMOverridesModal.requests.spec.ts"
+    ],
+    "status": "ported",
+    "decision": "current admin-groups RPM request version",
+    "fully_closed": true,
+    "current_surface_closed": true,
+    "reopen_condition": "only a changed upstream behavior or regression in this exact owner",
+    "evidence": [
+      "records/go-focused-with-new-tests-retry.record.json",
+      "records/integration-group-moderation-final.record.json",
+      "records/runtime-upgrade-rollback-final2.record.json"
+    ]
+  },
+  {
+    "pr": 8036,
+    "merge_sha": "7b03b1f75a659c4b63f89948a16e04bb00a38180",
+    "title": "Merge pull request #8036 from Wei-Shaw/fix/gpt61-sol-subscription-long-context",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8036",
+    "diff_sha256": "092390fd2202f89c4ae3abcbf8556689085e7d220dd9048f9119994e30ff3f3f",
+    "files": [
+      "backend/internal/service/billing_service.go",
+      "backend/internal/service/gateway_image_reasoning_pricing_test.go",
+      "backend/internal/service/openai_alpha_search_billing_test.go",
+      "backend/internal/service/openai_gateway_cn_fixes_test.go",
+      "backend/internal/service/openai_gateway_search_surcharge_test.go",
+      "backend/internal/service/openai_gateway_usage.go",
+      "backend/internal/service/openai_subscription_long_context_test.go"
+    ],
+    "status": "ported",
+    "decision": "current application billing model surcharge exemption",
+    "fully_closed": true,
+    "current_surface_closed": true,
+    "reopen_condition": "only a changed upstream behavior or regression in this exact owner",
+    "evidence": [
+      "records/go-focused-with-new-tests-retry.record.json",
+      "records/integration-group-moderation-final.record.json",
+      "records/runtime-upgrade-rollback-final2.record.json",
+      "records/billing-final-matrix-valid.record.json",
+      "records/billing-baseline-valid-benchmark.record.json"
+    ]
+  },
+  {
+    "pr": 8033,
+    "merge_sha": "9591136d45cef26453348ed9532a7ebbce7cf99c",
+    "title": "Merge pull request #8033 from Larry-Labs/fix/gpt61-sol-500k-context",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8033",
+    "diff_sha256": "153fdebb15dd357a6c016591130ad7e3b30924194d7442c2d57be4a13f09df79",
+    "files": [
+      "backend/internal/service/openai_codex_models_service.go",
+      "backend/internal/service/openai_codex_models_service_test.go"
+    ],
+    "status": "deferred",
+    "decision": "current modular manifest owner has no static configured descriptor; explicit catalog contract required",
+    "fully_closed": false,
+    "current_surface_closed": false,
+    "reopen_condition": "new upstream behavior or observed regression in the current owner; deferred entries require owner mapping and rolling-upgrade matrix",
+    "evidence": [
+      "records/go-focused-with-new-tests-retry.record.json",
+      "records/integration-group-moderation-final.record.json",
+      "records/runtime-upgrade-rollback-final2.record.json"
+    ],
+    "resolved_by": {
+      "effective_status": "ported",
+      "fully_closed": true,
+      "ledger": "diagnostics/upstream-sync-20261015/open-items/CLOSED_DIFFERENCES.json",
+      "evidence": [
+        "open-items/TRANSACTION.json",
+        "open-items/PERFORMANCE.json",
+        "open-items/runtime-result.json",
+        "VERIFICATION.txt",
+        "records/open-items-unit-complete.record.json",
+        "records/open-items-integration-complete.record.json",
+        "records/open-items-race-complete.record.json",
+        "records/open-items-lint-complete.record.json",
+        "records/open-items-image-complete.record.json",
+        "records/open-items-runtime-upgrade-rollback.record.json",
+        "records/open-items-frontend.record.json",
+        "records/open-items-combined-source-transaction.record.json",
+        "records/open-items-combined-focused.record.json",
+        "records/open-items-rolling-writer-integration.record.json",
+        "records/open-items-migration-tests.record.json",
+        "records/open-items-image-metadata-guard.record.json"
+      ],
+      "note": "Original historical deferral retained above; this later supplemental resolution closes that frozen behavior."
+    }
+  },
+  {
+    "pr": 7960,
+    "merge_sha": "ab80abc6d1f929a6864c8804fd077b509d21fda2",
+    "title": "Merge pull request #7960 from feeeei/feat/group-i18n",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7960",
+    "diff_sha256": "5c435f166837b434224329478e2d97dc4b1a7068f17a1e4dc3c8093f9c8e9c0e",
+    "files": [
+      "backend/ent/group.go",
+      "backend/ent/group/group.go",
+      "backend/ent/group_create.go",
+      "backend/ent/group_update.go",
+      "backend/ent/migrate/schema.go",
+      "backend/ent/mutation.go",
+      "backend/ent/runtime/runtime.go",
+      "backend/ent/schema/group.go",
+      "backend/internal/domain/group_i18n.go",
+      "backend/internal/domain/group_i18n_test.go",
+      "backend/internal/handler/admin/group_handler.go",
+      "backend/internal/handler/api_key_handler.go",
+      "backend/internal/handler/available_channel_handler.go",
+      "backend/internal/handler/dto/group_localize.go",
+      "backend/internal/handler/dto/group_localize_test.go",
+      "backend/internal/handler/dto/mappers.go",
+      "backend/internal/handler/dto/types.go",
+      "backend/internal/handler/group_localize_test.go",
+      "backend/internal/handler/model_plaza_handler.go",
+      "backend/internal/handler/model_plaza_handler_test.go",
+      "backend/internal/handler/payment_handler.go",
+      "backend/internal/handler/redeem_handler.go",
+      "backend/internal/handler/subscription_handler.go",
+      "backend/internal/handler/usage_handler.go",
+      "backend/internal/repository/api_key_repo.go",
+      "backend/internal/repository/group_repo.go",
+      "backend/internal/repository/group_repo_integration_test.go",
+      "backend/internal/service/admin_group.go",
+      "backend/internal/service/admin_group_duplicate.go",
+      "backend/internal/service/admin_service.go",
+      "backend/internal/service/admin_service_group_i18n_test.go",
+      "backend/internal/service/channel_available.go",
+      "backend/internal/service/group.go",
+      "backend/internal/service/group_i18n.go",
+      "backend/internal/service/group_i18n_test.go",
+      "backend/internal/service/model_plaza_service.go",
+      "backend/internal/service/payment_config_plans.go",
+      "backend/migrations/242_group_i18n.sql",
+      "frontend/src/components/admin/group/GroupI18nField.vue",
+      "frontend/src/components/admin/group/__tests__/GroupI18nField.spec.ts",
+      "frontend/src/components/common/LocaleSwitcher.vue",
+      "frontend/src/components/common/__tests__/LocaleSwitcher.spec.ts",
+      "frontend/src/i18n/locales/en/admin/overview.ts",
+      "frontend/src/i18n/locales/zh/admin/overview.ts",
+      "frontend/src/types/index.ts",
+      "frontend/src/views/admin/GroupsView.vue"
+    ],
+    "status": "ported",
+    "decision": "current group domain/application/transport/feature owners with migration 248",
+    "fully_closed": true,
+    "current_surface_closed": true,
+    "reopen_condition": "only a changed upstream behavior or regression in this exact owner",
+    "evidence": [
+      "records/go-focused-with-new-tests-retry.record.json",
+      "records/integration-group-moderation-final.record.json",
+      "records/runtime-upgrade-rollback-final2.record.json",
+      "records/final-progress-and-billing.record.json",
+      "records/final-lock-integration.record.json",
+      "records/final-runtime-complete-valid.record.json"
+    ],
+    "mapped_owners": [
+      "backend/internal/domain/group_i18n.go",
+      "backend/internal/application/service/group_i18n.go",
+      "backend/internal/application/service/subscription_progress.go",
+      "backend/internal/transport/http/handler/dto/group_localize.go",
+      "frontend/src/features/admin-groups/presentation/widgets/GroupI18nField.vue",
+      "backend/migrations/248_group_i18n.sql"
+    ]
+  }
+]

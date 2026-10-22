@@ -304,6 +304,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		if s.IsDistillationGroupRequest(c, account) {
 			normalized = stripDistillationCacheFields(normalized)
 		}
+		normalized = s.normalizeOpenAIRequestTimezone(ctx, account, normalized, "ws")
 		if account.Platform == PlatformOpenAI {
 			if sanitized, changed, sanitizeErr := sanitizeOpenAIResponsesAccessPrograms(normalized); sanitizeErr != nil {
 				return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", sanitizeErr)
@@ -882,12 +883,13 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 	applyOpenAIResponsesLiteWebSocketHeader(wsHeaders, firstPayload.payloadRaw)
 	applyOpenAICodexSemanticRequestHeaders(wsHeaders, c, account, firstPayload.payloadRaw)
 	baseAcquireReq := openAIWSAcquireRequest{
-		Account:    account,
-		WSURL:      wsURL,
-		Headers:    wsHeaders,
-		TLSProfile: s.resolveTLSProfile(account),
-		HeadersFactory: func(factoryCtx context.Context, headers http.Header) (http.Header, error) {
-			return s.refreshOpenAIAgentIdentityHeaders(factoryCtx, account, headers)
+		Account:      account,
+		WSURL:        wsURL,
+		Headers:      wsHeaders,
+		TLSProfile:   s.resolveTLSProfile(account),
+		ProofFactory: s.newOpenAIWSProofFactory(account, wsURL, fingerprintIDs, wsHeaders),
+		HandshakeObserver: func(dialCtx context.Context, headers http.Header) {
+			s.captureIntegrityState(dialCtx, headers)
 		},
 		EgressRoute: account.EgressRoute(),
 		ProxyURL: func() string {

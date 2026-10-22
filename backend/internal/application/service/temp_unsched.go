@@ -20,6 +20,8 @@ type TempUnschedState struct {
 	MatchedKeyword  string `json:"matched_keyword"`   // 匹配的关键词
 	RuleIndex       int    `json:"rule_index"`        // 触发的规则索引
 	ErrorMessage    string `json:"error_message"`     // 错误消息
+	Scope           string `json:"scope,omitempty"`
+	Model           string `json:"model,omitempty"`
 }
 
 func tempUnschedulableReasonHasStatusCode(reason string, statusCode int) bool {

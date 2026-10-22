@@ -238,6 +238,38 @@ func (h *OpsHandler) GetAccountAvailability(c *gin.Context) {
 	response.Success(c, payload)
 }
 
+// GetOAuthPlanExpiryDistribution returns the remaining subscription time
+// distribution for OAuth accounts.
+// GET /api/v1/admin/ops/oauth-plan-expiry-distribution
+func (h *OpsHandler) GetOAuthPlanExpiryDistribution(c *gin.Context) {
+	if h.opsService == nil {
+		response.Error(c, http.StatusServiceUnavailable, "Ops service not available")
+		return
+	}
+	if err := h.opsService.RequireMonitoringEnabled(c.Request.Context()); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	platform := strings.ToLower(strings.TrimSpace(c.Query("platform")))
+	var groupID *int64
+	if v := strings.TrimSpace(c.Query("group_id")); v != "" {
+		id, err := strconv.ParseInt(v, 10, 64)
+		if err != nil || id <= 0 {
+			response.BadRequest(c, "Invalid group_id")
+			return
+		}
+		groupID = &id
+	}
+
+	data, err := h.opsService.GetOAuthPlanExpiryDistribution(c.Request.Context(), platform, groupID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, data)
+}
+
 func isOpsRealtimeRequestCanceled(c *gin.Context, err error) bool {
 	if err == nil {
 		return false

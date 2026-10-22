@@ -85,6 +85,15 @@
               </div>
 
               <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div class="sm:col-span-2">
+                  <label class="input-label">{{ t('admin.accounts.tempUnschedulable.scope') }}</label>
+                  <select v-model="rule.scope" class="input">
+                    <option value="">{{ t('admin.accounts.tempUnschedulable.scopeAuto') }}</option>
+                    <option value="account">{{ t('admin.accounts.tempUnschedulable.scopeAccount') }}</option>
+                    <option value="model">{{ t('admin.accounts.tempUnschedulable.scopeModel') }}</option>
+                  </select>
+                  <p class="input-hint">{{ t('admin.accounts.tempUnschedulable.scopeHint') }}</p>
+                </div>
                 <div>
                   <label class="input-label">{{ t('admin.accounts.tempUnschedulable.errorCode') }}</label>
                   <input
@@ -624,9 +633,9 @@
         </div>
       </div>
 
-      <!-- Anthropic API Key: Web Search Emulation (hidden when global disabled) -->
+      <!-- Anthropic / OpenAI API Key: Web Search Emulation (hidden when global disabled) -->
       <div
-        v-if="account?.platform === 'anthropic' && account?.type === 'apikey' && webSearchGlobalEnabled"
+        v-if="(account?.platform === 'anthropic' || account?.platform === 'openai') && account?.type === 'apikey' && webSearchGlobalEnabled"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between">
@@ -697,7 +706,7 @@
       </div>
       <!-- 配额控制 (非 Anthropic apikey/bedrock) -->
       <div
-        v-else-if="account?.type === 'apikey' || account?.type === 'bedrock'"
+        v-else-if="supportsAccountQuota(account?.type)"
         class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
       >
         <div class="mb-3">
@@ -837,6 +846,8 @@
 </template>
 
 <script setup lang="ts">
+import { supportsAccountQuota } from '@/features/admin-accounts/presentation/accountQuota'
+
 import Icon from '@/common/widgets/icons/Icon.vue'
 import OllamaCloudUsageSettings from '../OllamaCloudUsageSettings.vue'
 import ProxyAdBanner from '@/common/widgets/data/ProxyAdBanner.vue'

@@ -1,0 +1,66 @@
+[
+  {
+    "sha": "7c5afa4c361b7b69afeb9aaf5b47c0bbe9af0180",
+    "pr": 7957,
+    "title": "Merge pull request #7957 from xcrong/feat/haiku-5-5-support-7919",
+    "diff_sha256": "53cfe29edbf9e1f1e374c854b8ff899077e4de16638a548b8f6c16751d822d8f",
+    "patch_path": "/private/tmp/sub2api-upstream-sync-20261013-e3d4/evidence/upstream-diffs/7957.patch",
+    "stat": " Makefile                                           |  1 +\n .../pkg/apicompat/anthropic_responses_test.go      | 66 ++++++++++++++++++++++\n .../apicompat/anthropic_to_responses_response.go   |  6 +-\n .../apicompat/responses_to_anthropic_request.go    | 34 +++++++++--\n backend/internal/pkg/claude/constants.go           |  6 ++\n .../internal/pkg/claude/constants_model_test.go    | 13 +++++\n backend/internal/pkg/claude/effort_catalog.go      |  9 +++\n backend/internal/pkg/claude/effort_catalog_test.go | 19 +++++++\n backend/internal/service/billing_service.go        | 17 ++++++\n backend/internal/service/billing_service_test.go   | 27 +++++++++\n .../internal/service/gateway_claude_oauth_body.go  |  6 +-\n .../service/gateway_context_management_test.go     | 19 +++++++\n backend/internal/service/gateway_request.go        | 53 +++++++++++++----\n .../service/gateway_request_haiku55_test.go        | 55 ++++++++++++++++++\n .../internal/service/gateway_upstream_request.go   |  4 +-\n .../service/openai_codex_models_service.go         |  2 +-\n .../service/openai_codex_models_service_test.go    |  8 +++\n backend/internal/service/pricing_service.go        | 14 +++++\n .../model_prices_and_context_window.json           | 34 +++++++++++\n .../__tests__/useModelWhitelist.spec.ts            | 10 ++++\n frontend/src/composables/useModelWhitelist.ts      |  2 +\n 21 files changed, 382 insertions(+), 23 deletions(-)\n"
+  },
+  {
+    "sha": "53c21fed252cec522035cfc2d4dd890a8c47140b",
+    "pr": 8006,
+    "title": "Merge pull request #8006 from feeeei/feat/gemini-explicit-cache",
+    "diff_sha256": "db285f8025c4f8f406ef19a7bea37f5ca37156f60466e784d8e3ecdc23501d1a",
+    "patch_path": "/private/tmp/sub2api-upstream-sync-20261013-e3d4/evidence/upstream-diffs/8006.patch",
+    "stat": " backend/cmd/server/wire.go                         |    7 +\n backend/cmd/server/wire_gen.go                     |   13 +-\n backend/cmd/server/wire_gen_test.go                |    1 +\n backend/internal/config/config.go                  |    3 +\n backend/internal/handler/endpoint.go               |    9 +-\n backend/internal/handler/endpoint_test.go          |    3 +\n backend/internal/handler/gateway_handler.go        |   14 +-\n .../handler/gemini_cached_contents_billing_test.go |  955 +++++++++++++++\n .../handler/gemini_cached_contents_handler.go      |  848 ++++++++++++++\n .../handler/gemini_cached_contents_handler_test.go |  264 +++++\n backend/internal/handler/gemini_v1beta_handler.go  |  115 +-\n .../internal/handler/gemini_v1beta_handler_test.go |    4 +-\n .../internal/handler/gemini_vertex_models_test.go  |   83 ++\n backend/internal/handler/ops_error_logger.go       |   13 +\n .../handler/ops_error_logger_google_test.go        |  135 +++\n backend/internal/handler/security_audit_errors.go  |    7 +-\n .../internal/handler/security_audit_order_test.go  |    1 +\n backend/internal/handler/wire.go                   |    2 +\n backend/internal/repository/api_key_repo.go        |    4 +-\n .../repository/api_key_repo_integration_test.go    |    4 +\n .../internal/repository/billing_inflight_cache.go  |   64 +\n .../repository/billing_inflight_cache_test.go      |   69 ++\n .../repository/gemini_cached_content_repo.go       |  205 ++++\n .../gemini_cached_content_repo_integration_test.go |  120 ++\n backend/internal/repository/scheduler_cache.go     |    6 +-\n .../internal/repository/scheduler_cache_test.go    |   17 +\n backend/internal/repository/wire.go                |    1 +\n backend/internal/server/routes/gateway.go          |    6 +\n .../routes/prompt_audit_route_coverage_test.go     |    1 +\n backend/internal/service/account.go                |    7 +\n .../internal/service/account_stats_pricing_test.go |    2 +-\n backend/internal/service/account_test_service.go   |   13 +-\n backend/internal/service/api_key_service.go        |    2 +\n backend/internal/service/billing_cache_service.go  |  127 +-\n .../service/billing_inflight_reservation.go        |   74 +-\n backend/internal/service/billing_service.go        |   27 +-\n .../internal/service/channel_monitor_checker.go    |    4 +-\n .../service/channel_monitor_checker_body_test.go   |   11 +\n backend/internal/service/gateway_service.go        |    4 +\n backend/internal/service/gateway_usage_billing.go  |  175 ++-\n .../gateway_usage_billing_request_id_test.go       |   18 +\n .../service/gemini_cache_storage_pricing.go        |   72 ++\n .../service/gemini_cache_storage_pricing_test.go   |   77 ++\n backend/internal/service/gemini_cached_content.go  | 1226 ++++++++++++++++++++\n .../gemini_cached_content_hardening_test.go        |  480 ++++++++\n .../gemini_cached_content_not_found_test.go        |  186 +++\n .../internal/service/gemini_cached_content_test.go |  522 +++++++++\n .../gemini_chat_completions_compat_service.go      |   14 +-\n .../internal/service/gemini_error_policy_test.go   |   66 ++\n .../service/gemini_messages_compat_service.go      |  316 ++---\n .../internal/service/gemini_models_endpoints.go    |  302 +++++\n .../service/gemini_models_endpoints_test.go        |  208 ++++\n backend/internal/service/gemini_quota.go           |    4 +\n backend/internal/service/gemini_quota_test.go      |   80 ++\n .../service/gemini_vertex_api_key_forward_test.go  |  101 ++\n backend/internal/service/ops_upstream_context.go   |   44 +\n backend/internal/service/pricing_service.go        |    7 +\n backend/internal/service/pricing_service_test.go   |   14 +-\n backend/internal/service/upstream_models.go        |  160 ++-\n .../service/upstream_models_vertex_test.go         |  276 +++++\n backend/internal/service/vertex_service_account.go |   74 +-\n .../service/vertex_service_account_test.go         |   56 +\n backend/internal/service/wire.go                   |    8 +\n backend/internal/util/logredact/redact.go          |    3 +\n backend/internal/util/logredact/redact_test.go     |   22 +\n backend/migrations/243_gemini_cached_contents.sql  |   30 +\n .../244_gemini_cached_contents_channel_usage.sql   |    4 +\n .../245_gemini_cached_contents_mutation_lease.sql  |   10 +\n .../model_prices_and_context_window.json           |   12 +-\n deploy/config.example.yaml                         |   11 +\n .../src/components/account/AccountUsageCell.vue    |   35 +-\n .../src/components/account/CreateAccountModal.vue  |  334 ++++--\n .../src/components/account/EditAccountModal.vue    |  177 ++-\n .../components/account/ModelWhitelistSelector.vue  |    3 +-\n .../account/__tests__/AccountUsageCell.spec.ts     |   95 ++\n .../account/__tests__/CreateAccountModal.spec.ts   |  146 +++\n .../account/__tests__/EditAccountModal.spec.ts     |  128 ++\n .../__tests__/ModelWhitelistSelector.spec.ts       |   22 +-\n .../src/components/common/PlatformTypeBadge.vue    |    2 +-\n frontend/src/i18n/locales/en/admin/accounts.ts     |   32 +-\n frontend/src/i18n/locales/en/batchImage.ts         |    6 +-\n frontend/src/i18n/locales/zh/admin/accounts.ts     |   32 +-\n frontend/src/i18n/locales/zh/batchImage.ts         |    6 +-\n frontend/src/types/index.ts                        |    1 +\n .../utils/__tests__/geminiExplicitCache.spec.ts    |   50 +\n frontend/src/utils/geminiExplicitCache.ts          |   47 +\n 86 files changed, 8450 insertions(+), 489 deletions(-)\n"
+  },
+  {
+    "sha": "49dc6e236380a7198e0658054b0d7c595b597387",
+    "pr": 7828,
+    "title": "Merge pull request #7828 from feeeei/feat/temp-unsched-rule-scope",
+    "diff_sha256": "f341da6e0ddccd40ab19c179e8d4531c1a37ef31adb9e1d873c9658c76b7d4b3",
+    "patch_path": "/private/tmp/sub2api-upstream-sync-20261013-e3d4/evidence/upstream-diffs/7828.patch",
+    "stat": " backend/internal/service/account.go                |  22 +\n .../service/gateway_anthropic_passthrough.go       |   4 +-\n backend/internal/service/gateway_bedrock.go        |  16 +-\n backend/internal/service/gateway_count_tokens.go   |  14 +-\n backend/internal/service/gateway_forward.go        |   4 +-\n .../internal/service/gateway_upstream_response.go  |  14 +-\n .../openai_account_runtime_block_fastpath.go       |   6 +-\n .../service/openai_gateway_count_tokens.go         |   4 +-\n backend/internal/service/ratelimit_service.go      | 102 ++++-\n backend/internal/service/temp_unsched.go           |   2 +\n .../internal/service/temp_unsched_scope_test.go    | 493 +++++++++++++++++++++\n .../src/components/account/CreateAccountModal.vue  |  72 ++-\n .../src/components/account/EditAccountModal.vue    |  88 +++-\n .../account/__tests__/EditAccountModal.spec.ts     |  76 ++++\n frontend/src/i18n/locales/en/admin/accounts.ts     |   8 +-\n frontend/src/i18n/locales/zh/admin/accounts.ts     |   8 +-\n frontend/src/types/index.ts                        |   6 +\n 17 files changed, 884 insertions(+), 55 deletions(-)\n"
+  },
+  {
+    "sha": "bba85923b96c277b9cbe4a2d21c661ff741c7e29",
+    "pr": 8046,
+    "title": "Merge pull request #8046 from wucm667/fix/issue-8040-antigravity-image-rate-limit",
+    "diff_sha256": "9faa1adc3d523f42926590972e4b4ff293396336b78cb5bae770ae43e2b8fdf0",
+    "patch_path": "/private/tmp/sub2api-upstream-sync-20261013-e3d4/evidence/upstream-diffs/8046.patch",
+    "stat": " .../service/antigravity_rate_limit_test.go         | 22 +++++++++++++++++++\n backend/internal/service/model_rate_limit.go       |  9 ++++++--\n backend/internal/service/model_rate_limit_test.go  | 25 ++++++++++++++++++++++\n 3 files changed, 54 insertions(+), 2 deletions(-)\n"
+  },
+  {
+    "sha": "8d7d3185e987f0241f4cd99c2bc2b220378b4860",
+    "pr": 8038,
+    "title": "Merge pull request #8038 from wucm667/fix/issue-8035-gemini-tool-result-images",
+    "diff_sha256": "a4c0ef5bbc1cc8df1b6c3968ca9e10762e0bc01b2ded4a7242ed16dd22661c4c",
+    "patch_path": "/private/tmp/sub2api-upstream-sync-20261013-e3d4/evidence/upstream-diffs/8038.patch",
+    "stat": " .../service/gemini_messages_compat_service.go      | 44 +++++++++-\n .../service/gemini_messages_compat_service_test.go | 99 ++++++++++++++++++++++\n 2 files changed, 142 insertions(+), 1 deletion(-)\n"
+  },
+  {
+    "sha": "49b2122dc623f7f2face4a2f89dbd6bceffb781a",
+    "pr": 7991,
+    "title": "Merge pull request #7991 from wucm667/fix/issue-7988-international-quota",
+    "diff_sha256": "f4642365d35cffe07412c33dc68274da69e1488599507d6d57823408b34a07f5",
+    "patch_path": "/private/tmp/sub2api-upstream-sync-20261013-e3d4/evidence/upstream-diffs/7991.patch",
+    "stat": " backend/internal/config/config.go                  |  1 +\n backend/internal/config/config_test.go             | 15 ++++\n backend/internal/service/account.go                | 20 +++++-\n .../internal/service/account_kimi_coding_test.go   | 83 ++++++++++++++++++++++\n .../internal/service/cn_provider_probe_url_test.go | 79 +++++++++++++++++++-\n 5 files changed, 194 insertions(+), 4 deletions(-)\n"
+  },
+  {
+    "sha": "01842576b3d5c1e2545b5a99ad555d36e28ed306",
+    "pr": 7810,
+    "title": "Merge pull request #7810 from wucm667/fix/issue-6247-responses-chat-fallback",
+    "diff_sha256": "9d7efc6691b3bf0a82f877839bcd37df8e3319bc9447689fd48d03c999937466",
+    "patch_path": "/private/tmp/sub2api-upstream-sync-20261013-e3d4/evidence/upstream-diffs/7810.patch",
+    "stat": " .../internal/service/openai_gateway_cc_pipeline.go |  17 +-\n .../service/openai_gateway_chat_completions.go     | 172 ++++++-\n .../service/openai_gateway_chat_completions_raw.go |  12 +-\n .../openai_gateway_chat_completions_test.go        | 545 ++++++++++++++++++++-\n backend/internal/service/openai_gateway_forward.go |   2 +-\n .../openai_gateway_responses_chat_fallback.go      |   3 +-\n .../openai_gateway_responses_chat_fallback_test.go |  29 ++\n 7 files changed, 771 insertions(+), 9 deletions(-)\n"
+  },
+  {
+    "sha": "4d9ac3e482106d2da3a39fe3e546d8d6801f1cc1",
+    "pr": null,
+    "title": "chore: sync VERSION to 0.2.16 [skip ci]",
+    "diff_sha256": "e02fdfeb5fbd3f2ba5a587cb491c229695ad96300b9465e7c00f6b8e0130af28",
+    "patch_path": "/private/tmp/sub2api-upstream-sync-20261013-e3d4/evidence/upstream-diffs/4d9ac3e4.patch",
+    "stat": " backend/cmd/server/VERSION | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)\n"
+  }
+]

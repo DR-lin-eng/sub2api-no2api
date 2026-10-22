@@ -5,9 +5,20 @@ import (
 	"log/slog"
 	"math"
 	"strings"
+	"time"
 )
 
 func validateGatewayTransport(c *Config) error {
+	if c.Gateway.MinOutputTokens < 16 {
+		return fmt.Errorf("gateway.min_output_tokens must be at least 16")
+	}
+	c.Gateway.OpenAIRequestTimezone = strings.TrimSpace(c.Gateway.OpenAIRequestTimezone)
+	if c.Gateway.OpenAIRequestTimezone == "" {
+		c.Gateway.OpenAIRequestTimezone = DefaultOpenAIRequestTimezone
+	}
+	if _, err := time.LoadLocation(c.Gateway.OpenAIRequestTimezone); err != nil {
+		return fmt.Errorf("gateway.openai_request_timezone must be a valid IANA timezone: %w", err)
+	}
 	if c.Gateway.MaxBodySize <= 0 {
 		return fmt.Errorf("gateway.max_body_size must be positive")
 	}

@@ -8,6 +8,7 @@ import type {
   OpsImageGenerationStatsResponse,
   OpsOpenAITokenStatsParams,
   OpsOpenAITokenStatsResponse,
+  OpsOAuthPlanExpiryDistributionResponse,
   OpsRealtimeTrafficSummaryResponse,
   OpsUserConcurrencyStatsResponse,
   OpsUserUsageStatsParams,
@@ -52,6 +53,18 @@ export async function getAccountAvailabilityStats(
 ): Promise<OpsAccountAvailabilityStatsResponse> {
   const { data } = await apiClient.get<OpsAccountAvailabilityStatsResponse>('/admin/ops/account-availability', {
     params: buildConcurrencyParams(platform, groupId)
+  })
+  return data
+}
+
+export async function getOAuthPlanExpiryDistribution(
+  platform?: string,
+  groupId?: number | null,
+  options: OpsRequestOptions = {}
+): Promise<OpsOAuthPlanExpiryDistributionResponse> {
+  const { data } = await apiClient.get<OpsOAuthPlanExpiryDistributionResponse>('/admin/ops/oauth-plan-expiry-distribution', {
+    params: buildConcurrencyParams(platform, groupId),
+    signal: options.signal
   })
   return data
 }

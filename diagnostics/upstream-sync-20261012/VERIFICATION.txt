@@ -1,0 +1,1484 @@
+UPSTREAM SYNC VERIFIED TRANSACTION 2026-10-12
+Generated UTC: 2026-10-12T18:35:54.906649+00:00
+TARGET_COPY: /private/tmp/sub2api-upstream-sync-20261012-cbj09nx5
+ORIGINAL_WORKTREE: /Users/lin/.codex/worktrees/d660/sub2api-no2api (untouched)
+BASELINE_SHA: 73469a9062b3e7f8df31d22b42c1507a843b2ae9
+FROZEN_UPSTREAM_SHA: ab80abc6d1f929a6864c8804fd077b509d21fda2
+
+CHANGED_BRANCHES_AND_FIELDS:
+OpenAIGatewayService.isCodexImageGenerationBridgeEnabled: only OpenAI accounts bridge hosted images.
+CostInput.DisableModelLongContextPricing and openAISubscriptionLongContextExempt: actual credential and sent-model policy.
+groupRepository.Delete: direct FOR UPDATE; config writes lock live groups before settings.
+Group.I18n and groups.i18n migration 248: additive display text, old-writer preservation.
+SubscriptionProgress.GroupI18n: internal JSON-excluded display parameter, no added query.
+OpsRequestDetail.AccountName: projection from existing joined SQL, no account enumeration.
+
+OBSERVED_BEHAVIORS (same transaction_fixture.go):
+BASELINE exit=0: OpenAI/Kimi/DeepSeek/MiniMax bridge true; OAuth total=1.230000 long_context=true; API key total=1.230000 long_context=true.
+MODIFIED exit=0: OpenAI bridge true, other three false; OAuth total=0.620000 long_context=false; API key total=1.230000 long_context=true.
+ROLLBACK exit=0: original behavior restored; original source hashes match.
+Browser baseline/modified/rollback exit=0/0/0: clipping true/false/true, +2 visibility false/true/false; no horizontal overflow at 320/375/1440.
+Docker database matrix: baseline/upgraded/rollback/restored all PASS, migrations 301/302/302/302; old writer preserves translations.
+Group and single subscription progress names: default/English/default/English; admin source names remain default.
+Performance: default cost-resolution allocation remains 209 B, 9 allocs; medians 732.5 ns baseline and 659.5 ns modified. Exemption check 19.05 ns, 0 allocs. Not a gateway throughput result.
+Pre-existing limits: CreateAccountDialog.vue 1512>1500, payment_fulfillment_test.go 1201>1200, pricing_service.go 1238>1200; identical baseline/candidate failures.
+
+EVENT: baseline-probe-valid
+COMMAND_JSON: ["docker", "run", "--rm", "-e", "GOMAXPROCS=2", "-e", "GOFLAGS=-p=2", "-e", "GOMEMLIMIT=1400MiB", "-e", "GOTOOLCHAIN=local", "-v", "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5-baseline/backend:/workspace", "-v", "sub2api-go-mod-20261007:/go/pkg/mod", "-v", "sub2api-go-build-20261007:/root/.cache/go-build", "-w", "/workspace", "sub2api-upstream-sync-test:20261009-docker", "go", "test", "./internal/application/service", "-run", "^TestSyncTransaction20261012$", "-count=1", "-v"]
+CWD: /private/tmp/sub2api-upstream-sync-20261012-cbj09nx5
+INPUT: exact repository sources and committed fixtures
+EXIT_STATUS: 0
+STDOUT_SHA256: ea31724d1dadb2647c933794878d9c28242e27102aeb5202a939d8e8aba9929d
+STDERR_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+STDOUT_BEGIN
+2026/10/12 16:01:01 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestSyncTransaction20261012
+2026/10/12 16:01:01 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+BRIDGE platform=openai enabled=true
+BRIDGE platform=kimi enabled=true
+BRIDGE platform=deepseek enabled=true
+BRIDGE platform=minimax enabled=true
+2026/10/12 16:01:01 [Billing] Using fallback pricing for model: gpt-6.1-sol
+BILLING credential=oauth total=1.230000 long_context=true
+BILLING credential=apikey total=1.230000 long_context=true
+--- PASS: TestSyncTransaction20261012 (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.013s
+STDOUT_END
+STDERR_BEGIN
+STDERR_END
+
+EVENT: final-modified-probe
+COMMAND_JSON: ["docker", "run", "--rm", "-e", "GOMAXPROCS=2", "-e", "GOFLAGS=-p=2", "-e", "GOMEMLIMIT=1200MiB", "-v", "/private/tmp/sub2api-sync-20261012-verified-copy-pkpbnzus/backend:/workspace", "-v", "sub2api-go-mod-20261007:/go/pkg/mod", "-v", "sub2api-go-build-202607:/root/.cache/go-build", "-w", "/workspace", "sub2api-upstream-sync-test:20261009-docker", "go", "test", "./internal/application/service", "-run", "^TestSyncTransaction20261012$", "-count=1", "-v"]
+CWD: /private/tmp/sub2api-upstream-sync-20261012-cbj09nx5
+INPUT: exact repository sources and committed fixtures
+EXIT_STATUS: 0
+STDOUT_SHA256: d19e75f4ecfa55dd51cdf29e207caffa5dde6a42b1383cd35edc47326f02c274
+STDERR_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+STDOUT_BEGIN
+2026/10/12 18:26:05 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestSyncTransaction20261012
+2026/10/12 18:26:05 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+BRIDGE platform=openai enabled=true
+BRIDGE platform=kimi enabled=false
+BRIDGE platform=deepseek enabled=false
+BRIDGE platform=minimax enabled=false
+2026/10/12 18:26:05 [Billing] Using fallback pricing for model: gpt-6.1-sol
+BILLING credential=oauth total=0.620000 long_context=false
+BILLING credential=apikey total=1.230000 long_context=true
+--- PASS: TestSyncTransaction20261012 (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.015s
+STDOUT_END
+STDERR_BEGIN
+STDERR_END
+
+EVENT: final-rollback-probe
+COMMAND_JSON: ["docker", "run", "--rm", "-e", "GOMAXPROCS=2", "-e", "GOFLAGS=-p=2", "-e", "GOMEMLIMIT=1200MiB", "-v", "/private/tmp/sub2api-sync-20261012-verified-copy-pkpbnzus/backend:/workspace", "-v", "sub2api-go-mod-20261007:/go/pkg/mod", "-v", "sub2api-go-build-202607:/root/.cache/go-build", "-w", "/workspace", "sub2api-upstream-sync-test:20261009-docker", "go", "test", "./internal/application/service", "-run", "^TestSyncTransaction20261012$", "-count=1", "-v"]
+CWD: /private/tmp/sub2api-upstream-sync-20261012-cbj09nx5
+INPUT: exact repository sources and committed fixtures
+EXIT_STATUS: 0
+STDOUT_SHA256: 314a0b2d11c035822005ce5a284094799d0e9aba6ed31f17417b4e7b037754ab
+STDERR_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+STDOUT_BEGIN
+2026/10/12 18:26:10 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestSyncTransaction20261012
+2026/10/12 18:26:10 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+BRIDGE platform=openai enabled=true
+BRIDGE platform=kimi enabled=true
+BRIDGE platform=deepseek enabled=true
+BRIDGE platform=minimax enabled=true
+2026/10/12 18:26:10 [Billing] Using fallback pricing for model: gpt-6.1-sol
+BILLING credential=oauth total=1.230000 long_context=true
+BILLING credential=apikey total=1.230000 long_context=true
+--- PASS: TestSyncTransaction20261012 (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.015s
+STDOUT_END
+STDERR_BEGIN
+STDERR_END
+
+EVENT: unit-full-final
+COMMAND_JSON: ["docker", "run", "--rm", "-e", "GOMAXPROCS=2", "-e", "GOFLAGS=-p=2", "-e", "GOMEMLIMIT=1200MiB", "-e", "GOTOOLCHAIN=local", "-v", "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/backend:/workspace", "-v", "sub2api-go-mod-20261007:/go/pkg/mod", "-v", "sub2api-go-build-202607:/root/.cache/go-build", "-w", "/workspace", "sub2api-upstream-sync-test:20261009-docker", "go", "test", "-tags=unit", "./..."]
+CWD: /private/tmp/sub2api-upstream-sync-20261012-cbj09nx5
+INPUT: exact repository sources and committed fixtures
+EXIT_STATUS: 0
+STDOUT_SHA256: dcdebfa833b64ef0b50eff8a3169541c4a40250fcf87702f05995956840d9cca
+STDERR_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+STDOUT_BEGIN
+ok  	github.com/Wei-Shaw/sub2api/cmd/cleanup-ingress-reject-logs	0.011s
+?   	github.com/Wei-Shaw/sub2api/cmd/jwtgen	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/cmd/profit-preview	0.010s
+ok  	github.com/Wei-Shaw/sub2api/cmd/server	0.012s
+?   	github.com/Wei-Shaw/sub2api/ent	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/account	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/accountegressbinding	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/accountgroup	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/announcement	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/announcementread	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/apikey	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/authidentity	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/authidentitychannel	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/batchimageevent	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/batchimageitem	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/batchimagejob	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/channelmonitor	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatasset	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatconversation	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatmessage	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatmessageasset	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatquickreply	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/compositemodelroute	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/custommodelconfig	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/custommodelrequesttemplate	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/enttest	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/group	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/hook	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/idempotencyrecord	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/intercept	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/ipv6egresspool	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/ent/migrate	0.003s
+?   	github.com/Wei-Shaw/sub2api/ent/paymentauditlog	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/paymentorder	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/paymentproviderinstance	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/pendingauthsession	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/predicate	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/promocode	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/promocodeusage	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/proxy	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/redeemcode	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/redeemcodeusage	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/runtime	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/ent/schema	1.174s
+?   	github.com/Wei-Shaw/sub2api/ent/schema/mixins	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/securitysecret	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/setting	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/subscriptionplan	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/tlsfingerprintprofile	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/usagecleanuptask	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/usagelog	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/user	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/userallowedgroup	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/userattributedefinition	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/userattributevalue	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/userplatformquota	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/usersubscription	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	193.334s
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2	6.318s
+ok  	github.com/Wei-Shaw/sub2api/internal/bootstrap/setup	0.058s
+ok  	github.com/Wei-Shaw/sub2api/internal/domain	0.001s
+?   	github.com/Wei-Shaw/sub2api/internal/domain/model	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/infrastructure/repository	6.595s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/activitycenter	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/chat	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/egress	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/payment	0.003s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/payment/provider	0.035s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/qualityrender	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/securityaudit	0.239s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/typesafe	0.007s
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/config	0.447s
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/egress	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/liveattestation	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/middleware	4.503s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/anthropicfp	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/antigravity	0.014s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	0.012s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/basispoints	1.234s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/chatgptcookies	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/claude	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation	0.001s
+?   	github.com/Wei-Shaw/sub2api/internal/shared/ctxkey	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/errors	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/gemini	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/geminicli	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/googleapi	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/httpclient	0.006s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/httputil	0.014s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/ip	0.006s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/logger	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/logredact	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/oauth	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/oauthstate	0.003s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/openai	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/openai_compat	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/openaitiming	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/pagination	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/proxyurl	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/proxyutil	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/remotecontrol	0.003s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/requestmodel	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/response	0.003s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/responseheaders	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/servertiming	0.002s
+?   	github.com/Wei-Shaw/sub2api/internal/shared/sysutil	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/timezone	0.003s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint	0.018s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/usagestats	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/websearch	0.004s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/wsutil	0.062s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/xai	0.002s
+?   	github.com/Wei-Shaw/sub2api/internal/testutil	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	42.144s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin	0.516s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto	0.011s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/quotaview	0.009s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/supportchatasset	0.004s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server	1.792s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware	0.041s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes	7.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/webassets	0.003s
+ok  	github.com/Wei-Shaw/sub2api/migrations	0.002s
+STDOUT_END
+STDERR_BEGIN
+STDERR_END
+
+EVENT: final-progress-and-billing
+COMMAND_JSON: ["docker", "run", "--rm", "-e", "GOMAXPROCS=2", "-e", "GOFLAGS=-p=2", "-e", "GOMEMLIMIT=1200MiB", "-v", "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/backend:/workspace", "-v", "sub2api-go-mod-20261007:/go/pkg/mod", "-v", "sub2api-go-build-202607:/root/.cache/go-build", "-w", "/workspace", "sub2api-upstream-sync-test:20261009-docker", "sh", "-c", "gofmt -w internal/application/service/subscription_progress.go internal/application/service/subscription_service.go internal/application/service/subscription_progress_owner_test.go internal/application/service/openai_subscription_long_context_billing_test.go && go test -tags=unit ./internal/application/service ./internal/transport/http/handler -run \"SubscriptionLongContext|SubscriptionProgress|Subscriptions|SubscriptionHandler\" -count=1"]
+CWD: /private/tmp/sub2api-upstream-sync-20261012-cbj09nx5
+INPUT: exact repository sources and committed fixtures
+EXIT_STATUS: 0
+STDOUT_SHA256: 5d0fb144cd0a6afb8b14dc9ec3b3f2dc8db94d63a53bfcf71c5ad91b83db3c3c
+STDERR_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+STDOUT_BEGIN
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.191s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	0.103s [no tests to run]
+STDOUT_END
+STDERR_BEGIN
+STDERR_END
+
+EVENT: final-lock-integration
+COMMAND_JSON: ["docker", "run", "--rm", "-e", "GOMAXPROCS=2", "-e", "GOFLAGS=-p=2", "-e", "GOMEMLIMIT=1500MiB", "-e", "CI=true", "-e", "TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal", "-v", "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/backend:/workspace", "-v", "/var/run/docker.sock:/var/run/docker.sock", "-v", "sub2api-go-mod-20261007:/go/pkg/mod", "-v", "sub2api-go-build-202607:/root/.cache/go-build", "-w", "/workspace", "sub2api-upstream-sync-test:20261009-docker", "sh", "-c", "gofmt -w internal/infrastructure/repository/group_repo.go internal/infrastructure/repository/group_moderation_scope_integration_test.go internal/application/service/content_moderation_config_api.go internal/application/service/openai_subscription_long_context_test.go && go test -tags=integration ./internal/infrastructure/repository -run \"ContentModerationConfigWriter|GroupDeleteConcurrentCalls|TestGroupRepoSuite\" -count=1 -v"]
+CWD: /private/tmp/sub2api-upstream-sync-20261012-cbj09nx5
+INPUT: exact repository sources and committed fixtures
+EXIT_STATUS: 0
+STDOUT_SHA256: 4f16546e3c046bfef7ac16d207140ee4d959fb65d2930b2c5a7ba6f3b9a94431
+STDERR_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+STDOUT_BEGIN
+2026/10/12 18:00:20 Timezone initialized: UTC (UTC offset: +00:00)
+2026/10/12 18:00:20 github.com/testcontainers/testcontainers-go - Connected to docker: 
+  Server Version: 29.2.1
+  API Version: 1.51
+  Operating System: Docker Desktop
+  Total Memory: 7836 MB
+  Labels:
+    com.docker.desktop.address=unix:///Users/lin/Library/Containers/com.docker.docker/Data/docker-cli.sock
+  Testcontainers for Go Version: v0.40.0
+  Resolved Docker Host: unix:///var/run/docker.sock
+  Resolved Docker Socket Path: /var/run/docker.sock
+  Test SessionID: ab413c8598579c16ba3a95b8fcc4d547a0e42c7909ba443867e3b0a2965aa281
+  Test ProcessID: 372b383c-0a6d-4875-82af-8ae1e7c722fb
+2026/10/12 18:00:21 🐳 Creating container for image postgres:18.1-alpine3.23
+2026/10/12 18:00:21 🐳 Creating container for image testcontainers/ryuk:0.13.0
+2026/10/12 18:00:21 ✅ Container created: 2aff45ff55ff
+2026/10/12 18:00:21 🐳 Starting container: 2aff45ff55ff
+2026/10/12 18:00:22 ✅ Container started: 2aff45ff55ff
+2026/10/12 18:00:22 ⏳ Waiting for container id 2aff45ff55ff image: testcontainers/ryuk:0.13.0. Waiting for: port 8080/tcp to be listening
+2026/10/12 18:00:22 Shell not found in container
+2026/10/12 18:00:22 🔔 Container is ready: 2aff45ff55ff
+2026/10/12 18:00:22 ✅ Container created: 83111193b124
+2026/10/12 18:00:22 🐳 Starting container: 83111193b124
+2026/10/12 18:00:22 ✅ Container started: 83111193b124
+2026/10/12 18:00:22 ⏳ Waiting for container id 83111193b124 image: postgres:18.1-alpine3.23. Waiting for: all of: [log message "database system is ready to accept connections" (occurrence: 2), port 5432/tcp to be listening]
+2026/10/12 18:00:23 🔔 Container is ready: 83111193b124
+2026/10/12 18:00:23 🐳 Creating container for image redis:8.4-alpine
+2026/10/12 18:00:23 ✅ Container created: 6452f74958b5
+2026/10/12 18:00:23 🐳 Starting container: 6452f74958b5
+2026/10/12 18:00:23 ✅ Container started: 6452f74958b5
+2026/10/12 18:00:23 ⏳ Waiting for container id 6452f74958b5 image: redis:8.4-alpine. Waiting for: all of: [port 6379/tcp to be listening, log message "* Ready to accept connections"]
+2026/10/12 18:00:24 🔔 Container is ready: 6452f74958b5
+=== RUN   TestContentModerationConfigWriterRechecksGroupAfterConcurrentDelete
+--- PASS: TestContentModerationConfigWriterRechecksGroupAfterConcurrentDelete (0.12s)
+=== RUN   TestGroupDeleteConcurrentCallsUseWriteLock
+--- PASS: TestGroupDeleteConcurrentCallsUseWriteLock (0.01s)
+=== RUN   TestGroupRepoSuite
+=== RUN   TestGroupRepoSuite/TestCodexPrewarm429SoftBlocksMatchGroupCapacityCounts
+=== RUN   TestGroupRepoSuite/TestCreate
+=== RUN   TestGroupRepoSuite/TestCreateFromSourcePreservesPriorityAndFiltersIneligibleAccounts
+=== RUN   TestGroupRepoSuite/TestDelete
+=== RUN   TestGroupRepoSuite/TestDeleteAccountGroupsByGroupID
+=== RUN   TestGroupRepoSuite/TestDeleteAccountGroupsByGroupID_MultipleAccounts
+=== RUN   TestGroupRepoSuite/TestDelete_SoftDelete_NotVisibleInList
+=== RUN   TestGroupRepoSuite/TestDelete_SoftDeletedGroup_lockForUpdate
+=== RUN   TestGroupRepoSuite/TestExistsByName
+=== RUN   TestGroupRepoSuite/TestGetAccountCount
+=== RUN   TestGroupRepoSuite/TestGetAccountCount_Empty
+=== RUN   TestGroupRepoSuite/TestGetByIDLite_DoesNotUseAccountCount
+=== RUN   TestGroupRepoSuite/TestGetByID_NotFound
+=== RUN   TestGroupRepoSuite/TestGetByID_PreservesMessagesDispatchModelConfig
+=== RUN   TestGroupRepoSuite/TestI18nPreservedAndCleared
+=== RUN   TestGroupRepoSuite/TestList
+=== RUN   TestGroupRepoSuite/TestListActive
+=== RUN   TestGroupRepoSuite/TestListActiveByPlatform
+=== RUN   TestGroupRepoSuite/TestListWithAccountCountSort_AttachesActiveCount
+=== RUN   TestGroupRepoSuite/TestListWithFilters_AccountCount
+=== RUN   TestGroupRepoSuite/TestListWithFilters_ActiveAccountCount_LessThanTotal
+=== RUN   TestGroupRepoSuite/TestListWithFilters_IsExclusive
+=== RUN   TestGroupRepoSuite/TestListWithFilters_Platform
+=== RUN   TestGroupRepoSuite/TestListWithFilters_RateLimitedAccountCount
+=== RUN   TestGroupRepoSuite/TestListWithFilters_Search
+=== RUN   TestGroupRepoSuite/TestListWithFilters_Search/search_name_should_match
+=== RUN   TestGroupRepoSuite/TestListWithFilters_Search/search_description_should_match
+=== RUN   TestGroupRepoSuite/TestListWithFilters_Search/search_nonexistent_should_return_empty
+=== RUN   TestGroupRepoSuite/TestListWithFilters_Search/search_should_be_case_insensitive
+=== RUN   TestGroupRepoSuite/TestListWithFilters_Search/search_should_escape_like_wildcards
+=== RUN   TestGroupRepoSuite/TestListWithFilters_Status
+=== RUN   TestGroupRepoSuite/TestList_DefaultSortBySortOrderAsc
+=== RUN   TestGroupRepoSuite/TestList_SortBySortOrderDesc
+=== RUN   TestGroupRepoSuite/TestUpdate
+=== RUN   TestGroupRepoSuite/TestUpdateSortOrders_BatchCaseWhen
+=== RUN   TestGroupRepoSuite/TestUpdateSortOrders_MissingGroupNoPartialUpdate
+--- PASS: TestGroupRepoSuite (0.18s)
+    --- PASS: TestGroupRepoSuite/TestCodexPrewarm429SoftBlocksMatchGroupCapacityCounts (0.02s)
+    --- PASS: TestGroupRepoSuite/TestCreate (0.00s)
+    --- PASS: TestGroupRepoSuite/TestCreateFromSourcePreservesPriorityAndFiltersIneligibleAccounts (0.01s)
+    --- PASS: TestGroupRepoSuite/TestDelete (0.00s)
+    --- PASS: TestGroupRepoSuite/TestDeleteAccountGroupsByGroupID (0.00s)
+    --- PASS: TestGroupRepoSuite/TestDeleteAccountGroupsByGroupID_MultipleAccounts (0.01s)
+    --- PASS: TestGroupRepoSuite/TestDelete_SoftDelete_NotVisibleInList (0.01s)
+    --- PASS: TestGroupRepoSuite/TestDelete_SoftDeletedGroup_lockForUpdate (0.00s)
+    --- PASS: TestGroupRepoSuite/TestExistsByName (0.00s)
+    --- PASS: TestGroupRepoSuite/TestGetAccountCount (0.00s)
+    --- PASS: TestGroupRepoSuite/TestGetAccountCount_Empty (0.00s)
+    --- PASS: TestGroupRepoSuite/TestGetByIDLite_DoesNotUseAccountCount (0.00s)
+    --- PASS: TestGroupRepoSuite/TestGetByID_NotFound (0.00s)
+    --- PASS: TestGroupRepoSuite/TestGetByID_PreservesMessagesDispatchModelConfig (0.00s)
+    --- PASS: TestGroupRepoSuite/TestI18nPreservedAndCleared (0.01s)
+    --- PASS: TestGroupRepoSuite/TestList (0.01s)
+    --- PASS: TestGroupRepoSuite/TestListActive (0.01s)
+    --- PASS: TestGroupRepoSuite/TestListActiveByPlatform (0.00s)
+    --- PASS: TestGroupRepoSuite/TestListWithAccountCountSort_AttachesActiveCount (0.01s)
+    --- PASS: TestGroupRepoSuite/TestListWithFilters_AccountCount (0.00s)
+    --- PASS: TestGroupRepoSuite/TestListWithFilters_ActiveAccountCount_LessThanTotal (0.01s)
+    --- PASS: TestGroupRepoSuite/TestListWithFilters_IsExclusive (0.00s)
+    --- PASS: TestGroupRepoSuite/TestListWithFilters_Platform (0.00s)
+    --- PASS: TestGroupRepoSuite/TestListWithFilters_RateLimitedAccountCount (0.01s)
+    --- PASS: TestGroupRepoSuite/TestListWithFilters_Search (0.02s)
+        --- PASS: TestGroupRepoSuite/TestListWithFilters_Search/search_name_should_match (0.01s)
+        --- PASS: TestGroupRepoSuite/TestListWithFilters_Search/search_description_should_match (0.00s)
+        --- PASS: TestGroupRepoSuite/TestListWithFilters_Search/search_nonexistent_should_return_empty (0.00s)
+        --- PASS: TestGroupRepoSuite/TestListWithFilters_Search/search_should_be_case_insensitive (0.00s)
+        --- PASS: TestGroupRepoSuite/TestListWithFilters_Search/search_should_escape_like_wildcards (0.01s)
+    --- PASS: TestGroupRepoSuite/TestListWithFilters_Status (0.00s)
+    --- PASS: TestGroupRepoSuite/TestList_DefaultSortBySortOrderAsc (0.00s)
+    --- PASS: TestGroupRepoSuite/TestList_SortBySortOrderDesc (0.00s)
+    --- PASS: TestGroupRepoSuite/TestUpdate (0.00s)
+    --- PASS: TestGroupRepoSuite/TestUpdateSortOrders_BatchCaseWhen (0.01s)
+    --- PASS: TestGroupRepoSuite/TestUpdateSortOrders_MissingGroupNoPartialUpdate (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/infrastructure/repository	4.383s
+STDOUT_END
+STDERR_BEGIN
+STDERR_END
+
+EVENT: billing-baseline-valid-benchmark
+COMMAND_JSON: ["docker", "run", "--rm", "-e", "GOMAXPROCS=2", "-e", "GOFLAGS=-p=2", "-e", "GOMEMLIMIT=1200MiB", "-v", "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5-baseline/backend:/workspace", "-v", "sub2api-go-mod-20261007:/go/pkg/mod", "-v", "sub2api-go-build-202607:/root/.cache/go-build", "-w", "/workspace", "sub2api-upstream-sync-test:20261009-docker", "go", "test", "-tags=unit", "./internal/application/service", "-run", "^$", "-bench", "BenchmarkOpenAIRecordUsageCostResolution_DefaultMode", "-benchmem", "-benchtime=200ms", "-count=3"]
+CWD: /private/tmp/sub2api-upstream-sync-20261012-cbj09nx5
+INPUT: exact repository sources and committed fixtures
+EXIT_STATUS: 0
+STDOUT_SHA256: 638e78f24a48361179bae2ba6fd30f07f2cb833da7d9132776c44e7cf9734c69
+STDERR_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+STDOUT_BEGIN
+2026/10/12 18:09:25 Timezone initialized: UTC (UTC offset: +00:00)
+2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-5.5
+goos: linux
+goarch: arm64
+pkg: github.com/Wei-Shaw/sub2api/internal/application/service
+BenchmarkOpenAIRecordUsageCostResolution_DefaultMode-2   	  342390	       732.5 ns/op	     209 B/op	       9 allocs/op
+BenchmarkOpenAIRecordUsageCostResolution_DefaultMode-2   	2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-5.5
+  320380	       807.4 ns/op	     209 B/op	       9 allocs/op
+BenchmarkOpenAIRecordUsageCostResolution_DefaultMode-2   	2026/10/12 18:09:25 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:09:25 [Billing] Using fallback pricing for model: gpt-5.5
+  356565	       689.6 ns/op	     209 B/op	       9 allocs/op
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.779s
+STDOUT_END
+STDERR_BEGIN
+STDERR_END
+
+EVENT: billing-final-matrix-valid
+COMMAND_JSON: ["docker", "run", "--rm", "-e", "GOMAXPROCS=2", "-e", "GOFLAGS=-p=2", "-e", "GOMEMLIMIT=1200MiB", "-v", "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/backend:/workspace", "-v", "sub2api-go-mod-20261007:/go/pkg/mod", "-v", "sub2api-go-build-202607:/root/.cache/go-build", "-w", "/workspace", "sub2api-upstream-sync-test:20261009-docker", "go", "test", "-tags=unit", "./internal/application/service", "-run", "SubscriptionLongContext", "-bench", "Benchmark(OpenAIRecordUsageCostResolution_DefaultMode|SubscriptionLongContextExemption)", "-benchmem", "-benchtime=200ms", "-count=3"]
+CWD: /private/tmp/sub2api-upstream-sync-20261012-cbj09nx5
+INPUT: exact repository sources and committed fixtures
+EXIT_STATUS: 0
+STDOUT_SHA256: 793747aea4b21660a5df84c16ca160702a0c5162a429d3b0c4f32b9290d0d5e0
+STDERR_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+STDOUT_BEGIN
+2026/10/12 18:12:06 Timezone initialized: UTC (UTC offset: +00:00)
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+2026/10/12 18:12:06 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:06 [Billing] Using fallback pricing for model: gpt-6.1-sol
+goos: linux
+goarch: arm64
+pkg: github.com/Wei-Shaw/sub2api/internal/application/service
+BenchmarkSubscriptionLongContextExemption-2              	12598590	        19.53 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSubscriptionLongContextExemption-2              	11503664	        19.05 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSubscriptionLongContextExemption-2              	12126034	        18.45 ns/op	       0 B/op	       0 allocs/op
+2026/10/12 18:12:07 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:07 [Billing] Using fallback pricing for model: gpt-5.5
+BenchmarkOpenAIRecordUsageCostResolution_DefaultMode-2   	  358896	       654.8 ns/op	     209 B/op	       9 allocs/op
+BenchmarkOpenAIRecordUsageCostResolution_DefaultMode-2   	2026/10/12 18:12:07 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:07 [Billing] Using fallback pricing for model: gpt-5.5
+  331682	       668.2 ns/op	     209 B/op	       9 allocs/op
+BenchmarkOpenAIRecordUsageCostResolution_DefaultMode-2   	2026/10/12 18:12:07 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/10/12 18:12:07 [Billing] Using fallback pricing for model: gpt-5.5
+  371478	       659.5 ns/op	     209 B/op	       9 allocs/op
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	1.422s
+STDOUT_END
+STDERR_BEGIN
+STDERR_END
+
+EVENT: final-native-build
+COMMAND_JSON: ["env", "BUILDX_CONFIG=/private/tmp/sub2api-buildx-20261012-d660", "docker", "build", "--tag", "sub2api-upstream-sync:20261012-final", "--build-arg", "COMMIT=upstream-sync-20261012-final", "."]
+CWD: /private/tmp/sub2api-upstream-sync-20261012-cbj09nx5
+INPUT: exact repository sources and committed fixtures
+EXIT_STATUS: 0
+STDOUT_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+STDERR_SHA256: e6c282a7401bde86a11014976ec07a7108d9847f4ad0204ca40441a3b94824e5
+STDOUT_BEGIN
+STDOUT_END
+STDERR_BEGIN
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 6.10kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://docker.io/docker/dockerfile:1.7
+#2 DONE 2.6s
+
+#3 docker-image://docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e done
+#3 CACHED
+
+#4 [internal] load metadata for docker.io/library/postgres:18-alpine
+#4 ...
+
+#5 [internal] load metadata for docker.io/library/golang:1.26.9-alpine
+#5 DONE 1.5s
+
+#6 [internal] load metadata for docker.io/library/alpine:3.21
+#6 DONE 1.6s
+
+#7 [internal] load metadata for docker.io/library/node:24-alpine
+#7 ...
+
+#4 [internal] load metadata for docker.io/library/postgres:18-alpine
+#4 DONE 1.8s
+
+#7 [internal] load metadata for docker.io/library/node:24-alpine
+#7 DONE 1.8s
+
+#8 [internal] load .dockerignore
+#8 transferring context: 1.46kB done
+#8 DONE 0.0s
+
+#9 [frontend-builder 1/8] FROM docker.io/library/node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1
+#9 resolve docker.io/library/node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 done
+#9 DONE 0.0s
+
+#10 [backend-builder 1/8] FROM docker.io/library/golang:1.26.9-alpine@sha256:3082400e369fa24d5fc60bca20edab3f6d604e0c5a690ec66b295eff4dd87ade
+#10 resolve docker.io/library/golang:1.26.9-alpine@sha256:3082400e369fa24d5fc60bca20edab3f6d604e0c5a690ec66b295eff4dd87ade 0.0s done
+#10 DONE 0.0s
+
+#11 [runtime  1/12] FROM docker.io/library/alpine:3.21@sha256:ce64758a109eb420d874a118f87920e625e12d3634e03b4a5573fd9f6e5d3507
+#11 resolve docker.io/library/alpine:3.21@sha256:ce64758a109eb420d874a118f87920e625e12d3634e03b4a5573fd9f6e5d3507 0.0s done
+#11 DONE 0.0s
+
+#12 [pg-client 1/2] FROM docker.io/library/postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+#12 resolve docker.io/library/postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873 0.0s done
+#12 DONE 0.0s
+
+#13 [internal] load build context
+#13 transferring context: 2.27MB 1.1s done
+#13 DONE 1.2s
+
+#14 [frontend-builder 5/8] RUN --mount=type=cache,id=sub2api-pnpm-store,target=/root/.local/share/pnpm/store     if [ -n "" ]; then pnpm config set registry ""; fi &&     pnpm install --frozen-lockfile --prefer-offline
+#14 CACHED
+
+#15 [backend-builder 2/8] RUN apk add --no-cache git ca-certificates tzdata
+#15 CACHED
+
+#16 [backend-builder 3/8] WORKDIR /app/backend
+#16 CACHED
+
+#17 [backend-builder 4/8] COPY backend/go.mod backend/go.sum ./
+#17 CACHED
+
+#18 [frontend-builder 2/8] WORKDIR /app/frontend
+#18 CACHED
+
+#19 [frontend-builder 3/8] RUN corepack enable && corepack prepare pnpm@11.17.0 --activate
+#19 CACHED
+
+#20 [frontend-builder 4/8] COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
+#20 CACHED
+
+#21 [frontend-builder 5/8] RUN --mount=type=cache,id=sub2api-pnpm-store,target=/root/.local/share/pnpm/store     if [ -n "" ]; then pnpm config set registry ""; fi &&     pnpm install --frozen-lockfile --prefer-offline
+#21 CACHED
+
+#22 [backend-builder 5/8] RUN --mount=type=cache,id=sub2api-gomod,target=/go/pkg/mod     go mod download
+#22 CACHED
+
+#23 [backend-builder 6/8] COPY backend/ ./
+#23 DONE 1.4s
+
+#24 [frontend-builder 6/8] COPY frontend/ ./
+#24 DONE 2.8s
+
+#25 [frontend-builder 7/8] COPY docs/legal/ /app/docs/legal/
+#25 DONE 0.1s
+
+#26 [frontend-builder 8/8] RUN pnpm run build
+#26 0.913 ✓ Lockfile passes supply-chain policies (verified 4d ago)
+#26 0.916 Lockfile is up to date, resolution step is skipped
+#26 1.026 Already up to date
+#26 1.401 
+#26 1.419 Done in 866ms using pnpm v11.17.0
+#26 3.595 
+#26 3.595    ╭───────────────────────────────────────────────╮
+#26 3.595    │                                               │
+#26 3.595    │     Update available! 11.17.0 → 12.11.2.      │
+#26 3.595    │     Changelog: https://pnpm.io/v/12.11.2      │
+#26 3.595    │   To update, run: corepack use pnpm@12.11.2   │
+#26 3.595    │                                               │
+#26 3.595    ╰───────────────────────────────────────────────╯
+#26 3.595 
+#26 3.617 $ vue-tsc -b && vite build --config vite.config.ts
+#26 32.43 vite v6.4.3 building for production...
+#26 32.82 transforming...
+#26 46.07 ✓ 1560 modules transformed.
+#26 57.61 rendering chunks...
+#26 57.90 [plugin vite:reporter] 
+#26 57.90 (!) /app/frontend/src/core/stores/appStore.ts is dynamically imported by /app/frontend/src/core/i18n/index.ts but also statically imported by /app/frontend/src/App.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/common/composables/useClipboard.ts, /app/frontend/src/common/pages/HomePage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/common/pages/LegalDocumentPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/common/widgets/data/AnnouncementBell.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/common/widgets/data/GroupBadge.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/common/widgets/data/GroupOptionItem.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/common/widgets/feedback/Toast.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/common/widgets/layout/AppSidebar.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/common/widgets/layout/AuthLayout.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/core/routes/index.ts, /app/frontend/src/core/services/featureFlags.ts, /app/frontend/src/features/activity-center/presentation/pages/ActivityCenterDetailPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/activity-center/presentation/pages/ActivityCenterPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/activity-center/presentation/pages/ActivityRecordsPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/activity-center/presentation/pages/AdminActivityCenterPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-account-inspection/presentation/pages/AccountInspectionPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-account-quality/presentation/pages/AccountQualityPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-accounts/presentation/composables/useAccountOAuth.ts, /app/frontend/src/features/admin-accounts/presentation/composables/useAntigravityOAuth.ts, /app/frontend/src/features/admin-accounts/presentation/composables/useGeminiOAuth.ts, /app/frontend/src/features/admin-accounts/presentation/composables/useGrokOAuth.ts, /app/frontend/src/features/admin-accounts/presentation/composables/useOpenAIOAuth.ts, /app/frontend/src/features/admin-accounts/presentation/pages/AccountsPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-accounts/presentation/widgets/AccountPriorityCell.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-accounts/presentation/widgets/AdminReAuthAccountDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-accounts/presentation/widgets/BulkEditAccountDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-accounts/presentation/widgets/CreateAccountDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-accounts/presentation/widgets/EditAccountDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-accounts/presentation/widgets/HeaderOverrideJsonTools.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-accounts/presentation/widgets/ImportDataDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-accounts/presentation/widgets/ModelWhitelistSelector.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-accounts/presentation/widgets/OllamaCloudUsageSettings.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-accounts/presentation/widgets/ReAuthAccountDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-accounts/presentation/widgets/ScheduledTestsPanel.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-accounts/presentation/widgets/SyncFromCrsDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-accounts/presentation/widgets/TempUnschedStatusDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-channel-monitor/presentation/pages/ChannelMonitorPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-channel-monitor/presentation/widgets/MonitorFormDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-channel-monitor/presentation/widgets/MonitorTemplateApplyPickerDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-channel-monitor/presentation/widgets/MonitorTemplateManagerDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-channels/presentation/pages/ChannelsPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-dashboard/presentation/pages/DashboardPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-egress/presentation/pages/EgressPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-groups/presentation/composables/useCreateGroupController.ts, /app/frontend/src/features/admin-groups/presentation/composables/useEditGroupController.ts, /app/frontend/src/features/admin-groups/presentation/composables/useGroupsListController.ts, /app/frontend/src/features/admin-groups/presentation/widgets/CompositeRoutesDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-groups/presentation/widgets/GroupRPMOverridesDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-groups/presentation/widgets/GroupRateMultipliersDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-ops/presentation/pages/OpsDashboardPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-ops/presentation/widgets/OpsAlertEventsCard.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-ops/presentation/widgets/OpsAlertRulesCard.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-ops/presentation/widgets/OpsErrorDetailDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-ops/presentation/widgets/OpsRequestDetailsDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-ops/presentation/widgets/OpsSettingsDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-ops/presentation/widgets/OpsSystemLogTable.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-orders/presentation/pages/AdminOrdersPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-orders/presentation/pages/AdminPaymentDashboardPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-orders/presentation/pages/AdminPaymentPlansPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-orders/presentation/widgets/PlanEditDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-promo/presentation/pages/PromoCodesPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-proxies/presentation/pages/ProxiesPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-proxies/presentation/widgets/ImportDataDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-redeem/presentation/pages/RedeemPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-risk-control/presentation/pages/RiskControlPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-settings/presentation/composables/useSettingsAdminApiKeys.ts, /app/frontend/src/features/admin-settings/presentation/composables/useSettingsAffiliate.ts, /app/frontend/src/features/admin-settings/presentation/composables/useSettingsGatewayPolicies.ts, /app/frontend/src/features/admin-settings/presentation/composables/useSettingsPage.ts, /app/frontend/src/features/admin-settings/presentation/composables/useSettingsPaymentProviders.ts, /app/frontend/src/features/admin-settings/presentation/composables/useSettingsWebSearch.ts, /app/frontend/src/features/admin-settings/presentation/widgets/AdminComplianceDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-settings/presentation/widgets/EmailTemplateEditor.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-settings/presentation/widgets/ErrorPassthroughRulesDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-settings/presentation/widgets/PanelRateLimitSettingsCard.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-settings/presentation/widgets/TLSFingerprintProfilesDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-settings/presentation/widgets/settings-tabs/SettingsOAuth2ProviderPanel.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-settings/presentation/widgets/settings-tabs/SettingsPermissionGroupsTab.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-subscriptions/presentation/pages/SubscriptionsPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-usage/presentation/pages/UsagePage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-usage/presentation/widgets/UsageCleanupDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-users/presentation/pages/UsersPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-users/presentation/widgets/BulkEditUserDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-users/presentation/widgets/GroupReplaceDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-users/presentation/widgets/UserAllowedGroupsDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-users/presentation/widgets/UserApiKeysDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-users/presentation/widgets/UserAttributesConfigDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-users/presentation/widgets/UserBalanceDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-users/presentation/widgets/UserCreateDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-users/presentation/widgets/UserEditDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/admin-users/presentation/widgets/UserPlatformQuotaDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/affiliate/presentation/pages/AffiliatePage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/affiliate/presentation/widgets/AdminAffiliateRecordsTable.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/announcements/presentation/pages/AnnouncementsPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/announcements/presentation/widgets/AnnouncementReadStatusDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/pages/DingTalkCallbackPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/pages/DingTalkEmailCompletionPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/pages/EmailVerifyPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/pages/ForgotPasswordPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/pages/LinuxDoCallbackPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/pages/LoginPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/pages/OAuthCallbackPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/pages/OidcCallbackPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/pages/RegisterPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/pages/ResetPasswordPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/pages/WechatCallbackPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/widgets/PendingOAuthCreateAccountForm.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/widgets/TotpLoginDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/widgets/TotpStepUpDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/auth/presentation/widgets/WechatOAuthSection.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/batch-image/presentation/composables/useBatchImageGuideController.ts, /app/frontend/src/features/billing/presentation/pages/RedeemPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/channel-monitor-user/presentation/composables/useChannelMonitorFormat.ts, /app/frontend/src/features/channel-monitor-user/presentation/pages/ChannelStatusSharePage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/channel-monitor-user/presentation/widgets/MonitorDetailDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/channels-user/presentation/pages/AvailableChannelsPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/channels-user/presentation/pages/ChannelStatusPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/channels-user/presentation/pages/CustomLandingPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/channels-user/presentation/widgets/AvailableChannelsMobileList.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/channels-user/presentation/widgets/AvailableChannelsTable.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/keys/presentation/pages/KeysPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/model-plaza/presentation/pages/ModelPlazaPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/model-plaza/presentation/widgets/PlazaGroupSection.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/model-plaza/presentation/widgets/PlazaNavBar.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/passkeys/presentation/widgets/ProfilePasskeyCard.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/profile/presentation/pages/ProfilePage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/profile/presentation/widgets/ProfileAvatarCard.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/profile/presentation/widgets/ProfileBalanceNotifyCard.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/profile/presentation/widgets/ProfileEditForm.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/profile/presentation/widgets/ProfileIdentityBindingsSection.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/profile/presentation/widgets/ProfilePasswordForm.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/profile/presentation/widgets/TotpDisableDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/profile/presentation/widgets/TotpSetupDialog.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/prompt-audit/presentation/pages/PromptAuditPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/subscriptions/presentation/pages/SubscriptionsPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/subscriptions/presentation/widgets/SubscriptionPlanCard.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/support-chat/presentation/composables/useSupportBrowserNotifications.ts, /app/frontend/src/features/support-chat/presentation/composables/useSupportUnreadPolling.ts, /app/frontend/src/features/support-chat/presentation/pages/AdminSupportChatPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/support-chat/presentation/pages/SupportChatPage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/support-chat/presentation/widgets/SupportBrowserNotificationButton.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/features/usage/presentation/pages/UsagePage.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/main.ts, /app/frontend/src/stores/index.ts, dynamic import will not move module into another chunk.
+#26 57.90 
+#26 57.90 [plugin vite:reporter] 
+#26 57.90 (!) /app/frontend/src/core/routes/title.ts is dynamically imported by /app/frontend/src/core/i18n/index.ts but also statically imported by /app/frontend/src/App.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/core/routes/index.ts, dynamic import will not move module into another chunk.
+#26 57.90 
+#26 57.90 [plugin vite:reporter] 
+#26 57.90 (!) /app/frontend/src/features/admin-settings/presentation/stores/adminSettingsStore.ts is dynamically imported by /app/frontend/src/core/i18n/index.ts but also statically imported by /app/frontend/src/App.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/common/widgets/layout/AppHeader.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/common/widgets/layout/AppSidebar.vue?vue&type=script&setup=true&lang.ts, /app/frontend/src/core/routes/index.ts, /app/frontend/src/features/admin-settings/adminSettingsStore.ts, /app/frontend/src/features/admin-settings/presentation/composables/useSettingsPage.ts, dynamic import will not move module into another chunk.
+#26 57.90 
+#26 57.90 [plugin vite:reporter] 
+#26 57.90 (!) /app/frontend/src/core/routes/index.ts is dynamically imported by /app/frontend/src/core/i18n/index.ts but also statically imported by /app/frontend/src/main.ts, dynamic import will not move module into another chunk.
+#26 57.90 
+#26 58.06 computing gzip size...
+#26 58.11 ../backend/internal/transport/webassets/dist/index.html                                                                           0.82 kB │ gzip:   0.41 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/GroupOptionItem-FGxwoQeA.css                                                  0.07 kB │ gzip:   0.09 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/Pagination-D-j2qL74.css                                                       0.11 kB │ gzip:   0.11 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/EmailVerifyPage-DsC4X5xZ.css                                                  0.20 kB │ gzip:   0.14 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/LinuxDoCallbackPage-rXKv07pW.css                                              0.20 kB │ gzip:   0.14 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/WechatCallbackPage-BpBft-C2.css                                               0.20 kB │ gzip:   0.14 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/DingTalkCallbackPage-DMSSyOPq.css                                             0.20 kB │ gzip:   0.14 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/OidcCallbackPage-C8jRhGck.css                                                 0.20 kB │ gzip:   0.14 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/PendingOAuthCreateAccountForm-ujvp9LKY.css                                    0.20 kB │ gzip:   0.14 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/ForgotPasswordPage-CyOd_TOg.css                                               0.20 kB │ gzip:   0.14 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/ResetPasswordPage-CpEe4Vn5.css                                                0.20 kB │ gzip:   0.14 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/RegisterPage-fpfFo4g4.css                                                     0.20 kB │ gzip:   0.14 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/RedeemPage-C1Zwuk7b.css                                                       0.20 kB │ gzip:   0.14 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/LoginPage-Bu62WSUV.css                                                        0.20 kB │ gzip:   0.14 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/UsersPage-DDQH6LOQ.css                                                        0.21 kB │ gzip:   0.13 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/LocaleSwitcher-D7uZ_grO.css                                                   0.23 kB │ gzip:   0.15 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AccountInspectionPage-CJg8XbKw.css                                            0.23 kB │ gzip:   0.17 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/ModelWhitelistSelector-Bovp6fik.css                                           0.25 kB │ gzip:   0.20 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/LoadingSpinner-1lDfrnxf.css                                                   0.27 kB │ gzip:   0.20 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/ActivityCenterPage-CYeM4QEU.css                                               0.33 kB │ gzip:   0.16 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/GroupsPage-YLF9XuyZ.css                                                       0.41 kB │ gzip:   0.15 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AuthLayout-BZ7pqudw.css                                                       0.42 kB │ gzip:   0.21 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AccountQualityPage-pXimz_jp.css                                               0.43 kB │ gzip:   0.25 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/LoginAgreementPrompt-CRCvDOtC.css                                             0.51 kB │ gzip:   0.18 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/OpsDashboardPage-BNoWYui_.css                                                 0.56 kB │ gzip:   0.25 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/BatchImageGuidePage-CDQP2HXf.css                                              0.66 kB │ gzip:   0.30 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AnnouncementPopup-C9cMxyAg.css                                                0.84 kB │ gzip:   0.32 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AccountsPage-BufhzMnw.css                                                     1.07 kB │ gzip:   0.45 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/SubscriptionsPage-DY_YIG-w.css                                                1.22 kB │ gzip:   0.45 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AccountQualitySharePage-CK5et7HJ.css                                          1.25 kB │ gzip:   0.46 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/HumanVerificationWidget-DlHuDM34.css                                          1.40 kB │ gzip:   0.50 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/KeyUsagePage-o1kck5xN.css                                                     1.47 kB │ gzip:   0.56 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/ChannelsPage-DMSDpgDv.css                                                     1.77 kB │ gzip:   0.58 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AdminComplianceDialog-Cci_kDwn.css                                            1.91 kB │ gzip:   0.37 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/SupportMessageList-DHVCWXjl.css                                               2.03 kB │ gzip:   0.54 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/HomePage-CNjx36yD.css                                                         2.56 kB │ gzip:   0.91 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/vendor-onboarding-CTZuBZOi.css                                                3.04 kB │ gzip:   0.97 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/DataTable-39qE_9UT.css                                                        3.24 kB │ gzip:   0.77 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/TablePageLayout-BcCQbd-k.css                                                  3.52 kB │ gzip:   0.83 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/LegalDocumentPage-_4qSZLXR.css                                                4.87 kB │ gzip:   0.85 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/ModelPlazaPage-BEaA_cpi.css                                                   5.03 kB │ gzip:   1.02 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/SettingsPage-CFPMcbrS.css                                                     6.09 kB │ gzip:   1.54 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/announcement-markdown-CUniKqBZ.css                                            8.26 kB │ gzip:   1.54 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/TokenUsageTrend-CIbvRRlj.css                                                  8.85 kB │ gzip:   1.40 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/ProxySelector-CR-kR0I1.css                                                    9.02 kB │ gzip:   1.41 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/Select-CYrRNmdv.css                                                           9.63 kB │ gzip:   1.51 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AppHeader-CoGhakwX.css                                                       10.49 kB │ gzip:   2.09 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/MediaStudioPage-QRG5RGlt.css                                                 10.50 kB │ gzip:   1.28 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/CustomLandingPage-DOzs7hmf.css                                               11.47 kB │ gzip:   2.06 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/index-BEOLIW67.css                                                          270.50 kB │ gzip:  35.86 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/maskApiKey-ClKV8GuA.js                                                        0.11 kB │ gzip:   0.11 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/stableObjectKey-DullU5Fx.js                                                   0.15 kB │ gzip:   0.14 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/enumLocale-BmAai25m.js                                                        0.16 kB │ gzip:   0.16 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/paymentMethods-Blz48iUk.js                                                    0.18 kB │ gzip:   0.14 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/groupsUserDatasource-DRD5tn1i.js                                              0.25 kB │ gzip:   0.18 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/peak-rate-qZGUWdry.js                                                         0.28 kB │ gzip:   0.21 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/channel-DxyNqB5O.js                                                           0.32 kB │ gzip:   0.26 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/pendingRegistrationCredentials-BKuTlQOu.js                                    0.38 kB │ gzip:   0.23 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/authVerificationActions-wkyuI9PA.js                                           0.53 kB │ gzip:   0.22 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/vendor-table-CT_UJ1D9.js                                                      0.54 kB │ gzip:   0.35 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/supportBrowserNotificationContent-CFyvrKQv.js                                 0.63 kB │ gzip:   0.32 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/totpDatasource-DCQcs7dp.js                                                    0.67 kB │ gzip:   0.25 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/ingressRiskDatasource-B0kAtUf7.js                                             0.70 kB │ gzip:   0.28 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/bodyScrollLock-D0PPFs43.js                                                    0.77 kB │ gzip:   0.37 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/SearchInput.vue_vue_type_script_setup_true_lang-Btqpv7yZ.js                   0.80 kB │ gzip:   0.49 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/opsErrorQueries-Dm0vgG-3.js                                                   0.82 kB │ gzip:   0.28 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/LoadingSpinner-ByQi6Txe.js                                                    0.82 kB │ gzip:   0.51 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/paymentLocale-CGteJrZx.js                                                     0.89 kB │ gzip:   0.34 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/paymentDatasource-DyPYlK15.js                                                 0.90 kB │ gzip:   0.36 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/Toggle.vue_vue_type_script_setup_true_lang-DK9-t7jl.js                        0.92 kB │ gzip:   0.53 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/useClipboard-ByQryooA.js                                                      0.92 kB │ gzip:   0.57 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/adminUsageDatasource-CkIllfvn.js                                              0.99 kB │ gzip:   0.38 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/useTableSelection-BoTa6Cf0.js                                                 0.99 kB │ gzip:   0.47 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/index-DfV-TujF.js                                                             1.00 kB │ gzip:   0.46 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/featureFlags-QD1kwdxo.js                                                      1.01 kB │ gzip:   0.45 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/adminPaymentActions-Cse_Pzu6.js                                               1.01 kB │ gzip:   0.31 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/credentialEncryptionFallback-LuqegFiL.js                                      1.05 kB │ gzip:   0.63 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/oauthAffiliate-BoXGHKWe.js                                                    1.12 kB │ gzip:   0.52 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/paymentDisplay-C1_ERkRx.js                                                    1.13 kB │ gzip:   0.65 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/useStepUp-BSVvZYnz.js                                                         1.19 kB │ gzip:   0.69 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/adminClusterDatasource-CoyyJDuG.js                                            1.19 kB │ gzip:   0.40 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/paymentStore-Db4ncEF5.js                                                      1.19 kB │ gzip:   0.59 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/apiError-BcAuv_LF.js                                                          1.21 kB │ gzip:   0.57 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/usePersistedPageSize-YOFEETlv.js                                              1.23 kB │ gzip:   0.62 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/apiKeysDatasource-uo-YcdYn.js                                                 1.30 kB │ gzip:   0.45 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/TablePageLayout-CuCC0JDd.js                                                   1.31 kB │ gzip:   0.62 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/adminAffiliatesDatasource-KcLPfXD4.js                                         1.39 kB │ gzip:   0.47 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/activityCenterText-Bc8SGfBh.js                                                1.42 kB │ gzip:   0.56 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/adminDashboardDatasource-DHl6jZ89.js                                          1.45 kB │ gzip:   0.41 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AdminAffiliateInvitesPage-CK76a5HE.js                                         1.48 kB │ gzip:   0.66 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AdminAffiliateRebatesPage-CFCYdiRw.js                                         1.48 kB │ gzip:   0.66 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AdminAffiliateTransfersPage-18X0V-gx.js                                       1.49 kB │ gzip:   0.67 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/registrationEmailPolicy-H5rlCSwg.js                                           1.56 kB │ gzip:   0.70 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/ConfirmDialog.vue_vue_type_script_setup_true_lang-CSLC2gb3.js                 1.58 kB │ gzip:   0.77 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/subscriptionStatus-DlyJ0DKE.js                                                1.69 kB │ gzip:   0.68 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/EmptyState.vue_vue_type_script_setup_true_lang-B1iUO_wZ.js                    1.71 kB │ gzip:   0.93 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/paymentUxSignals-jsAlGI-0.js                                                  1.81 kB │ gzip:   0.75 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/profileDatasource-tH3zcprI.js                                                 1.84 kB │ gzip:   0.77 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AuthLayout-DYBubuVw.js                                                        2.01 kB │ gzip:   1.05 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/adminGroupQueries-CUI0W2cV.js                                                 2.11 kB │ gzip:   0.71 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/useKeyedDebouncedSearch-BjiH_tQo.js                                           2.13 kB │ gzip:   0.82 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/OrderStatusBadge.vue_vue_type_script_setup_true_lang-DA57Mhk3.js              2.15 kB │ gzip:   0.69 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/mediaStudio-CHfJaZe_.js                                                       2.18 kB │ gzip:   1.25 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/usageDatasource-DICkloB7.js                                                   2.20 kB │ gzip:   0.70 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/Input.vue_vue_type_script_setup_true_lang-DxQ0T_Jm.js                         2.21 kB │ gzip:   1.05 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/modelCapabilityCache-JKKq2XJD.js                                              2.24 kB │ gzip:   0.89 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/mediaStudio-DFTTBjg2.js                                                       2.26 kB │ gzip:   1.03 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/adminGroupActions-DDCUcrNw.js                                                 2.36 kB │ gzip:   0.88 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/LocaleSwitcher-DA7styu3.js                                                    2.37 kB │ gzip:   1.19 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/NotFoundPage-DyA6BT2r.js                                                      2.51 kB │ gzip:   1.23 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/WechatPaymentCallbackPage-CqO_01C7.js                                         2.56 kB │ gzip:   1.29 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/adminAccountQueries-A7m3dz_0.js                                               2.63 kB │ gzip:   0.82 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/vendor-export-D_pqVeD8.js                                                     2.66 kB │ gzip:   1.28 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/HelpTooltip.vue_vue_type_script_setup_true_lang-BJv6aUFi.js                   2.84 kB │ gzip:   1.35 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/OrderTable.vue_vue_type_script_setup_true_lang-BAzwRW9k.js                    2.85 kB │ gzip:   1.18 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/adminUsersDatasource-B_fleuKS.js                                              2.96 kB │ gzip:   1.00 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/rechargeBonus-Cjpd3isk.js                                                     2.99 kB │ gzip:   1.14 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/wxpay-UHDvuORB.js                                                             2.99 kB │ gzip:   1.29 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/DingTalkEmailCompletionPage-wfFM504j.js                                       3.01 kB │ gzip:   1.43 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/GroupSelector.vue_vue_type_script_setup_true_lang-BarrJXm4.js                 3.25 kB │ gzip:   1.48 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/vendor-vueuse-CHpQ7v9A.js                                                     3.29 kB │ gzip:   1.59 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/vendor-stripe-DHoWwf4u.js                                                     3.31 kB │ gzip:   1.52 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/GroupOptionItem-CyMlenY0.js                                                   3.32 kB │ gzip:   1.49 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/authOAuthActions-CbM6tG1n.js                                                  3.34 kB │ gzip:   1.02 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/BaseDialog.vue_vue_type_script_setup_true_lang-D6Dg_sUv.js                    3.69 kB │ gzip:   1.68 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/activityCenter-B9QMRmzV.js                                                    3.71 kB │ gzip:   1.88 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/providerConfigSignals-DjhlsBzr.js                                             3.73 kB │ gzip:   1.27 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/activityCenter-CgJ4PPms.js                                                    3.84 kB │ gzip:   1.61 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AirwallexPaymentPage-D7_EEXc-.js                                              4.00 kB │ gzip:   1.88 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/format-CinpW_Gt.js                                                            4.17 kB │ gzip:   1.61 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/StripePopupPage-CnJCgwgQ.js                                                   4.19 kB │ gzip:   1.86 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/paymentFlowResolver-DhBXlY5v.js                                               4.28 kB │ gzip:   1.53 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/ChannelStatusPage-Chi6XXJP.js                                                 4.34 kB │ gzip:   1.88 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/index-xB9pKsz4.js                                                             4.39 kB │ gzip:   2.04 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/opsSettingsQueries-bBl38ajD.js                                                4.42 kB │ gzip:   0.96 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/OAuth2AuthorizePage-IDdbTU_u.js                                               4.54 kB │ gzip:   1.83 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AdminComplianceDialog-BXaYfjsB.js                                             4.94 kB │ gzip:   2.16 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/ActivityRecordsPage-B_w2sL4e.js                                               5.12 kB │ gzip:   2.05 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/ChannelStatusSharePage-C-hKCQm9.js                                            5.13 kB │ gzip:   2.29 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/PaymentQRCodePage-Bm24YIsA.js                                                 5.15 kB │ gzip:   2.28 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AnnouncementPopup-CRGoDbRQ.js                                                 5.27 kB │ gzip:   2.19 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/supportChat-Ddzw80i-.js                                                       5.33 kB │ gzip:   2.71 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/supportChat-B63E0iC3.js                                                       5.46 kB │ gzip:   2.22 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/LegalDocumentPage-gDrNffE3.js                                                 5.60 kB │ gzip:   2.23 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/GroupBadge.vue_vue_type_script_setup_true_lang-BoZe0upB.js                    5.74 kB │ gzip:   1.84 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/Pagination-C-Bn5id2.js                                                        5.80 kB │ gzip:   2.02 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/ProxySelector-DP_Tiw1y.js                                                     6.03 kB │ gzip:   2.36 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/landing-BOpieeWp.js                                                           6.10 kB │ gzip:   3.15 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/landing-C8MfIJly.js                                                           6.28 kB │ gzip:   2.68 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/ModelTagInput.vue_vue_type_script_setup_true_lang-BJ-4St9E.js                 6.52 kB │ gzip:   2.44 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/ForgotPasswordPage-CMTnpZOH.js                                                6.80 kB │ gzip:   2.80 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/UserOrdersPage-D8_7Qxwo.js                                                    6.84 kB │ gzip:   2.52 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/PendingOAuthCreateAccountForm-D4xi8mKy.js                                     6.95 kB │ gzip:   2.55 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/ActivityCenterPage-CTYVg_mx.js                                                7.47 kB │ gzip:   2.89 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/Select-BKrq38G3.js                                                            7.61 kB │ gzip:   3.01 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/SupportChatPage-DM-_vY-m.js                                                   7.68 kB │ gzip:   3.30 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/EndpointDistributionChart.vue_vue_type_script_setup_true_lang-BX-jnwR1.js     7.77 kB │ gzip:   2.70 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/ResetPasswordPage-Bc4wHx8D.js                                                 7.82 kB │ gzip:   2.60 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AffiliatePage-BEcXtug0.js                                                     8.64 kB │ gzip:   2.72 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/errorBadges-BD-JfPzs.js                                                       8.80 kB │ gzip:   3.33 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/TokenUsageTrend.vue_vue_type_script_setup_true_lang-D7sk7eTX.js               8.81 kB │ gzip:   3.30 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/adminAccountsDatasource-DEznojSU.js                                           8.83 kB │ gzip:   2.50 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/platformColors-CaBqjUfd.js                                                    8.86 kB │ gzip:   1.76 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/PlatformIcon.vue_vue_type_script_setup_true_lang-gCtmANsz.js                  8.90 kB │ gzip:   3.73 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/UserBalanceHistoryDialog.vue_vue_type_script_setup_true_lang-DadKO5l2.js      9.14 kB │ gzip:   3.23 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/batchImage-DzuLlM7X.js                                                       10.10 kB │ gzip:   4.35 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/OAuthCallbackPage-ChjRjtwK.js                                                10.18 kB │ gzip:   3.30 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/StripePaymentPage-CgQLjsRf.js                                                10.19 kB │ gzip:   4.11 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/PaymentResultPage-BHBB3gWL.js                                                10.24 kB │ gzip:   3.30 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/SubscriptionsPage-2gGQA5Ir.js                                                10.28 kB │ gzip:   3.24 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/batchImage-CGU_C6Pi.js                                                       11.06 kB │ gzip:   3.97 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AdminPaymentDashboardPage-B1iWnWrM.js                                        11.11 kB │ gzip:   3.64 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AdminAffiliateRecordsTable.vue_vue_type_script_setup_true_lang-BVepOzRs.js   11.30 kB │ gzip:   3.47 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/CustomLandingPage-CFzUwzuU.js                                                11.74 kB │ gzip:   4.95 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/RedeemPage-B301iO9q.js                                                       11.83 kB │ gzip:   3.89 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/vendor-airwallex-DhgvLXIB.js                                                 12.09 kB │ gzip:   4.29 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/EmailVerifyPage-Bdf28dd9.js                                                  12.87 kB │ gzip:   4.75 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/ProviderIcon.vue_vue_type_script_setup_true_lang-y8RSwQFk.js                 13.21 kB │ gzip:   4.78 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/admin-compliance.en-BeJzuJ2b.js                                              13.48 kB │ gzip:   5.49 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/ModelDistributionChart.vue_vue_type_script_setup_true_lang-BlRyPYUp.js       14.52 kB │ gzip:   4.12 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/LinuxDoCallbackPage-DHm-2JbL.js                                              14.72 kB │ gzip:   4.42 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/OidcCallbackPage-CCaxklzq.js                                                 14.91 kB │ gzip:   4.47 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/DingTalkCallbackPage-oUFFmxKg.js                                             15.23 kB │ gzip:   4.54 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/DataTable-DYuDl0yG.js                                                        15.68 kB │ gzip:   5.32 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/SetupWizardPage-DFTFS_I1.js                                                  15.85 kB │ gzip:   3.96 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AdminPaymentPlansPage-BvIZ88K5.js                                            16.09 kB │ gzip:   5.01 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/LoginAgreementPrompt-BMwpjl1U.js                                             16.30 kB │ gzip:   5.69 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/HumanVerificationWidget-C1UPc0Z3.js                                          16.66 kB │ gzip:   5.99 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/DashboardPage-BoxzgR3_.js                                                    17.48 kB │ gzip:   5.08 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/PromoCodesPage-BC8TZZnF.js                                                   17.65 kB │ gzip:   5.22 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/proxyExpiry-Cg1d6OPx.js                                                      18.29 kB │ gzip:   6.21 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/StateDiagnosticsPage-QoiUtaw6.js                                             18.95 kB │ gzip:   5.53 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/WechatCallbackPage-mX-c6l4Z.js                                               19.04 kB │ gzip:   5.43 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AuditLogPage-CwW2f1pr.js                                                     19.13 kB │ gzip:   5.62 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AccountQualitySharePage-B5zVaUE3.js                                          19.87 kB │ gzip:   6.03 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/LoginPage-D2cGfdd8.js                                                        19.99 kB │ gzip:   7.19 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/common-Dc6YW5KE.js                                                           21.36 kB │ gzip:   8.35 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/HomePage-IQ2CluSr.js                                                         21.75 kB │ gzip:   5.74 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AvailableChannelsPage-ULcYzaS-.js                                            21.82 kB │ gzip:   5.89 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AdminOrdersPage-61NgQVEj.js                                                  21.92 kB │ gzip:   5.98 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/RegisterPage-Ku121UGQ.js                                                     22.14 kB │ gzip:   6.50 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/useAutoRefresh-DiNHsMi5.js                                                   22.16 kB │ gzip:   7.09 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/common-EtuCWvOm.js                                                           23.29 kB │ gzip:   7.54 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AccountInspectionPage-B425hWuD.js                                            24.18 kB │ gzip:   6.60 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AccountQualityPage-Df_KINkF.js                                               24.53 kB │ gzip:   6.48 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/ModelPlazaPage-BmS_qyl9.js                                                   25.21 kB │ gzip:   6.96 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/vendor-qrcode-tm1kgRN1.js                                                    25.41 kB │ gzip:   9.98 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/vendor-onboarding-D8L7OIze.js                                                26.12 kB │ gzip:   7.50 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/OpsErrorLogTable.vue_vue_type_script_setup_true_lang-j5JRfybp.js             26.41 kB │ gzip:   7.44 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/ActivityCenterDetailPage-CZx8mr-M.js                                         26.70 kB │ gzip:   7.64 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AnnouncementsPage-B15GOs6t.js                                                27.95 kB │ gzip:   7.75 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AdminSupportChatPage-D4dzeDE5.js                                             27.99 kB │ gzip:   8.75 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/SupportMessageList-9n31gFxc.js                                               28.00 kB │ gzip:   9.05 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/index-FYuFPK_b.js                                                            28.82 kB │ gzip:   7.60 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/UsagePage-BJ8y9qUp.js                                                        29.86 kB │ gzip:   9.15 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/CustomModelConfigPage-B5ZI3FKO.js                                            29.95 kB │ gzip:   7.38 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/RedeemPage-BQuEFlk6.js                                                       30.76 kB │ gzip:   8.50 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/KeyUsagePage-BRKetBxX.js                                                     31.70 kB │ gzip:   8.32 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/DashboardPage-BWl092nc.js                                                    32.15 kB │ gzip:   8.88 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/misc-DU81tCqc.js                                                             33.72 kB │ gzip:  10.33 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/misc-CcPmaqV6.js                                                             34.92 kB │ gzip:   9.68 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/dashboard-x-lSrisf.js                                                        37.03 kB │ gzip:  14.32 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/SubscriptionsPage-8aUiqTcr.js                                                37.32 kB │ gzip:   9.86 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/dashboard-DaDYPQxP.js                                                        38.47 kB │ gzip:  12.82 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/MultiInstancePage-Qd06RZP7.js                                                38.92 kB │ gzip:   9.57 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/EgressPage-DRbYGtFX.js                                                       41.63 kB │ gzip:  10.36 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/vendor-dragdrop-Du9RkeRV.js                                                  42.22 kB │ gzip:  14.91 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/IngressRiskPage-DrNFqTYA.js                                                  45.76 kB │ gzip:  10.47 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AdminActivityCenterPage-Clbe-7j5.js                                          49.60 kB │ gzip:  12.77 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/UsagePage-BmYChLHY.js                                                        50.19 kB │ gzip:  14.60 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/vendor-http-BCn5QfZZ.js                                                      51.44 kB │ gzip:  19.49 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/MediaStudioPage-BWtwgq9j.js                                                  58.15 kB │ gzip:  17.80 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/ChannelsPage-DlXnw_Na.js                                                     59.07 kB │ gzip:  14.67 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/ChannelMonitorPage-BVezLOPB.js                                               61.14 kB │ gzip:  15.45 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/ProxiesPage-DUJwqLdu.js                                                      62.60 kB │ gzip:  16.72 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/PaymentPage-M5jdsMK2.js                                                      62.96 kB │ gzip:  18.77 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/vendor-i18n-Dask6AFl.js                                                      63.33 kB │ gzip:  20.34 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/ModelWhitelistSelector.vue_vue_type_script_setup_true_lang-BQwUgjpi.js       66.31 kB │ gzip:  22.46 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/ProfilePage-BF97ts5k.js                                                      67.35 kB │ gzip:  17.25 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/GroupDistributionChart.vue_vue_type_script_setup_true_lang-BIl0Tuoc.js       68.31 kB │ gzip:  16.94 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/PromptAuditPage-CObSpo9-.js                                                  71.11 kB │ gzip:  17.44 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/vendor-markdown-B7-Q_RiX.js                                                  71.13 kB │ gzip:  23.84 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/BatchImageGuidePage-zhpSRA-7.js                                              81.45 kB │ gzip:  24.57 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/RiskControlPage-C_FPPM39.js                                                  87.10 kB │ gzip:  19.93 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/KeysPage-fvRvrjhy.js                                                        104.04 kB │ gzip:  27.03 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AppLayout.vue_vue_type_script_setup_true_lang-uPiUkIjA.js                   104.64 kB │ gzip:  27.79 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/vendor-vue-DkolTuS1.js                                                      116.36 kB │ gzip:  45.23 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/UsersPage-BRtZiFR3.js                                                       117.21 kB │ gzip:  29.69 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/index-p0vyVBj3.js                                                           130.00 kB │ gzip:  40.17 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/GroupsPage-BDY_MwST.js                                                      178.04 kB │ gzip:  39.95 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/vendor-chart-Bac0Z5il.js                                                    178.43 kB │ gzip:  61.39 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/vendor-misc-CObdS01s.js                                                     222.95 kB │ gzip:  77.82 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/OpsDashboardPage-C_GHej37.js                                                253.60 kB │ gzip:  53.86 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/vendor-credential-crypto-CWkc-NaG.js                                        287.69 kB │ gzip:  77.89 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/index-jDwAoy4y.js                                                           334.59 kB │ gzip: 116.03 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/index-CD1uSutI.js                                                           348.58 kB │ gzip: 107.55 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/vendor-xlsx-BGhuli8m.js                                                     500.06 kB │ gzip: 163.12 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/SettingsPage-HVpK2DIb.js                                                    518.79 kB │ gzip: 105.67 kB
+#26 58.11 ../backend/internal/transport/webassets/dist/assets/AccountsPage-C-1M83CK.js                                                    858.37 kB │ gzip: 188.01 kB
+#26 58.11 
+#26 58.11 (!) Some chunks are larger than 500 kB after minification. Consider:
+#26 58.11 - Using dynamic import() to code-split the application
+#26 58.11 - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+#26 58.11 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+#26 58.11 ✓ built in 25.66s
+#26 DONE 58.5s
+
+#27 [backend-builder 7/8] COPY --from=frontend-builder /app/backend/internal/transport/webassets/dist ./internal/transport/webassets/dist
+#27 DONE 0.1s
+
+#28 [backend-builder 8/8] RUN --mount=type=cache,id=sub2api-gomod,target=/go/pkg/mod     --mount=type=cache,id=sub2api-gobuild,target=/root/.cache/go-build     VERSION_VALUE="" &&     if [ -z "${VERSION_VALUE}" ]; then VERSION_VALUE="$(./scripts/resolve-version.sh)"; fi &&     DATE_VALUE="${DATE:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}" &&     CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build     -tags embed     -ldflags="-s -w -X main.Version=${VERSION_VALUE} -X main.Commit=upstream-sync-20261012-final -X main.Date=${DATE_VALUE} -X main.BuildType=release"     -trimpath     -o /app/sub2api     ./cmd/server
+#28 DONE 14.3s
+
+#29 [runtime  6/12] RUN addgroup -g 1000 sub2api && adduser -u 1000 -G sub2api -s /bin/sh -D sub2api
+#29 CACHED
+
+#30 [runtime  3/12] COPY --from=pg-client /usr/local/bin/pg_dump /usr/local/bin/pg_dump
+#30 CACHED
+
+#31 [runtime  4/12] COPY --from=pg-client /usr/local/bin/psql /usr/local/bin/psql
+#31 CACHED
+
+#32 [runtime  2/12] RUN apk add --no-cache ca-certificates tzdata curl su-exec libpq zstd-libs lz4-libs krb5-libs libldap libedit     && rm -rf /var/cache/apk/*
+#32 CACHED
+
+#33 [pg-client 2/2] RUN mkdir -p /client && cp /usr/local/bin/pg_dump /usr/local/bin/psql /client/     && cp /usr/local/lib/libpq.so.5 /client/libpq.so.5
+#33 CACHED
+
+#34 [runtime  5/12] COPY --from=pg-client /usr/local/lib/libpq.so.5* /usr/local/lib/
+#34 CACHED
+
+#35 [runtime  7/12] WORKDIR /app
+#35 CACHED
+
+#36 [runtime  8/12] COPY --from=backend-builder --chown=sub2api:sub2api /app/sub2api /app/sub2api
+#36 DONE 0.3s
+
+#37 [runtime  9/12] COPY --from=backend-builder --chown=sub2api:sub2api /app/backend/resources /app/resources
+#37 DONE 0.0s
+
+#38 [runtime 10/12] RUN mkdir -p /app/data && chown sub2api:sub2api /app /app/data
+#38 DONE 0.1s
+
+#39 [runtime 11/12] COPY deploy/docker-entrypoint.sh /app/docker-entrypoint.sh
+#39 DONE 0.0s
+
+#40 [runtime 12/12] RUN chmod +x /app/docker-entrypoint.sh
+#40 DONE 0.1s
+
+#41 exporting to image
+#41 exporting layers
+#41 exporting layers 2.2s done
+#41 exporting manifest sha256:cd7d516f1517cfc5d5981c3b4a19cd1a8d3ace74a294e863aee9bdfb01a51384
+#41 exporting manifest sha256:cd7d516f1517cfc5d5981c3b4a19cd1a8d3ace74a294e863aee9bdfb01a51384 done
+#41 exporting config sha256:ae3b204cb19c287b28e606656cef3a29c709a0e56eff21828f3bf8f11101d250 done
+#41 exporting attestation manifest sha256:c5a92a2c78f6aee00c9716e8da47502de1301f565f55e383750158b8c7e1ea77 0.0s done
+#41 exporting manifest list sha256:99d0dd877eb8d8780fbee7305614ffb4dddb9c8ccf30f3ac0572f4d911ec1294 done
+#41 naming to docker.io/library/sub2api-upstream-sync:20261012-final done
+#41 unpacking to docker.io/library/sub2api-upstream-sync:20261012-final
+#41 unpacking to docker.io/library/sub2api-upstream-sync:20261012-final 0.3s done
+#41 DONE 2.5s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/jj2kfve90hirl3sbycnr2vvxl
+STDERR_END
+
+EVENT: final-runtime-complete-valid
+COMMAND_JSON: ["python3", "diagnostics/upstream-sync-20261012/runtime_check.py"]
+CWD: /private/tmp/sub2api-upstream-sync-20261012-cbj09nx5
+INPUT: exact repository sources and committed fixtures
+EXIT_STATUS: 0
+STDOUT_SHA256: 4e92022aea55e246b1da4c142978093ded34fbef7c680f7f03623a833ca45a2d
+STDERR_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+STDOUT_BEGIN
+baseline: readiness/frontend/encrypted-login/persisted-key/legacy-order/data-snapshot PASS
+baseline: group default/admin/user locale and mixed-version writer PASS
+upgraded: readiness/frontend/encrypted-login/persisted-key/legacy-order/data-snapshot PASS
+upgraded: group default/admin/user locale and mixed-version writer PASS
+rollback: readiness/frontend/encrypted-login/persisted-key/legacy-order/data-snapshot PASS
+rollback: group default/admin/user locale and mixed-version writer PASS
+restored: readiness/frontend/encrypted-login/persisted-key/legacy-order/data-snapshot PASS
+restored: group default/admin/user locale and mixed-version writer PASS
+STDOUT_END
+STDERR_BEGIN
+STDERR_END
+
+EVENT: ui-baseline-final
+COMMAND_JSON: ["docker", "exec", "sub2api-sync-ui-baseline-20261012", "node", "/app/frontend/sync-harness/browser.mjs", "BASELINE"]
+CWD: /private/tmp/sub2api-upstream-sync-20261012-cbj09nx5
+INPUT: exact repository sources and committed fixtures
+EXIT_STATUS: 0
+STDOUT_SHA256: d54beb26b1f18d8a291b8b0732c7e7b727bcb8141fd80177b375c0c505eae7f6
+STDERR_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+STDOUT_BEGIN
+BASELINE: browser cases=6; clipping=true; mobile overflow=false; +2 visibility=false; translation edit=not-present
+STDOUT_END
+STDERR_BEGIN
+STDERR_END
+
+EVENT: ui-modified-final
+COMMAND_JSON: ["docker", "exec", "sub2api-sync-ui-candidate-20261012", "node", "/app/frontend/sync-harness/browser.mjs", "MODIFIED"]
+CWD: /private/tmp/sub2api-upstream-sync-20261012-cbj09nx5
+INPUT: exact repository sources and committed fixtures
+EXIT_STATUS: 0
+STDOUT_SHA256: 8a63778f04cb068310c719dd4ff42386363fb5ff244347db9cd1e2659b17e0e9
+STDERR_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+STDOUT_BEGIN
+MODIFIED: browser cases=7; clipping=false; mobile overflow=false; +2 visibility=true; translation edit=PASS
+STDOUT_END
+STDERR_BEGIN
+STDERR_END
+
+EVENT: ui-rollback-final
+COMMAND_JSON: ["docker", "exec", "sub2api-sync-ui-rollback-20261012", "node", "/app/frontend/sync-harness/browser.mjs", "ROLLBACK"]
+CWD: /private/tmp/sub2api-upstream-sync-20261012-cbj09nx5
+INPUT: exact repository sources and committed fixtures
+EXIT_STATUS: 0
+STDOUT_SHA256: 9a6133d6ff564b86ce4fa35f0951ca9592ffbd63dd93b42e7aa55c1c49874e3a
+STDERR_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+STDOUT_BEGIN
+ROLLBACK: browser cases=6; clipping=true; mobile overflow=false; +2 visibility=false; translation edit=not-present
+STDOUT_END
+STDERR_BEGIN
+STDERR_END
+
+EVENT: frontend-lint-final
+COMMAND_JSON: ["docker", "run", "--rm", "-v", "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/frontend:/workspace", "-v", "sub2api-pnpm-store-20261009:/root/.local/share/pnpm/store", "-w", "/workspace", "node:24-bookworm-slim", "sh", "-c", "corepack enable && corepack prepare pnpm@11.17.0 --activate && pnpm install --frozen-lockfile --prefer-offline && pnpm run lint:check"]
+CWD: /private/tmp/sub2api-upstream-sync-20261012-cbj09nx5
+INPUT: exact repository sources and committed fixtures
+EXIT_STATUS: 0
+STDOUT_SHA256: 354537f8e4013c1546ebd00d41c2be42c3287afdba04cc57d0352131333f9b42
+STDERR_SHA256: 050c69da23536758722729aeda55a8d0fb9d557495ef6d33d70873a3b64a71c1
+STDOUT_BEGIN
+Preparing pnpm@11.17.0 for immediate activation...
+Already up to date
+Done in 302ms using pnpm v11.17.0
+STDOUT_END
+STDERR_BEGIN
+$ eslint .
+STDERR_END
+
+EVENT: golangci-final
+COMMAND_JSON: ["docker", "run", "--rm", "-e", "GOMAXPROCS=2", "-e", "GOFLAGS=-p=2", "-e", "GOMEMLIMIT=1600MiB", "-v", "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/backend:/workspace", "-v", "sub2api-golangci-cache-20261009:/root/.cache", "-w", "/workspace", "golangci/golangci-lint:v2.9.0", "golangci-lint", "run", "--timeout=30m", "./..."]
+CWD: /private/tmp/sub2api-upstream-sync-20261012-cbj09nx5
+INPUT: exact repository sources and committed fixtures
+EXIT_STATUS: 0
+STDOUT_SHA256: e92606b0bf483111dff0a120c315ea165821348f31365020e2468a0059095c47
+STDERR_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+STDOUT_BEGIN
+0 issues.
+STDOUT_END
+STDERR_BEGIN
+STDERR_END
+
+EVENT: final-golangci
+COMMAND_JSON: ["docker", "run", "--rm", "-e", "GOMAXPROCS=2", "-e", "GOFLAGS=-p=2", "-e", "GOMEMLIMIT=1600MiB", "-v", "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/backend:/workspace", "-v", "sub2api-golangci-cache-20261009:/root/.cache", "-w", "/workspace", "golangci/golangci-lint:v2.9.0", "golangci-lint", "run", "--timeout=30m", "./..."]
+CWD: /private/tmp/sub2api-upstream-sync-20261012-cbj09nx5
+INPUT: exact repository sources and committed fixtures
+EXIT_STATUS: 0
+STDOUT_SHA256: e92606b0bf483111dff0a120c315ea165821348f31365020e2468a0059095c47
+STDERR_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+STDOUT_BEGIN
+0 issues.
+STDOUT_END
+STDERR_BEGIN
+STDERR_END
+
+EVENT: frontend-baseline-maintenance
+COMMAND_JSON: ["docker", "run", "--rm", "-v", "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5-baseline/frontend:/workspace", "-v", "sub2api-pnpm-store-20261009:/root/.local/share/pnpm/store", "-w", "/workspace", "node:24-bookworm-slim", "sh", "-c", "corepack enable && corepack prepare pnpm@11.17.0 --activate && pnpm install --frozen-lockfile --prefer-offline && pnpm exec vitest run src/features/admin-accounts/__tests__/adminAccountsModularization.spec.ts"]
+CWD: /private/tmp/sub2api-upstream-sync-20261012-cbj09nx5
+INPUT: exact repository sources and committed fixtures
+EXIT_STATUS: 1
+STDOUT_SHA256: 24892ef2dd543206528702a3e8046b586649ad33597cb71aaf2f4d1c9543a1ed
+STDERR_SHA256: 55a563a8b37acc8dc279a4331f07d51644695efbe1570ef6fe7aa40218eef17c
+STDOUT_BEGIN
+Preparing pnpm@11.17.0 for immediate activation...
+? Verifying lockfile against supply-chain policies (483 entries)...
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +433
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 433, reused 0, downloaded 0, added 0
+Progress: resolved 433, reused 0, downloaded 46, added 32
+Progress: resolved 433, reused 0, downloaded 109, added 108
+Progress: resolved 433, reused 0, downloaded 187, added 182
+Progress: resolved 433, reused 0, downloaded 268, added 217
+Progress: resolved 433, reused 0, downloaded 357, added 257
+Progress: resolved 433, reused 0, downloaded 430, added 295
+Progress: resolved 433, reused 0, downloaded 433, added 410
+✓ Lockfile passes supply-chain policies (483 entries in 8.2s)
+Progress: resolved 433, reused 0, downloaded 433, added 433, done
+.../esbuild@0.25.12/node_modules/esbuild postinstall$ node install.js
+.../node_modules/vue-demi postinstall$ node -e "try{require('./scripts/postinstall.js')}catch(e){}"
+.../esbuild@0.25.12/node_modules/esbuild postinstall: Done
+.../node_modules/vue-demi postinstall: Done
+
+dependencies:
++ @airwallex/components-sdk 1.32.0
++ @stripe/stripe-js 9.12.0
++ @tanstack/vue-virtual 3.13.34
++ @vueuse/core 10.11.1
++ axios 1.20.0
++ cap-widget 0.1.50
++ chart.js 4.5.1
++ dompurify 3.4.14
++ driver.js 1.8.0
++ file-saver 2.0.5
++ marked 17.0.6
++ node-forge 1.4.0
++ pinia 2.3.1
++ qrcode 1.5.4
++ tldts 7.4.13
++ vue 3.5.43
++ vue-chartjs 5.3.4
++ vue-draggable-plus 0.6.1
++ vue-i18n 9.14.5
++ vue-router 4.6.4
++ xlsx 0.20.3
+
+devDependencies:
++ @eslint/js 10.0.1
++ @intlify/message-compiler 9.14.5
++ @types/file-saver 2.0.7
++ @types/mdx 2.0.14
++ @types/node 24.13.3
++ @types/node-forge 1.3.14
++ @types/qrcode 1.5.6
++ @typescript-eslint/eslint-plugin 8.65.0
++ @typescript-eslint/parser 8.65.0
++ @vitejs/plugin-vue 6.0.8
++ @vitest/coverage-v8 3.2.6
++ @vue/test-utils 2.4.11
++ autoprefixer 10.5.4
++ eslint 10.8.0
++ eslint-plugin-vue 10.10.0
++ globals 17.4.0
++ jsdom 24.1.3
++ postcss 8.5.23
++ tailwindcss 3.4.19
++ typescript 5.6.3
++ vite 6.4.3
++ vite-plugin-checker 0.14.5
++ vitest 3.2.6
++ vue-tsc 2.2.12
+
+Done in 9.8s using pnpm v11.17.0
+
+ RUN  v3.2.6 /workspace
+
+ ❯ src/features/admin-accounts/__tests__/adminAccountsModularization.spec.ts (13 tests | 1 failed) 39ms
+   ✓ admin accounts modularization > owns account-only DTOs in feature data while preserving compatibility exports 3ms
+   × admin accounts modularization > keeps every feature runtime module within the maintenance target 24ms
+     → presentation/widgets/CreateAccountDialog.vue: expected 1512 to be less than or equal to 1500
+   ✓ admin accounts modularization > keeps the table and field modules statically owned by the accounts route chunk 0ms
+   ✓ admin accounts modularization > keeps request lifecycle out of the table-only view 0ms
+   ✓ admin accounts modularization > routes page requests through feature owners instead of the admin compatibility barrel 0ms
+   ✓ admin accounts modularization > routes bulk edit actions through the account action owner 0ms
+   ✓ admin accounts modularization > reads the global quota notification switch from its settings owner 0ms
+   ✓ admin accounts modularization > routes scheduled test lifecycle calls through their datasource owner 0ms
+   ✓ admin accounts modularization > routes OAuth composables through feature-owned action datasources 0ms
+   ✓ admin accounts modularization > routes reauthorization widgets through account action owners 0ms
+   ✓ admin accounts modularization > routes create and edit workflows through explicit account and settings owners 0ms
+   ✓ admin accounts modularization > routes account import and CRS sync through query/action owners 9ms
+   ✓ admin accounts modularization > preserves quota hydration, bounded batches, feedback timing, and refresh cadence 0ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 12 passed (13)
+   Start at  16:32:28
+   Duration  1.09s (transform 49ms, setup 77ms, collect 25ms, tests 39ms, environment 343ms, prepare 266ms)
+
+STDOUT_END
+STDERR_BEGIN
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/admin-accounts/__tests__/adminAccountsModularization.spec.ts > admin accounts modularization > keeps every feature runtime module within the maintenance target
+AssertionError: presentation/widgets/CreateAccountDialog.vue: expected 1512 to be less than or equal to 1500
+ ❯ src/features/admin-accounts/__tests__/adminAccountsModularization.spec.ts:114:63
+    112|     for (const runtime of collectRuntimeSources(featureDir)) {
+    113|       const target = maintenanceTargets.get(runtime.path) ?? 1500
+    114|       expect(runtime.source.split('\n').length, runtime.path).toBeLess…
+       |                                                               ^
+    115|     }
+    116|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+STDERR_END
+
+EVENT: frontend-candidate-maintenance
+COMMAND_JSON: ["docker", "run", "--rm", "-v", "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/frontend:/workspace", "-v", "sub2api-pnpm-store-20261009:/root/.local/share/pnpm/store", "-w", "/workspace", "node:24-bookworm-slim", "sh", "-c", "corepack enable && corepack prepare pnpm@11.17.0 --activate && pnpm install --frozen-lockfile --prefer-offline && pnpm exec vitest run src/features/admin-accounts/__tests__/adminAccountsModularization.spec.ts"]
+CWD: /private/tmp/sub2api-upstream-sync-20261012-cbj09nx5
+INPUT: exact repository sources and committed fixtures
+EXIT_STATUS: 1
+STDOUT_SHA256: 016d4ef382ba318493923de1975d7bee5e6bacd8735fcbf6a6f1c016621cf28f
+STDERR_SHA256: 55a563a8b37acc8dc279a4331f07d51644695efbe1570ef6fe7aa40218eef17c
+STDOUT_BEGIN
+Preparing pnpm@11.17.0 for immediate activation...
+Already up to date
+Done in 351ms using pnpm v11.17.0
+
+ RUN  v3.2.6 /workspace
+
+ ❯ src/features/admin-accounts/__tests__/adminAccountsModularization.spec.ts (13 tests | 1 failed) 364ms
+   ✓ admin accounts modularization > owns account-only DTOs in feature data while preserving compatibility exports 18ms
+   × admin accounts modularization > keeps every feature runtime module within the maintenance target 203ms
+     → presentation/widgets/CreateAccountDialog.vue: expected 1512 to be less than or equal to 1500
+   ✓ admin accounts modularization > keeps the table and field modules statically owned by the accounts route chunk 0ms
+   ✓ admin accounts modularization > keeps request lifecycle out of the table-only view 1ms
+   ✓ admin accounts modularization > routes page requests through feature owners instead of the admin compatibility barrel 0ms
+   ✓ admin accounts modularization > routes bulk edit actions through the account action owner 0ms
+   ✓ admin accounts modularization > reads the global quota notification switch from its settings owner 0ms
+   ✓ admin accounts modularization > routes scheduled test lifecycle calls through their datasource owner 0ms
+   ✓ admin accounts modularization > routes OAuth composables through feature-owned action datasources 0ms
+   ✓ admin accounts modularization > routes reauthorization widgets through account action owners 1ms
+   ✓ admin accounts modularization > routes create and edit workflows through explicit account and settings owners 0ms
+   ✓ admin accounts modularization > routes account import and CRS sync through query/action owners 139ms
+   ✓ admin accounts modularization > preserves quota hydration, bounded batches, feedback timing, and refresh cadence 0ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 12 passed (13)
+   Start at  16:32:19
+   Duration  4.26s (transform 82ms, setup 532ms, collect 58ms, tests 364ms, environment 2.60s, prepare 73ms)
+
+STDOUT_END
+STDERR_BEGIN
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/admin-accounts/__tests__/adminAccountsModularization.spec.ts > admin accounts modularization > keeps every feature runtime module within the maintenance target
+AssertionError: presentation/widgets/CreateAccountDialog.vue: expected 1512 to be less than or equal to 1500
+ ❯ src/features/admin-accounts/__tests__/adminAccountsModularization.spec.ts:114:63
+    112|     for (const runtime of collectRuntimeSources(featureDir)) {
+    113|       const target = maintenanceTargets.get(runtime.path) ?? 1500
+    114|       expect(runtime.source.split('\n').length, runtime.path).toBeLess…
+       |                                                               ^
+    115|     }
+    116|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+STDERR_END
+
+EVENT: backend-layout-baseline-retry
+COMMAND_JSON: ["docker", "run", "--rm", "-v", "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5-baseline/backend:/workspace", "-w", "/workspace", "sub2api-upstream-sync-test:20261009-docker", "make", "check-layout"]
+CWD: /private/tmp/sub2api-upstream-sync-20261012-cbj09nx5
+INPUT: exact repository sources and committed fixtures
+EXIT_STATUS: 2
+STDOUT_SHA256: bc47e5caa9ee997120b50f2387547331f77907d12d8228a259881f576e7443fe
+STDERR_SHA256: 0cfd0cdde260f76d33291c2ffd256bc16a77dd6e0041265ff488078d5889467b
+STDOUT_BEGIN
+./scripts/check-source-layout.sh
+STDOUT_END
+STDERR_BEGIN
+layout error: internal/application/service/payment_fulfillment_test.go has 1201 lines (limit 1200); split by responsibility
+layout error: internal/application/service/pricing_service.go has 1238 lines (limit 1200); split by responsibility
+make: *** [Makefile:14: check-layout] Error 1
+STDERR_END
+
+EVENT: backend-layout-final
+COMMAND_JSON: ["docker", "run", "--rm", "-e", "GOMAXPROCS=2", "-e", "GOFLAGS=-p=2", "-v", "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/backend:/workspace", "-w", "/workspace", "sub2api-upstream-sync-test:20261009-docker", "make", "check-layout"]
+CWD: /private/tmp/sub2api-upstream-sync-20261012-cbj09nx5
+INPUT: exact repository sources and committed fixtures
+EXIT_STATUS: 2
+STDOUT_SHA256: bc47e5caa9ee997120b50f2387547331f77907d12d8228a259881f576e7443fe
+STDERR_SHA256: 0cfd0cdde260f76d33291c2ffd256bc16a77dd6e0041265ff488078d5889467b
+STDOUT_BEGIN
+./scripts/check-source-layout.sh
+STDOUT_END
+STDERR_BEGIN
+layout error: internal/application/service/payment_fulfillment_test.go has 1201 lines (limit 1200); split by responsibility
+layout error: internal/application/service/pricing_service.go has 1238 lines (limit 1200); split by responsibility
+make: *** [Makefile:14: check-layout] Error 1
+STDERR_END
+
+EVENT: final-docs-closed
+COMMAND_JSON: ["make", "check-docs"]
+CWD: /private/tmp/sub2api-upstream-sync-20261012-cbj09nx5
+INPUT: exact repository sources and committed fixtures
+EXIT_STATUS: 0
+STDOUT_SHA256: ab1fbcf1c93cd55f385149bf1c995a2792e8b277a63057e99e56bdae540dc5e9
+STDERR_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+STDOUT_BEGIN
+Documentation checks passed.
+STDOUT_END
+STDERR_BEGIN
+STDERR_END
+
+EVENT: final-artifact-closed
+COMMAND_JSON: ["python3", "diagnostics/upstream-sync-20261012/verify_roles.py"]
+CWD: /private/tmp/sub2api-upstream-sync-20261012-cbj09nx5
+INPUT: exact repository sources and committed fixtures
+EXIT_STATUS: 0
+STDOUT_SHA256: edb31d99d3126391ca7c488f678ef926b90f6bd403267d07f58a08c1d3dcc011
+STDERR_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+STDOUT_BEGIN
+BASELINE_HASH_PASS count=74
+MODIFIED_HASH_PASS count=88
+ROLLBACK_PASS
+ROLLBACK_HASH_PASS count=74
+REAPPLIED_HASH_PASS count=88
+VERIFIED_COPY=/private/tmp/sub2api-sync-20261012-verified-copy-dc87h_1u
+STDOUT_END
+STDERR_BEGIN
+STDERR_END
+
+OTHER_RETAINED_RECORDS (including corrected fixture/tool errors):
+billing-benchmark-baseline.record.json exit=0
+billing-benchmark-final.record.json exit=0
+billing-final-matrix.record.json exit=1
+build-baseline.record.json exit=0
+build-candidate-final.record.json exit=0
+candidate-probe-final.record.json exit=0
+check-docs-final.record.json exit=0
+final-artifact-reconstruction.record.json exit=0
+final-candidate-build.record.json exit=0
+final-docs-check.record.json exit=0
+final-runtime-complete-matrix.record.json exit=1
+final-runtime-locale-fixture-check.record.json exit=1
+final-runtime-locale-fixture-initialized.record.json exit=0
+final-runtime-locale-upgrade-rollback.record.json exit=1
+frontend-build-valid.record.json exit=0
+go-focused-with-new-tests-retry.record.json exit=0
+integration-group-moderation-final.record.json exit=0
+integration-group-repository.record.json exit=0
+rollback-probe-final.record.json exit=0
+runtime-upgrade-rollback-final2.record.json exit=0
+ui-baseline-browser.record.json exit=1
+ui-baseline-observed.record.json exit=0
+ui-baseline-valid.record.json exit=1
+ui-candidate-browser.record.json exit=1
+ui-modified-observed.record.json exit=0
+ui-modified-valid.record.json exit=1
+
+ROLE_HASHES (VERIFICATION hash is in ROLE_HASHES.json):
+/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/diagnostics/upstream-sync-20261012/BASELINE_FILE bytes=565357 sha256=ac5648be4d44d583ae56a55b5ddc7940f622f2730f19b06af57e94256be297f3
+/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/diagnostics/upstream-sync-20261012/MODIFIED_FILE bytes=582027 sha256=532de0f8553095d4dfc5f3d50814b91b9d6ebd6fa7346bf7dada1194a14de062
+/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/diagnostics/upstream-sync-20261012/DIFF_FILE bytes=156549 sha256=220f0215fbe5178c22d528aa6507935760f1af504b019853f2841fb5364745ff
+/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5/diagnostics/upstream-sync-20261012/ROLLBACK.sh bytes=1371 sha256=76b4b708353b2c6a9db90970d39be488fbfb70717bdf56c96bd0263652e0ac41

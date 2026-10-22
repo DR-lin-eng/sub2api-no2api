@@ -1,0 +1,64 @@
+Reading package lists...
+Building dependency tree...
+Reading state information...
+Suggested packages:
+  make-doc
+The following NEW packages will be installed:
+  make
+0 upgraded, 1 newly installed, 0 to remove and 1 not upgraded.
+Need to get 391 kB of archives.
+After this operation, 1634 kB of additional disk space will be used.
+Get:1 http://deb.debian.org/debian bookworm/main arm64 make arm64 4.3-4.1 [391 kB]
+Fetched 391 kB in 1s (581 kB/s)
+Selecting previously unselected package make.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 6090 files and directories currently installed.)
+Preparing to unpack .../make_4.3-4.1_arm64.deb ...
+Unpacking make (4.3-4.1) ...
+Setting up make (4.3-4.1) ...
+Preparing pnpm@11.17.0 for immediate activation...
+? Verifying lockfile against supply-chain policies (483 entries)...
+Lockfile is up to date, resolution step is skipped
+Already up to date
+
+   ╭───────────────────────────────────────────────╮
+   │                                               │
+   │     Update available! 11.17.0 → 12.11.2.      │
+   │     Changelog: https://pnpm.io/v/12.11.2      │
+   │   To update, run: corepack use pnpm@12.11.2   │
+   │                                               │
+   ╰───────────────────────────────────────────────╯
+
+[WARN] Request took 10159ms: https://registry.npmjs.org/@esbuild%2Fandroid-x64
+[WARN] Request took 10182ms: https://registry.npmjs.org/@esbuild%2Flinux-arm64
+[WARN] Request took 10169ms: https://registry.npmjs.org/@esbuild%2Fwin32-arm64
+[WARN] Request took 10214ms: https://registry.npmjs.org/@esbuild%2Flinux-riscv64
+[WARN] Request took 10215ms: https://registry.npmjs.org/@esbuild%2Fopenbsd-x64
+[WARN] Request took 10261ms: https://registry.npmjs.org/@esbuild%2Fnetbsd-x64
+[WARN] Request took 10301ms: https://registry.npmjs.org/@esbuild%2Flinux-s390x
+[WARN] Request took 10363ms: https://registry.npmjs.org/@esbuild%2Flinux-mips64el
+[WARN] Request took 10375ms: https://registry.npmjs.org/@esbuild%2Flinux-ia32
+[WARN] Request took 10271ms: https://registry.npmjs.org/@esbuild%2Fwin32-x64
+[WARN] Request took 10287ms: https://registry.npmjs.org/@esbuild%2Fwin32-ia32
+[WARN] Request took 10347ms: https://registry.npmjs.org/@esbuild%2Flinux-ppc64
+[WARN] Request took 10423ms: https://registry.npmjs.org/@esbuild%2Fdarwin-x64
+[WARN] Request took 10393ms: https://registry.npmjs.org/@esbuild%2Flinux-x64
+[WARN] Request took 10467ms: https://registry.npmjs.org/@esbuild%2Fdarwin-arm64
+[WARN] Request took 10372ms: https://registry.npmjs.org/@esbuild%2Fsunos-x64
+[WARN] Request took 10616ms: https://registry.npmjs.org/@babel%2Fparser
+[WARN] Request took 10401ms: https://registry.npmjs.org/@intlify%2Fcore-base
+[WARN] Request took 10582ms: https://registry.npmjs.org/@esbuild%2Flinux-loong64
+[WARN] Request took 10451ms: https://registry.npmjs.org/@intlify%2Fshared
+[WARN] Request took 10610ms: https://registry.npmjs.org/@intlify%2Fmessage-compiler
+[WARN] GET https://registry.npmjs.org/@esbuild%2Flinux-arm error (23). Will retry in 10 seconds. 2 retries left.
+[WARN] Request took 70254ms: https://registry.npmjs.org/@esbuild%2Flinux-arm
+✓ Lockfile passes supply-chain policies (483 entries in 1m 10.6s)
+
+Done in 1m 14.1s using pnpm v11.17.0
+
+/workspace/frontend/src/features/admin-accounts/presentation/widgets/EditAccountDialog.vue
+  1369:10  warning  'toPositiveNumber' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+✖ 1 problem (0 errors, 1 warning)
+
+src/features/admin-accounts/presentation/widgets/EditAccountDialog.vue(1369,10): error TS6133: 'toPositiveNumber' is declared but its value is never read.
+[ELIFECYCLE] Command failed with exit code 2.

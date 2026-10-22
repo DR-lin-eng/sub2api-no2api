@@ -350,6 +350,11 @@ export default {
         viewTempUnschedDetails: '查看临时不可调度详情'
       },
       tempUnschedulable: {
+      scope: '暂停范围',
+      scopeAuto: '自动（保持原有行为）',
+      scopeAccount: '整个账号',
+      scopeModel: '当前模型',
+      scopeHint: '模型未知和凭据错误仍保留账号保护。所有节点升级完成后再选择显式范围。',
         title: '临时不可调度',
         statusTitle: '临时不可调度状态',
         hint: '当错误码与关键词同时匹配时，账号会在指定时间内被临时禁用。',
@@ -634,13 +639,14 @@ export default {
         responsesModeTextDisabledHint: '未启用 Responses / Chat Completions 端点时，此设置不适用。',
         endpointCapabilities: '端点能力',
         endpointCapabilitiesDesc:
-          '用于调度筛选。文本端点会跟随上方 Responses API 支持显示为 Responses、Chat Completions 或自动模式；Embeddings 独立控制 /v1/embeddings。',
+          '用于调度筛选。文本端点跟随上方 Responses API 支持；Embeddings 控制 /v1/embeddings，Decisions 控制 /v1/decisions。',
         capabilityResponses: 'Responses',
         capabilityTextAuto: 'Responses / Chat Completions（自动）',
         capabilityResponsesAuto: 'Responses（自动探测）',
         capabilityChatCompletions: 'Chat Completions',
         capabilityChatCompletionsAuto: 'Chat Completions（自动探测）',
         capabilityEmbeddings: 'Embeddings',
+        capabilityDecisions: 'Decisions',
         responsesStatusAutoSupported: '自动探测：Responses',
         responsesStatusAutoUnsupported: '自动探测：Chat Completions',
         responsesStatusAutoUnknown: '自动探测：未探测',

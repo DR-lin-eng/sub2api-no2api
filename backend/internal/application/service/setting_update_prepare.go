@@ -49,6 +49,10 @@ func (s *SettingService) prepareSystemSettingsUpdate(ctx context.Context, settin
 	if err := s.normalizeOpenAIAdvancedSchedulerOverrides(settings); err != nil {
 		return "", err
 	}
+	settings.OpenAIRequestTimezone = strings.TrimSpace(settings.OpenAIRequestTimezone)
+	if err := ValidateOpenAIRequestTimezone(settings.OpenAIRequestTimezone); err != nil {
+		return "", infraerrors.BadRequest("INVALID_OPENAI_REQUEST_TIMEZONE", err.Error())
+	}
 	if settings.OpenAISessionIDRateLimitPerMinute < 0 || settings.OpenAISessionIDRateLimitPerMinute > 1000000 {
 		return "", infraerrors.BadRequest("INVALID_OPENAI_SESSION_ID_RATE_LIMIT", "OpenAI session ID rate limit must be between 0 and 1000000 per minute")
 	}

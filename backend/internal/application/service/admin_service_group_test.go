@@ -383,7 +383,7 @@ func TestAdminService_CreateGroup_DisablesBatchImageWhenImageGenerationDisabled(
 	group, err := svc.CreateGroup(context.Background(), &CreateGroupInput{
 		Name:                      "gemini-no-image",
 		Description:               "Gemini group without image generation",
-		Platform:                  PlatformGemini,
+		Platform:                  PlatformOpenAI,
 		RateMultiplier:            1.0,
 		AllowImageGeneration:      false,
 		AllowBatchImageGeneration: true,

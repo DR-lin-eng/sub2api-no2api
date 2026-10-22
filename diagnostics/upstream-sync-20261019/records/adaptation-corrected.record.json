@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    "adapt.py"
+  ],
+  "cwd": "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019",
+  "started_at": "2026-10-19T16:05:16.865179+00:00",
+  "elapsed_seconds": 0.028,
+  "exit_status": 0,
+  "stdout": "Applied three frozen PRs to current application/shared owners; preserved public HTTP port and image-markdown compatibility.\n",
+  "stderr": ""
+}

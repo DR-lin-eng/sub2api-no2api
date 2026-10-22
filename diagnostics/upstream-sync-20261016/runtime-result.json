@@ -1,0 +1,50 @@
+[
+  {
+    "stage": "baseline",
+    "result": "PASS",
+    "migration_count": 303,
+    "invariants_sha256": "c8187b14e88ccacf6a3b72975b8a377fe1c0875872b9f6eb515df951e63f0307",
+    "unknown_order_type_http": 200,
+    "unpaid_callback_http": 200,
+    "unpaid_order_state": "COMPLETED",
+    "unsupported_fulfillment_state": "COMPLETED",
+    "duplicate_additional_queries": 0,
+    "readiness_frontend_encrypted_login_api_key_legacy_order_subscription": "PASS"
+  },
+  {
+    "stage": "upgraded",
+    "result": "PASS",
+    "migration_count": 303,
+    "invariants_sha256": "c8187b14e88ccacf6a3b72975b8a377fe1c0875872b9f6eb515df951e63f0307",
+    "unknown_order_type_http": 400,
+    "unpaid_callback_http": 502,
+    "unpaid_order_state": "PENDING",
+    "unsupported_fulfillment_state": "FAILED",
+    "duplicate_additional_queries": 0,
+    "readiness_frontend_encrypted_login_api_key_legacy_order_subscription": "PASS"
+  },
+  {
+    "stage": "rollback",
+    "result": "PASS",
+    "migration_count": 303,
+    "invariants_sha256": "c8187b14e88ccacf6a3b72975b8a377fe1c0875872b9f6eb515df951e63f0307",
+    "unknown_order_type_http": 200,
+    "unpaid_callback_http": 200,
+    "unpaid_order_state": "COMPLETED",
+    "unsupported_fulfillment_state": "COMPLETED",
+    "duplicate_additional_queries": 0,
+    "readiness_frontend_encrypted_login_api_key_legacy_order_subscription": "PASS"
+  },
+  {
+    "stage": "restored",
+    "result": "PASS",
+    "migration_count": 303,
+    "invariants_sha256": "c8187b14e88ccacf6a3b72975b8a377fe1c0875872b9f6eb515df951e63f0307",
+    "unknown_order_type_http": 400,
+    "unpaid_callback_http": 502,
+    "unpaid_order_state": "PENDING",
+    "unsupported_fulfillment_state": "FAILED",
+    "duplicate_additional_queries": 0,
+    "readiness_frontend_encrypted_login_api_key_legacy_order_subscription": "PASS"
+  }
+]

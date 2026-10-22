@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015/package_roles.py", line 17, in <module>
+    current=(ROOT/path).read_bytes()
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/pathlib/__init__.py", line 777, in read_bytes
+    with self.open(mode='rb', buffering=0) as f:
+         ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/pathlib/__init__.py", line 771, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/"docs/codex/ChatGPT_Codex_\\346\\241\\214\\351\\235\\242\\347\\253\\257_\\346\\267\\261\\345\\272\\246\\345\\210\\206\\346\\236\\220\\346\\212\\245\\345\\221\\212_\\350\\257\\267\\346\\261\\202\\350\\277\\230\\345\\216\\237\\350\\241\\245\\345\\205\\205.md"'

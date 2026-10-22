@@ -44,6 +44,9 @@ type UsageBillingCommand struct {
 	APIKeyQuotaCost     float64
 	APIKeyRateLimitCost float64
 	AccountQuotaCost    float64
+	// SQL selection hints only; excluded from the billing identity/fingerprint.
+	AccountQuotaHasDailyLimit  bool
+	AccountQuotaHasWeeklyLimit bool
 
 	QuotaPlatform         string
 	UserPlatformQuotaCost float64

@@ -41,6 +41,9 @@ func TestGetOpsAdvancedSettings_DefaultSnapshotHidesOpenAITokenStats(t *testing.
 	if !cfg.DisplaySystemLogs {
 		t.Fatalf("DisplaySystemLogs = false, want true by default")
 	}
+	if !cfg.DisplayOAuthPlanExpiryDistribution {
+		t.Fatalf("DisplayOAuthPlanExpiryDistribution = false, want true by default")
+	}
 	if cfg.DataRetention.UserRequestLogRetentionDays != 90 {
 		t.Fatalf("UserRequestLogRetentionDays = %d, want 90", cfg.DataRetention.UserRequestLogRetentionDays)
 	}
@@ -189,6 +192,9 @@ func TestGetOpsAdvancedSettings_BackfillsNewDisplayFlagsFromDefaults(t *testing.
 	}
 	if !cfg.DisplaySystemLogs {
 		t.Fatalf("DisplaySystemLogs = false, want true default backfill")
+	}
+	if !cfg.DisplayOAuthPlanExpiryDistribution {
+		t.Fatalf("DisplayOAuthPlanExpiryDistribution = false, want true default backfill")
 	}
 	if cfg.DataRetention.UserRequestLogRetentionDays != 90 {
 		t.Fatalf("UserRequestLogRetentionDays = %d, want 90 default backfill", cfg.DataRetention.UserRequestLogRetentionDays)

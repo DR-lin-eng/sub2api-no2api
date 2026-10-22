@@ -224,12 +224,13 @@ func (s *OpenAICodexUsageSnapshot) Normalize() *NormalizedCodexLimits {
 
 // OpenAIUsage represents OpenAI API response usage
 type OpenAIUsage struct {
-	InputTokens              int `json:"input_tokens"`
-	ImageInputTokens         int `json:"image_input_tokens,omitempty"`
-	OutputTokens             int `json:"output_tokens"`
-	CacheCreationInputTokens int `json:"cache_creation_input_tokens,omitempty"`
-	CacheReadInputTokens     int `json:"cache_read_input_tokens,omitempty"`
-	ImageOutputTokens        int `json:"image_output_tokens,omitempty"`
+	ReasoningTokens          *int `json:"reasoning_tokens,omitempty"`
+	InputTokens              int  `json:"input_tokens"`
+	ImageInputTokens         int  `json:"image_input_tokens,omitempty"`
+	OutputTokens             int  `json:"output_tokens"`
+	CacheCreationInputTokens int  `json:"cache_creation_input_tokens,omitempty"`
+	CacheReadInputTokens     int  `json:"cache_read_input_tokens,omitempty"`
+	ImageOutputTokens        int  `json:"image_output_tokens,omitempty"`
 }
 
 // OpenAIForwardResult represents the result of forwarding
@@ -501,6 +502,11 @@ type OpenAIGatewayService struct {
 	openAIWorkspaceRoutingEnabled  bool
 	openAIWorkspaceRoutingCache    sync.Map
 	openAIWorkspaceRoutingSF       singleflight.Group
+	openAIIntegrityMu              sync.Mutex
+	openAIIntegrityStates          map[string]openAIIntegrityBinding
+	openAIDeviceCookieMu           sync.Mutex
+	openAIDeviceCookies            map[string]openAIDeviceCookieBinding
+	openAIDeviceCookieSF           singleflight.Group
 	sessionIDAdmissionCache        OpenAISessionIDAdmissionCache
 	oauthGatewayRateLimitCache     OpenAIOAuthGatewayRateLimitCache
 	sessionIDRateMetrics           *OpenAISessionIDRateMetrics
@@ -629,6 +635,7 @@ func NewOpenAIGatewayService(
 		userPlatformQuotaRepo:   userPlatformQuotaRepo,
 		liveAttestation:         liveattestation.NewProvider(),
 		liveAttestationCipher:   newLiveAttestationCipher(cfg),
+		openAIIntegrityStates:   make(map[string]openAIIntegrityBinding),
 		responseHeaderFilter:    compileResponseHeaderFilter(cfg),
 		codexSnapshotThrottle:   newAccountWriteThrottle(openAICodexSnapshotPersistMinInterval),
 		openaiModelTransient:    newOpenAIAccountModelTransientState(openAIModelTransientDefaultMax),
@@ -689,7 +696,14 @@ func (s *OpenAIGatewayService) ResolveChannelMappingAndRestrict(ctx context.Cont
 	return s.channelService.ResolveChannelMappingAndRestrict(ctx, groupID, model)
 }
 
+// isCodexImageGenerationBridgeEnabled 决定是否为 Codex 客户端自动注入 hosted
+// image_generation 工具。该工具是 OpenAI Responses 专属能力，Kimi / DeepSeek /
+// MiniMax 等经 OpenAI 网关转发的原生 Responses 上游不识别，注入后会被 400 拒绝，
+// 因此非 OpenAI 平台账号一律不桥接，后续再按账号 → 渠道 → 全局的优先级取开关。
 func (s *OpenAIGatewayService) isCodexImageGenerationBridgeEnabled(ctx context.Context, account *Account, apiKey *APIKey) bool {
+	if account == nil || account.Platform != PlatformOpenAI {
+		return false
+	}
 	if override := account.CodexImageGenerationBridgeOverride(); override != nil {
 		return *override
 	}

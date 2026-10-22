@@ -1,0 +1,46 @@
+{
+  "source_sha256": "87d52265eb13608a380fabcac47ecf13a39b981115c0960c18af563ea6d32d51",
+  "source_functions": [
+    "CKe",
+    "wKe",
+    "r8",
+    "i8",
+    "l6"
+  ],
+  "key": {
+    "keyId": "dk_htp_linux_v1_00000000000000000000000000000001",
+    "algorithm": "ecdsa_p256_sha256",
+    "protectionClass": "hardware_tpm",
+    "publicKeySpkiDerBase64": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEaxfR8uEsQkf4vOblY6RA8ncDfYEt6zOg9KE5RdiYwpZP40Li/hp/m47n60p8D54WK84zV2sxXs7LtkBoN79R9Q=="
+  },
+  "identityHash": "dShdZUa2pXZ8TFLAmMGuSaaC0_FCJMEcliQlO_eBS7A",
+  "enrollment": {
+    "accountUserId": "account-user-fixture",
+    "audience": "remote_control_client_enrollment",
+    "challengeExpiresAt": 4102444800,
+    "challengeId": "challenge-fixture",
+    "clientId": "client-fixture",
+    "deviceIdentitySha256Base64url": "dShdZUa2pXZ8TFLAmMGuSaaC0_FCJMEcliQlO_eBS7A",
+    "nonce": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+    "targetOrigin": "https://chatgpt.com",
+    "targetPath": "/backend-api/codex/remote/control/client/enroll/finish",
+    "type": "remoteControlClientEnrollment"
+  },
+  "connection": {
+    "accountUserId": "account-user-fixture",
+    "audience": "remote_control_client_websocket",
+    "clientId": "client-fixture",
+    "nonce": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+    "scopes": [
+      "remote_control_controller_websocket"
+    ],
+    "sessionId": "session-fixture",
+    "targetOrigin": "https://chatgpt.com",
+    "targetPath": "/backend-api/codex/remote/control/client",
+    "tokenExpiresAt": 4102444800,
+    "tokenSha256Base64url": "__mibo6qt4zd9EPrgBmXKWNt0i57yqFMsoVR3cOnn9U",
+    "type": "remoteControlClientConnection"
+  },
+  "enrollmentPayload": "{\"domain\":\"codex-device-key-sign-payload/v1\",\"payload\":{\"accountUserId\":\"account-user-fixture\",\"audience\":\"remote_control_client_enrollment\",\"challengeExpiresAt\":4102444800,\"challengeId\":\"challenge-fixture\",\"clientId\":\"client-fixture\",\"deviceIdentitySha256Base64url\":\"dShdZUa2pXZ8TFLAmMGuSaaC0_FCJMEcliQlO_eBS7A\",\"nonce\":\"BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc\",\"targetOrigin\":\"https://chatgpt.com\",\"targetPath\":\"/backend-api/codex/remote/control/client/enroll/finish\",\"type\":\"remoteControlClientEnrollment\"}}",
+  "connectionPayload": "{\"domain\":\"codex-device-key-sign-payload/v1\",\"payload\":{\"accountUserId\":\"account-user-fixture\",\"audience\":\"remote_control_client_websocket\",\"clientId\":\"client-fixture\",\"nonce\":\"BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc\",\"scopes\":[\"remote_control_controller_websocket\"],\"sessionId\":\"session-fixture\",\"targetOrigin\":\"https://chatgpt.com\",\"targetPath\":\"/backend-api/codex/remote/control/client\",\"tokenExpiresAt\":4102444800,\"tokenSha256Base64url\":\"__mibo6qt4zd9EPrgBmXKWNt0i57yqFMsoVR3cOnn9U\",\"type\":\"remoteControlClientConnection\"}}"
+}

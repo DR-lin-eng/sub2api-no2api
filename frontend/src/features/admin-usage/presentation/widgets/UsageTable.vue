@@ -209,6 +209,12 @@
           </div>
         </template>
 
+        <template #cell-reasoning_tokens="{ row }">
+          <span v-if="isAdminAudience" class="text-sm tabular-nums text-gray-900 dark:text-white">
+            {{ row.reasoning_tokens == null ? '-' : row.reasoning_tokens.toLocaleString() }}
+          </span>
+        </template>
+
         <template #cell-cost="{ row }">
           <div class="text-sm">
             <div class="flex items-center gap-1.5">
@@ -663,7 +669,7 @@ const ipGeoBatchLoading = ref(false)
 
 const effectiveColumns = computed(() => isAdminAudience.value
   ? props.columns
-  : props.columns.filter((column) => column.key !== 'account'))
+  : props.columns.filter((column) => column.key !== 'account' && column.key !== 'reasoning_tokens'))
 const showIpGeoToolbar = computed(() => effectiveColumns.value.some((col) => col.key === 'ip_address'))
 
 const sentUpstreamModel = (row: AdminUsageLog): string => row.upstream_model?.trim() || row.model?.trim() || ''

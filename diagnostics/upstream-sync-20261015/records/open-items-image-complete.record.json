@@ -1,0 +1,20 @@
+{
+  "command": [
+    "env",
+    "BUILDX_CONFIG=/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/buildx",
+    "docker",
+    "build",
+    "--build-arg",
+    "COMMIT=open-items-20261015-validated",
+    "-t",
+    "sub2api-upstream-sync:20261015-open-items",
+    "."
+  ],
+  "cwd": "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo",
+  "exit_status": 0,
+  "elapsed_s": 40.79676975000075,
+  "utc": "2026-10-15T15:59:05.903655+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderr_sha256": "622338ed59ea3de098ff1293df5be62df46f835a3f3502c4fc8ba5e9d8ffd952"
+}

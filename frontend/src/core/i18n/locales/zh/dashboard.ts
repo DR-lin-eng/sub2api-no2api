@@ -473,6 +473,7 @@ export default {
     modelVariant: '疑似版本变体',
     modelMismatch: '模型不一致',
     reasoningEffort: '推理强度',
+    reasoningTokens: '推理 Token',
     endpoint: '端点',
     endpointDistribution: '端点分布',
     inbound: '入站',

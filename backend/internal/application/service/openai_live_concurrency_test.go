@@ -232,13 +232,14 @@ func TestCreateLiveCallUpstreamFailureRollsBackStandaloneLease(t *testing.T) {
 		},
 	}
 	upstreamErr := errors.New("upstream connection failed")
+	proofs := &accountProofRecorder{}
 	svc := &OpenAIGatewayService{
 		accountRepo:           schedulerTestOpenAIAccountRepo{accounts: []Account{account}},
 		cache:                 store,
 		cfg:                   cfg,
 		concurrencyService:    concurrency,
 		httpUpstream:          &liveHTTPUpstreamStub{err: upstreamErr},
-		liveAttestation:       liveAttestationStub{header: `{"v":1,"s":0,"t":"v1.test"}`},
+		liveAttestation:       scopedProofFixture{recorder: proofs},
 		liveAttestationCipher: newLiveAttestationCipher(cfg),
 	}
 
@@ -256,6 +257,10 @@ func TestCreateLiveCallUpstreamFailureRollsBackStandaloneLease(t *testing.T) {
 	acquireCalls, releaseCalls := cache.callCounts()
 	require.Equal(t, 1, acquireCalls)
 	require.Equal(t, 1, releaseCalls)
+	require.Len(t, proofs.calls, 1)
+	require.Equal(t, "live", proofs.calls[0].kind)
+	require.Equal(t, resolveConvergedInstallationID(&account), proofs.calls[0].scope.InstallationID)
+	require.Equal(t, openAIIntegrityKey(&account, &account, "https://chatgpt.com"), proofs.calls[0].scope.Key)
 	requireStandaloneLiveCounts(t, concurrency, 20, 30, 1)
 
 	temporaryUser.ReleaseFunc()

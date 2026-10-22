@@ -1,0 +1,67 @@
+[
+  {
+    "pr": 8223,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8223",
+    "merge_sha": "378984d87f2b68db15626ae8f18b9e923ab82b85",
+    "diff_sha256": "eff64ceb7035ea066ae63272589b493b84e921b0035171111a93e86163100cff",
+    "status": "ported",
+    "fully_closed": true,
+    "current_owners": [
+      "backend/internal/application/service/image_storage.go",
+      "backend/internal/infrastructure/repository/http_upstream_public.go",
+      "backend/internal/infrastructure/repository/http_upstream_public_proxy.go"
+    ],
+    "decision": "Reuse existing public-only pinned HTTP/account egress policy; port MIME rejection only. No global environment-proxy client.",
+    "reopen_condition": "Only new upstream behavior or an observed regression in the listed current owners. Do not replay this frozen diff or reopen inherited closed/deferred work.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_TRANSACTION.json",
+      "PERFORMANCE.json",
+      "runtime/result.json"
+    ]
+  },
+  {
+    "pr": 8168,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8168",
+    "merge_sha": "0fa02816afcaea3610171dd229dd910c058c47e4",
+    "diff_sha256": "c958d58eb0c0e2355eb9f058336c8cdae1382397316468da92ba8597d1991430",
+    "status": "ported",
+    "fully_closed": true,
+    "current_owners": [
+      "backend/internal/application/service/gemini_stream_client_abort.go",
+      "backend/internal/application/service/gemini_messages_stream.go",
+      "backend/internal/application/service/gemini_native_stream.go",
+      "backend/internal/application/service/gemini_chat_completions_compat_service.go",
+      "backend/internal/application/service/gemini_messages_compat_service.go"
+    ],
+    "decision": "Preserve last cumulative usage after proven downstream cancellation, detect write failures, reject incomplete error lines; keep local Chat image markdown and count only complete successful writes on interrupted streams.",
+    "reopen_condition": "Only new upstream behavior or an observed regression in the listed current owners. Do not replay this frozen diff or reopen inherited closed/deferred work.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_TRANSACTION.json",
+      "PERFORMANCE.json",
+      "runtime/result.json"
+    ]
+  },
+  {
+    "pr": 8177,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8177",
+    "merge_sha": "8f2cbb53d9d1c40e1865b07ac460571f7d4c48de",
+    "diff_sha256": "a6a4cdc6f6fdd4ee2413aef2385bdefcb5974d0ca5566e264a334ab4acb50d3a",
+    "status": "ported",
+    "fully_closed": true,
+    "current_owners": [
+      "backend/internal/application/service/gemini_messages_compat_service.go",
+      "backend/internal/shared/antigravity/response_transformer.go",
+      "backend/internal/shared/antigravity/stream_transformer.go"
+    ],
+    "decision": "Clamp four prompt-minus-cache projections to zero without changing cache-read, output or reasoning accounting.",
+    "reopen_condition": "Only new upstream behavior or an observed regression in the listed current owners. Do not replay this frozen diff or reopen inherited closed/deferred work.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_TRANSACTION.json",
+      "PERFORMANCE.json",
+      "runtime/result.json"
+    ]
+  }
+]

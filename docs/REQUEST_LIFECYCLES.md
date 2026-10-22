@@ -1,10 +1,14 @@
 # Sub2API 关键请求链路
 
+账号列表批量同步上游模型由 `admin-accounts` 的同步 composable 顺序分批调用管理端账号路由，经 `account_models_batch.go` 进入 `AccountTestService.BatchSyncUpstreamModels`。该用例复用平台模型查询，通过 repository 的行锁/JSONB 合并新增映射，同时写 scheduler outbox 并刷新缓存；失败账号保留原配置。规则与验证见 [批量同步说明](ACCOUNT_UPSTREAM_MODELS_SYNC.md)。
+
 本文给出高频链路的阅读顺序和不变量。它刻意省略平台内部的全部分支；调试具体问题时，应从命中的路由和 handler 继续追踪。
 
 ## API Key 模型请求
 
-典型入口包括 TypeSafe 原生非流式 `/v1/systemone`、`/v1/messages`、`/v1/responses`、`/v1/chat/completions`、`/v1beta/...` 以及无 `/v1` 的兼容别名。所有绑定在 `backend/internal/transport/http/server/routes/gateway.go`。
+典型入口包括 TypeSafe 原生非流式 `/v1/systemone`、`/v1/messages`、`/v1/responses`、`/v1/decisions`、`/v1/chat/completions`、`/v1beta/...` 以及无 `/v1` 的兼容别名。所有绑定在 `backend/internal/transport/http/server/routes/gateway.go`。
+
+OpenAI Decisions 使用独立的 JSON 转发链路：`POST /v1/decisions`（并提供 `/decisions` 别名）只从 OpenAI API-key 账号中调度，原样保留 `input`、`questions` 和 typed `answers`。上游地址固定按账号 `base_url` 拼接 `/v1/decisions`；上游返回的 `usage.input_tokens`（若存在）进入统一 OpenAI 用量结算，Responses 转换器不会改写该请求。
 
 ```mermaid
 sequenceDiagram
@@ -32,6 +36,10 @@ sequenceDiagram
 ```
 
 流式事件可能在最终用量结算前已经发送给客户端；这也是结算必须可恢复、幂等且不能依赖客户端连接继续存活的原因。
+
+OpenAI 文本 Responses 流式请求在本地校验和安全检查通过后、并发准入和选号之前启动下游 SSE 注释心跳，原生与透传 Forward 的令牌读取/刷新也复用同一个心跳器，避免等待上游 HTTP 请求发出前，下游 Sub2API/New API 已因收不到响应头超时。首拍仍遵循管理员的 `stream_keepalive_interval_seconds`（默认 10 秒，0 为关闭）；快速错误保留原 HTTP 状态，首拍之后的错误使用 `response.failed` 终止事件。心跳不算语义输出，不阻止安全换号；非流式和图片请求保留各自的响应方式。下游先断开时，本站通常只观察到客户端取消，后台启用 `IgnoreContextCanceled` 时会过滤这类记录，不能据此排除下游等待超时。
+
+上游用量中的 reasoning token 作为输出 token 的子集记录在 `usage_logs.reasoning_tokens`：OpenAI Responses/Chat Completions（HTTP、SSE 和 WebSocket）读取对应的 `*_tokens_details.reasoning_tokens`，Gemini 兼容链路读取 `usageMetadata.thoughtsTokenCount`。未报告计数及历史数据保持 NULL，明确返回 0 则保存 0。该字段不加入计费总量，只由管理员 DTO 返回，并在管理端请求明细、详情和导出中独立展示；用户 DTO 和用户 audience 不展示。
 
 模型字段在鉴权之后、分组白名单和合成路由改写之前必须通过 `GatewayModelValidation`。JSON 顶层 `model`、`session` 和 `session.model` 的重复键（含大小写与转义别名），以及 multipart 重复 `model`/`session` 字段返回协议兼容的 400；该检查不依赖模型白名单开关。Responses WebSocket 在每个原始客户端帧读入时执行同一检查，歧义帧以 1008 关闭，避免调度、上游解析和计费分别采用首值或末值。工具 schema 和消息内容中的模型字段不属于这一边界。
 
@@ -167,6 +175,16 @@ HTTP Responses 流中的显式 `server_error` 在首语义输出前进入既有�
 中间失败事件不向客户端提交；确定性的上下文或策略拒绝仍保留原语义。
 恢复成功时，客户端在原连接收到成功账号的流。已输出内容后发生的失败不重放请求；
 完整失败事件一旦写出即结束该流，不再转发失败后的心跳、`response.in_progress` 或重复失败。
+安全策略拒绝（如 `cyber_policy`、`content_policy_violation` 或明确的 safety-system 拒绝）
+保留脱敏后的上游错误码与消息，不重试或切换账号。普通错误响应保留 400/403/422，
+误标为 5xx 的策略拒绝返回 400；流式裸 `error` 规范化为单个 `response.failed`
+终止事件，避免客户端把策略拒绝显示成断流或通用 502。Chat Completions 和 Anthropic
+兼容入口使用各自的错误格式。只有策略错误字段参与识别，正常模型输出中的策略文字不触发。
+API Key 账号对接其他 Sub2API 时遵循相同规则，包括
+`session_blocked_by_cyber_policy` 会话屏蔽；无需启用 OAuth 或自动透传。
+Responses、Chat Completions 直转及其协议转换路径都识别没有顶层 `type` 的
+流内策略错误，终止当前请求并保留可用的错误码和消息；不合成成功终态、追加通用断流错误
+或向其他账号重放。错误体重建后不沿用上游的压缩和长度头，避免多层转发导致解码失败。
 
 普通透传请求的传输重试使用请求级总 attempt budget；上述流式号池恢复则按每个已尝试
 账号累计预算，两者都不因重选同账号而补充预算。显式
@@ -228,6 +246,8 @@ OAuth 授权码、refresh token、账号隐私/授权接口仍使用 OpenAI 官�
 请求出口。地址继续经过全局 `security.url_allowlist` 校验，账号配置的出口路由和 TLS Profile
 仍按原规则应用。
 
+管理员在“系统设置 → 网关服务 → 请求转发行为”的“OpenAI 请求时区替换”中统一控制 `openai_request_timezone_enabled` 和 `openai_request_timezone`。设置随主设置接口读写并持久化到数据库，保存后当前实例立即使用新值，其他实例最多 60 秒刷新；关闭时保留客户端原始时区。未配置目标或留空时沿用 `gateway.openai_request_timezone` / `GATEWAY_OPENAI_REQUEST_TIMEZONE`（默认 `Asia/Singapore`），不改变服务器时间或计费自然日。HTTP 与 WS 首轮/后续 `response.create` 共用设置，完整的用户 `environment_context` 与搜索工具 `user_location.timezone` 执行定点替换。
+
 管理员还可以在“网关设置 -> 请求转发行为”开启
 `openai_oauth_force_relay_enabled`，并填写 `openai_oauth_force_relay_base_url`。开启后该全局
 策略优先于账号级 `custom_base_url`，覆盖 OpenAI OAuth 的 Responses、Compact、Responses WS、
@@ -276,6 +296,12 @@ Happy Eyeballs 回退 IPv4。连接池键包含源地址和绑定版本，轮换
   所有安全尝试耗尽后才返回本地通用的暂不可用文案；确定性的参数、策略和上下文错误
   不受此规则影响。
 - 客户端取消应停止上游读取和后台转发，不能继续占用账号或累计无主缓存。
+
+### 上游错误与临时不可调度范围
+
+`credentials.temp_unschedulable_rules[].scope` 是可选字段：未设置时保留既有的模型已知且非 401 使用模型冷却的行为，`account` 暂停整个账号，`model` 只冷却当前调度模型。模型未知、OAuth/影子账号的认证失效以及 OpenAI 明确凭据撤销仍保留账号保护。token 计数、Bedrock 和重试耗尽都传递调度器读取的模型键，运行态阻断采用相同范围。滚动升级先更新全部节点再启用新 scope，回退前恢复自动范围。
+
+Chat 转为 Responses 后，只有 auto 且已确认支持 Responses 的 OpenAI API Key 账号收到完整、无歧义的 input-string 类型拒绝，才允许一次原生 Chat 回退；已经输出、取消、原生 Responses、强制协议和无关错误不触发这项新回退。两次尝试共享原始开始时间，可靠计费和客户端断开后 drain 继续使用原 owner。审查和 Docker 证据见 [2026-10-13 同步记录](UPSTREAM_SYNC_20261013.md)。
 
 ### Codex OAuth A/B/C 模拟
 
@@ -366,6 +392,18 @@ principal；若 `previous_response_id -> account_id` 或当前节点的原始连
 [Codex OAuth 模拟的有意差异](codex/intentional-divergences.md)。
 
 ## 浏览器管理请求
+
+### OAuth 设备证明与完整性状态
+
+OpenAI OAuth 的实际 HTTP/WS 发送点执行 `openai_oauth_proof.go`，在身份投影后按需调用本地
+Codex attestation provider；托管 WS 包括预热只在真正拨号时生成证明，复用连接不重新套用旧握手。
+integrity 状态按 principal、安装身份和第一方 origin 隔离，immutable send receipt 固定该次 expected
+state；Redis Lua CAS 拒绝其他实例的过期更新。缓存不可用不回带 stale 本地 shadow。
+
+Desktop messages/challenge 有独立的 native raw DeviceCheck 路径；messages 发送前通过同账号出口
+注册 `/devicecheck` 并校验 `_devicecheck` cookie。普通模型 Responses 不附加 raw DeviceCheck。
+proof 开关、平台不可用分支与真实账号测试边界见
+[桌面对照](codex/desktop-request-alignment.md)和[请求还原补充](codex/ChatGPT_Codex_桌面端_深度分析报告_请求还原补充.md)。
 
 OpenAI 用量记录同时保留本地观测计时和可选上游遥测。用量明细展示优先采用有效上游值，
 管理员获得两套计时和来源；用户保持原有字段与界面。调度、计费和 Ops 本地口径不变，
@@ -531,3 +569,39 @@ frontend/src
 | 用量存在但余额未扣/重复扣 | RecordUsage、queue、幂等 key、DB transaction、cache refresh |
 
 功能到文件的更完整映射见 [代码地图](CODE_MAP.md)。
+
+
+## 备份存储与恢复安全边界
+
+- 管理员密钥的创建、修改、轮换和撤销（包括旧版单密钥接口）由 `AdminSessionOnly` 限制为完整管理员 JWT 会话；`admin.settings.write` 不授予凭证管理能力，step-up 开关关闭也不放宽此限制。
+- 备份与图片存储的测试接口使用与保存接口相同的 step-up 门控，页面通过现有 TOTP 重试流程调用。开关关闭时仍按原规则放行，但 S3 地址限制始终生效。
+- S3 共享客户端覆盖测试、上传、下载、删除、旧数据库配置、图片配置及 config.yaml 回落。自定义 endpoint 仅接受无凭据、查询或片段的 HTTP(S) URL；空 endpoint 保留 AWS 默认端点。连接时校验所有 DNS 地址，并直接连接已校验的公网 IP，保留原 Host、签名和 TLS 身份；不使用环境代理，不跟随 HTTP 重定向。此策略独立于普通上游的私网例外，私网 MinIO、回环/链路本地对象存储及环境代理部署需改用可直接访问的公网存储端点。
+- `PgDumper.Restore` 先将完整解压 SQL 写入权限 0600 的临时文件，读取或 gzip 校验失败时不启动恢复。仅移除 pg_dump 的精确外层 `\restrict`/`\unrestrict` 包装，SQL 和 COPY 数据保持原字节；旧版无包装 SQL 继续支持。随后使用独立随机限制键执行 psql，并设置 `--no-psqlrc`、`ON_ERROR_STOP=1` 和单事务；不能建立限制模式的旧客户端会失败关闭。客户端须支持 `\restrict`，项目 Docker 镜像提供 PostgreSQL 18 客户端。
+- 恢复需要额外容纳完整解压 SQL 的临时磁盘空间，结束或失败时删除临时文件。客户端限制阻断 `\!`、`\copy PROGRAM`、输出管道及其他 psql 元命令；备份中的 SQL 仍按数据库角色权限执行，不能将此保护理解为任意 SQL 沙箱或数据库超级用户隔离。
+
+
+## Codex 模型 attestation 回调
+
+启用 `gateway.openai_oauth_attestation_enabled` 后，第一方 OAuth HTTP/Compact 与 WS 实际发送点调用所选本地 provider。`CodexHeader` 在 100ms 总预算内等待 callback，提前取消直接返回 s=3，超时取消子 context 并返回 s=1；没有 provider 则省略头。opaque token 仅作 JSON 字符串封装，不能证明硬件可信；Live native v1 校验独立保留。全进程 64 个未完成 callback 的上限阻止不合作 provider 无界累积，迟到结果不跨请求使用。多宿主 app-server 线程注册不属于当前网关能力，版本与证据见 [原生证明对照](codex/native-device-key-alignment.md)。
+
+Codex 模型证明、Desktop DeviceCheck 与 Live 的本地生成器按已选账号的凭据 owner 和安装身份选择作用域；HTTP/透传与 WS 预热/重试保存服务端身份快照，包含 full 模式 metadata-only 的 installation ID。换号清除旧 scope，DeviceCheck cookie 与完整性状态共用 v3 命名空间，Live 在选定账号后生成证明并正确释放失败槽位。账号独立的应用会话不改变 native 证明的实际硬件来源；具体升级边界见 [原生证明对照](codex/native-device-key-alignment.md)。
+
+## Codex controller 设备密钥证明
+
+`NewCodexRemoteControlClient` 解析 OAuth 凭据 owner 并绑定账号级 HTTP transport、安装身份与 native resources。manager 显式请求 step-up 后执行 client enroll start/finish，刷新时校验已存公钥与服务端 device identity hash；session token 只保留内存。WebSocket 使用 client-session-token 与 v3 头，收到正确 origin/path、账号、scopes、token 摘要和有效期的 challenge 后调用 native TPM/SE 签名，再交还连接。server enrollment/pairing 仍使用原 owner。接口与证据见 [原生证明对照](codex/native-device-key-alignment.md)。
+
+## 2026-10-15 协议适配边界
+
+原生 Anthropic 请求构造器在出站前拒绝其它供应商 OAuth/setup-token；count_tokens 在取 token 前返回兼容 404。协议专属 Anthropic base URL 覆盖通用 provider 地址，但不会改变已配置的鉴权方式。Gemini 每个上游响应只执行一次错误策略，明确的 Vertex SA account-not-found 从凭据阶段进入原有换号流程；共享容量 429 不等同于账号配额。兼容转换的可选输出下限、升级顺序与未关闭目录子项见 [2026-10-15 同步审查](UPSTREAM_SYNC_20261015.md)。
+
+## Claude 5.5 与模型元数据发现
+
+Messages、count_tokens 和 Responses/Chat 桥接在访问凭据前按已映射上游模型校验 5.5 参数。Responses 推理块通过有界 `anthropic-thinking-v1:` 帧携带原始 thinking/signature 或 redacted data；网关不签发签名，最终校验仍由提供方负责。分片签名与文本使用线性 builder；超出回放边界显式返回失败状态。旧模型维持原有转换策略。
+
+管理端模型同步调用应用层 `SyncUpstreamModelCatalog`；预览调用无持久化的 Fetch。OAuth worker 复用同一有界探测与仓储端口。完整成功快照原子写入账号 Extra，并保护账号身份、刷新代次和未知版本；失败/分页不完整不替换旧数据。旧 `UpdateExtra` 写入保留新增键，普通账号编辑从行锁下读取最新快照。迁移 249 的行触发器同时保护旧节点从陈旧缓存替换 Extra 的写入，只读取 OLD/NEW 行，不新增查询；二进制回退时保留此兼容保护。
+
+Codex 模型发现的共享缓存只存上游结果。账号投影再合并已验证元数据，执行已有映射和分组限制，并按最终响应计算 ETag；显式管理员覆盖优先于上游字段，上游显式 false/空数组优先于回退值。此流程不为网关请求新增 DB 或外部目录访问。边界见 [modelcatalog](../backend/internal/modules/modelcatalog/README.md)。
+
+### 2026-10-16 兼容出口增量
+
+OpenAI API-key `/v1/messages` 的纯搜索请求在协议转换前经过既有全局/渠道/账号开关，启用后共享搜索 owner 与账号出口；OAuth 保持原生搜索。Gemini 兼容入口把客户端 thinking/effort 写入模型支持的 budget/level，并将流式 thought 分别转为 thinking 或 reasoning_content，历史思考不作为正文回传。普通 Responses 与 HTTP→WS bridge 对缺失 created_at 做稳定补值，原始 passthrough 保留字节。ChatGPT GPT-5.5 退休按实际映射目标检查，API-key 和显式替代映射保持有效；细节和回退见 [增量审查](UPSTREAM_SYNC_20261016_FOLLOWUP.md)。

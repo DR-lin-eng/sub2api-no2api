@@ -13,6 +13,23 @@ const (
 	openAIMemgenRequestHeader = "x-openai-memgen-request"
 )
 
+// Downstream response preferences do not describe the OAuth upstream wire
+// protocol: Responses always returns SSE, including when the gateway collects
+// it into a non-streaming response. Compact is the separate unary JSON path.
+func normalizeOpenAICodexHTTPProtocolHeaders(req *http.Request, c *gin.Context, account *Account) {
+	if req == nil || account == nil || !account.IsOpenAIOAuth() {
+		return
+	}
+	deleteOpenAIHeaderEqualFold(req.Header, "content-type")
+	deleteOpenAIHeaderEqualFold(req.Header, "accept")
+	req.Header.Set("Content-Type", "application/json")
+	accept := "text/event-stream"
+	if isOpenAIResponsesCompactPath(c) {
+		accept = "application/json"
+	}
+	req.Header.Set("Accept", accept)
+}
+
 type openAICodexRequestSemantics struct {
 	subagent     string
 	requestKind  string

@@ -712,6 +712,33 @@ func (_u *UsageLogUpdate) ClearFirstTokenMs() *UsageLogUpdate {
 	return _u
 }
 
+// SetReasoningTokens sets the "reasoning_tokens" field.
+func (_u *UsageLogUpdate) SetReasoningTokens(v int) *UsageLogUpdate {
+	_u.mutation.ResetReasoningTokens()
+	_u.mutation.SetReasoningTokens(v)
+	return _u
+}
+
+// SetNillableReasoningTokens sets the "reasoning_tokens" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableReasoningTokens(v *int) *UsageLogUpdate {
+	if v != nil {
+		_u.SetReasoningTokens(*v)
+	}
+	return _u
+}
+
+// AddReasoningTokens adds value to the "reasoning_tokens" field.
+func (_u *UsageLogUpdate) AddReasoningTokens(v int) *UsageLogUpdate {
+	_u.mutation.AddReasoningTokens(v)
+	return _u
+}
+
+// ClearReasoningTokens clears the value of the "reasoning_tokens" field.
+func (_u *UsageLogUpdate) ClearReasoningTokens() *UsageLogUpdate {
+	_u.mutation.ClearReasoningTokens()
+	return _u
+}
+
 // SetOpenaiTiming sets the "openai_timing" field.
 func (_u *UsageLogUpdate) SetOpenaiTiming(v map[string]interface{}) *UsageLogUpdate {
 	_u.mutation.SetOpenaiTiming(v)
@@ -1088,6 +1115,11 @@ func (_u *UsageLogUpdate) check() error {
 			return &ValidationError{Name: "billing_mode", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_mode": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ReasoningTokens(); ok {
+		if err := usagelog.ReasoningTokensValidator(v); err != nil {
+			return &ValidationError{Name: "reasoning_tokens", err: fmt.Errorf(`ent: validator failed for field "UsageLog.reasoning_tokens": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.UserAgent(); ok {
 		if err := usagelog.UserAgentValidator(v); err != nil {
 			return &ValidationError{Name: "user_agent", err: fmt.Errorf(`ent: validator failed for field "UsageLog.user_agent": %w`, err)}
@@ -1320,6 +1352,15 @@ func (_u *UsageLogUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.FirstTokenMsCleared() {
 		_spec.ClearField(usagelog.FieldFirstTokenMs, field.TypeInt)
+	}
+	if value, ok := _u.mutation.ReasoningTokens(); ok {
+		_spec.SetField(usagelog.FieldReasoningTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedReasoningTokens(); ok {
+		_spec.AddField(usagelog.FieldReasoningTokens, field.TypeInt, value)
+	}
+	if _u.mutation.ReasoningTokensCleared() {
+		_spec.ClearField(usagelog.FieldReasoningTokens, field.TypeInt)
 	}
 	if value, ok := _u.mutation.OpenaiTiming(); ok {
 		_spec.SetField(usagelog.FieldOpenaiTiming, field.TypeJSON, value)
@@ -2244,6 +2285,33 @@ func (_u *UsageLogUpdateOne) ClearFirstTokenMs() *UsageLogUpdateOne {
 	return _u
 }
 
+// SetReasoningTokens sets the "reasoning_tokens" field.
+func (_u *UsageLogUpdateOne) SetReasoningTokens(v int) *UsageLogUpdateOne {
+	_u.mutation.ResetReasoningTokens()
+	_u.mutation.SetReasoningTokens(v)
+	return _u
+}
+
+// SetNillableReasoningTokens sets the "reasoning_tokens" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableReasoningTokens(v *int) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetReasoningTokens(*v)
+	}
+	return _u
+}
+
+// AddReasoningTokens adds value to the "reasoning_tokens" field.
+func (_u *UsageLogUpdateOne) AddReasoningTokens(v int) *UsageLogUpdateOne {
+	_u.mutation.AddReasoningTokens(v)
+	return _u
+}
+
+// ClearReasoningTokens clears the value of the "reasoning_tokens" field.
+func (_u *UsageLogUpdateOne) ClearReasoningTokens() *UsageLogUpdateOne {
+	_u.mutation.ClearReasoningTokens()
+	return _u
+}
+
 // SetOpenaiTiming sets the "openai_timing" field.
 func (_u *UsageLogUpdateOne) SetOpenaiTiming(v map[string]interface{}) *UsageLogUpdateOne {
 	_u.mutation.SetOpenaiTiming(v)
@@ -2633,6 +2701,11 @@ func (_u *UsageLogUpdateOne) check() error {
 			return &ValidationError{Name: "billing_mode", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_mode": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ReasoningTokens(); ok {
+		if err := usagelog.ReasoningTokensValidator(v); err != nil {
+			return &ValidationError{Name: "reasoning_tokens", err: fmt.Errorf(`ent: validator failed for field "UsageLog.reasoning_tokens": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.UserAgent(); ok {
 		if err := usagelog.UserAgentValidator(v); err != nil {
 			return &ValidationError{Name: "user_agent", err: fmt.Errorf(`ent: validator failed for field "UsageLog.user_agent": %w`, err)}
@@ -2882,6 +2955,15 @@ func (_u *UsageLogUpdateOne) sqlSave(ctx context.Context) (_node *UsageLog, err 
 	}
 	if _u.mutation.FirstTokenMsCleared() {
 		_spec.ClearField(usagelog.FieldFirstTokenMs, field.TypeInt)
+	}
+	if value, ok := _u.mutation.ReasoningTokens(); ok {
+		_spec.SetField(usagelog.FieldReasoningTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedReasoningTokens(); ok {
+		_spec.AddField(usagelog.FieldReasoningTokens, field.TypeInt, value)
+	}
+	if _u.mutation.ReasoningTokensCleared() {
+		_spec.ClearField(usagelog.FieldReasoningTokens, field.TypeInt)
 	}
 	if value, ok := _u.mutation.OpenaiTiming(); ok {
 		_spec.SetField(usagelog.FieldOpenaiTiming, field.TypeJSON, value)

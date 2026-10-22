@@ -1,0 +1,101 @@
+diff --git a/backend/internal/application/service/antigravity_rate_limit_test.go b/backend/internal/application/service/antigravity_rate_limit_test.go
+index d632f14bd..2721e54a7 100644
+--- a/backend/internal/application/service/antigravity_rate_limit_test.go
++++ b/backend/internal/application/service/antigravity_rate_limit_test.go
+@@ -844,6 +844,28 @@ func TestSetAntigravityModelRateLimits_GeminiWritesFamilyScope(t *testing.T) {
+ 	require.Equal(t, antigravityGeminiModelRateLimitKey, repo.modelRateLimitCalls[1].modelKey)
+ }
+ 
++func TestSetAntigravityModelRateLimits_ImageDoesNotWriteFamilyScope(t *testing.T) {
++	repo := &stubAntigravityAccountRepo{}
++	svc := &AntigravityGatewayService{}
++	account := &Account{ID: 789, Platform: PlatformAntigravity}
++	resetAt := time.Now().Add(30 * time.Second)
++
++	success := svc.setAntigravityModelRateLimits(
++		context.Background(),
++		repo,
++		account,
++		"gemini-3.1-flash-image-preview",
++		"[test]",
++		429,
++		resetAt,
++		false,
++	)
++
++	require.True(t, success)
++	require.Len(t, repo.modelRateLimitCalls, 1)
++	require.Equal(t, "gemini-3.1-flash-image-preview", repo.modelRateLimitCalls[0].modelKey)
++}
++
+ func TestSetAntigravityModelRateLimits_DoesNotDoubleMapCustomChain(t *testing.T) {
+ 	repo := &stubAntigravityAccountRepo{}
+ 	svc := &AntigravityGatewayService{}
+diff --git a/backend/internal/application/service/model_rate_limit.go b/backend/internal/application/service/model_rate_limit.go
+index 6d1b77043..a75fa6209 100644
+--- a/backend/internal/application/service/model_rate_limit.go
++++ b/backend/internal/application/service/model_rate_limit.go
+@@ -79,7 +79,7 @@ func (a *Account) modelRateLimitKeysForRequest(ctx context.Context, requestedMod
+ 	keys := []string{modelKey}
+ 	switch a.Platform {
+ 	case PlatformAntigravity:
+-		if isAntigravityGeminiModel(modelKey) && modelKey != antigravityGeminiModelRateLimitKey {
++		if isAntigravityGeminiModel(modelKey) && !isAntigravityGeminiImageModel(modelKey) && modelKey != antigravityGeminiModelRateLimitKey {
+ 			keys = append(keys, antigravityGeminiModelRateLimitKey)
+ 		}
+ 	case PlatformOpenAI:
+@@ -164,12 +164,17 @@ func antigravityModelRateLimitKeys(model string) []string {
+ 		return nil
+ 	}
+ 	keys := []string{model}
+-	if isAntigravityGeminiModel(model) && model != antigravityGeminiModelRateLimitKey {
++	if isAntigravityGeminiModel(model) && !isAntigravityGeminiImageModel(model) && model != antigravityGeminiModelRateLimitKey {
+ 		keys = append(keys, antigravityGeminiModelRateLimitKey)
+ 	}
+ 	return keys
+ }
+ 
++func isAntigravityGeminiImageModel(model string) bool {
++	normalized := normalizeAntigravityModelName(model)
++	return strings.HasPrefix(normalized, "gemini-") && strings.Contains(normalized, "-image")
++}
++
+ func (a *Account) modelRateLimitResetAt(scope string) *time.Time {
+ 	if a == nil || a.Extra == nil || scope == "" {
+ 		return nil
+diff --git a/backend/internal/application/service/model_rate_limit_test.go b/backend/internal/application/service/model_rate_limit_test.go
+index 430d91baf..9ac283c12 100644
+--- a/backend/internal/application/service/model_rate_limit_test.go
++++ b/backend/internal/application/service/model_rate_limit_test.go
+@@ -255,6 +255,31 @@ func TestIsModelRateLimited_OpenAIImageGenerationIntentBlocksTextModelImageTool(
+ 	require.True(t, account.isModelRateLimitedWithContext(WithOpenAIImageGenerationIntent(context.Background()), "gpt-5.4"))
+ }
+ 
++func TestIsModelRateLimited_AntigravityImageDoesNotInheritGeminiFamilyLimit(t *testing.T) {
++	future := time.Now().Add(10 * time.Minute).Format(time.RFC3339)
++	account := &Account{
++		Platform: PlatformAntigravity,
++		Extra: map[string]any{
++			modelRateLimitsKey: map[string]any{
++				antigravityGeminiModelRateLimitKey: map[string]any{
++					"rate_limit_reset_at": future,
++				},
++			},
++		},
++	}
++
++	for _, model := range []string{"gemini-3.1-flash-image", "gemini-3.1-flash-image-preview", "gemini-3-pro-image"} {
++		require.False(t, account.isModelRateLimitedWithContext(context.Background(), model), model)
++	}
++	require.True(t, account.isModelRateLimitedWithContext(context.Background(), "gemini-3-flash"))
++	rawLimits, ok := account.Extra[modelRateLimitsKey].(map[string]any)
++	require.True(t, ok)
++	rawLimits["gemini-3.1-flash-image"] = map[string]any{
++		"rate_limit_reset_at": future,
++	}
++	require.True(t, account.isModelRateLimitedWithContext(context.Background(), "gemini-3-pro-image-preview"))
++}
++
+ func TestIsModelRateLimited_Antigravity_ThinkingAffectsModelKey(t *testing.T) {
+ 	now := time.Now()
+ 	future := now.Add(10 * time.Minute).Format(time.RFC3339)

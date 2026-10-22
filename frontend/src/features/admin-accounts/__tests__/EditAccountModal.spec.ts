@@ -1005,25 +1005,31 @@ describe('EditAccountModal', () => {
     const embeddingsCheckbox = wrapper.get<HTMLInputElement>(
       '[data-testid="openai-endpoint-capability-embeddings"]'
     )
+    const decisionsCheckbox = wrapper.get<HTMLInputElement>(
+      '[data-testid="openai-endpoint-capability-decisions"]'
+    )
 
     expect(chatCheckbox.element.checked).toBe(true)
     expect(embeddingsCheckbox.element.checked).toBe(true)
+    expect(decisionsCheckbox.element.checked).toBe(true)
 
     await embeddingsCheckbox.setValue(false)
 
     expect(chatCheckbox.element.checked).toBe(true)
     expect(embeddingsCheckbox.element.checked).toBe(false)
+    expect(decisionsCheckbox.element.checked).toBe(true)
 
     await chatCheckbox.setValue(false)
 
-    expect(chatCheckbox.element.checked).toBe(true)
+    expect(chatCheckbox.element.checked).toBe(false)
     expect(embeddingsCheckbox.element.checked).toBe(false)
+    expect(decisionsCheckbox.element.checked).toBe(true)
 
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
     expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.openai_capabilities).toEqual([
-      'chat_completions'
+      'decisions'
     ])
   })
 
@@ -1236,6 +1242,20 @@ describe('EditAccountModal', () => {
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     expect(updateAccountMock).not.toHaveBeenCalled()
+  })
+
+  it('preserves Vertex quota limits when saving a redacted service account', async () => {
+    const account = buildVertexAccount()
+    account.extra = { quota_limit: 20, quota_daily_limit: 5, quota_weekly_limit: 15, quota_used: 2 }
+    account.credentials_status = { has_service_account_json: true }
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset()
+    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+    updateAccountMock.mockResolvedValue(account)
+    const wrapper = mountModal(account)
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).toMatchObject({ quota_limit: 20, quota_daily_limit: 5, quota_weekly_limit: 15, quota_used: 2 })
   })
 
   it('allows saving Vertex SA account when backend redacted service_account_json but credentials_status reports it exists', async () => {

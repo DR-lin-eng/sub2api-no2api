@@ -310,6 +310,19 @@ func RegisterGatewayRoutes(
 			}
 			h.OpenAIGateway.Embeddings(c)
 		})
+		gateway.POST("/decisions", func(c *gin.Context) {
+			if !isOpenAIOnlyEndpointGatewayPlatform(c) {
+				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
+				c.JSON(http.StatusNotFound, gin.H{
+					"error": gin.H{
+						"type":    "not_found_error",
+						"message": "Decisions API is not supported for this platform",
+					},
+				})
+				return
+			}
+			h.OpenAIGateway.Decisions(c)
+		})
 		gateway.POST("/images/generations", imagesHandler)
 		gateway.POST("/images/edits", imagesHandler)
 		gateway.POST("/images/generations/async", h.AsyncImage.Submit)
@@ -405,6 +418,19 @@ func RegisterGatewayRoutes(
 			return
 		}
 		h.OpenAIGateway.Embeddings(c)
+	})
+	r.POST("/decisions", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), gatewayModelValidation, groupModelAllowlist, compositeTarget, requireGroupAnthropic, func(c *gin.Context) {
+		if !isOpenAIOnlyEndpointGatewayPlatform(c) {
+			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": gin.H{
+					"type":    "not_found_error",
+					"message": "Decisions API is not supported for this platform",
+				},
+			})
+			return
+		}
+		h.OpenAIGateway.Decisions(c)
 	})
 	r.POST("/images/generations", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), gatewayModelValidation, groupModelAllowlist, compositeTarget, requireGroupAnthropic, imagesHandler)
 	r.POST("/images/edits", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), gatewayModelValidation, groupModelAllowlist, compositeTarget, requireGroupAnthropic, imagesHandler)
@@ -618,6 +644,8 @@ func compositeRouteEndpointForPath(path string) string {
 		return service.CompositeRouteEndpointChatCompletions
 	case strings.Contains(path, "/embeddings"):
 		return service.CompositeRouteEndpointEmbeddings
+	case strings.Contains(path, "/decisions"):
+		return service.CompositeRouteEndpointDecisions
 	case strings.Contains(path, "/images/"):
 		return service.CompositeRouteEndpointImages
 	case strings.Contains(path, "/v1beta/"):

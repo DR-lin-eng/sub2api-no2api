@@ -1,0 +1,10 @@
+{
+  "backend/internal/application/service/gemini_chat_completions_compat_service.go": "9417e355b96668c1f2ade4eae497c58f25290ba3276daf2196bd46b5f3baf90c",
+  "backend/internal/application/service/gemini_messages_compat_service.go": "af2824fbd2a28fc4a06a83e596d837b5ba7e587ac828063a8573c5dec440a1c2",
+  "backend/internal/application/service/gemini_messages_stream.go": "9cef547fc0b5248f694b12e81a684c483205828466c3ded7f3dee7f029dc2daa",
+  "backend/internal/application/service/gemini_native_stream.go": "7c58c7153ab09ce7e8b2571b68be6e450de8c3455a2d4f82980074ea1b2843ad",
+  "backend/internal/application/service/gemini_stream_client_abort.go": "3d9f03178f4ddd54342cc0dbc6f0564f23d4a2ca3fef9de12c7708e7f7e43ab1",
+  "backend/internal/application/service/image_storage.go": "da99127cddaebcab47fe97ff6c9bf4831499c7279ab3d9b087a109aa9b92192e",
+  "backend/internal/shared/antigravity/response_transformer.go": "b70e84a6b770eb408df8e682871e56535238f1c46b0c3a4783b0e5d1eb7d70db",
+  "backend/internal/shared/antigravity/stream_transformer.go": "fcfcfb322b31c263e60577475876580d9274ab8d26fdefc5138bd40eabe82e72"
+}

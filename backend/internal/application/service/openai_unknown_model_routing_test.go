@@ -45,7 +45,7 @@ func TestOpenAIModelRoutingUsesSyncedOAuthCapabilitySnapshot(t *testing.T) {
 			oauth := Account{
 				ID: 910051, Platform: PlatformOpenAI, Type: AccountTypeOAuth,
 				Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0,
-				Extra: map[string]any{OAuthSupportedModelsExtraKey: []any{"gpt-5.5"}},
+				Extra: map[string]any{OAuthSupportedModelsExtraKey: []any{"gpt-5.6"}},
 			}
 			apiKey := Account{
 				ID: 910052, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
@@ -62,7 +62,7 @@ func TestOpenAIModelRoutingUsesSyncedOAuthCapabilitySnapshot(t *testing.T) {
 			require.Equal(t, apiKey.ID, selection.Account.ID)
 
 			selection, _, err = svc.SelectAccountWithScheduler(
-				context.Background(), &groupID, "", "", "gpt-5.5", nil,
+				context.Background(), &groupID, "", "", "gpt-5.6", nil,
 				OpenAIUpstreamTransportAny, false,
 			)
 			require.NoError(t, err)

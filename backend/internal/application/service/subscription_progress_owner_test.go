@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -45,6 +46,7 @@ func TestGetSubscriptionProgressForUserUsesOwnedLookup(t *testing.T) {
 			Group: &Group{
 				ID:            9,
 				Name:          "owned",
+				I18n:          GroupI18n{"en": {Name: "Translated"}},
 				DailyLimitUSD: &dailyLimit,
 			},
 		},
@@ -54,6 +56,11 @@ func TestGetSubscriptionProgressForUserUsesOwnedLookup(t *testing.T) {
 	progress, err := svc.GetSubscriptionProgressForUser(context.Background(), 17, 42)
 	require.NoError(t, err)
 	require.Equal(t, int64(17), progress.ID)
+	require.Equal(t, "Translated", progress.GroupI18n.LocalizeName("en", progress.GroupName))
+	require.Equal(t, "owned", repo.sub.Group.Name)
+	encoded, err := json.Marshal(progress)
+	require.NoError(t, err)
+	require.NotContains(t, string(encoded), "i18n")
 	require.Equal(t, 1, repo.ownedLookups)
 
 	_, err = svc.GetSubscriptionProgressForUser(context.Background(), 17, 99)

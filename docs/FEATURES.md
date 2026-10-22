@@ -57,7 +57,7 @@
 | 卡密管理 | `/admin/redeem` | 生成、导出、状态维护和批量编辑：[admin-redeem](../frontend/src/features/admin-redeem/README.md) |
 | 优惠码 | `/admin/promo-codes` | 注册优惠码、使用上限、有效期和使用记录：[admin-promo](../frontend/src/features/admin-promo/README.md) |
 | 全站用量 | `/admin/usage` | 管理员请求明细、成本、筛选、导出和清理任务：[admin-usage](../frontend/src/features/admin-usage/README.md) |
-| Ops | `/admin/ops` | 并发、流量、错误、日志、告警和结算队列：[admin-ops](../frontend/src/features/admin-ops/README.md) |
+| Ops | `/admin/ops` | 并发、流量、错误、日志、告警、结算队列和 OAuth 套餐到期分布：[admin-ops](../frontend/src/features/admin-ops/README.md) |
 | 风控与入口拒绝 | `/admin/risk-control`、`/admin/security-audit/ingress` | 内容审核、入口拒绝记录与 Cloudflare 联动：[admin-risk-control](../frontend/src/features/admin-risk-control/README.md) |
 | Prompt 审计 | `/admin/prompt-audit` | 审计端点池、策略、运行状态和事件管理：[prompt-audit](../frontend/src/features/prompt-audit/README.md) |
 | 操作审计 | `/admin/audit-logs` | 管理操作记录、详情和现场 TOTP 清理：[admin-audit](../frontend/src/features/admin-audit/README.md) |
@@ -78,7 +78,7 @@
 | Codex OAuth 行为 | [有意差异](codex/intentional-divergences.md) | [请求链路](REQUEST_LIFECYCLES.md) |
 | OAuth2 对外授权 | [OAuth2 对外授权服务](OAUTH2_PROVIDER.md) | [OAuth2 路由](../backend/internal/transport/http/server/routes/oauth2_provider.go) |
 
-垂直后端模块另有完整目录说明：[qualityrender](../backend/internal/modules/qualityrender/README.md)、[activitycenter](../backend/internal/modules/activitycenter/README.md)、[chat](../backend/internal/modules/chat/README.md)、[egress](../backend/internal/modules/egress/README.md)、[payment](../backend/internal/modules/payment/README.md)、[securityaudit](../backend/internal/modules/securityaudit/README.md)、[typesafe](../backend/internal/modules/typesafe/README.md)。并非所有功能都已经迁入 `modules`；存量服务仍以代码地图为准。
+垂直后端模块另有完整目录说明：[codexremotecontrol](../backend/internal/modules/codexremotecontrol/README.md)、[qualityrender](../backend/internal/modules/qualityrender/README.md)、[activitycenter](../backend/internal/modules/activitycenter/README.md)、[chat](../backend/internal/modules/chat/README.md)、[egress](../backend/internal/modules/egress/README.md)、[payment](../backend/internal/modules/payment/README.md)、[securityaudit](../backend/internal/modules/securityaudit/README.md)、[typesafe](../backend/internal/modules/typesafe/README.md)。并非所有功能都已经迁入 `modules`；存量服务仍以代码地图为准。
 
 ## 维护与验证
 
@@ -92,3 +92,5 @@ git diff --check
 ```
 
 文档检查覆盖目录 README 的存在、索引登记和维护文档的本地链接；它不证明页面交互、权限或业务行为已经通过运行测试。修改业务时仍须按 [代码地图](CODE_MAP.md) 和子目录说明运行对应测试。
+
+模型发现元数据的纯规则见 [modelcatalog](../backend/internal/modules/modelcatalog/README.md)，刷新与持久化由 `upstream_model_catalog.go` 和 `oauth_model_sync_service.go` 编排，Codex 客户端投影由 `openai_codex_models_metadata.go` 负责。

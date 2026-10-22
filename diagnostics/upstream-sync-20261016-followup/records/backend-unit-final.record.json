@@ -1,0 +1,831 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus",
+    "3",
+    "--memory",
+    "5g",
+    "-e",
+    "GOMAXPROCS=3",
+    "-e",
+    "GOFLAGS=-p=2",
+    "-v",
+    "sub2api-upstream-go-mod-20261016:/go/pkg/mod",
+    "-v",
+    "sub2api-upstream-go-build-20261016:/root/.cache/go-build",
+    "-v",
+    "/private/tmp/sub2api-upstream-sync-20261016:/workspace",
+    "-w",
+    "/workspace/backend",
+    "golang:1.26.9",
+    "go",
+    "test",
+    "-json",
+    "-tags",
+    "unit",
+    "./..."
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261016",
+  "started_at": "2026-10-16T07:51:46.460540+00:00",
+  "elapsed_seconds": 262.132,
+  "exit_status": 0,
+  "literal_record_gzip": "backend-unit-final.record.json.gz",
+  "literal_record_sha256": "f3bd980126956dd39fe83e84f39c5440c7b660a4b5cb7541f0ba385fb7cdd4dc",
+  "gzip_sha256": "8affa6edbbd2e5e4c9ce2be0895de671aaab2c968350d9bb8cac96d00782b2df",
+  "package_outcomes": [
+    {
+      "Time": "2026-10-16T07:52:05.721210967Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/cmd/cleanup-ingress-reject-logs",
+      "Elapsed": 0.001
+    },
+    {
+      "Time": "2026-10-16T07:52:05.723474426Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/cmd/jwtgen",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:05.723965426Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/cmd/profit-preview",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.737454347Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/cmd/server",
+      "Elapsed": 0.001
+    },
+    {
+      "Time": "2026-10-16T07:52:14.74102518Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741046888Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/account",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741058722Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/accountegressbinding",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.74107193Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/accountgroup",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741084138Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/announcement",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741114472Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/announcementread",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741140597Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/apikey",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741147347Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/authidentity",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741183847Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/authidentitychannel",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741194847Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/batchimageevent",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741355222Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/batchimageitem",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741478638Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/batchimagejob",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741486972Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/channelmonitor",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.74150368Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741524013Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741537347Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741543305Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/chatasset",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.74155568Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/chatconversation",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.74156268Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/chatmessage",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741566847Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/chatmessageasset",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741571597Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/chatquickreply",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741595513Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/compositemodelroute",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741603597Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/custommodelconfig",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741611263Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/custommodelrequesttemplate",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741629138Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/enttest",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741648305Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741662222Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/group",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.74167268Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/hook",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741694555Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/idempotencyrecord",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741706555Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741720222Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/intercept",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741730597Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/ipv6egresspool",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741774638Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/migrate",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.74186218Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/paymentauditlog",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741887263Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/paymentorder",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741899347Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/paymentproviderinstance",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741910055Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/pendingauthsession",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741922013Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/predicate",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741936722Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/promocode",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741942763Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/promocodeusage",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741949305Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/proxy",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741961763Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/redeemcode",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741975847Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/redeemcodeusage",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.741985472Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/runtime",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.74200793Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/schema",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.74206243Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/schema/mixins",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.74206668Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/securitysecret",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.74207293Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/setting",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.742077222Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/subscriptionplan",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.742093847Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/tlsfingerprintprofile",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.74210468Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/usagecleanuptask",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.742125055Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/usagelog",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.742134805Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/user",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.742145055Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/userallowedgroup",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.742161638Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/userattributedefinition",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.74217918Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/userattributevalue",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.74218443Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/userplatformquota",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:14.74220043Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/ent/usersubscription",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:15.384429305Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2",
+      "Elapsed": 0.001
+    },
+    {
+      "Time": "2026-10-16T07:52:15.532227389Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/bootstrap/setup",
+      "Elapsed": 0.002
+    },
+    {
+      "Time": "2026-10-16T07:52:15.533211639Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/domain",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:15.53326693Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/domain/model",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:36.564796009Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/infrastructure/repository",
+      "Elapsed": 7.455
+    },
+    {
+      "Time": "2026-10-16T07:52:36.572551634Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/modules/activitycenter",
+      "Elapsed": 0.001
+    },
+    {
+      "Time": "2026-10-16T07:52:36.573076968Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/modules/chat",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:36.573632926Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/modules/codexremotecontrol",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:36.573916843Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/modules/egress",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:36.574325718Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:36.578676468Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/modules/payment",
+      "Elapsed": 0.004
+    },
+    {
+      "Time": "2026-10-16T07:52:36.585252843Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/modules/payment/provider",
+      "Elapsed": 0.006
+    },
+    {
+      "Time": "2026-10-16T07:52:36.586003676Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/modules/qualityrender",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.82495151Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/modules/securityaudit",
+      "Elapsed": 0.004
+    },
+    {
+      "Time": "2026-10-16T07:52:38.826701635Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/modules/typesafe",
+      "Elapsed": 0.001
+    },
+    {
+      "Time": "2026-10-16T07:52:38.829319427Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/platform/config",
+      "Elapsed": 0.003
+    },
+    {
+      "Time": "2026-10-16T07:52:38.829601635Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/platform/devicekey",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.829815052Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/platform/egress",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.830010677Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/platform/liveattestation",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.830337885Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/platform/middleware",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.830581594Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/anthropicfp",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.832949552Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/antigravity",
+      "Elapsed": 0.002
+    },
+    {
+      "Time": "2026-10-16T07:52:38.837161135Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/apicompat",
+      "Elapsed": 0.004
+    },
+    {
+      "Time": "2026-10-16T07:52:38.840062885Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/basispoints",
+      "Elapsed": 0.003
+    },
+    {
+      "Time": "2026-10-16T07:52:38.840182094Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/chatgptcookies",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.840348094Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/claude",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.840765427Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.840855844Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/ctxkey",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.841002552Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/errors",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.841058469Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/gemini",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.84153376Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/geminicli",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.841800469Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/googleapi",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.841908844Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/httpclient",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.842334885Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/httputil",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.842572385Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/ip",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.84272426Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/logger",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.842819719Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/logredact",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.842899844Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/oauth",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.842963385Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/oauthstate",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.84412476Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/openai",
+      "Elapsed": 0.001
+    },
+    {
+      "Time": "2026-10-16T07:52:38.84441326Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/openai_compat",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.844534969Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/openaitiming",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.844978385Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/pagination",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.845136719Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/proxyurl",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.845374885Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/proxyutil",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.84548451Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/remotecontrol",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.845701344Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/requestmodel",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.846189594Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/response",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.846266219Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/responseheaders",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.846410302Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/servertiming",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.84647101Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/sysutil",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.84660001Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/timezone",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.84677251Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.847253427Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.847435302Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/usagestats",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.847844385Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/websearch",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.848090719Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/wsutil",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:52:38.848746969Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/shared/xai",
+      "Elapsed": 0.001
+    },
+    {
+      "Time": "2026-10-16T07:52:39.005642219Z",
+      "Action": "skip",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/testutil",
+      "Elapsed": 0
+    },
+    {
+      "Time": "2026-10-16T07:53:28.789716172Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler",
+      "Elapsed": 42.657
+    },
+    {
+      "Time": "2026-10-16T07:53:42.674814846Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin",
+      "Elapsed": 0.028
+    },
+    {
+      "Time": "2026-10-16T07:53:48.596653209Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto",
+      "Elapsed": 0.011
+    },
+    {
+      "Time": "2026-10-16T07:53:52.323161961Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/quotaview",
+      "Elapsed": 0.006
+    },
+    {
+      "Time": "2026-10-16T07:53:52.327862086Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/supportchatasset",
+      "Elapsed": 0.002
+    },
+    {
+      "Time": "2026-10-16T07:54:03.025270549Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/server",
+      "Elapsed": 0.011
+    },
+    {
+      "Time": "2026-10-16T07:54:31.044761215Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware",
+      "Elapsed": 0.315
+    },
+    {
+      "Time": "2026-10-16T07:54:54.523796962Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes",
+      "Elapsed": 7.313
+    },
+    {
+      "Time": "2026-10-16T07:54:54.540212795Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/transport/webassets",
+      "Elapsed": 0.005
+    },
+    {
+      "Time": "2026-10-16T07:54:54.546542504Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/migrations",
+      "Elapsed": 0.005
+    },
+    {
+      "Time": "2026-10-16T07:56:06.227157009Z",
+      "Action": "pass",
+      "Package": "github.com/Wei-Shaw/sub2api/internal/application/service",
+      "Elapsed": 231.485
+    }
+  ]
+}

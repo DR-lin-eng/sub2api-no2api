@@ -1,0 +1,17 @@
+{
+  "command": [
+    "docker",
+    "exec",
+    "sub2api-sync-ui-rollback-20261012",
+    "node",
+    "/app/frontend/sync-harness/browser.mjs",
+    "ROLLBACK"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5",
+  "exit_status": 0,
+  "elapsed_s": 6.683323833043687,
+  "utc": "2026-10-12T18:26:17.325549+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "9a6133d6ff564b86ce4fa35f0951ca9592ffbd63dd93b42e7aa55c1c49874e3a",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

@@ -114,6 +114,39 @@ export interface OpsUserUsageStatsParams {
   top_n?: number
 }
 
+export type OpsOAuthPlanExpiryBucketKey =
+  | 'expired'
+  | 'up_to_1'
+  | 'up_to_2'
+  | 'up_to_4'
+  | 'up_to_5'
+  | 'up_to_10'
+  | 'up_to_15'
+  | 'up_to_20'
+  | 'up_to_25'
+  | 'over_25'
+
+export interface OpsOAuthPlanExpiryBucket {
+  key: OpsOAuthPlanExpiryBucketKey | string
+  count: number
+}
+
+export interface OpsOAuthPlanSummary {
+  plan_type: string
+  count: number
+}
+
+export interface OpsOAuthPlanExpiryDistributionResponse {
+  generated_at: string
+  platform: string
+  group_id?: number | null
+  total_oauth_accounts: number
+  accounts_with_expiry: number
+  accounts_without_expiry: number
+  buckets: OpsOAuthPlanExpiryBucket[]
+  plans: OpsOAuthPlanSummary[]
+}
+
 export interface PlatformConcurrencyInfo {
   platform: string
   current_in_use: number

@@ -1,0 +1,173 @@
+[
+  {
+    "pr": 7957,
+    "merge_sha": "7c5afa4c361b7b69afeb9aaf5b47c0bbe9af0180",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7957",
+    "diff_sha256": "53cfe29edbf9e1f1e374c854b8ff899077e4de16638a548b8f6c16751d822d8f",
+    "status": "deferred",
+    "fully_closed": false,
+    "decision": "Claude 5.5 signed-thinking prerequisites are absent in current native and reverse protocol owners; do not advertise a partially functioning model or overwrite the established thinking filtering policy.",
+    "reopen_condition": "Implement the shared signed-history round trip, adaptive/disabled effort, forced-tool and sampling matrix in the current owners, then validate buffered/streaming and billing thresholds before registering Haiku 5.5.",
+    "resolved_by": {
+      "effective_status": "ported",
+      "fully_closed": true,
+      "ledger": "diagnostics/upstream-sync-20261015/open-items/CLOSED_DIFFERENCES.json",
+      "evidence": [
+        "open-items/TRANSACTION.json",
+        "open-items/PERFORMANCE.json",
+        "open-items/runtime-result.json",
+        "VERIFICATION.txt",
+        "records/open-items-unit-complete.record.json",
+        "records/open-items-integration-complete.record.json",
+        "records/open-items-race-complete.record.json",
+        "records/open-items-lint-complete.record.json",
+        "records/open-items-image-complete.record.json",
+        "records/open-items-runtime-upgrade-rollback.record.json",
+        "records/open-items-frontend.record.json",
+        "records/open-items-combined-source-transaction.record.json",
+        "records/open-items-combined-focused.record.json",
+        "records/open-items-rolling-writer-integration.record.json",
+        "records/open-items-migration-tests.record.json",
+        "records/open-items-image-metadata-guard.record.json"
+      ],
+      "note": "Original historical deferral retained above; this later supplemental resolution closes that frozen behavior."
+    }
+  },
+  {
+    "pr": 8006,
+    "merge_sha": "53c21fed252cec522035cfc2d4dd890a8c47140b",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8006",
+    "diff_sha256": "db285f8025c4f8f406ef19a7bea37f5ca37156f60466e784d8e3ecdc23501d1a",
+    "status": "deferred",
+    "fully_closed": false,
+    "decision": "A new persisted cachedContents API changes billing admission, reservation/settlement, account pinning and cross-instance mutation recovery. Upstream migrations 243-245 collide with current CN, OpenCode and proxy-health migrations.",
+    "reopen_condition": "Create a separate native cache module and current reliable billing integration using new migration IDs; prove mixed-writer compatibility, bounded list/recovery queries, atomic token-hour billing, cancellation, lease expiry and crash recovery before explicit opt-in.",
+    "performance_review": "GeminiExplicitCacheExclusions constructs an O(N) candidate exclusion map even for a bound account. A native implementation should admit the bound account directly using the existing snapshot and group checks. Recovery batches have an explicit limit, but add a periodic database worker and require multi-instance load validation.",
+    "egress_review": "doUpstream calls the legacy generic httpUpstream.Do entry point. Adapt through the current full-account proxy/IPv6/TLS route and verify fail-closed behavior before enabling.",
+    "source_symbols": [
+      "GeminiExplicitCacheExclusions",
+      "GeminiCachedContentService.doUpstream",
+      "GeminiCachedContentService.RecoverStaleMutations"
+    ]
+  },
+  {
+    "pr": 7828,
+    "merge_sha": "49dc6e236380a7198e0658054b0d7c595b597387",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7828",
+    "diff_sha256": "f341da6e0ddccd40ab19c179e8d4531c1a37ef31adb9e1d873c9658c76b7d4b3",
+    "status": "ported",
+    "fully_closed": true,
+    "decision": "Optional scope is adapted in account rules, rate-limit policy, runtime blocker, count_tokens, Bedrock, retry exhaustion and current create/edit feature owners; missing scope preserves existing behavior.",
+    "reopen_condition": "Only a changed upstream behavior or an observed regression in this owner; explicit scope is enabled after all nodes are upgraded.",
+    "current_owners": [
+      "backend/internal/application/service/account.go",
+      "backend/internal/application/service/temp_unsched_scope.go",
+      "backend/internal/application/service/ratelimit_service.go",
+      "backend/internal/application/service/openai_account_runtime_block_fastpath.go",
+      "backend/internal/application/service/gateway_bedrock.go",
+      "backend/internal/application/service/gateway_count_tokens.go",
+      "frontend/src/features/admin-accounts/presentation/accountFormPolicy.ts"
+    ],
+    "evidence": [
+      "records/backend-unit-bounded.record.json",
+      "records/backend-integration.record.json",
+      "records/backend-race.record.json",
+      "records/backend-lint.record.json",
+      "records/frontend-final-memory-corrected.record.json",
+      "records/runtime-upgrade-rollback.record.json",
+      "SOURCE_HASHES.json"
+    ]
+  },
+  {
+    "pr": 8046,
+    "merge_sha": "bba85923b96c277b9cbe4a2d21c661ff741c7e29",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8046",
+    "diff_sha256": "9faa1adc3d523f42926590972e4b4ff293396336b78cb5bae770ae43e2b8fdf0",
+    "status": "ported",
+    "fully_closed": true,
+    "decision": "Image-model rate limits use model scope and no longer inherit or write the Gemini text family scope.",
+    "reopen_condition": "Only changed upstream behavior or an observed model isolation regression.",
+    "current_owners": [
+      "backend/internal/application/service/model_rate_limit.go"
+    ],
+    "evidence": [
+      "records/backend-unit-bounded.record.json",
+      "records/backend-integration.record.json",
+      "records/backend-race.record.json",
+      "records/backend-lint.record.json",
+      "records/frontend-final-memory-corrected.record.json",
+      "records/runtime-upgrade-rollback.record.json",
+      "SOURCE_HASHES.json"
+    ]
+  },
+  {
+    "pr": 8038,
+    "merge_sha": "8d7d3185e987f0241f4cd99c2bc2b220378b4860",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8038",
+    "diff_sha256": "a4c0ef5bbc1cc8df1b6c3968ca9e10762e0bc01b2ded4a7242ed16dd22661c4c",
+    "status": "ported",
+    "fully_closed": true,
+    "decision": "Gemini conversion preserves base64 images from tool results after function responses, reusing the existing converter and no remote fetch.",
+    "reopen_condition": "Only changed upstream behavior or a conversion/order regression.",
+    "current_owners": [
+      "backend/internal/application/service/gemini_messages_compat_service.go"
+    ],
+    "evidence": [
+      "records/backend-unit-bounded.record.json",
+      "records/backend-integration.record.json",
+      "records/backend-race.record.json",
+      "records/backend-lint.record.json",
+      "records/frontend-final-memory-corrected.record.json",
+      "records/runtime-upgrade-rollback.record.json",
+      "SOURCE_HASHES.json"
+    ]
+  },
+  {
+    "pr": 7991,
+    "merge_sha": "49b2122dc623f7f2face4a2f89dbd6bceffb781a",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7991",
+    "diff_sha256": "f4642365d35cffe07412c33dc68274da69e1488599507d6d57823408b34a07f5",
+    "status": "ported",
+    "fully_closed": true,
+    "decision": "Kimi international official endpoint is recognized by exact parsed HTTPS host and path, and added to default upstream allowlists; quota keeps the current proxy/IPv6 owner.",
+    "reopen_condition": "Only changed official endpoints or an observed quota URL/security policy regression.",
+    "current_owners": [
+      "backend/internal/application/service/account.go",
+      "backend/internal/platform/config/defaults_runtime.go"
+    ],
+    "evidence": [
+      "records/backend-unit-bounded.record.json",
+      "records/backend-integration.record.json",
+      "records/backend-race.record.json",
+      "records/backend-lint.record.json",
+      "records/frontend-final-memory-corrected.record.json",
+      "records/runtime-upgrade-rollback.record.json",
+      "SOURCE_HASHES.json"
+    ]
+  },
+  {
+    "pr": 7810,
+    "merge_sha": "01842576b3d5c1e2545b5a99ad555d36e28ed306",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/7810",
+    "diff_sha256": "9d7efc6691b3bf0a82f877839bcd37df8e3319bc9447689fd48d03c999937466",
+    "status": "ported",
+    "fully_closed": true,
+    "decision": "Single raw Chat fallback for complete unambiguous input-string rejection in auto supported OpenAI API-key mode, before output or cancellation; preserves full attempt timing and current cancellation/billing/drain logic.",
+    "reopen_condition": "Only changed rejection formats or an observed retry, timing, streaming or billing regression.",
+    "current_owners": [
+      "backend/internal/application/service/openai_responses_input_rejection.go",
+      "backend/internal/application/service/openai_gateway_chat_completions.go",
+      "backend/internal/application/service/openai_gateway_cc_pipeline.go",
+      "backend/internal/application/service/openai_gateway_responses_chat_fallback.go"
+    ],
+    "evidence": [
+      "records/backend-unit-bounded.record.json",
+      "records/backend-integration.record.json",
+      "records/backend-race.record.json",
+      "records/backend-lint.record.json",
+      "records/frontend-final-memory-corrected.record.json",
+      "records/runtime-upgrade-rollback.record.json",
+      "SOURCE_HASHES.json"
+    ]
+  }
+]

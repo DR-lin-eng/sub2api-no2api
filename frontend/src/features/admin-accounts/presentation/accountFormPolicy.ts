@@ -5,6 +5,27 @@ export interface ModelMapping {
   to: string
 }
 
+export function buildAPIKeySearchExtra(
+  base: Record<string, unknown> | undefined,
+  platform: string,
+  category: string,
+  searchMode: string,
+  anthropicPassthrough: boolean,
+  anthropicAuthScheme: string,
+): Record<string, unknown> | undefined {
+  if (category !== 'apikey' || (platform !== 'anthropic' && platform !== 'openai')) return base
+  const extra = { ...(base || {}) }
+  if (platform === 'anthropic') {
+    if (anthropicPassthrough) extra.anthropic_passthrough = true
+    else delete extra.anthropic_passthrough
+    if (anthropicAuthScheme === 'authorization_bearer') extra.anthropic_apikey_auth_scheme = anthropicAuthScheme
+    else delete extra.anthropic_apikey_auth_scheme
+  }
+  if (searchMode === 'default') delete extra.web_search_emulation
+  else extra.web_search_emulation = searchMode
+  return Object.keys(extra).length > 0 ? extra : undefined
+}
+
 export function isOpenAIPersonalAccessTokenCredentials(credentials?: Record<string, unknown>): boolean {
   const authMode = String(credentials?.auth_mode ?? credentials?.openai_auth_mode ?? '')
     .trim()
@@ -24,7 +45,7 @@ export function readCodexWebSearchEnabled(credentials?: Record<string, unknown>)
 export function normalizeOpenAIEndpointCapabilities(
   values: OpenAIEndpointCapability[],
 ): OpenAIEndpointCapability[] {
-  const allowed: OpenAIEndpointCapability[] = ['chat_completions', 'embeddings']
+  const allowed: OpenAIEndpointCapability[] = ['chat_completions', 'embeddings', 'decisions']
   const selected = allowed.filter((value) => values.includes(value))
   return selected.length > 0 ? selected : allowed
 }
@@ -36,19 +57,19 @@ export function readOpenAIEndpointCapabilities(
   if (Array.isArray(raw)) {
     return normalizeOpenAIEndpointCapabilities(
       raw.filter((value): value is OpenAIEndpointCapability =>
-        value === 'chat_completions' || value === 'embeddings',
+        value === 'chat_completions' || value === 'embeddings' || value === 'decisions',
       ),
     )
   }
   if (raw !== null && typeof raw === 'object') {
     const capabilityMap = raw as Record<string, unknown>
     return normalizeOpenAIEndpointCapabilities(
-      ['chat_completions', 'embeddings'].filter(
+      ['chat_completions', 'embeddings', 'decisions'].filter(
         (value): value is OpenAIEndpointCapability => capabilityMap[value] === true,
       ),
     )
   }
-  return ['chat_completions', 'embeddings']
+  return ['chat_completions', 'embeddings', 'decisions']
 }
 
 export type CodexFingerprintMode = 'off' | 'device' | 'session' | 'full'
@@ -79,7 +100,15 @@ export function getCodexFingerprintModeOptions(
   ]
 }
 
+export type TempUnschedScope = '' | 'account' | 'model'
+
+export function normalizeTempUnschedScope(value: unknown): TempUnschedScope {
+  const scope = typeof value === 'string' ? value.trim().toLowerCase() : ''
+  return scope === 'account' || scope === 'model' ? scope : ''
+}
+
 export interface TempUnschedRuleForm {
+  scope?: TempUnschedScope
   error_code: number | null
   keywords: string
   duration_minutes: number | null
@@ -87,6 +116,7 @@ export interface TempUnschedRuleForm {
 }
 
 export interface TempUnschedRulePayload {
+  scope?: 'account' | 'model'
   error_code: number
   keywords: string[]
   duration_minutes: number
@@ -151,6 +181,7 @@ export function createTempUnschedRule(
   return preset
     ? { ...preset }
     : {
+        scope: '',
         error_code: null,
         keywords: '',
         duration_minutes: 30,
@@ -186,7 +217,9 @@ export function buildTempUnschedRules(
     if (!Number.isFinite(errorCode) || errorCode < 100 || errorCode > 599) continue
     if (!Number.isFinite(duration) || duration <= 0 || keywords.length === 0) continue
 
+    const scope = normalizeTempUnschedScope(rule.scope)
     result.push({
+      ...(scope ? { scope } : {}),
       error_code: Math.trunc(errorCode),
       keywords,
       duration_minutes: Math.trunc(duration),
@@ -194,4 +227,37 @@ export function buildTempUnschedRules(
     })
   }
   return result
+}
+
+// Preserve legacy defaults while hydrating optional scope from stored credentials.
+export function parseTempUnschedRules(value: unknown): TempUnschedRuleForm[] {
+  if (!Array.isArray(value)) return []
+  const positiveInteger = (input: unknown) => {
+    const number = Number(input)
+    return Number.isFinite(number) && number > 0 ? Math.trunc(number) : null
+  }
+  return value.map((raw) => {
+    const entry = raw !== null && typeof raw === 'object' ? raw as Record<string, unknown> : {}
+    return {
+      scope: normalizeTempUnschedScope(entry.scope),
+      error_code: positiveInteger(entry.error_code),
+      keywords: formatTempUnschedKeywords(entry.keywords),
+      duration_minutes: positiveInteger(entry.duration_minutes),
+      description: typeof entry.description === 'string' ? entry.description : '',
+    }
+  })
+}
+
+function formatTempUnschedKeywords(value: unknown) {
+  if (Array.isArray(value)) {
+    return value
+      .filter((item): item is string => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0)
+      .join(', ')
+  }
+  if (typeof value === 'string') {
+    return value
+  }
+  return ''
 }

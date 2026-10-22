@@ -870,7 +870,7 @@ const openAICustomRelayURL = ref('')
 const openAILongContextBillingEnabled = ref(false)
 const tlsFingerprintEnabled = ref(false)
 const tlsFingerprintProfileId = ref<number | null>(-1)
-const openAIEndpointCapabilities = ref<OpenAIEndpointCapability[]>(['chat_completions', 'embeddings'])
+const openAIEndpointCapabilities = ref<OpenAIEndpointCapability[]>(['chat_completions', 'embeddings', 'decisions'])
 const openAIResponsesMode = ref<OpenAIResponsesMode>('auto')
 const openaiOAuthResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
 const openaiAPIKeyResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
@@ -944,7 +944,8 @@ const openAIResponsesModeOptions = computed(() => [
 ])
 const openAIEndpointCapabilityOptions = computed(() => [
   { value: 'chat_completions' as OpenAIEndpointCapability, label: t('admin.accounts.openai.capabilityChatCompletions') },
-  { value: 'embeddings' as OpenAIEndpointCapability, label: t('admin.accounts.openai.capabilityEmbeddings') }
+  { value: 'embeddings' as OpenAIEndpointCapability, label: t('admin.accounts.openai.capabilityEmbeddings') },
+  { value: 'decisions' as OpenAIEndpointCapability, label: t('admin.accounts.openai.capabilityDecisions') }
 ])
 
 function toggleOpenAIEndpointCapability(capability: OpenAIEndpointCapability) {
@@ -1441,7 +1442,7 @@ watch(
       openAILongContextBillingEnabled.value = false
       tlsFingerprintEnabled.value = false
       tlsFingerprintProfileId.value = -1
-      openAIEndpointCapabilities.value = ['chat_completions', 'embeddings']
+      openAIEndpointCapabilities.value = ['chat_completions', 'embeddings', 'decisions']
       openAIResponsesMode.value = 'auto'
       modelRestrictionMode.value = 'whitelist'
       allowedModels.value = []

@@ -1,0 +1,80 @@
+[
+  {
+    "status": "ported",
+    "fully_closed": true,
+    "reopen_condition": "Only changed upstream behavior or an observed regression in these current owners. Do not replay this immutable reviewed diff; inherited closed decisions stay closed.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_TRANSACTION.json",
+      "records/backend-unit-final.record.json",
+      "records/backend-integration-final.record.json",
+      "records/runtime-upgrade-rollback-final.record.json"
+    ],
+    "pr": 8122,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8122",
+    "merge_sha": "52b3ca960960cc755bcb73172a99e7394f0e50dc",
+    "decision": "Validate order types at creation/fulfillment; retain pending deductions with transactional audit and CAS finalization; serialize the legacy false marker; restore revoked subscriptions through the existing subscription owner; Alipay queryable refund IDs with grace and legacy manual-verification boundary; Stripe secrets come only from the matching recovery snapshot.",
+    "current_owners": [
+      "backend/internal/application/service/payment_order.go",
+      "backend/internal/application/service/payment_fulfillment.go",
+      "backend/internal/application/service/payment_refund.go",
+      "backend/internal/modules/payment/provider/alipay.go",
+      "frontend/src/features/billing/presentation/pages/PaymentPage.vue",
+      "frontend/src/features/billing/presentation/pages/StripePaymentPage.vue"
+    ],
+    "performance_review": "No model-gateway hot-path work. Pending state/audit and failed-refund money/audit use bounded per-order transactions. Existing indexed per-order audit lookup is retained. No worker, dependency, schema or migration addition.",
+    "compatibility": {
+      "old_audits": "Preserved; malformed audit returns an error instead of guessing.",
+      "rolling_upgrade": "Pause admin refund creation/query while mixed binaries run; wait for active REFUNDING operations.",
+      "binary_rollback": "Settle pending/held refunds using the new binary before rollback. The old binary can avoid double-deduction on success but cannot return new held deductions on failure.",
+      "alipay_legacy_ids": "REFUND_QUERY_UNSUPPORTED; verify manually, never infer request IDs."
+    },
+    "diff_sha256": "ffd2ce38b167449b9171d5158d40e26afd9da1ebb3fac32b44ccfb16058667a3",
+    "title": "fix(payment): validate order types, keep refund deductions while pending, load Stripe secret from local snapshot"
+  },
+  {
+    "status": "ported",
+    "fully_closed": true,
+    "reopen_condition": "Only changed upstream behavior or an observed regression in these current owners. Do not replay this immutable reviewed diff; inherited closed decisions stay closed.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_TRANSACTION.json",
+      "records/backend-unit-final.record.json",
+      "records/backend-integration-final.record.json",
+      "records/runtime-upgrade-rollback-final.record.json"
+    ],
+    "pr": 8133,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8133",
+    "merge_sha": "b8cfb7884084393e08f0e2c4027afc3755357b98",
+    "decision": "Adapt PHP-compatible query/form requests and scalar/null response normalization; reject explicit upstream failure and foreign order echoes; bind pre-credit confirmation to the same verified instance after local checks; skip remote confirmation for already-processed callbacks; preserve current credential, duplicate-field, HTTPS and redirect protections; add delimiter, finite amount and canonical return-host checks.",
+    "current_owners": [
+      "backend/internal/modules/payment/provider/easypay.go",
+      "backend/internal/modules/payment/types.go",
+      "backend/internal/application/service/payment_fulfillment.go",
+      "backend/internal/application/service/payment_resume_service.go",
+      "backend/internal/transport/http/handler/payment_webhook_handler.go"
+    ],
+    "covered_subitems": [
+      {
+        "item": "PID binding, duplicate keys, sign_type, missing trade number and stripped return query",
+        "prior_closure": "diagnostics/upstream-sync-20261007/UPSTREAM_PRS.json PR 7888 and project PR 111",
+        "decision": "Retain the stronger existing implementation; do not replay the frozen earlier diff."
+      }
+    ],
+    "performance_review": "One bounded <=10s authoritative query for a locally payable EasyPay webhook. Completed/refunded duplicates, local amount rejection and unknown orders do not query the provider. Reconciliation already queries upstream and keeps its existing entry point. No model-gateway queries or retry changes.",
+    "compatibility": {
+      "query_transport": "Existing HTTPS-only policy with literal-loopback HTTP development exception and redirect refusal preserved.",
+      "provider_unavailable": "Webhook returns 502, keeps PENDING, records PAYMENT_UPSTREAM_UNCONFIRMED and relies on provider retry/existing reconciliation."
+    },
+    "diff_sha256": "56254e26f96b1b161fe6267f047d92d90dfef7245b2acc7929be9863de718b4c",
+    "title": "fix(payment): fix EasyPay order queries and confirm notifications before crediting",
+    "measured_performance": {
+      "baseline_query_median_ns": 23321,
+      "modified_query_median_ns": 32615,
+      "rollback_query_median_ns": 25724,
+      "query_bytes_delta": 1399,
+      "query_allocations_delta": 22,
+      "acceptance_rationale": "The additional validation is bounded to payment queries: 9.294 microseconds in the localhost sample and about 1.4KB/22 allocations per query. This is not a gateway-throughput result. Avoiding an unnecessary <=10s upstream confirmation on processed callbacks is the material redesign; actual HTTP duplicates added zero upstream queries."
+    }
+  }
+]

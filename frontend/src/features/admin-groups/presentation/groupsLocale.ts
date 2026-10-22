@@ -21,6 +21,7 @@ const compositeEndpointKeys = {
   responses: 'admin.groups.compositeRoutes.endpoints.responses',
   chat_completions: 'admin.groups.compositeRoutes.endpoints.chatCompletions',
   embeddings: 'admin.groups.compositeRoutes.endpoints.embeddings',
+  decisions: 'admin.groups.compositeRoutes.endpoints.decisions',
   images: 'admin.groups.compositeRoutes.endpoints.images',
   gemini: 'admin.groups.compositeRoutes.endpoints.gemini',
 } as const

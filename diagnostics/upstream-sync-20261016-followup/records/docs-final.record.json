@@ -1,0 +1,12 @@
+{
+  "command": [
+    "make",
+    "check-docs"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261016",
+  "started_at": "2026-10-16T08:12:20.325320+00:00",
+  "elapsed_seconds": 3.828,
+  "exit_status": 0,
+  "stdout": "Documentation checks passed.\n",
+  "stderr": ""
+}

@@ -1,0 +1,97 @@
+{
+  "fixture": "8 MiB JSON history, same high effort/includeThoughts; 10 iterations x 3; Docker linux/arm64 Go 1.26.9, GOMAXPROCS=2, 2 CPU; concurrent host activity limits latency comparisons",
+  "record": "records/performance-final.record.json",
+  "samples": {
+    "BenchmarkResponsesCreatedAtStamperExisting-2": [
+      {
+        "ns_op": 2908.0,
+        "bytes_op": 8,
+        "allocs_op": 0
+      },
+      {
+        "ns_op": 1475.0,
+        "bytes_op": 8,
+        "allocs_op": 0
+      },
+      {
+        "ns_op": 1729.0,
+        "bytes_op": 8,
+        "allocs_op": 0
+      }
+    ],
+    "BenchmarkResponsesCreatedAtStamperMissing-2": [
+      {
+        "ns_op": 2525.0,
+        "bytes_op": 350,
+        "allocs_op": 6
+      },
+      {
+        "ns_op": 2783.0,
+        "bytes_op": 350,
+        "allocs_op": 6
+      },
+      {
+        "ns_op": 2642.0,
+        "bytes_op": 350,
+        "allocs_op": 6
+      }
+    ],
+    "BenchmarkFollowupGeminiThinking/upstream_two_writes-2": [
+      {
+        "ns_op": 8894471.0,
+        "bytes_op": 16794428,
+        "allocs_op": 10
+      },
+      {
+        "ns_op": 9624821.0,
+        "bytes_op": 16794428,
+        "allocs_op": 10
+      },
+      {
+        "ns_op": 8873567.0,
+        "bytes_op": 16794428,
+        "allocs_op": 10
+      }
+    ],
+    "BenchmarkFollowupGeminiThinking/candidate_one_write-2": [
+      {
+        "ns_op": 7914612.0,
+        "bytes_op": 8397680,
+        "allocs_op": 15
+      },
+      {
+        "ns_op": 9239746.0,
+        "bytes_op": 8397680,
+        "allocs_op": 15
+      },
+      {
+        "ns_op": 8910579.0,
+        "bytes_op": 8397662,
+        "allocs_op": 15
+      }
+    ]
+  },
+  "medians": {
+    "BenchmarkResponsesCreatedAtStamperExisting-2": {
+      "ns_op": 1729.0,
+      "bytes_op": 8,
+      "allocs_op": 0
+    },
+    "BenchmarkResponsesCreatedAtStamperMissing-2": {
+      "ns_op": 2642.0,
+      "bytes_op": 350,
+      "allocs_op": 6
+    },
+    "BenchmarkFollowupGeminiThinking/upstream_two_writes-2": {
+      "ns_op": 8894471.0,
+      "bytes_op": 16794428,
+      "allocs_op": 10
+    },
+    "BenchmarkFollowupGeminiThinking/candidate_one_write-2": {
+      "ns_op": 8910579.0,
+      "bytes_op": 8397680,
+      "allocs_op": 15
+    }
+  },
+  "assessment": "Candidate halves large payload copy bytes; tiny map bookkeeping increases small allocation count. No gateway-throughput claim. Existing timestamp fields require no per-call allocation."
+}

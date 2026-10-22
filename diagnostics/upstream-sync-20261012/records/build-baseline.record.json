@@ -1,0 +1,21 @@
+{
+  "command": [
+    "env",
+    "BUILDX_CONFIG=/private/tmp/sub2api-buildx-20261012-d660",
+    "DOCKER_BUILDKIT=1",
+    "docker",
+    "build",
+    "--tag",
+    "sub2api-upstream-sync:20261012-baseline",
+    "--build-arg",
+    "COMMIT=73469a9062b3e7f8df31d22b42c1507a843b2ae9",
+    "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5-baseline"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5",
+  "exit_status": 0,
+  "elapsed_s": 33.612571624980774,
+  "utc": "2026-10-12T15:57:54.671061+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderr_sha256": "182b7111cec7a2dd2eb1e8e626e971257b9149b6072042a7dce8aa8e794b13bf"
+}

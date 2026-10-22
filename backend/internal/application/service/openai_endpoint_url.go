@@ -31,6 +31,10 @@ func buildOpenAIResponsesInputTokensURL(base string) string {
 	return buildOpenAIEndpointURL(base, "/v1/responses/input_tokens")
 }
 
+func buildOpenAIDecisionsURL(base string) string {
+	return buildOpenAIEndpointURL(base, "/v1/decisions")
+}
+
 // buildOpenAIOAuthCodexResponsesURL builds the Responses endpoint used by an
 // OpenAI OAuth account's Codex transport.  Unlike the public OpenAI API, the
 // ChatGPT Codex endpoint is rooted at `/backend-api/codex/responses` and most

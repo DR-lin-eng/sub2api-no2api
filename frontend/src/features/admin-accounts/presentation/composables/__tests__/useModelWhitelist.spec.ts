@@ -4,7 +4,7 @@ vi.mock('@/features/admin-accounts/data/datasources/adminAccountQueries', () => 
   getAntigravityDefaultModelMapping: vi.fn()
 }))
 
-import { buildModelMappingObject, getModelsByPlatform, splitModelMappingObject } from '../useModelWhitelist'
+import { buildModelMappingObject, getModelsByPlatform, getPresetMappingsByPlatform, splitModelMappingObject } from '../useModelWhitelist'
 
 describe('useModelWhitelist', () => {
   it('openai 模型列表包含 GPT-5.4 官方快照', () => {
@@ -38,6 +38,19 @@ describe('useModelWhitelist', () => {
     expect(models).toContain('gemini-2.5-flash-image')
     expect(models).toContain('gemini-3.1-flash-image')
     expect(models).toContain('gemini-3-pro-image')
+  })
+
+  it('Claude 5.5 models and provider-specific presets stay aligned', () => {
+    for (const family of ['opus', 'sonnet', 'haiku']) {
+      const id = `claude-${family}-5-5`
+      expect(getModelsByPlatform('claude')).toContain(id)
+      expect(getPresetMappingsByPlatform('claude')).toEqual(expect.arrayContaining([expect.objectContaining({ from: id, to: id })]))
+    }
+    for (const family of ['opus', 'sonnet']) {
+      const id = `claude-${family}-5-5`
+      for (const tier of ['low', 'medium', 'high']) expect(getModelsByPlatform('antigravity')).toContain(`${id}-${tier}`)
+      expect(getPresetMappingsByPlatform('antigravity')).toEqual(expect.arrayContaining([expect.objectContaining({ from: id, to: `${id}-high` })]))
+    }
   })
 
   it('Claude 模型列表包含新发布的 Claude 模型', () => {
@@ -107,6 +120,21 @@ describe('useModelWhitelist', () => {
     const models = getModelsByPlatform('antigravity')
 
     expect(models).toContain('gemini-3.1-pro')
+  })
+
+  it('Gemini 4 Argon 在 gemini 与 antigravity 平台使用对应真实模型 ID 与预设映射', () => {
+    expect(getModelsByPlatform('gemini')).toContain('gemini-4-argon')
+    const agModels = getModelsByPlatform('antigravity')
+    expect(agModels).not.toContain('gemini-4-argon')
+    expect(agModels).toContain('gemini-4-argon-high')
+    expect(agModels).toContain('gemini-4-argon-medium')
+    expect(agModels).toContain('gemini-4-argon-low')
+    expect(getPresetMappingsByPlatform('antigravity')).toEqual(expect.arrayContaining([
+      expect.objectContaining({ from: 'gemini-4-argon', to: 'gemini-4-argon-high' }),
+      expect.objectContaining({ from: 'gemini-4-argon-high', to: 'gemini-4-argon-high' }),
+      expect.objectContaining({ from: 'gemini-4-argon-medium', to: 'gemini-4-argon-medium' }),
+      expect.objectContaining({ from: 'gemini-4-argon-low', to: 'gemini-4-argon-low' })
+    ]))
   })
 
   it('whitelist 模式会忽略通配符条目', () => {

@@ -1,0 +1,187 @@
+ROLLBACK_PASS
+BENCHMARK baseline
+{"command": ["docker", "run", "--rm", "--cpus", "2", "--memory", "2g", "-e", "GOMAXPROCS=2", "-e", "GOFLAGS=-p=1", "-e", "GOMEMLIMIT=1GiB", "-v", "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/baseline/backend:/workspace", "-v", "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015:/evidence:ro", "-v", "sub2api-gomod-20261009:/go/pkg/mod", "-v", "sub2api-gobuild-20261013:/root/.cache/go-build", "-w", "/workspace", "sub2api-upstream-sync-test:20261009-docker", "go", "test", "-overlay=/evidence/probe-overlay.json", "-tags=unit", "-run", "^TestUpstreamMediaBehavior$", "-bench", "^BenchmarkUpstream20261015ToolResult$", "-benchmem", "-benchtime=250ms", "-count=3", "./internal/shared/antigravity"], "cwd": "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo", "exit_status": 0, "elapsed_s": 8.201957708000009, "utc": "2026-10-15T13:04:22.325482+00:00", "input": "exact repository sources and committed fixtures", "stdout_sha256": "71f91fd6bab0cedcbe59e5b69db1457dbe4caad6428dd8311b4fa5d35a235b0e", "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}
+OBSERVED_MEDIA inline_images=0 function_text=loaded
+OBSERVED_MEDIA inline_images=0 function_text=loaded
+OBSERVED_MEDIA inline_images=0 function_text=loaded
+goos: linux
+goarch: arm64
+pkg: github.com/Wei-Shaw/sub2api/internal/shared/antigravity
+BenchmarkUpstream20261015ToolResult/text/1024-2         	   10000	     35751 ns/op	    4312 B/op	      43 allocs/op
+BenchmarkUpstream20261015ToolResult/text/1024-2         	   12717	     22902 ns/op	    4312 B/op	      43 allocs/op
+BenchmarkUpstream20261015ToolResult/text/1024-2         	   13674	     20964 ns/op	    4312 B/op	      43 allocs/op
+BenchmarkUpstream20261015ToolResult/text/1048576-2      	      18	  17324359 ns/op	 2107488 B/op	      43 allocs/op
+BenchmarkUpstream20261015ToolResult/text/1048576-2      	      18	  16624875 ns/op	 2107488 B/op	      43 allocs/op
+BenchmarkUpstream20261015ToolResult/text/1048576-2      	      18	  16885859 ns/op	 2107488 B/op	      43 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1024-2        	   13497	     20270 ns/op	    4920 B/op	      56 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1024-2        	   14832	     20426 ns/op	    4920 B/op	      56 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1024-2        	   13650	     21159 ns/op	    4920 B/op	      56 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1048576-2     	      19	  15575384 ns/op	 2108098 B/op	      56 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1048576-2     	      19	  16013404 ns/op	 2108098 B/op	      56 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1048576-2     	      19	  16008770 ns/op	 2108098 B/op	      56 allocs/op
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/antigravity	5.101s
+
+
+BENCHMARK upstream-double-decode
+{"command": ["docker", "run", "--rm", "--cpus", "2", "--memory", "2g", "-e", "GOMAXPROCS=2", "-e", "GOFLAGS=-p=1", "-e", "GOMEMLIMIT=1GiB", "-v", "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/baseline/backend:/workspace", "-v", "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015:/evidence:ro", "-v", "sub2api-gomod-20261009:/go/pkg/mod", "-v", "sub2api-gobuild-20261013:/root/.cache/go-build", "-w", "/workspace", "sub2api-upstream-sync-test:20261009-docker", "go", "test", "-overlay=/evidence/naive-overlay.json", "-tags=unit", "-run", "^TestUpstreamMediaBehavior$", "-bench", "^BenchmarkUpstream20261015ToolResult$", "-benchmem", "-benchtime=250ms", "-count=3", "./internal/shared/antigravity"], "cwd": "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo", "exit_status": 0, "elapsed_s": 6.761453833999894, "utc": "2026-10-15T13:04:29.144538+00:00", "input": "exact repository sources and committed fixtures", "stdout_sha256": "2e6532e6db4bc3de0ec7323213d3807882a43f45b1714dd163437ada80b65393", "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}
+OBSERVED_MEDIA inline_images=1 function_text=loaded
+OBSERVED_MEDIA inline_images=1 function_text=loaded
+OBSERVED_MEDIA inline_images=1 function_text=loaded
+goos: linux
+goarch: arm64
+pkg: github.com/Wei-Shaw/sub2api/internal/shared/antigravity
+BenchmarkUpstream20261015ToolResult/text/1024-2         	   10000	     27155 ns/op	    5776 B/op	      52 allocs/op
+BenchmarkUpstream20261015ToolResult/text/1024-2         	   12146	     23335 ns/op	    5776 B/op	      52 allocs/op
+BenchmarkUpstream20261015ToolResult/text/1024-2         	   13568	     27101 ns/op	    5776 B/op	      52 allocs/op
+BenchmarkUpstream20261015ToolResult/text/1048576-2      	      14	  21545551 ns/op	 3156525 B/op	      52 allocs/op
+BenchmarkUpstream20261015ToolResult/text/1048576-2      	      15	  20319403 ns/op	 3156891 B/op	      52 allocs/op
+BenchmarkUpstream20261015ToolResult/text/1048576-2      	      15	  20334011 ns/op	 3156515 B/op	      52 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1024-2        	   10000	     25624 ns/op	    6752 B/op	      73 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1024-2        	   10000	     25883 ns/op	    6752 B/op	      73 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1024-2        	   10000	     27404 ns/op	    6752 B/op	      73 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1048576-2     	      14	  20049182 ns/op	 3157482 B/op	      73 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1048576-2     	      14	  19800402 ns/op	 3157482 B/op	      73 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1048576-2     	      14	  19882056 ns/op	 3157485 B/op	      73 allocs/op
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/antigravity	4.119s
+
+
+BENCHMARK candidate
+{"command": ["docker", "run", "--rm", "--cpus", "2", "--memory", "2g", "-e", "GOMAXPROCS=2", "-e", "GOFLAGS=-p=1", "-e", "GOMEMLIMIT=1GiB", "-v", "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/backend:/workspace", "-v", "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015:/evidence:ro", "-v", "sub2api-gomod-20261009:/go/pkg/mod", "-v", "sub2api-gobuild-20261013:/root/.cache/go-build", "-w", "/workspace", "sub2api-upstream-sync-test:20261009-docker", "go", "test", "-overlay=/evidence/probe-overlay.json", "-tags=unit", "-run", "^TestUpstreamMediaBehavior$", "-bench", "^BenchmarkUpstream20261015ToolResult$", "-benchmem", "-benchtime=250ms", "-count=3", "./internal/shared/antigravity"], "cwd": "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo", "exit_status": 0, "elapsed_s": 6.511470624999902, "utc": "2026-10-15T13:04:35.721114+00:00", "input": "exact repository sources and committed fixtures", "stdout_sha256": "5aa2d481ca4fceb3cdd46bf2a5778c1f23f6937f5ab8f374195d6fa26197b404", "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}
+OBSERVED_MEDIA inline_images=1 function_text=loaded
+OBSERVED_MEDIA inline_images=1 function_text=loaded
+OBSERVED_MEDIA inline_images=1 function_text=loaded
+goos: linux
+goarch: arm64
+pkg: github.com/Wei-Shaw/sub2api/internal/shared/antigravity
+BenchmarkUpstream20261015ToolResult/text/1024-2         	   13920	     22455 ns/op	    4312 B/op	      43 allocs/op
+BenchmarkUpstream20261015ToolResult/text/1024-2         	   13255	     20401 ns/op	    4312 B/op	      43 allocs/op
+BenchmarkUpstream20261015ToolResult/text/1024-2         	   16309	     20419 ns/op	    4312 B/op	      43 allocs/op
+BenchmarkUpstream20261015ToolResult/text/1048576-2      	      18	  16219389 ns/op	 2107489 B/op	      43 allocs/op
+BenchmarkUpstream20261015ToolResult/text/1048576-2      	      16	  16782505 ns/op	 2107490 B/op	      43 allocs/op
+BenchmarkUpstream20261015ToolResult/text/1048576-2      	      18	  16402794 ns/op	 2107488 B/op	      43 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1024-2        	   12489	     22532 ns/op	    5144 B/op	      59 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1024-2        	   12820	     22531 ns/op	    5144 B/op	      59 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1024-2        	   12019	     21044 ns/op	    5144 B/op	      59 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1048576-2     	      19	  16009590 ns/op	 2108324 B/op	      59 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1048576-2     	      18	  14825150 ns/op	 2108332 B/op	      59 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1048576-2     	      20	  15419681 ns/op	 2108321 B/op	      59 allocs/op
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/antigravity	4.981s
+
+
+BENCHMARK rollback
+{"command": ["docker", "run", "--rm", "--cpus", "2", "--memory", "2g", "-e", "GOMAXPROCS=2", "-e", "GOFLAGS=-p=1", "-e", "GOMEMLIMIT=1GiB", "-v", "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/benchmark-rollback/backend:/workspace", "-v", "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015:/evidence:ro", "-v", "sub2api-gomod-20261009:/go/pkg/mod", "-v", "sub2api-gobuild-20261013:/root/.cache/go-build", "-w", "/workspace", "sub2api-upstream-sync-test:20261009-docker", "go", "test", "-overlay=/evidence/probe-overlay.json", "-tags=unit", "-run", "^TestUpstreamMediaBehavior$", "-bench", "^BenchmarkUpstream20261015ToolResult$", "-benchmem", "-benchtime=250ms", "-count=3", "./internal/shared/antigravity"], "cwd": "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo", "exit_status": 0, "elapsed_s": 6.506615458999931, "utc": "2026-10-15T13:04:42.290586+00:00", "input": "exact repository sources and committed fixtures", "stdout_sha256": "0b364c2a7778b576298aa63cba1e4901536ece16db53780109bc09a6e9ba1adc", "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}
+OBSERVED_MEDIA inline_images=0 function_text=loaded
+OBSERVED_MEDIA inline_images=0 function_text=loaded
+OBSERVED_MEDIA inline_images=0 function_text=loaded
+goos: linux
+goarch: arm64
+pkg: github.com/Wei-Shaw/sub2api/internal/shared/antigravity
+BenchmarkUpstream20261015ToolResult/text/1024-2         	   12031	     24530 ns/op	    4312 B/op	      43 allocs/op
+BenchmarkUpstream20261015ToolResult/text/1024-2         	   10000	     26242 ns/op	    4312 B/op	      43 allocs/op
+BenchmarkUpstream20261015ToolResult/text/1024-2         	   15042	     18973 ns/op	    4312 B/op	      43 allocs/op
+BenchmarkUpstream20261015ToolResult/text/1048576-2      	      19	  15252018 ns/op	 2107488 B/op	      43 allocs/op
+BenchmarkUpstream20261015ToolResult/text/1048576-2      	      19	  16596307 ns/op	 2107495 B/op	      43 allocs/op
+BenchmarkUpstream20261015ToolResult/text/1048576-2      	      15	  18457697 ns/op	 2107489 B/op	      43 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1024-2        	   12549	     23285 ns/op	    4920 B/op	      56 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1024-2        	   12776	     21171 ns/op	    4920 B/op	      56 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1024-2        	   14815	     20776 ns/op	    4920 B/op	      56 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1048576-2     	      18	  16108275 ns/op	 2108099 B/op	      56 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1048576-2     	      20	  15439810 ns/op	 2108098 B/op	      56 allocs/op
+BenchmarkUpstream20261015ToolResult/image/1048576-2     	      19	  15670213 ns/op	 2108099 B/op	      56 allocs/op
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/antigravity	5.019s
+
+
+{
+  "baseline": {
+    "BenchmarkUpstream20261015ToolResult/text/1024-2": {
+      "median_ns_per_op": 22902.0,
+      "median_bytes_per_op": 4312,
+      "median_allocs_per_op": 43
+    },
+    "BenchmarkUpstream20261015ToolResult/text/1048576-2": {
+      "median_ns_per_op": 16885859.0,
+      "median_bytes_per_op": 2107488,
+      "median_allocs_per_op": 43
+    },
+    "BenchmarkUpstream20261015ToolResult/image/1024-2": {
+      "median_ns_per_op": 20426.0,
+      "median_bytes_per_op": 4920,
+      "median_allocs_per_op": 56
+    },
+    "BenchmarkUpstream20261015ToolResult/image/1048576-2": {
+      "median_ns_per_op": 16008770.0,
+      "median_bytes_per_op": 2108098,
+      "median_allocs_per_op": 56
+    }
+  },
+  "upstream-double-decode": {
+    "BenchmarkUpstream20261015ToolResult/text/1024-2": {
+      "median_ns_per_op": 27101.0,
+      "median_bytes_per_op": 5776,
+      "median_allocs_per_op": 52
+    },
+    "BenchmarkUpstream20261015ToolResult/text/1048576-2": {
+      "median_ns_per_op": 20334011.0,
+      "median_bytes_per_op": 3156525,
+      "median_allocs_per_op": 52
+    },
+    "BenchmarkUpstream20261015ToolResult/image/1024-2": {
+      "median_ns_per_op": 25883.0,
+      "median_bytes_per_op": 6752,
+      "median_allocs_per_op": 73
+    },
+    "BenchmarkUpstream20261015ToolResult/image/1048576-2": {
+      "median_ns_per_op": 19882056.0,
+      "median_bytes_per_op": 3157482,
+      "median_allocs_per_op": 73
+    }
+  },
+  "candidate": {
+    "BenchmarkUpstream20261015ToolResult/text/1024-2": {
+      "median_ns_per_op": 20419.0,
+      "median_bytes_per_op": 4312,
+      "median_allocs_per_op": 43
+    },
+    "BenchmarkUpstream20261015ToolResult/text/1048576-2": {
+      "median_ns_per_op": 16402794.0,
+      "median_bytes_per_op": 2107489,
+      "median_allocs_per_op": 43
+    },
+    "BenchmarkUpstream20261015ToolResult/image/1024-2": {
+      "median_ns_per_op": 22531.0,
+      "median_bytes_per_op": 5144,
+      "median_allocs_per_op": 59
+    },
+    "BenchmarkUpstream20261015ToolResult/image/1048576-2": {
+      "median_ns_per_op": 15419681.0,
+      "median_bytes_per_op": 2108324,
+      "median_allocs_per_op": 59
+    }
+  },
+  "rollback": {
+    "BenchmarkUpstream20261015ToolResult/text/1024-2": {
+      "median_ns_per_op": 24530.0,
+      "median_bytes_per_op": 4312,
+      "median_allocs_per_op": 43
+    },
+    "BenchmarkUpstream20261015ToolResult/text/1048576-2": {
+      "median_ns_per_op": 16596307.0,
+      "median_bytes_per_op": 2107489,
+      "median_allocs_per_op": 43
+    },
+    "BenchmarkUpstream20261015ToolResult/image/1024-2": {
+      "median_ns_per_op": 21171.0,
+      "median_bytes_per_op": 4920,
+      "median_allocs_per_op": 56
+    },
+    "BenchmarkUpstream20261015ToolResult/image/1048576-2": {
+      "median_ns_per_op": 15670213.0,
+      "median_bytes_per_op": 2108099,
+      "median_allocs_per_op": 56
+    }
+  }
+}

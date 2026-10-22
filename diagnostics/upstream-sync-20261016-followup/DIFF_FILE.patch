@@ -1,0 +1,2413 @@
+diff --git a/backend/internal/application/service/README.md b/backend/internal/application/service/README.md
+index 1fb7d3cae..24c4cfdaf 100644
+--- a/backend/internal/application/service/README.md
++++ b/backend/internal/application/service/README.md
+@@ -78,3 +78,5 @@ GPT-6.1 Sol 的订阅模型长上下文豁免由 `openai_subscription_long_conte
+ 临时不可调度的可选规则范围由 `temp_unsched_scope.go` 选择；重试耗尽、Bedrock 和 token 计数透传调度器使用的模型键。`openai_responses_input_rejection.go` 只识别转换后结构化 input 的明确类型拒绝，Chat 回退保留原始开始时间。冻结差异、滚动升级启用顺序和新缓存能力的专项边界见 [2026-10-13 同步审查](../../../../docs/UPSTREAM_SYNC_20261013.md)。
+ 
+ `apicompat_config.go` 将可配置输出下限带入现有协议转换；`gateway_anthropic_credentials.go` 在原生 Anthropic 构造器和 token 计数入口检查凭据协议。`gemini_vertex_token_error.go` 保存固定 token 端点的明确 SA 失效分类，错误策略结果只在同一次响应内复用。`billing_gemini_argon.go` 与 `pricing_antigravity_aliases.go` 分别保存 Argon 回退价和模型别名规范化。升级、端点发现与未关闭子项见 [2026-10-15 同步审查](../../../../docs/UPSTREAM_SYNC_20261015.md)。
++
++`gemini_compat_thinking.go` 管理兼容入口的档位与历史思考清理；实际转发配置决定用量展示。`openai_model_retirement.go` 复用当前映射链检查 ChatGPT 退休目标，`openai_responses_created_at.go` 仅修补普通兼容出口缺失时间戳。搜索模拟的共享 gate/writer 保留完整账号出口；详见 [本轮增量审查](../../../../docs/UPSTREAM_SYNC_20261016_FOLLOWUP.md)。
+diff --git a/backend/internal/application/service/account.go b/backend/internal/application/service/account.go
+index d2ee6e01a..9f1df2875 100644
+--- a/backend/internal/application/service/account.go
++++ b/backend/internal/application/service/account.go
+@@ -1075,6 +1075,10 @@ func (a *Account) IsModelSupported(requestedModel string) bool {
+ // needed for channel aliases: the client-facing alias may be unknown to Codex,
+ // while the channel has already mapped it to a supported model.
+ func (a *Account) IsModelSupportedForRequest(requestedModel, routedModel string) bool {
++	return supportsOpenAIRequestModel(a, requestedModel, routedModel, false)
++}
++
++func (a *Account) isModelMappingSupportedForRequest(requestedModel, routedModel string) bool {
+ 	// 透传模式仅替换认证、模型语义完全交由上游决定，因此放行所有模型。
+ 	// 该短路必须在 model_mapping 判定之前：账号从"白名单模式"切换到透传后，
+ 	// credentials 里常残留旧的非空 model_mapping，若不在此放行，透传账号会被
+@@ -2661,7 +2665,10 @@ const (
+ // 三态：default（跟随渠道）/ enabled（强制开启）/ disabled（强制关闭）。
+ // 兼容旧 bool 值：true→enabled, false→default（并记录 debug 日志）。
+ func (a *Account) GetWebSearchEmulationMode() string {
+-	if a == nil || a.Platform != PlatformAnthropic || a.Type != AccountTypeAPIKey || a.Extra == nil {
++	// OpenAI API-key accounts reach this through the /v1/messages bridge. Their
++	// Chat Completions upstreams do not understand Anthropic web_search tools.
++	if a == nil || a.Type != AccountTypeAPIKey || a.Extra == nil ||
++		(a.Platform != PlatformAnthropic && a.Platform != PlatformOpenAI) {
+ 		return WebSearchModeDefault
+ 	}
+ 	raw := a.Extra[featureKeyWebSearchEmulation]
+diff --git a/backend/internal/application/service/account_websearch_test.go b/backend/internal/application/service/account_websearch_test.go
+index 6ed69d4cf..067e676e7 100644
+--- a/backend/internal/application/service/account_websearch_test.go
++++ b/backend/internal/application/service/account_websearch_test.go
+@@ -88,7 +88,7 @@ func TestGetWebSearchEmulationMode_MissingField(t *testing.T) {
+ 
+ func TestGetWebSearchEmulationMode_NonAnthropicPlatform(t *testing.T) {
+ 	a := &Account{
+-		Platform: PlatformOpenAI,
++		Platform: PlatformGemini,
+ 		Type:     AccountTypeAPIKey,
+ 		Extra:    map[string]any{featureKeyWebSearchEmulation: "enabled"},
+ 	}
+@@ -103,3 +103,12 @@ func TestGetWebSearchEmulationMode_NonAPIKeyType(t *testing.T) {
+ 	}
+ 	require.Equal(t, WebSearchModeDefault, a.GetWebSearchEmulationMode())
+ }
++
++func TestGetWebSearchEmulationMode_OpenAIAPIKey(t *testing.T) {
++	a := &Account{
++		Platform: PlatformOpenAI,
++		Type:     AccountTypeAPIKey,
++		Extra:    map[string]any{featureKeyWebSearchEmulation: "enabled"},
++	}
++	require.Equal(t, WebSearchModeEnabled, a.GetWebSearchEmulationMode())
++}
+diff --git a/backend/internal/application/service/gateway_hotpath_optimization_test.go b/backend/internal/application/service/gateway_hotpath_optimization_test.go
+index cf77939f5..e2d9d63a0 100644
+--- a/backend/internal/application/service/gateway_hotpath_optimization_test.go
++++ b/backend/internal/application/service/gateway_hotpath_optimization_test.go
+@@ -563,7 +563,7 @@ func TestGetAvailableModels_UsesOAuthCapabilitySnapshotWithoutMapping(t *testing
+ 		modelsListCacheTTL: time.Minute,
+ 	}
+ 
+-	require.Equal(t, []string{"gpt-5.5", "gpt-5.6"}, svc.GetAvailableModels(context.Background(), &groupID, PlatformOpenAI))
++	require.Equal(t, []string{"gpt-5.6"}, svc.GetAvailableModels(context.Background(), &groupID, PlatformOpenAI))
+ }
+ 
+ func TestGetAvailableModelsKeepsExplicitMappingWhileOAuthSnapshotIsPending(t *testing.T) {
+diff --git a/backend/internal/application/service/gateway_model_availability.go b/backend/internal/application/service/gateway_model_availability.go
+index 226b5352f..f4b0e5079 100644
+--- a/backend/internal/application/service/gateway_model_availability.go
++++ b/backend/internal/application/service/gateway_model_availability.go
+@@ -21,7 +21,8 @@ type ModelAvailabilityDiagnosis struct {
+ 	HasAccountsInPool bool
+ 	// HasModelSupport is true if at least one account's model mapping admits
+ 	// the requested model.
+-	HasModelSupport bool
++	HasModelSupport             bool
++	HasRetiredSubscriptionModel bool
+ 	// AllModelSupportingAccountsRateLimited is true when every account that
+ 	// could serve the requested model is currently blocked by a global upstream
+ 	// rate-limit cooldown.
+diff --git a/backend/internal/application/service/gateway_service.go b/backend/internal/application/service/gateway_service.go
+index 8423f970d..9321a4673 100644
+--- a/backend/internal/application/service/gateway_service.go
++++ b/backend/internal/application/service/gateway_service.go
+@@ -20,6 +20,7 @@ import (
+ 
+ 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+ 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
++	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
+ 	"github.com/Wei-Shaw/sub2api/internal/shared/responseheaders"
+ 	"github.com/cespare/xxhash/v2"
+ 	gocache "github.com/patrickmn/go-cache"
+@@ -214,7 +215,7 @@ func anthropicStreamEventIsTerminal(eventName, data string) bool {
+ }
+ 
+ func cloneStringSlice(src []string) []string {
+-	if len(src) == 0 {
++	if src == nil {
+ 		return nil
+ 	}
+ 	dst := make([]string, len(src))
+@@ -1282,6 +1283,17 @@ func (s *GatewayService) GetAvailableModels(ctx context.Context, groupID *int64,
+ 	// expose even while another unrestricted account is waiting for its first
+ 	// probe.
+ 	if !hasExplicitMapping && (!hasSnapshot || hasUnobservedOAuth) {
++		if platform == PlatformOpenAI {
++			defaults := openai.DefaultModelIDs()
++			filtered := filterRetiredOpenAIModelIDs(accounts, defaults)
++			if len(filtered) != len(defaults) {
++				if s.modelsListCache != nil {
++					s.modelsListCache.Set(cacheKey, cloneStringSlice(filtered), s.modelsListCacheTTL)
++					modelsListCacheStoreTotal.Add(1)
++				}
++				return cloneStringSlice(filtered)
++			}
++		}
+ 		if s.modelsListCache != nil {
+ 			s.modelsListCache.Set(cacheKey, []string(nil), s.modelsListCacheTTL)
+ 			modelsListCacheStoreTotal.Add(1)
+@@ -1295,6 +1307,9 @@ func (s *GatewayService) GetAvailableModels(ctx context.Context, groupID *int64,
+ 		models = append(models, model)
+ 	}
+ 	sort.Strings(models)
++	if platform == PlatformOpenAI {
++		models = filterRetiredOpenAIModelIDs(accounts, models)
++	}
+ 
+ 	if s.modelsListCache != nil {
+ 		s.modelsListCache.Set(cacheKey, cloneStringSlice(models), s.modelsListCacheTTL)
+diff --git a/backend/internal/application/service/gateway_websearch_emulation.go b/backend/internal/application/service/gateway_websearch_emulation.go
+index 7f2024309..5087bb3df 100644
+--- a/backend/internal/application/service/gateway_websearch_emulation.go
++++ b/backend/internal/application/service/gateway_websearch_emulation.go
+@@ -52,13 +52,33 @@ func getWebSearchManager() *websearch.Manager {
+ // Judgment chain: manager exists → only web_search tool → global enabled → account/channel enabled.
+ // Account-level mode: "enabled" (force on), "disabled" (force off), "default" (follow channel).
+ func (s *GatewayService) shouldEmulateWebSearch(ctx context.Context, account *Account, groupID *int64, body []byte) bool {
+-	if getWebSearchManager() == nil {
++	if s == nil {
++		return false
++	}
++	return shouldEmulateWebSearchFor(ctx, s.settingService, s.channelService, account, groupID, body)
++}
++
++// shouldEmulateWebSearchFor is shared by the Anthropic gateway and the
++// OpenAI /v1/messages bridge. OAuth and setup-token accounts keep native
++// search; only API-key accounts opt into this local emulation.
++func shouldEmulateWebSearchFor(
++	ctx context.Context,
++	settingService *SettingService,
++	channelService *ChannelService,
++	account *Account,
++	groupID *int64,
++	body []byte,
++) bool {
++	if getWebSearchManager() == nil || account == nil || settingService == nil {
++		return false
++	}
++	if account.Platform == PlatformOpenAI && account.Type != AccountTypeAPIKey {
+ 		return false
+ 	}
+ 	if !isOnlyWebSearchToolInBody(body) {
+ 		return false
+ 	}
+-	if !s.settingService.IsWebSearchEmulationEnabled(ctx) {
++	if !settingService.IsWebSearchEmulationEnabled(ctx) {
+ 		return false
+ 	}
+ 
+@@ -69,10 +89,10 @@ func (s *GatewayService) shouldEmulateWebSearch(ctx context.Context, account *Ac
+ 	case WebSearchModeDisabled:
+ 		return false
+ 	default: // "default" → follow channel config
+-		if groupID == nil || s.channelService == nil {
++		if groupID == nil || channelService == nil {
+ 			return false
+ 		}
+-		ch, err := s.channelService.GetChannelForGroup(ctx, *groupID)
++		ch, err := channelService.GetChannelForGroup(ctx, *groupID)
+ 		if err != nil || ch == nil {
+ 			return false
+ 		}
+@@ -143,14 +163,22 @@ func extractWebSearchTextFromContent(content gjson.Result) string {
+ func (s *GatewayService) handleWebSearchEmulation(
+ 	ctx context.Context, c *gin.Context, account *Account, parsed *ParsedRequest,
+ ) (*ForwardResult, error) {
+-	startTime := time.Now()
+-
+ 	// Release the serial queue lock immediately — we don't need upstream.
+ 	if parsed.OnUpstreamAccepted != nil {
+ 		parsed.OnUpstreamAccepted()
+ 	}
++	searchCtx := withAccountEgressContext(ctx, account, resolveAccountProxyURL(account), s.cfg)
++	return writeEmulatedWebSearch(searchCtx, c, account, parsed.Body.Bytes(), parsed.Model, parsed.Stream)
++}
++
++// writeEmulatedWebSearch runs the search for the last user message and writes
++// an Anthropic Messages response (SSE when stream is true).
++func writeEmulatedWebSearch(
++	ctx context.Context, c *gin.Context, account *Account, body []byte, model string, stream bool,
++) (*ForwardResult, error) {
++	startTime := time.Now()
+ 
+-	query := extractSearchQueryFromBody(parsed.Body.Bytes())
++	query := extractSearchQueryFromBody(body)
+ 	if query == "" {
+ 		return nil, fmt.Errorf("web search emulation: no query found in messages")
+ 	}
+@@ -158,7 +186,7 @@ func (s *GatewayService) handleWebSearchEmulation(
+ 	slog.Info("web search emulation: executing search",
+ 		"account_id", account.ID, "account_name", account.Name, "query", query)
+ 
+-	resp, providerName, err := doWebSearch(withAccountEgressContext(ctx, account, resolveAccountProxyURL(account), s.cfg), account, query)
++	resp, providerName, err := doWebSearch(ctx, account, query)
+ 	if err != nil {
+ 		// Proxy unavailable → trigger account switch via UpstreamFailoverError
+ 		if errors.Is(err, websearch.ErrProxyUnavailable) {
+@@ -173,12 +201,11 @@ func (s *GatewayService) handleWebSearchEmulation(
+ 	slog.Info("web search emulation: search completed",
+ 		"provider", providerName, "results_count", len(resp.Results))
+ 
+-	model := parsed.Model
+ 	if model == "" {
+ 		model = defaultWebSearchModel
+ 	}
+ 
+-	if parsed.Stream {
++	if stream {
+ 		return writeWebSearchStreamResponse(c, query, resp, model, startTime)
+ 	}
+ 	return writeWebSearchNonStreamResponse(c, query, resp, model, startTime)
+diff --git a/backend/internal/application/service/gateway_websearch_emulation_test.go b/backend/internal/application/service/gateway_websearch_emulation_test.go
+index 5a95fb59d..ac25474d0 100644
+--- a/backend/internal/application/service/gateway_websearch_emulation_test.go
++++ b/backend/internal/application/service/gateway_websearch_emulation_test.go
+@@ -288,6 +288,44 @@ func TestShouldEmulateWebSearch_AccountEnabled(t *testing.T) {
+ 	require.True(t, svc.shouldEmulateWebSearch(context.Background(), account, nil, webSearchToolBody))
+ }
+ 
++func TestShouldEmulateWebSearch_OpenAIAPIKeyEnabled(t *testing.T) {
++	mgr := websearch.NewManager([]websearch.ProviderConfig{{Type: "brave", APIKey: "k"}}, nil)
++	SetWebSearchManager(mgr)
++	defer SetWebSearchManager(nil)
++	setGlobalWebSearchConfig(&WebSearchEmulationConfig{
++		Enabled:   true,
++		Providers: []WebSearchProviderConfig{{Type: "brave", APIKey: "k"}},
++	})
++	defer clearGlobalWebSearchConfig()
++
++	settingSvc := newSettingServiceForWebSearchTest(true)
++	account := &Account{
++		Platform: PlatformOpenAI,
++		Type:     AccountTypeAPIKey,
++		Extra:    map[string]any{featureKeyWebSearchEmulation: WebSearchModeEnabled},
++	}
++	require.True(t, shouldEmulateWebSearchFor(context.Background(), settingSvc, nil, account, nil, webSearchToolBody))
++}
++
++func TestShouldEmulateWebSearch_OpenAIOAuthKeepsNativeSearch(t *testing.T) {
++	mgr := websearch.NewManager([]websearch.ProviderConfig{{Type: "brave", APIKey: "k"}}, nil)
++	SetWebSearchManager(mgr)
++	defer SetWebSearchManager(nil)
++	setGlobalWebSearchConfig(&WebSearchEmulationConfig{
++		Enabled:   true,
++		Providers: []WebSearchProviderConfig{{Type: "brave", APIKey: "k"}},
++	})
++	defer clearGlobalWebSearchConfig()
++
++	settingSvc := newSettingServiceForWebSearchTest(true)
++	account := &Account{
++		Platform: PlatformOpenAI,
++		Type:     AccountTypeOAuth,
++		Extra:    map[string]any{featureKeyWebSearchEmulation: WebSearchModeEnabled},
++	}
++	require.False(t, shouldEmulateWebSearchFor(context.Background(), settingSvc, nil, account, nil, webSearchToolBody))
++}
++
+ func TestShouldEmulateWebSearch_DefaultMode_ChannelEnabled(t *testing.T) {
+ 	mgr := websearch.NewManager([]websearch.ProviderConfig{{Type: "brave", APIKey: "k"}}, nil)
+ 	SetWebSearchManager(mgr)
+diff --git a/backend/internal/application/service/gemini_chat_completions_compat_service.go b/backend/internal/application/service/gemini_chat_completions_compat_service.go
+index 3250c1e6e..a50d9e9a1 100644
+--- a/backend/internal/application/service/gemini_chat_completions_compat_service.go
++++ b/backend/internal/application/service/gemini_chat_completions_compat_service.go
+@@ -41,6 +41,13 @@ func (s *GeminiMessagesCompatService) ForwardAsChatCompletions(
+ 	originalModel := ccReq.Model
+ 	clientStream := ccReq.Stream
+ 	includeUsage := ccReq.StreamOptions != nil && ccReq.StreamOptions.IncludeUsage
++	for i := range ccReq.Messages {
++		ccReq.Messages[i].ReasoningContent = ""
++		ccReq.Messages[i].Reasoning = ""
++		if ccReq.Messages[i].Role == "assistant" {
++			ccReq.Messages[i].Content = dropChatReasoningContentParts(ccReq.Messages[i].Content)
++		}
++	}
+ 
+ 	responsesReq, err := chatCompletionsToResponses(s.cfg, &ccReq)
+ 	if err != nil {
+@@ -93,6 +100,7 @@ func (s *GeminiMessagesCompatService) forwardClaudeBodyAsChatCompletions(
+ 		return nil, s.writeChatCompletionsError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+ 	}
+ 	geminiReq = ensureGeminiFunctionCallThoughtSignatures(geminiReq)
++	geminiReq = applyGeminiCompatThinkingConfig(geminiReq, claudeBody, mappedModel, clientStream)
+ 
+ 	proxyURL := ""
+ 	if account.ProxyID != nil && account.Proxy != nil {
+@@ -208,10 +216,7 @@ func (s *GeminiMessagesCompatService) forwardClaudeBodyAsChatCompletions(
+ 		c.Header("x-request-id", requestID)
+ 	}
+ 
+-	reasoningEffort := extractCCReasoningEffortFromBody(originalChatBody)
+-	// 国产模型默认 effort 补充（本路径上游是 Gemini，不会命中 passback-required）。
+-	// 保持与 OpenAI 网关路径调用模式一致，便于未来上游变异时语义一致。
+-	reasoningEffort = ApplyThinkingEnabledFallback(reasoningEffort, originalChatBody, mappedModel)
++	reasoningEffort := extractGeminiReasoningEffortFromBody(geminiReq)
+ 
+ 	if resp.StatusCode >= 400 {
+ 		respBody := s.readUpstreamErrorBody(resp)
+@@ -582,6 +587,7 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsStreamingResponseFrom
+ 	openBlockIndex := -1
+ 	openBlockType := ""
+ 	seenText := ""
++	seenThought := ""
+ 	openToolIndex := -1
+ 	openToolName := ""
+ 	seenToolJSON := ""
+@@ -670,6 +676,38 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsStreamingResponseFrom
+ 						}
+ 
+ 						for _, part := range extractGeminiParts(geminiResp) {
++							if text, ok := part["text"].(string); ok && isGeminiThoughtPart(part) {
++								delta, newSeen := computeGeminiTextDelta(seenThought, text)
++								seenThought = newSeen
++								if delta == "" {
++									continue
++								}
++								if openToolIndex >= 0 && closeOpenTool() {
++									return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
++								}
++								if openBlockType != "thinking" {
++									if closeOpenBlock() {
++										return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
++									}
++									idx := nextBlockIndex
++									nextBlockIndex++
++									openBlockIndex = idx
++									openBlockType = "thinking"
++									if emitAnthropicEvent(&apicompat.AnthropicStreamEvent{
++										Type: "content_block_start", Index: &idx,
++										ContentBlock: &apicompat.AnthropicContentBlock{Type: "thinking"},
++									}) {
++										return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
++									}
++								}
++								if emitAnthropicEvent(&apicompat.AnthropicStreamEvent{
++									Type:  "content_block_delta",
++									Delta: &apicompat.AnthropicDelta{Type: "thinking_delta", Thinking: delta},
++								}) {
++									return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
++								}
++								continue
++							}
+ 							if text, ok := part["text"].(string); ok && text != "" {
+ 								delta, newSeen := computeGeminiTextDelta(seenText, text)
+ 								seenText = newSeen
+diff --git a/backend/internal/application/service/gemini_compat_thinking.go b/backend/internal/application/service/gemini_compat_thinking.go
+new file mode 100644
+index 000000000..a8067f0c0
+--- /dev/null
++++ b/backend/internal/application/service/gemini_compat_thinking.go
+@@ -0,0 +1,318 @@
++package service
++
++import (
++	"bytes"
++	"encoding/json"
++	"strconv"
++	"strings"
++
++	"github.com/tidwall/gjson"
++	"github.com/tidwall/sjson"
++)
++
++type geminiThinkingParam int
++
++const (
++	geminiThinkingParamNone geminiThinkingParam = iota
++	geminiThinkingParamBudget
++	geminiThinkingParamLevel
++)
++
++const (
++	gemini25ProMaxThinkingBudget       = 32768
++	gemini25ProMinThinkingBudget       = 128
++	gemini25FlashMaxThinkingBudget     = 24576
++	gemini25FlashLiteMinThinkingBudget = 512
++)
++
++func geminiThinkingParamForModel(model string) geminiThinkingParam {
++	name := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(model)), "models/")
++	rest, ok := strings.CutPrefix(name, "gemini-")
++	if !ok {
++		return geminiThinkingParamNone
++	}
++	for _, kind := range []string{"image", "tts", "embedding", "live", "audio"} {
++		if strings.Contains(rest, kind) {
++			return geminiThinkingParamNone
++		}
++	}
++	version, _, _ := strings.Cut(rest, "-")
++	majorText, minorText, _ := strings.Cut(version, ".")
++	major, err := strconv.Atoi(majorText)
++	if err != nil {
++		return geminiThinkingParamNone
++	}
++	minor := 0
++	if minorText != "" {
++		if minor, err = strconv.Atoi(minorText); err != nil {
++			return geminiThinkingParamNone
++		}
++	}
++	switch {
++	case major >= 3:
++		return geminiThinkingParamLevel
++	case major == 2 && minor >= 5:
++		return geminiThinkingParamBudget
++	default:
++		return geminiThinkingParamNone
++	}
++}
++
++func geminiModelNameCarriesThinkingTier(model string) bool {
++	name := strings.ToLower(strings.TrimSpace(model))
++	for _, suffix := range []string{"-minimal", "-low", "-medium", "-high", "-xhigh", "-max", "-tiered"} {
++		if strings.HasSuffix(name, suffix) {
++			return true
++		}
++	}
++	return false
++}
++
++type claudeThinkingIntent struct {
++	thinkingType string
++	tier         string
++	budgetTokens int
++}
++
++func parseClaudeThinkingIntent(claudeBody []byte) claudeThinkingIntent {
++	intent := claudeThinkingIntent{
++		thinkingType: strings.ToLower(strings.TrimSpace(gjson.GetBytes(claudeBody, "thinking.type").String())),
++	}
++	if intent.thinkingType == "disabled" {
++		intent.tier = "minimal"
++		return intent
++	}
++	switch strings.ToLower(strings.TrimSpace(gjson.GetBytes(claudeBody, "output_config.effort").String())) {
++	case "none", "minimal":
++		intent.tier = "minimal"
++	case "low":
++		intent.tier = "low"
++	case "medium":
++		intent.tier = "medium"
++	case "high", "xhigh", "max":
++		intent.tier = "high"
++	}
++	if intent.thinkingType == "enabled" {
++		intent.budgetTokens = int(gjson.GetBytes(claudeBody, "thinking.budget_tokens").Int())
++	}
++	return intent
++}
++
++func claudeRequestEnablesThinking(claudeBody []byte) bool {
++	switch parseClaudeThinkingIntent(claudeBody).thinkingType {
++	case "enabled", "adaptive":
++		return true
++	default:
++		return false
++	}
++}
++
++func geminiThinkingLevelFor(model string, intent claudeThinkingIntent) string {
++	tier := intent.tier
++	if tier == "" && intent.budgetTokens > 0 {
++		switch {
++		case intent.budgetTokens <= 1024:
++			tier = "low"
++		case intent.budgetTokens <= 8192:
++			tier = "medium"
++		default:
++			tier = "high"
++		}
++	}
++	name := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(model)), "models/")
++	isFlash := strings.Contains(name, "flash")
++	if tier == "minimal" && !isFlash {
++		tier = "low"
++	}
++	if tier == "medium" && !isFlash && !strings.HasPrefix(name, "gemini-3.1-pro") {
++		tier = "high"
++	}
++	return tier
++}
++
++func geminiThinkingBudgetFor(model string, intent claudeThinkingIntent) (budget int, ok bool) {
++	name := strings.ToLower(model)
++	isPro := strings.Contains(name, "pro")
++	maxBudget, minPositive := gemini25FlashMaxThinkingBudget, 1
++	switch {
++	case isPro:
++		maxBudget, minPositive = gemini25ProMaxThinkingBudget, gemini25ProMinThinkingBudget
++	case strings.Contains(name, "flash-lite"):
++		minPositive = gemini25FlashLiteMinThinkingBudget
++	}
++	switch intent.tier {
++	case "minimal":
++		if isPro {
++			return gemini25ProMinThinkingBudget, true
++		}
++		return 0, true
++	case "low":
++		budget = 1024
++	case "medium":
++		budget = 8192
++	case "high":
++		budget = maxBudget
++	default:
++		if intent.budgetTokens <= 0 {
++			return 0, false
++		}
++		budget = intent.budgetTokens
++	}
++	budget = min(max(budget, minPositive), maxBudget)
++	return budget, true
++}
++
++// Build the small thinkingConfig once and patch the request once. Repeated
++// sjson writes would copy an entire multi-megabyte conversation per field.
++func applyGeminiCompatThinkingConfig(geminiReq, claudeBody []byte, upstreamModel string, includeThoughts bool) []byte {
++	param := geminiThinkingParamForModel(upstreamModel)
++	if param == geminiThinkingParamNone {
++		return geminiReq
++	}
++	intent := parseClaudeThinkingIntent(claudeBody)
++	thinking := make(map[string]any, 2)
++	if existing := gjson.GetBytes(geminiReq, "generationConfig.thinkingConfig"); existing.IsObject() {
++		if err := json.Unmarshal([]byte(existing.Raw), &thinking); err != nil {
++			return geminiReq
++		}
++	}
++	thinkingOff := false
++	if !geminiModelNameCarriesThinkingTier(upstreamModel) {
++		switch param {
++		case geminiThinkingParamLevel:
++			if level := geminiThinkingLevelFor(upstreamModel, intent); level != "" {
++				thinking["thinkingLevel"] = level
++			}
++		case geminiThinkingParamBudget:
++			if budget, ok := geminiThinkingBudgetFor(upstreamModel, intent); ok {
++				thinking["thinkingBudget"] = budget
++				thinkingOff = budget == 0
++			}
++		}
++	}
++	if includeThoughts && !thinkingOff {
++		thinking["includeThoughts"] = true
++	}
++	if len(thinking) == 0 {
++		return geminiReq
++	}
++	updated, err := sjson.SetBytes(geminiReq, "generationConfig.thinkingConfig", thinking)
++	if err != nil {
++		return geminiReq
++	}
++	return updated
++}
++
++func extractGeminiReasoningEffortFromBody(body []byte) *string {
++	if level := strings.TrimSpace(gjson.GetBytes(body, "generationConfig.thinkingConfig.thinkingLevel").String()); level != "" {
++		return &level
++	}
++	if budget := gjson.GetBytes(body, "generationConfig.thinkingConfig.thinkingBudget"); budget.Exists() {
++		value := "high"
++		switch {
++		case budget.Int() <= 0:
++			value = "none"
++		case budget.Int() <= 1024:
++			value = "low"
++		case budget.Int() <= 8192:
++			value = "medium"
++		}
++		return &value
++	}
++	return nil
++}
++
++func isGeminiThoughtPart(part map[string]any) bool {
++	thought, _ := part["thought"].(bool)
++	return thought
++}
++
++func dropClaudeHistoryThinkingBlocks(claudeBody []byte) []byte {
++	var req map[string]any
++	if err := json.Unmarshal(claudeBody, &req); err != nil {
++		return claudeBody
++	}
++	messages, ok := req["messages"].([]any)
++	if !ok {
++		return claudeBody
++	}
++	changed := false
++	kept := make([]any, 0, len(messages))
++	for _, message := range messages {
++		mm, ok := message.(map[string]any)
++		if !ok {
++			kept = append(kept, message)
++			continue
++		}
++		blocks, ok := mm["content"].([]any)
++		if !ok {
++			kept = append(kept, message)
++			continue
++		}
++		filtered := make([]any, 0, len(blocks))
++		for _, block := range blocks {
++			if bm, ok := block.(map[string]any); ok {
++				if kind, _ := bm["type"].(string); kind == "thinking" || kind == "redacted_thinking" {
++					continue
++				}
++			}
++			filtered = append(filtered, block)
++		}
++		if len(filtered) == len(blocks) {
++			kept = append(kept, message)
++			continue
++		}
++		nonBlank := filtered[:0]
++		for _, block := range filtered {
++			if bm, ok := block.(map[string]any); ok {
++				if kind, _ := bm["type"].(string); kind == "text" {
++					if text, _ := bm["text"].(string); strings.TrimSpace(text) == "" {
++						continue
++					}
++				}
++			}
++			nonBlank = append(nonBlank, block)
++		}
++		changed = true
++		if len(nonBlank) == 0 {
++			continue
++		}
++		mm["content"] = nonBlank
++		kept = append(kept, mm)
++	}
++	if !changed {
++		return claudeBody
++	}
++	req["messages"] = kept
++	out, err := json.Marshal(req)
++	if err != nil {
++		return claudeBody
++	}
++	return out
++}
++
++func dropChatReasoningContentParts(content json.RawMessage) json.RawMessage {
++	if !bytes.HasPrefix(bytes.TrimSpace(content), []byte("[")) {
++		return content
++	}
++	var parts []json.RawMessage
++	if err := json.Unmarshal(content, &parts); err != nil {
++		return content
++	}
++	kept := make([]json.RawMessage, 0, len(parts))
++	for _, part := range parts {
++		kind := gjson.GetBytes(part, "type").String()
++		if kind == "thinking" || kind == "reasoning" {
++			continue
++		}
++		kept = append(kept, part)
++	}
++	if len(kept) == len(parts) {
++		return content
++	}
++	out, err := json.Marshal(kept)
++	if err != nil {
++		return content
++	}
++	return out
++}
+diff --git a/backend/internal/application/service/gemini_compat_thinking_test.go b/backend/internal/application/service/gemini_compat_thinking_test.go
+new file mode 100644
+index 000000000..8270dc265
+--- /dev/null
++++ b/backend/internal/application/service/gemini_compat_thinking_test.go
+@@ -0,0 +1,41 @@
++//go:build unit
++
++package service
++
++import (
++	"testing"
++
++	"github.com/stretchr/testify/require"
++	"github.com/tidwall/gjson"
++)
++
++func TestGeminiThinkingConfigMapsCompatibilityEffort(t *testing.T) {
++	body := applyGeminiCompatThinkingConfig(
++		[]byte(`{"contents":[]}`),
++		[]byte(`{"thinking":{"type":"adaptive"},"output_config":{"effort":"high"}}`),
++		"gemini-3.1-flash",
++		true,
++	)
++	require.Equal(t, "high", gjson.GetBytes(body, "generationConfig.thinkingConfig.thinkingLevel").String())
++	require.True(t, gjson.GetBytes(body, "generationConfig.thinkingConfig.includeThoughts").Bool())
++
++	disabled := applyGeminiCompatThinkingConfig(
++		[]byte(`{"contents":[]}`),
++		[]byte(`{"thinking":{"type":"disabled"}}`),
++		"gemini-2.5-flash",
++		true,
++	)
++	require.Equal(t, int64(0), gjson.GetBytes(disabled, "generationConfig.thinkingConfig.thinkingBudget").Int())
++	require.False(t, gjson.GetBytes(disabled, "generationConfig.thinkingConfig.includeThoughts").Bool())
++}
++
++func TestGeminiThinkingDropsHistoryAndKeepsDeltaSemantics(t *testing.T) {
++	body := dropClaudeHistoryThinkingBlocks([]byte(`{"messages":[{"role":"assistant","content":[{"type":"thinking","thinking":"private"},{"type":"text","text":"visible"}]}]}`))
++	require.Equal(t, "visible", gjson.GetBytes(body, "messages.0.content.0.text").String())
++	require.False(t, gjson.GetBytes(body, "messages.0.content.0.thinking").Exists())
++
++	delta, seen := computeGeminiTextDelta("hello", "hello world")
++	require.Equal(t, " world", delta)
++	require.Equal(t, "hello world", seen)
++	require.Equal(t, "high", *extractGeminiReasoningEffortFromBody([]byte(`{"generationConfig":{"thinkingConfig":{"thinkingLevel":"high"}}}`)))
++}
+diff --git a/backend/internal/application/service/gemini_compat_thinking_upstream_test.go b/backend/internal/application/service/gemini_compat_thinking_upstream_test.go
+new file mode 100644
+index 000000000..cc86552a0
+--- /dev/null
++++ b/backend/internal/application/service/gemini_compat_thinking_upstream_test.go
+@@ -0,0 +1,374 @@
++package service
++
++import (
++	"context"
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++	"time"
++
++	"github.com/Wei-Shaw/sub2api/internal/platform/config"
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++	"github.com/tidwall/gjson"
++)
++
++func TestApplyGeminiCompatThinkingConfig(t *testing.T) {
++	budget := func(v int64) *int64 { return &v }
++	const baseReq = `{"contents":[{"role":"user","parts":[{"text":"hi"}]}],"generationConfig":{"maxOutputTokens":8192}}`
++	tests := []struct {
++		name            string
++		model           string
++		claudeBody      string
++		includeThoughts bool
++		wantLevel       string
++		wantBudget      *int64
++		wantThoughts    bool
++		wantNoConfig    bool
++	}{
++		{name: "effort medium on flash", model: "gemini-3.8-flash", claudeBody: `{"output_config":{"effort":"medium"},"thinking":{"type":"enabled","budget_tokens":4096}}`, wantLevel: "medium"},
++		{name: "effort low", model: "gemini-3.7-flash", claudeBody: `{"output_config":{"effort":"low"}}`, wantLevel: "low"},
++		{name: "effort none on flash", model: "gemini-3.8-flash", claudeBody: `{"output_config":{"effort":"none"},"thinking":{"type":"enabled","budget_tokens":10240}}`, wantLevel: "minimal"},
++		{name: "effort minimal on pro", model: "gemini-3.1-pro-preview", claudeBody: `{"output_config":{"effort":"minimal"}}`, wantLevel: "low"},
++		{name: "effort medium on gemini 3 pro", model: "gemini-3-pro-preview", claudeBody: `{"output_config":{"effort":"medium"}}`, wantLevel: "high"},
++		{name: "effort medium on gemini 3.1 pro", model: "gemini-3.1-pro-preview", claudeBody: `{"output_config":{"effort":"medium"}}`, wantLevel: "medium"},
++		{name: "effort max", model: "gemini-3.7-flash", claudeBody: `{"output_config":{"effort":"max"}}`, wantLevel: "high"},
++		{name: "effort xhigh", model: "gemini-3.7-flash", claudeBody: `{"output_config":{"effort":"xhigh"}}`, wantLevel: "high"},
++		{name: "thinking disabled wins over effort", model: "gemini-3.8-flash", claudeBody: `{"thinking":{"type":"disabled"},"output_config":{"effort":"high"}}`, wantLevel: "minimal"},
++		{name: "budget only maps to high", model: "gemini-3.8-flash", claudeBody: `{"thinking":{"type":"enabled","budget_tokens":31999}}`, wantLevel: "high"},
++		{name: "budget only maps to medium", model: "gemini-3.8-flash", claudeBody: `{"thinking":{"type":"enabled","budget_tokens":4096}}`, wantLevel: "medium"},
++		{name: "budget only maps to low", model: "gemini-3.8-flash", claudeBody: `{"thinking":{"type":"enabled","budget_tokens":1024}}`, wantLevel: "low"},
++		{name: "adaptive keeps default level", model: "gemini-3.7-flash", claudeBody: `{"thinking":{"type":"adaptive"}}`, includeThoughts: true, wantThoughts: true},
++		{name: "no thinking params streams thoughts only", model: "gemini-3.7-flash", claudeBody: `{}`, includeThoughts: true, wantThoughts: true},
++		{name: "unknown effort ignored", model: "gemini-3.7-flash", claudeBody: `{"output_config":{"effort":"turbo"}}`, wantNoConfig: true},
++		{name: "level with thoughts", model: "gemini-3.8-flash", claudeBody: `{"output_config":{"effort":"high"}}`, includeThoughts: true, wantLevel: "high", wantThoughts: true},
++		{name: "gemini 4 uses level", model: "gemini-4-argon", claudeBody: `{"output_config":{"effort":"low"}}`, wantLevel: "low"},
++		{name: "medium outside verified models becomes high", model: "gemini-4-argon", claudeBody: `{"output_config":{"effort":"medium"}}`, wantLevel: "high"},
++		{name: "medium budget outside verified models becomes high", model: "gemini-4-argon", claudeBody: `{"thinking":{"type":"enabled","budget_tokens":4096}}`, wantLevel: "high"},
++		{name: "medium on unverified pro becomes high", model: "gemini-3.5-pro", claudeBody: `{"output_config":{"effort":"medium"}}`, wantLevel: "high"},
++		{name: "medium on flash lite", model: "gemini-3.1-flash-lite", claudeBody: `{"output_config":{"effort":"medium"}}`, wantLevel: "medium"},
++		{name: "tier suffix model keeps name tier", model: "gemini-4-argon-high", claudeBody: `{"output_config":{"effort":"low"}}`, includeThoughts: true, wantThoughts: true},
++		{name: "tiered suffix model keeps name tier", model: "gemini-3.8-flash-tiered", claudeBody: `{"output_config":{"effort":"low"}}`, includeThoughts: true, wantThoughts: true},
++		{name: "2.5 flash low", model: "gemini-2.5-flash", claudeBody: `{"output_config":{"effort":"low"}}`, wantBudget: budget(1024)},
++		{name: "2.5 flash high", model: "gemini-2.5-flash", claudeBody: `{"output_config":{"effort":"high"}}`, includeThoughts: true, wantBudget: budget(24576), wantThoughts: true},
++		{name: "2.5 flash none disables thinking and thoughts", model: "gemini-2.5-flash", claudeBody: `{"output_config":{"effort":"none"}}`, includeThoughts: true, wantBudget: budget(0)},
++		{name: "2.5 pro cannot disable thinking", model: "gemini-2.5-pro", claudeBody: `{"thinking":{"type":"disabled"}}`, includeThoughts: true, wantBudget: budget(128), wantThoughts: true},
++		{name: "2.5 pro high", model: "gemini-2.5-pro", claudeBody: `{"output_config":{"effort":"max"}}`, wantBudget: budget(32768)},
++		{name: "2.5 pro budget clamps up", model: "gemini-2.5-pro", claudeBody: `{"thinking":{"type":"enabled","budget_tokens":50}}`, wantBudget: budget(128)},
++		{name: "2.5 flash budget clamps down", model: "gemini-2.5-flash", claudeBody: `{"thinking":{"type":"enabled","budget_tokens":31999}}`, wantBudget: budget(24576)},
++		{name: "2.5 flash lite budget clamps up", model: "gemini-2.5-flash-lite", claudeBody: `{"thinking":{"type":"enabled","budget_tokens":100}}`, wantBudget: budget(512)},
++		{name: "2.5 adaptive keeps dynamic budget", model: "gemini-2.5-flash", claudeBody: `{"thinking":{"type":"adaptive"}}`, wantNoConfig: true},
++		{name: "2.0 untouched", model: "gemini-2.0-flash", claudeBody: `{"output_config":{"effort":"high"}}`, includeThoughts: true, wantNoConfig: true},
++		{name: "image model untouched", model: "gemini-3-pro-image-preview", claudeBody: `{"output_config":{"effort":"high"}}`, includeThoughts: true, wantNoConfig: true},
++		{name: "unparsable model untouched", model: "gemini-flash-latest", claudeBody: `{"output_config":{"effort":"high"}}`, includeThoughts: true, wantNoConfig: true},
++		{name: "non gemini model untouched", model: "custom-model", claudeBody: `{"output_config":{"effort":"high"}}`, includeThoughts: true, wantNoConfig: true},
++		{name: "models prefix", model: "models/gemini-3.8-flash", claudeBody: `{"output_config":{"effort":"low"}}`, wantLevel: "low"},
++	}
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			out := applyGeminiCompatThinkingConfig([]byte(baseReq), []byte(tt.claudeBody), tt.model, tt.includeThoughts)
++			require.Equal(t, int64(8192), gjson.GetBytes(out, "generationConfig.maxOutputTokens").Int())
++			require.Equal(t, "hi", gjson.GetBytes(out, "contents.0.parts.0.text").String())
++			cfg := gjson.GetBytes(out, "generationConfig.thinkingConfig")
++			if tt.wantNoConfig {
++				require.False(t, cfg.Exists(), cfg.Raw)
++				return
++			}
++			require.Equal(t, tt.wantLevel, cfg.Get("thinkingLevel").String())
++			if tt.wantBudget != nil {
++				require.True(t, cfg.Get("thinkingBudget").Exists(), cfg.Raw)
++				require.Equal(t, *tt.wantBudget, cfg.Get("thinkingBudget").Int())
++			} else {
++				require.False(t, cfg.Get("thinkingBudget").Exists(), cfg.Raw)
++			}
++			require.Equal(t, tt.wantThoughts, cfg.Get("includeThoughts").Bool(), cfg.Raw)
++			require.False(t, cfg.Get("thinkingLevel").Exists() && cfg.Get("thinkingBudget").Exists(), "thinkingLevel and thinkingBudget are mutually exclusive")
++		})
++	}
++}
++
++func geminiCompatThinkingTestAccount() *Account {
++	return &Account{
++		ID:          611,
++		Platform:    PlatformGemini,
++		Type:        AccountTypeAPIKey,
++		Credentials: map[string]any{"api_key": "gemini-api-key"},
++		Concurrency: 1,
++	}
++}
++
++func TestGeminiForwardAsChatCompletions_StreamsThoughtsAsReasoningContent(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	upstreamBody := `data: {"candidates":[{"content":{"role":"model","parts":[{"text":"Weighing options","thought":true}]}}]}` + "\n\n" +
++		`data: {"candidates":[{"content":{"role":"model","parts":[{"text":" carefully.","thought":true}]}}]}` + "\n\n" +
++		`data: {"candidates":[{"content":{"role":"model","parts":[{"text":"Final answer","thoughtSignature":"sig"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":4,"candidatesTokenCount":2,"thoughtsTokenCount":7}}` + "\n\n"
++	upstream := &queuedHTTPUpstreamStub{responses: []*http.Response{{
++		StatusCode: http.StatusOK,
++		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
++		Body:       io.NopCloser(strings.NewReader(upstreamBody)),
++	}}}
++	svc := &GeminiMessagesCompatService{httpUpstream: upstream, cfg: &config.Config{}}
++	body := []byte(`{"model":"gemini-3.8-flash","stream":true,"reasoning_effort":"medium","messages":[{"role":"user","content":"hi"}]}`)
++	c, recorder := newAntigravityCompatContext(http.MethodPost, "/v1/chat/completions", body)
++
++	result, err := svc.ForwardAsChatCompletions(context.Background(), c, geminiCompatThinkingTestAccount(), body)
++	require.NoError(t, err)
++	require.Equal(t, http.StatusOK, recorder.Code)
++	require.Len(t, upstream.requestBodies, 1)
++	require.Equal(t, "medium", gjson.GetBytes(upstream.requestBodies[0], "generationConfig.thinkingConfig.thinkingLevel").String())
++	require.True(t, gjson.GetBytes(upstream.requestBodies[0], "generationConfig.thinkingConfig.includeThoughts").Bool())
++	require.Equal(t, "medium", optionalStringValue(result.ReasoningEffort))
++	require.Equal(t, 9, result.Usage.OutputTokens)
++
++	var reasoning, content strings.Builder
++	firstContentChunk, lastReasoningChunk := -1, -1
++	for i, line := range strings.Split(recorder.Body.String(), "\n") {
++		payload, ok := strings.CutPrefix(line, "data: ")
++		if !ok || payload == "[DONE]" {
++			continue
++		}
++		delta := gjson.Get(payload, "choices.0.delta")
++		if r := delta.Get("reasoning_content"); r.Exists() {
++			_, _ = reasoning.WriteString(r.String())
++			lastReasoningChunk = i
++		}
++		if text := delta.Get("content"); text.Exists() && text.String() != "" {
++			_, _ = content.WriteString(text.String())
++			if firstContentChunk < 0 {
++				firstContentChunk = i
++			}
++		}
++	}
++	require.Equal(t, "Weighing options carefully.", reasoning.String())
++	require.Equal(t, "Final answer", content.String())
++	require.Less(t, lastReasoningChunk, firstContentChunk)
++}
++
++func TestGeminiForwardAsChatCompletions_NonStreamForwardsEffortWithoutThoughts(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	upstream := &queuedHTTPUpstreamStub{responses: []*http.Response{{
++		StatusCode: http.StatusOK,
++		Header:     http.Header{"Content-Type": []string{"application/json"}},
++		Body:       io.NopCloser(strings.NewReader(`{"candidates":[{"content":{"parts":[{"text":"ok"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":3,"candidatesTokenCount":1}}`)),
++	}}}
++	svc := &GeminiMessagesCompatService{httpUpstream: upstream, cfg: &config.Config{}}
++	body := []byte(`{"model":"gemini-3.8-flash","reasoning_effort":"none","messages":[{"role":"user","content":"hi"}]}`)
++	c, recorder := newAntigravityCompatContext(http.MethodPost, "/v1/chat/completions", body)
++
++	result, err := svc.ForwardAsChatCompletions(context.Background(), c, geminiCompatThinkingTestAccount(), body)
++	require.NoError(t, err)
++	require.Equal(t, http.StatusOK, recorder.Code)
++	require.Len(t, upstream.requestBodies, 1)
++	cfg := gjson.GetBytes(upstream.requestBodies[0], "generationConfig.thinkingConfig")
++	require.Equal(t, "minimal", cfg.Get("thinkingLevel").String())
++	require.False(t, cfg.Get("includeThoughts").Exists(), cfg.Raw)
++	require.Equal(t, "minimal", optionalStringValue(result.ReasoningEffort))
++	require.Equal(t, "ok", gjson.Get(recorder.Body.String(), "choices.0.message.content").String())
++}
++
++func TestGeminiMessagesForward_IncludeThoughtsFollowsClientThinking(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	tests := []struct {
++		name         string
++		body         string
++		wantThoughts bool
++		wantLevel    string
++	}{
++		{name: "stream with adaptive thinking", body: `{"model":"gemini-3.7-flash","stream":true,"max_tokens":1024,"thinking":{"type":"adaptive"},"output_config":{"effort":"medium"},"messages":[{"role":"user","content":"hi"}]}`, wantThoughts: true, wantLevel: "medium"},
++		{name: "stream without thinking", body: `{"model":"gemini-3.7-flash","stream":true,"max_tokens":1024,"messages":[{"role":"user","content":"hi"}]}`},
++		{name: "non stream with thinking", body: `{"model":"gemini-3.7-flash","max_tokens":1024,"thinking":{"type":"enabled","budget_tokens":31999},"messages":[{"role":"user","content":"hi"}]}`, wantLevel: "high"},
++	}
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			stream := gjson.Get(tt.body, "stream").Bool()
++			respBody := `{"candidates":[{"content":{"parts":[{"text":"ok"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":3,"candidatesTokenCount":1}}`
++			contentType := "application/json"
++			if stream {
++				respBody = "data: " + respBody + "\n\n"
++				contentType = "text/event-stream"
++			}
++			upstream := &queuedHTTPUpstreamStub{responses: []*http.Response{{
++				StatusCode: http.StatusOK,
++				Header:     http.Header{"Content-Type": []string{contentType}},
++				Body:       io.NopCloser(strings.NewReader(respBody)),
++			}}}
++			svc := &GeminiMessagesCompatService{httpUpstream: upstream, cfg: &config.Config{}}
++			c, recorder := newAntigravityCompatContext(http.MethodPost, "/v1/messages", []byte(tt.body))
++
++			result, err := svc.Forward(context.Background(), c, geminiCompatThinkingTestAccount(), []byte(tt.body))
++			require.NoError(t, err)
++			require.Equal(t, http.StatusOK, recorder.Code)
++			require.Len(t, upstream.requestBodies, 1)
++			cfg := gjson.GetBytes(upstream.requestBodies[0], "generationConfig.thinkingConfig")
++			require.Equal(t, tt.wantThoughts, cfg.Get("includeThoughts").Bool(), cfg.Raw)
++			require.Equal(t, tt.wantLevel, cfg.Get("thinkingLevel").String(), cfg.Raw)
++			require.Equal(t, tt.wantLevel, optionalStringValue(result.ReasoningEffort))
++		})
++	}
++}
++
++func TestGeminiMessagesHandleStreamingResponse_EmitsThinkingBlockBeforeText(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	upstreamBody := `data: {"candidates":[{"content":{"parts":[{"text":"Plan the reply","thought":true}]}}]}` + "\n\n" +
++		`data: {"candidates":[{"content":{"parts":[{"text":"Hello"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":5,"candidatesTokenCount":1,"thoughtsTokenCount":4}}` + "\n\n"
++	resp := &http.Response{
++		StatusCode: http.StatusOK,
++		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
++		Body:       io.NopCloser(strings.NewReader(upstreamBody)),
++	}
++	rec := httptest.NewRecorder()
++	c, _ := gin.CreateTestContext(rec)
++	svc := &GeminiMessagesCompatService{}
++
++	result, err := svc.handleStreamingResponse(c, resp, time.Now(), "claude-sonnet-4-5")
++	require.NoError(t, err)
++	require.NotNil(t, result.firstTokenMs)
++
++	events := parseAnthropicContentBlockEvents(t, rec.Body.String())
++	open := -1
++	var started []string
++	for _, ev := range events {
++		switch ev.event {
++		case "content_block_start":
++			require.Equalf(t, -1, open, "block %d opened while block %d was still open", ev.index, open)
++			open = ev.index
++			started = append(started, ev.blockType)
++		case "content_block_stop":
++			require.Equal(t, open, ev.index)
++			open = -1
++		}
++	}
++	require.Equal(t, -1, open)
++	require.Equal(t, []string{"thinking", "text"}, started)
++
++	out := rec.Body.String()
++	require.Contains(t, out, `"content_block":{"signature":"","thinking":"","type":"thinking"}`)
++	require.Contains(t, out, `"type":"thinking_delta"`)
++	require.Contains(t, out, `"thinking":"Plan the reply"`)
++	require.NotContains(t, out, `"text":"Plan the reply"`)
++}
++
++func TestConvertClaudeMessagesToGemini_DropsHistoryThinkingBlocks(t *testing.T) {
++	body := []byte(`{"model":"gemini-3.7-flash","max_tokens":1024,"messages":[
++		{"role":"user","content":"hi"},
++		{"role":"assistant","content":[{"type":"thinking","thinking":"PRIOR_THOUGHT","signature":""},{"type":"text","text":"Hello"}]},
++		{"role":"user","content":"again"},
++		{"role":"assistant","content":[{"type":"thinking","thinking":"ONLY_THOUGHT","signature":""},{"type":"redacted_thinking","data":"opaque"}]},
++		{"role":"user","content":"last"}
++	]}`)
++	out, err := convertClaudeMessagesToGeminiGenerateContent(body)
++	require.NoError(t, err)
++	require.NotContains(t, string(out), "PRIOR_THOUGHT")
++	require.NotContains(t, string(out), "ONLY_THOUGHT")
++	require.NotContains(t, string(out), "opaque")
++
++	contents := gjson.GetBytes(out, "contents").Array()
++	require.Len(t, contents, 4)
++	require.Equal(t, "model", contents[1].Get("role").String())
++	require.Len(t, contents[1].Get("parts").Array(), 1)
++	require.Equal(t, "Hello", contents[1].Get("parts.0.text").String())
++	for i, content := range contents {
++		require.NotEmpty(t, content.Get("parts").Array(), "contents[%d] has empty parts", i)
++	}
++}
++
++func TestGeminiForwardAsChatCompletions_DropsHistoryReasoningContent(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	upstream := &queuedHTTPUpstreamStub{responses: []*http.Response{{
++		StatusCode: http.StatusOK,
++		Header:     http.Header{"Content-Type": []string{"application/json"}},
++		Body:       io.NopCloser(strings.NewReader(`{"candidates":[{"content":{"parts":[{"text":"ok"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":3,"candidatesTokenCount":1}}`)),
++	}}}
++	svc := &GeminiMessagesCompatService{httpUpstream: upstream, cfg: &config.Config{}}
++	body := []byte(`{"model":"gemini-3.8-flash","messages":[
++		{"role":"user","content":"hi"},
++		{"role":"assistant","content":"Hello","reasoning_content":"PRIOR_REASONING"},
++		{"role":"assistant","content":"Again","reasoning":"ALIAS_REASONING"},
++		{"role":"assistant","content":[{"type":"thinking","thinking":"PART_THINKING"},{"type":"reasoning","text":"PART_REASONING"},{"type":"text","text":"Third"}]},
++		{"role":"user","content":"next"}
++	]}`)
++	c, recorder := newAntigravityCompatContext(http.MethodPost, "/v1/chat/completions", body)
++
++	_, err := svc.ForwardAsChatCompletions(context.Background(), c, geminiCompatThinkingTestAccount(), body)
++	require.NoError(t, err)
++	require.Equal(t, http.StatusOK, recorder.Code)
++	require.Len(t, upstream.requestBodies, 1)
++	sent := string(upstream.requestBodies[0])
++	require.NotContains(t, sent, "PRIOR_REASONING")
++	require.NotContains(t, sent, "ALIAS_REASONING")
++	require.NotContains(t, sent, "PART_THINKING")
++	require.NotContains(t, sent, "PART_REASONING")
++	require.NotContains(t, sent, "<thinking>")
++	require.Contains(t, sent, "Third")
++	require.Contains(t, sent, "Hello")
++	require.Contains(t, sent, "Again")
++}
++
++func TestGeminiMessagesForward_SignatureRetryKeepsClientThinkingParams(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	okBody := "data: " + `{"candidates":[{"content":{"parts":[{"text":"ok"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":3,"candidatesTokenCount":1}}` + "\n\n"
++	upstream := &queuedHTTPUpstreamStub{responses: []*http.Response{
++		{
++			StatusCode: http.StatusBadRequest,
++			Header:     http.Header{"Content-Type": []string{"application/json"}},
++			Body:       io.NopCloser(strings.NewReader(`{"error":{"code":400,"message":"Function call is missing a thought_signature","status":"INVALID_ARGUMENT"}}`)),
++		},
++		{
++			StatusCode: http.StatusBadRequest,
++			Header:     http.Header{"Content-Type": []string{"application/json"}},
++			Body:       io.NopCloser(strings.NewReader(`{"error":{"code":400,"message":"Function call is missing a thought_signature","status":"INVALID_ARGUMENT"}}`)),
++		},
++		{
++			StatusCode: http.StatusOK,
++			Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
++			Body:       io.NopCloser(strings.NewReader(okBody)),
++		},
++	}}
++	svc := &GeminiMessagesCompatService{httpUpstream: upstream, cfg: &config.Config{}}
++	body := []byte(`{"model":"claude-sonnet-4-5","stream":true,"max_tokens":1024,"thinking":{"type":"adaptive"},"output_config":{"effort":"low"},"messages":[
++		{"role":"user","content":"hi"},
++		{"role":"assistant","content":[{"type":"thinking","thinking":"RETRY_THOUGHT","signature":""},{"type":"tool_use","id":"toolu_1","name":"lookup","input":{"q":"x"}}]},
++		{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_1","content":"found"}]},
++		{"role":"assistant","content":[{"type":"thinking","thinking":"RETRY_ONLY_THOUGHT","signature":""}]},
++		{"role":"user","content":"next"},
++		{"role":"assistant","content":[{"type":"thinking","thinking":"RETRY_BLANK_THOUGHT","signature":""},{"type":"text","text":""}]},
++		{"role":"user","content":"again"},
++		{"role":"assistant","content":[{"type":"thinking","thinking":"RETRY_SPACE_THOUGHT","signature":""},{"type":"text","text":"   "}]},
++		{"role":"user","content":"last"}
++	]}`)
++	account := geminiCompatThinkingTestAccount()
++	account.Credentials["model_mapping"] = map[string]any{"claude-sonnet-4-5": "gemini-3.8-flash"}
++	c, recorder := newAntigravityCompatContext(http.MethodPost, "/v1/messages", body)
++
++	result, err := svc.Forward(context.Background(), c, account, body)
++	require.NoError(t, err)
++	require.Equal(t, http.StatusOK, recorder.Code)
++	require.Len(t, upstream.requestBodies, 3)
++	for i, sent := range upstream.requestBodies {
++		require.NotContains(t, string(sent), "RETRY_THOUGHT", "request %d", i)
++		require.NotContains(t, string(sent), "RETRY_ONLY_THOUGHT", "request %d", i)
++		require.NotContains(t, string(sent), "RETRY_BLANK_THOUGHT", "request %d", i)
++		require.NotContains(t, string(sent), "RETRY_SPACE_THOUGHT", "request %d", i)
++		for j, content := range gjson.GetBytes(sent, "contents").Array() {
++			require.NotEmpty(t, content.Get("parts").Array(), "request %d contents[%d] has empty parts", i, j)
++			for k, part := range content.Get("parts").Array() {
++				if text := part.Get("text"); text.Exists() {
++					require.NotEmpty(t, strings.TrimSpace(text.String()), "request %d contents[%d].parts[%d] is blank text", i, j, k)
++				}
++			}
++		}
++		cfg := gjson.GetBytes(sent, "generationConfig.thinkingConfig")
++		require.Equal(t, "low", cfg.Get("thinkingLevel").String(), "request %d: %s", i, cfg.Raw)
++		require.True(t, cfg.Get("includeThoughts").Bool(), "request %d: %s", i, cfg.Raw)
++	}
++	require.Equal(t, "low", optionalStringValue(result.ReasoningEffort))
++}
++
++func optionalStringValue(value *string) string {
++	if value == nil {
++		return ""
++	}
++	return *value
++}
+diff --git a/backend/internal/application/service/gemini_messages_compat_service.go b/backend/internal/application/service/gemini_messages_compat_service.go
+index 18271da80..b4645e082 100644
+--- a/backend/internal/application/service/gemini_messages_compat_service.go
++++ b/backend/internal/application/service/gemini_messages_compat_service.go
+@@ -526,6 +526,8 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
+ 		return nil, s.writeClaudeError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+ 	}
+ 	geminiReq = ensureGeminiFunctionCallThoughtSignatures(geminiReq)
++	includeThoughts := req.Stream && claudeRequestEnablesThinking(body)
++	geminiReq = applyGeminiCompatThinkingConfig(geminiReq, body, mappedModel, includeThoughts)
+ 	originalClaudeBody := body
+ 
+ 	proxyURL := ""
+@@ -760,25 +762,26 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
+ 
+ 				var strippedClaudeBody []byte
+ 				stageName := ""
++				retrySourceBody := dropClaudeHistoryThinkingBlocks(originalClaudeBody)
+ 				// 路径说明：本处上游是 Gemini，但被剥离的 body 是 Anthropic 格式。传 originalModel
+ 				// （客户端原 Anthropic model）而非 mappedModel（上游 Gemini model），让剥离逻辑按
+ 				// 客户端请求的 Anthropic 子协议族判定（详见 ResolveThinkingProtocol 文档）。
+ 				switch signatureRetryStage {
+ 				case 0:
+ 					// Stage 1: disable thinking + thinking->text
+-					strippedClaudeBody = FilterThinkingBlocksForRetry(originalClaudeBody, originalModel)
++					strippedClaudeBody = FilterThinkingBlocksForRetry(retrySourceBody, originalModel)
+ 					stageName = "thinking-only"
+ 					signatureRetryStage = 1
+ 				default:
+ 					// Stage 2: additionally downgrade tool_use/tool_result blocks to text
+-					strippedClaudeBody = FilterSignatureSensitiveBlocksForRetry(originalClaudeBody, originalModel)
++					strippedClaudeBody = FilterSignatureSensitiveBlocksForRetry(retrySourceBody, originalModel)
+ 					stageName = "thinking+tools"
+ 					signatureRetryStage = 2
+ 				}
+ 				retryGeminiReq, txErr := convertClaudeMessagesToGeminiGenerateContent(strippedClaudeBody)
+ 				if txErr == nil {
+ 					logger.LegacyPrintf("service.gemini_messages_compat", "Gemini account %d: detected signature-related 400, retrying with downgraded Claude blocks (%s)", account.ID, stageName)
+-					geminiReq = retryGeminiReq
++					geminiReq = applyGeminiCompatThinkingConfig(retryGeminiReq, originalClaudeBody, mappedModel, includeThoughts)
+ 					// Consume one retry budget attempt and continue with the updated request payload.
+ 					sleepGeminiBackoff(1)
+ 					continue
+@@ -1034,6 +1037,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
+ 		Stream:                        req.Stream,
+ 		Duration:                      time.Since(startTime),
+ 		FirstTokenMs:                  firstTokenMs,
++		ReasoningEffort:               extractGeminiReasoningEffortFromBody(geminiReq),
+ 		ImageCount:                    imageCount,
+ 		ImageSize:                     imageSize,
+ 		ImageInputSize:                imageInputSize,
+@@ -1976,6 +1980,7 @@ func (s *GeminiMessagesCompatService) handleStreamingResponse(c *gin.Context, re
+ 	openBlockIndex := -1
+ 	openBlockType := ""
+ 	seenText := ""
++	seenThought := ""
+ 	openToolIndex := -1
+ 	openToolID := ""
+ 	openToolName := ""
+@@ -2024,6 +2029,41 @@ func (s *GeminiMessagesCompatService) handleStreamingResponse(c *gin.Context, re
+ 
+ 		parts := extractGeminiParts(geminiResp)
+ 		for _, part := range parts {
++			if text, ok := part["text"].(string); ok && isGeminiThoughtPart(part) {
++				delta, newSeen := computeGeminiTextDelta(seenThought, text)
++				seenThought = newSeen
++				if delta == "" {
++					continue
++				}
++				if openToolIndex >= 0 {
++					writeSSE(c.Writer, "content_block_stop", map[string]any{"type": "content_block_stop", "index": openToolIndex})
++					openToolIndex = -1
++					openToolName = ""
++					seenToolJSON = ""
++				}
++				if openBlockType != "thinking" {
++					if openBlockIndex >= 0 {
++						writeSSE(c.Writer, "content_block_stop", map[string]any{"type": "content_block_stop", "index": openBlockIndex})
++					}
++					openBlockType = "thinking"
++					openBlockIndex = nextBlockIndex
++					nextBlockIndex++
++					writeSSE(c.Writer, "content_block_start", map[string]any{
++						"type": "content_block_start", "index": openBlockIndex,
++						"content_block": map[string]any{"type": "thinking", "thinking": "", "signature": ""},
++					})
++				}
++				if firstTokenMs == nil {
++					ms := int(time.Since(startTime).Milliseconds())
++					firstTokenMs = &ms
++				}
++				writeSSE(c.Writer, "content_block_delta", map[string]any{
++					"type": "content_block_delta", "index": openBlockIndex,
++					"delta": map[string]any{"type": "thinking_delta", "thinking": delta},
++				})
++				flusher.Flush()
++				continue
++			}
+ 			if text, ok := part["text"].(string); ok && text != "" {
+ 				// Close an open tool_use block before starting text, mirroring
+ 				// the functionCall branch (which closes open text blocks) and
+@@ -3292,6 +3332,7 @@ func convertClaudeMessagesToGeminiContents(messages any, toolUseIDToName map[str
+ 			// 如果只有一个 block，不过滤空白（让上游 API 报错）
+ 			singleBlock := len(content) == 1
+ 			var toolImageParts []any
++			droppedThinking := false
+ 
+ 			for _, block := range content {
+ 				bm, ok := block.(map[string]any)
+@@ -3299,6 +3340,10 @@ func convertClaudeMessagesToGeminiContents(messages any, toolUseIDToName map[str
+ 					continue
+ 				}
+ 				bt, _ := bm["type"].(string)
++				if bt == "thinking" || bt == "redacted_thinking" {
++					droppedThinking = true
++					continue
++				}
+ 				switch bt {
+ 				case "text":
+ 					if text, ok := bm["text"].(string); ok {
+@@ -3368,6 +3413,9 @@ func convertClaudeMessagesToGeminiContents(messages any, toolUseIDToName map[str
+ 				}
+ 			}
+ 			parts = append(parts, toolImageParts...)
++			if droppedThinking && len(parts) == 0 {
++				continue
++			}
+ 		default:
+ 			// ignore
+ 		}
+diff --git a/backend/internal/application/service/openai_account_scheduler.go b/backend/internal/application/service/openai_account_scheduler.go
+index 41f135b98..6d0516c83 100644
+--- a/backend/internal/application/service/openai_account_scheduler.go
++++ b/backend/internal/application/service/openai_account_scheduler.go
+@@ -2202,7 +2202,7 @@ func (s *defaultOpenAIAccountScheduler) isAccountRequestCompatibleReason(ctx con
+ 	}) {
+ 		return false, "shadow_parent_unhealthy"
+ 	}
+-	if req.RequestedModel != "" && !account.IsModelSupportedForRequest(req.RequestedModel, openAIRequestModelForSupport(ctx, req.RequestedModel)) {
++	if req.RequestedModel != "" && !supportsOpenAIRequestModel(account, req.RequestedModel, openAIRequestModelForSupport(ctx, req.RequestedModel), req.RequireCompact) {
+ 		return false, "model_not_supported"
+ 	}
+ 	if req.GroupID != nil && s != nil && s.service != nil &&
+diff --git a/backend/internal/application/service/openai_codex_models_mapping.go b/backend/internal/application/service/openai_codex_models_mapping.go
+index 573daea75..285262671 100644
+--- a/backend/internal/application/service/openai_codex_models_mapping.go
++++ b/backend/internal/application/service/openai_codex_models_mapping.go
+@@ -129,9 +129,15 @@ func ProjectCodexModelsManifestForAccount(manifest *CodexModelsManifest, account
+ 	if manifest.rawBody != nil {
+ 		source = manifest.rawBody
+ 	}
+-	enriched, err := enrichCodexModelsManifest(source, account)
+-	if err != nil {
+-		return nil, err
++	enriched := source
++	var err error
++	// Passthrough keeps the existing manifest metadata and bytes. Its new
++	// projection gate exists solely to remove retired ChatGPT targets.
++	if !account.IsOpenAIPassthroughEnabled() {
++		enriched, err = enrichCodexModelsManifest(source, account)
++		if err != nil {
++			return nil, err
++		}
+ 	}
+ 	if manifest.apiKeyUpstream {
+ 		enriched, err = adjustAPIKeyCodexModelsManifest(enriched)
+@@ -143,6 +149,10 @@ func ProjectCodexModelsManifestForAccount(manifest *CodexModelsManifest, account
+ 	if err != nil {
+ 		return nil, err
+ 	}
++	body, err = filterRetiredCodexModelsBody(body, account)
++	if err != nil {
++		return nil, err
++	}
+ 	projected := *manifest
+ 	if !bytes.Equal(body, manifest.Body) {
+ 		projected.Body = body
+diff --git a/backend/internal/application/service/openai_codex_models_metadata.go b/backend/internal/application/service/openai_codex_models_metadata.go
+index e2307bddf..224bdab42 100644
+--- a/backend/internal/application/service/openai_codex_models_metadata.go
++++ b/backend/internal/application/service/openai_codex_models_metadata.go
+@@ -11,7 +11,7 @@ import (
+ // CodexManifestProjectionEnabled requires local conditional validation whenever
+ // account metadata may affect the body, independently of upstream cache ETags.
+ func CodexManifestProjectionEnabled(account *Account) bool {
+-	return account != nil && !account.IsOpenAIPassthroughEnabled()
++	return account != nil && (!account.IsOpenAIPassthroughEnabled() || (account.IsOpenAI() && (account.IsOAuth() || account.IsShadow())))
+ }
+ 
+ func codexMetadataOverrides(account *Account) map[string]modelcatalog.Descriptor {
+diff --git a/backend/internal/application/service/openai_gateway_messages.go b/backend/internal/application/service/openai_gateway_messages.go
+index c526323cd..1152ad5c2 100644
+--- a/backend/internal/application/service/openai_gateway_messages.go
++++ b/backend/internal/application/service/openai_gateway_messages.go
+@@ -58,6 +58,19 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
+ 	beginUpstreamResponseModelObservation(c)
+ 	beginOpenAITimingObservation(c)
+ 	ClearActualOpenAIUpstreamEndpoint(c)
++	// Chat Completions conversion drops Anthropic web_search tools. For an
++	// explicitly enabled OpenAI API-key account, satisfy a web-search-only
++	// /v1/messages request locally and keep OAuth/native search untouched.
++	groupID := getOpenAIGroupIDFromContext(c)
++	if shouldEmulateWebSearchFor(ctx, s.settingService, s.channelService, account, &groupID, body) {
++		stream := gjson.GetBytes(body, "stream").Bool()
++		searchCtx := withAccountEgressContext(ctx, account, resolveAccountProxyURL(account), s.cfg)
++		res, err := writeEmulatedWebSearch(searchCtx, c, account, body, gjson.GetBytes(body, "model").String(), stream)
++		if err != nil {
++			return nil, err
++		}
++		return &OpenAIForwardResult{Model: res.Model, Stream: stream, Duration: res.Duration}, nil
++	}
+ 	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) {
+ 		SetActualOpenAIUpstreamEndpoint(c, "/v1/chat/completions")
+ 	}
+diff --git a/backend/internal/application/service/openai_gateway_model_availability.go b/backend/internal/application/service/openai_gateway_model_availability.go
+index 898e20d05..a64e2545f 100644
+--- a/backend/internal/application/service/openai_gateway_model_availability.go
++++ b/backend/internal/application/service/openai_gateway_model_availability.go
+@@ -62,6 +62,9 @@ func (s *OpenAIGatewayService) DiagnoseModelAvailabilityForPlatform(
+ 	now := time.Now()
+ 	for i := range accounts {
+ 		diag.HasAccountsInPool = true
++		if isRetiredOpenAISubscriptionModel(&accounts[i], resolveOpenAIAccountUpstreamModelForRequest(&accounts[i], routedModel, false)) {
++			diag.HasRetiredSubscriptionModel = true
++		}
+ 		// Mirrors the per-candidate filter used during account selection,
+ 		// including the routed channel model used for empty-map OAuth accounts.
+ 		if accounts[i].IsModelSupportedForRequest(requestedModel, routedModel) {
+diff --git a/backend/internal/application/service/openai_gateway_response_flush_test.go b/backend/internal/application/service/openai_gateway_response_flush_test.go
+index 1f121f6ed..a46923a44 100644
+--- a/backend/internal/application/service/openai_gateway_response_flush_test.go
++++ b/backend/internal/application/service/openai_gateway_response_flush_test.go
+@@ -413,7 +413,7 @@ func TestOpenAIResponseFlush_KeepaliveDoesNotSplitOpenEvent(t *testing.T) {
+ func TestOpenAIResponseFlush_FailedAndErrorEventsFlushAtBoundaries(t *testing.T) {
+ 	t.Run("failed at EOF", func(t *testing.T) {
+ 		body := "data: {\"type\":\"response.output_text.delta\",\"delta\":\"a\"}\n\n" +
+-			"data: {\"type\":\"response.failed\",\"response\":{\"error\":{\"code\":\"safety_error\",\"message\":\"blocked\"},\"usage\":{\"input_tokens\":3,\"output_tokens\":1}}}\n"
++			"data: {\"type\":\"response.failed\",\"response\":{\"error\":{\"code\":\"safety_error\",\"message\":\"blocked\"},\"usage\":{\"input_tokens\":3,\"output_tokens\":1},\"created_at\":1700000000}}\n"
+ 		recorder := newOpenAIResponseFlushRecorder()
+ 
+ 		result, err := runOpenAIResponseFlushTest(recorder, io.NopCloser(strings.NewReader(body)), config.GatewayConfig{})
+@@ -423,7 +423,7 @@ func TestOpenAIResponseFlush_FailedAndErrorEventsFlushAtBoundaries(t *testing.T)
+ 		require.Equal(t, 3, result.usage.InputTokens)
+ 		gotBody, flushes := recorder.snapshot()
+ 		expectedBody := "data: {\"type\":\"response.output_text.delta\",\"delta\":\"a\"}\n\n" +
+-			"data: {\"type\":\"response.failed\",\"response\":{\"error\":{\"code\":\"safety_error\",\"message\":\"blocked\"}}}\n"
++			"data: {\"type\":\"response.failed\",\"response\":{\"error\":{\"code\":\"safety_error\",\"message\":\"blocked\"},\"created_at\":1700000000}}\n"
+ 		require.Equal(t, expectedBody, gotBody)
+ 		require.Len(t, flushes, 2)
+ 		require.Contains(t, flushes[1], "response.failed")
+diff --git a/backend/internal/application/service/openai_gateway_response_handling.go b/backend/internal/application/service/openai_gateway_response_handling.go
+index da8c1acf0..856c0f6bd 100644
+--- a/backend/internal/application/service/openai_gateway_response_handling.go
++++ b/backend/internal/application/service/openai_gateway_response_handling.go
+@@ -364,6 +364,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
+ 	}
+ 
+ 	needModelReplace := originalModel != mappedModel
++	var createdAtStamper responsesCreatedAtStamper
+ 	streamOutputAccumulator := apicompat.NewBufferedResponseAccumulator()
+ 	streamDoneItems := newResponsesStreamOutputItems()
+ 	streamImageOutputs := make([]json.RawMessage, 0, 1)
+@@ -626,6 +627,12 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
+ 				trimmedData = strings.TrimSpace(data)
+ 				line = "data: " + data
+ 			}
++			if stampedData, stamped := createdAtStamper.Stamp(dataBytes, eventType); stamped {
++				dataBytes = stampedData
++				data = string(stampedData)
++				trimmedData = strings.TrimSpace(data)
++				line = "data: " + data
++			}
+ 			// Replace model in response if needed.
+ 			// Fast path: most events do not contain model field values.
+ 			if needModelReplace && mappedModel != "" && strings.Contains(line, mappedModel) {
+@@ -1440,6 +1447,7 @@ func (s *OpenAIGatewayService) handleNonStreamingResponse(ctx context.Context, r
+ 	if err != nil {
+ 		return nil, fmt.Errorf("restore OpenAI namespace response: %w", err)
+ 	}
++	body = ensureOpenAIResponseObjectCreatedAt(body)
+ 	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
+ 	s.relayOpenAICodexTurnState(c, account, resp.Header)
+ 
+@@ -1556,7 +1564,7 @@ func (s *OpenAIGatewayService) handleSSEToJSONWithAccount(
+ 		if restoreErr != nil {
+ 			return nil, fmt.Errorf("restore OpenAI namespace response: %w", restoreErr)
+ 		}
+-		body = restoredBody
++		body = ensureOpenAIResponseObjectCreatedAt(restoredBody)
+ 	} else {
+ 		usage = s.parseSSEUsageFromBody(bodyText)
+ 		if originalModel != mappedModel {
+diff --git a/backend/internal/application/service/openai_gateway_scheduling.go b/backend/internal/application/service/openai_gateway_scheduling.go
+index a5fa4d976..7cdc76f99 100644
+--- a/backend/internal/application/service/openai_gateway_scheduling.go
++++ b/backend/internal/application/service/openai_gateway_scheduling.go
+@@ -360,7 +360,7 @@ func isOpenAICompatibleAccountEligibleForRequest(ctx context.Context, account *A
+ 			return false
+ 		}
+ 	}
+-	if requestedModel != "" && !account.IsModelSupportedForRequest(requestedModel, openAIRequestModelForSupport(ctx, requestedModel)) {
++	if requestedModel != "" && !supportsOpenAIRequestModel(account, requestedModel, openAIRequestModelForSupport(ctx, requestedModel), requireCompact) {
+ 		return false
+ 	}
+ 	if account.IsGrok() && requiredCapability == OpenAIEndpointCapabilityGrokMediaGeneration {
+diff --git a/backend/internal/application/service/openai_gateway_service_test.go b/backend/internal/application/service/openai_gateway_service_test.go
+index 872d435f8..2c6e2523e 100644
+--- a/backend/internal/application/service/openai_gateway_service_test.go
++++ b/backend/internal/application/service/openai_gateway_service_test.go
+@@ -917,7 +917,7 @@ func TestOpenAISelectAccountWithLoadAwareness_ImageRateLimitSkipsOnlyImageReques
+ 	}
+ }
+ 
+-func TestOpenAISelectAccountWithLoadAwareness_SparkRateLimitDoesNotBlockGPT55(t *testing.T) {
++func TestOpenAISelectAccountWithLoadAwareness_SparkRateLimitDoesNotBlockGPT56(t *testing.T) {
+ 	future := time.Now().Add(10 * time.Minute).Format(time.RFC3339)
+ 	groupID := int64(1)
+ 
+@@ -959,12 +959,12 @@ func TestOpenAISelectAccountWithLoadAwareness_SparkRateLimitDoesNotBlockGPT55(t
+ 		sparkSelection.ReleaseFunc()
+ 	}
+ 
+-	gpt55Selection, err := svc.SelectAccountWithLoadAwareness(context.Background(), &groupID, "", "gpt-5.5", nil)
++	gpt56Selection, err := svc.SelectAccountWithLoadAwareness(context.Background(), &groupID, "", "gpt-5.6", nil)
+ 	require.NoError(t, err)
+-	require.NotNil(t, gpt55Selection)
+-	require.Equal(t, sparkLimited.ID, gpt55Selection.Account.ID)
+-	if gpt55Selection.ReleaseFunc != nil {
+-		gpt55Selection.ReleaseFunc()
++	require.NotNil(t, gpt56Selection)
++	require.Equal(t, sparkLimited.ID, gpt56Selection.Account.ID)
++	if gpt56Selection.ReleaseFunc != nil {
++		gpt56Selection.ReleaseFunc()
+ 	}
+ }
+ 
+diff --git a/backend/internal/application/service/openai_model_mapping.go b/backend/internal/application/service/openai_model_mapping.go
+index 755db900f..d5fb4c136 100644
+--- a/backend/internal/application/service/openai_model_mapping.go
++++ b/backend/internal/application/service/openai_model_mapping.go
+@@ -357,6 +357,9 @@ func resolveOpenAICompactFallbackForwardModels(account *Account, requestedModel,
+ 		if upstreamModel == "" {
+ 			continue
+ 		}
++		if isRetiredOpenAISubscriptionModel(account, upstreamModel) {
++			continue
++		}
+ 		key := strings.ToLower(upstreamModel)
+ 		if seen[key] {
+ 			continue
+diff --git a/backend/internal/application/service/openai_model_retirement.go b/backend/internal/application/service/openai_model_retirement.go
+new file mode 100644
+index 000000000..fc45f89ea
+--- /dev/null
++++ b/backend/internal/application/service/openai_model_retirement.go
+@@ -0,0 +1,98 @@
++package service
++
++import (
++	"encoding/json"
++	"strings"
++)
++
++// GPT-5.5 is retired from ChatGPT-backed Codex accounts. OpenAI API-key
++// accounts remain eligible, so the decision is based on the upstream account,
++// never on the key used by a client to call this gateway.
++func isRetiredOpenAISubscriptionModel(account *Account, upstreamModel string) bool {
++	if account == nil || !account.IsOpenAI() {
++		return false
++	}
++	// Setup tokens are inference-only ChatGPT credentials. Shadows inherit the
++	// parent's OAuth scope and therefore follow the same retirement boundary.
++	if account.Type != AccountTypeOAuth && account.Type != AccountTypeSetupToken && !account.IsShadow() {
++		return false
++	}
++	model := canonicalizeOpenAIModelAliasSpelling(upstreamModel)
++	return model == "gpt-5.5" || strings.HasPrefix(model, "gpt-5.5-")
++}
++
++// openAIModelRetiredForAccounts reports retirement only when every eligible
++// account that could serve the public model is retired. A valid API-key or
++// explicit replacement account keeps the model visible in mixed groups.
++func openAIModelRetiredForAccounts(accounts []Account, modelID string) bool {
++	retired := false
++	for i := range accounts {
++		account := &accounts[i]
++		if !account.IsOpenAI() {
++			continue
++		}
++		target := resolveOpenAIAccountUpstreamModelForRequest(account, modelID, false)
++		if isRetiredOpenAISubscriptionModel(account, target) {
++			retired = true
++			continue
++		}
++		if account.IsModelSupported(modelID) {
++			return false
++		}
++	}
++	return retired
++}
++
++// Reuse Forward's single mapping step, including channel and compact-only
++// targets. The normal mapping/snapshot policy remains the final support gate.
++func supportsOpenAIRequestModel(account *Account, requestedModel, routedModel string, requireCompact bool) bool {
++	if account == nil {
++		return false
++	}
++	if account.IsOpenAI() && (account.IsOAuth() || account.IsShadow()) {
++		target := resolveOpenAIAccountUpstreamModelForRequest(account, firstNonEmptyModel(routedModel, requestedModel), requireCompact)
++		if isRetiredOpenAISubscriptionModel(account, target) {
++			return false
++		}
++	}
++	return account.isModelMappingSupportedForRequest(requestedModel, routedModel)
++}
++
++// Project first, then filter public slugs through the same routing chain.
++// Preserve unknown entry/envelope metadata and the shared upstream body.
++func filterRetiredCodexModelsBody(body []byte, account *Account) ([]byte, error) {
++	if account == nil || !account.IsOpenAI() || (!account.IsOAuth() && !account.IsShadow()) {
++		return body, nil
++	}
++	envelope, entries, err := codexMappingCatalogEntries(body)
++	if err != nil {
++		return nil, err
++	}
++	filtered := make([]json.RawMessage, 0, len(entries))
++	for _, raw := range entries {
++		var entry struct {
++			Slug string `json:"slug"`
++		}
++		if json.Unmarshal(raw, &entry) != nil || !openAIModelRetiredForAccounts([]Account{*account}, entry.Slug) {
++			filtered = append(filtered, raw)
++		}
++	}
++	if len(filtered) == len(entries) {
++		return body, nil
++	}
++	envelope["models"], err = json.Marshal(filtered)
++	if err != nil {
++		return nil, err
++	}
++	return json.Marshal(envelope)
++}
++
++func filterRetiredOpenAIModelIDs(accounts []Account, models []string) []string {
++	filtered := make([]string, 0, len(models))
++	for _, model := range models {
++		if !openAIModelRetiredForAccounts(accounts, model) {
++			filtered = append(filtered, model)
++		}
++	}
++	return filtered
++}
+diff --git a/backend/internal/application/service/openai_model_retirement_test.go b/backend/internal/application/service/openai_model_retirement_test.go
+new file mode 100644
+index 000000000..ee70ee52d
+--- /dev/null
++++ b/backend/internal/application/service/openai_model_retirement_test.go
+@@ -0,0 +1,97 @@
++//go:build unit
++
++package service
++
++import (
++	"context"
++	"testing"
++	"time"
++
++	gocache "github.com/patrickmn/go-cache"
++	"github.com/tidwall/gjson"
++
++	"github.com/stretchr/testify/require"
++)
++
++func TestRetiredOpenAISubscriptionModelScopesUpstreamAccount(t *testing.T) {
++	oauth := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}
++	setup := &Account{Platform: PlatformOpenAI, Type: AccountTypeSetupToken}
++	apiKey := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
++
++	require.True(t, isRetiredOpenAISubscriptionModel(oauth, "gpt5.5"))
++	require.True(t, isRetiredOpenAISubscriptionModel(setup, "gpt-5.5-pro"))
++	require.False(t, isRetiredOpenAISubscriptionModel(apiKey, "gpt-5.5"))
++	require.False(t, isRetiredOpenAISubscriptionModel(oauth, "gpt-5.6"))
++}
++
++func TestRetiredOpenAIModelFilteringKeepsMixedAPIKeySupport(t *testing.T) {
++	oauth := Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}
++	apiKey := Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
++	models := filterRetiredOpenAIModelIDs([]Account{oauth, apiKey}, []string{"gpt-5.5", "gpt-5.6"})
++	require.Equal(t, []string{"gpt-5.5", "gpt-5.6"}, models)
++
++	onlyOAuth := filterRetiredOpenAIModelIDs([]Account{oauth}, []string{"gpt-5.5", "gpt-5.6"})
++	require.Equal(t, []string{"gpt-5.6"}, onlyOAuth)
++}
++
++func TestAccountModelSupportRejectsRetiredSubscriptionTarget(t *testing.T) {
++	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}
++	require.False(t, account.IsModelSupportedForRequest("gpt-5.5", "gpt-5.5"))
++	require.True(t, account.IsModelSupportedForRequest("gpt-5.6", "gpt-5.6"))
++}
++
++func TestRetirementMappingKeepsReplacementAndBlocksRetiredAlias(t *testing.T) {
++	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{
++		"model_mapping":         map[string]any{"gpt-5.5": "gpt-6.1-sol", "legacy": "gpt-5.5", "gpt-6.1-sol": "gpt-6.1-sol"},
++		"compact_model_mapping": map[string]any{"gpt-6.1-sol": "gpt-5.5"},
++	}}
++	require.True(t, account.IsModelSupported("gpt-5.5"))
++	require.False(t, account.IsModelSupported("legacy"))
++	require.False(t, supportsOpenAIRequestModel(account, "gpt-6.1-sol", "", true))
++	body := []byte(`{"revision":"keep","models":[{"slug":"gpt-5.5","future":true},{"slug":"gpt-6.1-sol","future":true}]}`)
++	manifest := &CodexModelsManifest{Body: body, ETag: `"raw"`}
++	projected, err := ProjectCodexModelsManifestForAccount(manifest, account, &Group{}, "")
++	require.NoError(t, err)
++	require.Equal(t, body, manifest.Body)
++	require.Equal(t, "keep", gjson.GetBytes(projected.Body, "revision").String())
++	require.NotContains(t, string(projected.Body), `"slug":"legacy"`)
++	require.Contains(t, string(projected.Body), `"slug":"gpt-5.5"`)
++	require.NotEqual(t, manifest.ETag, projected.ETag)
++}
++
++func TestRetirementRoutingSkipsSubscriptionInBothSchedulers(t *testing.T) {
++	for _, advanced := range []bool{false, true} {
++		t.Run(schedulerModeName(advanced), func(t *testing.T) {
++			resetOpenAIAdvancedSchedulerSettingCacheForTest()
++			groupID := int64(990901)
++			oauth := Account{ID: 9901, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0}
++			apiKey := Account{ID: 9902, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 10}
++			svc := newUnknownModelRoutingService([]Account{oauth, apiKey}, advanced)
++			selection, _, err := svc.SelectAccountWithScheduler(context.Background(), &groupID, "", "", "gpt-5.5", nil, OpenAIUpstreamTransportAny, false)
++			require.NoError(t, err)
++			require.NotNil(t, selection)
++			require.Equal(t, apiKey.ID, selection.Account.ID)
++		})
++	}
++}
++
++func TestRetirementEmptyModelCatalogStaysAuthoritativeInCache(t *testing.T) {
++	groupID := int64(990902)
++	repo := &modelsListAccountRepoStub{byGroup: map[int64][]Account{groupID: {{ID: 9903, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"model_mapping": map[string]any{"legacy": "gpt-5.5"}}}}}}
++	svc := &GatewayService{accountRepo: repo, modelsListCache: gocache.New(time.Minute, time.Minute), modelsListCacheTTL: time.Minute}
++	for i := 0; i < 2; i++ {
++		models := svc.GetAvailableModels(context.Background(), &groupID, PlatformOpenAI)
++		require.NotNil(t, models, "empty retirement result must not resurrect platform defaults")
++		require.Empty(t, models)
++	}
++}
++
++func TestRetirementPassthroughManifestPreservesNonRetiredBytes(t *testing.T) {
++	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Extra: map[string]any{"openai_passthrough": true}}
++	body := []byte("{\n \"models\":[{\"slug\":\"gpt-6.1-sol\",\"future\":\"keep\"}]\n}")
++	manifest := &CodexModelsManifest{Body: body, ETag: `"raw"`}
++	projected, err := ProjectCodexModelsManifestForAccount(manifest, account, &Group{}, "")
++	require.NoError(t, err)
++	require.Equal(t, body, projected.Body)
++	require.Equal(t, manifest.ETag, projected.ETag)
++}
+diff --git a/backend/internal/application/service/openai_oauth_model_support_test.go b/backend/internal/application/service/openai_oauth_model_support_test.go
+index 865876d67..1ae6e8976 100644
+--- a/backend/internal/application/service/openai_oauth_model_support_test.go
++++ b/backend/internal/application/service/openai_oauth_model_support_test.go
+@@ -32,7 +32,6 @@ func TestIsModelSupported_OpenAIOAuthEmptyMapping_ServableModels(t *testing.T) {
+ 		"gpt-image-1",       // 图像生成模型
+ 		"claude-sonnet-4-6", // /v1/messages 调度默认映射兜底
+ 		"claude-3-opus-20240229",
+-		"gpt-5.5",
+ 	}
+ 	for _, model := range servable {
+ 		require.True(t, account.IsModelSupported(model), "expected %q to be servable by empty-mapping OpenAI OAuth account", model)
+@@ -159,14 +158,14 @@ func TestIsOpenAIOAuthServableModel(t *testing.T) {
+ func TestIsModelSupported_OpenAIOAuthUsesLiveCapabilitySnapshot(t *testing.T) {
+ 	account := newOpenAIOAuthAccountForModelTest()
+ 	account.Extra = map[string]any{
+-		OpenAIOAuthSupportedModelsExtraKey: []any{"gpt-5.5", "gpt-image-2"},
++		OpenAIOAuthSupportedModelsExtraKey: []any{"gpt-5.6", "gpt-image-2"},
+ 	}
+ 
+ 	// A model known to the static catalog but absent from the latest upstream
+ 	// manifest is rejected, while a manifest model and its reasoning suffix are
+ 	// accepted. Explicit mappings remain a separate opt-in path.
+-	require.True(t, account.IsModelSupported("gpt-5.5"))
+-	require.True(t, account.IsModelSupported("gpt-5.5-high"))
++	require.True(t, account.IsModelSupported("gpt-5.6"))
++	require.True(t, account.IsModelSupported("gpt-5.6-high"))
+ 	require.True(t, account.IsModelSupported("gpt-image-2"))
+ 	require.False(t, account.IsModelSupported("gpt-5.4"))
+ }
+diff --git a/backend/internal/application/service/openai_responses_created_at.go b/backend/internal/application/service/openai_responses_created_at.go
+new file mode 100644
+index 000000000..04fb26186
+--- /dev/null
++++ b/backend/internal/application/service/openai_responses_created_at.go
+@@ -0,0 +1,81 @@
++package service
++
++import (
++	"strings"
++	"time"
++	"unsafe"
++
++	"github.com/tidwall/gjson"
++	"github.com/tidwall/sjson"
++)
++
++// Strict Responses clients require response.created_at on every lifecycle
++// object. Native compatibility conversion already supplies the field, but
++// raw OpenAI/Grok passthrough must also repair vendor responses that omit it.
++// The helper only touches a missing or null field and preserves all other
++// upstream bytes.
++type responsesCreatedAtStamper struct {
++	createdAt int64
++}
++
++func (s *responsesCreatedAtStamper) learn(value gjson.Result) {
++	if s.createdAt == 0 && value.Type == gjson.Number && value.Int() > 0 {
++		s.createdAt = value.Int()
++	}
++}
++
++func (s *responsesCreatedAtStamper) Value() int64 {
++	if s.createdAt <= 0 {
++		s.createdAt = time.Now().Unix()
++	}
++	return s.createdAt
++}
++
++// Observe records an upstream timestamp without changing the payload.
++func (s *responsesCreatedAtStamper) Observe(payload []byte, eventType string) {
++	if !strings.HasPrefix(strings.TrimSpace(eventType), "response.") {
++		return
++	}
++	s.learn(gjson.GetBytes(payload, "response.created_at"))
++}
++
++// Stamp adds response.created_at to a Responses lifecycle event that lacks it.
++// Existing values, including zero, are retained for byte compatibility.
++func (s *responsesCreatedAtStamper) Stamp(payload []byte, eventType string) ([]byte, bool) {
++	if !strings.HasPrefix(strings.TrimSpace(eventType), "response.") {
++		return payload, false
++	}
++	// The view is read-only and local to this call. Avoid copying a potentially
++	// large terminal output merely to check its timestamp.
++	response := gjson.Get(unsafe.String(unsafe.SliceData(payload), len(payload)), "response")
++	if !response.IsObject() {
++		return payload, false
++	}
++	createdAt := response.Get("created_at")
++	if createdAt.Exists() && createdAt.Type != gjson.Null {
++		s.learn(createdAt)
++		return payload, false
++	}
++	updated, err := sjson.SetBytes(payload, "response.created_at", s.Value())
++	if err != nil {
++		return payload, false
++	}
++	return updated, true
++}
++
++// ensureOpenAIResponseObjectCreatedAt repairs a buffered non-streaming
++// response object. Error envelopes and unrelated JSON remain unchanged.
++func ensureOpenAIResponseObjectCreatedAt(body []byte) []byte {
++	if !gjson.ValidBytes(body) || strings.TrimSpace(gjson.GetBytes(body, "object").String()) != "response" {
++		return body
++	}
++	createdAt := gjson.GetBytes(body, "created_at")
++	if createdAt.Exists() && createdAt.Type != gjson.Null {
++		return body
++	}
++	updated, err := sjson.SetBytes(body, "created_at", time.Now().Unix())
++	if err != nil {
++		return body
++	}
++	return updated
++}
+diff --git a/backend/internal/application/service/openai_responses_created_at_test.go b/backend/internal/application/service/openai_responses_created_at_test.go
+new file mode 100644
+index 000000000..3d39e52cb
+--- /dev/null
++++ b/backend/internal/application/service/openai_responses_created_at_test.go
+@@ -0,0 +1,79 @@
++//go:build unit
++
++package service
++
++import (
++	"encoding/json"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++)
++
++func TestResponsesCreatedAtStamperAddsStableTimestampOnlyWhenMissing(t *testing.T) {
++	stamper := responsesCreatedAtStamper{}
++	first, changed := stamper.Stamp([]byte(`{"type":"response.created","response":{"id":"r1"}}`), "response.created")
++	require.True(t, changed)
++	firstAt := responseCreatedAtForTest(t, first)
++	require.Greater(t, firstAt, int64(0))
++
++	second, changed := stamper.Stamp([]byte(`{"type":"response.completed","response":{"id":"r1"}}`), "response.completed")
++	require.True(t, changed)
++	require.Equal(t, firstAt, responseCreatedAtForTest(t, second))
++
++	existing := []byte(`{"type":"response.completed","response":{"created_at":1700000000,"id":"r1"}}`)
++	unchanged, changed := stamper.Stamp(existing, "response.completed")
++	require.False(t, changed)
++	require.Equal(t, string(existing), string(unchanged))
++}
++
++func TestResponsesCreatedAtStamperLearnsUpstreamValue(t *testing.T) {
++	stamper := responsesCreatedAtStamper{}
++	stamper.Observe([]byte(`{"type":"response.created","response":{"created_at":1700000123}}`), "response.created")
++	updated, changed := stamper.Stamp([]byte(`{"type":"response.failed","response":{"status":"failed"}}`), "response.failed")
++	require.True(t, changed)
++	require.Equal(t, int64(1700000123), responseCreatedAtForTest(t, updated))
++}
++
++func TestEnsureOpenAIResponseObjectCreatedAtPreservesNonResponses(t *testing.T) {
++	response := ensureOpenAIResponseObjectCreatedAt([]byte(`{"object":"response","id":"r1"}`))
++	require.Greater(t, responseCreatedAtForTest(t, response), int64(0))
++
++	errorBody := []byte(`{"error":{"message":"failed"}}`)
++	require.Equal(t, string(errorBody), string(ensureOpenAIResponseObjectCreatedAt(errorBody)))
++
++	existing := []byte(`{"object":"response","created_at":0,"id":"r1"}`)
++	require.Equal(t, string(existing), string(ensureOpenAIResponseObjectCreatedAt(existing)))
++}
++
++func responseCreatedAtForTest(t *testing.T, payload []byte) int64 {
++	t.Helper()
++	var value struct {
++		Response struct {
++			CreatedAt int64 `json:"created_at"`
++		} `json:"response"`
++		CreatedAt int64 `json:"created_at"`
++	}
++	require.NoError(t, json.Unmarshal(payload, &value))
++	if value.Response.CreatedAt != 0 {
++		return value.Response.CreatedAt
++	}
++	return value.CreatedAt
++}
++
++func BenchmarkResponsesCreatedAtStamperExisting(b *testing.B) {
++	payload := []byte(`{"type":"response.completed","response":{"created_at":1700000000,"output":[]}}`)
++	stamper := responsesCreatedAtStamper{}
++	b.ReportAllocs()
++	for i := 0; i < b.N; i++ {
++		stamper.Stamp(payload, "response.completed")
++	}
++}
++
++func BenchmarkResponsesCreatedAtStamperMissing(b *testing.B) {
++	payload := []byte(`{"type":"response.completed","response":{"output":[]}}`)
++	b.ReportAllocs()
++	for i := 0; i < b.N; i++ {
++		stamper := responsesCreatedAtStamper{}
++		stamper.Stamp(payload, "response.completed")
++	}
++}
+diff --git a/backend/internal/application/service/openai_unknown_model_routing_test.go b/backend/internal/application/service/openai_unknown_model_routing_test.go
+index a15809918..86f6963a5 100644
+--- a/backend/internal/application/service/openai_unknown_model_routing_test.go
++++ b/backend/internal/application/service/openai_unknown_model_routing_test.go
+@@ -45,7 +45,7 @@ func TestOpenAIModelRoutingUsesSyncedOAuthCapabilitySnapshot(t *testing.T) {
+ 			oauth := Account{
+ 				ID: 910051, Platform: PlatformOpenAI, Type: AccountTypeOAuth,
+ 				Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0,
+-				Extra: map[string]any{OAuthSupportedModelsExtraKey: []any{"gpt-5.5"}},
++				Extra: map[string]any{OAuthSupportedModelsExtraKey: []any{"gpt-5.6"}},
+ 			}
+ 			apiKey := Account{
+ 				ID: 910052, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
+@@ -62,7 +62,7 @@ func TestOpenAIModelRoutingUsesSyncedOAuthCapabilitySnapshot(t *testing.T) {
+ 			require.Equal(t, apiKey.ID, selection.Account.ID)
+ 
+ 			selection, _, err = svc.SelectAccountWithScheduler(
+-				context.Background(), &groupID, "", "", "gpt-5.5", nil,
++				context.Background(), &groupID, "", "", "gpt-5.6", nil,
+ 				OpenAIUpstreamTransportAny, false,
+ 			)
+ 			require.NoError(t, err)
+diff --git a/backend/internal/application/service/openai_ws_forwarder_support.go b/backend/internal/application/service/openai_ws_forwarder_support.go
+index bf6f72deb..36a7896e0 100644
+--- a/backend/internal/application/service/openai_ws_forwarder_support.go
++++ b/backend/internal/application/service/openai_ws_forwarder_support.go
+@@ -833,7 +833,7 @@ func (s *OpenAIGatewayService) resolveAccountByPreviousResponseIDForCapability(
+ 		_ = store.DeleteResponseAccount(ctx, derefGroupID(groupID), responseID)
+ 		return 0, nil, "", nil
+ 	}
+-	if requestedModel != "" && !account.IsModelSupportedForRequest(requestedModel, openAIRequestModelForSupport(ctx, requestedModel)) {
++	if requestedModel != "" && !supportsOpenAIRequestModel(account, requestedModel, openAIRequestModelForSupport(ctx, requestedModel), requireCompact) {
+ 		return 0, nil, "", nil
+ 	}
+ 	if !account.SupportsOpenAIEndpointCapability(requiredCapability) {
+@@ -867,7 +867,7 @@ func (s *OpenAIGatewayService) resolveAccountByPreviousResponseIDForCapability(
+ 			_ = store.DeleteResponseAccount(ctx, derefGroupID(groupID), responseID)
+ 			return 0, nil, "", nil
+ 		}
+-		if requestedModel != "" && !latest.IsModelSupportedForRequest(requestedModel, openAIRequestModelForSupport(ctx, requestedModel)) {
++		if requestedModel != "" && !supportsOpenAIRequestModel(latest, requestedModel, openAIRequestModelForSupport(ctx, requestedModel), requireCompact) {
+ 			return 0, nil, "", nil
+ 		}
+ 		if !latest.SupportsOpenAIEndpointCapability(requiredCapability) {
+diff --git a/backend/internal/application/service/openai_ws_http_bridge.go b/backend/internal/application/service/openai_ws_http_bridge.go
+index e82dea764..09b6721e8 100644
+--- a/backend/internal/application/service/openai_ws_http_bridge.go
++++ b/backend/internal/application/service/openai_ws_http_bridge.go
+@@ -513,6 +513,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
+ 	pendingClientMessageBytes := int64(0)
+ 	capacityFailoverSuppressedLogged := false
+ 	clientDisconnected := false
++	var createdAtStamper responsesCreatedAtStamper
+ 	mappedModel := ""
+ 	needModelReplace := false
+ 	var mappedModelBytes []byte
+@@ -594,6 +595,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
+ 			upstreamMessage = normalized
+ 		}
+ 		eventType, eventResponseID, _ := parseOpenAIWSEventEnvelope(upstreamMessage)
++		createdAtStamper.Observe(upstreamMessage, eventType)
+ 		responseModelObserver.ObserveOpenAI(upstreamMessage, eventType)
+ 		timingCollector.Observe(upstreamMessage, eventType)
+ 		if responseID == "" && eventResponseID != "" {
+@@ -638,6 +640,9 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
+ 				upstreamMessage = corrected
+ 			}
+ 		}
++		if stamped, changed := createdAtStamper.Stamp(upstreamMessage, eventType); changed {
++			upstreamMessage = stamped
++		}
+ 		replayCollector.AddEvent(eventType, upstreamMessage)
+ 
+ 		var upstreamEventErr error
+diff --git a/backend/internal/application/service/upstream_followup_benchmark_test.go b/backend/internal/application/service/upstream_followup_benchmark_test.go
+new file mode 100644
+index 000000000..815da7fb3
+--- /dev/null
++++ b/backend/internal/application/service/upstream_followup_benchmark_test.go
+@@ -0,0 +1,41 @@
++package service
++
++import (
++	"strings"
++	"testing"
++
++	"github.com/tidwall/sjson"
++)
++
++// Frozen PR #8114 reference: the upstream implementation writes each thinking
++// field separately, copying the full request once per field.
++func upstreamGeminiThinkingReference(body, claude []byte) []byte {
++	intent := parseClaudeThinkingIntent(claude)
++	level := geminiThinkingLevelFor("gemini-3.8-flash", intent)
++	body, err := sjson.SetBytes(body, "generationConfig.thinkingConfig.thinkingLevel", level)
++	if err != nil {
++		return body
++	}
++	updated, err := sjson.SetBytes(body, "generationConfig.thinkingConfig.includeThoughts", true)
++	if err != nil {
++		return body
++	}
++	return updated
++}
++
++func BenchmarkFollowupGeminiThinking(b *testing.B) {
++	body := []byte(`{"contents":[{"role":"user","parts":[{"text":"` + strings.Repeat("x", 8<<20) + `"}]}]}`)
++	claude := []byte(`{"output_config":{"effort":"high"}}`)
++	b.Run("upstream_two_writes", func(b *testing.B) {
++		b.ReportAllocs()
++		for i := 0; i < b.N; i++ {
++			upstreamGeminiThinkingReference(body, claude)
++		}
++	})
++	b.Run("candidate_one_write", func(b *testing.B) {
++		b.ReportAllocs()
++		for i := 0; i < b.N; i++ {
++			applyGeminiCompatThinkingConfig(body, claude, "gemini-3.8-flash", true)
++		}
++	})
++}
+diff --git a/backend/internal/transport/http/handler/gateway_handler_models.go b/backend/internal/transport/http/handler/gateway_handler_models.go
+index cd3012e01..5fc660c5f 100644
+--- a/backend/internal/transport/http/handler/gateway_handler_models.go
++++ b/backend/internal/transport/http/handler/gateway_handler_models.go
+@@ -79,12 +79,15 @@ func (h *GatewayHandler) Models(c *gin.Context) {
+ 	}
+ 	if apiKey != nil && apiKey.Group != nil && apiKey.Group.CustomModelsListEnabled() {
+ 		fallbackModels := defaultModelIDsForPlatform(platform)
++		if platform == service.PlatformOpenAI && availableModels != nil {
++			fallbackModels = nil
++		}
+ 		availableModels = filterModelsByCustomList(customModelsListSource(platform, availableModels, fallbackModels), fallbackModels, apiKey.Group.ModelsListConfig.Models)
+ 		writeCustomModelsList(c, platform, availableModels)
+ 		return
+ 	}
+ 
+-	if len(availableModels) > 0 {
++	if len(availableModels) > 0 || (platform == service.PlatformOpenAI && availableModels != nil) {
+ 		writeModelsList(c, platform, availableModels)
+ 		return
+ 	}
+@@ -131,7 +134,7 @@ func (h *GatewayHandler) apiKeyBindingsAvailableModels(ctx context.Context, bind
+ 			groupModels = h.compositeAvailableModels(ctx, &groupID, true)
+ 		} else {
+ 			groupModels = h.gatewayService.GetAvailableModels(ctx, &groupID, group.Platform)
+-			if len(groupModels) == 0 {
++			if len(groupModels) == 0 && (group.Platform != service.PlatformOpenAI || groupModels == nil) {
+ 				if _, ok := h.gatewayService.GetSchedulablePlatforms(ctx, &groupID)[group.Platform]; ok {
+ 					groupModels = defaultModelIDsForPlatform(group.Platform)
+ 				}
+@@ -139,6 +142,9 @@ func (h *GatewayHandler) apiKeyBindingsAvailableModels(ctx context.Context, bind
+ 		}
+ 		if group.CustomModelsListEnabled() {
+ 			fallback := defaultModelIDsForPlatform(group.Platform)
++			if group.Platform == service.PlatformOpenAI && groupModels != nil {
++				fallback = nil
++			}
+ 			groupModels = filterModelsByCustomList(customModelsListSource(group.Platform, groupModels, fallback), fallback, group.ModelsListConfig.Models)
+ 		}
+ 		if group.ModelAllowlistEnabled() {
+@@ -176,7 +182,7 @@ func (h *GatewayHandler) compositeAvailableModels(ctx context.Context, groupID *
+ 			continue
+ 		}
+ 		platformModels := h.gatewayService.GetAvailableModels(ctx, groupID, platform)
+-		if len(platformModels) == 0 {
++		if len(platformModels) == 0 && (platform != service.PlatformOpenAI || platformModels == nil) {
+ 			if _, ok := schedulablePlatforms[platform]; ok {
+ 				platformModels = defaultModelIDsForPlatform(platform)
+ 			}
+@@ -205,6 +211,10 @@ func (h *GatewayHandler) compositeAvailableModels(ctx context.Context, groupID *
+ }
+ 
+ func writeModelsList(c *gin.Context, platform string, modelIDs []string) {
++	if platform == service.PlatformOpenAI {
++		writeOpenAIModelsList(c, modelIDs, true)
++		return
++	}
+ 	if platform == service.PlatformGrok {
+ 		writeGrokModelsList(c, modelIDs)
+ 		return
+@@ -333,31 +343,42 @@ func grokModelSupportsConfigurableReasoning(modelID string) bool {
+ 	}
+ }
+ 
+-func writeOpenAIModelsList(c *gin.Context, modelIDs []string) {
++func writeOpenAIModelsList(c *gin.Context, modelIDs []string, legacyCreatedAt ...bool) {
+ 	defaultsByID := make(map[string]openai.Model, len(openai.DefaultModels))
+ 	for _, model := range openai.DefaultModels {
+ 		defaultsByID[model.ID] = model
+ 	}
+ 
+-	models := make([]openai.Model, 0, len(modelIDs))
++	type listedModel struct {
++		openai.Model
++		CreatedAt string `json:"created_at,omitempty"`
++	}
++	createdAt := ""
++	if len(legacyCreatedAt) > 0 && legacyCreatedAt[0] {
++		createdAt = "2024-01-01T00:00:00Z"
++	}
++	models := make([]listedModel, 0, len(modelIDs))
+ 	for _, modelID := range modelIDs {
+ 		if model, ok := defaultsByID[modelID]; ok {
+-			models = append(models, model)
++			models = append(models, listedModel{Model: model, CreatedAt: createdAt})
+ 			continue
+ 		}
+-		models = append(models, openai.Model{
++		models = append(models, listedModel{Model: openai.Model{
+ 			ID:          modelID,
+ 			Object:      "model",
+ 			Created:     1704067200,
+ 			OwnedBy:     "openai",
+ 			Type:        "model",
+ 			DisplayName: modelID,
+-		})
++		}, CreatedAt: createdAt})
+ 	}
+ 	writeModelsListResponse(c, models)
+ }
+ 
+ func customModelsListSource(platform string, availableModels, fallbackModels []string) []string {
++	if platform == service.PlatformOpenAI && availableModels != nil {
++		return availableModels
++	}
+ 	if platform == service.PlatformAnthropic && len(availableModels) > 0 {
+ 		return mergeModelIDs(availableModels, fallbackModels)
+ 	}
+@@ -365,6 +386,9 @@ func customModelsListSource(platform string, availableModels, fallbackModels []s
+ }
+ 
+ func modelListingSource(platform string, availableModels, fallbackModels []string) []string {
++	if platform == service.PlatformOpenAI && availableModels != nil {
++		return availableModels
++	}
+ 	if len(availableModels) == 0 {
+ 		return fallbackModels
+ 	}
+diff --git a/backend/internal/transport/http/handler/gateway_models_test.go b/backend/internal/transport/http/handler/gateway_models_test.go
+index 532aa856a..9f43edce5 100644
+--- a/backend/internal/transport/http/handler/gateway_models_test.go
++++ b/backend/internal/transport/http/handler/gateway_models_test.go
+@@ -69,6 +69,27 @@ func TestDefaultModelIDsForCompositeIncludesAntigravityDefaults(t *testing.T) {
+ 	require.Contains(t, compositeIDs, antigravityIDs[0])
+ }
+ 
++func TestOpenAIModelListingKeepsAuthoritativeEmptyCatalog(t *testing.T) {
++	require.Empty(t, modelListingSource(service.PlatformOpenAI, []string{}, []string{"gpt-5.5"}))
++	require.Empty(t, customModelsListSource(service.PlatformOpenAI, []string{}, []string{"gpt-5.5"}))
++}
++
++func TestOpenAIModelListingPreservesStandardAndLegacyFields(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	recorder := httptest.NewRecorder()
++	c, _ := gin.CreateTestContext(recorder)
++	writeModelsList(c, service.PlatformOpenAI, []string{"gpt-6.1-sol", "custom-alias"})
++	var result gatewayModelsResponseForTest
++	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &result))
++	require.Len(t, result.Data, 2)
++	for _, model := range result.Data {
++		require.Equal(t, "model", model.Object)
++		require.Equal(t, "openai", model.OwnedBy)
++		require.Positive(t, model.Created)
++		require.Equal(t, "2024-01-01T00:00:00Z", model.CreatedAt)
++	}
++}
++
+ func TestGatewayModels_SingleModelReturnsCompleteEntry(t *testing.T) {
+ 	gin.SetMode(gin.TestMode)
+ 	rec := httptest.NewRecorder()
+diff --git a/backend/internal/transport/http/handler/no_account_error.go b/backend/internal/transport/http/handler/no_account_error.go
+index 8abd642a7..af66ba251 100644
+--- a/backend/internal/transport/http/handler/no_account_error.go
++++ b/backend/internal/transport/http/handler/no_account_error.go
+@@ -82,10 +82,14 @@ func classifyNoAccountError(
+ 
+ 	result := diag.DiagnoseModelAvailabilityForPlatform(ctx, apiKey.GroupID, routingModel, platform)
+ 	if result.HasAccountsInPool && !result.HasModelSupport {
++		message := fmt.Sprintf("Model %q is not supported by any configured account in this group", displayModel)
++		if result.HasRetiredSubscriptionModel {
++			message += "; GPT-5.5 is retired on ChatGPT-backed Codex accounts. Choose an available replacement or configure an API-key upstream that supports this model."
++		}
+ 		return noAccountErrorClassification{
+ 			Status:        http.StatusNotFound,
+ 			ErrType:       "model_not_found",
+-			Message:       fmt.Sprintf("Model %q is not supported by any configured account in this group", displayModel),
++			Message:       message,
+ 			ModelNotFound: true,
+ 		}
+ 	}
+diff --git a/docs/README.md b/docs/README.md
+index 2622dc37c..2126ba543 100644
+--- a/docs/README.md
++++ b/docs/README.md
+@@ -81,6 +81,7 @@
+ | [上游主线同步审查记录（2026-10-13）](UPSTREAM_SYNC_20261013.md) | 7 个增量 PR 的当前 owner 适配、明确暂缓、范围隔离、Docker 升级回退与 CI |
+ | [上游主线同步审查记录（2026-10-15）](UPSTREAM_SYNC_20261015.md) | 10 个冻结 PR 的当前 owner 适配、图片解码重构、升级回退和关闭/专项暂缓台账 |
+ | [上游主线同步审查记录（2026-10-16）](UPSTREAM_SYNC_20261016.md) | 两个支付 PR 的模块适配、pending 退款事务、易支付确认、混合版本边界与 Docker 验证 |
++| [上游主线增量审查（2026-10-16，后续批次）](UPSTREAM_SYNC_20261016_FOLLOWUP.md) | Gemini 思考、订阅退休、搜索和 Responses 时间戳的当前 owner 适配、性能及升级回退证据 |
+ | [API Key 删除与计费竞争条件审查（2026-10-06）](../diagnostics/billing-key-deletion-20261006/REPORT.md) | 旧版本漏扣回放、当前修复边界、真实数据库与 24 个 Docker HTTP 场景 |
+ | [GPT-6 Astra 接入记录](GPT6_ASTRA.md) | OpenAI 官方模型目录、能力、价格和本项目兼容计费映射 |
+ | [GPT-6 模型目录与价格](GPT6_MODELS.md) | GPT-6 Astra、Sol、Luna 的官方能力、价格与本项目实现位置 |
+diff --git a/docs/REQUEST_LIFECYCLES.md b/docs/REQUEST_LIFECYCLES.md
+index 69ab5e593..1e5481113 100644
+--- a/docs/REQUEST_LIFECYCLES.md
++++ b/docs/REQUEST_LIFECYCLES.md
+@@ -581,3 +581,7 @@ Messages、count_tokens 和 Responses/Chat 桥接在访问凭据前按已映射
+ 管理端模型同步调用应用层 `SyncUpstreamModelCatalog`；预览调用无持久化的 Fetch。OAuth worker 复用同一有界探测与仓储端口。完整成功快照原子写入账号 Extra，并保护账号身份、刷新代次和未知版本；失败/分页不完整不替换旧数据。旧 `UpdateExtra` 写入保留新增键，普通账号编辑从行锁下读取最新快照。迁移 249 的行触发器同时保护旧节点从陈旧缓存替换 Extra 的写入，只读取 OLD/NEW 行，不新增查询；二进制回退时保留此兼容保护。
+ 
+ Codex 模型发现的共享缓存只存上游结果。账号投影再合并已验证元数据，执行已有映射和分组限制，并按最终响应计算 ETag；显式管理员覆盖优先于上游字段，上游显式 false/空数组优先于回退值。此流程不为网关请求新增 DB 或外部目录访问。边界见 [modelcatalog](../backend/internal/modules/modelcatalog/README.md)。
++
++### 2026-10-16 兼容出口增量
++
++OpenAI API-key `/v1/messages` 的纯搜索请求在协议转换前经过既有全局/渠道/账号开关，启用后共享搜索 owner 与账号出口；OAuth 保持原生搜索。Gemini 兼容入口把客户端 thinking/effort 写入模型支持的 budget/level，并将流式 thought 分别转为 thinking 或 reasoning_content，历史思考不作为正文回传。普通 Responses 与 HTTP→WS bridge 对缺失 created_at 做稳定补值，原始 passthrough 保留字节。ChatGPT GPT-5.5 退休按实际映射目标检查，API-key 和显式替代映射保持有效；细节和回退见 [增量审查](UPSTREAM_SYNC_20261016_FOLLOWUP.md)。
+diff --git a/docs/UPSTREAM_SYNC_20261016_FOLLOWUP.md b/docs/UPSTREAM_SYNC_20261016_FOLLOWUP.md
+new file mode 100644
+index 000000000..6c7f941f7
+--- /dev/null
++++ b/docs/UPSTREAM_SYNC_20261016_FOLLOWUP.md
+@@ -0,0 +1,36 @@
++# 上游主线增量同步审查（2026-10-16，后续批次）
++
++本轮以本项目 main `eb130c485520fa27536e33064f39894972205362` 为基线，延续已关闭的上游边界 `b8cfb7884084393e08f0e2c4027afc3755357b98`，冻结至 `b0a02a3304a0a78cdd003ddda1dd23ba02c03084`。新增范围为 4 个合并 PR、一个重叠测试夹具提交和上游 VERSION；支付 PR #8122/#8133 已由本项目 #138 适配并关闭，本轮不重复处理。原链接工作树保持原始 HEAD 与字节，在其可写克隆执行和发布。
++
++## 逐 PR 决定
++
++| 上游 PR | 决定 | 当前 owner 与关闭内容 |
++| --- | --- | --- |
++| [#8114](https://github.com/Wei-Shaw/sub2api/pull/8114) | 适配并关闭冻结差异；配置写入做性能重构 | `gemini_compat_thinking.go` 和既有 Gemini compatibility service：2.5 使用有界 budget，3 及以上使用 level；图片/语音/向量/未知版本不添加档位，模型名已有档位时保留原优先级。流式摘要分别输出为 Anthropic thinking 与 Chat `reasoning_content`；历史推理不转为普通正文，签名重试保留客户端原始 thinking 意图。用量记录使用实际转发档位。 |
++| [#8121](https://github.com/Wei-Shaw/sub2api/pull/8121) | 按现有映射与目录 owner 适配并关闭 | `openai_model_retirement.go`、account support、普通/高级调度、previous-response 粘性、compact 与 Codex 目录投影：ChatGPT OAuth/setup-token/影子账号拒绝实际上游目标 GPT-5.5，API-key 继续支持。管理员显式替代映射和渠道映射按现有单次映射链判断。目录在公开别名投影后过滤，保留 metadata、共享缓存和最终 ETag；明确空目录在缓存与普通/custom/allowlist 展示中保持为空。过滤后的普通 OpenAI 列表补齐 object/created/owned_by，并保留原有 type/display_name/created_at 展示字段。 |
++| [#8080](https://github.com/Wei-Shaw/sub2api/pull/8080) | 复用现有搜索 owner，适配并关闭 | `gateway_websearch_emulation.go` 的共享 gate/writer 和 `OpenAIGatewayService.ForwardAsAnthropic`：仅 OpenAI API-key 的纯 WebSearch 请求允许跟随现有全局/渠道/账号开关；OAuth/setup-token 保持原生搜索。保留账号完整出口 context、搜索管理器的配额/代理策略及既有计费入口。创建/编辑字段和序列化归属原账号 feature。 |
++| [#8140](https://github.com/Wei-Shaw/sub2api/pull/8140) | 补齐本项目未覆盖出口并关闭 | `openai_responses_created_at.go`、普通 HTTP Responses 流/JSON/SSE→JSON 与 HTTP→WS bridge：只对缺失/null 的 `created_at` 补值；同条流的补值使用固定时间戳，已有值保持原字节。apicompat 的合成响应与 compact failure 已在基线覆盖，不重复重构。原始 passthrough 模式继续保留其字节契约；本项目没有上游新引入的 bare-error→response.failed 合成分支，原有 error/failover 行为保持。 |
++
++[机器台账](../diagnostics/upstream-sync-20261016-followup/UPSTREAM_PRS.json) 保存冻结 merge SHA、原始 diff 哈希、owner、子项与重开条件；[冻结输入](../diagnostics/upstream-sync-20261016-followup/UPSTREAM_REVIEW_INPUT.json) 固定历史台账哈希。旧的 covered/ported/intentional-local-divergence 和专项 deferred 决定沿用，只有新的上游语义或当前 owner 的实际回归才重开；tracking merge 登记祖先，不代表未实施的历史专项功能完成。上游 VERSION `0.2.17` 不覆盖本项目版本，根 README 的无赞助政策继续保留。
++
++## 性能和兼容边界
++
++Gemini thinkingConfig 原补丁每个字段调用一次 sjson，含档位和 includeThoughts 时复制整个历史两次。本项目先构造小配置，再一次插入；既有配置的非目标字段保留。Responses 时间戳检查使用调用内只读 string view，避免为读取字段复制完整终态 output；delta 没有 response 对象时不分配补丁。模型退休只使用已经加载的账号/映射和缓存，无数据库/注册表请求、后台 worker 或新增重试。
++
++[PERFORMANCE.json](../diagnostics/upstream-sync-20261016-followup/PERFORMANCE.json) 记录相同 Docker Go 1.26.9、linux/arm64、2 CPU 下原始上游 reference 与适配版本的微基准样本；这些结果不代表完整网关吞吐。WebSearch 仅显式启用时调用既有第三方搜索，不新增模型生成请求。Gemini 客户端指定的思考档位现在真实转发，可能改变上游推理时间和实际 reasoning token；账单沿用实际 usage，并记录实际转发档位，不能把这项语义修复宣称为生成成本不变。
++
++GPT-5.5 退休作用于 ChatGPT 凭据而非调用本站的 API Key。显式映射到可用新模型继续生效；不自动改写用户普通聊天模型，不删除历史价格。本站原有默认 compact 为 GPT-5.4，已经避开上游 GPT-5.5 默认值；显式 compact 目标与 fallback 另行按退休规则检查。
++
++## 平滑升级和回退
++
++本轮不新增 schema、迁移、依赖或必填配置。真实 Docker 同库 `BASELINE → MODIFIED → ROLLBACK → RESTORED` 验证 `/health`、`/ready`、嵌入前端、加密登录、API Key、订阅与迁移数量，持久快照保持相同。无新增全局启用开关；需要旧/新行为一致时，管理员等全部节点升级后再为 OpenAI API-key 配置搜索模拟，随后可通过原三态字段关闭。GPT-5.5 客户端需选择可用替代模型或支持该模型的 API-key 上游。
++
++二进制回退仍受前轮支付约束：暂停退款管理并用新版结清 held/pending 退款，详见 [前轮支付同步](UPSTREAM_SYNC_20261016.md)。本轮没有修改退款实现，因此不重放支付补丁，也不取消既有回退条件。
++
++## 验证与源码事务
++
++[VERIFICATION.txt](../diagnostics/upstream-sync-20261016-followup/VERIFICATION.txt) 保存命令、输入、逐字 stdout/stderr、退出状态和错误修正；`records/` 保留完整机器记录。固定源探针在 BASELINE 中观察到 Responses JSON/SSE 无 created_at、OpenAI API-key 搜索未启用、OAuth GPT-5.5 可调度、Gemini 档位未转发；MODIFIED 补齐时间戳、允许配置搜索、拒绝订阅退休目标、真实转发 high；独立 ROLLBACK 恢复基线行为和原始哈希，再重施 DIFF 验证候选哈希。
++
++四个角色为 [MODIFIED_FILE.tar.gz](../diagnostics/upstream-sync-20261016-followup/MODIFIED_FILE.tar.gz)、[DIFF_FILE.patch](../diagnostics/upstream-sync-20261016-followup/DIFF_FILE.patch)、上述验证账本与可执行 [ROLLBACK.sh](../diagnostics/upstream-sync-20261016-followup/ROLLBACK.sh)。回退只接受独立副本，通过 sibling baseline 还原本轮源码并删除新增路径；不修改用户原工作树。
++
++现有 `payment_fulfillment_test.go` 1201 行导致 `make check-layout` 在精确基线和候选均退出 2；其字节未改，不扩大 allowlist。账号创建表单新增搜索字段时，仅将对应 extra 的纯转换移入已有 `accountFormPolicy.ts`，遵守模块行数门禁。后端完整 unit/integration、相关 race、lint、前端必需门禁、完整账号用例、生产镜像和最终四阶段运行记录分别取证。发布的 PR/head/main、Actions 和 GHCR revision/双架构清单在完成后单独保存，不能以本地构建代替发布证据。
+diff --git a/frontend/src/features/admin-accounts/README.md b/frontend/src/features/admin-accounts/README.md
+index c5290cf17..80e9b70b2 100644
+--- a/frontend/src/features/admin-accounts/README.md
++++ b/frontend/src/features/admin-accounts/README.md
+@@ -61,3 +61,5 @@ pnpm run typecheck
+ 临时不可调度规则的 scope 归一化、旧值解析和可选字段序列化由 `presentation/accountFormPolicy.ts` 维护，创建/编辑 advanced widget 共用该协议；自动范围省略 scope。显式范围须在所有节点升级后启用，详见 [同步与回退边界](../../../../docs/UPSTREAM_SYNC_20261013.md)。
+ 
+ Claude 5.5 的原生白名单、Antigravity 分档模型和映射预设由 `presentation/composables/useModelWhitelist.ts` 维护。同步结果在原 `models` 列表之外可附带 `metadata`；已有列表调用保持兼容。
++
++OpenAI 与 Anthropic API-key 的 WebSearch 模拟共用已有三态字段和全局可见条件。创建 extra 的纯转换由 `accountFormPolicy.ts` 所有，编辑 payload 由 `accountEditUpdatePayload.ts` 所有；OAuth 不显示或启用该模拟。
+diff --git a/frontend/src/features/admin-accounts/presentation/accountEditUpdatePayload.ts b/frontend/src/features/admin-accounts/presentation/accountEditUpdatePayload.ts
+index a699c3f90..92788e066 100644
+--- a/frontend/src/features/admin-accounts/presentation/accountEditUpdatePayload.ts
++++ b/frontend/src/features/admin-accounts/presentation/accountEditUpdatePayload.ts
+@@ -781,21 +781,23 @@ function applyAnthropicAPIKeyExtra(
+   account: Account,
+   context: EditAccountUpdatePayloadContext,
+ ): void {
+-  if (account.platform !== 'anthropic' || account.type !== 'apikey') return
++  if ((account.platform !== 'anthropic' && account.platform !== 'openai') || account.type !== 'apikey') return
+   const extra: UpdatePayload = {
+     ...((payload.extra as UpdatePayload | undefined) ||
+       (account.extra as UpdatePayload | undefined) ||
+       {}),
+   }
+-  if (context.anthropicPassthroughEnabled.value) {
+-    extra.anthropic_passthrough = true
+-  } else {
+-    delete extra.anthropic_passthrough
+-  }
+-  if (context.anthropicAPIKeyAuthScheme.value === 'authorization_bearer') {
+-    extra.anthropic_apikey_auth_scheme = 'authorization_bearer'
+-  } else {
+-    delete extra.anthropic_apikey_auth_scheme
++  if (account.platform === 'anthropic') {
++    if (context.anthropicPassthroughEnabled.value) {
++      extra.anthropic_passthrough = true
++    } else {
++      delete extra.anthropic_passthrough
++    }
++    if (context.anthropicAPIKeyAuthScheme.value === 'authorization_bearer') {
++      extra.anthropic_apikey_auth_scheme = 'authorization_bearer'
++    } else {
++      delete extra.anthropic_apikey_auth_scheme
++    }
+   }
+   if (context.webSearchEmulationMode.value === 'default') {
+     delete extra.web_search_emulation
+diff --git a/frontend/src/features/admin-accounts/presentation/accountFormPolicy.ts b/frontend/src/features/admin-accounts/presentation/accountFormPolicy.ts
+index df8061849..c8d0ee436 100644
+--- a/frontend/src/features/admin-accounts/presentation/accountFormPolicy.ts
++++ b/frontend/src/features/admin-accounts/presentation/accountFormPolicy.ts
+@@ -5,6 +5,27 @@ export interface ModelMapping {
+   to: string
+ }
+ 
++export function buildAPIKeySearchExtra(
++  base: Record<string, unknown> | undefined,
++  platform: string,
++  category: string,
++  searchMode: string,
++  anthropicPassthrough: boolean,
++  anthropicAuthScheme: string,
++): Record<string, unknown> | undefined {
++  if (category !== 'apikey' || (platform !== 'anthropic' && platform !== 'openai')) return base
++  const extra = { ...(base || {}) }
++  if (platform === 'anthropic') {
++    if (anthropicPassthrough) extra.anthropic_passthrough = true
++    else delete extra.anthropic_passthrough
++    if (anthropicAuthScheme === 'authorization_bearer') extra.anthropic_apikey_auth_scheme = anthropicAuthScheme
++    else delete extra.anthropic_apikey_auth_scheme
++  }
++  if (searchMode === 'default') delete extra.web_search_emulation
++  else extra.web_search_emulation = searchMode
++  return Object.keys(extra).length > 0 ? extra : undefined
++}
++
+ export function isOpenAIPersonalAccessTokenCredentials(credentials?: Record<string, unknown>): boolean {
+   const authMode = String(credentials?.auth_mode ?? credentials?.openai_auth_mode ?? '')
+     .trim()
+diff --git a/frontend/src/features/admin-accounts/presentation/widgets/CreateAccountDialog.vue b/frontend/src/features/admin-accounts/presentation/widgets/CreateAccountDialog.vue
+index 7d0eb265a..e0549fe5e 100644
+--- a/frontend/src/features/admin-accounts/presentation/widgets/CreateAccountDialog.vue
++++ b/frontend/src/features/admin-accounts/presentation/widgets/CreateAccountDialog.vue
+@@ -167,6 +167,7 @@ import {
+   DEFAULT_POOL_MODE_RETRY_STATUS_CODES,
+   MAX_POOL_MODE_RETRY_COUNT,
+   getCodexFingerprintModeOptions,
++  buildAPIKeySearchExtra,
+   normalizePoolModeRetryCount,
+   parsePoolModeRetryStatusCodes,
+   type CodexFingerprintMode,
+@@ -1070,30 +1071,9 @@ const buildOpenAICodexImportExtra = (): Record<string, unknown> | undefined => {
+   return Object.keys(extra).length > 0 ? extra : undefined
+ }
+ 
+-const buildAnthropicExtra = (base?: Record<string, unknown>): Record<string, unknown> | undefined => {
+-  if (form.platform !== 'anthropic' || accountCategory.value !== 'apikey') {
+-    return base
+-  }
+-
+-  const extra: Record<string, unknown> = { ...(base || {}) }
+-  if (anthropicPassthroughEnabled.value) {
+-    extra.anthropic_passthrough = true
+-  } else {
+-    delete extra.anthropic_passthrough
+-  }
+-  if (anthropicAPIKeyAuthScheme.value === 'authorization_bearer') {
+-    extra.anthropic_apikey_auth_scheme = 'authorization_bearer'
+-  } else {
+-    delete extra.anthropic_apikey_auth_scheme
+-  }
+-  if (webSearchEmulationMode.value === 'default') {
+-    delete extra.web_search_emulation
+-  } else {
+-    extra.web_search_emulation = webSearchEmulationMode.value
+-  }
+-
+-  return Object.keys(extra).length > 0 ? extra : undefined
+-}
++const buildAnthropicExtra = (base?: Record<string, unknown>): Record<string, unknown> | undefined =>
++  buildAPIKeySearchExtra(base, form.platform, accountCategory.value, webSearchEmulationMode.value,
++    anthropicPassthroughEnabled.value, anthropicAPIKeyAuthScheme.value)
+ 
+ const buildUpstreamInsufficientBalanceExtra = (
+   base?: Record<string, unknown>
+diff --git a/frontend/src/features/admin-accounts/presentation/widgets/EditAccountDialog.vue b/frontend/src/features/admin-accounts/presentation/widgets/EditAccountDialog.vue
+index 75dabe092..8614f259e 100644
+--- a/frontend/src/features/admin-accounts/presentation/widgets/EditAccountDialog.vue
++++ b/frontend/src/features/admin-accounts/presentation/widgets/EditAccountDialog.vue
+@@ -865,6 +865,8 @@ const syncFormFromAccount = (newAccount: Account | null) => {
+     anthropicAPIKeyAuthScheme.value = extra?.anthropic_apikey_auth_scheme === 'authorization_bearer'
+       ? 'authorization_bearer'
+       : 'x_api_key'
++  }
++  if ((newAccount.platform === 'anthropic' || newAccount.platform === 'openai') && newAccount.type === 'apikey') {
+     // 三态：string "default"/"enabled"/"disabled"，向后兼容旧 bool
+     const wsVal = extra?.web_search_emulation
+     if (wsVal === 'enabled' || wsVal === 'disabled') {
+diff --git a/frontend/src/features/admin-accounts/presentation/widgets/create/CreateAccountAdvancedFields.vue b/frontend/src/features/admin-accounts/presentation/widgets/create/CreateAccountAdvancedFields.vue
+index 32c1a834e..39c43e8d6 100644
+--- a/frontend/src/features/admin-accounts/presentation/widgets/create/CreateAccountAdvancedFields.vue
++++ b/frontend/src/features/admin-accounts/presentation/widgets/create/CreateAccountAdvancedFields.vue
+@@ -903,9 +903,9 @@
+         </div>
+       </div>
+ 
+-      <!-- Anthropic API Key: Web Search Emulation (hidden when global disabled) -->
++      <!-- Anthropic / OpenAI API Key: Web Search Emulation (hidden when global disabled) -->
+       <div
+-        v-if="form.platform === 'anthropic' && accountCategory === 'apikey' && webSearchGlobalEnabled"
++        v-if="(form.platform === 'anthropic' || form.platform === 'openai') && accountCategory === 'apikey' && webSearchGlobalEnabled"
+         class="border-t border-gray-200 pt-4 dark:border-dark-600"
+       >
+         <div class="flex items-center justify-between">
+diff --git a/frontend/src/features/admin-accounts/presentation/widgets/edit/EditAccountAdvancedFields.vue b/frontend/src/features/admin-accounts/presentation/widgets/edit/EditAccountAdvancedFields.vue
+index 240aae8c1..7554e410f 100644
+--- a/frontend/src/features/admin-accounts/presentation/widgets/edit/EditAccountAdvancedFields.vue
++++ b/frontend/src/features/admin-accounts/presentation/widgets/edit/EditAccountAdvancedFields.vue
+@@ -633,9 +633,9 @@
+         </div>
+       </div>
+ 
+-      <!-- Anthropic API Key: Web Search Emulation (hidden when global disabled) -->
++      <!-- Anthropic / OpenAI API Key: Web Search Emulation (hidden when global disabled) -->
+       <div
+-        v-if="account?.platform === 'anthropic' && account?.type === 'apikey' && webSearchGlobalEnabled"
++        v-if="(account?.platform === 'anthropic' || account?.platform === 'openai') && account?.type === 'apikey' && webSearchGlobalEnabled"
+         class="border-t border-gray-200 pt-4 dark:border-dark-600"
+       >
+         <div class="flex items-center justify-between">

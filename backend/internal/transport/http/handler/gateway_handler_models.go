@@ -79,12 +79,15 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 	}
 	if apiKey != nil && apiKey.Group != nil && apiKey.Group.CustomModelsListEnabled() {
 		fallbackModels := defaultModelIDsForPlatform(platform)
+		if platform == service.PlatformOpenAI && availableModels != nil {
+			fallbackModels = nil
+		}
 		availableModels = filterModelsByCustomList(customModelsListSource(platform, availableModels, fallbackModels), fallbackModels, apiKey.Group.ModelsListConfig.Models)
 		writeCustomModelsList(c, platform, availableModels)
 		return
 	}
 
-	if len(availableModels) > 0 {
+	if len(availableModels) > 0 || (platform == service.PlatformOpenAI && availableModels != nil) {
 		writeModelsList(c, platform, availableModels)
 		return
 	}
@@ -131,7 +134,7 @@ func (h *GatewayHandler) apiKeyBindingsAvailableModels(ctx context.Context, bind
 			groupModels = h.compositeAvailableModels(ctx, &groupID, true)
 		} else {
 			groupModels = h.gatewayService.GetAvailableModels(ctx, &groupID, group.Platform)
-			if len(groupModels) == 0 {
+			if len(groupModels) == 0 && (group.Platform != service.PlatformOpenAI || groupModels == nil) {
 				if _, ok := h.gatewayService.GetSchedulablePlatforms(ctx, &groupID)[group.Platform]; ok {
 					groupModels = defaultModelIDsForPlatform(group.Platform)
 				}
@@ -139,6 +142,9 @@ func (h *GatewayHandler) apiKeyBindingsAvailableModels(ctx context.Context, bind
 		}
 		if group.CustomModelsListEnabled() {
 			fallback := defaultModelIDsForPlatform(group.Platform)
+			if group.Platform == service.PlatformOpenAI && groupModels != nil {
+				fallback = nil
+			}
 			groupModels = filterModelsByCustomList(customModelsListSource(group.Platform, groupModels, fallback), fallback, group.ModelsListConfig.Models)
 		}
 		if group.ModelAllowlistEnabled() {
@@ -176,7 +182,7 @@ func (h *GatewayHandler) compositeAvailableModels(ctx context.Context, groupID *
 			continue
 		}
 		platformModels := h.gatewayService.GetAvailableModels(ctx, groupID, platform)
-		if len(platformModels) == 0 {
+		if len(platformModels) == 0 && (platform != service.PlatformOpenAI || platformModels == nil) {
 			if _, ok := schedulablePlatforms[platform]; ok {
 				platformModels = defaultModelIDsForPlatform(platform)
 			}
@@ -205,6 +211,10 @@ func (h *GatewayHandler) compositeAvailableModels(ctx context.Context, groupID *
 }
 
 func writeModelsList(c *gin.Context, platform string, modelIDs []string) {
+	if platform == service.PlatformOpenAI {
+		writeOpenAIModelsList(c, modelIDs, true)
+		return
+	}
 	if platform == service.PlatformGrok {
 		writeGrokModelsList(c, modelIDs)
 		return
@@ -333,31 +343,42 @@ func grokModelSupportsConfigurableReasoning(modelID string) bool {
 	}
 }
 
-func writeOpenAIModelsList(c *gin.Context, modelIDs []string) {
+func writeOpenAIModelsList(c *gin.Context, modelIDs []string, legacyCreatedAt ...bool) {
 	defaultsByID := make(map[string]openai.Model, len(openai.DefaultModels))
 	for _, model := range openai.DefaultModels {
 		defaultsByID[model.ID] = model
 	}
 
-	models := make([]openai.Model, 0, len(modelIDs))
+	type listedModel struct {
+		openai.Model
+		CreatedAt string `json:"created_at,omitempty"`
+	}
+	createdAt := ""
+	if len(legacyCreatedAt) > 0 && legacyCreatedAt[0] {
+		createdAt = "2024-01-01T00:00:00Z"
+	}
+	models := make([]listedModel, 0, len(modelIDs))
 	for _, modelID := range modelIDs {
 		if model, ok := defaultsByID[modelID]; ok {
-			models = append(models, model)
+			models = append(models, listedModel{Model: model, CreatedAt: createdAt})
 			continue
 		}
-		models = append(models, openai.Model{
+		models = append(models, listedModel{Model: openai.Model{
 			ID:          modelID,
 			Object:      "model",
 			Created:     1704067200,
 			OwnedBy:     "openai",
 			Type:        "model",
 			DisplayName: modelID,
-		})
+		}, CreatedAt: createdAt})
 	}
 	writeModelsListResponse(c, models)
 }
 
 func customModelsListSource(platform string, availableModels, fallbackModels []string) []string {
+	if platform == service.PlatformOpenAI && availableModels != nil {
+		return availableModels
+	}
 	if platform == service.PlatformAnthropic && len(availableModels) > 0 {
 		return mergeModelIDs(availableModels, fallbackModels)
 	}
@@ -365,6 +386,9 @@ func customModelsListSource(platform string, availableModels, fallbackModels []s
 }
 
 func modelListingSource(platform string, availableModels, fallbackModels []string) []string {
+	if platform == service.PlatformOpenAI && availableModels != nil {
+		return availableModels
+	}
 	if len(availableModels) == 0 {
 		return fallbackModels
 	}

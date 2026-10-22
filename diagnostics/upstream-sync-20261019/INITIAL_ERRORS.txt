@@ -1,0 +1,8 @@
+Initial tool errors and changed-command corrections:
+1. rg --files included absent .codex and .agents directories; exit 2. Corrected to existing docs and current-main diagnostics.
+2. Generic guessed upstream-split filenames were absent and unquoted zsh globs failed; exit 1 or 2. Corrected by rg --files in the scoped service/handler directories, then used actual owner filenames.
+3. adapt.py asserted an ambiguous repeated native flusher span; exit 1, followed by gofmt missing the not-yet-created native stream file, exit 2. Restored partially edited paths from the pristine baseline and narrowed the span; adaptation-corrected.record.json records successful correction. No original-worktree source was changed.
+4. Runtime fixture expected cache_read_input_tokens in Messages JSON, but the baseline and current fork omit that display field; runtime-matrix.record.json exit 1. Corrected to SELECT cache_read_tokens from the real usage log; runtime-matrix-corrected.record.json passes all four stages.
+5. make -C backend check-layout exits 2 at both baseline and candidate for two unchanged 1201-line files. Their exact baseline hashes are preserved; this is inherited source-layout debt, not a new regression. No allowlist increase.
+6. Initial golangci-lint exit 1 found unused native-stream deliveredImages field. Removed only that unused field; final lint and focused checks are recorded separately.
+7. performance-modified-final ran alongside linter/integration compilation; timings were excluded due to CPU contention. Final performance compares consecutive baseline/candidate runs after all other CPU-heavy checks finish, with a StringWriter sink matching Gin/net/http.

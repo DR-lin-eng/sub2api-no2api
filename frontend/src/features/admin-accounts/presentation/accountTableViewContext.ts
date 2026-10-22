@@ -71,6 +71,8 @@ export interface AccountTableViewContext {
   handleBulkDelete: () => Promise<void>
   handleBulkResetStatus: () => Promise<void>
   handleBulkRefreshToken: () => Promise<void>
+  syncingUpstreamModels: Ref<boolean>
+  handleBulkSyncUpstreamModels: () => Promise<void>
   handleBulkQueryUpstreamQuota: () => Promise<void>
   handleBulkQueryOpenAIQuota: () => Promise<void>
   handleBulkProbeUpstreamBilling: () => Promise<void>

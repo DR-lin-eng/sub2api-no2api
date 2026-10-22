@@ -725,6 +725,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	}
 	integrityOriginalFirstMessage := append([]byte(nil), firstClientMessage...)
 	firstClientMessage = normalizeCodexBootstrapForOpenAIWS(account.ID, 1, firstClientMessage)
+	firstClientMessage = s.normalizeOpenAIRequestTimezone(ctx, account, firstClientMessage, "ws")
 	visibleOutputTTFT := s.useOpenAIVisibleOutputTTFT(ctx)
 	if isOpenAIResponsesLiteWebSocketPayload(firstClientMessage) {
 		liteFirstMessage, _, liteErr := normalizeOpenAIResponsesLitePayloadForAccount(firstClientMessage, account)
@@ -946,12 +947,14 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	var upstreamConn openAIWSClientConn
 	statusCode := 0
 	var handshakeHeaders http.Header
+	proofFactory := s.newOpenAIWSProofFactory(account, wsURL, fingerprintIDs, headers)
 	for {
-		headers, err = s.refreshOpenAIAgentIdentityHeaders(ctx, account, headers)
+		var proofCtx context.Context
+		proofCtx, headers, err = proofFactory(ctx, headers)
 		if err != nil {
 			return fmt.Errorf("refresh ws authentication headers: %w", err)
 		}
-		dialCtx, cancelDial := context.WithTimeout(ctx, s.openAIWSDialTimeout())
+		dialCtx, cancelDial := context.WithTimeout(proofCtx, s.openAIWSDialTimeout())
 		upstreamConn, statusCode, handshakeHeaders, err = dialOpenAIWSRouteWithProfile(
 			dialer,
 			dialCtx,
@@ -960,6 +963,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 			accountEgressRoute(account, proxyURL),
 			s.resolveTLSProfile(account),
 		)
+		s.captureIntegrityState(proofCtx, handshakeHeaders)
 		cancelDial()
 		if err == nil {
 			break
@@ -1102,6 +1106,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 			}
 			if isResponseCreate {
 				payload = normalizeCodexBootstrapForOpenAIWS(account.ID, turnNo, payload)
+				payload = s.normalizeOpenAIRequestTimezone(ctx, account, payload, "ws")
 			}
 			acceptedTurn := false
 			if isResponseCreate {
@@ -1354,6 +1359,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 						InputTokens:              turn.Usage.InputTokens,
 						ImageInputTokens:         turn.Usage.ImageInputTokens,
 						OutputTokens:             turn.Usage.OutputTokens,
+						ReasoningTokens:          turn.Usage.ReasoningTokens,
 						CacheCreationInputTokens: turn.Usage.CacheCreationInputTokens,
 						CacheReadInputTokens:     turn.Usage.CacheReadInputTokens,
 						ImageOutputTokens:        turn.Usage.ImageOutputTokens,
@@ -1527,6 +1533,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 			InputTokens:              relayResult.Usage.InputTokens,
 			ImageInputTokens:         relayResult.Usage.ImageInputTokens,
 			OutputTokens:             relayResult.Usage.OutputTokens,
+			ReasoningTokens:          relayResult.Usage.ReasoningTokens,
 			CacheCreationInputTokens: relayResult.Usage.CacheCreationInputTokens,
 			CacheReadInputTokens:     relayResult.Usage.CacheReadInputTokens,
 			ImageOutputTokens:        relayResult.Usage.ImageOutputTokens,

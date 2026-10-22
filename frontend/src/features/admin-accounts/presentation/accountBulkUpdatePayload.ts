@@ -153,7 +153,7 @@ export function buildBulkAccountUpdatePayload(
   }
   if (state.enableOpenAIEndpointCapabilities) {
     credentials.openai_capabilities = state.openAIEndpointCapabilities.filter(
-      capability => capability === 'chat_completions' || capability === 'embeddings'
+      capability => capability === 'chat_completions' || capability === 'embeddings' || capability === 'decisions'
     )
     credentialsChanged = true
   }

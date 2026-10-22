@@ -1,0 +1,8 @@
+ok  	github.com/Wei-Shaw/sub2api/internal/domain	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.075s
+ok  	github.com/Wei-Shaw/sub2api/internal/infrastructure/repository	0.024s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	0.024s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin	0.016s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto	0.012s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/quotaview	0.011s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/supportchatasset	0.004s [no tests to run]

@@ -256,6 +256,7 @@ const usageDetails = computed(() => {
   return [
     { key: 'input', label: t('usage.inputTokens'), value: usage.input_tokens.toLocaleString() },
     { key: 'output', label: t('usage.outputTokens'), value: usage.output_tokens.toLocaleString() },
+    ...(isAdminAudience.value ? [{ key: 'reasoning_tokens', label: t('usage.reasoningTokens'), value: usage.reasoning_tokens == null ? '-' : usage.reasoning_tokens.toLocaleString() }] : []),
     { key: 'cache_creation', label: t('usage.cacheCreationTokens'), value: usage.cache_creation_tokens.toLocaleString() },
     ...(usage.cache_creation_5m_tokens > 0 ? [{ key: 'cache_creation_5m', label: t('usage.cacheCreation5mTokens'), value: usage.cache_creation_5m_tokens.toLocaleString() }] : []),
     ...(usage.cache_creation_1h_tokens > 0 ? [{ key: 'cache_creation_1h', label: t('usage.cacheCreation1hTokens'), value: usage.cache_creation_1h_tokens.toLocaleString() }] : []),

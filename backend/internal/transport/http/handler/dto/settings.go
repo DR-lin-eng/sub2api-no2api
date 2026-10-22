@@ -229,6 +229,8 @@ type SystemSettings struct {
 	OpenAIVisibleOutputTTFTEnabled bool `json:"openai_visible_output_ttft_enabled"`
 
 	// Gateway forwarding behavior
+	OpenAIRequestTimezoneEnabled           bool   `json:"openai_request_timezone_enabled"`
+	OpenAIRequestTimezone                  string `json:"openai_request_timezone"`
 	OpenAIOAuthForceRelayEnabled           bool   `json:"openai_oauth_force_relay_enabled"`
 	OpenAIOAuthForceRelayBaseURL           string `json:"openai_oauth_force_relay_base_url"`
 	EnableFingerprintUnification           bool   `json:"enable_fingerprint_unification"`

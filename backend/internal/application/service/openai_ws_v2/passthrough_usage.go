@@ -1,6 +1,7 @@
 package openai_ws_v2
 
 import (
+	"github.com/Wei-Shaw/sub2api/internal/shared/apicompat"
 	"github.com/tidwall/gjson"
 	"strings"
 )
@@ -70,6 +71,7 @@ func parseUsageAndAccumulate(
 		return Usage{}
 	}
 	parsedUsage := Usage{
+		ReasoningTokens:          apicompat.ReasoningTokensFromUsage(usageResult),
 		InputTokens:              inputTokens,
 		ImageInputTokens:         int(imageInputTokens),
 		OutputTokens:             outputTokens,
@@ -81,6 +83,7 @@ func parseUsageAndAccumulate(
 	state.usage.InputTokens += parsedUsage.InputTokens
 	state.usage.ImageInputTokens += parsedUsage.ImageInputTokens
 	state.usage.OutputTokens += parsedUsage.OutputTokens
+	state.usage.ReasoningTokens = apicompat.SumReasoningTokens(state.usage.ReasoningTokens, parsedUsage.ReasoningTokens)
 	state.usage.CacheCreationInputTokens += parsedUsage.CacheCreationInputTokens
 	state.usage.CacheReadInputTokens += parsedUsage.CacheReadInputTokens
 	state.usage.ImageOutputTokens += parsedUsage.ImageOutputTokens

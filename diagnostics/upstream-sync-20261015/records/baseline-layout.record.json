@@ -1,0 +1,14 @@
+{
+  "command": [
+    "sh",
+    "-c",
+    "cd ../baseline/backend && make check-layout"
+  ],
+  "cwd": "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo",
+  "exit_status": 2,
+  "elapsed_s": 0.4647770000001401,
+  "utc": "2026-10-15T12:58:39.453868+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "bc47e5caa9ee997120b50f2387547331f77907d12d8228a259881f576e7443fe",
+  "stderr_sha256": "efff3ffffca621af8566795b28169a7f062751ed7a73812c7f98e5e9f5c58e52"
+}

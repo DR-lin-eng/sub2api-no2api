@@ -7,8 +7,10 @@ import (
 )
 
 func setGatewayDefaults() {
+	viper.SetDefault("gateway.min_output_tokens", 128)
 	// Gateway
 	viper.SetDefault("gateway.response_header_timeout", 600) // 600秒(10分钟)等待上游响应头，LLM高负载时可能排队较久
+	viper.SetDefault("gateway.openai_request_timezone", DefaultOpenAIRequestTimezone)
 	viper.SetDefault("gateway.openai_first_output_timeout_seconds", 90)
 	viper.SetDefault("gateway.openai_high_effort_first_output_timeout_seconds", 180)
 	viper.SetDefault("gateway.log_upstream_error_body", true)
@@ -18,6 +20,8 @@ func setGatewayDefaults() {
 	viper.SetDefault("gateway.max_account_switches", 10)
 	viper.SetDefault("gateway.max_account_switches_gemini", 3)
 	viper.SetDefault("gateway.force_codex_cli", false)
+	viper.SetDefault("gateway.openai_oauth_attestation_enabled", false)
+	viper.SetDefault("gateway.openai_desktop_devicecheck_enabled", false)
 	viper.SetDefault("gateway.disable_codex_identity_enforcement", false)
 	viper.SetDefault("gateway.disable_codex_originator_normalization", false)
 	viper.SetDefault("gateway.codex_image_generation_bridge_enabled", false)

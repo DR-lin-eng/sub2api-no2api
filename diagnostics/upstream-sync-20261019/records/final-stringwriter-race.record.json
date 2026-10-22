@@ -1,0 +1,31 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "-e",
+    "GOMAXPROCS=2",
+    "-e",
+    "GOMEMLIMIT=2GiB",
+    "-e",
+    "GOFLAGS=-p=1",
+    "-v",
+    "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/repo/backend:/app",
+    "-v",
+    "sub2api-upstream-go-mod-20261016:/go/pkg/mod",
+    "-v",
+    "sub2api-upstream-go-build-20261016:/root/.cache/go-build",
+    "-w",
+    "/app",
+    "sub2api-sync-go:20261019",
+    "sh",
+    "-c",
+    "export PATH=/usr/local/go/bin:$PATH; go test -race -tags unit -count=1 -run \"Gemini.*(StreamWriteTracker|ClientDisconnect|WriteFailure|CacheOnly|InternalCancellation|DisconnectPreserves)|ImageResultUploaderDownloadContentTypes\" ./internal/application/service ./internal/shared/antigravity"
+  ],
+  "cwd": "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/repo",
+  "started_at": "2026-10-19T16:31:25.707630+00:00",
+  "elapsed_seconds": 86.572,
+  "exit_status": 0,
+  "stdout": "ok  \tgithub.com/Wei-Shaw/sub2api/internal/application/service\t1.666s\nok  \tgithub.com/Wei-Shaw/sub2api/internal/shared/antigravity\t1.025s\n",
+  "stderr": ""
+}

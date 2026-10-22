@@ -1,0 +1,6 @@
+# github.com/Wei-Shaw/sub2api/internal/application/service [github.com/Wei-Shaw/sub2api/internal/application/service.test]
+internal/application/service/openai_gateway_structured_input_fallback_test.go:379:75: undefined: PlatformCommandCode
+internal/application/service/temp_unsched_scope_test.go:241:115: too many arguments in call to gateway.shouldFailoverOpenAIUpstreamResponse
+	have (*Account, number, string, []byte)
+	want (int, string, []byte)
+internal/application/service/temp_unsched_scope_test.go:472:3: undefined: setAccountModelRateLimitSnapshot

@@ -1,0 +1,980 @@
+diff --git a/backend/internal/handler/payment_webhook_handler.go b/backend/internal/handler/payment_webhook_handler.go
+index dc70f120e76..be987fbbcdd 100644
+--- a/backend/internal/handler/payment_webhook_handler.go
++++ b/backend/internal/handler/payment_webhook_handler.go
+@@ -103,7 +103,7 @@ func (h *PaymentWebhookHandler) handleNotify(c *gin.Context, providerKey string)
+ 		headers[strings.ToLower(k)] = c.GetHeader(k)
+ 	}
+ 
+-	resolvedProviderKey, notification, err := verifyNotificationWithProviders(c.Request.Context(), providers, rawBody, headers)
++	verifiedProvider, notification, err := verifyNotificationWithProviders(c.Request.Context(), providers, rawBody, headers)
+ 	if err != nil {
+ 		truncatedBody := rawBody
+ 		if len(truncatedBody) > webhookLogTruncateLen {
+@@ -115,12 +115,20 @@ func (h *PaymentWebhookHandler) handleNotify(c *gin.Context, providerKey string)
+ 		return
+ 	}
+ 
++	resolvedProviderKey := verifiedProvider.ProviderKey()
++
+ 	// nil notification means irrelevant event (e.g. Stripe non-payment event); return success.
+ 	if notification == nil {
+ 		writeSuccessResponse(c, resolvedProviderKey)
+ 		return
+ 	}
+ 
++	if err := h.paymentService.ConfirmNotificationUpstream(c.Request.Context(), verifiedProvider, notification); err != nil {
++		slog.Error("[Payment Webhook] upstream confirmation failed", "provider", resolvedProviderKey, "outTradeNo", notification.OrderID, "tradeNo", notification.TradeNo, "error", err)
++		c.String(http.StatusBadGateway, "confirm failed")
++		return
++	}
++
+ 	if err := h.paymentService.HandlePaymentNotification(c.Request.Context(), notification, resolvedProviderKey); err != nil {
+ 		// Unknown order: ack with 2xx so the provider stops retrying. This
+ 		// guards against foreign environments whose webhook endpoints are
+@@ -170,7 +178,10 @@ func extractOutTradeNo(rawBody, providerKey string) string {
+ 	return ""
+ }
+ 
+-func verifyNotificationWithProviders(ctx context.Context, providers []payment.Provider, rawBody string, headers map[string]string) (string, *payment.PaymentNotification, error) {
++// verifyNotificationWithProviders returns the provider instance that verified
++// the notification so later steps (upstream confirmation) use the same
++// merchant configuration.
++func verifyNotificationWithProviders(ctx context.Context, providers []payment.Provider, rawBody string, headers map[string]string) (payment.Provider, *payment.PaymentNotification, error) {
+ 	var lastErr error
+ 	for _, provider := range providers {
+ 		if provider == nil {
+@@ -181,12 +192,12 @@ func verifyNotificationWithProviders(ctx context.Context, providers []payment.Pr
+ 			lastErr = err
+ 			continue
+ 		}
+-		return provider.ProviderKey(), notification, nil
++		return provider, notification, nil
+ 	}
+ 	if lastErr != nil {
+-		return "", nil, lastErr
++		return nil, nil, lastErr
+ 	}
+-	return "", nil, fmt.Errorf("no webhook provider could verify notification")
++	return nil, nil, fmt.Errorf("no webhook provider could verify notification")
+ }
+ 
+ // wxpaySuccessResponse is the JSON response expected by WeChat Pay webhook.
+diff --git a/backend/internal/handler/payment_webhook_handler_test.go b/backend/internal/handler/payment_webhook_handler_test.go
+index 5b613383c99..26f5a465485 100644
+--- a/backend/internal/handler/payment_webhook_handler_test.go
++++ b/backend/internal/handler/payment_webhook_handler_test.go
+@@ -204,9 +204,9 @@ func TestVerifyNotificationWithProvidersReturnsMatchedProvider(t *testing.T) {
+ 		},
+ 	}
+ 
+-	providerKey, notification, err := verifyNotificationWithProviders(context.Background(), providers, "{}", map[string]string{"wechatpay-signature": "sig"})
++	provider, notification, err := verifyNotificationWithProviders(context.Background(), providers, "{}", map[string]string{"wechatpay-signature": "sig"})
+ 	require.NoError(t, err)
+-	require.Equal(t, payment.TypeWxpay, providerKey)
++	require.Equal(t, payment.TypeWxpay, provider.ProviderKey())
+ 	require.NotNil(t, notification)
+ 	require.Equal(t, "sub2_42", notification.OrderID)
+ }
+diff --git a/backend/internal/payment/provider/easypay.go b/backend/internal/payment/provider/easypay.go
+index bbb007bb3ef..76469a2b367 100644
+--- a/backend/internal/payment/provider/easypay.go
++++ b/backend/internal/payment/provider/easypay.go
+@@ -7,8 +7,10 @@ import (
+ 	"crypto/md5"
+ 	"encoding/hex"
+ 	"encoding/json"
++	"errors"
+ 	"fmt"
+ 	"io"
++	"math"
+ 	"net/http"
+ 	"net/url"
+ 	"sort"
+@@ -27,6 +29,7 @@ const (
+ 	easypayHTTPTimeout     = 10 * time.Second
+ 	maxEasypayResponseSize = 1 << 20 // 1MB
+ 	maxEasypayErrorSummary = 512
++	easypayAmountTolerance = 0.005
+ 	tradeStatusSuccess     = "TRADE_SUCCESS"
+ 	signTypeMD5            = "MD5"
+ 	paymentModePopup       = "popup"
+@@ -301,32 +304,86 @@ func (e *EasyPay) upstreamPaymentType(paymentType string) string {
+ }
+ 
+ func (e *EasyPay) QueryOrder(ctx context.Context, tradeNo string) (*payment.QueryOrderResponse, error) {
++	result, err := e.queryOrder(ctx, tradeNo)
++	if err != nil {
++		return nil, err
++	}
++	responseTradeNo := tradeNo
++	if result.tradeNo != "" {
++		responseTradeNo = result.tradeNo
++	}
++	amount, _ := strconv.ParseFloat(result.money, 64)
++	return &payment.QueryOrderResponse{
++		TradeNo:  responseTradeNo,
++		Status:   result.status,
++		Amount:   amount,
++		Metadata: e.MerchantIdentityMetadata(),
++	}, nil
++}
++
++// easyPayQueryResult is the normalized api.php?act=order answer. tradeNo is
++// the upstream trade number exactly as returned (empty when absent).
++type easyPayQueryResult struct {
++	status  string
++	money   string
++	tradeNo string
++}
++
++func (e *EasyPay) queryOrder(ctx context.Context, outTradeNo string) (*easyPayQueryResult, error) {
+ 	params := map[string]string{
+ 		"act": "order", "pid": e.config["pid"],
+-		"key": e.config["pkey"], "out_trade_no": tradeNo,
++		"key": e.config["pkey"], "out_trade_no": outTradeNo,
+ 	}
+-	body, err := e.post(ctx, e.apiBase()+"/api.php", params)
++	// 彩虹易支付 and ZPay read act=order parameters from $_GET only (a
++	// body-only request is answered with "No Act!"), while other forks read
++	// the form body; send them in both places.
++	query := url.Values{}
++	for k, v := range params {
++		query.Set(k, v)
++	}
++	body, err := e.post(ctx, e.apiBase()+"/api.php?"+query.Encode(), params)
+ 	if err != nil {
++		// The request URL carries the merchant key; never let it reach logs
++		// or audit records through *url.Error.
++		var urlErr *url.Error
++		if errors.As(err, &urlErr) {
++			err = urlErr.Err
++		}
+ 		return nil, fmt.Errorf("easypay query: %w", err)
+ 	}
++	// Scalars are decoded leniently: PHP deployments commonly serialize
++	// integer columns as strings ("status":"1").
+ 	type easyPayQueryData struct {
+-		TradeStatus *string `json:"trade_status"`
+-		Status      *int    `json:"status"`
+-		Money       *string `json:"money"`
+-		TradeNo     *string `json:"trade_no"`
++		TradeStatus *string         `json:"trade_status"`
++		Status      json.RawMessage `json:"status"`
++		Money       json.RawMessage `json:"money"`
++		TradeNo     json.RawMessage `json:"trade_no"`
++		OutTradeNo  json.RawMessage `json:"out_trade_no"`
+ 	}
+ 	var resp struct {
+-		Code        int              `json:"code"`
+-		Msg         string           `json:"msg"`
+-		TradeStatus *string          `json:"trade_status"`
+-		Status      *int             `json:"status"`
+-		Money       *string          `json:"money"`
+-		TradeNo     *string          `json:"trade_no"`
+-		Data        easyPayQueryData `json:"data"`
++		easyPayQueryData
++		Code any              `json:"code"`
++		Msg  string           `json:"msg"`
++		Data easyPayQueryData `json:"data"`
+ 	}
+ 	if err := json.Unmarshal(body, &resp); err != nil {
+ 		return nil, fmt.Errorf("easypay parse query: %w", err)
+ 	}
++	// An explicit failure code wins over any paid-looking status field that
++	// may accompany it.
++	if resp.Code != nil && !easyPayResponseCodeIsSuccess(resp.Code) {
++		msg := strings.TrimSpace(resp.Msg)
++		if msg == "" {
++			msg = summarizeEasyPayResponse(body)
++		}
++		return nil, fmt.Errorf("easypay query failed: %s", msg)
++	}
++	// When the upstream echoes the order identity it must be this order; some
++	// implementations silently ignore unknown lookup parameters.
++	if echoed := easyPayJSONScalar(pickEasyPayJSON(resp.OutTradeNo, resp.Data.OutTradeNo)); echoed != "" && echoed != strings.TrimSpace(outTradeNo) {
++		return nil, fmt.Errorf("easypay query out_trade_no mismatch: expected %s, got %s", strings.TrimSpace(outTradeNo), echoed)
++	}
++
+ 	status := payment.ProviderStatusPending
+ 	if resp.TradeStatus != nil {
+ 		if *resp.TradeStatus == tradeStatusSuccess {
+@@ -336,36 +393,72 @@ func (e *EasyPay) QueryOrder(ctx context.Context, tradeNo string) (*payment.Quer
+ 		if *resp.Data.TradeStatus == tradeStatusSuccess {
+ 			status = payment.ProviderStatusPaid
+ 		}
+-	} else if resp.Status != nil {
+-		if *resp.Status == easypayStatusPaid {
++	} else if raw := pickEasyPayJSON(resp.Status, resp.Data.Status); raw != nil {
++		if easyPayJSONScalar(raw) == strconv.Itoa(easypayStatusPaid) {
+ 			status = payment.ProviderStatusPaid
+ 		}
+-	} else if resp.Data.Status != nil && *resp.Data.Status == easypayStatusPaid {
+-		status = payment.ProviderStatusPaid
+ 	}
+ 
+-	money := ""
+-	if resp.Money != nil {
+-		money = *resp.Money
+-	} else if resp.Data.Money != nil {
+-		money = *resp.Data.Money
++	return &easyPayQueryResult{
++		status:  status,
++		money:   easyPayJSONScalar(pickEasyPayJSON(resp.Money, resp.Data.Money)),
++		tradeNo: easyPayJSONScalar(pickEasyPayJSON(resp.TradeNo, resp.Data.TradeNo)),
++	}, nil
++}
++
++// ConfirmNotification checks a verified success notification against the
++// upstream order before it is fulfilled, so crediting follows the gateway's
++// own order state (paid, amount, trade_no). The query is sent to this
++// instance's own apiBase with its own credentials.
++func (e *EasyPay) ConfirmNotification(ctx context.Context, n *payment.PaymentNotification) error {
++	if n == nil || n.Status != payment.NotificationStatusSuccess {
++		return nil
+ 	}
+-	responseTradeNo := tradeNo
+-	if resp.TradeNo != nil {
+-		if *resp.TradeNo != "" {
+-			responseTradeNo = *resp.TradeNo
++	result, err := e.queryOrder(ctx, n.OrderID)
++	if err != nil {
++		return fmt.Errorf("easypay confirm: %w", err)
++	}
++	if result.status != payment.ProviderStatusPaid {
++		return fmt.Errorf("easypay confirm: upstream reports order %s as not paid", n.OrderID)
++	}
++	queriedAmount, err := strconv.ParseFloat(result.money, 64)
++	if err != nil || math.Abs(queriedAmount-n.Amount) > easypayAmountTolerance {
++		return fmt.Errorf("easypay confirm: amount mismatch: notified %v, upstream %q", n.Amount, result.money)
++	}
++	if result.tradeNo != "" {
++		if n.TradeNo != "" && n.TradeNo != result.tradeNo {
++			return fmt.Errorf("easypay confirm: trade_no mismatch: notified %s, upstream %s", n.TradeNo, result.tradeNo)
+ 		}
+-	} else if resp.Data.TradeNo != nil && *resp.Data.TradeNo != "" {
+-		responseTradeNo = *resp.Data.TradeNo
++		n.TradeNo = result.tradeNo
+ 	}
++	return nil
++}
+ 
+-	amount, _ := strconv.ParseFloat(money, 64)
+-	return &payment.QueryOrderResponse{
+-		TradeNo:  responseTradeNo,
+-		Status:   status,
+-		Amount:   amount,
+-		Metadata: e.MerchantIdentityMetadata(),
+-	}, nil
++func easyPayJSONScalar(raw json.RawMessage) string {
++	if len(raw) == 0 {
++		return ""
++	}
++	var str string
++	if err := json.Unmarshal(raw, &str); err == nil {
++		return strings.TrimSpace(str)
++	}
++	var num json.Number
++	if err := json.Unmarshal(raw, &num); err == nil {
++		return num.String()
++	}
++	return ""
++}
++
++// pickEasyPayJSON returns the top-level field when present, otherwise the
++// nested data field. JSON null counts as absent.
++func pickEasyPayJSON(top, nested json.RawMessage) json.RawMessage {
++	if len(top) > 0 && string(top) != "null" {
++		return top
++	}
++	if len(nested) > 0 && string(nested) != "null" {
++		return nested
++	}
++	return nil
+ }
+ 
+ func (e *EasyPay) VerifyNotification(_ context.Context, rawBody string, _ map[string]string) (*payment.PaymentNotification, error) {
+@@ -379,7 +472,14 @@ func (e *EasyPay) VerifyNotification(_ context.Context, rawBody string, _ map[st
+ 		if !easyPayNotifyAllowedParams[k] {
+ 			return nil, fmt.Errorf("unexpected notify param: %s", k)
+ 		}
+-		params[k] = values.Get(k)
++		v := values.Get(k)
++		// Notify values are plain tokens; only the merchant-defined product
++		// name is free text. Delimiter characters elsewhere are rejected so
++		// each value maps to exactly one field of the signed string.
++		if k != "name" && strings.ContainsAny(v, "&=") {
++			return nil, fmt.Errorf("invalid notify param value: %s", k)
++		}
++		params[k] = v
+ 	}
+ 	sign := params["sign"]
+ 	if sign == "" {
+@@ -388,22 +488,20 @@ func (e *EasyPay) VerifyNotification(_ context.Context, rawBody string, _ map[st
+ 	if !easyPayVerifySign(params, e.config["pkey"], sign) {
+ 		return nil, fmt.Errorf("invalid signature")
+ 	}
++	// Bind the notification to this instance's merchant directly instead of
++	// relying on the order snapshot, which legacy orders do not carry.
++	if expected, actual := strings.TrimSpace(e.config["pid"]), strings.TrimSpace(params["pid"]); actual != expected {
++		return nil, fmt.Errorf("easypay pid mismatch: expected %s, got %s", expected, actual)
++	}
+ 	status := payment.ProviderStatusFailed
+ 	if params["trade_status"] == tradeStatusSuccess {
+ 		status = payment.ProviderStatusSuccess
+ 	}
+ 	amount, _ := strconv.ParseFloat(params["money"], 64)
+ 
+-	metadata := e.MerchantIdentityMetadata()
+-	if pid := strings.TrimSpace(params["pid"]); pid != "" {
+-		if metadata == nil {
+-			metadata = map[string]string{}
+-		}
+-		metadata["pid"] = pid
+-	}
+ 	return &payment.PaymentNotification{
+ 		TradeNo: params["trade_no"], OrderID: params["out_trade_no"],
+-		Amount: amount, Status: status, RawData: rawBody, Metadata: metadata,
++		Amount: amount, Status: status, RawData: rawBody, Metadata: e.MerchantIdentityMetadata(),
+ 	}, nil
+ }
+ 
+diff --git a/backend/internal/payment/provider/easypay_confirm_test.go b/backend/internal/payment/provider/easypay_confirm_test.go
+new file mode 100644
+index 00000000000..9463aa7669b
+--- /dev/null
++++ b/backend/internal/payment/provider/easypay_confirm_test.go
+@@ -0,0 +1,253 @@
++package provider
++
++import (
++	"context"
++	"net/http"
++	"net/http/httptest"
++	"net/url"
++	"strings"
++	"sync/atomic"
++	"testing"
++
++	"github.com/Wei-Shaw/sub2api/internal/payment"
++)
++
++func newConfirmTestEasyPay(t *testing.T, body string, status int) (*EasyPay, *atomic.Int32) {
++	t.Helper()
++	var calls atomic.Int32
++	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		calls.Add(1)
++		if err := r.ParseForm(); err != nil {
++			t.Errorf("ParseForm: %v", err)
++		}
++		q := r.URL.Query()
++		if r.URL.Path != "/api.php" || q.Get("act") != "order" || q.Get("pid") != "1001" || q.Get("key") != "pkey-1" || q.Get("out_trade_no") != "sub2_ORDER1" {
++			t.Errorf("unexpected query request: path=%s query=%v", r.URL.Path, q)
++		}
++		w.WriteHeader(status)
++		_, _ = w.Write([]byte(body))
++	}))
++	t.Cleanup(server.Close)
++	provider, err := NewEasyPay("test-instance", map[string]string{
++		"pid":       "1001",
++		"pkey":      "pkey-1",
++		"apiBase":   server.URL,
++		"notifyUrl": "https://example.com/notify",
++		"returnUrl": "https://example.com/return",
++	})
++	if err != nil {
++		t.Fatalf("NewEasyPay: %v", err)
++	}
++	return provider, &calls
++}
++
++func confirmTestNotification() *payment.PaymentNotification {
++	return &payment.PaymentNotification{
++		TradeNo: "2026101600001",
++		OrderID: "sub2_ORDER1",
++		Amount:  10,
++		Status:  payment.NotificationStatusSuccess,
++	}
++}
++
++func TestEasyPayConfirmNotification(t *testing.T) {
++	t.Parallel()
++
++	tests := []struct {
++		name        string
++		body        string
++		status      int
++		notifyTrade string
++		wantErr     string
++		wantTradeNo string
++	}{
++		{
++			name:        "paid with matching amount and trade_no",
++			body:        `{"code":1,"pid":1001,"out_trade_no":"sub2_ORDER1","trade_no":"2026101600001","money":"10.00","status":1}`,
++			notifyTrade: "2026101600001",
++			wantTradeNo: "2026101600001",
++		},
++		{
++			name:        "missing notify trade_no is filled from upstream",
++			body:        `{"code":1,"trade_no":"2026101600001","money":"10.00","trade_status":"TRADE_SUCCESS"}`,
++			wantTradeNo: "2026101600001",
++		},
++		{
++			name:        "upstream not paid",
++			body:        `{"code":1,"trade_no":"2026101600001","money":"10.00","status":0}`,
++			notifyTrade: "2026101600001",
++			wantErr:     "not paid",
++		},
++		{
++			name:        "upstream failure code with paid status",
++			body:        `{"code":-1,"msg":"订单号不存在","status":1,"money":"10.00"}`,
++			notifyTrade: "2026101600001",
++			wantErr:     "订单号不存在",
++		},
++		{
++			name:        "amount mismatch",
++			body:        `{"code":1,"trade_no":"2026101600001","money":"0.01","status":1}`,
++			notifyTrade: "2026101600001",
++			wantErr:     "amount mismatch",
++		},
++		{
++			name:        "missing upstream amount",
++			body:        `{"code":1,"trade_no":"2026101600001","status":1}`,
++			notifyTrade: "2026101600001",
++			wantErr:     "amount mismatch",
++		},
++		{
++			name:        "trade_no conflict",
++			body:        `{"code":1,"trade_no":"2026101699999","money":"10.00","status":1}`,
++			notifyTrade: "2026101600001",
++			wantErr:     "trade_no mismatch",
++		},
++		{
++			name:        "string status from PHP deployment",
++			body:        `{"code":"1","pid":"1001","out_trade_no":"sub2_ORDER1","trade_no":"2026101600001","money":"10.00","status":"1"}`,
++			notifyTrade: "2026101600001",
++			wantTradeNo: "2026101600001",
++		},
++		{
++			name:        "foreign order echo",
++			body:        `{"code":1,"out_trade_no":"sub2_OTHER","trade_no":"2026101600001","money":"10.00","status":1}`,
++			notifyTrade: "2026101600001",
++			wantErr:     "out_trade_no mismatch",
++		},
++		{
++			name:        "upstream HTTP error body",
++			body:        `<html>502 Bad Gateway</html>`,
++			status:      http.StatusBadGateway,
++			notifyTrade: "2026101600001",
++			wantErr:     "parse query",
++		},
++	}
++	for _, tt := range tests {
++		tt := tt
++		t.Run(tt.name, func(t *testing.T) {
++			t.Parallel()
++			status := tt.status
++			if status == 0 {
++				status = http.StatusOK
++			}
++			provider, calls := newConfirmTestEasyPay(t, tt.body, status)
++			n := confirmTestNotification()
++			n.TradeNo = tt.notifyTrade
++			err := provider.ConfirmNotification(context.Background(), n)
++			if calls.Load() != 1 {
++				t.Fatalf("upstream query calls = %d, want 1", calls.Load())
++			}
++			if tt.wantErr != "" {
++				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
++					t.Fatalf("ConfirmNotification error = %v, want containing %q", err, tt.wantErr)
++				}
++				return
++			}
++			if err != nil {
++				t.Fatalf("ConfirmNotification returned error: %v", err)
++			}
++			if n.TradeNo != tt.wantTradeNo {
++				t.Fatalf("trade_no = %q, want %q", n.TradeNo, tt.wantTradeNo)
++			}
++		})
++	}
++}
++
++func TestEasyPayConfirmNotificationSkipsNonSuccess(t *testing.T) {
++	t.Parallel()
++
++	provider, calls := newConfirmTestEasyPay(t, `{}`, http.StatusOK)
++	n := confirmTestNotification()
++	n.Status = payment.ProviderStatusFailed
++	if err := provider.ConfirmNotification(context.Background(), n); err != nil {
++		t.Fatalf("ConfirmNotification returned error: %v", err)
++	}
++	if calls.Load() != 0 {
++		t.Fatalf("upstream query calls = %d, want 0", calls.Load())
++	}
++}
++
++func TestEasyPayConfirmNotificationQueryTransportError(t *testing.T) {
++	t.Parallel()
++
++	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
++	apiBase := server.URL
++	server.Close()
++	provider := newTestEasyPay(t, apiBase)
++	err := provider.ConfirmNotification(context.Background(), confirmTestNotification())
++	if err == nil {
++		t.Fatal("ConfirmNotification must fail when the upstream is unreachable")
++	}
++	// The query URL carries the merchant key; errors are logged and stored in
++	// the payment audit trail, so they must not echo the URL.
++	if strings.Contains(err.Error(), "pkey-1") || strings.Contains(err.Error(), "key=") {
++		t.Fatalf("error contains the merchant key: %v", err)
++	}
++}
++
++func TestEasyPayNotifyRejectsForeignPid(t *testing.T) {
++	t.Parallel()
++	e := easyPayPoCProvider()
++
++	for _, pid := range []string{"2000", ""} {
++		params := map[string]string{
++			"trade_no":     "T1",
++			"out_trade_no": "ORDER123",
++			"type":         "alipay",
++			"name":         "balance recharge",
++			"money":        "650.00",
++			"trade_status": tradeStatusSuccess,
++		}
++		if pid != "" {
++			params["pid"] = pid
++		}
++		params["sign"] = easyPaySign(params, e.config["pkey"])
++		q := url.Values{}
++		for k, v := range params {
++			q.Set(k, v)
++		}
++		if _, err := e.VerifyNotification(context.Background(), q.Encode(), nil); err == nil {
++			t.Fatalf("callback with pid %q must be rejected", pid)
++		}
++	}
++}
++
++func TestEasyPayNotifyAllowsFreeTextNameOnly(t *testing.T) {
++	t.Parallel()
++	e := easyPayPoCProvider()
++
++	base := map[string]string{
++		"pid":          "1000",
++		"trade_no":     "T1",
++		"out_trade_no": "ORDER123",
++		"type":         "alipay",
++		"name":         "Plan A&B = Pro",
++		"money":        "650.00",
++		"trade_status": tradeStatusSuccess,
++	}
++	encode := func(params map[string]string) string {
++		signed := map[string]string{}
++		for k, v := range params {
++			signed[k] = v
++		}
++		signed["sign"] = easyPaySign(params, e.config["pkey"])
++		q := url.Values{}
++		for k, v := range signed {
++			q.Set(k, v)
++		}
++		return q.Encode()
++	}
++	if _, err := e.VerifyNotification(context.Background(), encode(base), nil); err != nil {
++		t.Fatalf("free-text name must be accepted: %v", err)
++	}
++	for _, field := range []string{"trade_no", "out_trade_no", "type", "money", "param"} {
++		params := map[string]string{}
++		for k, v := range base {
++			params[k] = v
++		}
++		params[field] = "v&k=x"
++		if _, err := e.VerifyNotification(context.Background(), encode(params), nil); err == nil {
++			t.Fatalf("value with &/= in %s must be rejected", field)
++		}
++	}
++}
+diff --git a/backend/internal/payment/provider/easypay_query_test.go b/backend/internal/payment/provider/easypay_query_test.go
+index 5042a94d254..b6a3c6e2ee3 100644
+--- a/backend/internal/payment/provider/easypay_query_test.go
++++ b/backend/internal/payment/provider/easypay_query_test.go
+@@ -20,6 +20,7 @@ func TestEasyPayQueryOrderStatusMapping(t *testing.T) {
+ 		wantStatus  string
+ 		wantTradeNo string
+ 		wantAmount  float64
++		wantErr     bool
+ 	}{
+ 		{
+ 			name:        "top level trade success is paid",
+@@ -64,10 +65,64 @@ func TestEasyPayQueryOrderStatusMapping(t *testing.T) {
+ 			wantAmount:  3.21,
+ 		},
+ 		{
+-			name:        "query failure with missing status is pending",
+-			body:        `{"code":0,"msg":"订单不存在"}`,
++			name:    "query failure code is an error",
++			body:    `{"code":0,"msg":"订单不存在"}`,
++			wantErr: true,
++		},
++		{
++			name:    "explicit failure code wins over paid status fields",
++			body:    `{"code":-1,"msg":"签名错误","status":1,"trade_status":"TRADE_SUCCESS","money":"12.34"}`,
++			wantErr: true,
++		},
++		{
++			name:    "string failure code is an error",
++			body:    `{"code":"-1","msg":"error","status":1}`,
++			wantErr: true,
++		},
++		{
++			name:    "foreign order echo is rejected",
++			body:    `{"code":1,"pid":"pid-1","out_trade_no":"order-999","trade_status":"TRADE_SUCCESS","money":"12.34"}`,
++			wantErr: true,
++		},
++		{
++			name:    "foreign order echo in nested data is rejected",
++			body:    `{"code":1,"data":{"out_trade_no":"order-999","trade_status":"TRADE_SUCCESS","money":"12.34"}}`,
++			wantErr: true,
++		},
++		{
++			name:        "string numeric status from PHP deployments is paid",
++			body:        `{"code":"1","msg":"查询订单号成功！","trade_no":"2026101600001","out_trade_no":"order-123","pid":"1001","money":"12.34","status":"1"}`,
++			wantStatus:  payment.ProviderStatusPaid,
++			wantTradeNo: "2026101600001",
++			wantAmount:  12.34,
++		},
++		{
++			name:        "string numeric unpaid status is pending",
++			body:        `{"code":1,"trade_no":"2026101600001","money":"12.34","status":"0"}`,
+ 			wantStatus:  payment.ProviderStatusPending,
+-			wantTradeNo: orderID,
++			wantTradeNo: "2026101600001",
++			wantAmount:  12.34,
++		},
++		{
++			name:        "documented caihong response with integer pid and status is paid",
++			body:        `{"code":1,"msg":"查询订单号成功！","trade_no":"2016080622555342651","out_trade_no":"order-123","api_trade_no":"4200001","type":"alipay","pid":1001,"addtime":"2016-08-06 22:55:52","endtime":"2016-08-06 22:55:52","name":"VIP会员","money":"1.00","status":1,"param":"","buyer":""}`,
++			wantStatus:  payment.ProviderStatusPaid,
++			wantTradeNo: "2016080622555342651",
++			wantAmount:  1,
++		},
++		{
++			name:        "null top-level fields fall back to nested data",
++			body:        `{"code":1,"status":null,"money":null,"trade_no":null,"data":{"status":1,"money":"5.00","trade_no":"data-789"}}`,
++			wantStatus:  payment.ProviderStatusPaid,
++			wantTradeNo: "data-789",
++			wantAmount:  5,
++		},
++		{
++			name:        "matching identity echo with numeric fields is paid",
++			body:        `{"code":"1","pid":"pid-1","out_trade_no":"order-123","trade_status":"TRADE_SUCCESS","money":12.34,"trade_no":2026101600001}`,
++			wantStatus:  payment.ProviderStatusPaid,
++			wantTradeNo: "2026101600001",
++			wantAmount:  12.34,
+ 		},
+ 		{
+ 			name:        "missing fields are pending",
+@@ -93,9 +148,16 @@ func TestEasyPayQueryOrderStatusMapping(t *testing.T) {
+ 				if err := r.ParseForm(); err != nil {
+ 					t.Errorf("ParseForm: %v", err)
+ 				}
+-				gotForm = make(url.Values, len(r.PostForm))
++				// Parameters must be in the URL query (彩虹易支付 reads $_GET)
++				// and mirrored in the body for forks that read $_POST.
++				gotForm = r.URL.Query()
+ 				for key, values := range r.PostForm {
+-					gotForm[key] = append([]string(nil), values...)
++					if got := gotForm.Get(key); got != values[0] {
++						t.Errorf("body[%s] = %q, query has %q", key, values[0], got)
++					}
++				}
++				if len(r.PostForm) != len(gotForm) {
++					t.Errorf("body params %v do not mirror query params %v", r.PostForm, gotForm)
+ 				}
+ 				w.Header().Set("Content-Type", "application/json")
+ 				_, _ = w.Write([]byte(tt.body))
+@@ -104,6 +166,12 @@ func TestEasyPayQueryOrderStatusMapping(t *testing.T) {
+ 
+ 			provider := newTestEasyPay(t, server.URL)
+ 			resp, err := provider.QueryOrder(context.Background(), orderID)
++			if tt.wantErr {
++				if err == nil {
++					t.Fatalf("QueryOrder succeeded, want error (response=%+v)", resp)
++				}
++				return
++			}
+ 			if err != nil {
+ 				t.Fatalf("QueryOrder returned error: %v", err)
+ 			}
+diff --git a/backend/internal/payment/types.go b/backend/internal/payment/types.go
+index 8806f669b19..dc3ec58ff3c 100644
+--- a/backend/internal/payment/types.go
++++ b/backend/internal/payment/types.go
+@@ -239,6 +239,16 @@ type RefundQueryProvider interface {
+ 	QueryRefund(ctx context.Context, req RefundQueryRequest) (*RefundResponse, error)
+ }
+ 
++// NotificationConfirmer extends Provider for gateways whose verified
++// notifications are not sufficient proof of payment on their own. The webhook
++// path calls ConfirmNotification on the instance that verified the
++// notification before fulfillment; implementations query the upstream order
++// and may fill in missing notification fields (e.g. TradeNo) from it.
++type NotificationConfirmer interface {
++	Provider
++	ConfirmNotification(ctx context.Context, n *PaymentNotification) error
++}
++
+ // CancelableProvider extends Provider with the ability to cancel pending payments.
+ type CancelableProvider interface {
+ 	Provider
+diff --git a/backend/internal/service/payment_fulfillment.go b/backend/internal/service/payment_fulfillment.go
+index e405ce9840f..623ee227238 100644
+--- a/backend/internal/service/payment_fulfillment.go
++++ b/backend/internal/service/payment_fulfillment.go
+@@ -18,6 +18,7 @@ import (
+ 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
+ 	"github.com/Wei-Shaw/sub2api/internal/payment"
+ 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
++	"github.com/Wei-Shaw/sub2api/internal/pkg/servertiming"
+ )
+ 
+ // ErrOrderNotFound is returned by HandlePaymentNotification when the webhook
+@@ -56,6 +57,33 @@ func (s *PaymentService) HandlePaymentNotification(ctx context.Context, n *payme
+ 	return s.confirmPayment(ctx, order.ID, n.TradeNo, n.Amount, pk, n.Metadata)
+ }
+ 
++// ConfirmNotificationUpstream asks providers that implement
++// payment.NotificationConfirmer to confirm a verified success notification
++// against the upstream order, using the same instance that verified it.
++// Failures are recorded on the order's audit trail and returned so the webhook
++// answers non-success and the gateway retries.
++func (s *PaymentService) ConfirmNotificationUpstream(ctx context.Context, prov payment.Provider, n *payment.PaymentNotification) error {
++	confirmer, ok := prov.(payment.NotificationConfirmer)
++	if !ok || n == nil || n.Status != payment.NotificationStatusSuccess {
++		return nil
++	}
++	notifiedTradeNo := n.TradeNo
++	finishProviderCall := servertiming.ObserveDependency(ctx, "payment")
++	err := confirmer.ConfirmNotification(ctx, n)
++	finishProviderCall()
++	if err == nil {
++		return nil
++	}
++	if order, lookupErr := s.entClient.PaymentOrder.Query().Where(paymentorder.OutTradeNo(n.OrderID)).Only(ctx); lookupErr == nil {
++		s.writeAuditLog(ctx, order.ID, "PAYMENT_UPSTREAM_UNCONFIRMED", prov.ProviderKey(), map[string]any{
++			"detail":  err.Error(),
++			"tradeNo": notifiedTradeNo,
++			"amount":  n.Amount,
++		})
++	}
++	return err
++}
++
+ func parseLegacyPaymentOrderID(orderID string, lookupErr error) (int64, bool) {
+ 	if !dbent.IsNotFound(lookupErr) {
+ 		return 0, false
+diff --git a/backend/internal/service/payment_notification_confirm_test.go b/backend/internal/service/payment_notification_confirm_test.go
+new file mode 100644
+index 00000000000..66bf0895928
+--- /dev/null
++++ b/backend/internal/service/payment_notification_confirm_test.go
+@@ -0,0 +1,101 @@
++//go:build unit
++
++package service
++
++import (
++	"context"
++	"errors"
++	"strconv"
++	"testing"
++	"time"
++
++	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
++	"github.com/Wei-Shaw/sub2api/internal/payment"
++	"github.com/stretchr/testify/require"
++)
++
++type paymentConfirmTestProvider struct {
++	paymentFulfillmentTestProvider
++	err   error
++	calls *int
++}
++
++func (p paymentConfirmTestProvider) ConfirmNotification(_ context.Context, n *payment.PaymentNotification) error {
++	*p.calls++
++	if p.err == nil && n.TradeNo == "" {
++		n.TradeNo = "upstream-trade"
++	}
++	return p.err
++}
++
++func TestConfirmNotificationUpstreamRecordsAuditOnFailure(t *testing.T) {
++	ctx := context.Background()
++	client := newPaymentConfigServiceTestClient(t)
++	user, err := client.User.Create().
++		SetEmail("confirm-upstream@example.com").
++		SetPasswordHash("hash").
++		SetUsername("confirm-upstream-user").
++		Save(ctx)
++	require.NoError(t, err)
++	order, err := client.PaymentOrder.Create().
++		SetUserID(user.ID).
++		SetUserEmail(user.Email).
++		SetUserName(user.Username).
++		SetAmount(10).
++		SetPayAmount(10).
++		SetFeeRate(0).
++		SetRechargeCode("PAY-CONFIRM-UPSTREAM").
++		SetOutTradeNo("sub2_confirm_upstream").
++		SetPaymentType(payment.TypeAlipay).
++		SetPaymentTradeNo("").
++		SetOrderType(payment.OrderTypeBalance).
++		SetStatus(OrderStatusPending).
++		SetExpiresAt(time.Now().Add(time.Hour)).
++		SetClientIP("127.0.0.1").
++		SetSrcHost("api.example.com").
++		Save(ctx)
++	require.NoError(t, err)
++
++	svc := &PaymentService{entClient: client}
++	calls := 0
++	prov := paymentConfirmTestProvider{
++		paymentFulfillmentTestProvider: paymentFulfillmentTestProvider{key: payment.TypeEasyPay},
++		err:                            errors.New("easypay confirm: upstream reports order sub2_confirm_upstream as not paid"),
++		calls:                          &calls,
++	}
++	n := &payment.PaymentNotification{OrderID: order.OutTradeNo, TradeNo: "T-unconfirmed", Amount: 10, Status: payment.NotificationStatusSuccess}
++
++	err = svc.ConfirmNotificationUpstream(ctx, prov, n)
++	require.Error(t, err)
++	require.Equal(t, 1, calls)
++
++	count, err := client.PaymentAuditLog.Query().
++		Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(order.ID, 10)), paymentauditlog.ActionEQ("PAYMENT_UPSTREAM_UNCONFIRMED")).
++		Count(ctx)
++	require.NoError(t, err)
++	require.Equal(t, 1, count)
++
++	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
++	require.NoError(t, err)
++	require.Equal(t, OrderStatusPending, reloaded.Status)
++}
++
++func TestConfirmNotificationUpstreamPassThrough(t *testing.T) {
++	svc := &PaymentService{}
++	n := &payment.PaymentNotification{OrderID: "sub2_x", Amount: 10, Status: payment.NotificationStatusSuccess}
++
++	// Providers without the confirmer capability keep their existing flow.
++	require.NoError(t, svc.ConfirmNotificationUpstream(context.Background(), paymentFulfillmentTestProvider{key: payment.TypeStripe}, n))
++
++	calls := 0
++	prov := paymentConfirmTestProvider{paymentFulfillmentTestProvider: paymentFulfillmentTestProvider{key: payment.TypeEasyPay}, calls: &calls}
++
++	// Non-success notifications are never fulfilled, so they are not queried.
++	failed := &payment.PaymentNotification{OrderID: "sub2_x", Status: payment.ProviderStatusFailed}
++	require.NoError(t, svc.ConfirmNotificationUpstream(context.Background(), prov, failed))
++	require.Equal(t, 0, calls)
++
++	require.NoError(t, svc.ConfirmNotificationUpstream(context.Background(), prov, n))
++	require.Equal(t, 1, calls)
++	require.Equal(t, "upstream-trade", n.TradeNo)
++}
+diff --git a/backend/internal/service/payment_resume_service.go b/backend/internal/service/payment_resume_service.go
+index 7bc76c80096..3928b64988d 100644
+--- a/backend/internal/service/payment_resume_service.go
++++ b/backend/internal/service/payment_resume_service.go
+@@ -244,7 +244,16 @@ func CanonicalizeReturnURL(raw string, srcHost string, srcURL string) (string, e
+ 	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+ 		return "", infraerrors.BadRequest("INVALID_RETURN_URL", "return_url must use http or https")
+ 	}
++	// The return URL is handed to payment gateways verbatim: keep it to a
++	// plain hostname or IP literal and the canonical path, without userinfo.
++	if parsed.User != nil {
++		return "", infraerrors.BadRequest("INVALID_RETURN_URL", "return_url must not contain user info")
++	}
++	if !isPlainReturnURLHost(parsed.Hostname()) {
++		return "", infraerrors.BadRequest("INVALID_RETURN_URL", "return_url host is invalid")
++	}
+ 	parsed.Fragment = ""
++	parsed.RawPath = ""
+ 	// Client-supplied query parameters are dropped: buildPaymentReturnURL adds
+ 	// its own signed set, and user-controlled pairs such as
+ 	// "trade_status=TRADE_SUCCESS" inside the signed return_url value can be
+@@ -264,6 +273,25 @@ func CanonicalizeReturnURL(raw string, srcHost string, srcURL string) (string, e
+ 	return parsed.String(), nil
+ }
+ 
++// isPlainReturnURLHost reports whether host is an IP literal or a hostname
++// made only of letters, digits, '.', '-' and '_'.
++func isPlainReturnURLHost(host string) bool {
++	if host == "" {
++		return false
++	}
++	if net.ParseIP(host) != nil {
++		return true
++	}
++	for _, c := range host {
++		switch {
++		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9', c == '.', c == '-', c == '_':
++		default:
++			return false
++		}
++	}
++	return true
++}
++
+ func allowedReturnURLHost(returnURLHost string, requestHost string, refererURL string) bool {
+ 	if sameOriginHost(returnURLHost, requestHost) {
+ 		return true
+diff --git a/backend/internal/service/payment_resume_service_test.go b/backend/internal/service/payment_resume_service_test.go
+index 54b85b4a374..f4e66c89912 100644
+--- a/backend/internal/service/payment_resume_service_test.go
++++ b/backend/internal/service/payment_resume_service_test.go
+@@ -109,6 +109,42 @@ func TestCanonicalizeReturnURLStripsSmuggledTradeStatus(t *testing.T) {
+ 	}
+ }
+ 
++func TestCanonicalizeReturnURLRejectsNonPlainHostAndUserinfo(t *testing.T) {
++	t.Parallel()
++
++	badHost := "a&b=c.example.com"
++	cases := []struct {
++		name    string
++		raw     string
++		srcHost string
++		srcURL  string
++	}{
++		{"host matched via referer", "https://" + badHost + "/payment/result", "app.example.com", "https://" + badHost + "/purchase"},
++		{"host matched via request host", "https://" + badHost + "/payment/result", badHost, ""},
++		{"userinfo", "https://a&b=c@app.example.com/payment/result", "app.example.com", ""},
++	}
++	for _, tc := range cases {
++		if got, err := CanonicalizeReturnURL(tc.raw, tc.srcHost, tc.srcURL); err == nil {
++			t.Fatalf("%s: CanonicalizeReturnURL accepted %q", tc.name, got)
++		}
++	}
++}
++
++func TestCanonicalizeReturnURLAllowsIPAndPortHosts(t *testing.T) {
++	t.Parallel()
++
++	for _, raw := range []string{
++		"http://127.0.0.1:3000/payment/result",
++		"http://[::1]:8080/payment/result",
++		"https://pay_site-1.example.com/payment/result",
++	} {
++		parsed, _ := url.Parse(raw)
++		if _, err := CanonicalizeReturnURL(raw, parsed.Host, ""); err != nil {
++			t.Fatalf("CanonicalizeReturnURL(%q) returned error: %v", raw, err)
++		}
++	}
++}
++
+ func TestCanonicalizeReturnURLRejectsRelativeURL(t *testing.T) {
+ 	t.Parallel()
+ 

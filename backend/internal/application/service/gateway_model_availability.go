@@ -21,7 +21,8 @@ type ModelAvailabilityDiagnosis struct {
 	HasAccountsInPool bool
 	// HasModelSupport is true if at least one account's model mapping admits
 	// the requested model.
-	HasModelSupport bool
+	HasModelSupport             bool
+	HasRetiredSubscriptionModel bool
 	// AllModelSupportingAccountsRateLimited is true when every account that
 	// could serve the requested model is currently blocked by a global upstream
 	// rate-limit cooldown.

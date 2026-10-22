@@ -1,0 +1,1453 @@
+diff --git a/backend/internal/payment/provider/alipay.go b/backend/internal/payment/provider/alipay.go
+index 42a938717175..dbd0e9cccba0 100644
+--- a/backend/internal/payment/provider/alipay.go
++++ b/backend/internal/payment/provider/alipay.go
+@@ -10,6 +10,7 @@ import (
+ 	"time"
+ 
+ 	"github.com/Wei-Shaw/sub2api/internal/payment"
++	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+ 	"github.com/smartwalle/alipay/v3"
+ )
+ 
+@@ -24,7 +25,10 @@ const (
+ const (
+ 	alipayFundChangeYes    = "Y"
+ 	alipayErrTradeNotExist = "ACQ.TRADE_NOT_EXIST"
+-	alipayRefundSuffix     = "-refund"
++	alipayRefundStatusSucc = "REFUND_SUCCESS"
++	alipayRefundRequestSep = "-refund-"
++	// 支付宝提示退款发起后过早查询可能查不到、之后又处理成功；超过该时长仍无记录才判定失败。
++	alipayRefundQueryNotFoundGrace = 10 * time.Minute
+ )
+ 
+ var (
+@@ -37,6 +41,12 @@ var (
+ 	alipayTradePagePay = func(client *alipay.Client, param alipay.TradePagePay) (*url.URL, error) {
+ 		return client.TradePagePay(param)
+ 	}
++	alipayTradeRefund = func(ctx context.Context, client *alipay.Client, param alipay.TradeRefund) (*alipay.TradeRefundRsp, error) {
++		return client.TradeRefund(ctx, param)
++	}
++	alipayTradeFastPayRefundQuery = func(ctx context.Context, client *alipay.Client, param alipay.TradeFastPayRefundQuery) (*alipay.TradeFastPayRefundQueryRsp, error) {
++		return client.TradeFastPayRefundQuery(ctx, param)
++	}
+ )
+ 
+ // Alipay implements payment.Provider and payment.CancelableProvider using the smartwalle/alipay SDK.
+@@ -338,32 +348,76 @@ func (a *Alipay) Refund(ctx context.Context, req payment.RefundRequest) (*paymen
+ 		return nil, err
+ 	}
+ 
+-	result, err := client.TradeRefund(ctx, alipay.TradeRefund{
++	outRequestNo := fmt.Sprintf("%s%s%d", req.OrderID, alipayRefundRequestSep, time.Now().UnixNano())
++	result, err := alipayTradeRefund(ctx, client, alipay.TradeRefund{
+ 		OutTradeNo:   req.OrderID,
+ 		RefundAmount: req.Amount,
+ 		RefundReason: req.Reason,
+-		OutRequestNo: fmt.Sprintf("%s-refund-%d", req.OrderID, time.Now().UnixNano()),
++		OutRequestNo: outRequestNo,
+ 	})
+ 	if err != nil {
+ 		return nil, fmt.Errorf("alipay TradeRefund: %w", err)
+ 	}
++	if result == nil {
++		return nil, fmt.Errorf("alipay TradeRefund: empty response")
++	}
+ 
+ 	refundStatus := payment.ProviderStatusPending
+ 	if result.FundChange == alipayFundChangeYes {
+ 		refundStatus = payment.ProviderStatusSuccess
+ 	}
+ 
+-	refundID := result.TradeNo
+-	if refundID == "" {
+-		refundID = req.OrderID + alipayRefundSuffix
+-	}
+-
++	// fund_change != Y 时需凭退款请求号查询终态，因此 RefundID 记录 out_request_no。
+ 	return &payment.RefundResponse{
+-		RefundID: refundID,
++		RefundID: outRequestNo,
+ 		Status:   refundStatus,
+ 	}, nil
+ }
+ 
++// QueryRefund 通过 alipay.trade.fastpay.refund.query 查询退款终态。refund_status 为 REFUND_SUCCESS
++// 表示成功；退款发起超过宽限期仍查不到记录表示支付宝未受理或退款失败；其余情况视为仍在处理中。
++func (a *Alipay) QueryRefund(ctx context.Context, req payment.RefundQueryRequest) (*payment.RefundResponse, error) {
++	orderID := strings.TrimSpace(req.OrderID)
++	outRequestNo := strings.TrimSpace(req.RefundID)
++	// 旧版本把支付宝交易号记为 RefundID，无法据此查询退款请求，只能人工核实。
++	if orderID == "" || !strings.HasPrefix(outRequestNo, orderID+alipayRefundRequestSep) {
++		return nil, infraerrors.BadRequest("REFUND_QUERY_UNSUPPORTED", "this refund was issued without a queryable refund request number; please verify manually")
++	}
++	client, err := a.getClient()
++	if err != nil {
++		return nil, err
++	}
++	result, err := alipayTradeFastPayRefundQuery(ctx, client, alipay.TradeFastPayRefundQuery{
++		OutTradeNo:   orderID,
++		OutRequestNo: outRequestNo,
++	})
++	if err != nil {
++		return nil, fmt.Errorf("alipay query refund: %w", err)
++	}
++	if result == nil {
++		return nil, fmt.Errorf("alipay query refund: empty response")
++	}
++	// SDK 对带签名的业务失败响应（如 ACQ.SYSTEM_ERROR）不返回 error，字段为空；
++	// 不检查错误码会被误判为"无退款记录"而失败收尾。
++	if result.IsFailure() {
++		return nil, fmt.Errorf("alipay query refund: %w", result.Error)
++	}
++
++	status := payment.ProviderStatusPending
++	switch {
++	case strings.TrimSpace(result.RefundStatus) == alipayRefundStatusSucc:
++		status = payment.ProviderStatusSuccess
++	case strings.TrimSpace(result.OutRequestNo) == "" && strings.TrimSpace(result.RefundAmount) == "" &&
++		alipayRefundAbsenceIsFinal(req.RequestedAt, time.Now()):
++		status = payment.ProviderStatusFailed
++	}
++	return &payment.RefundResponse{RefundID: outRequestNo, Status: status}, nil
++}
++
++func alipayRefundAbsenceIsFinal(requestedAt, now time.Time) bool {
++	return !requestedAt.IsZero() && now.Sub(requestedAt) >= alipayRefundQueryNotFoundGrace
++}
++
+ // CancelPayment closes a pending trade on Alipay.
+ func (a *Alipay) CancelPayment(ctx context.Context, tradeNo string) error {
+ 	client, err := a.getClient()
+@@ -406,5 +460,6 @@ func parseAlipayAmount(values ...string) (float64, error) {
+ var (
+ 	_ payment.Provider                 = (*Alipay)(nil)
+ 	_ payment.CancelableProvider       = (*Alipay)(nil)
++	_ payment.RefundQueryProvider      = (*Alipay)(nil)
+ 	_ payment.MerchantIdentityProvider = (*Alipay)(nil)
+ )
+diff --git a/backend/internal/payment/provider/alipay_test.go b/backend/internal/payment/provider/alipay_test.go
+index bb725f8c2f19..a2264b2eef72 100644
+--- a/backend/internal/payment/provider/alipay_test.go
++++ b/backend/internal/payment/provider/alipay_test.go
+@@ -8,6 +8,7 @@ import (
+ 	"net/url"
+ 	"strings"
+ 	"testing"
++	"time"
+ 
+ 	"github.com/Wei-Shaw/sub2api/internal/payment"
+ 	"github.com/smartwalle/alipay/v3"
+@@ -444,3 +445,129 @@ func TestParseAlipayAmount(t *testing.T) {
+ 		t.Fatal("expected error when no valid amount field exists")
+ 	}
+ }
++
++func TestAlipayRefundRecordsOutRequestNoAsRefundID(t *testing.T) {
++	origRefund := alipayTradeRefund
++	t.Cleanup(func() { alipayTradeRefund = origRefund })
++
++	for _, tc := range []struct {
++		fundChange string
++		wantStatus string
++	}{
++		{fundChange: alipayFundChangeYes, wantStatus: payment.ProviderStatusSuccess},
++		{fundChange: "N", wantStatus: payment.ProviderStatusPending},
++	} {
++		var gotOutRequestNo string
++		alipayTradeRefund = func(_ context.Context, _ *alipay.Client, param alipay.TradeRefund) (*alipay.TradeRefundRsp, error) {
++			if param.OutTradeNo != "sub2_7" || param.RefundAmount != "12.50" {
++				t.Fatalf("unexpected refund param: %+v", param)
++			}
++			gotOutRequestNo = param.OutRequestNo
++			return &alipay.TradeRefundRsp{TradeNo: "2026101522001", FundChange: tc.fundChange}, nil
++		}
++
++		provider := &Alipay{client: &alipay.Client{}}
++		resp, err := provider.Refund(context.Background(), payment.RefundRequest{OrderID: "sub2_7", Amount: "12.50", Reason: "r"})
++		if err != nil {
++			t.Fatalf("Refund() error = %v", err)
++		}
++		if resp.Status != tc.wantStatus {
++			t.Fatalf("fund_change=%s status = %q, want %q", tc.fundChange, resp.Status, tc.wantStatus)
++		}
++		if !strings.HasPrefix(gotOutRequestNo, "sub2_7-refund-") || resp.RefundID != gotOutRequestNo {
++			t.Fatalf("RefundID = %q, out_request_no = %q", resp.RefundID, gotOutRequestNo)
++		}
++	}
++}
++
++func TestAlipayQueryRefundMapsStatus(t *testing.T) {
++	origQuery := alipayTradeFastPayRefundQuery
++	t.Cleanup(func() { alipayTradeFastPayRefundQuery = origQuery })
++
++	const outRequestNo = "sub2_7-refund-1760500000000000000"
++	ok := alipay.Error{Code: alipay.CodeSuccess, Msg: "Success"}
++	settled := time.Now().Add(-alipayRefundQueryNotFoundGrace - time.Minute)
++	for _, tc := range []struct {
++		name        string
++		rsp         *alipay.TradeFastPayRefundQueryRsp
++		requestedAt time.Time
++		wantStatus  string
++	}{
++		{name: "success", rsp: &alipay.TradeFastPayRefundQueryRsp{Error: ok, OutRequestNo: outRequestNo, RefundAmount: "12.50", RefundStatus: alipayRefundStatusSucc}, requestedAt: settled, wantStatus: payment.ProviderStatusSuccess},
++		{name: "record without final status", rsp: &alipay.TradeFastPayRefundQueryRsp{Error: ok, OutRequestNo: outRequestNo, RefundAmount: "12.50"}, requestedAt: settled, wantStatus: payment.ProviderStatusPending},
++		{name: "no refund record after grace", rsp: &alipay.TradeFastPayRefundQueryRsp{Error: ok}, requestedAt: settled, wantStatus: payment.ProviderStatusFailed},
++		{name: "no refund record within grace", rsp: &alipay.TradeFastPayRefundQueryRsp{Error: ok}, requestedAt: time.Now().Add(-time.Minute), wantStatus: payment.ProviderStatusPending},
++		{name: "no refund record with unknown request time", rsp: &alipay.TradeFastPayRefundQueryRsp{Error: ok}, wantStatus: payment.ProviderStatusPending},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			alipayTradeFastPayRefundQuery = func(_ context.Context, _ *alipay.Client, param alipay.TradeFastPayRefundQuery) (*alipay.TradeFastPayRefundQueryRsp, error) {
++				if param.OutTradeNo != "sub2_7" || param.OutRequestNo != outRequestNo {
++					t.Fatalf("unexpected query param: %+v", param)
++				}
++				return tc.rsp, nil
++			}
++			provider := &Alipay{client: &alipay.Client{}}
++			resp, err := provider.QueryRefund(context.Background(), payment.RefundQueryRequest{OrderID: "sub2_7", RefundID: outRequestNo, RequestedAt: tc.requestedAt})
++			if err != nil {
++				t.Fatalf("QueryRefund() error = %v", err)
++			}
++			if resp.Status != tc.wantStatus || resp.RefundID != outRequestNo {
++				t.Fatalf("QueryRefund() = %+v, want status %q", resp, tc.wantStatus)
++			}
++		})
++	}
++}
++
++// SDK 对带签名的业务失败响应返回 err == nil，错误码只在响应体里。
++func TestAlipayQueryRefundBusinessFailureKeepsRefundPending(t *testing.T) {
++	origQuery := alipayTradeFastPayRefundQuery
++	t.Cleanup(func() { alipayTradeFastPayRefundQuery = origQuery })
++
++	for _, rspErr := range []alipay.Error{
++		{Code: "40004", Msg: "Business Failed", SubCode: "ACQ.SYSTEM_ERROR", SubMsg: "系统错误"},
++		{Code: "20000", Msg: "Service Currently Unavailable", SubCode: "isp.unknow-error"},
++		{},
++	} {
++		alipayTradeFastPayRefundQuery = func(context.Context, *alipay.Client, alipay.TradeFastPayRefundQuery) (*alipay.TradeFastPayRefundQueryRsp, error) {
++			return &alipay.TradeFastPayRefundQueryRsp{Error: rspErr}, nil
++		}
++		provider := &Alipay{client: &alipay.Client{}}
++		resp, err := provider.QueryRefund(context.Background(), payment.RefundQueryRequest{
++			OrderID:     "sub2_7",
++			RefundID:    "sub2_7-refund-1",
++			RequestedAt: time.Now().Add(-24 * time.Hour),
++		})
++		if err == nil {
++			t.Fatalf("code %q: QueryRefund() = %+v, want error", rspErr.Code, resp)
++		}
++		if rspErr.SubCode != "" && !strings.Contains(err.Error(), string(rspErr.Code)) {
++			t.Fatalf("code %q: error %q should carry the gateway code", rspErr.Code, err)
++		}
++	}
++}
++
++func TestAlipayQueryRefundErrorsKeepRefundPending(t *testing.T) {
++	origQuery := alipayTradeFastPayRefundQuery
++	t.Cleanup(func() { alipayTradeFastPayRefundQuery = origQuery })
++
++	calls := 0
++	alipayTradeFastPayRefundQuery = func(context.Context, *alipay.Client, alipay.TradeFastPayRefundQuery) (*alipay.TradeFastPayRefundQueryRsp, error) {
++		calls++
++		return nil, errors.New("ACQ.SYSTEM_ERROR")
++	}
++	provider := &Alipay{client: &alipay.Client{}}
++
++	// 旧版本记录的是支付宝交易号，无法查询退款请求，需人工核实，且不能调用网关。
++	for _, legacyID := range []string{"", "2026101522001", "sub2_7-refund", "sub2_70-refund-1"} {
++		if _, err := provider.QueryRefund(context.Background(), payment.RefundQueryRequest{OrderID: "sub2_7", RefundID: legacyID}); err == nil || !strings.Contains(err.Error(), "verify manually") {
++			t.Fatalf("legacy refund id %q: err = %v", legacyID, err)
++		}
++	}
++	if calls != 0 {
++		t.Fatalf("legacy refund ids must not reach the gateway, calls = %d", calls)
++	}
++
++	if _, err := provider.QueryRefund(context.Background(), payment.RefundQueryRequest{OrderID: "sub2_7", RefundID: "sub2_7-refund-1"}); err == nil {
++		t.Fatal("gateway error must be returned so the refund stays pending")
++	}
++}
+diff --git a/backend/internal/payment/types.go b/backend/internal/payment/types.go
+index 6421c4afed00..8806f669b194 100644
+--- a/backend/internal/payment/types.go
++++ b/backend/internal/payment/types.go
+@@ -2,7 +2,10 @@
+ // registry, load balancing, and shared utilities for the payment subsystem.
+ package payment
+ 
+-import "context"
++import (
++	"context"
++	"time"
++)
+ 
+ // PaymentType represents a supported payment method.
+ type PaymentType = string
+@@ -192,6 +195,8 @@ type RefundQueryRequest struct {
+ 	OrderID  string
+ 	RefundID string
+ 	Amount   string
++	// RequestedAt 为退款进入 pending 的时间；零值表示未知。
++	RequestedAt time.Time
+ }
+ 
+ // RefundResponse is returned after a refund request.
+diff --git a/backend/internal/service/payment_fulfillment.go b/backend/internal/service/payment_fulfillment.go
+index 4c363d3e0373..e405ce9840ff 100644
+--- a/backend/internal/service/payment_fulfillment.go
++++ b/backend/internal/service/payment_fulfillment.go
+@@ -218,10 +218,38 @@ func (s *PaymentService) executeFulfillment(ctx context.Context, oid int64) erro
+ 	if err != nil {
+ 		return fmt.Errorf("get order: %w", err)
+ 	}
+-	if o.OrderType == payment.OrderTypeSubscription {
++	switch o.OrderType {
++	case payment.OrderTypeSubscription:
+ 		return s.ExecuteSubscriptionFulfillment(ctx, oid)
++	case payment.OrderTypeBalance:
++		return s.ExecuteBalanceFulfillment(ctx, oid)
++	default:
++		// 不支持的订单类型不履约：标记 FAILED 后正常返回，避免支付回调持续 500 重试。
++		s.rejectUnsupportedOrderType(ctx, o)
++		return nil
++	}
++}
++
++func isSupportedPaymentOrderType(orderType string) bool {
++	return orderType == payment.OrderTypeBalance || orderType == payment.OrderTypeSubscription
++}
++
++func (s *PaymentService) rejectUnsupportedOrderType(ctx context.Context, o *dbent.PaymentOrder) {
++	reason := "unsupported order type: " + o.OrderType
++	c, err := s.entClient.PaymentOrder.Update().
++		Where(
++			paymentorder.IDEQ(o.ID),
++			paymentorder.StatusIn(OrderStatusPaid, OrderStatusRecharging),
++		).
++		SetStatus(OrderStatusFailed).SetFailedAt(time.Now()).SetFailedReason(reason).Save(ctx)
++	if err != nil {
++		slog.Error("mark unsupported order type FAILED", "orderID", o.ID, "error", err)
++		return
++	}
++	if c > 0 {
++		slog.Warn("payment order with unsupported order type not fulfilled", "orderID", o.ID, "orderType", o.OrderType)
++		s.writeAuditLog(ctx, o.ID, "FULFILLMENT_FAILED", "system", map[string]any{"reason": reason})
+ 	}
+-	return s.ExecuteBalanceFulfillment(ctx, oid)
+ }
+ 
+ func (s *PaymentService) ExecuteBalanceFulfillment(ctx context.Context, oid int64) error {
+@@ -229,6 +257,9 @@ func (s *PaymentService) ExecuteBalanceFulfillment(ctx context.Context, oid int6
+ 	if err != nil {
+ 		return infraerrors.NotFound("NOT_FOUND", "order not found")
+ 	}
++	if o.OrderType != payment.OrderTypeBalance {
++		return infraerrors.BadRequest("INVALID_ORDER_TYPE", "order is not a balance order")
++	}
+ 	if o.Status == OrderStatusCompleted {
+ 		return nil
+ 	}
+@@ -885,6 +916,9 @@ func (s *PaymentService) RetryFulfillment(ctx context.Context, oid int64) error
+ 	if o.Status != OrderStatusFailed && o.Status != OrderStatusPaid && o.Status != OrderStatusRecharging {
+ 		return infraerrors.BadRequest("INVALID_STATUS", "only paid, failed, and recoverable recharging orders can retry")
+ 	}
++	if !isSupportedPaymentOrderType(o.OrderType) {
++		return infraerrors.BadRequest("INVALID_ORDER_TYPE", "unsupported order type")
++	}
+ 	s.writeAuditLog(ctx, oid, "RECHARGE_RETRY", "admin", map[string]any{"detail": "admin manual retry"})
+ 	return s.executeFulfillment(ctx, oid)
+ }
+diff --git a/backend/internal/service/payment_order.go b/backend/internal/service/payment_order.go
+index becefc6a1a02..3ddd9fec47cd 100644
+--- a/backend/internal/service/payment_order.go
++++ b/backend/internal/service/payment_order.go
+@@ -120,11 +120,16 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
+ }
+ 
+ func (s *PaymentService) validateOrderInput(ctx context.Context, req CreateOrderRequest, cfg *PaymentConfig) (*dbent.SubscriptionPlan, error) {
+-	if req.OrderType == payment.OrderTypeBalance && cfg.BalanceDisabled {
+-		return nil, infraerrors.Forbidden("BALANCE_PAYMENT_DISABLED", "balance recharge has been disabled")
+-	}
+-	if req.OrderType == payment.OrderTypeSubscription {
++	// 订单类型必须走白名单：未知类型会跳过充值开关与倍率计算，履约时却仍按余额到账。
++	switch req.OrderType {
++	case payment.OrderTypeBalance:
++		if cfg.BalanceDisabled {
++			return nil, infraerrors.Forbidden("BALANCE_PAYMENT_DISABLED", "balance recharge has been disabled")
++		}
++	case payment.OrderTypeSubscription:
+ 		return s.validateSubOrder(ctx, req)
++	default:
++		return nil, infraerrors.BadRequest("INVALID_ORDER_TYPE", "unsupported order type")
+ 	}
+ 	if math.IsNaN(req.Amount) || math.IsInf(req.Amount, 0) || req.Amount <= 0 {
+ 		return nil, infraerrors.BadRequest("INVALID_AMOUNT", "amount must be a positive number")
+diff --git a/backend/internal/service/payment_order_type_test.go b/backend/internal/service/payment_order_type_test.go
+new file mode 100644
+index 000000000000..e344db5de47e
+--- /dev/null
++++ b/backend/internal/service/payment_order_type_test.go
+@@ -0,0 +1,80 @@
++//go:build unit
++
++package service
++
++import (
++	"context"
++	"strconv"
++	"testing"
++	"time"
++
++	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
++	"github.com/Wei-Shaw/sub2api/internal/payment"
++	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
++	"github.com/stretchr/testify/require"
++)
++
++func TestValidateOrderInputRejectsUnknownOrderType(t *testing.T) {
++	svc := &PaymentService{}
++	for _, orderType := range []string{"x", "Balance", " balance", "subscription "} {
++		for _, disabled := range []bool{false, true} {
++			cfg := &PaymentConfig{BalanceDisabled: disabled}
++			plan, err := svc.validateOrderInput(context.Background(), CreateOrderRequest{OrderType: orderType, Amount: 10}, cfg)
++			require.Nil(t, plan)
++			require.Error(t, err, "order type %q must be rejected", orderType)
++			require.Equal(t, "INVALID_ORDER_TYPE", infraerrors.Reason(err), "order type %q", orderType)
++		}
++	}
++}
++
++func TestValidateOrderInputKeepsBalanceDisabledSwitch(t *testing.T) {
++	svc := &PaymentService{}
++	_, err := svc.validateOrderInput(context.Background(), CreateOrderRequest{OrderType: payment.OrderTypeBalance, Amount: 10}, &PaymentConfig{BalanceDisabled: true})
++	require.Equal(t, "BALANCE_PAYMENT_DISABLED", infraerrors.Reason(err))
++
++	plan, err := svc.validateOrderInput(context.Background(), CreateOrderRequest{OrderType: payment.OrderTypeBalance, Amount: 10}, &PaymentConfig{})
++	require.NoError(t, err)
++	require.Nil(t, plan)
++}
++
++func TestFulfillmentRejectsUnknownOrderType(t *testing.T) {
++	ctx := context.Background()
++	client := newPaymentConfigServiceTestClient(t)
++	order := createPaymentFulfillmentSubscriptionOrder(t, ctx, client, OrderStatusPaid, time.Now())
++	order, err := client.PaymentOrder.UpdateOneID(order.ID).
++		SetOrderType("x").
++		ClearPlanID().
++		ClearSubscriptionGroupID().
++		ClearSubscriptionDays().
++		Save(ctx)
++	require.NoError(t, err)
++
++	userRepo := &mockUserRepo{getByIDUser: &User{ID: order.UserID}}
++	userRepo.updateBalanceFn = func(context.Context, int64, float64) error {
++		t.Fatal("unknown order type must not credit balance")
++		return nil
++	}
++	svc := &PaymentService{entClient: client, userRepo: userRepo}
++
++	err = svc.ExecuteBalanceFulfillment(ctx, order.ID)
++	require.Equal(t, "INVALID_ORDER_TYPE", infraerrors.Reason(err))
++
++	// 不履约，但标记 FAILED 并正常返回，使支付回调得到确认而不是无限重试。
++	require.NoError(t, svc.executeFulfillment(ctx, order.ID))
++	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
++	require.NoError(t, err)
++	require.Equal(t, OrderStatusFailed, reloaded.Status)
++	require.NotNil(t, reloaded.FailedReason)
++	require.Contains(t, *reloaded.FailedReason, "unsupported order type")
++
++	// 回调重试经 alreadyProcessed 再次进入履约：幂等，不重复写审计。
++	require.NoError(t, svc.executeFulfillment(ctx, order.ID))
++	audits, err := client.PaymentAuditLog.Query().
++		Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(order.ID, 10)), paymentauditlog.ActionEQ("FULFILLMENT_FAILED")).
++		Count(ctx)
++	require.NoError(t, err)
++	require.Equal(t, 1, audits)
++
++	err = svc.RetryFulfillment(ctx, order.ID)
++	require.Equal(t, "INVALID_ORDER_TYPE", infraerrors.Reason(err))
++}
+diff --git a/backend/internal/service/payment_refund.go b/backend/internal/service/payment_refund.go
+index e49c54ec5997..d4e313be8acb 100644
+--- a/backend/internal/service/payment_refund.go
++++ b/backend/internal/service/payment_refund.go
+@@ -210,7 +210,8 @@ func (s *PaymentService) PrepareRefund(ctx context.Context, oid int64, amt float
+ 	if err != nil {
+ 		return nil, nil, infraerrors.NotFound("NOT_FOUND", "order not found")
+ 	}
+-	ok := []string{OrderStatusCompleted, OrderStatusRefundRequested, OrderStatusRefundPending, OrderStatusRefundFailed}
++	// REFUND_PENDING 只能通过 QueryAndFinalizeRefund 收敛：重新发起会重复扣减并向网关重复退款。
++	ok := []string{OrderStatusCompleted, OrderStatusRefundRequested, OrderStatusRefundFailed}
+ 	if !psSliceContains(ok, o.Status) {
+ 		return nil, nil, infraerrors.BadRequest("INVALID_STATUS", "order status does not allow refund")
+ 	}
+@@ -295,8 +296,16 @@ func (s *PaymentService) deductAvailableBalance(ctx context.Context, userID int6
+ 	return repo.DeductAvailableBalance(ctx, userID, amount)
+ }
+ 
++// invalidateRefundBalanceCache 退款扣减或归还余额后失效计费缓存，否则网关在缓存 TTL 内仍按旧余额放行。
++func (s *PaymentService) invalidateRefundBalanceCache(ctx context.Context, userID int64) {
++	if s.redeemService == nil {
++		return
++	}
++	s.redeemService.invalidateRedeemCaches(ctx, userID, &RedeemCode{Type: RedeemTypeBalance})
++}
++
+ func (s *PaymentService) ExecuteRefund(ctx context.Context, p *RefundPlan) (*RefundResult, error) {
+-	c, err := s.entClient.PaymentOrder.Update().Where(paymentorder.IDEQ(p.OrderID), paymentorder.StatusIn(OrderStatusCompleted, OrderStatusRefundRequested, OrderStatusRefundPending, OrderStatusRefundFailed)).SetStatus(OrderStatusRefunding).Save(ctx)
++	c, err := s.entClient.PaymentOrder.Update().Where(paymentorder.IDEQ(p.OrderID), paymentorder.StatusIn(OrderStatusCompleted, OrderStatusRefundRequested, OrderStatusRefundFailed)).SetStatus(OrderStatusRefunding).Save(ctx)
+ 	if err != nil {
+ 		return nil, fmt.Errorf("lock: %w", err)
+ 	}
+@@ -313,6 +322,7 @@ func (s *PaymentService) ExecuteRefund(ctx context.Context, p *RefundPlan) (*Ref
+ 				return nil, fmt.Errorf("deduction: %w", err)
+ 			}
+ 			p.BalanceToDeduct = deducted
++			s.invalidateRefundBalanceCache(ctx, p.Order.UserID)
+ 		} else {
+ 			slog.Warn("skipping balance deduction on retry (previous rollback failed)", "orderID", p.OrderID)
+ 			p.BalanceToDeduct = 0
+@@ -436,31 +446,37 @@ func (s *PaymentService) QueryAndFinalizeRefund(ctx context.Context, oid int64)
+ 		return nil, infraerrors.BadRequest("REFUND_QUERY_UNSUPPORTED", "this payment provider does not support refund status query; please verify manually")
+ 	}
+ 
+-	pendingDetail := s.latestRefundPendingDetail(ctx, oid)
++	pendingDetail, err := s.latestRefundPendingDetail(ctx, oid)
++	if err != nil {
++		return nil, err
++	}
+ 	finishProviderCall := servertiming.ObserveDependency(ctx, "payment")
+ 	resp, err := queryProvider.QueryRefund(ctx, payment.RefundQueryRequest{
+-		TradeNo:  o.PaymentTradeNo,
+-		OrderID:  o.OutTradeNo,
+-		RefundID: pendingDetail.RefundID,
+-		Amount:   formatGatewayRefundAmount(o.RefundAmount, o),
++		TradeNo:     o.PaymentTradeNo,
++		OrderID:     o.OutTradeNo,
++		RefundID:    pendingDetail.RefundID,
++		Amount:      formatGatewayRefundAmount(o.RefundAmount, o),
++		RequestedAt: pendingDetail.requestedAt,
+ 	})
+ 	finishProviderCall()
+ 	if err != nil {
+ 		return nil, fmt.Errorf("query refund: %w", err)
+ 	}
+-	if err := validateRefundProviderResponse(resp); err != nil {
+-		return s.finalizeRefundFailed(ctx, o, err)
+-	}
+-
+ 	plan := s.refundFinalizePlan(o)
+-	if !pendingDetail.DeductionRollbackOK {
++	switch {
++	case pendingDetail.DeductionHeld:
++		pendingDetail.applyTo(plan)
++	case !pendingDetail.DeductionRollbackOK:
+ 		plan.BalanceToDeduct = 0
+ 		plan.SubDaysToDeduct = 0
+-	} else if o.OrderType == payment.OrderTypeSubscription {
++	case o.OrderType == payment.OrderTypeSubscription:
+ 		if early := s.prepDeduct(ctx, o, plan, true); early != nil {
+ 			return early, nil
+ 		}
+ 	}
++	if err := validateRefundProviderResponse(resp); err != nil {
++		return s.finalizeRefundFailed(ctx, plan, err)
++	}
+ 	switch strings.TrimSpace(resp.Status) {
+ 	case payment.ProviderStatusSuccess, payment.ProviderStatusRefunded:
+ 		return s.finalizePendingRefundSuccess(ctx, plan)
+@@ -468,7 +484,7 @@ func (s *PaymentService) QueryAndFinalizeRefund(ctx context.Context, oid int64)
+ 		s.writeAuditLog(ctx, oid, "REFUND_QUERY_PENDING", "admin", map[string]any{"refundID": resp.RefundID})
+ 		return &RefundResult{Success: false, Warning: "gateway refund is still pending confirmation"}, nil
+ 	default:
+-		return s.finalizeRefundFailed(ctx, o, fmt.Errorf("payment refund returned unknown status: %s", strings.TrimSpace(resp.Status)))
++		return s.finalizeRefundFailed(ctx, plan, fmt.Errorf("payment refund returned unknown status: %s", strings.TrimSpace(resp.Status)))
+ 	}
+ }
+ 
+@@ -505,6 +521,9 @@ func (s *PaymentService) finalizePendingRefundSuccess(ctx context.Context, p *Re
+ 	if err = tx.Commit(); err != nil {
+ 		return nil, fmt.Errorf("commit refund finalization: %w", err)
+ 	}
++	if !p.deductionHeld && p.DeductionType == payment.DeductionTypeBalance && p.BalanceToDeduct > 0 {
++		s.invalidateRefundBalanceCache(ctx, p.Order.UserID)
++	}
+ 	return result, nil
+ }
+ 
+@@ -533,6 +552,10 @@ func (s *PaymentService) refundFinalizePlan(o *dbent.PaymentOrder) *RefundPlan {
+ }
+ 
+ func (s *PaymentService) applyRefundFinalDeduction(ctx context.Context, p *RefundPlan) error {
++	if p.deductionHeld {
++		// 进入 pending 时扣减已保留，终态成功无需再扣。
++		return nil
++	}
+ 	if p.DeductionType == payment.DeductionTypeBalance && p.BalanceToDeduct > 0 {
+ 		deducted, err := s.deductAvailableBalance(ctx, p.Order.UserID, p.BalanceToDeduct)
+ 		if err != nil {
+@@ -554,30 +577,164 @@ func (s *PaymentService) applyRefundFinalDeduction(ctx context.Context, p *Refun
+ 	return nil
+ }
+ 
+-func (s *PaymentService) finalizeRefundFailed(ctx context.Context, o *dbent.PaymentOrder, gErr error) (*RefundResult, error) {
+-	now := time.Now()
+-	_, _ = s.entClient.PaymentOrder.UpdateOneID(o.ID).SetStatus(OrderStatusRefundFailed).SetFailedAt(now).SetFailedReason(psErrMsg(gErr)).Save(ctx)
+-	s.writeAuditLog(ctx, o.ID, "REFUND_FAILED", "admin", map[string]any{"detail": psErrMsg(gErr)})
+-	return &RefundResult{Success: false, Warning: "gateway refund failed: " + psErrMsg(gErr)}, nil
++// finalizeRefundFailed 将 REFUND_PENDING 收敛为 REFUND_FAILED，并归还进入 pending 时保留的扣减。
++// 认领状态、归还扣减与审计在同一事务内完成：两者分开提交时，进程在中间退出会留下
++// 已失败但扣减未归还、且没有 REFUND_ROLLBACK_FAILED 标记的订单，重试退款会再扣一次。
++func (s *PaymentService) finalizeRefundFailed(ctx context.Context, p *RefundPlan, gErr error) (*RefundResult, error) {
++	warning := "gateway refund failed: " + psErrMsg(gErr)
++	returnErr, err := s.finalizeRefundFailedTx(ctx, p, gErr, nil)
++	if err != nil {
++		return nil, err
++	}
++	if returnErr == nil {
++		if p.deductionHeld && p.DeductionType == payment.DeductionTypeBalance && p.BalanceToDeduct > 0 {
++			s.invalidateRefundBalanceCache(ctx, p.Order.UserID)
++		}
++		return &RefundResult{Success: false, Warning: warning}, nil
++	}
++
++	// 归还失败（整个事务已回滚，订单仍为 REFUND_PENDING）：仍收敛为 REFUND_FAILED，
++	// 并同事务写入 REFUND_ROLLBACK_FAILED，使重试退款跳过扣减，避免二次扣减。
++	slog.Error("[CRITICAL] refund failed but held deduction could not be returned", "orderID", p.OrderID, "error", returnErr)
++	if _, err := s.finalizeRefundFailedTx(ctx, p, gErr, returnErr); err != nil {
++		return nil, err
++	}
++	return &RefundResult{Success: false, Warning: warning + "; refund deduction rollback failed"}, nil
++}
++
++// finalizeRefundFailedTx 在单个事务内认领 REFUND_PENDING → REFUND_FAILED。rollbackErr 为 nil 时同事务
++// 归还保留的扣减，归还失败则回滚整个事务并通过 returnErr 返回；rollbackErr 非 nil 时不再归还，
++// 改为同事务记录 REFUND_ROLLBACK_FAILED。
++func (s *PaymentService) finalizeRefundFailedTx(ctx context.Context, p *RefundPlan, gErr, rollbackErr error) (returnErr error, err error) {
++	tx, err := s.entClient.Tx(ctx)
++	if err != nil {
++		return nil, fmt.Errorf("begin refund failure finalization: %w", err)
++	}
++	committed := false
++	defer func() {
++		if !committed {
++			_ = tx.Rollback()
++		}
++	}()
++	txCtx := dbent.NewTxContext(ctx, tx)
++
++	claimed, err := tx.PaymentOrder.Update().
++		Where(paymentorder.IDEQ(p.OrderID), paymentorder.StatusEQ(OrderStatusRefundPending)).
++		SetStatus(OrderStatusRefundFailed).
++		SetFailedAt(time.Now()).
++		SetFailedReason(psErrMsg(gErr)).
++		Save(txCtx)
++	if err != nil {
++		return nil, fmt.Errorf("mark refund failed: %w", err)
++	}
++	if claimed == 0 {
++		return nil, infraerrors.Conflict("CONFLICT", "order status changed")
++	}
++
++	if p.deductionHeld && rollbackErr == nil {
++		if err := s.returnHeldRefundDeduction(txCtx, p); err != nil {
++			return err, nil
++		}
++	}
++	if rollbackErr != nil {
++		if err := createPaymentAuditLogTx(txCtx, tx.Client(), p.OrderID, "REFUND_ROLLBACK_FAILED", map[string]any{
++			"gatewayError":    psErrMsg(gErr),
++			"rollbackError":   psErrMsg(rollbackErr),
++			"balanceDeducted": p.BalanceToDeduct,
++			"subDaysDeducted": p.SubDaysToDeduct,
++		}); err != nil {
++			return nil, err
++		}
++	}
++	if err := createPaymentAuditLogTx(txCtx, tx.Client(), p.OrderID, "REFUND_FAILED", map[string]any{"detail": psErrMsg(gErr)}); err != nil {
++		return nil, err
++	}
++	if err := tx.Commit(); err != nil {
++		return nil, fmt.Errorf("commit refund failure finalization: %w", err)
++	}
++	committed = true
++	return nil, nil
+ }
+ 
++// returnHeldRefundDeduction 归还进入 REFUND_PENDING 时保留的扣减；ctx 携带事务时随事务提交或回滚。
++func (s *PaymentService) returnHeldRefundDeduction(ctx context.Context, p *RefundPlan) error {
++	if p.DeductionType == payment.DeductionTypeBalance && p.BalanceToDeduct > 0 {
++		if err := s.userRepo.UpdateBalance(ctx, p.Order.UserID, p.BalanceToDeduct); err != nil {
++			return fmt.Errorf("return held balance deduction: %w", err)
++		}
++	}
++	if p.DeductionType == payment.DeductionTypeSubscription && p.SubDaysToDeduct > 0 && p.SubscriptionID > 0 {
++		if _, err := s.subscriptionSvc.ExtendSubscription(ctx, p.SubscriptionID, p.SubDaysToDeduct); err != nil {
++			return fmt.Errorf("return held subscription deduction: %w", err)
++		}
++	}
++	return nil
++}
++
++func createPaymentAuditLogTx(ctx context.Context, client *dbent.Client, oid int64, action string, detail map[string]any) error {
++	raw, err := json.Marshal(detail)
++	if err != nil {
++		return fmt.Errorf("marshal %s audit: %w", action, err)
++	}
++	if _, err := client.PaymentAuditLog.Create().
++		SetOrderID(strconv.FormatInt(oid, 10)).
++		SetAction(action).
++		SetDetail(string(raw)).
++		SetOperator("admin").
++		Save(ctx); err != nil {
++		return fmt.Errorf("write %s audit: %w", action, err)
++	}
++	return nil
++}
++
++// refundPendingAuditDetail 记录在 REFUND_PENDING 审计日志中。DeductionHeld 为 true 表示
++// 进入 pending 时扣减被保留；旧记录没有该字段，扣减已在 pending 时归还（DeductionRollbackOK）。
+ type refundPendingAuditDetail struct {
+-	RefundID            string `json:"refundID"`
+-	DeductionRollbackOK bool   `json:"deductionRollbackOK"`
++	RefundID            string  `json:"refundID"`
++	RefundAmount        float64 `json:"refundAmount"`
++	Reason              string  `json:"reason"`
++	Force               bool    `json:"force"`
++	DeductionRollbackOK bool    `json:"deductionRollbackOK,omitempty"`
++	DeductionHeld       bool    `json:"deductionHeld,omitempty"`
++	DeductionType       string  `json:"deductionType,omitempty"`
++	BalanceDeducted     float64 `json:"balanceDeducted"`
++	SubDaysDeducted     int     `json:"subDaysDeducted"`
++	SubscriptionID      int64   `json:"subscriptionID,omitempty"`
++	// requestedAt 取自审计记录的创建时间，不参与序列化。
++	requestedAt time.Time
+ }
+ 
+-func (s *PaymentService) latestRefundPendingDetail(ctx context.Context, oid int64) refundPendingAuditDetail {
++func (d refundPendingAuditDetail) applyTo(p *RefundPlan) {
++	p.deductionHeld = true
++	p.DeductionType = d.DeductionType
++	if p.DeductionType == "" {
++		p.DeductionType = payment.DeductionTypeNone
++	}
++	p.BalanceToDeduct = d.BalanceDeducted
++	p.SubDaysToDeduct = d.SubDaysDeducted
++	p.SubscriptionID = d.SubscriptionID
++}
++
++// latestRefundPendingDetail 读取最近一次 REFUND_PENDING 审计。没有记录视为旧订单（扣减已在
++// pending 时归还）；读取或解析失败必须返回错误：误判为旧记录会让保留的扣减被重复扣减或不再归还。
++func (s *PaymentService) latestRefundPendingDetail(ctx context.Context, oid int64) (refundPendingAuditDetail, error) {
++	detail := refundPendingAuditDetail{DeductionRollbackOK: true}
+ 	logEntry, err := s.entClient.PaymentAuditLog.Query().
+ 		Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(oid, 10)), paymentauditlog.ActionEQ("REFUND_PENDING")).
+-		Order(paymentauditlog.ByCreatedAt(sql.OrderDesc())).
++		Order(paymentauditlog.ByCreatedAt(sql.OrderDesc()), paymentauditlog.ByID(sql.OrderDesc())).
+ 		First(ctx)
+-	if err != nil || logEntry == nil {
+-		return refundPendingAuditDetail{DeductionRollbackOK: true}
++	if err != nil {
++		if dbent.IsNotFound(err) {
++			return detail, nil
++		}
++		return refundPendingAuditDetail{}, fmt.Errorf("load refund pending audit: %w", err)
++	}
++	if err := json.Unmarshal([]byte(logEntry.Detail), &detail); err != nil {
++		return refundPendingAuditDetail{}, fmt.Errorf("parse refund pending audit: %w", err)
+ 	}
+-	detail := refundPendingAuditDetail{DeductionRollbackOK: true}
+-	_ = json.Unmarshal([]byte(logEntry.Detail), &detail)
+ 	detail.RefundID = strings.TrimSpace(detail.RefundID)
+-	return detail
++	detail.requestedAt = logEntry.CreatedAt
++	return detail, nil
+ }
+ 
+ // getRefundProvider creates a provider using the order's original instance config.
+@@ -644,16 +801,36 @@ func (s *PaymentService) markRefundOkTx(ctx context.Context, client *dbent.Clien
+ 	return &RefundResult{Success: true, BalanceDeducted: p.BalanceToDeduct, SubDaysDeducted: p.SubDaysToDeduct}, nil
+ }
+ 
+-func (s *PaymentService) markRefundPending(ctx context.Context, p *RefundPlan, resp *payment.RefundResponse) (*RefundResult, error) {
+-	balanceDeducted := p.BalanceToDeduct
+-	subDaysDeducted := p.SubDaysToDeduct
+-	rollbackOK := s.RollbackRefund(ctx, p, nil)
+-	if rollbackOK {
+-		p.BalanceToDeduct = 0
+-		p.SubDaysToDeduct = 0
++// markRefundPending 在网关未给出终态时保留已执行的扣减：若此时归还，用户可在 pending 期间
++// 消费这部分余额，终态成功时只能扣到剩余余额。网关确认失败后由 finalizeRefundFailed 归还。
++// 订单状态与审计记录同事务写入，确保终态收敛时能读到保留的扣减。
++func (s *PaymentService) markRefundPending(ctx context.Context, p *RefundPlan, resp *payment.RefundResponse) (_ *RefundResult, err error) {
++	detail, err := json.Marshal(refundPendingAuditDetail{
++		RefundID:        refundResponseID(resp),
++		RefundAmount:    p.RefundAmount,
++		Reason:          p.Reason,
++		Force:           p.Force,
++		DeductionHeld:   true,
++		DeductionType:   p.DeductionType,
++		BalanceDeducted: p.BalanceToDeduct,
++		SubDaysDeducted: p.SubDaysToDeduct,
++		SubscriptionID:  p.SubscriptionID,
++	})
++	if err != nil {
++		return nil, fmt.Errorf("marshal refund pending audit: %w", err)
+ 	}
+ 
+-	_, err := s.entClient.PaymentOrder.UpdateOneID(p.OrderID).
++	tx, err := s.entClient.Tx(ctx)
++	if err != nil {
++		return nil, fmt.Errorf("begin mark refund pending: %w", err)
++	}
++	defer func() {
++		if err != nil {
++			_ = tx.Rollback()
++			slog.Error("[CRITICAL] gateway refund pending but order not marked", "orderID", p.OrderID, "error", err)
++		}
++	}()
++	_, err = tx.PaymentOrder.UpdateOneID(p.OrderID).
+ 		SetStatus(OrderStatusRefundPending).
+ 		SetRefundAmount(p.RefundAmount).
+ 		SetRefundReason(p.Reason).
+@@ -665,25 +842,18 @@ func (s *PaymentService) markRefundPending(ctx context.Context, p *RefundPlan, r
+ 	if err != nil {
+ 		return nil, fmt.Errorf("mark refund pending: %w", err)
+ 	}
+-
+-	detail := map[string]any{
+-		"refundID":            refundResponseID(resp),
+-		"refundAmount":        p.RefundAmount,
+-		"reason":              p.Reason,
+-		"force":               p.Force,
+-		"balanceDeducted":     p.BalanceToDeduct,
+-		"subDaysDeducted":     p.SubDaysToDeduct,
+-		"balanceRolledBack":   balanceDeducted,
+-		"subDaysRolledBack":   subDaysDeducted,
+-		"deductionRollbackOK": rollbackOK,
++	if _, err = tx.PaymentAuditLog.Create().
++		SetOrderID(strconv.FormatInt(p.OrderID, 10)).
++		SetAction("REFUND_PENDING").
++		SetDetail(string(detail)).
++		SetOperator("admin").
++		Save(ctx); err != nil {
++		return nil, fmt.Errorf("write refund pending audit: %w", err)
+ 	}
+-	s.writeAuditLog(ctx, p.OrderID, "REFUND_PENDING", "admin", detail)
+-
+-	warning := "gateway refund is pending confirmation"
+-	if !rollbackOK {
+-		warning += "; refund deduction rollback failed"
++	if err = tx.Commit(); err != nil {
++		return nil, fmt.Errorf("commit mark refund pending: %w", err)
+ 	}
+-	return &RefundResult{Success: false, Warning: warning}, nil
++	return &RefundResult{Success: false, Warning: "gateway refund is pending confirmation"}, nil
+ }
+ 
+ func refundResponseID(resp *payment.RefundResponse) string {
+@@ -700,6 +870,7 @@ func (s *PaymentService) RollbackRefund(ctx context.Context, p *RefundPlan, gErr
+ 			s.writeAuditLog(ctx, p.OrderID, "REFUND_ROLLBACK_FAILED", "admin", map[string]any{"gatewayError": psErrMsg(gErr), "rollbackError": psErrMsg(err), "balanceDeducted": p.BalanceToDeduct})
+ 			return false
+ 		}
++		s.invalidateRefundBalanceCache(ctx, p.Order.UserID)
+ 	}
+ 	if p.DeductionType == payment.DeductionTypeSubscription && p.SubDaysToDeduct > 0 && p.SubscriptionID > 0 {
+ 		if _, err := s.subscriptionSvc.ExtendSubscription(ctx, p.SubscriptionID, p.SubDaysToDeduct); err != nil {
+diff --git a/backend/internal/service/payment_refund_pending_hold_test.go b/backend/internal/service/payment_refund_pending_hold_test.go
+new file mode 100644
+index 000000000000..ae09957e81a1
+--- /dev/null
++++ b/backend/internal/service/payment_refund_pending_hold_test.go
+@@ -0,0 +1,312 @@
++//go:build unit
++
++package service
++
++import (
++	"context"
++	"errors"
++	"math"
++	"strconv"
++	"testing"
++	"time"
++
++	dbent "github.com/Wei-Shaw/sub2api/ent"
++	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
++	"github.com/Wei-Shaw/sub2api/internal/payment"
++	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
++	"github.com/stretchr/testify/require"
++)
++
++type pendingRefundProviderTestDouble struct {
++	refundProviderTestDouble
++	queryStatus string
++	refundCalls int
++}
++
++func (p *pendingRefundProviderTestDouble) Refund(context.Context, payment.RefundRequest) (*payment.RefundResponse, error) {
++	p.refundCalls++
++	return &payment.RefundResponse{RefundID: "rf_hold", Status: payment.ProviderStatusPending}, nil
++}
++
++func (p *pendingRefundProviderTestDouble) QueryRefund(context.Context, payment.RefundQueryRequest) (*payment.RefundResponse, error) {
++	return &payment.RefundResponse{RefundID: "rf_hold", Status: p.queryStatus}, nil
++}
++
++// refundHoldWallet 模拟用户余额：DeductAvailableBalance 只能扣到当前余额。
++type refundHoldWallet struct {
++	balance      float64
++	deductCalls  int
++	restoreCalls int
++}
++
++func (w *refundHoldWallet) repo(userID int64) *mockUserRepo {
++	return &mockUserRepo{
++		getByIDUser: &User{ID: userID, Balance: w.balance},
++		deductAvailableBalanceFn: func(_ context.Context, _ int64, amount float64) (float64, error) {
++			w.deductCalls++
++			deducted := math.Min(amount, math.Max(w.balance, 0))
++			w.balance -= deducted
++			return deducted, nil
++		},
++		updateBalanceFn: func(_ context.Context, _ int64, amount float64) error {
++			w.restoreCalls++
++			w.balance += amount
++			return nil
++		},
++	}
++}
++
++func TestRefundPendingKeepsBalanceDeductedUntilGatewaySettles(t *testing.T) {
++	for _, tc := range []struct {
++		name        string
++		queryStatus string
++		wantStatus  string
++		wantBalance float64
++		wantRestore int
++	}{
++		{name: "gateway succeeds", queryStatus: payment.ProviderStatusSuccess, wantStatus: OrderStatusRefunded, wantBalance: 0},
++		{name: "gateway fails", queryStatus: payment.ProviderStatusFailed, wantStatus: OrderStatusRefundFailed, wantBalance: 100, wantRestore: 1},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			ctx := context.Background()
++			client := newPaymentConfigServiceTestClient(t)
++			order := createCompletedRefundableOrderForTest(t, ctx, client, "hold-flow")
++
++			wallet := &refundHoldWallet{balance: 100}
++			prov := &pendingRefundProviderTestDouble{queryStatus: tc.queryStatus}
++			restore := replacePaymentProviderFactoryForTest(t, prov)
++			defer restore()
++			svc := &PaymentService{entClient: client, loadBalancer: &captureLoadBalancer{}, userRepo: wallet.repo(order.UserID)}
++
++			plan, early, err := svc.PrepareRefund(ctx, order.ID, 0, "user asked", false, true)
++			require.NoError(t, err)
++			require.Nil(t, early)
++			result, err := svc.ExecuteRefund(ctx, plan)
++			require.NoError(t, err)
++			require.False(t, result.Success)
++			require.Contains(t, result.Warning, "pending confirmation")
++
++			// pending 期间余额必须保持扣减，否则用户可先消费再等网关退款成功。
++			require.Zero(t, wallet.balance)
++			require.Zero(t, wallet.restoreCalls)
++			reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
++			require.NoError(t, err)
++			require.Equal(t, OrderStatusRefundPending, reloaded.Status)
++
++			// pending 订单不能再次发起退款（会重复扣减并重复调用网关）。
++			_, _, err = svc.PrepareRefund(ctx, order.ID, 0, "again", true, true)
++			require.Equal(t, "INVALID_STATUS", infraerrors.Reason(err))
++
++			result, err = svc.QueryAndFinalizeRefund(ctx, order.ID)
++			require.NoError(t, err)
++			require.Equal(t, tc.queryStatus == payment.ProviderStatusSuccess, result.Success)
++			if result.Success {
++				require.Equal(t, 100.0, result.BalanceDeducted)
++			}
++			require.Equal(t, 1, wallet.deductCalls, "held deduction must not be applied twice")
++			require.Equal(t, tc.wantRestore, wallet.restoreCalls)
++			require.Equal(t, tc.wantBalance, wallet.balance)
++			require.Equal(t, 1, prov.refundCalls)
++
++			reloaded, err = client.PaymentOrder.Get(ctx, order.ID)
++			require.NoError(t, err)
++			require.Equal(t, tc.wantStatus, reloaded.Status)
++
++			_, err = svc.QueryAndFinalizeRefund(ctx, order.ID)
++			require.Equal(t, "INVALID_STATUS", infraerrors.Reason(err))
++			require.Equal(t, tc.wantRestore, wallet.restoreCalls)
++		})
++	}
++}
++
++func TestFinalizeRefundFailedRestoresHeldDeductionOnce(t *testing.T) {
++	ctx := context.Background()
++	client := newPaymentConfigServiceTestClient(t)
++	order := createPendingRefundOrderWithDetailForTest(t, ctx, client, "hold-failed-once",
++		`{"refundID":"rf_test","deductionHeld":true,"deductionType":"balance","balanceDeducted":60}`)
++
++	wallet := &refundHoldWallet{}
++	svc := &PaymentService{entClient: client, userRepo: wallet.repo(order.UserID)}
++	plan := svc.refundFinalizePlan(order)
++	detail, err := svc.latestRefundPendingDetail(ctx, order.ID)
++	require.NoError(t, err)
++	detail.applyTo(plan)
++
++	first, err := svc.finalizeRefundFailed(ctx, plan, context.DeadlineExceeded)
++	require.NoError(t, err)
++	require.False(t, first.Success)
++	second, err := svc.finalizeRefundFailed(ctx, plan, context.DeadlineExceeded)
++	require.Nil(t, second)
++	require.Equal(t, "CONFLICT", infraerrors.Reason(err))
++
++	require.Equal(t, 1, wallet.restoreCalls)
++	require.Equal(t, 60.0, wallet.balance)
++}
++
++func TestQueryAndFinalizeRefundHeldDeductionWithoutBalanceDeduction(t *testing.T) {
++	ctx := context.Background()
++	client := newPaymentConfigServiceTestClient(t)
++	// 管理员选择不扣余额时，终态收敛也不能按旧逻辑补扣。
++	order := createPendingRefundOrderWithDetailForTest(t, ctx, client, "hold-no-deduct",
++		`{"refundID":"rf_test","deductionHeld":true,"deductionType":"none","balanceDeducted":0}`)
++
++	wallet := &refundHoldWallet{balance: 100}
++	restore := replacePaymentProviderFactoryForTest(t, &pendingRefundProviderTestDouble{queryStatus: payment.ProviderStatusSuccess})
++	defer restore()
++	svc := &PaymentService{entClient: client, loadBalancer: &captureLoadBalancer{}, userRepo: wallet.repo(order.UserID)}
++
++	result, err := svc.QueryAndFinalizeRefund(ctx, order.ID)
++	require.NoError(t, err)
++	require.True(t, result.Success)
++	require.Zero(t, wallet.deductCalls)
++	require.Equal(t, 100.0, wallet.balance)
++}
++
++type successRefundProviderTestDouble struct {
++	refundProviderTestDouble
++	refundCalls int
++}
++
++func (p *successRefundProviderTestDouble) Refund(context.Context, payment.RefundRequest) (*payment.RefundResponse, error) {
++	p.refundCalls++
++	return &payment.RefundResponse{RefundID: "rf_retry", Status: payment.ProviderStatusSuccess}, nil
++}
++
++func countRefundAuditsForTest(t *testing.T, ctx context.Context, client *dbent.Client, orderID int64, action string) int {
++	t.Helper()
++	n, err := client.PaymentAuditLog.Query().
++		Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(orderID, 10)), paymentauditlog.ActionEQ(action)).
++		Count(ctx)
++	require.NoError(t, err)
++	return n
++}
++
++func TestFinalizeRefundFailedRecordsRollbackFailureWhenHeldDeductionCannotBeReturned(t *testing.T) {
++	ctx := context.Background()
++	client := newPaymentConfigServiceTestClient(t)
++	order := createPendingRefundOrderWithDetailForTest(t, ctx, client, "hold-return-fails",
++		`{"refundID":"rf_test","deductionHeld":true,"deductionType":"balance","balanceDeducted":60}`)
++
++	wallet := &refundHoldWallet{balance: 40}
++	repo := wallet.repo(order.UserID)
++	repo.updateBalanceFn = func(context.Context, int64, float64) error {
++		wallet.restoreCalls++
++		return errors.New("db unavailable")
++	}
++	restore := replacePaymentProviderFactoryForTest(t, &pendingRefundProviderTestDouble{queryStatus: payment.ProviderStatusFailed})
++	defer restore()
++	svc := &PaymentService{entClient: client, loadBalancer: &captureLoadBalancer{}, userRepo: repo}
++
++	result, err := svc.QueryAndFinalizeRefund(ctx, order.ID)
++	require.NoError(t, err)
++	require.False(t, result.Success)
++	require.Contains(t, result.Warning, "refund deduction rollback failed")
++	require.Equal(t, 1, wallet.restoreCalls)
++	require.Equal(t, 40.0, wallet.balance)
++
++	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
++	require.NoError(t, err)
++	require.Equal(t, OrderStatusRefundFailed, reloaded.Status)
++	require.Equal(t, 1, countRefundAuditsForTest(t, ctx, client, order.ID, "REFUND_ROLLBACK_FAILED"))
++	require.Equal(t, 1, countRefundAuditsForTest(t, ctx, client, order.ID, "REFUND_FAILED"))
++
++	// 扣减仍被保留：重试退款必须跳过扣减，否则同一笔退款会扣两次。
++	retryProvider := &successRefundProviderTestDouble{}
++	restoreRetry := replacePaymentProviderFactoryForTest(t, retryProvider)
++	defer restoreRetry()
++	plan, early, err := svc.PrepareRefund(ctx, order.ID, 0, "retry", true, true)
++	require.NoError(t, err)
++	require.Nil(t, early)
++	retried, err := svc.ExecuteRefund(ctx, plan)
++	require.NoError(t, err)
++	require.True(t, retried.Success)
++	require.Zero(t, wallet.deductCalls)
++	require.Equal(t, 40.0, wallet.balance)
++	require.Equal(t, 1, retryProvider.refundCalls)
++}
++
++func TestFinalizeRefundFailedReturnsHeldDeductionAtomically(t *testing.T) {
++	ctx := context.Background()
++	client := newPaymentConfigServiceTestClient(t)
++	order := createPendingRefundOrderWithDetailForTest(t, ctx, client, "hold-return-atomic",
++		`{"refundID":"rf_test","deductionHeld":true,"deductionType":"balance","balanceDeducted":60}`)
++
++	wallet := &refundHoldWallet{}
++	restore := replacePaymentProviderFactoryForTest(t, &pendingRefundProviderTestDouble{queryStatus: payment.ProviderStatusFailed})
++	defer restore()
++	svc := &PaymentService{entClient: client, loadBalancer: &captureLoadBalancer{}, userRepo: wallet.repo(order.UserID)}
++
++	result, err := svc.QueryAndFinalizeRefund(ctx, order.ID)
++	require.NoError(t, err)
++	require.False(t, result.Success)
++	require.NotContains(t, result.Warning, "rollback failed")
++	require.Equal(t, 1, wallet.restoreCalls)
++	require.Equal(t, 60.0, wallet.balance)
++	require.Equal(t, 1, countRefundAuditsForTest(t, ctx, client, order.ID, "REFUND_FAILED"))
++	require.Zero(t, countRefundAuditsForTest(t, ctx, client, order.ID, "REFUND_ROLLBACK_FAILED"))
++}
++
++func TestQueryAndFinalizeRefundRejectsUnreadablePendingAudit(t *testing.T) {
++	ctx := context.Background()
++	client := newPaymentConfigServiceTestClient(t)
++	// 审计无法解析时不能退化为旧逻辑：成功会二次扣减，失败会吞掉保留的扣减。
++	order := createPendingRefundOrderWithDetailForTest(t, ctx, client, "hold-bad-audit", `not-json`)
++
++	for _, queryStatus := range []string{payment.ProviderStatusSuccess, payment.ProviderStatusFailed} {
++		wallet := &refundHoldWallet{balance: 100}
++		restore := replacePaymentProviderFactoryForTest(t, &pendingRefundProviderTestDouble{queryStatus: queryStatus})
++		svc := &PaymentService{entClient: client, loadBalancer: &captureLoadBalancer{}, userRepo: wallet.repo(order.UserID)}
++
++		result, err := svc.QueryAndFinalizeRefund(ctx, order.ID)
++		restore()
++		require.Error(t, err, queryStatus)
++		require.Nil(t, result)
++		require.Zero(t, wallet.deductCalls)
++		require.Zero(t, wallet.restoreCalls)
++		require.Equal(t, 100.0, wallet.balance)
++	}
++
++	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
++	require.NoError(t, err)
++	require.Equal(t, OrderStatusRefundPending, reloaded.Status)
++}
++
++func createCompletedRefundableOrderForTest(t *testing.T, ctx context.Context, client *dbent.Client, suffix string) *dbent.PaymentOrder {
++	t.Helper()
++	user, err := client.User.Create().
++		SetEmail(suffix + "@example.com").
++		SetPasswordHash("hash").
++		SetUsername(suffix).
++		Save(ctx)
++	require.NoError(t, err)
++	inst, err := client.PaymentProviderInstance.Create().
++		SetProviderKey(payment.TypeStripe).
++		SetName(suffix + "-provider").
++		SetConfig("{}").
++		SetSupportedTypes("stripe").
++		SetEnabled(true).
++		SetRefundEnabled(true).
++		Save(ctx)
++	require.NoError(t, err)
++	order, err := client.PaymentOrder.Create().
++		SetUserID(user.ID).
++		SetUserEmail(user.Email).
++		SetUserName(user.Username).
++		SetAmount(100).
++		SetPayAmount(100).
++		SetFeeRate(0).
++		SetRechargeCode("REFUND-" + suffix).
++		SetOutTradeNo("sub2_" + suffix).
++		SetPaymentType(payment.TypeStripe).
++		SetPaymentTradeNo("pi_" + suffix).
++		SetOrderType(payment.OrderTypeBalance).
++		SetStatus(OrderStatusCompleted).
++		SetExpiresAt(time.Now().Add(time.Hour)).
++		SetPaidAt(time.Now()).
++		SetClientIP("127.0.0.1").
++		SetSrcHost("api.example.com").
++		SetProviderInstanceID(strconv.FormatInt(inst.ID, 10)).
++		Save(ctx)
++	require.NoError(t, err)
++	return order
++}
+diff --git a/backend/internal/service/payment_refund_test.go b/backend/internal/service/payment_refund_test.go
+index 8a534e473ecf..834c7f45712f 100644
+--- a/backend/internal/service/payment_refund_test.go
++++ b/backend/internal/service/payment_refund_test.go
+@@ -299,7 +299,7 @@ func TestValidateRefundProviderResponseAcceptsPending(t *testing.T) {
+ 	require.Error(t, validateRefundProviderResponse(nil))
+ }
+ 
+-func TestFinishRefundPendingMarksOrderPendingAndRollsBackDeduction(t *testing.T) {
++func TestFinishRefundPendingMarksOrderPendingAndHoldsDeduction(t *testing.T) {
+ 	ctx := context.Background()
+ 	client := newPaymentConfigServiceTestClient(t)
+ 
+@@ -357,8 +357,8 @@ func TestFinishRefundPendingMarksOrderPendingAndRollsBackDeduction(t *testing.T)
+ 	require.NotNil(t, result)
+ 	require.False(t, result.Success)
+ 	require.Contains(t, result.Warning, "pending confirmation")
+-	require.Equal(t, 40.0, rolledBack)
+-	require.Zero(t, plan.BalanceToDeduct)
++	require.Zero(t, rolledBack, "deduction must stay held while the gateway refund is pending")
++	require.Equal(t, 40.0, plan.BalanceToDeduct)
+ 
+ 	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
+ 	require.NoError(t, err)
+@@ -373,6 +373,11 @@ func TestFinishRefundPendingMarksOrderPendingAndRollsBackDeduction(t *testing.T)
+ 		Count(ctx)
+ 	require.NoError(t, err)
+ 	require.Equal(t, 1, pendingAudits)
++	detail, err := svc.latestRefundPendingDetail(ctx, order.ID)
++	require.NoError(t, err)
++	require.True(t, detail.DeductionHeld)
++	require.Equal(t, payment.DeductionTypeBalance, detail.DeductionType)
++	require.Equal(t, 40.0, detail.BalanceDeducted)
+ 	successAudits, err := client.PaymentAuditLog.Query().
+ 		Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(order.ID, 10)), paymentauditlog.ActionEQ("REFUND_SUCCESS")).
+ 		Count(ctx)
+@@ -502,6 +507,26 @@ func TestQueryAndFinalizeRefundFinalizesProviderStatuses(t *testing.T) {
+ 	}
+ }
+ 
++func TestQueryAndFinalizeRefundPassesPendingAuditTimeToProvider(t *testing.T) {
++	ctx := context.Background()
++	client := newPaymentConfigServiceTestClient(t)
++	order := createPendingRefundOrderForTest(t, ctx, client, "query-requested-at")
++	pendingAudit, err := client.PaymentAuditLog.Query().
++		Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(order.ID, 10)), paymentauditlog.ActionEQ("REFUND_PENDING")).
++		Only(ctx)
++	require.NoError(t, err)
++
++	svc := &PaymentService{entClient: client, loadBalancer: &captureLoadBalancer{}, userRepo: &mockUserRepo{}}
++	prov := &refundQueryProviderTestDouble{refundResponse: &payment.RefundResponse{RefundID: "rf_test", Status: payment.ProviderStatusPending}}
++	restore := replacePaymentProviderFactoryForTest(t, prov)
++	defer restore()
++
++	_, err = svc.QueryAndFinalizeRefund(ctx, order.ID)
++	require.NoError(t, err)
++	require.Equal(t, "rf_test", prov.lastQuery.RefundID)
++	require.True(t, pendingAudit.CreatedAt.Equal(prov.lastQuery.RequestedAt), "RequestedAt = %v, want %v", prov.lastQuery.RequestedAt, pendingAudit.CreatedAt)
++}
++
+ func TestFinalizePendingRefundSuccessRejectsStaleCallerBeforeSecondDeduction(t *testing.T) {
+ 	ctx := context.Background()
+ 	client := newPaymentConfigServiceTestClient(t)
+@@ -586,6 +611,11 @@ func TestQueryAndFinalizeRefundUnsupportedProviderReturnsClearError(t *testing.T
+ 
+ func createPendingRefundOrderForTest(t *testing.T, ctx context.Context, client *dbent.Client, suffix string) *dbent.PaymentOrder {
+ 	t.Helper()
++	return createPendingRefundOrderWithDetailForTest(t, ctx, client, suffix, `{"refundID":"rf_test","deductionRollbackOK":true}`)
++}
++
++func createPendingRefundOrderWithDetailForTest(t *testing.T, ctx context.Context, client *dbent.Client, suffix, pendingDetail string) *dbent.PaymentOrder {
++	t.Helper()
+ 
+ 	user, err := client.User.Create().
+ 		SetEmail(suffix + "@example.com").
+@@ -631,7 +661,7 @@ func createPendingRefundOrderForTest(t *testing.T, ctx context.Context, client *
+ 		SetOrderID(strconv.FormatInt(order.ID, 10)).
+ 		SetAction("REFUND_PENDING").
+ 		SetOperator("admin").
+-		SetDetail(`{"refundID":"rf_test","deductionRollbackOK":true}`).
++		SetDetail(pendingDetail).
+ 		Save(ctx)
+ 	require.NoError(t, err)
+ 	return order
+@@ -671,8 +701,10 @@ func (refundProviderTestDouble) Refund(context.Context, payment.RefundRequest) (
+ type refundQueryProviderTestDouble struct {
+ 	refundProviderTestDouble
+ 	refundResponse *payment.RefundResponse
++	lastQuery      payment.RefundQueryRequest
+ }
+ 
+-func (p *refundQueryProviderTestDouble) QueryRefund(context.Context, payment.RefundQueryRequest) (*payment.RefundResponse, error) {
++func (p *refundQueryProviderTestDouble) QueryRefund(_ context.Context, req payment.RefundQueryRequest) (*payment.RefundResponse, error) {
++	p.lastQuery = req
+ 	return p.refundResponse, nil
+ }
+diff --git a/backend/internal/service/payment_service.go b/backend/internal/service/payment_service.go
+index dae1a7d9384b..41276d625154 100644
+--- a/backend/internal/service/payment_service.go
++++ b/backend/internal/service/payment_service.go
+@@ -134,6 +134,8 @@ type RefundPlan struct {
+ 	BalanceToDeduct float64
+ 	SubDaysToDeduct int
+ 	SubscriptionID  int64
++	// deductionHeld 表示扣减已在进入 REFUND_PENDING 前执行并保留，终态收敛时不再重复扣减。
++	deductionHeld bool
+ }
+ 
+ type RefundResult struct {
+diff --git a/frontend/src/views/user/PaymentView.vue b/frontend/src/views/user/PaymentView.vue
+index 4727e1602ba1..4e64af2efad6 100644
+--- a/frontend/src/views/user/PaymentView.vue
++++ b/frontend/src/views/user/PaymentView.vue
+@@ -874,7 +874,6 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
+         path: '/payment/stripe',
+         query: {
+           order_id: String(result.order_id),
+-          client_secret: result.client_secret,
+           method: stripeMethod || undefined,
+           resume_token: result.resume_token || undefined,
+         },
+@@ -1082,7 +1081,6 @@ async function attemptMobileQrFallback(err: unknown, context: MobileQrFallbackCo
+         path: '/payment/stripe',
+         query: {
+           order_id: String(result.order_id),
+-          client_secret: result.client_secret,
+           method: stripeMethod,
+           resume_token: result.resume_token || undefined,
+         },
+diff --git a/frontend/src/views/user/StripePaymentView.vue b/frontend/src/views/user/StripePaymentView.vue
+index b845cfac52b7..2e6a5bbbf72c 100644
+--- a/frontend/src/views/user/StripePaymentView.vue
++++ b/frontend/src/views/user/StripePaymentView.vue
+@@ -136,9 +136,14 @@ let redirectTimer: ReturnType<typeof setTimeout> | null = null
+ 
+ onMounted(async () => {
+   const orderId = Number(route.query.order_id)
+-  const clientSecret = String(route.query.client_secret || '')
+   const method = String(route.query.method || '')
+   const resumeToken = typeof route.query.resume_token === 'string' ? route.query.resume_token : undefined
++  // client_secret 只从本浏览器下单时写入的恢复快照读取，且快照订单必须与 URL 订单一致：
++  // 不信任 URL 中的 client_secret，避免页面展示的订单与实际收款的 PaymentIntent 被拼接错绑。
++  const restored = typeof window !== 'undefined'
++    ? readPaymentRecoverySnapshot(window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY), { resumeToken })
++    : null
++  const clientSecret = orderId && restored?.orderId === orderId ? restored.clientSecret : ''
+ 
+   if (!orderId || !clientSecret) {
+     loading.value = false
+@@ -147,15 +152,7 @@ onMounted(async () => {
+   }
+ 
+   try {
+-    if (typeof window !== 'undefined') {
+-      const restored = readPaymentRecoverySnapshot(
+-        window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY),
+-        { resumeToken },
+-      )
+-      if (restored?.orderId === orderId) {
+-        currency.value = normalizePaymentCurrency(restored.currency)
+-      }
+-    }
++    currency.value = normalizePaymentCurrency(restored?.currency)
+     const res = await paymentAPI.getOrder(orderId)
+     order.value = res.data
+     if (res.data.currency) {
+diff --git a/frontend/src/views/user/__tests__/StripePaymentView.spec.ts b/frontend/src/views/user/__tests__/StripePaymentView.spec.ts
+index 0d85126a3f9a..5d2c6a23f010 100644
+--- a/frontend/src/views/user/__tests__/StripePaymentView.spec.ts
++++ b/frontend/src/views/user/__tests__/StripePaymentView.spec.ts
+@@ -65,6 +65,10 @@ vi.mock('@stripe/stripe-js/pure', () => ({
+ 
+ import StripePaymentView from '../StripePaymentView.vue'
+ import { formatPaymentAmount } from '@/components/payment/currency'
++import {
++  PAYMENT_RECOVERY_STORAGE_KEY,
++  type PaymentRecoverySnapshot,
++} from '@/components/payment/paymentFlow'
+ import type { PaymentOrder } from '@/types/payment'
+ 
+ function orderFactory(overrides: Partial<PaymentOrder> = {}): PaymentOrder {
+@@ -86,6 +90,33 @@ function orderFactory(overrides: Partial<PaymentOrder> = {}): PaymentOrder {
+   }
+ }
+ 
++function stripeSnapshot(overrides: Partial<PaymentRecoverySnapshot> = {}): PaymentRecoverySnapshot {
++  return {
++    orderId: 42,
++    amount: 100,
++    qrCode: '',
++    expiresAt: '2099-01-01T00:30:00.000Z',
++    paymentType: 'stripe',
++    payUrl: '/payment/stripe?order_id=42',
++    outTradeNo: 'sub2_stripe_42',
++    clientSecret: 'pi_secret_42',
++    intentId: '',
++    currency: 'CNY',
++    countryCode: '',
++    paymentEnv: '',
++    payAmount: 103,
++    orderType: 'balance',
++    paymentMode: '',
++    resumeToken: '',
++    createdAt: Date.UTC(2099, 0, 1, 0, 0, 0),
++    ...overrides,
++  }
++}
++
++function writeSnapshot(overrides: Partial<PaymentRecoverySnapshot> = {}) {
++  window.localStorage.setItem(PAYMENT_RECOVERY_STORAGE_KEY, JSON.stringify(stripeSnapshot(overrides)))
++}
++
+ function mountView() {
+   return shallowMount(StripePaymentView, {
+     global: {
+@@ -101,7 +132,6 @@ describe('StripePaymentView', () => {
+   beforeEach(() => {
+     routeState.query = {
+       order_id: '42',
+-      client_secret: 'pi_secret_42',
+     }
+     routerPush.mockReset()
+     getOrder.mockReset().mockResolvedValue({ data: orderFactory() })
+@@ -119,6 +149,42 @@ describe('StripePaymentView', () => {
+     stripeInstance.confirmAlipayPayment.mockReset()
+     stripeInstance.confirmWechatPayPayment.mockReset()
+     window.localStorage.clear()
++    writeSnapshot()
++  })
++
++  it('uses the client secret from the local snapshot of the same order', async () => {
++    routeState.query.method = 'alipay'
++    mountView()
++    await flushPromises()
++    await flushPromises()
++
++    expect(getOrder).toHaveBeenCalledWith(42)
++    expect(stripeInstance.confirmAlipayPayment).toHaveBeenCalledWith('pi_secret_42', expect.any(Object))
++  })
++
++  it('ignores a client secret supplied in the URL query', async () => {
++    window.localStorage.clear()
++    routeState.query = { order_id: '42', client_secret: 'pi_other_secret', method: 'alipay' }
++
++    const wrapper = mountView()
++    await flushPromises()
++
++    expect(getOrder).not.toHaveBeenCalled()
++    expect(loadStripe).not.toHaveBeenCalled()
++    expect(stripeInstance.confirmAlipayPayment).not.toHaveBeenCalled()
++    expect(wrapper.text()).toContain('payment.stripeMissingParams')
++  })
++
++  it('rejects a snapshot that belongs to a different order', async () => {
++    writeSnapshot({ orderId: 7, clientSecret: 'pi_secret_7' })
++    routeState.query = { order_id: '42', client_secret: 'pi_secret_42', method: 'alipay' }
++
++    const wrapper = mountView()
++    await flushPromises()
++
++    expect(getOrder).not.toHaveBeenCalled()
++    expect(stripeInstance.confirmAlipayPayment).not.toHaveBeenCalled()
++    expect(wrapper.text()).toContain('payment.stripeMissingParams')
+   })
+ 
+   it.each(['alipay', 'wechat_pay', ''])('does not start %s payment after leaving during SDK loading', async (method) => {
+@@ -178,7 +244,8 @@ describe('StripePaymentView', () => {
+     expect(vi.getTimerCount()).toBe(0)
+   })
+ 
+-  it('本地恢复快照缺失时使用订单接口返回的 Stripe 币种展示金额', async () => {
++  it('本地恢复快照未记录币种时使用订单接口返回的 Stripe 币种展示金额', async () => {
++    writeSnapshot({ currency: '' })
+     getOrder.mockResolvedValue({
+       data: orderFactory({ currency: 'HKD', pay_amount: 103 }),
+     })

@@ -1,0 +1,24 @@
+=== RUN   TestOpenItemsBehavior
+OPEN_PROTOCOL encrypted=true replay_signature=true thinking=adaptive opus55=true sonnet55=true haiku55=true
+--- PASS: TestOpenItemsBehavior (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	0.008s
+2026/10/15 15:56:06 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestOpenItemsBehavior
+OPEN_METADATA explicit_context=777777 fallback_context=500000 max_output=32768
+--- PASS: TestOpenItemsBehavior (0.00s)
+=== RUN   TestUpstreamSyncBehavior
+OBSERVED_SERVICE {"anthropic_url":"https://anthropic.example.com/v1/messages?beta=true","argon_default_mapping":"gemini-4-argon-high","argon_input_price":0.000002,"foreign_oauth_rejected":true,"zhipu_tiers":[{"window":"5h","used_percent":10,"reset_at":"1970-01-01T00:50:00Z"},{"window":"weekly","used_percent":90,"reset_at":"1970-01-01T00:33:20Z"}]}
+--- PASS: TestUpstreamSyncBehavior (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.096s
+=== RUN   TestUpstreamSyncBehavior
+OBSERVED_ADMIN cross_workspace_identity_overlap=false
+--- PASS: TestUpstreamSyncBehavior (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin	0.018s
+=== RUN   TestUpstreamMediaBehavior
+OBSERVED_MEDIA inline_images=1 function_text=loaded
+--- PASS: TestUpstreamMediaBehavior (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/antigravity	0.005s

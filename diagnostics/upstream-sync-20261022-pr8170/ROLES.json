@@ -1,0 +1,22 @@
+{
+  "MODIFIED_FILE.tar.gz": {
+    "path": "/Users/lin/.codex/visualizations/2026/10/22/01a16146-dab6-7463-bd83-4e067aea805a/roles/MODIFIED_FILE.tar.gz",
+    "sha256": "b1713c387f77b7a26f9050195e03a5d705c477972ccfeac8564fdd3f02439d89",
+    "bytes": 404812
+  },
+  "DIFF_FILE.patch": {
+    "path": "/Users/lin/.codex/visualizations/2026/10/22/01a16146-dab6-7463-bd83-4e067aea805a/roles/DIFF_FILE.patch",
+    "sha256": "05957f69242e4abefbb819a4efa801f9186e86fae9a4848da32e4f95bfb85a75",
+    "bytes": 252559
+  },
+  "VERIFICATION.txt": {
+    "path": "/Users/lin/.codex/visualizations/2026/10/22/01a16146-dab6-7463-bd83-4e067aea805a/roles/VERIFICATION.txt",
+    "sha256": "9d87c91c23c44c86a93d1816dfe40c8a70c434c6aee18a9e2650610e681cb9a4",
+    "bytes": 344262
+  },
+  "ROLLBACK.sh": {
+    "path": "/Users/lin/.codex/visualizations/2026/10/22/01a16146-dab6-7463-bd83-4e067aea805a/roles/ROLLBACK.sh",
+    "sha256": "250218ca262cd3485e2419a5019153380867793c5da7c63451758db6e85290db",
+    "bytes": 2723
+  }
+}

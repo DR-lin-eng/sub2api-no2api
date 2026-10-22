@@ -1,0 +1,290 @@
+diff --git a/backend/internal/platform/config/config.go b/backend/internal/platform/config/config.go
+index bdb808658..e99b547ec 100644
+--- a/backend/internal/platform/config/config.go
++++ b/backend/internal/platform/config/config.go
+@@ -2092,6 +2092,7 @@ func setDefaults() {
+ 		"api.openai.com",
+ 		"api.anthropic.com",
+ 		"api.kimi.com",
++		"api.kimi.ai",
+ 		"api.moonshot.ai",
+ 		"api.moonshot.cn",
+ 		"open.bigmodel.cn",
+diff --git a/backend/internal/platform/config/config_test.go b/backend/internal/platform/config/config_test.go
+index b68a26d49..96cac60f4 100644
+--- a/backend/internal/platform/config/config_test.go
++++ b/backend/internal/platform/config/config_test.go
+@@ -10,6 +10,7 @@ import (
+ 	"testing"
+ 	"time"
+ 
++	"github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator"
+ 	"github.com/spf13/viper"
+ 	"github.com/stretchr/testify/require"
+ )
+@@ -831,6 +832,7 @@ func TestLoadDefaultSecurityToggles(t *testing.T) {
+ 
+ 	wantHosts := []string{
+ 		"api.kimi.com",
++		"api.kimi.ai",
+ 		"api.moonshot.ai",
+ 		"api.moonshot.cn",
+ 	}
+@@ -843,6 +845,19 @@ func TestLoadDefaultSecurityToggles(t *testing.T) {
+ 			t.Fatalf("URLAllowlist.UpstreamHosts missing %q; got %v", want, cfg.Security.URLAllowlist.UpstreamHosts)
+ 		}
+ 	}
++	opts := urlvalidator.ValidationOptions{
++		AllowedHosts:     cfg.Security.URLAllowlist.UpstreamHosts,
++		RequireAllowlist: true,
++		AllowPrivate:     cfg.Security.URLAllowlist.AllowPrivateHosts,
++	}
++	for _, host := range []string{"api.kimi.com", "api.kimi.ai"} {
++		target := "https://" + host + "/coding/v1/usages"
++		normalized, err := urlvalidator.ValidateHTTPSURL(target, opts)
++		require.NoError(t, err)
++		require.Equal(t, target, normalized)
++		_, err = urlvalidator.ValidateHTTPSURL("https://"+host+".attacker.example/coding/v1/usages", opts)
++		require.Error(t, err)
++	}
+ }
+ 
+ func TestLoadDefaultServerMode(t *testing.T) {
+diff --git a/backend/internal/application/service/account.go b/backend/internal/application/service/account.go
+index d11063627..1cb756b79 100644
+--- a/backend/internal/application/service/account.go
++++ b/backend/internal/application/service/account.go
+@@ -1604,7 +1604,7 @@ func (a *Account) GetCodingPlanProvider() string {
+ 	}
+ 	baseURL := strings.ToLower(a.GetOpenAIBaseURL())
+ 	switch {
+-	case strings.Contains(baseURL, "api.kimi.com/coding"):
++	case isKimiCodingBaseURL(a.GetOpenAIBaseURL()):
+ 		return PlatformKimi
+ 	case strings.Contains(baseURL, "bigmodel.cn"), strings.Contains(baseURL, "api.z.ai"):
+ 		return PlatformZhipu
+@@ -1617,6 +1617,24 @@ func (a *Account) GetCodingPlanProvider() string {
+ 	}
+ }
+ 
++func isKimiCodingBaseURL(baseURL string) bool {
++	parsed, err := url.Parse(baseURL)
++	if err != nil || parsed.Scheme != "https" || parsed.User != nil || parsed.Opaque != "" ||
++		parsed.RawQuery != "" || parsed.ForceQuery || strings.Contains(baseURL, "#") {
++		return false
++	}
++	host := strings.ToLower(parsed.Host)
++	if host != "api.kimi.com" && host != "api.kimi.ai" && host != "api.kimi.com:443" && host != "api.kimi.ai:443" {
++		return false
++	}
++	switch parsed.EscapedPath() {
++	case "/coding", "/coding/", "/coding/v1", "/coding/v1/":
++		return true
++	default:
++		return false
++	}
++}
++
+ func (a *Account) GetOpenAIAccessToken() string {
+ 	if !a.IsOpenAI() {
+ 		return ""
+diff --git a/backend/internal/application/service/account_kimi_coding_test.go b/backend/internal/application/service/account_kimi_coding_test.go
+new file mode 100644
+index 000000000..d2d79e1e0
+--- /dev/null
++++ b/backend/internal/application/service/account_kimi_coding_test.go
+@@ -0,0 +1,83 @@
++package service
++
++import (
++	"testing"
++
++	"github.com/stretchr/testify/require"
++)
++
++func TestGetCodingPlanProvider_KimiOfficialURLs(t *testing.T) {
++	for _, host := range []string{"api.kimi.com", "api.kimi.ai", "API.KIMI.AI", "api.kimi.ai:443"} {
++		for _, path := range []string{"/coding", "/coding/", "/coding/v1", "/coding/v1/"} {
++			t.Run(host+path, func(t *testing.T) {
++				account := &Account{Platform: PlatformKimi, Type: AccountTypeAPIKey, Credentials: map[string]any{
++					"account_mode": AccountModeCoding,
++					"base_url":     "https://" + host + path,
++				}}
++				require.Equal(t, PlatformKimi, account.GetCodingPlanProvider())
++				require.Equal(t, "https://"+host+"/coding/v1/usages", kimiQuotaURL(account.GetOpenAIBaseURL()))
++				account.Credentials["account_mode"] = AccountModePayG
++				require.Empty(t, account.GetCodingPlanProvider())
++			})
++		}
++	}
++}
++
++func TestGetCodingPlanProvider_KimiRejectsUnsafeURLs(t *testing.T) {
++	for _, baseURL := range []string{
++		"https://api.kimi.ai.attacker.example/coding/v1",
++		"https://api.kimi.com.attacker.example/coding/v1",
++		"https://fake-api.kimi.ai/coding/v1",
++		"https://relay.attacker.example/api.kimi.com/coding",
++		"https://relay.attacker.example/?target=api.kimi.ai/coding/v1",
++		"https://relay.attacker.example/#api.kimi.com/coding",
++		"https://api.kimi.ai@relay.attacker.example/coding/v1",
++		"https://user@api.kimi.ai/coding/v1",
++		"https://api.kimi.ai/coding-other",
++		"https://api.kimi.com/coding/v10",
++		"https://api.kimi.ai/coding/v1/usages",
++		"https://api.kimi.ai/v1?target=/coding/v1",
++		"https://api.kimi.ai/coding/v1?target=attacker",
++		"https://api.kimi.ai/coding/v1?",
++		"https://api.kimi.ai/coding/v1#attacker",
++		"https://api.kimi.ai/coding/v1#",
++		"https://api.kimi.ai/%63oding/v1",
++		"https://api.kimi.ai/coding%2fv1",
++		"https://api.kimi.ai/coding/../coding/v1",
++		"https://api.kimi.ai/CODING/v1",
++		"https://api.kimi.ai:8443/coding/v1",
++		"https://api.kimi.ai:/coding/v1",
++		"http://api.kimi.ai/coding/v1",
++		"//api.kimi.ai/coding/v1",
++		"https://api.kimi.ai/%zz",
++	} {
++		t.Run(baseURL, func(t *testing.T) {
++			account := &Account{Platform: PlatformKimi, Type: AccountTypeAPIKey, Credentials: map[string]any{
++				"account_mode": AccountModeCoding,
++				"base_url":     baseURL,
++			}}
++			require.Empty(t, account.GetCodingPlanProvider())
++		})
++	}
++}
++
++func TestGetCodingPlanProvider_UnrelatedProvidersUnchanged(t *testing.T) {
++	for _, testCase := range []struct {
++		platform string
++		baseURL  string
++	}{
++		{PlatformZhipu, "https://open.bigmodel.cn/api/coding/paas/v4"},
++		{PlatformZhipu, "https://api.z.ai/api/coding/paas/v4"},
++		{PlatformMiniMax, "https://api.minimax.io/v1"},
++		{PlatformMiniMax, "https://api.minimaxi.com/v1"},
++		{PlatformMiniMax, "https://api.minimax.com/v1"},
++	} {
++		t.Run(testCase.baseURL, func(t *testing.T) {
++			account := &Account{Platform: testCase.platform, Type: AccountTypeAPIKey, Credentials: map[string]any{
++				"account_mode": AccountModeCoding,
++				"base_url":     testCase.baseURL,
++			}}
++			require.Equal(t, testCase.platform, account.GetCodingPlanProvider())
++		})
++	}
++}
+diff --git a/backend/internal/application/service/cn_provider_probe_url_test.go b/backend/internal/application/service/cn_provider_probe_url_test.go
+index f28508840..fe0fe1da4 100644
+--- a/backend/internal/application/service/cn_provider_probe_url_test.go
++++ b/backend/internal/application/service/cn_provider_probe_url_test.go
+@@ -6,7 +6,9 @@ package service
+ 
+ import (
+ 	"context"
++	"io"
+ 	"net/http"
++	"strings"
+ 	"testing"
+ 
+ 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+@@ -72,15 +74,13 @@ func (r *fakeCNProbeAccountRepo) GetByID(ctx context.Context, id int64) (*Accoun
+ 	return r.account, nil
+ }
+ 
+-// kimi coding 账号的 base_url 指向中转（含 api.kimi.com/coding 路径段即可被识别
+-// 为 kimi coding plan）→ 衍生额度端点落在中转主机上，白名单未列名必须拒绝。
+ func TestCNProviderQuotaService_RejectsURLBlockedByPolicy(t *testing.T) {
+ 	repo := &fakeCNProbeAccountRepo{account: &Account{
+ 		ID: 1, Platform: PlatformKimi, Type: AccountTypeAPIKey, Status: StatusActive,
+ 		Credentials: map[string]any{
+ 			"account_mode": "coding",
+ 			"api_key":      "sk-test",
+-			"base_url":     "https://relay.attacker.example/api.kimi.com/coding",
++			"base_url":     "https://api.kimi.ai/coding/v1",
+ 		},
+ 	}}
+ 	upstream := &recordingHTTPUpstream{}
+@@ -92,6 +92,79 @@ func TestCNProviderQuotaService_RejectsURLBlockedByPolicy(t *testing.T) {
+ 	require.Zero(t, upstream.calls, "probe must not issue any upstream request when URL policy rejects the target")
+ }
+ 
++func TestCNProviderQuotaService_RejectsSpoofedKimiURL(t *testing.T) {
++	repo := &fakeCNProbeAccountRepo{account: &Account{
++		ID: 1, Platform: PlatformKimi, Type: AccountTypeAPIKey,
++		Credentials: map[string]any{
++			"account_mode": AccountModeCoding,
++			"api_key":      "test-only-placeholder",
++			"base_url":     "https://relay.attacker.example/api.kimi.com/coding",
++		},
++	}}
++	upstream := &recordingHTTPUpstream{}
++	svc := NewCNProviderQuotaService(repo, nil, upstream, nil)
++	_, err := svc.QueryUsage(context.Background(), 1)
++	require.ErrorContains(t, err, "CN_QUOTA_NOT_CODING_PLAN")
++	require.Zero(t, upstream.calls)
++}
++
++type kimiQuotaTestRepo struct {
++	fakeCNProbeAccountRepo
++	updates map[string]any
++}
++
++func (r *kimiQuotaTestRepo) UpdateExtra(ctx context.Context, id int64, updates map[string]any) error {
++	r.updates = updates
++	return nil
++}
++
++type kimiQuotaTestUpstream struct {
++	recordingHTTPUpstream
++	request *http.Request
++}
++
++func (u *kimiQuotaTestUpstream) Do(req *http.Request, proxyURL string, accountID int64, accountConcurrency int) (*http.Response, error) {
++	u.calls++
++	u.request = req
++	return &http.Response{
++		StatusCode: http.StatusOK,
++		Body:       io.NopCloser(strings.NewReader(`{"limits":[{"detail":{"limit":100,"remaining":75}}],"usage":{"limit":1000,"remaining":800}}`)),
++	}, nil
++}
++
++func TestCNProviderQuotaService_KimiOfficialHosts(t *testing.T) {
++	for _, host := range []string{"api.kimi.com", "api.kimi.ai"} {
++		for _, path := range []string{"/coding", "/coding/", "/coding/v1", "/coding/v1/"} {
++			t.Run(host+path, func(t *testing.T) {
++				repo := &kimiQuotaTestRepo{fakeCNProbeAccountRepo: fakeCNProbeAccountRepo{account: &Account{
++					ID: 1, Platform: PlatformKimi, Type: AccountTypeAPIKey,
++					Credentials: map[string]any{
++						"account_mode": AccountModeCoding,
++						"api_key":      "test-only-placeholder",
++						"base_url":     "https://" + host + path,
++					},
++				}}}
++				upstream := &kimiQuotaTestUpstream{}
++				svc := NewCNProviderQuotaService(repo, nil, upstream, cnProbeAllowlistConfig(host))
++				result, err := svc.QueryUsage(context.Background(), 1)
++				require.NoError(t, err)
++				require.True(t, result.Success)
++				require.True(t, result.CredentialValid)
++				require.True(t, result.Persisted)
++				require.Equal(t, PlatformKimi, result.Provider)
++				require.Len(t, result.Tiers, 2)
++				require.Equal(t, float64(25), result.Tiers[0].UsedPercent)
++				require.Equal(t, float64(20), result.Tiers[1].UsedPercent)
++				require.Equal(t, float64(25), repo.updates["kimi_5h_used_percent"])
++				require.Equal(t, 1, upstream.calls)
++				require.Equal(t, http.MethodGet, upstream.request.Method)
++				require.Equal(t, "https://"+host+"/coding/v1/usages", upstream.request.URL.String())
++				require.Equal(t, "Bearer test-only-placeholder", upstream.request.Header.Get("Authorization"))
++			})
++		}
++	}
++}
++
+ // deepseek payg 账号自定义 base_url → 余额端点落在中转主机上，必须先过策略。
+ func TestCNProviderBalanceService_RejectsURLBlockedByPolicy(t *testing.T) {
+ 	repo := &fakeCNProbeAccountRepo{account: &Account{

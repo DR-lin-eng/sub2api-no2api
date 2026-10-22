@@ -296,6 +296,8 @@ func NewBillingService(cfg *config.Config, pricingService *PricingService) *Bill
 // initFallbackPricing 初始化硬编码回退价格（当动态价格不可用时使用）
 // 价格单位：USD per token（与LiteLLM格式一致）
 func (s *BillingService) initFallbackPricing() {
+	s.initGeminiArgonFallbackPricing()
+	s.initGrok47FastFallbackPricing()
 	// Claude 4.5 Opus
 	s.fallbackPrices["claude-opus-4.5"] = &ModelPricing{
 		InputPricePerToken:         5e-6,    // $5 per MTok
@@ -360,6 +362,8 @@ func (s *BillingService) initFallbackPricing() {
 	// 缺少这两条时 getFallbackPricing 会掉到 claude-3-opus（$15/$75），造成 3 倍超收。
 	s.fallbackPrices["claude-opus-4.8"] = s.fallbackPrices["claude-opus-4.7"]
 	s.fallbackPrices["claude-opus-5"] = s.fallbackPrices["claude-opus-4.8"]
+
+	s.initClaude55FallbackPricing()
 
 	// Gemini 3.1 Pro
 	s.fallbackPrices["gemini-3.1-pro"] = &ModelPricing{
@@ -829,9 +833,16 @@ func (s *BillingService) initFallbackPricing() {
 
 // getFallbackPricing 根据模型系列获取回退价格
 func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
-	modelLower := strings.ToLower(model)
+	modelLower := normalizeAntigravityClaudeTierAlias(strings.ToLower(model))
+	if id := grok47FastPricingID(modelLower); id != "" {
+		return s.fallbackPrices[id]
+	}
 	if modelLower == "jev-latest" {
 		return s.fallbackPrices["jev-latest"]
+	}
+
+	if id := claude55PricingID(modelLower); id != "" {
+		return s.fallbackPrices[id]
 	}
 
 	// 按模型系列匹配
@@ -883,6 +894,12 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 		return s.fallbackPrices["gemini-3.8-flash"]
 	}
 
+	if strings.Contains(modelLower, "gemini-4-argon-cyber") {
+		return s.fallbackPrices["gemini-4-argon-cyber-permissive"]
+	}
+	if strings.Contains(modelLower, "gemini-4-argon") {
+		return s.fallbackPrices["gemini-4-argon"]
+	}
 	if strings.Contains(modelLower, "deepseek-v4-flash-vision-exp") {
 		return s.fallbackPrices["deepseek-v4-flash-vision-exp"]
 	}
@@ -1117,6 +1134,9 @@ func (s *BillingService) HasIdentifiedTokenPricing(model string) bool {
 			return true
 		}
 	}
+	if id := grok47FastPricingID(model); id != "" {
+		model = id
+	}
 	pricing, ok := s.fallbackPrices[model]
 	return ok && pricing != nil
 }
@@ -1161,6 +1181,7 @@ func (s *BillingService) getModelPricingAt(model string, pricingAt time.Time) (*
 				CacheCreation1hPrice:               price1h,
 				SupportsCacheBreakdown:             enableBreakdown,
 				LongContextInputThreshold:          litellmPricing.LongContextInputTokenThreshold,
+				LongContextThresholdInclusive:      grok47FastPricingID(model) != "" && litellmPricing.LongContextInputTokenThreshold == 200000,
 				LongContextInputMultiplier:         litellmPricing.LongContextInputCostMultiplier,
 				LongContextOutputMultiplier:        litellmPricing.LongContextOutputCostMultiplier,
 				ImageInputPricePerToken:            litellmPricing.InputCostPerImageToken,
@@ -1241,6 +1262,8 @@ type CostInput struct {
 	Resolver                  *ModelPricingResolver // 定价解析器
 	Resolved                  *ResolvedPricing      // 可选：预解析的定价结果（避免重复 Resolve 调用）
 	LongContextBillingEnabled *bool
+	// Exempts the model surcharge while preserving custom pricing intervals.
+	DisableModelLongContextPricing bool
 }
 
 // CalculateCostUnified 统一计费入口，支持三种计费模式。
@@ -1259,7 +1282,7 @@ func (s *BillingService) CalculateCostUnified(input CostInput) (*CostBreakdown, 
 			input.ImageRateMultiplier,
 			input.ServiceTier,
 			nil,
-			applyLongContextBilling,
+			applyLongContextBilling && !input.DisableModelLongContextPricing,
 		)
 	}
 
@@ -1321,7 +1344,7 @@ func (s *BillingService) calculateTokenCost(resolved *ResolvedPricing, input Cos
 	}
 
 	// 长上下文定价仅在无区间定价时应用（区间定价已包含上下文分层）
-	applyLongCtx := len(resolved.Intervals) == 0 && !resolved.longContextPricingDisabled
+	applyLongCtx := len(resolved.Intervals) == 0 && !resolved.longContextPricingDisabled && !input.DisableModelLongContextPricing
 	if input.LongContextBillingEnabled != nil {
 		applyLongCtx = applyLongCtx && *input.LongContextBillingEnabled
 	}
@@ -1584,6 +1607,7 @@ func (s *BillingService) applyModelSpecificPricingPolicyEx(model string, pricing
 		}
 		pricing = &cloned
 	}
+	pricing = applyHaiku55DefaultPolicy(model, pricing, forceDeepSeekRates)
 	normalized := normalizeKnownOpenAICodexModel(model)
 	isGPT6 := isOpenAIGPT6Model(normalized)
 	isGPT56 := isOpenAIGPT56Model(normalized)

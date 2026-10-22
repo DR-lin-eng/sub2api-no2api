@@ -1,0 +1,91 @@
+Preparing pnpm@11.17.0 for immediate activation...
+? Verifying lockfile against supply-chain policies (483 entries)...
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +433
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 433, reused 0, downloaded 5, added 0
+Progress: resolved 433, reused 0, downloaded 32, added 0
+Progress: resolved 433, reused 0, downloaded 62, added 0
+Progress: resolved 433, reused 0, downloaded 75, added 0
+Progress: resolved 433, reused 0, downloaded 137, added 8
+Progress: resolved 433, reused 0, downloaded 191, added 14
+Progress: resolved 433, reused 0, downloaded 245, added 34
+Progress: resolved 433, reused 0, downloaded 297, added 76
+Progress: resolved 433, reused 0, downloaded 375, added 144
+Progress: resolved 433, reused 0, downloaded 412, added 148
+Progress: resolved 433, reused 0, downloaded 433, added 193
+Progress: resolved 433, reused 0, downloaded 433, added 273
+Progress: resolved 433, reused 0, downloaded 433, added 375
+Progress: resolved 433, reused 0, downloaded 433, added 426
+Progress: resolved 433, reused 0, downloaded 433, added 433, done
+[WARN] GET https://registry.npmjs.org/@csstools%2Fcss-parser-algorithms error (UND_ERR_SOCKET). Will retry in 10 seconds. 2 retries left.
+[WARN] Request took 51930ms: https://registry.npmjs.org/@csstools%2Fcss-parser-algorithms
+✓ Lockfile passes supply-chain policies (483 entries in 51.9s)
+.../esbuild@0.25.12/node_modules/esbuild postinstall$ node install.js
+.../node_modules/vue-demi postinstall$ node -e "try{require('./scripts/postinstall.js')}catch(e){}"
+.../esbuild@0.25.12/node_modules/esbuild postinstall: Done
+.../node_modules/vue-demi postinstall: Done
+
+dependencies:
++ @airwallex/components-sdk 1.32.0
++ @stripe/stripe-js 9.12.0
++ @tanstack/vue-virtual 3.13.34
++ @vueuse/core 10.11.1
++ axios 1.20.0
++ cap-widget 0.1.50
++ chart.js 4.5.1
++ dompurify 3.4.14
++ driver.js 1.8.0
++ file-saver 2.0.5
++ marked 17.0.6
++ node-forge 1.4.0
++ pinia 2.3.1
++ qrcode 1.5.4
++ tldts 7.4.13
++ vue 3.5.43
++ vue-chartjs 5.3.4
++ vue-draggable-plus 0.6.1
++ vue-i18n 9.14.5
++ vue-router 4.6.4
++ xlsx 0.20.3
+
+devDependencies:
++ @eslint/js 10.0.1
++ @intlify/message-compiler 9.14.5
++ @types/file-saver 2.0.7
++ @types/mdx 2.0.14
++ @types/node 24.13.3
++ @types/node-forge 1.3.14
++ @types/qrcode 1.5.6
++ @typescript-eslint/eslint-plugin 8.65.0
++ @typescript-eslint/parser 8.65.0
++ @vitejs/plugin-vue 6.0.8
++ @vitest/coverage-v8 3.2.6
++ @vue/test-utils 2.4.11
++ autoprefixer 10.5.4
++ eslint 10.8.0
++ eslint-plugin-vue 10.10.0
++ globals 17.4.0
++ jsdom 24.1.3
++ postcss 8.5.23
++ tailwindcss 3.4.19
++ typescript 5.6.3
++ vite 6.4.3
++ vite-plugin-checker 0.14.5
++ vitest 3.2.6
++ vue-tsc 2.2.12
+
+Done in 52.8s using pnpm v11.17.0
+
+ RUN  v3.2.6 /workspace
+
+ ✓ src/features/admin-accounts/__tests__/EditAccountModal.spec.ts (47 tests) 585ms
+ ✓ src/features/admin-accounts/__tests__/CreateAccountModal.spec.ts (29 tests) 379ms
+ ✓ src/features/admin-accounts/__tests__/tempUnschedScope.spec.ts (3 tests) 1ms
+
+ Test Files  3 passed (3)
+      Tests  79 passed (79)
+   Start at  08:43:30
+   Duration  4.07s (transform 1.05s, setup 164ms, collect 1.27s, tests 965ms, environment 998ms, prepare 152ms)
+

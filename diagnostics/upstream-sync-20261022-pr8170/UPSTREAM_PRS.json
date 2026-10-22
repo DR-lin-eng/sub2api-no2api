@@ -1,0 +1,24 @@
+[
+  {
+    "pr": 8170,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8170",
+    "merge_sha": "dba770d56a0ee0ae5bad1b3dc5e11614d323163c",
+    "diff_sha256": "04c3cb84ffe5894d08206ef7abaedd3d08200ed87d4747350ff85bcc209a1954",
+    "status": "ported",
+    "fully_closed": true,
+    "current_owners": [
+      "backend/internal/application/service/billing_grok_fast.go",
+      "backend/internal/application/service/billing_service.go",
+      "backend/resources/model-pricing/model_prices_and_context_window.json"
+    ],
+    "decision": "Apply dedicated Fast rates to grok-4.7-fast and grok-4.7-build-fast plus existing accepted xAI prefixes. Use local explicit long-context schema fields, including the existing inclusive 200k convention. Retain custom-feed/channel prices, ordinary Grok cards, routing and model mappings. No schema migration or historical usage rewrite.",
+    "reopen_condition": "Only upstream Fast rates or identifiers change, or a regression is observed in these current owners. Do not replay the frozen diff.",
+    "evidence": [
+      "STATE.json",
+      "PERFORMANCE.json",
+      "runtime/result.json",
+      "records",
+      "../upstream-sync-20261022/STATE.json"
+    ]
+  }
+]

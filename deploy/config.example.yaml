@@ -181,6 +181,7 @@ security:
       - "api.openai.com"
       - "api.anthropic.com"
       - "api.kimi.com"
+      - "api.kimi.ai"
       - "api.moonshot.ai"
       - "api.moonshot.cn"
       - "open.bigmodel.cn"
@@ -243,9 +244,17 @@ security:
 # 网关配置
 # =============================================================================
 gateway:
+  # Minimum max_output_tokens when converting Chat Completions or Anthropic requests to Responses (minimum 16, default 128)
+  # Chat Completions 或 Anthropic 请求转换为 Responses 时的最小 max_output_tokens（最小 16，默认 128）
+  min_output_tokens: 128
   # Timeout for waiting upstream response headers (seconds)
   # 等待上游响应头超时时间（秒）
   response_header_timeout: 600
+  # Gateway-wide IANA timezone projected into OpenAI Responses environment
+  # context and web_search user_location fields.
+  # 网关统一替换 OpenAI 请求上下文中的时区；不按账号单独配置。
+  # 管理端“系统设置 → 网关服务 → 请求转发行为”保存的目标优先；这里作为未配置时的默认值。
+  openai_request_timezone: "Asia/Singapore"
   # OpenAI Responses first semantic output timeout (seconds, 0=disabled)
   # Covers native HTTP, HTTP passthrough, and WSv2 upstream attempts, including response-header wait.
   # A timed-out request may already have incurred upstream usage; account failover can therefore duplicate upstream billing.
@@ -290,6 +299,13 @@ gateway:
   #
   # 注意：开启后会影响所有客户端的行为（不仅限于 VS Code / Codex CLI），请谨慎开启。
   force_codex_cli: false
+  # Emit a fresh app-server x-oai-attestation envelope on first-party OAuth
+  # HTTP/WS sends, with a 100ms callback budget. s=0 means callback success;
+  # its token can report a native device error. No provider omits the header.
+  openai_oauth_attestation_enabled: false
+  # Desktop-only generation and _devicecheck cookie registration; does not
+  # add DeviceCheck to ordinary Responses model requests.
+  openai_desktop_devicecheck_enabled: false
   # Disable canonical Codex outbound identity enforcement.
   # 默认 false（强制统一开启）；仅在上游身份策略改变时用于回滚。
   # 旧键 disable_codex_originator_normalization 仍作为兼容别名接受。

@@ -71,16 +71,10 @@ func resolveAntigravityForwardBaseURL(account *Account) string {
 }
 
 func accountHasAntigravityPaidTier(account *Account) bool {
-	if account == nil || account.Credentials == nil {
+	if account == nil {
 		return false
 	}
-	planType := strings.ToLower(strings.TrimSpace(account.GetCredential("plan_type")))
-	switch planType {
-	case "pro", "ultra", "g1-pro-tier", "g1-ultra-tier":
-		return true
-	default:
-		return false
-	}
+	return antigravity.IsPaidPlanType(account.GetCredential("plan_type"))
 }
 
 // smartRetryAction 智能重试的处理结果
@@ -848,8 +842,10 @@ func sleepAntigravityBackoffWithContext(ctx context.Context, attempt int) bool {
 
 // isSingleAccountRetry 检查 context 中是否设置了单账号退避重试标记
 func isSingleAccountRetry(ctx context.Context) bool {
-	v, _ := SingleAccountRetryFromContext(ctx)
-	return v
+	if v, ok := SingleAccountRetryFromContext(ctx); ok {
+		return v
+	}
+	return singleAccountRetryProbeResult(ctx)
 }
 
 // setModelRateLimitByModelName 使用官方模型 ID 设置模型级限流

@@ -1,0 +1,31 @@
+internal/application/service/upstream_model_catalog_test.go:50:14: Error return value is not checked (errcheck)
+	snapshot := repo.updates[account.ID][modelcatalog.ExtraKey].(*modelcatalog.Snapshot)
+	            ^
+internal/shared/apicompat/anthropic_to_responses_response.go:318:39: Error return value of `(*strings.Builder).WriteString` is not checked (errcheck)
+			state.thinkingSignature.WriteString(evt.ContentBlock.Signature)
+			                                   ^
+internal/shared/apicompat/anthropic_to_responses_response.go:319:34: Error return value of `(*strings.Builder).WriteString` is not checked (errcheck)
+			state.thinkingText.WriteString(evt.ContentBlock.Thinking)
+			                              ^
+internal/shared/apicompat/anthropic_to_responses_response.go:420:35: Error return value of `(*strings.Builder).WriteString` is not checked (errcheck)
+				state.thinkingText.WriteString(evt.Delta.Thinking)
+				                              ^
+internal/application/service/openai_codex_models_mapping.go:128:1: File is not properly formatted (gofmt)
+	source := manifest.Body
+^
+internal/application/service/openai_codex_models_service.go:42:1: File is not properly formatted (gofmt)
+	Body           []byte
+^
+internal/application/service/openai_codex_models_metadata.go:53:15: ST1005: error strings should not be capitalized (staticcheck)
+		return nil, fmt.Errorf("Codex model count exceeds limit")
+		            ^
+internal/shared/apicompat/anthropic_thinking_wire.go:38:23: ST1005: error strings should not be capitalized (staticcheck)
+		return block, true, fmt.Errorf("Anthropic thinking envelope exceeds the replay limit")
+		                    ^
+internal/shared/apicompat/claude55_replay_test.go:43:3: QF1003: could use tagged switch on block.Type (staticcheck)
+		if block.Type == "thinking" {
+		^
+9 issues:
+* errcheck: 4
+* gofmt: 2
+* staticcheck: 3

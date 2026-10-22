@@ -37,3 +37,8 @@ The file contains JSON data with model pricing information including:
 Last updated: 2026-09-30. The bundled OpenAI cards include GPT-6.1 Sol from the
 official pricing page, including standard, cache, long-context, Batch, Flex and
 Fast tier rates.
+
+The Grok 4.7 Fast and Grok Build Fast entries follow the official xAI Fast card.
+Explicit `long_context_input_token_threshold` and multiplier fields are included
+for this project parser; the inherited xAI threshold is inclusive at 200000 tokens.
+See [PR #8170 review](../../../docs/UPSTREAM_SYNC_20261022_PR8170.md).

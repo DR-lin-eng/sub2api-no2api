@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
@@ -42,7 +44,7 @@ func TestS3BackupStoreUploadFileRangeSendsExactRangeAndContentLength(t *testing.
 	require.NoError(t, os.WriteFile(filePath, []byte("0123456789abcdef"), 0o600))
 
 	store, err := NewS3BackupStoreFactory()(context.Background(), &service.BackupS3Config{
-		Endpoint:        server.URL,
+		Endpoint:        "https://s3.example.com",
 		Region:          "test-region",
 		Bucket:          "backup-bucket",
 		AccessKeyID:     "test-access-key",
@@ -50,6 +52,14 @@ func TestS3BackupStoreUploadFileRangeSendsExactRangeAndContentLength(t *testing.
 		ForcePathStyle:  true,
 	})
 	require.NoError(t, err)
+	// Keep the upload test local without relaxing the production destination
+	// policy: replace this instance's SDK transport only after construction.
+	backupStore, ok := store.(*S3BackupStore)
+	require.True(t, ok)
+	options := backupStore.client.Options()
+	options.BaseEndpoint = &server.URL
+	options.HTTPClient = server.Client()
+	backupStore.client = s3.New(options)
 	require.NoError(t, store.UploadFileRange(context.Background(), "daily/part-0002", filePath, 4, 6, "application/octet-stream"))
 
 	request := <-requests

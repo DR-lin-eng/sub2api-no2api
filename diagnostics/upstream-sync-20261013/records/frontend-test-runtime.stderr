@@ -1,0 +1,55 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile.frontend-test
+#1 transferring dockerfile: 249B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:24-bookworm-slim
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [1/3] FROM docker.io/library/node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
+#4 resolve docker.io/library/node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 done
+#4 DONE 0.1s
+
+#5 [2/3] RUN apt-get update -qq && apt-get install -y --no-install-recommends make && rm -rf /var/lib/apt/lists/*
+#5 1.908 Reading package lists...
+#5 2.127 Building dependency tree...
+#5 2.189 Reading state information...
+#5 2.256 Suggested packages:
+#5 2.256   make-doc
+#5 2.275 The following NEW packages will be installed:
+#5 2.275   make
+#5 2.399 0 upgraded, 1 newly installed, 0 to remove and 1 not upgraded.
+#5 2.399 Need to get 391 kB of archives.
+#5 2.399 After this operation, 1634 kB of additional disk space will be used.
+#5 2.399 Get:1 http://deb.debian.org/debian bookworm/main arm64 make arm64 4.3-4.1 [391 kB]
+#5 2.628 debconf: delaying package configuration, since apt-utils is not installed
+#5 2.640 Fetched 391 kB in 0s (1584 kB/s)
+#5 2.656 Selecting previously unselected package make.
+#5 2.656 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 6090 files and directories currently installed.)
+#5 2.678 Preparing to unpack .../make_4.3-4.1_arm64.deb ...
+#5 2.679 Unpacking make (4.3-4.1) ...
+#5 2.711 Setting up make (4.3-4.1) ...
+#5 DONE 2.9s
+
+#6 [3/3] RUN corepack enable && corepack prepare pnpm@11.17.0 --activate
+#6 0.209 Preparing pnpm@11.17.0 for immediate activation...
+#6 DONE 1.1s
+
+#7 exporting to image
+#7 exporting layers
+#7 exporting layers 0.8s done
+#7 exporting manifest sha256:b9e5ac14a6b06c23b733579da588beb7954576e7bd01992d2feb6eb9f5ce40a4 done
+#7 exporting config sha256:463905499f2dcb1453524a124c21528435d20b2a92f26ffd8a1e97c1a2d7cd8d done
+#7 exporting attestation manifest sha256:72313b3e7b94d349dbe3cfa8ca7e3477d9624f38a0f6da4b427a1716fccbdc8c 0.0s done
+#7 exporting manifest list sha256:eccae29c838a4c04361c41efed06a1930379b5ec994b820c7e58d6635bcb5981 done
+#7 naming to docker.io/library/sub2api-upstream-sync-node:20261013 done
+#7 unpacking to docker.io/library/sub2api-upstream-sync-node:20261013
+#7 unpacking to docker.io/library/sub2api-upstream-sync-node:20261013 0.2s done
+#7 DONE 1.0s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/1ahud34y4grfh2j34g6w7yf5h

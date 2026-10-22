@@ -1,0 +1,17 @@
+{
+  "command": [
+    "docker",
+    "exec",
+    "sub2api-sync-ui-baseline-20261012",
+    "node",
+    "/app/frontend/sync-harness/browser.mjs",
+    "BASELINE"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261012-cbj09nx5",
+  "exit_status": 1,
+  "elapsed_s": 40.8044318750035,
+  "utc": "2026-10-12T18:09:20.083418+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderr_sha256": "7a0bd2f6df83d652d73ee3c4e82a074665ff78448888e959aa902476e7f8536b"
+}

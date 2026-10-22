@@ -209,6 +209,8 @@ type modelInfo struct {
 // 只有在此映射表中的模型才会注入身份提示词
 // 注意：模型映射逻辑在网关层完成；这里仅用于按模型前缀判断是否注入身份提示词。
 var modelInfoMap = map[string]modelInfo{
+	"claude-opus-5-5":   {DisplayName: "Claude Opus 5.5", CanonicalID: "claude-opus-5-5"},
+	"claude-sonnet-5-5": {DisplayName: "Claude Sonnet 5.5", CanonicalID: "claude-sonnet-5-5"},
 	"claude-fable-5-1":  {DisplayName: "Claude Fable 5.1", CanonicalID: "claude-fable-5-1"},
 	"claude-fable-5":    {DisplayName: "Claude Fable 5", CanonicalID: "claude-fable-5"},
 	"claude-opus-4-8":   {DisplayName: "Claude Opus 4.8", CanonicalID: "claude-opus-4-8"},
@@ -544,7 +546,7 @@ func buildParts(content json.RawMessage, toolIDToName map[string]string, allowDu
 			}
 
 			// 解析 content
-			resultContent := parseToolResultContent(block.Content, block.IsError)
+			resultContent, inlineParts := parseToolResultContentWithInlineParts(block.Content, block.IsError)
 
 			parts = append(parts, GeminiPart{
 				FunctionResponse: &GeminiFunctionResponse{
@@ -555,54 +557,60 @@ func buildParts(content json.RawMessage, toolIDToName map[string]string, allowDu
 					ID: block.ToolUseID,
 				},
 			})
+			parts = append(parts, inlineParts...)
 		}
 	}
 
 	return parts, strippedThinking, nil
 }
 
-// parseToolResultContent 解析 tool_result 的 content
-func parseToolResultContent(content json.RawMessage, isError bool) string {
-	if len(content) == 0 {
-		if isError {
-			return "Tool execution failed with no output."
-		}
-		return "Command executed successfully."
+// parseToolResultContentWithInlineParts decodes once and keeps binary data out
+// of the functionResponse text consumed by older clients.
+func parseToolResultContentWithInlineParts(content json.RawMessage, isError bool) (string, []GeminiPart) {
+	fallback := "Command executed successfully."
+	if isError {
+		fallback = "Tool execution failed with no output."
 	}
-
-	// 尝试解析为字符串
+	if len(content) == 0 {
+		return fallback, nil
+	}
 	var str string
 	if err := json.Unmarshal(content, &str); err == nil {
 		if strings.TrimSpace(str) == "" {
-			if isError {
-				return "Tool execution failed with no output."
-			}
-			return "Command executed successfully."
+			return fallback, nil
 		}
-		return str
+		return str, nil
 	}
-
-	// 尝试解析为数组
 	var arr []map[string]any
 	if err := json.Unmarshal(content, &arr); err == nil {
 		var texts []string
+		var inlineParts []GeminiPart
 		for _, item := range arr {
-			if text, ok := item["text"].(string); ok {
-				texts = append(texts, text)
+			if value, ok := item["text"].(string); ok {
+				texts = append(texts, value)
 			}
-		}
-		result := strings.Join(texts, "\n")
-		if strings.TrimSpace(result) == "" {
-			if isError {
-				return "Tool execution failed with no output."
+			kind, _ := item["type"].(string)
+			if kind != "image" && kind != "document" {
+				continue
 			}
-			return "Command executed successfully."
+			source, _ := item["source"].(map[string]any)
+			if source["type"] != "base64" {
+				continue
+			}
+			data, _ := source["data"].(string)
+			if strings.TrimSpace(data) == "" {
+				continue
+			}
+			mime, _ := source["media_type"].(string)
+			inlineParts = append(inlineParts, GeminiPart{InlineData: &GeminiInlineData{MimeType: mime, Data: data}})
 		}
-		return result
+		value := strings.Join(texts, "\n")
+		if strings.TrimSpace(value) == "" {
+			value = fallback
+		}
+		return value, inlineParts
 	}
-
-	// 返回原始 JSON
-	return string(content)
+	return string(content), nil
 }
 
 // buildGenerationConfig 构建 generationConfig

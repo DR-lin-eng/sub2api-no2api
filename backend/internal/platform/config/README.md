@@ -29,3 +29,5 @@
 | `*_test.go` | 环境可达性、图片存储和配置回归 |
 
 新增配置必须定义默认值、环境变量映射和校验；面向前端的公开设置还需同步 DTO 与 HTML 注入结构。
+
+`gateway.min_output_tokens` / `GATEWAY_MIN_OUTPUT_TOKENS` 控制兼容转换中的输出下限，默认 128、至少 16。滚动升级和回退先保留默认值，所有节点更新后再显式修改；原生 Responses/WS 不经过该转换下限。

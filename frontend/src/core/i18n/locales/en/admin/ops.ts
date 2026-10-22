@@ -212,6 +212,30 @@ export default {
           lastRequestAt: 'Last request'
         }
       },
+      oauthPlanExpiry: {
+        title: 'OAuth subscription expiry distribution',
+        description: 'OAuth account subscription time remaining, grouped by 1, 2, 4, 5, 10, 15, 20, and 25 day gradients.',
+        updatedAt: 'Updated {value}',
+        totalAccounts: 'OAuth accounts',
+        withExpiry: 'With expiry',
+        withoutExpiry: 'Missing expiry',
+        planCount: 'Plan types',
+        planBreakdown: 'Plan breakdown',
+        failedToLoad: 'Failed to load OAuth subscription expiry distribution',
+        empty: 'No OAuth accounts match the current filters.',
+        buckets: {
+          expired: 'Expired',
+          up_to_1: '0-1 days',
+          up_to_2: '1-2 days',
+          up_to_4: '2-4 days',
+          up_to_5: '4-5 days',
+          up_to_10: '5-10 days',
+          up_to_15: '10-15 days',
+          up_to_20: '15-20 days',
+          up_to_25: '20-25 days',
+          over_25: '>25 days'
+        }
+      },
       fullscreen: {
         enter: 'Enter Fullscreen'
       },
@@ -445,6 +469,7 @@ export default {
           kind: 'Kind',
           platform: 'Platform',
           model: 'Model',
+          account: 'Account',
           duration: 'Duration',
           ttft: 'TTFT',
           status: 'Status',
@@ -790,6 +815,8 @@ export default {
         displayOpenAITokenStatsHint: 'When disabled, OpenAI token request stats are not loaded. Hidden by default.',
         displayUserUsageStats: 'Display user usage stats',
         displayUserUsageStatsHint: 'When disabled, user usage stats are not loaded. The card defaults to the top 20 users from the last 24 hours and is hidden by default.',
+      displayOAuthPlanExpiryDistribution: 'Display OAuth subscription expiry distribution',
+      displayOAuthPlanExpiryDistributionHint: 'When disabled, OAuth account subscription expiry distribution is not loaded. Enabled by default.',
         displaySystemLogs: 'Display system logs',
         displaySystemLogsHint: 'Show or hide the system log query panel. Enabled by default. No system log queries run while hidden.',
         autoRefreshCountdown: 'Auto refresh: {seconds}s',

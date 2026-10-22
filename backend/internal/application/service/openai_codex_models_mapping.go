@@ -74,6 +74,7 @@ func projectCodexAccountModelsBody(body []byte, account *Account, group *Group) 
 	if group.ModelAllowlistEnabled() {
 		candidates = append(candidates, group.ModelAllowlist.Models...)
 	}
+	overrides := codexMetadataOverrides(account)
 	projected := make([]json.RawMessage, 0, len(candidates))
 	seen := make(map[string]struct{}, len(candidates))
 	for _, id := range candidates {
@@ -98,6 +99,8 @@ func projectCodexAccountModelsBody(body []byte, account *Account, group *Group) 
 		if err := json.Unmarshal(raw, &entry); err != nil {
 			return nil, err
 		}
+		entry = applyCodexMetadataOverride(entry, overrides[id])
+		normalizeCodexReasoningLevels(entry)
 		entry[idField], _ = json.Marshal(id)
 		if id != target {
 			entry["display_name"], _ = json.Marshal(id)
@@ -119,10 +122,34 @@ func projectCodexAccountModelsBody(body []byte, account *Account, group *Group) 
 }
 
 func ProjectCodexModelsManifestForAccount(manifest *CodexModelsManifest, account *Account, group *Group, ifNoneMatch string) (*CodexModelsManifest, error) {
-	if manifest == nil || manifest.NotModified || !CodexManifestMappingEnabled(account) {
+	if manifest == nil || manifest.NotModified || !CodexManifestProjectionEnabled(account) {
 		return manifest, nil
 	}
-	body, err := projectCodexAccountModelsBody(manifest.Body, account, group)
+	source := manifest.Body
+	if manifest.rawBody != nil {
+		source = manifest.rawBody
+	}
+	enriched := source
+	var err error
+	// Passthrough keeps the existing manifest metadata and bytes. Its new
+	// projection gate exists solely to remove retired ChatGPT targets.
+	if !account.IsOpenAIPassthroughEnabled() {
+		enriched, err = enrichCodexModelsManifest(source, account)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if manifest.apiKeyUpstream {
+		enriched, err = adjustAPIKeyCodexModelsManifest(enriched)
+		if err != nil {
+			return nil, err
+		}
+	}
+	body, err := projectCodexAccountModelsBody(enriched, account, group)
+	if err != nil {
+		return nil, err
+	}
+	body, err = filterRetiredCodexModelsBody(body, account)
 	if err != nil {
 		return nil, err
 	}

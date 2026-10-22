@@ -1,0 +1,56 @@
+[
+  {
+    "pr": 8106,
+    "merge_sha": "3856a02856ca788cc1714362b1dc8a5a4d06b131",
+    "title": "Merge pull request #8106 from Wei-Shaw/fix/composite-oauth-ambiguous-misroute",
+    "diff_sha256": "952abecad53c0bac30252fff9be3e97b3c51f6a1f440cba2289e6df04879396f"
+  },
+  {
+    "pr": 8087,
+    "merge_sha": "fdc7f1fa011a912afb9f7948cb9dc46059c98ddd",
+    "title": "Merge pull request #8087 from coder-zhw/fix/zhipu-credit-limit-window-classification",
+    "diff_sha256": "e1ac92287debb8ba9ca5c1db7b079210eaf393db51406037b869b7e0160fd1bd"
+  },
+  {
+    "pr": 8060,
+    "merge_sha": "3b83e045ed5ddc8246ebe8b3c4045a1c7ff5968b",
+    "title": "Merge pull request #8060 from feeeei/fix/gemini-vertex-shared-capacity-429",
+    "diff_sha256": "ec5e070642d1925d1c9bd38ea8bddfdcf3ed1f5032847359054258376738186e"
+  },
+  {
+    "pr": 8076,
+    "merge_sha": "abdc82725f1c6f1530d2a5835b0af653d352994e",
+    "title": "Merge pull request #8076 from feeeei/fix/gemini-vertex-sa-and-error-policy",
+    "diff_sha256": "4dbc16d8ce8ef440484ba9e3b40bcc0cc8db3a3de8ef14b2c73fa2864afe666b"
+  },
+  {
+    "pr": 8078,
+    "merge_sha": "dcde68aa5881ba7eea569ff1d98a860fba1d8b8c",
+    "title": "Merge pull request #8078 from feeeei/feat/gemini-4-argon-pricing",
+    "diff_sha256": "ce3d402d6f896857322e35b19ccf33fd2159115777ead944d5a35bb7aace6a10"
+  },
+  {
+    "pr": 8093,
+    "merge_sha": "857a76d4a0e7b2389926c340555a2f8f5b24a0ae",
+    "title": "Merge pull request #8093 from baryon/contrib/gemini-4-argon-support",
+    "diff_sha256": "4465e6811f0971ee6be6958e0a3600637bcc11d65c6994e37d662a2b6354b8c1"
+  },
+  {
+    "pr": 8094,
+    "merge_sha": "58b5e858c82dcf14a637762ee1e6c37ec9f86aad",
+    "title": "Merge pull request #8094 from wucm667/feat/issue-8092-configurable-min-output",
+    "diff_sha256": "38c59c02aca5d5cef292673efa66fac8ca7c4eb240728d11dbe080afa49a9618"
+  },
+  {
+    "pr": 8079,
+    "merge_sha": "ddef05527eca7f369b107fd87c4811d696284f38",
+    "title": "Merge pull request #8079 from wucm667/fix/issue-8074-anthropic-base-url",
+    "diff_sha256": "85e356537dc3d1be772c4412bbc1d80a90f0ba9539cd181ba466d41845f9f98e"
+  },
+  {
+    "pr": 8088,
+    "merge_sha": "698d142468ab15374bc22bd5247759e5b7352006",
+    "title": "Merge pull request #8088 from wucm667/fix/issue-8077-workspace-aware-import",
+    "diff_sha256": "e0153b97a13fdd3ed927c9ba7ac555ad32afc1ceab21449294b92d0de47955c5"
+  }
+]

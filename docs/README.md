@@ -28,6 +28,7 @@
 | --- | --- |
 | [权限组与客服账号教程](PERMISSION_GROUPS.md) | 启用客服、自定义权限组、分配员工账号、验收和回退 |
 | [Admin API](ADMIN_API.md) | Admin API Key、权限范围和管理接口调用方式 |
+| [批量同步账号上游模型](ACCOUNT_UPSTREAM_MODELS_SYNC.md) | OAuth/API Key 账号的一键模型同步、保留规则、逐账号结果与验证 |
 | [OAuth2 对外授权服务](OAUTH2_PROVIDER.md) | 管理员控制的客户端、PKCE 授权码、用户信息与撤销接口 |
 | [降智账号 API](ACCOUNT_QUALITY_DEGRADED_ACCOUNTS_API.md) | 读取降智 OAuth 账号邮箱、account ID 及 401 认证错误 |
 | [Cloudflare 接口分类与边缘规则建议](CLOUDFLARE_EDGE_RULES.md) | 按浏览器页、自动化 API、纯 API 和强人机验证入口分类，方便编写 CF/WAF 规则 |
@@ -45,6 +46,9 @@
 | [组合分组](COMPOSITE_GROUPS.md) | Composite group 的平台解析和使用约束 |
 | [Excel BPS 与 DeepSeek 兼容](BPS_DEEPSEEK_COMPAT.md) | 账号级 BPS 开关/筛选/批量更新、Responses 与 Chat Completions 兼容入口 |
 | [Codex OAuth 模拟的有意差异](codex/intentional-divergences.md) | 固定 Codex 源码 revision、纯 Go A/B 身份与 continuation 边界、暂缓的传输层差异 |
+| [OpenAI OAuth 与 Codex 桌面请求对照](codex/desktop-request-alignment.md) | 桌面静态报告的端点边界、OAuth principal 校验、HTTP 媒体类型与证明字段归属 |
+| [Codex 桌面深度报告与请求还原补充](codex/ChatGPT_Codex_桌面端_深度分析报告_请求还原补充.md) | 完整头部清单、逐端点模板、真实值来源、bundle 证据与项目待补齐字段 |
+| [Ghidra 原生证明与设备密钥对照](codex/native-device-key-alignment.md) | TPM/SE native 桥、controller step-up 与签名 challenge、CBOR 和静态报告校正 |
 | [Codex CLI 语音](CODEX_VOICE.md) | `/voice` 的 V3 协议、Sideband 配置、分钟价格和结算恢复 |
 | [CPA 多号池动态负载](CPA_POOL_DYNAMIC_LOAD_BALANCING_CN.md) | CPA 凭据容量、动态分流和运维检查 |
 | [调度候选索引优化](SCHEDULER_CANDIDATE_INDEX_OPTIMIZATION_CN.md) | 实验调度引擎、索引一致性和回退行为 |
@@ -74,10 +78,19 @@
 | [上游主线同步审查记录（2026-10-07）](UPSTREAM_SYNC_20261007.md) | 3 个增量 PR 的首次安装适配、已覆盖差异关闭、性能与 Docker 升级回退验证 |
 | [上游主线同步审查记录（2026-10-08）](UPSTREAM_SYNC_20261008.md) | 57 个冻结主线 PR 的关闭/重开台账、WS 逐轮计费、TPS 与 namespace 性能、Docker 平滑升级和发布跟踪 |
 | [上游主线同步审查记录（2026-10-09）](UPSTREAM_SYNC_20261009.md) | 两个冻结 PR 的精准修复、安全工具链、搜索历史性能、关闭/专项暂缓台账和 Docker 验证 |
+| [上游主线同步审查记录（2026-10-12）](UPSTREAM_SYNC_20261012.md) | 17 个增量 PR 的当前 owner 适配、分组多语言、计费与审核并发性能、Docker 与升级回退边界 |
+| [上游主线同步审查记录（2026-10-13）](UPSTREAM_SYNC_20261013.md) | 7 个增量 PR 的当前 owner 适配、明确暂缓、范围隔离、Docker 升级回退与 CI |
+| [上游主线同步审查记录（2026-10-15）](UPSTREAM_SYNC_20261015.md) | 10 个冻结 PR 的当前 owner 适配、图片解码重构、升级回退和关闭/专项暂缓台账 |
+| [上游主线同步审查记录（2026-10-16）](UPSTREAM_SYNC_20261016.md) | 两个支付 PR 的模块适配、pending 退款事务、易支付确认、混合版本边界与 Docker 验证 |
+| [上游主线增量审查（2026-10-16，后续批次）](UPSTREAM_SYNC_20261016_FOLLOWUP.md) | Gemini 思考、订阅退休、搜索和 Responses 时间戳的当前 owner 适配、性能及升级回退证据 |
+| [上游主线增量同步审查（2026-10-19）](UPSTREAM_SYNC_20261019.md) | Gemini 断流可靠结算、缓存用量下限、图片结果类型检查、关闭台账与 Docker 升级回退 |
+| [上游主线增量同步审查（2026-10-22）](UPSTREAM_SYNC_20261022.md) | service account 配额、Gemini 图片门禁、兼容流断连结算、性能与 Docker 升级回退 |
+| [上游 #8170 专项同步（2026-10-22）](UPSTREAM_SYNC_20261022_PR8170.md) | Grok 4.7 Fast 价卡、长上下文边界、动态/渠道价格优先级与回退 |
 | [API Key 删除与计费竞争条件审查（2026-10-06）](../diagnostics/billing-key-deletion-20261006/REPORT.md) | 旧版本漏扣回放、当前修复边界、真实数据库与 24 个 Docker HTTP 场景 |
 | [GPT-6 Astra 接入记录](GPT6_ASTRA.md) | OpenAI 官方模型目录、能力、价格和本项目兼容计费映射 |
 | [GPT-6 模型目录与价格](GPT6_MODELS.md) | GPT-6 Astra、Sol、Luna 的官方能力、价格与本项目实现位置 |
 | [OpenAI 请求计时](OPENAI_TIMING.md) | 上游 timing 采集、用户明细投影与管理员本地/上游对比 |
+
 
 ## 长期优化计划
 

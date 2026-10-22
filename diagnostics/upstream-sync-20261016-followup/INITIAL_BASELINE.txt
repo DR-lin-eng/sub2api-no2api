@@ -1,0 +1,29 @@
+TARGET=/private/tmp/sub2api-upstream-sync-20261016
+eb130c485520fa27536e33064f39894972205362
+--- source hashes ---
+1d089b262627a41d2702907a314c368b12b5fa5566e039f83a30c50e396ddd5a  backend/internal/application/service/gateway_websearch_emulation.go
+f46eb00fc5cd7dfda2901bab6b1324cae4f6eb366a94cce5bbafca27b9a29b68  backend/internal/application/service/gateway_forward.go
+74faa7ed9536da2784422b9f5e9f3509b4b7c5743f45d201035fa93cb8eca85e  backend/internal/application/service/account.go
+ef3fed406398e29e29a6743088496633099e21eb01fe3a55534f92d19fbf5e0f  backend/internal/application/service/gateway_service.go
+e906c571a59155046458ab1e815ed37389dfbde32546a13b233ca0a870063225  backend/internal/application/service/openai_account_scheduler.go
+430e82aca1226ac3a4f1de043b7d48d2af3c0ed110e99bc41b435c9e8049c4ab  backend/internal/application/service/gemini_messages_compat_service.go
+21f6d8f0c9cba18e5e78f9cbc609aa9306ddccc36f1d3f735628ef4a7e841e3f  backend/internal/application/service/gemini_chat_completions_compat_service.go
+1302f7a50b0d55cfa73e46c1b468e61d4b1364e93280f8b0da9f86f67727e1c4  backend/internal/application/service/openai_gateway_response_handling.go
+e5af16c7dbfc93e78792af17b54a670b9374454ce838feaa33111979009e72c8  backend/internal/application/service/openai_gateway_passthrough.go
+ec5c5f7b851c1be2e9a442ff99bbe7559068e71c1761bd33d873930571c2d53d  backend/internal/application/service/openai_ws_http_bridge.go
+--- baseline shared created_at tests ---
+go: downloading go1.26.9 (darwin/arm64)
+go: download go1.26.9: open /Users/lin/go/pkg/mod/cache/download/golang.org/toolchain/@v/v0.0.1-go1.26.9.darwin-arm64.lock: operation not permitted
+--- baseline websearch tests ---
+go: downloading go1.26.9 (darwin/arm64)
+go: download go1.26.9: open /Users/lin/go/pkg/mod/cache/download/golang.org/toolchain/@v/v0.0.1-go1.26.9.darwin-arm64.lock: operation not permitted
+--- baseline model support tests ---
+go: downloading go1.26.9 (darwin/arm64)
+go: download go1.26.9: open /Users/lin/go/pkg/mod/cache/download/golang.org/toolchain/@v/v0.0.1-go1.26.9.darwin-arm64.lock: operation not permitted
+--- docker baseline shared created_at ---
+image=golang:1.26.9 digest=sha256:37cfcca63222ec499bec5e8ad7aad52dbf7529db36d5812b8eae2f0621aa92d6
+exit=0
+ok github.com/Wei-Shaw/sub2api/internal/shared/apicompat 0.002s
+--- docker baseline application service ---
+image=golang:1.26.9 exit=0
+ok github.com/Wei-Shaw/sub2api/internal/application/service 0.022s

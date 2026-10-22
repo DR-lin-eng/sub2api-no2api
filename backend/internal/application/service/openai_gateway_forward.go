@@ -25,6 +25,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		body = stripDistillationCacheFields(body)
 	}
 	integrityOriginalBody := bytes.Clone(body)
+	body = s.normalizeOpenAIRequestTimezone(ctx, account, body, "http")
 	ctx = s.WithOpenAIStreamRuntimeSettings(ctx)
 	if c != nil && c.Request != nil {
 		settings := s.openAIStreamRuntimeSettings(ctx)
@@ -189,7 +190,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		case APIProtocolResponses:
 			// Continue through the native Responses path below.
 		default:
-			return s.forwardResponsesViaRawChatCompletions(ctx, c, account, body)
+			return s.forwardResponsesViaRawChatCompletions(ctx, c, account, body, startTime)
 		}
 	}
 	if account.IsAnthropicProtocol() {
@@ -197,7 +198,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	}
 
 	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) || shouldForwardDeepSeekCompatViaChatCompletions(c, account, body) {
-		return s.forwardResponsesViaRawChatCompletions(ctx, c, account, body)
+		return s.forwardResponsesViaRawChatCompletions(ctx, c, account, body, startTime)
 	}
 
 	compatMessagesBridge := isOpenAICompatMessagesBridgeBody(body)
@@ -643,7 +644,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		imageInputSize = imageCfg.InputSize
 	}
 
-	// Get access token
+	defer s.startOpenAIResponsePreparationKeepalive(ctx, c, account, reqStream)()
 	token, _, err := s.GetAccessToken(ctx, account)
 	if err != nil {
 		return nil, err

@@ -46,6 +46,27 @@ func StartOpenAICompactSSEKeepalive(c *gin.Context, interval time.Duration) func
 	if c == nil || c.Writer == nil || interval <= 0 || !openAICompactClientWantsStream(c) {
 		return func() {}
 	}
+	return startOpenAIStartupSSEKeepalive(c, interval)
+}
+
+// StartOpenAIResponsesSSEKeepalive protects validated streaming Responses
+// requests while admission, account selection or token refresh is still pending.
+// The first delayed comment commits only transport output, so safe failover and
+// the existing protocol-aware error paths remain available. Response construction
+// stops the timer under the writer lock before taking over the response.
+func StartOpenAIResponsesSSEKeepalive(c *gin.Context, interval time.Duration) func() {
+	if c == nil || c.Writer == nil || interval <= 0 || c.Writer.Written() {
+		return func() {}
+	}
+	return startOpenAIStartupSSEKeepalive(c, interval)
+}
+
+func startOpenAIStartupSSEKeepalive(c *gin.Context, interval time.Duration) func() {
+	// A handler and its Forward call share one owner. Nested wrappers would
+	// stop each other's timers and make heartbeat bytes count more than once.
+	if _, exists := c.Get(openAICompactSSEKeepaliveKey); exists {
+		return func() {}
+	}
 	declareOpenAIStreamResponseMetadataTrailers(c)
 	originalWriter := c.Writer
 	k := &openAICompactSSEKeepalive{

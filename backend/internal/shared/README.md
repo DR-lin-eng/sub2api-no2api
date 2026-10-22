@@ -15,3 +15,5 @@
 shared 包不得导入 `application`、`infrastructure`、`modules` 或 `transport`。出现业务名词和持久状态时，应建立模块或 application 端口，而不是继续扩充 shared。
 
 `urlvalidator` 对管理员配置的上游 base URL 同时接受 HTTP 和 HTTPS，不再要求 `allow_insecure_http` 开关；URL 格式、主机白名单及私网策略仍分别执行。用户提交的图片 URL 使用独立公开地址校验，HTTP 图片与 HTTPS 到 HTTP 重定向继续由该开关控制。
+
+`remotecontrol/device_key.go` 维护 desktop controller 的域分隔载荷、身份摘要与 P-256/DER 验签；注册状态和 HTTP/WS 编排归属 `modules/codexremotecontrol`，硬件调用归属 `platform/devicekey`。

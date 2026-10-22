@@ -269,6 +269,7 @@ docker compose down -v
 | `ADMIN_EMAIL` | No | *(auto-generated)* | Random admin login email on first install |
 | `ADMIN_PASSWORD` | No | *(auto-generated)* | Admin password (8-72 bytes) |
 | `TZ` | No | `Asia/Shanghai` | Timezone |
+| `GATEWAY_OPENAI_REQUEST_TIMEZONE` | No | `Asia/Singapore` | Gateway-wide IANA timezone sent in OpenAI request context |
 | `DEPLOYMENT_MODE` | No | `standalone` | Set `multi_instance` on every load-balanced replica. |
 | `DEPLOYMENT_NODE_ID` | No | *(generated)* | Optional fixed logical node identity. |
 | `DEPLOYMENT_NODE_ID_FILE` | No | `/app/data/.cluster-node-id` | Node-local persistent identity file; never share it between replicas. |

@@ -1,0 +1,48 @@
+{
+  "active_object": "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo",
+  "baseline_sha": "ec1ead14315d303db19cf3116754eb89a853838c",
+  "upstream_sha": "698d142468ab15374bc22bd5247759e5b7352006",
+  "last_confirmed_result": "both open items closed with full Docker gates, cumulative source rollback/reapply and same-database mixed-writer runtime",
+  "next_executable_action": "commit/push new PR, track exact-head checks, merge and verify exact main/GHCR",
+  "input_paths": [
+    "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/records",
+    "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/upstream-diffs"
+  ],
+  "acceptance_event": "both subitems closed with Docker baseline/candidate/rollback and publication evidence",
+  "supplemental_upstream_sha": "1b2243a4f50621508e79aef4b498a2937a6238ee",
+  "role_paths": [
+    "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015/MODIFIED_FILE.tar.gz",
+    "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015/DIFF_FILE.patch",
+    "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015/VERIFICATION.txt",
+    "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015/ROLLBACK.sh"
+  ],
+  "parent_task": {
+    "active_object": "selective upstream sync 20261015",
+    "baseline_sha": "ec1ead14315d303db19cf3116754eb89a853838c",
+    "upstream_sha": "698d142468ab15374bc22bd5247759e5b7352006",
+    "last_confirmed_result": "All local required Docker checks, runtime/rollback and final source transaction passed; known baseline maintenance debt isolated",
+    "next_executable_action": "Commit and push the reviewed candidate, create PR, then verify exact-head PR/main workflows and GHCR manifests",
+    "input_paths": [
+      "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/records",
+      "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/upstream-diffs"
+    ],
+    "acceptance_event": "exact head PR/main workflows and GHCR verification",
+    "supplemental_upstream_sha": "1b2243a4f50621508e79aef4b498a2937a6238ee",
+    "role_paths": [
+      "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015/MODIFIED_FILE.tar.gz",
+      "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015/DIFF_FILE.patch",
+      "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015/VERIFICATION.txt",
+      "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015/ROLLBACK.sh"
+    ]
+  },
+  "new_baseline_sha": "0d15c90ef5ba68022d24fad44beac58c96452bd7",
+  "new_behavior_baseline_sha": "0d15c90ef5ba68022d24fad44beac58c96452bd7",
+  "merged_base_sha": "0cbba13ce109cb1b2606c92ecec68b2b43e80f6c",
+  "compatibility_migration": "249_account_model_metadata_rolling_writes.sql",
+  "open_subitems_closed": [
+    "claude55-registration",
+    "descriptor-catalog-and-codex-metadata-expansion"
+  ],
+  "source_paths": 131,
+  "rollback_pristine_hashes": 5266
+}

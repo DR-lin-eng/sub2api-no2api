@@ -281,8 +281,9 @@ func (p *NonStreamingProcessor) buildResponse(geminiResp *GeminiResponse, respon
 	usage := ClaudeUsage{}
 	if geminiResp.UsageMetadata != nil {
 		cached := geminiResp.UsageMetadata.CachedContentTokenCount
-		usage.InputTokens = geminiResp.UsageMetadata.PromptTokenCount - cached
+		usage.InputTokens = max(geminiResp.UsageMetadata.PromptTokenCount-cached, 0)
 		usage.OutputTokens = geminiResp.UsageMetadata.CandidatesTokenCount + geminiResp.UsageMetadata.ThoughtsTokenCount
+		usage.ReasoningTokens = geminiResp.UsageMetadata.ReasoningTokens
 		usage.CacheReadInputTokens = cached
 		usage.ImageOutputTokens = geminiResp.UsageMetadata.ImageOutputTokens()
 	}

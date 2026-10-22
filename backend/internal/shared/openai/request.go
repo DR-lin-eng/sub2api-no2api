@@ -25,6 +25,9 @@ var CodexCLIUserAgentPrefixes = []string{
 // 前缀家族由 codexOfficialClientFamilyPrefix 单独处理（保留空格，避免退化为裸 codex 的宽松兜底）。
 var codexOfficialClientUAPrefixes = []string{
 	"codex_cli_rs/",
+	"codex_rmcp_cli/",
+	"codex_http_cli/",
+	"codex_app_server_cli/",
 	"codex-tui/",
 	"codex_vscode/",
 	"codex_vscode_copilot/",
@@ -49,6 +52,9 @@ const codexOfficialClientFamilyPrefix = "codex "
 // 或在 bump context/codex 时同步补入本集合。
 var codexOfficialClientOriginators = map[string]bool{
 	"codex_cli_rs":          true, // CLI 默认 DEFAULT_ORIGINATOR
+	"codex_rmcp_cli":        true, // 桌面报告中的 Codex engine 客户端身份
+	"codex_http_cli":        true,
+	"codex_app_server_cli":  true,
 	"codex-tui":             true, // 交互式 TUI（连字符，真实流量占比最高）
 	"codex_vscode":          true, // VSCode/Cursor 扩展
 	"codex_vscode_copilot":  true, // 扩展 GitHub Copilot 集成模式

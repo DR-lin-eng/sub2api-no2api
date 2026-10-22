@@ -40,5 +40,26 @@ func (s *OpenAIGatewayService) doAccountHTTPUpstream(
 			return nil, err
 		}
 	}
-	return doAccountHTTPUpstream(s.httpUpstream, req, proxyURL, account)
+	if req != nil && account != nil && account.IsOpenAIOAuth() {
+		// Cloning the headers avoids races with the keepalive goroutine and
+		// preserves the same original request for a bounded recovery retry.
+		req = req.Clone(req.Context())
+		proofCtx, err := s.prepareOpenAIOAuthProof(req.Context(), account, req.URL.String(), req.Header)
+		if err != nil {
+			return nil, err
+		}
+		req = req.WithContext(proofCtx)
+		owner, err := resolveCredentialAccount(req.Context(), s.accountRepo, account)
+		if err != nil {
+			return nil, err
+		}
+		if err := s.attachDesktopDeviceCheck(req, account, owner); err != nil {
+			return nil, err
+		}
+	}
+	resp, err := doAccountHTTPUpstream(s.httpUpstream, req, proxyURL, account)
+	if req != nil && resp != nil {
+		s.captureIntegrityState(req.Context(), resp.Header)
+	}
+	return resp, err
 }

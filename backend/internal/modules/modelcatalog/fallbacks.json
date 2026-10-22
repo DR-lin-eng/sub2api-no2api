@@ -1,0 +1,2720 @@
+{
+  "claude-3-7-sonnet-20250219": {
+    "context_window": 200000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 64000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_computer_use": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "claude-3-haiku-20240307": {
+    "context_window": 200000,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 4096
+  },
+  "claude-3-opus-20240229": {
+    "context_window": 200000,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 4096
+  },
+  "claude-4-opus-20250514": {
+    "context_window": 200000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 32000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_computer_use": true,
+    "supports_reasoning": true
+  },
+  "claude-4-sonnet-20250514": {
+    "context_window": 1000000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1000000,
+    "max_output_tokens": 64000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_computer_use": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "claude-haiku-4-5": {
+    "context_window": 200000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 64000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_computer_use": true,
+    "supports_reasoning": true
+  },
+  "claude-haiku-4-5-20251001": {
+    "context_window": 200000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 64000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_computer_use": true,
+    "supports_reasoning": true
+  },
+  "claude-haiku-5-5": {
+    "context_window": 1000000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1000000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
+    "supports_computer_use": true,
+    "supports_reasoning": true
+  },
+  "claude-opus-4-1": {
+    "context_window": 200000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 32000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_computer_use": true,
+    "supports_reasoning": true
+  },
+  "claude-opus-4-1-20250805": {
+    "context_window": 200000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 32000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_computer_use": true,
+    "supports_reasoning": true
+  },
+  "claude-opus-4-20250514": {
+    "context_window": 200000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 32000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_computer_use": true,
+    "supports_reasoning": true
+  },
+  "claude-opus-4-5": {
+    "context_window": 200000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 64000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_computer_use": true,
+    "supports_reasoning": true
+  },
+  "claude-opus-4-5-20251101": {
+    "context_window": 200000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 64000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_computer_use": true,
+    "supports_reasoning": true
+  },
+  "claude-opus-4-6": {
+    "context_window": 1000000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1000000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high",
+      "max"
+    ],
+    "supports_computer_use": true,
+    "supports_reasoning": true
+  },
+  "claude-opus-4-6-20260205": {
+    "context_window": 1000000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1000000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high",
+      "max"
+    ],
+    "supports_computer_use": true,
+    "supports_reasoning": true
+  },
+  "claude-opus-4-6-thinking": {
+    "context_window": 1000000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1000000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high",
+      "max"
+    ],
+    "supports_computer_use": true,
+    "supports_reasoning": true
+  },
+  "claude-opus-4-7": {
+    "context_window": 1000000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1000000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
+    "supports_computer_use": true,
+    "supports_reasoning": true
+  },
+  "claude-opus-4-7-20260416": {
+    "context_window": 1000000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1000000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
+    "supports_computer_use": true,
+    "supports_reasoning": true
+  },
+  "claude-opus-4-8": {
+    "context_window": 1000000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1000000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
+    "supports_computer_use": true,
+    "supports_reasoning": true
+  },
+  "claude-opus-5": {
+    "context_window": 1000000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1000000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
+    "supports_computer_use": true,
+    "supports_reasoning": true
+  },
+  "claude-opus-5-5": {
+    "context_window": 1000000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1000000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
+    "supports_computer_use": true,
+    "supports_reasoning": true
+  },
+  "claude-sonnet-4-20250514": {
+    "context_window": 1000000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1000000,
+    "max_output_tokens": 64000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_computer_use": true,
+    "supports_reasoning": true
+  },
+  "claude-sonnet-4-5": {
+    "context_window": 200000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 64000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_computer_use": true,
+    "supports_reasoning": true
+  },
+  "claude-sonnet-4-5-20250929": {
+    "context_window": 200000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 64000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_computer_use": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "claude-sonnet-4-5-20250929-v1:0": {
+    "context_window": 200000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 64000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_computer_use": true,
+    "supports_reasoning": true
+  },
+  "claude-sonnet-4-6": {
+    "context_window": 1000000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1000000,
+    "max_output_tokens": 64000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high",
+      "max"
+    ],
+    "supports_computer_use": true,
+    "supports_reasoning": true
+  },
+  "claude-sonnet-5-5": {
+    "context_window": 1000000,
+    "default_reasoning_level": "high",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1000000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
+    "supports_computer_use": true,
+    "supports_reasoning": true
+  },
+  "codex-auto-review": {
+    "context_window": 1050000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1050000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "deepseek-chat": {
+    "context_window": 131072,
+    "max_context_window": 131072,
+    "max_output_tokens": 8192,
+    "supports_parallel_tool_calls": true
+  },
+  "deepseek-flash": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 393216,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true
+  },
+  "deepseek-reasoner": {
+    "context_window": 131072,
+    "default_reasoning_level": "medium",
+    "max_context_window": 131072,
+    "max_output_tokens": 65536,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": false,
+    "supports_reasoning": true
+  },
+  "deepseek-v3-2-251201": {
+    "context_window": 98304,
+    "default_reasoning_level": "medium",
+    "max_context_window": 98304,
+    "max_output_tokens": 32768,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_reasoning": true
+  },
+  "deepseek-v4-flash": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "max_context_window": 1048576,
+    "max_output_tokens": 393216,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true
+  },
+  "deepseek-v4-flash-vision-exp": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 393216,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true
+  },
+  "deepseek-v4-pro": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "max_context_window": 1048576,
+    "max_output_tokens": 393216,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true
+  },
+  "gemini-2.0-flash": {
+    "context_window": 1048576,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 8192,
+    "supports_parallel_tool_calls": true,
+    "supports_web_search": true
+  },
+  "gemini-2.0-flash-001": {
+    "context_window": 1048576,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 8192,
+    "supports_parallel_tool_calls": true,
+    "supports_web_search": true
+  },
+  "gemini-2.0-flash-exp-image-generation": {
+    "context_window": 32768,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 32768,
+    "max_output_tokens": 32768
+  },
+  "gemini-2.0-flash-lite": {
+    "context_window": 1048576,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 8192,
+    "supports_parallel_tool_calls": true,
+    "supports_web_search": true
+  },
+  "gemini-2.0-flash-lite-001": {
+    "context_window": 1048576,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 8192,
+    "supports_parallel_tool_calls": true,
+    "supports_web_search": true
+  },
+  "gemini-2.5-computer-use-preview-10-2025": {
+    "context_window": 128000,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 128000,
+    "max_output_tokens": 64000,
+    "supports_computer_use": true
+  },
+  "gemini-2.5-flash": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 65535,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gemini-2.5-flash-image": {
+    "context_window": 32768,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 32768,
+    "max_output_tokens": 32768,
+    "supports_parallel_tool_calls": true,
+    "supports_web_search": false
+  },
+  "gemini-2.5-flash-lite": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 65535,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gemini-2.5-flash-lite-preview-06-17": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 65535,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gemini-2.5-flash-lite-preview-09-2025": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 65535,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gemini-2.5-flash-native-audio-latest": {
+    "context_window": 1048576,
+    "max_context_window": 1048576,
+    "max_output_tokens": 8192
+  },
+  "gemini-2.5-flash-native-audio-preview-09-2025": {
+    "context_window": 1048576,
+    "max_context_window": 1048576,
+    "max_output_tokens": 8192
+  },
+  "gemini-2.5-flash-native-audio-preview-12-2025": {
+    "context_window": 1048576,
+    "max_context_window": 1048576,
+    "max_output_tokens": 8192
+  },
+  "gemini-2.5-flash-preview-09-2025": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 65535,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gemini-2.5-pro": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 65535,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gemini-2.5-pro-preview-tts": {
+    "context_window": 1048576,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 65535,
+    "supports_parallel_tool_calls": true,
+    "supports_web_search": true
+  },
+  "gemini-3-flash": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 65535,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gemini-3-flash-preview": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 65535,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gemini-3-pro-image": {
+    "context_window": 65536,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 65536,
+    "max_output_tokens": 32768,
+    "supports_web_search": true
+  },
+  "gemini-3-pro-image-preview": {
+    "context_window": 65536,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 65536,
+    "max_output_tokens": 32768,
+    "supports_web_search": true
+  },
+  "gemini-3-pro-preview": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 65535,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gemini-3.1-flash-image": {
+    "context_window": 65536,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 65536,
+    "max_output_tokens": 32768,
+    "supports_web_search": true
+  },
+  "gemini-3.1-flash-image-preview": {
+    "context_window": 65536,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 65536,
+    "max_output_tokens": 32768,
+    "supports_web_search": true
+  },
+  "gemini-3.1-flash-lite": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 65536,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gemini-3.1-flash-lite-image": {
+    "context_window": 32768,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 32768,
+    "max_output_tokens": 32768,
+    "supports_web_search": true
+  },
+  "gemini-3.1-flash-lite-preview": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 65536,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gemini-3.1-flash-live-preview": {
+    "context_window": 131072,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 131072,
+    "max_output_tokens": 65536,
+    "supports_web_search": true
+  },
+  "gemini-3.1-pro-high": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 65536,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gemini-3.1-pro-low": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 65536,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gemini-3.1-pro-preview": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 65536,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gemini-3.1-pro-preview-customtools": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 65536,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gemini-3.5-flash": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 65535,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gemini-3.6-flash": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "max_context_window": 1048576,
+    "max_output_tokens": 65536,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_reasoning": true
+  },
+  "gemini-4-argon": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "max_context_window": 1048576,
+    "max_output_tokens": 65536,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_reasoning": true
+  },
+  "gemini-4-argon-cyber-permissive": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "max_context_window": 1048576,
+    "max_output_tokens": 65536,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_reasoning": true
+  },
+  "gemini-embedding-001": {
+    "context_window": 2048,
+    "max_context_window": 2048
+  },
+  "gemini-embedding-2": {
+    "context_window": 8192,
+    "max_context_window": 8192
+  },
+  "gemini-embedding-2-preview": {
+    "context_window": 8192,
+    "max_context_window": 8192
+  },
+  "gemini-exp-1206": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 65535,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gemini-flash-experimental": {
+    "context_window": 1000000,
+    "max_context_window": 1000000,
+    "max_output_tokens": 8192
+  },
+  "gemini-flash-latest": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 65535,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gemini-flash-lite-latest": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 65535,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gemini-live-2.5-flash-preview-native-audio-09-2025": {
+    "context_window": 1048576,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 65535,
+    "supports_parallel_tool_calls": true,
+    "supports_web_search": true
+  },
+  "gemini-pro-latest": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 65535,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gemini-robotics-er-1.5-preview": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 65535,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true
+  },
+  "gpt-3.5-turbo": {
+    "context_window": 16385,
+    "max_context_window": 16385,
+    "max_output_tokens": 4096
+  },
+  "gpt-3.5-turbo-0125": {
+    "context_window": 16385,
+    "max_context_window": 16385,
+    "max_output_tokens": 4096,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-3.5-turbo-1106": {
+    "context_window": 16385,
+    "max_context_window": 16385,
+    "max_output_tokens": 4096,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-3.5-turbo-16k": {
+    "context_window": 16385,
+    "max_context_window": 16385,
+    "max_output_tokens": 4096
+  },
+  "gpt-3.5-turbo-instruct": {
+    "context_window": 8192,
+    "max_context_window": 8192,
+    "max_output_tokens": 4096
+  },
+  "gpt-3.5-turbo-instruct-0914": {
+    "context_window": 8192,
+    "max_context_window": 8192,
+    "max_output_tokens": 4097
+  },
+  "gpt-4": {
+    "context_window": 8192,
+    "max_context_window": 8192,
+    "max_output_tokens": 4096
+  },
+  "gpt-4-0125-preview": {
+    "context_window": 128000,
+    "max_context_window": 128000,
+    "max_output_tokens": 4096,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-4-0314": {
+    "context_window": 8192,
+    "max_context_window": 8192,
+    "max_output_tokens": 4096
+  },
+  "gpt-4-0613": {
+    "context_window": 8192,
+    "max_context_window": 8192,
+    "max_output_tokens": 4096
+  },
+  "gpt-4-1106-preview": {
+    "context_window": 128000,
+    "max_context_window": 128000,
+    "max_output_tokens": 4096,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-4-turbo": {
+    "context_window": 128000,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 128000,
+    "max_output_tokens": 4096,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-4-turbo-2024-04-09": {
+    "context_window": 128000,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 128000,
+    "max_output_tokens": 4096,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-4-turbo-preview": {
+    "context_window": 128000,
+    "max_context_window": 128000,
+    "max_output_tokens": 4096,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-4.1": {
+    "context_window": 1047576,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1047576,
+    "max_output_tokens": 32768,
+    "supports_parallel_tool_calls": true,
+    "supports_web_search": true
+  },
+  "gpt-4.1-2025-04-14": {
+    "context_window": 1047576,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1047576,
+    "max_output_tokens": 32768,
+    "supports_parallel_tool_calls": true,
+    "supports_web_search": true
+  },
+  "gpt-4.1-mini": {
+    "context_window": 1047576,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1047576,
+    "max_output_tokens": 32768,
+    "supports_parallel_tool_calls": true,
+    "supports_web_search": true
+  },
+  "gpt-4.1-mini-2025-04-14": {
+    "context_window": 1047576,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1047576,
+    "max_output_tokens": 32768,
+    "supports_parallel_tool_calls": true,
+    "supports_web_search": true
+  },
+  "gpt-4.1-nano": {
+    "context_window": 1047576,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1047576,
+    "max_output_tokens": 32768,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-4.1-nano-2025-04-14": {
+    "context_window": 1047576,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1047576,
+    "max_output_tokens": 32768,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-4o": {
+    "context_window": 128000,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 128000,
+    "max_output_tokens": 16384,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-4o-2024-05-13": {
+    "context_window": 128000,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 128000,
+    "max_output_tokens": 4096,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-4o-2024-08-06": {
+    "context_window": 128000,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 128000,
+    "max_output_tokens": 16384,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-4o-2024-11-20": {
+    "context_window": 128000,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 128000,
+    "max_output_tokens": 16384,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-4o-audio-preview": {
+    "context_window": 128000,
+    "max_context_window": 128000,
+    "max_output_tokens": 16384,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-4o-audio-preview-2024-12-17": {
+    "context_window": 128000,
+    "max_context_window": 128000,
+    "max_output_tokens": 16384,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-4o-audio-preview-2025-06-03": {
+    "context_window": 128000,
+    "max_context_window": 128000,
+    "max_output_tokens": 16384,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-4o-mini": {
+    "context_window": 128000,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 128000,
+    "max_output_tokens": 16384,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-4o-mini-2024-07-18": {
+    "context_window": 128000,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 128000,
+    "max_output_tokens": 16384,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-4o-mini-audio-preview": {
+    "context_window": 128000,
+    "max_context_window": 128000,
+    "max_output_tokens": 16384,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-4o-mini-audio-preview-2024-12-17": {
+    "context_window": 128000,
+    "max_context_window": 128000,
+    "max_output_tokens": 16384,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-4o-mini-realtime-preview": {
+    "context_window": 128000,
+    "max_context_window": 128000,
+    "max_output_tokens": 4096,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-4o-mini-realtime-preview-2024-12-17": {
+    "context_window": 128000,
+    "max_context_window": 128000,
+    "max_output_tokens": 4096,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-4o-mini-search-preview": {
+    "context_window": 128000,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 128000,
+    "max_output_tokens": 16384,
+    "supports_parallel_tool_calls": true,
+    "supports_web_search": true
+  },
+  "gpt-4o-mini-search-preview-2025-03-11": {
+    "context_window": 128000,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 128000,
+    "max_output_tokens": 16384,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-4o-mini-transcribe": {
+    "context_window": 16000,
+    "max_context_window": 16000,
+    "max_output_tokens": 2000
+  },
+  "gpt-4o-mini-transcribe-2025-03-20": {
+    "context_window": 16000,
+    "max_context_window": 16000,
+    "max_output_tokens": 2000
+  },
+  "gpt-4o-mini-transcribe-2025-12-15": {
+    "context_window": 16000,
+    "max_context_window": 16000,
+    "max_output_tokens": 2000
+  },
+  "gpt-4o-realtime-preview": {
+    "context_window": 128000,
+    "max_context_window": 128000,
+    "max_output_tokens": 4096,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-4o-realtime-preview-2024-12-17": {
+    "context_window": 128000,
+    "max_context_window": 128000,
+    "max_output_tokens": 4096,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-4o-realtime-preview-2025-06-03": {
+    "context_window": 128000,
+    "max_context_window": 128000,
+    "max_output_tokens": 4096,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-4o-search-preview": {
+    "context_window": 128000,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 128000,
+    "max_output_tokens": 16384,
+    "supports_parallel_tool_calls": true,
+    "supports_web_search": true
+  },
+  "gpt-4o-search-preview-2025-03-11": {
+    "context_window": 128000,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 128000,
+    "max_output_tokens": 16384,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-4o-transcribe": {
+    "context_window": 16000,
+    "max_context_window": 16000,
+    "max_output_tokens": 2000
+  },
+  "gpt-4o-transcribe-diarize": {
+    "context_window": 16000,
+    "max_context_window": 16000,
+    "max_output_tokens": 2000
+  },
+  "gpt-5": {
+    "context_window": 272000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 272000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5-2025-08-07": {
+    "context_window": 272000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 272000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5-chat": {
+    "context_window": 128000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 128000,
+    "max_output_tokens": 16384,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": false,
+    "supports_reasoning": true
+  },
+  "gpt-5-chat-latest": {
+    "context_window": 128000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 128000,
+    "max_output_tokens": 16384,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": false,
+    "supports_reasoning": true
+  },
+  "gpt-5-codex": {
+    "context_window": 272000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 272000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5-mini": {
+    "context_window": 272000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 272000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5-mini-2025-08-07": {
+    "context_window": 272000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 272000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5-nano": {
+    "context_window": 272000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 272000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5-nano-2025-08-07": {
+    "context_window": 272000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 272000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5-pro": {
+    "context_window": 128000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 128000,
+    "max_output_tokens": 272000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5-pro-2025-10-06": {
+    "context_window": 128000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 128000,
+    "max_output_tokens": 272000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5-search-api": {
+    "context_window": 272000,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 272000,
+    "max_output_tokens": 128000,
+    "supports_parallel_tool_calls": true,
+    "supports_web_search": true
+  },
+  "gpt-5-search-api-2025-10-14": {
+    "context_window": 272000,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 272000,
+    "max_output_tokens": 128000,
+    "supports_parallel_tool_calls": true,
+    "supports_web_search": true
+  },
+  "gpt-5.1": {
+    "context_window": 272000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 272000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "none",
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5.1-2025-11-13": {
+    "context_window": 272000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 272000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "none",
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5.1-chat-latest": {
+    "context_window": 128000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 128000,
+    "max_output_tokens": 16384,
+    "supported_reasoning_levels": [
+      "none",
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": false,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5.1-codex": {
+    "context_window": 272000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 272000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5.1-codex-max": {
+    "context_window": 272000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 272000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5.1-codex-mini": {
+    "context_window": 272000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 272000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5.2": {
+    "context_window": 272000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 272000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5.2-2025-12-11": {
+    "context_window": 272000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 272000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5.2-chat-latest": {
+    "context_window": 128000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 128000,
+    "max_output_tokens": 16384,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5.2-codex": {
+    "context_window": 272000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 272000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5.2-pro": {
+    "context_window": 272000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 272000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5.2-pro-2025-12-11": {
+    "context_window": 272000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 272000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5.3-chat-latest": {
+    "context_window": 128000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 128000,
+    "max_output_tokens": 16384,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5.3-codex": {
+    "context_window": 272000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 272000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5.3-codex-spark": {
+    "context_window": 272000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 272000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5.4": {
+    "context_window": 1050000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1050000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true
+  },
+  "gpt-5.4-2026-03-05": {
+    "context_window": 1050000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1050000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true
+  },
+  "gpt-5.4-mini": {
+    "context_window": 400000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 400000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5.4-mini-2026-03-17": {
+    "context_window": 272000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 272000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5.4-nano": {
+    "context_window": 400000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 400000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5.4-nano-2026-03-17": {
+    "context_window": 272000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 272000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5.4-pro": {
+    "context_window": 1050000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1050000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5.4-pro-2026-03-05": {
+    "context_window": 1050000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1050000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5.5": {
+    "context_window": 1050000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1050000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5.5-2026-04-23": {
+    "context_window": 1050000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1050000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5.5-pro": {
+    "context_window": 1050000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1050000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5.5-pro-2026-04-23": {
+    "context_window": 1050000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1050000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5.6-luna": {
+    "context_window": 1050000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1050000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5.6-sol": {
+    "context_window": 1050000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1050000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-5.6-terra": {
+    "context_window": 1050000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1050000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-6-astra": {
+    "context_window": 922000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 922000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-6-luna": {
+    "context_window": 922000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 922000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
+    "supports_computer_use": true,
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-6-sol": {
+    "context_window": 922000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 922000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
+    "supports_computer_use": true,
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-6.1-sol": {
+    "context_window": 500000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 922000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
+    "supports_computer_use": true,
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "gpt-audio": {
+    "context_window": 128000,
+    "input_modalities": [
+      "text"
+    ],
+    "max_context_window": 128000,
+    "max_output_tokens": 16384,
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": false
+  },
+  "gpt-audio-1.5": {
+    "context_window": 128000,
+    "input_modalities": [
+      "text"
+    ],
+    "max_context_window": 128000,
+    "max_output_tokens": 16384,
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": false
+  },
+  "gpt-audio-2025-08-28": {
+    "context_window": 128000,
+    "input_modalities": [
+      "text"
+    ],
+    "max_context_window": 128000,
+    "max_output_tokens": 16384,
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": false
+  },
+  "gpt-audio-mini": {
+    "context_window": 128000,
+    "input_modalities": [
+      "text"
+    ],
+    "max_context_window": 128000,
+    "max_output_tokens": 16384,
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": false
+  },
+  "gpt-audio-mini-2025-10-06": {
+    "context_window": 128000,
+    "input_modalities": [
+      "text"
+    ],
+    "max_context_window": 128000,
+    "max_output_tokens": 16384,
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": false
+  },
+  "gpt-audio-mini-2025-12-15": {
+    "context_window": 128000,
+    "input_modalities": [
+      "text"
+    ],
+    "max_context_window": 128000,
+    "max_output_tokens": 16384,
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": false
+  },
+  "gpt-realtime": {
+    "context_window": 32000,
+    "max_context_window": 32000,
+    "max_output_tokens": 4096,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-realtime-1.5": {
+    "context_window": 32000,
+    "max_context_window": 32000,
+    "max_output_tokens": 4096,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-realtime-2": {
+    "context_window": 32000,
+    "max_context_window": 32000,
+    "max_output_tokens": 4096,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-realtime-2025-08-28": {
+    "context_window": 32000,
+    "max_context_window": 32000,
+    "max_output_tokens": 4096,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-realtime-mini": {
+    "context_window": 128000,
+    "max_context_window": 128000,
+    "max_output_tokens": 4096,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-realtime-mini-2025-10-06": {
+    "context_window": 128000,
+    "max_context_window": 128000,
+    "max_output_tokens": 4096,
+    "supports_parallel_tool_calls": true
+  },
+  "gpt-realtime-mini-2025-12-15": {
+    "context_window": 128000,
+    "max_context_window": 128000,
+    "max_output_tokens": 4096,
+    "supports_parallel_tool_calls": true
+  },
+  "o1-2024-12-17": {
+    "context_window": 200000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 100000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true
+  },
+  "o1-pro": {
+    "context_window": 200000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 100000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true
+  },
+  "o1-pro-2025-03-19": {
+    "context_window": 200000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 100000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true
+  },
+  "o3": {
+    "context_window": 200000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 100000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": false,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "o3-2025-04-16": {
+    "context_window": 200000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 100000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": false,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "o3-deep-research": {
+    "context_window": 200000,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 100000,
+    "supports_parallel_tool_calls": true,
+    "supports_web_search": true
+  },
+  "o3-deep-research-2025-06-26": {
+    "context_window": 200000,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 100000,
+    "supports_parallel_tool_calls": true,
+    "supports_web_search": true
+  },
+  "o3-mini": {
+    "context_window": 200000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 100000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": false,
+    "supports_reasoning": true
+  },
+  "o3-mini-2025-01-31": {
+    "context_window": 200000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 100000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": false,
+    "supports_reasoning": true
+  },
+  "o3-pro": {
+    "context_window": 200000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 100000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": false,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "o3-pro-2025-06-10": {
+    "context_window": 200000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 100000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": false,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "o4-mini": {
+    "context_window": 200000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 100000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": false,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "o4-mini-2025-04-16": {
+    "context_window": 200000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 100000,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_parallel_tool_calls": false,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
+  "o4-mini-deep-research": {
+    "context_window": 200000,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 100000,
+    "supports_parallel_tool_calls": true,
+    "supports_web_search": true
+  },
+  "o4-mini-deep-research-2025-06-26": {
+    "context_window": 200000,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 200000,
+    "max_output_tokens": 100000,
+    "supports_parallel_tool_calls": true,
+    "supports_web_search": true
+  }
+}

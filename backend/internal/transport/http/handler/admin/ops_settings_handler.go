@@ -252,8 +252,9 @@ func (h *OpsHandler) GetAdvancedSettings(c *gin.Context) {
 // PUT /api/v1/admin/ops/advanced-settings
 type updateOpsAdvancedSettingsRequest struct {
 	service.OpsAdvancedSettings
-	RecordBusinessLimited429 *bool `json:"record_business_limited_429"`
-	DisplayNetworkBandwidth  *bool `json:"display_network_bandwidth"`
+	RecordBusinessLimited429           *bool `json:"record_business_limited_429"`
+	DisplayNetworkBandwidth            *bool `json:"display_network_bandwidth"`
+	DisplayOAuthPlanExpiryDistribution *bool `json:"display_oauth_plan_expiry_distribution"`
 }
 
 func (h *OpsHandler) UpdateAdvancedSettings(c *gin.Context) {
@@ -273,7 +274,7 @@ func (h *OpsHandler) UpdateAdvancedSettings(c *gin.Context) {
 	}
 
 	var current *service.OpsAdvancedSettings
-	if req.RecordBusinessLimited429 == nil || req.DisplayNetworkBandwidth == nil {
+	if req.RecordBusinessLimited429 == nil || req.DisplayNetworkBandwidth == nil || req.DisplayOAuthPlanExpiryDistribution == nil {
 		current, _ = h.opsService.GetOpsAdvancedSettings(c.Request.Context())
 	}
 
@@ -290,6 +291,13 @@ func (h *OpsHandler) UpdateAdvancedSettings(c *gin.Context) {
 		req.OpsAdvancedSettings.DisplayNetworkBandwidth = current.DisplayNetworkBandwidth
 	} else {
 		req.OpsAdvancedSettings.DisplayNetworkBandwidth = true
+	}
+	if req.DisplayOAuthPlanExpiryDistribution != nil {
+		req.OpsAdvancedSettings.DisplayOAuthPlanExpiryDistribution = *req.DisplayOAuthPlanExpiryDistribution
+	} else if current != nil {
+		req.OpsAdvancedSettings.DisplayOAuthPlanExpiryDistribution = current.DisplayOAuthPlanExpiryDistribution
+	} else {
+		req.OpsAdvancedSettings.DisplayOAuthPlanExpiryDistribution = true
 	}
 
 	updated, err := h.opsService.UpdateOpsAdvancedSettings(c.Request.Context(), &req.OpsAdvancedSettings)

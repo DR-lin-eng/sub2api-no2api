@@ -1,0 +1,171 @@
+diff --git a/backend/internal/service/billing_service.go b/backend/internal/service/billing_service.go
+index 7341fb123..bd639ebfa 100644
+--- a/backend/internal/service/billing_service.go
++++ b/backend/internal/service/billing_service.go
+@@ -978,6 +978,20 @@ func (s *BillingService) initFallbackPricing() {
+ 		LongContextOutputMultiplier:   2,
+ 	}
+ 
++	// xAI Grok 4.7 Fast (Cursor and Grok Build only): the same model on faster
++	// infrastructure at $4 input / $1 cached input / $12 output below 200k;
++	// long-context rates are $6 / $1.50 / $18 (1.5x of the Fast base card).
++	s.fallbackPrices["grok-4.7-fast"] = &ModelPricing{
++		InputPricePerToken:            4e-6,
++		OutputPricePerToken:           12e-6,
++		CacheReadPricePerToken:        1e-6,
++		SupportsCacheBreakdown:        false,
++		LongContextInputThreshold:     200000,
++		LongContextThresholdInclusive: true,
++		LongContextInputMultiplier:    1.5,
++		LongContextOutputMultiplier:   1.5,
++	}
++
+ 	// xAI Grok 4.3: $1.25 input / $0.20 cached / $2.50 output below 200k;
+ 	// long-context rates are $2.50 / $0.40 / $5.
+ 	s.fallbackPrices["grok-4.3"] = &ModelPricing{
+@@ -1274,6 +1288,11 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
+ 		return s.fallbackPrices["grok-4.6"]
+ 	case "grok-4.7", "grok-4.7-latest":
+ 		return s.fallbackPrices["grok-4.7"]
++	// Grok 4.7 Fast IDs (grok-4.7-fast, and the Grok Build ID
++	// grok-4.7-build-fast). Without these cases both fall into the unknown-Grok
++	// family card and bill at the standard 4.7 rate (#8119).
++	case "grok-4.7-fast", "grok-4.7-build-fast":
++		return s.fallbackPrices["grok-4.7-fast"]
+ 	case "grok-4.5", "grok-4.5-latest":
+ 		return s.fallbackPrices["grok-4.5"]
+ 	case "grok-3-mini":
+diff --git a/backend/internal/service/billing_service_test.go b/backend/internal/service/billing_service_test.go
+index 45544508e..d02c942cb 100644
+--- a/backend/internal/service/billing_service_test.go
++++ b/backend/internal/service/billing_service_test.go
+@@ -1203,6 +1203,58 @@ func TestGetModelPricing_Grok47OfficialFallback(t *testing.T) {
+ 	}
+ }
+ 
++func TestGetModelPricing_Grok47FastOfficialFallback(t *testing.T) {
++	svc := newTestBillingService()
++
++	for _, model := range []string{"grok-4.7-fast", "grok-4.7-build-fast", "GROK-4.7-FAST"} {
++		model := model
++		t.Run(model, func(t *testing.T) {
++			pricing, err := svc.GetModelPricing(model)
++			require.NoError(t, err)
++			require.InDelta(t, 4e-6, pricing.InputPricePerToken, 1e-12)
++			require.InDelta(t, 12e-6, pricing.OutputPricePerToken, 1e-12)
++			require.InDelta(t, 1e-6, pricing.CacheReadPricePerToken, 1e-12)
++			require.Equal(t, 200000, pricing.LongContextInputThreshold)
++			require.True(t, pricing.LongContextThresholdInclusive)
++			require.InDelta(t, 1.5, pricing.LongContextInputMultiplier, 1e-12)
++			require.InDelta(t, 1.5, pricing.LongContextOutputMultiplier, 1e-12)
++			require.False(t, pricing.SupportsCacheBreakdown)
++		})
++	}
++	require.True(t, svc.HasIdentifiedTokenPricing("grok-4.7-fast"))
++}
++
++// Issue #8119: Grok 4.7 Fast used to inherit the unknown-Grok card and bill at
++// the standard grok-4.7 rate.
++func TestCalculateCost_Grok47FastUsesFastCard(t *testing.T) {
++	svc := newTestBillingService()
++
++	short := UsageTokens{InputTokens: 100_000, CacheReadTokens: 50_000, OutputTokens: 10_000}
++	standard, err := svc.CalculateCost("grok-4.7", short, 1)
++	require.NoError(t, err)
++	fast, err := svc.CalculateCost("grok-4.7-fast", short, 1)
++	require.NoError(t, err)
++	require.InDelta(t, 0.4, fast.InputCost, 1e-12)
++	require.InDelta(t, 0.05, fast.CacheReadCost, 1e-12)
++	require.InDelta(t, 0.12, fast.OutputCost, 1e-12)
++	require.False(t, fast.LongContextBillingApplied)
++	// Below 200k the Fast card is exactly twice the standard card.
++	require.InDelta(t, standard.TotalCost*2, fast.TotalCost, 1e-12)
++
++	// Reaching 200k prompt tokens moves the whole request to $6 / $1.50 / $18.
++	long := UsageTokens{InputTokens: 150_000, CacheReadTokens: 50_000, OutputTokens: 10_000}
++	standardLong, err := svc.CalculateCost("grok-4.7", long, 1)
++	require.NoError(t, err)
++	fastLong, err := svc.CalculateCost("grok-4.7-fast", long, 1)
++	require.NoError(t, err)
++	require.True(t, fastLong.LongContextBillingApplied)
++	require.InDelta(t, 0.9, fastLong.InputCost, 1e-12)
++	require.InDelta(t, 0.075, fastLong.CacheReadCost, 1e-12)
++	require.InDelta(t, 0.18, fastLong.OutputCost, 1e-12)
++	// Long-context Fast is 1.5x the standard long-context card.
++	require.InDelta(t, standardLong.TotalCost*1.5, fastLong.TotalCost, 1e-12)
++}
++
+ func TestGetModelPricing_GrokOfficialFamilyCards(t *testing.T) {
+ 	svc := newTestBillingService()
+ 	for _, tc := range []struct {
+diff --git a/backend/internal/service/pricing_service_test.go b/backend/internal/service/pricing_service_test.go
+index 08f5171a7..d72e2f121 100644
+--- a/backend/internal/service/pricing_service_test.go
++++ b/backend/internal/service/pricing_service_test.go
+@@ -819,6 +819,43 @@ func TestDefaultPricingIncludesGemini4ArgonRates(t *testing.T) {
+ 	require.Contains(t, pricingSvc.ListModelNamesByProvider("gemini"), "gemini-4-argon")
+ }
+ 
++func TestDefaultPricingIncludesGrok47FastRates(t *testing.T) {
++	data, err := os.ReadFile(filepath.Join("..", "..", "resources", "model-pricing", "model_prices_and_context_window.json"))
++	require.NoError(t, err)
++
++	pricingSvc := &PricingService{}
++	pricingData, err := pricingSvc.parsePricingData(data)
++	require.NoError(t, err)
++	pricingSvc.pricingData = pricingData
++
++	for _, model := range []string{"grok-4.7-fast", "xai/grok-4.7-fast"} {
++		t.Run(model, func(t *testing.T) {
++			pricing := pricingSvc.GetModelPricing(model)
++			require.NotNil(t, pricing)
++			require.Equal(t, "xai", pricing.LiteLLMProvider)
++			require.InDelta(t, 4e-6, pricing.InputCostPerToken, 1e-15)
++			require.InDelta(t, 12e-6, pricing.OutputCostPerToken, 1e-15)
++			require.InDelta(t, 1e-6, pricing.CacheReadInputTokenCost, 1e-15)
++			// Long-context Fast is $6 / $1.50 / $18, i.e. 1.5x the Fast base card.
++			require.Equal(t, 200000, pricing.LongContextInputTokenThreshold)
++			require.InDelta(t, 1.5, pricing.LongContextInputCostMultiplier, 1e-12)
++			require.InDelta(t, 1.5, pricing.LongContextOutputCostMultiplier, 1e-12)
++		})
++	}
++	// The Fast entry must not shadow the standard grok-4.7 card.
++	standard := pricingSvc.GetModelPricing("grok-4.7")
++	require.NotNil(t, standard)
++	require.InDelta(t, 2e-6, standard.InputCostPerToken, 1e-15)
++
++	billing := NewBillingService(&config.Config{}, pricingSvc)
++	cost, err := billing.CalculateCost("grok-4.7-fast", UsageTokens{InputTokens: 150_000, CacheReadTokens: 50_000, OutputTokens: 10_000}, 1)
++	require.NoError(t, err)
++	require.True(t, cost.LongContextBillingApplied)
++	require.InDelta(t, 0.9, cost.InputCost, 1e-12)
++	require.InDelta(t, 0.075, cost.CacheReadCost, 1e-12)
++	require.InDelta(t, 0.18, cost.OutputCost, 1e-12)
++}
++
+ func TestDefaultPricingUsesCurrentCodexAutoReviewBaseRates(t *testing.T) {
+ 	data, err := os.ReadFile(filepath.Join("..", "..", "resources", "model-pricing", "model_prices_and_context_window.json"))
+ 	require.NoError(t, err)
+diff --git a/backend/resources/model-pricing/model_prices_and_context_window.json b/backend/resources/model-pricing/model_prices_and_context_window.json
+index 5e0f608d2..c9a5c3fb4 100644
+--- a/backend/resources/model-pricing/model_prices_and_context_window.json
++++ b/backend/resources/model-pricing/model_prices_and_context_window.json
+@@ -64,6 +64,18 @@
+     "output_cost_per_token_above_200k_tokens": 1.2e-05,
+     "supports_prompt_caching": true
+   },
++  "grok-4.7-fast": {
++    "cache_read_input_token_cost": 1e-06,
++    "cache_read_input_token_cost_above_200k_tokens": 1.5e-06,
++    "input_cost_per_token": 4e-06,
++    "input_cost_per_token_above_200k_tokens": 6e-06,
++    "litellm_provider": "xai",
++    "max_input_tokens": 500000,
++    "mode": "chat",
++    "output_cost_per_token": 1.2e-05,
++    "output_cost_per_token_above_200k_tokens": 1.8e-05,
++    "supports_prompt_caching": true
++  },
+   "gpt-6-sol": {
+     "cache_creation_input_token_cost": 2.5e-06,
+     "cache_creation_input_token_cost_batches": 1.25e-06,

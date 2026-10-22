@@ -14,6 +14,7 @@ vi.mock('@/core/networks/client', () => ({
 import accountsAPI from '@/features/admin-accounts/data/datasources/adminAccountsDatasource'
 import {
   batchRefresh,
+  batchSyncUpstreamModels,
   bulkUpdate,
   checkMixedChannelRisk,
   applyOAuthCredentials,
@@ -33,6 +34,13 @@ import {
 } from '@/features/admin-accounts/data/datasources/adminAccountActions'
 
 describe('admin account actions', () => {
+  it('uses the batch model sync endpoint and its bounded action timeout', async () => {
+    const result = { total: 2, success: 1, failed: 1, skipped: 0, results: [] }
+    post.mockResolvedValueOnce({ data: result })
+    await expect(batchSyncUpstreamModels([7, 11])).resolves.toEqual(result)
+    expect(post).toHaveBeenCalledWith('/admin/accounts/models/sync-upstream-batch', { account_ids: [7, 11] }, { timeout: 180000 })
+  })
+
   beforeEach(() => {
     get.mockReset()
     post.mockReset()

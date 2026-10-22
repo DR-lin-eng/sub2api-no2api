@@ -360,7 +360,7 @@ func isOpenAICompatibleAccountEligibleForRequest(ctx context.Context, account *A
 			return false
 		}
 	}
-	if requestedModel != "" && !account.IsModelSupportedForRequest(requestedModel, openAIRequestModelForSupport(ctx, requestedModel)) {
+	if requestedModel != "" && !supportsOpenAIRequestModel(account, requestedModel, openAIRequestModelForSupport(ctx, requestedModel), requireCompact) {
 		return false
 	}
 	if account.IsGrok() && requiredCapability == OpenAIEndpointCapabilityGrokMediaGeneration {

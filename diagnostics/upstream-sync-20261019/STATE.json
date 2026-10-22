@@ -1,0 +1,26 @@
+{
+  "TARGET": "/Users/lin/.codex/worktrees/1f7d/sub2api-no2api",
+  "GOAL": "审查增量上游主线PR，按当前规范同步，性能审查、平滑升级、Docker测试、差异关闭、推送跟踪CI",
+  "ROUTE": "VERIFIED_TRANSACTION",
+  "original_head": "5c9372cbf4639a74df0c37c3348fa32b27a32cb0",
+  "original_status": "",
+  "ACTION": "clone latest current project main, freeze upstream delta from latest closed ledger",
+  "roles": {
+    "MODIFIED_FILE": "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/MODIFIED_FILE.tar.gz",
+    "DIFF_FILE": "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/DIFF_FILE.patch",
+    "VERIFICATION": "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/VERIFICATION.txt",
+    "ROLLBACK": "/Users/lin/.codex/visualizations/2026/10/19/01a154a8-4f2d-7902-9e56-fbf19901c236/upstream-sync-20261019/ROLLBACK.sh"
+  },
+  "initial_error": {
+    "command": "rg --files docs openspec .codex .agents",
+    "exit": 2,
+    "stderr": "rg: .codex: No such file or directory; rg: .agents: No such file or directory",
+    "correction": "search existing docs and diagnostics in writable current-main clone"
+  },
+  "baseline_sha": "b75c196600d28f5831f86de9107e802d758cbea2",
+  "upstream_sha": "8f2cbb53d9d1c40e1865b07ac460571f7d4c48de",
+  "NEXT": "read latest closure ledger and review exact upstream delta",
+  "LAST_CONFIRMED_RESULT": "all local functional, runtime, rollback and performance gates passed; final source hashes reconstructed, rolled back, and reapplied",
+  "NEXT_EXECUTABLE_ACTION": "commit, push draft PR, track exact-head CI",
+  "running": {}
+}

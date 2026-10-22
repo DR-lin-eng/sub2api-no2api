@@ -1,0 +1,960 @@
+diff --git a/backend/internal/service/gemini_chat_completions_compat_service.go b/backend/internal/service/gemini_chat_completions_compat_service.go
+index 7e083ee26..f85ac0577 100644
+--- a/backend/internal/service/gemini_chat_completions_compat_service.go
++++ b/backend/internal/service/gemini_chat_completions_compat_service.go
+@@ -42,6 +42,15 @@ func (s *GeminiMessagesCompatService) ForwardAsChatCompletions(
+ 	clientStream := ccReq.Stream
+ 	includeUsage := ccReq.StreamOptions != nil && ccReq.StreamOptions.IncludeUsage
+ 
++	// 历史推理内容不回传给 Gemini：Gemini 的思考连续性由 thoughtSignature 承载。
++	for i := range ccReq.Messages {
++		ccReq.Messages[i].ReasoningContent = ""
++		ccReq.Messages[i].Reasoning = ""
++		if ccReq.Messages[i].Role == "assistant" {
++			ccReq.Messages[i].Content = dropChatReasoningContentParts(ccReq.Messages[i].Content)
++		}
++	}
++
+ 	responsesReq, err := chatCompletionsToResponses(s.cfg, &ccReq)
+ 	if err != nil {
+ 		return nil, s.writeChatCompletionsError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+@@ -92,6 +101,7 @@ func (s *GeminiMessagesCompatService) forwardClaudeBodyAsChatCompletions(
+ 		return nil, s.writeChatCompletionsError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+ 	}
+ 	geminiReq = ensureGeminiFunctionCallThoughtSignatures(geminiReq)
++	geminiReq = applyGeminiCompatThinkingConfig(geminiReq, claudeBody, mappedModel, clientStream)
+ 
+ 	proxyURL := ""
+ 	if account.ProxyID != nil && account.Proxy != nil {
+@@ -570,6 +580,7 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsStreamingResponseFrom
+ 	openBlockIndex := -1
+ 	openBlockType := ""
+ 	seenText := ""
++	seenThought := ""
+ 	openToolIndex := -1
+ 	openToolName := ""
+ 	seenToolJSON := ""
+@@ -624,6 +635,41 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsStreamingResponseFrom
+ 						}
+ 
+ 						for _, part := range extractGeminiParts(geminiResp) {
++							if text, ok := part["text"].(string); ok && isGeminiThoughtPart(part) {
++								delta, newSeen := computeGeminiTextDelta(seenThought, text)
++								seenThought = newSeen
++								if delta == "" {
++									continue
++								}
++								if openToolIndex >= 0 {
++									if closeOpenTool() {
++										return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
++									}
++								}
++								if openBlockType != "thinking" {
++									if closeOpenBlock() {
++										return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
++									}
++									idx := nextBlockIndex
++									nextBlockIndex++
++									openBlockIndex = idx
++									openBlockType = "thinking"
++									if emitAnthropicEvent(&apicompat.AnthropicStreamEvent{
++										Type:         "content_block_start",
++										Index:        &idx,
++										ContentBlock: &apicompat.AnthropicContentBlock{Type: "thinking"},
++									}) {
++										return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
++									}
++								}
++								if emitAnthropicEvent(&apicompat.AnthropicStreamEvent{
++									Type:  "content_block_delta",
++									Delta: &apicompat.AnthropicDelta{Type: "thinking_delta", Thinking: delta},
++								}) {
++									return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
++								}
++								continue
++							}
+ 							if text, ok := part["text"].(string); ok && text != "" {
+ 								if openToolIndex >= 0 {
+ 									if closeOpenTool() {
+diff --git a/backend/internal/service/gemini_compat_thinking.go b/backend/internal/service/gemini_compat_thinking.go
+new file mode 100644
+index 000000000..6c75dd919
+--- /dev/null
++++ b/backend/internal/service/gemini_compat_thinking.go
+@@ -0,0 +1,320 @@
++package service
++
++import (
++	"bytes"
++	"encoding/json"
++	"strconv"
++	"strings"
++
++	"github.com/tidwall/gjson"
++	"github.com/tidwall/sjson"
++)
++
++// geminiThinkingParam 是上游模型接受的思考参数形态。
++type geminiThinkingParam int
++
++const (
++	geminiThinkingParamNone geminiThinkingParam = iota
++	geminiThinkingParamBudget
++	geminiThinkingParamLevel
++)
++
++const (
++	gemini25ProMaxThinkingBudget       = 32768
++	gemini25ProMinThinkingBudget       = 128
++	gemini25FlashMaxThinkingBudget     = 24576
++	gemini25FlashLiteMinThinkingBudget = 512
++)
++
++// geminiThinkingParamForModel 按上游模型名判断思考参数形态：2.5 系列用 thinkingBudget，
++// 3 及以上用 thinkingLevel。2.5 之前的版本、无法解析版本号的名字、图像/语音/向量类模型
++// 不写思考参数。
++func geminiThinkingParamForModel(model string) geminiThinkingParam {
++	name := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(model)), "models/")
++	rest, ok := strings.CutPrefix(name, "gemini-")
++	if !ok {
++		return geminiThinkingParamNone
++	}
++	for _, kind := range []string{"image", "tts", "embedding", "live", "audio"} {
++		if strings.Contains(rest, kind) {
++			return geminiThinkingParamNone
++		}
++	}
++	version, _, _ := strings.Cut(rest, "-")
++	majorText, minorText, _ := strings.Cut(version, ".")
++	major, err := strconv.Atoi(majorText)
++	if err != nil {
++		return geminiThinkingParamNone
++	}
++	minor := 0
++	if minorText != "" {
++		if minor, err = strconv.Atoi(minorText); err != nil {
++			return geminiThinkingParamNone
++		}
++	}
++	switch {
++	case major >= 3:
++		return geminiThinkingParamLevel
++	case major == 2 && minor >= 5:
++		return geminiThinkingParamBudget
++	default:
++		return geminiThinkingParamNone
++	}
++}
++
++// geminiModelNameCarriesThinkingTier 判断模型名是否以档位后缀结尾（如 -low/-high），
++// 这类名字由上游按名字选档，不再叠加思考档位参数。
++func geminiModelNameCarriesThinkingTier(model string) bool {
++	name := strings.ToLower(strings.TrimSpace(model))
++	for _, suffix := range []string{"-minimal", "-low", "-medium", "-high", "-xhigh", "-max", "-tiered"} {
++		if strings.HasSuffix(name, suffix) {
++			return true
++		}
++	}
++	return false
++}
++
++// claudeThinkingIntent 是 Anthropic 请求体里与思考相关的意图。
++type claudeThinkingIntent struct {
++	thinkingType string // enabled / adaptive / disabled / 空
++	tier         string // minimal / low / medium / high / 空
++	budgetTokens int    // thinking.type=enabled 时的 budget_tokens
++}
++
++// parseClaudeThinkingIntent 读取 Anthropic 请求的思考参数。thinking.type=disabled 优先于
++// output_config.effort；effort 归一到 minimal/low/medium/high，未识别的取值视为未指定。
++func parseClaudeThinkingIntent(claudeBody []byte) claudeThinkingIntent {
++	intent := claudeThinkingIntent{
++		thinkingType: strings.ToLower(strings.TrimSpace(gjson.GetBytes(claudeBody, "thinking.type").String())),
++	}
++	if intent.thinkingType == "disabled" {
++		intent.tier = "minimal"
++		return intent
++	}
++	switch strings.ToLower(strings.TrimSpace(gjson.GetBytes(claudeBody, "output_config.effort").String())) {
++	case "none", "minimal":
++		intent.tier = "minimal"
++	case "low":
++		intent.tier = "low"
++	case "medium":
++		intent.tier = "medium"
++	case "high", "xhigh", "max":
++		intent.tier = "high"
++	}
++	if intent.thinkingType == "enabled" {
++		intent.budgetTokens = int(gjson.GetBytes(claudeBody, "thinking.budget_tokens").Int())
++	}
++	return intent
++}
++
++// claudeRequestEnablesThinking 判断 Anthropic 请求是否开启了思考输出。
++func claudeRequestEnablesThinking(claudeBody []byte) bool {
++	switch parseClaudeThinkingIntent(claudeBody).thinkingType {
++	case "enabled", "adaptive":
++		return true
++	default:
++		return false
++	}
++}
++
++// geminiThinkingLevelFor 把思考意图映射为 thinkingLevel；返回空串表示交给模型默认档位。
++// minimal 只发给 flash 系列，其余模型用 low；medium 只发给 flash 系列与 Gemini 3.1 Pro，
++// 其余模型用 high（Gemini 3 及以上未指定档位时的默认档位）。
++func geminiThinkingLevelFor(model string, intent claudeThinkingIntent) string {
++	tier := intent.tier
++	if tier == "" && intent.budgetTokens > 0 {
++		switch {
++		case intent.budgetTokens <= 1024:
++			tier = "low"
++		case intent.budgetTokens <= 8192:
++			tier = "medium"
++		default:
++			tier = "high"
++		}
++	}
++	name := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(model)), "models/")
++	isFlash := strings.Contains(name, "flash")
++	if tier == "minimal" && !isFlash {
++		tier = "low"
++	}
++	if tier == "medium" && !isFlash && !strings.HasPrefix(name, "gemini-3.1-pro") {
++		tier = "high"
++	}
++	return tier
++}
++
++// geminiThinkingBudgetFor 把思考意图映射为 Gemini 2.5 的 thinkingBudget；ok=false 表示交给
++// 模型动态预算。Pro 不能关闭思考（最小 128，最大 32768），Flash 为 0–24576，
++// Flash-Lite 的正预算最小 512。
++func geminiThinkingBudgetFor(model string, intent claudeThinkingIntent) (budget int, ok bool) {
++	name := strings.ToLower(model)
++	isPro := strings.Contains(name, "pro")
++	maxBudget, minPositive := gemini25FlashMaxThinkingBudget, 1
++	switch {
++	case isPro:
++		maxBudget, minPositive = gemini25ProMaxThinkingBudget, gemini25ProMinThinkingBudget
++	case strings.Contains(name, "flash-lite"):
++		minPositive = gemini25FlashLiteMinThinkingBudget
++	}
++	switch intent.tier {
++	case "minimal":
++		if isPro {
++			return gemini25ProMinThinkingBudget, true
++		}
++		return 0, true
++	case "low":
++		budget = 1024
++	case "medium":
++		budget = 8192
++	case "high":
++		budget = maxBudget
++	default:
++		if intent.budgetTokens <= 0 {
++			return 0, false
++		}
++		budget = intent.budgetTokens
++	}
++	budget = min(max(budget, minPositive), maxBudget)
++	return budget, true
++}
++
++// applyGeminiCompatThinkingConfig 把兼容入口（Anthropic 形态请求体）的思考意图写进转换后的
++// Gemini 请求 generationConfig.thinkingConfig。includeThoughts 为 true 时要求上游返回
++// 思考摘要（thought=true 的 part）；思考被关闭（预算为 0）时不要求。
++func applyGeminiCompatThinkingConfig(geminiReq, claudeBody []byte, upstreamModel string, includeThoughts bool) []byte {
++	param := geminiThinkingParamForModel(upstreamModel)
++	if param == geminiThinkingParamNone {
++		return geminiReq
++	}
++	intent := parseClaudeThinkingIntent(claudeBody)
++	out := geminiReq
++	thinkingOff := false
++	if !geminiModelNameCarriesThinkingTier(upstreamModel) {
++		switch param {
++		case geminiThinkingParamLevel:
++			if level := geminiThinkingLevelFor(upstreamModel, intent); level != "" {
++				out = setGeminiThinkingField(out, "thinkingLevel", level)
++			}
++		case geminiThinkingParamBudget:
++			if budget, ok := geminiThinkingBudgetFor(upstreamModel, intent); ok {
++				out = setGeminiThinkingField(out, "thinkingBudget", budget)
++				thinkingOff = budget == 0
++			}
++		}
++	}
++	if includeThoughts && !thinkingOff {
++		out = setGeminiThinkingField(out, "includeThoughts", true)
++	}
++	return out
++}
++
++func setGeminiThinkingField(body []byte, field string, value any) []byte {
++	updated, err := sjson.SetBytes(body, "generationConfig.thinkingConfig."+field, value)
++	if err != nil {
++		return body
++	}
++	return updated
++}
++
++// isGeminiThoughtPart 判断响应 part 是否为思考摘要。
++func isGeminiThoughtPart(part map[string]any) bool {
++	thought, _ := part["thought"].(bool)
++	return thought
++}
++
++// dropClaudeHistoryThinkingBlocks 删除 Anthropic 请求历史消息里的 thinking/redacted_thinking 块，
++// 只含思考块的消息整条删除；与 convertClaudeMessagesToGeminiContents 的取舍一致，供签名降级
++// 重试在把思考块改写成正文之前使用。
++func dropClaudeHistoryThinkingBlocks(claudeBody []byte) []byte {
++	var req map[string]any
++	if err := json.Unmarshal(claudeBody, &req); err != nil {
++		return claudeBody
++	}
++	messages, ok := req["messages"].([]any)
++	if !ok {
++		return claudeBody
++	}
++	changed := false
++	kept := make([]any, 0, len(messages))
++	for _, m := range messages {
++		mm, ok := m.(map[string]any)
++		if !ok {
++			kept = append(kept, m)
++			continue
++		}
++		blocks, ok := mm["content"].([]any)
++		if !ok {
++			kept = append(kept, m)
++			continue
++		}
++		filtered := make([]any, 0, len(blocks))
++		for _, block := range blocks {
++			if bm, ok := block.(map[string]any); ok {
++				if bt, _ := bm["type"].(string); bt == "thinking" || bt == "redacted_thinking" {
++					continue
++				}
++			}
++			filtered = append(filtered, block)
++		}
++		if len(filtered) == len(blocks) {
++			kept = append(kept, m)
++			continue
++		}
++		// 原消息是多块，转换器会过滤空白正文块；删掉思考块后同样过滤，避免剩下的单块空白正文被原样发出。
++		nonBlank := filtered[:0]
++		for _, block := range filtered {
++			if bm, ok := block.(map[string]any); ok {
++				if bt, _ := bm["type"].(string); bt == "text" {
++					if text, _ := bm["text"].(string); strings.TrimSpace(text) == "" {
++						continue
++					}
++				}
++			}
++			nonBlank = append(nonBlank, block)
++		}
++		filtered = nonBlank
++		changed = true
++		if len(filtered) == 0 {
++			continue
++		}
++		mm["content"] = filtered
++		kept = append(kept, mm)
++	}
++	if !changed {
++		return claudeBody
++	}
++	req["messages"] = kept
++	out, err := json.Marshal(req)
++	if err != nil {
++		return claudeBody
++	}
++	return out
++}
++
++// dropChatReasoningContentParts 删除 Chat Completions assistant 消息 content 数组里
++// type 为 thinking/reasoning 的部分；字符串形态的 content 原样返回。
++func dropChatReasoningContentParts(content json.RawMessage) json.RawMessage {
++	if !bytes.HasPrefix(bytes.TrimSpace(content), []byte("[")) {
++		return content
++	}
++	var parts []json.RawMessage
++	if err := json.Unmarshal(content, &parts); err != nil {
++		return content
++	}
++	kept := make([]json.RawMessage, 0, len(parts))
++	for _, part := range parts {
++		switch gjson.GetBytes(part, "type").String() {
++		case "thinking", "reasoning":
++			continue
++		}
++		kept = append(kept, part)
++	}
++	if len(kept) == len(parts) {
++		return content
++	}
++	out, err := json.Marshal(kept)
++	if err != nil {
++		return content
++	}
++	return out
++}
+diff --git a/backend/internal/service/gemini_compat_thinking_test.go b/backend/internal/service/gemini_compat_thinking_test.go
+new file mode 100644
+index 000000000..46cb64581
+--- /dev/null
++++ b/backend/internal/service/gemini_compat_thinking_test.go
+@@ -0,0 +1,367 @@
++package service
++
++import (
++	"context"
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++	"time"
++
++	"github.com/Wei-Shaw/sub2api/internal/config"
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++	"github.com/tidwall/gjson"
++)
++
++func TestApplyGeminiCompatThinkingConfig(t *testing.T) {
++	budget := func(v int64) *int64 { return &v }
++	const baseReq = `{"contents":[{"role":"user","parts":[{"text":"hi"}]}],"generationConfig":{"maxOutputTokens":8192}}`
++	tests := []struct {
++		name            string
++		model           string
++		claudeBody      string
++		includeThoughts bool
++		wantLevel       string
++		wantBudget      *int64
++		wantThoughts    bool
++		wantNoConfig    bool
++	}{
++		{name: "effort medium on flash", model: "gemini-3.8-flash", claudeBody: `{"output_config":{"effort":"medium"},"thinking":{"type":"enabled","budget_tokens":4096}}`, wantLevel: "medium"},
++		{name: "effort low", model: "gemini-3.7-flash", claudeBody: `{"output_config":{"effort":"low"}}`, wantLevel: "low"},
++		{name: "effort none on flash", model: "gemini-3.8-flash", claudeBody: `{"output_config":{"effort":"none"},"thinking":{"type":"enabled","budget_tokens":10240}}`, wantLevel: "minimal"},
++		{name: "effort minimal on pro", model: "gemini-3.1-pro-preview", claudeBody: `{"output_config":{"effort":"minimal"}}`, wantLevel: "low"},
++		{name: "effort medium on gemini 3 pro", model: "gemini-3-pro-preview", claudeBody: `{"output_config":{"effort":"medium"}}`, wantLevel: "high"},
++		{name: "effort medium on gemini 3.1 pro", model: "gemini-3.1-pro-preview", claudeBody: `{"output_config":{"effort":"medium"}}`, wantLevel: "medium"},
++		{name: "effort max", model: "gemini-3.7-flash", claudeBody: `{"output_config":{"effort":"max"}}`, wantLevel: "high"},
++		{name: "effort xhigh", model: "gemini-3.7-flash", claudeBody: `{"output_config":{"effort":"xhigh"}}`, wantLevel: "high"},
++		{name: "thinking disabled wins over effort", model: "gemini-3.8-flash", claudeBody: `{"thinking":{"type":"disabled"},"output_config":{"effort":"high"}}`, wantLevel: "minimal"},
++		{name: "budget only maps to high", model: "gemini-3.8-flash", claudeBody: `{"thinking":{"type":"enabled","budget_tokens":31999}}`, wantLevel: "high"},
++		{name: "budget only maps to medium", model: "gemini-3.8-flash", claudeBody: `{"thinking":{"type":"enabled","budget_tokens":4096}}`, wantLevel: "medium"},
++		{name: "budget only maps to low", model: "gemini-3.8-flash", claudeBody: `{"thinking":{"type":"enabled","budget_tokens":1024}}`, wantLevel: "low"},
++		{name: "adaptive keeps default level", model: "gemini-3.7-flash", claudeBody: `{"thinking":{"type":"adaptive"}}`, includeThoughts: true, wantThoughts: true},
++		{name: "no thinking params streams thoughts only", model: "gemini-3.7-flash", claudeBody: `{}`, includeThoughts: true, wantThoughts: true},
++		{name: "unknown effort ignored", model: "gemini-3.7-flash", claudeBody: `{"output_config":{"effort":"turbo"}}`, wantNoConfig: true},
++		{name: "level with thoughts", model: "gemini-3.8-flash", claudeBody: `{"output_config":{"effort":"high"}}`, includeThoughts: true, wantLevel: "high", wantThoughts: true},
++		{name: "gemini 4 uses level", model: "gemini-4-argon", claudeBody: `{"output_config":{"effort":"low"}}`, wantLevel: "low"},
++		{name: "medium outside verified models becomes high", model: "gemini-4-argon", claudeBody: `{"output_config":{"effort":"medium"}}`, wantLevel: "high"},
++		{name: "medium budget outside verified models becomes high", model: "gemini-4-argon", claudeBody: `{"thinking":{"type":"enabled","budget_tokens":4096}}`, wantLevel: "high"},
++		{name: "medium on unverified pro becomes high", model: "gemini-3.5-pro", claudeBody: `{"output_config":{"effort":"medium"}}`, wantLevel: "high"},
++		{name: "medium on flash lite", model: "gemini-3.1-flash-lite", claudeBody: `{"output_config":{"effort":"medium"}}`, wantLevel: "medium"},
++		{name: "tier suffix model keeps name tier", model: "gemini-4-argon-high", claudeBody: `{"output_config":{"effort":"low"}}`, includeThoughts: true, wantThoughts: true},
++		{name: "tiered suffix model keeps name tier", model: "gemini-3.8-flash-tiered", claudeBody: `{"output_config":{"effort":"low"}}`, includeThoughts: true, wantThoughts: true},
++		{name: "2.5 flash low", model: "gemini-2.5-flash", claudeBody: `{"output_config":{"effort":"low"}}`, wantBudget: budget(1024)},
++		{name: "2.5 flash high", model: "gemini-2.5-flash", claudeBody: `{"output_config":{"effort":"high"}}`, includeThoughts: true, wantBudget: budget(24576), wantThoughts: true},
++		{name: "2.5 flash none disables thinking and thoughts", model: "gemini-2.5-flash", claudeBody: `{"output_config":{"effort":"none"}}`, includeThoughts: true, wantBudget: budget(0)},
++		{name: "2.5 pro cannot disable thinking", model: "gemini-2.5-pro", claudeBody: `{"thinking":{"type":"disabled"}}`, includeThoughts: true, wantBudget: budget(128), wantThoughts: true},
++		{name: "2.5 pro high", model: "gemini-2.5-pro", claudeBody: `{"output_config":{"effort":"max"}}`, wantBudget: budget(32768)},
++		{name: "2.5 pro budget clamps up", model: "gemini-2.5-pro", claudeBody: `{"thinking":{"type":"enabled","budget_tokens":50}}`, wantBudget: budget(128)},
++		{name: "2.5 flash budget clamps down", model: "gemini-2.5-flash", claudeBody: `{"thinking":{"type":"enabled","budget_tokens":31999}}`, wantBudget: budget(24576)},
++		{name: "2.5 flash lite budget clamps up", model: "gemini-2.5-flash-lite", claudeBody: `{"thinking":{"type":"enabled","budget_tokens":100}}`, wantBudget: budget(512)},
++		{name: "2.5 adaptive keeps dynamic budget", model: "gemini-2.5-flash", claudeBody: `{"thinking":{"type":"adaptive"}}`, wantNoConfig: true},
++		{name: "2.0 untouched", model: "gemini-2.0-flash", claudeBody: `{"output_config":{"effort":"high"}}`, includeThoughts: true, wantNoConfig: true},
++		{name: "image model untouched", model: "gemini-3-pro-image-preview", claudeBody: `{"output_config":{"effort":"high"}}`, includeThoughts: true, wantNoConfig: true},
++		{name: "unparsable model untouched", model: "gemini-flash-latest", claudeBody: `{"output_config":{"effort":"high"}}`, includeThoughts: true, wantNoConfig: true},
++		{name: "non gemini model untouched", model: "custom-model", claudeBody: `{"output_config":{"effort":"high"}}`, includeThoughts: true, wantNoConfig: true},
++		{name: "models prefix", model: "models/gemini-3.8-flash", claudeBody: `{"output_config":{"effort":"low"}}`, wantLevel: "low"},
++	}
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			out := applyGeminiCompatThinkingConfig([]byte(baseReq), []byte(tt.claudeBody), tt.model, tt.includeThoughts)
++			require.Equal(t, int64(8192), gjson.GetBytes(out, "generationConfig.maxOutputTokens").Int())
++			require.Equal(t, "hi", gjson.GetBytes(out, "contents.0.parts.0.text").String())
++			cfg := gjson.GetBytes(out, "generationConfig.thinkingConfig")
++			if tt.wantNoConfig {
++				require.False(t, cfg.Exists(), cfg.Raw)
++				return
++			}
++			require.Equal(t, tt.wantLevel, cfg.Get("thinkingLevel").String())
++			if tt.wantBudget != nil {
++				require.True(t, cfg.Get("thinkingBudget").Exists(), cfg.Raw)
++				require.Equal(t, *tt.wantBudget, cfg.Get("thinkingBudget").Int())
++			} else {
++				require.False(t, cfg.Get("thinkingBudget").Exists(), cfg.Raw)
++			}
++			require.Equal(t, tt.wantThoughts, cfg.Get("includeThoughts").Bool(), cfg.Raw)
++			require.False(t, cfg.Get("thinkingLevel").Exists() && cfg.Get("thinkingBudget").Exists(), "thinkingLevel and thinkingBudget are mutually exclusive")
++		})
++	}
++}
++
++func geminiCompatThinkingTestAccount() *Account {
++	return &Account{
++		ID:          611,
++		Platform:    PlatformGemini,
++		Type:        AccountTypeAPIKey,
++		Credentials: map[string]any{"api_key": "gemini-api-key"},
++		Concurrency: 1,
++	}
++}
++
++func TestGeminiForwardAsChatCompletions_StreamsThoughtsAsReasoningContent(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	upstreamBody := `data: {"candidates":[{"content":{"role":"model","parts":[{"text":"Weighing options","thought":true}]}}]}` + "\n\n" +
++		`data: {"candidates":[{"content":{"role":"model","parts":[{"text":" carefully.","thought":true}]}}]}` + "\n\n" +
++		`data: {"candidates":[{"content":{"role":"model","parts":[{"text":"Final answer","thoughtSignature":"sig"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":4,"candidatesTokenCount":2,"thoughtsTokenCount":7}}` + "\n\n"
++	upstream := &queuedHTTPUpstreamStub{responses: []*http.Response{{
++		StatusCode: http.StatusOK,
++		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
++		Body:       io.NopCloser(strings.NewReader(upstreamBody)),
++	}}}
++	svc := &GeminiMessagesCompatService{httpUpstream: upstream, cfg: &config.Config{}}
++	body := []byte(`{"model":"gemini-3.8-flash","stream":true,"reasoning_effort":"medium","messages":[{"role":"user","content":"hi"}]}`)
++	c, recorder := newAntigravityCompatContext(http.MethodPost, "/v1/chat/completions", body)
++
++	result, err := svc.ForwardAsChatCompletions(context.Background(), c, geminiCompatThinkingTestAccount(), body)
++	require.NoError(t, err)
++	require.Equal(t, http.StatusOK, recorder.Code)
++	require.Len(t, upstream.requestBodies, 1)
++	require.Equal(t, "medium", gjson.GetBytes(upstream.requestBodies[0], "generationConfig.thinkingConfig.thinkingLevel").String())
++	require.True(t, gjson.GetBytes(upstream.requestBodies[0], "generationConfig.thinkingConfig.includeThoughts").Bool())
++	require.Equal(t, "medium", optionalStringValue(result.ReasoningEffort))
++	require.Equal(t, 9, result.Usage.OutputTokens)
++
++	var reasoning, content strings.Builder
++	firstContentChunk, lastReasoningChunk := -1, -1
++	for i, line := range strings.Split(recorder.Body.String(), "\n") {
++		payload, ok := strings.CutPrefix(line, "data: ")
++		if !ok || payload == "[DONE]" {
++			continue
++		}
++		delta := gjson.Get(payload, "choices.0.delta")
++		if r := delta.Get("reasoning_content"); r.Exists() {
++			_, _ = reasoning.WriteString(r.String())
++			lastReasoningChunk = i
++		}
++		if text := delta.Get("content"); text.Exists() && text.String() != "" {
++			_, _ = content.WriteString(text.String())
++			if firstContentChunk < 0 {
++				firstContentChunk = i
++			}
++		}
++	}
++	require.Equal(t, "Weighing options carefully.", reasoning.String())
++	require.Equal(t, "Final answer", content.String())
++	require.Less(t, lastReasoningChunk, firstContentChunk)
++}
++
++func TestGeminiForwardAsChatCompletions_NonStreamForwardsEffortWithoutThoughts(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	upstream := &queuedHTTPUpstreamStub{responses: []*http.Response{{
++		StatusCode: http.StatusOK,
++		Header:     http.Header{"Content-Type": []string{"application/json"}},
++		Body:       io.NopCloser(strings.NewReader(`{"candidates":[{"content":{"parts":[{"text":"ok"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":3,"candidatesTokenCount":1}}`)),
++	}}}
++	svc := &GeminiMessagesCompatService{httpUpstream: upstream, cfg: &config.Config{}}
++	body := []byte(`{"model":"gemini-3.8-flash","reasoning_effort":"none","messages":[{"role":"user","content":"hi"}]}`)
++	c, recorder := newAntigravityCompatContext(http.MethodPost, "/v1/chat/completions", body)
++
++	result, err := svc.ForwardAsChatCompletions(context.Background(), c, geminiCompatThinkingTestAccount(), body)
++	require.NoError(t, err)
++	require.Equal(t, http.StatusOK, recorder.Code)
++	require.Len(t, upstream.requestBodies, 1)
++	cfg := gjson.GetBytes(upstream.requestBodies[0], "generationConfig.thinkingConfig")
++	require.Equal(t, "minimal", cfg.Get("thinkingLevel").String())
++	require.False(t, cfg.Get("includeThoughts").Exists(), cfg.Raw)
++	require.Equal(t, "minimal", optionalStringValue(result.ReasoningEffort))
++	require.Equal(t, "ok", gjson.Get(recorder.Body.String(), "choices.0.message.content").String())
++}
++
++func TestGeminiMessagesForward_IncludeThoughtsFollowsClientThinking(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	tests := []struct {
++		name         string
++		body         string
++		wantThoughts bool
++		wantLevel    string
++	}{
++		{name: "stream with adaptive thinking", body: `{"model":"gemini-3.7-flash","stream":true,"max_tokens":1024,"thinking":{"type":"adaptive"},"output_config":{"effort":"medium"},"messages":[{"role":"user","content":"hi"}]}`, wantThoughts: true, wantLevel: "medium"},
++		{name: "stream without thinking", body: `{"model":"gemini-3.7-flash","stream":true,"max_tokens":1024,"messages":[{"role":"user","content":"hi"}]}`},
++		{name: "non stream with thinking", body: `{"model":"gemini-3.7-flash","max_tokens":1024,"thinking":{"type":"enabled","budget_tokens":31999},"messages":[{"role":"user","content":"hi"}]}`, wantLevel: "high"},
++	}
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			stream := gjson.Get(tt.body, "stream").Bool()
++			respBody := `{"candidates":[{"content":{"parts":[{"text":"ok"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":3,"candidatesTokenCount":1}}`
++			contentType := "application/json"
++			if stream {
++				respBody = "data: " + respBody + "\n\n"
++				contentType = "text/event-stream"
++			}
++			upstream := &queuedHTTPUpstreamStub{responses: []*http.Response{{
++				StatusCode: http.StatusOK,
++				Header:     http.Header{"Content-Type": []string{contentType}},
++				Body:       io.NopCloser(strings.NewReader(respBody)),
++			}}}
++			svc := &GeminiMessagesCompatService{httpUpstream: upstream, cfg: &config.Config{}}
++			c, recorder := newAntigravityCompatContext(http.MethodPost, "/v1/messages", []byte(tt.body))
++
++			result, err := svc.Forward(context.Background(), c, geminiCompatThinkingTestAccount(), []byte(tt.body))
++			require.NoError(t, err)
++			require.Equal(t, http.StatusOK, recorder.Code)
++			require.Len(t, upstream.requestBodies, 1)
++			cfg := gjson.GetBytes(upstream.requestBodies[0], "generationConfig.thinkingConfig")
++			require.Equal(t, tt.wantThoughts, cfg.Get("includeThoughts").Bool(), cfg.Raw)
++			require.Equal(t, tt.wantLevel, cfg.Get("thinkingLevel").String(), cfg.Raw)
++			require.Equal(t, tt.wantLevel, optionalStringValue(result.ReasoningEffort))
++		})
++	}
++}
++
++func TestGeminiMessagesHandleStreamingResponse_EmitsThinkingBlockBeforeText(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	upstreamBody := `data: {"candidates":[{"content":{"parts":[{"text":"Plan the reply","thought":true}]}}]}` + "\n\n" +
++		`data: {"candidates":[{"content":{"parts":[{"text":"Hello"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":5,"candidatesTokenCount":1,"thoughtsTokenCount":4}}` + "\n\n"
++	resp := &http.Response{
++		StatusCode: http.StatusOK,
++		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
++		Body:       io.NopCloser(strings.NewReader(upstreamBody)),
++	}
++	rec := httptest.NewRecorder()
++	c, _ := gin.CreateTestContext(rec)
++	svc := &GeminiMessagesCompatService{}
++
++	result, err := svc.handleStreamingResponse(c, resp, time.Now(), "claude-sonnet-4-5")
++	require.NoError(t, err)
++	require.NotNil(t, result.firstTokenMs)
++
++	events := parseAnthropicContentBlockEvents(t, rec.Body.String())
++	open := -1
++	var started []string
++	for _, ev := range events {
++		switch ev.event {
++		case "content_block_start":
++			require.Equalf(t, -1, open, "block %d opened while block %d was still open", ev.index, open)
++			open = ev.index
++			started = append(started, ev.blockType)
++		case "content_block_stop":
++			require.Equal(t, open, ev.index)
++			open = -1
++		}
++	}
++	require.Equal(t, -1, open)
++	require.Equal(t, []string{"thinking", "text"}, started)
++
++	out := rec.Body.String()
++	require.Contains(t, out, `"content_block":{"signature":"","thinking":"","type":"thinking"}`)
++	require.Contains(t, out, `"type":"thinking_delta"`)
++	require.Contains(t, out, `"thinking":"Plan the reply"`)
++	require.NotContains(t, out, `"text":"Plan the reply"`)
++}
++
++func TestConvertClaudeMessagesToGemini_DropsHistoryThinkingBlocks(t *testing.T) {
++	body := []byte(`{"model":"gemini-3.7-flash","max_tokens":1024,"messages":[
++		{"role":"user","content":"hi"},
++		{"role":"assistant","content":[{"type":"thinking","thinking":"PRIOR_THOUGHT","signature":""},{"type":"text","text":"Hello"}]},
++		{"role":"user","content":"again"},
++		{"role":"assistant","content":[{"type":"thinking","thinking":"ONLY_THOUGHT","signature":""},{"type":"redacted_thinking","data":"opaque"}]},
++		{"role":"user","content":"last"}
++	]}`)
++	out, err := convertClaudeMessagesToGeminiGenerateContent(body)
++	require.NoError(t, err)
++	require.NotContains(t, string(out), "PRIOR_THOUGHT")
++	require.NotContains(t, string(out), "ONLY_THOUGHT")
++	require.NotContains(t, string(out), "opaque")
++
++	contents := gjson.GetBytes(out, "contents").Array()
++	require.Len(t, contents, 4)
++	require.Equal(t, "model", contents[1].Get("role").String())
++	require.Len(t, contents[1].Get("parts").Array(), 1)
++	require.Equal(t, "Hello", contents[1].Get("parts.0.text").String())
++	for i, content := range contents {
++		require.NotEmpty(t, content.Get("parts").Array(), "contents[%d] has empty parts", i)
++	}
++}
++
++func TestGeminiForwardAsChatCompletions_DropsHistoryReasoningContent(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	upstream := &queuedHTTPUpstreamStub{responses: []*http.Response{{
++		StatusCode: http.StatusOK,
++		Header:     http.Header{"Content-Type": []string{"application/json"}},
++		Body:       io.NopCloser(strings.NewReader(`{"candidates":[{"content":{"parts":[{"text":"ok"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":3,"candidatesTokenCount":1}}`)),
++	}}}
++	svc := &GeminiMessagesCompatService{httpUpstream: upstream, cfg: &config.Config{}}
++	body := []byte(`{"model":"gemini-3.8-flash","messages":[
++		{"role":"user","content":"hi"},
++		{"role":"assistant","content":"Hello","reasoning_content":"PRIOR_REASONING"},
++		{"role":"assistant","content":"Again","reasoning":"ALIAS_REASONING"},
++		{"role":"assistant","content":[{"type":"thinking","thinking":"PART_THINKING"},{"type":"reasoning","text":"PART_REASONING"},{"type":"text","text":"Third"}]},
++		{"role":"user","content":"next"}
++	]}`)
++	c, recorder := newAntigravityCompatContext(http.MethodPost, "/v1/chat/completions", body)
++
++	_, err := svc.ForwardAsChatCompletions(context.Background(), c, geminiCompatThinkingTestAccount(), body)
++	require.NoError(t, err)
++	require.Equal(t, http.StatusOK, recorder.Code)
++	require.Len(t, upstream.requestBodies, 1)
++	sent := string(upstream.requestBodies[0])
++	require.NotContains(t, sent, "PRIOR_REASONING")
++	require.NotContains(t, sent, "ALIAS_REASONING")
++	require.NotContains(t, sent, "PART_THINKING")
++	require.NotContains(t, sent, "PART_REASONING")
++	require.NotContains(t, sent, "<thinking>")
++	require.Contains(t, sent, "Third")
++	require.Contains(t, sent, "Hello")
++	require.Contains(t, sent, "Again")
++}
++
++func TestGeminiMessagesForward_SignatureRetryKeepsClientThinkingParams(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	okBody := "data: " + `{"candidates":[{"content":{"parts":[{"text":"ok"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":3,"candidatesTokenCount":1}}` + "\n\n"
++	upstream := &queuedHTTPUpstreamStub{responses: []*http.Response{
++		{
++			StatusCode: http.StatusBadRequest,
++			Header:     http.Header{"Content-Type": []string{"application/json"}},
++			Body:       io.NopCloser(strings.NewReader(`{"error":{"code":400,"message":"Function call is missing a thought_signature","status":"INVALID_ARGUMENT"}}`)),
++		},
++		{
++			StatusCode: http.StatusBadRequest,
++			Header:     http.Header{"Content-Type": []string{"application/json"}},
++			Body:       io.NopCloser(strings.NewReader(`{"error":{"code":400,"message":"Function call is missing a thought_signature","status":"INVALID_ARGUMENT"}}`)),
++		},
++		{
++			StatusCode: http.StatusOK,
++			Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
++			Body:       io.NopCloser(strings.NewReader(okBody)),
++		},
++	}}
++	svc := &GeminiMessagesCompatService{httpUpstream: upstream, cfg: &config.Config{}}
++	body := []byte(`{"model":"claude-sonnet-4-5","stream":true,"max_tokens":1024,"thinking":{"type":"adaptive"},"output_config":{"effort":"low"},"messages":[
++		{"role":"user","content":"hi"},
++		{"role":"assistant","content":[{"type":"thinking","thinking":"RETRY_THOUGHT","signature":""},{"type":"tool_use","id":"toolu_1","name":"lookup","input":{"q":"x"}}]},
++		{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_1","content":"found"}]},
++		{"role":"assistant","content":[{"type":"thinking","thinking":"RETRY_ONLY_THOUGHT","signature":""}]},
++		{"role":"user","content":"next"},
++		{"role":"assistant","content":[{"type":"thinking","thinking":"RETRY_BLANK_THOUGHT","signature":""},{"type":"text","text":""}]},
++		{"role":"user","content":"again"},
++		{"role":"assistant","content":[{"type":"thinking","thinking":"RETRY_SPACE_THOUGHT","signature":""},{"type":"text","text":"   "}]},
++		{"role":"user","content":"last"}
++	]}`)
++	account := geminiCompatThinkingTestAccount()
++	account.Credentials["model_mapping"] = map[string]any{"claude-sonnet-4-5": "gemini-3.8-flash"}
++	c, recorder := newAntigravityCompatContext(http.MethodPost, "/v1/messages", body)
++
++	result, err := svc.Forward(context.Background(), c, account, body)
++	require.NoError(t, err)
++	require.Equal(t, http.StatusOK, recorder.Code)
++	require.Len(t, upstream.requestBodies, 3)
++	for i, sent := range upstream.requestBodies {
++		require.NotContains(t, string(sent), "RETRY_THOUGHT", "request %d", i)
++		require.NotContains(t, string(sent), "RETRY_ONLY_THOUGHT", "request %d", i)
++		require.NotContains(t, string(sent), "RETRY_BLANK_THOUGHT", "request %d", i)
++		require.NotContains(t, string(sent), "RETRY_SPACE_THOUGHT", "request %d", i)
++		for j, content := range gjson.GetBytes(sent, "contents").Array() {
++			require.NotEmpty(t, content.Get("parts").Array(), "request %d contents[%d] has empty parts", i, j)
++			for k, part := range content.Get("parts").Array() {
++				if text := part.Get("text"); text.Exists() {
++					require.NotEmpty(t, strings.TrimSpace(text.String()), "request %d contents[%d].parts[%d] is blank text", i, j, k)
++				}
++			}
++		}
++		cfg := gjson.GetBytes(sent, "generationConfig.thinkingConfig")
++		require.Equal(t, "low", cfg.Get("thinkingLevel").String(), "request %d: %s", i, cfg.Raw)
++		require.True(t, cfg.Get("includeThoughts").Bool(), "request %d: %s", i, cfg.Raw)
++	}
++	require.Equal(t, "low", optionalStringValue(result.ReasoningEffort))
++}
+diff --git a/backend/internal/service/gemini_messages_compat_service.go b/backend/internal/service/gemini_messages_compat_service.go
+index 441efe656..48b095fb3 100644
+--- a/backend/internal/service/gemini_messages_compat_service.go
++++ b/backend/internal/service/gemini_messages_compat_service.go
+@@ -556,6 +556,8 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
+ 		return nil, s.writeClaudeError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+ 	}
+ 	geminiReq = ensureGeminiFunctionCallThoughtSignatures(geminiReq)
++	includeThoughts := req.Stream && claudeRequestEnablesThinking(body)
++	geminiReq = applyGeminiCompatThinkingConfig(geminiReq, body, mappedModel, includeThoughts)
+ 	originalClaudeBody := body
+ 
+ 	proxyURL := ""
+@@ -771,25 +773,28 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
+ 
+ 				var strippedClaudeBody []byte
+ 				stageName := ""
++				// 降级函数会把思考块改写成正文，Gemini 侧先删掉历史思考块再降级。
++				retrySourceBody := dropClaudeHistoryThinkingBlocks(originalClaudeBody)
+ 				// 路径说明：本处上游是 Gemini，但被剥离的 body 是 Anthropic 格式。传 originalModel
+ 				// （客户端原 Anthropic model）而非 mappedModel（上游 Gemini model），让剥离逻辑按
+ 				// 客户端请求的 Anthropic 子协议族判定（详见 ResolveThinkingProtocol 文档）。
+ 				switch signatureRetryStage {
+ 				case 0:
+ 					// Stage 1: disable thinking + thinking->text
+-					strippedClaudeBody = FilterThinkingBlocksForRetry(originalClaudeBody, originalModel)
++					strippedClaudeBody = FilterThinkingBlocksForRetry(retrySourceBody, originalModel)
+ 					stageName = "thinking-only"
+ 					signatureRetryStage = 1
+ 				default:
+ 					// Stage 2: additionally downgrade tool_use/tool_result blocks to text
+-					strippedClaudeBody = FilterSignatureSensitiveBlocksForRetry(originalClaudeBody, originalModel)
++					strippedClaudeBody = FilterSignatureSensitiveBlocksForRetry(retrySourceBody, originalModel)
+ 					stageName = "thinking+tools"
+ 					signatureRetryStage = 2
+ 				}
+ 				retryGeminiReq, txErr := convertClaudeMessagesToGeminiGenerateContent(strippedClaudeBody)
+ 				if txErr == nil {
+ 					logger.LegacyPrintf("service.gemini_messages_compat", "Gemini account %d: detected signature-related 400, retrying with downgraded Claude blocks (%s)", account.ID, stageName)
+-					geminiReq = retryGeminiReq
++					// 降级只改写历史块，思考参数沿用客户端原始请求。
++					geminiReq = applyGeminiCompatThinkingConfig(retryGeminiReq, originalClaudeBody, mappedModel, includeThoughts)
+ 					// Consume one retry budget attempt and continue with the updated request payload.
+ 					sleepGeminiBackoff(1)
+ 					continue
+@@ -1056,6 +1061,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
+ 		Stream:                        req.Stream,
+ 		Duration:                      time.Since(startTime),
+ 		FirstTokenMs:                  firstTokenMs,
++		ReasoningEffort:               extractGeminiReasoningEffortFromBody(geminiReq),
+ 		ImageCount:                    imageCount,
+ 		ImageSize:                     imageSize,
+ 		ImageInputSize:                imageInputSize,
+@@ -2135,6 +2141,7 @@ func (s *GeminiMessagesCompatService) handleStreamingResponse(c *gin.Context, re
+ 	openBlockIndex := -1
+ 	openBlockType := ""
+ 	seenText := ""
++	seenThought := ""
+ 	openToolIndex := -1
+ 	openToolID := ""
+ 	openToolName := ""
+@@ -2183,6 +2190,56 @@ func (s *GeminiMessagesCompatService) handleStreamingResponse(c *gin.Context, re
+ 
+ 		parts := extractGeminiParts(geminiResp)
+ 		for _, part := range parts {
++			if text, ok := part["text"].(string); ok && isGeminiThoughtPart(part) {
++				delta, newSeen := computeGeminiTextDelta(seenThought, text)
++				seenThought = newSeen
++				if delta == "" {
++					continue
++				}
++				if openToolIndex >= 0 {
++					writeSSE(c.Writer, "content_block_stop", map[string]any{
++						"type":  "content_block_stop",
++						"index": openToolIndex,
++					})
++					openToolIndex = -1
++					openToolName = ""
++					seenToolJSON = ""
++				}
++				if openBlockType != "thinking" {
++					if openBlockIndex >= 0 {
++						writeSSE(c.Writer, "content_block_stop", map[string]any{
++							"type":  "content_block_stop",
++							"index": openBlockIndex,
++						})
++					}
++					openBlockType = "thinking"
++					openBlockIndex = nextBlockIndex
++					nextBlockIndex++
++					writeSSE(c.Writer, "content_block_start", map[string]any{
++						"type":  "content_block_start",
++						"index": openBlockIndex,
++						"content_block": map[string]any{
++							"type":      "thinking",
++							"thinking":  "",
++							"signature": "",
++						},
++					})
++				}
++				if firstTokenMs == nil {
++					ms := int(time.Since(startTime).Milliseconds())
++					firstTokenMs = &ms
++				}
++				writeSSE(c.Writer, "content_block_delta", map[string]any{
++					"type":  "content_block_delta",
++					"index": openBlockIndex,
++					"delta": map[string]any{
++						"type":     "thinking_delta",
++						"thinking": delta,
++					},
++				})
++				flusher.Flush()
++				continue
++			}
+ 			if text, ok := part["text"].(string); ok && text != "" {
+ 				// Close an open tool_use block before starting text, mirroring
+ 				// the functionCall branch (which closes open text blocks) and
+@@ -3414,6 +3471,7 @@ func convertClaudeMessagesToGeminiContents(messages any, toolUseIDToName map[str
+ 		}
+ 
+ 		parts := make([]any, 0)
++		droppedThinking := false
+ 		switch content := mm["content"].(type) {
+ 		case string:
+ 			// 字符串形式的 content，保留所有内容（包括空白）
+@@ -3428,6 +3486,11 @@ func convertClaudeMessagesToGeminiContents(messages any, toolUseIDToName map[str
+ 				if !ok {
+ 					continue
+ 				}
++				// 历史思考块不回传给 Gemini：Gemini 的思考连续性由 thoughtSignature 承载。
++				if bt, _ := bm["type"].(string); bt == "thinking" || bt == "redacted_thinking" {
++					droppedThinking = true
++					continue
++				}
+ 				bt, _ := bm["type"].(string)
+ 				switch bt {
+ 				case "text":
+@@ -3502,6 +3565,10 @@ func convertClaudeMessagesToGeminiContents(messages any, toolUseIDToName map[str
+ 		default:
+ 			// ignore
+ 		}
++		// 只含思考块的消息去掉思考后为空，整条跳过（Gemini 拒收空 parts）。
++		if droppedThinking && len(parts) == 0 {
++			continue
++		}
+ 
+ 		out = append(out, map[string]any{
+ 			"role":  gRole,
+diff --git a/backend/internal/service/gemini_native_reasoning_pricing_test.go b/backend/internal/service/gemini_native_reasoning_pricing_test.go
+index 718867ec3..ca2fbfec8 100644
+--- a/backend/internal/service/gemini_native_reasoning_pricing_test.go
++++ b/backend/internal/service/gemini_native_reasoning_pricing_test.go
+@@ -137,7 +137,7 @@ func TestGeminiNativeReasoningPricingUsesExplicitForwardedLevel(t *testing.T) {
+ 	}
+ }
+ 
+-func TestGeminiChatCompatReasoningPricingIgnoresUnforwardedEffort(t *testing.T) {
++func TestGeminiChatCompatReasoningPricingUsesForwardedEffort(t *testing.T) {
+ 	gin.SetMode(gin.TestMode)
+ 	for _, stream := range []bool{false, true} {
+ 		mode := "buffered"
+@@ -168,8 +168,9 @@ func TestGeminiChatCompatReasoningPricingIgnoresUnforwardedEffort(t *testing.T)
+ 			require.NoError(t, err)
+ 			require.Equal(t, http.StatusOK, recorder.Code)
+ 			require.Len(t, upstream.requestBodies, 1)
+-			require.False(t, gjson.GetBytes(upstream.requestBodies[0], "generationConfig.thinkingConfig").Exists())
+-			require.Nil(t, result.ReasoningEffort)
++			require.Equal(t, "high", gjson.GetBytes(upstream.requestBodies[0], "generationConfig.thinkingConfig.thinkingLevel").String())
++			require.Equal(t, stream, gjson.GetBytes(upstream.requestBodies[0], "generationConfig.thinkingConfig.includeThoughts").Bool())
++			require.Equal(t, "high", optionalStringValue(result.ReasoningEffort))
+ 
+ 			billing := NewBillingService(&config.Config{}, nil)
+ 			cost, err := billing.CalculateTokenCostForRequest(TokenCostRequest{
+@@ -184,7 +185,7 @@ func TestGeminiChatCompatReasoningPricingIgnoresUnforwardedEffort(t *testing.T)
+ 				Resolver: NewModelPricingResolver(nil, billing),
+ 			})
+ 			require.NoError(t, err)
+-			require.InDelta(t, 1, cost.TotalCost, 1e-12)
++			require.InDelta(t, 2, cost.TotalCost, 1e-12)
+ 		})
+ 	}
+ }

@@ -288,6 +288,44 @@ func TestShouldEmulateWebSearch_AccountEnabled(t *testing.T) {
 	require.True(t, svc.shouldEmulateWebSearch(context.Background(), account, nil, webSearchToolBody))
 }
 
+func TestShouldEmulateWebSearch_OpenAIAPIKeyEnabled(t *testing.T) {
+	mgr := websearch.NewManager([]websearch.ProviderConfig{{Type: "brave", APIKey: "k"}}, nil)
+	SetWebSearchManager(mgr)
+	defer SetWebSearchManager(nil)
+	setGlobalWebSearchConfig(&WebSearchEmulationConfig{
+		Enabled:   true,
+		Providers: []WebSearchProviderConfig{{Type: "brave", APIKey: "k"}},
+	})
+	defer clearGlobalWebSearchConfig()
+
+	settingSvc := newSettingServiceForWebSearchTest(true)
+	account := &Account{
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Extra:    map[string]any{featureKeyWebSearchEmulation: WebSearchModeEnabled},
+	}
+	require.True(t, shouldEmulateWebSearchFor(context.Background(), settingSvc, nil, account, nil, webSearchToolBody))
+}
+
+func TestShouldEmulateWebSearch_OpenAIOAuthKeepsNativeSearch(t *testing.T) {
+	mgr := websearch.NewManager([]websearch.ProviderConfig{{Type: "brave", APIKey: "k"}}, nil)
+	SetWebSearchManager(mgr)
+	defer SetWebSearchManager(nil)
+	setGlobalWebSearchConfig(&WebSearchEmulationConfig{
+		Enabled:   true,
+		Providers: []WebSearchProviderConfig{{Type: "brave", APIKey: "k"}},
+	})
+	defer clearGlobalWebSearchConfig()
+
+	settingSvc := newSettingServiceForWebSearchTest(true)
+	account := &Account{
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeOAuth,
+		Extra:    map[string]any{featureKeyWebSearchEmulation: WebSearchModeEnabled},
+	}
+	require.False(t, shouldEmulateWebSearchFor(context.Background(), settingSvc, nil, account, nil, webSearchToolBody))
+}
+
 func TestShouldEmulateWebSearch_DefaultMode_ChannelEnabled(t *testing.T) {
 	mgr := websearch.NewManager([]websearch.ProviderConfig{{Type: "brave", APIKey: "k"}}, nil)
 	SetWebSearchManager(mgr)

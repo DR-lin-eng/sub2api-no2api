@@ -1,0 +1,42 @@
+[
+  {
+    "stage": "BASELINE",
+    "result": "PASS",
+    "responses_json_created_at": false,
+    "responses_stream_created_at": false,
+    "migration_count": 303,
+    "persisted_invariants_sha256": "b93ef7c1a474c73d215cadf2a16f6ef1a33ffe4af5c132043ddc60432a538b2c",
+    "models_standard_fields": false,
+    "health_ready_frontend_encrypted_login_key_subscription": "PASS"
+  },
+  {
+    "stage": "MODIFIED",
+    "result": "PASS",
+    "responses_json_created_at": true,
+    "responses_stream_created_at": true,
+    "migration_count": 303,
+    "persisted_invariants_sha256": "b93ef7c1a474c73d215cadf2a16f6ef1a33ffe4af5c132043ddc60432a538b2c",
+    "models_standard_fields": true,
+    "health_ready_frontend_encrypted_login_key_subscription": "PASS"
+  },
+  {
+    "stage": "ROLLBACK",
+    "result": "PASS",
+    "responses_json_created_at": false,
+    "responses_stream_created_at": false,
+    "migration_count": 303,
+    "persisted_invariants_sha256": "b93ef7c1a474c73d215cadf2a16f6ef1a33ffe4af5c132043ddc60432a538b2c",
+    "models_standard_fields": false,
+    "health_ready_frontend_encrypted_login_key_subscription": "PASS"
+  },
+  {
+    "stage": "RESTORED",
+    "result": "PASS",
+    "responses_json_created_at": true,
+    "responses_stream_created_at": true,
+    "migration_count": 303,
+    "persisted_invariants_sha256": "b93ef7c1a474c73d215cadf2a16f6ef1a33ffe4af5c132043ddc60432a538b2c",
+    "models_standard_fields": true,
+    "health_ready_frontend_encrypted_login_key_subscription": "PASS"
+  }
+]

@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    "/private/tmp/sub2api-upstream-sync-20261022-ieZnRf/runtime/check.py"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261022-ieZnRf/MODIFIED_FILE",
+  "started_at": "2026-10-22T05:21:33.361450+00:00",
+  "elapsed_seconds": 42.176,
+  "exit_status": 0,
+  "stdout": "{\"stage\": \"BASELINE\", \"result\": \"PASS\", \"abort_usage_once\": {\"chat\": [[10, 0]], \"responses\": [[10, 0]]}, \"buffered_json_http\": {\"chat\": 200, \"responses\": 200}, \"initial_image_http\": 200, \"explicit_image_deny_http\": 200, \"vertex_quota_limit\": null, \"vertex_dto_status\": 423, \"migration_count\": 305, \"composite_flag\": \"unchanged_false\", \"persisted_identity_key_subscription_sha256\": \"6b642d0558e8ee0e75f8d682543131a86a7624609473399db2f86f541e601237\", \"health_ready_frontend_encrypted_login_key_subscription\": \"PASS\"}\n{\"stage\": \"MODIFIED\", \"result\": \"PASS\", \"abort_usage_once\": {\"chat\": [[10, 50]], \"responses\": [[10, 50]]}, \"buffered_json_http\": {\"chat\": 200, \"responses\": 200}, \"initial_image_http\": 200, \"explicit_image_deny_http\": 400, \"vertex_quota_limit\": null, \"vertex_dto_status\": 423, \"migration_count\": 306, \"composite_flag\": \"unchanged_false\", \"persisted_identity_key_subscription_sha256\": \"6b642d0558e8ee0e75f8d682543131a86a7624609473399db2f86f541e601237\", \"health_ready_frontend_encrypted_login_key_subscription\": \"PASS\"}\n{\"stage\": \"ROLLBACK\", \"result\": \"PASS\", \"abort_usage_once\": {\"chat\": [[10, 0]], \"responses\": [[10, 0]]}, \"buffered_json_http\": {\"chat\": 200, \"responses\": 200}, \"initial_image_http\": 200, \"explicit_image_deny_http\": 200, \"vertex_quota_limit\": null, \"vertex_dto_status\": 423, \"migration_count\": 306, \"composite_flag\": \"unchanged_false\", \"persisted_identity_key_subscription_sha256\": \"6b642d0558e8ee0e75f8d682543131a86a7624609473399db2f86f541e601237\", \"health_ready_frontend_encrypted_login_key_subscription\": \"PASS\"}\n{\"stage\": \"RESTORED\", \"result\": \"PASS\", \"abort_usage_once\": {\"chat\": [[10, 50]], \"responses\": [[10, 50]]}, \"buffered_json_http\": {\"chat\": 200, \"responses\": 200}, \"initial_image_http\": 400, \"explicit_image_deny_http\": 400, \"vertex_quota_limit\": null, \"vertex_dto_status\": 423, \"migration_count\": 306, \"composite_flag\": \"unchanged_false\", \"persisted_identity_key_subscription_sha256\": \"6b642d0558e8ee0e75f8d682543131a86a7624609473399db2f86f541e601237\", \"health_ready_frontend_encrypted_login_key_subscription\": \"PASS\"}\n",
+  "stderr": ""
+}

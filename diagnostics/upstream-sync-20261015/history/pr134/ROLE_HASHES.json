@@ -1,0 +1,22 @@
+{
+  "MODIFIED_FILE.tar.gz": {
+    "path": "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015/MODIFIED_FILE.tar.gz",
+    "sha256": "3e0e7719f8bfb07d6d867746905cc6963cc3c24e2d1a0c8281633c9918934e61",
+    "bytes": 440043
+  },
+  "DIFF_FILE.patch": {
+    "path": "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015/DIFF_FILE.patch",
+    "sha256": "d61d54189883b8e390759453d8d5457e925e6f978f501e59091437b33b3dd7ae",
+    "bytes": 184904
+  },
+  "VERIFICATION.txt": {
+    "path": "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015/VERIFICATION.txt",
+    "sha256": "ac1f3b0d06711ad3adc3c6b4a04ec208ce7e644722cb6f963c52c8e27c5a0b3d",
+    "bytes": 235606
+  },
+  "ROLLBACK.sh": {
+    "path": "/Users/lin/.codex/visualizations/2026/10/15/01a13f53-c668-76c1-9596-e94448e99db1/upstream-sync-20261015/repo/diagnostics/upstream-sync-20261015/ROLLBACK.sh",
+    "sha256": "743dd9a532b6e03dfe898c1cdbcea464ba47d39aded4fa081b108df6d68d7cf3",
+    "bytes": 1607
+  }
+}

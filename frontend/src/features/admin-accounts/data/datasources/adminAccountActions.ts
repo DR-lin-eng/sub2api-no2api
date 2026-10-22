@@ -9,6 +9,7 @@ import type {
   UpstreamQuotaQueryResult
 } from '@/types'
 import type {
+  BatchUpstreamModelSyncResult,
   CheckMixedChannelRequest,
   CheckMixedChannelResponse,
   CodexSessionImportRequest,
@@ -94,8 +95,23 @@ export interface CPATestResult extends CPACapacityStatus {
   latency_ms: number
 }
 
+export interface UpstreamModelDescriptor {
+  id: string
+  display_name?: string
+  description?: string
+  context_window?: number
+  max_context_window?: number
+  max_output_tokens?: number
+  supports_reasoning?: boolean
+  supported_reasoning_levels?: Array<string | { effort: string; description?: string }>
+  default_reasoning_level?: string
+  input_modalities?: string[]
+  output_modalities?: string[]
+}
+
 export interface SyncUpstreamModelsResult {
   models: string[]
+  metadata?: Record<string, UpstreamModelDescriptor>
 }
 
 export interface SyncUpstreamPreviewParams {
@@ -147,6 +163,15 @@ export async function testCPAConnection(
   payload: CPATestRequest
 ): Promise<CPATestResult> {
   const { data } = await apiClient.post<CPATestResult>(`/admin/accounts/${id}/cpa/test`, payload)
+  return data
+}
+
+export async function batchSyncUpstreamModels(accountIds: number[]): Promise<BatchUpstreamModelSyncResult> {
+  const { data } = await apiClient.post<BatchUpstreamModelSyncResult>(
+    '/admin/accounts/models/sync-upstream-batch',
+    { account_ids: accountIds },
+    { timeout: 180000 }
+  )
   return data
 }
 

@@ -1,0 +1,26 @@
+[
+  {
+    "stage": "baseline",
+    "result": "PASS",
+    "migrations": 301,
+    "locale_contract": "PASS"
+  },
+  {
+    "stage": "upgraded",
+    "result": "PASS",
+    "migrations": 302,
+    "locale_contract": "PASS"
+  },
+  {
+    "stage": "rollback",
+    "result": "PASS",
+    "migrations": 302,
+    "locale_contract": "PASS"
+  },
+  {
+    "stage": "restored",
+    "result": "PASS",
+    "migrations": 302,
+    "locale_contract": "PASS"
+  }
+]

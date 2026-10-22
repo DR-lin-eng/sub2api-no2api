@@ -1,0 +1,68 @@
+{
+  "target": "/Users/lin/.codex/worktrees/2ca9/sub2api-no2api",
+  "original_target_head": "5c9372cbf4639a74df0c37c3348fa32b27a32cb0",
+  "work_copy": "/private/tmp/sub2api-upstream-sync-20261016",
+  "baseline_sha": "eb130c485520fa27536e33064f39894972205362",
+  "previous_upstream_sha": "b8cfb7884084393e08f0e2c4027afc3755357b98",
+  "upstream_sha": "b0a02a3304a0a78cdd003ddda1dd23ba02c03084",
+  "merged_prs": [
+    8114,
+    8121,
+    8080,
+    8140
+  ],
+  "non_pr_commits": [
+    {
+      "sha": "f2e5b55f3e8069df1c02a9a27af537b5fdefa64e",
+      "status": "covered",
+      "reason": "Overlapping timestamp fixture update; fixtures with exact-byte assertions carry explicit timestamps."
+    },
+    {
+      "sha": "b0a02a3304a0a78cdd003ddda1dd23ba02c03084",
+      "status": "intentional-local-divergence",
+      "reason": "Keep project version line and sponsor-free root READMEs."
+    }
+  ],
+  "inherited_ledgers": [
+    {
+      "path": "diagnostics/typesafe-recharge-20261006/UPSTREAM_PRS.json",
+      "sha256": "b189a49d11cff2afa6c4f73008c5272a7e746f04d122d4abefa1446875aded6a"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20260930/UPSTREAM_PRS.json",
+      "sha256": "5dea42f1f5c9b812d45fdcb71f7d015abd042d7308ca54e4c8ba6c05847a4eba"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261005/UPSTREAM_PRS.json",
+      "sha256": "f9bf1511d69a53658da2771324b3b52f2100f0af8cd6660b2fab8d5776d73397"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261007/UPSTREAM_PRS.json",
+      "sha256": "9e2846aac4805b1f986aede7e45d63d4c8f6db0fcbb0c572bb4f05143532fb73"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261008/UPSTREAM_PRS.json",
+      "sha256": "281d015cd91673351188d3cd9fb27789ecc9d914e24a89e5c95ecfa24b20de66"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261009/UPSTREAM_PRS.json",
+      "sha256": "ec0c57b0ffce136a99a6f262fbfb9503bf5a88f153522db2975ec99e7f9b7362"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261012/UPSTREAM_PRS.json",
+      "sha256": "c6896dbf52c20185ee7140fdd4c8f395dbd08488bd00c2eadba69e5636ae62e6"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261013/UPSTREAM_PRS.json",
+      "sha256": "0ff61648b9e7696163650812e6e65cd8f622a1d83b46d4d5dc4306626f81b800"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261015/UPSTREAM_PRS.json",
+      "sha256": "fea02f7ea8326c19e60ffccf71e9c2cccc545cc6097c088f2394a30f8350eb97"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261016/UPSTREAM_PRS.json",
+      "sha256": "c45d52d1fcee8e782e938dd4ad632442101cddc62dd5023c0180789111893ff5"
+    }
+  ]
+}
