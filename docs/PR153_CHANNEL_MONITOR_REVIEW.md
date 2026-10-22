@@ -63,3 +63,9 @@ Docker Go 1.26.10 的全量 unit 测试通过；设置 GET/PUT、部分保存、
 源码布局检查同样保留两项基线债务：`openai_gateway_forward.go` 和 `payment_fulfillment_test.go` 各 1,201 行，超过 1,200 行上限；两者相对基线均无改动，未扩充 allowlist。
 
 发布阶段必须另行核对修正后的 PR 精确 SHA、合并后的 main CI、Security Scan、Docker Image，以及 GHCR 的 amd64/arm64 revision。结果写入外部发布记录，避免把待运行结果当作已完成验证。
+
+## CI 执行环境后续修正
+
+PR #153 已合并为 `a25caaf31e1da77844896b67df6598df260414e9`。其测试、lint、安全扫描与镜像检查通过，macOS shell 任务在 15 分钟后因托管 runner 分配失败被取消。GitHub 注释明确指出 macOS arm64 容量不足；部署脚本本机执行通过。
+
+官方 runner-images 支持表同时列出 `macos-15`（arm64）和 `macos-15-intel`（x64）。这组脚本使用 mock，不依赖 CPU 架构，因此后续只将 `jobs.shell.runs-on` 固定为 `macos-15-intel`，保留全部脚本、触发器、权限和检查步骤。源码四件套扩展为 39 个文件；重新回滚仍恢复完整基线，重新应用仍通过原页面探针。托管 Intel runner 的实际执行结果随后写入发布记录。

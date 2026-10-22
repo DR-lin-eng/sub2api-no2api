@@ -1,0 +1,12 @@
+{
+  "field": "jobs.shell.runs-on",
+  "before": "macos-15",
+  "after": "macos-15-intel",
+  "workflow": ".github/workflows/backend-ci.yml",
+  "reason": "PR153 hosted job cancelled without a runner after 15 minutes; annotations explicitly identify macOS arm64 capacity constraints.",
+  "official_source": "https://github.com/actions/runner-images/blob/main/README.md",
+  "original_workflow_sha256": "6db6d2685bbdb4c48287ae3b0af8bc795c642ab34056d602c09fecd787d700bf",
+  "modified_workflow_sha256": "b12bc4758ad585f35d3733f20923f2c139875cffa9cb1509872670b49dcd6dd2",
+  "source_files": 39,
+  "baseline_and_restored_manifests_match": true
+}
