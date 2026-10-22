@@ -16,7 +16,7 @@
       "VERIFICATION.txt",
       "SOURCE_TRANSACTION.json",
       "PERFORMANCE.json",
-      "runtime/result.json"
+      "runtime-result.json"
     ]
   },
   {
@@ -37,7 +37,7 @@
       "VERIFICATION.txt",
       "SOURCE_TRANSACTION.json",
       "PERFORMANCE.json",
-      "runtime/result.json"
+      "runtime-result.json"
     ]
   },
   {
@@ -60,7 +60,7 @@
       "VERIFICATION.txt",
       "SOURCE_TRANSACTION.json",
       "PERFORMANCE.json",
-      "runtime/result.json"
+      "runtime-result.json"
     ]
   },
   {
@@ -83,7 +83,7 @@
       "VERIFICATION.txt",
       "SOURCE_TRANSACTION.json",
       "PERFORMANCE.json",
-      "runtime/result.json"
+      "runtime-result.json"
     ]
   },
   {
@@ -106,7 +106,7 @@
       "VERIFICATION.txt",
       "SOURCE_TRANSACTION.json",
       "PERFORMANCE.json",
-      "runtime/result.json"
+      "runtime-result.json"
     ]
   },
   {
@@ -125,13 +125,13 @@
       "backend/internal/transport/http/handler/gateway_handler_chat_completions.go",
       "backend/internal/transport/http/handler/gateway_handler_responses.go"
     ],
-    "decision": "Drain detached Anthropic streams after client loss with bounded read intervals, merge final usage, mark ClientDisconnect, and settle partial observed usage on failures. Preserve signed thinking, nil-restorer fast path, explicit Chat include_usage and existing local tool restoration; do not import unrelated upstream usage projections or ops proxy DTO fields.",
+    "decision": "Drain detached Anthropic compatibility streams after client loss with bounded Body.Read intervals, merge final usage, mark ClientDisconnect and settle partial observed usage. A synchronous scanner/watchdog replaces the upstream per-line pump after its microbenchmark regressions; parse scanner bytes before the next scan. Retain signed thinking, local nil-restorer fast path, explicit Chat include_usage and tool restoration.",
     "reopen_condition": "Only new upstream semantics or an observed regression in the listed current owners; never replay this frozen diff.",
     "evidence": [
       "VERIFICATION.txt",
       "SOURCE_TRANSACTION.json",
       "PERFORMANCE.json",
-      "runtime/result.json"
+      "runtime-result.json"
     ]
   },
   {
@@ -154,7 +154,7 @@
       "VERIFICATION.txt",
       "SOURCE_TRANSACTION.json",
       "PERFORMANCE.json",
-      "runtime/result.json"
+      "runtime-result.json"
     ]
   },
   {
@@ -175,7 +175,7 @@
       "VERIFICATION.txt",
       "SOURCE_TRANSACTION.json",
       "PERFORMANCE.json",
-      "runtime/result.json"
+      "runtime-result.json"
     ]
   },
   {
@@ -188,7 +188,7 @@
     "fully_closed": false,
     "current_owners": [
       "backend/internal/infrastructure/repository/scheduler_cache.go",
-      "backend/internal/infrastructure/repository/scheduler_candidate_index.go",
+      "backend/internal/infrastructure/repository/scheduler_account_state_cache.go",
       "backend/internal/application/service/scheduler_cache.go",
       "backend/internal/application/service/account.go"
     ],
@@ -198,7 +198,7 @@
       "VERIFICATION.txt",
       "SOURCE_TRANSACTION.json",
       "PERFORMANCE.json",
-      "runtime/result.json"
+      "runtime-result.json"
     ]
   },
   {
@@ -221,7 +221,7 @@
       "VERIFICATION.txt",
       "SOURCE_TRANSACTION.json",
       "PERFORMANCE.json",
-      "runtime/result.json"
+      "runtime-result.json"
     ]
   },
   {
@@ -241,7 +241,7 @@
       "VERIFICATION.txt",
       "SOURCE_TRANSACTION.json",
       "PERFORMANCE.json",
-      "runtime/result.json"
+      "runtime-result.json"
     ]
   },
   {
@@ -262,7 +262,7 @@
       "VERIFICATION.txt",
       "SOURCE_TRANSACTION.json",
       "PERFORMANCE.json",
-      "runtime/result.json"
+      "runtime-result.json"
     ]
   },
   {
@@ -283,7 +283,7 @@
       "VERIFICATION.txt",
       "SOURCE_TRANSACTION.json",
       "PERFORMANCE.json",
-      "runtime/result.json"
+      "runtime-result.json"
     ]
   },
   {
@@ -307,7 +307,7 @@
       "VERIFICATION.txt",
       "SOURCE_TRANSACTION.json",
       "PERFORMANCE.json",
-      "runtime/result.json"
+      "runtime-result.json"
     ]
   }
 ]

@@ -5,6 +5,7 @@
   "baseline_tree": "247a92a6c2ed1c5388947ca14af3363055517cd7",
   "upstream_sha": "21cc926933163e015d2b632be07055759c983541",
   "source_paths": [
+    "backend/internal/application/service/README.md",
     "backend/internal/application/service/account.go",
     "backend/internal/application/service/account_model_mapping_signature.go",
     "backend/internal/application/service/account_model_mapping_signature_test.go",
@@ -41,6 +42,7 @@
     "backend/internal/application/service/request_metadata_single_account.go",
     "backend/internal/application/service/single_account_retry_probe_test.go",
     "backend/internal/application/service/usage_billing.go",
+    "backend/internal/infrastructure/repository/README.md",
     "backend/internal/infrastructure/repository/simple_mode_default_groups.go",
     "backend/internal/infrastructure/repository/usage_billing_account_quota.go",
     "backend/internal/infrastructure/repository/usage_billing_repo.go",
@@ -58,6 +60,7 @@
     "backend/migrations/250_enable_gemini_image_generation_groups.sql",
     "docs/README.md",
     "docs/UPSTREAM_SYNC_20261022.md",
+    "frontend/src/features/admin-accounts/README.md",
     "frontend/src/features/admin-accounts/__tests__/EditAccountModal.spec.ts",
     "frontend/src/features/admin-accounts/__tests__/accountFilterState.spec.ts",
     "frontend/src/features/admin-accounts/presentation/accountEditUpdatePayload.ts",
@@ -104,6 +107,7 @@
     "frontend/src/features/admin-accounts/presentation/accountQuota.ts"
   ],
   "baseline_hashes": {
+    "backend/internal/application/service/README.md": "631add90a61d0722fb8754877d59901213a27254c14eaa8f9fd9140e589034cb",
     "backend/internal/application/service/account.go": "c3115e79c326e505aa473f8935ae899952f1225760ce0c36623e7d02381dbdb1",
     "backend/internal/application/service/account_quota_schedulable_test.go": "12a72b5e766df01437a9134fcedf356dcdecb6932f7bb1819f520caed73f022b",
     "backend/internal/application/service/admin_group.go": "a9003ee4a6636e771bd7def19cb35985d425703cfb0f45c1c759963bf854fa05",
@@ -124,6 +128,7 @@
     "backend/internal/application/service/openai_gateway_passthrough.go": "f4e9cec9aaa8ca8d4a3747c47e7004239efeae9dfdcebc9889b8c9b12eb76498",
     "backend/internal/application/service/ratelimit_service.go": "1470179ea56abf28a7e1e3facd208dbae4888e873e143fe7fd5c7a013069edf9",
     "backend/internal/application/service/usage_billing.go": "1cb4b8c6dfbfe695fa41cea2e192b9a7067f88228dc0f10d11ba1a0da48c42e0",
+    "backend/internal/infrastructure/repository/README.md": "73ac47f313cbf12702bff41bd24920e3d7b5f93013419320c81a4fb7d78d380d",
     "backend/internal/infrastructure/repository/simple_mode_default_groups.go": "2b9afcb395d5d2e641f099b8427b71427175e395c8cefa4ae3dd093e303cef28",
     "backend/internal/infrastructure/repository/usage_billing_repo.go": "131a5188845fba68b7604ccbafc26c470e39dbb77002eccd8b275f420bb925b5",
     "backend/internal/infrastructure/repository/usage_billing_repo_integration_test.go": "1315eb7d187aafdab4ec44e312bb70fe2f8d64c8bc77d059281f1495857307a6",
@@ -134,6 +139,7 @@
     "backend/internal/transport/http/handler/gateway_handler_responses.go": "60cd051640cf107ef986f88898cc2146269dcf20613b067a8f30453aeb6c6de0",
     "backend/internal/transport/http/handler/gemini_v1beta_handler.go": "0071892863bb9cf8486ba4db2f12a63b3d55b72d09b478ff8d5cf888e4f26951",
     "docs/README.md": "11b9aaae196c66f765adf0655cb2d8e43b5342c30596da5588d05bf918dbb960",
+    "frontend/src/features/admin-accounts/README.md": "5d671629c0bb3ee888e3205c63dc61c297e4e111480be384e8142acb5d7c2589",
     "frontend/src/features/admin-accounts/__tests__/EditAccountModal.spec.ts": "07afeb758149fdf8bcd557686bef6d3e7a873f2b241f88a8515f2ea04a4cfe26",
     "frontend/src/features/admin-accounts/presentation/accountEditUpdatePayload.ts": "dbcfa71c3c7bc601993828a2cfcd396a286db4d7f1a5c18c52e50e5dd280dc72",
     "frontend/src/features/admin-accounts/presentation/composables/useCreateAccountOAuthActions.ts": "dbacda1bf59f36838dd998d09d35a2c253eac9db6da370b7174da5d584072739",
@@ -149,6 +155,7 @@
     "frontend/src/features/admin-groups/presentation/groupsImagePricingResolver.ts": "5d60837bbf7da3fac1b1ea61a966b91c10ce8a0923383951d7ec5a1a1edf8094"
   },
   "modified_hashes": {
+    "backend/internal/application/service/README.md": "601c10609816f462bb0a6d1944bd5d2d95fe4eeb86ca7e83ed2583d0076a9b99",
     "backend/internal/application/service/account.go": "c5b18d972b6e310d15918771085d679c4f60ced88aa6470b13c9fe9290184839",
     "backend/internal/application/service/account_model_mapping_signature.go": "3f439c7d66c4721a85da58540d3234fbde7c7e9c9a7ebdedbe8c37cd0170e3c5",
     "backend/internal/application/service/account_model_mapping_signature_test.go": "be85edf754adea9eb62667c89137da1d4964d608c6c5c3c4b1f01e281cd9cb02",
@@ -185,6 +192,7 @@
     "backend/internal/application/service/request_metadata_single_account.go": "381d13f7263e110afa9d001d5769e83b3c1555c8d69d1a35a745c97802fb0811",
     "backend/internal/application/service/single_account_retry_probe_test.go": "78d790bba69c7252f6e6d145a5dc36cbb6d402eacc7e09210087b458b33377bf",
     "backend/internal/application/service/usage_billing.go": "2a4742d5251bda4b8d8561902732273743661484bb1763133d2a2fea7c238ab3",
+    "backend/internal/infrastructure/repository/README.md": "ba9293a4f0a0fd3cef6ae4357d13d233c746d286b03113d9f03567d5debed6f7",
     "backend/internal/infrastructure/repository/simple_mode_default_groups.go": "0cce552210f12095bb8336f20fc450cd78e52311936a9f759cfa358ee8e80cc5",
     "backend/internal/infrastructure/repository/usage_billing_account_quota.go": "a0b356c56854cbe27e92b920687999c7fb333087fed016acf8a591c614eafd67",
     "backend/internal/infrastructure/repository/usage_billing_repo.go": "2a1be9152d76a9e7d36f02d1b257939e3ca30d3d9fd61f747196e9f0aae0dfd4",
@@ -202,6 +210,7 @@
     "backend/migrations/250_enable_gemini_image_generation_groups.sql": "f49b458cfbd52bd17f5bb02e30e3813c8e192e4ae38bce6358713ef65f3874b5",
     "docs/README.md": "e551ba9c3667312ad1991961eacf3dfc3f4728d3e5137c439c2219207663d467",
     "docs/UPSTREAM_SYNC_20261022.md": "166916f3729bbf0a2a7470275bc105a72c926a0959db09f2497d3f6d289e0a36",
+    "frontend/src/features/admin-accounts/README.md": "6db7fda7facd349d70d2acdde3d50e5272e12280ededb3ea6f62086d0081ac53",
     "frontend/src/features/admin-accounts/__tests__/EditAccountModal.spec.ts": "7a13965de000aae44fc2e3b8f0aec7f79f46eb12a5bdd0f0cb88b1492d717432",
     "frontend/src/features/admin-accounts/__tests__/accountFilterState.spec.ts": "c01ea8989a6ceeeeae76a1a24ada10171a320f85647b3fee12fd624478f23124",
     "frontend/src/features/admin-accounts/presentation/accountEditUpdatePayload.ts": "1a470d2713af95f97ec37338a832fe3729b927b52f25d15f65e6fa2f70b6b055",
@@ -219,7 +228,7 @@
     "frontend/src/features/admin-groups/presentation/composables/useCreateGroupController.ts": "b35027929d8472cea26f6dc72dc1cb1fe2d2120537cdbf744c8d149a42da8af0",
     "frontend/src/features/admin-groups/presentation/groupsImagePricingResolver.ts": "74281df259137f12a13c0c42a5000c68079c38b79c49df0f17f64bf9b32377a0"
   },
-  "diff_sha256": "66b08289d271d230a3b09a677706cf4d92e846d9832044fd095a9b39954eb55a",
+  "diff_sha256": "63278539519672dfc7395769dd0260ce424e7107fa82713ba0452f6b4086d2fa",
   "changed_symbols": [
     "OpenAI compatibility SSE byte scanner and bounded read watchdog",
     "service_account quota scheduling and billing",

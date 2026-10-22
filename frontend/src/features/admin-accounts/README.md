@@ -65,3 +65,5 @@ pnpm run typecheck
 Claude 5.5 的原生白名单、Antigravity 分档模型和映射预设由 `presentation/composables/useModelWhitelist.ts` 维护。同步结果在原 `models` 列表之外可附带 `metadata`；已有列表调用保持兼容。
 
 OpenAI 与 Anthropic API-key 的 WebSearch 模拟共用已有三态字段和全局可见条件。创建 extra 的纯转换由 `accountFormPolicy.ts` 所有，编辑 payload 由 `accountEditUpdatePayload.ts` 所有；OAuth 不显示或启用该模拟。
+
+`presentation/accountFilterState.ts` 校验并持久化账号平台/状态筛选；`presentation/accountQuota.ts` 统一 API Key、Bedrock 与 service account 的本地配额展示和编辑资格，池模式权限保持独立。
