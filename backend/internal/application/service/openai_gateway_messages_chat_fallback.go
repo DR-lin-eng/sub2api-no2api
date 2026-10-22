@@ -219,6 +219,16 @@ func (s *OpenAIGatewayService) streamChatCompletionsAsAnthropic(
 	scan := s.scanCCStream(resp, "openai messages chat fallback", requestID, startTime, emitChunk)
 	usage := scan.Usage
 
+	if scan.PolicyPayload != nil {
+		markOpenAICyberPolicyEvent(c, scan.PolicyPayload, http.StatusOK, &scan.Usage)
+		policyErr, _ := writeOpenAIUpstreamPolicyErrorForEndpoint(c, http.StatusOK, scan.PolicyPayload)
+		return &OpenAIForwardResult{
+			RequestID: requestID, Usage: scan.Usage, Model: originalModel,
+			BillingModel: billingModel, UpstreamModel: upstreamModel, Stream: true,
+			Duration: time.Since(startTime), FirstTokenMs: scan.FirstTokenMs,
+		}, policyErr
+	}
+
 	if scan.Err != nil {
 		// Broken upstream read: skip finalization so no synthetic message_stop
 		// masks the truncation, and surface the error to flag usage incomplete

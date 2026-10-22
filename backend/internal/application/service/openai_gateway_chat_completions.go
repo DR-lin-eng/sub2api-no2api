@@ -569,25 +569,11 @@ func (s *OpenAIGatewayService) handleChatBufferedStreamingResponse(
 	observer.Observe(finalResponse.Model, true)
 	if strings.TrimSpace(finalResponse.Status) == "failed" {
 		payload, _ := json.Marshal(gin.H{"type": "response.failed", "response": finalResponse})
-		// cyber_policy 致命不可重试：不 failover，以 Chat Completions 错误格式回写（F4），
-		// 标记供 handler 事后写风控/邮件/tokens=0 用量行。
-		if hit, code, msg := detectOpenAICyberPolicy(payload); hit {
-			MarkOpsCyberPolicy(c, CyberPolicyMark{
-				Code:            code,
-				Message:         msg,
-				Body:            truncateString(string(payload), 4096),
-				UpstreamStatus:  http.StatusOK,
-				UpstreamInTok:   usage.InputTokens,
-				UpstreamOutTok:  usage.OutputTokens,
-				ReasoningTokens: usage.ReasoningTokens,
-			})
-			clientMsg := msg
-			if clientMsg == "" {
-				clientMsg = "Request blocked by upstream cyber-security policy"
-			}
-			writeChatCompletionsError(c, http.StatusBadRequest, "invalid_request_error", clientMsg)
-			return nil, fmt.Errorf("openai cyber_policy: %s", msg)
+		markOpenAICyberPolicyEvent(c, payload, http.StatusOK, &usage)
+		if policyErr, handled := writeOpenAIUpstreamPolicyErrorForEndpoint(c, http.StatusOK, payload); handled {
+			return nil, policyErr
 		}
+
 		message := openAICompatFailedResponseMessage(finalResponse)
 		if openAIStreamFailedEventShouldFailover(payload, message) {
 			return nil, s.newOpenAIStreamFailoverError(c, account, false, requestID, payload, message, resp.Header)
@@ -813,38 +799,20 @@ func (s *OpenAIGatewayService) handleChatStreamingResponse(
 		if strings.TrimSpace(event.Type) == "response.failed" {
 			payloadBytes := []byte(payload)
 			message := extractOpenAISSEErrorMessage(payloadBytes)
-			if hit, code, msg := detectOpenAICyberPolicy(payloadBytes); hit {
-				// cyber_policy 致命且不可重试：不 failover。下发标准 error chunk +
-				// [DONE]，让程序化客户端可感知并停止重试（F4）；标记供 handler 事后
-				// 写风控/邮件。
-				MarkOpsCyberPolicy(c, CyberPolicyMark{
-					Code:            code,
-					Message:         msg,
-					Body:            truncateString(string(payloadBytes), 4096),
-					UpstreamStatus:  http.StatusOK,
-					UpstreamInTok:   usage.InputTokens,
-					UpstreamOutTok:  usage.OutputTokens,
-					ReasoningTokens: usage.ReasoningTokens,
-				})
+			if detail, policy := openAIUpstreamPolicyErrorDetails(payloadBytes); policy {
+				markOpenAICyberPolicyEvent(c, payloadBytes, http.StatusOK, &usage)
 				if !clientDisconnected {
-					// 被 refusal 检测扣留的 pendingSSE 有意丢弃——cyber 拦截优先于部分内容下发。
-					writeStreamHeaders()
-					clientMsg := msg
-					if clientMsg == "" {
-						clientMsg = "Request blocked by upstream cyber-security policy"
+					// Keep the existing cyber-policy Chat SSE contract, including
+					// its final [DONE], even when no content preceded the error.
+					if strings.EqualFold(detail.Code, "cyber_policy") {
+						writeStreamHeaders()
+						c.Writer.WriteHeaderNow()
 					}
-					if _, err := fmt.Fprint(c.Writer, buildChatStreamErrorSSE(code, clientMsg)); err == nil {
-						_, _ = fmt.Fprint(c.Writer, "data: [DONE]\n\n")
-						if fl, ok := c.Writer.(http.Flusher); ok {
-							fl.Flush()
-						}
-					}
-					// 无条件置位：成功路径防 finalizeStream 重复 [DONE]；写失败意味着连接已不可写，
-					// finalizeStream 的 [DONE] 同样发不出去，统一抑制。
-					clientDisconnected = true
+					streamNonFailoverErr, _ = writeOpenAIUpstreamPolicyErrorForEndpoint(c, http.StatusOK, payloadBytes)
 				}
 				return true
 			}
+
 			if openAIStreamFailedEventShouldFailover(payloadBytes, message) {
 				streamFailoverErr = s.newOpenAIStreamFailoverError(c, account, false, requestID, payloadBytes, message, resp.Header)
 				return true
