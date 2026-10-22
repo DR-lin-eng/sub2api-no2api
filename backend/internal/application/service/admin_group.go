@@ -355,10 +355,17 @@ func defaultModelsListCandidateIDs(platform string) []string {
 	}
 }
 
+func DefaultAllowImageGenerationForPlatform(platform string) bool {
+	switch platform {
+	case PlatformGrok, PlatformGemini, PlatformAntigravity:
+		return true
+	default:
+		return false
+	}
+}
+
 func defaultAllowImageGenerationForPlatform(platform string) bool {
-	// Grok image and video generation routes share the legacy image-generation gate.
-	// Older clients send the false zero value, so Grok groups must default enabled.
-	return platform == PlatformGrok
+	return DefaultAllowImageGenerationForPlatform(platform)
 }
 
 func compositeDefaultModelsListCandidateIDs() []string {

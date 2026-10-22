@@ -253,18 +253,22 @@ func aliasDeepSeekResponsesImagePart(part map[string]any) bool {
 		part["image_url"] = imageURL
 		changed = true
 	}
-	if current, ok := part["url"].(string); !ok || strings.TrimSpace(current) != imageURL {
-		part["url"] = imageURL
+	if _, exists := part["url"]; exists {
+		delete(part, "url")
 		changed = true
 	}
 	return changed
 }
 
 func extractDeepSeekResponsesImageURL(part map[string]any) string {
-	for _, key := range []string{"url", "image_url", "image"} {
-		if imageURL := deepSeekResponsesURLValue(part[key]); imageURL != "" {
-			return imageURL
-		}
+	if imageURL := deepSeekResponsesURLValue(part["image_url"]); imageURL != "" {
+		return imageURL
+	}
+	if imageURL := deepSeekResponsesURLValue(part["url"]); imageURL != "" {
+		return imageURL
+	}
+	if imageURL := deepSeekResponsesURLValue(part["image"]); imageURL != "" {
+		return imageURL
 	}
 	source, ok := part["source"].(map[string]any)
 	if !ok {

@@ -92,3 +92,6 @@ export const getDefaultVideoPreviewPrice = (
   const value = Number(placeholder);
   return Number.isFinite(value) ? value : null;
 };
+
+export const defaultAllowImageGenerationForPlatform = (platform: string): boolean =>
+  ["antigravity", "gemini", "grok"].includes(platform);

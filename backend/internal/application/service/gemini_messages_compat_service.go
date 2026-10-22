@@ -526,6 +526,9 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 	if err != nil {
 		return nil, s.writeClaudeError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
 	}
+	if geminiImageGenerationDenied(c, geminiReq, originalModel, mappedModel) {
+		return nil, s.writeClaudeError(c, http.StatusBadRequest, "invalid_request_error", ImageGenerationPermissionMessage())
+	}
 	geminiReq = ensureGeminiFunctionCallThoughtSignatures(geminiReq)
 	includeThoughts := req.Stream && claudeRequestEnablesThinking(body)
 	geminiReq = applyGeminiCompatThinkingConfig(geminiReq, body, mappedModel, includeThoughts)
@@ -1096,6 +1099,9 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 		mappedModel = account.GetMappedModel(originalModel)
 	}
 
+	if action != "countTokens" && geminiImageGenerationDenied(c, body, originalModel, mappedModel) {
+		return nil, s.writeGoogleError(c, http.StatusBadRequest, ImageGenerationPermissionMessage())
+	}
 	proxyURL := ""
 	if account.ProxyID != nil && account.Proxy != nil {
 		proxyURL = account.Proxy.URL()
@@ -3208,66 +3214,6 @@ func isClaudeWebSearchToolMap(tool map[string]any) bool {
 }
 
 // cleanToolSchema 清理工具的 JSON Schema，移除 Gemini 不支持的字段
-func cleanToolSchema(schema any) any {
-	if schema == nil {
-		return nil
-	}
-
-	switch v := schema.(type) {
-	case map[string]any:
-		cleaned := make(map[string]any)
-		for key, value := range v {
-			// 跳过不支持的字段
-			if key == "$schema" || key == "$id" || key == "$ref" ||
-				key == "$defs" || key == "definitions" ||
-				key == "additionalProperties" || key == "patternProperties" || key == "minLength" ||
-				key == "maxLength" || key == "minItems" || key == "maxItems" || key == "exclusiveMinimum" ||
-				key == "deprecated" {
-				continue
-			}
-			// 递归清理嵌套对象
-			cleaned[key] = cleanToolSchema(value)
-		}
-		if enum, ok := cleaned["enum"].([]any); ok {
-			if normalized, ok := normalizeGeminiEnum(enum); ok {
-				cleaned["enum"] = normalized
-			} else {
-				delete(cleaned, "enum")
-			}
-		}
-		// 规范化 type 字段为大写
-		if typeVal, ok := cleaned["type"].(string); ok {
-			cleaned["type"] = strings.ToUpper(typeVal)
-		} else if typeValues, ok := cleaned["type"].([]any); ok {
-			for _, typeValue := range typeValues {
-				typeName, ok := typeValue.(string)
-				if ok && !strings.EqualFold(typeName, "null") {
-					cleaned["type"] = strings.ToUpper(typeName)
-					break
-				}
-			}
-			if _, ok := cleaned["type"].([]any); ok {
-				delete(cleaned, "type")
-			}
-		}
-		if cleaned["type"] == "INTEGER" {
-			if minimum, ok := incrementIntegralSchemaBound(v["exclusiveMinimum"]); ok {
-				if existing, exists := cleaned["minimum"]; !exists || schemaNumberLess(existing, minimum) {
-					cleaned["minimum"] = minimum
-				}
-			}
-		}
-		return cleaned
-	case []any:
-		cleaned := make([]any, len(v))
-		for i, item := range v {
-			cleaned[i] = cleanToolSchema(item)
-		}
-		return cleaned
-	default:
-		return v
-	}
-}
 
 // Gemini function declarations accept scalar enum values only as strings.
 // Normalize JSON scalar values once at the protocol boundary and drop an enum

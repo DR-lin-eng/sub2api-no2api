@@ -861,7 +861,7 @@
 
       <!-- 配额控制 (非 Anthropic apikey/bedrock) -->
       <div
-        v-else-if="form.type === 'apikey' || form.type === 'bedrock'"
+        v-else-if="supportsAccountQuota(form.type)"
         class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
       >
         <div class="mb-3">
@@ -1134,6 +1134,8 @@
 </template>
 
 <script setup lang="ts">
+import { supportsAccountQuota } from '@/features/admin-accounts/presentation/accountQuota'
+
 import GrokBaseUrlPresets from '../GrokBaseUrlPresets.vue'
 import HeaderOverrideEditor from '../HeaderOverrideEditor.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'

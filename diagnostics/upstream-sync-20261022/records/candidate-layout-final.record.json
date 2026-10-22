@@ -1,0 +1,12 @@
+{
+  "command": [
+    "sh",
+    "backend/scripts/check-source-layout.sh"
+  ],
+  "cwd": "/private/tmp/sub2api-upstream-sync-20261022-ieZnRf/MODIFIED_FILE",
+  "started_at": "2026-10-22T05:23:33.372831+00:00",
+  "elapsed_seconds": 0.144,
+  "exit_status": 1,
+  "stdout": "",
+  "stderr": "layout error: internal/application/service/openai_gateway_forward.go has 1201 lines (limit 1200); split by responsibility\nlayout error: internal/application/service/payment_fulfillment_test.go has 1201 lines (limit 1200); split by responsibility\n"
+}

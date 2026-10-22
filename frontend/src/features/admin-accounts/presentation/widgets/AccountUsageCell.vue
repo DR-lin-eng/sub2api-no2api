@@ -438,6 +438,15 @@
             <div class="font-semibold mb-1">{{ t('admin.accounts.gemini.quotaPolicy.title') }}</div>
             <div class="mb-2 text-gray-300">{{ t('admin.accounts.gemini.quotaPolicy.note') }}</div>
             <div class="space-y-1">
+        <AccountKeyUsageDetails
+          v-if="showGeminiTodayStats && ((account.quota_limit ?? 0) > 0 || (account.quota_daily_limit ?? 0) > 0 || (account.quota_weekly_limit ?? 0) > 0)"
+          :account="account"
+          :now="now"
+          :formatted-requests="formatKeyRequests"
+          :formatted-tokens="formatKeyTokens"
+          :formatted-cost="formatKeyCost"
+          :formatted-user-cost="formatKeyUserCost"
+        />
               <div><strong>{{ geminiQuotaPolicyChannel }}:</strong></div>
               <div class="pl-2">• {{ geminiQuotaPolicyLimits }}</div>
               <div class="mt-2">

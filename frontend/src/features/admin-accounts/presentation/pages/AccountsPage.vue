@@ -38,6 +38,7 @@
 </template>
 
 <script setup lang="ts">
+import { loadInitialAccountFilterState, saveAccountFilterState } from "../accountFilterState"
 import { ref, reactive, computed, onMounted, onUnmounted, toRaw, watch } from 'vue'
 import { useIntervalFn } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
@@ -334,9 +335,8 @@ const {
 } = useTableLoader<Account, any>({
   fetchFn: accountQueries.list,
   initialParams: {
-    platform: '',
+    ...loadInitialAccountFilterState(),
     type: '',
-    status: '',
     oauth_quota: '',
     excel_bps: '',
     privacy_mode: '',
@@ -449,6 +449,7 @@ const {
 )
 
 const debouncedReload = () => {
+  saveAccountFilterState({ platform: params.platform, status: params.status })
   clearSelection()
   syncAccountListDerivedParams()
   hasPendingListSync.value = false
