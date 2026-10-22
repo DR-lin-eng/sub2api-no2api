@@ -1,0 +1,41 @@
+
+[1m[46m RUN [49m[22m [36mv3.2.6 [39m[90m/workspace/frontend[39m
+
+ [32m✓[39m src/features/admin-settings/__tests__/SettingsPage.spec.ts [2m([22m[2m55 tests[22m[2m)[22m[33m 4029[2mms[22m[39m
+   [33m[2m✓[22m[39m admin SettingsView platform quota matrix[2m > [22m从 baseSettings 加载默认平台配额数据并在 Users tab 渲染 5 平台行 [33m 306[2mms[22m[39m
+ [32m✓[39m src/features/channel-monitor-user/__tests__/MonitorCardGrid.spec.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 136[2mms[22m[39m
+ [32m✓[39m src/features/admin-settings/__tests__/OpenAIFastPolicyUserSelector.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+ [32m✓[39m src/features/channels-user/__tests__/ChannelStatusPage.spec.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 160[2mms[22m[39m
+ [32m✓[39m src/features/admin-settings/__tests__/SettingsOAuth2ProviderPanel.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 28[2mms[22m[39m
+ [32m✓[39m src/features/channels-user/__tests__/customPageHtml.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m src/features/admin-settings/__tests__/PanelRateLimitSettingsCard.spec.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 40[2mms[22m[39m
+[90mstdout[2m | src/features/channels-user/__tests__/pr153.transaction.spec.ts[2m > [22m[2mPR153 identical three-state probe[2m > [22m[2mobserves grouping, timeline and provider selection through the real page
+[22m[39mPR153_PROBE {"before":{"cards":2,"rows":3,"timeline_lengths":[35,35,35],"filter":true},"after":{"cards":1,"rows":2}}
+
+ [32m✓[39m src/features/channels-user/__tests__/pr153.transaction.spec.ts [2m([22m[2m1 test[22m[2m)[22m[32m 85[2mms[22m[39m
+ [32m✓[39m src/features/admin-settings/presentation/widgets/__tests__/ErrorPassthroughRulesDialog.toggle.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 85[2mms[22m[39m
+ [32m✓[39m src/features/channel-monitor-user/__tests__/MonitorDetailDialog.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 23[2mms[22m[39m
+ [32m✓[39m src/features/channels-user/__tests__/AvailableChannelsTable.spec.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 46[2mms[22m[39m
+ [32m✓[39m src/features/admin-settings/__tests__/adminSettingsModularization.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m src/features/admin-settings/__tests__/permissionGroups.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 32[2mms[22m[39m
+ [32m✓[39m src/features/channels-user/__tests__/SupportedModelChip.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 24[2mms[22m[39m
+ [32m✓[39m src/features/admin-settings/__tests__/settingsSaveModules.spec.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/features/admin-settings/__tests__/clientIpResolutionLocale.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 1[2mms[22m[39m
+ [32m✓[39m src/features/admin-settings/presentation/stores/__tests__/adminCompliance.reset.spec.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/features/channels-user/__tests__/embeddedCapabilityDatasource.spec.ts [2m([22m[2m1 test[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/features/admin-settings/__tests__/settings.paymentVisibleMethods.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m src/features/admin-settings/__tests__/adminSettingsQueryActions.spec.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/features/admin-settings/__tests__/settings.authSourceDefaults.spec.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/features/channels-user/__tests__/CustomLandingPage.security.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/features/admin-settings/__tests__/adminSystem.rollback.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/features/admin-settings/__tests__/settingsIdentityProvidersModularization.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/features/channel-monitor-user/__tests__/channelMonitorLocale.spec.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/features/admin-settings/__tests__/settings.wechatConnect.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m src/features/admin-settings/__tests__/settingsClaudePromptResolver.spec.ts [2m([22m[2m1 test[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/features/admin-settings/__tests__/errorPassthroughLocale.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 1[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m28 passed[39m[22m[90m (28)[39m
+[2m      Tests [22m [1m[32m183 passed[39m[22m[90m (183)[39m
+[2m   Start at [22m 15:03:59
+[2m   Duration [22m 19.14s[2m (transform 3.22s, setup 986ms, collect 4.53s, tests 4.81s, environment 5.29s, prepare 986ms)[22m
+

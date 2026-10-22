@@ -267,6 +267,7 @@ func buildSystemSettingsUpdate(prepared *preparedSettingsUpdate) *service.System
 		AccountQuotaNotifyEmails:                           notifyEmailEntriesValueOrDefault(req.AccountQuotaNotifyEmails, previousSettings.AccountQuotaNotifyEmails),
 		ChannelMonitorEnabled:                              boolValueOrDefault(req.ChannelMonitorEnabled, previousSettings.ChannelMonitorEnabled),
 		ChannelMonitorDefaultIntervalSeconds:               intValueOrDefault(req.ChannelMonitorDefaultIntervalSeconds, previousSettings.ChannelMonitorDefaultIntervalSeconds),
+		ChannelMonitorTimelinePoints:                       intValueOrDefault(req.ChannelMonitorTimelinePoints, previousSettings.ChannelMonitorTimelinePoints),
 		ChannelMonitorLatencyUnit:                          stringSetting(req.ChannelMonitorLatencyUnit, previousSettings.ChannelMonitorLatencyUnit),
 		ChannelMonitorPublicShareEnabled:                   boolValueOrDefault(req.ChannelMonitorPublicShareEnabled, previousSettings.ChannelMonitorPublicShareEnabled),
 		ChannelMonitorPublicShareRequireAuth:               boolValueOrDefault(req.ChannelMonitorPublicShareRequireAuth, previousSettings.ChannelMonitorPublicShareRequireAuth),

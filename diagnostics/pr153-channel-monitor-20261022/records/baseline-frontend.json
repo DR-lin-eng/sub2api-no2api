@@ -1,0 +1,24 @@
+{
+  "label": "baseline-frontend",
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=4g",
+    "-v",
+    "/private/tmp/sub2api-pr153-wda5i24i/baseline:/workspace",
+    "-v",
+    "sub2api-sync-node-modules-20261022:/workspace/frontend/node_modules",
+    "-w",
+    "/workspace/frontend",
+    "--entrypoint",
+    "sh",
+    "sub2api-sync-node:20261019",
+    "-c",
+    "pnpm install --frozen-lockfile --prefer-offline && pnpm exec vitest run src/features/channels-user/__tests__/pr153.transaction.spec.ts"
+  ],
+  "started_at": "2026-10-22T14:52:52.170887+00:00",
+  "finished_at": "2026-10-22T14:52:53.300225+00:00",
+  "exit_status": 1
+}

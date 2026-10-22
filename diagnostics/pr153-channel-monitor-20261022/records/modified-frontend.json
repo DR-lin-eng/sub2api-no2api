@@ -1,0 +1,26 @@
+{
+  "label": "modified-frontend",
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=4g",
+    "-e",
+    "CI=true",
+    "-v",
+    "/private/tmp/sub2api-pr153-wda5i24i/repo:/workspace",
+    "-v",
+    "sub2api-pr153-node-modules-20261022:/workspace/frontend/node_modules",
+    "-w",
+    "/workspace/frontend",
+    "--entrypoint",
+    "sh",
+    "sub2api-sync-node:20261019",
+    "-c",
+    "pnpm exec vitest run src/features/channel-monitor-user src/features/channels-user src/features/admin-settings && pnpm run typecheck && pnpm exec eslint src/core/constants/channelMonitor.ts src/features/channel-monitor-user src/features/channels-user src/features/admin-settings/presentation/composables/settingsSavePayload.ts"
+  ],
+  "started_at": "2026-10-22T14:55:32.521346+00:00",
+  "finished_at": "2026-10-22T14:55:47.464622+00:00",
+  "exit_status": 1
+}

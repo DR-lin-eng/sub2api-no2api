@@ -1,0 +1,5 @@
+{"stage": "BASELINE", "ready": 200, "admin_points": null, "public_points": null, "migrations": 306, "invariant_sha256": "6057b88f212fc538dd51e368b557ce8d281bea9dd1c70e96afc2f8a79fddb42b", "persisted_points": ""}
+{"stage": "MODIFIED_DEFAULT", "ready": 200, "admin_points": 20, "public_points": 20, "migrations": 306, "invariant_sha256": "6057b88f212fc538dd51e368b557ce8d281bea9dd1c70e96afc2f8a79fddb42b", "persisted_points": ""}
+{"stage": "MODIFIED_SAVED", "ready": 200, "admin_points": 35, "public_points": 35, "migrations": 306, "invariant_sha256": "6057b88f212fc538dd51e368b557ce8d281bea9dd1c70e96afc2f8a79fddb42b", "persisted_points": "35"}
+{"stage": "ROLLBACK", "ready": 200, "admin_points": null, "public_points": null, "migrations": 306, "invariant_sha256": "6057b88f212fc538dd51e368b557ce8d281bea9dd1c70e96afc2f8a79fddb42b", "persisted_points": "35"}
+{"stage": "REAPPLIED", "ready": 200, "admin_points": 35, "public_points": 35, "migrations": 306, "invariant_sha256": "6057b88f212fc538dd51e368b557ce8d281bea9dd1c70e96afc2f8a79fddb42b", "persisted_points": "35"}

@@ -1,0 +1,20 @@
+{
+  "label": "candidate-image-build-fixed",
+  "command": [
+    "env",
+    "BUILDX_CONFIG=/private/tmp/sub2api-pr153-wda5i24i/buildx",
+    "docker",
+    "build",
+    "--progress=plain",
+    "--build-arg",
+    "GOLANG_IMAGE=sub2api-timezone-go-builder:1.26.10",
+    "--build-arg",
+    "COMMIT=pr153-reviewed",
+    "-t",
+    "sub2api:pr153-reviewed-20261022",
+    "."
+  ],
+  "started_at": "2026-10-22T14:58:53.100286+00:00",
+  "finished_at": "2026-10-22T15:00:30.039988+00:00",
+  "exit_status": 0
+}

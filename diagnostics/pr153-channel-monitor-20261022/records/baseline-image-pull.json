@@ -1,0 +1,11 @@
+{
+  "label": "baseline-image-pull",
+  "command": [
+    "docker",
+    "pull",
+    "ghcr.io/dr-lin-eng/sub2api-no2api:sha-1aebeba"
+  ],
+  "started_at": "2026-10-22T14:58:03.264607+00:00",
+  "finished_at": "2026-10-22T14:58:20.172221+00:00",
+  "exit_status": 0
+}

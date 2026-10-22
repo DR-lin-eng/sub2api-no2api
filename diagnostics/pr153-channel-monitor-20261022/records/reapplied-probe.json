@@ -1,0 +1,26 @@
+{
+  "label": "reapplied-probe",
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=4g",
+    "-e",
+    "CI=true",
+    "-v",
+    "/private/tmp/sub2api-pr153-wda5i24i/rollback:/workspace",
+    "-v",
+    "sub2api-pr153-node-modules-20261022:/workspace/frontend/node_modules",
+    "-w",
+    "/workspace/frontend",
+    "--entrypoint",
+    "sh",
+    "sub2api-sync-node:20261019",
+    "-c",
+    "pnpm exec vitest run src/features/channels-user/__tests__/pr153.transaction.spec.ts"
+  ],
+  "started_at": "2026-10-22T15:19:19.699928+00:00",
+  "finished_at": "2026-10-22T15:19:22.361135+00:00",
+  "exit_status": 0
+}

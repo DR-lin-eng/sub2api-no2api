@@ -1,0 +1,1198 @@
+diff --git a/backend/internal/application/service/domain_constants.go b/backend/internal/application/service/domain_constants.go
+index e4f0167d8..999801d6f 100644
+--- a/backend/internal/application/service/domain_constants.go
++++ b/backend/internal/application/service/domain_constants.go
+@@ -463,6 +463,9 @@ const (
+ 	// pre-filled when creating a new channel monitor from the admin UI. Range: [15, 3600].
+ 	SettingKeyChannelMonitorDefaultIntervalSeconds = "channel_monitor_default_interval_seconds"
+ 
++	// SettingKeyChannelMonitorTimelinePoints controls the number of status timeline bars shown to users.
++	SettingKeyChannelMonitorTimelinePoints = "channel_monitor_timeline_points"
++
+ 	// SettingKeyChannelMonitorLatencyUnit controls how channel monitor latency values
+ 	// are displayed in the admin and user-facing UI. Allowed values: "ms" or "s".
+ 	SettingKeyChannelMonitorLatencyUnit = "channel_monitor_latency_unit"
+diff --git a/backend/internal/application/service/setting_parse.go b/backend/internal/application/service/setting_parse.go
+index e03501448..bad9757ff 100644
+--- a/backend/internal/application/service/setting_parse.go
++++ b/backend/internal/application/service/setting_parse.go
+@@ -195,6 +195,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
+ 		// Channel monitor defaults (enabled, 60s)
+ 		SettingKeyChannelMonitorEnabled:                "true",
+ 		SettingKeyChannelMonitorDefaultIntervalSeconds: "60",
++		SettingKeyChannelMonitorTimelinePoints:         "20",
+ 		SettingKeyChannelMonitorLatencyUnit:            "ms",
+ 		SettingKeyChannelMonitorPublicShareEnabled:     "false",
+ 		SettingKeyChannelMonitorPublicShareRequireAuth: "false",
+diff --git a/backend/internal/application/service/setting_parse_features.go b/backend/internal/application/service/setting_parse_features.go
+index 2be3579ff..58e0b9195 100644
+--- a/backend/internal/application/service/setting_parse_features.go
++++ b/backend/internal/application/service/setting_parse_features.go
+@@ -43,6 +43,9 @@ func (s *SettingService) applyFeatureSettings(result *SystemSettings, settings m
+ 	result.ChannelMonitorDefaultIntervalSeconds = parseChannelMonitorInterval(
+ 		settings[SettingKeyChannelMonitorDefaultIntervalSeconds],
+ 	)
++	result.ChannelMonitorTimelinePoints = parseChannelMonitorTimelinePoints(
++		settings[SettingKeyChannelMonitorTimelinePoints],
++	)
+ 	result.ChannelMonitorLatencyUnit = normalizeChannelMonitorLatencyUnit(settings[SettingKeyChannelMonitorLatencyUnit])
+ 	result.ChannelMonitorPublicShareEnabled = settings[SettingKeyChannelMonitorPublicShareEnabled] == "true"
+ 	result.ChannelMonitorPublicShareRequireAuth = settings[SettingKeyChannelMonitorPublicShareRequireAuth] == "true"
+diff --git a/backend/internal/application/service/setting_public.go b/backend/internal/application/service/setting_public.go
+index 4333c0aaf..42593b2cb 100644
+--- a/backend/internal/application/service/setting_public.go
++++ b/backend/internal/application/service/setting_public.go
+@@ -234,6 +234,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
+ 		SettingKeyAccountQuotaNotifyEnabled,
+ 		SettingKeyChannelMonitorEnabled,
+ 		SettingKeyChannelMonitorDefaultIntervalSeconds,
++		SettingKeyChannelMonitorTimelinePoints,
+ 		SettingKeyChannelMonitorLatencyUnit,
+ 		SettingKeyChannelMonitorPublicShareEnabled,
+ 		SettingKeyChannelMonitorPublicShareRequireAuth,
+@@ -373,6 +374,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
+ 
+ 		ChannelMonitorEnabled:                !isFalseSettingValue(settings[SettingKeyChannelMonitorEnabled]),
+ 		ChannelMonitorDefaultIntervalSeconds: parseChannelMonitorInterval(settings[SettingKeyChannelMonitorDefaultIntervalSeconds]),
++		ChannelMonitorTimelinePoints:         parseChannelMonitorTimelinePoints(settings[SettingKeyChannelMonitorTimelinePoints]),
+ 		ChannelMonitorLatencyUnit:            normalizeChannelMonitorLatencyUnit(settings[SettingKeyChannelMonitorLatencyUnit]),
+ 		ChannelMonitorPublicShareEnabled:     settings[SettingKeyChannelMonitorPublicShareEnabled] == "true",
+ 		ChannelMonitorPublicShareRequireAuth: settings[SettingKeyChannelMonitorPublicShareRequireAuth] == "true",
+@@ -405,6 +407,30 @@ const (
+ 	channelMonitorIntervalFallback = 60
+ )
+ 
++const (
++	channelMonitorTimelinePointsMin      = 1
++	channelMonitorTimelinePointsMax      = 60
++	channelMonitorTimelinePointsFallback = 20
++)
++
++func parseChannelMonitorTimelinePoints(raw string) int {
++	v, err := strconv.Atoi(strings.TrimSpace(raw))
++	if err != nil {
++		return channelMonitorTimelinePointsFallback
++	}
++	return clampChannelMonitorTimelinePoints(v)
++}
++
++func clampChannelMonitorTimelinePoints(v int) int {
++	if v < channelMonitorTimelinePointsMin {
++		return channelMonitorTimelinePointsMin
++	}
++	if v > channelMonitorTimelinePointsMax {
++		return channelMonitorTimelinePointsMax
++	}
++	return v
++}
++
+ // parseChannelMonitorInterval parses the stored string and clamps to [15, 3600].
+ // Empty / invalid input falls back to channelMonitorIntervalFallback.
+ func parseChannelMonitorInterval(raw string) int {
+@@ -701,6 +727,7 @@ type PublicSettingsInjectionPayload struct {
+ 	// that hid the "可用渠道" menu on page refresh.
+ 	ChannelMonitorEnabled                bool   `json:"channel_monitor_enabled"`
+ 	ChannelMonitorDefaultIntervalSeconds int    `json:"channel_monitor_default_interval_seconds"`
++	ChannelMonitorTimelinePoints         int    `json:"channel_monitor_timeline_points"`
+ 	ChannelMonitorLatencyUnit            string `json:"channel_monitor_latency_unit"`
+ 	ChannelMonitorPublicShareEnabled     bool   `json:"channel_monitor_public_share_enabled"`
+ 	ChannelMonitorPublicShareRequireAuth bool   `json:"channel_monitor_public_share_require_auth"`
+@@ -791,6 +818,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
+ 
+ 		ChannelMonitorEnabled:                settings.ChannelMonitorEnabled,
+ 		ChannelMonitorDefaultIntervalSeconds: settings.ChannelMonitorDefaultIntervalSeconds,
++		ChannelMonitorTimelinePoints:         settings.ChannelMonitorTimelinePoints,
+ 		ChannelMonitorLatencyUnit:            settings.ChannelMonitorLatencyUnit,
+ 		ChannelMonitorPublicShareEnabled:     settings.ChannelMonitorPublicShareEnabled,
+ 		ChannelMonitorPublicShareRequireAuth: settings.ChannelMonitorPublicShareRequireAuth,
+diff --git a/backend/internal/application/service/setting_service_public_test.go b/backend/internal/application/service/setting_service_public_test.go
+index 172a8083d..c8a6c2db7 100644
+--- a/backend/internal/application/service/setting_service_public_test.go
++++ b/backend/internal/application/service/setting_service_public_test.go
+@@ -362,6 +362,32 @@ func TestSettingService_GetPublicSettings_ExposesTablePreferences(t *testing.T)
+ 	require.Equal(t, []int{20, 50, 100}, settings.TablePageSizeOptions)
+ }
+ 
++func TestSettingService_GetPublicSettings_ExposesChannelMonitorTimelinePoints(t *testing.T) {
++	tests := []struct {
++		name     string
++		raw      string
++		expected int
++	}{
++		{name: "uses_configured_value", raw: "35", expected: 35},
++		{name: "defaults_when_missing", raw: "", expected: 20},
++		{name: "clamps_below_minimum", raw: "0", expected: 1},
++		{name: "clamps_above_maximum", raw: "999", expected: 60},
++		{name: "falls_back_on_invalid", raw: "abc", expected: 20},
++	}
++
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			repo := &settingPublicRepoStub{values: map[string]string{}}
++			if tt.raw != "" {
++				repo.setValues(map[string]string{SettingKeyChannelMonitorTimelinePoints: tt.raw})
++			}
++			settings, err := NewSettingService(repo, &config.Config{}).GetPublicSettings(context.Background())
++			require.NoError(t, err)
++			require.Equal(t, tt.expected, settings.ChannelMonitorTimelinePoints)
++		})
++	}
++}
++
+ func TestSettingService_GetPublicSettings_ExposesCompactHomeEnabled(t *testing.T) {
+ 	repo := &settingPublicRepoStub{values: map[string]string{
+ 		SettingKeyCompactHomeEnabled: "true",
+diff --git a/backend/internal/application/service/setting_update_equivalence_test.go b/backend/internal/application/service/setting_update_equivalence_test.go
+index b46915b9f..1dfbebd0d 100644
+--- a/backend/internal/application/service/setting_update_equivalence_test.go
++++ b/backend/internal/application/service/setting_update_equivalence_test.go
+@@ -94,7 +94,7 @@ func TestBuildSystemSettingsUpdatesGolden(t *testing.T) {
+ 
+ 	updates, err := svc.buildSystemSettingsUpdates(context.Background(), settings)
+ 	require.NoError(t, err)
+-	require.Equal(t, 241, len(updates), "system setting key count")
++	require.Equal(t, 242, len(updates), "system setting key count")
+ 	require.Equal(t, "false", updates[SettingKeyOpenAIOAuthForceRelayEnabled])
+ 	require.Equal(t, DefaultOpenAIOAuthForceRelayBaseURL, updates[SettingKeyOpenAIOAuthForceRelayBaseURL])
+ 	require.Equal(t, "false", updates[SettingKeyActivityCenterEnabled], "activity center is opt-in")
+@@ -104,7 +104,9 @@ func TestBuildSystemSettingsUpdatesGolden(t *testing.T) {
+ 	require.Equal(t, "false", updates[SettingKeyOpenAIRequestIntegrityObserveEnabled])
+ 	require.Equal(t, "true", updates[SettingKeyOpenAIRequestTimezoneEnabled])
+ 	require.Equal(t, "Asia/Singapore", updates[SettingKeyOpenAIRequestTimezone])
++	require.Equal(t, "20", updates[SettingKeyChannelMonitorTimelinePoints])
+ 	for _, key := range []string{
++		SettingKeyChannelMonitorTimelinePoints,
+ 		SettingKeyOpenAIRequestTimezoneEnabled,
+ 		SettingKeyOpenAIRequestTimezone,
+ 		SettingKeyActivityCenterEnabled,
+diff --git a/backend/internal/application/service/setting_update_product.go b/backend/internal/application/service/setting_update_product.go
+index 7cec0dcc9..daeb14740 100644
+--- a/backend/internal/application/service/setting_update_product.go
++++ b/backend/internal/application/service/setting_update_product.go
+@@ -85,6 +85,7 @@ func writeFeatureSystemSettingUpdates(updates map[string]string, settings *Syste
+ 	if v := clampChannelMonitorInterval(settings.ChannelMonitorDefaultIntervalSeconds); v > 0 {
+ 		updates[SettingKeyChannelMonitorDefaultIntervalSeconds] = strconv.Itoa(v)
+ 	}
++	updates[SettingKeyChannelMonitorTimelinePoints] = strconv.Itoa(clampChannelMonitorTimelinePoints(settings.ChannelMonitorTimelinePoints))
+ 	updates[SettingKeyChannelMonitorLatencyUnit] = normalizeChannelMonitorLatencyUnit(settings.ChannelMonitorLatencyUnit)
+ 	updates[SettingKeyChannelMonitorPublicShareEnabled] = strconv.FormatBool(settings.ChannelMonitorPublicShareEnabled)
+ 	updates[SettingKeyChannelMonitorPublicShareRequireAuth] = strconv.FormatBool(settings.ChannelMonitorPublicShareRequireAuth)
+diff --git a/backend/internal/application/service/settings_view.go b/backend/internal/application/service/settings_view.go
+index 266c95d89..2117177b5 100644
+--- a/backend/internal/application/service/settings_view.go
++++ b/backend/internal/application/service/settings_view.go
+@@ -214,6 +214,7 @@ type SystemSettings struct {
+ 	// Channel Monitor feature
+ 	ChannelMonitorEnabled                bool   `json:"channel_monitor_enabled"`
+ 	ChannelMonitorDefaultIntervalSeconds int    `json:"channel_monitor_default_interval_seconds"`
++	ChannelMonitorTimelinePoints         int    `json:"channel_monitor_timeline_points"`
+ 	ChannelMonitorLatencyUnit            string `json:"channel_monitor_latency_unit"`
+ 	ChannelMonitorPublicShareEnabled     bool   `json:"channel_monitor_public_share_enabled"`
+ 	ChannelMonitorPublicShareRequireAuth bool   `json:"channel_monitor_public_share_require_auth"`
+@@ -434,6 +435,7 @@ type PublicSettings struct {
+ 	// Channel Monitor feature
+ 	ChannelMonitorEnabled                bool   `json:"channel_monitor_enabled"`
+ 	ChannelMonitorDefaultIntervalSeconds int    `json:"channel_monitor_default_interval_seconds"`
++	ChannelMonitorTimelinePoints         int    `json:"channel_monitor_timeline_points"`
+ 	ChannelMonitorLatencyUnit            string `json:"channel_monitor_latency_unit"`
+ 	ChannelMonitorPublicShareEnabled     bool   `json:"channel_monitor_public_share_enabled"`
+ 	ChannelMonitorPublicShareRequireAuth bool   `json:"channel_monitor_public_share_require_auth"`
+diff --git a/backend/internal/transport/http/handler/admin/setting_handler.go b/backend/internal/transport/http/handler/admin/setting_handler.go
+index d5efaa187..31d999950 100644
+--- a/backend/internal/transport/http/handler/admin/setting_handler.go
++++ b/backend/internal/transport/http/handler/admin/setting_handler.go
+@@ -409,6 +409,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
+ 
+ 		ChannelMonitorEnabled:                settings.ChannelMonitorEnabled,
+ 		ChannelMonitorDefaultIntervalSeconds: settings.ChannelMonitorDefaultIntervalSeconds,
++		ChannelMonitorTimelinePoints:         settings.ChannelMonitorTimelinePoints,
+ 		ChannelMonitorLatencyUnit:            settings.ChannelMonitorLatencyUnit,
+ 		ChannelMonitorPublicShareEnabled:     settings.ChannelMonitorPublicShareEnabled,
+ 		ChannelMonitorPublicShareRequireAuth: settings.ChannelMonitorPublicShareRequireAuth,
+diff --git a/backend/internal/transport/http/handler/admin/setting_handler_audit_notifications.go b/backend/internal/transport/http/handler/admin/setting_handler_audit_notifications.go
+index 288c84490..8691b43c4 100644
+--- a/backend/internal/transport/http/handler/admin/setting_handler_audit_notifications.go
++++ b/backend/internal/transport/http/handler/admin/setting_handler_audit_notifications.go
+@@ -24,6 +24,9 @@ func appendNotificationAndRiskSettingChanges(changed []string, before, after *se
+ 	if before.ChannelMonitorEnabled != after.ChannelMonitorEnabled {
+ 		changed = append(changed, "channel_monitor_enabled")
+ 	}
++	if before.ChannelMonitorTimelinePoints != after.ChannelMonitorTimelinePoints {
++		changed = append(changed, "channel_monitor_timeline_points")
++	}
+ 	if before.ChannelMonitorDefaultIntervalSeconds != after.ChannelMonitorDefaultIntervalSeconds {
+ 		changed = append(changed, "channel_monitor_default_interval_seconds")
+ 	}
+diff --git a/backend/internal/transport/http/handler/admin/setting_handler_channel_monitor_test.go b/backend/internal/transport/http/handler/admin/setting_handler_channel_monitor_test.go
+new file mode 100644
+index 000000000..b1eb99568
+--- /dev/null
++++ b/backend/internal/transport/http/handler/admin/setting_handler_channel_monitor_test.go
+@@ -0,0 +1,51 @@
++//go:build unit
++
++package admin
++
++import (
++	"bytes"
++	"encoding/json"
++	"net/http"
++	"net/http/httptest"
++	"testing"
++
++	"github.com/Wei-Shaw/sub2api/internal/application/service"
++	"github.com/Wei-Shaw/sub2api/internal/platform/config"
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++)
++
++func TestSettingHandlerChannelMonitorTimelineRoundtripAndPartialSave(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	repo := &settingHandlerRepoStub{values: map[string]string{}}
++	svc := service.NewSettingService(repo, &config.Config{})
++	handler := NewSettingHandler(svc, nil, nil, nil, nil, nil, nil)
++	request := func(method, body string) map[string]any {
++		t.Helper()
++		recorder := httptest.NewRecorder()
++		ctx, _ := gin.CreateTestContext(recorder)
++		ctx.Request = httptest.NewRequest(method, "/api/v1/admin/settings", bytes.NewBufferString(body))
++		ctx.Request.Header.Set("Content-Type", "application/json")
++		if method == http.MethodPut {
++			handler.UpdateSettings(ctx)
++		} else {
++			handler.GetSettings(ctx)
++		}
++		require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
++		var payload struct {
++			Data map[string]any `json:"data"`
++		}
++		require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &payload))
++		return payload.Data
++	}
++	require.Equal(t, float64(20), request(http.MethodGet, "")["channel_monitor_timeline_points"])
++	require.Equal(t, float64(35), request(http.MethodPut, `{"channel_monitor_timeline_points":35}`)["channel_monitor_timeline_points"])
++	request(http.MethodPut, `{"site_name":"Monitor fixture"}`)
++	require.Equal(t, float64(35), request(http.MethodGet, "")["channel_monitor_timeline_points"])
++	public, err := svc.GetPublicSettings(t.Context())
++	require.NoError(t, err)
++	require.Equal(t, 35, public.ChannelMonitorTimelinePoints)
++	require.Equal(t, "35", repo.values[service.SettingKeyChannelMonitorTimelinePoints])
++	require.Equal(t, float64(1), request(http.MethodPut, `{"channel_monitor_timeline_points":0}`)["channel_monitor_timeline_points"])
++	require.Equal(t, float64(60), request(http.MethodPut, `{"channel_monitor_timeline_points":999}`)["channel_monitor_timeline_points"])
++}
+diff --git a/backend/internal/transport/http/handler/admin/setting_handler_update_data.go b/backend/internal/transport/http/handler/admin/setting_handler_update_data.go
+index 3ae20ae3f..8127f51e7 100644
+--- a/backend/internal/transport/http/handler/admin/setting_handler_update_data.go
++++ b/backend/internal/transport/http/handler/admin/setting_handler_update_data.go
+@@ -345,6 +345,7 @@ type UpdateSettingsRequest struct {
+ 	// Channel Monitor feature switch
+ 	ChannelMonitorEnabled                *bool   `json:"channel_monitor_enabled"`
+ 	ChannelMonitorDefaultIntervalSeconds *int    `json:"channel_monitor_default_interval_seconds"`
++	ChannelMonitorTimelinePoints         *int    `json:"channel_monitor_timeline_points"`
+ 	ChannelMonitorLatencyUnit            *string `json:"channel_monitor_latency_unit"`
+ 	ChannelMonitorPublicShareEnabled     *bool   `json:"channel_monitor_public_share_enabled"`
+ 	ChannelMonitorPublicShareRequireAuth *bool   `json:"channel_monitor_public_share_require_auth"`
+diff --git a/backend/internal/transport/http/handler/admin/setting_handler_update_mapping.go b/backend/internal/transport/http/handler/admin/setting_handler_update_mapping.go
+index 41d7a1e7e..5945825ad 100644
+--- a/backend/internal/transport/http/handler/admin/setting_handler_update_mapping.go
++++ b/backend/internal/transport/http/handler/admin/setting_handler_update_mapping.go
+@@ -267,6 +267,7 @@ func buildSystemSettingsUpdate(prepared *preparedSettingsUpdate) *service.System
+ 		AccountQuotaNotifyEmails:                           notifyEmailEntriesValueOrDefault(req.AccountQuotaNotifyEmails, previousSettings.AccountQuotaNotifyEmails),
+ 		ChannelMonitorEnabled:                              boolValueOrDefault(req.ChannelMonitorEnabled, previousSettings.ChannelMonitorEnabled),
+ 		ChannelMonitorDefaultIntervalSeconds:               intValueOrDefault(req.ChannelMonitorDefaultIntervalSeconds, previousSettings.ChannelMonitorDefaultIntervalSeconds),
++		ChannelMonitorTimelinePoints:                       intValueOrDefault(req.ChannelMonitorTimelinePoints, previousSettings.ChannelMonitorTimelinePoints),
+ 		ChannelMonitorLatencyUnit:                          stringSetting(req.ChannelMonitorLatencyUnit, previousSettings.ChannelMonitorLatencyUnit),
+ 		ChannelMonitorPublicShareEnabled:                   boolValueOrDefault(req.ChannelMonitorPublicShareEnabled, previousSettings.ChannelMonitorPublicShareEnabled),
+ 		ChannelMonitorPublicShareRequireAuth:               boolValueOrDefault(req.ChannelMonitorPublicShareRequireAuth, previousSettings.ChannelMonitorPublicShareRequireAuth),
+diff --git a/backend/internal/transport/http/handler/admin/setting_handler_update_response_mapping.go b/backend/internal/transport/http/handler/admin/setting_handler_update_response_mapping.go
+index 58937f87c..71b9605e1 100644
+--- a/backend/internal/transport/http/handler/admin/setting_handler_update_response_mapping.go
++++ b/backend/internal/transport/http/handler/admin/setting_handler_update_response_mapping.go
+@@ -291,6 +291,7 @@ func buildSettingsUpdateResponsePayload(
+ 
+ 		ChannelMonitorEnabled:                updatedSettings.ChannelMonitorEnabled,
+ 		ChannelMonitorDefaultIntervalSeconds: updatedSettings.ChannelMonitorDefaultIntervalSeconds,
++		ChannelMonitorTimelinePoints:         updatedSettings.ChannelMonitorTimelinePoints,
+ 		ChannelMonitorLatencyUnit:            updatedSettings.ChannelMonitorLatencyUnit,
+ 		ChannelMonitorPublicShareEnabled:     updatedSettings.ChannelMonitorPublicShareEnabled,
+ 		ChannelMonitorPublicShareRequireAuth: updatedSettings.ChannelMonitorPublicShareRequireAuth,
+diff --git a/backend/internal/transport/http/handler/dto/settings.go b/backend/internal/transport/http/handler/dto/settings.go
+index 9fb426dad..639f6c065 100644
+--- a/backend/internal/transport/http/handler/dto/settings.go
++++ b/backend/internal/transport/http/handler/dto/settings.go
+@@ -346,6 +346,7 @@ type SystemSettings struct {
+ 	// Channel Monitor feature switch
+ 	ChannelMonitorEnabled                bool   `json:"channel_monitor_enabled"`
+ 	ChannelMonitorDefaultIntervalSeconds int    `json:"channel_monitor_default_interval_seconds"`
++	ChannelMonitorTimelinePoints         int    `json:"channel_monitor_timeline_points"`
+ 	ChannelMonitorLatencyUnit            string `json:"channel_monitor_latency_unit"`
+ 	ChannelMonitorPublicShareEnabled     bool   `json:"channel_monitor_public_share_enabled"`
+ 	ChannelMonitorPublicShareRequireAuth bool   `json:"channel_monitor_public_share_require_auth"`
+@@ -472,6 +473,7 @@ type PublicSettings struct {
+ 
+ 	ChannelMonitorEnabled                bool   `json:"channel_monitor_enabled"`
+ 	ChannelMonitorDefaultIntervalSeconds int    `json:"channel_monitor_default_interval_seconds"`
++	ChannelMonitorTimelinePoints         int    `json:"channel_monitor_timeline_points"`
+ 	ChannelMonitorLatencyUnit            string `json:"channel_monitor_latency_unit"`
+ 	ChannelMonitorPublicShareEnabled     bool   `json:"channel_monitor_public_share_enabled"`
+ 	ChannelMonitorPublicShareRequireAuth bool   `json:"channel_monitor_public_share_require_auth"`
+diff --git a/backend/internal/transport/http/handler/setting_handler.go b/backend/internal/transport/http/handler/setting_handler.go
+index 519df0327..11379ab20 100644
+--- a/backend/internal/transport/http/handler/setting_handler.go
++++ b/backend/internal/transport/http/handler/setting_handler.go
+@@ -109,6 +109,7 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
+ 
+ 		ChannelMonitorEnabled:                settings.ChannelMonitorEnabled,
+ 		ChannelMonitorDefaultIntervalSeconds: settings.ChannelMonitorDefaultIntervalSeconds,
++		ChannelMonitorTimelinePoints:         settings.ChannelMonitorTimelinePoints,
+ 		ChannelMonitorLatencyUnit:            settings.ChannelMonitorLatencyUnit,
+ 		ChannelMonitorPublicShareEnabled:     settings.ChannelMonitorPublicShareEnabled,
+ 		ChannelMonitorPublicShareRequireAuth: settings.ChannelMonitorPublicShareRequireAuth,
+diff --git a/backend/internal/transport/http/server/api_contract_test.go b/backend/internal/transport/http/server/api_contract_test.go
+index 363fdf07d..e4ffd7259 100644
+--- a/backend/internal/transport/http/server/api_contract_test.go
++++ b/backend/internal/transport/http/server/api_contract_test.go
+@@ -1030,6 +1030,7 @@ func TestAPIContracts(t *testing.T) {
+ 					"account_quota_notify_emails": [],
+ 					"channel_monitor_enabled": true,
+ 					"channel_monitor_default_interval_seconds": 60,
++					"channel_monitor_timeline_points": 20,
+ 					"channel_monitor_latency_unit": "ms",
+ 					"channel_monitor_public_share_enabled": false,
+ 					"channel_monitor_public_share_require_auth": false,
+@@ -1387,6 +1388,7 @@ func TestAPIContracts(t *testing.T) {
+ 					"account_quota_notify_emails": [],
+ 					"channel_monitor_enabled": true,
+ 					"channel_monitor_default_interval_seconds": 60,
++					"channel_monitor_timeline_points": 20,
+ 					"channel_monitor_latency_unit": "ms",
+ 					"channel_monitor_public_share_enabled": false,
+ 					"channel_monitor_public_share_require_auth": false,
+diff --git a/frontend/src/core/constants/channelMonitor.ts b/frontend/src/core/constants/channelMonitor.ts
+index 091211462..aaf5b37da 100644
+--- a/frontend/src/core/constants/channelMonitor.ts
++++ b/frontend/src/core/constants/channelMonitor.ts
+@@ -61,3 +61,9 @@ export const MONITOR_STATUSES: readonly MonitorStatus[] = [
+ 
+ /** Default polling interval (seconds) for new monitors. */
+ export const DEFAULT_INTERVAL_SECONDS = 60
++
++/** Bound display work and keep old-server or missing settings at the shipped default. */
++export function normalizeChannelMonitorTimelinePoints(value: unknown): number {
++  if (typeof value !== 'number' || !Number.isFinite(value)) return 20
++  return Math.min(60, Math.max(1, Math.trunc(value)))
++}
+diff --git a/frontend/src/core/i18n/locales/en/admin/settings.ts b/frontend/src/core/i18n/locales/en/admin/settings.ts
+index 8dac75d81..e5739b83e 100644
+--- a/frontend/src/core/i18n/locales/en/admin/settings.ts
++++ b/frontend/src/core/i18n/locales/en/admin/settings.ts
+@@ -68,6 +68,8 @@ export default {
+           enabledHint: 'Disabling stops background checks; existing history is preserved.',
+           defaultInterval: 'Default check interval (seconds)',
+           defaultIntervalHint: 'Pre-fills the interval when creating a new monitor; each monitor can override it. Range 15 – 3600.',
++          timelinePoints: 'Status timeline bars',
++          timelinePointsHint: 'Controls how many status bars are shown on each user-facing timeline. Range 1 – 60.',
+           latencyUnit: 'Latency display unit',
+           latencyUnitHint: 'Controls latency display in Channel Monitor and Channel Status pages.',
+           latencyUnitMs: 'Milliseconds (ms)',
+diff --git a/frontend/src/core/i18n/locales/en/dashboard.ts b/frontend/src/core/i18n/locales/en/dashboard.ts
+index d3cbbb46d..02a5e5844 100644
+--- a/frontend/src/core/i18n/locales/en/dashboard.ts
++++ b/frontend/src/core/i18n/locales/en/dashboard.ts
+@@ -650,6 +650,7 @@ export default {
+     description: 'Inspect channel availability, latency and recent status',
+     searchPlaceholder: 'Search channels...',
+     allProviders: 'All Providers',
++    filterProvider: 'Provider',
+     loadError: 'Failed to load channel status',
+     detailLoadError: 'Failed to load channel detail',
+     detailTitle: 'Channel Detail',
+diff --git a/frontend/src/core/i18n/locales/zh/admin/settings.ts b/frontend/src/core/i18n/locales/zh/admin/settings.ts
+index 8ec41bc63..7281040a3 100644
+--- a/frontend/src/core/i18n/locales/zh/admin/settings.ts
++++ b/frontend/src/core/i18n/locales/zh/admin/settings.ts
+@@ -68,6 +68,8 @@ export default {
+           enabledHint: '关闭后后台不再执行定时检测，已有数据保留。',
+           defaultInterval: '默认检测间隔（秒）',
+           defaultIntervalHint: '新建渠道监控时表单的默认值，可被单个渠道覆盖。范围 15 – 3600 秒。',
++          timelinePoints: '状态时间线柱数',
++          timelinePointsHint: '控制用户端每条状态时间线显示的小柱数量。范围 1 – 60。',
+           latencyUnit: '延迟显示单位',
+           latencyUnitHint: '影响渠道监控和渠道状态页中的延迟展示。',
+           latencyUnitMs: '毫秒（ms）',
+diff --git a/frontend/src/core/i18n/locales/zh/dashboard.ts b/frontend/src/core/i18n/locales/zh/dashboard.ts
+index 60a52aa5e..fd77211c0 100644
+--- a/frontend/src/core/i18n/locales/zh/dashboard.ts
++++ b/frontend/src/core/i18n/locales/zh/dashboard.ts
+@@ -655,6 +655,7 @@ export default {
+     description: '查看渠道可用性、延迟和近期状态',
+     searchPlaceholder: '搜索渠道...',
+     allProviders: '全部供应商',
++    filterProvider: '供应商筛选',
+     loadError: '加载渠道状态失败',
+     detailLoadError: '加载渠道详情失败',
+     detailTitle: '渠道详情',
+diff --git a/frontend/src/core/stores/appStore.ts b/frontend/src/core/stores/appStore.ts
+index 938d9a378..bedf2d5a8 100644
+--- a/frontend/src/core/stores/appStore.ts
++++ b/frontend/src/core/stores/appStore.ts
+@@ -395,6 +395,7 @@ export const useAppStore = defineStore('app', () => {
+         balance_low_notify_threshold: 0,
+         channel_monitor_enabled: true,
+         channel_monitor_default_interval_seconds: 60,
++        channel_monitor_timeline_points: 20,
+         channel_monitor_latency_unit: 'ms',
+         channel_monitor_public_share_enabled: false,
+         channel_monitor_public_share_require_auth: false,
+diff --git a/frontend/src/features/admin-settings/__tests__/settingsSaveModules.spec.ts b/frontend/src/features/admin-settings/__tests__/settingsSaveModules.spec.ts
+index 080d4bb91..6d6933b7f 100644
+--- a/frontend/src/features/admin-settings/__tests__/settingsSaveModules.spec.ts
++++ b/frontend/src/features/admin-settings/__tests__/settingsSaveModules.spec.ts
+@@ -162,6 +162,7 @@ describe("settings save payload", () => {
+     form.ipv6_egress_ui_enabled = true;
+     form.support_chat_retention_enabled = true;
+     form.support_chat_retention_days = 45.9;
++    form.channel_monitor_timeline_points = 35.9;
+ 
+     const payload = buildSettingsSavePayload({
+       form,
+@@ -206,6 +207,7 @@ describe("settings save payload", () => {
+     expect(payload.ipv6_egress_ui_enabled).toBe(true);
+     expect(payload.support_chat_retention_enabled).toBe(true);
+     expect(payload.support_chat_retention_days).toBe(45);
++    expect(payload.channel_monitor_timeline_points).toBe(35);
+     expect(form.balance_low_notify_recharge_url).toBe(
+       "https://admin.example.com",
+     );
+diff --git a/frontend/src/features/admin-settings/data/dtos/systemSettingsDtos.ts b/frontend/src/features/admin-settings/data/dtos/systemSettingsDtos.ts
+index 327479a9f..434a17b0d 100644
+--- a/frontend/src/features/admin-settings/data/dtos/systemSettingsDtos.ts
++++ b/frontend/src/features/admin-settings/data/dtos/systemSettingsDtos.ts
+@@ -720,6 +720,7 @@ export interface SystemSettings {
+   // Channel Monitor feature switch
+   channel_monitor_enabled: boolean;
+   channel_monitor_default_interval_seconds: number;
++  channel_monitor_timeline_points: number;
+   channel_monitor_latency_unit: "ms" | "s" | string;
+   channel_monitor_public_share_enabled: boolean;
+   channel_monitor_public_share_require_auth: boolean;
+@@ -1066,6 +1067,7 @@ export interface UpdateSettingsRequest {
+   // Channel Monitor feature switch
+   channel_monitor_enabled?: boolean;
+   channel_monitor_default_interval_seconds?: number;
++  channel_monitor_timeline_points?: number;
+   channel_monitor_latency_unit?: "ms" | "s" | string;
+   channel_monitor_public_share_enabled?: boolean;
+   channel_monitor_public_share_require_auth?: boolean;
+diff --git a/frontend/src/features/admin-settings/presentation/composables/settingsForm.ts b/frontend/src/features/admin-settings/presentation/composables/settingsForm.ts
+index 576436d60..a125045da 100644
+--- a/frontend/src/features/admin-settings/presentation/composables/settingsForm.ts
++++ b/frontend/src/features/admin-settings/presentation/composables/settingsForm.ts
+@@ -371,6 +371,7 @@ export function createSettingsForm(localText: LocalText): SettingsForm {
+     account_quota_notify_emails: [] as NotifyEmailEntry[],
+     channel_monitor_enabled: true,
+     channel_monitor_default_interval_seconds: 60,
++    channel_monitor_timeline_points: 20,
+     channel_monitor_latency_unit: "ms",
+     channel_monitor_public_share_enabled: false,
+     channel_monitor_public_share_require_auth: false,
+diff --git a/frontend/src/features/admin-settings/presentation/composables/settingsSavePayload.ts b/frontend/src/features/admin-settings/presentation/composables/settingsSavePayload.ts
+index 32b77c34c..17e8718d3 100644
+--- a/frontend/src/features/admin-settings/presentation/composables/settingsSavePayload.ts
++++ b/frontend/src/features/admin-settings/presentation/composables/settingsSavePayload.ts
+@@ -1,3 +1,4 @@
++import { normalizeChannelMonitorTimelinePoints } from '@/core/constants/channelMonitor'
+ import { sanitizeRechargeBonusTiersForSubmit } from '@/features/billing/rechargeBonus'
+ import {
+   appendAuthSourceDefaultsToUpdateRequest,
+@@ -424,6 +425,7 @@ function buildNotificationAndFeatureSettingsPayload({
+     channel_monitor_enabled: form.channel_monitor_enabled,
+     channel_monitor_default_interval_seconds:
+       Number(form.channel_monitor_default_interval_seconds) || 60,
++    channel_monitor_timeline_points: normalizeChannelMonitorTimelinePoints(form.channel_monitor_timeline_points),
+     channel_monitor_latency_unit:
+       form.channel_monitor_latency_unit === "s" ? "s" : "ms",
+     channel_monitor_public_share_enabled:
+diff --git a/frontend/src/features/admin-settings/presentation/widgets/settings-tabs/SettingsFeaturesTab.vue b/frontend/src/features/admin-settings/presentation/widgets/settings-tabs/SettingsFeaturesTab.vue
+index 311e11aff..3af03d430 100644
+--- a/frontend/src/features/admin-settings/presentation/widgets/settings-tabs/SettingsFeaturesTab.vue
++++ b/frontend/src/features/admin-settings/presentation/widgets/settings-tabs/SettingsFeaturesTab.vue
+@@ -49,6 +49,22 @@
+               </p>
+             </div>
+ 
++            <div v-if="form.channel_monitor_enabled">
++              <label class="input-label">
++                {{ t('admin.settings.features.channelMonitor.timelinePoints') }}
++              </label>
++              <input
++                v-model.number="form.channel_monitor_timeline_points"
++                type="number"
++                min="1"
++                max="60"
++                class="input"
++              />
++              <p class="mt-1 text-xs text-gray-400">
++                {{ t('admin.settings.features.channelMonitor.timelinePointsHint') }}
++              </p>
++            </div>
++
+             <div v-if="form.channel_monitor_enabled">
+               <label class="input-label">
+                 {{ t('admin.settings.features.channelMonitor.latencyUnit') }}
+diff --git a/frontend/src/features/channel-monitor-user/README.md b/frontend/src/features/channel-monitor-user/README.md
+index 24c4e36f6..f3a6abc2a 100644
+--- a/frontend/src/features/channel-monitor-user/README.md
++++ b/frontend/src/features/channel-monitor-user/README.md
+@@ -3,7 +3,7 @@
+ 本 feature 提供只读监控组件与 `/monitor/public` 共享页面；登录后的 `/monitor` 页面由 [channels-user](../channels-user/README.md) 组合这些组件。
+ 
+ - [data/datasources/channelMonitorUserDatasource.ts](data/datasources/channelMonitorUserDatasource.ts)：登录接口 `/channel-monitors` 与共享接口 `/channel-status-share`，含列表、详情和批量状态。
+-- [presentation/widgets](presentation/widgets/)：按 AI 类型（provider）与监控模式（主动探测 / 被动流量）聚合的状态卡片，卡片内为各分组的状态行（可用率、延迟内联展示），以及时间线和详情。
++- [presentation/widgets](presentation/widgets/)：按 AI 类型（provider）聚合的状态卡片，卡片内分别展示主动探测与被动流量，各分组保留独立状态、可用率、延迟、时间线和详情。
+ - [presentation/composables/useChannelMonitorFormat.ts](presentation/composables/useChannelMonitorFormat.ts)：指标与时间展示。
+ - [channelMonitorLocale.ts](channelMonitorLocale.ts)：共享文案入口。
+ 
+@@ -11,4 +11,6 @@
+ 
+ 提供商卡片保留整卡折叠和综合健康度排序，自动刷新不重置本地折叠状态。折叠按钮提供本地化标签和展开状态；7/15/30 天可用率继续使用各自窗口的数据。
+ 
++管理员通过 `channel_monitor_timeline_points` 配置登录页及共享页卡片的时间线柱数，范围为 1–60 的整数，默认 20。旧服务端缺少该字段或本地缓存无效时使用 20；只影响显示，不改变采样、保留时间、可用率窗口或详情数据。跨 feature 复用格式化能力的稳定入口为 [index.ts](index.ts)。
++
+ 从 `frontend/` 执行 `pnpm exec vitest run src/features/channel-monitor-user`，并核对后端用户/公共监控测试。新增状态需覆盖中英文及未来未知值。
+diff --git a/frontend/src/features/channel-monitor-user/__tests__/MonitorCardGrid.spec.ts b/frontend/src/features/channel-monitor-user/__tests__/MonitorCardGrid.spec.ts
+index 4310bc455..8b8115008 100644
+--- a/frontend/src/features/channel-monitor-user/__tests__/MonitorCardGrid.spec.ts
++++ b/frontend/src/features/channel-monitor-user/__tests__/MonitorCardGrid.spec.ts
+@@ -47,6 +47,7 @@ function mountGrid(items: UserMonitorView[], loading = false) {
+       items,
+       window: '7d' as const,
+       countdownSeconds: 10,
++      timelinePoints: 20,
+       loading,
+       detailCache: {},
+     },
+@@ -86,7 +87,7 @@ describe('MonitorCardGrid provider and monitor-mode aggregation', () => {
+     expect(cards[1].props('items')).toHaveLength(1)
+   })
+ 
+-  it('splits active probes and passive monitors of one provider into separate cards', () => {
++  it('merges active probes and passive monitors of one provider into a single card', () => {
+     const wrapper = mountGrid([
+       monitor({ id: 1, provider: 'openai', monitor_mode: 'active', group_name: 'Probe A' }),
+       monitor({ id: 2, provider: 'openai', monitor_mode: 'passive', group_name: 'Traffic A' }),
+@@ -94,23 +95,21 @@ describe('MonitorCardGrid provider and monitor-mode aggregation', () => {
+     ])
+ 
+     const cards = wrapper.findAllComponents(MonitorProviderCard)
+-    expect(cards).toHaveLength(2)
+-    expect(cards[0].props('mode')).toBe('active')
+-    expect(cards[0].props('items')).toHaveLength(2)
+-    expect(cards[1].props('mode')).toBe('passive')
+-    expect(cards[1].props('items')).toHaveLength(1)
++    expect(cards).toHaveLength(1)
++    expect(cards[0].props('items')).toHaveLength(3)
++    expect(wrapper.findAll('button[class~="group/item"]')).toHaveLength(3)
+   })
+ 
+-  it('keeps legacy monitors without a mode in their own card', () => {
++  it('renders legacy monitors without a mode inside their provider card', () => {
+     const wrapper = mountGrid([
+       monitor({ id: 1, provider: 'openai' }),
+       monitor({ id: 2, provider: 'openai', monitor_mode: 'active' }),
+     ])
+ 
+     const cards = wrapper.findAllComponents(MonitorProviderCard)
+-    expect(cards).toHaveLength(2)
+-    expect(cards[0].props('mode')).toBeUndefined()
+-    expect(cards[1].props('mode')).toBe('active')
++    expect(cards).toHaveLength(1)
++    expect(cards[0].props('items')).toHaveLength(2)
++    expect(wrapper.findAll('button[class~="group/item"]')).toHaveLength(2)
+   })
+ 
+   it('ranks healthy groups above abnormal ones without dropping them', () => {
+@@ -126,6 +125,28 @@ describe('MonitorCardGrid provider and monitor-mode aggregation', () => {
+     expect(labels[2]).toContain('Broken')
+   })
+ 
++  it('labels the active and passive sections inside one provider card', () => {
++    const wrapper = mountGrid([
++      monitor({ id: 1, provider: 'openai', monitor_mode: 'active', group_name: 'Probe A' }),
++      monitor({ id: 2, provider: 'openai', monitor_mode: 'passive', group_name: 'Traffic A' }),
++    ])
++
++    const card = wrapper.getComponent(MonitorProviderCard)
++    const text = card.text()
++    expect(text).toContain('monitorCommon.modes.active')
++    expect(text).toContain('monitorCommon.modes.passive')
++    expect(text).toContain('Probe A')
++    expect(text).toContain('Traffic A')
++  })
++
++  it('forwards the configured timeline length down to each monitor row', () => {
++    const wrapper = mountGrid([
++      monitor({ id: 1, provider: 'openai', monitor_mode: 'active' }),
++    ])
++    const card = wrapper.getComponent(MonitorProviderCard)
++    expect(card.props('timelinePoints')).toBe(20)
++  })
++
+   it('emits the clicked row so the detail dialog opens the right monitor', async () => {
+     const wrapper = mountGrid([
+       monitor({ id: 1, group_name: 'Healthy' }),
+diff --git a/frontend/src/features/channel-monitor-user/index.ts b/frontend/src/features/channel-monitor-user/index.ts
+new file mode 100644
+index 000000000..2bf9adc91
+--- /dev/null
++++ b/frontend/src/features/channel-monitor-user/index.ts
+@@ -0,0 +1,8 @@
++/**
++ * Stable owner contract for the channel-monitor-user feature.
++ *
++ * Other features (and their pages) must import shared monitor formatting
++ * through this entry instead of reaching into the private presentation layer.
++ */
++export { useChannelMonitorFormat } from './presentation/composables/useChannelMonitorFormat'
++export type { AvailabilityRow } from './presentation/composables/useChannelMonitorFormat'
+diff --git a/frontend/src/features/channel-monitor-user/presentation/pages/ChannelStatusSharePage.vue b/frontend/src/features/channel-monitor-user/presentation/pages/ChannelStatusSharePage.vue
+index 7777e6d39..bfcdb4518 100644
+--- a/frontend/src/features/channel-monitor-user/presentation/pages/ChannelStatusSharePage.vue
++++ b/frontend/src/features/channel-monitor-user/presentation/pages/ChannelStatusSharePage.vue
+@@ -58,6 +58,7 @@
+           :items="items"
+           :window="currentWindow"
+           :countdown-seconds="countdown"
++          :timeline-points="timelinePoints"
+           :loading="loading"
+           :detail-cache="detailCache"
+           @card-click="openDetail"
+@@ -94,7 +95,7 @@ import MonitorHero, {
+ } from '@/features/channel-monitor-user/presentation/widgets/MonitorHero.vue'
+ import MonitorCardGrid from '@/features/channel-monitor-user/presentation/widgets/MonitorCardGrid.vue'
+ import MonitorDetailDialog from '@/features/channel-monitor-user/presentation/widgets/MonitorDetailDialog.vue'
+-import { DEFAULT_INTERVAL_SECONDS, STATUS_OPERATIONAL } from '@/core/constants/channelMonitor'
++import { DEFAULT_INTERVAL_SECONDS, STATUS_OPERATIONAL, normalizeChannelMonitorTimelinePoints } from '@/core/constants/channelMonitor'
+ import { useAutoRefresh } from '@/common/composables/useAutoRefresh'
+ 
+ const { t } = useI18n()
+@@ -118,6 +119,10 @@ const autoRefresh = useAutoRefresh({
+ })
+ const countdown = autoRefresh.countdown
+ 
++const timelinePoints = computed(() =>
++  normalizeChannelMonitorTimelinePoints(appStore.cachedPublicSettings?.channel_monitor_timeline_points),
++)
++
+ const overallStatus = computed<OverallStatus>(() => {
+   if (items.value.length === 0) return 'operational'
+   for (const it of items.value) {
+diff --git a/frontend/src/features/channel-monitor-user/presentation/widgets/MonitorCardGrid.vue b/frontend/src/features/channel-monitor-user/presentation/widgets/MonitorCardGrid.vue
+index 9c3b5bc17..2808a858b 100644
+--- a/frontend/src/features/channel-monitor-user/presentation/widgets/MonitorCardGrid.vue
++++ b/frontend/src/features/channel-monitor-user/presentation/widgets/MonitorCardGrid.vue
+@@ -43,9 +43,9 @@
+         v-for="group in cardGroups"
+         :key="group.key"
+         :items="group.items"
+-        :mode="group.mode"
+         :window="window"
+         :countdown-seconds="countdownSeconds"
++        :timeline-points="timelinePoints"
+         :detail-cache="detailCache"
+         @card-click="emit('cardClick', $event)"
+       />
+@@ -58,7 +58,6 @@ import { computed } from 'vue'
+ import { useI18n } from 'vue-i18n'
+ import type {
+   Provider,
+-  MonitorMode,
+   UserMonitorView,
+   UserMonitorDetail,
+ } from '@/features/channel-monitor-user/data/datasources/channelMonitorUserDatasource'
+@@ -69,6 +68,7 @@ const props = defineProps<{
+   items: UserMonitorView[]
+   window: '7d' | '15d' | '30d'
+   countdownSeconds: number
++  timelinePoints: number
+   loading: boolean
+   detailCache: Record<number, UserMonitorDetail>
+ }>()
+@@ -82,28 +82,23 @@ const { t } = useI18n()
+ interface MonitorCardGroup {
+   key: string
+   provider: Provider
+-  mode?: MonitorMode
+   items: UserMonitorView[]
+ }
+ 
+ /**
+- * Bucket the flat monitor list by provider *and* monitor mode so every group
+- * watching the same AI family lands in one card. Active probes (synthetic
+- * checks) and passive monitors (real traffic sampling) answer different
+- * questions for the viewer, so they never share a card.
+- *
++ * Bucket the flat monitor list by provider so active and passive monitors
++ * appear together while their individual modes remain visible in the card.
+  * Groups keep their first-seen order to avoid cards jumping around while
+  * auto-refresh replaces the list.
+  */
+ const cardGroups = computed<MonitorCardGroup[]>(() => {
+   const groups: MonitorCardGroup[] = []
+-  const indexByKey = new Map<string, number>()
++  const indexByKey = new Map<Provider, number>()
+   for (const item of props.items) {
+-    const key = `${item.provider}::${item.monitor_mode ?? ''}`
+-    const existing = indexByKey.get(key)
++    const existing = indexByKey.get(item.provider)
+     if (existing === undefined) {
+-      indexByKey.set(key, groups.length)
+-      groups.push({ key, provider: item.provider, mode: item.monitor_mode, items: [item] })
++      indexByKey.set(item.provider, groups.length)
++      groups.push({ key: item.provider, provider: item.provider, items: [item] })
+       continue
+     }
+     groups[existing].items.push(item)
+diff --git a/frontend/src/features/channel-monitor-user/presentation/widgets/MonitorProviderCard.vue b/frontend/src/features/channel-monitor-user/presentation/widgets/MonitorProviderCard.vue
+index ba5a857c6..f38f3f658 100644
+--- a/frontend/src/features/channel-monitor-user/presentation/widgets/MonitorProviderCard.vue
++++ b/frontend/src/features/channel-monitor-user/presentation/widgets/MonitorProviderCard.vue
+@@ -19,12 +19,7 @@
+           <span class="text-base font-bold tracking-tight truncate text-gray-900 dark:text-white">
+             {{ providerLabel(provider) }}
+           </span>
+-          <span
+-            v-if="modeLabelText"
+-            class="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider flex-shrink-0 bg-gray-100/90 text-gray-700 dark:bg-dark-700/80 dark:text-gray-300 border border-gray-200/60 dark:border-dark-600/60"
+-          >
+-            {{ modeLabelText }}
+-          </span>
++
+         </div>
+         <div class="mt-1 text-xs truncate text-gray-600 dark:text-gray-300 font-medium">
+           {{ summaryLabel }}
+@@ -55,68 +50,58 @@
+       </button>
+     </header>
+ 
+-    <!-- 模型列表 - 优化信息密度的网格布局，支持折叠 -->
+-    <div 
++    <!-- 主动和被动监控共用供应商卡片，但分别展示状态和时间线 -->
++    <div
+       v-show="!isCollapsed"
+-      class="px-6 py-4 transition-all duration-300"
++      class="px-6 py-4 space-y-5 transition-all duration-300"
+     >
+-      <div class="grid gap-3 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+-        <button
+-          v-for="row in sortedItems"
+-          :key="row.id"
+-          type="button"
+-          class="group/item relative text-left p-4 rounded-lg bg-gray-50/60 dark:bg-dark-900/40 border border-gray-200/50 dark:border-dark-700/50 hover:border-gray-300 dark:hover:border-dark-600 hover:bg-white dark:hover:bg-dark-800/70 transition-all duration-200 hover:shadow-sm active:scale-[0.98]"
+-          @click="emit('cardClick', row)"
+-        >
+-          <!-- 模型信息头部 -->
+-          <div class="flex items-start justify-between gap-2.5 mb-3">
+-            <div class="flex-1 min-w-0">
+-              <div class="flex items-center gap-2 min-w-0 mb-1">
+-                <span class="text-sm font-bold truncate text-gray-900 dark:text-white leading-tight">
++      <div v-for="group in modeGroups" :key="group.mode" class="space-y-3">
++        <div class="flex items-center gap-2 border-b border-gray-100 pb-2 text-xs font-bold uppercase tracking-wider text-gray-500 dark:border-dark-700 dark:text-gray-400">
++          <span>{{ modeLabel(group.mode) }}</span>
++          <span class="font-normal normal-case">{{ modeSummary(group.items) }}</span>
++        </div>
++        <div class="grid gap-3 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
++          <button
++            v-for="row in group.items"
++            :key="row.id"
++            type="button"
++            class="group/item relative text-left p-4 rounded-lg bg-gray-50/60 dark:bg-dark-900/40 border border-gray-200/50 dark:border-dark-700/50 hover:border-gray-300 dark:hover:border-dark-600 hover:bg-white dark:hover:bg-dark-800/70 transition-all duration-200 hover:shadow-sm active:scale-[0.98]"
++            @click="emit('cardClick', row)"
++          >
++            <div class="flex items-start justify-between gap-2.5 mb-3">
++              <div class="flex-1 min-w-0">
++                <span class="block text-sm font-bold truncate text-gray-900 dark:text-white leading-tight">
+                   {{ row.group_name || row.name || t('channelStatus.unnamedGroup') }}
+                 </span>
++                <span class="inline-block font-mono text-[10px] truncate text-gray-600 dark:text-gray-400 bg-gray-100/70 dark:bg-dark-800/60 px-2 py-0.5 rounded border border-gray-200/50 dark:border-dark-700/40">
++                  {{ row.primary_model }}
++                </span>
+               </div>
+-              <span class="inline-block font-mono text-[10px] truncate text-gray-600 dark:text-gray-400 bg-gray-100/70 dark:bg-dark-800/60 px-2 py-0.5 rounded border border-gray-200/50 dark:border-dark-700/40">
+-                {{ row.primary_model }}
++              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide flex-shrink-0 shadow-xs transition-transform group-hover/item:scale-105" :class="statusBadgeClass(row.primary_status)">
++                {{ statusLabel(row.primary_status) }}
+               </span>
+             </div>
+-            
+-            <span
+-              class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide flex-shrink-0 shadow-xs transition-transform group-hover/item:scale-105"
+-              :class="statusBadgeClass(row.primary_status)"
+-            >
+-              {{ statusLabel(row.primary_status) }}
+-            </span>
+-          </div>
+-
+-          <!-- 指标数据 -->
+-          <div class="flex items-center gap-4 mb-3 text-xs">
++            <div class="flex items-center gap-4 mb-3 text-xs">
+               <div class="flex items-center gap-1.5 font-mono tabular-nums font-semibold text-gray-700 dark:text-gray-300">
+-              <span class="w-1.5 h-1.5 rounded-full bg-blue-500 dark:bg-blue-400 shadow-sm"></span>
+-              <span>{{ formatLatencyWithUnit(row.primary_latency_ms) }}</span>
+-            </div>
+-            <div class="flex items-center gap-1.5 tabular-nums font-bold" :style="availabilityColor(row)">
+-              <span class="w-1.5 h-1.5 rounded-full shadow-sm" :style="availabilityColor(row)"></span>
+-              <span>{{ formatPercent(resolveAvailability(row)) }}</span>
++                <span class="w-1.5 h-1.5 rounded-full bg-blue-500 dark:bg-blue-400 shadow-sm"></span>
++                <span>{{ formatLatencyWithUnit(row.primary_latency_ms) }}</span>
++              </div>
++              <div class="flex items-center gap-1.5 tabular-nums font-bold" :style="availabilityColor(row)">
++                <span class="w-1.5 h-1.5 rounded-full shadow-sm" :style="availabilityColor(row)"></span>
++                <span>{{ formatPercent(resolveAvailability(row)) }}</span>
++              </div>
+             </div>
+-          </div>
+-
+-          <!-- 时间线 -->
+-          <MonitorTimeline
+-            compact
+-            :buckets="row.timeline"
+-            :countdown-seconds="countdownSeconds"
+-          />
+-
+-          <!-- Hover 指示器 -->
+-          <div class="absolute top-3 right-3 opacity-0 group-hover/item:opacity-100 transition-opacity">
+-            <Icon
+-              name="chevronRight"
+-              size="xs"
+-              class="text-gray-400 dark:text-gray-400"
++            <MonitorTimeline
++              compact
++              :buckets="row.timeline"
++              :length="timelinePoints"
++              :countdown-seconds="countdownSeconds"
+             />
+-          </div>
+-        </button>
++            <div class="absolute top-3 right-3 opacity-0 group-hover/item:opacity-100 transition-opacity">
++              <Icon name="chevronRight" size="xs" class="text-gray-400 dark:text-gray-400" />
++            </div>
++          </button>
++        </div>
+       </div>
+     </div>
+   </section>
+@@ -212,9 +197,9 @@ const PROVIDER_TINT: Record<string, string> = {
+ 
+ const props = defineProps<{
+   items: UserMonitorView[]
+-  mode?: MonitorMode
+   window: '7d' | '15d' | '30d'
+   countdownSeconds: number
++  timelinePoints: number
+   detailCache: Record<number, UserMonitorDetail>
+ }>()
+ 
+@@ -230,11 +215,6 @@ const isCollapsed = ref(false)
+ const { statusLabel, statusBadgeClass, modeLabel, providerLabel, formatLatencyWithUnit, formatPercent } =
+   useChannelMonitorFormat()
+ 
+-/** Legacy monitors without a mode keep the header unlabelled. */
+-const modeLabelText = computed(() =>
+-  props.mode === 'active' || props.mode === 'passive' ? modeLabel(props.mode) : '',
+-)
+-
+ const provider = computed<Provider>(() => props.items[0]?.provider ?? ('' as Provider))
+ 
+ const providerTintClass = computed(
+@@ -268,16 +248,25 @@ const summaryLabel = computed(() => {
+  * 2. 爆红（异常）模型排在末尾
+  * 3. 中间状态按"整体健康度+最新状态"综合评分排序
+  */
+-const sortedItems = computed(() => {
+-  return [...props.items].sort((a, b) => {
+-    const scoreA = calculateHealthScore(a)
+-    const scoreB = calculateHealthScore(b)
+-    
+-    // 健康度评分高的排在前面（降序）
+-    return scoreB - scoreA
+-  })
++const modeGroups = computed(() => {
++  const modes: MonitorMode[] = ['active', 'passive']
++  return modes
++    .map(mode => ({
++      mode,
++      items: props.items
++        .filter(item => (item.monitor_mode ?? 'active') === mode)
++        .sort((a, b) => calculateHealthScore(b) - calculateHealthScore(a)),
++    }))
++    .filter(group => group.items.length > 0)
+ })
+ 
++function modeSummary(items: UserMonitorView[]): string {
++  const abnormal = items.filter(item => item.primary_status !== 'operational').length
++  return abnormal > 0
++    ? t('channelStatus.abnormalCount', { n: abnormal })
++    : t('channelStatus.allOperational')
++}
++
+ function resolveAvailability(item: UserMonitorView): number | null {
+   if (props.window === '7d') return item.availability_7d ?? null
+   const detail = props.detailCache[item.id]
+diff --git a/frontend/src/features/channels-user/README.md b/frontend/src/features/channels-user/README.md
+index 8bc589b40..3b306363f 100644
+--- a/frontend/src/features/channels-user/README.md
++++ b/frontend/src/features/channels-user/README.md
+@@ -7,6 +7,8 @@
+ - [presentation/pages](presentation/pages/)：渠道列表、监控组件装配和自定义内容宿主。
+ - [presentation/customPageHtml.ts](presentation/customPageHtml.ts)：自定义 HTML 处理边界。
+ 
++`/monitor` 支持在已授权返回的监控项中按供应商筛选；筛选不增加接口请求，页面总览状态跟随当前筛选。自动刷新后所选供应商消失时回到全部供应商。卡片的主动／被动监控分区及时间线显示设置由 channel-monitor-user 统一实现。
++
+ 渠道展示不授予新分组权限。自定义 HTML/iframe 必须保留现有清洗、sandbox、URL 与消息来源校验；专用能力凭据不等于浏览器 JWT，不能把登录 token 或通用管理员凭据发给嵌入页面。外部支付嵌入流程见 [支付集成 API](../../../../docs/ADMIN_PAYMENT_INTEGRATION_API.md)。
+ 
+ 从 `frontend/` 执行 `pnpm exec vitest run src/features/channels-user src/features/channel-monitor-user`。HTML 渲染变化还需共享动态 HTML 门禁；跨域问题参阅 [CORS 部署](../../../../docs/FRONTEND_CORS_DEPLOYMENT_CN.md)。
+diff --git a/frontend/src/features/channels-user/__tests__/ChannelStatusPage.spec.ts b/frontend/src/features/channels-user/__tests__/ChannelStatusPage.spec.ts
+new file mode 100644
+index 000000000..9e92a38e9
+--- /dev/null
++++ b/frontend/src/features/channels-user/__tests__/ChannelStatusPage.spec.ts
+@@ -0,0 +1,145 @@
++import { createPinia, setActivePinia } from 'pinia'
++import { mount, type VueWrapper } from '@vue/test-utils'
++import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
++import { ref } from 'vue'
++
++vi.mock('vue-i18n', async () => {
++  const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
++  return {
++    ...actual,
++    useI18n: () => ({ t: (key: string) => key }),
++  }
++})
++
++const cachedPublicSettings = ref<Record<string, unknown> | null>({})
++vi.mock('@/core/stores/appStore', () => ({
++  useAppStore: () => ({
++    cachedPublicSettings: cachedPublicSettings.value,
++    showError: vi.fn(),
++    showSuccess: vi.fn(),
++  }),
++}))
++
++vi.mock('@/features/auth', () => ({
++  useAuthStore: () => ({ isAdmin: false }),
++}))
++
++const listChannelMonitorViews = vi.fn()
++vi.mock('@/features/channel-monitor-user/data/datasources/channelMonitorUserDatasource', () => ({
++  list: (...args: unknown[]) => listChannelMonitorViews(...args),
++  statusBatch: vi.fn().mockResolvedValue([]),
++}))
++
++import ChannelStatusPage from '@/features/channels-user/presentation/pages/ChannelStatusPage.vue'
++import MonitorCardGrid from '@/features/channel-monitor-user/presentation/widgets/MonitorCardGrid.vue'
++import type {
++  Provider,
++  UserMonitorView,
++} from '@/features/channel-monitor-user/data/datasources/channelMonitorUserDatasource'
++
++function monitor(overrides: Partial<UserMonitorView> & { id: number }): UserMonitorView {
++  return {
++    name: `Monitor ${overrides.id}`,
++    provider: 'openai' as Provider,
++    group_name: `Group ${overrides.id}`,
++    primary_model: 'gpt-5.2',
++    primary_status: 'operational',
++    primary_latency_ms: 100,
++    primary_ping_latency_ms: 120,
++    availability_7d: 99.9,
++    extra_models: [],
++    timeline: [],
++    ...overrides,
++  }
++}
++
++async function flush() {
++  await Promise.resolve()
++  await new Promise(resolve => setTimeout(resolve, 0))
++}
++
++const mounted: VueWrapper[] = []
++
++afterEach(() => {
++  for (const wrapper of mounted.splice(0)) wrapper.unmount()
++})
++
++beforeEach(() => {
++  setActivePinia(createPinia())
++  cachedPublicSettings.value = { channel_monitor_timeline_points: 20 }
++  listChannelMonitorViews.mockReset()
++})
++
++async function mountPage(items: UserMonitorView[]) {
++  listChannelMonitorViews.mockResolvedValue({ items })
++  const wrapper = mount(ChannelStatusPage, {
++    global: {
++      plugins: [createPinia()],
++      stubs: {
++        AppLayout: { template: '<div><slot /></div>' },
++        MonitorHero: true,
++        MonitorDetailDialog: true,
++      },
++    },
++  })
++  mounted.push(wrapper)
++  await flush()
++  return wrapper
++}
++
++describe('ChannelStatusPage provider filtering', () => {
++  it('shows every provider by default and forwards the configured timeline length', async () => {
++    const wrapper = await mountPage([
++      monitor({ id: 1, provider: 'openai' }),
++      monitor({ id: 2, provider: 'anthropic' }),
++    ])
++
++    const grid = wrapper.getComponent(MonitorCardGrid)
++    expect(grid.props('items')).toHaveLength(2)
++    expect(grid.props('timelinePoints')).toBe(20)
++  })
++
++  it('narrows the grid and the overall status to the selected provider', async () => {
++    const wrapper = await mountPage([
++      monitor({ id: 1, provider: 'openai', primary_status: 'operational' }),
++      monitor({ id: 2, provider: 'anthropic', primary_status: 'failed' }),
++    ])
++
++    const select = wrapper.get('#provider-filter')
++    await select.setValue('openai')
++
++    const grid = wrapper.getComponent(MonitorCardGrid)
++    expect(grid.props('items')).toHaveLength(1)
++    expect(grid.props('items')[0].provider).toBe('openai')
++    expect(wrapper.text()).toContain('channelStatus.allOperational')
++  })
++
++  it('falls back to 20 timeline points when the public setting is absent', async () => {
++    cachedPublicSettings.value = {}
++    const wrapper = await mountPage([monitor({ id: 1 })])
++    expect(wrapper.getComponent(MonitorCardGrid).props('timelinePoints')).toBe(20)
++  })
++
++  it.each([
++    [35, 35], [999, 60], [0, 1], [-3, 1], [2.9, 2],
++    [Infinity, 20], [NaN, 20], [null, 20], ['35', 20],
++  ])('bounds cached timeline value %s to %s', async (value, expected) => {
++    cachedPublicSettings.value = { channel_monitor_timeline_points: value }
++    const wrapper = await mountPage([monitor({ id: 1 })])
++    expect(wrapper.getComponent(MonitorCardGrid).props('timelinePoints')).toBe(expected)
++  })
++
++  it('returns to all providers when refresh removes the selected provider', async () => {
++    const wrapper = await mountPage([
++      monitor({ id: 1, provider: 'openai' }),
++      monitor({ id: 2, provider: 'anthropic' }),
++    ])
++    await wrapper.get('#provider-filter').setValue('openai')
++    expect(listChannelMonitorViews).toHaveBeenCalledTimes(1)
++    listChannelMonitorViews.mockResolvedValue({ items: [monitor({ id: 2, provider: 'anthropic' })] })
++    wrapper.getComponent({ name: 'MonitorHero' }).vm.$emit('refresh')
++    await flush()
++    expect((wrapper.get('#provider-filter').element as HTMLSelectElement).value).toBe('all')
++    expect(wrapper.getComponent(MonitorCardGrid).props('items')).toHaveLength(1)
++  })
++})
+diff --git a/frontend/src/features/channels-user/presentation/pages/ChannelStatusPage.vue b/frontend/src/features/channels-user/presentation/pages/ChannelStatusPage.vue
+index 64c81d474..a2c3ba8d5 100644
+--- a/frontend/src/features/channels-user/presentation/pages/ChannelStatusPage.vue
++++ b/frontend/src/features/channels-user/presentation/pages/ChannelStatusPage.vue
+@@ -12,10 +12,23 @@
+       @copy-share-link="copyShareLink"
+     />
+ 
++    <div v-if="providerOptions.length > 0" class="mb-3 flex items-center gap-2">
++      <label class="text-xs font-semibold text-gray-500 dark:text-gray-400" for="provider-filter">
++        {{ t('channelStatus.filterProvider') }}
++      </label>
++      <select id="provider-filter" v-model="selectedProvider" class="input h-8 w-auto py-1 text-xs">
++        <option value="all">{{ t('channelStatus.allProviders') }}</option>
++        <option v-for="option in providerOptions" :key="option" :value="option">
++          {{ providerLabel(option) }}
++        </option>
++      </select>
++    </div>
++
+     <MonitorCardGrid
+-      :items="items"
++      :items="filteredItems"
+       :window="currentWindow"
+       :countdown-seconds="countdown"
++      :timeline-points="timelinePoints"
+       :loading="loading"
+       :detail-cache="detailCache"
+       @card-click="openDetail"
+@@ -50,10 +63,12 @@ import MonitorHero, {
+ } from '@/features/channel-monitor-user/presentation/widgets/MonitorHero.vue'
+ import MonitorCardGrid from '@/features/channel-monitor-user/presentation/widgets/MonitorCardGrid.vue'
+ import MonitorDetailDialog from '@/features/channel-monitor-user/presentation/widgets/MonitorDetailDialog.vue'
+-import { DEFAULT_INTERVAL_SECONDS, STATUS_OPERATIONAL } from '@/core/constants/channelMonitor'
++import { DEFAULT_INTERVAL_SECONDS, STATUS_OPERATIONAL, normalizeChannelMonitorTimelinePoints } from '@/core/constants/channelMonitor'
++import { useChannelMonitorFormat } from '@/features/channel-monitor-user'
+ import { useAutoRefresh } from '@/common/composables/useAutoRefresh'
+ 
+ const { t } = useI18n()
++const { providerLabel } = useChannelMonitorFormat()
+ const appStore = useAppStore()
+ const authStore = useAuthStore()
+ 
+@@ -76,14 +91,35 @@ const autoRefresh = useAutoRefresh({
+ const countdown = autoRefresh.countdown
+ 
+ const overallStatus = computed<OverallStatus>(() => {
+-  if (items.value.length === 0) return 'operational'
+-  for (const it of items.value) {
++  const list = filteredItems.value
++  if (list.length === 0) return 'operational'
++  for (const it of list) {
+     if (it.primary_status === 'failed' || it.primary_status === 'error') return 'degraded'
+     if (it.primary_status !== STATUS_OPERATIONAL) return 'degraded'
+   }
+   return 'operational'
+ })
+ 
++const timelinePoints = computed(() =>
++  normalizeChannelMonitorTimelinePoints(appStore.cachedPublicSettings?.channel_monitor_timeline_points),
++)
++
++const providerOptions = computed(() => [...new Set(items.value.map(item => item.provider))])
++
++const selectedProvider = ref<string>('all')
++
++watch(providerOptions, (options) => {
++  if (selectedProvider.value !== 'all' && !options.some(provider => provider === selectedProvider.value)) {
++    selectedProvider.value = 'all'
++  }
++})
++
++const filteredItems = computed(() =>
++  selectedProvider.value === 'all'
++    ? items.value
++    : items.value.filter(item => item.provider === selectedProvider.value),
++)
++
+ const detailTitle = computed(() => detailTarget.value?.name || t('channelStatus.detailTitle'))
+ 
+ const shareURL = computed(() => `${window.location.origin}/monitor/public`)
+diff --git a/frontend/src/types/common.ts b/frontend/src/types/common.ts
+index 4b1bc963f..0fcdba2f9 100644
+--- a/frontend/src/types/common.ts
++++ b/frontend/src/types/common.ts
+@@ -300,6 +300,7 @@ export interface PublicSettings {
+   balance_low_notify_threshold: number
+   channel_monitor_enabled: boolean
+   channel_monitor_default_interval_seconds: number
++  channel_monitor_timeline_points: number
+   channel_monitor_latency_unit?: 'ms' | 's' | string
+   channel_monitor_public_share_enabled?: boolean
+   channel_monitor_public_share_require_auth?: boolean

@@ -43,6 +43,9 @@ func (s *SettingService) applyFeatureSettings(result *SystemSettings, settings m
 	result.ChannelMonitorDefaultIntervalSeconds = parseChannelMonitorInterval(
 		settings[SettingKeyChannelMonitorDefaultIntervalSeconds],
 	)
+	result.ChannelMonitorTimelinePoints = parseChannelMonitorTimelinePoints(
+		settings[SettingKeyChannelMonitorTimelinePoints],
+	)
 	result.ChannelMonitorLatencyUnit = normalizeChannelMonitorLatencyUnit(settings[SettingKeyChannelMonitorLatencyUnit])
 	result.ChannelMonitorPublicShareEnabled = settings[SettingKeyChannelMonitorPublicShareEnabled] == "true"
 	result.ChannelMonitorPublicShareRequireAuth = settings[SettingKeyChannelMonitorPublicShareRequireAuth] == "true"

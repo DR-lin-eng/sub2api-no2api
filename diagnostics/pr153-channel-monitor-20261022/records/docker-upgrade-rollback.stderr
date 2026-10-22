@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/private/tmp/sub2api-pr153-wda5i24i/runtime/check.py", line 113, in <module>
+    before, _ = stage('BASELINE', None, invariant)
+                ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/sub2api-pr153-wda5i24i/runtime/check.py", line 88, in stage
+    assert status == 200, ('admin settings', status)
+           ^^^^^^^^^^^^^
+AssertionError: ('admin settings', 423)

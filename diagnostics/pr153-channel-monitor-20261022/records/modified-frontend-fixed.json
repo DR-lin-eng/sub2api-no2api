@@ -1,0 +1,26 @@
+{
+  "label": "modified-frontend-fixed",
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=4g",
+    "-e",
+    "CI=true",
+    "-v",
+    "/private/tmp/sub2api-pr153-wda5i24i/repo:/workspace",
+    "-v",
+    "sub2api-pr153-node-modules-20261022:/workspace/frontend/node_modules",
+    "-w",
+    "/workspace/frontend",
+    "--entrypoint",
+    "sh",
+    "sub2api-sync-node:20261019",
+    "-c",
+    "pnpm exec vitest run src/features/channel-monitor-user src/features/channels-user src/features/admin-settings && pnpm run typecheck && pnpm run lint:check && pnpm run build"
+  ],
+  "started_at": "2026-10-22T14:56:37.330598+00:00",
+  "finished_at": "2026-10-22T14:59:24.346204+00:00",
+  "exit_status": 0
+}

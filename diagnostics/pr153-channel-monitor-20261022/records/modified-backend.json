@@ -1,0 +1,32 @@
+{
+  "label": "modified-backend",
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=6g",
+    "-e",
+    "GOMAXPROCS=2",
+    "-e",
+    "GOMEMLIMIT=5GiB",
+    "-e",
+    "GOFLAGS=-p=1",
+    "-v",
+    "/private/tmp/sub2api-pr153-wda5i24i/repo:/workspace",
+    "-v",
+    "sub2api-go-mod:/go/pkg/mod",
+    "-v",
+    "sub2api-go-build:/root/.cache/go-build",
+    "-w",
+    "/workspace/backend",
+    "--entrypoint",
+    "sh",
+    "sub2api-sync-go:20261022",
+    "-c",
+    "go version && go test -tags=unit ./... -count=1"
+  ],
+  "started_at": "2026-10-22T14:56:36.196128+00:00",
+  "finished_at": "2026-10-22T15:04:02.531981+00:00",
+  "exit_status": 0
+}

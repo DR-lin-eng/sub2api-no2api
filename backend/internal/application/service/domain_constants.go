@@ -463,6 +463,9 @@ const (
 	// pre-filled when creating a new channel monitor from the admin UI. Range: [15, 3600].
 	SettingKeyChannelMonitorDefaultIntervalSeconds = "channel_monitor_default_interval_seconds"
 
+	// SettingKeyChannelMonitorTimelinePoints controls the number of status timeline bars shown to users.
+	SettingKeyChannelMonitorTimelinePoints = "channel_monitor_timeline_points"
+
 	// SettingKeyChannelMonitorLatencyUnit controls how channel monitor latency values
 	// are displayed in the admin and user-facing UI. Allowed values: "ms" or "s".
 	SettingKeyChannelMonitorLatencyUnit = "channel_monitor_latency_unit"

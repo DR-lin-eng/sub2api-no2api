@@ -300,6 +300,7 @@ export interface PublicSettings {
   balance_low_notify_threshold: number
   channel_monitor_enabled: boolean
   channel_monitor_default_interval_seconds: number
+  channel_monitor_timeline_points: number
   channel_monitor_latency_unit?: 'ms' | 's' | string
   channel_monitor_public_share_enabled?: boolean
   channel_monitor_public_share_require_auth?: boolean

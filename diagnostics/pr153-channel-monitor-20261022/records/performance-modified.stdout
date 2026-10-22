@@ -1,0 +1,14 @@
+
+[1m[46m RUN [49m[22m [36mv3.2.6 [39m[90m/workspace/frontend[39m
+
+[90mstdout[2m | src/features/channels-user/__tests__/pr153.performance.spec.ts[2m > [22m[2mmeasures the same 360-row, 60-history-point grouping and render workload
+[22m[39mPR153_PERFORMANCE {"rows":360,"history_points":60,"timeline_stubbed":true,"samples_ms":[150.05987499999992,139.38212499999986,143.78125,137.991583,142.09645899999987,141.192583,144.300792,279.8728329999999,171.5894589999998,138.4198339999998,143.46970899999997,144.72541599999977],"median_ms":143.62547949999998,"p90_ms":171.5894589999998}
+
+ [32m✓[39m src/features/channels-user/__tests__/pr153.performance.spec.ts [2m([22m[2m1 test[22m[2m)[22m[33m 2753[2mms[22m[39m
+   [33m[2m✓[22m[39m measures the same 360-row, 60-history-point grouping and render workload [33m 2753[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m   Start at [22m 15:09:18
+[2m   Duration [22m 3.84s[2m (transform 476ms, setup 60ms, collect 543ms, tests 2.75s, environment 193ms, prepare 49ms)[22m
+

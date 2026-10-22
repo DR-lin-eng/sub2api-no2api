@@ -1,0 +1,10 @@
+{
+  "label": "source-transaction",
+  "command": [
+    "python3",
+    "/private/tmp/sub2api-pr153-wda5i24i/source_transaction.py"
+  ],
+  "started_at": "2026-10-22T15:13:12.069087+00:00",
+  "finished_at": "2026-10-22T15:13:13.023900+00:00",
+  "exit_status": 1
+}

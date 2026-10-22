@@ -51,6 +51,22 @@
 
             <div v-if="form.channel_monitor_enabled">
               <label class="input-label">
+                {{ t('admin.settings.features.channelMonitor.timelinePoints') }}
+              </label>
+              <input
+                v-model.number="form.channel_monitor_timeline_points"
+                type="number"
+                min="1"
+                max="60"
+                class="input"
+              />
+              <p class="mt-1 text-xs text-gray-400">
+                {{ t('admin.settings.features.channelMonitor.timelinePointsHint') }}
+              </p>
+            </div>
+
+            <div v-if="form.channel_monitor_enabled">
+              <label class="input-label">
                 {{ t('admin.settings.features.channelMonitor.latencyUnit') }}
               </label>
               <select

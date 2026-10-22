@@ -1,0 +1,10 @@
+{
+  "label": "final-docs",
+  "command": [
+    "make",
+    "check-docs"
+  ],
+  "started_at": "2026-10-22T15:22:27.664551+00:00",
+  "finished_at": "2026-10-22T15:22:28.299670+00:00",
+  "exit_status": 0
+}

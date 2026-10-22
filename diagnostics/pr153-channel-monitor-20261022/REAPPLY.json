@@ -1,0 +1,13 @@
+{
+  "command": [
+    "git",
+    "apply",
+    "/private/tmp/sub2api-pr153-wda5i24i/DIFF_FILE.patch"
+  ],
+  "stdout": "",
+  "stderr": "",
+  "exit_status": 0,
+  "files_match_modified": true,
+  "reapplied_archive_matches": true,
+  "modified_archive_sha256": "90d2f1fb4d9ca609af90d217f33c53dc5f5bc275308e34809bb32d1f573a6a26"
+}

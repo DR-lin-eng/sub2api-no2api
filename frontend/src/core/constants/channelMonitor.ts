@@ -61,3 +61,9 @@ export const MONITOR_STATUSES: readonly MonitorStatus[] = [
 
 /** Default polling interval (seconds) for new monitors. */
 export const DEFAULT_INTERVAL_SECONDS = 60
+
+/** Bound display work and keep old-server or missing settings at the shipped default. */
+export function normalizeChannelMonitorTimelinePoints(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 20
+  return Math.min(60, Math.max(1, Math.trunc(value)))
+}

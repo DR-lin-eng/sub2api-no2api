@@ -1,0 +1,18 @@
+{
+  "label": "candidate-image-build",
+  "command": [
+    "docker",
+    "build",
+    "--progress=plain",
+    "--build-arg",
+    "GOLANG_IMAGE=sub2api-timezone-go-builder:1.26.10",
+    "--build-arg",
+    "COMMIT=pr153-reviewed",
+    "-t",
+    "sub2api:pr153-reviewed-20261022",
+    "."
+  ],
+  "started_at": "2026-10-22T14:58:02.689683+00:00",
+  "finished_at": "2026-10-22T14:58:03.173734+00:00",
+  "exit_status": 1
+}
