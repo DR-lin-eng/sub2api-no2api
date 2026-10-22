@@ -1,0 +1,18 @@
+{
+  "copy": "/private/tmp/sub2api-upstream-sync-20261022-ieZnRf/rollback-target",
+  "baseline_sha": "0dd415b5569e306e33e6d194d672389210a06efd",
+  "all_baseline_source_hashes_match": true,
+  "verified_source_files": 5637,
+  "baseline_source_manifest_sha256": "e0c65b123e96a743341bc97fc78025249572cb46b91381dd29531f5e832e28f6",
+  "restored_source_manifest_sha256": "e0c65b123e96a743341bc97fc78025249572cb46b91381dd29531f5e832e28f6",
+  "all_added_source_paths_removed": true,
+  "all_modified_hashes_match_after_reapply": true,
+  "final_diff_sha256": "05957f69242e4abefbb819a4efa801f9186e86fae9a4848da32e4f95bfb85a75",
+  "rollback_command": [
+    "/Users/lin/.codex/visualizations/2026/10/22/01a16146-dab6-7463-bd83-4e067aea805a/roles/ROLLBACK.sh",
+    "/private/tmp/sub2api-upstream-sync-20261022-ieZnRf/rollback-target"
+  ],
+  "rollback_stdout": "Restored pristine source bytes in /private/tmp/sub2api-upstream-sync-20261022-ieZnRf/rollback-target\n",
+  "rollback_stderr": "",
+  "rollback_exit": 0
+}

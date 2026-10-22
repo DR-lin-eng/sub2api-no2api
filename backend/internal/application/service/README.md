@@ -85,3 +85,5 @@ GPT-6.1 Sol 的订阅模型长上下文豁免由 `openai_subscription_long_conte
 `gemini_messages_stream.go`、`gemini_native_stream.go` 和 `gemini_stream_client_abort.go` 分别维护 Messages/Native SSE、请求内写失败和下游取消后的累计用量保留；Chat 保持已支持的图片 Markdown，并只对中断路径按成功写出数计图。`image_storage.go` 继续通过既有 public-destination HTTP 端口下载结果，拒绝声明、嗅探均非图片的内容。缓存专有用量、性能、升级和关闭边界见 [2026-10-19 同步审查](../../../../docs/UPSTREAM_SYNC_20261019.md)。
 
 `gateway_forward_compat_stream.go` 和 `gateway_forward_compat_idle.go` 管理 Anthropic 兼容流的字节级扫描、阻塞读取超时和断连后最终用量；`account_quota_support.go`、`request_metadata_single_account.go` 分别维护 service account 配额类型和请求内延迟单账号探测。Gemini 图片权限、工具 schema 和关闭台账见 [2026-10-22 同步审查](../../../../docs/UPSTREAM_SYNC_20261022.md)。
+
+`billing_grok_fast.go` 持有 Grok 4.7 Fast 的明确 ID 与内置兜底价；捆绑快照使用本项目已支持的显式长上下文字段。两个 Fast ID、边界与价格优先级见 [#8170 同步记录](../../../../docs/UPSTREAM_SYNC_20261022_PR8170.md)。

@@ -1,0 +1,21 @@
+URL=https://docs.x.ai/developers/pricing
+Grok 4.7 Fast pricing (Cursor and Grok Build only)
+Grok 4.7 Fast is the same Grok 4.7 model served on faster infrastructure. It costs 2x the standard token rates, or 1.5x for long-context requests. It's available only in
+Cursor
+and
+Grok Build
+, and is billed through your plan there. It is not available on the public xAI API, and Grok Build's free tier does not include it.
+Prompt tokens
+Input
+Cached input
+Output
+Below 200k
+$4.00 / 1M
+$1.00 / 1M
+$12.00 / 1M
+Above 200k
+$6.00 / 1M
+$1.50 / 1M
+$18.00 / 1M
+Long-context rates apply once a request's prompt exceeds 200k tokens. Cursor bills its own fast variant through your Cursor plan.
+

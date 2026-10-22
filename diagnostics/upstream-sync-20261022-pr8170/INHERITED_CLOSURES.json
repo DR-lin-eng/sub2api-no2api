@@ -1,0 +1,17 @@
+{
+  "rule": "Extend #151 without changing any inherited decision. #8251 and older deferred decisions remain closed to repeated unchanged-diff review.",
+  "sha256": {
+    "diagnostics/upstream-sync-20261007/UPSTREAM_PRS.json": "9e2846aac4805b1f986aede7e45d63d4c8f6db0fcbb0c572bb4f05143532fb73",
+    "diagnostics/upstream-sync-20261009/UPSTREAM_PRS.json": "ec0c57b0ffce136a99a6f262fbfb9503bf5a88f153522db2975ec99e7f9b7362",
+    "diagnostics/upstream-sync-20261008/UPSTREAM_PRS.json": "281d015cd91673351188d3cd9fb27789ecc9d914e24a89e5c95ecfa24b20de66",
+    "diagnostics/upstream-sync-20261015/UPSTREAM_PRS.json": "fea02f7ea8326c19e60ffccf71e9c2cccc545cc6097c088f2394a30f8350eb97",
+    "diagnostics/upstream-sync-20260930/UPSTREAM_PRS.json": "5dea42f1f5c9b812d45fdcb71f7d015abd042d7308ca54e4c8ba6c05847a4eba",
+    "diagnostics/upstream-sync-20261012/UPSTREAM_PRS.json": "c6896dbf52c20185ee7140fdd4c8f395dbd08488bd00c2eadba69e5636ae62e6",
+    "diagnostics/upstream-sync-20261013/UPSTREAM_PRS.json": "0ff61648b9e7696163650812e6e65cd8f622a1d83b46d4d5dc4306626f81b800",
+    "diagnostics/upstream-sync-20261022/UPSTREAM_PRS.json": "708db153a5ec38bc346bb1611a1fad2ebd4c7e3d6f21fc72f3ce23e99fd005cf",
+    "diagnostics/upstream-sync-20261005/UPSTREAM_PRS.json": "f9bf1511d69a53658da2771324b3b52f2100f0af8cd6660b2fab8d5776d73397",
+    "diagnostics/upstream-sync-20261016-followup/UPSTREAM_PRS.json": "c2cc34abfaf8d66a7bc9868991a2da65a4b889dc3bb5119fdba4140a809c20cb",
+    "diagnostics/upstream-sync-20261016/UPSTREAM_PRS.json": "c45d52d1fcee8e782e938dd4ad632442101cddc62dd5023c0180789111893ff5",
+    "diagnostics/upstream-sync-20261019/UPSTREAM_PRS.json": "0717d57c6fb7d5e5a33378b65ebe2033de8b31e321f3a8d2a30c335118fe1025"
+  }
+}

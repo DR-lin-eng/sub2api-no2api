@@ -1,0 +1,63 @@
+{
+  "upstream": "dba770d56a0ee0ae5bad1b3dc5e11614d323163c",
+  "scope": [
+    8170
+  ],
+  "baseline_copy": "/private/tmp/sub2api-upstream-sync-20261022-ieZnRf/BASELINE_PR8170",
+  "active_object": "/private/tmp/sub2api-upstream-sync-20261022-ieZnRf/MODIFIED_FILE",
+  "upstream_diff_sha256": "04c3cb84ffe5894d08206ef7abaedd3d08200ed87d4747350ff85bcc209a1954",
+  "last_confirmed_result": "Baseline price replay and modified Fast cards/boundary/custom precedence passed in Docker; Fast microbenchmark -48.72%, ordinary Grok +4.66%, no new allocations.",
+  "next_executable_action": "Complete Docker unit/race/lint/runtime persistence and cumulative source rollback transaction, then publish PR.",
+  "step_baseline_sha": "66ee90b06e3dc920d683f189fdff9abbacfcaae8",
+  "previous_roles_snapshot": {
+    "MODIFIED_FILE.tar.gz": {
+      "path": "/Users/lin/.codex/visualizations/2026/10/22/01a16146-dab6-7463-bd83-4e067aea805a/roles/MODIFIED_FILE.tar.gz",
+      "sha256": "5ccb3b7734a28d031c8a00d0d2ce07bb3cc54e24af12dbe659e629965478f5e5",
+      "bytes": 371921
+    },
+    "DIFF_FILE.patch": {
+      "path": "/Users/lin/.codex/visualizations/2026/10/22/01a16146-dab6-7463-bd83-4e067aea805a/roles/DIFF_FILE.patch",
+      "sha256": "63278539519672dfc7395769dd0260ce424e7107fa82713ba0452f6b4086d2fa",
+      "bytes": 238098
+    },
+    "VERIFICATION.txt": {
+      "path": "/Users/lin/.codex/visualizations/2026/10/22/01a16146-dab6-7463-bd83-4e067aea805a/roles/VERIFICATION.txt",
+      "sha256": "00366165eb27793346983c86f41e790b324c6495989c8857ac4b4ae935b79dc0",
+      "bytes": 170997
+    },
+    "ROLLBACK.sh": {
+      "path": "/Users/lin/.codex/visualizations/2026/10/22/01a16146-dab6-7463-bd83-4e067aea805a/roles/ROLLBACK.sh",
+      "sha256": "6d64737f5f74e9a70caf7a45dcfecc70730c29c860d9f8d28b02be0718d4a0cc",
+      "bytes": 2564
+    }
+  },
+  "roles": {
+    "MODIFIED_FILE.tar.gz": "/Users/lin/.codex/visualizations/2026/10/22/01a16146-dab6-7463-bd83-4e067aea805a/roles/MODIFIED_FILE.tar.gz",
+    "DIFF_FILE.patch": "/Users/lin/.codex/visualizations/2026/10/22/01a16146-dab6-7463-bd83-4e067aea805a/roles/DIFF_FILE.patch",
+    "VERIFICATION.txt": "/Users/lin/.codex/visualizations/2026/10/22/01a16146-dab6-7463-bd83-4e067aea805a/roles/VERIFICATION.txt",
+    "ROLLBACK.sh": "/Users/lin/.codex/visualizations/2026/10/22/01a16146-dab6-7463-bd83-4e067aea805a/roles/ROLLBACK.sh"
+  },
+  "source_rollback_baseline": "0dd415b5569e306e33e6d194d672389210a06efd",
+  "source_role_scope": "Cumulative #151 and #8170; source rollback restores the original source baseline. Runtime upgrade/rollback for this step uses #151 image as baseline.",
+  "local_result": "PASS",
+  "validation": {
+    "docker_unit": "PASS",
+    "race": "PASS",
+    "lint": "0 issues",
+    "production_image": "PASS",
+    "http_persisted_four_states": "PASS",
+    "source_rollback_reapply": "PASS"
+  },
+  "observed_short_cost": {
+    "baseline": 0.275,
+    "modified": 0.57,
+    "rollback": 0.275,
+    "restored": 0.57
+  },
+  "observed_200k_cost": {
+    "baseline": 0.75,
+    "modified": 1.155,
+    "rollback": 0.75,
+    "restored": 1.155
+  }
+}
