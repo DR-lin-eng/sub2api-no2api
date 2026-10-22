@@ -1,0 +1,369 @@
+{
+  "BASELINE": {
+    "Mapping8": {
+      "samples": [
+        [
+          308.5,
+          128,
+          1
+        ],
+        [
+          309.3,
+          128,
+          1
+        ],
+        [
+          307.1,
+          128,
+          1
+        ]
+      ],
+      "median_ns": 308.5,
+      "median_bytes": 128,
+      "median_allocs": 1
+    },
+    "Mapping128": {
+      "samples": [
+        [
+          7912.0,
+          2304,
+          1
+        ],
+        [
+          7954.0,
+          2304,
+          1
+        ],
+        [
+          7892.0,
+          2304,
+          1
+        ]
+      ],
+      "median_ns": 7912.0,
+      "median_bytes": 2304,
+      "median_allocs": 1
+    },
+    "Mapping1024": {
+      "samples": [
+        [
+          91011.0,
+          18432,
+          1
+        ],
+        [
+          91632.0,
+          18432,
+          1
+        ],
+        [
+          91297.0,
+          18432,
+          1
+        ]
+      ],
+      "median_ns": 91297.0,
+      "median_bytes": 18432,
+      "median_allocs": 1
+    },
+    "Schema": {
+      "samples": [
+        [
+          1184.0,
+          1928,
+          25
+        ],
+        [
+          1186.0,
+          1928,
+          25
+        ],
+        [
+          1178.0,
+          1928,
+          25
+        ]
+      ],
+      "median_ns": 1184.0,
+      "median_bytes": 1928,
+      "median_allocs": 25
+    },
+    "Chat": {
+      "samples": [
+        [
+          79283.0,
+          160678,
+          1008
+        ],
+        [
+          79377.0,
+          160678,
+          1008
+        ],
+        [
+          79238.0,
+          160678,
+          1008
+        ]
+      ],
+      "median_ns": 79283.0,
+      "median_bytes": 160678,
+      "median_allocs": 1008
+    },
+    "Responses": {
+      "samples": [
+        [
+          137992.0,
+          212241,
+          1738
+        ],
+        [
+          135955.0,
+          212241,
+          1738
+        ],
+        [
+          136098.0,
+          212239,
+          1738
+        ]
+      ],
+      "median_ns": 136098.0,
+      "median_bytes": 212241,
+      "median_allocs": 1738
+    },
+    "ChatTimeout": {
+      "samples": [
+        [
+          80619.0,
+          161095,
+          1011
+        ],
+        [
+          79408.0,
+          161095,
+          1011
+        ],
+        [
+          79878.0,
+          161094,
+          1011
+        ]
+      ],
+      "median_ns": 79878.0,
+      "median_bytes": 161095,
+      "median_allocs": 1011
+    },
+    "ResponsesTimeout": {
+      "samples": [
+        [
+          136349.0,
+          212659,
+          1741
+        ],
+        [
+          136613.0,
+          212660,
+          1741
+        ],
+        [
+          138244.0,
+          212658,
+          1741
+        ]
+      ],
+      "median_ns": 136613.0,
+      "median_bytes": 212659,
+      "median_allocs": 1741
+    }
+  },
+  "MODIFIED": {
+    "Mapping8": {
+      "samples": [
+        [
+          115.9,
+          0,
+          0
+        ],
+        [
+          120.2,
+          0,
+          0
+        ],
+        [
+          117.2,
+          0,
+          0
+        ]
+      ],
+      "median_ns": 117.2,
+      "median_bytes": 0,
+      "median_allocs": 0
+    },
+    "Mapping128": {
+      "samples": [
+        [
+          2054.0,
+          0,
+          0
+        ],
+        [
+          2053.0,
+          0,
+          0
+        ],
+        [
+          2091.0,
+          0,
+          0
+        ]
+      ],
+      "median_ns": 2054.0,
+      "median_bytes": 0,
+      "median_allocs": 0
+    },
+    "Mapping1024": {
+      "samples": [
+        [
+          17047.0,
+          0,
+          0
+        ],
+        [
+          18064.0,
+          0,
+          0
+        ],
+        [
+          17390.0,
+          0,
+          0
+        ]
+      ],
+      "median_ns": 17390.0,
+      "median_bytes": 0,
+      "median_allocs": 0
+    },
+    "Schema": {
+      "samples": [
+        [
+          1211.0,
+          1928,
+          25
+        ],
+        [
+          1205.0,
+          1928,
+          25
+        ],
+        [
+          1196.0,
+          1928,
+          25
+        ]
+      ],
+      "median_ns": 1205.0,
+      "median_bytes": 1928,
+      "median_allocs": 25
+    },
+    "Chat": {
+      "samples": [
+        [
+          90639.0,
+          153973,
+          938
+        ],
+        [
+          93938.0,
+          153974,
+          938
+        ],
+        [
+          85264.0,
+          153973,
+          938
+        ]
+      ],
+      "median_ns": 90639.0,
+      "median_bytes": 153973,
+      "median_allocs": 938
+    },
+    "Responses": {
+      "samples": [
+        [
+          140789.0,
+          205234,
+          1668
+        ],
+        [
+          146697.0,
+          205233,
+          1668
+        ],
+        [
+          144591.0,
+          205230,
+          1668
+        ]
+      ],
+      "median_ns": 144591.0,
+      "median_bytes": 205233,
+      "median_allocs": 1668
+    },
+    "ChatTimeout": {
+      "samples": [
+        [
+          88709.0,
+          155118,
+          950
+        ],
+        [
+          92387.0,
+          155119,
+          950
+        ],
+        [
+          115910.0,
+          155119,
+          950
+        ]
+      ],
+      "median_ns": 92387.0,
+      "median_bytes": 155119,
+      "median_allocs": 950
+    },
+    "ResponsesTimeout": {
+      "samples": [
+        [
+          165686.0,
+          206379,
+          1680
+        ],
+        [
+          142958.0,
+          206382,
+          1680
+        ],
+        [
+          142383.0,
+          206379,
+          1680
+        ]
+      ],
+      "median_ns": 142958.0,
+      "median_bytes": 206379,
+      "median_allocs": 1680
+    }
+  },
+  "change_percent": {
+    "Mapping8": -62.01,
+    "Mapping128": -74.04,
+    "Mapping1024": -80.95,
+    "Schema": 1.77,
+    "Chat": 14.32,
+    "Responses": 6.24,
+    "ChatTimeout": 15.66,
+    "ResponsesTimeout": 4.64
+  },
+  "scope": "Same Go 1.26.10 linux/arm64 Docker image, CGO=0, CPU limit 2, GOMAXPROCS=2, memory 3GiB, 300ms x3; sequential after other jobs finish. Mapping, schema and 32-delta stream fixtures; Timeout cases include 180s read timeout and a cancellable request context. Not production gateway throughput."
+}

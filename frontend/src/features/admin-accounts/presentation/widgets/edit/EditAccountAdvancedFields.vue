@@ -706,7 +706,7 @@
       </div>
       <!-- 配额控制 (非 Anthropic apikey/bedrock) -->
       <div
-        v-else-if="account?.type === 'apikey' || account?.type === 'bedrock'"
+        v-else-if="supportsAccountQuota(account?.type)"
         class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
       >
         <div class="mb-3">
@@ -846,6 +846,8 @@
 </template>
 
 <script setup lang="ts">
+import { supportsAccountQuota } from '@/features/admin-accounts/presentation/accountQuota'
+
 import Icon from '@/common/widgets/icons/Icon.vue'
 import OllamaCloudUsageSettings from '../OllamaCloudUsageSettings.vue'
 import ProxyAdBanner from '@/common/widgets/data/ProxyAdBanner.vue'

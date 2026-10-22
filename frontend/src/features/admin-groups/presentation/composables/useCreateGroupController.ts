@@ -1,3 +1,4 @@
+import { defaultAllowImageGenerationForPlatform } from "../groupsImagePricingResolver";
 import { computed, reactive, ref, watch, type Ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useAppStore } from "@/core/stores/appStore";
@@ -406,6 +407,7 @@ export function useCreateGroupController({
   watch(
     () => createForm.platform,
     (newValue) => {
+      createForm.allow_image_generation = defaultAllowImageGenerationForPlatform(newValue);
       if (!["anthropic", "antigravity"].includes(newValue)) {
         createForm.fallback_group_id_on_invalid_request = null;
       }

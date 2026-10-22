@@ -5,11 +5,13 @@ package repository
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
@@ -285,6 +287,140 @@ func TestUsageBillingRepositoryApply_EnqueuesSchedulerOutboxOnQuotaCrossing(t *t
 		require.NoError(t, err)
 		require.Equal(t, 1, outboxCountFor(t, accountID), "single-shot crossing weekly limit should enqueue once")
 	})
+
+	t.Run("total_first_crossing_enqueues", func(t *testing.T) {
+		apiKeyID, accountID := newFixture(t, map[string]any{
+			"quota_limit": 10.0,
+		})
+		_, err := repo.Apply(ctx, &service.UsageBillingCommand{
+			RequestID:        uuid.NewString(),
+			APIKeyID:         apiKeyID,
+			AccountID:        accountID,
+			AccountType:      service.AccountTypeAPIKey,
+			AccountQuotaCost: 4,
+		})
+		require.NoError(t, err)
+		require.Equal(t, 0, outboxCountFor(t, accountID), "below limit should not enqueue")
+
+		_, err = repo.Apply(ctx, &service.UsageBillingCommand{
+			RequestID:        uuid.NewString(),
+			APIKeyID:         apiKeyID,
+			AccountID:        accountID,
+			AccountType:      service.AccountTypeAPIKey,
+			AccountQuotaCost: 8,
+		})
+		require.NoError(t, err)
+		require.Equal(t, 1, outboxCountFor(t, accountID), "crossing total limit should enqueue once")
+	})
+}
+
+func TestIncrementUsageBillingAccountQuota_StatementVariantsMatchFullStatement(t *testing.T) {
+	ctx := context.Background()
+	client := testEntClient(t)
+	now := time.Now().UTC()
+	at := func(offset time.Duration) string { return now.Add(offset).Format(time.RFC3339) }
+
+	// dailyUnset/weeklyUnset 为库中该维度视为未设置上限：省略该维度的语句在这些配置上命中，其余配置命中 0 行。
+	configs := []struct {
+		name        string
+		extra       map[string]any
+		rawExtra    string
+		dailyUnset  bool
+		weeklyUnset bool
+		wantErr     bool
+	}{
+		{name: "no_limits", extra: map[string]any{}, dailyUnset: true, weeklyUnset: true},
+		{name: "total_only", extra: map[string]any{"quota_limit": 100.0, "quota_used": 3.0}, dailyUnset: true, weeklyUnset: true},
+		{name: "zero_and_negative_period_limits", extra: map[string]any{"quota_limit": 5.0, "quota_daily_limit": 0.0, "quota_weekly_limit": -1.0}, dailyUnset: true, weeklyUnset: true},
+		{name: "null_period_limits", extra: map[string]any{"quota_daily_limit": nil, "quota_weekly_limit": nil}, dailyUnset: true, weeklyUnset: true},
+		{name: "string_period_limits", extra: map[string]any{"quota_daily_limit": "10", "quota_weekly_limit": "0"}},
+		{name: "daily_rolling_active", extra: map[string]any{"quota_daily_limit": 10.0, "quota_daily_used": 4.0, "quota_daily_start": at(-time.Hour)}, weeklyUnset: true},
+		{name: "daily_rolling_expired", extra: map[string]any{"quota_daily_limit": 10.0, "quota_daily_used": 9.0, "quota_daily_start": at(-30 * time.Hour)}, weeklyUnset: true},
+		{name: "daily_fixed_expired", extra: map[string]any{
+			"quota_daily_limit": 10.0, "quota_daily_used": 7.0, "quota_daily_reset_mode": "fixed",
+			"quota_daily_reset_hour": 3, "quota_reset_timezone": "Asia/Shanghai", "quota_daily_reset_at": at(-2 * time.Hour),
+		}, weeklyUnset: true},
+		{name: "weekly_rolling_active", extra: map[string]any{"quota_weekly_limit": 50.0, "quota_weekly_used": 20.0, "quota_weekly_start": at(-48 * time.Hour)}, dailyUnset: true},
+		{name: "weekly_fixed_expired", extra: map[string]any{
+			"quota_weekly_limit": 50.0, "quota_weekly_used": 49.0, "quota_weekly_reset_mode": "fixed",
+			"quota_weekly_reset_day": 1, "quota_weekly_reset_hour": 0, "quota_reset_timezone": "UTC", "quota_weekly_reset_at": at(-time.Hour),
+		}, dailyUnset: true},
+		{name: "daily_and_weekly", extra: map[string]any{
+			"quota_limit": 100.0, "quota_daily_limit": 10.0, "quota_weekly_limit": 50.0,
+			"quota_daily_used": 1.0, "quota_weekly_used": 2.0, "quota_daily_start": at(-time.Hour), "quota_weekly_start": at(-200 * time.Hour),
+		}},
+		{name: "array_extra", rawExtra: `[]`},
+		{name: "scalar_extra", rawExtra: `"value"`},
+		{name: "non_numeric_daily_limit", extra: map[string]any{"quota_daily_limit": "abc"}, weeklyUnset: true, wantErr: true},
+		{name: "boolean_weekly_limit", extra: map[string]any{"quota_weekly_limit": true}, dailyUnset: true, wantErr: true},
+	}
+
+	for _, cfg := range configs {
+		for _, hints := range [][2]bool{{false, false}, {true, false}, {false, true}, {true, true}} {
+			t.Run(fmt.Sprintf("%s/daily=%v/weekly=%v", cfg.name, hints[0], hints[1]), func(t *testing.T) {
+				variant := mustCreateAccount(t, client, &service.Account{
+					Name:  "usage-billing-quota-variant-" + uuid.NewString(),
+					Type:  service.AccountTypeAPIKey,
+					Extra: maps.Clone(cfg.extra),
+				})
+				reference := mustCreateAccount(t, client, &service.Account{
+					Name:  "usage-billing-quota-reference-" + uuid.NewString(),
+					Type:  service.AccountTypeAPIKey,
+					Extra: maps.Clone(cfg.extra),
+				})
+				if cfg.rawExtra != "" {
+					_, err := integrationDB.ExecContext(ctx, "UPDATE accounts SET extra = $1::jsonb WHERE id IN ($2, $3)", cfg.rawExtra, variant.ID, reference.ID)
+					require.NoError(t, err)
+					t.Cleanup(func() {
+						_, _ = integrationDB.ExecContext(ctx, "UPDATE accounts SET extra = '{}'::jsonb WHERE id IN ($1, $2)", variant.ID, reference.ID)
+					})
+				}
+
+				if cfg.wantErr {
+					sqlState := func(accountID int64, daily, weekly bool) pq.ErrorCode {
+						tx, err := integrationDB.BeginTx(ctx, nil)
+						require.NoError(t, err)
+						defer func() { _ = tx.Rollback() }()
+						_, err = incrementUsageBillingAccountQuotaWithLimits(ctx, tx, accountID, 2.5, daily, weekly)
+						var pqErr *pq.Error
+						require.ErrorAs(t, err, &pqErr)
+						return pqErr.Code
+					}
+					require.Equal(t, sqlState(reference.ID, true, true), sqlState(variant.ID, hints[0], hints[1]))
+					return
+				}
+
+				tx, err := integrationDB.BeginTx(ctx, nil)
+				require.NoError(t, err)
+				defer func() { _ = tx.Rollback() }()
+
+				isObject := cfg.rawExtra == ""
+				wantHit := (hints[0] && hints[1]) || (isObject && (hints[0] || cfg.dailyUnset) && (hints[1] || cfg.weeklyUnset))
+				_, err = tx.ExecContext(ctx, "SAVEPOINT quota_variant_probe")
+				require.NoError(t, err)
+				probe, err := execAccountQuotaIncrement(ctx, tx, accountQuotaIncrementSQLs[accountQuotaIncrementSQLIndex(hints[0], hints[1])], variant.ID, 2.5)
+				require.NoError(t, err)
+				require.Equal(t, wantHit, probe != nil, "variant statement hit")
+				_, err = tx.ExecContext(ctx, "ROLLBACK TO SAVEPOINT quota_variant_probe")
+				require.NoError(t, err)
+
+				got, err := incrementUsageBillingAccountQuotaWithLimits(ctx, tx, variant.ID, 2.5, hints[0], hints[1])
+				require.NoError(t, err)
+				want, err := incrementUsageBillingAccountQuotaWithLimits(ctx, tx, reference.ID, 2.5, true, true)
+				require.NoError(t, err)
+				require.Equal(t, *want, *got)
+
+				var gotExtra, wantExtra string
+				var sameExtra, sameUpdatedAt bool
+				require.NoError(t, tx.QueryRowContext(ctx,
+					"SELECT v.extra::text, r.extra::text, v.extra = r.extra, v.updated_at = r.updated_at FROM accounts v, accounts r WHERE v.id = $1 AND r.id = $2",
+					variant.ID, reference.ID,
+				).Scan(&gotExtra, &wantExtra, &sameExtra, &sameUpdatedAt))
+				require.True(t, sameExtra, "variant extra %s != reference extra %s", gotExtra, wantExtra)
+				require.True(t, sameUpdatedAt)
+			})
+		}
+	}
 }
 
 func TestDashboardAggregationRepositoryCleanupUsageBillingDedup_BatchDeletesOldRows(t *testing.T) {

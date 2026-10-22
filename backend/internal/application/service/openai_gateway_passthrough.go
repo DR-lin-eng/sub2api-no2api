@@ -1254,7 +1254,7 @@ func openAIStreamClientOutputStarted(c *gin.Context, localStarted bool) bool {
 
 func openAIStreamEventIsPreambleTrimmed(eventType string) bool {
 	switch eventType {
-	case "response.created", "response.in_progress", "codex.rate_limits", "codex.response.metadata":
+	case "response.created", "response.queued", "response.in_progress", "response.metadata", "codex.rate_limits", "codex.response.metadata":
 		// Transport metadata is not model output, even when carried in data frames.
 		return true
 	default:

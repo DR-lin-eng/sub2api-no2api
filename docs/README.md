@@ -84,6 +84,7 @@
 | [上游主线同步审查记录（2026-10-16）](UPSTREAM_SYNC_20261016.md) | 两个支付 PR 的模块适配、pending 退款事务、易支付确认、混合版本边界与 Docker 验证 |
 | [上游主线增量审查（2026-10-16，后续批次）](UPSTREAM_SYNC_20261016_FOLLOWUP.md) | Gemini 思考、订阅退休、搜索和 Responses 时间戳的当前 owner 适配、性能及升级回退证据 |
 | [上游主线增量同步审查（2026-10-19）](UPSTREAM_SYNC_20261019.md) | Gemini 断流可靠结算、缓存用量下限、图片结果类型检查、关闭台账与 Docker 升级回退 |
+| [上游主线增量同步审查（2026-10-22）](UPSTREAM_SYNC_20261022.md) | service account 配额、Gemini 图片门禁、兼容流断连结算、性能与 Docker 升级回退 |
 | [API Key 删除与计费竞争条件审查（2026-10-06）](../diagnostics/billing-key-deletion-20261006/REPORT.md) | 旧版本漏扣回放、当前修复边界、真实数据库与 24 个 Docker HTTP 场景 |
 | [GPT-6 Astra 接入记录](GPT6_ASTRA.md) | OpenAI 官方模型目录、能力、价格和本项目兼容计费映射 |
 | [GPT-6 模型目录与价格](GPT6_MODELS.md) | GPT-6 Astra、Sol、Luna 的官方能力、价格与本项目实现位置 |

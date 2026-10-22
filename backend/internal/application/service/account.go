@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/Wei-Shaw/sub2api/internal/modules/typesafe"
-	"hash/fnv"
 	"log/slog"
 	"net/url"
 	"reflect"
@@ -353,7 +352,7 @@ func (a *Account) IsSchedulable() bool {
 	if a.TempUnschedulableUntil != nil && now.Before(*a.TempUnschedulableUntil) && !a.bypassesLocalOpenAI429TempUnschedulable() {
 		return false
 	}
-	if a.IsAPIKeyOrBedrock() && a.IsQuotaExceeded() {
+	if a.SupportsAccountQuota() && a.IsQuotaExceeded() {
 		return false
 	}
 	return true
@@ -908,30 +907,6 @@ func mapPtr(m map[string]any) uintptr {
 		return 0
 	}
 	return reflect.ValueOf(m).Pointer()
-}
-
-func modelMappingSignature(rawMapping map[string]any) uint64 {
-	if len(rawMapping) == 0 {
-		return 0
-	}
-	keys := make([]string, 0, len(rawMapping))
-	for k := range rawMapping {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
-	h := fnv.New64a()
-	for _, k := range keys {
-		_, _ = h.Write([]byte(k))
-		_, _ = h.Write([]byte{0})
-		if v, ok := rawMapping[k].(string); ok {
-			_, _ = h.Write([]byte(v))
-		} else {
-			_, _ = h.Write([]byte{1})
-		}
-		_, _ = h.Write([]byte{0xff})
-	}
-	return h.Sum64()
 }
 
 func ensureAntigravityDefaultPassthrough(mapping map[string]string, model string) {

@@ -1,3 +1,4 @@
+import { supportsAccountQuota } from '@/features/admin-accounts/presentation/accountQuota'
 import type { ComputedRef, Ref } from 'vue'
 import type { useI18n } from 'vue-i18n'
 import type {
@@ -205,7 +206,7 @@ export function useCreateAccountOAuthActions(context: CreateAccountOAuthActionsC
     }
     // Inject quota limits for apikey/bedrock accounts
     let finalExtra = extra
-    if (type === 'apikey' || type === 'bedrock') {
+    if (supportsAccountQuota(type)) {
       const quotaExtra: Record<string, unknown> = { ...(extra || {}) }
       if (editQuotaLimit.value != null && editQuotaLimit.value > 0) {
         quotaExtra.quota_limit = editQuotaLimit.value

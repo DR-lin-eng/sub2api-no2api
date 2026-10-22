@@ -1,3 +1,4 @@
+import { supportsAccountQuota } from '@/features/admin-accounts/presentation/accountQuota'
 import type { ComputedRef, Ref } from 'vue'
 import type { useI18n } from 'vue-i18n'
 import type { Account } from '@/types'
@@ -1019,7 +1020,7 @@ function applyQuotaExtra(
   account: Account,
   context: EditAccountUpdatePayloadContext,
 ): void {
-  if (account.type !== 'apikey' && account.type !== 'bedrock') return
+  if (!supportsAccountQuota(account.type)) return
   const extra: UpdatePayload = {
     ...((payload.extra as UpdatePayload | undefined) ||
       (account.extra as UpdatePayload | undefined) ||
