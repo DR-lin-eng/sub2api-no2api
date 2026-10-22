@@ -101,6 +101,9 @@ func (s *OpenAIGatewayService) failoverOpenAIUpstreamHTTPError(
 	upstreamMsg string,
 	upstreamModel string,
 ) *UpstreamFailoverError {
+	if _, policy := openAIUpstreamPolicyErrorDetails(respBody); policy && !isOpenAIInvalidPromptPolicyError(upstreamMsg, respBody) {
+		return nil
+	}
 	shouldFailover := s.shouldFailoverOpenAIUpstreamResponse(resp.StatusCode, upstreamMsg, respBody)
 	tempUnscheduled := false
 	if c != nil && account != nil && account.Platform != PlatformGrok && !shouldFailover && !IsResponseCommitted(c) && s.rateLimitService != nil {
@@ -267,7 +270,8 @@ type ccStreamScanState struct {
 	// Err 为 scanner 读错误（客户端 context 取消不属于此类，会原样带出）。
 	// 非 nil 时调用方必须跳过 finalize 并返回 usage-incomplete 错误，避免
 	// 把上游截断伪装成正常收尾。
-	Err error
+	Err           error
+	PolicyPayload []byte
 }
 
 // scanCCStream 驱动两条 CC 回退路径共享的 SSE 读循环：提取 data 行、在 [DONE]
@@ -301,6 +305,11 @@ func (s *OpenAIGatewayService) scanCCStream(
 
 		if u := extractCCStreamUsage(payload); u != nil {
 			st.Usage = *u
+		}
+		if _, policy := openAIUpstreamPolicyErrorDetails([]byte(payload)); policy {
+			st.PolicyPayload = []byte(payload)
+			_ = resp.Body.Close()
+			return st
 		}
 
 		var chunk apicompat.ChatCompletionsChunk
@@ -350,6 +359,10 @@ func (s *OpenAIGatewayService) readCCUpstreamJSONResponse(
 			writeError(c, http.StatusBadGateway, "api_error", "Failed to read upstream response")
 		}
 		return nil, OpenAIUsage{}, fmt.Errorf("read upstream body: %w", err)
+	}
+
+	if policyErr, handled := writeOpenAIUpstreamPolicyErrorForEndpoint(c, resp.StatusCode, respBody); handled {
+		return nil, OpenAIUsage{}, policyErr
 	}
 
 	var ccResp apicompat.ChatCompletionsResponse

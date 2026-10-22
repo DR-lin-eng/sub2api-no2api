@@ -47,7 +47,7 @@ func TestForwardAsAnthropic_BufferedResponseFailed_ReturnsError(t *testing.T) {
 
 	require.Error(t, err, "non-cyber response.failed must return an error, not swallow as 200")
 	require.Contains(t, err.Error(), "upstream response failed")
-	require.Equal(t, http.StatusBadGateway, rec.Code, "should write 502 for non-failover failed response")
+	require.Equal(t, http.StatusBadRequest, rec.Code, "policy rejection should preserve its message as a client error")
 }
 
 func TestForwardAsAnthropic_StreamingResponseFailed_ReturnsError(t *testing.T) {

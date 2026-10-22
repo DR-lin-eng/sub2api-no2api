@@ -324,6 +324,16 @@ func (s *OpenAIGatewayService) streamChatCompletionsAsResponses(
 		writeEvents(apicompat.ChatCompletionsChunkToResponsesEvents(chunk, state))
 	})
 
+	if scan.PolicyPayload != nil {
+		markOpenAICyberPolicyEvent(c, scan.PolicyPayload, http.StatusOK, &scan.Usage)
+		policyErr, _ := writeOpenAIUpstreamPolicyErrorForEndpoint(c, http.StatusOK, scan.PolicyPayload)
+		return &OpenAIForwardResult{
+			RequestID: requestID, Usage: scan.Usage, Model: originalModel,
+			BillingModel: billingModel, UpstreamModel: upstreamModel, Stream: true,
+			Duration: time.Since(startTime), FirstTokenMs: scan.FirstTokenMs,
+		}, policyErr
+	}
+
 	if scan.Err != nil {
 		return &OpenAIForwardResult{
 			RequestID:       requestID,

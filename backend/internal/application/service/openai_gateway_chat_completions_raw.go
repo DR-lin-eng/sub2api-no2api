@@ -314,6 +314,7 @@ func (s *OpenAIGatewayService) streamRawChatCompletions(
 	pendingBytes := 0
 	refusalDetector := newOpenAIChatSilentRefusalDetector(requestBodyLen)
 	var terminal openAIRawStreamTerminalState
+	var policyFailure error
 
 	flushPendingLines := func(logMessage string) bool {
 		if clientDisconnected || len(pendingLines) == 0 {
@@ -370,6 +371,12 @@ func (s *OpenAIGatewayService) streamRawChatCompletions(
 		line := scanner.Text()
 		refusalDetector.ObserveSSELine(line)
 		if payload, ok := extractOpenAISSEDataLine(line); ok {
+			if _, policy := openAIUpstreamPolicyErrorDetails([]byte(payload)); policy {
+				markOpenAICyberPolicyEvent(c, []byte(payload), http.StatusOK, &usage)
+				policyFailure, _ = writeOpenAIUpstreamPolicyErrorForEndpoint(c, http.StatusOK, []byte(payload))
+				_ = resp.Body.Close()
+				break
+			}
 			trimmedPayload := strings.TrimSpace(payload)
 			terminal.ObserveDataLine(trimmedPayload)
 			if trimmedPayload != "[DONE]" {
@@ -413,6 +420,10 @@ func (s *OpenAIGatewayService) streamRawChatCompletions(
 			Duration:                      time.Since(startTime),
 			FirstTokenMs:                  firstTokenMs,
 		}
+	}
+
+	if policyFailure != nil {
+		return resultWithUsage(), policyFailure
 	}
 
 	scanErr := scanner.Err()
@@ -519,6 +530,10 @@ func (s *OpenAIGatewayService) bufferRawChatCompletions(
 		}
 		return nil, fmt.Errorf("read upstream body: %w", err)
 	}
+	if policyErr, handled := writeOpenAIUpstreamPolicyErrorForEndpoint(c, resp.StatusCode, respBody); handled {
+		return nil, policyErr
+	}
+
 	observer := upstreamResponseModelObserverFromContext(c)
 	if observer == nil {
 		observer = beginUpstreamResponseModelObservation(c)
