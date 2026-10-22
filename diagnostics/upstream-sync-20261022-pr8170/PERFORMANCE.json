@@ -1,0 +1,99 @@
+{
+  "baseline": {
+    "grok-4.6": {
+      "samples": [
+        [
+          790.0,
+          240,
+          5
+        ],
+        [
+          786.4,
+          240,
+          5
+        ],
+        [
+          833.8,
+          240,
+          5
+        ]
+      ],
+      "median_ns": 790.0,
+      "median_bytes": 240,
+      "median_allocs": 5
+    },
+    "grok-4.7-fast": {
+      "samples": [
+        [
+          1026.0,
+          240,
+          5
+        ],
+        [
+          1056.0,
+          240,
+          5
+        ],
+        [
+          1062.0,
+          240,
+          5
+        ]
+      ],
+      "median_ns": 1056.0,
+      "median_bytes": 240,
+      "median_allocs": 5
+    }
+  },
+  "modified": {
+    "grok-4.6": {
+      "samples": [
+        [
+          822.9,
+          240,
+          5
+        ],
+        [
+          826.8,
+          240,
+          5
+        ],
+        [
+          852.5,
+          240,
+          5
+        ]
+      ],
+      "median_ns": 826.8,
+      "median_bytes": 240,
+      "median_allocs": 5
+    },
+    "grok-4.7-fast": {
+      "samples": [
+        [
+          555.6,
+          224,
+          4
+        ],
+        [
+          539.7,
+          224,
+          4
+        ],
+        [
+          541.5,
+          224,
+          4
+        ]
+      ],
+      "median_ns": 541.5,
+      "median_bytes": 224,
+      "median_allocs": 4
+    }
+  },
+  "percent": {
+    "grok-4.6": 4.66,
+    "grok-4.7-fast": -48.72
+  },
+  "scope": "Consecutive Docker Go 1.26.10 arm64, 2 CPU, GOMAXPROCS=2, 3GiB, no competing compile workload; 300ms x3; pricing microbenchmark only."
+}

@@ -1,0 +1,338 @@
+[
+  {
+    "stage": "BASELINE",
+    "result": "PASS",
+    "cases": [
+      {
+        "model": "grok-4.7-fast",
+        "context": "short",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 100000,
+          "cache": 50000,
+          "output": 10000,
+          "input_cost": 0.2,
+          "cache_cost": 0.015,
+          "output_cost": 0.06,
+          "total": 0.275
+        }
+      },
+      {
+        "model": "grok-4.7-fast",
+        "context": "long",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 150000,
+          "cache": 50000,
+          "output": 10000,
+          "input_cost": 0.6,
+          "cache_cost": 0.03,
+          "output_cost": 0.12,
+          "total": 0.75
+        }
+      },
+      {
+        "model": "grok-4.7-build-fast",
+        "context": "short",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 100000,
+          "cache": 50000,
+          "output": 10000,
+          "input_cost": 0.2,
+          "cache_cost": 0.015,
+          "output_cost": 0.06,
+          "total": 0.275
+        }
+      },
+      {
+        "model": "grok-4.7-build-fast",
+        "context": "long",
+        "stream": true,
+        "http": 200,
+        "settlement": {
+          "input": 150000,
+          "cache": 50000,
+          "output": 10000,
+          "input_cost": 0.6,
+          "cache_cost": 0.03,
+          "output_cost": 0.12,
+          "total": 0.75
+        }
+      },
+      {
+        "model": "grok-4.6",
+        "context": "short",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 100000,
+          "cache": 50000,
+          "output": 10000,
+          "input_cost": 0.2,
+          "cache_cost": 0.025,
+          "output_cost": 0.06,
+          "total": 0.285
+        }
+      }
+    ],
+    "migrations": 306,
+    "persisted_identity_key_subscription_sha256": "d2b7b09d275964a964b5ed6503020acec5f48f8136f2a3579ff28008ec050008",
+    "health_ready_frontend_encrypted_login": "PASS"
+  },
+  {
+    "stage": "MODIFIED",
+    "result": "PASS",
+    "cases": [
+      {
+        "model": "grok-4.7-fast",
+        "context": "short",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 100000,
+          "cache": 50000,
+          "output": 10000,
+          "input_cost": 0.4,
+          "cache_cost": 0.05,
+          "output_cost": 0.12,
+          "total": 0.57
+        }
+      },
+      {
+        "model": "grok-4.7-fast",
+        "context": "long",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 150000,
+          "cache": 50000,
+          "output": 10000,
+          "input_cost": 0.9,
+          "cache_cost": 0.075,
+          "output_cost": 0.18,
+          "total": 1.155
+        }
+      },
+      {
+        "model": "grok-4.7-build-fast",
+        "context": "short",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 100000,
+          "cache": 50000,
+          "output": 10000,
+          "input_cost": 0.4,
+          "cache_cost": 0.05,
+          "output_cost": 0.12,
+          "total": 0.57
+        }
+      },
+      {
+        "model": "grok-4.7-build-fast",
+        "context": "long",
+        "stream": true,
+        "http": 200,
+        "settlement": {
+          "input": 150000,
+          "cache": 50000,
+          "output": 10000,
+          "input_cost": 0.9,
+          "cache_cost": 0.075,
+          "output_cost": 0.18,
+          "total": 1.155
+        }
+      },
+      {
+        "model": "grok-4.6",
+        "context": "short",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 100000,
+          "cache": 50000,
+          "output": 10000,
+          "input_cost": 0.2,
+          "cache_cost": 0.025,
+          "output_cost": 0.06,
+          "total": 0.285
+        }
+      }
+    ],
+    "migrations": 306,
+    "persisted_identity_key_subscription_sha256": "d2b7b09d275964a964b5ed6503020acec5f48f8136f2a3579ff28008ec050008",
+    "health_ready_frontend_encrypted_login": "PASS"
+  },
+  {
+    "stage": "ROLLBACK",
+    "result": "PASS",
+    "cases": [
+      {
+        "model": "grok-4.7-fast",
+        "context": "short",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 100000,
+          "cache": 50000,
+          "output": 10000,
+          "input_cost": 0.2,
+          "cache_cost": 0.015,
+          "output_cost": 0.06,
+          "total": 0.275
+        }
+      },
+      {
+        "model": "grok-4.7-fast",
+        "context": "long",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 150000,
+          "cache": 50000,
+          "output": 10000,
+          "input_cost": 0.6,
+          "cache_cost": 0.03,
+          "output_cost": 0.12,
+          "total": 0.75
+        }
+      },
+      {
+        "model": "grok-4.7-build-fast",
+        "context": "short",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 100000,
+          "cache": 50000,
+          "output": 10000,
+          "input_cost": 0.2,
+          "cache_cost": 0.015,
+          "output_cost": 0.06,
+          "total": 0.275
+        }
+      },
+      {
+        "model": "grok-4.7-build-fast",
+        "context": "long",
+        "stream": true,
+        "http": 200,
+        "settlement": {
+          "input": 150000,
+          "cache": 50000,
+          "output": 10000,
+          "input_cost": 0.6,
+          "cache_cost": 0.03,
+          "output_cost": 0.12,
+          "total": 0.75
+        }
+      },
+      {
+        "model": "grok-4.6",
+        "context": "short",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 100000,
+          "cache": 50000,
+          "output": 10000,
+          "input_cost": 0.2,
+          "cache_cost": 0.025,
+          "output_cost": 0.06,
+          "total": 0.285
+        }
+      }
+    ],
+    "migrations": 306,
+    "persisted_identity_key_subscription_sha256": "d2b7b09d275964a964b5ed6503020acec5f48f8136f2a3579ff28008ec050008",
+    "health_ready_frontend_encrypted_login": "PASS"
+  },
+  {
+    "stage": "RESTORED",
+    "result": "PASS",
+    "cases": [
+      {
+        "model": "grok-4.7-fast",
+        "context": "short",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 100000,
+          "cache": 50000,
+          "output": 10000,
+          "input_cost": 0.4,
+          "cache_cost": 0.05,
+          "output_cost": 0.12,
+          "total": 0.57
+        }
+      },
+      {
+        "model": "grok-4.7-fast",
+        "context": "long",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 150000,
+          "cache": 50000,
+          "output": 10000,
+          "input_cost": 0.9,
+          "cache_cost": 0.075,
+          "output_cost": 0.18,
+          "total": 1.155
+        }
+      },
+      {
+        "model": "grok-4.7-build-fast",
+        "context": "short",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 100000,
+          "cache": 50000,
+          "output": 10000,
+          "input_cost": 0.4,
+          "cache_cost": 0.05,
+          "output_cost": 0.12,
+          "total": 0.57
+        }
+      },
+      {
+        "model": "grok-4.7-build-fast",
+        "context": "long",
+        "stream": true,
+        "http": 200,
+        "settlement": {
+          "input": 150000,
+          "cache": 50000,
+          "output": 10000,
+          "input_cost": 0.9,
+          "cache_cost": 0.075,
+          "output_cost": 0.18,
+          "total": 1.155
+        }
+      },
+      {
+        "model": "grok-4.6",
+        "context": "short",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 100000,
+          "cache": 50000,
+          "output": 10000,
+          "input_cost": 0.2,
+          "cache_cost": 0.025,
+          "output_cost": 0.06,
+          "total": 0.285
+        }
+      }
+    ],
+    "migrations": 306,
+    "persisted_identity_key_subscription_sha256": "d2b7b09d275964a964b5ed6503020acec5f48f8136f2a3579ff28008ec050008",
+    "health_ready_frontend_encrypted_login": "PASS"
+  }
+]

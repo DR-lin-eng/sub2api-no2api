@@ -297,6 +297,7 @@ func NewBillingService(cfg *config.Config, pricingService *PricingService) *Bill
 // 价格单位：USD per token（与LiteLLM格式一致）
 func (s *BillingService) initFallbackPricing() {
 	s.initGeminiArgonFallbackPricing()
+	s.initGrok47FastFallbackPricing()
 	// Claude 4.5 Opus
 	s.fallbackPrices["claude-opus-4.5"] = &ModelPricing{
 		InputPricePerToken:         5e-6,    // $5 per MTok
@@ -833,6 +834,9 @@ func (s *BillingService) initFallbackPricing() {
 // getFallbackPricing 根据模型系列获取回退价格
 func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 	modelLower := normalizeAntigravityClaudeTierAlias(strings.ToLower(model))
+	if id := grok47FastPricingID(modelLower); id != "" {
+		return s.fallbackPrices[id]
+	}
 	if modelLower == "jev-latest" {
 		return s.fallbackPrices["jev-latest"]
 	}
@@ -1130,6 +1134,9 @@ func (s *BillingService) HasIdentifiedTokenPricing(model string) bool {
 			return true
 		}
 	}
+	if id := grok47FastPricingID(model); id != "" {
+		model = id
+	}
 	pricing, ok := s.fallbackPrices[model]
 	return ok && pricing != nil
 }
@@ -1174,6 +1181,7 @@ func (s *BillingService) getModelPricingAt(model string, pricingAt time.Time) (*
 				CacheCreation1hPrice:               price1h,
 				SupportsCacheBreakdown:             enableBreakdown,
 				LongContextInputThreshold:          litellmPricing.LongContextInputTokenThreshold,
+				LongContextThresholdInclusive:      grok47FastPricingID(model) != "" && litellmPricing.LongContextInputTokenThreshold == 200000,
 				LongContextInputMultiplier:         litellmPricing.LongContextInputCostMultiplier,
 				LongContextOutputMultiplier:        litellmPricing.LongContextOutputCostMultiplier,
 				ImageInputPricePerToken:            litellmPricing.InputCostPerImageToken,

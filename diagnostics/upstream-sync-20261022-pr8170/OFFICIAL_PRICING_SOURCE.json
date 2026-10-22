@@ -1,0 +1,6 @@
+{
+  "url": "https://docs.x.ai/developers/pricing",
+  "html_sha256": "3469a1ff41cf4b0491ac41e8de9d194a0cc4461032df4d2ed5a3dc37d82f1126",
+  "excerpt_sha256": "0b63a02587e0e73bfecca109f2b1b7fe8293639d6ff0f82994fa4f557c1bb1f0",
+  "boundary_note": "The Fast section says above/exceeds 200k while the standard xAI table says >=200k. This port preserves upstream #8170 and the existing project xAI inclusive 200k convention; tests cover 199999,200000,200001."
+}
