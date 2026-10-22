@@ -8,6 +8,7 @@
   "stderr": "",
   "exit_status": 0,
   "files_match_modified": true,
-  "reapplied_archive_matches": true,
-  "modified_archive_sha256": "90d2f1fb4d9ca609af90d217f33c53dc5f5bc275308e34809bb32d1f573a6a26"
+  "modified_archive_sha256": "bd4ce2c16d1f534cf2337fdd42eef15454628eab157ae4702093478a33757d03",
+  "source_files": 39,
+  "extends_prior_transaction": true
 }

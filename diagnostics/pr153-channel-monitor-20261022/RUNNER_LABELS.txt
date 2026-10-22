@@ -1,0 +1,4 @@
+Source: https://github.com/actions/runner-images/blob/main/README.md
+Observed 2026-10-22
+| macOS 15<br>![Endpoint Badge](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fhosted-runners-images-bot%2F79267492faab096d04cdd25ce7014cec%2Fraw%2Fmacos-15.json) | x64 | `macos-15-large`, or `macos-15-intel` | [macOS-15] |
+| macOS 15 Arm64<br>![Endpoint Badge](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fhosted-runners-images-bot%2F79267492faab096d04cdd25ce7014cec%2Fraw%2Fmacos-15-arm64.json) | arm64 | `macos-15`, or `macos-15-xlarge` | [macOS-15-arm64] |

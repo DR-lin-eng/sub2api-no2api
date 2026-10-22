@@ -1,6 +1,6 @@
 {
   "original_files": 7596,
-  "changed_files": 38,
+  "changed_files": 39,
   "added_files": [
     "backend/internal/transport/http/handler/admin/setting_handler_channel_monitor_test.go",
     "frontend/src/features/channel-monitor-user/index.ts",
@@ -9,6 +9,7 @@
   "baseline_source_manifest_sha256": "a262830c2b3245a56590bddf6ee4e709888dc166b4e0eec93cba207e363de6dc",
   "restored_source_manifest_sha256": "a262830c2b3245a56590bddf6ee4e709888dc166b4e0eec93cba207e363de6dc",
   "modified_hashes": {
+    ".github/workflows/backend-ci.yml": "b12bc4758ad585f35d3733f20923f2c139875cffa9cb1509872670b49dcd6dd2",
     "backend/internal/application/service/domain_constants.go": "e6de042d16b664d75375b16b071812c4b859541ff7acac2e4c9cba8016421634",
     "backend/internal/application/service/setting_parse.go": "37fdfcc03831457e66bc6d7a76e85e5072b5ee054865ed9a127c1d23f1f441f7",
     "backend/internal/application/service/setting_parse_features.go": "e1f1b9d29bc1da10fa0d3d6a191a1ab8e01e66ece886e11641a57a0b65773fcb",
@@ -48,8 +49,8 @@
     "frontend/src/features/channels-user/presentation/pages/ChannelStatusPage.vue": "a250733b9d6ad415a362c5950a6ce5a25e1981dc9945838e025576f3ebefe2d8",
     "frontend/src/types/common.ts": "af8db4ef4d7c9b867b9d5b5e43c0fa285ddfc573119fbef167afaadbe7dc649c"
   },
-  "modified_archive_sha256": "90d2f1fb4d9ca609af90d217f33c53dc5f5bc275308e34809bb32d1f573a6a26",
-  "patch_sha256": "542dda6d04b03002c38017116f1ef4310f7f96884d480a6096dbe19482f7ea49",
+  "modified_archive_sha256": "bd4ce2c16d1f534cf2337fdd42eef15454628eab157ae4702093478a33757d03",
+  "patch_sha256": "3a7999ffe464a514ba2be445de492906b83f438002c7c82e4c379dc4ed7809b1",
   "rollback_exit_status": 0,
   "rollback_stdout": "ROLLBACK restored pristine source bytes\n",
   "rollback_stderr": "",

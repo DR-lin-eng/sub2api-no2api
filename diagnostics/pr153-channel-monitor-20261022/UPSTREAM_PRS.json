@@ -5,7 +5,7 @@
     "base_sha": "1aebebaead38cb5659498a720e2951497e339070",
     "reviewed_head_sha": "b7eecf33d8559f5ba4c0b784f6fec9cb26c11736",
     "original_diff_sha256": "7e6b94c430357d837f3b542e5dfaac6e2f9f8a79c6ac5eae41b035c78e6acc43",
-    "production_patch_sha256": "542dda6d04b03002c38017116f1ef4310f7f96884d480a6096dbe19482f7ea49",
+    "production_patch_sha256": "3a7999ffe464a514ba2be445de492906b83f438002c7c82e4c379dc4ed7809b1",
     "status": "ported",
     "fully_closed": true,
     "current_owners": [
@@ -54,6 +54,7 @@
       "PERFORMANCE.json",
       "runtime/result.json",
       "INHERITED_CLOSURES.json"
-    ]
+    ],
+    "supplemental_ci_fix": "jobs.shell.runs-on uses the officially supported macos-15-intel after a hosted arm64 capacity cancellation; scripts and runtime source unchanged."
   }
 ]

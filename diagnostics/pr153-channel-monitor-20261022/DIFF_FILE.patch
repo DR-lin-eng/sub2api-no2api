@@ -1,3 +1,18 @@
+diff --git a/.github/workflows/backend-ci.yml b/.github/workflows/backend-ci.yml
+index 66fba2e4c..37be6a936 100644
+--- a/.github/workflows/backend-ci.yml
++++ b/.github/workflows/backend-ci.yml
+@@ -9,7 +9,9 @@ permissions:
+ 
+ jobs:
+   shell:
+-    runs-on: macos-15
++    # Shell lifecycle tests mock the runtime and do not require arm64 hardware.
++    # Pin the supported Intel image to avoid hosted arm64 capacity cancellations.
++    runs-on: macos-15-intel
+     steps:
+       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+       - name: Check deployment scripts
 diff --git a/backend/internal/application/service/domain_constants.go b/backend/internal/application/service/domain_constants.go
 index e4f0167d8..999801d6f 100644
 --- a/backend/internal/application/service/domain_constants.go
