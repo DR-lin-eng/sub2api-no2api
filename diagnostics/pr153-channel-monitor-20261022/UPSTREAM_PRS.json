@@ -1,0 +1,59 @@
+[
+  {
+    "pr": 153,
+    "url": "https://github.com/DR-lin-eng/sub2api-no2api/pull/153",
+    "base_sha": "1aebebaead38cb5659498a720e2951497e339070",
+    "reviewed_head_sha": "b7eecf33d8559f5ba4c0b784f6fec9cb26c11736",
+    "original_diff_sha256": "7e6b94c430357d837f3b542e5dfaac6e2f9f8a79c6ac5eae41b035c78e6acc43",
+    "production_patch_sha256": "542dda6d04b03002c38017116f1ef4310f7f96884d480a6096dbe19482f7ea49",
+    "status": "ported",
+    "fully_closed": true,
+    "current_owners": [
+      "backend/internal/application/service/setting_public.go",
+      "backend/internal/transport/http/handler/admin/setting_handler.go",
+      "frontend/src/features/channel-monitor-user",
+      "frontend/src/features/channels-user",
+      "frontend/src/features/admin-settings"
+    ],
+    "decisions": [
+      {
+        "change": "channel_monitor_timeline_points",
+        "status": "ported",
+        "resolution": "Default 20, integer range 1-60; persist/read/admin/public/injection/audit/save paths covered. Old partial saves retain current value; old servers and invalid browser caches use compatible display defaults."
+      },
+      {
+        "change": "provider filter and merged active/passive cards",
+        "status": "ported",
+        "resolution": "Group by provider in linear time; retain separate modes, health sorting, all rows, collapse state and 7/15/30-day metrics. Reset disappeared selection on refresh; filtering issues no new HTTP request."
+      },
+      {
+        "change": "235 migration comment edit",
+        "status": "intentional-local-divergence",
+        "resolution": "Restore exact released bytes; do not allowlist checksum changes for unrelated comments."
+      },
+      {
+        "change": "240 legacy Media Studio identity migration",
+        "status": "covered",
+        "resolution": "Exclude redundant destructive rename. The current 235 migration already covers historical legacy identity conversion; existing managed canonical keys must retain their names."
+      },
+      {
+        "change": "gateway, accounting and existing refactors",
+        "status": "covered",
+        "resolution": "Inherited closure files remain byte-identical. No additional upstream PRs, gateway/billing refactors or schema changes."
+      }
+    ],
+    "performance": {
+      "median_percent": -5.868185266050618,
+      "p90_percent": 6.636334554765333,
+      "scope": "360 rows, 60 history points; same 2 CPU/4 GiB Docker; grouping/render only with timeline DOM stubbed; microbenchmark, not gateway throughput"
+    },
+    "reopen_condition": "Only changes to this PR behavior or an observed regression in these current owners; never replay the frozen diff or excluded migration edits.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_TRANSACTION.json",
+      "PERFORMANCE.json",
+      "runtime/result.json",
+      "INHERITED_CLOSURES.json"
+    ]
+  }
+]

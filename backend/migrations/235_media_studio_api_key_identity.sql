@@ -1,8 +1,6 @@
 -- Keep every existing token valid while converging managed Media Studio keys to
 -- a new canonical name per user and group. Every pre-upgrade key remains usable
 -- under a deterministic legacy display name and cannot gain managed-key powers.
--- 媒体工坊 Key 使用固定名称，并以 user_id + group_id 区分。
--- 只调整索引，不修改或清理用户已有的 API Key。
 DROP INDEX IF EXISTS idx_api_keys_media_studio_user_group;
 
 UPDATE api_keys AS target

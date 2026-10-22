@@ -1,0 +1,12 @@
+{
+  "label": "source-layout",
+  "command": [
+    "make",
+    "-C",
+    "backend",
+    "check-layout"
+  ],
+  "started_at": "2026-10-22T15:22:26.477825+00:00",
+  "finished_at": "2026-10-22T15:22:27.633080+00:00",
+  "exit_status": 2
+}

@@ -1,0 +1,19 @@
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/features/admin-settings/__tests__/settingsGatewayResilienceModularization.spec.ts[2m > [22msettings gateway resilience modularization[2m > [22mkeeps each original card template on the shared page context
+[31m[1mAssertionError[22m: expected 'f72f76ef998051b6103723348ab9ed9cdfd37…' to be 'c78190ebe0430d38d939afcd187759beb1e88…' // Object.is equality[39m
+
+Expected: [32m"c78190ebe0430d38d939afcd187759beb1e88dd0fda341eb303e65facf4fdb3e"[39m
+Received: [31m"f72f76ef998051b6103723348ab9ed9cdfd37c7353bc88676583558c8b56cb03"[39m
+
+[36m [2m❯[22m src/features/admin-settings/__tests__/settingsGatewayResilienceModularization.spec.ts:[2m116:48[22m[39m
+    [90m114| [39m      expect(source.match(/useSettingsPageContext\(\)/g)).toHaveLength…
+    [90m115| [39m      [34mexpect[39m(template[33m.[39m[34mtrim[39m())[33m.[39m[34mtoMatch[39m([36m/^<div class="card">/[39m)
+    [90m116| [39m      [34mexpect[39m([34mnormalizedTemplateHash[39m(template))[33m.[39m[34mtoBe[39m(card[33m.[39mtemplateHash)
+    [90m   | [39m                                               [31m^[39m
+    [90m117| [39m      expect(source).not.toMatch(/\b(?:ref|reactive|computed|watch)\s*…
+    [90m118| [39m      [34mexpect[39m(source)[33m.[39mnot[33m.[39m[34mtoMatch[39m(
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+

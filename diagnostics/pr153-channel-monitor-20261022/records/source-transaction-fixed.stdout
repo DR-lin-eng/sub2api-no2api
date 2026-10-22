@@ -1,0 +1,17 @@
+{
+  "original_files": 7596,
+  "changed_files": 38,
+  "added_files": [
+    "backend/internal/transport/http/handler/admin/setting_handler_channel_monitor_test.go",
+    "frontend/src/features/channel-monitor-user/index.ts",
+    "frontend/src/features/channels-user/__tests__/ChannelStatusPage.spec.ts"
+  ],
+  "baseline_source_manifest_sha256": "a262830c2b3245a56590bddf6ee4e709888dc166b4e0eec93cba207e363de6dc",
+  "restored_source_manifest_sha256": "a262830c2b3245a56590bddf6ee4e709888dc166b4e0eec93cba207e363de6dc",
+  "modified_archive_sha256": "90d2f1fb4d9ca609af90d217f33c53dc5f5bc275308e34809bb32d1f573a6a26",
+  "patch_sha256": "542dda6d04b03002c38017116f1ef4310f7f96884d480a6096dbe19482f7ea49",
+  "rollback_exit_status": 0,
+  "rollback_stdout": "ROLLBACK restored pristine source bytes\n",
+  "rollback_stderr": "",
+  "restored_equals_original": true
+}

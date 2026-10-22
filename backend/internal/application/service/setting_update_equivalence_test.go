@@ -94,7 +94,7 @@ func TestBuildSystemSettingsUpdatesGolden(t *testing.T) {
 
 	updates, err := svc.buildSystemSettingsUpdates(context.Background(), settings)
 	require.NoError(t, err)
-	require.Equal(t, 241, len(updates), "system setting key count")
+	require.Equal(t, 242, len(updates), "system setting key count")
 	require.Equal(t, "false", updates[SettingKeyOpenAIOAuthForceRelayEnabled])
 	require.Equal(t, DefaultOpenAIOAuthForceRelayBaseURL, updates[SettingKeyOpenAIOAuthForceRelayBaseURL])
 	require.Equal(t, "false", updates[SettingKeyActivityCenterEnabled], "activity center is opt-in")
@@ -104,7 +104,9 @@ func TestBuildSystemSettingsUpdatesGolden(t *testing.T) {
 	require.Equal(t, "false", updates[SettingKeyOpenAIRequestIntegrityObserveEnabled])
 	require.Equal(t, "true", updates[SettingKeyOpenAIRequestTimezoneEnabled])
 	require.Equal(t, "Asia/Singapore", updates[SettingKeyOpenAIRequestTimezone])
+	require.Equal(t, "20", updates[SettingKeyChannelMonitorTimelinePoints])
 	for _, key := range []string{
+		SettingKeyChannelMonitorTimelinePoints,
 		SettingKeyOpenAIRequestTimezoneEnabled,
 		SettingKeyOpenAIRequestTimezone,
 		SettingKeyActivityCenterEnabled,

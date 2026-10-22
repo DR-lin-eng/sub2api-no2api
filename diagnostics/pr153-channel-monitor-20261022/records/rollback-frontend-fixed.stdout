@@ -1,0 +1,18 @@
+
+[1m[46m RUN [49m[22m [36mv3.2.6 [39m[90m/workspace/frontend[39m
+
+[90mstdout[2m | src/features/channels-user/__tests__/pr153.performance.spec.ts[2m > [22m[2mmeasures the same 360-row, 60-history-point grouping and render workload
+[22m[39mPR153_PERFORMANCE {"rows":360,"history_points":60,"timeline_stubbed":true,"samples_ms":[137.70054200000004,145.24933299999998,146.70554199999992,143.86987599999975,146.21354199999996,140.38191700000016,141.5453749999997,152.43020799999977,180.70625000000018,134.39929200000006,140.99070900000015,146.99358299999994],"median_ms":144.55960449999986,"p90_ms":152.43020799999977}
+
+ [32m✓[39m src/features/channels-user/__tests__/pr153.performance.spec.ts [2m([22m[2m1 test[22m[2m)[22m[33m 2551[2mms[22m[39m
+   [33m[2m✓[22m[39m measures the same 360-row, 60-history-point grouping and render workload [33m 2551[2mms[22m[39m
+[90mstdout[2m | src/features/channels-user/__tests__/pr153.transaction.spec.ts[2m > [22m[2mPR153 identical three-state probe[2m > [22m[2mobserves grouping, timeline and provider selection through the real page
+[22m[39mPR153_PROBE {"before":{"cards":3,"rows":3,"timeline_lengths":[20,20,20],"filter":false},"after":{"cards":3,"rows":3}}
+
+ [32m✓[39m src/features/channels-user/__tests__/pr153.transaction.spec.ts [2m([22m[2m1 test[22m[2m)[22m[32m 37[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m   Start at [22m 15:14:50
+[2m   Duration [22m 4.25s[2m (transform 761ms, setup 81ms, collect 887ms, tests 2.59s, environment 322ms, prepare 67ms)[22m
+

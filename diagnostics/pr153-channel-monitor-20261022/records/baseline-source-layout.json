@@ -1,0 +1,12 @@
+{
+  "label": "baseline-source-layout",
+  "command": [
+    "make",
+    "-C",
+    "/private/tmp/sub2api-pr153-wda5i24i/baseline/backend",
+    "check-layout"
+  ],
+  "started_at": "2026-10-22T15:24:40.460096+00:00",
+  "finished_at": "2026-10-22T15:24:40.892581+00:00",
+  "exit_status": 2
+}

@@ -63,7 +63,7 @@ import MonitorHero, {
 } from '@/features/channel-monitor-user/presentation/widgets/MonitorHero.vue'
 import MonitorCardGrid from '@/features/channel-monitor-user/presentation/widgets/MonitorCardGrid.vue'
 import MonitorDetailDialog from '@/features/channel-monitor-user/presentation/widgets/MonitorDetailDialog.vue'
-import { DEFAULT_INTERVAL_SECONDS, STATUS_OPERATIONAL } from '@/core/constants/channelMonitor'
+import { DEFAULT_INTERVAL_SECONDS, STATUS_OPERATIONAL, normalizeChannelMonitorTimelinePoints } from '@/core/constants/channelMonitor'
 import { useChannelMonitorFormat } from '@/features/channel-monitor-user'
 import { useAutoRefresh } from '@/common/composables/useAutoRefresh'
 
@@ -100,20 +100,19 @@ const overallStatus = computed<OverallStatus>(() => {
   return 'operational'
 })
 
-const timelinePoints = computed(() => {
-  const value = appStore.cachedPublicSettings?.channel_monitor_timeline_points
-  return typeof value === 'number' && value >= 1 ? value : 20
-})
+const timelinePoints = computed(() =>
+  normalizeChannelMonitorTimelinePoints(appStore.cachedPublicSettings?.channel_monitor_timeline_points),
+)
 
-const providerOptions = computed(() => {
-  const seen: string[] = []
-  for (const item of items.value) {
-    if (!seen.includes(item.provider)) seen.push(item.provider)
-  }
-  return seen
-})
+const providerOptions = computed(() => [...new Set(items.value.map(item => item.provider))])
 
 const selectedProvider = ref<string>('all')
+
+watch(providerOptions, (options) => {
+  if (selectedProvider.value !== 'all' && !options.some(provider => provider === selectedProvider.value)) {
+    selectedProvider.value = 'all'
+  }
+})
 
 const filteredItems = computed(() =>
   selectedProvider.value === 'all'

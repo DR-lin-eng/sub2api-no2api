@@ -1,0 +1,32 @@
+{
+  "label": "final-backend-targeted",
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=6g",
+    "-e",
+    "GOMAXPROCS=2",
+    "-e",
+    "GOMEMLIMIT=5GiB",
+    "-e",
+    "GOFLAGS=-p=1",
+    "-v",
+    "/private/tmp/sub2api-pr153-wda5i24i/repo:/workspace",
+    "-v",
+    "sub2api-go-mod:/go/pkg/mod",
+    "-v",
+    "sub2api-go-build:/root/.cache/go-build",
+    "-w",
+    "/workspace/backend",
+    "--entrypoint",
+    "sh",
+    "sub2api-sync-go:20261022",
+    "-c",
+    "go test -tags=unit ./internal/application/service ./internal/transport/http/server ./internal/transport/http/handler/admin -run \"TestBuildSystemSettingsUpdatesGolden|TestAPIContracts|ChannelMonitor\" -count=1"
+  ],
+  "started_at": "2026-10-22T15:07:28.111334+00:00",
+  "finished_at": "2026-10-22T15:07:39.497352+00:00",
+  "exit_status": 0
+}

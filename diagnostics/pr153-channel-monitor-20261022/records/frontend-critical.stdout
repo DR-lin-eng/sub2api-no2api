@@ -1,0 +1,40 @@
+
+[1m[46m RUN [49m[22m [36mv3.2.6 [39m[90m/workspace/frontend[39m
+
+ [32m✓[39m src/features/admin-settings/__tests__/SettingsPage.spec.ts [2m([22m[2m55 tests[22m[2m)[22m[33m 2512[2mms[22m[39m
+ [32m✓[39m src/features/auth/__tests__/WechatCallbackView.spec.ts [2m([22m[2m25 tests[22m[2m)[22m[32m 106[2mms[22m[39m
+ [32m✓[39m src/features/admin-usage/__tests__/UsageTable.spec.ts [2m([22m[2m22 tests[22m[2m)[22m[32m 102[2mms[22m[39m
+ [32m✓[39m src/features/auth/__tests__/LinuxDoCallbackView.spec.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 96[2mms[22m[39m
+ [32m✓[39m src/features/billing/__tests__/PaymentPage.spec.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 87[2mms[22m[39m
+ [32m✓[39m src/features/billing/__tests__/PaymentResultPage.spec.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 49[2mms[22m[39m
+ [32m✓[39m src/core/i18n/__tests__/routeLocaleCoverage.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 3226[2mms[22m[39m
+   [33m[2m✓[22m[39m locale coverage[2m > [22mresolves every static locale key used by runtime source [33m 723[2mms[22m[39m
+   [33m[2m✓[22m[39m locale coverage[2m > [22mloads every statically reachable message for every route [33m 2495[2mms[22m[39m
+ [32m✓[39m src/__tests__/dynamicLocaleMapping.spec.ts [2m([22m[2m1 test[22m[2m)[22m[32m 189[2mms[22m[39m
+ [32m✓[39m src/features/profile/__tests__/ProfileInfoCard.spec.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 71[2mms[22m[39m
+ [32m✓[39m src/common/pages/__tests__/HomePageCompact.spec.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 73[2mms[22m[39m
+ [32m✓[39m src/features/admin-usage/__tests__/UsageDetailDialog.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 52[2mms[22m[39m
+ [32m✓[39m src/common/widgets/data/__tests__/GroupOptionItem.spec.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 54[2mms[22m[39m
+ [32m✓[39m src/core/utils/__tests__/usageLocale.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/features/auth/__tests__/authProfileLocaleScopes.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+ [32m✓[39m src/__tests__/dynamicHtmlSecurity.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m src/features/billing/__tests__/paymentLocaleScopes.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m src/core/utils/__tests__/embedded-url.spec.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/features/channel-monitor-user/__tests__/channelMonitorLocale.spec.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m src/core/utils/__tests__/homeContent.spec.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+ [32m✓[39m src/features/admin-usage/__tests__/UsageStatsCards.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+ [32m✓[39m src/features/prompt-audit/__tests__/promptAuditLocale.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m src/features/channels-user/__tests__/CustomLandingPage.security.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m src/core/__tests__/credentialCryptoUsage.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 135[2mms[22m[39m
+ [32m✓[39m src/features/channels-user/__tests__/customPageHtml.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m src/features/subscriptions/__tests__/subscriptionStatus.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m src/features/admin-backup/presentation/pages/__tests__/backupStatus.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 1[2mms[22m[39m
+ [32m✓[39m src/features/prompt-audit/__tests__/RuntimeOverview.spec.ts [2m([22m[2m1 test[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m src/core/routes/__tests__/adminRouteAccess.spec.ts [2m([22m[2m1 test[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m src/common/widgets/layout/__tests__/AppHeaderResponsive.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 1[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m29 passed[39m[22m[90m (29)[39m
+[2m      Tests [22m [1m[32m248 passed[39m[22m[90m (248)[39m
+[2m   Start at [22m 15:22:29
+[2m   Duration [22m 19.62s[2m (transform 2.61s, setup 853ms, collect 4.51s, tests 6.94s, environment 4.37s, prepare 849ms)[22m
+

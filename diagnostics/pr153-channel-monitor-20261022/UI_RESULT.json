@@ -1,0 +1,24 @@
+{
+  "build": "production frontend",
+  "fixture": "mock API data, real compiled public monitor page",
+  "desktop": {
+    "width": 1440,
+    "scroll_width": 1432,
+    "timeline_lengths": [
+      35,
+      35,
+      35
+    ]
+  },
+  "mobile": {
+    "width": 390,
+    "scroll_width": 382,
+    "rows": 3
+  },
+  "overflow": false,
+  "browser": "Codex in-app browser; native Chrome CLI launch denied by macOS sandbox",
+  "screenshots": [
+    "../../output/playwright/pr153-desktop.png",
+    "../../output/playwright/pr153-mobile.png"
+  ]
+}

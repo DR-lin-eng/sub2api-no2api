@@ -1,0 +1,83 @@
+? Verifying lockfile against supply-chain policies (483 entries)...
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +433
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 433, reused 0, downloaded 3, added 3
+Progress: resolved 433, reused 0, downloaded 63, added 58
+Progress: resolved 433, reused 0, downloaded 126, added 108
+Progress: resolved 433, reused 0, downloaded 189, added 117
+Progress: resolved 433, reused 0, downloaded 270, added 125
+✓ Lockfile passes supply-chain policies (483 entries in 6.3s)
+Progress: resolved 433, reused 0, downloaded 342, added 133
+Progress: resolved 433, reused 0, downloaded 433, added 189
+Progress: resolved 433, reused 0, downloaded 433, added 402
+Progress: resolved 433, reused 0, downloaded 433, added 433, done
+.../esbuild@0.25.12/node_modules/esbuild postinstall$ node install.js
+.../node_modules/vue-demi postinstall$ node -e "try{require('./scripts/postinstall.js')}catch(e){}"
+.../esbuild@0.25.12/node_modules/esbuild postinstall: Done
+.../node_modules/vue-demi postinstall: Done
+
+dependencies:
++ @airwallex/components-sdk 1.32.0
++ @stripe/stripe-js 9.12.0
++ @tanstack/vue-virtual 3.13.34
++ @vueuse/core 10.11.1
++ axios 1.20.0
++ cap-widget 0.1.50
++ chart.js 4.5.1
++ dompurify 3.4.17
++ driver.js 1.8.0
++ file-saver 2.0.5
++ marked 17.0.6
++ node-forge 1.4.0
++ pinia 2.3.1
++ qrcode 1.5.4
++ tldts 7.4.13
++ vue 3.5.43
++ vue-chartjs 5.3.4
++ vue-draggable-plus 0.6.1
++ vue-i18n 9.14.5
++ vue-router 4.6.4
++ xlsx 0.20.3
+
+devDependencies:
++ @eslint/js 10.0.1
++ @intlify/message-compiler 9.14.5
++ @types/file-saver 2.0.7
++ @types/mdx 2.0.14
++ @types/node 24.13.3
++ @types/node-forge 1.3.14
++ @types/qrcode 1.5.6
++ @typescript-eslint/eslint-plugin 8.65.0
++ @typescript-eslint/parser 8.65.0
++ @vitejs/plugin-vue 6.0.8
++ @vitest/coverage-v8 3.2.6
++ @vue/test-utils 2.4.11
++ autoprefixer 10.5.4
++ eslint 10.8.0
++ eslint-plugin-vue 10.10.0
++ globals 17.4.0
++ jsdom 24.1.3
++ postcss 8.5.23
++ tailwindcss 3.4.19
++ typescript 5.6.3
++ vite 6.4.3
++ vite-plugin-checker 0.14.5
++ vitest 3.2.6
++ vue-tsc 2.2.12
+
+Done in 9.8s using pnpm v11.17.0
+
+[1m[46m RUN [49m[22m [36mv3.2.6 [39m[90m/workspace/frontend[39m
+
+[90mstdout[2m | src/features/channels-user/__tests__/pr153.transaction.spec.ts[2m > [22m[2mPR153 identical three-state probe[2m > [22m[2mobserves grouping, timeline and provider selection through the real page
+[22m[39mPR153_PROBE {"before":{"cards":3,"rows":3,"timeline_lengths":[20,20,20],"filter":false},"after":{"cards":3,"rows":3}}
+
+ [32m✓[39m src/features/channels-user/__tests__/pr153.transaction.spec.ts [2m([22m[2m1 test[22m[2m)[22m[32m 49[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m   Start at [22m 14:54:02
+[2m   Duration [22m 1.38s[2m (transform 714ms, setup 49ms, collect 814ms, tests 49ms, environment 177ms, prepare 54ms)[22m
+

@@ -119,4 +119,27 @@ describe('ChannelStatusPage provider filtering', () => {
     const wrapper = await mountPage([monitor({ id: 1 })])
     expect(wrapper.getComponent(MonitorCardGrid).props('timelinePoints')).toBe(20)
   })
+
+  it.each([
+    [35, 35], [999, 60], [0, 1], [-3, 1], [2.9, 2],
+    [Infinity, 20], [NaN, 20], [null, 20], ['35', 20],
+  ])('bounds cached timeline value %s to %s', async (value, expected) => {
+    cachedPublicSettings.value = { channel_monitor_timeline_points: value }
+    const wrapper = await mountPage([monitor({ id: 1 })])
+    expect(wrapper.getComponent(MonitorCardGrid).props('timelinePoints')).toBe(expected)
+  })
+
+  it('returns to all providers when refresh removes the selected provider', async () => {
+    const wrapper = await mountPage([
+      monitor({ id: 1, provider: 'openai' }),
+      monitor({ id: 2, provider: 'anthropic' }),
+    ])
+    await wrapper.get('#provider-filter').setValue('openai')
+    expect(listChannelMonitorViews).toHaveBeenCalledTimes(1)
+    listChannelMonitorViews.mockResolvedValue({ items: [monitor({ id: 2, provider: 'anthropic' })] })
+    wrapper.getComponent({ name: 'MonitorHero' }).vm.$emit('refresh')
+    await flush()
+    expect((wrapper.get('#provider-filter').element as HTMLSelectElement).value).toBe('all')
+    expect(wrapper.getComponent(MonitorCardGrid).props('items')).toHaveLength(1)
+  })
 })

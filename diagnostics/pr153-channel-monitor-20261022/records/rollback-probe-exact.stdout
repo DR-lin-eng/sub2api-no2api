@@ -1,0 +1,13 @@
+
+[1m[46m RUN [49m[22m [36mv3.2.6 [39m[90m/workspace/frontend[39m
+
+[90mstdout[2m | src/features/channels-user/__tests__/pr153.transaction.spec.ts[2m > [22m[2mPR153 identical three-state probe[2m > [22m[2mobserves grouping, timeline and provider selection through the real page
+[22m[39mPR153_PROBE {"before":{"cards":3,"rows":3,"timeline_lengths":[20,20,20],"filter":false},"after":{"cards":3,"rows":3}}
+
+ [32m✓[39m src/features/channels-user/__tests__/pr153.transaction.spec.ts [2m([22m[2m1 test[22m[2m)[22m[32m 42[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m   Start at [22m 15:15:27
+[2m   Duration [22m 1.46s[2m (transform 797ms, setup 55ms, collect 934ms, tests 42ms, environment 181ms, prepare 38ms)[22m
+

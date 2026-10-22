@@ -1,3 +1,4 @@
+import { normalizeChannelMonitorTimelinePoints } from '@/core/constants/channelMonitor'
 import { sanitizeRechargeBonusTiersForSubmit } from '@/features/billing/rechargeBonus'
 import {
   appendAuthSourceDefaultsToUpdateRequest,
@@ -424,10 +425,7 @@ function buildNotificationAndFeatureSettingsPayload({
     channel_monitor_enabled: form.channel_monitor_enabled,
     channel_monitor_default_interval_seconds:
       Number(form.channel_monitor_default_interval_seconds) || 60,
-    channel_monitor_timeline_points: Math.min(
-      60,
-      Math.max(1, Number(form.channel_monitor_timeline_points) || 20),
-    ),
+    channel_monitor_timeline_points: normalizeChannelMonitorTimelinePoints(form.channel_monitor_timeline_points),
     channel_monitor_latency_unit:
       form.channel_monitor_latency_unit === "s" ? "s" : "ms",
     channel_monitor_public_share_enabled:

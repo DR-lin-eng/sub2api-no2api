@@ -1,0 +1,10 @@
+{
+  "label": "docker-upgrade-rollback-fixed",
+  "command": [
+    "python3",
+    "/private/tmp/sub2api-pr153-wda5i24i/runtime/check.py"
+  ],
+  "started_at": "2026-10-22T15:03:56.736354+00:00",
+  "finished_at": "2026-10-22T15:04:21.125357+00:00",
+  "exit_status": 0
+}

@@ -7,6 +7,8 @@
 - [presentation/pages](presentation/pages/)：渠道列表、监控组件装配和自定义内容宿主。
 - [presentation/customPageHtml.ts](presentation/customPageHtml.ts)：自定义 HTML 处理边界。
 
+`/monitor` 支持在已授权返回的监控项中按供应商筛选；筛选不增加接口请求，页面总览状态跟随当前筛选。自动刷新后所选供应商消失时回到全部供应商。卡片的主动／被动监控分区及时间线显示设置由 channel-monitor-user 统一实现。
+
 渠道展示不授予新分组权限。自定义 HTML/iframe 必须保留现有清洗、sandbox、URL 与消息来源校验；专用能力凭据不等于浏览器 JWT，不能把登录 token 或通用管理员凭据发给嵌入页面。外部支付嵌入流程见 [支付集成 API](../../../../docs/ADMIN_PAYMENT_INTEGRATION_API.md)。
 
 从 `frontend/` 执行 `pnpm exec vitest run src/features/channels-user src/features/channel-monitor-user`。HTML 渲染变化还需共享动态 HTML 门禁；跨域问题参阅 [CORS 部署](../../../../docs/FRONTEND_CORS_DEPLOYMENT_CN.md)。

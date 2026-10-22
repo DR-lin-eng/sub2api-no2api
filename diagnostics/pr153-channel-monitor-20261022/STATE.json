@@ -1,0 +1,22 @@
+{
+  "target": "DR-lin-eng/sub2api-no2api#153",
+  "baseline_sha": "1aebebaead38cb5659498a720e2951497e339070",
+  "pr_original_sha": "b7eecf33d8559f5ba4c0b784f6fec9cb26c11736",
+  "baseline_tree": "de2d7b26a7c9d07067ddbf56f7b47b16009309d3",
+  "baseline_archive_sha256": "c6c450868e0617ce4eb6fe2dd1756c636a89ecad64054b0aed16b215b5c9f38b",
+  "goal": [
+    "channel_monitor_timeline_points",
+    "provider filtering",
+    "provider grouping",
+    "smooth upgrade",
+    "Docker proof",
+    "push merge exact CI"
+  ],
+  "status": "local verification complete; exact publication tracked externally",
+  "roles": {
+    "MODIFIED_FILE.tar.gz": "/private/tmp/sub2api-pr153-wda5i24i/MODIFIED_FILE.tar.gz",
+    "DIFF_FILE.patch": "/private/tmp/sub2api-pr153-wda5i24i/DIFF_FILE.patch",
+    "VERIFICATION.txt": "/private/tmp/sub2api-pr153-wda5i24i/VERIFICATION.txt",
+    "ROLLBACK.sh": "/private/tmp/sub2api-pr153-wda5i24i/ROLLBACK.sh"
+  }
+}

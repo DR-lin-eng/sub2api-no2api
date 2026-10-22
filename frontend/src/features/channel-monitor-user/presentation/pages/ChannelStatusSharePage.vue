@@ -95,7 +95,7 @@ import MonitorHero, {
 } from '@/features/channel-monitor-user/presentation/widgets/MonitorHero.vue'
 import MonitorCardGrid from '@/features/channel-monitor-user/presentation/widgets/MonitorCardGrid.vue'
 import MonitorDetailDialog from '@/features/channel-monitor-user/presentation/widgets/MonitorDetailDialog.vue'
-import { DEFAULT_INTERVAL_SECONDS, STATUS_OPERATIONAL } from '@/core/constants/channelMonitor'
+import { DEFAULT_INTERVAL_SECONDS, STATUS_OPERATIONAL, normalizeChannelMonitorTimelinePoints } from '@/core/constants/channelMonitor'
 import { useAutoRefresh } from '@/common/composables/useAutoRefresh'
 
 const { t } = useI18n()
@@ -119,10 +119,9 @@ const autoRefresh = useAutoRefresh({
 })
 const countdown = autoRefresh.countdown
 
-const timelinePoints = computed(() => {
-  const value = appStore.cachedPublicSettings?.channel_monitor_timeline_points
-  return typeof value === 'number' && value >= 1 ? value : 20
-})
+const timelinePoints = computed(() =>
+  normalizeChannelMonitorTimelinePoints(appStore.cachedPublicSettings?.channel_monitor_timeline_points),
+)
 
 const overallStatus = computed<OverallStatus>(() => {
   if (items.value.length === 0) return 'operational'

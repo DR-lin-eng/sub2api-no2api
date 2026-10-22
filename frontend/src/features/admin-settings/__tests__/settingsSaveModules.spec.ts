@@ -162,6 +162,7 @@ describe("settings save payload", () => {
     form.ipv6_egress_ui_enabled = true;
     form.support_chat_retention_enabled = true;
     form.support_chat_retention_days = 45.9;
+    form.channel_monitor_timeline_points = 35.9;
 
     const payload = buildSettingsSavePayload({
       form,
@@ -206,6 +207,7 @@ describe("settings save payload", () => {
     expect(payload.ipv6_egress_ui_enabled).toBe(true);
     expect(payload.support_chat_retention_enabled).toBe(true);
     expect(payload.support_chat_retention_days).toBe(45);
+    expect(payload.channel_monitor_timeline_points).toBe(35);
     expect(form.balance_low_notify_recharge_url).toBe(
       "https://admin.example.com",
     );
