@@ -1,0 +1,172 @@
+Recreating /app/frontend/node_modules
+? Verifying lockfile against supply-chain policies (483 entries)...
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +433
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 433, reused 0, downloaded 0, added 0
+Progress: resolved 433, reused 0, downloaded 31, added 24
+Progress: resolved 433, reused 0, downloaded 42, added 42
+[WARN] Tarball download average speed 6 KiB/s (size 22 KiB) is below 50 KiB/s: https://registry.npmjs.org/@vue/shared/-/shared-3.5.43.tgz (GET)
+Progress: resolved 433, reused 0, downloaded 43, added 42
+Progress: resolved 433, reused 0, downloaded 43, added 43
+[WARN] Tarball download average speed 6 KiB/s (size 35 KiB) is below 50 KiB/s: https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.2.tgz (GET)
+Progress: resolved 433, reused 0, downloaded 44, added 44
+[WARN] Tarball download average speed 14 KiB/s (size 79 KiB) is below 50 KiB/s: https://registry.npmjs.org/@airwallex/components-sdk/-/components-sdk-1.32.0.tgz (GET)
+[WARN] Tarball download average speed 6 KiB/s (size 40 KiB) is below 50 KiB/s: https://registry.npmjs.org/cap-widget/-/cap-widget-0.1.50.tgz (GET)
+Progress: resolved 433, reused 0, downloaded 46, added 46
+[WARN] Tarball download average speed 21 KiB/s (size 142 KiB) is below 50 KiB/s: https://registry.npmjs.org/@vue/compiler-core/-/compiler-core-3.5.43.tgz (GET)
+[WARN] Tarball download average speed 15 KiB/s (size 108 KiB) is below 50 KiB/s: https://registry.npmjs.org/@stripe/stripe-js/-/stripe-js-9.12.0.tgz (GET)
+[WARN] Tarball download average speed 1 KiB/s (size 13 KiB) is below 50 KiB/s: https://registry.npmjs.org/debug/-/debug-4.4.3.tgz (GET)
+[WARN] Tarball download average speed 5 KiB/s (size 35 KiB) is below 50 KiB/s: https://registry.npmjs.org/@vueuse/metadata/-/metadata-10.11.1.tgz (GET)
+[WARN] Tarball download average speed 44 KiB/s (size 324 KiB) is below 50 KiB/s: https://registry.npmjs.org/@vue/runtime-dom/-/runtime-dom-3.5.43.tgz (GET)
+Progress: resolved 433, reused 0, downloaded 61, added 61
+[WARN] Tarball download average speed 9 KiB/s (size 81 KiB) is below 50 KiB/s: https://registry.npmjs.org/@vue/reactivity/-/reactivity-3.5.43.tgz (GET)
+Progress: resolved 433, reused 0, downloaded 78, added 78
+[WARN] Tarball download average speed 18 KiB/s (size 164 KiB) is below 50 KiB/s: https://registry.npmjs.org/@vue/compiler-dom/-/compiler-dom-3.5.43.tgz (GET)
+Progress: resolved 433, reused 0, downloaded 82, added 82
+[WARN] Request took 10073ms: https://registry.npmjs.org/@tanstack%2Fvirtual-core
+[WARN] Request took 10104ms: https://registry.npmjs.org/@rollup%2Frollup-linux-loong64-gnu
+[WARN] Tarball download average speed 18 KiB/s (size 54 KiB) is below 50 KiB/s: https://registry.npmjs.org/yargs/-/yargs-15.4.1.tgz (GET)
+[WARN] Tarball download average speed 27 KiB/s (size 295 KiB) is below 50 KiB/s: https://registry.npmjs.org/@vueuse/core/-/core-10.11.1.tgz (GET)
+Progress: resolved 433, reused 0, downloaded 86, added 86
+[WARN] Request took 10923ms: https://registry.npmjs.org/@rollup%2Frollup-linux-x64-gnu
+[WARN] Tarball download average speed 12 KiB/s (size 135 KiB) is below 50 KiB/s: https://registry.npmjs.org/csstype/-/csstype-3.2.3.tgz (GET)
+[WARN] Tarball download average speed 29 KiB/s (size 107 KiB) is below 50 KiB/s: https://registry.npmjs.org/marked/-/marked-17.0.6.tgz (GET)
+[WARN] Request took 11453ms: https://registry.npmjs.org/@rollup%2Frollup-win32-x64-msvc
+[WARN] Request took 11361ms: https://registry.npmjs.org/@typescript-eslint%2Fproject-service
+[WARN] Request took 10001ms: https://registry.npmjs.org/@vitest%2Frunner
+[WARN] Request took 11646ms: https://registry.npmjs.org/@rollup%2Frollup-openharmony-arm64
+[WARN] Request took 11088ms: https://registry.npmjs.org/@typescript-eslint%2Fvisitor-keys
+[WARN] Request took 11734ms: https://registry.npmjs.org/@rollup%2Frollup-linux-loong64-musl
+Progress: resolved 433, reused 0, downloaded 93, added 93
+[WARN] Tarball download average speed 38 KiB/s (size 81 KiB) is below 50 KiB/s: https://registry.npmjs.org/tldts-core/-/tldts-core-7.4.13.tgz (GET)
+[WARN] Tarball download average speed 15 KiB/s (size 189 KiB) is below 50 KiB/s: https://registry.npmjs.org/@vue/runtime-core/-/runtime-core-3.5.43.tgz (GET)
+[WARN] Tarball download average speed 34 KiB/s (size 428 KiB) is below 50 KiB/s: https://registry.npmjs.org/@babel/parser/-/parser-7.29.9.tgz (GET)
+[WARN] Tarball download average speed 23 KiB/s (size 294 KiB) is below 50 KiB/s: https://registry.npmjs.org/@babel/types/-/types-7.29.8.tgz (GET)
+Progress: resolved 433, reused 0, downloaded 109, added 106
+[WARN] Request took 11317ms: https://registry.npmjs.org/@vitest%2Fsnapshot
+[WARN] Tarball download average speed 44 KiB/s (size 576 KiB) is below 50 KiB/s: https://registry.npmjs.org/@vue/compiler-sfc/-/compiler-sfc-3.5.43.tgz (GET)
+[WARN] Request took 12400ms: https://registry.npmjs.org/@vitest%2Fpretty-format
+[WARN] Request took 12944ms: https://registry.npmjs.org/@typescript-eslint%2Fparser
+[WARN] Request took 12478ms: https://registry.npmjs.org/@vitest%2Fexpect
+[WARN] Request took 12724ms: https://registry.npmjs.org/@typescript-eslint%2Ftype-utils
+Progress: resolved 433, reused 0, downloaded 138, added 137
+[WARN] Tarball download average speed 45 KiB/s (size 657 KiB) is below 50 KiB/s: https://registry.npmjs.org/vue/-/vue-3.5.43.tgz (GET)
+[WARN] Tarball download average speed 46 KiB/s (size 71 KiB) is below 50 KiB/s: https://registry.npmjs.org/@eslint-community/regexpp/-/regexpp-4.12.2.tgz (GET)
+Progress: resolved 433, reused 0, downloaded 161, added 160
+[WARN] Request took 15570ms: https://registry.npmjs.org/@rollup%2Frollup-linux-riscv64-gnu
+Progress: resolved 433, reused 0, downloaded 194, added 194
+Progress: resolved 433, reused 0, downloaded 217, added 216
+[WARN] Tarball download average speed 2 KiB/s (size 8 KiB) is below 50 KiB/s: https://registry.npmjs.org/flat-cache/-/flat-cache-4.0.1.tgz (GET)
+Progress: resolved 433, reused 0, downloaded 239, added 237
+[WARN] Request took 17322ms: https://registry.npmjs.org/@typescript-eslint%2Ftypescript-estree
+Progress: resolved 433, reused 0, downloaded 260, added 260
+[WARN] Tarball download average speed 41 KiB/s (size 81 KiB) is below 50 KiB/s: https://registry.npmjs.org/minipass/-/minipass-7.1.3.tgz (GET)
+[WARN] Tarball download average speed 47 KiB/s (size 65 KiB) is below 50 KiB/s: https://registry.npmjs.org/vite-node/-/vite-node-3.2.4.tgz (GET)
+Progress: resolved 433, reused 0, downloaded 282, added 281
+[WARN] Request took 19405ms: https://registry.npmjs.org/@typescript-eslint%2Ftypes
+[WARN] Tarball download average speed 39 KiB/s (size 99 KiB) is below 50 KiB/s: https://registry.npmjs.org/path-scurry/-/path-scurry-1.11.1.tgz (GET)
+Progress: resolved 433, reused 0, downloaded 309, added 303
+Progress: resolved 433, reused 0, downloaded 343, added 343
+[WARN] Tarball download average speed 34 KiB/s (size 62 KiB) is below 50 KiB/s: https://registry.npmjs.org/tr46/-/tr46-5.1.1.tgz (GET)
+[WARN] Tarball download average speed 22 KiB/s (size 34 KiB) is below 50 KiB/s: https://registry.npmjs.org/ws/-/ws-8.21.1.tgz (GET)
+[WARN] Tarball download average speed 4 KiB/s (size 103 KiB) is below 50 KiB/s: https://registry.npmjs.org/@vue/server-renderer/-/server-renderer-3.5.43.tgz (GET)
+[WARN] Request took 22503ms: https://registry.npmjs.org/@typescript-eslint%2Feslint-plugin
+Progress: resolved 433, reused 0, downloaded 379, added 377
+[WARN] Tarball download average speed 3 KiB/s (size 73 KiB) is below 50 KiB/s: https://registry.npmjs.org/@vueuse/shared/-/shared-10.11.1.tgz (GET)
+Progress: resolved 433, reused 0, downloaded 408, added 406
+Progress: resolved 433, reused 0, downloaded 422, added 422
+[WARN] Tarball download average speed 28 KiB/s (size 58 KiB) is below 50 KiB/s: https://registry.npmjs.org/vscode-uri/-/vscode-uri-3.1.0.tgz (GET)
+[WARN] Request took 10777ms: https://registry.npmjs.org/@volar%2Ftypescript
+Progress: resolved 433, reused 0, downloaded 426, added 426
+Progress: resolved 433, reused 0, downloaded 427, added 427
+[WARN] Request took 26799ms: https://registry.npmjs.org/@typescript-eslint%2Futils
+Progress: resolved 433, reused 0, downloaded 428, added 427
+[WARN] Request took 29250ms: https://registry.npmjs.org/@rollup%2Frollup-freebsd-arm64
+[WARN] Request took 29206ms: https://registry.npmjs.org/@rollup%2Frollup-win32-x64-gnu
+[WARN] Tarball download average speed 7 KiB/s (size 14 KiB) is below 50 KiB/s: https://registry.npmjs.org/@vue/shared/-/shared-3.5.42.tgz (GET)
+Progress: resolved 433, reused 0, downloaded 429, added 429
+[WARN] Request took 11313ms: https://registry.npmjs.org/typescript
+[WARN] Request took 17455ms: https://registry.npmjs.org/tldts
+[WARN] Tarball download average speed 4 KiB/s (size 44 KiB) is below 50 KiB/s: https://registry.npmjs.org/postcss-selector-parser/-/postcss-selector-parser-6.1.4.tgz (GET)
+Progress: resolved 433, reused 0, downloaded 430, added 429
+Progress: resolved 433, reused 0, downloaded 430, added 430
+[WARN] Tarball download average speed 2 KiB/s (size 88 KiB) is below 50 KiB/s: https://registry.npmjs.org/pinia/-/pinia-2.3.1.tgz (GET)
+Progress: resolved 433, reused 0, downloaded 431, added 430
+Progress: resolved 433, reused 0, downloaded 431, added 431
+[WARN] GET https://registry.npmjs.org/typescript/-/typescript-5.6.3.tgz error (23). Will retry in 10 seconds. 2 retries left.
+[WARN] GET https://registry.npmjs.org/axios/-/axios-1.20.0.tgz error (23). Will retry in 10 seconds. 2 retries left.
+[WARN] GET https://registry.npmjs.org/@typescript-eslint%2Fscope-manager error (23). Will retry in 10 seconds. 2 retries left.
+Progress: resolved 433, reused 0, downloaded 432, added 431
+Progress: resolved 433, reused 0, downloaded 432, added 432
+Progress: resolved 433, reused 0, downloaded 433, added 433, done
+✓ Lockfile passes supply-chain policies (483 entries in 1m 14.1s)
+.../esbuild@0.25.12/node_modules/esbuild postinstall$ node install.js
+.../node_modules/vue-demi postinstall$ node -e "try{require('./scripts/postinstall.js')}catch(e){}"
+.../esbuild@0.25.12/node_modules/esbuild postinstall: Done
+.../node_modules/vue-demi postinstall: Done
+
+dependencies:
++ @airwallex/components-sdk 1.32.0
++ @stripe/stripe-js 9.12.0
++ @tanstack/vue-virtual 3.13.34
++ @vueuse/core 10.11.1
++ axios 1.20.0
++ cap-widget 0.1.50
++ chart.js 4.5.1
++ dompurify 3.4.17
++ driver.js 1.8.0
++ file-saver 2.0.5
++ marked 17.0.6
++ node-forge 1.4.0
++ pinia 2.3.1
++ qrcode 1.5.4
++ tldts 7.4.13
++ vue 3.5.43
++ vue-chartjs 5.3.4
++ vue-draggable-plus 0.6.1
++ vue-i18n 9.14.5
++ vue-router 4.6.4
++ xlsx 0.20.3
+
+devDependencies:
++ @eslint/js 10.0.1
++ @intlify/message-compiler 9.14.5
++ @types/file-saver 2.0.7
++ @types/mdx 2.0.14
++ @types/node 24.13.3
++ @types/node-forge 1.3.14
++ @types/qrcode 1.5.6
++ @typescript-eslint/eslint-plugin 8.65.0
++ @typescript-eslint/parser 8.65.0
++ @vitejs/plugin-vue 6.0.8
++ @vitest/coverage-v8 3.2.6
++ @vue/test-utils 2.4.11
++ autoprefixer 10.5.4
++ eslint 10.8.0
++ eslint-plugin-vue 10.10.0
++ globals 17.4.0
++ jsdom 24.1.3
++ postcss 8.5.23
++ tailwindcss 3.4.19
++ typescript 5.6.3
++ vite 6.4.3
++ vite-plugin-checker 0.14.5
++ vitest 3.2.6
++ vue-tsc 2.2.12
+
+Done in 1m 16s using pnpm v11.17.0
+
+[1m[46m RUN [49m[22m [36mv3.2.6 [39m[90m/app/frontend[39m
+
+ [32m✓[39m src/__tests__/dynamicHtmlSecurity.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m src/features/channels-user/__tests__/customPageHtml.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+ [32m✓[39m src/features/support-chat/presentation/utils/__tests__/sanitizeChatHtml.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 42[2mms[22m[39m
+ [32m✓[39m src/features/billing/__tests__/paymentHelpHtml.spec.ts [2m([22m[2m1 test[22m[2m)[22m[32m 26[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m12 passed[39m[22m[90m (12)[39m
+[2m   Start at [22m 16:51:26
+[2m   Duration [22m 2.12s[2m (transform 108ms, setup 212ms, collect 318ms, tests 110ms, environment 825ms, prepare 225ms)[22m
+

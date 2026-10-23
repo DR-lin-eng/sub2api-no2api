@@ -1,0 +1,26 @@
+2026/10/23 17:08:36 Timezone initialized: UTC (UTC offset: +00:00)
+goos: linux
+goarch: arm64
+pkg: github.com/Wei-Shaw/sub2api/internal/application/service
+BenchmarkUpstreamSync20261024/ordinary-2         	  514790	       702.3 ns/op	     248 B/op	       5 allocs/op
+BenchmarkUpstreamSync20261024/ordinary-2         	  492724	       684.9 ns/op	     248 B/op	       5 allocs/op
+BenchmarkUpstreamSync20261024/ordinary-2         	  524918	       680.1 ns/op	     248 B/op	       5 allocs/op
+BenchmarkUpstreamSync20261024/ordinary-2         	  519220	       680.7 ns/op	     248 B/op	       5 allocs/op
+BenchmarkUpstreamSync20261024/ordinary-2         	  523172	       681.9 ns/op	     248 B/op	       5 allocs/op
+BenchmarkUpstreamSync20261024/capacity_no_hint-2 	 1000000	       333.4 ns/op	     152 B/op	       2 allocs/op
+BenchmarkUpstreamSync20261024/capacity_no_hint-2 	 1000000	       332.7 ns/op	     152 B/op	       2 allocs/op
+BenchmarkUpstreamSync20261024/capacity_no_hint-2 	 1000000	       332.1 ns/op	     152 B/op	       2 allocs/op
+BenchmarkUpstreamSync20261024/capacity_no_hint-2 	 1000000	       339.4 ns/op	     152 B/op	       2 allocs/op
+BenchmarkUpstreamSync20261024/capacity_no_hint-2 	 1000000	       344.1 ns/op	     152 B/op	       2 allocs/op
+BenchmarkUpstreamSync20261024/capacity_header-2  	  580461	       523.0 ns/op	     568 B/op	       5 allocs/op
+BenchmarkUpstreamSync20261024/capacity_header-2  	  621877	       518.2 ns/op	     568 B/op	       5 allocs/op
+BenchmarkUpstreamSync20261024/capacity_header-2  	  662119	       530.2 ns/op	     568 B/op	       5 allocs/op
+BenchmarkUpstreamSync20261024/capacity_header-2  	  650665	       512.1 ns/op	     568 B/op	       5 allocs/op
+BenchmarkUpstreamSync20261024/capacity_header-2  	  678354	       510.9 ns/op	     568 B/op	       5 allocs/op
+BenchmarkUpstreamSync20261024/text_delta-2       	 5609322	        64.03 ns/op	       0 B/op	       0 allocs/op
+BenchmarkUpstreamSync20261024/text_delta-2       	 5640974	        63.97 ns/op	       0 B/op	       0 allocs/op
+BenchmarkUpstreamSync20261024/text_delta-2       	 5598736	        63.44 ns/op	       0 B/op	       0 allocs/op
+BenchmarkUpstreamSync20261024/text_delta-2       	 5524197	        64.38 ns/op	       0 B/op	       0 allocs/op
+BenchmarkUpstreamSync20261024/text_delta-2       	 5674794	        63.79 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	7.384s

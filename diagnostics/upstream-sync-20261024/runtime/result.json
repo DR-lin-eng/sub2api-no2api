@@ -1,0 +1,222 @@
+[
+  {
+    "stage": "BASELINE",
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "http",
+        "stream": false,
+        "http": 200,
+        "attempts": 2,
+        "retry_gap_seconds": 0.505,
+        "settlement_rows": 1
+      },
+      {
+        "case": "http",
+        "stream": true,
+        "http": 200,
+        "attempts": 2,
+        "retry_gap_seconds": 0.5046,
+        "settlement_rows": 1
+      },
+      {
+        "case": "sse",
+        "stream": false,
+        "http": 200,
+        "attempts": 2,
+        "retry_gap_seconds": 0.5045,
+        "settlement_rows": 1
+      },
+      {
+        "case": "sse",
+        "stream": true,
+        "http": 200,
+        "attempts": 2,
+        "retry_gap_seconds": 0.5035,
+        "settlement_rows": 1
+      },
+      {
+        "case": "visible",
+        "stream": true,
+        "http": 200,
+        "attempts": 1,
+        "visible_output_count": 1
+      },
+      {
+        "case": "invalid",
+        "stream": false,
+        "http": 400,
+        "attempts": 1
+      }
+    ],
+    "migrations": 306,
+    "persisted_identity_key_subscription_sha256": "5060fa7ecab09e5386f27f085f47d77a8d5b6a44dff226a19db5f4684679d84f",
+    "health_ready_frontend_encrypted_login": "PASS",
+    "account_and_balance_invariants": "PASS"
+  },
+  {
+    "stage": "MODIFIED",
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "http",
+        "stream": false,
+        "http": 200,
+        "attempts": 2,
+        "retry_gap_seconds": 1.2547,
+        "settlement_rows": 1
+      },
+      {
+        "case": "http",
+        "stream": true,
+        "http": 200,
+        "attempts": 2,
+        "retry_gap_seconds": 1.2573,
+        "settlement_rows": 1
+      },
+      {
+        "case": "sse",
+        "stream": false,
+        "http": 200,
+        "attempts": 2,
+        "retry_gap_seconds": 1.2546,
+        "settlement_rows": 1
+      },
+      {
+        "case": "sse",
+        "stream": true,
+        "http": 200,
+        "attempts": 2,
+        "retry_gap_seconds": 1.2615,
+        "settlement_rows": 1
+      },
+      {
+        "case": "visible",
+        "stream": true,
+        "http": 200,
+        "attempts": 1,
+        "visible_output_count": 1
+      },
+      {
+        "case": "invalid",
+        "stream": false,
+        "http": 400,
+        "attempts": 1
+      }
+    ],
+    "migrations": 306,
+    "persisted_identity_key_subscription_sha256": "5060fa7ecab09e5386f27f085f47d77a8d5b6a44dff226a19db5f4684679d84f",
+    "health_ready_frontend_encrypted_login": "PASS",
+    "account_and_balance_invariants": "PASS"
+  },
+  {
+    "stage": "ROLLBACK",
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "http",
+        "stream": false,
+        "http": 200,
+        "attempts": 2,
+        "retry_gap_seconds": 0.5052,
+        "settlement_rows": 1
+      },
+      {
+        "case": "http",
+        "stream": true,
+        "http": 200,
+        "attempts": 2,
+        "retry_gap_seconds": 0.5044,
+        "settlement_rows": 1
+      },
+      {
+        "case": "sse",
+        "stream": false,
+        "http": 200,
+        "attempts": 2,
+        "retry_gap_seconds": 0.5052,
+        "settlement_rows": 1
+      },
+      {
+        "case": "sse",
+        "stream": true,
+        "http": 200,
+        "attempts": 2,
+        "retry_gap_seconds": 0.5065,
+        "settlement_rows": 1
+      },
+      {
+        "case": "visible",
+        "stream": true,
+        "http": 200,
+        "attempts": 1,
+        "visible_output_count": 1
+      },
+      {
+        "case": "invalid",
+        "stream": false,
+        "http": 400,
+        "attempts": 1
+      }
+    ],
+    "migrations": 306,
+    "persisted_identity_key_subscription_sha256": "5060fa7ecab09e5386f27f085f47d77a8d5b6a44dff226a19db5f4684679d84f",
+    "health_ready_frontend_encrypted_login": "PASS",
+    "account_and_balance_invariants": "PASS"
+  },
+  {
+    "stage": "RESTORED",
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "http",
+        "stream": false,
+        "http": 200,
+        "attempts": 2,
+        "retry_gap_seconds": 1.2542,
+        "settlement_rows": 1
+      },
+      {
+        "case": "http",
+        "stream": true,
+        "http": 200,
+        "attempts": 2,
+        "retry_gap_seconds": 1.2539,
+        "settlement_rows": 1
+      },
+      {
+        "case": "sse",
+        "stream": false,
+        "http": 200,
+        "attempts": 2,
+        "retry_gap_seconds": 1.2533,
+        "settlement_rows": 1
+      },
+      {
+        "case": "sse",
+        "stream": true,
+        "http": 200,
+        "attempts": 2,
+        "retry_gap_seconds": 1.2616,
+        "settlement_rows": 1
+      },
+      {
+        "case": "visible",
+        "stream": true,
+        "http": 200,
+        "attempts": 1,
+        "visible_output_count": 1
+      },
+      {
+        "case": "invalid",
+        "stream": false,
+        "http": 400,
+        "attempts": 1
+      }
+    ],
+    "migrations": 306,
+    "persisted_identity_key_subscription_sha256": "5060fa7ecab09e5386f27f085f47d77a8d5b6a44dff226a19db5f4684679d84f",
+    "health_ready_frontend_encrypted_login": "PASS",
+    "account_and_balance_invariants": "PASS"
+  }
+]

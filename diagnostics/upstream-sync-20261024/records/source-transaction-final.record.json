@@ -1,0 +1,13 @@
+{
+  "command": [
+    "python3",
+    "/private/tmp/sub2api-sync-20261024-3998-mavjgvgk/repo/diagnostics/upstream-sync-20261024/source_transaction.py"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261024-3998-mavjgvgk/repo",
+  "input": "",
+  "stdout": "ROLLBACK_RESTORED=/private/tmp/sub2api-sync-20261024-3998-mavjgvgk/ROLLBACK_TARGET\n{\n  \"baseline_and_restored_sha256\": \"1cf148cf1ba019ddc19996aba64edd71464a2213364352128d3ab6d752f10b89\",\n  \"paths\": 12,\n  \"patch_reconstruction\": \"PASS\",\n  \"archive_reconstruction\": \"PASS\",\n  \"restored_equals_original\": true,\n  \"rollback_stdout\": \"ROLLBACK_RESTORED=/private/tmp/sub2api-sync-20261024-3998-mavjgvgk/ROLLBACK_TARGET\\n\",\n  \"original_workspace_status\": \"\"\n}\n",
+  "stderr": "",
+  "exit_status": 0,
+  "duration_seconds": 2.427,
+  "utc": "2026-10-23T17:26:15.002563+00:00"
+}

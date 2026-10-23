@@ -1,0 +1,13 @@
+{
+  "command": [
+    "python3",
+    "diagnostics/upstream-sync-20261024/runtime/check.py"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261024-3998-mavjgvgk/repo",
+  "input": "",
+  "stdout": "",
+  "stderr": "Traceback (most recent call last):\n  File \"/private/tmp/sub2api-sync-20261024-3998-mavjgvgk/repo/diagnostics/upstream-sync-20261024/runtime/check.py\", line 130, in <module>\n    with OPENER.open('http://127.0.0.1:18241/stats',timeout=5) as r:attempts=json.load(r)[name]\n         ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/urllib/request.py\", line 487, in open\n    response = self._open(req, data)\n  File \"/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/urllib/request.py\", line 504, in _open\n    result = self._call_chain(self.handle_open, protocol, protocol +\n                              '_open', req)\n  File \"/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/urllib/request.py\", line 464, in _call_chain\n    result = func(*args)\n  File \"/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/urllib/request.py\", line 1350, in http_open\n    return self.do_open(http.client.HTTPConnection, req)\n           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/urllib/request.py\", line 1325, in do_open\n    r = h.getresponse()\n  File \"/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py\", line 1450, in getresponse\n    response.begin()\n    ~~~~~~~~~~~~~~^^\n  File \"/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py\", line 336, in begin\n    version, status, reason = self._read_status()\n                              ~~~~~~~~~~~~~~~~~^^\n  File \"/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py\", line 305, in _read_status\n    raise RemoteDisconnected(\"Remote end closed connection without\"\n                             \" response\")\nhttp.client.RemoteDisconnected: Remote end closed connection without response\n",
+  "exit_status": 1,
+  "duration_seconds": 9.208,
+  "utc": "2026-10-23T17:09:25.736910+00:00"
+}

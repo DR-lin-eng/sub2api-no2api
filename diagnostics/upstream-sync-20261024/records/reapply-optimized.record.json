@@ -1,0 +1,16 @@
+{
+  "command": [
+    "git",
+    "-C",
+    "/private/tmp/sub2api-sync-20261024-3998-mavjgvgk/ROLLBACK_TARGET",
+    "apply",
+    "/private/tmp/sub2api-sync-20261024-3998-mavjgvgk/repo/diagnostics/upstream-sync-20261024/DIFF_FILE.patch"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261024-3998-mavjgvgk/repo",
+  "input": "",
+  "stdout": "",
+  "stderr": "",
+  "exit_status": 0,
+  "duration_seconds": 0.021,
+  "utc": "2026-10-23T17:23:09.687348+00:00"
+}

@@ -1,0 +1,13 @@
+{
+  "active_object": "Sub2API current-owner upstream sync through 5c185c5c5d4f5e409e2139806e0964ae944e03e8",
+  "last_confirmed_result": "Final local code, Docker runtime 24-case/306-migration matrix, performance and source rollback/reapply accepted.",
+  "next_executable_action": "Commit candidate and closure ledger, record reviewed upstream ancestry, push, create PR and track exact PR/main CI plus GHCR.",
+  "input_paths": [
+    "STATE.json",
+    "FROZEN_RANGE.json",
+    "UPSTREAM_PRS.json",
+    "SOURCE_HASHES.json",
+    "runtime/check.py"
+  ],
+  "acceptance_event": "Exact pushed/merged revision with successful CI and verified image publication; native four-role artifacts reopened and verified."
+}

@@ -1,0 +1,52 @@
+diff --git a/README.md b/README.md
+index 11955a37b..38b70781c 100644
+--- a/README.md
++++ b/README.md
+@@ -156,6 +156,11 @@ Please read the following carefully before using this project:
+ <td>Thanks to <a href="https://x.com/chenju_ai">Chenju</a> for sponsoring this project! This is probably the only ad slot in this section that doesn't ask you to sign up for anything. Good open-source projects deserve to be paid for, so Chenju is chipping in a gift and raising a glass to the author. Find <a href="https://x.com/chenju_ai">Chenju</a> on X to chat about API relays, upstream providers, or just shoot the breeze.</td>
+ </tr>
+ 
++<tr>
++<td width="180"><a href="https://t.me/AACC8888888"><img src="assets/partners/logos/ooko.ai.png" alt="ooko.ai" width="150"></a></td>
++<td>🔑 Buying AI accounts at top prices | Gemini · Claude · GPT | Main and alt accounts all welcome, any channel wanted | Pay-per-usage supported | Seeking first-hand resources from major providers, I'll bring the KEY.<br>WeChat: Liuyou-zawd | Telegram: <a href="https://t.me/AACC8888888">AACC8888888</a></td>
++</tr>
++
+ </table>
+ 
+ ## Overview
+diff --git a/README_CN.md b/README_CN.md
+index 9064b68ea..d34649c84 100644
+--- a/README_CN.md
++++ b/README_CN.md
+@@ -159,6 +159,11 @@
+ <td>感谢 <a href="https://x.com/chenju_ai">陈局</a> 赞助了本项目！这大概是本栏唯一一个不让你注册的广告位。好的开源项目值得被付费，陈局来随个份子，敬作者一杯。X 上找 <a href="https://x.com/chenju_ai">陈局</a>，聊中转、聊上游、吹吹水。</td>
+ </tr>
+ 
++<tr>
++<td width="180"><a href="https://t.me/AACC8888888"><img src="assets/partners/logos/ooko.ai.png" alt="ooko.ai" width="150"></a></td>
++<td>🔑 高价收 AI 账号｜Gemini · Claude · GPT｜大小号通收，各种渠道都要｜支持按量跑付｜寻一手大厂资源，我上 KEY 。<br>微信：Liuyou-zawd｜TG：<a href="https://t.me/AACC8888888">AACC8888888</a></td>
++</tr>
++
+ </table>
+ 
+ ## 项目概述
+diff --git a/README_JA.md b/README_JA.md
+index 367cce637..58c5f379f 100644
+--- a/README_JA.md
++++ b/README_JA.md
+@@ -158,6 +158,11 @@
+ <td><a href="https://x.com/chenju_ai">陈局（Chenju）</a>様、本プロジェクトへのご支援ありがとうございます！これはおそらく、この欄で唯一「登録しなくていい」広告枠です。良いオープンソースには対価が払われるべき——というわけで、陈局がご祝儀を包んで作者に一杯おごります。X で <a href="https://x.com/chenju_ai">陈局</a> を見つけて、中継サービスや上流の話、雑談でもどうぞ。</td>
+ </tr>
+ 
++<tr>
++<td width="180"><a href="https://t.me/AACC8888888"><img src="assets/partners/logos/ooko.ai.png" alt="ooko.ai" width="150"></a></td>
++<td>🔑 AI アカウント高価買取｜Gemini · Claude · GPT｜メイン・サブアカウントすべて買取、チャネル問わず歓迎｜従量制での支払いに対応｜大手の一次リソースを求めています、KEY は私が用意します。<br>WeChat：Liuyou-zawd｜Telegram：<a href="https://t.me/AACC8888888">AACC8888888</a></td>
++</tr>
++
+ </table>
+ 
+ ## 概要
+diff --git a/assets/partners/logos/ooko.ai.png b/assets/partners/logos/ooko.ai.png
+new file mode 100644
+index 000000000..888458340
+Binary files /dev/null and b/assets/partners/logos/ooko.ai.png differ

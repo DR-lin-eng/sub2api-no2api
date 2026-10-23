@@ -1,0 +1,454 @@
+diff --git a/backend/internal/application/service/README.md b/backend/internal/application/service/README.md
+index 57ca64667..1a29b995b 100644
+--- a/backend/internal/application/service/README.md
++++ b/backend/internal/application/service/README.md
+@@ -11,6 +11,7 @@
+ | `gateway*` | Anthropic/Claude 通用网关请求、调度、转发和计费 |
+ | `gateway_systemone.go`, `account_test_service_typesafe.go` | TypeSafe 原生非流式转发与账号测试，复用完整账号出口和可靠计费 |
+ | `openai*` | OpenAI/Codex/Responses/Images/WS 管线 |
++| `openai_capacity_retry.go` | 请求级容量错误的 HTTP/SSE/WS 等待提示解析；有限数值先限幅，沿用现有重试预算 |
+ | `openai_live*` | Codex CLI/旧 Desktop Live、Sideband 控制、分钟结算和持久恢复 |
+ | `gemini*`, `grok*`, `antigravity*`, `bedrock*` | 各上游协议适配与重试 |
+ | `scheduler*`, `channel*`, `ratelimit*`, `concurrency*` | 调度、通道和并发控制 |
+diff --git a/backend/internal/application/service/gateway_service.go b/backend/internal/application/service/gateway_service.go
+index cf9f72f74..96896699c 100644
+--- a/backend/internal/application/service/gateway_service.go
++++ b/backend/internal/application/service/gateway_service.go
+@@ -640,12 +640,13 @@ type GatewayFailureReason string
+ // source-compatible and preserves their legacy retry-next-account behavior.
+ type UpstreamFailoverError struct {
+ 	StatusCode               int
+-	ResponseBody             []byte      // 上游响应体，用于错误透传规则匹配
+-	ResponseHeaders          http.Header // 上游响应头，用于透传 cf-ray/cf-mitigated/content-type 等诊断信息
+-	ForceCacheBilling        bool        // Antigravity 粘性会话切换时设为 true
+-	RetryableOnSameAccount   bool        // 临时性错误（如 Google 间歇性 400、空响应），应在同一账号上重试 N 次再切换
+-	PreserveUpstreamResponse bool        // 切号耗尽后返回最终状态码、已净化正文及安全响应头；仅由明确的 passthrough 路径设置
+-	SafeToFailoverAfterWrite bool        // 仅写出 SSE 注释等非语义字节时，仍可在同一客户端流中切换账号
++	ResponseBody             []byte        // 上游响应体，用于错误透传规则匹配
++	ResponseHeaders          http.Header   // 上游响应头，用于透传 cf-ray/cf-mitigated/content-type 等诊断信息
++	SameAccountRetryDelay    time.Duration // 请求级容量错误的上游等待提示，不改变重试次数
++	ForceCacheBilling        bool          // Antigravity 粘性会话切换时设为 true
++	RetryableOnSameAccount   bool          // 临时性错误（如 Google 间歇性 400、空响应），应在同一账号上重试 N 次再切换
++	PreserveUpstreamResponse bool          // 切号耗尽后返回最终状态码、已净化正文及安全响应头；仅由明确的 passthrough 路径设置
++	SafeToFailoverAfterWrite bool          // 仅写出 SSE 注释等非语义字节时，仍可在同一客户端流中切换账号
+ 	Stage                    GatewayFailureStage
+ 	Scope                    GatewayFailureScope
+ 	Reason                   GatewayFailureReason
+diff --git a/backend/internal/application/service/openai_capacity_retry.go b/backend/internal/application/service/openai_capacity_retry.go
+new file mode 100644
+index 000000000..d0ddce657
+--- /dev/null
++++ b/backend/internal/application/service/openai_capacity_retry.go
+@@ -0,0 +1,72 @@
++package service
++
++import (
++	"bytes"
++	"math"
++	"net/http"
++	"strconv"
++	"strings"
++	"time"
++
++	"github.com/tidwall/gjson"
++)
++
++const openAIRequestScopedRetryMaxDelay = 8 * time.Second
++
++// Only capacity failures call this parser. Successful requests and ordinary
++// errors keep their existing retry policy and incur no hint parsing cost.
++func openAIRequestScopedRetryDelay(headers http.Header, body []byte) time.Duration {
++	for _, key := range []string{"Retry-After", "Retry-After-Ms"} {
++		unit := time.Second
++		if key == "Retry-After-Ms" {
++			unit = time.Millisecond
++		}
++		if delay := parseOpenAICapacityRetryDelay(headers.Get(key), unit); delay > 0 {
++			return delay
++		}
++	}
++	// Most capacity errors have no hint. Avoid four JSON path scans unless a
++	// literal key or an escaped Unicode key could carry one.
++	if !bytes.Contains(body, []byte("retry-after")) && !bytes.Contains(body, []byte(`\u`)) {
++		return 0
++	}
++	for _, path := range []string{
++		"error.headers.retry-after", "response.error.headers.retry-after",
++		"error.headers.retry-after-ms", "response.error.headers.retry-after-ms",
++	} {
++		unit := time.Second
++		if strings.HasSuffix(path, "-ms") {
++			unit = time.Millisecond
++		}
++		if delay := parseOpenAICapacityRetryDelay(gjson.GetBytes(body, path).String(), unit); delay > 0 {
++			return delay
++		}
++	}
++	return 0
++}
++
++func parseOpenAICapacityRetryDelay(raw string, unit time.Duration) time.Duration {
++	raw = strings.TrimSpace(raw)
++	if raw == "" {
++		return 0
++	}
++	if value, err := strconv.ParseFloat(raw, 64); err == nil {
++		if value <= 0 || math.IsNaN(value) || math.IsInf(value, 0) {
++			return 0
++		}
++		// Clamp before converting: very large finite hints must not overflow
++		// time.Duration into a negative value and trigger an immediate retry.
++		if value >= float64(openAIRequestScopedRetryMaxDelay)/float64(unit) {
++			return openAIRequestScopedRetryMaxDelay
++		}
++		return time.Duration(value * float64(unit))
++	}
++	if unit == time.Second {
++		if resetAt, err := http.ParseTime(raw); err == nil {
++			if delay := time.Until(resetAt); delay > 0 {
++				return min(delay, openAIRequestScopedRetryMaxDelay)
++			}
++		}
++	}
++	return 0
++}
+diff --git a/backend/internal/application/service/openai_capacity_retry_test.go b/backend/internal/application/service/openai_capacity_retry_test.go
+new file mode 100644
+index 000000000..4a19a42ab
+--- /dev/null
++++ b/backend/internal/application/service/openai_capacity_retry_test.go
+@@ -0,0 +1,106 @@
++package service
++
++import (
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++	"time"
++
++	"github.com/Wei-Shaw/sub2api/internal/platform/config"
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++)
++
++func TestOpenAIRequestScopedRetryDelay(t *testing.T) {
++	for _, tc := range []struct {
++		name, seconds, millis, body string
++		want                        time.Duration
++	}{
++		{name: "seconds", seconds: " 6.25 ", want: 6250 * time.Millisecond},
++		{name: "milliseconds", millis: "1250.5", want: 1250500 * time.Microsecond},
++		{name: "header precedence", seconds: "6", millis: "7000", body: `{"error":{"headers":{"retry-after":8}}}`, want: 6 * time.Second},
++		{name: "top-level body", body: `{"error":{"headers":{"retry-after":"6.5"}}}`, want: 6500 * time.Millisecond},
++		{name: "response body", body: `{"response":{"error":{"headers":{"retry-after":7}}}}`, want: 7 * time.Second},
++		{name: "escaped header keys", body: `{"error":{"he\u0061ders":{"retry\u002dafter":"1.25"}}}`, want: 1250 * time.Millisecond},
++		{name: "top-level milliseconds", body: `{"error":{"headers":{"retry-after-ms":"1250"}}}`, want: 1250 * time.Millisecond},
++		{name: "response milliseconds", body: `{"response":{"error":{"headers":{"retry-after-ms":7000}}}}`, want: 7 * time.Second},
++		{name: "invalid header fallback", seconds: "invalid", body: `{"error":{"headers":{"retry-after-ms":1500}}}`, want: 1500 * time.Millisecond},
++		{name: "zero fallback", seconds: "0", millis: "1000", want: time.Second},
++		{name: "negative", seconds: "-1"},
++		{name: "nan", seconds: "NaN"},
++		{name: "infinite", seconds: "+Inf"},
++		{name: "overflow", seconds: "1e500"},
++		{name: "cap before conversion", seconds: "1e100", want: 8 * time.Second},
++		{name: "milliseconds cap", millis: "1e100", want: 8 * time.Second},
++		{name: "HTTP date cap", seconds: time.Now().Add(time.Minute).UTC().Format(http.TimeFormat), want: 8 * time.Second},
++		{name: "expired HTTP date", seconds: time.Now().Add(-time.Minute).UTC().Format(http.TimeFormat)},
++		{name: "invalid body", body: `invalid`},
++		{name: "no hint"},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			h := http.Header{"Retry-After": []string{tc.seconds}, "Retry-After-Ms": []string{tc.millis}}
++			require.Equal(t, tc.want, openAIRequestScopedRetryDelay(h, []byte(tc.body)))
++		})
++	}
++	date := time.Now().Add(5 * time.Second).UTC().Format(http.TimeFormat)
++	delay := openAIRequestScopedRetryDelay(http.Header{"Retry-After": []string{date}}, nil)
++	require.Greater(t, delay, time.Duration(0))
++	require.LessOrEqual(t, delay, 5*time.Second)
++}
++
++func TestOpenAICapacityRetryHintErrorScope(t *testing.T) {
++	h := http.Header{"Retry-After": []string{"6"}}
++	capacity := newOpenAIUpstreamFailoverError(503, h, []byte(`{"error":{"code":"server_is_overloaded"}}`), "", false)
++	require.Equal(t, 6*time.Second, capacity.SameAccountRetryDelay)
++	require.True(t, capacity.RetryableOnSameAccount)
++	require.False(t, capacity.ShouldReportAccountScheduleFailure())
++	ordinary := newOpenAIUpstreamFailoverError(400, h, []byte(`{"error":{"code":"invalid_request"}}`), "", false)
++	require.Zero(t, ordinary.SameAccountRetryDelay)
++	require.False(t, ordinary.RetryableOnSameAccount)
++	statusOnly := newOpenAIWSOverloadFailoverError(h, []byte(`{"type":"error","status":503}`), "")
++	require.Equal(t, 6*time.Second, statusOnly.SameAccountRetryDelay)
++	require.Equal(t, GatewayFailureScopeRequest, statusOnly.Scope)
++}
++
++func TestOpenAICapacityRetryHintAfterEmptyEvents(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	for _, kind := range []string{
++		"response.output_text.delta", "response.reasoning_summary_text.delta", "response.reasoning_text.delta",
++		"response.function_call_arguments.delta", "response.custom_tool_call_input.delta", "response.refusal.delta",
++		"response.output_text.done", "response.reasoning_summary_text.done", "response.reasoning_text.done", "response.refusal.done",
++		"response.content_part.done", "response.reasoning_summary_part.done",
++	} {
++		for _, passthrough := range []bool{false, true} {
++			name := kind + "/native"
++			if passthrough {
++				name = kind + "/passthrough"
++			}
++			t.Run(name, func(t *testing.T) {
++				partType := "output_text"
++				if strings.Contains(kind, "summary_part") {
++					partType = "summary_text"
++				}
++				stream := "data: {\"type\":\"" + kind + "\",\"delta\":\"\",\"text\":\"\",\"refusal\":\"\",\"part\":{\"type\":\"" + partType + "\",\"text\":\"\"}}\n\n" +
++					"data: {\"type\":\"response.failed\",\"response\":{\"error\":{\"code\":\"server_is_overloaded\",\"headers\":{\"retry-after-ms\":\"1250\"}}}}\n\n"
++				c, _ := gin.CreateTestContext(httptest.NewRecorder())
++				c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
++				resp := &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(stream))}
++				svc := &OpenAIGatewayService{cfg: &config.Config{Gateway: config.GatewayConfig{MaxLineSize: defaultMaxLineSize}}}
++				account := &Account{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
++				var err error
++				if passthrough {
++					_, err = svc.handleStreamingResponsePassthrough(c.Request.Context(), resp, c, account, time.Now(), "gpt-4.1", "gpt-4.1")
++				} else {
++					_, err = svc.handleStreamingResponse(c.Request.Context(), resp, c, account, time.Now(), "gpt-4.1", "gpt-4.1")
++				}
++				var failure *UpstreamFailoverError
++				require.ErrorAs(t, err, &failure)
++				require.Equal(t, 1250*time.Millisecond, failure.SameAccountRetryDelay)
++				require.True(t, failure.RetryableOnSameAccount)
++				require.False(t, c.Writer.Written())
++			})
++		}
++	}
++}
+diff --git a/backend/internal/application/service/openai_gateway_passthrough.go b/backend/internal/application/service/openai_gateway_passthrough.go
+index 7569a7f42..f81402f7c 100644
+--- a/backend/internal/application/service/openai_gateway_passthrough.go
++++ b/backend/internal/application/service/openai_gateway_passthrough.go
+@@ -1706,6 +1706,7 @@ func (s *OpenAIGatewayService) newOpenAIStreamFailoverError(
+ 	requestScopedCapacity := isOpenAIUpstreamCapacityShedEvent(payload)
+ 	if requestScopedCapacity {
+ 		failoverErr.Scope = GatewayFailureScopeRequest
++		failoverErr.SameAccountRetryDelay = openAIRequestScopedRetryDelay(headers, payload)
+ 	} else if statusCode == http.StatusBadGateway && shouldCountOpenAIStreamBadGatewayFailure(payload, message) &&
+ 		s != nil && s.rateLimitService != nil && account != nil {
+ 		failureCtx := context.Background()
+diff --git a/backend/internal/application/service/openai_gateway_upstream_errors.go b/backend/internal/application/service/openai_gateway_upstream_errors.go
+index c8ac71935..4dabea38f 100644
+--- a/backend/internal/application/service/openai_gateway_upstream_errors.go
++++ b/backend/internal/application/service/openai_gateway_upstream_errors.go
+@@ -314,6 +314,7 @@ func newOpenAIUpstreamFailoverError(
+ 	}
+ 	if requestScopedCapacity {
+ 		failoverErr.Scope = GatewayFailureScopeRequest
++		failoverErr.SameAccountRetryDelay = openAIRequestScopedRetryDelay(responseHeaders, responseBody)
+ 	}
+ 	if isOpenAIInvalidPromptPolicyError(upstreamMsg, responseBody) {
+ 		failoverErr.RetryableOnSameAccount = false
+diff --git a/backend/internal/application/service/openai_ws_forwarder_support.go b/backend/internal/application/service/openai_ws_forwarder_support.go
+index 36a7896e0..3fa76ad0f 100644
+--- a/backend/internal/application/service/openai_ws_forwarder_support.go
++++ b/backend/internal/application/service/openai_ws_forwarder_support.go
+@@ -1010,6 +1010,9 @@ func newOpenAIWSOverloadFailoverError(headers http.Header, payload []byte, messa
+ 	)
+ 	// A status-only envelope is still request-scoped capacity shedding even
+ 	// though the generic constructor cannot identify it from the body alone.
++	if err.Scope != GatewayFailureScopeRequest {
++		err.SameAccountRetryDelay = openAIRequestScopedRetryDelay(headers, payload)
++	}
+ 	err.Scope = GatewayFailureScopeRequest
+ 	err.RetryableOnSameAccount = true
+ 	return err
+diff --git a/backend/internal/transport/http/handler/failover_loop.go b/backend/internal/transport/http/handler/failover_loop.go
+index d05cca9d8..7f8e35eca 100644
+--- a/backend/internal/transport/http/handler/failover_loop.go
++++ b/backend/internal/transport/http/handler/failover_loop.go
+@@ -50,18 +50,21 @@ const (
+ const profitVetoExhaustedMessage = "No available accounts: all candidates rejected by group profit control"
+ 
+ func sameAccountRetryDelayFor(failoverErr *service.UpstreamFailoverError, retryCount int) time.Duration {
+-	if failoverErr == nil || failoverErr.Scope != service.GatewayFailureScopeRequest || retryCount <= 1 {
++	if failoverErr == nil || failoverErr.Scope != service.GatewayFailureScopeRequest {
+ 		return sameAccountRetryDelay
+ 	}
+ 
+ 	delay := sameAccountRetryDelay
+ 	for i := 1; i < retryCount; i++ {
+ 		if delay >= maxRequestScopedRetryDelay/2 {
+-			return maxRequestScopedRetryDelay
++			delay = maxRequestScopedRetryDelay
++			break
+ 		}
+ 		delay *= 2
+ 	}
+-	return delay
++	// The hint is a floor on the existing backoff, within the same wait cap.
++	// Callers retain their attempt budgets and context-cancelable sleep.
++	return min(max(delay, failoverErr.SameAccountRetryDelay), maxRequestScopedRetryDelay)
+ }
+ 
+ // FailoverState 跨循环迭代共享的 failover 状态
+diff --git a/backend/internal/transport/http/handler/failover_retry_hint_test.go b/backend/internal/transport/http/handler/failover_retry_hint_test.go
+new file mode 100644
+index 000000000..bb8c2fc3d
+--- /dev/null
++++ b/backend/internal/transport/http/handler/failover_retry_hint_test.go
+@@ -0,0 +1,54 @@
++package handler
++
++import (
++	"context"
++	"testing"
++	"time"
++
++	"github.com/Wei-Shaw/sub2api/internal/application/service"
++	"github.com/stretchr/testify/require"
++)
++
++func TestSameAccountRetryDelayForHint(t *testing.T) {
++	for _, tc := range []struct {
++		name    string
++		hint    time.Duration
++		count   int
++		request bool
++		want    time.Duration
++	}{
++		{"first retry hint", 6 * time.Second, 1, true, 6 * time.Second},
++		{"hint floor", 6 * time.Second, 3, true, 6 * time.Second},
++		{"retain exponential", time.Second, 3, true, 2 * time.Second},
++		{"retain first retry", time.Millisecond, 1, true, 500 * time.Millisecond},
++		{"cap hint", time.Hour, 1, true, 8 * time.Second},
++		{"cap retry", time.Second, 1000, true, 8 * time.Second},
++		{"ignore negative", -time.Second, 1, true, 500 * time.Millisecond},
++		{"ordinary account failure", time.Hour, 10, false, 500 * time.Millisecond},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			e := &service.UpstreamFailoverError{SameAccountRetryDelay: tc.hint}
++			if tc.request {
++				e.Scope = service.GatewayFailureScopeRequest
++			}
++			require.Equal(t, tc.want, sameAccountRetryDelayFor(e, tc.count))
++		})
++	}
++}
++
++func TestHandleFailoverError_CapacityRetryHintCanceled(t *testing.T) {
++	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
++	defer cancel()
++	fs := NewFailoverState(3, false)
++	mock := &mockTempUnscheduler{}
++	failure := &service.UpstreamFailoverError{
++		Scope: service.GatewayFailureScopeRequest, RetryableOnSameAccount: true,
++		SameAccountRetryDelay: 8 * time.Second,
++	}
++	start := time.Now()
++	require.Equal(t, FailoverCanceled, fs.HandleFailoverError(ctx, mock, 100, "openai", 1, failure))
++	require.Less(t, time.Since(start), time.Second)
++	require.Equal(t, 1, fs.SameAccountRetryCount[100])
++	require.Zero(t, fs.SwitchCount)
++	require.Empty(t, mock.calls)
++}
+diff --git a/docs/README.md b/docs/README.md
+index f36951837..f8f12ff06 100644
+--- a/docs/README.md
++++ b/docs/README.md
+@@ -86,6 +86,7 @@
+ | [上游主线增量同步审查（2026-10-19）](UPSTREAM_SYNC_20261019.md) | Gemini 断流可靠结算、缓存用量下限、图片结果类型检查、关闭台账与 Docker 升级回退 |
+ | [上游主线增量同步审查（2026-10-22）](UPSTREAM_SYNC_20261022.md) | service account 配额、Gemini 图片门禁、兼容流断连结算、性能与 Docker 升级回退 |
+ | [上游 #8170 专项同步（2026-10-22）](UPSTREAM_SYNC_20261022_PR8170.md) | Grok 4.7 Fast 价卡、长上下文边界、动态/渠道价格优先级与回退 |
++| [上游主线增量同步审查（2026-10-24）](UPSTREAM_SYNC_20261024.md) | #8305 有界重试等待、已覆盖差异关闭、显式身份兼容与 Docker 升级回退 |
+ | [API Key 删除与计费竞争条件审查（2026-10-06）](../diagnostics/billing-key-deletion-20261006/REPORT.md) | 旧版本漏扣回放、当前修复边界、真实数据库与 24 个 Docker HTTP 场景 |
+ | [GPT-6 Astra 接入记录](GPT6_ASTRA.md) | OpenAI 官方模型目录、能力、价格和本项目兼容计费映射 |
+ | [GPT-6 模型目录与价格](GPT6_MODELS.md) | GPT-6 Astra、Sol、Luna 的官方能力、价格与本项目实现位置 |
+diff --git a/docs/UPSTREAM_SYNC_20261024.md b/docs/UPSTREAM_SYNC_20261024.md
+new file mode 100644
+index 000000000..17f016f67
+--- /dev/null
++++ b/docs/UPSTREAM_SYNC_20261024.md
+@@ -0,0 +1,67 @@
++# 上游主线同步审查（2026-10-24）
++
++本轮以本项目主线 `7161a547cb4af162b7227f2a01bc6290a83dbff1` 为基线，冻结上游
++`dba770d56a0ee0ae5bad1b3dc5e11614d323163c..5c185c5c5d4f5e409e2139806e0964ae944e03e8`。
++范围为 4 个 first-parent 条目、5 个提交，其中仅 #8305 是功能 PR。
++继承 10 月 22 日主同步和 #8170 专项台账；既有 ported、covered、有意差异和专项暂缓不重复处理。
++
++## 适配与关闭
++
++| 上游条目 | 结论 | 当前行为 |
++| --- | --- | --- |
++| #8305 容量错误等待提示 | 适配 | HTTP、SSE 与 WS 保留提示，接入当前失败元数据和统一同账号退避 |
++| #8305 空事件安全重试 | 已覆盖 | 现有语义输出判定已覆盖；新增 12 种事件在普通/透传路径的回归矩阵 |
++| #8305 默认/显式身份调整 | 已覆盖与有意差异 | 默认已使用 CLI；保留 #156 的完整 Desktop/TUI 显式 UA 与引擎版本契约 |
++| `82862680` DOMPurify 公告 | 已覆盖 | 冻结 lockfile 和实际安装均为已修复的 3.4.17，无需重复升级 |
++| `ac1b8f12` 赞助内容 | 有意差异 | 保持本项目根 README 的非推广内容 |
++| `5c185c5c` VERSION | 有意差异 | 保留本项目发布版本管理 |
++
++机器台账记录每项原始 diff 的 SHA-256、当前 owner、关闭状态与重开条件，见
++[UPSTREAM_PRS.json](../diagnostics/upstream-sync-20261024/UPSTREAM_PRS.json)。
++只有上游语义新增或当前 owner 的明确回归才重开；相同冻结 diff 不是重开理由。
++
++## 兼容与性能边界
++
++新增 `UpstreamFailoverError.SameAccountRetryDelay` 仅为进程内的可选字段，无数据库迁移或外部 API
++字段变化。等待提示以现有指数退避为下限，单次不超过 8 秒；请求级总预算、账号重试次数、
++取消、粘性会话、账号失败归因及已输出后不可重放的边界保持原有路径。
++
++数值提示支持小数秒和毫秒；HTTP 日期仅用于秒制 Retry-After。有限大数先限幅再转换，拒绝
++NaN、无穷、溢出、负数和失效日期。只有容量错误解析提示，成功流的逐事件判定没有新增解析、
++数据库访问、队列、缓存或 goroutine。提示缺失时沿用旧退避。
++
++升级可逐实例替换；混合版本中旧实例仍使用原退避，新实例采用等待提示，不涉及存储格式切换。
++回退恢复旧等待行为，已有身份、Key、订阅与余额仍由原持久化链路管理。
++
++Docker 验证、固定输入微基准、同库升级/回退、源码重建与发布证据统一存放在
++[本轮诊断目录](../diagnostics/upstream-sync-20261024/)。基准只代表固定函数夹具，不能外推生产吞吐。
++
++## 验证结果
++
++Docker Go 1.26.10 的最终全后端单元测试、相关竞态测试和 lint 均通过，生产镜像构建通过。
++前端固定安装验证 DOMPurify 3.4.17，4 个清洗相关测试文件的 12 个用例通过。
++文档门禁通过；源码布局门禁只复现基线已有的两个 1201 行文件，不增加豁免。
++
++同一 PostgreSQL/Redis 环境完成 4 阶段、24 个真实 HTTP 场景：
++
++| 阶段 | 1.25 秒提示下的实际重试间隔 | 迁移数 | 数据与行为检查 |
++| --- | --- | --- | --- |
++| BASELINE | 0.503–0.505 秒 | 306 | 通过 |
++| MODIFIED | 1.255–1.262 秒 | 306 | 通过 |
++| ROLLBACK | 0.504–0.506 秒 | 306 | 通过 |
++| RESTORED | 1.253–1.262 秒 | 306 | 通过 |
++
++流式和非流式均恢复为 200，每次成功请求仅产生一条 10/5 token 用量记录；已发出的真实文本只出现一次，普通 400 仅请求上游一次。身份、持久 Key、订阅、账号调度状态和余额等式在四阶段均通过。
++
++固定 2 CPU、3 GiB、每项 5 次的 Docker 微基准中位数：
++
++| 夹具 | 基线 ns/op | 修改 ns/op | 回退 ns/op | 修改相对基线 | 修改 B/op、分配数 |
++| --- | --- | --- | --- | --- | --- |
++| ordinary | 678.50 | 703.50 | 730.40 | +3.68% | 264、5 |
++| capacity_no_hint | 326.10 | 421.90 | 351.40 | +29.38% | 168、2 |
++| capacity_header | 494.00 | 571.90 | 554.20 | +15.77% | 584、5 |
++| text_delta | 63.58 | 63.12 | 63.53 | -0.72% | 0、0 |
++
++首轮无提示容量错误多做四次 JSON 路径扫描，333→561 ns；已通过无提示快速判定移除重复扫描，并对 Unicode 转义键保留完整解析。首轮结果保留在 `history/first-parser/`。错误元数据新增字段的内存成本单独列出；正常文本事件仍为零分配。以上仅是函数夹具，不能据此断言生产吞吐没有任何变化。
++
++源码补丁与修改包分别重建相同字节；自包含回退脚本在独立副本执行后，所有受影响文件哈希恢复为基线，再重新应用修改。原工作树保持原 HEAD 与干净状态。
+diff --git a/docs/codex/intentional-divergences.md b/docs/codex/intentional-divergences.md
+index 0cd70a388..7771e2ef2 100644
+--- a/docs/codex/intentional-divergences.md
++++ b/docs/codex/intentional-divergences.md
+@@ -68,6 +68,11 @@ failover，service 层不会先写 JSON，因此不会再和外层 `response.fai
+ 账号，若 401 的结构化错误码为 `token_expired`，网关会先按一次有界的 refresh-token 恢复重试同一账号；
+ 只有刷新失败或再次 401 才进入这条 HTTP 回退/账号 failover 路径。
+ 
++请求级容量错误可从 HTTP `Retry-After` / `Retry-After-Ms` 或 SSE/WS 错误体的同名字段读取等待提示。
++提示作为现有同账号指数退避的下限，单次最多 8 秒，不增加重试次数；取消请求会立即结束等待。
++普通错误不采用该提示，已提交语义输出的请求仍不重放。该行为与显式 UA 的保留相互独立；
++上游 #8305 的 TUI 强制改写不适用于本项目已关闭的 Desktop/显式身份契约。
++
+ 透传路径的恢复重试使用请求级总 attempt budget，不会在每次切换账号后重新获得完整的同账号重试次数。
+ 带显式 `store:true`、图片生成意图、`previous_response_id` 或工具输出的请求不做无法证明幂等的传输重放。
+ 首语义输出前的 SSE keepalive 可以先提交 200；此时账号响应元数据通过预声明的 HTTP trailer 发送，

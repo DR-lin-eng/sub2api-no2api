@@ -1,0 +1,62 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 191B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/golang:1.26.10-alpine
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [1/2] FROM docker.io/library/golang:1.26.10-alpine@sha256:9ce231b28998b32e116927c61aa5c406183061d4f3f2d61b292c88e7f6bdf7ca
+#4 resolve docker.io/library/golang:1.26.10-alpine@sha256:9ce231b28998b32e116927c61aa5c406183061d4f3f2d61b292c88e7f6bdf7ca done
+#4 CACHED
+
+#5 [2/2] RUN apk add --no-cache gcc musl-dev git make ca-certificates
+#5 3.454 ( 1/27) Upgrading musl (1.2.6-r2 -> 1.2.6-r3)
+#5 3.647 ( 2/27) Installing libgcc (15.2.0-r5)
+#5 3.830 ( 3/27) Installing jansson (2.15.0-r0)
+#5 4.002 ( 4/27) Installing libstdc++ (15.2.0-r5)
+#5 4.418 ( 5/27) Installing zstd-libs (1.5.7-r2)
+#5 4.611 ( 6/27) Installing binutils (2.45.1-r1)
+#5 5.181 ( 7/27) Installing libgcc-static (15.2.0-r5)
+#5 5.613 ( 8/27) Installing libgomp (15.2.0-r5)
+#5 5.791 ( 9/27) Installing libatomic (15.2.0-r5)
+#5 5.961 (10/27) Installing gmp (6.3.0-r4)
+#5 6.142 (11/27) Installing isl26 (0.26-r2)
+#5 6.559 (12/27) Installing mpfr4 (4.2.2-r0)
+#5 6.753 (13/27) Installing mpc1 (1.3.1-r1)
+#5 6.926 (14/27) Installing gcc (15.2.0-r5)
+#5 16.25 (15/27) Installing brotli-libs (1.2.1-r0)
+#5 16.68 (16/27) Installing c-ares (1.34.9-r0)
+#5 16.87 (17/27) Installing libunistring (1.4.2-r0)
+#5 17.12 (18/27) Installing libidn2 (2.3.8-r0)
+#5 17.51 (19/27) Installing nghttp2-libs (1.70.0-r0)
+#5 17.69 (20/27) Installing libpsl (0.21.5-r3)
+#5 17.86 (21/27) Installing libcurl (8.22.0-r0)
+#5 18.07 (22/27) Installing libexpat (2.9.0-r0)
+#5 18.25 (23/27) Installing pcre2 (10.49-r0)
+#5 18.67 (24/27) Installing git (2.54.0-r0)
+#5 66.31 (25/27) Installing git-init-template (2.54.0-r0)
+#5 66.54 (26/27) Installing make (4.4.1-r4)
+#5 67.60 (27/27) Installing musl-dev (1.2.6-r3)
+#5 84.01 Executing busybox-1.37.0-r31.trigger
+#5 84.03 OK: 187.0 MiB in 43 packages
+#5 DONE 84.1s
+
+#6 exporting to image
+#6 exporting layers
+#6 exporting layers 3.5s done
+#6 exporting manifest sha256:3eb840359333185efae8a6bf26fe25eb2594cd822be502535e6b8843e120a132 done
+#6 exporting config sha256:3e21bab6a7fcf0ca668a2b4f99ea843db4d89c26acb38d3e4f4ec3c26554757f done
+#6 exporting attestation manifest sha256:b073abc91fed31422afd585ce1a224fe13f3eea0159e47c2138a94beaf041b36 0.0s done
+#6 exporting manifest list sha256:36674e0cec08b640dd00023d91a854d2f94832aff767338c489854ceb3e0febf done
+#6 naming to docker.io/library/sub2api-sync-go:20261024 done
+#6 unpacking to docker.io/library/sub2api-sync-go:20261024
+#6 unpacking to docker.io/library/sub2api-sync-go:20261024 0.6s done
+#6 DONE 4.1s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/t8lkx4djwcssp1tm0q3qtf66n

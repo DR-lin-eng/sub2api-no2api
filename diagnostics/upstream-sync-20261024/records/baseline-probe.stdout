@@ -1,0 +1,23 @@
+2026/10/23 16:45:39 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestUpstreamSync20261024Probe
+HTTP_CAPACITY_DELAY=0s
+BODY_CAPACITY_DELAY=0s
+WS_STATUS_DELAY=0s
+SSE_CAPACITY_DELAY=0s
+ORDINARY_ERROR_DELAY=0s
+EMPTY_response.output_text.delta_REPLAY_UNSAFE=false
+EMPTY_response.output_text.done_REPLAY_UNSAFE=false
+EMPTY_response.content_part.done_REPLAY_UNSAFE=false
+EMPTY_response.reasoning_summary_part.done_REPLAY_UNSAFE=false
+DESKTOP_IDENTITY_PRESERVED=true
+TUI_IDENTITY_PRESERVED=true
+--- PASS: TestUpstreamSync20261024Probe (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.014s
+=== RUN   TestUpstreamSync20261024Probe
+HINTED_RETRY_1=500ms
+HINTED_RETRY_2=1s
+HINTED_RETRY_5=8s
+--- PASS: TestUpstreamSync20261024Probe (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	0.012s
