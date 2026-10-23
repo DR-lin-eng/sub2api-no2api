@@ -92,7 +92,8 @@
 
             <div
               v-if="message.mode === 'image' && (message.status === 'processing' || message.status === 'queued')"
-              class="grid gap-3 sm:grid-cols-2"
+              class="grid gap-3"
+              :class="imageGridClass(message)"
             >
               <button
                 v-for="image in message.images || []"
@@ -106,51 +107,61 @@
                   :src="image.src"
                   :alt="image.revisedPrompt || message.prompt"
                   referrerpolicy="no-referrer"
-                  class="aspect-square w-full object-cover transition duration-200 group-hover:scale-[1.02]"
+                  class="w-full object-cover transition duration-200 group-hover:scale-[1.02]"
+                  :style="imageFrameStyle(message)"
                 />
               </button>
               <div
                 v-for="index in Math.max((message.count || 1) - (message.images?.length || 0), 0)"
                 :key="`pending-${index}`"
-                class="animate-pulse rounded-2xl border border-gray-200 bg-gray-100 aspect-square dark:border-dark-700 dark:bg-dark-800"
-              ></div>
+                class="generating-frame mx-auto w-full"
+                :style="imageFrameStyle(message)"
+              >
+                <div class="generating-glow"></div>
+              </div>
             </div>
 
             <div
               v-else-if="(message.status === 'processing' || message.status === 'queued') && message.mode === 'image'"
-              class="grid gap-3 sm:grid-cols-2"
+              class="grid gap-3"
+              :class="imageGridClass(message)"
             >
               <div
                 v-for="index in (message.count || 1)"
                 :key="index"
-                class="animate-pulse rounded-2xl border border-gray-200 bg-gray-100 aspect-square dark:border-dark-700 dark:bg-dark-800"
-              ></div>
+                class="generating-frame mx-auto w-full"
+                :style="imageFrameStyle(message)"
+              >
+                <div class="generating-glow"></div>
+              </div>
             </div>
 
             <div
               v-else-if="message.status === 'processing' || message.status === 'queued'"
-              class="relative aspect-video overflow-hidden rounded-2xl border border-gray-200 bg-gray-100 dark:border-dark-700 dark:bg-dark-800"
+              class="flex justify-center"
             >
-              <div class="absolute inset-0 animate-pulse bg-gray-100 dark:bg-dark-800"></div>
-              <div class="absolute inset-x-4 bottom-4">
-                <div class="mb-2 flex items-center justify-between text-xs font-medium text-gray-500 dark:text-gray-400">
-                  <span>{{ t('mediaStudio.session.generatingVideo') }}</span>
-                  <span>{{ videoProgress(message) }}%</span>
-                </div>
-                <div class="h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-dark-700">
-                  <div
-                    class="h-full rounded-full bg-primary-500 transition-[width] duration-500"
-                    :style="{ width: `${videoProgress(message)}%` }"
-                  ></div>
+              <div class="generating-frame relative w-full" :style="videoFrameStyle(message)">
+                <div class="generating-glow"></div>
+                <div class="absolute inset-x-4 bottom-4 z-10">
+                  <div class="h-2 overflow-hidden rounded-full bg-white/50 dark:bg-dark-700">
+                    <div
+                      class="generating-progress h-full rounded-full transition-[width] duration-500"
+                      :style="{ width: `${videoProgress(message)}%` }"
+                    ></div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div v-else-if="message.status === 'completed' && message.mode === 'image' && message.images?.length" class="grid gap-3 sm:grid-cols-2">
+            <div
+              v-else-if="message.status === 'completed' && message.mode === 'image' && message.images?.length"
+              class="grid gap-3"
+              :class="imageGridClass(message)"
+            >
               <div
                 v-for="image in message.images"
                 :key="image.id"
-                class="image-preview-card group relative overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 dark:border-dark-700 dark:bg-dark-800"
+                class="image-preview-card group relative mx-auto w-full overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 dark:border-dark-700 dark:bg-dark-800"
               >
                 <button
                   type="button"
@@ -162,7 +173,8 @@
                     :src="image.src"
                     :alt="image.revisedPrompt || message.prompt"
                     referrerpolicy="no-referrer"
-                    class="aspect-square w-full object-cover transition duration-200 group-hover:scale-[1.02]"
+                    class="w-full object-cover transition duration-200 group-hover:scale-[1.02]"
+                    :style="imageFrameStyle(message)"
                   />
                 </button>
                 <button
@@ -830,6 +842,36 @@ function videoProgress(message: MediaStudioMessage): number {
   return Math.min(100, Math.max(0, Math.round(value)))
 }
 
+function ratioNumber(value: string | undefined, fallback: string): number {
+  const parse = (input: string): number => {
+    const [width, height] = input.replace(/^custom:/, '').split(':').map(part => Number(part))
+    return Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0
+      ? width / height
+      : Number.NaN
+  }
+  const ratio = parse(value || '')
+  if (Number.isFinite(ratio)) return ratio
+  const fallbackRatio = parse(fallback)
+  return Number.isFinite(fallbackRatio) ? fallbackRatio : 1
+}
+
+function imageFrameStyle(message: MediaStudioMessage) {
+  const ratio = ratioNumber(message.imageAspectRatio || props.imageAspectRatio, '1:1')
+  return { aspectRatio: `${ratio}` }
+}
+
+function videoFrameStyle(message: MediaStudioMessage) {
+  const ratio = ratioNumber(message.aspectRatio || props.videoAspectRatio, '16:9')
+  return {
+    aspectRatio: `${ratio}`,
+    maxWidth: `min(100%, calc(70vh * ${ratio}))`,
+  }
+}
+
+function imageGridClass(message: MediaStudioMessage): string {
+  return (message.count || 1) > 1 ? 'sm:grid-cols-2' : ''
+}
+
 function closeMenusOnOutsidePointer(event: PointerEvent) {
   const target = event.target
   if (!(target instanceof Node)) return
@@ -914,4 +956,105 @@ onUnmounted(() => {
 .meta-pill {
   @apply inline-flex h-6 items-center rounded-full border border-gray-200 bg-gray-50 px-2 dark:border-dark-700 dark:bg-dark-800;
 }
+
+/* 生成中占位：彩色光斑缓慢流动，再覆盖一层朦胧雾面 */
+.generating-frame {
+  @apply relative overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-900;
+  isolation: isolate;
+}
+
+.generating-glow {
+  position: absolute;
+  inset: -60%;
+  background: conic-gradient(
+    from 0deg,
+    #ffb3e6,
+    #c4b5fd,
+    #a5f3fc,
+    #86efac,
+    #fde68a,
+    #fbcfe8,
+    #ffb3e6
+  );
+  filter: blur(40px) saturate(1.5) brightness(1.18);
+  opacity: 0.95;
+  animation:
+    generating-spin 18s linear infinite,
+    generating-breathe 5s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.generating-frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.3),
+    rgba(255, 255, 255, 0.04) 45%,
+    rgba(255, 255, 255, 0.22)
+  );
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+
+:global(.dark) .generating-frame::after {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.1),
+    rgba(255, 255, 255, 0.01) 45%,
+    rgba(255, 255, 255, 0.06)
+  );
+}
+
+.generating-progress {
+  background-image: linear-gradient(
+    90deg,
+    #ff9ae0,
+    #c4b5fd,
+    #7dd3fc,
+    #86efac,
+    #fde68a,
+    #ff9ae0
+  );
+  background-size: 220% 100%;
+  animation: generating-progress-flow 3.5s linear infinite;
+}
+
+@keyframes generating-progress-flow {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 220% 50%;
+  }
+}
+
+@keyframes generating-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@keyframes generating-breathe {
+  0%,
+  100% {
+    opacity: 0.68;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .generating-glow {
+    animation: none;
+    opacity: 0.55;
+  }
+
+  .generating-progress {
+    animation: none;
+  }
+}
+
 </style>

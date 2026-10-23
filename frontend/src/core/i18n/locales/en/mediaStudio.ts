@@ -63,7 +63,6 @@ export default {
       selectedCount: '{count} selected',
       you: 'You',
       studio: 'Media Studio',
-      generatingVideo: 'Generating video',
       failed: 'Generation failed',
       retry: 'Retry',
       enlargeImage: 'Enlarge image',
