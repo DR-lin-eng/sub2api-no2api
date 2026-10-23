@@ -12,6 +12,7 @@
         v-model:quality="quality"
         v-model:count="count"
         v-model:resolution="resolution"
+        v-model:video-aspect-ratio="videoAspectRatio"
         v-model:duration="duration"
         :image-quality-options="imageQualityOptions"
         :modes="modes"
@@ -45,7 +46,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { nextTick, onMounted } from 'vue'
 import AppLayout from '@/common/widgets/layout/AppLayout.vue'
 import MediaStudioCanvas from '@/features/media-studio/presentation/widgets/MediaStudioCanvas.vue'
 import { useMediaStudioController } from '@/features/media-studio/presentation/composables/useMediaStudioController'
@@ -65,6 +66,7 @@ const {
   quality,
   count,
   resolution,
+  videoAspectRatio,
   duration,
   imageQualityOptions,
   groupOptions,
@@ -90,8 +92,16 @@ const {
   editGeneratedImage,
 } = useMediaStudioController()
 
-onMounted(() => {
+function scrollToLatest() {
+  window.scrollTo({ top: document.documentElement.scrollHeight })
+}
+
+onMounted(async () => {
   void loadMediaGroups()
+  await nextTick()
+  scrollToLatest()
+  // 图片和视频缓存是异步恢复的，等布局稳定后再对齐一次底部。
+  window.setTimeout(scrollToLatest, 300)
 })
 </script>
 

@@ -80,12 +80,14 @@ export interface MediaStudioImageResult {
 }
 
 export type MediaStudioVideoResolution = '480p' | '720p' | '1080p'
+export type MediaStudioVideoAspectRatio = '16:9' | '9:16' | '1:1' | '4:3' | '3:4'
 
 export interface MediaStudioVideoSubmitRequest {
   model: string
   prompt: string
   resolution: MediaStudioVideoResolution
   duration: number
+  aspect_ratio: MediaStudioVideoAspectRatio
 }
 
 export type MediaStudioVideoTaskStatus = 'processing' | 'completed' | 'failed'
@@ -93,6 +95,7 @@ export type MediaStudioVideoTaskStatus = 'processing' | 'completed' | 'failed'
 export interface MediaStudioVideoTask {
   id: string
   status: MediaStudioVideoTaskStatus
+  progress?: number
   error?: string
   raw: Record<string, unknown>
 }
@@ -186,7 +189,10 @@ function extractVideoTaskID(raw: Record<string, unknown>): string {
     result.request_id ?? result.id ??
     raw.task_id ?? data.task_id ?? video.task_id
 
-  return normalizeVideoRequestID(taskID ?? '')
+  // 轮询响应可能只带 status/progress，不带任务 ID；此时交给调用方的 fallbackID 兜底。
+  const normalized = firstString(taskID)
+  if (!normalized) return ''
+  return normalizeVideoRequestID(normalized)
 }
 
 function normalizeVideoStatus(value: unknown): MediaStudioVideoTaskStatus {
@@ -213,16 +219,28 @@ function extractVideoError(raw: Record<string, unknown>): string | undefined {
   return errorMessage || undefined
 }
 
+function normalizeVideoProgress(value: unknown): number | undefined {
+  const numeric = typeof value === 'number'
+    ? value
+    : typeof value === 'string' && value.trim()
+      ? Number(value)
+      : Number.NaN
+  if (!Number.isFinite(numeric)) return undefined
+  return Math.min(100, Math.max(0, Math.round(numeric)))
+}
+
 export function normalizeMediaStudioVideoTask(value: unknown, fallbackID = ''): MediaStudioVideoTask {
   const raw = recordValue(value)
   const data = recordValue(raw.data)
   const result = recordValue(raw.result)
+  const video = recordValue(raw.video)
 
   const id = extractVideoTaskID(raw) || fallbackID
 
   return {
     id,
     status: normalizeVideoStatus(raw.status ?? data.status ?? result.status),
+    progress: normalizeVideoProgress(raw.progress ?? data.progress ?? result.progress ?? video.progress),
     error: extractVideoError(raw),
     raw,
   }

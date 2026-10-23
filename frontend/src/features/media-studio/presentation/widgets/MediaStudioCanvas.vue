@@ -84,6 +84,7 @@
               </template>
               <template v-else>
                 <span class="meta-pill">{{ message.resolution || resolution }}</span>
+                <span class="meta-pill">{{ message.aspectRatio || videoAspectRatio }}</span>
                 <span class="meta-pill">{{ t('mediaStudio.composer.durationValue', { count: message.duration || duration }) }}</span>
               </template>
               <span v-if="message.taskId" class="meta-pill font-mono">{{ message.taskId }}</span>
@@ -116,16 +117,33 @@
             </div>
 
             <div
-              v-else-if="message.status === 'processing' || message.status === 'queued'"
-              class="grid gap-3"
-              :class="message.mode === 'image' ? 'sm:grid-cols-2' : ''"
+              v-else-if="(message.status === 'processing' || message.status === 'queued') && message.mode === 'image'"
+              class="grid gap-3 sm:grid-cols-2"
             >
               <div
-                v-for="index in (message.mode === 'image' ? (message.count || 1) : 1)"
+                v-for="index in (message.count || 1)"
                 :key="index"
-                class="animate-pulse rounded-2xl border border-gray-200 bg-gray-100 dark:border-dark-700 dark:bg-dark-800"
-                :class="message.mode === 'image' ? 'aspect-square' : 'aspect-video'"
+                class="animate-pulse rounded-2xl border border-gray-200 bg-gray-100 aspect-square dark:border-dark-700 dark:bg-dark-800"
               ></div>
+            </div>
+
+            <div
+              v-else-if="message.status === 'processing' || message.status === 'queued'"
+              class="relative aspect-video overflow-hidden rounded-2xl border border-gray-200 bg-gray-100 dark:border-dark-700 dark:bg-dark-800"
+            >
+              <div class="absolute inset-0 animate-pulse bg-gray-100 dark:bg-dark-800"></div>
+              <div class="absolute inset-x-4 bottom-4">
+                <div class="mb-2 flex items-center justify-between text-xs font-medium text-gray-500 dark:text-gray-400">
+                  <span>{{ t('mediaStudio.session.generatingVideo') }}</span>
+                  <span>{{ videoProgress(message) }}%</span>
+                </div>
+                <div class="h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-dark-700">
+                  <div
+                    class="h-full rounded-full bg-primary-500 transition-[width] duration-500"
+                    :style="{ width: `${videoProgress(message)}%` }"
+                  ></div>
+                </div>
+              </div>
             </div>
 
             <div v-else-if="message.status === 'completed' && message.mode === 'image' && message.images?.length" class="grid gap-3 sm:grid-cols-2">
@@ -158,11 +176,11 @@
               </div>
             </div>
 
-            <div v-else-if="message.status === 'completed' && message.mode === 'video' && message.video" class="overflow-hidden rounded-2xl border border-gray-200 bg-black dark:border-dark-700">
+            <div v-else-if="message.status === 'completed' && message.mode === 'video' && message.video?.src" class="flex justify-center overflow-hidden rounded-2xl border border-gray-200 bg-black dark:border-dark-700">
               <video
                 :src="message.video.src"
                 :type="message.video.mimeType"
-                class="aspect-video w-full"
+                class="h-auto max-h-[70vh] w-auto max-w-full"
                 controls
                 playsinline
                 preload="metadata"
@@ -453,7 +471,7 @@
                     </label>
                   </div>
 
-                  <div v-else class="grid gap-2 sm:grid-cols-2">
+                  <div v-else class="grid gap-2 sm:grid-cols-3">
                     <label class="composer-select w-full">
                       <Icon name="play" size="sm" />
                       <select
@@ -462,6 +480,17 @@
                         @change="emit('update:resolution', ($event.target as HTMLSelectElement).value as MediaStudioVideoResolution)"
                       >
                         <option v-for="option in resolutionOptions" :key="option" :value="option">{{ option }}</option>
+                      </select>
+                    </label>
+
+                    <label class="composer-select w-full">
+                      <Icon name="arrowsUpDown" size="sm" />
+                      <select
+                        :value="videoAspectRatio"
+                        class="select-inner min-w-0 flex-1"
+                        @change="emit('update:videoAspectRatio', ($event.target as HTMLSelectElement).value as MediaStudioVideoAspectRatio)"
+                      >
+                        <option v-for="option in videoAspectRatioOptions" :key="option" :value="option">{{ option }}</option>
                       </select>
                     </label>
 
@@ -546,7 +575,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import MediaStudioCustomResolutionDialog from '@/features/media-studio/presentation/widgets/MediaStudioCustomResolutionDialog.vue'
-import type { MediaStudioVideoResolution } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
+import type { MediaStudioVideoAspectRatio, MediaStudioVideoResolution } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
 import type { MediaStudioGroupOption } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
 import type { MediaStudioParameterOption } from '@/features/media-studio/presentation/composables/useMediaStudioController'
 import {
@@ -577,6 +606,7 @@ const props = defineProps<{
   quality: string
   count: number
   resolution: MediaStudioVideoResolution
+  videoAspectRatio: MediaStudioVideoAspectRatio
   duration: number
   imageQualityOptions: MediaStudioParameterOption[]
   groupOptions: MediaStudioGroupOption[]
@@ -603,6 +633,7 @@ const emit = defineEmits<{
   'update:quality': [value: string]
   'update:count': [value: number]
   'update:resolution': [value: MediaStudioVideoResolution]
+  'update:videoAspectRatio': [value: MediaStudioVideoAspectRatio]
   'update:duration': [value: number]
   selectMode: [id: MediaStudioModeId]
   reloadGroups: []
@@ -641,6 +672,7 @@ const countOptions = [1, 2, 3, 4]
 const imageResolutionOptions: MediaStudioImageResolution[] = ['1K', '2K', '4K']
 const imageAspectRatioOptions: MediaStudioImageAspectRatio[] = ['1:1', '3:2', '2:3', '4:3', '3:4', '16:9', '9:16']
 const resolutionOptions: MediaStudioVideoResolution[] = ['480p', '720p', '1080p']
+const videoAspectRatioOptions: MediaStudioVideoAspectRatio[] = ['16:9', '9:16', '1:1', '4:3', '3:4']
 const durationOptions = Array.from({ length: 15 }, (_, index) => index + 1)
 
 function selectMode(id: MediaStudioModeId) {
@@ -790,6 +822,12 @@ function formatTime(value: number): string {
   } catch {
     return ''
   }
+}
+
+function videoProgress(message: MediaStudioMessage): number {
+  const value = message.progress
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 0
+  return Math.min(100, Math.max(0, Math.round(value)))
 }
 
 function closeMenusOnOutsidePointer(event: PointerEvent) {

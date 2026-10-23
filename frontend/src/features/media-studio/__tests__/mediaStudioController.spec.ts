@@ -203,12 +203,13 @@ describe('media studio controller', () => {
     const revokeObjectURL = vi.fn()
     const getVideoContent = vi.fn().mockResolvedValue(new Blob(['video'], { type: 'video/mp4' }))
     const createSession = vi.fn().mockResolvedValue(session())
+    const submitVideo = vi.fn().mockResolvedValue({ id: 'video-1', status: 'processing', raw: {} })
     const controller = useMediaStudioController({
       storage: localStorage,
       getConfig: vi.fn().mockResolvedValue(config),
       createSession,
       listModels: vi.fn().mockResolvedValue({ object: 'list', data: [{ id: 'grok-imagine-video' }] }),
-      submitVideo: vi.fn().mockResolvedValue({ id: 'video-1', status: 'processing', raw: {} }),
+      submitVideo,
       getVideoTask: vi.fn().mockResolvedValue({ id: 'video-1', status: 'completed', raw: {} }),
       getVideoContent,
       createObjectURL,
@@ -220,6 +221,7 @@ describe('media studio controller', () => {
     controller.selectMode('video')
     await settle()
     controller.resolution.value = '1080p'
+    controller.videoAspectRatio.value = '9:16'
     controller.duration.value = 15
     controller.prompt.value = 'slow camera move'
     await controller.submitPrompt()
@@ -227,14 +229,110 @@ describe('media studio controller', () => {
 
     expect(controller.modelOptions.value).toEqual(['grok-imagine-video'])
     expect(createSession).toHaveBeenCalledTimes(1)
+    expect(submitVideo).toHaveBeenCalledWith('sk-demo', expect.objectContaining({ aspect_ratio: '9:16' }), expect.any(String))
     expect(getVideoContent).toHaveBeenCalledWith('sk-demo', 'video-1')
     expect(controller.conversation.value.messages.at(-1)).toMatchObject({
-      mode: 'video', status: 'completed', resolution: '1080p', duration: 15,
+      mode: 'video', status: 'completed', resolution: '1080p', aspectRatio: '9:16', duration: 15,
       video: { src: 'blob:video-preview', mimeType: 'video/mp4' },
     })
 
     controller.clearConversation()
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:video-preview')
+  })
+
+  it('tolerates transient 404 responses while polling a video task', async () => {
+    const notFound = () => Object.assign(new Error('task not found'), { status: 404 })
+    const getVideoTask = vi.fn()
+      .mockRejectedValueOnce(notFound())
+      .mockRejectedValueOnce(notFound())
+      .mockRejectedValueOnce(notFound())
+      .mockRejectedValueOnce(notFound())
+      .mockResolvedValue({ id: 'video-1', status: 'completed', raw: {} })
+    const controller = useMediaStudioController({
+      storage: localStorage,
+      getConfig: vi.fn().mockResolvedValue(config),
+      createSession: vi.fn().mockResolvedValue(session()),
+      listModels: vi.fn().mockResolvedValue({ object: 'list', data: [{ id: 'grok-imagine-video' }] }),
+      submitVideo: vi.fn().mockResolvedValue({ id: 'video-1', status: 'processing', raw: {} }),
+      getVideoTask,
+      getVideoContent: vi.fn().mockResolvedValue(new Blob(['video'], { type: 'video/mp4' })),
+      createObjectURL: vi.fn().mockReturnValue('blob:video-preview'),
+      revokeObjectURL: vi.fn(),
+      pollDelayMs: 0,
+    })
+
+    await controller.loadMediaGroups()
+    controller.selectMode('video')
+    await settle()
+    controller.prompt.value = 'slow camera move'
+    await controller.submitPrompt()
+    await settle()
+
+    expect(getVideoTask).toHaveBeenCalledTimes(5)
+    expect(controller.conversation.value.messages.at(-1)).toMatchObject({ status: 'completed' })
+  })
+
+  it('fails the video task after five consecutive 404 responses', async () => {
+    const getVideoTask = vi.fn().mockRejectedValue(Object.assign(new Error('task not found'), { status: 404 }))
+    const controller = useMediaStudioController({
+      storage: localStorage,
+      getConfig: vi.fn().mockResolvedValue(config),
+      createSession: vi.fn().mockResolvedValue(session()),
+      listModels: vi.fn().mockResolvedValue({ object: 'list', data: [{ id: 'grok-imagine-video' }] }),
+      submitVideo: vi.fn().mockResolvedValue({ id: 'video-1', status: 'processing', raw: {} }),
+      getVideoTask,
+      pollDelayMs: 0,
+    })
+
+    await controller.loadMediaGroups()
+    controller.selectMode('video')
+    await settle()
+    controller.prompt.value = 'slow camera move'
+    await controller.submitPrompt()
+    await settle()
+
+    expect(getVideoTask).toHaveBeenCalledTimes(5)
+    expect(controller.conversation.value.messages.at(-1)).toMatchObject({
+      status: 'failed',
+      error: 'task not found',
+    })
+  })
+
+  it('records video progress while polling', async () => {
+    let resolveSecond: ((task: { id: string; status: 'completed'; raw: Record<string, unknown> }) => void) | undefined
+    const secondPoll = new Promise<{ id: string; status: 'completed'; raw: Record<string, unknown> }>((resolve) => {
+      resolveSecond = resolve
+    })
+    const getVideoTask = vi.fn()
+      .mockResolvedValueOnce({ id: 'video-1', status: 'processing', progress: 42, raw: {} })
+      .mockImplementationOnce(() => secondPoll)
+    const controller = useMediaStudioController({
+      storage: localStorage,
+      getConfig: vi.fn().mockResolvedValue(config),
+      createSession: vi.fn().mockResolvedValue(session()),
+      listModels: vi.fn().mockResolvedValue({ object: 'list', data: [{ id: 'grok-imagine-video' }] }),
+      submitVideo: vi.fn().mockResolvedValue({ id: 'video-1', status: 'processing', raw: {} }),
+      getVideoTask,
+      getVideoContent: vi.fn().mockResolvedValue(new Blob(['video'], { type: 'video/mp4' })),
+      createObjectURL: vi.fn().mockReturnValue('blob:video-preview'),
+      revokeObjectURL: vi.fn(),
+      pollDelayMs: 0,
+    })
+
+    await controller.loadMediaGroups()
+    controller.selectMode('video')
+    await settle()
+    controller.prompt.value = 'slow camera move'
+    await controller.submitPrompt()
+
+    await vi.waitFor(() => {
+      expect(controller.conversation.value.messages.at(-1)?.progress).toBe(42)
+    })
+
+    resolveSecond?.({ id: 'video-1', status: 'completed', raw: {} })
+    await vi.waitFor(() => {
+      expect(controller.conversation.value.messages.at(-1)?.status).toBe('completed')
+    })
   })
 
   it('keeps successful concurrent image results when another request fails', async () => {

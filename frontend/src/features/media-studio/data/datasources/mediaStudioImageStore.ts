@@ -1,6 +1,7 @@
 const DATABASE_NAME = 'sub2api-media-studio'
-const DATABASE_VERSION = 1
+const DATABASE_VERSION = 2
 const STORE_NAME = 'generated-images'
+const VIDEO_STORE_NAME = 'generated-videos'
 
 function openDatabase(): Promise<IDBDatabase | null> {
   if (typeof indexedDB === 'undefined') return Promise.resolve(null)
@@ -11,6 +12,9 @@ function openDatabase(): Promise<IDBDatabase | null> {
       const database = request.result
       if (!database.objectStoreNames.contains(STORE_NAME)) {
         database.createObjectStore(STORE_NAME)
+      }
+      if (!database.objectStoreNames.contains(VIDEO_STORE_NAME)) {
+        database.createObjectStore(VIDEO_STORE_NAME)
       }
     }
     request.onsuccess = () => resolve(request.result)
@@ -92,6 +96,95 @@ export async function deleteMediaStudioImages(keys: string[]): Promise<void> {
   await new Promise<void>((resolve) => {
     const transaction = database.transaction(STORE_NAME, 'readwrite')
     const store = transaction.objectStore(STORE_NAME)
+    normalizedKeys.forEach(key => store.delete(key))
+    transaction.oncomplete = () => {
+      database.close()
+      resolve()
+    }
+    transaction.onerror = () => {
+      database.close()
+      resolve()
+    }
+    transaction.onabort = () => {
+      database.close()
+      resolve()
+    }
+  })
+}
+
+export function mediaStudioVideoStorageKey(messageID: string): string {
+  return `${messageID}:video`
+}
+
+export async function storeMediaStudioVideo(key: string, blob: Blob): Promise<boolean> {
+  const database = await openDatabase()
+  if (!database || !key || !blob) return false
+
+  return new Promise((resolve) => {
+    const transaction = database.transaction(VIDEO_STORE_NAME, 'readwrite')
+    transaction.objectStore(VIDEO_STORE_NAME).put(blob, key)
+    transaction.oncomplete = () => {
+      database.close()
+      resolve(true)
+    }
+    transaction.onerror = () => {
+      database.close()
+      resolve(false)
+    }
+    transaction.onabort = () => {
+      database.close()
+      resolve(false)
+    }
+  })
+}
+
+export async function loadMediaStudioVideo(key: string): Promise<Blob | null> {
+  const database = await openDatabase()
+  if (!database || !key) return null
+
+  return new Promise((resolve) => {
+    const transaction = database.transaction(VIDEO_STORE_NAME, 'readonly')
+    const request = transaction.objectStore(VIDEO_STORE_NAME).get(key)
+    request.onsuccess = () => resolve(request.result instanceof Blob ? request.result : null)
+    request.onerror = () => resolve(null)
+    transaction.oncomplete = () => database.close()
+    transaction.onerror = () => database.close()
+    transaction.onabort = () => database.close()
+  })
+}
+
+export async function clearMediaStudioVideos(): Promise<void> {
+  const database = await openDatabase()
+  if (!database) return
+
+  await new Promise<void>((resolve) => {
+    const transaction = database.transaction(VIDEO_STORE_NAME, 'readwrite')
+    transaction.objectStore(VIDEO_STORE_NAME).clear()
+    transaction.oncomplete = () => {
+      database.close()
+      resolve()
+    }
+    transaction.onerror = () => {
+      database.close()
+      resolve()
+    }
+    transaction.onabort = () => {
+      database.close()
+      resolve()
+    }
+  })
+}
+
+export async function deleteMediaStudioVideos(keys: string[]): Promise<void> {
+  const normalizedKeys = [...new Set(keys.filter(Boolean))]
+  if (normalizedKeys.length === 0) return
+
+  const database = await openDatabase()
+  if (!database) return
+
+  await new Promise<void>((resolve) => {
+    const transaction = database.transaction(VIDEO_STORE_NAME, 'readwrite')
+    const store = transaction.objectStore(VIDEO_STORE_NAME)
     normalizedKeys.forEach(key => store.delete(key))
     transaction.oncomplete = () => {
       database.close()

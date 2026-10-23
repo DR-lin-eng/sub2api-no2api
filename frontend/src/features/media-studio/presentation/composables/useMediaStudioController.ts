@@ -18,15 +18,21 @@ import {
   type MediaStudioImageSubmitRequest,
   type MediaStudioImageTask,
   type MediaStudioModel,
+  type MediaStudioVideoAspectRatio,
   type MediaStudioVideoResolution,
   type MediaStudioVideoTask,
 } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
 import {
   clearMediaStudioImages,
+  clearMediaStudioVideos,
   deleteMediaStudioImages,
+  deleteMediaStudioVideos,
   loadMediaStudioImage,
+  loadMediaStudioVideo,
   mediaStudioImageStorageKey,
+  mediaStudioVideoStorageKey,
   storeMediaStudioImage,
+  storeMediaStudioVideo,
 } from '@/features/media-studio/data/datasources/mediaStudioImageStore'
 import {
   addMediaStudioImageAttachments,
@@ -43,9 +49,13 @@ const LEGACY_STORAGE_KEY = 'sub2api.mediaStudio.v1'
 const DEFAULT_IMAGE_MODEL = 'gpt-image-2'
 const DEFAULT_VIDEO_MODEL = 'grok-imagine-video'
 const DEFAULT_VIDEO_RESOLUTION: MediaStudioVideoResolution = '720p'
+const DEFAULT_VIDEO_ASPECT_RATIO: MediaStudioVideoAspectRatio = '16:9'
 const DEFAULT_VIDEO_DURATION = 6
 const MAX_POLL_COUNT = 240
-const DEFAULT_POLL_DELAY_MS = 3000
+// 视频轮询间隔按上游文档要求不低于 6 秒。
+const DEFAULT_POLL_DELAY_MS = 6000
+// 任务刚创建时上游可能短暂返回 404，连续多次才判定失败。
+const MAX_VIDEO_POLL_NOT_FOUND = 5
 
 export interface MediaStudioParameterOption {
   value: string
@@ -91,6 +101,7 @@ export interface MediaStudioInputImagePreview {
 export interface MediaStudioGeneratedVideoPreview {
   src: string
   mimeType: string
+  cacheKey?: string
 }
 
 export interface MediaStudioMessage {
@@ -107,7 +118,9 @@ export interface MediaStudioMessage {
   quality?: string
   count?: number
   resolution?: MediaStudioVideoResolution
+  aspectRatio?: MediaStudioVideoAspectRatio
   duration?: number
+  progress?: number
   inputImages?: MediaStudioInputImagePreview[]
   images?: MediaStudioGeneratedImagePreview[]
   video?: MediaStudioGeneratedVideoPreview
@@ -134,6 +147,7 @@ interface PersistedMediaStudioState {
   quality?: string
   count?: number
   resolution?: MediaStudioVideoResolution
+  videoAspectRatio?: MediaStudioVideoAspectRatio
   duration?: number
   conversation?: MediaStudioConversation
 }
@@ -254,10 +268,27 @@ function restorePersistedConversation(value: unknown): MediaStudioConversation |
         resolution: candidate.resolution === '480p' || candidate.resolution === '720p' || candidate.resolution === '1080p'
           ? candidate.resolution
           : undefined,
+        aspectRatio: candidate.aspectRatio
+          ? normalizeVideoAspectRatio(candidate.aspectRatio)
+          : undefined,
         duration: typeof candidate.duration === 'number' ? normalizeDuration(candidate.duration) : undefined,
         error: typeof candidate.error === 'string' ? candidate.error : undefined,
         createdAt,
         completedAt: typeof candidate.completedAt === 'number' ? candidate.completedAt : undefined,
+      }
+
+      if (candidate.mode === 'video' && candidate.video && typeof candidate.video === 'object') {
+        const video = candidate.video as Partial<MediaStudioGeneratedVideoPreview>
+        const cacheKey = typeof video.cacheKey === 'string' && video.cacheKey.length <= 512
+          ? video.cacheKey
+          : ''
+        if (cacheKey) {
+          restored.video = {
+            src: '',
+            mimeType: typeof video.mimeType === 'string' ? video.mimeType : 'video/mp4',
+            cacheKey,
+          }
+        }
       }
 
       if (candidate.mode === 'image' && Array.isArray(candidate.inputImages)) {
@@ -557,6 +588,12 @@ function normalizeResolution(value: unknown): MediaStudioVideoResolution {
   return value === '480p' || value === '1080p' ? value : DEFAULT_VIDEO_RESOLUTION
 }
 
+function normalizeVideoAspectRatio(value: unknown): MediaStudioVideoAspectRatio {
+  return value === '9:16' || value === '1:1' || value === '4:3' || value === '3:4'
+    ? value
+    : DEFAULT_VIDEO_ASPECT_RATIO
+}
+
 function wait(delayMs: number): Promise<void> {
   return delayMs > 0 ? new Promise(resolve => setTimeout(resolve, delayMs)) : Promise.resolve()
 }
@@ -610,6 +647,9 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   const quality = ref(normalizeImageQuality(persisted.quality))
   const count = ref(normalizeCount(persisted.count || 1))
   const resolution = ref<MediaStudioVideoResolution>(normalizeResolution(persisted.resolution))
+  const videoAspectRatio = ref<MediaStudioVideoAspectRatio>(
+    normalizeVideoAspectRatio(persisted.videoAspectRatio),
+  )
   const duration = ref(normalizeDuration(persisted.duration || DEFAULT_VIDEO_DURATION))
   const groupConfig = ref<MediaStudioConfig>({ groups: [] })
   const loadingGroups = ref(false)
@@ -704,6 +744,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       quality: quality.value,
       count: count.value,
       resolution: resolution.value,
+      videoAspectRatio: videoAspectRatio.value,
       duration: duration.value,
       conversation: persistedConversation || undefined,
     }
@@ -764,9 +805,26 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
         images.some((image, index) => image !== message.images?.[index])
       const inputImagesChanged = inputImages.length !== (message.inputImages || []).length ||
         inputImages.some((image, index) => image !== message.inputImages?.[index])
-      return !imagesChanged && !inputImagesChanged
+
+      let video = message.video
+      if (video?.cacheKey) {
+        const blob = await loadMediaStudioVideo(video.cacheKey)
+        if (disposed) return message
+        if (!blob) {
+          changed = true
+          video = undefined
+        } else {
+          const src = createObjectURL(blob)
+          videoObjectURLs.add(src)
+          if (src !== video.src) changed = true
+          video = { src, mimeType: blob.type || video.mimeType, cacheKey: video.cacheKey }
+        }
+      }
+      const videoChanged = video !== message.video
+
+      return !imagesChanged && !inputImagesChanged && !videoChanged
         ? message
-        : { ...message, images, inputImages }
+        : { ...message, images, inputImages, video }
     }))
 
     if (!disposed && changed) {
@@ -774,7 +832,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     }
   }
 
-  watch([selectedGroupId, imageModel, videoModel, size, imageResolution, imageAspectRatio, customImageAspectRatios, quality, count, resolution, duration], persist, { deep: true })
+  watch([selectedGroupId, imageModel, videoModel, size, imageResolution, imageAspectRatio, customImageAspectRatios, quality, count, resolution, videoAspectRatio, duration], persist, { deep: true })
   watch(conversation, persist, { deep: true })
   watch(model, (value) => {
     if (selectedModeId.value === 'image') imageModel.value = value
@@ -960,24 +1018,39 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   async function completeVideoTask(apiKey: string, taskId: string, messageId: string) {
     const blob = await data.getVideoContent(apiKey, taskId)
     if (disposed) return
+    const cacheKey = mediaStudioVideoStorageKey(messageId)
+    const stored = await storeMediaStudioVideo(cacheKey, blob)
+    if (disposed) return
     const src = createObjectURL(blob)
     videoObjectURLs.add(src)
     if (!patchAssistantMessage(messageId, {
       status: 'completed',
-      video: { src, mimeType: blob.type || 'video/mp4' },
+      video: { src, mimeType: blob.type || 'video/mp4', cacheKey: stored ? cacheKey : undefined },
       error: '',
       completedAt: now(),
     })) {
       videoObjectURLs.delete(src)
       revokeObjectURL(src)
+      if (stored) void deleteMediaStudioVideos([cacheKey])
     }
   }
 
   async function pollVideoTask(apiKey: string, taskId: string, messageId: string) {
     setPolling(taskId, true)
+    let notFoundCount = 0
     try {
       for (let attempt = 0; attempt < maxPollCount && !disposed; attempt += 1) {
-        const task = await data.getVideoTask(apiKey, taskId)
+        let task: MediaStudioVideoTask
+        try {
+          task = await data.getVideoTask(apiKey, taskId)
+          notFoundCount = 0
+        } catch (error) {
+          if ((error as { status?: number })?.status !== 404) throw error
+          notFoundCount += 1
+          if (notFoundCount >= MAX_VIDEO_POLL_NOT_FOUND) throw error
+          await wait(pollDelayMs)
+          continue
+        }
         if (task.status === 'completed') {
           await completeVideoTask(apiKey, task.id, messageId)
           return
@@ -986,7 +1059,9 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
           patchAssistantMessage(messageId, { status: 'failed', error: videoTaskErrorMessage(task), completedAt: now() })
           return
         }
-        patchAssistantMessage(messageId, { status: 'processing' })
+        patchAssistantMessage(messageId, task.progress === undefined
+          ? { status: 'processing' }
+          : { status: 'processing', progress: task.progress })
         await wait(pollDelayMs)
       }
       if (!disposed) patchAssistantMessage(messageId, { status: 'failed', error: 'video generation polling timed out', completedAt: now() })
@@ -1028,6 +1103,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       quality: mode === 'image' ? quality.value : undefined,
       count: mode === 'image' ? normalizeCount(count.value) : 1,
       resolution: mode === 'video' ? normalizeResolution(resolution.value) : undefined,
+      aspectRatio: mode === 'video' ? normalizeVideoAspectRatio(videoAspectRatio.value) : undefined,
       duration: mode === 'video' ? normalizeDuration(duration.value) : undefined,
       createdAt: now(),
     }
@@ -1144,6 +1220,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
           prompt: text,
           resolution: assistantMessage.resolution || DEFAULT_VIDEO_RESOLUTION,
           duration: assistantMessage.duration || DEFAULT_VIDEO_DURATION,
+          aspect_ratio: normalizeVideoAspectRatio(assistantMessage.aspectRatio),
         }, makeId('media_video_idem'))
         patchAssistantMessage(assistantMessage.id, { taskId: task.id, status: task.status === 'failed' ? 'failed' : 'processing' })
         if (task.status === 'failed') {
@@ -1177,6 +1254,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       imageAttachments.value = restored
     } else {
       resolution.value = normalizeResolution(message.resolution)
+      videoAspectRatio.value = normalizeVideoAspectRatio(message.aspectRatio)
       duration.value = normalizeDuration(message.duration || DEFAULT_VIDEO_DURATION)
     }
     prompt.value = message.prompt
@@ -1201,6 +1279,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     revokeInputImageURLs(conversation.value.messages)
     imageInputFiles.clear()
     void clearMediaStudioImages()
+    void clearMediaStudioVideos()
     conversation.value = { id: makeId('media_conversation'), messages: [], updatedAt: now() }
     persist()
   }
@@ -1210,12 +1289,14 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     if (ids.size === 0) return
 
     const imageKeys: string[] = []
+    const videoKeys: string[] = []
     for (const message of conversation.value.messages) {
       if (!ids.has(message.id)) continue
       if (message.video?.src && videoObjectURLs.has(message.video.src)) {
 			revokeObjectURL(message.video.src)
         videoObjectURLs.delete(message.video.src)
       }
+      if (message.video?.cacheKey) videoKeys.push(message.video.cacheKey)
       imageKeys.push(...(message.images || []).flatMap(image => image.cacheKey ? [image.cacheKey] : []))
       imageKeys.push(...(message.inputImages || []).flatMap(image => image.cacheKey ? [image.cacheKey] : []))
       revokeInputImageURLs([message])
@@ -1227,7 +1308,10 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       messages: conversation.value.messages.filter(message => !ids.has(message.id)),
       updatedAt: now(),
     }
-    await deleteMediaStudioImages(imageKeys)
+    await Promise.all([
+      deleteMediaStudioImages(imageKeys),
+      deleteMediaStudioVideos(videoKeys),
+    ])
   }
 
   watch(selectedGroupId, () => {
@@ -1267,6 +1351,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     quality,
     count,
     resolution,
+    videoAspectRatio,
     duration,
     imageQualityOptions,
     modelOptions,

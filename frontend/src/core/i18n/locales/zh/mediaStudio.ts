@@ -63,6 +63,7 @@ export default {
       selectedCount: '已选择 {count} 条',
       you: '你',
       studio: '媒体工坊',
+      generatingVideo: '视频生成中',
       failed: '生成失败',
       retry: '重试',
       enlargeImage: '放大图片',
