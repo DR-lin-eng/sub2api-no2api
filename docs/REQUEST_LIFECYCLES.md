@@ -295,6 +295,10 @@ Happy Eyeballs 回退 IPv4。连接池键包含源地址和绑定版本，轮换
   时，将其视为内部瞬时上游失败：在首个语义输出前留在有界 failover 流程内，只有
   所有安全尝试耗尽后才返回本地通用的暂不可用文案；确定性的参数、策略和上下文错误
   不受此规则影响。
+- OpenAI 上游返回上下文超限 HTTP 400（如 `Your input exceeds the context window of this model`）时，
+  Responses、Chat Completions、Messages 及 Chat-only 兼容出口直接返回 400 和脱敏后的原始提示。
+  此类请求不重试、不切号、不冷却账号，也不被自定义错误码、池模式 400 重试或错误改写规则覆盖；
+  API Key 串联其他 Sub2API 时保持相同行为。Responses 流已通过 keepalive 提交 200 时使用协议内失败事件。
 - 客户端取消应停止上游读取和后台转发，不能继续占用账号或累计无主缓存。
 
 ### 上游错误与临时不可调度范围

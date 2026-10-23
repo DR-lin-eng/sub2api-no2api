@@ -398,6 +398,14 @@ func (s *OpenAIGatewayService) handleErrorResponse(
 	body = s.redactAgentIdentitySensitiveBody(ctx, account, body)
 	MarkOpenAIVerificationRecommendation(c, body, resp.StatusCode)
 	upstreamMsg := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(body)))
+	// Context overflow belongs to this request. Account policies and generic
+	// error rewrites must not hide the reason clients need to compact their input.
+	if resp.StatusCode == http.StatusBadRequest && isOpenAIContextWindowError(upstreamMsg, body) {
+		setOpsUpstreamError(c, resp.StatusCode, upstreamMsg, "")
+		MarkResponseCommitted(c)
+		writeOpenAIUpstreamClientError(c, resp.StatusCode, body, upstreamMsg)
+		return nil, fmt.Errorf("upstream context window error: %d %s", resp.StatusCode, upstreamMsg)
+	}
 	if isOpenAIInvalidPromptPolicyError(upstreamMsg, body) {
 		return nil, newOpenAIUpstreamFailoverError(
 			resp.StatusCode,
@@ -653,6 +661,12 @@ func (s *OpenAIGatewayService) handleCompatErrorResponse(
 		requestCtx = c.Request.Context()
 	}
 	upstreamMsg := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(body)))
+	if resp.StatusCode == http.StatusBadRequest && isOpenAIContextWindowError(upstreamMsg, body) {
+		setOpsUpstreamError(c, resp.StatusCode, upstreamMsg, "")
+		MarkResponseCommitted(c)
+		writeError(c, resp.StatusCode, "invalid_request_error", upstreamMsg)
+		return nil, fmt.Errorf("upstream context window error: %d %s", resp.StatusCode, upstreamMsg)
+	}
 	if isOpenAIInvalidPromptPolicyError(upstreamMsg, body) {
 		return nil, newOpenAIUpstreamFailoverError(resp.StatusCode, resp.Header, body, upstreamMsg, false)
 	}
