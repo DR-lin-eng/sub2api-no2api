@@ -68,6 +68,7 @@ func applyOpenAICodexSemanticRequestHeaders(headers http.Header, c *gin.Context,
 	if account == nil || !account.IsOpenAIOAuth() {
 		return
 	}
+	normalizeOpenAICodexDesktopIdentityHeaders(headers, c, account)
 	normalizeOpenAICodexTurnMetadataHeader(headers, c, account, body)
 
 	semantics := parseOpenAICodexRequestSemantics(body)
@@ -100,6 +101,39 @@ func applyOpenAICodexSemanticRequestHeaders(headers http.Header, c *gin.Context,
 	}
 }
 
+// A downstream installation/window belongs to the client of this gateway, not
+// to the selected OAuth principal. Preserve the direct installation header's
+// presence while binding its value to the same account/attempt as the body.
+// Only a fingerprint plan can supply a window with matching provenance.
+func normalizeOpenAICodexDesktopIdentityHeaders(headers http.Header, c *gin.Context, account *Account) {
+	installationPresent := strings.TrimSpace(headers.Get("x-codex-installation-id")) != ""
+	deleteOpenAIHeaderEqualFold(headers, "x-codex-installation-id")
+	deleteOpenAIHeaderEqualFold(headers, "x-codex-window-id")
+	// Modern Desktop no longer generates or updates integrity state. Routing
+	// override is separately excluded by ingress allowlists and generated only
+	// by the verified workspace-routing plan.
+	for _, name := range []string{
+		"x-openai-attach-integrity-state", "x-oai-is",
+		"x-oai-is-pending-updates", "x-oai-is-client-observation",
+	} {
+		deleteOpenAIHeaderEqualFold(headers, name)
+	}
+	if ids := resolveCodexFingerprintIDsFromGinContext(account, c); ids != nil && ids.mode != codexFingerprintOff {
+		if !ids.fullSimulation || ids.directInstallationHeader {
+			headers.Set("x-codex-installation-id", ids.installationID)
+		}
+		if ids.mode != codexFingerprintDevice && ids.windowID != "" {
+			headers.Set("x-codex-window-id", ids.windowID)
+		}
+		return
+	}
+	if installationPresent {
+		if installationID := resolveConvergedInstallationID(account); installationID != "" {
+			headers.Set("x-codex-installation-id", installationID)
+		}
+	}
+}
+
 // normalizeOpenAICodexTurnMetadataHeader closes the header-only bypass around
 // client_metadata.x-codex-turn-metadata. The body projection is preferred when
 // present because it has already passed through the account/session rewrite;
@@ -116,8 +150,8 @@ func normalizeOpenAICodexTurnMetadataHeader(headers http.Header, c *gin.Context,
 	if source == "" {
 		return
 	}
+	deleteOpenAIHeaderEqualFold(headers, openAIWSTurnMetadataHeader)
 	if projection := resolvedCodexMetadataProjection(c, account, body); projection != nil && projection.turnMetadata != "" {
-		deleteOpenAIHeaderEqualFold(headers, openAIWSTurnMetadataHeader)
 		if normalized := codexProjectedTurnMetadataHeader(projection.turnMetadata); normalized != "" {
 			headers.Set(openAIWSTurnMetadataHeader, normalized)
 			restoreCodexTurnCompatibilityHeaders(headers)
@@ -126,22 +160,19 @@ func normalizeOpenAICodexTurnMetadataHeader(headers http.Header, c *gin.Context,
 	}
 
 	if fingerprintIDs := resolveCodexFingerprintIDsFromGinContext(account, c); fingerprintIDs != nil && fingerprintIDs.mode != codexFingerprintOff {
-		normalized := rewriteCodexTurnMetadataValue(source, fingerprintIDs)
-		if normalized == "" || !gjson.Valid(normalized) {
-			deleteOpenAIHeaderEqualFold(headers, openAIWSTurnMetadataHeader)
-			return
+		if normalized := codexProjectedTurnMetadataHeader(rewriteCodexTurnMetadataValue(source, fingerprintIDs)); normalized != "" {
+			headers.Set(openAIWSTurnMetadataHeader, normalized)
 		}
-		headers.Set(openAIWSTurnMetadataHeader, normalized)
 		return
 	}
 
 	ids := resolveCodexOutboundSessionIDs(c, account, body, "")
 	normalized, ok := normalizeUntrustedCodexTurnMetadataValue(source, ids)
-	if !ok {
-		deleteOpenAIHeaderEqualFold(headers, openAIWSTurnMetadataHeader)
-		return
+	if ok {
+		if normalized = codexProjectedTurnMetadataHeader(normalized); normalized != "" {
+			headers.Set(openAIWSTurnMetadataHeader, normalized)
+		}
 	}
-	headers.Set(openAIWSTurnMetadataHeader, normalized)
 }
 
 func stagedCodexOutboundSessionBody(c *gin.Context) []byte {

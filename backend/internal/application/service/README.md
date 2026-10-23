@@ -44,6 +44,7 @@
 | `setting_codex_simulation.go`, `setting_codex_turn_state_replay.go`, `openai_codex_turn_state_auto_replay.go`, `openai_codex_turn_state_probe.go` | Codex A/B/C 数据库覆盖、强制关闭、Turn State 手工随机池/质量同步、关注模型的可配置字符长度自动池、首次无效立即探测与 45 分钟刷新、默认走账号正常出口的 32 目标乘 4 尝试有界并发、可选专用/代理池竞速和 5 秒无限轮次恢复，以及身份密钥生成与后台同步的无 DB 热路径快照 |
 | `wire_openai_gateway.go` | OpenAI gateway provider、代理库与跨实例探测锁装配及后台探测启动 |
 | `api_key_group_routing.go` | API Key 有序分组候选、倍率保护过滤和请求内实际分组切换 |
+| `openai_codex_request_headers.go`, `openai_codex_metadata_projection.go`, `openai_gateway_request_decode.go`, `openai_ws_handshake_compatibility.go` | OAuth 出站身份/metadata 投影、metadata 保精度解码与 WS 不可变握手身份 |
 | `openai_codex_identity_plan.go`, `openai_codex_simulation_state.go` | Codex request root、per-principal 身份计划与短状态 fallback |
 | `openai_codex_continuation.go` | Codex continuation 分类、owner 策略、跨主体 sanitizer 与成功回写 |
 | `openai_oauth_gateway_rate_limit.go` | 统一配置、按账号分桶且跨实例共享的 OpenAI OAuth RPM/burst 准入、逻辑请求去重与协议错误投影 |

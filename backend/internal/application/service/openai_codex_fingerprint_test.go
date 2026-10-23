@@ -175,7 +175,8 @@ func TestOpenAIBuildUpstreamRequestFingerprintIsAttemptLocal(t *testing.T) {
 
 	disabledRequest, err := service.buildUpstreamRequestWithFingerprint(context.Background(), c, disabledAccount, []byte(`{"model":"gpt-5"}`), "token", false, "", true, nil)
 	require.NoError(t, err)
-	require.Equal(t, "client-installation", disabledRequest.Header.Get("X-Codex-Installation-ID"))
+	require.Equal(t, resolveConvergedInstallationID(disabledAccount), disabledRequest.Header.Get("X-Codex-Installation-ID"))
+	require.NotEqual(t, enabledIDs.installationID, disabledRequest.Header.Get("X-Codex-Installation-ID"))
 	require.NotEqual(t, enabledIDs.sessionID, disabledRequest.Header.Get("Session-Id"))
 }
 
@@ -293,7 +294,7 @@ func TestOpenAIPassthroughFingerprintDisabledAndCompactRemainCompatible(t *testi
 	require.Equal(t, body, disabledBody)
 	disabledRequest, err := service.buildUpstreamRequestOpenAIPassthroughWithFingerprint(context.Background(), disabledContext, disabledAccount, disabledBody, "token", nil)
 	require.NoError(t, err)
-	require.Equal(t, "client-installation", disabledRequest.Header.Get("X-Codex-Installation-ID"))
+	require.Equal(t, resolveConvergedInstallationID(disabledAccount), disabledRequest.Header.Get("X-Codex-Installation-ID"))
 	require.NotEqual(t, resolveConvergedSessionID(disabledAccount), disabledRequest.Header.Get("Session-Id"))
 
 	compactAccount := openAIFingerprintAccount(22, map[string]any{codexFingerprintModeExtraKey: "session"})
@@ -302,7 +303,7 @@ func TestOpenAIPassthroughFingerprintDisabledAndCompactRemainCompatible(t *testi
 	compactIDs := resolveCodexFingerprintIDsFromRequest(compactAccount, compactContext.Request.Header)
 	compactRequest, err := service.buildUpstreamRequestOpenAIPassthroughWithFingerprint(context.Background(), compactContext, compactAccount, body, "token", compactIDs)
 	require.NoError(t, err)
-	require.Equal(t, "client-installation", compactRequest.Header.Get("X-Codex-Installation-ID"))
+	require.Equal(t, compactIDs.installationID, compactRequest.Header.Get("X-Codex-Installation-ID"))
 	require.NotEqual(t, compactIDs.sessionID, compactRequest.Header.Get("Session-Id"))
 }
 

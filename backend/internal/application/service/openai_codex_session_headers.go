@@ -332,8 +332,8 @@ func rewriteCodexOutboundSessionMetadata(body []byte, account *Account, ids *cod
 		return rewritten, nil
 	}
 
-	clientMetadata := make(map[string]any)
-	if err := json.Unmarshal([]byte(metadata.Raw), &clientMetadata); err != nil {
+	clientMetadata, err := decodeCodexMetadataObject(metadata.Raw)
+	if err != nil {
 		return body, fmt.Errorf("decode Codex client_metadata: %w", err)
 	}
 	if !sanitizeOpenAICodexClientMetadataMap(clientMetadata, account, ids) {

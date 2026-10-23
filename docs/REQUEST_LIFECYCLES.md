@@ -236,6 +236,10 @@ Codex OAuth 的 HTTP、透传、Compact 和 WS 握手共用 UA 身份解析：�
 完整指纹模式默认沿用同一结果；Linux 插件画像由下述 C 与实验性传输开关共同控制，账号显式 UA 继续优先。
 WS 池将 UA、originator、version 和 TLS Profile 一起用于握手兼容检查；
 变更身份后重新拨号，未变更时继续复用。具体边界见 [Codex 身份差异](codex/intentional-divergences.md)。
+直接 installation/window 头也使用当前账号/attempt 的身份投影，普通请求清除无来源的 window。
+所有 OAuth 传输的 turn metadata 头都排除工具清单并限制在 8192 字节内；body 不因此截断。
+metadata 数值使用保精度解码，WS 池在 installation/window 改变后重新建连；
+清除 attempt plan 后不允许恢复上一账号的身份。桌面端各通信面的对照见同一文档。
 
 OpenAI OAuth/Codex 账号可在管理端启用 `custom_base_url_enabled` 并填写
 `custom_base_url`，将模型请求改发到自定义 Codex 中继。例如填写
