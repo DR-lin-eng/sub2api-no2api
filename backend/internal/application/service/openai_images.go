@@ -720,6 +720,20 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 	if err != nil {
 		return nil, err
 	}
+	if s.customModelCapabilities != nil {
+		forwardBody, err = applyModelAttributes(
+			ctx,
+			s.customModelCapabilities,
+			clientModel,
+			"image",
+			openAIImagesAttributeValues(parsed),
+			forwardBody,
+			forwardContentType,
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
 	forwardEndpoint := parsed.Endpoint
 	var adapterHeaders map[string]string
 	if s.customModelCapabilities != nil {

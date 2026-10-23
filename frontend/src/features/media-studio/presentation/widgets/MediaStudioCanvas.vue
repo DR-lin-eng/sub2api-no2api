@@ -388,18 +388,19 @@
             <div
               v-if="settingsMenuOpen"
               ref="settingsMenuRef"
-              class="absolute bottom-16 left-0 z-20 w-[min(92vw,40rem)] rounded-2xl border border-gray-200 bg-white p-4 shadow-xl shadow-gray-900/10 dark:border-dark-700 dark:bg-dark-900"
+              class="absolute bottom-16 left-0 z-20 max-h-[min(72vh,36rem)] w-[min(94vw,44rem)] overflow-y-auto rounded-2xl border border-gray-200 bg-white p-4 shadow-xl shadow-gray-900/10 dark:border-dark-700 dark:bg-dark-900 sm:p-5"
             >
-              <div class="grid gap-4 md:grid-cols-2">
-                <section class="space-y-2">
-                  <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              <div class="grid gap-5 md:grid-cols-2 md:gap-0">
+                <section class="space-y-2.5 md:pr-5">
+                  <p class="section-title">
                     {{ t('mediaStudio.composer.resourceSettings') }}
                   </p>
-                  <label class="composer-select w-full">
-                    <Icon name="grid" size="sm" />
+
+                  <label class="param-field">
+                    <span class="param-label">{{ t('mediaStudio.composer.group') }}</span>
                     <select
                       :value="selectedGroupId"
-                      class="select-inner min-w-0 flex-1"
+                      class="param-control"
                       :disabled="loadingGroups"
                       @change="emit('update:selectedGroupId', Number(($event.target as HTMLSelectElement).value))"
                     >
@@ -410,55 +411,63 @@
                     </select>
                   </label>
 
-                  <label class="composer-select w-full">
-                    <Icon name="cube" size="sm" />
+                  <label class="param-field">
+                    <span class="param-label">{{ t('mediaStudio.composer.model') }}</span>
                     <select
                       v-if="modelSelectionLocked"
                       :value="model"
-                      class="select-inner min-w-0 flex-1"
+                      class="param-control"
                       :disabled="loadingModels || modelOptions.length === 0"
                       @change="emit('update:model', ($event.target as HTMLSelectElement).value)"
                     >
                       <option value="">{{ loadingModels ? t('mediaStudio.composer.loadingModels') : t('mediaStudio.composer.model') }}</option>
-                      <option v-for="option in modelOptions" :key="option" :value="option">{{ option }}</option>
+                      <option v-for="option in modelOptions" :key="option.id" :value="option.id">{{ option.id }}</option>
                     </select>
                     <template v-else>
                       <input
                         :value="model"
                         list="media-studio-models"
-                        class="select-inner min-w-0 flex-1"
+                        class="param-control"
                         :placeholder="loadingModels ? t('mediaStudio.composer.loadingModels') : t('mediaStudio.composer.model')"
                         @input="emit('update:model', ($event.target as HTMLInputElement).value)"
                       />
                       <datalist id="media-studio-models">
-                        <option v-for="option in modelOptions" :key="option" :value="option" />
+                        <option v-for="option in modelOptions" :key="option.id" :value="option.id" />
                       </datalist>
                     </template>
                   </label>
                 </section>
 
-                <section class="space-y-2">
-                  <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                <section class="space-y-2.5 md:border-l md:border-gray-100 md:pl-5 dark:md:border-dark-800">
+                  <p class="section-title">
                     {{ selectedModeId === 'image' ? t('mediaStudio.composer.imageSettings') : t('mediaStudio.composer.videoSettings') }}
                   </p>
 
-                  <div v-if="selectedModeId === 'image'" class="grid gap-2 sm:grid-cols-2">
-                    <label class="composer-select w-full">
-                      <Icon name="grid" size="sm" />
+                  <div v-if="selectedModeId === 'image'" class="grid grid-cols-2 gap-x-3 gap-y-2.5">
+                    <ModelAttributeFieldControl
+                      v-for="field in attributeFields"
+                      :key="`attr:${field.key}`"
+                      :field="field"
+                      :model-value="attributeValues[field.key]"
+                      @update:model-value="value => emit('update:attribute', { key: field.key, value })"
+                    />
+
+                    <label v-if="!hiddenParameterControls.includes('image.size')" class="param-field">
+                      <span class="param-label">{{ t('mediaStudio.composer.resolution') }}</span>
                       <select
                         :value="imageResolution"
-                        class="select-inner min-w-0 flex-1"
+                        class="param-control"
                         @change="handleImageResolutionSelect"
                       >
                         <option v-for="option in imageResolutionOptions" :key="option" :value="option">{{ option }}</option>
                       </select>
                     </label>
 
-                    <label class="composer-select w-full">
-                      <Icon name="arrowsUpDown" size="sm" />
+                    <label v-if="!hiddenParameterControls.includes('image.size')" class="param-field">
+                      <span class="param-label">{{ t('mediaStudio.composer.aspectRatio') }}</span>
                       <select
                         :value="imageAspectRatio"
-                        class="select-inner min-w-0 flex-1"
+                        class="param-control"
                         @change="handleAspectRatioSelect"
                       >
                         <option v-for="option in imageAspectRatioOptions" :key="option" :value="option">{{ option }}</option>
@@ -469,22 +478,25 @@
                       </select>
                     </label>
 
-                    <label v-if="imageQualityOptions.length > 0" class="composer-select w-full">
-                      <Icon name="sparkles" size="sm" />
+                    <label
+                      v-if="!hiddenParameterControls.includes('image.quality') && imageQualityOptions.length > 0"
+                      class="param-field"
+                    >
+                      <span class="param-label">{{ t('mediaStudio.composer.quality') }}</span>
                       <select
                         :value="quality"
-                        class="select-inner min-w-0 flex-1"
+                        class="param-control"
                         @change="emit('update:quality', ($event.target as HTMLSelectElement).value)"
                       >
                         <option v-for="option in imageQualityOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
                       </select>
                     </label>
 
-                    <label class="composer-select w-full">
-                      <Icon name="copy" size="sm" />
+                    <label v-if="!hiddenParameterControls.includes('image.count')" class="param-field">
+                      <span class="param-label">{{ t('mediaStudio.composer.count') }}</span>
                       <select
                         :value="count"
-                        class="select-inner min-w-0 flex-1"
+                        class="param-control"
                         @change="emit('update:count', Number(($event.target as HTMLSelectElement).value))"
                       >
                         <option v-for="option in countOptions" :key="option" :value="option">{{ option }}</option>
@@ -492,34 +504,42 @@
                     </label>
                   </div>
 
-                  <div v-else class="grid gap-2 sm:grid-cols-3">
-                    <label class="composer-select w-full">
-                      <Icon name="play" size="sm" />
+                  <div v-else class="grid grid-cols-2 gap-x-3 gap-y-2.5">
+                    <ModelAttributeFieldControl
+                      v-for="field in attributeFields"
+                      :key="`attr:${field.key}`"
+                      :field="field"
+                      :model-value="attributeValues[field.key]"
+                      @update:model-value="value => emit('update:attribute', { key: field.key, value })"
+                    />
+
+                    <label v-if="!hiddenParameterControls.includes('video.resolution')" class="param-field">
+                      <span class="param-label">{{ t('mediaStudio.composer.resolution') }}</span>
                       <select
                         :value="resolution"
-                        class="select-inner min-w-0 flex-1"
+                        class="param-control"
                         @change="emit('update:resolution', ($event.target as HTMLSelectElement).value as MediaStudioVideoResolution)"
                       >
                         <option v-for="option in resolutionOptions" :key="option" :value="option">{{ option }}</option>
                       </select>
                     </label>
 
-                    <label class="composer-select w-full">
-                      <Icon name="arrowsUpDown" size="sm" />
+                    <label v-if="!hiddenParameterControls.includes('video.aspectRatio')" class="param-field">
+                      <span class="param-label">{{ t('mediaStudio.composer.aspectRatio') }}</span>
                       <select
                         :value="videoAspectRatio"
-                        class="select-inner min-w-0 flex-1"
+                        class="param-control"
                         @change="emit('update:videoAspectRatio', ($event.target as HTMLSelectElement).value as MediaStudioVideoAspectRatio)"
                       >
                         <option v-for="option in videoAspectRatioOptions" :key="option" :value="option">{{ option }}</option>
                       </select>
                     </label>
 
-                    <label class="composer-select w-full">
-                      <Icon name="clock" size="sm" />
+                    <label v-if="!hiddenParameterControls.includes('video.duration')" class="param-field">
+                      <span class="param-label">{{ t('mediaStudio.composer.duration') }}</span>
                       <select
                         :value="duration"
-                        class="select-inner min-w-0 flex-1"
+                        class="param-control"
                         @change="emit('update:duration', Number(($event.target as HTMLSelectElement).value))"
                       >
                         <option v-for="option in durationOptions" :key="option" :value="option">{{ option }}s</option>
@@ -597,8 +617,14 @@ import { useI18n } from 'vue-i18n'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import MediaStudioCustomResolutionDialog from '@/features/media-studio/presentation/widgets/MediaStudioCustomResolutionDialog.vue'
 import type { MediaStudioVideoAspectRatio, MediaStudioVideoResolution } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
-import type { MediaStudioGroupOption } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
-import type { MediaStudioParameterOption } from '@/features/media-studio/presentation/composables/useMediaStudioController'
+import type {
+  MediaStudioGroupOption,
+  MediaStudioParameterControl,
+  ModelAttributeField,
+  ModelAttributeValues,
+} from '@/features/media-studio/data/datasources/mediaStudioDatasource'
+import type { MediaStudioModelOption, MediaStudioParameterOption } from '@/features/media-studio/presentation/composables/useMediaStudioController'
+import ModelAttributeFieldControl from '@/common/widgets/model-attributes/ModelAttributeField.vue'
 import {
   addMediaStudioImageAttachments,
   MEDIA_STUDIO_MAX_IMAGE_ATTACHMENTS,
@@ -634,7 +660,10 @@ const props = defineProps<{
   loadingGroups: boolean
   groupLoadError: string
   imageAttachments: MediaStudioImageAttachment[]
-  modelOptions: string[]
+  modelOptions: MediaStudioModelOption[]
+  attributeFields: ModelAttributeField[]
+  attributeValues: ModelAttributeValues
+  hiddenParameterControls: MediaStudioParameterControl[]
   loadingModels: boolean
   modelLoadError: string
   conversation: MediaStudioConversation
@@ -656,6 +685,7 @@ const emit = defineEmits<{
   'update:resolution': [value: MediaStudioVideoResolution]
   'update:videoAspectRatio': [value: MediaStudioVideoAspectRatio]
   'update:duration': [value: number]
+  'update:attribute': [payload: { key: string; value: string | number | boolean | undefined }]
   selectMode: [id: MediaStudioModeId]
   reloadGroups: []
   'update:image-attachments': [value: MediaStudioImageAttachment[]]
@@ -964,16 +994,36 @@ onUnmounted(() => {
   @apply border-primary-500 bg-primary-50 text-primary-600 opacity-100 dark:border-primary-400 dark:bg-primary-500/15 dark:text-primary-300;
 }
 
-.composer-select {
-  @apply inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm transition-colors focus-within:border-gray-400 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-200 dark:focus-within:border-dark-500;
+.section-title {
+  @apply text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500;
 }
 
-.select-inner {
-  @apply border-0 bg-transparent text-sm font-medium text-gray-700 outline-none placeholder:text-gray-400 dark:text-gray-200 dark:placeholder:text-gray-500;
+.param-field {
+  @apply flex w-full min-w-0 flex-col gap-1.5;
+}
+
+.param-label {
+  @apply truncate text-xs font-medium text-gray-500 dark:text-gray-400;
+}
+
+.param-control {
+  @apply h-9 w-full min-w-0 rounded-lg border border-gray-200 bg-white px-2.5 text-sm font-medium text-gray-700 shadow-sm outline-none transition-colors hover:border-gray-300 focus:border-gray-400 disabled:cursor-not-allowed disabled:opacity-60 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-200 dark:hover:border-dark-600 dark:focus:border-dark-500;
   color-scheme: light dark;
 }
 
-.select-inner option {
+/* 原生下拉箭头位置无法用 padding 调整，改为隐藏后自绘 */
+select.param-control {
+  @apply appearance-none bg-no-repeat pr-9;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-position: right 0.75rem center;
+  background-size: 1rem 1rem;
+}
+
+:global(.dark) select.param-control {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+.param-control option {
   @apply bg-white text-gray-800 dark:bg-dark-900 dark:text-gray-100;
 }
 

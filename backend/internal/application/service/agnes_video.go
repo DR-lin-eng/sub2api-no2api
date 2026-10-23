@@ -161,6 +161,21 @@ func (s *OpenAIGatewayService) ForwardAgnesVideo(
 		}
 	}
 
+	if endpoint.RequiresRequestBody() && s.customModelCapabilities != nil {
+		body, err = applyModelAttributes(
+			ctx,
+			s.customModelCapabilities,
+			requestInfo.Model,
+			"video",
+			nil,
+			body,
+			contentType,
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	token, _, err := s.getRequestCredential(ctx, c, account)
 	if err != nil {
 		return nil, err

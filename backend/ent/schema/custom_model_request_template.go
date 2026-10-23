@@ -42,6 +42,8 @@ func (CustomModelRequestTemplate) Fields() []ent.Field {
 			Comment("模板说明"),
 		field.JSON("request_adapter", map[string]any{}).
 			Comment("请求适配规则"),
+		field.JSON("attributes", map[string]any{}).
+			Comment("模板属性：绑定该模板的模型继承的输入字段约束"),
 	}
 }
 

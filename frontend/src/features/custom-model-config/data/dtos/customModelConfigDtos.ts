@@ -35,6 +35,7 @@ export interface CustomModelRequestTemplateDto {
   name: string;
   description: string;
   request_adapter: Record<string, unknown>;
+  attributes?: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }
@@ -43,10 +44,12 @@ export interface CreateCustomModelRequestTemplateRequest {
   name: string;
   description: string;
   request_adapter: Record<string, unknown>;
+  attributes?: Record<string, unknown>;
 }
 
 export interface UpdateCustomModelRequestTemplateRequest {
   name?: string;
   description?: string;
   request_adapter?: Record<string, unknown>;
+  attributes?: Record<string, unknown> | null;
 }

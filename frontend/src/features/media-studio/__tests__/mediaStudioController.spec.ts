@@ -46,7 +46,8 @@ describe('media studio controller', () => {
     controller.prompt.value = 'a quiet cat'
     await controller.submitPrompt()
 
-    expect(controller.modelOptions.value).toEqual(['gpt-image-2'])
+    expect(controller.modelOptions.value.map(option => option.id)).toEqual(['gpt-image-2'])
+    expect(controller.modelOptions.value[0].fields).toEqual([])
     expect(controller.imageQualityOptions.value.map(option => option.value)).toEqual(['auto', 'low', 'medium', 'high'])
     expect(submitImage).toHaveBeenCalledWith('sk-demo', expect.objectContaining({
       model: 'gpt-image-2', prompt: 'a quiet cat',
@@ -230,7 +231,7 @@ describe('media studio controller', () => {
     await controller.submitPrompt()
     await settle()
 
-    expect(controller.modelOptions.value).toEqual(['grok-imagine-video'])
+    expect(controller.modelOptions.value.map(option => option.id)).toEqual(['grok-imagine-video'])
     expect(createSession).toHaveBeenLastCalledWith('video', 2)
     expect(submitVideo).toHaveBeenCalledWith('sk-demo', expect.objectContaining({ aspect_ratio: '9:16' }), expect.any(String))
     expect(getVideoContent).toHaveBeenCalledWith('sk-demo', 'video-1')

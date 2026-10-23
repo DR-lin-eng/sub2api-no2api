@@ -82,11 +82,15 @@ func (h *MediaStudioHandler) ListModels(c *gin.Context) {
 	}
 	data := make([]gin.H, 0, len(models))
 	for _, model := range models {
-		data = append(data, gin.H{
-			"id":       model,
+		entry := gin.H{
+			"id":       model.ID,
 			"object":   "model",
 			"owned_by": "media-studio",
-		})
+		}
+		if len(model.Attributes) > 0 {
+			entry["attributes"] = model.Attributes
+		}
+		data = append(data, entry)
 	}
 	response.Success(c, gin.H{"object": "list", "data": data})
 }

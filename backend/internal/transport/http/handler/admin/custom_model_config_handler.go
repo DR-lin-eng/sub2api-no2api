@@ -82,13 +82,14 @@ func (h *CustomModelConfigHandler) Update(c *gin.Context) {
 		response.BadRequest(c, "video_api_type must be a string or null")
 		return
 	}
-	item, err := h.service.Update(c.Request.Context(), id, service.UpdateCustomModelConfigInput{
+	input := service.UpdateCustomModelConfigInput{
 		PrefixMatch:   req.PrefixMatch,
 		Capabilities:  req.Capabilities,
 		VideoAPIType:  videoAPIType,
 		TemplateID:    templateID,
 		TemplateIDSet: templateIDSet,
-	})
+	}
+	item, err := h.service.Update(c.Request.Context(), id, input)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
@@ -125,12 +126,14 @@ type customModelRequestTemplateRequest struct {
 	Name           string         `json:"name" binding:"required,max=100"`
 	Description    string         `json:"description" binding:"max=500"`
 	RequestAdapter map[string]any `json:"request_adapter"`
+	Attributes     map[string]any `json:"attributes"`
 }
 
 type customModelRequestTemplateUpdateRequest struct {
 	Name           *string         `json:"name" binding:"omitempty,max=100"`
 	Description    *string         `json:"description" binding:"omitempty,max=500"`
 	RequestAdapter *map[string]any `json:"request_adapter"`
+	Attributes     json.RawMessage `json:"attributes"`
 }
 
 func (h *CustomModelConfigHandler) ListTemplates(c *gin.Context) {
@@ -155,6 +158,7 @@ func (h *CustomModelConfigHandler) CreateTemplate(c *gin.Context) {
 		Name:           req.Name,
 		Description:    req.Description,
 		RequestAdapter: req.RequestAdapter,
+		Attributes:     req.Attributes,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -172,11 +176,20 @@ func (h *CustomModelConfigHandler) UpdateTemplate(c *gin.Context) {
 	if !bindCustomModelJSON(c, &req) {
 		return
 	}
-	item, err := h.service.UpdateTemplate(c.Request.Context(), id, service.UpdateCustomModelRequestTemplateInput{
+	attributes, attributesSet, err := parseOptionalJSONObject(req.Attributes)
+	if err != nil {
+		response.BadRequest(c, "attributes must be an object or null")
+		return
+	}
+	input := service.UpdateCustomModelRequestTemplateInput{
 		Name:           req.Name,
 		Description:    req.Description,
 		RequestAdapter: req.RequestAdapter,
-	})
+	}
+	if attributesSet {
+		input.Attributes = &attributes
+	}
+	item, err := h.service.UpdateTemplate(c.Request.Context(), id, input)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
@@ -248,4 +261,20 @@ func parseOptionalString(raw json.RawMessage) (*string, bool, error) {
 		return nil, true, err
 	}
 	return &value, true, nil
+}
+
+// parseOptionalJSONObject 三态解析：字段缺失返回 set=false；null 返回空对象；其余必须为 JSON 对象。
+func parseOptionalJSONObject(raw json.RawMessage) (map[string]any, bool, error) {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 {
+		return nil, false, nil
+	}
+	if bytes.Equal(trimmed, []byte("null")) {
+		return nil, true, nil
+	}
+	var value map[string]any
+	if err := json.Unmarshal(trimmed, &value); err != nil {
+		return nil, true, err
+	}
+	return value, true, nil
 }

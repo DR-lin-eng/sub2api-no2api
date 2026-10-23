@@ -8,6 +8,7 @@ export interface CustomModelRequestTemplate {
   name: string;
   description: string;
   request_adapter: Record<string, unknown>;
+  attributes: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }

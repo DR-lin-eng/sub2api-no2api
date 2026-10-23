@@ -24,6 +24,7 @@ type CustomModelRequestTemplate struct {
 	Name           string         `json:"name"`
 	Description    string         `json:"description"`
 	RequestAdapter map[string]any `json:"request_adapter"`
+	Attributes     map[string]any `json:"attributes"`
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
 }
@@ -68,11 +69,16 @@ func CustomModelRequestTemplateFromService(item *service.CustomModelRequestTempl
 	if adapter == nil {
 		adapter = map[string]any{}
 	}
+	attributes := item.Attributes
+	if attributes == nil {
+		attributes = map[string]any{}
+	}
 	return &CustomModelRequestTemplate{
 		ID:             item.ID,
 		Name:           item.Name,
 		Description:    item.Description,
 		RequestAdapter: adapter,
+		Attributes:     attributes,
 		CreatedAt:      item.CreatedAt,
 		UpdatedAt:      item.UpdatedAt,
 	}

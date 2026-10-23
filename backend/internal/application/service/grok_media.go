@@ -416,6 +416,24 @@ func (s *OpenAIGatewayService) ForwardGrokMedia(
 	if err != nil {
 		return nil, err
 	}
+	if endpoint.RequiresRequestBody() && s.customModelCapabilities != nil {
+		modality := "video"
+		if endpoint == GrokMediaEndpointImagesGenerations || endpoint == GrokMediaEndpointImagesEdits {
+			modality = "image"
+		}
+		body, err = applyModelAttributes(
+			ctx,
+			s.customModelCapabilities,
+			requestInfo.Model,
+			modality,
+			nil,
+			body,
+			contentType,
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
 	modelCtx := withGrokTeamRateLimitModel(ctx, upstreamModel)
 	token, _, err := s.getRequestCredential(modelCtx, c, account)
 	if err != nil {

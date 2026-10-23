@@ -182,18 +182,23 @@ func (s *MediaStudioService) GetAvailableGroups(ctx context.Context, userID int6
 	}, nil
 }
 
+type MediaStudioModel struct {
+	ID         string         `json:"id"`
+	Attributes map[string]any `json:"attributes,omitempty"`
+}
+
 func (s *MediaStudioService) ListModels(
 	ctx context.Context,
 	userID int64,
 	groupID int64,
 	mediaType string,
-) ([]string, error) {
+) ([]MediaStudioModel, error) {
 	mediaType = normalizeMediaStudioMediaType(mediaType)
 	if mediaType == "" || groupID <= 0 {
 		return nil, ErrMediaStudioGroupRouteInvalid
 	}
 	if s.customModelCapabilities == nil {
-		return []string{}, nil
+		return []MediaStudioModel{}, nil
 	}
 
 	config, err := s.GetAvailableGroups(ctx, userID)
@@ -211,15 +216,26 @@ func (s *MediaStudioService) ListModels(
 		return nil, ErrMediaStudioGroupUnavailable
 	}
 
-	models := make([]string, 0, len(selected.Models))
+	models := make([]MediaStudioModel, 0, len(selected.Models))
 	for _, model := range selected.Models {
 		ok, err := s.customModelCapabilities.HasCapability(ctx, model, mediaType)
 		if err != nil {
 			return nil, fmt.Errorf("resolve media model capability: %w", err)
 		}
-		if ok {
-			models = append(models, model)
+		if !ok {
+			continue
 		}
+		item := MediaStudioModel{ID: model}
+		raw, configured, err := s.customModelCapabilities.ResolveModelAttributes(ctx, model)
+		if err != nil {
+			return nil, fmt.Errorf("resolve media model attributes: %w", err)
+		}
+		if configured {
+			if block := modelAttributesForModality(raw, mediaType); len(block) > 0 {
+				item.Attributes = block
+			}
+		}
+		models = append(models, item)
 	}
 	return models, nil
 }

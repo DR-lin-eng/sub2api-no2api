@@ -158,7 +158,9 @@ const dialogTitle = computed(() =>
     : t('admin.customModelConfig.modal.createTitle')
 );
 
-const isFormValid = computed(() => form.value.model_name.trim().length > 0 && form.value.capabilities.length > 0);
+const isFormValid = computed(
+  () => form.value.model_name.trim().length > 0 && form.value.capabilities.length > 0
+);
 
 watch(
   () => props.config,

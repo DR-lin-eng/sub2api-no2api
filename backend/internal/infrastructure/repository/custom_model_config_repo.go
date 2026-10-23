@@ -219,6 +219,7 @@ func (r *customModelConfigRepository) CreateTemplate(
 		SetName(input.Name).
 		SetDescription(input.Description).
 		SetRequestAdapter(input.RequestAdapter).
+		SetAttributes(input.Attributes).
 		Save(ctx)
 	if ent.IsConstraintError(err) {
 		return nil, service.ErrCustomModelTemplateDuplicate
@@ -244,6 +245,9 @@ func (r *customModelConfigRepository) UpdateTemplate(
 	}
 	if input.RequestAdapter != nil {
 		builder.SetRequestAdapter(*input.RequestAdapter)
+	}
+	if input.Attributes != nil {
+		builder.SetAttributes(*input.Attributes)
 	}
 	item, err := builder.Save(ctx)
 	if ent.IsNotFound(err) {
@@ -302,11 +306,16 @@ func customModelTemplateFromEnt(item *ent.CustomModelRequestTemplate) service.Cu
 	if adapter == nil {
 		adapter = map[string]any{}
 	}
+	attributes := item.Attributes
+	if attributes == nil {
+		attributes = map[string]any{}
+	}
 	return service.CustomModelRequestTemplate{
 		ID:             item.ID,
 		Name:           item.Name,
 		Description:    item.Description,
 		RequestAdapter: adapter,
+		Attributes:     attributes,
 		CreatedAt:      item.CreatedAt,
 		UpdatedAt:      item.UpdatedAt,
 	}

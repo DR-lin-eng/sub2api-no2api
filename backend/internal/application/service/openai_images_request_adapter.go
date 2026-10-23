@@ -19,6 +19,7 @@ type customModelRequestAdapterDefinition struct {
 	Version int `json:"version"`
 	Match   struct {
 		Endpoint string `json:"endpoint"`
+		Mode     string `json:"mode"`
 	} `json:"match"`
 	Upstream struct {
 		Path        string `json:"path"`
@@ -44,6 +45,9 @@ const (
 	maxCustomModelRequestAdapterBytes       = 64 << 10
 	maxCustomModelAdaptedRequestOverhead    = 256 << 10
 	maxCustomModelRenderedUpstreamPathBytes = 8 << 10
+
+	customModelEndpointMatchExact  = "exact"
+	customModelEndpointMatchPrefix = "prefix"
 )
 
 func validateCustomModelRequestAdapter(rawAdapter map[string]any) error {
@@ -63,6 +67,11 @@ func validateCustomModelRequestAdapter(rawAdapter map[string]any) error {
 	}
 	if adapter.Version != 0 && adapter.Version != 1 {
 		return fmt.Errorf("%w: unsupported request adapter version %d", ErrCustomModelConfigInvalid, adapter.Version)
+	}
+	switch strings.ToLower(strings.TrimSpace(adapter.Match.Mode)) {
+	case "", customModelEndpointMatchExact, customModelEndpointMatchPrefix:
+	default:
+		return fmt.Errorf("%w: unsupported match mode %q", ErrCustomModelConfigInvalid, adapter.Match.Mode)
 	}
 	for field, path := range map[string]string{
 		"match endpoint": adapter.Match.Endpoint,
@@ -177,12 +186,26 @@ func applyOpenAIImagesRequestAdapter(
 	}
 
 	matchEndpoint := strings.TrimSpace(adapter.Match.Endpoint)
-	if matchEndpoint != "" && matchEndpoint != parsed.Endpoint {
-		return &openAIImagesAdaptedRequest{
-			Body:        body,
-			ContentType: contentType,
-			Endpoint:    parsed.Endpoint,
-		}, nil
+	matchMode := strings.ToLower(strings.TrimSpace(adapter.Match.Mode))
+	pathSuffix := ""
+	if matchEndpoint != "" {
+		if matchMode == customModelEndpointMatchPrefix {
+			suffix, matched := customModelPathPrefixSuffix(parsed.Endpoint, matchEndpoint)
+			if !matched {
+				return &openAIImagesAdaptedRequest{
+					Body:        body,
+					ContentType: contentType,
+					Endpoint:    parsed.Endpoint,
+				}, nil
+			}
+			pathSuffix = suffix
+		} else if matchEndpoint != parsed.Endpoint {
+			return &openAIImagesAdaptedRequest{
+				Body:        body,
+				ContentType: contentType,
+				Endpoint:    parsed.Endpoint,
+			}, nil
+		}
 	}
 
 	endpoint := parsed.Endpoint
@@ -191,6 +214,8 @@ func applyOpenAIImagesRequestAdapter(
 			return nil, fmt.Errorf("custom model upstream path must be a relative absolute-path")
 		}
 		endpoint = targetPath
+	} else {
+		pathSuffix = ""
 	}
 
 	targetContentType := strings.TrimSpace(adapter.Upstream.ContentType)
@@ -211,6 +236,12 @@ func applyOpenAIImagesRequestAdapter(
 		return nil, fmt.Errorf("custom model upstream path must be an absolute URL path")
 	}
 	endpoint = renderedTargetPath
+	if pathSuffix != "" {
+		endpoint = strings.TrimSuffix(renderedTargetPath, "/") + pathSuffix
+		if !isCustomModelAbsolutePath(endpoint) || customModelPathHasTraversal(endpoint) {
+			return nil, fmt.Errorf("custom model upstream path must be an absolute URL path")
+		}
+	}
 	renderedContentType, err := renderCustomModelRequestString(
 		targetContentType,
 		variables,
@@ -317,6 +348,20 @@ func customModelPathHasTraversal(path string) bool {
 		}
 	}
 	return false
+}
+
+// customModelPathPrefixSuffix 返回 path 去掉 prefix 后剩余的路径片段。
+// prefix 末尾的斜杠会被忽略；剩余片段必须为空或以 "/" 开头，避免 /v1/images 误匹配 /v1/images2。
+func customModelPathPrefixSuffix(path string, prefix string) (string, bool) {
+	prefix = strings.TrimSuffix(strings.TrimSpace(prefix), "/")
+	if !strings.HasPrefix(path, prefix) {
+		return "", false
+	}
+	suffix := path[len(prefix):]
+	if suffix == "" || strings.HasPrefix(suffix, "/") {
+		return suffix, true
+	}
+	return "", false
 }
 
 func buildCustomModelRequestVariables(

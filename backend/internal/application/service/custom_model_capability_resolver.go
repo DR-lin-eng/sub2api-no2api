@@ -37,6 +37,7 @@ type CustomModelCapabilityResolver interface {
 	HasCapability(ctx context.Context, modelName, capability string) (bool, error)
 	ResolveVideoAPIType(ctx context.Context, modelName string) (string, bool, error)
 	ResolveRequestAdapter(ctx context.Context, modelName string) (map[string]any, bool, error)
+	ResolveModelAttributes(ctx context.Context, modelName string) (map[string]any, bool, error)
 }
 
 type CustomModelConfig struct {
@@ -56,6 +57,7 @@ type CustomModelRequestTemplate struct {
 	Name           string
 	Description    string
 	RequestAdapter map[string]any
+	Attributes     map[string]any
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }
@@ -86,12 +88,14 @@ type CreateCustomModelRequestTemplateInput struct {
 	Name           string
 	Description    string
 	RequestAdapter map[string]any
+	Attributes     map[string]any
 }
 
 type UpdateCustomModelRequestTemplateInput struct {
 	Name           *string
 	Description    *string
 	RequestAdapter *map[string]any
+	Attributes     *map[string]any
 }
 
 type CustomModelConfigRepository interface {
@@ -258,6 +262,11 @@ func (s *CustomModelConfigService) CreateTemplate(
 	if err := validateCustomModelRequestAdapter(input.RequestAdapter); err != nil {
 		return nil, err
 	}
+	attributes, err := normalizeModelAttributes(input.Attributes)
+	if err != nil {
+		return nil, err
+	}
+	input.Attributes = attributes
 	items, err := s.repo.ListTemplates(ctx)
 	if err != nil {
 		return nil, err
@@ -300,6 +309,13 @@ func (s *CustomModelConfigService) UpdateTemplate(
 		if err := validateCustomModelRequestAdapter(*input.RequestAdapter); err != nil {
 			return nil, err
 		}
+	}
+	if input.Attributes != nil {
+		normalized, err := normalizeModelAttributes(*input.Attributes)
+		if err != nil {
+			return nil, err
+		}
+		input.Attributes = &normalized
 	}
 	if input.Name != nil {
 		items, err := s.repo.ListTemplates(ctx)
@@ -375,6 +391,26 @@ func (s *CustomModelConfigService) ResolveRequestAdapter(
 	// Runtime snapshots are immutable after compilation. The gateway adapter only
 	// reads this map, so avoid a JSON round trip on every image request.
 	return template.RequestAdapter, true, nil
+}
+
+func (s *CustomModelConfigService) ResolveModelAttributes(
+	ctx context.Context,
+	modelName string,
+) (map[string]any, bool, error) {
+	runtime, err := s.runtime(ctx)
+	if err != nil || runtime == nil || !runtime.enabled {
+		return nil, false, err
+	}
+	config := runtime.match(modelName)
+	if config == nil || config.TemplateID == nil {
+		return nil, false, nil
+	}
+	template, ok := runtime.templates[*config.TemplateID]
+	if !ok || len(template.Attributes) == 0 {
+		return nil, false, nil
+	}
+	// Runtime snapshots are immutable after compilation; callers only read this map.
+	return template.Attributes, true, nil
 }
 
 func (s *CustomModelConfigService) resolveConfig(
@@ -456,6 +492,7 @@ func compileCustomModelRuntime(snapshot *CustomModelRuntimeSnapshot) *compiledCu
 	runtime.enabled = snapshot.Enabled
 	for id, template := range snapshot.Templates {
 		template.RequestAdapter = cloneCustomModelJSONMap(template.RequestAdapter)
+		template.Attributes = cloneCustomModelJSONMap(template.Attributes)
 		runtime.templates[id] = template
 	}
 	for _, config := range snapshot.Configs {

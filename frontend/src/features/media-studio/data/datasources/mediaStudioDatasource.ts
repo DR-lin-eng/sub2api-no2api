@@ -1,4 +1,13 @@
 import { apiClient, buildGatewayUrl } from '@/core/networks/client'
+import type { ModelAttributeBlock, ModelAttributeValues } from '@/common/widgets/model-attributes/types'
+
+export type {
+  ModelAttributeBlock,
+  ModelAttributeField,
+  ModelAttributeFieldType,
+  ModelAttributeRenderMode,
+  ModelAttributeValues,
+} from '@/common/widgets/model-attributes/types'
 
 export type MediaStudioMediaType = 'image' | 'video' | 'audio'
 
@@ -27,15 +36,38 @@ export interface MediaStudioModel {
   displayName?: string
   owned_by?: string
   ownedBy?: string
-  supported_parameters?: string[]
-  supportedParameters?: string[]
-  supported_sizes?: string[]
-  supportedSizes?: string[]
-  supported_qualities?: string[]
-  supportedQualities?: string[]
-  supports_quality?: boolean
-  supportsQuality?: boolean
+  attributes?: ModelAttributeBlock
   [key: string]: unknown
+}
+
+// 媒体工坊硬编码参数控件与请求字段的绑定：模板声明了同名字段时，局部覆盖模式下该控件被替换。
+export type MediaStudioParameterControl =
+  | 'image.size'
+  | 'image.quality'
+  | 'image.count'
+  | 'video.resolution'
+  | 'video.aspectRatio'
+  | 'video.duration'
+
+export const MEDIA_STUDIO_PARAMETER_BINDINGS: Record<MediaStudioParameterControl, string> = {
+  'image.size': 'size',
+  'image.quality': 'quality',
+  'image.count': 'n',
+  'video.resolution': 'resolution',
+  'video.aspectRatio': 'aspect_ratio',
+  'video.duration': 'duration',
+}
+
+// 请求模板里可屏蔽的内置参数：由绑定表按模态派生，避免参数名重复维护。
+export const MEDIA_STUDIO_HIDE_CANDIDATES: Record<MediaStudioMediaType, string[]> = {
+  image: [],
+  video: [],
+  audio: [],
+}
+
+for (const [control, key] of Object.entries(MEDIA_STUDIO_PARAMETER_BINDINGS)) {
+  const modality = control.split('.', 1)[0] as MediaStudioMediaType
+  MEDIA_STUDIO_HIDE_CANDIDATES[modality].push(key)
 }
 
 export interface MediaStudioModelsResponse {
@@ -50,6 +82,7 @@ export interface MediaStudioImageSubmitRequest {
   size?: string
   quality?: string
   response_format?: 'b64_json' | 'url'
+  attributes?: ModelAttributeValues
 }
 
 export async function getMediaStudioConfig(): Promise<MediaStudioConfig> {
@@ -86,9 +119,10 @@ export type MediaStudioVideoAspectRatio = '16:9' | '9:16' | '1:1' | '4:3' | '3:4
 export interface MediaStudioVideoSubmitRequest {
   model: string
   prompt: string
-  resolution: MediaStudioVideoResolution
-  duration: number
-  aspect_ratio: MediaStudioVideoAspectRatio
+  resolution?: MediaStudioVideoResolution
+  duration?: number
+  aspect_ratio?: MediaStudioVideoAspectRatio
+  attributes?: ModelAttributeValues
 }
 
 export type MediaStudioVideoTaskStatus = 'processing' | 'completed' | 'failed'
@@ -152,6 +186,12 @@ function authHeaders(apiKey: string, extra?: HeadersInit): HeadersInit {
     Authorization: `Bearer ${apiKey}`,
     ...extra,
   }
+}
+
+// 模型属性按字段名平铺到请求体顶层，固定字段优先，避免属性覆盖 model/prompt 等。
+function serializeSubmitPayload(payload: { attributes?: ModelAttributeValues }): string {
+  const { attributes, ...rest } = payload
+  return JSON.stringify({ ...(attributes ?? {}), ...rest })
 }
 
 const MAX_VIDEO_BYTES = 256 * 1024 * 1024
@@ -276,7 +316,7 @@ export async function submitAsyncImageGeneration(
       'Content-Type': 'application/json',
       'Idempotency-Key': idempotencyKey,
     }),
-    body: JSON.stringify(payload),
+    body: serializeSubmitPayload(payload),
   })
   if (!response.ok) throw await parseMediaStudioError(response)
   return response.json()
@@ -293,7 +333,7 @@ export async function submitImageGeneration(
       'Content-Type': 'application/json',
       'Idempotency-Key': idempotencyKey,
     }),
-    body: JSON.stringify(payload),
+    body: serializeSubmitPayload(payload),
   })
   if (!response.ok) throw await parseMediaStudioError(response)
   const result = await response.json() as MediaStudioImageResult
@@ -326,6 +366,9 @@ export async function submitImageEdit(
   if (payload.n !== undefined) form.append('n', String(payload.n))
   if (payload.size) form.append('size', payload.size)
   if (payload.quality) form.append('quality', payload.quality)
+  for (const [key, value] of Object.entries(payload.attributes ?? {})) {
+    form.append(key, String(value))
+  }
   for (const file of files) form.append('image', file, file.name)
 
   const response = await fetch(buildGatewayUrl('/v1/images/edits'), {
@@ -373,7 +416,7 @@ export async function submitVideoGeneration(
       'Content-Type': 'application/json',
       'Idempotency-Key': idempotencyKey,
     }),
-    body: JSON.stringify(payload),
+    body: serializeSubmitPayload(payload),
   })
   if (!response.ok) throw await parseMediaStudioError(response)
   return normalizeMediaStudioVideoTask(await response.json())

@@ -23,6 +23,9 @@
         :group-load-error="groupLoadError"
         :image-attachments="imageAttachments"
         :model-options="modelOptions"
+        :attribute-fields="visibleAttributeFields"
+        :attribute-values="attributeValues"
+        :hidden-parameter-controls="hiddenParameterControls"
         :loading-models="loadingModels"
         :model-load-error="modelLoadError"
         :conversation="conversation"
@@ -35,6 +38,7 @@
         @update:image-attachments="updateImageAttachments"
         @add-custom-image-aspect-ratio="addCustomImageAspectRatio"
         @reload-models="loadModels"
+        @update:attribute="({ key, value }) => setAttributeValue(key, value)"
         @submit="submitPrompt"
          @retry="retryMessage"
          @clear="clearConversation"
@@ -75,6 +79,10 @@ const {
   imageAttachments,
   updateImageAttachments,
   modelOptions,
+  visibleAttributeFields,
+  attributeValues,
+  hiddenParameterControls,
+  setAttributeValue,
   loadingModels,
   modelLoadError,
   submitting,

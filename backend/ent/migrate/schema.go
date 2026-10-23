@@ -1171,6 +1171,7 @@ var (
 		{Name: "name", Type: field.TypeString, Size: 100},
 		{Name: "description", Type: field.TypeString, Nullable: true, Size: 500, Default: ""},
 		{Name: "request_adapter", Type: field.TypeJSON},
+		{Name: "attributes", Type: field.TypeJSON},
 	}
 	// CustomModelRequestTemplatesTable holds the schema information for the "custom_model_request_templates" table.
 	CustomModelRequestTemplatesTable = &schema.Table{

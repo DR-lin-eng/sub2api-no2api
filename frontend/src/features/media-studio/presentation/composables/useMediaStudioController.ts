@@ -20,7 +20,13 @@ import {
   type MediaStudioModel,
   type MediaStudioVideoAspectRatio,
   type MediaStudioVideoResolution,
+  type MediaStudioVideoSubmitRequest,
   type MediaStudioVideoTask,
+  MEDIA_STUDIO_PARAMETER_BINDINGS,
+  type MediaStudioParameterControl,
+  type ModelAttributeField,
+  type ModelAttributeRenderMode,
+  type ModelAttributeValues,
 } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
 import {
   clearMediaStudioImages,
@@ -60,6 +66,13 @@ const MAX_VIDEO_POLL_NOT_FOUND = 5
 export interface MediaStudioParameterOption {
   value: string
   label: string
+}
+
+export interface MediaStudioModelOption {
+  id: string
+  fields: ModelAttributeField[]
+  renderMode: ModelAttributeRenderMode
+  hide: string[]
 }
 
 export type MediaStudioImageResolution = '1K' | '2K' | '4K'
@@ -120,6 +133,9 @@ export interface MediaStudioMessage {
   resolution?: MediaStudioVideoResolution
   aspectRatio?: MediaStudioVideoAspectRatio
   duration?: number
+  attributes?: ModelAttributeValues
+  attributeMode?: ModelAttributeRenderMode
+  attributeKeys?: string[]
   progress?: number
   inputImages?: MediaStudioInputImagePreview[]
   images?: MediaStudioGeneratedImagePreview[]
@@ -211,6 +227,20 @@ function persistedImageSource(value: unknown): string {
   return `data:${match[1].toLowerCase()};base64,${match[2]}`
 }
 
+function restoreModelAttributeValues(value: unknown): ModelAttributeValues | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+  const restored: ModelAttributeValues = {}
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    if (!key) continue
+    if (typeof item === 'string' || typeof item === 'boolean') {
+      restored[key] = item
+    } else if (typeof item === 'number' && Number.isFinite(item)) {
+      restored[key] = item
+    }
+  }
+  return restored
+}
+
 function restorePersistedConversation(value: unknown): MediaStudioConversation | null {
   if (!value || typeof value !== 'object') return null
   const raw = value as Partial<MediaStudioConversation>
@@ -272,6 +302,7 @@ function restorePersistedConversation(value: unknown): MediaStudioConversation |
           ? normalizeVideoAspectRatio(candidate.aspectRatio)
           : undefined,
         duration: typeof candidate.duration === 'number' ? normalizeDuration(candidate.duration) : undefined,
+        attributes: restoreModelAttributeValues(candidate.attributes),
         error: typeof candidate.error === 'string' ? candidate.error : undefined,
         createdAt,
         completedAt: typeof candidate.completedAt === 'number' ? candidate.completedAt : undefined,
@@ -656,7 +687,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   const groupLoadError = ref('')
   const mediaStudioApiKey = ref('')
   const imageAttachments = ref<MediaStudioImageAttachment[]>([])
-  const modelOptions = ref<string[]>([])
+  const modelOptions = ref<MediaStudioModelOption[]>([])
   const loadingModels = ref(false)
   const modelLoadError = ref('')
   const submitting = ref(false)
@@ -685,6 +716,54 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   const selectedMode = computed(() => modes.value.find(mode => mode.id === selectedModeId.value) ?? modes.value[0])
   const modelSelectionLocked = computed(() => (selectedGroup.value?.models?.length || 0) > 0)
   const imageQualityOptions = computed(() => IMAGE_QUALITY_OPTIONS)
+  const activeModelFields = computed<ModelAttributeField[]>(
+    () => modelOptions.value.find(option => option.id === model.value)?.fields ?? [],
+  )
+  // 模板声明要隐藏的内置参数 key；仅用于屏蔽宿主控件，不参与属性值渲染。
+  const activeModelHiddenKeys = computed<string[]>(
+    () => modelOptions.value.find(option => option.id === model.value)?.hide ?? [],
+  )
+  const visibleAttributeFields = computed(
+    () => activeModelFields.value.filter(field => field.ui !== 'hidden'),
+  )
+  // hardcoded：模板未声明字段，按硬编码参数渲染；其余两种模式由模板决定。
+  const attributeRenderMode = computed<'hardcoded' | ModelAttributeRenderMode>(() => {
+    if (activeModelFields.value.length === 0 && activeModelHiddenKeys.value.length === 0) return 'hardcoded'
+    const option = modelOptions.value.find(item => item.id === model.value)
+    return option?.renderMode ?? 'overlay'
+  })
+  // 不渲染的硬编码控件：完整替换全部隐藏，局部覆盖只隐藏被同名字段或 hide 接管的控件。
+  const hiddenParameterControls = computed<MediaStudioParameterControl[]>(() => {
+    const mode = attributeRenderMode.value
+    const controls = Object.keys(MEDIA_STUDIO_PARAMETER_BINDINGS) as MediaStudioParameterControl[]
+    if (mode === 'hardcoded') return []
+    if (mode === 'replace') return controls
+    const declared = new Set([
+      ...activeModelFields.value.map(field => field.key),
+      ...activeModelHiddenKeys.value,
+    ])
+    return controls.filter(control => declared.has(MEDIA_STUDIO_PARAMETER_BINDINGS[control]))
+  })
+  const attributeValues = ref<ModelAttributeValues>({})
+
+  function setAttributeValue(key: string, value: string | number | boolean | undefined) {
+    const next: ModelAttributeValues = { ...attributeValues.value }
+    if (value === undefined || value === '') {
+      delete next[key]
+    } else {
+      next[key] = value
+    }
+    attributeValues.value = next
+  }
+
+  // 切换模型时属性值回到新模型声明的默认值；无属性模型清空。
+  watch(activeModelFields, (fields) => {
+    const next: ModelAttributeValues = {}
+    for (const field of fields) {
+      if (field.default !== undefined) next[field.key] = field.default
+    }
+    attributeValues.value = next
+  }, { immediate: true, flush: 'sync' })
   // A group serves exactly one modality, so only expose groups of the active mode.
   const groupOptions = computed<MediaStudioGroupOption[]>(() => {
     return groupConfig.value.groups.filter(group => group.media_type === selectedModeId.value)
@@ -926,14 +1005,21 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       )
       if (sequence !== modelRequestSequence || requestedMode !== selectedModeId.value) return
       const seen = new Set<string>()
-      modelOptions.value = response.data.map(modelId).filter((id) => {
-        if (!id || seen.has(id)) return false
-        seen.add(id)
-        return true
-      })
+      modelOptions.value = response.data
+        .map(item => ({
+          id: modelId(item),
+          fields: item.attributes?.fields ?? [],
+          renderMode: item.attributes?.mode === 'replace' ? 'replace' as const : 'overlay' as const,
+          hide: item.attributes?.hide ?? [],
+        }))
+        .filter((option) => {
+          if (!option.id || seen.has(option.id)) return false
+          seen.add(option.id)
+          return true
+        })
       const fallback = requestedMode === 'video' ? DEFAULT_VIDEO_MODEL : DEFAULT_IMAGE_MODEL
-      if (modelOptions.value.length > 0 && !modelOptions.value.includes(model.value)) {
-        model.value = modelOptions.value[0]
+      if (modelOptions.value.length > 0 && !modelOptions.value.some(option => option.id === model.value)) {
+        model.value = modelOptions.value[0].id
       } else if (!model.value.trim()) {
         model.value = fallback
       }
@@ -1104,6 +1190,8 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       })),
       createdAt: now(),
     }
+    const renderMode = attributeRenderMode.value
+    const attributeMode = renderMode === 'hardcoded' ? undefined : renderMode
     const assistantMessage: MediaStudioMessage = {
       id: makeId('media_assistant'),
       role: 'assistant',
@@ -1119,6 +1207,11 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       resolution: mode === 'video' ? normalizeResolution(resolution.value) : undefined,
       aspectRatio: mode === 'video' ? normalizeVideoAspectRatio(videoAspectRatio.value) : undefined,
       duration: mode === 'video' ? normalizeDuration(duration.value) : undefined,
+      attributes: attributeMode ? { ...attributeValues.value } : undefined,
+      attributeMode,
+      attributeKeys: attributeMode
+        ? [...activeModelFields.value.map(field => field.key), ...activeModelHiddenKeys.value]
+        : undefined,
       createdAt: now(),
     }
     conversation.value = {
@@ -1146,17 +1239,32 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     submitting.value = true
     try {
       if (mode === 'image') {
-        const requestedCount = normalizeCount(assistantMessage.count || 1)
+        const attributeMode = assistantMessage.attributeMode
+        const declaredKeys = new Set(assistantMessage.attributeKeys ?? [])
+        // 局部覆盖模式下，模板声明或被 hide 的 key 都由模板接管，不再发送对应硬编码参数。
+        const replacedByTemplate = (control: MediaStudioParameterControl) => (
+          attributeMode === 'overlay' && declaredKeys.has(MEDIA_STUDIO_PARAMETER_BINDINGS[control])
+        )
+        const keepsCount = attributeMode !== 'replace' && !replacedByTemplate('image.count')
+        const requestedCount = keepsCount ? normalizeCount(assistantMessage.count || 1) : 1
         const payload: MediaStudioImageSubmitRequest = {
           model: assistantMessage.model || DEFAULT_IMAGE_MODEL,
           prompt: text,
-          n: requestedCount,
-          size: imageSizeFor(
-            normalizeImageResolution(assistantMessage.imageResolution),
-            normalizeImageAspectRatio(assistantMessage.imageAspectRatio),
-          ),
         }
-        if (assistantMessage.quality) payload.quality = assistantMessage.quality
+        if (attributeMode) {
+          payload.attributes = { ...(assistantMessage.attributes ?? {}) }
+        }
+        if (attributeMode !== 'replace') {
+          if (!replacedByTemplate('image.size')) {
+            payload.size = imageSizeFor(
+              normalizeImageResolution(assistantMessage.imageResolution),
+              normalizeImageAspectRatio(assistantMessage.imageAspectRatio),
+            )
+          }
+          if (!replacedByTemplate('image.quality') && assistantMessage.quality) {
+            payload.quality = assistantMessage.quality
+          }
+        }
 
         const submitImageTask = (requestPayload: MediaStudioImageSubmitRequest) => (
           submittedAttachments.length > 0
@@ -1183,7 +1291,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
         const requestResults: Array<ImageRequestResult | undefined> = Array(requestedCount)
         const submitAndResolveImage = async (): Promise<ImageRequestResult> => {
           try {
-            let task = await submitImageTask({ ...payload, n: 1 })
+            let task = await submitImageTask(keepsCount ? { ...payload, n: 1 } : payload)
             const taskID = task.task_id || task.id
             if (task.status !== 'completed' && task.status !== 'failed') {
               task = await pollImageTask(mediaStudioApiKey.value, taskID)
@@ -1229,13 +1337,30 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
           completedAt: now(),
         })
       } else {
-        const task = await data.submitVideo(mediaStudioApiKey.value, {
+        const videoPayload: MediaStudioVideoSubmitRequest = {
           model: assistantMessage.model || DEFAULT_VIDEO_MODEL,
           prompt: text,
-          resolution: assistantMessage.resolution || DEFAULT_VIDEO_RESOLUTION,
-          duration: assistantMessage.duration || DEFAULT_VIDEO_DURATION,
-          aspect_ratio: normalizeVideoAspectRatio(assistantMessage.aspectRatio),
-        }, makeId('media_video_idem'))
+        }
+        const videoAttributeMode = assistantMessage.attributeMode
+        const videoDeclaredKeys = new Set(assistantMessage.attributeKeys ?? [])
+        const replacedByTemplate = (control: MediaStudioParameterControl) => (
+          videoAttributeMode === 'overlay' && videoDeclaredKeys.has(MEDIA_STUDIO_PARAMETER_BINDINGS[control])
+        )
+        if (videoAttributeMode) {
+          videoPayload.attributes = { ...(assistantMessage.attributes ?? {}) }
+        }
+        if (videoAttributeMode !== 'replace') {
+          if (!replacedByTemplate('video.resolution')) {
+            videoPayload.resolution = assistantMessage.resolution || DEFAULT_VIDEO_RESOLUTION
+          }
+          if (!replacedByTemplate('video.duration')) {
+            videoPayload.duration = assistantMessage.duration || DEFAULT_VIDEO_DURATION
+          }
+          if (!replacedByTemplate('video.aspectRatio')) {
+            videoPayload.aspect_ratio = normalizeVideoAspectRatio(assistantMessage.aspectRatio)
+          }
+        }
+        const task = await data.submitVideo(mediaStudioApiKey.value, videoPayload, makeId('media_video_idem'))
         patchAssistantMessage(assistantMessage.id, { taskId: task.id, status: task.status === 'failed' ? 'failed' : 'processing' })
         if (task.status === 'failed') {
           patchAssistantMessage(assistantMessage.id, { error: videoTaskErrorMessage(task), completedAt: now() })
@@ -1259,6 +1384,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     if (!message.prompt.trim()) return
     await selectMode(message.mode)
     model.value = message.model || (message.mode === 'video' ? DEFAULT_VIDEO_MODEL : DEFAULT_IMAGE_MODEL)
+    if (message.attributes) attributeValues.value = { ...message.attributes }
     if (message.mode === 'image') {
       imageResolution.value = normalizeImageResolution(message.imageResolution)
       imageAspectRatio.value = normalizeImageAspectRatio(message.imageAspectRatio || aspectRatioFromSize(message.size))
@@ -1369,6 +1495,12 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     duration,
     imageQualityOptions,
     modelOptions,
+    activeModelFields,
+    visibleAttributeFields,
+    attributeRenderMode,
+    hiddenParameterControls,
+    attributeValues,
+    setAttributeValue,
     loadingModels,
     modelLoadError,
     submitting,

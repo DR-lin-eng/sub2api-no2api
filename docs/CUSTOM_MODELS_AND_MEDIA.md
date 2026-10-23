@@ -6,7 +6,17 @@
 
 管理员页面为 `/admin/custom-model-config`，后端路由为 `/api/v1/admin/custom-model-configs`。配置可以使用完整模型名精确匹配，或使用前缀匹配；运行时先使用精确匹配，再使用最长匹配前缀。能力值包括已实现的图片、视频和音频等标识，视频还可指定对应 API 类型。
 
-请求模板单独管理 `name`、描述和 `request_adapter`，模型配置通过 `template_id` 关联。模板适配器只在支持的网关/媒体调用位置消费；保存模板不会自动让任意上游支持该协议。
+请求模板单独管理 `name`、描述、`request_adapter` 和 `attributes`，模型配置通过 `template_id` 关联。模板适配器只在支持的网关/媒体调用位置消费；保存模板不会自动让任意上游支持该协议。`request_adapter.match.mode` 可选 `exact`（默认）或 `prefix`：前缀模式下请求路径命中前缀后，剩余部分会自动拼接到渲染后的 `upstream.path` 之后。
+
+`attributes` 按模态（`image` / `video` / `audio`）声明字段，每个模态块为 `{"mode": "overlay|replace", "fields": [...]}`。`mode` 只影响媒体工坊参数面板的渲染方式，不参与请求适配和计费：
+
+| 情况 | 媒体工坊参数面板 |
+| --- | --- |
+| 未配置模板，或该模态 `fields` 为空 | 渲染内置参数，与未引入属性配置时一致 |
+| `replace` | 只渲染模板声明的字段，内置参数控件全部隐藏 |
+| `overlay`（默认） | 内置参数照常渲染，模板中同名字段替换对应控件 |
+
+`overlay` 的同名映射为 `size`、`quality`、`n`（图片）与 `resolution`、`aspect_ratio`、`duration`（视频）；被替换的内置参数不再随请求发送。字段级 `ui: hidden` 由前端隐藏，后端仍按声明校验提交值。归一化、校验和错误码（`MODEL_ATTRIBUTES_INVALID`、`MODEL_ATTRIBUTE_REQUIRED`、`MODEL_ATTRIBUTE_INVALID`）由 `backend/internal/application/service/model_attributes.go` 负责。
 
 `custom_model_config_enabled` 是运行时总开关。关闭时保留管理端配置，但网关运行时不使用它。管理端的 `runtime=1` 查询只返回当前启用的运行时配置，供媒体能力缓存按需加载。后端运行时缓存约 5 秒刷新；前端能力判定缓存 60 秒并合并并发刷新请求，保存或删除后应主动失效。
 
