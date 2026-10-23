@@ -1,3 +1,5 @@
+import SparkMD5 from 'spark-md5'
+
 import type { MediaStudioMediaType } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
 
 export interface MediaStudioImageAttachment {
@@ -54,8 +56,17 @@ export interface MediaStudioReferenceLimits {
   maxFileSizeMB: Record<MediaStudioMediaType, number>
 }
 
-function attachmentID(file: File): string {
-  return `${file.name}:${file.size}:${file.lastModified}:${file.type}`
+// 分块读取，避免把大体积参考视频一次性读入内存。
+const MEDIA_STUDIO_HASH_CHUNK_BYTES = 2 * 1024 * 1024
+
+// 内容哈希作为附件 ID：同一用户重复选择同一文件时前端直接去重，后端也按同一 key 秒传。
+export async function mediaStudioFileMD5(file: File): Promise<string> {
+  const spark = new SparkMD5.ArrayBuffer()
+  for (let offset = 0; offset < file.size; offset += MEDIA_STUDIO_HASH_CHUNK_BYTES) {
+    const chunk = await file.slice(offset, offset + MEDIA_STUDIO_HASH_CHUNK_BYTES).arrayBuffer()
+    spark.append(chunk)
+  }
+  return spark.end()
 }
 
 function attachmentPreviewURL(file: File): string {
@@ -63,18 +74,18 @@ function attachmentPreviewURL(file: File): string {
   return typeof createObjectURL === 'function' ? createObjectURL.call(globalThis.URL, file) : ''
 }
 
-export function addMediaStudioImageAttachments(
+export async function addMediaStudioImageAttachments(
   current: MediaStudioImageAttachment[],
   files: File[],
   limits: MediaStudioImageAttachmentLimits = MEDIA_STUDIO_DEFAULT_IMAGE_ATTACHMENT_LIMITS,
-): { attachments: MediaStudioImageAttachment[]; rejected: MediaStudioAttachmentRejection[] } {
+): Promise<{ attachments: MediaStudioImageAttachment[]; rejected: MediaStudioAttachmentRejection[] }> {
   const next = [...current]
   const rejected: MediaStudioAttachmentRejection[] = []
   const seen = new Set(next.map((attachment) => attachment.id))
 
+  // 先做低成本校验，只对可能入库的文件计算内容哈希。
+  const candidates: File[] = []
   for (const file of files) {
-    const id = attachmentID(file)
-    if (seen.has(id)) continue
     if (!file.type.startsWith('image/')) {
       rejected.push({ name: file.name, reason: 'type', limit: 0 })
       continue
@@ -83,14 +94,21 @@ export function addMediaStudioImageAttachments(
       rejected.push({ name: file.name, reason: 'size', limit: Math.round(limits.maxFileSizeBytes / (1024 * 1024)) })
       continue
     }
+    candidates.push(file)
+  }
+  const hashes = await Promise.all(candidates.map((file) => mediaStudioFileMD5(file)))
+
+  candidates.forEach((file, index) => {
+    const id = hashes[index]
+    if (seen.has(id)) return
     if (next.length >= limits.maxFiles) {
       rejected.push({ name: file.name, reason: 'count', limit: limits.maxFiles })
-      continue
+      return
     }
     const currentBytes = next.reduce((total, attachment) => total + attachment.size, 0)
     if (currentBytes + file.size > limits.maxTotalBytes) {
       rejected.push({ name: file.name, reason: 'total', limit: Math.round(limits.maxTotalBytes / (1024 * 1024)) })
-      continue
+      return
     }
     seen.add(id)
     next.push({
@@ -101,25 +119,25 @@ export function addMediaStudioImageAttachments(
       size: file.size,
       previewUrl: attachmentPreviewURL(file),
     })
-  }
+  })
 
   return { attachments: next, rejected }
 }
 
 // 参考素材按类型分别计数，任一类型达到上限或未启用都会被拒绝。
-export function addMediaStudioReferenceAttachments(
+export async function addMediaStudioReferenceAttachments(
   current: MediaStudioReferenceAttachment[],
   files: File[],
   limits: MediaStudioReferenceLimits,
   kindOf: (file: File) => MediaStudioMediaType | '',
-): { attachments: MediaStudioReferenceAttachment[]; rejected: MediaStudioAttachmentRejection[] } {
+): Promise<{ attachments: MediaStudioReferenceAttachment[]; rejected: MediaStudioAttachmentRejection[] }> {
   const next = [...current]
   const rejected: MediaStudioAttachmentRejection[] = []
   const seen = new Set(next.map((attachment) => attachment.id))
 
+  // 先做低成本校验，只对可能入库的文件计算内容哈希。
+  const candidates: Array<{ file: File; kind: MediaStudioMediaType }> = []
   for (const file of files) {
-    const id = attachmentID(file)
-    if (seen.has(id)) continue
     const kind = kindOf(file)
     if (!kind || !limits.enabled.includes(kind)) {
       rejected.push({ name: file.name, reason: 'type', limit: 0 })
@@ -130,10 +148,17 @@ export function addMediaStudioReferenceAttachments(
       rejected.push({ name: file.name, reason: 'size', limit: maxSizeMB })
       continue
     }
+    candidates.push({ file, kind })
+  }
+  const hashes = await Promise.all(candidates.map(({ file }) => mediaStudioFileMD5(file)))
+
+  candidates.forEach(({ file, kind }, index) => {
+    const id = hashes[index]
+    if (seen.has(id)) return
     const kindCount = next.filter((attachment) => attachment.kind === kind).length
     if (kindCount >= limits.maxFiles[kind]) {
       rejected.push({ name: file.name, reason: 'count', limit: limits.maxFiles[kind] })
-      continue
+      return
     }
     seen.add(id)
     next.push({
@@ -148,7 +173,7 @@ export function addMediaStudioReferenceAttachments(
       status: 'uploading',
       error: '',
     })
-  }
+  })
 
   return { attachments: next, rejected }
 }

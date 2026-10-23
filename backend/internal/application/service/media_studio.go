@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/md5"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,8 +11,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-
-	"github.com/google/uuid"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
 )
@@ -282,11 +281,13 @@ func (s *MediaStudioService) ListModels(
 
 // MediaStudioUpload 是一次参考素材上传的结果，URL 可直接作为视频/图片请求的参考地址。
 type MediaStudioUpload struct {
-	URL         string `json:"url"`
-	Name        string `json:"name"`
-	Kind        string `json:"kind"`
-	Size        int64  `json:"size"`
-	ContentType string `json:"content_type"`
+	URL          string `json:"url"`
+	Name         string `json:"name"`
+	Kind         string `json:"kind"`
+	Size         int64  `json:"size"`
+	ContentType  string `json:"content_type"`
+	MD5          string `json:"md5"`
+	Deduplicated bool   `json:"deduplicated"`
 }
 
 // UploadFile 把用户选择的参考素材写入对象存储并返回可访问 URL。
@@ -321,23 +322,32 @@ func (s *MediaStudioService) UploadFile(
 	if strings.TrimSpace(contentType) == "" {
 		contentType = http.DetectContentType(data)
 	}
+	// 内容哈希作为对象 key：同一用户重复上传同一文件时命中同一个对象，实现秒传。
+	digest := fmt.Sprintf("%x", md5.Sum(data)) //nolint:gosec // 内容寻址 key，非安全用途
 	key := fmt.Sprintf(
 		"media-studio/uploads/%d/%s%s",
 		userID,
-		uuid.NewString(),
+		digest,
 		mediaStudioUploadExtension(fileName, contentType),
 	)
-	url, err := storage.Save(ctx, key, contentType, data)
-	if err != nil {
-		return nil, fmt.Errorf("save media studio upload: %w", err)
-	}
-	return &MediaStudioUpload{
-		URL:         url,
+	upload := &MediaStudioUpload{
 		Name:        strings.TrimSpace(fileName),
 		Kind:        kind,
 		Size:        int64(len(data)),
 		ContentType: contentType,
-	}, nil
+		MD5:         digest,
+	}
+	if url, found, lookupErr := storage.Lookup(ctx, key); lookupErr == nil && found {
+		upload.URL = url
+		upload.Deduplicated = true
+		return upload, nil
+	}
+	url, err := storage.Save(ctx, key, contentType, data)
+	if err != nil {
+		return nil, fmt.Errorf("save media studio upload: %w", err)
+	}
+	upload.URL = url
+	return upload, nil
 }
 
 func (s *MediaStudioService) validateUploadLimits(

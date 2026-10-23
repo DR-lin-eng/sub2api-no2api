@@ -240,6 +240,9 @@ export interface MediaStudioUpload {
   kind: MediaStudioMediaType
   size: number
   content_type: string
+  // 服务端按内容哈希生成的摘要；deduplicated 表示命中已有对象（秒传）。
+  md5?: string
+  deduplicated?: boolean
 }
 
 export type MediaStudioVideoTaskStatus = 'processing' | 'completed' | 'failed'

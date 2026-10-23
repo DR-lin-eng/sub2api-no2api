@@ -27,6 +27,8 @@ type ImageStorage interface {
 	// Save 把 data 以 key 存入对象存储，返回可下载的 URL（公开直链或 presigned 临时链接）。
 	// contentType 为图片 MIME 类型，如 "image/png"。
 	Save(ctx context.Context, key, contentType string, data []byte) (url string, err error)
+	// Lookup 判断 key 是否已存在；存在时返回可访问 URL，用于按内容哈希去重时跳过重复写入。
+	Lookup(ctx context.Context, key string) (url string, found bool, err error)
 }
 
 // ImageResultUploader 是 ImageStorage 的上层编排器（与具体厂商无关）：

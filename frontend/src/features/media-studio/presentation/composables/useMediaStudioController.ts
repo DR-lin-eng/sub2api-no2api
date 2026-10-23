@@ -838,13 +838,14 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     imageAttachments.value = attachments
   }
 
-  function addImageAttachments(files: File[]) {
+  async function addImageAttachments(files: File[]) {
     if (files.length === 0) return
-    const result = addMediaStudioImageAttachments(
+    const result = await addMediaStudioImageAttachments(
       imageAttachments.value,
       files,
       imageAttachmentLimits.value,
     )
+    if (disposed) return
     attachmentRejection.value = result.rejected[0] ?? null
     updateImageAttachments(result.attachments)
   }
@@ -881,14 +882,15 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     }
   }
 
-  function addReferenceAttachments(files: File[]): MediaStudioAttachmentRejection[] {
+  async function addReferenceAttachments(files: File[]): Promise<MediaStudioAttachmentRejection[]> {
     const existing = new Set(referenceAttachments.value.map(attachment => attachment.id))
-    const result = addMediaStudioReferenceAttachments(
+    const result = await addMediaStudioReferenceAttachments(
       referenceAttachments.value,
       files,
       referenceLimits.value,
       mediaStudioFileKind,
     )
+    if (disposed) return result.rejected
     attachmentRejection.value = result.rejected[0] ?? null
     updateReferenceAttachments(result.attachments)
     const modelName = model.value.trim()
@@ -917,7 +919,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     try {
       const file = await imagePreviewToFile(image)
       const previousCount = imageAttachments.value.length
-      const result = addMediaStudioImageAttachments(
+      const result = await addMediaStudioImageAttachments(
         imageAttachments.value,
         [file],
         imageAttachmentLimits.value,
@@ -1534,11 +1536,11 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       imageAspectRatio.value = normalizeImageAspectRatio(message.imageAspectRatio || aspectRatioFromSize(message.size))
       quality.value = normalizeImageQuality(message.quality)
       count.value = normalizeCount(message.count || 1)
-      const restored = addMediaStudioImageAttachments(
+      const restored = (await addMediaStudioImageAttachments(
         [],
         imageInputFiles.get(message.id) ?? [],
         imageAttachmentLimits.value,
-      ).attachments
+      )).attachments
       imageAttachments.value = restored
     } else {
       resolution.value = normalizeResolution(message.resolution)
