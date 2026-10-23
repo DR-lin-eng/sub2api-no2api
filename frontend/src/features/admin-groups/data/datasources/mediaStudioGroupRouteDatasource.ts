@@ -1,7 +1,10 @@
 import { apiClient } from '@/core/networks/client'
 
+export type MediaStudioGroupMediaType = 'image' | 'video' | 'audio'
+
 export interface MediaStudioGroupRoute {
  group_id: number
+ media_type: MediaStudioGroupMediaType
  priority: number
  enabled: boolean
  models?: string[]

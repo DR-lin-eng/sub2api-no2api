@@ -66,6 +66,7 @@ export default {
       failed: '生成失败',
       retry: '重试',
       enlargeImage: '放大图片',
+      elapsed: '耗时 {time}',
       editImage: '基于此图继续修改',
       noImageResult: '任务已完成，但没有返回可预览图片。',
       noVideoResult: '任务已完成，但没有返回可预览视频。'

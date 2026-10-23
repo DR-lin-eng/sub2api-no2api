@@ -27,16 +27,18 @@ var (
 )
 
 type MediaStudioGroupRoute struct {
-	GroupID  int64    `json:"group_id"`
-	Priority int      `json:"priority"`
-	Enabled  bool     `json:"enabled"`
-	Models   []string `json:"models,omitempty"`
+	GroupID   int64    `json:"group_id"`
+	MediaType string   `json:"media_type"`
+	Priority  int      `json:"priority"`
+	Enabled   bool     `json:"enabled"`
+	Models    []string `json:"models,omitempty"`
 }
 
 type MediaStudioGroupOption struct {
 	GroupID   int64    `json:"group_id"`
 	GroupName string   `json:"group_name"`
 	Platform  string   `json:"platform"`
+	MediaType string   `json:"media_type"`
 	Models    []string `json:"models,omitempty"`
 }
 
@@ -105,7 +107,41 @@ func (s *MediaStudioService) GetGroupRoutes(ctx context.Context) (MediaStudioGro
 		}
 		routes = flattenLegacyMediaStudioGroupRoutes(legacy)
 	}
-	return normalizeMediaStudioGroupRoutes(routes), nil
+	return s.resolveGroupRouteMediaTypes(ctx, normalizeMediaStudioGroupRoutes(routes)), nil
+}
+
+// resolveGroupRouteMediaTypes backfills the modality for routes saved before
+// media types were part of the configuration. Each group keeps exactly one
+// modality, so the first resolvable capability wins.
+func (s *MediaStudioService) resolveGroupRouteMediaTypes(
+	ctx context.Context,
+	routes MediaStudioGroupRoutes,
+) MediaStudioGroupRoutes {
+	for index := range routes {
+		if routes[index].MediaType != "" {
+			continue
+		}
+		routes[index].MediaType = s.inferGroupMediaType(ctx, routes[index].Models)
+	}
+	return routes
+}
+
+func (s *MediaStudioService) inferGroupMediaType(ctx context.Context, models []string) string {
+	if s.customModelCapabilities == nil {
+		return "image"
+	}
+	for _, model := range models {
+		for _, capability := range []string{"video", "audio", "image"} {
+			ok, err := s.customModelCapabilities.HasCapability(ctx, model, capability)
+			if err != nil {
+				return "image"
+			}
+			if ok {
+				return capability
+			}
+		}
+	}
+	return "image"
 }
 
 func (s *MediaStudioService) SaveGroupRoutes(ctx context.Context, routes MediaStudioGroupRoutes) (MediaStudioGroupRoutes, error) {
@@ -171,7 +207,7 @@ func (s *MediaStudioService) ListModels(
 			break
 		}
 	}
-	if selected == nil {
+	if selected == nil || selected.MediaType != mediaType {
 		return nil, ErrMediaStudioGroupUnavailable
 	}
 
@@ -210,7 +246,7 @@ func (s *MediaStudioService) EnsureAPIKey(
 			break
 		}
 	}
-	if selected == nil {
+	if selected == nil || selected.MediaType != mediaType {
 		return nil, ErrMediaStudioGroupUnavailable
 	}
 
@@ -275,11 +311,20 @@ func IsMediaStudioAPIKey(apiKey *APIKey, groupID int64) bool {
 }
 
 func (s *MediaStudioService) validateGroupRoutes(ctx context.Context, routes MediaStudioGroupRoutes) (MediaStudioGroupRoutes, error) {
+	if err := ensureSingleMediaStudioGroupMediaType(routes); err != nil {
+		return nil, err
+	}
 	normalized := normalizeMediaStudioGroupRoutes(routes)
-	for _, entry := range normalized {
+	for index := range normalized {
+		entry := &normalized[index]
 		if entry.GroupID <= 0 || entry.Priority < 0 {
 			return nil, ErrMediaStudioGroupRouteInvalid
 		}
+		mediaType := normalizeMediaStudioMediaType(entry.MediaType)
+		if mediaType == "" {
+			return nil, fmt.Errorf("%w: group %d has an invalid media type", ErrMediaStudioGroupRouteInvalid, entry.GroupID)
+		}
+		entry.MediaType = mediaType
 		if len(entry.Models) > 200 {
 			return nil, fmt.Errorf("%w: group %d has too many models", ErrMediaStudioGroupRouteInvalid, entry.GroupID)
 		}
@@ -316,10 +361,31 @@ func (s *MediaStudioService) resolveGroupOptions(
 			GroupID:   group.ID,
 			GroupName: group.Name,
 			Platform:  group.Platform,
+			MediaType: entry.MediaType,
 			Models:    append([]string(nil), entry.Models...),
 		})
 	}
 	return options
+}
+
+// ensureSingleMediaStudioGroupMediaType rejects payloads that bind one group to
+// more than one modality.
+func ensureSingleMediaStudioGroupMediaType(routes MediaStudioGroupRoutes) error {
+	seen := make(map[int64]string, len(routes))
+	for _, entry := range routes {
+		if entry.GroupID <= 0 {
+			continue
+		}
+		mediaType := normalizeMediaStudioMediaType(entry.MediaType)
+		if mediaType == "" {
+			continue
+		}
+		if existing, ok := seen[entry.GroupID]; ok && existing != mediaType {
+			return fmt.Errorf("%w: group %d mixes media types", ErrMediaStudioGroupRouteInvalid, entry.GroupID)
+		}
+		seen[entry.GroupID] = mediaType
+	}
+	return nil
 }
 
 func normalizeMediaStudioGroupRoutes(routes MediaStudioGroupRoutes) MediaStudioGroupRoutes {
@@ -334,6 +400,9 @@ func normalizeMediaStudioGroupRoutes(routes MediaStudioGroupRoutes) MediaStudioG
 		}
 		current.GroupID = entry.GroupID
 		current.Enabled = current.Enabled || entry.Enabled
+		if current.MediaType == "" {
+			current.MediaType = normalizeMediaStudioMediaType(entry.MediaType)
+		}
 		current.Models = append(current.Models, entry.Models...)
 		byGroup[entry.GroupID] = current
 	}
@@ -360,7 +429,12 @@ func flattenLegacyMediaStudioGroupRoutes(
 ) MediaStudioGroupRoutes {
 	flattened := make(MediaStudioGroupRoutes, 0)
 	for _, mediaType := range []string{"image", "video", "audio"} {
-		flattened = append(flattened, legacy[mediaType]...)
+		for _, entry := range legacy[mediaType] {
+			if entry.MediaType == "" {
+				entry.MediaType = mediaType
+			}
+			flattened = append(flattened, entry)
+		}
 	}
 	return flattened
 }

@@ -678,16 +678,16 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   let sessionRequestGroupID = 0
   let activeSessionGroupID = 0
 
-  const modes = computed(() => previewModes.map((mode) => (
-    mode.id === 'video'
-      ? { ...mode, available: loadingGroups.value || groupConfig.value.groups.length > 0 }
-      : mode
-  )))
+  const modes = computed(() => previewModes.map((mode) => ({
+    ...mode,
+    available: loadingGroups.value || groupConfig.value.groups.some(group => group.media_type === mode.id),
+  })))
   const selectedMode = computed(() => modes.value.find(mode => mode.id === selectedModeId.value) ?? modes.value[0])
   const modelSelectionLocked = computed(() => (selectedGroup.value?.models?.length || 0) > 0)
   const imageQualityOptions = computed(() => IMAGE_QUALITY_OPTIONS)
+  // A group serves exactly one modality, so only expose groups of the active mode.
   const groupOptions = computed<MediaStudioGroupOption[]>(() => {
-    return groupConfig.value.groups
+    return groupConfig.value.groups.filter(group => group.media_type === selectedModeId.value)
   })
   const selectedGroup = computed(() => groupOptions.value.find(group => group.group_id === selectedGroupId.value) ?? null)
   const hasMessages = computed(() => conversation.value.messages.length > 0)
@@ -845,7 +845,18 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       groupLoadError.value = ''
       try {
         groupConfig.value = await data.getConfig()
-        const options = groupConfig.value.groups
+        // A group serves exactly one modality; if the current mode has no group,
+        // switch to the first mode that actually has one.
+        if (!groupConfig.value.groups.some(group => group.media_type === selectedModeId.value)) {
+          const fallbackMode = modes.value.find(mode =>
+            mode.available && groupConfig.value.groups.some(group => group.media_type === mode.id),
+          )
+          if (fallbackMode) {
+            selectedModeId.value = fallbackMode.id
+            model.value = fallbackMode.id === 'video' ? videoModel.value : imageModel.value
+          }
+        }
+        const options = groupOptions.value
         if (!options.some(group => group.group_id === selectedGroupId.value)) {
           selectedGroupId.value = options[0]?.group_id || 0
         }
@@ -946,6 +957,9 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     modelLoadError.value = ''
     modelOptions.value = []
     if (groupConfig.value.groups.length > 0) {
+      if (!groupOptions.value.some(group => group.group_id === selectedGroupId.value)) {
+        selectedGroupId.value = groupOptions.value[0]?.group_id || 0
+      }
       await establishMediaStudioSession()
     } else {
       await loadMediaGroups()

@@ -87,7 +87,10 @@
                 <span class="meta-pill">{{ message.aspectRatio || videoAspectRatio }}</span>
                 <span class="meta-pill">{{ t('mediaStudio.composer.durationValue', { count: message.duration || duration }) }}</span>
               </template>
-              <span v-if="message.taskId" class="meta-pill font-mono">{{ message.taskId }}</span>
+              <span v-if="message.taskId && message.status !== 'completed'" class="meta-pill font-mono">{{ message.taskId }}</span>
+              <span v-if="message.status === 'completed' && message.completedAt" class="meta-pill">
+                {{ t('mediaStudio.session.elapsed', { time: formatElapsed(message) }) }}
+              </span>
             </div>
 
             <div
@@ -99,7 +102,8 @@
                 v-for="image in message.images || []"
                 :key="image.id"
                 type="button"
-                class="group cursor-zoom-in overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 text-left dark:border-dark-700 dark:bg-dark-800"
+                class="group mx-auto w-full cursor-zoom-in overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 text-left dark:border-dark-700 dark:bg-dark-800"
+                :style="imageFrameStyle(message)"
                 :aria-label="t('mediaStudio.session.enlargeImage')"
                 @click="openImagePreview(image)"
               >
@@ -162,6 +166,7 @@
                 v-for="image in message.images"
                 :key="image.id"
                 class="image-preview-card group relative mx-auto w-full overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 dark:border-dark-700 dark:bg-dark-800"
+                :style="imageFrameStyle(message)"
               >
                 <button
                   type="button"
@@ -188,11 +193,15 @@
               </div>
             </div>
 
-            <div v-else-if="message.status === 'completed' && message.mode === 'video' && message.video?.src" class="flex justify-center overflow-hidden rounded-2xl border border-gray-200 bg-black dark:border-dark-700">
+            <div
+              v-else-if="message.status === 'completed' && message.mode === 'video' && message.video?.src"
+              class="mx-auto flex w-full justify-center overflow-hidden rounded-2xl border border-gray-200 bg-black dark:border-dark-700"
+              :style="videoFrameStyle(message)"
+            >
               <video
                 :src="message.video.src"
                 :type="message.video.mimeType"
-                class="h-auto max-h-[70vh] w-auto max-w-full"
+                class="h-full w-full object-contain"
                 controls
                 playsinline
                 preload="metadata"
@@ -836,6 +845,16 @@ function formatTime(value: number): string {
   }
 }
 
+function formatElapsed(message: MediaStudioMessage): string {
+  const completedAt = message.completedAt
+  if (typeof completedAt !== 'number') return ''
+  const totalSeconds = Math.max(0, (completedAt - message.createdAt) / 1000)
+  if (totalSeconds < 60) return `${totalSeconds.toFixed(1)}s`
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = Math.round(totalSeconds % 60)
+  return `${minutes}m ${String(seconds).padStart(2, '0')}s`
+}
+
 function videoProgress(message: MediaStudioMessage): number {
   const value = message.progress
   if (typeof value !== 'number' || !Number.isFinite(value)) return 0
@@ -855,16 +874,21 @@ function ratioNumber(value: string | undefined, fallback: string): number {
   return Number.isFinite(fallbackRatio) ? fallbackRatio : 1
 }
 
+const MAX_MEDIA_PREVIEW_HEIGHT_PX = 384
+
 function imageFrameStyle(message: MediaStudioMessage) {
   const ratio = ratioNumber(message.imageAspectRatio || props.imageAspectRatio, '1:1')
-  return { aspectRatio: `${ratio}` }
+  return {
+    aspectRatio: `${ratio}`,
+    maxWidth: `min(100%, calc(${MAX_MEDIA_PREVIEW_HEIGHT_PX}px * ${ratio}))`,
+  }
 }
 
 function videoFrameStyle(message: MediaStudioMessage) {
   const ratio = ratioNumber(message.aspectRatio || props.videoAspectRatio, '16:9')
   return {
     aspectRatio: `${ratio}`,
-    maxWidth: `min(100%, calc(70vh * ${ratio}))`,
+    maxWidth: `min(100%, calc(${MAX_MEDIA_PREVIEW_HEIGHT_PX}px * ${ratio}))`,
   }
 }
 

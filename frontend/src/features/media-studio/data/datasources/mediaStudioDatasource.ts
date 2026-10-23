@@ -6,6 +6,7 @@ export interface MediaStudioGroupOption {
   group_id: number
   group_name: string
   platform: string
+  media_type: MediaStudioMediaType
   models?: string[]
 }
 

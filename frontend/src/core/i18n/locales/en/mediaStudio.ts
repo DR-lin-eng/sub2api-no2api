@@ -66,6 +66,7 @@ export default {
       failed: 'Generation failed',
       retry: 'Retry',
       enlargeImage: 'Enlarge image',
+      elapsed: 'Took {time}',
       editImage: 'Edit this image',
       noImageResult: 'Task completed, but no preview image was returned.',
       noVideoResult: 'Task completed, but no preview video was returned.'

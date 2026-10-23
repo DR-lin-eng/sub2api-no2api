@@ -7,7 +7,10 @@ import type {
 } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
 
 const config: MediaStudioConfig = {
-  groups: [{ group_id: 1, group_name: 'Media', platform: 'openai', models: ['gpt-image-2', 'grok-imagine-video'] }],
+  groups: [
+    { group_id: 1, group_name: 'Media', platform: 'openai', media_type: 'image', models: ['gpt-image-2'] },
+    { group_id: 2, group_name: 'Video', platform: 'openai', media_type: 'video', models: ['grok-imagine-video'] },
+  ],
 }
 
 function session(apiKey = 'sk-demo'): MediaStudioSession {
@@ -228,7 +231,7 @@ describe('media studio controller', () => {
     await settle()
 
     expect(controller.modelOptions.value).toEqual(['grok-imagine-video'])
-    expect(createSession).toHaveBeenCalledTimes(1)
+    expect(createSession).toHaveBeenLastCalledWith('video', 2)
     expect(submitVideo).toHaveBeenCalledWith('sk-demo', expect.objectContaining({ aspect_ratio: '9:16' }), expect.any(String))
     expect(getVideoContent).toHaveBeenCalledWith('sk-demo', 'video-1')
     expect(controller.conversation.value.messages.at(-1)).toMatchObject({
@@ -372,8 +375,9 @@ describe('media studio controller', () => {
 
   it('persists configuration without prompt input', async () => {
     const controller = useMediaStudioController({ storage: localStorage })
+    // Modes stay unavailable until group config loads, because each group serves one modality.
     expect(controller.modes.value.map(mode => [mode.id, mode.available])).toEqual([
-      ['image', true], ['video', false],
+      ['image', false], ['video', false],
     ])
     expect(controller.canSubmit.value).toBe(false)
 
