@@ -471,9 +471,8 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 			}
 		}
 
-		// Any HTTP error received from OpenAI is handed to account failover before
-		// downstream output is committed. The handler preserves the final upstream
-		// status, headers, and body after all candidate accounts are exhausted.
+		// Retry account failures before committing downstream output. Deterministic
+		// request errors are returned directly without exhausting the account pool.
 		if shouldFailoverOpenAIPassthroughResponse(account, resp.StatusCode, probeBody) {
 			return nil, s.handleFailoverErrorResponsePassthrough(ctx, resp, c, account, body, probeBody)
 		}
@@ -852,6 +851,9 @@ func shouldFailoverOpenAIPassthroughResponse(account *Account, statusCode int, r
 	if _, policy := openAIUpstreamPolicyErrorDetails(responseBody); policy {
 		return false
 	}
+	if statusCode == http.StatusBadRequest && isOpenAIContextWindowError("", responseBody) {
+		return false
+	}
 	// Providers sometimes return the gateway's generic envelope with HTTP 400.
 	// It carries no request-specific remediation and must stay inside the
 	// bounded account failover loop instead of being committed as a client 400.
@@ -1070,10 +1072,13 @@ func (s *OpenAIGatewayService) handleErrorResponsePassthrough(
 	}
 	setOpsUpstreamError(c, resp.StatusCode, upstreamMsg, upstreamDetail)
 	logOpenAIInstructionsRequiredDebug(ctx, c, account, resp.StatusCode, upstreamMsg, requestBody, body)
-	// Policy rejections returned above; ordinary account failures still update health.
-	reqModel, _, _ := extractOpenAIRequestMetaFromBody(requestBody)
-	canonicalModel := canonicalOpenAIAccountSchedulingModel(account, reqModel)
-	_ = s.handleOpenAIAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, body, canonicalModel)
+	// Policy rejections and context overflow do not affect account health.
+	contextWindowClientError := resp.StatusCode == http.StatusBadRequest && isOpenAIContextWindowError(upstreamMsg, body)
+	if !contextWindowClientError {
+		reqModel, _, _ := extractOpenAIRequestMetaFromBody(requestBody)
+		canonicalModel := canonicalOpenAIAccountSchedulingModel(account, reqModel)
+		_ = s.handleOpenAIAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, body, canonicalModel)
+	}
 	appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
 		Platform:             account.Platform,
 		AccountID:            account.ID,
@@ -1099,7 +1104,10 @@ func (s *OpenAIGatewayService) handleErrorResponsePassthrough(
 	// context-window 超限是确定性请求失败（shouldFailoverOpenAIPassthroughResponse
 	// 已保证不切号），其文案对客户端可操作（如触发自动压缩）；在净化信封内保留
 	// 脱敏后的上游消息，而不是抹成通用文案。
-	if isOpenAIContextWindowError(upstreamMsg, body) && upstreamMsg != "" {
+	if contextWindowClientError {
+		writeOpenAIPassthroughErrorHeaders(c.Writer.Header(), resp.Header)
+		writeOpenAIUpstreamClientError(c, resp.StatusCode, body, upstreamMsg)
+	} else if isOpenAIContextWindowError(upstreamMsg, body) && upstreamMsg != "" {
 		writeOpenAIPassthroughErrorEnvelope(c, resp.StatusCode, resp.Header, upstreamMsg)
 	} else {
 		writeSanitizedOpenAIPassthroughError(c, resp.StatusCode, resp.Header)

@@ -101,6 +101,11 @@ func (s *OpenAIGatewayService) failoverOpenAIUpstreamHTTPError(
 	upstreamMsg string,
 	upstreamModel string,
 ) *UpstreamFailoverError {
+	// A context-window 400 cannot recover on another account. Stop before
+	// custom temporary-unschedulable rules can turn it into account failover.
+	if resp.StatusCode == http.StatusBadRequest && isOpenAIContextWindowError(upstreamMsg, respBody) {
+		return nil
+	}
 	if _, policy := openAIUpstreamPolicyErrorDetails(respBody); policy && !isOpenAIInvalidPromptPolicyError(upstreamMsg, respBody) {
 		return nil
 	}
