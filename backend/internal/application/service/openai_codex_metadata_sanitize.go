@@ -44,8 +44,8 @@ func sanitizeCodexTurnMetadataValue(raw string) string {
 	if raw == "" {
 		return raw
 	}
-	metadata := make(map[string]any)
-	if err := json.Unmarshal([]byte(raw), &metadata); err != nil {
+	metadata, err := decodeCodexMetadataObject(raw)
+	if err != nil {
 		return raw
 	}
 	value, changed, keep := sanitizedCodexTurnMetadataMap(metadata)
@@ -109,8 +109,8 @@ func normalizeUntrustedCodexTurnMetadataValue(raw string, ids *codexOutboundSess
 		return "", false
 	}
 
-	metadata := make(map[string]any)
-	if err := json.Unmarshal([]byte(raw), &metadata); err != nil || metadata == nil {
+	metadata, err := decodeCodexMetadataObject(raw)
+	if err != nil || metadata == nil {
 		return "", false
 	}
 	sanitizeCodexTurnMetadataMapInPlace(metadata)

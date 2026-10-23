@@ -1717,14 +1717,6 @@ func isEmptyBase64DataURI(raw string) bool {
 	return strings.TrimSpace(strings.TrimPrefix(rest, "base64,")) == ""
 }
 
-func getOpenAIRequestBodyMap(_ *gin.Context, body []byte) (map[string]any, error) {
-	var reqBody map[string]any
-	if err := json.Unmarshal(body, &reqBody); err != nil {
-		return nil, fmt.Errorf("parse request: %w", err)
-	}
-	return reqBody, nil
-}
-
 // extractOpenAIReasoningEffort 的模型候选语义同 extractOpenAIReasoningEffortFromBody。
 func extractOpenAIReasoningEffort(reqBody map[string]any, modelCandidates ...string) *string {
 	if value, present := getOpenAIReasoningEffortFromReqBody(reqBody, firstNonEmpty(modelCandidates...)); present {

@@ -835,7 +835,7 @@ func stripOpenAIImageGenerationToolsFromRawPayload(payload []byte) ([]byte, bool
 		return payload, false, json.Unmarshal(payload, &invalidPayload)
 	}
 	payloadMap := make(map[string]any)
-	if err := json.Unmarshal(payload, &payloadMap); err != nil {
+	if err := decodeOpenAIRequestObject(payload, &payloadMap); err != nil {
 		return payload, false, err
 	}
 	if !stripOpenAIImageGenerationTools(payloadMap) {

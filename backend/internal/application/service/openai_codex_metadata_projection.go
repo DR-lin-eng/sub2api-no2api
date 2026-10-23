@@ -2,6 +2,9 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
@@ -57,8 +60,8 @@ func resolvedCodexMetadataProjection(c *gin.Context, account *Account, body []by
 }
 
 func codexProjectedTurnMetadataHeader(raw string) string {
-	var metadata map[string]any
-	if json.Unmarshal([]byte(raw), &metadata) != nil || metadata == nil {
+	metadata, err := decodeCodexMetadataObject(raw)
+	if err != nil || metadata == nil {
 		return ""
 	}
 	// Match the Codex compatibility header: the tool inventory belongs in the
@@ -69,4 +72,23 @@ func codexProjectedTurnMetadataHeader(raw string) string {
 		return ""
 	}
 	return string(encoded)
+}
+
+// Keep JSON ordinals intact while rewriting identity fields. float64 would
+// round integers above 2^53, including values inside embedded turn metadata.
+func decodeCodexMetadataObject(raw string) (map[string]any, error) {
+	decoder := json.NewDecoder(strings.NewReader(raw))
+	decoder.UseNumber()
+	var metadata map[string]any
+	if err := decoder.Decode(&metadata); err != nil {
+		return nil, err
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err != nil {
+			return nil, err
+		}
+		return nil, errors.New("unexpected trailing Codex metadata value")
+	}
+	return metadata, nil
 }
