@@ -82,7 +82,7 @@ func TestCodexDesktopHTTPWireConformance(t *testing.T) {
 					req.URL.Scheme, req.URL.Host = localURL.Scheme, localURL.Host
 					response, err := server.Client().Do(req)
 					require.NoError(t, err)
-					defer response.Body.Close()
+					defer func() { _ = response.Body.Close() }()
 					_, err = io.Copy(io.Discard, response.Body)
 					require.NoError(t, err)
 					wire := <-captured
@@ -134,7 +134,7 @@ func TestCodexDesktopWSWireConformance(t *testing.T) {
 		if acceptErr != nil {
 			return
 		}
-		defer conn.CloseNow()
+		defer func() { _ = conn.CloseNow() }()
 		captured <- r.Header.Clone()
 		_ = conn.Write(r.Context(), coderws.MessageText, []byte(`{"type":"ready"}`))
 	}))
@@ -143,7 +143,7 @@ func TestCodexDesktopWSWireConformance(t *testing.T) {
 	defer cancel()
 	conn, _, err := coderws.Dial(ctx, "ws"+strings.TrimPrefix(server.URL, "http"), &coderws.DialOptions{HTTPHeader: headers})
 	require.NoError(t, err)
-	defer conn.CloseNow()
+	defer func() { _ = conn.CloseNow() }()
 	_, _, err = conn.Read(ctx)
 	require.NoError(t, err)
 	wire := <-captured
