@@ -244,6 +244,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyModelPlazaRequireAuth,
 		SettingKeyMediaStudioEnabled,
 		SettingKeyActivityCenterEnabled,
+		SettingKeyCustomModelConfigEnabled,
 		SettingKeyIPv6EgressUIEnabled,
 		SettingKeyAffiliateEnabled,
 		SettingKeyRiskControlEnabled,

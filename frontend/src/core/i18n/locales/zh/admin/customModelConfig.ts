@@ -20,7 +20,6 @@ export default {
   },
 
   actions: {
-    backToSettings: '返回功能开关',
     create: '新增配置',
     edit: '编辑',
     delete: '删除',

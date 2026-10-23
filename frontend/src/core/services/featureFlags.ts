@@ -144,6 +144,11 @@ export const FeatureFlags = {
     mode: 'opt-in',
     label: 'Risk Control',
   }),
+  customModelConfig: defineFlag({
+    key: 'custom_model_config_enabled',
+    mode: 'opt-in',
+    label: 'Custom Model Config',
+  }),
   affiliate: defineFlag({
     key: 'affiliate_enabled',
     mode: 'opt-in',

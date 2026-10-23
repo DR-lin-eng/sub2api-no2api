@@ -20,7 +20,6 @@ export default {
   },
 
   actions: {
-    backToSettings: 'Back to feature settings',
     create: 'Add Config',
     edit: 'Edit',
     delete: 'Delete',
