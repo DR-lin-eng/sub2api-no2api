@@ -12,6 +12,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
 	pkghttputil "github.com/Wei-Shaw/sub2api/internal/shared/httputil"
 	"github.com/Wei-Shaw/sub2api/internal/transport/http/handler"
 	"github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
@@ -126,6 +127,16 @@ func RegisterGatewayRoutes(
 			// 尝试解析模型名
 			modelName := gjson.GetBytes(bodyBytes, "model").String()
 			if modelName != "" {
+				if validateErr := h.OpenAIGateway.ValidateCustomModelVideoRequest(c.Request.Context(), modelName, bodyBytes); validateErr != nil {
+					c.JSON(infraerrors.Code(validateErr), gin.H{
+						"error": gin.H{
+							"type":    "invalid_request_error",
+							"code":    infraerrors.Reason(validateErr),
+							"message": infraerrors.Message(validateErr),
+						},
+					})
+					return
+				}
 				videoAPIType, configured, resolveErr := h.OpenAIGateway.ResolveCustomModelVideoAPIType(c.Request.Context(), modelName)
 				if resolveErr != nil {
 					c.JSON(http.StatusInternalServerError, gin.H{

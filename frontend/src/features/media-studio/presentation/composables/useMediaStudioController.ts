@@ -7,10 +7,14 @@ import {
   getVideoGenerationTask,
   listMediaStudioModels,
   mediaStudioErrorMessage,
+  mediaStudioFileKind,
+  mediaStudioKindEnabled,
+  resolveMediaStudioModelLimits,
   submitAsyncImageGeneration,
   submitImageEdit,
   submitImageGeneration,
   submitVideoGeneration,
+  uploadMediaStudioFile,
   type MediaStudioConfig,
   type MediaStudioGroupOption,
   type MediaStudioMediaType,
@@ -18,11 +22,14 @@ import {
   type MediaStudioImageSubmitRequest,
   type MediaStudioImageTask,
   type MediaStudioModel,
+  type MediaStudioModelLimits,
+  type MediaStudioResolvedLimits,
   type MediaStudioVideoAspectRatio,
   type MediaStudioVideoResolution,
   type MediaStudioVideoSubmitRequest,
   type MediaStudioVideoTask,
   MEDIA_STUDIO_PARAMETER_BINDINGS,
+  MEDIA_STUDIO_MEDIA_KINDS,
   type MediaStudioParameterControl,
   type ModelAttributeField,
   type ModelAttributeRenderMode,
@@ -42,8 +49,14 @@ import {
 } from '@/features/media-studio/data/datasources/mediaStudioImageStore'
 import {
   addMediaStudioImageAttachments,
+  addMediaStudioReferenceAttachments,
   revokeMediaStudioImageAttachments,
+  revokeMediaStudioPreviewURLs,
+  type MediaStudioAttachmentRejection,
   type MediaStudioImageAttachment,
+  type MediaStudioImageAttachmentLimits,
+  type MediaStudioReferenceAttachment,
+  type MediaStudioReferenceLimits,
 } from '@/features/media-studio/presentation/composables/useMediaStudioAttachments'
 import {
   useMediaStudioPreview,
@@ -73,6 +86,7 @@ export interface MediaStudioModelOption {
   fields: ModelAttributeField[]
   renderMode: ModelAttributeRenderMode
   hide: string[]
+  limits?: MediaStudioModelLimits
 }
 
 export type MediaStudioImageResolution = '1K' | '2K' | '4K'
@@ -181,6 +195,7 @@ export interface MediaStudioControllerOptions {
   getVideoContent?: typeof getVideoGenerationContent
   getConfig?: typeof getMediaStudioConfig
   createSession?: typeof createMediaStudioSession
+  uploadFile?: typeof uploadMediaStudioFile
   createObjectURL?: (blob: Blob) => string
   revokeObjectURL?: (url: string) => void
 }
@@ -610,9 +625,13 @@ function imageSizeFor(
   return `${width}x${height}`
 }
 
-function normalizeDuration(value: number): number {
-  if (!Number.isFinite(value)) return DEFAULT_VIDEO_DURATION
-  return Math.min(15, Math.max(1, Math.trunc(value)))
+function normalizeDuration(
+  value: number,
+  range: { min: number; max: number } = { min: 1, max: 15 },
+): number {
+  const fallback = Math.min(range.max, Math.max(range.min, DEFAULT_VIDEO_DURATION))
+  if (!Number.isFinite(value)) return fallback
+  return Math.min(range.max, Math.max(range.min, Math.trunc(value)))
 }
 
 function normalizeResolution(value: unknown): MediaStudioVideoResolution {
@@ -644,6 +663,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     getVideoContent: options.getVideoContent ?? getVideoGenerationContent,
     getConfig: options.getConfig ?? getMediaStudioConfig,
     createSession: options.createSession ?? createMediaStudioSession,
+    uploadFile: options.uploadFile ?? uploadMediaStudioFile,
   }
 	const createObjectURL = options.createObjectURL ?? ((blob: Blob) => (
 		typeof URL.createObjectURL === 'function' ? URL.createObjectURL(blob) : ''
@@ -687,6 +707,9 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   const groupLoadError = ref('')
   const mediaStudioApiKey = ref('')
   const imageAttachments = ref<MediaStudioImageAttachment[]>([])
+  const referenceAttachments = ref<MediaStudioReferenceAttachment[]>([])
+  // 最近一次被拒绝的附件：交给视图层翻译，数据层不产生用户文案。
+  const attachmentRejection = ref<MediaStudioAttachmentRejection | null>(null)
   const modelOptions = ref<MediaStudioModelOption[]>([])
   const loadingModels = ref(false)
   const modelLoadError = ref('')
@@ -744,6 +767,31 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     ])
     return controls.filter(control => declared.has(MEDIA_STUDIO_PARAMETER_BINDINGS[control]))
   })
+  const activeModelOption = computed(
+    () => modelOptions.value.find(option => option.id === model.value) ?? null,
+  )
+  // 模型级媒体限制：未配置时回退媒体工坊原有默认值，配置后按模型约束。
+  const activeModelLimits = computed<MediaStudioResolvedLimits>(
+    () => resolveMediaStudioModelLimits(activeModelOption.value?.limits),
+  )
+  const durationOptions = computed<number[]>(() => {
+    const { min, max } = activeModelLimits.value.duration
+    return Array.from({ length: max - min + 1 }, (_, index) => min + index)
+  })
+  const imageAttachmentLimits = computed<MediaStudioImageAttachmentLimits>(() => {
+    const limits = activeModelLimits.value
+    const maxFiles = limits.maxFiles.image
+    const maxFileSizeBytes = limits.maxFileSizeMB.image * 1024 * 1024
+    return { maxFiles, maxFileSizeBytes, maxTotalBytes: maxFiles * maxFileSizeBytes }
+  })
+  // 参考素材按类型分别校验：仅启用的类型可被加入，各自独立计数。
+  const referenceLimits = computed<MediaStudioReferenceLimits>(() => ({
+    enabled: MEDIA_STUDIO_MEDIA_KINDS.filter(kind => mediaStudioKindEnabled(activeModelLimits.value, kind)),
+    maxFiles: { ...activeModelLimits.value.maxFiles },
+    maxFileSizeMB: { ...activeModelLimits.value.maxFileSizeMB },
+  }))
+  // 未返回该字段的旧后端按可用处理，只有显式 false 才置灰上传入口。
+  const storageAvailable = computed(() => groupConfig.value.storage_available !== false)
   const attributeValues = ref<ModelAttributeValues>({})
 
   function setAttributeValue(key: string, value: string | number | boolean | undefined) {
@@ -764,6 +812,10 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     }
     attributeValues.value = next
   }, { immediate: true, flush: 'sync' })
+  // 模型限制加载或切换后，把已选时长收敛回该模型允许的区间。
+  watch(activeModelLimits, (limits) => {
+    duration.value = normalizeDuration(duration.value, limits.duration)
+  })
   // A group serves exactly one modality, so only expose groups of the active mode.
   const groupOptions = computed<MediaStudioGroupOption[]>(() => {
     return groupConfig.value.groups.filter(group => group.media_type === selectedModeId.value)
@@ -774,7 +826,9 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     !!selectedGroup.value &&
     !!mediaStudioApiKey.value &&
     !!prompt.value.trim() &&
-    !submitting.value
+    !submitting.value &&
+    // 参考素材未上传完成（或失败未重试）时不提交，避免请求丢失素材。
+    (selectedModeId.value !== 'video' || referenceAttachments.value.every(item => item.status === 'ready'))
   ))
 
   function updateImageAttachments(attachments: MediaStudioImageAttachment[]) {
@@ -784,13 +838,90 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     imageAttachments.value = attachments
   }
 
+  function addImageAttachments(files: File[]) {
+    if (files.length === 0) return
+    const result = addMediaStudioImageAttachments(
+      imageAttachments.value,
+      files,
+      imageAttachmentLimits.value,
+    )
+    attachmentRejection.value = result.rejected[0] ?? null
+    updateImageAttachments(result.attachments)
+  }
+
+  function removeImageAttachment(id: string) {
+    updateImageAttachments(imageAttachments.value.filter(attachment => attachment.id !== id))
+  }
+
+  function updateReferenceAttachments(attachments: MediaStudioReferenceAttachment[]) {
+    revokeMediaStudioPreviewURLs(referenceAttachments.value.filter(
+      (current) => !attachments.some((next) => next.id === current.id),
+    ))
+    referenceAttachments.value = attachments
+  }
+
+  function patchReferenceAttachment(id: string, patch: Partial<MediaStudioReferenceAttachment>) {
+    referenceAttachments.value = referenceAttachments.value.map(item => (
+      item.id === id ? { ...item, ...patch } : item
+    ))
+  }
+
+  // 参考素材必须先落到对象存储，视频请求只能引用公网 URL。
+  async function uploadReferenceAttachment(attachment: MediaStudioReferenceAttachment, modelName: string) {
+    try {
+      const uploaded = await data.uploadFile(modelName, attachment.kind, attachment.file)
+      if (disposed) return
+      patchReferenceAttachment(attachment.id, { url: uploaded.url, status: 'ready', error: '' })
+    } catch (error) {
+      if (disposed) return
+      patchReferenceAttachment(attachment.id, {
+        status: 'failed',
+        error: mediaStudioErrorMessage(error, 'upload failed'),
+      })
+    }
+  }
+
+  function addReferenceAttachments(files: File[]): MediaStudioAttachmentRejection[] {
+    const existing = new Set(referenceAttachments.value.map(attachment => attachment.id))
+    const result = addMediaStudioReferenceAttachments(
+      referenceAttachments.value,
+      files,
+      referenceLimits.value,
+      mediaStudioFileKind,
+    )
+    attachmentRejection.value = result.rejected[0] ?? null
+    updateReferenceAttachments(result.attachments)
+    const modelName = model.value.trim()
+    for (const attachment of result.attachments) {
+      if (existing.has(attachment.id) || attachment.status !== 'uploading') continue
+      void uploadReferenceAttachment(attachment, modelName)
+    }
+    return result.rejected
+  }
+
+  function removeReferenceAttachment(id: string) {
+    updateReferenceAttachments(referenceAttachments.value.filter(attachment => attachment.id !== id))
+  }
+
+  function retryReferenceUpload(id: string) {
+    const attachment = referenceAttachments.value.find(item => item.id === id)
+    if (!attachment || attachment.status === 'uploading') return
+    const retried: MediaStudioReferenceAttachment = { ...attachment, status: 'uploading', error: '' }
+    patchReferenceAttachment(id, { status: 'uploading', error: '' })
+    void uploadReferenceAttachment(retried, model.value.trim())
+  }
+
   async function editGeneratedImage(image: MediaStudioGeneratedImagePreview) {
     if (selectedModeId.value !== 'image') await selectMode('image')
     submitError.value = ''
     try {
       const file = await imagePreviewToFile(image)
       const previousCount = imageAttachments.value.length
-      const result = addMediaStudioImageAttachments(imageAttachments.value, [file])
+      const result = addMediaStudioImageAttachments(
+        imageAttachments.value,
+        [file],
+        imageAttachmentLimits.value,
+      )
       updateImageAttachments(result.attachments)
       if (result.attachments.length === previousCount) {
         throw new Error('reference image could not be added')
@@ -1011,6 +1142,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
           fields: item.attributes?.fields ?? [],
           renderMode: item.attributes?.mode === 'replace' ? 'replace' as const : 'overlay' as const,
           hide: item.attributes?.hide ?? [],
+          limits: item.limits,
         }))
         .filter((option) => {
           if (!option.id || seen.has(option.id)) return false
@@ -1206,7 +1338,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       count: mode === 'image' ? normalizeCount(count.value) : 1,
       resolution: mode === 'video' ? normalizeResolution(resolution.value) : undefined,
       aspectRatio: mode === 'video' ? normalizeVideoAspectRatio(videoAspectRatio.value) : undefined,
-      duration: mode === 'video' ? normalizeDuration(duration.value) : undefined,
+      duration: mode === 'video' ? normalizeDuration(duration.value, activeModelLimits.value.duration) : undefined,
       attributes: attributeMode ? { ...attributeValues.value } : undefined,
       attributeMode,
       attributeKeys: attributeMode
@@ -1229,6 +1361,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     if (!mediaStudioApiKey.value || !selectedGroup.value || !text || (mode !== 'image' && mode !== 'video')) return
 
     const submittedAttachments = mode === 'image' ? [...imageAttachments.value] : []
+    const submittedReferences = mode === 'video' ? [...referenceAttachments.value] : []
     const assistantMessage = appendPromptMessages(text, mode, submittedAttachments)
     if (submittedAttachments.length > 0) {
       imageInputFiles.set(assistantMessage.id, submittedAttachments.map(attachment => attachment.file))
@@ -1236,6 +1369,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     }
     prompt.value = ''
     imageAttachments.value = []
+    if (mode === 'video') updateReferenceAttachments([])
     submitting.value = true
     try {
       if (mode === 'image') {
@@ -1341,6 +1475,16 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
           model: assistantMessage.model || DEFAULT_VIDEO_MODEL,
           prompt: text,
         }
+        // 参考素材已上传为公网 URL，按类型填入对应字段。
+        const referenceURLs = (kind: MediaStudioMediaType) => submittedReferences
+          .filter(attachment => attachment.kind === kind && attachment.status === 'ready' && attachment.url)
+          .map(attachment => attachment.url)
+        const referenceImages = referenceURLs('image')
+        const referenceVideos = referenceURLs('video')
+        const referenceAudios = referenceURLs('audio')
+        if (referenceImages.length > 0) videoPayload.images = referenceImages
+        if (referenceVideos.length > 0) videoPayload.videos = referenceVideos
+        if (referenceAudios.length > 0) videoPayload.audios = referenceAudios
         const videoAttributeMode = assistantMessage.attributeMode
         const videoDeclaredKeys = new Set(assistantMessage.attributeKeys ?? [])
         const replacedByTemplate = (control: MediaStudioParameterControl) => (
@@ -1390,12 +1534,19 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       imageAspectRatio.value = normalizeImageAspectRatio(message.imageAspectRatio || aspectRatioFromSize(message.size))
       quality.value = normalizeImageQuality(message.quality)
       count.value = normalizeCount(message.count || 1)
-      const restored = addMediaStudioImageAttachments([], imageInputFiles.get(message.id) ?? []).attachments
+      const restored = addMediaStudioImageAttachments(
+        [],
+        imageInputFiles.get(message.id) ?? [],
+        imageAttachmentLimits.value,
+      ).attachments
       imageAttachments.value = restored
     } else {
       resolution.value = normalizeResolution(message.resolution)
       videoAspectRatio.value = normalizeVideoAspectRatio(message.aspectRatio)
-      duration.value = normalizeDuration(message.duration || DEFAULT_VIDEO_DURATION)
+      duration.value = normalizeDuration(
+        message.duration || DEFAULT_VIDEO_DURATION,
+        activeModelLimits.value.duration,
+      )
     }
     prompt.value = message.prompt
     await submitPrompt()
@@ -1417,6 +1568,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   function clearConversation() {
     revokeAllVideoURLs()
     revokeInputImageURLs(conversation.value.messages)
+    updateReferenceAttachments([])
     imageInputFiles.clear()
     void clearMediaStudioImages()
     void clearMediaStudioVideos()
@@ -1465,6 +1617,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       disposed = true
       revokeAllVideoURLs()
       revokeInputImageURLs(conversation.value.messages)
+      revokeMediaStudioPreviewURLs(referenceAttachments.value)
     })
   }
 
@@ -1481,6 +1634,14 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     mediaStudioApiKey,
     imageAttachments,
     updateImageAttachments,
+    addImageAttachments,
+    removeImageAttachment,
+    attachmentRejection,
+    referenceAttachments,
+    updateReferenceAttachments,
+    addReferenceAttachments,
+    removeReferenceAttachment,
+    retryReferenceUpload,
     customImageAspectRatios,
     addCustomImageAspectRatio,
     model,
@@ -1493,7 +1654,12 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     resolution,
     videoAspectRatio,
     duration,
+    durationOptions,
     imageQualityOptions,
+    activeModelLimits,
+    imageAttachmentLimits,
+    referenceLimits,
+    storageAvailable,
     modelOptions,
     activeModelFields,
     visibleAttributeFields,

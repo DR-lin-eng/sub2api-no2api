@@ -55,6 +55,7 @@ func (h *CustomModelConfigHandler) Create(c *gin.Context) {
 		Capabilities: req.Capabilities,
 		VideoAPIType: req.VideoAPIType,
 		TemplateID:   req.TemplateID,
+		MediaLimits:  req.MediaLimits,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -82,12 +83,19 @@ func (h *CustomModelConfigHandler) Update(c *gin.Context) {
 		response.BadRequest(c, "video_api_type must be a string or null")
 		return
 	}
+	mediaLimits, mediaLimitsSet, err := parseOptionalJSONObject(req.MediaLimits)
+	if err != nil {
+		response.BadRequest(c, "media_limits must be an object or null")
+		return
+	}
 	input := service.UpdateCustomModelConfigInput{
-		PrefixMatch:   req.PrefixMatch,
-		Capabilities:  req.Capabilities,
-		VideoAPIType:  videoAPIType,
-		TemplateID:    templateID,
-		TemplateIDSet: templateIDSet,
+		PrefixMatch:    req.PrefixMatch,
+		Capabilities:   req.Capabilities,
+		VideoAPIType:   videoAPIType,
+		TemplateID:     templateID,
+		TemplateIDSet:  templateIDSet,
+		MediaLimits:    mediaLimits,
+		MediaLimitsSet: mediaLimitsSet,
 	}
 	item, err := h.service.Update(c.Request.Context(), id, input)
 	if err != nil {

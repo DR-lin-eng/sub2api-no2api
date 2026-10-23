@@ -69,6 +69,7 @@ type ImageStorageSettingService struct {
 
 type imageStorageResolution struct {
 	uploader *ImageResultUploader
+	storage  ImageStorage
 	enabled  bool
 }
 
@@ -135,9 +136,26 @@ func (s *ImageStorageSettingService) resolve() (*ImageResultUploader, bool) {
 		return nil, false
 	}
 	resolved.uploader = NewImageResultUploader(storage, cfg.Prefix, cfg.MaxDownloadByte, s.upstream, s.allowHTTP)
+	resolved.storage = storage
 	resolved.enabled = true
 	s.resolution.Store(resolved)
 	return resolved.uploader, true
+}
+
+// Storage 返回已启用的对象存储客户端，供用户直接上传文件（如媒体工坊参考素材）。
+// 未启用或未完整配置时返回 false。
+func (s *ImageStorageSettingService) Storage() (ImageStorage, bool) {
+	if s == nil {
+		return nil, false
+	}
+	if _, enabled := s.resolve(); !enabled {
+		return nil, false
+	}
+	current := s.resolution.Load()
+	if current == nil || !current.enabled || current.storage == nil {
+		return nil, false
+	}
+	return current.storage, true
 }
 
 // Invalidate 丢弃缓存，使下一次请求按最新设置重新解析。

@@ -25,6 +25,7 @@ function toEntity(dto: CustomModelConfigDto): CustomModelConfig {
     template_id: dto.template_id ?? null,
     template_name: dto.template_name ?? '',
     video_api_type: dto.video_api_type ?? null,
+    media_limits: dto.media_limits ?? {},
     created_at: dto.created_at,
     updated_at: dto.updated_at,
   };

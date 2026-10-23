@@ -14,6 +14,7 @@
         v-model:resolution="resolution"
         v-model:video-aspect-ratio="videoAspectRatio"
         v-model:duration="duration"
+        :duration-options="durationOptions"
         :image-quality-options="imageQualityOptions"
         :modes="modes"
         :selected-mode="selectedMode"
@@ -22,6 +23,12 @@
         :loading-groups="loadingGroups"
         :group-load-error="groupLoadError"
         :image-attachments="imageAttachments"
+        :image-attachment-limits="imageAttachmentLimits"
+        :reference-attachments="referenceAttachments"
+        :reference-limits="referenceLimits"
+        :model-limits="activeModelLimits"
+        :storage-available="storageAvailable"
+        :attachment-rejection="attachmentRejection"
         :model-options="modelOptions"
         :attribute-fields="visibleAttributeFields"
         :attribute-values="attributeValues"
@@ -35,15 +42,19 @@
         :submit-error="submitError"
         @select-mode="selectMode"
         @reload-groups="loadMediaGroups"
-        @update:image-attachments="updateImageAttachments"
+        @add-image-attachments="addImageAttachments"
+        @remove-image-attachment="removeImageAttachment"
+        @add-reference-attachments="addReferenceAttachments"
+        @remove-reference-attachment="removeReferenceAttachment"
+        @retry-reference-upload="retryReferenceUpload"
         @add-custom-image-aspect-ratio="addCustomImageAspectRatio"
         @reload-models="loadModels"
         @update:attribute="({ key, value }) => setAttributeValue(key, value)"
         @submit="submitPrompt"
-         @retry="retryMessage"
-         @clear="clearConversation"
-         @delete="deleteMessages"
-         @edit-image="editGeneratedImage"
+        @retry="retryMessage"
+        @clear="clearConversation"
+        @delete="deleteMessages"
+        @edit-image="editGeneratedImage"
       />
     </div>
   </AppLayout>
@@ -72,12 +83,23 @@ const {
   resolution,
   videoAspectRatio,
   duration,
+  durationOptions,
   imageQualityOptions,
   groupOptions,
   loadingGroups,
   groupLoadError,
   imageAttachments,
-  updateImageAttachments,
+  imageAttachmentLimits,
+  addImageAttachments,
+  removeImageAttachment,
+  attachmentRejection,
+  referenceAttachments,
+  referenceLimits,
+  addReferenceAttachments,
+  removeReferenceAttachment,
+  retryReferenceUpload,
+  activeModelLimits,
+  storageAvailable,
   modelOptions,
   visibleAttributeFields,
   attributeValues,

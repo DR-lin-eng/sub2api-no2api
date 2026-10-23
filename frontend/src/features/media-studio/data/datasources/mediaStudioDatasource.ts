@@ -21,6 +21,7 @@ export interface MediaStudioGroupOption {
 
 export interface MediaStudioConfig {
   groups: MediaStudioGroupOption[]
+  storage_available?: boolean
 }
 
 export interface MediaStudioSession {
@@ -37,7 +38,111 @@ export interface MediaStudioModel {
   owned_by?: string
   ownedBy?: string
   attributes?: ModelAttributeBlock
+  limits?: MediaStudioModelLimits
   [key: string]: unknown
+}
+
+// 模型配置里的媒体限制原始结构；缺省字段表示「未配置」，由前端回退默认值。
+export interface MediaStudioModelLimits {
+  allow_upload?: boolean
+  file_types?: MediaStudioMediaType[]
+  max_files?: Partial<Record<MediaStudioMediaType, number>>
+  max_file_size_mb?: Partial<Record<MediaStudioMediaType, number>>
+  duration?: { min?: number; max?: number } | null
+}
+
+// 归一化后的限制：所有字段都有值，便于渲染与校验直接使用。
+export interface MediaStudioResolvedLimits {
+  configured: boolean
+  allowUpload: boolean
+  fileTypes: MediaStudioMediaType[]
+  maxFiles: Record<MediaStudioMediaType, number>
+  maxFileSizeMB: Record<MediaStudioMediaType, number>
+  duration: { min: number; max: number }
+}
+
+export const MEDIA_STUDIO_MEDIA_KINDS: MediaStudioMediaType[] = ['image', 'video', 'audio']
+
+// 未配置模型限制时沿用的默认值（与媒体工坊既有行为保持一致）。
+export const MEDIA_STUDIO_DEFAULT_MAX_FILES: Record<MediaStudioMediaType, number> = {
+  image: 9,
+  video: 3,
+  audio: 3,
+}
+export const MEDIA_STUDIO_DEFAULT_MAX_FILE_SIZE_MB: Record<MediaStudioMediaType, number> = {
+  image: 20,
+  video: 256,
+  audio: 50,
+}
+export const MEDIA_STUDIO_DEFAULT_DURATION_RANGE = { min: 1, max: 15 }
+
+function positiveInteger(value: unknown, fallback: number): number {
+  const numeric = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(numeric) || numeric <= 0) return fallback
+  return Math.trunc(numeric)
+}
+
+export function resolveMediaStudioModelLimits(
+  limits?: MediaStudioModelLimits | null,
+): MediaStudioResolvedLimits {
+  const resolved: MediaStudioResolvedLimits = {
+    configured: false,
+    allowUpload: true,
+    fileTypes: [...MEDIA_STUDIO_MEDIA_KINDS],
+    maxFiles: { ...MEDIA_STUDIO_DEFAULT_MAX_FILES },
+    maxFileSizeMB: { ...MEDIA_STUDIO_DEFAULT_MAX_FILE_SIZE_MB },
+    duration: { ...MEDIA_STUDIO_DEFAULT_DURATION_RANGE },
+  }
+  if (!limits || typeof limits !== 'object') return resolved
+
+  resolved.configured = true
+  resolved.allowUpload = limits.allow_upload === true
+  const declaredTypes = Array.isArray(limits.file_types)
+    ? limits.file_types.filter(kind => MEDIA_STUDIO_MEDIA_KINDS.includes(kind))
+    : []
+  // 未声明 file_types 表示三类素材都允许，与后端校验语义一致。
+  if (declaredTypes.length > 0) resolved.fileTypes = declaredTypes
+
+  for (const kind of MEDIA_STUDIO_MEDIA_KINDS) {
+    const files = limits.max_files?.[kind]
+    // 0 是合法配置，表示该类型禁用，不能按缺省值回退。
+    if (typeof files === 'number' && Number.isFinite(files) && files >= 0) {
+      resolved.maxFiles[kind] = Math.trunc(files)
+    }
+    resolved.maxFileSizeMB[kind] = positiveInteger(
+      limits.max_file_size_mb?.[kind],
+      resolved.maxFileSizeMB[kind],
+    )
+  }
+
+  const min = Number(limits.duration?.min)
+  const max = Number(limits.duration?.max)
+  if (Number.isFinite(min) && Number.isFinite(max) && min >= 1 && max >= min) {
+    resolved.duration = { min: Math.trunc(min), max: Math.trunc(max) }
+  }
+  return resolved
+}
+
+export function mediaStudioKindEnabled(
+  limits: MediaStudioResolvedLimits,
+  kind: MediaStudioMediaType,
+): boolean {
+  return limits.allowUpload && limits.fileTypes.includes(kind) && limits.maxFiles[kind] > 0
+}
+
+export function mediaStudioUploadAccept(limits: MediaStudioResolvedLimits): string {
+  return MEDIA_STUDIO_MEDIA_KINDS
+    .filter(kind => mediaStudioKindEnabled(limits, kind))
+    .map(kind => `${kind}/*`)
+    .join(',')
+}
+
+export function mediaStudioFileKind(file: File): MediaStudioMediaType | '' {
+  const mimeType = (file.type || '').toLowerCase()
+  if (mimeType.startsWith('image/')) return 'image'
+  if (mimeType.startsWith('video/')) return 'video'
+  if (mimeType.startsWith('audio/')) return 'audio'
+  return ''
 }
 
 // 媒体工坊硬编码参数控件与请求字段的绑定：模板声明了同名字段时，局部覆盖模式下该控件被替换。
@@ -122,7 +227,19 @@ export interface MediaStudioVideoSubmitRequest {
   resolution?: MediaStudioVideoResolution
   duration?: number
   aspect_ratio?: MediaStudioVideoAspectRatio
+  images?: string[]
+  videos?: string[]
+  audios?: string[]
   attributes?: ModelAttributeValues
+}
+
+// 参考素材上传结果：url 可直接作为视频请求的 images/videos/audios 元素。
+export interface MediaStudioUpload {
+  url: string
+  name: string
+  kind: MediaStudioMediaType
+  size: number
+  content_type: string
 }
 
 export type MediaStudioVideoTaskStatus = 'processing' | 'completed' | 'failed'
@@ -303,6 +420,31 @@ export async function listMediaStudioModels(
   })
   if (!response.ok) throw await parseMediaStudioError(response)
   return response.json()
+}
+
+// 上传参考素材需要放宽默认 30s 超时，大文件在慢速链路上会超过该阈值。
+const uploadRequestConfig = {
+  // Remove the JSON default so XMLHttpRequest supplies multipart/form-data
+  // together with the generated boundary.
+  headers: { 'Content-Type': undefined },
+  timeout: 120_000,
+}
+
+export async function uploadMediaStudioFile(
+  model: string,
+  kind: MediaStudioMediaType,
+  file: File,
+): Promise<MediaStudioUpload> {
+  const form = new FormData()
+  form.append('file', file, file.name)
+  form.append('model', model)
+  form.append('kind', kind)
+  const { data } = await apiClient.post<MediaStudioUpload>(
+    '/media-studio/uploads',
+    form,
+    uploadRequestConfig,
+  )
+  return data
 }
 
 export async function submitAsyncImageGeneration(
@@ -510,5 +652,19 @@ export async function getVideoGenerationContent(apiKey: string, taskId: string):
 export function mediaStudioErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message.trim()) return error.message
   if (typeof error === 'string' && error.trim()) return error
+  // apiClient 拒绝的是普通对象而不是 Error，需要显式读取 message/reason。
+  if (error && typeof error === 'object') {
+    const candidate = error as { message?: unknown; reason?: unknown }
+    if (typeof candidate.message === 'string' && candidate.message.trim()) return candidate.message
+    if (typeof candidate.reason === 'string' && candidate.reason.trim()) return candidate.reason
+  }
   return fallback
+}
+
+export function mediaStudioErrorStatus(error: unknown): number | undefined {
+  if (error && typeof error === 'object') {
+    const status = (error as { status?: unknown }).status
+    if (typeof status === 'number') return status
+  }
+  return undefined
 }

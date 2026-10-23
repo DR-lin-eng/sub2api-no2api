@@ -167,6 +167,28 @@ export default {
       agnes: 'Agnes Video'
     },
     videoApiTypeHint: 'Select the API interface type for this video model',
+    mediaLimits: {
+      title: 'Media Studio Limits',
+      hint: 'Leave empty for no restriction; set max count to 0 to disable that file type.',
+      allowUpload: 'Allow file uploads',
+      allowUploadHint:
+        'When disabled, Media Studio hides the upload entry and video requests cannot carry reference files.',
+      fileTypes: 'Allowed file types',
+      kinds: {
+        image: 'Image',
+        video: 'Video',
+        audio: 'Audio'
+      },
+      maxFiles: 'Max count',
+      maxFileSize: 'Max file size (MB)',
+      unlimited: 'Unlimited',
+      duration: 'Video duration range (seconds)',
+      durationMin: 'Min duration',
+      durationMax: 'Max duration',
+      durationHint:
+        'Leave empty for no restriction; Media Studio only offers duration options within the range.',
+      durationInvalid: 'Fill in both min and max, and make sure 1 ≤ min ≤ max ≤ 600'
+    },
     saveFailed: 'Failed to save, please try again'
   },
 

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -90,6 +91,9 @@ func (h *MediaStudioHandler) ListModels(c *gin.Context) {
 		if len(model.Attributes) > 0 {
 			entry["attributes"] = model.Attributes
 		}
+		if len(model.Limits) > 0 {
+			entry["limits"] = model.Limits
+		}
 		data = append(data, entry)
 	}
 	response.Success(c, gin.H{"object": "list", "data": data})
@@ -127,6 +131,72 @@ func (h *MediaStudioHandler) CreateSession(c *gin.Context) {
 		"group_id":   req.GroupID,
 		"media_type": strings.TrimSpace(req.MediaType),
 	})
+}
+
+func (h *MediaStudioHandler) UploadFile(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	c.Request.Body = http.MaxBytesReader(
+		c.Writer,
+		c.Request.Body,
+		int64(service.MaxMediaStudioUploadBytes)+(1<<20),
+	)
+	if err := c.Request.ParseMultipartForm(32 << 20); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			response.RequestEntityTooLarge(c, "Request body too large")
+			return
+		}
+		response.BadRequest(c, "Invalid media studio upload request")
+		return
+	}
+	if c.Request.MultipartForm != nil {
+		defer func() { _ = c.Request.MultipartForm.RemoveAll() }()
+	}
+
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		response.BadRequest(c, "Missing upload file")
+		return
+	}
+	if fileHeader.Size > int64(service.MaxMediaStudioUploadBytes) {
+		response.RequestEntityTooLarge(c, "Request body too large")
+		return
+	}
+	file, err := fileHeader.Open()
+	if err != nil {
+		response.BadRequest(c, "Invalid upload file")
+		return
+	}
+	defer func() { _ = file.Close() }()
+
+	data, err := io.ReadAll(io.LimitReader(file, int64(service.MaxMediaStudioUploadBytes)+1))
+	if err != nil {
+		response.BadRequest(c, "Invalid upload file")
+		return
+	}
+	if len(data) > service.MaxMediaStudioUploadBytes {
+		response.RequestEntityTooLarge(c, "Request body too large")
+		return
+	}
+
+	upload, err := h.mediaStudioService.UploadFile(
+		c.Request.Context(),
+		subject.UserID,
+		c.PostForm("model"),
+		c.PostForm("kind"),
+		fileHeader.Filename,
+		fileHeader.Header.Get("Content-Type"),
+		data,
+	)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, upload)
 }
 
 func bindMediaStudioJSON(c *gin.Context, target any, invalidMessage string) bool {

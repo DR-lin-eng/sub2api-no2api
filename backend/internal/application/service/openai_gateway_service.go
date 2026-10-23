@@ -671,6 +671,14 @@ func (s *OpenAIGatewayService) ResolveCustomModelVideoAPIType(ctx context.Contex
 	return s.customModelCapabilities.ResolveVideoAPIType(ctx, model)
 }
 
+// ValidateCustomModelVideoRequest 按模型级媒体限制校验视频生成请求体。
+func (s *OpenAIGatewayService) ValidateCustomModelVideoRequest(ctx context.Context, model string, body []byte) error {
+	if s == nil || s.customModelCapabilities == nil {
+		return nil
+	}
+	return s.customModelCapabilities.ValidateVideoRequest(ctx, model, body)
+}
+
 // ResolveChannelMapping 解析渠道级模型映射（代理到 ChannelService）
 func (s *OpenAIGatewayService) ResolveChannelMapping(ctx context.Context, groupID int64, model string) ChannelMappingResult {
 	if s.channelService == nil {

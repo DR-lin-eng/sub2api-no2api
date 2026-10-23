@@ -99,6 +99,7 @@ func RegisterUserRoutes(
 			mediaStudio.GET("/config", h.MediaStudio.GetConfig)
 			mediaStudio.GET("/models", h.MediaStudio.ListModels)
 			mediaStudio.POST("/session", h.MediaStudio.CreateSession)
+			mediaStudio.POST("/uploads", h.MediaStudio.UploadFile)
 		}
 
 		// 用户可用渠道（非管理员接口）

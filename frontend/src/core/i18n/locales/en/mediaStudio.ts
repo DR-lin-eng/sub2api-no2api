@@ -54,6 +54,20 @@ export default {
         attachHint: 'Drop or paste reference images, up to 9',
         attachCount: '{count}/{limit} images attached',
         remove: 'Remove image'
+      },
+      upload: {
+        addHint: 'Add reference files (image / video / audio)',
+        dropHint: 'Drop files here to upload',
+        disabled: 'The current model does not allow file uploads',
+        noTypes: 'The current model has no enabled file types',
+        storageUnavailable: 'Object storage is not configured yet, uploads are unavailable',
+        retry: 'Retry upload',
+        rejections: {
+          type: '"{name}" is not a supported file type for this model',
+          size: '"{name}" exceeds the per-file size limit ({limit} MB)',
+          count: '"{name}" exceeds the file count limit ({limit} files)',
+          total: '"{name}" would exceed the total size limit ({limit} MB)'
+        }
       }
     },
     session: {

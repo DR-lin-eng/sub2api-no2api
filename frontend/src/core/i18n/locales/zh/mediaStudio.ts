@@ -54,6 +54,20 @@ export default {
         attachHint: '拖拽或粘贴参考图片，最多 9 张',
         attachCount: '已添加 {count}/{limit} 张',
         remove: '移除图片'
+      },
+      upload: {
+        addHint: '添加参考素材（图片 / 视频 / 音频）',
+        dropHint: '拖拽文件到这里上传',
+        disabled: '当前模型不允许上传文件',
+        noTypes: '当前模型未开放任何可上传的文件类型',
+        storageUnavailable: '管理员尚未配置对象存储，暂时无法上传',
+        retry: '重试上传',
+        rejections: {
+          type: '「{name}」的文件类型不被当前模型支持',
+          size: '「{name}」超过单文件大小上限（{limit} MB）',
+          count: '「{name}」超出数量上限（最多 {limit} 个）',
+          total: '「{name}」导致总大小超过上限（{limit} MB）'
+        }
       }
     },
     session: {

@@ -12,7 +12,7 @@
     >
       <div class="rounded-2xl border border-primary-300 bg-white/95 px-5 py-4 text-sm font-medium text-primary-700 shadow-xl dark:border-primary-500/40 dark:bg-dark-900/95 dark:text-primary-200">
         <Icon name="upload" size="sm" class="mr-2 inline-block" />
-        {{ t('mediaStudio.composer.imageEdit.attachHint') }}
+        {{ t('mediaStudio.composer.upload.dropHint') }}
       </div>
     </div>
     <div v-if="hasMessages" class="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-1 pb-4">
@@ -311,13 +311,65 @@
                   type="button"
                   class="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100"
                   :title="t('mediaStudio.composer.imageEdit.remove')"
-                  @click="removeAttachment(attachment.id)"
+                  @click="emit('removeImageAttachment', attachment.id)"
                 >
                   <Icon name="x" size="xs" />
                 </button>
               </div>
             </div>
-            <p v-if="attachmentError" class="mt-2 text-xs text-red-600 dark:text-red-300">{{ attachmentError }}</p>
+            <div v-if="selectedModeId === 'video' && referenceAttachments.length > 0" class="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-5">
+              <div
+                v-for="attachment in referenceAttachments"
+                :key="attachment.id"
+                class="group relative aspect-square overflow-hidden rounded-xl border border-gray-200 bg-gray-50 dark:border-dark-700 dark:bg-dark-800"
+              >
+                <img
+                  v-if="attachment.kind === 'image'"
+                  :src="attachment.previewUrl"
+                  :alt="attachment.name"
+                  class="h-full w-full object-cover"
+                />
+                <video
+                  v-else-if="attachment.kind === 'video'"
+                  :src="attachment.previewUrl"
+                  class="h-full w-full object-cover"
+                  muted
+                  playsinline
+                ></video>
+                <div v-else class="flex h-full w-full flex-col items-center justify-center gap-1 px-2 text-center">
+                  <Icon name="play" size="sm" class="text-gray-400" />
+                  <span class="line-clamp-2 text-[10px] leading-tight text-gray-500 dark:text-gray-400">{{ attachment.name }}</span>
+                </div>
+
+                <div v-if="attachment.status === 'uploading'" class="absolute inset-0 flex items-center justify-center bg-black/50 text-white">
+                  <Icon name="refresh" size="sm" class="animate-spin" />
+                </div>
+                <div
+                  v-else-if="attachment.status === 'failed'"
+                  class="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/60 px-1 text-center"
+                  :title="attachment.error"
+                >
+                  <Icon name="exclamationCircle" size="sm" class="text-red-300" />
+                  <button
+                    type="button"
+                    class="text-[10px] font-medium text-white underline underline-offset-2"
+                    @click="emit('retryReferenceUpload', attachment.id)"
+                  >
+                    {{ t('mediaStudio.composer.upload.retry') }}
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  class="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100"
+                  :title="t('mediaStudio.composer.imageEdit.remove')"
+                  @click="emit('removeReferenceAttachment', attachment.id)"
+                >
+                  <Icon name="x" size="xs" />
+                </button>
+              </div>
+            </div>
+            <p v-if="attachmentErrorText" class="mt-2 text-xs text-red-600 dark:text-red-300">{{ attachmentErrorText }}</p>
 
             <div v-if="groupLoadError || modelLoadError || submitError" class="mb-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
               {{ submitError || groupLoadError || modelLoadError }}
@@ -327,25 +379,29 @@
               <input
                 ref="fileInput"
                 type="file"
-                accept="image/*"
+                :accept="uploadAccept"
                 multiple
                 class="hidden"
                 @change="handleFileInput"
               />
 
-              <div v-if="selectedModeId === 'image'" class="relative">
+              <div class="relative">
                 <button
                   type="button"
-                  class="icon-action"
-                  :aria-label="t('mediaStudio.composer.imageEdit.attachHint')"
-                  :title="t('mediaStudio.composer.imageEdit.attachHint')"
+                  class="icon-action disabled:cursor-not-allowed disabled:opacity-40"
+                  :aria-label="uploadHint"
+                  :title="uploadHint"
+                  :disabled="!canUpload"
                   @click="fileInput?.click()"
                 >
                   <Icon name="upload" size="sm" />
                 </button>
 
-                <span class="absolute -right-2 -top-2 inline-flex min-w-5 items-center justify-center rounded-full border border-primary-200 bg-white px-1.5 py-0.5 text-[10px] font-medium leading-none text-primary-700 shadow dark:border-primary-400/40 dark:bg-dark-900 dark:text-primary-300">
-                  {{ imageAttachments.length }}/{{ MEDIA_STUDIO_MAX_IMAGE_ATTACHMENTS }}
+                <span
+                  v-if="uploadBadge"
+                  class="absolute -right-2 -top-2 inline-flex min-w-5 items-center justify-center rounded-full border border-primary-200 bg-white px-1.5 py-0.5 text-[10px] font-medium leading-none text-primary-700 shadow dark:border-primary-400/40 dark:bg-dark-900 dark:text-primary-300"
+                >
+                  {{ uploadBadge }}
                 </span>
               </div>
 
@@ -616,19 +672,27 @@ import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import MediaStudioCustomResolutionDialog from '@/features/media-studio/presentation/widgets/MediaStudioCustomResolutionDialog.vue'
-import type { MediaStudioVideoAspectRatio, MediaStudioVideoResolution } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
+import {
+  mediaStudioKindEnabled,
+  mediaStudioUploadAccept,
+} from '@/features/media-studio/data/datasources/mediaStudioDatasource'
 import type {
   MediaStudioGroupOption,
   MediaStudioParameterControl,
+  MediaStudioResolvedLimits,
+  MediaStudioVideoAspectRatio,
+  MediaStudioVideoResolution,
   ModelAttributeField,
   ModelAttributeValues,
 } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
 import type { MediaStudioModelOption, MediaStudioParameterOption } from '@/features/media-studio/presentation/composables/useMediaStudioController'
 import ModelAttributeFieldControl from '@/common/widgets/model-attributes/ModelAttributeField.vue'
-import {
-  addMediaStudioImageAttachments,
-  MEDIA_STUDIO_MAX_IMAGE_ATTACHMENTS,
-  type MediaStudioImageAttachment,
+import type {
+  MediaStudioAttachmentRejection,
+  MediaStudioImageAttachment,
+  MediaStudioImageAttachmentLimits,
+  MediaStudioReferenceAttachment,
+  MediaStudioReferenceLimits,
 } from '@/features/media-studio/presentation/composables/useMediaStudioAttachments'
 import type { MediaStudioMode, MediaStudioModeId } from '@/features/media-studio/presentation/composables/useMediaStudioPreview'
 import type {
@@ -655,11 +719,18 @@ const props = defineProps<{
   resolution: MediaStudioVideoResolution
   videoAspectRatio: MediaStudioVideoAspectRatio
   duration: number
+  durationOptions: number[]
   imageQualityOptions: MediaStudioParameterOption[]
   groupOptions: MediaStudioGroupOption[]
   loadingGroups: boolean
   groupLoadError: string
   imageAttachments: MediaStudioImageAttachment[]
+  imageAttachmentLimits: MediaStudioImageAttachmentLimits
+  referenceAttachments: MediaStudioReferenceAttachment[]
+  referenceLimits: MediaStudioReferenceLimits
+  modelLimits: MediaStudioResolvedLimits
+  storageAvailable: boolean
+  attachmentRejection: MediaStudioAttachmentRejection | null
   modelOptions: MediaStudioModelOption[]
   attributeFields: ModelAttributeField[]
   attributeValues: ModelAttributeValues
@@ -688,7 +759,11 @@ const emit = defineEmits<{
   'update:attribute': [payload: { key: string; value: string | number | boolean | undefined }]
   selectMode: [id: MediaStudioModeId]
   reloadGroups: []
-  'update:image-attachments': [value: MediaStudioImageAttachment[]]
+  addImageAttachments: [files: File[]]
+  removeImageAttachment: [id: string]
+  addReferenceAttachments: [files: File[]]
+  removeReferenceAttachment: [id: string]
+  retryReferenceUpload: [id: string]
   reloadModels: []
   submit: []
   retry: [message: MediaStudioMessage]
@@ -708,7 +783,6 @@ const selectedImage = ref<MediaStudioGeneratedImagePreview | null>(null)
 const promptInputRef = ref<HTMLTextAreaElement | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 const draggingPage = ref(false)
-const attachmentError = ref('')
 let dragDepth = 0
 const customAspectRatioDialogOpen = ref(false)
 const selectionMode = ref(false)
@@ -724,7 +798,40 @@ const imageResolutionOptions: MediaStudioImageResolution[] = ['1K', '2K', '4K']
 const imageAspectRatioOptions: MediaStudioImageAspectRatio[] = ['1:1', '3:2', '2:3', '4:3', '3:4', '16:9', '9:16']
 const resolutionOptions: MediaStudioVideoResolution[] = ['480p', '720p', '1080p']
 const videoAspectRatioOptions: MediaStudioVideoAspectRatio[] = ['16:9', '9:16', '1:1', '4:3', '3:4']
-const durationOptions = Array.from({ length: 15 }, (_, index) => index + 1)
+
+const uploadAccept = computed(() => (
+  props.selectedModeId === 'image' ? 'image/*' : mediaStudioUploadAccept(props.modelLimits)
+))
+// 图片模式只关心图片是否可用；视频模式只要还有任意一种参考素材可上传就放开入口。
+const modeUploadEnabled = computed(() => (
+  props.selectedModeId === 'image'
+    ? mediaStudioKindEnabled(props.modelLimits, 'image')
+    : props.referenceLimits.enabled.length > 0
+))
+const canUpload = computed(() => props.storageAvailable && modeUploadEnabled.value)
+const uploadHint = computed(() => {
+  if (!props.storageAvailable) return t('mediaStudio.composer.upload.storageUnavailable')
+  if (!props.modelLimits.allowUpload) return t('mediaStudio.composer.upload.disabled')
+  if (!modeUploadEnabled.value) return t('mediaStudio.composer.upload.noTypes')
+  return t('mediaStudio.composer.upload.addHint')
+})
+const uploadBadge = computed(() => {
+  if (!canUpload.value) return ''
+  if (props.selectedModeId === 'image') {
+    return `${props.imageAttachments.length}/${props.imageAttachmentLimits.maxFiles}`
+  }
+  const capacity = props.referenceLimits.enabled
+    .reduce((total, kind) => total + props.referenceLimits.maxFiles[kind], 0)
+  return capacity > 0 ? `${props.referenceAttachments.length}/${capacity}` : ''
+})
+const attachmentErrorText = computed(() => {
+  const rejection = props.attachmentRejection
+  if (!rejection) return ''
+  return t(`mediaStudio.composer.upload.rejections.${rejection.reason}`, {
+    name: rejection.name,
+    limit: rejection.limit,
+  })
+})
 
 function selectMode(id: MediaStudioModeId) {
   const mode = props.modes.find(item => item.id === id)
@@ -759,10 +866,12 @@ function startImageEdit(image: MediaStudioGeneratedImagePreview) {
 }
 
 function addFiles(files: File[]) {
-  if (props.selectedModeId !== 'image' || files.length === 0) return
-  const result = addMediaStudioImageAttachments(props.imageAttachments, files)
-  attachmentError.value = result.rejected[0] || ''
-  emit('update:image-attachments', result.attachments)
+  if (!canUpload.value || files.length === 0) return
+  if (props.selectedModeId === 'image') {
+    emit('addImageAttachments', files)
+    return
+  }
+  emit('addReferenceAttachments', files)
 }
 
 function handleFileInput(event: Event) {
@@ -771,39 +880,36 @@ function handleFileInput(event: Event) {
   input.value = ''
 }
 
-function removeAttachment(id: string) {
-  emit('update:image-attachments', props.imageAttachments.filter(attachment => attachment.id !== id))
-}
-
 function hasDraggedFiles(event: DragEvent): boolean {
   return Array.from(event.dataTransfer?.types || []).includes('Files')
 }
 
 function handlePageDragEnter(event: DragEvent) {
-  if (props.selectedModeId !== 'image' || !hasDraggedFiles(event)) return
+  if (!canUpload.value || !hasDraggedFiles(event)) return
   dragDepth += 1
   draggingPage.value = true
 }
 
 function handlePageDragOver(event: DragEvent) {
-  if (props.selectedModeId === 'image' && hasDraggedFiles(event)) draggingPage.value = true
+  if (canUpload.value && hasDraggedFiles(event)) draggingPage.value = true
 }
 
 function handlePageDragLeave(event: DragEvent) {
-  if (props.selectedModeId !== 'image' || !hasDraggedFiles(event)) return
+  if (!hasDraggedFiles(event)) return
   dragDepth = Math.max(0, dragDepth - 1)
   if (dragDepth === 0) draggingPage.value = false
 }
 
 function handlePageDrop(event: DragEvent) {
-  if (props.selectedModeId !== 'image') return
   dragDepth = 0
   draggingPage.value = false
+  if (!canUpload.value) return
   addFiles(Array.from(event.dataTransfer?.files || []))
 }
 
 function handlePaste(event: ClipboardEvent) {
-  if (props.selectedModeId !== 'image') return
+  // 剪贴板只可能是图片，视频模式不走粘贴。
+  if (props.selectedModeId !== 'image' || !canUpload.value) return
   const files = Array.from(event.clipboardData?.items || [])
     .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
     .map(item => item.getAsFile())

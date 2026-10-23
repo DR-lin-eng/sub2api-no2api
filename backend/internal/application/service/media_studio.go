@@ -5,15 +5,23 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"path"
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/google/uuid"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
 )
 
 const SettingKeyMediaStudioGroupRoutes = "media_studio_group_routes"
 const MediaStudioAPIKeyName = "Media Studio"
+
+// MaxMediaStudioUploadBytes 是单个参考素材上传的硬上限，避免把超大文件读入内存。
+// 与默认的 server.max_request_body_size（256MB）保持一致。
+const MaxMediaStudioUploadBytes = 256 << 20
 
 var (
 	ErrMediaStudioGroupRouteInvalid = infraerrors.BadRequest(
@@ -23,6 +31,14 @@ var (
 	ErrMediaStudioGroupUnavailable = infraerrors.Forbidden(
 		"MEDIA_STUDIO_GROUP_UNAVAILABLE",
 		"media studio group is not available",
+	)
+	ErrMediaStudioUploadRejected = infraerrors.BadRequest(
+		"MEDIA_STUDIO_UPLOAD_REJECTED",
+		"media studio upload rejected by model limits",
+	)
+	ErrMediaStudioStorageUnavailable = infraerrors.ServiceUnavailable(
+		"MEDIA_STUDIO_STORAGE_UNAVAILABLE",
+		"media studio object storage is not configured",
 	)
 )
 
@@ -44,6 +60,8 @@ type MediaStudioGroupOption struct {
 
 type MediaStudioConfig struct {
 	Groups []MediaStudioGroupOption `json:"groups"`
+	// StorageAvailable 表示对象存储是否可用；前端据此决定参考素材上传入口是否可点。
+	StorageAvailable bool `json:"storage_available"`
 }
 
 type MediaStudioGroupRoutes []MediaStudioGroupRoute
@@ -53,6 +71,7 @@ type MediaStudioService struct {
 	groupRepo               GroupRepository
 	apiKeyService           *APIKeyService
 	customModelCapabilities CustomModelCapabilityResolver
+	imageStorage            *ImageStorageSettingService
 	keyMu                   sync.Mutex
 }
 
@@ -61,12 +80,14 @@ func NewMediaStudioService(
 	groupRepo GroupRepository,
 	apiKeyService *APIKeyService,
 	customModelCapabilities CustomModelCapabilityResolver,
+	imageStorage *ImageStorageSettingService,
 ) *MediaStudioService {
 	return &MediaStudioService{
 		settingRepo:             settingRepo,
 		groupRepo:               groupRepo,
 		apiKeyService:           apiKeyService,
 		customModelCapabilities: customModelCapabilities,
+		imageStorage:            imageStorage,
 	}
 }
 
@@ -75,12 +96,14 @@ func ProvideMediaStudioService(
 	groupRepo GroupRepository,
 	apiKeyService *APIKeyService,
 	customModelCapabilities CustomModelCapabilityResolver,
+	imageStorage *ImageStorageSettingService,
 ) *MediaStudioService {
 	return NewMediaStudioService(
 		settingRepo,
 		groupRepo,
 		apiKeyService,
 		customModelCapabilities,
+		imageStorage,
 	)
 }
 
@@ -165,7 +188,7 @@ func (s *MediaStudioService) GetAvailableGroups(ctx context.Context, userID int6
 		return nil, err
 	}
 	if s.apiKeyService == nil {
-		return &MediaStudioConfig{}, nil
+		return &MediaStudioConfig{StorageAvailable: s.storageAvailable()}, nil
 	}
 
 	available, err := s.apiKeyService.GetAvailableGroups(ctx, userID)
@@ -178,13 +201,23 @@ func (s *MediaStudioService) GetAvailableGroups(ctx context.Context, userID int6
 	}
 
 	return &MediaStudioConfig{
-		Groups: s.resolveGroupOptions(routes, availableByID),
+		Groups:           s.resolveGroupOptions(routes, availableByID),
+		StorageAvailable: s.storageAvailable(),
 	}, nil
+}
+
+func (s *MediaStudioService) storageAvailable() bool {
+	if s.imageStorage == nil {
+		return false
+	}
+	_, ok := s.imageStorage.Storage()
+	return ok
 }
 
 type MediaStudioModel struct {
 	ID         string         `json:"id"`
 	Attributes map[string]any `json:"attributes,omitempty"`
+	Limits     map[string]any `json:"limits,omitempty"`
 }
 
 func (s *MediaStudioService) ListModels(
@@ -235,9 +268,174 @@ func (s *MediaStudioService) ListModels(
 				item.Attributes = block
 			}
 		}
+		limits, limitsConfigured, err := s.customModelCapabilities.ResolveMediaLimits(ctx, model)
+		if err != nil {
+			return nil, fmt.Errorf("resolve media model limits: %w", err)
+		}
+		if limitsConfigured {
+			item.Limits = limits
+		}
 		models = append(models, item)
 	}
 	return models, nil
+}
+
+// MediaStudioUpload 是一次参考素材上传的结果，URL 可直接作为视频/图片请求的参考地址。
+type MediaStudioUpload struct {
+	URL         string `json:"url"`
+	Name        string `json:"name"`
+	Kind        string `json:"kind"`
+	Size        int64  `json:"size"`
+	ContentType string `json:"content_type"`
+}
+
+// UploadFile 把用户选择的参考素材写入对象存储并返回可访问 URL。
+// 模型配置了媒体限制时按 allow_upload、file_types、max_files、max_file_size_mb 校验。
+func (s *MediaStudioService) UploadFile(
+	ctx context.Context,
+	userID int64,
+	modelName string,
+	kind string,
+	fileName string,
+	contentType string,
+	data []byte,
+) (*MediaStudioUpload, error) {
+	kind = normalizeMediaStudioMediaType(kind)
+	if kind == "" || len(data) == 0 {
+		return nil, ErrMediaStudioUploadRejected
+	}
+	if len(data) > MaxMediaStudioUploadBytes {
+		return nil, ErrMediaStudioUploadRejected
+	}
+	if err := s.validateUploadLimits(ctx, modelName, kind, int64(len(data))); err != nil {
+		return nil, err
+	}
+	if s.imageStorage == nil {
+		return nil, ErrMediaStudioStorageUnavailable
+	}
+	storage, ok := s.imageStorage.Storage()
+	if !ok {
+		return nil, ErrMediaStudioStorageUnavailable
+	}
+
+	if strings.TrimSpace(contentType) == "" {
+		contentType = http.DetectContentType(data)
+	}
+	key := fmt.Sprintf(
+		"media-studio/uploads/%d/%s%s",
+		userID,
+		uuid.NewString(),
+		mediaStudioUploadExtension(fileName, contentType),
+	)
+	url, err := storage.Save(ctx, key, contentType, data)
+	if err != nil {
+		return nil, fmt.Errorf("save media studio upload: %w", err)
+	}
+	return &MediaStudioUpload{
+		URL:         url,
+		Name:        strings.TrimSpace(fileName),
+		Kind:        kind,
+		Size:        int64(len(data)),
+		ContentType: contentType,
+	}, nil
+}
+
+func (s *MediaStudioService) validateUploadLimits(
+	ctx context.Context,
+	modelName string,
+	kind string,
+	size int64,
+) error {
+	modelName = strings.TrimSpace(modelName)
+	if modelName == "" || s.customModelCapabilities == nil {
+		return nil
+	}
+	limits, configured, err := s.customModelCapabilities.ResolveMediaLimits(ctx, modelName)
+	if err != nil {
+		return fmt.Errorf("resolve media model limits: %w", err)
+	}
+	if !configured {
+		return nil
+	}
+	if allow, ok := limits["allow_upload"].(bool); ok && !allow {
+		return ErrMediaStudioUploadRejected
+	}
+	if allowed, declared := mediaStudioLimitFileType(limits, kind); declared && !allowed {
+		return ErrMediaStudioUploadRejected
+	}
+	if maxFiles, ok := mediaStudioLimitCount(limits, "max_files", kind); ok && maxFiles <= 0 {
+		return ErrMediaStudioUploadRejected
+	}
+	if maxSizeMB, ok := mediaStudioLimitCount(limits, "max_file_size_mb", kind); ok {
+		if maxSizeMB <= 0 || size > int64(maxSizeMB)<<20 {
+			return ErrMediaStudioUploadRejected
+		}
+	}
+	return nil
+}
+
+func mediaStudioLimitFileType(limits map[string]any, kind string) (bool, bool) {
+	switch list := limits["file_types"].(type) {
+	case []string:
+		for _, item := range list {
+			if item == kind {
+				return true, true
+			}
+		}
+		return false, true
+	case []any:
+		for _, item := range list {
+			if value, ok := item.(string); ok && value == kind {
+				return true, true
+			}
+		}
+		return false, true
+	default:
+		return false, false
+	}
+}
+
+func mediaStudioLimitCount(limits map[string]any, key, kind string) (int, bool) {
+	switch raw := limits[key].(type) {
+	case map[string]any:
+		value, ok := raw[kind]
+		if !ok {
+			return 0, false
+		}
+		return customModelJSONInt(value)
+	case map[string]int:
+		count, ok := raw[kind]
+		return count, ok
+	default:
+		return 0, false
+	}
+}
+
+var mediaStudioContentTypeExtensions = map[string]string{
+	"image/jpeg":      ".jpg",
+	"image/jpg":       ".jpg",
+	"image/png":       ".png",
+	"image/webp":      ".webp",
+	"image/gif":       ".gif",
+	"video/mp4":       ".mp4",
+	"video/quicktime": ".mov",
+	"video/webm":      ".webm",
+	"video/x-matroska": ".mkv",
+	"audio/mpeg":      ".mp3",
+	"audio/mp3":       ".mp3",
+	"audio/wav":       ".wav",
+	"audio/x-wav":     ".wav",
+	"audio/ogg":       ".ogg",
+	"audio/aac":       ".aac",
+	"audio/mp4":       ".m4a",
+}
+
+func mediaStudioUploadExtension(fileName, contentType string) string {
+	if ext := strings.ToLower(path.Ext(strings.TrimSpace(fileName))); ext != "" && len(ext) <= 8 {
+		return ext
+	}
+	mediaType := strings.ToLower(strings.TrimSpace(strings.Split(contentType, ";")[0]))
+	return mediaStudioContentTypeExtensions[mediaType]
 }
 
 func (s *MediaStudioService) EnsureAPIKey(

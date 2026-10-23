@@ -8,15 +8,16 @@ import (
 )
 
 type CustomModelConfig struct {
-	ID           int64     `json:"id"`
-	ModelName    string    `json:"model_name"`
-	PrefixMatch  bool      `json:"prefix_match"`
-	Capabilities []string  `json:"capabilities"`
-	TemplateID   *int64    `json:"template_id,omitempty"`
-	TemplateName string    `json:"template_name,omitempty"`
-	VideoAPIType string    `json:"video_api_type,omitempty"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID           int64          `json:"id"`
+	ModelName    string         `json:"model_name"`
+	PrefixMatch  bool           `json:"prefix_match"`
+	Capabilities []string       `json:"capabilities"`
+	TemplateID   *int64         `json:"template_id,omitempty"`
+	TemplateName string         `json:"template_name,omitempty"`
+	VideoAPIType string         `json:"video_api_type,omitempty"`
+	MediaLimits  map[string]any `json:"media_limits"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
 }
 
 type CustomModelRequestTemplate struct {
@@ -30,11 +31,12 @@ type CustomModelRequestTemplate struct {
 }
 
 type CreateCustomModelConfigRequest struct {
-	ModelName    string   `json:"model_name" binding:"required"`
-	PrefixMatch  bool     `json:"prefix_match"`
-	Capabilities []string `json:"capabilities"`
-	TemplateID   *int64   `json:"template_id"`
-	VideoAPIType string   `json:"video_api_type"`
+	ModelName    string         `json:"model_name" binding:"required"`
+	PrefixMatch  bool           `json:"prefix_match"`
+	Capabilities []string       `json:"capabilities"`
+	TemplateID   *int64         `json:"template_id"`
+	VideoAPIType string         `json:"video_api_type"`
+	MediaLimits  map[string]any `json:"media_limits"`
 }
 
 type UpdateCustomModelConfigRequest struct {
@@ -42,6 +44,7 @@ type UpdateCustomModelConfigRequest struct {
 	Capabilities *[]string       `json:"capabilities"`
 	TemplateID   json.RawMessage `json:"template_id"`
 	VideoAPIType json.RawMessage `json:"video_api_type"`
+	MediaLimits  json.RawMessage `json:"media_limits"`
 }
 
 func CustomModelConfigFromService(item *service.CustomModelConfig) *CustomModelConfig {
@@ -56,6 +59,7 @@ func CustomModelConfigFromService(item *service.CustomModelConfig) *CustomModelC
 		TemplateID:   item.TemplateID,
 		TemplateName: item.TemplateName,
 		VideoAPIType: item.VideoAPIType,
+		MediaLimits:  item.MediaLimits,
 		CreatedAt:    item.CreatedAt,
 		UpdatedAt:    item.UpdatedAt,
 	}
