@@ -68,6 +68,11 @@ failover，service 层不会先写 JSON，因此不会再和外层 `response.fai
 账号，若 401 的结构化错误码为 `token_expired`，网关会先按一次有界的 refresh-token 恢复重试同一账号；
 只有刷新失败或再次 401 才进入这条 HTTP 回退/账号 failover 路径。
 
+请求级容量错误可从 HTTP `Retry-After` / `Retry-After-Ms` 或 SSE/WS 错误体的同名字段读取等待提示。
+提示作为现有同账号指数退避的下限，单次最多 8 秒，不增加重试次数；取消请求会立即结束等待。
+普通错误不采用该提示，已提交语义输出的请求仍不重放。该行为与显式 UA 的保留相互独立；
+上游 #8305 的 TUI 强制改写不适用于本项目已关闭的 Desktop/显式身份契约。
+
 透传路径的恢复重试使用请求级总 attempt budget，不会在每次切换账号后重新获得完整的同账号重试次数。
 带显式 `store:true`、图片生成意图、`previous_response_id` 或工具输出的请求不做无法证明幂等的传输重放。
 首语义输出前的 SSE keepalive 可以先提交 200；此时账号响应元数据通过预声明的 HTTP trailer 发送，

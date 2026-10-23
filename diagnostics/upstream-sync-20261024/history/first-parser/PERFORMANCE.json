@@ -1,0 +1,400 @@
+{
+  "resource_limits": "2 CPUs / 3 GiB; GOMAXPROCS=2; same fixed fixtures; serial after CPU-heavy checks",
+  "scope": "Error construction and unchanged semantic text classification only; does not estimate live provider or gateway throughput. Retry waits are intentional server-directed latency.",
+  "states": {
+    "BASELINE": {
+      "ordinary": {
+        "median_ns": 681.9,
+        "bytes": 248,
+        "allocs": 5,
+        "samples": [
+          [
+            702.3,
+            248,
+            5
+          ],
+          [
+            684.9,
+            248,
+            5
+          ],
+          [
+            680.1,
+            248,
+            5
+          ],
+          [
+            680.7,
+            248,
+            5
+          ],
+          [
+            681.9,
+            248,
+            5
+          ]
+        ]
+      },
+      "capacity_no_hint": {
+        "median_ns": 333.4,
+        "bytes": 152,
+        "allocs": 2,
+        "samples": [
+          [
+            333.4,
+            152,
+            2
+          ],
+          [
+            332.7,
+            152,
+            2
+          ],
+          [
+            332.1,
+            152,
+            2
+          ],
+          [
+            339.4,
+            152,
+            2
+          ],
+          [
+            344.1,
+            152,
+            2
+          ]
+        ]
+      },
+      "capacity_header": {
+        "median_ns": 518.2,
+        "bytes": 568,
+        "allocs": 5,
+        "samples": [
+          [
+            523.0,
+            568,
+            5
+          ],
+          [
+            518.2,
+            568,
+            5
+          ],
+          [
+            530.2,
+            568,
+            5
+          ],
+          [
+            512.1,
+            568,
+            5
+          ],
+          [
+            510.9,
+            568,
+            5
+          ]
+        ]
+      },
+      "text_delta": {
+        "median_ns": 63.97,
+        "bytes": 0,
+        "allocs": 0,
+        "samples": [
+          [
+            64.03,
+            0,
+            0
+          ],
+          [
+            63.97,
+            0,
+            0
+          ],
+          [
+            63.44,
+            0,
+            0
+          ],
+          [
+            64.38,
+            0,
+            0
+          ],
+          [
+            63.79,
+            0,
+            0
+          ]
+        ]
+      }
+    },
+    "MODIFIED": {
+      "ordinary": {
+        "median_ns": 688.0,
+        "bytes": 264,
+        "allocs": 5,
+        "samples": [
+          [
+            691.9,
+            264,
+            5
+          ],
+          [
+            688.9,
+            264,
+            5
+          ],
+          [
+            682.6,
+            264,
+            5
+          ],
+          [
+            688.0,
+            264,
+            5
+          ],
+          [
+            679.6,
+            264,
+            5
+          ]
+        ],
+        "change_percent": 0.8945593195483159
+      },
+      "capacity_no_hint": {
+        "median_ns": 560.5,
+        "bytes": 168,
+        "allocs": 2,
+        "samples": [
+          [
+            561.0,
+            168,
+            2
+          ],
+          [
+            560.5,
+            168,
+            2
+          ],
+          [
+            559.3,
+            168,
+            2
+          ],
+          [
+            561.3,
+            168,
+            2
+          ],
+          [
+            560.5,
+            168,
+            2
+          ]
+        ],
+        "change_percent": 68.11637672465507
+      },
+      "capacity_header": {
+        "median_ns": 563.6,
+        "bytes": 584,
+        "allocs": 5,
+        "samples": [
+          [
+            559.1,
+            584,
+            5
+          ],
+          [
+            558.1,
+            584,
+            5
+          ],
+          [
+            563.6,
+            584,
+            5
+          ],
+          [
+            576.2,
+            584,
+            5
+          ],
+          [
+            572.7,
+            584,
+            5
+          ]
+        ],
+        "change_percent": 8.761096101891152
+      },
+      "text_delta": {
+        "median_ns": 67.22,
+        "bytes": 0,
+        "allocs": 0,
+        "samples": [
+          [
+            68.57,
+            0,
+            0
+          ],
+          [
+            66.82,
+            0,
+            0
+          ],
+          [
+            66.77,
+            0,
+            0
+          ],
+          [
+            67.22,
+            0,
+            0
+          ],
+          [
+            67.63,
+            0,
+            0
+          ]
+        ],
+        "change_percent": 5.080506487415981
+      }
+    },
+    "ROLLBACK": {
+      "ordinary": {
+        "median_ns": 690.7,
+        "bytes": 248,
+        "allocs": 5,
+        "samples": [
+          [
+            690.7,
+            248,
+            5
+          ],
+          [
+            686.6,
+            248,
+            5
+          ],
+          [
+            690.8,
+            248,
+            5
+          ],
+          [
+            692.2,
+            248,
+            5
+          ],
+          [
+            689.9,
+            248,
+            5
+          ]
+        ]
+      },
+      "capacity_no_hint": {
+        "median_ns": 336.3,
+        "bytes": 152,
+        "allocs": 2,
+        "samples": [
+          [
+            336.3,
+            152,
+            2
+          ],
+          [
+            338.9,
+            152,
+            2
+          ],
+          [
+            335.3,
+            152,
+            2
+          ],
+          [
+            338.3,
+            152,
+            2
+          ],
+          [
+            335.8,
+            152,
+            2
+          ]
+        ]
+      },
+      "capacity_header": {
+        "median_ns": 524.8,
+        "bytes": 568,
+        "allocs": 5,
+        "samples": [
+          [
+            524.8,
+            568,
+            5
+          ],
+          [
+            526.5,
+            568,
+            5
+          ],
+          [
+            522.9,
+            568,
+            5
+          ],
+          [
+            524.5,
+            568,
+            5
+          ],
+          [
+            524.8,
+            568,
+            5
+          ]
+        ]
+      },
+      "text_delta": {
+        "median_ns": 63.58,
+        "bytes": 0,
+        "allocs": 0,
+        "samples": [
+          [
+            63.82,
+            0,
+            0
+          ],
+          [
+            63.58,
+            0,
+            0
+          ],
+          [
+            63.49,
+            0,
+            0
+          ],
+          [
+            63.55,
+            0,
+            0
+          ],
+          [
+            65.6,
+            0,
+            0
+          ]
+        ]
+      }
+    }
+  }
+}

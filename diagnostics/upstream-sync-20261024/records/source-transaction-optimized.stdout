@@ -1,0 +1,10 @@
+ROLLBACK_RESTORED=/private/tmp/sub2api-sync-20261024-3998-mavjgvgk/ROLLBACK_TARGET
+{
+  "baseline_and_restored_sha256": "1cf148cf1ba019ddc19996aba64edd71464a2213364352128d3ab6d752f10b89",
+  "paths": 12,
+  "patch_reconstruction": "PASS",
+  "archive_reconstruction": "PASS",
+  "restored_equals_original": true,
+  "rollback_stdout": "ROLLBACK_RESTORED=/private/tmp/sub2api-sync-20261024-3998-mavjgvgk/ROLLBACK_TARGET\n",
+  "original_workspace_status": ""
+}

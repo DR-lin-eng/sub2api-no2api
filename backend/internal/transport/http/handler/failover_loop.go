@@ -50,18 +50,21 @@ const (
 const profitVetoExhaustedMessage = "No available accounts: all candidates rejected by group profit control"
 
 func sameAccountRetryDelayFor(failoverErr *service.UpstreamFailoverError, retryCount int) time.Duration {
-	if failoverErr == nil || failoverErr.Scope != service.GatewayFailureScopeRequest || retryCount <= 1 {
+	if failoverErr == nil || failoverErr.Scope != service.GatewayFailureScopeRequest {
 		return sameAccountRetryDelay
 	}
 
 	delay := sameAccountRetryDelay
 	for i := 1; i < retryCount; i++ {
 		if delay >= maxRequestScopedRetryDelay/2 {
-			return maxRequestScopedRetryDelay
+			delay = maxRequestScopedRetryDelay
+			break
 		}
 		delay *= 2
 	}
-	return delay
+	// The hint is a floor on the existing backoff, within the same wait cap.
+	// Callers retain their attempt budgets and context-cancelable sleep.
+	return min(max(delay, failoverErr.SameAccountRetryDelay), maxRequestScopedRetryDelay)
 }
 
 // FailoverState 跨循环迭代共享的 failover 状态

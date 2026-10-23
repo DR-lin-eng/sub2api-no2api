@@ -1,0 +1,698 @@
+diff --git a/backend/internal/pkg/openai/request.go b/backend/internal/pkg/openai/request.go
+index 8ddf8d188..15d4bd14c 100644
+--- a/backend/internal/pkg/openai/request.go
++++ b/backend/internal/pkg/openai/request.go
+@@ -49,7 +49,7 @@ const codexOfficialClientFamilyPrefix = "codex "
+ // 或在 bump context/codex 时同步补入本集合。
+ var codexOfficialClientOriginators = map[string]bool{
+ 	"codex_cli_rs":          true, // CLI 默认 DEFAULT_ORIGINATOR
+-	"codex-tui":             true, // 交互式 TUI（连字符，真实流量占比最高）
++	CodexTUIOriginator:      true, // 交互式 TUI（连字符，真实流量占比最高）
+ 	"codex_vscode":          true, // VSCode/Cursor 扩展
+ 	"codex_vscode_copilot":  true, // 扩展 GitHub Copilot 集成模式
+ 	"codex_app":             true, // 历史保留
+@@ -259,11 +259,43 @@ func canonicalizeCodexOriginator(name string) string {
+ 	return name
+ }
+ 
+-// CodexCLIOriginator 是 codex-rs 客户端的历史默认 originator，保留用于兼容识别。
++// CodexCLIOriginator 是 codex-rs 客户端的默认 originator。
+ const CodexCLIOriginator = "codex_cli_rs"
+ 
+-// CodexDefaultOriginator 是网关默认使用的 Codex TUI originator。
+-const CodexDefaultOriginator = "codex-tui"
++// CodexTUIOriginator 是交互式 Codex TUI 使用的 originator。
++const CodexTUIOriginator = "codex-tui"
++
++// CodexDefaultOriginator 是网关默认发送的 Codex originator。
++// 历史 TUI 身份曾触发上游的身份风控分层，因此默认使用 CLI 身份；TUI 仍保留在官方身份集合中，
++// 供入站识别和兼容归一化。
++const CodexDefaultOriginator = CodexCLIOriginator
++
++// NormalizeCodexClientIdentityToCLI 将已配对的 TUI 身份归一为 CLI 身份。
++// sub2api 历史默认 UA 使用 codex-tui；上游仓库的 #5198 记录了该身份会收到
++// server_is_overloaded，而相同请求改用 codex_cli_rs 可以成功。归一化必须同时改写
++// originator 和 User-Agent 首段，避免触发 #3901 的身份配对校验。
++//
++// 版本、操作系统、架构和终端指纹保持不变；尾部 `(name; version)` 客户端标识组
++// 属于 TUI 身份时移除，因为真实 CLI UA 不携带该组。
++func NormalizeCodexClientIdentityToCLI(originator, userAgent string) (string, string, bool) {
++	if !strings.EqualFold(strings.TrimSpace(originator), CodexTUIOriginator) {
++		return originator, userAgent, false
++	}
++
++	ua := strings.TrimSpace(userAgent)
++	slash := strings.IndexByte(ua, '/')
++	if slash <= 0 {
++		return CodexCLIOriginator, ua, true
++	}
++
++	rest := ua[slash:]
++	if trailer := codexUATrailerName(ua); trailer != "" && IsCodexOfficialClientOriginator(trailer) {
++		if open := strings.LastIndex(rest, "("); open > 0 {
++			rest = strings.TrimRight(rest[:open], " ")
++		}
++	}
++	return CodexCLIOriginator, CodexCLIOriginator + rest, true
++}
+ 
+ // CodexUserAgentVersion 提取 Codex UA 的完整版本段，即 `{client}/{version} (...` 中的 version。
+ // 与 ParseCodexEngineVersion 的区别：后者只取三段数字用于引擎版本比较（会丢掉 -alpha.4
+diff --git a/backend/internal/pkg/openai/request_codex_identity_normalization_test.go b/backend/internal/pkg/openai/request_codex_identity_normalization_test.go
+new file mode 100644
+index 000000000..a2d0b357d
+--- /dev/null
++++ b/backend/internal/pkg/openai/request_codex_identity_normalization_test.go
+@@ -0,0 +1,78 @@
++package openai
++
++import (
++	"testing"
++
++	"github.com/stretchr/testify/require"
++)
++
++func TestNormalizeCodexClientIdentityToCLI(t *testing.T) {
++	tests := []struct {
++		name           string
++		originator     string
++		userAgent      string
++		wantOriginator string
++		wantUserAgent  string
++		wantChanged    bool
++	}{
++		{
++			name:           "TUI 完整身份",
++			originator:     CodexTUIOriginator,
++			userAgent:      "codex-tui/0.163.0 (Windows 11; x86_64) WindowsTerminal (codex-tui; 0.163.0)",
++			wantOriginator: CodexCLIOriginator,
++			wantUserAgent:  "codex_cli_rs/0.163.0 (Windows 11; x86_64) WindowsTerminal",
++			wantChanged:    true,
++		},
++		{
++			name:           "TUI 只有系统指纹",
++			originator:     CodexTUIOriginator,
++			userAgent:      "codex-tui/0.163.0 (Windows 11; x86_64) WindowsTerminal",
++			wantOriginator: CodexCLIOriginator,
++			wantUserAgent:  "codex_cli_rs/0.163.0 (Windows 11; x86_64) WindowsTerminal",
++			wantChanged:    true,
++		},
++		{
++			name:           "CLI 身份保持不变",
++			originator:     CodexCLIOriginator,
++			userAgent:      "codex_cli_rs/0.163.0 (Windows 11; x86_64) WindowsTerminal",
++			wantOriginator: CodexCLIOriginator,
++			wantUserAgent:  "codex_cli_rs/0.163.0 (Windows 11; x86_64) WindowsTerminal",
++			wantChanged:    false,
++		},
++		{
++			name:           "其他官方客户端保持不变",
++			originator:     "codex_vscode",
++			userAgent:      "codex_vscode/0.163.0 (Windows 11; x86_64) vscode (codex_vscode; 0.163.0)",
++			wantOriginator: "codex_vscode",
++			wantUserAgent:  "codex_vscode/0.163.0 (Windows 11; x86_64) vscode (codex_vscode; 0.163.0)",
++			wantChanged:    false,
++		},
++	}
++
++	for _, test := range tests {
++		t.Run(test.name, func(t *testing.T) {
++			originator, userAgent, changed := NormalizeCodexClientIdentityToCLI(test.originator, test.userAgent)
++			require.Equal(t, test.wantOriginator, originator)
++			require.Equal(t, test.wantUserAgent, userAgent)
++			require.Equal(t, test.wantChanged, changed)
++		})
++	}
++}
++
++func TestNormalizeCodexClientIdentityToCLIIsPairedAndIdempotent(t *testing.T) {
++	originator, userAgent, changed := NormalizeCodexClientIdentityToCLI(
++		CodexTUIOriginator,
++		"codex-tui/0.163.0 (Windows 11; x86_64) WindowsTerminal (codex-tui; 0.163.0)",
++	)
++	require.True(t, changed)
++
++	pairedOriginator, pairedUserAgent, ok := PairCodexClientIdentity(userAgent)
++	require.True(t, ok)
++	require.Equal(t, originator, pairedOriginator)
++	require.Equal(t, userAgent, pairedUserAgent)
++
++	againOriginator, againUserAgent, changedAgain := NormalizeCodexClientIdentityToCLI(originator, userAgent)
++	require.False(t, changedAgain)
++	require.Equal(t, originator, againOriginator)
++	require.Equal(t, userAgent, againUserAgent)
++}
+diff --git a/backend/internal/service/openai_capacity_shed_test.go b/backend/internal/service/openai_capacity_shed_test.go
+index 086f7380e..6737e42cb 100644
+--- a/backend/internal/service/openai_capacity_shed_test.go
++++ b/backend/internal/service/openai_capacity_shed_test.go
+@@ -3,6 +3,7 @@ package service
+ import (
+ 	"context"
+ 	"errors"
++	"fmt"
+ 	"io"
+ 	"net/http"
+ 	"net/http/httptest"
+@@ -14,6 +15,7 @@ import (
+ 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
+ 	"github.com/gin-gonic/gin"
+ 	"github.com/stretchr/testify/require"
++	"github.com/tidwall/gjson"
+ )
+ 
+ // --- mock: 只记录临时不可调度写入，其余方法不应被调用 ---
+@@ -108,6 +110,33 @@ func TestOpenAIHTTPCapacityShedIsRequestScopedForOAuthAccounts(t *testing.T) {
+ 	require.Zero(t, repo.tempUnschedCalls)
+ }
+ 
++func TestOpenAICapacityShedHonorsRetryAfter(t *testing.T) {
++	for _, test := range []struct {
++		name    string
++		headers http.Header
++		body    string
++		want    time.Duration
++	}{
++		{name: "http seconds", headers: http.Header{"Retry-After": []string{"6"}}, want: 6 * time.Second},
++		{name: "http milliseconds", headers: http.Header{"Retry-After-Ms": []string{"6000"}}, want: 6 * time.Second},
++		{name: "body seconds", body: `{"error":{"headers":{"retry-after":"7"},"message":"Our servers are currently overloaded. Please try again later."}}`, want: 7 * time.Second},
++		{name: "body milliseconds", body: `{"response":{"error":{"headers":{"retry-after-ms":"7000"},"message":"Our servers are currently overloaded. Please try again later."}}}`, want: 7 * time.Second},
++		{name: "bounded", headers: http.Header{"Retry-After": []string{"60"}}, want: openAIRequestScopedRetryMaxDelay},
++	} {
++		t.Run(test.name, func(t *testing.T) {
++			failoverErr := newOpenAIUpstreamFailoverError(
++				http.StatusServiceUnavailable,
++				test.headers,
++				[]byte(test.body),
++				"Our servers are currently overloaded. Please try again later.",
++				false,
++			)
++			require.True(t, failoverErr.RequestScopedTransient)
++			require.Equal(t, test.want, failoverErr.SameAccountRetryDelay)
++		})
++	}
++}
++
+ // 上游降载的真实序列是「event: error → event: response.failed」。error 帧不算
+ // 客户端输出：若把它当首输出 flush，clientOutputStarted 被固化，随后的 failed
+ // 事件就进不了 pre-output failover 分支，只能把致命错误原样转发给客户端。
+@@ -218,6 +247,69 @@ func TestOpenAIStreamMetadataAndKeepaliveBeforeOverloadFailOver(t *testing.T) {
+ 	}
+ }
+ 
++func TestOpenAIStreamEmptyContentBeforeFailureCanFailOver(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	for _, payload := range []string{
++		`{"type":"response.output_text.delta","delta":""}`,
++		`{"type":"response.reasoning_summary_text.delta","delta":""}`,
++		`{"type":"response.reasoning_text.delta","delta":""}`,
++		`{"type":"response.function_call_arguments.delta","delta":""}`,
++		`{"type":"response.custom_tool_call_input.delta","delta":""}`,
++		`{"type":"response.output_text.done","text":""}`,
++		`{"type":"response.reasoning_summary_text.done","text":""}`,
++		`{"type":"response.reasoning_text.done","text":""}`,
++		`{"type":"response.refusal.delta","delta":""}`,
++		`{"type":"response.refusal.done","refusal":""}`,
++		`{"type":"response.content_part.done","part":{"type":"output_text","text":""}}`,
++		`{"type":"response.reasoning_summary_part.done","part":{"type":"summary_text","text":""}}`,
++	} {
++		for _, passthrough := range []bool{false, true} {
++			t.Run(fmt.Sprintf("%s/passthrough=%t", payload, passthrough), func(t *testing.T) {
++				svc := &OpenAIGatewayService{cfg: &config.Config{Gateway: config.GatewayConfig{MaxLineSize: defaultMaxLineSize}}}
++				rec := httptest.NewRecorder()
++				c, _ := gin.CreateTestContext(rec)
++				c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
++				resp := &http.Response{
++					StatusCode: http.StatusOK,
++					Header:     http.Header{},
++					Body: io.NopCloser(strings.NewReader("data: " + payload + "\n\n" +
++						`data: {"type":"response.failed","response":{"status":"failed","error":{"code":"server_is_overloaded","message":"Our servers are currently overloaded. Please try again later."}}}` + "\n\n")),
++				}
++				account := &Account{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
++				var err error
++				if passthrough {
++					_, err = svc.handleStreamingResponsePassthrough(c.Request.Context(), resp, c, account, time.Now(), "model", "model")
++				} else {
++					_, err = svc.handleStreamingResponse(c.Request.Context(), resp, c, account, time.Now(), "model", "model")
++				}
++				var failoverErr *UpstreamFailoverError
++				require.ErrorAs(t, err, &failoverErr)
++				require.True(t, failoverErr.RequestScopedTransient)
++				require.Empty(t, rec.Body.String())
++			})
++		}
++	}
++}
++
++func TestOpenAIStreamReplayBoundaryPreservesContentAndToolCompletion(t *testing.T) {
++	for _, payload := range []string{
++		`{"type":"response.output_text.delta","delta":" "}`,
++		`{"type":"response.function_call_arguments.delta","delta":"{}"}`,
++		`{"type":"response.custom_tool_call_input.delta","delta":"run"}`,
++		`{"type":"response.function_call_arguments.done","arguments":""}`,
++		`{"type":"response.custom_tool_call_input.done","input":""}`,
++		`{"type":"response.output_item.done","item":{"type":"function_call","arguments":""}}`,
++		`{"type":"response.output_item.done","item":{"type":"reasoning","encrypted_content":"ciphertext"}}`,
++		`{"type":"response.output_text.delta","delta":null}`,
++		`{"type":"response.output_text.delta"}`,
++		`{"type":"response.output_text.delta","delta":{}}`,
++		`{"type":"response.new_kind.delta","delta":""}`,
++	} {
++		eventType := gjson.Get(payload, "type").String()
++		require.True(t, openAIStreamDataStartsClientOutput(payload, eventType), payload)
++	}
++}
++
+ func TestOpenAIStreamKeepaliveOnlyFailureDoesNotRecordFirstToken(t *testing.T) {
+ 	gin.SetMode(gin.TestMode)
+ 	for _, passthrough := range []bool{false, true} {
+diff --git a/backend/internal/service/openai_codex_identity.go b/backend/internal/service/openai_codex_identity.go
+index 09d1717c9..fbbba4a85 100644
+--- a/backend/internal/service/openai_codex_identity.go
++++ b/backend/internal/service/openai_codex_identity.go
+@@ -32,7 +32,7 @@ func NormalizeCodexClientVersion(version string) string {
+ 	return version
+ }
+ 
+-// buildCodexCLIUserAgent 按版本号拼出规范 Codex TUI User-Agent。
++// buildCodexCLIUserAgent 按版本号拼出规范 Codex CLI User-Agent。
+ // UA 形态只在 codexCLIUserAgentSuffix 一处定义，避免多处拼装漂移。
+ func buildCodexCLIUserAgent(version string) string {
+ 	if version = NormalizeCodexClientVersion(version); version == "" {
+@@ -43,7 +43,7 @@ func buildCodexCLIUserAgent(version string) string {
+ 
+ // codexIdentityEnforcement 控制 enforceCodexIdentityHeaders 是否强制统一出站身份，
+ // 由 gateway.disable_codex_identity_enforcement 在服务构造时取反发布。
+-// 默认开启：上游在容量紧张时按客户端身份分优先级降载，被降载的请求会拿到
++// 默认开启：上游会按客户端身份进行风控分层，命中风险身份的请求会拿到
+ // HTTP 200 + 流内 server_is_overloaded，本次请求即失败；强制统一出口可确保没有
+ // 请求带着第三方或陈旧身份出站。关闭后退回「仅按最终 UA 配对 originator」的收口语义。
+ var codexIdentityEnforcement = func() *atomic.Bool {
+@@ -131,11 +131,11 @@ type codexOutboundIdentity struct {
+ }
+ 
+ // resolveCodexOutboundIdentity 由候选 User-Agent 推导自洽的出站身份。
+-// candidateUA 为空时使用规范 User-Agent；推导不出官方身份时整体回退为规范 TUI 身份。
++// candidateUA 为空时使用规范 User-Agent；推导不出官方身份时整体回退为规范 CLI 身份。
+ //
+ // 候选 UA（面板 / 账号级的管理员显式配置）只贡献客户端名与 OS / 架构 / 终端指纹，
+ // 其自带的版本段一律用当前生效版本重建：一条填写于某个历史版本的 UA 否则会把出站身份
+-// 永久钉死在陈旧版本上，绕过版本自动同步，落回上游优先降载的那一侧。
++// 永久钉死在陈旧版本上，绕过版本自动同步，落回上游身份风控更严格的一侧。
+ // 需要固定版本请填「Codex 客户端版本号」并关闭自动同步。
+ func resolveCodexOutboundIdentity(candidateUA string) codexOutboundIdentity {
+ 	canonical := codexCanonicalUserAgent()
+@@ -149,9 +149,12 @@ func resolveCodexOutboundIdentity(candidateUA string) codexOutboundIdentity {
+ 	originator, pairedUA, ok := openai.PairCodexClientIdentity(ua)
+ 	if !ok {
+ 		if originator, pairedUA, ok = openai.PairCodexClientIdentity(canonical); !ok {
+-			originator, pairedUA = openai.CodexDefaultOriginator, codexCLIUserAgent
++			originator, pairedUA = openai.CodexCLIOriginator, codexCLIUserAgent
+ 		}
+ 	}
++	// 旧配置或账号级 UA 可能仍保存 codex-tui。该身份是 sub2api 默认出口曾经
++	// 使用的风险指纹，必须与 UA 首段一起归一为 CLI，不能只替换 originator。
++	originator, pairedUA, _ = openai.NormalizeCodexClientIdentityToCLI(originator, pairedUA)
+ 	// 生效版本只有一个来源：规范身份（面板版本号 → 自动同步值 → 内置常量，见
+ 	// SettingService.GetOpenAICodexClientVersion）。UA 与 version 头由此同源派生。
+ 	version := codexClientVersionFromUA(canonical)
+@@ -206,8 +209,8 @@ func enforceCodexIdentityHeaders(h http.Header) {
+ }
+ 
+ // enforceCodexIdentityHeadersWithUA 强制统一 OAuth 出站身份：User-Agent / originator / version
+-// 一律改写为网关的规范身份，客户端自报身份不参与构造。上游在容量紧张时按客户端身份分优先级
+-// 降载，被降载的请求会拿到 HTTP 200 + 流内 server_is_overloaded；统一出口可确保没有请求带着
++// 一律改写为网关的规范身份，客户端自报身份不参与构造。上游会按客户端身份进行风控分层，
++// 命中风险身份的请求会拿到 HTTP 200 + 流内 server_is_overloaded；统一出口可确保没有请求带着
+ // 第三方或陈旧身份出站，也天然满足 originator 与 UA 首段配套的上游校验（issue #3901）。
+ //
+ // overrideUA 是账号级自定义 User-Agent：管理员的显式配置仍然生效，但只贡献客户端名与
+diff --git a/backend/internal/service/openai_codex_identity_test.go b/backend/internal/service/openai_codex_identity_test.go
+index 15768e5ea..5580375e1 100644
+--- a/backend/internal/service/openai_codex_identity_test.go
++++ b/backend/internal/service/openai_codex_identity_test.go
+@@ -174,8 +174,8 @@ func TestEnforceCodexIdentityHeadersWithAccountOverrideUA(t *testing.T) {
+ 
+ 		enforceCodexIdentityHeadersWithUA(h, "codex-tui/0.125.0 (Mac OS X 14.0; arm64) iTerm")
+ 
+-		require.Equal(t, "codex-tui", h.Get("originator"))
+-		require.Equal(t, "codex-tui/0.200.1 (Mac OS X 14.0; arm64) iTerm", h.Get("user-agent"))
++		require.Equal(t, openai.CodexCLIOriginator, h.Get("originator"))
++		require.Equal(t, "codex_cli_rs/0.200.1 (Mac OS X 14.0; arm64) iTerm", h.Get("user-agent"))
+ 		require.Equal(t, "0.200.1", h.Get("version"))
+ 	})
+ }
+diff --git a/backend/internal/service/openai_codex_version_sync_service_test.go b/backend/internal/service/openai_codex_version_sync_service_test.go
+index b78cd8cc9..76dbfe84d 100644
+--- a/backend/internal/service/openai_codex_version_sync_service_test.go
++++ b/backend/internal/service/openai_codex_version_sync_service_test.go
+@@ -7,6 +7,7 @@ import (
+ 	"testing"
+ 	"time"
+ 
++	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
+ 	"github.com/stretchr/testify/require"
+ )
+ 
+@@ -327,14 +328,14 @@ func TestGetOpenAICodexClientVersionFallsBackOnError(t *testing.T) {
+ 	require.Equal(t, codexCLIVersion, svc.GetOpenAICodexClientVersion(context.Background()))
+ }
+ 
+-// 规范 UA：面板未填完整 UA 时按当前生效版本号拼出标准 TUI 形态。
++// 规范 UA：面板未填完整 UA 时按当前生效版本号拼出标准 CLI 形态。
+ func TestGetOpenAICodexCanonicalUserAgentBuildsFromVersion(t *testing.T) {
+ 	svc := NewSettingService(&codexVersionSettingRepoStub{values: map[string]string{
+ 		SettingKeyOpenAICodexClientVersionSynced: "0.200.1",
+ 	}}, nil)
+ 
+ 	require.Equal(t,
+-		"codex-tui/0.200.1"+codexCLIUserAgentSuffix,
++		"codex_cli_rs/0.200.1"+codexCLIUserAgentSuffix,
+ 		svc.GetOpenAICodexCanonicalUserAgent(context.Background()),
+ 	)
+ }
+@@ -517,16 +518,19 @@ func TestGetOpenAICodexCanonicalUserAgentOutboundIdentity(t *testing.T) {
+ 					SettingKeyOpenAICodexClientVersion:       version.manual,
+ 					SettingKeyOpenAICodexClientVersionSynced: version.synced,
+ 				}}, nil)
+-				wantUA := buildCodexCLIUserAgent(version.want)
+-				wantOriginator := "codex-tui"
++				wantCanonicalUA := buildCodexCLIUserAgent(version.want)
++				wantUA := wantCanonicalUA
++				wantOriginator := openai.CodexDefaultOriginator
+ 				if ua.client != "" {
+ 					wantUA = ua.client + "/" + version.want + ua.suffix
++					wantCanonicalUA = wantUA
+ 					wantOriginator = ua.client
+ 				}
++				wantOriginator, wantUA, _ = openai.NormalizeCodexClientIdentityToCLI(wantOriginator, wantUA)
+ 				SetCodexCanonicalUserAgentResolver(func() string {
+ 					return svc.GetOpenAICodexCanonicalUserAgent(context.Background())
+ 				})
+-				require.Equal(t, wantUA, svc.GetOpenAICodexCanonicalUserAgent(context.Background()))
++				require.Equal(t, wantCanonicalUA, svc.GetOpenAICodexCanonicalUserAgent(context.Background()))
+ 				identity := resolveCodexOutboundIdentity("")
+ 				require.Equal(t, wantUA, identity.userAgent)
+ 				require.Equal(t, wantOriginator, identity.originator)
+diff --git a/backend/internal/service/openai_gateway_passthrough.go b/backend/internal/service/openai_gateway_passthrough.go
+index e1da46f7a..90039f052 100644
+--- a/backend/internal/service/openai_gateway_passthrough.go
++++ b/backend/internal/service/openai_gateway_passthrough.go
+@@ -1151,7 +1151,7 @@ func openAIStreamAddedEventStartsClientOutput(payload []byte, eventType string)
+ 		default:
+ 			return true
+ 		}
+-	case "response.content_part.added":
++	case "response.content_part.added", "response.content_part.done":
+ 		part := gjson.GetBytes(payload, "part")
+ 		if !part.Exists() || !part.IsObject() {
+ 			return true
+@@ -1164,7 +1164,7 @@ func openAIStreamAddedEventStartsClientOutput(payload []byte, eventType string)
+ 		default:
+ 			return true
+ 		}
+-	case "response.reasoning_summary_part.added":
++	case "response.reasoning_summary_part.added", "response.reasoning_summary_part.done":
+ 		part := gjson.GetBytes(payload, "part")
+ 		if !part.Exists() || !part.IsObject() || strings.TrimSpace(part.Get("type").String()) != "summary_text" {
+ 			return true
+@@ -1180,6 +1180,7 @@ func openAIStreamDataStartsClientOutput(data, eventType string) bool {
+ 	if trimmed == "" {
+ 		return false
+ 	}
++	field := ""
+ 	switch strings.TrimSpace(eventType) {
+ 	case "response.failed":
+ 		return false
+@@ -1191,8 +1192,20 @@ func openAIStreamDataStartsClientOutput(data, eventType string) bool {
+ 		// （content_policy / invalid_request 等）维持原样转发，保留上游错误细节。
+ 		payload := []byte(trimmed)
+ 		return !openAIStreamFailedEventShouldFailover(payload, extractOpenAISSEErrorMessage(payload))
+-	case "response.output_item.added", "response.content_part.added", "response.reasoning_summary_part.added":
++	case "response.output_item.added", "response.content_part.added", "response.reasoning_summary_part.added",
++		"response.content_part.done", "response.reasoning_summary_part.done":
+ 		return openAIStreamAddedEventStartsClientOutput([]byte(trimmed), eventType)
++	case "response.output_text.delta", "response.reasoning_summary_text.delta", "response.reasoning_text.delta",
++		"response.function_call_arguments.delta", "response.custom_tool_call_input.delta", "response.refusal.delta":
++		field = "delta"
++	case "response.output_text.done", "response.reasoning_summary_text.done", "response.reasoning_text.done":
++		field = "text"
++	case "response.refusal.done":
++		field = "refusal"
++	}
++	if field != "" && gjson.Valid(trimmed) {
++		value := gjson.Get(trimmed, field)
++		return value.Type != gjson.String || value.String() != ""
+ 	}
+ 	return !openAIStreamEventIsMetadata(eventType)
+ }
+diff --git a/backend/internal/service/openai_gateway_service.go b/backend/internal/service/openai_gateway_service.go
+index 91f9b646a..a29ff0d1c 100644
+--- a/backend/internal/service/openai_gateway_service.go
++++ b/backend/internal/service/openai_gateway_service.go
+@@ -33,7 +33,7 @@ const (
+ 	openaiPlatformAPIURL            = "https://api.openai.com/v1/responses"
+ 	openaiPlatformAPIInputTokensURL = "https://api.openai.com/v1/responses/input_tokens"
+ 	openaiStickySessionTTL          = time.Hour // 粘性会话TTL
+-	// 与真实 Codex TUI 的 User-Agent 结构对齐：
++	// 与真实 Codex CLI 的 User-Agent 结构对齐：
+ 	// {originator}/{version} ({OS} {OS_version}; {arch}) {terminal}
+ 	// 缺少 OS/架构/终端后缀的形态易被上游指纹识别为非官方客户端。
+ 	// 该后缀是 UA 形态的唯一定义处，buildCodexCLIUserAgent 按运行时版本号复用它。
+@@ -57,8 +57,8 @@ const (
+ 	openAICompactSessionSeedKey        = "openai_compact_session_seed"
+ 	openAIUpstreamEndpointContextKey   = "openai_actual_upstream_endpoint"
+ 	// codexCLIVersion 是网关对上游声明的 Codex 客户端版本，同时供 codexCLIUserAgent
+-	// 与 version 头使用。上游 /backend-api/codex 在容量紧张时按客户端身份分优先级降载，
+-	// 陈旧版本会被优先丢弃（HTTP 200 + 流内 server_is_overloaded）；非官方客户端配不出
++	// 与 version 头使用。上游 /backend-api/codex 会按客户端身份进行风控分层，
++	// 陈旧版本可能被优先丢弃（HTTP 200 + 流内 server_is_overloaded）；非官方客户端配不出
+ 	// 官方身份时整体回退到本常量，因此它必须跟随官方 CLI 的当前发布版本，
+ 	// 落后多个版本会让这些请求稳定落在被优先丢弃的一侧。
+ 	codexCLIVersion = "0.146.0"
+diff --git a/backend/internal/service/openai_gateway_upstream_errors.go b/backend/internal/service/openai_gateway_upstream_errors.go
+index 249004328..69d10bb23 100644
+--- a/backend/internal/service/openai_gateway_upstream_errors.go
++++ b/backend/internal/service/openai_gateway_upstream_errors.go
+@@ -7,7 +7,9 @@ import (
+ 	"fmt"
+ 	"io"
+ 	"net/http"
++	"strconv"
+ 	"strings"
++	"time"
+ 
+ 	"github.com/Wei-Shaw/sub2api/internal/config"
+ 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
+@@ -193,6 +195,63 @@ func isOpenAIRequestScopedCapacityShed(upstreamMsg string, upstreamBody []byte)
+ 		(!gjson.ValidBytes(upstreamBody) && isOpenAICapacityShedMessage(string(upstreamBody)))
+ }
+ 
++const openAIRequestScopedRetryMaxDelay = 8 * time.Second
++
++func openAIRequestScopedRetryDelay(responseHeaders http.Header, responseBody []byte) time.Duration {
++	type retryAfterValue struct {
++		raw          string
++		milliseconds bool
++	}
++	for _, value := range []retryAfterValue{
++		{raw: responseHeaders.Get("Retry-After")},
++		{raw: responseHeaders.Get("Retry-After-Ms"), milliseconds: true},
++		{raw: gjson.GetBytes(responseBody, "error.headers.retry-after").String()},
++		{raw: gjson.GetBytes(responseBody, "response.error.headers.retry-after").String()},
++		{raw: gjson.GetBytes(responseBody, "error.headers.retry-after-ms").String(), milliseconds: true},
++		{raw: gjson.GetBytes(responseBody, "response.error.headers.retry-after-ms").String(), milliseconds: true},
++	} {
++		raw := strings.TrimSpace(value.raw)
++		if raw == "" {
++			continue
++		}
++		var delay time.Duration
++		var ok bool
++		if value.milliseconds {
++			delay, ok = parseOpenAIRequestScopedRetryDelayMilliseconds(raw)
++		} else {
++			delay, ok = parseOpenAIRequestScopedRetryDelay(raw)
++		}
++		if !ok || delay <= 0 {
++			continue
++		}
++		if delay > openAIRequestScopedRetryMaxDelay {
++			return openAIRequestScopedRetryMaxDelay
++		}
++		return delay
++	}
++	return 0
++}
++
++func parseOpenAIRequestScopedRetryDelay(raw string) (time.Duration, bool) {
++	if seconds, err := strconv.ParseFloat(raw, 64); err == nil && seconds > 0 {
++		return time.Duration(seconds * float64(time.Second)), true
++	}
++	if resetAt, err := http.ParseTime(raw); err == nil {
++		delay := time.Until(resetAt)
++		if delay > 0 {
++			return delay, true
++		}
++	}
++	return 0, false
++}
++
++func parseOpenAIRequestScopedRetryDelayMilliseconds(raw string) (time.Duration, bool) {
++	if millis, err := strconv.ParseFloat(raw, 64); err == nil && millis > 0 {
++		return time.Duration(millis * float64(time.Millisecond)), true
++	}
++	return 0, false
++}
++
+ func isOpenAIContextWindowError(upstreamMsg string, upstreamBody []byte) bool {
+ 	match := func(text string) bool {
+ 		lower := strings.ToLower(strings.TrimSpace(text))
+@@ -336,6 +395,9 @@ func newOpenAIUpstreamFailoverError(
+ 		RetryableOnSameAccount: retryableOnSameAccount || requestScopedCapacity,
+ 		RequestScopedTransient: requestScopedCapacity,
+ 	}
++	if requestScopedCapacity {
++		failoverErr.SameAccountRetryDelay = openAIRequestScopedRetryDelay(responseHeaders, responseBody)
++	}
+ 	if isOpenAIRequestBodyTooLargeError(statusCode, upstreamMsg, responseBody) {
+ 		failoverErr.RetryableOnSameAccount = false
+ 		failoverErr.RequestScopedTransient = false
+diff --git a/backend/internal/service/openai_oauth_passthrough_test.go b/backend/internal/service/openai_oauth_passthrough_test.go
+index d871fcd90..c913bf0a9 100644
+--- a/backend/internal/service/openai_oauth_passthrough_test.go
++++ b/backend/internal/service/openai_oauth_passthrough_test.go
+@@ -1171,7 +1171,7 @@ func TestOpenAIGatewayService_OAuthLegacy_CompositeCodexUAUsesCodexOriginator(t
+ 	_, err := svc.Forward(context.Background(), c, account, inputBody)
+ 	require.NoError(t, err)
+ 	require.NotNil(t, upstream.lastReq)
+-	// 浏览器型复合 UA 被替换为默认 Codex TUI UA，
++	// 浏览器型复合 UA 被替换为默认 Codex CLI UA，
+ 	// originator 随最终 UA 配套（issue #3901）。
+ 	require.Equal(t, DefaultOpenAICodexUserAgent, upstream.lastReq.Header.Get("User-Agent"))
+ 	require.Equal(t, openai.CodexDefaultOriginator, upstream.lastReq.Header.Get("originator"))
+diff --git a/backend/internal/service/openai_setup_token_compat_test.go b/backend/internal/service/openai_setup_token_compat_test.go
+index 09dd2dae7..cf02f2803 100644
+--- a/backend/internal/service/openai_setup_token_compat_test.go
++++ b/backend/internal/service/openai_setup_token_compat_test.go
+@@ -11,6 +11,7 @@ import (
+ 	"testing"
+ 
+ 	"github.com/Wei-Shaw/sub2api/internal/config"
++	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
+ 	"github.com/gin-gonic/gin"
+ 	"github.com/stretchr/testify/require"
+ 	"github.com/tidwall/gjson"
+@@ -212,7 +213,7 @@ func TestOpenAISetupTokenMessagesUsesCodexBridgeAndTurnState(t *testing.T) {
+ 	require.Equal(t, chatgptCodexURL, upstream.requests[0].URL.String())
+ 	require.Equal(t, "Bearer setup-token-value", upstream.requests[0].Header.Get("Authorization"))
+ 	require.Equal(t, "chatgpt-setup", upstream.requests[0].Header.Get("chatgpt-account-id"))
+-	requireOpenAIMessagesCodexIdentity(t, upstream.requests[0], codexCLIUserAgent, "codex-tui")
++	requireOpenAIMessagesCodexIdentity(t, upstream.requests[0], codexCLIUserAgent, openai.CodexCLIOriginator)
+ 	require.Empty(t, upstream.requests[0].Header.Get("x-codex-turn-state"))
+ 
+ 	secondBody := []byte(`{"model":"claude-sonnet-4-5","max_tokens":16,"messages":[{"role":"user","content":"next"}],"stream":false}`)
+@@ -229,7 +230,7 @@ func TestOpenAISetupTokenMessagesUsesCodexBridgeAndTurnState(t *testing.T) {
+ 	require.Equal(t, "turn_state_setup", upstream.requests[1].Header.Get("x-codex-turn-state"))
+ 	require.Equal(t, generateSessionUUID(isolateOpenAIUpstreamSessionID(0, account, "stable-cache-key")), upstream.requests[1].Header.Get("session_id"))
+ 	require.Empty(t, upstream.requests[1].Header.Get("conversation_id"))
+-	requireOpenAIMessagesCodexIdentity(t, upstream.requests[1], codexCLIUserAgent, "codex-tui")
++	requireOpenAIMessagesCodexIdentity(t, upstream.requests[1], codexCLIUserAgent, openai.CodexCLIOriginator)
+ }
+ 
+ func openAISetupTokenCompatAccount(id int64) *Account {
+diff --git a/backend/internal/service/openai_ws_forwarder_success_test.go b/backend/internal/service/openai_ws_forwarder_success_test.go
+index 0401f59f5..8f4c77087 100644
+--- a/backend/internal/service/openai_ws_forwarder_success_test.go
++++ b/backend/internal/service/openai_ws_forwarder_success_test.go
+@@ -1024,9 +1024,9 @@ func TestOpenAIGatewayService_Forward_WSv2_OAuthHonorsAccountUserAgent(t *testin
+ 	result, err := svc.Forward(context.Background(), c, account, body)
+ 	require.NoError(t, err)
+ 	require.NotNil(t, result)
+-	require.Equal(t, "codex-tui", captureDialer.lastHeaders.Get("originator"))
++	require.Equal(t, openai.CodexCLIOriginator, captureDialer.lastHeaders.Get("originator"))
+ 	require.Equal(t,
+-		"codex-tui/"+codexCLIVersion+" (Mac OS X 15.1.0; arm64) iTerm.app",
++		"codex_cli_rs/"+codexCLIVersion+" (Mac OS X 15.1.0; arm64) iTerm.app",
+ 		captureDialer.lastHeaders.Get("user-agent"),
+ 	)
+ 	require.Equal(t, codexCLIVersion, captureDialer.lastHeaders.Get("version"))
+diff --git a/backend/internal/service/setting_gateway_runtime.go b/backend/internal/service/setting_gateway_runtime.go
+index ec6d21d50..4e91284c9 100644
+--- a/backend/internal/service/setting_gateway_runtime.go
++++ b/backend/internal/service/setting_gateway_runtime.go
+@@ -98,7 +98,7 @@ const antigravityUserAgentVersionErrorTTL = 5 * time.Second
+ const antigravityUserAgentVersionDBTimeout = 5 * time.Second
+ 
+ // DefaultOpenAICodexUserAgent 是 OpenAI Codex 默认 User-Agent，用于规避浏览器 UA 的质询。
+-// 默认采用 codex-tui 身份，版本段随 codexCLIVersion 一起更新。
++// 默认采用 codex_cli_rs 身份，避免历史 codex-tui 出口触发 sub2api 的身份风控指纹。
+ const DefaultOpenAICodexUserAgent = codexCLIUserAgent
+ 
+ // cachedOpenAICodexUserAgent 缓存 OpenAI Codex UA（进程内缓存，60s TTL）
+@@ -339,7 +339,7 @@ func (s *SettingService) GetOpenAICodexUserAgent(ctx context.Context) string {
+ 
+ // GetOpenAICodexClientVersion 返回出站声明的 Codex 客户端版本号。
+ // 优先级：管理员在面板覆写的版本 → 自动同步到的官方最新稳定版 → 内置常量。
+-// 上游在容量紧张时按客户端身份分优先级降载，陈旧版本会被优先丢弃，故该值需保持跟随官方发布；
++// 上游会按客户端身份进行风控分层，陈旧版本可能被优先丢弃，故该值需保持跟随官方发布；
+ // 自动同步让运维不必为了跟版本而发新版本。
+ func (s *SettingService) GetOpenAICodexClientVersion(ctx context.Context) string {
+ 	fallback := codexCLIVersion
+@@ -500,11 +500,11 @@ func (s *SettingService) InvalidateClaudeCodeClientVersionCache() {
+ }
+ 
+ // GetOpenAICodexCanonicalUserAgent 返回出站规范 Codex User-Agent。
+-// 未填面板 UA 时按当前生效的客户端版本号拼出标准 Codex TUI UA。
++// 未填面板 UA 时按当前生效的客户端版本号拼出标准 Codex CLI UA。
+ //
+ // 面板 UA 只贡献客户端名与 OS / 架构 / 终端指纹，版本段一律用生效版本重建：该输入框是
+ // 唯一能改 UA 后缀的地方，但它填写于某个历史版本，逐字沿用会把出站身份永久钉死在陈旧
+-// 版本上并绕过自动同步——而陈旧身份正是上游优先降载的那一侧。
++// 版本上并绕过自动同步——而陈旧身份正是上游风控更严格的那一侧。
+ // 需要固定版本请填「Codex 客户端版本号」并关闭自动同步。
+ func (s *SettingService) GetOpenAICodexCanonicalUserAgent(ctx context.Context) string {
+ 	if s == nil {
+diff --git a/backend/internal/service/settings_view.go b/backend/internal/service/settings_view.go
+index bf2e840ba..8535fb6b8 100644
+--- a/backend/internal/service/settings_view.go
++++ b/backend/internal/service/settings_view.go
+@@ -247,7 +247,7 @@ type SystemSettings struct {
+ 	EnableClientDatelineNormalization      bool   // 是否对 Anthropic OAuth/SetupToken 请求体做客户端 dateline 归一化（默认 true）
+ 	RewriteMessageCacheControl             bool   // 是否改写 messages[*].content[*].cache_control（默认 false）
+ 	AntigravityUserAgentVersion            string // Antigravity 上游 User-Agent 版本号；空值使用配置/默认值
+-	OpenAICodexUserAgent                   string // OpenAI Codex 上游完整 User-Agent；空值由 Codex 客户端版本号拼出标准 TUI UA
++	OpenAICodexUserAgent                   string // OpenAI Codex 上游完整 User-Agent；空值由 Codex 客户端版本号拼出标准 CLI UA
+ 	OpenAICodexClientVersion               string // 出站声明的 Codex 客户端版本号（管理员覆写）；空值跟随自动同步值
+ 	OpenAICodexClientVersionSynced         string // 自动同步到的官方最新稳定版版本号（只读展示）
+ 	OpenAICodexVersionAutoSyncEnabled      bool   // 是否启用 Codex 客户端版本号自动同步（默认 true）
+diff --git a/frontend/src/i18n/locales/en/admin/settings.ts b/frontend/src/i18n/locales/en/admin/settings.ts
+index a3075fc60..c056f3925 100644
+--- a/frontend/src/i18n/locales/en/admin/settings.ts
++++ b/frontend/src/i18n/locales/en/admin/settings.ts
+@@ -548,8 +548,8 @@ export default {
+         antigravityUserAgentVersionPlaceholder: '1.23.2',
+         antigravityUserAgentVersionHint: 'Leave empty to use ANTIGRAVITY_USER_AGENT_VERSION or the built-in default 1.23.2; when set, the admin setting takes precedence.',
+         openaiCodexUserAgent: 'OpenAI Codex UA',
+-        openaiCodexUserAgentPlaceholder: 'codex-tui/0.146.1 (Ubuntu 22.4.0; x86_64) WindowsTerminal (codex-tui; 0.146.1)',
+-        openaiCodexUserAgentHint: 'The full Codex User-Agent used for all outbound requests, for customizing the OS / arch / terminal fingerprint. Leave empty to build the standard codex-tui identity from the version below (recommended). If set, both the leading and trailing version declarations are synchronized to the version below, so the UA never stays pinned to the release entered here — under capacity pressure the upstream sheds load by client identity and drops stale or non-official identities first with server_is_overloaded.',
++        openaiCodexUserAgentPlaceholder: 'codex_cli_rs/0.146.1 (Ubuntu 22.4.0; x86_64) WindowsTerminal',
++        openaiCodexUserAgentHint: 'The full Codex User-Agent used for all outbound requests, for customizing the OS / arch / terminal fingerprint. Leave empty to build the standard codex_cli_rs identity from the version below (recommended). If set, both the leading and trailing version declarations are synchronized to the version below, so the UA never stays pinned to the release entered here — upstream identity and version risk controls may return server_is_overloaded for stale or non-official identities.',
+         openaiCodexClientVersion: 'Codex client version',
+         openaiCodexClientVersionPlaceholder: 'Leave empty to follow auto-sync',
+         openaiCodexClientVersionHint: 'The Codex client version this gateway declares upstream, shared by the User-Agent and the version header. Leave empty to use the auto-synced latest stable release; setting a value pins it and stops following auto-sync.',
+diff --git a/frontend/src/i18n/locales/zh/admin/settings.ts b/frontend/src/i18n/locales/zh/admin/settings.ts
+index 14317bff8..27b282b88 100644
+--- a/frontend/src/i18n/locales/zh/admin/settings.ts
++++ b/frontend/src/i18n/locales/zh/admin/settings.ts
+@@ -541,8 +541,8 @@ export default {
+         antigravityUserAgentVersionPlaceholder: '1.23.2',
+         antigravityUserAgentVersionHint: '留空时使用 ANTIGRAVITY_USER_AGENT_VERSION 或内置默认值 1.23.2；填写后后台设置优先。',
+         openaiCodexUserAgent: 'OpenAI Codex UA',
+-        openaiCodexUserAgentPlaceholder: 'codex-tui/0.146.1 (Ubuntu 22.4.0; x86_64) WindowsTerminal (codex-tui; 0.146.1)',
+-        openaiCodexUserAgentHint: '出站统一使用的完整 Codex User-Agent，用于自定义 OS / 架构 / 终端指纹。留空则按下方版本号拼出标准 codex-tui 形态（推荐）。填写后首段和尾部的版本号仍会被下方版本号同步覆盖，避免这条 UA 停在填写时的旧版本——上游在容量紧张时按客户端身份分优先级降载，陈旧或非官方形态的身份会被优先丢弃并回 server_is_overloaded。',
++        openaiCodexUserAgentPlaceholder: 'codex_cli_rs/0.146.1 (Ubuntu 22.4.0; x86_64) WindowsTerminal',
++        openaiCodexUserAgentHint: '出站统一使用的完整 Codex User-Agent，用于自定义 OS / 架构 / 终端指纹。留空则按下方版本号拼出标准 codex_cli_rs 形态（推荐）。填写后首段和尾部的版本号仍会被下方版本号同步覆盖，避免这条 UA 停在填写时的旧版本——上游会根据客户端身份和版本进行风控分层，陈旧或非官方形态可能返回 server_is_overloaded。',
+         openaiCodexClientVersion: 'Codex 客户端版本号',
+         openaiCodexClientVersionPlaceholder: '留空则跟随自动同步',
+         openaiCodexClientVersionHint: '网关对上游声明的 Codex 客户端版本号，User-Agent 与 version 头同源使用。留空表示使用自动同步到的官方最新稳定版；填写后固定为该版本，不再跟随同步。',

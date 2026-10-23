@@ -1010,6 +1010,9 @@ func newOpenAIWSOverloadFailoverError(headers http.Header, payload []byte, messa
 	)
 	// A status-only envelope is still request-scoped capacity shedding even
 	// though the generic constructor cannot identify it from the body alone.
+	if err.Scope != GatewayFailureScopeRequest {
+		err.SameAccountRetryDelay = openAIRequestScopedRetryDelay(headers, payload)
+	}
 	err.Scope = GatewayFailureScopeRequest
 	err.RetryableOnSameAccount = true
 	return err

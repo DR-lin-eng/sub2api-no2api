@@ -314,6 +314,7 @@ func newOpenAIUpstreamFailoverError(
 	}
 	if requestScopedCapacity {
 		failoverErr.Scope = GatewayFailureScopeRequest
+		failoverErr.SameAccountRetryDelay = openAIRequestScopedRetryDelay(responseHeaders, responseBody)
 	}
 	if isOpenAIInvalidPromptPolicyError(upstreamMsg, responseBody) {
 		failoverErr.RetryableOnSameAccount = false

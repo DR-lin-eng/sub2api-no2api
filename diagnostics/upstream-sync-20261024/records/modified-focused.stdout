@@ -1,0 +1,159 @@
+2026/10/23 16:50:45 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestOpenAICapacityShedFastPathKeepsAccountHealthy
+--- PASS: TestOpenAICapacityShedFastPathKeepsAccountHealthy (0.00s)
+=== RUN   TestOpenAIRequestScopedRetryDelay
+=== RUN   TestOpenAIRequestScopedRetryDelay/seconds
+=== RUN   TestOpenAIRequestScopedRetryDelay/milliseconds
+=== RUN   TestOpenAIRequestScopedRetryDelay/header_precedence
+=== RUN   TestOpenAIRequestScopedRetryDelay/top-level_body
+=== RUN   TestOpenAIRequestScopedRetryDelay/response_body
+=== RUN   TestOpenAIRequestScopedRetryDelay/top-level_milliseconds
+=== RUN   TestOpenAIRequestScopedRetryDelay/response_milliseconds
+=== RUN   TestOpenAIRequestScopedRetryDelay/invalid_header_fallback
+=== RUN   TestOpenAIRequestScopedRetryDelay/zero_fallback
+=== RUN   TestOpenAIRequestScopedRetryDelay/negative
+=== RUN   TestOpenAIRequestScopedRetryDelay/nan
+=== RUN   TestOpenAIRequestScopedRetryDelay/infinite
+=== RUN   TestOpenAIRequestScopedRetryDelay/overflow
+=== RUN   TestOpenAIRequestScopedRetryDelay/cap_before_conversion
+=== RUN   TestOpenAIRequestScopedRetryDelay/milliseconds_cap
+=== RUN   TestOpenAIRequestScopedRetryDelay/HTTP_date_cap
+=== RUN   TestOpenAIRequestScopedRetryDelay/expired_HTTP_date
+=== RUN   TestOpenAIRequestScopedRetryDelay/invalid_body
+=== RUN   TestOpenAIRequestScopedRetryDelay/no_hint
+--- PASS: TestOpenAIRequestScopedRetryDelay (0.00s)
+    --- PASS: TestOpenAIRequestScopedRetryDelay/seconds (0.00s)
+    --- PASS: TestOpenAIRequestScopedRetryDelay/milliseconds (0.00s)
+    --- PASS: TestOpenAIRequestScopedRetryDelay/header_precedence (0.00s)
+    --- PASS: TestOpenAIRequestScopedRetryDelay/top-level_body (0.00s)
+    --- PASS: TestOpenAIRequestScopedRetryDelay/response_body (0.00s)
+    --- PASS: TestOpenAIRequestScopedRetryDelay/top-level_milliseconds (0.00s)
+    --- PASS: TestOpenAIRequestScopedRetryDelay/response_milliseconds (0.00s)
+    --- PASS: TestOpenAIRequestScopedRetryDelay/invalid_header_fallback (0.00s)
+    --- PASS: TestOpenAIRequestScopedRetryDelay/zero_fallback (0.00s)
+    --- PASS: TestOpenAIRequestScopedRetryDelay/negative (0.00s)
+    --- PASS: TestOpenAIRequestScopedRetryDelay/nan (0.00s)
+    --- PASS: TestOpenAIRequestScopedRetryDelay/infinite (0.00s)
+    --- PASS: TestOpenAIRequestScopedRetryDelay/overflow (0.00s)
+    --- PASS: TestOpenAIRequestScopedRetryDelay/cap_before_conversion (0.00s)
+    --- PASS: TestOpenAIRequestScopedRetryDelay/milliseconds_cap (0.00s)
+    --- PASS: TestOpenAIRequestScopedRetryDelay/HTTP_date_cap (0.00s)
+    --- PASS: TestOpenAIRequestScopedRetryDelay/expired_HTTP_date (0.00s)
+    --- PASS: TestOpenAIRequestScopedRetryDelay/invalid_body (0.00s)
+    --- PASS: TestOpenAIRequestScopedRetryDelay/no_hint (0.00s)
+=== RUN   TestOpenAICapacityRetryHintErrorScope
+--- PASS: TestOpenAICapacityRetryHintErrorScope (0.00s)
+=== RUN   TestOpenAICapacityRetryHintAfterEmptyEvents
+=== RUN   TestOpenAICapacityRetryHintAfterEmptyEvents/response.output_text.delta/native
+=== RUN   TestOpenAICapacityRetryHintAfterEmptyEvents/response.output_text.delta/passthrough
+=== RUN   TestOpenAICapacityRetryHintAfterEmptyEvents/response.reasoning_summary_text.delta/native
+=== RUN   TestOpenAICapacityRetryHintAfterEmptyEvents/response.reasoning_summary_text.delta/passthrough
+=== RUN   TestOpenAICapacityRetryHintAfterEmptyEvents/response.reasoning_text.delta/native
+=== RUN   TestOpenAICapacityRetryHintAfterEmptyEvents/response.reasoning_text.delta/passthrough
+=== RUN   TestOpenAICapacityRetryHintAfterEmptyEvents/response.function_call_arguments.delta/native
+=== RUN   TestOpenAICapacityRetryHintAfterEmptyEvents/response.function_call_arguments.delta/passthrough
+=== RUN   TestOpenAICapacityRetryHintAfterEmptyEvents/response.custom_tool_call_input.delta/native
+=== RUN   TestOpenAICapacityRetryHintAfterEmptyEvents/response.custom_tool_call_input.delta/passthrough
+=== RUN   TestOpenAICapacityRetryHintAfterEmptyEvents/response.refusal.delta/native
+=== RUN   TestOpenAICapacityRetryHintAfterEmptyEvents/response.refusal.delta/passthrough
+=== RUN   TestOpenAICapacityRetryHintAfterEmptyEvents/response.output_text.done/native
+=== RUN   TestOpenAICapacityRetryHintAfterEmptyEvents/response.output_text.done/passthrough
+=== RUN   TestOpenAICapacityRetryHintAfterEmptyEvents/response.reasoning_summary_text.done/native
+=== RUN   TestOpenAICapacityRetryHintAfterEmptyEvents/response.reasoning_summary_text.done/passthrough
+=== RUN   TestOpenAICapacityRetryHintAfterEmptyEvents/response.reasoning_text.done/native
+=== RUN   TestOpenAICapacityRetryHintAfterEmptyEvents/response.reasoning_text.done/passthrough
+=== RUN   TestOpenAICapacityRetryHintAfterEmptyEvents/response.refusal.done/native
+=== RUN   TestOpenAICapacityRetryHintAfterEmptyEvents/response.refusal.done/passthrough
+=== RUN   TestOpenAICapacityRetryHintAfterEmptyEvents/response.content_part.done/native
+=== RUN   TestOpenAICapacityRetryHintAfterEmptyEvents/response.content_part.done/passthrough
+=== RUN   TestOpenAICapacityRetryHintAfterEmptyEvents/response.reasoning_summary_part.done/native
+=== RUN   TestOpenAICapacityRetryHintAfterEmptyEvents/response.reasoning_summary_part.done/passthrough
+--- PASS: TestOpenAICapacityRetryHintAfterEmptyEvents (0.00s)
+    --- PASS: TestOpenAICapacityRetryHintAfterEmptyEvents/response.output_text.delta/native (0.00s)
+    --- PASS: TestOpenAICapacityRetryHintAfterEmptyEvents/response.output_text.delta/passthrough (0.00s)
+    --- PASS: TestOpenAICapacityRetryHintAfterEmptyEvents/response.reasoning_summary_text.delta/native (0.00s)
+    --- PASS: TestOpenAICapacityRetryHintAfterEmptyEvents/response.reasoning_summary_text.delta/passthrough (0.00s)
+    --- PASS: TestOpenAICapacityRetryHintAfterEmptyEvents/response.reasoning_text.delta/native (0.00s)
+    --- PASS: TestOpenAICapacityRetryHintAfterEmptyEvents/response.reasoning_text.delta/passthrough (0.00s)
+    --- PASS: TestOpenAICapacityRetryHintAfterEmptyEvents/response.function_call_arguments.delta/native (0.00s)
+    --- PASS: TestOpenAICapacityRetryHintAfterEmptyEvents/response.function_call_arguments.delta/passthrough (0.00s)
+    --- PASS: TestOpenAICapacityRetryHintAfterEmptyEvents/response.custom_tool_call_input.delta/native (0.00s)
+    --- PASS: TestOpenAICapacityRetryHintAfterEmptyEvents/response.custom_tool_call_input.delta/passthrough (0.00s)
+    --- PASS: TestOpenAICapacityRetryHintAfterEmptyEvents/response.refusal.delta/native (0.00s)
+    --- PASS: TestOpenAICapacityRetryHintAfterEmptyEvents/response.refusal.delta/passthrough (0.00s)
+    --- PASS: TestOpenAICapacityRetryHintAfterEmptyEvents/response.output_text.done/native (0.00s)
+    --- PASS: TestOpenAICapacityRetryHintAfterEmptyEvents/response.output_text.done/passthrough (0.00s)
+    --- PASS: TestOpenAICapacityRetryHintAfterEmptyEvents/response.reasoning_summary_text.done/native (0.00s)
+    --- PASS: TestOpenAICapacityRetryHintAfterEmptyEvents/response.reasoning_summary_text.done/passthrough (0.00s)
+    --- PASS: TestOpenAICapacityRetryHintAfterEmptyEvents/response.reasoning_text.done/native (0.00s)
+    --- PASS: TestOpenAICapacityRetryHintAfterEmptyEvents/response.reasoning_text.done/passthrough (0.00s)
+    --- PASS: TestOpenAICapacityRetryHintAfterEmptyEvents/response.refusal.done/native (0.00s)
+    --- PASS: TestOpenAICapacityRetryHintAfterEmptyEvents/response.refusal.done/passthrough (0.00s)
+    --- PASS: TestOpenAICapacityRetryHintAfterEmptyEvents/response.content_part.done/native (0.00s)
+    --- PASS: TestOpenAICapacityRetryHintAfterEmptyEvents/response.content_part.done/passthrough (0.00s)
+    --- PASS: TestOpenAICapacityRetryHintAfterEmptyEvents/response.reasoning_summary_part.done/native (0.00s)
+    --- PASS: TestOpenAICapacityRetryHintAfterEmptyEvents/response.reasoning_summary_part.done/passthrough (0.00s)
+=== RUN   TestOpenAIRequestScopedFailoverKeepsOriginalStickyOwner
+=== RUN   TestOpenAIRequestScopedFailoverKeepsOriginalStickyOwner/load_batch_with_existing_sticky
+=== RUN   TestOpenAIRequestScopedFailoverKeepsOriginalStickyOwner/load_batch_disabled_with_existing_sticky
+=== RUN   TestOpenAIRequestScopedFailoverKeepsOriginalStickyOwner/first_request_binds_fallback
+--- PASS: TestOpenAIRequestScopedFailoverKeepsOriginalStickyOwner (0.00s)
+    --- PASS: TestOpenAIRequestScopedFailoverKeepsOriginalStickyOwner/load_batch_with_existing_sticky (0.00s)
+    --- PASS: TestOpenAIRequestScopedFailoverKeepsOriginalStickyOwner/load_batch_disabled_with_existing_sticky (0.00s)
+    --- PASS: TestOpenAIRequestScopedFailoverKeepsOriginalStickyOwner/first_request_binds_fallback (0.00s)
+=== RUN   TestUpstreamSync20261024Probe
+HTTP_CAPACITY_DELAY=6.25s
+BODY_CAPACITY_DELAY=7.5s
+WS_STATUS_DELAY=6s
+SSE_CAPACITY_DELAY=7s
+ORDINARY_ERROR_DELAY=0s
+EMPTY_response.output_text.delta_REPLAY_UNSAFE=false
+EMPTY_response.output_text.done_REPLAY_UNSAFE=false
+EMPTY_response.content_part.done_REPLAY_UNSAFE=false
+EMPTY_response.reasoning_summary_part.done_REPLAY_UNSAFE=false
+DESKTOP_IDENTITY_PRESERVED=true
+TUI_IDENTITY_PRESERVED=true
+--- PASS: TestUpstreamSync20261024Probe (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.018s
+=== RUN   TestSameAccountRetryDelayFor
+=== RUN   TestSameAccountRetryDelayFor/first_retry
+=== RUN   TestSameAccountRetryDelayFor/second_retry
+=== RUN   TestSameAccountRetryDelayFor/third_retry
+=== RUN   TestSameAccountRetryDelayFor/fourth_retry
+=== RUN   TestSameAccountRetryDelayFor/fifth_retry
+=== RUN   TestSameAccountRetryDelayFor/capped_retry
+--- PASS: TestSameAccountRetryDelayFor (0.00s)
+    --- PASS: TestSameAccountRetryDelayFor/first_retry (0.00s)
+    --- PASS: TestSameAccountRetryDelayFor/second_retry (0.00s)
+    --- PASS: TestSameAccountRetryDelayFor/third_retry (0.00s)
+    --- PASS: TestSameAccountRetryDelayFor/fourth_retry (0.00s)
+    --- PASS: TestSameAccountRetryDelayFor/fifth_retry (0.00s)
+    --- PASS: TestSameAccountRetryDelayFor/capped_retry (0.00s)
+=== RUN   TestSameAccountRetryDelayForHint
+=== RUN   TestSameAccountRetryDelayForHint/first_retry_hint
+=== RUN   TestSameAccountRetryDelayForHint/hint_floor
+=== RUN   TestSameAccountRetryDelayForHint/retain_exponential
+=== RUN   TestSameAccountRetryDelayForHint/retain_first_retry
+=== RUN   TestSameAccountRetryDelayForHint/cap_hint
+=== RUN   TestSameAccountRetryDelayForHint/cap_retry
+=== RUN   TestSameAccountRetryDelayForHint/ignore_negative
+=== RUN   TestSameAccountRetryDelayForHint/ordinary_account_failure
+--- PASS: TestSameAccountRetryDelayForHint (0.00s)
+    --- PASS: TestSameAccountRetryDelayForHint/first_retry_hint (0.00s)
+    --- PASS: TestSameAccountRetryDelayForHint/hint_floor (0.00s)
+    --- PASS: TestSameAccountRetryDelayForHint/retain_exponential (0.00s)
+    --- PASS: TestSameAccountRetryDelayForHint/retain_first_retry (0.00s)
+    --- PASS: TestSameAccountRetryDelayForHint/cap_hint (0.00s)
+    --- PASS: TestSameAccountRetryDelayForHint/cap_retry (0.00s)
+    --- PASS: TestSameAccountRetryDelayForHint/ignore_negative (0.00s)
+    --- PASS: TestSameAccountRetryDelayForHint/ordinary_account_failure (0.00s)
+=== RUN   TestHandleFailoverError_CapacityRetryHintCanceled
+--- PASS: TestHandleFailoverError_CapacityRetryHintCanceled (0.03s)
+=== RUN   TestUpstreamSync20261024Probe
+HINTED_RETRY_1=6.25s
+HINTED_RETRY_2=6.25s
+HINTED_RETRY_5=8s
+--- PASS: TestUpstreamSync20261024Probe (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	0.045s

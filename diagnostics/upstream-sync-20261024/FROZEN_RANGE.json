@@ -1,0 +1,12 @@
+{
+  "baseline": "7161a547cb4af162b7227f2a01bc6290a83dbff1",
+  "previous_boundary": "dba770d56a0ee0ae5bad1b3dc5e11614d323163c",
+  "reviewed_upstream": "5c185c5c5d4f5e409e2139806e0964ae944e03e8",
+  "first_parent_items": 4,
+  "all_incremental_commits": 5,
+  "inherited_ledgers": [
+    "diagnostics/upstream-sync-20261022/UPSTREAM_PRS.json",
+    "diagnostics/upstream-sync-20261022-pr8170/UPSTREAM_PRS.json"
+  ],
+  "closed_decisions_policy": "Inherited ported, covered, intentional-local-divergence and deferred decisions remain unchanged; no unchanged deferred item is reopened."
+}

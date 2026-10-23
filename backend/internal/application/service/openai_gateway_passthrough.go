@@ -1706,6 +1706,7 @@ func (s *OpenAIGatewayService) newOpenAIStreamFailoverError(
 	requestScopedCapacity := isOpenAIUpstreamCapacityShedEvent(payload)
 	if requestScopedCapacity {
 		failoverErr.Scope = GatewayFailureScopeRequest
+		failoverErr.SameAccountRetryDelay = openAIRequestScopedRetryDelay(headers, payload)
 	} else if statusCode == http.StatusBadGateway && shouldCountOpenAIStreamBadGatewayFailure(payload, message) &&
 		s != nil && s.rateLimitService != nil && account != nil {
 		failureCtx := context.Background()
