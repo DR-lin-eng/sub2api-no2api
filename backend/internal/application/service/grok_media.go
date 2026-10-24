@@ -49,6 +49,85 @@ func (e GrokMediaEndpoint) IsGenerationRequest() bool {
 	}
 }
 
+// grokMediaClientEndpointPath 返回媒体端点对应的客户端 API 路径，
+// 用于自定义模型 request_adapter 的 match.endpoint 判定与 {{request.endpoint}} 变量。
+func grokMediaClientEndpointPath(endpoint GrokMediaEndpoint) string {
+	switch endpoint {
+	case GrokMediaEndpointImagesGenerations:
+		return openAIImagesGenerationsEndpoint
+	case GrokMediaEndpointImagesEdits:
+		return openAIImagesEditsEndpoint
+	case GrokMediaEndpointVideosGenerations:
+		return "/v1/videos/generations"
+	case GrokMediaEndpointVideosEdits:
+		return "/v1/videos/edits"
+	case GrokMediaEndpointVideosExtensions:
+		return "/v1/videos/extensions"
+	default:
+		return ""
+	}
+}
+
+// replaceGrokMediaURLPath 用自定义模板渲染出的路径替换上游 URL 的 path 部分。
+func replaceGrokMediaURLPath(rawURL, path string) (string, error) {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return "", fmt.Errorf("parse grok media upstream url: %w", err)
+	}
+	parsed.Path = path
+	parsed.RawPath = ""
+	return parsed.String(), nil
+}
+
+// buildGrokMediaRequestVariables 构造媒体链路自定义模板的 {{request.*}} 变量表。
+// 与图片链路保持同名变量（input_images/images/mask_image），模板写法可直接复用；
+// 其余请求字段可通过 {{request.body.<key>}} 访问原始请求体。
+func buildGrokMediaRequestVariables(
+	info GrokMediaRequestInfo,
+	endpoint string,
+	body []byte,
+	contentType string,
+	upstreamModel string,
+) map[string]any {
+	resolution := info.Resolution
+	duration := info.DurationSeconds
+	if gjson.ValidBytes(body) {
+		// 解析结果带有计费默认值，模板变量优先使用请求体里的原始值。
+		resolution = strings.TrimSpace(gjson.GetBytes(body, "resolution").String())
+		duration = int(gjson.GetBytes(body, "duration").Int())
+	}
+	inputImages := append([]string{}, info.InputImageURLs...)
+	for _, upload := range info.Uploads {
+		if dataURL := upload.ModerationDataURL(); dataURL != "" {
+			inputImages = append(inputImages, dataURL)
+		}
+	}
+	maskImage := info.MaskImageURL
+	if maskImage == "" && info.MaskUpload != nil {
+		maskImage = info.MaskUpload.ModerationDataURL()
+	}
+	values := map[string]any{
+		"endpoint":         endpoint,
+		"content_type":     contentType,
+		"model":            info.Model,
+		"upstream_model":   upstreamModel,
+		"prompt":           info.Prompt,
+		"n":                info.N,
+		"size":             info.Size,
+		"aspect_ratio":     info.AspectRatio,
+		"image_resolution": info.ImageResolution,
+		"resolution":       resolution,
+		"duration":         duration,
+		"input_images":     inputImages,
+		"images":           inputImages,
+		"mask_image":       maskImage,
+	}
+	if payload, err := customModelJSONAdapterBase(body, contentType); err == nil {
+		values["body"] = payload
+	}
+	return map[string]any{"request": values}
+}
+
 type GrokMediaRequestInfo struct {
 	Model           string
 	Prompt          string
@@ -434,6 +513,40 @@ func (s *OpenAIGatewayService) ForwardGrokMedia(
 			return nil, err
 		}
 	}
+	var adapterHeaders map[string]string
+	if endpoint.RequiresRequestBody() && s.customModelCapabilities != nil {
+		requestAdapter, configured, resolveErr := s.resolveCustomModelRequestAdapter(
+			ctx,
+			requestInfo.Model,
+			upstreamModel,
+		)
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+		if configured {
+			clientEndpoint := grokMediaClientEndpointPath(endpoint)
+			adapted, adaptErr := applyCustomModelRequestAdapter(
+				body,
+				contentType,
+				clientEndpoint,
+				buildGrokMediaRequestVariables(requestInfo, clientEndpoint, body, contentType, upstreamModel),
+				requestAdapter,
+				func() (map[string]any, error) { return customModelJSONAdapterBase(body, contentType) },
+			)
+			if adaptErr != nil {
+				return nil, adaptErr
+			}
+			body = adapted.Body
+			contentType = adapted.ContentType
+			adapterHeaders = adapted.Headers
+			if adapted.Endpoint != clientEndpoint {
+				targetURL, err = replaceGrokMediaURLPath(targetURL, adapted.Endpoint)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
 	modelCtx := withGrokTeamRateLimitModel(ctx, upstreamModel)
 	token, _, err := s.getRequestCredential(modelCtx, c, account)
 	if err != nil {
@@ -461,6 +574,10 @@ func (s *OpenAIGatewayService) ForwardGrokMedia(
 			contentType = "application/json"
 		}
 		upstreamReq.Header.Set("Content-Type", contentType)
+	}
+	// 自定义模型模板请求头先应用，账号级请求头覆写最后应用并优先。
+	for name, value := range adapterHeaders {
+		upstreamReq.Header.Set(resolveWireCasing(name), value)
 	}
 	// 账号级请求头覆写最后应用，配置值优先于内置默认头。
 	account.ApplyHeaderOverrides(upstreamReq.Header)

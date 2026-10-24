@@ -34,7 +34,9 @@ type customModelRequestAdapterDefinition struct {
 	} `json:"body"`
 }
 
-type openAIImagesAdaptedRequest struct {
+// customModelAdaptedRequest 是 request_adapter 处理后的请求快照。
+// Endpoint 为最终上游路径：未配置 upstream.path 时与入参端点一致。
+type customModelAdaptedRequest struct {
 	Body        []byte
 	ContentType string
 	Endpoint    string
@@ -166,10 +168,31 @@ func applyOpenAIImagesRequestAdapter(
 	parsed *OpenAIImagesRequest,
 	upstreamModel string,
 	rawAdapter map[string]any,
-) (*openAIImagesAdaptedRequest, error) {
+) (*customModelAdaptedRequest, error) {
 	if parsed == nil {
 		return nil, fmt.Errorf("parsed images request is required")
 	}
+	return applyCustomModelRequestAdapter(
+		body,
+		contentType,
+		parsed.Endpoint,
+		buildCustomModelRequestVariables(parsed, body, contentType, upstreamModel),
+		rawAdapter,
+		func() (map[string]any, error) { return customModelJSONAdapterBase(body, contentType) },
+	)
+}
+
+// applyCustomModelRequestAdapter 按自定义模型的 request_adapter 配置改写请求体、
+// Content-Type、上游路径与请求头。图片链路与媒体链路共用同一实现，
+// 端点路径与模板变量表由调用方按各自协议构造。
+func applyCustomModelRequestAdapter(
+	body []byte,
+	contentType string,
+	endpoint string,
+	variables map[string]any,
+	rawAdapter map[string]any,
+	jsonBase func() (map[string]any, error),
+) (*customModelAdaptedRequest, error) {
 	if err := validateCustomModelRequestAdapter(rawAdapter); err != nil {
 		return nil, err
 	}
@@ -190,25 +213,24 @@ func applyOpenAIImagesRequestAdapter(
 	pathSuffix := ""
 	if matchEndpoint != "" {
 		if matchMode == customModelEndpointMatchPrefix {
-			suffix, matched := customModelPathPrefixSuffix(parsed.Endpoint, matchEndpoint)
+			suffix, matched := customModelPathPrefixSuffix(endpoint, matchEndpoint)
 			if !matched {
-				return &openAIImagesAdaptedRequest{
+				return &customModelAdaptedRequest{
 					Body:        body,
 					ContentType: contentType,
-					Endpoint:    parsed.Endpoint,
+					Endpoint:    endpoint,
 				}, nil
 			}
 			pathSuffix = suffix
-		} else if matchEndpoint != parsed.Endpoint {
-			return &openAIImagesAdaptedRequest{
+		} else if matchEndpoint != endpoint {
+			return &customModelAdaptedRequest{
 				Body:        body,
 				ContentType: contentType,
-				Endpoint:    parsed.Endpoint,
+				Endpoint:    endpoint,
 			}, nil
 		}
 	}
 
-	endpoint := parsed.Endpoint
 	if targetPath := strings.TrimSpace(adapter.Upstream.Path); targetPath != "" {
 		if !strings.HasPrefix(targetPath, "/") || strings.Contains(targetPath, "://") {
 			return nil, fmt.Errorf("custom model upstream path must be a relative absolute-path")
@@ -223,7 +245,6 @@ func applyOpenAIImagesRequestAdapter(
 		targetContentType = contentType
 	}
 
-	variables := buildCustomModelRequestVariables(parsed, body, contentType, upstreamModel)
 	renderedTargetPath, err := renderCustomModelRequestString(
 		endpoint,
 		variables,
@@ -268,7 +289,10 @@ func applyOpenAIImagesRequestAdapter(
 	}
 	switch targetContentType {
 	case "application/json":
-		payload, payloadErr := openAIImagesJSONAdapterBase(body, contentType)
+		if jsonBase == nil {
+			return nil, fmt.Errorf("custom model JSON adapter requires a request body decoder")
+		}
+		payload, payloadErr := jsonBase()
 		if payloadErr != nil {
 			return nil, payloadErr
 		}
@@ -326,7 +350,7 @@ func applyOpenAIImagesRequestAdapter(
 			headers[normalizedName] = normalizedValue
 		}
 	}
-	return &openAIImagesAdaptedRequest{
+	return &customModelAdaptedRequest{
 		Body:        adaptedBody,
 		ContentType: targetContentType,
 		Endpoint:    endpoint,
@@ -387,7 +411,7 @@ func buildCustomModelRequestVariables(
 		"stream":          parsed.Stream,
 		"response_format": parsed.ResponseFormat,
 	}
-	if payload, err := openAIImagesJSONAdapterBase(body, contentType); err == nil {
+	if payload, err := customModelJSONAdapterBase(body, contentType); err == nil {
 		values["body"] = payload
 	}
 	inputImages := append([]string{}, parsed.InputImageURLs...)
@@ -771,7 +795,9 @@ func (c *customModelJSONSizeCounter) addString(value string) {
 	}
 }
 
-func openAIImagesJSONAdapterBase(body []byte, contentType string) (map[string]any, error) {
+// customModelJSONAdapterBase 把请求体解码为可参与 merge/replace 的 JSON 对象；
+// multipart 请求体先转换为等价的 JSON 结构。
+func customModelJSONAdapterBase(body []byte, contentType string) (map[string]any, error) {
 	mediaType, params, err := mime.ParseMediaType(contentType)
 	if err == nil && strings.EqualFold(mediaType, "multipart/form-data") {
 		return openAIImagesMultipartToJSON(body, params["boundary"])
