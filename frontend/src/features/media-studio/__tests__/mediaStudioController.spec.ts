@@ -244,6 +244,120 @@ describe('media studio controller', () => {
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:video-preview')
   })
 
+  it('renders video reference attachments on the sent message and submits them', async () => {
+    const submitVideo = vi.fn().mockResolvedValue({ id: 'video-1', status: 'processing', raw: {} })
+    const controller = useMediaStudioController({
+      storage: localStorage,
+      getConfig: vi.fn().mockResolvedValue(config),
+      createSession: vi.fn().mockResolvedValue(session()),
+      listModels: vi.fn().mockResolvedValue({ object: 'list', data: [{ id: 'grok-imagine-video' }] }),
+      submitVideo,
+      getVideoTask: vi.fn().mockResolvedValue({ id: 'video-1', status: 'completed', raw: {} }),
+      getVideoContent: vi.fn().mockResolvedValue(new Blob(['video'], { type: 'video/mp4' })),
+      createObjectURL: vi.fn().mockReturnValue('blob:video-preview'),
+      revokeObjectURL: vi.fn(),
+      pollDelayMs: 0,
+    })
+
+    await controller.loadMediaGroups()
+    controller.selectMode('video')
+    await settle()
+    controller.updateReferenceAttachments([
+      {
+        id: 'reference-image',
+        file: new File(['image'], 'reference.png', { type: 'image/png' }),
+        name: 'reference.png',
+        kind: 'image',
+        mimeType: 'image/png',
+        size: 5,
+        previewUrl: 'blob:reference-image',
+        url: 'https://cdn.example/reference.png',
+        status: 'ready',
+        error: '',
+      },
+      {
+        id: 'reference-video',
+        file: new File(['video'], 'reference.mp4', { type: 'video/mp4' }),
+        name: 'reference.mp4',
+        kind: 'video',
+        mimeType: 'video/mp4',
+        size: 5,
+        previewUrl: 'blob:reference-video',
+        url: 'https://cdn.example/reference.mp4',
+        status: 'ready',
+        error: '',
+      },
+    ])
+    controller.prompt.value = 'animate the reference'
+    await controller.submitPrompt()
+    await settle()
+
+    expect(submitVideo).toHaveBeenCalledWith('sk-demo', expect.objectContaining({
+      images: ['https://cdn.example/reference.png'],
+      videos: ['https://cdn.example/reference.mp4'],
+    }), expect.any(String))
+    expect(controller.conversation.value.messages.at(-2)).toMatchObject({
+      role: 'user',
+      mode: 'video',
+      inputReferences: [
+        { url: 'https://cdn.example/reference.png', kind: 'image' },
+        { url: 'https://cdn.example/reference.mp4', kind: 'video' },
+      ],
+    })
+    expect(controller.referenceAttachments.value).toHaveLength(0)
+  })
+
+  it('retries a failed video task with its original reference attachments', async () => {
+    const submitVideo = vi.fn()
+      .mockRejectedValueOnce(new Error('temporary video failure'))
+      .mockResolvedValueOnce({ id: 'video-2', status: 'processing', raw: {} })
+    const controller = useMediaStudioController({
+      storage: localStorage,
+      getConfig: vi.fn().mockResolvedValue(config),
+      createSession: vi.fn().mockResolvedValue(session()),
+      listModels: vi.fn().mockResolvedValue({ object: 'list', data: [{ id: 'grok-imagine-video' }] }),
+      submitVideo,
+      getVideoTask: vi.fn().mockResolvedValue({ id: 'video-2', status: 'completed', raw: {} }),
+      getVideoContent: vi.fn().mockResolvedValue(new Blob(['video'], { type: 'video/mp4' })),
+      createObjectURL: vi.fn().mockReturnValue('blob:video-preview'),
+      revokeObjectURL: vi.fn(),
+      pollDelayMs: 0,
+    })
+
+    await controller.loadMediaGroups()
+    controller.selectMode('video')
+    await settle()
+    controller.updateReferenceAttachments([{
+      id: 'reference-image',
+      file: new File(['image'], 'reference.png', { type: 'image/png' }),
+      name: 'reference.png',
+      kind: 'image',
+      mimeType: 'image/png',
+      size: 5,
+      previewUrl: 'blob:reference-image',
+      url: 'https://cdn.example/reference.png',
+      status: 'ready',
+      error: '',
+    }])
+    controller.prompt.value = 'animate the reference'
+    await controller.submitPrompt()
+
+    const failedMessage = controller.conversation.value.messages.at(-1)
+    expect(failedMessage).toMatchObject({ role: 'assistant', mode: 'video', status: 'failed' })
+
+    await controller.retryMessage(failedMessage!)
+    await settle()
+
+    expect(submitVideo).toHaveBeenCalledTimes(2)
+    expect(submitVideo.mock.calls[1][1]).toMatchObject({
+      images: ['https://cdn.example/reference.png'],
+    })
+    expect(controller.conversation.value.messages.at(-2)).toMatchObject({
+      role: 'user',
+      inputReferences: [{ url: 'https://cdn.example/reference.png' }],
+    })
+  })
+
   it('tolerates transient 404 responses while polling a video task', async () => {
     const notFound = () => Object.assign(new Error('task not found'), { status: 404 })
     const getVideoTask = vi.fn()

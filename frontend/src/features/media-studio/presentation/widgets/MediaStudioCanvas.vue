@@ -73,6 +73,34 @@
               loading="lazy"
             />
           </div>
+          <div v-if="message.role === 'user' && message.inputReferences?.length" class="mt-3 flex flex-wrap gap-2">
+            <div
+              v-for="reference in message.inputReferences"
+              :key="reference.id"
+              class="h-16 w-16 overflow-hidden rounded-xl border border-black/10 bg-gray-50 dark:border-white/15 dark:bg-dark-800"
+              :title="reference.name"
+            >
+              <img
+                v-if="reference.kind === 'image'"
+                :src="reference.src"
+                :alt="reference.name"
+                class="h-full w-full object-cover"
+                loading="lazy"
+              />
+              <video
+                v-else-if="reference.kind === 'video'"
+                :src="reference.src"
+                class="h-full w-full object-cover"
+                muted
+                playsinline
+                preload="metadata"
+              ></video>
+              <div v-else class="flex h-full w-full flex-col items-center justify-center gap-1 px-1 text-center">
+                <Icon name="play" size="sm" class="text-gray-400" />
+                <span class="line-clamp-2 text-[10px] leading-tight text-gray-500 dark:text-gray-400">{{ reference.name }}</span>
+              </div>
+            </div>
+          </div>
 
           <div v-if="message.role === 'assistant'" class="mt-3">
             <div class="mb-3 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">

@@ -12,9 +12,10 @@ export interface MediaStudioImageAttachment {
 }
 
 // 视频/音频参考素材：上传到对象存储后才能作为请求里的公网 URL。
+// 从历史消息恢复的素材没有本地文件，只能复用已上传的 URL。
 export interface MediaStudioReferenceAttachment {
   id: string
-  file: File
+  file?: File
   name: string
   kind: MediaStudioMediaType
   mimeType: string

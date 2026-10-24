@@ -131,6 +131,16 @@ export interface MediaStudioGeneratedVideoPreview {
   cacheKey?: string
 }
 
+// 用户消息里保留的参考素材快照：src 直接使用已上传的公网 URL，刷新后仍可渲染。
+export interface MediaStudioInputReferencePreview {
+  id: string
+  src: string
+  url: string
+  name: string
+  kind: MediaStudioMediaType
+  mimeType: string
+}
+
 export interface MediaStudioMessage {
   id: string
   role: 'user' | 'assistant'
@@ -152,6 +162,7 @@ export interface MediaStudioMessage {
   attributeKeys?: string[]
   progress?: number
   inputImages?: MediaStudioInputImagePreview[]
+  inputReferences?: MediaStudioInputReferencePreview[]
   images?: MediaStudioGeneratedImagePreview[]
   video?: MediaStudioGeneratedVideoPreview
   error?: string
@@ -354,6 +365,29 @@ function restorePersistedConversation(value: unknown): MediaStudioConversation |
               name: typeof item.name === 'string' ? item.name : 'reference-image',
               mimeType: typeof item.mimeType === 'string' ? item.mimeType : 'image/*',
               cacheKey: cacheKey || undefined,
+            }]
+          })
+      }
+
+      if (candidate.mode === 'video' && Array.isArray(candidate.inputReferences)) {
+        restored.inputReferences = candidate.inputReferences
+          .slice(0, 20)
+          .flatMap((reference) => {
+            if (!reference || typeof reference !== 'object') return []
+            const item = reference as Partial<MediaStudioInputReferencePreview>
+            const url = safeRemoteImageURL(item.url)
+            if (!url) return []
+            const kind = item.kind === 'image' || item.kind === 'video' || item.kind === 'audio'
+              ? item.kind
+              : ''
+            if (!kind) return []
+            return [{
+              id: typeof item.id === 'string' ? item.id : makeId('media_input_reference'),
+              src: safeRemoteImageURL(item.src) || url,
+              url,
+              name: typeof item.name === 'string' ? item.name : kind,
+              kind,
+              mimeType: typeof item.mimeType === 'string' ? item.mimeType : '',
             }]
           })
       }
@@ -869,8 +903,10 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
 
   // 参考素材必须先落到对象存储，视频请求只能引用公网 URL。
   async function uploadReferenceAttachment(attachment: MediaStudioReferenceAttachment, modelName: string) {
+    const file = attachment.file
+    if (!file) return
     try {
-      const uploaded = await data.uploadFile(modelName, attachment.kind, attachment.file)
+      const uploaded = await data.uploadFile(modelName, attachment.kind, file)
       if (disposed) return
       patchReferenceAttachment(attachment.id, { url: uploaded.url, status: 'ready', error: '' })
     } catch (error) {
@@ -1310,7 +1346,19 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     text: string,
     mode: 'image' | 'video',
     inputAttachments: MediaStudioImageAttachment[] = [],
+    inputReferences: MediaStudioReferenceAttachment[] = [],
   ): MediaStudioMessage {
+    // 参考素材已上传为公网 URL，直接写进消息快照，保证发送后仍能渲染并支持重试。
+    const referencePreviews = inputReferences
+      .filter(reference => reference.status === 'ready' && reference.url)
+      .map(reference => ({
+        id: reference.id,
+        src: reference.url,
+        url: reference.url,
+        name: reference.name,
+        kind: reference.kind,
+        mimeType: reference.mimeType,
+      }))
     const userMessage: MediaStudioMessage = {
       id: makeId('media_user'),
       role: 'user',
@@ -1322,6 +1370,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
         name: attachment.name,
         mimeType: attachment.mimeType,
       })),
+      inputReferences: referencePreviews.length > 0 ? referencePreviews : undefined,
       createdAt: now(),
     }
     const renderMode = attributeRenderMode.value
@@ -1364,7 +1413,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
 
     const submittedAttachments = mode === 'image' ? [...imageAttachments.value] : []
     const submittedReferences = mode === 'video' ? [...referenceAttachments.value] : []
-    const assistantMessage = appendPromptMessages(text, mode, submittedAttachments)
+    const assistantMessage = appendPromptMessages(text, mode, submittedAttachments, submittedReferences)
     if (submittedAttachments.length > 0) {
       imageInputFiles.set(assistantMessage.id, submittedAttachments.map(attachment => attachment.file))
       void cacheInputImages(assistantMessage.id, submittedAttachments)
@@ -1526,6 +1575,27 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     }
   }
 
+  // 重试时从对应的用户消息里还原已上传的参考素材，请求不能丢附件。
+  function restoreReferenceAttachments(message: MediaStudioMessage): MediaStudioReferenceAttachment[] {
+    const messages = conversation.value.messages
+    const index = messages.findIndex(item => item.id === message.id)
+    const promptMessage = index > 0 ? messages[index - 1] : undefined
+    if (!promptMessage || promptMessage.role !== 'user') return []
+    return (promptMessage.inputReferences ?? [])
+      .filter(reference => reference.url)
+      .map(reference => ({
+        id: reference.id,
+        name: reference.name,
+        kind: reference.kind,
+        mimeType: reference.mimeType,
+        size: 0,
+        previewUrl: reference.src || reference.url,
+        url: reference.url,
+        status: 'ready',
+        error: '',
+      }))
+  }
+
   async function retryMessage(message: MediaStudioMessage) {
     if (!message.prompt.trim()) return
     await selectMode(message.mode)
@@ -1549,6 +1619,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
         message.duration || DEFAULT_VIDEO_DURATION,
         activeModelLimits.value.duration,
       )
+      updateReferenceAttachments(restoreReferenceAttachments(message))
     }
     prompt.value = message.prompt
     await submitPrompt()
