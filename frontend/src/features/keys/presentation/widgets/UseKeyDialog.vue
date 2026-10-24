@@ -265,6 +265,8 @@ const defaultClientTab = computed(() => {
       return 'claude'
     case 'typesafe':
       return 'systemone'
+    case 'multimodal':
+      return 'codex'
     default:
       return 'claude'
   }
@@ -354,6 +356,11 @@ const clientTabs = computed((): TabConfig[] => {
   if (!props.platform) return []
   switch (props.platform) {
     case 'typesafe': return [{ id: 'systemone', label: 'System One API', icon: TerminalIcon }]
+    case 'multimodal':
+      return [
+        { id: 'codex', label: t('keys.useKeyModal.cliTabs.codexCli'), icon: TerminalIcon },
+        { id: 'opencode', label: t('keys.useKeyModal.cliTabs.opencode'), icon: TerminalIcon }
+      ]
     case 'openai': {
       const tabs: TabConfig[] = [
         { id: 'codex', label: t('keys.useKeyModal.cliTabs.codexCli'), icon: TerminalIcon },
@@ -432,6 +439,7 @@ const currentTabs = computed(() => {
 const platformDescription = computed(() => {
   switch (props.platform) {
     case 'typesafe': return t('keys.useKeyModal.typesafe.description')
+    case 'multimodal': return t('keys.useKeyModal.multimodal.description')
     case 'openai':
       if (activeClientTab.value === 'claude') {
         return t('keys.useKeyModal.description')
@@ -457,6 +465,7 @@ const platformDescription = computed(() => {
 const platformNote = computed(() => {
   switch (props.platform) {
     case 'typesafe': return t('keys.useKeyModal.typesafe.note')
+    case 'multimodal': return t('keys.useKeyModal.multimodal.note')
     case 'openai':
       if (activeClientTab.value === 'claude') {
         return t('keys.useKeyModal.note')
@@ -598,6 +607,7 @@ const currentFiles = computed((): FileConfig[] => {
       case 'deepseek':
       case 'minimax':
       case 'opencode_go':
+      case 'multimodal':
         return activeClientTab.value === 'claude'
           ? generateAnthropicFiles(baseUrl, apiKey)
           : generateOpenAIFiles(baseUrl, apiKey)

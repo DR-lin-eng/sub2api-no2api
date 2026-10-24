@@ -23,6 +23,8 @@ export default {
       quality: 'Quality',
       count: 'Count',
       duration: 'Duration',
+      durationIncrease: 'Increase duration',
+      durationDecrease: 'Decrease duration',
       customWidth: 'Custom width',
       customHeight: 'Custom height',
       aspectRatio: 'Ratio',

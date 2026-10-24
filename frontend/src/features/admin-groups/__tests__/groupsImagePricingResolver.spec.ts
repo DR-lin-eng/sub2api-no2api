@@ -23,8 +23,14 @@ describe("groups image pricing platform support", () => {
     expect(imagePricingPlatforms.has("composite")).toBe(true);
   });
 
-  it("enables video pricing controls for Grok only", () => {
+  it("includes multimodal groups for image generation pricing", () => {
+    expect(supportsImagePricingPlatform("multimodal")).toBe(true);
+    expect(imagePricingPlatforms.has("multimodal")).toBe(true);
+  });
+
+  it("enables video pricing controls for Grok and Multimodal", () => {
     expect(supportsVideoPricingPlatform("grok")).toBe(true);
+    expect(supportsVideoPricingPlatform("multimodal")).toBe(true);
     expect(supportsVideoPricingPlatform("openai")).toBe(false);
   });
 

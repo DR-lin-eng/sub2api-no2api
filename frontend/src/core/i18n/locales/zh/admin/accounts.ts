@@ -309,6 +309,7 @@ export default {
         deepseek: 'DeepSeek',
         minimax: 'MiniMax',
         opencode_go: 'OpenCode',
+        multimodal: '多模态',
       },
       types: {
         oauth: 'OAuth',

@@ -127,6 +127,7 @@ export default {
         deepseek: 'DeepSeek',
         minimax: 'MiniMax',
         opencode_go: 'OpenCode',
+        multimodal: 'Multimodal',
       },
       types: {
         oauth: 'OAuth',

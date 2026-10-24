@@ -238,6 +238,10 @@ export default {
         description: 'Call Jev through the native TypeSafe System One endpoint.',
         note: 'System One is non-streaming and is not compatible with Chat Completions, Responses, Claude Code, or Codex clients.',
       },
+      multimodal: {
+        description: 'Call the Multimodal group with an OpenAI-compatible client. Image and video generation endpoints are supported.',
+        note: 'This group only exposes the /v1/images and /v1/videos endpoints. Use the gateway address as the base URL and the media models allowed by the group.',
+      },
       antigravity: {
         description: 'Configure API access for Antigravity group. Select the configuration method based on your client.',
         claudeCode: 'Claude Code',

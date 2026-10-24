@@ -153,6 +153,7 @@ export function defaultAPIKeyBaseURL(platform: AccountPlatform): string {
     case 'deepseek':
     case 'minimax': return defaultCNBaseURL(platform, 'payg')
     case 'opencode_go': return defaultCNBaseURL(platform, 'go')
+    case 'multimodal': return 'https://sub2api.dk996.top'
     default: return 'https://api.anthropic.com'
   }
 }
@@ -167,6 +168,7 @@ export function defaultAPIKeyPlaceholder(platform: AccountPlatform): string {
     case 'deepseek':
     case 'antigravity': return 'sk-...'
     case 'opencode_go': return 'API Key'
+    case 'multimodal': return 'sk-...'
     default: return 'API Key'
   }
 }

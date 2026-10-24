@@ -50,6 +50,7 @@ export const channelPlatformOrder: GroupPlatform[] = [
     'deepseek',
     'minimax',
     'opencode_go',
+    'multimodal',
 ]
 
 function pricingFormEntryToAPI(

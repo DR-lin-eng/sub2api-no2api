@@ -899,6 +899,7 @@ export default {
         minimax: 'MiniMax',
         opencode_go: 'OpenCode',
         typesafe: 'TypeSafe / Jev',
+        multimodal: '多模态',
         composite: 'Composite',
       },
       saving: '保存中...',
@@ -1126,6 +1127,7 @@ export default {
           embeddings: 'Embeddings',
           decisions: 'Decisions',
           images: 'Images',
+          videos: 'Videos',
           gemini: 'Gemini 原生'
         },
         match: {

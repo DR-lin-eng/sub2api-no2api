@@ -808,10 +808,6 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   const activeModelLimits = computed<MediaStudioResolvedLimits>(
     () => resolveMediaStudioModelLimits(activeModelOption.value?.limits),
   )
-  const durationOptions = computed<number[]>(() => {
-    const { min, max } = activeModelLimits.value.duration
-    return Array.from({ length: max - min + 1 }, (_, index) => min + index)
-  })
   const imageAttachmentLimits = computed<MediaStudioImageAttachmentLimits>(() => {
     const limits = activeModelLimits.value
     const maxFiles = limits.maxFiles.image
@@ -849,6 +845,11 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   // 模型限制加载或切换后，把已选时长收敛回该模型允许的区间。
   watch(activeModelLimits, (limits) => {
     duration.value = normalizeDuration(duration.value, limits.duration)
+  })
+  // 时长支持手输，任何写入都收敛到当前模型区间，避免越界值进入请求体。
+  watch(duration, (value) => {
+    const next = normalizeDuration(value, activeModelLimits.value.duration)
+    if (next !== value) duration.value = next
   })
   // A group serves exactly one modality, so only expose groups of the active mode.
   const groupOptions = computed<MediaStudioGroupOption[]>(() => {
@@ -1727,7 +1728,6 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     resolution,
     videoAspectRatio,
     duration,
-    durationOptions,
     imageQualityOptions,
     activeModelLimits,
     imageAttachmentLimits,

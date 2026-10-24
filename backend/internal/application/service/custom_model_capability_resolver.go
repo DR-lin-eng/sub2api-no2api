@@ -688,7 +688,7 @@ func normalizeCustomModelConfig(modelName string, capabilities []string, videoAP
 	videoAPIType = strings.ToLower(strings.TrimSpace(videoAPIType))
 	if _, hasVideo := seen["video"]; !hasVideo {
 		videoAPIType = ""
-	} else if videoAPIType != "" && videoAPIType != "grok" && videoAPIType != "agnes" {
+	} else if videoAPIType != "" && videoAPIType != "grok" && videoAPIType != "agnes" && videoAPIType != "multimodal" {
 		return "", nil, "", ErrCustomModelConfigInvalid
 	}
 	return modelName, normalized, videoAPIType, nil

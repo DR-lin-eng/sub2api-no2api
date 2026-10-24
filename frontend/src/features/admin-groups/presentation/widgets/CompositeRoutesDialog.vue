@@ -373,6 +373,7 @@ const platformOptions = computed(() => [
     { value: 'minimax', label: 'MiniMax' },
     { value: 'opencode_go', label: 'OpenCode' },
     { value: 'typesafe', label: 'TypeSafe / Jev' },
+    { value: 'multimodal', label: 'Multimodal' },
 ])
 
 const endpointOptions = computed(() => [
@@ -384,6 +385,7 @@ const endpointOptions = computed(() => [
   { value: 'embeddings', label: t('admin.groups.compositeRoutes.endpoints.embeddings') },
   { value: 'decisions', label: t('admin.groups.compositeRoutes.endpoints.decisions') },
   { value: 'images', label: t('admin.groups.compositeRoutes.endpoints.images') },
+  { value: 'videos', label: t('admin.groups.compositeRoutes.endpoints.videos') },
   { value: 'gemini', label: t('admin.groups.compositeRoutes.endpoints.gemini') },
 ])
 

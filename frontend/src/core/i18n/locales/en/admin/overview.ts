@@ -972,6 +972,7 @@ export default {
         minimax: 'MiniMax',
         opencode_go: 'OpenCode',
         typesafe: 'TypeSafe / Jev',
+        multimodal: 'Multimodal',
         composite: 'Composite',
       },
       deleteConfirm:
@@ -1129,6 +1130,7 @@ export default {
           embeddings: 'Embeddings',
           decisions: 'Decisions',
           images: 'Images',
+          videos: 'Videos',
           gemini: 'Gemini Native'
         },
         match: {

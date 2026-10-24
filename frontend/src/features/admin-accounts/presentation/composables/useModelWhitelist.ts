@@ -271,6 +271,20 @@ const perplexityModels = [
   'llama-3-sonar-small-32k-chat', 'llama-3-sonar-large-32k-chat'
 ]
 
+// 多模态（图片 + 视频）
+const multimodalModels = [
+  'gpt-image-2.5', 'gpt-image-2.5-flare', 'gpt-image-2.5-sunburst', 'gpt-image-2',
+  'seedream', 'seedream5',
+  'grok-imagine-image', 'grok-imagine-image-2.0', 'grok-imagine-image-lite',
+  'grok-imagine-image-quality', 'grok-imagine-image-edit',
+  'seedance', 'seedance2.0', 'seedance2.0-fast', 'seedance2.0-mini', 'seedance2.5',
+  'dreamina-seedance-2-0', 'dreamina-seedance-2-5',
+  'dreamina-seedance-2-0-mini-260615', 'dreamina-seedance-2-0-fast-260128',
+  'dreamina-seedance-2-0-260128', 'dreamina-seedance-2-5-260628',
+  'dreamina-seedance-2-0-hc', 'dreamina-seedance-2-5-hc',
+  'grok-imagine-video', 'grok-imagine-video-1.5'
+]
+
 // 所有模型（去重）
 const allModelsList: string[] = [
   ...openaiModels,
@@ -287,6 +301,7 @@ const allModelsList: string[] = [
   ...moonshotModels,
   ...doubaoModels,
   ...minimaxModels,
+  ...multimodalModels,
   ...baiduModels,
   ...sparkModels,
   ...hunyuanModels,
@@ -499,6 +514,7 @@ export function getModelsByPlatform(platform: string): string[] {
       case 'moonshot': return moonshotModels
     case 'doubao': return doubaoModels
     case 'minimax': return minimaxModels
+    case 'multimodal': return multimodalModels
     case 'opencode_go': return [
       'grok-4.6', 'gpt-5.6-luna',
       'glm-5.3-flash', 'glm-5.3', 'glm-5.2', 'glm-5.1',
@@ -524,7 +540,7 @@ export function getPresetMappingsByPlatform(platform: string) {
   if (platform === 'grok' || platform === 'xai') return grokPresetMappings
     if (platform === 'antigravity') return antigravityPresetMappings
     if (platform === 'bedrock') return bedrockPresetMappings
-    if (['kimi', 'zhipu', 'deepseek', 'minimax', 'opencode_go'].includes(platform)) return []
+    if (['kimi', 'zhipu', 'deepseek', 'minimax', 'opencode_go', 'multimodal'].includes(platform)) return []
     return anthropicPresetMappings
 }
 

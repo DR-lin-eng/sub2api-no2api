@@ -170,6 +170,7 @@ const labelClass = computed(() => {
     if (props.platform === 'deepseek') return `${base} bg-cyan-200/60 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300`
     if (props.platform === 'minimax') return `${base} bg-rose-200/60 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300`
     if (props.platform === 'opencode_go') return `${base} bg-amber-200/60 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300`
+    if (props.platform === 'multimodal') return `${base} bg-fuchsia-200/60 text-fuchsia-800 dark:bg-fuchsia-900/40 dark:text-fuchsia-300`
   if (props.platform === 'composite') {
     return `${base} bg-cyan-200/70 text-cyan-900 dark:bg-cyan-900/50 dark:text-cyan-300`
   }
@@ -213,6 +214,7 @@ const badgeClass = computed(() => {
     if (props.platform === 'deepseek') return 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300'
     if (props.platform === 'minimax') return 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
     if (props.platform === 'opencode_go') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+    if (props.platform === 'multimodal') return 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-300'
   if (props.platform === 'composite') {
     return isSubscription.value
       ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300'

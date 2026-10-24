@@ -17,6 +17,7 @@ export type GroupPlatform =
   | 'deepseek'
   | 'minimax'
   | 'opencode_go' | 'typesafe'
+  | 'multimodal'
   | 'composite'
 
 export type SubscriptionType = 'standard' | 'subscription'

@@ -14,7 +14,6 @@
         v-model:resolution="resolution"
         v-model:video-aspect-ratio="videoAspectRatio"
         v-model:duration="duration"
-        :duration-options="durationOptions"
         :image-quality-options="imageQualityOptions"
         :modes="modes"
         :selected-mode="selectedMode"
@@ -83,7 +82,6 @@ const {
   resolution,
   videoAspectRatio,
   duration,
-  durationOptions,
   imageQualityOptions,
   groupOptions,
   loadingGroups,

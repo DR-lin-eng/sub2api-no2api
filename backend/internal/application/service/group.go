@@ -458,7 +458,7 @@ func NormalizeProfitControlConfig(platform string, enabled bool, minMargin, safe
 func profitControlPlatformSupported(platform string) bool {
 	switch platform {
 	case PlatformOpenAI, PlatformAnthropic, PlatformGemini, PlatformGrok, PlatformAntigravity,
-		PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax, PlatformOpenCodeGo:
+		PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax, PlatformOpenCodeGo, PlatformMultimodal:
 		return true
 	default:
 		return false

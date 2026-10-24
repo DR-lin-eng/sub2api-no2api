@@ -23,6 +23,8 @@ export default {
       quality: '质量',
       count: '数量',
       duration: '时长',
+      durationIncrease: '增加时长',
+      durationDecrease: '减少时长',
       customWidth: '自定义宽度',
       customHeight: '自定义高度',
       aspectRatio: '比例',

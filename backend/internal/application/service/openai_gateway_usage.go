@@ -140,7 +140,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	user := input.User
 	account := input.Account
 	subscription := input.Subscription
-	if !isGrokVideoUsageResult(result, nil) {
+	if !isVideoUsageResult(result) {
 		ApplyOpenAIImageBillingResolution(result)
 	}
 
@@ -196,7 +196,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		result.UpstreamModel,
 		result.Model,
 	)
-	isVideoUsage := isGrokVideoUsageResult(result, billingModels)
+	isVideoUsage := isVideoUsageResult(result)
 	serviceTier := ""
 	if result.ServiceTier != nil {
 		serviceTier = strings.TrimSpace(*result.ServiceTier)
@@ -498,7 +498,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCostWithResolution(
 			BillingModel: billingModel,
 		}, nil
 	}
-	if isGrokVideoUsageResult(result, billingModels) {
+	if isVideoUsageResult(result) {
 		if resolved := s.resolveOpenAIChannelPricing(ctx, billingModel, apiKey); resolved == nil || resolved.Mode != BillingModeToken {
 			return openAIRecordUsageCostResolution{
 				Cost:         s.calculateOpenAIVideoCost(ctx, billingModel, apiKey, result, videoMultiplier),
@@ -520,7 +520,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCostWithResolution(
 	}
 	var lastErr error
 	var tokenImageMultiplier *float64
-	if result != nil && result.ImageCount > 0 && !isGrokVideoUsageResult(result, billingModels) {
+	if result != nil && result.ImageCount > 0 && !isVideoUsageResult(result) {
 		tokenImageMultiplier = tokenImageRateMultiplier(apiKey, imageMultiplier)
 	}
 	for _, candidate := range billingModels {
@@ -555,22 +555,12 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCostWithResolution(
 	return openAIRecordUsageCostResolution{}, fmt.Errorf("calculate OpenAI usage cost failed for billing models %s: %w", strings.Join(billingModels, ","), lastErr)
 }
 
-func isGrokVideoBillingModel(model string) bool {
-	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(model)), "grok-imagine-video")
-}
-
-func isGrokVideoUsageResult(result *OpenAIForwardResult, billingModels []string) bool {
-	if result == nil || result.VideoCount <= 0 {
-		return false
-	}
-	candidates := append([]string{}, billingModels...)
-	candidates = append(candidates, result.BillingModel, result.Model, result.UpstreamModel)
-	for _, candidate := range candidates {
-		if isGrokVideoBillingModel(candidate) {
-			return true
-		}
-	}
-	return false
+// isVideoUsageResult reports whether the forward result describes a video
+// generation. Video handlers are the only producers of VideoCount, so the
+// counter alone is authoritative. Gating on model names would misclassify
+// non-Grok video models (multimodal seedance/dreamina) as image usage.
+func isVideoUsageResult(result *OpenAIForwardResult) bool {
+	return result != nil && result.VideoCount > 0
 }
 
 func isUsagePricingUnavailableError(err error) bool {

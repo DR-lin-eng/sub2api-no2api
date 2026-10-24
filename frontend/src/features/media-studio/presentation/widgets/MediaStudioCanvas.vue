@@ -621,13 +621,41 @@
 
                     <label v-if="!hiddenParameterControls.includes('video.duration')" class="param-field">
                       <span class="param-label">{{ t('mediaStudio.composer.duration') }}</span>
-                      <select
-                        :value="duration"
-                        class="param-control"
-                        @change="emit('update:duration', Number(($event.target as HTMLSelectElement).value))"
-                      >
-                        <option v-for="option in durationOptions" :key="option" :value="option">{{ option }}s</option>
-                      </select>
+                      <span class="relative block">
+                        <input
+                          :value="durationInput"
+                          type="number"
+                          inputmode="numeric"
+                          step="1"
+                          class="param-control duration-input"
+                          :min="modelLimits.duration.min"
+                          :max="modelLimits.duration.max"
+                          @input="durationInput = ($event.target as HTMLInputElement).value"
+                          @change="commitDuration"
+                          @blur="commitDuration"
+                        >
+                        <span class="pointer-events-none absolute inset-y-0 right-10 flex items-center text-xs text-gray-400 dark:text-gray-500">s</span>
+                        <span class="duration-stepper">
+                          <button
+                            type="button"
+                            class="duration-stepper__button"
+                            :disabled="duration >= modelLimits.duration.max"
+                            :aria-label="t('mediaStudio.composer.durationIncrease')"
+                            @click="stepDuration(1)"
+                          >
+                            <Icon name="chevronUp" size="xs" :stroke-width="2" />
+                          </button>
+                          <button
+                            type="button"
+                            class="duration-stepper__button"
+                            :disabled="duration <= modelLimits.duration.min"
+                            :aria-label="t('mediaStudio.composer.durationDecrease')"
+                            @click="stepDuration(-1)"
+                          >
+                            <Icon name="chevronDown" size="xs" :stroke-width="2" />
+                          </button>
+                        </span>
+                      </span>
                     </label>
                   </div>
                 </section>
@@ -696,7 +724,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import MediaStudioCustomResolutionDialog from '@/features/media-studio/presentation/widgets/MediaStudioCustomResolutionDialog.vue'
@@ -747,7 +775,6 @@ const props = defineProps<{
   resolution: MediaStudioVideoResolution
   videoAspectRatio: MediaStudioVideoAspectRatio
   duration: number
-  durationOptions: number[]
   imageQualityOptions: MediaStudioParameterOption[]
   groupOptions: MediaStudioGroupOption[]
   loadingGroups: boolean
@@ -826,6 +853,36 @@ const imageResolutionOptions: MediaStudioImageResolution[] = ['1K', '2K', '4K']
 const imageAspectRatioOptions: MediaStudioImageAspectRatio[] = ['1:1', '3:2', '2:3', '4:3', '3:4', '16:9', '9:16']
 const resolutionOptions: MediaStudioVideoResolution[] = ['480p', '720p', '1080p']
 const videoAspectRatioOptions: MediaStudioVideoAspectRatio[] = ['16:9', '9:16', '1:1', '4:3', '3:4']
+
+// 时长允许直接输入，用本地文本态承接输入过程，提交时再按模型限制收敛。
+const durationInput = ref(String(props.duration))
+
+function commitDuration() {
+  const { min, max } = props.modelLimits.duration
+  const parsed = Number(durationInput.value)
+  const next = durationInput.value.trim() === '' || !Number.isFinite(parsed)
+    ? props.duration
+    : Math.min(max, Math.max(min, Math.trunc(parsed)))
+  durationInput.value = String(next)
+  if (next !== props.duration) emit('update:duration', next)
+}
+
+// 上下按钮每次加减 1 秒，边界由当前模型限制决定。
+function stepDuration(delta: number) {
+  const { min, max } = props.modelLimits.duration
+  const parsed = Number(durationInput.value)
+  const base = durationInput.value.trim() === '' || !Number.isFinite(parsed)
+    ? props.duration
+    : Math.trunc(parsed)
+  const next = Math.min(max, Math.max(min, base + delta))
+  durationInput.value = String(next)
+  if (next !== props.duration) emit('update:duration', next)
+}
+
+// 模型切换或外部收敛时长时，把输入框同步回权威值。
+watch(() => props.duration, (value) => {
+  if (Number(durationInput.value) !== value) durationInput.value = String(value)
+})
 
 const uploadAccept = computed(() => (
   props.selectedModeId === 'image' ? 'image/*' : mediaStudioUploadAccept(props.modelLimits)
@@ -1159,6 +1216,19 @@ select.param-control {
 
 .param-control option {
   @apply bg-white text-gray-800 dark:bg-dark-900 dark:text-gray-100;
+}
+
+/* 全局样式隐藏了原生步进箭头，这里为时长输入框自绘上下调节按钮 */
+.duration-input {
+  padding-right: 3.75rem;
+}
+
+.duration-stepper {
+  @apply absolute inset-y-0 right-0 flex w-8 flex-col overflow-hidden rounded-r-lg border-l border-gray-200 bg-gray-50 dark:border-dark-700 dark:bg-dark-800;
+}
+
+.duration-stepper__button {
+  @apply flex flex-1 items-center justify-center text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:text-gray-400 dark:hover:bg-dark-800 dark:hover:text-gray-200;
 }
 
 .meta-pill {

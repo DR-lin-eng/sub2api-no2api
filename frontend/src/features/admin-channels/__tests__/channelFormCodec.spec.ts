@@ -280,6 +280,7 @@ describe('channel form codec', () => {
         'deepseek',
         'minimax',
         'opencode_go',
+        'multimodal',
     ])
     expect(sections.map(section => section.group_ids)).toStrictEqual([
       [1, 3],
@@ -289,6 +290,7 @@ describe('channel form codec', () => {
         [1],
         [1],
         [1],
+      [1],
       [1],
       [1],
       [1],
