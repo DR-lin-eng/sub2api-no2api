@@ -38,8 +38,16 @@ func (u *policyForwardingUpstream) Do(_ *http.Request, _ string, _ int64, _ int)
 }
 
 func TestOpenAIPolicyErrorForwarding(t *testing.T) {
+	testOpenAIPolicyErrorForwarding(t, "Your request was rejected as a result of our safety system.")
+}
+
+func TestOpenAIBiologicalRiskErrorForwarding(t *testing.T) {
+	testOpenAIPolicyErrorForwarding(t, "This content was flagged for possible biological risk. If this seems wrong, try rephrasing your request. We are continuously refining our work in detecting biological risk, and you can read more about our approach in our blog post: [https://openai.com/index/preparing-for-future-ai-capabilities-in-biology](https://openai.com/index/preparing-for-future-ai-capabilities-in-biology)")
+}
+
+func testOpenAIPolicyErrorForwarding(t *testing.T, message string) {
+	t.Helper()
 	gin.SetMode(gin.TestMode)
-	const message = "Your request was rejected as a result of our safety system."
 	policy := `{"type":"invalid_request_error","code":"content_policy_violation","message":"` + message + `"}`
 	cyber := `{"type":"invalid_request_error","code":"cyber_policy","message":"` + message + `"}`
 	failed := func(err string) string {
@@ -52,11 +60,14 @@ func TestOpenAIPolicyErrorForwarding(t *testing.T) {
 		streamOnly                    bool
 	}{
 		{"http400_policy", "application/json", `{"error":` + policy + `}`, "content_policy_violation", 400, 400, false},
+		{"http400_message_policy", "application/json", `{"error":{"type":"safety_error","code":null,"message":"` + message + `"}}`, "content_policy_violation", 400, 400, false},
+		{"http400_untyped_message_policy", "application/json", `{"error":{"message":"` + message + `"}}`, "content_policy_violation", 400, 400, false},
 		{"http403_policy", "application/json", `{"error":` + policy + `}`, "content_policy_violation", 403, 403, false},
 		{"http502_policy", "application/json", `{"error":` + policy + `}`, "content_policy_violation", 502, 400, false},
 		{"http400_cyber", "application/json", `{"error":` + cyber + `}`, "cyber_policy", 400, 400, false},
 		{"http403_cyber", "application/json", `{"error":` + cyber + `}`, "cyber_policy", 403, 403, false},
 		{"sse_failed_policy", "text/event-stream", sse(failed(policy)), "content_policy_violation", 200, 400, false},
+		{"sse_failed_message_policy", "text/event-stream", sse(failed(`{"type":"safety_error","message":"` + message + `"}`)), "", 200, 400, false},
 		{"sse_bare_policy", "text/event-stream", "event: error\n" + sse(`{"type":"error","error":`+policy+`}`), "content_policy_violation", 200, 400, false},
 		{"sse_bare_cyber", "text/event-stream", "event: error\n" + sse(`{"type":"error","error":`+cyber+`}`), "cyber_policy", 200, 400, false},
 		{"sse_server_policy", "text/event-stream", sse(`{"type":"error","error":{"type":"server_error","code":"content_policy_violation","message":"` + message + `"}}`), "content_policy_violation", 200, 400, false},
@@ -132,7 +143,13 @@ func TestOpenAIPolicyErrorForwarding(t *testing.T) {
 						require.Equal(t, 1, terminalCount, "stream must contain exactly one Responses terminal failure")
 						require.NotContains(t, string(wire), "event: error")
 					}
-					require.Equal(t, tc.code, gjson.Get(errorJSON, "error.code").String())
+					wantCode := tc.code
+					// Existing response.failed streams preserve upstream error fields;
+					// rebuilt HTTP envelopes fill in a missing policy code.
+					if wantCode == "" && response.StatusCode != http.StatusOK {
+						wantCode = "content_policy_violation"
+					}
+					require.Equal(t, wantCode, gjson.Get(errorJSON, "error.code").String())
 					require.Equal(t, message, gjson.Get(errorJSON, "error.message").String())
 					require.NotContains(t, string(wire), "Upstream request failed")
 					require.NotContains(t, string(wire), "upstream_stream_truncated")

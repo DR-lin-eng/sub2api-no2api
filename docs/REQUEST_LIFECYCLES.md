@@ -182,6 +182,9 @@ HTTP Responses 流中的显式 `server_error` 在首语义输出前进入既有�
 误标为 5xx 的策略拒绝返回 400；流式裸 `error` 规范化为单个 `response.failed`
 终止事件，避免客户端把策略拒绝显示成断流或通用 502。Chat Completions 和 Anthropic
 兼容入口使用各自的错误格式。只有策略错误字段参与识别，正常模型输出中的策略文字不触发。
+其中 `This content was flagged for possible biological risk` 属于内容安全拒绝；即使上游
+没有错误码，也按 `content_policy_violation` 处理，保留 400、完整提示及博客链接，
+不触发账号冷却、号池重试或通用错误改写。
 API Key 账号对接其他 Sub2API 时遵循相同规则，包括
 `session_blocked_by_cyber_policy` 会话屏蔽；无需启用 OAuth 或自动透传。
 Responses、Chat Completions 直转及其协议转换路径都识别没有顶层 `type` 的
