@@ -55,6 +55,7 @@ export interface GroupEditorFormState {
   allow_image_generation: boolean;
   openai_force_image_tool: boolean;
   allow_batch_image_generation: boolean;
+  image_count_billing: boolean;
   image_rate_independent: boolean;
   image_rate_multiplier: number | string;
   batch_image_discount_multiplier: number | string;

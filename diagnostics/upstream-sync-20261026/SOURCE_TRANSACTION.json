@@ -1,0 +1,89 @@
+{
+  "baseline_tree": "f9097188ba556bd67dcb87027d644c9c0ae74003",
+  "affected_paths": 53,
+  "baseline_hashes_restored": "PASS",
+  "patch_reconstruction": "PASS",
+  "reapplied_source_equals_modified_archive": "PASS",
+  "results": [
+    {
+      "stage": "BASELINE",
+      "exit_status": 1,
+      "observed_behavior": [
+        "image_count_billing_test.go:51: route=gateway enabled=false dedicated=true images=2 cost=0.004500 mode=token",
+        "image_count_billing_test.go:51: route=gateway enabled=true dedicated=true images=2 cost=0.004500 mode=token",
+        "image_count_billing_test.go:51: route=gateway enabled=true dedicated=false images=2 cost=0.004500 mode=token",
+        "image_count_billing_test.go:51: route=openai enabled=false dedicated=true images=2 cost=0.004500 mode=token",
+        "image_count_billing_test.go:51: route=openai enabled=true dedicated=true images=2 cost=0.004500 mode=token",
+        "image_count_billing_test.go:51: route=openai enabled=true dedicated=false images=2 cost=0.004500 mode=token",
+        "admin_api_key_rate_limit_test.go:39: key=\"key-a\" status=200",
+        "admin_api_key_rate_limit_test.go:39: key=\"key-b\" status=200",
+        "admin_api_key_rate_limit_test.go:39: key=\"key-a\" status=200"
+      ],
+      "same_command_input": [
+        "go",
+        "test",
+        "-tags=unit",
+        "./internal/application/service",
+        "./internal/transport/http/server/middleware",
+        "-run",
+        "TestImageCountBillingTransaction|TestAdminAPIKeyRateLimitTransaction",
+        "-count=1",
+        "-v"
+      ]
+    },
+    {
+      "stage": "MODIFIED",
+      "exit_status": 0,
+      "observed_behavior": [
+        "image_count_billing_test.go:51: route=gateway enabled=false dedicated=true images=2 cost=0.004500 mode=token",
+        "image_count_billing_test.go:51: route=gateway enabled=true dedicated=true images=2 cost=0.600000 mode=image",
+        "image_count_billing_test.go:51: route=gateway enabled=true dedicated=false images=2 cost=0.004500 mode=token",
+        "image_count_billing_test.go:51: route=openai enabled=false dedicated=true images=2 cost=0.004500 mode=token",
+        "image_count_billing_test.go:51: route=openai enabled=true dedicated=true images=2 cost=0.600000 mode=image",
+        "image_count_billing_test.go:51: route=openai enabled=true dedicated=false images=2 cost=0.004500 mode=token",
+        "admin_api_key_rate_limit_test.go:39: key=\"key-a\" status=200",
+        "admin_api_key_rate_limit_test.go:39: key=\"key-b\" status=200",
+        "admin_api_key_rate_limit_test.go:39: key=\"key-a\" status=429",
+        "admin_api_key_rate_limit_test.go:39: key=\"\" status=200",
+        "admin_api_key_rate_limit_test.go:39: key=\"\" status=200"
+      ],
+      "same_command_input": [
+        "go",
+        "test",
+        "-tags=unit",
+        "./internal/application/service",
+        "./internal/transport/http/server/middleware",
+        "-run",
+        "TestImageCountBillingTransaction|TestAdminAPIKeyRateLimitTransaction",
+        "-count=1",
+        "-v"
+      ]
+    },
+    {
+      "stage": "ROLLBACK",
+      "exit_status": 1,
+      "observed_behavior": [
+        "image_count_billing_test.go:51: route=gateway enabled=false dedicated=true images=2 cost=0.004500 mode=token",
+        "image_count_billing_test.go:51: route=gateway enabled=true dedicated=true images=2 cost=0.004500 mode=token",
+        "image_count_billing_test.go:51: route=gateway enabled=true dedicated=false images=2 cost=0.004500 mode=token",
+        "image_count_billing_test.go:51: route=openai enabled=false dedicated=true images=2 cost=0.004500 mode=token",
+        "image_count_billing_test.go:51: route=openai enabled=true dedicated=true images=2 cost=0.004500 mode=token",
+        "image_count_billing_test.go:51: route=openai enabled=true dedicated=false images=2 cost=0.004500 mode=token",
+        "admin_api_key_rate_limit_test.go:39: key=\"key-a\" status=200",
+        "admin_api_key_rate_limit_test.go:39: key=\"key-b\" status=200",
+        "admin_api_key_rate_limit_test.go:39: key=\"key-a\" status=200"
+      ],
+      "same_command_input": [
+        "go",
+        "test",
+        "-tags=unit",
+        "./internal/application/service",
+        "./internal/transport/http/server/middleware",
+        "-run",
+        "TestImageCountBillingTransaction|TestAdminAPIKeyRateLimitTransaction",
+        "-count=1",
+        "-v"
+      ]
+    }
+  ]
+}

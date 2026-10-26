@@ -1,0 +1,29 @@
+{
+  "target": "/Users/lin/.codex/worktrees/08de/sub2api-no2api",
+  "root": "/private/tmp/sub2api-sync-20261026-x_z3wn11",
+  "repo": "/private/tmp/sub2api-sync-20261026-x_z3wn11/repo",
+  "branch": "codex/upstream-sync-20261026",
+  "baseline": "09364c46ae631b5e3fa754ebcf52b8320c6d0bae",
+  "upstream": "ba81c7fd758e425d67f856d601147ef0c5263d3f",
+  "action": "VERIFIED_TRANSACTION",
+  "output_contract": [
+    "upstream PR review",
+    "current-owner performance and upgrade compatibility",
+    "no repeated closed differences",
+    "selective sync",
+    "Docker tests",
+    "four transaction roles",
+    "push",
+    "CI tracking"
+  ],
+  "baseline_tree": "f9097188ba556bd67dcb87027d644c9c0ae74003",
+  "original_head": "5c9372cbf4639a74df0c37c3348fa32b27a32cb0",
+  "roles": {
+    "MODIFIED_FILE": "/private/tmp/sub2api-sync-20261026-x_z3wn11/repo/diagnostics/upstream-sync-20261026/MODIFIED_FILE.tar.gz",
+    "DIFF_FILE": "/private/tmp/sub2api-sync-20261026-x_z3wn11/repo/diagnostics/upstream-sync-20261026/DIFF_FILE.patch",
+    "VERIFICATION": "/private/tmp/sub2api-sync-20261026-x_z3wn11/repo/diagnostics/upstream-sync-20261026/VERIFICATION.txt",
+    "ROLLBACK": "/private/tmp/sub2api-sync-20261026-x_z3wn11/repo/diagnostics/upstream-sync-20261026/ROLLBACK.sh"
+  },
+  "last_confirmed_result": "Final source/native rollback, Docker local gates, 32-case runtime upgrade/rollback, machine-key HTTP matrix and fixed performance accepted.",
+  "next_executable_action": "Commit, reviewed-ancestry tracking merge, push, create/attach PR, exact PR CI, merge, exact main CI and registry verification."
+}

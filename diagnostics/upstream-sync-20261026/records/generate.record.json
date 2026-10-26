@@ -1,0 +1,27 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=4g",
+    "-v",
+    "/private/tmp/sub2api-sync-20261026-x_z3wn11/repo:/src",
+    "-v",
+    "sub2api-go-mod:/go/pkg/mod",
+    "-v",
+    "sub2api-go-build:/root/.cache/go-build",
+    "-w",
+    "/src/backend",
+    "sub2api-sync-go:20261024",
+    "make",
+    "generate"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261026-x_z3wn11/repo",
+  "input": "",
+  "stdout": "go generate ./ent\ngo generate ./cmd/server\n",
+  "stderr": "go: downloading github.com/spf13/cobra v1.7.0\ngo: downloading github.com/olekukonko/tablewriter v0.0.5\ngo: downloading github.com/mattn/go-runewidth v0.0.15\ngo: downloading github.com/rivo/uniseg v0.2.0\ngo: downloading github.com/google/subcommands v1.2.0\nwire: github.com/Wei-Shaw/sub2api/cmd/server: wrote /src/backend/cmd/server/wire_gen.go\nwire: github.com/Wei-Shaw/sub2api/cmd/server: wrote /src/backend/cmd/server/wire_gen.go\n",
+  "exit_status": 0,
+  "duration_seconds": 24.584,
+  "utc": "2026-10-26T03:38:57.110622+00:00"
+}

@@ -1,0 +1,21 @@
+2026/10/26 04:02:17 Timezone initialized: UTC (UTC offset: +00:00)
+goos: linux
+goarch: arm64
+pkg: github.com/Wei-Shaw/sub2api/internal/application/service
+BenchmarkImageCountBillingPricing/legacy-2         	  138727	      1654 ns/op	     816 B/op	      15 allocs/op
+BenchmarkImageCountBillingPricing/legacy-2         	  127911	      1610 ns/op	     816 B/op	      15 allocs/op
+BenchmarkImageCountBillingPricing/legacy-2         	  146502	      1609 ns/op	     816 B/op	      15 allocs/op
+BenchmarkImageCountBillingPricing/legacy-2         	  144562	      1579 ns/op	     816 B/op	      15 allocs/op
+BenchmarkImageCountBillingPricing/legacy-2         	  147982	      1581 ns/op	     816 B/op	      15 allocs/op
+BenchmarkImageCountBillingPricing/mixed-2          	  151796	      1587 ns/op	     816 B/op	      15 allocs/op
+BenchmarkImageCountBillingPricing/mixed-2          	  150548	      1598 ns/op	     816 B/op	      15 allocs/op
+BenchmarkImageCountBillingPricing/mixed-2          	  149623	      1604 ns/op	     816 B/op	      15 allocs/op
+BenchmarkImageCountBillingPricing/mixed-2          	  149944	      1593 ns/op	     816 B/op	      15 allocs/op
+BenchmarkImageCountBillingPricing/mixed-2          	  147094	      1934 ns/op	     816 B/op	      15 allocs/op
+BenchmarkImageCountBillingPricing/dedicated-2      	  196311	      1190 ns/op	     792 B/op	      14 allocs/op
+BenchmarkImageCountBillingPricing/dedicated-2      	  199729	      1241 ns/op	     792 B/op	      14 allocs/op
+BenchmarkImageCountBillingPricing/dedicated-2      	  199396	      1183 ns/op	     792 B/op	      14 allocs/op
+BenchmarkImageCountBillingPricing/dedicated-2      	  202952	      1176 ns/op	     792 B/op	      14 allocs/op
+BenchmarkImageCountBillingPricing/dedicated-2      	  200502	      1171 ns/op	     792 B/op	      14 allocs/op
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	3.862s

@@ -996,6 +996,8 @@ export default {
         allowImageGeneration: '允许当前分组生图',
         forceImageTool: '强制 Responses 画图工具走 Images API',
         forceImageToolHint: '未声明时注入 image_generation，并将每张图片重新调度到同组强制 Images API 账号。',
+        perImageBilling: '按实际出图张数计费',
+        perImageBillingHint: '仅对专用图片端点生效。全部实例升级后再开启；混合文本与图片请求仍按 token 计费。',
         allowBatchImageGeneration: '允许当前分组批量生图',
         independentMultiplier: '生图倍率独立',
         imageMultiplier: '生图独立倍率',

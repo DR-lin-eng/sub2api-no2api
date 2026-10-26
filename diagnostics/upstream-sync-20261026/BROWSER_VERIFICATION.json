@@ -1,0 +1,27 @@
+{
+  "surface": "actual GroupEditorMediaPricingFields.vue in a Docker/Vite fixture",
+  "desktop": {
+    "viewport": [
+      1280,
+      720
+    ],
+    "language": "zh",
+    "per_image_checkbox": "visible, unchecked by default, checked after click",
+    "layout": "observed without overlap"
+  },
+  "mobile": {
+    "viewport": [
+      390,
+      844
+    ],
+    "language": "en",
+    "per_image_checkbox": "visible and checked",
+    "layout": "observed with wrapped English text and no clipped fields"
+  },
+  "platform_switch": {
+    "to": "gemini",
+    "per_image_checkbox_count": 0
+  },
+  "browser_viewport_reset": true,
+  "limitations": "Isolated component fixture; not a full authenticated browser end-to-end administration workflow."
+}

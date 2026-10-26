@@ -15,7 +15,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 25 // v25: include group distillation policy
+const apiKeyAuthSnapshotVersion = 26 // v26: include group image_count_billing; preserve v25 distillation policy
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -571,6 +571,7 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 			AllowImageGeneration:            apiKey.Group.AllowImageGeneration,
 			OpenAIForceImageTool:            apiKey.Group.OpenAIForceImageTool,
 			AllowBatchImageGeneration:       apiKey.Group.AllowBatchImageGeneration,
+			ImageCountBilling:               apiKey.Group.ImageCountBilling,
 			ImageRateIndependent:            apiKey.Group.ImageRateIndependent,
 			ImageRateMultiplier:             apiKey.Group.ImageRateMultiplier,
 			ImagePrice1K:                    apiKey.Group.ImagePrice1K,
@@ -679,6 +680,7 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 			AllowImageGeneration:            snapshot.Group.AllowImageGeneration,
 			OpenAIForceImageTool:            snapshot.Group.OpenAIForceImageTool,
 			AllowBatchImageGeneration:       snapshot.Group.AllowBatchImageGeneration,
+			ImageCountBilling:               snapshot.Group.ImageCountBilling,
 			ImageRateIndependent:            snapshot.Group.ImageRateIndependent,
 			ImageRateMultiplier:             snapshot.Group.ImageRateMultiplier,
 			ImagePrice1K:                    snapshot.Group.ImagePrice1K,
@@ -752,6 +754,7 @@ func apiKeyAuthGroupSnapshotFromGroup(group *Group) *APIKeyAuthGroupSnapshot {
 		AllowImageGeneration:            group.AllowImageGeneration,
 		OpenAIForceImageTool:            group.OpenAIForceImageTool,
 		AllowBatchImageGeneration:       group.AllowBatchImageGeneration,
+		ImageCountBilling:               group.ImageCountBilling,
 		ImageRateIndependent:            group.ImageRateIndependent,
 		ImageRateMultiplier:             group.ImageRateMultiplier,
 		ImagePrice1K:                    group.ImagePrice1K,
@@ -811,6 +814,7 @@ func apiKeyGroupFromAuthSnapshot(snapshot *APIKeyAuthGroupSnapshot) *Group {
 		AllowImageGeneration:            snapshot.AllowImageGeneration,
 		OpenAIForceImageTool:            snapshot.OpenAIForceImageTool,
 		AllowBatchImageGeneration:       snapshot.AllowBatchImageGeneration,
+		ImageCountBilling:               snapshot.ImageCountBilling,
 		ImageRateIndependent:            snapshot.ImageRateIndependent,
 		ImageRateMultiplier:             snapshot.ImageRateMultiplier,
 		ImagePrice1K:                    snapshot.ImagePrice1K,

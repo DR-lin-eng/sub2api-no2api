@@ -1,0 +1,2 @@
+# github.com/Wei-Shaw/sub2api/internal/application/service
+internal/application/service/admin_group.go:543:20: no new variables on left side of :=

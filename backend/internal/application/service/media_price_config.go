@@ -1,5 +1,15 @@
 package service
 
+// imageCountBillingEnabled is opt-in; missing fields from old nodes remain false.
+func imageCountBillingEnabled(apiKey *APIKey) bool {
+	return apiKey != nil && apiKey.Group != nil && apiKey.Group.ImageCountBilling
+}
+
+// Mixed Responses, Chat and WS output must retain its text token charges.
+func imageCountBillingApplies(apiKey *APIKey, imageEndpoint bool) bool {
+	return imageEndpoint && imageCountBillingEnabled(apiKey)
+}
+
 func imagePriceConfigFromAPIKey(apiKey *APIKey) *ImagePriceConfig {
 	if apiKey == nil || apiKey.Group == nil {
 		return nil

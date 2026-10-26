@@ -877,7 +877,7 @@ func (s *GatewayService) calculateRecordUsageCostWithPricing(
 ) *CostBreakdown {
 	// 图片生成：渠道定价为 token 计费时走 token 路径，否则走图片计费
 	if result.ImageCount > 0 {
-		if resolved != nil && isExplicitAdminPricing(resolved) && resolved.Mode == BillingModeToken {
+		if !imageCountBillingApplies(apiKey, result.ImageEndpoint) && resolved != nil && isExplicitAdminPricing(resolved) && resolved.Mode == BillingModeToken {
 			return s.calculateTokenCostWithPricing(ctx, result, apiKey, billingModel, multiplier, pricingAt, opts, resolved)
 		}
 		return s.calculateImageCostWithPricing(ctx, result, apiKey, billingModel, imageMultiplier, pricingAt, resolved)
@@ -992,7 +992,7 @@ func (s *GatewayService) calculateImageCostWithPricing(
 	if apiKeyHasConfiguredImagePrice(apiKey, sizeTier) {
 		return s.billingService.CalculateImageCost(billingModel, sizeTier, result.ImageCount, groupConfig, multiplier)
 	}
-	if resolved != nil && isExplicitAdminPricing(resolved) && s.resolver != nil && apiKey != nil && apiKey.Group != nil {
+	if resolved != nil && (!imageCountBillingApplies(apiKey, result.ImageEndpoint) || resolved.Mode != BillingModeToken) && isExplicitAdminPricing(resolved) && s.resolver != nil && apiKey != nil && apiKey.Group != nil {
 		tokens := UsageTokens{
 			InputTokens:       result.Usage.InputTokens,
 			OutputTokens:      result.Usage.OutputTokens,

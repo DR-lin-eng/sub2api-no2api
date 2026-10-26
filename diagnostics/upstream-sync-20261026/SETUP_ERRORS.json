@@ -1,0 +1,28 @@
+[
+  {
+    "command": "initial repository and fixture lookup reads",
+    "exit_status": "mixed (missing historical filename aliases; corrected using rg)",
+    "source": "Earlier read-only cat/rg/glob lookups; no source changes resulted."
+  },
+  {
+    "command": "diagnostics/upstream-sync-20261026/adapt.py initial execution",
+    "exit_status": 0,
+    "subsequent_compile_exit": 1,
+    "source": "mechanical field insertion produced a second imageCountBilling declaration; corrected before candidate acceptance; candidate-probe.record.json preserves stderr."
+  },
+  {
+    "command": "documentation index insertion first attempt",
+    "exit_status": 1,
+    "source": "Existing index label uses 增量; replaced by matching the stable UPSTREAM_SYNC_20261024.md link; docs-indexed passed."
+  },
+  {
+    "command": "Docker/Vite UI fixture startup first attempt",
+    "exit_status": 1,
+    "source": "absolute package-directory plugin import did not resolve; copied harness into its node_modules volume and used package imports; browser verification passed."
+  },
+  {
+    "command": "IAB initial fixture navigation",
+    "exit_status": "ERR_EMPTY_RESPONSE; subsequent failed-tab selection blocked by URL policy on generated data URL",
+    "source": "Fixture process was not ready; fresh navigation to the now-running localhost fixture succeeded. No browser security interstitial was bypassed."
+  }
+]

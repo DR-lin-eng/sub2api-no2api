@@ -1,0 +1,44 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 149B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/sub2api-sync-go:20261024
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [1/3] FROM docker.io/library/sub2api-sync-go:20261024@sha256:36674e0cec08b640dd00023d91a854d2f94832aff767338c489854ceb3e0febf
+#4 resolve docker.io/library/sub2api-sync-go:20261024@sha256:36674e0cec08b640dd00023d91a854d2f94832aff767338c489854ceb3e0febf 0.0s done
+#4 CACHED
+
+#5 [internal] load build context
+#5 transferring context: 37.43MB 0.2s done
+#5 DONE 0.3s
+
+#6 [2/3] RUN apk add --no-cache docker-cli
+#6 7.400 (1/1) Installing docker-cli (29.9.2-r0)
+#6 10.10 Executing busybox-1.37.0-r31.trigger
+#6 10.10 OK: 217.1 MiB in 44 packages
+#6 DONE 10.2s
+
+#7 [3/3] COPY golangci-lint /usr/local/bin/golangci-lint
+#7 DONE 0.1s
+
+#8 exporting to image
+#8 exporting layers
+#8 exporting layers 1.0s done
+#8 exporting manifest sha256:c1c283a95aebc03df19b669aa78249d02989627d9e65388d8716d04d8b611357
+#8 exporting manifest sha256:c1c283a95aebc03df19b669aa78249d02989627d9e65388d8716d04d8b611357 done
+#8 exporting config sha256:9a0b176104bf462490cfdf5e7c194ef85fa79791afcb94385d80edf1c2a8d409 done
+#8 exporting attestation manifest sha256:3ca1abd23a1d2db176edea03f8b47f9793627d7fc9feeb4d343e400587fcf7dd 0.0s done
+#8 exporting manifest list sha256:8006aa323aef712f795c4913d86d9923c6b586ccda512bffbbe70dc3fec7dcf7 done
+#8 naming to docker.io/library/sub2api-sync-tests:20261026 done
+#8 unpacking to docker.io/library/sub2api-sync-tests:20261026
+#8 unpacking to docker.io/library/sub2api-sync-tests:20261026 0.3s done
+#8 DONE 1.3s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/nbgc9npq0sdkv82bhaz3xuv9t

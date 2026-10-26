@@ -62,6 +62,8 @@ const (
 	FieldOpenaiForceImageTool = "openai_force_image_tool"
 	// FieldAllowBatchImageGeneration holds the string denoting the allow_batch_image_generation field in the database.
 	FieldAllowBatchImageGeneration = "allow_batch_image_generation"
+	// FieldImageCountBilling holds the string denoting the image_count_billing field in the database.
+	FieldImageCountBilling = "image_count_billing"
 	// FieldImageRateIndependent holds the string denoting the image_rate_independent field in the database.
 	FieldImageRateIndependent = "image_rate_independent"
 	// FieldImageRateMultiplier holds the string denoting the image_rate_multiplier field in the database.
@@ -236,6 +238,7 @@ var Columns = []string{
 	FieldAllowImageGeneration,
 	FieldOpenaiForceImageTool,
 	FieldAllowBatchImageGeneration,
+	FieldImageCountBilling,
 	FieldImageRateIndependent,
 	FieldImageRateMultiplier,
 	FieldImagePrice1k,
@@ -351,6 +354,8 @@ var (
 	DefaultOpenaiForceImageTool bool
 	// DefaultAllowBatchImageGeneration holds the default value on creation for the "allow_batch_image_generation" field.
 	DefaultAllowBatchImageGeneration bool
+	// DefaultImageCountBilling holds the default value on creation for the "image_count_billing" field.
+	DefaultImageCountBilling bool
 	// DefaultImageRateIndependent holds the default value on creation for the "image_rate_independent" field.
 	DefaultImageRateIndependent bool
 	// DefaultImageRateMultiplier holds the default value on creation for the "image_rate_multiplier" field.
@@ -527,6 +532,11 @@ func ByOpenaiForceImageTool(opts ...sql.OrderTermOption) OrderOption {
 // ByAllowBatchImageGeneration orders the results by the allow_batch_image_generation field.
 func ByAllowBatchImageGeneration(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAllowBatchImageGeneration, opts...).ToFunc()
+}
+
+// ByImageCountBilling orders the results by the image_count_billing field.
+func ByImageCountBilling(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldImageCountBilling, opts...).ToFunc()
 }
 
 // ByImageRateIndependent orders the results by the image_rate_independent field.

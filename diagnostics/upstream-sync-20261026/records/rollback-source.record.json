@@ -1,0 +1,13 @@
+{
+  "command": [
+    "diagnostics/upstream-sync-20261026/ROLLBACK.sh",
+    "/private/tmp/sub2api-sync-20261026-x_z3wn11/rollback-copy"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261026-x_z3wn11/repo",
+  "input": "",
+  "stdout": "ROLLBACK_RESTORED=/private/tmp/sub2api-sync-20261026-x_z3wn11/rollback-copy\n",
+  "stderr": "",
+  "exit_status": 0,
+  "duration_seconds": 0.467,
+  "utc": "2026-10-26T03:55:01.783356+00:00"
+}

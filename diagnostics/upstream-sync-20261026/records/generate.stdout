@@ -1,0 +1,2 @@
+go generate ./ent
+go generate ./cmd/server

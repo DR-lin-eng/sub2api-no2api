@@ -1,0 +1,7 @@
+go: downloading github.com/spf13/cobra v1.7.0
+go: downloading github.com/olekukonko/tablewriter v0.0.5
+go: downloading github.com/mattn/go-runewidth v0.0.15
+go: downloading github.com/rivo/uniseg v0.2.0
+go: downloading github.com/google/subcommands v1.2.0
+wire: github.com/Wei-Shaw/sub2api/cmd/server: wrote /src/backend/cmd/server/wire_gen.go
+wire: github.com/Wei-Shaw/sub2api/cmd/server: wrote /src/backend/cmd/server/wire_gen.go

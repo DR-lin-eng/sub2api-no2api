@@ -80,24 +80,28 @@ func (p *PanelRateLimiter) Authenticated() gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		if settings.ExemptAdmin {
+		apiKeyAuth := c.GetString("auth_method") == "admin_api_key"
+		if settings.ExemptAdmin && !apiKeyAuth {
 			if role, hasRole := GetUserRoleFromContext(c); hasRole && role == service.RoleAdmin {
 				c.Next()
 				return
 			}
 		}
 
-		userID := strconv.FormatInt(subject.UserID, 10)
+		principal := "user:" + strconv.FormatInt(subject.UserID, 10)
+		if apiKeyAuth {
+			principal = "admin-api-key:" + c.GetString("admin_api_key_id")
+		}
 		rules := make([]platformmiddleware.RateLimitRule, 0, 2)
 		if settings.UserRPM > 0 {
 			rules = append(rules, platformmiddleware.RateLimitRule{
-				Key:   "panel:global:user:" + userID,
+				Key:   "panel:global:" + principal,
 				Limit: settings.UserRPM,
 			})
 		}
 		if settings.HeavyRPM > 0 && isPanelHeavyPath(c.FullPath()) {
 			rules = append(rules, platformmiddleware.RateLimitRule{
-				Key:   "panel:heavy:user:" + userID,
+				Key:   "panel:heavy:" + principal,
 				Limit: settings.HeavyRPM,
 			})
 		}
