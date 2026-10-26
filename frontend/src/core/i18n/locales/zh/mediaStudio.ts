@@ -57,6 +57,11 @@ export default {
         attachCount: '已添加 {count}/{limit} 张',
         remove: '移除图片'
       },
+      attachmentType: {
+        image: '图片',
+        video: '视频',
+        audio: '音频'
+      },
       upload: {
         addHint: '添加参考素材（图片 / 视频 / 音频）',
         dropHint: '拖拽文件到这里上传',

@@ -345,6 +345,9 @@
                 class="group relative aspect-square overflow-hidden rounded-xl border border-gray-200 bg-gray-50 dark:border-dark-700 dark:bg-dark-800"
               >
                 <img :src="attachment.previewUrl" :alt="attachment.name" class="h-full w-full object-cover" />
+                <span class="pointer-events-none absolute left-1 top-1 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] font-medium leading-none text-white">
+                  {{ t('mediaStudio.composer.attachmentType.image') }}
+                </span>
                 <button
                   type="button"
                   class="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100"
@@ -405,6 +408,9 @@
                 >
                   <Icon name="x" size="xs" />
                 </button>
+                <span class="pointer-events-none absolute left-1 top-1 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] font-medium leading-none text-white">
+                  {{ attachmentTypeLabel(attachment.kind) }}
+                </span>
               </div>
             </div>
             <p v-if="attachmentErrorText" class="mt-2 text-xs text-red-600 dark:text-red-300">{{ attachmentErrorText }}</p>
@@ -744,6 +750,7 @@ import {
 } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
 import type {
   MediaStudioGroupOption,
+  MediaStudioMediaType,
   MediaStudioParameterControl,
   MediaStudioResolvedLimits,
   MediaStudioVideoAspectRatio,
@@ -927,6 +934,10 @@ const attachmentErrorText = computed(() => {
     limit: rejection.limit,
   })
 })
+
+function attachmentTypeLabel(kind: MediaStudioMediaType) {
+  return t(`mediaStudio.composer.attachmentType.${kind}`)
+}
 
 function selectMode(id: MediaStudioModeId) {
   const mode = props.modes.find(item => item.id === id)

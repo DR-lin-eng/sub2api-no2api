@@ -57,6 +57,11 @@ export default {
         attachCount: '{count}/{limit} images attached',
         remove: 'Remove image'
       },
+      attachmentType: {
+        image: 'Image',
+        video: 'Video',
+        audio: 'Audio'
+      },
       upload: {
         addHint: 'Add reference files (image / video / audio)',
         dropHint: 'Drop files here to upload',

@@ -256,6 +256,49 @@ func TestBuildUpstreamModelsRequestsForAPIKeyAccounts(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "https://gateway.example.com/antigravity/v1/models", antigravityReq.URL.String())
 	require.Equal(t, "antigravity-key", antigravityReq.Header.Get("x-api-key"))
+
+	multimodalReq, err := svc.buildUpstreamModelsRequest(ctx, &Account{
+		Platform: PlatformMultimodal,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"api_key":  "multimodal-key",
+			"base_url": "https://media.example.com",
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, "https://media.example.com/v1/models", multimodalReq.URL.String())
+	require.Equal(t, "Bearer multimodal-key", multimodalReq.Header.Get("Authorization"))
+	require.Equal(t, "application/json", multimodalReq.Header.Get("Accept"))
+}
+
+func TestBuildMultimodalUpstreamModelsRequestRejectsNonAPIKey(t *testing.T) {
+	t.Parallel()
+
+	svc := &AccountTestService{cfg: upstreamModelSyncTestConfig()}
+	_, err := svc.buildMultimodalUpstreamModelsRequest(context.Background(), &Account{
+		Platform: PlatformMultimodal,
+		Type:     AccountTypeOAuth,
+	})
+	require.Error(t, err)
+
+	var syncErr *UpstreamModelSyncError
+	require.True(t, errors.As(err, &syncErr))
+	require.Equal(t, UpstreamModelSyncErrorUnsupported, syncErr.Kind)
+}
+
+func TestBuildMultimodalUpstreamModelsRequestRequiresAPIKey(t *testing.T) {
+	t.Parallel()
+
+	svc := &AccountTestService{cfg: upstreamModelSyncTestConfig()}
+	_, err := svc.buildMultimodalUpstreamModelsRequest(context.Background(), &Account{
+		Platform: PlatformMultimodal,
+		Type:     AccountTypeAPIKey,
+	})
+	require.Error(t, err)
+
+	var syncErr *UpstreamModelSyncError
+	require.True(t, errors.As(err, &syncErr))
+	require.Equal(t, UpstreamModelSyncErrorConfiguration, syncErr.Kind)
 }
 
 func TestBuildUpstreamModelsRequestSupportsGrokOAuth(t *testing.T) {
