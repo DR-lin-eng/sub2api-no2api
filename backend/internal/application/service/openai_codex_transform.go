@@ -1536,8 +1536,9 @@ func filterCodexInputWithOptions(input []any, opts codexInputFilterOptions) []an
 		// PreserveReferences) yet keep the item: under store=false
 		// encrypted_content is the official channel for carrying reasoning
 		// context across turns, and dropping the whole item silently degrades
-		// multi-turn agent reasoning. Preserve encrypted_content/content/
-		// summary and every other field verbatim. Upstream additionally
+		// multi-turn agent reasoning. Preserve encrypted_content/summary and
+		// other fields, except response-only reasoning content: the Codex input
+		// schema only accepts an empty content array. Upstream additionally
 		// requires a summary field — a missing one is rejected with 400
 		// "Missing required parameter 'input[N].summary'" — so backfill an
 		// empty array when it is absent. Contracts verified end-to-end against
@@ -1552,6 +1553,12 @@ func filterCodexInputWithOptions(input []any, opts codexInputFilterOptions) []an
 		if typ == "reasoning" {
 			newItem := make(map[string]any, len(m))
 			for key, value := range m {
+				if key == "content" {
+					if parts, ok := value.([]any); ok && len(parts) > 0 {
+						// Response-only reasoning content is not valid OAuth input.
+						continue
+					}
+				}
 				if key == "id" {
 					id, idIsString := openAIResponsesInputItemIDString(value)
 					if shouldStripOpenAIResponsesInputItemID(typ, id, idIsString, true) {

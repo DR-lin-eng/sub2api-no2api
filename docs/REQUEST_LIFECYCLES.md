@@ -53,6 +53,8 @@ Responses 走图片编辑桥接时，用户提交的图片与遮罩 URL 在共�
 
 OpenAI OAuth Responses、自动透传和原生 WebSocket 握手收到上游 `401` 且错误码为 `token_expired` 时，网关先删除该账号的 token 缓存，在分布式刷新锁下强制执行一次 refresh token 流程，即使数据库中的 `expires_at` 仍在未来；刷新成功后仅重放当前请求一次并继续使用同一账号。刷新失败、refresh token 缺失、`token_revoked`/`token_invalidated` 或再次收到 401 继续走原有账号冷却、永久错误和 failover 策略。其它 401 不会被误判为可恢复过期。
 
+OpenAI OAuth 历史重放会移除 `type=reasoning` 条目中的非空 `content` 数组，因为 ChatGPT Codex 输入契约的该字段最大长度为 0；保留整个条目、`summary` 与 `encrypted_content`，不截断顶层 `input` 历史，也不改写普通消息或工具内容。普通/透传 HTTP、compact 与原生 WebSocket 每轮使用同一约束；API Key 账号不应用该 OAuth 专用转换。原始 JSON 路径保留其它字段的数值精度与内容字节。
+
 ## OAuth2 对外授权
 
 第三方应用从 `/oauth/authorize` 发起 Authorization Code + PKCE S256 请求。前端要求用户先登录，再通过 `/api/v1/oauth2/authorize` 读取服务端校验后的客户端与 scope 预览；用户允许后，后端将 authorization code 摘要及用户、客户端、精确回调、scope、PKCE challenge 和 TokenVersion 保存到 Redis。`/oauth/token` 原子消费 code，复查客户端、回调、PKCE 和用户状态后签发不透明 access token。`/oauth/userinfo` 每次调用都重查全局开关、客户端启用状态、当前 scope 和用户 TokenVersion，因此管理员收回授权后无需等待 token TTL。完整协议和管理端入口见 [OAuth2 对外授权服务](OAUTH2_PROVIDER.md)。
