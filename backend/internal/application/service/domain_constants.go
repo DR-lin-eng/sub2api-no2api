@@ -76,7 +76,6 @@ const (
 	DefaultMiniMaxBaseURL     = "https://api.minimaxi.com/v1"
 	DefaultOpenCodeGoBaseURL  = "https://opencode.ai/zen/go/v1"
 	DefaultOpenCodeZenBaseURL = "https://opencode.ai/zen/v1"
-	DefaultMultimodalBaseURL  = "https://sub2api.dk996.top"
 
 	DefaultKimiPayGAnthropicBaseURL    = "https://api.moonshot.cn/anthropic"
 	DefaultKimiCodingAnthropicBaseURL  = "https://api.kimi.com/coding"

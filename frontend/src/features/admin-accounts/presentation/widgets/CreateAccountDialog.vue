@@ -1313,6 +1313,11 @@ const handleSubmit = async () => {
     appStore.showError(t('admin.accounts.pleaseEnterApiKey'))
     return
   }
+  // 多模态平台没有内置上游端点，Base URL 必须由管理员填写
+  if (form.platform === 'multimodal' && !apiKeyBaseUrl.value.trim()) {
+    appStore.showError(t('admin.accounts.pleaseEnterBaseUrl'))
+    return
+  }
 
   // Determine default base URL based on platform
     const defaultBaseUrl = defaultAPIKeyBaseURL(form.platform)

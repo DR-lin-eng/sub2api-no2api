@@ -153,7 +153,8 @@ export function defaultAPIKeyBaseURL(platform: AccountPlatform): string {
     case 'deepseek':
     case 'minimax': return defaultCNBaseURL(platform, 'payg')
     case 'opencode_go': return defaultCNBaseURL(platform, 'go')
-    case 'multimodal': return 'https://sub2api.dk996.top'
+    // 多模态平台的上游地址由管理员自行填写，不内置任何第三方端点。
+    case 'multimodal': return ''
     default: return 'https://api.anthropic.com'
   }
 }
@@ -183,6 +184,7 @@ export function accountAPIKeyFieldHint(
   if (platform === 'openai') return t(`admin.accounts.openai.${field}Hint`)
   if (platform === 'gemini') return t(`admin.accounts.gemini.${field}Hint`)
   if (platform === 'grok') return ''
+  if (platform === 'multimodal') return t(`admin.accounts.multimodal.${field}Hint`)
   if (isCNAccountPlatform(platform)) {
     return t(`admin.accounts.cnProvider.${field}Hint`, {
       provider: CN_ACCOUNT_PLATFORM_LABELS[platform],

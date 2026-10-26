@@ -178,7 +178,7 @@ func buildMultimodalMediaURL(account *Account, endpoint MultimodalMediaEndpoint,
 	}
 	baseURL := strings.TrimSpace(account.GetMultimodalBaseURL())
 	if baseURL == "" {
-		baseURL = DefaultMultimodalBaseURL
+		return "", fmt.Errorf("multimodal account base_url is required")
 	}
 	return buildOpenAIEndpointURL(baseURL, path), nil
 }

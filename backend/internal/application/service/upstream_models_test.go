@@ -286,6 +286,24 @@ func TestBuildMultimodalUpstreamModelsRequestRejectsNonAPIKey(t *testing.T) {
 	require.Equal(t, UpstreamModelSyncErrorUnsupported, syncErr.Kind)
 }
 
+func TestBuildMultimodalUpstreamModelsRequestRequiresBaseURL(t *testing.T) {
+	t.Parallel()
+
+	svc := &AccountTestService{cfg: upstreamModelSyncTestConfig()}
+	_, err := svc.buildMultimodalUpstreamModelsRequest(context.Background(), &Account{
+		Platform: PlatformMultimodal,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"api_key": "multimodal-key",
+		},
+	})
+	require.Error(t, err)
+
+	var syncErr *UpstreamModelSyncError
+	require.True(t, errors.As(err, &syncErr))
+	require.Equal(t, UpstreamModelSyncErrorConfiguration, syncErr.Kind)
+}
+
 func TestBuildMultimodalUpstreamModelsRequestRequiresAPIKey(t *testing.T) {
 	t.Parallel()
 

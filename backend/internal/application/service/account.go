@@ -2020,15 +2020,13 @@ func (a *Account) GetGrokMediaBaseURL() string {
 
 // GetMultimodalBaseURL returns the upstream root of the multimodal relay.
 // The relay exposes OpenAI-style paths under /v1, so callers append the
-// endpoint path directly (see multimodalMediaURL).
+// endpoint path directly (see multimodalMediaURL). The base URL is always
+// account-configured; there is no built-in default endpoint.
 func (a *Account) GetMultimodalBaseURL() string {
 	if a == nil || !a.IsMultimodal() {
 		return ""
 	}
-	if baseURL := strings.TrimSpace(a.GetCredential("base_url")); baseURL != "" {
-		return baseURL
-	}
-	return DefaultMultimodalBaseURL
+	return strings.TrimSpace(a.GetCredential("base_url"))
 }
 
 func (a *Account) GetGrokAccessToken() string {

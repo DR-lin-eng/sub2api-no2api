@@ -465,7 +465,7 @@ func (s *AccountTestService) buildMultimodalUpstreamModelsRequest(ctx context.Co
 
 	baseURL := strings.TrimSpace(account.GetMultimodalBaseURL())
 	if baseURL == "" {
-		baseURL = DefaultMultimodalBaseURL
+		return nil, newUpstreamModelSyncConfigError("Multimodal account base URL is required", nil)
 	}
 	normalizedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
 	if err != nil {
