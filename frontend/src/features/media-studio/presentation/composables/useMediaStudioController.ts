@@ -165,6 +165,9 @@ export interface MediaStudioMessage {
   inputReferences?: MediaStudioInputReferencePreview[]
   images?: MediaStudioGeneratedImagePreview[]
   video?: MediaStudioGeneratedVideoPreview
+  // 视频扣费金额与币种：生成中为冻结金额，完成后为实际结算金额。
+  cost?: number
+  currency?: string
   error?: string
   createdAt: number
   completedAt?: number
@@ -330,6 +333,8 @@ function restorePersistedConversation(value: unknown): MediaStudioConversation |
         duration: typeof candidate.duration === 'number' ? normalizeDuration(candidate.duration) : undefined,
         attributes: restoreModelAttributeValues(candidate.attributes),
         error: typeof candidate.error === 'string' ? candidate.error : undefined,
+        cost: typeof candidate.cost === 'number' && Number.isFinite(candidate.cost) ? candidate.cost : undefined,
+        currency: typeof candidate.currency === 'string' ? candidate.currency : undefined,
         createdAt,
         completedAt: typeof candidate.completedAt === 'number' ? candidate.completedAt : undefined,
       }
@@ -1286,7 +1291,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     }
   }
 
-  async function completeVideoTask(apiKey: string, taskId: string, messageId: string) {
+  async function completeVideoTask(apiKey: string, taskId: string, messageId: string, cost?: number, currency?: string) {
     const blob = await data.getVideoContent(apiKey, taskId)
     if (disposed) return
     const cacheKey = mediaStudioVideoStorageKey(messageId)
@@ -1294,12 +1299,15 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     if (disposed) return
     const src = createObjectURL(blob)
     videoObjectURLs.add(src)
-    if (!patchAssistantMessage(messageId, {
+    const patch: Partial<MediaStudioMessage> = {
       status: 'completed',
       video: { src, mimeType: blob.type || 'video/mp4', cacheKey: stored ? cacheKey : undefined },
       error: '',
       completedAt: now(),
-    })) {
+    }
+    if (cost !== undefined) patch.cost = cost
+    if (currency) patch.currency = currency
+    if (!patchAssistantMessage(messageId, patch)) {
       videoObjectURLs.delete(src)
       revokeObjectURL(src)
       if (stored) void deleteMediaStudioVideos([cacheKey])
@@ -1323,16 +1331,19 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
           continue
         }
         if (task.status === 'completed') {
-          await completeVideoTask(apiKey, task.id, messageId)
+          await completeVideoTask(apiKey, task.id, messageId, task.cost, task.currency)
           return
         }
         if (task.status === 'failed') {
           patchAssistantMessage(messageId, { status: 'failed', error: videoTaskErrorMessage(task), completedAt: now() })
           return
         }
-        patchAssistantMessage(messageId, task.progress === undefined
-          ? { status: 'processing' }
-          : { status: 'processing', progress: task.progress })
+        const processingPatch: Partial<MediaStudioMessage> = { status: 'processing' }
+        if (task.progress !== undefined) processingPatch.progress = task.progress
+        // 处理中回显冻结金额，完成后替换为实际结算金额。
+        if (task.cost !== undefined) processingPatch.cost = task.cost
+        if (task.currency) processingPatch.currency = task.currency
+        patchAssistantMessage(messageId, processingPatch)
         await wait(pollDelayMs)
       }
       if (!disposed) patchAssistantMessage(messageId, { status: 'failed', error: 'video generation polling timed out', completedAt: now() })
@@ -1557,11 +1568,17 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
           }
         }
         const task = await data.submitVideo(mediaStudioApiKey.value, videoPayload, makeId('media_video_idem'))
-        patchAssistantMessage(assistantMessage.id, { taskId: task.id, status: task.status === 'failed' ? 'failed' : 'processing' })
+        const submitPatch: Partial<MediaStudioMessage> = {
+          taskId: task.id,
+          status: task.status === 'failed' ? 'failed' : 'processing',
+        }
+        if (task.cost !== undefined) submitPatch.cost = task.cost
+        if (task.currency) submitPatch.currency = task.currency
+        patchAssistantMessage(assistantMessage.id, submitPatch)
         if (task.status === 'failed') {
           patchAssistantMessage(assistantMessage.id, { error: videoTaskErrorMessage(task), completedAt: now() })
         } else if (task.status === 'completed') {
-          await completeVideoTask(mediaStudioApiKey.value, task.id, assistantMessage.id)
+          await completeVideoTask(mediaStudioApiKey.value, task.id, assistantMessage.id, task.cost, task.currency)
         } else {
           void pollVideoTask(mediaStudioApiKey.value, task.id, assistantMessage.id)
         }

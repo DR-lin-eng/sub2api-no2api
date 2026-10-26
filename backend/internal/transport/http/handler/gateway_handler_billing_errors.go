@@ -51,6 +51,29 @@ func billingErrorDetails(err error) (status int, code, message string, retryAfte
 		}
 		return http.StatusServiceUnavailable, "billing_service_error", msg, 0
 	}
+	// 视频两段式计费的冻结失败：余额不足以覆盖预估金额时拒绝本次生成。
+	if errors.Is(err, service.ErrBalanceHoldInsufficientBalance) {
+		msg := pkgerrors.Message(err)
+		if msg == "" {
+			msg = "Insufficient balance to reserve funds for this request"
+		}
+		return http.StatusPaymentRequired, "insufficient_balance", msg, 0
+	}
+	// 视频单价缺失：分组未配置视频价且模型没有内置每秒价。直接拒绝，不猜测价格。
+	if errors.Is(err, service.ErrVideoPriceNotConfigured) {
+		msg := pkgerrors.Message(err)
+		if msg == "" {
+			msg = "Video price is not configured for this model and resolution"
+		}
+		return http.StatusServiceUnavailable, "video_price_not_configured", msg, 0
+	}
+	if errors.Is(err, service.ErrBalanceHoldFailed) {
+		msg := pkgerrors.Message(err)
+		if msg == "" {
+			msg = "Failed to reserve balance for this request"
+		}
+		return http.StatusBadGateway, "billing_service_error", msg, 0
+	}
 	if errors.Is(err, service.ErrAPIKeyRateLimit5hExceeded) {
 		msg := pkgerrors.Message(err)
 		return http.StatusTooManyRequests, "rate_limit_exceeded", msg, 0

@@ -1,4 +1,7 @@
-import { defaultAllowImageGenerationForPlatform } from "../groupsImagePricingResolver";
+import {
+  defaultAllowImageGenerationForPlatform,
+  supportsVideoPricingPlatform,
+} from "../groupsImagePricingResolver";
 import { computed, reactive, ref, watch, type Ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useAppStore } from "@/core/stores/appStore";
@@ -359,11 +362,23 @@ export function useCreateGroupController({
       requestData.image_price_1k = emptyToNull(requestData.image_price_1k);
       requestData.image_price_2k = emptyToNull(requestData.image_price_2k);
       requestData.image_price_4k = emptyToNull(requestData.image_price_4k);
-      requestData.video_price_480p = emptyToNull(requestData.video_price_480p);
-      requestData.video_price_720p = emptyToNull(requestData.video_price_720p);
-      requestData.video_price_1080p = emptyToNull(
-        requestData.video_price_1080p,
-      );
+      // 只有 Grok 使用分组级视频价；multimodal 等分组必须逐个模型定义价格，
+      // 因此创建时不写入任何分组级视频价。
+      if (supportsVideoPricingPlatform(requestData.platform)) {
+        requestData.video_price_480p = emptyToNull(
+          requestData.video_price_480p,
+        );
+        requestData.video_price_720p = emptyToNull(
+          requestData.video_price_720p,
+        );
+        requestData.video_price_1080p = emptyToNull(
+          requestData.video_price_1080p,
+        );
+      } else {
+        requestData.video_price_480p = null;
+        requestData.video_price_720p = null;
+        requestData.video_price_1080p = null;
+      }
       requestData.web_search_price_per_call = emptyToNull(
         requestData.web_search_price_per_call,
       );

@@ -252,6 +252,9 @@ export interface MediaStudioVideoTask {
   status: MediaStudioVideoTaskStatus
   progress?: number
   error?: string
+  // 本次视频的扣费金额与币种；处理中为冻结金额，完成后为实际结算金额。
+  cost?: number
+  currency?: string
   raw: Record<string, unknown>
 }
 
@@ -390,6 +393,16 @@ function normalizeVideoProgress(value: unknown): number | undefined {
   return Math.min(100, Math.max(0, Math.round(numeric)))
 }
 
+function normalizeVideoCost(value: unknown): number | undefined {
+  const numeric = typeof value === 'number'
+    ? value
+    : typeof value === 'string' && value.trim()
+      ? Number(value)
+      : Number.NaN
+  if (!Number.isFinite(numeric) || numeric < 0) return undefined
+  return numeric
+}
+
 export function normalizeMediaStudioVideoTask(value: unknown, fallbackID = ''): MediaStudioVideoTask {
   const raw = recordValue(value)
   const data = recordValue(raw.data)
@@ -403,6 +416,8 @@ export function normalizeMediaStudioVideoTask(value: unknown, fallbackID = ''): 
     status: normalizeVideoStatus(raw.status ?? data.status ?? result.status),
     progress: normalizeVideoProgress(raw.progress ?? data.progress ?? result.progress ?? video.progress),
     error: extractVideoError(raw),
+    cost: normalizeVideoCost(raw.cost ?? data.cost ?? result.cost ?? video.cost),
+    currency: firstString(raw.currency, data.currency, result.currency, video.currency) || undefined,
     raw,
   }
 }

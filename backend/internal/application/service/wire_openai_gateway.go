@@ -72,5 +72,6 @@ func ProvideOpenAIGatewayService(
 	}
 	svc.StartCodexTurnStateAutoProbe(context.Background())
 	svc.StartLiveBillingRecovery(context.Background())
+	svc.StartVideoBalanceHoldSweeper(context.Background())
 	return svc
 }

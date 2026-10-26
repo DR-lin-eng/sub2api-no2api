@@ -500,8 +500,12 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCostWithResolution(
 	}
 	if isVideoUsageResult(result) {
 		if resolved := s.resolveOpenAIChannelPricing(ctx, billingModel, apiKey); resolved == nil || resolved.Mode != BillingModeToken {
+			cost, err := s.calculateOpenAIVideoCost(ctx, billingModel, apiKey, result, videoMultiplier)
+			if err != nil {
+				return openAIRecordUsageCostResolution{}, fmt.Errorf("calculate video cost for model %s: %w", billingModel, err)
+			}
 			return openAIRecordUsageCostResolution{
-				Cost:         s.calculateOpenAIVideoCost(ctx, billingModel, apiKey, result, videoMultiplier),
+				Cost:         cost,
 				BillingModel: billingModel,
 			}, nil
 		}
@@ -688,7 +692,7 @@ func (s *OpenAIGatewayService) calculateOpenAIVideoCost(
 	apiKey *APIKey,
 	result *OpenAIForwardResult,
 	multiplier float64,
-) *CostBreakdown {
+) (*CostBreakdown, error) {
 	videoCount := result.VideoCount
 	if videoCount <= 0 {
 		videoCount = 1
@@ -696,7 +700,13 @@ func (s *OpenAIGatewayService) calculateOpenAIVideoCost(
 	resolution := NormalizeVideoBillingResolutionOrDefault(result.VideoResolution)
 	durationSeconds := NormalizeVideoBillingDurationSecondsOrDefault(result.VideoDurationSeconds)
 	resolved := s.resolveOpenAIChannelPricing(ctx, billingModel, apiKey)
-	if resolved != nil && resolved.Source == PricingSourceGroup && resolved.Mode == BillingModeVideo {
+	// multimodal 是逐模型定价分组：视频每秒价必须写在模型/渠道定价条目里，
+	// 分组级视频价不参与计费。条目缺价时不能静默按 0 元放行，最终仍无价则返回 503。
+	multimodal := IsMultimodal(PlatformFromAPIKey(apiKey))
+	videoPriceConfigured := func(resolved *ResolvedPricing) bool {
+		return !multimodal || videoUnitPriceConfigured(resolved, resolution)
+	}
+	if resolved != nil && resolved.Source == PricingSourceGroup && resolved.Mode == BillingModeVideo && videoPriceConfigured(resolved) {
 		gid := apiKey.Group.ID
 		cost, err := s.billingService.CalculateCostUnified(CostInput{
 			Ctx: ctx, Model: billingModel, GroupID: &gid, Group: apiKey.Group,
@@ -704,36 +714,37 @@ func (s *OpenAIGatewayService) calculateOpenAIVideoCost(
 			RateMultiplier: multiplier, Resolver: s.resolver, Resolved: resolved,
 		})
 		if err == nil {
-			return cost
+			return cost, nil
 		}
 		logger.LegacyPrintf("service.openai_gateway", "Calculate video group cost failed: %v", err)
 	}
+	// groupConfig 保留 Platform，让 multimodal 在 CalculateVideoCost 中明确无价，
+	// 而不是因为缺少平台信息误落到 Grok 内置每秒价。
 	groupConfig := videoPriceConfigFromAPIKey(apiKey)
-	if apiKeyHasConfiguredVideoPrice(apiKey, resolution) {
-		return s.billingService.CalculateVideoCost(billingModel, resolution, videoCount, durationSeconds, groupConfig, multiplier)
-	}
-	if refreshed := s.apiKeyWithFreshGroupMediaPricing(ctx, apiKey); refreshed != apiKey {
-		apiKey = refreshed
-		groupConfig = videoPriceConfigFromAPIKey(apiKey)
+	if !multimodal {
 		if apiKeyHasConfiguredVideoPrice(apiKey, resolution) {
 			return s.billingService.CalculateVideoCost(billingModel, resolution, videoCount, durationSeconds, groupConfig, multiplier)
 		}
-	}
-	if resolved != nil && resolved.Source == PricingSourceChannel &&
-		(resolved.Mode == BillingModePerRequest || resolved.Mode == BillingModeImage || resolved.Mode == BillingModeVideo) {
-		// 渠道 per_request/image 定价保持"按请求次数"口径（价格由管理员按次配置），不乘视频时长。
-		gid := apiKey.Group.ID
-		units := float64(videoCount)
-		if resolved.Mode == BillingModeVideo {
-			units = float64(videoCount * durationSeconds)
+		if refreshed := s.apiKeyWithFreshGroupMediaPricing(ctx, apiKey); refreshed != apiKey {
+			apiKey = refreshed
+			groupConfig = videoPriceConfigFromAPIKey(apiKey)
+			if apiKeyHasConfiguredVideoPrice(apiKey, resolution) {
+				return s.billingService.CalculateVideoCost(billingModel, resolution, videoCount, durationSeconds, groupConfig, multiplier)
+			}
 		}
+	}
+	// 视频只允许按秒计费：渠道的 per_request / image 定价是按次口径，不能套到视频请求上，
+	// 否则 4 秒和 8 秒会收同样的钱。命中不到按秒价时继续向下取分组视频价，
+	// 最终仍无价则由 CalculateVideoCost 返回错误，绝不退化成按次收费。
+	if resolved != nil && resolved.Source == PricingSourceChannel && resolved.Mode == BillingModeVideo && videoPriceConfigured(resolved) {
+		gid := apiKey.Group.ID
 		cost, err := s.billingService.CalculateCostUnified(CostInput{
 			Ctx:            ctx,
 			Model:          billingModel,
 			GroupID:        &gid,
 			Group:          apiKey.Group,
 			RequestCount:   videoCount,
-			UsageUnits:     units,
+			UsageUnits:     float64(videoCount * durationSeconds),
 			SizeTier:       resolution,
 			RateMultiplier: multiplier,
 			Resolver:       s.resolver,
@@ -741,12 +752,28 @@ func (s *OpenAIGatewayService) calculateOpenAIVideoCost(
 		})
 		if err == nil {
 			cost.BillingMode = string(BillingModeVideo)
-			return cost
+			return cost, nil
 		}
 		logger.LegacyPrintf("service.openai_gateway", "Calculate video channel cost failed: %v", err)
 	}
 
 	return s.billingService.CalculateVideoCost(billingModel, resolution, videoCount, durationSeconds, groupConfig, multiplier)
+}
+
+// videoUnitPriceConfigured 报告视频定价是否真的为当前分辨率配置了每秒价：
+// 命中该分辨率的层级价，或条目级默认每秒价。
+// 视频层级只能按分辨率命中，不像 token 区间那样有上下文回退，因此这里必须显式判断，
+// 避免 multimodal 分组的空视频条目被当成 0 元价格放行。
+func videoUnitPriceConfigured(resolved *ResolvedPricing, resolution string) bool {
+	if resolved == nil {
+		return false
+	}
+	for _, tier := range resolved.RequestTiers {
+		if tier.TierLabel == resolution && tier.PerRequestPrice != nil {
+			return true
+		}
+	}
+	return resolved.channelPricing != nil && resolved.channelPricing.PerRequestPrice != nil
 }
 
 func (s *OpenAIGatewayService) apiKeyWithFreshGroupMediaPricing(ctx context.Context, apiKey *APIKey) *APIKey {

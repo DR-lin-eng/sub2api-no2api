@@ -8,6 +8,7 @@ import {
   imagePricingPlatforms,
   imagePricingI18nKey,
   supportsImagePricingPlatform,
+  supportsDefaultVideoPriceFallback,
   supportsVideoPricingPlatform,
   videoPricingI18nKey,
 } from "../presentation/groupsImagePricingResolver";
@@ -28,9 +29,10 @@ describe("groups image pricing platform support", () => {
     expect(imagePricingPlatforms.has("multimodal")).toBe(true);
   });
 
-  it("enables video pricing controls for Grok and Multimodal", () => {
+  it("enables group-level video pricing controls only for Grok", () => {
     expect(supportsVideoPricingPlatform("grok")).toBe(true);
-    expect(supportsVideoPricingPlatform("multimodal")).toBe(true);
+    // multimodal 是逐模型定价分组，分组级视频价不参与计费，编辑器不展示该区块。
+    expect(supportsVideoPricingPlatform("multimodal")).toBe(false);
     expect(supportsVideoPricingPlatform("openai")).toBe(false);
   });
 
@@ -43,6 +45,12 @@ describe("groups image pricing platform support", () => {
       "admin.groups.imagePricing.title",
     );
     expect(videoPricingI18nKey("title")).toBe("admin.groups.videoPricing.title");
+  });
+
+  it("keeps the built-in per-second fallback Grok-only", () => {
+    // 只有 Grok 留空时后端会回落到内置每秒价。
+    expect(supportsDefaultVideoPriceFallback("grok")).toBe(true);
+    expect(supportsDefaultVideoPriceFallback("multimodal")).toBe(false);
   });
 
   it("uses Grok media defaults instead of generic image fallback placeholders", () => {
@@ -59,5 +67,13 @@ describe("groups image pricing platform support", () => {
     expect(getImagePricePlaceholder("openai", "image_price_1k")).toBe("0.134");
     expect(getDefaultImagePreviewPrice("openai", "image_price_2k")).toBe(0.201);
     expect(getDefaultVideoPreviewPrice("openai", "video_price_480p")).toBeNull();
+  });
+
+  it("shows no video price placeholder for multimodal", () => {
+    // multimodal 没有内置每秒价，占位值会被误读成默认价。
+    expect(getVideoPricePlaceholder("multimodal", "video_price_480p")).toBe("");
+    expect(getVideoPricePlaceholder("multimodal", "video_price_720p")).toBe("");
+    expect(getVideoPricePlaceholder("multimodal", "video_price_1080p")).toBe("");
+    expect(getDefaultVideoPreviewPrice("multimodal", "video_price_480p")).toBeNull();
   });
 });

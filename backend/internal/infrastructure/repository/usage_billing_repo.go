@@ -5,11 +5,16 @@ import (
 	"database/sql"
 	"errors"
 	"strings"
+	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
 )
+
+// defaultBalanceHoldTTL 是未显式指定过期时间的冻结记录的默认存活时间。
+// 视频任务通常在一到两分钟内完成，留出足够余量后仍未结算即视为超时释放。
+const defaultBalanceHoldTTL = 30 * time.Minute
 
 type usageBillingRepository struct {
 	db *sql.DB
@@ -161,6 +166,68 @@ func (r *usageBillingRepository) applyBatchImageBalanceHold(
 	}
 	if result == nil {
 		result = &service.BatchImageBalanceHoldResult{}
+	}
+	result.Applied = true
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	tx = nil
+	return result, nil
+}
+
+func (r *usageBillingRepository) ReserveBalance(ctx context.Context, cmd *service.BalanceHoldCommand) (*service.BalanceHoldResult, error) {
+	return r.applyBalanceHold(ctx, cmd, reserveUsageBillingBalance)
+}
+
+func (r *usageBillingRepository) CaptureBalance(ctx context.Context, cmd *service.BalanceHoldCommand) (*service.BalanceHoldResult, error) {
+	return r.applyBalanceHold(ctx, cmd, captureUsageBillingBalance)
+}
+
+func (r *usageBillingRepository) ReleaseBalance(ctx context.Context, cmd *service.BalanceHoldCommand) (*service.BalanceHoldResult, error) {
+	return r.applyBalanceHold(ctx, cmd, releaseUsageBillingBalance)
+}
+
+func (r *usageBillingRepository) applyBalanceHold(
+	ctx context.Context,
+	cmd *service.BalanceHoldCommand,
+	apply func(context.Context, *sql.Tx, *service.BalanceHoldCommand) (*service.BalanceHoldResult, error),
+) (_ *service.BalanceHoldResult, err error) {
+	if cmd == nil {
+		return &service.BalanceHoldResult{}, nil
+	}
+	if r == nil || r.db == nil {
+		return nil, errors.New("usage billing repository db is nil")
+	}
+	cmd.Normalize()
+	if cmd.RequestID == "" {
+		return nil, service.ErrUsageBillingRequestIDRequired
+	}
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if tx != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	applied, err := r.claimUsageBillingRequest(ctx, tx, cmd.RequestID, cmd.APIKeyID, cmd.RequestFingerprint)
+	if err != nil {
+		return nil, err
+	}
+	if !applied {
+		return &service.BalanceHoldResult{Applied: false}, nil
+	}
+
+	result, err := apply(ctx, tx, cmd)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		result = &service.BalanceHoldResult{}
 	}
 	result.Applied = true
 
@@ -420,6 +487,291 @@ func releaseUsageBillingBatchImageBalance(ctx context.Context, tx *sql.Tx, cmd *
 // batchImageHoldClaimExists 检查 hold request id 是否已在 dedup（或归档）表中被 claim，
 // 即该 batch 的冻结操作确实成功提交过。
 func batchImageHoldClaimExists(ctx context.Context, tx *sql.Tx, holdRequestID string, apiKeyID int64) (bool, error) {
+	return usageBillingHoldClaimExists(ctx, tx, holdRequestID, apiKeyID)
+}
+
+func reserveUsageBillingBalance(ctx context.Context, tx *sql.Tx, cmd *service.BalanceHoldCommand) (*service.BalanceHoldResult, error) {
+	if cmd.HoldAmount <= 0 {
+		return &service.BalanceHoldResult{}, nil
+	}
+	var balance, frozen float64
+	err := tx.QueryRowContext(ctx, `
+		UPDATE users
+		SET balance = balance - $1,
+			frozen_balance = COALESCE(frozen_balance, 0) + $1,
+			updated_at = NOW()
+		WHERE id = $2 AND deleted_at IS NULL AND balance >= $1
+		RETURNING balance, frozen_balance
+	`, cmd.HoldAmount, cmd.UserID).Scan(&balance, &frozen)
+	if err == nil {
+		return &service.BalanceHoldResult{NewBalance: &balance, FrozenBalance: &frozen}, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	if exists, existsErr := userExistsForBilling(ctx, tx, cmd.UserID); existsErr != nil {
+		return nil, existsErr
+	} else if !exists {
+		return nil, service.ErrUserNotFound
+	}
+	return nil, service.ErrBalanceHoldInsufficientBalance
+}
+
+func captureUsageBillingBalance(ctx context.Context, tx *sql.Tx, cmd *service.BalanceHoldCommand) (*service.BalanceHoldResult, error) {
+	if cmd.HoldAmount <= 0 && cmd.ActualAmount <= 0 {
+		return &service.BalanceHoldResult{}, nil
+	}
+	if cmd.ActualAmount-cmd.HoldAmount > 0.00000001 {
+		return nil, service.ErrBalanceHoldCostExceedsHold
+	}
+	var balance, frozen float64
+	err := tx.QueryRowContext(ctx, `
+		UPDATE users
+		SET balance = balance
+				+ CASE WHEN $1 > $2 THEN $1 - $2 ELSE 0 END
+				- CASE WHEN $2 > $1 THEN $2 - $1 ELSE 0 END,
+			frozen_balance = COALESCE(frozen_balance, 0) - $1,
+			updated_at = NOW()
+		WHERE id = $3 AND deleted_at IS NULL AND COALESCE(frozen_balance, 0) >= $1
+		RETURNING balance, frozen_balance
+	`, cmd.HoldAmount, cmd.ActualAmount, cmd.UserID).Scan(&balance, &frozen)
+	if err == nil {
+		return &service.BalanceHoldResult{NewBalance: &balance, FrozenBalance: &frozen}, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	if exists, existsErr := userExistsForBilling(ctx, tx, cmd.UserID); existsErr != nil {
+		return nil, existsErr
+	} else if !exists {
+		return nil, service.ErrUserNotFound
+	}
+	return nil, errors.New("frozen balance is insufficient")
+}
+
+func releaseUsageBillingBalance(ctx context.Context, tx *sql.Tx, cmd *service.BalanceHoldCommand) (*service.BalanceHoldResult, error) {
+	if cmd.HoldAmount <= 0 {
+		return &service.BalanceHoldResult{}, nil
+	}
+	// 释放前校验该 hold 确实预留过（hold request id 已被 claim），
+	// 防止从未成功冻结的记录触发"幻影释放"，从其他用户的冻结资金池中凭空生成余额。
+	held, heldErr := usageBillingHoldClaimExists(ctx, tx, service.BalanceHoldRequestID(cmd.HoldKey), cmd.APIKeyID)
+	if heldErr != nil {
+		return nil, heldErr
+	}
+	if !held {
+		logger.LegacyPrintf("repository.usage_billing", "[BalanceHold] release skipped, hold was never reserved: hold_key=%s", cmd.HoldKey)
+		return &service.BalanceHoldResult{}, nil
+	}
+	var balance, frozen float64
+	err := tx.QueryRowContext(ctx, `
+		UPDATE users
+		SET balance = balance + $1,
+			frozen_balance = COALESCE(frozen_balance, 0) - $1,
+			updated_at = NOW()
+		WHERE id = $2 AND deleted_at IS NULL AND COALESCE(frozen_balance, 0) >= $1
+		RETURNING balance, frozen_balance
+	`, cmd.HoldAmount, cmd.UserID).Scan(&balance, &frozen)
+	if err == nil {
+		return &service.BalanceHoldResult{NewBalance: &balance, FrozenBalance: &frozen}, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	if exists, existsErr := userExistsForBilling(ctx, tx, cmd.UserID); existsErr != nil {
+		return nil, existsErr
+	} else if !exists {
+		return nil, service.ErrUserNotFound
+	}
+	return nil, errors.New("frozen balance is insufficient")
+}
+
+// CreateBalanceHold 持久化一次已冻结的余额记录。
+func (r *usageBillingRepository) CreateBalanceHold(ctx context.Context, record *service.BalanceHoldRecord) error {
+	if record == nil {
+		return nil
+	}
+	if r == nil || r.db == nil {
+		return errors.New("usage billing repository db is nil")
+	}
+	status := strings.TrimSpace(record.Status)
+	if status == "" {
+		status = service.BalanceHoldStatusPending
+	}
+	currency := strings.TrimSpace(record.Currency)
+	if currency == "" {
+		currency = "USD"
+	}
+	expiresAt := record.ExpiresAt
+	if expiresAt.IsZero() {
+		expiresAt = time.Now().Add(defaultBalanceHoldTTL)
+	}
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO video_balance_holds (
+			hold_key, request_id, upstream_request_id, user_id, api_key_id, group_id, account_id,
+			model, resolution, duration_seconds, hold_amount, actual_amount, currency, status, expires_at
+		) VALUES ($1, $2, $3, $4, $5, NULLIF($6, 0), NULLIF($7, 0), $8, $9, $10, $11, NULL, $12, $13, $14)
+	`,
+		strings.TrimSpace(record.HoldKey),
+		strings.TrimSpace(record.RequestID),
+		strings.TrimSpace(record.UpstreamRequestID),
+		record.UserID,
+		record.APIKeyID,
+		record.GroupID,
+		record.AccountID,
+		strings.TrimSpace(record.Model),
+		strings.TrimSpace(record.Resolution),
+		record.DurationSeconds,
+		record.HoldAmount,
+		currency,
+		status,
+		expiresAt,
+	)
+	return err
+}
+
+// BindBalanceHoldUpstreamRequest 把本地 hold 与上游异步任务 id 关联起来，
+// 轮询阶段据此反查冻结记录。
+func (r *usageBillingRepository) BindBalanceHoldUpstreamRequest(ctx context.Context, holdKey, upstreamRequestID string) error {
+	holdKey = strings.TrimSpace(holdKey)
+	upstreamRequestID = strings.TrimSpace(upstreamRequestID)
+	if holdKey == "" || upstreamRequestID == "" {
+		return nil
+	}
+	if r == nil || r.db == nil {
+		return errors.New("usage billing repository db is nil")
+	}
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE video_balance_holds
+		SET upstream_request_id = $2, updated_at = NOW()
+		WHERE hold_key = $1
+	`, holdKey, upstreamRequestID)
+	return err
+}
+
+// GetBalanceHoldByUpstreamRequestID 按上游任务 id 读取冻结记录，未找到时返回 (nil, nil)。
+func (r *usageBillingRepository) GetBalanceHoldByUpstreamRequestID(ctx context.Context, upstreamRequestID string) (*service.BalanceHoldRecord, error) {
+	upstreamRequestID = strings.TrimSpace(upstreamRequestID)
+	if upstreamRequestID == "" {
+		return nil, nil
+	}
+	if r == nil || r.db == nil {
+		return nil, errors.New("usage billing repository db is nil")
+	}
+	row := r.db.QueryRowContext(ctx, `
+		SELECT hold_key, request_id, upstream_request_id, user_id, api_key_id,
+		       COALESCE(group_id, 0), COALESCE(account_id, 0),
+		       model, resolution, duration_seconds, hold_amount, actual_amount,
+		       currency, status, expires_at, created_at, updated_at
+		FROM video_balance_holds
+		WHERE upstream_request_id = $1
+	`, upstreamRequestID)
+	record, err := scanBalanceHoldRecord(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return record, nil
+}
+
+// UpdateBalanceHoldStatus 把仍处于 pending 的冻结记录推进到终态。
+// 已处于终态的记录不会被覆盖，保证结算/释放只生效一次。
+func (r *usageBillingRepository) UpdateBalanceHoldStatus(ctx context.Context, holdKey, status string, actualAmount *float64) error {
+	holdKey = strings.TrimSpace(holdKey)
+	status = strings.TrimSpace(status)
+	if holdKey == "" || status == "" {
+		return nil
+	}
+	if r == nil || r.db == nil {
+		return errors.New("usage billing repository db is nil")
+	}
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE video_balance_holds
+		SET status = $2, actual_amount = $3, updated_at = NOW()
+		WHERE hold_key = $1 AND status = $4
+	`, holdKey, status, actualAmount, service.BalanceHoldStatusPending)
+	return err
+}
+
+// ListExpiredBalanceHolds 返回已过期但仍未结算的冻结记录，供后台扫描释放。
+func (r *usageBillingRepository) ListExpiredBalanceHolds(ctx context.Context, now time.Time, limit int) ([]*service.BalanceHoldRecord, error) {
+	if r == nil || r.db == nil {
+		return nil, errors.New("usage billing repository db is nil")
+	}
+	if limit <= 0 {
+		limit = 100
+	}
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT hold_key, request_id, upstream_request_id, user_id, api_key_id,
+		       COALESCE(group_id, 0), COALESCE(account_id, 0),
+		       model, resolution, duration_seconds, hold_amount, actual_amount,
+		       currency, status, expires_at, created_at, updated_at
+		FROM video_balance_holds
+		WHERE status = $1 AND expires_at <= $2
+		ORDER BY expires_at ASC
+		LIMIT $3
+	`, service.BalanceHoldStatusPending, now, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	records := make([]*service.BalanceHoldRecord, 0, limit)
+	for rows.Next() {
+		record, scanErr := scanBalanceHoldRecord(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		records = append(records, record)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return records, nil
+}
+
+type balanceHoldScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanBalanceHoldRecord(scanner balanceHoldScanner) (*service.BalanceHoldRecord, error) {
+	var (
+		record       service.BalanceHoldRecord
+		actualAmount sql.NullFloat64
+	)
+	if err := scanner.Scan(
+		&record.HoldKey,
+		&record.RequestID,
+		&record.UpstreamRequestID,
+		&record.UserID,
+		&record.APIKeyID,
+		&record.GroupID,
+		&record.AccountID,
+		&record.Model,
+		&record.Resolution,
+		&record.DurationSeconds,
+		&record.HoldAmount,
+		&actualAmount,
+		&record.Currency,
+		&record.Status,
+		&record.ExpiresAt,
+		&record.CreatedAt,
+		&record.UpdatedAt,
+	); err != nil {
+		return nil, err
+	}
+	if actualAmount.Valid {
+		value := actualAmount.Float64
+		record.ActualAmount = &value
+	}
+	return &record, nil
+}
+
+// usageBillingHoldClaimExists 检查 hold request id 是否已在 dedup（或归档）表中被 claim，
+// 即对应的冻结操作确实成功提交过。
+func usageBillingHoldClaimExists(ctx context.Context, tx *sql.Tx, holdRequestID string, apiKeyID int64) (bool, error) {
 	var exists int
 	err := tx.QueryRowContext(ctx, `
 		SELECT 1

@@ -88,6 +88,8 @@ export default {
       retry: '重试',
       enlargeImage: '放大图片',
       elapsed: '耗时 {time}',
+      cost: '扣费 {amount}',
+      costHeld: '预冻结 {amount}',
       editImage: '基于此图继续修改',
       noImageResult: '任务已完成，但没有返回可预览图片。',
       noVideoResult: '任务已完成，但没有返回可预览视频。'

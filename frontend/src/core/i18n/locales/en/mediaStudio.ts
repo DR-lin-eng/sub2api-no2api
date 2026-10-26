@@ -88,6 +88,8 @@ export default {
       retry: 'Retry',
       enlargeImage: 'Enlarge image',
       elapsed: 'Took {time}',
+      cost: 'Charged {amount}',
+      costHeld: 'Reserved {amount}',
       editImage: 'Edit this image',
       noImageResult: 'Task completed, but no preview image was returned.',
       noVideoResult: 'Task completed, but no preview video was returned.'

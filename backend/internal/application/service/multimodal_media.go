@@ -282,6 +282,7 @@ func (s *OpenAIGatewayService) ForwardMultimodalMedia(
 	requestID string,
 	body []byte,
 	contentType string,
+	videoHold *BalanceHoldRecord,
 ) (*OpenAIForwardResult, error) {
 	startTime := time.Now()
 	if account == nil {
@@ -451,6 +452,11 @@ func (s *OpenAIGatewayService) ForwardMultimodalMedia(
 	}
 	if endpoint == MultimodalMediaEndpointVideoStatus {
 		respBody = rewriteMultimodalVideoContentURLs(respBody, requestID, multimodalMediaContentProxyURL(c, requestID))
+	}
+	// 视频两段式计费必须在写回响应前完成：创建阶段绑定冻结记录并回显冻结金额，
+	// 轮询阶段结算或释放，并把最终扣费金额一起返回给客户端。
+	if endpoint.IsVideoGenerationRequest() || endpoint == MultimodalMediaEndpointVideoStatus {
+		respBody = s.applyMultimodalVideoBilling(ctx, c, account, endpoint, requestID, videoHold, respBody)
 	}
 	if endpoint.IsImageRequest() {
 		if countOpenAIResponseImageOutputsFromJSONBytes(respBody) <= 0 && !clientWantsStream {
@@ -813,16 +819,16 @@ func multimodalMediaUsageFromResponse(
 		meta.ResponseID = extractGrokMediaVideoRequestID(responseBody)
 		meta.VideoCount = 1
 		meta.VideoResolution = requestInfo.Resolution
-		meta.VideoDurationSeconds = multimodalVideoBillingDurationSeconds(requestInfo, requestBody)
+		meta.VideoDurationSeconds = MultimodalVideoBillingDurationSeconds(requestInfo, requestBody)
 		// Keep the legacy media-unit counter populated for existing usage displays.
 		meta.ImageCount = 1
 	}
 	return meta
 }
 
-// multimodalVideoBillingDurationSeconds 处理 duration=-1（仅 Seedance 可用）。
+// MultimodalVideoBillingDurationSeconds 处理 duration=-1（仅 Seedance 可用）。
 // 该值表示按模型最长时长生成，冻结时按 15 秒上限计算，完成后再按实际秒数结算。
-func multimodalVideoBillingDurationSeconds(requestInfo GrokMediaRequestInfo, requestBody []byte) int {
+func MultimodalVideoBillingDurationSeconds(requestInfo GrokMediaRequestInfo, requestBody []byte) int {
 	if gjson.ValidBytes(requestBody) {
 		if raw := gjson.GetBytes(requestBody, "duration"); raw.Exists() && raw.Int() < 0 {
 			return VideoBillingMaxDurationSeconds

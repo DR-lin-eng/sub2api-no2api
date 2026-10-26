@@ -206,6 +206,52 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 	}
 	defer releaseAccount()
 
+	// 视频生成走两段式计费：提交上游前冻结预估金额，成功拿到任务 id 后交由
+	// 轮询阶段结算；任何未成功提交上游的退出路径都在这里全额释放。
+	var videoHold *service.BalanceHoldRecord
+	videoHoldBound := false
+	// 两段式开启后，创建阶段一律不写用量、不直扣：失败由轮询阶段全额释放，
+	// 成功在轮询结算时落唯一一条流水。订阅制与简单模式仍走原直扣路径。
+	videoHoldEnabled := endpoint.IsVideoGenerationRequest() && h.gatewayService.MultimodalVideoBalanceHoldEnabled(apiKey)
+	defer func() {
+		if videoHold == nil || videoHoldBound {
+			return
+		}
+		releaseCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if releaseErr := h.gatewayService.ReleaseMultimodalVideoBalance(releaseCtx, videoHold); releaseErr != nil {
+			reqLog.Warn("multimodal_media.release_video_balance_hold_failed", zap.Error(releaseErr))
+		}
+	}()
+
+	// 未启用两段式冻结（订阅制分组、简单模式）时创建期不会直扣，必须在提交上游前
+	// 校验视频单价可解析；缺失时直接拒绝，避免生成完成后无法计费。
+	if endpoint.IsVideoGenerationRequest() && !videoHoldEnabled {
+		var pricingGroupID int64
+		if apiKey.GroupID != nil {
+			pricingGroupID = *apiKey.GroupID
+		}
+		if pricingErr := h.gatewayService.ValidateMultimodalVideoPricing(requestCtx, service.VideoBalanceHoldRequest{
+			APIKey:          apiKey,
+			UserID:          subject.UserID,
+			GroupID:         pricingGroupID,
+			Model:           requestModel,
+			Resolution:      requestInfo.Resolution,
+			DurationSeconds: service.MultimodalVideoBillingDurationSeconds(requestInfo, body),
+		}); pricingErr != nil {
+			reqLog.Warn("multimodal_media.video_pricing_unavailable",
+				zap.String("model", requestModel),
+				zap.Error(pricingErr),
+			)
+			status, code, message, retryAfter := billingErrorDetails(pricingErr)
+			if retryAfter > 0 {
+				c.Header("Retry-After", strconv.Itoa(retryAfter))
+			}
+			h.errorResponse(c, status, code, message)
+			return
+		}
+	}
+
 	for {
 		releaseAccount()
 		if failoverClientGone(c) {
@@ -334,11 +380,41 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 		}
 
 		service.SetOpsLatencyMs(c, service.OpsRoutingLatencyMsKey, time.Since(routingStart).Milliseconds())
+		if videoHoldEnabled && videoHold == nil {
+			var groupID int64
+			if apiKey.GroupID != nil {
+				groupID = *apiKey.GroupID
+			}
+			hold, holdErr := h.gatewayService.ReserveMultimodalVideoBalance(requestCtx, service.VideoBalanceHoldRequest{
+				APIKey:          apiKey,
+				UserID:          subject.UserID,
+				GroupID:         groupID,
+				AccountID:       account.ID,
+				Model:           requestModel,
+				Resolution:      requestInfo.Resolution,
+				// 与结算阶段使用同一口径的时长（duration=-1 按上限），否则冻结额偏小，
+				// 结算时会被封顶导致少扣费。
+				DurationSeconds: service.MultimodalVideoBillingDurationSeconds(requestInfo, body),
+			})
+			if holdErr != nil {
+				reqLog.Warn("multimodal_media.reserve_video_balance_failed",
+					zap.Int64("account_id", account.ID),
+					zap.Error(holdErr),
+				)
+				status, code, message, retryAfter := billingErrorDetails(holdErr)
+				if retryAfter > 0 {
+					c.Header("Retry-After", strconv.Itoa(retryAfter))
+				}
+				h.errorResponse(c, status, code, message)
+				return
+			}
+			videoHold = hold
+		}
 		forwardStart := time.Now()
 		writerSizeBeforeForward := c.Writer.Size()
 		result, err := func() (*service.OpenAIForwardResult, error) {
 			defer releaseAccount()
-			return h.gatewayService.ForwardMultimodalMedia(requestCtx, c, account, endpoint, requestID, body, contentType)
+			return h.gatewayService.ForwardMultimodalMedia(requestCtx, c, account, endpoint, requestID, body, contentType, videoHold)
 		}()
 
 		forwardDurationMs := time.Since(forwardStart).Milliseconds()
@@ -422,6 +498,8 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 			return
 		}
 
+		// 上游已接受请求：冻结记录已绑定任务 id，后续由轮询结算，这里不再释放。
+		videoHoldBound = true
 		h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, multimodalMediaScheduleModel(account, routingModel, result), true, nil)
 		if endpoint.IsGenerationRequest() && strings.TrimSpace(result.ResponseID) != "" {
 			if err := h.gatewayService.BindMultimodalMediaVideoRequestAccount(
@@ -434,7 +512,9 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 				)
 			}
 		}
-		if shouldRecordMultimodalMediaUsage(endpoint, requestModel) {
+		// 视频生成走两段式计费：创建阶段只冻结、不写用量，结算在轮询完成时按
+		// 实际秒数落唯一一条 usage_log，避免同一请求被计费两次、失败仍然扣费。
+		if shouldRecordMultimodalMediaUsage(endpoint, requestModel) && !videoHoldEnabled {
 			recordMultimodalMediaUsage(c, h, reqLog, apiKey, subject, subscription, account, result, requestModel, body, requestID)
 		}
 		reqLog.Debug("multimodal_media.request_completed",

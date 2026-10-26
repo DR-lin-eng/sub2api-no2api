@@ -9,6 +9,7 @@ import type { GroupPricingFormEntry } from "../groupsModelPricing";
 import {
   getDefaultImagePreviewPrice,
   getDefaultVideoPreviewPrice,
+  supportsDefaultVideoPriceFallback,
 } from "../groupsImagePricingResolver";
 
 const baseGroupFormState = () => {
@@ -223,9 +224,13 @@ export const buildVideoFinalPricePreview = (
     ? normalizePreviewNumber(form.video_rate_multiplier, 1)
     : normalizePreviewNumber(form.rate_multiplier, 1);
   return videoPricingTiers.map((tier) => {
+    // 只有 Grok 留空时后端会回落到内置每秒价；multimodal 留空即无价，
+    // 预览必须显示“未配置”，否则会和实际 503 的行为不符。
     const basePrice =
       parsePreviewPrice(form[tier.key]) ??
-      getDefaultVideoPreviewPrice(form.platform, tier.key);
+      (supportsDefaultVideoPriceFallback(form.platform)
+        ? getDefaultVideoPreviewPrice(form.platform, tier.key)
+        : null);
     return {
       label: tier.label,
       value:

@@ -149,7 +149,7 @@ func TestMultimodalVideoBillingDurationSeconds(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.want, multimodalVideoBillingDurationSeconds(tt.requestInfo, []byte(tt.body)))
+			require.Equal(t, tt.want, MultimodalVideoBillingDurationSeconds(tt.requestInfo, []byte(tt.body)))
 		})
 	}
 }

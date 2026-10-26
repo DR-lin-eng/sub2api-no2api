@@ -43,6 +43,11 @@ const billingModeLabel = computed(
       (option) => option.value === props.entry.billing_mode,
     )?.label || props.entry.billing_mode,
 );
+// multimodal 分组没有内置每秒价，也不使用分组级视频价：每个视频模型都必须在这里
+// 配好对应分辨率的每秒价格，缺价时请求直接 503。
+const showMultimodalVideoPriceHint = computed(
+  () => props.platform === "multimodal" && props.entry.billing_mode === "video",
+);
 const tokenPriceFields: Array<{
   key: GroupPricingPriceField;
   label: string;
@@ -263,7 +268,14 @@ const removeTier = (index: number) => {
               />
             </label>
             <label class="text-xs text-gray-400">
-              {{ $t("admin.channels.form.perRequestPrice") }} ($)
+              {{
+                $t(
+                  entry.billing_mode === 'video'
+                    ? 'admin.channels.form.perSecondPrice'
+                    : 'admin.channels.form.perRequestPrice',
+                )
+              }}
+              ($)
               <input
                 :value="interval.per_request_price"
                 type="number"
@@ -283,6 +295,12 @@ const removeTier = (index: number) => {
             </button>
           </div>
         </div>
+        <p
+          v-if="showMultimodalVideoPriceHint"
+          class="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200"
+        >
+          {{ $t("admin.channels.form.multimodalVideoPriceHint") }}
+        </p>
       </div>
     </div>
   </div>

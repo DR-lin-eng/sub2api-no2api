@@ -116,7 +116,17 @@
                 <span class="meta-pill">{{ t('mediaStudio.composer.durationValue', { count: message.duration || duration }) }}</span>
               </template>
               <span v-if="message.taskId && message.status !== 'completed'" class="meta-pill font-mono">{{ message.taskId }}</span>
-              <span v-if="message.status === 'completed' && message.completedAt" class="meta-pill">
+              <span
+                v-if="message.cost !== undefined && message.status !== 'failed'"
+                class="meta-pill"
+              >
+                {{
+                  t(message.status === 'completed' ? 'mediaStudio.session.cost' : 'mediaStudio.session.costHeld', {
+                    amount: formatCost(message.cost, message.currency),
+                  })
+                }}
+              </span>
+              <span v-if="message.status === 'completed' && formatElapsed(message)" class="meta-pill">
                 {{ t('mediaStudio.session.elapsed', { time: formatElapsed(message) }) }}
               </span>
             </div>
@@ -1068,12 +1078,22 @@ function formatTime(value: number): string {
 
 function formatElapsed(message: MediaStudioMessage): string {
   const completedAt = message.completedAt
-  if (typeof completedAt !== 'number') return ''
+  // 历史会话可能缺失或带有非法完成时间：返回空串，由模板隐藏耗时标签，
+  // 避免渲染出「耗时 」或「耗时 NaN」这类错误信息。
+  if (typeof completedAt !== 'number' || !Number.isFinite(completedAt)) return ''
   const totalSeconds = Math.max(0, (completedAt - message.createdAt) / 1000)
+  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) return ''
   if (totalSeconds < 60) return `${totalSeconds.toFixed(1)}s`
   const minutes = Math.floor(totalSeconds / 60)
   const seconds = Math.round(totalSeconds % 60)
   return `${minutes}m ${String(seconds).padStart(2, '0')}s`
+}
+
+function formatCost(amount: number, currency?: string): string {
+  const value = Number.isFinite(amount) ? amount : 0
+  const code = (currency || 'USD').toUpperCase()
+  const symbol = code === 'USD' ? '$' : `${code} `
+  return `${symbol}${value.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')}`
 }
 
 function videoProgress(message: MediaStudioMessage): number {

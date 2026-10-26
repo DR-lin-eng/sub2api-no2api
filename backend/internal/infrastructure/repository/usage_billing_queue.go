@@ -455,6 +455,38 @@ func (r *queuedUsageBillingRepository) ReleaseBatchImageBalance(ctx context.Cont
 	return r.direct.ReleaseBatchImageBalance(ctx, cmd)
 }
 
+func (r *queuedUsageBillingRepository) ReserveBalance(ctx context.Context, cmd *service.BalanceHoldCommand) (*service.BalanceHoldResult, error) {
+	return r.direct.ReserveBalance(ctx, cmd)
+}
+
+func (r *queuedUsageBillingRepository) CaptureBalance(ctx context.Context, cmd *service.BalanceHoldCommand) (*service.BalanceHoldResult, error) {
+	return r.direct.CaptureBalance(ctx, cmd)
+}
+
+func (r *queuedUsageBillingRepository) ReleaseBalance(ctx context.Context, cmd *service.BalanceHoldCommand) (*service.BalanceHoldResult, error) {
+	return r.direct.ReleaseBalance(ctx, cmd)
+}
+
+func (r *queuedUsageBillingRepository) CreateBalanceHold(ctx context.Context, record *service.BalanceHoldRecord) error {
+	return r.direct.CreateBalanceHold(ctx, record)
+}
+
+func (r *queuedUsageBillingRepository) BindBalanceHoldUpstreamRequest(ctx context.Context, holdKey, upstreamRequestID string) error {
+	return r.direct.BindBalanceHoldUpstreamRequest(ctx, holdKey, upstreamRequestID)
+}
+
+func (r *queuedUsageBillingRepository) GetBalanceHoldByUpstreamRequestID(ctx context.Context, upstreamRequestID string) (*service.BalanceHoldRecord, error) {
+	return r.direct.GetBalanceHoldByUpstreamRequestID(ctx, upstreamRequestID)
+}
+
+func (r *queuedUsageBillingRepository) UpdateBalanceHoldStatus(ctx context.Context, holdKey, status string, actualAmount *float64) error {
+	return r.direct.UpdateBalanceHoldStatus(ctx, holdKey, status, actualAmount)
+}
+
+func (r *queuedUsageBillingRepository) ListExpiredBalanceHolds(ctx context.Context, now time.Time, limit int) ([]*service.BalanceHoldRecord, error) {
+	return r.direct.ListExpiredBalanceHolds(ctx, now, limit)
+}
+
 func (r *queuedUsageBillingRepository) start() {
 	ctx, cancel := context.WithCancel(context.Background())
 	r.cancel = cancel

@@ -476,6 +476,8 @@ type OpenAIGatewayService struct {
 	liveAttestationCipher   SecretEncryptor
 	liveBillingOnce         sync.Once
 	liveBillingCancel       context.CancelFunc
+	videoHoldSweepOnce      sync.Once
+	videoHoldSweepCancel    context.CancelFunc
 
 	openaiWSPoolOnce               sync.Once
 	openaiWSStateStoreOnce         sync.Once
@@ -800,6 +802,9 @@ func (s *OpenAIGatewayService) CloseOpenAIWSPool() {
 	}
 	if s.liveBillingCancel != nil {
 		s.liveBillingCancel()
+	}
+	if s.videoHoldSweepCancel != nil {
+		s.videoHoldSweepCancel()
 	}
 	s.codexAutoProbeMu.Lock()
 	s.codexAutoProbeStopped.Store(true)

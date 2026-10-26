@@ -144,6 +144,9 @@ export default {
         addTimePeriod: '添加时段',
         removeTimePeriod: '删除时段',
         perRequestPrice: '单次价格',
+        perSecondPrice: '每秒价格',
+        multimodalVideoPriceHint:
+          'multimodal 分组必须逐个模型配置每秒单价：没有内置价，也不使用分组级视频价。当前模型缺少该分辨率的每秒单价时，视频请求会直接返回 503（video_price_not_configured）。',
         perRequestPriceRequired: '按次/图片计费模式必须设置默认价格或至少一个计费层级',
         tierLabel: '层级',
         resolution: '分辨率',

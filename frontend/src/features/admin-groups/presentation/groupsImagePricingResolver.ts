@@ -10,14 +10,19 @@ export const imagePricingPlatforms = new Set([
 export const supportsImagePricingPlatform = (platform: string): boolean =>
   imagePricingPlatforms.has(platform);
 
+// 只有 Grok 使用分组级视频价。multimodal 是逐模型定价分组，
+// 视频每秒价必须写在每个模型的定价条目里，分组级价不参与计费。
 export const supportsVideoPricingPlatform = (platform: string): boolean =>
-  platform === "grok" || platform === "multimodal";
+  platform === "grok";
 
 export const imagePricingI18nKey = (_platform: string, key: string): string =>
   `admin.groups.imagePricing.${key}`;
 
 export const videoPricingI18nKey = (key: string): string =>
   `admin.groups.videoPricing.${key}`;
+
+export const supportsDefaultVideoPriceFallback = (platform: string): boolean =>
+  platform === "grok";
 
 type ImagePricingTierKey = "image_price_1k" | "image_price_2k" | "image_price_4k";
 type VideoPricingTierKey =
@@ -43,7 +48,6 @@ const defaultImagePricePlaceholders: Record<
 
 // 视频价为每秒单价（USD/s）。480p/720p 取 grok-imagine-video（文生视频实际走该模型）的
 // 官方每秒价；1080p 仅 grok-imagine-video-1.5 图生视频支持，取 1.5 的每秒价。
-// multimodal 取上游文档公布的 Seedance 2.0 标准档无参考价（人民币/秒），按 7.2 折算美元。
 const defaultVideoPricePlaceholders: Record<
   string,
   Record<VideoPricingTierKey, string>
@@ -52,11 +56,6 @@ const defaultVideoPricePlaceholders: Record<
     video_price_480p: "0.05",
     video_price_720p: "0.07",
     video_price_1080p: "0.25",
-  },
-  multimodal: {
-    video_price_480p: "0.075",
-    video_price_720p: "0.163",
-    video_price_1080p: "0.403",
   },
 };
 
