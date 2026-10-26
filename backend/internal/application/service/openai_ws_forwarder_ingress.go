@@ -395,11 +395,11 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			normalized = litePayload
 		}
 		responsesLite := isOpenAIResponsesLiteHeader(c.GetHeader(responsesLiteHeader)) || isOpenAIResponsesLiteWebSocketPayload(normalized)
-		webSearchPayload, _, webSearchErr := normalizeOpenAIOAuthWebSearchHistoryForAccount(normalized, account, false, responsesLite)
-		if webSearchErr != nil {
-			return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", webSearchErr)
+		replayPayload, _, replayErr := normalizeOpenAIOAuthReplayHistoryForAccount(normalized, account, false, responsesLite)
+		if replayErr != nil {
+			return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", replayErr)
 		}
-		normalized = webSearchPayload
+		normalized = replayPayload
 		apiKey := getAPIKeyFromContext(c)
 		imageGenerationAllowed := GroupAllowsImageGeneration(apiKeyGroup(apiKey))
 		codexImageGenerationExplicitToolPolicy := codexImageGenerationExplicitToolPolicyAllow

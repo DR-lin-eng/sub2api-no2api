@@ -2011,10 +2011,9 @@ func TestFilterCodexInput_ReasoningBackfillsMissingSummary(t *testing.T) {
 	require.Equal(t, "gAAAAAB-enc", item["encrypted_content"])
 }
 
-// TestFilterCodexInput_PreservesReasoningSummaryAndContent verifies that a
-// non-empty summary is not overwritten and that arbitrary reasoning fields
-// (e.g. content) survive verbatim — only the id is removed.
-func TestFilterCodexInput_PreservesReasoningSummaryAndContent(t *testing.T) {
+// OAuth input must keep the reasoning context carriers, not response-only
+// content: Codex accepts at most zero reasoning content parts on replay.
+func TestFilterCodexInput_PreservesReasoningContextWithoutResponseContent(t *testing.T) {
 	summary := []any{
 		map[string]any{"type": "summary_text", "text": "Considered the options."},
 	}
@@ -2038,8 +2037,9 @@ func TestFilterCodexInput_PreservesReasoningSummaryAndContent(t *testing.T) {
 	require.True(t, ok)
 	// Non-empty summary preserved verbatim (not replaced with []).
 	require.Equal(t, summary, item["summary"])
-	// content preserved verbatim.
-	require.Equal(t, content, item["content"])
+	// Response-only content is omitted without mutating the caller's item.
+	require.NotContains(t, item, "content")
+	require.Equal(t, content, input[0].(map[string]any)["content"])
 	require.Equal(t, "gAAAAAB-enc", item["encrypted_content"])
 	_, hasID := item["id"]
 	require.False(t, hasID)
