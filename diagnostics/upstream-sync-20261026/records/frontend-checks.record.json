@@ -1,0 +1,28 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=4g",
+    "-v",
+    "/private/tmp/sub2api-sync-20261026-x_z3wn11/repo:/app",
+    "-v",
+    "sub2api-sync-node-modules-20261026:/app/frontend/node_modules",
+    "-v",
+    "sub2api-sync-pnpm-20261026:/root/.local/share/pnpm/store",
+    "-w",
+    "/app",
+    "sub2api-sync-node:20261019",
+    "sh",
+    "-c",
+    "set -e\npnpm --dir frontend install --frozen-lockfile\npnpm --dir frontend run typecheck\npnpm --dir frontend exec vitest run src/features/admin-groups src/core/i18n/__tests__/routeLocaleCoverage.spec.ts\nmake test-frontend\npnpm --dir frontend run lint:check"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261026-x_z3wn11/repo",
+  "input": "",
+  "stdout": "[ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY] Aborted removal of modules directory due to no TTY\n\nIf you are running pnpm in CI, set the CI environment variable to \"true\", or set \"confirmModulesPurge\" to \"false\".\n",
+  "stderr": "",
+  "exit_status": 1,
+  "duration_seconds": 3.656,
+  "utc": "2026-10-26T03:41:11.333042+00:00"
+}

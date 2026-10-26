@@ -1,0 +1,32 @@
+2026/10/26 04:05:09 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestImageCountBillingTransaction
+=== RUN   TestImageCountBillingTransaction/gateway/legacy
+    image_count_billing_test.go:51: route=gateway enabled=false dedicated=true images=2 cost=0.004500 mode=token
+=== RUN   TestImageCountBillingTransaction/gateway/dedicated
+    image_count_billing_test.go:51: route=gateway enabled=true dedicated=true images=2 cost=0.600000 mode=image
+=== RUN   TestImageCountBillingTransaction/gateway/mixed
+    image_count_billing_test.go:51: route=gateway enabled=true dedicated=false images=2 cost=0.004500 mode=token
+=== RUN   TestImageCountBillingTransaction/openai/legacy
+    image_count_billing_test.go:51: route=openai enabled=false dedicated=true images=2 cost=0.004500 mode=token
+=== RUN   TestImageCountBillingTransaction/openai/dedicated
+    image_count_billing_test.go:51: route=openai enabled=true dedicated=true images=2 cost=0.600000 mode=image
+=== RUN   TestImageCountBillingTransaction/openai/mixed
+    image_count_billing_test.go:51: route=openai enabled=true dedicated=false images=2 cost=0.004500 mode=token
+--- PASS: TestImageCountBillingTransaction (0.00s)
+    --- PASS: TestImageCountBillingTransaction/gateway/legacy (0.00s)
+    --- PASS: TestImageCountBillingTransaction/gateway/dedicated (0.00s)
+    --- PASS: TestImageCountBillingTransaction/gateway/mixed (0.00s)
+    --- PASS: TestImageCountBillingTransaction/openai/legacy (0.00s)
+    --- PASS: TestImageCountBillingTransaction/openai/dedicated (0.00s)
+    --- PASS: TestImageCountBillingTransaction/openai/mixed (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.050s
+=== RUN   TestAdminAPIKeyRateLimitTransaction
+    admin_api_key_rate_limit_test.go:39: key="key-a" status=200
+    admin_api_key_rate_limit_test.go:39: key="key-b" status=200
+    admin_api_key_rate_limit_test.go:39: key="key-a" status=429
+    admin_api_key_rate_limit_test.go:39: key="" status=200
+    admin_api_key_rate_limit_test.go:39: key="" status=200
+--- PASS: TestAdminAPIKeyRateLimitTransaction (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware	0.011s

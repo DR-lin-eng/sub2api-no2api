@@ -237,6 +237,7 @@ export function useCreateGroupController({
     createForm.allow_image_generation = false;
     createForm.openai_force_image_tool = false;
     createForm.allow_batch_image_generation = false;
+    createForm.image_count_billing = false;
     createForm.image_rate_independent = false;
     createForm.image_rate_multiplier = 1;
     createForm.batch_image_discount_multiplier = 0.5;

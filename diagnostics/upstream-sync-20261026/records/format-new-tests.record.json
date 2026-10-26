@@ -1,0 +1,24 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "-v",
+    "/private/tmp/sub2api-sync-20261026-x_z3wn11/repo:/src",
+    "-w",
+    "/src",
+    "sub2api-sync-go:20261024",
+    "gofmt",
+    "-w",
+    "backend/internal/application/service/image_count_billing_benchmark_test.go",
+    "backend/internal/application/service/image_count_billing_pricing_test.go",
+    "backend/internal/infrastructure/repository/group_image_count_billing_integration_test.go"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261026-x_z3wn11/repo",
+  "input": "",
+  "stdout": "",
+  "stderr": "",
+  "exit_status": 0,
+  "duration_seconds": 0.364,
+  "utc": "2026-10-26T03:50:29.335075+00:00"
+}

@@ -236,6 +236,7 @@ type CreateGroupInput struct {
 	AllowImageGeneration         bool
 	OpenAIForceImageTool         bool
 	AllowBatchImageGeneration    bool
+	ImageCountBilling            bool
 	ImageRateIndependent         bool
 	ImageRateMultiplier          *float64
 	BatchImageDiscountMultiplier *float64
@@ -306,6 +307,7 @@ type UpdateGroupInput struct {
 	AllowImageGeneration         *bool
 	OpenAIForceImageTool         *bool
 	AllowBatchImageGeneration    *bool
+	ImageCountBilling            *bool
 	ImageRateIndependent         *bool
 	ImageRateMultiplier          *float64
 	BatchImageDiscountMultiplier *float64

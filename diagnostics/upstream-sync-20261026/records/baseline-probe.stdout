@@ -1,0 +1,32 @@
+2026/10/26 03:36:57 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestImageCountBillingTransaction
+=== RUN   TestImageCountBillingTransaction/gateway/legacy
+    image_count_billing_test.go:51: route=gateway enabled=false dedicated=true images=2 cost=0.004500 mode=token
+=== RUN   TestImageCountBillingTransaction/gateway/dedicated
+    image_count_billing_test.go:51: route=gateway enabled=true dedicated=true images=2 cost=0.004500 mode=token
+    image_count_billing_test.go:52: 
+        	Error Trace:	/src/backend/internal/application/service/image_count_billing_test.go:52
+        	Error:      	Max difference between 0.6 and 0.0045000000000000005 allowed is 1e-12, but difference was 0.5955
+        	Test:       	TestImageCountBillingTransaction/gateway/dedicated
+=== RUN   TestImageCountBillingTransaction/gateway/mixed
+    image_count_billing_test.go:51: route=gateway enabled=true dedicated=false images=2 cost=0.004500 mode=token
+=== RUN   TestImageCountBillingTransaction/openai/legacy
+    image_count_billing_test.go:51: route=openai enabled=false dedicated=true images=2 cost=0.004500 mode=token
+=== RUN   TestImageCountBillingTransaction/openai/dedicated
+    image_count_billing_test.go:51: route=openai enabled=true dedicated=true images=2 cost=0.004500 mode=token
+    image_count_billing_test.go:52: 
+        	Error Trace:	/src/backend/internal/application/service/image_count_billing_test.go:52
+        	Error:      	Max difference between 0.6 and 0.0045000000000000005 allowed is 1e-12, but difference was 0.5955
+        	Test:       	TestImageCountBillingTransaction/openai/dedicated
+=== RUN   TestImageCountBillingTransaction/openai/mixed
+    image_count_billing_test.go:51: route=openai enabled=true dedicated=false images=2 cost=0.004500 mode=token
+--- FAIL: TestImageCountBillingTransaction (0.00s)
+    --- PASS: TestImageCountBillingTransaction/gateway/legacy (0.00s)
+    --- FAIL: TestImageCountBillingTransaction/gateway/dedicated (0.00s)
+    --- PASS: TestImageCountBillingTransaction/gateway/mixed (0.00s)
+    --- PASS: TestImageCountBillingTransaction/openai/legacy (0.00s)
+    --- FAIL: TestImageCountBillingTransaction/openai/dedicated (0.00s)
+    --- PASS: TestImageCountBillingTransaction/openai/mixed (0.00s)
+FAIL
+FAIL	github.com/Wei-Shaw/sub2api/internal/application/service	0.014s
+FAIL

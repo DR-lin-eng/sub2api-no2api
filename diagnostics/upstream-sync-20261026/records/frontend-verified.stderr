@@ -1,0 +1,93 @@
+$ vue-tsc --noEmit
+[90mstderr[2m | src/features/admin-groups/__tests__/GroupsPage.columnSettings.spec.ts[2m > [22m[2madmin GroupsView column settings[2m > [22m[2mtoggles a column and persists hidden column keys
+[22m[39mError: AggregateError
+    at Object.dispatchError (/app/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:63:19)
+    at Request.<anonymous> (/app/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+    at Request.emit (node:events:526:24)
+    at ClientRequest.<anonymous> (/app/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+    at ClientRequest.emit (node:events:514:28)
+    at emitErrorEvent (node:_http_client:114:11)
+    at Socket.socketErrorListener (node:_http_client:774:5)
+    at Socket.emit (node:events:514:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3) [90mundefined[39m
+
+[90mstderr[2m | src/features/admin-groups/__tests__/GroupsPage.columnSettings.spec.ts[2m > [22m[2madmin GroupsView column settings[2m > [22m[2mtoggles a column and persists hidden column keys
+[22m[39mError: AggregateError
+    at Object.dispatchError (/app/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:63:19)
+    at Request.<anonymous> (/app/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+    at Request.emit (node:events:526:24)
+    at ClientRequest.<anonymous> (/app/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+    at ClientRequest.emit (node:events:514:28)
+    at emitErrorEvent (node:_http_client:114:11)
+    at Socket.socketErrorListener (node:_http_client:774:5)
+    at Socket.emit (node:events:514:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3) [90mundefined[39m
+
+[90mstderr[2m | src/features/admin-groups/__tests__/GroupsPage.columnSettings.spec.ts[2m > [22m[2madmin GroupsView column settings[2m > [22m[2mtoggles a column and persists hidden column keys
+[22m[39mError: AggregateError
+    at Object.dispatchError (/app/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:63:19)
+    at Request.<anonymous> (/app/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+    at Request.emit (node:events:526:24)
+    at ClientRequest.<anonymous> (/app/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+    at ClientRequest.emit (node:events:514:28)
+    at emitErrorEvent (node:_http_client:114:11)
+    at Socket.socketErrorListener (node:_http_client:774:5)
+    at Socket.emit (node:events:514:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3) [90mundefined[39m
+
+[90mstderr[2m | src/features/admin-groups/__tests__/GroupsPage.columnSettings.spec.ts[2m > [22m[2madmin GroupsView column settings[2m > [22m[2mcan show the id column from column settings
+[22m[39mError: AggregateError
+    at Object.dispatchError (/app/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:63:19)
+    at Request.<anonymous> (/app/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+    at Request.emit (node:events:526:24)
+    at ClientRequest.<anonymous> (/app/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+    at ClientRequest.emit (node:events:514:28)
+    at emitErrorEvent (node:_http_client:114:11)
+    at Socket.socketErrorListener (node:_http_client:774:5)
+    at Socket.emit (node:events:514:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3) [90mundefined[39m
+
+[90mstderr[2m | src/features/admin-groups/__tests__/GroupsPage.columnSettings.spec.ts[2m > [22m[2madmin GroupsView column settings[2m > [22m[2mskips usage and capacity fetches until consuming columns are shown
+[22m[39mError: AggregateError
+    at Object.dispatchError (/app/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:63:19)
+    at Request.<anonymous> (/app/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+    at Request.emit (node:events:526:24)
+    at ClientRequest.<anonymous> (/app/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+    at ClientRequest.emit (node:events:514:28)
+    at emitErrorEvent (node:_http_client:114:11)
+    at Socket.socketErrorListener (node:_http_client:774:5)
+    at Socket.emit (node:events:514:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3) [90mundefined[39m
+
+[90mstderr[2m | src/features/admin-groups/__tests__/GroupsPage.columnSettings.spec.ts[2m > [22m[2madmin GroupsView column settings[2m > [22m[2mskips usage and capacity fetches until consuming columns are shown
+[22m[39mError: AggregateError
+    at Object.dispatchError (/app/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:63:19)
+    at Request.<anonymous> (/app/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+    at Request.emit (node:events:526:24)
+    at ClientRequest.<anonymous> (/app/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+    at ClientRequest.emit (node:events:514:28)
+    at emitErrorEvent (node:_http_client:114:11)
+    at Socket.socketErrorListener (node:_http_client:774:5)
+    at Socket.emit (node:events:514:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3) [90mundefined[39m
+
+[90mstderr[2m | src/features/admin-groups/__tests__/GroupsPage.duplicate.spec.ts
+[22m[39mError: AggregateError
+    at Object.dispatchError (/app/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:63:19)
+    at Request.<anonymous> (/app/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+    at Request.emit (node:events:526:24)
+    at ClientRequest.<anonymous> (/app/frontend/node_modules/.pnpm/jsdom@24.1.3_supports-color@7.2.0/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+    at ClientRequest.emit (node:events:514:28)
+    at emitErrorEvent (node:_http_client:114:11)
+    at Socket.socketErrorListener (node:_http_client:774:5)
+    at Socket.emit (node:events:514:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3) [90mundefined[39m
+
+sh: make: not found

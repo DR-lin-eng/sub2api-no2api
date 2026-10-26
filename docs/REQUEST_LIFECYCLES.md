@@ -613,3 +613,7 @@ Codex 模型发现的共享缓存只存上游结果。账号投影再合并已�
 ### 2026-10-16 兼容出口增量
 
 OpenAI API-key `/v1/messages` 的纯搜索请求在协议转换前经过既有全局/渠道/账号开关，启用后共享搜索 owner 与账号出口；OAuth 保持原生搜索。Gemini 兼容入口把客户端 thinking/effort 写入模型支持的 budget/level，并将流式 thought 分别转为 thinking 或 reasoning_content，历史思考不作为正文回传。普通 Responses 与 HTTP→WS bridge 对缺失 created_at 做稳定补值，原始 passthrough 保留字节。ChatGPT GPT-5.5 退休按实际映射目标检查，API-key 和显式替代映射保持有效；细节和回退见 [增量审查](UPSTREAM_SYNC_20261016_FOLLOWUP.md)。
+
+### 2026-10-26 图片按张计费
+
+OpenAI/composite 分组的 `image_count_billing` 默认关闭；开启后仅专用 Images 端点按实际出图张数结算，混合 Responses/Chat/WS 继续 token 定价。字段经当前分组 owner 与鉴权快照 26 传递，保留可靠结算；全部节点升级后再开启。升级、回退及上游差异状态见 [同步审查](UPSTREAM_SYNC_20261026.md)。

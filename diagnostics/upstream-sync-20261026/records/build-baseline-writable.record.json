@@ -1,0 +1,24 @@
+{
+  "command": [
+    "docker",
+    "build",
+    "--builder",
+    "default",
+    "--build-arg",
+    "GOPROXY=https://proxy.golang.org,direct",
+    "--build-arg",
+    "GOSUMDB=sum.golang.org",
+    "--build-arg",
+    "COMMIT=09364c46ae631b5e3fa754ebcf52b8320c6d0bae",
+    "-t",
+    "sub2api:sync-baseline-20261026",
+    "/private/tmp/sub2api-sync-20261026-x_z3wn11/baseline"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261026-x_z3wn11/repo",
+  "input": "",
+  "stdout": "",
+  "stderr": "ERROR: use `docker --context=default buildx` to switch to context \"default\"\n",
+  "exit_status": 1,
+  "duration_seconds": 0.625,
+  "utc": "2026-10-26T03:43:46.065575+00:00"
+}

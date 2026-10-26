@@ -1,0 +1,13 @@
+{
+  "active_object": "Sub2API selective upstream sync through ba81c7fd758e425d67f856d601147ef0c5263d3f",
+  "last_confirmed_result": "Final source/native rollback, Docker local gates, 32-case runtime upgrade/rollback, machine-key HTTP matrix and fixed performance accepted.",
+  "next_executable_action": "Commit, reviewed-ancestry tracking merge, push, create/attach PR, exact PR CI, merge, exact main CI and registry verification.",
+  "input_paths": [
+    "STATE.json",
+    "FROZEN_RANGE.json",
+    "UPSTREAM_PRS.json",
+    "SOURCE_HASHES.json",
+    "VERIFICATION.txt"
+  ],
+  "acceptance_event": "Exact pushed/merged revision and successful CI plus image publication; all four native role paths reopened."
+}

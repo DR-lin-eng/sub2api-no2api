@@ -1,0 +1,310 @@
+{
+  "baseline": {
+    "legacy": {
+      "median_ns": 1596.0,
+      "bytes": 816,
+      "allocations": 15,
+      "samples": [
+        [
+          1596.0,
+          816,
+          15
+        ],
+        [
+          1587.0,
+          816,
+          15
+        ],
+        [
+          1609.0,
+          816,
+          15
+        ],
+        [
+          1598.0,
+          816,
+          15
+        ],
+        [
+          1580.0,
+          816,
+          15
+        ]
+      ]
+    },
+    "mixed": {
+      "median_ns": 1586.0,
+      "bytes": 816,
+      "allocations": 15,
+      "samples": [
+        [
+          1582.0,
+          816,
+          15
+        ],
+        [
+          1586.0,
+          816,
+          15
+        ],
+        [
+          1672.0,
+          816,
+          15
+        ],
+        [
+          1595.0,
+          816,
+          15
+        ],
+        [
+          1574.0,
+          816,
+          15
+        ]
+      ]
+    },
+    "dedicated": {
+      "median_ns": 1658.0,
+      "bytes": 816,
+      "allocations": 15,
+      "samples": [
+        [
+          1576.0,
+          816,
+          15
+        ],
+        [
+          1582.0,
+          816,
+          15
+        ],
+        [
+          1823.0,
+          816,
+          15
+        ],
+        [
+          1664.0,
+          816,
+          15
+        ],
+        [
+          1658.0,
+          816,
+          15
+        ]
+      ]
+    }
+  },
+  "modified": {
+    "legacy": {
+      "median_ns": 1609.0,
+      "bytes": 816,
+      "allocations": 15,
+      "samples": [
+        [
+          1654.0,
+          816,
+          15
+        ],
+        [
+          1610.0,
+          816,
+          15
+        ],
+        [
+          1609.0,
+          816,
+          15
+        ],
+        [
+          1579.0,
+          816,
+          15
+        ],
+        [
+          1581.0,
+          816,
+          15
+        ]
+      ]
+    },
+    "mixed": {
+      "median_ns": 1598.0,
+      "bytes": 816,
+      "allocations": 15,
+      "samples": [
+        [
+          1587.0,
+          816,
+          15
+        ],
+        [
+          1598.0,
+          816,
+          15
+        ],
+        [
+          1604.0,
+          816,
+          15
+        ],
+        [
+          1593.0,
+          816,
+          15
+        ],
+        [
+          1934.0,
+          816,
+          15
+        ]
+      ]
+    },
+    "dedicated": {
+      "median_ns": 1183.0,
+      "bytes": 792,
+      "allocations": 14,
+      "samples": [
+        [
+          1190.0,
+          792,
+          14
+        ],
+        [
+          1241.0,
+          792,
+          14
+        ],
+        [
+          1183.0,
+          792,
+          14
+        ],
+        [
+          1176.0,
+          792,
+          14
+        ],
+        [
+          1171.0,
+          792,
+          14
+        ]
+      ]
+    }
+  },
+  "rollback": {
+    "legacy": {
+      "median_ns": 1659.0,
+      "bytes": 816,
+      "allocations": 15,
+      "samples": [
+        [
+          1676.0,
+          816,
+          15
+        ],
+        [
+          1659.0,
+          816,
+          15
+        ],
+        [
+          1698.0,
+          816,
+          15
+        ],
+        [
+          1643.0,
+          816,
+          15
+        ],
+        [
+          1657.0,
+          816,
+          15
+        ]
+      ]
+    },
+    "mixed": {
+      "median_ns": 1659.0,
+      "bytes": 816,
+      "allocations": 15,
+      "samples": [
+        [
+          1664.0,
+          816,
+          15
+        ],
+        [
+          1663.0,
+          816,
+          15
+        ],
+        [
+          1652.0,
+          816,
+          15
+        ],
+        [
+          1659.0,
+          816,
+          15
+        ],
+        [
+          1629.0,
+          816,
+          15
+        ]
+      ]
+    },
+    "dedicated": {
+      "median_ns": 1638.0,
+      "bytes": 816,
+      "allocations": 15,
+      "samples": [
+        [
+          1637.0,
+          816,
+          15
+        ],
+        [
+          1638.0,
+          816,
+          15
+        ],
+        [
+          1653.0,
+          816,
+          15
+        ],
+        [
+          1677.0,
+          816,
+          15
+        ],
+        [
+          1620.0,
+          816,
+          15
+        ]
+      ]
+    }
+  },
+  "environment": {
+    "docker_image": "sub2api-sync-go:20261024",
+    "go": "1.26.10",
+    "arch": "linux/arm64",
+    "cpus": 2,
+    "memory": "4 GiB",
+    "order": [
+      "baseline",
+      "modified",
+      "rollback"
+    ],
+    "scope": "fixed cost-resolution fixture, not gateway throughput",
+    "initial_exploratory_runs": "benchmark-baseline and benchmark-candidate ran concurrently with other checks; retained but not used for final median comparison"
+  }
+}

@@ -1,0 +1,184 @@
+ok  	github.com/Wei-Shaw/sub2api/cmd/cleanup-ingress-reject-logs	0.010s
+?   	github.com/Wei-Shaw/sub2api/cmd/jwtgen	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/cmd/profit-preview	0.008s
+ok  	github.com/Wei-Shaw/sub2api/cmd/server	0.011s
+?   	github.com/Wei-Shaw/sub2api/ent	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/account	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/accountegressbinding	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/accountgroup	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/announcement	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/announcementread	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/apikey	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/authidentity	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/authidentitychannel	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/batchimageevent	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/batchimageitem	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/batchimagejob	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/channelmonitor	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatasset	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatconversation	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatmessage	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatmessageasset	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatquickreply	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/compositemodelroute	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/custommodelconfig	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/custommodelrequesttemplate	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/enttest	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/group	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/hook	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/idempotencyrecord	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/intercept	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/ipv6egresspool	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/ent/migrate	0.002s
+?   	github.com/Wei-Shaw/sub2api/ent/paymentauditlog	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/paymentorder	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/paymentproviderinstance	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/pendingauthsession	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/predicate	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/promocode	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/promocodeusage	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/proxy	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/redeemcode	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/redeemcodeusage	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/runtime	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/ent/schema	1.023s
+?   	github.com/Wei-Shaw/sub2api/ent/schema/mixins	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/securitysecret	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/setting	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/subscriptionplan	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/tlsfingerprintprofile	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/usagecleanuptask	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/usagelog	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/user	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/userallowedgroup	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/userattributedefinition	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/userattributevalue	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/userplatformquota	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/usersubscription	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	225.024s
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2	6.016s
+ok  	github.com/Wei-Shaw/sub2api/internal/bootstrap/setup	0.072s
+ok  	github.com/Wei-Shaw/sub2api/internal/domain	0.002s
+?   	github.com/Wei-Shaw/sub2api/internal/domain/model	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/infrastructure/repository	6.714s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/activitycenter	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/chat	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/codexremotecontrol	0.303s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/egress	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog	0.008s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/payment	0.004s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/payment/provider	0.182s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/qualityrender	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/securityaudit	0.229s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/typesafe	0.006s
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/config	0.599s
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/devicekey	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/egress	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/liveattestation	0.319s
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/middleware	4.099s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/anthropicfp	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/antigravity	0.018s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	0.161s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/basispoints	1.332s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/chatgptcookies	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/claude	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation	0.001s
+?   	github.com/Wei-Shaw/sub2api/internal/shared/ctxkey	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/errors	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/gemini	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/geminicli	0.003s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/googleapi	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/httpclient	0.006s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/httputil	0.016s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/ip	0.008s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/logger	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/logredact	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/oauth	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/oauthstate	0.004s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/openai	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/openai_compat	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/openaitiming	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/pagination	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/proxyurl	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/proxyutil	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/remotecontrol	0.005s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/requestmodel	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/response	0.003s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/responseheaders	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/servertiming	0.003s
+?   	github.com/Wei-Shaw/sub2api/internal/shared/sysutil	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/timezone	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint	0.022s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/usagestats	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/websearch	0.005s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/wsutil	0.055s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/xai	0.003s
+?   	github.com/Wei-Shaw/sub2api/internal/testutil	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	48.452s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin	0.525s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto	0.012s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/quotaview	0.010s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/supportchatasset	0.005s
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+2026/10/26 03:49:54 Global max request body size: 1024 bytes (0.00 MB)
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+2026/10/26 03:49:54 Global max request body size: 1024 bytes (0.00 MB)
+2026/10/26 03:49:54 HTTP/2 Cleartext (h2c) enabled: max_concurrent_streams=25, idle_timeout=30s, max_read_frame_size=65536, max_upload_buffer_per_connection=1048576, max_upload_buffer_per_stream=262144
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /                         --> github.com/Wei-Shaw/sub2api/internal/transport/http/server.TestHTTPServerRejectsOversizedHTTP1Header.func1 (1 handlers)
+2026/10/26 03:49:54 Global max request body size: 1024 bytes (0.00 MB)
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /                         --> github.com/Wei-Shaw/sub2api/internal/transport/http/server.TestHTTPServerClosesSlowIncompleteHeader.func1 (1 handlers)
+2026/10/26 03:49:54 Global max request body size: 1024 bytes (0.00 MB)
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] POST   /                         --> github.com/Wei-Shaw/sub2api/internal/transport/http/server.TestHTTPServerGlobalBodyLimit.func1 (1 handlers)
+2026/10/26 03:49:55 Global max request body size: 1024 bytes (0.00 MB)
+--- FAIL: TestAPIContracts (0.00s)
+    --- FAIL: TestAPIContracts/GET_/api/v1/groups/available (0.00s)
+        api_contract_test.go:1502: 
+            	Error Trace:	/src/backend/internal/transport/http/server/api_contract_test.go:1502
+            	Error:      	Not equal: 
+            	            	expected: map[string]interface {}{"code":0, "data":[]interface {}{map[string]interface {}{"allow_batch_image_generation":false, "allow_image_generation":false, "allow_live":false, "allow_messages_dispatch":false, "batch_image_discount_multiplier":0, "batch_image_hold_multiplier":0, "claude_code_only":false, "created_at":"2025-01-02T03:04:05Z", "daily_limit_usd":interface {}(nil), "description":"desc", "fallback_group_id":interface {}(nil), "fallback_group_id_on_invalid_request":interface {}(nil), "id":10, "image_price_1k":interface {}(nil), "image_price_2k":interface {}(nil), "image_price_4k":interface {}(nil), "image_rate_independent":false, "image_rate_multiplier":0, "is_distillation_group":false, "is_exclusive":false, "long_context_pricing_enabled":false, "max_reasoning_effort":"", "monthly_limit_usd":interface {}(nil), "name":"Group One", "openai_force_image_tool":false, "peak_end":"", "peak_rate_enabled":false, "peak_rate_multiplier":1, "peak_start":"", "platform":"anthropic", "rate_multiplier":1.5, "reasoning_effort_mappings":interface {}(nil), "require_oauth_only":false, "require_privacy_set":false, "rpm_limit":0, "status":"active", "subscription_type":"standard", "updated_at":"2025-01-02T03:04:05Z", "video_price_1080p":interface {}(nil), "video_price_480p":interface {}(nil), "video_price_720p":interface {}(nil), "video_rate_independent":false, "video_rate_multiplier":0, "web_search_price_per_call":interface {}(nil), "weekly_limit_usd":interface {}(nil)}}, "message":"success"}
+            	            	actual  : map[string]interface {}{"code":0, "data":[]interface {}{map[string]interface {}{"allow_batch_image_generation":false, "allow_image_generation":false, "allow_live":false, "allow_messages_dispatch":false, "batch_image_discount_multiplier":0, "batch_image_hold_multiplier":0, "claude_code_only":false, "created_at":"2025-01-02T03:04:05Z", "daily_limit_usd":interface {}(nil), "description":"desc", "fallback_group_id":interface {}(nil), "fallback_group_id_on_invalid_request":interface {}(nil), "id":10, "image_count_billing":false, "image_price_1k":interface {}(nil), "image_price_2k":interface {}(nil), "image_price_4k":interface {}(nil), "image_rate_independent":false, "image_rate_multiplier":0, "is_distillation_group":false, "is_exclusive":false, "long_context_pricing_enabled":false, "max_reasoning_effort":"", "monthly_limit_usd":interface {}(nil), "name":"Group One", "openai_force_image_tool":false, "peak_end":"", "peak_rate_enabled":false, "peak_rate_multiplier":1, "peak_start":"", "platform":"anthropic", "rate_multiplier":1.5, "reasoning_effort_mappings":interface {}(nil), "require_oauth_only":false, "require_privacy_set":false, "rpm_limit":0, "status":"active", "subscription_type":"standard", "updated_at":"2025-01-02T03:04:05Z", "video_price_1080p":interface {}(nil), "video_price_480p":interface {}(nil), "video_price_720p":interface {}(nil), "video_rate_independent":false, "video_rate_multiplier":0, "web_search_price_per_call":interface {}(nil), "weekly_limit_usd":interface {}(nil)}}, "message":"success"}
+            	            	
+            	            	Diff:
+            	            	--- Expected
+            	            	+++ Actual
+            	            	@@ -3,3 +3,3 @@
+            	            	  (string) (len=4) "data": ([]interface {}) (len=1) {
+            	            	-  (map[string]interface {}) (len=45) {
+            	            	+  (map[string]interface {}) (len=46) {
+            	            	    (string) (len=28) "allow_batch_image_generation": (bool) false,
+            	            	@@ -17,2 +17,3 @@
+            	            	    (string) (len=2) "id": (float64) 10,
+            	            	+   (string) (len=19) "image_count_billing": (bool) false,
+            	            	    (string) (len=14) "image_price_1k": (interface {}) <nil>,
+            	Test:       	TestAPIContracts/GET_/api/v1/groups/available
+FAIL
+FAIL	github.com/Wei-Shaw/sub2api/internal/transport/http/server	1.789s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware	0.049s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes	7.214s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/webassets	0.003s
+ok  	github.com/Wei-Shaw/sub2api/migrations	0.002s
+FAIL

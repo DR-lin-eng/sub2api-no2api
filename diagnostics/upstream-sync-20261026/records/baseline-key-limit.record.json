@@ -1,0 +1,33 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=4g",
+    "-v",
+    "/private/tmp/sub2api-sync-20261026-x_z3wn11/baseline:/src",
+    "-v",
+    "sub2api-go-mod:/go/pkg/mod",
+    "-v",
+    "sub2api-go-build:/root/.cache/go-build",
+    "-w",
+    "/src/backend",
+    "sub2api-sync-go:20261024",
+    "go",
+    "test",
+    "-tags=unit",
+    "./internal/transport/http/server/middleware",
+    "-run",
+    "^TestAdminAPIKeyRateLimitTransaction$",
+    "-count=1",
+    "-v"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261026-x_z3wn11/repo",
+  "input": "",
+  "stdout": "=== RUN   TestAdminAPIKeyRateLimitTransaction\n    admin_api_key_rate_limit_test.go:39: key=\"key-a\" status=200\n    admin_api_key_rate_limit_test.go:39: key=\"key-b\" status=200\n    admin_api_key_rate_limit_test.go:39: key=\"key-a\" status=200\n    admin_api_key_rate_limit_test.go:40: \n        \tError Trace:\t/src/backend/internal/transport/http/server/middleware/admin_api_key_rate_limit_test.go:40\n        \tError:      \tNot equal: \n        \t            \texpected: 429\n        \t            \tactual  : 200\n        \tTest:       \tTestAdminAPIKeyRateLimitTransaction\n--- FAIL: TestAdminAPIKeyRateLimitTransaction (0.00s)\nFAIL\nFAIL\tgithub.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware\t0.011s\nFAIL\n",
+  "stderr": "",
+  "exit_status": 1,
+  "duration_seconds": 15.486,
+  "utc": "2026-10-26T03:39:45.375854+00:00"
+}

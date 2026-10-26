@@ -1,0 +1,14 @@
+=== RUN   TestAdminAPIKeyRateLimitTransaction
+    admin_api_key_rate_limit_test.go:39: key="key-a" status=200
+    admin_api_key_rate_limit_test.go:39: key="key-b" status=200
+    admin_api_key_rate_limit_test.go:39: key="key-a" status=200
+    admin_api_key_rate_limit_test.go:40: 
+        	Error Trace:	/src/backend/internal/transport/http/server/middleware/admin_api_key_rate_limit_test.go:40
+        	Error:      	Not equal: 
+        	            	expected: 429
+        	            	actual  : 200
+        	Test:       	TestAdminAPIKeyRateLimitTransaction
+--- FAIL: TestAdminAPIKeyRateLimitTransaction (0.00s)
+FAIL
+FAIL	github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware	0.011s
+FAIL
