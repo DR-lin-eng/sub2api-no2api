@@ -2039,7 +2039,9 @@ func TestFilterCodexInput_PreservesReasoningContextWithoutResponseContent(t *tes
 	require.Equal(t, summary, item["summary"])
 	// Response-only content is omitted without mutating the caller's item.
 	require.NotContains(t, item, "content")
-	require.Equal(t, content, input[0].(map[string]any)["content"])
+	originalItem, ok := input[0].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, content, originalItem["content"])
 	require.Equal(t, "gAAAAAB-enc", item["encrypted_content"])
 	_, hasID := item["id"]
 	require.False(t, hasID)
