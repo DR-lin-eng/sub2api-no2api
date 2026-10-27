@@ -133,6 +133,27 @@ func (h *MediaStudioHandler) CreateSession(c *gin.Context) {
 	})
 }
 
+// EstimateCost 返回媒体工坊提交前的预估消耗，金额来自 sub2api 本地计价链路。
+func (h *MediaStudioHandler) EstimateCost(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	c.Header("Pragma", "no-cache")
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	var req service.MediaStudioCostEstimateRequest
+	if !bindMediaStudioJSON(c, &req, "Invalid media studio estimate request") {
+		return
+	}
+	estimate, err := h.mediaStudioService.EstimateCost(c.Request.Context(), subject.UserID, req)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, estimate)
+}
+
 func (h *MediaStudioHandler) UploadFile(c *gin.Context) {
 	subject, ok := middleware2.GetAuthSubjectFromContext(c)
 	if !ok {

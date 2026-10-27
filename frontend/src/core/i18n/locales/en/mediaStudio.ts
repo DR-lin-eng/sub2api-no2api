@@ -75,6 +75,11 @@ export default {
           count: '"{name}" exceeds the file count limit ({limit} files)',
           total: '"{name}" would exceed the total size limit ({limit} MB)'
         }
+      },
+      estimate: {
+        loading: 'Estimating cost…',
+        value: 'Estimated cost {amount}',
+        failed: 'Cost estimate unavailable: {message}'
       }
     },
     session: {

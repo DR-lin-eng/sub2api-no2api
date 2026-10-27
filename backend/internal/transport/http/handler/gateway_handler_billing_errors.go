@@ -67,6 +67,14 @@ func billingErrorDetails(err error) (status int, code, message string, retryAfte
 		}
 		return http.StatusServiceUnavailable, "video_price_not_configured", msg, 0
 	}
+	// 图片单价缺失：逐模型定价分组未给该模型配置图片价。直接拒绝，不猜测价格。
+	if errors.Is(err, service.ErrImagePriceNotConfigured) {
+		msg := pkgerrors.Message(err)
+		if msg == "" {
+			msg = "Image price is not configured for this model and size"
+		}
+		return http.StatusServiceUnavailable, "image_price_not_configured", msg, 0
+	}
 	if errors.Is(err, service.ErrBalanceHoldFailed) {
 		msg := pkgerrors.Message(err)
 		if msg == "" {

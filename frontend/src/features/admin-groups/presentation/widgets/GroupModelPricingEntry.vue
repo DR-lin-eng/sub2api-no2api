@@ -48,6 +48,9 @@ const billingModeLabel = computed(
 const showMultimodalVideoPriceHint = computed(
   () => props.platform === "multimodal" && props.entry.billing_mode === "video",
 );
+// multimodal 逐模型定价没有“默认价”：图片只认 1K/2K/4K、视频只认分辨率档位，
+// 缺档位直接报错。这里不展示也不提交条目级默认价，避免又变成隐式兜底。
+const showDefaultPriceInput = computed(() => props.platform !== "multimodal");
 const tokenPriceFields: Array<{
   key: GroupPricingPriceField;
   label: string;
@@ -80,7 +83,9 @@ const addTier = () => {
     props.entry.billing_mode === "video"
       ? ["480p", "720p", "1080p"]
       : props.entry.billing_mode === "image"
-        ? ["1K", "2K", "4K", "HD"]
+        ? props.platform === "multimodal"
+          ? ["1K", "2K", "4K"]
+          : ["1K", "2K", "4K", "HD"]
         : ["realtime", "tts", "stt"];
   intervals.push({
     min_tokens: 0,
@@ -205,7 +210,7 @@ const removeTier = (index: number) => {
       </div>
 
       <div v-else>
-        <label class="block max-w-64 text-xs text-gray-400">
+        <label v-if="showDefaultPriceInput" class="block max-w-64 text-xs text-gray-400">
           {{
             $t(
               entry.billing_mode === 'video'

@@ -277,10 +277,14 @@ type OpenAIForwardResult struct {
 	ImageOutputSizes      []string
 	ImageSizeSource       string
 	ImageSizeBreakdown    map[string]int
-	ResponsesImageItems   []OpenAIResponsesImageOutputItem
-	ResponsesImageUsage   json.RawMessage
-	VideoCount            int
-	VideoResolution       string
+	// ImageBillingSizeLocked 表示该结果来自多模态直通路径，图片档位已在提交上游前
+	// 用请求档位完成计价校验，落账时必须沿用该档位。上游返回的尺寸只用于展示，
+	// 不能反向覆盖计费档位（否则可能改档到未配置价格的档位，最终 0 计费）。
+	ImageBillingSizeLocked bool
+	ResponsesImageItems    []OpenAIResponsesImageOutputItem
+	ResponsesImageUsage    json.RawMessage
+	VideoCount             int
+	VideoResolution        string
 	// VideoDurationSeconds 是提交时请求的生成时长（xAI 按输出秒数计费），已归一化到 1-15 秒。
 	VideoDurationSeconds int
 	// WebSearchCalls 是 Codex alpha/search 网页搜索调用次数（每次成功请求为 1）。

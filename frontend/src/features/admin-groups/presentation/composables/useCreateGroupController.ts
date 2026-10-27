@@ -1,5 +1,6 @@
 import {
   defaultAllowImageGenerationForPlatform,
+  supportsGroupImagePricingPlatform,
   supportsVideoPricingPlatform,
 } from "../groupsImagePricingResolver";
 import { computed, reactive, ref, watch, type Ref } from "vue";
@@ -359,9 +360,16 @@ export function useCreateGroupController({
       requestData.video_rate_multiplier = normalizeRateMultiplier(
         requestData.video_rate_multiplier,
       );
-      requestData.image_price_1k = emptyToNull(requestData.image_price_1k);
-      requestData.image_price_2k = emptyToNull(requestData.image_price_2k);
-      requestData.image_price_4k = emptyToNull(requestData.image_price_4k);
+      // 逐模型定价分组（multimodal）不使用分组级图片价，创建时不写入任何兜底价。
+      if (supportsGroupImagePricingPlatform(requestData.platform)) {
+        requestData.image_price_1k = emptyToNull(requestData.image_price_1k);
+        requestData.image_price_2k = emptyToNull(requestData.image_price_2k);
+        requestData.image_price_4k = emptyToNull(requestData.image_price_4k);
+      } else {
+        requestData.image_price_1k = null;
+        requestData.image_price_2k = null;
+        requestData.image_price_4k = null;
+      }
       // 只有 Grok 使用分组级视频价；multimodal 等分组必须逐个模型定义价格，
       // 因此创建时不写入任何分组级视频价。
       if (supportsVideoPricingPlatform(requestData.platform)) {

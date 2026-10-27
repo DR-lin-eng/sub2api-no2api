@@ -206,6 +206,34 @@ export async function createMediaStudioSession(
   return data
 }
 
+// 提交前预估消耗：金额由后端 sub2api 本地计价链路算出，前端不自行推算价格。
+export interface MediaStudioCostEstimateRequest {
+  media_type: MediaStudioMediaType
+  group_id: number
+  model: string
+  resolution?: string
+  duration?: number
+  size?: string
+  count?: number
+}
+
+export interface MediaStudioCostEstimate {
+  amount: number
+  currency: string
+  billing_mode: string
+  model: string
+  resolution?: string
+  duration_seconds?: number
+  image_count?: number
+}
+
+export async function estimateMediaStudioCost(
+  request: MediaStudioCostEstimateRequest,
+): Promise<MediaStudioCostEstimate> {
+  const { data } = await apiClient.post<MediaStudioCostEstimate>('/media-studio/estimate', request)
+  return data
+}
+
 export interface MediaStudioGeneratedImage {
   url?: string
   b64_json?: string

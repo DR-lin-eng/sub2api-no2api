@@ -140,7 +140,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	user := input.User
 	account := input.Account
 	subscription := input.Subscription
-	if !isVideoUsageResult(result) {
+	if !isVideoUsageResult(result) && !result.ImageBillingSizeLocked {
 		ApplyOpenAIImageBillingResolution(result)
 	}
 
@@ -513,8 +513,12 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCostWithResolution(
 	if result != nil && result.ImageCount > 0 {
 		// 渠道定价为 token 计费时走 token 路径，否则走图片计费
 		if resolved := s.resolveOpenAIChannelPricing(ctx, billingModel, apiKey); resolved == nil || resolved.Mode != BillingModeToken {
+			cost, err := s.calculateOpenAIImageCost(ctx, billingModel, apiKey, result, imageMultiplier)
+			if err != nil {
+				return openAIRecordUsageCostResolution{}, fmt.Errorf("calculate image cost for model %s: %w", billingModel, err)
+			}
 			return openAIRecordUsageCostResolution{
-				Cost:         s.calculateOpenAIImageCost(ctx, billingModel, apiKey, result, imageMultiplier),
+				Cost:         cost,
 				BillingModel: billingModel,
 			}, nil
 		}
@@ -636,37 +640,62 @@ func (s *OpenAIGatewayService) calculateOpenAIImageCost(
 	apiKey *APIKey,
 	result *OpenAIForwardResult,
 	multiplier float64,
-) *CostBreakdown {
+) (*CostBreakdown, error) {
+	// multimodal 是逐模型定价分组：图片必须命中分组或渠道显式配置的价格，
+	// 不允许回落到 CalculateImageCost 内置的默认图片价。
+	multimodal := IsMultimodal(PlatformFromAPIKey(apiKey))
 	sizeTier := NormalizeImageBillingTierOrDefault(result.ImageSize)
+	if multimodal {
+		// 尺寸无法映射到计费档位时不能猜 2K：请求没给尺寸且上游也没回传
+		// 可解析尺寸时直接报错，避免按错误档位计费。
+		tier, ok := ClassifyImageBillingTier(result.ImageSize)
+		if !ok {
+			return nil, fmt.Errorf("image size cannot be mapped to a billing tier: model=%q size=%q", billingModel, result.ImageSize)
+		}
+		sizeTier = tier
+	}
 	resolved := s.resolveOpenAIChannelPricing(ctx, billingModel, apiKey)
+	// 逐模型定价分组必须精确命中当前尺寸档位的价格：
+	// 只配了 1K 却请求 2K 时不允许借用 1K 档位或其它档位的价格。
+	if multimodal && !imageUnitPriceConfigured(resolved, sizeTier) {
+		return nil, fmt.Errorf("image price is not configured: model=%q size=%q", billingModel, sizeTier)
+	}
+	var cost *CostBreakdown
 	if resolved != nil && resolved.Source == PricingSourceGroup &&
 		(resolved.Mode == BillingModePerRequest || resolved.Mode == BillingModeImage) {
 		gid := apiKey.Group.ID
-		cost, err := s.billingService.CalculateCostUnified(CostInput{
+		groupCost, err := s.billingService.CalculateCostUnified(CostInput{
 			Ctx: ctx, Model: billingModel, GroupID: &gid, Group: apiKey.Group,
 			RequestCount: result.ImageCount, SizeTier: sizeTier,
 			RateMultiplier: multiplier, Resolver: s.resolver, Resolved: resolved,
 		})
 		if err == nil {
-			return cost
+			cost = groupCost
+		} else {
+			logger.LegacyPrintf("service.openai_gateway", "Calculate image group cost failed: %v", err)
 		}
-		logger.LegacyPrintf("service.openai_gateway", "Calculate image group cost failed: %v", err)
 	}
 	groupConfig := imagePriceConfigFromAPIKey(apiKey)
-	if apiKeyHasConfiguredImagePrice(apiKey, sizeTier) {
-		return s.billingService.CalculateImageCost(billingModel, sizeTier, result.ImageCount, groupConfig, multiplier)
-	}
-	if refreshed := s.apiKeyWithFreshGroupMediaPricing(ctx, apiKey); refreshed != apiKey {
-		apiKey = refreshed
-		groupConfig = imagePriceConfigFromAPIKey(apiKey)
-		if apiKeyHasConfiguredImagePrice(apiKey, sizeTier) {
-			return s.billingService.CalculateImageCost(billingModel, sizeTier, result.ImageCount, groupConfig, multiplier)
+	// multimodal 是逐模型定价分组：分组级 1K/2K/4K 图片价等同于兜底价，
+	// 不参与计费，只能命中模型/渠道定价条目里的显式价格。
+	if !multimodal {
+		if cost == nil && apiKeyHasConfiguredImagePrice(apiKey, sizeTier) {
+			cost = s.billingService.CalculateImageCost(billingModel, sizeTier, result.ImageCount, groupConfig, multiplier)
+		}
+		if cost == nil {
+			if refreshed := s.apiKeyWithFreshGroupMediaPricing(ctx, apiKey); refreshed != apiKey {
+				apiKey = refreshed
+				groupConfig = imagePriceConfigFromAPIKey(apiKey)
+				if apiKeyHasConfiguredImagePrice(apiKey, sizeTier) {
+					cost = s.billingService.CalculateImageCost(billingModel, sizeTier, result.ImageCount, groupConfig, multiplier)
+				}
+			}
 		}
 	}
-	if resolved != nil && resolved.Source == PricingSourceChannel &&
+	if cost == nil && resolved != nil && resolved.Source == PricingSourceChannel &&
 		(resolved.Mode == BillingModePerRequest || resolved.Mode == BillingModeImage) {
 		gid := apiKey.Group.ID
-		cost, err := s.billingService.CalculateCostUnified(CostInput{
+		channelCost, err := s.billingService.CalculateCostUnified(CostInput{
 			Ctx:            ctx,
 			Model:          billingModel,
 			GroupID:        &gid,
@@ -678,12 +707,127 @@ func (s *OpenAIGatewayService) calculateOpenAIImageCost(
 			Resolved:       resolved,
 		})
 		if err == nil {
-			return cost
+			cost = channelCost
+		} else {
+			logger.LegacyPrintf("service.openai_gateway", "Calculate image channel cost failed: %v", err)
 		}
-		logger.LegacyPrintf("service.openai_gateway", "Calculate image channel cost failed: %v", err)
 	}
+	if cost == nil && !multimodal {
+		cost = s.billingService.CalculateImageCost(billingModel, sizeTier, result.ImageCount, groupConfig, multiplier)
+	}
+	// 逐模型定价分组没有命中任何显式价格时直接报错，不做价格猜测。
+	if cost == nil || (multimodal && cost.TotalCost <= 0) {
+		return nil, fmt.Errorf("image price is not configured: model=%q size=%q", billingModel, sizeTier)
+	}
+	return cost, nil
+}
 
-	return s.billingService.CalculateImageCost(billingModel, sizeTier, result.ImageCount, groupConfig, multiplier)
+// imageUnitPriceConfigured 报告图片定价是否为当前尺寸档位配置了单价。
+// 只认该档位的显式层级价：multimodal 没有“默认价”，
+// 图片档位也只能按尺寸命中，不能回退到默认价或其它档位。
+func imageUnitPriceConfigured(resolved *ResolvedPricing, sizeTier string) bool {
+	if resolved == nil {
+		return false
+	}
+	for _, tier := range resolved.RequestTiers {
+		if tier.TierLabel == sizeTier && tier.PerRequestPrice != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// MultimodalImagePricingRequest 描述一次图片生成的前置价格校验输入。
+type MultimodalImagePricingRequest struct {
+	APIKey  *APIKey
+	UserID  int64
+	GroupID int64
+	Model   string
+	Size    string
+	Count   int
+}
+
+// ValidateMultimodalImagePricing 在提交上游前校验图片单价可解析。
+// 图片用量由异步任务记录，RecordUsage 的缺价错误只会写日志、无法让请求失败，
+// 因此必须在转发前拦截，避免用户拿到未计费的图片。
+func (s *OpenAIGatewayService) ValidateMultimodalImagePricing(ctx context.Context, req MultimodalImagePricingRequest) error {
+	if s == nil || s.billingService == nil || req.APIKey == nil {
+		return nil
+	}
+	// 简单模式只记录用量、不扣费，不因缺少价格拒绝生成。
+	if s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {
+		return nil
+	}
+	model := strings.TrimSpace(req.Model)
+	// token 计费的图片模型由 token 用量结算，提交前给不出按次价，交由用量记录处理。
+	// multimodal 是逐模型定价分组：只有显式配成 token 计费的条目才允许放行，
+	// 否则解析不到条目时会退化成 LiteLLM token 价，等于给未配置价格的模型免费出图。
+	if resolved := s.resolveOpenAIChannelPricing(ctx, model, req.APIKey); resolved != nil &&
+		resolved.Mode == BillingModeToken &&
+		(!IsMultimodal(PlatformFromAPIKey(req.APIKey)) ||
+			resolved.Source == PricingSourceGroup ||
+			resolved.Source == PricingSourceChannel) {
+		return nil
+	}
+	count := req.Count
+	if count <= 0 {
+		count = 1
+	}
+	// 请求没有给出可分类尺寸（未传 size / auto / 非标准尺寸）时不能猜 2K：
+	// 否则只配置了 1K 价的用户会被误拒。改为要求模型至少配置了一个图片档位价，
+	// 实际计费档位在落账时按上游输出尺寸确定。
+	if _, ok := ClassifyImageBillingTier(req.Size); !ok {
+		if !s.multimodalImageTierPriceConfigured(ctx, model, req.APIKey) {
+			return ErrImagePriceNotConfigured
+		}
+		return nil
+	}
+	multiplier := s.multimodalImageRateMultiplier(ctx, req.APIKey, req.UserID, req.GroupID)
+	cost, err := s.calculateOpenAIImageCost(ctx, model, req.APIKey, &OpenAIForwardResult{
+		ImageCount: count,
+		ImageSize:  req.Size,
+	}, multiplier)
+	if err != nil {
+		return ErrImagePriceNotConfigured.WithCause(err)
+	}
+	if cost == nil {
+		return ErrImagePriceNotConfigured
+	}
+	return nil
+}
+
+// multimodalImageTierPriceConfigured 报告模型是否至少配置了一个图片档位单价。
+// 用于请求未指定可分类尺寸时的前置校验：无法确定档位时只要求存在任一档位价，
+// 实际档位留到落账时按上游输出尺寸解析。
+func (s *OpenAIGatewayService) multimodalImageTierPriceConfigured(ctx context.Context, model string, apiKey *APIKey) bool {
+	resolved := s.resolveOpenAIChannelPricing(ctx, model, apiKey)
+	if resolved == nil {
+		return false
+	}
+	for _, tier := range resolved.RequestTiers {
+		if tier.PerRequestPrice != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// multimodalImageRateMultiplier 复刻 RecordUsage 的图片倍率口径：
+// 分组默认倍率或用户专属倍率，图片倍率独立时改用图片倍率。
+func (s *OpenAIGatewayService) multimodalImageRateMultiplier(
+	ctx context.Context,
+	apiKey *APIKey,
+	userID int64,
+	groupID int64,
+) float64 {
+	baseMultiplier := 1.0
+	if s != nil && s.cfg != nil {
+		baseMultiplier = s.cfg.Default.RateMultiplier
+	}
+	if apiKey != nil && apiKey.Group != nil && groupID > 0 {
+		baseMultiplier = s.ResolveUserGroupRateMultiplier(ctx, userID, groupID, apiKey.Group.RateMultiplier)
+	}
+	return resolveImageRateMultiplier(apiKey, baseMultiplier)
 }
 
 func (s *OpenAIGatewayService) calculateOpenAIVideoCost(
@@ -760,10 +904,10 @@ func (s *OpenAIGatewayService) calculateOpenAIVideoCost(
 	return s.billingService.CalculateVideoCost(billingModel, resolution, videoCount, durationSeconds, groupConfig, multiplier)
 }
 
-// videoUnitPriceConfigured 报告视频定价是否真的为当前分辨率配置了每秒价：
-// 命中该分辨率的层级价，或条目级默认每秒价。
+// videoUnitPriceConfigured 报告视频定价是否真的为当前分辨率配置了每秒价。
 // 视频层级只能按分辨率命中，不像 token 区间那样有上下文回退，因此这里必须显式判断，
 // 避免 multimodal 分组的空视频条目被当成 0 元价格放行。
+// multimodal 没有“默认价”：只认该分辨率的显式层级价，条目级默认每秒价同样不认。
 func videoUnitPriceConfigured(resolved *ResolvedPricing, resolution string) bool {
 	if resolved == nil {
 		return false
@@ -773,7 +917,7 @@ func videoUnitPriceConfigured(resolved *ResolvedPricing, resolution string) bool
 			return true
 		}
 	}
-	return resolved.channelPricing != nil && resolved.channelPricing.PerRequestPrice != nil
+	return false
 }
 
 func (s *OpenAIGatewayService) apiKeyWithFreshGroupMediaPricing(ctx context.Context, apiKey *APIKey) *APIKey {

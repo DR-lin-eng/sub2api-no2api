@@ -13,8 +13,8 @@ import (
 )
 
 // defaultBalanceHoldTTL 是未显式指定过期时间的冻结记录的默认存活时间。
-// 视频任务通常在一到两分钟内完成，留出足够余量后仍未结算即视为超时释放。
-const defaultBalanceHoldTTL = 30 * time.Minute
+// 必须覆盖轮询归属粘性会话的存活期，否则任务仍可轮询时冻结已被释放。
+const defaultBalanceHoldTTL = 2 * time.Hour
 
 type usageBillingRepository struct {
 	db *sql.DB
@@ -641,12 +641,24 @@ func (r *usageBillingRepository) BindBalanceHoldUpstreamRequest(ctx context.Cont
 	if r == nil || r.db == nil {
 		return errors.New("usage billing repository db is nil")
 	}
-	_, err := r.db.ExecContext(ctx, `
+	result, err := r.db.ExecContext(ctx, `
 		UPDATE video_balance_holds
 		SET upstream_request_id = $2, updated_at = NOW()
 		WHERE hold_key = $1
 	`, holdKey, upstreamRequestID)
-	return err
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected != 1 {
+		// 命中 0 行说明冻结记录不存在或已被清理，绑定失败必须向上暴露，
+		// 否则调用方会误认为任务已可结算，最终导致任务白拿。
+		return service.ErrBalanceHoldNotFound
+	}
+	return nil
 }
 
 // GetBalanceHoldByUpstreamRequestID 按上游任务 id 读取冻结记录，未找到时返回 (nil, nil)。

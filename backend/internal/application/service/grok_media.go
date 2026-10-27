@@ -49,6 +49,17 @@ func (e GrokMediaEndpoint) IsGenerationRequest() bool {
 	}
 }
 
+// IsVideoGenerationRequest 报告端点是否会新建视频任务。
+// 用于在提交上游前校验视频分辨率可映射到计费档位。
+func (e GrokMediaEndpoint) IsVideoGenerationRequest() bool {
+	switch e {
+	case GrokMediaEndpointVideosGenerations, GrokMediaEndpointVideosEdits, GrokMediaEndpointVideosExtensions:
+		return true
+	default:
+		return false
+	}
+}
+
 // grokMediaClientEndpointPath 返回媒体端点对应的客户端 API 路径，
 // 用于自定义模型 request_adapter 的 match.endpoint 判定与 {{request.endpoint}} 变量。
 func grokMediaClientEndpointPath(endpoint GrokMediaEndpoint) string {
@@ -137,6 +148,9 @@ type GrokMediaRequestInfo struct {
 	AspectRatio     string
 	ImageResolution string
 	Resolution      string
+	// ResolutionRaw 保存客户端提交的原始分辨率文本，用于在提交上游前拒绝
+	// 无法映射到计费档位的取值（例如 1440p），避免静默按 480p 计费。
+	ResolutionRaw   string
 	DurationSeconds int
 	InputImageURLs  []string
 	MaskImageURL    string
@@ -625,21 +639,22 @@ func (s *OpenAIGatewayService) ForwardGrokMedia(
 	writeGrokMediaResponse(c, resp, respBody, s.responseHeaderFilter)
 	usage := grokMediaUsageFromResponse(endpoint, requestInfo, respBody)
 	return &OpenAIForwardResult{
-		RequestID:            requestIDHeader,
-		ResponseID:           usage.ResponseID,
-		Usage:                usage.Usage,
-		Model:                requestModel,
-		BillingModel:         requestModel,
-		UpstreamModel:        upstreamModel,
-		ResponseHeaders:      resp.Header.Clone(),
-		Duration:             time.Since(startTime),
-		ImageCount:           usage.ImageCount,
-		ImageSize:            usage.ImageSize,
-		ImageInputSize:       usage.ImageInputSize,
-		ImageOutputSizes:     usage.ImageOutputSizes,
-		VideoCount:           usage.VideoCount,
-		VideoResolution:      usage.VideoResolution,
-		VideoDurationSeconds: usage.VideoDurationSeconds,
+		RequestID:              requestIDHeader,
+		ResponseID:             usage.ResponseID,
+		Usage:                  usage.Usage,
+		Model:                  requestModel,
+		BillingModel:           requestModel,
+		UpstreamModel:          upstreamModel,
+		ResponseHeaders:        resp.Header.Clone(),
+		Duration:               time.Since(startTime),
+		ImageCount:             usage.ImageCount,
+		ImageSize:              usage.ImageSize,
+		ImageInputSize:         usage.ImageInputSize,
+		ImageOutputSizes:       usage.ImageOutputSizes,
+		ImageBillingSizeLocked: usage.ImageBillingSizeLocked,
+		VideoCount:             usage.VideoCount,
+		VideoResolution:        usage.VideoResolution,
+		VideoDurationSeconds:   usage.VideoDurationSeconds,
 	}, nil
 }
 
@@ -971,15 +986,17 @@ func NormalizeGrokMediaModelForEndpoint(endpoint GrokMediaEndpoint, model string
 }
 
 type grokMediaUsageMetadata struct {
-	ResponseID           string
-	Usage                OpenAIUsage
-	ImageCount           int
-	ImageSize            string
-	ImageInputSize       string
-	ImageOutputSizes     []string
-	VideoCount           int
-	VideoResolution      string
-	VideoDurationSeconds int
+	ResponseID       string
+	Usage            OpenAIUsage
+	ImageCount       int
+	ImageSize        string
+	ImageInputSize   string
+	ImageOutputSizes []string
+	// ImageBillingSizeLocked 表示图片计费档位锁定为请求档位，不允许落账时被上游尺寸覆盖。
+	ImageBillingSizeLocked bool
+	VideoCount             int
+	VideoResolution        string
+	VideoDurationSeconds   int
 }
 
 func grokMediaUsageFromResponse(endpoint GrokMediaEndpoint, requestInfo GrokMediaRequestInfo, responseBody []byte) grokMediaUsageMetadata {
@@ -988,7 +1005,11 @@ func grokMediaUsageFromResponse(endpoint GrokMediaEndpoint, requestInfo GrokMedi
 	switch endpoint {
 	case GrokMediaEndpointImagesGenerations, GrokMediaEndpointImagesEdits:
 		meta.ImageCount = countOpenAIResponseImageOutputsFromJSONBytes(responseBody)
-		meta.ImageSize = requestInfo.SizeTier
+		// 请求给出了可分类的尺寸时锁定该档位；未指定时按上游实际输出尺寸计费。
+		if tier, ok := ClassifyImageBillingTier(requestInfo.Size); ok {
+			meta.ImageSize = tier
+			meta.ImageBillingSizeLocked = true
+		}
 		meta.ImageInputSize = requestInfo.Size
 		meta.ImageOutputSizes = collectOpenAIResponseImageOutputSizesFromJSONBytes(responseBody)
 	case GrokMediaEndpointVideosGenerations, GrokMediaEndpointVideosEdits, GrokMediaEndpointVideosExtensions:

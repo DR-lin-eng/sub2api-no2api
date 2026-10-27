@@ -1009,6 +1009,7 @@ export default {
         batchDisabledHint: 'Enable image generation for this group before enabling batch image generation.',
         batchGeminiOnlyHint: 'Batch image generation is currently available only for Gemini groups.',
         modeHint: 'By default, image billing uses image price × current effective group multiplier. Independent mode uses image price × image multiplier.',
+        perModelPriceHint: 'This group is priced per model: configure an image price for every model in the model pricing section below. Requests fail when a model has no price; no default price is applied.',
         finalPricePreview: 'Final per-image price preview',
         notConfigured: 'Not configured'
       },

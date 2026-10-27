@@ -26,6 +26,8 @@ var (
 	ErrBalanceHoldNotFound            = infraerrors.New(http.StatusNotFound, "BALANCE_HOLD_NOT_FOUND", "balance hold not found")
 	// 视频单价既没有分组配置价、模型也没有内置每秒价时拒绝计费，不做任何价格猜测。
 	ErrVideoPriceNotConfigured = infraerrors.New(http.StatusServiceUnavailable, "VIDEO_PRICE_NOT_CONFIGURED", "video price is not configured for this model and resolution")
+	// 图片单价既没有分组配置价、模型也没有显式定价时拒绝计费，不做任何价格猜测。
+	ErrImagePriceNotConfigured = infraerrors.New(http.StatusServiceUnavailable, "IMAGE_PRICE_NOT_CONFIGURED", "image price is not configured for this model and size")
 )
 
 const (

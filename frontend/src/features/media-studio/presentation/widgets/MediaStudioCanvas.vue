@@ -473,16 +473,37 @@
                 <Icon :name="settingsMenuOpen ? 'chevronUp' : 'chevronDown'" size="xs" class="text-gray-400" />
               </button>
 
-              <button
-                type="button"
-                class="ml-auto flex h-10 w-10 items-center justify-center rounded-full transition"
-                :class="canSubmit ? 'bg-gray-950 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-950 dark:hover:bg-gray-200' : 'bg-gray-200 text-gray-400 dark:bg-dark-700 dark:text-gray-500'"
-                :aria-label="t('mediaStudio.composer.send')"
-                :disabled="!canSubmit"
-                @click="emit('submit')"
-              >
-                <Icon :name="submitting ? 'refresh' : 'arrowUp'" size="sm" :class="submitting ? 'animate-spin' : ''" />
-              </button>
+              <div class="ml-auto flex items-center gap-3">
+                <span
+                  v-if="estimateLoading"
+                  class="text-xs text-gray-400 dark:text-gray-500"
+                >
+                  {{ t('mediaStudio.composer.estimate.loading') }}
+                </span>
+                <span
+                  v-else-if="estimateError"
+                  class="max-w-64 truncate text-xs text-red-600 dark:text-red-300"
+                  :title="estimateError"
+                >
+                  {{ t('mediaStudio.composer.estimate.failed', { message: estimateError }) }}
+                </span>
+                <span
+                  v-else-if="estimatedCost !== null"
+                  class="text-xs font-medium text-gray-600 dark:text-gray-300"
+                >
+                  {{ t('mediaStudio.composer.estimate.value', { amount: formatCost(estimatedCost, estimatedCurrency) }) }}
+                </span>
+                <button
+                  type="button"
+                  class="flex h-10 w-10 items-center justify-center rounded-full transition"
+                  :class="canSubmit ? 'bg-gray-950 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-950 dark:hover:bg-gray-200' : 'bg-gray-200 text-gray-400 dark:bg-dark-700 dark:text-gray-500'"
+                  :aria-label="t('mediaStudio.composer.send')"
+                  :disabled="!canSubmit"
+                  @click="emit('submit')"
+                >
+                  <Icon :name="submitting ? 'refresh' : 'arrowUp'" size="sm" :class="submitting ? 'animate-spin' : ''" />
+                </button>
+              </div>
             </div>
 
             <div
@@ -814,6 +835,11 @@ const props = defineProps<{
   canSubmit: boolean
   submitting: boolean
   submitError: string
+  // 预估消耗由后端 sub2api 本地计价链路算出，视图层只负责展示。
+  estimatedCost: number | null
+  estimatedCurrency: string
+  estimateLoading: boolean
+  estimateError: string
 }>()
 
 const emit = defineEmits<{

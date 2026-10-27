@@ -359,7 +359,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	batchImageCleanupService := service.ProvideBatchImageCleanupService(batchImageRepository, accountRepository, configConfig)
 	batchImageHandler := handler.ProvideBatchImageHandler(batchImagePublicService, batchImageDownloadService, batchImageCleanupService, openAIGatewayHandler)
 	handlerChatHandler := handler.NewChatHandler(chatService, hub)
-	mediaStudioService := service.ProvideMediaStudioService(settingRepository, groupRepository, apiKeyService, customModelConfigService, imageStorageSettingService)
+	mediaStudioService := service.ProvideMediaStudioService(settingRepository, groupRepository, apiKeyService, customModelConfigService, imageStorageSettingService, openAIGatewayService)
 	mediaStudioHandler := handler.NewMediaStudioHandler(mediaStudioService)
 	handlerOAuth2ProviderHandler := handler.NewOAuth2ProviderHandler(oAuth2ProviderService)
 	idempotencyCoordinator := service.ProvideIdempotencyCoordinator(idempotencyRepository, configConfig)

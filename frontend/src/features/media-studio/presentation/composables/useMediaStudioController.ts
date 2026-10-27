@@ -1,6 +1,7 @@
 import { computed, getCurrentInstance, onBeforeUnmount, ref, watch } from 'vue'
 import {
   createMediaStudioSession,
+  estimateMediaStudioCost,
   getAsyncImageTask,
   getMediaStudioConfig,
   getVideoGenerationContent,
@@ -16,6 +17,8 @@ import {
   submitVideoGeneration,
   uploadMediaStudioFile,
   type MediaStudioConfig,
+  type MediaStudioCostEstimate,
+  type MediaStudioCostEstimateRequest,
   type MediaStudioGroupOption,
   type MediaStudioMediaType,
   type MediaStudioGeneratedImage,
@@ -75,6 +78,8 @@ const MAX_POLL_COUNT = 240
 const DEFAULT_POLL_DELAY_MS = 6000
 // 任务刚创建时上游可能短暂返回 404，连续多次才判定失败。
 const MAX_VIDEO_POLL_NOT_FOUND = 5
+// 预估消耗防抖，避免拖动时长/切换分辨率时连续打后端。
+const COST_ESTIMATE_DEBOUNCE_MS = 300
 
 export interface MediaStudioParameterOption {
   value: string
@@ -209,6 +214,7 @@ export interface MediaStudioControllerOptions {
   getVideoContent?: typeof getVideoGenerationContent
   getConfig?: typeof getMediaStudioConfig
   createSession?: typeof createMediaStudioSession
+  estimateCost?: typeof estimateMediaStudioCost
   uploadFile?: typeof uploadMediaStudioFile
   createObjectURL?: (blob: Blob) => string
   revokeObjectURL?: (url: string) => void
@@ -702,6 +708,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     getVideoContent: options.getVideoContent ?? getVideoGenerationContent,
     getConfig: options.getConfig ?? getMediaStudioConfig,
     createSession: options.createSession ?? createMediaStudioSession,
+    estimateCost: options.estimateCost ?? estimateMediaStudioCost,
     uploadFile: options.uploadFile ?? uploadMediaStudioFile,
   }
 	const createObjectURL = options.createObjectURL ?? ((blob: Blob) => (
@@ -754,6 +761,11 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   const modelLoadError = ref('')
   const submitting = ref(false)
   const submitError = ref('')
+  // 预估消耗只来自后端 sub2api 本地计价链路，前端不读取请求体或上游响应体里的价格。
+  const estimatedCost = ref<number | null>(null)
+  const estimatedCurrency = ref('')
+  const estimateLoading = ref(false)
+  const estimateError = ref('')
   const conversation = ref<MediaStudioConversation>({
     ...(restorePersistedConversation(persisted.conversation) ?? {
       id: makeId('media_conversation'),
@@ -766,6 +778,8 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   const imageInputFiles = new Map<string, File[]>()
   let disposed = false
   let modelRequestSequence = 0
+  let estimateRequestSequence = 0
+  let estimateTimer: ReturnType<typeof setTimeout> | null = null
   let groupLoadRequest: Promise<void> | null = null
   let sessionRequest: Promise<void> | null = null
   let sessionRequestGroupID = 0
@@ -870,6 +884,77 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     // 参考素材未上传完成（或失败未重试）时不提交，避免请求丢失素材。
     (selectedModeId.value !== 'video' || referenceAttachments.value.every(item => item.status === 'ready'))
   ))
+
+  // 只按真正影响计价的输入变化触发预估，避免切换无关参数产生多余请求。
+  const costEstimateSignature = computed(() => {
+    const mode = selectedModeId.value
+    if (mode !== 'image' && mode !== 'video') return ''
+    const group = selectedGroup.value
+    const modelID = model.value
+    if (!group || !modelID) return ''
+    const parts: Array<string | number> = [mode, group.group_id, modelID]
+    if (mode === 'video') {
+      parts.push(resolution.value, duration.value)
+    } else {
+      parts.push(size.value, normalizeCount(count.value))
+    }
+    return parts.join('|')
+  })
+
+  // 预估金额完全由后端 sub2api 通用计价链路算出，不接受请求体或上游响应体里的价格。
+  async function refreshCostEstimate() {
+    const signature = costEstimateSignature.value
+    if (!signature) {
+      estimateRequestSequence += 1
+      estimatedCost.value = null
+      estimatedCurrency.value = ''
+      estimateError.value = ''
+      estimateLoading.value = false
+      return
+    }
+    const mode = selectedModeId.value
+    const request: MediaStudioCostEstimateRequest = {
+      media_type: mode as MediaStudioMediaType,
+      group_id: selectedGroupId.value,
+      model: model.value,
+    }
+    if (mode === 'video') {
+      request.resolution = resolution.value
+      request.duration = duration.value
+    } else {
+      request.size = size.value
+      request.count = normalizeCount(count.value)
+    }
+    const sequence = ++estimateRequestSequence
+    estimateLoading.value = true
+    estimateError.value = ''
+    try {
+      const estimate: MediaStudioCostEstimate = await data.estimateCost(request)
+      if (sequence !== estimateRequestSequence) return
+      estimatedCost.value = estimate.amount
+      estimatedCurrency.value = estimate.currency || ''
+    } catch (error) {
+      if (sequence !== estimateRequestSequence) return
+      estimatedCost.value = null
+      estimatedCurrency.value = ''
+      estimateError.value = mediaStudioErrorMessage(error, 'cost estimate failed')
+    } finally {
+      if (sequence === estimateRequestSequence) estimateLoading.value = false
+    }
+  }
+
+  function scheduleCostEstimate() {
+    if (estimateTimer !== null) clearTimeout(estimateTimer)
+    estimateTimer = setTimeout(() => {
+      estimateTimer = null
+      void refreshCostEstimate()
+    }, COST_ESTIMATE_DEBOUNCE_MS)
+  }
+
+  watch(costEstimateSignature, () => {
+    if (disposed) return
+    scheduleCostEstimate()
+  })
 
   function updateImageAttachments(attachments: MediaStudioImageAttachment[]) {
     revokeMediaStudioImageAttachments(imageAttachments.value.filter(
@@ -1706,6 +1791,10 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   if (getCurrentInstance()) {
     onBeforeUnmount(() => {
       disposed = true
+      if (estimateTimer !== null) {
+        clearTimeout(estimateTimer)
+        estimateTimer = null
+      }
       revokeAllVideoURLs()
       revokeInputImageURLs(conversation.value.messages)
       revokeMediaStudioPreviewURLs(referenceAttachments.value)
@@ -1761,6 +1850,11 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     modelLoadError,
     submitting,
     submitError,
+    estimatedCost,
+    estimatedCurrency,
+    estimateLoading,
+    estimateError,
+    refreshCostEstimate,
     conversation,
     hasMessages,
     canSubmit,

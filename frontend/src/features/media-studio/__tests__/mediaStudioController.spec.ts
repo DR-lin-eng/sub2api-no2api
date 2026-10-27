@@ -1,10 +1,22 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { useMediaStudioController } from '@/features/media-studio/presentation/composables/useMediaStudioController'
 import type {
   MediaStudioConfig,
   MediaStudioSession,
 } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
+
+// 预估消耗只能由后端计价接口给出，测试里替换掉默认实现，避免防抖预估计时器发起真实请求。
+const { estimateMediaStudioCostMock } = vi.hoisted(() => ({
+  estimateMediaStudioCostMock: vi.fn(),
+}))
+
+vi.mock('@/features/media-studio/data/datasources/mediaStudioDatasource', async (importOriginal) => {
+  const actual = await importOriginal<
+    typeof import('@/features/media-studio/data/datasources/mediaStudioDatasource')
+  >()
+  return { ...actual, estimateMediaStudioCost: estimateMediaStudioCostMock }
+})
 
 const config: MediaStudioConfig = {
   groups: [
@@ -23,6 +35,16 @@ async function settle() {
 }
 
 describe('media studio controller', () => {
+  beforeEach(() => {
+    estimateMediaStudioCostMock.mockClear()
+    estimateMediaStudioCostMock.mockResolvedValue({
+      amount: 0.12,
+      currency: 'USD',
+      billing_mode: 'image',
+      model: 'gpt-image-2',
+    })
+  })
+
   afterEach(() => {
     localStorage.clear()
     vi.restoreAllMocks()
@@ -486,6 +508,46 @@ describe('media studio controller', () => {
         { src: 'https://cdn.example/image-3.png' },
       ],
     })
+  })
+
+  it('reads the estimated cost from the backend billing endpoint', async () => {
+    const controller = useMediaStudioController({
+      storage: localStorage,
+      getConfig: vi.fn().mockResolvedValue(config),
+      createSession: vi.fn().mockResolvedValue(session()),
+      listModels: vi.fn().mockResolvedValue({ object: 'list', data: [{ id: 'gpt-image-2' }] }),
+    })
+
+    await controller.loadMediaGroups()
+    await controller.refreshCostEstimate()
+
+    // 预估请求只携带计价上下文，价格本身由后端通用计价链路给出。
+    expect(estimateMediaStudioCostMock).toHaveBeenCalledWith({
+      media_type: 'image',
+      group_id: 1,
+      model: 'gpt-image-2',
+      size: '1024x1024',
+      count: 1,
+    })
+    expect(controller.estimatedCost.value).toBe(0.12)
+    expect(controller.estimatedCurrency.value).toBe('USD')
+    expect(controller.estimateError.value).toBe('')
+  })
+
+  it('surfaces estimate failures instead of inventing a local price', async () => {
+    estimateMediaStudioCostMock.mockRejectedValueOnce(new Error('video price is not configured'))
+    const controller = useMediaStudioController({
+      storage: localStorage,
+      getConfig: vi.fn().mockResolvedValue(config),
+      createSession: vi.fn().mockResolvedValue(session()),
+      listModels: vi.fn().mockResolvedValue({ object: 'list', data: [{ id: 'gpt-image-2' }] }),
+    })
+
+    await controller.loadMediaGroups()
+    await controller.refreshCostEstimate()
+
+    expect(controller.estimatedCost.value).toBeNull()
+    expect(controller.estimateError.value).toContain('video price is not configured')
   })
 
   it('persists configuration without prompt input', async () => {

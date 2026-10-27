@@ -1006,6 +1006,7 @@ export default {
         batchDisabledHint: '请先开启当前分组生图，才能开启批量生图。',
         batchGeminiOnlyHint: '批量生图当前仅支持 Gemini 分组。',
         modeHint: '默认关闭独立倍率时，图片费用 = 图片价格 × 当前分组有效倍率；开启独立倍率后，图片费用 = 图片价格 × 生图独立倍率。',
+        perModelPriceHint: '该分组按模型逐个定价：请在下方模型定价中为每个模型配置图片单价，未配置时请求会直接失败，不会使用默认价格。',
         finalPricePreview: '最终单张价格预览',
         notConfigured: '未配置'
       },

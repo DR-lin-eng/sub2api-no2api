@@ -39,6 +39,10 @@
         :can-submit="canSubmit"
         :submitting="submitting"
         :submit-error="submitError"
+        :estimated-cost="estimatedCost"
+        :estimated-currency="estimatedCurrency"
+        :estimate-loading="estimateLoading"
+        :estimate-error="estimateError"
         @select-mode="selectMode"
         @reload-groups="loadMediaGroups"
         @add-image-attachments="addImageAttachments"
@@ -107,6 +111,10 @@ const {
   modelLoadError,
   submitting,
   submitError,
+  estimatedCost,
+  estimatedCurrency,
+  estimateLoading,
+  estimateError,
   conversation,
   hasMessages,
   canSubmit,

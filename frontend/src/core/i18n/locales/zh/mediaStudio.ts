@@ -75,6 +75,11 @@ export default {
           count: '「{name}」超出数量上限（最多 {limit} 个）',
           total: '「{name}」导致总大小超过上限（{limit} MB）'
         }
+      },
+      estimate: {
+        loading: '正在预估消耗…',
+        value: '预估消耗 {amount}',
+        failed: '预估消耗不可用：{message}'
       }
     },
     session: {

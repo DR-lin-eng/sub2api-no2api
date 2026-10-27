@@ -180,9 +180,27 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 			c.Request.Context(), apiKey.GroupID, requestID, subject.UserID, apiKey.ID,
 		)
 		if err != nil || boundLookupAccountID <= 0 {
-			reqLog.Info("multimodal_media.video_lookup_owner_binding_missing", zap.Error(err))
-			h.errorResponse(c, http.StatusNotFound, "not_found_error", "Video request not found")
-			return
+			// 归属缓存可能因 Redis 故障或 TTL 过期丢失；已冻结或已结算的任务
+			// 必须仍能用冻结记录里的账号恢复轮询与取片，直接 404 等于白拿视频。
+			recovered := h.gatewayService.ResolveMultimodalVideoBalanceAccountID(
+				c.Request.Context(), requestID, subject.UserID, apiKey.ID,
+			)
+			if recovered <= 0 {
+				reqLog.Info("multimodal_media.video_lookup_owner_binding_missing", zap.Error(err))
+				h.errorResponse(c, http.StatusNotFound, "not_found_error", "Video request not found")
+				return
+			}
+			boundLookupAccountID = recovered
+			reqLog.Warn("multimodal_media.video_lookup_owner_recovered_from_hold",
+				zap.String("request_id", requestID),
+				zap.Int64("account_id", recovered),
+				zap.Error(err),
+			)
+			if bindErr := h.gatewayService.BindMultimodalMediaVideoRequestAccount(
+				c.Request.Context(), apiKey.GroupID, requestID, subject.UserID, apiKey.ID, recovered,
+			); bindErr != nil {
+				reqLog.Warn("multimodal_media.video_lookup_owner_rebind_failed", zap.Error(bindErr))
+			}
 		}
 	}
 	requestCtx := c.Request.Context()
@@ -224,6 +242,23 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 		}
 	}()
 
+	// 未知视频分辨率不能静默按 480p 计费：提交上游前直接拒绝，避免少扣费。
+	if endpoint.IsVideoGenerationRequest() {
+		if resolutionErr := service.ValidateMultimodalVideoResolution(requestInfo.ResolutionRaw); resolutionErr != nil {
+			reqLog.Warn("multimodal_media.video_resolution_unsupported",
+				zap.String("model", requestModel),
+				zap.String("resolution", requestInfo.ResolutionRaw),
+				zap.Error(resolutionErr),
+			)
+			status, code, message, retryAfter := billingErrorDetails(resolutionErr)
+			if retryAfter > 0 {
+				c.Header("Retry-After", strconv.Itoa(retryAfter))
+			}
+			h.errorResponse(c, status, code, message)
+			return
+		}
+	}
+
 	// 未启用两段式冻结（订阅制分组、简单模式）时创建期不会直扣，必须在提交上游前
 	// 校验视频单价可解析；缺失时直接拒绝，避免生成完成后无法计费。
 	if endpoint.IsVideoGenerationRequest() && !videoHoldEnabled {
@@ -241,6 +276,35 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 		}); pricingErr != nil {
 			reqLog.Warn("multimodal_media.video_pricing_unavailable",
 				zap.String("model", requestModel),
+				zap.Error(pricingErr),
+			)
+			status, code, message, retryAfter := billingErrorDetails(pricingErr)
+			if retryAfter > 0 {
+				c.Header("Retry-After", strconv.Itoa(retryAfter))
+			}
+			h.errorResponse(c, status, code, message)
+			return
+		}
+	}
+
+	// 图片用量由异步任务记录，缺价只会写日志而不会让请求失败；这里在提交上游前
+	// 校验图片单价可解析，逐模型定价分组未配置该模型图片价时直接拒绝。
+	if endpoint.IsImageRequest() {
+		var pricingGroupID int64
+		if apiKey.GroupID != nil {
+			pricingGroupID = *apiKey.GroupID
+		}
+		if pricingErr := h.gatewayService.ValidateMultimodalImagePricing(requestCtx, service.MultimodalImagePricingRequest{
+			APIKey:  apiKey,
+			UserID:  subject.UserID,
+			GroupID: pricingGroupID,
+			Model:   requestModel,
+			Size:    requestInfo.Size,
+			Count:   requestInfo.N,
+		}); pricingErr != nil {
+			reqLog.Warn("multimodal_media.image_pricing_unavailable",
+				zap.String("model", requestModel),
+				zap.String("size", requestInfo.Size),
 				zap.Error(pricingErr),
 			)
 			status, code, message, retryAfter := billingErrorDetails(pricingErr)
@@ -386,12 +450,12 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 				groupID = *apiKey.GroupID
 			}
 			hold, holdErr := h.gatewayService.ReserveMultimodalVideoBalance(requestCtx, service.VideoBalanceHoldRequest{
-				APIKey:          apiKey,
-				UserID:          subject.UserID,
-				GroupID:         groupID,
-				AccountID:       account.ID,
-				Model:           requestModel,
-				Resolution:      requestInfo.Resolution,
+				APIKey:     apiKey,
+				UserID:     subject.UserID,
+				GroupID:    groupID,
+				AccountID:  account.ID,
+				Model:      requestModel,
+				Resolution: requestInfo.Resolution,
 				// 与结算阶段使用同一口径的时长（duration=-1 按上限），否则冻结额偏小，
 				// 结算时会被封顶导致少扣费。
 				DurationSeconds: service.MultimodalVideoBillingDurationSeconds(requestInfo, body),
@@ -501,7 +565,9 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 		// 上游已接受请求：冻结记录已绑定任务 id，后续由轮询结算，这里不再释放。
 		videoHoldBound = true
 		h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, multimodalMediaScheduleModel(account, routingModel, result), true, nil)
-		if endpoint.IsGenerationRequest() && strings.TrimSpace(result.ResponseID) != "" {
+		// 两段式计费路径已在服务内、写响应前完成归属绑定（失败会直接返回错误）。
+		// 只有没有冻结记录的路径（订阅制、简单模式）才在这里补写，失败仅记录日志。
+		if videoHold == nil && endpoint.IsGenerationRequest() && strings.TrimSpace(result.ResponseID) != "" {
 			if err := h.gatewayService.BindMultimodalMediaVideoRequestAccount(
 				requestCtx, apiKey.GroupID, result.ResponseID, subject.UserID, apiKey.ID, account.ID,
 			); err != nil {

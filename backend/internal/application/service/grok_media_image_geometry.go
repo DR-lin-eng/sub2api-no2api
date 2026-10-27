@@ -80,6 +80,7 @@ func assignGrokMediaResolution(value string, info *GrokMediaRequestInfo) {
 		info.ImageResolution = imageResolution
 		return
 	}
+	info.ResolutionRaw = value
 	info.Resolution = value
 }
 

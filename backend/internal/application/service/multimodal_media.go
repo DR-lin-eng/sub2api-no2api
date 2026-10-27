@@ -456,7 +456,12 @@ func (s *OpenAIGatewayService) ForwardMultimodalMedia(
 	// 视频两段式计费必须在写回响应前完成：创建阶段绑定冻结记录并回显冻结金额，
 	// 轮询阶段结算或释放，并把最终扣费金额一起返回给客户端。
 	if endpoint.IsVideoGenerationRequest() || endpoint == MultimodalMediaEndpointVideoStatus {
-		respBody = s.applyMultimodalVideoBilling(ctx, c, account, endpoint, requestID, videoHold, respBody)
+		rendered, billingErr := s.applyMultimodalVideoBilling(ctx, c, account, endpoint, requestID, videoHold, respBody)
+		if billingErr != nil {
+			// 绑定或结算失败：不写回响应，交给 handler 返回错误并释放冻结。
+			return nil, billingErr
+		}
+		respBody = rendered
 	}
 	if endpoint.IsImageRequest() {
 		if countOpenAIResponseImageOutputsFromJSONBytes(respBody) <= 0 && !clientWantsStream {
@@ -471,21 +476,22 @@ func (s *OpenAIGatewayService) ForwardMultimodalMedia(
 	writeMultimodalMediaResponse(c, resp.StatusCode, responseContentType, respBody, resp.Header, s.responseHeaderFilter)
 	usage := multimodalMediaUsageFromResponse(endpoint, requestInfo, body, respBody)
 	return &OpenAIForwardResult{
-		RequestID:            requestIDHeader,
-		ResponseID:           usage.ResponseID,
-		Usage:                usage.Usage,
-		Model:                requestInfo.Model,
-		BillingModel:         requestInfo.Model,
-		UpstreamModel:        upstreamModel,
-		ResponseHeaders:      resp.Header.Clone(),
-		Duration:             time.Since(startTime),
-		ImageCount:           usage.ImageCount,
-		ImageSize:            usage.ImageSize,
-		ImageInputSize:       usage.ImageInputSize,
-		ImageOutputSizes:     usage.ImageOutputSizes,
-		VideoCount:           usage.VideoCount,
-		VideoResolution:      usage.VideoResolution,
-		VideoDurationSeconds: usage.VideoDurationSeconds,
+		RequestID:              requestIDHeader,
+		ResponseID:             usage.ResponseID,
+		Usage:                  usage.Usage,
+		Model:                  requestInfo.Model,
+		BillingModel:           requestInfo.Model,
+		UpstreamModel:          upstreamModel,
+		ResponseHeaders:        resp.Header.Clone(),
+		Duration:               time.Since(startTime),
+		ImageCount:             usage.ImageCount,
+		ImageSize:              usage.ImageSize,
+		ImageInputSize:         usage.ImageInputSize,
+		ImageOutputSizes:       usage.ImageOutputSizes,
+		ImageBillingSizeLocked: usage.ImageBillingSizeLocked,
+		VideoCount:             usage.VideoCount,
+		VideoResolution:        usage.VideoResolution,
+		VideoDurationSeconds:   usage.VideoDurationSeconds,
 	}, nil
 }
 
@@ -538,6 +544,11 @@ func (s *OpenAIGatewayService) forwardMultimodalMediaVideoContent(
 		if location == "" {
 			return nil, fmt.Errorf("multimodal media content redirect is missing Location")
 		}
+		// 重定向同样会把内容交付给客户端，必须在放行前完成结算，否则只取片
+		// 不轮询的客户端可以绕过计费白拿视频。
+		if err := s.settleMultimodalVideoContentBalance(ctx, c, account, requestID); err != nil {
+			return nil, err
+		}
 		writeOpenAIPassthroughResponseHeaders(c.Writer.Header(), contentResp.Header, s.responseHeaderFilter)
 		c.Header("Location", location)
 		c.Status(contentResp.StatusCode)
@@ -550,6 +561,12 @@ func (s *OpenAIGatewayService) forwardMultimodalMediaVideoContent(
 	}
 	if contentResp.StatusCode >= 400 && contentResp.StatusCode != http.StatusRequestedRangeNotSatisfiable {
 		return s.handleMultimodalMediaErrorResponse(ctx, contentResp, c, account, contentRequestID, "")
+	}
+	if contentResp.StatusCode < 300 {
+		// 内容真正交付前结算冻结；失败直接返回错误，不吐内容。
+		if err := s.settleMultimodalVideoContentBalance(ctx, c, account, requestID); err != nil {
+			return nil, err
+		}
 	}
 	if err := writeMultimodalMediaContentResponse(c, contentResp); err != nil {
 		return nil, err
@@ -789,15 +806,17 @@ func multimodalImageEntriesEqual(left, right map[string]any) bool {
 }
 
 type multimodalMediaUsageMetadata struct {
-	ResponseID           string
-	Usage                OpenAIUsage
-	ImageCount           int
-	ImageSize            string
-	ImageInputSize       string
-	ImageOutputSizes     []string
-	VideoCount           int
-	VideoResolution      string
-	VideoDurationSeconds int
+	ResponseID       string
+	Usage            OpenAIUsage
+	ImageCount       int
+	ImageSize        string
+	ImageInputSize   string
+	ImageOutputSizes []string
+	// ImageBillingSizeLocked 表示图片计费档位锁定为请求档位，不允许落账时被上游尺寸覆盖。
+	ImageBillingSizeLocked bool
+	VideoCount             int
+	VideoResolution        string
+	VideoDurationSeconds   int
 }
 
 func multimodalMediaUsageFromResponse(
@@ -811,7 +830,12 @@ func multimodalMediaUsageFromResponse(
 	switch endpoint {
 	case MultimodalMediaEndpointImagesGenerations, MultimodalMediaEndpointImagesEdits:
 		meta.ImageCount = countOpenAIResponseImageOutputsFromJSONBytes(responseBody)
-		meta.ImageSize = requestInfo.SizeTier
+		// 提交上游前只按请求档位校验过价格：请求给出了可分类尺寸时锁定该档位，
+		// 不允许落账时被上游输出尺寸改档；未指定尺寸时按上游实际输出计费。
+		if tier, ok := ClassifyImageBillingTier(requestInfo.Size); ok {
+			meta.ImageSize = tier
+			meta.ImageBillingSizeLocked = true
+		}
 		meta.ImageInputSize = requestInfo.Size
 		meta.ImageOutputSizes = collectOpenAIResponseImageOutputSizesFromJSONBytes(responseBody)
 	case MultimodalMediaEndpointVideosGenerations, MultimodalMediaEndpointVideosEdits,

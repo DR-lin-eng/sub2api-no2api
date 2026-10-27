@@ -17,7 +17,7 @@ import {
   moveModelsListItem,
 } from "../groupsModelsListResolver";
 import { normalizeSupportedModelScopesForPlatform } from "../groupsSupportedModelScopesResolver";
-import { supportsVideoPricingPlatform } from "../groupsImagePricingResolver";
+import { supportsGroupImagePricingPlatform, supportsVideoPricingPlatform } from "../groupsImagePricingResolver";
 import { groupPlatformLabel } from "../groupsLocale";
 import {
   isProfitControlPlatform,
@@ -430,9 +430,17 @@ export function useEditGroupController({
       );
       const emptyPriceToClear = (value: any) =>
         value === "" || value === null ? -1 : value;
-      payload.image_price_1k = emptyPriceToClear(payload.image_price_1k);
-      payload.image_price_2k = emptyPriceToClear(payload.image_price_2k);
-      payload.image_price_4k = emptyPriceToClear(payload.image_price_4k);
+      // 逐模型定价分组（multimodal）不使用分组级图片价，保存时清空，
+      // 避免历史值被当作兜底价留在库里。
+      if (supportsGroupImagePricingPlatform(payload.platform)) {
+        payload.image_price_1k = emptyPriceToClear(payload.image_price_1k);
+        payload.image_price_2k = emptyPriceToClear(payload.image_price_2k);
+        payload.image_price_4k = emptyPriceToClear(payload.image_price_4k);
+      } else {
+        payload.image_price_1k = -1;
+        payload.image_price_2k = -1;
+        payload.image_price_4k = -1;
+      }
       // 只有 Grok 使用分组级视频价；multimodal 等分组必须逐个模型定义价格，
       // 因此保存时清空分组级视频价，避免历史值被当作兜底价留在库里。
       if (supportsVideoPricingPlatform(payload.platform)) {

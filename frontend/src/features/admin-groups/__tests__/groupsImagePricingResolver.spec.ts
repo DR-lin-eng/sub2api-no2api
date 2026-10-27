@@ -7,6 +7,7 @@ import {
   getVideoPricePlaceholder,
   imagePricingPlatforms,
   imagePricingI18nKey,
+  supportsGroupImagePricingPlatform,
   supportsImagePricingPlatform,
   supportsDefaultVideoPriceFallback,
   supportsVideoPricingPlatform,
@@ -27,6 +28,14 @@ describe("groups image pricing platform support", () => {
   it("includes multimodal groups for image generation pricing", () => {
     expect(supportsImagePricingPlatform("multimodal")).toBe(true);
     expect(imagePricingPlatforms.has("multimodal")).toBe(true);
+  });
+
+  it("hides group-level image price controls for per-model multimodal groups", () => {
+    // multimodal 逐模型定价，分组级图片价等同兜底价，编辑器不展示。
+    expect(supportsGroupImagePricingPlatform("multimodal")).toBe(false);
+    expect(supportsGroupImagePricingPlatform("openai")).toBe(true);
+    expect(supportsGroupImagePricingPlatform("grok")).toBe(true);
+    expect(supportsGroupImagePricingPlatform("anthropic")).toBe(false);
   });
 
   it("enables group-level video pricing controls only for Grok", () => {
@@ -75,5 +84,13 @@ describe("groups image pricing platform support", () => {
     expect(getVideoPricePlaceholder("multimodal", "video_price_720p")).toBe("");
     expect(getVideoPricePlaceholder("multimodal", "video_price_1080p")).toBe("");
     expect(getDefaultVideoPreviewPrice("multimodal", "video_price_480p")).toBeNull();
+  });
+
+  it("shows no image price placeholder for multimodal", () => {
+    // multimodal 逐模型定价，没有任何可参考的默认图片价。
+    expect(getImagePricePlaceholder("multimodal", "image_price_1k")).toBe("");
+    expect(getImagePricePlaceholder("multimodal", "image_price_2k")).toBe("");
+    expect(getImagePricePlaceholder("multimodal", "image_price_4k")).toBe("");
+    expect(getDefaultImagePreviewPrice("multimodal", "image_price_2k")).toBeNull();
   });
 });

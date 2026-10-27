@@ -39,6 +39,10 @@ var (
 		"MEDIA_STUDIO_STORAGE_UNAVAILABLE",
 		"media studio object storage is not configured",
 	)
+	ErrMediaStudioCostEstimateUnavailable = infraerrors.ServiceUnavailable(
+		"MEDIA_STUDIO_COST_ESTIMATE_UNAVAILABLE",
+		"media studio cost estimate is unavailable for this media type",
+	)
 )
 
 type MediaStudioGroupRoute struct {
@@ -65,12 +69,35 @@ type MediaStudioConfig struct {
 
 type MediaStudioGroupRoutes []MediaStudioGroupRoute
 
+// MediaStudioCostEstimateRequest 描述媒体工坊提交前的计价输入。
+type MediaStudioCostEstimateRequest struct {
+	MediaType  string `json:"media_type"`
+	GroupID    int64  `json:"group_id"`
+	Model      string `json:"model"`
+	Resolution string `json:"resolution"`
+	Duration   int    `json:"duration"`
+	Size       string `json:"size"`
+	Count      int    `json:"count"`
+}
+
+// MediaStudioCostEstimate 是 sub2api 本地计价链路算出的预估消耗。
+type MediaStudioCostEstimate struct {
+	Amount          float64 `json:"amount"`
+	Currency        string  `json:"currency"`
+	BillingMode     string  `json:"billing_mode"`
+	Model           string  `json:"model"`
+	Resolution      string  `json:"resolution,omitempty"`
+	DurationSeconds int     `json:"duration_seconds,omitempty"`
+	ImageCount      int     `json:"image_count,omitempty"`
+}
+
 type MediaStudioService struct {
 	settingRepo             SettingRepository
 	groupRepo               GroupRepository
 	apiKeyService           *APIKeyService
 	customModelCapabilities CustomModelCapabilityResolver
 	imageStorage            *ImageStorageSettingService
+	gatewayService          *OpenAIGatewayService
 	keyMu                   sync.Mutex
 }
 
@@ -80,6 +107,7 @@ func NewMediaStudioService(
 	apiKeyService *APIKeyService,
 	customModelCapabilities CustomModelCapabilityResolver,
 	imageStorage *ImageStorageSettingService,
+	gatewayService *OpenAIGatewayService,
 ) *MediaStudioService {
 	return &MediaStudioService{
 		settingRepo:             settingRepo,
@@ -87,6 +115,7 @@ func NewMediaStudioService(
 		apiKeyService:           apiKeyService,
 		customModelCapabilities: customModelCapabilities,
 		imageStorage:            imageStorage,
+		gatewayService:          gatewayService,
 	}
 }
 
@@ -96,6 +125,7 @@ func ProvideMediaStudioService(
 	apiKeyService *APIKeyService,
 	customModelCapabilities CustomModelCapabilityResolver,
 	imageStorage *ImageStorageSettingService,
+	gatewayService *OpenAIGatewayService,
 ) *MediaStudioService {
 	return NewMediaStudioService(
 		settingRepo,
@@ -103,6 +133,7 @@ func ProvideMediaStudioService(
 		apiKeyService,
 		customModelCapabilities,
 		imageStorage,
+		gatewayService,
 	)
 }
 
@@ -279,6 +310,132 @@ func (s *MediaStudioService) ListModels(
 	return models, nil
 }
 
+// EstimateCost 用 sub2api 本地计价链路估算一次媒体生成的消耗。
+// 价格只来自分组/渠道的显式定价，缺少价格时直接返回错误，不做任何价格猜测。
+func (s *MediaStudioService) EstimateCost(
+	ctx context.Context,
+	userID int64,
+	req MediaStudioCostEstimateRequest,
+) (*MediaStudioCostEstimate, error) {
+	mediaType := normalizeMediaStudioMediaType(req.MediaType)
+	model := strings.TrimSpace(req.Model)
+	if mediaType == "" || req.GroupID <= 0 || model == "" {
+		return nil, ErrMediaStudioGroupRouteInvalid
+	}
+	if s.gatewayService == nil {
+		return nil, ErrMediaStudioCostEstimateUnavailable
+	}
+
+	config, err := s.GetAvailableGroups(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	var selected *MediaStudioGroupOption
+	for index := range config.Groups {
+		if config.Groups[index].GroupID == req.GroupID {
+			selected = &config.Groups[index]
+			break
+		}
+	}
+	if selected == nil || selected.MediaType != mediaType {
+		return nil, ErrMediaStudioGroupUnavailable
+	}
+
+	group, err := s.groupRepo.GetByID(ctx, req.GroupID)
+	if err != nil {
+		return nil, fmt.Errorf("get media studio group %d: %w", req.GroupID, err)
+	}
+	if group == nil || !group.IsActive() {
+		return nil, ErrMediaStudioGroupUnavailable
+	}
+	// 仓库返回的分组不带模型定价索引，这里按网关鉴权的同样方式编译一次；
+	// 否则逐模型定价永远解析不到，会被误判为“未配置价格”。
+	group.compileModelPricingIndex()
+
+	groupIDValue := group.ID
+	apiKey := &APIKey{UserID: userID, GroupID: &groupIDValue, Group: group}
+	// token 计费必须等上游返回用量才能计价，提交前不做金额臆测。
+	// multimodal 是逐模型定价分组，没有条目时会退化成 LiteLLM/兜底 token 价，
+	// 这种情况交给图片/视频计价链路报“未配置价格”，不能误报为预估不可用。
+	if resolved := s.gatewayService.resolveOpenAIChannelPricing(ctx, model, apiKey); resolved != nil &&
+		resolved.Mode == BillingModeToken &&
+		(!IsMultimodal(group.Platform) ||
+			resolved.Source == PricingSourceGroup ||
+			resolved.Source == PricingSourceChannel) {
+		return nil, ErrMediaStudioCostEstimateUnavailable
+	}
+	baseMultiplier := s.mediaStudioBaseRateMultiplier(ctx, apiKey, userID, group.ID)
+
+	switch mediaType {
+	case "video":
+		resolution := NormalizeVideoBillingResolutionOrDefault(req.Resolution)
+		durationSeconds := NormalizeVideoBillingDurationSecondsOrDefault(req.Duration)
+		cost, err := s.gatewayService.calculateOpenAIVideoCost(ctx, model, apiKey, &OpenAIForwardResult{
+			VideoCount:           1,
+			VideoResolution:      resolution,
+			VideoDurationSeconds: durationSeconds,
+		}, s.gatewayService.multimodalVideoRateMultiplier(ctx, apiKey, userID, group.ID))
+		if err != nil {
+			return nil, ErrVideoPriceNotConfigured.WithCause(err)
+		}
+		if cost == nil {
+			return nil, ErrVideoPriceNotConfigured
+		}
+		return &MediaStudioCostEstimate{
+			Amount:          QuantizeUsageBillingAmount(cost.ActualCost),
+			Currency:        "USD",
+			BillingMode:     cost.BillingMode,
+			Model:           model,
+			Resolution:      resolution,
+			DurationSeconds: durationSeconds,
+		}, nil
+	case "image":
+		count := req.Count
+		if count <= 0 {
+			count = 1
+		}
+		cost, err := s.gatewayService.calculateOpenAIImageCost(ctx, model, apiKey, &OpenAIForwardResult{
+			ImageCount: count,
+			ImageSize:  NormalizeImageBillingTierOrDefault(req.Size),
+		}, resolveImageRateMultiplier(apiKey, baseMultiplier))
+		if err != nil {
+			return nil, ErrImagePriceNotConfigured.WithCause(err)
+		}
+		if cost == nil {
+			return nil, ErrImagePriceNotConfigured
+		}
+		return &MediaStudioCostEstimate{
+			Amount:      QuantizeUsageBillingAmount(cost.ActualCost),
+			Currency:    "USD",
+			BillingMode: cost.BillingMode,
+			Model:       model,
+			ImageCount:  count,
+		}, nil
+	default:
+		return nil, ErrMediaStudioCostEstimateUnavailable
+	}
+}
+
+// mediaStudioBaseRateMultiplier 复刻用量结算的基础倍率口径：
+// 系统默认倍率，分组绑定时改用用户在该分组上的有效倍率。
+func (s *MediaStudioService) mediaStudioBaseRateMultiplier(
+	ctx context.Context,
+	apiKey *APIKey,
+	userID int64,
+	groupID int64,
+) float64 {
+	baseMultiplier := 1.0
+	if s.gatewayService.cfg != nil {
+		baseMultiplier = s.gatewayService.cfg.Default.RateMultiplier
+	}
+	if apiKey != nil && apiKey.Group != nil && groupID > 0 {
+		baseMultiplier = s.gatewayService.ResolveUserGroupRateMultiplier(
+			ctx, userID, groupID, apiKey.Group.RateMultiplier,
+		)
+	}
+	return baseMultiplier
+}
+
 // MediaStudioUpload 是一次参考素材上传的结果，URL 可直接作为视频/图片请求的参考地址。
 type MediaStudioUpload struct {
 	URL          string `json:"url"`
@@ -422,22 +579,22 @@ func mediaStudioLimitCount(limits map[string]any, key, kind string) (int, bool) 
 }
 
 var mediaStudioContentTypeExtensions = map[string]string{
-	"image/jpeg":      ".jpg",
-	"image/jpg":       ".jpg",
-	"image/png":       ".png",
-	"image/webp":      ".webp",
-	"image/gif":       ".gif",
-	"video/mp4":       ".mp4",
-	"video/quicktime": ".mov",
-	"video/webm":      ".webm",
+	"image/jpeg":       ".jpg",
+	"image/jpg":        ".jpg",
+	"image/png":        ".png",
+	"image/webp":       ".webp",
+	"image/gif":        ".gif",
+	"video/mp4":        ".mp4",
+	"video/quicktime":  ".mov",
+	"video/webm":       ".webm",
 	"video/x-matroska": ".mkv",
-	"audio/mpeg":      ".mp3",
-	"audio/mp3":       ".mp3",
-	"audio/wav":       ".wav",
-	"audio/x-wav":     ".wav",
-	"audio/ogg":       ".ogg",
-	"audio/aac":       ".aac",
-	"audio/mp4":       ".m4a",
+	"audio/mpeg":       ".mp3",
+	"audio/mp3":        ".mp3",
+	"audio/wav":        ".wav",
+	"audio/x-wav":      ".wav",
+	"audio/ogg":        ".ogg",
+	"audio/aac":        ".aac",
+	"audio/mp4":        ".m4a",
 }
 
 func mediaStudioUploadExtension(fileName, contentType string) string {

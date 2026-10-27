@@ -1535,15 +1535,27 @@ func (s *BillingService) calculatePerRequestCost(resolved *ResolvedPricing, inpu
 		unitPrice = input.Resolver.GetRequestTierPrice(resolved, input.SizeTier)
 	}
 
-	// 视频层级按分辨率命中，不能按 token 上下文回退：视频请求没有上下文 token，
-	// 用 0 上下文回退会永远命中 min_tokens=0 的第一档，导致 720p 误用 480p 的价格。
-	if unitPrice == 0 && resolved.Mode != BillingModeVideo {
+	// 视频层级按分辨率命中、图片层级按尺寸命中，都不能按 token 上下文回退：
+	// 回退会永远命中 min_tokens=0 的第一档，导致 2K 误用 1K、720p 误用 480p 的价格。
+	if unitPrice == 0 && input.SizeTier == "" && resolved.Mode != BillingModeVideo {
 		totalContext := input.Tokens.InputTokens + input.Tokens.CacheCreationTokens + input.Tokens.CacheReadTokens
 		unitPrice = input.Resolver.GetRequestTierPriceByContext(resolved, totalContext)
 	}
 
 	// 回退到默认按次价格
 	if unitPrice == 0 {
+		multimodal := false
+		if input.Group != nil {
+			multimodal = IsMultimodal(input.Group.Platform)
+		} else if resolved.channelPricing != nil {
+			multimodal = IsMultimodal(resolved.channelPricing.Platform)
+		}
+		// multimodal 是逐模型定价分组，没有“默认价”：
+		// 图片必须精确命中尺寸档位、视频必须精确命中分辨率档位，
+		// 缺档位直接报缺价，不能按条目默认价或任何其它档位放行。
+		if multimodal {
+			return nil, fmt.Errorf("no price configured for tier %q: model=%s mode=%s", input.SizeTier, input.Model, resolved.Mode)
+		}
 		unitPrice = resolved.DefaultPerRequestPrice
 	}
 
