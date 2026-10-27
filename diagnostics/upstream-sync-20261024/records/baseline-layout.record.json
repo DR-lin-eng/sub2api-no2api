@@ -1,0 +1,21 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "-v",
+    "/private/tmp/sub2api-sync-20261024-3998-mavjgvgk/BASELINE/backend:/app",
+    "-w",
+    "/app",
+    "sub2api-sync-go:20261024",
+    "make",
+    "check-layout"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261024-3998-mavjgvgk/repo",
+  "input": "",
+  "stdout": "./scripts/check-source-layout.sh\n",
+  "stderr": "layout error: internal/application/service/openai_gateway_forward.go has 1201 lines (limit 1200); split by responsibility\nlayout error: internal/application/service/payment_fulfillment_test.go has 1201 lines (limit 1200); split by responsibility\nmake: *** [Makefile:14: check-layout] Error 1\n",
+  "exit_status": 2,
+  "duration_seconds": 1.506,
+  "utc": "2026-10-23T16:54:38.650156+00:00"
+}

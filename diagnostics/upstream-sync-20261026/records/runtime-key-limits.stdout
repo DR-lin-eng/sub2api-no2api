@@ -1,0 +1,4 @@
+{"stage": "BASELINE", "result": "PASS", "key_a_key_b_key_a_http": [200, 200, 200], "jwt_admin_exemption": "PASS", "machine_key_lifecycle_denied": 403}
+{"stage": "MODIFIED", "result": "PASS", "key_a_key_b_key_a_http": [200, 200, 429], "jwt_admin_exemption": "PASS", "machine_key_lifecycle_denied": 403}
+{"stage": "ROLLBACK", "result": "PASS", "key_a_key_b_key_a_http": [200, 200, 200], "jwt_admin_exemption": "PASS", "machine_key_lifecycle_denied": 403}
+{"stage": "RESTORED", "result": "PASS", "key_a_key_b_key_a_http": [200, 200, 429], "jwt_admin_exemption": "PASS", "machine_key_lifecycle_denied": 403}

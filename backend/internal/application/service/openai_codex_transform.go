@@ -13,6 +13,7 @@ import (
 var codexModelMap = map[string]string{
 	"gpt-6-astra":          "gpt-6-astra",
 	"gpt-6.1-sol":          "gpt-6.1-sol",
+	"gpt-6.1-terra":        "gpt-6.1-terra",
 	"gpt-6-sol":            "gpt-6-sol",
 	"gpt-6-luna":           "gpt-6-luna",
 	"gpt-5.6-sol":          "gpt-5.6-sol",
@@ -65,6 +66,7 @@ var codexVersionModelPrefixes = []struct {
 }{
 	{prefix: "gpt-6-astra", target: "gpt-6-astra"},
 	{prefix: "gpt-6.1-sol", target: "gpt-6.1-sol"},
+	{prefix: "gpt-6.1-terra", target: "gpt-6.1-terra"},
 	{prefix: "gpt-6-sol", target: "gpt-6-sol"},
 	{prefix: "gpt-6-luna", target: "gpt-6-luna"},
 	{prefix: "gpt-5.6-sol", target: "gpt-5.6-sol"},
@@ -835,7 +837,7 @@ func stripOpenAIImageGenerationToolsFromRawPayload(payload []byte) ([]byte, bool
 		return payload, false, json.Unmarshal(payload, &invalidPayload)
 	}
 	payloadMap := make(map[string]any)
-	if err := json.Unmarshal(payload, &payloadMap); err != nil {
+	if err := decodeOpenAIRequestObject(payload, &payloadMap); err != nil {
 		return payload, false, err
 	}
 	if !stripOpenAIImageGenerationTools(payloadMap) {
@@ -1536,8 +1538,9 @@ func filterCodexInputWithOptions(input []any, opts codexInputFilterOptions) []an
 		// PreserveReferences) yet keep the item: under store=false
 		// encrypted_content is the official channel for carrying reasoning
 		// context across turns, and dropping the whole item silently degrades
-		// multi-turn agent reasoning. Preserve encrypted_content/content/
-		// summary and every other field verbatim. Upstream additionally
+		// multi-turn agent reasoning. Preserve encrypted_content/summary and
+		// other fields, except response-only reasoning content: the Codex input
+		// schema only accepts an empty content array. Upstream additionally
 		// requires a summary field — a missing one is rejected with 400
 		// "Missing required parameter 'input[N].summary'" — so backfill an
 		// empty array when it is absent. Contracts verified end-to-end against
@@ -1552,6 +1555,12 @@ func filterCodexInputWithOptions(input []any, opts codexInputFilterOptions) []an
 		if typ == "reasoning" {
 			newItem := make(map[string]any, len(m))
 			for key, value := range m {
+				if key == "content" {
+					if parts, ok := value.([]any); ok && len(parts) > 0 {
+						// Response-only reasoning content is not valid OAuth input.
+						continue
+					}
+				}
 				if key == "id" {
 					id, idIsString := openAIResponsesInputItemIDString(value)
 					if shouldStripOpenAIResponsesInputItemID(typ, id, idIsString, true) {

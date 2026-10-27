@@ -1,0 +1,13 @@
+{
+  "command": [
+    "python3",
+    "diagnostics/upstream-sync-20261026/runtime/key_check.py"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261026-x_z3wn11/repo",
+  "input": "",
+  "stdout": "{\"stage\": \"BASELINE\", \"result\": \"PASS\", \"key_a_key_b_key_a_http\": [200, 200, 200], \"jwt_admin_exemption\": \"PASS\", \"machine_key_lifecycle_denied\": 403}\n{\"stage\": \"MODIFIED\", \"result\": \"PASS\", \"key_a_key_b_key_a_http\": [200, 200, 429], \"jwt_admin_exemption\": \"PASS\", \"machine_key_lifecycle_denied\": 403}\n{\"stage\": \"ROLLBACK\", \"result\": \"PASS\", \"key_a_key_b_key_a_http\": [200, 200, 200], \"jwt_admin_exemption\": \"PASS\", \"machine_key_lifecycle_denied\": 403}\n{\"stage\": \"RESTORED\", \"result\": \"PASS\", \"key_a_key_b_key_a_http\": [200, 200, 429], \"jwt_admin_exemption\": \"PASS\", \"machine_key_lifecycle_denied\": 403}\n",
+  "stderr": "",
+  "exit_status": 0,
+  "duration_seconds": 38.884,
+  "utc": "2026-10-26T03:52:46.873738+00:00"
+}

@@ -78,7 +78,7 @@ func openAIUpstreamPolicyErrorDetails(payload []byte) (openAIUpstreamPolicyError
 func isOpenAIPolicyRejectionMessage(message string) bool {
 	message = strings.ToLower(strings.TrimSpace(message))
 	policy := false
-	for _, marker := range []string{"content policy", "safety policy", "security policy", "usage policy", "safety system", "high-risk cyber", "安全策略", "内容政策"} {
+	for _, marker := range []string{"content policy", "safety policy", "security policy", "usage policy", "safety system", "high-risk cyber", "biological risk", "安全策略", "内容政策"} {
 		policy = policy || strings.Contains(message, marker)
 	}
 	if !policy {

@@ -141,6 +141,7 @@ type ModelPricing struct {
 	ImageOutputPricePerToken           float64 // 图片输出 token 价格 (USD)
 	ImageOutputPriceExplicit           bool    // 是否由渠道定价显式设定（为 true 时即使 == 0 也不回退）
 	ApplyServiceTierMultiplier         bool    // 渠道定价为 Standard 价，在最终成本上应用 priority/flex 倍率
+	UltrafastCostMultiplier            float64 // 仅有官方 Ultrafast 价卡的模型使用；基于 Standard 价格
 }
 
 const (
@@ -439,6 +440,19 @@ func (s *BillingService) initFallbackPricing() {
 		CacheCreationPricePerTokenPriority: 5e-6,
 		CacheReadPricePerToken:             0.1e-6,
 		CacheReadPricePerTokenPriority:     0.2e-6,
+		LongContextInputThreshold:          openAIGPT54LongContextInputThreshold,
+		LongContextInputMultiplier:         openAIGPT54LongContextInputMultiplier,
+		LongContextOutputMultiplier:        openAIGPT54LongContextOutputMultiplier,
+	}
+	s.fallbackPrices["gpt-6.1-terra"] = &ModelPricing{
+		InputPricePerToken:                 1e-6,
+		InputPricePerTokenPriority:         2e-6,
+		OutputPricePerToken:                5e-6,
+		OutputPricePerTokenPriority:        10e-6,
+		CacheCreationPricePerToken:         1.25e-6,
+		CacheCreationPricePerTokenPriority: 2.5e-6,
+		CacheReadPricePerToken:             0.05e-6,
+		CacheReadPricePerTokenPriority:     0.1e-6,
 		LongContextInputThreshold:          openAIGPT54LongContextInputThreshold,
 		LongContextInputMultiplier:         openAIGPT54LongContextInputMultiplier,
 		LongContextOutputMultiplier:        openAIGPT54LongContextOutputMultiplier,
@@ -1028,6 +1042,8 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 			return s.fallbackPrices["gpt-6-astra"]
 		case "gpt-6.1-sol":
 			return s.fallbackPrices["gpt-6.1-sol"]
+		case "gpt-6.1-terra":
+			return s.fallbackPrices["gpt-6.1-terra"]
 		case "gpt-6-sol":
 			return s.fallbackPrices["gpt-6-sol"]
 		case "gpt-6-luna":
@@ -1398,6 +1414,9 @@ func (s *BillingService) computeTokenBreakdown(
 	} else {
 		tierMultiplier = serviceTierCostMultiplier(serviceTier)
 	}
+	if normalizeBillingServiceTier(serviceTier) == "ultrafast" && pricing.UltrafastCostMultiplier > 0 {
+		tierMultiplier = pricing.UltrafastCostMultiplier
+	}
 
 	longContextPricingEligible := applyLongCtx && s.shouldApplySessionLongContextPricing(tokens, pricing)
 	var baselineCost *CostBreakdown
@@ -1542,6 +1561,16 @@ func (s *BillingService) calculatePerRequestCost(resolved *ResolvedPricing, inpu
 		unitPrice = input.Resolver.GetRequestTierPriceByContext(resolved, totalContext)
 	}
 
+	// 渠道按次定价的纯 token 区间（没有任何尺寸档位标签）允许按上下文命中：
+	// 这类配置本来就没有尺寸档位可选，不存在跨档位取价。
+	// 仅限渠道来源且非多模态分组；分组定价（含多模态强规范分组）不走这条路径，
+	// 图片/视频仍必须精确命中档位，缺档位直接报缺价。
+	if unitPrice == 0 && resolved.Mode != BillingModeVideo &&
+		channelContextTierAllowed(resolved, input.Group) {
+		totalContext := input.Tokens.InputTokens + input.Tokens.CacheCreationTokens + input.Tokens.CacheReadTokens
+		unitPrice = input.Resolver.GetRequestTierPriceByContext(resolved, totalContext)
+	}
+
 	// 回退到默认按次价格
 	if unitPrice == 0 {
 		multimodal := false
@@ -1566,6 +1595,33 @@ func (s *BillingService) calculatePerRequestCost(resolved *ResolvedPricing, inpu
 		TotalCost:  totalCost,
 		ActualCost: actualCost,
 	}, nil
+}
+
+// channelContextTierAllowed 报告该定价是否属于“渠道来源、非多模态、且按次区间没有尺寸档位标签”的配置。
+// 只有这种渠道按次定价才允许按 token 上下文命中区间价；分组定价保持强规范，不参与回退。
+func channelContextTierAllowed(resolved *ResolvedPricing, group *Group) bool {
+	if resolved == nil || resolved.channelPricing == nil || resolved.Source != PricingSourceChannel {
+		return false
+	}
+	if group != nil && IsMultimodal(group.Platform) {
+		return false
+	}
+	if IsMultimodal(resolved.channelPricing.Platform) {
+		return false
+	}
+	return !requestTiersHaveLabels(resolved.RequestTiers)
+}
+
+// requestTiersHaveLabels 报告按次定价条目是否带有尺寸/分辨率档位标签。
+// 带标签的条目必须精确命中档位，不能按 token 上下文回退到其它档位；
+// 无标签条目通常表示纯 token 区间按次定价，允许按上下文命中。
+func requestTiersHaveLabels(tiers []PricingInterval) bool {
+	for _, tier := range tiers {
+		if strings.TrimSpace(tier.TierLabel) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // CalculateCost 计算使用费用
@@ -1622,6 +1678,7 @@ func (s *BillingService) applyModelSpecificPricingPolicyEx(model string, pricing
 		pricing = &cloned
 	}
 	pricing = applyHaiku55DefaultPolicy(model, pricing, forceDeepSeekRates)
+	pricing = applyOpenAIUltrafastPricingPolicy(model, pricing)
 	normalized := normalizeKnownOpenAICodexModel(model)
 	isGPT6 := isOpenAIGPT6Model(normalized)
 	isGPT56 := isOpenAIGPT56Model(normalized)

@@ -30,6 +30,7 @@ const baseGroupFormState = () => {
     allow_image_generation: false,
     openai_force_image_tool: false,
     allow_batch_image_generation: false,
+    image_count_billing: false,
     image_rate_independent: false,
     image_rate_multiplier: 1,
     batch_image_discount_multiplier: 0.5,
@@ -136,6 +137,7 @@ type ImagePricingFormState = {
   platform: GroupPlatform;
   allow_image_generation: boolean;
   allow_batch_image_generation: boolean;
+  image_count_billing: boolean;
   rate_multiplier: number | string;
   image_rate_independent: boolean;
   image_rate_multiplier: number | string;
@@ -263,10 +265,14 @@ export const resetDisabledBatchImagePricing = (
     | "platform"
     | "allow_image_generation"
     | "allow_batch_image_generation"
+    | "image_count_billing"
     | "batch_image_discount_multiplier"
     | "batch_image_hold_multiplier"
   >,
 ) => {
+  if (!form.allow_image_generation || !["openai", "composite"].includes(form.platform)) {
+    form.image_count_billing = false;
+  }
   if (form.platform !== "gemini" || !form.allow_image_generation) {
     form.allow_batch_image_generation = false;
   }

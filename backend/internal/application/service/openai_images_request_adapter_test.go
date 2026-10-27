@@ -41,6 +41,14 @@ func (s customImageModelResolverStub) ResolveModelAttributes(
 	return nil, false, nil
 }
 
+func (s customImageModelResolverStub) ResolveMediaLimits(context.Context, string) (map[string]any, bool, error) {
+	return nil, false, nil
+}
+
+func (s customImageModelResolverStub) ValidateVideoRequest(context.Context, string, []byte) error {
+	return nil
+}
+
 func TestCustomImageModelMappingUsesClientConfigAndAdapter(t *testing.T) {
 	clientAdapter := map[string]any{"version": 1, "body": map[string]any{"mode": "off"}}
 	svc := &OpenAIGatewayService{customModelCapabilities: customImageModelResolverStub{

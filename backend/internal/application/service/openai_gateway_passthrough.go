@@ -212,14 +212,14 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 		if normalized {
 			body = normalizedBody
 		}
-		if account.IsOpenAIOAuth() && !isOpenAIResponsesCompactPath(c) {
+		if account.IsOpenAIOAuth() {
 			responsesLite := isOpenAIResponsesLiteHeader(c.GetHeader(responsesLiteHeader)) || isOpenAIResponsesLiteWebSocketPayload(body)
-			webSearchBody, webSearchChanged, webSearchErr := normalizeOpenAIOAuthWebSearchHistoryForAccount(body, account, false, responsesLite)
-			if webSearchErr != nil {
-				return nil, fmt.Errorf("normalize passthrough Responses web_search history: %w", webSearchErr)
+			replayBody, replayChanged, replayErr := normalizeOpenAIOAuthReplayHistoryForAccount(body, account, isOpenAIResponsesCompactPath(c), responsesLite)
+			if replayErr != nil {
+				return nil, fmt.Errorf("normalize passthrough Responses replay history: %w", replayErr)
 			}
-			if webSearchChanged {
-				body = webSearchBody
+			if replayChanged {
+				body = replayBody
 			}
 		}
 		if !isOpenAIResponsesCompactPath(c) || (fingerprintIDs != nil && fingerprintIDs.fullSimulation) {
@@ -1706,6 +1706,7 @@ func (s *OpenAIGatewayService) newOpenAIStreamFailoverError(
 	requestScopedCapacity := isOpenAIUpstreamCapacityShedEvent(payload)
 	if requestScopedCapacity {
 		failoverErr.Scope = GatewayFailureScopeRequest
+		failoverErr.SameAccountRetryDelay = openAIRequestScopedRetryDelay(headers, payload)
 	} else if statusCode == http.StatusBadGateway && shouldCountOpenAIStreamBadGatewayFailure(payload, message) &&
 		s != nil && s.rateLimitService != nil && account != nil {
 		failureCtx := context.Background()

@@ -56,6 +56,14 @@ const { form, imageFinalPricePreview, videoFinalPricePreview } = props.context;
         />
         {{ t("admin.groups.imagePricing.forceImageTool") }}
       </label>
+      <label
+        v-if="form.allow_image_generation && ['openai', 'composite'].includes(form.platform)"
+        class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
+        :title="t('admin.groups.imagePricing.perImageBillingHint')"
+      >
+        <input v-model="form.image_count_billing" type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+        {{ t("admin.groups.imagePricing.perImageBilling") }}
+      </label>
       <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
         <input
           v-model="form.image_rate_independent"

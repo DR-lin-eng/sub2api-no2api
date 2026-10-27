@@ -29,3 +29,5 @@ pnpm exec vitest run src/features/admin-groups
 pnpm exec vitest run src/common/widgets/data/__tests__/GroupOptionItem.spec.ts src/core/i18n/__tests__/routeLocaleCoverage.spec.ts
 pnpm run typecheck
 ```
+
+`image_count_billing` 位于共享媒体定价 widget，仅在 OpenAI/composite 分组允许生图时展示。旧响应缺失值回退 false；关闭生图或切换为不支持的平台时清理开关。它只作用于专用图片端点，必须在所有服务实例升级后启用，混合文本与图片请求继续原 token 计费。

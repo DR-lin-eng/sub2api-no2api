@@ -1,0 +1,33 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=4g",
+    "-e",
+    "GOLANGCI_LINT_CACHE=/lint-cache",
+    "-v",
+    "sub2api-sync-lint-20261026:/lint-cache",
+    "-v",
+    "/private/tmp/sub2api-sync-20261026-x_z3wn11/repo:/src",
+    "-v",
+    "sub2api-go-mod:/go/pkg/mod",
+    "-v",
+    "sub2api-go-build:/root/.cache/go-build",
+    "-w",
+    "/src/backend",
+    "sub2api-sync-tests:20261026",
+    "golangci-lint",
+    "run",
+    "--timeout=20m",
+    "./..."
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261026-x_z3wn11/repo",
+  "input": "",
+  "stdout": "internal/application/service/image_count_billing_pricing_test.go:15:12: Error return value is not checked (errcheck)\n\t\tcache := resolver.channelService.cache.Load().(*channelCache)\n\t\t         ^\ninternal/application/service/image_count_billing_benchmark_test.go:16:1: File is not properly formatted (gofmt)\n\t\tname string\n^\ninternal/application/service/gateway_usage_billing.go:995:24: QF1001: could apply De Morgan's law (staticcheck)\n\tif resolved != nil && !(imageCountBillingApplies(apiKey, result.ImageEndpoint) && resolved.Mode == BillingModeToken) && isExplicitAdminPricing(resolved) && s.resolver != nil && apiKey != nil && apiKey.Group != nil {\n\t                      ^\n3 issues:\n* errcheck: 1\n* gofmt: 1\n* staticcheck: 1\n",
+  "stderr": "",
+  "exit_status": 1,
+  "duration_seconds": 237.104,
+  "utc": "2026-10-26T03:50:11.103237+00:00"
+}

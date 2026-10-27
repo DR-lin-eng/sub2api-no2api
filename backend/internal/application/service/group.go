@@ -45,6 +45,7 @@ type Group struct {
 	AllowImageGeneration         bool
 	OpenAIForceImageTool         bool
 	AllowBatchImageGeneration    bool
+	ImageCountBilling            bool
 	ImageRateIndependent         bool
 	ImageRateMultiplier          float64
 	ImagePrice1K                 *float64

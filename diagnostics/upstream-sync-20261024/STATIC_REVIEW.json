@@ -1,0 +1,25 @@
+{
+  "changed_runtime_owners": [
+    "backend/internal/application/service/README.md",
+    "backend/internal/application/service/gateway_service.go",
+    "backend/internal/application/service/openai_capacity_retry.go",
+    "backend/internal/application/service/openai_capacity_retry_test.go",
+    "backend/internal/application/service/openai_gateway_passthrough.go",
+    "backend/internal/application/service/openai_gateway_upstream_errors.go",
+    "backend/internal/application/service/openai_ws_forwarder_support.go",
+    "backend/internal/transport/http/handler/failover_loop.go",
+    "backend/internal/transport/http/handler/failover_retry_hint_test.go"
+  ],
+  "migrations_schema_wire_changes": [],
+  "dependency_changes": [],
+  "root_readme_changes": [],
+  "explicit_identity_owner_changes": [],
+  "steady_stream_event_predicate_changes": "none; the passthrough change only stores parsed delay after a capacity failure has been classified",
+  "new_database_queries_goroutines_caches": "none",
+  "known_layout_debt": [
+    "openai_gateway_forward.go:1201",
+    "payment_fulfillment_test.go:1201"
+  ],
+  "layout_debt_compared_with_baseline": true,
+  "production_image_baseline_revision": "7161a547cb4af162b7227f2a01bc6290a83dbff1"
+}

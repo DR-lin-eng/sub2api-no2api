@@ -93,26 +93,6 @@ type openAIWSAcquireRequest struct {
 	ForcePreferredConn bool
 }
 
-type openAIWSHandshakeCompatibilityKey struct {
-	targetURL       string
-	userAgent       string
-	originator      string
-	version         string
-	betaHeader      string
-	betaFeatures    string
-	routingOverride string
-	responsesLite   string
-	subagent        string
-	guardian        string
-	memgen          string
-	timingMetrics   string
-	authHash        [sha256.Size]byte
-	fingerprintKey  string
-	turnStateHash   [sha256.Size]byte
-	tlsProfileKey   string
-	egressRouteKey  string
-}
-
 type openAIWSConnLease struct {
 	pool      *openAIWSConnPool
 	accountID int64
@@ -2452,6 +2432,8 @@ func normalizeOpenAIWSHandshakeCompatibility(headers http.Header) openAIWSHandsh
 		userAgent:       headers.Get("User-Agent"),
 		originator:      headers.Get("originator"),
 		version:         headers.Get("version"),
+		installationID:  headers.Get("x-codex-installation-id"),
+		windowID:        headers.Get("x-codex-window-id"),
 		betaHeader:      headers.Get("OpenAI-Beta"),
 		betaFeatures:    normalizeOpenAIWSBetaFeatures(headers),
 		routingOverride: headers.Get(openAIAccountRoutingOverrideHeader),

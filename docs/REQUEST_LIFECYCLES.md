@@ -53,6 +53,8 @@ Responses 走图片编辑桥接时，用户提交的图片与遮罩 URL 在共�
 
 OpenAI OAuth Responses、自动透传和原生 WebSocket 握手收到上游 `401` 且错误码为 `token_expired` 时，网关先删除该账号的 token 缓存，在分布式刷新锁下强制执行一次 refresh token 流程，即使数据库中的 `expires_at` 仍在未来；刷新成功后仅重放当前请求一次并继续使用同一账号。刷新失败、refresh token 缺失、`token_revoked`/`token_invalidated` 或再次收到 401 继续走原有账号冷却、永久错误和 failover 策略。其它 401 不会被误判为可恢复过期。
 
+OpenAI OAuth 历史重放会移除 `type=reasoning` 条目中的非空 `content` 数组，因为 ChatGPT Codex 输入契约的该字段最大长度为 0；保留整个条目、`summary` 与 `encrypted_content`，不截断顶层 `input` 历史，也不改写普通消息或工具内容。普通/透传 HTTP、compact 与原生 WebSocket 每轮使用同一约束；API Key 账号不应用该 OAuth 专用转换。原始 JSON 路径保留其它字段的数值精度与内容字节。
+
 ## OAuth2 对外授权
 
 第三方应用从 `/oauth/authorize` 发起 Authorization Code + PKCE S256 请求。前端要求用户先登录，再通过 `/api/v1/oauth2/authorize` 读取服务端校验后的客户端与 scope 预览；用户允许后，后端将 authorization code 摘要及用户、客户端、精确回调、scope、PKCE challenge 和 TokenVersion 保存到 Redis。`/oauth/token` 原子消费 code，复查客户端、回调、PKCE 和用户状态后签发不透明 access token。`/oauth/userinfo` 每次调用都重查全局开关、客户端启用状态、当前 scope 和用户 TokenVersion，因此管理员收回授权后无需等待 token TTL。完整协议和管理端入口见 [OAuth2 对外授权服务](OAUTH2_PROVIDER.md)。
@@ -180,6 +182,9 @@ HTTP Responses 流中的显式 `server_error` 在首语义输出前进入既有�
 误标为 5xx 的策略拒绝返回 400；流式裸 `error` 规范化为单个 `response.failed`
 终止事件，避免客户端把策略拒绝显示成断流或通用 502。Chat Completions 和 Anthropic
 兼容入口使用各自的错误格式。只有策略错误字段参与识别，正常模型输出中的策略文字不触发。
+其中 `This content was flagged for possible biological risk` 属于内容安全拒绝；即使上游
+没有错误码，也按 `content_policy_violation` 处理，保留 400、完整提示及博客链接，
+不触发账号冷却、号池重试或通用错误改写。
 API Key 账号对接其他 Sub2API 时遵循相同规则，包括
 `session_blocked_by_cyber_policy` 会话屏蔽；无需启用 OAuth 或自动透传。
 Responses、Chat Completions 直转及其协议转换路径都识别没有顶层 `type` 的
@@ -236,6 +241,10 @@ Codex OAuth 的 HTTP、透传、Compact 和 WS 握手共用 UA 身份解析：�
 完整指纹模式默认沿用同一结果；Linux 插件画像由下述 C 与实验性传输开关共同控制，账号显式 UA 继续优先。
 WS 池将 UA、originator、version 和 TLS Profile 一起用于握手兼容检查；
 变更身份后重新拨号，未变更时继续复用。具体边界见 [Codex 身份差异](codex/intentional-divergences.md)。
+直接 installation/window 头也使用当前账号/attempt 的身份投影，普通请求清除无来源的 window。
+所有 OAuth 传输的 turn metadata 头都排除工具清单并限制在 8192 字节内；body 不因此截断。
+metadata 数值使用保精度解码，WS 池在 installation/window 改变后重新建连；
+清除 attempt plan 后不允许恢复上一账号的身份。桌面端各通信面的对照见同一文档。
 
 OpenAI OAuth/Codex 账号可在管理端启用 `custom_base_url_enabled` 并填写
 `custom_base_url`，将模型请求改发到自定义 Codex 中继。例如填写
@@ -609,3 +618,7 @@ Codex 模型发现的共享缓存只存上游结果。账号投影再合并已�
 ### 2026-10-16 兼容出口增量
 
 OpenAI API-key `/v1/messages` 的纯搜索请求在协议转换前经过既有全局/渠道/账号开关，启用后共享搜索 owner 与账号出口；OAuth 保持原生搜索。Gemini 兼容入口把客户端 thinking/effort 写入模型支持的 budget/level，并将流式 thought 分别转为 thinking 或 reasoning_content，历史思考不作为正文回传。普通 Responses 与 HTTP→WS bridge 对缺失 created_at 做稳定补值，原始 passthrough 保留字节。ChatGPT GPT-5.5 退休按实际映射目标检查，API-key 和显式替代映射保持有效；细节和回退见 [增量审查](UPSTREAM_SYNC_20261016_FOLLOWUP.md)。
+
+### 2026-10-26 图片按张计费
+
+OpenAI/composite 分组的 `image_count_billing` 默认关闭；开启后仅专用 Images 端点按实际出图张数结算，混合 Responses/Chat/WS 继续 token 定价。字段经当前分组 owner 与鉴权快照 26 传递，保留可靠结算；全部节点升级后再开启。升级、回退及上游差异状态见 [同步审查](UPSTREAM_SYNC_20261026.md)。

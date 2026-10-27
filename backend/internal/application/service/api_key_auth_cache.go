@@ -86,6 +86,7 @@ type APIKeyAuthGroupSnapshot struct {
 	AllowImageGeneration            bool                  `json:"allow_image_generation"`
 	OpenAIForceImageTool            bool                  `json:"openai_force_image_tool"`
 	AllowBatchImageGeneration       bool                  `json:"allow_batch_image_generation"`
+	ImageCountBilling               bool                  `json:"image_count_billing"`
 	ImageRateIndependent            bool                  `json:"image_rate_independent"`
 	ImageRateMultiplier             float64               `json:"image_rate_multiplier"`
 	ImagePrice1K                    *float64              `json:"image_price_1k,omitempty"`

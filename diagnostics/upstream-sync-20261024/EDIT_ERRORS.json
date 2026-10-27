@@ -1,0 +1,8 @@
+[
+  {
+    "tool": "apply_patch",
+    "status": "error",
+    "error": "Failed to find expected lines in docs/codex/intentional-divergences.md: 只有 HTTP 也失败时才进入正常账号",
+    "correction": "Used the exact existing retry-budget paragraph as the insertion anchor; rerun succeeded; documentation check passed."
+  }
+]

@@ -241,6 +241,7 @@ export function useEditGroupController({
     editForm.openai_force_image_tool = group.openai_force_image_tool ?? false;
     editForm.allow_batch_image_generation =
       group.allow_batch_image_generation ?? false;
+    editForm.image_count_billing = group.image_count_billing ?? false;
     editForm.image_rate_independent = group.image_rate_independent ?? false;
     editForm.image_rate_multiplier = group.image_rate_multiplier ?? 1;
     editForm.batch_image_discount_multiplier =

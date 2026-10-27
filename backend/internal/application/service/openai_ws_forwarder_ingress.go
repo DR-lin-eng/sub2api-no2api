@@ -273,7 +273,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 
 		// 仅在确实需要修改 payload 且 sjson 失败时，退回 map 路径确保兼容性。
 		payload := make(map[string]any)
-		if unmarshalErr := json.Unmarshal(current, &payload); unmarshalErr != nil {
+		if unmarshalErr := decodeOpenAIRequestObject(current, &payload); unmarshalErr != nil {
 			return nil, err
 		}
 		switch path {
@@ -395,11 +395,11 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			normalized = litePayload
 		}
 		responsesLite := isOpenAIResponsesLiteHeader(c.GetHeader(responsesLiteHeader)) || isOpenAIResponsesLiteWebSocketPayload(normalized)
-		webSearchPayload, _, webSearchErr := normalizeOpenAIOAuthWebSearchHistoryForAccount(normalized, account, false, responsesLite)
-		if webSearchErr != nil {
-			return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", webSearchErr)
+		replayPayload, _, replayErr := normalizeOpenAIOAuthReplayHistoryForAccount(normalized, account, false, responsesLite)
+		if replayErr != nil {
+			return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", replayErr)
 		}
-		normalized = webSearchPayload
+		normalized = replayPayload
 		apiKey := getAPIKeyFromContext(c)
 		imageGenerationAllowed := GroupAllowsImageGeneration(apiKeyGroup(apiKey))
 		codexImageGenerationExplicitToolPolicy := codexImageGenerationExplicitToolPolicyAllow
@@ -413,7 +413,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			s.isCodexImageGenerationBridgeEnabled(ctx, account, apiKey)
 		if codexBridgeEnabled {
 			payloadMap := make(map[string]any)
-			if err := json.Unmarshal(normalized, &payloadMap); err != nil {
+			if err := decodeOpenAIRequestObject(normalized, &payloadMap); err != nil {
 				return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", err)
 			}
 			bridgeModified := false
@@ -1752,7 +1752,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		}
 		if toolSignals.HasFunctionCallOutput {
 			var currentReqBody map[string]any
-			if err := json.Unmarshal(currentPayload, &currentReqBody); err == nil {
+			if err := decodeOpenAIRequestObject(currentPayload, &currentReqBody); err == nil {
 				toolSignals = AnalyzeToolContinuationSignals(currentReqBody)
 			}
 		}

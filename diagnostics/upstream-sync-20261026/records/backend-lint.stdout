@@ -1,0 +1,13 @@
+internal/application/service/image_count_billing_pricing_test.go:15:12: Error return value is not checked (errcheck)
+		cache := resolver.channelService.cache.Load().(*channelCache)
+		         ^
+internal/application/service/image_count_billing_benchmark_test.go:16:1: File is not properly formatted (gofmt)
+		name string
+^
+internal/application/service/gateway_usage_billing.go:995:24: QF1001: could apply De Morgan's law (staticcheck)
+	if resolved != nil && !(imageCountBillingApplies(apiKey, result.ImageEndpoint) && resolved.Mode == BillingModeToken) && isExplicitAdminPricing(resolved) && s.resolver != nil && apiKey != nil && apiKey.Group != nil {
+	                      ^
+3 issues:
+* errcheck: 1
+* gofmt: 1
+* staticcheck: 1

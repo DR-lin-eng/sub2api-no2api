@@ -1,0 +1,13 @@
+{
+  "command": [
+    "make",
+    "check-docs"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261024-3998-mavjgvgk/repo",
+  "input": "",
+  "stdout": "Documentation checks passed.\n",
+  "stderr": "",
+  "exit_status": 0,
+  "duration_seconds": 1.443,
+  "utc": "2026-10-23T16:54:41.432176+00:00"
+}

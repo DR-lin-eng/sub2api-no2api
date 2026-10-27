@@ -1,0 +1,117 @@
+[
+  {
+    "pr": 8305,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8305",
+    "merge_sha": "c5b811284aea2c4922561da2f0a78256334b23df",
+    "title": "Merge pull request #8305 from apple050620312/fix/openai-overload-recovery-20261023",
+    "diff_sha256": "ca05dd3297d185d0a86fe6148a7c61827e3a78f463f7bf2a0a85feb24d475f7b",
+    "status": "ported",
+    "fully_closed": true,
+    "current_owners": [
+      "backend/internal/application/service/openai_capacity_retry.go",
+      "backend/internal/application/service/openai_gateway_upstream_errors.go",
+      "backend/internal/application/service/openai_gateway_passthrough.go",
+      "backend/internal/application/service/openai_ws_forwarder_support.go",
+      "backend/internal/transport/http/handler/failover_loop.go"
+    ],
+    "decision": "Port only bounded upstream retry hints through current HTTP/SSE/WS failure metadata and the existing context-cancelable account loop. Keep current attempt limits and use hints as a floor on existing exponential backoff; cap at 8 seconds before numeric conversion.",
+    "parts": [
+      {
+        "part": "retry hints",
+        "status": "ported"
+      },
+      {
+        "part": "empty events and output replay safety",
+        "status": "covered",
+        "evidence": "Baseline empty-event probes plus existing semantic-output predicates; new cross-route regression matrix."
+      },
+      {
+        "part": "default CLI identity",
+        "status": "covered",
+        "evidence": "Current buildCodexCLIUserAgent already uses codex_cli_rs."
+      },
+      {
+        "part": "normalize explicit TUI/Desktop UA and replace configured versions",
+        "status": "intentional-local-divergence",
+        "evidence": "PR #156 and docs/codex/intentional-divergences.md explicitly retain configured official identities and separate engine/app versions. Do not regress those contracts."
+      }
+    ],
+    "reopen_condition": "Only changed upstream behavior or a demonstrated regression in the listed current owners; do not replay this frozen diff.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_TRANSACTION.json",
+      "PERFORMANCE.json",
+      "runtime/result.json"
+    ],
+    "production_diff_sha256": "0c876cb4ceb1e5ffa0ff19516e5c35f3b38d1a6a994977e8202828c3cc18e2e6"
+  },
+  {
+    "pr": null,
+    "url": "https://github.com/Wei-Shaw/sub2api/commit/8286268047cbbca4e7f5fbb63ff0890c1ea37cf5",
+    "merge_sha": "8286268047cbbca4e7f5fbb63ff0890c1ea37cf5",
+    "title": "fix(deps): bump dompurify to 3.4.17 for GHSA-cg2g-xh64-v4q7 / GHSA-mrv2-3pqr-j5jr",
+    "diff_sha256": "6be8f2d342e15d63657f0434d00520d549c969cd2632cead39282fede15c84b5",
+    "status": "covered",
+    "fully_closed": true,
+    "current_owners": [
+      "frontend/pnpm-lock.yaml"
+    ],
+    "decision": "Frozen installation and pnpm-lock already resolve every DOMPurify occurrence to 3.4.17, which fixes both named advisories. Keep existing dependency changes and close without repeating the upgrade.",
+    "parts": [],
+    "reopen_condition": "Only changed upstream behavior or a demonstrated regression in the listed current owners; do not replay this frozen diff.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_TRANSACTION.json",
+      "PERFORMANCE.json",
+      "runtime/result.json"
+    ],
+    "existing_local_change": "93402d436: frontend lockfile already resolves dompurify 3.4.17; frozen install independently confirmed.",
+    "production_diff_sha256": "6be8f2d342e15d63657f0434d00520d549c969cd2632cead39282fede15c84b5"
+  },
+  {
+    "pr": null,
+    "url": "https://github.com/Wei-Shaw/sub2api/commit/ac1b8f1271be0d674fa6f074403c1410f30a3a81",
+    "merge_sha": "ac1b8f1271be0d674fa6f074403c1410f30a3a81",
+    "title": "chore: update sponsors",
+    "diff_sha256": "9025cb7e96153813ecce5e6d2f7c92e5904441e9c46776f6d588849705942ff7",
+    "status": "intentional-local-divergence",
+    "fully_closed": true,
+    "current_owners": [
+      "README.md",
+      "README_CN.md",
+      "README_JA.md"
+    ],
+    "decision": "Do not import sponsor/partner promotions or assets into the fork root README files.",
+    "parts": [],
+    "reopen_condition": "Only changed upstream behavior or a demonstrated regression in the listed current owners; do not replay this frozen diff.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_TRANSACTION.json",
+      "PERFORMANCE.json",
+      "runtime/result.json"
+    ],
+    "production_diff_sha256": "ca34e8d5624fe77965ef821f017ecf12651c093048026d6d51910ceab6efe479"
+  },
+  {
+    "pr": null,
+    "url": "https://github.com/Wei-Shaw/sub2api/commit/5c185c5c5d4f5e409e2139806e0964ae944e03e8",
+    "merge_sha": "5c185c5c5d4f5e409e2139806e0964ae944e03e8",
+    "title": "chore: sync VERSION to 0.2.18 [skip ci]",
+    "diff_sha256": "1628f7ee8af2716eed44e169c3fe98bc2354d4f3779b4e91efd25af4df41ddae",
+    "status": "intentional-local-divergence",
+    "fully_closed": true,
+    "current_owners": [
+      "backend/cmd/server/VERSION"
+    ],
+    "decision": "Retain fork version/release ownership; upstream VERSION housekeeping is reviewed and closed without replacing the local release version.",
+    "parts": [],
+    "reopen_condition": "Only changed upstream behavior or a demonstrated regression in the listed current owners; do not replay this frozen diff.",
+    "evidence": [
+      "VERIFICATION.txt",
+      "SOURCE_TRANSACTION.json",
+      "PERFORMANCE.json",
+      "runtime/result.json"
+    ],
+    "production_diff_sha256": "1628f7ee8af2716eed44e169c3fe98bc2354d4f3779b4e91efd25af4df41ddae"
+  }
+]

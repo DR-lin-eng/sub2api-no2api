@@ -60,6 +60,13 @@ func (f *fakeImageStorage) Save(_ context.Context, key, contentType string, data
 	return "https://cdn.test/" + key, nil
 }
 
+func (f *fakeImageStorage) Lookup(_ context.Context, _ string) (string, bool, error) {
+	if f.err != nil {
+		return "", false, f.err
+	}
+	return "", false, nil
+}
+
 func TestImageResultUploaderRewritesB64JSON(t *testing.T) {
 	storage := &fakeImageStorage{}
 	uploader := NewImageResultUploader(storage, "images/", 0, nil)

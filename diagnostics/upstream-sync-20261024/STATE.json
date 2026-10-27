@@ -1,0 +1,25 @@
+{
+  "target": "/Users/lin/.codex/worktrees/3998/sub2api-no2api",
+  "original_head": "5c9372cbf4639a74df0c37c3348fa32b27a32cb0",
+  "repo": "/private/tmp/sub2api-sync-20261024-3998-mavjgvgk/repo",
+  "baseline": "7161a547cb4af162b7227f2a01bc6290a83dbff1",
+  "upstream": "5c185c5c5d4f5e409e2139806e0964ae944e03e8",
+  "merge_base": "dba770d56a0ee0ae5bad1b3dc5e11614d323163c",
+  "divergence": "969\t5",
+  "roles": {
+    "MODIFIED_FILE": "/private/tmp/sub2api-sync-20261024-3998-mavjgvgk/repo/diagnostics/upstream-sync-20261024/MODIFIED_FILE.tar.gz",
+    "DIFF_FILE": "/private/tmp/sub2api-sync-20261024-3998-mavjgvgk/repo/diagnostics/upstream-sync-20261024/DIFF_FILE.patch",
+    "VERIFICATION": "/private/tmp/sub2api-sync-20261024-3998-mavjgvgk/repo/diagnostics/upstream-sync-20261024/VERIFICATION.txt",
+    "ROLLBACK": "/private/tmp/sub2api-sync-20261024-3998-mavjgvgk/repo/diagnostics/upstream-sync-20261024/ROLLBACK.sh"
+  },
+  "baseline_tree": "089993ce19cc22255282277a67d21f39fd86604a",
+  "baseline_hashes": {
+    "backend/internal/application/service/gateway_service.go": "bbbd6006f87c0ca49fadc6e9c0203201e73683a964b567629ade7a72e49cd36d",
+    "backend/internal/application/service/openai_gateway_upstream_errors.go": "92b591c217a29198a005369c4c49208d177a1f02d2e2d7f3c87b02af9ff071fe",
+    "backend/internal/transport/http/handler/failover_loop.go": "5419e1fede018784bed887314ff738ab120430f65555a7555293937b17428fe2",
+    "frontend/package.json": "ab7ca51ccaa05c0cd9f7ac5f354ed8016e72196f4ab219ea7ff6553952a5dec7",
+    "frontend/pnpm-lock.yaml": "446bb7b987f030c0d39418134274a809be643e6afc4953a757deeca98964b5c9",
+    "frontend/pnpm-workspace.yaml": "a4dae19744a6f5844e5c0cf9e19aba4b821ea3c644ebb8d52443bc362f62935c"
+  },
+  "publication_supplements": "/private/tmp/sub2api-sync-20261024-3998-mavjgvgk/PUBLICATION"
+}

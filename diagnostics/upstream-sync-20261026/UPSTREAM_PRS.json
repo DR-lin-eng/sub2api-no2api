@@ -1,0 +1,98 @@
+[
+  {
+    "pr": 8319,
+    "merge_sha": "37067e8e340e9440d173a92b4faa05e8ce58368f",
+    "title": "Merge pull request #8319 from lyen1688/feat/scoped-admin-api-keys",
+    "diff_sha256": "b0dd698cd0d9cfed81c7ecc11bca39906da08dd199c742eaabb6b925e337b2ef",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8319",
+    "reopen_condition": "Only new upstream semantics or demonstrated regression in the current owners. Reuse this frozen audit; do not replay closed parts.",
+    "status": "partially-ported-specialized-followup",
+    "fully_closed": false,
+    "current_owners": [
+      "backend/internal/application/service/admin_api_keys.go",
+      "backend/internal/transport/http/server/middleware/admin_auth.go",
+      "backend/internal/transport/http/server/middleware/panel_rate_limit.go",
+      "backend/internal/transport/http/server/middleware/admin_permissions.go"
+    ],
+    "decision": "Reuse existing scoped keys/JWT step-up and read-only legacy policy; port per-Key-ID rate limiting without administrator exemption. Do not replace existing scope policy with an incompatible second key store.",
+    "parts": [
+      {
+        "part": "multiple hash-only keys, expiry, scopes, rotate/revoke, JWT-only lifecycle",
+        "status": "covered",
+        "closed": true
+      },
+      {
+        "part": "per-key limiter and no administrator exemption",
+        "status": "ported",
+        "closed": true
+      },
+      {
+        "part": "legacy full-access preservation",
+        "status": "intentional-local-divergence",
+        "closed": true,
+        "reason": "Fork legacy keys are deliberately read-only. Restoring upstream full access would expand existing credentials."
+      },
+      {
+        "part": "resource-scoped account actions, IP/CIDR, lifecycle CAS, scoped import/proxy selection and response allowlists",
+        "status": "deferred-specialized",
+        "closed": false,
+        "required_followup": "Versioned policy/store migration retaining existing scopes and admin/support roles; transaction recheck for every account mutation including fork-only routes; cross-version key lifecycle protocol; batch group hydration replacing upstream N+1; SQL query budget and large-pool benchmarks; response field allowlists across fork-only modules."
+      }
+    ]
+  },
+  {
+    "pr": null,
+    "merge_sha": "3f1c8f36ce8c2cd378015830a90e89970b9a9ea7",
+    "title": "chore: update Sponsors",
+    "diff_sha256": "32563acbc21f9bf595578740ee9a702286a1145554f006f86e87f8889784f2e6",
+    "url": "https://github.com/Wei-Shaw/sub2api/commit/3f1c8f36ce8c2cd378015830a90e89970b9a9ea7",
+    "reopen_condition": "Only new upstream semantics or demonstrated regression in the current owners. Reuse this frozen audit; do not replay closed parts.",
+    "status": "intentional-local-divergence",
+    "fully_closed": true,
+    "current_owners": [
+      "README.md",
+      "README_CN.md",
+      "README_JA.md"
+    ],
+    "decision": "Keep existing no-promotion fork README policy; do not import sponsor assets."
+  },
+  {
+    "pr": 8323,
+    "merge_sha": "ba81c7fd758e425d67f856d601147ef0c5263d3f",
+    "title": "Merge pull request #8323 from wx-11/images-price",
+    "diff_sha256": "53bb26c246b94f88f950262fbd27c4b010d3a47b9bc9bae341b0b89c3bf53fec",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8323",
+    "reopen_condition": "Only new upstream semantics or demonstrated regression in the current owners. Reuse this frozen audit; do not replay closed parts.",
+    "status": "ported",
+    "fully_closed": true,
+    "current_owners": [
+      "backend/internal/application/service/image_billing_count.go",
+      "backend/internal/application/service/openai_images.go",
+      "backend/internal/application/service/openai_images_responses.go",
+      "backend/internal/application/service/gateway_usage_billing.go",
+      "backend/internal/application/service/openai_gateway_usage.go",
+      "frontend/src/features/admin-groups"
+    ],
+    "decision": "Opt-in group image_count_billing on dedicated image endpoints. Preserve current resolved pricing, account exits, reliable settlement, mixed text/image token costs and frozen migrations. New migration 251; auth snapshot 26 retains distillation fields.",
+    "parts": [
+      {
+        "part": "per-image switch, actual multi-image counts and count fallback",
+        "status": "ported"
+      },
+      {
+        "part": "mark any Gemini/Anthropic image-containing mixed response as a dedicated endpoint",
+        "status": "intentional-local-divergence",
+        "reason": "Image output alone does not establish dedicated endpoint semantics; mixed text token charges must survive."
+      },
+      {
+        "part": "pass token context to per-request OpenAI image pricing tiers",
+        "status": "ported"
+      },
+      {
+        "part": "generic gateway resolves pricing once and passes token context",
+        "status": "covered",
+        "evidence": "baseline gateway_usage_billing.go calculateImageCostWithPricing already passes Tokens and reuses ResolvedPricing; no duplicate rewrite."
+      }
+    ]
+  }
+]

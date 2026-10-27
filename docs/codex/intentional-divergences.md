@@ -68,6 +68,11 @@ failover，service 层不会先写 JSON，因此不会再和外层 `response.fai
 账号，若 401 的结构化错误码为 `token_expired`，网关会先按一次有界的 refresh-token 恢复重试同一账号；
 只有刷新失败或再次 401 才进入这条 HTTP 回退/账号 failover 路径。
 
+请求级容量错误可从 HTTP `Retry-After` / `Retry-After-Ms` 或 SSE/WS 错误体的同名字段读取等待提示。
+提示作为现有同账号指数退避的下限，单次最多 8 秒，不增加重试次数；取消请求会立即结束等待。
+普通错误不采用该提示，已提交语义输出的请求仍不重放。该行为与显式 UA 的保留相互独立；
+上游 #8305 的 TUI 强制改写不适用于本项目已关闭的 Desktop/显式身份契约。
+
 透传路径的恢复重试使用请求级总 attempt budget，不会在每次切换账号后重新获得完整的同账号重试次数。
 带显式 `store:true`、图片生成意图、`previous_response_id` 或工具输出的请求不做无法证明幂等的传输重放。
 首语义输出前的 SSE keepalive 可以先提交 200；此时账号响应元数据通过预声明的 HTTP trailer 发送，
@@ -284,3 +289,29 @@ response、generation 状态无法命中；应把它视为一次全量会话重�
 
 B shadow 与 A generation 是两个独立边界：shadow 不写 B owner，但若 A 同时启用，成功 Compact 仍会
 按 A 的规则推进 generation。
+
+
+## 桌面端逆向文档对照（2026-10-23）
+
+对照用户提供的《逆向说明文档.md》（静态研究覆盖 26.1007、26.1013、26.1016）时，
+必须按实际通信面解释字符串集合。它不是每一次 Responses 请求都必须携带的 header schema。
+配套主报告 4.1.1 将 Rust 字符串、远程控制、本地 app-server 和浏览器标识列在同一清单内；
+4.0 与 app-server 专节分别限定认证/DeviceCheck 的目标及本地 WS 协议。
+
+| 字段或机制 | OAuth Responses 的处理 |
+| --- | --- |
+| UA / originator / version | 保持已有账号/全局完整 UA 配对；引擎版本与桌面应用构建号分开 |
+| installation / window | 已出现的直接 installation 头绑定当前账号或 attempt；普通/device 请求删除无权威来源的 window，session/full 使用自己的 plan；full 的普通 Responses/Compact 直接头策略保持原合同 |
+| turn metadata | HTTP、Compact、普通与透传 WS 使用同一投影；头不携带 `tool_namespaces_info`，编码后最多 8192 字节，超限省略该头，body 的工具清单不受此限制 |
+| metadata 数值 | raw JSON metadata 用 `json.Number` 解码，保留大于 2^53 的整数和原有数值表示，避免身份重写附带精度损失 |
+| 新版完整性 | 不生成或消费旧 `X-OAI-IS` 更新状态机；四个 integrity 保留头显式清理，入站 routing override 由白名单排除，只有已验证的 workspace routing 可重新生成 |
+| WS 生命周期 | installation/window 改变会使旧握手不再兼容；不变时继续复用连接。显式清除 attempt plan 后不能恢复上一账号的模拟身份 |
+| 加密历史 | `encrypted_content` 与 `encrypted_function_args` 保持 opaque；原生 request builder 不解密、不改写 input 内容 |
+| `x-codex-protocol-version` / subscribe cursor / frame size | 本地 app-server RPC 协议；不复制到 Responses inference 握手 |
+| client-session-token / git-source | 远程控制或其他专用操作；不为 inference 合成这些值 |
+| Product-Sku / aeon / Work | 桌面 API 与 durable app-server 的产品路由，不能仅凭二进制字符串推导为 Responses 必填头；不使用它改变授权或额度产品 |
+| DeviceCheck / attestation | 仅由已有真实证明专用链路提供；普通 Responses 不从入站伪造平台证明 |
+
+Docker 验证使用容器内本地 HTTP/SSE 与真实 WebSocket 握手捕获，覆盖流式、非流式、Compact、
+透传、四种 fingerprint mode、账号切换和连接重建，同时比较 BASELINE、MODIFIED、ROLLBACK。
+这能证明本项目的请求合同及回归结果；静态报告和本地 mock 不等同于与真实桌面端生产抓包逐字节一致。

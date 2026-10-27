@@ -1,0 +1,12 @@
+{
+  "baseline": "09364c46ae631b5e3fa754ebcf52b8320c6d0bae",
+  "previous_upstream": "5c185c5c5d4f5e409e2139806e0964ae944e03e8",
+  "upstream": "ba81c7fd758e425d67f856d601147ef0c5263d3f",
+  "first_parent_entries": 3,
+  "all_commits": 9,
+  "inherited_ledgers": [
+    "diagnostics/upstream-sync-20261024/UPSTREAM_PRS.json",
+    "diagnostics/upstream-sync-20261022/UPSTREAM_PRS.json",
+    "diagnostics/upstream-sync-20261022-pr8170/UPSTREAM_PRS.json"
+  ]
+}

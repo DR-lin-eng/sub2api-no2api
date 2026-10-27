@@ -1149,12 +1149,10 @@ func normalizeOpenAIServiceTier(raw string) *string {
 	if value == "fast" {
 		value = "priority"
 	}
-	// 放过 OpenAI 官方文档定义的所有合法 tier 值：priority/flex/auto/default/scale。
-	// 对 Codex 客户端零影响（Codex 只发 priority 或 flex，见 codex-rs/core/src/client.rs），
-	// 但能让直连 OpenAI SDK 的用户透传 auto/default/scale 以便抓包/调试。
+	// Preserve official tier values for request forwarding and returned usage.
 	// 真未知值仍返回 nil，由 normalizeResponsesBodyServiceTier 从 body 中删除。
 	switch value {
-	case "priority", "flex", "auto", "default", "scale":
+	case "priority", "flex", "auto", "default", "scale", "ultrafast":
 		return &value
 	default:
 		return nil
@@ -1717,14 +1715,6 @@ func isEmptyBase64DataURI(raw string) bool {
 	return strings.TrimSpace(strings.TrimPrefix(rest, "base64,")) == ""
 }
 
-func getOpenAIRequestBodyMap(_ *gin.Context, body []byte) (map[string]any, error) {
-	var reqBody map[string]any
-	if err := json.Unmarshal(body, &reqBody); err != nil {
-		return nil, fmt.Errorf("parse request: %w", err)
-	}
-	return reqBody, nil
-}
-
 // extractOpenAIReasoningEffort 的模型候选语义同 extractOpenAIReasoningEffortFromBody。
 func extractOpenAIReasoningEffort(reqBody map[string]any, modelCandidates ...string) *string {
 	if value, present := getOpenAIReasoningEffortFromReqBody(reqBody, firstNonEmpty(modelCandidates...)); present {
@@ -1765,6 +1755,9 @@ func normalizeOpenAIReasoningEffort(raw string) string {
 
 func normalizeOpenAIReasoningEffortForModel(raw, model string) string {
 	rawNormalized := strings.ToLower(strings.TrimSpace(raw))
+	if (rawNormalized == "none" || rawNormalized == "minimal") && normalizeKnownOpenAICodexModel(model) == "gpt-6.1-terra" {
+		return "none"
+	}
 	if (rawNormalized == "none" || rawNormalized == "minimal") && (isOpenAIGPT6AstraModel(model) || isOpenAIGPT61SolModel(model)) {
 		return "low"
 	}

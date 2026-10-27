@@ -1,0 +1,29 @@
+[
+  {
+    "command": "git remote set-url upstream https://github.com/Wei-Shaw/sub2api.git",
+    "exit": 2,
+    "stdout": "",
+    "stderr": "error: No such remote 'upstream'\n",
+    "correction": "git remote add upstream"
+  },
+  {
+    "command": "docker top boring_chandrasekhar; docker logs --tail 3 boring_chandrasekhar",
+    "exit": 1,
+    "stderr": "container was no longer running / No such container",
+    "correction": "Read the running verification session completion; the temporary --rm container had completed normally."
+  },
+  {
+    "command": "git apply DIFF_FILE.patch --directory=/private/tmp/sub2api-sync-20261024-3998-mavjgvgk/ROLLBACK_TARGET",
+    "exit": 128,
+    "stdout": "",
+    "stderr": "error: invalid path '/private/tmp/sub2api-sync-20261024-3998-mavjgvgk/ROLLBACK_TARGET/backend/internal/application/service/README.md'\n",
+    "correction": "git -C ROLLBACK_TARGET apply absolute/DIFF_FILE.patch"
+  },
+  {
+    "command": "git diff --cached --check",
+    "exit": 2,
+    "source": "Native patch context lines and literal stdout/stderr evidence contain intentional whitespace.",
+    "literal_output": "/private/tmp/sub2api-sync-20261024-3998-mavjgvgk/PUBLICATION/records/literal-evidence-whitespace.record.json",
+    "correction": "Keep native evidence byte-for-byte; scope whitespace verification to backend, frontend and docs source."
+  }
+]

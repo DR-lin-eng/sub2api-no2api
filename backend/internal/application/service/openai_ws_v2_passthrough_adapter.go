@@ -736,11 +736,11 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	}
 	if account.IsOpenAIOAuth() {
 		responsesLite := isOpenAIResponsesLiteHeader(c.GetHeader(responsesLiteHeader)) || isOpenAIResponsesLiteWebSocketPayload(firstClientMessage)
-		webSearchMessage, _, webSearchErr := normalizeOpenAIOAuthWebSearchHistoryForAccount(firstClientMessage, account, false, responsesLite)
-		if webSearchErr != nil {
-			return NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", webSearchErr)
+		replayMessage, _, replayErr := normalizeOpenAIOAuthReplayHistoryForAccount(firstClientMessage, account, false, responsesLite)
+		if replayErr != nil {
+			return NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", replayErr)
 		}
-		firstClientMessage = webSearchMessage
+		firstClientMessage = replayMessage
 	}
 	if hooks != nil && (hooks.MaxReasoningEffort != "" || len(hooks.ReasoningEffortMappings) > 0) {
 		if capped, changed := ApplyOpenAIReasoningEffortPolicy(firstClientMessage, hooks.MaxReasoningEffort, hooks.ReasoningEffortMappings); changed {
@@ -1139,11 +1139,11 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 				}
 				if account.IsOpenAIOAuth() {
 					responsesLite := isOpenAIResponsesLiteHeader(c.GetHeader(responsesLiteHeader)) || isOpenAIResponsesLiteWebSocketPayload(payload)
-					webSearchPayload, _, webSearchErr := normalizeOpenAIOAuthWebSearchHistoryForAccount(payload, account, false, responsesLite)
-					if webSearchErr != nil {
-						return payload, nil, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", webSearchErr)
+					replayPayload, _, replayErr := normalizeOpenAIOAuthReplayHistoryForAccount(payload, account, false, responsesLite)
+					if replayErr != nil {
+						return payload, nil, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", replayErr)
 					}
-					payload = webSearchPayload
+					payload = replayPayload
 				}
 				if hooks != nil && (hooks.MaxReasoningEffort != "" || len(hooks.ReasoningEffortMappings) > 0) {
 					if capped, changed := ApplyOpenAIReasoningEffortPolicy(payload, hooks.MaxReasoningEffort, hooks.ReasoningEffortMappings); changed {

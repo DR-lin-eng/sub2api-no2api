@@ -1000,6 +1000,8 @@ export default {
         allowImageGeneration: 'Allow image generation for this group',
         forceImageTool: 'Force Responses image tool through Images API',
         forceImageToolHint: 'Injects image_generation when absent and routes each image through a same-group forced Images API account.',
+        perImageBilling: 'Bill per generated image',
+        perImageBillingHint: 'Dedicated image endpoints only. Enable after all instances are upgraded; mixed text/image requests keep token billing.',
         allowBatchImageGeneration: 'Allow batch image generation for this group',
         independentMultiplier: 'Use independent image multiplier',
         imageMultiplier: 'Image multiplier',

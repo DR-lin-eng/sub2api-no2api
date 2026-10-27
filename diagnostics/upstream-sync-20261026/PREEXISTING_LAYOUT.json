@@ -1,0 +1,8 @@
+{
+  "baseline_and_candidate_same_failures": true,
+  "unchanged_sha256": {
+    "backend/internal/application/service/openai_gateway_forward.go": "1e7158c457028df5b505c566baabf0a9070191d7c75f58ba375371d95268972b",
+    "backend/internal/application/service/payment_fulfillment_test.go": "e9d8e9b9241dc0a0a777b9f54af0bb6b3fd55e0b502c7d24f6b6dd80eb1320e7"
+  },
+  "allowlist_changed": false
+}

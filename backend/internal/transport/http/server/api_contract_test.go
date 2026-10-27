@@ -374,6 +374,7 @@ func TestAPIContracts(t *testing.T) {
 						"web_search_price_per_call": null,
 						"allow_image_generation": false,
 						"allow_batch_image_generation": false,
+						"image_count_billing": false,
 						"openai_force_image_tool": false,
 						"batch_image_discount_multiplier": 0,
 						"batch_image_hold_multiplier": 0,

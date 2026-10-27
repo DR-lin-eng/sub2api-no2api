@@ -299,9 +299,21 @@ func resolveCodexFingerprintIDsFromRequest(account *Account, headers http.Header
 func resolveCodexFingerprintIDsFromGinContext(account *Account, c *gin.Context) *codexFingerprintIDs {
 	if c != nil {
 		if value, exists := c.Get(codexFingerprintIDsContextKey); exists {
-			if ids, ok := value.(*codexFingerprintIDs); ok && ids != nil {
-				return ids
+			// A cleared plan must not revive a previous principal's simulation.
+			// Legacy device/session accounts can still resolve their own plan;
+			// preparation also stages nil when full simulation does not apply.
+			ids, _ := value.(*codexFingerprintIDs)
+			if ids == nil && account != nil && !isOpenAIResponsesCompactPath(c) {
+				mode := account.GetCodexFingerprintMode()
+				if mode == codexFingerprintDevice || mode == codexFingerprintSession {
+					var headers http.Header
+					if c.Request != nil {
+						headers = c.Request.Header
+					}
+					return resolveCodexFingerprintIDsFromRequest(account, headers)
+				}
 			}
+			return ids
 		}
 	}
 	if attempt, ok := codexSimulationAttemptFromGin(c); ok && attempt.fingerprint != nil {
@@ -474,8 +486,12 @@ func rewriteCodexTurnMetadataValue(raw string, ids *codexFingerprintIDs) string 
 	}
 	metadata := make(map[string]any)
 	if raw != "" {
-		if err := json.Unmarshal([]byte(raw), &metadata); err != nil && !ids.fullSimulation {
+		decoded, err := decodeCodexMetadataObject(raw)
+		if err != nil && !ids.fullSimulation {
 			return raw
+		}
+		if err == nil {
+			metadata = decoded
 		}
 	}
 	if ids.fullSimulation {
@@ -487,9 +503,11 @@ func rewriteCodexTurnMetadataValue(raw string, ids *codexFingerprintIDs) string 
 	// Apply the same redaction in device/session and full simulation modes.
 	if sanitized := sanitizeCodexTurnMetadataValue(mustMarshalCodexMetadata(metadata, raw)); sanitized != "" {
 		raw = sanitized
-		if err := json.Unmarshal([]byte(raw), &metadata); err != nil {
+		decoded, err := decodeCodexMetadataObject(raw)
+		if err != nil {
 			return raw
 		}
+		metadata = decoded
 	}
 	applyCodexTurnMetadataFields(metadata, ids)
 	rebuilt, err := json.Marshal(metadata)
@@ -666,7 +684,9 @@ func projectCodexFullSimulationMetadata(metadata map[string]any) {
 
 	turnMetadata := make(map[string]any)
 	if raw, ok := metadata["x-codex-turn-metadata"].(string); ok && strings.TrimSpace(raw) != "" {
-		_ = json.Unmarshal([]byte(raw), &turnMetadata)
+		if decoded, err := decodeCodexMetadataObject(raw); err == nil && decoded != nil {
+			turnMetadata = decoded
+		}
 	}
 	for key, value := range extra {
 		turnMetadata[key] = value
@@ -779,11 +799,15 @@ func applyCodexFingerprintClientMetadataToBody(body []byte, ids *codexFingerprin
 				return body, false, nil
 			}
 			metadata = make(map[string]any)
-		} else if err := json.Unmarshal([]byte(metadataResult.Raw), &metadata); err != nil {
-			if !ids.fullSimulation {
-				return body, false, fmt.Errorf("decode codex client_metadata: %w", err)
+		} else {
+			decoded, err := decodeCodexMetadataObject(metadataResult.Raw)
+			if err != nil {
+				if !ids.fullSimulation {
+					return body, false, fmt.Errorf("decode codex client_metadata: %w", err)
+				}
+			} else {
+				metadata = decoded
 			}
-			metadata = make(map[string]any)
 		}
 	}
 
@@ -833,8 +857,12 @@ func rewriteEmbeddedCodexTurnMetadata(clientMetadata map[string]any, ids *codexF
 
 	metadata := make(map[string]any)
 	if strings.TrimSpace(raw) != "" {
-		if err := json.Unmarshal([]byte(raw), &metadata); err != nil && !ids.fullSimulation {
+		decoded, err := decodeCodexMetadataObject(raw)
+		if err != nil && !ids.fullSimulation {
 			return
+		}
+		if err == nil {
+			metadata = decoded
 		}
 	}
 	if metadata == nil {

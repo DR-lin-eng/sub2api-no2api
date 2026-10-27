@@ -224,13 +224,14 @@ func (s *OpenAICodexUsageSnapshot) Normalize() *NormalizedCodexLimits {
 
 // OpenAIUsage represents OpenAI API response usage
 type OpenAIUsage struct {
-	ReasoningTokens          *int `json:"reasoning_tokens,omitempty"`
-	InputTokens              int  `json:"input_tokens"`
-	ImageInputTokens         int  `json:"image_input_tokens,omitempty"`
-	OutputTokens             int  `json:"output_tokens"`
-	CacheCreationInputTokens int  `json:"cache_creation_input_tokens,omitempty"`
-	CacheReadInputTokens     int  `json:"cache_read_input_tokens,omitempty"`
-	ImageOutputTokens        int  `json:"image_output_tokens,omitempty"`
+	ServiceTier              *string `json:"-"` // Actual upstream tier, when supplied alongside usage.
+	ReasoningTokens          *int    `json:"reasoning_tokens,omitempty"`
+	InputTokens              int     `json:"input_tokens"`
+	ImageInputTokens         int     `json:"image_input_tokens,omitempty"`
+	OutputTokens             int     `json:"output_tokens"`
+	CacheCreationInputTokens int     `json:"cache_creation_input_tokens,omitempty"`
+	CacheReadInputTokens     int     `json:"cache_read_input_tokens,omitempty"`
+	ImageOutputTokens        int     `json:"image_output_tokens,omitempty"`
 }
 
 // OpenAIForwardResult represents the result of forwarding
@@ -271,12 +272,14 @@ type OpenAIForwardResult struct {
 	OpenAITiming          *openaitiming.Metrics
 	ClientDisconnect      bool
 	ImageCount            int
-	ImageSize             string
-	ImageInputSize        string
-	ImageOutputSize       string
-	ImageOutputSizes      []string
-	ImageSizeSource       string
-	ImageSizeBreakdown    map[string]int
+	// ImageEndpoint is set only by dedicated image endpoints, never by mixed text/image output.
+	ImageEndpoint      bool
+	ImageSize          string
+	ImageInputSize     string
+	ImageOutputSize    string
+	ImageOutputSizes   []string
+	ImageSizeSource    string
+	ImageSizeBreakdown map[string]int
 	// ImageBillingSizeLocked 表示该结果来自多模态直通路径，图片档位已在提交上游前
 	// 用请求档位完成计价校验，落账时必须沿用该档位。上游返回的尺寸只用于展示，
 	// 不能反向覆盖计费档位（否则可能改档到未配置价格的档位，最终 0 计费）。
