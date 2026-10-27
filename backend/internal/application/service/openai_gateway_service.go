@@ -224,13 +224,14 @@ func (s *OpenAICodexUsageSnapshot) Normalize() *NormalizedCodexLimits {
 
 // OpenAIUsage represents OpenAI API response usage
 type OpenAIUsage struct {
-	ReasoningTokens          *int `json:"reasoning_tokens,omitempty"`
-	InputTokens              int  `json:"input_tokens"`
-	ImageInputTokens         int  `json:"image_input_tokens,omitempty"`
-	OutputTokens             int  `json:"output_tokens"`
-	CacheCreationInputTokens int  `json:"cache_creation_input_tokens,omitempty"`
-	CacheReadInputTokens     int  `json:"cache_read_input_tokens,omitempty"`
-	ImageOutputTokens        int  `json:"image_output_tokens,omitempty"`
+	ServiceTier              *string `json:"-"` // Actual upstream tier, when supplied alongside usage.
+	ReasoningTokens          *int    `json:"reasoning_tokens,omitempty"`
+	InputTokens              int     `json:"input_tokens"`
+	ImageInputTokens         int     `json:"image_input_tokens,omitempty"`
+	OutputTokens             int     `json:"output_tokens"`
+	CacheCreationInputTokens int     `json:"cache_creation_input_tokens,omitempty"`
+	CacheReadInputTokens     int     `json:"cache_read_input_tokens,omitempty"`
+	ImageOutputTokens        int     `json:"image_output_tokens,omitempty"`
 }
 
 // OpenAIForwardResult represents the result of forwarding

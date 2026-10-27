@@ -21,6 +21,7 @@ var DefaultModels = []Model{
 	{ID: "gpt-5.6-sol", Object: "model", Created: 1780876800, OwnedBy: "openai", Type: "model", DisplayName: "GPT-5.6 Sol"},
 	{ID: "gpt-6-astra", Object: "model", Created: 1788480000, OwnedBy: "openai", Type: "model", DisplayName: "GPT-6 Astra"},
 	{ID: "gpt-6.1-sol", Object: "model", Created: 1790640000, OwnedBy: "openai", Type: "model", DisplayName: "GPT-6.1 Sol"},
+	{ID: "gpt-6.1-terra", Object: "model", Created: 1793059200, OwnedBy: "openai", Type: "model", DisplayName: "GPT-6.1 Terra"},
 	{ID: "gpt-6-sol", Object: "model", Created: 1790121600, OwnedBy: "openai", Type: "model", DisplayName: "GPT-6 Sol"},
 	{ID: "gpt-6-luna", Object: "model", Created: 1790121600, OwnedBy: "openai", Type: "model", DisplayName: "GPT-6 Luna"},
 	{ID: "gpt-5.6", Object: "model", Created: 1780876800, OwnedBy: "openai", Type: "model", DisplayName: "GPT-5.6 (Sol)"},
@@ -110,6 +111,7 @@ func CodexBaseInstructionsForModel(model string) string {
 	switch {
 	case m == "gpt-6" || m == "gpt-6-astra" || strings.HasPrefix(m, "gpt-6-astra-") ||
 		m == "gpt-6.1-sol" || strings.HasPrefix(m, "gpt-6.1-sol-") ||
+		m == "gpt-6.1-terra" || strings.HasPrefix(m, "gpt-6.1-terra-") ||
 		m == "gpt-6-sol" || strings.HasPrefix(m, "gpt-6-sol-") ||
 		m == "gpt-6-luna" || strings.HasPrefix(m, "gpt-6-luna-"):
 		if strings.TrimSpace(instructionsGPT6Astra) != "" {

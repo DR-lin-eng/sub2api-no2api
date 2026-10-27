@@ -1222,18 +1222,22 @@ func extractOpenAIUsageFromJSONBytes(body []byte) (OpenAIUsage, bool) {
 		return OpenAIUsage{}, false
 	}
 	if usage, ok := openAIUsageFromGJSON(gjson.GetBytes(body, "usage")); ok {
+		usage.ServiceTier = normalizeOpenAIServiceTier(gjson.GetBytes(body, "service_tier").String())
 		mergeHostedImageGenToolUsage(gjson.GetBytes(body, "tool_usage.image_gen"), &usage)
 		return usage, true
 	}
 	if usage, ok := openAIUsageFromGJSON(gjson.GetBytes(body, "response.usage")); ok {
+		usage.ServiceTier = normalizeOpenAIServiceTier(gjson.GetBytes(body, "response.service_tier").String())
 		mergeHostedImageGenToolUsage(gjson.GetBytes(body, "response.tool_usage.image_gen"), &usage)
 		return usage, true
 	}
 	if usage, ok := openAIUsageFromGJSON(gjson.GetBytes(body, "data.usage")); ok {
+		usage.ServiceTier = normalizeOpenAIServiceTier(gjson.GetBytes(body, "data.service_tier").String())
 		mergeHostedImageGenToolUsage(gjson.GetBytes(body, "data.tool_usage.image_gen"), &usage)
 		return usage, true
 	}
 	if usage, ok := openAIUsageFromGJSON(gjson.GetBytes(body, "data.response.usage")); ok {
+		usage.ServiceTier = normalizeOpenAIServiceTier(gjson.GetBytes(body, "data.response.service_tier").String())
 		mergeHostedImageGenToolUsage(gjson.GetBytes(body, "data.response.tool_usage.image_gen"), &usage)
 		return usage, true
 	}

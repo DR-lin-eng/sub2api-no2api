@@ -74,6 +74,28 @@ export const openAIModelCatalog = {
       max: {}
     }
   },
+  'gpt-6.1-terra': {
+    name: 'GPT-6.1 Terra',
+    limit: {
+      context: 1050000,
+      output: 128000
+    },
+    modalities: {
+      input: ['text', 'image'],
+      output: ['text']
+    },
+    options: {
+      store: false
+    },
+    variants: {
+      none: {},
+      low: {},
+      medium: {},
+      high: {},
+      xhigh: {},
+      max: {}
+    }
+  },
   'gpt-6-sol': {
     name: 'GPT-6 Sol',
     limit: {

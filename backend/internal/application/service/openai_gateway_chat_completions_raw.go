@@ -506,6 +506,7 @@ func extractCCStreamUsage(payload string) *OpenAIUsage {
 	if !ok {
 		return nil
 	}
+	u.ServiceTier = normalizeOpenAIServiceTier(gjson.Get(payload, "service_tier").String())
 	return &u
 }
 
