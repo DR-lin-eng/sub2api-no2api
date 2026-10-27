@@ -405,6 +405,12 @@ gateway:
     store_disabled_force_new_conn: true
     # 是否启用 WSv2 generate=false 预热（默认 false）
     prewarm_generate_enabled: false
+    # 大消息的 HTTP 预分流和安全 WS 断连恢复；覆盖 HTTP 入站的账号预热路径。
+    # 传输大小随文本和工具历史而异，按未压缩 JSON 字节判断，不按 token 数推测。
+    http_bridge_enabled: true
+    # 预分流阈值为 15 MiB；低于该值收到 1009 仍可触发一次安全 HTTP 回退。
+    # 这是本地路由阈值，不代表上游限制或模型上下文窗口。
+    http_bridge_threshold_bytes: 15728640
     # 协议 feature 开关，v2 优先于 v1
     responses_websockets: false
     responses_websockets_v2: true
