@@ -74,6 +74,8 @@ func normalizeKnownOpenAICodexModel(model string) string {
 		return "gpt-6-astra"
 	case normalized == "gpt-6.1-sol-max" || isKnownOpenAIModelVariant(normalized, "gpt-6.1-sol"):
 		return "gpt-6.1-sol"
+	case normalized == "gpt-6.1-terra-max" || isKnownOpenAIModelVariant(normalized, "gpt-6.1-terra"):
+		return "gpt-6.1-terra"
 	case normalized == "gpt-6-sol-max" || isKnownOpenAIModelVariant(normalized, "gpt-6-sol"):
 		return "gpt-6-sol"
 	case normalized == "gpt-6-luna-max" || isKnownOpenAIModelVariant(normalized, "gpt-6-luna"):
@@ -134,7 +136,7 @@ func isOpenAIGPT61SolModel(model string) bool {
 func isOpenAIGPT6Model(model string) bool {
 	normalized := canonicalizeOpenAIModelAliasSpelling(model)
 	normalized = strings.TrimSuffix(normalized, "-openai-compact")
-	for _, family := range []string{"gpt-6-astra", "gpt-6.1-sol", "gpt-6-sol", "gpt-6-luna"} {
+	for _, family := range []string{"gpt-6-astra", "gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-sol", "gpt-6-luna"} {
 		if isOpenAIGPT6FamilyVariant(normalized, family) {
 			return true
 		}

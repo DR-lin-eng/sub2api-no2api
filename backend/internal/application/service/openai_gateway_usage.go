@@ -197,9 +197,13 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		result.Model,
 	)
 	isVideoUsage := isGrokVideoUsageResult(result, billingModels)
+	billingServiceTier := result.ServiceTier
+	if result.Usage.ServiceTier != nil {
+		billingServiceTier = result.Usage.ServiceTier
+	}
 	serviceTier := ""
-	if result.ServiceTier != nil {
-		serviceTier = strings.TrimSpace(*result.ServiceTier)
+	if billingServiceTier != nil {
+		serviceTier = strings.TrimSpace(*billingServiceTier)
 	}
 	billingAccount := account
 	if account.IsShadow() {
@@ -323,7 +327,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		UpstreamModel:         optionalUsageUpstreamModel(result.UpstreamModel, result.Model, requestedModel),
 		UpstreamResponseModel: optionalTrimmedStringPtr(result.UpstreamResponseModel),
 		UpstreamModelMismatch: upstreamModelMismatch(sentModel, result.UpstreamResponseModel),
-		ServiceTier:           result.ServiceTier,
+		ServiceTier:           billingServiceTier,
 		ReasoningEffort:       result.ReasoningEffort,
 		InboundEndpoint:       optionalTrimmedStringPtr(input.InboundEndpoint),
 		UpstreamEndpoint:      optionalTrimmedStringPtr(input.UpstreamEndpoint),

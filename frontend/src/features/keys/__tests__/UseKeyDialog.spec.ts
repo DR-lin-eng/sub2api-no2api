@@ -660,6 +660,12 @@ describe('UseKeyModal', () => {
       modalities: { input: ['text', 'image'], output: ['text'] }
     })
     expect(models['gpt-6-astra'].variants).toEqual({ low: {}, medium: {}, high: {}, xhigh: {}, max: {} })
+    expect(models['gpt-6.1-terra']).toMatchObject({
+      name: 'GPT-6.1 Terra',
+      limit: { context: 1050000, output: 128000 },
+      modalities: { input: ['text', 'image'], output: ['text'] }
+    })
+    expect(models['gpt-6.1-terra'].variants).toEqual({ none: {}, low: {}, medium: {}, high: {}, xhigh: {}, max: {} })
     for (const model of ['gpt-6.1-sol', 'gpt-6-sol', 'gpt-6-luna']) {
       expect(models[model]).toMatchObject({
         name: model === 'gpt-6.1-sol' ? 'GPT-6.1 Sol' : model === 'gpt-6-sol' ? 'GPT-6 Sol' : 'GPT-6 Luna',

@@ -2380,6 +2380,28 @@
     "supports_reasoning": true,
     "supports_web_search": true
   },
+  "gpt-6.1-terra": {
+    "context_window": 1050000,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1050000,
+    "max_output_tokens": 128000,
+    "supported_reasoning_levels": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
+    "supports_computer_use": true,
+    "supports_parallel_tool_calls": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
+  },
   "gpt-audio": {
     "context_window": 128000,
     "input_modalities": [

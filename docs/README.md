@@ -90,7 +90,7 @@
 | [上游主线同步审查（2026-10-26）](UPSTREAM_SYNC_20261026.md) | 图片按张计费、密钥独立限流、资源级授权专项边界、Docker 升级回退与 CI |
 | [API Key 删除与计费竞争条件审查（2026-10-06）](../diagnostics/billing-key-deletion-20261006/REPORT.md) | 旧版本漏扣回放、当前修复边界、真实数据库与 24 个 Docker HTTP 场景 |
 | [GPT-6 Astra 接入记录](GPT6_ASTRA.md) | OpenAI 官方模型目录、能力、价格和本项目兼容计费映射 |
-| [GPT-6 模型目录与价格](GPT6_MODELS.md) | GPT-6 Astra、Sol、Luna 的官方能力、价格与本项目实现位置 |
+| [GPT-6 模型目录与价格](GPT6_MODELS.md) | GPT-6 Astra、Sol、Luna、GPT-6.1 Sol/Terra 的官方能力、价格与本项目实现位置 |
 | [OpenAI 请求计时](OPENAI_TIMING.md) | 上游 timing 采集、用户明细投影与管理员本地/上游对比 |
 
 
