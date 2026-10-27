@@ -1,0 +1,6 @@
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.436s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/securityaudit	0.016s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin	0.020s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/antigravity	0.004s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/pagination	0.001s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/response	0.004s

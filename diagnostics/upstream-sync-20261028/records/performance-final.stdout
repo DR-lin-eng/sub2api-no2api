@@ -1,0 +1,510 @@
+RUN performance-final-baseline
+{"label": "performance-final-baseline", "exit_status": 0, "duration_seconds": 13.056, "stdout_tail": "2026/10/27 17:06:35 Timezone initialized: UTC (UTC offset: +00:00)\ngoos: linux\ngoarch: arm64\npkg: github.com/Wei-Shaw/sub2api/internal/application/service\nBenchmarkUpstreamSync20261028/FingerprintASCII-2         \t  620434\t       380.5 ns/op\t     192 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/FingerprintASCII-2         \t  628621\t       372.5 ns/op\t     192 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/FingerprintASCII-2         \t  682803\t       371.9 ns/op\t     192 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/FingerprintASCII-2         \t  661756\t       371.1 ns/op\t     192 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/FingerprintASCII-2         \t  659762\t       367.7 ns/op\t     192 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/FingerprintLongUnicode-2   \t     100\t   2142218 ns/op\t 1843328 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/FingerprintLongUnicode-2   \t     100\t   2252327 ns/op\t 1843328 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/FingerprintLongUnicode-2   \t     100\t   2209291 ns/op\t 1843328 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/FingerprintLongUnicode-2   \t     100\t   2199958 ns/op\t 1843328 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/FingerprintLongUnicode-2   \t     100\t   2276262 ns/op\t 1843328 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/GeminiText-2               \t  601333\t       386.0 ns/op\t      64 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/GeminiText-2               \t  649335\t       390.2 ns/op\t      64 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/GeminiText-2               \t  583538\t       438.6 ns/op\t      64 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/GeminiText-2               \t  527211\t       390.5 ns/op\t      64 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/GeminiText-2               \t  654240\t       393.3 ns/op\t      64 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/GeminiInline-2             \t  428449\t       559.4 ns/op\t      80 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/GeminiInline-2             \t  437835\t       555.7 ns/op\t      80 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/GeminiInline-2             \t  413905\t       559.5 ns/op\t      80 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/GeminiInline-2             \t  427828\t       559.6 ns/op\t      80 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/GeminiInline-2             \t  417802\t       542.9 ns/op\t      80 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/UnrelatedLargeChat-2       \t 1497266\t       159.1 ns/op\t     144 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/UnrelatedLargeChat-2       \t 1319006\t       184.2 ns/op\t     144 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/UnrelatedLargeChat-2       \t 1000000\t       203.6 ns/op\t     144 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/UnrelatedLargeChat-2       \t 1413044\t       164.7 ns/op\t     144 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/UnrelatedLargeChat-2       \t 1526127\t       156.1 ns/op\t     144 B/op\t       1 allocs/op\nPASS\nok  \tgithub.com/Wei-Shaw/sub2api/internal/application/service\t5.925s\n", "stderr_tail": ""}
+RUN performance-final-modified
+{"label": "performance-final-modified", "exit_status": 0, "duration_seconds": 12.36, "stdout_tail": "2026/10/27 17:06:47 Timezone initialized: UTC (UTC offset: +00:00)\ngoos: linux\ngoarch: arm64\npkg: github.com/Wei-Shaw/sub2api/internal/application/service\nBenchmarkUpstreamSync20261028/FingerprintASCII-2         \t  506733\t       401.0 ns/op\t     192 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/FingerprintASCII-2         \t  656006\t       391.1 ns/op\t     192 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/FingerprintASCII-2         \t  645739\t       393.4 ns/op\t     192 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/FingerprintASCII-2         \t  616569\t       396.0 ns/op\t     192 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/FingerprintASCII-2         \t  651944\t       392.5 ns/op\t     192 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/FingerprintLongUnicode-2   \t     100\t   2204973 ns/op\t 1843328 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/FingerprintLongUnicode-2   \t     100\t   2210001 ns/op\t 1843328 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/FingerprintLongUnicode-2   \t     100\t   2118003 ns/op\t 1843328 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/FingerprintLongUnicode-2   \t     100\t   2139585 ns/op\t 1843328 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/FingerprintLongUnicode-2   \t     100\t   2249526 ns/op\t 1843328 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/GeminiText-2               \t  692140\t       361.1 ns/op\t      64 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/GeminiText-2               \t  765601\t       339.5 ns/op\t      64 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/GeminiText-2               \t  741770\t       336.7 ns/op\t      64 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/GeminiText-2               \t  669775\t       337.8 ns/op\t      64 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/GeminiText-2               \t  739285\t       335.5 ns/op\t      64 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/GeminiInline-2             \t  441148\t       540.9 ns/op\t      80 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/GeminiInline-2             \t  464458\t       555.9 ns/op\t      80 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/GeminiInline-2             \t  424465\t       541.0 ns/op\t      80 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/GeminiInline-2             \t  439405\t       534.1 ns/op\t      80 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/GeminiInline-2             \t  453714\t       607.3 ns/op\t      80 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/UnrelatedLargeChat-2       \t 1320164\t       174.8 ns/op\t     144 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/UnrelatedLargeChat-2       \t 1510250\t       158.6 ns/op\t     144 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/UnrelatedLargeChat-2       \t 1501104\t       176.5 ns/op\t     144 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/UnrelatedLargeChat-2       \t 1483917\t       162.6 ns/op\t     144 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/UnrelatedLargeChat-2       \t 1493079\t       160.4 ns/op\t     144 B/op\t       1 allocs/op\nPASS\nok  \tgithub.com/Wei-Shaw/sub2api/internal/application/service\t6.055s\n", "stderr_tail": ""}
+ROLLBACK_RESTORED=/private/tmp/sub2api-sync-20261028-zrr48pfp/rollback-copy
+RUN performance-final-rollback
+{"label": "performance-final-rollback", "exit_status": 0, "duration_seconds": 11.868, "stdout_tail": "2026/10/27 17:06:59 Timezone initialized: UTC (UTC offset: +00:00)\ngoos: linux\ngoarch: arm64\npkg: github.com/Wei-Shaw/sub2api/internal/application/service\nBenchmarkUpstreamSync20261028/FingerprintASCII-2         \t  629314\t       572.4 ns/op\t     192 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/FingerprintASCII-2         \t  658165\t       370.4 ns/op\t     192 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/FingerprintASCII-2         \t  709542\t       370.5 ns/op\t     192 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/FingerprintASCII-2         \t  596414\t       373.6 ns/op\t     192 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/FingerprintASCII-2         \t  658405\t       365.3 ns/op\t     192 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/FingerprintLongUnicode-2   \t     100\t   2191818 ns/op\t 1843328 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/FingerprintLongUnicode-2   \t     100\t   2241663 ns/op\t 1843328 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/FingerprintLongUnicode-2   \t     100\t   2266520 ns/op\t 1843328 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/FingerprintLongUnicode-2   \t     100\t   2190929 ns/op\t 1843328 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/FingerprintLongUnicode-2   \t     100\t   2229725 ns/op\t 1843328 B/op\t       3 allocs/op\nBenchmarkUpstreamSync20261028/GeminiText-2               \t  626474\t       395.6 ns/op\t      64 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/GeminiText-2               \t  621003\t       396.9 ns/op\t      64 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/GeminiText-2               \t  531472\t       449.9 ns/op\t      64 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/GeminiText-2               \t  617276\t       395.8 ns/op\t      64 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/GeminiText-2               \t  636976\t       392.1 ns/op\t      64 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/GeminiInline-2             \t  439969\t       565.5 ns/op\t      80 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/GeminiInline-2             \t  429933\t       559.6 ns/op\t      80 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/GeminiInline-2             \t  454215\t       565.5 ns/op\t      80 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/GeminiInline-2             \t  463438\t       543.1 ns/op\t      80 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/GeminiInline-2             \t  442093\t       552.7 ns/op\t      80 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/UnrelatedLargeChat-2       \t 1447578\t       176.2 ns/op\t     144 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/UnrelatedLargeChat-2       \t 1492069\t       160.3 ns/op\t     144 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/UnrelatedLargeChat-2       \t 1493749\t       160.5 ns/op\t     144 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/UnrelatedLargeChat-2       \t 1497054\t       161.1 ns/op\t     144 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261028/UnrelatedLargeChat-2       \t 1503823\t       158.0 ns/op\t     144 B/op\t       1 allocs/op\nPASS\nok  \tgithub.com/Wei-Shaw/sub2api/internal/application/service\t6.176s\n", "stderr_tail": ""}
+{
+  "BASELINE": {
+    "FingerprintASCII": {
+      "median_ns": 371.9,
+      "bytes": 192,
+      "allocations": 3,
+      "samples": [
+        [
+          380.5,
+          192,
+          3
+        ],
+        [
+          372.5,
+          192,
+          3
+        ],
+        [
+          371.9,
+          192,
+          3
+        ],
+        [
+          371.1,
+          192,
+          3
+        ],
+        [
+          367.7,
+          192,
+          3
+        ]
+      ]
+    },
+    "FingerprintLongUnicode": {
+      "median_ns": 2209291.0,
+      "bytes": 1843328,
+      "allocations": 3,
+      "samples": [
+        [
+          2142218.0,
+          1843328,
+          3
+        ],
+        [
+          2252327.0,
+          1843328,
+          3
+        ],
+        [
+          2209291.0,
+          1843328,
+          3
+        ],
+        [
+          2199958.0,
+          1843328,
+          3
+        ],
+        [
+          2276262.0,
+          1843328,
+          3
+        ]
+      ]
+    },
+    "GeminiText": {
+      "median_ns": 390.5,
+      "bytes": 64,
+      "allocations": 1,
+      "samples": [
+        [
+          386.0,
+          64,
+          1
+        ],
+        [
+          390.2,
+          64,
+          1
+        ],
+        [
+          438.6,
+          64,
+          1
+        ],
+        [
+          390.5,
+          64,
+          1
+        ],
+        [
+          393.3,
+          64,
+          1
+        ]
+      ]
+    },
+    "GeminiInline": {
+      "median_ns": 559.4,
+      "bytes": 80,
+      "allocations": 1,
+      "samples": [
+        [
+          559.4,
+          80,
+          1
+        ],
+        [
+          555.7,
+          80,
+          1
+        ],
+        [
+          559.5,
+          80,
+          1
+        ],
+        [
+          559.6,
+          80,
+          1
+        ],
+        [
+          542.9,
+          80,
+          1
+        ]
+      ]
+    },
+    "UnrelatedLargeChat": {
+      "median_ns": 164.7,
+      "bytes": 144,
+      "allocations": 1,
+      "samples": [
+        [
+          159.1,
+          144,
+          1
+        ],
+        [
+          184.2,
+          144,
+          1
+        ],
+        [
+          203.6,
+          144,
+          1
+        ],
+        [
+          164.7,
+          144,
+          1
+        ],
+        [
+          156.1,
+          144,
+          1
+        ]
+      ]
+    }
+  },
+  "MODIFIED": {
+    "FingerprintASCII": {
+      "median_ns": 393.4,
+      "bytes": 192,
+      "allocations": 3,
+      "samples": [
+        [
+          401.0,
+          192,
+          3
+        ],
+        [
+          391.1,
+          192,
+          3
+        ],
+        [
+          393.4,
+          192,
+          3
+        ],
+        [
+          396.0,
+          192,
+          3
+        ],
+        [
+          392.5,
+          192,
+          3
+        ]
+      ]
+    },
+    "FingerprintLongUnicode": {
+      "median_ns": 2204973.0,
+      "bytes": 1843328,
+      "allocations": 3,
+      "samples": [
+        [
+          2204973.0,
+          1843328,
+          3
+        ],
+        [
+          2210001.0,
+          1843328,
+          3
+        ],
+        [
+          2118003.0,
+          1843328,
+          3
+        ],
+        [
+          2139585.0,
+          1843328,
+          3
+        ],
+        [
+          2249526.0,
+          1843328,
+          3
+        ]
+      ]
+    },
+    "GeminiText": {
+      "median_ns": 337.8,
+      "bytes": 64,
+      "allocations": 1,
+      "samples": [
+        [
+          361.1,
+          64,
+          1
+        ],
+        [
+          339.5,
+          64,
+          1
+        ],
+        [
+          336.7,
+          64,
+          1
+        ],
+        [
+          337.8,
+          64,
+          1
+        ],
+        [
+          335.5,
+          64,
+          1
+        ]
+      ]
+    },
+    "GeminiInline": {
+      "median_ns": 541.0,
+      "bytes": 80,
+      "allocations": 1,
+      "samples": [
+        [
+          540.9,
+          80,
+          1
+        ],
+        [
+          555.9,
+          80,
+          1
+        ],
+        [
+          541.0,
+          80,
+          1
+        ],
+        [
+          534.1,
+          80,
+          1
+        ],
+        [
+          607.3,
+          80,
+          1
+        ]
+      ]
+    },
+    "UnrelatedLargeChat": {
+      "median_ns": 162.6,
+      "bytes": 144,
+      "allocations": 1,
+      "samples": [
+        [
+          174.8,
+          144,
+          1
+        ],
+        [
+          158.6,
+          144,
+          1
+        ],
+        [
+          176.5,
+          144,
+          1
+        ],
+        [
+          162.6,
+          144,
+          1
+        ],
+        [
+          160.4,
+          144,
+          1
+        ]
+      ]
+    }
+  },
+  "ROLLBACK": {
+    "FingerprintASCII": {
+      "median_ns": 370.5,
+      "bytes": 192,
+      "allocations": 3,
+      "samples": [
+        [
+          572.4,
+          192,
+          3
+        ],
+        [
+          370.4,
+          192,
+          3
+        ],
+        [
+          370.5,
+          192,
+          3
+        ],
+        [
+          373.6,
+          192,
+          3
+        ],
+        [
+          365.3,
+          192,
+          3
+        ]
+      ]
+    },
+    "FingerprintLongUnicode": {
+      "median_ns": 2229725.0,
+      "bytes": 1843328,
+      "allocations": 3,
+      "samples": [
+        [
+          2191818.0,
+          1843328,
+          3
+        ],
+        [
+          2241663.0,
+          1843328,
+          3
+        ],
+        [
+          2266520.0,
+          1843328,
+          3
+        ],
+        [
+          2190929.0,
+          1843328,
+          3
+        ],
+        [
+          2229725.0,
+          1843328,
+          3
+        ]
+      ]
+    },
+    "GeminiText": {
+      "median_ns": 395.8,
+      "bytes": 64,
+      "allocations": 1,
+      "samples": [
+        [
+          395.6,
+          64,
+          1
+        ],
+        [
+          396.9,
+          64,
+          1
+        ],
+        [
+          449.9,
+          64,
+          1
+        ],
+        [
+          395.8,
+          64,
+          1
+        ],
+        [
+          392.1,
+          64,
+          1
+        ]
+      ]
+    },
+    "GeminiInline": {
+      "median_ns": 559.6,
+      "bytes": 80,
+      "allocations": 1,
+      "samples": [
+        [
+          565.5,
+          80,
+          1
+        ],
+        [
+          559.6,
+          80,
+          1
+        ],
+        [
+          565.5,
+          80,
+          1
+        ],
+        [
+          543.1,
+          80,
+          1
+        ],
+        [
+          552.7,
+          80,
+          1
+        ]
+      ]
+    },
+    "UnrelatedLargeChat": {
+      "median_ns": 160.5,
+      "bytes": 144,
+      "allocations": 1,
+      "samples": [
+        [
+          176.2,
+          144,
+          1
+        ],
+        [
+          160.3,
+          144,
+          1
+        ],
+        [
+          160.5,
+          144,
+          1
+        ],
+        [
+          161.1,
+          144,
+          1
+        ],
+        [
+          158.0,
+          144,
+          1
+        ]
+      ]
+    }
+  },
+  "environment": {
+    "control": "Final sequential run after local build/runtime checks; earlier overlapping measurements retained separately",
+    "image": "sub2api-sync-tests:20261026",
+    "go": "1.26.10",
+    "platform": "linux/arm64",
+    "cpus": 2,
+    "memory": "4 GiB",
+    "order": [
+      "BASELINE",
+      "MODIFIED",
+      "ROLLBACK"
+    ],
+    "same_input": "ASCII and large Unicode fingerprints, Gemini text and inline image, unrelated 1 MiB Chat body with model last",
+    "scope": "isolated fixed function fixture; not production gateway throughput"
+  }
+}

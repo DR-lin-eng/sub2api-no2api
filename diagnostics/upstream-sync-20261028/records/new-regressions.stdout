@@ -1,0 +1,43 @@
+2026/10/27 16:37:58 Timezone initialized: UTC (UTC offset: +00:00)
+2026/10/27 16:37:58 [Billing] Using fallback pricing for model: deepseek-v4-pro
+2026/10/27 16:37:58 [Billing] Using fallback pricing for model: deepseek-v4-pro-0813
+2026/10/27 16:37:58 [Billing] Using fallback pricing for model: deepseek-flash
+2026/10/27 16:37:58 [Billing] Using fallback pricing for model: deepseek-flash
+2026/10/27 16:37:58 [Billing] Using fallback pricing for model: deepseek-v4-flash
+2026/10/27 16:37:58 [Billing] Using fallback pricing for model: deepseek-v4-flash-vision-exp
+2026/10/27 16:37:58 [Billing] Using fallback pricing for model: deepseek-v4-pro
+--- FAIL: TestNormalizeStrictChatDeveloperRoles_OpenCodeModelRouting (0.00s)
+    --- FAIL: TestNormalizeStrictChatDeveloperRoles_OpenCodeModelRouting/prefixed_deepseek (0.00s)
+        openai_chat_roles_opencode_test.go:34: 
+            	Error Trace:	/src/backend/internal/application/service/openai_chat_roles_opencode_test.go:34
+            	Error:      	Not equal: 
+            	            	expected: "system"
+            	            	actual  : "developer"
+            	            	
+            	            	Diff:
+            	            	--- Expected
+            	            	+++ Actual
+            	            	@@ -1 +1 @@
+            	            	-system
+            	            	+developer
+            	Test:       	TestNormalizeStrictChatDeveloperRoles_OpenCodeModelRouting/prefixed_deepseek
+2026/10/27 16:37:58 OpenAI first-output staging limit exceeded: account=1 model=model error=openai first-output staging limit exceeded: buffered=8386568 incoming=1048320 limit=8388608
+FAIL
+FAIL	github.com/Wei-Shaw/sub2api/internal/application/service	0.411s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/securityaudit	0.016s
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+--- FAIL: TestRankedStatsRejectOverflowPage (0.00s)
+    ops_pagination_overflow_test.go:24: 
+        	Error Trace:	/src/backend/internal/transport/http/handler/admin/ops_pagination_overflow_test.go:24
+        	Error:      	Received unexpected error:
+        	            	invalid page
+        	Test:       	TestRankedStatsRejectOverflowPage
+FAIL
+FAIL	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin	0.023s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/antigravity	0.007s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/pagination	0.003s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/response	0.004s
+FAIL

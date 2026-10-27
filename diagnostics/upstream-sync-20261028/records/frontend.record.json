@@ -1,0 +1,27 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=3g",
+    "-v",
+    "/private/tmp/sub2api-sync-20261028-zrr48pfp/repo:/app",
+    "-v",
+    "sub2api-sync-node-modules-20261026:/app/frontend/node_modules",
+    "-v",
+    "sub2api-sync-pnpm-20261026:/root/.local/share/pnpm/store",
+    "-w",
+    "/app",
+    "sub2api-sync-node:20261027",
+    "make",
+    "test-frontend"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261028-zrr48pfp/repo",
+  "input": "",
+  "stdout": "",
+  "stderr": "node:internal/modules/cjs/loader:1568\n  throw err;\n  ^\n\nError: Cannot find module '/app/make'\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1564:15)\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1169:12)\n    at Module._load (node:internal/modules/cjs/loader:1341:5)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:261:19)\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\n    at node:internal/main/run_main_module:33:47 {\n  code: 'MODULE_NOT_FOUND',\n  requireStack: []\n}\n\nNode.js v24.22.1\n",
+  "exit_status": 1,
+  "duration_seconds": 1.271,
+  "utc": "2026-10-27T16:32:40.441862+00:00"
+}

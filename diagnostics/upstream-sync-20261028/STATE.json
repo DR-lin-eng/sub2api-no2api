@@ -1,0 +1,48 @@
+{
+  "target": "/Users/lin/.codex/worktrees/17fc/sub2api-no2api",
+  "root": "/private/tmp/sub2api-sync-20261028-zrr48pfp",
+  "repo": "/private/tmp/sub2api-sync-20261028-zrr48pfp/repo",
+  "action": "VERIFIED_TRANSACTION",
+  "goal": [
+    "review upstream main PRs",
+    "smooth upgrade",
+    "performance review",
+    "selective port",
+    "close handled differences",
+    "Docker validation",
+    "push",
+    "track CI"
+  ],
+  "source_head": "d8fef5fbd38583e699200bab7f07e19fa4a972fe",
+  "source_tree": "d93acf3e912c237b717cc5b22d6e305347a78b8b",
+  "setup_errors": [
+    {
+      "command": "rg --files docs diagnostics openspec .github .agents .codex",
+      "exit_status": 2,
+      "stderr": "rg: .agents: No such file or directory (os error 2)\nrg: .codex: No such file or directory (os error 2)"
+    },
+    {
+      "command": "git fetch origin main",
+      "exit_status": 255,
+      "stderr": "error: cannot open '/Users/lin/sub2api-no2api/.git/worktrees/sub2api-no2api3/FETCH_HEAD': Operation not permitted"
+    }
+  ],
+  "baseline": "e7c44ecf4b824281b84d6b4bfb6ef0e44b117b2d",
+  "baseline_tree": "48380e929a83f33dc0d804623b52ed1d4f03ec82",
+  "upstream": "f178e5ae32659e8901644a9f2378a0439ffa36ae",
+  "previous_upstream": "15701ba187af5827d740901d53421bd69ed97717",
+  "branch": "codex/upstream-sync-20261028",
+  "roles": {
+    "MODIFIED_FILE": "/private/tmp/sub2api-sync-20261028-zrr48pfp/repo/diagnostics/upstream-sync-20261028/MODIFIED_FILE.tar.gz",
+    "DIFF_FILE": "/private/tmp/sub2api-sync-20261028-zrr48pfp/repo/diagnostics/upstream-sync-20261028/DIFF_FILE.patch",
+    "VERIFICATION": "/private/tmp/sub2api-sync-20261028-zrr48pfp/repo/diagnostics/upstream-sync-20261028/VERIFICATION.txt",
+    "ROLLBACK": "/private/tmp/sub2api-sync-20261028-zrr48pfp/repo/diagnostics/upstream-sync-20261028/ROLLBACK.sh"
+  },
+  "inherited_ledgers": [
+    "diagnostics/upstream-sync-20261027/UPSTREAM_PRS.json",
+    "diagnostics/upstream-sync-20261026/UPSTREAM_PRS.json"
+  ],
+  "inherited_open_items": "Unchanged. In particular #8319 resource-level authorization remains specialized and not fully closed.",
+  "last_confirmed_result": "All local Docker gates accepted, final same-input source rollback/reconstruction across 35 paths, final four-stage HTTP/database and sequential performance accepted; original target unchanged.",
+  "next_executable_action": "Commit source/evidence, register only reviewed upstream ancestry, push, create/attach PR, track exact head CI, merge, track exact main CI and published multi-architecture image."
+}

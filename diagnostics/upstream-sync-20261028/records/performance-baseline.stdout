@@ -1,0 +1,31 @@
+2026/10/27 17:01:40 Timezone initialized: UTC (UTC offset: +00:00)
+goos: linux
+goarch: arm64
+pkg: github.com/Wei-Shaw/sub2api/internal/application/service
+BenchmarkUpstreamSync20261028/FingerprintASCII-2         	  618596	       373.7 ns/op	     192 B/op	       3 allocs/op
+BenchmarkUpstreamSync20261028/FingerprintASCII-2         	  694494	       361.8 ns/op	     192 B/op	       3 allocs/op
+BenchmarkUpstreamSync20261028/FingerprintASCII-2         	  689728	       377.0 ns/op	     192 B/op	       3 allocs/op
+BenchmarkUpstreamSync20261028/FingerprintASCII-2         	  677311	       376.8 ns/op	     192 B/op	       3 allocs/op
+BenchmarkUpstreamSync20261028/FingerprintASCII-2         	  703906	       367.8 ns/op	     192 B/op	       3 allocs/op
+BenchmarkUpstreamSync20261028/FingerprintLongUnicode-2   	     100	   2200365 ns/op	 1843328 B/op	       3 allocs/op
+BenchmarkUpstreamSync20261028/FingerprintLongUnicode-2   	     100	   2213888 ns/op	 1843328 B/op	       3 allocs/op
+BenchmarkUpstreamSync20261028/FingerprintLongUnicode-2   	     100	   2199655 ns/op	 1843328 B/op	       3 allocs/op
+BenchmarkUpstreamSync20261028/FingerprintLongUnicode-2   	     100	   2203676 ns/op	 1843328 B/op	       3 allocs/op
+BenchmarkUpstreamSync20261028/FingerprintLongUnicode-2   	     100	   2222592 ns/op	 1843328 B/op	       3 allocs/op
+BenchmarkUpstreamSync20261028/GeminiText-2               	  600531	       415.5 ns/op	      64 B/op	       1 allocs/op
+BenchmarkUpstreamSync20261028/GeminiText-2               	  476336	       482.8 ns/op	      64 B/op	       1 allocs/op
+BenchmarkUpstreamSync20261028/GeminiText-2               	  622608	       392.5 ns/op	      64 B/op	       1 allocs/op
+BenchmarkUpstreamSync20261028/GeminiText-2               	  656132	       449.0 ns/op	      64 B/op	       1 allocs/op
+BenchmarkUpstreamSync20261028/GeminiText-2               	  608319	       396.2 ns/op	      64 B/op	       1 allocs/op
+BenchmarkUpstreamSync20261028/GeminiInline-2             	  418102	       595.5 ns/op	      80 B/op	       1 allocs/op
+BenchmarkUpstreamSync20261028/GeminiInline-2             	  423062	       569.9 ns/op	      80 B/op	       1 allocs/op
+BenchmarkUpstreamSync20261028/GeminiInline-2             	  452342	       544.9 ns/op	      80 B/op	       1 allocs/op
+BenchmarkUpstreamSync20261028/GeminiInline-2             	  433561	       557.6 ns/op	      80 B/op	       1 allocs/op
+BenchmarkUpstreamSync20261028/GeminiInline-2             	  442477	       548.6 ns/op	      80 B/op	       1 allocs/op
+BenchmarkUpstreamSync20261028/UnrelatedLargeChat-2       	 1449150	       163.1 ns/op	     144 B/op	       1 allocs/op
+BenchmarkUpstreamSync20261028/UnrelatedLargeChat-2       	 1550073	       151.4 ns/op	     144 B/op	       1 allocs/op
+BenchmarkUpstreamSync20261028/UnrelatedLargeChat-2       	 1486052	       160.4 ns/op	     144 B/op	       1 allocs/op
+BenchmarkUpstreamSync20261028/UnrelatedLargeChat-2       	 1473001	       162.0 ns/op	     144 B/op	       1 allocs/op
+BenchmarkUpstreamSync20261028/UnrelatedLargeChat-2       	 1416387	       171.0 ns/op	     144 B/op	       1 allocs/op
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	6.089s

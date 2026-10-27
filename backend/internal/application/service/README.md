@@ -93,3 +93,5 @@ GPT-6.1 Sol 的订阅模型长上下文豁免由 `openai_subscription_long_conte
 `billing_grok_fast.go` 持有 Grok 4.7 Fast 的明确 ID 与内置兜底价；捆绑快照使用本项目已支持的显式长上下文字段。两个 Fast ID、边界与价格优先级见 [#8170 同步记录](../../../../docs/UPSTREAM_SYNC_20261022_PR8170.md)。
 
 `grok_model_catalog.go` performs strict Grok catalog parsing and computes a source fingerprint. It reuses modelcatalog persistence and the existing OAuth model worker. Detail diagnostics are pure; `openai_compat_tool_model.go` enforces mapped Sol/Terra tools on Responses-capable paths. See [2026-10-27 sync](../../../../docs/UPSTREAM_SYNC_20261027.md).
+
+Claude 指纹的 UTF-16 前缀、Gemini fileData 计图、DeepSeek Pro/缓存读取、OpenCode 角色、模型广场固定价及上传完整性见 [2026-10-28 同步记录](../../../../docs/UPSTREAM_SYNC_20261028.md)。非流式畸形工具调用复用有界 collector 并返回明确 502；没有替换既有调度与可靠结算。

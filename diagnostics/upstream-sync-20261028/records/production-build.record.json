@@ -1,0 +1,22 @@
+{
+  "command": [
+    "docker",
+    "build",
+    "-t",
+    "sub2api:upstream-sync-20261028",
+    "--build-arg",
+    "COMMIT=upstream-sync-20261028",
+    "--build-arg",
+    "GOPROXY=https://proxy.golang.org,direct",
+    "--build-arg",
+    "GOSUMDB=sum.golang.org",
+    "."
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261028-zrr48pfp/repo",
+  "input": "",
+  "stdout": "",
+  "stderr": "ERROR: failed to build: failed to update builder last activity time: open /Users/lin/.docker/buildx/activity/.tmp-desktop-linux2287139772: operation not permitted\n",
+  "exit_status": 1,
+  "duration_seconds": 0.436,
+  "utc": "2026-10-27T16:37:14.183024+00:00"
+}

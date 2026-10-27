@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/private/tmp/sub2api-sync-20261028-zrr48pfp/repo/diagnostics/upstream-sync-20261028/runtime/check.py", line 212, in <module>
+    assert abs(row['cost']-(.5 if fixed else 0))<1e-9,(stage,'gemini cost',row)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ('BASELINE', 'gemini cost', {'input': 1000, 'output': 100, 'cache': 0, 'images': 0, 'cost': 0.25, 'actual': 0.25, 'mode': 'image'})

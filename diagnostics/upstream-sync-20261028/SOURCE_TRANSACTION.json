@@ -1,0 +1,93 @@
+{
+  "baseline_tree": "48380e929a83f33dc0d804623b52ed1d4f03ec82",
+  "affected_paths": 35,
+  "baseline_hashes_restored": "PASS",
+  "patch_reconstruction": "PASS",
+  "reapplied_source_equals_modified_archive": "PASS",
+  "results": [
+    {
+      "stage": "BASELINE",
+      "exit_status": 0,
+      "observed_behavior": [
+        "upstream_sync_20261028_probe_test.go:33: OBS fingerprint=f07",
+        "upstream_sync_20261028_probe_test.go:37: OBS gemini_file_images=0",
+        "upstream_sync_20261028_probe_test.go:41: OBS deepseek_pro_input=0.000000150 output=0.000000600 cache=0.000000003",
+        "upstream_sync_20261028_probe_test.go:42: OBS deepseek_cache_hit=0",
+        "upstream_sync_20261028_probe_test.go:45: OBS opencode_role=developer",
+        "upstream_sync_20261028_probe_test.go:48: OBS pagination_nonnegative=false addition_safe=false",
+        "upstream_sync_20261028_probe_test.go:53: OBS cn_frequency percent=12 short_cooldown=true",
+        "upstream_sync_20261028_probe_test.go:53: OBS cn_frequency percent=100 short_cooldown=true",
+        "upstream_sync_20261028_probe_test.go:63: OBS plaza_fixed_image=0.90",
+        "upstream_sync_20261028_probe_test.go:68: OBS malformed_status=200 error=false success=true",
+        "upstream_sync_20261028_probe_test.go:71: OBS openai_upload_21mb accepted=false bytes=0",
+        "upstream_sync_20261028_probe_test.go:80: OBS grok_upload_21mb bytes=20971520 complete=false"
+      ],
+      "same_command_input": [
+        "go",
+        "test",
+        "-tags=unit",
+        "./internal/application/service",
+        "-run",
+        "^TestUpstreamSync20261028Transaction$",
+        "-count=1",
+        "-v"
+      ]
+    },
+    {
+      "stage": "MODIFIED",
+      "exit_status": 0,
+      "observed_behavior": [
+        "upstream_sync_20261028_probe_test.go:33: OBS fingerprint=784",
+        "upstream_sync_20261028_probe_test.go:37: OBS gemini_file_images=2",
+        "upstream_sync_20261028_probe_test.go:41: OBS deepseek_pro_input=0.000000660 output=0.000001980 cache=0.000000022",
+        "upstream_sync_20261028_probe_test.go:42: OBS deepseek_cache_hit=600",
+        "upstream_sync_20261028_probe_test.go:45: OBS opencode_role=system",
+        "upstream_sync_20261028_probe_test.go:48: OBS pagination_nonnegative=true addition_safe=true",
+        "upstream_sync_20261028_probe_test.go:53: OBS cn_frequency percent=12 short_cooldown=true",
+        "upstream_sync_20261028_probe_test.go:53: OBS cn_frequency percent=100 short_cooldown=true",
+        "upstream_sync_20261028_probe_test.go:63: OBS plaza_fixed_image=0.12",
+        "upstream_sync_20261028_probe_test.go:68: OBS malformed_status=502 error=true success=false",
+        "upstream_sync_20261028_probe_test.go:71: OBS openai_upload_21mb accepted=true bytes=22020096",
+        "upstream_sync_20261028_probe_test.go:80: OBS grok_upload_21mb bytes=22020096 complete=true"
+      ],
+      "same_command_input": [
+        "go",
+        "test",
+        "-tags=unit",
+        "./internal/application/service",
+        "-run",
+        "^TestUpstreamSync20261028Transaction$",
+        "-count=1",
+        "-v"
+      ]
+    },
+    {
+      "stage": "ROLLBACK",
+      "exit_status": 0,
+      "observed_behavior": [
+        "upstream_sync_20261028_probe_test.go:33: OBS fingerprint=f07",
+        "upstream_sync_20261028_probe_test.go:37: OBS gemini_file_images=0",
+        "upstream_sync_20261028_probe_test.go:41: OBS deepseek_pro_input=0.000000150 output=0.000000600 cache=0.000000003",
+        "upstream_sync_20261028_probe_test.go:42: OBS deepseek_cache_hit=0",
+        "upstream_sync_20261028_probe_test.go:45: OBS opencode_role=developer",
+        "upstream_sync_20261028_probe_test.go:48: OBS pagination_nonnegative=false addition_safe=false",
+        "upstream_sync_20261028_probe_test.go:53: OBS cn_frequency percent=12 short_cooldown=true",
+        "upstream_sync_20261028_probe_test.go:53: OBS cn_frequency percent=100 short_cooldown=true",
+        "upstream_sync_20261028_probe_test.go:63: OBS plaza_fixed_image=0.90",
+        "upstream_sync_20261028_probe_test.go:68: OBS malformed_status=200 error=false success=true",
+        "upstream_sync_20261028_probe_test.go:71: OBS openai_upload_21mb accepted=false bytes=0",
+        "upstream_sync_20261028_probe_test.go:80: OBS grok_upload_21mb bytes=20971520 complete=false"
+      ],
+      "same_command_input": [
+        "go",
+        "test",
+        "-tags=unit",
+        "./internal/application/service",
+        "-run",
+        "^TestUpstreamSync20261028Transaction$",
+        "-count=1",
+        "-v"
+      ]
+    }
+  ]
+}

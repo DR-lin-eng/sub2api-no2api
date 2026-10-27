@@ -1,0 +1,166 @@
+[
+  {
+    "pr": 8286,
+    "merge_sha": "0232cb7137b840926e2dd23c62f1bee1c8557071",
+    "title": "Merge pull request #8286 from coder-zhw/fix/cn-frequency-429-short-cooldown",
+    "diff_sha256": "579bfd339f01e292673f6badc23a430ab8b6cd5f3c2301f0a4151a559536de52",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8286",
+    "status": "covered-current-owner",
+    "fully_closed": true,
+    "current_owners": [
+      "backend/internal/application/service/ratelimit_service.go"
+    ],
+    "decision": "Current CN platforms already fall through to configurable short 429 cooldown rather than quota-snapshot resets. Preserve existing quota admission and balance handling; do not import a window-cooldown subsystem solely to re-fix it.",
+    "reopen_condition": "Only a new upstream semantic change or a reproducible regression in the current owning source. Reuse this frozen decision; do not replay closed differences."
+  },
+  {
+    "pr": 8377,
+    "merge_sha": "3bd166babc300281f1830e6d7ce24256265a1d20",
+    "title": "Merge pull request #8377 from StarryKira/codex/fix-cc-version-utf16",
+    "diff_sha256": "554d19fc735f092ac5391494561573de7f55407959e53a2ed795821d801d90a7",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8377",
+    "status": "ported",
+    "fully_closed": true,
+    "current_owners": [
+      "backend/internal/application/service/gateway_billing_block.go"
+    ],
+    "decision": "UTF-16 code-unit sampling and JavaScript surrogate encoding; scan at most the first 22 units, preserving ASCII and short-input behavior.",
+    "reopen_condition": "Only a new upstream semantic change or a reproducible regression in the current owning source. Reuse this frozen decision; do not replay closed differences."
+  },
+  {
+    "pr": 8326,
+    "merge_sha": "bb021d330e2067687d6362dc48991e63b3e56d6c",
+    "title": "Merge pull request #8326 from r266-tech/codex/gemini-file-images",
+    "diff_sha256": "6f72c98ba30cd8bd86b12dbf3685cdff506653874b05524773c614bfe0e478b7",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8326",
+    "status": "ported",
+    "fully_closed": true,
+    "current_owners": [
+      "backend/internal/application/service/gemini_image_output_accounting.go"
+    ],
+    "decision": "Count valid inline/file image parts, camel/snake fields, string data/URI only, one image per part and maximum per payload. One part traversal; no URI requests or extra state.",
+    "reopen_condition": "Only a new upstream semantic change or a reproducible regression in the current owning source. Reuse this frozen decision; do not replay closed differences."
+  },
+  {
+    "pr": 8003,
+    "merge_sha": "3f1ae7ee76aecd8d5066e6549690a7cd66e471f2",
+    "title": "Merge pull request #8003 from Yukinoshita-Yukino/codex/fix-deepseek-pro-pricing",
+    "diff_sha256": "cc47a7145d29d5da2c0f754e029a6b24d0be43c0ca5f97069826d2c9d18c0815",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8003",
+    "status": "ported",
+    "fully_closed": true,
+    "current_owners": [
+      "backend/internal/application/service/billing_service.go"
+    ],
+    "decision": "Remove obsolete date switch from Pro to Flash. Preserve peak timing, custom unit cards and immutable historical usage. Default future Pro costs change; coordinate nodes or hold explicit group prices while rolling.",
+    "reopen_condition": "Only a new upstream semantic change or a reproducible regression in the current owning source. Reuse this frozen decision; do not replay closed differences."
+  },
+  {
+    "pr": 8366,
+    "merge_sha": "98bcee7a8934220215268cccb80f15f3cb16091b",
+    "title": "Merge pull request #8366 from wx-11/fix/model-plaza-group-pricing",
+    "diff_sha256": "d90f3162c1490904cb247ddbccf5f0facb31ff7ac2d8e579185ae61fbc1368a4",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8366",
+    "status": "ported",
+    "fully_closed": true,
+    "current_owners": [
+      "backend/internal/application/service/channel_plaza.go"
+    ],
+    "decision": "Use current compiled group model pricing for fixed image/per-request/video cards before group image fallbacks. No per-model database/resolver queries, and no mutation of cached channel cards.",
+    "reopen_condition": "Only a new upstream semantic change or a reproducible regression in the current owning source. Reuse this frozen decision; do not replay closed differences."
+  },
+  {
+    "pr": 8354,
+    "merge_sha": "8e231ff5d66afb5789f5a876872d2c8867828e82",
+    "title": "Merge pull request #8354 from ychy7001/fix/deepseek-cache-hit-tokens",
+    "diff_sha256": "6c6e40044c2c41422c4c067965e54e65a95756b827ffbc21a700630ef4143e43",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8354",
+    "status": "ported",
+    "fully_closed": true,
+    "current_owners": [
+      "backend/internal/application/service/openai_gateway_response_handling.go"
+    ],
+    "decision": "Recognize prompt_cache_hit_tokens as a final cache-read fallback; nested counters retain precedence, including explicit zero. Existing settlement subtracts cache buckets from total prompt input exactly once.",
+    "reopen_condition": "Only a new upstream semantic change or a reproducible regression in the current owning source. Reuse this frozen decision; do not replay closed differences."
+  },
+  {
+    "pr": 8376,
+    "merge_sha": "af4462ebaef34d68c1e73e8622c4e195648fef75",
+    "title": "Merge pull request #8376 from fxjs/fix/opencode-deepseek-developer-role",
+    "diff_sha256": "3d9f4a38e602482f3389a9cc6310aee96be4e2659cad2c0df3420357a9143e7a",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8376",
+    "status": "ported",
+    "fully_closed": true,
+    "current_owners": [
+      "backend/internal/application/service/openai_chat_roles.go"
+    ],
+    "decision": "Normalize developer for mapped DeepSeek models only on native OpenCode accounts or selected official HTTPS OpenCode destination. Retain exact-host, retry input and other-model isolation. Read the model only after target eligibility to avoid scanning unrelated large bodies.",
+    "reopen_condition": "Only a new upstream semantic change or a reproducible regression in the current owning source. Reuse this frozen decision; do not replay closed differences."
+  },
+  {
+    "pr": 8303,
+    "merge_sha": "2c9d9760d8d60bc403d50d3d9b56d77c56164adf",
+    "title": "Merge pull request #8303 from SipengXie2024/fix/pagination-offset-overflow",
+    "diff_sha256": "71627ca7e0d779f0ae9ab51851ff8293c5e4b59147aa2e02ed8d233090388b12",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8303",
+    "status": "ported",
+    "fully_closed": true,
+    "current_owners": [
+      "backend/internal/shared/pagination",
+      "backend/internal/shared/response",
+      "backend/internal/application/service/api_key_service.go",
+      "backend/internal/modules/securityaudit/prompt_handler.go",
+      "backend/internal/transport/http/handler/admin/ops_dashboard_handler.go"
+    ],
+    "decision": "Saturate offset and offset+limit, reject numeric overflow, use shared offset for in-memory keys and explicit 400 guards for audit and both ranked stats endpoints. No repository replacement or query changes.",
+    "reopen_condition": "Only a new upstream semantic change or a reproducible regression in the current owning source. Reuse this frozen decision; do not replay closed differences."
+  },
+  {
+    "pr": 8348,
+    "merge_sha": "449b65a2ed9ae43c8438105b41c500619253090f",
+    "title": "Merge pull request #8348 from SipengXie2024/fix/images-upload-part-limit",
+    "diff_sha256": "2b98a2dd6a14308b545ef7a83cc3febacd86499948451eca59651aee31cdef58",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8348",
+    "status": "selectively-ported",
+    "fully_closed": true,
+    "current_owners": [
+      "backend/internal/application/service/openai_images.go",
+      "backend/internal/application/service/grok_media.go"
+    ],
+    "decision": "Existing OpenAI limit+one rejection is covered and retained; raise limit to 50 MiB and remove Grok silent truncation within existing total-body limits. Retain current request path/observability; do not allocate a second slice of log summaries per upload.",
+    "reopen_condition": "Only a new upstream semantic change or a reproducible regression in the current owning source. Reuse this frozen decision; do not replay closed differences.",
+    "parts": [
+      {
+        "part": "OpenAI oversize rejection",
+        "status": "covered",
+        "closed": true
+      },
+      {
+        "part": "50 MiB compatibility and complete Grok uploads",
+        "status": "ported",
+        "closed": true
+      },
+      {
+        "part": "extra per-upload log summary allocation",
+        "status": "intentional-local-divergence",
+        "closed": true
+      }
+    ]
+  },
+  {
+    "pr": 8362,
+    "merge_sha": "f178e5ae32659e8901644a9f2378a0439ffa36ae",
+    "title": "Merge pull request #8362 from lkon2112/fix/nonstream-malformed-function-call",
+    "diff_sha256": "b2ccc9b23a075498697b10e4a7e25e72ff43ad3a7332155ad75f99c93499db1e",
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8362",
+    "status": "ported",
+    "fully_closed": true,
+    "current_owners": [
+      "backend/internal/shared/antigravity/response_transformer.go",
+      "backend/internal/application/service/antigravity_gateway_stream_collect.go",
+      "backend/internal/application/service/antigravity_gateway_compat.go"
+    ],
+    "decision": "Reject primary-candidate MALFORMED_FUNCTION_CALL in direct conversion and before nonstream aggregation. Responses/Chat emit HTTP 502 malformed_function_call; retain current bounded collector and unchanged streaming behavior.",
+    "reopen_condition": "Only a new upstream semantic change or a reproducible regression in the current owning source. Reuse this frozen decision; do not replay closed differences."
+  }
+]
