@@ -10,24 +10,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDeepseekPricingSyncProRoutesToFlashAtCutoff(t *testing.T) {
+func TestDeepseekPricingSyncProRetainsProRates(t *testing.T) {
 	bs := newTestBillingService()
-
-	before, err := bs.getModelPricingAt("deepseek-v4-pro", deepseekProRoutesToFlashAt.Add(-time.Second))
-	require.NoError(t, err)
-	require.InDelta(t, deepseekProOffPeakInputPrice, before.InputPricePerToken, 1e-15)
-	require.InDelta(t, deepseekProOffPeakOutputPrice, before.OutputPricePerToken, 1e-15)
-	require.InDelta(t, deepseekProOffPeakCacheRead, before.CacheReadPricePerToken, 1e-15)
-
-	atCutoff, err := bs.getModelPricingAt("deepseek-v4-pro", deepseekProRoutesToFlashAt)
-	require.NoError(t, err)
-	require.InDelta(t, deepseekFlashOffPeakInputPrice, atCutoff.InputPricePerToken, 1e-15)
-	require.InDelta(t, deepseekFlashOffPeakOutputPrice, atCutoff.OutputPricePerToken, 1e-15)
-	require.InDelta(t, deepseekFlashOffPeakCacheRead, atCutoff.CacheReadPricePerToken, 1e-15)
-
-	versioned, err := bs.getModelPricingAt("deepseek-v4-pro-0813", deepseekProRoutesToFlashAt)
-	require.NoError(t, err)
-	require.InDelta(t, deepseekFlashOffPeakInputPrice, versioned.InputPricePerToken, 1e-15)
+	cutoff := time.Date(2026, 9, 14, 4, 0, 0, 0, time.UTC)
+	for _, model := range []string{"deepseek-v4-pro", "deepseek-v4-pro-0813"} {
+		for _, at := range []time.Time{cutoff.Add(-time.Second), cutoff, cutoff.Add(40 * 24 * time.Hour)} {
+			pricing, err := bs.getModelPricingAt(model, at)
+			require.NoError(t, err)
+			require.InDelta(t, deepseekProOffPeakInputPrice, pricing.InputPricePerToken, 1e-15)
+			require.InDelta(t, deepseekProOffPeakOutputPrice, pricing.OutputPricePerToken, 1e-15)
+			require.InDelta(t, deepseekProOffPeakCacheRead, pricing.CacheReadPricePerToken, 1e-15)
+		}
+	}
 }
 
 func TestDeepseekPricingSyncPeakMultiplierAndCustomPriceBoundary(t *testing.T) {

@@ -1,0 +1,22 @@
+{
+  "MODIFIED_FILE": {
+    "path": "/private/tmp/sub2api-sync-20261028-zrr48pfp/repo/diagnostics/upstream-sync-20261028/MODIFIED_FILE.tar.gz",
+    "bytes": 120695,
+    "sha256": "1108739032e51eebf49956a02f34d8f60884309de7acbb90468e7f3862efb4f5"
+  },
+  "DIFF_FILE": {
+    "path": "/private/tmp/sub2api-sync-20261028-zrr48pfp/repo/diagnostics/upstream-sync-20261028/DIFF_FILE.patch",
+    "bytes": 56338,
+    "sha256": "88716e7332aa6dc831b2480a01c809ccca67dc767f4856172ed396b3a768e9b6"
+  },
+  "VERIFICATION": {
+    "path": "/private/tmp/sub2api-sync-20261028-zrr48pfp/repo/diagnostics/upstream-sync-20261028/VERIFICATION.txt",
+    "bytes": 264016,
+    "sha256": "ff030c62c10d05606bfdb6d8b453945949c0a52360926bd2ec35a3dc8e15af17"
+  },
+  "ROLLBACK": {
+    "path": "/private/tmp/sub2api-sync-20261028-zrr48pfp/repo/diagnostics/upstream-sync-20261028/ROLLBACK.sh",
+    "bytes": 152367,
+    "sha256": "513c90c331954d12937385371c4cd8aec2315dde415720a1842bab64ecbef7ed"
+  }
+}

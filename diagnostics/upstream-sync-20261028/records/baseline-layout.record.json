@@ -1,0 +1,21 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "-v",
+    "/private/tmp/sub2api-sync-20261028-zrr48pfp/baseline:/src",
+    "-w",
+    "/src/backend",
+    "sub2api-sync-tests:20261026",
+    "make",
+    "check-layout"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261028-zrr48pfp/repo",
+  "input": "",
+  "stdout": "./scripts/check-source-layout.sh\n",
+  "stderr": "layout error: internal/application/service/payment_fulfillment_test.go has 1201 lines (limit 1200); split by responsibility\nlayout error: internal/application/service/pricing_service.go has 1218 lines (limit 1200); split by responsibility\nmake: *** [Makefile:14: check-layout] Error 1\n",
+  "exit_status": 2,
+  "duration_seconds": 3.495,
+  "utc": "2026-10-27T16:32:15.350492+00:00"
+}

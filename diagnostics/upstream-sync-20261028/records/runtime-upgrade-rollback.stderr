@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/private/tmp/sub2api-sync-20261028-zrr48pfp/repo/diagnostics/upstream-sync-20261028/runtime/check.py", line 196, in <module>
+    assert code==200,(stage,name,stream,code,str(value)[:200])
+           ^^^^^^^^^
+AssertionError: ('BASELINE', 'default', False, 502, "{'error': {'message': 'Upstream stream ended without a terminal response event', 'type': 'api_error'}}")

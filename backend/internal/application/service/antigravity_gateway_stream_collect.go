@@ -141,6 +141,10 @@ func (s *AntigravityGatewayService) collectClaudeStreamResponseWithLimitsAndObse
 			if err := json.Unmarshal(inner, &parsed); err != nil {
 				continue
 			}
+			// A terminal error can have no parts or be followed by usage-only frames.
+			if extractGeminiFinishReason(parsed) == "MALFORMED_FUNCTION_CALL" {
+				return nil, nil, antigravity.ErrMalformedFunctionCall
+			}
 			parts := extractGeminiParts(parsed)
 			eventMeaningful := len(parts) > 0 || strings.TrimSpace(extractGeminiFinishReason(parsed)) != ""
 			if err := budget.observeEvent(

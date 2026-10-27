@@ -1,0 +1,502 @@
+{
+  "BASELINE": {
+    "FingerprintASCII": {
+      "median_ns": 373.7,
+      "bytes": 192,
+      "allocations": 3,
+      "samples": [
+        [
+          373.7,
+          192,
+          3
+        ],
+        [
+          361.8,
+          192,
+          3
+        ],
+        [
+          377.0,
+          192,
+          3
+        ],
+        [
+          376.8,
+          192,
+          3
+        ],
+        [
+          367.8,
+          192,
+          3
+        ]
+      ]
+    },
+    "FingerprintLongUnicode": {
+      "median_ns": 2203676.0,
+      "bytes": 1843328,
+      "allocations": 3,
+      "samples": [
+        [
+          2200365.0,
+          1843328,
+          3
+        ],
+        [
+          2213888.0,
+          1843328,
+          3
+        ],
+        [
+          2199655.0,
+          1843328,
+          3
+        ],
+        [
+          2203676.0,
+          1843328,
+          3
+        ],
+        [
+          2222592.0,
+          1843328,
+          3
+        ]
+      ]
+    },
+    "GeminiText": {
+      "median_ns": 415.5,
+      "bytes": 64,
+      "allocations": 1,
+      "samples": [
+        [
+          415.5,
+          64,
+          1
+        ],
+        [
+          482.8,
+          64,
+          1
+        ],
+        [
+          392.5,
+          64,
+          1
+        ],
+        [
+          449.0,
+          64,
+          1
+        ],
+        [
+          396.2,
+          64,
+          1
+        ]
+      ]
+    },
+    "GeminiInline": {
+      "median_ns": 557.6,
+      "bytes": 80,
+      "allocations": 1,
+      "samples": [
+        [
+          595.5,
+          80,
+          1
+        ],
+        [
+          569.9,
+          80,
+          1
+        ],
+        [
+          544.9,
+          80,
+          1
+        ],
+        [
+          557.6,
+          80,
+          1
+        ],
+        [
+          548.6,
+          80,
+          1
+        ]
+      ]
+    },
+    "UnrelatedLargeChat": {
+      "median_ns": 162.0,
+      "bytes": 144,
+      "allocations": 1,
+      "samples": [
+        [
+          163.1,
+          144,
+          1
+        ],
+        [
+          151.4,
+          144,
+          1
+        ],
+        [
+          160.4,
+          144,
+          1
+        ],
+        [
+          162.0,
+          144,
+          1
+        ],
+        [
+          171.0,
+          144,
+          1
+        ]
+      ]
+    }
+  },
+  "MODIFIED": {
+    "FingerprintASCII": {
+      "median_ns": 421.4,
+      "bytes": 192,
+      "allocations": 3,
+      "samples": [
+        [
+          522.9,
+          192,
+          3
+        ],
+        [
+          387.9,
+          192,
+          3
+        ],
+        [
+          421.4,
+          192,
+          3
+        ],
+        [
+          434.2,
+          192,
+          3
+        ],
+        [
+          417.9,
+          192,
+          3
+        ]
+      ]
+    },
+    "FingerprintLongUnicode": {
+      "median_ns": 2212590.0,
+      "bytes": 1843328,
+      "allocations": 3,
+      "samples": [
+        [
+          2189546.0,
+          1843328,
+          3
+        ],
+        [
+          2199433.0,
+          1843328,
+          3
+        ],
+        [
+          2212590.0,
+          1843328,
+          3
+        ],
+        [
+          2267216.0,
+          1843328,
+          3
+        ],
+        [
+          2234504.0,
+          1843328,
+          3
+        ]
+      ]
+    },
+    "GeminiText": {
+      "median_ns": 339.2,
+      "bytes": 64,
+      "allocations": 1,
+      "samples": [
+        [
+          339.8,
+          64,
+          1
+        ],
+        [
+          339.5,
+          64,
+          1
+        ],
+        [
+          332.1,
+          64,
+          1
+        ],
+        [
+          339.2,
+          64,
+          1
+        ],
+        [
+          335.2,
+          64,
+          1
+        ]
+      ]
+    },
+    "GeminiInline": {
+      "median_ns": 545.1,
+      "bytes": 80,
+      "allocations": 1,
+      "samples": [
+        [
+          581.4,
+          80,
+          1
+        ],
+        [
+          563.5,
+          80,
+          1
+        ],
+        [
+          539.1,
+          80,
+          1
+        ],
+        [
+          545.1,
+          80,
+          1
+        ],
+        [
+          540.9,
+          80,
+          1
+        ]
+      ]
+    },
+    "UnrelatedLargeChat": {
+      "median_ns": 151.9,
+      "bytes": 144,
+      "allocations": 1,
+      "samples": [
+        [
+          153.5,
+          144,
+          1
+        ],
+        [
+          149.9,
+          144,
+          1
+        ],
+        [
+          151.9,
+          144,
+          1
+        ],
+        [
+          151.9,
+          144,
+          1
+        ],
+        [
+          153.1,
+          144,
+          1
+        ]
+      ]
+    }
+  },
+  "ROLLBACK": {
+    "FingerprintASCII": {
+      "median_ns": 609.2,
+      "bytes": 192,
+      "allocations": 3,
+      "samples": [
+        [
+          665.5,
+          192,
+          3
+        ],
+        [
+          728.2,
+          192,
+          3
+        ],
+        [
+          580.7,
+          192,
+          3
+        ],
+        [
+          561.7,
+          192,
+          3
+        ],
+        [
+          609.2,
+          192,
+          3
+        ]
+      ]
+    },
+    "FingerprintLongUnicode": {
+      "median_ns": 3141489.0,
+      "bytes": 1843328,
+      "allocations": 3,
+      "samples": [
+        [
+          3141489.0,
+          1843328,
+          3
+        ],
+        [
+          3328754.0,
+          1843328,
+          3
+        ],
+        [
+          3274540.0,
+          1843328,
+          3
+        ],
+        [
+          3086214.0,
+          1843328,
+          3
+        ],
+        [
+          3095873.0,
+          1843328,
+          3
+        ]
+      ]
+    },
+    "GeminiText": {
+      "median_ns": 485.2,
+      "bytes": 64,
+      "allocations": 1,
+      "samples": [
+        [
+          533.2,
+          64,
+          1
+        ],
+        [
+          485.2,
+          64,
+          1
+        ],
+        [
+          451.2,
+          64,
+          1
+        ],
+        [
+          498.6,
+          64,
+          1
+        ],
+        [
+          455.2,
+          64,
+          1
+        ]
+      ]
+    },
+    "GeminiInline": {
+      "median_ns": 859.2,
+      "bytes": 80,
+      "allocations": 1,
+      "samples": [
+        [
+          859.2,
+          80,
+          1
+        ],
+        [
+          711.6,
+          80,
+          1
+        ],
+        [
+          814.5,
+          80,
+          1
+        ],
+        [
+          995.6,
+          80,
+          1
+        ],
+        [
+          952.8,
+          80,
+          1
+        ]
+      ]
+    },
+    "UnrelatedLargeChat": {
+      "median_ns": 320.9,
+      "bytes": 144,
+      "allocations": 1,
+      "samples": [
+        [
+          292.0,
+          144,
+          1
+        ],
+        [
+          320.9,
+          144,
+          1
+        ],
+        [
+          359.2,
+          144,
+          1
+        ],
+        [
+          360.6,
+          144,
+          1
+        ],
+        [
+          232.4,
+          144,
+          1
+        ]
+      ]
+    }
+  },
+  "environment": {
+    "image": "sub2api-sync-tests:20261026",
+    "go": "1.26.10",
+    "platform": "linux/arm64",
+    "cpus": 2,
+    "memory": "4 GiB",
+    "order": [
+      "BASELINE",
+      "MODIFIED",
+      "ROLLBACK"
+    ],
+    "same_input": "ASCII and large Unicode fingerprints, Gemini text and inline image, unrelated 1 MiB Chat body with model last",
+    "scope": "isolated fixed function fixture; not production gateway throughput"
+  }
+}

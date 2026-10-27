@@ -28,7 +28,7 @@ func geminiImageResponse(parts string) string {
 	return `{"candidates":[{"content":{"role":"model","parts":[` + parts + `]},"finishReason":"STOP"}]}`
 }
 
-func TestCountGeminiInlineImageOutputs(t *testing.T) {
+func TestCountGeminiImageOutputs(t *testing.T) {
 	cases := []struct {
 		name    string
 		payload string
@@ -44,7 +44,7 @@ func TestCountGeminiInlineImageOutputs(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			require.Equal(t, tc.want, countGeminiInlineImageOutputs([]byte(tc.payload)))
+			require.Equal(t, tc.want, countGeminiImageOutputs([]byte(tc.payload)))
 		})
 	}
 }

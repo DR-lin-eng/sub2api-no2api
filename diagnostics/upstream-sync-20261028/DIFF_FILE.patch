@@ -1,0 +1,1248 @@
+diff --git a/backend/internal/application/service/README.md b/backend/internal/application/service/README.md
+index 97b2bfa96..a9b7a6dba 100644
+--- a/backend/internal/application/service/README.md
++++ b/backend/internal/application/service/README.md
+@@ -93,3 +93,5 @@ GPT-6.1 Sol 的订阅模型长上下文豁免由 `openai_subscription_long_conte
+ `billing_grok_fast.go` 持有 Grok 4.7 Fast 的明确 ID 与内置兜底价；捆绑快照使用本项目已支持的显式长上下文字段。两个 Fast ID、边界与价格优先级见 [#8170 同步记录](../../../../docs/UPSTREAM_SYNC_20261022_PR8170.md)。
+ 
+ `grok_model_catalog.go` performs strict Grok catalog parsing and computes a source fingerprint. It reuses modelcatalog persistence and the existing OAuth model worker. Detail diagnostics are pure; `openai_compat_tool_model.go` enforces mapped Sol/Terra tools on Responses-capable paths. See [2026-10-27 sync](../../../../docs/UPSTREAM_SYNC_20261027.md).
++
++Claude 指纹的 UTF-16 前缀、Gemini fileData 计图、DeepSeek Pro/缓存读取、OpenCode 角色、模型广场固定价及上传完整性见 [2026-10-28 同步记录](../../../../docs/UPSTREAM_SYNC_20261028.md)。非流式畸形工具调用复用有界 collector 并返回明确 502；没有替换既有调度与可靠结算。
+diff --git a/backend/internal/application/service/antigravity_gateway_compat.go b/backend/internal/application/service/antigravity_gateway_compat.go
+index d12c5d4fb..6e60e3fb9 100644
+--- a/backend/internal/application/service/antigravity_gateway_compat.go
++++ b/backend/internal/application/service/antigravity_gateway_compat.go
+@@ -572,6 +572,9 @@ func (s *AntigravityGatewayService) mapAntigravityCompatCollectionError(c *gin.C
+ 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+ 		return err
+ 	}
++	if errors.Is(err, antigravity.ErrMalformedFunctionCall) {
++		return s.writeAntigravityCompatError(c, http.StatusBadGateway, "malformed_function_call", err.Error())
++	}
+ 	if strings.Contains(err.Error(), "stream data interval timeout") {
+ 		return s.writeAntigravityCompatError(c, http.StatusBadGateway, "upstream_timeout", "Upstream stream data interval timeout")
+ 	}
+diff --git a/backend/internal/application/service/antigravity_gateway_nonstream_malformed_test.go b/backend/internal/application/service/antigravity_gateway_nonstream_malformed_test.go
+new file mode 100644
+index 000000000..fc9c600aa
+--- /dev/null
++++ b/backend/internal/application/service/antigravity_gateway_nonstream_malformed_test.go
+@@ -0,0 +1,57 @@
++//go:build unit
++
++package service
++
++import (
++	"io"
++	"net/http"
++	"strings"
++	"testing"
++	"time"
++
++	"github.com/Wei-Shaw/sub2api/internal/platform/config"
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++)
++
++func TestAntigravityMalformedFunctionCallNonStreaming(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	for _, tc := range []struct {
++		name   string
++		frames string
++		status int
++	}{
++		{"signature only", `data: {"response":{"candidates":[{"finishReason":"MALFORMED_FUNCTION_CALL","content":{"parts":[{"thoughtSignature":"test-signature"}]}}]}}` + "\n\n", http.StatusBadGateway},
++		{"error after parts", `data: {"response":{"candidates":[{"content":{"parts":[{"functionCall":{"name":"read","args":{}}}]}}]}}` + "\n\n" + `data: {"response":{"candidates":[{"finishReason":"MALFORMED_FUNCTION_CALL"}]}}` + "\n\n", http.StatusBadGateway},
++		{"error before usage", `data: {"response":{"candidates":[{"finishReason":"MALFORMED_FUNCTION_CALL"}]}}` + "\n\n" + `data: {"response":{"usageMetadata":{"promptTokenCount":1}}}` + "\n\n", http.StatusBadGateway},
++		{"normal tool", `data: {"response":{"candidates":[{"finishReason":"STOP","content":{"parts":[{"functionCall":{"name":"read","args":{}}}]}}]}}` + "\n\n", http.StatusOK},
++		{"normal text", `data: {"response":{"candidates":[{"finishReason":"STOP","content":{"parts":[{"text":"hello"}]}}]}}` + "\n\n", http.StatusOK},
++	} {
++		for _, protocol := range []string{"responses", "chat"} {
++			t.Run(protocol+"/"+tc.name, func(t *testing.T) {
++				svc := newAntigravityCompatService(config.GatewayConfig{MaxLineSize: defaultMaxLineSize}, nil)
++				c, recorder := newAntigravityCompatContext(http.MethodPost, "/v1/responses", nil)
++				resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(tc.frames))}
++				handle := svc.handleResponsesNonStreamingFromAntigravity
++				if protocol == "chat" {
++					handle = svc.handleChatCompletionsNonStreamingFromAntigravity
++				}
++				_, err := handle(c, resp, time.Now(), "test-model")
++				require.Equal(t, tc.status, recorder.Code)
++				if tc.status == http.StatusBadGateway {
++					require.Error(t, err)
++					require.Contains(t, recorder.Body.String(), `"type":"malformed_function_call"`)
++					require.Contains(t, recorder.Body.String(), "MALFORMED_FUNCTION_CALL")
++					require.NotContains(t, recorder.Body.String(), `"status":"completed"`)
++				} else {
++					require.NoError(t, err)
++					if protocol == "responses" {
++						require.Contains(t, recorder.Body.String(), `"status":"completed"`)
++					} else {
++						require.Contains(t, recorder.Body.String(), `"choices"`)
++					}
++				}
++			})
++		}
++	}
++}
+diff --git a/backend/internal/application/service/antigravity_gateway_stream_collect.go b/backend/internal/application/service/antigravity_gateway_stream_collect.go
+index 04d156586..f5886af8a 100644
+--- a/backend/internal/application/service/antigravity_gateway_stream_collect.go
++++ b/backend/internal/application/service/antigravity_gateway_stream_collect.go
+@@ -141,6 +141,10 @@ func (s *AntigravityGatewayService) collectClaudeStreamResponseWithLimitsAndObse
+ 			if err := json.Unmarshal(inner, &parsed); err != nil {
+ 				continue
+ 			}
++			// A terminal error can have no parts or be followed by usage-only frames.
++			if extractGeminiFinishReason(parsed) == "MALFORMED_FUNCTION_CALL" {
++				return nil, nil, antigravity.ErrMalformedFunctionCall
++			}
+ 			parts := extractGeminiParts(parsed)
+ 			eventMeaningful := len(parts) > 0 || strings.TrimSpace(extractGeminiFinishReason(parsed)) != ""
+ 			if err := budget.observeEvent(
+diff --git a/backend/internal/application/service/api_key_pagination_overflow_test.go b/backend/internal/application/service/api_key_pagination_overflow_test.go
+new file mode 100644
+index 000000000..396c4d38e
+--- /dev/null
++++ b/backend/internal/application/service/api_key_pagination_overflow_test.go
+@@ -0,0 +1,16 @@
++//go:build unit
++
++package service
++
++import (
++	"math"
++	"testing"
++
++	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
++	"github.com/stretchr/testify/require"
++)
++
++func TestAPIKeyPaginationOverflowReturnsEmpty(t *testing.T) {
++	require.Empty(t, paginateAPIKeys([]APIKey{{ID: 1}}, pagination.PaginationParams{Page: math.MaxInt, PageSize: 20}))
++	require.Len(t, paginateAPIKeys([]APIKey{{ID: 1}}, pagination.PaginationParams{Page: 1, PageSize: 20}), 1)
++}
+diff --git a/backend/internal/application/service/api_key_service.go b/backend/internal/application/service/api_key_service.go
+index d01b72080..34cc5617d 100644
+--- a/backend/internal/application/service/api_key_service.go
++++ b/backend/internal/application/service/api_key_service.go
+@@ -823,11 +823,7 @@ func paginateAPIKeys(keys []APIKey, params pagination.PaginationParams) []APIKey
+ 		return []APIKey{}
+ 	}
+ 	limit := params.Limit()
+-	page := params.Page
+-	if page < 1 {
+-		page = 1
+-	}
+-	offset := (page - 1) * limit
++	offset := params.Offset()
+ 	if offset >= len(keys) {
+ 		return []APIKey{}
+ 	}
+diff --git a/backend/internal/application/service/billing_service.go b/backend/internal/application/service/billing_service.go
+index 1a7ef9965..75781592f 100644
+--- a/backend/internal/application/service/billing_service.go
++++ b/backend/internal/application/service/billing_service.go
+@@ -237,8 +237,6 @@ const (
+ 	deepseekProOffPeakCacheRead     = 2.2e-8
+ )
+ 
+-var deepseekProRoutesToFlashAt = time.Date(2026, 9, 14, 4, 0, 0, 0, time.UTC)
+-
+ func isDeepSeekModel(model string) bool {
+ 	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(model)), "deepseek-")
+ }
+@@ -247,13 +245,6 @@ func isDeepSeekProModel(model string) bool {
+ 	return strings.Contains(strings.ToLower(strings.TrimSpace(model)), "deepseek-v4-pro")
+ }
+ 
+-func deepseekProBilledAsFlash(pricingAt time.Time) bool {
+-	if pricingAt.IsZero() {
+-		pricingAt = timezone.Now()
+-	}
+-	return !pricingAt.Before(deepseekProRoutesToFlashAt)
+-}
+-
+ func deepseekPeakMultiplierAt(now time.Time) float64 {
+ 	beijing := now.In(time.FixedZone("Asia/Shanghai", 8*60*60))
+ 	switch beijing.Weekday() {
+@@ -1609,13 +1600,14 @@ func (s *BillingService) calculateCostInternalWithPolicy(
+ 	return s.computeTokenBreakdown(pricing, tokens, rateMultiplier, imageRateMultiplier, serviceTier, longContextBillingEnabled), nil
+ }
+ 
+-func (s *BillingService) applyModelSpecificPricingPolicyEx(model string, pricing *ModelPricing, forceDeepSeekRates bool, pricingAt time.Time) *ModelPricing {
++// DeepSeek Pro retains its Pro card at every date; peak pricing is applied separately.
++func (s *BillingService) applyModelSpecificPricingPolicyEx(model string, pricing *ModelPricing, forceDeepSeekRates bool, _ time.Time) *ModelPricing {
+ 	if pricing == nil {
+ 		return nil
+ 	}
+ 	if forceDeepSeekRates && isDeepSeekModel(model) {
+ 		cloned := *pricing
+-		if isDeepSeekProModel(model) && !deepseekProBilledAsFlash(pricingAt) {
++		if isDeepSeekProModel(model) {
+ 			cloned.InputPricePerToken = deepseekProOffPeakInputPrice
+ 			cloned.OutputPricePerToken = deepseekProOffPeakOutputPrice
+ 			cloned.CacheReadPricePerToken = deepseekProOffPeakCacheRead
+diff --git a/backend/internal/application/service/channel_plaza.go b/backend/internal/application/service/channel_plaza.go
+index ce6e7e53a..1c20b5650 100644
+--- a/backend/internal/application/service/channel_plaza.go
++++ b/backend/internal/application/service/channel_plaza.go
+@@ -95,6 +95,11 @@ func (s *ChannelService) ListPlazaGroups(ctx context.Context, opts PlazaListOpti
+ 	order := make([]int64, 0, len(groups))
+ 	for i := range groups {
+ 		g := &groups[i]
++		// ListActive returns repository values, unlike compiled auth prototypes.
++		// Build once per group, then share the index across its displayed models.
++		if g.modelPricingIndex == nil {
++			g.compileModelPricingIndex()
++		}
+ 		byGroup[g.ID] = &PlazaGroup{
+ 			ID:                   g.ID,
+ 			Name:                 g.Name,
+@@ -125,7 +130,13 @@ func (s *ChannelService) ListPlazaGroups(ctx context.Context, opts PlazaListOpti
+ 		if model.Name == "" || model.Platform == "" {
+ 			return
+ 		}
+-		model.Pricing = plazaImageDisplayPricing(model.Pricing, groupByID[pg.ID])
++		group := groupByID[pg.ID]
++		if fixed := group.modelPricingFor(model.Name); fixed != nil && fixed.BillingMode != "" && fixed.BillingMode != BillingModeToken {
++			// Match the billing resolver: a model's fixed card wins over image fallbacks.
++			model.Pricing = fixed
++		} else {
++			model.Pricing = plazaImageDisplayPricing(model.Pricing, group)
++		}
+ 		idx := modelIdx[pg.ID]
+ 		if idx == nil {
+ 			idx = make(map[string]int)
+diff --git a/backend/internal/application/service/channel_plaza_group_fixed_test.go b/backend/internal/application/service/channel_plaza_group_fixed_test.go
+new file mode 100644
+index 000000000..1df9199f6
+--- /dev/null
++++ b/backend/internal/application/service/channel_plaza_group_fixed_test.go
+@@ -0,0 +1,33 @@
++//go:build unit
++
++package service
++
++import (
++	"context"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++)
++
++func TestPlazaGroupFixedPricingMatchesBillingPrecedence(t *testing.T) {
++	for _, mode := range []BillingMode{BillingModeImage, BillingModePerRequest, BillingModeVideo} {
++		for _, pattern := range []string{"fixture-image", "fixture-*"} {
++			group := Group{ID: 1, Name: "fixture", Platform: PlatformOpenAI, ImagePrice1K: testPtrFloat64(.9), ModelPricing: []ChannelModelPricing{{Models: []string{pattern}, BillingMode: mode, PerRequestPrice: testPtrFloat64(.12), Intervals: []PricingInterval{{TierLabel: "1K", PerRequestPrice: testPtrFloat64(.14)}}}}}
++			channel := Channel{ID: 1, Name: "fixture", Status: StatusActive, GroupIDs: []int64{1}, ModelPricing: []ChannelModelPricing{{Platform: PlatformOpenAI, Models: []string{"fixture-image"}, BillingMode: BillingModeImage, PerRequestPrice: testPtrFloat64(.5)}}}
++			plaza, err := newPlazaChannelService([]Channel{channel}, []Group{group}, nil).ListPlazaGroups(context.Background(), PlazaListOptions{})
++			require.NoError(t, err)
++			require.Len(t, plaza, 1)
++			require.Len(t, plaza[0].Models, 1)
++			card := plaza[0].Models[0].Pricing
++			require.Equal(t, mode, card.BillingMode)
++			require.InDelta(t, .12, *card.PerRequestPrice, 1e-12)
++			require.Len(t, card.Intervals, 1)
++			require.InDelta(t, .14, *card.Intervals[0].PerRequestPrice, 1e-12)
++			require.InDelta(t, .5, *channel.ModelPricing[0].PerRequestPrice, 1e-12)
++			group.compileModelPricingIndex()
++			resolved := NewModelPricingResolver(nil, newTestBillingService()).Resolve(context.Background(), PricingInput{Model: "fixture-image", Group: &group})
++			require.Equal(t, mode, resolved.Mode)
++			require.Equal(t, PricingSourceGroup, resolved.Source)
++		}
++	}
++}
+diff --git a/backend/internal/application/service/deepseek_pricing_sync_test.go b/backend/internal/application/service/deepseek_pricing_sync_test.go
+index 8ad686e60..380555bf4 100644
+--- a/backend/internal/application/service/deepseek_pricing_sync_test.go
++++ b/backend/internal/application/service/deepseek_pricing_sync_test.go
+@@ -10,24 +10,18 @@ import (
+ 	"github.com/stretchr/testify/require"
+ )
+ 
+-func TestDeepseekPricingSyncProRoutesToFlashAtCutoff(t *testing.T) {
++func TestDeepseekPricingSyncProRetainsProRates(t *testing.T) {
+ 	bs := newTestBillingService()
+-
+-	before, err := bs.getModelPricingAt("deepseek-v4-pro", deepseekProRoutesToFlashAt.Add(-time.Second))
+-	require.NoError(t, err)
+-	require.InDelta(t, deepseekProOffPeakInputPrice, before.InputPricePerToken, 1e-15)
+-	require.InDelta(t, deepseekProOffPeakOutputPrice, before.OutputPricePerToken, 1e-15)
+-	require.InDelta(t, deepseekProOffPeakCacheRead, before.CacheReadPricePerToken, 1e-15)
+-
+-	atCutoff, err := bs.getModelPricingAt("deepseek-v4-pro", deepseekProRoutesToFlashAt)
+-	require.NoError(t, err)
+-	require.InDelta(t, deepseekFlashOffPeakInputPrice, atCutoff.InputPricePerToken, 1e-15)
+-	require.InDelta(t, deepseekFlashOffPeakOutputPrice, atCutoff.OutputPricePerToken, 1e-15)
+-	require.InDelta(t, deepseekFlashOffPeakCacheRead, atCutoff.CacheReadPricePerToken, 1e-15)
+-
+-	versioned, err := bs.getModelPricingAt("deepseek-v4-pro-0813", deepseekProRoutesToFlashAt)
+-	require.NoError(t, err)
+-	require.InDelta(t, deepseekFlashOffPeakInputPrice, versioned.InputPricePerToken, 1e-15)
++	cutoff := time.Date(2026, 9, 14, 4, 0, 0, 0, time.UTC)
++	for _, model := range []string{"deepseek-v4-pro", "deepseek-v4-pro-0813"} {
++		for _, at := range []time.Time{cutoff.Add(-time.Second), cutoff, cutoff.Add(40 * 24 * time.Hour)} {
++			pricing, err := bs.getModelPricingAt(model, at)
++			require.NoError(t, err)
++			require.InDelta(t, deepseekProOffPeakInputPrice, pricing.InputPricePerToken, 1e-15)
++			require.InDelta(t, deepseekProOffPeakOutputPrice, pricing.OutputPricePerToken, 1e-15)
++			require.InDelta(t, deepseekProOffPeakCacheRead, pricing.CacheReadPricePerToken, 1e-15)
++		}
++	}
+ }
+ 
+ func TestDeepseekPricingSyncPeakMultiplierAndCustomPriceBoundary(t *testing.T) {
+diff --git a/backend/internal/application/service/gateway_billing_block.go b/backend/internal/application/service/gateway_billing_block.go
+index 98f98bc04..8c150fe64 100644
+--- a/backend/internal/application/service/gateway_billing_block.go
++++ b/backend/internal/application/service/gateway_billing_block.go
+@@ -4,6 +4,7 @@ import (
+ 	"crypto/sha256"
+ 	"encoding/hex"
+ 	"fmt"
++	"unicode/utf16"
+ 
+ 	"github.com/tidwall/gjson"
+ )
+@@ -18,23 +19,34 @@ const fingerprintSalt = "59cf53e54c78"
+ // computeClaudeCodeFingerprint 复刻真实 Claude Code CLI 的 cc_version 指纹算法：
+ //
+ //  1. 取 messages 中第一条 role=user 的纯文本（首块 text）
+-//  2. 取该文本的第 4、7、20 字符（不足以 '0' 补齐）
+-//  3. SHA256(SALT + chars + cc_version) 取 hex 前 3 字符
++//  2. 按 JavaScript UTF-16 码元取零基下标 4、7、20（不足以 '0' 补齐）
++//  3. 拼接采样码元，以 JavaScript UTF-8 语义计算 SHA256，取 hex 前 3 字符
+ //
+ // 算法来自 Parrot src/transform/cc_mimicry.py:compute_fingerprint，与官方 CLI 字节对齐。
+ // 任何偏差都会导致 cc_version=X.Y.Z.{fp} 在上游侧与真实 CLI 不一致。
+ func computeClaudeCodeFingerprint(body []byte, version string) string {
+ 	firstText := extractFirstUserText(body)
+-	indices := []int{4, 7, 20}
+-	chars := make([]byte, 0, 3)
++	indices := [...]int{4, 7, 20}
++	// Only the prefix through index 20 is needed, even for long prompts.
++	textUnits := make([]uint16, 0, 22)
++	for _, r := range firstText {
++		textUnits = utf16.AppendRune(textUnits, r)
++		if len(textUnits) > indices[len(indices)-1] {
++			break
++		}
++	}
++	chars := make([]uint16, 0, len(indices))
+ 	for _, i := range indices {
+-		if i < len(firstText) {
+-			chars = append(chars, firstText[i])
++		if i < len(textUnits) {
++			chars = append(chars, textUnits[i])
+ 		} else {
+ 			chars = append(chars, '0')
+ 		}
+ 	}
+-	sum := sha256.Sum256([]byte(fingerprintSalt + string(chars) + version))
++	// Join before decoding: sampled surrogate halves may form a new pair.
++	// Unpaired halves become U+FFFD, as in JavaScript's UTF-8 encoder.
++	sample := string(utf16.Decode(chars))
++	sum := sha256.Sum256([]byte(fingerprintSalt + sample + version))
+ 	return hex.EncodeToString(sum[:])[:3]
+ }
+ 
+diff --git a/backend/internal/application/service/gateway_billing_block_utf16_test.go b/backend/internal/application/service/gateway_billing_block_utf16_test.go
+new file mode 100644
+index 000000000..571aa3883
+--- /dev/null
++++ b/backend/internal/application/service/gateway_billing_block_utf16_test.go
+@@ -0,0 +1,54 @@
++//go:build unit
++
++package service
++
++import (
++	"encoding/json"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++)
++
++func TestClaudeCodeFingerprint_JavaScriptUTF16(t *testing.T) {
++	const version = "2.1.283"
++	// Fixed outputs from Node.js crypto, independent of the Go implementation:
++	// createHash('sha256').update('59cf53e54c78' +
++	//   [4, 7, 20].map(i => text[i] || '0').join('') + '2.1.283')
++	//   .digest('hex').slice(0, 3)
++	tests := []struct {
++		name string
++		text string
++		want string
++	}{
++		{name: "empty", text: "", want: "49b"},
++		{name: "short_ascii", text: "hi", want: "49b"},
++		{name: "ascii", text: "abcdefghijklmnopqrstuvwxyz", want: "2e9"},
++		{name: "chinese", text: "这是一个用于验证中文指纹计算的测试消息，请保持一致。", want: "c7e"},
++		{name: "short_chinese", text: "你好世界呀", want: "4ed"},
++		{name: "mixed", text: "abcd中fg文ijklmnopqrst界", want: "183"},
++		{name: "emoji_before_indices", text: "😀abcdefghijklmnopqrstuvwxyz", want: "c16"},
++		{name: "isolated_high_surrogate", text: "abcd😀fghijklmnopqrstuvwxyz", want: "d96"},
++		{name: "isolated_low_surrogate", text: "abc😀efghijklmnopqrstuvwxyz", want: "d96"},
++		{name: "sampled_surrogates_form_pair", text: "abcd😀😀efghijklmnopqrstuvwxyz", want: "0e9"},
++		{name: "nul_is_not_missing", text: "abcd\x00fg\x00hijklmnopqrs\x00", want: "03e"},
++	}
++	for _, tt := range tests {
++		for _, format := range []string{"string", "text_block"} {
++			t.Run(tt.name+"/"+format, func(t *testing.T) {
++				var content any = tt.text
++				if format == "text_block" {
++					content = []map[string]any{{"type": "text", "text": tt.text}}
++				}
++				body, err := json.Marshal(map[string]any{
++					"messages": []map[string]any{{"role": "user", "content": content}},
++				})
++				require.NoError(t, err)
++				require.Equal(t, tt.want, computeClaudeCodeFingerprint(body, version))
++
++				billing, err := buildBillingAttributionText(body, version)
++				require.NoError(t, err)
++				require.Equal(t, "x-anthropic-billing-header: cc_version="+version+"."+tt.want+"; cc_entrypoint=cli;", billing)
++			})
++		}
++	}
++}
+diff --git a/backend/internal/application/service/gemini_file_image_accounting_test.go b/backend/internal/application/service/gemini_file_image_accounting_test.go
+new file mode 100644
+index 000000000..3c237805e
+--- /dev/null
++++ b/backend/internal/application/service/gemini_file_image_accounting_test.go
+@@ -0,0 +1,44 @@
++//go:build unit
++
++package service
++
++import (
++	"io"
++	"net/http"
++	"strings"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++)
++
++func TestGeminiFileImageCountsAndRejectsInvalidParts(t *testing.T) {
++	for _, tc := range []struct {
++		part  string
++		count int
++	}{
++		{`{"fileData":{"mimeType":"image/png","fileUri":"https://fixture.invalid/a"}}`, 1},
++		{`{"file_data":{"mime_type":"image/webp","file_uri":"gs://fixture/b"}}`, 1},
++		{`{"fileData":{"mimeType":"image/png","fileUri":42}}`, 0},
++		{`{"fileData":{"mimeType":"image/png","fileUri":" "}}`, 0},
++		{`{"fileData":{"mimeType":"audio/wav","fileUri":"gs://fixture/b"}}`, 0},
++		{`{"text":"normal"}`, 0},
++		{`{"inlineData":{"mimeType":"image/png","data":"eA=="},"fileData":{"mimeType":"image/png","fileUri":"gs://fixture/b"}}`, 1},
++	} {
++		require.Equal(t, tc.count, countGeminiImageOutputs([]byte(geminiImageResponse(tc.part))), tc.part)
++	}
++}
++
++func TestGeminiFileImagesThroughNativeResponseAndRepeatedFrames(t *testing.T) {
++	c := newGeminiImageTestContext(t)
++	beginGeminiImageOutputObservation(c)
++	body := geminiImageResponse(`{"fileData":{"mimeType":"image/png","fileUri":"gs://fixture/a"}},{"file_data":{"mime_type":"image/png","file_uri":"gs://fixture/b"}}`)
++	usage, err := (&GeminiMessagesCompatService{}).handleNativeNonStreamingResponse(c, &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: io.NopCloser(strings.NewReader(body))}, false)
++	require.NoError(t, err)
++	require.NotNil(t, usage)
++	for range 3 {
++		observeGeminiImageOutputs(c, []byte(body))
++	}
++	require.Equal(t, 2, resolveGeminiImageCount(c, "custom-image", "custom-image"))
++	beginGeminiImageOutputObservation(c)
++	require.Zero(t, observedGeminiImageOutputs(c))
++}
+diff --git a/backend/internal/application/service/gemini_image_output_accounting.go b/backend/internal/application/service/gemini_image_output_accounting.go
+index 5c62886b4..d36c217e3 100644
+--- a/backend/internal/application/service/gemini_image_output_accounting.go
++++ b/backend/internal/application/service/gemini_image_output_accounting.go
+@@ -41,7 +41,7 @@ func observeGeminiImageOutputs(c *gin.Context, payload []byte) {
+ 	if counter == nil {
+ 		return
+ 	}
+-	if count := countGeminiInlineImageOutputs(payload); count > counter.count {
++	if count := countGeminiImageOutputs(payload); count > counter.count {
+ 		counter.count = count
+ 	}
+ }
+@@ -64,14 +64,14 @@ func resolveGeminiImageCount(c *gin.Context, originalModel, mappedModel string)
+ 	return 0
+ }
+ 
+-func countGeminiInlineImageOutputs(payload []byte) int {
++func countGeminiImageOutputs(payload []byte) int {
+ 	if len(payload) == 0 || !gjson.ValidBytes(payload) {
+ 		return 0
+ 	}
+ 	count := 0
+ 	gjson.GetBytes(payload, "candidates").ForEach(func(_, candidate gjson.Result) bool {
+ 		candidate.Get("content.parts").ForEach(func(_, part gjson.Result) bool {
+-			if geminiPartIsInlineImage(part) {
++			if geminiPartIsImage(part) {
+ 				count++
+ 			}
+ 			return true
+@@ -81,21 +81,32 @@ func countGeminiInlineImageOutputs(payload []byte) int {
+ 	return count
+ }
+ 
+-func geminiPartIsInlineImage(part gjson.Result) bool {
+-	inline := part.Get("inlineData")
+-	if !inline.Exists() {
+-		inline = part.Get("inline_data")
+-	}
+-	if !inline.Exists() {
+-		return false
+-	}
+-
+-	mimeType := inline.Get("mimeType")
+-	if !mimeType.Exists() {
+-		mimeType = inline.Get("mime_type")
+-	}
+-	if !isGeminiInlineImageMIMEType(strings.ToLower(strings.TrimSpace(mimeType.String()))) {
+-		return false
+-	}
+-	return strings.TrimSpace(inline.Get("data").String()) != ""
++func geminiPartIsImage(part gjson.Result) bool {
++	found := false
++	// Scan the part once so ordinary text does not need four key lookups.
++	part.ForEach(func(key, image gjson.Result) bool {
++		var dataKey string
++		switch key.Str {
++		case "inlineData", "inline_data":
++			dataKey = "data"
++		case "fileData", "file_data":
++			dataKey = "fileUri"
++		default:
++			return true
++		}
++		mimeType := image.Get("mimeType")
++		if !mimeType.Exists() {
++			mimeType = image.Get("mime_type")
++		}
++		if !isGeminiInlineImageMIMEType(strings.ToLower(strings.TrimSpace(mimeType.String()))) {
++			return true
++		}
++		data := image.Get(dataKey)
++		if dataKey == "fileUri" && !data.Exists() {
++			data = image.Get("file_uri")
++		}
++		found = data.Type == gjson.String && strings.TrimSpace(data.String()) != ""
++		return !found // One part contributes at most one image; never fetch its URI.
++	})
++	return found
+ }
+diff --git a/backend/internal/application/service/gemini_image_output_accounting_test.go b/backend/internal/application/service/gemini_image_output_accounting_test.go
+index a5ecdf0ab..410e6d609 100644
+--- a/backend/internal/application/service/gemini_image_output_accounting_test.go
++++ b/backend/internal/application/service/gemini_image_output_accounting_test.go
+@@ -28,7 +28,7 @@ func geminiImageResponse(parts string) string {
+ 	return `{"candidates":[{"content":{"role":"model","parts":[` + parts + `]},"finishReason":"STOP"}]}`
+ }
+ 
+-func TestCountGeminiInlineImageOutputs(t *testing.T) {
++func TestCountGeminiImageOutputs(t *testing.T) {
+ 	cases := []struct {
+ 		name    string
+ 		payload string
+@@ -44,7 +44,7 @@ func TestCountGeminiInlineImageOutputs(t *testing.T) {
+ 
+ 	for _, tc := range cases {
+ 		t.Run(tc.name, func(t *testing.T) {
+-			require.Equal(t, tc.want, countGeminiInlineImageOutputs([]byte(tc.payload)))
++			require.Equal(t, tc.want, countGeminiImageOutputs([]byte(tc.payload)))
+ 		})
+ 	}
+ }
+diff --git a/backend/internal/application/service/grok_media.go b/backend/internal/application/service/grok_media.go
+index 0a893d657..30c4075c8 100644
+--- a/backend/internal/application/service/grok_media.go
++++ b/backend/internal/application/service/grok_media.go
+@@ -222,7 +222,9 @@ func parseGrokMediaMultipartRequest(contentType string, body []byte, info *GrokM
+ 			_ = part.Close()
+ 			continue
+ 		}
+-		data, err := io.ReadAll(io.LimitReader(part, openAIImageMaxUploadPartSize))
++		// The request body is already bounded. Keep complete image bytes rather
++		// than silently forwarding a truncated multipart file.
++		data, err := io.ReadAll(part)
+ 		_ = part.Close()
+ 		if err != nil {
+ 			return
+diff --git a/backend/internal/application/service/openai_chat_roles.go b/backend/internal/application/service/openai_chat_roles.go
+index 3e1a7eb90..eb27e6b75 100644
+--- a/backend/internal/application/service/openai_chat_roles.go
++++ b/backend/internal/application/service/openai_chat_roles.go
+@@ -5,13 +5,15 @@ import (
+ 	"errors"
+ 	"net/url"
+ 	"strings"
++
++	"github.com/tidwall/gjson"
+ )
+ 
+ // requiresSystemChatRole identifies native Chat Completions destinations that
+ // reject the newer developer role. The decision is made after account and
+ // destination selection, so a retry on another account can receive the
+ // original request unchanged.
+-func requiresSystemChatRole(account *Account, targetURL string) bool {
++func requiresSystemChatRole(account *Account, targetURL string, body []byte) bool {
+ 	if account == nil || account.Type != AccountTypeAPIKey {
+ 		return false
+ 	}
+@@ -19,11 +21,16 @@ func requiresSystemChatRole(account *Account, targetURL string) bool {
+ 	case PlatformDeepseek, PlatformKimi, PlatformZhipu:
+ 		return true
+ 	}
++	if account.IsOpenCodeGo() {
++		return isOpenCodeDeepSeekChatModel(body)
++	}
+ 	u, err := url.Parse(targetURL)
+ 	if err != nil {
+ 		return false
+ 	}
+ 	switch strings.ToLower(u.Hostname()) {
++	case "opencode.ai":
++		return strings.EqualFold(u.Scheme, "https") && isOpenCodeDeepSeekChatModel(body)
+ 	case "api.deepseek.com", "api.kimi.com", "api.moonshot.cn", "api.moonshot.ai", "open.bigmodel.cn", "api.z.ai":
+ 		return true
+ 	default:
+@@ -31,12 +38,20 @@ func requiresSystemChatRole(account *Account, targetURL string) bool {
+ 	}
+ }
+ 
++func isOpenCodeDeepSeekChatModel(body []byte) bool {
++	model := strings.TrimSpace(gjson.GetBytes(body, "model").String())
++	if i := strings.LastIndexByte(model, '/'); i >= 0 {
++		model = model[i+1:]
++	}
++	return isDeepSeekModelName(model)
++}
++
+ // normalizeStrictChatDeveloperRoles adapts only the role field for strict Chat
+ // upstreams. It deliberately avoids reordering or merging messages and uses
+ // RawMessage values so unknown fields and large numeric metadata survive the
+ // per-account adaptation.
+ func normalizeStrictChatDeveloperRoles(account *Account, targetURL string, body []byte) ([]byte, error) {
+-	if !requiresSystemChatRole(account, targetURL) {
++	if !requiresSystemChatRole(account, targetURL, body) {
+ 		return body, nil
+ 	}
+ 	var root map[string]json.RawMessage
+diff --git a/backend/internal/application/service/openai_chat_roles_opencode_test.go b/backend/internal/application/service/openai_chat_roles_opencode_test.go
+new file mode 100644
+index 000000000..8ffc5885d
+--- /dev/null
++++ b/backend/internal/application/service/openai_chat_roles_opencode_test.go
+@@ -0,0 +1,41 @@
++//go:build unit
++
++package service
++
++import (
++	"bytes"
++	"fmt"
++	"github.com/stretchr/testify/require"
++	"github.com/tidwall/gjson"
++	"testing"
++)
++
++func TestNormalizeStrictChatDeveloperRoles_OpenCodeModelRouting(t *testing.T) {
++	for _, tc := range []struct {
++		name, platform, target, model, wantRole string
++	}{
++		{"go_deepseek", PlatformOpenCodeGo, DefaultOpenCodeGoBaseURL, "deepseek-v4.1-flash", "system"},
++		{"go_deepseek_proxy", PlatformOpenCodeGo, "https://relay.example.test/v1/chat/completions", "deepseek-v4.1-flash", "system"},
++		{"zen_deepseek", PlatformOpenAI, DefaultOpenCodeZenBaseURL, "deepseek-v4.1-flash", "system"},
++		{"prefixed_deepseek", PlatformOpenAI, DefaultOpenCodeGoBaseURL, "opencode-go/DeepSeek-V4-Pro", "system"},
++		{"go_other_model", PlatformOpenCodeGo, DefaultOpenCodeGoBaseURL, "gpt-5.6-luna", "developer"},
++		{"zen_other_model", PlatformOpenAI, DefaultOpenCodeZenBaseURL, "gpt-5.6-luna", "developer"},
++		{"unrelated_deepseek", PlatformOpenAI, "https://relay.example.test/v1/chat/completions", "deepseek-v4.1-flash", "developer"},
++		{"host_suffix", PlatformOpenAI, "https://opencode.ai.example.test/v1/chat/completions", "deepseek-v4.1-flash", "developer"},
++		{"host_in_path", PlatformOpenAI, "https://example.test/opencode.ai/zen/v1/chat/completions", "deepseek-v4.1-flash", "developer"},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			// A stale configured URL must not override the selected protocol destination.
++			account := &Account{Platform: tc.platform, Type: AccountTypeAPIKey, Credentials: map[string]any{"base_url": DefaultOpenCodeZenBaseURL}}
++			body := []byte(fmt.Sprintf(`{"model":%q,"messages":[{"role":"developer","content":"rules"}]}`, tc.model))
++			original := bytes.Clone(body)
++			got, err := normalizeStrictChatDeveloperRoles(account, tc.target, body)
++			require.NoError(t, err)
++			require.Equal(t, tc.wantRole, gjson.GetBytes(got, "messages.0.role").String())
++			require.Equal(t, original, body)
++			if tc.wantRole == "developer" {
++				require.Equal(t, original, got)
++			}
++		})
++	}
++}
+diff --git a/backend/internal/application/service/openai_gateway_response_handling.go b/backend/internal/application/service/openai_gateway_response_handling.go
+index f28138d31..9420b7fd3 100644
+--- a/backend/internal/application/service/openai_gateway_response_handling.go
++++ b/backend/internal/application/service/openai_gateway_response_handling.go
+@@ -1370,6 +1370,7 @@ func openAICacheReadTokensFromUsage(value gjson.Result) int {
+ 		value.Get("cache_read_input_tokens"),
+ 		value.Get("cache_read_tokens"),
+ 		value.Get("cached_tokens"),
++		value.Get("prompt_cache_hit_tokens"),
+ 	)
+ }
+ 
+diff --git a/backend/internal/application/service/openai_images.go b/backend/internal/application/service/openai_images.go
+index 92ce92836..094220b22 100644
+--- a/backend/internal/application/service/openai_images.go
++++ b/backend/internal/application/service/openai_images.go
+@@ -39,7 +39,7 @@ const (
+ 	openAIChatGPTFilesURL                  = "https://chatgpt.com/backend-api/files"
+ 	openAIImageBackendUserAgent            = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+ 	openAIImageMaxDownloadBytes            = 50 << 20 // 50 MiB per image download
+-	openAIImageMaxUploadPartSize           = 20 << 20 // 20MB per multipart upload part
++	openAIImageMaxUploadPartSize           = 50 << 20 // GPT image edits: maximum bytes per multipart part
+ 	openAIImageMaxMultipartParts           = 64
+ 	openAIImagesResponsesMainModel         = "gpt-5.6-luna"
+ 	openAIImagesVerbatimPromptInstructions = "When invoking the image_generation tool, use the user's image prompt verbatim. Do not rewrite, expand, summarize, embellish, translate, normalize punctuation, or add or remove visual details or constraints. Preserve the original language, wording, capitalization, quotes, and punctuation exactly."
+diff --git a/backend/internal/application/service/openai_images_upload_limit_test.go b/backend/internal/application/service/openai_images_upload_limit_test.go
+new file mode 100644
+index 000000000..3f640ab42
+--- /dev/null
++++ b/backend/internal/application/service/openai_images_upload_limit_test.go
+@@ -0,0 +1,58 @@
++//go:build unit
++
++package service
++
++import (
++	"bytes"
++	"mime/multipart"
++	"net/http"
++	"net/http/httptest"
++	"testing"
++
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++)
++
++func buildImagesEditMultipartBody(t *testing.T, imageSize int) ([]byte, string, []byte) {
++	t.Helper()
++	image := bytes.Repeat([]byte{0xAB}, imageSize)
++	var body bytes.Buffer
++	writer := multipart.NewWriter(&body)
++	require.NoError(t, writer.WriteField("model", "gpt-image-2"))
++	require.NoError(t, writer.WriteField("prompt", "replace background"))
++	part, err := writer.CreateFormFile("image", "source.png")
++	require.NoError(t, err)
++	_, err = part.Write(image)
++	require.NoError(t, err)
++	require.NoError(t, writer.Close())
++	return body.Bytes(), writer.FormDataContentType(), image
++}
++
++func parseImagesEditMultipart(t *testing.T, body []byte, contentType string) (*OpenAIImagesRequest, error) {
++	t.Helper()
++	gin.SetMode(gin.TestMode)
++	req := httptest.NewRequest(http.MethodPost, "/v1/images/edits", bytes.NewReader(body))
++	req.Header.Set("Content-Type", contentType)
++	c, _ := gin.CreateTestContext(httptest.NewRecorder())
++	c.Request = req
++	svc := &OpenAIGatewayService{}
++	return svc.ParseOpenAIImagesRequest(c, body)
++}
++
++func TestParseOpenAIImagesRequest_MultipartKeepsUploadAbove20MB(t *testing.T) {
++	body, contentType, image := buildImagesEditMultipartBody(t, 21<<20)
++
++	parsed, err := parseImagesEditMultipart(t, body, contentType)
++	require.NoError(t, err)
++	require.Len(t, parsed.Uploads, 1)
++	require.Equal(t, len(image), len(parsed.Uploads[0].Data))
++	require.True(t, bytes.Equal(image, parsed.Uploads[0].Data))
++}
++
++func TestParseGrokMediaRequest_MultipartKeepsUploadAbove20MB(t *testing.T) {
++	body, contentType, image := buildImagesEditMultipartBody(t, 21<<20)
++
++	info := ParseGrokMediaRequest(contentType, body)
++	require.Len(t, info.Uploads, 1)
++	require.Equal(t, len(image), len(info.Uploads[0].Data))
++}
+diff --git a/backend/internal/application/service/openai_usage_deepseek_cache_test.go b/backend/internal/application/service/openai_usage_deepseek_cache_test.go
+new file mode 100644
+index 000000000..9b8f9bacc
+--- /dev/null
++++ b/backend/internal/application/service/openai_usage_deepseek_cache_test.go
+@@ -0,0 +1,28 @@
++//go:build unit
++
++package service
++
++import (
++	"testing"
++
++	"github.com/stretchr/testify/require"
++	"github.com/tidwall/gjson"
++)
++
++func TestOpenAIUsageDeepSeekPromptCacheHitTokensCountAsCacheRead(t *testing.T) {
++	// DeepSeek usage 只有 prompt_cache_hit/miss_tokens
++	usage, ok := openAIUsageFromGJSON(gjson.Parse(`{"prompt_tokens":100,"completion_tokens":5,"prompt_cache_hit_tokens":80,"prompt_cache_miss_tokens":20}`))
++	require.True(t, ok)
++	require.Equal(t, 100, usage.InputTokens)
++	require.Equal(t, 80, usage.CacheReadInputTokens)
++
++	// 同时返回 prompt_tokens_details.cached_tokens 时以嵌套字段为准
++	usage, ok = openAIUsageFromGJSON(gjson.Parse(`{"prompt_tokens":100,"completion_tokens":5,"prompt_cache_hit_tokens":80,"prompt_tokens_details":{"cached_tokens":64}}`))
++	require.True(t, ok)
++	require.Equal(t, 64, usage.CacheReadInputTokens)
++
++	// 顶层 cached_tokens 保持原有行为
++	usage, ok = openAIUsageFromGJSON(gjson.Parse(`{"prompt_tokens":50,"completion_tokens":5,"cached_tokens":30}`))
++	require.True(t, ok)
++	require.Equal(t, 30, usage.CacheReadInputTokens)
++}
+diff --git a/backend/internal/modules/securityaudit/prompt_handler.go b/backend/internal/modules/securityaudit/prompt_handler.go
+index 39e796c3c..3c3ce360f 100644
+--- a/backend/internal/modules/securityaudit/prompt_handler.go
++++ b/backend/internal/modules/securityaudit/prompt_handler.go
+@@ -3,6 +3,7 @@ package securityaudit
+ import (
+ 	"context"
+ 	"errors"
++	"math"
+ 	"strconv"
+ 	"strings"
+ 
+@@ -91,6 +92,10 @@ func (h *PromptAdminHandler) ListEvents(c *gin.Context) {
+ 		response.ErrorFrom(c, err)
+ 		return
+ 	}
++	if page > math.MaxInt/pageSize {
++		response.ErrorFrom(c, infraerrors.BadRequest("prompt_audit_invalid_pagination", "分页参数无效"))
++		return
++	}
+ 	filter, err := eventFilterFromQuery(c)
+ 	if err != nil {
+ 		response.ErrorFrom(c, err)
+diff --git a/backend/internal/modules/securityaudit/prompt_pagination_overflow_test.go b/backend/internal/modules/securityaudit/prompt_pagination_overflow_test.go
+new file mode 100644
+index 000000000..83ddae52d
+--- /dev/null
++++ b/backend/internal/modules/securityaudit/prompt_pagination_overflow_test.go
+@@ -0,0 +1,26 @@
++package securityaudit
++
++import (
++	"context"
++	"fmt"
++	"math"
++	"net/http/httptest"
++	"testing"
++
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++)
++
++func TestPromptEventsRejectOverflowBeforeQuery(t *testing.T) {
++	called := false
++	svc := &fakePromptAdminService{list: func(context.Context, EventFilter, int, int) (*EventPage, error) {
++		called = true
++		return &EventPage{}, nil
++	}}
++	rec := httptest.NewRecorder()
++	c, _ := gin.CreateTestContext(rec)
++	c.Request = httptest.NewRequest("GET", fmt.Sprintf("/?page=%d&page_size=100", math.MaxInt), nil)
++	(&PromptAdminHandler{service: svc}).ListEvents(c)
++	require.Equal(t, 400, rec.Code)
++	require.False(t, called)
++}
+diff --git a/backend/internal/shared/antigravity/response_transformer.go b/backend/internal/shared/antigravity/response_transformer.go
+index 6259c8893..395bae9b9 100644
+--- a/backend/internal/shared/antigravity/response_transformer.go
++++ b/backend/internal/shared/antigravity/response_transformer.go
+@@ -3,6 +3,7 @@ package antigravity
+ import (
+ 	"crypto/rand"
+ 	"encoding/json"
++	"errors"
+ 	"fmt"
+ 	"log"
+ 	"strings"
+@@ -10,6 +11,8 @@ import (
+ 	"time"
+ )
+ 
++var ErrMalformedFunctionCall = errors.New("upstream returned MALFORMED_FUNCTION_CALL")
++
+ // TransformGeminiToClaude 将 Gemini 响应转换为 Claude 格式（非流式）
+ func TransformGeminiToClaude(geminiResp []byte, originalModel string) ([]byte, *ClaudeUsage, error) {
+ 	// 解包 v1internal 响应
+@@ -34,6 +37,10 @@ func TransformGeminiToClaude(geminiResp []byte, originalModel string) ([]byte, *
+ 		v1Resp.ModelVersion = directResp.ModelVersion
+ 	}
+ 
++	if len(v1Resp.Response.Candidates) > 0 && v1Resp.Response.Candidates[0].FinishReason == "MALFORMED_FUNCTION_CALL" {
++		return nil, nil, ErrMalformedFunctionCall
++	}
++
+ 	// 使用处理器转换
+ 	processor := NewNonStreamingProcessor()
+ 	claudeResp := processor.Process(&v1Resp.Response, v1Resp.ResponseID, originalModel)
+diff --git a/backend/internal/shared/antigravity/response_transformer_malformed_test.go b/backend/internal/shared/antigravity/response_transformer_malformed_test.go
+new file mode 100644
+index 000000000..84616e603
+--- /dev/null
++++ b/backend/internal/shared/antigravity/response_transformer_malformed_test.go
+@@ -0,0 +1,18 @@
++package antigravity
++
++import (
++	"errors"
++	"testing"
++)
++
++func TestMalformedFunctionCallTransform(t *testing.T) {
++	for _, body := range []string{
++		`{"candidates":[{"finishReason":"MALFORMED_FUNCTION_CALL","content":{"parts":[{"thoughtSignature":"test-signature"}]}}]}`,
++		`{"response":{"candidates":[{"finishReason":"MALFORMED_FUNCTION_CALL"}]}}`,
++	} {
++		response, _, err := TransformGeminiToClaude([]byte(body), "test-model")
++		if !errors.Is(err, ErrMalformedFunctionCall) || response != nil {
++			t.Fatalf("expected malformed call error without successful response: %s %v", response, err)
++		}
++	}
++}
+diff --git a/backend/internal/shared/pagination/overflow_test.go b/backend/internal/shared/pagination/overflow_test.go
+new file mode 100644
+index 000000000..daff8c20c
+--- /dev/null
++++ b/backend/internal/shared/pagination/overflow_test.go
+@@ -0,0 +1,21 @@
++package pagination
++
++import (
++	"math"
++	"testing"
++)
++
++func TestOffsetSaturatesWithoutOverflow(t *testing.T) {
++	for _, size := range []int{-1, 1, 20, 1000, math.MaxInt} {
++		for _, page := range []int{-1, 0, 1, 2, math.MaxInt / 2, math.MaxInt} {
++			p := PaginationParams{Page: page, PageSize: size}
++			offset := p.Offset()
++			if offset < 0 || offset > math.MaxInt-p.Limit() {
++				t.Fatalf("page=%d size=%d offset=%d limit=%d", page, size, offset, p.Limit())
++			}
++			if page == 2 && offset != p.Limit() {
++				t.Fatalf("ordinary second page changed: %+v", p)
++			}
++		}
++	}
++}
+diff --git a/backend/internal/shared/pagination/pagination.go b/backend/internal/shared/pagination/pagination.go
+index 334ba809d..c09f31055 100644
+--- a/backend/internal/shared/pagination/pagination.go
++++ b/backend/internal/shared/pagination/pagination.go
+@@ -1,7 +1,10 @@
+ // Package pagination provides types and helpers for paginated responses.
+ package pagination
+ 
+-import "strings"
++import (
++	"math"
++	"strings"
++)
+ 
+ const (
+ 	SortOrderAsc  = "asc"
+@@ -38,7 +41,12 @@ func (p PaginationParams) Offset() int {
+ 	if p.Page < 1 {
+ 		p.Page = 1
+ 	}
+-	return (p.Page - 1) * p.Limit()
++	limit := p.Limit()
++	// Bound both offset and offset+limit for slice and database callers.
++	if p.Page > math.MaxInt/limit {
++		p.Page = math.MaxInt / limit
++	}
++	return (p.Page - 1) * limit
+ }
+ 
+ // Limit 获取限制数
+diff --git a/backend/internal/shared/response/pagination_overflow_test.go b/backend/internal/shared/response/pagination_overflow_test.go
+new file mode 100644
+index 000000000..80142c83c
+--- /dev/null
++++ b/backend/internal/shared/response/pagination_overflow_test.go
+@@ -0,0 +1,33 @@
++package response
++
++import (
++	"fmt"
++	"math"
++	"net/http/httptest"
++	"testing"
++
++	"github.com/gin-gonic/gin"
++)
++
++func TestPaginationRejectsNumericOverflowAndClampsOffset(t *testing.T) {
++	for _, query := range []string{"page=18446744073709551617", "page=999999999999999999999999999999999999", "page=12x", "page=-1", "page=+2"} {
++		c, _ := gin.CreateTestContext(httptest.NewRecorder())
++		c.Request = httptest.NewRequest("GET", "/?"+query, nil)
++		page, size := ParsePagination(c)
++		if page != 1 || size != 20 {
++			t.Fatalf("%s => %d/%d", query, page, size)
++		}
++	}
++	for _, size := range []int{1, 20, 1000} {
++		c, _ := gin.CreateTestContext(httptest.NewRecorder())
++		c.Request = httptest.NewRequest("GET", fmt.Sprintf("/?page=%d&page_size=%d", math.MaxInt, size), nil)
++		page, parsedSize := ParsePagination(c)
++		if parsedSize != size || page < 1 || page > math.MaxInt/size {
++			t.Fatalf("page=%d size=%d", page, parsedSize)
++		}
++		offset := (page - 1) * size
++		if offset < 0 || offset > math.MaxInt-size {
++			t.Fatalf("unsafe offset=%d", offset)
++		}
++	}
++}
+diff --git a/backend/internal/shared/response/response.go b/backend/internal/shared/response/response.go
+index 3108811cb..e9cc5b945 100644
+--- a/backend/internal/shared/response/response.go
++++ b/backend/internal/shared/response/response.go
+@@ -5,6 +5,7 @@ import (
+ 	"log"
+ 	"math"
+ 	"net/http"
++	"strconv"
+ 
+ 	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
+ 	"github.com/Wei-Shaw/sub2api/internal/shared/logredact"
+@@ -194,6 +195,9 @@ func ParsePagination(c *gin.Context) (page, pageSize int) {
+ 		}
+ 	}
+ 
++	if page > math.MaxInt/pageSize {
++		page = math.MaxInt / pageSize
++	}
+ 	return page, pageSize
+ }
+ 
+@@ -208,12 +212,6 @@ func ParsePaginationWithMax(c *gin.Context, maxPageSize int) (page, pageSize int
+ }
+ 
+ func parseInt(s string) (int, error) {
+-	var result int
+-	for _, c := range s {
+-		if c < '0' || c > '9' {
+-			return 0, nil
+-		}
+-		result = result*10 + int(c-'0')
+-	}
+-	return result, nil
++	value, err := strconv.ParseUint(s, 10, strconv.IntSize-1)
++	return int(value), err
+ }
+diff --git a/backend/internal/shared/response/response_test.go b/backend/internal/shared/response/response_test.go
+index 7a1ec8bea..977c767b3 100644
+--- a/backend/internal/shared/response/response_test.go
++++ b/backend/internal/shared/response/response_test.go
+@@ -751,37 +751,37 @@ func Test_parseInt(t *testing.T) {
+ 			name:    "包含字母_返回0",
+ 			input:   "abc",
+ 			wantVal: 0,
+-			wantErr: false,
++			wantErr: true,
+ 		},
+ 		{
+ 			name:    "数字开头接字母_返回0",
+ 			input:   "12a",
+ 			wantVal: 0,
+-			wantErr: false,
++			wantErr: true,
+ 		},
+ 		{
+ 			name:    "包含负号_返回0",
+ 			input:   "-1",
+ 			wantVal: 0,
+-			wantErr: false,
++			wantErr: true,
+ 		},
+ 		{
+ 			name:    "包含小数点_返回0",
+ 			input:   "1.5",
+ 			wantVal: 0,
+-			wantErr: false,
++			wantErr: true,
+ 		},
+ 		{
+ 			name:    "包含空格_返回0",
+ 			input:   "1 2",
+ 			wantVal: 0,
+-			wantErr: false,
++			wantErr: true,
+ 		},
+ 		{
+ 			name:    "空字符串",
+ 			input:   "",
+ 			wantVal: 0,
+-			wantErr: false,
++			wantErr: true,
+ 		},
+ 	}
+ 
+diff --git a/backend/internal/transport/http/handler/admin/ops_dashboard_handler.go b/backend/internal/transport/http/handler/admin/ops_dashboard_handler.go
+index f4d4aa5b4..03fb6903e 100644
+--- a/backend/internal/transport/http/handler/admin/ops_dashboard_handler.go
++++ b/backend/internal/transport/http/handler/admin/ops_dashboard_handler.go
+@@ -2,6 +2,7 @@ package admin
+ 
+ import (
+ 	"fmt"
++	"math"
+ 	"net/http"
+ 	"strconv"
+ 	"strings"
+@@ -408,6 +409,9 @@ func parseOpsRankedStatsFilter(c *gin.Context, defaultTimeRange string) (*servic
+ 		}
+ 		filter.PageSize = pageSize
+ 	}
++	if filter.Page > math.MaxInt/filter.PageSize {
++		return nil, fmt.Errorf("invalid page")
++	}
+ 	return filter, nil
+ }
+ 
+diff --git a/backend/internal/transport/http/handler/admin/ops_pagination_overflow_test.go b/backend/internal/transport/http/handler/admin/ops_pagination_overflow_test.go
+new file mode 100644
+index 000000000..fd47d1642
+--- /dev/null
++++ b/backend/internal/transport/http/handler/admin/ops_pagination_overflow_test.go
+@@ -0,0 +1,27 @@
++//go:build unit
++
++package admin
++
++import (
++	"fmt"
++	"math"
++	"net/http/httptest"
++	"testing"
++
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++)
++
++func TestRankedStatsRejectOverflowPage(t *testing.T) {
++	c, _ := gin.CreateTestContext(httptest.NewRecorder())
++	c.Request = httptest.NewRequest("GET", fmt.Sprintf("/?page=%d&page_size=100", math.MaxInt), nil)
++	_, err := parseOpsOpenAITokenStatsFilter(c)
++	require.ErrorContains(t, err, "invalid page")
++	_, err = parseOpsUserUsageStatsFilter(c)
++	require.ErrorContains(t, err, "invalid page")
++	c, _ = gin.CreateTestContext(httptest.NewRecorder())
++	c.Request = httptest.NewRequest("GET", "/?page=2&page_size=100", nil)
++	filter, err := parseOpsOpenAITokenStatsFilter(c)
++	require.NoError(t, err)
++	require.Equal(t, 2, filter.Page)
++}
+diff --git a/docs/README.md b/docs/README.md
+index d49822e44..ecdd7bc8c 100644
+--- a/docs/README.md
++++ b/docs/README.md
+@@ -89,6 +89,7 @@
+ | [上游主线增量同步审查（2026-10-24）](UPSTREAM_SYNC_20261024.md) | #8305 有界重试等待、已覆盖差异关闭、显式身份兼容与 Docker 升级回退 |
+ | [上游主线同步审查（2026-10-26）](UPSTREAM_SYNC_20261026.md) | 图片按张计费、密钥独立限流、资源级授权专项边界、Docker 升级回退与 CI |
+ | [上游主线增量同步审查（2026-10-27）](UPSTREAM_SYNC_20261027.md) | Terra 兼容缺口、Grok 目录诊断与模型审计、已有快照复用、Docker 与 CI |
++| [上游主线增量同步审查（2026-10-28）](UPSTREAM_SYNC_20261028.md) | 10 个增量 PR 的当前 owner 适配、计费与协议修复、性能和 Docker 升级回退 |
+ | [API Key 删除与计费竞争条件审查（2026-10-06）](../diagnostics/billing-key-deletion-20261006/REPORT.md) | 旧版本漏扣回放、当前修复边界、真实数据库与 24 个 Docker HTTP 场景 |
+ | [GPT-6 Astra 接入记录](GPT6_ASTRA.md) | OpenAI 官方模型目录、能力、价格和本项目兼容计费映射 |
+ | [GPT-6 模型目录与价格](GPT6_MODELS.md) | GPT-6 Astra、Sol、Luna、GPT-6.1 Sol/Terra 的官方能力、价格与本项目实现位置 |
+diff --git a/docs/UPSTREAM_SYNC_20261028.md b/docs/UPSTREAM_SYNC_20261028.md
+new file mode 100644
+index 000000000..b2946b484
+--- /dev/null
++++ b/docs/UPSTREAM_SYNC_20261028.md
+@@ -0,0 +1,77 @@
++# 上游主线增量同步审查（2026-10-28）
++
++本轮以本项目 `e7c44ecf4b824281b84d6b4bfb6ef0e44b117b2d` 为基线，冻结上游
++`15701ba187af5827d740901d53421bd69ed97717..f178e5ae32659e8901644a9f2378a0439ffa36ae`，
++共 10 个新增主线 PR。继承 10 月 27 日及前序台账；已关闭项只因新增语义或当前 owner 的可复现回归重开。
++#8319 的资源级授权继续专项暂缓，本轮 tracking merge 不表示该功能已经实现。
++
++| 上游 PR | 冻结差异结论 | 当前实现 |
++| --- | --- | --- |
++| #8286 国产渠道频率型 429 | 已覆盖，关闭 | 当前 `ratelimit_service.go` 本就使用可配置的秒级兜底，没有按额度快照冷却数小时的分支 |
++| #8377 Claude 指纹 UTF-16 | 适配，关闭 | `computeClaudeCodeFingerprint` 按码元采样，拼接后解码孤立/组合代理项；最多扫描 22 个码元 |
++| #8326 Gemini 文件图片计数 | 适配，关闭 | 图片计数器接受 fileData/file_data，检查 MIME 和非空字符串 URI；每 part 一张、每片取最大值 |
++| #8003 DeepSeek Pro 默认价 | 适配，关闭 | 删除过时的日期切换，Pro 持续使用 Pro 价卡，保留峰谷和自定义单价优先级 |
++| #8366 模型广场固定价 | 适配，关闭 | 复用当前分组编译索引，模型级固定图片/按次/视频卡优先于分组图片兜底 |
++| #8354 DeepSeek 缓存命中 | 适配，关闭 | 共享 usage 解析补充 prompt_cache_hit_tokens；嵌套计数仍优先，结算沿用互斥 token 桶 |
++| #8376 OpenCode DeepSeek 角色 | 适配，关闭 | 只在原生 OpenCode 或实际选中官方 HTTPS 地址时读取映射后模型，developer 转 system |
++| #8303 分页溢出 | 适配，关闭 | 共享偏移和解析器保证 offset+limit 安全，内存 Key 列表复用；审计及两个排名统计入口返回 400 |
++| #8348 图片上传 | 拒绝超限已覆盖；增量适配并关闭 | OpenAI 维持 limit+1 拒绝并提高至 50 MiB，Grok 在总请求上限内读取完整 part |
++| #8362 非流式畸形工具调用 | 适配，关闭 | 在直接转换和有界聚合前保留失败；Responses/Chat 返回 502 / malformed_function_call |
++
++[机器台账](../diagnostics/upstream-sync-20261028/UPSTREAM_PRS.json) 固定每项 merge SHA、原始 diff SHA-256、
++当前 owner、处理结论和重开条件。没有覆盖上游旧目录，也没有重做已有频道、目录、密钥和 WebSocket 重构。
++
++## 性能和边界
++
++Gemini 图片 part 单次遍历，普通文字不连续查询四种图片键；不请求输出 URI，不增加后台任务或持久状态。
++Claude 指纹仅扫描需要的文本前缀；OpenCode 模型读取位于目标资格检查之后，避免无关大请求新增全体扫描。
++模型广场对 repository 返回的未编译分组只构建一次现有价格索引，复用到各模型；不按模型增加数据库查询，也不修改渠道缓存价格。
++上传沿用已有请求体、并发及待处理字节门禁；50 MiB 单文件会使用比原 20 MiB 更高的内存，应保持总请求体上限。
++未引入上游新增上传日志切片分配。固定 Docker 函数夹具性能见诊断目录，不能外推生产吞吐。
++
++## 平滑升级
++
++无新增 SQL 迁移、Ent/Wire 生成、配置字段、数据库格式、缓存版本或凭据。身份、持久 Key、订阅和历史用量
++沿用当前存储；回退不执行 Down SQL。分页合法普通输入维持原行为，异常大页返回空页或入口既有 400 语义。
++畸形工具调用原先的空成功变为明确失败；正常文本、正常工具和流式转换继续走原路径。
++
++DeepSeek Pro **默认未来费用会提高到 Pro 价卡**，历史账单不重算；自定义单价不被覆盖，缓存命中修复则会
++正确区分输入与缓存用量。滚动期间新旧节点的默认 Pro 费用、fileData 计图和上传能力不同，应先排空旧节点，
++或使用既有显式分组价稳定 Pro 单价，并等全部节点升级后开放大文件请求。回退会恢复旧二进制的这些行为，
++不会撤销已落库账务。不能把无迁移解释为混合版本行为完全相同。
++
++## 验证和恢复
++
++证据集中在 [本轮诊断目录](../diagnostics/upstream-sync-20261028/)。命令、输入、逐字 stdout/stderr、退出状态、
++纠错和哈希由 `records/`、`SOURCE_TRANSACTION.json` 与 `VERIFICATION.txt` 保存。四个原生角色为
++`MODIFIED_FILE.tar.gz`、`DIFF_FILE.patch`、`VERIFICATION.txt` 和嵌入 pristine baseline 的可执行 `ROLLBACK.sh`。
++补丁在独立副本重建修改，回退逐文件校验原始哈希，再以同命令、同输入复现基线并重新应用修改。
++原工作树不参与修改或回退。远端 PR/main CI 和镜像发布按精确 revision 单独跟踪。
++
++## 最终验收数据
++
++Docker 全后端单元、最终模型广场未编译分组回归、Go lint、前端 lint/typecheck 及 29 文件/248 个关键用例通过。
++生产镜像由本轮源码构建；同一 PostgreSQL/Redis 完成 BASELINE → MODIFIED → ROLLBACK → RESTORED。
++28 个成功/拒绝协议场景、8 次极大页查询及 4 次模型广场查询通过。每次成功请求只有一条用量记录；
++身份、持久 Key、订阅、历史用量和余额等式均通过，迁移数始终 307。
++
++文件图片计数为 0/2/0/2，分组固定单价 0.25 时费用为 $0.25/$0.50/$0.25/$0.50；
++两种 DeepSeek 响应方式均从 2000 普通输入/0 缓存改为 1000 普通输入/1000 缓存，输出均为 500。
++默认 Pro 夹具费用 $0.0006/$0.001672/$0.0006/$0.001672，自定义价夹具 $0.003/$0.0024/$0.003/$0.0024。
++21 MiB 文件由拒绝变为成功，夹具上游核对了文件长度和 SHA-256；multipart 边界重编码不影响文件字节。
++模型广场真实仓储值的固定价为 0.90/0.12/0.90/0.12，极大页由 500 变为 200，回退恢复原行为。
++
++最终顺序微基准使用 Go 1.26.10、linux/arm64、2 CPU、4 GiB，每项 5 次、每次 200ms；中位数如下。
++
++| 固定夹具 | 基线 ns/op | 修改 ns/op | 回退 ns/op | 修改 B/op / 分配 |
++| --- | ---: | ---: | ---: | ---: |
++| ASCII 指纹 | 371.9 | 393.4 | 370.5 | 192 / 3 |
++| 长 Unicode 指纹 | 2.20929e+06 | 2.20497e+06 | 2.22972e+06 | 1.84333e+06 / 3 |
++| Gemini 普通文字计数 | 390.5 | 337.8 | 395.8 | 64 / 1 |
++| Gemini 内联图片计数 | 559.4 | 541 | 559.6 | 80 / 1 |
++| 无关 1 MiB Chat 请求 | 164.7 | 162.6 | 160.5 | 144 / 1 |
++
++各夹具内存和分配次数不变。ASCII 指纹增加了有界码元识别开销；文字计数的单次遍历抵消了额外格式支持的查找。
++这些是函数夹具结果，不是生产吞吐保证。早期与构建并行的探索样本单独保存，未用于此表。
++两处已有行数超限（payment_fulfillment_test.go 1201 行、pricing_service.go 1218 行）与基线哈希相同，
++未扩大 allowlist，也未重复处理。

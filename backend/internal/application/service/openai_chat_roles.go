@@ -5,13 +5,15 @@ import (
 	"errors"
 	"net/url"
 	"strings"
+
+	"github.com/tidwall/gjson"
 )
 
 // requiresSystemChatRole identifies native Chat Completions destinations that
 // reject the newer developer role. The decision is made after account and
 // destination selection, so a retry on another account can receive the
 // original request unchanged.
-func requiresSystemChatRole(account *Account, targetURL string) bool {
+func requiresSystemChatRole(account *Account, targetURL string, body []byte) bool {
 	if account == nil || account.Type != AccountTypeAPIKey {
 		return false
 	}
@@ -19,11 +21,16 @@ func requiresSystemChatRole(account *Account, targetURL string) bool {
 	case PlatformDeepseek, PlatformKimi, PlatformZhipu:
 		return true
 	}
+	if account.IsOpenCodeGo() {
+		return isOpenCodeDeepSeekChatModel(body)
+	}
 	u, err := url.Parse(targetURL)
 	if err != nil {
 		return false
 	}
 	switch strings.ToLower(u.Hostname()) {
+	case "opencode.ai":
+		return strings.EqualFold(u.Scheme, "https") && isOpenCodeDeepSeekChatModel(body)
 	case "api.deepseek.com", "api.kimi.com", "api.moonshot.cn", "api.moonshot.ai", "open.bigmodel.cn", "api.z.ai":
 		return true
 	default:
@@ -31,12 +38,20 @@ func requiresSystemChatRole(account *Account, targetURL string) bool {
 	}
 }
 
+func isOpenCodeDeepSeekChatModel(body []byte) bool {
+	model := strings.TrimSpace(gjson.GetBytes(body, "model").String())
+	if i := strings.LastIndexByte(model, '/'); i >= 0 {
+		model = model[i+1:]
+	}
+	return isDeepSeekModelName(model)
+}
+
 // normalizeStrictChatDeveloperRoles adapts only the role field for strict Chat
 // upstreams. It deliberately avoids reordering or merging messages and uses
 // RawMessage values so unknown fields and large numeric metadata survive the
 // per-account adaptation.
 func normalizeStrictChatDeveloperRoles(account *Account, targetURL string, body []byte) ([]byte, error) {
-	if !requiresSystemChatRole(account, targetURL) {
+	if !requiresSystemChatRole(account, targetURL, body) {
 		return body, nil
 	}
 	var root map[string]json.RawMessage

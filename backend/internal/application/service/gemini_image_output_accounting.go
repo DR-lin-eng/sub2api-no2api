@@ -41,7 +41,7 @@ func observeGeminiImageOutputs(c *gin.Context, payload []byte) {
 	if counter == nil {
 		return
 	}
-	if count := countGeminiInlineImageOutputs(payload); count > counter.count {
+	if count := countGeminiImageOutputs(payload); count > counter.count {
 		counter.count = count
 	}
 }
@@ -64,14 +64,14 @@ func resolveGeminiImageCount(c *gin.Context, originalModel, mappedModel string) 
 	return 0
 }
 
-func countGeminiInlineImageOutputs(payload []byte) int {
+func countGeminiImageOutputs(payload []byte) int {
 	if len(payload) == 0 || !gjson.ValidBytes(payload) {
 		return 0
 	}
 	count := 0
 	gjson.GetBytes(payload, "candidates").ForEach(func(_, candidate gjson.Result) bool {
 		candidate.Get("content.parts").ForEach(func(_, part gjson.Result) bool {
-			if geminiPartIsInlineImage(part) {
+			if geminiPartIsImage(part) {
 				count++
 			}
 			return true
@@ -81,21 +81,32 @@ func countGeminiInlineImageOutputs(payload []byte) int {
 	return count
 }
 
-func geminiPartIsInlineImage(part gjson.Result) bool {
-	inline := part.Get("inlineData")
-	if !inline.Exists() {
-		inline = part.Get("inline_data")
-	}
-	if !inline.Exists() {
-		return false
-	}
-
-	mimeType := inline.Get("mimeType")
-	if !mimeType.Exists() {
-		mimeType = inline.Get("mime_type")
-	}
-	if !isGeminiInlineImageMIMEType(strings.ToLower(strings.TrimSpace(mimeType.String()))) {
-		return false
-	}
-	return strings.TrimSpace(inline.Get("data").String()) != ""
+func geminiPartIsImage(part gjson.Result) bool {
+	found := false
+	// Scan the part once so ordinary text does not need four key lookups.
+	part.ForEach(func(key, image gjson.Result) bool {
+		var dataKey string
+		switch key.Str {
+		case "inlineData", "inline_data":
+			dataKey = "data"
+		case "fileData", "file_data":
+			dataKey = "fileUri"
+		default:
+			return true
+		}
+		mimeType := image.Get("mimeType")
+		if !mimeType.Exists() {
+			mimeType = image.Get("mime_type")
+		}
+		if !isGeminiInlineImageMIMEType(strings.ToLower(strings.TrimSpace(mimeType.String()))) {
+			return true
+		}
+		data := image.Get(dataKey)
+		if dataKey == "fileUri" && !data.Exists() {
+			data = image.Get("file_uri")
+		}
+		found = data.Type == gjson.String && strings.TrimSpace(data.String()) != ""
+		return !found // One part contributes at most one image; never fetch its URI.
+	})
+	return found
 }
