@@ -1,0 +1,33 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=3g",
+    "-e",
+    "GOLANGCI_LINT_CACHE=/lint-cache",
+    "-v",
+    "sub2api-sync-lint-20261026:/lint-cache",
+    "-v",
+    "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo:/src",
+    "-v",
+    "sub2api-go-mod:/go/pkg/mod",
+    "-v",
+    "sub2api-go-build:/root/.cache/go-build",
+    "-w",
+    "/src/backend",
+    "sub2api-sync-tests:20261026",
+    "golangci-lint",
+    "run",
+    "--timeout=20m",
+    "./..."
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo",
+  "input": "",
+  "stdout": "internal/application/service/openai_compat_tool_model.go:1:1: File is not properly formatted (gofmt)\npackage service\n^\ninternal/application/service/upstream_sync_20261027_benchmark_test.go:1:1: File is not properly formatted (gofmt)\npackage service\n^\n2 issues:\n* gofmt: 2\n",
+  "stderr": "",
+  "exit_status": 1,
+  "duration_seconds": 148.043,
+  "utc": "2026-10-27T14:01:59.893472+00:00"
+}

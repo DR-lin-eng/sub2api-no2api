@@ -1,0 +1,15 @@
+{
+  "command": [
+    "make",
+    "-C",
+    "backend",
+    "check-layout"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo",
+  "input": "",
+  "stdout": "./scripts/check-source-layout.sh\n",
+  "stderr": "layout error: internal/application/service/openai_gateway_forward.go has 1201 lines (limit 1200); split by responsibility\nlayout error: internal/application/service/payment_fulfillment_test.go has 1201 lines (limit 1200); split by responsibility\nlayout error: internal/application/service/pricing_service.go has 1218 lines (limit 1200); split by responsibility\nmake: *** [check-layout] Error 1\n",
+  "exit_status": 2,
+  "duration_seconds": 0.457,
+  "utc": "2026-10-27T13:56:44.814991+00:00"
+}

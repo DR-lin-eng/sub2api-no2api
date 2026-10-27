@@ -66,3 +66,41 @@ Docker 单元、集成、前端、生产构建、升级/回退及性能的实际
 `VERIFICATION.txt` 与嵌入 pristine baseline 的可执行 `ROLLBACK.sh`；在独立副本上恢复并校验原始哈希，
 使用相同命令/输入记录 BASELINE、MODIFIED、ROLLBACK，再重建修改副本。远端 PR/main CI 和发布镜像
 另按实际 revision 跟踪。
+
+## 最终验收补充
+
+候选保留了本轮进行中主线新增的 #163（`d8fef5fbd`）及 VERSION 更新；本轮相对该主线的
+`openai_gateway_forward.go` 只有观察器入口的一行替换，没有重做 WebSocket 恢复逻辑。
+初始基线仍固定为 `a8ced32f6`；四角色源码补丁同时包含合入的主线文件，方便完整重建与回退。
+
+Docker 后端全单元、相关 race、真实 PostgreSQL 的模型快照/旧节点写入测试、最终 Go lint 与
+整合 #163 后的网关专项通过；前端 lint、typecheck、29 文件/248 个关键用例和 59 文件/511 个
+账号/密钥相关用例通过。最后补充 selector 卸载后的迟到响应保护及相邻回归。实际组件在
+1280×720 中文、390×844 英文浏览器中无横向溢出；这是带 fixture API 的组件验收。
+
+相同 PostgreSQL/Redis 上完成 BASELINE → MODIFIED → ROLLBACK → RESTORED，16 个 Grok Responses
+和 Terra Messages 的流式/非流式场景均只有一条 1000/100 token 用量记录，固定自定义价格每次
+$0.0045，四阶段费用一致。迁移数始终 307，持久身份、API Key、订阅、余额等式、加密登录和
+健康/前端入口通过。错误目录在基线/回退返回 200，修改/恢复后返回 502 并保持成功快照；新增
+诊断字段在旧二进制缺失、升级后 fresh，符合新 UI 的缺字段兼容处理。
+
+源码相同输入夹具实测：BASELINE 为 `gpt-6.1-terra-max`/空 effort、接受错误目录、冲突位 false；
+MODIFIED 为 `gpt-6.1-terra`/`max`、拒绝错误目录、冲突位 true；ROLLBACK 恢复基线行为和每个
+受影响路径的原始哈希，再由原生 patch 重建修改版。
+
+Go 1.26.10 / linux-arm64 / 2 CPU / 4 GiB，在其它检查结束后依次运行三阶段微基准，每项 5 次、
+每次 200ms，中位数如下。
+
+| 夹具 | 基线 ns/op | 修改 ns/op | 回退 ns/op | 修改 B/op / 分配 |
+| --- | ---: | ---: | ---: | ---: |
+| 普通模型名观察 | 10.53 | 6.66 | 10.56 | 0 / 0 |
+| 1,048,576 个 Unicode rune 模型名 | 4.76772e+06 | 526.6 | 4.7777e+06 | 640 / 1 |
+| 既有 gpt-5.4-high 别名 | 1304 | 1326 | 1296 | 6848 / 9 |
+
+既有别名夹具内存和分配数不变，耗时变化在本机样本波动内；普通模型名仍为零分配。超长模型名
+由全串 rune 数组改为只扫描/复制前 200 个 rune，内存从 4,194,944 B/op 降为 640 B/op。
+这只说明固定函数夹具的开销，不是生产吞吐保证。
+
+初始基线的行数门禁有 forward、payment test 和 pricing 三处超限；合入 #163 后 forward
+已由主线降至 1191 行。当前只剩 payment test（1201）和 pricing（1218）两处既有超限，
+两文件与当前主线哈希一致。本轮不扩大 allowlist，也不重复处理这些已有问题。

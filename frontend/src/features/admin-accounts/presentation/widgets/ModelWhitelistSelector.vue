@@ -145,7 +145,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
 import {
@@ -217,6 +217,7 @@ const canSyncUpstream = computed(() => {
 
 const observedModels = ref<string[]>([])
 let syncGeneration = 0
+onBeforeUnmount(() => { syncGeneration += 1 })
 watch(() => [props.accountId, props.platform, props.platforms, props.syncCredentials], () => {
   observedModels.value = []
   syncGeneration += 1

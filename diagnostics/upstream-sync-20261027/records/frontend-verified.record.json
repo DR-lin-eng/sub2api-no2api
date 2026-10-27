@@ -1,0 +1,30 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=4g",
+    "-e",
+    "CI=true",
+    "-e",
+    "NODE_OPTIONS=--max-old-space-size=3072",
+    "-v",
+    "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo:/src",
+    "-v",
+    "sub2api-sync-node-modules-20261026:/src/frontend/node_modules",
+    "-w",
+    "/src",
+    "node:24-alpine",
+    "sh",
+    "-c",
+    "apk add --no-cache make && corepack enable && corepack prepare pnpm@11.17.0 --activate && make test-frontend && cd frontend && pnpm exec vitest run src/features/admin-accounts src/features/keys/__tests__/UseKeyModal.spec.ts"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo",
+  "input": "",
+  "stdout": "(1/1) Installing make (4.4.1-r4)\nExecuting busybox-1.37.0-r31.trigger\nOK: 11.4 MiB in 20 packages\nPreparing pnpm@11.17.0 for immediate activation...\nInternal Error: Error when performing the request to https://registry.npmjs.org/pnpm/-/pnpm-11.17.0.tgz; for troubleshooting help, see https://github.com/nodejs/corepack#troubleshooting\n    at fetch (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:13170:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async fetchUrlStream (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:13200:20)\n    at async download (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:13352:18)\n    at async installVersion (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:13466:55)\n    at async Engine.ensurePackageManager (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:13994:32)\n    at async PrepareCommand.execute (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:14756:27)\n    at async PrepareCommand.validateAndExecute (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:1352:26)\n    at async _Cli.run (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:2462:22)\n    at async Object.runMain (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:14832:19)\n",
+  "stderr": "",
+  "exit_status": 1,
+  "duration_seconds": 8.876,
+  "utc": "2026-10-27T13:57:15.918734+00:00"
+}

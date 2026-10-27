@@ -1,0 +1,26 @@
+{
+  "scope": "actual component with fixture APIs and actual project styles; not full admin browser E2E",
+  "checks": [
+    {
+      "locale": "zh",
+      "width": 1280,
+      "height": 720,
+      "scroll_width": 1280,
+      "screenshot": "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo/diagnostics/upstream-sync-20261027/ui/desktop-zh.png"
+    },
+    {
+      "locale": "en",
+      "width": 390,
+      "height": 844,
+      "scroll_width": 390,
+      "panel_width": 350,
+      "screenshot": "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo/diagnostics/upstream-sync-20261027/ui/mobile-en.png"
+    }
+  ],
+  "result": "PASS",
+  "setup_corrections": [
+    "initial preview before server ready",
+    "resolve fixture node_modules through frontend runtime",
+    "use frontend PostCSS configuration for actual Tailwind styles"
+  ]
+}

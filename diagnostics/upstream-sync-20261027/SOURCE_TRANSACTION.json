@@ -1,0 +1,66 @@
+{
+  "baseline_tree": "2e9c51e7d79f10f680e48eabe3efafa75e12b1d7",
+  "affected_paths": 46,
+  "baseline_hashes_restored": "PASS",
+  "patch_reconstruction": "PASS",
+  "reapplied_source_equals_modified_archive": "PASS",
+  "results": [
+    {
+      "stage": "BASELINE",
+      "exit_status": 0,
+      "observed_behavior": [
+        "upstream_sync_20261027_probe_test.go:17: TERRA model=gpt-6.1-terra-max effort=",
+        "upstream_sync_20261027_probe_test.go:19: GROK invalid_catalog_rejected=false models=[grok-4.6]",
+        "upstream_sync_20261027_probe_test.go:26: GROK terminal=grok-4.6 conflict=false"
+      ],
+      "same_command_input": [
+        "go",
+        "test",
+        "-tags=unit",
+        "./internal/application/service",
+        "-run",
+        "^TestUpstreamSync20261027Transaction$",
+        "-count=1",
+        "-v"
+      ]
+    },
+    {
+      "stage": "MODIFIED",
+      "exit_status": 0,
+      "observed_behavior": [
+        "upstream_sync_20261027_probe_test.go:17: TERRA model=gpt-6.1-terra effort=max",
+        "upstream_sync_20261027_probe_test.go:19: GROK invalid_catalog_rejected=true models=[]",
+        "upstream_sync_20261027_probe_test.go:26: GROK terminal=grok-4.6 conflict=true"
+      ],
+      "same_command_input": [
+        "go",
+        "test",
+        "-tags=unit",
+        "./internal/application/service",
+        "-run",
+        "^TestUpstreamSync20261027Transaction$",
+        "-count=1",
+        "-v"
+      ]
+    },
+    {
+      "stage": "ROLLBACK",
+      "exit_status": 0,
+      "observed_behavior": [
+        "upstream_sync_20261027_probe_test.go:17: TERRA model=gpt-6.1-terra-max effort=",
+        "upstream_sync_20261027_probe_test.go:19: GROK invalid_catalog_rejected=false models=[grok-4.6]",
+        "upstream_sync_20261027_probe_test.go:26: GROK terminal=grok-4.6 conflict=false"
+      ],
+      "same_command_input": [
+        "go",
+        "test",
+        "-tags=unit",
+        "./internal/application/service",
+        "-run",
+        "^TestUpstreamSync20261027Transaction$",
+        "-count=1",
+        "-v"
+      ]
+    }
+  ]
+}

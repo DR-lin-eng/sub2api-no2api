@@ -1,0 +1,15 @@
+(1/1) Installing make (4.4.1-r4)
+Executing busybox-1.37.0-r31.trigger
+OK: 11.4 MiB in 20 packages
+Preparing pnpm@11.17.0 for immediate activation...
+Internal Error: Error when performing the request to https://registry.npmjs.org/pnpm/-/pnpm-11.17.0.tgz; for troubleshooting help, see https://github.com/nodejs/corepack#troubleshooting
+    at fetch (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:13170:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async fetchUrlStream (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:13200:20)
+    at async download (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:13352:18)
+    at async installVersion (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:13466:55)
+    at async Engine.ensurePackageManager (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:13994:32)
+    at async PrepareCommand.execute (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:14756:27)
+    at async PrepareCommand.validateAndExecute (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:1352:26)
+    at async _Cli.run (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:2462:22)
+    at async Object.runMain (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:14832:19)

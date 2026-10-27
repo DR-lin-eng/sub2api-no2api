@@ -1,0 +1,8 @@
+internal/application/service/openai_compat_tool_model.go:1:1: File is not properly formatted (gofmt)
+package service
+^
+internal/application/service/upstream_sync_20261027_benchmark_test.go:1:1: File is not properly formatted (gofmt)
+package service
+^
+2 issues:
+* gofmt: 2

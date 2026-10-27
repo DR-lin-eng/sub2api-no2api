@@ -1,0 +1,23 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "-v",
+    "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo:/src",
+    "-w",
+    "/src/backend",
+    "sub2api-sync-tests:20261026",
+    "gofmt",
+    "-w",
+    "internal/application/service/openai_compat_tool_model.go",
+    "internal/application/service/upstream_sync_20261027_benchmark_test.go"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo",
+  "input": "",
+  "stdout": "",
+  "stderr": "",
+  "exit_status": 0,
+  "duration_seconds": 0.392,
+  "utc": "2026-10-27T14:02:24.951450+00:00"
+}

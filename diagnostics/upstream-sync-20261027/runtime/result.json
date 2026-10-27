@@ -1,0 +1,262 @@
+[
+  {
+    "stage": "BASELINE",
+    "result": "PASS",
+    "cases": [
+      {
+        "platform": "grok",
+        "path": "/v1/responses",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 100,
+          "cost": 0.0045,
+          "actual": 0.0045,
+          "response_model": null
+        }
+      },
+      {
+        "platform": "grok",
+        "path": "/v1/responses",
+        "stream": true,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 100,
+          "cost": 0.0045,
+          "actual": 0.0045,
+          "response_model": null
+        }
+      },
+      {
+        "platform": "openai",
+        "path": "/v1/messages",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 100,
+          "cost": 0.0045,
+          "actual": 0.0045,
+          "response_model": "gpt-6.1-terra"
+        }
+      },
+      {
+        "platform": "openai",
+        "path": "/v1/messages",
+        "stream": true,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 100,
+          "cost": 0.0045,
+          "actual": 0.0045,
+          "response_model": "gpt-6.1-terra"
+        }
+      }
+    ],
+    "migrations": 307,
+    "invalid_catalog_http": 200,
+    "failed_refresh_preserved_success": false,
+    "diagnostic_state": "absent",
+    "persisted_identity_key_subscription_sha256": "f96c9c658ed56ec1f492a6f5985320d59f468e90d96664505f0dc8ca5b075777",
+    "health_ready_frontend_encrypted_login": "PASS",
+    "balance_settlement_identity": "PASS"
+  },
+  {
+    "stage": "MODIFIED",
+    "result": "PASS",
+    "cases": [
+      {
+        "platform": "grok",
+        "path": "/v1/responses",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 100,
+          "cost": 0.0045,
+          "actual": 0.0045,
+          "response_model": "grok-4.6"
+        }
+      },
+      {
+        "platform": "grok",
+        "path": "/v1/responses",
+        "stream": true,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 100,
+          "cost": 0.0045,
+          "actual": 0.0045,
+          "response_model": "grok-4.6"
+        }
+      },
+      {
+        "platform": "openai",
+        "path": "/v1/messages",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 100,
+          "cost": 0.0045,
+          "actual": 0.0045,
+          "response_model": "gpt-6.1-terra"
+        }
+      },
+      {
+        "platform": "openai",
+        "path": "/v1/messages",
+        "stream": true,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 100,
+          "cost": 0.0045,
+          "actual": 0.0045,
+          "response_model": "gpt-6.1-terra"
+        }
+      }
+    ],
+    "migrations": 307,
+    "invalid_catalog_http": 502,
+    "failed_refresh_preserved_success": true,
+    "diagnostic_state": "fresh",
+    "persisted_identity_key_subscription_sha256": "f96c9c658ed56ec1f492a6f5985320d59f468e90d96664505f0dc8ca5b075777",
+    "health_ready_frontend_encrypted_login": "PASS",
+    "balance_settlement_identity": "PASS"
+  },
+  {
+    "stage": "ROLLBACK",
+    "result": "PASS",
+    "cases": [
+      {
+        "platform": "grok",
+        "path": "/v1/responses",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 100,
+          "cost": 0.0045,
+          "actual": 0.0045,
+          "response_model": null
+        }
+      },
+      {
+        "platform": "grok",
+        "path": "/v1/responses",
+        "stream": true,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 100,
+          "cost": 0.0045,
+          "actual": 0.0045,
+          "response_model": null
+        }
+      },
+      {
+        "platform": "openai",
+        "path": "/v1/messages",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 100,
+          "cost": 0.0045,
+          "actual": 0.0045,
+          "response_model": "gpt-6.1-terra"
+        }
+      },
+      {
+        "platform": "openai",
+        "path": "/v1/messages",
+        "stream": true,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 100,
+          "cost": 0.0045,
+          "actual": 0.0045,
+          "response_model": "gpt-6.1-terra"
+        }
+      }
+    ],
+    "migrations": 307,
+    "invalid_catalog_http": 200,
+    "failed_refresh_preserved_success": false,
+    "diagnostic_state": "absent",
+    "persisted_identity_key_subscription_sha256": "f96c9c658ed56ec1f492a6f5985320d59f468e90d96664505f0dc8ca5b075777",
+    "health_ready_frontend_encrypted_login": "PASS",
+    "balance_settlement_identity": "PASS"
+  },
+  {
+    "stage": "RESTORED",
+    "result": "PASS",
+    "cases": [
+      {
+        "platform": "grok",
+        "path": "/v1/responses",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 100,
+          "cost": 0.0045,
+          "actual": 0.0045,
+          "response_model": "grok-4.6"
+        }
+      },
+      {
+        "platform": "grok",
+        "path": "/v1/responses",
+        "stream": true,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 100,
+          "cost": 0.0045,
+          "actual": 0.0045,
+          "response_model": "grok-4.6"
+        }
+      },
+      {
+        "platform": "openai",
+        "path": "/v1/messages",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 100,
+          "cost": 0.0045,
+          "actual": 0.0045,
+          "response_model": "gpt-6.1-terra"
+        }
+      },
+      {
+        "platform": "openai",
+        "path": "/v1/messages",
+        "stream": true,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 100,
+          "cost": 0.0045,
+          "actual": 0.0045,
+          "response_model": "gpt-6.1-terra"
+        }
+      }
+    ],
+    "migrations": 307,
+    "invalid_catalog_http": 502,
+    "failed_refresh_preserved_success": true,
+    "diagnostic_state": "fresh",
+    "persisted_identity_key_subscription_sha256": "f96c9c658ed56ec1f492a6f5985320d59f468e90d96664505f0dc8ca5b075777",
+    "health_ready_frontend_encrypted_login": "PASS",
+    "balance_settlement_identity": "PASS"
+  }
+]

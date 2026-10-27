@@ -1,0 +1,36 @@
+2026/10/27 13:53:02 Timezone initialized: UTC (UTC offset: +00:00)
+2026/10/27 13:53:02 github.com/testcontainers/testcontainers-go - Connected to docker: 
+  Server Version: 29.2.1
+  API Version: 1.51
+  Operating System: Docker Desktop
+  Total Memory: 7836 MB
+  Labels:
+    com.docker.desktop.address=unix:///Users/lin/Library/Containers/com.docker.docker/Data/docker-cli.sock
+  Testcontainers for Go Version: v0.40.0
+  Resolved Docker Host: unix:///var/run/docker.sock
+  Resolved Docker Socket Path: /var/run/docker.sock
+  Test SessionID: 6fe788be9a6df8a88290fe7dca2e6edfe7e40c02e2a13ec0a7c91c5a21bc22ec
+  Test ProcessID: 57bae3e7-118a-4ec3-a97f-10147562232a
+2026/10/27 13:53:02 🐳 Creating container for image postgres:18.1-alpine3.23
+2026/10/27 13:53:03 🐳 Creating container for image testcontainers/ryuk:0.13.0
+2026/10/27 13:53:03 ✅ Container created: 1d68887d0258
+2026/10/27 13:53:03 🐳 Starting container: 1d68887d0258
+2026/10/27 13:53:04 ✅ Container started: 1d68887d0258
+2026/10/27 13:53:04 ⏳ Waiting for container id 1d68887d0258 image: testcontainers/ryuk:0.13.0. Waiting for: port 8080/tcp to be listening
+2026/10/27 13:53:04 Shell not found in container
+2026/10/27 13:53:04 🔔 Container is ready: 1d68887d0258
+2026/10/27 13:53:04 ✅ Container created: e45e43af9d7e
+2026/10/27 13:53:04 🐳 Starting container: e45e43af9d7e
+2026/10/27 13:53:04 ✅ Container started: e45e43af9d7e
+2026/10/27 13:53:04 ⏳ Waiting for container id e45e43af9d7e image: postgres:18.1-alpine3.23. Waiting for: all of: [log message "database system is ready to accept connections" (occurrence: 2), port 5432/tcp to be listening]
+2026/10/27 13:53:06 🔔 Container is ready: e45e43af9d7e
+2026/10/27 13:53:06 🐳 Creating container for image redis:8.4-alpine
+2026/10/27 13:53:06 ✅ Container created: f635c0a0734a
+2026/10/27 13:53:06 🐳 Starting container: f635c0a0734a
+2026/10/27 13:53:06 ✅ Container started: f635c0a0734a
+2026/10/27 13:53:06 ⏳ Waiting for container id f635c0a0734a image: redis:8.4-alpine. Waiting for: all of: [port 6379/tcp to be listening, log message "* Ready to accept connections"]
+2026/10/27 13:53:06 🔔 Container is ready: f635c0a0734a
+=== RUN   TestModelCatalogPostgresRefreshAndLegacyWrites
+--- PASS: TestModelCatalogPostgresRefreshAndLegacyWrites (0.08s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/infrastructure/repository	6.390s

@@ -1,0 +1,2177 @@
+diff --git a/backend/cmd/server/VERSION b/backend/cmd/server/VERSION
+index 5b7b7db35..f9c7ac7ce 100644
+--- a/backend/cmd/server/VERSION
++++ b/backend/cmd/server/VERSION
+@@ -1 +1 @@
+-0.1.227
++0.1.228
+diff --git a/backend/internal/application/service/README.md b/backend/internal/application/service/README.md
+index 8318725c2..97b2bfa96 100644
+--- a/backend/internal/application/service/README.md
++++ b/backend/internal/application/service/README.md
+@@ -12,6 +12,7 @@
+ | `gateway_systemone.go`, `account_test_service_typesafe.go` | TypeSafe 原生非流式转发与账号测试，复用完整账号出口和可靠计费 |
+ | `openai*` | OpenAI/Codex/Responses/Images/WS 管线 |
+ | `openai_capacity_retry.go` | 请求级容量错误的 HTTP/SSE/WS 等待提示解析；有限数值先限幅，沿用现有重试预算 |
++| `openai_ws_size_recovery.go` | 大 JSON 请求的 HTTP 预分流、1009/断连后一次安全回退与完整历史重放边界 |
+ | `openai_ws_fallback_response.go` | WS 终止错误的 HTTP/SSE 映射、1009 大小限制提示与已提交响应保护 |
+ | `openai_live*` | Codex CLI/旧 Desktop Live、Sideband 控制、分钟结算和持久恢复 |
+ | `gemini*`, `grok*`, `antigravity*`, `bedrock*` | 各上游协议适配与重试 |
+@@ -90,3 +91,5 @@ GPT-6.1 Sol 的订阅模型长上下文豁免由 `openai_subscription_long_conte
+ `gateway_forward_compat_stream.go` 和 `gateway_forward_compat_idle.go` 管理 Anthropic 兼容流的字节级扫描、阻塞读取超时和断连后最终用量；`account_quota_support.go`、`request_metadata_single_account.go` 分别维护 service account 配额类型和请求内延迟单账号探测。Gemini 图片权限、工具 schema 和关闭台账见 [2026-10-22 同步审查](../../../../docs/UPSTREAM_SYNC_20261022.md)。
+ 
+ `billing_grok_fast.go` 持有 Grok 4.7 Fast 的明确 ID 与内置兜底价；捆绑快照使用本项目已支持的显式长上下文字段。两个 Fast ID、边界与价格优先级见 [#8170 同步记录](../../../../docs/UPSTREAM_SYNC_20261022_PR8170.md)。
++
++`grok_model_catalog.go` performs strict Grok catalog parsing and computes a source fingerprint. It reuses modelcatalog persistence and the existing OAuth model worker. Detail diagnostics are pure; `openai_compat_tool_model.go` enforces mapped Sol/Terra tools on Responses-capable paths. See [2026-10-27 sync](../../../../docs/UPSTREAM_SYNC_20261027.md).
+diff --git a/backend/internal/application/service/grok_model_catalog.go b/backend/internal/application/service/grok_model_catalog.go
+new file mode 100644
+index 000000000..1084884aa
+--- /dev/null
++++ b/backend/internal/application/service/grok_model_catalog.go
+@@ -0,0 +1,102 @@
++package service
++
++import (
++	"bytes"
++	"crypto/sha256"
++	"encoding/hex"
++	"encoding/json"
++	"fmt"
++	"github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog"
++	"net/url"
++	"strconv"
++	"strings"
++	"time"
++)
++
++// Grok parsing rejects ambiguous success/error envelopes and incomplete entries.
++func parseGrokCatalogModelIDs(body []byte) ([]string, error) {
++	if len(body) > modelcatalog.MaxBodyBytes {
++		return nil, fmt.Errorf("grok catalog exceeds limit")
++	}
++	raw := bytes.TrimSpace(body)
++	var entries []json.RawMessage
++	if len(raw) == 0 {
++		return nil, fmt.Errorf("invalid grok catalog")
++	}
++	switch raw[0] {
++	case '[':
++		if err := json.Unmarshal(raw, &entries); err != nil {
++			return nil, err
++		}
++	case '{':
++		var envelope map[string]json.RawMessage
++		if err := json.Unmarshal(raw, &envelope); err != nil {
++			return nil, err
++		}
++		if value, ok := envelope["error"]; ok && !bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
++			return nil, fmt.Errorf("grok catalog error response")
++		}
++		found := false
++		for _, key := range []string{"data", "models"} {
++			if value, ok := envelope[key]; ok {
++				found = true
++				value = bytes.TrimSpace(value)
++				if len(value) == 0 || value[0] != '[' {
++					return nil, fmt.Errorf("invalid grok catalog entries")
++				}
++				var items []json.RawMessage
++				if err := json.Unmarshal(value, &items); err != nil {
++					return nil, err
++				}
++				entries = append(entries, items...)
++			}
++		}
++		if !found {
++			return nil, fmt.Errorf("missing grok catalog")
++		}
++	default:
++		return nil, fmt.Errorf("invalid grok catalog")
++	}
++	if len(entries) == 0 || len(entries) > modelcatalog.MaxModels {
++		return nil, fmt.Errorf("invalid grok catalog model count")
++	}
++	ids := make([]string, 0, len(entries))
++	for _, raw := range entries {
++		var id string
++		if json.Unmarshal(raw, &id) != nil {
++			var entry upstreamModelEntry
++			if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
++				return nil, fmt.Errorf("invalid grok catalog entry")
++			}
++			if err := json.Unmarshal(raw, &entry); err != nil {
++				return nil, err
++			}
++			id = grokUpstreamModelEntryID(entry)
++		}
++		id = strings.TrimSpace(id)
++		if !modelcatalog.ValidID(id) {
++			return nil, fmt.Errorf("invalid grok model ID")
++		}
++		ids = append(ids, id)
++	}
++	return dedupeAndSortModelIDs(ids), nil
++}
++func grokModelsScope(account *Account, endpoint string) string {
++	parsed, err := url.Parse(endpoint)
++	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
++		return ""
++	}
++	parsed.Fragment = ""
++	parsed.User = nil
++	sum := sha256.Sum256([]byte(strconv.FormatInt(account.ID, 10) + "\n" + account.Type + "\n" + parsed.String()))
++	return hex.EncodeToString(sum[:])
++}
++
++// No token refresh, HTTP, DNS lookup, database query, or scheduling mutation.
++func GetGrokModelDiagnostics(account *Account) *modelcatalog.GrokDiagnostics {
++	if account == nil || !account.IsGrok() {
++		return nil
++	}
++	base := account.GetGrokBaseURL()
++	return modelcatalog.EvaluateGrok(modelcatalog.ReadSnapshot(account.Extra), grokModelsScope(account, buildOpenAIModelsURL(base)), account.GetModelMapping(), time.Now())
++}
+diff --git a/backend/internal/application/service/openai_compat_model.go b/backend/internal/application/service/openai_compat_model.go
+index c38cb7add..44a2d3644 100644
+--- a/backend/internal/application/service/openai_compat_model.go
++++ b/backend/internal/application/service/openai_compat_model.go
+@@ -7,6 +7,9 @@ import (
+ )
+ 
+ func NormalizeOpenAICompatRequestedModel(model string) string {
++	if base := gpt61CompatBase(model); base != "" {
++		return base
++	}
+ 	trimmed := strings.TrimSpace(model)
+ 	if trimmed == "" {
+ 		return ""
+@@ -24,6 +27,16 @@ func applyOpenAICompatModelNormalization(req *apicompat.AnthropicRequest) {
+ 		return
+ 	}
+ 
++	if base := gpt61CompatBase(req.Model); base != "" {
++		canonical := canonicalizeOpenAIModelAliasSpelling(req.Model)
++		if effort, ok := strings.CutPrefix(canonical, base+"-"); ok && effort != "openai-compact" {
++			req.Model = base
++			if req.OutputConfig == nil || strings.TrimSpace(req.OutputConfig.Effort) == "" {
++				req.OutputConfig = &apicompat.AnthropicOutputConfig{Effort: effort}
++			}
++		}
++		return
++	}
+ 	originalModel := strings.TrimSpace(req.Model)
+ 	if originalModel == "" {
+ 		return
+diff --git a/backend/internal/application/service/openai_compat_tool_model.go b/backend/internal/application/service/openai_compat_tool_model.go
+new file mode 100644
+index 000000000..287ccf3a8
+--- /dev/null
++++ b/backend/internal/application/service/openai_compat_tool_model.go
+@@ -0,0 +1,15 @@
++package service
++
++import "strings"
++
++func gpt61CompatBase(model string) string {
++	if !strings.Contains(model, "6.1") {
++		return ""
++	}
++	switch base := normalizeKnownOpenAICodexModel(model); base {
++	case "gpt-6.1-sol", "gpt-6.1-terra":
++		return base
++	}
++	return ""
++}
++func requiresResponsesForToolCalls(model string) bool { return gpt61CompatBase(model) != "" }
+diff --git a/backend/internal/application/service/openai_gateway_chat_completions.go b/backend/internal/application/service/openai_gateway_chat_completions.go
+index 8e6818c6e..291b0c45d 100644
+--- a/backend/internal/application/service/openai_gateway_chat_completions.go
++++ b/backend/internal/application/service/openai_gateway_chat_completions.go
+@@ -77,7 +77,7 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
+ 		body = stripDistillationCacheFields(body)
+ 		promptCacheKey = ""
+ 	}
+-	beginUpstreamResponseModelObservation(c)
++	beginAccountUpstreamResponseModelObservation(c, account)
+ 	beginOpenAITimingObservation(c)
+ 	ClearActualOpenAIUpstreamEndpoint(c)
+ 	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) {
+diff --git a/backend/internal/application/service/openai_gateway_chat_completions_raw.go b/backend/internal/application/service/openai_gateway_chat_completions_raw.go
+index 25e3cc976..682e7d5e0 100644
+--- a/backend/internal/application/service/openai_gateway_chat_completions_raw.go
++++ b/backend/internal/application/service/openai_gateway_chat_completions_raw.go
+@@ -87,6 +87,11 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletionsWithStartTime(ctx cont
+ 		// anchored to the client's stable conversation prefix.
+ 		grokCacheIdentity = resolveGrokCacheIdentity(c, body, "", upstreamModel)
+ 	}
++	if requiresResponsesForToolCalls(upstreamModel) && (len(gjson.GetBytes(body, "tools").Array()) > 0 || len(gjson.GetBytes(body, "functions").Array()) > 0) {
++		err := fmt.Errorf("%s requires Responses for tool calls; this account only supports Chat Completions", normalizeKnownOpenAICodexModel(upstreamModel))
++		writeChatCompletionsError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
++		return nil, err
++	}
+ 	reasoningEffort := extractOpenAIReasoningEffortFromBody(body, upstreamModel, billingModel, originalModel)
+ 	// 国产模型默认 effort 补充：需要 mappedModel 判定，推迟到 billingModel 算出之后。
+ 	reasoningEffort = ApplyThinkingEnabledFallback(reasoningEffort, body, billingModel)
+diff --git a/backend/internal/application/service/openai_gateway_forward.go b/backend/internal/application/service/openai_gateway_forward.go
+index d0c5e1c0c..81584811a 100644
+--- a/backend/internal/application/service/openai_gateway_forward.go
++++ b/backend/internal/application/service/openai_gateway_forward.go
+@@ -32,7 +32,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
+ 		requestCtx := context.WithValue(c.Request.Context(), openAIStreamRuntimeSettingsContextKey{}, settings)
+ 		c.Request = c.Request.WithContext(requestCtx)
+ 	}
+-	beginUpstreamResponseModelObservation(c)
++	beginAccountUpstreamResponseModelObservation(c, account)
+ 	beginOpenAITimingObservation(c)
+ 	ClearActualOpenAIUpstreamEndpoint(c)
+ 	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) || shouldForwardDeepSeekCompatViaChatCompletions(c, account, body) {
+@@ -650,7 +650,11 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
+ 		return nil, err
+ 	}
+ 
+-	// 命中 WS 时仅走 WebSocket Mode；不再自动回退 HTTP。
++	if wsDecision.Transport == OpenAIUpstreamTransportResponsesWebsocketV2 && s.shouldBypassOpenAIWSForSize(ctx, c, account, body, canonicalImageIntentBody) {
++		s.markOpenAIWSHTTPRecovery(c, account, body, "ws_request_size_http")
++		wsDecision = openAIWSHTTPDecision("ws_request_size_http")
++	}
++	// Keep reconnects bounded; size failures may recover once through HTTP.
+ 	if wsDecision.Transport == OpenAIUpstreamTransportResponsesWebsocketV2 {
+ 		// WS 分支需要结构化 payload 与重连恢复，命中后再触发 full-map decode。
+ 		wsReqBody, err := ensureReqBody()
+@@ -918,32 +922,18 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
+ 		// Keepalive comments may already have committed HTTP 200, but they are not
+ 		// semantic output and must not prevent a replay-safe WS-to-HTTP fallback.
+ 		canReplayThroughHTTP := !openAIStreamClientOutputStarted(c, false)
+-		if canReplayThroughHTTP {
+-			// The WS reconnect budget is exhausted for transport/read failures.
+-			// Surface the common failover type so the HTTP handler can switch
+-			// accounts; otherwise an internal openAIWSFallbackError falls through
+-			// to the generic "Upstream request failed" response.
+-			if _, retryable := classifyOpenAIWSReconnectReason(wsErr); retryable {
+-				return nil, s.newOpenAIWSReconnectFailoverError(c, account, wsErr)
+-			}
+-		}
+-		if canReplayThroughHTTP && !codexContinuationRecoveryForbidden(c) && (shouldFallbackOpenAIWSToHTTP(wsErr) ||
+-			shouldFallbackCodexPrewarmWSForbiddenToHTTP(account, wsErr)) {
+-			// The WS handshake/error event happened before any semantic output was
+-			// written. Reuse the original request body through the normal HTTP
+-			// Responses/SSE pipeline so callers receive one consistent response.
+-			s.markOpenAIWSFallbackCooling(account.ID, "websocket_unavailable")
++
++		if canReplayThroughHTTP && !codexContinuationRecoveryForbidden(c) && s.prepareOpenAIWSHTTPFallback(ctx, c, account, wsErr, body, canonicalImageIntentBody) {
+ 			wsDecision = openAIWSHTTPDecision("ws_fallback_http_sse")
+-			if c != nil {
+-				c.Set("openai_ws_transport_decision", string(wsDecision.Transport))
+-				c.Set("openai_ws_transport_reason", wsDecision.Reason)
+-			}
+-			logOpenAIWSModeInfo(
+-				"fallback_http_sse account_id=%d reason=upstream_websocket_unavailable cooldown=%s",
+-				account.ID,
+-				s.openAIWSFallbackCooldown(),
+-			)
++			// Discard prewarm mutations; HTTP must replay the immutable full body.
++			reqBody = nil
++			requestView = newOpenAIRequestView(body)
+ 		} else {
++			if canReplayThroughHTTP {
++				if _, retryable := classifyOpenAIWSReconnectReason(wsErr); retryable {
++					return nil, s.newOpenAIWSReconnectFailoverError(c, account, wsErr)
++				}
++			}
+ 			if authFailover := s.newOpenAIWSDialAuthFailover(ctx, account, upstreamModel, wsErr); authFailover != nil {
+ 				return nil, authFailover
+ 			}
+diff --git a/backend/internal/application/service/openai_gateway_grok.go b/backend/internal/application/service/openai_gateway_grok.go
+index fc89ad879..be7bc4f31 100644
+--- a/backend/internal/application/service/openai_gateway_grok.go
++++ b/backend/internal/application/service/openai_gateway_grok.go
+@@ -264,17 +264,19 @@ func (s *OpenAIGatewayService) forwardGrokResponses(
+ 	}
+ 	reasoningEffort := extractOpenAIReasoningEffortFromBody(patchedBody, originalModel)
+ 	return &OpenAIForwardResult{
+-		RequestID:       firstNonEmpty(resp.Header.Get("x-request-id"), resp.Header.Get("xai-request-id")),
+-		ResponseID:      responseID,
+-		Usage:           *usage,
+-		Model:           originalModel,
+-		UpstreamModel:   upstreamModel,
+-		ReasoningEffort: reasoningEffort,
+-		Stream:          reqStream,
+-		OpenAIWSMode:    false,
+-		ResponseHeaders: resp.Header.Clone(),
+-		Duration:        time.Since(startTime),
+-		FirstTokenMs:    firstTokenMs,
++		RequestID:                     firstNonEmpty(resp.Header.Get("x-request-id"), resp.Header.Get("xai-request-id")),
++		ResponseID:                    responseID,
++		Usage:                         *usage,
++		Model:                         originalModel,
++		UpstreamModel:                 upstreamModel,
++		UpstreamResponseModel:         observedUpstreamResponseModel(c),
++		UpstreamResponseModelConflict: observedUpstreamResponseModelConflict(c),
++		ReasoningEffort:               reasoningEffort,
++		Stream:                        reqStream,
++		OpenAIWSMode:                  false,
++		ResponseHeaders:               resp.Header.Clone(),
++		Duration:                      time.Since(startTime),
++		FirstTokenMs:                  firstTokenMs,
+ 	}, nil
+ }
+ 
+diff --git a/backend/internal/application/service/openai_gateway_messages.go b/backend/internal/application/service/openai_gateway_messages.go
+index 19e18559f..63917fc31 100644
+--- a/backend/internal/application/service/openai_gateway_messages.go
++++ b/backend/internal/application/service/openai_gateway_messages.go
+@@ -55,7 +55,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
+ 		body = stripDistillationCacheFields(body)
+ 		promptCacheKey = ""
+ 	}
+-	beginUpstreamResponseModelObservation(c)
++	beginAccountUpstreamResponseModelObservation(c, account)
+ 	beginOpenAITimingObservation(c)
+ 	ClearActualOpenAIUpstreamEndpoint(c)
+ 	// Chat Completions conversion drops Anthropic web_search tools. For an
+@@ -2013,6 +2013,10 @@ func (s *OpenAIGatewayService) readOpenAICompatBufferedTerminal(
+ 	if len(contexts) > 0 {
+ 		timingContext = contexts[0]
+ 	}
++	var observer *upstreamResponseModelObserver
++	if timingContext != nil && timingContext.GetBool("grok_buffered_model_audit") {
++		observer = upstreamResponseModelObserverFromContext(timingContext)
++	}
+ 	acc := apicompat.NewBufferedResponseAccumulator()
+ 	var usage OpenAIUsage
+ 	if resp == nil || resp.Body == nil {
+@@ -2094,6 +2098,9 @@ func (s *OpenAIGatewayService) readOpenAICompatBufferedTerminal(
+ 					var event apicompat.ResponsesStreamEvent
+ 					if err := json.Unmarshal([]byte(payload), &event); err == nil {
+ 						acc.ProcessEvent(&event)
++						if observer != nil && event.Response != nil {
++							observer.Observe(event.Response.Model, isOpenAICompatResponsesTerminalEvent(event.Type))
++						}
+ 						if isOpenAICompatResponsesTerminalEvent(event.Type) && event.Response != nil {
+ 							if event.Usage != nil {
+ 								usage = copyOpenAIUsageFromResponsesUsage(event.Usage)
+@@ -2142,6 +2149,9 @@ func (s *OpenAIGatewayService) readOpenAICompatBufferedTerminal(
+ 			}
+ 
+ 			acc.ProcessEvent(&event)
++			if observer != nil && event.Response != nil {
++				observer.Observe(event.Response.Model, isOpenAICompatResponsesTerminalEvent(event.Type))
++			}
+ 
+ 			if isOpenAICompatResponsesTerminalEvent(event.Type) && event.Response != nil {
+ 				if event.Usage != nil {
+diff --git a/backend/internal/application/service/openai_gateway_messages_chat_fallback.go b/backend/internal/application/service/openai_gateway_messages_chat_fallback.go
+index 02c0d20e5..847883a32 100644
+--- a/backend/internal/application/service/openai_gateway_messages_chat_fallback.go
++++ b/backend/internal/application/service/openai_gateway_messages_chat_fallback.go
+@@ -72,6 +72,11 @@ func (s *OpenAIGatewayService) forwardAnthropicViaRawChatCompletions(
+ 
+ 	billingModel := resolveOpenAIForwardModel(account, anthropicReq.Model, defaultMappedModel)
+ 	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
++	if requiresResponsesForToolCalls(upstreamModel) && (len(anthropicReq.Tools) > 0) {
++		err := fmt.Errorf("%s requires Responses for tool calls; this account only supports Chat Completions", normalizeKnownOpenAICodexModel(upstreamModel))
++		writeAnthropicError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
++		return nil, err
++	}
+ 	chatReq.Model = upstreamModel
+ 	chatReq.ReasoningEffort = openAICompatAnthropicReasoningEffort(&anthropicReq, upstreamModel, chatReq.ReasoningEffort)
+ 	chatReq.Stream = clientStream
+diff --git a/backend/internal/application/service/openai_gateway_responses_chat_fallback.go b/backend/internal/application/service/openai_gateway_responses_chat_fallback.go
+index 7fe083724..6a170deed 100644
+--- a/backend/internal/application/service/openai_gateway_responses_chat_fallback.go
++++ b/backend/internal/application/service/openai_gateway_responses_chat_fallback.go
+@@ -91,6 +91,11 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
+ 
+ 	billingModel := resolveOpenAIForwardModel(account, originalModel, "")
+ 	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
++	if requiresResponsesForToolCalls(upstreamModel) && (len(effectiveTools) > 0) {
++		err := fmt.Errorf("%s requires Responses for tool calls; this account only supports Chat Completions", normalizeKnownOpenAICodexModel(upstreamModel))
++		writeOpenAIResponsesFallbackError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
++		return nil, err
++	}
+ 	reasoningEffort := extractOpenAIReasoningEffortFromBody(body, upstreamModel, billingModel, originalModel)
+ 	// 国产模型默认 effort 补充：需要 mappedModel 判定，推迟到 billingModel 算出之后。
+ 	reasoningEffort = ApplyThinkingEnabledFallback(reasoningEffort, body, billingModel)
+diff --git a/backend/internal/application/service/openai_ws_size_recovery.go b/backend/internal/application/service/openai_ws_size_recovery.go
+new file mode 100644
+index 000000000..2df278c90
+--- /dev/null
++++ b/backend/internal/application/service/openai_ws_size_recovery.go
+@@ -0,0 +1,164 @@
++package service
++
++import (
++	"context"
++	"errors"
++	"net/http"
++	"strings"
++
++	"github.com/gin-gonic/gin"
++	"github.com/tidwall/gjson"
++)
++
++const openAIWSHTTPRecoveryAccountKey = "openai_ws_http_recovery_account"
++
++// HTTP recovery uses the immutable body, not the WS payload. The prewarm
++// path rewrites nested roles and adds a connection-local previous_response_id.
++func (s *OpenAIGatewayService) openAIWSHTTPRecoveryAllowed(ctx context.Context, c *gin.Context, account *Account, body, canonicalBody []byte) bool {
++	if !s.openAIWSHTTPBridgeEnabled() || account == nil || !account.IsOpenAI() || account.IsOpenAIAgentIdentity() ||
++		(ctx != nil && ctx.Err() != nil) || c == nil || c.Request == nil || c.Request.Context().Err() != nil ||
++		GetOpenAIClientTransport(c) == OpenAIClientTransportWS ||
++		s.IsDistillationGroupRequest(c, account) || codexContinuationRecoveryForbidden(c) || codexContinuationRequiresExactConnection(c) ||
++		IsResponseCommitted(c) || openAIStreamClientOutputStarted(c, false) {
++		return false
++	}
++	return openAIWSHTTPReplaySafeBody(body) && openAIWSHTTPReplaySafeBody(canonicalBody)
++}
++
++func openAIWSHTTPReplaySafeBody(body []byte) bool {
++	if !gjson.ValidBytes(body) || !gjson.ParseBytes(body).IsObject() ||
++		!openAIWSHTTPUnambiguousFields(gjson.ParseBytes(body), "store", "background", "conversation", "previous_response_id", "input", "tools") ||
++		(gjson.GetBytes(body, "store").Exists() && gjson.GetBytes(body, "store").Type != gjson.False) ||
++		(gjson.GetBytes(body, "background").Exists() && gjson.GetBytes(body, "background").Type != gjson.False) ||
++		gjson.GetBytes(body, "conversation").Exists() {
++		return false
++	}
++	classification := classifyCodexContinuationBody(body)
++	if classification.parseErr != nil || classification.kind != codexContinuationFull ||
++		!openAIWSHTTPReplaySafeTools(gjson.GetBytes(body, "tools")) {
++		return false
++	}
++	// Responses Lite can carry hosted tools inside input.additional_tools.
++	if input := gjson.GetBytes(body, "input"); input.IsArray() {
++		for _, item := range input.Array() {
++			if !openAIWSHTTPUnambiguousFields(item, "type", "tools") {
++				return false
++			}
++			if item.Get("type").String() == "additional_tools" && !openAIWSHTTPReplaySafeTools(item.Get("tools")) {
++				return false
++			}
++		}
++	}
++	return true
++}
++
++func openAIWSHTTPReplaySafeTools(tools gjson.Result) bool {
++	return openAIWSHTTPReplaySafeToolsAtDepth(tools, 0)
++}
++
++func openAIWSHTTPReplaySafeToolsAtDepth(tools gjson.Result, depth int) bool {
++	if !tools.Exists() {
++		return true
++	}
++	if !tools.IsArray() || depth > 16 {
++		return false
++	}
++	for _, tool := range tools.Array() {
++		if !openAIWSHTTPUnambiguousFields(tool, "type", "tools") {
++			return false
++		}
++		switch tool.Get("type").String() {
++		case "function", "custom":
++			// Client-executed tool declarations cannot run before their call
++			// has been delivered. Paired historical calls/results stay intact.
++		case "namespace":
++			if !openAIWSHTTPReplaySafeToolsAtDepth(tool.Get("tools"), depth+1) {
++				return false
++			}
++		default:
++			// Hosted tools may already have run despite no downstream output.
++			return false
++		}
++	}
++	return true
++}
++
++func openAIWSHTTPUnambiguousFields(object gjson.Result, fields ...string) bool {
++	if !object.IsObject() {
++		return false
++	}
++	seen := make(map[string]bool, len(fields))
++	ok := true
++	object.ForEach(func(key, _ gjson.Result) bool {
++		name := strings.ToLower(key.String())
++		for _, field := range fields {
++			if name == field {
++				if seen[name] || name != key.String() {
++					ok = false
++					return false
++				}
++				seen[name] = true
++			}
++		}
++		return true
++	})
++	return ok
++}
++
++func (s *OpenAIGatewayService) shouldBypassOpenAIWSForSize(ctx context.Context, c *gin.Context, account *Account, body, canonicalBody []byte) bool {
++	requestAlreadyFellBack := false
++	if c != nil && account != nil {
++		value, _ := c.Get(openAIWSHTTPRecoveryAccountKey)
++		id, _ := value.(int64)
++		requestAlreadyFellBack = id == account.ID
++	}
++	if !requestAlreadyFellBack && int64(len(body)) < s.openAIWSHTTPBridgeThresholdBytes() {
++		return false
++	}
++	return s.openAIWSHTTPRecoveryAllowed(ctx, c, account, body, canonicalBody)
++}
++
++func (s *OpenAIGatewayService) prepareOpenAIWSHTTPFallback(ctx context.Context, c *gin.Context, account *Account, wsErr error, body, canonicalBody []byte) bool {
++	var fallback *openAIWSFallbackError
++	if errors.As(wsErr, &fallback) && fallback != nil {
++		reason := strings.TrimPrefix(strings.TrimSpace(fallback.Reason), "prewarm_")
++		recoverable := reason == "message_too_big" || reason == "read_event" || reason == "write_request" ||
++			reason == "write" || reason == "missing_final_response"
++		if recoverable {
++			if !s.openAIWSHTTPRecoveryAllowed(ctx, c, account, body, canonicalBody) {
++				return false
++			}
++			transportReason := "ws_transport_retry_http"
++			message := "Upstream WebSocket disconnected before output; recovering through HTTP"
++			if reason == "message_too_big" {
++				transportReason = "ws_message_too_big_http"
++				message = "Upstream WebSocket closed with code 1009; recovering through HTTP"
++			}
++			s.markOpenAIWSHTTPRecovery(c, account, body, transportReason)
++			appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
++				Platform: account.Platform, AccountID: account.ID, AccountName: account.Name,
++				UpstreamStatusCode: http.StatusBadGateway, Kind: "ws_http_fallback", Stage: "websocket",
++				Reason: reason, Message: message,
++			})
++			return true
++		}
++	}
++	if !shouldFallbackOpenAIWSToHTTP(wsErr) && !shouldFallbackCodexPrewarmWSForbiddenToHTTP(account, wsErr) {
++		return false
++	}
++	s.markOpenAIWSFallbackCooling(account.ID, "websocket_unavailable")
++	if c != nil {
++		c.Set("openai_ws_transport_decision", string(OpenAIUpstreamTransportHTTPSSE))
++		c.Set("openai_ws_transport_reason", "ws_fallback_http_sse")
++	}
++	logOpenAIWSModeInfo("fallback_http_sse account_id=%d reason=upstream_websocket_unavailable cooldown=%s", account.ID, s.openAIWSFallbackCooldown())
++	return true
++}
++
++func (s *OpenAIGatewayService) markOpenAIWSHTTPRecovery(c *gin.Context, account *Account, body []byte, reason string) {
++	c.Set(openAIWSHTTPRecoveryAccountKey, account.ID)
++	c.Set("openai_ws_transport_decision", string(OpenAIUpstreamTransportHTTPSSE))
++	c.Set("openai_ws_transport_reason", reason)
++	logOpenAIWSModeInfo("fallback_http_sse account_id=%d reason=%s request_bytes=%d input_bytes=%d tools_bytes=%d threshold_bytes=%d",
++		account.ID, reason, len(body), len(gjson.GetBytes(body, "input").Raw), len(gjson.GetBytes(body, "tools").Raw), s.openAIWSHTTPBridgeThresholdBytes())
++}
+diff --git a/backend/internal/application/service/openai_ws_size_recovery_test.go b/backend/internal/application/service/openai_ws_size_recovery_test.go
+new file mode 100644
+index 000000000..7239cec59
+--- /dev/null
++++ b/backend/internal/application/service/openai_ws_size_recovery_test.go
+@@ -0,0 +1,97 @@
++package service
++
++import (
++	"context"
++	"errors"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++
++	"github.com/Wei-Shaw/sub2api/internal/platform/config"
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++)
++
++func TestOpenAIWSSizeReplaySafety(t *testing.T) {
++	for _, tc := range []struct {
++		name string
++		body string
++		want bool
++	}{
++		{"text", `{"input":"full conversation","store":false}`, true},
++		{"full tool history", `{"input":[{"type":"function_call","call_id":"call_1","name":"read","arguments":"{}"},{"type":"function_call_output","call_id":"call_1","output":"large result"}],"tools":[{"type":"function","name":"read"}]}`, true},
++		{"local namespace tools", `{"input":"hello","tools":[{"type":"namespace","name":"local","tools":[{"type":"function","name":"read"}]}]}`, true},
++		{"incremental response", `{"previous_response_id":"resp_server_state","input":"next"}`, false},
++		{"missing tool call", `{"input":[{"type":"function_call_output","call_id":"missing","output":"not full history"}]}`, false},
++		{"unresolved reference", `{"input":[{"type":"item_reference","id":"server_only"}]}`, false},
++		{"store side effect", `{"input":"hello","store":true}`, false},
++		{"background side effect", `{"input":"hello","background":true}`, false},
++		{"conversation state", `{"input":"hello","conversation":"conv_server_only"}`, false},
++		{"hosted tool", `{"input":"hello","tools":[{"type":"mcp"}]}`, false},
++		{"hosted image generation", `{"input":"hello","tools":[{"type":"image_generation"}]}`, false},
++		{"nested hosted tool", `{"input":"hello","tools":[{"type":"namespace","tools":[{"type":"mcp"}]}]}`, false},
++		{"Lite hosted tool", `{"input":[{"type":"additional_tools","tools":[{"type":"web_search"}]}]}`, false},
++		{"ambiguous storage", `{"input":"hello","store":false,"store":true}`, false},
++		{"ambiguous tool type", `{"input":"hello","tools":[{"type":"function","type":"mcp"}]}`, false},
++		{"ambiguous input", `{"input":"hello","input":[{"type":"function_call_output","call_id":"missing"}]}`, false},
++		{"invalid JSON", `{"input":`, false},
++	} {
++		t.Run(tc.name, func(t *testing.T) { require.Equal(t, tc.want, openAIWSHTTPReplaySafeBody([]byte(tc.body))) })
++	}
++}
++
++func TestOpenAIWSSizeHTTPRecoveryGuards(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	for _, tc := range []string{"normal", "cancelled", "output delivered", "terminal written", "native WS ingress", "incremental enforced", "original store true", "disabled"} {
++		t.Run(tc, func(t *testing.T) {
++			svc := &OpenAIGatewayService{cfg: &config.Config{}}
++			svc.cfg.Gateway.OpenAIWS.HTTPBridgeEnabled = true
++			account := &Account{ID: 17, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
++			c, _ := gin.CreateTestContext(httptest.NewRecorder())
++			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
++			ctx := context.Background()
++			body := []byte(`{"input":"full history","store":false}`)
++			original := body
++			switch tc {
++			case "cancelled":
++				cancelled, cancel := context.WithCancel(ctx)
++				cancel()
++				ctx = cancelled
++			case "output delivered":
++				_, err := c.Writer.WriteString("data: already delivered\n\n")
++				require.NoError(t, err)
++			case "terminal written":
++				MarkResponseCommitted(c)
++			case "native WS ingress":
++				SetOpenAIClientTransport(c, OpenAIClientTransportWS)
++			case "incremental enforced":
++				c.Set(codexSimulationAttemptContextKey, &codexSimulationAttempt{continuation: &codexContinuationAttempt{mode: codexContinuationEnforce, classification: codexContinuationClassification{kind: codexContinuationIncremental}}})
++			case "original store true":
++				original = []byte(`{"input":"full history","store":true}`)
++			case "disabled":
++				svc.cfg.Gateway.OpenAIWS.HTTPBridgeEnabled = false
++			}
++			got := svc.prepareOpenAIWSHTTPFallback(ctx, c, account, wrapOpenAIWSFallback("message_too_big", errors.New("close 1009")), body, original)
++			require.Equal(t, tc == "normal", got)
++		})
++	}
++}
++
++func TestOpenAIWSSizeHTTPThresholdAndRetryBudget(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	svc := &OpenAIGatewayService{cfg: &config.Config{}}
++	svc.cfg.Gateway.OpenAIWS.HTTPBridgeEnabled = true
++	svc.cfg.Gateway.OpenAIWS.HTTPBridgeThresholdBytes = 1024
++	account := &Account{ID: 18, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
++	c, _ := gin.CreateTestContext(httptest.NewRecorder())
++	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
++	small := []byte(`{"input":"hello","store":false}`)
++	large := []byte(`{"input":"` + strings.Repeat("x", 1024) + `","store":false}`)
++	require.False(t, svc.shouldBypassOpenAIWSForSize(context.Background(), c, account, small, small))
++	require.True(t, svc.shouldBypassOpenAIWSForSize(context.Background(), c, account, large, large))
++	svc.markOpenAIWSHTTPRecovery(c, account, small, "ws_message_too_big_http")
++	require.True(t, svc.shouldBypassOpenAIWSForSize(context.Background(), c, account, small, small), "reselecting the same account must not replenish its WS attempt")
++	other := &Account{ID: 19, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
++	require.False(t, svc.shouldBypassOpenAIWSForSize(context.Background(), c, other, small, small))
++}
+diff --git a/backend/internal/application/service/upstream_model_catalog.go b/backend/internal/application/service/upstream_model_catalog.go
+index bdeea7594..02e08fa01 100644
+--- a/backend/internal/application/service/upstream_model_catalog.go
++++ b/backend/internal/application/service/upstream_model_catalog.go
+@@ -22,6 +22,7 @@ type upstreamModelCatalogFetcher interface {
+ type modelCatalogCaptureKey struct{}
+ type modelCatalogCapture struct {
+ 	metadata map[string]modelcatalog.Descriptor
++	scope    string
+ }
+ 
+ func captureUpstreamModelCatalog(ctx context.Context, body []byte, ids []string) error {
+@@ -63,7 +64,7 @@ func (s *AccountTestService) FetchUpstreamModelCatalog(ctx context.Context, acco
+ 	if err != nil {
+ 		return nil, err
+ 	}
+-	catalog := &modelcatalog.Catalog{Models: ids, Metadata: capture.metadata}
++	catalog := &modelcatalog.Catalog{Models: ids, Metadata: capture.metadata, DiscoveryScope: capture.scope}
+ 	if _, err := catalog.Snapshot("upstream", time.Now()); err != nil {
+ 		return nil, newUpstreamModelSyncUpstreamError("Upstream model metadata exceeds limits", err)
+ 	}
+@@ -90,6 +91,14 @@ func (s *AccountTestService) SyncUpstreamModelCatalog(ctx context.Context, accou
+ 		if err := repo.UpdateUpstreamModelCatalog(ctx, account, snapshot); err != nil {
+ 			return nil, err
+ 		}
++		if account.IsGrok() {
++			extra := make(map[string]any, len(account.Extra)+1)
++			for key, value := range account.Extra {
++				extra[key] = value
++			}
++			extra[modelcatalog.ExtraKey] = snapshot
++			account.Extra = extra
++		}
+ 	}
+ 	return catalog, nil
+ }
+diff --git a/backend/internal/application/service/upstream_models.go b/backend/internal/application/service/upstream_models.go
+index bb9e1fc1b..b7690a91f 100644
+--- a/backend/internal/application/service/upstream_models.go
++++ b/backend/internal/application/service/upstream_models.go
+@@ -99,6 +99,11 @@ func (s *AccountTestService) fetchUpstreamSupportedModels(ctx context.Context, a
+ 		return nil, err
+ 	}
+ 
++	if account.IsGrok() {
++		if capture, _ := ctx.Value(modelCatalogCaptureKey{}).(*modelCatalogCapture); capture != nil {
++			capture.scope = grokModelsScope(account, req.URL.String())
++		}
++	}
+ 	proxyURL := upstreamModelsProxyURL(account)
+ 	models := []string{}
+ 	seenCursors := map[string]bool{}
+@@ -602,7 +607,7 @@ func extractUpstreamModelIDs(body []byte) ([]string, error) {
+ }
+ 
+ func extractGrokUpstreamModelIDs(body []byte) ([]string, error) {
+-	return extractUpstreamModelIDsWithSelector(body, grokUpstreamModelEntryID)
++	return parseGrokCatalogModelIDs(body)
+ }
+ 
+ func extractUpstreamModelIDsWithSelector(body []byte, selectID func(upstreamModelEntry) string) ([]string, error) {
+diff --git a/backend/internal/application/service/upstream_response_model.go b/backend/internal/application/service/upstream_response_model.go
+index 2f7b62e71..5dd9cf181 100644
+--- a/backend/internal/application/service/upstream_response_model.go
++++ b/backend/internal/application/service/upstream_response_model.go
+@@ -47,9 +47,12 @@ func normalizeObservedUpstreamResponseModel(model string) string {
+ 	if model == "" {
+ 		return ""
+ 	}
+-	runes := []rune(model)
+-	if len(runes) > upstreamResponseModelMaxLength {
+-		model = string(runes[:upstreamResponseModelMaxLength])
++	count := 0
++	for offset := range model {
++		count++
++		if count > upstreamResponseModelMaxLength {
++			return strings.Clone(model[:offset])
++		}
+ 	}
+ 	return model
+ }
+@@ -203,3 +206,11 @@ func upstreamSentModel(requestedModel, upstreamModel string) string {
+ 	}
+ 	return strings.TrimSpace(requestedModel)
+ }
++
++func beginAccountUpstreamResponseModelObservation(c *gin.Context, account *Account) *upstreamResponseModelObserver {
++	observer := beginUpstreamResponseModelObservation(c)
++	if c != nil {
++		c.Set("grok_buffered_model_audit", account != nil && account.IsGrok())
++	}
++	return observer
++}
+diff --git a/backend/internal/application/service/upstream_sync_20261027_benchmark_test.go b/backend/internal/application/service/upstream_sync_20261027_benchmark_test.go
+new file mode 100644
+index 000000000..7b84d9a3e
+--- /dev/null
++++ b/backend/internal/application/service/upstream_sync_20261027_benchmark_test.go
+@@ -0,0 +1,28 @@
++package service
++
++import (
++	"github.com/Wei-Shaw/sub2api/internal/shared/apicompat"
++	"strings"
++	"testing"
++)
++
++var sync20261027Sink string
++
++func BenchmarkUpstreamSync20261027(b *testing.B) {
++	for _, tc := range []struct{ name, value string }{{"ordinary", "grok-4.6"}, {"oversized", strings.Repeat("界", 1<<20)}} {
++		b.Run("model_audit_"+tc.name, func(b *testing.B) {
++			b.ReportAllocs()
++			for b.Loop() {
++				sync20261027Sink = normalizeObservedUpstreamResponseModel(tc.value)
++			}
++		})
++	}
++	b.Run("legacy_model_alias", func(b *testing.B) {
++		b.ReportAllocs()
++		for b.Loop() {
++			req := &apicompat.AnthropicRequest{Model: "gpt-5.4-high"}
++			applyOpenAICompatModelNormalization(req)
++			sync20261027Sink = req.Model
++		}
++	})
++}
+diff --git a/backend/internal/application/service/upstream_sync_20261027_test.go b/backend/internal/application/service/upstream_sync_20261027_test.go
+new file mode 100644
+index 000000000..16926d0e6
+--- /dev/null
++++ b/backend/internal/application/service/upstream_sync_20261027_test.go
+@@ -0,0 +1,143 @@
++//go:build unit
++
++package service
++
++import (
++	"bytes"
++	"context"
++	"encoding/json"
++	"fmt"
++	"github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog"
++	"github.com/Wei-Shaw/sub2api/internal/shared/apicompat"
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++	"time"
++)
++
++func TestGPT61CompatEffortAliases(t *testing.T) {
++	for _, model := range []string{"gpt-6.1-sol", "gpt-6.1-terra"} {
++		for _, effort := range []string{"none", "low", "medium", "high", "xhigh", "max"} {
++			req := &apicompat.AnthropicRequest{Model: "openai/" + model + "-" + effort}
++			applyOpenAICompatModelNormalization(req)
++			require.Equal(t, model, req.Model)
++			require.NotNil(t, req.OutputConfig)
++			require.Equal(t, effort, req.OutputConfig.Effort)
++			converted, err := apicompat.AnthropicToResponses(req)
++			require.NoError(t, err)
++			require.Equal(t, effort, converted.Reasoning.Effort)
++			req.Thinking = &apicompat.AnthropicThinking{Type: "disabled"}
++			converted, err = apicompat.AnthropicToResponses(req)
++			require.NoError(t, err)
++			require.Equal(t, "none", converted.Reasoning.Effort)
++		}
++	}
++	req := &apicompat.AnthropicRequest{Model: "gpt-6.1-terra-max", OutputConfig: &apicompat.AnthropicOutputConfig{Effort: "low"}}
++	applyOpenAICompatModelNormalization(req)
++	require.Equal(t, "low", req.OutputConfig.Effort)
++}
++func TestGPT61ChatOnlyToolGateUsesMappedModel(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	for _, model := range []string{"gpt-6.1-sol", "gpt-6.1-terra"} {
++		for _, entry := range []string{"chat", "responses", "messages"} {
++			t.Run(model+"/"+entry, func(t *testing.T) {
++				account := rawChatCompletionsTestAccount()
++				account.Credentials["model_mapping"] = map[string]any{"alias": model}
++				upstream := &httpUpstreamRecorder{}
++				svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
++				body := []byte(`{"model":"alias","messages":[{"role":"user","content":"hi"}],"input":"hi","tools":[{"type":"function","name":"lookup","function":{"name":"lookup","parameters":{}},"input_schema":{}}]}`)
++				c, _ := gin.CreateTestContext(httptest.NewRecorder())
++				c.Request = httptest.NewRequest("POST", "/fixture", bytes.NewReader(body))
++				var err error
++				switch entry {
++				case "chat":
++					_, err = svc.forwardAsRawChatCompletionsWithStartTime(context.Background(), c, account, body, "", time.Now())
++				case "responses":
++					_, err = svc.forwardResponsesViaRawChatCompletions(context.Background(), c, account, body, time.Now())
++				case "messages":
++					_, err = svc.forwardAnthropicViaRawChatCompletions(context.Background(), c, account, body, "")
++				}
++				require.Error(t, err)
++				require.Contains(t, err.Error(), "requires Responses")
++				require.Empty(t, upstream.requests)
++			})
++		}
++	}
++}
++func TestGrokCatalogMalformedResponsesNeverPersist(t *testing.T) {
++	for _, raw := range []string{`{"error":"failed","data":[{"id":"grok-4.6"}]}`, `{"data":null}`, `{"data":[null]}`, `{"data":[1]}`, `{"data":[{}]}`, `{"data":["bad id"]}`, `{}`, `null`} {
++		ids, err := extractGrokUpstreamModelIDs([]byte(raw))
++		require.Error(t, err, raw)
++		require.Empty(t, ids)
++	}
++	ids, err := extractGrokUpstreamModelIDs([]byte(`{"data":["grok-4.6",{"name":"Display","_meta":{"model":"grok-4.5"}}]}`))
++	require.NoError(t, err)
++	require.Equal(t, []string{"grok-4.5", "grok-4.6"}, ids)
++	account := &Account{ID: 1, Platform: PlatformGrok, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "fixture", "base_url": "https://upstream.example/v1"}, Extra: map[string]any{"other": "kept"}}
++	upstream := &httpUpstreamRecorder{responses: []*http.Response{catalogHTTPResponse(`{"data":[{"id":"grok-4.6"}]}`)}}
++	repo := &sync20261027Repo{updates: map[int64]map[string]any{}}
++	svc := &AccountTestService{accountRepo: repo, httpUpstream: upstream, cfg: upstreamModelSyncTestConfig()}
++	catalog, err := svc.SyncUpstreamModelCatalog(context.Background(), account)
++	require.NoError(t, err)
++	require.NotEmpty(t, catalog.DiscoveryScope)
++	require.Equal(t, "fresh", GetGrokModelDiagnostics(account).State)
++	before, _ := json.Marshal(repo.updates)
++	upstream.responses = []*http.Response{catalogHTTPResponse(`{"data":[{"id":"grok-4.5"}],"has_more":true}`)}
++	_, err = svc.SyncUpstreamModelCatalog(context.Background(), account)
++	require.Error(t, err)
++	after, _ := json.Marshal(repo.updates)
++	require.Equal(t, string(before), string(after))
++	account.Credentials["base_url"] = "https://changed.example/v1"
++	require.Equal(t, "source_changed", GetGrokModelDiagnostics(account).State)
++}
++func TestGrokResponsesPropagateAuditForJSONAndSSE(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	for _, stream := range []bool{false, true} {
++		body := []byte(fmt.Sprintf(`{"model":"grok-4.5","input":"hello","stream":%t}`, stream))
++		c, _ := gin.CreateTestContext(httptest.NewRecorder())
++		c.Request = httptest.NewRequest("POST", "/v1/responses", bytes.NewReader(body))
++		beginUpstreamResponseModelObservation(c)
++		response := `{"id":"resp_fixture","model":"grok-4.6","status":"completed","output":[],"usage":{"input_tokens":100,"output_tokens":1}}`
++		contentType := "application/json"
++		if stream {
++			contentType = "text/event-stream"
++			response = "data: {\"type\":\"response.created\",\"response\":{\"model\":\"grok-4.5\"}}\n\ndata: {\"type\":\"response.completed\",\"response\":" + response + "}\n\n"
++		}
++		upstream := &httpUpstreamRecorder{resp: &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": []string{contentType}}, Body: io.NopCloser(strings.NewReader(response))}}
++		account := &Account{ID: 1, Platform: PlatformGrok, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "fixture", "base_url": "https://api.x.ai"}, Concurrency: 1}
++		result, err := (&OpenAIGatewayService{httpUpstream: upstream}).forwardGrokResponses(context.Background(), c, account, body, "grok-4.5", stream, time.Now())
++		require.NoError(t, err)
++		require.Equal(t, "grok-4.6", result.UpstreamResponseModel)
++		require.Equal(t, stream, result.UpstreamResponseModelConflict)
++	}
++}
++func TestGrokBufferedAuditGatedAndBounded(t *testing.T) {
++	for _, enabled := range []bool{false, true} {
++		c, _ := gin.CreateTestContext(httptest.NewRecorder())
++		c.Set("grok_buffered_model_audit", enabled)
++		o := beginUpstreamResponseModelObservation(c)
++		resp := &http.Response{Body: io.NopCloser(strings.NewReader("data: {\"type\":\"response.created\",\"response\":{\"model\":\"grok-4.5\"}}\n\ndata: {\"type\":\"response.completed\",\"response\":{\"model\":\"grok-4.6\"}}"))}
++		final, _, _, err := (&OpenAIGatewayService{}).readOpenAICompatBufferedTerminal(resp, "fixture", "fixture", c)
++		require.NoError(t, err)
++		o.Observe(final.Model, true)
++		require.Equal(t, enabled, o.Conflict())
++	}
++	require.Equal(t, strings.Repeat("界", 200), normalizeObservedUpstreamResponseModel(strings.Repeat("界", 1<<20)))
++	// JSON string-model entries still pass through the shared metadata parser.
++	_, err := modelcatalog.Parse([]byte(`{"data":["grok-4.6"]}`), []string{"grok-4.6"})
++	require.NoError(t, err)
++}
++
++type sync20261027Repo struct {
++	AccountRepository
++	updates map[int64]map[string]any
++}
++
++func (r *sync20261027Repo) UpdateUpstreamModelCatalog(_ context.Context, a *Account, s *modelcatalog.Snapshot) error {
++	r.updates[a.ID] = map[string]any{modelcatalog.ExtraKey: s}
++	return nil
++}
+diff --git a/backend/internal/modules/modelcatalog/README.md b/backend/internal/modules/modelcatalog/README.md
+index 4ec598d7d..357160871 100644
+--- a/backend/internal/modules/modelcatalog/README.md
++++ b/backend/internal/modules/modelcatalog/README.md
+@@ -14,3 +14,5 @@ Run focused tests from `backend/`:
+ go test ./internal/modules/modelcatalog ./internal/application/service -run 'Catalog|Claude55'
+ go test -tags=integration ./internal/infrastructure/repository -run TestModelCatalogPostgresRefreshAndLegacyWrites
+ ```
++
++Grok catalog diagnostics reuse this snapshot with optional `discovery_scope`; legacy snapshots remain unknown until refreshed. `grok.go` owns pure trust/mapping evaluation. Diagnostics never alter routing, pricing or model mappings. String-ID catalogs retain empty capability descriptors.
+diff --git a/backend/internal/modules/modelcatalog/catalog.go b/backend/internal/modules/modelcatalog/catalog.go
+index cf81354be..71f1370e0 100644
+--- a/backend/internal/modules/modelcatalog/catalog.go
++++ b/backend/internal/modules/modelcatalog/catalog.go
+@@ -23,17 +23,19 @@ const (
+ type Descriptor map[string]json.RawMessage
+ 
+ type Catalog struct {
+-	Models   []string              `json:"models"`
+-	Metadata map[string]Descriptor `json:"metadata,omitempty"`
++	Models         []string              `json:"models"`
++	Metadata       map[string]Descriptor `json:"metadata,omitempty"`
++	DiscoveryScope string                `json:"-"`
+ }
+ 
+ type Snapshot struct {
+-	Version    int                   `json:"version"`
+-	Source     string                `json:"source"`
+-	StartedAt  time.Time             `json:"started_at"`
+-	Generation int64                 `json:"generation"`
+-	SyncedAt   time.Time             `json:"synced_at"`
+-	Models     map[string]Descriptor `json:"models"`
++	DiscoveryScope string                `json:"discovery_scope,omitempty"`
++	Version        int                   `json:"version"`
++	Source         string                `json:"source"`
++	StartedAt      time.Time             `json:"started_at"`
++	Generation     int64                 `json:"generation"`
++	SyncedAt       time.Time             `json:"synced_at"`
++	Models         map[string]Descriptor `json:"models"`
+ }
+ 
+ func ValidID(id string) bool {
+@@ -52,7 +54,7 @@ func (c *Catalog) Snapshot(source string, started time.Time) (*Snapshot, error)
+ 	if c == nil || len(c.Models) == 0 || len(c.Models) > MaxModels {
+ 		return nil, fmt.Errorf("invalid catalog model count")
+ 	}
+-	out := &Snapshot{Version: Version, Source: source, StartedAt: started.UTC(), Generation: started.UnixMicro(), SyncedAt: time.Now().UTC(), Models: make(map[string]Descriptor, len(c.Models))}
++	out := &Snapshot{DiscoveryScope: c.DiscoveryScope, Version: Version, Source: source, StartedAt: started.UTC(), Generation: started.UnixMicro(), SyncedAt: time.Now().UTC(), Models: make(map[string]Descriptor, len(c.Models))}
+ 	for _, id := range c.Models {
+ 		if !ValidID(id) {
+ 			return nil, fmt.Errorf("invalid model ID")
+@@ -133,10 +135,36 @@ func Parse(body []byte, ids []string) (map[string]Descriptor, error) {
+ 			entries = append(entries, encoded)
+ 		}
+ 	}
++	if _, hasData := envelope["data"]; hasData {
++		if more, hasModels := envelope["models"]; hasModels {
++			var extra []json.RawMessage
++			if json.Unmarshal(more, &extra) != nil {
++				return nil, fmt.Errorf("invalid model catalog entries")
++			}
++			entries = append(entries, extra...)
++		}
++	}
+ 	if len(entries) > MaxModels {
+ 		return nil, fmt.Errorf("model catalog exceeds limit")
+ 	}
+ 	for _, raw := range entries {
++		var scalar string
++		if json.Unmarshal(raw, &scalar) == nil {
++			scalar = strings.TrimSpace(scalar)
++			if wanted[scalar] {
++				descriptor := Normalize(nil, scalar)
++				if previous, duplicate := out[scalar]; duplicate {
++					a, _ := json.Marshal(previous)
++					b, _ := json.Marshal(descriptor)
++					if string(a) != string(b) {
++						return nil, fmt.Errorf("conflicting model descriptor")
++					}
++				} else {
++					out[scalar] = descriptor
++				}
++			}
++			continue
++		}
+ 		var d Descriptor
+ 		if json.Unmarshal(raw, &d) != nil || d == nil {
+ 			return nil, fmt.Errorf("invalid model descriptor")
+diff --git a/backend/internal/modules/modelcatalog/grok.go b/backend/internal/modules/modelcatalog/grok.go
+new file mode 100644
+index 000000000..fec40bbe4
+--- /dev/null
++++ b/backend/internal/modules/modelcatalog/grok.go
+@@ -0,0 +1,106 @@
++package modelcatalog
++
++import (
++	"github.com/Wei-Shaw/sub2api/internal/shared/xai"
++	"sort"
++	"strings"
++	"time"
++)
++
++const GrokCatalogTTL = 6 * time.Hour
++
++type GrokMappingDiagnostic struct {
++	Requested string `json:"requested"`
++	Upstream  string `json:"upstream,omitempty"`
++	Status    string `json:"status"`
++}
++type GrokDiagnostics struct {
++	State     string                  `json:"state"`
++	FetchedAt string                  `json:"fetched_at,omitempty"`
++	ExpiresAt string                  `json:"expires_at,omitempty"`
++	Models    []string                `json:"models"`
++	Mappings  []GrokMappingDiagnostic `json:"mappings"`
++}
++
++// EvaluateGrok describes saved catalog evidence. It never changes routing,
++// pricing, allowlists, or the snapshot. An old snapshot without scope is unknown.
++func EvaluateGrok(snapshot *Snapshot, scope string, mapping map[string]string, now time.Time) *GrokDiagnostics {
++	result := &GrokDiagnostics{State: "unknown", Models: []string{}, Mappings: []GrokMappingDiagnostic{}}
++	catalog := map[string]bool{}
++	if snapshot != nil {
++		for id := range snapshot.Models {
++			result.Models = append(result.Models, id)
++			catalog[grokCatalogID(id)] = true
++		}
++		sort.Strings(result.Models)
++		if !snapshot.SyncedAt.IsZero() && !snapshot.SyncedAt.After(now) {
++			result.FetchedAt = snapshot.SyncedAt.UTC().Format(time.RFC3339Nano)
++			result.ExpiresAt = snapshot.SyncedAt.Add(GrokCatalogTTL).UTC().Format(time.RFC3339Nano)
++			if scope != "" && snapshot.DiscoveryScope != "" && len(snapshot.Models) > 0 {
++				switch {
++				case scope != snapshot.DiscoveryScope:
++					result.State = "source_changed"
++				case now.Sub(snapshot.SyncedAt) >= GrokCatalogTTL:
++					result.State = "stale"
++				default:
++					result.State = "fresh"
++				}
++			}
++		}
++	}
++	keys := make([]string, 0, len(mapping))
++	for key := range mapping {
++		if strings.TrimSpace(key) != "" {
++			keys = append(keys, key)
++		}
++	}
++	sort.Strings(keys)
++	for _, key := range keys {
++		target := strings.TrimSpace(mapping[key])
++		item := GrokMappingDiagnostic{Requested: key, Upstream: grokCatalogID(target), Status: "unverifiable"}
++		lower := strings.ToLower(xai.StripGrokProviderPrefix(target))
++		switch {
++		case strings.Contains(key, "*") || strings.Contains(target, "*") || target == "":
++		case independentGrokCapability(lower):
++			item.Status = "out_of_scope"
++		case lower == "grok" || lower == "grok-latest":
++		case (result.State == "fresh" || result.State == "stale") && catalog[item.Upstream]:
++			item.Status = "listed"
++		case result.State == "fresh" && knownGrokTextModel(target):
++			item.Status = "not_listed"
++		}
++		result.Mappings = append(result.Mappings, item)
++	}
++	return result
++}
++func grokCatalogID(id string) string {
++	id = strings.TrimSpace(id)
++	bare := strings.ToLower(xai.StripGrokProviderPrefix(id))
++	if bare == "grok" || bare == "grok-latest" {
++		return id
++	}
++	return strings.TrimSpace(xai.ResolveGrokTextResponsesModelID(id))
++}
++func independentGrokCapability(id string) bool {
++	if strings.HasPrefix(id, "grok-imagine") {
++		return true
++	}
++	for _, term := range []string{"voice", "realtime", "audio", "video", "tts", "stt"} {
++		if strings.Contains(id, term) {
++			return true
++		}
++	}
++	return false
++}
++
++var grokTextModelIDs = func() map[string]bool {
++	out := map[string]bool{}
++	for _, id := range xai.DefaultModelIDs() {
++		if !independentGrokCapability(id) {
++			out[id] = true
++		}
++	}
++	return out
++}()
++
++func knownGrokTextModel(model string) bool { return grokTextModelIDs[grokCatalogID(model)] }
+diff --git a/backend/internal/modules/modelcatalog/grok_test.go b/backend/internal/modules/modelcatalog/grok_test.go
+new file mode 100644
+index 000000000..772ef0e10
+--- /dev/null
++++ b/backend/internal/modules/modelcatalog/grok_test.go
+@@ -0,0 +1,62 @@
++package modelcatalog
++
++import (
++	"encoding/json"
++	"github.com/stretchr/testify/require"
++	"testing"
++	"time"
++)
++
++func TestGrokCatalogDiagnosticsTrustAndNoMutation(t *testing.T) {
++	now := time.Now().UTC()
++	mapping := map[string]string{"listed": "xai/grok-4.6-latest", "missing": "grok-4.5", "bare": "grok", "wild*": "grok-4.5", "media": "grok-imagine-image", "custom": "custom-private", "build": "grok-4.6-build"}
++	for _, tc := range []struct {
++		name, scope string
++		age         time.Duration
++		want        string
++	}{{"fresh", "scope", time.Minute, "fresh"}, {"stale", "scope", GrokCatalogTTL, "stale"}, {"old", "", time.Minute, "unknown"}, {"changed", "elsewhere", time.Minute, "source_changed"}, {"future", "scope", -time.Minute, "unknown"}} {
++		t.Run(tc.name, func(t *testing.T) {
++			snapshot := &Snapshot{Version: 1, DiscoveryScope: tc.scope, SyncedAt: now.Add(-tc.age), Models: map[string]Descriptor{"grok-4.6": {}}}
++			before, _ := json.Marshal(snapshot)
++			d := EvaluateGrok(snapshot, "scope", mapping, now)
++			require.Equal(t, tc.want, d.State)
++			status := map[string]string{}
++			for _, item := range d.Mappings {
++				status[item.Requested] = item.Status
++			}
++			require.Equal(t, "out_of_scope", status["media"])
++			for _, key := range []string{"bare", "wild*", "custom", "build"} {
++				require.Equal(t, "unverifiable", status[key])
++			}
++			if tc.want == "fresh" {
++				require.Equal(t, "listed", status["listed"])
++				require.Equal(t, "not_listed", status["missing"])
++			}
++			if tc.want == "stale" {
++				require.Equal(t, "listed", status["listed"])
++				require.Equal(t, "unverifiable", status["missing"])
++			}
++			if tc.want == "unknown" || tc.want == "source_changed" {
++				require.Equal(t, "unverifiable", status["listed"])
++			}
++			after, _ := json.Marshal(snapshot)
++			require.Equal(t, string(before), string(after))
++		})
++	}
++}
++func TestGrokCatalogStringAndDualListsMetadata(t *testing.T) {
++	catalog, err := Parse([]byte(`{"data":["grok-4.6"],"models":[{"id":"grok-4.5","context_window":999}]}`), []string{"grok-4.6", "grok-4.5"})
++	require.NoError(t, err)
++	require.Contains(t, catalog, "grok-4.6")
++	require.Equal(t, "999", string(catalog["grok-4.5"]["context_window"]))
++}
++
++func TestGrokCatalogMixedDuplicateDoesNotEraseExplicitMetadata(t *testing.T) {
++	for _, raw := range []string{`{"data":[{"id":"grok-4.6","supports_reasoning":false},"grok-4.6"]}`, `{"data":["grok-4.6",{"id":"grok-4.6","supports_reasoning":false}]}`} {
++		_, err := Parse([]byte(raw), []string{"grok-4.6"})
++		require.ErrorContains(t, err, "conflicting model descriptor")
++	}
++	descriptor, err := Parse([]byte(`{"data":[" grok-4.6 ","grok-4.6"]}`), []string{"grok-4.6"})
++	require.NoError(t, err)
++	require.Equal(t, `"grok-4.6"`, string(descriptor["grok-4.6"]["id"]))
++}
+diff --git a/backend/internal/platform/config/config_gateway_types.go b/backend/internal/platform/config/config_gateway_types.go
+index affe0377c..5941fc0c7 100644
+--- a/backend/internal/platform/config/config_gateway_types.go
++++ b/backend/internal/platform/config/config_gateway_types.go
+@@ -291,9 +291,9 @@ type GatewayOpenAIWSConfig struct {
+ 	PrewarmGenerateEnabled bool `mapstructure:"prewarm_generate_enabled"`
+ 	// ClientReadLimitBytes: 入站客户端 WS 单帧读取上限。
+ 	ClientReadLimitBytes int64 `mapstructure:"client_read_limit_bytes"`
+-	// HTTPBridgeEnabled: 首包过大时，保持客户端 WS，改用 HTTP Responses 上游。
++	// HTTPBridgeEnabled: 大消息预分流及可重放的 WS 断连请求启用 HTTP Responses 恢复。
+ 	HTTPBridgeEnabled bool `mapstructure:"http_bridge_enabled"`
+-	// HTTPBridgeThresholdBytes: 触发 HTTP bridge 的入站 WS payload 阈值。
++	// HTTPBridgeThresholdBytes: WS 首包与 HTTP→WS 预热请求的 JSON 字节预分流阈值。
+ 	HTTPBridgeThresholdBytes int64 `mapstructure:"http_bridge_threshold_bytes"`
+ 
+ 	// Feature 开关：v2 优先于 v1
+diff --git a/backend/internal/shared/apicompat/anthropic_to_responses.go b/backend/internal/shared/apicompat/anthropic_to_responses.go
+index 7ff79a69c..1a618d03e 100644
+--- a/backend/internal/shared/apicompat/anthropic_to_responses.go
++++ b/backend/internal/shared/apicompat/anthropic_to_responses.go
+@@ -62,6 +62,12 @@ func AnthropicToResponsesWithMinOutputTokens(req *AnthropicRequest, minOutputTok
+ 
+ 	// An explicit thinking disable takes precedence over output_config.effort.
+ 	effort := anthropicReasoningEffort(req)
++	if effort != "none" && req.OutputConfig != nil && isGPT61CompatModel(req.Model) {
++		switch req.OutputConfig.Effort {
++		case "none", "low", "medium", "high", "xhigh", "max":
++			effort = req.OutputConfig.Effort
++		}
++	}
+ 	out.Reasoning = &ResponsesReasoning{
+ 		Effort: effort,
+ 	}
+diff --git a/backend/internal/shared/apicompat/gpt61.go b/backend/internal/shared/apicompat/gpt61.go
+new file mode 100644
+index 000000000..54eea7e62
+--- /dev/null
++++ b/backend/internal/shared/apicompat/gpt61.go
+@@ -0,0 +1,12 @@
++package apicompat
++
++import "strings"
++
++func isGPT61CompatModel(model string) bool {
++	m := strings.ToLower(strings.TrimSpace(model))
++	if i := strings.LastIndexByte(m, '/'); i >= 0 {
++		m = m[i+1:]
++	}
++	m = strings.ReplaceAll(m, "_", "-")
++	return m == "gpt-6.1-sol" || m == "gpt-6.1-terra"
++}
+diff --git a/backend/internal/transport/http/handler/admin/account_handler.go b/backend/internal/transport/http/handler/admin/account_handler.go
+index 2c94e58c7..0515f6b5d 100644
+--- a/backend/internal/transport/http/handler/admin/account_handler.go
++++ b/backend/internal/transport/http/handler/admin/account_handler.go
+@@ -8,6 +8,7 @@ import (
+ 	"encoding/json"
+ 	"errors"
+ 	"fmt"
++	"github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog"
+ 	"github.com/Wei-Shaw/sub2api/internal/modules/typesafe"
+ 	"log"
+ 	"log/slog"
+@@ -1001,7 +1002,9 @@ func (h *AccountHandler) GetByID(c *gin.Context) {
+ 		}
+ 	}
+ 
+-	response.Success(c, h.buildAccountResponseWithRuntime(c.Request.Context(), account))
++	result := h.buildAccountResponseWithRuntime(c.Request.Context(), account)
++	result.GrokModelDiagnostics = service.GetGrokModelDiagnostics(account)
++	response.Success(c, result)
+ }
+ 
+ type batchAccountSummariesRequest struct {
+@@ -2965,7 +2968,10 @@ func (h *AccountHandler) SyncUpstreamModels(c *gin.Context) {
+ 		return
+ 	}
+ 
+-	response.Success(c, catalog)
++	response.Success(c, struct {
++		*modelcatalog.Catalog
++		Diagnostics *modelcatalog.GrokDiagnostics `json:"grok_model_diagnostics,omitempty"`
++	}{catalog, service.GetGrokModelDiagnostics(account)})
+ }
+ 
+ // SyncUpstreamModelsPreview handles syncing live supported models using provided credentials (no account ID needed).
+diff --git a/backend/internal/transport/http/handler/dto/types.go b/backend/internal/transport/http/handler/dto/types.go
+index 6cf7c8c1e..a78959236 100644
+--- a/backend/internal/transport/http/handler/dto/types.go
++++ b/backend/internal/transport/http/handler/dto/types.go
+@@ -8,6 +8,7 @@ import (
+ 	"github.com/Wei-Shaw/sub2api/internal/application/service"
+ 	"github.com/Wei-Shaw/sub2api/internal/domain"
+ 	moduleegress "github.com/Wei-Shaw/sub2api/internal/modules/egress"
++	"github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog"
+ 	"github.com/Wei-Shaw/sub2api/internal/shared/openaitiming"
+ )
+ 
+@@ -218,6 +219,7 @@ type Account struct {
+ 	Credentials             map[string]any                 `json:"credentials"`
+ 	CredentialsStatus       map[string]bool                `json:"credentials_status,omitempty"`
+ 	Extra                   map[string]any                 `json:"extra"`
++	GrokModelDiagnostics    *modelcatalog.GrokDiagnostics  `json:"grok_model_diagnostics,omitempty"`
+ 	OllamaCloudUsage        *service.OllamaCloudUsageState `json:"ollama_cloud_usage,omitempty"`
+ 	ProxyID                 *int64                         `json:"proxy_id"`
+ 	ProxyFallbackOriginID   *int64                         `json:"proxy_fallback_origin_id"`
+diff --git a/backend/internal/transport/http/handler/openai_ws_size_recovery_test.go b/backend/internal/transport/http/handler/openai_ws_size_recovery_test.go
+new file mode 100644
+index 000000000..aef53e74d
+--- /dev/null
++++ b/backend/internal/transport/http/handler/openai_ws_size_recovery_test.go
+@@ -0,0 +1,246 @@
++//go:build unit
++
++package handler
++
++import (
++	"context"
++	"crypto/sha256"
++	"encoding/json"
++	"fmt"
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"sync"
++	"testing"
++	"time"
++
++	"github.com/Wei-Shaw/sub2api/internal/application/service"
++	"github.com/Wei-Shaw/sub2api/internal/platform/config"
++	"github.com/gin-gonic/gin"
++	"github.com/gorilla/websocket"
++	"github.com/klauspost/compress/zstd"
++	"github.com/stretchr/testify/require"
++	"github.com/tidwall/gjson"
++)
++
++func TestOpenAIResponsesWSSizeHTTPRecovery(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	for _, tc := range []struct {
++		name, text  string
++		stream      bool
++		keepalive   bool
++		prewarmFail bool
++		pairedTools bool
++		hostedTool  bool
++		store       bool
++		incremental bool
++		afterOutput bool
++		closeCode   int
++		httpStatus  int
++		wantWS      int
++		wantHTTP    int
++		wantStatus  int
++	}{
++		{name: "JSON recovery", wantWS: 1, wantHTTP: 1, wantStatus: 200},
++		{name: "stream recovery", stream: true, wantWS: 1, wantHTTP: 1, wantStatus: 200},
++		{name: "recovery after heartbeat", stream: true, keepalive: true, wantWS: 1, wantHTTP: 1, wantStatus: 200},
++		{name: "prewarm itself rejected", prewarmFail: true, wantWS: 1, wantHTTP: 1, wantStatus: 200},
++		{name: "unexpected close after bounded reconnects", closeCode: websocket.CloseAbnormalClosure, wantWS: 6, wantHTTP: 1, wantStatus: 200},
++		{name: "internal close after bounded reconnects", closeCode: websocket.CloseInternalServerErr, stream: true, wantWS: 6, wantHTTP: 1, wantStatus: 200},
++		{name: "2MiB context", text: strings.Repeat("context ", 262144), wantWS: 1, wantHTTP: 1, wantStatus: 200},
++		{name: "large Unicode context", text: strings.Repeat("上下文", 262144), stream: true, wantWS: 1, wantHTTP: 1, wantStatus: 200},
++		{name: "16MiB preflight", text: strings.Repeat("x", 16*1024*1024), wantWS: 0, wantHTTP: 1, wantStatus: 200},
++		{name: "paired tool history", pairedTools: true, text: strings.Repeat("tool result ", 131072), wantWS: 1, wantHTTP: 1, wantStatus: 200},
++		{name: "HTTP failure stays bounded", httpStatus: 502, wantWS: 1, wantHTTP: 1, wantStatus: 502},
++		{name: "context window error stays 400", httpStatus: 400, wantWS: 1, wantHTTP: 1, wantStatus: 400},
++		{name: "hosted tools are not replayed", hostedTool: true, wantWS: 1, wantHTTP: 0, wantStatus: 502},
++		{name: "explicit store is not replayed", store: true, wantWS: 1, wantHTTP: 0, wantStatus: 502},
++		{name: "incremental state is not replayed", incremental: true, wantWS: 0, wantHTTP: 0, wantStatus: 400},
++		{name: "delivered output is not replayed", stream: true, afterOutput: true, wantWS: 1, wantHTTP: 0, wantStatus: 200},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			text := tc.text
++			if text == "" {
++				text = "original user history"
++			}
++			input := []map[string]any{{"type": "message", "role": "user", "content": text}}
++			if tc.pairedTools {
++				input = append(input,
++					map[string]any{"type": "function_call", "call_id": "call_read", "name": "read", "arguments": `{"offset":9007199254740993}`},
++					map[string]any{"type": "function_call_output", "call_id": "call_read", "output": text},
++				)
++			}
++			request := map[string]any{"model": "gpt-5.6-sol", "stream": tc.stream, "store": tc.store, "input": input, "instructions": "recovery fixture"}
++			if tc.pairedTools {
++				request["tools"] = []map[string]any{{"type": "function", "name": "read", "parameters": map[string]any{"type": "object"}}}
++			}
++			if tc.hostedTool {
++				request["tools"] = []map[string]any{{"type": "mcp", "server_label": "fixture", "server_url": "https://example.invalid/mcp"}}
++			}
++			if tc.incremental {
++				request["previous_response_id"] = "resp_client_owned"
++			}
++			payload, err := json.Marshal(request)
++			require.NoError(t, err)
++			var mu sync.Mutex
++			wsCalls, httpCalls := 0, 0
++			var httpBody []byte
++			upgrader := websocket.Upgrader{CheckOrigin: func(*http.Request) bool { return true }}
++			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++				if websocket.IsWebSocketUpgrade(r) {
++					mu.Lock()
++					wsCalls++
++					mu.Unlock()
++					conn, upgradeErr := upgrader.Upgrade(w, r, nil)
++					if upgradeErr != nil {
++						t.Errorf("upgrade: %v", upgradeErr)
++						return
++					}
++					defer func() { _ = conn.Close() }()
++					_, frame, readErr := conn.ReadMessage()
++					if readErr != nil {
++						t.Errorf("read WS request: %v", readErr)
++						return
++					}
++					if generate := gjson.GetBytes(frame, "generate"); generate.Exists() && !generate.Bool() && !tc.prewarmFail {
++						_ = conn.WriteJSON(map[string]any{"type": "response.completed", "response": map[string]any{"id": "resp_connection_only_prewarm", "status": "completed", "output": []any{}}})
++						if _, _, readErr = conn.ReadMessage(); readErr != nil {
++							t.Errorf("read WS business request: %v", readErr)
++							return
++						}
++					}
++					if tc.afterOutput {
++						_ = conn.WriteJSON(map[string]any{"type": "response.output_text.delta", "delta": "already delivered"})
++					}
++					code := tc.closeCode
++					if code == 0 {
++						code = websocket.CloseMessageTooBig
++					}
++					if code != websocket.CloseAbnormalClosure {
++						_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(code, ""), time.Now().Add(time.Second))
++					}
++					return
++				}
++				body, readErr := io.ReadAll(r.Body)
++				if readErr == nil && r.Header.Get("Content-Encoding") == "zstd" {
++					decoder, decodeErr := zstd.NewReader(nil)
++					if decodeErr != nil {
++						t.Errorf("zstd reader: %v", decodeErr)
++						return
++					}
++					body, readErr = decoder.DecodeAll(body, nil)
++					decoder.Close()
++				}
++				if readErr != nil {
++					t.Errorf("read HTTP request: %v", readErr)
++					return
++				}
++				mu.Lock()
++				httpCalls++
++				httpBody = body
++				mu.Unlock()
++				if r.Header.Get("Authorization") != "Bearer token-1" {
++					t.Error("HTTP recovery must use the selected account")
++				}
++				if tc.httpStatus >= 400 {
++					w.Header().Set("Content-Type", "application/json")
++					w.WriteHeader(tc.httpStatus)
++					if tc.httpStatus == 400 {
++						_, _ = io.WriteString(w, `{"error":{"type":"invalid_request_error","code":"context_length_exceeded","message":"input exceeds the context window"}}`)
++					} else {
++						_, _ = io.WriteString(w, `{"error":{"type":"server_error","message":"HTTP upstream unavailable"}}`)
++					}
++					return
++				}
++				w.Header().Set("Content-Type", "text/event-stream")
++				_, _ = io.WriteString(w, "data: {\"type\":\"response.output_text.delta\",\"delta\":\"recovered\"}\n\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_recovered\",\"created_at\":1700000000,\"status\":\"completed\",\"output\":[{\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"output_text\",\"text\":\"recovered\"}]}],\"usage\":{\"input_tokens\":8,\"output_tokens\":2}}}\n\n")
++			}))
++			defer upstream.Close()
++			h := newOpenAIResponsesFailoverTestHandler(t, &openAIWSSizeErrorHTTPUpstream{client: upstream.Client()}, func(accounts *[]service.Account, cfg *config.Config) {
++				*accounts = (*accounts)[:1]
++				cfg.Security.URLAllowlist.Enabled = false
++				cfg.Security.URLAllowlist.AllowInsecureHTTP = true
++				cfg.Gateway.OpenAIWS.Enabled = true
++				cfg.Gateway.OpenAIWS.OAuthEnabled = true
++				cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
++				cfg.Gateway.OpenAIWS.EventFlushBatchSize = 1
++				cfg.Gateway.OpenAIWS.HTTPBridgeEnabled = true
++				cfg.Gateway.OpenAIWS.HTTPBridgeThresholdBytes = 15 * 1024 * 1024
++				(*accounts)[0].Extra = map[string]any{service.CodexPrewarmContinuationExtraKey: true, "custom_base_url_enabled": true, "custom_base_url": upstream.URL}
++			})
++			heartbeatHeadersSeen := make(chan struct{})
++			router := gin.New()
++			router.POST("/v1/responses", func(c *gin.Context) {
++				fixture, _ := newOpenAIResponsesFailoverTestContext(t, c.Request.Context())
++				for key, value := range fixture.Keys {
++					c.Set(key, value)
++				}
++				if tc.keepalive {
++					body, readErr := io.ReadAll(c.Request.Body)
++					if readErr != nil {
++						t.Errorf("read client body: %v", readErr)
++						return
++					}
++					c.Request.Body = io.NopCloser(strings.NewReader(string(body)))
++					stop := service.StartOpenAIResponsesSSEKeepalive(c, time.Millisecond)
++					defer stop()
++					select {
++					case <-heartbeatHeadersSeen:
++					case <-c.Request.Context().Done():
++						return
++					}
++				}
++				h.Responses(c)
++			})
++			gateway := httptest.NewServer(router)
++			defer gateway.Close()
++			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
++			defer cancel()
++			req, err := http.NewRequestWithContext(ctx, http.MethodPost, gateway.URL+"/v1/responses", strings.NewReader(string(payload)))
++			require.NoError(t, err)
++			req.Header.Set("Content-Type", "application/json")
++			resp, err := gateway.Client().Do(req)
++			require.NoError(t, err)
++			if tc.keepalive {
++				close(heartbeatHeadersSeen)
++			}
++			responseBody, err := io.ReadAll(resp.Body)
++			_ = resp.Body.Close()
++			require.NoError(t, err)
++			mu.Lock()
++			actualWS, actualHTTP := wsCalls, httpCalls
++			sentBody := httpBody
++			mu.Unlock()
++			t.Logf("request_bytes=%d ws_attempts=%d http_attempts=%d status=%d response_bytes=%d", len(payload), actualWS, actualHTTP, resp.StatusCode, len(responseBody))
++			require.Equal(t, tc.wantWS, actualWS)
++			require.Equal(t, tc.wantHTTP, actualHTTP)
++			require.Equal(t, tc.wantStatus, resp.StatusCode)
++			if tc.wantHTTP > 0 {
++				require.True(t, json.Valid(sentBody))
++				require.Equal(t, "gpt-5.6-sol", gjson.GetBytes(sentBody, "model").String())
++				require.False(t, gjson.GetBytes(sentBody, "previous_response_id").Exists(), "prewarm ID must never cross to HTTP")
++				require.False(t, gjson.GetBytes(sentBody, "type").Exists())
++				require.Equal(t, "user", gjson.GetBytes(sentBody, "input.0.role").String(), "prewarm must not mutate the replayed user role")
++				require.Equal(t, fmt.Sprintf("%x", sha256.Sum256([]byte(text))), fmt.Sprintf("%x", sha256.Sum256([]byte(gjson.GetBytes(sentBody, "input.0.content").String()))))
++				if tc.pairedTools {
++					require.NotEmpty(t, gjson.GetBytes(sentBody, "input.1.call_id").String())
++					require.Equal(t, gjson.GetBytes(sentBody, "input.1.call_id").String(), gjson.GetBytes(sentBody, "input.2.call_id").String())
++					require.Equal(t, fmt.Sprintf("%x", sha256.Sum256([]byte(text))), fmt.Sprintf("%x", sha256.Sum256([]byte(gjson.GetBytes(sentBody, "input.2.output").String()))))
++					require.Contains(t, gjson.GetBytes(sentBody, "input.1.arguments").String(), "9007199254740993")
++				}
++			}
++			if tc.wantStatus == 200 && tc.wantHTTP == 1 {
++				require.Contains(t, string(responseBody), "recovered")
++				require.NotContains(t, string(responseBody), "response.failed")
++				require.NotContains(t, string(responseBody), "1009")
++			} else if tc.httpStatus == 400 {
++				require.Contains(t, string(responseBody), "context_length_exceeded")
++			} else if tc.afterOutput {
++				require.Contains(t, string(responseBody), "already delivered")
++			} else if tc.wantHTTP == 0 && !tc.incremental {
++				require.Contains(t, string(responseBody), "1009")
++			}
++		})
++	}
++}
+diff --git a/deploy/config.example.yaml b/deploy/config.example.yaml
+index ee353d4c5..0b782d39b 100644
+--- a/deploy/config.example.yaml
++++ b/deploy/config.example.yaml
+@@ -405,6 +405,12 @@ gateway:
+     store_disabled_force_new_conn: true
+     # 是否启用 WSv2 generate=false 预热（默认 false）
+     prewarm_generate_enabled: false
++    # 大消息的 HTTP 预分流和安全 WS 断连恢复；覆盖 HTTP 入站的账号预热路径。
++    # 传输大小随文本和工具历史而异，按未压缩 JSON 字节判断，不按 token 数推测。
++    http_bridge_enabled: true
++    # 预分流阈值为 15 MiB；低于该值收到 1009 仍可触发一次安全 HTTP 回退。
++    # 这是本地路由阈值，不代表上游限制或模型上下文窗口。
++    http_bridge_threshold_bytes: 15728640
+     # 协议 feature 开关，v2 优先于 v1
+     responses_websockets: false
+     responses_websockets_v2: true
+diff --git a/docs/README.md b/docs/README.md
+index 7f9e8d3d2..d49822e44 100644
+--- a/docs/README.md
++++ b/docs/README.md
+@@ -88,6 +88,7 @@
+ | [上游 #8170 专项同步（2026-10-22）](UPSTREAM_SYNC_20261022_PR8170.md) | Grok 4.7 Fast 价卡、长上下文边界、动态/渠道价格优先级与回退 |
+ | [上游主线增量同步审查（2026-10-24）](UPSTREAM_SYNC_20261024.md) | #8305 有界重试等待、已覆盖差异关闭、显式身份兼容与 Docker 升级回退 |
+ | [上游主线同步审查（2026-10-26）](UPSTREAM_SYNC_20261026.md) | 图片按张计费、密钥独立限流、资源级授权专项边界、Docker 升级回退与 CI |
++| [上游主线增量同步审查（2026-10-27）](UPSTREAM_SYNC_20261027.md) | Terra 兼容缺口、Grok 目录诊断与模型审计、已有快照复用、Docker 与 CI |
+ | [API Key 删除与计费竞争条件审查（2026-10-06）](../diagnostics/billing-key-deletion-20261006/REPORT.md) | 旧版本漏扣回放、当前修复边界、真实数据库与 24 个 Docker HTTP 场景 |
+ | [GPT-6 Astra 接入记录](GPT6_ASTRA.md) | OpenAI 官方模型目录、能力、价格和本项目兼容计费映射 |
+ | [GPT-6 模型目录与价格](GPT6_MODELS.md) | GPT-6 Astra、Sol、Luna、GPT-6.1 Sol/Terra 的官方能力、价格与本项目实现位置 |
+diff --git a/docs/REQUEST_LIFECYCLES.md b/docs/REQUEST_LIFECYCLES.md
+index e2866986b..237146fd1 100644
+--- a/docs/REQUEST_LIFECYCLES.md
++++ b/docs/REQUEST_LIFECYCLES.md
+@@ -173,10 +173,18 @@ HTTP SSE 等待响应头（包括换号后的等待）及响应体期间按
+ WSv2 在首语义输出前耗尽内部重连预算时，会把读取/连接类失败转换为统一的
+ 账号 failover 信号；不会落到通用 `Upstream request failed`，也不会重放已经提交的语义事件。
+ 
+-上游 WS 关闭码 `1009`（`message_too_big`，含预热路径）保留 `502/upstream_error`，
+-但明确提示消息大小限制，建议缩短会话或工具载荷、改用 HTTP Responses。
+-该拒绝不重连、切号或自动重放。若下游 SSE 心跳已提交 200，则只发送一次带同样提示的
+-`response.failed`；错误写入器标记终止状态，避免 handler 再追加通用错误或混合 JSON/SSE。
++`gateway.openai_ws.http_bridge_enabled` 开启时，大消息的 HTTP 预分流同时覆盖原生 WS 首包
++与 HTTP 入站的账号预热路径；`http_bridge_threshold_bytes` 按未压缩 JSON 字节判断，默认
++15 MiB，不按 token 数估算。低于该阈值仍收到上游 `1009`（`message_too_big`，含预热）时，
++可完整重放且尚未交付语义内容的请求在同一账号尝试一次 HTTP Responses；普通 WS 读写断连
++则先消耗既有有限重连预算，再尝试同样的 HTTP 恢复。重选同账号不补充该请求的 WS 预算。
++HTTP 使用保存的完整原始 body，不携带预热生成的连接私有 response ID，也不继承预热改写的角色。
++
++显式 `store:true`、后台任务、服务端 conversation、`previous_response_id`、未配对工具结果、
++未解析的 item reference、托管工具副作用和已输出内容不进入这项恢复；完整配对的本地工具
++调用历史可以原样重放。蒸馏分组和强制原连接续接保持原有停止边界。HTTP 返回上下文超限时
++仍保留原始 400；传输恢复不能提高模型上下文窗口。不可恢复的 1009 保留明确的
++`502/upstream_error` 提示；心跳已提交 200 时只写一次 `response.failed`，避免重复终止或混合 JSON/SSE。
+ 
+ HTTP Responses 流中的显式 `server_error` 在首语义输出前进入既有有界恢复流程，
+ 中间失败事件不向客户端提交；确定性的上下文或策略拒绝仍保留原语义。
+@@ -627,3 +635,7 @@ OpenAI API-key `/v1/messages` 的纯搜索请求在协议转换前经过既有
+ ### 2026-10-26 图片按张计费
+ 
+ OpenAI/composite 分组的 `image_count_billing` 默认关闭；开启后仅专用 Images 端点按实际出图张数结算，混合 Responses/Chat/WS 继续 token 定价。字段经当前分组 owner 与鉴权快照 26 传递，保留可靠结算；全部节点升级后再开启。升级、回退及上游差异状态见 [同步审查](UPSTREAM_SYNC_20261026.md)。
++
++### 2026-10-27 Grok 目录与响应审计
++
++Grok 目录复用现有 modelcatalog 的有界读取、原子快照和旧节点写入保护；详情诊断不进入网关热路径。Grok Responses 和缓冲兼容响应补齐原始模型/冲突位，沿用当前渠道 response_model 的不增价规则。Sol/Terra Chat-only 账号的工具调用在映射后返回协议 400。升级与冻结差异见 [本轮同步记录](UPSTREAM_SYNC_20261027.md)。
+diff --git a/docs/UPSTREAM_SYNC_20261027.md b/docs/UPSTREAM_SYNC_20261027.md
+new file mode 100644
+index 000000000..ffe589304
+--- /dev/null
++++ b/docs/UPSTREAM_SYNC_20261027.md
+@@ -0,0 +1,106 @@
++# 上游主线增量同步审查（2026-10-27）
++
++本轮从本项目 `a8ced32f6d32f41156644495fde3924e1a903c26` 开始，冻结上游
++`ba81c7fd758e425d67f856d601147ef0c5263d3f..15701ba187af5827d740901d53421bd69ed97717`。
++仅审核这两个新增主线 PR；继承 10 月 26 日及其前序台账，不重做已适配、已覆盖和有意差异。
++#8319 资源级授权继续保留原专项暂缓状态，不能把本轮 tracking merge 当作其实现完成。
++
++## 逐项结论
++
++| 上游条目 | 本轮结果 | 当前 owner |
++| --- | --- | --- |
++| #8364 Terra 目录、价格、能力、Codex 和前端预设 | 已由本项目 #161 覆盖，关闭 | `openai_model_alias.go`、模型价格资源、modelcatalog 和 admin-accounts/keys feature |
++| #8364 Sol/Terra 兼容后缀与 Chat-only 工具限制 | 补齐并关闭 | `openai_compat_model.go`、三个 raw Chat 转发入口及 apicompat |
++| #8339 Grok 完整目录解析与诊断 | 适配并关闭 | 现有 modelcatalog、`grok_model_catalog.go`、账号详情/同步及 admin-accounts feature |
++| #8339 目录并发、旧表单与旧节点写入保护 | 复用既有实现，关闭 | `UpdateUpstreamModelCatalog`、账号 row lock、已发布迁移 249 |
++| #8339 Responses 模型审计与缓冲流冲突 | 补齐并关闭 | `forwardGrokResponses`、共享响应观察器和 buffered reader |
++| #8339 第二套目录快照、查询配额时新建异步目录请求、持久失败历史 | 有意差异，关闭该冻结方案 | 保留已有 OAuth 模型 worker 和手动同步；失败由现有 HTTP 错误及界面反馈，最后成功快照不变 |
++
++机器台账在 [诊断目录](../diagnostics/upstream-sync-20261027/UPSTREAM_PRS.json)，登记 merge SHA、
++原始 diff SHA-256、逐子项状态和重开条件。仅新上游语义或当前 owner 的可复现回归重开已关闭差异。
++
++## 行为与兼容性
++
++Terra 的标准/Fast/Flex、272K 长上下文、缓存价格、模型能力和前端模型选项已经存在，不覆盖本地价格
++与 Ultrafast 适配。只补 Sol/Terra 的兼容别名，保留 `xhigh` 与 `max` 差别、显式 effort 优先和
++thinking disabled 优先。Sol 的不支持档位仍走本项目原来的兼容归一化。Chat-only 账号实际映射目标
++为 Sol/Terra 且携带工具时，三个兼容入口在上游调用前返回协议对应的 400，提示使用 Responses。
++无工具请求及映射到其他模型的请求保留原路径。
++
++Grok 目录拒绝 HTTP 200 的 error envelope、null/坏条目和不完整分页；接受标准对象和字符串 ID。
++完整成功目录仍使用同一次有界请求、统一身份/出口路由、refresh generation、账号原子存储及 scheduler
++outbox，不增加另一套 CAS 读改写循环。保存快照增加可选 `discovery_scope` 指纹，账号详情诊断只读当前
++内存账号：没有 token refresh、HTTP、DNS 或额外数据库查询。列表与通用 mapper 不计算诊断。
++
++诊断状态为 fresh/stale/source_changed/unknown。只有同来源且未过期的成功目录可声称 not_listed；
++过期目录仅保留已有正向证据。通配符、未知自定义 ID、bare Grok 别名以及 runtime build ID 不能被误报为
++目录缺失；图片、语音和视频标成独立能力。目录证据不参与调度、计费或白名单裁剪。
++
++管理端新组件独立位于账号 feature，按已保存账号展示诊断；明确刷新后才发送目录请求，不使用未保存凭据。
++Grok 白名单中的同步只提供可选项，保留已选自定义模型，不自动写入白名单；其它平台沿用原有同步行为。
++切换账号或关闭组件后忽略迟到响应。中英文本同步，旧服务器没有新字段时显示兼容提示。
++
++Grok Responses 将原始响应模型和冲突位带入已有可靠计费。现有渠道 response_model 模式继续只接受
++不增加费用且无冲突的响应模型，默认价格来源保持原规则；不从 runtime build 名推断价格。
++缓冲兼容响应复用已解码事件，仅 Grok 观察非终止模型；固定大小状态不会随 SSE 事件数增长。
++模型名截断改为只扫描前 200 个 rune，并复制被截断的短串，避免新观察点为超长模型名分配整串 rune 数组。
++
++## 平滑升级与回退
++
++没有新增 SQL 迁移、配置开关、Wire/Ent 生成、后台任务或新增凭据。快照格式仍为 version 1，新增字段可选；
++旧快照缺少 scope 时显示 unknown，手动或既有 worker 成功刷新后再显示 fresh。旧二进制忽略新增快照字段，
++现有迁移 249 继续保护旧节点的陈旧 Extra 替换。普通编辑由行锁保留最新目录；身份改变时清除快照，沿用
++本项目的账号身份隔离，而非复用旧来源的可用性结论。
++
++滚动期间新 UI 请求旧节点时能处理缺失诊断字段；两版本不会因目录诊断改变选号或默认计费。需要新增
++Chat-only 工具约束的客户端应改用支持 Responses 的账号。二进制回退无需 Down SQL，身份、持久 Key、
++订阅和已经落库的用量保持原数据。
++
++## 验证与证据
++
++Docker 单元、集成、前端、生产构建、升级/回退及性能的实际结果集中在
++[证据目录](../diagnostics/upstream-sync-20261027/)。命令、输入、逐字 stdout/stderr、退出状态和纠错记录
++以 `VERIFICATION.txt` 和 `records/` 为准；性能是固定函数夹具，不能外推生产吞吐。
++
++原始工作树不参与修改或回退。四个原生角色为 `MODIFIED_FILE.tar.gz`、`DIFF_FILE.patch`、
++`VERIFICATION.txt` 与嵌入 pristine baseline 的可执行 `ROLLBACK.sh`；在独立副本上恢复并校验原始哈希，
++使用相同命令/输入记录 BASELINE、MODIFIED、ROLLBACK，再重建修改副本。远端 PR/main CI 和发布镜像
++另按实际 revision 跟踪。
++
++## 最终验收补充
++
++候选保留了本轮进行中主线新增的 #163（`d8fef5fbd`）及 VERSION 更新；本轮相对该主线的
++`openai_gateway_forward.go` 只有观察器入口的一行替换，没有重做 WebSocket 恢复逻辑。
++初始基线仍固定为 `a8ced32f6`；四角色源码补丁同时包含合入的主线文件，方便完整重建与回退。
++
++Docker 后端全单元、相关 race、真实 PostgreSQL 的模型快照/旧节点写入测试、最终 Go lint 与
++整合 #163 后的网关专项通过；前端 lint、typecheck、29 文件/248 个关键用例和 59 文件/511 个
++账号/密钥相关用例通过。最后补充 selector 卸载后的迟到响应保护及相邻回归。实际组件在
++1280×720 中文、390×844 英文浏览器中无横向溢出；这是带 fixture API 的组件验收。
++
++相同 PostgreSQL/Redis 上完成 BASELINE → MODIFIED → ROLLBACK → RESTORED，16 个 Grok Responses
++和 Terra Messages 的流式/非流式场景均只有一条 1000/100 token 用量记录，固定自定义价格每次
++$0.0045，四阶段费用一致。迁移数始终 307，持久身份、API Key、订阅、余额等式、加密登录和
++健康/前端入口通过。错误目录在基线/回退返回 200，修改/恢复后返回 502 并保持成功快照；新增
++诊断字段在旧二进制缺失、升级后 fresh，符合新 UI 的缺字段兼容处理。
++
++源码相同输入夹具实测：BASELINE 为 `gpt-6.1-terra-max`/空 effort、接受错误目录、冲突位 false；
++MODIFIED 为 `gpt-6.1-terra`/`max`、拒绝错误目录、冲突位 true；ROLLBACK 恢复基线行为和每个
++受影响路径的原始哈希，再由原生 patch 重建修改版。
++
++Go 1.26.10 / linux-arm64 / 2 CPU / 4 GiB，在其它检查结束后依次运行三阶段微基准，每项 5 次、
++每次 200ms，中位数如下。
++
++| 夹具 | 基线 ns/op | 修改 ns/op | 回退 ns/op | 修改 B/op / 分配 |
++| --- | ---: | ---: | ---: | ---: |
++| 普通模型名观察 | 10.53 | 6.66 | 10.56 | 0 / 0 |
++| 1,048,576 个 Unicode rune 模型名 | 4.76772e+06 | 526.6 | 4.7777e+06 | 640 / 1 |
++| 既有 gpt-5.4-high 别名 | 1304 | 1326 | 1296 | 6848 / 9 |
++
++既有别名夹具内存和分配数不变，耗时变化在本机样本波动内；普通模型名仍为零分配。超长模型名
++由全串 rune 数组改为只扫描/复制前 200 个 rune，内存从 4,194,944 B/op 降为 640 B/op。
++这只说明固定函数夹具的开销，不是生产吞吐保证。
++
++初始基线的行数门禁有 forward、payment test 和 pricing 三处超限；合入 #163 后 forward
++已由主线降至 1191 行。当前只剩 payment test（1201）和 pricing（1218）两处既有超限，
++两文件与当前主线哈希一致。本轮不扩大 allowlist，也不重复处理这些已有问题。
+diff --git a/frontend/src/core/i18n/locales/en/admin/accounts.grok-catalog.ts b/frontend/src/core/i18n/locales/en/admin/accounts.grok-catalog.ts
+new file mode 100644
+index 000000000..f9580c85e
+--- /dev/null
++++ b/frontend/src/core/i18n/locales/en/admin/accounts.grok-catalog.ts
+@@ -0,0 +1,23 @@
++export default {
++  "title": "Grok model catalog",
++  "hint": "Saved account diagnostics. Refreshing does not change the whitelist, mappings or prices. Unsaved connection changes are not used.",
++  "refresh": "Refresh saved catalog",
++  "unavailable": "Catalog diagnostics are unavailable on this server.",
++  "failed": "Could not refresh the catalog. The last successful snapshot remains available.",
++  "available": "Fetched {count} models as options; selected models are unchanged.",
++  "state": {
++    "fresh": "Fresh",
++    "stale": "Stale",
++    "source_changed": "Source changed",
++    "unknown": "Unknown"
++  },
++  "status": {
++    "listed": "Listed",
++    "not_listed": "Not listed",
++    "unverifiable": "Unverifiable",
++    "out_of_scope": "Separate capability"
++  },
++  "models": "Observed models",
++  "mapping": "Saved mapping",
++  "fetched": "Fetched at"
++}
+diff --git a/frontend/src/core/i18n/locales/en/admin/accounts.ts b/frontend/src/core/i18n/locales/en/admin/accounts.ts
+index 4aeca67e9..4579d54be 100644
+--- a/frontend/src/core/i18n/locales/en/admin/accounts.ts
++++ b/frontend/src/core/i18n/locales/en/admin/accounts.ts
+@@ -1,3 +1,4 @@
++import grokCatalog from './accounts.grok-catalog'
+ import billingMessages from './accounts.billing'
+ import accountPriority from './accountPriority'
+ 
+@@ -8,6 +9,7 @@ import channelMessages from './accounts.channels'
+ 
+ export default {
+     accounts: {
++      grokCatalog,
+       title: 'Account Management',
+       description: 'Manage AI platform accounts and credentials',
+       streamDegraded: 'LLM stream degraded L{level}',
+diff --git a/frontend/src/core/i18n/locales/zh/admin/accounts.grok-catalog.ts b/frontend/src/core/i18n/locales/zh/admin/accounts.grok-catalog.ts
+new file mode 100644
+index 000000000..8df352a8a
+--- /dev/null
++++ b/frontend/src/core/i18n/locales/zh/admin/accounts.grok-catalog.ts
+@@ -0,0 +1,23 @@
++export default {
++  "title": "Grok 模型目录",
++  "hint": "展示已保存账号的诊断。刷新不会更改白名单、映射或价格；未保存的连接修改不参与请求。",
++  "refresh": "刷新已保存账号目录",
++  "unavailable": "当前服务器尚未提供目录诊断。",
++  "failed": "目录刷新失败，保留上次成功快照。",
++  "available": "已读取 {count} 个模型供选择，已选模型保持不变。",
++  "state": {
++    "fresh": "新鲜",
++    "stale": "已过期",
++    "source_changed": "来源已变更",
++    "unknown": "未知"
++  },
++  "status": {
++    "listed": "目录中存在",
++    "not_listed": "目录中未列出",
++    "unverifiable": "无法核实",
++    "out_of_scope": "独立能力"
++  },
++  "models": "已观察模型",
++  "mapping": "已保存映射",
++  "fetched": "读取时间"
++}
+diff --git a/frontend/src/core/i18n/locales/zh/admin/accounts.ts b/frontend/src/core/i18n/locales/zh/admin/accounts.ts
+index f0bd05d22..d45230150 100644
+--- a/frontend/src/core/i18n/locales/zh/admin/accounts.ts
++++ b/frontend/src/core/i18n/locales/zh/admin/accounts.ts
+@@ -1,3 +1,4 @@
++import grokCatalog from './accounts.grok-catalog'
+ import billingMessages from './accounts.billing'
+ import accountPriority from './accountPriority'
+ 
+@@ -8,6 +9,7 @@ import channelMessages from './accounts.channels'
+ 
+ export default {
+     accounts: {
++      grokCatalog,
+       title: '账号管理',
+       description: '管理 AI 平台账号和 Cookie',
+       streamDegraded: 'LLM 流降级 L{level}',
+diff --git a/frontend/src/features/admin-accounts/README.md b/frontend/src/features/admin-accounts/README.md
+index b5a65d9cf..da494d3d3 100644
+--- a/frontend/src/features/admin-accounts/README.md
++++ b/frontend/src/features/admin-accounts/README.md
+@@ -67,3 +67,5 @@ Claude 5.5 的原生白名单、Antigravity 分档模型和映射预设由 `pres
+ OpenAI 与 Anthropic API-key 的 WebSearch 模拟共用已有三态字段和全局可见条件。创建 extra 的纯转换由 `accountFormPolicy.ts` 所有，编辑 payload 由 `accountEditUpdatePayload.ts` 所有；OAuth 不显示或启用该模拟。
+ 
+ `presentation/accountFilterState.ts` 校验并持久化账号平台/状态筛选；`presentation/accountQuota.ts` 统一 API Key、Bedrock 与 service account 的本地配额展示和编辑资格，池模式权限保持独立。
++
++`GrokModelDiagnosticsPanel.vue` 查询已保存账号详情并显式刷新目录；诊断和 API 类型由同 feature 的 `data/dtos/grokModelDiagnostics.ts` 所有。Grok 白名单同步只补下拉可选项，不自动改变选择。账号切换后忽略迟到响应，旧节点缺少诊断字段时显示兼容提示。
+diff --git a/frontend/src/features/admin-accounts/__tests__/GrokModelDiagnosticsPanel.spec.ts b/frontend/src/features/admin-accounts/__tests__/GrokModelDiagnosticsPanel.spec.ts
+new file mode 100644
+index 000000000..cf083a917
+--- /dev/null
++++ b/frontend/src/features/admin-accounts/__tests__/GrokModelDiagnosticsPanel.spec.ts
+@@ -0,0 +1,31 @@
++import { beforeEach, describe, expect, it, vi } from 'vitest'
++import { flushPromises, mount } from '@vue/test-utils'
++const mocks = vi.hoisted(() => ({ getById: vi.fn(), syncUpstreamModels: vi.fn() }))
++vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
++vi.mock('../data/datasources/adminAccountQueries', () => ({ getById: mocks.getById }))
++vi.mock('../data/datasources/adminAccountActions', () => ({ syncUpstreamModels: mocks.syncUpstreamModels }))
++import Panel from '../presentation/widgets/GrokModelDiagnosticsPanel.vue'
++const diag = { state: 'fresh', models: ['grok-4.6'], mappings: [{ requested: 'alias', upstream: 'grok-4.5', status: 'not_listed' }] }
++describe('Grok catalog diagnostics', () => {
++  beforeEach(() => { vi.resetAllMocks(); mocks.getById.mockResolvedValue({ grok_model_diagnostics: diag }) })
++  it('shows saved diagnostics, refreshes explicitly and preserves the old snapshot on failure', async () => {
++    const wrapper = mount(Panel, { props: { accountId: 1 } })
++    await flushPromises()
++    expect(mocks.getById).toHaveBeenCalledWith(1)
++    expect(mocks.syncUpstreamModels).not.toHaveBeenCalled()
++    expect(wrapper.text()).toContain('grok-4.6')
++    mocks.syncUpstreamModels.mockRejectedValue(new Error('offline'))
++    await wrapper.get('button').trigger('click'); await flushPromises()
++    expect(wrapper.find('[role="alert"]').exists()).toBe(true)
++    expect(wrapper.text()).toContain('grok-4.6')
++  })
++  it('supports older servers and ignores late responses from a different account', async () => {
++    let resolveOld!: (value: unknown) => void
++    mocks.getById.mockReturnValueOnce(new Promise(resolve => { resolveOld = resolve })).mockResolvedValueOnce({})
++    const wrapper = mount(Panel, { props: { accountId: 1 } })
++    await wrapper.setProps({ accountId: 2 }); await flushPromises()
++    resolveOld({ grok_model_diagnostics: diag }); await flushPromises()
++    expect(wrapper.find('[data-testid="catalog-state"]').exists()).toBe(false)
++    expect(wrapper.text()).toContain('grokCatalog.unavailable')
++  })
++})
+diff --git a/frontend/src/features/admin-accounts/__tests__/ModelWhitelistSelector.spec.ts b/frontend/src/features/admin-accounts/__tests__/ModelWhitelistSelector.spec.ts
+index e0bd98828..f5015f6ab 100644
+--- a/frontend/src/features/admin-accounts/__tests__/ModelWhitelistSelector.spec.ts
++++ b/frontend/src/features/admin-accounts/__tests__/ModelWhitelistSelector.spec.ts
+@@ -1,6 +1,9 @@
+ import { beforeEach, describe, expect, it, vi } from 'vitest'
+ import { flushPromises, mount } from '@vue/test-utils'
+ 
++const syncMock = vi.hoisted(() => vi.fn())
++vi.mock('../data/datasources/adminAccountActions', () => ({ syncUpstreamModels: syncMock, syncUpstreamModelsPreview: syncMock }))
++
+ const copyToClipboard = vi.fn().mockResolvedValue(true)
+ 
+ vi.mock('vue-i18n', async () => {
+@@ -13,13 +16,8 @@ vi.mock('vue-i18n', async () => {
+   }
+ })
+ 
+-vi.mock('@/core/stores/appStore', () => ({
+-  useAppStore: () => ({
+-    showError: vi.fn(),
+-    showSuccess: vi.fn(),
+-    showInfo: vi.fn()
+-  })
+-}))
++const messages = vi.hoisted(() => ({ showError: vi.fn(), showSuccess: vi.fn(), showInfo: vi.fn() }))
++vi.mock('@/core/stores/appStore', () => ({ useAppStore: () => messages }))
+ 
+ vi.mock('@/common/composables/useClipboard', () => ({
+   useClipboard: () => ({
+@@ -104,3 +102,29 @@ it('allows an identity mapping in the whitelist', async () => {
+   await input.trigger('keydown.enter')
+   expect(wrapper.emitted('update:modelValue')).toEqual([[['gpt-latest']]])
+ })
++
++it('offers Grok catalog IDs without changing the selected whitelist', async () => {
++  syncMock.mockResolvedValue({ models: ['grok-custom-new'] })
++  const wrapper = mountSelector({ platform: 'grok', accountId: 1, modelValue: ['grok-existing-custom'] })
++  const sync = wrapper.findAll('button').find(button => button.text() === 'admin.accounts.syncUpstreamModels')!
++  await sync.trigger('click'); await flushPromises()
++  expect(wrapper.emitted('update:modelValue')).toBeUndefined()
++  await wrapper.get('div.cursor-pointer').trigger('click')
++  expect(wrapper.text()).toContain('grok-custom-new')
++  expect(wrapper.text()).toContain('grok-existing-custom')
++  await wrapper.setProps({ accountId: 2 })
++  expect(wrapper.findAll('[data-testid="model-option"]').some(row => row.text().includes('grok-custom-new'))).toBe(false)
++})
++
++it('ignores an upstream result after the selector unmounts', async () => {
++  vi.clearAllMocks()
++  let resolve!: (value: { models: string[] }) => void
++  syncMock.mockReturnValueOnce(new Promise(done => { resolve = done }))
++  const wrapper = mountSelector({ platform: 'grok', accountId: 1 })
++  const sync = wrapper.findAll('button').find(button => button.text() === 'admin.accounts.syncUpstreamModels')!
++  await sync.trigger('click'); wrapper.unmount()
++  resolve({ models: ['grok-4.6'] }); await flushPromises()
++  expect(messages.showInfo).not.toHaveBeenCalled()
++  expect(messages.showSuccess).not.toHaveBeenCalled()
++  expect(wrapper.emitted('update:modelValue')).toBeUndefined()
++})
+diff --git a/frontend/src/features/admin-accounts/data/datasources/adminAccountActions.ts b/frontend/src/features/admin-accounts/data/datasources/adminAccountActions.ts
+index 02f660d77..13a2de070 100644
+--- a/frontend/src/features/admin-accounts/data/datasources/adminAccountActions.ts
++++ b/frontend/src/features/admin-accounts/data/datasources/adminAccountActions.ts
+@@ -1,3 +1,4 @@
++import type { GrokModelDiagnostics } from '../dtos/grokModelDiagnostics'
+ import { apiClient } from '@/core/networks/client'
+ import type {
+   Account,
+@@ -110,6 +111,7 @@ export interface UpstreamModelDescriptor {
+ }
+ 
+ export interface SyncUpstreamModelsResult {
++  grok_model_diagnostics?: GrokModelDiagnostics
+   models: string[]
+   metadata?: Record<string, UpstreamModelDescriptor>
+ }
+diff --git a/frontend/src/features/admin-accounts/data/datasources/adminAccountQueries.ts b/frontend/src/features/admin-accounts/data/datasources/adminAccountQueries.ts
+index 27b02ed83..59ceb86aa 100644
+--- a/frontend/src/features/admin-accounts/data/datasources/adminAccountQueries.ts
++++ b/frontend/src/features/admin-accounts/data/datasources/adminAccountQueries.ts
+@@ -1,3 +1,4 @@
++import type { GrokModelDiagnostics } from '../dtos/grokModelDiagnostics'
+ import { apiClient } from '@/core/networks/client'
+ import type {
+   Account,
+@@ -118,7 +119,7 @@ export async function getUpstreamBillingRatesWithEtag(
+     : { notModified: false, etag, data: response.data }
+ }
+ 
+-export async function getById(id: number): Promise<Account> {
++export async function getById(id: number): Promise<Account & { grok_model_diagnostics?: GrokModelDiagnostics }> {
+   const { data } = await apiClient.get<Account>(`/admin/accounts/${id}`)
+   return data
+ }
+diff --git a/frontend/src/features/admin-accounts/data/dtos/grokModelDiagnostics.ts b/frontend/src/features/admin-accounts/data/dtos/grokModelDiagnostics.ts
+new file mode 100644
+index 000000000..0448dd54e
+--- /dev/null
++++ b/frontend/src/features/admin-accounts/data/dtos/grokModelDiagnostics.ts
+@@ -0,0 +1,7 @@
++export interface GrokModelDiagnostics {
++  state: 'unknown' | 'fresh' | 'stale' | 'source_changed'
++  fetched_at?: string
++  expires_at?: string
++  models: string[]
++  mappings: Array<{ requested: string; upstream?: string; status: 'listed' | 'not_listed' | 'unverifiable' | 'out_of_scope' }>
++}
+diff --git a/frontend/src/features/admin-accounts/presentation/widgets/EditAccountDialog.vue b/frontend/src/features/admin-accounts/presentation/widgets/EditAccountDialog.vue
+index 4a3a722da..0814af67f 100644
+--- a/frontend/src/features/admin-accounts/presentation/widgets/EditAccountDialog.vue
++++ b/frontend/src/features/admin-accounts/presentation/widgets/EditAccountDialog.vue
+@@ -13,6 +13,8 @@
+     >
+       <EditAccountCredentialFields :context="editAccountCredentialContext" />
+ 
++      <GrokModelDiagnosticsPanel v-if="show && account.platform === 'grok'" :account-id="account.id" />
++
+       <EditAccountAdvancedFields :context="editAccountAdvancedContext" />
+ 
+       <EditAccountPolicyFields :context="editAccountPolicyContext" />
+@@ -71,6 +73,7 @@
+ </template>
+ 
+ <script setup lang="ts">
++import GrokModelDiagnosticsPanel from './GrokModelDiagnosticsPanel.vue'
+ import { supportsAccountQuota } from '@/features/admin-accounts/presentation/accountQuota'
+ 
+ import { ref, reactive, computed, watch } from 'vue'
+diff --git a/frontend/src/features/admin-accounts/presentation/widgets/GrokModelDiagnosticsPanel.vue b/frontend/src/features/admin-accounts/presentation/widgets/GrokModelDiagnosticsPanel.vue
+new file mode 100644
+index 000000000..83ee6984c
+--- /dev/null
++++ b/frontend/src/features/admin-accounts/presentation/widgets/GrokModelDiagnosticsPanel.vue
+@@ -0,0 +1,72 @@
++<template>
++  <section class="space-y-3 rounded-lg border border-gray-200 p-4 dark:border-dark-600" data-testid="grok-catalog">
++    <div class="flex flex-wrap items-center justify-between gap-2">
++      <h3 class="font-medium">{{ t('admin.accounts.grokCatalog.title') }}</h3>
++      <button type="button" class="btn btn-secondary" :disabled="loading" @click="load(true)">
++        {{ t('admin.accounts.grokCatalog.refresh') }}
++      </button>
++    </div>
++    <p class="text-xs text-gray-500">{{ t('admin.accounts.grokCatalog.hint') }}</p>
++    <p v-if="failed" role="alert" class="text-sm text-amber-600">{{ t('admin.accounts.grokCatalog.failed') }}</p>
++    <template v-if="diagnostics">
++      <p class="text-sm" data-testid="catalog-state">{{ stateLabels[diagnostics.state] }}</p>
++      <p v-if="diagnostics.fetched_at" class="break-all text-xs text-gray-500">{{ t('admin.accounts.grokCatalog.fetched') }}: {{ diagnostics.fetched_at }}</p>
++      <details>
++        <summary class="cursor-pointer text-sm">{{ t('admin.accounts.grokCatalog.models') }} ({{ diagnostics.models.length }})</summary>
++        <ul class="max-h-40 overflow-auto text-xs">
++          <li v-for="model in diagnostics.models" :key="model" class="break-all py-1">{{ model }}</li>
++        </ul>
++      </details>
++      <div v-if="diagnostics.mappings.length" class="max-h-60 overflow-auto">
++        <table class="w-full text-left text-xs">
++          <thead><tr><th class="p-1">{{ t('admin.accounts.grokCatalog.mapping') }}</th><th class="p-1">{{ t('common.status') }}</th></tr></thead>
++          <tbody><tr v-for="mapping in diagnostics.mappings" :key="mapping.requested">
++            <td class="break-all p-1">{{ mapping.requested }} → {{ mapping.upstream }}</td>
++            <td class="p-1">{{ statusLabels[mapping.status] }}</td>
++          </tr></tbody>
++        </table>
++      </div>
++    </template>
++    <p v-else-if="!loading" class="text-xs text-gray-500">{{ t('admin.accounts.grokCatalog.unavailable') }}</p>
++  </section>
++</template>
++<script setup lang="ts">
++import { computed, onBeforeUnmount, ref, watch } from 'vue'
++import { useI18n } from 'vue-i18n'
++import { getById } from '@/features/admin-accounts/data/datasources/adminAccountQueries'
++import { syncUpstreamModels } from '@/features/admin-accounts/data/datasources/adminAccountActions'
++import type { GrokModelDiagnostics } from '@/features/admin-accounts/data/dtos/grokModelDiagnostics'
++const props = defineProps<{ accountId: number }>()
++const { t } = useI18n()
++const stateLabels = computed(() => ({
++  fresh: t('admin.accounts.grokCatalog.state.fresh'),
++  stale: t('admin.accounts.grokCatalog.state.stale'),
++  source_changed: t('admin.accounts.grokCatalog.state.source_changed'),
++  unknown: t('admin.accounts.grokCatalog.state.unknown'),
++}))
++const statusLabels = computed(() => ({
++  listed: t('admin.accounts.grokCatalog.status.listed'),
++  not_listed: t('admin.accounts.grokCatalog.status.not_listed'),
++  unverifiable: t('admin.accounts.grokCatalog.status.unverifiable'),
++  out_of_scope: t('admin.accounts.grokCatalog.status.out_of_scope'),
++}))
++const diagnostics = ref<GrokModelDiagnostics>()
++const loading = ref(false)
++const failed = ref(false)
++let generation = 0
++async function load(refresh = false) {
++  const current = ++generation
++  loading.value = true
++  failed.value = false
++  try {
++    const result = refresh ? await syncUpstreamModels(props.accountId) : await getById(props.accountId)
++    if (current === generation) diagnostics.value = result.grok_model_diagnostics
++  } catch {
++    if (current === generation) failed.value = true
++  } finally {
++    if (current === generation) loading.value = false
++  }
++}
++watch(() => props.accountId, () => { diagnostics.value = undefined; void load() }, { immediate: true })
++onBeforeUnmount(() => { generation += 1 })
++</script>
+diff --git a/frontend/src/features/admin-accounts/presentation/widgets/ModelWhitelistSelector.vue b/frontend/src/features/admin-accounts/presentation/widgets/ModelWhitelistSelector.vue
+index 1cfca586b..c5ce3cefc 100644
+--- a/frontend/src/features/admin-accounts/presentation/widgets/ModelWhitelistSelector.vue
++++ b/frontend/src/features/admin-accounts/presentation/widgets/ModelWhitelistSelector.vue
+@@ -145,7 +145,7 @@
+ </template>
+ 
+ <script setup lang="ts">
+-import { computed, ref } from 'vue'
++import { computed, onBeforeUnmount, ref, watch } from 'vue'
+ import { useI18n } from 'vue-i18n'
+ import { useAppStore } from '@/core/stores/appStore'
+ import {
+@@ -215,6 +215,16 @@ const canSyncUpstream = computed(() => {
+   return false
+ })
+ 
++const observedModels = ref<string[]>([])
++let syncGeneration = 0
++onBeforeUnmount(() => { syncGeneration += 1 })
++watch(() => [props.accountId, props.platform, props.platforms, props.syncCredentials], () => {
++  observedModels.value = []
++  syncGeneration += 1
++  isSyncingUpstream.value = false
++})
++const isGrok = computed(() => normalizedPlatforms.value.length === 1 && normalizedPlatforms.value[0] === 'grok')
++
+ const availableOptions = computed(() => {
+   if (normalizedPlatforms.value.length === 0) {
+     return allModels
+@@ -227,7 +237,14 @@ const availableOptions = computed(() => {
+     }
+   }
+ 
+-  return allModels.filter(model => allowedModels.has(model.value))
++  const options = allModels.filter(model => allowedModels.has(model.value))
++  if (isGrok.value) {
++    const existing = new Set(options.map(option => option.value))
++    for (const id of [...observedModels.value, ...props.modelValue]) {
++      if (!existing.has(id)) { options.push({ value: id, label: id }); existing.add(id) }
++    }
++  }
++  return options
+ })
+ 
+ const filteredModels = computed(() => {
+@@ -296,6 +313,7 @@ const syncUpstreamModels = async () => {
+   if (!props.accountId && !props.syncCredentials) return
+ 
+   isSyncingUpstream.value = true
++  const generation = ++syncGeneration
+   try {
+     let result
+     if (props.accountId) {
+@@ -306,12 +324,18 @@ const syncUpstreamModels = async () => {
+       return
+     }
+ 
++    if (generation !== syncGeneration) return
+     const upstreamModels = result.models.map(model => model.trim()).filter(Boolean)
+     if (upstreamModels.length === 0) {
+       appStore.showInfo(t('admin.accounts.syncUpstreamModelsEmpty'))
+       return
+     }
+ 
++    if (isGrok.value) {
++      observedModels.value = upstreamModels
++      appStore.showInfo(t('admin.accounts.grokCatalog.available', { count: upstreamModels.length }))
++      return
++    }
+     const newModels = [...props.modelValue]
+     let addedCount = 0
+     for (const model of upstreamModels) {
+@@ -328,10 +352,11 @@ const syncUpstreamModels = async () => {
+       appStore.showInfo(t('admin.accounts.syncUpstreamModelsNoChanges', { count: upstreamModels.length }))
+     }
+   } catch (error) {
++    if (generation !== syncGeneration) return
+     const message = error instanceof Error ? error.message : t('admin.accounts.syncUpstreamModelsFailed')
+     appStore.showError(t('admin.accounts.syncUpstreamModelsError', { message }))
+   } finally {
+-    isSyncingUpstream.value = false
++    if (generation === syncGeneration) isSyncingUpstream.value = false
+   }
+ }
+ 
