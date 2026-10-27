@@ -7,6 +7,9 @@ import (
 )
 
 func NormalizeOpenAICompatRequestedModel(model string) string {
+	if base := gpt61CompatBase(model); base != "" {
+		return base
+	}
 	trimmed := strings.TrimSpace(model)
 	if trimmed == "" {
 		return ""
@@ -24,6 +27,16 @@ func applyOpenAICompatModelNormalization(req *apicompat.AnthropicRequest) {
 		return
 	}
 
+	if base := gpt61CompatBase(req.Model); base != "" {
+		canonical := canonicalizeOpenAIModelAliasSpelling(req.Model)
+		if effort, ok := strings.CutPrefix(canonical, base+"-"); ok && effort != "openai-compact" {
+			req.Model = base
+			if req.OutputConfig == nil || strings.TrimSpace(req.OutputConfig.Effort) == "" {
+				req.OutputConfig = &apicompat.AnthropicOutputConfig{Effort: effort}
+			}
+		}
+		return
+	}
 	originalModel := strings.TrimSpace(req.Model)
 	if originalModel == "" {
 		return

@@ -1,0 +1,12 @@
+
+[1m[46m RUN [49m[22m [36mv3.2.6 [39m[90m/src/frontend[39m
+
+ [32m✓[39m src/__tests__/dynamicLocaleMapping.spec.ts [2m([22m[2m1 test[22m[2m)[22m[32m 181[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/ModelWhitelistSelector.spec.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 71[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/GrokModelDiagnosticsPanel.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m3 passed[39m[22m[90m (3)[39m
+[2m      Tests [22m [1m[32m9 passed[39m[22m[90m (9)[39m
+[2m   Start at [22m 14:30:43
+[2m   Duration [22m 1.98s[2m (transform 293ms, setup 105ms, collect 537ms, tests 270ms, environment 577ms, prepare 98ms)[22m
+

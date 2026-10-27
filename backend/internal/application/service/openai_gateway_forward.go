@@ -32,7 +32,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		requestCtx := context.WithValue(c.Request.Context(), openAIStreamRuntimeSettingsContextKey{}, settings)
 		c.Request = c.Request.WithContext(requestCtx)
 	}
-	beginUpstreamResponseModelObservation(c)
+	beginAccountUpstreamResponseModelObservation(c, account)
 	beginOpenAITimingObservation(c)
 	ClearActualOpenAIUpstreamEndpoint(c)
 	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) || shouldForwardDeepSeekCompatViaChatCompletions(c, account, body) {

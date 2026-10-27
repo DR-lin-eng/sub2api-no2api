@@ -1,0 +1,49 @@
+=== RUN   TestGrokCatalogDiagnosticsTrustAndNoMutation
+=== RUN   TestGrokCatalogDiagnosticsTrustAndNoMutation/fresh
+=== RUN   TestGrokCatalogDiagnosticsTrustAndNoMutation/stale
+=== RUN   TestGrokCatalogDiagnosticsTrustAndNoMutation/old
+=== RUN   TestGrokCatalogDiagnosticsTrustAndNoMutation/changed
+=== RUN   TestGrokCatalogDiagnosticsTrustAndNoMutation/future
+--- PASS: TestGrokCatalogDiagnosticsTrustAndNoMutation (0.00s)
+    --- PASS: TestGrokCatalogDiagnosticsTrustAndNoMutation/fresh (0.00s)
+    --- PASS: TestGrokCatalogDiagnosticsTrustAndNoMutation/stale (0.00s)
+    --- PASS: TestGrokCatalogDiagnosticsTrustAndNoMutation/old (0.00s)
+    --- PASS: TestGrokCatalogDiagnosticsTrustAndNoMutation/changed (0.00s)
+    --- PASS: TestGrokCatalogDiagnosticsTrustAndNoMutation/future (0.00s)
+=== RUN   TestGrokCatalogStringAndDualListsMetadata
+--- PASS: TestGrokCatalogStringAndDualListsMetadata (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog	0.003s
+testing: warning: no tests to run
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	0.006s [no tests to run]
+2026/10/27 13:50:47 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestUpstreamSync20261027Transaction
+    upstream_sync_20261027_probe_test.go:23: TERRA model=gpt-6.1-terra effort=max
+    upstream_sync_20261027_probe_test.go:25: GROK invalid_catalog_rejected=true models=[]
+    upstream_sync_20261027_probe_test.go:36: GROK terminal=grok-4.6 conflict=true
+--- PASS: TestUpstreamSync20261027Transaction (0.00s)
+=== RUN   TestGPT61CompatEffortAliases
+--- PASS: TestGPT61CompatEffortAliases (0.00s)
+=== RUN   TestGPT61ChatOnlyToolGateUsesMappedModel
+=== RUN   TestGPT61ChatOnlyToolGateUsesMappedModel/gpt-6.1-sol/chat
+=== RUN   TestGPT61ChatOnlyToolGateUsesMappedModel/gpt-6.1-sol/responses
+=== RUN   TestGPT61ChatOnlyToolGateUsesMappedModel/gpt-6.1-sol/messages
+=== RUN   TestGPT61ChatOnlyToolGateUsesMappedModel/gpt-6.1-terra/chat
+=== RUN   TestGPT61ChatOnlyToolGateUsesMappedModel/gpt-6.1-terra/responses
+=== RUN   TestGPT61ChatOnlyToolGateUsesMappedModel/gpt-6.1-terra/messages
+--- PASS: TestGPT61ChatOnlyToolGateUsesMappedModel (0.00s)
+    --- PASS: TestGPT61ChatOnlyToolGateUsesMappedModel/gpt-6.1-sol/chat (0.00s)
+    --- PASS: TestGPT61ChatOnlyToolGateUsesMappedModel/gpt-6.1-sol/responses (0.00s)
+    --- PASS: TestGPT61ChatOnlyToolGateUsesMappedModel/gpt-6.1-sol/messages (0.00s)
+    --- PASS: TestGPT61ChatOnlyToolGateUsesMappedModel/gpt-6.1-terra/chat (0.00s)
+    --- PASS: TestGPT61ChatOnlyToolGateUsesMappedModel/gpt-6.1-terra/responses (0.00s)
+    --- PASS: TestGPT61ChatOnlyToolGateUsesMappedModel/gpt-6.1-terra/messages (0.00s)
+=== RUN   TestGrokCatalogMalformedResponsesNeverPersist
+--- PASS: TestGrokCatalogMalformedResponsesNeverPersist (0.00s)
+=== RUN   TestGrokResponsesPropagateAuditForJSONAndSSE
+--- PASS: TestGrokResponsesPropagateAuditForJSONAndSSE (0.00s)
+=== RUN   TestGrokBufferedAuditGatedAndBounded
+--- PASS: TestGrokBufferedAuditGatedAndBounded (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.078s

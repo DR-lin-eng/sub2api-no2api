@@ -1,0 +1,6 @@
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	2.277s
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	0.042s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin	0.193s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto	0.013s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/config	0.003s [no tests to run]

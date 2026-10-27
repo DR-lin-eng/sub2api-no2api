@@ -1,0 +1,21 @@
+=== RUN   TestGrokCatalogDiagnosticsTrustAndNoMutation
+=== RUN   TestGrokCatalogDiagnosticsTrustAndNoMutation/fresh
+=== RUN   TestGrokCatalogDiagnosticsTrustAndNoMutation/stale
+=== RUN   TestGrokCatalogDiagnosticsTrustAndNoMutation/old
+=== RUN   TestGrokCatalogDiagnosticsTrustAndNoMutation/changed
+=== RUN   TestGrokCatalogDiagnosticsTrustAndNoMutation/future
+--- PASS: TestGrokCatalogDiagnosticsTrustAndNoMutation (0.00s)
+    --- PASS: TestGrokCatalogDiagnosticsTrustAndNoMutation/fresh (0.00s)
+    --- PASS: TestGrokCatalogDiagnosticsTrustAndNoMutation/stale (0.00s)
+    --- PASS: TestGrokCatalogDiagnosticsTrustAndNoMutation/old (0.00s)
+    --- PASS: TestGrokCatalogDiagnosticsTrustAndNoMutation/changed (0.00s)
+    --- PASS: TestGrokCatalogDiagnosticsTrustAndNoMutation/future (0.00s)
+=== RUN   TestGrokCatalogStringAndDualListsMetadata
+--- PASS: TestGrokCatalogStringAndDualListsMetadata (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog	0.002s
+testing: warning: no tests to run
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	0.006s [no tests to run]
+FAIL	github.com/Wei-Shaw/sub2api/internal/application/service [build failed]
+FAIL

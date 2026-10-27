@@ -1,0 +1,13 @@
+{
+  "command": [
+    "python3",
+    "diagnostics/upstream-sync-20261027/runtime/check.py"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo",
+  "input": "",
+  "stdout": "",
+  "stderr": "Traceback (most recent call last):\n  File \"/private/tmp/sub2api-sync-20261027-6h5nbaju/repo/diagnostics/upstream-sync-20261027/runtime/check.py\", line 178, in <module>\n    assert code==200,(stage,platform,stream,code,str(value)[:160])\n           ^^^^^^^^^\nAssertionError: ('BASELINE', 'openai', False, 403, \"{'error': {'message': 'This group does not allow /v1/messages dispatch', 'type': 'permission_error'}, 'type': 'error'}\")\n",
+  "exit_status": 1,
+  "duration_seconds": 30.155,
+  "utc": "2026-10-27T14:05:01.902149+00:00"
+}

@@ -1,0 +1,317 @@
+RUN performance-baseline
+{"label": "performance-baseline", "exit_status": 0, "duration_seconds": 58.248, "stdout_tail": "2026/10/27 14:24:53 Timezone initialized: UTC (UTC offset: +00:00)\ngoos: linux\ngoarch: arm64\npkg: github.com/Wei-Shaw/sub2api/internal/application/service\nBenchmarkUpstreamSync20261027/model_audit_ordinary-2         \t22857234\t        10.53 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkUpstreamSync20261027/model_audit_ordinary-2         \t21811900\t        10.67 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkUpstreamSync20261027/model_audit_ordinary-2         \t22660036\t        10.47 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkUpstreamSync20261027/model_audit_ordinary-2         \t21943274\t        10.47 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkUpstreamSync20261027/model_audit_ordinary-2         \t23213262\t        11.57 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkUpstreamSync20261027/model_audit_oversized-2        \t      48\t   4915455 ns/op\t 4194944 B/op\t       2 allocs/op\nBenchmarkUpstreamSync20261027/model_audit_oversized-2        \t      50\t   4767722 ns/op\t 4194944 B/op\t       2 allocs/op\nBenchmarkUpstreamSync20261027/model_audit_oversized-2        \t      50\t   4733753 ns/op\t 4194944 B/op\t       2 allocs/op\nBenchmarkUpstreamSync20261027/model_audit_oversized-2        \t      51\t   4785384 ns/op\t 4194944 B/op\t       2 allocs/op\nBenchmarkUpstreamSync20261027/model_audit_oversized-2        \t      49\t   4760149 ns/op\t 4194944 B/op\t       2 allocs/op\nBenchmarkUpstreamSync20261027/legacy_model_alias-2           \t  160448\t      1294 ns/op\t    6848 B/op\t       9 allocs/op\nBenchmarkUpstreamSync20261027/legacy_model_alias-2           \t  168450\t      1320 ns/op\t    6848 B/op\t       9 allocs/op\nBenchmarkUpstreamSync20261027/legacy_model_alias-2           \t  178362\t      1301 ns/op\t    6848 B/op\t       9 allocs/op\nBenchmarkUpstreamSync20261027/legacy_model_alias-2           \t  174730\t      1330 ns/op\t    6848 B/op\t       9 allocs/op\nBenchmarkUpstreamSync20261027/legacy_model_alias-2           \t  175254\t      1304 ns/op\t    6848 B/op\t       9 allocs/op\nPASS\nok  \tgithub.com/Wei-Shaw/sub2api/internal/application/service\t3.559s\n", "stderr_tail": ""}
+RUN performance-modified
+{"label": "performance-modified", "exit_status": 0, "duration_seconds": 9.458, "stdout_tail": "2026/10/27 14:25:03 Timezone initialized: UTC (UTC offset: +00:00)\ngoos: linux\ngoarch: arm64\npkg: github.com/Wei-Shaw/sub2api/internal/application/service\nBenchmarkUpstreamSync20261027/model_audit_ordinary-2         \t35816442\t         6.660 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkUpstreamSync20261027/model_audit_ordinary-2         \t36651712\t         6.555 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkUpstreamSync20261027/model_audit_ordinary-2         \t36322591\t         6.595 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkUpstreamSync20261027/model_audit_ordinary-2         \t36792885\t         6.789 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkUpstreamSync20261027/model_audit_ordinary-2         \t34792062\t         6.689 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkUpstreamSync20261027/model_audit_oversized-2        \t  452664\t       528.0 ns/op\t     640 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261027/model_audit_oversized-2        \t  436627\t       526.6 ns/op\t     640 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261027/model_audit_oversized-2        \t  463263\t       529.9 ns/op\t     640 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261027/model_audit_oversized-2        \t  442423\t       524.7 ns/op\t     640 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261027/model_audit_oversized-2        \t  457647\t       524.8 ns/op\t     640 B/op\t       1 allocs/op\nBenchmarkUpstreamSync20261027/legacy_model_alias-2           \t  176420\t      1311 ns/op\t    6848 B/op\t       9 allocs/op\nBenchmarkUpstreamSync20261027/legacy_model_alias-2           \t  178443\t      1436 ns/op\t    6848 B/op\t       9 allocs/op\nBenchmarkUpstreamSync20261027/legacy_model_alias-2           \t  140535\t      1598 ns/op\t    6848 B/op\t       9 allocs/op\nBenchmarkUpstreamSync20261027/legacy_model_alias-2           \t  162428\t      1326 ns/op\t    6848 B/op\t       9 allocs/op\nBenchmarkUpstreamSync20261027/legacy_model_alias-2           \t  167692\t      1304 ns/op\t    6848 B/op\t       9 allocs/op\nPASS\nok  \tgithub.com/Wei-Shaw/sub2api/internal/application/service\t3.569s\n", "stderr_tail": ""}
+ROLLBACK_RESTORED=/private/tmp/sub2api-sync-20261027-6h5nbaju/rollback-copy
+RUN performance-rollback
+{"label": "performance-rollback", "exit_status": 0, "duration_seconds": 53.454, "stdout_tail": "2026/10/27 14:25:56 Timezone initialized: UTC (UTC offset: +00:00)\ngoos: linux\ngoarch: arm64\npkg: github.com/Wei-Shaw/sub2api/internal/application/service\nBenchmarkUpstreamSync20261027/model_audit_ordinary-2         \t21811820\t        10.65 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkUpstreamSync20261027/model_audit_ordinary-2         \t22453776\t        10.56 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkUpstreamSync20261027/model_audit_ordinary-2         \t23342140\t        10.44 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkUpstreamSync20261027/model_audit_ordinary-2         \t22954058\t        10.69 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkUpstreamSync20261027/model_audit_ordinary-2         \t23144520\t        10.48 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkUpstreamSync20261027/model_audit_oversized-2        \t      48\t   4894892 ns/op\t 4194944 B/op\t       2 allocs/op\nBenchmarkUpstreamSync20261027/model_audit_oversized-2        \t      50\t   4830010 ns/op\t 4194944 B/op\t       2 allocs/op\nBenchmarkUpstreamSync20261027/model_audit_oversized-2        \t      51\t   4717152 ns/op\t 4194944 B/op\t       2 allocs/op\nBenchmarkUpstreamSync20261027/model_audit_oversized-2        \t      50\t   4777699 ns/op\t 4194944 B/op\t       2 allocs/op\nBenchmarkUpstreamSync20261027/model_audit_oversized-2        \t      51\t   4769487 ns/op\t 4194944 B/op\t       2 allocs/op\nBenchmarkUpstreamSync20261027/legacy_model_alias-2           \t  177243\t      1330 ns/op\t    6848 B/op\t       9 allocs/op\nBenchmarkUpstreamSync20261027/legacy_model_alias-2           \t  175981\t      1296 ns/op\t    6848 B/op\t       9 allocs/op\nBenchmarkUpstreamSync20261027/legacy_model_alias-2           \t  179022\t      1288 ns/op\t    6848 B/op\t       9 allocs/op\nBenchmarkUpstreamSync20261027/legacy_model_alias-2           \t  182758\t      1323 ns/op\t    6848 B/op\t       9 allocs/op\nBenchmarkUpstreamSync20261027/legacy_model_alias-2           \t  183968\t      1284 ns/op\t    6848 B/op\t       9 allocs/op\nPASS\nok  \tgithub.com/Wei-Shaw/sub2api/internal/application/service\t3.610s\n", "stderr_tail": ""}
+{
+  "BASELINE": {
+    "model_audit_ordinary": {
+      "median_ns": 10.53,
+      "bytes": 0,
+      "allocations": 0,
+      "samples": [
+        [
+          10.53,
+          0,
+          0
+        ],
+        [
+          10.67,
+          0,
+          0
+        ],
+        [
+          10.47,
+          0,
+          0
+        ],
+        [
+          10.47,
+          0,
+          0
+        ],
+        [
+          11.57,
+          0,
+          0
+        ]
+      ]
+    },
+    "model_audit_oversized": {
+      "median_ns": 4767722.0,
+      "bytes": 4194944,
+      "allocations": 2,
+      "samples": [
+        [
+          4915455.0,
+          4194944,
+          2
+        ],
+        [
+          4767722.0,
+          4194944,
+          2
+        ],
+        [
+          4733753.0,
+          4194944,
+          2
+        ],
+        [
+          4785384.0,
+          4194944,
+          2
+        ],
+        [
+          4760149.0,
+          4194944,
+          2
+        ]
+      ]
+    },
+    "legacy_model_alias": {
+      "median_ns": 1304.0,
+      "bytes": 6848,
+      "allocations": 9,
+      "samples": [
+        [
+          1294.0,
+          6848,
+          9
+        ],
+        [
+          1320.0,
+          6848,
+          9
+        ],
+        [
+          1301.0,
+          6848,
+          9
+        ],
+        [
+          1330.0,
+          6848,
+          9
+        ],
+        [
+          1304.0,
+          6848,
+          9
+        ]
+      ]
+    }
+  },
+  "MODIFIED": {
+    "model_audit_ordinary": {
+      "median_ns": 6.66,
+      "bytes": 0,
+      "allocations": 0,
+      "samples": [
+        [
+          6.66,
+          0,
+          0
+        ],
+        [
+          6.555,
+          0,
+          0
+        ],
+        [
+          6.595,
+          0,
+          0
+        ],
+        [
+          6.789,
+          0,
+          0
+        ],
+        [
+          6.689,
+          0,
+          0
+        ]
+      ]
+    },
+    "model_audit_oversized": {
+      "median_ns": 526.6,
+      "bytes": 640,
+      "allocations": 1,
+      "samples": [
+        [
+          528.0,
+          640,
+          1
+        ],
+        [
+          526.6,
+          640,
+          1
+        ],
+        [
+          529.9,
+          640,
+          1
+        ],
+        [
+          524.7,
+          640,
+          1
+        ],
+        [
+          524.8,
+          640,
+          1
+        ]
+      ]
+    },
+    "legacy_model_alias": {
+      "median_ns": 1326.0,
+      "bytes": 6848,
+      "allocations": 9,
+      "samples": [
+        [
+          1311.0,
+          6848,
+          9
+        ],
+        [
+          1436.0,
+          6848,
+          9
+        ],
+        [
+          1598.0,
+          6848,
+          9
+        ],
+        [
+          1326.0,
+          6848,
+          9
+        ],
+        [
+          1304.0,
+          6848,
+          9
+        ]
+      ]
+    }
+  },
+  "ROLLBACK": {
+    "model_audit_ordinary": {
+      "median_ns": 10.56,
+      "bytes": 0,
+      "allocations": 0,
+      "samples": [
+        [
+          10.65,
+          0,
+          0
+        ],
+        [
+          10.56,
+          0,
+          0
+        ],
+        [
+          10.44,
+          0,
+          0
+        ],
+        [
+          10.69,
+          0,
+          0
+        ],
+        [
+          10.48,
+          0,
+          0
+        ]
+      ]
+    },
+    "model_audit_oversized": {
+      "median_ns": 4777699.0,
+      "bytes": 4194944,
+      "allocations": 2,
+      "samples": [
+        [
+          4894892.0,
+          4194944,
+          2
+        ],
+        [
+          4830010.0,
+          4194944,
+          2
+        ],
+        [
+          4717152.0,
+          4194944,
+          2
+        ],
+        [
+          4777699.0,
+          4194944,
+          2
+        ],
+        [
+          4769487.0,
+          4194944,
+          2
+        ]
+      ]
+    },
+    "legacy_model_alias": {
+      "median_ns": 1296.0,
+      "bytes": 6848,
+      "allocations": 9,
+      "samples": [
+        [
+          1330.0,
+          6848,
+          9
+        ],
+        [
+          1296.0,
+          6848,
+          9
+        ],
+        [
+          1288.0,
+          6848,
+          9
+        ],
+        [
+          1323.0,
+          6848,
+          9
+        ],
+        [
+          1284.0,
+          6848,
+          9
+        ]
+      ]
+    }
+  },
+  "environment": {
+    "image": "sub2api-sync-tests:20261026",
+    "go": "1.26.10",
+    "platform": "linux/arm64",
+    "cpus": 2,
+    "memory": "4 GiB",
+    "order": [
+      "BASELINE",
+      "MODIFIED",
+      "ROLLBACK"
+    ],
+    "same_input": "ordinary grok-4.6, 1048576 Unicode runes, existing gpt-5.4-high alias",
+    "scope": "isolated fixed function fixture; not production gateway throughput"
+  }
+}

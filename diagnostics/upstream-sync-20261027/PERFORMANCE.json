@@ -1,0 +1,310 @@
+{
+  "BASELINE": {
+    "model_audit_ordinary": {
+      "median_ns": 10.53,
+      "bytes": 0,
+      "allocations": 0,
+      "samples": [
+        [
+          10.53,
+          0,
+          0
+        ],
+        [
+          10.67,
+          0,
+          0
+        ],
+        [
+          10.47,
+          0,
+          0
+        ],
+        [
+          10.47,
+          0,
+          0
+        ],
+        [
+          11.57,
+          0,
+          0
+        ]
+      ]
+    },
+    "model_audit_oversized": {
+      "median_ns": 4767722.0,
+      "bytes": 4194944,
+      "allocations": 2,
+      "samples": [
+        [
+          4915455.0,
+          4194944,
+          2
+        ],
+        [
+          4767722.0,
+          4194944,
+          2
+        ],
+        [
+          4733753.0,
+          4194944,
+          2
+        ],
+        [
+          4785384.0,
+          4194944,
+          2
+        ],
+        [
+          4760149.0,
+          4194944,
+          2
+        ]
+      ]
+    },
+    "legacy_model_alias": {
+      "median_ns": 1304.0,
+      "bytes": 6848,
+      "allocations": 9,
+      "samples": [
+        [
+          1294.0,
+          6848,
+          9
+        ],
+        [
+          1320.0,
+          6848,
+          9
+        ],
+        [
+          1301.0,
+          6848,
+          9
+        ],
+        [
+          1330.0,
+          6848,
+          9
+        ],
+        [
+          1304.0,
+          6848,
+          9
+        ]
+      ]
+    }
+  },
+  "MODIFIED": {
+    "model_audit_ordinary": {
+      "median_ns": 6.66,
+      "bytes": 0,
+      "allocations": 0,
+      "samples": [
+        [
+          6.66,
+          0,
+          0
+        ],
+        [
+          6.555,
+          0,
+          0
+        ],
+        [
+          6.595,
+          0,
+          0
+        ],
+        [
+          6.789,
+          0,
+          0
+        ],
+        [
+          6.689,
+          0,
+          0
+        ]
+      ]
+    },
+    "model_audit_oversized": {
+      "median_ns": 526.6,
+      "bytes": 640,
+      "allocations": 1,
+      "samples": [
+        [
+          528.0,
+          640,
+          1
+        ],
+        [
+          526.6,
+          640,
+          1
+        ],
+        [
+          529.9,
+          640,
+          1
+        ],
+        [
+          524.7,
+          640,
+          1
+        ],
+        [
+          524.8,
+          640,
+          1
+        ]
+      ]
+    },
+    "legacy_model_alias": {
+      "median_ns": 1326.0,
+      "bytes": 6848,
+      "allocations": 9,
+      "samples": [
+        [
+          1311.0,
+          6848,
+          9
+        ],
+        [
+          1436.0,
+          6848,
+          9
+        ],
+        [
+          1598.0,
+          6848,
+          9
+        ],
+        [
+          1326.0,
+          6848,
+          9
+        ],
+        [
+          1304.0,
+          6848,
+          9
+        ]
+      ]
+    }
+  },
+  "ROLLBACK": {
+    "model_audit_ordinary": {
+      "median_ns": 10.56,
+      "bytes": 0,
+      "allocations": 0,
+      "samples": [
+        [
+          10.65,
+          0,
+          0
+        ],
+        [
+          10.56,
+          0,
+          0
+        ],
+        [
+          10.44,
+          0,
+          0
+        ],
+        [
+          10.69,
+          0,
+          0
+        ],
+        [
+          10.48,
+          0,
+          0
+        ]
+      ]
+    },
+    "model_audit_oversized": {
+      "median_ns": 4777699.0,
+      "bytes": 4194944,
+      "allocations": 2,
+      "samples": [
+        [
+          4894892.0,
+          4194944,
+          2
+        ],
+        [
+          4830010.0,
+          4194944,
+          2
+        ],
+        [
+          4717152.0,
+          4194944,
+          2
+        ],
+        [
+          4777699.0,
+          4194944,
+          2
+        ],
+        [
+          4769487.0,
+          4194944,
+          2
+        ]
+      ]
+    },
+    "legacy_model_alias": {
+      "median_ns": 1296.0,
+      "bytes": 6848,
+      "allocations": 9,
+      "samples": [
+        [
+          1330.0,
+          6848,
+          9
+        ],
+        [
+          1296.0,
+          6848,
+          9
+        ],
+        [
+          1288.0,
+          6848,
+          9
+        ],
+        [
+          1323.0,
+          6848,
+          9
+        ],
+        [
+          1284.0,
+          6848,
+          9
+        ]
+      ]
+    }
+  },
+  "environment": {
+    "image": "sub2api-sync-tests:20261026",
+    "go": "1.26.10",
+    "platform": "linux/arm64",
+    "cpus": 2,
+    "memory": "4 GiB",
+    "order": [
+      "BASELINE",
+      "MODIFIED",
+      "ROLLBACK"
+    ],
+    "same_input": "ordinary grok-4.6, 1048576 Unicode runes, existing gpt-5.4-high alias",
+    "scope": "isolated fixed function fixture; not production gateway throughput"
+  }
+}

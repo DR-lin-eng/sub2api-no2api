@@ -13,6 +13,8 @@
     >
       <EditAccountCredentialFields :context="editAccountCredentialContext" />
 
+      <GrokModelDiagnosticsPanel v-if="show && account.platform === 'grok'" :account-id="account.id" />
+
       <EditAccountAdvancedFields :context="editAccountAdvancedContext" />
 
       <EditAccountPolicyFields :context="editAccountPolicyContext" />
@@ -71,6 +73,7 @@
 </template>
 
 <script setup lang="ts">
+import GrokModelDiagnosticsPanel from './GrokModelDiagnosticsPanel.vue'
 import { supportsAccountQuota } from '@/features/admin-accounts/presentation/accountQuota'
 
 import { ref, reactive, computed, watch } from 'vue'

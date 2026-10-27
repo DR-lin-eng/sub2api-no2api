@@ -1,0 +1,4 @@
+internal/application/service/account.go:1: : /usr/local/go/pkg/tool/linux_arm64/compile: signal: killed (typecheck)
+// Package service provides business logic and domain services for the application.
+1 issues:
+* typecheck: 1

@@ -1,0 +1,48 @@
+(1/1) Installing make (4.4.1-r4)
+Executing busybox-1.37.0-r31.trigger
+OK: 11.4 MiB in 20 packages
+Preparing pnpm@11.17.0 for immediate activation...
+make[1]: Entering directory '/src'
+
+[1m[46m RUN [49m[22m [36mv3.2.6 [39m[90m/src/frontend[39m
+
+ [32m✓[39m src/core/i18n/__tests__/routeLocaleCoverage.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 3171[2mms[22m[39m
+   [33m[2m✓[22m[39m locale coverage[2m > [22mresolves every static locale key used by runtime source [33m 654[2mms[22m[39m
+   [33m[2m✓[22m[39m locale coverage[2m > [22mloads every statically reachable message for every route [33m 2508[2mms[22m[39m
+ [32m✓[39m src/features/admin-settings/__tests__/SettingsPage.spec.ts [2m([22m[2m55 tests[22m[2m)[22m[33m 2351[2mms[22m[39m
+ [32m✓[39m src/features/auth/__tests__/WechatCallbackView.spec.ts [2m([22m[2m25 tests[22m[2m)[22m[32m 101[2mms[22m[39m
+ [31m❯[39m src/__tests__/dynamicLocaleMapping.spec.ts [2m([22m[2m1 test[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 184[2mms[22m[39m
+[31m   [31m×[31m dynamic locale mapping gate[2m > [22mrequires every dynamic translation key construction to be explicitly reviewed[39m[32m 184[2mms[22m[39m
+[31m     → expected { …(64) } to deeply equal { …(62) }[39m
+ [32m✓[39m src/features/admin-usage/__tests__/UsageTable.spec.ts [2m([22m[2m22 tests[22m[2m)[22m[32m 117[2mms[22m[39m
+ [32m✓[39m src/features/auth/__tests__/LinuxDoCallbackView.spec.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 93[2mms[22m[39m
+ [32m✓[39m src/core/__tests__/credentialCryptoUsage.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 146[2mms[22m[39m
+ [32m✓[39m src/features/billing/__tests__/PaymentPage.spec.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 85[2mms[22m[39m
+ [32m✓[39m src/features/profile/__tests__/ProfileInfoCard.spec.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 82[2mms[22m[39m
+ [32m✓[39m src/common/pages/__tests__/HomePageCompact.spec.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 70[2mms[22m[39m
+ [32m✓[39m src/common/widgets/data/__tests__/GroupOptionItem.spec.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 44[2mms[22m[39m
+ [32m✓[39m src/features/admin-usage/__tests__/UsageDetailDialog.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 50[2mms[22m[39m
+ [32m✓[39m src/features/billing/__tests__/PaymentResultPage.spec.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 45[2mms[22m[39m
+ [32m✓[39m src/features/admin-usage/__tests__/UsageStatsCards.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+ [32m✓[39m src/features/auth/__tests__/authProfileLocaleScopes.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 32[2mms[22m[39m
+ [32m✓[39m src/features/billing/__tests__/paymentLocaleScopes.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+ [32m✓[39m src/core/routes/__tests__/adminRouteAccess.spec.ts [2m([22m[2m1 test[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m src/features/channels-user/__tests__/customPageHtml.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m src/core/utils/__tests__/homeContent.spec.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+ [32m✓[39m src/__tests__/dynamicHtmlSecurity.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m src/features/prompt-audit/__tests__/RuntimeOverview.spec.ts [2m([22m[2m1 test[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/core/utils/__tests__/embedded-url.spec.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/common/widgets/layout/__tests__/AppHeaderResponsive.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 1[2mms[22m[39m
+ [32m✓[39m src/core/utils/__tests__/usageLocale.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m src/features/channel-monitor-user/__tests__/channelMonitorLocale.spec.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m src/features/subscriptions/__tests__/subscriptionStatus.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m src/features/prompt-audit/__tests__/promptAuditLocale.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m src/features/channels-user/__tests__/CustomLandingPage.security.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 1[2mms[22m[39m
+ [32m✓[39m src/features/admin-backup/presentation/pages/__tests__/backupStatus.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 1[2mms[22m[39m
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m28 passed[39m[22m[90m (29)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m247 passed[39m[22m[90m (248)[39m
+[2m   Start at [22m 13:54:40
+[2m   Duration [22m 18.62s[2m (transform 2.25s, setup 822ms, collect 4.07s, tests 6.72s, environment 4.25s, prepare 811ms)[22m
+
+make[1]: Leaving directory '/src'

@@ -1,0 +1,30 @@
+{
+  "target": "/Users/lin/.codex/worktrees/7eb5/sub2api-no2api",
+  "root": "/private/tmp/sub2api-sync-20261027-6h5nbaju",
+  "repo": "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo",
+  "action": "VERIFIED_TRANSACTION",
+  "baseline": "a8ced32f6d32f41156644495fde3924e1a903c26",
+  "previous_upstream": "ba81c7fd758e425d67f856d601147ef0c5263d3f",
+  "branch": "codex/upstream-sync-20261027",
+  "output_contract": [
+    "incremental upstream PR audit",
+    "current-owner selective sync",
+    "performance assessment",
+    "upgrade compatibility",
+    "closed difference ledger",
+    "Docker baseline-modified-rollback",
+    "four native transaction roles",
+    "push and CI follow-through"
+  ],
+  "upstream": "15701ba187af5827d740901d53421bd69ed97717",
+  "baseline_tree": "2e9c51e7d79f10f680e48eabe3efafa75e12b1d7",
+  "roles": {
+    "MODIFIED_FILE": "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo/diagnostics/upstream-sync-20261027/MODIFIED_FILE.tar.gz",
+    "DIFF_FILE": "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo/diagnostics/upstream-sync-20261027/DIFF_FILE.patch",
+    "VERIFICATION": "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo/diagnostics/upstream-sync-20261027/VERIFICATION.txt",
+    "ROLLBACK": "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo/diagnostics/upstream-sync-20261027/ROLLBACK.sh"
+  },
+  "last_confirmed_result": "Final Docker gates, same-database four-stage runtime, source rollback and sequential performance accepted; original workspace unchanged.",
+  "next_executable_action": "Seal source/native artifacts, commit reviewed ancestry, push, create and attach PR, track exact PR CI, merge and track exact main CI/image.",
+  "integration_main": "d8fef5fbd38583e699200bab7f07e19fa4a972fe"
+}

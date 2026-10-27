@@ -1,0 +1,28 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=4g",
+    "-v",
+    "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo:/src",
+    "-v",
+    "sub2api-go-mod:/go/pkg/mod",
+    "-v",
+    "sub2api-go-build:/root/.cache/go-build",
+    "-w",
+    "/src/backend",
+    "sub2api-sync-tests:20261026",
+    "sh",
+    "-c",
+    "gofmt -w internal/modules/modelcatalog/catalog.go internal/modules/modelcatalog/grok*.go internal/application/service/grok_model_catalog.go internal/transport/http/handler/admin/account_handler.go internal/transport/http/handler/dto/types.go && go test -tags=unit ./internal/modules/modelcatalog ./internal/application/service ./internal/transport/http/handler/admin ./internal/transport/http/handler/dto -run \"GrokCatalog|GPT61Compat|GPT61ChatOnly|GrokResponsesPropagate|GrokBuffered|UpstreamCatalog|SyncUpstreamModels|ResponseModelBilling\" -count=1 -timeout=10m"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo",
+  "input": "",
+  "stdout": "ok  \tgithub.com/Wei-Shaw/sub2api/internal/modules/modelcatalog\t0.002s\nok  \tgithub.com/Wei-Shaw/sub2api/internal/application/service\t0.124s\nok  \tgithub.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin\t0.017s\nok  \tgithub.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto\t0.010s [no tests to run]\n",
+  "stderr": "",
+  "exit_status": 0,
+  "duration_seconds": 74.533,
+  "utc": "2026-10-27T14:14:13.885957+00:00"
+}

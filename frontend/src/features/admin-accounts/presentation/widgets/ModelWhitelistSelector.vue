@@ -145,7 +145,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
 import {
@@ -215,6 +215,16 @@ const canSyncUpstream = computed(() => {
   return false
 })
 
+const observedModels = ref<string[]>([])
+let syncGeneration = 0
+onBeforeUnmount(() => { syncGeneration += 1 })
+watch(() => [props.accountId, props.platform, props.platforms, props.syncCredentials], () => {
+  observedModels.value = []
+  syncGeneration += 1
+  isSyncingUpstream.value = false
+})
+const isGrok = computed(() => normalizedPlatforms.value.length === 1 && normalizedPlatforms.value[0] === 'grok')
+
 const availableOptions = computed(() => {
   if (normalizedPlatforms.value.length === 0) {
     return allModels
@@ -227,7 +237,14 @@ const availableOptions = computed(() => {
     }
   }
 
-  return allModels.filter(model => allowedModels.has(model.value))
+  const options = allModels.filter(model => allowedModels.has(model.value))
+  if (isGrok.value) {
+    const existing = new Set(options.map(option => option.value))
+    for (const id of [...observedModels.value, ...props.modelValue]) {
+      if (!existing.has(id)) { options.push({ value: id, label: id }); existing.add(id) }
+    }
+  }
+  return options
 })
 
 const filteredModels = computed(() => {
@@ -296,6 +313,7 @@ const syncUpstreamModels = async () => {
   if (!props.accountId && !props.syncCredentials) return
 
   isSyncingUpstream.value = true
+  const generation = ++syncGeneration
   try {
     let result
     if (props.accountId) {
@@ -306,12 +324,18 @@ const syncUpstreamModels = async () => {
       return
     }
 
+    if (generation !== syncGeneration) return
     const upstreamModels = result.models.map(model => model.trim()).filter(Boolean)
     if (upstreamModels.length === 0) {
       appStore.showInfo(t('admin.accounts.syncUpstreamModelsEmpty'))
       return
     }
 
+    if (isGrok.value) {
+      observedModels.value = upstreamModels
+      appStore.showInfo(t('admin.accounts.grokCatalog.available', { count: upstreamModels.length }))
+      return
+    }
     const newModels = [...props.modelValue]
     let addedCount = 0
     for (const model of upstreamModels) {
@@ -328,10 +352,11 @@ const syncUpstreamModels = async () => {
       appStore.showInfo(t('admin.accounts.syncUpstreamModelsNoChanges', { count: upstreamModels.length }))
     }
   } catch (error) {
+    if (generation !== syncGeneration) return
     const message = error instanceof Error ? error.message : t('admin.accounts.syncUpstreamModelsFailed')
     appStore.showError(t('admin.accounts.syncUpstreamModelsError', { message }))
   } finally {
-    isSyncingUpstream.value = false
+    if (generation === syncGeneration) isSyncingUpstream.value = false
   }
 }
 

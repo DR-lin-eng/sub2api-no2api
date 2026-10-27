@@ -1,0 +1,28 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=3g",
+    "-v",
+    "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo:/src",
+    "-v",
+    "sub2api-sync-node-modules-20261026:/src/frontend/node_modules",
+    "-v",
+    "sub2api-sync-pnpm-20261026:/root/.local/share/pnpm/store",
+    "-w",
+    "/src",
+    "node:24-alpine",
+    "sh",
+    "-c",
+    "corepack enable && corepack prepare pnpm@11.17.0 --activate && cd frontend && pnpm install --frozen-lockfile --prefer-offline && pnpm exec vitest run src/features/admin-accounts/__tests__/GrokModelDiagnosticsPanel.spec.ts src/features/admin-accounts/__tests__/ModelWhitelistSelector.spec.ts && pnpm run typecheck"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo",
+  "input": "",
+  "stdout": "Preparing pnpm@11.17.0 for immediate activation...\n[ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY] Aborted removal of modules directory due to no TTY\n\nIf you are running pnpm in CI, set the CI environment variable to \"true\", or set \"confirmModulesPurge\" to \"false\".\n",
+  "stderr": "",
+  "exit_status": 1,
+  "duration_seconds": 5.314,
+  "utc": "2026-10-27T13:50:24.807145+00:00"
+}

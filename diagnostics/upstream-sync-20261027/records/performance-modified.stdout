@@ -1,0 +1,21 @@
+2026/10/27 14:25:03 Timezone initialized: UTC (UTC offset: +00:00)
+goos: linux
+goarch: arm64
+pkg: github.com/Wei-Shaw/sub2api/internal/application/service
+BenchmarkUpstreamSync20261027/model_audit_ordinary-2         	35816442	         6.660 ns/op	       0 B/op	       0 allocs/op
+BenchmarkUpstreamSync20261027/model_audit_ordinary-2         	36651712	         6.555 ns/op	       0 B/op	       0 allocs/op
+BenchmarkUpstreamSync20261027/model_audit_ordinary-2         	36322591	         6.595 ns/op	       0 B/op	       0 allocs/op
+BenchmarkUpstreamSync20261027/model_audit_ordinary-2         	36792885	         6.789 ns/op	       0 B/op	       0 allocs/op
+BenchmarkUpstreamSync20261027/model_audit_ordinary-2         	34792062	         6.689 ns/op	       0 B/op	       0 allocs/op
+BenchmarkUpstreamSync20261027/model_audit_oversized-2        	  452664	       528.0 ns/op	     640 B/op	       1 allocs/op
+BenchmarkUpstreamSync20261027/model_audit_oversized-2        	  436627	       526.6 ns/op	     640 B/op	       1 allocs/op
+BenchmarkUpstreamSync20261027/model_audit_oversized-2        	  463263	       529.9 ns/op	     640 B/op	       1 allocs/op
+BenchmarkUpstreamSync20261027/model_audit_oversized-2        	  442423	       524.7 ns/op	     640 B/op	       1 allocs/op
+BenchmarkUpstreamSync20261027/model_audit_oversized-2        	  457647	       524.8 ns/op	     640 B/op	       1 allocs/op
+BenchmarkUpstreamSync20261027/legacy_model_alias-2           	  176420	      1311 ns/op	    6848 B/op	       9 allocs/op
+BenchmarkUpstreamSync20261027/legacy_model_alias-2           	  178443	      1436 ns/op	    6848 B/op	       9 allocs/op
+BenchmarkUpstreamSync20261027/legacy_model_alias-2           	  140535	      1598 ns/op	    6848 B/op	       9 allocs/op
+BenchmarkUpstreamSync20261027/legacy_model_alias-2           	  162428	      1326 ns/op	    6848 B/op	       9 allocs/op
+BenchmarkUpstreamSync20261027/legacy_model_alias-2           	  167692	      1304 ns/op	    6848 B/op	       9 allocs/op
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	3.569s

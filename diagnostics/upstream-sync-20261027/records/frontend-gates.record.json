@@ -1,0 +1,30 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=4g",
+    "-e",
+    "CI=true",
+    "-e",
+    "NODE_OPTIONS=--max-old-space-size=3072",
+    "-v",
+    "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo:/src",
+    "-v",
+    "sub2api-sync-node-modules-20261026:/src/frontend/node_modules",
+    "-w",
+    "/src",
+    "node:24-alpine",
+    "sh",
+    "-c",
+    "corepack enable && corepack prepare pnpm@11.17.0 --activate && make test-frontend && cd frontend && pnpm exec vitest run src/features/admin-accounts src/features/keys/__tests__/UseKeyModal.spec.ts"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo",
+  "input": "",
+  "stdout": "Preparing pnpm@11.17.0 for immediate activation...\n",
+  "stderr": "sh: make: not found\n",
+  "exit_status": 127,
+  "duration_seconds": 4.487,
+  "utc": "2026-10-27T13:53:09.724375+00:00"
+}

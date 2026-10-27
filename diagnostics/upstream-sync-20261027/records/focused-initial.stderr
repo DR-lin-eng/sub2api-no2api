@@ -1,0 +1,8 @@
+# github.com/Wei-Shaw/sub2api/internal/application/service [github.com/Wei-Shaw/sub2api/internal/application/service.test]
+internal/application/service/openai_compat_model.go:67:10: not enough return values
+	have (string)
+	want (string, string, bool)
+internal/application/service/upstream_sync_20261027_test.go:62:101: too many arguments in call to svc.forwardAnthropicViaRawChatCompletions
+	have ("context".Context, *gin.Context, *Account, []byte, string, "time".Time)
+	want ("context".Context, *gin.Context, *Account, []byte, string)
+internal/application/service/upstream_sync_20261027_test.go:83:42: cannot use repo (variable of type *catalogSyncRepoStub) as AccountRepository value in struct literal: *catalogSyncRepoStub does not implement AccountRepository (missing method AutoPauseExpiredAccounts)

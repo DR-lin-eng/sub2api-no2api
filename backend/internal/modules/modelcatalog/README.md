@@ -14,3 +14,5 @@ Run focused tests from `backend/`:
 go test ./internal/modules/modelcatalog ./internal/application/service -run 'Catalog|Claude55'
 go test -tags=integration ./internal/infrastructure/repository -run TestModelCatalogPostgresRefreshAndLegacyWrites
 ```
+
+Grok catalog diagnostics reuse this snapshot with optional `discovery_scope`; legacy snapshots remain unknown until refreshed. `grok.go` owns pure trust/mapping evaluation. Diagnostics never alter routing, pricing or model mappings. String-ID catalogs retain empty capability descriptors.

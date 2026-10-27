@@ -8,6 +8,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 	moduleegress "github.com/Wei-Shaw/sub2api/internal/modules/egress"
+	"github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog"
 	"github.com/Wei-Shaw/sub2api/internal/shared/openaitiming"
 )
 
@@ -218,6 +219,7 @@ type Account struct {
 	Credentials             map[string]any                 `json:"credentials"`
 	CredentialsStatus       map[string]bool                `json:"credentials_status,omitempty"`
 	Extra                   map[string]any                 `json:"extra"`
+	GrokModelDiagnostics    *modelcatalog.GrokDiagnostics  `json:"grok_model_diagnostics,omitempty"`
 	OllamaCloudUsage        *service.OllamaCloudUsageState `json:"ollama_cloud_usage,omitempty"`
 	ProxyID                 *int64                         `json:"proxy_id"`
 	ProxyFallbackOriginID   *int64                         `json:"proxy_fallback_origin_id"`

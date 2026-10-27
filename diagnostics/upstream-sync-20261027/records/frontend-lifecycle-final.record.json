@@ -1,0 +1,30 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=4g",
+    "-e",
+    "CI=true",
+    "-e",
+    "NODE_OPTIONS=--max-old-space-size=3072",
+    "-v",
+    "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo:/src",
+    "-v",
+    "sub2api-sync-node-modules-20261026:/src/frontend/node_modules",
+    "-w",
+    "/src/frontend",
+    "sub2api-sync-node:20261027",
+    "sh",
+    "-c",
+    "pnpm run lint:check && pnpm run typecheck && pnpm exec vitest run src/features/admin-accounts/__tests__/GrokModelDiagnosticsPanel.spec.ts src/features/admin-accounts/__tests__/ModelWhitelistSelector.spec.ts src/__tests__/dynamicLocaleMapping.spec.ts"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo",
+  "input": "",
+  "stdout": "\n\u001b[1m\u001b[46m RUN \u001b[49m\u001b[22m \u001b[36mv3.2.6 \u001b[39m\u001b[90m/src/frontend\u001b[39m\n\n \u001b[32m✓\u001b[39m src/__tests__/dynamicLocaleMapping.spec.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 181\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/features/admin-accounts/__tests__/ModelWhitelistSelector.spec.ts \u001b[2m(\u001b[22m\u001b[2m6 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 71\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/features/admin-accounts/__tests__/GrokModelDiagnosticsPanel.spec.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 18\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m3 passed\u001b[39m\u001b[22m\u001b[90m (3)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m9 passed\u001b[39m\u001b[22m\u001b[90m (9)\u001b[39m\n\u001b[2m   Start at \u001b[22m 14:30:43\n\u001b[2m   Duration \u001b[22m 1.98s\u001b[2m (transform 293ms, setup 105ms, collect 537ms, tests 270ms, environment 577ms, prepare 98ms)\u001b[22m\n\n",
+  "stderr": "$ eslint .\n$ vue-tsc --noEmit\n",
+  "exit_status": 0,
+  "duration_seconds": 41.618,
+  "utc": "2026-10-27T14:30:46.209855+00:00"
+}

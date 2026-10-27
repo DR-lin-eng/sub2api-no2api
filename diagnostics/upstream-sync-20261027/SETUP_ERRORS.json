@@ -1,0 +1,15 @@
+[
+  {
+    "command": "git fetch origin (original read-only git metadata)",
+    "exit_status": 255,
+    "stderr": "error: cannot open '/Users/lin/sub2api-no2api/.git/worktrees/sub2api-no2api11/FETCH_HEAD': Operation not permitted",
+    "correction": "clone --no-hardlinks to writable isolated source and fetch there",
+    "corrected_exit_status": 0
+  },
+  {
+    "command": "cat diagnostics/upstream-sync-20261026/Dockerfile.test",
+    "exit_status": 1,
+    "stderr": "No such file or directory",
+    "correction": "reuse recorded Docker commands and available pinned test image"
+  }
+]

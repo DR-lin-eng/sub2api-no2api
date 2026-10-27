@@ -22,6 +22,7 @@ type upstreamModelCatalogFetcher interface {
 type modelCatalogCaptureKey struct{}
 type modelCatalogCapture struct {
 	metadata map[string]modelcatalog.Descriptor
+	scope    string
 }
 
 func captureUpstreamModelCatalog(ctx context.Context, body []byte, ids []string) error {
@@ -63,7 +64,7 @@ func (s *AccountTestService) FetchUpstreamModelCatalog(ctx context.Context, acco
 	if err != nil {
 		return nil, err
 	}
-	catalog := &modelcatalog.Catalog{Models: ids, Metadata: capture.metadata}
+	catalog := &modelcatalog.Catalog{Models: ids, Metadata: capture.metadata, DiscoveryScope: capture.scope}
 	if _, err := catalog.Snapshot("upstream", time.Now()); err != nil {
 		return nil, newUpstreamModelSyncUpstreamError("Upstream model metadata exceeds limits", err)
 	}
@@ -89,6 +90,14 @@ func (s *AccountTestService) SyncUpstreamModelCatalog(ctx context.Context, accou
 		}
 		if err := repo.UpdateUpstreamModelCatalog(ctx, account, snapshot); err != nil {
 			return nil, err
+		}
+		if account.IsGrok() {
+			extra := make(map[string]any, len(account.Extra)+1)
+			for key, value := range account.Extra {
+				extra[key] = value
+			}
+			extra[modelcatalog.ExtraKey] = snapshot
+			account.Extra = extra
 		}
 	}
 	return catalog, nil

@@ -1,0 +1,33 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=3g",
+    "-e",
+    "GOLANGCI_LINT_CACHE=/lint-cache",
+    "-v",
+    "sub2api-sync-lint-20261026:/lint-cache",
+    "-v",
+    "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo:/src",
+    "-v",
+    "sub2api-go-mod:/go/pkg/mod",
+    "-v",
+    "sub2api-go-build:/root/.cache/go-build",
+    "-w",
+    "/src/backend",
+    "sub2api-sync-tests:20261026",
+    "golangci-lint",
+    "run",
+    "--timeout=20m",
+    "./..."
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo",
+  "input": "",
+  "stdout": "internal/application/service/account.go:1: : /usr/local/go/pkg/tool/linux_arm64/compile: signal: killed (typecheck)\n// Package service provides business logic and domain services for the application.\n1 issues:\n* typecheck: 1\n",
+  "stderr": "",
+  "exit_status": 1,
+  "duration_seconds": 166.953,
+  "utc": "2026-10-27T14:05:25.746122+00:00"
+}
