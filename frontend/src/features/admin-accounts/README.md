@@ -67,3 +67,5 @@ Claude 5.5 的原生白名单、Antigravity 分档模型和映射预设由 `pres
 OpenAI 与 Anthropic API-key 的 WebSearch 模拟共用已有三态字段和全局可见条件。创建 extra 的纯转换由 `accountFormPolicy.ts` 所有，编辑 payload 由 `accountEditUpdatePayload.ts` 所有；OAuth 不显示或启用该模拟。
 
 `presentation/accountFilterState.ts` 校验并持久化账号平台/状态筛选；`presentation/accountQuota.ts` 统一 API Key、Bedrock 与 service account 的本地配额展示和编辑资格，池模式权限保持独立。
+
+`GrokModelDiagnosticsPanel.vue` 查询已保存账号详情并显式刷新目录；诊断和 API 类型由同 feature 的 `data/dtos/grokModelDiagnostics.ts` 所有。Grok 白名单同步只补下拉可选项，不自动改变选择。账号切换后忽略迟到响应，旧节点缺少诊断字段时显示兼容提示。

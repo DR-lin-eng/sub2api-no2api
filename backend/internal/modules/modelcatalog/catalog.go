@@ -23,17 +23,19 @@ const (
 type Descriptor map[string]json.RawMessage
 
 type Catalog struct {
-	Models   []string              `json:"models"`
-	Metadata map[string]Descriptor `json:"metadata,omitempty"`
+	Models         []string              `json:"models"`
+	Metadata       map[string]Descriptor `json:"metadata,omitempty"`
+	DiscoveryScope string                `json:"-"`
 }
 
 type Snapshot struct {
-	Version    int                   `json:"version"`
-	Source     string                `json:"source"`
-	StartedAt  time.Time             `json:"started_at"`
-	Generation int64                 `json:"generation"`
-	SyncedAt   time.Time             `json:"synced_at"`
-	Models     map[string]Descriptor `json:"models"`
+	DiscoveryScope string                `json:"discovery_scope,omitempty"`
+	Version        int                   `json:"version"`
+	Source         string                `json:"source"`
+	StartedAt      time.Time             `json:"started_at"`
+	Generation     int64                 `json:"generation"`
+	SyncedAt       time.Time             `json:"synced_at"`
+	Models         map[string]Descriptor `json:"models"`
 }
 
 func ValidID(id string) bool {
@@ -52,7 +54,7 @@ func (c *Catalog) Snapshot(source string, started time.Time) (*Snapshot, error) 
 	if c == nil || len(c.Models) == 0 || len(c.Models) > MaxModels {
 		return nil, fmt.Errorf("invalid catalog model count")
 	}
-	out := &Snapshot{Version: Version, Source: source, StartedAt: started.UTC(), Generation: started.UnixMicro(), SyncedAt: time.Now().UTC(), Models: make(map[string]Descriptor, len(c.Models))}
+	out := &Snapshot{DiscoveryScope: c.DiscoveryScope, Version: Version, Source: source, StartedAt: started.UTC(), Generation: started.UnixMicro(), SyncedAt: time.Now().UTC(), Models: make(map[string]Descriptor, len(c.Models))}
 	for _, id := range c.Models {
 		if !ValidID(id) {
 			return nil, fmt.Errorf("invalid model ID")
@@ -133,10 +135,36 @@ func Parse(body []byte, ids []string) (map[string]Descriptor, error) {
 			entries = append(entries, encoded)
 		}
 	}
+	if _, hasData := envelope["data"]; hasData {
+		if more, hasModels := envelope["models"]; hasModels {
+			var extra []json.RawMessage
+			if json.Unmarshal(more, &extra) != nil {
+				return nil, fmt.Errorf("invalid model catalog entries")
+			}
+			entries = append(entries, extra...)
+		}
+	}
 	if len(entries) > MaxModels {
 		return nil, fmt.Errorf("model catalog exceeds limit")
 	}
 	for _, raw := range entries {
+		var scalar string
+		if json.Unmarshal(raw, &scalar) == nil {
+			scalar = strings.TrimSpace(scalar)
+			if wanted[scalar] {
+				descriptor := Normalize(nil, scalar)
+				if previous, duplicate := out[scalar]; duplicate {
+					a, _ := json.Marshal(previous)
+					b, _ := json.Marshal(descriptor)
+					if string(a) != string(b) {
+						return nil, fmt.Errorf("conflicting model descriptor")
+					}
+				} else {
+					out[scalar] = descriptor
+				}
+			}
+			continue
+		}
 		var d Descriptor
 		if json.Unmarshal(raw, &d) != nil || d == nil {
 			return nil, fmt.Errorf("invalid model descriptor")

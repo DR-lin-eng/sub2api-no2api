@@ -1,3 +1,4 @@
+import type { GrokModelDiagnostics } from '../dtos/grokModelDiagnostics'
 import { apiClient } from '@/core/networks/client'
 import type {
   Account,
@@ -110,6 +111,7 @@ export interface UpstreamModelDescriptor {
 }
 
 export interface SyncUpstreamModelsResult {
+  grok_model_diagnostics?: GrokModelDiagnostics
   models: string[]
   metadata?: Record<string, UpstreamModelDescriptor>
 }

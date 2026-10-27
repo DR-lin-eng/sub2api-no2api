@@ -62,6 +62,12 @@ func AnthropicToResponsesWithMinOutputTokens(req *AnthropicRequest, minOutputTok
 
 	// An explicit thinking disable takes precedence over output_config.effort.
 	effort := anthropicReasoningEffort(req)
+	if effort != "none" && req.OutputConfig != nil && isGPT61CompatModel(req.Model) {
+		switch req.OutputConfig.Effort {
+		case "none", "low", "medium", "high", "xhigh", "max":
+			effort = req.OutputConfig.Effort
+		}
+	}
 	out.Reasoning = &ResponsesReasoning{
 		Effort: effort,
 	}
