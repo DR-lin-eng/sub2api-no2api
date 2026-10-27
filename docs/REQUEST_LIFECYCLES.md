@@ -173,10 +173,18 @@ HTTP SSE 等待响应头（包括换号后的等待）及响应体期间按
 WSv2 在首语义输出前耗尽内部重连预算时，会把读取/连接类失败转换为统一的
 账号 failover 信号；不会落到通用 `Upstream request failed`，也不会重放已经提交的语义事件。
 
-上游 WS 关闭码 `1009`（`message_too_big`，含预热路径）保留 `502/upstream_error`，
-但明确提示消息大小限制，建议缩短会话或工具载荷、改用 HTTP Responses。
-该拒绝不重连、切号或自动重放。若下游 SSE 心跳已提交 200，则只发送一次带同样提示的
-`response.failed`；错误写入器标记终止状态，避免 handler 再追加通用错误或混合 JSON/SSE。
+`gateway.openai_ws.http_bridge_enabled` 开启时，大消息的 HTTP 预分流同时覆盖原生 WS 首包
+与 HTTP 入站的账号预热路径；`http_bridge_threshold_bytes` 按未压缩 JSON 字节判断，默认
+15 MiB，不按 token 数估算。低于该阈值仍收到上游 `1009`（`message_too_big`，含预热）时，
+可完整重放且尚未交付语义内容的请求在同一账号尝试一次 HTTP Responses；普通 WS 读写断连
+则先消耗既有有限重连预算，再尝试同样的 HTTP 恢复。重选同账号不补充该请求的 WS 预算。
+HTTP 使用保存的完整原始 body，不携带预热生成的连接私有 response ID，也不继承预热改写的角色。
+
+显式 `store:true`、后台任务、服务端 conversation、`previous_response_id`、未配对工具结果、
+未解析的 item reference、托管工具副作用和已输出内容不进入这项恢复；完整配对的本地工具
+调用历史可以原样重放。蒸馏分组和强制原连接续接保持原有停止边界。HTTP 返回上下文超限时
+仍保留原始 400；传输恢复不能提高模型上下文窗口。不可恢复的 1009 保留明确的
+`502/upstream_error` 提示；心跳已提交 200 时只写一次 `response.failed`，避免重复终止或混合 JSON/SSE。
 
 HTTP Responses 流中的显式 `server_error` 在首语义输出前进入既有有界恢复流程，
 中间失败事件不向客户端提交；确定性的上下文或策略拒绝仍保留原语义。
