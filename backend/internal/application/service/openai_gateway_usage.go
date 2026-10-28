@@ -780,10 +780,11 @@ func (s *OpenAIGatewayService) ValidateMultimodalImagePricing(ctx context.Contex
 		count = 1
 	}
 	// 请求没有给出可分类尺寸（未传 size / auto / 非标准尺寸）时不能猜 2K：
-	// 否则只配置了 1K 价的用户会被误拒。改为要求模型至少配置了一个图片档位价，
-	// 实际计费档位在落账时按上游输出尺寸确定。
+	// 实际计费档位只能由上游输出尺寸确定，任意档位都可能成为本次请求的结算档位，
+	// 因此必须所有档位都配价才允许提交。只配了部分档位时直接拒绝，
+	// 而不是先出图、再在落账阶段因为实际档位缺价而漏账。
 	if _, ok := ClassifyImageBillingTier(req.Size); !ok {
-		if !s.multimodalImageTierPriceConfigured(ctx, model, req.APIKey) {
+		if !s.multimodalImageAllTierPricesConfigured(ctx, model, req.APIKey) {
 			return ErrImagePriceNotConfigured
 		}
 		return nil
@@ -802,20 +803,69 @@ func (s *OpenAIGatewayService) ValidateMultimodalImagePricing(ctx context.Contex
 	return nil
 }
 
-// multimodalImageTierPriceConfigured 报告模型是否至少配置了一个图片档位单价。
-// 用于请求未指定可分类尺寸时的前置校验：无法确定档位时只要求存在任一档位价，
-// 实际档位留到落账时按上游输出尺寸解析。
-func (s *OpenAIGatewayService) multimodalImageTierPriceConfigured(ctx context.Context, model string, apiKey *APIKey) bool {
+// multimodalImageAllTierPricesConfigured 报告模型是否为所有图片档位都配置了单价。
+// 请求未指定可分类尺寸时，上游可能返回任意档位的图片；只要有一个档位缺价，
+// 该请求就可能以无法结算的档位交付，因此必须全部有价才允许提交。
+func (s *OpenAIGatewayService) multimodalImageAllTierPricesConfigured(ctx context.Context, model string, apiKey *APIKey) bool {
 	resolved := s.resolveOpenAIChannelPricing(ctx, model, apiKey)
 	if resolved == nil {
 		return false
 	}
-	for _, tier := range resolved.RequestTiers {
-		if tier.PerRequestPrice != nil {
-			return true
+	for _, tier := range []string{ImageBillingSize1K, ImageBillingSize2K, ImageBillingSize4K} {
+		if !imageUnitPriceConfigured(resolved, tier) {
+			return false
 		}
 	}
-	return false
+	return true
+}
+
+// validateMultimodalImageSettlement 在把上游图片结果写回客户端之前，
+// 用与 RecordUsage 一致的档位解析确认实际计费档位已配置单价。
+// 请求未指定可分类尺寸时，档位只能在拿到上游响应后确定；
+// 若该档位缺价，必须在这里失败，不能先交付图片再让落账阶段的缺价错误只写日志。
+func (s *OpenAIGatewayService) validateMultimodalImageSettlement(
+	ctx context.Context,
+	model string,
+	apiKey *APIKey,
+	usage multimodalMediaUsageMetadata,
+) error {
+	if s == nil || s.billingService == nil || apiKey == nil || usage.ImageCount <= 0 {
+		return nil
+	}
+	// 简单模式只记录用量、不扣费，不因缺少价格拒绝交付。
+	if s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {
+		return nil
+	}
+	model = strings.TrimSpace(model)
+	// token 计费的图片模型由 token 用量结算，不存在按次图片价。
+	if resolved := s.resolveOpenAIChannelPricing(ctx, model, apiKey); resolved != nil &&
+		resolved.Mode == BillingModeToken &&
+		(!IsMultimodal(PlatformFromAPIKey(apiKey)) ||
+			resolved.Source == PricingSourceGroup ||
+			resolved.Source == PricingSourceChannel) {
+		return nil
+	}
+	probe := &OpenAIForwardResult{
+		ImageCount:             usage.ImageCount,
+		ImageSize:              usage.ImageSize,
+		ImageInputSize:         usage.ImageInputSize,
+		ImageOutputSizes:       usage.ImageOutputSizes,
+		ImageBillingSizeLocked: usage.ImageBillingSizeLocked,
+	}
+	if !probe.ImageBillingSizeLocked {
+		ApplyOpenAIImageBillingResolution(probe)
+	}
+	tier, ok := ClassifyImageBillingTier(probe.ImageSize)
+	if !ok {
+		return ErrImagePriceNotConfigured.WithCause(fmt.Errorf(
+			"image size cannot be mapped to a billing tier: model=%q size=%q", model, probe.ImageSize))
+	}
+	resolved := s.resolveOpenAIChannelPricing(ctx, model, apiKey)
+	if !imageUnitPriceConfigured(resolved, tier) {
+		return ErrImagePriceNotConfigured.WithCause(fmt.Errorf(
+			"image price is not configured: model=%q size=%q", model, tier))
+	}
+	return nil
 }
 
 // multimodalImageRateMultiplier 复刻 RecordUsage 的图片倍率口径：

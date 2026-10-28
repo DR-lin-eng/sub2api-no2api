@@ -146,7 +146,11 @@ func (s *OpenAIGatewayService) ReserveMultimodalVideoBalance(ctx context.Context
 // BindMultimodalVideoBalanceUpstream 把本地冻结记录与上游任务 id 关联起来。
 // 轮询阶段据此按任务 id 反查冻结金额。绑定失败必须向上暴露：调用方只有确认
 // 绑定成功才能认为任务可结算，否则会出现「已受理但无法结算」的冻结记录。
-func (s *OpenAIGatewayService) BindMultimodalVideoBalanceUpstream(ctx context.Context, record *BalanceHoldRecord, upstreamRequestID string) error {
+//
+// accountID 是最终成功提交任务的账号。跨账号 failover 时冻结是在首次选号账号上
+// 创建的，若只更新 Redis 归属缓存，缓存过期或 Redis 故障后轮询/取片会恢复到错误
+// 账号，因此必须与 upstream request id 一起写入冻结记录。
+func (s *OpenAIGatewayService) BindMultimodalVideoBalanceUpstream(ctx context.Context, record *BalanceHoldRecord, accountID int64, upstreamRequestID string) error {
 	if s == nil || s.usageBillingRepo == nil || record == nil {
 		return nil
 	}
@@ -154,15 +158,19 @@ func (s *OpenAIGatewayService) BindMultimodalVideoBalanceUpstream(ctx context.Co
 	if upstreamRequestID == "" {
 		return nil
 	}
-	if err := s.usageBillingRepo.BindBalanceHoldUpstreamRequest(ctx, record.HoldKey, upstreamRequestID); err != nil {
+	if err := s.usageBillingRepo.BindBalanceHoldUpstreamRequest(ctx, record.HoldKey, upstreamRequestID, accountID); err != nil {
 		logger.L().Warn("multimodal_video.bind_upstream_failed",
 			zap.String("hold_key", record.HoldKey),
 			zap.String("upstream_request_id", upstreamRequestID),
+			zap.Int64("account_id", accountID),
 			zap.Error(err),
 		)
 		return ErrBalanceHoldFailed.WithCause(err)
 	}
 	record.UpstreamRequestID = upstreamRequestID
+	if accountID > 0 {
+		record.AccountID = accountID
+	}
 	return nil
 }
 
@@ -200,10 +208,14 @@ func (s *OpenAIGatewayService) ReleaseMultimodalVideoBalance(ctx context.Context
 		}
 	}
 	if err := s.usageBillingRepo.UpdateBalanceHoldStatus(ctx, holdKey, BalanceHoldStatusReleased, nil); err != nil {
+		// 资金已经归还但状态没落地：记录仍是 pending，sweeper 会按超时继续重试
+		// （release 按 request id 幂等，不会重复退款）。必须向上暴露，否则调用方会
+		// 以为释放完成，而记录此后既可能被再次释放、也可能被误当成待结算任务。
 		logger.L().Warn("multimodal_video.release_status_update_failed",
 			zap.String("hold_key", holdKey),
 			zap.Error(err),
 		)
+		return ErrBalanceHoldFailed.WithCause(err)
 	}
 	s.invalidateMultimodalVideoBalanceCache(ctx, record.UserID)
 	return nil
@@ -243,13 +255,17 @@ func (s *OpenAIGatewayService) SettleMultimodalVideoBalance(
 	if actualAmount < 0 {
 		actualAmount = 0
 	}
-	// 仅在真正冻结到资金时才按冻结额封顶。预估金额为 0 的记录（分组未配置视频价
-	// 或创建期定价未命中）没有占用余额，不能把实际金额也压成 0，否则成功生成会漏计费。
-	if record.HoldAmount > 0 && actualAmount > record.HoldAmount {
+	// 冻结金额是创建期价格快照的硬上限：仓储层只允许 actual <= hold，超出的部分
+	// （创建后改价、改倍率，或实际时长超出预估）在本次冻结内无法扣款。这里显式封顶
+	// 并记录差额，避免把必然被拒绝的组合送进仓储，把记录永久留在 pending。
+	// 冻结额为 0 表示创建期量化结果为 0 或倍率为 0，没有任何资金被预留，
+	// 结算额同样只能是 0：不能凭空借记余额，也不能因此让结算永远失败。
+	if actualAmount > record.HoldAmount {
 		logger.L().Warn("multimodal_video.settlement_cost_exceeds_hold",
 			zap.String("hold_key", holdKey),
 			zap.Float64("hold_amount", record.HoldAmount),
 			zap.Float64("actual_amount", actualAmount),
+			zap.Float64("uncollected_amount", QuantizeUsageBillingAmount(actualAmount-record.HoldAmount)),
 		)
 		actualAmount = record.HoldAmount
 	}
@@ -271,22 +287,40 @@ func (s *OpenAIGatewayService) SettleMultimodalVideoBalance(
 		return nil, ErrBalanceHoldFailed.WithCause(err)
 	}
 	if captureResult != nil && !captureResult.Applied {
-		// 并发轮询已经完成结算：资金已按实际金额落账，不再重复写用量流水。
+		// 幂等重放：同一 capture request id 已经落过账（上次进程在写状态前中断，
+		// 或并发轮询抢先完成）。资金已经按同一指纹扣过一次，这里只负责把状态推进
+		// 到 settled，否则 sweeper 会把已扣费的任务当成超时任务退款。
+		settled := actualAmount
 		if record.ActualAmount != nil {
-			return record.ActualAmount, nil
+			settled = *record.ActualAmount
 		}
-		return nil, nil
+		if err := s.usageBillingRepo.UpdateBalanceHoldStatus(ctx, holdKey, BalanceHoldStatusSettled, &settled); err != nil {
+			logger.L().Warn("multimodal_video.settlement_status_update_failed",
+				zap.String("hold_key", holdKey),
+				zap.Error(err),
+			)
+			return nil, ErrBalanceHoldFailed.WithCause(err)
+		}
+		s.invalidateMultimodalVideoBalanceCache(ctx, record.UserID)
+		return &settled, nil
 	}
+
+	// 资金已经落账。用量流水必须在推进状态之前写入：状态写失败后的重试会走上面的
+	// 幂等重放分支，该分支不写流水，因此不会重复；反过来（先状态后流水）会让
+	// 「capture 成功但状态写失败」的重试永久丢失这条流水。
+	s.recordMultimodalVideoSettlementUsageLog(ctx, c, account, record, actualSeconds, actualAmount)
 
 	settled := actualAmount
 	if err := s.usageBillingRepo.UpdateBalanceHoldStatus(ctx, holdKey, BalanceHoldStatusSettled, &settled); err != nil {
+		// 资金已扣但记录仍是 pending：必须让调用方重试，只告警会让记录停在 pending，
+		// 最终被 sweeper 当成超时任务释放成漏账。
 		logger.L().Warn("multimodal_video.settlement_status_update_failed",
 			zap.String("hold_key", holdKey),
 			zap.Error(err),
 		)
+		return nil, ErrBalanceHoldFailed.WithCause(err)
 	}
 	s.invalidateMultimodalVideoBalanceCache(ctx, record.UserID)
-	s.recordMultimodalVideoSettlementUsageLog(ctx, c, account, record, actualSeconds, actualAmount)
 	return &settled, nil
 }
 
@@ -324,7 +358,7 @@ func (s *OpenAIGatewayService) applyMultimodalVideoBilling(
 			if hold.HoldAmount > 0 {
 				return responseBody, fmt.Errorf("multimodal video response is missing upstream request id: hold_key=%s", hold.HoldKey)
 			}
-		} else if err := s.BindMultimodalVideoBalanceUpstream(ctx, hold, upstreamRequestID); err != nil {
+		} else if err := s.BindMultimodalVideoBalanceUpstream(ctx, hold, multimodalAccountID(account), upstreamRequestID); err != nil {
 			return responseBody, err
 		} else if err := s.bindMultimodalVideoRequestOwner(ctx, c, account, hold, upstreamRequestID); err != nil {
 			// 归属绑定失败会让后续轮询与取片找不到账号，任务已扣费却无法交付。
@@ -333,8 +367,18 @@ func (s *OpenAIGatewayService) applyMultimodalVideoBilling(
 		}
 		cost, currency, found = hold.HoldAmount, hold.Currency, true
 	case endpoint == MultimodalMediaEndpointVideoStatus:
-		record := s.lookupMultimodalVideoBalance(ctx, requestID)
+		record, lookupErr := s.lookupMultimodalVideoBalance(ctx, requestID)
+		if lookupErr != nil {
+			// 查询失败意味着结算状态未知：不能当作「没有冻结」直接回显响应，
+			// 否则客户端会在计费状态未确认的情况下继续取片。
+			return responseBody, ErrBalanceHoldFailed.WithCause(lookupErr)
+		}
 		if record == nil {
+			if s.multimodalVideoHoldRequiredForDelivery(c) {
+				logger.L().Warn("multimodal_video.status_hold_missing",
+					zap.String("upstream_request_id", requestID),
+				)
+			}
 			return responseBody, nil
 		}
 		if strings.TrimSpace(record.Currency) != "" {
@@ -392,6 +436,14 @@ func (s *OpenAIGatewayService) applyMultimodalVideoBilling(
 	return rendered, nil
 }
 
+// multimodalAccountID 安全提取账号 id，account 为 nil 时返回 0（不改变冻结归属）。
+func multimodalAccountID(account *Account) int64 {
+	if account == nil {
+		return 0
+	}
+	return account.ID
+}
+
 // bindMultimodalVideoRequestOwner 在响应写回客户端之前绑定任务归属账号。
 // 归属缓存丢失时轮询与取片都会找不到账号，因此绑定失败必须在交付前暴露。
 // 没有归属缓存（例如未启用 Redis 的部署）时跳过：轮询仍可用冻结记录里的账号兜底。
@@ -437,17 +489,51 @@ func (s *OpenAIGatewayService) bindMultimodalVideoRequestOwner(
 
 // settleMultimodalVideoContentBalance 在视频内容真正交付给客户端之前结算冻结。
 // 只调 /content 取片、从不轮询 status 的客户端必须同样被扣费。
+//
+// 冻结计费模式下，查询失败和确认无记录都不允许交付内容：前者无法证明已经结算，
+// 后者说明这不是一条合法的无 hold 请求。只有能从认证上下文明确判断该请求不需要
+// 冻结（简单模式、订阅制分组）时，缺少冻结记录才按正常路径放行。
 func (s *OpenAIGatewayService) settleMultimodalVideoContentBalance(
 	ctx context.Context,
 	c *gin.Context,
 	account *Account,
 	upstreamRequestID string,
 ) error {
-	record := s.lookupMultimodalVideoBalance(ctx, upstreamRequestID)
-	if record == nil {
+	record, lookupErr := s.lookupMultimodalVideoBalance(ctx, upstreamRequestID)
+	if lookupErr != nil {
+		if s.multimodalVideoHoldRequiredForDelivery(c) {
+			return ErrBalanceHoldFailed.WithCause(lookupErr)
+		}
+		logger.L().Warn("multimodal_video.content_settle_lookup_failed_without_hold",
+			zap.String("upstream_request_id", upstreamRequestID),
+			zap.Error(lookupErr),
+		)
 		return nil
 	}
-	if record.Status != BalanceHoldStatusPending {
+	if record == nil {
+		if s.multimodalVideoHoldRequiredForDelivery(c) {
+			return ErrBalanceHoldFailed.WithCause(fmt.Errorf(
+				"multimodal video balance hold is missing for upstream request %s", upstreamRequestID,
+			))
+		}
+		return nil
+	}
+	switch record.Status {
+	case BalanceHoldStatusSettled:
+		// 已结算：资金已经落账，重复取片直接交付，不重复扣费。
+		return nil
+	case BalanceHoldStatusReleased:
+		// 已释放：冻结金额已经退回用户，账号归属也随之失效。此时交付内容等于白送，
+		// 必须与状态查询口径一致地拒绝；只有明确不需要冻结的计费模式才放行。
+		if s.multimodalVideoHoldRequiredForDelivery(c) {
+			logger.L().Warn("multimodal_video.content_delivery_released_hold",
+				zap.String("hold_key", record.HoldKey),
+				zap.String("upstream_request_id", upstreamRequestID),
+			)
+			return ErrBalanceHoldFailed.WithCause(fmt.Errorf(
+				"multimodal video balance hold for upstream request %s was released before delivery", upstreamRequestID,
+			))
+		}
 		return nil
 	}
 	// 取片链路拿不到上游返回的实际秒数，按冻结时记录的请求时长结算。
@@ -455,30 +541,52 @@ func (s *OpenAIGatewayService) settleMultimodalVideoContentBalance(
 	return err
 }
 
+// multimodalVideoHoldRequiredForDelivery 判断当前请求是否必须依赖冻结记录才能交付。
+// 只有能从认证上下文明确确认不需要冻结时才返回 false；无法判定时按需要冻结处理，
+// 避免把「状态未知」降级成免费放行。
+func (s *OpenAIGatewayService) multimodalVideoHoldRequiredForDelivery(c *gin.Context) bool {
+	if s == nil || s.usageBillingRepo == nil {
+		return false
+	}
+	apiKey := getAPIKeyFromContext(c)
+	if apiKey == nil {
+		return true
+	}
+	return s.MultimodalVideoBalanceHoldEnabled(apiKey)
+}
+
 // ResolveMultimodalVideoBalanceAccountID 用冻结记录里保存的账号恢复轮询归属。
 // 归属缓存可能因 Redis 故障或 TTL 过期丢失，但已扣费的任务必须仍可轮询与取片。
+// 第二个返回值区分「查询失败」与「确认无可用记录」：前者必须返回错误，
+// 不能与任务不存在混为一谈。
 func (s *OpenAIGatewayService) ResolveMultimodalVideoBalanceAccountID(
 	ctx context.Context,
 	upstreamRequestID string,
 	userID, apiKeyID int64,
-) int64 {
-	record := s.lookupMultimodalVideoBalance(ctx, upstreamRequestID)
+) (int64, error) {
+	record, err := s.lookupMultimodalVideoBalance(ctx, upstreamRequestID)
+	if err != nil {
+		return 0, err
+	}
 	if record == nil {
-		return 0
+		return 0, nil
 	}
 	if record.UserID != userID || record.APIKeyID != apiKeyID {
-		return 0
+		return 0, nil
 	}
 	if record.Status != BalanceHoldStatusPending && record.Status != BalanceHoldStatusSettled {
-		return 0
+		return 0, nil
 	}
-	return record.AccountID
+	return record.AccountID, nil
 }
 
-func (s *OpenAIGatewayService) lookupMultimodalVideoBalance(ctx context.Context, upstreamRequestID string) *BalanceHoldRecord {
+// lookupMultimodalVideoBalance 按上游任务 id 反查冻结记录。
+// (nil, nil) 表示确认没有记录；非 nil error 表示状态未知，调用方必须 fail-closed，
+// 不得把它当成「无冻结」继续交付。
+func (s *OpenAIGatewayService) lookupMultimodalVideoBalance(ctx context.Context, upstreamRequestID string) (*BalanceHoldRecord, error) {
 	upstreamRequestID = strings.TrimSpace(upstreamRequestID)
 	if s == nil || s.usageBillingRepo == nil || upstreamRequestID == "" {
-		return nil
+		return nil, nil
 	}
 	record, err := s.usageBillingRepo.GetBalanceHoldByUpstreamRequestID(ctx, upstreamRequestID)
 	if err != nil {
@@ -486,9 +594,9 @@ func (s *OpenAIGatewayService) lookupMultimodalVideoBalance(ctx context.Context,
 			zap.String("upstream_request_id", upstreamRequestID),
 			zap.Error(err),
 		)
-		return nil
+		return nil, err
 	}
-	return record
+	return record, nil
 }
 
 // ValidateMultimodalVideoPricing 在提交上游前校验视频单价可解析。
@@ -713,7 +821,9 @@ func (s *OpenAIGatewayService) sweepExpiredVideoBalanceHolds(ctx context.Context
 			continue
 		}
 		// 已绑定上游任务的冻结不能无条件释放：任务已经真实生成，释放等于白送。
-		// 只有超过宽限期仍未结算（例如持续落账失败）才回退为释放，避免永久占用余额。
+		// 只有超过宽限期仍未结算（例如客户端从未轮询、持续落账失败）才回退为释放，
+		// 避免永久占用余额。这条兜底一旦执行就等同于退款：此后的内容交付会被
+		// settleMultimodalVideoContentBalance 按已释放状态拒绝，两者口径保持一致。
 		if strings.TrimSpace(record.UpstreamRequestID) != "" &&
 			now.Before(record.ExpiresAt.Add(videoBalanceHoldBoundSweepGrace)) {
 			logger.L().Warn("multimodal_video.hold_sweep_skipped_bound",

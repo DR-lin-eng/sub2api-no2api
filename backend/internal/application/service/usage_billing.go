@@ -337,7 +337,9 @@ type UsageBillingRepository interface {
 	CaptureBalance(ctx context.Context, cmd *BalanceHoldCommand) (*BalanceHoldResult, error)
 	ReleaseBalance(ctx context.Context, cmd *BalanceHoldCommand) (*BalanceHoldResult, error)
 	CreateBalanceHold(ctx context.Context, record *BalanceHoldRecord) error
-	BindBalanceHoldUpstreamRequest(ctx context.Context, holdKey, upstreamRequestID string) error
+	// BindBalanceHoldUpstreamRequest 把冻结记录与上游异步任务 id 关联，并同时把
+	// 记录归属更新为最终成功提交任务的账号。accountID <= 0 时保留原归属。
+	BindBalanceHoldUpstreamRequest(ctx context.Context, holdKey, upstreamRequestID string, accountID int64) error
 	GetBalanceHoldByUpstreamRequestID(ctx context.Context, upstreamRequestID string) (*BalanceHoldRecord, error)
 	UpdateBalanceHoldStatus(ctx context.Context, holdKey, status string, actualAmount *float64) error
 	ListExpiredBalanceHolds(ctx context.Context, now time.Time, limit int) ([]*BalanceHoldRecord, error)

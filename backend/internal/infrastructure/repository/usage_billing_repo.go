@@ -631,8 +631,10 @@ func (r *usageBillingRepository) CreateBalanceHold(ctx context.Context, record *
 }
 
 // BindBalanceHoldUpstreamRequest 把本地 hold 与上游异步任务 id 关联起来，
-// 轮询阶段据此反查冻结记录。
-func (r *usageBillingRepository) BindBalanceHoldUpstreamRequest(ctx context.Context, holdKey, upstreamRequestID string) error {
+// 轮询阶段据此反查冻结记录。accountID > 0 时同时把记录归属改写为最终成功提交
+// 任务的账号：跨账号 failover 后首次选号账号可能已经不可用，冻结记录若仍指向
+// 首次账号，缓存丢失时轮询与取片会恢复出错误归属。
+func (r *usageBillingRepository) BindBalanceHoldUpstreamRequest(ctx context.Context, holdKey, upstreamRequestID string, accountID int64) error {
 	holdKey = strings.TrimSpace(holdKey)
 	upstreamRequestID = strings.TrimSpace(upstreamRequestID)
 	if holdKey == "" || upstreamRequestID == "" {
@@ -643,9 +645,11 @@ func (r *usageBillingRepository) BindBalanceHoldUpstreamRequest(ctx context.Cont
 	}
 	result, err := r.db.ExecContext(ctx, `
 		UPDATE video_balance_holds
-		SET upstream_request_id = $2, updated_at = NOW()
+		SET upstream_request_id = $2,
+			account_id = COALESCE(NULLIF($3, 0), account_id),
+			updated_at = NOW()
 		WHERE hold_key = $1
-	`, holdKey, upstreamRequestID)
+	`, holdKey, upstreamRequestID, accountID)
 	if err != nil {
 		return err
 	}

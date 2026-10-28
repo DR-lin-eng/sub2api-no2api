@@ -473,8 +473,15 @@ func (s *OpenAIGatewayService) ForwardMultimodalMedia(
 			}
 		}
 	}
-	writeMultimodalMediaResponse(c, resp.StatusCode, responseContentType, respBody, resp.Header, s.responseHeaderFilter)
 	usage := multimodalMediaUsageFromResponse(endpoint, requestInfo, body, respBody)
+	// 图片最终计费档位由上游实际输出决定：必须在写回响应前确认该档位已配置价格，
+	// 否则客户端会先拿到无法结算的图片，缺价错误只会在落账阶段写日志。
+	if endpoint.IsImageRequest() {
+		if priceErr := s.validateMultimodalImageSettlement(ctx, requestInfo.Model, getAPIKeyFromContext(c), usage); priceErr != nil {
+			return nil, priceErr
+		}
+	}
+	writeMultimodalMediaResponse(c, resp.StatusCode, responseContentType, respBody, resp.Header, s.responseHeaderFilter)
 	return &OpenAIForwardResult{
 		RequestID:              requestIDHeader,
 		ResponseID:             usage.ResponseID,

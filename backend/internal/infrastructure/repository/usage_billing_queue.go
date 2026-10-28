@@ -471,8 +471,8 @@ func (r *queuedUsageBillingRepository) CreateBalanceHold(ctx context.Context, re
 	return r.direct.CreateBalanceHold(ctx, record)
 }
 
-func (r *queuedUsageBillingRepository) BindBalanceHoldUpstreamRequest(ctx context.Context, holdKey, upstreamRequestID string) error {
-	return r.direct.BindBalanceHoldUpstreamRequest(ctx, holdKey, upstreamRequestID)
+func (r *queuedUsageBillingRepository) BindBalanceHoldUpstreamRequest(ctx context.Context, holdKey, upstreamRequestID string, accountID int64) error {
+	return r.direct.BindBalanceHoldUpstreamRequest(ctx, holdKey, upstreamRequestID, accountID)
 }
 
 func (r *queuedUsageBillingRepository) GetBalanceHoldByUpstreamRequestID(ctx context.Context, upstreamRequestID string) (*service.BalanceHoldRecord, error) {

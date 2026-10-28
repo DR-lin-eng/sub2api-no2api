@@ -505,7 +505,7 @@ func (r *fakeBatchImageBillingRepo) CreateBalanceHold(_ context.Context, _ *Bala
 	return nil
 }
 
-func (r *fakeBatchImageBillingRepo) BindBalanceHoldUpstreamRequest(_ context.Context, _, _ string) error {
+func (r *fakeBatchImageBillingRepo) BindBalanceHoldUpstreamRequest(_ context.Context, _, _ string, _ int64) error {
 	return nil
 }
 

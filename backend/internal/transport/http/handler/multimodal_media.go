@@ -182,9 +182,20 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 		if err != nil || boundLookupAccountID <= 0 {
 			// 归属缓存可能因 Redis 故障或 TTL 过期丢失；已冻结或已结算的任务
 			// 必须仍能用冻结记录里的账号恢复轮询与取片，直接 404 等于白拿视频。
-			recovered := h.gatewayService.ResolveMultimodalVideoBalanceAccountID(
+			recovered, recoverErr := h.gatewayService.ResolveMultimodalVideoBalanceAccountID(
 				c.Request.Context(), requestID, subject.UserID, apiKey.ID,
 			)
+			if recoverErr != nil {
+				// 冻结记录查询失败时任务是否存在未知：返回可重试错误，
+				// 不能把它当成「任务不存在」。
+				reqLog.Error("multimodal_media.video_lookup_owner_recover_failed",
+					zap.String("request_id", requestID),
+					zap.Error(recoverErr),
+				)
+				h.errorResponse(c, http.StatusBadGateway, "billing_service_error",
+					"Failed to verify the billing state of this video request, please retry later")
+				return
+			}
 			if recovered <= 0 {
 				reqLog.Info("multimodal_media.video_lookup_owner_binding_missing", zap.Error(err))
 				h.errorResponse(c, http.StatusNotFound, "not_found_error", "Video request not found")
@@ -553,7 +564,17 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 			}
 			h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, multimodalMediaScheduleModel(account, routingModel, nil), false, nil)
 			if !service.IsResponseCommitted(c) && c.Writer.Size() == writerSizeBeforeForward {
-				h.errorResponse(c, http.StatusBadGateway, "upstream_error", "Upstream request failed")
+				// 上游已成功但实际输出档位缺价：按计费错误返回，让客户端看到明确原因，
+				// 而不是被包装成上游故障。
+				if errors.Is(err, service.ErrImagePriceNotConfigured) {
+					status, code, message, retryAfter := billingErrorDetails(err)
+					if retryAfter > 0 {
+						c.Header("Retry-After", strconv.Itoa(retryAfter))
+					}
+					h.errorResponse(c, status, code, message)
+				} else {
+					h.errorResponse(c, http.StatusBadGateway, "upstream_error", "Upstream request failed")
+				}
 			}
 			reqLog.Warn("multimodal_media.forward_failed",
 				zap.Int64("account_id", account.ID),
