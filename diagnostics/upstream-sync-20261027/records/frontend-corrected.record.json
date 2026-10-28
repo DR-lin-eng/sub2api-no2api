@@ -1,0 +1,30 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=3g",
+    "-e",
+    "CI=true",
+    "-v",
+    "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo:/src",
+    "-v",
+    "sub2api-sync-node-modules-20261026:/src/frontend/node_modules",
+    "-v",
+    "sub2api-sync-pnpm-20261026:/root/.local/share/pnpm/store",
+    "-w",
+    "/src",
+    "node:24-alpine",
+    "sh",
+    "-c",
+    "corepack enable && corepack prepare pnpm@11.17.0 --activate && cd frontend && pnpm install --frozen-lockfile --prefer-offline && pnpm exec vitest run src/features/admin-accounts/__tests__/GrokModelDiagnosticsPanel.spec.ts src/features/admin-accounts/__tests__/ModelWhitelistSelector.spec.ts && pnpm run typecheck"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo",
+  "input": "",
+  "stdout": "Preparing pnpm@11.17.0 for immediate activation...\nRecreating /src/frontend/node_modules\n? Verifying lockfile against supply-chain policies (483 entries)...\nLockfile is up to date, resolution step is skipped\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +433\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\nProgress: resolved 433, reused 0, downloaded 0, added 0\nProgress: resolved 433, reused 0, downloaded 42, added 35\nProgress: resolved 433, reused 0, downloaded 115, added 115\nProgress: resolved 433, reused 0, downloaded 185, added 125\nProgress: resolved 433, reused 0, downloaded 253, added 212\nProgress: resolved 433, reused 0, downloaded 335, added 276\nProgress: resolved 433, reused 0, downloaded 427, added 393\nProgress: resolved 433, reused 0, downloaded 430, added 430\nProgress: resolved 433, reused 0, downloaded 431, added 431\nProgress: resolved 433, reused 0, downloaded 432, added 432\n✓ Lockfile passes supply-chain policies (483 entries in 11.9s)\nProgress: resolved 433, reused 0, downloaded 433, added 432\nProgress: resolved 433, reused 0, downloaded 433, added 433, done\n.../esbuild@0.25.12/node_modules/esbuild postinstall$ node install.js\n.../node_modules/vue-demi postinstall$ node -e \"try{require('./scripts/postinstall.js')}catch(e){}\"\n.../esbuild@0.25.12/node_modules/esbuild postinstall: Done\n.../node_modules/vue-demi postinstall: Done\n\ndependencies:\n+ @airwallex/components-sdk 1.32.0\n+ @stripe/stripe-js 9.12.0\n+ @tanstack/vue-virtual 3.13.34\n+ @vueuse/core 10.11.1\n+ axios 1.20.0\n+ cap-widget 0.1.50\n+ chart.js 4.5.1\n+ dompurify 3.4.17\n+ driver.js 1.8.0\n+ file-saver 2.0.5\n+ marked 17.0.6\n+ node-forge 1.4.0\n+ pinia 2.3.1\n+ qrcode 1.5.4\n+ tldts 7.4.13\n+ vue 3.5.43\n+ vue-chartjs 5.3.4\n+ vue-draggable-plus 0.6.1\n+ vue-i18n 9.14.5\n+ vue-router 4.6.4\n+ xlsx 0.20.3\n\ndevDependencies:\n+ @eslint/js 10.0.1\n+ @intlify/message-compiler 9.14.5\n+ @types/file-saver 2.0.7\n+ @types/mdx 2.0.14\n+ @types/node 24.13.3\n+ @types/node-forge 1.3.14\n+ @types/qrcode 1.5.6\n+ @typescript-eslint/eslint-plugin 8.65.0\n+ @typescript-eslint/parser 8.65.0\n+ @vitejs/plugin-vue 6.0.8\n+ @vitest/coverage-v8 3.2.6\n+ @vue/test-utils 2.4.11\n+ autoprefixer 10.5.4\n+ eslint 10.8.0\n+ eslint-plugin-vue 10.10.0\n+ globals 17.4.0\n+ jsdom 24.1.3\n+ postcss 8.5.23\n+ tailwindcss 3.4.19\n+ typescript 5.6.3\n+ vite 6.4.3\n+ vite-plugin-checker 0.14.5\n+ vitest 3.2.6\n+ vue-tsc 2.2.12\n\nDone in 12.9s using pnpm v11.17.0\n\n\u001b[1m\u001b[46m RUN \u001b[49m\u001b[22m \u001b[36mv3.2.6 \u001b[39m\u001b[90m/src/frontend\u001b[39m\n\n \u001b[32m✓\u001b[39m src/features/admin-accounts/__tests__/ModelWhitelistSelector.spec.ts \u001b[2m(\u001b[22m\u001b[2m5 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 56\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/features/admin-accounts/__tests__/GrokModelDiagnosticsPanel.spec.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 20\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m2 passed\u001b[39m\u001b[22m\u001b[90m (2)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m7 passed\u001b[39m\u001b[22m\u001b[90m (7)\u001b[39m\n\u001b[2m   Start at \u001b[22m 13:52:14\n\u001b[2m   Duration \u001b[22m 1.15s\u001b[2m (transform 282ms, setup 77ms, collect 328ms, tests 76ms, environment 303ms, prepare 60ms)\u001b[22m\n\n[ELIFECYCLE] Command failed.\n",
+  "stderr": "$ vue-tsc --noEmit\n\n<--- Last few GCs --->\n\n[187:0xffff84f30000]    17724 ms: Scavenge 1528.3 (1538.5) -> 1526.7 (1542.5) MB, pooled: 0 MB, 4.32 / 0.00 ms  (average mu = 0.340, current mu = 0.325) allocation failure; \n[187:0xffff84f30000]    18523 ms: Mark-Compact (reduce) 1530.5 (1542.7) -> 1524.1 (1535.5) MB, pooled: 0 MB, 190.81 / 0.00 ms  (+ 559.1 ms in 60 steps since start of marking, biggest step 54.8 ms, walltime since start of marking 799 ms) (average mu = 0.32\nFATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory\n----- Native stack trace -----\n\n",
+  "exit_status": 1,
+  "duration_seconds": 37.212,
+  "utc": "2026-10-27T13:52:35.210629+00:00"
+}

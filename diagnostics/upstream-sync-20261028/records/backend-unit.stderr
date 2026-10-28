@@ -1,0 +1,7 @@
+# github.com/Wei-Shaw/sub2api/internal/application/service [github.com/Wei-Shaw/sub2api/internal/application/service.test]
+internal/application/service/channel_plaza_group_fixed_test.go:13:32: cannot use BillingModeImage (constant "image" of string type BillingMode) as string value in array or slice literal
+internal/application/service/channel_plaza_group_fixed_test.go:13:50: cannot use BillingModePerRequest (constant "per_request" of string type BillingMode) as string value in array or slice literal
+internal/application/service/channel_plaza_group_fixed_test.go:13:73: cannot use BillingModeVideo (constant "video" of string type BillingMode) as string value in array or slice literal
+internal/application/service/channel_plaza_group_fixed_test.go:15:180: cannot use mode (variable of type string) as BillingMode value in struct literal
+# github.com/Wei-Shaw/sub2api/internal/modules/securityaudit [github.com/Wei-Shaw/sub2api/internal/modules/securityaudit.test]
+internal/modules/securityaudit/prompt_pagination_overflow_test.go:23:28: rec.Code undefined (type *gin.Engine has no field or method Code)

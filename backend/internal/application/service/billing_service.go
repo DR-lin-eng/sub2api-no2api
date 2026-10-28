@@ -237,21 +237,12 @@ const (
 	deepseekProOffPeakCacheRead     = 2.2e-8
 )
 
-var deepseekProRoutesToFlashAt = time.Date(2026, 9, 14, 4, 0, 0, 0, time.UTC)
-
 func isDeepSeekModel(model string) bool {
 	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(model)), "deepseek-")
 }
 
 func isDeepSeekProModel(model string) bool {
 	return strings.Contains(strings.ToLower(strings.TrimSpace(model)), "deepseek-v4-pro")
-}
-
-func deepseekProBilledAsFlash(pricingAt time.Time) bool {
-	if pricingAt.IsZero() {
-		pricingAt = timezone.Now()
-	}
-	return !pricingAt.Before(deepseekProRoutesToFlashAt)
 }
 
 func deepseekPeakMultiplierAt(now time.Time) float64 {
@@ -1660,13 +1651,14 @@ func (s *BillingService) calculateCostInternalWithPolicy(
 	return s.computeTokenBreakdown(pricing, tokens, rateMultiplier, imageRateMultiplier, serviceTier, longContextBillingEnabled), nil
 }
 
-func (s *BillingService) applyModelSpecificPricingPolicyEx(model string, pricing *ModelPricing, forceDeepSeekRates bool, pricingAt time.Time) *ModelPricing {
+// DeepSeek Pro retains its Pro card at every date; peak pricing is applied separately.
+func (s *BillingService) applyModelSpecificPricingPolicyEx(model string, pricing *ModelPricing, forceDeepSeekRates bool, _ time.Time) *ModelPricing {
 	if pricing == nil {
 		return nil
 	}
 	if forceDeepSeekRates && isDeepSeekModel(model) {
 		cloned := *pricing
-		if isDeepSeekProModel(model) && !deepseekProBilledAsFlash(pricingAt) {
+		if isDeepSeekProModel(model) {
 			cloned.InputPricePerToken = deepseekProOffPeakInputPrice
 			cloned.OutputPricePerToken = deepseekProOffPeakOutputPrice
 			cloned.CacheReadPricePerToken = deepseekProOffPeakCacheRead

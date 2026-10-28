@@ -1,3 +1,4 @@
+import grokCatalog from './accounts.grok-catalog'
 import billingMessages from './accounts.billing'
 import accountPriority from './accountPriority'
 
@@ -8,6 +9,7 @@ import channelMessages from './accounts.channels'
 
 export default {
     accounts: {
+      grokCatalog,
       title: 'Account Management',
       description: 'Manage AI platform accounts and credentials',
       streamDegraded: 'LLM stream degraded L{level}',

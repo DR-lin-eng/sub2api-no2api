@@ -1,0 +1,29 @@
+[
+  {
+    "path": "backend/internal/application/service/openai_gateway_forward.go",
+    "initial_baseline_lines": 1201,
+    "integrated_main_lines": 1191,
+    "modified_lines": 1191,
+    "main_sha256": "7dfd3957d888e754635b281c6e745c49f4c50f36764d2be8ff471f625b244382",
+    "modified_sha256": "e3f51effecdb7aeeb9314894c3a090a3a12beabfc704bed8cfbdfe36c52dc6d0",
+    "allowlist_unchanged": true
+  },
+  {
+    "path": "backend/internal/application/service/payment_fulfillment_test.go",
+    "initial_baseline_lines": 1201,
+    "integrated_main_lines": 1201,
+    "modified_lines": 1201,
+    "main_sha256": "e9d8e9b9241dc0a0a777b9f54af0bb6b3fd55e0b502c7d24f6b6dd80eb1320e7",
+    "modified_sha256": "e9d8e9b9241dc0a0a777b9f54af0bb6b3fd55e0b502c7d24f6b6dd80eb1320e7",
+    "allowlist_unchanged": true
+  },
+  {
+    "path": "backend/internal/application/service/pricing_service.go",
+    "initial_baseline_lines": 1218,
+    "integrated_main_lines": 1218,
+    "modified_lines": 1218,
+    "main_sha256": "01017b0c9fb39c3eb6fb0b0dc9d5cf0f458b839554698e84c04273a0046b7054",
+    "modified_sha256": "01017b0c9fb39c3eb6fb0b0dc9d5cf0f458b839554698e84c04273a0046b7054",
+    "allowlist_unchanged": true
+  }
+]

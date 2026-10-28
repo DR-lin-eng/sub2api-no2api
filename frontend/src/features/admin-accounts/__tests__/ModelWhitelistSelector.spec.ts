@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 
+const syncMock = vi.hoisted(() => vi.fn())
+vi.mock('../data/datasources/adminAccountActions', () => ({ syncUpstreamModels: syncMock, syncUpstreamModelsPreview: syncMock }))
+
 const copyToClipboard = vi.fn().mockResolvedValue(true)
 
 vi.mock('vue-i18n', async () => {
@@ -13,13 +16,8 @@ vi.mock('vue-i18n', async () => {
   }
 })
 
-vi.mock('@/core/stores/appStore', () => ({
-  useAppStore: () => ({
-    showError: vi.fn(),
-    showSuccess: vi.fn(),
-    showInfo: vi.fn()
-  })
-}))
+const messages = vi.hoisted(() => ({ showError: vi.fn(), showSuccess: vi.fn(), showInfo: vi.fn() }))
+vi.mock('@/core/stores/appStore', () => ({ useAppStore: () => messages }))
 
 vi.mock('@/common/composables/useClipboard', () => ({
   useClipboard: () => ({
@@ -103,4 +101,30 @@ it('allows an identity mapping in the whitelist', async () => {
   await input.setValue('gpt-latest')
   await input.trigger('keydown.enter')
   expect(wrapper.emitted('update:modelValue')).toEqual([[['gpt-latest']]])
+})
+
+it('offers Grok catalog IDs without changing the selected whitelist', async () => {
+  syncMock.mockResolvedValue({ models: ['grok-custom-new'] })
+  const wrapper = mountSelector({ platform: 'grok', accountId: 1, modelValue: ['grok-existing-custom'] })
+  const sync = wrapper.findAll('button').find(button => button.text() === 'admin.accounts.syncUpstreamModels')!
+  await sync.trigger('click'); await flushPromises()
+  expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+  await wrapper.get('div.cursor-pointer').trigger('click')
+  expect(wrapper.text()).toContain('grok-custom-new')
+  expect(wrapper.text()).toContain('grok-existing-custom')
+  await wrapper.setProps({ accountId: 2 })
+  expect(wrapper.findAll('[data-testid="model-option"]').some(row => row.text().includes('grok-custom-new'))).toBe(false)
+})
+
+it('ignores an upstream result after the selector unmounts', async () => {
+  vi.clearAllMocks()
+  let resolve!: (value: { models: string[] }) => void
+  syncMock.mockReturnValueOnce(new Promise(done => { resolve = done }))
+  const wrapper = mountSelector({ platform: 'grok', accountId: 1 })
+  const sync = wrapper.findAll('button').find(button => button.text() === 'admin.accounts.syncUpstreamModels')!
+  await sync.trigger('click'); wrapper.unmount()
+  resolve({ models: ['grok-4.6'] }); await flushPromises()
+  expect(messages.showInfo).not.toHaveBeenCalled()
+  expect(messages.showSuccess).not.toHaveBeenCalled()
+  expect(wrapper.emitted('update:modelValue')).toBeUndefined()
 })

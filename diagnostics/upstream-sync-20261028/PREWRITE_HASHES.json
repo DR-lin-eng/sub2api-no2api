@@ -1,0 +1,22 @@
+{
+  "backend/internal/application/service/gateway_billing_block.go": "3713dcee8cc715311d30a9af42c8e520435f71f75aefe81fafdca1e7931a870b",
+  "backend/internal/application/service/gemini_image_output_accounting.go": "a8f2dda9a6625718af2988c6c5e252bb7ef678fc11bb17e4afb0adf5b35192ce",
+  "backend/internal/application/service/billing_service.go": "4e66a60ee58825dfe75086457018f9e01abb7d813f0509b570e148f885c6343c",
+  "backend/internal/application/service/channel_plaza.go": "f0ce1507881f21e1e75bc8c2b989f50510f261eacb84757d97430b698366be51",
+  "backend/internal/application/service/openai_gateway_response_handling.go": "e173998e6fdbacc59f70761845e82f1692639620252c938cdf58bfb3b79ae1bf",
+  "backend/internal/application/service/openai_chat_roles.go": "280d822d5a60f2bf85b9f0e2802d4057671b95e5d21aeda86425272f919eb05a",
+  "backend/internal/application/service/api_key_service.go": "265b773eb516e3213a25c1cf60cdb6e2a139ee558b23e4472f89cb0934aeb4f2",
+  "backend/internal/application/service/grok_media.go": "7010a176759e0dee72d07894f9da9ef666747343ddf142a5863931118d6be435",
+  "backend/internal/application/service/openai_images.go": "c824684832ecea65b61badb0e870a2215a0b3f378d21584dc5f20378ea930222",
+  "backend/internal/application/service/antigravity_gateway_stream_collect.go": "1c02e7378947567e49b82ff25020dc6dfcee1c520af3e2a94706c8ea35ac76b8",
+  "backend/internal/application/service/antigravity_gateway_compat.go": "d7df6c1f5a70ab69b73b501d991bcc7e219d37e3b06a2a1de8f7aaa288dd100c",
+  "backend/internal/shared/antigravity/response_transformer.go": "b70e84a6b770eb408df8e682871e56535238f1c46b0c3a4783b0e5d1eb7d70db",
+  "backend/internal/shared/pagination/pagination.go": "583098c33af1b0c9ebca6e17eb5325243d88ca22b6c55cf2c0bf7dee9063eb7d",
+  "backend/internal/shared/response/response.go": "6585f7bc15e302478fee449a9207aef122abfe7af640d89981b00246fd57f334",
+  "backend/internal/modules/securityaudit/prompt_handler.go": "58224ed051375915a89d35588eb16539c7bf028c6eec3caad9d08f7a9fdd8fee",
+  "backend/internal/transport/http/handler/admin/ops_dashboard_handler.go": "bab8a36ba6e1566c04eef448e4fae711f8314b3b0e5232f8c9b325e0b9b4a31d",
+  "backend/internal/application/service/deepseek_pricing_sync_test.go": "044a0e8424977795783db32aab91ddece8e368c76f5f0efb7010e250ea103389",
+  "backend/internal/application/service/gemini_image_output_accounting_test.go": "11f01d4e8cf7b01599ea85dd33f33f1a9ec8fa3e0d639f6188e418e24be61347",
+  "backend/internal/application/service/antigravity_gateway_streaming.go": "aa1291e9a559619afd7f00754924cf47692a2f01181aa2679fac2374bc565dde",
+  "backend/internal/shared/response/response_test.go": "a416f2b162eaf3284d8623c01c21684e601e2839ac0b504a590d06d94e2f145a"
+}

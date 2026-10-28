@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog"
 	"github.com/Wei-Shaw/sub2api/internal/modules/typesafe"
 	"log"
 	"log/slog"
@@ -1001,7 +1002,9 @@ func (h *AccountHandler) GetByID(c *gin.Context) {
 		}
 	}
 
-	response.Success(c, h.buildAccountResponseWithRuntime(c.Request.Context(), account))
+	result := h.buildAccountResponseWithRuntime(c.Request.Context(), account)
+	result.GrokModelDiagnostics = service.GetGrokModelDiagnostics(account)
+	response.Success(c, result)
 }
 
 type batchAccountSummariesRequest struct {
@@ -3000,7 +3003,10 @@ func (h *AccountHandler) SyncUpstreamModels(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, catalog)
+	response.Success(c, struct {
+		*modelcatalog.Catalog
+		Diagnostics *modelcatalog.GrokDiagnostics `json:"grok_model_diagnostics,omitempty"`
+	}{catalog, service.GetGrokModelDiagnostics(account)})
 }
 
 // SyncUpstreamModelsPreview handles syncing live supported models using provided credentials (no account ID needed).

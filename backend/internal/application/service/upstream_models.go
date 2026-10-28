@@ -99,6 +99,11 @@ func (s *AccountTestService) fetchUpstreamSupportedModels(ctx context.Context, a
 		return nil, err
 	}
 
+	if account.IsGrok() {
+		if capture, _ := ctx.Value(modelCatalogCaptureKey{}).(*modelCatalogCapture); capture != nil {
+			capture.scope = grokModelsScope(account, req.URL.String())
+		}
+	}
 	proxyURL := upstreamModelsProxyURL(account)
 	models := []string{}
 	seenCursors := map[string]bool{}
@@ -637,7 +642,7 @@ func extractUpstreamModelIDs(body []byte) ([]string, error) {
 }
 
 func extractGrokUpstreamModelIDs(body []byte) ([]string, error) {
-	return extractUpstreamModelIDsWithSelector(body, grokUpstreamModelEntryID)
+	return parseGrokCatalogModelIDs(body)
 }
 
 func extractUpstreamModelIDsWithSelector(body []byte, selectID func(upstreamModelEntry) string) ([]string, error) {

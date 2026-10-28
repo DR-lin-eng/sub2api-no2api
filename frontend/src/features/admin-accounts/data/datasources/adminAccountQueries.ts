@@ -1,3 +1,4 @@
+import type { GrokModelDiagnostics } from '../dtos/grokModelDiagnostics'
 import { apiClient } from '@/core/networks/client'
 import type {
   Account,
@@ -118,7 +119,7 @@ export async function getUpstreamBillingRatesWithEtag(
     : { notModified: false, etag, data: response.data }
 }
 
-export async function getById(id: number): Promise<Account> {
+export async function getById(id: number): Promise<Account & { grok_model_diagnostics?: GrokModelDiagnostics }> {
   const { data } = await apiClient.get<Account>(`/admin/accounts/${id}`)
   return data
 }

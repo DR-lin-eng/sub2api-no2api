@@ -1,0 +1,13 @@
+{
+  "command": [
+    "python3",
+    "diagnostics/upstream-sync-20261028/runtime/check.py"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261028-zrr48pfp/repo",
+  "input": "",
+  "stdout": "{\"stage\": \"BASELINE\", \"image_id\": \"sha256:a9624c000bb429cfa9f4285f06aa685a71d05f0f865bbd40375e14b64162eeaa\", \"result\": \"PASS\", \"cases\": [{\"fixture\": \"default\", \"stream\": false, \"http\": 200, \"settlement\": {\"input\": 2000, \"output\": 500, \"cache\": 0, \"images\": 0, \"cost\": 0.0006, \"actual\": 0.0006, \"mode\": \"token\"}}, {\"fixture\": \"default\", \"stream\": true, \"http\": 200, \"settlement\": {\"input\": 2000, \"output\": 500, \"cache\": 0, \"images\": 0, \"cost\": 0.0006, \"actual\": 0.0006, \"mode\": \"token\"}}, {\"fixture\": \"custom\", \"stream\": false, \"http\": 200, \"settlement\": {\"input\": 2000, \"output\": 500, \"cache\": 0, \"images\": 0, \"cost\": 0.003, \"actual\": 0.003, \"mode\": \"token\"}}, {\"fixture\": \"custom\", \"stream\": true, \"http\": 200, \"settlement\": {\"input\": 2000, \"output\": 500, \"cache\": 0, \"images\": 0, \"cost\": 0.003, \"actual\": 0.003, \"mode\": \"token\"}}, {\"fixture\": \"gemini-files\", \"stream\": false, \"http\": 200, \"settlement\": {\"input\": 1000, \"output\": 100, \"cache\": 0, \"images\": 0, \"cost\": 0.25, \"actual\": 0.25, \"mode\": \"image\"}}, {\"fixture\": \"gemini-files\", \"stream\": true, \"http\": 200, \"settlement\": {\"input\": 1000, \"output\": 100, \"cache\": 0, \"images\": 0, \"cost\": 0.25, \"actual\": 0.25, \"mode\": \"image\"}}, {\"fixture\": \"upload-21MiB\", \"http\": 400, \"bytes\": 22020428, \"settlement\": []}], \"pagination\": {\"/api/v1/admin/users\": 500, \"/api/v1/keys\": 500}, \"migrations\": 307, \"persisted_identity_key_subscription_sha256\": \"20fb946b1ed6fa37fd491f9c400ebf982c38b6d15d1215c2ea90bd01594b1f4f\", \"historical_usage_unchanged\": \"PASS\", \"health_ready_frontend_encrypted_login\": \"PASS\", \"balance_settlement_identity\": \"PASS\"}\n",
+  "stderr": "Traceback (most recent call last):\n  File \"/private/tmp/sub2api-sync-20261028-zrr48pfp/repo/diagnostics/upstream-sync-20261028/runtime/check.py\", line 219, in <module>\n    sent=provider('/fixture/last');assert sent['bytes']==sent_bytes,(stage,'truncated upload',sent['bytes'],sent_bytes)\n                                          ^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: ('MODIFIED', 'truncated upload', 22020572, 22020428)\n",
+  "exit_status": 1,
+  "duration_seconds": 23.5,
+  "utc": "2026-10-27T16:55:49.607376+00:00"
+}

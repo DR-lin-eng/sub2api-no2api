@@ -1,0 +1,1 @@
+{"body":"prefer group model pricing over image fallback tiers","mergeCommit":{"oid":"98bcee7a8934220215268cccb80f15f3cb16091b"},"mergedAt":"2026-10-27T12:42:35Z","number":8366,"title":"fix(model-plaza): 修复模型广场定价被覆盖的问题","url":"https://github.com/Wei-Shaw/sub2api/pull/8366"}

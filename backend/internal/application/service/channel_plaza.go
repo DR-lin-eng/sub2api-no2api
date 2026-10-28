@@ -95,6 +95,11 @@ func (s *ChannelService) ListPlazaGroups(ctx context.Context, opts PlazaListOpti
 	order := make([]int64, 0, len(groups))
 	for i := range groups {
 		g := &groups[i]
+		// ListActive returns repository values, unlike compiled auth prototypes.
+		// Build once per group, then share the index across its displayed models.
+		if g.modelPricingIndex == nil {
+			g.compileModelPricingIndex()
+		}
 		byGroup[g.ID] = &PlazaGroup{
 			ID:                   g.ID,
 			Name:                 g.Name,
@@ -125,7 +130,13 @@ func (s *ChannelService) ListPlazaGroups(ctx context.Context, opts PlazaListOpti
 		if model.Name == "" || model.Platform == "" {
 			return
 		}
-		model.Pricing = plazaImageDisplayPricing(model.Pricing, groupByID[pg.ID])
+		group := groupByID[pg.ID]
+		if fixed := group.modelPricingFor(model.Name); fixed != nil && fixed.BillingMode != "" && fixed.BillingMode != BillingModeToken {
+			// Match the billing resolver: a model's fixed card wins over image fallbacks.
+			model.Pricing = fixed
+		} else {
+			model.Pricing = plazaImageDisplayPricing(model.Pricing, group)
+		}
 		idx := modelIdx[pg.ID]
 		if idx == nil {
 			idx = make(map[string]int)

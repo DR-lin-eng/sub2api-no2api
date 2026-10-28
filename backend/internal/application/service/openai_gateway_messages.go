@@ -55,7 +55,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 		body = stripDistillationCacheFields(body)
 		promptCacheKey = ""
 	}
-	beginUpstreamResponseModelObservation(c)
+	beginAccountUpstreamResponseModelObservation(c, account)
 	beginOpenAITimingObservation(c)
 	ClearActualOpenAIUpstreamEndpoint(c)
 	// Chat Completions conversion drops Anthropic web_search tools. For an
@@ -2013,6 +2013,10 @@ func (s *OpenAIGatewayService) readOpenAICompatBufferedTerminal(
 	if len(contexts) > 0 {
 		timingContext = contexts[0]
 	}
+	var observer *upstreamResponseModelObserver
+	if timingContext != nil && timingContext.GetBool("grok_buffered_model_audit") {
+		observer = upstreamResponseModelObserverFromContext(timingContext)
+	}
 	acc := apicompat.NewBufferedResponseAccumulator()
 	var usage OpenAIUsage
 	if resp == nil || resp.Body == nil {
@@ -2094,6 +2098,9 @@ func (s *OpenAIGatewayService) readOpenAICompatBufferedTerminal(
 					var event apicompat.ResponsesStreamEvent
 					if err := json.Unmarshal([]byte(payload), &event); err == nil {
 						acc.ProcessEvent(&event)
+						if observer != nil && event.Response != nil {
+							observer.Observe(event.Response.Model, isOpenAICompatResponsesTerminalEvent(event.Type))
+						}
 						if isOpenAICompatResponsesTerminalEvent(event.Type) && event.Response != nil {
 							if event.Usage != nil {
 								usage = copyOpenAIUsageFromResponsesUsage(event.Usage)
@@ -2142,6 +2149,9 @@ func (s *OpenAIGatewayService) readOpenAICompatBufferedTerminal(
 			}
 
 			acc.ProcessEvent(&event)
+			if observer != nil && event.Response != nil {
+				observer.Observe(event.Response.Model, isOpenAICompatResponsesTerminalEvent(event.Type))
+			}
 
 			if isOpenAICompatResponsesTerminalEvent(event.Type) && event.Response != nil {
 				if event.Usage != nil {

@@ -1,0 +1,32 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=4g",
+    "-v",
+    "/private/tmp/sub2api-sync-20261028-zrr48pfp/repo:/src",
+    "-v",
+    "sub2api-go-mod:/go/pkg/mod",
+    "-v",
+    "sub2api-go-build:/root/.cache/go-build",
+    "-w",
+    "/src/backend",
+    "sub2api-sync-tests:20261026",
+    "go",
+    "test",
+    "-tags=unit",
+    "./internal/application/service",
+    "-run",
+    "TestListPlazaGroups|TestPlazaGroupFixed",
+    "-count=1"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261028-zrr48pfp/repo",
+  "input": "",
+  "stdout": "ok  \tgithub.com/Wei-Shaw/sub2api/internal/application/service\t0.041s\n",
+  "stderr": "",
+  "exit_status": 0,
+  "duration_seconds": 58.472,
+  "utc": "2026-10-27T17:02:49.138165+00:00"
+}

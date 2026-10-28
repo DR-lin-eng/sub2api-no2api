@@ -1,0 +1,30 @@
+2026/10/27 16:26:52 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestUpstreamSync20261028Transaction
+    upstream_sync_20261028_probe_test.go:33: OBS fingerprint=f07
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+    upstream_sync_20261028_probe_test.go:37: OBS gemini_file_images=0
+2026/10/27 16:26:52 [Billing] Using fallback pricing for model: deepseek-v4-pro
+    upstream_sync_20261028_probe_test.go:41: OBS deepseek_pro_input=0.000000150 output=0.000000600 cache=0.000000003
+    upstream_sync_20261028_probe_test.go:42: OBS deepseek_cache_hit=0
+    upstream_sync_20261028_probe_test.go:45: OBS opencode_role=developer
+    upstream_sync_20261028_probe_test.go:48: OBS pagination_nonnegative=false addition_safe=false
+2026/10/27 16:26:52 WARN rate_limit_429_fallback_used account_id=1 platform=zhipu reason=no_reset_time using_default=5s
+    upstream_sync_20261028_probe_test.go:53: OBS cn_frequency percent=12 short_cooldown=true
+2026/10/27 16:26:52 WARN rate_limit_429_fallback_used account_id=1 platform=zhipu reason=no_reset_time using_default=5s
+    upstream_sync_20261028_probe_test.go:53: OBS cn_frequency percent=100 short_cooldown=true
+    upstream_sync_20261028_probe_test.go:63: OBS plaza_fixed_image=0.90
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+2026/10/27 16:26:52 [Antigravity] MALFORMED_FUNCTION_CALL detected in response for model gemini-test
+2026/10/27 16:26:52 [Antigravity] Malformed content: {"role":"","parts":[{"thoughtSignature":"fixture"}]}
+    upstream_sync_20261028_probe_test.go:68: OBS malformed_status=200 error=false success=true
+    upstream_sync_20261028_probe_test.go:71: OBS openai_upload_21mb accepted=false bytes=0
+    upstream_sync_20261028_probe_test.go:80: OBS grok_upload_21mb bytes=20971520 complete=false
+--- PASS: TestUpstreamSync20261028Transaction (0.04s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.073s

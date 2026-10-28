@@ -1,0 +1,28 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=4g",
+    "-v",
+    "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo:/src",
+    "-v",
+    "sub2api-go-mod:/go/pkg/mod",
+    "-v",
+    "sub2api-go-build:/root/.cache/go-build",
+    "-w",
+    "/src/backend",
+    "sub2api-sync-tests:20261026",
+    "sh",
+    "-c",
+    "gofmt -w internal/application/service/openai_compat_model.go internal/application/service/upstream_sync_20261027_test.go && go test -tags=unit ./internal/modules/modelcatalog ./internal/shared/apicompat ./internal/application/service -run \"TestGrokCatalog|TestGPT61Compat|TestGPT61ChatOnly|TestGrokResponsesPropagate|TestGrokBuffered|TestUpstreamSync20261027\" -v -count=1"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo",
+  "input": "",
+  "stdout": "=== RUN   TestGrokCatalogDiagnosticsTrustAndNoMutation\n=== RUN   TestGrokCatalogDiagnosticsTrustAndNoMutation/fresh\n=== RUN   TestGrokCatalogDiagnosticsTrustAndNoMutation/stale\n=== RUN   TestGrokCatalogDiagnosticsTrustAndNoMutation/old\n=== RUN   TestGrokCatalogDiagnosticsTrustAndNoMutation/changed\n=== RUN   TestGrokCatalogDiagnosticsTrustAndNoMutation/future\n--- PASS: TestGrokCatalogDiagnosticsTrustAndNoMutation (0.00s)\n    --- PASS: TestGrokCatalogDiagnosticsTrustAndNoMutation/fresh (0.00s)\n    --- PASS: TestGrokCatalogDiagnosticsTrustAndNoMutation/stale (0.00s)\n    --- PASS: TestGrokCatalogDiagnosticsTrustAndNoMutation/old (0.00s)\n    --- PASS: TestGrokCatalogDiagnosticsTrustAndNoMutation/changed (0.00s)\n    --- PASS: TestGrokCatalogDiagnosticsTrustAndNoMutation/future (0.00s)\n=== RUN   TestGrokCatalogStringAndDualListsMetadata\n--- PASS: TestGrokCatalogStringAndDualListsMetadata (0.00s)\nPASS\nok  \tgithub.com/Wei-Shaw/sub2api/internal/modules/modelcatalog\t0.003s\ntesting: warning: no tests to run\nPASS\nok  \tgithub.com/Wei-Shaw/sub2api/internal/shared/apicompat\t0.006s [no tests to run]\n2026/10/27 13:50:47 Timezone initialized: UTC (UTC offset: +00:00)\n=== RUN   TestUpstreamSync20261027Transaction\n    upstream_sync_20261027_probe_test.go:23: TERRA model=gpt-6.1-terra effort=max\n    upstream_sync_20261027_probe_test.go:25: GROK invalid_catalog_rejected=true models=[]\n    upstream_sync_20261027_probe_test.go:36: GROK terminal=grok-4.6 conflict=true\n--- PASS: TestUpstreamSync20261027Transaction (0.00s)\n=== RUN   TestGPT61CompatEffortAliases\n--- PASS: TestGPT61CompatEffortAliases (0.00s)\n=== RUN   TestGPT61ChatOnlyToolGateUsesMappedModel\n=== RUN   TestGPT61ChatOnlyToolGateUsesMappedModel/gpt-6.1-sol/chat\n=== RUN   TestGPT61ChatOnlyToolGateUsesMappedModel/gpt-6.1-sol/responses\n=== RUN   TestGPT61ChatOnlyToolGateUsesMappedModel/gpt-6.1-sol/messages\n=== RUN   TestGPT61ChatOnlyToolGateUsesMappedModel/gpt-6.1-terra/chat\n=== RUN   TestGPT61ChatOnlyToolGateUsesMappedModel/gpt-6.1-terra/responses\n=== RUN   TestGPT61ChatOnlyToolGateUsesMappedModel/gpt-6.1-terra/messages\n--- PASS: TestGPT61ChatOnlyToolGateUsesMappedModel (0.00s)\n    --- PASS: TestGPT61ChatOnlyToolGateUsesMappedModel/gpt-6.1-sol/chat (0.00s)\n    --- PASS: TestGPT61ChatOnlyToolGateUsesMappedModel/gpt-6.1-sol/responses (0.00s)\n    --- PASS: TestGPT61ChatOnlyToolGateUsesMappedModel/gpt-6.1-sol/messages (0.00s)\n    --- PASS: TestGPT61ChatOnlyToolGateUsesMappedModel/gpt-6.1-terra/chat (0.00s)\n    --- PASS: TestGPT61ChatOnlyToolGateUsesMappedModel/gpt-6.1-terra/responses (0.00s)\n    --- PASS: TestGPT61ChatOnlyToolGateUsesMappedModel/gpt-6.1-terra/messages (0.00s)\n=== RUN   TestGrokCatalogMalformedResponsesNeverPersist\n--- PASS: TestGrokCatalogMalformedResponsesNeverPersist (0.00s)\n=== RUN   TestGrokResponsesPropagateAuditForJSONAndSSE\n--- PASS: TestGrokResponsesPropagateAuditForJSONAndSSE (0.00s)\n=== RUN   TestGrokBufferedAuditGatedAndBounded\n--- PASS: TestGrokBufferedAuditGatedAndBounded (0.00s)\nPASS\nok  \tgithub.com/Wei-Shaw/sub2api/internal/application/service\t0.078s\n",
+  "stderr": "",
+  "exit_status": 0,
+  "duration_seconds": 50.008,
+  "utc": "2026-10-27T13:50:47.785850+00:00"
+}

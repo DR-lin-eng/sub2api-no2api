@@ -77,7 +77,7 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
 		body = stripDistillationCacheFields(body)
 		promptCacheKey = ""
 	}
-	beginUpstreamResponseModelObservation(c)
+	beginAccountUpstreamResponseModelObservation(c, account)
 	beginOpenAITimingObservation(c)
 	ClearActualOpenAIUpstreamEndpoint(c)
 	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) {

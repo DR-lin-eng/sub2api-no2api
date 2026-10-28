@@ -1,0 +1,17 @@
+{
+  "command": [
+    "git",
+    "merge",
+    "--no-ff",
+    "origin/main",
+    "-m",
+    "Merge current main before upstream sync validation"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo",
+  "input": "",
+  "stdout": "Auto-merging backend/internal/application/service/README.md\nAuto-merging backend/internal/application/service/openai_gateway_forward.go\nAuto-merging docs/REQUEST_LIFECYCLES.md\nMerge made by the 'ort' strategy.\n backend/cmd/server/VERSION                         |   2 +-\n backend/internal/application/service/README.md     |   1 +\n .../application/service/openai_gateway_forward.go  |  40 ++--\n .../application/service/openai_ws_size_recovery.go | 164 ++++++++++++++\n .../service/openai_ws_size_recovery_test.go        |  97 ++++++++\n .../platform/config/config_gateway_types.go        |   4 +-\n .../http/handler/openai_ws_size_recovery_test.go   | 246 +++++++++++++++++++++\n deploy/config.example.yaml                         |   6 +\n docs/REQUEST_LIFECYCLES.md                         |  16 +-\n 9 files changed, 544 insertions(+), 32 deletions(-)\n create mode 100644 backend/internal/application/service/openai_ws_size_recovery.go\n create mode 100644 backend/internal/application/service/openai_ws_size_recovery_test.go\n create mode 100644 backend/internal/transport/http/handler/openai_ws_size_recovery_test.go\n",
+  "stderr": "",
+  "exit_status": 0,
+  "duration_seconds": 0.086,
+  "utc": "2026-10-27T14:14:37.559504+00:00"
+}

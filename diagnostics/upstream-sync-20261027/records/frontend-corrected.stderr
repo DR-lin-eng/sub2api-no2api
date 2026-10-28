@@ -1,0 +1,9 @@
+$ vue-tsc --noEmit
+
+<--- Last few GCs --->
+
+[187:0xffff84f30000]    17724 ms: Scavenge 1528.3 (1538.5) -> 1526.7 (1542.5) MB, pooled: 0 MB, 4.32 / 0.00 ms  (average mu = 0.340, current mu = 0.325) allocation failure; 
+[187:0xffff84f30000]    18523 ms: Mark-Compact (reduce) 1530.5 (1542.7) -> 1524.1 (1535.5) MB, pooled: 0 MB, 190.81 / 0.00 ms  (+ 559.1 ms in 60 steps since start of marking, biggest step 54.8 ms, walltime since start of marking 799 ms) (average mu = 0.32
+FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory
+----- Native stack trace -----
+

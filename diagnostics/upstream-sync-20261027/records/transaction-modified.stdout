@@ -1,0 +1,8 @@
+2026/10/27 14:40:17 Timezone initialized: UTC (UTC offset: +00:00)
+=== RUN   TestUpstreamSync20261027Transaction
+    upstream_sync_20261027_probe_test.go:17: TERRA model=gpt-6.1-terra effort=max
+    upstream_sync_20261027_probe_test.go:19: GROK invalid_catalog_rejected=true models=[]
+    upstream_sync_20261027_probe_test.go:26: GROK terminal=grok-4.6 conflict=true
+--- PASS: TestUpstreamSync20261027Transaction (0.00s)
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.014s

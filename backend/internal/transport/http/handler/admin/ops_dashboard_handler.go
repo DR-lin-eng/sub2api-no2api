@@ -2,6 +2,7 @@ package admin
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -407,6 +408,9 @@ func parseOpsRankedStatsFilter(c *gin.Context, defaultTimeRange string) (*servic
 			return nil, fmt.Errorf("invalid page_size")
 		}
 		filter.PageSize = pageSize
+	}
+	if filter.Page > math.MaxInt/filter.PageSize {
+		return nil, fmt.Errorf("invalid page")
 	}
 	return filter, nil
 }

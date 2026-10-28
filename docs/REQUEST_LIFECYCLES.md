@@ -173,6 +173,19 @@ HTTP SSE 等待响应头（包括换号后的等待）及响应体期间按
 WSv2 在首语义输出前耗尽内部重连预算时，会把读取/连接类失败转换为统一的
 账号 failover 信号；不会落到通用 `Upstream request failed`，也不会重放已经提交的语义事件。
 
+`gateway.openai_ws.http_bridge_enabled` 开启时，大消息的 HTTP 预分流同时覆盖原生 WS 首包
+与 HTTP 入站的账号预热路径；`http_bridge_threshold_bytes` 按未压缩 JSON 字节判断，默认
+15 MiB，不按 token 数估算。低于该阈值仍收到上游 `1009`（`message_too_big`，含预热）时，
+可完整重放且尚未交付语义内容的请求在同一账号尝试一次 HTTP Responses；普通 WS 读写断连
+则先消耗既有有限重连预算，再尝试同样的 HTTP 恢复。重选同账号不补充该请求的 WS 预算。
+HTTP 使用保存的完整原始 body，不携带预热生成的连接私有 response ID，也不继承预热改写的角色。
+
+显式 `store:true`、后台任务、服务端 conversation、`previous_response_id`、未配对工具结果、
+未解析的 item reference、托管工具副作用和已输出内容不进入这项恢复；完整配对的本地工具
+调用历史可以原样重放。蒸馏分组和强制原连接续接保持原有停止边界。HTTP 返回上下文超限时
+仍保留原始 400；传输恢复不能提高模型上下文窗口。不可恢复的 1009 保留明确的
+`502/upstream_error` 提示；心跳已提交 200 时只写一次 `response.failed`，避免重复终止或混合 JSON/SSE。
+
 HTTP Responses 流中的显式 `server_error` 在首语义输出前进入既有有界恢复流程，
 中间失败事件不向客户端提交；确定性的上下文或策略拒绝仍保留原语义。
 恢复成功时，客户端在原连接收到成功账号的流。已输出内容后发生的失败不重放请求；
@@ -622,3 +635,7 @@ OpenAI API-key `/v1/messages` 的纯搜索请求在协议转换前经过既有�
 ### 2026-10-26 图片按张计费
 
 OpenAI/composite 分组的 `image_count_billing` 默认关闭；开启后仅专用 Images 端点按实际出图张数结算，混合 Responses/Chat/WS 继续 token 定价。字段经当前分组 owner 与鉴权快照 26 传递，保留可靠结算；全部节点升级后再开启。升级、回退及上游差异状态见 [同步审查](UPSTREAM_SYNC_20261026.md)。
+
+### 2026-10-27 Grok 目录与响应审计
+
+Grok 目录复用现有 modelcatalog 的有界读取、原子快照和旧节点写入保护；详情诊断不进入网关热路径。Grok Responses 和缓冲兼容响应补齐原始模型/冲突位，沿用当前渠道 response_model 的不增价规则。Sol/Terra Chat-only 账号的工具调用在映射后返回协议 400。升级与冻结差异见 [本轮同步记录](UPSTREAM_SYNC_20261027.md)。

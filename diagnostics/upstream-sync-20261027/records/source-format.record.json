@@ -1,0 +1,22 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "-v",
+    "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo:/src",
+    "-w",
+    "/src/backend",
+    "sub2api-sync-tests:20261026",
+    "sh",
+    "-c",
+    "gofmt -w internal/application/service/openai_compat_model.go internal/application/service/openai_compat_tool_model.go internal/application/service/openai_gateway_chat_completions_raw.go internal/application/service/openai_gateway_messages_chat_fallback.go internal/application/service/openai_gateway_responses_chat_fallback.go internal/application/service/upstream_model_catalog.go internal/application/service/upstream_models.go internal/application/service/grok_model_catalog.go internal/application/service/openai_gateway_forward.go internal/application/service/openai_gateway_messages.go internal/application/service/openai_gateway_chat_completions.go internal/application/service/openai_gateway_grok.go internal/application/service/upstream_response_model.go internal/modules/modelcatalog/catalog.go internal/modules/modelcatalog/grok.go internal/shared/apicompat/anthropic_to_responses.go internal/shared/apicompat/gpt61.go internal/transport/http/handler/admin/account_handler.go internal/transport/http/handler/dto/types.go"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo",
+  "input": "",
+  "stdout": "",
+  "stderr": "",
+  "exit_status": 0,
+  "duration_seconds": 0.402,
+  "utc": "2026-10-27T13:46:32.870942+00:00"
+}

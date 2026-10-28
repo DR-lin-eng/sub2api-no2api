@@ -1,0 +1,87 @@
+[
+  {
+    "merge_sha": "b332f169f9c6c10722016ff7a09bc9c9658a3152",
+    "title": "Merge pull request #8364 from wucm667/feat/issue-8363-gpt61-terra",
+    "diff_sha256": "b229b7468006c32019afec39b83068cce8037b36bad8bc62807b39da29205d32",
+    "pr": 8364,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8364",
+    "status": "selectively-ported-and-closed",
+    "fully_closed": true,
+    "parts": [
+      {
+        "part": "model catalog, pricing, capabilities, Codex identity, frontend presets",
+        "status": "covered-local-pr161",
+        "closed": true,
+        "decision": "Retain current pricing and Ultrafast policies; no repeated model sync."
+      },
+      {
+        "part": "Sol/Terra compat suffix effort and mapped Chat-only tools",
+        "status": "ported",
+        "closed": true,
+        "decision": "Preserve exact modern effort; retain fork unsupported effort normalization."
+      }
+    ],
+    "reopen_condition": "Only new upstream semantics or a demonstrated regression in the current owning source; do not replay these closed differences.",
+    "current_owners": [
+      "backend/internal/application/service/openai_compat_model.go",
+      "backend/internal/application/service/openai_compat_tool_model.go",
+      "backend/internal/shared/apicompat",
+      "frontend/src/features/admin-accounts"
+    ]
+  },
+  {
+    "merge_sha": "15701ba187af5827d740901d53421bd69ed97717",
+    "title": "Merge pull request #8339 from aomsir/fix/grok-model-catalog-audit",
+    "diff_sha256": "2e1ca0ff4171d138b54a7e4c9ef8303a5968e300c7dc3a1ac8ff042d64094180",
+    "pr": 8339,
+    "url": "https://github.com/Wei-Shaw/sub2api/pull/8339",
+    "status": "selectively-ported-and-closed",
+    "fully_closed": true,
+    "parts": [
+      {
+        "part": "strict complete catalog, string IDs and admin-only pure diagnostics",
+        "status": "ported",
+        "closed": true,
+        "decision": "Reuse bounded paginated modelcatalog; only fresh same-source evidence can report absent."
+      },
+      {
+        "part": "snapshot CAS/generation, stale forms, old binary writes and account identity",
+        "status": "covered-current-owner",
+        "closed": true,
+        "decision": "Reuse UpdateUpstreamModelCatalog, row locks, outbox and migration 249. No second key/store."
+      },
+      {
+        "part": "Grok Responses raw model fields and buffered SSE conflicts",
+        "status": "ported",
+        "closed": true,
+        "decision": "Reuse constant-size observer and existing non-increasing response-model billing."
+      },
+      {
+        "part": "second Grok observation store, quota-triggered background lookup and persisted failure attempts",
+        "status": "intentional-local-divergence",
+        "closed": true,
+        "decision": "Reuse existing OAuth model refresh and manual sync; fail visibly and retain last success. Avoid another per-account task and store."
+      },
+      {
+        "part": "retain diagnostic snapshot after account identity changes",
+        "status": "intentional-local-divergence",
+        "closed": true,
+        "decision": "Keep current identity isolation: clear obsolete snapshot. Never reuse old credential/source facts."
+      },
+      {
+        "part": "Grok whitelist sync mutates selected models",
+        "status": "intentional-local-divergence",
+        "closed": true,
+        "decision": "Live results are options; explicit selection controls whitelist. Other providers unchanged."
+      }
+    ],
+    "reopen_condition": "Only new upstream semantics or a demonstrated regression in the current owning source; do not replay these closed differences.",
+    "current_owners": [
+      "backend/internal/modules/modelcatalog",
+      "backend/internal/application/service/grok_model_catalog.go",
+      "backend/internal/application/service/upstream_model_catalog.go",
+      "backend/internal/application/service/upstream_response_model.go",
+      "frontend/src/features/admin-accounts"
+    ]
+  }
+]

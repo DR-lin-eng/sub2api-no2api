@@ -1,0 +1,122 @@
+(1/1) Installing make (4.4.1-r4)
+Executing busybox-1.37.0-r31.trigger
+OK: 11.4 MiB in 20 packages
+make[1]: Entering directory '/src'
+
+[1m[46m RUN [49m[22m [36mv3.2.6 [39m[90m/src/frontend[39m
+
+ [32m✓[39m src/__tests__/dynamicLocaleMapping.spec.ts [2m([22m[2m1 test[22m[2m)[22m[32m 241[2mms[22m[39m
+ [32m✓[39m src/core/i18n/__tests__/routeLocaleCoverage.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 4708[2mms[22m[39m
+   [33m[2m✓[22m[39m locale coverage[2m > [22mresolves every static locale key used by runtime source [33m 1044[2mms[22m[39m
+   [33m[2m✓[22m[39m locale coverage[2m > [22mloads every statically reachable message for every route [33m 3652[2mms[22m[39m
+ [32m✓[39m src/features/admin-settings/__tests__/SettingsPage.spec.ts [2m([22m[2m55 tests[22m[2m)[22m[33m 8393[2mms[22m[39m
+   [33m[2m✓[22m[39m admin SettingsView payment visible method controls[2m > [22mloads, saves and restores request timezone controls from gateway settings [33m 337[2mms[22m[39m
+   [33m[2m✓[22m[39m admin SettingsView payment visible method controls[2m > [22mplaces and explains rate controls for both scheduling modes [33m 320[2mms[22m[39m
+ [32m✓[39m src/core/__tests__/credentialCryptoUsage.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 647[2mms[22m[39m
+   [33m[2m✓[22m[39m credential crypto dependency scope[2m > [22mconfines node-forge imports to the credential encryption fallback [33m 607[2mms[22m[39m
+ [32m✓[39m src/features/admin-usage/__tests__/UsageTable.spec.ts [2m([22m[2m22 tests[22m[2m)[22m[33m 792[2mms[22m[39m
+ [32m✓[39m src/features/auth/__tests__/WechatCallbackView.spec.ts [2m([22m[2m25 tests[22m[2m)[22m[33m 565[2mms[22m[39m
+ [32m✓[39m src/features/auth/__tests__/LinuxDoCallbackView.spec.ts [2m([22m[2m17 tests[22m[2m)[22m[33m 415[2mms[22m[39m
+ [32m✓[39m src/features/billing/__tests__/PaymentPage.spec.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 294[2mms[22m[39m
+ [32m✓[39m src/features/profile/__tests__/ProfileInfoCard.spec.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 359[2mms[22m[39m
+ [32m✓[39m src/common/pages/__tests__/HomePageCompact.spec.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 300[2mms[22m[39m
+ [32m✓[39m src/features/admin-usage/__tests__/UsageDetailDialog.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 256[2mms[22m[39m
+ [32m✓[39m src/features/billing/__tests__/PaymentResultPage.spec.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 254[2mms[22m[39m
+ [32m✓[39m src/common/widgets/data/__tests__/GroupOptionItem.spec.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 423[2mms[22m[39m
+ [32m✓[39m src/features/auth/__tests__/authProfileLocaleScopes.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 84[2mms[22m[39m
+ [32m✓[39m src/features/admin-usage/__tests__/UsageStatsCards.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 100[2mms[22m[39m
+ [32m✓[39m src/features/billing/__tests__/paymentLocaleScopes.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 50[2mms[22m[39m
+ [32m✓[39m src/core/utils/__tests__/homeContent.spec.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 68[2mms[22m[39m
+ [32m✓[39m src/core/routes/__tests__/adminRouteAccess.spec.ts [2m([22m[2m1 test[22m[2m)[22m[32m 88[2mms[22m[39m
+ [32m✓[39m src/features/channels-user/__tests__/customPageHtml.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 56[2mms[22m[39m
+ [32m✓[39m src/__tests__/dynamicHtmlSecurity.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+ [32m✓[39m src/features/prompt-audit/__tests__/RuntimeOverview.spec.ts [2m([22m[2m1 test[22m[2m)[22m[32m 34[2mms[22m[39m
+ [32m✓[39m src/core/utils/__tests__/embedded-url.spec.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+ [32m✓[39m src/core/utils/__tests__/usageLocale.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/features/channel-monitor-user/__tests__/channelMonitorLocale.spec.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/features/prompt-audit/__tests__/promptAuditLocale.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/features/subscriptions/__tests__/subscriptionStatus.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m src/features/channels-user/__tests__/CustomLandingPage.security.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/features/admin-backup/presentation/pages/__tests__/backupStatus.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/common/widgets/layout/__tests__/AppHeaderResponsive.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m29 passed[39m[22m[90m (29)[39m
+[2m      Tests [22m [1m[32m248 passed[39m[22m[90m (248)[39m
+[2m   Start at [22m 14:03:18
+[2m   Duration [22m 74.57s[2m (transform 9.06s, setup 3.79s, collect 24.88s, tests 18.24s, environment 17.07s, prepare 2.60s)[22m
+
+make[1]: Leaving directory '/src'
+✓ Lockfile passes supply-chain policies (verified 5d ago)
+Lockfile is up to date, resolution step is skipped
+Already up to date
+
+Done in 3.4s using pnpm v11.17.0
+
+[1m[46m RUN [49m[22m [36mv3.2.6 [39m[90m/src/frontend[39m
+
+ [32m✓[39m src/features/admin-accounts/__tests__/EditAccountModal.spec.ts [2m([22m[2m48 tests[22m[2m)[22m[33m 2877[2mms[22m[39m
+   [33m[2m✓[22m[39m EditAccountModal[2m > [22mpersists BPS per OAuth account and explicitly overrides a legacy true when disabled [33m 382[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/AccountUsageCell.spec.ts [2m([22m[2m37 tests[22m[2m)[22m[32m 147[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/BulkEditAccountModal.spec.ts [2m([22m[2m40 tests[22m[2m)[22m[33m 2233[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/CreateAccountModal.spec.ts [2m([22m[2m29 tests[22m[2m)[22m[33m 2073[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/OpenAIQuotaResetCell.spark_shadow.spec.ts [2m([22m[2m20 tests[22m[2m)[22m[33m 437[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/credentialsBuilder.spec.ts [2m([22m[2m57 tests[22m[2m)[22m[32m 41[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/UpstreamBillingRateCell.spec.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 334[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/AccountsPage.bulkEdit.spec.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 445[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/AccountsPage.sparkShadow.spec.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 421[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/AccountsPage.upstreamQuota.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 379[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/AccountsPage.schedulerScore.spec.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 440[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/adminAccountsModularization.spec.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 99[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/EditAccountModal.grokUpstream.spec.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 456[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/adminAccountActions.spec.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/AdminAccountTestDialog.spec.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 272[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/EditAccountDialog.cpa.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 324[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/OllamaCloudUsageSettings.spec.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 113[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/AccountsPage.usageWindowsHint.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 280[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/AccountStatusIndicator.spec.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 94[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/AccountActionMenu.spark_shadow.spec.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 174[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/adminAccountQueries.spec.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/AccountTestModal.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 148[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/accountSelection.spec.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/AccountPriorityCell.spec.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 135[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/AccountActionMenu.position.spec.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 140[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/adminAccounts.ollamaCloudUsage.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/UsageProgressBar.spec.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 53[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/ModelWhitelistSelector.spec.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 135[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/SyncFromCrsDialog.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 60[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/adminAccounts.upstreamBillingProbe.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/CNProviderUsageCell.spec.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 115[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/AccountCapacityCell.cpa.spec.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 57[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/adminAccountOAuthActions.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/presentation/widgets/__tests__/ScheduledTestsPanel.results.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 281[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/OllamaCloudUsageCell.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 77[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/AccountTableFilters.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 91[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/useAccountUpstreamModelSync.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/grokPlanResolver.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/AccountBulkActionsBar.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 54[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/scheduledTestsDatasource.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/adminAccounts.duplicate.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/presentation/composables/__tests__/useGrokOAuth.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/GrokModelDiagnosticsPanel.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 70[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/presentation/composables/__tests__/useModelWhitelist.spec.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/presentation/composables/__tests__/useOpenAIOAuth.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/accountLocale.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/CreateAccountModal.grok.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/presentation/composables/__tests__/useQuotaNotifyState.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/GrokQuotaProbeCell.spec.ts [2m([22m[2m1 test[22m[2m)[22m[32m 91[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/AccountActionMenu.cpa.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 42[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/accountFilterState.spec.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/presentation/composables/__tests__/useAntigravityOAuth.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/accountSortState.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/tempUnschedScope.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/codexFingerprintSignals.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/typesafeCapabilities.spec.ts [2m([22m[2m1 test[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/adminGrok.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/accountExpiry.spec.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/features/admin-accounts/__tests__/accountFormPolicy.codexFingerprint.spec.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m59 passed[39m[22m[90m (59)[39m
+[2m      Tests [22m [1m[32m511 passed[39m[22m[90m (511)[39m
+[2m   Start at [22m 14:04:41
+[2m   Duration [22m 94.81s[2m (transform 16.47s, setup 4.85s, collect 29.02s, tests 13.37s, environment 27.91s, prepare 5.12s)[22m
+

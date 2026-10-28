@@ -1,0 +1,28 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=4g",
+    "-v",
+    "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo:/src",
+    "-v",
+    "sub2api-go-mod:/go/pkg/mod",
+    "-v",
+    "sub2api-go-build:/root/.cache/go-build",
+    "-w",
+    "/src/backend",
+    "sub2api-sync-tests:20261026",
+    "sh",
+    "-c",
+    "gofmt -w internal/modules/modelcatalog/grok*.go internal/application/service/upstream_sync_20261027*.go internal/application/service/openai_compat_model.go internal/shared/apicompat/gpt61.go && go test -tags=unit ./internal/modules/modelcatalog ./internal/shared/apicompat ./internal/application/service -run \"TestGrokCatalog|TestGPT61Compat|TestGPT61ChatOnly|TestGrokResponsesPropagate|TestGrokBuffered|TestUpstreamSync20261027\" -v -count=1"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo",
+  "input": "",
+  "stdout": "=== RUN   TestGrokCatalogDiagnosticsTrustAndNoMutation\n=== RUN   TestGrokCatalogDiagnosticsTrustAndNoMutation/fresh\n=== RUN   TestGrokCatalogDiagnosticsTrustAndNoMutation/stale\n=== RUN   TestGrokCatalogDiagnosticsTrustAndNoMutation/old\n=== RUN   TestGrokCatalogDiagnosticsTrustAndNoMutation/changed\n=== RUN   TestGrokCatalogDiagnosticsTrustAndNoMutation/future\n--- PASS: TestGrokCatalogDiagnosticsTrustAndNoMutation (0.00s)\n    --- PASS: TestGrokCatalogDiagnosticsTrustAndNoMutation/fresh (0.00s)\n    --- PASS: TestGrokCatalogDiagnosticsTrustAndNoMutation/stale (0.00s)\n    --- PASS: TestGrokCatalogDiagnosticsTrustAndNoMutation/old (0.00s)\n    --- PASS: TestGrokCatalogDiagnosticsTrustAndNoMutation/changed (0.00s)\n    --- PASS: TestGrokCatalogDiagnosticsTrustAndNoMutation/future (0.00s)\n=== RUN   TestGrokCatalogStringAndDualListsMetadata\n--- PASS: TestGrokCatalogStringAndDualListsMetadata (0.00s)\nPASS\nok  \tgithub.com/Wei-Shaw/sub2api/internal/modules/modelcatalog\t0.002s\ntesting: warning: no tests to run\nPASS\nok  \tgithub.com/Wei-Shaw/sub2api/internal/shared/apicompat\t0.006s [no tests to run]\nFAIL\tgithub.com/Wei-Shaw/sub2api/internal/application/service [build failed]\nFAIL\n",
+  "stderr": "# github.com/Wei-Shaw/sub2api/internal/application/service [github.com/Wei-Shaw/sub2api/internal/application/service.test]\ninternal/application/service/openai_compat_model.go:67:10: not enough return values\n\thave (string)\n\twant (string, string, bool)\ninternal/application/service/upstream_sync_20261027_test.go:62:101: too many arguments in call to svc.forwardAnthropicViaRawChatCompletions\n\thave (\"context\".Context, *gin.Context, *Account, []byte, string, \"time\".Time)\n\twant (\"context\".Context, *gin.Context, *Account, []byte, string)\ninternal/application/service/upstream_sync_20261027_test.go:83:42: cannot use repo (variable of type *catalogSyncRepoStub) as AccountRepository value in struct literal: *catalogSyncRepoStub does not implement AccountRepository (missing method AutoPauseExpiredAccounts)\n",
+  "exit_status": 1,
+  "duration_seconds": 5.726,
+  "utc": "2026-10-27T13:49:18.188098+00:00"
+}

@@ -1,0 +1,29 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=3g",
+    "-e",
+    "CI=true",
+    "--entrypoint",
+    "sh",
+    "-v",
+    "/private/tmp/sub2api-sync-20261028-zrr48pfp/repo:/app",
+    "-v",
+    "sub2api-sync-node-modules-20261028:/app/frontend/node_modules",
+    "-w",
+    "/app/frontend",
+    "sub2api-sync-node:20261027",
+    "-c",
+    "./node_modules/.bin/eslint . && ./node_modules/.bin/vue-tsc --noEmit && ./node_modules/.bin/vitest run src/common/widgets/data/__tests__/GroupOptionItem.spec.ts src/common/widgets/layout/__tests__/AppHeaderResponsive.spec.ts src/core/i18n/__tests__/routeLocaleCoverage.spec.ts src/__tests__/dynamicLocaleMapping.spec.ts src/core/__tests__/credentialCryptoUsage.spec.ts src/core/routes/__tests__/adminRouteAccess.spec.ts src/features/auth/__tests__/authProfileLocaleScopes.spec.ts src/features/billing/__tests__/paymentLocaleScopes.spec.ts src/features/subscriptions/__tests__/subscriptionStatus.spec.ts src/features/admin-backup/presentation/pages/__tests__/backupStatus.spec.ts src/core/utils/__tests__/usageLocale.spec.ts src/core/utils/__tests__/embedded-url.spec.ts src/core/utils/__tests__/homeContent.spec.ts src/__tests__/dynamicHtmlSecurity.spec.ts src/common/pages/__tests__/HomePageCompact.spec.ts src/features/channels-user/__tests__/customPageHtml.spec.ts src/features/channel-monitor-user/__tests__/channelMonitorLocale.spec.ts src/features/channels-user/__tests__/CustomLandingPage.security.spec.ts src/features/prompt-audit/__tests__/promptAuditLocale.spec.ts src/features/prompt-audit/__tests__/RuntimeOverview.spec.ts src/features/admin-usage/__tests__/UsageDetailDialog.spec.ts src/features/admin-usage/__tests__/UsageStatsCards.spec.ts src/features/admin-usage/__tests__/UsageTable.spec.ts src/features/auth/__tests__/LinuxDoCallbackView.spec.ts src/features/auth/__tests__/WechatCallbackView.spec.ts src/features/billing/__tests__/PaymentPage.spec.ts src/features/billing/__tests__/PaymentResultPage.spec.ts src/features/profile/__tests__/ProfileInfoCard.spec.ts src/features/admin-settings/__tests__/SettingsPage.spec.ts"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261028-zrr48pfp/repo",
+  "input": "",
+  "stdout": "",
+  "stderr": "\n<--- Last few GCs --->\n\n[23:0xffff84c10000]    25743 ms: Scavenge 1529.9 (1538.2) -> 1528.2 (1538.5) MB, pooled: 0 MB, 1.84 / 0.00 ms  (average mu = 0.296, current mu = 0.261) allocation failure; \n[23:0xffff84c10000]    26458 ms: Mark-Compact 1530.1 (1538.5) -> 1525.0 (1542.5) MB, pooled: 0 MB, 710.60 / 0.00 ms  (average mu = 0.261, current mu = 0.225) allocation failure; scavenge might not succeed\n\nFATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory\n----- Native stack trace -----\n\nAborted\n",
+  "exit_status": 134,
+  "duration_seconds": 52.925,
+  "utc": "2026-10-27T16:41:42.650861+00:00"
+}

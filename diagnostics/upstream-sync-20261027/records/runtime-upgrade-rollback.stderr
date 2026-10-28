@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo/diagnostics/upstream-sync-20261027/runtime/check.py", line 178, in <module>
+    assert code==200,(stage,platform,stream,code,str(value)[:160])
+           ^^^^^^^^^
+AssertionError: ('BASELINE', 'openai', False, 403, "{'error': {'message': 'This group does not allow /v1/messages dispatch', 'type': 'permission_error'}, 'type': 'error'}")

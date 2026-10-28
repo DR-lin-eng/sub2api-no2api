@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/private/tmp/sub2api-sync-20261028-zrr48pfp/repo/diagnostics/upstream-sync-20261028/runtime/check.py", line 219, in <module>
+    sent=provider('/fixture/last');assert sent['bytes']==sent_bytes,(stage,'truncated upload',sent['bytes'],sent_bytes)
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ('MODIFIED', 'truncated upload', 22020572, 22020428)

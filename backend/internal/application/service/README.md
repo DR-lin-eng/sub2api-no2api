@@ -12,6 +12,8 @@
 | `gateway_systemone.go`, `account_test_service_typesafe.go` | TypeSafe 原生非流式转发与账号测试，复用完整账号出口和可靠计费 |
 | `openai*` | OpenAI/Codex/Responses/Images/WS 管线 |
 | `openai_capacity_retry.go` | 请求级容量错误的 HTTP/SSE/WS 等待提示解析；有限数值先限幅，沿用现有重试预算 |
+| `openai_ws_size_recovery.go` | 大 JSON 请求的 HTTP 预分流、1009/断连后一次安全回退与完整历史重放边界 |
+| `openai_ws_fallback_response.go` | WS 终止错误的 HTTP/SSE 映射、1009 大小限制提示与已提交响应保护 |
 | `openai_live*` | Codex CLI/旧 Desktop Live、Sideband 控制、分钟结算和持久恢复 |
 | `gemini*`, `grok*`, `antigravity*`, `bedrock*` | 各上游协议适配与重试 |
 | `scheduler*`, `channel*`, `ratelimit*`, `concurrency*` | 调度、通道和并发控制 |
@@ -89,3 +91,7 @@ GPT-6.1 Sol 的订阅模型长上下文豁免由 `openai_subscription_long_conte
 `gateway_forward_compat_stream.go` 和 `gateway_forward_compat_idle.go` 管理 Anthropic 兼容流的字节级扫描、阻塞读取超时和断连后最终用量；`account_quota_support.go`、`request_metadata_single_account.go` 分别维护 service account 配额类型和请求内延迟单账号探测。Gemini 图片权限、工具 schema 和关闭台账见 [2026-10-22 同步审查](../../../../docs/UPSTREAM_SYNC_20261022.md)。
 
 `billing_grok_fast.go` 持有 Grok 4.7 Fast 的明确 ID 与内置兜底价；捆绑快照使用本项目已支持的显式长上下文字段。两个 Fast ID、边界与价格优先级见 [#8170 同步记录](../../../../docs/UPSTREAM_SYNC_20261022_PR8170.md)。
+
+`grok_model_catalog.go` performs strict Grok catalog parsing and computes a source fingerprint. It reuses modelcatalog persistence and the existing OAuth model worker. Detail diagnostics are pure; `openai_compat_tool_model.go` enforces mapped Sol/Terra tools on Responses-capable paths. See [2026-10-27 sync](../../../../docs/UPSTREAM_SYNC_20261027.md).
+
+Claude 指纹的 UTF-16 前缀、Gemini fileData 计图、DeepSeek Pro/缓存读取、OpenCode 角色、模型广场固定价及上传完整性见 [2026-10-28 同步记录](../../../../docs/UPSTREAM_SYNC_20261028.md)。非流式畸形工具调用复用有界 collector 并返回明确 502；没有替换既有调度与可靠结算。

@@ -1,0 +1,37 @@
+$ eslint .
+$ vue-tsc --noEmit
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/__tests__/dynamicLocaleMapping.spec.ts[2m > [22mdynamic locale mapping gate[2m > [22mrequires every dynamic translation key construction to be explicitly reviewed
+[31m[1mAssertionError[22m: expected { …(64) } to deeply equal { …(62) }[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[33m@@ -16,10 +16,12 @@[39m
+[2m    "features/admin-accounts/presentation/accountEditUpdatePayload.ts :: `admin.accounts.headerOverride.${headerError}`": 2,[22m
+[2m    "features/admin-accounts/presentation/widgets/BulkEditAccountDialog.vue :: `admin.accounts.headerOverride.${headerError}`": 1,[22m
+[2m    "features/admin-accounts/presentation/widgets/CNProviderUsageCell.vue :: `admin.accounts.cnProvider.window.${window}`": 1,[22m
+[2m    "features/admin-accounts/presentation/widgets/CreateAccountDialog.vue :: `admin.accounts.headerOverride.${headerError}`": 2,[22m
+[2m    "features/admin-accounts/presentation/widgets/GrokBaseUrlPresets.vue :: `admin.accounts.grokCustomBaseUrl.presets.${preset.labelKey}`": 1,[22m
+[31m+   "features/admin-accounts/presentation/widgets/GrokModelDiagnosticsPanel.vue :: `admin.accounts.grokCatalog.state.${diagnostics.state}`": 1,[39m
+[31m+   "features/admin-accounts/presentation/widgets/GrokModelDiagnosticsPanel.vue :: `admin.accounts.grokCatalog.status.${mapping.status}`": 1,[39m
+[2m    "features/admin-accounts/presentation/widgets/QuotaDimensionRow.vue :: 'admin.accounts.dayOfWeek.' + d.key": 1,[22m
+[2m    "features/admin-accounts/presentation/widgets/QuotaLimitCard.vue :: 'admin.accounts.dayOfWeek.' + dayKey": 1,[22m
+[2m    "features/admin-channels/presentation/adminChannelSignals.ts :: `admin.channels.intervalValidation.${key}`": 1,[22m
+[2m    "features/admin-channels/presentation/adminChannelSignals.ts :: `admin.channels.intervalValidation.price.${key}`": 1,[22m
+[2m    "features/admin-groups/presentation/composables/useCreateGroupController.ts :: `admin.groups.profitControl.${profitControlError}`": 1,[22m
+
+[36m [2m❯[22m src/__tests__/dynamicLocaleMapping.spec.ts:[2m112:8[22m[39m
+    [90m110| [39m  it('requires every dynamic translation key construction to be explic…
+    [90m111| [39m    expect(Object.fromEntries([...dynamicLocaleCalls()].sort(([left], …
+    [90m112| [39m      [33m.[39m[34mtoEqual[39m(auditedDynamicCalls)
+    [90m   | [39m       [31m^[39m
+    [90m113| [39m  })
+    [90m114| [39m})
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+make[1]: *** [Makefile:60: test-frontend-critical] Error 1
+make: *** [Makefile:57: test-frontend] Error 2

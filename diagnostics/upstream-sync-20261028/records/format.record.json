@@ -1,0 +1,22 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "-v",
+    "/private/tmp/sub2api-sync-20261028-zrr48pfp/repo:/src",
+    "-w",
+    "/src/backend",
+    "sub2api-sync-tests:20261026",
+    "sh",
+    "-c",
+    "git_status_unused=1; gofmt -w internal/application/service/gateway_billing_block.go internal/application/service/gateway_billing_block_utf16_test.go internal/application/service/gemini_image_output_accounting.go internal/application/service/gemini_image_output_accounting_test.go internal/application/service/billing_service.go internal/application/service/deepseek_pricing_sync_test.go internal/application/service/channel_plaza.go internal/application/service/openai_chat_roles.go internal/application/service/openai_usage_deepseek_cache_test.go internal/application/service/antigravity_gateway_nonstream_malformed_test.go internal/application/service/openai_images_upload_limit_test.go internal/application/service/upstream_sync_20261028_probe_test.go internal/shared/pagination/pagination.go"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261028-zrr48pfp/repo",
+  "input": "",
+  "stdout": "",
+  "stderr": "",
+  "exit_status": 0,
+  "duration_seconds": 0.458,
+  "utc": "2026-10-27T16:29:10.885160+00:00"
+}

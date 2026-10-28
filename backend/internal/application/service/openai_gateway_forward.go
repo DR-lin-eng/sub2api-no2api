@@ -32,7 +32,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		requestCtx := context.WithValue(c.Request.Context(), openAIStreamRuntimeSettingsContextKey{}, settings)
 		c.Request = c.Request.WithContext(requestCtx)
 	}
-	beginUpstreamResponseModelObservation(c)
+	beginAccountUpstreamResponseModelObservation(c, account)
 	beginOpenAITimingObservation(c)
 	ClearActualOpenAIUpstreamEndpoint(c)
 	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) || shouldForwardDeepSeekCompatViaChatCompletions(c, account, body) {
@@ -650,7 +650,11 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		return nil, err
 	}
 
-	// 命中 WS 时仅走 WebSocket Mode；不再自动回退 HTTP。
+	if wsDecision.Transport == OpenAIUpstreamTransportResponsesWebsocketV2 && s.shouldBypassOpenAIWSForSize(ctx, c, account, body, canonicalImageIntentBody) {
+		s.markOpenAIWSHTTPRecovery(c, account, body, "ws_request_size_http")
+		wsDecision = openAIWSHTTPDecision("ws_request_size_http")
+	}
+	// Keep reconnects bounded; size failures may recover once through HTTP.
 	if wsDecision.Transport == OpenAIUpstreamTransportResponsesWebsocketV2 {
 		// WS 分支需要结构化 payload 与重连恢复，命中后再触发 full-map decode。
 		wsReqBody, err := ensureReqBody()
@@ -918,32 +922,18 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		// Keepalive comments may already have committed HTTP 200, but they are not
 		// semantic output and must not prevent a replay-safe WS-to-HTTP fallback.
 		canReplayThroughHTTP := !openAIStreamClientOutputStarted(c, false)
-		if canReplayThroughHTTP {
-			// The WS reconnect budget is exhausted for transport/read failures.
-			// Surface the common failover type so the HTTP handler can switch
-			// accounts; otherwise an internal openAIWSFallbackError falls through
-			// to the generic "Upstream request failed" response.
-			if _, retryable := classifyOpenAIWSReconnectReason(wsErr); retryable {
-				return nil, s.newOpenAIWSReconnectFailoverError(c, account, wsErr)
-			}
-		}
-		if canReplayThroughHTTP && !codexContinuationRecoveryForbidden(c) && (shouldFallbackOpenAIWSToHTTP(wsErr) ||
-			shouldFallbackCodexPrewarmWSForbiddenToHTTP(account, wsErr)) {
-			// The WS handshake/error event happened before any semantic output was
-			// written. Reuse the original request body through the normal HTTP
-			// Responses/SSE pipeline so callers receive one consistent response.
-			s.markOpenAIWSFallbackCooling(account.ID, "websocket_unavailable")
+
+		if canReplayThroughHTTP && !codexContinuationRecoveryForbidden(c) && s.prepareOpenAIWSHTTPFallback(ctx, c, account, wsErr, body, canonicalImageIntentBody) {
 			wsDecision = openAIWSHTTPDecision("ws_fallback_http_sse")
-			if c != nil {
-				c.Set("openai_ws_transport_decision", string(wsDecision.Transport))
-				c.Set("openai_ws_transport_reason", wsDecision.Reason)
-			}
-			logOpenAIWSModeInfo(
-				"fallback_http_sse account_id=%d reason=upstream_websocket_unavailable cooldown=%s",
-				account.ID,
-				s.openAIWSFallbackCooldown(),
-			)
+			// Discard prewarm mutations; HTTP must replay the immutable full body.
+			reqBody = nil
+			requestView = newOpenAIRequestView(body)
 		} else {
+			if canReplayThroughHTTP {
+				if _, retryable := classifyOpenAIWSReconnectReason(wsErr); retryable {
+					return nil, s.newOpenAIWSReconnectFailoverError(c, account, wsErr)
+				}
+			}
 			if authFailover := s.newOpenAIWSDialAuthFailover(ctx, account, upstreamModel, wsErr); authFailover != nil {
 				return nil, authFailover
 			}

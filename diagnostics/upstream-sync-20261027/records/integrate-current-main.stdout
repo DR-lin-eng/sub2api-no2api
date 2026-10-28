@@ -1,0 +1,17 @@
+Auto-merging backend/internal/application/service/README.md
+Auto-merging backend/internal/application/service/openai_gateway_forward.go
+Auto-merging docs/REQUEST_LIFECYCLES.md
+Merge made by the 'ort' strategy.
+ backend/cmd/server/VERSION                         |   2 +-
+ backend/internal/application/service/README.md     |   1 +
+ .../application/service/openai_gateway_forward.go  |  40 ++--
+ .../application/service/openai_ws_size_recovery.go | 164 ++++++++++++++
+ .../service/openai_ws_size_recovery_test.go        |  97 ++++++++
+ .../platform/config/config_gateway_types.go        |   4 +-
+ .../http/handler/openai_ws_size_recovery_test.go   | 246 +++++++++++++++++++++
+ deploy/config.example.yaml                         |   6 +
+ docs/REQUEST_LIFECYCLES.md                         |  16 +-
+ 9 files changed, 544 insertions(+), 32 deletions(-)
+ create mode 100644 backend/internal/application/service/openai_ws_size_recovery.go
+ create mode 100644 backend/internal/application/service/openai_ws_size_recovery_test.go
+ create mode 100644 backend/internal/transport/http/handler/openai_ws_size_recovery_test.go

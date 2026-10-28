@@ -1,0 +1,25 @@
+{
+  "baseline": "a8ced32f6d32f41156644495fde3924e1a903c26",
+  "baseline_tree": "2e9c51e7d79f10f680e48eabe3efafa75e12b1d7",
+  "previous_upstream": "ba81c7fd758e425d67f856d601147ef0c5263d3f",
+  "upstream": "15701ba187af5827d740901d53421bd69ed97717",
+  "first_parent_entries": 2,
+  "all_commits": 24,
+  "inherited_ledgers": [
+    "diagnostics/upstream-sync-20261026/UPSTREAM_PRS.json"
+  ],
+  "entries": [
+    {
+      "merge_sha": "b332f169f9c6c10722016ff7a09bc9c9658a3152",
+      "title": "Merge pull request #8364 from wucm667/feat/issue-8363-gpt61-terra",
+      "diff_sha256": "b229b7468006c32019afec39b83068cce8037b36bad8bc62807b39da29205d32"
+    },
+    {
+      "merge_sha": "15701ba187af5827d740901d53421bd69ed97717",
+      "title": "Merge pull request #8339 from aomsir/fix/grok-model-catalog-audit",
+      "diff_sha256": "2e1ca0ff4171d138b54a7e4c9ef8303a5968e300c7dc3a1ac8ff042d64094180"
+    }
+  ],
+  "integration_main": "d8fef5fbd38583e699200bab7f07e19fa4a972fe",
+  "inherited_main_change": "PR #163 WebSocket pre-output HTTP recovery and VERSION update; preserved, not reimplemented."
+}

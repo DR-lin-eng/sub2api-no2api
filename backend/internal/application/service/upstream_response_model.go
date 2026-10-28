@@ -47,9 +47,12 @@ func normalizeObservedUpstreamResponseModel(model string) string {
 	if model == "" {
 		return ""
 	}
-	runes := []rune(model)
-	if len(runes) > upstreamResponseModelMaxLength {
-		model = string(runes[:upstreamResponseModelMaxLength])
+	count := 0
+	for offset := range model {
+		count++
+		if count > upstreamResponseModelMaxLength {
+			return strings.Clone(model[:offset])
+		}
 	}
 	return model
 }
@@ -202,4 +205,12 @@ func upstreamSentModel(requestedModel, upstreamModel string) string {
 		return sentModel
 	}
 	return strings.TrimSpace(requestedModel)
+}
+
+func beginAccountUpstreamResponseModelObservation(c *gin.Context, account *Account) *upstreamResponseModelObserver {
+	observer := beginUpstreamResponseModelObservation(c)
+	if c != nil {
+		c.Set("grok_buffered_model_audit", account != nil && account.IsGrok())
+	}
+	return observer
 }

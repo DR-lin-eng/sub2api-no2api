@@ -1,0 +1,33 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=4g",
+    "-v",
+    "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo:/src",
+    "-v",
+    "sub2api-go-mod:/go/pkg/mod",
+    "-v",
+    "sub2api-go-build:/root/.cache/go-build",
+    "-w",
+    "/src/backend",
+    "sub2api-sync-tests:20261026",
+    "go",
+    "test",
+    "-tags=unit",
+    "./internal/application/service",
+    "-run",
+    "^TestUpstreamSync20261027Transaction$",
+    "-v",
+    "-count=1"
+  ],
+  "cwd": "/private/tmp/sub2api-sync-20261027-6h5nbaju/repo",
+  "input": "",
+  "stdout": "FAIL\tgithub.com/Wei-Shaw/sub2api/internal/application/service [build failed]\nFAIL\n",
+  "stderr": "# github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog\ninternal/modules/modelcatalog/grok.go:69:39: undefined: xai.IsGrokTextResponsesModelID\ninternal/modules/modelcatalog/grok.go:85:9: undefined: xai.IsGrokImagineModel\n",
+  "exit_status": 1,
+  "duration_seconds": 4.409,
+  "utc": "2026-10-27T13:46:37.330502+00:00"
+}
