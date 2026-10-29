@@ -542,12 +542,10 @@ export async function submitImageGeneration(
   }
 }
 
-export async function submitImageEdit(
-  apiKey: string,
+function imageEditForm(
   files: File[],
   payload: Omit<MediaStudioImageSubmitRequest, 'response_format'>,
-  idempotencyKey: string,
-): Promise<MediaStudioImageTask> {
+): FormData {
   const form = new FormData()
   form.append('model', payload.model)
   form.append('prompt', payload.prompt)
@@ -558,13 +556,38 @@ export async function submitImageEdit(
     form.append(key, String(value))
   }
   for (const file of files) form.append('image', file, file.name)
+  return form
+}
 
+export async function submitAsyncImageEdit(
+  apiKey: string,
+  files: File[],
+  payload: Omit<MediaStudioImageSubmitRequest, 'response_format'>,
+  idempotencyKey: string,
+): Promise<MediaStudioImageTask> {
+  const response = await fetch(buildGatewayUrl('/v1/images/edits/async'), {
+    method: 'POST',
+    headers: authHeaders(apiKey, {
+      'Idempotency-Key': idempotencyKey,
+    }),
+    body: imageEditForm(files, payload),
+  })
+  if (!response.ok) throw await parseMediaStudioError(response)
+  return response.json()
+}
+
+export async function submitImageEdit(
+  apiKey: string,
+  files: File[],
+  payload: Omit<MediaStudioImageSubmitRequest, 'response_format'>,
+  idempotencyKey: string,
+): Promise<MediaStudioImageTask> {
   const response = await fetch(buildGatewayUrl('/v1/images/edits'), {
     method: 'POST',
     headers: authHeaders(apiKey, {
       'Idempotency-Key': idempotencyKey,
     }),
-    body: form,
+    body: imageEditForm(files, payload),
   })
   if (!response.ok) throw await parseMediaStudioError(response)
   const result = await response.json() as MediaStudioImageResult

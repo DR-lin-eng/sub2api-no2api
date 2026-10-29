@@ -26,14 +26,23 @@
       </button>
     </div>
 
+    <div v-if="hasMessages && jobs.length" class="mx-auto mb-4 w-full max-w-5xl px-1">
+      <MediaStudioJobBar
+        :jobs="jobs"
+        @retry="retryJob"
+        @focus="focusJob"
+      />
+    </div>
+
     <div
       v-if="hasMessages"
       class="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-5 overflow-hidden px-1 pb-5"
     >
       <article
         v-for="message in conversation.messages"
+        :id="`media-studio-message-${message.id}`"
         :key="message.id"
-        class="group flex"
+        class="group flex scroll-mt-24"
         :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
       >
         <div
@@ -164,21 +173,6 @@
             </div>
 
             <div
-              v-else-if="(message.status === 'processing' || message.status === 'queued') && message.mode === 'image'"
-              class="grid gap-3"
-              :class="imageGridClass(message)"
-            >
-              <div
-                v-for="index in (message.count || 1)"
-                :key="index"
-                class="generating-frame mx-auto w-full"
-                :style="imageFrameStyle(message)"
-              >
-                <div class="generating-glow"></div>
-              </div>
-            </div>
-
-            <div
               v-else-if="message.status === 'processing' || message.status === 'queued'"
               class="flex justify-center"
             >
@@ -252,7 +246,7 @@
             >
               <div class="flex items-start gap-2">
                 <Icon name="exclamationCircle" size="sm" class="mt-0.5 flex-shrink-0" />
-                <p class="min-w-0 flex-1">{{ message.error || t('mediaStudio.session.failed') }}</p>
+                <p class="min-w-0 flex-1">{{ errorMessageText(message) }}</p>
                 <button type="button" class="text-xs font-semibold underline underline-offset-4" @click="emit('retry', message)">
                   {{ t('mediaStudio.session.retry') }}
                 </button>
@@ -765,6 +759,8 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import MediaStudioCustomResolutionDialog from '@/features/media-studio/presentation/widgets/MediaStudioCustomResolutionDialog.vue'
+import MediaStudioJobBar from '@/features/media-studio/presentation/widgets/MediaStudioJobBar.vue'
+import type { MediaStudioJobView } from '@/features/media-studio/presentation/composables/useMediaStudioJobs'
 import {
   mediaStudioKindEnabled,
   mediaStudioUploadAccept,
@@ -832,6 +828,8 @@ const props = defineProps<{
   modelLoadError: string
   conversation: MediaStudioConversation
   hasMessages: boolean
+  // 任务条数据由 controller 汇总，视图层只做展示与事件转发。
+  jobs: MediaStudioJobView[]
   canSubmit: boolean
   submitting: boolean
   submitError: string
@@ -965,6 +963,30 @@ function attachmentTypeLabel(kind: MediaStudioMediaType) {
   return t(`mediaStudio.composer.attachmentType.${kind}`)
 }
 
+// 失败卡片优先展示按错误分类的本地化文案，避免把浏览器原始英文错误（如 Failed to fetch）直接透给用户。
+function errorMessageText(message: MediaStudioMessage) {
+  switch (message.errorCode) {
+    case 'insufficient_quota':
+      return t('mediaStudio.jobs.errorCodes.insufficient_quota')
+    case 'unauthorized':
+      return t('mediaStudio.jobs.errorCodes.unauthorized')
+    case 'rate_limited':
+      return t('mediaStudio.jobs.errorCodes.rate_limited')
+    case 'content_policy':
+      return t('mediaStudio.jobs.errorCodes.content_policy')
+    case 'timeout':
+      return t('mediaStudio.jobs.errorCodes.timeout')
+    case 'upstream':
+      return t('mediaStudio.jobs.errorCodes.upstream')
+    case 'network':
+      return t('mediaStudio.jobs.errorCodes.network')
+    case 'unknown':
+      return t('mediaStudio.jobs.errorCodes.unknown')
+    default:
+      return message.error || t('mediaStudio.session.failed')
+  }
+}
+
 function selectMode(id: MediaStudioModeId) {
   const mode = props.modes.find(item => item.id === id)
   if (!mode?.available) return
@@ -1077,6 +1099,17 @@ function deleteSelected() {
   if (selectedMessageIDs.value.length === 0) return
   emit('delete', [...selectedMessageIDs.value])
   exitSelectionMode()
+}
+
+// 任务条只持有 messageId，重试仍复用消息流里的同一条消息，避免两套状态。
+function retryJob(messageId: string) {
+  const message = props.conversation.messages.find(item => item.id === messageId)
+  if (message) emit('retry', message)
+}
+
+function focusJob(messageId: string) {
+  const element = document.getElementById(`media-studio-message-${messageId}`)
+  element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 }
 
 function handleImageResolutionSelect(event: Event) {

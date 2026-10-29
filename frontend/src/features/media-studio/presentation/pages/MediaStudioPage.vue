@@ -36,6 +36,7 @@
         :model-load-error="modelLoadError"
         :conversation="conversation"
         :has-messages="hasMessages"
+        :jobs="jobs"
         :can-submit="canSubmit"
         :submitting="submitting"
         :submit-error="submitError"
@@ -117,6 +118,7 @@ const {
   estimateError,
   conversation,
   hasMessages,
+  jobs,
   canSubmit,
   loadMediaGroups,
   loadModels,

@@ -104,5 +104,31 @@ export default {
       noImageResult: 'Task completed, but no preview image was returned.',
       noVideoResult: 'Task completed, but no preview video was returned.'
     },
+    jobs: {
+      title: 'Generation jobs',
+      activeCount: '{count} running',
+      toggle: 'Expand or collapse the job list',
+      status: {
+        queued: 'Queued',
+        processing: 'Generating',
+        completed: 'Completed',
+        failed: 'Failed'
+      },
+      elapsed: 'Elapsed {time}',
+      cost: 'Charged {amount}',
+      costHeld: 'Reserved {amount}',
+      retry: 'Retry',
+      focus: 'Locate',
+      errorCodes: {
+        insufficient_quota: 'Insufficient quota, please top up and retry',
+        unauthorized: 'This API key cannot access the model',
+        rate_limited: 'Too many requests, please retry later',
+        content_policy: 'The prompt or attachments failed content moderation',
+        timeout: 'Upstream generation timed out, please retry',
+        upstream: 'Upstream service error, please retry later',
+        network: 'Network connection lost, check your connection and retry',
+        unknown: 'Generation failed, please retry'
+      }
+    },
   }
 }

@@ -3,6 +3,7 @@ import {
 	getVideoGenerationContent,
 	getVideoGenerationTask,
 	normalizeMediaStudioVideoTask,
+  submitAsyncImageEdit,
   submitImageGeneration,
   submitVideoGeneration,
 } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
@@ -35,6 +36,29 @@ describe('media studio datasource', () => {
     expect(String(fetchMock.mock.calls[0][0])).toMatch(/\/v1\/images\/generations$/)
     expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer sk-demo')
     expect(task.status).toBe('completed')
+  })
+
+  it('submits asynchronous image edits as multipart and returns the task envelope', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      id: 'task-edit', task_id: 'task-edit', object: 'image.generation.task', status: 'queued',
+      created_at: 1, expires_at: 2,
+    }, { status: 202 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const file = new File(['reference'], 'reference.png', { type: 'image/png' })
+    const task = await submitAsyncImageEdit('sk-demo', [file], {
+      model: 'gpt-image-2', prompt: 'edit the cat', n: 1, size: '1024x1024', quality: 'auto',
+    }, 'idem-edit-async')
+
+    expect(String(fetchMock.mock.calls[0][0])).toMatch(/\/v1\/images\/edits\/async$/)
+    expect(fetchMock.mock.calls[0][1].method).toBe('POST')
+    expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer sk-demo')
+    expect(fetchMock.mock.calls[0][1].headers['Idempotency-Key']).toBe('idem-edit-async')
+    const body = fetchMock.mock.calls[0][1].body as FormData
+    expect(body).toBeInstanceOf(FormData)
+    expect(body.get('prompt')).toBe('edit the cat')
+    expect(body.getAll('image')).toHaveLength(1)
+    expect(task).toMatchObject({ task_id: 'task-edit', status: 'queued' })
   })
 
   it('submits and polls normalized video tasks with bounded request ids', async () => {

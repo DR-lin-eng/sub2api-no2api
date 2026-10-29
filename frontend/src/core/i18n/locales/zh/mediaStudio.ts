@@ -104,5 +104,31 @@ export default {
       noImageResult: '任务已完成，但没有返回可预览图片。',
       noVideoResult: '任务已完成，但没有返回可预览视频。'
     },
+    jobs: {
+      title: '生成任务',
+      activeCount: '{count} 个进行中',
+      toggle: '展开或收起任务列表',
+      status: {
+        queued: '排队中',
+        processing: '生成中',
+        completed: '已完成',
+        failed: '已失败'
+      },
+      elapsed: '已耗时 {time}',
+      cost: '扣费 {amount}',
+      costHeld: '预冻结 {amount}',
+      retry: '重试',
+      focus: '定位',
+      errorCodes: {
+        insufficient_quota: '额度不足，请充值后再试',
+        unauthorized: '当前密钥无权访问该模型',
+        rate_limited: '请求过于频繁，请稍后重试',
+        content_policy: '提示词或素材未通过内容审核',
+        timeout: '上游生成超时，请重试',
+        upstream: '上游服务异常，请稍后重试',
+        network: '网络连接中断，请检查网络后重试',
+        unknown: '生成失败，请重试'
+      }
+    },
   }
 }

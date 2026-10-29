@@ -588,4 +588,202 @@ describe('media studio controller', () => {
     expect(controller.customImageAspectRatios.value).toContain('5:4')
     expect(localStorage.getItem('sub2api.mediaStudio.v2')).toContain('"customImageAspectRatios":["5:4"]')
   })
+
+  function seedPendingImageTask(status: 'processing' | 'queued' = 'processing') {
+    localStorage.setItem('sub2api.mediaStudio.v2', JSON.stringify({
+      selectedGroupId: 1,
+      conversation: {
+        id: 'conversation-resume',
+        updatedAt: Date.now(),
+        messages: [{
+          id: 'assistant-resume',
+          role: 'assistant',
+          mode: 'image',
+          prompt: 'a resumed cat',
+          status,
+          groupId: 1,
+          model: 'gpt-image-2',
+          count: 1,
+          taskId: 'task-resume',
+          taskIds: ['task-resume'],
+          createdAt: Date.now() - 5_000,
+        }],
+      },
+    }))
+  }
+
+  function resumedImageTask() {
+    return {
+      id: 'task-resume', task_id: 'task-resume', object: 'image.generation.task', status: 'completed',
+      result: { data: [{ url: 'https://cdn.example/resumed.png' }] }, created_at: 1, expires_at: 2,
+    }
+  }
+
+  it('resumes a pending image task after reload and polls it to completion', async () => {
+    seedPendingImageTask()
+    const getTask = vi.fn().mockResolvedValue(resumedImageTask())
+    const controller = useMediaStudioController({
+      storage: localStorage,
+      getConfig: vi.fn().mockResolvedValue(config),
+      createSession: vi.fn().mockResolvedValue(session()),
+      listModels: vi.fn().mockResolvedValue({ object: 'list', data: [{ id: 'gpt-image-2' }] }),
+      getTask,
+      pollDelayMs: 0,
+    })
+
+    await controller.loadMediaGroups()
+    await vi.waitFor(() => {
+      expect(controller.conversation.value.messages.at(-1)?.status).toBe('completed')
+    })
+
+    expect(getTask).toHaveBeenCalledWith('sk-demo', 'task-resume')
+    expect(controller.conversation.value.messages.at(-1)?.images).toEqual([
+      expect.objectContaining({ src: 'https://cdn.example/resumed.png' }),
+    ])
+    expect(controller.jobs.value.at(-1)).toMatchObject({
+      messageId: 'assistant-resume',
+      status: 'completed',
+    })
+  })
+
+  it('persists the async image task id before polling so a reload can resume', async () => {
+    let resolvePoll: ((value: unknown) => void) | undefined
+    const submitImage = vi.fn().mockResolvedValue({
+      id: 'task-async-1', task_id: 'task-async-1', object: 'image.generation.task', status: 'processing',
+      created_at: 1, expires_at: 2,
+    })
+    const getTask = vi.fn().mockImplementation(() => new Promise(resolve => { resolvePoll = resolve }))
+    const controller = useMediaStudioController({
+      storage: localStorage,
+      getConfig: vi.fn().mockResolvedValue(config),
+      createSession: vi.fn().mockResolvedValue(session()),
+      listModels: vi.fn().mockResolvedValue({ object: 'list', data: [{ id: 'gpt-image-2' }] }),
+      submitImage,
+      getTask,
+      pollDelayMs: 0,
+    })
+
+    await controller.loadMediaGroups()
+    controller.prompt.value = 'async cat'
+    const submission = controller.submitPrompt()
+    await settle()
+
+    // 提交成功即落盘任务 ID，随后刷新页面才能从 localStorage 续轮询。
+    expect(getTask).toHaveBeenCalledWith('sk-demo', 'task-async-1')
+    const persisted = JSON.parse(localStorage.getItem('sub2api.mediaStudio.v2') || '{}')
+    expect(persisted.conversation?.messages?.at(-1)).toMatchObject({
+      status: 'processing',
+      taskIds: ['task-async-1'],
+    })
+
+    resolvePoll?.({
+      id: 'task-async-1', task_id: 'task-async-1', object: 'image.generation.task', status: 'completed',
+      result: { data: [{ url: 'https://cdn.example/async.png' }] }, created_at: 1, expires_at: 2,
+    })
+    await submission
+
+    expect(controller.conversation.value.messages.at(-1)).toMatchObject({
+      status: 'completed',
+      images: [{ src: 'https://cdn.example/async.png' }],
+    })
+  })
+
+  it('falls back to the synchronous image endpoint when async tasks are disabled', async () => {
+    const submitImage = vi.fn().mockRejectedValue(
+      Object.assign(new Error('async image tasks are not enabled'), { status: 404 }),
+    )
+    const submitImageSync = vi.fn().mockResolvedValue({
+      id: 'imgsync_demo', task_id: 'imgsync_demo', object: 'image.generation.task', status: 'completed',
+      result: { data: [{ url: 'https://cdn.example/sync.png' }] }, created_at: 1, expires_at: 2,
+    })
+    const controller = useMediaStudioController({
+      storage: localStorage,
+      getConfig: vi.fn().mockResolvedValue(config),
+      createSession: vi.fn().mockResolvedValue(session()),
+      listModels: vi.fn().mockResolvedValue({ object: 'list', data: [{ id: 'gpt-image-2' }] }),
+      submitImage,
+      submitImageSync,
+      pollDelayMs: 0,
+    })
+
+    await controller.loadMediaGroups()
+    controller.prompt.value = 'sync cat'
+    await controller.submitPrompt()
+
+    expect(submitImageSync).toHaveBeenCalledWith(
+      'sk-demo',
+      expect.objectContaining({ model: 'gpt-image-2', prompt: 'sync cat' }),
+      expect.stringMatching(/^media_idem_/),
+    )
+    expect(controller.conversation.value.messages.at(-1)).toMatchObject({
+      status: 'completed',
+      images: [{ src: 'https://cdn.example/sync.png' }],
+    })
+  })
+
+  it('falls back to the synchronous edit endpoint when async edits are disabled', async () => {
+    const submitImageEdit = vi.fn().mockRejectedValue(
+      Object.assign(new Error('async image tasks are not enabled'), { status: 404 }),
+    )
+    const submitImageEditSync = vi.fn().mockResolvedValue({
+      id: 'imgedit_demo', task_id: 'imgedit_demo', object: 'image.generation.task', status: 'completed',
+      result: { data: [{ url: 'https://cdn.example/sync-edit.png' }] }, created_at: 1, expires_at: 2,
+    })
+    const controller = useMediaStudioController({
+      storage: localStorage,
+      getConfig: vi.fn().mockResolvedValue(config),
+      createSession: vi.fn().mockResolvedValue(session()),
+      listModels: vi.fn().mockResolvedValue({ object: 'list', data: [{ id: 'gpt-image-2' }] }),
+      submitImageEdit,
+      submitImageEditSync,
+      pollDelayMs: 0,
+    })
+
+    await controller.loadMediaGroups()
+    const file = new File(['reference'], 'reference.png', { type: 'image/png' })
+    controller.updateImageAttachments([{
+      id: 'reference-1',
+      file,
+      name: 'reference.png',
+      mimeType: 'image/png',
+      size: 9,
+      previewUrl: 'blob:reference-1',
+    }])
+    controller.prompt.value = 'sync edit'
+    await controller.submitPrompt()
+
+    expect(submitImageEditSync).toHaveBeenCalledWith(
+      'sk-demo',
+      [file],
+      expect.objectContaining({ model: 'gpt-image-2', prompt: 'sync edit', n: 1 }),
+      expect.stringMatching(/^media_idem_/),
+    )
+    expect(controller.conversation.value.messages.at(-1)).toMatchObject({
+      status: 'completed',
+      images: [{ src: 'https://cdn.example/sync-edit.png' }],
+    })
+  })
+
+  it('classifies browser network failures without leaking the raw message', async () => {
+    const submitImage = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
+    const controller = useMediaStudioController({
+      storage: localStorage,
+      getConfig: vi.fn().mockResolvedValue(config),
+      createSession: vi.fn().mockResolvedValue(session()),
+      listModels: vi.fn().mockResolvedValue({ object: 'list', data: [{ id: 'gpt-image-2' }] }),
+      submitImage,
+      pollDelayMs: 0,
+    })
+
+    await controller.loadMediaGroups()
+    controller.prompt.value = 'offline cat'
+    await controller.submitPrompt()
+
+    expect(controller.conversation.value.messages.at(-1)).toMatchObject({
+      status: 'failed',
+      error: '',
+      errorCode: 'network',
+    })
+    expect(controller.submitError.value).toBe('')
+  })
 })
