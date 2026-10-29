@@ -231,7 +231,13 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 				body = fingerprintedBody
 			}
 		}
-		reqStream = gjson.GetBytes(body, "stream").Bool()
+		// The OAuth upstream requires stream=true, but the downstream response
+		// shape follows the client's original stream flag. The caller already
+		// captured that flag before normalization; compact requests are always
+		// unary.
+		if isOpenAIResponsesCompactPath(c) {
+			reqStream = false
+		}
 	}
 
 	sanitizedBody, sanitized, err := sanitizeEmptyBase64InputImagesInOpenAIBody(body)
@@ -2536,6 +2542,9 @@ func (s *OpenAIGatewayService) handleNonStreamingResponsePassthrough(
 	} else {
 		applyOpenAIPassthroughResponseHeaders(c, stagedHeaders)
 		s.relayOpenAICodexTurnState(c, account, resp.Header)
+		if requestID := strings.TrimSpace(resp.Header.Get("x-request-id")); requestID != "" {
+			c.Header("x-request-id", requestID)
+		}
 	}
 
 	contentType := resp.Header.Get("Content-Type")
@@ -2598,7 +2607,7 @@ func (s *OpenAIGatewayService) handlePassthroughSSEToJSONWithAccount(
 		}
 		return nil, s.writeOpenAINonStreamingProtocolError(resp, c, failedMessage)
 	}
-	finalResponse, ok := extractCodexFinalResponse(bodyText)
+	finalResponse, ok := extractOpenAINonStreamingFinalResponse(bodyText)
 
 	usage := &OpenAIUsage{}
 	if ok {
@@ -2641,6 +2650,9 @@ func (s *OpenAIGatewayService) handlePassthroughSSEToJSONWithAccount(
 	} else {
 		applyOpenAIPassthroughResponseHeaders(c, stagedHeaders)
 		s.relayOpenAICodexTurnState(c, account, resp.Header)
+		if requestID := strings.TrimSpace(resp.Header.Get("x-request-id")); requestID != "" {
+			c.Header("x-request-id", requestID)
+		}
 	}
 
 	contentType := "application/json; charset=utf-8"
@@ -2651,6 +2663,9 @@ func (s *OpenAIGatewayService) handlePassthroughSSEToJSONWithAccount(
 		}
 	}
 	if !writeOpenAICompactSSEBridge(c, resp.StatusCode, body) {
+		if ok {
+			c.Writer.Header().Set("Content-Type", contentType)
+		}
 		c.Data(resp.StatusCode, contentType, body)
 	}
 

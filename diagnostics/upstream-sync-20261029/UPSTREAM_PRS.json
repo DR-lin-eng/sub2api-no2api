@@ -1,0 +1,92 @@
+{
+  "baseline": "c050e6cbf4d8c8fee4609f15171181b3e521714d",
+  "upstream_base": "f178e5ae32659e8901644a9f2378a0439ffa36ae",
+  "upstream_head": "a3298b46ebe239fb0720b068a1eb3383955bdac2",
+  "entries": [
+    {
+      "pr": 8352,
+      "head": "88d9c43b3e9a30d9e7f74a369114eff0f5674379",
+      "status": "ported",
+      "owner": "admin_user.go",
+      "reopen_when": "admin guard returns 5xx or loses stable reason",
+      "merge_sha": "b2e7c609430736bd0a4b89c5b27a079ccef820d4",
+      "diff_sha256": "4e1ba43982357fbc423fc76d2095e36b0530f88a629cc2278f58d18d1e4e3eb3"
+    },
+    {
+      "commit": "0a2a29b32e6724714c69822296ccd05a6b86bfdd",
+      "subject": "chore(deps): bump golang.org/x/net to v0.62.0 (GO-2026-6860)",
+      "diff_sha256": "8344e9bf5174888cc23cce820ed8c7fa10a8fc8fe196598b9073f7ce2de33d10",
+      "status": "covered",
+      "decision": "Current main already uses golang.org/x/net v0.62.0; preserve the other agent dependency updates."
+    },
+    {
+      "pr": 8390,
+      "head": "1352e899ecd418ecf0b81a5151a9c992c953d945",
+      "status": "ported",
+      "owner": "channel_service.go and channelFormCodec.ts",
+      "reopen_when": "partial channel save erases another web_search_emulation platform",
+      "merge_sha": "8b3f33f28ae3f2e5707b810eca187a3b40780638",
+      "diff_sha256": "0a3425de21e0b6264734a24635e7d80eb02fb43b252f751ad8eab5cba61389d7"
+    },
+    {
+      "pr": 8395,
+      "head": "31564b2e86ccb6f4de348a21eb9e47b366f326ba",
+      "status": "ported-with-compatibility",
+      "owner": "gemini_declared_models.go, Gemini native metadata handlers and shared catalogs",
+      "reopen_when": "Upstream changes declared metadata semantics or current owner has a reproduced correctness/performance regression",
+      "merge_sha": "bf02c1a6e0f78816b728e1e16854afa5c8fabe6b",
+      "diff_sha256": "b3e6b1295846884c76dda3a36c3696c28414a105ace7cb528ec86931a84ce3be",
+      "decision": "Reuse one request account lookup for declared metadata and fallback; support wildcard/customtools/mixed Gemini models; add current catalog IDs while retaining legacy IDs and Google One probe compatibility."
+    },
+    {
+      "pr": 8287,
+      "head": "4197fa62021ca1fe7933fe3eb08ae119dc1fe91b",
+      "status": "ported",
+      "owner": "gemini_messages_compat_service.go",
+      "reopen_when": "Gemini retry budget or signature downgrade accounting regresses",
+      "merge_sha": "7311b865f327e5e69f16e40a3a4236c08da2048b",
+      "diff_sha256": "ba76ef1621cb7e894bc4804bcaea8ed43e8fc21937518a53c2c55f16b4986b12"
+    },
+    {
+      "pr": 8369,
+      "head": "a207412375448f85e816b1b56139813d04d831d8",
+      "status": "deferred",
+      "owner": "no current explicit-cache owner",
+      "reopen_when": "explicit Gemini cached-content upstream support is introduced",
+      "merge_sha": "184193f01ea0c681e2ab31c238c067aa9e7f34a6",
+      "diff_sha256": "3d35e2648ea8b4e57d6069c6cffb0cff702b7f93d15451aeaa2954f26417e006",
+      "inherited_from": "diagnostics/upstream-sync-20261013/UPSTREAM_PRS.json#8006",
+      "decision": "Preserve existing #8006 explicit-cache deferral; no new dormant cache state or worker is added. Reconsider when the cache module and reliable token-hour settlement are implemented."
+    },
+    {
+      "pr": 8373,
+      "head": "b2b1bcf260b584dc4d268a8ae36bec31a2de2130",
+      "status": "ported",
+      "owner": "openai_codex_models_service.go",
+      "reopen_when": "manifest cache refresh regresses to duplicate upstream calls",
+      "merge_sha": "dece26153621959ccd7635814f4b2d08304e681a",
+      "diff_sha256": "4a4afe6352237623da8244c4e6d911d3424824b56bd35d6b9c10b2ed6e6a3693"
+    },
+    {
+      "commit": "a9240d5016c226b341242a8c54a01a8605cbbc72",
+      "subject": "chore: sync VERSION to 0.2.19 [skip ci]",
+      "diff_sha256": "b76b670f5a32c1651bcab01d1b9c196b0c528b3174f11aec6bd979ea7db4abd5",
+      "status": "intentional-divergence",
+      "decision": "Keep this fork VERSION and its release workflow."
+    },
+    {
+      "pr": 7979,
+      "head": "4db8402b5081d2f3caa2b870b64aa7c18ff057ed",
+      "status": "ported",
+      "owner": "openai_gateway_passthrough.go and openai_gateway_response_handling.go",
+      "reopen_when": "OAuth stream=false returns raw SSE or loses incomplete/cancelled response JSON",
+      "merge_sha": "a3298b46ebe239fb0720b068a1eb3383955bdac2",
+      "diff_sha256": "6dea115131f18c9790de162fd370952ba97cd1a329913b8d585b8c745c0cda07"
+    }
+  ],
+  "prior_closed_ledger": "diagnostics/upstream-sync-20261028/UPSTREAM_PRS.json",
+  "inherited_deferred_items": [
+    "#8006 explicit Gemini cachedContents",
+    "#8319 resource-scoped admin keys"
+  ]
+}

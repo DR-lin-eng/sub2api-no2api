@@ -646,3 +646,7 @@ OpenAI/composite 分组的 `image_count_billing` 默认关闭；开启后仅专�
 ### 2026-10-27 Grok 目录与响应审计
 
 Grok 目录复用现有 modelcatalog 的有界读取、原子快照和旧节点写入保护；详情诊断不进入网关热路径。Grok Responses 和缓冲兼容响应补齐原始模型/冲突位，沿用当前渠道 response_model 的不增价规则。Sol/Terra Chat-only 账号的工具调用在映射后返回协议 400。升级与冻结差异见 [本轮同步记录](UPSTREAM_SYNC_20261027.md)。
+
+## 2026-10-29 元数据与非流式协议
+
+Gemini 原生模型元数据在全部可调度 Gemini 账号都声明映射时返回声明并集；没有映射时沿用原选号透传，同一请求复用账号读取。OAuth Responses 的非流式输出保持客户端 stream 标志，出站仍使用 SSE；incomplete/cancelled 与 completed 一起聚合 JSON 并保留用量。配置、混合版本边界和验证见 [同步记录](UPSTREAM_SYNC_20261029.md)。
