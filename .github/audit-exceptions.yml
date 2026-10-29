@@ -1,20 +1,5 @@
 version: 1
 exceptions:
-  - package: '@intlify/shared'
-    advisory: GHSA-83rm-6c8r-g728
-    severity: high
-    mitigation: "The application keeps translation messages in reviewed local locale modules, does not pass untrusted HTML or srcdoc content through vue-i18n, and does not use escapeParameter. Keep warnHtmlMessage disabled and upgrade to vue-i18n 11.4.14 or later after the planned compatibility review."
-    expires_on: 2026-11-12
-  - package: '@intlify/core-base'
-    advisory: GHSA-83rm-6c8r-g728
-    severity: high
-    mitigation: "The application keeps translation messages in reviewed local locale modules, does not pass untrusted HTML or srcdoc content through vue-i18n, and does not use escapeParameter. Keep warnHtmlMessage disabled and upgrade to vue-i18n 11.4.14 or later after the planned compatibility review."
-    expires_on: 2026-11-12
-  - package: vue-i18n
-    advisory: GHSA-83rm-6c8r-g728
-    severity: high
-    mitigation: "The application keeps translation messages in reviewed local locale modules, does not pass untrusted HTML or srcdoc content through vue-i18n, and does not use escapeParameter. Keep warnHtmlMessage disabled and upgrade to vue-i18n 11.4.14 or later after the planned compatibility review."
-    expires_on: 2026-11-12
   - package: node-forge
     advisory: GHSA-86w9-cpqp-85rv
     severity: high
