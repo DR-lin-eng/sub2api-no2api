@@ -1,0 +1,15 @@
+{
+  "command": [
+    "sh",
+    "-c",
+    "make check-docs && sh deploy/tests/docker-compose-security-test.sh && sh deploy/tests/docker-runtime-resources-test.sh && sh deploy/tests/docker-deploy-admin-test.sh && sh deploy/test-caddyfile-cache.sh"
+  ],
+  "started_at": "2026-10-29T16:35:11.115962+00:00",
+  "finished_at": "2026-10-29T16:35:13.814781+00:00",
+  "exit_code": 0,
+  "output_sha256": "6c57e3fec91aa0d48f66e2e642163a68dbe406d42c1f35aaca65c17d4b24e276",
+  "output_bytes": 232,
+  "output": "shell-final.log.gz",
+  "failures": [],
+  "tail": "Documentation checks passed.\ndocker compose security test passed\ndocker runtime resources test passed\nDocker deployment admin credential tests passed.\nCaddyfile preserves backend cache policy, SSE streaming, and non-SSE compression"
+}

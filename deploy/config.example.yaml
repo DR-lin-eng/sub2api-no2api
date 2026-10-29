@@ -567,6 +567,9 @@ gateway:
   # Allow failover on selected 400 errors (default: off)
   # 允许在特定 400 错误时进行故障转移（默认：关闭）
   failover_on_400: false
+  # Gemini same-account retries before switching accounts (excluding the first request, 0-10)
+  # Gemini 同账号重试次数（不含首次请求，0-10 次；默认 4）
+  max_same_account_retries_gemini: 4
   # Scheduling configuration
   # 调度配置
   scheduling:

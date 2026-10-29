@@ -1,0 +1,548 @@
+[
+  {
+    "stage": "BASELINE",
+    "sync_regressions": {
+      "admin_guard_http": 500,
+      "channel_openai_preserved": false,
+      "declared_models": [
+        "models/upstream-only"
+      ],
+      "incomplete_json": false,
+      "incomplete_settlement": [
+        {
+          "input": 1000,
+          "output": 100,
+          "cache": 0,
+          "images": 0,
+          "cost": 0.0012,
+          "actual": 0.0012,
+          "mode": "token"
+        }
+      ]
+    },
+    "image_id": "sha256:eee742a229f335125b57c256c976ab2138a6421d9c071a4e0e824bd4c862d599",
+    "result": "PASS",
+    "cases": [
+      {
+        "fixture": "default",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 500,
+          "cache": 1000,
+          "images": 0,
+          "cost": 0.001672,
+          "actual": 0.001672,
+          "mode": "token"
+        }
+      },
+      {
+        "fixture": "default",
+        "stream": true,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 500,
+          "cache": 1000,
+          "images": 0,
+          "cost": 0.001672,
+          "actual": 0.001672,
+          "mode": "token"
+        }
+      },
+      {
+        "fixture": "custom",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 500,
+          "cache": 1000,
+          "images": 0,
+          "cost": 0.0024,
+          "actual": 0.0024,
+          "mode": "token"
+        }
+      },
+      {
+        "fixture": "custom",
+        "stream": true,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 500,
+          "cache": 1000,
+          "images": 0,
+          "cost": 0.0024,
+          "actual": 0.0024,
+          "mode": "token"
+        }
+      },
+      {
+        "fixture": "gemini-files",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 100,
+          "cache": 0,
+          "images": 2,
+          "cost": 0.5,
+          "actual": 0.5,
+          "mode": "image"
+        }
+      },
+      {
+        "fixture": "gemini-files",
+        "stream": true,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 100,
+          "cache": 0,
+          "images": 2,
+          "cost": 0.5,
+          "actual": 0.5,
+          "mode": "image"
+        }
+      },
+      {
+        "fixture": "upload-21MiB",
+        "http": 200,
+        "bytes": 22020428,
+        "settlement": [
+          {
+            "input": 0,
+            "output": 0,
+            "cache": 0,
+            "images": 1,
+            "cost": 0.1,
+            "actual": 0.1,
+            "mode": "image"
+          }
+        ]
+      }
+    ],
+    "pagination": {
+      "/api/v1/admin/users": 200,
+      "/api/v1/keys": 200
+    },
+    "plaza_fixed_price": 0.12,
+    "migrations": 307,
+    "persisted_identity_key_subscription_sha256": "66622ee6f8b0d344456a8920402b4c5e0e2ab3fa047f69908e0c32f1b27a5da2",
+    "historical_usage_unchanged": "PASS",
+    "health_ready_frontend_encrypted_login": "PASS",
+    "balance_settlement_identity": "PASS"
+  },
+  {
+    "stage": "MODIFIED",
+    "sync_regressions": {
+      "admin_guard_http": 400,
+      "channel_openai_preserved": true,
+      "declared_models": [
+        "models/gemini-alpha",
+        "models/gemini-beta*"
+      ],
+      "incomplete_json": true,
+      "incomplete_settlement": [
+        {
+          "input": 1000,
+          "output": 100,
+          "cache": 0,
+          "images": 0,
+          "cost": 0.0012,
+          "actual": 0.0012,
+          "mode": "token"
+        }
+      ]
+    },
+    "image_id": "sha256:bc9e677d6fb9aae8389e53cac6a72e940acc1e734f7774db49d52a75fd378d3e",
+    "result": "PASS",
+    "cases": [
+      {
+        "fixture": "default",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 500,
+          "cache": 1000,
+          "images": 0,
+          "cost": 0.001672,
+          "actual": 0.001672,
+          "mode": "token"
+        }
+      },
+      {
+        "fixture": "default",
+        "stream": true,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 500,
+          "cache": 1000,
+          "images": 0,
+          "cost": 0.001672,
+          "actual": 0.001672,
+          "mode": "token"
+        }
+      },
+      {
+        "fixture": "custom",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 500,
+          "cache": 1000,
+          "images": 0,
+          "cost": 0.0024,
+          "actual": 0.0024,
+          "mode": "token"
+        }
+      },
+      {
+        "fixture": "custom",
+        "stream": true,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 500,
+          "cache": 1000,
+          "images": 0,
+          "cost": 0.0024,
+          "actual": 0.0024,
+          "mode": "token"
+        }
+      },
+      {
+        "fixture": "gemini-files",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 100,
+          "cache": 0,
+          "images": 2,
+          "cost": 0.5,
+          "actual": 0.5,
+          "mode": "image"
+        }
+      },
+      {
+        "fixture": "gemini-files",
+        "stream": true,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 100,
+          "cache": 0,
+          "images": 2,
+          "cost": 0.5,
+          "actual": 0.5,
+          "mode": "image"
+        }
+      },
+      {
+        "fixture": "upload-21MiB",
+        "http": 200,
+        "bytes": 22020428,
+        "settlement": [
+          {
+            "input": 0,
+            "output": 0,
+            "cache": 0,
+            "images": 1,
+            "cost": 0.1,
+            "actual": 0.1,
+            "mode": "image"
+          }
+        ]
+      }
+    ],
+    "pagination": {
+      "/api/v1/admin/users": 200,
+      "/api/v1/keys": 200
+    },
+    "plaza_fixed_price": 0.12,
+    "migrations": 307,
+    "persisted_identity_key_subscription_sha256": "66622ee6f8b0d344456a8920402b4c5e0e2ab3fa047f69908e0c32f1b27a5da2",
+    "historical_usage_unchanged": "PASS",
+    "health_ready_frontend_encrypted_login": "PASS",
+    "balance_settlement_identity": "PASS"
+  },
+  {
+    "stage": "ROLLBACK",
+    "sync_regressions": {
+      "admin_guard_http": 500,
+      "channel_openai_preserved": false,
+      "declared_models": [
+        "models/upstream-only"
+      ],
+      "incomplete_json": false,
+      "incomplete_settlement": [
+        {
+          "input": 1000,
+          "output": 100,
+          "cache": 0,
+          "images": 0,
+          "cost": 0.0012,
+          "actual": 0.0012,
+          "mode": "token"
+        }
+      ]
+    },
+    "image_id": "sha256:eee742a229f335125b57c256c976ab2138a6421d9c071a4e0e824bd4c862d599",
+    "result": "PASS",
+    "cases": [
+      {
+        "fixture": "default",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 500,
+          "cache": 1000,
+          "images": 0,
+          "cost": 0.001672,
+          "actual": 0.001672,
+          "mode": "token"
+        }
+      },
+      {
+        "fixture": "default",
+        "stream": true,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 500,
+          "cache": 1000,
+          "images": 0,
+          "cost": 0.001672,
+          "actual": 0.001672,
+          "mode": "token"
+        }
+      },
+      {
+        "fixture": "custom",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 500,
+          "cache": 1000,
+          "images": 0,
+          "cost": 0.0024,
+          "actual": 0.0024,
+          "mode": "token"
+        }
+      },
+      {
+        "fixture": "custom",
+        "stream": true,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 500,
+          "cache": 1000,
+          "images": 0,
+          "cost": 0.0024,
+          "actual": 0.0024,
+          "mode": "token"
+        }
+      },
+      {
+        "fixture": "gemini-files",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 100,
+          "cache": 0,
+          "images": 2,
+          "cost": 0.5,
+          "actual": 0.5,
+          "mode": "image"
+        }
+      },
+      {
+        "fixture": "gemini-files",
+        "stream": true,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 100,
+          "cache": 0,
+          "images": 2,
+          "cost": 0.5,
+          "actual": 0.5,
+          "mode": "image"
+        }
+      },
+      {
+        "fixture": "upload-21MiB",
+        "http": 200,
+        "bytes": 22020428,
+        "settlement": [
+          {
+            "input": 0,
+            "output": 0,
+            "cache": 0,
+            "images": 1,
+            "cost": 0.1,
+            "actual": 0.1,
+            "mode": "image"
+          }
+        ]
+      }
+    ],
+    "pagination": {
+      "/api/v1/admin/users": 200,
+      "/api/v1/keys": 200
+    },
+    "plaza_fixed_price": 0.12,
+    "migrations": 307,
+    "persisted_identity_key_subscription_sha256": "66622ee6f8b0d344456a8920402b4c5e0e2ab3fa047f69908e0c32f1b27a5da2",
+    "historical_usage_unchanged": "PASS",
+    "health_ready_frontend_encrypted_login": "PASS",
+    "balance_settlement_identity": "PASS"
+  },
+  {
+    "stage": "RESTORED",
+    "sync_regressions": {
+      "admin_guard_http": 400,
+      "channel_openai_preserved": true,
+      "declared_models": [
+        "models/gemini-alpha",
+        "models/gemini-beta*"
+      ],
+      "incomplete_json": true,
+      "incomplete_settlement": [
+        {
+          "input": 1000,
+          "output": 100,
+          "cache": 0,
+          "images": 0,
+          "cost": 0.0012,
+          "actual": 0.0012,
+          "mode": "token"
+        }
+      ]
+    },
+    "image_id": "sha256:bc9e677d6fb9aae8389e53cac6a72e940acc1e734f7774db49d52a75fd378d3e",
+    "result": "PASS",
+    "cases": [
+      {
+        "fixture": "default",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 500,
+          "cache": 1000,
+          "images": 0,
+          "cost": 0.001672,
+          "actual": 0.001672,
+          "mode": "token"
+        }
+      },
+      {
+        "fixture": "default",
+        "stream": true,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 500,
+          "cache": 1000,
+          "images": 0,
+          "cost": 0.001672,
+          "actual": 0.001672,
+          "mode": "token"
+        }
+      },
+      {
+        "fixture": "custom",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 500,
+          "cache": 1000,
+          "images": 0,
+          "cost": 0.0024,
+          "actual": 0.0024,
+          "mode": "token"
+        }
+      },
+      {
+        "fixture": "custom",
+        "stream": true,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 500,
+          "cache": 1000,
+          "images": 0,
+          "cost": 0.0024,
+          "actual": 0.0024,
+          "mode": "token"
+        }
+      },
+      {
+        "fixture": "gemini-files",
+        "stream": false,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 100,
+          "cache": 0,
+          "images": 2,
+          "cost": 0.5,
+          "actual": 0.5,
+          "mode": "image"
+        }
+      },
+      {
+        "fixture": "gemini-files",
+        "stream": true,
+        "http": 200,
+        "settlement": {
+          "input": 1000,
+          "output": 100,
+          "cache": 0,
+          "images": 2,
+          "cost": 0.5,
+          "actual": 0.5,
+          "mode": "image"
+        }
+      },
+      {
+        "fixture": "upload-21MiB",
+        "http": 200,
+        "bytes": 22020428,
+        "settlement": [
+          {
+            "input": 0,
+            "output": 0,
+            "cache": 0,
+            "images": 1,
+            "cost": 0.1,
+            "actual": 0.1,
+            "mode": "image"
+          }
+        ]
+      }
+    ],
+    "pagination": {
+      "/api/v1/admin/users": 200,
+      "/api/v1/keys": 200
+    },
+    "plaza_fixed_price": 0.12,
+    "migrations": 307,
+    "persisted_identity_key_subscription_sha256": "66622ee6f8b0d344456a8920402b4c5e0e2ab3fa047f69908e0c32f1b27a5da2",
+    "historical_usage_unchanged": "PASS",
+    "health_ready_frontend_encrypted_login": "PASS",
+    "balance_settlement_identity": "PASS"
+  }
+]

@@ -442,7 +442,14 @@ func (s *OpenAIGatewayService) fetchCachedAPIKeyCodexModelsManifest(ctx context.
 
 func (s *OpenAIGatewayService) refreshCachedAPIKeyCodexModelsManifest(cacheKey string, request codexModelsManifestRequest) <-chan singleflight.Result {
 	return s.codexModelsManifestCache.refresh.DoChan(cacheKey, func() (any, error) {
-		cached, _ := s.codexModelsManifestCache.get(cacheKey, time.Now())
+		cached, state := s.codexModelsManifestCache.get(cacheKey, time.Now())
+		// The caller can observe a miss and then wait before entering
+		// singleflight. A concurrent refresh may have filled the cache in that
+		// window; reuse the fresh value instead of issuing a duplicate upstream
+		// request during a cold-cache burst.
+		if state == codexModelsManifestCacheFresh {
+			return cached, nil
+		}
 		ifNoneMatch := ""
 		if cached != nil {
 			ifNoneMatch = cached.upstreamETag

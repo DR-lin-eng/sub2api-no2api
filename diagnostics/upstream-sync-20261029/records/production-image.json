@@ -1,0 +1,26 @@
+{
+  "command": [
+    "docker",
+    "build",
+    "--progress=plain",
+    "--build-arg",
+    "NODE_IMAGE=sub2api-sync-node:20261029",
+    "--build-arg",
+    "GOLANG_IMAGE=sub2api-sync-go:20261024",
+    "--build-arg",
+    "COMMIT=5db956c21c5de54b0a4054e0161649967ffc81c4",
+    "--label",
+    "org.opencontainers.image.revision=5db956c21c5de54b0a4054e0161649967ffc81c4",
+    "-t",
+    "sub2api:upstream-sync-20261029",
+    "."
+  ],
+  "started_at": "2026-10-29T16:36:51.616441+00:00",
+  "finished_at": "2026-10-29T16:39:11.516034+00:00",
+  "exit_code": 0,
+  "output_sha256": "439b0306020bdead362aa45c112f2c0c56198475800e1ad915c59050c43b5655",
+  "output_bytes": 69438,
+  "output": "production-image.log.gz",
+  "failures": [],
+  "tail": "#40 exporting layers 2.5s done\n#40 exporting manifest sha256:576370a97f24a2997df9ca5ae0821a3f6b0ca73b6d98542efc19c7f21c346726\n#40 exporting manifest sha256:576370a97f24a2997df9ca5ae0821a3f6b0ca73b6d98542efc19c7f21c346726 done\n#40 exporting config sha256:1bc063c872cdf2de5a55f9d1a9dce67d63b49f8ece9b26ce843a135b184133e6 done\n#40 exporting attestation manifest sha256:149fd9a8a2edc887b37f43966f8d6592e8e1b89fe84ef3a23e1f1acc053cc218 0.0s done\n#40 exporting manifest list sha256:bc9e677d6fb9aae8389e53cac6a72e940acc1e734f7774db49d52a75fd378d3e done\n#40 naming to docker.io/library/sub2api:upstream-sync-20261029 done\n#40 unpacking to docker.io/library/sub2api:upstream-sync-20261029\n#40 unpacking to docker.io/library/sub2api:upstream-sync-20261029 0.4s done\n#40 DONE 3.0s\n\nView build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/1uplcyvqluzh2vev7483z8icu"
+}

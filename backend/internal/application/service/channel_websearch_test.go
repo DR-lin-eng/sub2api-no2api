@@ -60,3 +60,38 @@ func TestChannel_IsWebSearchEmulationEnabled_PlatformValueNotBool(t *testing.T) 
 	}
 	require.False(t, c.IsWebSearchEmulationEnabled("anthropic"))
 }
+
+func TestMergeWebSearchEmulationDimensions_InheritsMissingPlatforms(t *testing.T) {
+	existing := map[string]any{
+		featureKeyWebSearchEmulation: map[string]any{"anthropic": true, "openai": true},
+		"other":                      map[string]any{"enabled": true},
+	}
+	incoming := map[string]any{featureKeyWebSearchEmulation: map[string]any{"anthropic": false}}
+
+	merged := mergeWebSearchEmulationDimensions(existing, incoming)
+	dimensions, ok := merged[featureKeyWebSearchEmulation].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, false, dimensions["anthropic"])
+	require.Equal(t, true, dimensions["openai"])
+	require.NotContains(t, merged, "other", "unrelated feature keys keep whole-block replacement semantics")
+}
+
+func TestMergeWebSearchEmulationDimensions_MissingKeyAndExplicitClear(t *testing.T) {
+	existing := map[string]any{featureKeyWebSearchEmulation: map[string]any{"openai": true}}
+
+	merged := mergeWebSearchEmulationDimensions(existing, map[string]any{"other": 1})
+	dimensions, ok := merged[featureKeyWebSearchEmulation].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, true, dimensions["openai"])
+	dimensions["openai"] = false
+	existingDimensions, ok := existing[featureKeyWebSearchEmulation].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, true, existingDimensions["openai"], "inherited dimensions must be copied")
+
+	cleared := mergeWebSearchEmulationDimensions(existing, map[string]any{
+		featureKeyWebSearchEmulation: map[string]any{},
+	})
+	clearedDimensions, ok := cleared[featureKeyWebSearchEmulation].(map[string]any)
+	require.True(t, ok)
+	require.Empty(t, clearedDimensions)
+}

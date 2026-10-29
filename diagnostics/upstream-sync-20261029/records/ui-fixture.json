@@ -1,0 +1,14 @@
+{
+  "command": [
+    "python3",
+    "diagnostics/upstream-sync-20261029/runtime/ui_fixture.py"
+  ],
+  "started_at": "2026-10-29T16:46:13.350907+00:00",
+  "finished_at": "2026-10-29T16:50:59.958075+00:00",
+  "exit_code": 0,
+  "output_sha256": "e67fd87ef7727f22f8a33839973bc6262cb9723307aac9d5b07ecd7af2509ca8",
+  "output_bytes": 47,
+  "output": "ui-fixture.log.gz",
+  "failures": [],
+  "tail": "Disposable UI fixture ready on 127.0.0.1:18380"
+}

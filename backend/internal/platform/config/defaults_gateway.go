@@ -19,6 +19,7 @@ func setGatewayDefaults() {
 	viper.SetDefault("gateway.failover_on_400", false)
 	viper.SetDefault("gateway.max_account_switches", 10)
 	viper.SetDefault("gateway.max_account_switches_gemini", 3)
+	viper.SetDefault("gateway.max_same_account_retries_gemini", 4)
 	viper.SetDefault("gateway.force_codex_cli", false)
 	viper.SetDefault("gateway.openai_oauth_attestation_enabled", false)
 	viper.SetDefault("gateway.openai_desktop_devicecheck_enabled", false)

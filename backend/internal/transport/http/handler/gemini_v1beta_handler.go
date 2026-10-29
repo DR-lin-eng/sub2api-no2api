@@ -54,6 +54,24 @@ func (h *GatewayHandler) GeminiV1BetaListModels(c *gin.Context) {
 		return
 	}
 
+	if effectivePlatform == service.PlatformGemini && !hasForcePlatform && len(apiKey.GroupBindings) <= 1 &&
+		(apiKey.Group == nil || apiKey.Group.Platform == service.PlatformGemini) &&
+		(apiKey.Group == nil || !apiKey.Group.CustomModelsListEnabled() || apiKey.Group.ModelAllowlistEnabled()) {
+		ctx, ids, err := h.geminiCompatService.PrepareGeminiModelsMetadata(c.Request.Context(), apiKey.GroupID)
+		c.Request = c.Request.WithContext(ctx)
+		if err == nil && len(ids) > 0 {
+			if apiKey.Group != nil && apiKey.Group.ModelAllowlistEnabled() {
+				ids = apiKey.Group.ModelAllowlist.FilterForListing(ids)
+			}
+			models := make([]gemini.Model, 0, len(ids))
+			for _, id := range ids {
+				models = append(models, gemini.FallbackModel(id))
+			}
+			c.JSON(http.StatusOK, gemini.ModelsListResponse{Models: models})
+			return
+		}
+	}
+
 	if models, ok := customGeminiModelsList(apiKey.Group); ok {
 		c.JSON(http.StatusOK, models)
 		return
@@ -170,6 +188,20 @@ func (h *GatewayHandler) GeminiV1BetaGetModel(c *gin.Context) {
 	if forcePlatform == service.PlatformAntigravity || effectivePlatform == service.PlatformAntigravity {
 		c.JSON(http.StatusOK, antigravity.FallbackGeminiModel(modelName))
 		return
+	}
+
+	if effectivePlatform == service.PlatformGemini && !hasForcePlatform && len(apiKey.GroupBindings) <= 1 &&
+		(apiKey.Group == nil || apiKey.Group.Platform == service.PlatformGemini) {
+		ctx, ids, err := h.geminiCompatService.PrepareGeminiModelsMetadata(c.Request.Context(), apiKey.GroupID)
+		c.Request = c.Request.WithContext(ctx)
+		if err == nil && len(ids) > 0 {
+			if service.DeclaredGeminiModelsCover(ids, modelName) {
+				c.JSON(http.StatusOK, gemini.FallbackModel(modelName))
+			} else {
+				googleError(c, http.StatusNotFound, "models/"+modelName+" is not found")
+			}
+			return
+		}
 	}
 
 	priorityAdmissionEnabled := metadataPriorityAdmissionEnabled(c, h.concurrencyHelper)

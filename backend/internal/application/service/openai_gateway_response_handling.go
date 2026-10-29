@@ -1556,7 +1556,7 @@ func (s *OpenAIGatewayService) handleSSEToJSONWithAccount(
 		}
 		return nil, s.writeOpenAINonStreamingProtocolError(resp, c, failedMessage)
 	}
-	finalResponse, ok := extractCodexFinalResponse(bodyText)
+	finalResponse, ok := extractOpenAINonStreamingFinalResponse(bodyText)
 
 	usage := &OpenAIUsage{}
 	if ok {
@@ -1608,6 +1608,9 @@ func (s *OpenAIGatewayService) handleSSEToJSONWithAccount(
 		}
 	}
 	if !writeOpenAICompactSSEBridge(c, resp.StatusCode, body) {
+		if ok {
+			c.Writer.Header().Set("Content-Type", contentType)
+		}
 		c.Data(resp.StatusCode, contentType, body)
 	}
 
@@ -1780,6 +1783,37 @@ func extractCodexFinalResponse(body string) ([]byte, bool) {
 		return finalResponse, true
 	}
 	return nil, false
+}
+
+// extractOpenAINonStreamingFinalResponse handles all successful terminal
+// statuses in one pass over the bounded SSE body. Keep extractCodexFinalResponse
+// completion-only because compact/image callers depend on that contract.
+func extractOpenAINonStreamingFinalResponse(body string) ([]byte, bool) {
+	var completed, otherTerminal []byte
+	forEachOpenAISSEDataPayload(body, func(data []byte) {
+		if completed != nil {
+			return
+		}
+		switch strings.TrimSpace(gjson.GetBytes(data, "type").String()) {
+		case "response.completed", "response.done":
+			if normalized, changed := normalizeCompletedImageGenerationStatus(data); changed {
+				data = normalized
+			}
+			if response := gjson.GetBytes(data, "response"); response.IsObject() {
+				completed = []byte(response.Raw)
+			}
+		case "response.incomplete", "response.cancelled", "response.canceled":
+			if otherTerminal == nil {
+				if response := gjson.GetBytes(data, "response"); response.IsObject() {
+					otherTerminal = []byte(response.Raw)
+				}
+			}
+		}
+	})
+	if completed != nil {
+		return completed, true
+	}
+	return otherTerminal, otherTerminal != nil
 }
 
 var imageGenerationCallTypeMarker = []byte(`"image_generation_call"`)

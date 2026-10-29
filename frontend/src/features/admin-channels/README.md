@@ -21,3 +21,5 @@ pnpm exec vitest run src/features/admin-channels/__tests__
 pnpm exec eslint src/features/admin-channels
 pnpm run typecheck
 ```
+
+Web Search 的 Anthropic/OpenAI 平台开关由 codec 的同一集合决定；保存时写显式 true/false，未编辑和未来平台维度保留。后端只对该键按维度合并；其它特性仍遵守原整块替换语义。
