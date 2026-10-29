@@ -731,6 +731,12 @@ oauth_model_sync:
 # API Key 认证缓存配置
 # =============================================================================
 api_key_auth_cache:
+  # Shared, bounded Redis Bloom prefilter for unique random API-key attacks.
+  # Enable on ALL writers only after every node is upgraded; disable everywhere
+  # before rolling back or importing keys directly into PostgreSQL.
+  # 启用后创建 Key 需要先成功登记 Redis；Redis 不可用时鉴权回退精确查询。
+  bloom:
+    enabled: false
   # L1 cache size (entries), in-process LRU/TTL cache
   # L1 缓存容量（条目数），进程内 LRU/TTL 缓存
   l1_size: 65535

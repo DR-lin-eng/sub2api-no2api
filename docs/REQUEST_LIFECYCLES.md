@@ -45,6 +45,13 @@ OpenAI 文本 Responses 流式请求在本地校验和安全检查通过后、�
 
 用户端 API Key 创建与分组修改统一校验每个 `group_id`/`group_bindings` 候选的 active 状态及用户授权；原绑定列表完全不变时，改名或编辑自有 Key 的消费上限仍允许保存，已经停用的旧候选由运行时路由过滤。`quota` 是 Key 的自设消费上限，余额与订阅扣费不因调整它而豁免。
 
+API Key 的 IP 白名单/黑名单随鉴权快照预编译；较大的规则集使用 [IP 前缀布隆过滤器](../backend/internal/shared/ip/README.md) 快速排除不匹配的网络，可能命中时仍执行精确 CIDR 比较。通用与 Gemini 原生入口共用该规则，无额外 DB/Redis 查询，黑名单优先与拒绝响应保持原有语义。
+
+API Key 入口可用 `api_key_auth_cache.bloom.enabled`（环境变量 `API_KEY_AUTH_CACHE_BLOOM_ENABLED`，默认 false）启用共享布隆成员预筛。本地 hot/L1 命中仍不访问 Redis；其余请求先通过一次 Redis Lua 查询，确定不存在即返回原有 401，无 L2 鉴权查询或数据库回源，也不为随机凭据写负缓存。可能存在继续原有鉴权，布隆误判不会授权请求；未完成预热、Redis 出错或位图丢失时回退原查找，原有回源并发上限和 IP 风控继续生效。
+
+启用前必须升级所有 API Key 写入节点，并在所有写入节点启用；直接 SQL 导入/修改凭据或回退旧二进制前，先在所有节点关闭预筛。创建路径在 PostgreSQL 共享事务锁内先向共享位图登记，再提交数据库；预热在排他锁内分页读取全部未删除 Key（含停用/过期），与 Redis 代次校验一起避免重启、并发创建和漏同步导致新 Key 被拒。Redis 登记失败时该次创建失败，不提交未登记凭据。位图追加保留已删除 Key 的位，因此删除仍由原精确鉴权与失效路径拒绝。后台每 30 秒检查/恢复，单节点只有一个可取消 worker，重建最长两分钟；随机 Key 不触发逐请求扫描。此优化减少 PostgreSQL 和 L2 缓存负载，未缓存的随机 Key 仍需一次 Redis 查询，不能替代入口流量防护。
+
+
 Codex CLI 语音通过 Live 创建与 Sideband 控制链路接入，`gpt-live-1-codex` 使用 CLI 的可选证明契约；语音按分钟结算，任务模型另按 token 计费。倍率与配额策略在创建时冻结，Redis 保留未结算会话，由固定批量恢复器完成幂等扣费和用量写入。客户端 Sideband 地址与升级/回退边界见 [Codex CLI 语音](CODEX_VOICE.md)。
 
 Responses 走图片编辑桥接时，用户提交的图片与遮罩 URL 在共享解析阶段携带独立公开地址策略。HTTP port 的 repository 实现对全部 DNS 结果与重定向逐跳校验，再连接固定 IP；账号代理/IPv6 出口仍随请求传递，管理员私网上游例外不能放宽用户输入。接口、计费和本地图片输入边界见 [媒体工坊安全说明](CUSTOM_MODELS_AND_MEDIA.md)。

@@ -57,6 +57,7 @@ func setOperationsDefaults() {
 	viper.SetDefault("timezone", "Asia/Shanghai")
 
 	// API Key auth cache
+	viper.SetDefault("api_key_auth_cache.bloom.enabled", false)
 	viper.SetDefault("api_key_auth_cache.l1_size", 65535)
 	viper.SetDefault("api_key_auth_cache.l1_ttl_seconds", 15)
 	viper.SetDefault("api_key_auth_cache.l2_ttl_seconds", 300)

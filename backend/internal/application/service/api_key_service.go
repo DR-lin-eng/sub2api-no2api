@@ -464,6 +464,7 @@ type APIKeyService struct {
 	authCacheL1               *ristretto.Cache
 	authNegativeCacheL1       *ristretto.Cache
 	authHotCache              atomic.Pointer[apiKeyAuthHotCacheEntry]
+	authBloom                 *apiKeyAuthBloom
 	authCfg                   apiKeyAuthCacheConfig
 	authGroup                 singleflight.Group
 	authLookupSlots           chan struct{}
@@ -484,10 +485,11 @@ type APIKeyService struct {
 }
 
 type APIKeyAuthLookupMetrics struct {
-	Total    uint64 `json:"total"`
-	Rejected uint64 `json:"rejected"`
-	InFlight int64  `json:"in_flight"`
-	Capacity int    `json:"capacity"`
+	Total    uint64                `json:"total"`
+	Rejected uint64                `json:"rejected"`
+	InFlight int64                 `json:"in_flight"`
+	Capacity int                   `json:"capacity"`
+	Bloom    APIKeyAuthBloomHealth `json:"bloom"`
 }
 
 func (s *APIKeyService) AuthLookupMetrics() APIKeyAuthLookupMetrics {
@@ -499,6 +501,7 @@ func (s *APIKeyService) AuthLookupMetrics() APIKeyAuthLookupMetrics {
 		Rejected: s.authLookupRejected.Load(),
 		InFlight: s.authLookupInFlight.Load(),
 		Capacity: cap(s.authLookupSlots),
+		Bloom:    s.AuthBloomHealth(),
 	}
 }
 
@@ -522,6 +525,7 @@ func NewAPIKeyService(
 		cfg:               cfg,
 	}
 	svc.initAuthCache(cfg)
+	svc.initAuthBloom(cfg)
 	lookupConcurrency := defaultAuthLookupConcurrency
 	if cfg != nil && cfg.APIKeyAuth.LookupConcurrency > 0 {
 		lookupConcurrency = cfg.APIKeyAuth.LookupConcurrency
@@ -900,70 +904,6 @@ func (s *APIKeyService) GetByID(ctx context.Context, id int64) (*APIKey, error) 
 	if apiKey != nil {
 		apiKey.CurrentConcurrency = s.currentConcurrencyForAPIKey(ctx, apiKey.ID)
 	}
-	return apiKey, nil
-}
-
-// GetByKey 根据Key字符串获取API Key（用于认证）
-func (s *APIKeyService) GetByKey(ctx context.Context, key string) (*APIKey, error) {
-	if len(key) == 0 || len(key) > MaxAPIKeyCredentialBytes {
-		return nil, ErrAPIKeyNotFound
-	}
-	digest := authCacheDigest(key)
-	if entry, ok := s.getAuthHotCacheEntry(digest, time.Now()); ok {
-		if apiKey, used, err := s.applyAuthHotCacheEntry(key, entry); used {
-			if err != nil {
-				return nil, fmt.Errorf("get api key: %w", err)
-			}
-			return apiKey, nil
-		}
-	}
-	cacheKey := authCacheKeyFromDigest(digest)
-
-	if entry, ok := s.getAuthCacheEntry(ctx, cacheKey); ok {
-		s.setAuthHotCacheEntry(digest, key, entry)
-		if apiKey, used, err := s.applyAuthCacheEntry(key, entry); used {
-			if err != nil {
-				return nil, fmt.Errorf("get api key: %w", err)
-			}
-			return apiKey, nil
-		}
-	}
-
-	if s.authCfg.singleflight {
-		value, err, _ := s.authGroup.Do(cacheKey, func() (any, error) {
-			return s.loadAuthCacheEntry(ctx, key, cacheKey)
-		})
-		if err != nil {
-			return nil, err
-		}
-		entry, _ := value.(*APIKeyAuthCacheEntry)
-		s.setAuthHotCacheEntry(digest, key, entry)
-		if apiKey, used, err := s.applyAuthCacheEntry(key, entry); used {
-			if err != nil {
-				return nil, fmt.Errorf("get api key: %w", err)
-			}
-			return apiKey, nil
-		}
-	} else {
-		entry, err := s.loadAuthCacheEntry(ctx, key, cacheKey)
-		if err != nil {
-			return nil, err
-		}
-		s.setAuthHotCacheEntry(digest, key, entry)
-		if apiKey, used, err := s.applyAuthCacheEntry(key, entry); used {
-			if err != nil {
-				return nil, fmt.Errorf("get api key: %w", err)
-			}
-			return apiKey, nil
-		}
-	}
-
-	apiKey, err := s.lookupAPIKeyForAuth(ctx, key)
-	if err != nil {
-		return nil, fmt.Errorf("get api key: %w", err)
-	}
-	apiKey.Key = key
-	s.compileAPIKeyIPRules(apiKey)
 	return apiKey, nil
 }
 

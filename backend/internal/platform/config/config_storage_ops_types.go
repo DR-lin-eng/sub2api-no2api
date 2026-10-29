@@ -180,7 +180,12 @@ type RateLimitConfig struct {
 }
 
 // APIKeyAuthCacheConfig API Key 认证缓存配置
+type APIKeyAuthBloomConfig struct {
+	Enabled bool `mapstructure:"enabled"`
+}
+
 type APIKeyAuthCacheConfig struct {
+	Bloom              APIKeyAuthBloomConfig  `mapstructure:"bloom"`
 	L1Size             int                    `mapstructure:"l1_size"`
 	L1TTLSeconds       int                    `mapstructure:"l1_ttl_seconds"`
 	L2TTLSeconds       int                    `mapstructure:"l2_ttl_seconds"`
