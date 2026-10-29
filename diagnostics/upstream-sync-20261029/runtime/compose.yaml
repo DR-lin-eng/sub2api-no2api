@@ -45,6 +45,7 @@ services:
       JWT_SECRET: ${SYNC_JWT_SECRET:?}
       TOTP_ENCRYPTION_KEY: ${SYNC_ENCRYPTION_KEY:?}
       OAUTH_MODEL_SYNC_ENABLED: 'false'
+      GATEWAY_OPENAI_WS_FORCE_HTTP: 'true'
       PRICING_REMOTE_URL: 'https://127.0.0.1:9/pricing.json'
       PRICING_HASH_URL: 'https://127.0.0.1:9/pricing.sha256'
       SECURITY_URL_ALLOWLIST_ENABLED: 'false'

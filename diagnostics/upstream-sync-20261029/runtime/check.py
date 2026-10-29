@@ -182,7 +182,8 @@ def sync_regressions(stage,token,uid):
     assert model_names==(['models/gemini-alpha','models/gemini-beta*'] if candidate else ['models/upstream-only']),(stage,'declarations',model_names)
     response_gid,response_aid=create_fixture('incomplete-'+stage,'openai','fixture-incomplete',[{'platform':'openai','models':['fixture-incomplete'],'billing_mode':'token','input_price':.000001,'output_price':.000002}])
     response_extra={'openai_responses_supported':True,'openai_passthrough':True}
-    sql(f"UPDATE accounts SET extra='{json.dumps(response_extra)}' WHERE id={response_aid}")
+    response_creds={'api_key':'fixture','base_url':'http://127.0.0.1:8000','api_protocol':'responses','account_mode':'payg'}
+    sql(f"UPDATE accounts SET extra='{json.dumps(response_extra)}', credentials='{json.dumps(response_creds)}' WHERE id={response_aid}")
     response_id,response_key=create_key(token,response_gid,'incomplete-'+stage)
     response_status,response=request('/v1/responses',{'model':'fixture-incomplete','instructions':'fixture','input':'hello','stream':False},response_key)
     assert response_status==200,(stage,'nonstream',response_status,response)

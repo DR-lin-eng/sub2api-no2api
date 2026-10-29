@@ -53,7 +53,7 @@ manifest 新增一次内存缓存读取，减少冷启动窗口内重复请求�
 精确命令、完整压缩输出及退出码保存在 [records](../diagnostics/upstream-sync-20261029/records/)。
 Docker 验证覆盖三条 Gemini 重试路径、metadata 原透传回退、单次仓储读取、OAuth 两条转发路径
 的四种终止状态、缺失 Content-Type、用量、渠道维度和管理员保护。完整单元、集成、前端、性能、
-生产构建、同库升级回退及精确 SHA CI/产物状态继续写入验证记录，完成前不宣称全绿。
+生产构建、同库升级回退、UI 宽度检查和精确 SHA CI 已完成；最终命令、退出码、摘要和哈希见验证 records。
 
 源码行数门禁中的 payment_fulfillment_test.go（1201）与 pricing_service.go（1218）和基线相同，
-本轮没有扩大 allowlist 或重复重构它们。
+本轮没有扩大 allowlist 或重复重构它们。最终 Docker 全单元、前端 lint/typecheck/build、同库四阶段升级回退、UI 桌面/移动宽度和 PR #168 远端 CI 均通过。

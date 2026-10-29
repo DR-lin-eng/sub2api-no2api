@@ -1,0 +1,31 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--name",
+    "sub2api-sync-20261029-frontend",
+    "--cpus=2",
+    "--memory=3g",
+    "-v",
+    "/Users/lin/.codex/worktrees/5aa2/sub2api-no2api/frontend/src:/app/frontend/src:ro",
+    "-v",
+    "/Users/lin/.codex/worktrees/5aa2/sub2api-no2api/Makefile:/app/Makefile:ro",
+    "-e",
+    "NODE_OPTIONS=--max-old-space-size=2400",
+    "-w",
+    "/app/frontend",
+    "sub2api-sync-node:20261029",
+    "sh",
+    "-c",
+    "pnpm run lint:check && pnpm run typecheck && pnpm exec vitest run src/features/admin-channels src/features/admin-accounts/presentation/composables/__tests__/useModelWhitelist.spec.ts && pnpm run build"
+  ],
+  "started_at": "2026-10-29T16:19:03.226369+00:00",
+  "finished_at": "2026-10-29T16:27:20.273657+00:00",
+  "exit_code": 0,
+  "output_sha256": "6710b7c2aa08ca9e52bf6468026362d7cd1023e225541878d3a31cef2f9cf031",
+  "output_bytes": 60071,
+  "output": "frontend-final.log.gz",
+  "failures": [],
+  "tail": "../backend/internal/transport/webassets/dist/assets/index-DJVoUpkZ.js                                                           130.08 kB │ gzip:  40.21 kB\n../backend/internal/transport/webassets/dist/assets/vendor-chart-D884uxAm.js                                                    178.43 kB │ gzip:  61.39 kB\n../backend/internal/transport/webassets/dist/assets/GroupsPage-DBA_9dZ3.js                                                      178.93 kB │ gzip:  40.10 kB\n../backend/internal/transport/webassets/dist/assets/vendor-misc-CObdS01s.js                                                     222.95 kB │ gzip:  77.82 kB\n../backend/internal/transport/webassets/dist/assets/OpsDashboardPage-Dee3UoBs.js                                                259.33 kB │ gzip:  54.96 kB\n../backend/internal/transport/webassets/dist/assets/vendor-credential-crypto-CWkc-NaG.js                                        287.69 kB │ gzip:  77.89 kB\n../backend/internal/transport/webassets/dist/assets/index-m57YBK4e.js                                                           337.86 kB │ gzip: 117.24 kB\n../backend/internal/transport/webassets/dist/assets/index-mMRiDvHl.js                                                           351.99 kB │ gzip: 108.66 kB\n../backend/internal/transport/webassets/dist/assets/vendor-xlsx-BGhuli8m.js                                                     500.06 kB │ gzip: 163.12 kB\n../backend/internal/transport/webassets/dist/assets/SettingsPage-CcEk_HLl.js                                                    521.81 kB │ gzip: 106.31 kB\n../backend/internal/transport/webassets/dist/assets/AccountsPage-DelTJNwB.js                                                    869.30 kB │ gzip: 190.97 kB\n✓ built in 2m 25s"
+}
