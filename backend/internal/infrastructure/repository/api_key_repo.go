@@ -28,8 +28,9 @@ import (
 )
 
 type apiKeyRepository struct {
-	client *dbent.Client
-	sql    sqlExecutor
+	authBloom service.APIKeyAuthBloomCache
+	client    *dbent.Client
+	sql       sqlExecutor
 }
 
 func NewAPIKeyRepository(client *dbent.Client, sqlDB *sql.DB) service.APIKeyRepository {
@@ -46,7 +47,14 @@ func (r *apiKeyRepository) activeQuery() *dbent.APIKeyQuery {
 }
 
 func (r *apiKeyRepository) Create(ctx context.Context, key *service.APIKey) error {
-	builder := r.client.APIKey.Create().
+	if r.authBloom != nil {
+		return r.createWithAuthBloom(ctx, key)
+	}
+	return r.createAPIKey(ctx, r.client, key)
+}
+
+func (r *apiKeyRepository) createAPIKey(ctx context.Context, client *dbent.Client, key *service.APIKey) error {
+	builder := client.APIKey.Create().
 		SetUserID(key.UserID).
 		SetKey(key.Key).
 		SetName(key.Name).
