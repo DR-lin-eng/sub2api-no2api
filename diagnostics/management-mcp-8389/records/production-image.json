@@ -1,0 +1,20 @@
+{
+  "command": [
+    "docker",
+    "build",
+    "--progress=plain",
+    "--build-arg",
+    "COMMIT=management-mcp-8389",
+    "-t",
+    "sub2api:management-mcp-8389",
+    "."
+  ],
+  "started_at": "2026-10-30T13:05:33.071283+00:00",
+  "finished_at": "2026-10-30T13:06:53.676021+00:00",
+  "exit_code": 0,
+  "output_sha256": "c38641dd6bd324ec39b455a52bc18d2623660a6e2aed66e57b5a5578907f91d5",
+  "output_bytes": 70272,
+  "output": "production-image.log.gz",
+  "failures": [],
+  "tail": "#40 exporting layers 2.3s done\n#40 exporting manifest sha256:ac41023e1143f51ffffc87fb91077858e1682c770e4c48bcee185439b935f403\n#40 exporting manifest sha256:ac41023e1143f51ffffc87fb91077858e1682c770e4c48bcee185439b935f403 done\n#40 exporting config sha256:d8821ff7f3146ff1570e1228b9976760037b32e35ebea9147a7e0ac3cf2cce5f done\n#40 exporting attestation manifest sha256:b6dce9af131fa0bfa03c37a6518d505aee1f0a5f6ffb97a006661a970fed4081 0.0s done\n#40 exporting manifest list sha256:bccb0e69de24d6c4d7c96632e9538ecdb2acc1fbc2ef9acc8292b16490e2e032 done\n#40 naming to docker.io/library/sub2api:management-mcp-8389 done\n#40 unpacking to docker.io/library/sub2api:management-mcp-8389\n#40 unpacking to docker.io/library/sub2api:management-mcp-8389 0.3s done\n#40 DONE 2.7s\n\nView build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/tnwyfym7wlskoni5eo8l6sx3k"
+}

@@ -81,7 +81,7 @@ func (p *PanelRateLimiter) Authenticated() gin.HandlerFunc {
 			return
 		}
 		apiKeyAuth := c.GetString("auth_method") == "admin_api_key"
-		if settings.ExemptAdmin && !apiKeyAuth {
+		if settings.ExemptAdmin && !apiKeyAuth && c.GetString("auth_method") != service.AuditAuthMethodMCPOAuth {
 			if role, hasRole := GetUserRoleFromContext(c); hasRole && role == service.RoleAdmin {
 				c.Next()
 				return
@@ -245,4 +245,34 @@ func abortPanelRateLimited(c *gin.Context, retryAfter time.Duration) {
 	}
 	c.Header("Retry-After", strconv.FormatInt(seconds, 10))
 	AbortWithError(c, http.StatusTooManyRequests, "RATE_LIMITED", "Too many requests, please slow down and try again later")
+}
+
+// MCPTransport limits authenticated protocol calls separately from each dispatched REST operation.
+func (p *PanelRateLimiter) MCPTransport() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if p == nil || p.limiter == nil || p.settingService == nil {
+			c.Next()
+			return
+		}
+		policy := p.settingService.GetPanelRateLimitSettingsCached(c.Request.Context())
+		if !policy.Enabled || policy.UserRPM <= 0 {
+			c.Next()
+			return
+		}
+		subject, ok := GetAuthSubjectFromContext(c)
+		if !ok || subject.UserID <= 0 {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+		result, err := p.limiter.Allow(c.Request.Context(), "panel:mcp:user:"+strconv.FormatInt(subject.UserID, 10), policy.UserRPM, panelRateLimitWindow)
+		if err != nil {
+			abortPanelRateLimited(c, panelRateLimitWindow)
+			return
+		}
+		if !result.Allowed {
+			abortPanelRateLimited(c, result.RetryAfter)
+			return
+		}
+		c.Next()
+	}
 }

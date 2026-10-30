@@ -1,0 +1,31 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus",
+    "2",
+    "--memory",
+    "6g",
+    "-v",
+    "/Users/lin/.codex/worktrees/5e44/sub2api-no2api/backend:/app/backend",
+    "-v",
+    "sub2api-mcp8389-gomod:/go/pkg/mod",
+    "-v",
+    "sub2api-mcp8389-gobuild:/root/.cache/go-build",
+    "-w",
+    "/app/backend",
+    "sub2api-mcp8389-testtools",
+    "sh",
+    "-c",
+    "go test -tags=unit ./internal/transport/http/server/middleware ./internal/transport/http/server/routes ./internal/transport/http/managementmcp ./internal/transport/http/handler ./internal/transport/http/handler/admin ./internal/modules/managementmcp -run \"MCP|MachineCredential|ToolCatalog|RateLimiterIPv6\" -count=1 && go test -tags=mcp_go_client_oauth ./internal/transport/http/server/routes -run TestMCPOAuthOfficialGoSDKInteroperability -count=1"
+  ],
+  "started_at": "2026-10-30T14:02:00.519459+00:00",
+  "finished_at": "2026-10-30T14:02:20.225414+00:00",
+  "exit_code": 0,
+  "output_sha256": "20320922c59073690a1ea21adc3f066b98d454b75a8ebb507ed099cbdf7f40d7",
+  "output_bytes": 537,
+  "output": "backend-compat-corrected.log.gz",
+  "failures": [],
+  "tail": "ok  \tgithub.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware\t0.015s\nok  \tgithub.com/Wei-Shaw/sub2api/internal/transport/http/server/routes\t0.155s\nok  \tgithub.com/Wei-Shaw/sub2api/internal/transport/http/managementmcp\t0.132s\nok  \tgithub.com/Wei-Shaw/sub2api/internal/transport/http/handler\t0.019s\nok  \tgithub.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin\t0.013s\nok  \tgithub.com/Wei-Shaw/sub2api/internal/modules/managementmcp\t0.002s\nok  \tgithub.com/Wei-Shaw/sub2api/internal/transport/http/server/routes\t0.040s"
+}

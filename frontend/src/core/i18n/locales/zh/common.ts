@@ -213,6 +213,7 @@ export default {
   },
   // Navigation
   nav: {
+    mcp: 'MCP 接入',
     dashboard: '仪表盘',
     announcements: '公告',
     apiKeys: 'API 密钥',

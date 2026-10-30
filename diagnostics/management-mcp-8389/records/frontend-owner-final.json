@@ -1,0 +1,22 @@
+{
+  "command": [
+    "pnpm",
+    "--dir",
+    "frontend",
+    "exec",
+    "vitest",
+    "run",
+    "src/features/mcp",
+    "src/core/i18n",
+    "src/core/routes",
+    "src/common/composables/__tests__/useStepUp.spec.ts"
+  ],
+  "started_at": "2026-10-30T13:00:52.573281+00:00",
+  "finished_at": "2026-10-30T13:00:58.180383+00:00",
+  "exit_code": 0,
+  "output_sha256": "f71e7ca6a98d85e408773bd3edc7936b7041ea59d4c7602d3e787f015a712b5b",
+  "output_bytes": 5159,
+  "output": "frontend-owner-final.log.gz",
+  "failures": [],
+  "tail": "(Use `node --trace-warnings ...` to show where the warning was created)\n ✓ src/core/routes/__tests__/permissionGroups.spec.ts (6 tests) 2ms\n ✓ src/core/i18n/__tests__/usageServiceTierLocales.spec.ts (2 tests) 1ms\n ✓ src/core/i18n/__tests__/routeLocaleCoverage.spec.ts (3 tests) 2591ms\n   ✓ locale coverage > resolves every static locale key used by runtime source  836ms\n   ✓ locale coverage > loads every statically reachable message for every route  1737ms\n\n Test Files  21 passed (21)\n      Tests  155 passed (155)\n   Start at  21:00:53\n   Duration  4.75s (transform 1.84s, setup 1.63s, collect 5.18s, tests 4.44s, environment 8.25s, prepare 1.40s)\n"
+}

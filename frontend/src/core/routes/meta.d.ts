@@ -66,6 +66,7 @@ declare module 'vue-router' {
      * @default false
      */
     requiresMediaStudio?: boolean
+    requiresMCP?: boolean
 
     /**
      * Whether this route requires activity center to be enabled.

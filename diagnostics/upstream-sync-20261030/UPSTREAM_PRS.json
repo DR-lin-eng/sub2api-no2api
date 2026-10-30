@@ -8,11 +8,11 @@
       "head": "fb22c92126b4d4877ce67caf39eb40cb88501b12",
       "merge_sha": "7386bc6ae0659f192199067fc5060d2ad33622fe",
       "diff_sha256": "f9e3b9c479350043b272fb3b23cc025b684375c1d703f4430c8d53d78817b94b",
-      "status": "deferred",
-      "fully_closed": false,
-      "owner": "no current management-MCP/application port owner",
-      "decision": "Do not cherry-pick the old handler/service/repository tree. The PR adds 78 files and 7250 lines, migration 249 conflicts with this fork's existing migration 249, and the four-way MCP tool dispatch has no current OAuth/resource/permission contract in the transport-application-domain architecture.",
-      "reopen_when": "Define a current modules/application owner, allocate a migration above 307, specify MCP scope and audit contracts, then pass bounded-query, concurrent-tool, Docker benchmark, upgrade and rollback verification."
+      "status": "ported-with-current-owner-adaptation",
+      "fully_closed": true,
+      "owner": "modules/managementmcp, application/service/mcp_oauth*, infrastructure/repository/mcp_oauth*, transport/http/managementmcp and features/mcp",
+      "decision": "The previous defer was superseded by a compatible implementation. Migration 252 preserves existing migration 249, MCP uses a path-specific OAuth issuer, current management ownership/permissions/audit/step-up are retained, and the security diff scan found zero reportable findings.",
+      "reopen_when": "MCP tool catalog, OAuth authority, redaction keys, resource limits, migration trigger coverage or reverse-proxy Origin/Host assumptions change."
     },
     {
       "commit": "d851a38477597157e78450d30af2d8504764d085",

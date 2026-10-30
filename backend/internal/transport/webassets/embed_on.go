@@ -401,6 +401,9 @@ func shouldBypassEmbeddedFrontend(path string) bool {
 		strings.HasPrefix(trimmed, "/antigravity/") ||
 		strings.HasPrefix(trimmed, "/setup/") ||
 		trimmed == "/.well-known/oauth-authorization-server" ||
+		trimmed == "/.well-known/oauth-authorization-server/api/v1/mcp" ||
+		trimmed == "/.well-known/oauth-protected-resource" ||
+		trimmed == "/.well-known/oauth-protected-resource/api/v1/mcp" ||
 		trimmed == "/oauth/token" ||
 		trimmed == "/oauth/userinfo" ||
 		trimmed == "/oauth/revoke" ||

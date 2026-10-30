@@ -20,11 +20,12 @@ const localeLoaders: Record<LocaleCode, Record<LocaleScope, () => Promise<Locale
       return { ...landing.default, ...common.default }
     },
     user: async () => {
-      const [dashboard, misc] = await Promise.all([
+      const [dashboard, misc, mcp] = await Promise.all([
         import('./locales/en/dashboard'),
         import('./locales/en/misc'),
+        import('./locales/en/mcp'),
       ])
-      return { ...dashboard.default, ...misc.default }
+      return { ...dashboard.default, ...misc.default, ...mcp.default }
     },
     activityCenter: async () => (await import('./locales/en/activityCenter')).default,
     batchImage: async () => (await import('./locales/en/batchImage')).default,
@@ -41,11 +42,12 @@ const localeLoaders: Record<LocaleCode, Record<LocaleScope, () => Promise<Locale
       return { ...landing.default, ...common.default }
     },
     user: async () => {
-      const [dashboard, misc] = await Promise.all([
+      const [dashboard, misc, mcp] = await Promise.all([
         import('./locales/zh/dashboard'),
         import('./locales/zh/misc'),
+        import('./locales/zh/mcp'),
       ])
-      return { ...dashboard.default, ...misc.default }
+      return { ...dashboard.default, ...misc.default, ...mcp.default }
     },
     activityCenter: async () => (await import('./locales/zh/activityCenter')).default,
     batchImage: async () => (await import('./locales/zh/batchImage')).default,
@@ -56,6 +58,8 @@ const localeLoaders: Record<LocaleCode, Record<LocaleScope, () => Promise<Locale
 }
 
 const USER_ROUTE_PREFIXES = [
+  '/settings/mcp',
+  '/oauth/mcp',
   '/activity-center',
   '/dashboard',
   '/keys',

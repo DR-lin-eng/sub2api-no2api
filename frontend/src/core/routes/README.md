@@ -38,6 +38,7 @@ rg -n 'path:|name:|component:' frontend/src/core/routes/index.ts
 | `requiresPayment` | 是否要求内部支付功能启用 |
 | `requiresRiskControl` | 是否要求风控功能启用 |
 | `requiresSupportChat` | 是否要求在线客服功能显式启用 |
+| `requiresMCP` | 是否要求管理 MCP 显式启用；缺失公开字段保持关闭 |
 | `requiresMediaStudio` | 是否要求媒体工坊功能显式启用 |
 | `title`, `titleKey`, `descriptionKey` | 页面标题和 i18n 元数据 |
 | `breadcrumbs`, `icon`, `hideInMenu` | 导航展示元数据 |

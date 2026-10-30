@@ -19,6 +19,7 @@ test: check-layout
 
 test-unit:
 	go test -tags=unit ./...
+	go test -tags=mcp_go_client_oauth ./internal/transport/http/server/routes -run TestMCPOAuthOfficialGoSDKInteroperability -count=1
 
 test-integration:
 	go test -tags=integration ./...

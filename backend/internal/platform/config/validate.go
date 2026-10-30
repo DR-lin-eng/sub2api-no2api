@@ -45,6 +45,9 @@ func normalizeProxyProbeURLs(targets []ProbeURLConfig) ([]ProbeURLConfig, error)
 }
 
 func (c *Config) Validate() error {
+	if err := c.MCP.Validate(); err != nil {
+		return err
+	}
 	ipv6Configured := c.IPv6Egress.Enabled || c.IPv6Egress.ControlEnabled || strings.TrimSpace(c.IPv6Egress.AllocationSecret) != ""
 	if ipv6Configured {
 		if runtime.GOOS != "linux" {

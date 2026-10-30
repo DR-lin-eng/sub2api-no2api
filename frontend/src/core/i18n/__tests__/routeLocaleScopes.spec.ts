@@ -64,6 +64,8 @@ describe('route locale scopes', () => {
 
   it('loads user messages for authenticated and data-rich public pages', () => {
     expect(getLocaleScopesForRoute('/dashboard')).toEqual(['base', 'user'])
+    expect(getLocaleScopesForRoute('/settings/mcp')).toEqual(['base', 'user'])
+    expect(getLocaleScopesForRoute('/oauth/mcp/authorize')).toEqual(['base', 'user'])
     expect(getLocaleScopesForRoute('/model-plaza')).toEqual(['base', 'user'])
     expect(getLocaleScopesForRoute('/monitor/public')).toEqual(['base', 'user'])
   })

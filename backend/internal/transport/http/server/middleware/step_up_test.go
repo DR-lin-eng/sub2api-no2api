@@ -63,6 +63,47 @@ func TestEnforceStepUpRejectsAdminAPIKey(t *testing.T) {
 	require.Contains(t, rec.Body.String(), "STEP_UP_ADMIN_API_KEY_FORBIDDEN")
 }
 
+func TestEnforceStepUpRejectsMachineCredentialsEvenWithUserGrant(t *testing.T) {
+	for method, reason := range map[string]string{
+		service.AuditAuthMethodMCPOAuth: "STEP_UP_MCP_OAUTH_FORBIDDEN",
+		// Unknown credential types are denied by default, not silently allowed.
+		"future_machine_token": "STEP_UP_MACHINE_CREDENTIAL_FORBIDDEN",
+	} {
+		c, rec := newStepUpTestContext(t)
+		c.Set("auth_method", method)
+		c.Set(string(ContextKeyUser), AuthSubject{UserID: 1})
+		ok := enforceStepUp(c, stubStepUpGrantChecker{granted: true}, stubStepUpUserReader{user: &service.User{TotpEnabled: true}}, stepUpEnabled)
+		require.False(t, ok, method)
+		require.Equal(t, http.StatusForbidden, rec.Code, method)
+		require.Contains(t, rec.Body.String(), reason, method)
+	}
+}
+
+func TestMCPReadWriteCannotReplaceBrowserStepUp(t *testing.T) {
+	c, rec := newStepUpTestContext(t)
+	c.Set("auth_method", service.AuditAuthMethodMCPOAuth)
+	c.Set("mcp_read_write", true)
+	c.Set(string(ContextKeyUser), AuthSubject{UserID: 7})
+	c.Request = httptest.NewRequest(http.MethodDelete, "/api/v1/keys/9", nil)
+	protected := stepUpAuth(stubStepUpGrantChecker{granted: true}, stubStepUpUserReader{user: &service.User{ID: 7, TotpEnabled: true}}, stepUpEnabled)
+	protected(c)
+	require.True(t, c.IsAborted())
+	require.Equal(t, http.StatusForbidden, rec.Code)
+	require.Contains(t, rec.Body.String(), "STEP_UP_MCP_OAUTH_FORBIDDEN")
+}
+
+func TestMachineCredentialReasonAllowlistsBrowserSessions(t *testing.T) {
+	for method, want := range map[string]bool{
+		"": false, service.AuditAuthMethodJWT: false,
+		service.AuditAuthMethodAdminAPIKey: true, service.AuditAuthMethodMCPOAuth: true, "unknown": true,
+	} {
+		c, _ := newStepUpTestContext(t)
+		c.Set("auth_method", method)
+		_, machine := MachineCredentialReason(c)
+		require.Equal(t, want, machine, method)
+	}
+}
+
 func TestEnforceStepUpRequiresAuthSubject(t *testing.T) {
 	c, rec := newStepUpTestContext(t)
 

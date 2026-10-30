@@ -99,3 +99,5 @@ Claude 指纹的 UTF-16 前缀、Gemini fileData 计图、DeepSeek Pro/缓存读
 `api_key_auth_lookup.go` 拥有 API Key 入口查找；`api_key_auth_bloom.go` 在本地鉴权缓存之后、Redis L2/数据库之前预筛不存在的凭据，维护有界后台预热与回退计数。共享位图只用于否定判定，可能存在时仍走完整鉴权。
 
 `gemini_declared_models.go` 对原生模型元数据复用单次账号读取；Gemini 可配置同号重试、渠道平台维度合并和 OAuth 非流式终止响应聚合见 [2026-10-29 同步记录](../../../../docs/UPSTREAM_SYNC_20261029.md)。
+
+`mcp_oauth*` owns OAuth/PKCE management authorizations and repository ports; tool schemas remain in `modules/managementmcp` and HTTP/SDK adaptation stays in transport.
