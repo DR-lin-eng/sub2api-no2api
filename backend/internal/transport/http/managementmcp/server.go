@@ -229,19 +229,30 @@ var redactedResultKeys = func() map[string]struct{} {
 	keys := map[string]struct{}{}
 	for _, key := range append([]string{
 		"credentials", "password_hash", "session_token", "client_secret", "secret",
-		"totp_secret", "totp_secret_encrypted", "extra", "proxy", "auth_identities", "password", "admin_api_key",
+		"totp_secret", "totp_secret_encrypted", "extra", "proxy", "auth_identities", "password", "admin_api_key", "error_message", "error_detail", "raw_error",
 	}, service.SensitiveCredentialKeys...) {
-		keys[strings.ToLower(key)] = struct{}{}
+		keys[normalizeRedactionKey(key)] = struct{}{}
 	}
 	return keys
 }()
+
+func normalizeRedactionKey(key string) string {
+	var normalized strings.Builder
+	for _, r := range strings.ToLower(key) {
+		if r == '_' || r == '-' {
+			continue
+		}
+		normalized.WriteRune(r)
+	}
+	return normalized.String()
+}
 
 func redactResult(value any, revealCreatedKey bool, path string) {
 	switch v := value.(type) {
 	case map[string]any:
 		for key, child := range v {
 			childPath := path + "/" + key
-			lower := strings.ToLower(key)
+			lower := normalizeRedactionKey(key)
 			if lower == "key" && (!revealCreatedKey || childPath != "/data/key") {
 				delete(v, key)
 				continue

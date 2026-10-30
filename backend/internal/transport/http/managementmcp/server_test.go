@@ -435,11 +435,14 @@ func TestMCPRedactsEveryAuthoritativeCredentialKey(t *testing.T) {
 		nested[strings.ToUpper(key)] = "canary-upper-" + key
 	}
 	data["credentials"] = map[string]any{"nested": nested}
+	data["error_message"] = "Incorrect API key provided: sk-secret-canary"
+	data["ErrorMessage"] = "raw upstream body with secret"
 	data["items"] = []any{nested}
 	value := map[string]any{"data": data}
 	redactResult(value, false, "")
 	encoded, err := json.Marshal(value)
 	require.NoError(t, err)
 	require.NotContains(t, string(encoded), "canary")
+	require.NotContains(t, string(encoded), "secret")
 	require.Contains(t, string(encoded), "visible")
 }
