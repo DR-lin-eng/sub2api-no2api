@@ -95,3 +95,7 @@ GPT-6.1 Sol 的订阅模型长上下文豁免由 `openai_subscription_long_conte
 `grok_model_catalog.go` performs strict Grok catalog parsing and computes a source fingerprint. It reuses modelcatalog persistence and the existing OAuth model worker. Detail diagnostics are pure; `openai_compat_tool_model.go` enforces mapped Sol/Terra tools on Responses-capable paths. See [2026-10-27 sync](../../../../docs/UPSTREAM_SYNC_20261027.md).
 
 Claude 指纹的 UTF-16 前缀、Gemini fileData 计图、DeepSeek Pro/缓存读取、OpenCode 角色、模型广场固定价及上传完整性见 [2026-10-28 同步记录](../../../../docs/UPSTREAM_SYNC_20261028.md)。非流式畸形工具调用复用有界 collector 并返回明确 502；没有替换既有调度与可靠结算。
+
+`api_key_auth_lookup.go` 拥有 API Key 入口查找；`api_key_auth_bloom.go` 在本地鉴权缓存之后、Redis L2/数据库之前预筛不存在的凭据，维护有界后台预热与回退计数。共享位图只用于否定判定，可能存在时仍走完整鉴权。
+
+`gemini_declared_models.go` 对原生模型元数据复用单次账号读取；Gemini 可配置同号重试、渠道平台维度合并和 OAuth 非流式终止响应聚合见 [2026-10-29 同步记录](../../../../docs/UPSTREAM_SYNC_20261029.md)。

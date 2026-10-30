@@ -49,9 +49,11 @@ func normalizeIP(ip string) string {
 
 // CompiledIPRules 表示预编译的 IP 匹配规则。
 // PatternCount 记录原始规则数量，用于保留“规则存在但全无效”时的行为语义。
+// CompileIPRules 返回的规则发布后不可修改，可由多个请求并发复用。
 type CompiledIPRules struct {
 	Prefixes     []netip.Prefix
 	PatternCount int
+	bloom        *prefixBloom
 }
 
 // CompileIPRules 将 IP/CIDR 字符串规则预编译为可复用结构。
@@ -72,6 +74,7 @@ func CompileIPRules(patterns []string) *CompiledIPRules {
 		}
 		compiled.Prefixes = append(compiled.Prefixes, prefix)
 	}
+	compiled.bloom = newPrefixBloom(compiled.Prefixes)
 	return compiled
 }
 
@@ -79,7 +82,21 @@ func matchesCompiledRules(parsedIP netip.Addr, rules *CompiledIPRules) bool {
 	if !parsedIP.IsValid() || rules == nil {
 		return false
 	}
-	for _, prefix := range rules.Prefixes {
+	prefixes := rules.Prefixes
+	if rules.bloom != nil {
+		// Keep early matches cheap, including broad CIDRs near the front.
+		for i := 0; i < 4 && len(prefixes) > 0; i++ {
+			if prefixes[0].Contains(parsedIP) {
+				return true
+			}
+			prefixes = prefixes[1:]
+		}
+		// Only a negative Bloom result may skip the remaining exact checks.
+		if !rules.bloom.mayContain(parsedIP) {
+			return false
+		}
+	}
+	for _, prefix := range prefixes {
 		if prefix.Contains(parsedIP) {
 			return true
 		}

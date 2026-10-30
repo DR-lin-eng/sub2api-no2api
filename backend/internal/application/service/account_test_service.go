@@ -1078,14 +1078,23 @@ func (s *AccountTestService) reconcileOpenAI429State(ctx context.Context, accoun
 	}
 }
 
-// testGeminiAccountConnection tests a Gemini account's connection
+// geminiDefaultTestModel preserves the legacy Google One probe model.
+func geminiDefaultTestModel(account *Account) string {
+	if account != nil && account.Platform == PlatformGemini && account.Type == AccountTypeOAuth &&
+		strings.EqualFold(strings.TrimSpace(account.GetCredential("oauth_type")), "google_one") {
+		// Keep the existing consumer-account probe compatible during upgrade.
+		return "gemini-2.0-flash"
+	}
+	return geminicli.DefaultTestModel
+}
+
 func (s *AccountTestService) testGeminiAccountConnection(c *gin.Context, account *Account, modelID string, prompt string) error {
 	ctx := c.Request.Context()
 
 	// Determine the model to use
 	testModelID := modelID
 	if testModelID == "" {
-		testModelID = geminicli.DefaultTestModel
+		testModelID = geminiDefaultTestModel(account)
 	}
 
 	// For static upstream credentials with model mapping, map the model

@@ -113,6 +113,7 @@ func (s *APIKeyService) initAuthCache(cfg *config.Config) {
 // StartAuthCacheInvalidationSubscriber starts the Pub/Sub subscriber for L1 cache invalidation.
 // This should be called after the service is fully initialized.
 func (s *APIKeyService) StartAuthCacheInvalidationSubscriber(ctx context.Context) {
+	s.startAuthBloom(ctx)
 	if s.cache == nil || (s.authCacheL1 == nil && s.authNegativeCacheL1 == nil) {
 		return
 	}
@@ -192,6 +193,7 @@ func (s *APIKeyService) StopAuthCacheInvalidationSubscriber() {
 	if s == nil {
 		return
 	}
+	s.stopAuthBloom()
 	s.authInvalidationStop.Do(func() {
 		if s.authInvalidationCancel != nil {
 			s.authInvalidationCancel()
@@ -303,7 +305,7 @@ func (s *APIKeyService) clearAuthHotCacheEntry(cacheKey string) {
 	}
 }
 
-func (s *APIKeyService) getAuthCacheEntry(ctx context.Context, cacheKey string) (*APIKeyAuthCacheEntry, bool) {
+func (s *APIKeyService) getLocalAuthCacheEntry(cacheKey string) (*APIKeyAuthCacheEntry, bool) {
 	if s.authCacheL1 != nil {
 		if val, ok := s.authCacheL1.Get(cacheKey); ok {
 			if entry, ok := val.(*APIKeyAuthCacheEntry); ok {
@@ -317,6 +319,13 @@ func (s *APIKeyService) getAuthCacheEntry(ctx context.Context, cacheKey string) 
 				return entry, true
 			}
 		}
+	}
+	return nil, false
+}
+
+func (s *APIKeyService) getAuthCacheEntry(ctx context.Context, cacheKey string) (*APIKeyAuthCacheEntry, bool) {
+	if entry, ok := s.getLocalAuthCacheEntry(cacheKey); ok {
+		return entry, true
 	}
 	if s.cache == nil || !s.authCfg.l2Enabled() {
 		return nil, false

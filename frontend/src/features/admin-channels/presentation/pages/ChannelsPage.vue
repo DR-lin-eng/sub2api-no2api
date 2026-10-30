@@ -324,8 +324,8 @@
               </div>
             </div>
 
-            <!-- Web Search Emulation (Anthropic only, hidden when global disabled) -->
-            <div v-if="section.platform === 'anthropic' && webSearchGlobalEnabled" class="border-t border-gray-200 pt-3 dark:border-dark-600">
+            <!-- Web Search Emulation (supported API-key platforms) -->
+            <div v-if="WEB_SEARCH_EMULATION_PLATFORMS.has(section.platform) && webSearchGlobalEnabled" class="border-t border-gray-200 pt-3 dark:border-dark-600">
               <div class="flex items-center justify-between">
                 <div>
                   <label class="text-xs font-medium text-gray-700 dark:text-gray-300">
@@ -641,6 +641,7 @@ import type { PlatformSection } from '@/features/admin-channels/presentation/cha
 import {
   buildAccountStatsPricingRules,
   buildChannelAPIFields,
+  WEB_SEARCH_EMULATION_PLATFORMS,
   channelPlatformOrder,
   channelToPlatformSections,
   distributeAccountStatsPricingRules,

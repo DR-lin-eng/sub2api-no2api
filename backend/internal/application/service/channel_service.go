@@ -890,7 +890,7 @@ func (s *ChannelService) applyUpdateInput(ctx context.Context, channel *Channel,
 		channel.BillingModelSource = input.BillingModelSource
 	}
 	if input.FeaturesConfig != nil {
-		channel.FeaturesConfig = input.FeaturesConfig
+		channel.FeaturesConfig = mergeWebSearchEmulationDimensions(channel.FeaturesConfig, input.FeaturesConfig)
 	}
 	if input.ApplyPricingToAccountStats != nil {
 		channel.ApplyPricingToAccountStats = *input.ApplyPricingToAccountStats
@@ -899,6 +899,52 @@ func (s *ChannelService) applyUpdateInput(ctx context.Context, channel *Channel,
 		channel.AccountStatsPricingRules = *input.AccountStatsPricingRules
 	}
 	return nil
+}
+
+// mergeWebSearchEmulationDimensions preserves per-platform Web Search
+// settings when an older or partial client updates a channel. FeaturesConfig
+// is otherwise intentionally replaced as a whole block so callers can clear
+// unrelated nested settings explicitly.
+//
+// A missing web_search_emulation key inherits the previous key. When the key
+// is present, request dimensions override existing dimensions and omitted
+// dimensions are inherited. An explicit empty object remains a clear
+// operation. Copies keep the stored channel and incoming request independent.
+func mergeWebSearchEmulationDimensions(existing, incoming map[string]any) map[string]any {
+	if incoming == nil {
+		return nil
+	}
+	current, _ := existing[featureKeyWebSearchEmulation].(map[string]any)
+	rawIncoming, present := incoming[featureKeyWebSearchEmulation]
+	incomingDims, incomingIsMap := rawIncoming.(map[string]any)
+	if !present && len(current) > 0 {
+		return withWebSearchEmulationKey(incoming, current)
+	}
+	if !incomingIsMap || len(current) == 0 || len(incomingDims) == 0 {
+		return incoming
+	}
+
+	merged := make(map[string]any, len(current)+len(incomingDims))
+	for platform, value := range current {
+		merged[platform] = value
+	}
+	for platform, value := range incomingDims {
+		merged[platform] = value
+	}
+	return withWebSearchEmulationKey(incoming, merged)
+}
+
+func withWebSearchEmulationKey(incoming, value map[string]any) map[string]any {
+	out := make(map[string]any, len(incoming)+1)
+	for key, item := range incoming {
+		out[key] = item
+	}
+	copied := make(map[string]any, len(value))
+	for platform, item := range value {
+		copied[platform] = item
+	}
+	out[featureKeyWebSearchEmulation] = copied
+	return out
 }
 
 // checkGroupConflicts 检查待关联的分组是否已属于其他渠道。

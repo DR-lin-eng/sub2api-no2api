@@ -53,6 +53,14 @@ export const channelPlatformOrder: GroupPlatform[] = [
     'multimodal',
 ]
 
+// Keep the channel editor aligned with the platform dimensions it currently
+// renders. Unknown dimensions remain preserved in features_config so an older
+// UI cannot erase settings written by a newer API client.
+export const WEB_SEARCH_EMULATION_PLATFORMS: ReadonlySet<GroupPlatform> = new Set([
+  'anthropic',
+  'openai',
+])
+
 function pricingFormEntryToAPI(
   entry: PricingFormEntry,
   platform: GroupPlatform,
@@ -156,13 +164,21 @@ export function buildChannelAPIFields(
     }
   }
 
-  const webSearchEmulation: Record<string, boolean> = {}
+  const existingWebSearchEmulation = existingFeaturesConfig?.web_search_emulation
+  const webSearchEmulation: Record<string, unknown> =
+    existingWebSearchEmulation && typeof existingWebSearchEmulation === 'object'
+      ? { ...(existingWebSearchEmulation as Record<string, unknown>) }
+      : {}
+  let webSearchTouched = false
   const codexImageGenerationBridge: Record<string, boolean> = {}
   const bedrockCCCompat: Record<string, boolean> = {}
   for (const section of sections) {
+    if (WEB_SEARCH_EMULATION_PLATFORMS.has(section.platform)) {
+      webSearchEmulation[section.platform] = section.enabled ? !!section.web_search_emulation : false
+      webSearchTouched = true
+    }
     if (!section.enabled) continue
-    if (section.platform === 'anthropic') {
-      webSearchEmulation[section.platform] = !!section.web_search_emulation
+    if (section.enabled && section.platform === 'anthropic') {
       bedrockCCCompat[section.platform] = !!section.bedrock_cc_compat
     }
     if (section.platform === 'openai') {
@@ -170,10 +186,8 @@ export function buildChannelAPIFields(
     }
   }
 
-  if (Object.keys(webSearchEmulation).length > 0) {
+  if (webSearchTouched || Object.keys(webSearchEmulation).length > 0) {
     featuresConfig.web_search_emulation = webSearchEmulation
-  } else {
-    delete featuresConfig.web_search_emulation
   }
   if (Object.keys(codexImageGenerationBridge).length > 0) {
     featuresConfig.codex_image_generation_bridge = codexImageGenerationBridge

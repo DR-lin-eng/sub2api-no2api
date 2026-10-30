@@ -76,6 +76,24 @@ func TestLoadServerTimingConfig(t *testing.T) {
 	})
 }
 
+func TestLoadGeminiSameAccountRetries(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.Equal(t, 4, cfg.Gateway.MaxSameAccountRetriesGemini)
+
+	resetViperWithJWTSecret(t)
+	t.Setenv("GATEWAY_MAX_SAME_ACCOUNT_RETRIES_GEMINI", "0")
+	cfg, err = Load()
+	require.NoError(t, err)
+	require.Zero(t, cfg.Gateway.MaxSameAccountRetriesGemini)
+
+	resetViperWithJWTSecret(t)
+	t.Setenv("GATEWAY_MAX_SAME_ACCOUNT_RETRIES_GEMINI", "11")
+	_, err = Load()
+	require.ErrorContains(t, err, "gateway.max_same_account_retries_gemini")
+}
+
 func TestLoadDeploymentWorkerModes(t *testing.T) {
 	t.Run("auto is the default worker candidate", func(t *testing.T) {
 		resetViperWithJWTSecret(t)

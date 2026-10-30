@@ -1,0 +1,6 @@
+FROM sub2api-sync-node:20261027
+WORKDIR /app/frontend
+COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile --prefer-offline
+COPY frontend/ ./
+COPY docs/legal/ /app/docs/legal/

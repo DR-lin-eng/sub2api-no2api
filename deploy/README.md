@@ -830,3 +830,7 @@ OAuth Images 请求通过 Responses 文本主控调用 `image_generation`；默�
 Compose 用户修改 `.env` 后，在部署目录执行 `docker compose up -d sub2api`，使容器重新创建并加载环境变量。已有 Compose 文件也需加入该变量的 environment 转发；四个当前 Compose 示例均已接线。二进制部署在服务环境中设置该变量并重启进程。
 
 显式账号映射或分组白名单需按需加入新图片模型；升级不会自动扩大这些权限。默认图片模型仍为 `gpt-image-2`。本批未新增数据库迁移，价格覆盖继续按现有分组、渠道和价格目录优先级处理。
+
+### Gemini 同账号重试
+
+`gateway.max_same_account_retries_gemini`（环境变量 `GATEWAY_MAX_SAME_ACCOUNT_RETRIES_GEMINI`）控制原生 Gemini、Claude 和 Chat 兼容转发的同账号重试次数，不包含首次请求。默认 4、范围 0–10；0 立即进入既有换号/错误处理。签名历史降级最多两次，独立于瞬时重试预算；滚动升级期间保持默认值，全部节点升级后再调整。

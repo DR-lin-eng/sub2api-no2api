@@ -180,14 +180,14 @@ describe('channel form codec', () => {
     })
     expect(result.features_config).toStrictEqual({
       untouched: { enabled: true },
-      web_search_emulation: { anthropic: true },
+      web_search_emulation: { stale: true, anthropic: true, openai: false },
       codex_image_generation_bridge: { openai: true },
       bedrock_cc_compat: { anthropic: true },
     })
     expect(result.features_config).not.toBe(existingFeatures)
   })
 
-  it('removes stale managed feature keys when their platform is disabled', () => {
+  it('writes an explicit false when the rendered web search platform is disabled', () => {
     const result = buildChannelAPIFields(
       [makeSection('anthropic', { enabled: false })],
       {
@@ -198,7 +198,23 @@ describe('channel form codec', () => {
       },
     )
 
-    expect(result.features_config).toStrictEqual({ untouched: true })
+    expect(result.features_config).toStrictEqual({
+      untouched: true,
+      web_search_emulation: { anthropic: false },
+    })
+  })
+
+  it('preserves unedited web search dimensions while editing a platform', () => {
+    const result = buildChannelAPIFields(
+      [makeSection('anthropic', { web_search_emulation: false })],
+      { web_search_emulation: { openai: true, command_code: true } },
+    )
+
+    expect(result.features_config.web_search_emulation).toStrictEqual({
+      openai: true,
+      command_code: true,
+      anthropic: false,
+    })
   })
 
   it('serializes account rules in section and rule order while filtering empty pricing', () => {
