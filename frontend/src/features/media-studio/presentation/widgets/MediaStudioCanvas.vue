@@ -250,7 +250,7 @@
       :class="hasMessages ? 'sticky bottom-0 mt-auto bg-gradient-to-t from-gray-50 via-gray-50/95 to-transparent pb-1 pt-5 dark:from-dark-950 dark:via-dark-950/95' : 'flex flex-1 items-center'"
     >
       <div class="w-full">
-        <div v-if="jobBarJobs.length" class="mx-auto mb-2 w-full max-w-4xl">
+        <div v-if="jobBarJobs.length" class="mx-auto mb-2 w-full max-w-5xl">
           <MediaStudioJobBar
             :jobs="jobBarJobs"
             @retry="retryJob"
@@ -262,7 +262,7 @@
           {{ t('mediaStudio.composer.greeting') }}
         </h2>
 
-        <div v-if="hasMessages && selectionMode" class="mx-auto mb-2 flex max-w-4xl items-center gap-2">
+        <div v-if="hasMessages && selectionMode" class="mx-auto mb-2 flex max-w-5xl items-center gap-2">
           <div class="ml-auto flex items-center gap-2">
             <span class="text-xs text-gray-500 dark:text-gray-400">
               {{ t('mediaStudio.session.selectedCount', { count: selectedMessageIDs.length }) }}
@@ -286,7 +286,7 @@
           </div>
         </div>
 
-        <div class="relative mx-auto max-w-4xl">
+        <div class="relative mx-auto max-w-5xl">
           <div
             v-if="typeMenuOpen"
             ref="typeMenuRef"
@@ -437,14 +437,234 @@
                 ref="typeMenuTriggerRef"
                 class="composer-chip bg-gray-100 text-gray-900 dark:bg-dark-800 dark:text-white"
                 :aria-expanded="typeMenuOpen"
-                @click="typeMenuOpen = !typeMenuOpen"
+                @click="toggleTypeMenu"
               >
                 <Icon :name="selectedMode.iconName" size="sm" />
                 <span>{{ t(`mediaStudio.modeItems.${selectedMode.id}.title`) }}</span>
                 <Icon :name="typeMenuOpen ? 'chevronUp' : 'chevronDown'" size="xs" class="text-gray-400" />
               </button>
 
+              <!-- 模型是最关键的选择：二级菜单先选分组，再选该分组下的模型。 -->
+              <div class="relative">
+                <button
+                  type="button"
+                  ref="modelMenuTriggerRef"
+                  class="composer-chip composer-chip--param"
+                  :aria-expanded="modelMenuOpen"
+                  @click="toggleModelMenu"
+                >
+                  <span class="composer-chip__key">{{ t('mediaStudio.composer.model') }}</span>
+                  <span class="composer-chip__value max-w-[12rem] truncate">{{ model || t('mediaStudio.composer.selectModel') }}</span>
+                  <Icon :name="modelMenuOpen ? 'chevronUp' : 'chevronDown'" size="xs" class="text-gray-400" />
+                </button>
+
+                <div
+                  v-if="modelMenuOpen"
+                  ref="modelMenuRef"
+                  class="absolute bottom-12 left-0 z-30 w-72 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl shadow-gray-900/10 dark:border-dark-700 dark:bg-dark-900"
+                >
+                  <template v-if="modelMenuStep === 'group'">
+                    <p class="section-title px-3 pb-1 pt-2.5">{{ t('mediaStudio.composer.selectGroup') }}</p>
+                    <div class="max-h-64 overflow-y-auto p-1.5 pt-0">
+                      <button
+                        v-for="group in groupOptions"
+                        :key="group.group_id"
+                        type="button"
+                        class="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm transition-colors"
+                        :class="group.group_id === selectedGroupId ? 'bg-gray-100 text-gray-950 dark:bg-dark-800 dark:text-white' : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-dark-800'"
+                        @click="selectModelMenuGroup(group)"
+                      >
+                        <span class="min-w-0 flex-1">
+                          <span class="block truncate font-medium">{{ group.group_name }}</span>
+                          <span class="block truncate text-xs text-gray-400">{{ group.platform }}</span>
+                        </span>
+                        <span class="shrink-0 text-xs text-gray-400">{{ group.models?.length ?? 0 }}</span>
+                        <Icon name="chevronRight" size="xs" class="shrink-0 text-gray-400" />
+                      </button>
+                      <p v-if="groupOptions.length === 0" class="px-2.5 py-3 text-xs text-gray-500 dark:text-gray-400">
+                        {{ groupLoadError || t('mediaStudio.composer.noGroups') }}
+                      </p>
+                    </div>
+                  </template>
+
+                  <template v-else>
+                    <div class="flex items-center gap-1.5 px-2 pb-1 pt-2">
+                      <button
+                        type="button"
+                        class="inline-flex h-7 w-7 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-dark-800 dark:hover:text-white"
+                        :aria-label="t('mediaStudio.composer.selectGroup')"
+                        @click="modelMenuStep = 'group'"
+                      >
+                        <Icon name="chevronLeft" size="xs" />
+                      </button>
+                      <span class="min-w-0 flex-1 truncate text-xs font-medium text-gray-500 dark:text-gray-400">
+                        {{ activeMenuGroupName }}
+                      </span>
+                    </div>
+                    <div class="max-h-64 overflow-y-auto p-1.5 pt-0">
+                      <p v-if="loadingModels" class="px-2.5 py-3 text-xs text-gray-500 dark:text-gray-400">
+                        {{ t('mediaStudio.composer.loadingModels') }}
+                      </p>
+                      <template v-else>
+                        <button
+                          v-for="option in modelOptions"
+                          :key="option.id"
+                          type="button"
+                          class="flex w-full items-center justify-between gap-2 rounded-xl px-2.5 py-2 text-left text-sm transition-colors"
+                          :class="option.id === model ? 'bg-gray-100 text-gray-950 dark:bg-dark-800 dark:text-white' : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-dark-800'"
+                          @click="selectMenuModel(option.id)"
+                        >
+                          <span class="min-w-0 flex-1 truncate">{{ option.id }}</span>
+                          <Icon v-if="option.id === model" name="check" size="sm" class="shrink-0" />
+                        </button>
+
+                        <div v-if="modelOptions.length === 0" class="space-y-2 px-2 py-2">
+                          <p class="text-xs leading-5 text-gray-500 dark:text-gray-400">
+                            {{ t('mediaStudio.composer.manualModelHint') }}
+                          </p>
+                          <input
+                            v-model="manualModelInput"
+                            type="text"
+                            class="param-control"
+                            :placeholder="t('mediaStudio.composer.model')"
+                            @keydown.enter.prevent="applyManualModel"
+                          >
+                          <button
+                            type="button"
+                            class="w-full rounded-lg bg-gray-950 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-gray-950 dark:hover:bg-gray-200"
+                            :disabled="!manualModelInput.trim()"
+                            @click="applyManualModel"
+                          >
+                            {{ t('mediaStudio.composer.applyModel') }}
+                          </button>
+                        </div>
+                      </template>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <!-- 常用参数外置到工具条，展开「更多」只用于分组和低频参数。 -->
+              <div
+                v-if="selectedModeId === 'image' && !hiddenParameterControls.includes('image.size')"
+                class="composer-chip-wrap relative"
+              >
+                <select
+                  class="composer-chip-select"
+                  :value="imageAspectRatio"
+                  :aria-label="t('mediaStudio.composer.aspectRatio')"
+                  @change="handleAspectRatioSelect"
+                >
+                  <option v-for="option in imageAspectRatioOptions" :key="option" :value="option">{{ option }}</option>
+                  <option v-for="option in customImageAspectRatios" :key="`custom:${option}`" :value="`custom:${option}`">
+                    {{ option }}
+                  </option>
+                  <option value="__custom__">{{ t('mediaStudio.composer.customAspectRatio.option') }}</option>
+                </select>
+                <span class="composer-chip composer-chip--param" aria-hidden="true">
+                  <span class="composer-chip__key">{{ t('mediaStudio.composer.aspectRatio') }}</span>
+                  <span class="composer-chip__value">{{ aspectRatioLabel(imageAspectRatio) }}</span>
+                  <Icon name="chevronDown" size="xs" class="text-gray-400" />
+                </span>
+              </div>
+
+              <div
+                v-if="selectedModeId === 'image' && !hiddenParameterControls.includes('image.size')"
+                class="composer-chip-wrap relative"
+              >
+                <select
+                  class="composer-chip-select"
+                  :value="imageResolution"
+                  :aria-label="t('mediaStudio.composer.resolution')"
+                  @change="handleImageResolutionSelect"
+                >
+                  <option v-for="option in imageResolutionOptions" :key="option" :value="option">{{ option }}</option>
+                </select>
+                <span class="composer-chip composer-chip--param" aria-hidden="true">
+                  <span class="composer-chip__key">{{ t('mediaStudio.composer.resolution') }}</span>
+                  <span class="composer-chip__value">{{ imageResolution }}</span>
+                  <Icon name="chevronDown" size="xs" class="text-gray-400" />
+                </span>
+              </div>
+
+              <div
+                v-if="selectedModeId === 'image' && !hiddenParameterControls.includes('image.count')"
+                class="composer-chip-wrap relative"
+              >
+                <select
+                  class="composer-chip-select"
+                  :value="count"
+                  :aria-label="t('mediaStudio.composer.count')"
+                  @change="emit('update:count', Number(($event.target as HTMLSelectElement).value))"
+                >
+                  <option v-for="option in countOptions" :key="option" :value="option">{{ option }}</option>
+                </select>
+                <span class="composer-chip composer-chip--param" aria-hidden="true">
+                  <span class="composer-chip__key">{{ t('mediaStudio.composer.count') }}</span>
+                  <span class="composer-chip__value">{{ count }}</span>
+                  <Icon name="chevronDown" size="xs" class="text-gray-400" />
+                </span>
+              </div>
+
+              <div
+                v-if="selectedModeId === 'video' && !hiddenParameterControls.includes('video.aspectRatio')"
+                class="composer-chip-wrap relative"
+              >
+                <select
+                  class="composer-chip-select"
+                  :value="videoAspectRatio"
+                  :aria-label="t('mediaStudio.composer.aspectRatio')"
+                  @change="emit('update:videoAspectRatio', ($event.target as HTMLSelectElement).value as MediaStudioVideoAspectRatio)"
+                >
+                  <option v-for="option in videoAspectRatioOptions" :key="option" :value="option">{{ option }}</option>
+                </select>
+                <span class="composer-chip composer-chip--param" aria-hidden="true">
+                  <span class="composer-chip__key">{{ t('mediaStudio.composer.aspectRatio') }}</span>
+                  <span class="composer-chip__value">{{ videoAspectRatio }}</span>
+                  <Icon name="chevronDown" size="xs" class="text-gray-400" />
+                </span>
+              </div>
+
+              <div
+                v-if="selectedModeId === 'video' && !hiddenParameterControls.includes('video.resolution')"
+                class="composer-chip-wrap relative"
+              >
+                <select
+                  class="composer-chip-select"
+                  :value="resolution"
+                  :aria-label="t('mediaStudio.composer.resolution')"
+                  @change="emit('update:resolution', ($event.target as HTMLSelectElement).value as MediaStudioVideoResolution)"
+                >
+                  <option v-for="option in resolutionOptions" :key="option" :value="option">{{ option }}</option>
+                </select>
+                <span class="composer-chip composer-chip--param" aria-hidden="true">
+                  <span class="composer-chip__key">{{ t('mediaStudio.composer.resolution') }}</span>
+                  <span class="composer-chip__value">{{ resolution }}</span>
+                  <Icon name="chevronDown" size="xs" class="text-gray-400" />
+                </span>
+              </div>
+
+              <div
+                v-if="selectedModeId === 'video' && !hiddenParameterControls.includes('video.duration')"
+                class="composer-chip-wrap relative"
+              >
+                <select
+                  class="composer-chip-select"
+                  :value="String(duration)"
+                  :aria-label="t('mediaStudio.composer.duration')"
+                  @change="emit('update:duration', Number(($event.target as HTMLSelectElement).value))"
+                >
+                  <option v-for="option in durationOptions" :key="option" :value="option">{{ option }}</option>
+                </select>
+                <span class="composer-chip composer-chip--param" aria-hidden="true">
+                  <span class="composer-chip__key">{{ t('mediaStudio.composer.duration') }}</span>
+                  <span class="composer-chip__value">{{ duration }}s</span>
+                  <Icon name="chevronDown" size="xs" class="text-gray-400" />
+                </span>
+              </div>
+
               <button
+                v-if="hasParamSettings"
                 type="button"
                 ref="settingsMenuTriggerRef"
                 class="composer-chip bg-gray-100 text-gray-900 dark:bg-dark-800 dark:text-white"
@@ -490,196 +710,36 @@
             </div>
 
             <div
-              v-if="settingsMenuOpen"
+              v-if="settingsMenuOpen && hasParamSettings"
               ref="settingsMenuRef"
               class="absolute bottom-16 left-0 z-20 max-h-[min(72vh,36rem)] w-[min(94vw,44rem)] overflow-y-auto rounded-2xl border border-gray-200 bg-white p-4 shadow-xl shadow-gray-900/10 dark:border-dark-700 dark:bg-dark-900 sm:p-5"
             >
-              <div class="grid gap-5 md:grid-cols-2 md:gap-0">
-                <section class="space-y-2.5 md:pr-5">
-                  <p class="section-title">
-                    {{ t('mediaStudio.composer.resourceSettings') }}
-                  </p>
+              <section class="space-y-2.5">
+                <p class="section-title">
+                  {{ selectedModeId === 'image' ? t('mediaStudio.composer.imageSettings') : t('mediaStudio.composer.videoSettings') }}
+                </p>
 
-                  <label class="param-field">
-                    <span class="param-label">{{ t('mediaStudio.composer.group') }}</span>
+                <div class="grid grid-cols-2 gap-x-3 gap-y-2.5">
+                  <ModelAttributeFieldControl
+                    v-for="field in attributeFields"
+                    :key="`attr:${field.key}`"
+                    :field="field"
+                    :model-value="attributeValues[field.key]"
+                    @update:model-value="value => emit('update:attribute', { key: field.key, value })"
+                  />
+
+                  <label v-if="qualityVisible" class="param-field">
+                    <span class="param-label">{{ t('mediaStudio.composer.quality') }}</span>
                     <select
-                      :value="selectedGroupId"
+                      :value="quality"
                       class="param-control"
-                      :disabled="loadingGroups"
-                      @change="emit('update:selectedGroupId', Number(($event.target as HTMLSelectElement).value))"
+                      @change="emit('update:quality', ($event.target as HTMLSelectElement).value)"
                     >
-                      <option :value="0">{{ loadingGroups ? t('mediaStudio.composer.loadingGroups') : t('mediaStudio.composer.selectGroup') }}</option>
-                      <option v-for="group in groupOptions" :key="group.group_id" :value="group.group_id">
-                        {{ group.group_name }} · {{ group.platform }}
-                      </option>
+                      <option v-for="option in imageQualityOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
                     </select>
                   </label>
-
-                  <label class="param-field">
-                    <span class="param-label">{{ t('mediaStudio.composer.model') }}</span>
-                    <select
-                      v-if="modelSelectionLocked"
-                      :value="model"
-                      class="param-control"
-                      :disabled="loadingModels || modelOptions.length === 0"
-                      @change="emit('update:model', ($event.target as HTMLSelectElement).value)"
-                    >
-                      <option value="">{{ loadingModels ? t('mediaStudio.composer.loadingModels') : t('mediaStudio.composer.model') }}</option>
-                      <option v-for="option in modelOptions" :key="option.id" :value="option.id">{{ option.id }}</option>
-                    </select>
-                    <template v-else>
-                      <input
-                        :value="model"
-                        list="media-studio-models"
-                        class="param-control"
-                        :placeholder="loadingModels ? t('mediaStudio.composer.loadingModels') : t('mediaStudio.composer.model')"
-                        @input="emit('update:model', ($event.target as HTMLInputElement).value)"
-                      />
-                      <datalist id="media-studio-models">
-                        <option v-for="option in modelOptions" :key="option.id" :value="option.id" />
-                      </datalist>
-                    </template>
-                  </label>
-                </section>
-
-                <section class="space-y-2.5 md:border-l md:border-gray-100 md:pl-5 dark:md:border-dark-800">
-                  <p class="section-title">
-                    {{ selectedModeId === 'image' ? t('mediaStudio.composer.imageSettings') : t('mediaStudio.composer.videoSettings') }}
-                  </p>
-
-                  <div v-if="selectedModeId === 'image'" class="grid grid-cols-2 gap-x-3 gap-y-2.5">
-                    <ModelAttributeFieldControl
-                      v-for="field in attributeFields"
-                      :key="`attr:${field.key}`"
-                      :field="field"
-                      :model-value="attributeValues[field.key]"
-                      @update:model-value="value => emit('update:attribute', { key: field.key, value })"
-                    />
-
-                    <label v-if="!hiddenParameterControls.includes('image.size')" class="param-field">
-                      <span class="param-label">{{ t('mediaStudio.composer.resolution') }}</span>
-                      <select
-                        :value="imageResolution"
-                        class="param-control"
-                        @change="handleImageResolutionSelect"
-                      >
-                        <option v-for="option in imageResolutionOptions" :key="option" :value="option">{{ option }}</option>
-                      </select>
-                    </label>
-
-                    <label v-if="!hiddenParameterControls.includes('image.size')" class="param-field">
-                      <span class="param-label">{{ t('mediaStudio.composer.aspectRatio') }}</span>
-                      <select
-                        :value="imageAspectRatio"
-                        class="param-control"
-                        @change="handleAspectRatioSelect"
-                      >
-                        <option v-for="option in imageAspectRatioOptions" :key="option" :value="option">{{ option }}</option>
-                        <option v-for="option in customImageAspectRatios" :key="`custom:${option}`" :value="`custom:${option}`">
-                          {{ option }}
-                        </option>
-                        <option value="__custom__">{{ t('mediaStudio.composer.customAspectRatio.option') }}</option>
-                      </select>
-                    </label>
-
-                    <label
-                      v-if="!hiddenParameterControls.includes('image.quality') && imageQualityOptions.length > 0"
-                      class="param-field"
-                    >
-                      <span class="param-label">{{ t('mediaStudio.composer.quality') }}</span>
-                      <select
-                        :value="quality"
-                        class="param-control"
-                        @change="emit('update:quality', ($event.target as HTMLSelectElement).value)"
-                      >
-                        <option v-for="option in imageQualityOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-                      </select>
-                    </label>
-
-                    <label v-if="!hiddenParameterControls.includes('image.count')" class="param-field">
-                      <span class="param-label">{{ t('mediaStudio.composer.count') }}</span>
-                      <select
-                        :value="count"
-                        class="param-control"
-                        @change="emit('update:count', Number(($event.target as HTMLSelectElement).value))"
-                      >
-                        <option v-for="option in countOptions" :key="option" :value="option">{{ option }}</option>
-                      </select>
-                    </label>
-                  </div>
-
-                  <div v-else class="grid grid-cols-2 gap-x-3 gap-y-2.5">
-                    <ModelAttributeFieldControl
-                      v-for="field in attributeFields"
-                      :key="`attr:${field.key}`"
-                      :field="field"
-                      :model-value="attributeValues[field.key]"
-                      @update:model-value="value => emit('update:attribute', { key: field.key, value })"
-                    />
-
-                    <label v-if="!hiddenParameterControls.includes('video.resolution')" class="param-field">
-                      <span class="param-label">{{ t('mediaStudio.composer.resolution') }}</span>
-                      <select
-                        :value="resolution"
-                        class="param-control"
-                        @change="emit('update:resolution', ($event.target as HTMLSelectElement).value as MediaStudioVideoResolution)"
-                      >
-                        <option v-for="option in resolutionOptions" :key="option" :value="option">{{ option }}</option>
-                      </select>
-                    </label>
-
-                    <label v-if="!hiddenParameterControls.includes('video.aspectRatio')" class="param-field">
-                      <span class="param-label">{{ t('mediaStudio.composer.aspectRatio') }}</span>
-                      <select
-                        :value="videoAspectRatio"
-                        class="param-control"
-                        @change="emit('update:videoAspectRatio', ($event.target as HTMLSelectElement).value as MediaStudioVideoAspectRatio)"
-                      >
-                        <option v-for="option in videoAspectRatioOptions" :key="option" :value="option">{{ option }}</option>
-                      </select>
-                    </label>
-
-                    <label v-if="!hiddenParameterControls.includes('video.duration')" class="param-field">
-                      <span class="param-label">{{ t('mediaStudio.composer.duration') }}</span>
-                      <span class="relative block">
-                        <input
-                          :value="durationInput"
-                          type="number"
-                          inputmode="numeric"
-                          step="1"
-                          class="param-control duration-input"
-                          :min="modelLimits.duration.min"
-                          :max="modelLimits.duration.max"
-                          @input="durationInput = ($event.target as HTMLInputElement).value"
-                          @change="commitDuration"
-                          @blur="commitDuration"
-                        >
-                        <span class="pointer-events-none absolute inset-y-0 right-10 flex items-center text-xs text-gray-400 dark:text-gray-500">s</span>
-                        <span class="duration-stepper">
-                          <button
-                            type="button"
-                            class="duration-stepper__button"
-                            :disabled="duration >= modelLimits.duration.max"
-                            :aria-label="t('mediaStudio.composer.durationIncrease')"
-                            @click="stepDuration(1)"
-                          >
-                            <Icon name="chevronUp" size="xs" :stroke-width="2" />
-                          </button>
-                          <button
-                            type="button"
-                            class="duration-stepper__button"
-                            :disabled="duration <= modelLimits.duration.min"
-                            :aria-label="t('mediaStudio.composer.durationDecrease')"
-                            @click="stepDuration(-1)"
-                          >
-                            <Icon name="chevronDown" size="xs" :stroke-width="2" />
-                          </button>
-                        </span>
-                      </span>
-                    </label>
-                  </div>
-                </section>
-              </div>
+                </div>
+              </section>
             </div>
 
             <div v-if="!loadingGroups && groupOptions.length === 0" class="mt-2 flex items-center gap-2 px-1 text-xs text-gray-500 dark:text-gray-400">
@@ -860,6 +920,12 @@ const { t, locale } = useI18n()
 const typeMenuOpen = ref(false)
 const typeMenuRef = ref<HTMLElement | null>(null)
 const typeMenuTriggerRef = ref<HTMLButtonElement | null>(null)
+const modelMenuOpen = ref(false)
+const modelMenuRef = ref<HTMLElement | null>(null)
+const modelMenuTriggerRef = ref<HTMLButtonElement | null>(null)
+// 模型菜单分两级：先选分组，再选该分组下的模型。
+const modelMenuStep = ref<'group' | 'model'>('group')
+const manualModelInput = ref('')
 const settingsMenuOpen = ref(false)
 const settingsMenuRef = ref<HTMLElement | null>(null)
 const settingsMenuTriggerRef = ref<HTMLButtonElement | null>(null)
@@ -887,34 +953,32 @@ const imageAspectRatioOptions: MediaStudioImageAspectRatio[] = ['1:1', '3:2', '2
 const resolutionOptions: MediaStudioVideoResolution[] = ['480p', '720p', '1080p']
 const videoAspectRatioOptions: MediaStudioVideoAspectRatio[] = ['16:9', '9:16', '1:1', '4:3', '3:4']
 
-// 时长允许直接输入，用本地文本态承接输入过程，提交时再按模型限制收敛。
-const durationInput = ref(String(props.duration))
-
-function commitDuration() {
+// 工具条上的时长选择按当前模型限制展开，避免出现超出上下限的选项。
+const durationOptions = computed(() => {
   const { min, max } = props.modelLimits.duration
-  const parsed = Number(durationInput.value)
-  const next = durationInput.value.trim() === '' || !Number.isFinite(parsed)
-    ? props.duration
-    : Math.min(max, Math.max(min, Math.trunc(parsed)))
-  durationInput.value = String(next)
-  if (next !== props.duration) emit('update:duration', next)
+  const options: number[] = []
+  for (let value = min; value <= max; value += 1) options.push(value)
+  return options
+})
+
+const qualityVisible = computed(() => (
+  !props.hiddenParameterControls.includes('image.quality') && props.imageQualityOptions.length > 0
+))
+
+// 右栏只剩模型属性和质量；两者都不存在时不再渲染空白的参数区。
+const hasParamSettings = computed(() => (
+  props.attributeFields.length > 0
+  || (props.selectedModeId === 'image' && qualityVisible.value)
+))
+
+function aspectRatioLabel(value: string): string {
+  return value.startsWith('custom:') ? value.slice('custom:'.length) : value
 }
 
-// 上下按钮每次加减 1 秒，边界由当前模型限制决定。
-function stepDuration(delta: number) {
-  const { min, max } = props.modelLimits.duration
-  const parsed = Number(durationInput.value)
-  const base = durationInput.value.trim() === '' || !Number.isFinite(parsed)
-    ? props.duration
-    : Math.trunc(parsed)
-  const next = Math.min(max, Math.max(min, base + delta))
-  durationInput.value = String(next)
-  if (next !== props.duration) emit('update:duration', next)
-}
-
-// 模型切换或外部收敛时长时，把输入框同步回权威值。
-watch(() => props.duration, (value) => {
-  if (Number(durationInput.value) !== value) durationInput.value = String(value)
+// 模型菜单二级标题：显示当前二级菜单所属的分组名称与平台。
+const activeMenuGroupName = computed(() => {
+  const group = props.groupOptions.find(item => item.group_id === props.selectedGroupId)
+  return group ? `${group.group_name} · ${group.platform}` : t('mediaStudio.composer.selectGroup')
 })
 
 // 切换或新建会话后清空多选状态，避免上一个会话的选择残留到新会话。
@@ -989,6 +1053,7 @@ function selectMode(id: MediaStudioModeId) {
   if (!mode?.available) return
   emit('selectMode', id)
   typeMenuOpen.value = false
+  modelMenuOpen.value = false
   settingsMenuOpen.value = false
 }
 
@@ -998,9 +1063,50 @@ function modeButtonClass(mode: MediaStudioMode) {
   return 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-dark-800'
 }
 
+function toggleTypeMenu() {
+  typeMenuOpen.value = !typeMenuOpen.value
+  if (typeMenuOpen.value) {
+    modelMenuOpen.value = false
+    settingsMenuOpen.value = false
+  }
+}
+
 function toggleSettingsMenu() {
   settingsMenuOpen.value = !settingsMenuOpen.value
-  if (settingsMenuOpen.value) typeMenuOpen.value = false
+  if (settingsMenuOpen.value) {
+    typeMenuOpen.value = false
+    modelMenuOpen.value = false
+  }
+}
+
+function toggleModelMenu() {
+  modelMenuOpen.value = !modelMenuOpen.value
+  if (!modelMenuOpen.value) return
+  typeMenuOpen.value = false
+  settingsMenuOpen.value = false
+  modelMenuStep.value = 'group'
+  manualModelInput.value = props.model
+}
+
+function selectModelMenuGroup(group: MediaStudioGroupOption) {
+  if (group.group_id !== props.selectedGroupId) {
+    emit('update:selectedGroupId', group.group_id)
+  }
+  // 切换分组后模型列表会异步刷新，二级菜单先展示加载态。
+  manualModelInput.value = group.group_id === props.selectedGroupId ? props.model : ''
+  modelMenuStep.value = 'model'
+}
+
+function selectMenuModel(id: string) {
+  emit('update:model', id)
+  modelMenuOpen.value = false
+}
+
+function applyManualModel() {
+  const value = manualModelInput.value.trim()
+  if (!value) return
+  emit('update:model', value)
+  modelMenuOpen.value = false
 }
 
 function openImagePreview(image: MediaStudioGeneratedImagePreview) {
@@ -1210,16 +1316,20 @@ function closeMenusOnOutsidePointer(event: PointerEvent) {
   if (
     typeMenuRef.value?.contains(target)
     || typeMenuTriggerRef.value?.contains(target)
+    || modelMenuRef.value?.contains(target)
+    || modelMenuTriggerRef.value?.contains(target)
     || settingsMenuRef.value?.contains(target)
     || settingsMenuTriggerRef.value?.contains(target)
   ) return
   typeMenuOpen.value = false
+  modelMenuOpen.value = false
   settingsMenuOpen.value = false
 }
 
 function closeMenusOnEscape(event: KeyboardEvent) {
   if (event.key !== 'Escape') return
   typeMenuOpen.value = false
+  modelMenuOpen.value = false
   settingsMenuOpen.value = false
   closeImagePreview()
 }
@@ -1305,17 +1415,29 @@ select.param-control {
   @apply bg-white text-gray-800 dark:bg-dark-900 dark:text-gray-100;
 }
 
-/* 全局样式隐藏了原生步进箭头，这里为时长输入框自绘上下调节按钮 */
-.duration-input {
-  padding-right: 3.75rem;
+/* 常用参数紧凑选择器：视觉层只负责展示，透明的原生 select 覆盖在上层提供交互。 */
+.composer-chip--param {
+  @apply gap-1.5 pl-2.5 pr-2;
 }
 
-.duration-stepper {
-  @apply absolute inset-y-0 right-0 flex w-8 flex-col overflow-hidden rounded-r-lg border-l border-gray-200 bg-gray-50 dark:border-dark-700 dark:bg-dark-800;
+.composer-chip__key {
+  @apply text-xs font-normal text-gray-500 dark:text-gray-400;
 }
 
-.duration-stepper__button {
-  @apply flex flex-1 items-center justify-center text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:text-gray-400 dark:hover:bg-dark-800 dark:hover:text-gray-200;
+.composer-chip__value {
+  @apply text-sm font-medium text-gray-900 dark:text-white;
+}
+
+.composer-chip-select {
+  @apply absolute inset-0 z-10 h-full w-full cursor-pointer appearance-none opacity-0;
+}
+
+.composer-chip-wrap:hover .composer-chip {
+  @apply bg-gray-50 dark:bg-dark-800;
+}
+
+.composer-chip-wrap:focus-within .composer-chip {
+  @apply ring-2 ring-primary-400/60;
 }
 
 .meta-pill {
