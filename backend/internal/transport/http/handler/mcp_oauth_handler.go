@@ -246,6 +246,9 @@ func (h *MCPOAuthHandler) Decide(c *gin.Context) {
 
 func (h *MCPOAuthHandler) ListGrants(c *gin.Context) {
 	mcpOAuthNoStore(c)
+	if _, ok := h.resource(c, false); !ok {
+		return
+	}
 	subject, ok := middleware.GetAuthSubjectFromContext(c)
 	if !ok {
 		response.Unauthorized(c, "User not authenticated")
@@ -273,6 +276,9 @@ func (h *MCPOAuthHandler) ConnectionConfig(c *gin.Context) {
 
 func (h *MCPOAuthHandler) RevokeGrant(c *gin.Context) {
 	mcpOAuthNoStore(c)
+	if _, ok := h.resource(c, false); !ok {
+		return
+	}
 	subject, ok := middleware.GetAuthSubjectFromContext(c)
 	if !ok {
 		response.Unauthorized(c, "User not authenticated")

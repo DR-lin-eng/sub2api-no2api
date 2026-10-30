@@ -13,6 +13,24 @@ import (
 // StepUpAuthMiddleware 敏感操作 step-up 2FA 门控中间件类型。
 type StepUpAuthMiddleware gin.HandlerFunc
 
+// MCPGrantStepUp lets an explicitly approved read-write MCP grant pass the
+// existing sensitive-route middleware. The private MCP dispatch context is
+// installed only after a fresh bearer grant check; browser/API-key routes do
+// not receive this bypass.
+func MCPGrantStepUp(delegate StepUpAuthMiddleware) StepUpAuthMiddleware {
+	return StepUpAuthMiddleware(func(c *gin.Context) {
+		if c.GetString("auth_method") == service.AuditAuthMethodMCPOAuth && c.GetBool("mcp_read_write") {
+			c.Next()
+			return
+		}
+		if delegate == nil {
+			AbortWithError(c, 503, "STEP_UP_UNAVAILABLE", "Step-up verification service unavailable")
+			return
+		}
+		delegate(c)
+	})
+}
+
 // stepUpGrantChecker 抽象 TOTP step-up 授权检查能力（由 TotpService 实现）。
 type stepUpGrantChecker interface {
 	HasStepUpGrant(ctx context.Context, userID int64, sessionKey string) (bool, error)

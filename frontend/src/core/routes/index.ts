@@ -1203,6 +1203,10 @@ router.beforeEach(async (to, _from, next) => {
     next(landingPath())
     return
   }
+	if (to.meta.requiresMCP && appStore.backendModeEnabled && !authStore.isAdmin) {
+		next(landingPath())
+		return
+	}
 
   // Only an explicit value from successfully loaded settings can disable a route.
   // A transient settings failure is unknown state, not a confirmed feature toggle.

@@ -39,8 +39,9 @@ func RegisterMCPRoutes(v1 *gin.RouterGroup, h *handler.Handlers, audit middlewar
 	inner.RedirectFixedPath = false
 	inner.Use(gin.Recovery())
 	api := inner.Group("/api/v1")
-	RegisterUserRoutes(api, h, middleware.JWTAuthMiddleware(managementmcp.DispatchAuth(false)), audit, settings, limiter, stepUp)
-	RegisterAdminRoutes(api, h, middleware.AdminAuthMiddleware(managementmcp.DispatchAuth(true)), audit, stepUp, settings, limiter)
+	mcpStepUp := middleware.MCPGrantStepUp(stepUp)
+	RegisterUserRoutes(api, h, middleware.JWTAuthMiddleware(managementmcp.DispatchAuth(false)), audit, settings, limiter, mcpStepUp)
+	RegisterAdminRoutes(api, h, middleware.AdminAuthMiddleware(managementmcp.DispatchAuth(true)), audit, mcpStepUp, settings, limiter)
 	transport := managementmcp.NewHandler(inner, allowedOrigins)
 	// Bound token probes before authentication; Redis failure rejects MCP.
 	handlers := []gin.HandlerFunc{ratelimit.NewRateLimiter(redisClient).LimitWithOptions("mcp-transport", 600, time.Minute, mcpRateLimitOptions)}

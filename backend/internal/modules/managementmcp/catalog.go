@@ -179,7 +179,7 @@ func catalogTool(name, description, method, path string, query, body map[string]
 	// These existing routes require an idempotency key. Keep retries within
 	// their established coordinator rather than inventing MCP-side settlement.
 	switch name {
-	case "user_create_api_key", "admin_update_user_balance", "admin_extend_subscription":
+	case "user_create_api_key", "admin_update_user_balance", "admin_assign_subscription", "admin_extend_subscription":
 		properties["idempotency_key"] = map[string]any{
 			"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[!-~]+$",
 			"description": "Unique operation ID (for example a UUID). Reuse the same value and arguments when retrying this operation; use a new value for a new intended operation.",
