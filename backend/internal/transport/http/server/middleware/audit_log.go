@@ -52,6 +52,7 @@ func SkipAudit(c *gin.Context) {
 // scalar, non-secret operation summaries. Request bodies and arbitrary maps
 // are never accepted through this channel.
 var auditExtraAllowedKeys = map[string]struct{}{
+	"mcp_grant_id": {}, "mcp_tool": {},
 	"result": {}, "error_code": {}, "enabled": {}, "blocking_enabled": {},
 	"config_version": {}, "endpoint_count": {}, "scanner_count": {},
 	"all_groups": {}, "group_count": {}, "guard_endpoint_id": {},
@@ -163,6 +164,7 @@ var auditActionOverrides = map[string]string{
 // binary-upload routes. These bodies either cannot be made safe by key-level
 // redaction or should not be duplicated into the audit store at all.
 var auditBodyOmittedRoutes = map[string]struct{}{
+	"POST /api/v1/user/mcp/authorize":                             {},
 	"POST /api/v1/auth/passkey/login/finish":                      {},
 	"POST /api/v1/user/passkeys/register/finish":                  {},
 	"POST /api/v1/admin/accounts/import/codex-session":            {},
@@ -186,7 +188,7 @@ var auditBodyOmittedRoutes = map[string]struct{}{
 }
 
 // NewAuditLogMiddleware 创建审计中间件。
-// 记录范围：变更类请求（POST/PUT/PATCH/DELETE）+ 白名单内的敏感 GET 读取。
+// 记录范围：变更类请求（POST/PUT/PATCH/DELETE）+ 白名单内的敏感 GET 读取 + MCP OAuth 的全部读取。
 // 挂载位置：admin / user / admin-payment 组挂在各自认证中间件之后（只审计已认证请求，
 // 未过认证的 401/403 不入库）；auth 组（登录/注册/刷新）无前置认证，天然记录失败尝试。
 func NewAuditLogMiddleware(auditService *service.AuditLogService) AuditLogMiddleware {
@@ -205,6 +207,10 @@ func NewAuditLogMiddleware(auditService *service.AuditLogService) AuditLogMiddle
 			if v, ok := auditSensitiveReads[routeKey]; ok {
 				record = true
 				action = v
+			} else if c.GetString("auth_method") == service.AuditAuthMethodMCPOAuth {
+				// Machine credentials can read user data in bulk; every MCP tool
+				// call is attributable to its grant via audit extra fields.
+				record = true
 			}
 		}
 		if !record {

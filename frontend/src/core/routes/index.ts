@@ -144,6 +144,16 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/oauth/mcp/authorize', name: 'MCPOAuthAuthorize',
+    component: () => import('@/features/mcp/presentation/pages/MCPOAuthAuthorizePage.vue'),
+    meta: { requiresAuth: true, requiresMCP: true, title: 'MCP Authorization', titleKey: 'mcp.consentTitle' }
+  },
+  {
+    path: '/settings/mcp', name: 'MCPConnections',
+    component: () => import('@/features/mcp/presentation/pages/MCPConnectionsPage.vue'),
+    meta: { requiresAuth: true, requiresMCP: true, title: 'MCP Connection', titleKey: 'mcp.title' }
+  },
+  {
     path: '/oauth/authorize',
     name: 'OAuth2Authorize',
     component: () => import('@/features/auth/presentation/pages/OAuth2AuthorizePage.vue'),
@@ -1181,12 +1191,17 @@ router.beforeEach(async (to, _from, next) => {
   // 公共设置可能尚未加载（App.vue 的 onMounted 异步拉取晚于首次导航，且纯静态部署
   // 无 __APP_CONFIG__ 注入）。此时 cachedPublicSettings 为空会把 payment/risk_control
   // 误判为“未启用”而错误拦截，故这里先确保设置加载完成。
-  if ((to.meta.requiresPayment || to.meta.requiresRiskControl || to.meta.requiresSupportChat || to.meta.requiresMediaStudio || to.meta.requiresActivityCenter || to.meta.requiresIPv6Egress) && !appStore.publicSettingsLoaded) {
+  if ((to.meta.requiresMCP || to.meta.requiresPayment || to.meta.requiresRiskControl || to.meta.requiresSupportChat || to.meta.requiresMediaStudio || to.meta.requiresActivityCenter || to.meta.requiresIPv6Egress) && !appStore.publicSettingsLoaded) {
     try {
       await appStore.fetchPublicSettings()
     } catch (error) {
       console.warn('Failed to load public settings in route guard', error)
     }
+  }
+
+  if (to.meta.requiresMCP && (!appStore.publicSettingsLoaded || appStore.cachedPublicSettings?.mcp_enabled !== true)) {
+    next(landingPath())
+    return
   }
 
   // Only an explicit value from successfully loaded settings can disable a route.

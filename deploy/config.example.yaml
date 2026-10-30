@@ -1360,3 +1360,7 @@ image_storage:
   max_download_bytes: 33554432
   # 单实例同时执行的异步生图任务上限；超出时提交接口返回 429
   max_in_flight: 8
+
+# Management MCP is explicitly opt-in; preserve a stable HTTPS resource URL.
+mcp:
+  public_url: ""

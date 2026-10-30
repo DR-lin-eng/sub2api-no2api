@@ -13,3 +13,5 @@
 | `common.go` | 健康检查和公共路由辅助 |
 
 新增路由必须放入所属域文件；不要在路由闭包中实现业务逻辑。
+
+`mcp.go` registers explicit-opt-in management MCP and path-based OAuth discovery; the existing root OAuth2 issuer remains separate.

@@ -12,6 +12,7 @@ import enDashboard from '@/core/i18n/locales/en/dashboard'
 import enLanding from '@/core/i18n/locales/en/landing'
 import enMediaStudio from '@/core/i18n/locales/en/mediaStudio'
 import enMisc from '@/core/i18n/locales/en/misc'
+import enMCP from '@/core/i18n/locales/en/mcp'
 import enSupportChat from '@/core/i18n/locales/en/supportChat'
 import zhActivityCenter from '@/core/i18n/locales/zh/activityCenter'
 import zhAdmin from '@/core/i18n/locales/zh/admin'
@@ -21,6 +22,7 @@ import zhDashboard from '@/core/i18n/locales/zh/dashboard'
 import zhLanding from '@/core/i18n/locales/zh/landing'
 import zhMediaStudio from '@/core/i18n/locales/zh/mediaStudio'
 import zhMisc from '@/core/i18n/locales/zh/misc'
+import zhMCP from '@/core/i18n/locales/zh/mcp'
 import zhSupportChat from '@/core/i18n/locales/zh/supportChat'
 
 type Messages = Record<string, unknown>
@@ -46,7 +48,7 @@ const sourceCandidateKeysCache = new Map<string, Set<string>>()
 const localeScopes = {
   en: {
     base: { ...enLanding, ...enCommon },
-    user: { ...enDashboard, ...enMisc },
+    user: { ...enDashboard, ...enMisc, ...enMCP },
     activityCenter: enActivityCenter,
     batchImage: enBatchImage,
     mediaStudio: enMediaStudio,
@@ -55,7 +57,7 @@ const localeScopes = {
   },
   zh: {
     base: { ...zhLanding, ...zhCommon },
-    user: { ...zhDashboard, ...zhMisc },
+    user: { ...zhDashboard, ...zhMisc, ...zhMCP },
     activityCenter: zhActivityCenter,
     batchImage: zhBatchImage,
     mediaStudio: zhMediaStudio,

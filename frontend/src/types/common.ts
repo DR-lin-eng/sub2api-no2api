@@ -289,6 +289,7 @@ export interface PublicSettings {
   oidc_oauth_provider_name: string
   github_oauth_enabled: boolean
   google_oauth_enabled: boolean
+  mcp_enabled?: boolean
   backend_mode_enabled: boolean
   version: string
   // 服务器全局时区（IANA 名称与当前 UTC 偏移），高峰时段等服务端本地时间窗口的展示标注用；

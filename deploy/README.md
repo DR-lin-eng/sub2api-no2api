@@ -834,3 +834,5 @@ Compose 用户修改 `.env` 后，在部署目录执行 `docker compose up -d su
 ### Gemini 同账号重试
 
 `gateway.max_same_account_retries_gemini`（环境变量 `GATEWAY_MAX_SAME_ACCOUNT_RETRIES_GEMINI`）控制原生 Gemini、Claude 和 Chat 兼容转发的同账号重试次数，不包含首次请求。默认 4、范围 0–10；0 立即进入既有换号/错误处理。签名历史降级最多两次，独立于瞬时重试预算；滚动升级期间保持默认值，全部节点升级后再调整。
+
+管理 MCP 默认关闭；设置 `MCP_PUBLIC_URL` 前先阅读 [启用与升级回退说明](../docs/MANAGEMENT_MCP.md)。

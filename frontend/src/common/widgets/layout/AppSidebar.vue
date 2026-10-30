@@ -797,6 +797,7 @@ const flagBatchImageAccess = () => canUseBatchImage.value
 const flagMediaStudio = makeSidebarFlag(FeatureFlags.mediaStudio)
 const flagActivityCenter = makeSidebarFlag(FeatureFlags.activityCenter)
 const flagIPv6Egress = makeSidebarFlag(FeatureFlags.ipv6Egress)
+const flagMCP = makeSidebarFlag(FeatureFlags.mcp)
 
 // buildSelfNavItems 构造用户自己的导航项（用户端主菜单和管理员的"我的账户"子菜单共享这组声明）。
 // withDashboard=true 时包含仪表盘（用户端），false 时不含（管理员的个人区已经有独立仪表盘入口）。
@@ -822,6 +823,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
     { path: '/orders', label: t('nav.myOrders'), icon: OrderListIcon, hideInSimpleMode: true, featureFlag: flagPayment },
     { path: '/redeem', label: t('nav.redeem'), icon: GiftIcon, hideInSimpleMode: true },
     { path: '/affiliate', label: t('nav.affiliate'), icon: UsersIcon, hideInSimpleMode: true, featureFlag: flagAffiliate },
+    { path: '/settings/mcp', label: t('nav.mcp'), icon: UserIcon, featureFlag: flagMCP },
     { path: '/profile', label: t('nav.profile'), icon: UserIcon },
     ...customMenuItemsForUser.value.map((item): NavItem => ({
       path: `/custom/${item.id}`,

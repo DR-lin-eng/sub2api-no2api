@@ -8,6 +8,7 @@ import (
 
 func setOperationsDefaults() {
 	// Ops (vNext)
+	viper.SetDefault("mcp.public_url", "")
 	viper.SetDefault("ops.enabled", true)
 	viper.SetDefault("ops.use_preaggregated_tables", true)
 	viper.SetDefault("ops.cleanup.enabled", true)

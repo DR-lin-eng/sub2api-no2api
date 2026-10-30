@@ -213,6 +213,7 @@ export default {
   },
   // Navigation
   nav: {
+    mcp: 'MCP Connection',
     dashboard: 'Dashboard',
     announcements: 'Announcements',
     apiKeys: 'API Keys',

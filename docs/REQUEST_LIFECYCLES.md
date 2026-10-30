@@ -650,3 +650,9 @@ Grok 目录复用现有 modelcatalog 的有界读取、原子快照和旧节点�
 ## 2026-10-29 元数据与非流式协议
 
 Gemini 原生模型元数据在全部可调度 Gemini 账号都声明映射时返回声明并集；没有映射时沿用原选号透传，同一请求复用账号读取。OAuth Responses 的非流式输出保持客户端 stream 标志，出站仍使用 SSE；incomplete/cancelled 与 completed 一起聚合 JSON 并保留用量。配置、混合版本边界和验证见 [同步记录](UPSTREAM_SYNC_20261029.md)。
+
+## Management MCP
+
+Explicit `mcp.public_url` enables the management resource. Protocol discovery uses the MCP path issuer and does not replace the existing root OAuth2 discovery endpoint. The browser restores its ordinary session, previews the registered application and callback, explicitly chooses personal/admin and read-only/write authority, and completes any required TOTP step-up. Only the approved client exchanges a resource- and S256-PKCE-bound authorization code.
+
+MCP requests pass fail-closed network rate limits, a fresh joined credential/grant/user check and a separate user transport bucket. A fixed tool/schema then dispatches in process to the existing management route with a private context. That route retains resource ownership, panel global/heavy limits, permissions, compliance, audit and step-up. The result is bounded and redacted before returning as one MCP text block. No request chooses an arbitrary URL or forwards browser cookies/credentials.

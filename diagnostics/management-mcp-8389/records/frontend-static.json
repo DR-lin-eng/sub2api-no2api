@@ -1,0 +1,17 @@
+{
+  "command": [
+    "pnpm",
+    "--dir",
+    "frontend",
+    "run",
+    "typecheck"
+  ],
+  "started_at": "2026-10-30T13:02:08.146896+00:00",
+  "finished_at": "2026-10-30T13:02:24.822568+00:00",
+  "exit_code": 0,
+  "output_sha256": "aacdfedc485449151e8f0cedfb8264a7d15047256a7b3c3a4a9e848e28e7b178",
+  "output_bytes": 19,
+  "output": "frontend-static.log.gz",
+  "failures": [],
+  "tail": "$ vue-tsc --noEmit"
+}

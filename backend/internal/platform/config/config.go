@@ -71,6 +71,7 @@ const DefaultUpstreamResponseReadMaxBytes int64 = 128 * 1024 * 1024
 const DefaultModelsListReadMaxBytes int64 = 8 * 1024 * 1024
 
 type Config struct {
+	MCP                     MCPConfig                     `mapstructure:"mcp"`
 	Deployment              DeploymentConfig              `mapstructure:"deployment"`
 	Server                  ServerConfig                  `mapstructure:"server"`
 	Log                     LogConfig                     `mapstructure:"log"`

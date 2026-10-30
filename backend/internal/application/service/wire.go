@@ -953,7 +953,8 @@ var ProviderSet = wire.NewSet(
 	ProvideClusterService,
 	ProvideClusterReleaseService,
 	// Core services
-	NewAuthService,
+	ProvideMCPAwareAuthService,
+	NewMCPOAuthService,
 	NewOAuth2ProviderService,
 	NewPasskeyService,
 	NewUserService,
