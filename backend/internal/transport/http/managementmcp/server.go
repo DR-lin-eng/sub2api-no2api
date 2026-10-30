@@ -242,7 +242,7 @@ func normalizeRedactionKey(key string) string {
 		if r == '_' || r == '-' {
 			continue
 		}
-		normalized.WriteRune(r)
+		_, _ = normalized.WriteRune(r)
 	}
 	return normalized.String()
 }
