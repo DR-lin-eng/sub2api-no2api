@@ -8,6 +8,8 @@ FRONTEND_CRITICAL_VITEST := \
 	src/core/__tests__/credentialCryptoUsage.spec.ts \
 	src/core/routes/__tests__/adminRouteAccess.spec.ts \
 	src/features/auth/__tests__/authProfileLocaleScopes.spec.ts \
+	src/features/mcp/__tests__/MCPOAuthAuthorizePage.spec.ts \
+	src/features/mcp/__tests__/MCPConnectionsPage.spec.ts \
 	src/features/billing/__tests__/paymentLocaleScopes.spec.ts \
 	src/features/subscriptions/__tests__/subscriptionStatus.spec.ts \
 	src/features/admin-backup/presentation/pages/__tests__/backupStatus.spec.ts \

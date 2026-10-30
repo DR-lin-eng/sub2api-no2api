@@ -79,6 +79,19 @@ func TestEnforceStepUpRejectsMachineCredentialsEvenWithUserGrant(t *testing.T) {
 	}
 }
 
+func TestMCPReadWriteCannotReplaceBrowserStepUp(t *testing.T) {
+	c, rec := newStepUpTestContext(t)
+	c.Set("auth_method", service.AuditAuthMethodMCPOAuth)
+	c.Set("mcp_read_write", true)
+	c.Set(string(ContextKeyUser), AuthSubject{UserID: 7})
+	c.Request = httptest.NewRequest(http.MethodDelete, "/api/v1/keys/9", nil)
+	protected := stepUpAuth(stubStepUpGrantChecker{granted: true}, stubStepUpUserReader{user: &service.User{ID: 7, TotpEnabled: true}}, stepUpEnabled)
+	protected(c)
+	require.True(t, c.IsAborted())
+	require.Equal(t, http.StatusForbidden, rec.Code)
+	require.Contains(t, rec.Body.String(), "STEP_UP_MCP_OAUTH_FORBIDDEN")
+}
+
 func TestMachineCredentialReasonAllowlistsBrowserSessions(t *testing.T) {
 	for method, want := range map[string]bool{
 		"": false, service.AuditAuthMethodJWT: false,
@@ -141,28 +154,6 @@ func TestEnforceStepUpPassesWithGrant(t *testing.T) {
 
 	require.True(t, ok)
 	require.False(t, c.IsAborted())
-}
-
-func TestMCPGrantStepUpUsesExplicitReadWriteGrantOnly(t *testing.T) {
-	delegateCalled := false
-	delegate := StepUpAuthMiddleware(func(c *gin.Context) {
-		delegateCalled = true
-		c.AbortWithStatus(http.StatusForbidden)
-	})
-
-	readWrite, _ := newStepUpTestContext(t)
-	readWrite.Set("auth_method", service.AuditAuthMethodMCPOAuth)
-	readWrite.Set("mcp_read_write", true)
-	MCPGrantStepUp(delegate)(readWrite)
-	require.False(t, delegateCalled)
-	require.False(t, readWrite.IsAborted())
-
-	readOnly, _ := newStepUpTestContext(t)
-	readOnly.Set("auth_method", service.AuditAuthMethodMCPOAuth)
-	readOnly.Set("mcp_read_write", false)
-	MCPGrantStepUp(delegate)(readOnly)
-	require.True(t, delegateCalled)
-	require.True(t, readOnly.IsAborted())
 }
 
 // 功能开关关闭时：不论 TOTP/grant/凭证类型，一律放行（恢复门控引入前行为）。

@@ -222,6 +222,19 @@ func TestMCPOAuthHandlerConnectionConfigUsesCanonicalResource(t *testing.T) {
 	require.Contains(t, handlerMCPJSON(t, rec), "code")
 }
 
+func TestMCPOAuthHandlerDisabledGrantManagementDoesNotReadStore(t *testing.T) {
+	h, repo, _, _ := newHandlerMCPFixture(t)
+	h.cfg.MCP.PublicURL = ""
+	for _, serve := range []gin.HandlerFunc{h.ListGrants, h.RevokeGrant} {
+		c, rec := handlerMCPContext(t, http.MethodGet, "/api/v1/user/mcp/grants", "", "")
+		handlerMCPSubject(c, service.RoleUser)
+		serve(c)
+		require.Equal(t, http.StatusServiceUnavailable, rec.Code)
+		require.Zero(t, repo.reads)
+		require.Zero(t, repo.writes)
+	}
+}
+
 func TestMCPOAuthHandlerAuthorizationMetadataValidatesFrontendURL(t *testing.T) {
 	for _, tt := range []struct{ frontend, want string }{
 		{"https://platform.example.com/console/", "https://platform.example.com/console/oauth/mcp/authorize"},

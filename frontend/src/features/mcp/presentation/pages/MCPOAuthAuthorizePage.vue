@@ -171,7 +171,11 @@ async function decide(approved: boolean): Promise<void> {
         return await mcpAPI.authorize(input)
       } catch (error) {
         // Do not open a step-up prompt for a request that is no longer shown.
-        if (current !== generation) throw new Error(t('mcp.invalidRequest'))
+        if (current !== generation) {
+          const cancelled = new Error(t('mcp.invalidRequest'))
+          Object.assign(cancelled, { cause: error })
+          throw cancelled
+        }
         throw error
       }
     }

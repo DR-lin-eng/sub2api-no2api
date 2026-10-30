@@ -147,7 +147,7 @@ func (h *SubscriptionHandler) Assign(c *gin.Context) {
 	idempotencyPayload := struct {
 		Body AssignSubscriptionRequest `json:"body"`
 	}{Body: req}
-	executeAdminIdempotentJSON(c, "admin.subscriptions.assign", idempotencyPayload, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
+	execute := func(ctx context.Context) (any, error) {
 		subscription, err := h.subscriptionService.AssignSubscription(ctx, &service.AssignSubscriptionInput{
 			UserID: req.UserID, GroupID: req.GroupID, ValidityDays: req.ValidityDays, AssignedBy: adminID, Notes: req.Notes,
 		})
@@ -155,7 +155,17 @@ func (h *SubscriptionHandler) Assign(c *gin.Context) {
 			return nil, err
 		}
 		return dto.UserSubscriptionFromServiceAdmin(subscription), nil
-	})
+	}
+	if c.GetString("auth_method") == service.AuditAuthMethodMCPOAuth {
+		executeAdminIdempotentJSON(c, "admin.subscriptions.assign", idempotencyPayload, service.DefaultWriteIdempotencyTTL(), execute)
+		return
+	}
+	result, err := execute(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, result)
 }
 
 // BulkAssign handles bulk assigning subscriptions to multiple users

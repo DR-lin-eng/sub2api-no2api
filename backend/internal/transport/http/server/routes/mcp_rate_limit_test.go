@@ -100,7 +100,7 @@ func TestMCPDiscoveryHasItsOwnBoundedBudget(t *testing.T) {
 
 func TestMCPDispatchRetainsHeavyRateLimit(t *testing.T) {
 	endpoint, token, mr := newMCPRateLimitEndpoint(t, service.RoleUser, 10)
-	mr.Set("rate_limit:panel:heavy:user:7", "9")
+	require.NoError(t, mr.Set("rate_limit:panel:heavy:user:7", "9"))
 	mr.SetTTL("rate_limit:panel:heavy:user:7", time.Minute)
 	params := map[string]any{"name": "user_get_usage_stats", "arguments": map[string]any{
 		// A malformed date reaches the real handler without needing a usage DB.

@@ -82,7 +82,6 @@ func DispatchAuth(admin bool) gin.HandlerFunc {
 			return
 		}
 		setSubject(c, identity.principal)
-		c.Set("mcp_read_write", !identity.principal.ReadOnly)
 		middleware.SetAuditExtra(c, map[string]any{"mcp_grant_id": identity.principal.GrantID, "mcp_tool": spec.Name})
 		c.Next()
 	}
