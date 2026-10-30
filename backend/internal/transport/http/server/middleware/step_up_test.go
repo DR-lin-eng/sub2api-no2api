@@ -143,6 +143,28 @@ func TestEnforceStepUpPassesWithGrant(t *testing.T) {
 	require.False(t, c.IsAborted())
 }
 
+func TestMCPGrantStepUpUsesExplicitReadWriteGrantOnly(t *testing.T) {
+	delegateCalled := false
+	delegate := StepUpAuthMiddleware(func(c *gin.Context) {
+		delegateCalled = true
+		c.AbortWithStatus(http.StatusForbidden)
+	})
+
+	readWrite, _ := newStepUpTestContext(t)
+	readWrite.Set("auth_method", service.AuditAuthMethodMCPOAuth)
+	readWrite.Set("mcp_read_write", true)
+	MCPGrantStepUp(delegate)(readWrite)
+	require.False(t, delegateCalled)
+	require.False(t, readWrite.IsAborted())
+
+	readOnly, _ := newStepUpTestContext(t)
+	readOnly.Set("auth_method", service.AuditAuthMethodMCPOAuth)
+	readOnly.Set("mcp_read_write", false)
+	MCPGrantStepUp(delegate)(readOnly)
+	require.True(t, delegateCalled)
+	require.True(t, readOnly.IsAborted())
+}
+
 // 功能开关关闭时：不论 TOTP/grant/凭证类型，一律放行（恢复门控引入前行为）。
 func TestEnforceStepUpDisabledSkipsAllChecks(t *testing.T) {
 	disabled := stubStepUpSettingReader{enabled: false}
