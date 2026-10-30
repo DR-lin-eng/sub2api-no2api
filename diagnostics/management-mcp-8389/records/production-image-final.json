@@ -1,0 +1,20 @@
+{
+  "command": [
+    "docker",
+    "build",
+    "--progress=plain",
+    "--build-arg",
+    "COMMIT=management-mcp-8389-final",
+    "-t",
+    "sub2api:management-mcp-8389-final",
+    "."
+  ],
+  "started_at": "2026-10-30T14:06:20.767157+00:00",
+  "finished_at": "2026-10-30T14:07:29.015863+00:00",
+  "exit_code": 0,
+  "output_sha256": "5f8550a7af443d7924d8f2801cee6fb7dd87a595c62e1eddd8915337ec3f26cf",
+  "output_bytes": 70353,
+  "output": "production-image-final.log.gz",
+  "failures": [],
+  "tail": "#40 exporting layers 2.3s done\n#40 exporting manifest sha256:8d3d06983e46888dd70153df764d4f4f5354624142f0201c9ee9d4bd7cefff2a\n#40 exporting manifest sha256:8d3d06983e46888dd70153df764d4f4f5354624142f0201c9ee9d4bd7cefff2a done\n#40 exporting config sha256:bbe3d54fb8b2d9704e4bb809800185565de7aec278aeb65d4ade06bcd4d82916 done\n#40 exporting attestation manifest sha256:db037dc873a9f54f589df2c3e853c5c24d7a329f12b143433943f1a64c33e63e 0.0s done\n#40 exporting manifest list sha256:ebeb4f04c311d0f9f6f227f1a232fa2fca9eed929e2dd057825e3bc03673e7c2 done\n#40 naming to docker.io/library/sub2api:management-mcp-8389-final done\n#40 unpacking to docker.io/library/sub2api:management-mcp-8389-final\n#40 unpacking to docker.io/library/sub2api:management-mcp-8389-final 0.3s done\n#40 DONE 2.7s\n\nView build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/nswhs8flla98ln8baet2w8ndv"
+}

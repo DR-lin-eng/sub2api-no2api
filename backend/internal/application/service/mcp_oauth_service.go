@@ -409,8 +409,8 @@ func (s *MCPOAuthService) validateAuthorization(ctx context.Context, userID int6
 	if input.CodeChallengeMethod != "S256" || decodeErr != nil || len(challenge) != sha256.Size || base64.RawURLEncoding.EncodeToString(challenge) != input.CodeChallenge {
 		return nil, nil, mcpOAuthError("invalid_request", "A valid S256 PKCE code challenge is required")
 	}
-	if len(input.State) > 2048 {
-		return nil, nil, mcpOAuthError("invalid_request", "state is too long")
+	if input.State == "" || len(input.State) > 2048 {
+		return nil, nil, mcpOAuthError("invalid_request", "state is required and must be at most 2048 characters")
 	}
 	user, err := s.users.GetByID(ctx, userID)
 	if errors.Is(err, ErrUserNotFound) || (err == nil && (user == nil || !user.IsActive() || user.DeletedAt != nil)) {

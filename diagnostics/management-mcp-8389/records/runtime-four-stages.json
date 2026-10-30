@@ -1,0 +1,14 @@
+{
+  "command": [
+    "python3",
+    "diagnostics/management-mcp-8389/runtime/check.py"
+  ],
+  "started_at": "2026-10-30T14:08:19.599934+00:00",
+  "finished_at": "2026-10-30T14:16:22.036966+00:00",
+  "exit_code": 0,
+  "output_sha256": "145ff61c3c9ccbbf64878f4e3c93e1e4996b3d1a2983c73183d2939d1bdad74f",
+  "output_bytes": 837,
+  "output": "runtime-four-stages.log.gz",
+  "failures": [],
+  "tail": "    \"migrations\": 308,\n    \"snapshot\": \"7eef93b58e9d6d34b90ad49963e59559d0a4bd13c75f4088773d778278f4775a\",\n    \"old_binary_user_writes_revoke_grants\": true\n  },\n  {\n    \"stage\": \"RESTORED\",\n    \"migrations\": 308,\n    \"snapshot\": \"7eef93b58e9d6d34b90ad49963e59559d0a4bd13c75f4088773d778278f4775a\",\n    \"old_grant_still_invalid\": true,\n    \"new_grant_works\": true\n  }\n]"
+}

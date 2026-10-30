@@ -98,7 +98,7 @@ function errorMessage(error: unknown, fallback: string): string {
 }
 
 function parseAuthorization(): MCPAuthorization {
-  const required = ['response_type', 'client_id', 'redirect_uri', 'code_challenge', 'code_challenge_method', 'resource'] as const
+  const required = ['response_type', 'client_id', 'redirect_uri', 'code_challenge', 'code_challenge_method', 'resource', 'state'] as const
   const allowed = [...required, 'scope', 'state']
   const values: Record<string, string> = {}
   for (const [key, value] of Object.entries(route.query)) {

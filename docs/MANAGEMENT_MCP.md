@@ -151,7 +151,7 @@ OAuth scope 为 `mcp`，实际工具权限由浏览器中确认的授权范围�
 
 未认证 MCP 请求返回 401，`WWW-Authenticate` 提供 `resource_metadata` 和 `scope="mcp"`。客户端只支持 `token_endpoint_auth_method=none`、`response_type=code`、S256 PKCE，以及授权码/刷新两种 grant type。回调 URI 必须与注册值精确匹配，使用 HTTPS 或本机 HTTP；不支持通配符。当前不提供远程 client metadata URL 自动抓取。注册请求体不超过 4 KiB；`client_name` 最多 100 个字符，且不得包含控制字符、双向文本控制符或零宽字符等不可见字符。
 
-授权请求和授权码兑换必须携带精确匹配 MCP 地址的 `resource`。刷新可省略 `resource`，此时沿用原授权；传入不同资源会被拒绝。`state` 会原样返回客户端。授权码与客户端、回调、资源和 PKCE 绑定；客户端应安全保管 verifier 和刷新令牌。
+授权请求和授权码兑换必须携带精确匹配 MCP 地址的 `resource`；授权请求还必须携带由客户端生成的 `state`，服务端会原样返回，客户端必须校验它以防止授权响应 CSRF。刷新可省略 `resource`，此时沿用原授权；传入不同资源会被拒绝。授权码与客户端、回调、资源、state 和 PKCE 绑定；客户端应安全保管 verifier 和刷新令牌。
 
 查看发现信息：
 

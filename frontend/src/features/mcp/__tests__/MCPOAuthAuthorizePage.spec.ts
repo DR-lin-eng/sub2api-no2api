@@ -78,6 +78,15 @@ describe('MCP OAuth consent', () => {
     expect(authorize.mock.calls[0][0].authorization).toEqual(expected)
   })
 
+  it('rejects an omitted OAuth state before contacting the server', async () => {
+    const { state: _state, ...withoutState } = request
+    routeState.current.query = withoutState
+    const wrapper = render()
+    await flushPromises()
+    expect(previewAuthorization).not.toHaveBeenCalled()
+    expect(wrapper.get('[role="alert"]').text()).toBe('mcp.invalidRequest')
+  })
+
   it('escapes untrusted application names', async () => {
     previewAuthorization.mockResolvedValue({ ...consent, client_name: '<img src=x onerror=alert(1)>' })
     const wrapper = render()

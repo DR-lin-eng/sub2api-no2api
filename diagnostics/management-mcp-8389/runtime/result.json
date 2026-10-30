@@ -1,0 +1,28 @@
+[
+  {
+    "stage": "BASELINE",
+    "migrations": 307,
+    "snapshot": "7eef93b58e9d6d34b90ad49963e59559d0a4bd13c75f4088773d778278f4775a"
+  },
+  {
+    "stage": "MODIFIED",
+    "migrations": 308,
+    "snapshot": "7eef93b58e9d6d34b90ad49963e59559d0a4bd13c75f4088773d778278f4775a",
+    "read_only_write_denied": true,
+    "existing_key_redacted": true,
+    "other_owner_denied": true
+  },
+  {
+    "stage": "ROLLBACK",
+    "migrations": 308,
+    "snapshot": "7eef93b58e9d6d34b90ad49963e59559d0a4bd13c75f4088773d778278f4775a",
+    "old_binary_user_writes_revoke_grants": true
+  },
+  {
+    "stage": "RESTORED",
+    "migrations": 308,
+    "snapshot": "7eef93b58e9d6d34b90ad49963e59559d0a4bd13c75f4088773d778278f4775a",
+    "old_grant_still_invalid": true,
+    "new_grant_works": true
+  }
+]

@@ -534,6 +534,14 @@ func TestMCPOAuthCodeOnlyClientReceivesNoRefreshToken(t *testing.T) {
 	require.Len(t, f.r.credentials, 1)
 }
 
+func TestMCPOAuthAuthorizationRequiresState(t *testing.T) {
+	f := newMCPOAuthFixture(t)
+	withoutState := f.authorize
+	withoutState.State = ""
+	_, err := f.s.Preview(context.Background(), 7, withoutState, mcpTestResource)
+	requireMCPOAuthError(t, err, "invalid_request")
+}
+
 func TestMCPOAuthConcurrentCodeExchangeAllowsAtMostOneIssuance(t *testing.T) {
 	f := newMCPOAuthFixture(t)
 	input := f.code(t, "", nil)
