@@ -122,13 +122,11 @@ export function useMediaStudioGallery(options: MediaStudioGalleryOptions = {}) {
       sourceImageId: imageID,
     }
     if (message.model) item.model = message.model
-    if (message.groupId) item.groupId = message.groupId
     if (message.size) item.size = message.size
     if (message.quality) item.quality = message.quality
     if (message.imageResolution) item.imageResolution = message.imageResolution
     if (message.imageAspectRatio) item.imageAspectRatio = message.imageAspectRatio
     if (message.count) item.count = message.count
-    if (message.attributes) item.attributes = { ...message.attributes }
 
     if (remoteURL) {
       item.remoteURL = remoteURL
@@ -166,11 +164,9 @@ export function useMediaStudioGallery(options: MediaStudioGalleryOptions = {}) {
       sourceMessageId: message.id,
     }
     if (message.model) item.model = message.model
-    if (message.groupId) item.groupId = message.groupId
     if (message.resolution) item.resolution = message.resolution
     if (message.aspectRatio) item.aspectRatio = message.aspectRatio
     if (message.duration) item.duration = message.duration
-    if (message.attributes) item.attributes = { ...message.attributes }
     return item
   }
 

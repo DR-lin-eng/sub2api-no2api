@@ -79,7 +79,6 @@
         :storage-available="galleryStorageAvailable"
         @favorite="toggleGalleryFavorite"
         @remove="removeGalleryItem"
-        @reuse="reuseGalleryItem"
         @edit="editGalleryItem"
         @clear="clearGallery"
       />
@@ -249,24 +248,6 @@ watch(activeView, async (view) => {
   await nextTick()
   scrollToLatest()
 })
-
-async function reuseGalleryItem(item: MediaStudioGalleryItem) {
-  await selectMode(item.mode)
-  if (item.model) model.value = item.model
-  if (item.attributes) attributeValues.value = { ...item.attributes }
-  if (item.mode === 'image') {
-    if (item.imageResolution) imageResolution.value = item.imageResolution as typeof imageResolution.value
-    if (item.imageAspectRatio) imageAspectRatio.value = item.imageAspectRatio as typeof imageAspectRatio.value
-    if (item.quality) quality.value = item.quality as typeof quality.value
-    if (item.count) count.value = item.count as typeof count.value
-  } else {
-    if (item.resolution) resolution.value = item.resolution as typeof resolution.value
-    if (item.aspectRatio) videoAspectRatio.value = item.aspectRatio as typeof videoAspectRatio.value
-    if (item.duration) duration.value = item.duration as typeof duration.value
-  }
-  prompt.value = item.prompt
-  activeView.value = 'studio'
-}
 
 function editGalleryItem(item: MediaStudioGalleryItem) {
   const source = gallerySources[item.id]

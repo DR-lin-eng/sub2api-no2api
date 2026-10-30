@@ -254,6 +254,7 @@
           <MediaStudioJobBar
             :jobs="jobBarJobs"
             @retry="retryJob"
+            @dismiss="messageId => emit('delete', [messageId])"
             @focus="focusJob"
           />
         </div>
@@ -544,7 +545,7 @@
                 </div>
               </div>
 
-              <!-- 常用参数外置到工具条，展开「更多」只用于分组和低频参数。 -->
+              <!-- 常用参数全部外置到工具条；模型声明的额外参数在模型菜单内。 -->
               <div
                 v-if="selectedModeId === 'image' && !hiddenParameterControls.includes('image.size')"
                 class="composer-chip-wrap relative"
@@ -607,6 +608,25 @@
               </div>
 
               <div
+                v-if="selectedModeId === 'image' && qualityVisible"
+                class="composer-chip-wrap relative"
+              >
+                <select
+                  class="composer-chip-select"
+                  :value="quality"
+                  :aria-label="t('mediaStudio.composer.quality')"
+                  @change="emit('update:quality', ($event.target as HTMLSelectElement).value)"
+                >
+                  <option v-for="option in imageQualityOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                </select>
+                <span class="composer-chip composer-chip--param" aria-hidden="true">
+                  <span class="composer-chip__key">{{ t('mediaStudio.composer.quality') }}</span>
+                  <span class="composer-chip__value">{{ qualityLabel }}</span>
+                  <Icon name="chevronDown" size="xs" class="text-gray-400" />
+                </span>
+              </div>
+
+              <div
                 v-if="selectedModeId === 'video' && !hiddenParameterControls.includes('video.aspectRatio')"
                 class="composer-chip-wrap relative"
               >
@@ -663,18 +683,52 @@
                 </span>
               </div>
 
-              <button
-                v-if="hasParamSettings"
-                type="button"
-                ref="settingsMenuTriggerRef"
-                class="composer-chip bg-gray-100 text-gray-900 dark:bg-dark-800 dark:text-white"
-                :aria-expanded="settingsMenuOpen"
-                @click="toggleSettingsMenu"
-              >
-                <Icon name="cog" size="sm" />
-                <span>{{ t('mediaStudio.composer.advancedSettings') }}</span>
-                <Icon :name="settingsMenuOpen ? 'chevronUp' : 'chevronDown'" size="xs" class="text-gray-400" />
-              </button>
+              <!-- 模型声明的额外参数同样用 chip 展示，形如「质量: low」。 -->
+              <template v-for="field in attributeFields" :key="`attr:${field.key}`">
+                <div v-if="field.type === 'enum'" class="composer-chip-wrap relative">
+                  <select
+                    class="composer-chip-select"
+                    :value="attributeValues[field.key] === undefined ? '' : String(attributeValues[field.key])"
+                    :aria-label="field.label ?? field.key"
+                    @change="updateAttributeValue(field, ($event.target as HTMLSelectElement).value || undefined)"
+                  >
+                    <option value="">—</option>
+                    <option v-for="option in field.values ?? []" :key="option" :value="option">{{ option }}</option>
+                  </select>
+                  <span class="composer-chip composer-chip--param" aria-hidden="true">
+                    <span class="composer-chip__key">{{ field.label ?? field.key }}</span>
+                    <span class="composer-chip__value">{{ attributeText(field) }}</span>
+                    <Icon name="chevronDown" size="xs" class="text-gray-400" />
+                  </span>
+                </div>
+
+                <button
+                  v-else-if="field.type === 'boolean'"
+                  type="button"
+                  class="composer-chip composer-chip--param"
+                  :aria-label="field.label ?? field.key"
+                  @click="updateAttributeValue(field, attributeValues[field.key] !== true)"
+                >
+                  <span class="composer-chip__key">{{ field.label ?? field.key }}</span>
+                  <span class="composer-chip__value">
+                    {{ attributeValues[field.key] === true ? t('common.on') : t('common.off') }}
+                  </span>
+                </button>
+
+                <label v-else class="composer-chip composer-chip--param cursor-text">
+                  <span class="composer-chip__key">{{ field.label ?? field.key }}</span>
+                  <input
+                    class="w-14 min-w-0 bg-transparent p-0 text-sm font-medium text-blue-600 outline-none placeholder:text-gray-400 dark:text-blue-400"
+                    :type="field.type === 'string' ? 'text' : 'number'"
+                    :value="attributeValues[field.key] ?? ''"
+                    :min="field.min"
+                    :max="field.max"
+                    :step="field.type === 'integer' ? 1 : 'any'"
+                    :placeholder="t('common.selectOption')"
+                    @input="onAttributeInput(field, $event)"
+                  >
+                </label>
+              </template>
 
               <div class="ml-auto flex items-center gap-3">
                 <span
@@ -707,39 +761,6 @@
                   <Icon :name="submitting ? 'refresh' : 'arrowUp'" size="sm" :class="submitting ? 'animate-spin' : ''" />
                 </button>
               </div>
-            </div>
-
-            <div
-              v-if="settingsMenuOpen && hasParamSettings"
-              ref="settingsMenuRef"
-              class="absolute bottom-16 left-0 z-20 max-h-[min(72vh,36rem)] w-[min(94vw,44rem)] overflow-y-auto rounded-2xl border border-gray-200 bg-white p-4 shadow-xl shadow-gray-900/10 dark:border-dark-700 dark:bg-dark-900 sm:p-5"
-            >
-              <section class="space-y-2.5">
-                <p class="section-title">
-                  {{ selectedModeId === 'image' ? t('mediaStudio.composer.imageSettings') : t('mediaStudio.composer.videoSettings') }}
-                </p>
-
-                <div class="grid grid-cols-2 gap-x-3 gap-y-2.5">
-                  <ModelAttributeFieldControl
-                    v-for="field in attributeFields"
-                    :key="`attr:${field.key}`"
-                    :field="field"
-                    :model-value="attributeValues[field.key]"
-                    @update:model-value="value => emit('update:attribute', { key: field.key, value })"
-                  />
-
-                  <label v-if="qualityVisible" class="param-field">
-                    <span class="param-label">{{ t('mediaStudio.composer.quality') }}</span>
-                    <select
-                      :value="quality"
-                      class="param-control"
-                      @change="emit('update:quality', ($event.target as HTMLSelectElement).value)"
-                    >
-                      <option v-for="option in imageQualityOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-                    </select>
-                  </label>
-                </div>
-              </section>
             </div>
 
             <div v-if="!loadingGroups && groupOptions.length === 0" class="mt-2 flex items-center gap-2 px-1 text-xs text-gray-500 dark:text-gray-400">
@@ -825,7 +846,6 @@ import type {
   ModelAttributeValues,
 } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
 import type { MediaStudioModelOption, MediaStudioParameterOption } from '@/features/media-studio/presentation/composables/useMediaStudioController'
-import ModelAttributeFieldControl from '@/common/widgets/model-attributes/ModelAttributeField.vue'
 import type {
   MediaStudioAttachmentRejection,
   MediaStudioImageAttachment,
@@ -926,9 +946,6 @@ const modelMenuTriggerRef = ref<HTMLButtonElement | null>(null)
 // 模型菜单分两级：先选分组，再选该分组下的模型。
 const modelMenuStep = ref<'group' | 'model'>('group')
 const manualModelInput = ref('')
-const settingsMenuOpen = ref(false)
-const settingsMenuRef = ref<HTMLElement | null>(null)
-const settingsMenuTriggerRef = ref<HTMLButtonElement | null>(null)
 const selectedImage = ref<MediaStudioGeneratedImagePreview | null>(null)
 const promptInputRef = ref<HTMLTextAreaElement | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -965,14 +982,34 @@ const qualityVisible = computed(() => (
   !props.hiddenParameterControls.includes('image.quality') && props.imageQualityOptions.length > 0
 ))
 
-// 右栏只剩模型属性和质量；两者都不存在时不再渲染空白的参数区。
-const hasParamSettings = computed(() => (
-  props.attributeFields.length > 0
-  || (props.selectedModeId === 'image' && qualityVisible.value)
+// 质量也放在工具条，直接给用户看到。
+const qualityLabel = computed(() => (
+  props.imageQualityOptions.find(option => option.value === props.quality)?.label ?? props.quality
 ))
 
 function aspectRatioLabel(value: string): string {
   return value.startsWith('custom:') ? value.slice('custom:'.length) : value
+}
+
+function updateAttributeValue(field: ModelAttributeField, value: string | number | boolean | undefined) {
+  emit('update:attribute', { key: field.key, value })
+}
+
+// 数值和时间类属性直接输入；文本类原样回传。
+function onAttributeInput(field: ModelAttributeField, event: Event) {
+  const raw = (event.target as HTMLInputElement).value
+  if (field.type === 'integer' || field.type === 'number') {
+    const parsed = Number(raw)
+    updateAttributeValue(field, raw.trim() && Number.isFinite(parsed) ? parsed : undefined)
+    return
+  }
+  updateAttributeValue(field, raw)
+}
+
+// chip 上展示当前值，未设置时用短横线占位。
+function attributeText(field: ModelAttributeField): string {
+  const value = props.attributeValues[field.key]
+  return value === undefined || value === '' ? '—' : String(value)
 }
 
 // 模型菜单二级标题：显示当前二级菜单所属的分组名称与平台。
@@ -1054,7 +1091,6 @@ function selectMode(id: MediaStudioModeId) {
   emit('selectMode', id)
   typeMenuOpen.value = false
   modelMenuOpen.value = false
-  settingsMenuOpen.value = false
 }
 
 function modeButtonClass(mode: MediaStudioMode) {
@@ -1067,15 +1103,6 @@ function toggleTypeMenu() {
   typeMenuOpen.value = !typeMenuOpen.value
   if (typeMenuOpen.value) {
     modelMenuOpen.value = false
-    settingsMenuOpen.value = false
-  }
-}
-
-function toggleSettingsMenu() {
-  settingsMenuOpen.value = !settingsMenuOpen.value
-  if (settingsMenuOpen.value) {
-    typeMenuOpen.value = false
-    modelMenuOpen.value = false
   }
 }
 
@@ -1083,7 +1110,6 @@ function toggleModelMenu() {
   modelMenuOpen.value = !modelMenuOpen.value
   if (!modelMenuOpen.value) return
   typeMenuOpen.value = false
-  settingsMenuOpen.value = false
   modelMenuStep.value = 'group'
   manualModelInput.value = props.model
 }
@@ -1318,19 +1344,15 @@ function closeMenusOnOutsidePointer(event: PointerEvent) {
     || typeMenuTriggerRef.value?.contains(target)
     || modelMenuRef.value?.contains(target)
     || modelMenuTriggerRef.value?.contains(target)
-    || settingsMenuRef.value?.contains(target)
-    || settingsMenuTriggerRef.value?.contains(target)
   ) return
   typeMenuOpen.value = false
   modelMenuOpen.value = false
-  settingsMenuOpen.value = false
 }
 
 function closeMenusOnEscape(event: KeyboardEvent) {
   if (event.key !== 'Escape') return
   typeMenuOpen.value = false
   modelMenuOpen.value = false
-  settingsMenuOpen.value = false
   closeImagePreview()
 }
 
@@ -1384,14 +1406,6 @@ onUnmounted(() => {
 
 .section-title {
   @apply text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500;
-}
-
-.param-field {
-  @apply flex w-full min-w-0 flex-col gap-1.5;
-}
-
-.param-label {
-  @apply truncate text-xs font-medium text-gray-500 dark:text-gray-400;
 }
 
 .param-control {

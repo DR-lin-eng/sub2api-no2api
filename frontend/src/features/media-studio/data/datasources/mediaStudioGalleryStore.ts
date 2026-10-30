@@ -10,8 +10,7 @@ export interface MediaStudioGalleryItem {
   mode: 'image' | 'video'
   prompt: string
   model?: string
-  groupId?: number
-  // 参数快照：复现时直接写回表单，字段名与会话消息保持一致。
+  // 参数快照：作品库卡片展示用，字段名与会话消息保持一致。
   size?: string
   quality?: string
   imageResolution?: string
@@ -20,7 +19,6 @@ export interface MediaStudioGalleryItem {
   resolution?: string
   aspectRatio?: string
   duration?: number
-  attributes?: Record<string, string | number | boolean>
   // 远程结果直接引用上游地址；本地结果拷贝进 gallery-media，由 mediaKey 指向。
   remoteURL?: string
   mediaKey?: string

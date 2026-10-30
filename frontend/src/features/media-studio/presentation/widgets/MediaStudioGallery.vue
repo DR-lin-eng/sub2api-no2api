@@ -90,15 +90,6 @@
           <p class="gallery-meta" :title="savedAt(item)">{{ metaLine(item) }}</p>
           <div class="gallery-actions">
             <button
-              type="button"
-              class="gallery-action"
-              :title="t('mediaStudio.gallery.actions.reuse')"
-              @click="emit('reuse', item)"
-            >
-              <Icon name="refresh" size="sm" />
-              <span>{{ t('mediaStudio.gallery.actions.reuse') }}</span>
-            </button>
-            <button
               v-if="item.mode === 'image'"
               type="button"
               class="gallery-action"
@@ -162,7 +153,6 @@ const props = withDefaults(
 const emit = defineEmits<{
   (e: 'favorite', item: MediaStudioGalleryItem): void
   (e: 'remove', item: MediaStudioGalleryItem): void
-  (e: 'reuse', item: MediaStudioGalleryItem): void
   (e: 'edit', item: MediaStudioGalleryItem): void
   (e: 'clear'): void
 }>()

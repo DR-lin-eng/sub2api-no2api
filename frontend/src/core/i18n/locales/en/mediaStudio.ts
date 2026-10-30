@@ -49,9 +49,6 @@ export default {
       manualModelHint: 'The current group did not return any models for this creation type.',
       reload: 'Retry',
       shortHint: 'Choose an administrator-configured media group to generate. Results are saved in this browser.',
-      advancedSettings: 'More',
-      imageSettings: 'Image options',
-      videoSettings: 'Video options',
       unit: 'image',
       countValue: '{count} images',
       durationValue: '{count} seconds',
@@ -130,6 +127,7 @@ export default {
       costHeld: 'Reserved {amount}',
       retry: 'Retry',
       focus: 'Locate',
+      dismiss: 'Delete',
       errorCodes: {
         insufficient_quota: 'Insufficient quota, please top up and retry',
         unauthorized: 'This API key cannot access the model',
@@ -162,7 +160,6 @@ export default {
         count: '{count} works'
       },
       actions: {
-        reuse: 'Reuse settings',
         edit: 'Edit further',
         download: 'Download',
         favorite: 'Favorite',

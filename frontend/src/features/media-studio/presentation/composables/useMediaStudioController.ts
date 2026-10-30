@@ -269,7 +269,9 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   const modelOptions = ref<MediaStudioModelOptionType[]>([])
   const loadingModels = ref(false)
   const modelLoadError = ref('')
-  const submitting = ref(false)
+  // 允许多个任务并行运行：提交阶段用计数而非布尔锁，避免后提交的任务被先完成任务的重置提前解锁。
+  const pendingSubmits = ref(0)
+  const submitting = computed(() => pendingSubmits.value > 0)
   const submitError = ref('')
   // 预估消耗只来自后端 sub2api 本地计价链路，前端不读取请求体或上游响应体里的价格。
   const estimatedCost = ref<number | null>(null)
@@ -296,7 +298,8 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   let groupLoadRequest: Promise<void> | null = null
   let sessionRequest: Promise<void> | null = null
   let sessionRequestGroupID = 0
-  let activeSessionGroupID = 0
+  // 当前 API Key 实际所属的分组：必须响应式，切组期间禁止用上一个分组的 Key 提交。
+  const activeSessionGroupID = ref(0)
 
   // 轮询、刷新恢复与任务条数据统一由 jobs 承担，controller 只负责装配。
   const {
@@ -439,6 +442,8 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   const canSubmit = computed(() => (
     !!selectedGroup.value &&
     !!mediaStudioApiKey.value &&
+    // Key 必须属于当前分组：切组瞬间旧 Key 还没换掉，不能拿别的分组的 Key 去提交。
+    activeSessionGroupID.value === selectedGroupId.value &&
     !!prompt.value.trim() &&
     !submitting.value &&
     // 参考素材未上传完成（或失败未重试）时不提交，避免请求丢失素材。
@@ -788,10 +793,10 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     const group = selectedGroup.value
     if (!group || (mediaType !== 'image' && mediaType !== 'video')) {
       mediaStudioApiKey.value = ''
-      activeSessionGroupID = 0
+      activeSessionGroupID.value = 0
       return
     }
-    if (mediaStudioApiKey.value && activeSessionGroupID === group.group_id) {
+    if (mediaStudioApiKey.value && activeSessionGroupID.value === group.group_id) {
       await loadModels()
       // 会话可用即可恢复未完成任务，不必等待模型列表变化。
       resumePendingJobs()
@@ -806,7 +811,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       const session = await data.createSession(mediaType, groupID)
       if (selectedGroupId.value !== groupID || disposed) return
       mediaStudioApiKey.value = session.api_key
-      activeSessionGroupID = groupID
+      activeSessionGroupID.value = groupID
       await loadModels()
       resumePendingJobs()
     })()
@@ -877,6 +882,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     modelOptions.value = []
     if (groupConfig.value.groups.length > 0) {
       if (!groupOptions.value.some(group => group.group_id === selectedGroupId.value)) {
+        // 切模式必须换组：落到第一个可用分组，否则新模型会挂在别的分组的 Key 上。
         selectedGroupId.value = groupOptions.value[0]?.group_id || 0
       }
       await establishMediaStudioSession()
@@ -1007,7 +1013,13 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     const text = prompt.value.trim().slice(0, 10_000)
     const mode = selectedModeId.value
     submitError.value = ''
-    if (!mediaStudioApiKey.value || !selectedGroup.value || !text || (mode !== 'image' && mode !== 'video')) return
+    if (
+      !mediaStudioApiKey.value ||
+      !selectedGroup.value ||
+      activeSessionGroupID.value !== selectedGroupId.value ||
+      !text ||
+      (mode !== 'image' && mode !== 'video')
+    ) return
 
     const submittedAttachments = mode === 'image' ? [...imageAttachments.value] : []
     const submittedReferences = mode === 'video' ? [...referenceAttachments.value] : []
@@ -1019,7 +1031,14 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     prompt.value = ''
     imageAttachments.value = []
     if (mode === 'video') updateReferenceAttachments([])
-    submitting.value = true
+    pendingSubmits.value += 1
+    let submitLockReleased = false
+    // 每个任务只释放一次：图片任务在提交阶段结束就提前释放，视频任务在收尾时释放。
+    const releaseSubmitLock = () => {
+      if (submitLockReleased) return
+      submitLockReleased = true
+      pendingSubmits.value = Math.max(0, pendingSubmits.value - 1)
+    }
     try {
       if (mode === 'image') {
         const attributeMode = assistantMessage.attributeMode
@@ -1081,6 +1100,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
           images: MediaStudioGeneratedImagePreview[]
           error: string
           errorCode?: MediaStudioJobErrorCode
+          task?: MediaStudioImageTask
         }
 
         const requestResults: Array<ImageRequestResult | undefined> = Array(requestedCount)
@@ -1101,42 +1121,75 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
           persist()
         }
 
-        const submitAndResolveImage = async (index: number): Promise<ImageRequestResult> => {
-          let taskID = ''
+        // 第一阶段只负责提交：拿到 task id 后立即释放提交锁，让用户可以继续提交下一个任务。
+        const submitOneImage = async (index: number): Promise<void> => {
           try {
-            let task = await submitImageTask(keepsCount ? { ...payload, n: 1 } : payload)
-            taskID = task.task_id || task.id
-            if (taskID) {
-              // 提交成功立即落盘任务 ID：随后刷新或网络中断都能从任务条续轮询。
-              requestResults[index] = { taskID, images: [], error: '' }
-              publishProgress()
-            }
-            if (task.status !== 'completed' && task.status !== 'failed') {
-              task = await pollImageTask(mediaStudioApiKey.value, taskID)
-            }
+            const task = await submitImageTask(keepsCount ? { ...payload, n: 1 } : payload)
+            const taskID = task.task_id || task.id
+            // 同步端点直接返回结果时当场回填，不必等其余并发任务提交完成。
             if (task.status === 'completed') {
-              return {
+              requestResults[index] = {
                 taskID,
                 images: await cacheGeneratedImages(assistantMessage.id, extractImages(task)),
                 error: '',
               }
+            } else {
+              requestResults[index] = { taskID, images: [], error: '', task }
             }
-            const failure = imageTaskErrorMessage(task)
-            return { taskID, images: [], error: failure, errorCode: classifyMediaStudioError(failure) }
+            // 提交成功立即落盘任务 ID：随后刷新或网络中断都能从任务条续轮询。
+            if (taskID) publishProgress()
           } catch (error) {
             const errorCode = classifyMediaStudioError(error)
-            return {
-              taskID,
+            requestResults[index] = {
+              taskID: '',
               images: [],
               // 浏览器网络错误原文对用户没有意义，交给 errorCode 展示本地化文案。
               error: errorCode === 'network' ? '' : mediaStudioErrorMessage(error, 'image generation failed'),
               errorCode,
             }
+            publishProgress()
           }
         }
 
         await Promise.all(Array.from({ length: requestedCount }, async (_, index) => {
-          requestResults[index] = await submitAndResolveImage(index)
+          await submitOneImage(index)
+        }))
+        // 任务已提交完成，后续轮询在后台继续；提交锁随即可释放，允许同时运行多个任务。
+        releaseSubmitLock()
+
+        // 第二阶段并行轮询所有已提交任务；某个任务完成就立刻回填，不阻塞其他任务。
+        await Promise.all(requestResults.map(async (result, index) => {
+          const initialTask = result?.task
+          if (!result || !result.taskID || !initialTask) return
+          try {
+            let task: MediaStudioImageTask = initialTask
+            if (task.status !== 'completed' && task.status !== 'failed') {
+              task = await pollImageTask(mediaStudioApiKey.value, result.taskID)
+            }
+            if (task.status === 'completed') {
+              requestResults[index] = {
+                taskID: result.taskID,
+                images: await cacheGeneratedImages(assistantMessage.id, extractImages(task)),
+                error: '',
+              }
+            } else {
+              const failure = imageTaskErrorMessage(task)
+              requestResults[index] = {
+                taskID: result.taskID,
+                images: [],
+                error: failure,
+                errorCode: classifyMediaStudioError(failure),
+              }
+            }
+          } catch (error) {
+            const errorCode = classifyMediaStudioError(error)
+            requestResults[index] = {
+              taskID: result.taskID,
+              images: [],
+              error: errorCode === 'network' ? '' : mediaStudioErrorMessage(error, 'image generation failed'),
+              errorCode,
+            }
+          }
           publishProgress()
         }))
         const completedImages = conversation.value.messages.find(
@@ -1224,7 +1277,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       })
       persist()
     } finally {
-      submitting.value = false
+      releaseSubmitLock()
     }
   }
 
@@ -1270,6 +1323,19 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     })
   }
 
+  // 重试前移除失败记录及其对应的提示气泡，避免任务条里同时残留失败和重试两条。
+  function removeMessageWithPrompt(messageId: string) {
+    const messages = conversation.value.messages
+    const index = messages.findIndex(item => item.id === messageId)
+    if (index < 0) return
+    const next = [...messages]
+    next.splice(index, 1)
+    if (next[index - 1]?.role === 'user') next.splice(index - 1, 1)
+    imageInputFiles.delete(messageId)
+    conversation.value = { ...conversation.value, messages: next, updatedAt: now() }
+    persist()
+  }
+
   async function retryMessage(message: MediaStudioMessage) {
     if (!message.prompt.trim()) return
     await selectMode(message.mode)
@@ -1291,6 +1357,8 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       updateReferenceAttachments(restoreReferenceAttachments(message))
     }
     prompt.value = message.prompt
+    // 附件预览恢复完再删除旧记录，否则拿不到上一轮用户气泡里的输入图。
+    removeMessageWithPrompt(message.id)
     await submitPrompt()
   }
 

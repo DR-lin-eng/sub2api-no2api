@@ -49,9 +49,6 @@ export default {
       manualModelHint: '当前分组未返回当前类型的模型。',
       reload: '重试',
       shortHint: '选择管理员开放的媒体分组后即可生成；生成结果会保存在当前浏览器中。',
-      advancedSettings: '更多',
-      imageSettings: '图片参数',
-      videoSettings: '视频参数',
       unit: '张',
       countValue: '{count} 张',
       durationValue: '{count} 秒',
@@ -130,6 +127,7 @@ export default {
       costHeld: '预冻结 {amount}',
       retry: '重试',
       focus: '定位',
+      dismiss: '删除',
       errorCodes: {
         insufficient_quota: '额度不足，请充值后再试',
         unauthorized: '当前密钥无权访问该模型',
@@ -162,7 +160,6 @@ export default {
         count: '{count} 件作品'
       },
       actions: {
-        reuse: '复用参数',
         edit: '继续编辑',
         download: '下载',
         favorite: '收藏',

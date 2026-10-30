@@ -65,6 +65,14 @@
           >
             {{ t('mediaStudio.jobs.retry') }}
           </button>
+          <button
+            v-if="job.status === 'failed'"
+            type="button"
+            class="job-action text-red-600 dark:text-red-300"
+            @click="emit('dismiss', job.messageId)"
+          >
+            {{ t('mediaStudio.jobs.dismiss') }}
+          </button>
           <button type="button" class="job-action" @click="emit('focus', job.messageId)">
             {{ t('mediaStudio.jobs.focus') }}
           </button>
@@ -87,6 +95,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   retry: [messageId: string]
   focus: [messageId: string]
+  dismiss: [messageId: string]
 }>()
 
 const { t } = useI18n()
