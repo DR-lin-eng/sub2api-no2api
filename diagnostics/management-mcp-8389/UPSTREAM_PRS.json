@@ -1,0 +1,25 @@
+{
+  "upstream_pr": 8389,
+  "upstream_merge_sha": "7386bc6ae0659f192199067fc5060d2ad33622fe",
+  "source_range": {
+    "base": "8119c146220aae5ca21abae54c14299aac0b04d9",
+    "head": "dcccdd7bd00ad9d51e82800c6ff52dcbd6525536"
+  },
+  "status": "ported-with-current-owner-adaptation",
+  "migration": "252_mcp_oauth.sql",
+  "owners": {
+    "policy": "backend/internal/modules/managementmcp",
+    "application": "backend/internal/application/service/mcp_oauth*",
+    "repository": "backend/internal/infrastructure/repository/mcp_oauth*",
+    "transport": "backend/internal/transport/http/managementmcp and server/routes/mcp.go",
+    "frontend": "frontend/src/features/mcp"
+  },
+  "security_scan": {
+    "scan_id": "12017249-daa8-4315-bc63-673dc31989f6",
+    "status": "complete",
+    "finding_count": 0,
+    "coverage": "complete",
+    "report": "/Users/lin/.codex/state/plugins/codex-security/scans/sub2api-no2api/dcccdd7bd00ad9d51e82800c6ff52dcbd6525536_20261030T130622Z_8_o165c5/report.md"
+  },
+  "reopen_when": "Reopen the security review when MCP tool catalog, OAuth authority, redaction keys, resource limits, migration trigger coverage or reverse-proxy Origin/Host assumptions change."
+}
