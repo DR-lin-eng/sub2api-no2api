@@ -146,6 +146,38 @@ func TestCustomModelRuntimeCapabilityAndAdapterCache(t *testing.T) {
 	require.Equal(t, 2, repo.loads)
 }
 
+func TestCustomModelRuntimeInheritsTemplateAttributes(t *testing.T) {
+	snapshot := customModelRuntimeFixture()
+	snapshot.Templates[9] = CustomModelRequestTemplate{
+		ID:             9,
+		RequestAdapter: map[string]any{"version": float64(1)},
+		Attributes: map[string]any{
+			"image": map[string]any{
+				"fields": []any{map[string]any{"key": "size", "type": "enum"}},
+			},
+		},
+	}
+	repo := &customModelConfigRepositoryStub{snapshot: snapshot}
+	svc := NewCustomModelConfigService(repo)
+	svc.cacheTTL = time.Hour
+	ctx := context.Background()
+
+	attributes, configured, err := svc.ResolveModelAttributes(ctx, "exact-model")
+	require.NoError(t, err)
+	require.True(t, configured)
+	require.Contains(t, attributes, "image")
+
+	_, configured, err = svc.ResolveModelAttributes(ctx, "vendor-audio-v1")
+	require.NoError(t, err)
+	require.False(t, configured, "models without a template expose no attributes")
+
+	snapshot.Templates[9] = CustomModelRequestTemplate{ID: 9}
+	svc.InvalidateRuntimeCache()
+	_, configured, err = svc.ResolveModelAttributes(ctx, "exact-model")
+	require.NoError(t, err)
+	require.False(t, configured, "empty template attributes must not constrain the model")
+}
+
 func TestCustomModelRuntimeListIsEmptyWhileFeatureIsDisabled(t *testing.T) {
 	snapshot := customModelRuntimeFixture()
 	snapshot.Enabled = false

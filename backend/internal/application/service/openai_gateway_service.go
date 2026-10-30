@@ -273,17 +273,21 @@ type OpenAIForwardResult struct {
 	ClientDisconnect      bool
 	ImageCount            int
 	// ImageEndpoint is set only by dedicated image endpoints, never by mixed text/image output.
-	ImageEndpoint       bool
-	ImageSize           string
-	ImageInputSize      string
-	ImageOutputSize     string
-	ImageOutputSizes    []string
-	ImageSizeSource     string
-	ImageSizeBreakdown  map[string]int
-	ResponsesImageItems []OpenAIResponsesImageOutputItem
-	ResponsesImageUsage json.RawMessage
-	VideoCount          int
-	VideoResolution     string
+	ImageEndpoint      bool
+	ImageSize          string
+	ImageInputSize     string
+	ImageOutputSize    string
+	ImageOutputSizes   []string
+	ImageSizeSource    string
+	ImageSizeBreakdown map[string]int
+	// ImageBillingSizeLocked 表示该结果来自多模态直通路径，图片档位已在提交上游前
+	// 用请求档位完成计价校验，落账时必须沿用该档位。上游返回的尺寸只用于展示，
+	// 不能反向覆盖计费档位（否则可能改档到未配置价格的档位，最终 0 计费）。
+	ImageBillingSizeLocked bool
+	ResponsesImageItems    []OpenAIResponsesImageOutputItem
+	ResponsesImageUsage    json.RawMessage
+	VideoCount             int
+	VideoResolution        string
 	// VideoDurationSeconds 是提交时请求的生成时长（xAI 按输出秒数计费），已归一化到 1-15 秒。
 	VideoDurationSeconds int
 	// WebSearchCalls 是 Codex alpha/search 网页搜索调用次数（每次成功请求为 1）。
@@ -479,6 +483,8 @@ type OpenAIGatewayService struct {
 	liveAttestationCipher   SecretEncryptor
 	liveBillingOnce         sync.Once
 	liveBillingCancel       context.CancelFunc
+	videoHoldSweepOnce      sync.Once
+	videoHoldSweepCancel    context.CancelFunc
 
 	openaiWSPoolOnce               sync.Once
 	openaiWSStateStoreOnce         sync.Once
@@ -674,6 +680,14 @@ func (s *OpenAIGatewayService) ResolveCustomModelVideoAPIType(ctx context.Contex
 	return s.customModelCapabilities.ResolveVideoAPIType(ctx, model)
 }
 
+// ValidateCustomModelVideoRequest 按模型级媒体限制校验视频生成请求体。
+func (s *OpenAIGatewayService) ValidateCustomModelVideoRequest(ctx context.Context, model string, body []byte) error {
+	if s == nil || s.customModelCapabilities == nil {
+		return nil
+	}
+	return s.customModelCapabilities.ValidateVideoRequest(ctx, model, body)
+}
+
 // ResolveChannelMapping 解析渠道级模型映射（代理到 ChannelService）
 func (s *OpenAIGatewayService) ResolveChannelMapping(ctx context.Context, groupID int64, model string) ChannelMappingResult {
 	if s.channelService == nil {
@@ -795,6 +809,9 @@ func (s *OpenAIGatewayService) CloseOpenAIWSPool() {
 	}
 	if s.liveBillingCancel != nil {
 		s.liveBillingCancel()
+	}
+	if s.videoHoldSweepCancel != nil {
+		s.videoHoldSweepCancel()
 	}
 	s.codexAutoProbeMu.Lock()
 	s.codexAutoProbeStopped.Store(true)

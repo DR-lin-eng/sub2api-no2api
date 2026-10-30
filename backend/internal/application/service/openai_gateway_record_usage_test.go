@@ -2511,6 +2511,133 @@ func newOpenAIImageChannelPricingResolverForTest(t *testing.T, groupID int64, mo
 	return NewModelPricingResolver(cs, NewBillingService(&config.Config{}, nil))
 }
 
+// 视频必须按秒计费：渠道把模型配成按次（per_request/image）时，不能拿按次价给视频收费，
+// 否则 4 秒和 8 秒会收同样的钱。分组没有视频每秒价时应直接报错，而不是按次收 0.3。
+func TestOpenAIGatewayServiceCalculateVideoCost_IgnoresChannelPerRequestPricing(t *testing.T) {
+	groupID := int64(127)
+	svc := newOpenAIRecordUsageServiceForTest(
+		&openAIRecordUsageLogRepoStub{},
+		&openAIRecordUsageUserRepoStub{},
+		&openAIRecordUsageSubRepoStub{},
+		nil,
+	)
+	svc.resolver = newOpenAIImageChannelPricingResolverForTest(t, groupID, "seedance", 0.3)
+
+	cost, err := svc.calculateOpenAIVideoCost(
+		context.Background(),
+		"seedance",
+		&APIKey{GroupID: i64p(groupID), Group: &Group{ID: groupID, RateMultiplier: 1}},
+		&OpenAIForwardResult{
+			VideoCount:           1,
+			VideoResolution:      VideoBillingResolution480P,
+			VideoDurationSeconds: 4,
+		},
+		1,
+	)
+
+	require.Nil(t, cost)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "video price is not configured")
+}
+
+// multimodal 是逐模型定价分组：即使模型名命中 Grok 前缀也不能继承 Grok 默认每秒价，
+// 分组级视频价也不参与计费，必须在提交上游前直接报错（由 handler 映射为 503
+// video_price_not_configured）。
+func TestOpenAIGatewayServiceCalculateVideoCost_MultimodalRejectsUnpricedModel(t *testing.T) {
+	groupID := int64(128)
+	svc := newOpenAIRecordUsageServiceForTest(
+		&openAIRecordUsageLogRepoStub{},
+		&openAIRecordUsageUserRepoStub{},
+		&openAIRecordUsageSubRepoStub{},
+		nil,
+	)
+	apiKey := &APIKey{
+		GroupID: i64p(groupID),
+		Group:   &Group{ID: groupID, Platform: PlatformMultimodal, RateMultiplier: 1},
+	}
+
+	videoResult := &OpenAIForwardResult{
+		VideoCount:           1,
+		VideoResolution:      VideoBillingResolution480P,
+		VideoDurationSeconds: 4,
+	}
+
+	cost, err := svc.calculateOpenAIVideoCost(
+		context.Background(), "grok-imagine-video", apiKey, videoResult, 1,
+	)
+	require.Nil(t, cost)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "video price is not configured")
+
+	// 只配置分组级视频价、没有任何逐模型条目时仍然无价：分组级价对 multimodal 不生效。
+	price := 0.075
+	apiKey.Group.VideoPrice480P = &price
+	cost, err = svc.calculateOpenAIVideoCost(
+		context.Background(), "grok-imagine-video", apiKey, videoResult, 1,
+	)
+	require.Nil(t, cost)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "video price is not configured")
+}
+
+// multimodal 分组的逐模型视频条目必须按分辨率命中每秒价：只配了 480p 时，720p 请求
+// 既不能算出 0 元放行，也不能退回到 480p 层级或上下文 0 档，更不能借用分组级视频价，
+// 而应直接报错（handler 映射为 503 video_price_not_configured）。
+func TestOpenAIGatewayServiceCalculateVideoCost_MultimodalModelVideoTierMustMatchResolution(t *testing.T) {
+	groupID := int64(129)
+	price480 := 0.05
+	price720 := 0.16
+	group := &Group{
+		ID:       groupID,
+		Platform: PlatformMultimodal,
+		ModelPricing: []ChannelModelPricing{{
+			Models:      []string{"seedance"},
+			BillingMode: BillingModeVideo,
+			Intervals: []PricingInterval{
+				{TierLabel: VideoBillingResolution480P, PerRequestPrice: &price480},
+			},
+		}},
+	}
+	group.compileModelPricingIndex()
+	apiKey := &APIKey{GroupID: i64p(groupID), Group: group}
+
+	svc := newOpenAIRecordUsageServiceForTest(
+		&openAIRecordUsageLogRepoStub{},
+		&openAIRecordUsageUserRepoStub{},
+		&openAIRecordUsageSubRepoStub{},
+		nil,
+	)
+	svc.resolver = NewModelPricingResolver(nil, NewBillingService(&config.Config{}, nil))
+
+	videoResult := func(resolution string) *OpenAIForwardResult {
+		return &OpenAIForwardResult{
+			VideoCount:           1,
+			VideoResolution:      resolution,
+			VideoDurationSeconds: 4,
+		}
+	}
+
+	cost, err := svc.calculateOpenAIVideoCost(
+		context.Background(), "seedance", apiKey, videoResult(VideoBillingResolution720P), 1,
+	)
+	require.Nil(t, cost)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "video price is not configured")
+
+	// 补上 720p 层级后必须按 720p 每秒价计费（0.16 × 4 秒），不能被 480p 层级顶替。
+	group.ModelPricing[0].Intervals = append(group.ModelPricing[0].Intervals,
+		PricingInterval{TierLabel: VideoBillingResolution720P, PerRequestPrice: &price720})
+	group.compileModelPricingIndex()
+
+	cost, err = svc.calculateOpenAIVideoCost(
+		context.Background(), "seedance", apiKey, videoResult(VideoBillingResolution720P), 1,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, cost)
+	require.InDelta(t, 0.64, cost.TotalCost, 1e-10)
+	require.InDelta(t, 0.64, cost.ActualCost, 1e-10)
+}
+
 func newOpenAITokenImageChannelPricingResolverForTest(t *testing.T, groupID int64, model string) *ModelPricingResolver {
 	t.Helper()
 	inputPrice := 3e-6

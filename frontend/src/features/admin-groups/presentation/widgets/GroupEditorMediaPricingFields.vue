@@ -4,6 +4,7 @@ import {
   getImagePricePlaceholder,
   getVideoPricePlaceholder,
   imagePricingI18nKey,
+  supportsGroupImagePricingPlatform,
   supportsImagePricingPlatform,
   supportsVideoPricingPlatform,
   videoPricingI18nKey,
@@ -85,54 +86,62 @@ const { form, imageFinalPricePreview, videoFinalPricePreview } = props.context;
         placeholder="1"
       />
     </div>
-    <div class="grid grid-cols-3 gap-3">
-      <div>
-        <label class="input-label">1K ($)</label>
-        <input
-          v-model.number="form.image_price_1k"
-          type="number"
-          step="0.001"
-          min="0"
-          class="input"
-          :placeholder="getImagePricePlaceholder(form.platform, 'image_price_1k')"
-        />
-      </div>
-      <div>
-        <label class="input-label">2K ($)</label>
-        <input
-          v-model.number="form.image_price_2k"
-          type="number"
-          step="0.001"
-          min="0"
-          class="input"
-          :placeholder="getImagePricePlaceholder(form.platform, 'image_price_2k')"
-        />
-      </div>
-      <div>
-        <label class="input-label">4K ($)</label>
-        <input
-          v-model.number="form.image_price_4k"
-          type="number"
-          step="0.001"
-          min="0"
-          class="input"
-          :placeholder="getImagePricePlaceholder(form.platform, 'image_price_4k')"
-        />
-      </div>
-    </div>
-    <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
-      {{ t(imagePricingI18nKey(form.platform, "modeHint")) }}
-    </p>
-    <div class="mt-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-300">
-      <div class="mb-1 font-medium">
-        {{ t(imagePricingI18nKey(form.platform, "finalPricePreview")) }}
-      </div>
-      <div class="grid grid-cols-3 gap-2">
-        <div v-for="item in imageFinalPricePreview" :key="item.label">
-          {{ item.label }}: {{ item.value }}
+    <template v-if="supportsGroupImagePricingPlatform(form.platform)">
+      <div class="grid grid-cols-3 gap-3">
+        <div>
+          <label class="input-label">1K ($)</label>
+          <input
+            v-model.number="form.image_price_1k"
+            type="number"
+            step="0.001"
+            min="0"
+            class="input"
+            :placeholder="getImagePricePlaceholder(form.platform, 'image_price_1k')"
+          />
+        </div>
+        <div>
+          <label class="input-label">2K ($)</label>
+          <input
+            v-model.number="form.image_price_2k"
+            type="number"
+            step="0.001"
+            min="0"
+            class="input"
+            :placeholder="getImagePricePlaceholder(form.platform, 'image_price_2k')"
+          />
+        </div>
+        <div>
+          <label class="input-label">4K ($)</label>
+          <input
+            v-model.number="form.image_price_4k"
+            type="number"
+            step="0.001"
+            min="0"
+            class="input"
+            :placeholder="getImagePricePlaceholder(form.platform, 'image_price_4k')"
+          />
         </div>
       </div>
-    </div>
+      <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
+        {{ t(imagePricingI18nKey(form.platform, "modeHint")) }}
+      </p>
+      <div class="mt-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+        <div class="mb-1 font-medium">
+          {{ t(imagePricingI18nKey(form.platform, "finalPricePreview")) }}
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <div v-for="item in imageFinalPricePreview" :key="item.label">
+            {{ item.label }}: {{ item.value }}
+          </div>
+        </div>
+      </div>
+    </template>
+    <p
+      v-else
+      class="text-xs text-gray-500 dark:text-gray-400"
+    >
+      {{ t(imagePricingI18nKey(form.platform, "perModelPriceHint")) }}
+    </p>
     <div
       v-if="form.platform === 'gemini' && form.allow_image_generation"
       class="mt-4 border-t border-dashed border-gray-200 pt-4 dark:border-dark-700"

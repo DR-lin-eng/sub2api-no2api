@@ -791,6 +791,7 @@ const flagAvailableChannels = makeSidebarFlag(FeatureFlags.availableChannels)
 const flagSupportChat = makeSidebarFlag(FeatureFlags.supportChat)
 const flagAffiliate = makeSidebarFlag(FeatureFlags.affiliate)
 const flagRiskControl = makeSidebarFlag(FeatureFlags.riskControl)
+const flagCustomModelConfig = makeSidebarFlag(FeatureFlags.customModelConfig)
 const flagOpsMonitoring = () => adminSettingsStore.opsMonitoringEnabled
 const flagAdminPayment = () => adminSettingsStore.paymentEnabled
 const flagBatchImageAccess = () => canUseBatchImage.value
@@ -893,6 +894,7 @@ const adminNavItems = computed((): NavItem[] => {
     { path: '/admin/account-inspection', label: t('nav.accountInspection'), icon: SignalIcon, permission: 'accounts.manage' },
     { path: '/admin/account-quality', label: t('nav.accountQuality'), icon: SignalIcon, permission: 'accounts.manage' },
     { path: '/admin/state-diagnostics', label: t('nav.stateDiagnostics'), icon: ChartIcon, permission: 'accounts.manage' },
+    { path: '/admin/custom-model-config', label: t('nav.customModelConfig'), icon: CogIcon, permission: 'settings.manage', featureFlag: flagCustomModelConfig },
     { path: '/admin/announcements', label: t('nav.announcements'), icon: BellIcon, permission: 'announcements.manage' },
     { path: '/admin/activity-center/campaigns', label: t('nav.activityCenterAdmin'), icon: GiftIcon, permission: 'settings.manage' },
     { path: '/admin/support', label: t('nav.supportInbox'), icon: SupportChatIcon, featureFlag: flagSupportChat, permission: 'support.read' },

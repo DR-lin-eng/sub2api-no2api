@@ -58,6 +58,10 @@ func (noopImageStorage) Save(context.Context, string, string, []byte) (string, e
 	return "https://cdn.example.test/object.png", nil
 }
 
+func (noopImageStorage) Lookup(context.Context, string) (string, bool, error) {
+	return "", false, nil
+}
+
 // TestAsyncImageEnablesWithoutRestart drives the actual HTTP path for the bug behind
 // #4458 and #4542: with object storage unconfigured the async endpoint 404s, and the
 // only way to turn it on used to be editing config.yaml and restarting the container.

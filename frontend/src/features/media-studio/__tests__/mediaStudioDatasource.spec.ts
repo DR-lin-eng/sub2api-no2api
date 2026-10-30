@@ -3,6 +3,7 @@ import {
 	getVideoGenerationContent,
 	getVideoGenerationTask,
 	normalizeMediaStudioVideoTask,
+  submitAsyncImageEdit,
   submitImageGeneration,
   submitVideoGeneration,
 } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
@@ -37,6 +38,29 @@ describe('media studio datasource', () => {
     expect(task.status).toBe('completed')
   })
 
+  it('submits asynchronous image edits as multipart and returns the task envelope', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      id: 'task-edit', task_id: 'task-edit', object: 'image.generation.task', status: 'queued',
+      created_at: 1, expires_at: 2,
+    }, { status: 202 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const file = new File(['reference'], 'reference.png', { type: 'image/png' })
+    const task = await submitAsyncImageEdit('sk-demo', [file], {
+      model: 'gpt-image-2', prompt: 'edit the cat', n: 1, size: '1024x1024', quality: 'auto',
+    }, 'idem-edit-async')
+
+    expect(String(fetchMock.mock.calls[0][0])).toMatch(/\/v1\/images\/edits\/async$/)
+    expect(fetchMock.mock.calls[0][1].method).toBe('POST')
+    expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer sk-demo')
+    expect(fetchMock.mock.calls[0][1].headers['Idempotency-Key']).toBe('idem-edit-async')
+    const body = fetchMock.mock.calls[0][1].body as FormData
+    expect(body).toBeInstanceOf(FormData)
+    expect(body.get('prompt')).toBe('edit the cat')
+    expect(body.getAll('image')).toHaveLength(1)
+    expect(task).toMatchObject({ task_id: 'task-edit', status: 'queued' })
+  })
+
   it('submits and polls normalized video tasks with bounded request ids', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(jsonResponse({ request_id: 'video-task_1', status: 'queued' }))
@@ -44,16 +68,37 @@ describe('media studio datasource', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const submitted = await submitVideoGeneration('sk-demo', {
-      model: 'grok-imagine-video', prompt: 'waves', resolution: '720p', duration: 6,
+      model: 'grok-imagine-video', prompt: 'waves', resolution: '720p', duration: 6, aspect_ratio: '16:9',
     }, 'video-idem')
     const completed = await getVideoGenerationTask('sk-demo', submitted.id)
 
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject({ aspect_ratio: '16:9' })
     expect(submitted).toMatchObject({ id: 'video-task_1', status: 'processing' })
     expect(completed).toMatchObject({ id: 'video-task_1', status: 'completed' })
+    expect(completed.progress).toBeUndefined()
     expect(String(fetchMock.mock.calls[0][0])).toMatch(/\/v1\/videos\/generations$/)
     expect(fetchMock.mock.calls[0][1].headers['Idempotency-Key']).toBe('video-idem')
     expect(String(fetchMock.mock.calls[1][0])).toMatch(/\/v1\/videos\/video-task_1$/)
     expect(() => normalizeMediaStudioVideoTask({ request_id: '../escape' })).toThrow(/invalid request id/)
+  })
+
+  it('keeps polling when the status payload omits the task id', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ request_id: 'video-task_1', status: 'queued' }))
+      .mockResolvedValueOnce(jsonResponse({
+        model: 'grok-imagine-video',
+        status: 'done',
+        progress: 100,
+        video: { url: '/v1/videos/video-task_1/content' },
+      }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const submitted = await submitVideoGeneration('sk-demo', {
+      model: 'grok-imagine-video', prompt: 'dog', resolution: '480p', duration: 1, aspect_ratio: '9:16',
+    }, 'video-idem')
+    const completed = await getVideoGenerationTask('sk-demo', submitted.id)
+
+    expect(completed).toMatchObject({ id: 'video-task_1', status: 'completed', progress: 100 })
   })
 
   it('fetches protected video content and rejects active content types', async () => {

@@ -1,141 +1,133 @@
 import { computed, getCurrentInstance, onBeforeUnmount, ref, watch } from 'vue'
 import {
   createMediaStudioSession,
+  estimateMediaStudioCost,
   getAsyncImageTask,
   getMediaStudioConfig,
   getVideoGenerationContent,
   getVideoGenerationTask,
   listMediaStudioModels,
   mediaStudioErrorMessage,
+  mediaStudioFileKind,
+  mediaStudioKindEnabled,
+  resolveMediaStudioModelLimits,
+  submitAsyncImageEdit,
   submitAsyncImageGeneration,
   submitImageEdit,
   submitImageGeneration,
   submitVideoGeneration,
+  uploadMediaStudioFile,
+  MEDIA_STUDIO_PARAMETER_BINDINGS,
+  MEDIA_STUDIO_MEDIA_KINDS,
   type MediaStudioConfig,
+  type MediaStudioCostEstimate,
+  type MediaStudioCostEstimateRequest,
   type MediaStudioGroupOption,
-  type MediaStudioMediaType,
-  type MediaStudioGeneratedImage,
   type MediaStudioImageSubmitRequest,
   type MediaStudioImageTask,
-  type MediaStudioModel,
+  type MediaStudioMediaType,
+  type MediaStudioParameterControl,
+  type MediaStudioResolvedLimits,
+  type MediaStudioVideoAspectRatio,
   type MediaStudioVideoResolution,
-  type MediaStudioVideoTask,
+  type MediaStudioVideoSubmitRequest,
+  type ModelAttributeField,
+  type ModelAttributeRenderMode,
+  type ModelAttributeValues,
 } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
 import {
-  clearMediaStudioImages,
   deleteMediaStudioImages,
+  deleteMediaStudioVideos,
   loadMediaStudioImage,
+  loadMediaStudioVideo,
   mediaStudioImageStorageKey,
   storeMediaStudioImage,
 } from '@/features/media-studio/data/datasources/mediaStudioImageStore'
 import {
   addMediaStudioImageAttachments,
+  addMediaStudioReferenceAttachments,
   revokeMediaStudioImageAttachments,
+  revokeMediaStudioPreviewURLs,
+  type MediaStudioAttachmentRejection,
   type MediaStudioImageAttachment,
+  type MediaStudioImageAttachmentLimits,
+  type MediaStudioReferenceAttachment,
+  type MediaStudioReferenceLimits,
 } from '@/features/media-studio/presentation/composables/useMediaStudioAttachments'
 import {
   useMediaStudioPreview,
   type MediaStudioModeId,
 } from '@/features/media-studio/presentation/composables/useMediaStudioPreview'
+import {
+  IMAGE_QUALITY_OPTIONS,
+  MEDIA_STUDIO_LEGACY_STORAGE_KEY,
+  MEDIA_STUDIO_MAX_SESSIONS,
+  MEDIA_STUDIO_STORAGE_KEY,
+  aspectRatioFromSize,
+  classifyMediaStudioError,
+  conversationCacheKeys,
+  conversationForPersistence,
+  conversationTitle,
+  extractImages,
+  imageSizeFor,
+  imageTaskErrorMessage,
+  makeId,
+  modelId,
+  normalizeCount,
+  normalizeCustomImageAspectRatio,
+  normalizeDuration,
+  normalizeImageAspectRatio,
+  normalizeImageQuality,
+  normalizeImageResolution,
+  normalizeResolution,
+  normalizeVideoAspectRatio,
+  now,
+  persistedImageSource,
+  readPersisted,
+  restorePersistedConversation,
+  restorePersistedSessions,
+  safeRemoteImageURL,
+  videoTaskErrorMessage,
+  type MediaStudioConversation,
+  type MediaStudioGeneratedImagePreview,
+  type MediaStudioImageAspectRatio as MediaStudioImageAspectRatioType,
+  type MediaStudioImageResolution as MediaStudioImageResolutionType,
+  type MediaStudioInputImagePreview,
+  type MediaStudioJobErrorCode,
+  type MediaStudioMessage,
+  type MediaStudioModelOption as MediaStudioModelOptionType,
+  type PersistedMediaStudioState,
+} from '@/features/media-studio/presentation/composables/mediaStudioConversation'
+import { useMediaStudioJobs } from '@/features/media-studio/presentation/composables/useMediaStudioJobs'
 
-const STORAGE_KEY = 'sub2api.mediaStudio.v2'
-const LEGACY_STORAGE_KEY = 'sub2api.mediaStudio.v1'
+// 视图层历史上从这里导入消息与模型类型，保持该入口不变，内部实现已迁到 mediaStudioConversation。
+export type {
+  MediaStudioConversation,
+  MediaStudioGeneratedImagePreview,
+  MediaStudioGeneratedVideoPreview,
+  MediaStudioImageAspectRatio,
+  MediaStudioImageResolution,
+  MediaStudioInputImagePreview,
+  MediaStudioInputReferencePreview,
+  MediaStudioJobErrorCode,
+  MediaStudioMessage,
+  MediaStudioMessageStatus,
+  MediaStudioModelOption,
+  MediaStudioParameterOption,
+} from '@/features/media-studio/presentation/composables/mediaStudioConversation'
+
 const DEFAULT_IMAGE_MODEL = 'gpt-image-2'
 const DEFAULT_VIDEO_MODEL = 'grok-imagine-video'
 const DEFAULT_VIDEO_RESOLUTION: MediaStudioVideoResolution = '720p'
 const DEFAULT_VIDEO_DURATION = 6
-const MAX_POLL_COUNT = 240
-const DEFAULT_POLL_DELAY_MS = 3000
+// 预估消耗防抖，避免拖动时长/切换分辨率时连续打后端。
+const COST_ESTIMATE_DEBOUNCE_MS = 300
 
-export interface MediaStudioParameterOption {
-  value: string
-  label: string
-}
-
-export type MediaStudioImageResolution = '1K' | '2K' | '4K'
-export type MediaStudioImageAspectRatio = '1:1' | '3:2' | '2:3' | '4:3' | '3:4' | '16:9' | '9:16' | `custom:${string}`
-
-const IMAGE_RESOLUTION_DEFAULT: MediaStudioImageResolution = '1K'
-const IMAGE_ASPECT_RATIO_DEFAULT: MediaStudioImageAspectRatio = '1:1'
-const IMAGE_QUALITY_OPTIONS: MediaStudioParameterOption[] = [
-  { value: 'auto', label: 'auto' },
-  { value: 'low', label: 'low' },
-  { value: 'medium', label: 'medium' },
-  { value: 'high', label: 'high' },
-]
-const IMAGE_RESOLUTION_MAX_EDGE: Record<MediaStudioImageResolution, number> = {
-  '1K': 1024,
-  '2K': 2048,
-  '4K': 3840,
-}
-const IMAGE_SIZE_MULTIPLE = 16
-const IMAGE_MAX_PIXELS = 8_294_400
-
-export interface MediaStudioGeneratedImagePreview {
+export interface MediaStudioSessionSummary {
   id: string
-  src: string
-  url?: string
-  b64Json?: string
-  revisedPrompt?: string
-  cacheKey?: string
-}
-
-export interface MediaStudioInputImagePreview {
-  id: string
-  src: string
-  name: string
-  mimeType: string
-  cacheKey?: string
-}
-
-export interface MediaStudioGeneratedVideoPreview {
-  src: string
-  mimeType: string
-}
-
-export interface MediaStudioMessage {
-  id: string
-  role: 'user' | 'assistant'
-  mode: 'image' | 'video'
-  prompt: string
-  status?: 'queued' | 'processing' | 'completed' | 'failed'
-  taskId?: string
-  model?: string
-  size?: string
-  imageResolution?: MediaStudioImageResolution
-  imageAspectRatio?: MediaStudioImageAspectRatio
-  quality?: string
-  count?: number
-  resolution?: MediaStudioVideoResolution
-  duration?: number
-  inputImages?: MediaStudioInputImagePreview[]
-  images?: MediaStudioGeneratedImagePreview[]
-  video?: MediaStudioGeneratedVideoPreview
-  error?: string
-  createdAt: number
-  completedAt?: number
-}
-
-export interface MediaStudioConversation {
-  id: string
-  messages: MediaStudioMessage[]
+  title: string
+  messageCount: number
   updatedAt: number
-}
-
-interface PersistedMediaStudioState {
-  selectedGroupId?: number
-  model?: string
-  imageModel?: string
-  videoModel?: string
-  size?: string
-  imageResolution?: MediaStudioImageResolution
-  imageAspectRatio?: MediaStudioImageAspectRatio
-  customImageAspectRatios?: string[]
-  quality?: string
-  count?: number
-  resolution?: MediaStudioVideoResolution
-  duration?: number
-  conversation?: MediaStudioConversation
 }
 
 export interface MediaStudioControllerOptions {
@@ -144,13 +136,18 @@ export interface MediaStudioControllerOptions {
   maxPollCount?: number
   listModels?: typeof listMediaStudioModels
   submitImage?: typeof submitAsyncImageGeneration
-  submitImageEdit?: typeof submitImageEdit
+  submitImageEdit?: typeof submitAsyncImageEdit
+  // 异步端点不可用（未启用对象存储或分组平台不支持）时的同步回退实现。
+  submitImageSync?: typeof submitImageGeneration
+  submitImageEditSync?: typeof submitImageEdit
   getTask?: typeof getAsyncImageTask
   submitVideo?: typeof submitVideoGeneration
   getVideoTask?: typeof getVideoGenerationTask
   getVideoContent?: typeof getVideoGenerationContent
   getConfig?: typeof getMediaStudioConfig
   createSession?: typeof createMediaStudioSession
+  estimateCost?: typeof estimateMediaStudioCost
+  uploadFile?: typeof uploadMediaStudioFile
   createObjectURL?: (blob: Blob) => string
   revokeObjectURL?: (url: string) => void
 }
@@ -159,259 +156,6 @@ function safeStorage(provided?: Storage): Storage | null {
   if (provided) return provided
   if (typeof window === 'undefined') return null
   return window.localStorage
-}
-
-function now(): number {
-  return Date.now()
-}
-
-function makeId(prefix: string): string {
-  const random = typeof crypto !== 'undefined' && 'randomUUID' in crypto
-    ? crypto.randomUUID()
-    : `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`
-  return `${prefix}_${String(random).replace(/-/g, '')}`
-}
-
-function readPersisted(storage: Storage | null): PersistedMediaStudioState {
-  if (!storage) return {}
-  for (const key of [STORAGE_KEY, LEGACY_STORAGE_KEY]) {
-    try {
-      const raw = storage.getItem(key)
-      if (!raw) continue
-      const parsed = JSON.parse(raw) as PersistedMediaStudioState
-      if (parsed && typeof parsed === 'object') return parsed
-    } catch {
-      // Ignore malformed or inaccessible browser storage.
-    }
-  }
-  return {}
-}
-
-function persistedImageSource(value: unknown): string {
-  if (typeof value !== 'string' || !value.trim()) return ''
-  const remoteURL = safeRemoteImageURL(value)
-  if (remoteURL) return remoteURL
-
-  const match = /^data:(image\/(?:png|jpeg|webp|gif));base64,(.+)$/i.exec(value.trim())
-  if (!match || !safeBase64Image(match[2])) return ''
-  return `data:${match[1].toLowerCase()};base64,${match[2]}`
-}
-
-function restorePersistedConversation(value: unknown): MediaStudioConversation | null {
-  if (!value || typeof value !== 'object') return null
-  const raw = value as Partial<MediaStudioConversation>
-  if (!Array.isArray(raw.messages)) return null
-
-  const messages = raw.messages
-    .slice(-100)
-    .flatMap((message) => {
-      if (!message || typeof message !== 'object') return []
-      const candidate = message as Partial<MediaStudioMessage>
-      if (
-        typeof candidate.id !== 'string' ||
-        (candidate.role !== 'user' && candidate.role !== 'assistant') ||
-        (candidate.mode !== 'image' && candidate.mode !== 'video') ||
-        typeof candidate.prompt !== 'string' ||
-        !Number.isFinite(candidate.createdAt)
-      ) {
-        return []
-      }
-      const hasPersistedImages = candidate.mode === 'image' &&
-        Array.isArray(candidate.images) &&
-        candidate.images.some((image) => {
-          if (!image || typeof image !== 'object') return false
-          const item = image as Partial<MediaStudioGeneratedImagePreview>
-          return Boolean(persistedImageSource(item.src) || (typeof item.cacheKey === 'string' && item.cacheKey))
-        })
-      if (
-        candidate.role === 'assistant' &&
-        (candidate.status === 'queued' || candidate.status === 'processing') &&
-        !hasPersistedImages
-      ) {
-        return []
-      }
-
-      const createdAt = typeof candidate.createdAt === 'number' && Number.isFinite(candidate.createdAt)
-        ? candidate.createdAt
-        : now()
-      const restored: MediaStudioMessage = {
-        id: candidate.id,
-        role: candidate.role,
-        mode: candidate.mode,
-        prompt: candidate.prompt,
-        status: candidate.status === 'queued' || candidate.status === 'processing'
-          ? 'completed'
-          : candidate.status,
-        taskId: typeof candidate.taskId === 'string' ? candidate.taskId : undefined,
-        model: typeof candidate.model === 'string' ? candidate.model : undefined,
-        size: typeof candidate.size === 'string' ? candidate.size : undefined,
-        imageResolution: normalizeImageResolution(candidate.imageResolution),
-        imageAspectRatio: candidate.imageAspectRatio
-          ? normalizeImageAspectRatio(candidate.imageAspectRatio)
-          : aspectRatioFromSize(candidate.size),
-        quality: normalizeImageQuality(candidate.quality),
-        count: typeof candidate.count === 'number' ? normalizeCount(candidate.count) : undefined,
-        resolution: candidate.resolution === '480p' || candidate.resolution === '720p' || candidate.resolution === '1080p'
-          ? candidate.resolution
-          : undefined,
-        duration: typeof candidate.duration === 'number' ? normalizeDuration(candidate.duration) : undefined,
-        error: typeof candidate.error === 'string' ? candidate.error : undefined,
-        createdAt,
-        completedAt: typeof candidate.completedAt === 'number' ? candidate.completedAt : undefined,
-      }
-
-      if (candidate.mode === 'image' && Array.isArray(candidate.inputImages)) {
-        restored.inputImages = candidate.inputImages
-          .slice(0, 9)
-          .flatMap((image) => {
-            if (!image || typeof image !== 'object') return []
-            const item = image as Partial<MediaStudioInputImagePreview>
-            const source = persistedImageSource(item.src)
-            const cacheKey = typeof item.cacheKey === 'string' && item.cacheKey.length <= 512
-              ? item.cacheKey
-              : ''
-            if (!source && !cacheKey) return []
-            return [{
-              id: typeof item.id === 'string' ? item.id : makeId('media_input_image'),
-              src: source,
-              name: typeof item.name === 'string' ? item.name : 'reference-image',
-              mimeType: typeof item.mimeType === 'string' ? item.mimeType : 'image/*',
-              cacheKey: cacheKey || undefined,
-            }]
-          })
-      }
-
-      if (candidate.mode === 'image' && Array.isArray(candidate.images)) {
-        restored.images = candidate.images
-          .slice(0, 9)
-          .flatMap((image) => {
-            if (!image || typeof image !== 'object') return []
-            const item = image as MediaStudioGeneratedImagePreview
-            const source = persistedImageSource(item.src)
-            const cacheKey = typeof item.cacheKey === 'string' && item.cacheKey.length <= 512
-              ? item.cacheKey
-              : ''
-            if (!source && !cacheKey) return []
-            return [{
-              id: typeof item.id === 'string' ? item.id : makeId('media_image'),
-              src: source,
-              url: persistedImageSource(item.url) || undefined,
-              revisedPrompt: typeof item.revisedPrompt === 'string' ? item.revisedPrompt : undefined,
-              cacheKey: cacheKey || undefined,
-            }]
-          })
-      }
-
-      return [restored]
-    })
-
-  return {
-    id: typeof raw.id === 'string' ? raw.id : makeId('media_conversation'),
-    messages,
-    updatedAt: typeof raw.updatedAt === 'number' ? raw.updatedAt : now(),
-  }
-}
-
-function imageTaskErrorMessage(task: MediaStudioImageTask): string {
-  const error = task.error
-  if (!error) return 'image generation failed'
-  if (typeof error === 'string') return error
-  const message = (error as { message?: unknown }).message
-  return typeof message === 'string' && message.trim() ? message : 'image generation failed'
-}
-
-function videoTaskErrorMessage(task: MediaStudioVideoTask): string {
-  return task.error?.trim() || 'video generation failed'
-}
-
-function modelId(model: MediaStudioModel): string {
-  return String(model.id || '').trim()
-}
-
-function safeRemoteImageURL(value: unknown): string {
-  if (typeof value !== 'string' || !value.trim()) return ''
-  try {
-    const base = typeof window === 'undefined' ? 'https://localhost/' : window.location.origin
-    const parsed = new URL(value, base)
-    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return ''
-    return parsed.toString()
-  } catch {
-    return ''
-  }
-}
-
-function safeBase64Image(value: unknown): string {
-  if (typeof value !== 'string') return ''
-  const normalized = value.trim()
-  if (!normalized || normalized.length > 32 * 1024 * 1024 || !/^[A-Za-z0-9+/]+={0,2}$/.test(normalized)) return ''
-  return normalized
-}
-
-function extractImages(task: MediaStudioImageTask): MediaStudioGeneratedImagePreview[] {
-  const images: MediaStudioGeneratedImagePreview[] = []
-  const resultImages = Array.isArray(task.result?.data) ? task.result?.data ?? [] : []
-  resultImages.forEach((item: MediaStudioGeneratedImage, index: number) => {
-    const url = safeRemoteImageURL(item.url)
-    const b64Json = safeBase64Image(item.b64_json)
-    const src = url || (b64Json ? `data:image/png;base64,${b64Json}` : '')
-    if (!src) return
-    images.push({
-      id: `${task.task_id || task.id}-image-${index}`,
-      src,
-      url: url || undefined,
-      b64Json: b64Json || undefined,
-      revisedPrompt: item.revised_prompt,
-    })
-  })
-  if (images.length === 0) {
-    const taskImageURL = safeRemoteImageURL(task.image_url)
-    if (taskImageURL) {
-      images.push({
-        id: `${task.task_id || task.id}-image-url`,
-        src: taskImageURL,
-        url: taskImageURL,
-      })
-    }
-  }
-  return images
-}
-
-function conversationForPersistence(value: MediaStudioConversation): MediaStudioConversation | null {
-  const normalized = restorePersistedConversation(value)
-  if (!normalized) return null
-
-  return {
-    ...normalized,
-    messages: normalized.messages.map((message) => ({
-      ...message,
-      inputImages: message.inputImages?.flatMap((image): MediaStudioInputImagePreview[] => {
-        const remoteURL = safeRemoteImageURL(image.src)
-        if (remoteURL) {
-          return [{ ...image, src: remoteURL }]
-        }
-        if (!image.cacheKey) return []
-        return [{ ...image, src: '' }]
-      }),
-      images: message.images?.flatMap((image): MediaStudioGeneratedImagePreview[] => {
-        const remoteURL = safeRemoteImageURL(image.url) || safeRemoteImageURL(image.src)
-        if (remoteURL) {
-          return [{
-            id: image.id,
-            src: remoteURL,
-            url: remoteURL,
-            revisedPrompt: image.revisedPrompt,
-          }]
-        }
-        if (!image.cacheKey) return []
-        return [{
-          id: image.id,
-          src: '',
-          revisedPrompt: image.revisedPrompt,
-          cacheKey: image.cacheKey,
-        }]
-      }),
-    })),
-  }
 }
 
 async function cacheGeneratedImages(
@@ -427,6 +171,16 @@ async function cacheGeneratedImages(
     const stored = await storeMediaStudioImage(cacheKey, source)
     return stored ? { ...image, cacheKey } : image
   }))
+}
+
+// 后端在未启用对象存储或分组平台不支持时会对异步端点返回 404；
+// 这种情况退回同步提交，其他 404 仍按真实错误上抛。
+function isAsyncImageUnavailable(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const status = (error as { status?: unknown }).status
+  if (status !== 404) return false
+  const message = error instanceof Error ? error.message : ''
+  return /async|not enabled|not supported|unsupported/i.test(message)
 }
 
 function readImageFileAsDataURL(file: File): Promise<string> {
@@ -450,141 +204,31 @@ async function imagePreviewToFile(image: MediaStudioGeneratedImagePreview): Prom
   return new File([blob], `media-studio-edit.${extension}`, { type: mimeType })
 }
 
-function normalizeCount(value: number): number {
-  if (!Number.isFinite(value)) return 1
-  return Math.min(4, Math.max(1, Math.trunc(value)))
-}
-
-function normalizeImageQuality(value: unknown): string {
-  return IMAGE_QUALITY_OPTIONS.some(option => option.value === value) ? String(value) : 'auto'
-}
-
-function normalizeImageResolution(value: unknown): MediaStudioImageResolution {
-  return value === '2K' || value === '4K' ? value : IMAGE_RESOLUTION_DEFAULT
-}
-
-function normalizeImageAspectRatio(value: unknown): MediaStudioImageAspectRatio {
-  if (
-    value === '3:2' ||
-    value === '2:3' ||
-    value === '4:3' ||
-    value === '3:4' ||
-    value === '16:9' ||
-    value === '9:16'
-  ) {
-    return value
-  }
-  const customRatio = normalizeCustomImageAspectRatio(value)
-  if (customRatio) return `custom:${customRatio}`
-  return IMAGE_ASPECT_RATIO_DEFAULT
-}
-
-function aspectRatioFromSize(value: unknown): MediaStudioImageAspectRatio {
-  const match = typeof value === 'string' ? /^(\d+)x(\d+)$/.exec(value.trim()) : null
-  if (!match) return IMAGE_ASPECT_RATIO_DEFAULT
-  const width = Number(match[1])
-  const height = Number(match[2])
-  if (!width || !height) return IMAGE_ASPECT_RATIO_DEFAULT
-  const ratio = width / height
-  const candidates: Array<[MediaStudioImageAspectRatio, number]> = [
-    ['1:1', 1],
-    ['3:2', 1.5],
-    ['2:3', 2 / 3],
-    ['4:3', 4 / 3],
-    ['3:4', 3 / 4],
-    ['16:9', 16 / 9],
-    ['9:16', 9 / 16],
-  ]
-  return candidates.reduce((best, candidate) => (
-    Math.abs(ratio - candidate[1]) < Math.abs(ratio - best[1]) ? candidate : best
-  ))[0]
-}
-
-function greatestCommonDivisor(left: number, right: number): number {
-  let a = Math.abs(left)
-  let b = Math.abs(right)
-  while (b) {
-    const remainder = a % b
-    a = b
-    b = remainder
-  }
-  return a || 1
-}
-
-function normalizeCustomImageAspectRatio(value: unknown): string {
-  const raw = typeof value === 'string' ? value.replace(/^custom:/i, '').trim() : ''
-  const match = /^(\d{1,4}):(\d{1,4})$/.exec(raw)
-  if (!match) return ''
-  const ratioWidth = Number(match[1])
-  const ratioHeight = Number(match[2])
-  if (!ratioWidth || !ratioHeight || ratioWidth / ratioHeight > 3 || ratioHeight / ratioWidth > 3) return ''
-  const divisor = greatestCommonDivisor(ratioWidth, ratioHeight)
-  return `${ratioWidth / divisor}:${ratioHeight / divisor}`
-}
-
-function roundToImageMultiple(value: number): number {
-  return Math.max(IMAGE_SIZE_MULTIPLE, Math.round(value / IMAGE_SIZE_MULTIPLE) * IMAGE_SIZE_MULTIPLE)
-}
-
-function imageSizeFor(
-  imageResolution: MediaStudioImageResolution,
-  imageAspectRatio: MediaStudioImageAspectRatio,
-): string {
-  const ratio = imageAspectRatio.replace(/^custom:/, '')
-  const [ratioWidth, ratioHeight] = ratio.split(':').map(Number)
-  const maxEdge = IMAGE_RESOLUTION_MAX_EDGE[imageResolution]
-  let width = ratioWidth >= ratioHeight
-    ? maxEdge
-    : roundToImageMultiple(maxEdge * ratioWidth / ratioHeight)
-  let height = ratioHeight >= ratioWidth
-    ? maxEdge
-    : roundToImageMultiple(maxEdge * ratioHeight / ratioWidth)
-  const scale = Math.min(
-    1,
-    Math.sqrt(IMAGE_MAX_PIXELS / (width * height)),
-  )
-  width = Math.max(IMAGE_SIZE_MULTIPLE, Math.floor((width * scale) / IMAGE_SIZE_MULTIPLE) * IMAGE_SIZE_MULTIPLE)
-  height = Math.max(IMAGE_SIZE_MULTIPLE, Math.floor((height * scale) / IMAGE_SIZE_MULTIPLE) * IMAGE_SIZE_MULTIPLE)
-  return `${width}x${height}`
-}
-
-function normalizeDuration(value: number): number {
-  if (!Number.isFinite(value)) return DEFAULT_VIDEO_DURATION
-  return Math.min(15, Math.max(1, Math.trunc(value)))
-}
-
-function normalizeResolution(value: unknown): MediaStudioVideoResolution {
-  return value === '480p' || value === '1080p' ? value : DEFAULT_VIDEO_RESOLUTION
-}
-
-function wait(delayMs: number): Promise<void> {
-  return delayMs > 0 ? new Promise(resolve => setTimeout(resolve, delayMs)) : Promise.resolve()
-}
-
 export function useMediaStudioController(options: MediaStudioControllerOptions = {}) {
   const storage = safeStorage(options.storage)
   const persisted = readPersisted(storage)
   const data = {
     listModels: options.listModels ?? listMediaStudioModels,
-    // Synchronous image generation works without object storage; tests can
-    // inject the asynchronous endpoint to exercise the polling path.
-    submitImage: options.submitImage ?? submitImageGeneration,
-    submitImageEdit: options.submitImageEdit ?? submitImageEdit,
+    // 默认走异步端点：提交后立即拿到 task id 并落盘，刷新后仍能续轮询。
+    submitImage: options.submitImage ?? submitAsyncImageGeneration,
+    submitImageEdit: options.submitImageEdit ?? submitAsyncImageEdit,
+    submitImageSync: options.submitImageSync ?? submitImageGeneration,
+    submitImageEditSync: options.submitImageEditSync ?? submitImageEdit,
     getTask: options.getTask ?? getAsyncImageTask,
     submitVideo: options.submitVideo ?? submitVideoGeneration,
     getVideoTask: options.getVideoTask ?? getVideoGenerationTask,
     getVideoContent: options.getVideoContent ?? getVideoGenerationContent,
     getConfig: options.getConfig ?? getMediaStudioConfig,
     createSession: options.createSession ?? createMediaStudioSession,
+    estimateCost: options.estimateCost ?? estimateMediaStudioCost,
+    uploadFile: options.uploadFile ?? uploadMediaStudioFile,
   }
-	const createObjectURL = options.createObjectURL ?? ((blob: Blob) => (
-		typeof URL.createObjectURL === 'function' ? URL.createObjectURL(blob) : ''
-	))
-	const revokeObjectURL = options.revokeObjectURL ?? ((url: string) => {
-		if (url && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(url)
-	})
-  const pollDelayMs = options.pollDelayMs ?? DEFAULT_POLL_DELAY_MS
-  const maxPollCount = options.maxPollCount ?? MAX_POLL_COUNT
+  const createObjectURL = options.createObjectURL ?? ((blob: Blob) => (
+    typeof URL.createObjectURL === 'function' ? URL.createObjectURL(blob) : ''
+  ))
+  const revokeObjectURL = options.revokeObjectURL ?? ((url: string) => {
+    if (url && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(url)
+  })
 
   const { modes: previewModes } = useMediaStudioPreview()
   const selectedModeId = ref<MediaStudioModeId>('image')
@@ -593,10 +237,10 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   const imageModel = ref(persisted.imageModel || persisted.model || DEFAULT_IMAGE_MODEL)
   const videoModel = ref(persisted.videoModel || DEFAULT_VIDEO_MODEL)
   const model = ref(imageModel.value)
-  const imageResolution = ref<MediaStudioImageResolution>(
+  const imageResolution = ref<MediaStudioImageResolutionType>(
     normalizeImageResolution(persisted.imageResolution),
   )
-  const imageAspectRatio = ref<MediaStudioImageAspectRatio>(
+  const imageAspectRatio = ref<MediaStudioImageAspectRatioType>(
     persisted.imageAspectRatio
       ? normalizeImageAspectRatio(persisted.imageAspectRatio)
       : aspectRatioFromSize(persisted.size),
@@ -610,17 +254,30 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   const quality = ref(normalizeImageQuality(persisted.quality))
   const count = ref(normalizeCount(persisted.count || 1))
   const resolution = ref<MediaStudioVideoResolution>(normalizeResolution(persisted.resolution))
+  const videoAspectRatio = ref<MediaStudioVideoAspectRatio>(
+    normalizeVideoAspectRatio(persisted.videoAspectRatio),
+  )
   const duration = ref(normalizeDuration(persisted.duration || DEFAULT_VIDEO_DURATION))
   const groupConfig = ref<MediaStudioConfig>({ groups: [] })
   const loadingGroups = ref(false)
   const groupLoadError = ref('')
   const mediaStudioApiKey = ref('')
   const imageAttachments = ref<MediaStudioImageAttachment[]>([])
-  const modelOptions = ref<string[]>([])
+  const referenceAttachments = ref<MediaStudioReferenceAttachment[]>([])
+  // 最近一次被拒绝的附件：交给视图层翻译，数据层不产生用户文案。
+  const attachmentRejection = ref<MediaStudioAttachmentRejection | null>(null)
+  const modelOptions = ref<MediaStudioModelOptionType[]>([])
   const loadingModels = ref(false)
   const modelLoadError = ref('')
-  const submitting = ref(false)
+  // 允许多个任务并行运行：提交阶段用计数而非布尔锁，避免后提交的任务被先完成任务的重置提前解锁。
+  const pendingSubmits = ref(0)
+  const submitting = computed(() => pendingSubmits.value > 0)
   const submitError = ref('')
+  // 预估消耗只来自后端 sub2api 本地计价链路，前端不读取请求体或上游响应体里的价格。
+  const estimatedCost = ref<number | null>(null)
+  const estimatedCurrency = ref('')
+  const estimateLoading = ref(false)
+  const estimateError = ref('')
   const conversation = ref<MediaStudioConversation>({
     ...(restorePersistedConversation(persisted.conversation) ?? {
       id: makeId('media_conversation'),
@@ -628,35 +285,241 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       updatedAt: now(),
     }),
   })
-  const pollingTaskIds = ref<string[]>([])
+  // 历史会话与当前会话按 id 去重：当前会话不进历史列表，切换时再互换。
+  const sessions = ref<MediaStudioConversation[]>(
+    restorePersistedSessions(persisted.sessions).filter(item => item.id !== conversation.value.id),
+  )
   const videoObjectURLs = new Set<string>()
   const imageInputFiles = new Map<string, File[]>()
   let disposed = false
   let modelRequestSequence = 0
+  let estimateRequestSequence = 0
+  let estimateTimer: ReturnType<typeof setTimeout> | null = null
   let groupLoadRequest: Promise<void> | null = null
   let sessionRequest: Promise<void> | null = null
   let sessionRequestGroupID = 0
-  let activeSessionGroupID = 0
+  // 当前 API Key 实际所属的分组：必须响应式，切组期间禁止用上一个分组的 Key 提交。
+  const activeSessionGroupID = ref(0)
 
-  const modes = computed(() => previewModes.map((mode) => (
-    mode.id === 'video'
-      ? { ...mode, available: loadingGroups.value || groupConfig.value.groups.length > 0 }
-      : mode
-  )))
+  // 轮询、刷新恢复与任务条数据统一由 jobs 承担，controller 只负责装配。
+  const {
+    pollingTaskIds,
+    jobs,
+    pollImageTask,
+    completeVideoTask,
+    pollVideoTask,
+    resumePendingJobs,
+  } = useMediaStudioJobs({
+    conversation,
+    patchMessage: patchAssistantMessage,
+    getApiKey: () => mediaStudioApiKey.value,
+    getActiveGroupId: () => selectedGroupId.value,
+    createObjectURL,
+    revokeObjectURL,
+    videoObjectURLs,
+    isDisposed: () => disposed,
+    persist,
+    cacheImages: cacheGeneratedImages,
+    data: {
+      getTask: data.getTask,
+      getVideoTask: data.getVideoTask,
+      getVideoContent: data.getVideoContent,
+    },
+    ...(options.pollDelayMs !== undefined ? { pollDelayMs: options.pollDelayMs } : {}),
+    ...(options.maxPollCount !== undefined ? { maxPollCount: options.maxPollCount } : {}),
+  })
+
+  const modes = computed(() => previewModes.map((mode) => ({
+    ...mode,
+    available: loadingGroups.value || groupConfig.value.groups.some(group => group.media_type === mode.id),
+  })))
   const selectedMode = computed(() => modes.value.find(mode => mode.id === selectedModeId.value) ?? modes.value[0])
   const modelSelectionLocked = computed(() => (selectedGroup.value?.models?.length || 0) > 0)
   const imageQualityOptions = computed(() => IMAGE_QUALITY_OPTIONS)
+  const activeModelFields = computed<ModelAttributeField[]>(
+    () => modelOptions.value.find(option => option.id === model.value)?.fields ?? [],
+  )
+  // 模板声明要隐藏的内置参数 key；仅用于屏蔽宿主控件，不参与属性值渲染。
+  const activeModelHiddenKeys = computed<string[]>(
+    () => modelOptions.value.find(option => option.id === model.value)?.hide ?? [],
+  )
+  const visibleAttributeFields = computed(
+    () => activeModelFields.value.filter(field => field.ui !== 'hidden'),
+  )
+  // hardcoded：模板未声明字段，按硬编码参数渲染；其余两种模式由模板决定。
+  const attributeRenderMode = computed<'hardcoded' | ModelAttributeRenderMode>(() => {
+    if (activeModelFields.value.length === 0 && activeModelHiddenKeys.value.length === 0) return 'hardcoded'
+    const option = modelOptions.value.find(item => item.id === model.value)
+    return option?.renderMode ?? 'overlay'
+  })
+  // 不渲染的硬编码控件：完整替换全部隐藏，局部覆盖只隐藏被同名字段或 hide 接管的控件。
+  const hiddenParameterControls = computed<MediaStudioParameterControl[]>(() => {
+    const mode = attributeRenderMode.value
+    const controls = Object.keys(MEDIA_STUDIO_PARAMETER_BINDINGS) as MediaStudioParameterControl[]
+    if (mode === 'hardcoded') return []
+    if (mode === 'replace') return controls
+    const declared = new Set([
+      ...activeModelFields.value.map(field => field.key),
+      ...activeModelHiddenKeys.value,
+    ])
+    return controls.filter(control => declared.has(MEDIA_STUDIO_PARAMETER_BINDINGS[control]))
+  })
+  const activeModelOption = computed(
+    () => modelOptions.value.find(option => option.id === model.value) ?? null,
+  )
+  // 模型级媒体限制：未配置时回退媒体工坊原有默认值，配置后按模型约束。
+  const activeModelLimits = computed<MediaStudioResolvedLimits>(
+    () => resolveMediaStudioModelLimits(activeModelOption.value?.limits),
+  )
+  const imageAttachmentLimits = computed<MediaStudioImageAttachmentLimits>(() => {
+    const limits = activeModelLimits.value
+    const maxFiles = limits.maxFiles.image
+    const maxFileSizeBytes = limits.maxFileSizeMB.image * 1024 * 1024
+    return { maxFiles, maxFileSizeBytes, maxTotalBytes: maxFiles * maxFileSizeBytes }
+  })
+  // 参考素材按类型分别校验：仅启用的类型可被加入，各自独立计数。
+  const referenceLimits = computed<MediaStudioReferenceLimits>(() => ({
+    enabled: MEDIA_STUDIO_MEDIA_KINDS.filter(kind => mediaStudioKindEnabled(activeModelLimits.value, kind)),
+    maxFiles: { ...activeModelLimits.value.maxFiles },
+    maxFileSizeMB: { ...activeModelLimits.value.maxFileSizeMB },
+  }))
+  // 未返回该字段的旧后端按可用处理，只有显式 false 才置灰上传入口。
+  const storageAvailable = computed(() => groupConfig.value.storage_available !== false)
+  const attributeValues = ref<ModelAttributeValues>({})
+
+  function setAttributeValue(key: string, value: string | number | boolean | undefined) {
+    const next: ModelAttributeValues = { ...attributeValues.value }
+    if (value === undefined || value === '') {
+      delete next[key]
+    } else {
+      next[key] = value
+    }
+    attributeValues.value = next
+  }
+
+  // 切换模型时属性值回到新模型声明的默认值；无属性模型清空。
+  watch(activeModelFields, (fields) => {
+    const next: ModelAttributeValues = {}
+    for (const field of fields) {
+      if (field.default !== undefined) next[field.key] = field.default
+    }
+    attributeValues.value = next
+  }, { immediate: true, flush: 'sync' })
+  // 模型限制加载或切换后，把已选时长收敛回该模型允许的区间。
+  watch(activeModelLimits, (limits) => {
+    duration.value = normalizeDuration(duration.value, limits.duration)
+  })
+  // 时长支持手输，任何写入都收敛到当前模型区间，避免越界值进入请求体。
+  watch(duration, (value) => {
+    const next = normalizeDuration(value, activeModelLimits.value.duration)
+    if (next !== value) duration.value = next
+  })
+  // A group serves exactly one modality, so only expose groups of the active mode.
   const groupOptions = computed<MediaStudioGroupOption[]>(() => {
-    return groupConfig.value.groups
+    return groupConfig.value.groups.filter(group => group.media_type === selectedModeId.value)
   })
   const selectedGroup = computed(() => groupOptions.value.find(group => group.group_id === selectedGroupId.value) ?? null)
   const hasMessages = computed(() => conversation.value.messages.length > 0)
+  // 会话列表：当前会话永远置顶，其余按最近更新时间倒序，视图层据此做切换与删除。
+  const sessionList = computed<MediaStudioSessionSummary[]>(() => {
+    const activeId = conversation.value.id
+    // 空白会话不进列表：新对话页不需要展示一条没有内容的历史记录。
+    const source = conversation.value.messages.length > 0
+      ? [conversation.value, ...sessions.value]
+      : sessions.value
+    const items = source.map(item => ({
+      id: item.id,
+      title: conversationTitle(item.messages),
+      messageCount: item.messages.length,
+      updatedAt: item.updatedAt,
+    }))
+    return items.sort((left, right) => {
+      if (left.id === activeId) return -1
+      if (right.id === activeId) return 1
+      return right.updatedAt - left.updatedAt
+    })
+  })
   const canSubmit = computed(() => (
     !!selectedGroup.value &&
     !!mediaStudioApiKey.value &&
+    // Key 必须属于当前分组：切组瞬间旧 Key 还没换掉，不能拿别的分组的 Key 去提交。
+    activeSessionGroupID.value === selectedGroupId.value &&
     !!prompt.value.trim() &&
-    !submitting.value
+    !submitting.value &&
+    // 参考素材未上传完成（或失败未重试）时不提交，避免请求丢失素材。
+    (selectedModeId.value !== 'video' || referenceAttachments.value.every(item => item.status === 'ready'))
   ))
+
+  // 只按真正影响计价的输入变化触发预估，避免切换无关参数产生多余请求。
+  const costEstimateSignature = computed(() => {
+    const mode = selectedModeId.value
+    if (mode !== 'image' && mode !== 'video') return ''
+    const group = selectedGroup.value
+    const modelID = model.value
+    if (!group || !modelID) return ''
+    const parts: Array<string | number> = [mode, group.group_id, modelID]
+    if (mode === 'video') {
+      parts.push(resolution.value, duration.value)
+    } else {
+      parts.push(size.value, normalizeCount(count.value))
+    }
+    return parts.join('|')
+  })
+
+  // 预估金额完全由后端 sub2api 通用计价链路算出，不接受请求体或上游响应体里的价格。
+  async function refreshCostEstimate() {
+    const signature = costEstimateSignature.value
+    if (!signature) {
+      estimateRequestSequence += 1
+      estimatedCost.value = null
+      estimatedCurrency.value = ''
+      estimateError.value = ''
+      estimateLoading.value = false
+      return
+    }
+    const mode = selectedModeId.value
+    const request: MediaStudioCostEstimateRequest = {
+      media_type: mode as MediaStudioMediaType,
+      group_id: selectedGroupId.value,
+      model: model.value,
+    }
+    if (mode === 'video') {
+      request.resolution = resolution.value
+      request.duration = duration.value
+    } else {
+      request.size = size.value
+      request.count = normalizeCount(count.value)
+    }
+    const sequence = ++estimateRequestSequence
+    estimateLoading.value = true
+    estimateError.value = ''
+    try {
+      const estimate: MediaStudioCostEstimate = await data.estimateCost(request)
+      if (sequence !== estimateRequestSequence) return
+      estimatedCost.value = estimate.amount
+      estimatedCurrency.value = estimate.currency || ''
+    } catch (error) {
+      if (sequence !== estimateRequestSequence) return
+      estimatedCost.value = null
+      estimatedCurrency.value = ''
+      estimateError.value = mediaStudioErrorMessage(error, 'cost estimate failed')
+    } finally {
+      if (sequence === estimateRequestSequence) estimateLoading.value = false
+    }
+  }
+
+  function scheduleCostEstimate() {
+    if (estimateTimer !== null) clearTimeout(estimateTimer)
+    estimateTimer = setTimeout(() => {
+      estimateTimer = null
+      void refreshCostEstimate()
+    }, COST_ESTIMATE_DEBOUNCE_MS)
+  }
+
+  watch(costEstimateSignature, () => {
+    if (disposed) return
+    scheduleCostEstimate()
+  })
 
   function updateImageAttachments(attachments: MediaStudioImageAttachment[]) {
     revokeMediaStudioImageAttachments(imageAttachments.value.filter(
@@ -665,13 +528,94 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     imageAttachments.value = attachments
   }
 
+  async function addImageAttachments(files: File[]) {
+    if (files.length === 0) return
+    const result = await addMediaStudioImageAttachments(
+      imageAttachments.value,
+      files,
+      imageAttachmentLimits.value,
+    )
+    if (disposed) return
+    attachmentRejection.value = result.rejected[0] ?? null
+    updateImageAttachments(result.attachments)
+  }
+
+  function removeImageAttachment(id: string) {
+    updateImageAttachments(imageAttachments.value.filter(attachment => attachment.id !== id))
+  }
+
+  function updateReferenceAttachments(attachments: MediaStudioReferenceAttachment[]) {
+    revokeMediaStudioPreviewURLs(referenceAttachments.value.filter(
+      (current) => !attachments.some((next) => next.id === current.id),
+    ))
+    referenceAttachments.value = attachments
+  }
+
+  function patchReferenceAttachment(id: string, patch: Partial<MediaStudioReferenceAttachment>) {
+    referenceAttachments.value = referenceAttachments.value.map(item => (
+      item.id === id ? { ...item, ...patch } : item
+    ))
+  }
+
+  // 参考素材必须先落到对象存储，视频请求只能引用公网 URL。
+  async function uploadReferenceAttachment(attachment: MediaStudioReferenceAttachment, modelName: string) {
+    const file = attachment.file
+    if (!file) return
+    try {
+      const uploaded = await data.uploadFile(modelName, attachment.kind, file)
+      if (disposed) return
+      patchReferenceAttachment(attachment.id, { url: uploaded.url, status: 'ready', error: '' })
+    } catch (error) {
+      if (disposed) return
+      patchReferenceAttachment(attachment.id, {
+        status: 'failed',
+        error: mediaStudioErrorMessage(error, 'upload failed'),
+      })
+    }
+  }
+
+  async function addReferenceAttachments(files: File[]): Promise<MediaStudioAttachmentRejection[]> {
+    const existing = new Set(referenceAttachments.value.map(attachment => attachment.id))
+    const result = await addMediaStudioReferenceAttachments(
+      referenceAttachments.value,
+      files,
+      referenceLimits.value,
+      mediaStudioFileKind,
+    )
+    if (disposed) return result.rejected
+    attachmentRejection.value = result.rejected[0] ?? null
+    updateReferenceAttachments(result.attachments)
+    const modelName = model.value.trim()
+    for (const attachment of result.attachments) {
+      if (existing.has(attachment.id) || attachment.status !== 'uploading') continue
+      void uploadReferenceAttachment(attachment, modelName)
+    }
+    return result.rejected
+  }
+
+  function removeReferenceAttachment(id: string) {
+    updateReferenceAttachments(referenceAttachments.value.filter(attachment => attachment.id !== id))
+  }
+
+  function retryReferenceUpload(id: string) {
+    const attachment = referenceAttachments.value.find(item => item.id === id)
+    if (!attachment || attachment.status === 'uploading') return
+    const retried: MediaStudioReferenceAttachment = { ...attachment, status: 'uploading', error: '' }
+    patchReferenceAttachment(id, { status: 'uploading', error: '' })
+    void uploadReferenceAttachment(retried, model.value.trim())
+  }
+
   async function editGeneratedImage(image: MediaStudioGeneratedImagePreview) {
     if (selectedModeId.value !== 'image') await selectMode('image')
     submitError.value = ''
     try {
       const file = await imagePreviewToFile(image)
       const previousCount = imageAttachments.value.length
-      const result = addMediaStudioImageAttachments(imageAttachments.value, [file])
+      const result = await addMediaStudioImageAttachments(
+        imageAttachments.value,
+        [file],
+        imageAttachmentLimits.value,
+      )
       updateImageAttachments(result.attachments)
       if (result.attachments.length === previousCount) {
         throw new Error('reference image could not be added')
@@ -690,9 +634,16 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     imageAspectRatio.value = `custom:${normalized}`
   }
 
+  // 持久化只在关键状态变更处显式调用：轮询进度不再触发全量 JSON 序列化。
   function persist() {
     if (!storage) return
     const persistedConversation = conversationForPersistence(conversation.value)
+    const persistedSessions = sessions.value
+      .slice(0, MEDIA_STUDIO_MAX_SESSIONS)
+      .flatMap((item) => {
+        const value = conversationForPersistence(item)
+        return value ? [value] : []
+      })
     const payload: PersistedMediaStudioState = {
       selectedGroupId: selectedGroupId.value,
       imageModel: imageModel.value,
@@ -704,12 +655,14 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       quality: quality.value,
       count: count.value,
       resolution: resolution.value,
+      videoAspectRatio: videoAspectRatio.value,
       duration: duration.value,
       conversation: persistedConversation || undefined,
+      ...(persistedSessions.length > 0 ? { sessions: persistedSessions } : {}),
     }
     try {
-      storage.setItem(STORAGE_KEY, JSON.stringify(payload))
-      storage.removeItem(LEGACY_STORAGE_KEY)
+      storage.setItem(MEDIA_STUDIO_STORAGE_KEY, JSON.stringify(payload))
+      storage.removeItem(MEDIA_STUDIO_LEGACY_STORAGE_KEY)
     } catch {
       // Ignore unavailable browser storage and keep the current session usable.
     }
@@ -764,18 +717,36 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
         images.some((image, index) => image !== message.images?.[index])
       const inputImagesChanged = inputImages.length !== (message.inputImages || []).length ||
         inputImages.some((image, index) => image !== message.inputImages?.[index])
-      return !imagesChanged && !inputImagesChanged
+
+      let video = message.video
+      if (video?.cacheKey) {
+        const blob = await loadMediaStudioVideo(video.cacheKey)
+        if (disposed) return message
+        if (!blob) {
+          changed = true
+          video = undefined
+        } else {
+          const src = createObjectURL(blob)
+          videoObjectURLs.add(src)
+          if (src !== video.src) changed = true
+          video = { src, mimeType: blob.type || video.mimeType, cacheKey: video.cacheKey }
+        }
+      }
+      const videoChanged = video !== message.video
+
+      return !imagesChanged && !inputImagesChanged && !videoChanged
         ? message
-        : { ...message, images, inputImages }
+        : { ...message, images, inputImages, video }
     }))
 
     if (!disposed && changed) {
       conversation.value = { ...conversation.value, messages, updatedAt: now() }
+      persist()
     }
   }
 
-  watch([selectedGroupId, imageModel, videoModel, size, imageResolution, imageAspectRatio, customImageAspectRatios, quality, count, resolution, duration], persist, { deep: true })
-  watch(conversation, persist, { deep: true })
+  // 配置项变更即时落盘，会话本身只在关键状态变更时写入。
+  watch([selectedGroupId, imageModel, videoModel, size, imageResolution, imageAspectRatio, customImageAspectRatios, quality, count, resolution, videoAspectRatio, duration], persist, { deep: true })
   watch(model, (value) => {
     if (selectedModeId.value === 'image') imageModel.value = value
     if (selectedModeId.value === 'video') videoModel.value = value
@@ -787,7 +758,18 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       groupLoadError.value = ''
       try {
         groupConfig.value = await data.getConfig()
-        const options = groupConfig.value.groups
+        // A group serves exactly one modality; if the current mode has no group,
+        // switch to the first mode that actually has one.
+        if (!groupConfig.value.groups.some(group => group.media_type === selectedModeId.value)) {
+          const fallbackMode = modes.value.find(mode =>
+            mode.available && groupConfig.value.groups.some(group => group.media_type === mode.id),
+          )
+          if (fallbackMode) {
+            selectedModeId.value = fallbackMode.id
+            model.value = fallbackMode.id === 'video' ? videoModel.value : imageModel.value
+          }
+        }
+        const options = groupOptions.value
         if (!options.some(group => group.group_id === selectedGroupId.value)) {
           selectedGroupId.value = options[0]?.group_id || 0
         }
@@ -811,11 +793,13 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     const group = selectedGroup.value
     if (!group || (mediaType !== 'image' && mediaType !== 'video')) {
       mediaStudioApiKey.value = ''
-      activeSessionGroupID = 0
+      activeSessionGroupID.value = 0
       return
     }
-    if (mediaStudioApiKey.value && activeSessionGroupID === group.group_id) {
+    if (mediaStudioApiKey.value && activeSessionGroupID.value === group.group_id) {
       await loadModels()
+      // 会话可用即可恢复未完成任务，不必等待模型列表变化。
+      resumePendingJobs()
       return
     }
     if (sessionRequest && sessionRequestGroupID === group.group_id) {
@@ -827,8 +811,9 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       const session = await data.createSession(mediaType, groupID)
       if (selectedGroupId.value !== groupID || disposed) return
       mediaStudioApiKey.value = session.api_key
-      activeSessionGroupID = groupID
+      activeSessionGroupID.value = groupID
       await loadModels()
+      resumePendingJobs()
     })()
     sessionRequest = request
     sessionRequestGroupID = groupID
@@ -857,14 +842,22 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       )
       if (sequence !== modelRequestSequence || requestedMode !== selectedModeId.value) return
       const seen = new Set<string>()
-      modelOptions.value = response.data.map(modelId).filter((id) => {
-        if (!id || seen.has(id)) return false
-        seen.add(id)
-        return true
-      })
+      modelOptions.value = response.data
+        .map(item => ({
+          id: modelId(item),
+          fields: item.attributes?.fields ?? [],
+          renderMode: item.attributes?.mode === 'replace' ? 'replace' as const : 'overlay' as const,
+          hide: item.attributes?.hide ?? [],
+          limits: item.limits,
+        }))
+        .filter((option) => {
+          if (!option.id || seen.has(option.id)) return false
+          seen.add(option.id)
+          return true
+        })
       const fallback = requestedMode === 'video' ? DEFAULT_VIDEO_MODEL : DEFAULT_IMAGE_MODEL
-      if (modelOptions.value.length > 0 && !modelOptions.value.includes(model.value)) {
-        model.value = modelOptions.value[0]
+      if (modelOptions.value.length > 0 && !modelOptions.value.some(option => option.id === model.value)) {
+        model.value = modelOptions.value[0].id
       } else if (!model.value.trim()) {
         model.value = fallback
       }
@@ -888,6 +881,10 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     modelLoadError.value = ''
     modelOptions.value = []
     if (groupConfig.value.groups.length > 0) {
+      if (!groupOptions.value.some(group => group.group_id === selectedGroupId.value)) {
+        // 切模式必须换组：落到第一个可用分组，否则新模型会挂在别的分组的 Key 上。
+        selectedGroupId.value = groupOptions.value[0]?.group_id || 0
+      }
       await establishMediaStudioSession()
     } else {
       await loadMediaGroups()
@@ -897,9 +894,22 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   function patchAssistantMessage(messageId: string, patch: Partial<MediaStudioMessage>): boolean {
     const messages = conversation.value.messages
     const index = messages.findIndex(message => message.id === messageId)
-    if (index < 0) return false
-    messages[index] = { ...messages[index], ...patch }
-    conversation.value = { ...conversation.value, messages: [...messages], updatedAt: now() }
+    if (index >= 0) {
+      messages[index] = { ...messages[index], ...patch }
+      conversation.value = { ...conversation.value, messages: [...messages], updatedAt: now() }
+      return true
+    }
+    // 轮询可能跨会话返回：用户切走后把结果写回所属历史会话，而不是直接丢弃。
+    const sessionIndex = sessions.value.findIndex(item => item.messages.some(message => message.id === messageId))
+    if (sessionIndex < 0) return false
+    const session = sessions.value[sessionIndex]
+    const sessionMessages = [...session.messages]
+    const sessionMessageIndex = sessionMessages.findIndex(message => message.id === messageId)
+    sessionMessages[sessionMessageIndex] = { ...sessionMessages[sessionMessageIndex], ...patch }
+    const nextSessions = [...sessions.value]
+    nextSessions[sessionIndex] = { ...session, messages: sessionMessages, updatedAt: now() }
+    sessions.value = nextSessions
+    persist()
     return true
   }
 
@@ -931,77 +941,26 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     if (!currentUser || currentUser.id !== userMessage.id) return
     messages[userIndex] = { ...currentUser, inputImages: cached }
     conversation.value = { ...conversation.value, messages, updatedAt: now() }
-  }
-
-  function setPolling(taskId: string, active: boolean) {
-    if (active && !pollingTaskIds.value.includes(taskId)) pollingTaskIds.value = [...pollingTaskIds.value, taskId]
-    if (!active) pollingTaskIds.value = pollingTaskIds.value.filter(id => id !== taskId)
-  }
-
-  async function pollImageTask(apiKey: string, taskId: string): Promise<MediaStudioImageTask> {
-    setPolling(taskId, true)
-    try {
-      for (let attempt = 0; attempt < maxPollCount && !disposed; attempt += 1) {
-        const task = await data.getTask(apiKey, taskId)
-        if (task.status === 'completed') {
-          return task
-        }
-        if (task.status === 'failed') {
-          return task
-        }
-        await wait(pollDelayMs)
-      }
-      throw new Error('image generation polling timed out')
-    } finally {
-      setPolling(taskId, false)
-    }
-  }
-
-  async function completeVideoTask(apiKey: string, taskId: string, messageId: string) {
-    const blob = await data.getVideoContent(apiKey, taskId)
-    if (disposed) return
-    const src = createObjectURL(blob)
-    videoObjectURLs.add(src)
-    if (!patchAssistantMessage(messageId, {
-      status: 'completed',
-      video: { src, mimeType: blob.type || 'video/mp4' },
-      error: '',
-      completedAt: now(),
-    })) {
-      videoObjectURLs.delete(src)
-      revokeObjectURL(src)
-    }
-  }
-
-  async function pollVideoTask(apiKey: string, taskId: string, messageId: string) {
-    setPolling(taskId, true)
-    try {
-      for (let attempt = 0; attempt < maxPollCount && !disposed; attempt += 1) {
-        const task = await data.getVideoTask(apiKey, taskId)
-        if (task.status === 'completed') {
-          await completeVideoTask(apiKey, task.id, messageId)
-          return
-        }
-        if (task.status === 'failed') {
-          patchAssistantMessage(messageId, { status: 'failed', error: videoTaskErrorMessage(task), completedAt: now() })
-          return
-        }
-        patchAssistantMessage(messageId, { status: 'processing' })
-        await wait(pollDelayMs)
-      }
-      if (!disposed) patchAssistantMessage(messageId, { status: 'failed', error: 'video generation polling timed out', completedAt: now() })
-    } catch (error) {
-      if (!disposed) patchAssistantMessage(messageId, { status: 'failed', error: mediaStudioErrorMessage(error, 'video generation failed'), completedAt: now() })
-    } finally {
-      setPolling(taskId, false)
-    }
+    persist()
   }
 
   function appendPromptMessages(
     text: string,
     mode: 'image' | 'video',
     inputAttachments: MediaStudioImageAttachment[] = [],
+    inputReferences: MediaStudioReferenceAttachment[] = [],
   ): MediaStudioMessage {
+    // 参考素材已上传为公网 URL，直接写进消息快照，保证发送后仍能渲染并支持重试。
+    const referencePreviews = inputReferences
+      .filter(reference => reference.status === 'ready' && reference.url)
+      .map(reference => ({
+        id: reference.id,
+        src: reference.url,
+        url: reference.url,
+        name: reference.name,
+        kind: reference.kind,
+        mimeType: reference.mimeType,
+      }))
     const userMessage: MediaStudioMessage = {
       id: makeId('media_user'),
       role: 'user',
@@ -1013,14 +972,19 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
         name: attachment.name,
         mimeType: attachment.mimeType,
       })),
+      inputReferences: referencePreviews.length > 0 ? referencePreviews : undefined,
       createdAt: now(),
     }
+    const renderMode = attributeRenderMode.value
+    const attributeMode = renderMode === 'hardcoded' ? undefined : renderMode
     const assistantMessage: MediaStudioMessage = {
       id: makeId('media_assistant'),
       role: 'assistant',
       mode,
       prompt: text,
       status: 'queued',
+      // 记录提交时所在分组，刷新后只恢复当前分组里的任务。
+      groupId: selectedGroupId.value,
       model: model.value.trim() || (mode === 'video' ? DEFAULT_VIDEO_MODEL : DEFAULT_IMAGE_MODEL),
       size: mode === 'image' ? size.value : undefined,
       imageResolution: mode === 'image' ? imageResolution.value : undefined,
@@ -1028,7 +992,13 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       quality: mode === 'image' ? quality.value : undefined,
       count: mode === 'image' ? normalizeCount(count.value) : 1,
       resolution: mode === 'video' ? normalizeResolution(resolution.value) : undefined,
-      duration: mode === 'video' ? normalizeDuration(duration.value) : undefined,
+      aspectRatio: mode === 'video' ? normalizeVideoAspectRatio(videoAspectRatio.value) : undefined,
+      duration: mode === 'video' ? normalizeDuration(duration.value, activeModelLimits.value.duration) : undefined,
+      attributes: attributeMode ? { ...attributeValues.value } : undefined,
+      attributeMode,
+      attributeKeys: attributeMode
+        ? [...activeModelFields.value.map(field => field.key), ...activeModelHiddenKeys.value]
+        : undefined,
       createdAt: now(),
     }
     conversation.value = {
@@ -1043,41 +1013,82 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     const text = prompt.value.trim().slice(0, 10_000)
     const mode = selectedModeId.value
     submitError.value = ''
-    if (!mediaStudioApiKey.value || !selectedGroup.value || !text || (mode !== 'image' && mode !== 'video')) return
+    if (
+      !mediaStudioApiKey.value ||
+      !selectedGroup.value ||
+      activeSessionGroupID.value !== selectedGroupId.value ||
+      !text ||
+      (mode !== 'image' && mode !== 'video')
+    ) return
 
     const submittedAttachments = mode === 'image' ? [...imageAttachments.value] : []
-    const assistantMessage = appendPromptMessages(text, mode, submittedAttachments)
+    const submittedReferences = mode === 'video' ? [...referenceAttachments.value] : []
+    const assistantMessage = appendPromptMessages(text, mode, submittedAttachments, submittedReferences)
     if (submittedAttachments.length > 0) {
       imageInputFiles.set(assistantMessage.id, submittedAttachments.map(attachment => attachment.file))
       void cacheInputImages(assistantMessage.id, submittedAttachments)
     }
     prompt.value = ''
     imageAttachments.value = []
-    submitting.value = true
+    if (mode === 'video') updateReferenceAttachments([])
+    pendingSubmits.value += 1
+    let submitLockReleased = false
+    // 每个任务只释放一次：图片任务在提交阶段结束就提前释放，视频任务在收尾时释放。
+    const releaseSubmitLock = () => {
+      if (submitLockReleased) return
+      submitLockReleased = true
+      pendingSubmits.value = Math.max(0, pendingSubmits.value - 1)
+    }
     try {
       if (mode === 'image') {
-        const requestedCount = normalizeCount(assistantMessage.count || 1)
+        const attributeMode = assistantMessage.attributeMode
+        const declaredKeys = new Set(assistantMessage.attributeKeys ?? [])
+        // 局部覆盖模式下，模板声明或被 hide 的 key 都由模板接管，不再发送对应硬编码参数。
+        const replacedByTemplate = (control: MediaStudioParameterControl) => (
+          attributeMode === 'overlay' && declaredKeys.has(MEDIA_STUDIO_PARAMETER_BINDINGS[control])
+        )
+        const keepsCount = attributeMode !== 'replace' && !replacedByTemplate('image.count')
+        const requestedCount = keepsCount ? normalizeCount(assistantMessage.count || 1) : 1
         const payload: MediaStudioImageSubmitRequest = {
           model: assistantMessage.model || DEFAULT_IMAGE_MODEL,
           prompt: text,
-          n: requestedCount,
-          size: imageSizeFor(
-            normalizeImageResolution(assistantMessage.imageResolution),
-            normalizeImageAspectRatio(assistantMessage.imageAspectRatio),
-          ),
         }
-        if (assistantMessage.quality) payload.quality = assistantMessage.quality
-
-        const submitImageTask = (requestPayload: MediaStudioImageSubmitRequest) => (
-          submittedAttachments.length > 0
-            ? data.submitImageEdit(
-              mediaStudioApiKey.value,
-              submittedAttachments.map((attachment) => attachment.file),
-              requestPayload,
-              makeId('media_idem'),
+        if (attributeMode) {
+          payload.attributes = { ...(assistantMessage.attributes ?? {}) }
+        }
+        if (attributeMode !== 'replace') {
+          if (!replacedByTemplate('image.size')) {
+            payload.size = imageSizeFor(
+              normalizeImageResolution(assistantMessage.imageResolution),
+              normalizeImageAspectRatio(assistantMessage.imageAspectRatio),
             )
-            : data.submitImage(mediaStudioApiKey.value, requestPayload, makeId('media_idem'))
-        )
+          }
+          if (!replacedByTemplate('image.quality') && assistantMessage.quality) {
+            payload.quality = assistantMessage.quality
+          }
+        }
+
+        const imageFiles = submittedAttachments.map((attachment) => attachment.file)
+        // 默认走异步端点；对象存储不可用或分组平台不支持时退回同步提交。
+        const submitImageTask = async (
+          requestPayload: MediaStudioImageSubmitRequest,
+        ): Promise<MediaStudioImageTask> => {
+          const idempotencyKey = makeId('media_idem')
+          const submitSync = () => (
+            imageFiles.length > 0
+              ? data.submitImageEditSync(mediaStudioApiKey.value, imageFiles, requestPayload, idempotencyKey)
+              : data.submitImageSync(mediaStudioApiKey.value, requestPayload, idempotencyKey)
+          )
+          if (!storageAvailable.value) return submitSync()
+          try {
+            return imageFiles.length > 0
+              ? await data.submitImageEdit(mediaStudioApiKey.value, imageFiles, requestPayload, idempotencyKey)
+              : await data.submitImage(mediaStudioApiKey.value, requestPayload, idempotencyKey)
+          } catch (error) {
+            if (!isAsyncImageUnavailable(error)) throw error
+            return submitSync()
+          }
+        }
 
         patchAssistantMessage(assistantMessage.id, {
           status: 'processing',
@@ -1088,98 +1099,266 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
           taskID: string
           images: MediaStudioGeneratedImagePreview[]
           error: string
+          errorCode?: MediaStudioJobErrorCode
+          task?: MediaStudioImageTask
         }
 
         const requestResults: Array<ImageRequestResult | undefined> = Array(requestedCount)
-        const submitAndResolveImage = async (): Promise<ImageRequestResult> => {
+        // 多图并发时把每个任务的 ID 都留在消息上，刷新后才能逐个续轮询。
+        const publishProgress = () => {
+          const completed = requestResults
+            .flatMap(result => result?.images ?? [])
+            .slice(0, requestedCount)
+          const taskIDs = [...new Set(
+            requestResults.flatMap(result => (result?.taskID ? [result.taskID] : [])),
+          )]
+          patchAssistantMessage(assistantMessage.id, {
+            images: completed,
+            status: 'processing',
+            taskId: taskIDs[0],
+            taskIds: taskIDs.length > 0 ? taskIDs : undefined,
+          })
+          persist()
+        }
+
+        // 第一阶段只负责提交：拿到 task id 后立即释放提交锁，让用户可以继续提交下一个任务。
+        const submitOneImage = async (index: number): Promise<void> => {
           try {
-            let task = await submitImageTask({ ...payload, n: 1 })
+            const task = await submitImageTask(keepsCount ? { ...payload, n: 1 } : payload)
             const taskID = task.task_id || task.id
-            if (task.status !== 'completed' && task.status !== 'failed') {
-              task = await pollImageTask(mediaStudioApiKey.value, taskID)
-            }
+            // 同步端点直接返回结果时当场回填，不必等其余并发任务提交完成。
             if (task.status === 'completed') {
-              return {
+              requestResults[index] = {
                 taskID,
                 images: await cacheGeneratedImages(assistantMessage.id, extractImages(task)),
                 error: '',
               }
+            } else {
+              requestResults[index] = { taskID, images: [], error: '', task }
             }
-            return { taskID, images: [], error: imageTaskErrorMessage(task) }
+            // 提交成功立即落盘任务 ID：随后刷新或网络中断都能从任务条续轮询。
+            if (taskID) publishProgress()
           } catch (error) {
-            return {
+            const errorCode = classifyMediaStudioError(error)
+            requestResults[index] = {
               taskID: '',
               images: [],
-              error: mediaStudioErrorMessage(error, 'image generation failed'),
+              // 浏览器网络错误原文对用户没有意义，交给 errorCode 展示本地化文案。
+              error: errorCode === 'network' ? '' : mediaStudioErrorMessage(error, 'image generation failed'),
+              errorCode,
             }
+            publishProgress()
           }
         }
 
         await Promise.all(Array.from({ length: requestedCount }, async (_, index) => {
-          requestResults[index] = await submitAndResolveImage()
-          const completed = requestResults
-            .flatMap(result => result?.images ?? [])
-            .slice(0, requestedCount)
-          patchAssistantMessage(assistantMessage.id, {
-            taskId: requestResults.find(result => result?.taskID)?.taskID,
-            images: completed,
-            status: 'processing',
-          })
+          await submitOneImage(index)
+        }))
+        // 任务已提交完成，后续轮询在后台继续；提交锁随即可释放，允许同时运行多个任务。
+        releaseSubmitLock()
+
+        // 第二阶段并行轮询所有已提交任务；某个任务完成就立刻回填，不阻塞其他任务。
+        await Promise.all(requestResults.map(async (result, index) => {
+          const initialTask = result?.task
+          if (!result || !result.taskID || !initialTask) return
+          try {
+            let task: MediaStudioImageTask = initialTask
+            if (task.status !== 'completed' && task.status !== 'failed') {
+              task = await pollImageTask(mediaStudioApiKey.value, result.taskID)
+            }
+            if (task.status === 'completed') {
+              requestResults[index] = {
+                taskID: result.taskID,
+                images: await cacheGeneratedImages(assistantMessage.id, extractImages(task)),
+                error: '',
+              }
+            } else {
+              const failure = imageTaskErrorMessage(task)
+              requestResults[index] = {
+                taskID: result.taskID,
+                images: [],
+                error: failure,
+                errorCode: classifyMediaStudioError(failure),
+              }
+            }
+          } catch (error) {
+            const errorCode = classifyMediaStudioError(error)
+            requestResults[index] = {
+              taskID: result.taskID,
+              images: [],
+              error: errorCode === 'network' ? '' : mediaStudioErrorMessage(error, 'image generation failed'),
+              errorCode,
+            }
+          }
+          publishProgress()
         }))
         const completedImages = conversation.value.messages.find(
           message => message.id === assistantMessage.id,
         )?.images ?? []
-        const errors = requestResults
-          .map(result => result?.error ?? '')
-          .filter(Boolean)
-        const lastError = errors[errors.length - 1] ?? ''
+        const failures = requestResults
+          .filter((result): result is ImageRequestResult => Boolean(result?.errorCode))
+        const lastFailure = failures.length > 0 ? failures[failures.length - 1] : undefined
         patchAssistantMessage(assistantMessage.id, {
           status: completedImages.length > 0 ? 'completed' : 'failed',
-          error: completedImages.length > 0 ? '' : lastError,
+          error: completedImages.length > 0 ? '' : (lastFailure?.error ?? ''),
+          errorCode: completedImages.length > 0 ? undefined : lastFailure?.errorCode,
           completedAt: now(),
         })
+        persist()
       } else {
-        const task = await data.submitVideo(mediaStudioApiKey.value, {
+        const videoPayload: MediaStudioVideoSubmitRequest = {
           model: assistantMessage.model || DEFAULT_VIDEO_MODEL,
           prompt: text,
-          resolution: assistantMessage.resolution || DEFAULT_VIDEO_RESOLUTION,
-          duration: assistantMessage.duration || DEFAULT_VIDEO_DURATION,
-        }, makeId('media_video_idem'))
-        patchAssistantMessage(assistantMessage.id, { taskId: task.id, status: task.status === 'failed' ? 'failed' : 'processing' })
+        }
+        // 参考素材已上传为公网 URL，按类型填入对应字段。
+        const referenceURLs = (kind: MediaStudioMediaType) => submittedReferences
+          .filter(attachment => attachment.kind === kind && attachment.status === 'ready' && attachment.url)
+          .map(attachment => attachment.url)
+        const referenceImages = referenceURLs('image')
+        const referenceVideos = referenceURLs('video')
+        const referenceAudios = referenceURLs('audio')
+        if (referenceImages.length > 0) videoPayload.images = referenceImages
+        if (referenceVideos.length > 0) videoPayload.videos = referenceVideos
+        if (referenceAudios.length > 0) videoPayload.audios = referenceAudios
+        const videoAttributeMode = assistantMessage.attributeMode
+        const videoDeclaredKeys = new Set(assistantMessage.attributeKeys ?? [])
+        const replacedByTemplate = (control: MediaStudioParameterControl) => (
+          videoAttributeMode === 'overlay' && videoDeclaredKeys.has(MEDIA_STUDIO_PARAMETER_BINDINGS[control])
+        )
+        if (videoAttributeMode) {
+          videoPayload.attributes = { ...(assistantMessage.attributes ?? {}) }
+        }
+        if (videoAttributeMode !== 'replace') {
+          if (!replacedByTemplate('video.resolution')) {
+            videoPayload.resolution = assistantMessage.resolution || DEFAULT_VIDEO_RESOLUTION
+          }
+          if (!replacedByTemplate('video.duration')) {
+            videoPayload.duration = assistantMessage.duration || DEFAULT_VIDEO_DURATION
+          }
+          if (!replacedByTemplate('video.aspectRatio')) {
+            videoPayload.aspect_ratio = normalizeVideoAspectRatio(assistantMessage.aspectRatio)
+          }
+        }
+        const task = await data.submitVideo(mediaStudioApiKey.value, videoPayload, makeId('media_video_idem'))
+        const submitPatch: Partial<MediaStudioMessage> = {
+          taskId: task.id,
+          taskIds: [task.id],
+          status: task.status === 'failed' ? 'failed' : 'processing',
+        }
+        if (task.cost !== undefined) submitPatch.cost = task.cost
+        if (task.currency) submitPatch.currency = task.currency
+        patchAssistantMessage(assistantMessage.id, submitPatch)
+        persist()
         if (task.status === 'failed') {
-          patchAssistantMessage(assistantMessage.id, { error: videoTaskErrorMessage(task), completedAt: now() })
+          const failure = videoTaskErrorMessage(task)
+          patchAssistantMessage(assistantMessage.id, {
+            error: failure,
+            errorCode: classifyMediaStudioError(failure),
+            completedAt: now(),
+          })
+          persist()
         } else if (task.status === 'completed') {
-          await completeVideoTask(mediaStudioApiKey.value, task.id, assistantMessage.id)
+          await completeVideoTask(mediaStudioApiKey.value, task.id, assistantMessage.id, task.cost, task.currency)
         } else {
           void pollVideoTask(mediaStudioApiKey.value, task.id, assistantMessage.id)
         }
       }
     } catch (error) {
       const fallback = mode === 'video' ? 'video generation failed' : 'image generation failed'
-      const message = mediaStudioErrorMessage(error, fallback)
+      const errorCode = classifyMediaStudioError(error)
+      // 浏览器网络错误原文（如 Failed to fetch）不直接展示给用户，改由 errorCode 提供本地化文案。
+      const message = errorCode === 'network' ? '' : mediaStudioErrorMessage(error, fallback)
       submitError.value = message
-      patchAssistantMessage(assistantMessage.id, { status: 'failed', error: message, completedAt: now() })
+      patchAssistantMessage(assistantMessage.id, {
+        status: 'failed',
+        error: message,
+        errorCode,
+        completedAt: now(),
+      })
+      persist()
     } finally {
-      submitting.value = false
+      releaseSubmitLock()
     }
+  }
+
+  // 重试时从对应的用户消息里还原已上传的参考素材，请求不能丢附件。
+  function restoreReferenceAttachments(message: MediaStudioMessage): MediaStudioReferenceAttachment[] {
+    const messages = conversation.value.messages
+    const index = messages.findIndex(item => item.id === message.id)
+    const promptMessage = index > 0 ? messages[index - 1] : undefined
+    if (!promptMessage || promptMessage.role !== 'user') return []
+    return (promptMessage.inputReferences ?? [])
+      .filter(reference => reference.url)
+      .map(reference => ({
+        id: reference.id,
+        name: reference.name,
+        kind: reference.kind,
+        mimeType: reference.mimeType,
+        size: 0,
+        previewUrl: reference.src || reference.url,
+        url: reference.url,
+        status: 'ready',
+        error: '',
+      }))
+  }
+
+  // 图片重试直接复用提交时缓存的 File：无需重新计算哈希，也不会因为浏览器无法读取历史文件而失败。
+  function restoreImageAttachments(message: MediaStudioMessage): MediaStudioImageAttachment[] {
+    const files = imageInputFiles.get(message.id) ?? []
+    if (files.length === 0) return []
+    const messages = conversation.value.messages
+    const index = messages.findIndex(item => item.id === message.id)
+    const promptMessage = index > 0 ? messages[index - 1] : undefined
+    const previews = promptMessage?.role === 'user' ? (promptMessage.inputImages ?? []) : []
+    return files.map((file, position) => {
+      const preview = previews[position]
+      return {
+        id: preview?.cacheKey || preview?.id || makeId('media_image'),
+        file,
+        name: preview?.name || file.name || 'pasted-image',
+        mimeType: preview?.mimeType || file.type,
+        size: file.size,
+        previewUrl: preview?.src || '',
+      }
+    })
+  }
+
+  // 重试前移除失败记录及其对应的提示气泡，避免任务条里同时残留失败和重试两条。
+  function removeMessageWithPrompt(messageId: string) {
+    const messages = conversation.value.messages
+    const index = messages.findIndex(item => item.id === messageId)
+    if (index < 0) return
+    const next = [...messages]
+    next.splice(index, 1)
+    if (next[index - 1]?.role === 'user') next.splice(index - 1, 1)
+    imageInputFiles.delete(messageId)
+    conversation.value = { ...conversation.value, messages: next, updatedAt: now() }
+    persist()
   }
 
   async function retryMessage(message: MediaStudioMessage) {
     if (!message.prompt.trim()) return
     await selectMode(message.mode)
     model.value = message.model || (message.mode === 'video' ? DEFAULT_VIDEO_MODEL : DEFAULT_IMAGE_MODEL)
+    if (message.attributes) attributeValues.value = { ...message.attributes }
     if (message.mode === 'image') {
       imageResolution.value = normalizeImageResolution(message.imageResolution)
       imageAspectRatio.value = normalizeImageAspectRatio(message.imageAspectRatio || aspectRatioFromSize(message.size))
       quality.value = normalizeImageQuality(message.quality)
       count.value = normalizeCount(message.count || 1)
-      const restored = addMediaStudioImageAttachments([], imageInputFiles.get(message.id) ?? []).attachments
-      imageAttachments.value = restored
+      imageAttachments.value = restoreImageAttachments(message)
     } else {
       resolution.value = normalizeResolution(message.resolution)
-      duration.value = normalizeDuration(message.duration || DEFAULT_VIDEO_DURATION)
+      videoAspectRatio.value = normalizeVideoAspectRatio(message.aspectRatio)
+      duration.value = normalizeDuration(
+        message.duration || DEFAULT_VIDEO_DURATION,
+        activeModelLimits.value.duration,
+      )
+      updateReferenceAttachments(restoreReferenceAttachments(message))
     }
     prompt.value = message.prompt
+    // 附件预览恢复完再删除旧记录，否则拿不到上一轮用户气泡里的输入图。
+    removeMessageWithPrompt(message.id)
     await submitPrompt()
   }
 
@@ -1188,20 +1367,87 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     videoObjectURLs.clear()
   }
 
-	function revokeInputImageURLs(messages: MediaStudioMessage[]) {
+  function revokeInputImageURLs(messages: MediaStudioMessage[]) {
     for (const message of messages) {
       for (const image of message.inputImages || []) {
-			if (image.src.startsWith('blob:')) revokeObjectURL(image.src)
+        if (image.src.startsWith('blob:')) revokeObjectURL(image.src)
       }
     }
   }
 
-  function clearConversation() {
+  // 释放当前会话占用的临时 URL 与附件状态；素材缓存按会话维度单独回收。
+  function releaseActiveSession() {
     revokeAllVideoURLs()
     revokeInputImageURLs(conversation.value.messages)
+    // 草稿附件属于当前输入区，换会话/新建/清空时一并回收，避免预览 URL 泄漏。
+    updateImageAttachments([])
+    updateReferenceAttachments([])
     imageInputFiles.clear()
-    void clearMediaStudioImages()
+  }
+
+  function dropConversationCache(messages: MediaStudioMessage[]) {
+    const { imageKeys, videoKeys } = conversationCacheKeys(messages)
+    void deleteMediaStudioImages(imageKeys)
+    void deleteMediaStudioVideos(videoKeys)
+  }
+
+  function clearConversation() {
+    const outgoing = conversation.value
+    releaseActiveSession()
+    dropConversationCache(outgoing.messages)
     conversation.value = { id: makeId('media_conversation'), messages: [], updatedAt: now() }
+    prompt.value = ''
+    submitError.value = ''
+    persist()
+  }
+
+  // 新建对话：把当前会话归档进历史列表，再从空白会话开始。
+  function newConversation() {
+    const outgoing = conversation.value
+    // 空白会话时“新建对话”等价于清空草稿，给用户一个干净的起点。
+    if (outgoing.messages.length === 0) {
+      releaseActiveSession()
+      prompt.value = ''
+      submitError.value = ''
+      return
+    }
+    releaseActiveSession()
+    sessions.value = [outgoing, ...sessions.value.filter(item => item.id !== outgoing.id)]
+      .slice(0, MEDIA_STUDIO_MAX_SESSIONS)
+    conversation.value = { id: makeId('media_conversation'), messages: [], updatedAt: now() }
+    prompt.value = ''
+    submitError.value = ''
+    persist()
+  }
+
+  async function switchConversation(id: string) {
+    if (id === conversation.value.id) return
+    const target = sessions.value.find(item => item.id === id)
+    if (!target) return
+    const outgoing = conversation.value
+    releaseActiveSession()
+    const remaining = sessions.value.filter(item => item.id !== id)
+    if (outgoing.messages.length > 0) remaining.unshift(outgoing)
+    sessions.value = remaining.slice(0, MEDIA_STUDIO_MAX_SESSIONS)
+    conversation.value = { ...target }
+    // 每个会话维护自己的输入区，切换后不把上一个会话的草稿带过去。
+    prompt.value = ''
+    submitError.value = ''
+    persist()
+    // 历史会话的图片/视频只在切换时从 IndexedDB 回填。
+    await hydratePersistedImages()
+    resumePendingJobs()
+  }
+
+  function removeConversation(id: string) {
+    if (id === conversation.value.id) {
+      clearConversation()
+      return
+    }
+    const target = sessions.value.find(item => item.id === id)
+    if (!target) return
+    sessions.value = sessions.value.filter(item => item.id !== id)
+    dropConversationCache(target.messages)
     persist()
   }
 
@@ -1210,12 +1456,14 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     if (ids.size === 0) return
 
     const imageKeys: string[] = []
+    const videoKeys: string[] = []
     for (const message of conversation.value.messages) {
       if (!ids.has(message.id)) continue
       if (message.video?.src && videoObjectURLs.has(message.video.src)) {
-			revokeObjectURL(message.video.src)
+        revokeObjectURL(message.video.src)
         videoObjectURLs.delete(message.video.src)
       }
+      if (message.video?.cacheKey) videoKeys.push(message.video.cacheKey)
       imageKeys.push(...(message.images || []).flatMap(image => image.cacheKey ? [image.cacheKey] : []))
       imageKeys.push(...(message.inputImages || []).flatMap(image => image.cacheKey ? [image.cacheKey] : []))
       revokeInputImageURLs([message])
@@ -1227,7 +1475,11 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       messages: conversation.value.messages.filter(message => !ids.has(message.id)),
       updatedAt: now(),
     }
-    await deleteMediaStudioImages(imageKeys)
+    persist()
+    await Promise.all([
+      deleteMediaStudioImages(imageKeys),
+      deleteMediaStudioVideos(videoKeys),
+    ])
   }
 
   watch(selectedGroupId, () => {
@@ -1239,8 +1491,13 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   if (getCurrentInstance()) {
     onBeforeUnmount(() => {
       disposed = true
+      if (estimateTimer !== null) {
+        clearTimeout(estimateTimer)
+        estimateTimer = null
+      }
       revokeAllVideoURLs()
       revokeInputImageURLs(conversation.value.messages)
+      revokeMediaStudioPreviewURLs(referenceAttachments.value)
     })
   }
 
@@ -1257,6 +1514,14 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     mediaStudioApiKey,
     imageAttachments,
     updateImageAttachments,
+    addImageAttachments,
+    removeImageAttachment,
+    attachmentRejection,
+    referenceAttachments,
+    updateReferenceAttachments,
+    addReferenceAttachments,
+    removeReferenceAttachment,
+    retryReferenceUpload,
     customImageAspectRatios,
     addCustomImageAspectRatio,
     model,
@@ -1267,17 +1532,35 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     quality,
     count,
     resolution,
+    videoAspectRatio,
     duration,
     imageQualityOptions,
+    activeModelLimits,
+    imageAttachmentLimits,
+    referenceLimits,
+    storageAvailable,
     modelOptions,
+    activeModelFields,
+    visibleAttributeFields,
+    attributeRenderMode,
+    hiddenParameterControls,
+    attributeValues,
+    setAttributeValue,
     loadingModels,
     modelLoadError,
     submitting,
     submitError,
+    estimatedCost,
+    estimatedCurrency,
+    estimateLoading,
+    estimateError,
+    refreshCostEstimate,
     conversation,
     hasMessages,
+    sessionList,
     canSubmit,
     pollingTaskIds,
+    jobs,
     loadMediaGroups,
     loadModels,
     selectMode,
@@ -1285,6 +1568,9 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     retryMessage,
     editGeneratedImage,
     clearConversation,
+    newConversation,
+    switchConversation,
+    removeConversation,
     deleteMessages,
   }
 }

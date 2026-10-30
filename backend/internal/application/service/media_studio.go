@@ -2,9 +2,12 @@ package service
 
 import (
 	"context"
+	"crypto/md5"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"path"
 	"sort"
 	"strings"
 	"sync"
@@ -15,6 +18,10 @@ import (
 const SettingKeyMediaStudioGroupRoutes = "media_studio_group_routes"
 const MediaStudioAPIKeyName = "Media Studio"
 
+// MaxMediaStudioUploadBytes 是单个参考素材上传的硬上限，避免把超大文件读入内存。
+// 与默认的 server.max_request_body_size（256MB）保持一致。
+const MaxMediaStudioUploadBytes = 256 << 20
+
 var (
 	ErrMediaStudioGroupRouteInvalid = infraerrors.BadRequest(
 		"MEDIA_STUDIO_GROUP_ROUTE_INVALID",
@@ -24,33 +31,73 @@ var (
 		"MEDIA_STUDIO_GROUP_UNAVAILABLE",
 		"media studio group is not available",
 	)
+	ErrMediaStudioUploadRejected = infraerrors.BadRequest(
+		"MEDIA_STUDIO_UPLOAD_REJECTED",
+		"media studio upload rejected by model limits",
+	)
+	ErrMediaStudioStorageUnavailable = infraerrors.ServiceUnavailable(
+		"MEDIA_STUDIO_STORAGE_UNAVAILABLE",
+		"media studio object storage is not configured",
+	)
+	ErrMediaStudioCostEstimateUnavailable = infraerrors.ServiceUnavailable(
+		"MEDIA_STUDIO_COST_ESTIMATE_UNAVAILABLE",
+		"media studio cost estimate is unavailable for this media type",
+	)
 )
 
 type MediaStudioGroupRoute struct {
-	GroupID  int64    `json:"group_id"`
-	Priority int      `json:"priority"`
-	Enabled  bool     `json:"enabled"`
-	Models   []string `json:"models,omitempty"`
+	GroupID   int64    `json:"group_id"`
+	MediaType string   `json:"media_type"`
+	Priority  int      `json:"priority"`
+	Enabled   bool     `json:"enabled"`
+	Models    []string `json:"models,omitempty"`
 }
 
 type MediaStudioGroupOption struct {
 	GroupID   int64    `json:"group_id"`
 	GroupName string   `json:"group_name"`
 	Platform  string   `json:"platform"`
+	MediaType string   `json:"media_type"`
 	Models    []string `json:"models,omitempty"`
 }
 
 type MediaStudioConfig struct {
 	Groups []MediaStudioGroupOption `json:"groups"`
+	// StorageAvailable 表示对象存储是否可用；前端据此决定参考素材上传入口是否可点。
+	StorageAvailable bool `json:"storage_available"`
 }
 
 type MediaStudioGroupRoutes []MediaStudioGroupRoute
+
+// MediaStudioCostEstimateRequest 描述媒体工坊提交前的计价输入。
+type MediaStudioCostEstimateRequest struct {
+	MediaType  string `json:"media_type"`
+	GroupID    int64  `json:"group_id"`
+	Model      string `json:"model"`
+	Resolution string `json:"resolution"`
+	Duration   int    `json:"duration"`
+	Size       string `json:"size"`
+	Count      int    `json:"count"`
+}
+
+// MediaStudioCostEstimate 是 sub2api 本地计价链路算出的预估消耗。
+type MediaStudioCostEstimate struct {
+	Amount          float64 `json:"amount"`
+	Currency        string  `json:"currency"`
+	BillingMode     string  `json:"billing_mode"`
+	Model           string  `json:"model"`
+	Resolution      string  `json:"resolution,omitempty"`
+	DurationSeconds int     `json:"duration_seconds,omitempty"`
+	ImageCount      int     `json:"image_count,omitempty"`
+}
 
 type MediaStudioService struct {
 	settingRepo             SettingRepository
 	groupRepo               GroupRepository
 	apiKeyService           *APIKeyService
 	customModelCapabilities CustomModelCapabilityResolver
+	imageStorage            *ImageStorageSettingService
+	gatewayService          *OpenAIGatewayService
 	keyMu                   sync.Mutex
 }
 
@@ -59,12 +106,16 @@ func NewMediaStudioService(
 	groupRepo GroupRepository,
 	apiKeyService *APIKeyService,
 	customModelCapabilities CustomModelCapabilityResolver,
+	imageStorage *ImageStorageSettingService,
+	gatewayService *OpenAIGatewayService,
 ) *MediaStudioService {
 	return &MediaStudioService{
 		settingRepo:             settingRepo,
 		groupRepo:               groupRepo,
 		apiKeyService:           apiKeyService,
 		customModelCapabilities: customModelCapabilities,
+		imageStorage:            imageStorage,
+		gatewayService:          gatewayService,
 	}
 }
 
@@ -73,12 +124,16 @@ func ProvideMediaStudioService(
 	groupRepo GroupRepository,
 	apiKeyService *APIKeyService,
 	customModelCapabilities CustomModelCapabilityResolver,
+	imageStorage *ImageStorageSettingService,
+	gatewayService *OpenAIGatewayService,
 ) *MediaStudioService {
 	return NewMediaStudioService(
 		settingRepo,
 		groupRepo,
 		apiKeyService,
 		customModelCapabilities,
+		imageStorage,
+		gatewayService,
 	)
 }
 
@@ -105,7 +160,41 @@ func (s *MediaStudioService) GetGroupRoutes(ctx context.Context) (MediaStudioGro
 		}
 		routes = flattenLegacyMediaStudioGroupRoutes(legacy)
 	}
-	return normalizeMediaStudioGroupRoutes(routes), nil
+	return s.resolveGroupRouteMediaTypes(ctx, normalizeMediaStudioGroupRoutes(routes)), nil
+}
+
+// resolveGroupRouteMediaTypes backfills the modality for routes saved before
+// media types were part of the configuration. Each group keeps exactly one
+// modality, so the first resolvable capability wins.
+func (s *MediaStudioService) resolveGroupRouteMediaTypes(
+	ctx context.Context,
+	routes MediaStudioGroupRoutes,
+) MediaStudioGroupRoutes {
+	for index := range routes {
+		if routes[index].MediaType != "" {
+			continue
+		}
+		routes[index].MediaType = s.inferGroupMediaType(ctx, routes[index].Models)
+	}
+	return routes
+}
+
+func (s *MediaStudioService) inferGroupMediaType(ctx context.Context, models []string) string {
+	if s.customModelCapabilities == nil {
+		return "image"
+	}
+	for _, model := range models {
+		for _, capability := range []string{"video", "audio", "image"} {
+			ok, err := s.customModelCapabilities.HasCapability(ctx, model, capability)
+			if err != nil {
+				return "image"
+			}
+			if ok {
+				return capability
+			}
+		}
+	}
+	return "image"
 }
 
 func (s *MediaStudioService) SaveGroupRoutes(ctx context.Context, routes MediaStudioGroupRoutes) (MediaStudioGroupRoutes, error) {
@@ -129,7 +218,7 @@ func (s *MediaStudioService) GetAvailableGroups(ctx context.Context, userID int6
 		return nil, err
 	}
 	if s.apiKeyService == nil {
-		return &MediaStudioConfig{}, nil
+		return &MediaStudioConfig{StorageAvailable: s.storageAvailable()}, nil
 	}
 
 	available, err := s.apiKeyService.GetAvailableGroups(ctx, userID)
@@ -142,8 +231,23 @@ func (s *MediaStudioService) GetAvailableGroups(ctx context.Context, userID int6
 	}
 
 	return &MediaStudioConfig{
-		Groups: s.resolveGroupOptions(routes, availableByID),
+		Groups:           s.resolveGroupOptions(routes, availableByID),
+		StorageAvailable: s.storageAvailable(),
 	}, nil
+}
+
+func (s *MediaStudioService) storageAvailable() bool {
+	if s.imageStorage == nil {
+		return false
+	}
+	_, ok := s.imageStorage.Storage()
+	return ok
+}
+
+type MediaStudioModel struct {
+	ID         string         `json:"id"`
+	Attributes map[string]any `json:"attributes,omitempty"`
+	Limits     map[string]any `json:"limits,omitempty"`
 }
 
 func (s *MediaStudioService) ListModels(
@@ -151,13 +255,13 @@ func (s *MediaStudioService) ListModels(
 	userID int64,
 	groupID int64,
 	mediaType string,
-) ([]string, error) {
+) ([]MediaStudioModel, error) {
 	mediaType = normalizeMediaStudioMediaType(mediaType)
 	if mediaType == "" || groupID <= 0 {
 		return nil, ErrMediaStudioGroupRouteInvalid
 	}
 	if s.customModelCapabilities == nil {
-		return []string{}, nil
+		return []MediaStudioModel{}, nil
 	}
 
 	config, err := s.GetAvailableGroups(ctx, userID)
@@ -171,21 +275,334 @@ func (s *MediaStudioService) ListModels(
 			break
 		}
 	}
-	if selected == nil {
+	if selected == nil || selected.MediaType != mediaType {
 		return nil, ErrMediaStudioGroupUnavailable
 	}
 
-	models := make([]string, 0, len(selected.Models))
+	models := make([]MediaStudioModel, 0, len(selected.Models))
 	for _, model := range selected.Models {
 		ok, err := s.customModelCapabilities.HasCapability(ctx, model, mediaType)
 		if err != nil {
 			return nil, fmt.Errorf("resolve media model capability: %w", err)
 		}
-		if ok {
-			models = append(models, model)
+		if !ok {
+			continue
 		}
+		item := MediaStudioModel{ID: model}
+		raw, configured, err := s.customModelCapabilities.ResolveModelAttributes(ctx, model)
+		if err != nil {
+			return nil, fmt.Errorf("resolve media model attributes: %w", err)
+		}
+		if configured {
+			if block := modelAttributesForModality(raw, mediaType); len(block) > 0 {
+				item.Attributes = block
+			}
+		}
+		limits, limitsConfigured, err := s.customModelCapabilities.ResolveMediaLimits(ctx, model)
+		if err != nil {
+			return nil, fmt.Errorf("resolve media model limits: %w", err)
+		}
+		if limitsConfigured {
+			item.Limits = limits
+		}
+		models = append(models, item)
 	}
 	return models, nil
+}
+
+// EstimateCost 用 sub2api 本地计价链路估算一次媒体生成的消耗。
+// 价格只来自分组/渠道的显式定价，缺少价格时直接返回错误，不做任何价格猜测。
+func (s *MediaStudioService) EstimateCost(
+	ctx context.Context,
+	userID int64,
+	req MediaStudioCostEstimateRequest,
+) (*MediaStudioCostEstimate, error) {
+	mediaType := normalizeMediaStudioMediaType(req.MediaType)
+	model := strings.TrimSpace(req.Model)
+	if mediaType == "" || req.GroupID <= 0 || model == "" {
+		return nil, ErrMediaStudioGroupRouteInvalid
+	}
+	if s.gatewayService == nil {
+		return nil, ErrMediaStudioCostEstimateUnavailable
+	}
+
+	config, err := s.GetAvailableGroups(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	var selected *MediaStudioGroupOption
+	for index := range config.Groups {
+		if config.Groups[index].GroupID == req.GroupID {
+			selected = &config.Groups[index]
+			break
+		}
+	}
+	if selected == nil || selected.MediaType != mediaType {
+		return nil, ErrMediaStudioGroupUnavailable
+	}
+
+	group, err := s.groupRepo.GetByID(ctx, req.GroupID)
+	if err != nil {
+		return nil, fmt.Errorf("get media studio group %d: %w", req.GroupID, err)
+	}
+	if group == nil || !group.IsActive() {
+		return nil, ErrMediaStudioGroupUnavailable
+	}
+	// 仓库返回的分组不带模型定价索引，这里按网关鉴权的同样方式编译一次；
+	// 否则逐模型定价永远解析不到，会被误判为“未配置价格”。
+	group.compileModelPricingIndex()
+
+	groupIDValue := group.ID
+	apiKey := &APIKey{UserID: userID, GroupID: &groupIDValue, Group: group}
+	// token 计费必须等上游返回用量才能计价，提交前不做金额臆测。
+	// multimodal 是逐模型定价分组，没有条目时会退化成 LiteLLM/兜底 token 价，
+	// 这种情况交给图片/视频计价链路报“未配置价格”，不能误报为预估不可用。
+	if resolved := s.gatewayService.resolveOpenAIChannelPricing(ctx, model, apiKey); resolved != nil &&
+		resolved.Mode == BillingModeToken &&
+		(!IsMultimodal(group.Platform) ||
+			resolved.Source == PricingSourceGroup ||
+			resolved.Source == PricingSourceChannel) {
+		return nil, ErrMediaStudioCostEstimateUnavailable
+	}
+	baseMultiplier := s.mediaStudioBaseRateMultiplier(ctx, apiKey, userID, group.ID)
+
+	switch mediaType {
+	case "video":
+		resolution := NormalizeVideoBillingResolutionOrDefault(req.Resolution)
+		durationSeconds := NormalizeVideoBillingDurationSecondsOrDefault(req.Duration)
+		cost, err := s.gatewayService.calculateOpenAIVideoCost(ctx, model, apiKey, &OpenAIForwardResult{
+			VideoCount:           1,
+			VideoResolution:      resolution,
+			VideoDurationSeconds: durationSeconds,
+		}, s.gatewayService.multimodalVideoRateMultiplier(ctx, apiKey, userID, group.ID))
+		if err != nil {
+			return nil, ErrVideoPriceNotConfigured.WithCause(err)
+		}
+		if cost == nil {
+			return nil, ErrVideoPriceNotConfigured
+		}
+		return &MediaStudioCostEstimate{
+			Amount:          QuantizeUsageBillingAmount(cost.ActualCost),
+			Currency:        "USD",
+			BillingMode:     cost.BillingMode,
+			Model:           model,
+			Resolution:      resolution,
+			DurationSeconds: durationSeconds,
+		}, nil
+	case "image":
+		count := req.Count
+		if count <= 0 {
+			count = 1
+		}
+		cost, err := s.gatewayService.calculateOpenAIImageCost(ctx, model, apiKey, &OpenAIForwardResult{
+			ImageCount: count,
+			ImageSize:  NormalizeImageBillingTierOrDefault(req.Size),
+		}, resolveImageRateMultiplier(apiKey, baseMultiplier))
+		if err != nil {
+			return nil, ErrImagePriceNotConfigured.WithCause(err)
+		}
+		if cost == nil {
+			return nil, ErrImagePriceNotConfigured
+		}
+		return &MediaStudioCostEstimate{
+			Amount:      QuantizeUsageBillingAmount(cost.ActualCost),
+			Currency:    "USD",
+			BillingMode: cost.BillingMode,
+			Model:       model,
+			ImageCount:  count,
+		}, nil
+	default:
+		return nil, ErrMediaStudioCostEstimateUnavailable
+	}
+}
+
+// mediaStudioBaseRateMultiplier 复刻用量结算的基础倍率口径：
+// 系统默认倍率，分组绑定时改用用户在该分组上的有效倍率。
+func (s *MediaStudioService) mediaStudioBaseRateMultiplier(
+	ctx context.Context,
+	apiKey *APIKey,
+	userID int64,
+	groupID int64,
+) float64 {
+	baseMultiplier := 1.0
+	if s.gatewayService.cfg != nil {
+		baseMultiplier = s.gatewayService.cfg.Default.RateMultiplier
+	}
+	if apiKey != nil && apiKey.Group != nil && groupID > 0 {
+		baseMultiplier = s.gatewayService.ResolveUserGroupRateMultiplier(
+			ctx, userID, groupID, apiKey.Group.RateMultiplier,
+		)
+	}
+	return baseMultiplier
+}
+
+// MediaStudioUpload 是一次参考素材上传的结果，URL 可直接作为视频/图片请求的参考地址。
+type MediaStudioUpload struct {
+	URL          string `json:"url"`
+	Name         string `json:"name"`
+	Kind         string `json:"kind"`
+	Size         int64  `json:"size"`
+	ContentType  string `json:"content_type"`
+	MD5          string `json:"md5"`
+	Deduplicated bool   `json:"deduplicated"`
+}
+
+// UploadFile 把用户选择的参考素材写入对象存储并返回可访问 URL。
+// 模型配置了媒体限制时按 allow_upload、file_types、max_files、max_file_size_mb 校验。
+func (s *MediaStudioService) UploadFile(
+	ctx context.Context,
+	userID int64,
+	modelName string,
+	kind string,
+	fileName string,
+	contentType string,
+	data []byte,
+) (*MediaStudioUpload, error) {
+	kind = normalizeMediaStudioMediaType(kind)
+	if kind == "" || len(data) == 0 {
+		return nil, ErrMediaStudioUploadRejected
+	}
+	if len(data) > MaxMediaStudioUploadBytes {
+		return nil, ErrMediaStudioUploadRejected
+	}
+	if err := s.validateUploadLimits(ctx, modelName, kind, int64(len(data))); err != nil {
+		return nil, err
+	}
+	if s.imageStorage == nil {
+		return nil, ErrMediaStudioStorageUnavailable
+	}
+	storage, ok := s.imageStorage.Storage()
+	if !ok {
+		return nil, ErrMediaStudioStorageUnavailable
+	}
+
+	if strings.TrimSpace(contentType) == "" {
+		contentType = http.DetectContentType(data)
+	}
+	// 内容哈希作为对象 key：同一用户重复上传同一文件时命中同一个对象，实现秒传。
+	digest := fmt.Sprintf("%x", md5.Sum(data)) //nolint:gosec // 内容寻址 key，非安全用途
+	key := fmt.Sprintf(
+		"media-studio/uploads/%d/%s%s",
+		userID,
+		digest,
+		mediaStudioUploadExtension(fileName, contentType),
+	)
+	upload := &MediaStudioUpload{
+		Name:        strings.TrimSpace(fileName),
+		Kind:        kind,
+		Size:        int64(len(data)),
+		ContentType: contentType,
+		MD5:         digest,
+	}
+	if url, found, lookupErr := storage.Lookup(ctx, key); lookupErr == nil && found {
+		upload.URL = url
+		upload.Deduplicated = true
+		return upload, nil
+	}
+	url, err := storage.Save(ctx, key, contentType, data)
+	if err != nil {
+		return nil, fmt.Errorf("save media studio upload: %w", err)
+	}
+	upload.URL = url
+	return upload, nil
+}
+
+func (s *MediaStudioService) validateUploadLimits(
+	ctx context.Context,
+	modelName string,
+	kind string,
+	size int64,
+) error {
+	modelName = strings.TrimSpace(modelName)
+	if modelName == "" || s.customModelCapabilities == nil {
+		return nil
+	}
+	limits, configured, err := s.customModelCapabilities.ResolveMediaLimits(ctx, modelName)
+	if err != nil {
+		return fmt.Errorf("resolve media model limits: %w", err)
+	}
+	if !configured {
+		return nil
+	}
+	if allow, ok := limits["allow_upload"].(bool); ok && !allow {
+		return ErrMediaStudioUploadRejected
+	}
+	if allowed, declared := mediaStudioLimitFileType(limits, kind); declared && !allowed {
+		return ErrMediaStudioUploadRejected
+	}
+	if maxFiles, ok := mediaStudioLimitCount(limits, "max_files", kind); ok && maxFiles <= 0 {
+		return ErrMediaStudioUploadRejected
+	}
+	if maxSizeMB, ok := mediaStudioLimitCount(limits, "max_file_size_mb", kind); ok {
+		if maxSizeMB <= 0 || size > int64(maxSizeMB)<<20 {
+			return ErrMediaStudioUploadRejected
+		}
+	}
+	return nil
+}
+
+func mediaStudioLimitFileType(limits map[string]any, kind string) (bool, bool) {
+	switch list := limits["file_types"].(type) {
+	case []string:
+		for _, item := range list {
+			if item == kind {
+				return true, true
+			}
+		}
+		return false, true
+	case []any:
+		for _, item := range list {
+			if value, ok := item.(string); ok && value == kind {
+				return true, true
+			}
+		}
+		return false, true
+	default:
+		return false, false
+	}
+}
+
+func mediaStudioLimitCount(limits map[string]any, key, kind string) (int, bool) {
+	switch raw := limits[key].(type) {
+	case map[string]any:
+		value, ok := raw[kind]
+		if !ok {
+			return 0, false
+		}
+		return customModelJSONInt(value)
+	case map[string]int:
+		count, ok := raw[kind]
+		return count, ok
+	default:
+		return 0, false
+	}
+}
+
+var mediaStudioContentTypeExtensions = map[string]string{
+	"image/jpeg":       ".jpg",
+	"image/jpg":        ".jpg",
+	"image/png":        ".png",
+	"image/webp":       ".webp",
+	"image/gif":        ".gif",
+	"video/mp4":        ".mp4",
+	"video/quicktime":  ".mov",
+	"video/webm":       ".webm",
+	"video/x-matroska": ".mkv",
+	"audio/mpeg":       ".mp3",
+	"audio/mp3":        ".mp3",
+	"audio/wav":        ".wav",
+	"audio/x-wav":      ".wav",
+	"audio/ogg":        ".ogg",
+	"audio/aac":        ".aac",
+	"audio/mp4":        ".m4a",
+}
+
+func mediaStudioUploadExtension(fileName, contentType string) string {
+	if ext := strings.ToLower(path.Ext(strings.TrimSpace(fileName))); ext != "" && len(ext) <= 8 {
+		return ext
+	}
+	mediaType := strings.ToLower(strings.TrimSpace(strings.Split(contentType, ";")[0]))
+	return mediaStudioContentTypeExtensions[mediaType]
 }
 
 func (s *MediaStudioService) EnsureAPIKey(
@@ -210,7 +627,7 @@ func (s *MediaStudioService) EnsureAPIKey(
 			break
 		}
 	}
-	if selected == nil {
+	if selected == nil || selected.MediaType != mediaType {
 		return nil, ErrMediaStudioGroupUnavailable
 	}
 
@@ -275,11 +692,20 @@ func IsMediaStudioAPIKey(apiKey *APIKey, groupID int64) bool {
 }
 
 func (s *MediaStudioService) validateGroupRoutes(ctx context.Context, routes MediaStudioGroupRoutes) (MediaStudioGroupRoutes, error) {
+	if err := ensureSingleMediaStudioGroupMediaType(routes); err != nil {
+		return nil, err
+	}
 	normalized := normalizeMediaStudioGroupRoutes(routes)
-	for _, entry := range normalized {
+	for index := range normalized {
+		entry := &normalized[index]
 		if entry.GroupID <= 0 || entry.Priority < 0 {
 			return nil, ErrMediaStudioGroupRouteInvalid
 		}
+		mediaType := normalizeMediaStudioMediaType(entry.MediaType)
+		if mediaType == "" {
+			return nil, fmt.Errorf("%w: group %d has an invalid media type", ErrMediaStudioGroupRouteInvalid, entry.GroupID)
+		}
+		entry.MediaType = mediaType
 		if len(entry.Models) > 200 {
 			return nil, fmt.Errorf("%w: group %d has too many models", ErrMediaStudioGroupRouteInvalid, entry.GroupID)
 		}
@@ -316,10 +742,31 @@ func (s *MediaStudioService) resolveGroupOptions(
 			GroupID:   group.ID,
 			GroupName: group.Name,
 			Platform:  group.Platform,
+			MediaType: entry.MediaType,
 			Models:    append([]string(nil), entry.Models...),
 		})
 	}
 	return options
+}
+
+// ensureSingleMediaStudioGroupMediaType rejects payloads that bind one group to
+// more than one modality.
+func ensureSingleMediaStudioGroupMediaType(routes MediaStudioGroupRoutes) error {
+	seen := make(map[int64]string, len(routes))
+	for _, entry := range routes {
+		if entry.GroupID <= 0 {
+			continue
+		}
+		mediaType := normalizeMediaStudioMediaType(entry.MediaType)
+		if mediaType == "" {
+			continue
+		}
+		if existing, ok := seen[entry.GroupID]; ok && existing != mediaType {
+			return fmt.Errorf("%w: group %d mixes media types", ErrMediaStudioGroupRouteInvalid, entry.GroupID)
+		}
+		seen[entry.GroupID] = mediaType
+	}
+	return nil
 }
 
 func normalizeMediaStudioGroupRoutes(routes MediaStudioGroupRoutes) MediaStudioGroupRoutes {
@@ -334,6 +781,9 @@ func normalizeMediaStudioGroupRoutes(routes MediaStudioGroupRoutes) MediaStudioG
 		}
 		current.GroupID = entry.GroupID
 		current.Enabled = current.Enabled || entry.Enabled
+		if current.MediaType == "" {
+			current.MediaType = normalizeMediaStudioMediaType(entry.MediaType)
+		}
 		current.Models = append(current.Models, entry.Models...)
 		byGroup[entry.GroupID] = current
 	}
@@ -360,7 +810,12 @@ func flattenLegacyMediaStudioGroupRoutes(
 ) MediaStudioGroupRoutes {
 	flattened := make(MediaStudioGroupRoutes, 0)
 	for _, mediaType := range []string{"image", "video", "audio"} {
-		flattened = append(flattened, legacy[mediaType]...)
+		for _, entry := range legacy[mediaType] {
+			if entry.MediaType == "" {
+				entry.MediaType = mediaType
+			}
+			flattened = append(flattened, entry)
+		}
 	}
 	return flattened
 }

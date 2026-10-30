@@ -3,11 +3,13 @@ package repository
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
@@ -63,7 +65,33 @@ func (s *S3ImageStorage) Save(ctx context.Context, key, contentType string, data
 	if err != nil {
 		return "", fmt.Errorf("S3 PutObject: %w", err)
 	}
+	return s.objectURL(ctx, key)
+}
 
+// Lookup 用 HeadObject 判断对象是否已存在，存在时返回与 Save 相同的可访问 URL。
+func (s *S3ImageStorage) Lookup(ctx context.Context, key string) (string, bool, error) {
+	finish := servertiming.ObserveDependency(ctx, "s3")
+	_, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: &s.bucket,
+		Key:    &key,
+	})
+	finish()
+	if err != nil {
+		var notFound *types.NotFound
+		if errors.As(err, &notFound) {
+			return "", false, nil
+		}
+		return "", false, fmt.Errorf("S3 HeadObject: %w", err)
+	}
+	url, err := s.objectURL(ctx, key)
+	if err != nil {
+		return "", false, err
+	}
+	return url, true, nil
+}
+
+// objectURL 把 key 转成可访问地址：公开直链或 presigned 临时链接。
+func (s *S3ImageStorage) objectURL(ctx context.Context, key string) (string, error) {
 	if s.publicBaseURL != "" {
 		return s.publicBaseURL + "/" + strings.TrimLeft(key, "/"), nil
 	}

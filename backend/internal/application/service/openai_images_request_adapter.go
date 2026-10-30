@@ -19,6 +19,7 @@ type customModelRequestAdapterDefinition struct {
 	Version int `json:"version"`
 	Match   struct {
 		Endpoint string `json:"endpoint"`
+		Mode     string `json:"mode"`
 	} `json:"match"`
 	Upstream struct {
 		Path        string `json:"path"`
@@ -33,7 +34,9 @@ type customModelRequestAdapterDefinition struct {
 	} `json:"body"`
 }
 
-type openAIImagesAdaptedRequest struct {
+// customModelAdaptedRequest 是 request_adapter 处理后的请求快照。
+// Endpoint 为最终上游路径：未配置 upstream.path 时与入参端点一致。
+type customModelAdaptedRequest struct {
 	Body        []byte
 	ContentType string
 	Endpoint    string
@@ -44,6 +47,9 @@ const (
 	maxCustomModelRequestAdapterBytes       = 64 << 10
 	maxCustomModelAdaptedRequestOverhead    = 256 << 10
 	maxCustomModelRenderedUpstreamPathBytes = 8 << 10
+
+	customModelEndpointMatchExact  = "exact"
+	customModelEndpointMatchPrefix = "prefix"
 )
 
 func validateCustomModelRequestAdapter(rawAdapter map[string]any) error {
@@ -63,6 +69,11 @@ func validateCustomModelRequestAdapter(rawAdapter map[string]any) error {
 	}
 	if adapter.Version != 0 && adapter.Version != 1 {
 		return fmt.Errorf("%w: unsupported request adapter version %d", ErrCustomModelConfigInvalid, adapter.Version)
+	}
+	switch strings.ToLower(strings.TrimSpace(adapter.Match.Mode)) {
+	case "", customModelEndpointMatchExact, customModelEndpointMatchPrefix:
+	default:
+		return fmt.Errorf("%w: unsupported match mode %q", ErrCustomModelConfigInvalid, adapter.Match.Mode)
 	}
 	for field, path := range map[string]string{
 		"match endpoint": adapter.Match.Endpoint,
@@ -157,10 +168,31 @@ func applyOpenAIImagesRequestAdapter(
 	parsed *OpenAIImagesRequest,
 	upstreamModel string,
 	rawAdapter map[string]any,
-) (*openAIImagesAdaptedRequest, error) {
+) (*customModelAdaptedRequest, error) {
 	if parsed == nil {
 		return nil, fmt.Errorf("parsed images request is required")
 	}
+	return applyCustomModelRequestAdapter(
+		body,
+		contentType,
+		parsed.Endpoint,
+		buildCustomModelRequestVariables(parsed, body, contentType, upstreamModel),
+		rawAdapter,
+		func() (map[string]any, error) { return customModelJSONAdapterBase(body, contentType) },
+	)
+}
+
+// applyCustomModelRequestAdapter 按自定义模型的 request_adapter 配置改写请求体、
+// Content-Type、上游路径与请求头。图片链路与媒体链路共用同一实现，
+// 端点路径与模板变量表由调用方按各自协议构造。
+func applyCustomModelRequestAdapter(
+	body []byte,
+	contentType string,
+	endpoint string,
+	variables map[string]any,
+	rawAdapter map[string]any,
+	jsonBase func() (map[string]any, error),
+) (*customModelAdaptedRequest, error) {
 	if err := validateCustomModelRequestAdapter(rawAdapter); err != nil {
 		return nil, err
 	}
@@ -177,20 +209,35 @@ func applyOpenAIImagesRequestAdapter(
 	}
 
 	matchEndpoint := strings.TrimSpace(adapter.Match.Endpoint)
-	if matchEndpoint != "" && matchEndpoint != parsed.Endpoint {
-		return &openAIImagesAdaptedRequest{
-			Body:        body,
-			ContentType: contentType,
-			Endpoint:    parsed.Endpoint,
-		}, nil
+	matchMode := strings.ToLower(strings.TrimSpace(adapter.Match.Mode))
+	pathSuffix := ""
+	if matchEndpoint != "" {
+		if matchMode == customModelEndpointMatchPrefix {
+			suffix, matched := customModelPathPrefixSuffix(endpoint, matchEndpoint)
+			if !matched {
+				return &customModelAdaptedRequest{
+					Body:        body,
+					ContentType: contentType,
+					Endpoint:    endpoint,
+				}, nil
+			}
+			pathSuffix = suffix
+		} else if matchEndpoint != endpoint {
+			return &customModelAdaptedRequest{
+				Body:        body,
+				ContentType: contentType,
+				Endpoint:    endpoint,
+			}, nil
+		}
 	}
 
-	endpoint := parsed.Endpoint
 	if targetPath := strings.TrimSpace(adapter.Upstream.Path); targetPath != "" {
 		if !strings.HasPrefix(targetPath, "/") || strings.Contains(targetPath, "://") {
 			return nil, fmt.Errorf("custom model upstream path must be a relative absolute-path")
 		}
 		endpoint = targetPath
+	} else {
+		pathSuffix = ""
 	}
 
 	targetContentType := strings.TrimSpace(adapter.Upstream.ContentType)
@@ -198,7 +245,6 @@ func applyOpenAIImagesRequestAdapter(
 		targetContentType = contentType
 	}
 
-	variables := buildCustomModelRequestVariables(parsed, body, contentType, upstreamModel)
 	renderedTargetPath, err := renderCustomModelRequestString(
 		endpoint,
 		variables,
@@ -211,6 +257,12 @@ func applyOpenAIImagesRequestAdapter(
 		return nil, fmt.Errorf("custom model upstream path must be an absolute URL path")
 	}
 	endpoint = renderedTargetPath
+	if pathSuffix != "" {
+		endpoint = strings.TrimSuffix(renderedTargetPath, "/") + pathSuffix
+		if !isCustomModelAbsolutePath(endpoint) || customModelPathHasTraversal(endpoint) {
+			return nil, fmt.Errorf("custom model upstream path must be an absolute URL path")
+		}
+	}
 	renderedContentType, err := renderCustomModelRequestString(
 		targetContentType,
 		variables,
@@ -237,7 +289,10 @@ func applyOpenAIImagesRequestAdapter(
 	}
 	switch targetContentType {
 	case "application/json":
-		payload, payloadErr := openAIImagesJSONAdapterBase(body, contentType)
+		if jsonBase == nil {
+			return nil, fmt.Errorf("custom model JSON adapter requires a request body decoder")
+		}
+		payload, payloadErr := jsonBase()
 		if payloadErr != nil {
 			return nil, payloadErr
 		}
@@ -295,7 +350,7 @@ func applyOpenAIImagesRequestAdapter(
 			headers[normalizedName] = normalizedValue
 		}
 	}
-	return &openAIImagesAdaptedRequest{
+	return &customModelAdaptedRequest{
 		Body:        adaptedBody,
 		ContentType: targetContentType,
 		Endpoint:    endpoint,
@@ -317,6 +372,20 @@ func customModelPathHasTraversal(path string) bool {
 		}
 	}
 	return false
+}
+
+// customModelPathPrefixSuffix 返回 path 去掉 prefix 后剩余的路径片段。
+// prefix 末尾的斜杠会被忽略；剩余片段必须为空或以 "/" 开头，避免 /v1/images 误匹配 /v1/images2。
+func customModelPathPrefixSuffix(path string, prefix string) (string, bool) {
+	prefix = strings.TrimSuffix(strings.TrimSpace(prefix), "/")
+	if !strings.HasPrefix(path, prefix) {
+		return "", false
+	}
+	suffix := path[len(prefix):]
+	if suffix == "" || strings.HasPrefix(suffix, "/") {
+		return suffix, true
+	}
+	return "", false
 }
 
 func buildCustomModelRequestVariables(
@@ -342,7 +411,7 @@ func buildCustomModelRequestVariables(
 		"stream":          parsed.Stream,
 		"response_format": parsed.ResponseFormat,
 	}
-	if payload, err := openAIImagesJSONAdapterBase(body, contentType); err == nil {
+	if payload, err := customModelJSONAdapterBase(body, contentType); err == nil {
 		values["body"] = payload
 	}
 	inputImages := append([]string{}, parsed.InputImageURLs...)
@@ -726,7 +795,9 @@ func (c *customModelJSONSizeCounter) addString(value string) {
 	}
 }
 
-func openAIImagesJSONAdapterBase(body []byte, contentType string) (map[string]any, error) {
+// customModelJSONAdapterBase 把请求体解码为可参与 merge/replace 的 JSON 对象；
+// multipart 请求体先转换为等价的 JSON 结构。
+func customModelJSONAdapterBase(body []byte, contentType string) (map[string]any, error) {
 	mediaType, params, err := mime.ParseMediaType(contentType)
 	if err == nil && strings.EqualFold(mediaType, "multipart/form-data") {
 		return openAIImagesMultipartToJSON(body, params["boundary"])

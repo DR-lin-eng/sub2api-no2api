@@ -8,15 +8,16 @@ import (
 )
 
 type CustomModelConfig struct {
-	ID           int64     `json:"id"`
-	ModelName    string    `json:"model_name"`
-	PrefixMatch  bool      `json:"prefix_match"`
-	Capabilities []string  `json:"capabilities"`
-	TemplateID   *int64    `json:"template_id,omitempty"`
-	TemplateName string    `json:"template_name,omitempty"`
-	VideoAPIType string    `json:"video_api_type,omitempty"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID           int64          `json:"id"`
+	ModelName    string         `json:"model_name"`
+	PrefixMatch  bool           `json:"prefix_match"`
+	Capabilities []string       `json:"capabilities"`
+	TemplateID   *int64         `json:"template_id,omitempty"`
+	TemplateName string         `json:"template_name,omitempty"`
+	VideoAPIType string         `json:"video_api_type,omitempty"`
+	MediaLimits  map[string]any `json:"media_limits"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
 }
 
 type CustomModelRequestTemplate struct {
@@ -24,16 +25,18 @@ type CustomModelRequestTemplate struct {
 	Name           string         `json:"name"`
 	Description    string         `json:"description"`
 	RequestAdapter map[string]any `json:"request_adapter"`
+	Attributes     map[string]any `json:"attributes"`
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
 }
 
 type CreateCustomModelConfigRequest struct {
-	ModelName    string   `json:"model_name" binding:"required"`
-	PrefixMatch  bool     `json:"prefix_match"`
-	Capabilities []string `json:"capabilities"`
-	TemplateID   *int64   `json:"template_id"`
-	VideoAPIType string   `json:"video_api_type"`
+	ModelName    string         `json:"model_name" binding:"required"`
+	PrefixMatch  bool           `json:"prefix_match"`
+	Capabilities []string       `json:"capabilities"`
+	TemplateID   *int64         `json:"template_id"`
+	VideoAPIType string         `json:"video_api_type"`
+	MediaLimits  map[string]any `json:"media_limits"`
 }
 
 type UpdateCustomModelConfigRequest struct {
@@ -41,6 +44,7 @@ type UpdateCustomModelConfigRequest struct {
 	Capabilities *[]string       `json:"capabilities"`
 	TemplateID   json.RawMessage `json:"template_id"`
 	VideoAPIType json.RawMessage `json:"video_api_type"`
+	MediaLimits  json.RawMessage `json:"media_limits"`
 }
 
 func CustomModelConfigFromService(item *service.CustomModelConfig) *CustomModelConfig {
@@ -55,6 +59,7 @@ func CustomModelConfigFromService(item *service.CustomModelConfig) *CustomModelC
 		TemplateID:   item.TemplateID,
 		TemplateName: item.TemplateName,
 		VideoAPIType: item.VideoAPIType,
+		MediaLimits:  item.MediaLimits,
 		CreatedAt:    item.CreatedAt,
 		UpdatedAt:    item.UpdatedAt,
 	}
@@ -68,11 +73,16 @@ func CustomModelRequestTemplateFromService(item *service.CustomModelRequestTempl
 	if adapter == nil {
 		adapter = map[string]any{}
 	}
+	attributes := item.Attributes
+	if attributes == nil {
+		attributes = map[string]any{}
+	}
 	return &CustomModelRequestTemplate{
 		ID:             item.ID,
 		Name:           item.Name,
 		Description:    item.Description,
 		RequestAdapter: adapter,
+		Attributes:     attributes,
 		CreatedAt:      item.CreatedAt,
 		UpdatedAt:      item.UpdatedAt,
 	}

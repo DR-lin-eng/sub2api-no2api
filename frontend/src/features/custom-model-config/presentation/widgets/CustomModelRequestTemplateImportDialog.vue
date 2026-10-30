@@ -92,6 +92,7 @@ const parsedTemplate = ref<{
   name: string
   description: string
   request_adapter: Record<string, unknown>
+  attributes: Record<string, unknown>
 } | null>(null)
 
 const importPlaceholder = REQUEST_TEMPLATE_IMPORT_PLACEHOLDER
@@ -116,6 +117,7 @@ function normalizeAdapter(value: unknown): Record<string, unknown> {
     version: typeof adapter.version === 'number' ? adapter.version : 1,
     match: {
       endpoint: typeof match.endpoint === 'string' ? match.endpoint : '',
+      ...(match.mode === 'prefix' ? { mode: 'prefix' } : {}),
     },
     upstream: {
       path: typeof upstream.path === 'string' ? upstream.path : '',
@@ -142,6 +144,7 @@ function formatInput() {
         name: parsedTemplate.value.name,
         description: parsedTemplate.value.description,
         request_adapter: parsedTemplate.value.request_adapter,
+        attributes: parsedTemplate.value.attributes,
       },
       null,
       2
@@ -166,6 +169,7 @@ function parseTemplateSource() {
         : t('admin.customModelConfig.template.importedName'),
     description: typeof input.description === 'string' ? input.description.trim() : '',
     request_adapter: normalizeAdapter(adapter),
+    attributes: isObject(input.attributes) ? input.attributes : {},
   }
 }
 

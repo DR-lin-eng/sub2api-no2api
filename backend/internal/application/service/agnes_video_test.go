@@ -60,6 +60,18 @@ func (s customModelVideoTypeResolverStub) ResolveRequestAdapter(context.Context,
 	return nil, false, nil
 }
 
+func (s customModelVideoTypeResolverStub) ResolveModelAttributes(context.Context, string) (map[string]any, bool, error) {
+	return nil, false, nil
+}
+
+func (s customModelVideoTypeResolverStub) ResolveMediaLimits(context.Context, string) (map[string]any, bool, error) {
+	return nil, false, nil
+}
+
+func (s customModelVideoTypeResolverStub) ValidateVideoRequest(context.Context, string, []byte) error {
+	return nil
+}
+
 func TestResolveCustomModelVideoAPITypeUsesConfiguredProtocol(t *testing.T) {
 	svc := &OpenAIGatewayService{customModelCapabilities: customModelVideoTypeResolverStub{
 		videoAPIType: "agnes",

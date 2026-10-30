@@ -2846,6 +2846,23 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 		return
 	}
 
+	// Multimodal accounts expose the media model catalog. Explicit account
+	// mappings win; otherwise fall back to the built-in media model list.
+	if account.IsMultimodal() {
+		mapping := account.GetModelMapping()
+		if len(mapping) == 0 {
+			response.Success(c, multimodalAccountTestModels(service.DefaultMultimodalModelIDs()))
+			return
+		}
+		requestedModels := make([]string, 0, len(mapping))
+		for requestedModel := range mapping {
+			requestedModels = append(requestedModels, requestedModel)
+		}
+		sort.Strings(requestedModels)
+		response.Success(c, multimodalAccountTestModels(requestedModels))
+		return
+	}
+
 	// Handle Claude/Anthropic accounts
 	// For OAuth and Setup-Token accounts: return default models
 	if account.IsOAuth() {
@@ -2885,6 +2902,24 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 	}
 
 	response.Success(c, models)
+}
+
+// multimodalAccountTestModels projects media model IDs into the model list
+// shape consumed by the account test dialog and schedule panel.
+func multimodalAccountTestModels(modelIDs []string) []claude.Model {
+	models := make([]claude.Model, 0, len(modelIDs))
+	for _, id := range modelIDs {
+		if strings.TrimSpace(id) == "" {
+			continue
+		}
+		models = append(models, claude.Model{
+			ID:          id,
+			Type:        "model",
+			DisplayName: id,
+			CreatedAt:   "",
+		})
+	}
+	return models
 }
 
 // antigravityAccountTestModels uses the stored mapping rather than GetModelMapping,

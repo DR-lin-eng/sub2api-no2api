@@ -104,6 +104,12 @@ func (_c *CustomModelConfigCreate) SetNillableTemplateID(v *int64) *CustomModelC
 	return _c
 }
 
+// SetMediaLimits sets the "media_limits" field.
+func (_c *CustomModelConfigCreate) SetMediaLimits(v map[string]interface{}) *CustomModelConfigCreate {
+	_c.mutation.SetMediaLimits(v)
+	return _c
+}
+
 // Mutation returns the CustomModelConfigMutation object of the builder.
 func (_c *CustomModelConfigCreate) Mutation() *CustomModelConfigMutation {
 	return _c.mutation
@@ -179,6 +185,9 @@ func (_c *CustomModelConfigCreate) check() error {
 	if _, ok := _c.mutation.Capabilities(); !ok {
 		return &ValidationError{Name: "capabilities", err: errors.New(`ent: missing required field "CustomModelConfig.capabilities"`)}
 	}
+	if _, ok := _c.mutation.MediaLimits(); !ok {
+		return &ValidationError{Name: "media_limits", err: errors.New(`ent: missing required field "CustomModelConfig.media_limits"`)}
+	}
 	return nil
 }
 
@@ -233,6 +242,10 @@ func (_c *CustomModelConfigCreate) createSpec() (*CustomModelConfig, *sqlgraph.C
 	if value, ok := _c.mutation.TemplateID(); ok {
 		_spec.SetField(custommodelconfig.FieldTemplateID, field.TypeInt64, value)
 		_node.TemplateID = &value
+	}
+	if value, ok := _c.mutation.MediaLimits(); ok {
+		_spec.SetField(custommodelconfig.FieldMediaLimits, field.TypeJSON, value)
+		_node.MediaLimits = value
 	}
 	return _node, _spec
 }
@@ -373,6 +386,18 @@ func (u *CustomModelConfigUpsert) AddTemplateID(v int64) *CustomModelConfigUpser
 // ClearTemplateID clears the value of the "template_id" field.
 func (u *CustomModelConfigUpsert) ClearTemplateID() *CustomModelConfigUpsert {
 	u.SetNull(custommodelconfig.FieldTemplateID)
+	return u
+}
+
+// SetMediaLimits sets the "media_limits" field.
+func (u *CustomModelConfigUpsert) SetMediaLimits(v map[string]interface{}) *CustomModelConfigUpsert {
+	u.Set(custommodelconfig.FieldMediaLimits, v)
+	return u
+}
+
+// UpdateMediaLimits sets the "media_limits" field to the value that was provided on create.
+func (u *CustomModelConfigUpsert) UpdateMediaLimits() *CustomModelConfigUpsert {
+	u.SetExcluded(custommodelconfig.FieldMediaLimits)
 	return u
 }
 
@@ -523,6 +548,20 @@ func (u *CustomModelConfigUpsertOne) UpdateTemplateID() *CustomModelConfigUpsert
 func (u *CustomModelConfigUpsertOne) ClearTemplateID() *CustomModelConfigUpsertOne {
 	return u.Update(func(s *CustomModelConfigUpsert) {
 		s.ClearTemplateID()
+	})
+}
+
+// SetMediaLimits sets the "media_limits" field.
+func (u *CustomModelConfigUpsertOne) SetMediaLimits(v map[string]interface{}) *CustomModelConfigUpsertOne {
+	return u.Update(func(s *CustomModelConfigUpsert) {
+		s.SetMediaLimits(v)
+	})
+}
+
+// UpdateMediaLimits sets the "media_limits" field to the value that was provided on create.
+func (u *CustomModelConfigUpsertOne) UpdateMediaLimits() *CustomModelConfigUpsertOne {
+	return u.Update(func(s *CustomModelConfigUpsert) {
+		s.UpdateMediaLimits()
 	})
 }
 
@@ -839,6 +878,20 @@ func (u *CustomModelConfigUpsertBulk) UpdateTemplateID() *CustomModelConfigUpser
 func (u *CustomModelConfigUpsertBulk) ClearTemplateID() *CustomModelConfigUpsertBulk {
 	return u.Update(func(s *CustomModelConfigUpsert) {
 		s.ClearTemplateID()
+	})
+}
+
+// SetMediaLimits sets the "media_limits" field.
+func (u *CustomModelConfigUpsertBulk) SetMediaLimits(v map[string]interface{}) *CustomModelConfigUpsertBulk {
+	return u.Update(func(s *CustomModelConfigUpsert) {
+		s.SetMediaLimits(v)
+	})
+}
+
+// UpdateMediaLimits sets the "media_limits" field to the value that was provided on create.
+func (u *CustomModelConfigUpsertBulk) UpdateMediaLimits() *CustomModelConfigUpsertBulk {
+	return u.Update(func(s *CustomModelConfigUpsert) {
+		s.UpdateMediaLimits()
 	})
 }
 

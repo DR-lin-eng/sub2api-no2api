@@ -440,6 +440,7 @@ func TestEnhanceCSPPolicyAllowsHumanVerificationRuntimes(t *testing.T) {
 	assert.Equal(t, 1, countDirectiveValue(result, "img-src", AliyunCaptchaImageCNDomain))
 	assert.Equal(t, 1, countDirectiveValue(result, "img-src", AliyunCaptchaImageSGPDomain))
 	assert.Contains(t, result, "worker-src 'self' blob:")
+	assert.Contains(t, result, "media-src 'self' blob: https:")
 }
 
 func TestSecurityHeadersInjectsDynamicConnectSrcOrigins(t *testing.T) {

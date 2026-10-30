@@ -47,6 +47,12 @@
       <path d="M12 2.25 3.5 7.1v9.8L12 21.75l8.5-4.85V7.1L12 2.25Zm0 2.3 6.5 3.72v7.46L12 19.45l-6.5-3.72V8.27L12 4.55Z" />
       <path d="m9.25 8.15-3 3.85 3 3.85 1.58-1.23L8.79 12l2.04-2.62-1.58-1.23Zm5.5 0-1.58 1.23L15.21 12l-2.04 2.62 1.58 1.23 3-3.85-3-3.85Z" />
     </svg>
+  <!-- Multimodal icon (image + play) -->
+  <svg v-else-if="platform === 'multimodal'" :class="sizeClass" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M4 3h16a2 2 0 0 1 2 2v9.5l-4.8-4.8a1.5 1.5 0 0 0-2.12 0L9.5 15.3l-1.8-1.8a1.5 1.5 0 0 0-2.12 0L2 17.1V5a2 2 0 0 1 2-2Zm3.75 3a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5Z" />
+    <path d="M2 19.5V21a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3.1l-5.86-5.86-4.9 4.9-1.8-1.8a1.5 1.5 0 0 0-2.12 0L2 19.5Z" />
+    <path d="M14.2 12.4a.8.8 0 0 1 1.22-.68l4.1 2.6a.8.8 0 0 1 0 1.36l-4.1 2.6a.8.8 0 0 1-1.22-.68v-5.2Z" fill="#fff" />
+  </svg>
   <!-- Composite group icon -->
   <svg v-else-if="platform === 'composite'" :class="sizeClass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
     <circle cx="6" cy="12" r="3" />

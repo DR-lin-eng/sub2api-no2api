@@ -63,29 +63,52 @@
 
             <div v-if="isSelected(group.id)" class="mt-2 border-t border-gray-100 pt-2 dark:border-dark-700">
               <div class="mb-1 text-xs text-gray-500 dark:text-gray-400">
-                {{ t('admin.groups.mediaStudioRouting.modelsHint') }}
+                {{ t('admin.groups.mediaStudioRouting.mediaType') }}
               </div>
-              <div v-if="loadingModelGroupIds.has(group.id)" class="text-xs text-gray-500 dark:text-gray-400">
-                {{ t('admin.groups.mediaStudioRouting.loadingModels') }}
-              </div>
-              <div v-else-if="availableModels(group.id).length === 0" class="text-xs text-amber-600 dark:text-amber-300">
-                {{ t('admin.groups.mediaStudioRouting.noModels') }}
-              </div>
-              <div v-else class="max-h-40 space-y-1 overflow-y-auto pr-1">
-                <label
-                  v-for="model in availableModels(group.id)"
-                  :key="model"
-                  class="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-xs text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-dark-800"
+              <div class="flex flex-wrap gap-1">
+                <button
+                  v-for="option in mediaTypeOptions"
+                  :key="option.value"
+                  type="button"
+                  class="rounded-md border px-2 py-0.5 text-xs transition-colors"
+                  :class="selectedMediaTypes[group.id] === option.value
+                    ? 'border-primary-500 bg-primary-50 text-primary-700 dark:border-primary-400 dark:bg-primary-500/10 dark:text-primary-300'
+                    : 'border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-dark-600 dark:text-gray-300 dark:hover:bg-dark-800'"
+                  @click="setMediaType(group.id, option.value)"
                 >
-                  <input
-                    :checked="selectedModels[group.id]?.includes(model)"
-                    type="checkbox"
-                    class="h-3.5 w-3.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-500 dark:bg-dark-800"
-                    @change="toggleModel(group.id, model)"
-                  />
-                  <span class="min-w-0 truncate font-mono">{{ model }}</span>
-                </label>
+                  {{ t(option.labelKey) }}
+                </button>
               </div>
+
+              <div v-if="!selectedMediaTypes[group.id]" class="mt-2 text-xs text-amber-600 dark:text-amber-300">
+                {{ t('admin.groups.mediaStudioRouting.mediaTypeRequired') }}
+              </div>
+              <template v-else>
+                <div class="mb-1 mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('admin.groups.mediaStudioRouting.modelsHint') }}
+                </div>
+                <div v-if="loadingModelGroupIds.has(group.id)" class="text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('admin.groups.mediaStudioRouting.loadingModels') }}
+                </div>
+                <div v-else-if="availableModels(group.id).length === 0" class="text-xs text-amber-600 dark:text-amber-300">
+                  {{ t('admin.groups.mediaStudioRouting.noModels') }}
+                </div>
+                <div v-else class="max-h-40 space-y-1 overflow-y-auto pr-1">
+                  <label
+                    v-for="model in availableModels(group.id)"
+                    :key="model"
+                    class="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-xs text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-dark-800"
+                  >
+                    <input
+                      :checked="selectedModels[group.id]?.includes(model)"
+                      type="checkbox"
+                      class="h-3.5 w-3.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-500 dark:bg-dark-800"
+                      @change="toggleModel(group.id, model)"
+                    />
+                    <span class="min-w-0 truncate font-mono">{{ model }}</span>
+                  </label>
+                </div>
+              </template>
             </div>
           </div>
         </div>
@@ -126,6 +149,7 @@ import {
 import {
   getMediaStudioGroupRoutes,
   saveMediaStudioGroupRoutes,
+  type MediaStudioGroupMediaType,
   type MediaStudioGroupRoutes,
 } from '@/features/admin-groups/data/datasources/mediaStudioGroupRouteDatasource'
 import type { AdminGroup } from '@/features/admin-groups/data/dtos/adminGroupDtos'
@@ -147,6 +171,26 @@ const modelCandidates = ref<Map<number, string[]>>(new Map())
 const loadingModelGroupIds = ref<Set<number>>(new Set())
 const selectedIds = ref<number[]>([])
 const selectedModels = reactive<Record<number, string[]>>({})
+const selectedMediaTypes = reactive<Record<number, MediaStudioGroupMediaType | ''>>({})
+
+const mediaTypeOptions: Array<{
+  value: MediaStudioGroupMediaType
+  labelKey: string
+}> = [
+  { value: 'image', labelKey: 'admin.groups.mediaStudioRouting.mediaTypeImage' },
+  { value: 'video', labelKey: 'admin.groups.mediaStudioRouting.mediaTypeVideo' },
+  { value: 'audio', labelKey: 'admin.groups.mediaStudioRouting.mediaTypeAudio' },
+]
+
+function normalizeMediaType(value: unknown): MediaStudioGroupMediaType | '' {
+  return value === 'image' || value === 'video' || value === 'audio' ? value : ''
+}
+
+function modelMatchesMediaType(model: string, mediaType: MediaStudioGroupMediaType): boolean {
+  if (mediaType === 'image') return isMediaStudioImageModel(model)
+  if (mediaType === 'video') return isMediaStudioVideoModel(model)
+  return isMediaStudioAudioModel(model)
+}
 
 function availableGroups(): AdminGroup[] {
   return groups.value.filter(group => group.status === 'active')
@@ -165,8 +209,10 @@ async function toggleGroup(group: AdminGroup): Promise<void> {
   if (index >= 0) {
     selectedIds.value.splice(index, 1)
     delete selectedModels[group.id]
+    delete selectedMediaTypes[group.id]
   } else {
     selectedIds.value.push(group.id)
+    if (!selectedMediaTypes[group.id]) selectedMediaTypes[group.id] = ''
     await loadGroupModels(group)
     if (!selectedModels[group.id]) selectedModels[group.id] = []
   }
@@ -186,26 +232,38 @@ function applyRoutes(routes: MediaStudioGroupRoutes): void {
   const validRoutes = routes.filter(entry => selectableIds.has(entry.group_id))
   selectedIds.value = validRoutes.map(entry => entry.group_id)
   for (const key of Object.keys(selectedModels)) delete selectedModels[Number(key)]
-  for (const entry of validRoutes) selectedModels[entry.group_id] = [...(entry.models || [])]
+  for (const key of Object.keys(selectedMediaTypes)) delete selectedMediaTypes[Number(key)]
+  for (const entry of validRoutes) {
+    selectedModels[entry.group_id] = [...(entry.models || [])]
+    selectedMediaTypes[entry.group_id] = normalizeMediaType(entry.media_type)
+  }
 }
 
 function buildRoutes(): MediaStudioGroupRoutes {
   return selectedIds.value.map((group_id, priority) => ({
     group_id,
+    media_type: (selectedMediaTypes[group_id] || 'image') as MediaStudioGroupMediaType,
     priority,
     enabled: true,
     models: selectedModels[group_id] || [],
   }))
 }
 
+function setMediaType(groupId: number, mediaType: MediaStudioGroupMediaType): void {
+  if (selectedMediaTypes[groupId] === mediaType) return
+  selectedMediaTypes[groupId] = mediaType
+  // A group serves exactly one modality, so drop selections from the previous type.
+  selectedModels[groupId] = (selectedModels[groupId] || []).filter(model =>
+    modelMatchesMediaType(model, mediaType),
+  )
+}
+
 function availableModels(groupId: number): string[] {
+  const mediaType = selectedMediaTypes[groupId]
+  if (!mediaType) return []
   const candidates = modelCandidates.value.get(groupId) || []
   const configured = selectedModels[groupId] || []
-  const mediaModels = candidates.filter(model =>
-    isMediaStudioImageModel(model) ||
-    isMediaStudioVideoModel(model) ||
-    isMediaStudioAudioModel(model),
-  )
+  const mediaModels = candidates.filter(model => modelMatchesMediaType(model, mediaType))
   return [...new Set([...mediaModels, ...configured])]
 }
 
@@ -258,6 +316,11 @@ async function save(): Promise<void> {
   saving.value = true
   errorMessage.value = ''
   try {
+    const missingMediaTypes = selectedIds.value.some(groupId => !selectedMediaTypes[groupId])
+    if (missingMediaTypes) {
+      errorMessage.value = t('admin.groups.mediaStudioRouting.mediaTypeRequired')
+      return
+    }
     const missingModels = selectedIds.value.some(groupId => (selectedModels[groupId] || []).length === 0)
     if (missingModels) {
       errorMessage.value = t('admin.groups.mediaStudioRouting.modelRequired')

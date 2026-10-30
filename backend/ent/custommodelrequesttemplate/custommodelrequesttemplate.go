@@ -23,6 +23,8 @@ const (
 	FieldDescription = "description"
 	// FieldRequestAdapter holds the string denoting the request_adapter field in the database.
 	FieldRequestAdapter = "request_adapter"
+	// FieldAttributes holds the string denoting the attributes field in the database.
+	FieldAttributes = "attributes"
 	// Table holds the table name of the custommodelrequesttemplate in the database.
 	Table = "custom_model_request_templates"
 )
@@ -35,6 +37,7 @@ var Columns = []string{
 	FieldName,
 	FieldDescription,
 	FieldRequestAdapter,
+	FieldAttributes,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).

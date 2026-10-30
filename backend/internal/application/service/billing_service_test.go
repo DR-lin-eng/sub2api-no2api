@@ -1012,7 +1012,8 @@ func TestCalculateVideoCostUsesSeparateConfig(t *testing.T) {
 	imagePrice := 0.4
 	videoPrice := 0.08
 	imageCost := svc.CalculateImageCost("grok-imagine-video", "2K", 1, &ImagePriceConfig{Price2K: &imagePrice}, 1.0)
-	videoCost := svc.CalculateVideoCost("grok-imagine-video", "480p", 1, 10, &VideoPriceConfig{Price480P: &videoPrice}, 0.5)
+	videoCost, err := svc.CalculateVideoCost("grok-imagine-video", "480p", 1, 10, &VideoPriceConfig{Price480P: &videoPrice}, 0.5)
+	require.NoError(t, err)
 
 	require.InDelta(t, 0.4, imageCost.TotalCost, 1e-10)
 	require.InDelta(t, 0.8, videoCost.TotalCost, 1e-10)
@@ -1023,11 +1024,15 @@ func TestCalculateVideoCostUsesSeparateConfig(t *testing.T) {
 func TestCalculateVideoCostBillsPerSecond(t *testing.T) {
 	svc := newTestBillingService()
 
-	oneSecond := svc.CalculateVideoCost("grok-imagine-video", "720p", 1, 1, nil, 1.0)
-	fifteenSeconds := svc.CalculateVideoCost("grok-imagine-video", "720p", 1, 15, nil, 1.0)
+	oneSecond, err := svc.CalculateVideoCost("grok-imagine-video", "720p", 1, 1, nil, 1.0)
+	require.NoError(t, err)
+	fifteenSeconds, err := svc.CalculateVideoCost("grok-imagine-video", "720p", 1, 15, nil, 1.0)
+	require.NoError(t, err)
 	// duration <=0 时按上游默认 8 秒计费，超出上限按 15 秒收敛。
-	defaultDuration := svc.CalculateVideoCost("grok-imagine-video", "720p", 1, 0, nil, 1.0)
-	clampedDuration := svc.CalculateVideoCost("grok-imagine-video", "720p", 1, 999, nil, 1.0)
+	defaultDuration, err := svc.CalculateVideoCost("grok-imagine-video", "720p", 1, 0, nil, 1.0)
+	require.NoError(t, err)
+	clampedDuration, err := svc.CalculateVideoCost("grok-imagine-video", "720p", 1, 999, nil, 1.0)
+	require.NoError(t, err)
 
 	require.InDelta(t, 0.07, oneSecond.TotalCost, 1e-10)
 	require.InDelta(t, 0.07*15, fifteenSeconds.TotalCost, 1e-10)
@@ -1053,17 +1058,60 @@ func TestCalculateGrokImagineVideoCostUsesDefaultRateCard(t *testing.T) {
 	svc := newTestBillingService()
 
 	// 默认价目为 xAI 官方每秒价格，按 1 秒时长验证每秒单价。
-	standard480P := svc.CalculateVideoCost("grok-imagine-video", "480p", 1, 1, nil, 1.0)
-	standard720P := svc.CalculateVideoCost("grok-imagine-video", "720p", 1, 1, nil, 1.0)
-	video15_480P := svc.CalculateVideoCost("grok-imagine-video-1.5", "480p", 1, 1, nil, 1.0)
-	video15_720P := svc.CalculateVideoCost("grok-imagine-video-1.5", "720p", 1, 1, nil, 1.0)
-	video15_1080P := svc.CalculateVideoCost("grok-imagine-video-1.5", "1080p", 1, 1, nil, 1.0)
+	standard480P, err := svc.CalculateVideoCost("grok-imagine-video", "480p", 1, 1, nil, 1.0)
+	require.NoError(t, err)
+	standard720P, err := svc.CalculateVideoCost("grok-imagine-video", "720p", 1, 1, nil, 1.0)
+	require.NoError(t, err)
+	video15_480P, err := svc.CalculateVideoCost("grok-imagine-video-1.5", "480p", 1, 1, nil, 1.0)
+	require.NoError(t, err)
+	video15_720P, err := svc.CalculateVideoCost("grok-imagine-video-1.5", "720p", 1, 1, nil, 1.0)
+	require.NoError(t, err)
+	video15_1080P, err := svc.CalculateVideoCost("grok-imagine-video-1.5", "1080p", 1, 1, nil, 1.0)
+	require.NoError(t, err)
 
 	require.InDelta(t, 0.05, standard480P.TotalCost, 1e-10)
 	require.InDelta(t, 0.07, standard720P.TotalCost, 1e-10)
 	require.InDelta(t, 0.08, video15_480P.TotalCost, 1e-10)
 	require.InDelta(t, 0.14, video15_720P.TotalCost, 1e-10)
 	require.InDelta(t, 0.25, video15_1080P.TotalCost, 1e-10)
+}
+
+func TestCalculateVideoCostFailsWhenPriceIsMissing(t *testing.T) {
+	svc := newTestBillingService()
+
+	// 未配置分组视频价且模型没有内置每秒价时必须报错，不能回落到图片价。
+	cost, err := svc.CalculateVideoCost("seedance", "480p", 1, 15, nil, 1.0)
+
+	require.Nil(t, cost)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "video price is not configured")
+}
+
+func TestCalculateVideoCostMultimodalNeverUsesGrokDefaultPrice(t *testing.T) {
+	svc := newTestBillingService()
+
+	// multimodal 分组没有内置每秒价：即使模型名命中 Grok 前缀，缺价也必须直接报错，
+	// 不允许静默套用 Grok 的默认每秒价。
+	for _, model := range []string{"grok-imagine-video", "grok-imagine-video-1.5", "seedance"} {
+		for _, resolution := range []string{"480p", "720p", "1080p"} {
+			cost, err := svc.CalculateVideoCost(model, resolution, 1, 4, &VideoPriceConfig{Platform: PlatformMultimodal}, 1.0)
+			require.Nil(t, cost, "model=%s resolution=%s", model, resolution)
+			require.Error(t, err, "model=%s resolution=%s", model, resolution)
+			require.Contains(t, err.Error(), "video price is not configured")
+		}
+	}
+}
+
+func TestCalculateVideoCostMultimodalIgnoresGroupPrice(t *testing.T) {
+	svc := newTestBillingService()
+
+	// multimodal 是逐模型定价分组：分组级视频价不参与计费，必须报错。
+	price := 0.075
+	cfg := &VideoPriceConfig{Platform: PlatformMultimodal, Price480P: &price}
+	cost, err := svc.CalculateVideoCost("seedance", "480p", 1, 4, cfg, 1.0)
+	require.Nil(t, cost)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "video price is not configured")
 }
 
 func TestIsModelSupported(t *testing.T) {

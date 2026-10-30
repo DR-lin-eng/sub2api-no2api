@@ -12,6 +12,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
 	pkghttputil "github.com/Wei-Shaw/sub2api/internal/shared/httputil"
 	"github.com/Wei-Shaw/sub2api/internal/transport/http/handler"
 	"github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
@@ -64,6 +65,21 @@ func RegisterGatewayRoutes(
 	isOpenAIOnlyEndpointGatewayPlatform := func(c *gin.Context) bool {
 		return getGroupPlatform(c) == service.PlatformOpenAI
 	}
+	// Multimodal groups only serve media endpoints. Text endpoints must answer
+	// with an explicit local 404 instead of falling through to the Anthropic
+	// gateway, which has no multimodal accounts to schedule.
+	isMultimodalGatewayPlatform := func(c *gin.Context) bool {
+		return getGroupPlatform(c) == service.PlatformMultimodal
+	}
+	rejectMultimodalTextEndpoint := func(c *gin.Context, endpointName string) {
+		service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": gin.H{
+				"type":    "not_found_error",
+				"message": endpointName + " is not supported for the multimodal platform",
+			},
+		})
+	}
 	xSearchHandler := func(c *gin.Context) {
 		if getGroupPlatform(c) != service.PlatformGrok {
 			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
@@ -82,6 +98,10 @@ func RegisterGatewayRoutes(
 		case service.PlatformGrok:
 			h.OpenAIGateway.GrokCountTokens(c)
 		default:
+			if isMultimodalGatewayPlatform(c) {
+				rejectMultimodalTextEndpoint(c, "Count Tokens API")
+				return
+			}
 			h.Gateway.CountTokens(c)
 		}
 	}
@@ -91,6 +111,8 @@ func RegisterGatewayRoutes(
 			h.OpenAIGateway.Images(c)
 		case service.PlatformGrok:
 			h.OpenAIGateway.GrokImages(c)
+		case service.PlatformMultimodal:
+			h.OpenAIGateway.MultimodalImages(c)
 		default:
 			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
 			c.JSON(http.StatusNotFound, gin.H{
@@ -126,6 +148,16 @@ func RegisterGatewayRoutes(
 			// 尝试解析模型名
 			modelName := gjson.GetBytes(bodyBytes, "model").String()
 			if modelName != "" {
+				if validateErr := h.OpenAIGateway.ValidateCustomModelVideoRequest(c.Request.Context(), modelName, bodyBytes); validateErr != nil {
+					c.JSON(infraerrors.Code(validateErr), gin.H{
+						"error": gin.H{
+							"type":    "invalid_request_error",
+							"code":    infraerrors.Reason(validateErr),
+							"message": infraerrors.Message(validateErr),
+						},
+					})
+					return
+				}
 				videoAPIType, configured, resolveErr := h.OpenAIGateway.ResolveCustomModelVideoAPIType(c.Request.Context(), modelName)
 				if resolveErr != nil {
 					c.JSON(http.StatusInternalServerError, gin.H{
@@ -141,6 +173,9 @@ func RegisterGatewayRoutes(
 					case "agnes":
 						h.OpenAIGateway.AgnesVideoGeneration(c)
 						return
+					case "multimodal":
+						h.OpenAIGateway.MultimodalVideoGeneration(c)
+						return
 					}
 				}
 			}
@@ -150,6 +185,10 @@ func RegisterGatewayRoutes(
 		platform := getGroupPlatform(c)
 		if platform == service.PlatformGrok || platform == service.PlatformComposite {
 			h.OpenAIGateway.GrokVideoGeneration(c)
+			return
+		}
+		if platform == service.PlatformMultimodal {
+			h.OpenAIGateway.MultimodalVideoGeneration(c)
 			return
 		}
 
@@ -174,6 +213,10 @@ func RegisterGatewayRoutes(
 			h.OpenAIGateway.GrokVideoStatus(c)
 			return
 		}
+		if platform == service.PlatformMultimodal {
+			h.OpenAIGateway.MultimodalVideoStatus(c)
+			return
+		}
 		service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
 		c.JSON(http.StatusNotFound, gin.H{
 			"error": gin.H{
@@ -195,6 +238,10 @@ func RegisterGatewayRoutes(
 			h.OpenAIGateway.GrokVideoContent(c)
 			return
 		}
+		if platform == service.PlatformMultimodal {
+			h.OpenAIGateway.MultimodalVideoContent(c)
+			return
+		}
 		service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
 		c.JSON(http.StatusNotFound, gin.H{
 			"error": gin.H{
@@ -208,12 +255,20 @@ func RegisterGatewayRoutes(
 			h.OpenAIGateway.GrokVideoEdit(c)
 			return
 		}
+		if getGroupPlatform(c) == service.PlatformMultimodal {
+			h.OpenAIGateway.MultimodalVideoEdit(c)
+			return
+		}
 		service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
 		c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "not_found_error", "message": "Videos API is not supported for this platform"}})
 	}
 	videoExtensionHandler := func(c *gin.Context) {
 		if getGroupPlatform(c) == service.PlatformGrok {
 			h.OpenAIGateway.GrokVideoExtension(c)
+			return
+		}
+		if getGroupPlatform(c) == service.PlatformMultimodal {
+			h.OpenAIGateway.MultimodalVideoExtension(c)
 			return
 		}
 		service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
@@ -252,6 +307,10 @@ func RegisterGatewayRoutes(
 	{
 		// /v1/messages: auto-route based on group platform
 		gateway.POST("/messages", func(c *gin.Context) {
+			if isMultimodalGatewayPlatform(c) {
+				rejectMultimodalTextEndpoint(c, "Messages API")
+				return
+			}
 			if isOpenAIResponsesCompatibleGatewayPlatform(c) {
 				h.OpenAIGateway.Messages(c)
 				return
@@ -271,6 +330,10 @@ func RegisterGatewayRoutes(
 		gateway.POST("/realtime/calls", h.OpenAIGateway.Live)
 		// OpenAI Responses API: auto-route based on group platform
 		gateway.POST("/responses", func(c *gin.Context) {
+			if isMultimodalGatewayPlatform(c) {
+				rejectMultimodalTextEndpoint(c, "Responses API")
+				return
+			}
 			if isOpenAIResponsesCompatibleGatewayPlatform(c) {
 				h.OpenAIGateway.Responses(c)
 				return
@@ -278,6 +341,10 @@ func RegisterGatewayRoutes(
 			h.Gateway.Responses(c)
 		})
 		gateway.POST("/responses/*subpath", guardResponsesSubpath(func(c *gin.Context) {
+			if isMultimodalGatewayPlatform(c) {
+				rejectMultimodalTextEndpoint(c, "Responses API")
+				return
+			}
 			if isOpenAIResponsesCompatibleGatewayPlatform(c) {
 				h.OpenAIGateway.Responses(c)
 				return
@@ -291,6 +358,10 @@ func RegisterGatewayRoutes(
 		})
 		// OpenAI Chat Completions API: auto-route based on group platform
 		gateway.POST("/chat/completions", func(c *gin.Context) {
+			if isMultimodalGatewayPlatform(c) {
+				rejectMultimodalTextEndpoint(c, "Chat Completions API")
+				return
+			}
 			if isOpenAIResponsesCompatibleGatewayPlatform(c) {
 				h.OpenAIGateway.ChatCompletions(c)
 				return
@@ -364,6 +435,10 @@ func RegisterGatewayRoutes(
 
 	// OpenAI Responses API（不带v1前缀的别名）— auto-route based on group platform
 	responsesHandler := func(c *gin.Context) {
+		if isMultimodalGatewayPlatform(c) {
+			rejectMultimodalTextEndpoint(c, "Responses API")
+			return
+		}
 		if isOpenAIResponsesCompatibleGatewayPlatform(c) {
 			h.OpenAIGateway.Responses(c)
 			return
@@ -400,6 +475,10 @@ func RegisterGatewayRoutes(
 	}
 	// OpenAI Chat Completions API（不带v1前缀的别名）— auto-route based on group platform
 	r.POST("/chat/completions", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), gatewayModelValidation, groupModelAllowlist, compositeTarget, requireGroupAnthropic, func(c *gin.Context) {
+		if isMultimodalGatewayPlatform(c) {
+			rejectMultimodalTextEndpoint(c, "Chat Completions API")
+			return
+		}
 		if isOpenAIResponsesCompatibleGatewayPlatform(c) {
 			h.OpenAIGateway.ChatCompletions(c)
 			return
@@ -648,6 +727,8 @@ func compositeRouteEndpointForPath(path string) string {
 		return service.CompositeRouteEndpointDecisions
 	case strings.Contains(path, "/images/"):
 		return service.CompositeRouteEndpointImages
+	case strings.Contains(path, "/videos/"):
+		return service.CompositeRouteEndpointVideos
 	case strings.Contains(path, "/v1beta/"):
 		return service.CompositeRouteEndpointGemini
 	default:

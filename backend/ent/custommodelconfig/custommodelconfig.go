@@ -27,6 +27,8 @@ const (
 	FieldVideoAPIType = "video_api_type"
 	// FieldTemplateID holds the string denoting the template_id field in the database.
 	FieldTemplateID = "template_id"
+	// FieldMediaLimits holds the string denoting the media_limits field in the database.
+	FieldMediaLimits = "media_limits"
 	// Table holds the table name of the custommodelconfig in the database.
 	Table = "custom_model_configs"
 )
@@ -41,6 +43,7 @@ var Columns = []string{
 	FieldCapabilities,
 	FieldVideoAPIType,
 	FieldTemplateID,
+	FieldMediaLimits,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).

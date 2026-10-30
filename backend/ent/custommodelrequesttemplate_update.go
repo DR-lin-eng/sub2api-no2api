@@ -74,6 +74,12 @@ func (_u *CustomModelRequestTemplateUpdate) SetRequestAdapter(v map[string]inter
 	return _u
 }
 
+// SetAttributes sets the "attributes" field.
+func (_u *CustomModelRequestTemplateUpdate) SetAttributes(v map[string]interface{}) *CustomModelRequestTemplateUpdate {
+	_u.mutation.SetAttributes(v)
+	return _u
+}
+
 // Mutation returns the CustomModelRequestTemplateMutation object of the builder.
 func (_u *CustomModelRequestTemplateUpdate) Mutation() *CustomModelRequestTemplateMutation {
 	return _u.mutation
@@ -157,6 +163,9 @@ func (_u *CustomModelRequestTemplateUpdate) sqlSave(ctx context.Context) (_node 
 	if value, ok := _u.mutation.RequestAdapter(); ok {
 		_spec.SetField(custommodelrequesttemplate.FieldRequestAdapter, field.TypeJSON, value)
 	}
+	if value, ok := _u.mutation.Attributes(); ok {
+		_spec.SetField(custommodelrequesttemplate.FieldAttributes, field.TypeJSON, value)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{custommodelrequesttemplate.Label}
@@ -220,6 +229,12 @@ func (_u *CustomModelRequestTemplateUpdateOne) ClearDescription() *CustomModelRe
 // SetRequestAdapter sets the "request_adapter" field.
 func (_u *CustomModelRequestTemplateUpdateOne) SetRequestAdapter(v map[string]interface{}) *CustomModelRequestTemplateUpdateOne {
 	_u.mutation.SetRequestAdapter(v)
+	return _u
+}
+
+// SetAttributes sets the "attributes" field.
+func (_u *CustomModelRequestTemplateUpdateOne) SetAttributes(v map[string]interface{}) *CustomModelRequestTemplateUpdateOne {
+	_u.mutation.SetAttributes(v)
 	return _u
 }
 
@@ -335,6 +350,9 @@ func (_u *CustomModelRequestTemplateUpdateOne) sqlSave(ctx context.Context) (_no
 	}
 	if value, ok := _u.mutation.RequestAdapter(); ok {
 		_spec.SetField(custommodelrequesttemplate.FieldRequestAdapter, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.Attributes(); ok {
+		_spec.SetField(custommodelrequesttemplate.FieldAttributes, field.TypeJSON, value)
 	}
 	_node = &CustomModelRequestTemplate{config: _u.config}
 	_spec.Assign = _node.assignValues

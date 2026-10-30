@@ -34,6 +34,21 @@ func (s customImageModelResolverStub) ResolveRequestAdapter(
 	return adapter, ok, nil
 }
 
+func (s customImageModelResolverStub) ResolveModelAttributes(
+	context.Context,
+	string,
+) (map[string]any, bool, error) {
+	return nil, false, nil
+}
+
+func (s customImageModelResolverStub) ResolveMediaLimits(context.Context, string) (map[string]any, bool, error) {
+	return nil, false, nil
+}
+
+func (s customImageModelResolverStub) ValidateVideoRequest(context.Context, string, []byte) error {
+	return nil
+}
+
 func TestCustomImageModelMappingUsesClientConfigAndAdapter(t *testing.T) {
 	clientAdapter := map[string]any{"version": 1, "body": map[string]any{"mode": "off"}}
 	svc := &OpenAIGatewayService{customModelCapabilities: customImageModelResolverStub{
@@ -125,6 +140,49 @@ func TestApplyOpenAIImagesRequestAdapterMergesJSONAndRewritesEndpoint(t *testing
 	require.NotContains(t, payload, "response_format")
 	require.Equal(t, "cat", payload["prompt"])
 	require.Equal(t, map[string]any{"a": float64(1), "b": float64(2)}, payload["extra"])
+}
+
+func TestApplyOpenAIImagesRequestAdapterPrefixRewriteKeepsRemainingPath(t *testing.T) {
+	adapter := map[string]any{
+		"version": 1,
+		"match": map[string]any{
+			"endpoint": "/v1/images/",
+			"mode":     "prefix",
+		},
+		"upstream": map[string]any{"path": "/openai/v1/images"},
+	}
+	body := []byte(`{"model":"image-model","prompt":"cat"}`)
+
+	adapted, err := applyOpenAIImagesRequestAdapter(
+		body,
+		"application/json",
+		&OpenAIImagesRequest{Endpoint: "/v1/images/edits"},
+		"upstream-image-model",
+		adapter,
+	)
+	require.NoError(t, err)
+	require.Equal(t, "/openai/v1/images/edits", adapted.Endpoint)
+
+	adapted, err = applyOpenAIImagesRequestAdapter(
+		body,
+		"application/json",
+		&OpenAIImagesRequest{Endpoint: "/v1/images2/edits"},
+		"upstream-image-model",
+		adapter,
+	)
+	require.NoError(t, err)
+	require.Equal(t, "/v1/images2/edits", adapted.Endpoint)
+}
+
+func TestValidateCustomModelRequestAdapterRejectsUnknownMatchMode(t *testing.T) {
+	err := validateCustomModelRequestAdapter(map[string]any{
+		"version": 1,
+		"match": map[string]any{
+			"endpoint": "/v1/images/edits",
+			"mode":     "regex",
+		},
+	})
+	require.ErrorIs(t, err, ErrCustomModelConfigInvalid)
 }
 
 func TestApplyOpenAIImagesRequestAdapterConvertsMultipartFilesToDataURIArray(t *testing.T) {

@@ -28,6 +28,10 @@ export default {
       monthly: '30d',
     },
   },
+  multimodal: {
+    baseUrlHint: 'Required. Base URL of the upstream OpenAI-compatible media service, e.g. https://your-upstream.example.com/v1. No default endpoint is built in.',
+    apiKeyHint: 'API Key for the upstream media service',
+  },
   opencode: {
     protocolRules: 'Model protocol routing',
     protocolRulesHint: 'First matching exact model ID or trailing * pattern wins. Unmatched models use Chat Completions.',

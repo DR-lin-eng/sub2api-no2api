@@ -43,6 +43,7 @@ const (
 	PlatformDeepseek    = "deepseek"
 	PlatformMiniMax     = "minimax"
 	PlatformOpenCodeGo  = "opencode_go"
+	PlatformMultimodal  = "multimodal"
 )
 
 // AllPlatforms 返回所有支持的平台列表
@@ -50,6 +51,7 @@ func AllPlatforms() []string {
 	return []string{
 		PlatformAnthropic, PlatformOpenAI, PlatformGemini, PlatformAntigravity, PlatformGrok,
 		PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax, PlatformOpenCodeGo, PlatformTypeSafe,
+		PlatformMultimodal,
 	}
 }
 
