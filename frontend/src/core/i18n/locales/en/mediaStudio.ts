@@ -2,6 +2,10 @@ export default {
   mediaStudio: {
     title: 'Media Studio',
     description: 'Choose a creation type, describe what you need, then adjust aspect ratio, quality, and output count.',
+    tabs: {
+      studio: 'Create',
+      gallery: 'Gallery'
+    },
     modeItems: {
       image: {
         title: 'Image Generation',
@@ -84,6 +88,13 @@ export default {
     },
     session: {
       localHint: 'Session and image results are saved in this browser',
+      new: 'New chat',
+      sessions: 'Chats',
+      sessionsEmpty: 'No saved chats yet',
+      untitled: 'New chat',
+      deleteConversation: 'Delete chat',
+      deleteConfirm: 'Delete this conversation?',
+      messageCount: '{count} messages',
       clear: 'Clear',
       select: 'Select',
       selectAll: 'Select all',
@@ -128,6 +139,35 @@ export default {
         upstream: 'Upstream service error, please retry later',
         network: 'Network connection lost, check your connection and retry',
         unknown: 'Generation failed, please retry'
+      }
+    },
+    gallery: {
+      title: 'Gallery',
+      subtitle: 'Completed results are archived here automatically and stay in this browser only',
+      loading: 'Loading gallery…',
+      empty: 'No works yet. Finished generations will appear here automatically.',
+      emptyFiltered: 'No works match the current filters.',
+      untitled: 'Untitled work',
+      mediaMissing: 'Media unavailable',
+      removeConfirm: 'Delete this work?',
+      clearConfirm: 'Clear the entire gallery? This cannot be undone.',
+      storageUnavailable: 'This browser does not support local storage, so the gallery is unavailable.',
+      clear: 'Clear gallery',
+      filters: {
+        all: 'All',
+        image: 'Images',
+        video: 'Videos',
+        favoriteOnly: 'Favorites only',
+        search: 'Search prompt or model',
+        count: '{count} works'
+      },
+      actions: {
+        reuse: 'Reuse settings',
+        edit: 'Edit further',
+        download: 'Download',
+        favorite: 'Favorite',
+        unfavorite: 'Remove favorite',
+        remove: 'Delete'
       }
     },
   }

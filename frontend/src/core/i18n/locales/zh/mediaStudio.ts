@@ -2,6 +2,10 @@ export default {
   mediaStudio: {
     title: '媒体工坊',
     description: '选择创作类型，输入描述，再按需要调整比例、清晰度和生成数量。',
+    tabs: {
+      studio: '创作',
+      gallery: '作品库'
+    },
     modeItems: {
       image: {
         title: '图片生成',
@@ -84,6 +88,13 @@ export default {
     },
     session: {
       localHint: '会话和图片结果保存在当前浏览器中',
+      new: '新建对话',
+      sessions: '历史对话',
+      sessionsEmpty: '还没有历史对话',
+      untitled: '新对话',
+      deleteConversation: '删除对话',
+      deleteConfirm: '确定要删除这个对话吗？',
+      messageCount: '{count} 条消息',
       clear: '清空',
       select: '选择',
       selectAll: '全选',
@@ -128,6 +139,35 @@ export default {
         upstream: '上游服务异常，请稍后重试',
         network: '网络连接中断，请检查网络后重试',
         unknown: '生成失败，请重试'
+      }
+    },
+    gallery: {
+      title: '作品库',
+      subtitle: '生成完成的作品会自动归档到这里，仅保存在当前浏览器',
+      loading: '正在读取作品…',
+      empty: '还没有作品，生成完成后会自动出现在这里。',
+      emptyFiltered: '没有符合当前筛选条件的作品。',
+      untitled: '未命名作品',
+      mediaMissing: '素材已不可用',
+      removeConfirm: '确定要删除这件作品吗？',
+      clearConfirm: '确定要清空作品库吗？此操作不可撤销。',
+      storageUnavailable: '当前浏览器不支持本地存储，作品库暂不可用。',
+      clear: '清空作品库',
+      filters: {
+        all: '全部',
+        image: '图片',
+        video: '视频',
+        favoriteOnly: '只看收藏',
+        search: '搜索提示词或模型',
+        count: '{count} 件作品'
+      },
+      actions: {
+        reuse: '复用参数',
+        edit: '继续编辑',
+        download: '下载',
+        favorite: '收藏',
+        unfavorite: '取消收藏',
+        remove: '删除'
       }
     },
   }

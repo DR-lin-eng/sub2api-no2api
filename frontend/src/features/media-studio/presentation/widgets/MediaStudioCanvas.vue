@@ -1,6 +1,6 @@
 <template>
   <section
-    class="relative flex min-h-[calc(100vh-7rem)] flex-col bg-transparent"
+    class="relative flex min-h-[calc(100vh-10.5rem)] flex-col bg-transparent"
     @dragenter.prevent="handlePageDragEnter"
     @dragover.prevent="handlePageDragOver"
     @dragleave.prevent="handlePageDragLeave"
@@ -15,25 +15,6 @@
         {{ t('mediaStudio.composer.upload.dropHint') }}
       </div>
     </div>
-    <div v-if="hasMessages" class="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-1 pb-4">
-      <div>
-        <h1 class="text-lg font-semibold tracking-tight text-gray-950 dark:text-white">{{ t('mediaStudio.title') }}</h1>
-        <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ t('mediaStudio.session.localHint') }}</p>
-      </div>
-      <button type="button" class="session-action" @click="emit('clear')">
-        <Icon name="trash" size="sm" />
-        {{ t('mediaStudio.session.clear') }}
-      </button>
-    </div>
-
-    <div v-if="hasMessages && jobs.length" class="mx-auto mb-4 w-full max-w-5xl px-1">
-      <MediaStudioJobBar
-        :jobs="jobs"
-        @retry="retryJob"
-        @focus="focusJob"
-      />
-    </div>
-
     <div
       v-if="hasMessages"
       class="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-5 overflow-hidden px-1 pb-5"
@@ -269,13 +250,21 @@
       :class="hasMessages ? 'sticky bottom-0 mt-auto bg-gradient-to-t from-gray-50 via-gray-50/95 to-transparent pb-1 pt-5 dark:from-dark-950 dark:via-dark-950/95' : 'flex flex-1 items-center'"
     >
       <div class="w-full">
+        <div v-if="jobBarJobs.length" class="mx-auto mb-2 w-full max-w-4xl">
+          <MediaStudioJobBar
+            :jobs="jobBarJobs"
+            @retry="retryJob"
+            @focus="focusJob"
+          />
+        </div>
+
         <h2 v-if="!hasMessages" class="mb-8 text-center text-3xl font-semibold tracking-tight text-gray-950 dark:text-white">
           {{ t('mediaStudio.composer.greeting') }}
         </h2>
 
-        <div v-if="hasMessages" class="mx-auto mb-2 flex max-w-4xl items-center justify-end gap-2">
-          <template v-if="selectionMode">
-            <span class="mr-auto text-xs text-gray-500 dark:text-gray-400">
+        <div v-if="hasMessages && selectionMode" class="mx-auto mb-2 flex max-w-4xl items-center gap-2">
+          <div class="ml-auto flex items-center gap-2">
+            <span class="text-xs text-gray-500 dark:text-gray-400">
               {{ t('mediaStudio.session.selectedCount', { count: selectedMessageIDs.length }) }}
             </span>
             <button type="button" class="session-action" @click="toggleSelectAll">
@@ -294,7 +283,7 @@
             <button type="button" class="icon-action" :aria-label="t('mediaStudio.session.cancelSelect')" @click="exitSelectionMode">
               <Icon name="x" size="sm" />
             </button>
-          </template>
+          </div>
         </div>
 
         <div class="relative mx-auto max-w-4xl">
@@ -863,7 +852,6 @@ const emit = defineEmits<{
   reloadModels: []
   submit: []
   retry: [message: MediaStudioMessage]
-  clear: []
   delete: [messageIDs: string[]]
   editImage: [image: MediaStudioGeneratedImagePreview]
 }>()
@@ -888,6 +876,10 @@ const allMessagesSelected = computed(() => (
   props.conversation.messages.length > 0 &&
   props.conversation.messages.every(message => selectedMessageIDs.value.includes(message.id))
 ))
+
+// 任务条只展示仍未收尾的任务；已完成任务的结果与花费保留在消息流内，
+// 避免底部输入区上方常驻一排历史任务挤占可视空间。
+const jobBarJobs = computed(() => props.jobs.filter(job => job.status !== 'completed'))
 
 const countOptions = [1, 2, 3, 4]
 const imageResolutionOptions: MediaStudioImageResolution[] = ['1K', '2K', '4K']
@@ -923,6 +915,11 @@ function stepDuration(delta: number) {
 // 模型切换或外部收敛时长时，把输入框同步回权威值。
 watch(() => props.duration, (value) => {
   if (Number(durationInput.value) !== value) durationInput.value = String(value)
+})
+
+// 切换或新建会话后清空多选状态，避免上一个会话的选择残留到新会话。
+watch(() => props.conversation.id, () => {
+  exitSelectionMode()
 })
 
 const uploadAccept = computed(() => (

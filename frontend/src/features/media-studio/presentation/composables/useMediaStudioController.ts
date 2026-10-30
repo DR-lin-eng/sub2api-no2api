@@ -36,8 +36,6 @@ import {
   type ModelAttributeValues,
 } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
 import {
-  clearMediaStudioImages,
-  clearMediaStudioVideos,
   deleteMediaStudioImages,
   deleteMediaStudioVideos,
   loadMediaStudioImage,
@@ -63,10 +61,13 @@ import {
 import {
   IMAGE_QUALITY_OPTIONS,
   MEDIA_STUDIO_LEGACY_STORAGE_KEY,
+  MEDIA_STUDIO_MAX_SESSIONS,
   MEDIA_STUDIO_STORAGE_KEY,
   aspectRatioFromSize,
   classifyMediaStudioError,
+  conversationCacheKeys,
   conversationForPersistence,
+  conversationTitle,
   extractImages,
   imageSizeFor,
   imageTaskErrorMessage,
@@ -84,6 +85,7 @@ import {
   persistedImageSource,
   readPersisted,
   restorePersistedConversation,
+  restorePersistedSessions,
   safeRemoteImageURL,
   videoTaskErrorMessage,
   type MediaStudioConversation,
@@ -120,6 +122,13 @@ const DEFAULT_VIDEO_RESOLUTION: MediaStudioVideoResolution = '720p'
 const DEFAULT_VIDEO_DURATION = 6
 // 预估消耗防抖，避免拖动时长/切换分辨率时连续打后端。
 const COST_ESTIMATE_DEBOUNCE_MS = 300
+
+export interface MediaStudioSessionSummary {
+  id: string
+  title: string
+  messageCount: number
+  updatedAt: number
+}
 
 export interface MediaStudioControllerOptions {
   storage?: Storage
@@ -274,6 +283,10 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       updatedAt: now(),
     }),
   })
+  // 历史会话与当前会话按 id 去重：当前会话不进历史列表，切换时再互换。
+  const sessions = ref<MediaStudioConversation[]>(
+    restorePersistedSessions(persisted.sessions).filter(item => item.id !== conversation.value.id),
+  )
   const videoObjectURLs = new Set<string>()
   const imageInputFiles = new Map<string, File[]>()
   let disposed = false
@@ -404,6 +417,25 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   })
   const selectedGroup = computed(() => groupOptions.value.find(group => group.group_id === selectedGroupId.value) ?? null)
   const hasMessages = computed(() => conversation.value.messages.length > 0)
+  // 会话列表：当前会话永远置顶，其余按最近更新时间倒序，视图层据此做切换与删除。
+  const sessionList = computed<MediaStudioSessionSummary[]>(() => {
+    const activeId = conversation.value.id
+    // 空白会话不进列表：新对话页不需要展示一条没有内容的历史记录。
+    const source = conversation.value.messages.length > 0
+      ? [conversation.value, ...sessions.value]
+      : sessions.value
+    const items = source.map(item => ({
+      id: item.id,
+      title: conversationTitle(item.messages),
+      messageCount: item.messages.length,
+      updatedAt: item.updatedAt,
+    }))
+    return items.sort((left, right) => {
+      if (left.id === activeId) return -1
+      if (right.id === activeId) return 1
+      return right.updatedAt - left.updatedAt
+    })
+  })
   const canSubmit = computed(() => (
     !!selectedGroup.value &&
     !!mediaStudioApiKey.value &&
@@ -601,6 +633,12 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   function persist() {
     if (!storage) return
     const persistedConversation = conversationForPersistence(conversation.value)
+    const persistedSessions = sessions.value
+      .slice(0, MEDIA_STUDIO_MAX_SESSIONS)
+      .flatMap((item) => {
+        const value = conversationForPersistence(item)
+        return value ? [value] : []
+      })
     const payload: PersistedMediaStudioState = {
       selectedGroupId: selectedGroupId.value,
       imageModel: imageModel.value,
@@ -615,6 +653,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       videoAspectRatio: videoAspectRatio.value,
       duration: duration.value,
       conversation: persistedConversation || undefined,
+      ...(persistedSessions.length > 0 ? { sessions: persistedSessions } : {}),
     }
     try {
       storage.setItem(MEDIA_STUDIO_STORAGE_KEY, JSON.stringify(payload))
@@ -849,9 +888,22 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   function patchAssistantMessage(messageId: string, patch: Partial<MediaStudioMessage>): boolean {
     const messages = conversation.value.messages
     const index = messages.findIndex(message => message.id === messageId)
-    if (index < 0) return false
-    messages[index] = { ...messages[index], ...patch }
-    conversation.value = { ...conversation.value, messages: [...messages], updatedAt: now() }
+    if (index >= 0) {
+      messages[index] = { ...messages[index], ...patch }
+      conversation.value = { ...conversation.value, messages: [...messages], updatedAt: now() }
+      return true
+    }
+    // 轮询可能跨会话返回：用户切走后把结果写回所属历史会话，而不是直接丢弃。
+    const sessionIndex = sessions.value.findIndex(item => item.messages.some(message => message.id === messageId))
+    if (sessionIndex < 0) return false
+    const session = sessions.value[sessionIndex]
+    const sessionMessages = [...session.messages]
+    const sessionMessageIndex = sessionMessages.findIndex(message => message.id === messageId)
+    sessionMessages[sessionMessageIndex] = { ...sessionMessages[sessionMessageIndex], ...patch }
+    const nextSessions = [...sessions.value]
+    nextSessions[sessionIndex] = { ...session, messages: sessionMessages, updatedAt: now() }
+    sessions.value = nextSessions
+    persist()
     return true
   }
 
@@ -1255,14 +1307,79 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     }
   }
 
-  function clearConversation() {
+  // 释放当前会话占用的临时 URL 与附件状态；素材缓存按会话维度单独回收。
+  function releaseActiveSession() {
     revokeAllVideoURLs()
     revokeInputImageURLs(conversation.value.messages)
+    // 草稿附件属于当前输入区，换会话/新建/清空时一并回收，避免预览 URL 泄漏。
+    updateImageAttachments([])
     updateReferenceAttachments([])
     imageInputFiles.clear()
-    void clearMediaStudioImages()
-    void clearMediaStudioVideos()
+  }
+
+  function dropConversationCache(messages: MediaStudioMessage[]) {
+    const { imageKeys, videoKeys } = conversationCacheKeys(messages)
+    void deleteMediaStudioImages(imageKeys)
+    void deleteMediaStudioVideos(videoKeys)
+  }
+
+  function clearConversation() {
+    const outgoing = conversation.value
+    releaseActiveSession()
+    dropConversationCache(outgoing.messages)
     conversation.value = { id: makeId('media_conversation'), messages: [], updatedAt: now() }
+    prompt.value = ''
+    submitError.value = ''
+    persist()
+  }
+
+  // 新建对话：把当前会话归档进历史列表，再从空白会话开始。
+  function newConversation() {
+    const outgoing = conversation.value
+    // 空白会话时“新建对话”等价于清空草稿，给用户一个干净的起点。
+    if (outgoing.messages.length === 0) {
+      releaseActiveSession()
+      prompt.value = ''
+      submitError.value = ''
+      return
+    }
+    releaseActiveSession()
+    sessions.value = [outgoing, ...sessions.value.filter(item => item.id !== outgoing.id)]
+      .slice(0, MEDIA_STUDIO_MAX_SESSIONS)
+    conversation.value = { id: makeId('media_conversation'), messages: [], updatedAt: now() }
+    prompt.value = ''
+    submitError.value = ''
+    persist()
+  }
+
+  async function switchConversation(id: string) {
+    if (id === conversation.value.id) return
+    const target = sessions.value.find(item => item.id === id)
+    if (!target) return
+    const outgoing = conversation.value
+    releaseActiveSession()
+    const remaining = sessions.value.filter(item => item.id !== id)
+    if (outgoing.messages.length > 0) remaining.unshift(outgoing)
+    sessions.value = remaining.slice(0, MEDIA_STUDIO_MAX_SESSIONS)
+    conversation.value = { ...target }
+    // 每个会话维护自己的输入区，切换后不把上一个会话的草稿带过去。
+    prompt.value = ''
+    submitError.value = ''
+    persist()
+    // 历史会话的图片/视频只在切换时从 IndexedDB 回填。
+    await hydratePersistedImages()
+    resumePendingJobs()
+  }
+
+  function removeConversation(id: string) {
+    if (id === conversation.value.id) {
+      clearConversation()
+      return
+    }
+    const target = sessions.value.find(item => item.id === id)
+    if (!target) return
+    sessions.value = sessions.value.filter(item => item.id !== id)
+    dropConversationCache(target.messages)
     persist()
   }
 
@@ -1372,6 +1489,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     refreshCostEstimate,
     conversation,
     hasMessages,
+    sessionList,
     canSubmit,
     pollingTaskIds,
     jobs,
@@ -1382,6 +1500,9 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     retryMessage,
     editGeneratedImage,
     clearConversation,
+    newConversation,
+    switchConversation,
+    removeConversation,
     deleteMessages,
   }
 }

@@ -1,9 +1,13 @@
 const DATABASE_NAME = 'sub2api-media-studio'
-const DATABASE_VERSION = 2
+// 版本 3 新增作品库元数据与素材 store；升级时只补建缺失的 store，旧缓存不受影响。
+const DATABASE_VERSION = 3
 const STORE_NAME = 'generated-images'
 const VIDEO_STORE_NAME = 'generated-videos'
+// 作品库与会话缓存分开存放：清空会话只清 generated-*，作品库独立保留。
+export const GALLERY_ITEM_STORE_NAME = 'gallery-items'
+export const GALLERY_MEDIA_STORE_NAME = 'gallery-media'
 
-function openDatabase(): Promise<IDBDatabase | null> {
+export function openMediaStudioDatabase(): Promise<IDBDatabase | null> {
   if (typeof indexedDB === 'undefined') return Promise.resolve(null)
 
   return new Promise((resolve) => {
@@ -15,6 +19,13 @@ function openDatabase(): Promise<IDBDatabase | null> {
       }
       if (!database.objectStoreNames.contains(VIDEO_STORE_NAME)) {
         database.createObjectStore(VIDEO_STORE_NAME)
+      }
+      if (!database.objectStoreNames.contains(GALLERY_ITEM_STORE_NAME)) {
+        const store = database.createObjectStore(GALLERY_ITEM_STORE_NAME, { keyPath: 'id' })
+        store.createIndex('createdAt', 'createdAt', { unique: false })
+      }
+      if (!database.objectStoreNames.contains(GALLERY_MEDIA_STORE_NAME)) {
+        database.createObjectStore(GALLERY_MEDIA_STORE_NAME)
       }
     }
     request.onsuccess = () => resolve(request.result)
@@ -28,7 +39,7 @@ export function mediaStudioImageStorageKey(messageID: string, imageID: string): 
 }
 
 export async function storeMediaStudioImage(key: string, source: string): Promise<boolean> {
-  const database = await openDatabase()
+  const database = await openMediaStudioDatabase()
   if (!database || !key || !source) return false
 
   return new Promise((resolve) => {
@@ -50,7 +61,7 @@ export async function storeMediaStudioImage(key: string, source: string): Promis
 }
 
 export async function loadMediaStudioImage(key: string): Promise<string> {
-  const database = await openDatabase()
+  const database = await openMediaStudioDatabase()
   if (!database || !key) return ''
 
   return new Promise((resolve) => {
@@ -65,7 +76,7 @@ export async function loadMediaStudioImage(key: string): Promise<string> {
 }
 
 export async function clearMediaStudioImages(): Promise<void> {
-  const database = await openDatabase()
+  const database = await openMediaStudioDatabase()
   if (!database) return
 
   await new Promise<void>((resolve) => {
@@ -90,7 +101,7 @@ export async function deleteMediaStudioImages(keys: string[]): Promise<void> {
   const normalizedKeys = [...new Set(keys.filter(Boolean))]
   if (normalizedKeys.length === 0) return
 
-  const database = await openDatabase()
+  const database = await openMediaStudioDatabase()
   if (!database) return
 
   await new Promise<void>((resolve) => {
@@ -117,7 +128,7 @@ export function mediaStudioVideoStorageKey(messageID: string): string {
 }
 
 export async function storeMediaStudioVideo(key: string, blob: Blob): Promise<boolean> {
-  const database = await openDatabase()
+  const database = await openMediaStudioDatabase()
   if (!database || !key || !blob) return false
 
   return new Promise((resolve) => {
@@ -139,7 +150,7 @@ export async function storeMediaStudioVideo(key: string, blob: Blob): Promise<bo
 }
 
 export async function loadMediaStudioVideo(key: string): Promise<Blob | null> {
-  const database = await openDatabase()
+  const database = await openMediaStudioDatabase()
   if (!database || !key) return null
 
   return new Promise((resolve) => {
@@ -154,7 +165,7 @@ export async function loadMediaStudioVideo(key: string): Promise<Blob | null> {
 }
 
 export async function clearMediaStudioVideos(): Promise<void> {
-  const database = await openDatabase()
+  const database = await openMediaStudioDatabase()
   if (!database) return
 
   await new Promise<void>((resolve) => {
@@ -179,7 +190,7 @@ export async function deleteMediaStudioVideos(keys: string[]): Promise<void> {
   const normalizedKeys = [...new Set(keys.filter(Boolean))]
   if (normalizedKeys.length === 0) return
 
-  const database = await openDatabase()
+  const database = await openMediaStudioDatabase()
   if (!database) return
 
   await new Promise<void>((resolve) => {

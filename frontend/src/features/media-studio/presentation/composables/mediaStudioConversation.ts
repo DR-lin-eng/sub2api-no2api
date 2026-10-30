@@ -136,6 +136,9 @@ export interface MediaStudioConversation {
   updatedAt: number
 }
 
+// 会话历史只保留有限条数，避免 localStorage 被旧会话无限撑大。
+export const MEDIA_STUDIO_MAX_SESSIONS = 20
+
 export interface PersistedMediaStudioState {
   selectedGroupId?: number
   model?: string
@@ -150,7 +153,9 @@ export interface PersistedMediaStudioState {
   resolution?: MediaStudioVideoResolution
   videoAspectRatio?: MediaStudioVideoAspectRatio
   duration?: number
+  // 当前正在使用的会话；历史会话放在 sessions 中，两者按 id 去重。
   conversation?: MediaStudioConversation
+  sessions?: MediaStudioConversation[]
 }
 
 export function now(): number {
@@ -520,6 +525,39 @@ export function conversationForPersistence(value: MediaStudioConversation): Medi
       }),
     })),
   }
+}
+
+// 会话标题取自第一条用户提示词，视图层在为空时回退到本地化的“新对话”。
+export function conversationTitle(messages: MediaStudioMessage[]): string {
+  const prompt = messages.find(message => message.role === 'user' && message.prompt.trim())?.prompt ?? ''
+  const normalized = prompt.replace(/\s+/g, ' ').trim()
+  return normalized.length > 32 ? `${normalized.slice(0, 32)}…` : normalized
+}
+
+// 删除会话或清空对话时按消息维度回收 IndexedDB 素材，避免误删其它会话的缓存。
+export function conversationCacheKeys(messages: MediaStudioMessage[]): { imageKeys: string[]; videoKeys: string[] } {
+  const imageKeys: string[] = []
+  const videoKeys: string[] = []
+  for (const message of messages) {
+    for (const image of message.images ?? []) {
+      if (image.cacheKey) imageKeys.push(image.cacheKey)
+    }
+    for (const image of message.inputImages ?? []) {
+      if (image.cacheKey) imageKeys.push(image.cacheKey)
+    }
+    if (message.video?.cacheKey) videoKeys.push(message.video.cacheKey)
+  }
+  return { imageKeys, videoKeys }
+}
+
+export function restorePersistedSessions(value: unknown): MediaStudioConversation[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .flatMap((item) => {
+      const conversation = restorePersistedConversation(item)
+      return conversation ? [conversation] : []
+    })
+    .slice(0, MEDIA_STUDIO_MAX_SESSIONS)
 }
 
 export function normalizeCount(value: number): number {
