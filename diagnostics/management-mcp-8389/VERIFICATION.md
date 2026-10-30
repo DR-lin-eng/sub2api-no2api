@@ -1,7 +1,7 @@
 # Management MCP #8389 compatibility verification
 
 Base: `8119c146220aae5ca21abae54c14299aac0b04d9`
-Candidate: `8996f45cb509f29a39c2e6bd30fc824e1e09a360`
+Candidate: `d9f1932a1702c10cb789d50eb0a6ec07f4ab25f0`
 Upstream source: #8389 merge `7386bc6ae0659f192199067fc5060d2ad33622fe`
 
 The implementation uses the current module/application/infrastructure/transport owners. It keeps the existing root OAuth2 discovery endpoint unchanged, uses MCP-specific discovery under `/.well-known/oauth-authorization-server/api/v1/mcp`, and remains disabled until `MCP_PUBLIC_URL` is configured. Database migration `252_mcp_oauth.sql` is forward-only and does not modify the already published migration 249.
@@ -29,7 +29,7 @@ The first frontend owner run failed only because the new `mcp` locale was not in
 
 ## Security review
 
-Codex Security diff scan `0e421ad1-aef9-4e01-816c-88a95bd3d6d9` completed with complete coverage of the 86 changed review items and zero reportable findings. The final redaction review also removes free-form account error fields so provider error bodies cannot cross the MCP boundary. The prior scan `12017249-daa8-4315-bc63-673dc31989f6` covered the initial implementation; the final scan covers the authorization-boundary fixes and mandatory OAuth state. The review specifically covered OAuth/PKCE/state binding and replay, live role/TOTP/session authority, private fixed-schema dispatch, redaction, resource/rate limits, SQL races, SQL-trigger old-node mutation revocation, frontend consent, backend-mode routing and upgrade/rollback boundaries.
+Codex Security diff scan `4ea201cb-c248-4255-8aeb-b533c61a3ae4` completed with complete coverage of the 96 changed review items and zero reportable findings. The final redaction review also removes free-form account error fields so provider error bodies cannot cross the MCP boundary and requires OAuth state. The prior scan `12017249-daa8-4315-bc63-673dc31989f6` covered the initial implementation; the final scan covers the authorization-boundary fixes and mandatory OAuth state. The review specifically covered OAuth/PKCE/state binding and replay, live role/TOTP/session authority, private fixed-schema dispatch, redaction, resource/rate limits, SQL races, SQL-trigger old-node mutation revocation, frontend consent, backend-mode routing and upgrade/rollback boundaries.
 
 The only retained deployment assumption is that a reverse proxy normalizes the request `Host` header before the same-host Origin shortcut is used. MCP never authenticates with cookies and always requires a resource-bound bearer token; no repository-reachable bearer-token bypass was found.
 

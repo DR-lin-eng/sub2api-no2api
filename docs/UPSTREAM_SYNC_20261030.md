@@ -19,8 +19,8 @@
 该 PR 在上游新增 78 个文件、7,250 行代码；本项目按当前 owner 重新组织为 103 个文件，
 增加 MCP OAuth 存储迁移 252 和 Go SDK 依赖。无状态 Streamable HTTP 入口有 1 MiB 请求、
 2 MiB 结果、30 秒工具超时，拒绝 JSON-RPC 批量，并对工具参数使用封闭 schema；动态注册只签发
-带 HMAC 的 client ID，不把匿名注册写入数据库。Codex Security diff scan 覆盖 81 个变更项，
-0 个 reportable findings。
+带 HMAC 的 client ID，不把匿名注册写入数据库。Codex Security diff scan 覆盖 96 个变更项，0 个 reportable findings；最终又加固了 OAuth state
+和自由文本错误信息脱敏。
 
 每次工具调用仍会经过 Redis IP 限流、access credential 查询、grant 查询、用户状态查询，按分钟
 触发一次 grant 使用时间写入，再复制请求进入内部管理路由并进行 JSON 解码/编码。启动时还为用户/管理员
