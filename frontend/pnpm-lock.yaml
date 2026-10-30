@@ -19,6 +19,7 @@ overrides:
   postcss@<8.5.18: 8.5.23
   source-map-js@<1.2.2: 1.2.2
   dompurify@<3.4.14: '>=3.4.14'
+  decode-uri-component@<0.5.1: '>=0.5.1'
   tldts-core: 7.4.13
   rollup: 4.59.0
   ws@>=8.0.0 <8.21.0: 8.21.1

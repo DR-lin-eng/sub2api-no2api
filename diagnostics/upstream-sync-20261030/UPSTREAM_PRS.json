@@ -1,0 +1,32 @@
+{
+  "baseline": "ed0c9ee94eaf3b2e00cfb89677a1848bbba0f018",
+  "upstream_base": "a3298b46ebe239fb0720b068a1eb3383955bdac2",
+  "upstream_head": "d851a38477597157e78450d30af2d8504764d085",
+  "entries": [
+    {
+      "pr": 8389,
+      "head": "fb22c92126b4d4877ce67caf39eb40cb88501b12",
+      "merge_sha": "7386bc6ae0659f192199067fc5060d2ad33622fe",
+      "diff_sha256": "f9e3b9c479350043b272fb3b23cc025b684375c1d703f4430c8d53d78817b94b",
+      "status": "deferred",
+      "fully_closed": false,
+      "owner": "no current management-MCP/application port owner",
+      "decision": "Do not cherry-pick the old handler/service/repository tree. The PR adds 78 files and 7250 lines, migration 249 conflicts with this fork's existing migration 249, and the four-way MCP tool dispatch has no current OAuth/resource/permission contract in the transport-application-domain architecture.",
+      "reopen_when": "Define a current modules/application owner, allocate a migration above 307, specify MCP scope and audit contracts, then pass bounded-query, concurrent-tool, Docker benchmark, upgrade and rollback verification."
+    },
+    {
+      "commit": "d851a38477597157e78450d30af2d8504764d085",
+      "subject": "fix(frontend): upgrade vue-i18n to v11 and patch decode-uri-component",
+      "diff_sha256": "290f53a58dd0d066e8d3e5b2ab3d39099b388d0f3ec808536ba6123ee3520030",
+      "status": "ported",
+      "fully_closed": true,
+      "owner": "frontend/pnpm-workspace.yaml, frontend/pnpm-lock.yaml, frontend/vite.config.ts, features/subscriptions test",
+      "decision": "The local baseline already carries vue-i18n 11.4.16 and Node 24. Add the missing decode-uri-component lower-bound override, remove the obsolete JIT macro, and assert rendered messages under v11."
+    }
+  ],
+  "inherited_closed_ledger": "diagnostics/upstream-sync-20261029/UPSTREAM_PRS.json",
+  "inherited_deferred_items": [
+    "#8006 explicit Gemini cachedContents",
+    "#8319 resource-scoped admin keys"
+  ]
+}
