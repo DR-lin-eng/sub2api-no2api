@@ -52,25 +52,21 @@ func (s *OpenAIGatewayService) openAIWSHTTPBridgeThresholdBytes() int64 {
 	return s.cfg.Gateway.OpenAIWS.HTTPBridgeThresholdBytes
 }
 
-func (s *OpenAIGatewayService) shouldBridgeOpenAIWSHTTP(account *Account, payloadBytes int, previousResponseID string) bool {
+func (s *OpenAIGatewayService) shouldBridgeOpenAIWSHTTP(account *Account, payload []byte, previousResponseID string) bool {
 	if account != nil && account.Platform == PlatformGrok {
 		return true
-	}
-	if !s.openAIWSHTTPBridgeEnabled() {
-		return false
 	}
 	if strings.TrimSpace(previousResponseID) != "" {
 		return false
 	}
-	threshold := s.openAIWSHTTPBridgeThresholdBytes()
-	return threshold > 0 && int64(payloadBytes) >= threshold
+	return s.shouldRouteOpenAIWSHTTPPayload(payload) && openAIWSHTTPFullInputBody(payload)
 }
 
 func (s *OpenAIGatewayService) shouldBridgeOpenAIWSPassthroughFirstMessage(account *Account, payload []byte) bool {
 	if account != nil && account.Platform == PlatformGrok {
 		return true
 	}
-	if !s.openAIWSHTTPBridgeEnabled() || int64(len(payload)) < s.openAIWSHTTPBridgeThresholdBytes() {
+	if !s.shouldRouteOpenAIWSHTTPPayload(payload) {
 		return false
 	}
 	if !json.Valid(payload) {
@@ -137,7 +133,7 @@ func (s *OpenAIGatewayService) shouldBridgeOpenAIWSPassthroughFirstMessage(accou
 			i++
 		}
 	}
-	return eventType == "response.create" && previousResponseID == ""
+	return eventType == "response.create" && previousResponseID == "" && openAIWSHTTPFullInputBody(payload)
 }
 
 func skipOpenAIWSJSONSpace(payload []byte, i int) int {

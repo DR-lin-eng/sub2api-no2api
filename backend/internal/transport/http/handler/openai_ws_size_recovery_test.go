@@ -3,10 +3,14 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/png"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -17,6 +21,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	middleware2 "github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/klauspost/compress/zstd"
@@ -32,7 +37,9 @@ func TestOpenAIResponsesWSSizeHTTPRecovery(t *testing.T) {
 		keepalive   bool
 		prewarmFail bool
 		pairedTools bool
-		hostedTool  bool
+		hostedTool  string
+		imageWidth  int
+		imageCount  int
 		store       bool
 		incremental bool
 		afterOutput bool
@@ -54,7 +61,15 @@ func TestOpenAIResponsesWSSizeHTTPRecovery(t *testing.T) {
 		{name: "paired tool history", pairedTools: true, text: strings.Repeat("tool result ", 131072), wantWS: 1, wantHTTP: 1, wantStatus: 200},
 		{name: "HTTP failure stays bounded", httpStatus: 502, wantWS: 1, wantHTTP: 1, wantStatus: 502},
 		{name: "context window error stays 400", httpStatus: 400, wantWS: 1, wantHTTP: 1, wantStatus: 400},
-		{name: "hosted tools are not replayed", hostedTool: true, wantWS: 1, wantHTTP: 0, wantStatus: 502},
+		{name: "hosted tools are not replayed", hostedTool: "mcp", wantWS: 1, wantHTTP: 0, wantStatus: 502},
+		{name: "large hosted tool request preflight", hostedTool: "mcp", text: strings.Repeat("x", 16*1024*1024), wantHTTP: 1, wantStatus: 200},
+		{name: "multi image JSON preflight below threshold", imageWidth: 512, imageCount: 3, wantHTTP: 1, wantStatus: 200},
+		{name: "multi image stream preflight below threshold", imageWidth: 512, imageCount: 3, stream: true, wantHTTP: 1, wantStatus: 200},
+		{name: "multi image hosted image generation preflight", imageWidth: 512, imageCount: 3, hostedTool: "image_generation", wantHTTP: 1, wantStatus: 200},
+		{name: "multi image hosted search preflight", imageWidth: 512, imageCount: 3, hostedTool: "web_search", stream: true, wantHTTP: 1, wantStatus: 200},
+		{name: "multi image hosted MCP preflight", imageWidth: 512, imageCount: 3, hostedTool: "mcp", wantHTTP: 1, wantStatus: 200},
+		{name: "multi image above 16MiB preflight", imageWidth: 1024, imageCount: 3, hostedTool: "image_generation", stream: true, wantHTTP: 1, wantStatus: 200},
+		{name: "multi image explicit storage preflight", imageWidth: 512, imageCount: 3, store: true, wantHTTP: 1, wantStatus: 200},
 		{name: "explicit store is not replayed", store: true, wantWS: 1, wantHTTP: 0, wantStatus: 502},
 		{name: "incremental state is not replayed", incremental: true, wantWS: 0, wantHTTP: 0, wantStatus: 400},
 		{name: "delivered output is not replayed", stream: true, afterOutput: true, wantWS: 1, wantHTTP: 0, wantStatus: 200},
@@ -65,6 +80,23 @@ func TestOpenAIResponsesWSSizeHTTPRecovery(t *testing.T) {
 				text = "original user history"
 			}
 			input := []map[string]any{{"type": "message", "role": "user", "content": text}}
+			var imageURLs []string
+			if tc.imageCount > 0 {
+				content := []map[string]any{{"type": "input_text", "text": text}}
+				for i := 0; i < tc.imageCount; i++ {
+					pixels := image.NewNRGBA(image.Rect(0, 0, tc.imageWidth, tc.imageWidth))
+					for j := range pixels.Pix {
+						pixels.Pix[j] = byte(j*31 + i*17)
+					}
+					var encoded bytes.Buffer
+					encoder := png.Encoder{CompressionLevel: png.NoCompression}
+					require.NoError(t, encoder.Encode(&encoded, pixels))
+					imageURL := "data:image/png;base64," + base64.StdEncoding.EncodeToString(encoded.Bytes())
+					imageURLs = append(imageURLs, imageURL)
+					content = append(content, map[string]any{"type": "input_image", "image_url": imageURL, "detail": "high"})
+				}
+				input[0]["content"] = content
+			}
 			if tc.pairedTools {
 				input = append(input,
 					map[string]any{"type": "function_call", "call_id": "call_read", "name": "read", "arguments": `{"offset":9007199254740993}`},
@@ -75,14 +107,24 @@ func TestOpenAIResponsesWSSizeHTTPRecovery(t *testing.T) {
 			if tc.pairedTools {
 				request["tools"] = []map[string]any{{"type": "function", "name": "read", "parameters": map[string]any{"type": "object"}}}
 			}
-			if tc.hostedTool {
-				request["tools"] = []map[string]any{{"type": "mcp", "server_label": "fixture", "server_url": "https://example.invalid/mcp"}}
+			if tc.hostedTool != "" {
+				tool := map[string]any{"type": tc.hostedTool}
+				if tc.hostedTool == "mcp" {
+					tool["server_label"] = "fixture"
+					tool["server_url"] = "https://example.invalid/mcp"
+				}
+				request["tools"] = []map[string]any{tool}
 			}
 			if tc.incremental {
 				request["previous_response_id"] = "resp_client_owned"
 			}
 			payload, err := json.Marshal(request)
 			require.NoError(t, err)
+			if tc.imageWidth == 512 {
+				require.Less(t, len(payload), 15*1024*1024)
+			} else if tc.imageWidth == 1024 {
+				require.Greater(t, len(payload), 16*1024*1024)
+			}
 			var mu sync.Mutex
 			wsCalls, httpCalls := 0, 0
 			var httpBody []byte
@@ -176,6 +218,10 @@ func TestOpenAIResponsesWSSizeHTTPRecovery(t *testing.T) {
 				for key, value := range fixture.Keys {
 					c.Set(key, value)
 				}
+				if tc.hostedTool == "image_generation" {
+					apiKey, _ := middleware2.GetAPIKeyFromContext(c)
+					apiKey.Group.AllowImageGeneration = true
+				}
 				if tc.keepalive {
 					body, readErr := io.ReadAll(c.Request.Body)
 					if readErr != nil {
@@ -222,7 +268,21 @@ func TestOpenAIResponsesWSSizeHTTPRecovery(t *testing.T) {
 				require.False(t, gjson.GetBytes(sentBody, "previous_response_id").Exists(), "prewarm ID must never cross to HTTP")
 				require.False(t, gjson.GetBytes(sentBody, "type").Exists())
 				require.Equal(t, "user", gjson.GetBytes(sentBody, "input.0.role").String(), "prewarm must not mutate the replayed user role")
-				require.Equal(t, fmt.Sprintf("%x", sha256.Sum256([]byte(text))), fmt.Sprintf("%x", sha256.Sum256([]byte(gjson.GetBytes(sentBody, "input.0.content").String()))))
+				textPath := "input.0.content"
+				if len(imageURLs) > 0 {
+					textPath += ".0.text"
+					require.Equal(t, len(imageURLs)+1, int(gjson.GetBytes(sentBody, "input.0.content.#").Int()))
+					for i, imageURL := range imageURLs {
+						path := fmt.Sprintf("input.0.content.%d", i+1)
+						require.Equal(t, "input_image", gjson.GetBytes(sentBody, path+".type").String())
+						require.Equal(t, "high", gjson.GetBytes(sentBody, path+".detail").String())
+						require.Equal(t, sha256.Sum256([]byte(imageURL)), sha256.Sum256([]byte(gjson.GetBytes(sentBody, path+".image_url").String())))
+					}
+				}
+				require.Equal(t, sha256.Sum256([]byte(text)), sha256.Sum256([]byte(gjson.GetBytes(sentBody, textPath).String())))
+				if tc.hostedTool != "" {
+					require.Equal(t, tc.hostedTool, gjson.GetBytes(sentBody, "tools.0.type").String())
+				}
 				if tc.pairedTools {
 					require.NotEmpty(t, gjson.GetBytes(sentBody, "input.1.call_id").String())
 					require.Equal(t, gjson.GetBytes(sentBody, "input.1.call_id").String(), gjson.GetBytes(sentBody, "input.2.call_id").String())

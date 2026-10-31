@@ -27,7 +27,7 @@
     "driver.js": "^1.4.0",
     "file-saver": "^2.0.5",
     "marked": "^17.0.1",
-    "node-forge": "1.4.0",
+    "node-forge": "1.4.1",
     "pinia": "^2.1.7",
     "qrcode": "^1.5.4",
     "tldts": "7.4.13",
