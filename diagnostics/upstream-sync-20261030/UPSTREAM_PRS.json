@@ -12,7 +12,18 @@
       "fully_closed": true,
       "owner": "modules/managementmcp, application/service/mcp_oauth*, infrastructure/repository/mcp_oauth*, transport/http/managementmcp and features/mcp",
       "decision": "The previous defer was superseded by a compatible implementation. Migration 252 preserves existing migration 249, MCP uses a path-specific OAuth issuer, current management ownership/permissions/audit/step-up are retained, and the security diff scan found zero reportable findings.",
-      "reopen_when": "MCP tool catalog, OAuth authority, redaction keys, resource limits, migration trigger coverage or reverse-proxy Origin/Host assumptions change."
+      "reopen_when": "MCP tool catalog, OAuth authority, redaction keys, resource limits, migration trigger coverage or reverse-proxy Origin/Host assumptions change.",
+      "implementation": {
+        "pull_request": "https://github.com/DR-lin-eng/sub2api-no2api/pull/171",
+        "merge_sha": "e63c17e77e60cb7ad9ce9ae85a8e1542994a0451",
+        "tested_head": "2262c5fa29e4705698e268b11948459bf129886a"
+      },
+      "git_history_closure": {
+        "upstream_parent": "d851a38477597157e78450d30af2d8504764d085",
+        "strategy": "ours",
+        "preserved_downstream_base": "c2d69233381bec516f88131a12b3ae0c1d98bdaf",
+        "verification": "The upstream PR merge and frozen boundary must both be ancestors of main; a fully_closed ledger flag alone does not remove GitHub sync differences."
+      }
     },
     {
       "commit": "d851a38477597157e78450d30af2d8504764d085",

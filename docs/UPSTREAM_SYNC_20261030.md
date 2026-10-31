@@ -14,6 +14,30 @@
 明确暂缓的 #8389 已由本轮兼容实现 supersede；后续仅在 MCP owner、OAuth/MCP 权限契约、
 脱敏策略、资源限制或 migration 252 兼容边界变化时重开。
 
+### GitHub 同步差异关闭补记（2026-10-31）
+
+本项目 [PR #171](https://github.com/DR-lin-eng/sub2api-no2api/pull/171) 已将 MCP 适配合入
+`e63c17e77e60cb7ad9ce9ae85a8e1542994a0451`，但先前只更新了代码和台账，没有将上游
+合并提交纳入本项目的 Git 祖先。GitHub 仍将 #8389 的 9 个提交列为未同步；加上已适配的
+`d851a384` 依赖修复，冻结范围共剩 10 个提交。
+
+本次从 main `c2d69233381bec516f88131a12b3ae0c1d98bdaf` 对冻结边界
+`d851a38477597157e78450d30af2d8504764d085` 补做 `ours` 合并，保留当前源码和运行配置，
+将已审查范围登记为 Git 祖先。合并前暂存树与 main 完全一致；最终变更仅补充两份台账和本页。
+批次台账与 [MCP 专项台账](../diagnostics/management-mcp-8389/UPSTREAM_PRS.json) 同时记录
+实现 PR、上游 parent、保留的 main 基线和验收条件。以后关闭同步差异必须同时核对台账及 Git 祖先，
+不能只依赖 `fully_closed` 标记。#8389 之后未经审查的新上游提交仍按新的冻结范围处理。
+
+合并后验收：以下两次祖先检查须成功，最后一条命令须无输出；GitHub 对该冻结边界的 compare
+应返回 `behind_by: 0`。
+
+```sh
+git fetch origin main
+git merge-base --is-ancestor 7386bc6ae0659f192199067fc5060d2ad33622fe origin/main
+git merge-base --is-ancestor d851a38477597157e78450d30af2d8504764d085 origin/main
+git log --oneline origin/main..d851a38477597157e78450d30af2d8504764d085
+```
+
 ## #8389 的安全、性能和升级审查
 
 该 PR 在上游新增 78 个文件、7,250 行代码；本项目按当前 owner 重新组织为 103 个文件，
