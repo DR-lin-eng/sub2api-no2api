@@ -75,6 +75,22 @@ diff 检查通过。镜像报告 `Sub2API 0.1.230 (commit: 8119c14-multi-image)`
 仓库 source-layout 检查仍有两个基线问题：`payment_fulfillment_test.go` 1201 行和
 `pricing_service.go` 1218 行超过 1200 行上限；已核对 HEAD 中的行数相同，本次未修改这两个文件。
 
+## 合并候选的依赖安全补丁
+
+修复已移到最新主线 `e63c17e77e60cb7ad9ce9ae85a8e1542994a0451`，对应
+[PR #172](https://github.com/DR-lin-eng/sub2api-no2api/pull/172)。PR 检查发现前端生产依赖
+存在 2026-10-31 新纳入扫描的六条高危公告，已按 GitHub advisory 的首个修复版本升级：
+
+| 依赖 | 原版本 | 修复版本 | 公告 |
+| --- | --- | --- | --- |
+| follow-redirects | 1.16.1 | 1.16.2 | GHSA-mrwp-f3q8-3g9p |
+| node-forge | 1.4.0 | 1.4.1 | GHSA-7wch-p9px-956x、GHSA-jc66-7q78-782g、GHSA-8hrf-8g6f-7xwp、GHSA-hqq3-7jhf-c5jx、GHSA-5x38-2vff-x55p |
+
+`pnpm-workspace.yaml` 的 follow-redirects override 与 node-forge 直接依赖同步更新，
+锁文件只调整这两项依赖及对应引用。Docker 使用 Node 24/pnpm 11.17.0 的 frozen-lockfile
+安装通过；`pnpm audit --prod --audit-level=high --json` 返回所有级别漏洞均为 0，
+同一份审计结果通过仓库 `check_pnpm_audit_exceptions.py` 检查。
+
 ## 边界
 
 这是使用模拟上游的本地 Docker 验证，没有调用用户账号 823，也未验证线上真实断联率。
