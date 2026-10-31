@@ -53,13 +53,16 @@ func TestOpenAIWSHTTPBridgeDecisionKeepsSmallFramesOnWS(t *testing.T) {
 		},
 	}
 
-	require.False(t, svc.shouldBridgeOpenAIWSHTTP(nil, 99, ""))
-	require.True(t, svc.shouldBridgeOpenAIWSHTTP(nil, 100, ""))
-	require.False(t, svc.shouldBridgeOpenAIWSHTTP(nil, 1000, "resp_existing"))
+	payloadWithSize := func(size int) []byte {
+		return []byte(`{"input":"` + strings.Repeat("x", size-len(`{"input":""}`)) + `"}`)
+	}
+	require.False(t, svc.shouldBridgeOpenAIWSHTTP(nil, payloadWithSize(99), ""))
+	require.True(t, svc.shouldBridgeOpenAIWSHTTP(nil, payloadWithSize(100), ""))
+	require.False(t, svc.shouldBridgeOpenAIWSHTTP(nil, payloadWithSize(1000), "resp_existing"))
 
 	svc.cfg.Gateway.OpenAIWS.HTTPBridgeEnabled = false
-	require.False(t, svc.shouldBridgeOpenAIWSHTTP(nil, 1000, ""))
-	require.True(t, svc.shouldBridgeOpenAIWSHTTP(&Account{Platform: PlatformGrok}, 1, "resp_existing"))
+	require.False(t, svc.shouldBridgeOpenAIWSHTTP(nil, payloadWithSize(1000), ""))
+	require.True(t, svc.shouldBridgeOpenAIWSHTTP(&Account{Platform: PlatformGrok}, []byte(`{}`), "resp_existing"))
 }
 
 func TestOpenAIWSPassthroughFirstMessageBridgeDecision(t *testing.T) {

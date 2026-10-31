@@ -14,7 +14,7 @@ const openAIWSHTTPRecoveryAccountKey = "openai_ws_http_recovery_account"
 
 // HTTP recovery uses the immutable body, not the WS payload. The prewarm
 // path rewrites nested roles and adds a connection-local previous_response_id.
-func (s *OpenAIGatewayService) openAIWSHTTPRecoveryAllowed(ctx context.Context, c *gin.Context, account *Account, body, canonicalBody []byte) bool {
+func (s *OpenAIGatewayService) openAIWSHTTPTransportAllowed(ctx context.Context, c *gin.Context, account *Account) bool {
 	if !s.openAIWSHTTPBridgeEnabled() || account == nil || !account.IsOpenAI() || account.IsOpenAIAgentIdentity() ||
 		(ctx != nil && ctx.Err() != nil) || c == nil || c.Request == nil || c.Request.Context().Err() != nil ||
 		GetOpenAIClientTransport(c) == OpenAIClientTransportWS ||
@@ -22,20 +22,38 @@ func (s *OpenAIGatewayService) openAIWSHTTPRecoveryAllowed(ctx context.Context, 
 		IsResponseCommitted(c) || openAIStreamClientOutputStarted(c, false) {
 		return false
 	}
-	return openAIWSHTTPReplaySafeBody(body) && openAIWSHTTPReplaySafeBody(canonicalBody)
+	return true
+}
+
+func (s *OpenAIGatewayService) openAIWSHTTPRoutingAllowed(ctx context.Context, c *gin.Context, account *Account, body, canonicalBody []byte) bool {
+	return s.openAIWSHTTPTransportAllowed(ctx, c, account) &&
+		openAIWSHTTPFullInputBody(body) && openAIWSHTTPFullInputBody(canonicalBody)
+}
+
+func (s *OpenAIGatewayService) openAIWSHTTPRecoveryAllowed(ctx context.Context, c *gin.Context, account *Account, body, canonicalBody []byte) bool {
+	return s.openAIWSHTTPTransportAllowed(ctx, c, account) &&
+		openAIWSHTTPReplaySafeBody(body) && openAIWSHTTPReplaySafeBody(canonicalBody)
+}
+
+// Choosing HTTP before a WS send cannot duplicate hosted tools or stored
+// responses. Only continuation state can prevent this initial transport choice.
+func openAIWSHTTPFullInputBody(body []byte) bool {
+	if !gjson.ValidBytes(body) || !gjson.ParseBytes(body).IsObject() ||
+		!openAIWSHTTPUnambiguousFields(gjson.ParseBytes(body), "store", "background", "conversation", "previous_response_id", "input", "tools") {
+		return false
+	}
+	classification := classifyCodexContinuationBody(body)
+	return classification.parseErr == nil && classification.kind == codexContinuationFull
 }
 
 func openAIWSHTTPReplaySafeBody(body []byte) bool {
-	if !gjson.ValidBytes(body) || !gjson.ParseBytes(body).IsObject() ||
-		!openAIWSHTTPUnambiguousFields(gjson.ParseBytes(body), "store", "background", "conversation", "previous_response_id", "input", "tools") ||
+	if !openAIWSHTTPFullInputBody(body) ||
 		(gjson.GetBytes(body, "store").Exists() && gjson.GetBytes(body, "store").Type != gjson.False) ||
 		(gjson.GetBytes(body, "background").Exists() && gjson.GetBytes(body, "background").Type != gjson.False) ||
 		gjson.GetBytes(body, "conversation").Exists() {
 		return false
 	}
-	classification := classifyCodexContinuationBody(body)
-	if classification.parseErr != nil || classification.kind != codexContinuationFull ||
-		!openAIWSHTTPReplaySafeTools(gjson.GetBytes(body, "tools")) {
+	if !openAIWSHTTPReplaySafeTools(gjson.GetBytes(body, "tools")) {
 		return false
 	}
 	// Responses Lite can carry hosted tools inside input.additional_tools.
@@ -112,10 +130,52 @@ func (s *OpenAIGatewayService) shouldBypassOpenAIWSForSize(ctx context.Context, 
 		id, _ := value.(int64)
 		requestAlreadyFellBack = id == account.ID
 	}
-	if !requestAlreadyFellBack && int64(len(body)) < s.openAIWSHTTPBridgeThresholdBytes() {
-		return false
+	if requestAlreadyFellBack {
+		return s.openAIWSHTTPRecoveryAllowed(ctx, c, account, body, canonicalBody)
 	}
-	return s.openAIWSHTTPRecoveryAllowed(ctx, c, account, body, canonicalBody)
+	return s.shouldRouteOpenAIWSHTTPPayload(body) && s.openAIWSHTTPRoutingAllowed(ctx, c, account, body, canonicalBody)
+}
+
+func (s *OpenAIGatewayService) shouldRouteOpenAIWSHTTPPayload(payload []byte) bool {
+	return s.openAIWSHTTPBridgeEnabled() &&
+		(int64(len(payload)) >= s.openAIWSHTTPBridgeThresholdBytes() || openAIWSHasInlineImageInput(payload))
+}
+
+// Inline image bytes can exceed the upstream's WS limit independently of token
+// count or the configured text threshold. Inspect only structured input parts;
+// text, tool declarations and remote URLs must not trigger this route.
+func openAIWSHasInlineImageInput(payload []byte) bool {
+	var hasImage func(gjson.Result, int) bool
+	hasImage = func(value gjson.Result, depth int) bool {
+		if depth > 8 {
+			return false
+		}
+		if value.IsArray() {
+			found := false
+			value.ForEach(func(_, item gjson.Result) bool {
+				found = hasImage(item, depth+1)
+				return !found
+			})
+			return found
+		}
+		if !value.IsObject() {
+			return false
+		}
+		switch value.Get("type").String() {
+		case "input_image", "image_url":
+			imageURL := value.Get("image_url")
+			if imageURL.IsObject() {
+				imageURL = imageURL.Get("url")
+			}
+			url := strings.TrimSpace(imageURL.String())
+			const prefix = "data:image/"
+			if len(url) >= len(prefix) && strings.EqualFold(url[:len(prefix)], prefix) {
+				return true
+			}
+		}
+		return hasImage(value.Get("content"), depth+1) || hasImage(value.Get("output"), depth+1)
+	}
+	return hasImage(gjson.GetBytes(payload, "input"), 0)
 }
 
 func (s *OpenAIGatewayService) prepareOpenAIWSHTTPFallback(ctx context.Context, c *gin.Context, account *Account, wsErr error, body, canonicalBody []byte) bool {

@@ -1,0 +1,62 @@
+{
+  "baseline": "8119c146220aae5ca21abae54c14299aac0b04d9",
+  "docker_image": "sub2api:multi-image-20261031",
+  "test_command": "go test -json -tags=unit ./internal/application/service/... ./internal/transport/http/... -count=1",
+  "tests_including_subtests": {
+    "pass": 16433,
+    "fail": 0,
+    "skip": 4
+  },
+  "packages": [
+    {
+      "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/quotaview",
+      "Action": "pass",
+      "Elapsed": 0.108
+    },
+    {
+      "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/supportchatasset",
+      "Action": "pass",
+      "Elapsed": 0.116
+    },
+    {
+      "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto",
+      "Action": "pass",
+      "Elapsed": 0.176
+    },
+    {
+      "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware",
+      "Action": "pass",
+      "Elapsed": 0.345
+    },
+    {
+      "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin",
+      "Action": "pass",
+      "Elapsed": 0.592
+    },
+    {
+      "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/server",
+      "Action": "pass",
+      "Elapsed": 1.815
+    },
+    {
+      "Package": "github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2",
+      "Action": "pass",
+      "Elapsed": 3.102
+    },
+    {
+      "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes",
+      "Action": "pass",
+      "Elapsed": 7.602
+    },
+    {
+      "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler",
+      "Action": "pass",
+      "Elapsed": 60.843
+    },
+    {
+      "Package": "github.com/Wei-Shaw/sub2api/internal/application/service",
+      "Action": "pass",
+      "Elapsed": 228.092
+    }
+  ]
+}
