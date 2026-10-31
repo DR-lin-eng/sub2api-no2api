@@ -69,7 +69,7 @@ func GetMultimodalVideoTaskAccount(c *gin.Context, apiKey *service.APIKey, reque
 	if c == nil || apiKey == nil || apiKey.GroupID == nil {
 		return 0, false
 	}
-	value, ok := c.Get(multimodalVideoOwnerResultKey)
+	value, _ := c.Get(multimodalVideoOwnerResultKey)
 	owner, ok := value.(multimodalVideoOwnerResult)
 	if !ok || owner.requestID != requestID || owner.userID != apiKey.UserID ||
 		owner.apiKeyID != apiKey.ID || owner.groupID != *apiKey.GroupID {

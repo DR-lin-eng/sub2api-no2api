@@ -199,15 +199,6 @@ func readMultimodalSSEFrames(reader io.Reader, limit int64, consume func([]byte)
 	}
 }
 
-func aggregateMultimodalImageSSE(body []byte) ([]byte, bool) {
-	collector := newMultimodalImageSSECollector()
-	if err := readMultimodalSSEFrames(bytes.NewReader(body), defaultUpstreamResponseReadMaxBytes, collector.addFrame); err != nil {
-		return nil, false
-	}
-	encoded, err := collector.response()
-	return encoded, err == nil
-}
-
 func (s *OpenAIGatewayService) readMultimodalImageSSE(ctx context.Context, c *gin.Context, resp *http.Response, request GrokMediaRequestInfo, stream bool, startTime time.Time) ([]byte, multimodalMediaUsageMetadata, *int, error) {
 	collector := newMultimodalImageSSECollector()
 	var approved multimodalMediaUsageMetadata
