@@ -14,7 +14,7 @@
 | 最终前端 typecheck / ESLint | Node 24、pnpm 11.17.0 Docker 中通过 |
 | 项目关键前端与媒体工坊测试 | 37 files / 318 tests 通过；范围修正后的媒体工坊六文件 38 tests 通过 |
 | 模板字段性能 | 每请求解析 1872 ns、1721 B、28 allocs；快照预编译 62.38 ns、0 B、0 allocs |
-| 生产 Dockerfile | 前端与完整镜像构建通过；纯源码拆分后的最终镜像/CI 结果另行补录 |
+| 生产 Dockerfile | 最终候选 `69672f443` 镜像构建通过；`-version` 显示对应提交，运行资源检查通过 |
 | 同库升级/回退/恢复 | 迁移数 `308 → 313 → 313 → 313`；业务摘要全程不变，新增 JSON 列默认空对象，未新增历史/作品库表 |
 | 浏览器 UI | 普通用户工作区、作品库、中文本地缓存提示正常；1280×720 和 390×844 均无横向溢出 |
 | 文档/差异检查 | `make check-docs`、`git diff --check` 通过 |
@@ -35,6 +35,8 @@
 Codex Security 原始差异扫描：`e9581c2e-d83a-40f6-b528-7bc40b52e9ef`，已完成。它记录冻结 PR
 的缺陷，不将适配分支描述成原始 PR 无问题。原始复现与报告保存在扫描的托管 artifact 目录中。
 
+后续仅测试 helper 移位、无效赋值修正后的 SSE/归属定向回归通过（service 0.224s、middleware 0.029s）。本次验收专用的应用、PostgreSQL、Redis 容器及网络已清理。
+
 ## CI 与发布
 
-审查分支推送和最终主线 CI 跟踪中，合并前补齐状态。
+整合 PR 为 [#174](https://github.com/DR-lin-eng/sub2api-no2api/pull/174)，运行时代码候选为 `69672f443`。合并门禁包括 CI、Security Scan 和 Docker Image；检查状态以该 PR 的精确 HEAD 检查为准。合并后继续核对主线同一合并提交的工作流，不以旧提交或分支状态代替。

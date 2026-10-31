@@ -3,7 +3,7 @@
   "source_base": "ed0c9ee94eaf3b2e00cfb89677a1848bbba0f018",
   "source_head": "2a3257d4741bbd5c48510bc80f20b587c380e60a",
   "integration_base": "36dc317c779b75d476bc9cb5796f9c6206a7b17e",
-  "status": "reviewed-adapted-and-closed; final CI pending",
+  "status": "reviewed-adapted-and-closed",
   "scope_exclusions": [
     "PR-specific asynchronous image enhancements; existing main behavior preserved",
     "Server-side historical works/gallery/reference archive"
@@ -1347,6 +1347,18 @@
       "source_change": "M",
       "disposition": "adapted-and-closed",
       "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    }
+  ],
+  "integration_pr": "https://github.com/DR-lin-eng/sub2api-no2api/pull/174",
+  "runtime_candidate": "69672f4437465720c1e7ead56ebcea287d3f6450",
+  "partial_hunk_exclusions": [
+    {
+      "owner": "frontend/src/features/media-studio/data/datasources/mediaStudioDatasource.ts",
+      "decision": "submitAsyncImageGeneration and getAsyncImageTask byte-for-byte match main; no submitAsyncImageEdit"
+    },
+    {
+      "owner": "frontend/src/features/media-studio/presentation/composables/useMediaStudioController.ts",
+      "decision": "Keep main synchronous default and injected existing poll flow; no added async-image resume, dedup or fallback"
     }
   ]
 }
