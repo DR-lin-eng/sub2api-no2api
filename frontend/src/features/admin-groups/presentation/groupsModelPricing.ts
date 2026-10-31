@@ -130,7 +130,12 @@ export const groupPricingToAPI = (
       cache_read_price: mTokToPerToken(entry.cache_read_price),
       image_input_price: mTokToPerToken(entry.image_input_price),
       image_output_price: mTokToPerToken(entry.image_output_price),
-      per_request_price: toNullableNumber(entry.per_request_price),
+      // multimodal 逐模型定价没有“默认价”，非 token 模式只能按档位计价；
+      // 这里强制清空条目级默认价，避免保存出隐式兜底。
+      per_request_price:
+        platform === "multimodal" && entry.billing_mode !== "token"
+          ? null
+          : toNullableNumber(entry.per_request_price),
       intervals:
         entry.billing_mode === "token"
           ? []

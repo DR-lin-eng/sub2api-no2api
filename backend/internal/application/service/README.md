@@ -18,6 +18,7 @@
 | `gemini*`, `grok*`, `antigravity*`, `bedrock*` | 各上游协议适配与重试 |
 | `scheduler*`, `channel*`, `ratelimit*`, `concurrency*` | 调度、通道和并发控制 |
 | `billing*`, `usage*`, `pricing*`, `subscription*` | 计费、用量和订阅 |
+| `media_studio*`, `model_attribute*`, `multimodal_media*`, `video_balance_hold*` | 媒体配置/预估、编译模板属性、有界媒体协议与视频冻结编排；浏览器历史不入服务端存储 |
 | `payment*`, `batch_image*` | 支付应用编排与批量图片任务 |
 | `ops*`, `audit*`, `content_moderation*` | 运维、审计和内容策略 |
 | `setting*`, `notification*`, `backup*` | 配置、通知和维护用例 |

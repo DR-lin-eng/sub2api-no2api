@@ -30,6 +30,7 @@ func videoPriceConfigFromAPIKey(apiKey *APIKey) *VideoPriceConfig {
 		return nil
 	}
 	return &VideoPriceConfig{
+		Platform:   apiKey.Group.Platform,
 		Price480P:  apiKey.Group.VideoPrice480P,
 		Price720P:  apiKey.Group.VideoPrice720P,
 		Price1080P: apiKey.Group.VideoPrice1080P,

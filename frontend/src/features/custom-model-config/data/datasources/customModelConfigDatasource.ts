@@ -25,6 +25,19 @@ function toEntity(dto: CustomModelConfigDto): CustomModelConfig {
     template_id: dto.template_id ?? null,
     template_name: dto.template_name ?? '',
     video_api_type: dto.video_api_type ?? null,
+    media_limits: dto.media_limits ?? {},
+    created_at: dto.created_at,
+    updated_at: dto.updated_at,
+  };
+}
+
+function toTemplateEntity(dto: CustomModelRequestTemplateDto): CustomModelRequestTemplate {
+  return {
+    id: dto.id,
+    name: dto.name,
+    description: dto.description,
+    request_adapter: dto.request_adapter ?? {},
+    attributes: dto.attributes ?? {},
     created_at: dto.created_at,
     updated_at: dto.updated_at,
   };
@@ -79,19 +92,12 @@ export const customModelConfigDatasource = {
 
   async getTemplates(): Promise<CustomModelRequestTemplate[]> {
     const response = await apiClient.get<CustomModelRequestTemplateDto[]>(`${BASE_URL}/templates`);
-    return response.data.map((item) => ({
-      id: item.id,
-      name: item.name,
-      description: item.description,
-      request_adapter: item.request_adapter ?? {},
-      created_at: item.created_at,
-      updated_at: item.updated_at,
-    }));
+    return response.data.map(toTemplateEntity);
   },
 
   async createTemplate(request: CreateCustomModelRequestTemplateRequest): Promise<CustomModelRequestTemplate> {
     const response = await apiClient.post<CustomModelRequestTemplateDto>(`${BASE_URL}/templates`, request);
-    return response.data as CustomModelRequestTemplate;
+    return toTemplateEntity(response.data);
   },
 
   async updateTemplate(
@@ -99,7 +105,7 @@ export const customModelConfigDatasource = {
     request: UpdateCustomModelRequestTemplateRequest
   ): Promise<CustomModelRequestTemplate> {
     const response = await apiClient.put<CustomModelRequestTemplateDto>(`${BASE_URL}/templates/${id}`, request);
-    return response.data as CustomModelRequestTemplate;
+    return toTemplateEntity(response.data);
   },
 
   async deleteTemplate(id: number): Promise<void> {

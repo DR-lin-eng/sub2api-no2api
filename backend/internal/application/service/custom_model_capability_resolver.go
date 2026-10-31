@@ -3,10 +3,13 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/tidwall/gjson"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
 )
@@ -37,6 +40,9 @@ type CustomModelCapabilityResolver interface {
 	HasCapability(ctx context.Context, modelName, capability string) (bool, error)
 	ResolveVideoAPIType(ctx context.Context, modelName string) (string, bool, error)
 	ResolveRequestAdapter(ctx context.Context, modelName string) (map[string]any, bool, error)
+	ResolveModelAttributes(ctx context.Context, modelName string) (map[string]any, bool, error)
+	ResolveMediaLimits(ctx context.Context, modelName string) (map[string]any, bool, error)
+	ValidateVideoRequest(ctx context.Context, modelName string, body []byte) error
 }
 
 type CustomModelConfig struct {
@@ -47,6 +53,7 @@ type CustomModelConfig struct {
 	VideoAPIType string
 	TemplateID   *int64
 	TemplateName string
+	MediaLimits  map[string]any
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
@@ -56,6 +63,7 @@ type CustomModelRequestTemplate struct {
 	Name           string
 	Description    string
 	RequestAdapter map[string]any
+	Attributes     map[string]any
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }
@@ -72,26 +80,31 @@ type CreateCustomModelConfigInput struct {
 	Capabilities []string
 	VideoAPIType string
 	TemplateID   *int64
+	MediaLimits  map[string]any
 }
 
 type UpdateCustomModelConfigInput struct {
-	PrefixMatch   *bool
-	Capabilities  *[]string
-	VideoAPIType  *string
-	TemplateID    *int64
-	TemplateIDSet bool
+	PrefixMatch    *bool
+	Capabilities   *[]string
+	VideoAPIType   *string
+	TemplateID     *int64
+	TemplateIDSet  bool
+	MediaLimits    map[string]any
+	MediaLimitsSet bool
 }
 
 type CreateCustomModelRequestTemplateInput struct {
 	Name           string
 	Description    string
 	RequestAdapter map[string]any
+	Attributes     map[string]any
 }
 
 type UpdateCustomModelRequestTemplateInput struct {
 	Name           *string
 	Description    *string
 	RequestAdapter *map[string]any
+	Attributes     *map[string]any
 }
 
 type CustomModelConfigRepository interface {
@@ -109,11 +122,12 @@ type CustomModelConfigRepository interface {
 }
 
 type compiledCustomModelRuntime struct {
-	enabled   bool
-	configs   []CustomModelConfig
-	exact     map[string]*CustomModelConfig
-	prefixes  []*CustomModelConfig
-	templates map[int64]CustomModelRequestTemplate
+	enabled    bool
+	configs    []CustomModelConfig
+	exact      map[string]*CustomModelConfig
+	prefixes   []*CustomModelConfig
+	templates  map[int64]CustomModelRequestTemplate
+	attributes map[int64]map[string]compiledModelAttributeFields
 }
 
 type CustomModelConfigService struct {
@@ -164,6 +178,11 @@ func (s *CustomModelConfigService) Create(
 	if err != nil {
 		return nil, err
 	}
+	mediaLimits, err := normalizeCustomModelMediaLimits(input.MediaLimits)
+	if err != nil {
+		return nil, err
+	}
+	input.MediaLimits = mediaLimits
 	if input.TemplateID != nil {
 		if *input.TemplateID <= 0 {
 			return nil, ErrCustomModelConfigInvalid
@@ -216,6 +235,16 @@ func (s *CustomModelConfigService) Update(
 	}
 	input.Capabilities = &capabilities
 	input.VideoAPIType = &videoAPIType
+	mediaLimits := current.MediaLimits
+	if input.MediaLimitsSet {
+		mediaLimits = input.MediaLimits
+	}
+	mediaLimits, err = normalizeCustomModelMediaLimits(mediaLimits)
+	if err != nil {
+		return nil, err
+	}
+	input.MediaLimits = mediaLimits
+	input.MediaLimitsSet = true
 	if input.TemplateIDSet && input.TemplateID != nil {
 		if *input.TemplateID <= 0 {
 			return nil, ErrCustomModelConfigInvalid
@@ -258,6 +287,11 @@ func (s *CustomModelConfigService) CreateTemplate(
 	if err := validateCustomModelRequestAdapter(input.RequestAdapter); err != nil {
 		return nil, err
 	}
+	attributes, err := normalizeModelAttributes(input.Attributes)
+	if err != nil {
+		return nil, err
+	}
+	input.Attributes = attributes
 	items, err := s.repo.ListTemplates(ctx)
 	if err != nil {
 		return nil, err
@@ -300,6 +334,13 @@ func (s *CustomModelConfigService) UpdateTemplate(
 		if err := validateCustomModelRequestAdapter(*input.RequestAdapter); err != nil {
 			return nil, err
 		}
+	}
+	if input.Attributes != nil {
+		normalized, err := normalizeModelAttributes(*input.Attributes)
+		if err != nil {
+			return nil, err
+		}
+		input.Attributes = &normalized
 	}
 	if input.Name != nil {
 		items, err := s.repo.ListTemplates(ctx)
@@ -377,6 +418,148 @@ func (s *CustomModelConfigService) ResolveRequestAdapter(
 	return template.RequestAdapter, true, nil
 }
 
+func (s *CustomModelConfigService) ResolveModelAttributes(
+	ctx context.Context,
+	modelName string,
+) (map[string]any, bool, error) {
+	runtime, err := s.runtime(ctx)
+	if err != nil || runtime == nil || !runtime.enabled {
+		return nil, false, err
+	}
+	config := runtime.match(modelName)
+	if config == nil || config.TemplateID == nil {
+		return nil, false, nil
+	}
+	template, ok := runtime.templates[*config.TemplateID]
+	if !ok || len(template.Attributes) == 0 {
+		return nil, false, nil
+	}
+	// Runtime snapshots are immutable after compilation; callers only read this map.
+	return template.Attributes, true, nil
+}
+
+func (s *CustomModelConfigService) ResolveMediaLimits(
+	ctx context.Context,
+	modelName string,
+) (map[string]any, bool, error) {
+	config, enabled, err := s.resolveConfig(ctx, modelName)
+	if err != nil || !enabled || config == nil || len(config.MediaLimits) == 0 {
+		return nil, false, err
+	}
+	// Runtime snapshots are immutable after compilation; callers only read this map.
+	return config.MediaLimits, true, nil
+}
+
+// ValidateVideoRequest 按模型级媒体限制校验视频生成请求体。
+// 未配置限制时直接通过；duration 为负数（上游自动时长）时不参与区间校验。
+func (s *CustomModelConfigService) ValidateVideoRequest(
+	ctx context.Context,
+	modelName string,
+	body []byte,
+) error {
+	limits, configured, err := s.ResolveMediaLimits(ctx, modelName)
+	if err != nil || !configured {
+		return err
+	}
+	allowUpload, _ := limits["allow_upload"].(bool)
+	counts := mediaStudioVideoFileCounts(body)
+	for _, kind := range []string{"image", "video", "audio"} {
+		count := counts[kind]
+		if count == 0 {
+			continue
+		}
+		if !allowUpload {
+			return infraerrors.BadRequest(
+				"CUSTOM_MODEL_MEDIA_LIMIT_EXCEEDED",
+				fmt.Sprintf("model %s does not allow uploading %s files", modelName, kind),
+			)
+		}
+		if allowed, declared := mediaStudioLimitFileType(limits, kind); declared && !allowed {
+			return infraerrors.BadRequest(
+				"CUSTOM_MODEL_MEDIA_LIMIT_EXCEEDED",
+				fmt.Sprintf("model %s does not accept %s files", modelName, kind),
+			)
+		}
+		if maxFiles, ok := mediaStudioLimitCount(limits, "max_files", kind); ok {
+			if maxFiles <= 0 {
+				return infraerrors.BadRequest(
+					"CUSTOM_MODEL_MEDIA_LIMIT_EXCEEDED",
+					fmt.Sprintf("model %s does not accept %s files", modelName, kind),
+				)
+			}
+			if count > maxFiles {
+				return infraerrors.BadRequest(
+					"CUSTOM_MODEL_MEDIA_LIMIT_EXCEEDED",
+					fmt.Sprintf("model %s allows at most %d %s file(s), got %d", modelName, maxFiles, kind, count),
+				)
+			}
+		}
+	}
+	minDuration, maxDuration, hasDuration := customModelMediaDurationRange(limits)
+	if !hasDuration {
+		return nil
+	}
+	seconds := gjson.GetBytes(body, "duration").Int()
+	if seconds > 0 && (seconds < int64(minDuration) || seconds > int64(maxDuration)) {
+		return infraerrors.BadRequest(
+			"CUSTOM_MODEL_MEDIA_LIMIT_EXCEEDED",
+			fmt.Sprintf(
+				"model %s allows duration between %d and %d seconds, got %d",
+				modelName, minDuration, maxDuration, seconds,
+			),
+		)
+	}
+	return nil
+}
+
+// mediaStudioVideoFileCounts 统计请求体里各类参考文件的数量。
+// 同时兼容数组写法（images/videos/audios）与单值写法（image/video/audio/first_frame）。
+func mediaStudioVideoFileCounts(body []byte) map[string]int {
+	counts := map[string]int{}
+	add := func(path, kind string) {
+		value := gjson.GetBytes(body, path)
+		if !value.Exists() {
+			return
+		}
+		if value.IsArray() {
+			value.ForEach(func(_, item gjson.Result) bool {
+				if strings.TrimSpace(item.String()) != "" {
+					counts[kind]++
+				}
+				return true
+			})
+			return
+		}
+		if strings.TrimSpace(value.String()) != "" {
+			counts[kind]++
+		}
+	}
+	add("images", "image")
+	add("image", "image")
+	add("first_frame", "image")
+	add("videos", "video")
+	add("video", "video")
+	add("audios", "audio")
+	add("audio", "audio")
+	return counts
+}
+
+func customModelMediaDurationRange(limits map[string]any) (int, int, bool) {
+	raw, ok := limits["duration"].(map[string]any)
+	if !ok {
+		if typed, ok := limits["duration"].(map[string]int); ok {
+			return typed["min"], typed["max"], true
+		}
+		return 0, 0, false
+	}
+	minValue, minOK := customModelJSONInt(raw["min"])
+	maxValue, maxOK := customModelJSONInt(raw["max"])
+	if !minOK || !maxOK {
+		return 0, 0, false
+	}
+	return minValue, maxValue, true
+}
+
 func (s *CustomModelConfigService) resolveConfig(
 	ctx context.Context,
 	modelName string,
@@ -449,6 +632,7 @@ func (r *compiledCustomModelRuntime) match(modelName string) *CustomModelConfig 
 func compileCustomModelRuntime(snapshot *CustomModelRuntimeSnapshot) *compiledCustomModelRuntime {
 	runtime := &compiledCustomModelRuntime{
 		exact: map[string]*CustomModelConfig{}, templates: map[int64]CustomModelRequestTemplate{},
+		attributes: map[int64]map[string]compiledModelAttributeFields{},
 	}
 	if snapshot == nil {
 		return runtime
@@ -456,7 +640,14 @@ func compileCustomModelRuntime(snapshot *CustomModelRuntimeSnapshot) *compiledCu
 	runtime.enabled = snapshot.Enabled
 	for id, template := range snapshot.Templates {
 		template.RequestAdapter = cloneCustomModelJSONMap(template.RequestAdapter)
+		template.Attributes = cloneCustomModelJSONMap(template.Attributes)
 		runtime.templates[id] = template
+		modalities := make(map[string]compiledModelAttributeFields, len(template.Attributes))
+		for modality := range template.Attributes {
+			fields, err := modelAttributeFields(template.Attributes, modality)
+			modalities[modality] = compiledModelAttributeFields{fields: fields, err: err}
+		}
+		runtime.attributes[id] = modalities
 	}
 	for _, config := range snapshot.Configs {
 		config = cloneCustomModelConfig(config)
@@ -505,10 +696,209 @@ func normalizeCustomModelConfig(modelName string, capabilities []string, videoAP
 	videoAPIType = strings.ToLower(strings.TrimSpace(videoAPIType))
 	if _, hasVideo := seen["video"]; !hasVideo {
 		videoAPIType = ""
-	} else if videoAPIType != "" && videoAPIType != "grok" && videoAPIType != "agnes" {
+	} else if videoAPIType != "" && videoAPIType != "grok" && videoAPIType != "agnes" && videoAPIType != "multimodal" {
 		return "", nil, "", ErrCustomModelConfigInvalid
 	}
 	return modelName, normalized, videoAPIType, nil
+}
+
+const (
+	customModelMediaMaxFiles        = 32
+	customModelMediaMaxFileSizeMB   = 256
+	customModelMediaMaxDurationSecs = 600
+)
+
+// normalizeCustomModelMediaLimits 归一化模型级媒体限制。
+// 空对象表示不做限制；非空时总是带上 allow_upload，其余键按需保留。
+func normalizeCustomModelMediaLimits(raw map[string]any) (map[string]any, error) {
+	if len(raw) == 0 {
+		return map[string]any{}, nil
+	}
+	for key := range raw {
+		switch key {
+		case "allow_upload", "file_types", "max_files", "max_file_size_mb", "duration":
+		default:
+			return nil, ErrCustomModelConfigInvalid
+		}
+	}
+
+	normalized := map[string]any{}
+	allowUpload := false
+	if value, ok := raw["allow_upload"]; ok && value != nil {
+		flag, ok := value.(bool)
+		if !ok {
+			return nil, ErrCustomModelConfigInvalid
+		}
+		allowUpload = flag
+	}
+	normalized["allow_upload"] = allowUpload
+
+	fileTypes, err := normalizeCustomModelMediaFileTypes(raw["file_types"])
+	if err != nil {
+		return nil, err
+	}
+	if len(fileTypes) > 0 {
+		normalized["file_types"] = fileTypes
+	}
+
+	maxFiles, err := normalizeCustomModelMediaCountMap(raw["max_files"], 0, customModelMediaMaxFiles)
+	if err != nil {
+		return nil, err
+	}
+	if len(maxFiles) > 0 {
+		normalized["max_files"] = maxFiles
+	}
+
+	maxFileSize, err := normalizeCustomModelMediaCountMap(raw["max_file_size_mb"], 1, customModelMediaMaxFileSizeMB)
+	if err != nil {
+		return nil, err
+	}
+	if len(maxFileSize) > 0 {
+		normalized["max_file_size_mb"] = maxFileSize
+	}
+
+	duration, err := normalizeCustomModelMediaDuration(raw["duration"])
+	if err != nil {
+		return nil, err
+	}
+	if len(duration) > 0 {
+		normalized["duration"] = duration
+	}
+
+	return normalized, nil
+}
+
+func normalizeCustomModelMediaFileTypes(value any) ([]string, error) {
+	if value == nil {
+		return nil, nil
+	}
+	var items []string
+	switch typed := value.(type) {
+	case []string:
+		items = typed
+	case []any:
+		items = make([]string, 0, len(typed))
+		for _, item := range typed {
+			text, ok := item.(string)
+			if !ok {
+				return nil, ErrCustomModelConfigInvalid
+			}
+			items = append(items, text)
+		}
+	default:
+		return nil, ErrCustomModelConfigInvalid
+	}
+
+	seen := make(map[string]struct{}, len(items))
+	result := make([]string, 0, len(items))
+	for _, item := range items {
+		item = strings.ToLower(strings.TrimSpace(item))
+		switch item {
+		case "image", "video", "audio":
+		default:
+			return nil, ErrCustomModelConfigInvalid
+		}
+		if _, ok := seen[item]; ok {
+			continue
+		}
+		seen[item] = struct{}{}
+		result = append(result, item)
+	}
+	return result, nil
+}
+
+func normalizeCustomModelMediaCountMap(value any, minValue, maxValue int) (map[string]int, error) {
+	if value == nil {
+		return nil, nil
+	}
+	raw := map[string]any{}
+	switch typed := value.(type) {
+	case map[string]any:
+		raw = typed
+	case map[string]int:
+		for key, item := range typed {
+			raw[key] = item
+		}
+	default:
+		return nil, ErrCustomModelConfigInvalid
+	}
+
+	result := make(map[string]int, len(raw))
+	for key, item := range raw {
+		key = strings.ToLower(strings.TrimSpace(key))
+		switch key {
+		case "image", "video", "audio":
+		default:
+			return nil, ErrCustomModelConfigInvalid
+		}
+		number, ok := customModelJSONInt(item)
+		if !ok || number < minValue || number > maxValue {
+			return nil, ErrCustomModelConfigInvalid
+		}
+		result[key] = number
+	}
+	if len(result) == 0 {
+		return nil, nil
+	}
+	return result, nil
+}
+
+func normalizeCustomModelMediaDuration(value any) (map[string]int, error) {
+	if value == nil {
+		return nil, nil
+	}
+	raw := map[string]any{}
+	switch typed := value.(type) {
+	case map[string]any:
+		raw = typed
+	case map[string]int:
+		for key, item := range typed {
+			raw[key] = item
+		}
+	default:
+		return nil, ErrCustomModelConfigInvalid
+	}
+
+	minValue, hasMin := customModelJSONInt(raw["min"])
+	maxValue, hasMax := customModelJSONInt(raw["max"])
+	if !hasMin || !hasMax {
+		return nil, ErrCustomModelConfigInvalid
+	}
+	if minValue < 1 || maxValue < minValue || maxValue > customModelMediaMaxDurationSecs {
+		return nil, ErrCustomModelConfigInvalid
+	}
+	return map[string]int{"min": minValue, "max": maxValue}, nil
+}
+
+func customModelJSONInt(value any) (int, bool) {
+	switch typed := value.(type) {
+	case int:
+		return typed, true
+	case int32:
+		return int(typed), true
+	case int64:
+		return int(typed), true
+	case float32:
+		converted := int(typed)
+		if float32(converted) != typed {
+			return 0, false
+		}
+		return converted, true
+	case float64:
+		converted := int(typed)
+		if float64(converted) != typed {
+			return 0, false
+		}
+		return converted, true
+	case json.Number:
+		parsed, err := typed.Int64()
+		if err != nil {
+			return 0, false
+		}
+		return int(parsed), true
+	default:
+		return 0, false
+	}
 }
 
 func hasCustomModelCapability(capabilities []string, capability string) bool {
@@ -523,6 +913,7 @@ func hasCustomModelCapability(capabilities []string, capability string) bool {
 
 func cloneCustomModelConfig(config CustomModelConfig) CustomModelConfig {
 	config.Capabilities = append([]string(nil), config.Capabilities...)
+	config.MediaLimits = cloneCustomModelJSONMap(config.MediaLimits)
 	if config.TemplateID != nil {
 		id := *config.TemplateID
 		config.TemplateID = &id

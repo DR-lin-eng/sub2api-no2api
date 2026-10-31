@@ -1,6 +1,6 @@
 <template>
   <section
-    class="relative flex min-h-[calc(100vh-7rem)] flex-col bg-transparent"
+    class="relative flex min-h-[calc(100vh-10.5rem)] flex-col bg-transparent"
     @dragenter.prevent="handlePageDragEnter"
     @dragover.prevent="handlePageDragOver"
     @dragleave.prevent="handlePageDragLeave"
@@ -12,28 +12,18 @@
     >
       <div class="rounded-2xl border border-primary-300 bg-white/95 px-5 py-4 text-sm font-medium text-primary-700 shadow-xl dark:border-primary-500/40 dark:bg-dark-900/95 dark:text-primary-200">
         <Icon name="upload" size="sm" class="mr-2 inline-block" />
-        {{ t('mediaStudio.composer.imageEdit.attachHint') }}
+        {{ t('mediaStudio.composer.upload.dropHint') }}
       </div>
     </div>
-    <div v-if="hasMessages" class="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-1 pb-4">
-      <div>
-        <h1 class="text-lg font-semibold tracking-tight text-gray-950 dark:text-white">{{ t('mediaStudio.title') }}</h1>
-        <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ t('mediaStudio.session.localHint') }}</p>
-      </div>
-      <button type="button" class="session-action" @click="emit('clear')">
-        <Icon name="trash" size="sm" />
-        {{ t('mediaStudio.session.clear') }}
-      </button>
-    </div>
-
     <div
       v-if="hasMessages"
       class="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-5 overflow-hidden px-1 pb-5"
     >
       <article
         v-for="message in conversation.messages"
+        :id="`media-studio-message-${message.id}`"
         :key="message.id"
-        class="group flex"
+        class="group flex scroll-mt-24"
         :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
       >
         <div
@@ -73,6 +63,34 @@
               loading="lazy"
             />
           </div>
+          <div v-if="message.role === 'user' && message.inputReferences?.length" class="mt-3 flex flex-wrap gap-2">
+            <div
+              v-for="reference in message.inputReferences"
+              :key="reference.id"
+              class="h-16 w-16 overflow-hidden rounded-xl border border-black/10 bg-gray-50 dark:border-white/15 dark:bg-dark-800"
+              :title="reference.name"
+            >
+              <img
+                v-if="reference.kind === 'image'"
+                :src="reference.src"
+                :alt="reference.name"
+                class="h-full w-full object-cover"
+                loading="lazy"
+              />
+              <video
+                v-else-if="reference.kind === 'video'"
+                :src="reference.src"
+                class="h-full w-full object-cover"
+                muted
+                playsinline
+                preload="metadata"
+              ></video>
+              <div v-else class="flex h-full w-full flex-col items-center justify-center gap-1 px-1 text-center">
+                <Icon name="play" size="sm" class="text-gray-400" />
+                <span class="line-clamp-2 text-[10px] leading-tight text-gray-500 dark:text-gray-400">{{ reference.name }}</span>
+              </div>
+            </div>
+          </div>
 
           <div v-if="message.role === 'assistant'" class="mt-3">
             <div class="mb-3 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
@@ -84,20 +102,36 @@
               </template>
               <template v-else>
                 <span class="meta-pill">{{ message.resolution || resolution }}</span>
+                <span class="meta-pill">{{ message.aspectRatio || videoAspectRatio }}</span>
                 <span class="meta-pill">{{ t('mediaStudio.composer.durationValue', { count: message.duration || duration }) }}</span>
               </template>
-              <span v-if="message.taskId" class="meta-pill font-mono">{{ message.taskId }}</span>
+              <span v-if="message.taskId && message.status !== 'completed'" class="meta-pill font-mono">{{ message.taskId }}</span>
+              <span
+                v-if="message.cost !== undefined && message.status !== 'failed'"
+                class="meta-pill"
+              >
+                {{
+                  t(message.status === 'completed' ? 'mediaStudio.session.cost' : 'mediaStudio.session.costHeld', {
+                    amount: formatCost(message.cost, message.currency),
+                  })
+                }}
+              </span>
+              <span v-if="message.status === 'completed' && formatElapsed(message)" class="meta-pill">
+                {{ t('mediaStudio.session.elapsed', { time: formatElapsed(message) }) }}
+              </span>
             </div>
 
             <div
               v-if="message.mode === 'image' && (message.status === 'processing' || message.status === 'queued')"
-              class="grid gap-3 sm:grid-cols-2"
+              class="grid gap-3"
+              :class="imageGridClass(message)"
             >
               <button
                 v-for="image in message.images || []"
                 :key="image.id"
                 type="button"
-                class="group cursor-zoom-in overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 text-left dark:border-dark-700 dark:bg-dark-800"
+                class="group mx-auto w-full cursor-zoom-in overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 text-left dark:border-dark-700 dark:bg-dark-800"
+                :style="imageFrameStyle(message)"
                 :aria-label="t('mediaStudio.session.enlargeImage')"
                 @click="openImagePreview(image)"
               >
@@ -105,34 +139,47 @@
                   :src="image.src"
                   :alt="image.revisedPrompt || message.prompt"
                   referrerpolicy="no-referrer"
-                  class="aspect-square w-full object-cover transition duration-200 group-hover:scale-[1.02]"
+                  class="w-full object-cover transition duration-200 group-hover:scale-[1.02]"
+                  :style="imageFrameStyle(message)"
                 />
               </button>
               <div
                 v-for="index in Math.max((message.count || 1) - (message.images?.length || 0), 0)"
                 :key="`pending-${index}`"
-                class="animate-pulse rounded-2xl border border-gray-200 bg-gray-100 aspect-square dark:border-dark-700 dark:bg-dark-800"
-              ></div>
+                class="generating-frame mx-auto w-full"
+                :style="imageFrameStyle(message)"
+              >
+                <div class="generating-glow"></div>
+              </div>
             </div>
 
             <div
               v-else-if="message.status === 'processing' || message.status === 'queued'"
-              class="grid gap-3"
-              :class="message.mode === 'image' ? 'sm:grid-cols-2' : ''"
+              class="flex justify-center"
             >
-              <div
-                v-for="index in (message.mode === 'image' ? (message.count || 1) : 1)"
-                :key="index"
-                class="animate-pulse rounded-2xl border border-gray-200 bg-gray-100 dark:border-dark-700 dark:bg-dark-800"
-                :class="message.mode === 'image' ? 'aspect-square' : 'aspect-video'"
-              ></div>
+              <div class="generating-frame relative w-full" :style="videoFrameStyle(message)">
+                <div class="generating-glow"></div>
+                <div class="absolute inset-x-4 bottom-4 z-10">
+                  <div class="h-2 overflow-hidden rounded-full bg-white/50 dark:bg-dark-700">
+                    <div
+                      class="generating-progress h-full rounded-full transition-[width] duration-500"
+                      :style="{ width: `${videoProgress(message)}%` }"
+                    ></div>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div v-else-if="message.status === 'completed' && message.mode === 'image' && message.images?.length" class="grid gap-3 sm:grid-cols-2">
+            <div
+              v-else-if="message.status === 'completed' && message.mode === 'image' && message.images?.length"
+              class="grid gap-3"
+              :class="imageGridClass(message)"
+            >
               <div
                 v-for="image in message.images"
                 :key="image.id"
-                class="image-preview-card group relative overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 dark:border-dark-700 dark:bg-dark-800"
+                class="image-preview-card group relative mx-auto w-full overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 dark:border-dark-700 dark:bg-dark-800"
+                :style="imageFrameStyle(message)"
               >
                 <button
                   type="button"
@@ -144,7 +191,8 @@
                     :src="image.src"
                     :alt="image.revisedPrompt || message.prompt"
                     referrerpolicy="no-referrer"
-                    class="aspect-square w-full object-cover transition duration-200 group-hover:scale-[1.02]"
+                    class="w-full object-cover transition duration-200 group-hover:scale-[1.02]"
+                    :style="imageFrameStyle(message)"
                   />
                 </button>
                 <button
@@ -158,11 +206,15 @@
               </div>
             </div>
 
-            <div v-else-if="message.status === 'completed' && message.mode === 'video' && message.video" class="overflow-hidden rounded-2xl border border-gray-200 bg-black dark:border-dark-700">
+            <div
+              v-else-if="message.status === 'completed' && message.mode === 'video' && message.video?.src"
+              class="mx-auto flex w-full justify-center overflow-hidden rounded-2xl border border-gray-200 bg-black dark:border-dark-700"
+              :style="videoFrameStyle(message)"
+            >
               <video
                 :src="message.video.src"
                 :type="message.video.mimeType"
-                class="aspect-video w-full"
+                class="h-full w-full object-contain"
                 controls
                 playsinline
                 preload="metadata"
@@ -175,7 +227,7 @@
             >
               <div class="flex items-start gap-2">
                 <Icon name="exclamationCircle" size="sm" class="mt-0.5 flex-shrink-0" />
-                <p class="min-w-0 flex-1">{{ message.error || t('mediaStudio.session.failed') }}</p>
+                <p class="min-w-0 flex-1">{{ errorMessageText(message) }}</p>
                 <button type="button" class="text-xs font-semibold underline underline-offset-4" @click="emit('retry', message)">
                   {{ t('mediaStudio.session.retry') }}
                 </button>
@@ -198,13 +250,22 @@
       :class="hasMessages ? 'sticky bottom-0 mt-auto bg-gradient-to-t from-gray-50 via-gray-50/95 to-transparent pb-1 pt-5 dark:from-dark-950 dark:via-dark-950/95' : 'flex flex-1 items-center'"
     >
       <div class="w-full">
+        <div v-if="jobBarJobs.length" class="mx-auto mb-2 w-full max-w-5xl">
+          <MediaStudioJobBar
+            :jobs="jobBarJobs"
+            @retry="retryJob"
+            @dismiss="messageId => emit('delete', [messageId])"
+            @focus="focusJob"
+          />
+        </div>
+
         <h2 v-if="!hasMessages" class="mb-8 text-center text-3xl font-semibold tracking-tight text-gray-950 dark:text-white">
           {{ t('mediaStudio.composer.greeting') }}
         </h2>
 
-        <div v-if="hasMessages" class="mx-auto mb-2 flex max-w-4xl items-center justify-end gap-2">
-          <template v-if="selectionMode">
-            <span class="mr-auto text-xs text-gray-500 dark:text-gray-400">
+        <div v-if="hasMessages && selectionMode" class="mx-auto mb-2 flex max-w-5xl items-center gap-2">
+          <div class="ml-auto flex items-center gap-2">
+            <span class="text-xs text-gray-500 dark:text-gray-400">
               {{ t('mediaStudio.session.selectedCount', { count: selectedMessageIDs.length }) }}
             </span>
             <button type="button" class="session-action" @click="toggleSelectAll">
@@ -223,10 +284,10 @@
             <button type="button" class="icon-action" :aria-label="t('mediaStudio.session.cancelSelect')" @click="exitSelectionMode">
               <Icon name="x" size="sm" />
             </button>
-          </template>
+          </div>
         </div>
 
-        <div class="relative mx-auto max-w-4xl">
+        <div class="relative mx-auto max-w-5xl">
           <div
             v-if="typeMenuOpen"
             ref="typeMenuRef"
@@ -268,17 +329,75 @@
                 class="group relative aspect-square overflow-hidden rounded-xl border border-gray-200 bg-gray-50 dark:border-dark-700 dark:bg-dark-800"
               >
                 <img :src="attachment.previewUrl" :alt="attachment.name" class="h-full w-full object-cover" />
+                <span class="pointer-events-none absolute left-1 top-1 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] font-medium leading-none text-white">
+                  {{ t('mediaStudio.composer.attachmentType.image') }}
+                </span>
                 <button
                   type="button"
                   class="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100"
                   :title="t('mediaStudio.composer.imageEdit.remove')"
-                  @click="removeAttachment(attachment.id)"
+                  @click="emit('removeImageAttachment', attachment.id)"
                 >
                   <Icon name="x" size="xs" />
                 </button>
               </div>
             </div>
-            <p v-if="attachmentError" class="mt-2 text-xs text-red-600 dark:text-red-300">{{ attachmentError }}</p>
+            <div v-if="selectedModeId === 'video' && referenceAttachments.length > 0" class="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-5">
+              <div
+                v-for="attachment in referenceAttachments"
+                :key="attachment.id"
+                class="group relative aspect-square overflow-hidden rounded-xl border border-gray-200 bg-gray-50 dark:border-dark-700 dark:bg-dark-800"
+              >
+                <img
+                  v-if="attachment.kind === 'image'"
+                  :src="attachment.previewUrl"
+                  :alt="attachment.name"
+                  class="h-full w-full object-cover"
+                />
+                <video
+                  v-else-if="attachment.kind === 'video'"
+                  :src="attachment.previewUrl"
+                  class="h-full w-full object-cover"
+                  muted
+                  playsinline
+                ></video>
+                <div v-else class="flex h-full w-full flex-col items-center justify-center gap-1 px-2 text-center">
+                  <Icon name="play" size="sm" class="text-gray-400" />
+                  <span class="line-clamp-2 text-[10px] leading-tight text-gray-500 dark:text-gray-400">{{ attachment.name }}</span>
+                </div>
+
+                <div v-if="attachment.status === 'uploading'" class="absolute inset-0 flex items-center justify-center bg-black/50 text-white">
+                  <Icon name="refresh" size="sm" class="animate-spin" />
+                </div>
+                <div
+                  v-else-if="attachment.status === 'failed'"
+                  class="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/60 px-1 text-center"
+                  :title="attachment.error"
+                >
+                  <Icon name="exclamationCircle" size="sm" class="text-red-300" />
+                  <button
+                    type="button"
+                    class="text-[10px] font-medium text-white underline underline-offset-2"
+                    @click="emit('retryReferenceUpload', attachment.id)"
+                  >
+                    {{ t('mediaStudio.composer.upload.retry') }}
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  class="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100"
+                  :title="t('mediaStudio.composer.imageEdit.remove')"
+                  @click="emit('removeReferenceAttachment', attachment.id)"
+                >
+                  <Icon name="x" size="xs" />
+                </button>
+                <span class="pointer-events-none absolute left-1 top-1 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] font-medium leading-none text-white">
+                  {{ attachmentTypeLabel(attachment.kind) }}
+                </span>
+              </div>
+            </div>
+            <p v-if="attachmentErrorText" class="mt-2 text-xs text-red-600 dark:text-red-300">{{ attachmentErrorText }}</p>
 
             <div v-if="groupLoadError || modelLoadError || submitError" class="mb-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
               {{ submitError || groupLoadError || modelLoadError }}
@@ -288,25 +407,29 @@
               <input
                 ref="fileInput"
                 type="file"
-                accept="image/*"
+                :accept="uploadAccept"
                 multiple
                 class="hidden"
                 @change="handleFileInput"
               />
 
-              <div v-if="selectedModeId === 'image'" class="relative">
+              <div class="relative">
                 <button
                   type="button"
-                  class="icon-action"
-                  :aria-label="t('mediaStudio.composer.imageEdit.attachHint')"
-                  :title="t('mediaStudio.composer.imageEdit.attachHint')"
+                  class="icon-action disabled:cursor-not-allowed disabled:opacity-40"
+                  :aria-label="uploadHint"
+                  :title="uploadHint"
+                  :disabled="!canUpload"
                   @click="fileInput?.click()"
                 >
                   <Icon name="upload" size="sm" />
                 </button>
 
-                <span class="absolute -right-2 -top-2 inline-flex min-w-5 items-center justify-center rounded-full border border-primary-200 bg-white px-1.5 py-0.5 text-[10px] font-medium leading-none text-primary-700 shadow dark:border-primary-400/40 dark:bg-dark-900 dark:text-primary-300">
-                  {{ imageAttachments.length }}/{{ MEDIA_STUDIO_MAX_IMAGE_ATTACHMENTS }}
+                <span
+                  v-if="uploadBadge"
+                  class="absolute -right-2 -top-2 inline-flex min-w-5 items-center justify-center rounded-full border border-primary-200 bg-white px-1.5 py-0.5 text-[10px] font-medium leading-none text-primary-700 shadow dark:border-primary-400/40 dark:bg-dark-900 dark:text-primary-300"
+                >
+                  {{ uploadBadge }}
                 </span>
               </div>
 
@@ -315,168 +438,328 @@
                 ref="typeMenuTriggerRef"
                 class="composer-chip bg-gray-100 text-gray-900 dark:bg-dark-800 dark:text-white"
                 :aria-expanded="typeMenuOpen"
-                @click="typeMenuOpen = !typeMenuOpen"
+                @click="toggleTypeMenu"
               >
                 <Icon :name="selectedMode.iconName" size="sm" />
                 <span>{{ t(`mediaStudio.modeItems.${selectedMode.id}.title`) }}</span>
                 <Icon :name="typeMenuOpen ? 'chevronUp' : 'chevronDown'" size="xs" class="text-gray-400" />
               </button>
 
-              <button
-                type="button"
-                ref="settingsMenuTriggerRef"
-                class="composer-chip bg-gray-100 text-gray-900 dark:bg-dark-800 dark:text-white"
-                :aria-expanded="settingsMenuOpen"
-                @click="toggleSettingsMenu"
+              <!-- 模型是最关键的选择：二级菜单先选分组，再选该分组下的模型。 -->
+              <div class="relative">
+                <button
+                  type="button"
+                  ref="modelMenuTriggerRef"
+                  class="composer-chip composer-chip--param"
+                  :aria-expanded="modelMenuOpen"
+                  @click="toggleModelMenu"
+                >
+                  <span class="composer-chip__key">{{ t('mediaStudio.composer.model') }}</span>
+                  <span class="composer-chip__value max-w-[12rem] truncate">{{ model || t('mediaStudio.composer.selectModel') }}</span>
+                  <Icon :name="modelMenuOpen ? 'chevronUp' : 'chevronDown'" size="xs" class="text-gray-400" />
+                </button>
+
+                <div
+                  v-if="modelMenuOpen"
+                  ref="modelMenuRef"
+                  class="absolute bottom-12 left-0 z-30 w-72 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl shadow-gray-900/10 dark:border-dark-700 dark:bg-dark-900"
+                >
+                  <template v-if="modelMenuStep === 'group'">
+                    <p class="section-title px-3 pb-1 pt-2.5">{{ t('mediaStudio.composer.selectGroup') }}</p>
+                    <div class="max-h-64 overflow-y-auto p-1.5 pt-0">
+                      <button
+                        v-for="group in groupOptions"
+                        :key="group.group_id"
+                        type="button"
+                        class="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm transition-colors"
+                        :class="group.group_id === selectedGroupId ? 'bg-gray-100 text-gray-950 dark:bg-dark-800 dark:text-white' : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-dark-800'"
+                        @click="selectModelMenuGroup(group)"
+                      >
+                        <span class="min-w-0 flex-1">
+                          <span class="block truncate font-medium">{{ group.group_name }}</span>
+                          <span class="block truncate text-xs text-gray-400">{{ group.platform }}</span>
+                        </span>
+                        <span class="shrink-0 text-xs text-gray-400">{{ group.models?.length ?? 0 }}</span>
+                        <Icon name="chevronRight" size="xs" class="shrink-0 text-gray-400" />
+                      </button>
+                      <p v-if="groupOptions.length === 0" class="px-2.5 py-3 text-xs text-gray-500 dark:text-gray-400">
+                        {{ groupLoadError || t('mediaStudio.composer.noGroups') }}
+                      </p>
+                    </div>
+                  </template>
+
+                  <template v-else>
+                    <div class="flex items-center gap-1.5 px-2 pb-1 pt-2">
+                      <button
+                        type="button"
+                        class="inline-flex h-7 w-7 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-dark-800 dark:hover:text-white"
+                        :aria-label="t('mediaStudio.composer.selectGroup')"
+                        @click="modelMenuStep = 'group'"
+                      >
+                        <Icon name="chevronLeft" size="xs" />
+                      </button>
+                      <span class="min-w-0 flex-1 truncate text-xs font-medium text-gray-500 dark:text-gray-400">
+                        {{ activeMenuGroupName }}
+                      </span>
+                    </div>
+                    <div class="max-h-64 overflow-y-auto p-1.5 pt-0">
+                      <p v-if="loadingModels" class="px-2.5 py-3 text-xs text-gray-500 dark:text-gray-400">
+                        {{ t('mediaStudio.composer.loadingModels') }}
+                      </p>
+                      <template v-else>
+                        <button
+                          v-for="option in modelOptions"
+                          :key="option.id"
+                          type="button"
+                          class="flex w-full items-center justify-between gap-2 rounded-xl px-2.5 py-2 text-left text-sm transition-colors"
+                          :class="option.id === model ? 'bg-gray-100 text-gray-950 dark:bg-dark-800 dark:text-white' : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-dark-800'"
+                          @click="selectMenuModel(option.id)"
+                        >
+                          <span class="min-w-0 flex-1 truncate">{{ option.id }}</span>
+                          <Icon v-if="option.id === model" name="check" size="sm" class="shrink-0" />
+                        </button>
+
+                        <div v-if="modelOptions.length === 0" class="space-y-2 px-2 py-2">
+                          <p class="text-xs leading-5 text-gray-500 dark:text-gray-400">
+                            {{ t('mediaStudio.composer.manualModelHint') }}
+                          </p>
+                          <input
+                            v-model="manualModelInput"
+                            type="text"
+                            class="param-control"
+                            :placeholder="t('mediaStudio.composer.model')"
+                            @keydown.enter.prevent="applyManualModel"
+                          >
+                          <button
+                            type="button"
+                            class="w-full rounded-lg bg-gray-950 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-gray-950 dark:hover:bg-gray-200"
+                            :disabled="!manualModelInput.trim()"
+                            @click="applyManualModel"
+                          >
+                            {{ t('mediaStudio.composer.applyModel') }}
+                          </button>
+                        </div>
+                      </template>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <!-- 常用参数全部外置到工具条；模型声明的额外参数在模型菜单内。 -->
+              <div
+                v-if="selectedModeId === 'image' && !hiddenParameterControls.includes('image.size')"
+                class="composer-chip-wrap relative"
               >
-                <Icon name="cog" size="sm" />
-                <span>{{ t('mediaStudio.composer.advancedSettings') }}</span>
-                <Icon :name="settingsMenuOpen ? 'chevronUp' : 'chevronDown'" size="xs" class="text-gray-400" />
-              </button>
+                <select
+                  class="composer-chip-select"
+                  :value="imageAspectRatio"
+                  :aria-label="t('mediaStudio.composer.aspectRatio')"
+                  @change="handleAspectRatioSelect"
+                >
+                  <option v-for="option in imageAspectRatioOptions" :key="option" :value="option">{{ option }}</option>
+                  <option v-for="option in customImageAspectRatios" :key="`custom:${option}`" :value="`custom:${option}`">
+                    {{ option }}
+                  </option>
+                  <option value="__custom__">{{ t('mediaStudio.composer.customAspectRatio.option') }}</option>
+                </select>
+                <span class="composer-chip composer-chip--param" aria-hidden="true">
+                  <span class="composer-chip__key">{{ t('mediaStudio.composer.aspectRatio') }}</span>
+                  <span class="composer-chip__value">{{ aspectRatioLabel(imageAspectRatio) }}</span>
+                  <Icon name="chevronDown" size="xs" class="text-gray-400" />
+                </span>
+              </div>
 
-              <button
-                type="button"
-                class="ml-auto flex h-10 w-10 items-center justify-center rounded-full transition"
-                :class="canSubmit ? 'bg-gray-950 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-950 dark:hover:bg-gray-200' : 'bg-gray-200 text-gray-400 dark:bg-dark-700 dark:text-gray-500'"
-                :aria-label="t('mediaStudio.composer.send')"
-                :disabled="!canSubmit"
-                @click="emit('submit')"
+              <div
+                v-if="selectedModeId === 'image' && !hiddenParameterControls.includes('image.size')"
+                class="composer-chip-wrap relative"
               >
-                <Icon :name="submitting ? 'refresh' : 'arrowUp'" size="sm" :class="submitting ? 'animate-spin' : ''" />
-              </button>
-            </div>
+                <select
+                  class="composer-chip-select"
+                  :value="imageResolution"
+                  :aria-label="t('mediaStudio.composer.resolution')"
+                  @change="handleImageResolutionSelect"
+                >
+                  <option v-for="option in imageResolutionOptions" :key="option" :value="option">{{ option }}</option>
+                </select>
+                <span class="composer-chip composer-chip--param" aria-hidden="true">
+                  <span class="composer-chip__key">{{ t('mediaStudio.composer.resolution') }}</span>
+                  <span class="composer-chip__value">{{ imageResolution }}</span>
+                  <Icon name="chevronDown" size="xs" class="text-gray-400" />
+                </span>
+              </div>
 
-            <div
-              v-if="settingsMenuOpen"
-              ref="settingsMenuRef"
-              class="absolute bottom-16 left-0 z-20 w-[min(92vw,40rem)] rounded-2xl border border-gray-200 bg-white p-4 shadow-xl shadow-gray-900/10 dark:border-dark-700 dark:bg-dark-900"
-            >
-              <div class="grid gap-4 md:grid-cols-2">
-                <section class="space-y-2">
-                  <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                    {{ t('mediaStudio.composer.resourceSettings') }}
-                  </p>
-                  <label class="composer-select w-full">
-                    <Icon name="grid" size="sm" />
-                    <select
-                      :value="selectedGroupId"
-                      class="select-inner min-w-0 flex-1"
-                      :disabled="loadingGroups"
-                      @change="emit('update:selectedGroupId', Number(($event.target as HTMLSelectElement).value))"
-                    >
-                      <option :value="0">{{ loadingGroups ? t('mediaStudio.composer.loadingGroups') : t('mediaStudio.composer.selectGroup') }}</option>
-                      <option v-for="group in groupOptions" :key="group.group_id" :value="group.group_id">
-                        {{ group.group_name }} · {{ group.platform }}
-                      </option>
-                    </select>
-                  </label>
+              <div
+                v-if="selectedModeId === 'image' && !hiddenParameterControls.includes('image.count')"
+                class="composer-chip-wrap relative"
+              >
+                <select
+                  class="composer-chip-select"
+                  :value="count"
+                  :aria-label="t('mediaStudio.composer.count')"
+                  @change="emit('update:count', Number(($event.target as HTMLSelectElement).value))"
+                >
+                  <option v-for="option in countOptions" :key="option" :value="option">{{ option }}</option>
+                </select>
+                <span class="composer-chip composer-chip--param" aria-hidden="true">
+                  <span class="composer-chip__key">{{ t('mediaStudio.composer.count') }}</span>
+                  <span class="composer-chip__value">{{ count }}</span>
+                  <Icon name="chevronDown" size="xs" class="text-gray-400" />
+                </span>
+              </div>
 
-                  <label class="composer-select w-full">
-                    <Icon name="cube" size="sm" />
-                    <select
-                      v-if="modelSelectionLocked"
-                      :value="model"
-                      class="select-inner min-w-0 flex-1"
-                      :disabled="loadingModels || modelOptions.length === 0"
-                      @change="emit('update:model', ($event.target as HTMLSelectElement).value)"
-                    >
-                      <option value="">{{ loadingModels ? t('mediaStudio.composer.loadingModels') : t('mediaStudio.composer.model') }}</option>
-                      <option v-for="option in modelOptions" :key="option" :value="option">{{ option }}</option>
-                    </select>
-                    <template v-else>
-                      <input
-                        :value="model"
-                        list="media-studio-models"
-                        class="select-inner min-w-0 flex-1"
-                        :placeholder="loadingModels ? t('mediaStudio.composer.loadingModels') : t('mediaStudio.composer.model')"
-                        @input="emit('update:model', ($event.target as HTMLInputElement).value)"
-                      />
-                      <datalist id="media-studio-models">
-                        <option v-for="option in modelOptions" :key="option" :value="option" />
-                      </datalist>
-                    </template>
-                  </label>
-                </section>
+              <div
+                v-if="selectedModeId === 'image' && qualityVisible"
+                class="composer-chip-wrap relative"
+              >
+                <select
+                  class="composer-chip-select"
+                  :value="quality"
+                  :aria-label="t('mediaStudio.composer.quality')"
+                  @change="emit('update:quality', ($event.target as HTMLSelectElement).value)"
+                >
+                  <option v-for="option in imageQualityOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                </select>
+                <span class="composer-chip composer-chip--param" aria-hidden="true">
+                  <span class="composer-chip__key">{{ t('mediaStudio.composer.quality') }}</span>
+                  <span class="composer-chip__value">{{ qualityLabel }}</span>
+                  <Icon name="chevronDown" size="xs" class="text-gray-400" />
+                </span>
+              </div>
 
-                <section class="space-y-2">
-                  <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                    {{ selectedModeId === 'image' ? t('mediaStudio.composer.imageSettings') : t('mediaStudio.composer.videoSettings') }}
-                  </p>
+              <div
+                v-if="selectedModeId === 'video' && !hiddenParameterControls.includes('video.aspectRatio')"
+                class="composer-chip-wrap relative"
+              >
+                <select
+                  class="composer-chip-select"
+                  :value="videoAspectRatio"
+                  :aria-label="t('mediaStudio.composer.aspectRatio')"
+                  @change="emit('update:videoAspectRatio', ($event.target as HTMLSelectElement).value as MediaStudioVideoAspectRatio)"
+                >
+                  <option v-for="option in videoAspectRatioOptions" :key="option" :value="option">{{ option }}</option>
+                </select>
+                <span class="composer-chip composer-chip--param" aria-hidden="true">
+                  <span class="composer-chip__key">{{ t('mediaStudio.composer.aspectRatio') }}</span>
+                  <span class="composer-chip__value">{{ videoAspectRatio }}</span>
+                  <Icon name="chevronDown" size="xs" class="text-gray-400" />
+                </span>
+              </div>
 
-                  <div v-if="selectedModeId === 'image'" class="grid gap-2 sm:grid-cols-2">
-                    <label class="composer-select w-full">
-                      <Icon name="grid" size="sm" />
-                      <select
-                        :value="imageResolution"
-                        class="select-inner min-w-0 flex-1"
-                        @change="handleImageResolutionSelect"
-                      >
-                        <option v-for="option in imageResolutionOptions" :key="option" :value="option">{{ option }}</option>
-                      </select>
-                    </label>
+              <div
+                v-if="selectedModeId === 'video' && !hiddenParameterControls.includes('video.resolution')"
+                class="composer-chip-wrap relative"
+              >
+                <select
+                  class="composer-chip-select"
+                  :value="resolution"
+                  :aria-label="t('mediaStudio.composer.resolution')"
+                  @change="emit('update:resolution', ($event.target as HTMLSelectElement).value as MediaStudioVideoResolution)"
+                >
+                  <option v-for="option in resolutionOptions" :key="option" :value="option">{{ option }}</option>
+                </select>
+                <span class="composer-chip composer-chip--param" aria-hidden="true">
+                  <span class="composer-chip__key">{{ t('mediaStudio.composer.resolution') }}</span>
+                  <span class="composer-chip__value">{{ resolution }}</span>
+                  <Icon name="chevronDown" size="xs" class="text-gray-400" />
+                </span>
+              </div>
 
-                    <label class="composer-select w-full">
-                      <Icon name="arrowsUpDown" size="sm" />
-                      <select
-                        :value="imageAspectRatio"
-                        class="select-inner min-w-0 flex-1"
-                        @change="handleAspectRatioSelect"
-                      >
-                        <option v-for="option in imageAspectRatioOptions" :key="option" :value="option">{{ option }}</option>
-                        <option v-for="option in customImageAspectRatios" :key="`custom:${option}`" :value="`custom:${option}`">
-                          {{ option }}
-                        </option>
-                        <option value="__custom__">{{ t('mediaStudio.composer.customAspectRatio.option') }}</option>
-                      </select>
-                    </label>
+              <div
+                v-if="selectedModeId === 'video' && !hiddenParameterControls.includes('video.duration')"
+                class="composer-chip-wrap relative"
+              >
+                <select
+                  class="composer-chip-select"
+                  :value="String(duration)"
+                  :aria-label="t('mediaStudio.composer.duration')"
+                  @change="emit('update:duration', Number(($event.target as HTMLSelectElement).value))"
+                >
+                  <option v-for="option in durationOptions" :key="option" :value="option">{{ option }}</option>
+                </select>
+                <span class="composer-chip composer-chip--param" aria-hidden="true">
+                  <span class="composer-chip__key">{{ t('mediaStudio.composer.duration') }}</span>
+                  <span class="composer-chip__value">{{ duration }}s</span>
+                  <Icon name="chevronDown" size="xs" class="text-gray-400" />
+                </span>
+              </div>
 
-                    <label v-if="imageQualityOptions.length > 0" class="composer-select w-full">
-                      <Icon name="sparkles" size="sm" />
-                      <select
-                        :value="quality"
-                        class="select-inner min-w-0 flex-1"
-                        @change="emit('update:quality', ($event.target as HTMLSelectElement).value)"
-                      >
-                        <option v-for="option in imageQualityOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-                      </select>
-                    </label>
+              <!-- 模型声明的额外参数同样用 chip 展示，形如「质量: low」。 -->
+              <template v-for="field in attributeFields" :key="`attr:${field.key}`">
+                <div v-if="field.type === 'enum'" class="composer-chip-wrap relative">
+                  <select
+                    class="composer-chip-select"
+                    :value="attributeValues[field.key] === undefined ? '' : String(attributeValues[field.key])"
+                    :aria-label="field.label ?? field.key"
+                    @change="updateAttributeValue(field, ($event.target as HTMLSelectElement).value || undefined)"
+                  >
+                    <option value="">—</option>
+                    <option v-for="option in field.values ?? []" :key="option" :value="option">{{ option }}</option>
+                  </select>
+                  <span class="composer-chip composer-chip--param" aria-hidden="true">
+                    <span class="composer-chip__key">{{ field.label ?? field.key }}</span>
+                    <span class="composer-chip__value">{{ attributeText(field) }}</span>
+                    <Icon name="chevronDown" size="xs" class="text-gray-400" />
+                  </span>
+                </div>
 
-                    <label class="composer-select w-full">
-                      <Icon name="copy" size="sm" />
-                      <select
-                        :value="count"
-                        class="select-inner min-w-0 flex-1"
-                        @change="emit('update:count', Number(($event.target as HTMLSelectElement).value))"
-                      >
-                        <option v-for="option in countOptions" :key="option" :value="option">{{ option }}</option>
-                      </select>
-                    </label>
-                  </div>
+                <button
+                  v-else-if="field.type === 'boolean'"
+                  type="button"
+                  class="composer-chip composer-chip--param"
+                  :aria-label="field.label ?? field.key"
+                  @click="updateAttributeValue(field, attributeValues[field.key] !== true)"
+                >
+                  <span class="composer-chip__key">{{ field.label ?? field.key }}</span>
+                  <span class="composer-chip__value">
+                    {{ attributeValues[field.key] === true ? t('common.on') : t('common.off') }}
+                  </span>
+                </button>
 
-                  <div v-else class="grid gap-2 sm:grid-cols-2">
-                    <label class="composer-select w-full">
-                      <Icon name="play" size="sm" />
-                      <select
-                        :value="resolution"
-                        class="select-inner min-w-0 flex-1"
-                        @change="emit('update:resolution', ($event.target as HTMLSelectElement).value as MediaStudioVideoResolution)"
-                      >
-                        <option v-for="option in resolutionOptions" :key="option" :value="option">{{ option }}</option>
-                      </select>
-                    </label>
+                <label v-else class="composer-chip composer-chip--param cursor-text">
+                  <span class="composer-chip__key">{{ field.label ?? field.key }}</span>
+                  <input
+                    class="w-14 min-w-0 bg-transparent p-0 text-sm font-medium text-blue-600 outline-none placeholder:text-gray-400 dark:text-blue-400"
+                    :type="field.type === 'string' ? 'text' : 'number'"
+                    :value="attributeValues[field.key] ?? ''"
+                    :min="field.min"
+                    :max="field.max"
+                    :step="field.type === 'integer' ? 1 : 'any'"
+                    :placeholder="t('common.selectOption')"
+                    @input="onAttributeInput(field, $event)"
+                  >
+                </label>
+              </template>
 
-                    <label class="composer-select w-full">
-                      <Icon name="clock" size="sm" />
-                      <select
-                        :value="duration"
-                        class="select-inner min-w-0 flex-1"
-                        @change="emit('update:duration', Number(($event.target as HTMLSelectElement).value))"
-                      >
-                        <option v-for="option in durationOptions" :key="option" :value="option">{{ option }}s</option>
-                      </select>
-                    </label>
-                  </div>
-                </section>
+              <div class="ml-auto flex items-center gap-3">
+                <span
+                  v-if="estimateLoading"
+                  class="text-xs text-gray-400 dark:text-gray-500"
+                >
+                  {{ t('mediaStudio.composer.estimate.loading') }}
+                </span>
+                <span
+                  v-else-if="estimateError"
+                  class="max-w-64 truncate text-xs text-red-600 dark:text-red-300"
+                  :title="estimateError"
+                >
+                  {{ t('mediaStudio.composer.estimate.failed', { message: estimateError }) }}
+                </span>
+                <span
+                  v-else-if="estimatedCost !== null"
+                  class="text-xs font-medium text-gray-600 dark:text-gray-300"
+                >
+                  {{ t('mediaStudio.composer.estimate.value', { amount: formatCost(estimatedCost, estimatedCurrency) }) }}
+                </span>
+                <button
+                  type="button"
+                  class="flex h-10 w-10 items-center justify-center rounded-full transition"
+                  :class="canSubmit ? 'bg-gray-950 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-950 dark:hover:bg-gray-200' : 'bg-gray-200 text-gray-400 dark:bg-dark-700 dark:text-gray-500'"
+                  :aria-label="t('mediaStudio.composer.send')"
+                  :disabled="!canSubmit"
+                  @click="emit('submit')"
+                >
+                  <Icon :name="submitting ? 'refresh' : 'arrowUp'" size="sm" :class="submitting ? 'animate-spin' : ''" />
+                </button>
               </div>
             </div>
 
@@ -542,17 +825,33 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import MediaStudioCustomResolutionDialog from '@/features/media-studio/presentation/widgets/MediaStudioCustomResolutionDialog.vue'
-import type { MediaStudioVideoResolution } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
-import type { MediaStudioGroupOption } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
-import type { MediaStudioParameterOption } from '@/features/media-studio/presentation/composables/useMediaStudioController'
+import MediaStudioJobBar from '@/features/media-studio/presentation/widgets/MediaStudioJobBar.vue'
+import type { MediaStudioJobView } from '@/features/media-studio/presentation/composables/useMediaStudioJobs'
 import {
-  addMediaStudioImageAttachments,
-  MEDIA_STUDIO_MAX_IMAGE_ATTACHMENTS,
-  type MediaStudioImageAttachment,
+  mediaStudioKindEnabled,
+  mediaStudioUploadAccept,
+} from '@/features/media-studio/data/datasources/mediaStudioDatasource'
+import type {
+  MediaStudioGroupOption,
+  MediaStudioMediaType,
+  MediaStudioParameterControl,
+  MediaStudioResolvedLimits,
+  MediaStudioVideoAspectRatio,
+  MediaStudioVideoResolution,
+  ModelAttributeField,
+  ModelAttributeValues,
+} from '@/features/media-studio/data/datasources/mediaStudioDatasource'
+import type { MediaStudioModelOption, MediaStudioParameterOption } from '@/features/media-studio/presentation/composables/useMediaStudioController'
+import type {
+  MediaStudioAttachmentRejection,
+  MediaStudioImageAttachment,
+  MediaStudioImageAttachmentLimits,
+  MediaStudioReferenceAttachment,
+  MediaStudioReferenceLimits,
 } from '@/features/media-studio/presentation/composables/useMediaStudioAttachments'
 import type { MediaStudioMode, MediaStudioModeId } from '@/features/media-studio/presentation/composables/useMediaStudioPreview'
 import type {
@@ -577,20 +876,37 @@ const props = defineProps<{
   quality: string
   count: number
   resolution: MediaStudioVideoResolution
+  videoAspectRatio: MediaStudioVideoAspectRatio
   duration: number
   imageQualityOptions: MediaStudioParameterOption[]
   groupOptions: MediaStudioGroupOption[]
   loadingGroups: boolean
   groupLoadError: string
   imageAttachments: MediaStudioImageAttachment[]
-  modelOptions: string[]
+  imageAttachmentLimits: MediaStudioImageAttachmentLimits
+  referenceAttachments: MediaStudioReferenceAttachment[]
+  referenceLimits: MediaStudioReferenceLimits
+  modelLimits: MediaStudioResolvedLimits
+  storageAvailable: boolean
+  attachmentRejection: MediaStudioAttachmentRejection | null
+  modelOptions: MediaStudioModelOption[]
+  attributeFields: ModelAttributeField[]
+  attributeValues: ModelAttributeValues
+  hiddenParameterControls: MediaStudioParameterControl[]
   loadingModels: boolean
   modelLoadError: string
   conversation: MediaStudioConversation
   hasMessages: boolean
+  // 任务条数据由 controller 汇总，视图层只做展示与事件转发。
+  jobs: MediaStudioJobView[]
   canSubmit: boolean
   submitting: boolean
   submitError: string
+  // 预估消耗由后端 sub2api 本地计价链路算出，视图层只负责展示。
+  estimatedCost: number | null
+  estimatedCurrency: string
+  estimateLoading: boolean
+  estimateError: string
 }>()
 
 const emit = defineEmits<{
@@ -603,14 +919,19 @@ const emit = defineEmits<{
   'update:quality': [value: string]
   'update:count': [value: number]
   'update:resolution': [value: MediaStudioVideoResolution]
+  'update:videoAspectRatio': [value: MediaStudioVideoAspectRatio]
   'update:duration': [value: number]
+  'update:attribute': [payload: { key: string; value: string | number | boolean | undefined }]
   selectMode: [id: MediaStudioModeId]
   reloadGroups: []
-  'update:image-attachments': [value: MediaStudioImageAttachment[]]
+  addImageAttachments: [files: File[]]
+  removeImageAttachment: [id: string]
+  addReferenceAttachments: [files: File[]]
+  removeReferenceAttachment: [id: string]
+  retryReferenceUpload: [id: string]
   reloadModels: []
   submit: []
   retry: [message: MediaStudioMessage]
-  clear: []
   delete: [messageIDs: string[]]
   editImage: [image: MediaStudioGeneratedImagePreview]
 }>()
@@ -619,14 +940,16 @@ const { t, locale } = useI18n()
 const typeMenuOpen = ref(false)
 const typeMenuRef = ref<HTMLElement | null>(null)
 const typeMenuTriggerRef = ref<HTMLButtonElement | null>(null)
-const settingsMenuOpen = ref(false)
-const settingsMenuRef = ref<HTMLElement | null>(null)
-const settingsMenuTriggerRef = ref<HTMLButtonElement | null>(null)
+const modelMenuOpen = ref(false)
+const modelMenuRef = ref<HTMLElement | null>(null)
+const modelMenuTriggerRef = ref<HTMLButtonElement | null>(null)
+// 模型菜单分两级：先选分组，再选该分组下的模型。
+const modelMenuStep = ref<'group' | 'model'>('group')
+const manualModelInput = ref('')
 const selectedImage = ref<MediaStudioGeneratedImagePreview | null>(null)
 const promptInputRef = ref<HTMLTextAreaElement | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 const draggingPage = ref(false)
-const attachmentError = ref('')
 let dragDepth = 0
 const customAspectRatioDialogOpen = ref(false)
 const selectionMode = ref(false)
@@ -637,18 +960,137 @@ const allMessagesSelected = computed(() => (
   props.conversation.messages.every(message => selectedMessageIDs.value.includes(message.id))
 ))
 
+// 任务条只展示仍未收尾的任务；已完成任务的结果与花费保留在消息流内，
+// 避免底部输入区上方常驻一排历史任务挤占可视空间。
+const jobBarJobs = computed(() => props.jobs.filter(job => job.status !== 'completed'))
+
 const countOptions = [1, 2, 3, 4]
 const imageResolutionOptions: MediaStudioImageResolution[] = ['1K', '2K', '4K']
 const imageAspectRatioOptions: MediaStudioImageAspectRatio[] = ['1:1', '3:2', '2:3', '4:3', '3:4', '16:9', '9:16']
 const resolutionOptions: MediaStudioVideoResolution[] = ['480p', '720p', '1080p']
-const durationOptions = Array.from({ length: 15 }, (_, index) => index + 1)
+const videoAspectRatioOptions: MediaStudioVideoAspectRatio[] = ['16:9', '9:16', '1:1', '4:3', '3:4']
+
+// 工具条上的时长选择按当前模型限制展开，避免出现超出上下限的选项。
+const durationOptions = computed(() => {
+  const { min, max } = props.modelLimits.duration
+  const options: number[] = []
+  for (let value = min; value <= max; value += 1) options.push(value)
+  return options
+})
+
+const qualityVisible = computed(() => (
+  !props.hiddenParameterControls.includes('image.quality') && props.imageQualityOptions.length > 0
+))
+
+// 质量也放在工具条，直接给用户看到。
+const qualityLabel = computed(() => (
+  props.imageQualityOptions.find(option => option.value === props.quality)?.label ?? props.quality
+))
+
+function aspectRatioLabel(value: string): string {
+  return value.startsWith('custom:') ? value.slice('custom:'.length) : value
+}
+
+function updateAttributeValue(field: ModelAttributeField, value: string | number | boolean | undefined) {
+  emit('update:attribute', { key: field.key, value })
+}
+
+// 数值和时间类属性直接输入；文本类原样回传。
+function onAttributeInput(field: ModelAttributeField, event: Event) {
+  const raw = (event.target as HTMLInputElement).value
+  if (field.type === 'integer' || field.type === 'number') {
+    const parsed = Number(raw)
+    updateAttributeValue(field, raw.trim() && Number.isFinite(parsed) ? parsed : undefined)
+    return
+  }
+  updateAttributeValue(field, raw)
+}
+
+// chip 上展示当前值，未设置时用短横线占位。
+function attributeText(field: ModelAttributeField): string {
+  const value = props.attributeValues[field.key]
+  return value === undefined || value === '' ? '—' : String(value)
+}
+
+// 模型菜单二级标题：显示当前二级菜单所属的分组名称与平台。
+const activeMenuGroupName = computed(() => {
+  const group = props.groupOptions.find(item => item.group_id === props.selectedGroupId)
+  return group ? `${group.group_name} · ${group.platform}` : t('mediaStudio.composer.selectGroup')
+})
+
+// 切换或新建会话后清空多选状态，避免上一个会话的选择残留到新会话。
+watch(() => props.conversation.id, () => {
+  exitSelectionMode()
+})
+
+const uploadAccept = computed(() => (
+  props.selectedModeId === 'image' ? 'image/*' : mediaStudioUploadAccept(props.modelLimits)
+))
+// 图片模式只关心图片是否可用；视频模式只要还有任意一种参考素材可上传就放开入口。
+const modeUploadEnabled = computed(() => (
+  props.selectedModeId === 'image'
+    ? mediaStudioKindEnabled(props.modelLimits, 'image')
+    : props.referenceLimits.enabled.length > 0
+))
+const canUpload = computed(() => props.storageAvailable && modeUploadEnabled.value)
+const uploadHint = computed(() => {
+  if (!props.storageAvailable) return t('mediaStudio.composer.upload.storageUnavailable')
+  if (!props.modelLimits.allowUpload) return t('mediaStudio.composer.upload.disabled')
+  if (!modeUploadEnabled.value) return t('mediaStudio.composer.upload.noTypes')
+  return t('mediaStudio.composer.upload.addHint')
+})
+const uploadBadge = computed(() => {
+  if (!canUpload.value) return ''
+  if (props.selectedModeId === 'image') {
+    return `${props.imageAttachments.length}/${props.imageAttachmentLimits.maxFiles}`
+  }
+  const capacity = props.referenceLimits.enabled
+    .reduce((total, kind) => total + props.referenceLimits.maxFiles[kind], 0)
+  return capacity > 0 ? `${props.referenceAttachments.length}/${capacity}` : ''
+})
+const attachmentErrorText = computed(() => {
+  const rejection = props.attachmentRejection
+  if (!rejection) return ''
+  return t(`mediaStudio.composer.upload.rejections.${rejection.reason}`, {
+    name: rejection.name,
+    limit: rejection.limit,
+  })
+})
+
+function attachmentTypeLabel(kind: MediaStudioMediaType) {
+  return t(`mediaStudio.composer.attachmentType.${kind}`)
+}
+
+// 失败卡片优先展示按错误分类的本地化文案，避免把浏览器原始英文错误（如 Failed to fetch）直接透给用户。
+function errorMessageText(message: MediaStudioMessage) {
+  switch (message.errorCode) {
+    case 'insufficient_quota':
+      return t('mediaStudio.jobs.errorCodes.insufficient_quota')
+    case 'unauthorized':
+      return t('mediaStudio.jobs.errorCodes.unauthorized')
+    case 'rate_limited':
+      return t('mediaStudio.jobs.errorCodes.rate_limited')
+    case 'content_policy':
+      return t('mediaStudio.jobs.errorCodes.content_policy')
+    case 'timeout':
+      return t('mediaStudio.jobs.errorCodes.timeout')
+    case 'upstream':
+      return t('mediaStudio.jobs.errorCodes.upstream')
+    case 'network':
+      return t('mediaStudio.jobs.errorCodes.network')
+    case 'unknown':
+      return t('mediaStudio.jobs.errorCodes.unknown')
+    default:
+      return message.error || t('mediaStudio.session.failed')
+  }
+}
 
 function selectMode(id: MediaStudioModeId) {
   const mode = props.modes.find(item => item.id === id)
   if (!mode?.available) return
   emit('selectMode', id)
   typeMenuOpen.value = false
-  settingsMenuOpen.value = false
+  modelMenuOpen.value = false
 }
 
 function modeButtonClass(mode: MediaStudioMode) {
@@ -657,9 +1099,40 @@ function modeButtonClass(mode: MediaStudioMode) {
   return 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-dark-800'
 }
 
-function toggleSettingsMenu() {
-  settingsMenuOpen.value = !settingsMenuOpen.value
-  if (settingsMenuOpen.value) typeMenuOpen.value = false
+function toggleTypeMenu() {
+  typeMenuOpen.value = !typeMenuOpen.value
+  if (typeMenuOpen.value) {
+    modelMenuOpen.value = false
+  }
+}
+
+function toggleModelMenu() {
+  modelMenuOpen.value = !modelMenuOpen.value
+  if (!modelMenuOpen.value) return
+  typeMenuOpen.value = false
+  modelMenuStep.value = 'group'
+  manualModelInput.value = props.model
+}
+
+function selectModelMenuGroup(group: MediaStudioGroupOption) {
+  if (group.group_id !== props.selectedGroupId) {
+    emit('update:selectedGroupId', group.group_id)
+  }
+  // 切换分组后模型列表会异步刷新，二级菜单先展示加载态。
+  manualModelInput.value = group.group_id === props.selectedGroupId ? props.model : ''
+  modelMenuStep.value = 'model'
+}
+
+function selectMenuModel(id: string) {
+  emit('update:model', id)
+  modelMenuOpen.value = false
+}
+
+function applyManualModel() {
+  const value = manualModelInput.value.trim()
+  if (!value) return
+  emit('update:model', value)
+  modelMenuOpen.value = false
 }
 
 function openImagePreview(image: MediaStudioGeneratedImagePreview) {
@@ -676,10 +1149,12 @@ function startImageEdit(image: MediaStudioGeneratedImagePreview) {
 }
 
 function addFiles(files: File[]) {
-  if (props.selectedModeId !== 'image' || files.length === 0) return
-  const result = addMediaStudioImageAttachments(props.imageAttachments, files)
-  attachmentError.value = result.rejected[0] || ''
-  emit('update:image-attachments', result.attachments)
+  if (!canUpload.value || files.length === 0) return
+  if (props.selectedModeId === 'image') {
+    emit('addImageAttachments', files)
+    return
+  }
+  emit('addReferenceAttachments', files)
 }
 
 function handleFileInput(event: Event) {
@@ -688,39 +1163,36 @@ function handleFileInput(event: Event) {
   input.value = ''
 }
 
-function removeAttachment(id: string) {
-  emit('update:image-attachments', props.imageAttachments.filter(attachment => attachment.id !== id))
-}
-
 function hasDraggedFiles(event: DragEvent): boolean {
   return Array.from(event.dataTransfer?.types || []).includes('Files')
 }
 
 function handlePageDragEnter(event: DragEvent) {
-  if (props.selectedModeId !== 'image' || !hasDraggedFiles(event)) return
+  if (!canUpload.value || !hasDraggedFiles(event)) return
   dragDepth += 1
   draggingPage.value = true
 }
 
 function handlePageDragOver(event: DragEvent) {
-  if (props.selectedModeId === 'image' && hasDraggedFiles(event)) draggingPage.value = true
+  if (canUpload.value && hasDraggedFiles(event)) draggingPage.value = true
 }
 
 function handlePageDragLeave(event: DragEvent) {
-  if (props.selectedModeId !== 'image' || !hasDraggedFiles(event)) return
+  if (!hasDraggedFiles(event)) return
   dragDepth = Math.max(0, dragDepth - 1)
   if (dragDepth === 0) draggingPage.value = false
 }
 
 function handlePageDrop(event: DragEvent) {
-  if (props.selectedModeId !== 'image') return
   dragDepth = 0
   draggingPage.value = false
+  if (!canUpload.value) return
   addFiles(Array.from(event.dataTransfer?.files || []))
 }
 
 function handlePaste(event: ClipboardEvent) {
-  if (props.selectedModeId !== 'image') return
+  // 剪贴板只可能是图片，视频模式不走粘贴。
+  if (props.selectedModeId !== 'image' || !canUpload.value) return
   const files = Array.from(event.clipboardData?.items || [])
     .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
     .map(item => item.getAsFile())
@@ -758,6 +1230,17 @@ function deleteSelected() {
   exitSelectionMode()
 }
 
+// 任务条只持有 messageId，重试仍复用消息流里的同一条消息，避免两套状态。
+function retryJob(messageId: string) {
+  const message = props.conversation.messages.find(item => item.id === messageId)
+  if (message) emit('retry', message)
+}
+
+function focusJob(messageId: string) {
+  const element = document.getElementById(`media-studio-message-${messageId}`)
+  element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+
 function handleImageResolutionSelect(event: Event) {
   const value = (event.target as HTMLSelectElement).value
   emit('update:imageResolution', value as MediaStudioImageResolution)
@@ -792,23 +1275,84 @@ function formatTime(value: number): string {
   }
 }
 
+function formatElapsed(message: MediaStudioMessage): string {
+  const completedAt = message.completedAt
+  // 历史会话可能缺失或带有非法完成时间：返回空串，由模板隐藏耗时标签，
+  // 避免渲染出「耗时 」或「耗时 NaN」这类错误信息。
+  if (typeof completedAt !== 'number' || !Number.isFinite(completedAt)) return ''
+  const totalSeconds = Math.max(0, (completedAt - message.createdAt) / 1000)
+  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) return ''
+  if (totalSeconds < 60) return `${totalSeconds.toFixed(1)}s`
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = Math.round(totalSeconds % 60)
+  return `${minutes}m ${String(seconds).padStart(2, '0')}s`
+}
+
+function formatCost(amount: number, currency?: string): string {
+  const value = Number.isFinite(amount) ? amount : 0
+  const code = (currency || 'USD').toUpperCase()
+  const symbol = code === 'USD' ? '$' : `${code} `
+  return `${symbol}${value.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')}`
+}
+
+function videoProgress(message: MediaStudioMessage): number {
+  const value = message.progress
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 0
+  return Math.min(100, Math.max(0, Math.round(value)))
+}
+
+function ratioNumber(value: string | undefined, fallback: string): number {
+  const parse = (input: string): number => {
+    const [width, height] = input.replace(/^custom:/, '').split(':').map(part => Number(part))
+    return Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0
+      ? width / height
+      : Number.NaN
+  }
+  const ratio = parse(value || '')
+  if (Number.isFinite(ratio)) return ratio
+  const fallbackRatio = parse(fallback)
+  return Number.isFinite(fallbackRatio) ? fallbackRatio : 1
+}
+
+const MAX_MEDIA_PREVIEW_HEIGHT_PX = 384
+
+function imageFrameStyle(message: MediaStudioMessage) {
+  const ratio = ratioNumber(message.imageAspectRatio || props.imageAspectRatio, '1:1')
+  return {
+    aspectRatio: `${ratio}`,
+    maxWidth: `min(100%, calc(${MAX_MEDIA_PREVIEW_HEIGHT_PX}px * ${ratio}))`,
+  }
+}
+
+function videoFrameStyle(message: MediaStudioMessage) {
+  const ratio = ratioNumber(message.aspectRatio || props.videoAspectRatio, '16:9')
+  return {
+    aspectRatio: `${ratio}`,
+    maxWidth: `min(100%, calc(${MAX_MEDIA_PREVIEW_HEIGHT_PX}px * ${ratio}))`,
+  }
+}
+
+function imageGridClass(message: MediaStudioMessage): string {
+  return (message.count || 1) > 1 ? 'sm:grid-cols-2' : ''
+}
+
 function closeMenusOnOutsidePointer(event: PointerEvent) {
   const target = event.target
   if (!(target instanceof Node)) return
   if (
     typeMenuRef.value?.contains(target)
     || typeMenuTriggerRef.value?.contains(target)
-    || settingsMenuRef.value?.contains(target)
-    || settingsMenuTriggerRef.value?.contains(target)
+    || modelMenuRef.value?.contains(target)
+    || modelMenuTriggerRef.value?.contains(target)
   ) return
   typeMenuOpen.value = false
-  settingsMenuOpen.value = false
+  modelMenuOpen.value = false
 }
 
 function closeMenusOnEscape(event: KeyboardEvent) {
   if (event.key !== 'Escape') return
   typeMenuOpen.value = false
-  settingsMenuOpen.value = false
+  modelMenuOpen.value = false
   closeImagePreview()
 }
 
@@ -860,20 +1404,158 @@ onUnmounted(() => {
   @apply border-primary-500 bg-primary-50 text-primary-600 opacity-100 dark:border-primary-400 dark:bg-primary-500/15 dark:text-primary-300;
 }
 
-.composer-select {
-  @apply inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm transition-colors focus-within:border-gray-400 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-200 dark:focus-within:border-dark-500;
+.section-title {
+  @apply text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500;
 }
 
-.select-inner {
-  @apply border-0 bg-transparent text-sm font-medium text-gray-700 outline-none placeholder:text-gray-400 dark:text-gray-200 dark:placeholder:text-gray-500;
+.param-control {
+  @apply h-9 w-full min-w-0 rounded-lg border border-gray-200 bg-white px-2.5 text-sm font-medium text-gray-700 shadow-sm outline-none transition-colors hover:border-gray-300 focus:border-gray-400 disabled:cursor-not-allowed disabled:opacity-60 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-200 dark:hover:border-dark-600 dark:focus:border-dark-500;
   color-scheme: light dark;
 }
 
-.select-inner option {
+/* 原生下拉箭头位置无法用 padding 调整，改为隐藏后自绘 */
+select.param-control {
+  @apply appearance-none bg-no-repeat pr-9;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-position: right 0.75rem center;
+  background-size: 1rem 1rem;
+}
+
+:global(.dark) select.param-control {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+.param-control option {
   @apply bg-white text-gray-800 dark:bg-dark-900 dark:text-gray-100;
+}
+
+/* 常用参数紧凑选择器：视觉层只负责展示，透明的原生 select 覆盖在上层提供交互。 */
+.composer-chip--param {
+  @apply gap-1.5 pl-2.5 pr-2;
+}
+
+.composer-chip__key {
+  @apply text-xs font-normal text-gray-500 dark:text-gray-400;
+}
+
+.composer-chip__value {
+  @apply text-sm font-medium text-gray-900 dark:text-white;
+}
+
+.composer-chip-select {
+  @apply absolute inset-0 z-10 h-full w-full cursor-pointer appearance-none opacity-0;
+}
+
+.composer-chip-wrap:hover .composer-chip {
+  @apply bg-gray-50 dark:bg-dark-800;
+}
+
+.composer-chip-wrap:focus-within .composer-chip {
+  @apply ring-2 ring-primary-400/60;
 }
 
 .meta-pill {
   @apply inline-flex h-6 items-center rounded-full border border-gray-200 bg-gray-50 px-2 dark:border-dark-700 dark:bg-dark-800;
 }
+
+/* 生成中占位：彩色光斑缓慢流动，再覆盖一层朦胧雾面 */
+.generating-frame {
+  @apply relative overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-900;
+  isolation: isolate;
+}
+
+.generating-glow {
+  position: absolute;
+  inset: -60%;
+  background: conic-gradient(
+    from 0deg,
+    #ffb3e6,
+    #c4b5fd,
+    #a5f3fc,
+    #86efac,
+    #fde68a,
+    #fbcfe8,
+    #ffb3e6
+  );
+  filter: blur(40px) saturate(1.5) brightness(1.18);
+  opacity: 0.95;
+  animation:
+    generating-spin 18s linear infinite,
+    generating-breathe 5s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.generating-frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.3),
+    rgba(255, 255, 255, 0.04) 45%,
+    rgba(255, 255, 255, 0.22)
+  );
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+
+:global(.dark) .generating-frame::after {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.1),
+    rgba(255, 255, 255, 0.01) 45%,
+    rgba(255, 255, 255, 0.06)
+  );
+}
+
+.generating-progress {
+  background-image: linear-gradient(
+    90deg,
+    #ff9ae0,
+    #c4b5fd,
+    #7dd3fc,
+    #86efac,
+    #fde68a,
+    #ff9ae0
+  );
+  background-size: 220% 100%;
+  animation: generating-progress-flow 3.5s linear infinite;
+}
+
+@keyframes generating-progress-flow {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 220% 50%;
+  }
+}
+
+@keyframes generating-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@keyframes generating-breathe {
+  0%,
+  100% {
+    opacity: 0.68;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .generating-glow {
+    animation: none;
+    opacity: 0.55;
+  }
+
+  .generating-progress {
+    animation: none;
+  }
+}
+
 </style>

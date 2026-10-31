@@ -330,6 +330,25 @@
           </div>
         </div>
 
+        <div v-if="form.platform === 'multimodal'">
+          <label class="input-label">{{ t('admin.accounts.accountType') }}</label>
+          <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2" data-tour="account-form-type">
+            <button
+              type="button"
+              class="flex items-center gap-3 rounded-lg border-2 border-fuchsia-500 bg-fuchsia-50 p-3 text-left dark:bg-fuchsia-900/20"
+              @click="accountCategory = 'apikey'"
+            >
+              <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-fuchsia-500 text-white">
+                <Icon name="key" size="sm" />
+              </div>
+              <div>
+                <span class="block text-sm font-medium text-gray-900 dark:text-white">API Key</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">Media generation (images + videos)</span>
+              </div>
+            </button>
+          </div>
+        </div>
+
         <!-- Account Type Selection (Gemini) -->
       <div v-if="form.platform === 'gemini'">
         <div class="flex items-center justify-between">
@@ -1010,6 +1029,7 @@ const accountPlatformOptions: Array<{ value: AccountPlatform; label: string; act
   { value: 'minimax', label: 'MiniMax', activeClass: 'text-rose-700 dark:text-rose-300' },
   { value: 'opencode_go', label: 'OpenCode', activeClass: 'text-amber-700 dark:text-amber-300' },
   { value: 'typesafe', label: 'TypeSafe / Jev', activeClass: 'text-sky-700 dark:text-sky-300' },
+  { value: 'multimodal', label: 'Multimodal', activeClass: 'text-fuchsia-600 dark:text-fuchsia-400' },
 ]
 
 const props = defineProps<{ context: CreateAccountPlatformContext }>()

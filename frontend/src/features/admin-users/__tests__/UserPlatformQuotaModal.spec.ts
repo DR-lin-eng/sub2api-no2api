@@ -94,8 +94,8 @@ describe('UserPlatformQuotaModal', () => {
     })
     const w = await mountAndOpen()
     const inputs = w.findAll('input[type=number]')
-    // 11 platforms x 3 windows, including TypeSafe.
-    expect(inputs.length).toBe(33)
+    // 12 platforms x 3 windows, including TypeSafe and Multimodal.
+    expect(inputs.length).toBe(36)
     // 第一个 input 是 anthropic.daily = 10
     expect((inputs[0].element as HTMLInputElement).value).toBe('10')
   })
@@ -117,7 +117,7 @@ describe('UserPlatformQuotaModal', () => {
     expect(apiMocks.updatePlatformQuotas).toHaveBeenCalledTimes(1)
     const [uid, payload] = apiMocks.updatePlatformQuotas.mock.calls[0]
     expect(uid).toBe(99)
-    expect(payload).toHaveLength(11)
+    expect(payload).toHaveLength(12)
     const openai = payload.find((p: any) => p.platform === 'openai')
     expect(openai.weekly_limit_usd).toBe(20)
     expect(payload.find((p: any) => p.platform === 'typesafe')).toEqual({

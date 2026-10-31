@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -486,6 +487,38 @@ func (r *fakeBatchImageBillingRepo) ReleaseBatchImageBalance(_ context.Context, 
 		return nil, r.releaseErr
 	}
 	return r.applyHold(cmd, &r.releases)
+}
+
+func (r *fakeBatchImageBillingRepo) ReserveBalance(_ context.Context, cmd *BalanceHoldCommand) (*BalanceHoldResult, error) {
+	return &BalanceHoldResult{Applied: true}, nil
+}
+
+func (r *fakeBatchImageBillingRepo) CaptureBalance(_ context.Context, cmd *BalanceHoldCommand) (*BalanceHoldResult, error) {
+	return &BalanceHoldResult{Applied: true}, nil
+}
+
+func (r *fakeBatchImageBillingRepo) ReleaseBalance(_ context.Context, cmd *BalanceHoldCommand) (*BalanceHoldResult, error) {
+	return &BalanceHoldResult{Applied: true}, nil
+}
+
+func (r *fakeBatchImageBillingRepo) CreateBalanceHold(_ context.Context, _ *BalanceHoldRecord) error {
+	return nil
+}
+
+func (r *fakeBatchImageBillingRepo) BindBalanceHoldUpstreamRequest(_ context.Context, _, _ string, _ int64) error {
+	return nil
+}
+
+func (r *fakeBatchImageBillingRepo) GetBalanceHoldByUpstreamRequestID(_ context.Context, _ string) (*BalanceHoldRecord, error) {
+	return nil, nil
+}
+
+func (r *fakeBatchImageBillingRepo) UpdateBalanceHoldStatus(_ context.Context, _, _ string, _ *float64) error {
+	return nil
+}
+
+func (r *fakeBatchImageBillingRepo) ListExpiredBalanceHolds(_ context.Context, _ time.Time, _ int) ([]*BalanceHoldRecord, error) {
+	return nil, nil
 }
 
 func (r *fakeBatchImageBillingRepo) applyHold(cmd *BatchImageBalanceHoldCommand, calls *[]*BatchImageBalanceHoldCommand) (*BatchImageBalanceHoldResult, error) {

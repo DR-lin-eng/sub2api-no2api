@@ -77,7 +77,7 @@ infrastructure implements application ports
 | 用户、账号、分组、订阅、订单、用量 | PostgreSQL | Ent schema 在 `backend/ent/schema/`，版本迁移在 `backend/migrations/` |
 | 余额、订阅和 API Key 鉴权投影 | PostgreSQL + Redis 缓存 | 数据库是持久事实，缓存更新必须防止旧快照覆盖新写入 |
 | 并发槽位、限流、粘性会话、调度快照 | Redis/进程内短期状态 | 必须有过期、释放、容量上限和故障降级策略 |
-| 用量结算队列 | Redis Stream + PostgreSQL 幂等落库 | 关键计费任务不能静默丢弃；Redis 故障时使用受限 fallback |
+| 用量结算队列 | PostgreSQL 持久作业 + 幂等落库 | 关键计费任务不能静默丢弃；Redis 仅保存额度投影，数据库提交后再更新缓存 |
 | 前端运行设置 | 后端注入 + 管理 API | 浏览器状态不是权限或计费事实源 |
 | OAuth 模型能力快照 | PostgreSQL `accounts.extra` + 调度快照 | OAuth 无显式 `model_mapping` 时由后台定时读取各平台上游模型列表（OpenAI 使用 Codex manifest）；同步失败保留上一次成功快照，显式映射/透传优先 |
 | OAuth2 provider 客户端与授权 | PostgreSQL `settings` + Redis | 管理员配置和客户端 secret 摘要持久化在独立 setting key；一次性 authorization code 与 access token 摘要保存在 Redis，token 每次使用都重查全局/客户端/scope/用户状态 |

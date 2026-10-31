@@ -972,6 +972,7 @@ export default {
         minimax: 'MiniMax',
         opencode_go: 'OpenCode',
         typesafe: 'TypeSafe / Jev',
+        multimodal: 'Multimodal',
         composite: 'Composite',
       },
       deleteConfirm:
@@ -1010,6 +1011,7 @@ export default {
         batchDisabledHint: 'Enable image generation for this group before enabling batch image generation.',
         batchGeminiOnlyHint: 'Batch image generation is currently available only for Gemini groups.',
         modeHint: 'By default, image billing uses image price × current effective group multiplier. Independent mode uses image price × image multiplier.',
+        perModelPriceHint: 'This group is priced per model: configure an image price for every model in the model pricing section below. Requests fail when a model has no price; no default price is applied.',
         finalPricePreview: 'Final per-image price preview',
         notConfigured: 'Not configured'
       },
@@ -1029,12 +1031,17 @@ export default {
         title: 'Media Studio Group Routing',
         description: 'Configure provider groups by model. Image, video, and audio availability comes from model capabilities.',
         groupTitle: 'Available groups',
-        groupHint: 'Choose provider groups users can use, then select the models allowed in each group.',
+        groupHint: 'Choose provider groups users can use, assign each group exactly one type, then select the models allowed for that type.',
+        mediaType: 'Group type',
+        mediaTypeImage: 'Image',
+        mediaTypeVideo: 'Video',
+        mediaTypeAudio: 'Audio',
+        mediaTypeRequired: 'Select a type for this group. A group can only serve one modality.',
         modelsHint: 'Allowed models',
         noGroups: 'No eligible groups found.',
         selectedCount: '{count} groups selected',
         loadingModels: 'Loading models…',
-        noModels: 'No configurable models found in this group.',
+        noModels: 'No configurable models found for this type.',
         modelRequired: 'Each selected group must have at least one model selected.',
         moveUp: 'Move up',
         moveDown: 'Move down',
@@ -1126,6 +1133,7 @@ export default {
           embeddings: 'Embeddings',
           decisions: 'Decisions',
           images: 'Images',
+          videos: 'Videos',
           gemini: 'Gemini Native'
         },
         match: {

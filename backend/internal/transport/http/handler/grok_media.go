@@ -113,6 +113,22 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "request_id is required")
 		return
 	}
+	// 未知视频分辨率不能静默按 480p 计费：提交上游前直接拒绝，避免少扣费。
+	if endpoint.IsVideoGenerationRequest() {
+		if resolutionErr := service.ValidateMultimodalVideoResolution(requestInfo.ResolutionRaw); resolutionErr != nil {
+			reqLog.Warn("grok_media.video_resolution_unsupported",
+				zap.String("model", requestModel),
+				zap.String("resolution", requestInfo.ResolutionRaw),
+				zap.Error(resolutionErr),
+			)
+			status, code, message, retryAfter := billingErrorDetails(resolutionErr)
+			if retryAfter > 0 {
+				c.Header("Retry-After", strconv.Itoa(retryAfter))
+			}
+			h.errorResponse(c, status, code, message)
+			return
+		}
+	}
 
 	reqLog = reqLog.With(zap.String("model", requestModel))
 	setOpsRequestContext(c, requestModel, false)

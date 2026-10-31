@@ -1,0 +1,22 @@
+[
+  {
+    "stage": "BASELINE",
+    "migrations": 308,
+    "business_snapshot": "9c9e05746d07d7cdd2fed89a304537e3af9c0bdaea60ec96d1bd387abeb9e18b"
+  },
+  {
+    "stage": "MODIFIED",
+    "migrations": 313,
+    "business_snapshot": "9c9e05746d07d7cdd2fed89a304537e3af9c0bdaea60ec96d1bd387abeb9e18b"
+  },
+  {
+    "stage": "ROLLBACK",
+    "migrations": 313,
+    "business_snapshot": "9c9e05746d07d7cdd2fed89a304537e3af9c0bdaea60ec96d1bd387abeb9e18b"
+  },
+  {
+    "stage": "RESTORED",
+    "migrations": 313,
+    "business_snapshot": "9c9e05746d07d7cdd2fed89a304537e3af9c0bdaea60ec96d1bd387abeb9e18b"
+  }
+]

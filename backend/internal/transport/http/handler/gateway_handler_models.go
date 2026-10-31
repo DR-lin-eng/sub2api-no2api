@@ -110,6 +110,10 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 		writeGrokModelsList(c, xai.DefaultModelIDs())
 		return
 	}
+	if platform == service.PlatformMultimodal {
+		writeModelsList(c, platform, defaultModelIDsForPlatform(platform))
+		return
+	}
 	if service.IsCNProvider(platform) {
 		writeModelsList(c, platform, defaultModelIDsForPlatform(platform))
 		return
@@ -176,7 +180,7 @@ func (h *GatewayHandler) compositeAvailableModels(ctx context.Context, groupID *
 	for _, platform := range []string{
 		service.PlatformAnthropic, service.PlatformGemini, service.PlatformOpenAI, service.PlatformAntigravity, service.PlatformGrok,
 		service.PlatformKimi, service.PlatformZhipu, service.PlatformDeepseek, service.PlatformMiniMax,
-		service.PlatformOpenCodeGo, service.PlatformTypeSafe,
+		service.PlatformOpenCodeGo, service.PlatformTypeSafe, service.PlatformMultimodal,
 	} {
 		if platform == service.PlatformTypeSafe && !includeSystemOne {
 			continue
@@ -217,6 +221,10 @@ func writeModelsList(c *gin.Context, platform string, modelIDs []string) {
 	}
 	if platform == service.PlatformGrok {
 		writeGrokModelsList(c, modelIDs)
+		return
+	}
+	if platform == service.PlatformMultimodal {
+		writeOpenAIModelsListOwnedBy(c, modelIDs, service.PlatformMultimodal, true)
 		return
 	}
 	models := make([]claude.Model, 0, len(modelIDs))
@@ -344,6 +352,14 @@ func grokModelSupportsConfigurableReasoning(modelID string) bool {
 }
 
 func writeOpenAIModelsList(c *gin.Context, modelIDs []string, legacyCreatedAt ...bool) {
+	writeOpenAIModelsListOwnedBy(c, modelIDs, "openai", len(legacyCreatedAt) > 0 && legacyCreatedAt[0])
+}
+
+// writeOpenAIModelsListOwnedBy renders an OpenAI-shaped catalogue while
+// stamping unknown model IDs with the owning platform. Multimodal models are
+// not part of the OpenAI default catalogue, so they must not be reported as
+// owned by "openai".
+func writeOpenAIModelsListOwnedBy(c *gin.Context, modelIDs []string, ownedBy string, legacyCreatedAt bool) {
 	defaultsByID := make(map[string]openai.Model, len(openai.DefaultModels))
 	for _, model := range openai.DefaultModels {
 		defaultsByID[model.ID] = model
@@ -354,7 +370,7 @@ func writeOpenAIModelsList(c *gin.Context, modelIDs []string, legacyCreatedAt ..
 		CreatedAt string `json:"created_at,omitempty"`
 	}
 	createdAt := ""
-	if len(legacyCreatedAt) > 0 && legacyCreatedAt[0] {
+	if legacyCreatedAt {
 		createdAt = "2024-01-01T00:00:00Z"
 	}
 	models := make([]listedModel, 0, len(modelIDs))
@@ -367,7 +383,7 @@ func writeOpenAIModelsList(c *gin.Context, modelIDs []string, legacyCreatedAt ..
 			ID:          modelID,
 			Object:      "model",
 			Created:     1704067200,
-			OwnedBy:     "openai",
+			OwnedBy:     ownedBy,
 			Type:        "model",
 			DisplayName: modelID,
 		}, CreatedAt: createdAt})
@@ -477,6 +493,8 @@ func defaultModelIDsForPlatform(platform string) []string {
 		return mergeModelIDs(ids, nil)
 	case service.PlatformGrok:
 		return xai.DefaultModelIDs()
+	case service.PlatformMultimodal:
+		return service.DefaultMultimodalModelIDs()
 	case service.PlatformKimi:
 		return []string{"kimi-k3", "kimi-k2.6", "kimi-k2.5"}
 	case service.PlatformZhipu:
@@ -495,7 +513,7 @@ func defaultModelIDsForPlatform(platform string) []string {
 		for _, concretePlatform := range []string{
 			service.PlatformAnthropic, service.PlatformGemini, service.PlatformOpenAI, service.PlatformAntigravity, service.PlatformGrok,
 			service.PlatformKimi, service.PlatformZhipu, service.PlatformDeepseek, service.PlatformMiniMax,
-			service.PlatformOpenCodeGo,
+			service.PlatformOpenCodeGo, service.PlatformMultimodal,
 		} {
 			for _, id := range defaultModelIDsForPlatform(concretePlatform) {
 				if _, ok := seen[id]; ok {

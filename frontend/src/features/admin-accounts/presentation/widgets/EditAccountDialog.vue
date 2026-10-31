@@ -211,6 +211,7 @@ const baseUrlHint = computed(() => {
   if (props.account.platform === 'openai') return t('admin.accounts.openai.baseUrlHint')
   if (props.account.platform === 'gemini') return t('admin.accounts.gemini.baseUrlHint')
   if (props.account.platform === 'grok') return ''
+  if (props.account.platform === 'multimodal') return t('admin.accounts.multimodal.baseUrlHint')
   if (isCNAccountPlatform(props.account.platform)) {
     return t('admin.accounts.cnProvider.baseUrlHint', {
       provider: CN_ACCOUNT_PLATFORM_LABELS[props.account.platform],

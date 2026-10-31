@@ -376,9 +376,10 @@ func TestOpenAIGatewayServiceRecordUsage_ResponseModelSkippedForIndependentBilli
 		usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 		userRepo := &openAIRecordUsageUserRepoStub{}
 		svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{}, nil)
-		expected := svc.billingService.CalculateVideoCost(
+		expected, err := svc.billingService.CalculateVideoCost(
 			"grok-imagine-video", VideoBillingResolution720P, 1, 5, nil, 1.1,
 		)
+		require.NoError(t, err)
 		responseCost, err := svc.billingService.CalculateCost(
 			openAICheapResponseModel, UsageTokens{InputTokens: 20, OutputTokens: 10}, 1.1,
 		)

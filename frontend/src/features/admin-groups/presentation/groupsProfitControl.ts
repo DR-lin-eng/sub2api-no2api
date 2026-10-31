@@ -6,7 +6,7 @@ export type ProfitControlFormState = {
 };
 
 export const isProfitControlPlatform = (platform: string): boolean =>
-  ["openai", "anthropic", "gemini", "grok", "antigravity"].includes(
+  ["openai", "anthropic", "gemini", "grok", "antigravity", "multimodal"].includes(
     platform,
   );
 

@@ -80,6 +80,11 @@ var requiredCSPDirectiveValues = []struct {
 	{"frame-src", GoogleRecaptchaFrameDomain},
 	{"worker-src", "'self'"},
 	{"worker-src", "blob:"},
+	// 媒体工坊把生成的视频/音频挂在 blob: URL 上播放，缺少 media-src 时
+	// <video> 会回落到 default-src 'self' 而被静默阻断，表现为拿到地址却黑屏。
+	{"media-src", "'self'"},
+	{"media-src", "blob:"},
+	{"media-src", "https:"},
 	{"script-src", StripeDomain},
 	{"frame-src", StripeDomain},
 	{"script-src", AirwallexStaticDomain},

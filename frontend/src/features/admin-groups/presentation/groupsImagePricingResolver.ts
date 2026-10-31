@@ -3,12 +3,20 @@ export const imagePricingPlatforms = new Set([
   "composite",
   "gemini",
   "grok",
+  "multimodal",
   "openai",
 ]);
 
 export const supportsImagePricingPlatform = (platform: string): boolean =>
   imagePricingPlatforms.has(platform);
 
+// multimodal 是逐模型定价分组，分组级 1K/2K/4K 图片价等同于兜底价，
+// 图片单价必须写在每个模型的定价条目里，编辑器不展示分组级价。
+export const supportsGroupImagePricingPlatform = (platform: string): boolean =>
+  supportsImagePricingPlatform(platform) && platform !== "multimodal";
+
+// 只有 Grok 使用分组级视频价。multimodal 是逐模型定价分组，
+// 视频每秒价必须写在每个模型的定价条目里，分组级价不参与计费。
 export const supportsVideoPricingPlatform = (platform: string): boolean =>
   platform === "grok";
 
@@ -17,6 +25,9 @@ export const imagePricingI18nKey = (_platform: string, key: string): string =>
 
 export const videoPricingI18nKey = (key: string): string =>
   `admin.groups.videoPricing.${key}`;
+
+export const supportsDefaultVideoPriceFallback = (platform: string): boolean =>
+  platform === "grok";
 
 type ImagePricingTierKey = "image_price_1k" | "image_price_2k" | "image_price_4k";
 type VideoPricingTierKey =
@@ -57,6 +68,10 @@ export const getImagePricePlaceholder = (
   platform: string,
   tier: ImagePricingTierKey,
 ): string => {
+  // multimodal 逐模型定价，没有内置或默认图片价可参考，占位符必须留空。
+  if (platform === "multimodal") {
+    return "";
+  }
   const card = defaultImagePricePlaceholders[platform] ?? defaultImagePricePlaceholders.default;
   return card[tier];
 };
@@ -94,4 +109,4 @@ export const getDefaultVideoPreviewPrice = (
 };
 
 export const defaultAllowImageGenerationForPlatform = (platform: string): boolean =>
-  ["antigravity", "gemini", "grok"].includes(platform);
+  ["antigravity", "gemini", "grok", "multimodal"].includes(platform);

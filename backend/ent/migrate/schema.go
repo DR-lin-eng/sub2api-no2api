@@ -1149,6 +1149,7 @@ var (
 		{Name: "capabilities", Type: field.TypeJSON},
 		{Name: "video_api_type", Type: field.TypeString, Nullable: true, Default: ""},
 		{Name: "template_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "media_limits", Type: field.TypeJSON},
 	}
 	// CustomModelConfigsTable holds the schema information for the "custom_model_configs" table.
 	CustomModelConfigsTable = &schema.Table{
@@ -1171,6 +1172,7 @@ var (
 		{Name: "name", Type: field.TypeString, Size: 100},
 		{Name: "description", Type: field.TypeString, Nullable: true, Size: 500, Default: ""},
 		{Name: "request_adapter", Type: field.TypeJSON},
+		{Name: "attributes", Type: field.TypeJSON},
 	}
 	// CustomModelRequestTemplatesTable holds the schema information for the "custom_model_request_templates" table.
 	CustomModelRequestTemplatesTable = &schema.Table{

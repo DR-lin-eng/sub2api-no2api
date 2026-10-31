@@ -39,6 +39,14 @@ func (h *OpenAIGatewayHandler) ResolveCustomModelVideoAPIType(ctx context.Contex
 	return h.gatewayService.ResolveCustomModelVideoAPIType(ctx, model)
 }
 
+// ValidateCustomModelVideoRequest 按模型级媒体限制校验视频生成请求体。
+func (h *OpenAIGatewayHandler) ValidateCustomModelVideoRequest(ctx context.Context, model string, body []byte) error {
+	if h == nil || h.gatewayService == nil {
+		return nil
+	}
+	return h.gatewayService.ValidateCustomModelVideoRequest(ctx, model, body)
+}
+
 func (h *OpenAIGatewayHandler) HasAgnesVideoTaskBinding(c *gin.Context, taskID string) bool {
 	if h == nil || h.gatewayService == nil || c == nil {
 		return false

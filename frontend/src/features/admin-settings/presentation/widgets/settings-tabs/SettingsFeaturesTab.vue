@@ -170,15 +170,6 @@
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
               {{ t('admin.settings.features.customModelConfig.description') }}
             </p>
-            <p class="mt-1.5 text-xs">
-              <RouterLink
-                to="/admin/custom-model-config"
-                class="inline-flex items-center gap-1 text-primary-600 hover:underline dark:text-primary-400"
-              >
-                {{ t('admin.settings.features.customModelConfig.configureLink') }}
-                <span aria-hidden="true">→</span>
-              </RouterLink>
-            </p>
           </div>
           <div class="space-y-5 p-6">
             <div class="flex items-center justify-between gap-6">

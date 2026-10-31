@@ -33,6 +33,7 @@ export function useGroupEditorRuntime() {
       { value: "minimax", label: "MiniMax" },
       { value: "opencode_go", label: "OpenCode" },
     { value: 'typesafe', label: 'TypeSafe / Jev' },
+      { value: "multimodal", label: "Multimodal" },
       { value: "composite", label: "Composite" },
   ]);
   const subscriptionTypeOptions = computed(() => [

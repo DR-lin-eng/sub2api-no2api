@@ -249,6 +249,7 @@ export function getPlatformTagClass(platform: string): string {
       case 'deepseek': return 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300'
       case 'minimax': return 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
       case 'opencode_go': return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+      case 'multimodal': return 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-300'
     default: return 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400'
   }
 }
@@ -266,6 +267,7 @@ export function getPlatformTextClass(platform: string): string {
       case 'deepseek': return 'text-cyan-700 dark:text-cyan-300'
       case 'minimax': return 'text-rose-700 dark:text-rose-300'
       case 'opencode_go': return 'text-amber-700 dark:text-amber-300'
+      case 'multimodal': return 'text-fuchsia-700 dark:text-fuchsia-300'
     default: return ''
   }
 }

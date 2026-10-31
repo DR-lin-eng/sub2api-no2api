@@ -73,6 +73,31 @@ describe("group model pricing codec", () => {
     });
   });
 
+  it("drops the entry-level default price for multimodal non-token entries", () => {
+    const entry = createGroupPricingEntry();
+    entry.models = ["seedream5"];
+    entry.billing_mode = "image";
+    entry.per_request_price = 0.5;
+    entry.intervals = [
+      {
+        min_tokens: 0,
+        max_tokens: null,
+        tier_label: "1K",
+        input_price: null,
+        output_price: null,
+        cache_write_price: null,
+        cache_read_price: null,
+        per_request_price: 0.5,
+        sort_order: 0,
+      },
+    ];
+
+    expect(groupPricingToAPI([entry], "multimodal")[0]).toMatchObject({
+      per_request_price: null,
+      intervals: [{ tier_label: "1K", per_request_price: 0.5 }],
+    });
+  });
+
   it("fills an empty token card from the default pricing endpoint", async () => {
     const pricing = [createGroupPricingEntry()];
     const loadDefaultPricing = vi.fn().mockResolvedValue({

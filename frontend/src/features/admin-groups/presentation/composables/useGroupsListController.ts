@@ -190,6 +190,7 @@ export function useGroupsListController() {
     { value: "gemini", label: "Gemini" },
     { value: "antigravity", label: "Antigravity" },
     { value: "grok", label: "Grok" },
+    { value: "multimodal", label: "Multimodal" },
     { value: "composite", label: "Composite" },
   ]);
 

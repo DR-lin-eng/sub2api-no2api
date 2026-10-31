@@ -26391,6 +26391,7 @@ type CustomModelConfigMutation struct {
 	video_api_type     *string
 	template_id        *int64
 	addtemplate_id     *int64
+	media_limits       *map[string]interface{}
 	clearedFields      map[string]struct{}
 	done               bool
 	oldValue           func(context.Context) (*CustomModelConfig, error)
@@ -26809,6 +26810,42 @@ func (m *CustomModelConfigMutation) ResetTemplateID() {
 	delete(m.clearedFields, custommodelconfig.FieldTemplateID)
 }
 
+// SetMediaLimits sets the "media_limits" field.
+func (m *CustomModelConfigMutation) SetMediaLimits(value map[string]interface{}) {
+	m.media_limits = &value
+}
+
+// MediaLimits returns the value of the "media_limits" field in the mutation.
+func (m *CustomModelConfigMutation) MediaLimits() (r map[string]interface{}, exists bool) {
+	v := m.media_limits
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMediaLimits returns the old "media_limits" field's value of the CustomModelConfig entity.
+// If the CustomModelConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CustomModelConfigMutation) OldMediaLimits(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMediaLimits is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMediaLimits requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMediaLimits: %w", err)
+	}
+	return oldValue.MediaLimits, nil
+}
+
+// ResetMediaLimits resets all changes to the "media_limits" field.
+func (m *CustomModelConfigMutation) ResetMediaLimits() {
+	m.media_limits = nil
+}
+
 // Where appends a list predicates to the CustomModelConfigMutation builder.
 func (m *CustomModelConfigMutation) Where(ps ...predicate.CustomModelConfig) {
 	m.predicates = append(m.predicates, ps...)
@@ -26843,7 +26880,7 @@ func (m *CustomModelConfigMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *CustomModelConfigMutation) Fields() []string {
-	fields := make([]string, 0, 7)
+	fields := make([]string, 0, 8)
 	if m.created_at != nil {
 		fields = append(fields, custommodelconfig.FieldCreatedAt)
 	}
@@ -26864,6 +26901,9 @@ func (m *CustomModelConfigMutation) Fields() []string {
 	}
 	if m.template_id != nil {
 		fields = append(fields, custommodelconfig.FieldTemplateID)
+	}
+	if m.media_limits != nil {
+		fields = append(fields, custommodelconfig.FieldMediaLimits)
 	}
 	return fields
 }
@@ -26887,6 +26927,8 @@ func (m *CustomModelConfigMutation) Field(name string) (ent.Value, bool) {
 		return m.VideoAPIType()
 	case custommodelconfig.FieldTemplateID:
 		return m.TemplateID()
+	case custommodelconfig.FieldMediaLimits:
+		return m.MediaLimits()
 	}
 	return nil, false
 }
@@ -26910,6 +26952,8 @@ func (m *CustomModelConfigMutation) OldField(ctx context.Context, name string) (
 		return m.OldVideoAPIType(ctx)
 	case custommodelconfig.FieldTemplateID:
 		return m.OldTemplateID(ctx)
+	case custommodelconfig.FieldMediaLimits:
+		return m.OldMediaLimits(ctx)
 	}
 	return nil, fmt.Errorf("unknown CustomModelConfig field %s", name)
 }
@@ -26967,6 +27011,13 @@ func (m *CustomModelConfigMutation) SetField(name string, value ent.Value) error
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetTemplateID(v)
+		return nil
+	case custommodelconfig.FieldMediaLimits:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMediaLimits(v)
 		return nil
 	}
 	return fmt.Errorf("unknown CustomModelConfig field %s", name)
@@ -27068,6 +27119,9 @@ func (m *CustomModelConfigMutation) ResetField(name string) error {
 	case custommodelconfig.FieldTemplateID:
 		m.ResetTemplateID()
 		return nil
+	case custommodelconfig.FieldMediaLimits:
+		m.ResetMediaLimits()
+		return nil
 	}
 	return fmt.Errorf("unknown CustomModelConfig field %s", name)
 }
@@ -27131,6 +27185,7 @@ type CustomModelRequestTemplateMutation struct {
 	name            *string
 	description     *string
 	request_adapter *map[string]interface{}
+	attributes      *map[string]interface{}
 	clearedFields   map[string]struct{}
 	done            bool
 	oldValue        func(context.Context) (*CustomModelRequestTemplate, error)
@@ -27428,6 +27483,42 @@ func (m *CustomModelRequestTemplateMutation) ResetRequestAdapter() {
 	m.request_adapter = nil
 }
 
+// SetAttributes sets the "attributes" field.
+func (m *CustomModelRequestTemplateMutation) SetAttributes(value map[string]interface{}) {
+	m.attributes = &value
+}
+
+// Attributes returns the value of the "attributes" field in the mutation.
+func (m *CustomModelRequestTemplateMutation) Attributes() (r map[string]interface{}, exists bool) {
+	v := m.attributes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAttributes returns the old "attributes" field's value of the CustomModelRequestTemplate entity.
+// If the CustomModelRequestTemplate object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CustomModelRequestTemplateMutation) OldAttributes(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAttributes is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAttributes requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAttributes: %w", err)
+	}
+	return oldValue.Attributes, nil
+}
+
+// ResetAttributes resets all changes to the "attributes" field.
+func (m *CustomModelRequestTemplateMutation) ResetAttributes() {
+	m.attributes = nil
+}
+
 // Where appends a list predicates to the CustomModelRequestTemplateMutation builder.
 func (m *CustomModelRequestTemplateMutation) Where(ps ...predicate.CustomModelRequestTemplate) {
 	m.predicates = append(m.predicates, ps...)
@@ -27462,7 +27553,7 @@ func (m *CustomModelRequestTemplateMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *CustomModelRequestTemplateMutation) Fields() []string {
-	fields := make([]string, 0, 5)
+	fields := make([]string, 0, 6)
 	if m.created_at != nil {
 		fields = append(fields, custommodelrequesttemplate.FieldCreatedAt)
 	}
@@ -27477,6 +27568,9 @@ func (m *CustomModelRequestTemplateMutation) Fields() []string {
 	}
 	if m.request_adapter != nil {
 		fields = append(fields, custommodelrequesttemplate.FieldRequestAdapter)
+	}
+	if m.attributes != nil {
+		fields = append(fields, custommodelrequesttemplate.FieldAttributes)
 	}
 	return fields
 }
@@ -27496,6 +27590,8 @@ func (m *CustomModelRequestTemplateMutation) Field(name string) (ent.Value, bool
 		return m.Description()
 	case custommodelrequesttemplate.FieldRequestAdapter:
 		return m.RequestAdapter()
+	case custommodelrequesttemplate.FieldAttributes:
+		return m.Attributes()
 	}
 	return nil, false
 }
@@ -27515,6 +27611,8 @@ func (m *CustomModelRequestTemplateMutation) OldField(ctx context.Context, name 
 		return m.OldDescription(ctx)
 	case custommodelrequesttemplate.FieldRequestAdapter:
 		return m.OldRequestAdapter(ctx)
+	case custommodelrequesttemplate.FieldAttributes:
+		return m.OldAttributes(ctx)
 	}
 	return nil, fmt.Errorf("unknown CustomModelRequestTemplate field %s", name)
 }
@@ -27558,6 +27656,13 @@ func (m *CustomModelRequestTemplateMutation) SetField(name string, value ent.Val
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetRequestAdapter(v)
+		return nil
+	case custommodelrequesttemplate.FieldAttributes:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAttributes(v)
 		return nil
 	}
 	return fmt.Errorf("unknown CustomModelRequestTemplate field %s", name)
@@ -27631,6 +27736,9 @@ func (m *CustomModelRequestTemplateMutation) ResetField(name string) error {
 		return nil
 	case custommodelrequesttemplate.FieldRequestAdapter:
 		m.ResetRequestAdapter()
+		return nil
+	case custommodelrequesttemplate.FieldAttributes:
+		m.ResetAttributes()
 		return nil
 	}
 	return fmt.Errorf("unknown CustomModelRequestTemplate field %s", name)

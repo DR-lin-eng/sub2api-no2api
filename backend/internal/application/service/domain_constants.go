@@ -49,6 +49,7 @@ const (
 	PlatformMiniMax     = domain.PlatformMiniMax
 	PlatformOpenCodeGo  = domain.PlatformOpenCodeGo
 	PlatformTypeSafe    = domain.PlatformTypeSafe
+	PlatformMultimodal  = domain.PlatformMultimodal
 	PlatformComposite   = domain.PlatformComposite
 )
 
@@ -98,6 +99,10 @@ func IsOpenCodeGo(platform string) bool {
 	return platform == PlatformOpenCodeGo
 }
 
+func IsMultimodal(platform string) bool {
+	return platform == PlatformMultimodal
+}
+
 func IsMultiProtocolAPIKeyProvider(platform string) bool {
 	return IsCNProvider(platform) || IsOpenCodeGo(platform)
 }
@@ -117,6 +122,7 @@ var AllowedQuotaPlatforms = []string{
 	PlatformMiniMax,
 	PlatformOpenCodeGo,
 	PlatformTypeSafe,
+	PlatformMultimodal,
 }
 
 // IsAllowedQuotaPlatform 报告 s 是否为合法的 quota platform 标识。

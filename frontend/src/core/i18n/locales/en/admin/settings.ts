@@ -114,7 +114,6 @@ export default {
         customModelConfig: {
           title: 'Custom Model Config',
           description: 'Configure model capability overrides for multimodal routing.',
-          configureLink: 'Open custom model config',
           enabled: 'Enable custom model config',
           enabledHint: 'When off, the page stays available to admins but model capability lookups fall back to built-in rules.',
         },

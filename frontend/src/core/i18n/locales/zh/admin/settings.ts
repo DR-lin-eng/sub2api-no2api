@@ -114,7 +114,6 @@ export default {
         customModelConfig: {
           title: '自定义模型配置',
           description: '配置模型能力覆盖规则，用于多模态路由判断。',
-          configureLink: '打开自定义模型配置',
           enabled: '启用自定义模型配置',
           enabledHint: '关闭后页面仍可供管理员访问，但模型能力查询会回退到内置规则。',
         },

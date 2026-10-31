@@ -49,6 +49,17 @@ func (e GrokMediaEndpoint) IsGenerationRequest() bool {
 	}
 }
 
+// IsVideoGenerationRequest 报告端点是否会新建视频任务。
+// 用于在提交上游前校验视频分辨率可映射到计费档位。
+func (e GrokMediaEndpoint) IsVideoGenerationRequest() bool {
+	switch e {
+	case GrokMediaEndpointVideosGenerations, GrokMediaEndpointVideosEdits, GrokMediaEndpointVideosExtensions:
+		return true
+	default:
+		return false
+	}
+}
+
 type GrokMediaRequestInfo struct {
 	Model           string
 	Prompt          string
@@ -58,6 +69,9 @@ type GrokMediaRequestInfo struct {
 	AspectRatio     string
 	ImageResolution string
 	Resolution      string
+	// ResolutionRaw 保存客户端提交的原始分辨率文本，用于在提交上游前拒绝
+	// 无法映射到计费档位的取值（例如 1440p），避免静默按 480p 计费。
+	ResolutionRaw   string
 	DurationSeconds int
 	InputImageURLs  []string
 	MaskImageURL    string
@@ -418,6 +432,58 @@ func (s *OpenAIGatewayService) ForwardGrokMedia(
 	if err != nil {
 		return nil, err
 	}
+	if endpoint.RequiresRequestBody() && s.customModelCapabilities != nil {
+		modality := "video"
+		if endpoint == GrokMediaEndpointImagesGenerations || endpoint == GrokMediaEndpointImagesEdits {
+			modality = "image"
+		}
+		body, err = applyModelAttributes(
+			ctx,
+			s.customModelCapabilities,
+			requestInfo.Model,
+			modality,
+			nil,
+			body,
+			contentType,
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+	var adapterHeaders map[string]string
+	if endpoint.RequiresRequestBody() && s.customModelCapabilities != nil {
+		requestAdapter, configured, resolveErr := s.resolveCustomModelRequestAdapter(
+			ctx,
+			requestInfo.Model,
+			upstreamModel,
+		)
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+		if configured {
+			clientEndpoint := grokMediaClientEndpointPath(endpoint)
+			adapted, adaptErr := applyCustomModelRequestAdapter(
+				body,
+				contentType,
+				clientEndpoint,
+				buildGrokMediaRequestVariables(requestInfo, clientEndpoint, body, contentType, upstreamModel),
+				requestAdapter,
+				func() (map[string]any, error) { return customModelJSONAdapterBase(body, contentType) },
+			)
+			if adaptErr != nil {
+				return nil, adaptErr
+			}
+			body = adapted.Body
+			contentType = adapted.ContentType
+			adapterHeaders = adapted.Headers
+			if adapted.Endpoint != clientEndpoint {
+				targetURL, err = replaceGrokMediaURLPath(targetURL, adapted.Endpoint)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
 	modelCtx := withGrokTeamRateLimitModel(ctx, upstreamModel)
 	token, _, err := s.getRequestCredential(modelCtx, c, account)
 	if err != nil {
@@ -445,6 +511,10 @@ func (s *OpenAIGatewayService) ForwardGrokMedia(
 			contentType = "application/json"
 		}
 		upstreamReq.Header.Set("Content-Type", contentType)
+	}
+	// 自定义模型模板请求头先应用，账号级请求头覆写最后应用并优先。
+	for name, value := range adapterHeaders {
+		upstreamReq.Header.Set(resolveWireCasing(name), value)
 	}
 	// 账号级请求头覆写最后应用，配置值优先于内置默认头。
 	account.ApplyHeaderOverrides(upstreamReq.Header)
@@ -492,21 +562,22 @@ func (s *OpenAIGatewayService) ForwardGrokMedia(
 	writeGrokMediaResponse(c, resp, respBody, s.responseHeaderFilter)
 	usage := grokMediaUsageFromResponse(endpoint, requestInfo, respBody)
 	return &OpenAIForwardResult{
-		RequestID:            requestIDHeader,
-		ResponseID:           usage.ResponseID,
-		Usage:                usage.Usage,
-		Model:                requestModel,
-		BillingModel:         requestModel,
-		UpstreamModel:        upstreamModel,
-		ResponseHeaders:      resp.Header.Clone(),
-		Duration:             time.Since(startTime),
-		ImageCount:           usage.ImageCount,
-		ImageSize:            usage.ImageSize,
-		ImageInputSize:       usage.ImageInputSize,
-		ImageOutputSizes:     usage.ImageOutputSizes,
-		VideoCount:           usage.VideoCount,
-		VideoResolution:      usage.VideoResolution,
-		VideoDurationSeconds: usage.VideoDurationSeconds,
+		RequestID:              requestIDHeader,
+		ResponseID:             usage.ResponseID,
+		Usage:                  usage.Usage,
+		Model:                  requestModel,
+		BillingModel:           requestModel,
+		UpstreamModel:          upstreamModel,
+		ResponseHeaders:        resp.Header.Clone(),
+		Duration:               time.Since(startTime),
+		ImageCount:             usage.ImageCount,
+		ImageSize:              usage.ImageSize,
+		ImageInputSize:         usage.ImageInputSize,
+		ImageOutputSizes:       usage.ImageOutputSizes,
+		ImageBillingSizeLocked: usage.ImageBillingSizeLocked,
+		VideoCount:             usage.VideoCount,
+		VideoResolution:        usage.VideoResolution,
+		VideoDurationSeconds:   usage.VideoDurationSeconds,
 	}, nil
 }
 
@@ -655,167 +726,6 @@ func isGrokCLIProxyTarget(rawURL string) bool {
 	return err == nil && strings.EqualFold(parsed.Hostname(), "cli-chat-proxy.grok.com")
 }
 
-func prepareGrokMediaForwardBody(endpoint GrokMediaEndpoint, body []byte, contentType string) ([]byte, string, error) {
-	if endpoint != GrokMediaEndpointImagesEdits || gjson.ValidBytes(body) {
-		return body, contentType, nil
-	}
-	mediaType, _, err := mime.ParseMediaType(strings.TrimSpace(contentType))
-	if err != nil || !strings.EqualFold(mediaType, "multipart/form-data") {
-		return body, contentType, nil
-	}
-
-	info := ParseGrokMediaRequest(contentType, body)
-	payload := make(map[string]any)
-	if info.Model != "" {
-		payload["model"] = info.Model
-	}
-	if info.Prompt != "" {
-		payload["prompt"] = info.Prompt
-	}
-	if info.N > 1 {
-		payload["n"] = info.N
-	}
-	if info.Size != "" {
-		payload["size"] = info.Size
-	}
-	if info.AspectRatio != "" {
-		payload["aspect_ratio"] = info.AspectRatio
-	}
-	if info.ImageResolution != "" {
-		payload["resolution"] = info.ImageResolution
-	}
-
-	images := make([]map[string]string, 0, len(info.InputImageURLs)+len(info.Uploads))
-	for _, imageURL := range info.InputImageURLs {
-		if imageURL = strings.TrimSpace(imageURL); imageURL != "" {
-			images = append(images, map[string]string{"url": imageURL})
-		}
-	}
-	for _, upload := range info.Uploads {
-		dataURL, err := openAIImageUploadToDataURL(upload)
-		if err != nil {
-			return nil, "", err
-		}
-		images = append(images, map[string]string{"url": dataURL})
-	}
-	if len(images) > 0 {
-		payload["image"] = images[0]
-		if len(images) > 1 {
-			payload["images"] = images
-		}
-	}
-
-	maskImageURL := strings.TrimSpace(info.MaskImageURL)
-	if info.MaskUpload != nil {
-		dataURL, err := openAIImageUploadToDataURL(*info.MaskUpload)
-		if err != nil {
-			return nil, "", err
-		}
-		maskImageURL = dataURL
-	}
-	if maskImageURL != "" {
-		payload["mask"] = map[string]string{"url": maskImageURL}
-	}
-
-	out, err := marshalOpenAIUpstreamJSON(payload)
-	if err != nil {
-		return nil, "", err
-	}
-	return out, "application/json", nil
-}
-
-func normalizeGrokMediaForwardBody(endpoint GrokMediaEndpoint, body []byte, contentType string) ([]byte, string, error) {
-	if !endpoint.RequiresRequestBody() || !gjson.ValidBytes(body) {
-		return body, contentType, nil
-	}
-	var imageFields []string
-	switch endpoint {
-	case GrokMediaEndpointImagesEdits:
-		imageFields = []string{"image", "images", "mask"}
-	case GrokMediaEndpointVideosGenerations:
-		imageFields = []string{"image", "images", "reference_images"}
-	}
-	var err error
-	body, err = canonicalizeGrokMediaImageURLFields(body, imageFields...)
-	if err != nil {
-		return nil, "", err
-	}
-	info := ParseGrokMediaRequest(contentType, body)
-	upstreamModel := NormalizeGrokMediaModelForEndpoint(endpoint, info.Model, info.HasInputImage())
-	if upstreamModel == "" || upstreamModel == info.Model {
-		return body, contentType, nil
-	}
-	out, err := sjson.SetBytes(body, "model", upstreamModel)
-	if err != nil {
-		return nil, "", fmt.Errorf("rewrite grok media model: %w", err)
-	}
-	return out, contentType, nil
-}
-
-func canonicalizeGrokMediaImageURLFields(body []byte, fields ...string) ([]byte, error) {
-	out := body
-	for _, field := range fields {
-		value := gjson.GetBytes(out, field)
-		if !value.Exists() {
-			continue
-		}
-		if value.IsArray() {
-			for index := range value.Array() {
-				var err error
-				out, err = canonicalizeGrokMediaImageURLObject(out, fmt.Sprintf("%s.%d", field, index))
-				if err != nil {
-					return nil, err
-				}
-			}
-			continue
-		}
-		var err error
-		out, err = canonicalizeGrokMediaImageURLObject(out, field)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return out, nil
-}
-
-func canonicalizeGrokMediaImageURLObject(body []byte, path string) ([]byte, error) {
-	legacyPath := path + ".image_url"
-	legacy := gjson.GetBytes(body, legacyPath)
-	if !legacy.Exists() {
-		return body, nil
-	}
-
-	out := body
-	if strings.TrimSpace(gjson.GetBytes(out, path+".url").String()) == "" {
-		var err error
-		out, err = sjson.SetBytes(out, path+".url", legacy.Value())
-		if err != nil {
-			return nil, fmt.Errorf("normalize grok media image url: %w", err)
-		}
-	}
-	out, err := sjson.DeleteBytes(out, legacyPath)
-	if err != nil {
-		return nil, fmt.Errorf("remove legacy grok media image url: %w", err)
-	}
-	return out, nil
-}
-
-func sanitizeGrokMediaForwardBody(endpoint GrokMediaEndpoint, body []byte, contentType string) ([]byte, string, error) {
-	if !endpoint.RequiresRequestBody() || !gjson.ValidBytes(body) {
-		return body, contentType, nil
-	}
-	switch endpoint {
-	case GrokMediaEndpointImagesGenerations, GrokMediaEndpointImagesEdits:
-		out, err := applyGrokImagineImageGeometry(body)
-		if err != nil {
-			return nil, "", fmt.Errorf("sanitize grok media image geometry: %w", err)
-		}
-		return out, contentType, nil
-	default:
-		return body, contentType, nil
-	}
-}
-
 func (r GrokMediaRequestInfo) HasInputImage() bool {
 	return len(r.InputImageURLs) > 0 || len(r.Uploads) > 0
 }
@@ -838,15 +748,17 @@ func NormalizeGrokMediaModelForEndpoint(endpoint GrokMediaEndpoint, model string
 }
 
 type grokMediaUsageMetadata struct {
-	ResponseID           string
-	Usage                OpenAIUsage
-	ImageCount           int
-	ImageSize            string
-	ImageInputSize       string
-	ImageOutputSizes     []string
-	VideoCount           int
-	VideoResolution      string
-	VideoDurationSeconds int
+	ResponseID       string
+	Usage            OpenAIUsage
+	ImageCount       int
+	ImageSize        string
+	ImageInputSize   string
+	ImageOutputSizes []string
+	// ImageBillingSizeLocked 表示图片计费档位锁定为请求档位，不允许落账时被上游尺寸覆盖。
+	ImageBillingSizeLocked bool
+	VideoCount             int
+	VideoResolution        string
+	VideoDurationSeconds   int
 }
 
 func grokMediaUsageFromResponse(endpoint GrokMediaEndpoint, requestInfo GrokMediaRequestInfo, responseBody []byte) grokMediaUsageMetadata {
@@ -855,7 +767,18 @@ func grokMediaUsageFromResponse(endpoint GrokMediaEndpoint, requestInfo GrokMedi
 	switch endpoint {
 	case GrokMediaEndpointImagesGenerations, GrokMediaEndpointImagesEdits:
 		meta.ImageCount = countOpenAIResponseImageOutputsFromJSONBytes(responseBody)
+		// Preserve Grok's existing default image tier. Multimodal models have
+		// independent pricing validation and must not inherit this fallback.
 		meta.ImageSize = requestInfo.SizeTier
+		if tier, ok := ClassifyImageBillingTier(requestInfo.ImageResolution); ok {
+			meta.ImageSize = tier
+			meta.ImageBillingSizeLocked = true
+		}
+		// 请求给出了可分类的尺寸时锁定该档位；未指定时按上游实际输出尺寸计费。
+		if tier, ok := ClassifyImageBillingTier(requestInfo.Size); ok {
+			meta.ImageSize = tier
+			meta.ImageBillingSizeLocked = true
+		}
 		meta.ImageInputSize = requestInfo.Size
 		meta.ImageOutputSizes = collectOpenAIResponseImageOutputSizesFromJSONBytes(responseBody)
 	case GrokMediaEndpointVideosGenerations, GrokMediaEndpointVideosEdits, GrokMediaEndpointVideosExtensions:

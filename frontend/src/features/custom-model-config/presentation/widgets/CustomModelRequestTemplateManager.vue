@@ -120,6 +120,7 @@ async function copyTemplate(template: CustomModelRequestTemplate) {
     name: template.name,
     description: template.description,
     request_adapter: template.request_adapter ?? {},
+    attributes: template.attributes ?? {},
   }
   const content = JSON.stringify(payload, null, 2)
   try {

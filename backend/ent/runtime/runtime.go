@@ -1167,6 +1167,10 @@ func init() {
 	custommodelconfigDescVideoAPIType := custommodelconfigFields[3].Descriptor()
 	// custommodelconfig.DefaultVideoAPIType holds the default value on creation for the video_api_type field.
 	custommodelconfig.DefaultVideoAPIType = custommodelconfigDescVideoAPIType.Default.(string)
+	// custommodelconfigDescMediaLimits is the schema descriptor for media_limits field.
+	custommodelconfigDescMediaLimits := custommodelconfigFields[5].Descriptor()
+	// custommodelconfig.DefaultMediaLimits holds the default value on creation for the media_limits field.
+	custommodelconfig.DefaultMediaLimits = custommodelconfigDescMediaLimits.Default.(func() map[string]interface{})
 	custommodelrequesttemplateMixin := schema.CustomModelRequestTemplate{}.Mixin()
 	custommodelrequesttemplateMixinFields0 := custommodelrequesttemplateMixin[0].Fields()
 	_ = custommodelrequesttemplateMixinFields0
@@ -1206,6 +1210,10 @@ func init() {
 	custommodelrequesttemplate.DefaultDescription = custommodelrequesttemplateDescDescription.Default.(string)
 	// custommodelrequesttemplate.DescriptionValidator is a validator for the "description" field. It is called by the builders before save.
 	custommodelrequesttemplate.DescriptionValidator = custommodelrequesttemplateDescDescription.Validators[0].(func(string) error)
+	// custommodelrequesttemplateDescAttributes is the schema descriptor for attributes field.
+	custommodelrequesttemplateDescAttributes := custommodelrequesttemplateFields[3].Descriptor()
+	// custommodelrequesttemplate.DefaultAttributes holds the default value on creation for the attributes field.
+	custommodelrequesttemplate.DefaultAttributes = custommodelrequesttemplateDescAttributes.Default.(func() map[string]interface{})
 	errorpassthroughruleMixin := schema.ErrorPassthroughRule{}.Mixin()
 	errorpassthroughruleMixinFields0 := errorpassthroughruleMixin[0].Fields()
 	_ = errorpassthroughruleMixinFields0
