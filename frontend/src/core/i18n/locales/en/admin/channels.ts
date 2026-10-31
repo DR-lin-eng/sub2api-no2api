@@ -144,6 +144,9 @@ export default {
         addTimePeriod: 'Add time period',
         removeTimePeriod: 'Remove time period',
         perRequestPrice: 'Price per Request',
+        perSecondPrice: 'Price per Second',
+        multimodalVideoPriceHint:
+          'The multimodal platform requires a per-second price on every model: there are no built-in rates and group-level video prices do not apply. If this model has no per-second price for the requested resolution, the request is rejected with 503 (video_price_not_configured).',
         perRequestPriceRequired: 'Per-request price or billing tiers required for per-request/image billing mode',
         tierLabel: 'Tier',
         resolution: 'Resolution',

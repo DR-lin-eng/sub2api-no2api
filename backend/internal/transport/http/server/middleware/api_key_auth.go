@@ -177,7 +177,17 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 		// Async image task polling only reads data that already belongs to the
 		// authenticated key and must remain available after the completed
 		// generation consumes the key's remaining balance.
-		skipBilling := c.Request.URL.Path == "/v1/usage" || authMetadataRequest || isAsyncImageTaskRead(c.Request.Method, c.Request.URL.Path)
+		// Multimodal video reads have their own owner/hold checks. Reserving the
+		// entire balance must not prevent settlement and delivery of accepted work.
+		compositeVideoRead, ownerErr := resolveCompositeMultimodalVideoOwner(c, apiKey)
+		if ownerErr != nil {
+			AbortWithError(c, http.StatusBadGateway, "VIDEO_TASK_OWNER_UNAVAILABLE", "Failed to verify video task ownership, please retry later")
+			return
+		}
+		videoTaskRead := compositeVideoRead || (apiKey.Group != nil && apiKey.Group.Platform == service.PlatformMultimodal &&
+			isMultimodalVideoTaskRead(c.Request.Method, c.Request.URL.Path))
+		skipBilling := c.Request.URL.Path == "/v1/usage" || authMetadataRequest ||
+			isAsyncImageTaskRead(c.Request.Method, c.Request.URL.Path) || videoTaskRead
 
 		// ── 4. SimpleMode → early return ─────────────────────────────
 
@@ -218,7 +228,10 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 
 		// ── 6. 计费执行（skipBilling 时整块跳过） ────────────────────
 
-		if !skipBilling {
+		// Video reads skip balance/subscription admission because a prior hold or
+		// accepted subscription task owns the delivery, but they retain key status,
+		// expiry and quota checks below.
+		if !skipBilling || videoTaskRead {
 			// Key 状态检查
 			switch apiKey.Status {
 			case service.StatusAPIKeyQuotaExhausted:
@@ -239,8 +252,10 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 				return
 			}
 
-			// 订阅模式：验证订阅限额
-			if subscription != nil {
+			if videoTaskRead {
+				// Ownership and hold settlement are enforced by the media handler.
+			} else if subscription != nil {
+				// 订阅模式：验证订阅限额
 				needsMaintenance, validateErr := subscriptionService.ValidateAndCheckLimits(subscription, apiKey.Group)
 				if needsMaintenance {
 					refreshed, maintenanceErr := subscriptionService.EnsureWindowMaintenance(c.Request.Context(), subscription)

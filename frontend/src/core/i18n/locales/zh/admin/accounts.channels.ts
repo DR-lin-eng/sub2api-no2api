@@ -28,6 +28,10 @@ export default {
       monthly: '30 天',
     },
   },
+  multimodal: {
+    baseUrlHint: '必填。上游 OpenAI 兼容媒体服务的地址，例如 https://your-upstream.example.com/v1；不内置任何默认端点。',
+    apiKeyHint: '上游媒体服务的 API Key',
+  },
   opencode: {
     protocolRules: '模型协议分流',
     protocolRulesHint: '按顺序匹配精确模型 ID 或末尾 * 通配；未命中时使用 Chat Completions。',

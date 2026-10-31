@@ -40,9 +40,12 @@ function dynamicLocaleCalls(): Map<string, number> {
 }
 
 const auditedDynamicCalls: Record<string, number> = {
+  'common/widgets/model-attributes/ModelAttributesEditor.vue :: `admin.customModelConfig.template.attributesModalities.${modality}`': 1,
+  'common/widgets/model-attributes/ModelAttributesEditor.vue :: `admin.customModelConfig.template.attributesRenderMode.hint.${group.renderMode}`': 1,
   'core/constants/account.ts :: `admin.accounts.${field}Hint`': 1,
   'core/constants/account.ts :: `admin.accounts.cnProvider.${field}Hint`': 1,
   'core/constants/account.ts :: `admin.accounts.gemini.${field}Hint`': 1,
+  'core/constants/account.ts :: `admin.accounts.multimodal.${field}Hint`': 1,
   'core/constants/account.ts :: `admin.accounts.openai.${field}Hint`': 1,
   // Activity enums and the fixed legacy-text allowlist are covered in activitySafety.spec.ts.
   'features/activity-center/presentation/activityCenterText.ts :: `${namespace}.${key}`': 1,
@@ -96,9 +99,14 @@ const auditedDynamicCalls: Record<string, number> = {
   'features/billing/presentation/widgets/PaymentProviderDialog.vue :: `admin.settings.payment.field_${f.key}`': 2,
   'features/billing/presentation/widgets/PaymentProviderDialog.vue :: `payment.methods.${opt.value}`': 1,
   'features/billing/presentation/widgets/PaymentProviderList.vue :: `payment.methods.${opt.value}`': 1,
+  'features/custom-model-config/presentation/widgets/CustomModelConfigDialog.vue :: `admin.customModelConfig.modal.mediaLimits.kinds.${kind}`': 1,
+  'features/custom-model-config/presentation/widgets/CustomModelRequestTemplateDialog.vue :: `admin.customModelConfig.template.attributesHide.options.${key}`': 1,
+  'features/custom-model-config/presentation/widgets/EndpointRewriteEditor.vue :: `admin.customModelConfig.template.endpointRewriteModes.${option}`': 1,
   'features/dashboard-user/presentation/widgets/UserDashboardStats.vue :: `dashboard.platformQuota.${w}`': 2,
   'features/keys/presentation/widgets/KeyGroupBindingsEditor.vue :: `keys.providerHints.${createProvider}`': 1,
   'features/keys/presentation/widgets/KeyGroupBindingsEditor.vue :: `keys.providers.${provider.value}`': 1,
+  'features/media-studio/presentation/widgets/MediaStudioCanvas.vue :: `mediaStudio.composer.attachmentType.${kind}`': 1,
+  'features/media-studio/presentation/widgets/MediaStudioCanvas.vue :: `mediaStudio.composer.upload.rejections.${rejection.reason}`': 1,
   'features/media-studio/presentation/widgets/MediaStudioCanvas.vue :: `mediaStudio.modeItems.${mode.id}.title`': 1,
   'features/media-studio/presentation/widgets/MediaStudioCanvas.vue :: `mediaStudio.modeItems.${selectedMode.id}.title`': 1,
   'features/prompt-audit/presentation/widgets/EventDetailDialog.vue :: `admin.promptAudit.events.tabs.${tab}`': 1,

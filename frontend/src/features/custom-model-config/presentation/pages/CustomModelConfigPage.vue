@@ -5,14 +5,6 @@
         <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
           <!-- Left: Search -->
           <div class="flex flex-1 flex-wrap items-center gap-3">
-            <RouterLink
-              :to="{ path: '/admin/settings', query: { tab: 'features' } }"
-              class="btn btn-secondary"
-              :title="t('admin.customModelConfig.actions.backToSettings')"
-              :aria-label="t('admin.customModelConfig.actions.backToSettings')"
-            >
-              <Icon name="arrowLeft" size="md" />
-            </RouterLink>
             <div class="relative w-full sm:w-64">
               <Icon
                 name="search"

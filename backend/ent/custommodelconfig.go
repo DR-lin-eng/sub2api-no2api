@@ -31,7 +31,9 @@ type CustomModelConfig struct {
 	// 视频 API 类型，如 "grok", "agnes"，仅当 capabilities 包含 video 时有效
 	VideoAPIType string `json:"video_api_type,omitempty"`
 	// 可复用的请求适配模板 ID
-	TemplateID   *int64 `json:"template_id,omitempty"`
+	TemplateID *int64 `json:"template_id,omitempty"`
+	// 媒体工坊模型级限制：上传开关、文件类型、各类型数量/大小、视频时长区间
+	MediaLimits  map[string]interface{} `json:"media_limits,omitempty"`
 	selectValues sql.SelectValues
 }
 
@@ -40,7 +42,7 @@ func (*CustomModelConfig) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case custommodelconfig.FieldCapabilities:
+		case custommodelconfig.FieldCapabilities, custommodelconfig.FieldMediaLimits:
 			values[i] = new([]byte)
 		case custommodelconfig.FieldPrefixMatch:
 			values[i] = new(sql.NullBool)
@@ -116,6 +118,14 @@ func (_m *CustomModelConfig) assignValues(columns []string, values []any) error 
 				_m.TemplateID = new(int64)
 				*_m.TemplateID = value.Int64
 			}
+		case custommodelconfig.FieldMediaLimits:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field media_limits", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.MediaLimits); err != nil {
+					return fmt.Errorf("unmarshal field media_limits: %w", err)
+				}
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -174,6 +184,9 @@ func (_m *CustomModelConfig) String() string {
 		builder.WriteString("template_id=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
+	builder.WriteString(", ")
+	builder.WriteString("media_limits=")
+	builder.WriteString(fmt.Sprintf("%v", _m.MediaLimits))
 	builder.WriteByte(')')
 	return builder.String()
 }

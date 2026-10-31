@@ -1,4 +1,15 @@
+import { isMediaStudioAudioModel, isMediaStudioImageModel, isMediaStudioVideoModel } from '@/features/custom-model-config/domain/services/modelCapabilityService'
+import { mediaStudioBlobDataURL } from './mediaStudioBrowserMedia'
 import { apiClient, buildGatewayUrl } from '@/core/networks/client'
+import type { ModelAttributeBlock, ModelAttributeValues } from '@/common/widgets/model-attributes/types'
+
+export type {
+  ModelAttributeBlock,
+  ModelAttributeField,
+  ModelAttributeFieldType,
+  ModelAttributeRenderMode,
+  ModelAttributeValues,
+} from '@/common/widgets/model-attributes/types'
 
 export type MediaStudioMediaType = 'image' | 'video' | 'audio'
 
@@ -6,11 +17,13 @@ export interface MediaStudioGroupOption {
   group_id: number
   group_name: string
   platform: string
+  media_type: MediaStudioMediaType
   models?: string[]
 }
 
 export interface MediaStudioConfig {
   groups: MediaStudioGroupOption[]
+  storage_available?: boolean
 }
 
 export interface MediaStudioSession {
@@ -26,15 +39,142 @@ export interface MediaStudioModel {
   displayName?: string
   owned_by?: string
   ownedBy?: string
-  supported_parameters?: string[]
-  supportedParameters?: string[]
-  supported_sizes?: string[]
-  supportedSizes?: string[]
-  supported_qualities?: string[]
-  supportedQualities?: string[]
-  supports_quality?: boolean
-  supportsQuality?: boolean
+  attributes?: ModelAttributeBlock
+  limits?: MediaStudioModelLimits
   [key: string]: unknown
+}
+
+// 模型配置里的媒体限制原始结构；缺省字段表示「未配置」，由前端回退默认值。
+export interface MediaStudioModelLimits {
+  allow_upload?: boolean
+  file_types?: MediaStudioMediaType[]
+  max_files?: Partial<Record<MediaStudioMediaType, number>>
+  max_file_size_mb?: Partial<Record<MediaStudioMediaType, number>>
+  duration?: { min?: number; max?: number } | null
+}
+
+// 归一化后的限制：所有字段都有值，便于渲染与校验直接使用。
+export interface MediaStudioResolvedLimits {
+  configured: boolean
+  allowUpload: boolean
+  fileTypes: MediaStudioMediaType[]
+  maxFiles: Record<MediaStudioMediaType, number>
+  maxFileSizeMB: Record<MediaStudioMediaType, number>
+  duration: { min: number; max: number }
+}
+
+export const MEDIA_STUDIO_MEDIA_KINDS: MediaStudioMediaType[] = ['image', 'video', 'audio']
+
+// 未配置模型限制时沿用的默认值（与媒体工坊既有行为保持一致）。
+export const MEDIA_STUDIO_DEFAULT_MAX_FILES: Record<MediaStudioMediaType, number> = {
+  image: 9,
+  video: 3,
+  audio: 3,
+}
+export const MEDIA_STUDIO_DEFAULT_MAX_FILE_SIZE_MB: Record<MediaStudioMediaType, number> = {
+  image: 20,
+  video: 256,
+  audio: 50,
+}
+export const MEDIA_STUDIO_DEFAULT_DURATION_RANGE = { min: 1, max: 15 }
+
+function positiveInteger(value: unknown, fallback: number): number {
+  const numeric = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(numeric) || numeric <= 0) return fallback
+  return Math.trunc(numeric)
+}
+
+export function resolveMediaStudioModelLimits(
+  limits?: MediaStudioModelLimits | null,
+): MediaStudioResolvedLimits {
+  const resolved: MediaStudioResolvedLimits = {
+    configured: false,
+    allowUpload: true,
+    fileTypes: [...MEDIA_STUDIO_MEDIA_KINDS],
+    maxFiles: { ...MEDIA_STUDIO_DEFAULT_MAX_FILES },
+    maxFileSizeMB: { ...MEDIA_STUDIO_DEFAULT_MAX_FILE_SIZE_MB },
+    duration: { ...MEDIA_STUDIO_DEFAULT_DURATION_RANGE },
+  }
+  if (!limits || typeof limits !== 'object') return resolved
+
+  resolved.configured = Object.keys(limits).length > 0
+  resolved.allowUpload = limits.allow_upload !== false
+  const declaredTypes = Array.isArray(limits.file_types)
+    ? limits.file_types.filter(kind => MEDIA_STUDIO_MEDIA_KINDS.includes(kind))
+    : []
+  // 未声明 file_types 表示三类素材都允许，与后端校验语义一致。
+  if (Array.isArray(limits.file_types)) resolved.fileTypes = declaredTypes
+
+  for (const kind of MEDIA_STUDIO_MEDIA_KINDS) {
+    const files = limits.max_files?.[kind]
+    // 0 是合法配置，表示该类型禁用，不能按缺省值回退。
+    if (typeof files === 'number' && Number.isFinite(files) && files >= 0) {
+      resolved.maxFiles[kind] = Math.trunc(files)
+    }
+    resolved.maxFileSizeMB[kind] = positiveInteger(
+      limits.max_file_size_mb?.[kind],
+      resolved.maxFileSizeMB[kind],
+    )
+  }
+
+  const min = Number(limits.duration?.min)
+  const max = Number(limits.duration?.max)
+  if (Number.isFinite(min) && Number.isFinite(max) && min >= 1 && max >= min) {
+    resolved.duration = { min: Math.trunc(min), max: Math.trunc(max) }
+  }
+  return resolved
+}
+
+export function mediaStudioKindEnabled(
+  limits: MediaStudioResolvedLimits,
+  kind: MediaStudioMediaType,
+): boolean {
+  return limits.allowUpload && limits.fileTypes.includes(kind) && limits.maxFiles[kind] > 0
+}
+
+export function mediaStudioUploadAccept(limits: MediaStudioResolvedLimits): string {
+  return MEDIA_STUDIO_MEDIA_KINDS
+    .filter(kind => mediaStudioKindEnabled(limits, kind))
+    .map(kind => `${kind}/*`)
+    .join(',')
+}
+
+export function mediaStudioFileKind(file: File): MediaStudioMediaType | '' {
+  const mimeType = (file.type || '').toLowerCase()
+  if (mimeType.startsWith('image/')) return 'image'
+  if (mimeType.startsWith('video/')) return 'video'
+  if (mimeType.startsWith('audio/')) return 'audio'
+  return ''
+}
+
+// 媒体工坊硬编码参数控件与请求字段的绑定：模板声明了同名字段时，局部覆盖模式下该控件被替换。
+export type MediaStudioParameterControl =
+  | 'image.size'
+  | 'image.quality'
+  | 'image.count'
+  | 'video.resolution'
+  | 'video.aspectRatio'
+  | 'video.duration'
+
+export const MEDIA_STUDIO_PARAMETER_BINDINGS: Record<MediaStudioParameterControl, string> = {
+  'image.size': 'size',
+  'image.quality': 'quality',
+  'image.count': 'n',
+  'video.resolution': 'resolution',
+  'video.aspectRatio': 'aspect_ratio',
+  'video.duration': 'duration',
+}
+
+// 请求模板里可屏蔽的内置参数：由绑定表按模态派生，避免参数名重复维护。
+export const MEDIA_STUDIO_HIDE_CANDIDATES: Record<MediaStudioMediaType, string[]> = {
+  image: [],
+  video: [],
+  audio: [],
+}
+
+for (const [control, key] of Object.entries(MEDIA_STUDIO_PARAMETER_BINDINGS)) {
+  const modality = control.split('.', 1)[0] as MediaStudioMediaType
+  MEDIA_STUDIO_HIDE_CANDIDATES[modality].push(key)
 }
 
 export interface MediaStudioModelsResponse {
@@ -49,11 +189,23 @@ export interface MediaStudioImageSubmitRequest {
   size?: string
   quality?: string
   response_format?: 'b64_json' | 'url'
+  attributes?: ModelAttributeValues
 }
 
 export async function getMediaStudioConfig(): Promise<MediaStudioConfig> {
   const { data } = await apiClient.get<MediaStudioConfig>('/media-studio/config')
-  return data
+  return {
+    ...data,
+    groups: data.groups.map(group => {
+      if (group.media_type === 'image' || group.media_type === 'video' || group.media_type === 'audio') return group
+      for (const model of group.models ?? []) {
+        if (isMediaStudioVideoModel(model)) return { ...group, media_type: 'video' as const }
+        if (isMediaStudioAudioModel(model)) return { ...group, media_type: 'audio' as const }
+        if (isMediaStudioImageModel(model)) return { ...group, media_type: 'image' as const }
+      }
+      return { ...group, media_type: 'image' as const }
+    }),
+  }
 }
 
 export async function createMediaStudioSession(
@@ -64,6 +216,34 @@ export async function createMediaStudioSession(
     media_type: mediaType,
     group_id: groupId,
   })
+  return data
+}
+
+// 提交前预估消耗：金额由后端 sub2api 本地计价链路算出，前端不自行推算价格。
+export interface MediaStudioCostEstimateRequest {
+  media_type: MediaStudioMediaType
+  group_id: number
+  model: string
+  resolution?: string
+  duration?: number
+  size?: string
+  count?: number
+}
+
+export interface MediaStudioCostEstimate {
+  amount: number
+  currency: string
+  billing_mode: string
+  model: string
+  resolution?: string
+  duration_seconds?: number
+  image_count?: number
+}
+
+export async function estimateMediaStudioCost(
+  request: MediaStudioCostEstimateRequest,
+): Promise<MediaStudioCostEstimate> {
+  const { data } = await apiClient.post<MediaStudioCostEstimate>('/media-studio/estimate', request)
   return data
 }
 
@@ -80,12 +260,27 @@ export interface MediaStudioImageResult {
 }
 
 export type MediaStudioVideoResolution = '480p' | '720p' | '1080p'
+export type MediaStudioVideoAspectRatio = '16:9' | '9:16' | '1:1' | '4:3' | '3:4'
 
 export interface MediaStudioVideoSubmitRequest {
   model: string
   prompt: string
-  resolution: MediaStudioVideoResolution
-  duration: number
+  resolution?: MediaStudioVideoResolution
+  duration?: number
+  aspect_ratio?: MediaStudioVideoAspectRatio
+  images?: string[]
+  videos?: string[]
+  audios?: string[]
+  attributes?: ModelAttributeValues
+}
+
+// 参考素材上传结果：url 可直接作为视频请求的 images/videos/audios 元素。
+export interface MediaStudioUpload {
+  url: string
+  name: string
+  kind: MediaStudioMediaType
+  size: number
+  content_type: string
 }
 
 export type MediaStudioVideoTaskStatus = 'processing' | 'completed' | 'failed'
@@ -93,7 +288,11 @@ export type MediaStudioVideoTaskStatus = 'processing' | 'completed' | 'failed'
 export interface MediaStudioVideoTask {
   id: string
   status: MediaStudioVideoTaskStatus
+  progress?: number
   error?: string
+  // 本次视频的扣费金额与币种；处理中为冻结金额，完成后为实际结算金额。
+  cost?: number
+  currency?: string
   raw: Record<string, unknown>
 }
 
@@ -150,6 +349,12 @@ function authHeaders(apiKey: string, extra?: HeadersInit): HeadersInit {
   }
 }
 
+// 模型属性按字段名平铺到请求体顶层，固定字段优先，避免属性覆盖 model/prompt 等。
+function serializeSubmitPayload(payload: { attributes?: ModelAttributeValues }): string {
+  const { attributes, ...rest } = payload
+  return JSON.stringify({ ...(attributes ?? {}), ...rest })
+}
+
 const MAX_VIDEO_BYTES = 256 * 1024 * 1024
 const MAX_VIDEO_CHUNKS = 65_536
 
@@ -186,7 +391,10 @@ function extractVideoTaskID(raw: Record<string, unknown>): string {
     result.request_id ?? result.id ??
     raw.task_id ?? data.task_id ?? video.task_id
 
-  return normalizeVideoRequestID(taskID ?? '')
+  // 轮询响应可能只带 status/progress，不带任务 ID；此时交给调用方的 fallbackID 兜底。
+  const normalized = firstString(taskID)
+  if (!normalized) return ''
+  return normalizeVideoRequestID(normalized)
 }
 
 function normalizeVideoStatus(value: unknown): MediaStudioVideoTaskStatus {
@@ -213,17 +421,41 @@ function extractVideoError(raw: Record<string, unknown>): string | undefined {
   return errorMessage || undefined
 }
 
+function normalizeVideoProgress(value: unknown): number | undefined {
+  const numeric = typeof value === 'number'
+    ? value
+    : typeof value === 'string' && value.trim()
+      ? Number(value)
+      : Number.NaN
+  if (!Number.isFinite(numeric)) return undefined
+  return Math.min(100, Math.max(0, Math.round(numeric)))
+}
+
+function normalizeVideoCost(value: unknown): number | undefined {
+  const numeric = typeof value === 'number'
+    ? value
+    : typeof value === 'string' && value.trim()
+      ? Number(value)
+      : Number.NaN
+  if (!Number.isFinite(numeric) || numeric < 0) return undefined
+  return numeric
+}
+
 export function normalizeMediaStudioVideoTask(value: unknown, fallbackID = ''): MediaStudioVideoTask {
   const raw = recordValue(value)
   const data = recordValue(raw.data)
   const result = recordValue(raw.result)
+  const video = recordValue(raw.video)
 
   const id = extractVideoTaskID(raw) || fallbackID
 
   return {
     id,
     status: normalizeVideoStatus(raw.status ?? data.status ?? result.status),
+    progress: normalizeVideoProgress(raw.progress ?? data.progress ?? result.progress ?? video.progress),
     error: extractVideoError(raw),
+    cost: normalizeVideoCost(raw.cost ?? data.cost ?? result.cost ?? video.cost),
+    currency: firstString(raw.currency, data.currency, result.currency, video.currency) || undefined,
     raw,
   }
 }
@@ -244,6 +476,15 @@ export async function listMediaStudioModels(
   })
   if (!response.ok) throw await parseMediaStudioError(response)
   return response.json()
+}
+
+// Kept as a compatibility entry point: preparing a reference performs no HTTP upload.
+export async function uploadMediaStudioFile(
+  _model: string,
+  kind: MediaStudioMediaType,
+  file: File,
+): Promise<MediaStudioUpload> {
+  return { url: await mediaStudioBlobDataURL(file), name: file.name, kind, size: file.size, content_type: file.type }
 }
 
 export async function submitAsyncImageGeneration(
@@ -274,7 +515,7 @@ export async function submitImageGeneration(
       'Content-Type': 'application/json',
       'Idempotency-Key': idempotencyKey,
     }),
-    body: JSON.stringify(payload),
+    body: serializeSubmitPayload(payload),
   })
   if (!response.ok) throw await parseMediaStudioError(response)
   const result = await response.json() as MediaStudioImageResult
@@ -307,6 +548,7 @@ export async function submitImageEdit(
   if (payload.n !== undefined) form.append('n', String(payload.n))
   if (payload.size) form.append('size', payload.size)
   if (payload.quality) form.append('quality', payload.quality)
+  for (const [key, value] of Object.entries(payload.attributes ?? {})) form.append(key, String(value))
   for (const file of files) form.append('image', file, file.name)
 
   const response = await fetch(buildGatewayUrl('/v1/images/edits'), {
@@ -347,14 +589,16 @@ export async function submitVideoGeneration(
   apiKey: string,
   payload: MediaStudioVideoSubmitRequest,
   idempotencyKey: string,
+  signal?: AbortSignal,
 ): Promise<MediaStudioVideoTask> {
   const response = await fetch(buildGatewayUrl('/v1/videos/generations'), {
     method: 'POST',
+    signal,
     headers: authHeaders(apiKey, {
       'Content-Type': 'application/json',
       'Idempotency-Key': idempotencyKey,
     }),
-    body: JSON.stringify(payload),
+    body: serializeSubmitPayload(payload),
   })
   if (!response.ok) throw await parseMediaStudioError(response)
   return normalizeMediaStudioVideoTask(await response.json())
@@ -448,5 +692,19 @@ export async function getVideoGenerationContent(apiKey: string, taskId: string):
 export function mediaStudioErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message.trim()) return error.message
   if (typeof error === 'string' && error.trim()) return error
+  // apiClient 拒绝的是普通对象而不是 Error，需要显式读取 message/reason。
+  if (error && typeof error === 'object') {
+    const candidate = error as { message?: unknown; reason?: unknown }
+    if (typeof candidate.message === 'string' && candidate.message.trim()) return candidate.message
+    if (typeof candidate.reason === 'string' && candidate.reason.trim()) return candidate.reason
+  }
   return fallback
+}
+
+export function mediaStudioErrorStatus(error: unknown): number | undefined {
+  if (error && typeof error === 'object') {
+    const status = (error as { status?: unknown }).status
+    if (typeof status === 'number') return status
+  }
+  return undefined
 }

@@ -44,16 +44,37 @@ describe('media studio datasource', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const submitted = await submitVideoGeneration('sk-demo', {
-      model: 'grok-imagine-video', prompt: 'waves', resolution: '720p', duration: 6,
+      model: 'grok-imagine-video', prompt: 'waves', resolution: '720p', duration: 6, aspect_ratio: '16:9',
     }, 'video-idem')
     const completed = await getVideoGenerationTask('sk-demo', submitted.id)
 
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject({ aspect_ratio: '16:9' })
     expect(submitted).toMatchObject({ id: 'video-task_1', status: 'processing' })
     expect(completed).toMatchObject({ id: 'video-task_1', status: 'completed' })
+    expect(completed.progress).toBeUndefined()
     expect(String(fetchMock.mock.calls[0][0])).toMatch(/\/v1\/videos\/generations$/)
     expect(fetchMock.mock.calls[0][1].headers['Idempotency-Key']).toBe('video-idem')
     expect(String(fetchMock.mock.calls[1][0])).toMatch(/\/v1\/videos\/video-task_1$/)
     expect(() => normalizeMediaStudioVideoTask({ request_id: '../escape' })).toThrow(/invalid request id/)
+  })
+
+  it('keeps polling when the status payload omits the task id', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ request_id: 'video-task_1', status: 'queued' }))
+      .mockResolvedValueOnce(jsonResponse({
+        model: 'grok-imagine-video',
+        status: 'done',
+        progress: 100,
+        video: { url: '/v1/videos/video-task_1/content' },
+      }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const submitted = await submitVideoGeneration('sk-demo', {
+      model: 'grok-imagine-video', prompt: 'dog', resolution: '480p', duration: 1, aspect_ratio: '9:16',
+    }, 'video-idem')
+    const completed = await getVideoGenerationTask('sk-demo', submitted.id)
+
+    expect(completed).toMatchObject({ id: 'video-task_1', status: 'completed', progress: 100 })
   })
 
   it('fetches protected video content and rejects active content types', async () => {

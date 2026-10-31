@@ -76,6 +76,9 @@ func assignGrokMediaResolution(value string, info *GrokMediaRequestInfo) {
 	if value == "" {
 		return
 	}
+	// Image aliases remain valid for image requests, but the original value must
+	// also reach video validation instead of silently becoming the 480p default.
+	info.ResolutionRaw = value
 	if imageResolution := normalizeGrokImagineImageResolution(value); imageResolution != "" {
 		info.ImageResolution = imageResolution
 		return

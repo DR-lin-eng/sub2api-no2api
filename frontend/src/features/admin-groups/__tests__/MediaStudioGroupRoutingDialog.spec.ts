@@ -30,8 +30,12 @@ function group(id: number, status: 'active' | 'inactive' = 'active'):
   return { id, name: `Group ${id}`, platform: 'openai', status }
 }
 
-function route(group_id: number, models = ['gpt-image-2']): MediaStudioGroupRoutes[number] {
-  return { group_id, priority: group_id, enabled: true, models }
+function route(
+  group_id: number,
+  models = ['gpt-image-2'],
+  media_type: 'image' | 'video' | 'audio' = 'image',
+): MediaStudioGroupRoutes[number] {
+  return { group_id, media_type, priority: group_id, enabled: true, models }
 }
 
 async function openDialog(groups: ReturnType<typeof group>[], routes: MediaStudioGroupRoutes) {
@@ -70,8 +74,8 @@ describe('MediaStudioGroupRoutingDialog historical routes', () => {
     await flushPromises()
 
     expect(saveRoutes).toHaveBeenCalledWith([
-      { group_id: 2, priority: 0, enabled: true, models: ['custom-image-model'] },
-      { group_id: 1, priority: 1, enabled: true, models: ['gpt-image-2'] },
+      { group_id: 2, media_type: 'image', priority: 0, enabled: true, models: ['custom-image-model'] },
+      { group_id: 1, media_type: 'image', priority: 1, enabled: true, models: ['gpt-image-2'] },
     ])
     expect(wrapper.emitted('saved')).toHaveLength(1)
     expect(wrapper.emitted('close')).toHaveLength(1)

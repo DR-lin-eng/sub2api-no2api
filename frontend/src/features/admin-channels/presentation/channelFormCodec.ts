@@ -50,6 +50,7 @@ export const channelPlatformOrder: GroupPlatform[] = [
     'deepseek',
     'minimax',
     'opencode_go',
+    'multimodal',
 ]
 
 // Keep the channel editor aligned with the platform dimensions it currently

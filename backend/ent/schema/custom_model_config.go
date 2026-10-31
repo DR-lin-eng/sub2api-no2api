@@ -46,6 +46,9 @@ func (CustomModelConfig) Fields() []ent.Field {
 			Optional().
 			Nillable().
 			Comment("可复用的请求适配模板 ID"),
+		field.JSON("media_limits", map[string]any{}).
+			Default(func() map[string]any { return map[string]any{} }).
+			Comment("媒体工坊模型级限制：上传开关、文件类型、各类型数量/大小、视频时长区间"),
 	}
 }
 

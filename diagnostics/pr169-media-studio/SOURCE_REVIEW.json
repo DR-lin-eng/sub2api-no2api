@@ -1,0 +1,1364 @@
+{
+  "source_pr": "https://github.com/DR-lin-eng/sub2api-no2api/pull/169",
+  "source_base": "ed0c9ee94eaf3b2e00cfb89677a1848bbba0f018",
+  "source_head": "2a3257d4741bbd5c48510bc80f20b587c380e60a",
+  "integration_base": "36dc317c779b75d476bc9cb5796f9c6206a7b17e",
+  "status": "reviewed-adapted-and-closed",
+  "scope_exclusions": [
+    "PR-specific asynchronous image enhancements; existing main behavior preserved",
+    "Server-side historical works/gallery/reference archive"
+  ],
+  "commits": [
+    {
+      "sha": "2a3257d4741bbd5c48510bc80f20b587c380e60a",
+      "title": "test(dynamic-locale): 添加新的动态国际化调用审计白名单条目",
+      "status": "reviewed-in-frozen-diff"
+    },
+    {
+      "sha": "72236c6e8d4719a3e92e21d52cd0cda97ca51b32",
+      "title": "fix(security-headers): 补充 CSP 策略的 media-src 指令以支持 blob 媒体播放",
+      "status": "reviewed-in-frozen-diff"
+    },
+    {
+      "sha": "05f8e6f2849e61e7fb0e4e92938da93d1e708383",
+      "title": "fix(migrations): restore applied checksum of 235_media_studio_api_key_identity",
+      "status": "reviewed-in-frozen-diff"
+    },
+    {
+      "sha": "a1f27642da1f8a65f5b9888b60f7eafa7e5e04ad",
+      "title": "refactor(media-studio): 重构媒体工作室参数布局与任务处理",
+      "status": "reviewed-in-frozen-diff"
+    },
+    {
+      "sha": "8904875ad44d55e991908e9f0a41aad43c9b36e9",
+      "title": "feat(media-studio): 重构媒体工作室创作面板，优化参数与模型交互",
+      "status": "reviewed-in-frozen-diff"
+    },
+    {
+      "sha": "d25f90a342dfbfb48e89ac23a24ae706dd5fd058",
+      "title": "feat(media-studio): 新增媒体工坊会话历史与作品库功能",
+      "status": "reviewed-in-frozen-diff"
+    },
+    {
+      "sha": "b50ca3fedab3d6e2130a082bf7fdf30429e88fa8",
+      "title": "feat(media-studio): 实现媒体工作室异步生成任务全流程管理",
+      "status": "reviewed-in-frozen-diff"
+    },
+    {
+      "sha": "32d0204c0632942b0c0fb7923c8ff96362bf5644",
+      "title": "fix(billing): 优化多模态计费流程，修复图片结算与跨账号归属问题",
+      "status": "reviewed-in-frozen-diff"
+    },
+    {
+      "sha": "b226d62224e4f4429de54b0e9eea87fd18f82644",
+      "title": "test(service): add Lookup stub to recordingStorage",
+      "status": "reviewed-in-frozen-diff"
+    },
+    {
+      "sha": "e32fb8bb616f9a9b909bba48753be12f762cba69",
+      "title": "feat(media-studio,billing): 新增成本预估功能，完善多模态计费风控",
+      "status": "reviewed-in-frozen-diff"
+    },
+    {
+      "sha": "f9953c5e7d4bc2b552d4574c7190bf155c4c012a",
+      "title": "fix: 移除多模态账号默认端点并强制要求配置Base URL",
+      "status": "reviewed-in-frozen-diff"
+    },
+    {
+      "sha": "2de32e600e892ff90a966b39eae0420f28b9c8af",
+      "title": "feat(media-studio, admin, backend): 新增多模态账号支持与附件类型标签",
+      "status": "reviewed-in-frozen-diff"
+    },
+    {
+      "sha": "b9ca715c97d4623427d8e8744a0853582aca241d",
+      "title": "feat: 实现多模态视频生成两段式余额计费功能",
+      "status": "reviewed-in-frozen-diff"
+    },
+    {
+      "sha": "608a1d352fab5f41cd0fb6a82c91df8fb9ea7dc8",
+      "title": "feat(admin/group): 为分组接口新增multimodal平台校验",
+      "status": "reviewed-in-frozen-diff"
+    },
+    {
+      "sha": "10118291048eca8787943f1d2ba25e86462cdc18",
+      "title": "feat(platform): 新增多模态平台的完整支持",
+      "status": "reviewed-in-frozen-diff"
+    },
+    {
+      "sha": "7143382d3031ca9c0b7f7fcec3a36d7628a5914b",
+      "title": "feat(media-studio): 新增支持展示和复用用户历史参考素材",
+      "status": "reviewed-in-frozen-diff"
+    },
+    {
+      "sha": "c90b2e6193e2ad16a1a53836e6cd7eff489d75cb",
+      "title": "feat(grok-media): 为Grok媒体接口添加自定义模型请求适配器支持",
+      "status": "reviewed-in-frozen-diff"
+    },
+    {
+      "sha": "c5b5815faf2de1e40a41844e918487dc429bab95",
+      "title": "feat(media-studio): 实现媒体工作室文件上传秒传功能",
+      "status": "reviewed-in-frozen-diff"
+    },
+    {
+      "sha": "f9eef191332b1aab7bf9658547997d69cf31a506",
+      "title": "feat(media-studio,custom-model-config): 实现模型级媒体工坊上传限制与文件上传功能",
+      "status": "reviewed-in-frozen-diff"
+    },
+    {
+      "sha": "8d69ddc0989ca1ca8472fdc2c902770d754ee8f0",
+      "title": "feat(自定义模型配置): 新增请求模板属性与端点前缀匹配支持",
+      "status": "reviewed-in-frozen-diff"
+    },
+    {
+      "sha": "d5ed5bf7a5a1efa1a5e2d90054504ae3bf9ca3f2",
+      "title": "refactor(admin): 清理自定义模型配置冗余代码与翻译，完善功能配置",
+      "status": "reviewed-in-frozen-diff"
+    },
+    {
+      "sha": "10cc107bae6cd4a8d9ff3b7754dcaf0cd48cfa6d",
+      "title": "feat(media-studio, admin-groups): 为媒体工坊分组添加媒体类型配置与校验",
+      "status": "reviewed-in-frozen-diff"
+    },
+    {
+      "sha": "d94fa2aa505d0ae7c60f1536a1c3ccc2dfb457e4",
+      "title": "feat(media-studio): 优化媒体工坊生成UI、布局与适配逻辑",
+      "status": "reviewed-in-frozen-diff"
+    },
+    {
+      "sha": "5b5d1ed8f99d494615fd781262745c5748412a07",
+      "title": "feat(media-studio): 完善媒体工坊视频生成全流程功能",
+      "status": "reviewed-in-frozen-diff"
+    },
+    {
+      "sha": "2592757698a5aa19476eec297f73ba4d379ebefc",
+      "title": "docs: 新增媒体工坊二次开发指南并更新相关文档",
+      "status": "reviewed-in-frozen-diff"
+    }
+  ],
+  "files": [
+    {
+      "path": "backend/cmd/server/wire_gen.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/ent/custommodelconfig.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/ent/custommodelconfig/custommodelconfig.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/ent/custommodelconfig_create.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/ent/custommodelconfig_update.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/ent/custommodelrequesttemplate.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/ent/custommodelrequesttemplate/custommodelrequesttemplate.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/ent/custommodelrequesttemplate_create.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/ent/custommodelrequesttemplate_update.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/ent/migrate/schema.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/ent/mutation.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/ent/schema/custom_model_config.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/ent/schema/custom_model_request_template.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/ent/schema/user_platform_quota.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/go.sum",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/account.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/account_header_override.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/account_service.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/admin_group.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/agnes_video.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/agnes_video_test.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/batch_image_settlement_test.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/billing_service.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/billing_service_test.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/channel_plaza.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/channel_service.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/composite_model_route.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/composite_platform.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/custom_model_capability_resolver.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/custom_model_capability_resolver_test.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/domain_constants.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/grok_media.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/grok_media_image_geometry.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/group.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/image_storage.go",
+      "source_change": "M",
+      "disposition": "excluded-and-closed",
+      "reason": "Async image enhancements and server reference archive not adopted; current main implementation preserved."
+    },
+    {
+      "path": "backend/internal/application/service/image_storage_settings.go",
+      "source_change": "M",
+      "disposition": "excluded-and-closed",
+      "reason": "Async image enhancements and server reference archive not adopted; current main implementation preserved."
+    },
+    {
+      "path": "backend/internal/application/service/image_storage_settings_test.go",
+      "source_change": "M",
+      "disposition": "excluded-and-closed",
+      "reason": "Async image enhancements and server reference archive not adopted; current main implementation preserved."
+    },
+    {
+      "path": "backend/internal/application/service/image_storage_test.go",
+      "source_change": "M",
+      "disposition": "excluded-and-closed",
+      "reason": "Async image enhancements and server reference archive not adopted; current main implementation preserved."
+    },
+    {
+      "path": "backend/internal/application/service/media_price_config.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/media_studio.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/model_attribute_endpoints.go",
+      "source_change": "A",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/model_attributes.go",
+      "source_change": "A",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/multimodal_media.go",
+      "source_change": "A",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/multimodal_media_test.go",
+      "source_change": "A",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/multimodal_video_billing_repro_test.go",
+      "source_change": "A",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/openai_gateway_grok_test.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/openai_gateway_record_usage_test.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/openai_gateway_scheduling.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/openai_gateway_service.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/openai_gateway_usage.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/openai_images.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/openai_images_request_adapter.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/openai_images_request_adapter_test.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/response_model_billing_test.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/scheduler_snapshot_service.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/setting_public.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/upstream_models.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/upstream_models_test.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/usage_billing.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/video_balance_hold.go",
+      "source_change": "A",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/video_billing_resolution.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/application/service/wire_openai_gateway.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/domain/constants.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/domain/model/error_passthrough_rule.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/infrastructure/repository/custom_model_config_repo.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/infrastructure/repository/image_storage_s3.go",
+      "source_change": "M",
+      "disposition": "excluded-and-closed",
+      "reason": "Async image enhancements and server reference archive not adopted; current main implementation preserved."
+    },
+    {
+      "path": "backend/internal/infrastructure/repository/usage_billing_queue.go",
+      "source_change": "M",
+      "disposition": "current-main-preserved-and-closed",
+      "reason": "Already covered by current main or source-only difference intentionally omitted."
+    },
+    {
+      "path": "backend/internal/infrastructure/repository/usage_billing_repo.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/infrastructure/repository/usage_billing_repo_unit_test.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/platform/config/config.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/transport/http/handler/admin/account_handler.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/transport/http/handler/admin/account_handler_available_models_test.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/transport/http/handler/admin/custom_model_config_handler.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/transport/http/handler/admin/group_handler.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/transport/http/handler/agnes_video.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/transport/http/handler/dto/custom_model_config.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/transport/http/handler/endpoint.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/transport/http/handler/gateway_handler_billing_errors.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/transport/http/handler/gateway_handler_models.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/transport/http/handler/gateway_key_billing.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/transport/http/handler/grok_media.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/transport/http/handler/image_task_admin_toggle_test.go",
+      "source_change": "M",
+      "disposition": "excluded-and-closed",
+      "reason": "Async image enhancements and server reference archive not adopted; current main implementation preserved."
+    },
+    {
+      "path": "backend/internal/transport/http/handler/media_studio_handler.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/transport/http/handler/multimodal_media.go",
+      "source_change": "A",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/transport/http/server/middleware/security_headers.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/transport/http/server/middleware/security_headers_test.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/transport/http/server/routes/gateway.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/internal/transport/http/server/routes/user.go",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/migrations/235_media_studio_api_key_identity.sql",
+      "source_change": "M",
+      "disposition": "current-main-preserved-and-closed",
+      "reason": "Already covered by current main or source-only difference intentionally omitted."
+    },
+    {
+      "path": "backend/migrations/251_add_custom_model_request_template_attributes.sql",
+      "source_change": "A",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/migrations/252_add_custom_model_config_media_limits.sql",
+      "source_change": "A",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/migrations/253_add_multimodal_platform.sql",
+      "source_change": "A",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "backend/migrations/254_add_video_balance_holds.sql",
+      "source_change": "A",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "debug-multimodal-video-billing-bypass.md",
+      "source_change": "A",
+      "disposition": "current-main-preserved-and-closed",
+      "reason": "Already covered by current main or source-only difference intentionally omitted."
+    },
+    {
+      "path": "deploy/config.example.yaml",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "docs/CUSTOM_MODELS_AND_MEDIA.md",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "docs/FEATURES.md",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "docs/README.md",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/package.json",
+      "source_change": "M",
+      "disposition": "current-main-preserved-and-closed",
+      "reason": "Already covered by current main or source-only difference intentionally omitted."
+    },
+    {
+      "path": "frontend/pnpm-lock.yaml",
+      "source_change": "M",
+      "disposition": "current-main-preserved-and-closed",
+      "reason": "Already covered by current main or source-only difference intentionally omitted."
+    },
+    {
+      "path": "frontend/src/__tests__/dynamicLocaleMapping.spec.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/common/widgets/data/GroupBadge.vue",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/common/widgets/icons/PlatformIcon.vue",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/common/widgets/icons/PlatformTypeBadge.vue",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/common/widgets/layout/AppSidebar.vue",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/common/widgets/model-attributes/ModelAttributeField.vue",
+      "source_change": "A",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/common/widgets/model-attributes/ModelAttributesEditor.vue",
+      "source_change": "A",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/common/widgets/model-attributes/types.ts",
+      "source_change": "A",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/core/constants/account.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/en/admin/accounts.channels.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/en/admin/accounts.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/en/admin/channels.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/en/admin/customModelConfig.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/en/admin/overview.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/en/admin/settings.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/en/common.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/en/dashboard.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/en/mediaStudio.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/zh/admin/accounts.channels.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/zh/admin/accounts.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/zh/admin/channels.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/zh/admin/customModelConfig.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/zh/admin/overview.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/zh/admin/settings.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/zh/common.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/zh/dashboard.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/zh/mediaStudio.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/core/services/featureFlags.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/core/utils/platformColors.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-accounts/presentation/accountEditUpdatePayload.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-accounts/presentation/accountFilterState.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-accounts/presentation/composables/useCreateAccountEditorPolicy.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-accounts/presentation/composables/useModelWhitelist.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-accounts/presentation/credentialsBuilder.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-accounts/presentation/widgets/AccountTableFilters.vue",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-accounts/presentation/widgets/CreateAccountDialog.vue",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-accounts/presentation/widgets/EditAccountDialog.vue",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-accounts/presentation/widgets/ModelWhitelistSelector.vue",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-accounts/presentation/widgets/create/CreateAccountPlatformFields.vue",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-channels/__tests__/channelFormCodec.spec.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-channels/presentation/adminChannelSignals.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-channels/presentation/channelFormCodec.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-groups/__tests__/MediaStudioGroupRoutingDialog.spec.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-groups/__tests__/groupsImagePricingResolver.spec.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-groups/__tests__/groupsModelPricing.spec.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-groups/data/datasources/mediaStudioGroupRouteDatasource.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-groups/presentation/composables/groupEditorFormSupport.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-groups/presentation/composables/useCreateGroupController.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-groups/presentation/composables/useEditGroupController.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-groups/presentation/composables/useGroupEditorRuntime.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-groups/presentation/composables/useGroupsListController.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-groups/presentation/groupsImagePricingResolver.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-groups/presentation/groupsModelPricing.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-groups/presentation/groupsProfitControl.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-groups/presentation/widgets/CompositeRoutesDialog.vue",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-groups/presentation/widgets/GroupEditorMediaPricingFields.vue",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-groups/presentation/widgets/GroupModelPricingEntry.vue",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-groups/presentation/widgets/MediaStudioGroupRoutingDialog.vue",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-ops/presentation/widgets/OpsDashboardToolbar.vue",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-settings/__tests__/settings.authSourceDefaults.spec.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-settings/data/dtos/systemSettingsDtos.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-settings/presentation/widgets/ErrorPassthroughRulesDialog.vue",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-settings/presentation/widgets/settings-tabs/SettingsFeaturesTab.vue",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-settings/presentation/widgets/settings-tabs/SettingsUsersTab.vue",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-users/__tests__/UserPlatformQuotaModal.spec.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-users/data/dtos/adminUserDtos.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/admin-users/presentation/widgets/UserPlatformQuotaDialog.vue",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/custom-model-config/data/datasources/customModelConfigDatasource.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/custom-model-config/data/dtos/customModelConfigDtos.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/custom-model-config/domain/entities/customModelConfig.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/custom-model-config/presentation/pages/CustomModelConfigPage.vue",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/custom-model-config/presentation/widgets/CustomModelConfigDialog.vue",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/custom-model-config/presentation/widgets/CustomModelRequestTemplateDialog.vue",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/custom-model-config/presentation/widgets/CustomModelRequestTemplateImportDialog.vue",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/custom-model-config/presentation/widgets/CustomModelRequestTemplateManager.vue",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/custom-model-config/presentation/widgets/EndpointRewriteEditor.vue",
+      "source_change": "A",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/dashboard-user/presentation/widgets/UserDashboardStats.vue",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/keys/presentation/keyGroupProviders.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/keys/presentation/widgets/UseKeyDialog.vue",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/media-studio/README.md",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/media-studio/__tests__/mediaStudioController.spec.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/media-studio/__tests__/mediaStudioDatasource.spec.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/media-studio/__tests__/mediaStudioGalleryArchive.spec.ts",
+      "source_change": "A",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/media-studio/__tests__/mediaStudioJobBar.spec.ts",
+      "source_change": "A",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/media-studio/data/datasources/mediaStudioDatasource.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/media-studio/data/datasources/mediaStudioGalleryStore.ts",
+      "source_change": "A",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/media-studio/data/datasources/mediaStudioImageStore.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/media-studio/presentation/composables/mediaStudioConversation.ts",
+      "source_change": "A",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/media-studio/presentation/composables/useMediaStudioAttachments.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/media-studio/presentation/composables/useMediaStudioController.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/media-studio/presentation/composables/useMediaStudioGallery.ts",
+      "source_change": "A",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/media-studio/presentation/composables/useMediaStudioJobs.ts",
+      "source_change": "A",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/media-studio/presentation/pages/MediaStudioPage.vue",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/media-studio/presentation/widgets/MediaStudioCanvas.vue",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/media-studio/presentation/widgets/MediaStudioCommandBar.vue",
+      "source_change": "A",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/media-studio/presentation/widgets/MediaStudioGallery.vue",
+      "source_change": "A",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/media-studio/presentation/widgets/MediaStudioImageAttachments.vue",
+      "source_change": "D",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/media-studio/presentation/widgets/MediaStudioJobBar.vue",
+      "source_change": "A",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/media-studio/presentation/widgets/MediaStudioSessionList.vue",
+      "source_change": "A",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/features/subscriptions/presentation/widgets/UserPlatformQuotaCell.vue",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/types/gateway.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    },
+    {
+      "path": "frontend/src/types/group.ts",
+      "source_change": "M",
+      "disposition": "adapted-and-closed",
+      "reason": "Reviewed against current owners; final adaptation and regression checks tracked in VERIFICATION.md."
+    }
+  ],
+  "integration_pr": "https://github.com/DR-lin-eng/sub2api-no2api/pull/174",
+  "runtime_candidate": "69672f4437465720c1e7ead56ebcea287d3f6450",
+  "partial_hunk_exclusions": [
+    {
+      "owner": "frontend/src/features/media-studio/data/datasources/mediaStudioDatasource.ts",
+      "decision": "submitAsyncImageGeneration and getAsyncImageTask byte-for-byte match main; no submitAsyncImageEdit"
+    },
+    {
+      "owner": "frontend/src/features/media-studio/presentation/composables/useMediaStudioController.ts",
+      "decision": "Keep main synchronous default and injected existing poll flow; no added async-image resume, dedup or fallback"
+    }
+  ]
+}

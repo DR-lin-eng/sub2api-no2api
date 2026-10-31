@@ -239,6 +239,10 @@ export default {
         description: '通过 TypeSafe 原生 System One 端点调用 Jev。',
         note: 'System One 不支持流式请求，也不兼容 Chat Completions、Responses、Claude Code 或 Codex 客户端。'
       },
+      multimodal: {
+        description: '使用 OpenAI 兼容客户端调用多模态分组，支持图片与视频生成端点。',
+        note: '该分组仅提供 /v1/images 与 /v1/videos 系列端点；Base URL 填写网关地址即可，模型名使用分组支持的媒体模型。'
+      },
       antigravity: {
         description: '为 Antigravity 分组配置 API 访问。请根据您使用的客户端选择对应的配置方式。',
         claudeCode: 'Claude Code',

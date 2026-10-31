@@ -20,6 +20,11 @@ const (
 	reserveBatchImageHoldSQL    = `(?s)UPDATE users\s+SET balance = balance - \$1,\s+frozen_balance = COALESCE\(frozen_balance, 0\) \+ \$1,\s+updated_at = NOW\(\)\s+WHERE id = \$2 AND deleted_at IS NULL AND balance >= \$1\s+RETURNING balance, frozen_balance`
 	captureBatchImageHoldSQL    = `(?s)UPDATE users\s+SET balance = balance\s+\+ CASE WHEN \$1 > \$2 THEN \$1 - \$2 ELSE 0 END\s+- CASE WHEN \$2 > \$1 THEN \$2 - \$1 ELSE 0 END,\s+frozen_balance = COALESCE\(frozen_balance, 0\) - \$1,\s+updated_at = NOW\(\)\s+WHERE id = \$3 AND deleted_at IS NULL AND COALESCE\(frozen_balance, 0\) >= \$1\s+RETURNING balance, frozen_balance`
 	releaseBatchImageHoldSQL    = `(?s)UPDATE users\s+SET balance = balance \+ \$1,\s+frozen_balance = COALESCE\(frozen_balance, 0\) - \$1,\s+updated_at = NOW\(\)\s+WHERE id = \$2 AND deleted_at IS NULL AND COALESCE\(frozen_balance, 0\) >= \$1\s+RETURNING balance, frozen_balance`
+	reserveBalanceHoldSQL       = `(?s)UPDATE users\s+SET balance = balance - \$1,\s+frozen_balance = COALESCE\(frozen_balance, 0\) \+ \$1,\s+updated_at = NOW\(\)\s+WHERE id = \$2 AND deleted_at IS NULL AND balance >= \$1\s+RETURNING balance, frozen_balance`
+	captureBalanceHoldSQL       = `(?s)UPDATE users\s+SET balance = balance\s+\+ CASE WHEN \$1 > \$2 THEN \$1 - \$2 ELSE 0 END\s+- CASE WHEN \$2 > \$1 THEN \$2 - \$1 ELSE 0 END,\s+frozen_balance = COALESCE\(frozen_balance, 0\) - \$1,\s+updated_at = NOW\(\)\s+WHERE id = \$3 AND deleted_at IS NULL AND COALESCE\(frozen_balance, 0\) >= \$1\s+RETURNING balance, frozen_balance`
+	releaseBalanceHoldSQL       = `(?s)UPDATE users\s+SET balance = balance \+ \$1,\s+frozen_balance = COALESCE\(frozen_balance, 0\) - \$1,\s+updated_at = NOW\(\)\s+WHERE id = \$2 AND deleted_at IS NULL AND COALESCE\(frozen_balance, 0\) >= \$1\s+RETURNING balance, frozen_balance`
+	balanceHoldClaimSQL         = `(?s)SELECT 1\s+FROM usage_billing_dedup\s+WHERE request_id = \$1 AND api_key_id = \$2`
+	balanceHoldArchiveClaimSQL  = `(?s)SELECT 1\s+FROM usage_billing_dedup_archive\s+WHERE request_id = \$1 AND api_key_id = \$2`
 	apiKeyQuotaIncrementSQL     = `(?s)UPDATE api_keys\s+SET quota_used = quota_used \+ \$1,.*WHERE id = \$2 AND deleted_at IS NULL\s+RETURNING`
 	apiKeyRateLimitIncrementSQL = `(?s)UPDATE api_keys SET\s+usage_5h = .*WHERE id = \$2 AND deleted_at IS NULL`
 	userExistsForBillingSQL     = `(?s)SELECT 1\s+FROM users\s+WHERE id = \$1 AND deleted_at IS NULL`
@@ -388,6 +393,231 @@ func TestReleaseUsageBillingBatchImageBalance_SkipsWhenHoldNeverReserved(t *test
 
 	result, err := releaseUsageBillingBatchImageBalance(ctx, tx, &service.BatchImageBalanceHoldCommand{UserID: 42, APIKeyID: 7, BatchID: "imgbatch_phantom", HoldAmount: 1})
 	require.NoError(t, err)
+	require.Nil(t, result.NewBalance)
+	require.Nil(t, result.FrozenBalance)
+	require.NoError(t, tx.Commit())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestReserveUsageBillingBalance_MovesAvailableToFrozen(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectBegin()
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	mock.ExpectQuery(reserveBalanceHoldSQL).
+		WithArgs(2.5, int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"balance", "frozen_balance"}).AddRow(7.5, 2.5))
+	mock.ExpectCommit()
+
+	result, err := reserveUsageBillingBalance(ctx, tx, &service.BalanceHoldCommand{UserID: 42, HoldKey: "hold-reserve", HoldAmount: 2.5})
+	require.NoError(t, err)
+	require.NotNil(t, result.NewBalance)
+	require.NotNil(t, result.FrozenBalance)
+	require.InDelta(t, 7.5, *result.NewBalance, 0.000001)
+	require.InDelta(t, 2.5, *result.FrozenBalance, 0.000001)
+	require.NoError(t, tx.Commit())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestReserveUsageBillingBalance_NonPositiveHoldIsNoOp(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	// 没有可冻结金额时不能执行任何资金动作（零冻结记录仍需落库，但不预留资金）。
+	result, err := reserveUsageBillingBalance(ctx, nil, &service.BalanceHoldCommand{UserID: 42, HoldKey: "hold-zero", HoldAmount: 0})
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Nil(t, result.NewBalance)
+	require.Nil(t, result.FrozenBalance)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestReserveUsageBillingBalance_InsufficientBalance(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectBegin()
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	mock.ExpectQuery(reserveBalanceHoldSQL).
+		WithArgs(10.0, int64(42)).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery(userExistsForBillingSQL).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"?column?"}).AddRow(1))
+	mock.ExpectRollback()
+
+	_, err = reserveUsageBillingBalance(ctx, tx, &service.BalanceHoldCommand{UserID: 42, HoldKey: "hold-poor", HoldAmount: 10})
+	require.ErrorIs(t, err, service.ErrBalanceHoldInsufficientBalance)
+	require.NoError(t, tx.Rollback())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestReserveUsageBillingBalance_UserNotFound(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectBegin()
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	mock.ExpectQuery(reserveBalanceHoldSQL).
+		WithArgs(10.0, int64(42)).
+		WillReturnError(sql.ErrNoRows)
+	// 条件更新未命中且用户不存在：必须区分「余额不足」与「用户不存在」。
+	mock.ExpectQuery(userExistsForBillingSQL).
+		WithArgs(int64(42)).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectRollback()
+
+	_, err = reserveUsageBillingBalance(ctx, tx, &service.BalanceHoldCommand{UserID: 42, HoldKey: "hold-gone", HoldAmount: 10})
+	require.ErrorIs(t, err, service.ErrUserNotFound)
+	require.NoError(t, tx.Rollback())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestCaptureUsageBillingBalance_ReleasesRemainder(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectBegin()
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	mock.ExpectQuery(captureBalanceHoldSQL).
+		WithArgs(1.0, 0.25, int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"balance", "frozen_balance"}).AddRow(9.75, 0.0))
+	mock.ExpectCommit()
+
+	result, err := captureUsageBillingBalance(ctx, tx, &service.BalanceHoldCommand{UserID: 42, HoldKey: "hold-capture", HoldAmount: 1, ActualAmount: 0.25})
+	require.NoError(t, err)
+	require.InDelta(t, 9.75, *result.NewBalance, 0.000001)
+	require.InDelta(t, 0.0, *result.FrozenBalance, 0.000001)
+	require.NoError(t, tx.Commit())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestCaptureUsageBillingBalance_ZeroHoldAndZeroActualIsNoOp(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	result, err := captureUsageBillingBalance(ctx, nil, &service.BalanceHoldCommand{UserID: 42, HoldKey: "hold-nothing"})
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Nil(t, result.NewBalance)
+	require.Nil(t, result.FrozenBalance)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestCaptureUsageBillingBalance_RejectsActualCostOverHold(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectBegin()
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	mock.ExpectRollback()
+
+	for _, cmd := range []*service.BalanceHoldCommand{
+		{UserID: 42, HoldKey: "hold-over", HoldAmount: 0.5, ActualAmount: 1},
+		// 零冻结时的正结算额同样必须被拒绝：没有任何资金被预留，
+		// 服务层已按冻结额封顶，仓储层不能放行凭空借记。
+		{UserID: 42, HoldKey: "hold-zero", HoldAmount: 0, ActualAmount: 0.5},
+	} {
+		_, captureErr := captureUsageBillingBalance(ctx, tx, cmd)
+		require.ErrorIs(t, captureErr, service.ErrBalanceHoldCostExceedsHold, "hold_key=%s", cmd.HoldKey)
+	}
+	require.NoError(t, tx.Rollback())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestCaptureUsageBillingBalance_FrozenBalanceInsufficient(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectBegin()
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	// frozen_balance 不满足条件更新：冻结资金已被别处消耗，不能重复结算。
+	mock.ExpectQuery(captureBalanceHoldSQL).
+		WithArgs(1.0, 1.0, int64(42)).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery(userExistsForBillingSQL).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"?column?"}).AddRow(1))
+	mock.ExpectRollback()
+
+	_, err = captureUsageBillingBalance(ctx, tx, &service.BalanceHoldCommand{UserID: 42, HoldKey: "hold-drained", HoldAmount: 1, ActualAmount: 1})
+	require.Error(t, err)
+	require.NotErrorIs(t, err, service.ErrUserNotFound)
+	require.Contains(t, err.Error(), "frozen balance is insufficient")
+	require.NoError(t, tx.Rollback())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestReleaseUsageBillingBalance_ReturnsFrozenToAvailable(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectBegin()
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	mock.ExpectQuery(balanceHoldClaimSQL).
+		WithArgs(service.BalanceHoldRequestID("hold-release"), int64(7)).
+		WillReturnRows(sqlmock.NewRows([]string{"?column?"}).AddRow(1))
+	mock.ExpectQuery(releaseBalanceHoldSQL).
+		WithArgs(1.0, int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"balance", "frozen_balance"}).AddRow(10.0, 0.0))
+	mock.ExpectCommit()
+
+	result, err := releaseUsageBillingBalance(ctx, tx, &service.BalanceHoldCommand{UserID: 42, APIKeyID: 7, HoldKey: "hold-release", HoldAmount: 1})
+	require.NoError(t, err)
+	require.InDelta(t, 10.0, *result.NewBalance, 0.000001)
+	require.InDelta(t, 0.0, *result.FrozenBalance, 0.000001)
+	require.NoError(t, tx.Commit())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestReleaseUsageBillingBalance_SkipsWhenHoldNeverReserved(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectBegin()
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	// dedup 与归档表均无 hold claim：该 hold 从未成功冻结，释放必须跳过，
+	// 否则会从他人的冻结资金池中凭空生成余额（幻影释放）。
+	mock.ExpectQuery(balanceHoldClaimSQL).
+		WithArgs(service.BalanceHoldRequestID("hold-phantom"), int64(7)).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery(balanceHoldArchiveClaimSQL).
+		WithArgs(service.BalanceHoldRequestID("hold-phantom"), int64(7)).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectCommit()
+
+	result, err := releaseUsageBillingBalance(ctx, tx, &service.BalanceHoldCommand{UserID: 42, APIKeyID: 7, HoldKey: "hold-phantom", HoldAmount: 1})
+	require.NoError(t, err)
+	require.NotNil(t, result)
 	require.Nil(t, result.NewBalance)
 	require.Nil(t, result.FrozenBalance)
 	require.NoError(t, tx.Commit())

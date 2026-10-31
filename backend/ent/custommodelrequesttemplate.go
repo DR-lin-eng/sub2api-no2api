@@ -28,7 +28,9 @@ type CustomModelRequestTemplate struct {
 	Description string `json:"description,omitempty"`
 	// 请求适配规则
 	RequestAdapter map[string]interface{} `json:"request_adapter,omitempty"`
-	selectValues   sql.SelectValues
+	// 模板属性：绑定该模板的模型继承的输入字段约束
+	Attributes   map[string]interface{} `json:"attributes,omitempty"`
+	selectValues sql.SelectValues
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -36,7 +38,7 @@ func (*CustomModelRequestTemplate) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case custommodelrequesttemplate.FieldRequestAdapter:
+		case custommodelrequesttemplate.FieldRequestAdapter, custommodelrequesttemplate.FieldAttributes:
 			values[i] = new([]byte)
 		case custommodelrequesttemplate.FieldID:
 			values[i] = new(sql.NullInt64)
@@ -97,6 +99,14 @@ func (_m *CustomModelRequestTemplate) assignValues(columns []string, values []an
 					return fmt.Errorf("unmarshal field request_adapter: %w", err)
 				}
 			}
+		case custommodelrequesttemplate.FieldAttributes:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field attributes", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.Attributes); err != nil {
+					return fmt.Errorf("unmarshal field attributes: %w", err)
+				}
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -147,6 +157,9 @@ func (_m *CustomModelRequestTemplate) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("request_adapter=")
 	builder.WriteString(fmt.Sprintf("%v", _m.RequestAdapter))
+	builder.WriteString(", ")
+	builder.WriteString("attributes=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Attributes))
 	builder.WriteByte(')')
 	return builder.String()
 }

@@ -33,8 +33,8 @@
 | 渠道与自定义页 | `/available-channels`、`/monitor`、`/custom/:id` | 可用渠道、状态页组合与受控自定义页面：[channels-user](../frontend/src/features/channels-user/README.md) |
 | 只读渠道监控 | `/monitor/public`，登录状态页内嵌 | 可用率、延迟、模型时间线和共享视图：[channel-monitor-user](../frontend/src/features/channel-monitor-user/README.md) |
 | 公开账号质量看板 | `/monitor/quality/public` | 账号级质量时间线、分类缩略图和 24 小时聚合：[account-quality](../frontend/src/features/account-quality/README.md) |
-| 批量图片 | `/batch-image`，媒体工坊内嵌 | 批任务、重试、预览和下载：[batch-image](../frontend/src/features/batch-image/README.md)、[批量图片](BATCH_IMAGE_MVP.md) |
-| 媒体工坊 | `/media-studio` | 图片生成、视频任务和批量工作区：[media-studio](../frontend/src/features/media-studio/README.md)、[配置与边界](CUSTOM_MODELS_AND_MEDIA.md) |
+| 批量图片 | `/batch-image` | 批任务、重试、预览和下载：[batch-image](../frontend/src/features/batch-image/README.md)、[批量图片](BATCH_IMAGE_MVP.md) |
+| 媒体工坊 | `/media-studio` | 图片生成与视频任务：[media-studio](../frontend/src/features/media-studio/README.md)、[配置与边界](CUSTOM_MODELS_AND_MEDIA.md) |
 
 ## 管理功能
 

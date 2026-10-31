@@ -1245,6 +1245,62 @@ func TestForwardGrokMediaVideoGenerationReturnsUsageAndResponseID(t *testing.T) 
 	require.Equal(t, 10, result.VideoDurationSeconds)
 }
 
+func TestForwardGrokMediaVideoGenerationAppliesCustomModelRequestAdapter(t *testing.T) {
+	t.Setenv(xai.EnvAllowUnsafeURLOverrides, "true")
+	gin.SetMode(gin.TestMode)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	body := []byte(`{"model":"grok-imagine-video","prompt":"recolor","images":["https://cdn.test/a.png"],"resolution":"480p","duration":1}`)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/videos/generations", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	account := &Account{
+		ID:          63,
+		Name:        "grok",
+		Platform:    PlatformGrok,
+		Type:        AccountTypeAPIKey,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"api_key":  "api-key",
+			"base_url": "https://xai.test/v1",
+		},
+	}
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"request_id":"video-request-adapter"}`)),
+	}}
+	svc := &OpenAIGatewayService{
+		httpUpstream: upstream,
+		customModelCapabilities: customImageModelResolverStub{
+			adapters: map[string]map[string]any{
+				"grok-imagine-video": {
+					"version": 1,
+					"match":   map[string]any{"endpoint": "/v1/videos/generations", "mode": "exact"},
+					"headers": map[string]any{"set": map[string]any{"x-adapter-mode": "custom"}},
+					"body": map[string]any{
+						"mode": "merge",
+						"value": map[string]any{
+							"images":           nil,
+							"reference_images": "{{request.input_images}}",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	_, err := svc.ForwardGrokMedia(context.Background(), c, account, GrokMediaEndpointVideosGenerations, "", body, "application/json")
+	require.NoError(t, err)
+	require.JSONEq(
+		t,
+		`{"model":"grok-imagine-video","prompt":"recolor","reference_images":["https://cdn.test/a.png"],"resolution":"480p","duration":1}`,
+		string(upstream.lastBody),
+	)
+	require.Equal(t, "custom", upstream.lastReq.Header.Get("x-adapter-mode"))
+}
+
 func TestExtractGrokMediaVideoRequestIDSupportsTaskIDFallbacks(t *testing.T) {
 	for _, tc := range []struct {
 		name string

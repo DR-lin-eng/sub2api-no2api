@@ -219,6 +219,11 @@ const (
 	// entitlement probe was forbidden. Video status lookups intentionally do not
 	// require this capability so already-submitted requests remain queryable.
 	OpenAIEndpointCapabilityGrokMediaGeneration OpenAIEndpointCapability = "grok_media_generation"
+	// OpenAIEndpointCapabilityMultimodalMediaGeneration keeps multimodal
+	// accounts out of the text scheduling pool. Only image/video media
+	// endpoints request this capability, so chat/responses/embeddings never
+	// resolve to a multimodal account.
+	OpenAIEndpointCapabilityMultimodalMediaGeneration OpenAIEndpointCapability = "multimodal_media_generation"
 	// OpenAIEndpointCapabilityResponses 表示上游确实提供 /v1/responses 端点。
 	// 与其他能力不同：支持状态来自 accounts.extra 的自动探测标记
 	// （openai_responses_supported / openai_responses_mode），而非
@@ -429,6 +434,10 @@ func (a *Account) IsTypeSafe() bool {
 	return a != nil && a.Platform == PlatformTypeSafe
 }
 
+func (a *Account) IsMultimodal() bool {
+	return a != nil && a.Platform == PlatformMultimodal
+}
+
 func (a *Account) IsGrokOAuth() bool {
 	return a.IsGrok() && a.Type == AccountTypeOAuth
 }
@@ -443,7 +452,7 @@ func (a *Account) IsCNProvider() bool {
 }
 
 func (a *Account) IsOpenAICompatible() bool {
-	return a != nil && (a.Platform == PlatformOpenAI || a.Platform == PlatformGrok || a.IsCNProvider() || a.IsOpenCodeGo())
+	return a != nil && (a.Platform == PlatformOpenAI || a.Platform == PlatformGrok || a.IsCNProvider() || a.IsOpenCodeGo() || a.IsMultimodal())
 }
 
 func (a *Account) GeminiOAuthType() string {
@@ -1707,7 +1716,7 @@ func (a *Account) IsOpenAIApiKey() bool {
 }
 
 func (a *Account) GetOpenAIBaseURL() string {
-	if a == nil || (!a.IsOpenAI() && !a.IsCNProvider() && !a.IsOpenCodeGo()) {
+	if a == nil || (!a.IsOpenAI() && !a.IsCNProvider() && !a.IsOpenCodeGo() && !a.IsMultimodal()) {
 		return ""
 	}
 	if a.IsMultiProtocolAPIKey() && a.IsAdaptiveAPIProtocol() {
@@ -1740,6 +1749,8 @@ func (a *Account) GetOpenAIBaseURL() string {
 		return DefaultMiniMaxBaseURL
 	case PlatformOpenCodeGo:
 		return a.openCodeDefaultChatBaseURL()
+	case PlatformMultimodal:
+		return a.GetMultimodalBaseURL()
 	default:
 		return "https://api.openai.com"
 	}
@@ -2007,6 +2018,17 @@ func (a *Account) GetGrokMediaBaseURL() string {
 	return baseURL
 }
 
+// GetMultimodalBaseURL returns the upstream root of the multimodal relay.
+// The relay exposes OpenAI-style paths under /v1, so callers append the
+// endpoint path directly (see multimodalMediaURL). The base URL is always
+// account-configured; there is no built-in default endpoint.
+func (a *Account) GetMultimodalBaseURL() string {
+	if a == nil || !a.IsMultimodal() {
+		return ""
+	}
+	return strings.TrimSpace(a.GetCredential("base_url"))
+}
+
 func (a *Account) GetGrokAccessToken() string {
 	if !a.IsGrok() {
 		return ""
@@ -2036,7 +2058,7 @@ func (a *Account) GetOpenAIApiKey() string {
 }
 
 func (a *Account) GetOpenAIProtocolAPIKey() string {
-	if a == nil || a.Type != AccountTypeAPIKey || (!a.IsOpenAI() && !a.IsMultiProtocolAPIKey()) {
+	if a == nil || a.Type != AccountTypeAPIKey || (!a.IsOpenAI() && !a.IsMultiProtocolAPIKey() && !a.IsMultimodal()) {
 		return ""
 	}
 	return a.GetCredential("api_key")
@@ -2181,6 +2203,11 @@ func (a *Account) SupportsOpenAIEndpointCapability(capability OpenAIEndpointCapa
 		default:
 			return false
 		}
+	}
+	if a.IsMultimodal() {
+		// Multimodal accounts only serve media endpoints. Text endpoints are
+		// gated at the route layer and must never resolve here.
+		return capability == OpenAIEndpointCapabilityMultimodalMediaGeneration
 	}
 	switch capability {
 	case OpenAIEndpointCapabilityChatCompletions:

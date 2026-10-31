@@ -121,12 +121,17 @@ func (r *customModelConfigRepository) CreateConfig(
 	ctx context.Context,
 	input service.CreateCustomModelConfigInput,
 ) (*service.CustomModelConfig, error) {
+	mediaLimits := input.MediaLimits
+	if mediaLimits == nil {
+		mediaLimits = map[string]any{}
+	}
 	builder := r.client.CustomModelConfig.Create().
 		SetModelName(input.ModelName).
 		SetPrefixMatch(input.PrefixMatch).
 		SetCapabilities(input.Capabilities).
 		SetVideoAPIType(input.VideoAPIType).
-		SetNillableTemplateID(input.TemplateID)
+		SetNillableTemplateID(input.TemplateID).
+		SetMediaLimits(mediaLimits)
 	item, err := builder.Save(ctx)
 	if ent.IsConstraintError(err) {
 		return nil, service.ErrCustomModelConfigDuplicate
@@ -158,6 +163,13 @@ func (r *customModelConfigRepository) UpdateConfig(
 		} else {
 			builder.SetTemplateID(*input.TemplateID)
 		}
+	}
+	if input.MediaLimitsSet {
+		mediaLimits := input.MediaLimits
+		if mediaLimits == nil {
+			mediaLimits = map[string]any{}
+		}
+		builder.SetMediaLimits(mediaLimits)
 	}
 	if _, err := builder.Save(ctx); ent.IsNotFound(err) {
 		return nil, service.ErrCustomModelConfigNotFound
@@ -219,6 +231,7 @@ func (r *customModelConfigRepository) CreateTemplate(
 		SetName(input.Name).
 		SetDescription(input.Description).
 		SetRequestAdapter(input.RequestAdapter).
+		SetAttributes(input.Attributes).
 		Save(ctx)
 	if ent.IsConstraintError(err) {
 		return nil, service.ErrCustomModelTemplateDuplicate
@@ -244,6 +257,9 @@ func (r *customModelConfigRepository) UpdateTemplate(
 	}
 	if input.RequestAdapter != nil {
 		builder.SetRequestAdapter(*input.RequestAdapter)
+	}
+	if input.Attributes != nil {
+		builder.SetAttributes(*input.Attributes)
 	}
 	item, err := builder.Save(ctx)
 	if ent.IsNotFound(err) {
@@ -288,6 +304,7 @@ func customModelConfigFromEnt(
 		Capabilities: append([]string(nil), item.Capabilities...),
 		VideoAPIType: item.VideoAPIType,
 		TemplateID:   item.TemplateID,
+		MediaLimits:  item.MediaLimits,
 		CreatedAt:    item.CreatedAt,
 		UpdatedAt:    item.UpdatedAt,
 	}
@@ -302,11 +319,16 @@ func customModelTemplateFromEnt(item *ent.CustomModelRequestTemplate) service.Cu
 	if adapter == nil {
 		adapter = map[string]any{}
 	}
+	attributes := item.Attributes
+	if attributes == nil {
+		attributes = map[string]any{}
+	}
 	return service.CustomModelRequestTemplate{
 		ID:             item.ID,
 		Name:           item.Name,
 		Description:    item.Description,
 		RequestAdapter: adapter,
+		Attributes:     attributes,
 		CreatedAt:      item.CreatedAt,
 		UpdatedAt:      item.UpdatedAt,
 	}

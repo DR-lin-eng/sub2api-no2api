@@ -199,6 +199,11 @@ function buildAPIKeyCredentials(
   account: Account,
   context: EditAccountUpdatePayloadContext,
 ): UpdatePayload | null {
+  // 多模态平台没有内置上游端点，Base URL 必须由管理员填写
+  if (account.platform === 'multimodal' && !context.editBaseUrl.value.trim()) {
+    context.notifications.showError(context.t('admin.accounts.pleaseEnterBaseUrl'))
+    return null
+  }
   const currentCredentials =
     (account.credentials as UpdatePayload | undefined) || {}
   const credentials: UpdatePayload = {

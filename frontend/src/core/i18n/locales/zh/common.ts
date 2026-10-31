@@ -54,6 +54,8 @@ export default {
     needHelp: '需要帮助？',
     enabled: '已启用',
     disabled: '已禁用',
+    on: '开',
+    off: '关',
 	    total: '总计',
 	    balance: '余额',
 	    availableBalance: '可用余额',

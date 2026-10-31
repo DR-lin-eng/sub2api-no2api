@@ -69,7 +69,8 @@ const platformOptions = computed(() => [
     { value: 'zhipu', label: 'Zhipu GLM' },
     { value: 'deepseek', label: 'DeepSeek' },
     { value: 'minimax', label: 'MiniMax' },
-    { value: 'opencode_go', label: 'OpenCode' }
+    { value: 'opencode_go', label: 'OpenCode' },
+    { value: 'multimodal', label: 'Multimodal' }
 ])
 
 const timeRangeOptions = computed(() => [

@@ -1,0 +1,21 @@
+{
+  "origin": "http://127.0.0.1:18489",
+  "page": "/media-studio",
+  "role": "user",
+  "views": [
+    "studio",
+    "gallery"
+  ],
+  "desktop": {
+    "width": 1280,
+    "height": 720,
+    "overflow": false
+  },
+  "mobile": {
+    "width": 390,
+    "height": 844,
+    "overflow": false
+  },
+  "gallery": "browser-local account scope and retention copy rendered",
+  "generatedRealMedia": false
+}

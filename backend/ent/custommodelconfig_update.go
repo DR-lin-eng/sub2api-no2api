@@ -122,6 +122,12 @@ func (_u *CustomModelConfigUpdate) ClearTemplateID() *CustomModelConfigUpdate {
 	return _u
 }
 
+// SetMediaLimits sets the "media_limits" field.
+func (_u *CustomModelConfigUpdate) SetMediaLimits(v map[string]interface{}) *CustomModelConfigUpdate {
+	_u.mutation.SetMediaLimits(v)
+	return _u
+}
+
 // Mutation returns the CustomModelConfigMutation object of the builder.
 func (_u *CustomModelConfigUpdate) Mutation() *CustomModelConfigMutation {
 	return _u.mutation
@@ -216,6 +222,9 @@ func (_u *CustomModelConfigUpdate) sqlSave(ctx context.Context) (_node int, err 
 	}
 	if _u.mutation.TemplateIDCleared() {
 		_spec.ClearField(custommodelconfig.FieldTemplateID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.MediaLimits(); ok {
+		_spec.SetField(custommodelconfig.FieldMediaLimits, field.TypeJSON, value)
 	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -327,6 +336,12 @@ func (_u *CustomModelConfigUpdateOne) AddTemplateID(v int64) *CustomModelConfigU
 // ClearTemplateID clears the value of the "template_id" field.
 func (_u *CustomModelConfigUpdateOne) ClearTemplateID() *CustomModelConfigUpdateOne {
 	_u.mutation.ClearTemplateID()
+	return _u
+}
+
+// SetMediaLimits sets the "media_limits" field.
+func (_u *CustomModelConfigUpdateOne) SetMediaLimits(v map[string]interface{}) *CustomModelConfigUpdateOne {
+	_u.mutation.SetMediaLimits(v)
 	return _u
 }
 
@@ -454,6 +469,9 @@ func (_u *CustomModelConfigUpdateOne) sqlSave(ctx context.Context) (_node *Custo
 	}
 	if _u.mutation.TemplateIDCleared() {
 		_spec.ClearField(custommodelconfig.FieldTemplateID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.MediaLimits(); ok {
+		_spec.SetField(custommodelconfig.FieldMediaLimits, field.TypeJSON, value)
 	}
 	_node = &CustomModelConfig{config: _u.config}
 	_spec.Assign = _node.assignValues

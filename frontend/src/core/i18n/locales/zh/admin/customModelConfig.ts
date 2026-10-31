@@ -20,7 +20,6 @@ export default {
   },
 
   actions: {
-    backToSettings: '返回功能开关',
     create: '新增配置',
     edit: '编辑',
     delete: '删除',
@@ -53,6 +52,16 @@ export default {
     descriptionPlaceholder: '例如：将 multipart 图片编辑请求转换为 JSON 请求',
     sourceEndpoint: '匹配客户端端点',
     targetEndpoint: '上游端点',
+    endpointRewrite: '端点重写',
+    endpointRewriteHint:
+      '把客户端请求路径替换为上游路径，留空则原样透传。上游端点支持 {{request.xxx}} 模板变量。',
+    endpointRewriteModes: {
+      exact: '精确匹配',
+      prefix: '前缀匹配'
+    },
+    endpointRewriteExactHint: '请求路径与客户端端点完全一致时才重写。',
+    endpointRewritePrefixHint: '请求路径以客户端端点开头即重写，剩余部分自动拼接到上游端点后面。',
+    endpointRewritePreview: '示例',
     contentType: '上游请求格式',
     preserve: '保持原请求格式',
     headers: '自定义请求头',
@@ -78,6 +87,59 @@ export default {
     noDescription: '暂无说明',
     empty: '暂无请求模板',
     invalidJson: '请求体必须是合法的 JSON 对象',
+    attributes: '模板属性',
+    attributesHint:
+      '按模态声明引用该模板的模型接受的输入字段；留空表示不限制。字段名只能包含小写字母、数字和下划线。',
+    attributesVisual: '可视化',
+    attributesJson: 'JSON',
+    attributesAddField: '添加字段',
+    attributesNoFields: '暂无字段，留空表示不限制该模态',
+    attributesFieldKey: '字段名',
+    attributesFieldKeyPlaceholder: '例如：size',
+    attributesFieldType: '类型',
+    attributesFieldLabel: '显示名称',
+    attributesFieldLabelPlaceholder: '留空则使用字段名',
+    attributesFieldUI: '展示方式',
+    attributesUI: {
+      auto: '自动',
+      hidden: '隐藏'
+    },
+    attributesFieldRequired: '必填',
+    attributesFieldDefault: '默认值',
+    attributesFieldDefaultUnset: '不设置',
+    attributesFieldMin: '最小值',
+    attributesFieldMax: '最大值',
+    attributesFieldValues: '可选值',
+    attributesFieldValuesPlaceholder: '例如：1024x1024, 1536x1024',
+    attributesFieldValuesHint: '用英文逗号分隔多个可选值。',
+    attributesModalities: {
+      image: '图片',
+      video: '视频',
+      audio: '音频'
+    },
+    attributesRenderMode: {
+      label: '渲染模式',
+      overlay: '局部覆盖',
+      replace: '完整替换',
+      hint: {
+        overlay: '保留默认参数，模板中同名字段替换对应控件',
+        replace: '只渲染模板声明的字段'
+      }
+    },
+    attributesHide: {
+      label: '隐藏内置参数',
+      hint: '勾选后该参数不渲染也不提交',
+      options: {
+        size: '分辨率/比例',
+        quality: '质量',
+        n: '数量',
+        resolution: '分辨率',
+        aspect_ratio: '比例',
+        duration: '时长'
+      }
+    },
+    attributesJsonInvalid: '模板属性 JSON 格式不正确',
+    attributesInvalid: '模板属性 JSON 格式不正确',
     saveFailed: '保存请求模板失败',
     deleteConfirm: '确定删除这个请求模板吗？引用它的模型会自动解除关联。',
     deleteFailed: '删除请求模板失败'
@@ -104,6 +166,26 @@ export default {
       agnes: 'Agnes Video'
     },
     videoApiTypeHint: '选择该视频模型使用的 API 接口类型',
+    mediaLimits: {
+      title: '媒体工坊限制',
+      hint: '留空表示不限制，最大数量填 0 表示禁用该类文件。',
+      allowUpload: '允许上传文件',
+      allowUploadHint: '关闭后媒体工坊不显示上传入口，视频请求也不能携带参考文件。',
+      fileTypes: '允许的文件类型',
+      kinds: {
+        image: '图片',
+        video: '视频',
+        audio: '音频'
+      },
+      maxFiles: '最大数量',
+      maxFileSize: '最大文件大小 (MB)',
+      unlimited: '不限',
+      duration: '视频时长区间（秒）',
+      durationMin: '最短时长',
+      durationMax: '最长时长',
+      durationHint: '留空表示不限制；媒体工坊只提供区间内的时长选项。',
+      durationInvalid: '视频时长区间需同时填写最短和最长，且满足 1 ≤ 最短 ≤ 最长 ≤ 600'
+    },
     saveFailed: '保存失败，请重试'
   },
 

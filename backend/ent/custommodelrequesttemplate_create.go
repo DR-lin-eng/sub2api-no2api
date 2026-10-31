@@ -76,6 +76,12 @@ func (_c *CustomModelRequestTemplateCreate) SetRequestAdapter(v map[string]inter
 	return _c
 }
 
+// SetAttributes sets the "attributes" field.
+func (_c *CustomModelRequestTemplateCreate) SetAttributes(v map[string]interface{}) *CustomModelRequestTemplateCreate {
+	_c.mutation.SetAttributes(v)
+	return _c
+}
+
 // Mutation returns the CustomModelRequestTemplateMutation object of the builder.
 func (_c *CustomModelRequestTemplateCreate) Mutation() *CustomModelRequestTemplateMutation {
 	return _c.mutation
@@ -123,6 +129,10 @@ func (_c *CustomModelRequestTemplateCreate) defaults() {
 		v := custommodelrequesttemplate.DefaultDescription
 		_c.mutation.SetDescription(v)
 	}
+	if _, ok := _c.mutation.Attributes(); !ok {
+		v := custommodelrequesttemplate.DefaultAttributes()
+		_c.mutation.SetAttributes(v)
+	}
 }
 
 // check runs all checks and user-defined validators on the builder.
@@ -148,6 +158,9 @@ func (_c *CustomModelRequestTemplateCreate) check() error {
 	}
 	if _, ok := _c.mutation.RequestAdapter(); !ok {
 		return &ValidationError{Name: "request_adapter", err: errors.New(`ent: missing required field "CustomModelRequestTemplate.request_adapter"`)}
+	}
+	if _, ok := _c.mutation.Attributes(); !ok {
+		return &ValidationError{Name: "attributes", err: errors.New(`ent: missing required field "CustomModelRequestTemplate.attributes"`)}
 	}
 	return nil
 }
@@ -195,6 +208,10 @@ func (_c *CustomModelRequestTemplateCreate) createSpec() (*CustomModelRequestTem
 	if value, ok := _c.mutation.RequestAdapter(); ok {
 		_spec.SetField(custommodelrequesttemplate.FieldRequestAdapter, field.TypeJSON, value)
 		_node.RequestAdapter = value
+	}
+	if value, ok := _c.mutation.Attributes(); ok {
+		_spec.SetField(custommodelrequesttemplate.FieldAttributes, field.TypeJSON, value)
+		_node.Attributes = value
 	}
 	return _node, _spec
 }
@@ -299,6 +316,18 @@ func (u *CustomModelRequestTemplateUpsert) SetRequestAdapter(v map[string]interf
 // UpdateRequestAdapter sets the "request_adapter" field to the value that was provided on create.
 func (u *CustomModelRequestTemplateUpsert) UpdateRequestAdapter() *CustomModelRequestTemplateUpsert {
 	u.SetExcluded(custommodelrequesttemplate.FieldRequestAdapter)
+	return u
+}
+
+// SetAttributes sets the "attributes" field.
+func (u *CustomModelRequestTemplateUpsert) SetAttributes(v map[string]interface{}) *CustomModelRequestTemplateUpsert {
+	u.Set(custommodelrequesttemplate.FieldAttributes, v)
+	return u
+}
+
+// UpdateAttributes sets the "attributes" field to the value that was provided on create.
+func (u *CustomModelRequestTemplateUpsert) UpdateAttributes() *CustomModelRequestTemplateUpsert {
+	u.SetExcluded(custommodelrequesttemplate.FieldAttributes)
 	return u
 }
 
@@ -407,6 +436,20 @@ func (u *CustomModelRequestTemplateUpsertOne) SetRequestAdapter(v map[string]int
 func (u *CustomModelRequestTemplateUpsertOne) UpdateRequestAdapter() *CustomModelRequestTemplateUpsertOne {
 	return u.Update(func(s *CustomModelRequestTemplateUpsert) {
 		s.UpdateRequestAdapter()
+	})
+}
+
+// SetAttributes sets the "attributes" field.
+func (u *CustomModelRequestTemplateUpsertOne) SetAttributes(v map[string]interface{}) *CustomModelRequestTemplateUpsertOne {
+	return u.Update(func(s *CustomModelRequestTemplateUpsert) {
+		s.SetAttributes(v)
+	})
+}
+
+// UpdateAttributes sets the "attributes" field to the value that was provided on create.
+func (u *CustomModelRequestTemplateUpsertOne) UpdateAttributes() *CustomModelRequestTemplateUpsertOne {
+	return u.Update(func(s *CustomModelRequestTemplateUpsert) {
+		s.UpdateAttributes()
 	})
 }
 
@@ -681,6 +724,20 @@ func (u *CustomModelRequestTemplateUpsertBulk) SetRequestAdapter(v map[string]in
 func (u *CustomModelRequestTemplateUpsertBulk) UpdateRequestAdapter() *CustomModelRequestTemplateUpsertBulk {
 	return u.Update(func(s *CustomModelRequestTemplateUpsert) {
 		s.UpdateRequestAdapter()
+	})
+}
+
+// SetAttributes sets the "attributes" field.
+func (u *CustomModelRequestTemplateUpsertBulk) SetAttributes(v map[string]interface{}) *CustomModelRequestTemplateUpsertBulk {
+	return u.Update(func(s *CustomModelRequestTemplateUpsert) {
+		s.SetAttributes(v)
+	})
+}
+
+// UpdateAttributes sets the "attributes" field to the value that was provided on create.
+func (u *CustomModelRequestTemplateUpsertBulk) UpdateAttributes() *CustomModelRequestTemplateUpsertBulk {
+	return u.Update(func(s *CustomModelRequestTemplateUpsert) {
+		s.UpdateAttributes()
 	})
 }
 

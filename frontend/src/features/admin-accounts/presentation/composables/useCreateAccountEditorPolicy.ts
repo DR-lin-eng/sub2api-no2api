@@ -218,6 +218,11 @@ export function useCreateAccountEditorPolicy(context: CreateAccountEditorPolicyC
           modelRestrictionMode.value = 'whitelist'
         }
       if (newPlatform === 'typesafe') { accountCategory.value = 'apikey'; form.type = 'apikey'; modelRestrictionMode.value = 'mapping'; modelMappings.value = [{ from: 'jev-latest', to: 'jev-latest' }] }
+        if (newPlatform === 'multimodal') {
+          accountCategory.value = 'apikey'
+          form.type = 'apikey'
+          modelRestrictionMode.value = 'whitelist'
+        }
       if (newPlatform !== 'gemini' && newPlatform !== 'anthropic' && accountCategory.value === 'service_account') {
         accountCategory.value = 'oauth-based'
       }

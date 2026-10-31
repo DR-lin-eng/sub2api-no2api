@@ -97,6 +97,7 @@ export type AccountPlatform =
   | 'deepseek'
   | 'minimax'
   | 'opencode_go' | 'typesafe'
+  | 'multimodal'
 export type AccountType = 'oauth' | 'setup-token' | 'apikey' | 'upstream' | 'bedrock' | 'service_account'
 export type OAuthAddMethod = 'oauth' | 'setup-token'
 export type ProxyProtocol = 'http' | 'https' | 'socks5' | 'socks5h'

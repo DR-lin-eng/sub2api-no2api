@@ -20,7 +20,6 @@ export default {
   },
 
   actions: {
-    backToSettings: 'Back to feature settings',
     create: 'Add Config',
     edit: 'Edit',
     delete: 'Delete',
@@ -53,6 +52,17 @@ export default {
     descriptionPlaceholder: 'e.g. Convert multipart image edits into JSON',
     sourceEndpoint: 'Match Client Endpoint',
     targetEndpoint: 'Upstream Endpoint',
+    endpointRewrite: 'Endpoint Rewrite',
+    endpointRewriteHint:
+      'Replace the client request path with an upstream path; leave empty to pass through. The upstream endpoint supports {{request.xxx}} template variables.',
+    endpointRewriteModes: {
+      exact: 'Exact',
+      prefix: 'Prefix'
+    },
+    endpointRewriteExactHint: 'Rewrites only when the request path equals the client endpoint exactly.',
+    endpointRewritePrefixHint:
+      'Rewrites whenever the request path starts with the client endpoint; the remainder is appended to the upstream endpoint.',
+    endpointRewritePreview: 'Preview',
     contentType: 'Upstream Content Type',
     preserve: 'Preserve request format',
     headers: 'Custom Headers',
@@ -78,6 +88,59 @@ export default {
     noDescription: 'No description',
     empty: 'No request templates',
     invalidJson: 'Request body must be a valid JSON object',
+    attributes: 'Template Attributes',
+    attributesHint:
+      'Declare the input fields models using this template accept, per modality; leave empty for no restriction. Keys may only contain lowercase letters, digits and underscores.',
+    attributesVisual: 'Visual',
+    attributesJson: 'JSON',
+    attributesAddField: 'Add Field',
+    attributesNoFields: 'No fields; leave empty to leave this modality unrestricted',
+    attributesFieldKey: 'Key',
+    attributesFieldKeyPlaceholder: 'e.g. size',
+    attributesFieldType: 'Type',
+    attributesFieldLabel: 'Label',
+    attributesFieldLabelPlaceholder: 'Defaults to the key',
+    attributesFieldUI: 'UI',
+    attributesUI: {
+      auto: 'Auto',
+      hidden: 'Hidden'
+    },
+    attributesFieldRequired: 'Required',
+    attributesFieldDefault: 'Default',
+    attributesFieldDefaultUnset: 'Not set',
+    attributesFieldMin: 'Min',
+    attributesFieldMax: 'Max',
+    attributesFieldValues: 'Allowed Values',
+    attributesFieldValuesPlaceholder: 'e.g. 1024x1024, 1536x1024',
+    attributesFieldValuesHint: 'Separate multiple values with commas.',
+    attributesModalities: {
+      image: 'Image',
+      video: 'Video',
+      audio: 'Audio'
+    },
+    attributesRenderMode: {
+      label: 'Render Mode',
+      overlay: 'Overlay',
+      replace: 'Replace',
+      hint: {
+        overlay: 'Keep default parameters; same-name fields replace their controls',
+        replace: 'Only render fields declared by this template'
+      }
+    },
+    attributesHide: {
+      label: 'Hide built-in parameters',
+      hint: 'Checked parameters are neither rendered nor submitted',
+      options: {
+        size: 'Resolution / aspect ratio',
+        quality: 'Quality',
+        n: 'Count',
+        resolution: 'Resolution',
+        aspect_ratio: 'Aspect ratio',
+        duration: 'Duration'
+      }
+    },
+    attributesJsonInvalid: 'Template attribute JSON is invalid',
+    attributesInvalid: 'Template attribute JSON is invalid',
     saveFailed: 'Failed to save request template',
     deleteConfirm: 'Delete this request template? Models using it will be unlinked.',
     deleteFailed: 'Failed to delete request template'
@@ -104,6 +167,28 @@ export default {
       agnes: 'Agnes Video'
     },
     videoApiTypeHint: 'Select the API interface type for this video model',
+    mediaLimits: {
+      title: 'Media Studio Limits',
+      hint: 'Leave empty for no restriction; set max count to 0 to disable that file type.',
+      allowUpload: 'Allow file uploads',
+      allowUploadHint:
+        'When disabled, Media Studio hides the upload entry and video requests cannot carry reference files.',
+      fileTypes: 'Allowed file types',
+      kinds: {
+        image: 'Image',
+        video: 'Video',
+        audio: 'Audio'
+      },
+      maxFiles: 'Max count',
+      maxFileSize: 'Max file size (MB)',
+      unlimited: 'Unlimited',
+      duration: 'Video duration range (seconds)',
+      durationMin: 'Min duration',
+      durationMax: 'Max duration',
+      durationHint:
+        'Leave empty for no restriction; Media Studio only offers duration options within the range.',
+      durationInvalid: 'Fill in both min and max, and make sure 1 ≤ min ≤ max ≤ 600'
+    },
     saveFailed: 'Failed to save, please try again'
   },
 

@@ -95,6 +95,7 @@ const platformLabel = computed(() => {
     if (props.platform === 'deepseek') return 'DeepSeek'
     if (props.platform === 'minimax') return 'MiniMax'
     if (props.platform === 'opencode_go') return 'OpenCode'
+    if (props.platform === 'multimodal') return 'Multimodal'
     return 'Gemini'
 })
 
@@ -197,6 +198,7 @@ const platformClass = computed(() => {
     if (props.platform === 'deepseek') return 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300'
     if (props.platform === 'minimax') return 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
     if (props.platform === 'opencode_go') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+    if (props.platform === 'multimodal') return 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-300'
   return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
 })
 
@@ -218,6 +220,7 @@ const typeClass = computed(() => {
     if (props.platform === 'deepseek') return 'bg-cyan-100 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-300'
     if (props.platform === 'minimax') return 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-300'
     if (props.platform === 'opencode_go') return 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-300'
+    if (props.platform === 'multimodal') return 'bg-fuchsia-100 text-fuchsia-600 dark:bg-fuchsia-900/30 dark:text-fuchsia-300'
   return 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
 })
 

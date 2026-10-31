@@ -10,6 +10,7 @@
 | --- | --- |
 | `account*`, `user*`, `group*`, `api_key*` | 核心身份和账号持久化 |
 | `usage_log*`, `usage_billing*`, `billing_cache*` | 用量、计费队列和账务缓存 |
+| `usage_billing_video.go` | 视频冻结的行锁事务，原子提交资金、额度、日志和终态 |
 | `scheduler*`, `concurrency*`, `session_limit*`, `rpm_cache*` | 调度与并发状态 |
 | `gateway_cache_live_billing.go` | Live 终止时长原子冻结、待结算索引和跨实例恢复 |
 | `openai_oauth_gateway_rate_limit_cache.go` | OpenAI OAuth 按账号独立、同账号跨实例共享的请求令牌桶和逻辑请求去重 |

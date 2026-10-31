@@ -344,6 +344,8 @@ func defaultModelsListCandidateIDs(platform string) []string {
 		return []string{typesafe.JevLatestModel}
 	case PlatformOpenCodeGo:
 		return DefaultOpenCodeGoModelIDs()
+	case PlatformMultimodal:
+		return DefaultMultimodalModelIDs()
 	case PlatformComposite:
 		return compositeDefaultModelsListCandidateIDs()
 	default:
@@ -357,7 +359,7 @@ func defaultModelsListCandidateIDs(platform string) []string {
 
 func DefaultAllowImageGenerationForPlatform(platform string) bool {
 	switch platform {
-	case PlatformGrok, PlatformGemini, PlatformAntigravity:
+	case PlatformGrok, PlatformGemini, PlatformAntigravity, PlatformMultimodal:
 		return true
 	default:
 		return false
@@ -374,6 +376,7 @@ func compositeDefaultModelsListCandidateIDs() []string {
 	for _, platform := range []string{
 		PlatformAnthropic, PlatformGemini, PlatformOpenAI, PlatformAntigravity, PlatformGrok,
 		PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax, PlatformOpenCodeGo,
+		PlatformMultimodal,
 	} {
 		for _, id := range defaultModelsListCandidateIDs(platform) {
 			if _, ok := seen[id]; ok {

@@ -1,6 +1,10 @@
 /** 自定义模型配置 DTOs */
 
-import type { ModelCapability, VideoApiType } from "../../domain/entities/customModelConfig";
+import type {
+  CustomModelMediaLimits,
+  ModelCapability,
+  VideoApiType,
+} from "../../domain/entities/customModelConfig";
 
 export interface CustomModelConfigDto {
   id: number;
@@ -10,6 +14,7 @@ export interface CustomModelConfigDto {
   template_id?: number | null;
   template_name?: string;
   video_api_type?: VideoApiType | null;
+  media_limits?: CustomModelMediaLimits | null;
   created_at: string;
   updated_at: string;
 }
@@ -20,6 +25,7 @@ export interface CreateCustomModelConfigRequest {
   capabilities: ModelCapability[];
   template_id: number | null;
   video_api_type?: VideoApiType | null;
+  media_limits?: CustomModelMediaLimits | null;
 }
 
 export interface UpdateCustomModelConfigRequest {
@@ -28,6 +34,7 @@ export interface UpdateCustomModelConfigRequest {
   capabilities?: ModelCapability[];
   template_id?: number | null;
   video_api_type?: VideoApiType | null;
+  media_limits?: CustomModelMediaLimits | null;
 }
 
 export interface CustomModelRequestTemplateDto {
@@ -35,6 +42,7 @@ export interface CustomModelRequestTemplateDto {
   name: string;
   description: string;
   request_adapter: Record<string, unknown>;
+  attributes?: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }
@@ -43,10 +51,12 @@ export interface CreateCustomModelRequestTemplateRequest {
   name: string;
   description: string;
   request_adapter: Record<string, unknown>;
+  attributes?: Record<string, unknown>;
 }
 
 export interface UpdateCustomModelRequestTemplateRequest {
   name?: string;
   description?: string;
   request_adapter?: Record<string, unknown>;
+  attributes?: Record<string, unknown> | null;
 }

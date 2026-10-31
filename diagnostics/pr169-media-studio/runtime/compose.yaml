@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: sub2api
+      POSTGRES_PASSWORD: ${PR169_FIXTURE_DB_PASSWORD:?}
+      POSTGRES_DB: upgrade
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U sub2api -d upgrade']
+      interval: 1s
+      timeout: 3s
+      retries: 40
+  redis:
+    image: redis:8-alpine
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 1s
+      timeout: 3s
+      retries: 40
+  app:
+    image: ${PR169_FIXTURE_IMAGE:?}
+    ports: ['127.0.0.1:18489:8080']
+    environment:
+      AUTO_SETUP: 'true'
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 8080
+      SERVER_MODE: release
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: sub2api
+      DATABASE_PASSWORD: ${PR169_FIXTURE_DB_PASSWORD:?}
+      DATABASE_DBNAME: upgrade
+      DATABASE_SSLMODE: disable
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      ADMIN_EMAIL: admin@pr169-fixture.invalid
+      ADMIN_PASSWORD: Local-fixture-only-20261030!
+      JWT_SECRET: ${PR169_FIXTURE_JWT_SECRET:?}
+      TOTP_ENCRYPTION_KEY: ${PR169_FIXTURE_ENCRYPTION_KEY:?}
+      MCP_PUBLIC_URL: ${PR169_FIXTURE_RESOURCE:-}
+      OAUTH_MODEL_SYNC_ENABLED: 'false'
+      PRICING_REMOTE_URL: https://127.0.0.1:9/pricing.json
+      PRICING_HASH_URL: https://127.0.0.1:9/pricing.sha256
+      HTTP_PROXY: ''
+      HTTPS_PROXY: ''
+      ALL_PROXY: ''
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}

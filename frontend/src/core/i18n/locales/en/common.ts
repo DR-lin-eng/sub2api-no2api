@@ -54,6 +54,8 @@ export default {
     needHelp: 'Need help?',
     enabled: 'Enabled',
     disabled: 'Disabled',
+    on: 'On',
+    off: 'Off',
 	    total: 'Total',
 	    balance: 'Balance',
 	    availableBalance: 'Available balance',

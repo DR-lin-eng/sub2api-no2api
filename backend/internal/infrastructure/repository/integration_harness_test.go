@@ -50,6 +50,12 @@ func TestMain(m *testing.M) {
 		log.Printf("failed to init timezone: %v", err)
 		os.Exit(1)
 	}
+	// Docker CI can provision disposable databases on a dedicated network and
+	// run tests without exposing the host Docker socket to the test container.
+	// This opt-in path applies migrations, so never point it at a real database.
+	if dsn := os.Getenv("SUB2API_TEST_EXTERNAL_POSTGRES_DSN"); dsn != "" {
+		os.Exit(runExternalIntegrationTests(m, dsn, os.Getenv("SUB2API_TEST_EXTERNAL_REDIS_ADDR")))
+	}
 
 	if !dockerIsAvailable(ctx) {
 		// In CI we expect Docker to be available so integration tests should fail loudly.
@@ -134,6 +140,36 @@ func TestMain(m *testing.M) {
 	_ = integrationDB.Close()
 
 	os.Exit(code)
+}
+
+func runExternalIntegrationTests(m *testing.M, dsn, redisAddr string) int {
+	if redisAddr == "" {
+		log.Print("SUB2API_TEST_EXTERNAL_REDIS_ADDR is required with an external test database")
+		return 1
+	}
+	ctx := context.Background()
+	var err error
+	integrationPostgresDSN = dsn
+	integrationDB, err = openSQLWithRetry(ctx, dsn, 30*time.Second)
+	if err != nil {
+		log.Printf("failed to open external test database: %v", err)
+		return 1
+	}
+	defer func() { _ = integrationDB.Close() }()
+	if err := ApplyMigrations(ctx, integrationDB); err != nil {
+		log.Printf("failed to migrate external test database: %v", err)
+		return 1
+	}
+	drv := entsql.OpenDB(dialect.Postgres, integrationDB)
+	integrationEntClient = dbent.NewClient(dbent.Driver(drv))
+	defer func() { _ = integrationEntClient.Close() }()
+	integrationRedis = redisclient.NewClient(&redisclient.Options{Addr: redisAddr})
+	defer func() { _ = integrationRedis.Close() }()
+	if err := integrationRedis.Ping(ctx).Err(); err != nil {
+		log.Printf("failed to ping external test Redis: %v", err)
+		return 1
+	}
+	return m.Run()
 }
 
 func dockerIsAvailable(ctx context.Context) bool {

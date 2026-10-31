@@ -1545,13 +1545,37 @@ func (s *BillingService) calculatePerRequestCost(resolved *ResolvedPricing, inpu
 		unitPrice = input.Resolver.GetRequestTierPrice(resolved, input.SizeTier)
 	}
 
-	if unitPrice == 0 {
+	// 视频层级按分辨率命中、图片层级按尺寸命中，都不能按 token 上下文回退：
+	// 回退会永远命中 min_tokens=0 的第一档，导致 2K 误用 1K、720p 误用 480p 的价格。
+	if unitPrice == 0 && input.SizeTier == "" && resolved.Mode != BillingModeVideo {
+		totalContext := input.Tokens.InputTokens + input.Tokens.CacheCreationTokens + input.Tokens.CacheReadTokens
+		unitPrice = input.Resolver.GetRequestTierPriceByContext(resolved, totalContext)
+	}
+
+	// 渠道按次定价的纯 token 区间（没有任何尺寸档位标签）允许按上下文命中：
+	// 这类配置本来就没有尺寸档位可选，不存在跨档位取价。
+	// 仅限渠道来源且非多模态分组；分组定价（含多模态强规范分组）不走这条路径，
+	// 图片/视频仍必须精确命中档位，缺档位直接报缺价。
+	if unitPrice == 0 && resolved.Mode != BillingModeVideo &&
+		channelContextTierAllowed(resolved, input.Group) {
 		totalContext := input.Tokens.InputTokens + input.Tokens.CacheCreationTokens + input.Tokens.CacheReadTokens
 		unitPrice = input.Resolver.GetRequestTierPriceByContext(resolved, totalContext)
 	}
 
 	// 回退到默认按次价格
 	if unitPrice == 0 {
+		multimodal := false
+		if input.Group != nil {
+			multimodal = IsMultimodal(input.Group.Platform)
+		} else if resolved.channelPricing != nil {
+			multimodal = IsMultimodal(resolved.channelPricing.Platform)
+		}
+		// multimodal 是逐模型定价分组，没有“默认价”：
+		// 图片必须精确命中尺寸档位、视频必须精确命中分辨率档位，
+		// 缺档位直接报缺价，不能按条目默认价或任何其它档位放行。
+		if multimodal {
+			return nil, fmt.Errorf("no price configured for tier %q: model=%s mode=%s", input.SizeTier, input.Model, resolved.Mode)
+		}
 		unitPrice = resolved.DefaultPerRequestPrice
 	}
 
@@ -1562,6 +1586,33 @@ func (s *BillingService) calculatePerRequestCost(resolved *ResolvedPricing, inpu
 		TotalCost:  totalCost,
 		ActualCost: actualCost,
 	}, nil
+}
+
+// channelContextTierAllowed 报告该定价是否属于“渠道来源、非多模态、且按次区间没有尺寸档位标签”的配置。
+// 只有这种渠道按次定价才允许按 token 上下文命中区间价；分组定价保持强规范，不参与回退。
+func channelContextTierAllowed(resolved *ResolvedPricing, group *Group) bool {
+	if resolved == nil || resolved.channelPricing == nil || resolved.Source != PricingSourceChannel {
+		return false
+	}
+	if group != nil && IsMultimodal(group.Platform) {
+		return false
+	}
+	if IsMultimodal(resolved.channelPricing.Platform) {
+		return false
+	}
+	return !requestTiersHaveLabels(resolved.RequestTiers)
+}
+
+// requestTiersHaveLabels 报告按次定价条目是否带有尺寸/分辨率档位标签。
+// 带标签的条目必须精确命中档位，不能按 token 上下文回退到其它档位；
+// 无标签条目通常表示纯 token 区间按次定价，允许按上下文命中。
+func requestTiersHaveLabels(tiers []PricingInterval) bool {
+	for _, tier := range tiers {
+		if strings.TrimSpace(tier.TierLabel) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // CalculateCost 计算使用费用
@@ -1823,7 +1874,9 @@ type ImagePriceConfig struct {
 }
 
 // VideoPriceConfig 视频生成计费配置。所有价格均为**每秒**单价（USD/s），与 xAI 官方计费口径一致。
+// Grok 平台缺价时回落到内置每秒价；multimodal 平台没有内置价，缺价直接报错。
 type VideoPriceConfig struct {
+	Platform   string   // 所属分组平台；multimodal 没有内置每秒价，缺价必须报错
 	Price480P  *float64 // 480p 每秒价格（nil 表示使用默认值）
 	Price720P  *float64 // 720p 每秒价格（nil 表示使用默认值）
 	Price1080P *float64 // 1080p 每秒价格（nil 表示使用默认值）
@@ -1911,14 +1964,20 @@ func (s *BillingService) CalculateImageCost(model string, imageSize string, imag
 // durationSeconds: 单个视频时长（秒），<=0 时按上游默认时长计
 // groupConfig: 分组配置的每秒价格（可能为 nil，表示使用默认值）
 // rateMultiplier: 费率倍数
-func (s *BillingService) CalculateVideoCost(model string, resolution string, videoCount int, durationSeconds int, groupConfig *VideoPriceConfig, rateMultiplier float64) *CostBreakdown {
+//
+// 视频单价只能来自分组视频价或模型内置每秒价。两者都缺失时返回错误，
+// 不允许回落到图片价格或用任何硬编码金额猜测视频单价。
+func (s *BillingService) CalculateVideoCost(model string, resolution string, videoCount int, durationSeconds int, groupConfig *VideoPriceConfig, rateMultiplier float64) (*CostBreakdown, error) {
 	if videoCount <= 0 {
-		return &CostBreakdown{}
+		return &CostBreakdown{}, nil
 	}
 	resolution = NormalizeVideoBillingResolutionOrDefault(resolution)
 	durationSeconds = NormalizeVideoBillingDurationSecondsOrDefault(durationSeconds)
 
-	perSecondPrice := s.getVideoUnitPrice(model, resolution, groupConfig)
+	perSecondPrice, ok := s.getVideoUnitPrice(model, resolution, groupConfig)
+	if !ok {
+		return nil, fmt.Errorf("video price is not configured: model=%q resolution=%q", model, resolution)
+	}
 	totalCost := perSecondPrice * float64(durationSeconds) * float64(videoCount)
 
 	if rateMultiplier < 0 {
@@ -1930,7 +1989,7 @@ func (s *BillingService) CalculateVideoCost(model string, resolution string, vid
 		TotalCost:   totalCost,
 		ActualCost:  actualCost,
 		BillingMode: string(BillingModeVideo),
-	}
+	}, nil
 }
 
 // getImageUnitPrice 获取图片单价
@@ -1957,25 +2016,30 @@ func (s *BillingService) getImageUnitPrice(model string, imageSize string, group
 	return s.getDefaultImagePrice(model, imageSize)
 }
 
-func (s *BillingService) getVideoUnitPrice(model string, resolution string, groupConfig *VideoPriceConfig) float64 {
+func (s *BillingService) getVideoUnitPrice(model string, resolution string, groupConfig *VideoPriceConfig) (float64, bool) {
 	if groupConfig != nil {
+		// multimodal 是逐模型定价分组：分组级视频价不参与计费，也绝不继承 Grok 的
+		// 内置每秒价，否则 seedance 等模型会被按 Grok 价静默计费。
+		if IsMultimodal(groupConfig.Platform) {
+			return 0, false
+		}
 		switch resolution {
 		case VideoBillingResolution480P:
 			if groupConfig.Price480P != nil {
-				return *groupConfig.Price480P
+				return *groupConfig.Price480P, true
 			}
 		case VideoBillingResolution720P:
 			if groupConfig.Price720P != nil {
-				return *groupConfig.Price720P
+				return *groupConfig.Price720P, true
 			}
 		case VideoBillingResolution1080P:
 			if groupConfig.Price1080P != nil {
-				return *groupConfig.Price1080P
+				return *groupConfig.Price1080P, true
 			}
 		}
 	}
 
-	return s.getDefaultVideoPrice(model, resolution)
+	return getDefaultGrokImagineVideoPrice(model, resolution)
 }
 
 // getDefaultImagePrice 获取 LiteLLM 默认图片价格
@@ -2008,18 +2072,6 @@ func (s *BillingService) getDefaultImagePrice(model string, imageSize string) fl
 	}
 
 	return basePrice
-}
-
-func (s *BillingService) getDefaultVideoPrice(model string, resolution string) float64 {
-	if price, ok := getDefaultGrokImagineVideoPrice(model, resolution); ok {
-		return price
-	}
-
-	// The bundled LiteLLM schema does not expose an output video generation price.
-	// Keep the historical model default as the fallback (interpreted as a per-second
-	// rate; today only Grok models reach video billing, so this path is a safety net),
-	// while letting group-level video prices override it independently from image prices.
-	return s.getDefaultImagePrice(model, ImageBillingSize2K)
 }
 
 func getDefaultGrokImagineImagePrice(model string, imageSize string) (float64, bool) {
