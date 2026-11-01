@@ -449,12 +449,18 @@ func (s *OpenAIGatewayService) resolveCodexFullSimulationIDs(
 	turnPlan := request.turn(turn)
 	generationKey := codexSimulationGenerationStateKey(request.root.rootKey, principal.key)
 	generation := uint64(0)
+	sessionID := codexSimulationUUIDv7(secret, "session:v2", request.root.createdAtMS, request.root.rootKey, principal.key)
 	if store := s.getCodexSimulationStateStore(); store != nil {
-		if stored, err := store.generationWithTTL(ctx, generationKey, request.settings.stateTTL()); err == nil {
+		// Both reads share the existing Redis time budget during an outage.
+		cacheCtx, cancel := withOpenAIWSStateStoreRedisTimeout(ctx)
+		// UUIDv7 embeds its creation time. Keep the first session value so
+		// prompt_cache_key and WS affinity survive new requests and replicas.
+		sessionID = store.sessionIDWithTTL(cacheCtx, codexSimulationSessionStateKey(request.root.rootKey, principal.key), sessionID, request.settings.stateTTL())
+		if stored, err := store.generationWithTTL(cacheCtx, generationKey, request.settings.stateTTL()); err == nil {
 			generation = stored
 		}
+		cancel()
 	}
-	sessionID := codexSimulationUUIDv7(secret, "session:v2", request.root.createdAtMS, request.root.rootKey, principal.key)
 	profile := resolveCodexSimulationProfile(secret, principal.key, s.codexIdentityOverrideUA(account),
 		request.settings.CLevelSimulationEnabled && request.settings.ExperimentalTransportEnabled)
 	windowNumber := int(generation) + 1

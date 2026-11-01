@@ -5,6 +5,7 @@
 ## 文件索引
 
 `gateway_cache_integrity.go` 保存第一方 OAuth integrity 状态的共享读取与 Lua 原子 expected-state CAS。
+`gateway_cache_codex_session.go` 原子创建并续期 Codex 虚拟会话身份，保持 UUIDv7 的首次生成时间和跨实例缓存亲和性。
 
 | 前缀 | 职责 |
 | --- | --- |

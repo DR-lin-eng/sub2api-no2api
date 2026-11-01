@@ -410,7 +410,10 @@ HMAC；项目头在所有 HTTP/WS 上游构造器中删除。每个账号 attemp
 `chatgpt_account_id` 时有意视为同一上游主体。
 
 full simulation 的 session/thread/turn 使用 UUIDv7，并从同一 attempt plan 投影到请求头、`prompt_cache_key`
-和 `client_metadata`。`parent_turn_id`/`root_turn_id` 在同一主体 turn 命名空间重新派生；没有显式 root
+和 `client_metadata`。session/thread 在 `root × principal` 作用域首次创建后，由 Redis 原子固定并沿用模拟
+状态 TTL 续期；后续 HTTP 请求、WS 重连和其他实例复用同一 UUIDv7，避免请求时间使缓存键漂移。
+Redis 故障时使用有界本地 fallback，恢复后遵循共享身份；turn 仍按轮生成，Compact 成功只推进窗口。
+`parent_turn_id`/`root_turn_id` 在同一主体 turn 命名空间重新派生；没有显式 root
 时使用当前 `turn_id`。HTTP/WS 请求头复用正文投影，避免重复派生。`window_id` 使用从 1 开始的
 `thread_id:window_number`。每个 OpenAI OAuth 账号有一个随机生成、持久化在
 `accounts.extra.codex_context_window_id` 的 `context_window_id`；body 与 `x-codex-turn-metadata` 只使用该账号值，
