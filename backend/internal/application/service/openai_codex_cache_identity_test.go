@@ -73,9 +73,10 @@ func TestCodexFullSimulationCacheIdentitySurvivesNewRequests(t *testing.T) {
 				wsHeaders := make(http.Header)
 				applyCodexFingerprintWSHeaders(wsHeaders, ids)
 				require.Equal(t, req.Header.Get("session-id"), wsHeaders.Get("session-id"))
-				if index == 0 {
+				switch index {
+				case 0:
 					firstWSHeaders = wsHeaders
-				} else if index == 1 {
+				case 1:
 					require.Equal(t, firstWSHeaders.Get(codexFingerprintWSKeyHeader), wsHeaders.Get(codexFingerprintWSKeyHeader), "WS reconnects must keep the same session compatibility key")
 				}
 			}
