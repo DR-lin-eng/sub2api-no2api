@@ -110,7 +110,23 @@ Each provider type requires different credentials. Select the type when adding a
 
 ### EasyPay
 
-Compatible with any payment service that implements the EasyPay protocol.
+Supports EasyPay V1 synchronous redirects and asynchronous API checkout. Select
+the payment mode under **Provider Management → Edit → Payment Mode**:
+
+| Option | Behavior |
+|--------|----------|
+| **QR Code** (`qrcode`) | Existing server-side `mapi.php` flow, displaying the returned QR or checkout URL |
+| **Synchronous redirect (popup)** (`popup`) | Existing browser checkout through `submit.php` |
+| **Async payment** (`async`) | Explicit server-side `mapi.php` checkout for gateways that have retired synchronous redirects |
+
+Upgrades preserve every existing instance's mode. Legacy `api`, `redirect`, and
+empty values retain their existing API behavior, including on unrelated edits.
+Admins can select a different mode and switch back. New instances still default
+to QR Code; no database migration is needed.
+
+All modes use signed callbacks and upstream queries to confirm payment; a
+browser return does not authorize crediting. V2 RSA-only gateways still need a
+compatible V1 `mapi.php` endpoint.
 
 | Parameter | Description | Required |
 |-----------|-------------|----------|
@@ -228,7 +244,7 @@ User selects amount and payment method
        │
        ▼
   User completes payment
-  ├─ EasyPay     → QR code / H5 redirect
+  ├─ EasyPay     → Configured synchronous redirect or API checkout with QR / H5 payment
   ├─ Alipay      → Desktop QR payload (Face-to-Face preferred, Website Pay fallback) / mobile Alipay redirect
   ├─ WeChat Pay  → Desktop Native QR / non-WeChat H5 / in-WeChat JSAPI
   └─ Stripe      → Payment Element (card/Alipay/WeChat/etc.)

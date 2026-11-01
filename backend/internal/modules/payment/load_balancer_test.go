@@ -114,6 +114,37 @@ func TestGetInstanceChannelLimitsFallsBackToLegacyDirectAliases(t *testing.T) {
 	}
 }
 
+func TestBuildSelectionPreservesEasyPayPaymentModes(t *testing.T) {
+	t.Parallel()
+
+	lb := &DefaultLoadBalancer{}
+	for _, mode := range []string{"", "api", "popup", "redirect", "qrcode", "async"} {
+		selected, err := lb.buildSelection(&dbent.PaymentProviderInstance{
+			ID: 7, ProviderKey: TypeEasyPay, PaymentMode: mode,
+			Config: `{"pid":"1001","paymentMode":"popup"}`, SupportedTypes: "alipay,wxpay",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		configMode := mode
+		if configMode == "" {
+			configMode = "popup" // An empty column keeps the historical config fallback.
+		}
+		if selected.PaymentMode != mode || selected.Config["paymentMode"] != configMode {
+			t.Fatalf("payment mode %q changed during selection: %+v", mode, selected)
+		}
+	}
+	selected, err := lb.buildSelection(&dbent.PaymentProviderInstance{
+		ID: 8, ProviderKey: TypeAlipay, PaymentMode: "redirect", Config: `{}`,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if selected.PaymentMode != "redirect" || selected.Config["paymentMode"] != "redirect" {
+		t.Fatalf("official Alipay mode changed: %+v", selected)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Helper to build test PaymentProviderInstance values
 // ---------------------------------------------------------------------------

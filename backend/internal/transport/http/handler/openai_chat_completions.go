@@ -69,6 +69,10 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")
 		return
 	}
+	if message, valid := validateChatCompletionsOutputTokenLimits(body); !valid {
+		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", message)
+		return
+	}
 
 	modelResult := gjson.GetBytes(body, "model")
 	if !modelResult.Exists() || modelResult.Type != gjson.String || modelResult.String() == "" {

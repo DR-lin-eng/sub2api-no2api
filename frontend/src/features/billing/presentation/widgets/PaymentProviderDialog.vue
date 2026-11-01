@@ -44,7 +44,7 @@
               @click="form.payment_mode = mode.value"
               :class="[
                 'rounded-lg border px-2.5 py-1 text-xs font-medium transition-all',
-                form.payment_mode === mode.value
+                selectedPaymentMode === mode.value
                   ? 'border-primary-500 bg-primary-500 text-white shadow-sm'
                   : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400 hover:bg-gray-50 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-300 dark:hover:border-dark-500',
               ]"
@@ -69,6 +69,10 @@
           </div>
         </div>
       </div>
+
+      <p v-if="form.provider_key === 'easypay'" class="text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+        {{ t('admin.settings.payment.easypayPaymentModeHint') }}
+      </p>
 
       <div v-if="form.provider_key === 'easypay'" class="space-y-3 rounded-lg border border-gray-100 p-3 dark:border-dark-700">
         <div class="flex items-center justify-between gap-3">
@@ -321,6 +325,7 @@ import {
   WEBHOOK_PATHS,
   PAYMENT_MODE_QRCODE,
   PAYMENT_MODE_POPUP,
+  PAYMENT_MODE_ASYNC,
   PAYMENT_MODE_REDIRECT,
   STRIPE_SDK_API_VERSION,
   getAvailableTypes,
@@ -346,7 +351,7 @@ function providerSupportsPaymentMode(providerKey: string): boolean {
  * from a different provider (or stale data) back to the default. */
 function isValidPaymentMode(providerKey: string, mode: string): boolean {
   if (providerKey === 'easypay') {
-    return mode === PAYMENT_MODE_QRCODE || mode === PAYMENT_MODE_POPUP
+    return ['', 'api', 'redirect', PAYMENT_MODE_QRCODE, PAYMENT_MODE_POPUP, PAYMENT_MODE_ASYNC].includes(mode)
   }
   if (providerKey === 'alipay') {
     return mode === '' || mode === PAYMENT_MODE_REDIRECT
@@ -433,7 +438,24 @@ const callbackPaths = computed(() => PROVIDER_CALLBACK_PATHS[form.provider_key] 
 
 const supportsPaymentMode = computed(() => providerSupportsPaymentMode(form.provider_key))
 
+// Historical api/redirect/empty modes all used mapi.php. Show the QR option
+// for those aliases while retaining the stored value until the admin selects
+// a different option.
+const selectedPaymentMode = computed(() => {
+  if (form.provider_key === 'easypay' && ['', 'api', 'redirect'].includes(form.payment_mode)) {
+    return PAYMENT_MODE_QRCODE
+  }
+  return form.payment_mode
+})
+
 const paymentModeOptions = computed(() => {
+  if (form.provider_key === 'easypay') {
+    return [
+      { value: PAYMENT_MODE_QRCODE, label: t('admin.settings.payment.modeQRCode') },
+      { value: PAYMENT_MODE_POPUP, label: t('admin.settings.payment.modeSync') },
+      { value: PAYMENT_MODE_ASYNC, label: t('admin.settings.payment.modeAsync') },
+    ]
+  }
   if (form.provider_key === 'alipay') {
     // For Alipay official: "" = default (precreate → page.pay fallback);
     // "redirect" = always open the Alipay checkout page in a new tab.
@@ -442,10 +464,7 @@ const paymentModeOptions = computed(() => {
       { value: PAYMENT_MODE_REDIRECT, label: t('admin.settings.payment.modeRedirect') },
     ]
   }
-  return [
-    { value: PAYMENT_MODE_QRCODE, label: t('admin.settings.payment.modeQRCode') },
-    { value: PAYMENT_MODE_POPUP, label: t('admin.settings.payment.modePopup') },
-  ]
+  return [{ value: PAYMENT_MODE_QRCODE, label: t('admin.settings.payment.modeQRCode') }]
 })
 
 const availableTypes = computed(() => {
@@ -802,9 +821,8 @@ function loadProvider(provider: ProviderInstance) {
     ? [...provider.supported_types]
     : []
   form.enabled = provider.enabled
-  // Coerce to a valid value for this provider. Guards against stale data
-  // (e.g. "popup" written by an older client) showing up as an unselected
-  // button in the dialog.
+  // Preserve recognized legacy EasyPay modes on a normal edit/save. Only an
+  // explicit mode selection should change how an existing instance pays.
   form.payment_mode = isValidPaymentMode(provider.provider_key, provider.payment_mode || '')
     ? (provider.payment_mode || '')
     : defaultPaymentMode(provider.provider_key)

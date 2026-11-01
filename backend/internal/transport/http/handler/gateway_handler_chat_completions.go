@@ -68,6 +68,10 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		h.chatCompletionsErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")
 		return
 	}
+	if message, valid := validateChatCompletionsOutputTokenLimits(body); !valid {
+		h.chatCompletionsErrorResponse(c, http.StatusBadRequest, "invalid_request_error", message)
+		return
+	}
 
 	// Extract model and stream
 	modelResult := gjson.GetBytes(body, "model")

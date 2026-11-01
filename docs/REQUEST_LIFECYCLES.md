@@ -483,6 +483,10 @@ sequenceDiagram
 
 跨功能复用 UI/交互位于 `frontend/src/common/`；应用级 Router、网络、i18n、主题和全局 Store 位于 `frontend/src/core/`。`frontend/src/api/` 与 `frontend/src/stores/` 只保留旧导入的过渡兼容 barrel，排障时必须继续追到实际 feature/core owner。
 
+### 易支付异步支付
+
+EasyPay 的 `async` 选项通过服务端 `mapi.php` 创建订单，前端接收返回的扫码串或收银台地址。原有 `popup` 继续使用 `submit.php`，`qrcode` 和历史 API 模式也保持原行为，管理员可手动切换。各模式的异步通知均由 `payment_webhook_handler.go` 验签后交给 `payment_fulfillment.go`，在本地金额和实例校验后查上游确认，再执行幂等充值；同步跳转页不决定到账。详见 [支付配置](PAYMENT_CN.md)。
+
 ### 认证刷新
 
 短期 access token 保存在前端内存中，请求由 `core/networks/client.ts` 添加 `Authorization`。刷新凭据留在 HttpOnly cookie；401 时通过 `core/networks/sessionRefresh.ts` 合并并发刷新，token 内存状态由 `core/networks/tokenStore.ts` 管理，再重试原请求。页面不得直接读取刷新 cookie 或各自实现刷新队列。

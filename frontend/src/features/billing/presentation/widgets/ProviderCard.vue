@@ -69,7 +69,7 @@ import Icon from '@/common/widgets/icons/Icon.vue'
 import ToggleSwitch from './ToggleSwitch.vue'
 import type { ProviderInstance } from '@/features/billing/paymentContracts'
 import type { TypeOption } from '../providerConfigSignals'
-import { PAYMENT_MODE_QRCODE, PAYMENT_MODE_POPUP, PAYMENT_MODE_REDIRECT } from '../providerConfigSignals'
+import { PAYMENT_MODE_QRCODE, PAYMENT_MODE_POPUP, PAYMENT_MODE_ASYNC, PAYMENT_MODE_REDIRECT } from '../providerConfigSignals'
 
 const PROVIDER_KEY_LABELS: Record<string, string> = {
   easypay: 'admin.settings.payment.providerEasypay',
@@ -97,6 +97,12 @@ const { t } = useI18n()
 const keyLabel = computed(() => t(PROVIDER_KEY_LABELS[props.provider.provider_key] || props.provider.provider_key))
 
 const modeLabel = computed(() => {
+  if (props.provider.provider_key === 'easypay' && props.provider.payment_mode === PAYMENT_MODE_ASYNC) {
+    return t('admin.settings.payment.modeAsync')
+  }
+  if (props.provider.provider_key === 'easypay' && props.provider.payment_mode === PAYMENT_MODE_POPUP) {
+    return t('admin.settings.payment.modeSync')
+  }
   if (props.provider.payment_mode === PAYMENT_MODE_QRCODE) return t('admin.settings.payment.modeQRCode')
   if (props.provider.payment_mode === PAYMENT_MODE_POPUP) return t('admin.settings.payment.modePopup')
   if (props.provider.payment_mode === PAYMENT_MODE_REDIRECT) return t('admin.settings.payment.modeRedirect')
