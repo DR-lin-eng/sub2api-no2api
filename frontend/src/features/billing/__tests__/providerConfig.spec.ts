@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   PAYMENT_CURRENCY_OPTIONS,
+  EASYPAY_PAYMENT_MODES,
   PROVIDER_CONFIG_FIELDS,
   isBuiltInAlipayMethod,
   isBuiltInWxpayMethod,
@@ -59,6 +60,10 @@ describe('PROVIDER_CONFIG_FIELDS.stripe', () => {
 })
 
 describe('EasyPay custom methods config', () => {
+  it('adds async payment without removing existing payment modes', () => {
+    expect(EASYPAY_PAYMENT_MODES).toEqual(['qrcode', 'popup', 'async'])
+  })
+
   it('parses customMethods from the JSON string stored in provider config', () => {
     expect(parseEasyPayCustomMethods(
       '[{"type":"ldc","upstreamType":"epay","displayName":"LDC"},{"type":"usdt_trc20","upstreamType":"usdt","displayName":"USDT-TRC20"}]',

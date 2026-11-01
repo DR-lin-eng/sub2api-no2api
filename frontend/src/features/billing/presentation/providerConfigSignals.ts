@@ -45,7 +45,7 @@ export const PROVIDER_SUPPORTED_TYPES: Record<string, string[]> = {
 }
 
 /** Available payment modes for EasyPay providers. */
-export const EASYPAY_PAYMENT_MODES = ['qrcode', 'popup'] as const
+export const EASYPAY_PAYMENT_MODES = ['qrcode', 'popup', 'async'] as const
 
 /** Fixed display order for user-facing payment methods */
 export const METHOD_ORDER = ['alipay', 'alipay_direct', 'wxpay', 'wxpay_direct', 'stripe', 'airwallex'] as const
@@ -61,6 +61,7 @@ export function isBuiltInWxpayMethod(type: string): boolean {
 /** Payment mode constants */
 export const PAYMENT_MODE_QRCODE = 'qrcode'
 export const PAYMENT_MODE_POPUP = 'popup'
+export const PAYMENT_MODE_ASYNC = 'async'
 /** Alipay-only: skip FACE_TO_FACE_PAYMENT precreate and open the Alipay
  * checkout page in a new tab instead. Backend `alipay.go` matches on this
  * literal (case-insensitive); other values fall back to the default

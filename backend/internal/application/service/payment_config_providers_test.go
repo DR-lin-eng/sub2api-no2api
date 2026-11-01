@@ -114,6 +114,39 @@ func TestValidateProviderRequest(t *testing.T) {
 	}
 }
 
+func TestEasyPayProviderModeChangesAreExplicit(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	client := newPaymentConfigServiceTestClient(t)
+	svc := NewPaymentConfigService(client, nil, []byte("0123456789abcdef0123456789abcdef"))
+	for _, mode := range []string{"", "api", "popup", "redirect", "qrcode", "async"} {
+		t.Run(mode, func(t *testing.T) {
+			instance, err := svc.CreateProviderInstance(ctx, CreateProviderInstanceRequest{
+				ProviderKey: payment.TypeEasyPay, Name: "mode fixture", Config: map[string]string{}, PaymentMode: mode,
+			})
+			require.NoError(t, err)
+			require.Equal(t, mode, instance.PaymentMode)
+			name := "renamed fixture"
+			updated, err := svc.UpdateProviderInstance(ctx, instance.ID, UpdateProviderInstanceRequest{Name: &name})
+			require.NoError(t, err)
+			require.Equal(t, mode, updated.PaymentMode, "unrelated edits must preserve the existing mode")
+			listed, err := svc.ListProviderInstancesWithConfig(ctx)
+			require.NoError(t, err)
+			for _, item := range listed {
+				if item.ID == instance.ID {
+					require.Equal(t, mode, item.PaymentMode)
+				}
+			}
+			for _, selected := range []string{"async", "popup", mode} {
+				updated, err = svc.UpdateProviderInstance(ctx, instance.ID, UpdateProviderInstanceRequest{PaymentMode: &selected})
+				require.NoError(t, err)
+				require.Equal(t, selected, updated.PaymentMode, "admins must be able to switch in either direction")
+			}
+		})
+	}
+}
+
 func TestValidateEasyPayCustomMethods(t *testing.T) {
 	t.Parallel()
 

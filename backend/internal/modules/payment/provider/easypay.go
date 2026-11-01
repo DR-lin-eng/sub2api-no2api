@@ -34,6 +34,7 @@ const (
 	tradeStatusSuccess     = "TRADE_SUCCESS"
 	signTypeMD5            = "MD5"
 	paymentModePopup       = "popup"
+	paymentModeAsync       = "async"
 	deviceMobile           = "mobile"
 )
 
@@ -147,10 +148,14 @@ func (e *EasyPay) MerchantIdentityMetadata() map[string]string {
 
 func (e *EasyPay) CreatePayment(ctx context.Context, req payment.CreatePaymentRequest) (*payment.CreatePaymentResponse, error) {
 	// Payment mode determined by instance config, not payment type.
-	// "popup" → hosted page (submit.php); "qrcode"/default → API call (mapi.php).
+	// "popup" keeps the hosted submit.php flow. The explicit "async" option
+	// uses mapi.php; qrcode and legacy/default modes keep their existing API flow.
 	mode := e.config["paymentMode"]
-	if mode == paymentModePopup {
+	switch mode {
+	case paymentModePopup:
 		return e.createRedirectPayment(req)
+	case paymentModeAsync:
+		return e.createAPIPayment(ctx, req)
 	}
 	return e.createAPIPayment(ctx, req)
 }

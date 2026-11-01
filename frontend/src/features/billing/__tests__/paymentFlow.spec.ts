@@ -141,6 +141,19 @@ describe('decidePaymentLaunch', () => {
     expect(decision.paymentState.paymentEnv).toBe('demo')
   })
 
+  it.each([
+    { mobile: false, qrCode: 'weixin://wxpay/async', payUrl: 'https://pay.example.com/async', kind: 'qr_waiting' },
+    { mobile: true, qrCode: 'weixin://wxpay/async', payUrl: 'https://pay.example.com/async', kind: 'redirect_waiting' },
+    { mobile: false, qrCode: '', payUrl: 'https://pay.example.com/async', kind: 'redirect_waiting' },
+  ])('launches selected async payment using returned checkout information: $kind, mobile=$mobile', ({ mobile, qrCode, payUrl, kind }) => {
+    const decision = decidePaymentLaunch(createOrderResult({
+      payment_mode: 'async', qr_code: qrCode, pay_url: payUrl,
+    }), { visibleMethod: 'wxpay', orderType: 'balance', isMobile: mobile })
+
+    expect(decision.kind).toBe(kind)
+    expect(decision.recovery.paymentMode).toBe('async')
+  })
+
   it('keeps hosted redirect metadata for recovery flows', () => {
     const decision = decidePaymentLaunch(createOrderResult({
       pay_url: 'https://pay.example.com/session/abc',

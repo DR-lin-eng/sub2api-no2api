@@ -9,6 +9,9 @@ const showError = vi.hoisted(() => vi.fn())
 
 const messages: Record<string, string> = {
   'admin.settings.payment.providerConfig': 'Credentials',
+  'admin.settings.payment.modeAsync': 'Async payment',
+  'admin.settings.payment.modeSync': 'Synchronous redirect (popup)',
+  'admin.settings.payment.modeQRCode': 'QR Code',
   'admin.settings.payment.easypayCustomMethods': 'Custom EasyPay methods',
   'admin.settings.payment.easypayCustomMethodsHint': 'Add provider-specific EasyPay type values.',
   'admin.settings.payment.addCustomMethod': 'Add method',
@@ -102,6 +105,47 @@ function mountDialog(options: { editing?: ProviderInstance | null } = {}) {
 }
 
 describe('PaymentProviderDialog payment guide', () => {
+  it.each(['', 'popup', 'api', 'redirect', 'qrcode', 'async'])('preserves EasyPay mode %s when saving unrelated changes', async (paymentMode) => {
+    const provider = providerFactory({
+      provider_key: 'easypay',
+      name: 'EasyPay',
+      config: { pid: 'pid-1', apiBase: 'https://pay.example.com' },
+      supported_types: ['alipay', 'wxpay'],
+      payment_mode: paymentMode,
+    })
+    const wrapper = mountDialog({ editing: provider })
+    ;(wrapper.vm as unknown as { loadProvider: (provider: ProviderInstance) => void }).loadProvider(provider)
+    await nextTick()
+
+    expect(wrapper.text()).toContain('Async payment')
+    expect(wrapper.text()).toContain('Synchronous redirect (popup)')
+    expect(wrapper.text()).toContain('QR Code')
+    await wrapper.find('form').trigger('submit.prevent')
+
+    expect(wrapper.emitted('save')?.[0]?.[0]).toMatchObject({ payment_mode: paymentMode })
+  })
+
+  it('allows an explicit switch from synchronous to async payment and back', async () => {
+    const provider = providerFactory({
+      provider_key: 'easypay',
+      config: { pid: 'pid-1', apiBase: 'https://pay.example.com' },
+      payment_mode: 'popup',
+    })
+    const wrapper = mountDialog({ editing: provider })
+    ;(wrapper.vm as unknown as { loadProvider: (provider: ProviderInstance) => void }).loadProvider(provider)
+    await nextTick()
+
+    const asyncButton = wrapper.findAll('button').find(button => button.text() === 'Async payment')!
+    const syncButton = wrapper.findAll('button').find(button => button.text() === 'Synchronous redirect (popup)')!
+    expect(syncButton.classes()).toContain('bg-primary-500')
+    await asyncButton.trigger('click')
+    await wrapper.find('form').trigger('submit.prevent')
+    expect(wrapper.emitted('save')?.[0]?.[0]).toMatchObject({ payment_mode: 'async' })
+    await syncButton.trigger('click')
+    await wrapper.find('form').trigger('submit.prevent')
+    expect(wrapper.emitted('save')?.[1]?.[0]).toMatchObject({ payment_mode: 'popup' })
+  })
+
   it('shows no payment guide for providers without a flow guide', () => {
     const wrapper = mountDialog()
 
