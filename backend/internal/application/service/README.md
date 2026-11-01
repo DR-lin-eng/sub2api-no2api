@@ -50,6 +50,7 @@
 | `api_key_group_routing.go` | API Key 有序分组候选、倍率保护过滤和请求内实际分组切换 |
 | `openai_codex_request_headers.go`, `openai_codex_metadata_projection.go`, `openai_gateway_request_decode.go`, `openai_ws_handshake_compatibility.go` | OAuth 出站身份/metadata 投影、metadata 保精度解码与 WS 不可变握手身份 |
 | `openai_codex_identity_plan.go`, `openai_codex_simulation_state.go` | Codex request root、per-principal 身份计划与短状态 fallback |
+| `openai_codex_cache_identity.go` | 按主体与会话 root 原子固定首次 UUIDv7，会话/缓存键跨请求、重连和实例复用及有界本地 fallback |
 | `openai_codex_continuation.go` | Codex continuation 分类、owner 策略、跨主体 sanitizer 与成功回写 |
 | `openai_oauth_gateway_rate_limit.go` | 统一配置、按账号分桶且跨实例共享的 OpenAI OAuth RPM/burst 准入、逻辑请求去重与协议错误投影 |
 | `openai_request_timezone.go`, `setting_openai_request_timezone.go` | OpenAI HTTP/WS 用户环境与搜索时区替换、管理员全局开关与 IANA 目标、60 秒缓存及写后立即刷新 |

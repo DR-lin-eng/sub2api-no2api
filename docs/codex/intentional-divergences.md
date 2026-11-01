@@ -25,6 +25,15 @@ principal 重新派生，合法的 subagent 分类和对应兼容头会保留。
 full simulation 的 session、thread、turn 以及上下文窗口 ID 使用 UUIDv7 的毫秒时间戳布局；installation ID
 继续使用 UUIDv4，以保持安装身份与会话时间身份的边界。
 
+session/thread 与 `prompt_cache_key` 复用该虚拟主体、会话 root 首次生成的 UUIDv7，而不是每次 HTTP
+请求或 WS 重连都用当前时间重建。Redis 原子创建并续期这份身份，沿用模拟状态 TTL（默认 7 天），
+保证并发首次请求和多实例看到同一个会话 ID；Redis 不可用时使用已有上限和 TTL 的进程内缓存，
+恢复后以共享值为准。冷启动且共享状态不可用时只能保证本进程内连续性。turn ID 继续每轮单独生成；
+成功 Compact 只推进 window 编号，保留会话与缓存键。全部节点升级后才具备跨实例稳定性，旧节点仍会
+按请求时间生成身份；会话状态完全过期或丢失后允许重新建立缓存分区。
+这条缓存回归由 [PR #44](https://github.com/DR-lin-eng/sub2api-no2api/pull/44) 的
+`a4f795e67` 引入：会话派生从仅使用稳定 root/principal，改为额外嵌入每个请求的 `createdAtMS`。
+
 ## 默认 OAuth 出站身份
 
 桌面静态报告的端点边界与本轮一致性校验见
