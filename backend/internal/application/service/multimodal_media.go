@@ -272,6 +272,9 @@ func (s *OpenAIGatewayService) SelectMultimodalMediaVideoRequestAccount(
 	return selection, decision, nil
 }
 
+// ForwardMultimodalMedia 按请求体自身解析出计费模式转发一次多模态媒体请求。
+// 计费模式只看请求体；需要按分组定价判定时由 handler 走
+// ForwardMultimodalMediaWithResolutionTierBilling。
 func (s *OpenAIGatewayService) ForwardMultimodalMedia(
 	ctx context.Context,
 	c *gin.Context,
@@ -281,6 +284,36 @@ func (s *OpenAIGatewayService) ForwardMultimodalMedia(
 	body []byte,
 	contentType string,
 	videoHold *BalanceHoldRecord,
+) (*OpenAIForwardResult, error) {
+	return s.forwardMultimodalMedia(ctx, c, account, endpoint, requestID, body, contentType, videoHold, false)
+}
+
+// ForwardMultimodalMediaWithResolutionTierBilling 由调用方显式给出该视频请求是否按次计费：
+// 按次计费时未知分辨率必须拒绝，按秒计费时分辨率只作为上游生成参数放行。
+func (s *OpenAIGatewayService) ForwardMultimodalMediaWithResolutionTierBilling(
+	ctx context.Context,
+	c *gin.Context,
+	account *Account,
+	endpoint MultimodalMediaEndpoint,
+	requestID string,
+	body []byte,
+	contentType string,
+	videoHold *BalanceHoldRecord,
+	resolutionTierBilling bool,
+) (*OpenAIForwardResult, error) {
+	return s.forwardMultimodalMedia(ctx, c, account, endpoint, requestID, body, contentType, videoHold, resolutionTierBilling)
+}
+
+func (s *OpenAIGatewayService) forwardMultimodalMedia(
+	ctx context.Context,
+	c *gin.Context,
+	account *Account,
+	endpoint MultimodalMediaEndpoint,
+	requestID string,
+	body []byte,
+	contentType string,
+	videoHold *BalanceHoldRecord,
+	resolutionTierBilling bool,
 ) (*OpenAIForwardResult, error) {
 	startTime := time.Now()
 	if account == nil {
@@ -307,7 +340,7 @@ func (s *OpenAIGatewayService) ForwardMultimodalMedia(
 	requestInfo := ParseGrokMediaRequest(contentType, body)
 	clientWantsStream := endpoint.IsImageRequest() && multimodalMediaClientWantsStream(body, contentType)
 	if endpoint.IsVideoGenerationRequest() {
-		if err := ValidateMultimodalVideoResolution(requestInfo.ResolutionRaw); err != nil {
+		if err := ValidateMultimodalVideoResolution(requestInfo.ResolutionRaw, resolutionTierBilling); err != nil {
 			return nil, err
 		}
 	}

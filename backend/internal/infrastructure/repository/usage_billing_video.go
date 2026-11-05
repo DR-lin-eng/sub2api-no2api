@@ -18,7 +18,7 @@ var _ service.VideoBalanceHoldRepository = (*queuedUsageBillingRepository)(nil)
 const videoBalanceHoldColumns = `hold_key, request_id, upstream_request_id, user_id, api_key_id,
  COALESCE(group_id, 0), COALESCE(account_id, 0), model, resolution, duration_seconds,
  hold_amount, actual_amount, currency, status, expires_at, created_at, updated_at,
- base_amount, rate_multiplier, settled_duration_seconds`
+ base_amount, rate_multiplier, settled_duration_seconds, billing_mode`
 
 func validVideoMoney(amount float64) bool {
 	return amount >= 0 && !math.IsNaN(amount) && !math.IsInf(amount, 0)
@@ -44,13 +44,13 @@ func (r *usageBillingRepository) ReserveVideoBalance(ctx context.Context, record
 		INSERT INTO video_balance_holds (
 		 hold_key, request_id, user_id, api_key_id, group_id, account_id,
 		 model, resolution, duration_seconds, hold_amount, currency, status, expires_at,
-		 base_amount, rate_multiplier)
+		 base_amount, rate_multiplier, billing_mode)
 		VALUES ($1, $2, $3, $4, NULLIF($5, 0), NULLIF($6, 0), $7, $8, $9, $10,
-		        $11, 'pending', $12, $13, $14)
+		        $11, 'pending', $12, $13, $14, $15)
 		RETURNING `+videoBalanceHoldColumns,
 		record.HoldKey, record.RequestID, record.UserID, record.APIKeyID, record.GroupID, record.AccountID,
 		record.Model, record.Resolution, record.DurationSeconds, record.HoldAmount, record.Currency,
-		expiresAt, record.BaseAmount, record.RateMultiplier))
+		expiresAt, record.BaseAmount, record.RateMultiplier, record.BillingMode))
 	if err != nil {
 		return nil, err
 	}

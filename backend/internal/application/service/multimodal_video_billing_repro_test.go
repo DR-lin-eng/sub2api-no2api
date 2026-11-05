@@ -711,24 +711,72 @@ func TestReproP1_5_DeliveryRequiresActualTierPrice(t *testing.T) {
 }
 
 // TestReproP1_4_UnclassifiableVideoResolutionIsRejected 验证 P1-4 修复：
-// 无法映射到计费档位的分辨率在提交上游前被拒绝，不再静默按 480p 计费。
+// 按次数计费时无法映射到价格档位的分辨率在提交上游前被拒绝，不再静默按 480p 计费；
+// 按秒计费的 video 模式不依赖档位，必须放行。
 func TestReproP1_4_UnclassifiableVideoResolutionIsRejected(t *testing.T) {
 	tier, ok := ClassifyVideoBillingResolution("1440p")
 	require.False(t, ok)
 	require.Empty(t, tier)
 
-	require.ErrorIs(t, ValidateMultimodalVideoResolution("4k"), ErrVideoPriceNotConfigured)
-	require.ErrorIs(t, ValidateMultimodalVideoResolution("1440p"), ErrVideoPriceNotConfigured)
-	require.NoError(t, ValidateMultimodalVideoResolution(""), "未指定分辨率保持放行")
-	require.NoError(t, ValidateMultimodalVideoResolution("720p"))
-	require.NoError(t, ValidateMultimodalVideoResolution("1080P"))
+	require.ErrorIs(t, ValidateMultimodalVideoResolution("4k", true), ErrVideoPriceNotConfigured)
+	require.ErrorIs(t, ValidateMultimodalVideoResolution("1440p", true), ErrVideoPriceNotConfigured)
+	require.ErrorIs(t, ValidateMultimodalVideoResolution("", true), ErrVideoPriceNotConfigured, "按次计费未指定分辨率必须报错，不能兜底 480p")
+	require.NoError(t, ValidateMultimodalVideoResolution("720p", true))
+	require.NoError(t, ValidateMultimodalVideoResolution("1080P", true))
+
+	// 按秒计费（video 模式）：上游允许但本地没有每秒价档位的取值不得拒绝。
+	require.NoError(t, ValidateMultimodalVideoResolution("4k", false))
+	require.NoError(t, ValidateMultimodalVideoResolution("1440p", false))
 
 	info := ParseGrokMediaRequest(
 		"application/json",
 		[]byte(`{"model":"grok-imagine-video","prompt":"p","resolution":"1440p"}`),
 	)
 	require.Equal(t, "1440p", info.ResolutionRaw, "原始分辨率文本必须保留用于拦截")
-	require.ErrorIs(t, ValidateMultimodalVideoResolution(info.ResolutionRaw), ErrVideoPriceNotConfigured)
+	require.ErrorIs(t, ValidateMultimodalVideoResolution(info.ResolutionRaw, true), ErrVideoPriceNotConfigured)
+	require.NoError(t, ValidateMultimodalVideoResolution(info.ResolutionRaw, false))
+}
+
+// TestMultimodalVideoPerRequestTierBilling 验证逐模型定价分组的视频条目显式配置为
+// per_request 时按分辨率档位取一次价：冻结金额与 duration 无关，缺档位价必须报缺价，
+// 且该条目被识别为按次计费（提交前锁定分辨率档位）。
+func TestMultimodalVideoPerRequestTierBilling(t *testing.T) {
+	price720 := 0.3
+	groupID := int64(301)
+	buildGroup := func(intervals []PricingInterval) *Group {
+		group := &Group{
+			ID:       groupID,
+			Platform: PlatformMultimodal,
+			ModelPricing: []ChannelModelPricing{{
+				Models:      []string{"grok-imagine-video"},
+				BillingMode: BillingModePerRequest,
+				Intervals:   intervals,
+			}},
+		}
+		group.compileModelPricingIndex()
+		return group
+	}
+	billingService := NewBillingService(&config.Config{}, nil)
+	svc := &OpenAIGatewayService{billingService: billingService}
+	svc.resolver := NewModelPricingResolver(nil, billingService)
+
+	tiered := buildGroup([]PricingInterval{{TierLabel: VideoBillingResolution720P, PerRequestPrice: &price720}})
+	apiKey := &APIKey{ID: 11, UserID: 42, GroupID: &groupID, Group: tiered}
+	require.True(t, svc.MultimodalVideoRequestTierBilling(context.Background(), apiKey, "grok-imagine-video"))
+
+	cost, err := svc.calculateOpenAIVideoCost(context.Background(), "grok-imagine-video", apiKey, &OpenAIForwardResult{
+		VideoCount: 1, VideoResolution: VideoBillingResolution720P, VideoDurationSeconds: 4,
+	}, 1)
+	require.NoError(t, err)
+	require.NotNil(t, cost)
+	require.InDelta(t, price720, cost.TotalCost, 1e-9, "按次计费的视频不能按时长累乘")
+	require.Equal(t, string(BillingModePerRequest), cost.BillingMode)
+
+	// 未配置档位价的分辨率必须报缺价，不能退化成 0 元或其它档位。
+	_, err = svc.calculateOpenAIVideoCost(context.Background(), "grok-imagine-video", apiKey, &OpenAIForwardResult{
+		VideoCount: 1, VideoResolution: VideoBillingResolution1080P, VideoDurationSeconds: 4,
+	}, 1)
+	require.Error(t, err)
 }
 
 // TestReproP1_6_SettlementStatusFailureConvergesOnRetry 验证阶段 D 修复：

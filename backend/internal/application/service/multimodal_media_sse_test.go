@@ -241,11 +241,26 @@ func TestMultimodalVideoRejectsUnbillableResolutionAliases(t *testing.T) {
 			body := []byte(`{"model":"seedance","resolution":"` + resolution + `"}`)
 			info := ParseGrokMediaRequest("application/json", body)
 			require.Equal(t, resolution, info.ResolutionRaw)
-			require.ErrorIs(t, ValidateMultimodalVideoResolution(info.ResolutionRaw), ErrVideoPriceNotConfigured)
+			require.ErrorIs(t, ValidateMultimodalVideoResolution(info.ResolutionRaw, true), ErrVideoPriceNotConfigured)
 			svc, c, _, upstream, account := multimodalImageForwardFixture(t, body, "application/json", strings.NewReader(`{}`))
-			_, err := svc.ForwardMultimodalMedia(context.Background(), c, account, MultimodalMediaEndpointVideosGenerations, "", body, "application/json", nil)
+			_, err := svc.forwardMultimodalMedia(context.Background(), c, account, MultimodalMediaEndpointVideosGenerations, "", body, "application/json", nil, true)
 			require.True(t, errors.Is(err, ErrVideoPriceNotConfigured))
 			require.Nil(t, upstream.lastReq, "reject before submitting work upstream")
 		})
 	}
+}
+
+// TestMultimodalVideoAllowsUnclassifiedResolutionForPerSecondBilling 验证按秒计费的视频
+// 不依赖分辨率档位：上游允许但本地没有每秒价档位的取值（如 1440p）必须放行。
+func TestMultimodalVideoAllowsUnclassifiedResolutionForPerSecondBilling(t *testing.T) {
+	for _, resolution := range []string{"1440p", "2160p"} {
+		t.Run(resolution, func(t *testing.T) {
+			body := []byte(`{"model":"seedance","prompt":"p","resolution":"` + resolution + `"}`)
+			info := ParseGrokMediaRequest("application/json", body)
+			require.Equal(t, resolution, info.ResolutionRaw)
+			require.NoError(t, ValidateMultimodalVideoResolution(info.ResolutionRaw, false))
+		})
+	}
+	require.NoError(t, ValidateMultimodalVideoResolution("1440p", false))
+	require.ErrorIs(t, ValidateMultimodalVideoResolution("1440p", true), ErrVideoPriceNotConfigured)
 }

@@ -113,9 +113,15 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "request_id is required")
 		return
 	}
-	// 未知视频分辨率不能静默按 480p 计费：提交上游前直接拒绝，避免少扣费。
+	reqLog = reqLog.With(zap.String("model", requestModel))
+	setOpsRequestContext(c, requestModel, false)
+	setOpsEndpointContext(c, "", int16(service.RequestTypeSync))
+
+	// 只有按次数计费才依赖请求分辨率锁定价格档位：未知分辨率不能静默按 480p 计费，
+	// 提交上游前直接拒绝；按秒计费的 video 模式使用每秒单价，分辨率只作生成参数放行。
 	if endpoint.IsVideoGenerationRequest() {
-		if resolutionErr := service.ValidateMultimodalVideoResolution(requestInfo.ResolutionRaw); resolutionErr != nil {
+		requestInfo.ResolutionTierLocked = h.gatewayService.MultimodalVideoRequestTierBilling(c.Request.Context(), apiKey, requestModel)
+		if resolutionErr := service.ValidateMultimodalVideoResolution(requestInfo.ResolutionRaw, requestInfo.ResolutionTierLocked); resolutionErr != nil {
 			reqLog.Warn("grok_media.video_resolution_unsupported",
 				zap.String("model", requestModel),
 				zap.String("resolution", requestInfo.ResolutionRaw),
@@ -129,10 +135,6 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 			return
 		}
 	}
-
-	reqLog = reqLog.With(zap.String("model", requestModel))
-	setOpsRequestContext(c, requestModel, false)
-	setOpsEndpointContext(c, "", int16(service.RequestTypeSync))
 
 	if endpoint.IsGenerationRequest() {
 		mediaType := "video"
