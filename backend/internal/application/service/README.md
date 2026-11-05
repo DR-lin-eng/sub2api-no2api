@@ -13,6 +13,7 @@
 | `openai*` | OpenAI/Codex/Responses/Images/WS 管线 |
 | `openai_request_set_patches.go` | 大 JSON 的多项普通 set 局部改写与一次拼接，保留 sjson 回退路径 |
 | `openai_capacity_retry.go` | 请求级容量错误的 HTTP/SSE/WS 等待提示解析；有限数值先限幅，沿用现有重试预算 |
+| `openai_auth_recovery.go`, `openai_tls_handshake_recovery.go` | OAuth 401 刷新候选分类；普通 HTTP Responses 的 TLS 握手超时恢复、请求发送追踪及单次重试边界 |
 | `openai_ws_size_recovery.go` | 内嵌图片/大 JSON 请求发送前的 HTTP 选路、1009/断连后一次安全回退与完整历史重放边界 |
 | `openai_ws_fallback_response.go` | WS 终止错误的 HTTP/SSE 映射、1009 大小限制提示与已提交响应保护 |
 | `openai_live*` | Codex CLI/旧 Desktop Live、Sideband 控制、分钟结算和持久恢复 |
