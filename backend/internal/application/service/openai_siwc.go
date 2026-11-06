@@ -136,5 +136,6 @@ func siwcTokenInfo(token *openai.TokenResponse, clientID, deviceID string) *Open
 		info.Email, info.ChatGPTAccountID, info.ChatGPTUserID = user.Email, user.ChatGPTAccountID, user.ChatGPTUserID
 		info.OrganizationID, info.PlanType = user.OrganizationID, user.PlanType
 	}
+	fillMissingOpenAITokenInfoFromAccessToken(info)
 	return info
 }

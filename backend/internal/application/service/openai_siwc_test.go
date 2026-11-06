@@ -140,3 +140,20 @@ func TestSIWCRejectsNonceMismatchAndMissingScope(t *testing.T) {
 		})
 	}
 }
+
+func TestSIWCRefreshRehydratesPrincipalFromRotatedAccessToken(t *testing.T) {
+	client := &siwcOAuthClientStub{token: &openai.TokenResponse{
+		AccessToken: siwcTestIDToken(t, "unused-on-refresh"), RefreshToken: "rotated-rt", ExpiresIn: 3600, Scope: openai.SIWCScope,
+	}}
+	svc := NewOpenAIOAuthService(nil, client)
+	defer svc.Stop()
+	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{
+		"auth_mode": "siwc", "refresh_token": "old-rt", "client_id": "oaiapp_issued", "chatgpt_account_id": "stale-account",
+	}}
+	info, err := svc.RefreshAccountToken(context.Background(), account)
+	require.NoError(t, err)
+	require.Empty(t, info.IDToken)
+	require.Equal(t, "acct-siwc", info.ChatGPTAccountID)
+	require.Equal(t, "user-siwc", info.ChatGPTUserID)
+	require.Equal(t, "plus", info.PlanType)
+}
