@@ -9,6 +9,7 @@ import {
   probeUpstreamBilling,
   probeUpstreamBillingBatch,
   refreshOpenAIQuotaBatch,
+  resetOpenAIQuotaBatch,
   queryUpstreamQuota
 } from '@/features/admin-accounts/data/datasources/adminAccountActions'
 import type { OpenAIQuotaRefreshResult } from '@/features/admin-accounts/data/dtos/openAIQuotaDtos'
@@ -60,6 +61,7 @@ interface AccountsUpstreamBillingOptions {
   showSuccess: (message: string) => void
   showProgress: (message: string) => string
   hideProgress: (toastID: string) => void
+  clearSelection?: () => void
 }
 
 const UPSTREAM_BILLING_PROBE_BATCH_SIZE = 20
@@ -77,6 +79,7 @@ export function useAccountsUpstreamBilling(options: AccountsUpstreamBillingOptio
   const upstreamQuotaAccountGenerations = new Map<number, number>()
   const bulkQueryingUpstreamQuota = ref(false)
   const bulkQueryingOpenAIQuota = ref(false)
+  const bulkResettingOpenAIQuota = ref(false)
   const bulkOpenAIQuotaResults = reactive(new Map<number, OpenAIQuotaRefreshResult>())
   const upstreamBillingFeedback = reactive(new Map<number, UpstreamActionFeedback>())
   const upstreamQuotaFeedback = reactive(new Map<number, UpstreamActionFeedback>())
@@ -202,6 +205,7 @@ export function useAccountsUpstreamBilling(options: AccountsUpstreamBillingOptio
       type: typeof rawParams.type === 'string' ? rawParams.type : '',
       status: typeof rawParams.status === 'string' ? rawParams.status : '',
       oauth_quota: typeof rawParams.oauth_quota === 'string' ? rawParams.oauth_quota : '',
+      plan_type: typeof rawParams.plan_type === 'string' ? rawParams.plan_type : '',
       excel_bps: excelBps,
       group: typeof rawParams.group === 'string' ? rawParams.group : '',
       search: typeof rawParams.search === 'string' ? rawParams.search : '',
@@ -465,6 +469,70 @@ export function useAccountsUpstreamBilling(options: AccountsUpstreamBillingOptio
     }
   }
 
+  const handleBulkResetOpenAIQuota = async () => {
+    if (bulkResettingOpenAIQuota.value) return
+    const accountIDs = [...options.getSelectedAccountIDs()]
+    if (accountIDs.length === 0) {
+      options.showError(t('admin.accounts.bulkActions.noOpenAIOAuthAccounts'))
+      return
+    }
+    if (typeof window !== 'undefined' && !window.confirm(t('admin.accounts.bulkActions.resetOpenAIQuotaConfirm', { count: accountIDs.length }))) {
+      return
+    }
+
+    const batches: number[][] = []
+    for (let start = 0; start < accountIDs.length; start += OPENAI_QUOTA_BATCH_SIZE) {
+      batches.push(accountIDs.slice(start, start + OPENAI_QUOTA_BATCH_SIZE))
+    }
+    let progressToastID: string | null = batches.length > 1
+      ? replaceProgressToast(null, t('admin.accounts.bulkActions.resetOpenAIQuotaStarted', {
+          count: accountIDs.length,
+          total: batches.length
+        }))
+      : null
+    let succeeded = 0
+    let failed = 0
+    let skipped = 0
+    bulkResettingOpenAIQuota.value = true
+    try {
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex += 1) {
+        const batch = batches[batchIndex]
+        try {
+          const result = await resetOpenAIQuotaBatch(batch)
+          for (const resetResult of Object.values(result.results)) {
+            if (resetResult?.account) options.patchAccountInList(resetResult.account)
+          }
+          succeeded += Object.keys(result.results).length
+          failed += Object.keys(result.errors).length
+          skipped += result.skipped_account_ids.length
+        } catch (error) {
+          failed += batch.length
+          console.error('Failed to reset OpenAI quota batch:', error)
+        }
+
+        if (progressToastID && batchIndex < batches.length - 1) {
+          progressToastID = replaceProgressToast(progressToastID, t('admin.accounts.bulkActions.resetOpenAIQuotaProgress', {
+            completed: batchIndex + 1,
+            next: batchIndex + 2,
+            total: batches.length
+          }))
+        }
+      }
+
+      if (succeeded === 0 && failed === 0) {
+        options.showError(t('admin.accounts.bulkActions.noOpenAIOAuthAccounts'))
+      } else if (failed > 0 || skipped > 0) {
+        options.showError(t('admin.accounts.bulkActions.resetOpenAIQuotaPartial', { succeeded, skipped, failed }))
+      } else {
+        options.showSuccess(t('admin.accounts.bulkActions.resetOpenAIQuotaCompleted', { count: succeeded }))
+        options.clearSelection?.()
+      }
+    } finally {
+      if (progressToastID) options.hideProgress(progressToastID)
+      bulkResettingOpenAIQuota.value = false
+    }
+  }
+
   const handleBulkProbeUpstreamBilling = async () => {
     const accountIDs = [...options.getSelectedAccountIDs()]
     if (accountIDs.length === 0) {
@@ -586,6 +654,7 @@ export function useAccountsUpstreamBilling(options: AccountsUpstreamBillingOptio
     upstreamQuotaErrors,
     bulkQueryingUpstreamQuota,
     bulkQueryingOpenAIQuota,
+    bulkResettingOpenAIQuota,
     bulkOpenAIQuotaResults,
     upstreamBillingFeedback,
     upstreamQuotaFeedback,
@@ -601,6 +670,7 @@ export function useAccountsUpstreamBilling(options: AccountsUpstreamBillingOptio
     handleBulkProbeUpstreamBilling,
     handleBulkQueryUpstreamQuota,
     handleBulkQueryOpenAIQuota,
+    handleBulkResetOpenAIQuota,
     disposeUpstreamBilling
   }
 }

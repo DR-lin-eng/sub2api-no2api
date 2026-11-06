@@ -514,11 +514,15 @@ func (h *AccountHandler) listAllProxies(ctx context.Context) ([]service.Proxy, e
 
 func (h *AccountHandler) listAccountsFiltered(ctx context.Context, platform, accountType, status, search string, groupID int64, privacyMode, sortBy, sortOrder string, featureFilters ...string) ([]service.Account, error) {
 	oauthQuotaFilter, excelBPSFilter := "", ""
+	planTypeFilter := ""
 	if len(featureFilters) > 0 {
 		oauthQuotaFilter = featureFilters[0]
 	}
 	if len(featureFilters) > 1 {
 		excelBPSFilter = featureFilters[1]
+	}
+	if len(featureFilters) > 2 {
+		planTypeFilter = featureFilters[2]
 	}
 	page := 1
 	pageSize := dataPageCap
@@ -527,7 +531,16 @@ func (h *AccountHandler) listAccountsFiltered(ctx context.Context, platform, acc
 		var items []service.Account
 		var total int64
 		var err error
-		if excelBPSFilter != "" {
+		if planTypeFilter != "" {
+			filteredService, ok := h.adminService.(service.AdminAccountOAuthPlanListService)
+			if !ok {
+				return nil, fmt.Errorf("account service does not support OAuth plan filtering")
+			}
+			items, total, err = filteredService.ListAccountsWithPlanTypeFilter(
+				ctx, page, pageSize, platform, accountType, status, search,
+				groupID, privacyMode, sortBy, sortOrder, oauthQuotaFilter, excelBPSFilter, planTypeFilter,
+			)
+		} else if excelBPSFilter != "" {
 			filteredService, ok := h.adminService.(service.AdminAccountFeatureListService)
 			if !ok {
 				return nil, fmt.Errorf("account service does not support Excel BPS filtering")
@@ -585,6 +598,10 @@ func (h *AccountHandler) resolveExportAccounts(ctx context.Context, ids []int64,
 	if err != nil {
 		return nil, err
 	}
+	planTypeFilter, err := parseAccountOAuthPlanFilter(c)
+	if err != nil {
+		return nil, err
+	}
 	excelBPSFilter, err := parseAccountExcelBPSFilter(c)
 	if err != nil {
 		return nil, err
@@ -608,7 +625,7 @@ func (h *AccountHandler) resolveExportAccounts(ctx context.Context, ids []int64,
 		}
 	}
 
-	return h.listAccountsFiltered(ctx, platform, accountType, status, search, groupID, privacyMode, sortBy, sortOrder, oauthQuotaFilter, excelBPSFilter)
+	return h.listAccountsFiltered(ctx, platform, accountType, status, search, groupID, privacyMode, sortBy, sortOrder, oauthQuotaFilter, excelBPSFilter, planTypeFilter)
 }
 
 func (h *AccountHandler) resolveExportProxies(ctx context.Context, accounts []service.Account) ([]service.Proxy, error) {

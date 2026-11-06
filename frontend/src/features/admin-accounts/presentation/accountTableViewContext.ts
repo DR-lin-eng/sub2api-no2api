@@ -68,6 +68,7 @@ export interface AccountTableViewContext {
   allResultsSelected: ComputedRef<boolean>
   bulkQueryingUpstreamQuota: Ref<boolean>
   bulkQueryingOpenAIQuota: Ref<boolean>
+  bulkResettingOpenAIQuota: Ref<boolean>
   handleBulkDelete: () => Promise<void>
   handleBulkResetStatus: () => Promise<void>
   handleBulkRefreshToken: () => Promise<void>
@@ -75,6 +76,7 @@ export interface AccountTableViewContext {
   handleBulkSyncUpstreamModels: () => Promise<void>
   handleBulkQueryUpstreamQuota: () => Promise<void>
   handleBulkQueryOpenAIQuota: () => Promise<void>
+  handleBulkResetOpenAIQuota: () => Promise<void>
   handleBulkProbeUpstreamBilling: () => Promise<void>
   openBulkEditSelected: () => void
   openBulkEditFiltered: () => Promise<void>

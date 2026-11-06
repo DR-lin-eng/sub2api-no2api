@@ -88,4 +88,24 @@ describe('AccountTableFilters OAuth quota options', () => {
     expect(wrapper.emitted('update:filters')?.at(-1)?.[0]).toMatchObject({ type: 'apikey', excel_bps: '' })
   })
 
+  it('offers OpenAI OAuth plan tiers and scopes the selection to OpenAI OAuth', async () => {
+    const wrapper = mount(AccountTableFilters, {
+      props: {
+        searchQuery: '',
+        filters: { platform: '', type: '', status: '', oauth_quota: '', plan_type: '', privacy_mode: '', group: '' },
+        groups: []
+      },
+      global: { stubs: { Select: SelectStub, SearchInput: SearchInputStub } }
+    })
+
+    const planFilter = wrapper.get('[data-test="oauth-plan-filter"]')
+    expect(planFilter.findAll('button').map(button => button.attributes('data-value'))).toEqual([
+      '', 'free', 'pro5x', 'pro20x', 'pro50x', 'team', 'plus', 'pro', 'enterprise', 'edu'
+    ])
+    await planFilter.get('[data-value="pro20x"]').trigger('click')
+    expect(wrapper.emitted('update:filters')?.at(-1)?.[0]).toMatchObject({
+      platform: 'openai', type: 'oauth', plan_type: 'pro20x'
+    })
+  })
+
 })

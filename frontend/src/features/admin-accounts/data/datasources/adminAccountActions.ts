@@ -20,7 +20,7 @@ import type {
   UpdateAccountRequest
 } from '../dtos/adminAccountDtos'
 import type { CRSConnectionParams } from './adminAccountQueries'
-import type { OpenAIQuotaRefreshResult } from '../dtos/openAIQuotaDtos'
+import type { OpenAIQuotaRefreshResult, OpenAIQuotaResetResult } from '../dtos/openAIQuotaDtos'
 
 export interface CPACapacityStatus {
   total_credentials: number
@@ -59,6 +59,12 @@ export interface OpenAIQuotaRefreshBatchResult {
   skipped_account_ids: number[]
 }
 
+export interface OpenAIQuotaResetBatchResult {
+  results: Record<string, OpenAIQuotaResetResult>
+  errors: Record<string, string>
+  skipped_account_ids: number[]
+}
+
 export interface AccountExportOptions {
   ids?: number[]
   filters?: {
@@ -66,6 +72,7 @@ export interface AccountExportOptions {
     type?: string
     status?: string
     oauth_quota?: string
+    plan_type?: string
     excel_bps?: 'enabled' | 'disabled' | ''
     group?: string
     privacy_mode?: string
@@ -351,11 +358,12 @@ export async function exportData(options?: AccountExportOptions): Promise<AdminD
   if (options?.ids && options.ids.length > 0) {
     params.ids = options.ids.join(',')
   } else if (options?.filters) {
-    const { platform, type, status, oauth_quota, excel_bps, group, privacy_mode, search, sort_by, sort_order } = options.filters
+    const { platform, type, status, oauth_quota, plan_type, excel_bps, group, privacy_mode, search, sort_by, sort_order } = options.filters
     if (platform) params.platform = platform
     if (type) params.type = type
     if (status) params.status = status
     if (oauth_quota) params.oauth_quota = oauth_quota
+    if (plan_type) params.plan_type = plan_type
     if (excel_bps) params.excel_bps = excel_bps
     if (group) params.group = group
     if (privacy_mode) params.privacy_mode = privacy_mode
@@ -429,6 +437,15 @@ export async function queryUpstreamQuota(id: number): Promise<UpstreamQuotaQuery
 export async function refreshOpenAIQuotaBatch(accountIds: number[]): Promise<OpenAIQuotaRefreshBatchResult> {
   const { data } = await apiClient.post<OpenAIQuotaRefreshBatchResult>(
     '/admin/openai/accounts/quota/refresh/batch',
+    { account_ids: accountIds },
+    { timeout: 180000 }
+  )
+  return data
+}
+
+export async function resetOpenAIQuotaBatch(accountIds: number[]): Promise<OpenAIQuotaResetBatchResult> {
+  const { data } = await apiClient.post<OpenAIQuotaResetBatchResult>(
+    '/admin/openai/accounts/quota/reset/batch',
     { account_ids: accountIds },
     { timeout: 180000 }
   )

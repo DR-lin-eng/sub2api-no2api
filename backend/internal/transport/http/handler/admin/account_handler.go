@@ -275,6 +275,7 @@ const (
 	accountHourlyUsageQueryTimeout      = 1500 * time.Millisecond
 	accountOAuthQuotaFilterQueryKey     = "oauth_quota"
 	accountExcelBPSFilterQueryKey       = "excel_bps"
+	accountOAuthPlanFilterQueryKey      = "plan_type"
 )
 
 // parseAccountOAuthQuotaFilter accepts the canonical query key and one
@@ -312,6 +313,21 @@ func parseAccountOAuthQuotaFilter(c *gin.Context) (string, error) {
 		filter = values[0]
 	}
 	return filter, nil
+}
+
+func parseAccountOAuthPlanFilter(c *gin.Context) (string, error) {
+	value := strings.TrimSpace(c.Query(accountOAuthPlanFilterQueryKey))
+	if value == "" {
+		value = strings.TrimSpace(c.Query("oauth_plan"))
+	}
+	if value == "" {
+		return "", nil
+	}
+	normalized, err := service.NormalizeAccountOAuthPlanFilter(value)
+	if err != nil {
+		return "", infraerrors.BadRequest("INVALID_OAUTH_PLAN_FILTER", "invalid OAuth plan filter")
+	}
+	return normalized, nil
 }
 
 func (h *AccountHandler) accountResponseFromService(account *service.Account) *dto.Account {
@@ -608,13 +624,34 @@ func (h *AccountHandler) listAccountSchedulerScoreFilterPool(
 ) []service.Account {
 	oauthQuotaFilter := ""
 	excelBPSFilter := ""
+	planTypeFilter := ""
 	if len(featureFilters) > 0 {
 		oauthQuotaFilter = featureFilters[0]
 	}
 	if len(featureFilters) > 1 {
 		excelBPSFilter = featureFilters[1]
 	}
+	if len(featureFilters) > 2 {
+		planTypeFilter = featureFilters[2]
+	}
 	if h.adminService == nil || (platform != "" && platform != service.PlatformOpenAI) {
+		return nil
+	}
+	if planTypeFilter != "" {
+		if filtered, ok := h.adminService.(service.AdminAccountOAuthPlanSchedulerFilterService); ok {
+			schedulerPlatform := platform
+			if schedulerPlatform == "" {
+				schedulerPlatform = service.PlatformOpenAI
+			}
+			accounts, err := filtered.ListAccountsForSchedulerScoreFilterWithPlanType(
+				ctx, schedulerPlatform, accountType, status, search, groupID, privacyMode, oauthQuotaFilter, excelBPSFilter, planTypeFilter,
+			)
+			if err != nil {
+				slog.Warn("openai_scheduler_plan_filter_score_pool_failed", "error", err)
+				return nil
+			}
+			return accounts
+		}
 		return nil
 	}
 	if oauthQuotaFilter != "" || excelBPSFilter != "" {
@@ -660,6 +697,11 @@ func (h *AccountHandler) List(c *gin.Context) {
 		response.ErrorFrom(c, filterErr)
 		return
 	}
+	planTypeFilter, planFilterErr := parseAccountOAuthPlanFilter(c)
+	if planFilterErr != nil {
+		response.ErrorFrom(c, planFilterErr)
+		return
+	}
 	excelBPSFilter, bpsFilterErr := parseAccountExcelBPSFilter(c)
 	if bpsFilterErr != nil {
 		response.ErrorFrom(c, bpsFilterErr)
@@ -699,7 +741,17 @@ func (h *AccountHandler) List(c *gin.Context) {
 	var accounts []service.Account
 	var total int64
 	var err error
-	if excelBPSFilter != "" {
+	if planTypeFilter != "" {
+		filteredService, ok := h.adminService.(service.AdminAccountOAuthPlanListService)
+		if !ok {
+			response.Error(c, http.StatusServiceUnavailable, "account service does not support OAuth plan filtering")
+			return
+		}
+		accounts, total, err = filteredService.ListAccountsWithPlanTypeFilter(
+			c.Request.Context(), page, pageSize, platform, accountType, status, search,
+			groupID, privacyMode, sortBy, sortOrder, oauthQuotaFilter, excelBPSFilter, planTypeFilter,
+		)
+	} else if excelBPSFilter != "" {
 		filteredService, ok := h.adminService.(service.AdminAccountFeatureListService)
 		if !ok {
 			response.Error(c, http.StatusServiceUnavailable, "account service does not support Excel BPS filtering")
@@ -777,7 +829,7 @@ func (h *AccountHandler) List(c *gin.Context) {
 		}
 	}
 	if includeSchedulerScore && pageHasOpenAIAccounts {
-		schedulerFilterPool := h.listAccountSchedulerScoreFilterPool(c.Request.Context(), platform, accountType, status, search, groupID, privacyMode, oauthQuotaFilter, excelBPSFilter)
+		schedulerFilterPool := h.listAccountSchedulerScoreFilterPool(c.Request.Context(), platform, accountType, status, search, groupID, privacyMode, oauthQuotaFilter, excelBPSFilter, planTypeFilter)
 		schedulerScores, schedulerGroupScores = h.buildOpenAIAccountSchedulerScores(c.Request.Context(), accounts, schedulerFilterPool)
 	}
 
@@ -887,10 +939,10 @@ func (h *AccountHandler) List(c *gin.Context) {
 	// Keep the ordinary list's ETag shape identical when no feature filter is
 	// selected; the extended builder includes each selected filter in the hash.
 	etag := ""
-	if oauthQuotaFilter == "" && excelBPSFilter == "" {
+	if oauthQuotaFilter == "" && excelBPSFilter == "" && planTypeFilter == "" {
 		etag = buildAccountsListETag(result, total, page, pageSize, platform, accountType, status, search, lite)
 	} else {
-		etag = buildAccountsListETagWithOAuthQuota(result, total, page, pageSize, platform, accountType, status, search, oauthQuotaFilter, lite, excelBPSFilter)
+		etag = buildAccountsListETagWithOAuthQuota(result, total, page, pageSize, platform, accountType, status, search, oauthQuotaFilter, lite, excelBPSFilter, planTypeFilter)
 	}
 	if etag != "" {
 		c.Header("ETag", etag)
@@ -926,8 +978,12 @@ func buildAccountsListETagWithOAuthQuota(
 	featureFilters ...string,
 ) string {
 	excelBPSFilter := ""
+	planTypeFilter := ""
 	if len(featureFilters) > 0 {
 		excelBPSFilter = featureFilters[0]
+	}
+	if len(featureFilters) > 1 {
+		planTypeFilter = featureFilters[1]
 	}
 	payload := struct {
 		Total       int64                    `json:"total"`
@@ -939,6 +995,7 @@ func buildAccountsListETagWithOAuthQuota(
 		Search      string                   `json:"search"`
 		OAuthQuota  string                   `json:"oauth_quota,omitempty"`
 		ExcelBPS    string                   `json:"excel_bps,omitempty"`
+		PlanType    string                   `json:"plan_type,omitempty"`
 		Lite        bool                     `json:"lite"`
 		Items       []AccountWithConcurrency `json:"items"`
 	}{
@@ -951,6 +1008,7 @@ func buildAccountsListETagWithOAuthQuota(
 		Search:      search,
 		OAuthQuota:  oauthQuotaFilter,
 		ExcelBPS:    excelBPSFilter,
+		PlanType:    planTypeFilter,
 		Lite:        lite,
 		Items:       items,
 	}

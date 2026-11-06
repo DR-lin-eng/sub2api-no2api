@@ -104,6 +104,7 @@ export default {
       allPlatforms: '全部平台',
       allTypes: '全部类型',
       allStatus: '全部状态', allOAuthQuota: '全部 OAuth 额度', oauthQuotaHasQuota: 'OAuth 有额度', oauthQuotaExhausted: 'OAuth 额度已耗尽', openAIQuotaWithReset: 'OpenAI OAuth 有可用重置', openAIQuota5hExhausted: 'OpenAI 5h 额度已满', openAIQuota7dExhausted: 'OpenAI 7d 额度已满',
+      allOAuthPlans: '全部 OAuth 套餐', oauthPlanFree: 'Free', oauthPlanPro5x: 'Pro 5x', oauthPlanPro20x: 'Pro 20x', oauthPlanPro50x: 'Pro 50x', oauthPlanTeam: 'Team', oauthPlanPlus: 'Plus', oauthPlanPro: 'Pro', oauthPlanEnterprise: 'Enterprise', oauthPlanEdu: 'Edu',
       allExcelBPS: '全部 BPS 状态', excelBPSEnabled: 'BPS 已启用', excelBPSDisabled: 'BPS 未启用',
       allGroups: '全部分组',
       ungroupedGroup: '未分配分组',

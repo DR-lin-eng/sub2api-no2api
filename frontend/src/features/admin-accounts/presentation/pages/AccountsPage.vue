@@ -109,6 +109,7 @@ type AccountBulkEditTarget =
         type?: string
         status?: string
         oauth_quota?: string
+    plan_type?: string
         excel_bps?: 'enabled' | 'disabled' | ''
         group?: string
         search?: string
@@ -172,6 +173,7 @@ const {
   upstreamQuotaErrors,
   bulkQueryingUpstreamQuota,
   bulkQueryingOpenAIQuota,
+    bulkResettingOpenAIQuota,
   bulkOpenAIQuotaResults,
   upstreamBillingFeedback,
   upstreamQuotaFeedback,
@@ -186,6 +188,7 @@ const {
   handleBulkProbeUpstreamBilling,
   handleBulkQueryUpstreamQuota,
   handleBulkQueryOpenAIQuota,
+    handleBulkResetOpenAIQuota,
   disposeUpstreamBilling
 } = useAccountsUpstreamBilling({
   currentAdminID: () => authStore.user?.id ?? null,
@@ -207,7 +210,8 @@ const {
   showError: message => appStore.showError(message),
   showSuccess: message => appStore.showSuccess(message),
   showProgress: message => appStore.showToast('info', message),
-  hideProgress: toastID => appStore.hideToast(toastID)
+    hideProgress: toastID => appStore.hideToast(toastID),
+    clearSelection: () => clearSelection()
 })
 
 // Account tools dropdown
@@ -338,6 +342,7 @@ const {
     ...loadInitialAccountFilterState(),
     type: '',
     oauth_quota: '',
+    plan_type: '',
     excel_bps: '',
     privacy_mode: '',
     group: '',
@@ -605,6 +610,7 @@ const refreshAccountsIncrementally = async () => {
         type?: string
         status?: string
         oauth_quota?: string
+    plan_type?: string
         excel_bps?: 'enabled' | 'disabled' | ''
         privacy_mode?: string
         group?: string
@@ -954,6 +960,7 @@ const buildBulkEditFilterSnapshot = () => {
     type: typeof rawParams.type === 'string' ? rawParams.type : '',
     status: typeof rawParams.status === 'string' ? rawParams.status : '',
     oauth_quota: typeof rawParams.oauth_quota === 'string' ? rawParams.oauth_quota : '',
+    plan_type: typeof rawParams.plan_type === 'string' ? rawParams.plan_type : '',
     excel_bps: excelBps,
     group: typeof rawParams.group === 'string' ? rawParams.group : '',
     search: typeof rawParams.search === 'string' ? rawParams.search : '',
@@ -1351,6 +1358,7 @@ const accountTableViewContext = {
   allResultsSelected,
   bulkQueryingUpstreamQuota,
   bulkQueryingOpenAIQuota,
+    bulkResettingOpenAIQuota,
   handleBulkDelete,
   handleBulkResetStatus,
   handleBulkRefreshToken,
@@ -1358,6 +1366,7 @@ const accountTableViewContext = {
   handleBulkSyncUpstreamModels,
   handleBulkQueryUpstreamQuota,
   handleBulkQueryOpenAIQuota,
+    handleBulkResetOpenAIQuota,
   handleBulkProbeUpstreamBilling,
   openBulkEditSelected,
   openBulkEditFiltered,

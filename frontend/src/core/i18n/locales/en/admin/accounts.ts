@@ -104,6 +104,7 @@ export default {
       allPlatforms: 'All Platforms',
       allTypes: 'All Types',
       allStatus: 'All Status', allOAuthQuota: 'All OAuth Quota', oauthQuotaHasQuota: 'OAuth has quota', oauthQuotaExhausted: 'OAuth quota exhausted', openAIQuotaWithReset: 'OpenAI OAuth with reset credits', openAIQuota5hExhausted: 'OpenAI 5h quota full', openAIQuota7dExhausted: 'OpenAI 7d quota full',
+      allOAuthPlans: 'All OAuth plans', oauthPlanFree: 'Free', oauthPlanPro5x: 'Pro 5x', oauthPlanPro20x: 'Pro 20x', oauthPlanPro50x: 'Pro 50x', oauthPlanTeam: 'Team', oauthPlanPlus: 'Plus', oauthPlanPro: 'Pro', oauthPlanEnterprise: 'Enterprise', oauthPlanEdu: 'Edu',
       allExcelBPS: 'All BPS states', excelBPSEnabled: 'BPS enabled', excelBPSDisabled: 'BPS disabled',
       allGroups: 'All Groups',
       ungroupedGroup: 'Ungrouped',

@@ -55,6 +55,12 @@ func (h *AccountHandler) GetUpstreamBillingRates(c *gin.Context) {
 		return
 	}
 	filters.OAuthQuotaFilter = oauthQuotaFilter
+	planTypeFilter, planFilterErr := parseAccountOAuthPlanFilter(c)
+	if planFilterErr != nil {
+		response.ErrorFrom(c, planFilterErr)
+		return
+	}
+	filters.PlanTypeFilter = planTypeFilter
 	excelBPSFilter, bpsFilterErr := parseAccountExcelBPSFilter(c)
 	if bpsFilterErr != nil {
 		response.ErrorFrom(c, bpsFilterErr)

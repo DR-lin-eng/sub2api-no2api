@@ -66,6 +66,52 @@ func (s *adminServiceImpl) ListAccountsWithFeatureFilters(
 	return accounts, result.Total, nil
 }
 
+// ListAccountsWithPlanTypeFilter applies the OpenAI OAuth plan selector along
+// with the existing quota/BPS filters in the repository before pagination.
+func (s *adminServiceImpl) ListAccountsWithPlanTypeFilter(
+	ctx context.Context,
+	page, pageSize int,
+	platform, accountType, status, search string,
+	groupID int64,
+	privacyMode, sortBy, sortOrder, oauthQuotaFilter, excelBPSFilter, planTypeFilter string,
+) ([]Account, int64, error) {
+	oauthQuotaFilter, err := NormalizeAccountOAuthQuotaFilter(oauthQuotaFilter)
+	if err != nil {
+		return nil, 0, err
+	}
+	excelBPSFilter, err = NormalizeAccountExcelBPSFilter(excelBPSFilter)
+	if err != nil {
+		return nil, 0, err
+	}
+	planTypeFilter, err = NormalizeAccountOAuthPlanFilter(planTypeFilter)
+	if err != nil {
+		return nil, 0, err
+	}
+	if planTypeFilter == "" {
+		if oauthQuotaFilter != "" || excelBPSFilter != "" {
+			return s.ListAccountsWithFeatureFilters(ctx, page, pageSize, platform, accountType, status, search, groupID, privacyMode, sortBy, sortOrder, oauthQuotaFilter, excelBPSFilter)
+		}
+		return s.ListAccounts(ctx, page, pageSize, platform, accountType, status, search, groupID, privacyMode, sortBy, sortOrder)
+	}
+	if s == nil || s.accountRepo == nil {
+		return nil, 0, nil
+	}
+	repo, ok := s.accountRepo.(interface {
+		ListWithPlanTypeFilters(
+			context.Context, pagination.PaginationParams, string, string, string, string, int64, string, string, string, string,
+		) ([]Account, *pagination.PaginationResult, error)
+	})
+	if !ok {
+		return nil, 0, errors.New("account repository does not support OAuth plan filtering")
+	}
+	params := pagination.PaginationParams{Page: page, PageSize: pageSize, SortBy: sortBy, SortOrder: sortOrder}
+	accounts, result, err := repo.ListWithPlanTypeFilters(ctx, params, platform, accountType, status, search, groupID, privacyMode, oauthQuotaFilter, excelBPSFilter, planTypeFilter)
+	if err != nil {
+		return nil, 0, err
+	}
+	return accounts, result.Total, nil
+}
+
 func (s *adminServiceImpl) ListAccountsWithOAuthQuotaFilter(
 	ctx context.Context,
 	page, pageSize int,
@@ -136,6 +182,41 @@ func (s *adminServiceImpl) ListAccountsForSchedulerScoreFilterWithFeatureFilters
 		return nil, errors.New("account repository does not support account feature filtering")
 	}
 	return repo.ListAllWithFeatureFilters(ctx, platform, accountType, status, search, groupID, privacyMode, oauthQuotaFilter, excelBPSFilter)
+}
+
+// ListAccountsForSchedulerScoreFilterWithPlanType keeps the scheduler-score
+// denominator aligned with the account list when a plan selector is active.
+func (s *adminServiceImpl) ListAccountsForSchedulerScoreFilterWithPlanType(
+	ctx context.Context,
+	platform, accountType, status, search string,
+	groupID int64,
+	privacyMode, oauthQuotaFilter, excelBPSFilter, planTypeFilter string,
+) ([]Account, error) {
+	oauthQuotaFilter, err := NormalizeAccountOAuthQuotaFilter(oauthQuotaFilter)
+	if err != nil {
+		return nil, err
+	}
+	excelBPSFilter, err = NormalizeAccountExcelBPSFilter(excelBPSFilter)
+	if err != nil {
+		return nil, err
+	}
+	planTypeFilter, err = NormalizeAccountOAuthPlanFilter(planTypeFilter)
+	if err != nil {
+		return nil, err
+	}
+	if planTypeFilter == "" {
+		return s.ListAccountsForSchedulerScoreFilterWithFeatureFilters(ctx, platform, accountType, status, search, groupID, privacyMode, oauthQuotaFilter, excelBPSFilter)
+	}
+	if s == nil || s.accountRepo == nil {
+		return nil, nil
+	}
+	repo, ok := s.accountRepo.(interface {
+		ListAllWithPlanTypeFilters(context.Context, string, string, string, string, int64, string, string, string, string) ([]Account, error)
+	})
+	if !ok {
+		return nil, errors.New("account repository does not support OAuth plan filtering")
+	}
+	return repo.ListAllWithPlanTypeFilters(ctx, platform, accountType, status, search, groupID, privacyMode, oauthQuotaFilter, excelBPSFilter, planTypeFilter)
 }
 
 func (s *adminServiceImpl) ListAccountsForSchedulerScoreFilterWithOAuthQuota(
