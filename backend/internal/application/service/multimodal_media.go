@@ -272,6 +272,9 @@ func (s *OpenAIGatewayService) SelectMultimodalMediaVideoRequestAccount(
 	return selection, decision, nil
 }
 
+// ForwardMultimodalMedia forwards a media request using the legacy per-second
+// resolution validation behavior. Callers that already resolved the group's
+// billing mode should use ForwardMultimodalMediaWithResolutionTierBilling.
 func (s *OpenAIGatewayService) ForwardMultimodalMedia(
 	ctx context.Context,
 	c *gin.Context,
@@ -281,6 +284,37 @@ func (s *OpenAIGatewayService) ForwardMultimodalMedia(
 	body []byte,
 	contentType string,
 	videoHold *BalanceHoldRecord,
+) (*OpenAIForwardResult, error) {
+	return s.forwardMultimodalMedia(ctx, c, account, endpoint, requestID, body, contentType, videoHold, false)
+}
+
+// ForwardMultimodalMediaWithResolutionTierBilling forwards a request with an
+// explicit per-request pricing decision. Unknown tiers are rejected only when
+// this flag is true, preserving per-second video compatibility.
+func (s *OpenAIGatewayService) ForwardMultimodalMediaWithResolutionTierBilling(
+	ctx context.Context,
+	c *gin.Context,
+	account *Account,
+	endpoint MultimodalMediaEndpoint,
+	requestID string,
+	body []byte,
+	contentType string,
+	videoHold *BalanceHoldRecord,
+	resolutionTierBilling bool,
+) (*OpenAIForwardResult, error) {
+	return s.forwardMultimodalMedia(ctx, c, account, endpoint, requestID, body, contentType, videoHold, resolutionTierBilling)
+}
+
+func (s *OpenAIGatewayService) forwardMultimodalMedia(
+	ctx context.Context,
+	c *gin.Context,
+	account *Account,
+	endpoint MultimodalMediaEndpoint,
+	requestID string,
+	body []byte,
+	contentType string,
+	videoHold *BalanceHoldRecord,
+	resolutionTierBilling bool,
 ) (*OpenAIForwardResult, error) {
 	startTime := time.Now()
 	if account == nil {
@@ -307,7 +341,7 @@ func (s *OpenAIGatewayService) ForwardMultimodalMedia(
 	requestInfo := ParseGrokMediaRequest(contentType, body)
 	clientWantsStream := endpoint.IsImageRequest() && multimodalMediaClientWantsStream(body, contentType)
 	if endpoint.IsVideoGenerationRequest() {
-		if err := ValidateMultimodalVideoResolution(requestInfo.ResolutionRaw); err != nil {
+		if err := ValidateMultimodalVideoResolution(requestInfo.ResolutionRaw, resolutionTierBilling); err != nil {
 			return nil, err
 		}
 	}

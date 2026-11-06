@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"log/slog"
+	"strings"
 )
 
 // PricingSource 定价来源标识
@@ -345,12 +346,37 @@ func intervalToModelPricing(iv *PricingInterval, supportsCacheBreakdown bool, ch
 
 // GetRequestTierPrice 根据层级标签获取按次价格
 func (r *ModelPricingResolver) GetRequestTierPrice(resolved *ResolvedPricing, tierLabel string) float64 {
+	if resolved == nil {
+		return 0
+	}
+	tierLabel = strings.TrimSpace(tierLabel)
+	if tierLabel == "" {
+		return 0
+	}
 	for _, tier := range resolved.RequestTiers {
-		if tier.TierLabel == tierLabel && tier.PerRequestPrice != nil {
+		if tier.PerRequestPrice != nil && requestTierLabelMatches(tier.TierLabel, tierLabel) {
 			return *tier.PerRequestPrice
 		}
 	}
 	return 0
+}
+
+// requestTierLabelMatches accepts video resolution aliases while keeping all
+// other tier labels case-insensitive and exact. Empty labels never match.
+func requestTierLabelMatches(storedLabel, tierLabel string) bool {
+	storedLabel = strings.TrimSpace(storedLabel)
+	if storedLabel == "" {
+		return false
+	}
+	if storedLabel == tierLabel {
+		return true
+	}
+	if got, ok := ClassifyVideoBillingResolution(storedLabel); ok {
+		if want, ok := ClassifyVideoBillingResolution(tierLabel); ok && got == want {
+			return true
+		}
+	}
+	return strings.EqualFold(storedLabel, tierLabel)
 }
 
 // GetRequestTierPriceByContext 根据 context token 数获取按次价格

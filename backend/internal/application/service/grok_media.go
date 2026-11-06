@@ -71,12 +71,16 @@ type GrokMediaRequestInfo struct {
 	Resolution      string
 	// ResolutionRaw 保存客户端提交的原始分辨率文本，用于在提交上游前拒绝
 	// 无法映射到计费档位的取值（例如 1440p），避免静默按 480p 计费。
-	ResolutionRaw   string
-	DurationSeconds int
-	InputImageURLs  []string
-	MaskImageURL    string
-	Uploads         []OpenAIImagesUpload
-	MaskUpload      *OpenAIImagesUpload
+	ResolutionRaw string
+
+	// ResolutionTierLocked 表示本次请求按次数（per_request）计费，结算必须命中
+	// 请求分辨率的档位价。按秒计费的视频不依赖该标记。
+	ResolutionTierLocked bool
+	DurationSeconds      int
+	InputImageURLs       []string
+	MaskImageURL         string
+	Uploads              []OpenAIImagesUpload
+	MaskUpload           *OpenAIImagesUpload
 }
 
 func (r GrokMediaRequestInfo) ModerationBody() []byte {

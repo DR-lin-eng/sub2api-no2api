@@ -198,6 +198,13 @@
           <div v-else class="mt-2 rounded border border-dashed border-gray-300 p-3 text-center text-xs text-gray-400 dark:border-dark-500">
             {{ t('admin.channels.form.noTiersYet') }}
           </div>
+          <div v-if="platform === 'multimodal'" class="mt-2 flex flex-wrap items-center gap-1.5">
+            <button v-for="label in videoResolutionTiers" :key="label" type="button"
+              @click="addTierWithLabel(label)"
+              class="rounded border border-gray-300 px-2 py-0.5 text-xs text-gray-500 hover:border-primary-400 hover:text-primary-600 dark:border-dark-500 dark:text-gray-400">
+              + {{ label }}
+            </button>
+          </div>
         </div>
 
         <!-- Image mode -->
@@ -299,6 +306,20 @@ function addImageTier() {
   const labels = ['1K', '2K', '4K', 'HD']
   intervals.push({
     min_tokens: 0, max_tokens: null, tier_label: labels[intervals.length] || '',
+    input_price: null, output_price: null, cache_write_price: null,
+    cache_read_price: null, per_request_price: null,
+    sort_order: intervals.length
+  })
+  emit('update', { ...props.entry, intervals })
+}
+
+const videoResolutionTiers = ['480p', '720p', '1080p']
+
+function addTierWithLabel(label: string) {
+  const intervals = [...(props.entry.intervals || [])]
+  if (intervals.some(iv => iv.tier_label === label)) return
+  intervals.push({
+    min_tokens: 0, max_tokens: null, tier_label: label,
     input_price: null, output_price: null, cache_write_price: null,
     cache_read_price: null, per_request_price: null,
     sort_order: intervals.length
