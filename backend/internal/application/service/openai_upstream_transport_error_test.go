@@ -84,6 +84,26 @@ func TestClassifyOpenAITransportError(t *testing.T) {
 	}
 }
 
+func TestIsOpenAITransportTLSHandshakeTimeout(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{name: "net/http handshake timeout", err: errors.New("net/http: TLS handshake timeout"), want: true},
+		{name: "fingerprint handshake deadline", err: errors.New("TLS handshake failed: context deadline exceeded"), want: true},
+		{name: "response header timeout", err: errors.New("timeout awaiting response headers"), want: false},
+		{name: "generic deadline", err: context.DeadlineExceeded, want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isOpenAITransportTLSHandshakeTimeout(tt.err); got != tt.want {
+				t.Fatalf("isOpenAITransportTLSHandshakeTimeout(%v) = %v, want %v", tt.err, got, tt.want)
+			}
+		})
+	}
+}
+
 func errString(err error) string {
 	if err == nil {
 		return "<nil>"
