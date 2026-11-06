@@ -1,0 +1,161 @@
+{
+  "date": "2026-11-06",
+  "source_base": "22335a0ff4f4882531a3ff4f837e2d919d0c4946",
+  "tested_image": "sub2api:support-chat-20261106",
+  "tested_image_id": "sha256:04d50561845fc378c7bdef5d68fc161631b30cb09c79b79b6071d12edce510d9",
+  "toolchains": {
+    "go": "1.26.10",
+    "node": "24.22.2",
+    "pnpm": "11.17.0",
+    "postgres": "18",
+    "redis": "8"
+  },
+  "frontend": {
+    "files": 10,
+    "tests": 42,
+    "passed": 42,
+    "failed": 0,
+    "eslint": "passed",
+    "typecheck": "passed",
+    "production_build": "passed"
+  },
+  "backend": {
+    "backend-chat-handlers": {
+      "top_level_tests": 10,
+      "passed_including_subtests": 31,
+      "failed": 0,
+      "skipped": 0,
+      "packages": [
+        "github.com/Wei-Shaw/sub2api/internal/transport/http/handler",
+        "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin"
+      ]
+    },
+    "backend-chat-integration": {
+      "top_level_tests": 6,
+      "passed_including_subtests": 12,
+      "failed": 0,
+      "skipped": 0,
+      "packages": [
+        "github.com/Wei-Shaw/sub2api/internal/infrastructure/repository"
+      ]
+    },
+    "backend-chat-service": {
+      "top_level_tests": 14,
+      "passed_including_subtests": 23,
+      "failed": 0,
+      "skipped": 0,
+      "packages": [
+        "github.com/Wei-Shaw/sub2api/internal/application/service"
+      ]
+    },
+    "backend-chat-unit": {
+      "top_level_tests": 12,
+      "passed_including_subtests": 12,
+      "failed": 0,
+      "skipped": 0,
+      "packages": [
+        "github.com/Wei-Shaw/sub2api/internal/modules/chat"
+      ]
+    }
+  },
+  "runtime": {
+    "http_send_read_relogin_idempotency": "passed",
+    "user_to_admin_websocket_message_id": 5,
+    "admin_to_user_websocket_message_id": 4,
+    "app_postgres_redis_restart": "passed",
+    "history_total": 5,
+    "unique_message_ids": 5,
+    "duplicate_idempotency_key_groups": 0,
+    "browser_user_after_restart": {
+      "ids": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5"
+      ],
+      "hasUser": true,
+      "hasReply": true,
+      "online": true,
+      "historyRequests": 5,
+      "newSockets": 4
+    },
+    "browser_user_after_refresh": {
+      "ids": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5"
+      ],
+      "hasUser": true,
+      "hasReply": true,
+      "online": true
+    },
+    "browser_admin_after_restart": {
+      "ids": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5"
+      ],
+      "hasUser": true,
+      "hasReply": true,
+      "online": true,
+      "historyRequests": 2,
+      "newSockets": 3
+    },
+    "browser_admin_after_refresh": {
+      "ids": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5"
+      ],
+      "hasUser": true,
+      "hasReply": true,
+      "online": true
+    }
+  },
+  "source_hashes": {
+    "frontend/src/features/support-chat/presentation/composables/supportChatHistory.ts": "3e098cf12106a5827006c563f5dce0a5a90fccfb738bd0f0b3d09d6704d1caec",
+    "frontend/src/features/support-chat/presentation/pages/SupportChatPage.vue": "080d2e5291dce88e5dc5e0ff018fac9a966570adb37d2561bff8efb833759f8b",
+    "frontend/src/features/support-chat/presentation/pages/AdminSupportChatPage.vue": "8624e31213950d4b7f44ba56c54d8f0bbe7e03efff4cd31d79847e68138c96e1",
+    "frontend/src/features/support-chat/__tests__/SupportChatHistoryLifecycle.spec.ts": "ab8067f5336358198b8ccc5db1230ef650913001251f42a2041b8e27cf037aed",
+    "frontend/src/features/support-chat/presentation/composables/__tests__/supportChatHistory.spec.ts": "f81b01dbe7ec3b96eb6a1bb42e03d0f960428fea6e38fa4f3e9b969013cd2e9b",
+    "backend/internal/infrastructure/repository/chat_history_integration_test.go": "dafde493a43e6f7b463691958a8f51fab3d6a484c0f383d5f1ad0364e6a56bed",
+    "frontend/pnpm-lock.yaml": "e6bdb04f5266fc940d20a75b3dba7d28a533550b416539c8828f5b280885cded",
+    "backend/go.mod": "2c79018b26d06a77f1eb8cbdf76b025d2c09ceb1f931b81dc2d3daef8b06236e",
+    "backend/go.sum": "8c14faef2ec6aa619dd783574765a678d86a1739bfb42fbcc4f32ff2263cfa41"
+  },
+  "limitations": [
+    "Single application instance in an isolated local Docker stack; production was not accessed.",
+    "Repository docs check fails on the pre-existing missing PR169_MEDIA_STUDIO_REVIEW.md link."
+  ],
+  "backend_top_level_tests": 42,
+  "backend_binary_sha256": "add766aeb611fc37a745d851aa8bf3a4ba8bf7b62d16b24d5478ccb801ec9b32",
+  "architecture": "linux/arm64",
+  "cleanup": "Completed: isolated app, PostgreSQL, Redis, test runner containers, network and named volumes removed; candidate image retained.",
+  "record_sha256": {
+    "backend-chat-handlers.jsonl.gz": "70115eba24fd3c9aa8c0de508759bfc95450b1833848ea9079f3b5664ab9404a",
+    "backend-chat-integration.jsonl.gz": "a6d311d148b6746d02853355639d3fc2b18a852e65708dbc602529e782afe58d",
+    "backend-chat-service.jsonl.gz": "0f7b52b900f54fd6706ea30e2a8e42759aecd6eedcfcbdbe334353ebb9c65dd0",
+    "backend-chat-unit.jsonl.gz": "b3cf9155b4b7b7814f0ceea047a43a912b5295ca1db7e5b8571cc101ec284397",
+    "browser-admin-after-refresh.txt.gz": "2ff6a219aaf03abf92820265df6d0989021ba4f1220d6caee2f20d41a4f5e507",
+    "browser-admin-after-restart.txt.gz": "da8c9069f96f1f6918d5e8e31a28c46718d589e25166a3a326038c5d1e85eac8",
+    "browser-user-after-refresh.txt.gz": "d626c5a640ab1febc0b7812f3b3a5edc67b437db156c674ed86c4fbe9140e751",
+    "browser-user-after-restart.txt.gz": "f395ba2c3e20e4393bce9f7e478b6dbc5f87ed0142c188c51e1071353edca8fb",
+    "cleanup.txt.gz": "f01c7fd1a6af2f1f92d714a86e21e8093a51c89feb9059f77068bc4efb37abcc",
+    "db-after-restart.txt.gz": "aa73babae185e8ced9c3368d3cc8a1feb586ff0fa6d8ec4e86dae40703c4f9cc",
+    "docs-check.txt.gz": "9e6de2df1c3d8be1bb588f175988ccbc363e3c5e9755a28e5e33b80eec6b1d53",
+    "frontend-build.txt.gz": "28e40c1f44897ae68758853d5f6efdad85515cb06e1ecf09c48c7b91bfd9ccb2",
+    "frontend-eslint.txt.gz": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+    "frontend-install.txt.gz": "acd7f795ddd3342bb2885560a38a2adfbc60f2a97e5c52f11c134a7f669e3494",
+    "frontend-tests.txt.gz": "6229a580776c8870f8868dd113930f4f1f086576fde91173a2fcf5280b7189ae",
+    "frontend-typecheck.txt.gz": "caa79f63d114c442c4e3308ebea991b8f52af325f61c4a5d9ad1f28795667307",
+    "http-after-restart.txt.gz": "ad20cc6b82cbff3c1d5a5792d42b43bb36b747c1c5643f69b65ef735a9d9cf43",
+    "http-current-image.txt.gz": "92147128ca957abdb795fba4b5ca3c115366bf00e6540614f5c0cdd1e9a4d9d0"
+  }
+}
