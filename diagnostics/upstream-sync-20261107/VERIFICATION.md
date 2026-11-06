@@ -23,7 +23,7 @@ GOMAXPROCS=2、GOMEMLIMIT=1400MiB、GOGC=50、CGO_ENABLED=0、GOFLAGS=-p=1。
 | JSON 闭合条件预检 fuzz | 10 秒、185,493 次执行通过，原 `encoding/json.Valid` 为独立判定基准；不是对整个协议状态空间的证明。 |
 
 编译后的最终流片段优化额外通过 apicompat 全包、解压边界和定向回归。解压测试覆盖超过 64 MiB 的输出及
-恰好 64 MiB 输出后的损坏 gzip trailer；后者不能因读取到长度上限而跳过校验和。Wire 由源图重新生成。
+恰好 64 MiB 输出后的损坏 gzip trailer；后者不能因读取到长度上限而跳过校验和。Wire 由源图重新生成。Gemini 旧字符串算法仅在测试 oracle 中保留；原有思考语义测试直接覆盖新的 builder owner。
 
 这些验证只涉及本机 Docker 与假上游，没有部署设备或生产节点，没有禁用真实用户或向真实收件人发送通知。
 

@@ -34,8 +34,10 @@ func TestGeminiThinkingDropsHistoryAndKeepsDeltaSemantics(t *testing.T) {
 	require.Equal(t, "visible", gjson.GetBytes(body, "messages.0.content.0.text").String())
 	require.False(t, gjson.GetBytes(body, "messages.0.content.0.thinking").Exists())
 
-	delta, seen := computeGeminiTextDelta("hello", "hello world")
+	var state geminiTextDelta
+	state.next("hello")
+	delta := state.next("hello world")
 	require.Equal(t, " world", delta)
-	require.Equal(t, "hello world", seen)
+	require.Equal(t, "hello world", state.seen.String())
 	require.Equal(t, "high", *extractGeminiReasoningEffortFromBody([]byte(`{"generationConfig":{"thinkingConfig":{"thinkingLevel":"high"}}}`)))
 }
