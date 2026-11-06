@@ -58,6 +58,8 @@ Responses 走图片编辑桥接时，用户提交的图片与遮罩 URL 在共�
 
 普通 OpenAI OAuth 账号在 `extra.excel_bps_enabled=true` 且不是独立 compact 路径时将 Responses 请求转入账号级 Excel/Basispoints 桥接；桥接不支持的原生托管工具显式报错，不静默回退。账号管理页的 `excel_bps=enabled|disabled` 在 PostgreSQL JSONB 谓词中先于分页计算，同时用于批量编辑目标解析、导出和上游计费快照；批量 BPS 开关在写入前校验所有账号资格，SQL 写入时复查并保持整批原子性；DeepSeek 专用兼容调整分别落在 Responses 出站请求与 Chat Completions 出站/回退链路。配置、能力边界和验证入口见 [Excel BPS 与 DeepSeek 兼容](BPS_DEEPSEEK_COMPAT.md)。
 
+SIWC OpenAI OAuth 账号的管理端额度卡复用 WHAM 用量服务，但使用 SIWC agent User-Agent、Bearer access token 和 `chatgpt-account-id` principal。主动查询读取 `rate_limits_by_limit_id` 中的 5 小时/7 天窗口，并读取 reset credit 数量及每张 credit 的过期时间；重置按钮调用 `rate-limit-reset-credits/consume`，成功后刷新窗口和 credit 快照。SIWC 账号的 token 刷新仍走动态 client_id 的 SIWC refresh endpoint。查询和重置请求不经过本地 ChatGPT 隐私设置或 Codex 模拟路径。
+
 OpenAI OAuth Responses、自动透传和原生 WebSocket 握手收到上游 `401` 且错误码为 `token_expired`，或 ChatGPT Team 工作区返回无结构化错误码的通用 Unauthorized 时，网关先删除该账号的 token 缓存，在分布式刷新锁下强制执行一次 refresh token 流程，即使数据库中的 `expires_at` 仍在未来；刷新成功后仅重放当前请求一次并继续使用同一账号。刷新失败、refresh token 缺失、`token_revoked`/`token_invalidated`、明确的禁用/撤销错误码或再次收到 401 继续走原有账号冷却、永久错误和 failover 策略。OpenAI OAuth refresh 响应缺少 `id_token` 时，系统从新的 access token 重新提取 ChatGPT/Team workspace、用户、套餐和 POID 字段，避免沿用旧 workspace 路由身份。
 
 上述重放要求刷新前后的已知 workspace/user 一致；身份改变时返回账号级 `account_changed`，当前轮次不在新主体上重发，刷新后的凭据供后续独立请求使用。WS 池还比较最终账号/FedRAMP 头和 credential principal 摘要；旧握手不能跟随变更后的身份复用。WHAM 路由发现先核对 account/user，并以 `Cache-Control: no-store` 和禁止重定向发送。Responses/Compact 的实际 HTTP/WS 发送点不再回带或消费旧 `X-OAI-IS` 更新状态；完整性/本地路由字段也不能经 metadata 注入。各桌面通信面和超时阶段的证据边界见 [桌面端增量对照](codex/desktop-request-alignment.md)。
