@@ -3,6 +3,7 @@ import {
   chatMessagePageCount,
   loadChatMessagePages,
   mergeChatMessages,
+  reconcileChatMessageHistory,
 } from '@/features/support-chat/presentation/composables/supportChatHistory'
 
 function page(items: Array<{ id: number }>, pageNumber: number, pages: number): {
@@ -38,5 +39,18 @@ describe('support chat history pagination', () => {
   it('replaces a stale duplicate with the refreshed message payload', () => {
     expect(mergeChatMessages([{ id: 1, value: 'old' }], [{ id: 1, value: 'new' }, { id: 2, value: 'two' }]))
       .toEqual([{ id: 1, value: 'new' }, { id: 2, value: 'two' }])
+  })
+
+  it('keeps a recall received during refresh without retaining deleted historical rows', () => {
+    const oldMessage = { id: 1, content: 'old message', recalled: false }
+    const expiredMessage = { id: 2, content: 'expired message', recalled: false }
+    const recalledMessage = { ...oldMessage, content: '', recalled: true }
+    const newMessage = { id: 3, content: 'new message', recalled: false }
+
+    expect(reconcileChatMessageHistory(
+      [oldMessage],
+      [oldMessage, expiredMessage],
+      [recalledMessage, expiredMessage, newMessage],
+    )).toEqual([recalledMessage, newMessage])
   })
 })
