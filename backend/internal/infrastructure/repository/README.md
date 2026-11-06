@@ -24,6 +24,7 @@
 | `cluster*` | 逻辑节点、runner 历史、共享任务租约与版本发布状态 |
 | `*_oauth_*`, `http_upstream*`, `proxy*` | 外部凭据、代理池均衡/健康状态和网络访问实现 |
 | `http_upstream_public.go`, `http_upstream_public_proxy.go` | 用户图片下载的逐跳公开 IP 校验与 DNS 固定，保留账号出口；HTTP/HTTPS 代理通过 CONNECT 访问固定 IP，SOCKS 代理接收固定 IP |
+| `http_upstream_codex_tls.go` | req/v3 实验传输逐连接创建独立 ClientHello 和 key share，避免重连或并发握手复用 uTLS 的可变状态 |
 | `oauth2_provider_store.go` | OAuth2 一次性 authorization code 与 access token 摘要的 Redis 存储 |
 | `wire.go` | repository provider 集合 |
 

@@ -129,7 +129,6 @@ func buildCodexExperimentalHTTP2Client(profile *tlsfingerprint.Profile, route pl
 	}
 	client := req.NewClient().
 		SetCookieJar(chatgptCookieJar()).
-		SetTLSFingerprintSpec(tlsfingerprint.ClientHelloSpecFromProfile(profile)).
 		SetHTTP2SettingsFrame(
 			reqhttp2.Setting{ID: reqhttp2.SettingInitialWindowSize, Val: codexExperimentalHTTP2InitialWindow},
 			reqhttp2.Setting{ID: reqhttp2.SettingMaxHeaderListSize, Val: codexExperimentalHTTP2MaxHeaders},
@@ -139,6 +138,7 @@ func buildCodexExperimentalHTTP2Client(profile *tlsfingerprint.Profile, route pl
 		SetHTTP2PingTimeout(openAIHTTP2PingTimeout).
 		SetCommonHeaderOrder("host", "content-type", "authorization", "user-agent", "accept", "accept-encoding", "x-codex-routing-hint").
 		SetCommonPseudoHeaderOder(":method", ":authority", ":scheme", ":path")
+	configureCodexExperimentalTLSHandshake(client, profile)
 	if route.Mode == platformegress.ModeExternalProxy && parsedProxy != nil {
 		if parsedProxy.Scheme != "http" && parsedProxy.Scheme != "https" {
 			return nil
