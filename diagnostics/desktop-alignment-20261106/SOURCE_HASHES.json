@@ -1,0 +1,39 @@
+{
+  "sources": [
+    {
+      "name": "20261030/逆向分析报告.md",
+      "bytes": 8450,
+      "sha256": "089be413caca283cec2039639ed48d07cbda98c90fc6521d47fb2e2ae34576b9"
+    },
+    {
+      "name": "20261031/逆向分析报告.md",
+      "bytes": 17522,
+      "sha256": "3de3933bfe80d9d1c2473db13df8323b1845d1db4fe5c76367837674227bd997"
+    },
+    {
+      "name": "20261101/逆向分析报告.md",
+      "bytes": 18453,
+      "sha256": "972a8a868f5ccf01a501fea3c33b1672455586958a637537c94982b2b0af4717"
+    },
+    {
+      "name": "20261106/逆向分析报告.md",
+      "bytes": 22656,
+      "sha256": "5fdf020e5dc1e7cdc87b4bc7d92f8103b215bba050757f28f3da23790ebcfb43"
+    },
+    {
+      "name": "20261106/报告更新.patch",
+      "bytes": 41186,
+      "sha256": "dcc16f5cb8e64d51a0b2c7f1cf72c7ad02b2955bc4dad19ea3e478f66b87fdb0"
+    },
+    {
+      "name": "20261106/VERIFICATION.txt",
+      "bytes": 605267,
+      "sha256": "bf7dfb800adb1f00dc00025a390d0398284da51af5800e9d0cc2df0e83c7dff5"
+    }
+  ],
+  "report_patch_reconstruction": {
+    "exit_code": 0,
+    "matches_20261106_report": true,
+    "output": ""
+  }
+}

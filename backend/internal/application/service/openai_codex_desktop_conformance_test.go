@@ -22,6 +22,7 @@ import (
 var codexDesktopForeignSurfaceHeaders = []string{
 	"X-OpenAI-Account-Routing-Override", "X-OpenAI-Attach-Integrity-State",
 	"X-OAI-IS", "X-OAI-IS-Pending-Updates", "X-OAI-IS-Client-Observation",
+	"X-OAI-IS-Update", "X-Local-Routing-Key", "X-OpenAI-Expected-Account-Id",
 	"X-OAI-Attestation", "X-Sentinel-DC", "X-Codex-Client-Session-Token",
 	"X-Codex-Protocol-Version", "X-Codex-Subscribe-Cursor",
 	"X-OpenAI-Allow-Environmentless-Fallback", "X-OpenAI-Product-Sku",

@@ -26,8 +26,9 @@ func discardCodexNonTransferableMetadata(metadata map[string]any) bool {
 		switch normalized {
 		case "authorization", "proxyauthorization", "cookie", "setcookie",
 			"xapikey", "xoaiattestation", "xoaiis", "xoaiisupdate",
+			"xoaiispendingupdates", "xoaiisclientobservation", "xopenaiattachintegritystate",
 			"oaideviceid", "oaidid", "xcodexclientid", "xcodexclientsessiontoken",
-			"chatgptaccountid", "xopenaiexpectedaccountid", "xopenaiaccountroutingoverride":
+			"chatgptaccountid", "xopenaiexpectedaccountid", "xopenaiaccountroutingoverride", "xlocalroutingkey":
 			delete(metadata, key)
 			changed = true
 		}

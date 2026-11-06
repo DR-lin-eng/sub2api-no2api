@@ -128,7 +128,7 @@ func TestOpenAIOAuthDesktopAlignmentHTTPMedia(t *testing.T) {
 }
 
 func TestOpenAIOAuthDesktopAlignmentProofMetadata(t *testing.T) {
-	proofKeys := []string{"x-oai-attestation", "X-OAI-IS", "x_oai_is_update", "OAI-Device-Id", "oai-did", "x-codex-client-id", "x-codex-client-session-token", "X-OpenAI-Expected-Account-ID", "X-OpenAI-Account-Routing-Override", "Authorization", "Cookie"}
+	proofKeys := []string{"x-oai-attestation", "X-OAI-IS", "x_oai_is_update", "X-OAI-IS-Pending-Updates", "X_OAI_IS_Client_Observation", "X-OpenAI-Attach-Integrity-State", "x-local-routing-key", "OAI-Device-Id", "oai-did", "x-codex-client-id", "x-codex-client-session-token", "X-OpenAI-Expected-Account-ID", "X-OpenAI-Account-Routing-Override", "Authorization", "Cookie"}
 	for _, mode := range []string{"ordinary", "full"} {
 		t.Run(mode, func(t *testing.T) {
 			turn := map[string]any{"thread_source": "cli", "safe_extra": "keep-me"}

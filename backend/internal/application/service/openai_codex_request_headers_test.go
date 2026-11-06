@@ -9,6 +9,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -219,6 +222,92 @@ func TestOpenAIWSCompatibilityIncludesRouteAuthAndSemanticHeaders(t *testing.T) 
 			req := openAIWSAcquireRequest{WSURL: base.WSURL, Headers: base.Headers.Clone()}
 			tt.mutate(&req)
 			require.NotEqual(t, baseKey, openAIWSAcquireCompatibility(req))
+		})
+	}
+}
+
+func TestOpenAICodexDesktopHeadersDropCallerOwnedRoutingAndProofState(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	headers := make(http.Header)
+	for _, name := range []string{
+		"X-OpenAI-Account-Routing-Override",
+		"X-OpenAI-Attach-Integrity-State",
+		"X-OAI-IS",
+		"X-OAI-IS-Pending-Updates",
+		"X-OAI-IS-Client-Observation",
+		"X-OAI-IS-Update",
+		"x-local-routing-key",
+		"X-OpenAI-Expected-Account-Id",
+	} {
+		headers.Set(name, "caller-controlled")
+	}
+
+	normalizeOpenAICodexDesktopIdentityHeaders(headers, c, &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth})
+	applyOpenAIWorkspaceRoutingHeader(headers, nil)
+	for _, name := range []string{
+		"X-OpenAI-Account-Routing-Override",
+		"X-OpenAI-Attach-Integrity-State",
+		"X-OAI-IS",
+		"X-OAI-IS-Pending-Updates",
+		"X-OAI-IS-Client-Observation",
+		"X-OAI-IS-Update",
+		"x-local-routing-key",
+		"X-OpenAI-Expected-Account-Id",
+	} {
+		require.Empty(t, headers.Get(name), name)
+	}
+}
+
+func TestOpenAIWSPoolRebuildsHandshakeWhenOAuthPrincipalChanges(t *testing.T) {
+	for _, field := range []string{"chatgpt_account_id", "chatgpt_user_id", "chatgpt-account-id", "x-openai-fedramp"} {
+		t.Run(field, func(t *testing.T) {
+			cfg := &config.Config{}
+			cfg.Gateway.OpenAIWS.MaxConnsPerAccount = 1
+			cfg.Gateway.OpenAIWS.MaxIdlePerAccount = 1
+			pool := newOpenAIWSConnPool(cfg)
+			pool.setClientDialerForTest(&openAIWSFakeDialer{})
+			t.Cleanup(pool.Close)
+			account := &Account{ID: 101, Platform: PlatformOpenAI, Type: AccountTypeOAuth,
+				Credentials: map[string]any{"chatgpt_account_id": "workspace-a", "chatgpt_user_id": "user-a"}}
+			headers := make(http.Header)
+			headers.Set("Authorization", "Bearer opaque-token")
+			headers.Set("chatgpt-account-id", "workspace-a")
+			req := openAIWSAcquireRequest{Account: account,
+				WSURL: "wss://chatgpt.com/backend-api/codex/responses", Headers: headers}
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			first, err := pool.Acquire(ctx, req)
+			require.NoError(t, err)
+			firstID := first.ConnID()
+			first.Release()
+			same, err := pool.Acquire(ctx, req)
+			require.NoError(t, err)
+			require.Equal(t, firstID, same.ConnID(), "an unchanged principal must retain its socket")
+			same.Release()
+
+			// Keep the local account ID, URL and opaque token unchanged. A new
+			// principal or actual workspace header must still force a new dial.
+			updated := *account
+			updated.Credentials = shallowCopyMap(account.Credentials)
+			req.Account = &updated
+			req.Headers = headers.Clone()
+			switch field {
+			case "chatgpt_account_id", "chatgpt_user_id":
+				updated.Credentials[field] = "changed-principal"
+			default:
+				req.Headers.Set(field, "changed-header")
+			}
+			rebuilt, err := pool.Acquire(ctx, req)
+			require.NoError(t, err)
+			defer rebuilt.Release()
+			require.NotEqual(t, firstID, rebuilt.ConnID())
+			select {
+			case <-first.conn.closedCh:
+			default:
+				t.Fatal("the old idle socket must be closed before replacing its principal")
+			}
 		})
 	}
 }
