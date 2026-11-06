@@ -51,6 +51,21 @@ const showMultimodalVideoPriceHint = computed(
 // multimodal 逐模型定价没有“默认价”：图片只认 1K/2K/4K、视频只认分辨率档位，
 // 缺档位直接报错。这里不展示也不提交条目级默认价，避免又变成隐式兜底。
 const showDefaultPriceInput = computed(() => props.platform !== "multimodal");
+// multimodal 分组的视频模型用 per_request 按次计费时，价格完全由请求分辨率档位决定：
+// 档位标签必须是 480p/720p/1080p。填成 realtime/tts/stt 之类的标签永远取不到价，
+// 请求会直接 503（video_price_not_configured）。
+const isMultimodalVideoRequestTier = computed(
+  () => props.platform === "multimodal" && props.entry.billing_mode === "per_request",
+);
+// 档位标签在这些模式下表达的是分辨率，而不是“层级名称”。
+const tierLabelIsResolution = computed(
+  () =>
+    props.entry.billing_mode === "image" ||
+    props.entry.billing_mode === "video" ||
+    isMultimodalVideoRequestTier.value,
+);
+// 与后端 ClassifyVideoBillingResolution 保持一致的分辨率档位。
+const videoResolutionTiers = ["480p", "720p", "1080p"];
 const tokenPriceFields: Array<{
   key: GroupPricingPriceField;
   label: string;
@@ -77,11 +92,28 @@ const changeBillingMode = (mode: BillingMode) => {
   emit("update", { ...props.entry, billing_mode: mode, intervals: [] });
 };
 
+const addTierWithLabel = (label: string) => {
+  const intervals = [...props.entry.intervals];
+  if (intervals.some((interval) => interval.tier_label === label)) return;
+  intervals.push({
+    min_tokens: 0,
+    max_tokens: null,
+    tier_label: label,
+    input_price: null,
+    output_price: null,
+    cache_write_price: null,
+    cache_read_price: null,
+    per_request_price: null,
+    sort_order: intervals.length,
+  });
+  emit("update", { ...props.entry, intervals });
+};
+
 const addTier = () => {
   const intervals = [...props.entry.intervals];
   const labels =
-    props.entry.billing_mode === "video"
-      ? ["480p", "720p", "1080p"]
+    props.entry.billing_mode === "video" || isMultimodalVideoRequestTier.value
+      ? videoResolutionTiers
       : props.entry.billing_mode === "image"
         ? props.platform === "multimodal"
           ? ["1K", "2K", "4K"]
@@ -236,9 +268,11 @@ const removeTier = (index: number) => {
               $t(
                 entry.billing_mode === 'video'
                   ? 'admin.channels.form.videoTiers'
-                  : entry.billing_mode === 'image'
-                    ? 'admin.channels.form.imageTiers'
-                    : 'admin.channels.form.requestTiers',
+                  : isMultimodalVideoRequestTier
+                    ? 'admin.channels.form.multimodalVideoRequestTiers'
+                    : entry.billing_mode === 'image'
+                      ? 'admin.channels.form.imageTiers'
+                      : 'admin.channels.form.requestTiers',
               )
             }}
           </span>
@@ -260,7 +294,7 @@ const removeTier = (index: number) => {
             <label class="text-xs text-gray-400">
               {{
                 $t(
-                  entry.billing_mode === 'image' || entry.billing_mode === 'video'
+                  tierLabelIsResolution
                     ? 'admin.channels.form.resolution'
                     : 'admin.channels.form.tierLabel',
                 )
@@ -299,6 +333,20 @@ const removeTier = (index: number) => {
               <Icon name="x" size="sm" />
             </button>
           </div>
+        </div>
+        <div
+          v-if="entry.billing_mode === 'video' || isMultimodalVideoRequestTier"
+          class="mt-2 flex flex-wrap items-center gap-1.5"
+        >
+          <button
+            v-for="label in videoResolutionTiers"
+            :key="label"
+            type="button"
+            class="rounded border border-gray-300 px-2 py-0.5 text-xs text-gray-500 hover:border-primary-400 hover:text-primary-600 dark:border-dark-500 dark:text-gray-400"
+            @click="addTierWithLabel(label)"
+          >
+            + {{ label }}
+          </button>
         </div>
         <p
           v-if="showMultimodalVideoPriceHint"

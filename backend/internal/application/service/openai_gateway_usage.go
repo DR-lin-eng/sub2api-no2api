@@ -739,12 +739,43 @@ func (s *OpenAIGatewayService) calculateOpenAIVideoCost(
 	if videoCount <= 0 {
 		videoCount = 1
 	}
+	tierBilling := s.MultimodalVideoRequestTierBilling(ctx, apiKey, billingModel)
 	resolution := NormalizeVideoBillingResolutionOrDefault(result.VideoResolution)
+	if tierBilling {
+		// 按次计费时分辨率就是价格档位：无法解析时必须保留空串让取价链路报缺价，
+		// 不能折成 480p，否则 1440p/4k 或未指定分辨率会静默按 480p 计费。
+		resolution = VideoBillingResolutionTier(result.VideoResolution)
+	}
 	durationSeconds := NormalizeVideoBillingDurationSecondsOrDefault(result.VideoDurationSeconds)
 	resolved := s.resolveOpenAIChannelPricing(ctx, billingModel, apiKey)
 	// multimodal 是逐模型定价分组：视频每秒价必须写在模型/渠道定价条目里，
 	// 分组级视频价不参与计费。条目缺价时不能静默按 0 元放行，最终仍无价则返回 503。
 	multimodal := IsMultimodal(PlatformFromAPIKey(apiKey))
+	// 视频条目也可以显式配置为按次（per_request）计费：此时按请求里的分辨率档位取一次价格，
+	// 与 duration 无关。按次条目必须精确命中档位，缺档位同样报缺价。
+	// multimodal 的逐模型定价同样落在 Source=group，必须一起命中，否则这类分组
+	// 配置了按次视频价也取不到价。
+	if resolved != nil && resolved.Mode == BillingModePerRequest && isExplicitAdminPricing(resolved) {
+		// 按次视频的价格档位就是分辨率：档位无法解析时不能进按次取价链路，
+		// 否则空档位会落到 token 区间回退，命中 min_tokens=0 的第一档。
+		sizeTier := VideoBillingResolutionTier(result.VideoResolution)
+		if sizeTier == "" {
+			return nil, fmt.Errorf("video price is not configured: model=%q resolution=%q: per-request video billing requires a supported resolution",
+				billingModel, strings.TrimSpace(result.VideoResolution))
+		}
+		gid := apiKey.Group.ID
+		cost, err := s.billingService.CalculateCostUnified(CostInput{
+			Ctx: ctx, Model: billingModel, GroupID: &gid, Group: apiKey.Group,
+			RequestCount: videoCount, SizeTier: sizeTier,
+			RateMultiplier: multiplier, Resolver: s.resolver, Resolved: resolved,
+		})
+		if err != nil {
+			// 报错回显客户端原始分辨率，而不是归一化后的档位，方便直接看出请求值。
+			return nil, fmt.Errorf("video price is not configured: model=%q resolution=%q: %w",
+				billingModel, strings.TrimSpace(result.VideoResolution), err)
+		}
+		return cost, nil
+	}
 	videoPriceConfigured := func(resolved *ResolvedPricing) bool {
 		return !multimodal || videoUnitPriceConfigured(resolved, resolution)
 	}
@@ -756,6 +787,7 @@ func (s *OpenAIGatewayService) calculateOpenAIVideoCost(
 			RateMultiplier: multiplier, Resolver: s.resolver, Resolved: resolved,
 		})
 		if err == nil {
+			cost.BillingMode = string(BillingModeVideo)
 			return cost, nil
 		}
 		logger.LegacyPrintf("service.openai_gateway", "Calculate video group cost failed: %v", err)
@@ -799,6 +831,12 @@ func (s *OpenAIGatewayService) calculateOpenAIVideoCost(
 		logger.LegacyPrintf("service.openai_gateway", "Calculate video channel cost failed: %v", err)
 	}
 
+	if tierBilling && resolution == "" {
+		// 按次计费但分辨率无法映射到档位：按秒计费入口会把分辨率折成 480p，
+		// 这里必须提前拒绝，绝不退化成 480p 或任何默认档位。
+		return nil, fmt.Errorf("video price is not configured: model=%q resolution=%q: per-request video billing requires a supported resolution",
+			billingModel, strings.TrimSpace(result.VideoResolution))
+	}
 	return s.billingService.CalculateVideoCost(billingModel, resolution, videoCount, durationSeconds, groupConfig, multiplier)
 }
 
@@ -811,7 +849,7 @@ func videoUnitPriceConfigured(resolved *ResolvedPricing, resolution string) bool
 		return false
 	}
 	for _, tier := range resolved.RequestTiers {
-		if tier.TierLabel == resolution && tier.PerRequestPrice != nil {
+		if tier.PerRequestPrice != nil && VideoResolutionTierMatches(tier.TierLabel, resolution) {
 			return true
 		}
 	}

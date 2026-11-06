@@ -341,6 +341,11 @@ func (s *MediaStudioService) EstimateCost(
 	switch mediaType {
 	case "video":
 		resolution := NormalizeVideoBillingResolutionOrDefault(req.Resolution)
+		if s.gatewayService.MultimodalVideoRequestTierBilling(ctx, apiKey, model) {
+			// 按次计费的视频按请求分辨率档位取价：档位不可解析时必须报缺价，
+			// 不能把 1440p/4k 静默折成 480p 的预估金额。
+			resolution = VideoBillingResolutionTier(req.Resolution)
+		}
 		durationSeconds := NormalizeVideoBillingDurationSecondsOrDefault(req.Duration)
 		cost, err := s.gatewayService.calculateOpenAIVideoCost(ctx, model, apiKey, &OpenAIForwardResult{
 			VideoCount:           1,
@@ -348,10 +353,10 @@ func (s *MediaStudioService) EstimateCost(
 			VideoDurationSeconds: durationSeconds,
 		}, s.gatewayService.multimodalVideoRateMultiplier(ctx, apiKey, userID, group.ID))
 		if err != nil {
-			return nil, ErrVideoPriceNotConfigured.WithCause(err)
+			return nil, s.videoPriceNotConfiguredError(ctx, model, req.Resolution, apiKey, err)
 		}
 		if cost == nil {
-			return nil, ErrVideoPriceNotConfigured
+			return nil, s.videoPriceNotConfiguredError(ctx, model, req.Resolution, apiKey, nil)
 		}
 		return &MediaStudioCostEstimate{
 			Amount:          QuantizeUsageBillingAmount(cost.ActualCost),
@@ -386,6 +391,19 @@ func (s *MediaStudioService) EstimateCost(
 	default:
 		return nil, ErrMediaStudioCostEstimateUnavailable
 	}
+}
+
+// videoPriceNotConfiguredError 把视频取价的真实原因带回前端。
+// 只回固定的 503 文案时，“这个分辨率没配价”和“档位标签写错”看起来完全一样，
+// 管理员无法自查；这里补上模型、请求分辨率、计费模式和已配置的档位标签。
+func (s *MediaStudioService) videoPriceNotConfiguredError(
+	ctx context.Context,
+	model string,
+	resolution string,
+	apiKey *APIKey,
+	cause error,
+) error {
+	return s.gatewayService.VideoPriceNotConfiguredError(ctx, apiKey, model, resolution, cause)
 }
 
 // mediaStudioBaseRateMultiplier 复刻用量结算的基础倍率口径：

@@ -193,6 +193,26 @@ func TestGetRequestTierPriceByContext(t *testing.T) {
 	require.InDelta(t, 0.10, r.GetRequestTierPriceByContext(resolved, 200000), 1e-12)
 }
 
+// 管理员把视频档位写成 720P / 720 / HD 时，取价必须命中同一个分辨率档位；
+// 未配置的档位仍然返回 0，不能退化成任意价格。
+func TestGetRequestTierPrice_VideoResolutionAliases(t *testing.T) {
+	r := NewModelPricingResolver(&ChannelService{}, newTestBillingServiceForResolver())
+
+	resolved := &ResolvedPricing{
+		Mode: BillingModePerRequest,
+		RequestTiers: []PricingInterval{
+			{TierLabel: "720P", PerRequestPrice: testPtrFloat64(0.3)},
+			{TierLabel: "1080", PerRequestPrice: testPtrFloat64(0.5)},
+		},
+	}
+
+	require.InDelta(t, 0.3, r.GetRequestTierPrice(resolved, "720p"), 1e-12)
+	require.InDelta(t, 0.3, r.GetRequestTierPrice(resolved, " HD "), 1e-12)
+	require.InDelta(t, 0.5, r.GetRequestTierPrice(resolved, "1080p"), 1e-12)
+	require.InDelta(t, 0.0, r.GetRequestTierPrice(resolved, "480p"), 1e-12)
+	require.InDelta(t, 0.0, r.GetRequestTierPrice(resolved, ""), 1e-12)
+}
+
 func TestGetRequestTierPrice_NilPerRequestPrice(t *testing.T) {
 	bs := newTestBillingServiceForResolver()
 	r := NewModelPricingResolver(&ChannelService{}, bs)
