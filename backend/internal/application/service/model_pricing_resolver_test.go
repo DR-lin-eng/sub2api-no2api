@@ -193,6 +193,23 @@ func TestGetRequestTierPriceByContext(t *testing.T) {
 	require.InDelta(t, 0.10, r.GetRequestTierPriceByContext(resolved, 200000), 1e-12)
 }
 
+func TestGetRequestTierPriceVideoResolutionAliases(t *testing.T) {
+	r := NewModelPricingResolver(&ChannelService{}, newTestBillingServiceForResolver())
+	price720, price1080 := 0.3, 0.5
+	resolved := &ResolvedPricing{
+		Mode: BillingModePerRequest,
+		RequestTiers: []PricingInterval{
+			{TierLabel: "720P", PerRequestPrice: &price720},
+			{TierLabel: "1080", PerRequestPrice: &price1080},
+		},
+	}
+	require.InDelta(t, 0.3, r.GetRequestTierPrice(resolved, "720p"), 1e-12)
+	require.InDelta(t, 0.3, r.GetRequestTierPrice(resolved, " HD "), 1e-12)
+	require.InDelta(t, 0.5, r.GetRequestTierPrice(resolved, "1080p"), 1e-12)
+	require.Zero(t, r.GetRequestTierPrice(resolved, "480p"))
+	require.Zero(t, r.GetRequestTierPrice(resolved, ""))
+}
+
 func TestGetRequestTierPrice_NilPerRequestPrice(t *testing.T) {
 	bs := newTestBillingServiceForResolver()
 	r := NewModelPricingResolver(&ChannelService{}, bs)

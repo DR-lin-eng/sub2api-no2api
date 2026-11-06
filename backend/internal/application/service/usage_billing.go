@@ -319,6 +319,7 @@ type BalanceHoldRecord struct {
 	Model                  string
 	Resolution             string
 	DurationSeconds        int
+	BillingMode            string // 冻结时的视频计费模式；按次计费结算不按时长折算。
 	HoldAmount             float64
 	ActualAmount           *float64
 	BaseAmount             float64 // Creation-time cost before the user rate multiplier.

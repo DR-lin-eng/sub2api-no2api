@@ -30,6 +30,20 @@ func TestMultimodalVideoCaptureUsesSnapshotAndOrdinaryQuotaEffects(t *testing.T)
 	require.Zero(t, input.Billing.BalanceCost, "capture already spends frozen funds")
 }
 
+func TestMultimodalVideoCapturePerRequestIgnoresActualDuration(t *testing.T) {
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Set("api_key", &APIKey{ID: 7, UserID: 42})
+	record := &BalanceHoldRecord{HoldKey: "per-request", UserID: 42, APIKeyID: 7, AccountID: 99,
+		DurationSeconds: 8, BillingMode: string(BillingModePerRequest), HoldAmount: 1, BaseAmount: 2, RateMultiplier: .5}
+	account := &Account{ID: 99, Type: AccountTypeAPIKey}
+	input, err := (&OpenAIGatewayService{}).multimodalVideoCapture(context.Background(), c, account, record, 4)
+	require.NoError(t, err)
+	require.InDelta(t, 1, input.UsageLog.ActualCost, 1e-8)
+	require.InDelta(t, 2, input.UsageLog.TotalCost, 1e-8)
+	require.NotNil(t, input.UsageLog.BillingMode)
+	require.Equal(t, string(BillingModePerRequest), *input.UsageLog.BillingMode)
+}
+
 func TestMultimodalVideoCaptureRejectsWrongOwner(t *testing.T) {
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Set("api_key", &APIKey{ID: 8, UserID: 42})

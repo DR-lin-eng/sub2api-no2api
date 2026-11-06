@@ -341,6 +341,11 @@ func (s *MediaStudioService) EstimateCost(
 	switch mediaType {
 	case "video":
 		resolution := NormalizeVideoBillingResolutionOrDefault(req.Resolution)
+		if s.gatewayService.MultimodalVideoRequestTierBilling(ctx, apiKey, model) {
+			// 按次计费的视频按请求分辨率档位取价；无法解析时保留空档位，
+			// 让统一计价链路返回缺价，而不是静默折成 480p。
+			resolution = VideoBillingResolutionTier(req.Resolution)
+		}
 		durationSeconds := NormalizeVideoBillingDurationSecondsOrDefault(req.Duration)
 		cost, err := s.gatewayService.calculateOpenAIVideoCost(ctx, model, apiKey, &OpenAIForwardResult{
 			VideoCount:           1,
@@ -348,10 +353,10 @@ func (s *MediaStudioService) EstimateCost(
 			VideoDurationSeconds: durationSeconds,
 		}, s.gatewayService.multimodalVideoRateMultiplier(ctx, apiKey, userID, group.ID))
 		if err != nil {
-			return nil, ErrVideoPriceNotConfigured.WithCause(err)
+			return nil, s.videoPriceNotConfiguredError(ctx, model, req.Resolution, apiKey, err)
 		}
 		if cost == nil {
-			return nil, ErrVideoPriceNotConfigured
+			return nil, s.videoPriceNotConfiguredError(ctx, model, req.Resolution, apiKey, nil)
 		}
 		return &MediaStudioCostEstimate{
 			Amount:          QuantizeUsageBillingAmount(cost.ActualCost),
@@ -386,6 +391,16 @@ func (s *MediaStudioService) EstimateCost(
 	default:
 		return nil, ErrMediaStudioCostEstimateUnavailable
 	}
+}
+
+func (s *MediaStudioService) videoPriceNotConfiguredError(
+	ctx context.Context,
+	model string,
+	resolution string,
+	apiKey *APIKey,
+	cause error,
+) error {
+	return s.gatewayService.VideoPriceNotConfiguredError(ctx, apiKey, model, resolution, cause)
 }
 
 // mediaStudioBaseRateMultiplier 复刻用量结算的基础倍率口径：

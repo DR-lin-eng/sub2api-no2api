@@ -21,7 +21,7 @@
 | [活动中心](ACTIVITY_CENTER.md) | 抽奖、签到、兑换膨胀、资格与奖励记录 |
 | [在线客服](SUPPORT_CHAT.md) | 会话、图片、已读、转账、保留清理与多实例边界 |
 | [自定义模型与媒体工坊](CUSTOM_MODELS_AND_MEDIA.md) | 能力配置、请求模板、媒体生成与分组路由 |
-| [PR #169 媒体工坊同步审查](PR169_MEDIA_STUDIO_REVIEW.md) | 浏览器历史边界、原子视频计费、性能、范围关闭与升级回退 |
+| [PR #169 媒体工坊同步审查](../diagnostics/pr169-media-studio/VERIFICATION.md) | 浏览器历史边界、原子视频计费、性能、范围关闭与升级回退 |
 
 ## 接口与集成
 
@@ -38,6 +38,7 @@
 | [管理端支付集成 API](ADMIN_PAYMENT_INTEGRATION_API.md) | 外部支付页面与余额/兑换集成 |
 | [异步图片任务](ASYNC_IMAGE_TASKS.md) | 异步 Images API 的启用、提交和轮询 |
 | [批量图片 MVP](BATCH_IMAGE_MVP.md) | 批量图片任务的接口与状态模型 |
+| [PR #180 多模态视频按次计费审查](PR180_VIDEO_BILLING_REVIEW.md) | 按次视频分辨率档位、冻结结算、升级回退和 Docker 验证 |
 
 路由的最终事实来源是 `backend/internal/transport/http/server/routes/`。文档不维护一份完整路由副本，以免与代码产生双重事实。
 

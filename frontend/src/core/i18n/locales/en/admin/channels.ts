@@ -133,6 +133,7 @@ export default {
         requestTiers: 'Request Tiers',
         imageTiers: 'Image Tiers (Per Request)',
         videoTiers: 'Video Resolution Tiers (Per Second)',
+        multimodalVideoRequestTiers: 'Video Resolution Tiers (Per Request)',
         addTier: 'Add Tier',
         noTiersYet: 'No tiers yet. Click add to configure per-request pricing.',
         noPricingRules: 'No pricing rules yet. Click "Add" to create one.',

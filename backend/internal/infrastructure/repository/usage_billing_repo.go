@@ -569,14 +569,9 @@ func (r *usageBillingRepository) GetBalanceHoldByUpstreamRequestID(ctx context.C
 	if r == nil || r.db == nil {
 		return nil, errors.New("usage billing repository db is nil")
 	}
-	row := r.db.QueryRowContext(ctx, `
-		SELECT hold_key, request_id, upstream_request_id, user_id, api_key_id,
-		       COALESCE(group_id, 0), COALESCE(account_id, 0),
-		       model, resolution, duration_seconds, hold_amount, actual_amount,
-		       currency, status, expires_at, created_at, updated_at, base_amount, rate_multiplier, settled_duration_seconds
-		FROM video_balance_holds
-		WHERE upstream_request_id = $1
-	`, upstreamRequestID)
+	row := r.db.QueryRowContext(ctx,
+		`SELECT `+videoBalanceHoldColumns+` FROM video_balance_holds WHERE upstream_request_id = $1`,
+		upstreamRequestID)
 	record, err := scanBalanceHoldRecord(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -596,10 +591,7 @@ func (r *usageBillingRepository) ListExpiredBalanceHolds(ctx context.Context, no
 		limit = 100
 	}
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT hold_key, request_id, upstream_request_id, user_id, api_key_id,
-		       COALESCE(group_id, 0), COALESCE(account_id, 0),
-		       model, resolution, duration_seconds, hold_amount, actual_amount,
-		       currency, status, expires_at, created_at, updated_at, base_amount, rate_multiplier, settled_duration_seconds
+		SELECT `+videoBalanceHoldColumns+`
 		FROM video_balance_holds
 		WHERE status = $1 AND expires_at <= $2 AND upstream_request_id = ''
 		ORDER BY expires_at ASC, hold_key ASC
@@ -654,6 +646,7 @@ func scanBalanceHoldRecord(scanner balanceHoldScanner) (*service.BalanceHoldReco
 		&record.BaseAmount,
 		&record.RateMultiplier,
 		&record.SettledDurationSeconds,
+		&record.BillingMode,
 	); err != nil {
 		return nil, err
 	}

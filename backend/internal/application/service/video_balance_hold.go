@@ -37,6 +37,16 @@ type VideoBalanceHoldRequest struct {
 	Model           string
 	Resolution      string
 	DurationSeconds int
+	// TierBilling is the handler's resolved per-request pricing decision.
+	// Passing it through avoids another pricing lookup during reservation.
+	TierBilling bool
+}
+
+func (s *OpenAIGatewayService) videoHoldTierBilling(ctx context.Context, req VideoBalanceHoldRequest) bool {
+	if req.TierBilling {
+		return true
+	}
+	return s.MultimodalVideoRequestTierBilling(ctx, req.APIKey, strings.TrimSpace(req.Model))
 }
 
 // MultimodalVideoBalanceHoldEnabled 判断当前视频请求是否走两段式余额冻结。
@@ -65,22 +75,23 @@ func (s *OpenAIGatewayService) ReserveMultimodalVideoBalance(ctx context.Context
 	if repo == nil || req.APIKey == nil || req.APIKey.ID <= 0 || req.UserID <= 0 || strings.TrimSpace(req.Model) == "" {
 		return nil, ErrBalanceHoldFailed
 	}
-	resolution := NormalizeVideoBillingResolutionOrDefault(req.Resolution)
+	resolution := multimodalVideoHoldResolution(s, ctx, req)
 	durationSeconds := NormalizeVideoBillingDurationSecondsOrDefault(req.DurationSeconds)
 	multiplier := s.multimodalVideoRateMultiplier(ctx, req.APIKey, req.UserID, req.GroupID)
 	cost, err := s.calculateOpenAIVideoCost(ctx, strings.TrimSpace(req.Model), req.APIKey, &OpenAIForwardResult{
 		VideoCount: 1, VideoResolution: resolution, VideoDurationSeconds: durationSeconds,
 	}, multiplier)
 	if err != nil || cost == nil {
-		return nil, ErrVideoPriceNotConfigured.WithCause(err)
+		return nil, s.VideoPriceNotConfiguredError(ctx, req.APIKey, strings.TrimSpace(req.Model), req.Resolution, err)
 	}
 	now := time.Now()
 	record := &BalanceHoldRecord{
 		HoldKey: uuid.NewString(), UserID: req.UserID, APIKeyID: req.APIKey.ID,
 		GroupID: req.GroupID, AccountID: req.AccountID, Model: strings.TrimSpace(req.Model),
 		Resolution: resolution, DurationSeconds: durationSeconds,
-		HoldAmount: QuantizeUsageBillingAmount(cost.ActualCost),
-		BaseAmount: QuantizeUsageBillingAmount(cost.TotalCost), RateMultiplier: multiplier,
+		BillingMode: string(cost.BillingMode),
+		HoldAmount:  QuantizeUsageBillingAmount(cost.ActualCost),
+		BaseAmount:  QuantizeUsageBillingAmount(cost.TotalCost), RateMultiplier: multiplier,
 		Currency: videoBalanceHoldCurrency, Status: BalanceHoldStatusPending,
 		ExpiresAt: now.Add(videoBalanceHoldTTL), CreatedAt: now, UpdatedAt: now,
 	}
@@ -484,13 +495,22 @@ func (s *OpenAIGatewayService) ValidateMultimodalVideoPricing(ctx context.Contex
 	_, err := s.multimodalVideoHoldAmount(
 		ctx,
 		req,
-		NormalizeVideoBillingResolutionOrDefault(req.Resolution),
+		// Per-request video pricing must retain the raw tier decision; per-second
+		// pricing keeps the legacy normalized resolution behavior.
+		multimodalVideoHoldResolution(s, ctx, req),
 		NormalizeVideoBillingDurationSecondsOrDefault(req.DurationSeconds),
 	)
 	if err != nil {
-		return ErrVideoPriceNotConfigured.WithCause(err)
+		return s.VideoPriceNotConfiguredError(ctx, req.APIKey, strings.TrimSpace(req.Model), req.Resolution, err)
 	}
 	return nil
+}
+
+func multimodalVideoHoldResolution(s *OpenAIGatewayService, ctx context.Context, req VideoBalanceHoldRequest) string {
+	if s != nil && s.videoHoldTierBilling(ctx, req) {
+		return VideoBillingResolutionTier(req.Resolution)
+	}
+	return NormalizeVideoBillingResolutionOrDefault(req.Resolution)
 }
 
 // multimodalVideoHoldAmount 复用与 RecordUsage 完全一致的视频定价链路计算冻结金额。
