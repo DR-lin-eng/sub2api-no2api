@@ -79,6 +79,7 @@ import {
   chatMessagePageCount,
   loadChatMessagePages,
   mergeChatMessages,
+  reconcileChatMessageHistory,
   SUPPORT_CHAT_MESSAGE_PAGE_SIZE,
 } from '@/features/support-chat/presentation/composables/supportChatHistory'
 import { useSupportChatAdminStore } from '@/features/support-chat/presentation/stores/supportChatAdminStore'
@@ -112,6 +113,7 @@ const socket = useSupportChatSocket({
   scope: 'user',
   onStatusChange: (connected) => {
     socketConnected.value = connected
+    if (connected) void syncMessages(false)
   },
   onMessage: (message) => {
     stickMessagesToBottom.value = isMessagePaneNearBottom()
@@ -179,6 +181,7 @@ async function scrollToBottom() {
 
 async function syncMessages(showLoading: boolean) {
   const sequence = ++messageLoadSequence
+  const beforeLoad = [...messages.value]
   const requestedPage = Math.max(1, messagePage.value)
   if (showLoading) loading.value = true
   try {
@@ -191,7 +194,7 @@ async function syncMessages(showLoading: boolean) {
     ])
     if (sequence !== messageLoadSequence) return
     conversation.value = currentConversation
-    messages.value = history.items
+    messages.value = reconcileChatMessageHistory(history.items, beforeLoad, messages.value)
     messagePage.value = history.page
     messagePages.value = history.pages
     lastResyncAt = Date.now()
@@ -206,13 +209,14 @@ async function syncMessages(showLoading: boolean) {
   } catch (error) {
     appStore.showError(errorMessage(error, t('supportChat.loadFailed')))
   } finally {
-    if (showLoading) loading.value = false
+    if (sequence === messageLoadSequence) loading.value = false
   }
 }
 
 async function loadOlderMessages() {
   if (olderMessagesLoading.value || loading.value || !hasOlderMessages.value) return
   const sequence = messageLoadSequence
+  const beforeLoad = [...messages.value]
   const nextPage = messagePage.value + 1
   const pane = messagePaneRef.value
   const previousHeight = pane?.scrollHeight ?? 0
@@ -229,7 +233,9 @@ async function loadOlderMessages() {
       messagePages.value = messagePage.value
       return
     }
-    messages.value = mergeChatMessages(messages.value, page.items)
+    messages.value = reconcileChatMessageHistory(
+      mergeChatMessages(beforeLoad, page.items), beforeLoad, messages.value,
+    )
     messagePage.value = Math.max(messagePage.value, nextPage)
     messagePages.value = Math.max(messagePage.value, chatMessagePageCount(page))
     await nextTick()

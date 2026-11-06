@@ -200,6 +200,7 @@ import {
   chatMessagePageCount,
   loadChatMessagePages,
   mergeChatMessages,
+  reconcileChatMessageHistory,
   SUPPORT_CHAT_MESSAGE_PAGE_SIZE,
 } from '@/features/support-chat/presentation/composables/supportChatHistory'
 import { useSupportChatAdminStore } from '@/features/support-chat/presentation/stores/supportChatAdminStore'
@@ -272,6 +273,7 @@ const socket = useSupportChatSocket({
   scope: 'admin',
   onStatusChange: (connected) => {
     socketConnected.value = connected
+    if (connected) void resyncMessages(true)
   },
   onMessage: async (message) => {
     upsertConversationActivity(message)
@@ -455,6 +457,7 @@ async function reloadSelectedMessages() {
   if (!selectedConversationID.value) return
   const conversationID = selectedConversationID.value
   const sequence = ++messageLoadSequence
+  const beforeLoad = [...messages.value]
   const requestedPage = Math.max(1, messagePage.value)
   const shouldStickToBottom = stickMessagesToBottom.value
   messagesLoading.value = true
@@ -467,7 +470,7 @@ async function reloadSelectedMessages() {
       requestedPage,
     )
     if (sequence !== messageLoadSequence || selectedConversationID.value !== conversationID) return
-    messages.value = history.items
+    messages.value = reconcileChatMessageHistory(history.items, beforeLoad, messages.value)
     messagePage.value = history.page
     messagePages.value = history.pages
     stickMessagesToBottom.value = shouldStickToBottom
@@ -484,6 +487,7 @@ async function loadOlderMessages() {
   if (!conversationID || olderMessagesLoading.value || messagesLoading.value || !hasOlderMessages.value) return
 
   const sequence = messageLoadSequence
+  const beforeLoad = [...messages.value]
   const nextPage = messagePage.value + 1
   const pane = messagePaneRef.value
   const previousHeight = pane?.scrollHeight ?? 0
@@ -500,7 +504,9 @@ async function loadOlderMessages() {
       messagePages.value = messagePage.value
       return
     }
-    messages.value = mergeChatMessages(messages.value, page.items)
+    messages.value = reconcileChatMessageHistory(
+      mergeChatMessages(beforeLoad, page.items), beforeLoad, messages.value,
+    )
     messagePage.value = Math.max(messagePage.value, nextPage)
     messagePages.value = Math.max(messagePage.value, chatMessagePageCount(page))
     await nextTick()
@@ -748,9 +754,9 @@ function handleCatalogDelete(value: { scope: 'library' | 'sticker'; id: number }
   })
 }
 
-async function resyncMessages() {
+async function resyncMessages(force = false) {
   if (sending.value) return
-  if (socketConnected.value && Date.now() - lastResyncAt < SUPPORT_CHAT_CONNECTED_RESYNC_MS) return
+  if (!force && socketConnected.value && Date.now() - lastResyncAt < SUPPORT_CHAT_CONNECTED_RESYNC_MS) return
   await loadConversations()
   if (selectedConversationID.value) {
     await reloadSelectedMessages()

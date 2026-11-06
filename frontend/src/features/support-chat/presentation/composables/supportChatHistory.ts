@@ -15,6 +15,19 @@ export function mergeChatMessages<T extends { id: number }>(existing: T[], incom
   return [...byID.values()]
 }
 
+// A history response is authoritative for the snapshot it requested. Preserve
+// messages and recalls received after that request started, while allowing
+// messages removed by the server's retention policy to leave the visible list.
+export function reconcileChatMessageHistory<T extends { id: number }>(
+  history: T[],
+  beforeLoad: T[],
+  current: T[],
+): T[] {
+  const beforeByID = new Map(beforeLoad.map(message => [message.id, message]))
+  const updatesDuringLoad = current.filter(message => beforeByID.get(message.id) !== message)
+  return mergeChatMessages(history, updatesDuringLoad)
+}
+
 // The API returns newest-first pages. Keep the loaded page boundary in the
 // caller while merging older pages by ID, allowing refreshes and socket updates
 // to keep already visible history.
