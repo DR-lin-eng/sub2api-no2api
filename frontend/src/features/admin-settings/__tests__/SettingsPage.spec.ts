@@ -1,3 +1,8 @@
+vi.mock("@/features/admin-settings/data/datasources/registrationEmailBlacklistDatasource", () => ({
+  getRegistrationEmailBlacklist: vi.fn().mockResolvedValue({ emails: [], max: 20000 }),
+  updateRegistrationEmailBlacklist: vi.fn(),
+}));
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, type Component } from "vue";
 import { flushPromises, mount } from "@vue/test-utils";

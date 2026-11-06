@@ -1,3 +1,5 @@
+import registrationEmailBlacklist from './settingsEmailBlacklist'
+
 import rechargeBonusMessages from './settings.recharge-bonus'
 import supportChatMessages from './settings.support-chat'
 import codexSimulationMessages from './settings.codex-simulation'
@@ -200,6 +202,7 @@ export default {
           "Only email addresses from the specified domains can register (for example, {'@'}qq.com, {'@'}gmail.com, *.edu.cn)",
         emailSuffixWhitelistPlaceholder: "{'@'}example.com, *.edu.cn",
         emailSuffixWhitelistInputHint: 'Leave empty for no restriction. Use *.edu.cn to match edu.cn and its subdomains.',
+        emailBlacklist: registrationEmailBlacklist,
         promoCode: 'Promo Code',
         promoCodeHint: 'Allow users to use promo codes during registration',
         invitationCode: 'Invitation Code Registration',

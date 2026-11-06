@@ -1,0 +1,48 @@
+{
+  "fixture": "real RegistrationEmailBlacklistEditor with deterministic API adapters; no production calls",
+  "cases": [
+    {
+      "locale": "zh",
+      "viewport": [
+        1280,
+        800
+      ],
+      "documentWidth": 1280,
+      "state": "edit dialog",
+      "screenshot": "output/playwright/upstream-sync-20261107/desktop-zh.png",
+      "screenshot_sha256": "35c1129f951f19a2b37f0b4d3918ae526292e36bb2a0a81392c11c597911e90e"
+    },
+    {
+      "locale": "zh",
+      "viewport": [
+        390,
+        844
+      ],
+      "documentWidth": 390,
+      "state": "explicit disable confirmation after save",
+      "screenshot": "output/playwright/upstream-sync-20261107/mobile-confirm-zh.png",
+      "screenshot_sha256": "9fdd81be504ac594001cc8e519bf06b9957ca119b0b7b8faeb76cebafd39efc2"
+    },
+    {
+      "locale": "en",
+      "viewport": [
+        390,
+        844
+      ],
+      "documentWidth": 390,
+      "state": "edit dialog",
+      "screenshot": "output/playwright/upstream-sync-20261107/mobile-edit-en.png",
+      "screenshot_sha256": "529026d395efe0fa44b07c439de3c045dfefc110ab203712b05dfaa673769e9d"
+    }
+  ],
+  "interactions": {
+    "bulk_input": "one new address, one duplicate, one invalid item",
+    "observed_added": 1,
+    "observed_duplicates": 1,
+    "invalid_retained_in_input": true,
+    "saved_count": 3,
+    "disable_confirmation_shown": true,
+    "disable_not_automatic": true
+  },
+  "browser_console_errors": 0
+}

@@ -14,6 +14,7 @@
 | 修改 API Key 多分组路由 | `application/service/api_key_group_routing.go` | `gateway_scheduling.go`, `openai_account_scheduler.go`, `repository/api_key_repo.go`, `api_key_repo_sort.go`, `features/keys/` | service fallback + repository integration + 前端 feature 测试 |
 | 设置分组可用模型 | `application/service/group_model_allowlist.go`, `transport/http/server/middleware/group_model_allowlist.go` | `ent/schema/group.go`, admin group DTO/page、各模型列表 handler | allowlist service + gateway admission/listing + Docker |
 | 修改 JWT/管理员鉴权 | `server/middleware/jwt_auth.go`, `admin_auth.go` | `handler/auth*`, `application/service/auth*` | auth/middleware 测试 |
+| 注册邮箱黑名单与批量禁用 | `application/service/registration_email_blacklist.go`, `admin_user_email_blacklist.go` | admin setting/user handler、`repository/user_repo_email_blacklist.go`、`features/admin-settings/` 与 `admin-users/` | 注册/发码/邮箱 OAuth、权限、MCP 撤销集成与设置页测试；见 [同步说明](UPSTREAM_SYNC_20261107.md) |
 | 修改前端登录/会话 | `frontend/src/features/auth/data/datasources/authSessionActions.ts`, `authOAuthActions.ts` | `presentation/stores/authStore.ts`, `core/networks/sessionRefresh.ts`, `core/routes/index.ts` | auth/profile + sessionRefresh + route guard 测试 |
 | 修改 Claude/Anthropic 网关 | `routes/gateway.go`, `handler/gateway_handler_messages.go` | `application/service/gateway*` | gateway handler + service 测试 |
 | 修改 Codex Remote Control client 证明 | `modules/codexremotecontrol/` | `shared/remotecontrol/device_key.go`, `platform/devicekey/`, `service/openai_codex_remote_control_client.go` | JS golden、HTTP/WS challenge、本地 native 可用性与回退测试 |

@@ -6,6 +6,8 @@ import (
 )
 
 type GatewayConfig struct {
+	// Opt out only of persistent OpenAI transport-error account cooldown.
+	DisableOpenAITransportErrorCooldown bool `mapstructure:"disable_openai_transport_error_cooldown"`
 	// MinOutputTokens is the output floor for compatibility conversions.
 	MinOutputTokens int `mapstructure:"min_output_tokens"`
 	// 等待上游响应头的超时时间（秒），0表示无超时

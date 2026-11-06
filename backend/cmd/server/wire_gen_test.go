@@ -88,6 +88,8 @@ func TestProvideCleanup_WithMinimalDependencies_NoPanic(t *testing.T) {
 		emailQueueSvc,
 		billingCacheSvc,
 		&service.UsageRecordWorkerPool{},
+		nil, // balanceNotify
+		nil, // digestSessions
 		nil, // usageBillingRepository
 		nil, // usageBillingQueueRuntimeCoordinator
 		&service.SubscriptionService{},

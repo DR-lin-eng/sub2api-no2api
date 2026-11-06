@@ -250,6 +250,9 @@ gateway:
   # Timeout for waiting upstream response headers (seconds)
   # 等待上游响应头超时时间（秒）
   response_header_timeout: 600
+  # Disable only the fixed 10-minute cooldown for persistent OpenAI DNS/proxy/network errors.
+  # Default false preserves protection. Existing cooldowns, timeout/HTTP policies and bounded failover still apply.
+  disable_openai_transport_error_cooldown: false
   # Gateway-wide IANA timezone projected into OpenAI Responses environment
   # context and web_search user_location fields.
   # 网关统一替换 OpenAI 请求上下文中的时区；不按账号单独配置。

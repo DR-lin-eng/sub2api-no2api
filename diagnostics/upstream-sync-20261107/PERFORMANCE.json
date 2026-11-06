@@ -1,0 +1,1050 @@
+{
+  "baseline": "e0ecc7c85ce7c2f8e561e8da12f6cdcaae7c489c",
+  "environment": {
+    "docker": "linux/arm64",
+    "go": "1.26.10",
+    "cpus": 2,
+    "benchmark_cpu": 1,
+    "memory": "4GiB",
+    "gomemlimit": "1400MiB",
+    "gogc": 50,
+    "samples": 3,
+    "benchtime": "200ms"
+  },
+  "results": [
+    {
+      "name": "BenchmarkUpstreamSync20261027/model_audit_ordinary",
+      "baseline_samples": [
+        {
+          "ns_op": 6.806,
+          "bytes_op": 0.0,
+          "allocs_op": 0.0
+        },
+        {
+          "ns_op": 6.596,
+          "bytes_op": 0.0,
+          "allocs_op": 0.0
+        },
+        {
+          "ns_op": 6.848,
+          "bytes_op": 0.0,
+          "allocs_op": 0.0
+        }
+      ],
+      "candidate_samples": [
+        {
+          "ns_op": 7.984,
+          "bytes_op": 0.0,
+          "allocs_op": 0.0
+        },
+        {
+          "ns_op": 8.162,
+          "bytes_op": 0.0,
+          "allocs_op": 0.0
+        },
+        {
+          "ns_op": 7.432,
+          "bytes_op": 0.0,
+          "allocs_op": 0.0
+        }
+      ],
+      "baseline_median": {
+        "ns_op": 6.806,
+        "bytes_op": 0.0,
+        "allocs_op": 0.0
+      },
+      "candidate_median": {
+        "ns_op": 7.984,
+        "bytes_op": 0.0,
+        "allocs_op": 0.0
+      }
+    },
+    {
+      "name": "BenchmarkUpstreamSync20261027/model_audit_oversized",
+      "baseline_samples": [
+        {
+          "ns_op": 811.3,
+          "bytes_op": 640.0,
+          "allocs_op": 1.0
+        },
+        {
+          "ns_op": 728.6,
+          "bytes_op": 640.0,
+          "allocs_op": 1.0
+        },
+        {
+          "ns_op": 753.3,
+          "bytes_op": 640.0,
+          "allocs_op": 1.0
+        }
+      ],
+      "candidate_samples": [
+        {
+          "ns_op": 769.3,
+          "bytes_op": 640.0,
+          "allocs_op": 1.0
+        },
+        {
+          "ns_op": 759.6,
+          "bytes_op": 640.0,
+          "allocs_op": 1.0
+        },
+        {
+          "ns_op": 830.6,
+          "bytes_op": 640.0,
+          "allocs_op": 1.0
+        }
+      ],
+      "baseline_median": {
+        "ns_op": 753.3,
+        "bytes_op": 640.0,
+        "allocs_op": 1.0
+      },
+      "candidate_median": {
+        "ns_op": 769.3,
+        "bytes_op": 640.0,
+        "allocs_op": 1.0
+      }
+    },
+    {
+      "name": "BenchmarkUpstreamSync20261027/legacy_model_alias",
+      "baseline_samples": [
+        {
+          "ns_op": 4878.0,
+          "bytes_op": 6848.0,
+          "allocs_op": 9.0
+        },
+        {
+          "ns_op": 4097.0,
+          "bytes_op": 6848.0,
+          "allocs_op": 9.0
+        },
+        {
+          "ns_op": 3530.0,
+          "bytes_op": 6848.0,
+          "allocs_op": 9.0
+        }
+      ],
+      "candidate_samples": [
+        {
+          "ns_op": 3907.0,
+          "bytes_op": 6848.0,
+          "allocs_op": 9.0
+        },
+        {
+          "ns_op": 3416.0,
+          "bytes_op": 6848.0,
+          "allocs_op": 9.0
+        },
+        {
+          "ns_op": 3483.0,
+          "bytes_op": 6848.0,
+          "allocs_op": 9.0
+        }
+      ],
+      "baseline_median": {
+        "ns_op": 4097.0,
+        "bytes_op": 6848.0,
+        "allocs_op": 9.0
+      },
+      "candidate_median": {
+        "ns_op": 3483.0,
+        "bytes_op": 6848.0,
+        "allocs_op": 9.0
+      }
+    },
+    {
+      "name": "BenchmarkUpstreamSyncResponsesTerminalExtraction/existing_completed",
+      "baseline_samples": [
+        {
+          "ns_op": 253376.0,
+          "bytes_op": 156792.0,
+          "allocs_op": 262.0
+        },
+        {
+          "ns_op": 123017.0,
+          "bytes_op": 156792.0,
+          "allocs_op": 262.0
+        },
+        {
+          "ns_op": 122742.0,
+          "bytes_op": 156792.0,
+          "allocs_op": 262.0
+        }
+      ],
+      "candidate_samples": [
+        {
+          "ns_op": 148285.0,
+          "bytes_op": 156792.0,
+          "allocs_op": 262.0
+        },
+        {
+          "ns_op": 146904.0,
+          "bytes_op": 156792.0,
+          "allocs_op": 262.0
+        },
+        {
+          "ns_op": 136913.0,
+          "bytes_op": 156792.0,
+          "allocs_op": 262.0
+        }
+      ],
+      "baseline_median": {
+        "ns_op": 123017.0,
+        "bytes_op": 156792.0,
+        "allocs_op": 262.0
+      },
+      "candidate_median": {
+        "ns_op": 146904.0,
+        "bytes_op": 156792.0,
+        "allocs_op": 262.0
+      }
+    },
+    {
+      "name": "BenchmarkUpstreamSyncResponsesTerminalExtraction/all_terminal_statuses",
+      "baseline_samples": [
+        {
+          "ns_op": 80142.0,
+          "bytes_op": 156792.0,
+          "allocs_op": 262.0
+        },
+        {
+          "ns_op": 91146.0,
+          "bytes_op": 156792.0,
+          "allocs_op": 262.0
+        },
+        {
+          "ns_op": 88042.0,
+          "bytes_op": 156792.0,
+          "allocs_op": 262.0
+        }
+      ],
+      "candidate_samples": [
+        {
+          "ns_op": 83765.0,
+          "bytes_op": 156792.0,
+          "allocs_op": 262.0
+        },
+        {
+          "ns_op": 73714.0,
+          "bytes_op": 156792.0,
+          "allocs_op": 262.0
+        },
+        {
+          "ns_op": 90316.0,
+          "bytes_op": 156792.0,
+          "allocs_op": 262.0
+        }
+      ],
+      "baseline_median": {
+        "ns_op": 88042.0,
+        "bytes_op": 156792.0,
+        "allocs_op": 262.0
+      },
+      "candidate_median": {
+        "ns_op": 83765.0,
+        "bytes_op": 156792.0,
+        "allocs_op": 262.0
+      }
+    },
+    {
+      "name": "BenchmarkUpstreamSync20260909/channel_cache_hit",
+      "baseline_samples": [
+        {
+          "ns_op": 20.31,
+          "bytes_op": 0.0,
+          "allocs_op": 0.0
+        },
+        {
+          "ns_op": 20.41,
+          "bytes_op": 0.0,
+          "allocs_op": 0.0
+        },
+        {
+          "ns_op": 20.19,
+          "bytes_op": 0.0,
+          "allocs_op": 0.0
+        }
+      ],
+      "candidate_samples": [
+        {
+          "ns_op": 21.57,
+          "bytes_op": 0.0,
+          "allocs_op": 0.0
+        },
+        {
+          "ns_op": 29.9,
+          "bytes_op": 0.0,
+          "allocs_op": 0.0
+        },
+        {
+          "ns_op": 24.74,
+          "bytes_op": 0.0,
+          "allocs_op": 0.0
+        }
+      ],
+      "baseline_median": {
+        "ns_op": 20.31,
+        "bytes_op": 0.0,
+        "allocs_op": 0.0
+      },
+      "candidate_median": {
+        "ns_op": 24.74,
+        "bytes_op": 0.0,
+        "allocs_op": 0.0
+      }
+    },
+    {
+      "name": "BenchmarkUpstreamSync20260909/grok_without_field_256KiB",
+      "baseline_samples": [
+        {
+          "ns_op": 69173.0,
+          "bytes_op": 0.0,
+          "allocs_op": 0.0
+        },
+        {
+          "ns_op": 68887.0,
+          "bytes_op": 0.0,
+          "allocs_op": 0.0
+        },
+        {
+          "ns_op": 68870.0,
+          "bytes_op": 0.0,
+          "allocs_op": 0.0
+        }
+      ],
+      "candidate_samples": [
+        {
+          "ns_op": 72773.0,
+          "bytes_op": 0.0,
+          "allocs_op": 0.0
+        },
+        {
+          "ns_op": 73809.0,
+          "bytes_op": 0.0,
+          "allocs_op": 0.0
+        },
+        {
+          "ns_op": 71721.0,
+          "bytes_op": 0.0,
+          "allocs_op": 0.0
+        }
+      ],
+      "baseline_median": {
+        "ns_op": 68887.0,
+        "bytes_op": 0.0,
+        "allocs_op": 0.0
+      },
+      "candidate_median": {
+        "ns_op": 72773.0,
+        "bytes_op": 0.0,
+        "allocs_op": 0.0
+      }
+    },
+    {
+      "name": "BenchmarkUpstreamSync20261107/request-retry/4096",
+      "baseline_samples": [
+        {
+          "ns_op": 21071.0,
+          "bytes_op": 232.0,
+          "allocs_op": 3.0
+        },
+        {
+          "ns_op": 19627.0,
+          "bytes_op": 232.0,
+          "allocs_op": 3.0
+        },
+        {
+          "ns_op": 19866.0,
+          "bytes_op": 232.0,
+          "allocs_op": 3.0
+        }
+      ],
+      "candidate_samples": [
+        {
+          "ns_op": 1241.0,
+          "bytes_op": 240.0,
+          "allocs_op": 3.0
+        },
+        {
+          "ns_op": 1276.0,
+          "bytes_op": 240.0,
+          "allocs_op": 3.0
+        },
+        {
+          "ns_op": 1282.0,
+          "bytes_op": 240.0,
+          "allocs_op": 3.0
+        }
+      ],
+      "baseline_median": {
+        "ns_op": 19866.0,
+        "bytes_op": 232.0,
+        "allocs_op": 3.0
+      },
+      "candidate_median": {
+        "ns_op": 1276.0,
+        "bytes_op": 240.0,
+        "allocs_op": 3.0
+      }
+    },
+    {
+      "name": "BenchmarkUpstreamSync20261107/initial-parse/4096",
+      "baseline_samples": [
+        {
+          "ns_op": 6698.0,
+          "bytes_op": 216.0,
+          "allocs_op": 2.0
+        },
+        {
+          "ns_op": 6687.0,
+          "bytes_op": 216.0,
+          "allocs_op": 2.0
+        },
+        {
+          "ns_op": 6678.0,
+          "bytes_op": 216.0,
+          "allocs_op": 2.0
+        }
+      ],
+      "candidate_samples": [
+        {
+          "ns_op": 7361.0,
+          "bytes_op": 408.0,
+          "allocs_op": 5.0
+        },
+        {
+          "ns_op": 7393.0,
+          "bytes_op": 408.0,
+          "allocs_op": 5.0
+        },
+        {
+          "ns_op": 7439.0,
+          "bytes_op": 408.0,
+          "allocs_op": 5.0
+        }
+      ],
+      "baseline_median": {
+        "ns_op": 6687.0,
+        "bytes_op": 216.0,
+        "allocs_op": 2.0
+      },
+      "candidate_median": {
+        "ns_op": 7393.0,
+        "bytes_op": 408.0,
+        "allocs_op": 5.0
+      }
+    },
+    {
+      "name": "BenchmarkUpstreamSync20261107/cache-control/4096",
+      "baseline_samples": [
+        {
+          "ns_op": 8296.0,
+          "bytes_op": 5048.0,
+          "allocs_op": 6.0
+        },
+        {
+          "ns_op": 8446.0,
+          "bytes_op": 5048.0,
+          "allocs_op": 6.0
+        },
+        {
+          "ns_op": 8452.0,
+          "bytes_op": 5048.0,
+          "allocs_op": 6.0
+        }
+      ],
+      "candidate_samples": [
+        {
+          "ns_op": 6287.0,
+          "bytes_op": 104.0,
+          "allocs_op": 4.0
+        },
+        {
+          "ns_op": 6425.0,
+          "bytes_op": 104.0,
+          "allocs_op": 4.0
+        },
+        {
+          "ns_op": 6368.0,
+          "bytes_op": 104.0,
+          "allocs_op": 4.0
+        }
+      ],
+      "baseline_median": {
+        "ns_op": 8446.0,
+        "bytes_op": 5048.0,
+        "allocs_op": 6.0
+      },
+      "candidate_median": {
+        "ns_op": 6368.0,
+        "bytes_op": 104.0,
+        "allocs_op": 4.0
+      }
+    },
+    {
+      "name": "BenchmarkUpstreamSync20261107/request-retry/1048576",
+      "baseline_samples": [
+        {
+          "ns_op": 4186109.0,
+          "bytes_op": 232.0,
+          "allocs_op": 3.0
+        },
+        {
+          "ns_op": 4172078.0,
+          "bytes_op": 232.0,
+          "allocs_op": 3.0
+        },
+        {
+          "ns_op": 4321743.0,
+          "bytes_op": 232.0,
+          "allocs_op": 3.0
+        }
+      ],
+      "candidate_samples": [
+        {
+          "ns_op": 234123.0,
+          "bytes_op": 240.0,
+          "allocs_op": 3.0
+        },
+        {
+          "ns_op": 235550.0,
+          "bytes_op": 240.0,
+          "allocs_op": 3.0
+        },
+        {
+          "ns_op": 246352.0,
+          "bytes_op": 240.0,
+          "allocs_op": 3.0
+        }
+      ],
+      "baseline_median": {
+        "ns_op": 4186109.0,
+        "bytes_op": 232.0,
+        "allocs_op": 3.0
+      },
+      "candidate_median": {
+        "ns_op": 235550.0,
+        "bytes_op": 240.0,
+        "allocs_op": 3.0
+      }
+    },
+    {
+      "name": "BenchmarkUpstreamSync20261107/initial-parse/1048576",
+      "baseline_samples": [
+        {
+          "ns_op": 1397157.0,
+          "bytes_op": 216.0,
+          "allocs_op": 2.0
+        },
+        {
+          "ns_op": 1392095.0,
+          "bytes_op": 216.0,
+          "allocs_op": 2.0
+        },
+        {
+          "ns_op": 1649186.0,
+          "bytes_op": 216.0,
+          "allocs_op": 2.0
+        }
+      ],
+      "candidate_samples": [
+        {
+          "ns_op": 1566654.0,
+          "bytes_op": 408.0,
+          "allocs_op": 5.0
+        },
+        {
+          "ns_op": 1487111.0,
+          "bytes_op": 408.0,
+          "allocs_op": 5.0
+        },
+        {
+          "ns_op": 1517183.0,
+          "bytes_op": 408.0,
+          "allocs_op": 5.0
+        }
+      ],
+      "baseline_median": {
+        "ns_op": 1397157.0,
+        "bytes_op": 216.0,
+        "allocs_op": 2.0
+      },
+      "candidate_median": {
+        "ns_op": 1517183.0,
+        "bytes_op": 408.0,
+        "allocs_op": 5.0
+      }
+    },
+    {
+      "name": "BenchmarkUpstreamSync20261107/cache-control/1048576",
+      "baseline_samples": [
+        {
+          "ns_op": 1591867.0,
+          "bytes_op": 1056987.0,
+          "allocs_op": 6.0
+        },
+        {
+          "ns_op": 1606452.0,
+          "bytes_op": 1056986.0,
+          "allocs_op": 6.0
+        },
+        {
+          "ns_op": 1588028.0,
+          "bytes_op": 1056987.0,
+          "allocs_op": 6.0
+        }
+      ],
+      "candidate_samples": [
+        {
+          "ns_op": 1322653.0,
+          "bytes_op": 104.0,
+          "allocs_op": 4.0
+        },
+        {
+          "ns_op": 1322682.0,
+          "bytes_op": 104.0,
+          "allocs_op": 4.0
+        },
+        {
+          "ns_op": 1371341.0,
+          "bytes_op": 104.0,
+          "allocs_op": 4.0
+        }
+      ],
+      "baseline_median": {
+        "ns_op": 1591867.0,
+        "bytes_op": 1056987.0,
+        "allocs_op": 6.0
+      },
+      "candidate_median": {
+        "ns_op": 1322682.0,
+        "bytes_op": 104.0,
+        "allocs_op": 4.0
+      }
+    },
+    {
+      "name": "BenchmarkUpstreamSync20261107/request-retry/8388608",
+      "baseline_samples": [
+        {
+          "ns_op": 33460153.0,
+          "bytes_op": 232.0,
+          "allocs_op": 3.0
+        },
+        {
+          "ns_op": 33351875.0,
+          "bytes_op": 232.0,
+          "allocs_op": 3.0
+        },
+        {
+          "ns_op": 33591911.0,
+          "bytes_op": 232.0,
+          "allocs_op": 3.0
+        }
+      ],
+      "candidate_samples": [
+        {
+          "ns_op": 1874463.0,
+          "bytes_op": 240.0,
+          "allocs_op": 3.0
+        },
+        {
+          "ns_op": 1911476.0,
+          "bytes_op": 240.0,
+          "allocs_op": 3.0
+        },
+        {
+          "ns_op": 1878823.0,
+          "bytes_op": 240.0,
+          "allocs_op": 3.0
+        }
+      ],
+      "baseline_median": {
+        "ns_op": 33460153.0,
+        "bytes_op": 232.0,
+        "allocs_op": 3.0
+      },
+      "candidate_median": {
+        "ns_op": 1878823.0,
+        "bytes_op": 240.0,
+        "allocs_op": 3.0
+      }
+    },
+    {
+      "name": "BenchmarkUpstreamSync20261107/initial-parse/8388608",
+      "baseline_samples": [
+        {
+          "ns_op": 11462475.0,
+          "bytes_op": 216.0,
+          "allocs_op": 2.0
+        },
+        {
+          "ns_op": 11162454.0,
+          "bytes_op": 216.0,
+          "allocs_op": 2.0
+        },
+        {
+          "ns_op": 11345956.0,
+          "bytes_op": 216.0,
+          "allocs_op": 2.0
+        }
+      ],
+      "candidate_samples": [
+        {
+          "ns_op": 12063228.0,
+          "bytes_op": 408.0,
+          "allocs_op": 5.0
+        },
+        {
+          "ns_op": 13057928.0,
+          "bytes_op": 408.0,
+          "allocs_op": 5.0
+        },
+        {
+          "ns_op": 11788241.0,
+          "bytes_op": 408.0,
+          "allocs_op": 5.0
+        }
+      ],
+      "baseline_median": {
+        "ns_op": 11345956.0,
+        "bytes_op": 216.0,
+        "allocs_op": 2.0
+      },
+      "candidate_median": {
+        "ns_op": 12063228.0,
+        "bytes_op": 408.0,
+        "allocs_op": 5.0
+      }
+    },
+    {
+      "name": "BenchmarkUpstreamSync20261107/cache-control/8388608",
+      "baseline_samples": [
+        {
+          "ns_op": 11652454.0,
+          "bytes_op": 8397059.0,
+          "allocs_op": 7.0
+        },
+        {
+          "ns_op": 11473935.0,
+          "bytes_op": 8397058.0,
+          "allocs_op": 7.0
+        },
+        {
+          "ns_op": 11590686.0,
+          "bytes_op": 8397061.0,
+          "allocs_op": 7.0
+        }
+      ],
+      "candidate_samples": [
+        {
+          "ns_op": 10625192.0,
+          "bytes_op": 110.0,
+          "allocs_op": 4.0
+        },
+        {
+          "ns_op": 11348897.0,
+          "bytes_op": 110.0,
+          "allocs_op": 4.0
+        },
+        {
+          "ns_op": 12217023.0,
+          "bytes_op": 111.0,
+          "allocs_op": 4.0
+        }
+      ],
+      "baseline_median": {
+        "ns_op": 11590686.0,
+        "bytes_op": 8397059.0,
+        "allocs_op": 7.0
+      },
+      "candidate_median": {
+        "ns_op": 11348897.0,
+        "bytes_op": 110.0,
+        "allocs_op": 4.0
+      }
+    },
+    {
+      "name": "BenchmarkUpstreamSync20261107/thinking-no-change/1048576",
+      "baseline_samples": [
+        {
+          "ns_op": 3788861.0,
+          "bytes_op": 1050956.0,
+          "allocs_op": 50.0
+        },
+        {
+          "ns_op": 3774549.0,
+          "bytes_op": 1050956.0,
+          "allocs_op": 50.0
+        },
+        {
+          "ns_op": 3798229.0,
+          "bytes_op": 1050956.0,
+          "allocs_op": 50.0
+        }
+      ],
+      "candidate_samples": [
+        {
+          "ns_op": 1368237.0,
+          "bytes_op": 8.0,
+          "allocs_op": 1.0
+        },
+        {
+          "ns_op": 1312019.0,
+          "bytes_op": 8.0,
+          "allocs_op": 1.0
+        },
+        {
+          "ns_op": 1354529.0,
+          "bytes_op": 8.0,
+          "allocs_op": 1.0
+        }
+      ],
+      "baseline_median": {
+        "ns_op": 3788861.0,
+        "bytes_op": 1050956.0,
+        "allocs_op": 50.0
+      },
+      "candidate_median": {
+        "ns_op": 1354529.0,
+        "bytes_op": 8.0,
+        "allocs_op": 1.0
+      }
+    },
+    {
+      "name": "BenchmarkUpstreamSyncArgumentTracking/upstream_concat",
+      "baseline_samples": [
+        {
+          "ns_op": 2242457.0,
+          "bytes_op": 36099648.0,
+          "allocs_op": 1023.0
+        },
+        {
+          "ns_op": 2491518.0,
+          "bytes_op": 36099648.0,
+          "allocs_op": 1023.0
+        },
+        {
+          "ns_op": 2359856.0,
+          "bytes_op": 36099648.0,
+          "allocs_op": 1023.0
+        }
+      ],
+      "candidate_samples": [
+        {
+          "ns_op": 3230720.0,
+          "bytes_op": 36099648.0,
+          "allocs_op": 1023.0
+        },
+        {
+          "ns_op": 2153033.0,
+          "bytes_op": 36099648.0,
+          "allocs_op": 1023.0
+        },
+        {
+          "ns_op": 2840639.0,
+          "bytes_op": 36099648.0,
+          "allocs_op": 1023.0
+        }
+      ],
+      "baseline_median": {
+        "ns_op": 2359856.0,
+        "bytes_op": 36099648.0,
+        "allocs_op": 1023.0
+      },
+      "candidate_median": {
+        "ns_op": 2840639.0,
+        "bytes_op": 36099648.0,
+        "allocs_op": 1023.0
+      }
+    },
+    {
+      "name": "BenchmarkUpstreamSyncArgumentTracking/bounded_digest",
+      "baseline_samples": [
+        {
+          "ns_op": 50416.0,
+          "bytes_op": 1256.0,
+          "allocs_op": 9.0
+        },
+        {
+          "ns_op": 49942.0,
+          "bytes_op": 1256.0,
+          "allocs_op": 9.0
+        },
+        {
+          "ns_op": 50050.0,
+          "bytes_op": 1256.0,
+          "allocs_op": 9.0
+        }
+      ],
+      "candidate_samples": [
+        {
+          "ns_op": 64542.0,
+          "bytes_op": 1256.0,
+          "allocs_op": 9.0
+        },
+        {
+          "ns_op": 70218.0,
+          "bytes_op": 1256.0,
+          "allocs_op": 9.0
+        },
+        {
+          "ns_op": 61260.0,
+          "bytes_op": 1256.0,
+          "allocs_op": 9.0
+        }
+      ],
+      "baseline_median": {
+        "ns_op": 50050.0,
+        "bytes_op": 1256.0,
+        "allocs_op": 9.0
+      },
+      "candidate_median": {
+        "ns_op": 64542.0,
+        "bytes_op": 1256.0,
+        "allocs_op": 9.0
+      }
+    },
+    {
+      "name": "BenchmarkUpstreamSyncRead64ByteDeltas/32KiB",
+      "baseline_samples": [
+        {
+          "ns_op": 15875363.0,
+          "bytes_op": 8854416.0,
+          "allocs_op": 1552.0
+        },
+        {
+          "ns_op": 15860735.0,
+          "bytes_op": 8854413.0,
+          "allocs_op": 1552.0
+        },
+        {
+          "ns_op": 16049587.0,
+          "bytes_op": 8854420.0,
+          "allocs_op": 1552.0
+        }
+      ],
+      "candidate_samples": [
+        {
+          "ns_op": 56385.0,
+          "bytes_op": 158896.0,
+          "allocs_op": 534.0
+        },
+        {
+          "ns_op": 49036.0,
+          "bytes_op": 158896.0,
+          "allocs_op": 534.0
+        },
+        {
+          "ns_op": 42333.0,
+          "bytes_op": 158896.0,
+          "allocs_op": 534.0
+        }
+      ],
+      "baseline_median": {
+        "ns_op": 15875363.0,
+        "bytes_op": 8854416.0,
+        "allocs_op": 1552.0
+      },
+      "candidate_median": {
+        "ns_op": 49036.0,
+        "bytes_op": 158896.0,
+        "allocs_op": 534.0
+      }
+    },
+    {
+      "name": "BenchmarkUpstreamSyncRead64ByteDeltas/128KiB",
+      "baseline_samples": [
+        {
+          "ns_op": 253728875.0,
+          "bytes_op": 141037672.0,
+          "allocs_op": 6353.0
+        },
+        {
+          "ns_op": 250111208.0,
+          "bytes_op": 141038352.0,
+          "allocs_op": 6363.0
+        },
+        {
+          "ns_op": 249065959.0,
+          "bytes_op": 141038320.0,
+          "allocs_op": 6363.0
+        }
+      ],
+      "candidate_samples": [
+        {
+          "ns_op": 164290.0,
+          "bytes_op": 531632.0,
+          "allocs_op": 2074.0
+        },
+        {
+          "ns_op": 121995.0,
+          "bytes_op": 531632.0,
+          "allocs_op": 2074.0
+        },
+        {
+          "ns_op": 123386.0,
+          "bytes_op": 531632.0,
+          "allocs_op": 2074.0
+        }
+      ],
+      "baseline_median": {
+        "ns_op": 250111208.0,
+        "bytes_op": 141038320.0,
+        "allocs_op": 6363.0
+      },
+      "candidate_median": {
+        "ns_op": 123386.0,
+        "bytes_op": 531632.0,
+        "allocs_op": 2074.0
+      }
+    },
+    {
+      "name": "BenchmarkUpstreamSyncRead64ByteDeltas/512KiB",
+      "baseline_samples": [
+        {
+          "ns_op": 4031856710.0,
+          "bytes_op": 2179887376.0,
+          "allocs_op": 27915.0
+        },
+        {
+          "ns_op": 4003194335.0,
+          "bytes_op": 2179899816.0,
+          "allocs_op": 28097.0
+        },
+        {
+          "ns_op": 4017387835.0,
+          "bytes_op": 2179899984.0,
+          "allocs_op": 28099.0
+        }
+      ],
+      "candidate_samples": [
+        {
+          "ns_op": 1127165.0,
+          "bytes_op": 2604208.0,
+          "allocs_op": 8224.0
+        },
+        {
+          "ns_op": 890638.0,
+          "bytes_op": 2604208.0,
+          "allocs_op": 8224.0
+        },
+        {
+          "ns_op": 1259227.0,
+          "bytes_op": 2604208.0,
+          "allocs_op": 8224.0
+        }
+      ],
+      "baseline_median": {
+        "ns_op": 4017387835.0,
+        "bytes_op": 2179899816.0,
+        "allocs_op": 28097.0
+      },
+      "candidate_median": {
+        "ns_op": 1127165.0,
+        "bytes_op": 2604208.0,
+        "allocs_op": 8224.0
+      }
+    }
+  ]
+}

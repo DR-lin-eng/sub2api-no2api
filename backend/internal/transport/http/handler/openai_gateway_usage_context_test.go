@@ -2,6 +2,8 @@ package handler
 
 import (
 	"context"
+	"github.com/gin-gonic/gin"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/shared/ctxkey"
@@ -72,4 +74,23 @@ func TestOpenAIWSTurnUsageContextSeparatesTurnsAndPreservesRetries(t *testing.T)
 		require.NotEmpty(t, openAIWSTurnUsageContext(fallbackParent, 1).Value(ctxkey.UsageBillingRequestID))
 		require.NotEmpty(t, openAIWSAttemptUsageContext(fallbackParent).Value(ctxkey.UsageBillingRequestID))
 	}
+}
+
+func TestQueuedUsageTaskRetainsBillingIdentityAfterGinReuse(t *testing.T) {
+	c, engine := gin.CreateTestContext(httptest.NewRecorder())
+	engine.ContextWithFallback = true
+	original := context.WithValue(context.Background(), ctxkey.UsageBillingRequestID, "original-server-charge")
+	original = context.WithValue(original, ctxkey.ClientRequestID, "original-client")
+	c.Request = httptest.NewRequest("POST", "/v1/responses", nil).WithContext(original)
+	var billingID, clientID any
+	task := wrapUsageRecordTaskContext(c, func(ctx context.Context) {
+		billingID = ctx.Value(ctxkey.UsageBillingRequestID)
+		clientID = ctx.Value(ctxkey.ClientRequestID)
+	})
+	// A queued task starts after the handler returns its Gin context to the pool.
+	replacement := context.WithValue(context.Background(), ctxkey.UsageBillingRequestID, "other-charge")
+	c.Request = httptest.NewRequest("POST", "/v1/responses", nil).WithContext(replacement)
+	task(context.Background())
+	require.Equal(t, "original-server-charge", billingID)
+	require.Equal(t, "original-client", clientID)
 }

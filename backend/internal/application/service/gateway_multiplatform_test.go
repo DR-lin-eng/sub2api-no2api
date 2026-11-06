@@ -3303,7 +3303,7 @@ func TestGatewayService_GroupResolution_ReusesContextGroup(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, account)
 	require.Equal(t, 0, groupRepo.getByIDCalls)
-	require.Equal(t, 1, groupRepo.getByIDLiteCalls) // require_privacy_set
+	require.Equal(t, 0, groupRepo.getByIDLiteCalls) // privacy reuses the hydrated group
 }
 
 func TestGatewayService_GroupResolution_IgnoresInvalidContextGroup(t *testing.T) {
@@ -3346,7 +3346,7 @@ func TestGatewayService_GroupResolution_IgnoresInvalidContextGroup(t *testing.T)
 	require.NoError(t, err)
 	require.NotNil(t, account)
 	require.Equal(t, 0, groupRepo.getByIDCalls)
-	require.Equal(t, 2, groupRepo.getByIDLiteCalls) // group resolution + require_privacy_set
+	require.Equal(t, 1, groupRepo.getByIDLiteCalls) // group resolution + require_privacy_set
 }
 
 func TestGatewayService_GroupContext_OverwritesInvalidContextGroup(t *testing.T) {
@@ -3416,7 +3416,7 @@ func TestGatewayService_GroupResolution_FallbackUsesLiteOnce(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, account)
 	require.Equal(t, 0, groupRepo.getByIDCalls)
-	require.Equal(t, 2, groupRepo.getByIDLiteCalls) // group resolution + require_privacy_set
+	require.Equal(t, 1, groupRepo.getByIDLiteCalls) // group resolution + require_privacy_set
 }
 
 func TestGatewayService_ResolveGatewayGroup_DetectsFallbackCycle(t *testing.T) {

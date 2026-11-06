@@ -1,0 +1,10 @@
+import { createApp } from 'vue'
+import { createI18n } from 'vue-i18n'
+import App from './App.vue'
+import en from '../src/core/i18n/locales/en/admin/settings'
+import zh from '../src/core/i18n/locales/zh/admin/settings'
+import enCommon from '../src/core/i18n/locales/en/common'
+import zhCommon from '../src/core/i18n/locales/zh/common'
+import '../src/core/themes/style.css'
+const locale = new URLSearchParams(location.search).get('lang') || 'zh'
+createApp(App).use(createI18n({ legacy:false, locale, messages:{ en:{...enCommon,admin:en}, zh:{...zhCommon,admin:zh} } })).mount('#app')
