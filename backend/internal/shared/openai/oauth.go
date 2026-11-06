@@ -32,6 +32,18 @@ const (
 	// RefreshScopes - scope for token refresh (without offline_access, aligned with CRS project)
 	RefreshScopes = "openid profile email"
 
+	// SIWC (Sign in with ChatGPT) uses the dynamic agent client flow used by
+	// current Codex clients. Its issued client_id is returned on the callback
+	// and must be used for both token exchange and refresh.
+	SIWCDynamicClientID  = "dynamic_agent_client"
+	SIWCAgentNameHint    = "Sub2API"
+	SIWCAuthorizeURL     = "https://auth.openai.com/api/accounts/authorize"
+	SIWCTokenURL         = "https://auth.openai.com/api/accounts/oauth/token"
+	SIWCResource         = "https://api.openai.com/v1"
+	SIWCScope            = "openid profile email offline_access resource.invoke chatgpt.tokens.use.direct"
+	SIWCDirectTokenScope = "chatgpt.tokens.use.direct"
+	SIWCRedirectURI      = "http://127.0.0.1:1455/auth/callback"
+
 	// Session TTL
 	SessionTTL = 30 * time.Minute
 )
@@ -49,6 +61,9 @@ type OAuthSession struct {
 	ProxyURL     string    `json:"proxy_url,omitempty"`
 	RedirectURI  string    `json:"redirect_uri"`
 	CreatedAt    time.Time `json:"created_at"`
+	Flow         string    `json:"flow,omitempty"`
+	Nonce        string    `json:"nonce,omitempty"`
+	DeviceID     string    `json:"device_id,omitempty"`
 }
 
 // SessionStore stores OpenAI OAuth flow state in Redis when configured.
@@ -85,6 +100,15 @@ func GenerateState() (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
+// GenerateRandomBase64URL generates a random nonce for SIWC authorization.
+func GenerateRandomBase64URL() (string, error) {
+	b, err := GenerateRandomBytes(32)
+	if err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
 // GenerateSessionID generates a unique session ID
 func GenerateSessionID() (string, error) {
 	bytes, err := GenerateRandomBytes(16)
@@ -92,6 +116,17 @@ func GenerateSessionID() (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(bytes), nil
+}
+
+// GenerateUUID generates a canonical UUID suitable for the SIWC host binding.
+func GenerateUUID() (string, error) {
+	b, err := GenerateRandomBytes(16)
+	if err != nil {
+		return "", err
+	}
+	b[6] = (b[6] & 0x0f) | 0x40
+	b[8] = (b[8] & 0x3f) | 0x80
+	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16]), nil
 }
 
 // GenerateCodeVerifier generates a PKCE code verifier (64 bytes -> hex for OpenAI)
@@ -121,6 +156,27 @@ func base64URLEncode(data []byte) string {
 // BuildAuthorizationURL builds the OpenAI OAuth authorization URL
 func BuildAuthorizationURL(state, codeChallenge, redirectURI string) string {
 	return BuildAuthorizationURLForPlatform(state, codeChallenge, redirectURI, OAuthPlatformOpenAI)
+}
+
+// BuildSIWCAuthorizationURL builds the Sign in with ChatGPT authorization URL.
+func BuildSIWCAuthorizationURL(state, nonce, deviceID, codeChallenge, redirectURI string) string {
+	if redirectURI == "" {
+		redirectURI = SIWCRedirectURI
+	}
+	params := url.Values{
+		"client_id":             {SIWCDynamicClientID},
+		"agent_name_hint":       {SIWCAgentNameHint},
+		"ext_agent_host_id":     {"urn:uuid:" + strings.ToLower(strings.TrimSpace(deviceID))},
+		"response_type":         {"code"},
+		"redirect_uri":          {redirectURI},
+		"resource":              {SIWCResource},
+		"scope":                 {SIWCScope},
+		"state":                 {state},
+		"code_challenge":        {codeChallenge},
+		"code_challenge_method": {"S256"},
+		"nonce":                 {nonce},
+	}
+	return fmt.Sprintf("%s?%s", SIWCAuthorizeURL, params.Encode())
 }
 
 // BuildAuthorizationURLForPlatform builds authorization URL by platform.
@@ -190,6 +246,7 @@ type IDTokenClaims struct {
 	Aud           []string `json:"aud"` // OpenAI returns aud as an array
 	Exp           int64    `json:"exp"`
 	Iat           int64    `json:"iat"`
+	Nonce         string   `json:"nonce,omitempty"`
 
 	// OpenAI specific claims (nested under https://api.openai.com/auth)
 	OpenAIAuth *OpenAIAuthClaims `json:"https://api.openai.com/auth,omitempty"`

@@ -1028,6 +1028,11 @@ export default {
         // OpenAI specific
         openai: {
           title: 'OpenAI 账户授权',
+          siwcAuth: 'Sign in with ChatGPT（SIWC）',
+          siwcCallbackLabel: '完整 SIWC 回调地址',
+          siwcDesc: '使用 ChatGPT 账号授权直接访问。登录完成后，请在下方粘贴完整回调地址，保留 code、state 和 client_id 参数。',
+          siwcCallbackPlaceholder: 'http://127.0.0.1:1455/auth/callback?code=...&state=...&client_id=...',
+          siwcCallbackHint: '即使回调页面无法打开，也请复制地址栏的完整地址。SIWC 必须使用其中的 client_id。',
           followSteps: '请按照以下步骤完成 OpenAI 账户的授权：',
           step1GenerateUrl: '点击下方按钮生成授权链接',
           generateAuthUrl: '生成授权链接',
@@ -1046,6 +1051,13 @@ export default {
           failedToExchangeCode: 'OpenAI 授权码兑换失败',
           failedToValidateRT: '验证 Refresh Token 失败',
           errors: {
+            OPENAI_SIWC_CLIENT_ID_REQUIRED: '请粘贴包含 client_id 的完整 SIWC 回调地址。',
+            OPENAI_SIWC_CALLBACK_INVALID: '回调与本次授权不匹配，请重新生成链接并授权。',
+            OPENAI_SIWC_NONCE_INVALID: 'SIWC 身份令牌与本次授权不匹配，请重新连接 ChatGPT。',
+            OPENAI_SIWC_GRANT_INVALID: 'OpenAI 未返回完整的 SIWC 直接访问授权，请重新授权。',
+            OPENAI_SIWC_CREDENTIALS_MISSING: '此 SIWC 账号缺少客户端 ID 或刷新令牌，请重新连接 ChatGPT。',
+            OPENAI_SIWC_TOKEN_FAILED: 'OpenAI 拒绝了 SIWC 令牌请求，请重新生成授权链接后重试。',
+            OPENAI_SIWC_ACCESS_DENIED: '尚未完成 ChatGPT 授权。',
             OPENAI_OAUTH_PROXY_REQUIRED:
               '未设置代理，当前服务器无法直连 OpenAI，导致 OpenAI OAuth 请求失败。请先选择可访问 OpenAI 的代理后重试；如果授权码已失效，请重新生成授权链接。'
           },

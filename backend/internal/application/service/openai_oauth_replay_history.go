@@ -14,6 +14,10 @@ func normalizeOpenAIOAuthReplayHistoryForAccount(body []byte, account *Account, 
 	if account == nil || !account.IsOpenAIOAuth() {
 		return body, false, nil
 	}
+	if account.IsOpenAISIWC() {
+		normalized, err := normalizeOpenAISIWCBody(body, compact, gjson.GetBytes(body, "type").String() == "response.create")
+		return normalized, string(normalized) != string(body), err
+	}
 	normalized, contentChanged, err := stripOpenAIOAuthReasoningContent(body)
 	if err != nil {
 		return body, false, err

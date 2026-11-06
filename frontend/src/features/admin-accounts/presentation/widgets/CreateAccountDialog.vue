@@ -46,10 +46,12 @@
         :show-codex-pat-option="form.platform === 'openai'"
         :show-sso-option="form.platform === 'grok'"
         :show-manual-option="true"
+        :show-siwc-option="form.platform === 'openai'"
         :initial-input-method="'manual'"
         :platform="form.platform"
         :show-project-id="geminiOAuthType === 'code_assist'"
         @generate-url="handleGenerateUrl"
+        @reset-authorization="openaiOAuth.resetState()"
         @cookie-auth="handleCookieAuth"
         @validate-refresh-token="handleValidateRefreshToken"
         @validate-mobile-refresh-token="handleOpenAIValidateMobileRT"
@@ -674,7 +676,7 @@ const isOAuthFlow = computed(() => {
 const isGrokSSOInputMethod = computed(() => form.platform === 'grok' && oauthFlowRef.value?.inputMethod === 'sso_cookie')
 
 const isManualInputMethod = computed(() => {
-  return oauthFlowRef.value?.inputMethod === 'manual'
+  return oauthFlowRef.value?.inputMethod === 'manual' || oauthFlowRef.value?.inputMethod === 'siwc'
 })
 
 const expiresAtInput = computed({

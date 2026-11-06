@@ -398,7 +398,7 @@ func applyExcelBPSFilter(q *dbent.AccountQuery, filter string) (*dbent.AccountQu
 		credentials := s.C(dbaccount.FieldCredentials)
 		extra := s.C(dbaccount.FieldExtra)
 		eligible := "(" + typeColumn + " = 'oauth' AND " + platformColumn + " = 'openai' AND " + parentColumn + " IS NULL" +
-			" AND LOWER(BTRIM(COALESCE(" + credentials + "->>'auth_mode', ''))) NOT IN ('agentidentity', 'personalaccesstoken', 'personal_access_token')" +
+			" AND LOWER(BTRIM(COALESCE(" + credentials + "->>'auth_mode', ''))) NOT IN ('agentidentity', 'personalaccesstoken', 'personal_access_token', 'siwc')" +
 			" AND LOWER(BTRIM(COALESCE(" + credentials + "->>'openai_auth_mode', ''))) NOT IN ('personalaccesstoken', 'personal_access_token'))"
 		// Match Account.IsExcelBPSEnabled: only JSON booleans count. A
 		// malformed new value falls back to the legacy boolean; a new false

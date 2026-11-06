@@ -38,7 +38,8 @@ export function useOpenAIOAuth() {
   // Generate auth URL for OpenAI OAuth
   const generateAuthUrl = async (
     proxyId?: number | null,
-    redirectUri?: string
+    redirectUri?: string,
+    flow?: 'codex' | 'siwc'
   ): Promise<boolean> => {
     loading.value = true
     authUrl.value = ''
@@ -48,6 +49,7 @@ export function useOpenAIOAuth() {
 
     try {
       const payload: OpenAIAuthUrlRequest = {}
+      if (flow) payload.flow = flow
       if (proxyId) {
         payload.proxy_id = proxyId
       }
@@ -187,6 +189,11 @@ export function useOpenAIOAuth() {
     }
     if (tokenInfo.client_id) {
       creds.client_id = tokenInfo.client_id
+    }
+    if (tokenInfo.auth_mode === 'siwc') {
+      creds.auth_mode = tokenInfo.auth_mode
+      creds.scope = tokenInfo.scope
+      creds.device_id = tokenInfo.device_id
     }
 
     return creds

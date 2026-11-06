@@ -106,6 +106,9 @@ func (s *AccountTestService) SetSettingService(settingService *SettingService) {
 }
 
 func (s *AccountTestService) doAccountTestHTTPUpstreamWithTLS(req *http.Request, proxyURL string, account *Account, profile *tlsfingerprint.Profile) (*http.Response, error) {
+	if err := prepareOpenAISIWCProbe(req, account); err != nil {
+		return nil, err
+	}
 	if s.oauthGatewayLimiter != nil && isOpenAIOAuthGatewayModelRequest(req, account) {
 		if err := s.oauthGatewayLimiter.admitOpenAIOAuthGatewayModelRequest(req.Context(), account); err != nil {
 			return nil, err
@@ -115,6 +118,9 @@ func (s *AccountTestService) doAccountTestHTTPUpstreamWithTLS(req *http.Request,
 }
 
 func (s *AccountTestService) doAccountTestHTTPUpstream(req *http.Request, proxyURL string, account *Account) (*http.Response, error) {
+	if err := prepareOpenAISIWCProbe(req, account); err != nil {
+		return nil, err
+	}
 	if s.oauthGatewayLimiter != nil && isOpenAIOAuthGatewayModelRequest(req, account) {
 		if err := s.oauthGatewayLimiter.admitOpenAIOAuthGatewayModelRequest(req.Context(), account); err != nil {
 			return nil, err

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
 	"github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator"
 )
 
@@ -25,7 +26,12 @@ func resolveOpenAIOAuthCodexBaseURL(
 	if account == nil || !account.IsOpenAIOAuth() {
 		return "https://chatgpt.com/backend-api/codex", true, nil
 	}
-	if settingService != nil {
+	// SIWC direct grants target the public API. The global Codex relay only
+	// serves the legacy ChatGPT protocol and cannot receive SIWC credentials.
+	if account.IsOpenAISIWC() && !account.IsCustomBaseURLEnabled() {
+		return openai.SIWCResource, false, nil
+	}
+	if settingService != nil && !account.IsOpenAISIWC() {
 		enabled, baseURL, err := settingService.GetOpenAIOAuthForceRelaySettings(ctx)
 		if err != nil {
 			return "", false, fmt.Errorf("openai oauth force relay settings: %w", err)
