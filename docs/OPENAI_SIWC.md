@@ -16,12 +16,13 @@
 | 账号凭据 | 继续保存为 OpenAI OAuth 账号，`credentials.auth_mode=siwc`，保留 `client_id`、scope、设备 UUID、access token、refresh token 与过期时间 |
 | 模型请求 | 默认通过 `https://api.openai.com/v1/responses`；WebSocket 使用相同源的 `wss` 地址；账号自定义上游继续使用已有地址校验策略 |
 | 请求适配 | HTTP/SSE、非流式收集、compact 和 WS 使用对应协议字段；不压缩 SIWC 请求，不发送 ChatGPT workspace、Codex 模拟与桌面证明头 |
+| 用量与重置 | 管理端 OpenAI 额度卡对 SIWC 账号查询 WHAM 5 小时/7 天等官方窗口、reset credit 数量/过期时间，并调用 reset-credit consume；请求使用 SIWC agent UA、Bearer token 和账号 principal |
 
 `POST /api/v1/admin/openai/generate-auth-url` 新增可选字段 `flow=siwc`，省略时沿用 Codex OAuth。`exchange-code` 和 `create-from-oauth` 支持完整回调 URL 作为 `code`，或显式的 `code`、`state`、`client_id` 字段。接口继续经过管理端鉴权与权限校验。
 
 服务端会话持有 flow、回调地址、nonce、设备与 PKCE；回调不能更换 token 端点或 redirect URI。兑换时校验 state、回调地址和重复参数，并检查 ID token 的 nonce、token 完整性与 direct scope。凭据刷新沿用现有账号出口、锁和持久化流程。SIWC token 不用于 ChatGPT 后台账号信息和训练隐私设置请求。
 
-SIWC 账号用于直接模型请求；ChatGPT 后台专有的 Live、Excel/BPS 与 Spark 影子账号功能不适用于此认证模式。
+SIWC 账号用于直接模型请求。Live、Excel/BPS 与 Spark 影子账号功能不适用于此认证模式；额度查询和 reset credit 是独立的 WHAM 管理路径，不依赖这些功能。
 
 主要源码：
 
@@ -37,7 +38,7 @@ SIWC 账号用于直接模型请求；ChatGPT 后台专有的 Live、Excel/BPS �
 
 2026-11-06 的本地验证结果：
 
-- Docker / Go 1.26.10：以 `-tags=unit -p 1` 运行 SIWC、OpenAI OAuth/token、Codex models、OpenAI WS、Excel/BPS 与 shadow 相关回归，shared/openai、application/service、repository 和 admin handler 四个包通过，routes 包编译通过。SIWC 转发专项分别验证普通/透传、流式/非流式及 input/output 用量。
+- Docker / Go 1.26.10：以 `-tags=unit -p 1` 运行 SIWC、OpenAI OAuth/token、Codex models、OpenAI WS、Excel/BPS 与 shadow 相关回归，shared/openai、application/service、repository 和 admin handler 四个包通过，routes 包编译通过。SIWC 转发专项分别验证普通/透传、流式/非流式及 input/output 用量；额度专项 mock WHAM 验证 5 小时/7 天窗口、reset credit 详情和 consume 重置请求。
 - Docker / Node 24、pnpm 11.17.0：完整 lint、typecheck 通过；账号管理、OAuth composable、路由词表和动态翻译门禁共 62 个文件、519 个用例通过。
 - 仓库根 Dockerfile 构建 Linux ARM64 完整镜像 `sub2api:siwc-20261106` 成功；独立 PostgreSQL 18 / Redis 8 实例中健康与就绪检查通过，匿名管理端访问和原有凭据/token 版本门禁继续生效。
 - 浏览器验证隔离实例登录成功后遇到原有合规承诺确认，未替用户确认；SIWC 组件另在独立模拟授权预览中检查桌面和 390px 移动布局，无横向溢出。

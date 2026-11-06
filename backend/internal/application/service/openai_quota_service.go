@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
+	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
 	"github.com/imroc/req/v3"
 )
 
@@ -674,6 +676,14 @@ func (s *OpenAIQuotaService) buildCodexQuotaHeaders(ctx context.Context, account
 		} else if strings.TrimSpace(accessToken) == "" {
 			return nil, "", fmt.Errorf("agent identity shadow credentials are unavailable")
 		}
+	}
+	if account.IsOpenAISIWC() {
+		// SIWC access tokens are issued for direct OpenAI access. WHAM still
+		// expects the account principal and Codex quota headers, but the client
+		// identity must match the SIWC agent instead of Codex Desktop. Keep the
+		// common WHAM headers because they are part of the first-party quota
+		// contract; only replace the client identity here.
+		headers["user-agent"] = fmt.Sprintf("%s (%s; %s)", openai.SIWCAgentNameHint, runtime.GOOS, runtime.GOARCH)
 	}
 	if !account.IsOpenAIAgentIdentity() {
 		return headers, "", nil
