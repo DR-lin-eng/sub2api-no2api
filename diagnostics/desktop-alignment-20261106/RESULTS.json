@@ -1,0 +1,167 @@
+{
+  "base_commit": "f7babf3218b744dbd104281d7bf99024c89888e5",
+  "runtime": "Docker Linux ARM64 / Go 1.26.10",
+  "network": "Go test/build steps used --network=none and GOPROXY=off",
+  "modified": {
+    "go_test_passed": true,
+    "packages": [
+      {
+        "package": "github.com/Wei-Shaw/sub2api/internal/application/service",
+        "duration": "229.205s"
+      },
+      {
+        "package": "github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2",
+        "duration": "3.111s"
+      },
+      {
+        "package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler",
+        "duration": "61.082s"
+      },
+      {
+        "package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin",
+        "duration": "0.525s"
+      },
+      {
+        "package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto",
+        "duration": "0.021s"
+      },
+      {
+        "package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/quotaview",
+        "duration": "0.018s"
+      },
+      {
+        "package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/supportchatasset",
+        "duration": "0.006s"
+      },
+      {
+        "package": "github.com/Wei-Shaw/sub2api/internal/transport/http/managementmcp",
+        "duration": "0.149s"
+      },
+      {
+        "package": "github.com/Wei-Shaw/sub2api/internal/transport/http/server",
+        "duration": "1.780s"
+      },
+      {
+        "package": "github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware",
+        "duration": "0.064s"
+      },
+      {
+        "package": "github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes",
+        "duration": "7.281s"
+      },
+      {
+        "package": "github.com/Wei-Shaw/sub2api/internal/shared/openai",
+        "duration": "0.006s"
+      },
+      {
+        "package": "github.com/Wei-Shaw/sub2api/internal/shared/remotecontrol",
+        "duration": "0.008s"
+      },
+      {
+        "package": "github.com/Wei-Shaw/sub2api/internal/platform/liveattestation",
+        "duration": "0.312s"
+      }
+    ],
+    "backend_build_passed": true,
+    "image": "sub2api-desktop-alignment-verified:20261106",
+    "focused_test_passed": true,
+    "focused_passing_cases": 122,
+    "focused_image": "sub2api-desktop-alignment-focused:20261106",
+    "validation_note": "完整相关回归与编译通过；随后仅补强 workspace 缓存命中测试，定向复验通过，生产 Go 文件没有再改变。"
+  },
+  "baseline": {
+    "image": "sub2api-desktop-alignment-baseline:20261106",
+    "regression_failures": [
+      "--- FAIL: TestOpenAICodexDesktopHeadersDropCallerOwnedRoutingAndProofState",
+      "--- FAIL: TestOpenAIWSPoolRebuildsHandshakeWhenOAuthPrincipalChanges",
+      "--- FAIL: TestOpenAIIntegrityModelSendIgnoresCachedStateAndInheritedReceipt",
+      "--- FAIL: TestOpenAIGatewayService_RefreshPrincipalChangeDoesNotReplayCurrentTurn",
+      "--- FAIL: TestOpenAIGatewayService_WSRefreshPrincipalChangeDoesNotFallbackToHTTP",
+      "--- FAIL: TestResolveOpenAIWorkspaceRoutingRejectsChangedUserPrincipalBeforeCachedRouteReuse"
+    ],
+    "compile_error": false
+  },
+  "tested_go_file_hashes": [
+    {
+      "path": "backend/internal/application/service/openai_auth_recovery.go",
+      "sha256": "a6ff58d26075ee22da99f4e7f94b31e7853f34bd524936956869d330da6989fb"
+    },
+    {
+      "path": "backend/internal/application/service/openai_chatgpt_headers.go",
+      "sha256": "64e4331c14486a68c66ca0bf71170891672ef4e912ad151110658617eecf0bd6"
+    },
+    {
+      "path": "backend/internal/application/service/openai_codex_desktop_conformance_test.go",
+      "sha256": "5084657971cb60a4d613d3a1681c0944347a09c352907dec47dc5dbbc603fcbf"
+    },
+    {
+      "path": "backend/internal/application/service/openai_codex_metadata_sanitize.go",
+      "sha256": "82156e5b70042d5d82bda097c09af665bcafa4de1b5bd17c05a9181d5d87fc89"
+    },
+    {
+      "path": "backend/internal/application/service/openai_codex_request_headers.go",
+      "sha256": "7110bdcd7a3ca63524692b68ff38b7a7fad34c0b0c2627ca9badd32ff7c6926a"
+    },
+    {
+      "path": "backend/internal/application/service/openai_codex_request_headers_test.go",
+      "sha256": "1fe7861c4404daf3fb8cac6e0d2e0e8a5f6b6a7cd2a8cbd7ec57a7a212bf3ef6"
+    },
+    {
+      "path": "backend/internal/application/service/openai_gateway_forward.go",
+      "sha256": "45bba10928502b62d9c5297fe2fa8038fd05240d0dd1f3eb926057bcfea9a0e7"
+    },
+    {
+      "path": "backend/internal/application/service/openai_gateway_passthrough.go",
+      "sha256": "23dbb026f27d7b65bbe3fc6ba06d05562288844ce4ff6fc054ba60c13466a3e0"
+    },
+    {
+      "path": "backend/internal/application/service/openai_integrity_state_test.go",
+      "sha256": "422c9c7dfff6f44fe65f53fc011602841a13ca6e9adb10ab089d82711d096e15"
+    },
+    {
+      "path": "backend/internal/application/service/openai_oauth_alignment_behavior_probe_test.go",
+      "sha256": "21ed9e52fdba18b9e302a926b170725aaa047f424ddde3dc1d1645ab4adbb2a8"
+    },
+    {
+      "path": "backend/internal/application/service/openai_oauth_desktop_alignment_test.go",
+      "sha256": "4234863bb1d107bf3c1f287b58e5feb4fe661c2d5bc0f11c7f39174d9305cab6"
+    },
+    {
+      "path": "backend/internal/application/service/openai_oauth_proof.go",
+      "sha256": "633d0044f2fa8670e153ab7ee923b013748eea2d753f26a122fe32aa434636ec"
+    },
+    {
+      "path": "backend/internal/application/service/openai_token_expired_recovery_integration_test.go",
+      "sha256": "edaf7b20083016c756a0604bf11f8317c8ab34267f2fba64a9ffc627681bc589"
+    },
+    {
+      "path": "backend/internal/application/service/openai_token_provider.go",
+      "sha256": "35400e576122f76f5816ef6ad0b5fbc1f57b59119786e0990e4e046d9e54e282"
+    },
+    {
+      "path": "backend/internal/application/service/openai_workspace_routing.go",
+      "sha256": "c972cab6a5d631ab65c719c68fbe3fcc65e10273116084cf4e78e882449a6311"
+    },
+    {
+      "path": "backend/internal/application/service/openai_workspace_routing_test.go",
+      "sha256": "cc797b03ccf91e9135678028c468ed41c71914ded08a2dd5c590f50ac52adbbe"
+    },
+    {
+      "path": "backend/internal/application/service/openai_ws_forwarder_v2.go",
+      "sha256": "aaed4981ad509b7cdf1669f958bdbc96116aeaa45be626f388ce43a3914b4584"
+    },
+    {
+      "path": "backend/internal/application/service/openai_ws_handshake_compatibility.go",
+      "sha256": "1eeee5c3ca0da0514a6d04d8579358b42790d6824b3d8a6224ee4de5439cfea6"
+    },
+    {
+      "path": "backend/internal/application/service/openai_ws_pool.go",
+      "sha256": "72850554c930765ef0f0883d0d5a3d80713c3bf900297bd80ea6d7bfd017ca8a"
+    }
+  ],
+  "external_validation": {
+    "real_openai_requests": false,
+    "deployed": false,
+    "ci_run": false
+  }
+}

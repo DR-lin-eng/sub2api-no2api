@@ -13,7 +13,7 @@
 | `openai*` | OpenAI/Codex/Responses/Images/WS 管线 |
 | `openai_request_set_patches.go` | 大 JSON 的多项普通 set 局部改写与一次拼接，保留 sjson 回退路径 |
 | `openai_capacity_retry.go` | 请求级容量错误的 HTTP/SSE/WS 等待提示解析；有限数值先限幅，沿用现有重试预算 |
-| `openai_auth_recovery.go`, `openai_tls_handshake_recovery.go` | OAuth 401 刷新候选分类；普通 HTTP Responses 的 TLS 握手超时恢复、请求发送追踪及单次重试边界 |
+| `openai_auth_recovery.go`, `openai_tls_handshake_recovery.go` | OAuth 401 刷新候选分类；刷新后的已知主体由 `openai_chatgpt_headers.go` 与 token provider 核对，变化时终止当前轮次重放；普通 HTTP Responses 的 TLS 握手超时恢复、请求发送追踪及单次重试边界 |
 | `openai_ws_size_recovery.go` | 内嵌图片/大 JSON 请求发送前的 HTTP 选路、1009/断连后一次安全回退与完整历史重放边界 |
 | `openai_ws_fallback_response.go` | WS 终止错误的 HTTP/SSE 映射、1009 大小限制提示与已提交响应保护 |
 | `openai_live*` | Codex CLI/旧 Desktop Live、Sideband 控制、分钟结算和持久恢复 |
@@ -58,7 +58,7 @@
 | `openai_request_timezone.go`, `setting_openai_request_timezone.go` | OpenAI HTTP/WS 用户环境与搜索时区替换、管理员全局开关与 IANA 目标、60 秒缓存及写后立即刷新 |
 | `openai_request_integrity_observe.go` | OpenAI OAuth 兼容转换前后语义字段的只观察差异诊断 |
 | `openai_chatgpt_headers.go`, `openai_codex_request_headers.go`, `openai_codex_metadata_sanitize.go` | OpenAI OAuth 凭据 principal 校验、HTTP JSON/SSE/Compact 媒体类型和证明/完整性状态的跨账号边界 |
-| `openai_integrity_state.go`, `openai_oauth_proof.go`, `openai_proof_binding.go`, `openai_desktop_devicecheck.go` | 发送点 proof 生成、immutable receipt、principal/installation/origin 状态隔离与 Redis 原子 CAS；独立 Desktop DeviceCheck 注册/cookie 链 |
+| `openai_integrity_state.go`, `openai_oauth_proof.go`, `openai_proof_binding.go`, `openai_desktop_devicecheck.go` | 发送点 proof 生成、principal/installation/origin 状态隔离；Responses/Compact 清除旧 integrity receipt，其他既有调用面保留 Redis 原子 CAS helper；独立 Desktop DeviceCheck 注册/cookie 链 |
 | `openai_quota_account_transport.go` | OpenAI quota/reset 通过账号级 HTTP/TLS upstream 的辅助请求路径 |
 | `account_quality_runtime_snapshot.go` | 质量巡检私有 artifact 的非敏感请求运行画像快照 |
 | `ratelimit_oauth_401_delete.go` | 网关 OAuth 401 自动删除准入、凭据 CAS 结果和运行态清理 |

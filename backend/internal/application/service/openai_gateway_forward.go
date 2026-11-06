@@ -786,16 +786,15 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			}
 			if !wsAuthRecoveryTried && s.openAITokenProvider != nil && isOpenAIWSDialAuthRecoveryCandidate(wsErr, account) {
 				wsAuthRecoveryTried = true
-				if refreshErr := s.openAITokenProvider.RefreshAfterUnauthorized(ctx, account); refreshErr == nil {
-					token, _, err = s.GetAccessToken(ctx, account)
-					if err != nil {
-						return nil, err
-					}
+				if refreshedToken, refreshErr := s.tryRefreshOpenAIRequestToken(ctx, account); refreshErr != nil {
+					return nil, refreshErr
+				} else if refreshedToken != "" {
+					token = refreshedToken
 					continue
 				}
 			}
 			var wsFailoverErr *UpstreamFailoverError
-			if errors.As(wsErr, &wsFailoverErr) && wsFailoverErr.SafeToFailoverAfterWrite {
+			if errors.As(wsErr, &wsFailoverErr) && (wsFailoverErr.SafeToFailoverAfterWrite || isOpenAIOAuthPrincipalChangedError(wsErr)) {
 				return nil, wsFailoverErr
 			}
 			if c != nil && c.Writer != nil && c.Writer.Written() {
@@ -1035,12 +1034,11 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			if !openAIAuthRecoveryTried && s.openAITokenProvider != nil &&
 				shouldRefreshOpenAIOAuth401(account, resp.StatusCode, respBody) {
 				openAIAuthRecoveryTried = true
-				if refreshErr := s.openAITokenProvider.RefreshAfterUnauthorized(ctx, account); refreshErr == nil {
+				if refreshedToken, refreshErr := s.tryRefreshOpenAIRequestToken(ctx, account); refreshErr != nil {
+					return nil, refreshErr
+				} else if refreshedToken != "" {
 					_ = resp.Body.Close()
-					token, _, err = s.GetAccessToken(ctx, account)
-					if err != nil {
-						return nil, err
-					}
+					token = refreshedToken
 					reqBody = nil
 					continue
 				}

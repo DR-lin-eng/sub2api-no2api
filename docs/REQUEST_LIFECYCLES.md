@@ -60,6 +60,8 @@ Responses 走图片编辑桥接时，用户提交的图片与遮罩 URL 在共�
 
 OpenAI OAuth Responses、自动透传和原生 WebSocket 握手收到上游 `401` 且错误码为 `token_expired`，或 ChatGPT Team 工作区返回无结构化错误码的通用 Unauthorized 时，网关先删除该账号的 token 缓存，在分布式刷新锁下强制执行一次 refresh token 流程，即使数据库中的 `expires_at` 仍在未来；刷新成功后仅重放当前请求一次并继续使用同一账号。刷新失败、refresh token 缺失、`token_revoked`/`token_invalidated`、明确的禁用/撤销错误码或再次收到 401 继续走原有账号冷却、永久错误和 failover 策略。OpenAI OAuth refresh 响应缺少 `id_token` 时，系统从新的 access token 重新提取 ChatGPT/Team workspace、用户、套餐和 POID 字段，避免沿用旧 workspace 路由身份。
 
+上述重放要求刷新前后的已知 workspace/user 一致；身份改变时返回账号级 `account_changed`，当前轮次不在新主体上重发，刷新后的凭据供后续独立请求使用。WS 池还比较最终账号/FedRAMP 头和 credential principal 摘要；旧握手不能跟随变更后的身份复用。WHAM 路由发现先核对 account/user，并以 `Cache-Control: no-store` 和禁止重定向发送。Responses/Compact 的实际 HTTP/WS 发送点不再回带或消费旧 `X-OAI-IS` 更新状态；完整性/本地路由字段也不能经 metadata 注入。各桌面通信面和超时阶段的证据边界见 [桌面端增量对照](codex/desktop-request-alignment.md)。
+
 普通 OpenAI HTTP Responses 遇到 TLS 握手超时，且 HTTP trace 确认请求头尚未发送、下游尚无语义输出时，会在同一账号上等待 250ms 后重试一次。SSE 注释心跳不消耗这次恢复机会；请求取消会中止等待。第二次仍失败则进入现有传输 failover 和短时冷却策略，蒸馏分组继续只发一次上游请求。透传路径使用原有请求级重试预算。
 
 OpenAI OAuth 历史重放会移除 `type=reasoning` 条目中的非空 `content` 数组，因为 ChatGPT Codex 输入契约的该字段最大长度为 0；保留整个条目、`summary` 与 `encrypted_content`，不截断顶层 `input` 历史，也不改写普通消息或工具内容。普通/透传 HTTP、compact 与原生 WebSocket 每轮使用同一约束；API Key 账号不应用该 OAuth 专用转换。原始 JSON 路径保留其它字段的数值精度与内容字节。

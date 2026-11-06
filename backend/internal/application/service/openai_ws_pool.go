@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"math"
@@ -2374,24 +2373,6 @@ func sameOpenAIWSPrewarmTarget(a, b openAIWSAcquireRequest) bool {
 		openAIWSAcquireCompatibility(a) == openAIWSAcquireCompatibility(b)
 }
 
-func openAIWSAcquireCompatibility(req openAIWSAcquireRequest) openAIWSHandshakeCompatibilityKey {
-	compatibility := normalizeOpenAIWSHandshakeCompatibility(req.Headers)
-	// A nil header set is used by lightweight pool callers/tests that seed a
-	// connection without a real handshake. Keep that legacy zero key reusable;
-	// all production WS paths provide the final handshake headers, so routed URL
-	// and auth identity still partition real sockets.
-	if req.Headers != nil && strings.TrimSpace(req.Headers.Get("Authorization")) != "" {
-		compatibility.targetURL = stringsTrim(req.WSURL)
-		compatibility.authHash = openAIWSAuthorizationCompatibilityHash(req.Headers)
-	}
-	compatibility.tlsProfileKey = tlsfingerprint.FingerprintKey(req.TLSProfile)
-	route := openAIWSAcquireRoute(req)
-	if route.Mode == platformegress.ModeIPv6Pool {
-		compatibility.egressRouteKey = route.CacheKey()
-	}
-	return compatibility
-}
-
 func openAIWSAcquireRoute(req openAIWSAcquireRequest) platformegress.Route {
 	if req.EgressRoute.Mode != "" {
 		return req.EgressRoute
@@ -2400,70 +2381,6 @@ func openAIWSAcquireRoute(req openAIWSAcquireRequest) platformegress.Route {
 		return platformegress.ExternalProxyRoute(req.ProxyURL)
 	}
 	return platformegress.DirectRoute(false)
-}
-
-func normalizeOpenAIWSBetaFeatures(headers http.Header) string {
-	features := make(map[string]struct{})
-	for name, values := range headers {
-		if !strings.EqualFold(strings.TrimSpace(name), "x-codex-beta-features") {
-			continue
-		}
-		for _, value := range values {
-			for _, feature := range strings.Split(value, ",") {
-				if feature = strings.TrimSpace(feature); feature != "" {
-					features[feature] = struct{}{}
-				}
-			}
-		}
-	}
-	if len(features) == 0 {
-		return ""
-	}
-	normalized := make([]string, 0, len(features))
-	for feature := range features {
-		normalized = append(normalized, feature)
-	}
-	sort.Strings(normalized)
-	return strings.Join(normalized, ",")
-}
-
-func normalizeOpenAIWSHandshakeCompatibility(headers http.Header) openAIWSHandshakeCompatibilityKey {
-	return openAIWSHandshakeCompatibilityKey{
-		userAgent:       headers.Get("User-Agent"),
-		originator:      headers.Get("originator"),
-		version:         headers.Get("version"),
-		installationID:  headers.Get("x-codex-installation-id"),
-		windowID:        headers.Get("x-codex-window-id"),
-		betaHeader:      headers.Get("OpenAI-Beta"),
-		betaFeatures:    normalizeOpenAIWSBetaFeatures(headers),
-		routingOverride: headers.Get(openAIAccountRoutingOverrideHeader),
-		responsesLite:   headers.Get(responsesLiteHeaderKey),
-		subagent:        headers.Get("x-openai-subagent"),
-		guardian:        headers.Get("x-codex-guardian"),
-		memgen:          headers.Get("x-openai-memgen-request"),
-		timingMetrics:   headers.Get("x-responsesapi-include-timing-metrics"),
-		fingerprintKey:  headers.Get(codexFingerprintWSKeyHeader),
-		turnStateHash:   openAIWSTurnStateCompatibilityHash(headers),
-	}
-}
-
-func openAIWSAuthorizationCompatibilityHash(headers http.Header) [sha256.Size]byte {
-	if headers == nil {
-		return [sha256.Size]byte{}
-	}
-	value := strings.TrimSpace(headers.Get("Authorization"))
-	if value == "" {
-		return [sha256.Size]byte{}
-	}
-	return sha256.Sum256([]byte(value))
-}
-
-func openAIWSTurnStateCompatibilityHash(headers http.Header) [sha256.Size]byte {
-	state := strings.TrimSpace(headers.Get(openAIWSTurnStateHeader))
-	if state == "" {
-		return [sha256.Size]byte{}
-	}
-	return sha256.Sum256([]byte(state))
 }
 
 func normalizeOpenAIWSRoutingAffinity(headers http.Header) string {

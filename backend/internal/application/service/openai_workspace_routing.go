@@ -21,6 +21,7 @@ const (
 	openAIWorkspaceRoutingDiscoveryURL = "https://chatgpt.com/backend-api/wham/accounts/check"
 	openAIWorkspaceRoutingTimeout      = 10 * time.Second
 	openAIWorkspaceRoutingBodyLimit    = 1 << 20
+	openAIWorkspaceRoutingCacheControl = "no-store"
 )
 
 var errOpenAIWorkspaceRoutingUnavailable = errors.New("openai workspace routing unavailable")
@@ -90,6 +91,13 @@ func (s *OpenAIGatewayService) resolveOpenAIWorkspaceRouting(
 	}
 	if credentialAccount == nil {
 		return nil, fmt.Errorf("%w: credential account is missing", errOpenAIWorkspaceRoutingUnavailable)
+	}
+	// Desktop environment/workspace requests re-check both account and user
+	// ownership before rebuilding routing headers. Do the same at discovery time
+	// so a rotated token cannot keep a durable connection or workspace route
+	// attached to the previous principal.
+	if err := validateOpenAIOAuthRequestPrincipal(credentialAccount, accessToken); err != nil {
+		return nil, fmt.Errorf("%w: token principal changed", errOpenAIWorkspaceRoutingUnavailable)
 	}
 	chatGPTAccountID, accountChanged := openAIWorkspaceRoutingAccountID(credentialAccount, accessToken)
 	if accountChanged {
@@ -181,6 +189,7 @@ func (s *OpenAIGatewayService) discoverOpenAIWorkspaceRouting(
 		return openAIWorkspaceRouting{}, fmt.Errorf("%w: build discovery request", errOpenAIWorkspaceRoutingUnavailable)
 	}
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Cache-Control", openAIWorkspaceRoutingCacheControl)
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	setOpenAIChatGPTAccountHeaders(req.Header, credentialAccount)
 	identity := resolveCodexOutboundIdentity(s.codexIdentityOverrideUA(credentialAccount))

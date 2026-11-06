@@ -1,10 +1,25 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
 )
+
+// An empty token leaves an unsuccessful refresh to the original upstream-error
+// policy. A changed principal is different: stop the current attempt before it
+// can replay a turn prepared for the previous account/user.
+func (s *OpenAIGatewayService) tryRefreshOpenAIRequestToken(ctx context.Context, account *Account) (string, error) {
+	if err := s.openAITokenProvider.RefreshAfterUnauthorized(ctx, account); err != nil {
+		if isOpenAIOAuthPrincipalChangedError(err) {
+			return "", err
+		}
+		return "", nil
+	}
+	token, _, err := s.GetAccessToken(ctx, account)
+	return token, err
+}
 
 // shouldRefreshOpenAIOAuth401 identifies an authentication response that may
 // be caused by an early access-token expiry. A generic 401/Unauthorized body

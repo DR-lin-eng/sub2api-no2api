@@ -140,6 +140,7 @@ func (p *OpenAITokenProvider) RefreshAfterUnauthorized(ctx context.Context, acco
 	p.ensureMetrics()
 	p.metrics.refreshRequests.Add(1)
 	p.metrics.touchNow()
+	expectedAccount := snapshotOAuthRefreshAccount(account)
 	cacheKey := OpenAITokenCacheKey(account)
 	if p.tokenCache != nil {
 		if err := p.tokenCache.DeleteAccessToken(ctx, cacheKey); err != nil {
@@ -169,12 +170,15 @@ func (p *OpenAITokenProvider) RefreshAfterUnauthorized(ctx context.Context, acco
 		if strings.TrimSpace(token) == "" {
 			return errors.New("openai token refresh lock released without a cached token")
 		}
-		return nil
+		return validateOpenAIOAuthRequestPrincipal(expectedAccount, token)
 	}
 
 	refreshedAccount := result.Account
 	if refreshedAccount == nil {
 		return errors.New("openai token force refresh returned no account")
+	}
+	if err := validateOpenAIOAuthRefreshPrincipal(expectedAccount, refreshedAccount); err != nil {
+		return err
 	}
 	if refreshedAccount.ID == account.ID && refreshedAccount.Credentials != nil {
 		account.Credentials = shallowCopyMap(refreshedAccount.Credentials)

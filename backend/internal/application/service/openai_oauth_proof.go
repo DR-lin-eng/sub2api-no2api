@@ -30,7 +30,7 @@ func (s *OpenAIGatewayService) prepareOpenAIOAuthProof(ctx context.Context, acco
 	if strings.HasSuffix(path, "/realtime/calls") && liveattestation.ValidLiveHeader(headers.Get("x-oai-attestation")) {
 		liveHeader = headers.Get("x-oai-attestation")
 	}
-	for _, name := range []string{"X-OAI-IS", "X-OAI-IS-Update", "x-oai-attestation", "X-OpenAI-Expected-Account-Id", "X-OpenAI-Attach-Auth", "X-OpenAI-Attach-Desktop-Surface", "X-OpenAI-Attach-DeviceCheck-Token", "X-OpenAI-Attach-Integrity-State"} {
+	for _, name := range []string{"X-OAI-IS", "X-OAI-IS-Update", "X-OAI-IS-Pending-Updates", "X-OAI-IS-Client-Observation", "x-local-routing-key", "x-oai-attestation", "X-OpenAI-Expected-Account-Id", "X-OpenAI-Attach-Auth", "X-OpenAI-Attach-Desktop-Surface", "X-OpenAI-Attach-DeviceCheck-Token", "X-OpenAI-Attach-Integrity-State"} {
 		deleteOpenAIHeaderEqualFold(headers, name)
 	}
 	owner, err := resolveCredentialAccount(ctx, s.accountRepo, account)
@@ -63,11 +63,18 @@ func (s *OpenAIGatewayService) prepareOpenAIOAuthProof(ctx context.Context, acco
 	}
 	scope := openAIProofScope(ctx, account, owner, scopeOrigin, headers)
 	ctx = liveattestation.WithRequestScope(ctx, scope)
-	ctx = s.attachIntegrityState(ctx, headers, scope.Key)
+	modelProofPath := path == "/backend-api/codex/responses" || path == "/backend-api/codex/responses/compact"
+	integrityKey := scope.Key
+	if modelProofPath {
+		// Modern Desktop removes the v1 integrity headers and has no response
+		// update store. Clear any inherited receipt without loading an older
+		// cached value, so neither HTTP nor a WS handshake revives that protocol.
+		integrityKey = ""
+	}
+	ctx = s.attachIntegrityState(ctx, headers, integrityKey)
 	if origin != "" && liveHeader != "" {
 		headers.Set("x-oai-attestation", liveHeader)
 	}
-	modelProofPath := path == "/backend-api/codex/responses" || path == "/backend-api/codex/responses/compact"
 	if origin != "" && modelProofPath && s.cfg != nil && s.cfg.Gateway.OpenAIOAuthAttestationEnabled {
 		// The selected local callback returns an opaque token or an app-server
 		// failure status. No capable provider means the header is absent.

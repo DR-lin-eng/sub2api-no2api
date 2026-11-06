@@ -453,12 +453,11 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 		if !openAIAuthRecoveryTried && s.openAITokenProvider != nil &&
 			shouldRefreshOpenAIOAuth401(account, resp.StatusCode, probeBody) {
 			openAIAuthRecoveryTried = true
-			if refreshErr := s.openAITokenProvider.RefreshAfterUnauthorized(ctx, account); refreshErr == nil {
+			if refreshedToken, refreshErr := s.tryRefreshOpenAIRequestToken(ctx, account); refreshErr != nil {
+				return nil, refreshErr
+			} else if refreshedToken != "" {
 				_ = resp.Body.Close()
-				token, _, err = s.GetAccessToken(ctx, account)
-				if err != nil {
-					return nil, err
-				}
+				token = refreshedToken
 				continue
 			}
 		}

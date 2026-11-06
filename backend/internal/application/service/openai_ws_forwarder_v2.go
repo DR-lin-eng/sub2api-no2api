@@ -742,6 +742,9 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 				if refreshErr := s.openAITokenProvider.RefreshAfterUnauthorized(ctx, account); refreshErr == nil {
 					lease.MarkBroken()
 					return nil, &openAIWSAuthRecoveredError{}
+				} else if isOpenAIOAuthPrincipalChangedError(refreshErr) {
+					lease.MarkBroken()
+					return nil, refreshErr
 				}
 			}
 			errMsg := strings.TrimSpace(errMsgRaw)
