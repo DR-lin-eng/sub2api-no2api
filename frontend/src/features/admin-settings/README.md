@@ -33,3 +33,8 @@ pnpm run typecheck
 ## 人员权限组
 
 `SettingsPermissionGroupsTab.vue` 按需挂载、独立加载和保存权限组，保存失败保留草稿。`permissionGroupsDatasource.ts` 与对应 DTO 负责协议。只有完整管理员可以编辑；`settings.manage` 不等同于授权管理。操作教程见 [权限组教程](../../../../docs/PERMISSION_GROUPS.md)。
+
+`RegistrationEmailBlacklistEditor.vue` 独立加载和保存注册邮箱名单；所属 datasource 直接使用统一网络客户端。
+匹配用户查询/禁用属于 `admin-users/data/datasources/userBlacklistActions.ts`；只有具备用户管理权限时展示
+核对入口，保存名单不会自动禁用用户。名单最多 20,000 地址，列表最多渲染 200 行，确认后按 1,000 用户
+顺序提交；失败保留未提交批次。升级与回退见 [同步审查](../../../../docs/UPSTREAM_SYNC_20261107.md)。

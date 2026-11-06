@@ -1160,17 +1160,6 @@ func inferLegacySignupSource(email string) string {
 	}
 }
 
-func (s *AuthService) validateRegistrationEmailPolicy(ctx context.Context, email string) error {
-	if s.settingService == nil {
-		return nil
-	}
-	whitelist := s.settingService.GetRegistrationEmailSuffixWhitelist(ctx)
-	if !IsRegistrationEmailSuffixAllowed(email, whitelist) {
-		return buildEmailSuffixNotAllowedError(whitelist)
-	}
-	return nil
-}
-
 func buildEmailSuffixNotAllowedError(whitelist []string) error {
 	if len(whitelist) == 0 {
 		return ErrEmailSuffixNotAllowed

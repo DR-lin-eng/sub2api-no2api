@@ -41,7 +41,10 @@ RUN --mount=type=cache,id=sub2api-pnpm-store,target=/root/.local/share/pnpm/stor
 # Copy only that subtree to keep the build dependency minimal.
 COPY frontend/ ./
 COPY docs/legal/ /app/docs/legal/
-RUN pnpm run build
+# The full Vue/locale type graph exceeds Node's default 2 GiB build heap.
+# This option belongs only to the frontend compilation step.
+ARG NODE_BUILD_OPTIONS=--max-old-space-size=4096
+RUN NODE_OPTIONS="${NODE_BUILD_OPTIONS}" pnpm run build
 
 # -----------------------------------------------------------------------------
 # Stage 2: Backend Builder

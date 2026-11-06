@@ -59,35 +59,6 @@ type jsonRange struct {
 	kind  gjson.Type // JSON 值类型，用于调用方做轻量分支
 }
 
-type RequestBodyRef struct {
-	data []byte
-}
-
-func NewRequestBodyRef(data []byte) *RequestBodyRef {
-	return &RequestBodyRef{data: data}
-}
-
-func (b *RequestBodyRef) Bytes() []byte {
-	if b == nil {
-		return nil
-	}
-	return b.data
-}
-
-func (b *RequestBodyRef) Len() int {
-	if b == nil {
-		return 0
-	}
-	return len(b.data)
-}
-
-func (b *RequestBodyRef) Replace(data []byte) {
-	if b == nil {
-		return
-	}
-	b.data = data
-}
-
 func missingJSONRange() jsonRange {
 	return jsonRange{start: -1, end: -1}
 }
@@ -180,6 +151,7 @@ func parseGatewayRequestCurrentBody(parsed *ParsedRequest, protocol string) erro
 		return fmt.Errorf("empty request body")
 	}
 
+	parsed.Body.parsed = nil
 	bodyBytes := parsed.Body.Bytes()
 	if !gjson.ValidBytes(bodyBytes) {
 		return DescribeInvalidJSON(bodyBytes)
@@ -195,7 +167,7 @@ func parseGatewayRequestCurrentBody(parsed *ParsedRequest, protocol string) erro
 		if modelResult.Type != gjson.String {
 			return fmt.Errorf("invalid model field type")
 		}
-		parsed.Model = modelResult.String()
+		parsed.Model = strings.Clone(modelResult.String())
 		if protocol == domain.PlatformAnthropic {
 			normalizedModel := normalizeClaudeCodeLongContextModel(parsed.Model)
 			if normalizedModel != parsed.Model {
@@ -219,12 +191,12 @@ func parseGatewayRequestCurrentBody(parsed *ParsedRequest, protocol string) erro
 		parsed.Stream = streamResult.Bool()
 	}
 
-	parsed.MetadataUserID = gjson.Get(jsonStr, "metadata.user_id").String()
+	parsed.MetadataUserID = strings.Clone(gjson.Get(jsonStr, "metadata.user_id").String())
 
 	thinkingType := gjson.Get(jsonStr, "thinking.type").String()
 	parsed.ThinkingEnabled = thinkingType == "enabled" || thinkingType == "adaptive"
 
-	parsed.OutputEffort = strings.TrimSpace(gjson.Get(jsonStr, "output_config.effort").String())
+	parsed.OutputEffort = strings.Clone(strings.TrimSpace(gjson.Get(jsonStr, "output_config.effort").String()))
 
 	maxTokensResult := gjson.Get(jsonStr, "max_tokens")
 	if maxTokensResult.Exists() && maxTokensResult.Type == gjson.Number {
@@ -236,6 +208,7 @@ func parseGatewayRequestCurrentBody(parsed *ParsedRequest, protocol string) erro
 	}
 
 	setGatewayRequestRanges(parsed, protocol, jsonStr)
+	parsed.saveBodyState()
 	return nil
 }
 
@@ -412,6 +385,11 @@ func (p *ParsedRequest) CloneForBody(body []byte) (*ParsedRequest, error) {
 	clone := *p
 	clone.Body = NewRequestBodyRef(body)
 	clone.OnUpstreamAccepted = nil
+	if state := p.reusableBodyState(body); state != nil {
+		clone.Body.parsed = state
+		clone.restoreBodyState(state)
+		return &clone, nil
+	}
 	if err := refreshGatewayRequestRanges(&clone, clone.protocol); err != nil {
 		return nil, err
 	}
@@ -422,6 +400,10 @@ func (p *ParsedRequest) CloneForBody(body []byte) (*ParsedRequest, error) {
 func (p *ParsedRequest) ReplaceBody(data []byte) error {
 	if p == nil {
 		return fmt.Errorf("parse request: empty request")
+	}
+	if state := p.reusableBodyState(data); state != nil {
+		p.restoreBodyState(state)
+		return nil
 	}
 	if p.Body == nil {
 		p.Body = NewRequestBodyRef(data)
@@ -1240,6 +1222,13 @@ func filterThinkingBlocksInternal(body []byte, alwaysThinking bool) []byte {
 		return body
 	}
 
+	if needs, decided := thinkingBlocksNeedFiltering(body, alwaysThinking); decided && !needs {
+		return body
+	}
+	return filterThinkingBlocksDecoded(body, alwaysThinking)
+}
+
+func filterThinkingBlocksDecoded(body []byte, alwaysThinking bool) []byte {
 	var req map[string]any
 	if err := json.Unmarshal(body, &req); err != nil {
 		return body

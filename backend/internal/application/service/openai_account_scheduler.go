@@ -89,6 +89,7 @@ var openAIAdvancedSchedulerSettingCache atomic.Value // *cachedOpenAIAdvancedSch
 var openAIAdvancedSchedulerSettingSF singleflight.Group
 
 type OpenAIAccountScheduleRequest struct {
+	RequirePrivacySet       bool
 	GroupID                 *int64
 	Platform                string
 	SessionHash             string
@@ -472,6 +473,11 @@ func (s *defaultOpenAIAccountScheduler) Select(
 	ctx context.Context,
 	req OpenAIAccountScheduleRequest,
 ) (selection *AccountSelectionResult, decision OpenAIAccountScheduleDecision, err error) {
+	if required, known := ctx.Value(openAIPrivacyRequiredKey{}).(bool); known {
+		req.RequirePrivacySet = required
+	} else if group := s.service.openAIPrivacyGroup(ctx, req.GroupID); group != nil {
+		req.RequirePrivacySet = group.RequirePrivacySet
+	}
 	ctx = withOpenAIImageSizeStickyAccount(withOpenAIImageSizeStickyAccount(ctx, req.StickyAccountID), req.StickyPreviousAccountID)
 	start := time.Now()
 	defer func() {
@@ -496,7 +502,7 @@ func (s *defaultOpenAIAccountScheduler) Select(
 		}
 		if selection != nil && selection.Account != nil {
 			vetoed, _ := openAIImageSizeVetoReason(withOpenAIImageSizeStickyAccount(ctx, selection.Account.ID), selection.Account)
-			if vetoed || !s.isAccountTransportCompatible(selection.Account, req.RequiredTransport) {
+			if vetoed || (req.RequirePrivacySet && !selection.Account.IsPrivacySet()) || !s.isAccountTransportCompatible(selection.Account, req.RequiredTransport) {
 				if selection.ReleaseFunc != nil {
 					selection.ReleaseFunc()
 				}
@@ -1761,11 +1767,6 @@ func (s *defaultOpenAIAccountScheduler) selectionFailureDetails(
 		return openAISelectionFilterStats{}.summary(extra)
 	}
 
-	var schedGroup *Group
-	if req.GroupID != nil && s.service.schedulerSnapshot != nil {
-		schedGroup, _ = s.service.schedulerSnapshot.GetGroupByIDLite(ctx, *req.GroupID)
-	}
-
 	stats := openAISelectionFilterStats{pool: len(accounts)}
 	for i := range accounts {
 		account := &accounts[i]
@@ -1787,7 +1788,7 @@ func (s *defaultOpenAIAccountScheduler) selectionFailureDetails(
 			stats.exclude("runtime_blocked")
 			continue
 		}
-		if schedGroup != nil && schedGroup.RequirePrivacySet && !account.IsPrivacySet() {
+		if req.RequirePrivacySet && !account.IsPrivacySet() {
 			stats.exclude("privacy_not_set")
 			continue
 		}
@@ -1825,10 +1826,6 @@ func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 	}
 
 	// require_privacy_set: 获取分组信息
-	var schedGroup *Group
-	if req.GroupID != nil && s.service.schedulerSnapshot != nil {
-		schedGroup, _ = s.service.schedulerSnapshot.GetGroupByIDLite(ctx, *req.GroupID)
-	}
 
 	filtered := make([]*Account, 0, len(accounts))
 	loadReq := make([]AccountWithConcurrency, 0, len(accounts))
@@ -1848,11 +1845,8 @@ func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 		if s.service.isOpenAIAccountRequestRuntimeBlocked(account, req.RequestedModel) {
 			continue
 		}
-		// require_privacy_set: 跳过 privacy 未设置的账号并标记异常
-		if schedGroup != nil && schedGroup.RequirePrivacySet && !account.IsPrivacySet() {
-			s.service.BlockAccountScheduling(account, time.Time{}, "privacy_not_set")
-			_ = s.service.accountRepo.SetError(ctx, account.ID,
-				fmt.Sprintf("Privacy not set, required by group [%s]", schedGroup.Name))
+		// require_privacy_set: 仅过滤当前分组，不改变共享账号状态
+		if req.RequirePrivacySet && !account.IsPrivacySet() {
 			continue
 		}
 		if compatible, _ := s.isAccountRequestCompatibleReason(ctx, account, req); !compatible {
@@ -2177,6 +2171,9 @@ func (s *defaultOpenAIAccountScheduler) isAccountRequestCompatible(ctx context.C
 func (s *defaultOpenAIAccountScheduler) isAccountRequestCompatibleReason(ctx context.Context, account *Account, req OpenAIAccountScheduleRequest) (bool, string) {
 	if account == nil {
 		return false, "account_nil"
+	}
+	if req.RequirePrivacySet && !account.IsPrivacySet() {
+		return false, "privacy_not_set"
 	}
 	if s != nil && s.service != nil && !s.service.codexContinuationCandidateMatches(ctx, account) {
 		return false, "codex_continuation_principal_mismatch"
@@ -2781,6 +2778,7 @@ func (s *OpenAIGatewayService) selectAccountWithSchedulerInGroupRaw(
 	previousResponseCanMove bool,
 	useUpstreamTokenCost bool,
 ) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
+	ctx = s.withOpenAIPrivacyRequirement(ctx, groupID)
 	ctx = s.withOpenAIRoutingModelContext(ctx, groupID, requestedModel, requireCompact)
 	if requiredImageCapability == "" {
 		ctx = s.withOpenAIProfitControlGate(ctx, groupID)

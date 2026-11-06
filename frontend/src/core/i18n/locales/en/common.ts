@@ -320,6 +320,7 @@ export default {
       failed: 'Verification failed, please try again',
     },
     errors: {
+      EMAIL_BLOCKED: 'This email address is not allowed. Please use a different one.',
       USER_NOT_ACTIVE: 'Account has been disabled.',
       LOCAL_CAPTCHA_REQUIRED: 'Enter the image CAPTCHA',
       LOCAL_CAPTCHA_EXPIRED: 'CAPTCHA expired. Enter the new challenge',

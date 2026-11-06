@@ -64,7 +64,8 @@ type User struct {
 	// UserGroupRPMOverride 来自 auth cache snapshot 的 (user, group) RPM 覆盖值。
 	// nil = 该 API Key 对应的 (user, group) 无 override；非 nil 时 checkRPM 直接使用，
 	// 避免每请求查 DB。字段不持久化到数据库。
-	UserGroupRPMOverride *int
+	UserGroupRPMOverrideGroupID int64
+	UserGroupRPMOverride        *int
 
 	APIKeys       []APIKey
 	Subscriptions []UserSubscription

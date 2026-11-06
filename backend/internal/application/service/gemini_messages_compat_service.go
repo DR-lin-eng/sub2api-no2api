@@ -1,7 +1,6 @@
 package service
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"crypto/rand"
@@ -1017,7 +1016,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 		clientDisconnect, streamFinished = streamRes.clientDisconnect, streamRes.finished
 	} else {
 		if useUpstreamStream {
-			collected, usageObj, err := collectGeminiSSE(resp.Body, true)
+			collected, usageObj, err := collectGeminiSSE(resp.Body, true, s.cfg)
 			if err != nil {
 				return nil, s.writeClaudeError(c, http.StatusBadGateway, "upstream_error", "Failed to read upstream stream")
 			}
@@ -1578,7 +1577,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 				if sig, ok := detectGeminiResponseSignal(rawBytes); ok && sig.Kind > best.Kind {
 					best = sig
 				}
-			})
+			}, s.cfg)
 			if err != nil {
 				return nil, s.writeGoogleError(c, http.StatusBadGateway, "Failed to read upstream stream")
 			}
@@ -2044,8 +2043,8 @@ func unwrapIfNeeded(isOAuth bool, raw []byte) []byte {
 	return inner
 }
 
-func collectGeminiSSE(body io.Reader, isOAuth bool) (map[string]any, *ClaudeUsage, error) {
-	collected, usage, _, err := collectGeminiSSEObserved(body, isOAuth, nil)
+func collectGeminiSSE(body io.Reader, isOAuth bool, configs ...*config.Config) (map[string]any, *ClaudeUsage, error) {
+	collected, usage, _, err := collectGeminiSSEObserved(body, isOAuth, nil, configs...)
 	return collected, usage, err
 }
 
@@ -2057,8 +2056,12 @@ type geminiSSECollectStats struct {
 // collectGeminiSSEObserved aggregates a stream while optionally inspecting
 // each decoded event for in-band Gemini signals. The legacy wrapper above
 // keeps other compatibility paths byte/behavior compatible.
-func collectGeminiSSEObserved(body io.Reader, isOAuth bool, observe func([]byte)) (map[string]any, *ClaudeUsage, geminiSSECollectStats, error) {
-	reader := bufio.NewReader(body)
+func collectGeminiSSEObserved(body io.Reader, isOAuth bool, observe func([]byte), configs ...*config.Config) (map[string]any, *ClaudeUsage, geminiSSECollectStats, error) {
+	var cfg *config.Config
+	if len(configs) > 0 {
+		cfg = configs[0]
+	}
+	reader := newBoundedSSELineReader(body, cfg)
 
 	var last map[string]any
 	var lastWithParts map[string]any
@@ -2067,7 +2070,7 @@ func collectGeminiSSEObserved(body io.Reader, isOAuth bool, observe func([]byte)
 	stats := geminiSSECollectStats{fallback: &geminiSSEFallbackBody{}}
 
 	for {
-		line, err := reader.ReadString('\n')
+		line, err := reader.ReadLineString()
 		if len(line) > 0 {
 			trimmed := strings.TrimRight(line, "\r\n")
 			if !strings.HasPrefix(trimmed, "data:") {
@@ -2804,24 +2807,6 @@ func extractGeminiParts(geminiResp map[string]any) []map[string]any {
 		}
 	}
 	return nil
-}
-
-func computeGeminiTextDelta(seen, incoming string) (delta, newSeen string) {
-	incoming = strings.TrimSuffix(incoming, "\u0000")
-	if incoming == "" {
-		return "", seen
-	}
-
-	// Cumulative mode: incoming contains full text so far.
-	if strings.HasPrefix(incoming, seen) {
-		return strings.TrimPrefix(incoming, seen), incoming
-	}
-	// Duplicate/rewind: ignore.
-	if strings.HasPrefix(seen, incoming) {
-		return "", seen
-	}
-	// Delta mode: treat incoming as incremental chunk.
-	return incoming, seen + incoming
 }
 
 func mapGeminiFinishReasonToClaudeStopReason(finishReason string) string {

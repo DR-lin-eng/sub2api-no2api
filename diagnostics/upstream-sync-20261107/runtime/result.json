@@ -1,0 +1,304 @@
+[
+  {
+    "stage": "BASELINE",
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "image-4k",
+        "selected_fixture": "fixture-high",
+        "settlement": [
+          {
+            "input": 0,
+            "output": 0,
+            "count": 2,
+            "total": 0.2,
+            "actual": 0.2,
+            "mode": "image"
+          }
+        ]
+      },
+      {
+        "case": "responses",
+        "stream": false,
+        "settlement": [
+          {
+            "input": 1000,
+            "output": 100,
+            "count": 0,
+            "total": 0.004,
+            "actual": 0.004,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "responses",
+        "stream": true,
+        "settlement": [
+          {
+            "input": 1000,
+            "output": 100,
+            "count": 0,
+            "total": 0.004,
+            "actual": 0.004,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "grok-delegation",
+        "normalized": true
+      },
+      {
+        "case": "kimi-concurrency-403",
+        "http": 502,
+        "state": {
+          "status": "active",
+          "rate_limited": true,
+          "temporary": null
+        }
+      },
+      {
+        "case": "old-node-blacklist-route",
+        "http": 404
+      }
+    ],
+    "migrations": 313,
+    "persistent_identity_key_subscription": "PASS",
+    "historical_usage_unchanged": "PASS",
+    "balance_settlement_identity": "PASS"
+  },
+  {
+    "stage": "MODIFIED",
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "image-4k",
+        "selected_fixture": "fixture-high",
+        "settlement": [
+          {
+            "input": 0,
+            "output": 0,
+            "count": 2,
+            "total": 0.2,
+            "actual": 0.2,
+            "mode": "image"
+          }
+        ]
+      },
+      {
+        "case": "responses",
+        "stream": false,
+        "settlement": [
+          {
+            "input": 1000,
+            "output": 100,
+            "count": 0,
+            "total": 0.004,
+            "actual": 0.004,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "responses",
+        "stream": true,
+        "settlement": [
+          {
+            "input": 1000,
+            "output": 100,
+            "count": 0,
+            "total": 0.004,
+            "actual": 0.004,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "grok-delegation",
+        "normalized": true
+      },
+      {
+        "case": "kimi-concurrency-403",
+        "http": 502,
+        "state": {
+          "status": "active",
+          "rate_limited": true,
+          "temporary": null
+        }
+      },
+      {
+        "case": "blacklist-empty-default",
+        "result": "PASS"
+      },
+      {
+        "case": "gmail-alias-rejected",
+        "http": 400
+      },
+      {
+        "case": "existing-user-confirmation",
+        "affected": 1,
+        "admin_and_control_preserved": true
+      },
+      {
+        "case": "batch-disable-idempotence",
+        "affected": 0
+      }
+    ],
+    "migrations": 313,
+    "persistent_identity_key_subscription": "PASS",
+    "historical_usage_unchanged": "PASS",
+    "balance_settlement_identity": "PASS"
+  },
+  {
+    "stage": "ROLLBACK",
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "image-4k",
+        "selected_fixture": "fixture-high",
+        "settlement": [
+          {
+            "input": 0,
+            "output": 0,
+            "count": 2,
+            "total": 0.2,
+            "actual": 0.2,
+            "mode": "image"
+          }
+        ]
+      },
+      {
+        "case": "responses",
+        "stream": false,
+        "settlement": [
+          {
+            "input": 1000,
+            "output": 100,
+            "count": 0,
+            "total": 0.004,
+            "actual": 0.004,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "responses",
+        "stream": true,
+        "settlement": [
+          {
+            "input": 1000,
+            "output": 100,
+            "count": 0,
+            "total": 0.004,
+            "actual": 0.004,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "grok-delegation",
+        "normalized": true
+      },
+      {
+        "case": "kimi-concurrency-403",
+        "http": 502,
+        "state": {
+          "status": "active",
+          "rate_limited": true,
+          "temporary": null
+        }
+      },
+      {
+        "case": "old-node-blacklist-route",
+        "http": 404
+      }
+    ],
+    "migrations": 313,
+    "persistent_identity_key_subscription": "PASS",
+    "historical_usage_unchanged": "PASS",
+    "balance_settlement_identity": "PASS"
+  },
+  {
+    "stage": "RESTORED",
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "image-4k",
+        "selected_fixture": "fixture-high",
+        "settlement": [
+          {
+            "input": 0,
+            "output": 0,
+            "count": 2,
+            "total": 0.2,
+            "actual": 0.2,
+            "mode": "image"
+          }
+        ]
+      },
+      {
+        "case": "responses",
+        "stream": false,
+        "settlement": [
+          {
+            "input": 1000,
+            "output": 100,
+            "count": 0,
+            "total": 0.004,
+            "actual": 0.004,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "responses",
+        "stream": true,
+        "settlement": [
+          {
+            "input": 1000,
+            "output": 100,
+            "count": 0,
+            "total": 0.004,
+            "actual": 0.004,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "grok-delegation",
+        "normalized": true
+      },
+      {
+        "case": "kimi-concurrency-403",
+        "http": 502,
+        "state": {
+          "status": "active",
+          "rate_limited": true,
+          "temporary": null
+        }
+      },
+      {
+        "case": "blacklist-empty-default",
+        "result": "PASS"
+      },
+      {
+        "case": "gmail-alias-rejected",
+        "http": 400
+      },
+      {
+        "case": "existing-user-confirmation",
+        "affected": 1,
+        "admin_and_control_preserved": true
+      },
+      {
+        "case": "batch-disable-idempotence",
+        "affected": 0
+      }
+    ],
+    "migrations": 313,
+    "persistent_identity_key_subscription": "PASS",
+    "historical_usage_unchanged": "PASS",
+    "balance_settlement_identity": "PASS"
+  }
+]

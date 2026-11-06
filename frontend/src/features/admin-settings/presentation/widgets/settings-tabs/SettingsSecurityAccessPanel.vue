@@ -112,6 +112,8 @@
         </p>
       </div>
 
+      <RegistrationEmailBlacklistEditor />
+
       <!-- Promo Code -->
       <div
         class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-dark-700"
@@ -745,6 +747,7 @@
 </template>
 
 <script setup lang="ts">
+import RegistrationEmailBlacklistEditor from '../RegistrationEmailBlacklistEditor.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import PanelRateLimitSettingsCard from '@/features/admin-settings/presentation/widgets/PanelRateLimitSettingsCard.vue'
 import Select from '@/common/widgets/forms/Select.vue'

@@ -41,3 +41,6 @@ API Key 列表排序由 `api_key_repo_sort.go` 定义，在 SQL 分页前按第�
 `api_key_auth_bloom_cache.go` 用标准 Redis Lua/位图保存共享 API Key 成员预筛；`api_key_auth_bloom_repo.go` 按主键分页预热，并用 PostgreSQL 事务 advisory lock 协调重建与创建。位图固定约 2 MiB，随机无效凭据不新增 key 或写入位图；准备标记与位图同键、构建代次与租约校验避免缓存丢失后发布不完整快照。
 
 `mcp_oauth*` owns durable management grants, digest credentials, transactional replay revocation and the single joined token-authority read. Migration 252 also revokes grants for old-node user mutations during upgrade/rollback.
+
+`user_repo_email_blacklist.go` 为管理端执行单次有界邮箱探针查询；application 按当前邮箱身份规则复核。
+批量禁用在同一事务更新普通用户状态并撤销 MCP 授权，再由 application 触发既有鉴权缓存失效。

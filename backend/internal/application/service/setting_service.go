@@ -78,6 +78,10 @@ type SettingService struct {
 	openAIRequestTimezoneMu     sync.Mutex
 	adminAPIKeyMu               sync.Mutex
 
+	registrationEmailBlacklistMu    sync.Mutex
+	registrationEmailBlacklistCache atomic.Value // *registrationEmailBlacklistIndex
+	registrationEmailBlacklistSF    singleflight.Group
+
 	cyberSessionBlockRuntimeCache atomic.Value // *cachedCyberSessionBlockRuntime
 	cyberSessionBlockRuntimeSF    singleflight.Group
 

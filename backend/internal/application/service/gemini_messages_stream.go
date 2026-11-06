@@ -1,7 +1,6 @@
 package service
 
 import (
-	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -58,16 +57,16 @@ func (s *GeminiMessagesCompatService) handleStreamingResponse(c *gin.Context, re
 	nextBlockIndex := 0
 	openBlockIndex := -1
 	openBlockType := ""
-	seenText := ""
-	seenThought := ""
+	var seenText geminiTextDelta
+	var seenThought geminiTextDelta
 	openToolIndex := -1
 	openToolID := ""
 	openToolName := ""
-	seenToolJSON := ""
+	var seenToolJSON geminiTextDelta
 
-	reader := bufio.NewReader(resp.Body)
+	reader := newBoundedSSELineReader(resp.Body, s.cfg)
 	for {
-		line, err := reader.ReadString('\n')
+		line, err := reader.ReadLineString()
 		if err != nil && !errors.Is(err, io.EOF) {
 			if geminiStreamAbortedWithBillableOutput(c, err, &usage) {
 				return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs, clientDisconnect: true, finished: finished}, nil
@@ -116,8 +115,7 @@ func (s *GeminiMessagesCompatService) handleStreamingResponse(c *gin.Context, re
 		parts := extractGeminiParts(geminiResp)
 		for _, part := range parts {
 			if text, ok := part["text"].(string); ok && isGeminiThoughtPart(part) {
-				delta, newSeen := computeGeminiTextDelta(seenThought, text)
-				seenThought = newSeen
+				delta := seenThought.next(text)
 				if delta == "" {
 					continue
 				}
@@ -125,7 +123,7 @@ func (s *GeminiMessagesCompatService) handleStreamingResponse(c *gin.Context, re
 					writeSSE(writer, "content_block_stop", map[string]any{"type": "content_block_stop", "index": openToolIndex})
 					openToolIndex = -1
 					openToolName = ""
-					seenToolJSON = ""
+					seenToolJSON.reset()
 				}
 				if openBlockType != "thinking" {
 					if openBlockIndex >= 0 {
@@ -164,11 +162,10 @@ func (s *GeminiMessagesCompatService) handleStreamingResponse(c *gin.Context, re
 					})
 					openToolIndex = -1
 					openToolName = ""
-					seenToolJSON = ""
+					seenToolJSON.reset()
 				}
 
-				delta, newSeen := computeGeminiTextDelta(seenText, text)
-				seenText = newSeen
+				delta := seenText.next(text)
 				if delta == "" {
 					continue
 				}
@@ -234,7 +231,7 @@ func (s *GeminiMessagesCompatService) handleStreamingResponse(c *gin.Context, re
 					})
 					openToolIndex = -1
 					openToolName = ""
-					seenToolJSON = ""
+					seenToolJSON.reset()
 				}
 
 				if openToolIndex < 0 {
@@ -270,8 +267,7 @@ func (s *GeminiMessagesCompatService) handleStreamingResponse(c *gin.Context, re
 					}
 				}
 
-				delta, newSeen := computeGeminiTextDelta(seenToolJSON, argsJSONText)
-				seenToolJSON = newSeen
+				delta := seenToolJSON.next(argsJSONText)
 				if delta != "" {
 					writeSSE(writer, "content_block_delta", map[string]any{
 						"type":  "content_block_delta",

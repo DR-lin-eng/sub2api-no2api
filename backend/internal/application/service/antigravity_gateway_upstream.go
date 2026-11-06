@@ -6,12 +6,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"sync/atomic"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	"github.com/Wei-Shaw/sub2api/internal/shared/antigravity"
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
 	"github.com/gin-gonic/gin"
@@ -124,7 +124,7 @@ func (s *AntigravityGatewayService) ForwardUpstream(ctx context.Context, c *gin.
 		clientDisconnect = streamRes.clientDisconnect
 	} else {
 		// 非流式响应：直接透传
-		respBody, err := io.ReadAll(resp.Body)
+		respBody, err := ReadUpstreamResponseBody(resp.Body, s.upstreamResponseConfig(), c, anthropicTooLargeError)
 		if err != nil {
 			return nil, fmt.Errorf("read upstream response: %w", err)
 		}
@@ -380,4 +380,11 @@ func (s *AntigravityGatewayService) extractClaudeUsage(body []byte) *ClaudeUsage
 		}
 	}
 	return usage
+}
+
+func (s *AntigravityGatewayService) upstreamResponseConfig() *config.Config {
+	if s == nil || s.settingService == nil {
+		return nil
+	}
+	return s.settingService.cfg
 }

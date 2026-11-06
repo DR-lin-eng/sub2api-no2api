@@ -1965,7 +1965,7 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 	// require_privacy_set: 获取分组信息
 	var schedGroup *Group
 	if groupID != nil && s.groupRepo != nil {
-		schedGroup, _ = s.groupRepo.GetByIDLite(ctx, *groupID)
+		schedGroup, _ = s.resolveGroupByID(ctx, *groupID)
 	}
 
 	var accounts []Account
@@ -1991,7 +1991,7 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 						if clearSticky {
 							_ = s.cache.DeleteSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
 						}
-						if !clearSticky && s.isAccountInGroup(account, groupID) && account.Platform == platform && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) && !s.isStickyAccountUpstreamRestricted(ctx, groupID, account, requestedModel) {
+						if !clearSticky && (schedGroup == nil || !schedGroup.RequirePrivacySet || account.IsPrivacySet()) && s.isAccountInGroup(account, groupID) && account.Platform == platform && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) && !s.isStickyAccountUpstreamRestricted(ctx, groupID, account, requestedModel) {
 							if s.debugModelRoutingEnabled() {
 								logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] legacy routed sticky hit: group_id=%v model=%s session=%s account=%d", derefGroupID(groupID), requestedModel, shortSessionHash(sessionHash), accountID)
 							}
@@ -2040,10 +2040,8 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 			if !s.isAccountSchedulableForSelection(acc) {
 				continue
 			}
-			// require_privacy_set: 跳过 privacy 未设置的账号并标记异常
+			// require_privacy_set: 仅过滤当前分组，不改变共享账号状态
 			if schedGroup != nil && schedGroup.RequirePrivacySet && !acc.IsPrivacySet() {
-				_ = s.accountRepo.SetError(ctx, acc.ID,
-					fmt.Sprintf("Privacy not set, required by group [%s]", schedGroup.Name))
 				continue
 			}
 			if requestedModel != "" && !s.isModelSupportedByAccountWithContext(ctx, acc, requestedModel) {
@@ -2111,7 +2109,7 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 					if clearSticky {
 						_ = s.cache.DeleteSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
 					}
-					if !clearSticky && s.isAccountInGroup(account, groupID) && account.Platform == platform && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) {
+					if !clearSticky && (schedGroup == nil || !schedGroup.RequirePrivacySet || account.IsPrivacySet()) && s.isAccountInGroup(account, groupID) && account.Platform == platform && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) {
 						return account, nil
 					}
 				}
@@ -2151,10 +2149,8 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 		if !s.isAccountSchedulableForSelection(acc) {
 			continue
 		}
-		// require_privacy_set: 跳过 privacy 未设置的账号并标记异常
+		// require_privacy_set: 仅过滤当前分组，不改变共享账号状态
 		if schedGroup != nil && schedGroup.RequirePrivacySet && !acc.IsPrivacySet() {
-			_ = s.accountRepo.SetError(ctx, acc.ID,
-				fmt.Sprintf("Privacy not set, required by group [%s]", schedGroup.Name))
 			continue
 		}
 		if requestedModel != "" && !s.isModelSupportedByAccountWithContext(ctx, acc, requestedModel) {
@@ -2227,7 +2223,7 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 	// require_privacy_set: 获取分组信息
 	var schedGroup *Group
 	if groupID != nil && s.groupRepo != nil {
-		schedGroup, _ = s.groupRepo.GetByIDLite(ctx, *groupID)
+		schedGroup, _ = s.resolveGroupByID(ctx, *groupID)
 	}
 
 	var accounts []Account
@@ -2251,7 +2247,7 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 						if clearSticky {
 							_ = s.cache.DeleteSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
 						}
-						if !clearSticky && s.isAccountInGroup(account, groupID) && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) {
+						if !clearSticky && (schedGroup == nil || !schedGroup.RequirePrivacySet || account.IsPrivacySet()) && s.isAccountInGroup(account, groupID) && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) {
 							if account.Platform == nativePlatform || (account.Platform == PlatformAntigravity && account.IsMixedSchedulingEnabled()) {
 								if s.debugModelRoutingEnabled() {
 									logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] legacy mixed routed sticky hit: group_id=%v model=%s session=%s account=%d", derefGroupID(groupID), requestedModel, shortSessionHash(sessionHash), accountID)
@@ -2298,10 +2294,8 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 			if !s.isAccountSchedulableForSelection(acc) {
 				continue
 			}
-			// require_privacy_set: 跳过 privacy 未设置的账号并标记异常
+			// require_privacy_set: 仅过滤当前分组，不改变共享账号状态
 			if schedGroup != nil && schedGroup.RequirePrivacySet && !acc.IsPrivacySet() {
-				_ = s.accountRepo.SetError(ctx, acc.ID,
-					fmt.Sprintf("Privacy not set, required by group [%s]", schedGroup.Name))
 				continue
 			}
 			// 过滤：原生平台直接通过，antigravity 需要启用混合调度
@@ -2373,7 +2367,7 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 					if clearSticky {
 						_ = s.cache.DeleteSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
 					}
-					if !clearSticky && s.isAccountInGroup(account, groupID) && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) && !s.isStickyAccountUpstreamRestricted(ctx, groupID, account, requestedModel) {
+					if !clearSticky && (schedGroup == nil || !schedGroup.RequirePrivacySet || account.IsPrivacySet()) && s.isAccountInGroup(account, groupID) && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) && !s.isStickyAccountUpstreamRestricted(ctx, groupID, account, requestedModel) {
 						if account.Platform == nativePlatform || (account.Platform == PlatformAntigravity && account.IsMixedSchedulingEnabled()) {
 							return account, nil
 						}
@@ -2410,10 +2404,8 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 		if !s.isAccountSchedulableForSelection(acc) {
 			continue
 		}
-		// require_privacy_set: 跳过 privacy 未设置的账号并标记异常
+		// require_privacy_set: 仅过滤当前分组，不改变共享账号状态
 		if schedGroup != nil && schedGroup.RequirePrivacySet && !acc.IsPrivacySet() {
-			_ = s.accountRepo.SetError(ctx, acc.ID,
-				fmt.Sprintf("Privacy not set, required by group [%s]", schedGroup.Name))
 			continue
 		}
 		// 过滤：原生平台直接通过，antigravity 需要启用混合调度

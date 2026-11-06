@@ -175,8 +175,9 @@ func wrapUsageRecordTaskContext(parent context.Context, task service.UsageRecord
 	if task == nil {
 		return nil
 	}
+	requestContext := usageRecordContext(parent, context.Background())
 	return func(ctx context.Context) {
-		task(usageRecordContext(parent, ctx))
+		task(usageRecordContext(requestContext, ctx))
 	}
 }
 

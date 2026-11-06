@@ -320,6 +320,7 @@ export default {
       failed: '验证失败，请重试',
     },
     errors: {
+      EMAIL_BLOCKED: '该邮箱不允许注册，请更换其他邮箱。',
       USER_NOT_ACTIVE: '账号已被禁用',
       LOCAL_CAPTCHA_REQUIRED: '请输入图形验证码',
       LOCAL_CAPTCHA_EXPIRED: '验证码已过期，请重新输入',

@@ -7,6 +7,7 @@ import (
 )
 
 func setGatewayDefaults() {
+	viper.SetDefault("gateway.disable_openai_transport_error_cooldown", false)
 	viper.SetDefault("gateway.min_output_tokens", 128)
 	// Gateway
 	viper.SetDefault("gateway.response_header_timeout", 600) // 600秒(10分钟)等待上游响应头，LLM高负载时可能排队较久
