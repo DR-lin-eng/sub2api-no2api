@@ -104,7 +104,7 @@ func TestCodexExperimentalTLSHandshakeConcurrentConnections1600(t *testing.T) {
 	profileKey := tlsfingerprint.FingerprintKey(profile)
 	client := buildCodexExperimentalHTTP2Client(profile, platformegress.DirectRoute(false), nil)
 	require.NotNil(t, client)
-	client.SetTLSClientConfig(&tls.Config{RootCAs: roots})
+	client.SetTLSClientConfig(&tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS13})
 
 	const connections = 1600
 	type result struct {
@@ -126,7 +126,7 @@ func TestCodexExperimentalTLSHandshakeConcurrentConnections1600(t *testing.T) {
 				results <- result{err: err}
 				return
 			}
-			defer plain.Close()
+			defer func() { _ = plain.Close() }()
 			conn, state, err := client.GetTransport().TLSHandshakeContext(ctx, server.Listener.Addr().String(), plain)
 			if conn != nil {
 				_ = conn.Close()

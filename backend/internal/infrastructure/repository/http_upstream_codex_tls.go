@@ -61,7 +61,7 @@ func (c *codexExperimentalTLSConn) ConnectionState() tls.ConnectionState {
 		DidResume:                   state.DidResume,
 		CipherSuite:                 state.CipherSuite,
 		NegotiatedProtocol:          state.NegotiatedProtocol,
-		NegotiatedProtocolIsMutual:  state.NegotiatedProtocolIsMutual,
+		NegotiatedProtocolIsMutual:  true,
 		ServerName:                  state.ServerName,
 		PeerCertificates:            state.PeerCertificates,
 		VerifiedChains:              state.VerifiedChains,
