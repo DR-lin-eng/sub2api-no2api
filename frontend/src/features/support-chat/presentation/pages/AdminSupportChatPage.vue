@@ -203,6 +203,7 @@ import {
   reconcileChatMessageHistory,
   SUPPORT_CHAT_MESSAGE_PAGE_SIZE,
 } from '@/features/support-chat/presentation/composables/supportChatHistory'
+import { sortSupportChatConversations } from '@/features/support-chat/presentation/composables/supportChatConversationSort'
 import { useSupportChatAdminStore } from '@/features/support-chat/presentation/stores/supportChatAdminStore'
 import AdminConversationList from '@/features/support-chat/presentation/widgets/AdminConversationList.vue'
 import SupportBrowserNotificationButton from '@/features/support-chat/presentation/widgets/SupportBrowserNotificationButton.vue'
@@ -357,12 +358,7 @@ function upsertConversationActivity(message: ChatMessage) {
   if (selectedConversationSnapshot.value?.id === message.conversation_id) {
     selectedConversationSnapshot.value = existing
   }
-  conversations.value = [...conversations.value].sort((a, b) => {
-    const at = Date.parse(a.last_message_at || a.updated_at) || 0
-    const bt = Date.parse(b.last_message_at || b.updated_at) || 0
-    if (at !== bt) return bt - at
-    return b.id - a.id
-  })
+  conversations.value = sortSupportChatConversations(conversations.value)
 }
 
 async function scrollToBottom() {
@@ -381,7 +377,7 @@ async function loadConversations() {
       unread_only: unreadOnly.value,
       search: search.value.trim() || undefined,
     })
-    conversations.value = page.items
+    conversations.value = sortSupportChatConversations(page.items)
     lastResyncAt = Date.now()
     conversationTotal.value = page.total
     if (unreadOnly.value) {
@@ -540,6 +536,7 @@ async function markSelectedRead(conversationID = selectedConversationID.value) {
       selectedConversationSnapshot.value = target
     }
   }
+  conversations.value = sortSupportChatConversations(conversations.value)
   await supportChatAdminStore.refreshUnreadIndicator(true)
   appStore.setSupportInboxUnread(supportChatAdminStore.hasUnread)
 }
@@ -555,6 +552,7 @@ async function markSelectedUnread() {
       ? selectedConversationSnapshot.value
       : null)
     if (target) target.manually_unread_by_admin = true
+    conversations.value = sortSupportChatConversations(conversations.value)
     await supportChatAdminStore.refreshUnreadIndicator(true)
     appStore.setSupportInboxUnread(supportChatAdminStore.hasUnread)
     appStore.showSuccess(t('supportChat.markUnreadSuccess'))

@@ -9,6 +9,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	entsql "entgo.io/ent/dialect/sql"
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/chatasset"
 	"github.com/Wei-Shaw/sub2api/ent/chatconversation"
@@ -120,8 +121,9 @@ func (r *chatConversationRepository) List(
 		Offset(params.Offset()).
 		Limit(params.Limit()).
 		Order(
-			dbent.Desc(chatconversation.FieldLastMessageAt),
-			dbent.Desc(chatconversation.FieldID),
+			chatConversationUnreadFirstOrder(),
+			chatconversation.ByLastMessageAt(entsql.OrderDesc()),
+			chatconversation.ByID(entsql.OrderDesc()),
 		).
 		All(ctx)
 	if err != nil {
@@ -138,6 +140,18 @@ func (r *chatConversationRepository) List(
 		out = append(out, conv)
 	}
 	return out, paginationResultFromTotal(int64(total), params), nil
+}
+
+func chatConversationUnreadFirstOrder() chatconversation.OrderOption {
+	return func(selector *entsql.Selector) {
+		selector.OrderExprFunc(func(builder *entsql.Builder) {
+			builder.WriteString("CASE WHEN (")
+			builder.Ident(selector.C(chatconversation.FieldUnreadByAdmin))
+			builder.WriteString(" > 0 OR ")
+			builder.Ident(selector.C(chatconversation.FieldManuallyUnreadByAdmin))
+			builder.WriteString(") THEN 0 ELSE 1 END ASC")
+		})
+	}
 }
 
 func (r *chatConversationRepository) CountUnreadByAdmin(ctx context.Context) (int, error) {
