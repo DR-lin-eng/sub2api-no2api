@@ -68,6 +68,10 @@ func applyOpenAICodexSemanticRequestHeaders(headers http.Header, c *gin.Context,
 	if account == nil || !account.IsOpenAIOAuth() {
 		return
 	}
+	if account.IsOpenAISIWC() {
+		applyOpenAISIWCHeaders(headers)
+		return
+	}
 	normalizeOpenAICodexDesktopIdentityHeaders(headers, c, account)
 	normalizeOpenAICodexTurnMetadataHeader(headers, c, account, body)
 

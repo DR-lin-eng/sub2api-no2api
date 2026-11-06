@@ -31,6 +31,7 @@ export interface AccountOAuthTokenInfo {
 export interface OpenAIAuthUrlRequest {
   proxy_id?: number
   redirect_uri?: string
+	flow?: 'codex' | 'siwc'
 }
 
 export interface OpenAIExchangeCodeRequest {
@@ -38,6 +39,7 @@ export interface OpenAIExchangeCodeRequest {
   code: string
   state: string
   proxy_id?: number
+  client_id?: string
 }
 
 export interface OpenAITokenInfo {
@@ -49,6 +51,8 @@ export interface OpenAITokenInfo {
   expires_in?: number
   expires_at?: number
   scope?: string
+  auth_mode?: string
+  device_id?: string
   email?: string
   name?: string
   plan_type?: string

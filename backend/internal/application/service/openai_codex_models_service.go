@@ -331,6 +331,9 @@ func (s *OpenAIGatewayService) FetchCodexModelsManifest(ctx context.Context, acc
 		headerVersion = identity.version
 	}
 	headers.Set("Version", headerVersion)
+	if credAccount.IsOpenAISIWC() {
+		applyOpenAISIWCHeaders(headers)
+	}
 
 	proxyURL := ""
 	if account.ProxyID != nil && account.Proxy != nil {
@@ -561,7 +564,7 @@ func (s *OpenAIGatewayService) fetchCodexModelsManifestUpstream(ctx context.Cont
 		}
 	}
 	upstreamBody := body
-	if request.useAPIKeyUpstream {
+	if request.useAPIKeyUpstream || request.credentialAccount.IsOpenAISIWC() {
 		body = convertOpenAIModelListToCodexManifestRaw(body)
 	}
 	if err := validateCodexModelsManifestEnvelope(body); err != nil {

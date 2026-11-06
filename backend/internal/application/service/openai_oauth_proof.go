@@ -37,7 +37,10 @@ func (s *OpenAIGatewayService) prepareOpenAIOAuthProof(ctx context.Context, acco
 	if err != nil {
 		return ctx, err
 	}
-	if owner == nil || owner.IsOpenAIAgentIdentity() || owner.IsOpenAIPersonalAccessToken() {
+	if owner == nil || owner.IsOpenAIAgentIdentity() || owner.IsOpenAIPersonalAccessToken() || owner.IsOpenAISIWC() {
+		if owner.IsOpenAISIWC() {
+			applyOpenAISIWCHeaders(headers)
+		}
 		return s.attachIntegrityState(ctx, headers, ""), nil
 	}
 	if scheme, token, ok := strings.Cut(headers.Get("Authorization"), " "); ok && strings.EqualFold(scheme, "Bearer") {

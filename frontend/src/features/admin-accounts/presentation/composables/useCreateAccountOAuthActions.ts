@@ -163,7 +163,7 @@ export function useCreateAccountOAuthActions(context: CreateAccountOAuthActionsC
 
   const handleGenerateUrl = async () => {
     if (form.platform === 'openai') {
-      await openaiOAuth.generateAuthUrl(form.proxy_id)
+      await openaiOAuth.generateAuthUrl(form.proxy_id, undefined, oauthFlowRef.value?.inputMethod === 'siwc' ? 'siwc' : undefined)
     } else if (form.platform === 'gemini') {
       await geminiOAuth.generateAuthUrl(
         form.proxy_id,

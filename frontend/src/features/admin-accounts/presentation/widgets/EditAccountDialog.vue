@@ -859,7 +859,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
       newAccount.type === 'oauth' &&
       newAccount.parent_account_id == null &&
       !isOpenAIPersonalAccessTokenCredentials(credentials) &&
-      credentials?.auth_mode !== 'agentIdentity'
+      credentials?.auth_mode !== 'agentIdentity' && credentials?.auth_mode !== 'siwc'
     excelBpsEnabled.value = excelBpsEligible && (
       typeof extra?.excel_bps_enabled === 'boolean'
         ? extra.excel_bps_enabled

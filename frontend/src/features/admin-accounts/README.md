@@ -2,6 +2,8 @@
 
 管理账号 feature 负责账号列表、创建/编辑、批量更新、授权和用量展示。
 
+OpenAI OAuth 授权步骤可选择 Sign in with ChatGPT（SIWC）。完整回调 URL 必须保留已签发 `client_id`；切换认证方式会清空已有授权会话，重新授权 SIWC 账号继续使用该协议。入口、刷新和模型请求边界见 [SIWC 说明](../../../../docs/OPENAI_SIWC.md)。
+
 账号列表的“同步上游模型”通过 `useAccountUpstreamModelSync.ts` 按每批 20 个账号调用批量同步 Action，`UpstreamModelSyncResultsDialog.vue` 展示进度与逐账号结果。成功后刷新列表，失败/跳过账号保持选中；保存规则和平台边界见 [同步说明](../../../../docs/ACCOUNT_UPSTREAM_MODELS_SYNC.md)。
 
 - `data/dtos/adminAccountDtos.ts`, `openAIQuotaDtos.ts`: 账号创建/更新、混合渠道预检、Codex 导入、OpenAI quota、模型和临时不可调度状态等账号专属协议类型；`src/types` 仅保留兼容转发。

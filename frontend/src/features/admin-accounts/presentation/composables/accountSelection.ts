@@ -244,7 +244,7 @@ export function accountMatchesFilters(account: Account, filters: AccountSelectio
     const authMode = String(credentials.auth_mode ?? credentials.openai_auth_mode ?? '').toLowerCase()
     if (
       account.platform !== 'openai' || account.type !== 'oauth' || account.parent_account_id != null ||
-      ['personalaccesstoken', 'personal_access_token', 'agentidentity'].includes(authMode)
+      ['personalaccesstoken', 'personal_access_token', 'agentidentity', 'siwc'].includes(authMode)
     ) return false
     const extra = (account.extra ?? {}) as Record<string, unknown>
     const enabled = typeof extra.excel_bps_enabled === 'boolean'

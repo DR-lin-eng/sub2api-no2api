@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"runtime"
+	"strings"
 	"sync"
 
 	"github.com/klauspost/compress/zstd"
@@ -34,6 +35,13 @@ func newOpenAIHTTPUpstreamRequest(
 	account *Account,
 	body []byte,
 ) (*http.Request, error) {
+	if account.IsOpenAISIWC() {
+		var err error
+		body, err = normalizeOpenAISIWCBody(body, strings.HasSuffix(targetURL, "/compact"), false)
+		if err != nil {
+			return nil, err
+		}
+	}
 	upstreamBody, compressed, err := compressOpenAIOAuthCodexRequestBody(account, body)
 	if err != nil {
 		return nil, fmt.Errorf("compress OpenAI OAuth request body: %w", err)
@@ -75,7 +83,7 @@ func compressOpenAIOAuthCodexRequestBody(account *Account, body []byte) ([]byte,
 }
 
 func isCodexRequestCompressionEnabled(account *Account) bool {
-	if account == nil || !account.IsOpenAIOAuth() {
+	if account == nil || !account.IsOpenAIOAuth() || account.IsOpenAISIWC() {
 		return false
 	}
 	if account.Extra != nil {

@@ -14,7 +14,7 @@
           <label class="mb-2 block text-sm font-medium text-blue-800 dark:text-blue-300">
             {{ methodLabel }}
           </label>
-          <div class="flex flex-wrap gap-4">
+          <fieldset :disabled="loading" class="flex flex-wrap gap-4 border-0 p-0">
             <label v-if="showManualOption" class="flex cursor-pointer items-center gap-2">
               <input
                 v-model="inputMethod"
@@ -25,6 +25,10 @@
               <span class="text-sm text-blue-900 dark:text-blue-200">{{
                 t('admin.accounts.oauth.manualAuth')
               }}</span>
+            </label>
+            <label v-if="showSiwcOption && platform === 'openai'" class="flex cursor-pointer items-center gap-2">
+              <input v-model="inputMethod" type="radio" value="siwc" :disabled="loading" class="text-blue-600 focus:ring-blue-500" />
+              <span class="text-sm text-blue-900 dark:text-blue-200">{{ t('admin.accounts.oauth.openai.siwcAuth') }}</span>
             </label>
             <label v-if="showCookieOption" class="flex cursor-pointer items-center gap-2">
               <input
@@ -125,7 +129,7 @@
                 t('admin.accounts.oauth.openai.codexPatAuth')
               }}</span>
             </label>
-          </div>
+          </fieldset>
         </div>
 
         <!-- Refresh Token Input (OpenAI / Antigravity / Mobile RT) -->
@@ -572,7 +576,10 @@
         </div>
 
         <!-- Manual Authorization Flow -->
-        <div v-if="inputMethod === 'manual'" class="space-y-4">
+        <div v-if="inputMethod === 'manual' || inputMethod === 'siwc'" class="space-y-4">
+          <p v-if="inputMethod === 'siwc'" class="text-sm text-blue-800 dark:text-blue-300" data-testid="siwc-description">
+            {{ t('admin.accounts.oauth.openai.siwcDesc') }}
+          </p>
           <p class="mb-4 text-sm text-blue-800 dark:text-blue-300">
             {{ oauthFollowSteps }}
           </p>
@@ -749,26 +756,26 @@
               </div>
               <div class="flex-1">
                 <p class="mb-2 font-medium text-blue-900 dark:text-blue-200">
-                  {{ oauthStep3EnterCode }}
+                  {{ inputMethod === 'siwc' ? t('admin.accounts.oauth.openai.siwcCallbackLabel') : oauthStep3EnterCode }}
                 </p>
                 <p
                   class="mb-3 text-sm text-blue-700 dark:text-blue-300"
-                  v-text="oauthAuthCodeDesc"
+                  v-text="inputMethod === 'siwc' ? t('admin.accounts.oauth.openai.siwcCallbackHint') : oauthAuthCodeDesc"
                 ></p>
                 <div>
                   <label class="input-label">
                     <Icon name="key" size="sm" class="mr-1 inline text-blue-500" />
-                    {{ oauthAuthCode }}
+                    {{ inputMethod === 'siwc' ? t('admin.accounts.oauth.openai.siwcCallbackLabel') : oauthAuthCode }}
                   </label>
                   <textarea
                     v-model="authCodeInput"
                     rows="3"
                     class="input w-full resize-none font-mono text-sm"
-                    :placeholder="oauthAuthCodePlaceholder"
+                    :placeholder="inputMethod === 'siwc' ? t('admin.accounts.oauth.openai.siwcCallbackPlaceholder') : oauthAuthCodePlaceholder"
                   ></textarea>
                   <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
                     <Icon name="infoCircle" size="xs" class="mr-1 inline" />
-                    {{ oauthAuthCodeHint }}
+                    {{ inputMethod === 'siwc' ? t('admin.accounts.oauth.openai.siwcCallbackHint') : oauthAuthCodeHint }}
                   </p>
 
                   <!-- Gemini-specific state parameter warning -->
@@ -837,6 +844,7 @@ interface Props {
   showCodexPatOption?: boolean
   showSsoOption?: boolean
   showManualOption?: boolean
+  showSiwcOption?: boolean
   initialInputMethod?: AuthInputMethod
   platform?: AccountPlatform // Platform type for different UI/text
   showProjectId?: boolean // New prop to control project ID visibility
@@ -861,6 +869,7 @@ const props = withDefaults(defineProps<Props>(), {
   showCodexPatOption: false,
   showSsoOption: false,
   showManualOption: true,
+  showSiwcOption: false,
   initialInputMethod: 'manual',
   platform: 'anthropic',
   showProjectId: true
@@ -868,6 +877,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   'generate-url': []
+  'reset-authorization': []
   'exchange-code': [code: string]
   'cookie-auth': [sessionKey: string]
   'validate-refresh-token': [refreshToken: string]
@@ -906,6 +916,7 @@ const oauthAuthCode = computed(() => t(getOAuthKey('authCode')))
 const oauthAuthCodePlaceholder = computed(() => t(getOAuthKey('authCodePlaceholder')))
 const oauthAuthCodeHint = computed(() => t(getOAuthKey('authCodeHint')))
 const oauthImportantNotice = computed(() => {
+  if (inputMethod.value === 'siwc') return t('admin.accounts.oauth.openai.siwcCallbackHint')
   if (props.platform === 'openai') return t('admin.accounts.oauth.openai.importantNotice')
   if (props.platform === 'antigravity') return t('admin.accounts.oauth.antigravity.importantNotice')
   if (props.platform === 'grok') return t('admin.accounts.oauth.grok.importantNotice')
@@ -929,6 +940,7 @@ const projectId = ref('')
 // Computed: show method selection only when there is something to choose.
 const methodOptionCount = computed(() => [
   props.showManualOption,
+  props.showSiwcOption && props.platform === 'openai',
   props.showCookieOption,
   props.showRefreshTokenOption,
   props.showMobileRefreshTokenOption,
@@ -982,13 +994,21 @@ watch(() => props.initialInputMethod, (newVal) => {
   inputMethod.value = newVal
 })
 
-watch(inputMethod, (newVal) => {
+watch(inputMethod, (newVal, oldVal) => {
+  if (newVal === 'siwc' || oldVal === 'siwc') {
+    authCodeInput.value = ''
+    oauthState.value = ''
+    emit('reset-authorization')
+  }
   emit('update:inputMethod', newVal)
 })
 
 // Auto-extract code from callback URL (OpenAI/Gemini/Antigravity/Grok)
 // e.g., http://localhost:8085/callback?code=xxx...&state=...
 watch(authCodeInput, (newVal) => {
+  // SIWC needs the issued client_id and state from the full callback. Keep
+  // it intact for server-side validation against the stored redirect URI.
+  if (inputMethod.value === 'siwc') return
   if (props.platform !== 'openai' && props.platform !== 'gemini' && props.platform !== 'antigravity' && props.platform !== 'grok') return
 
   const trimmed = newVal.trim()

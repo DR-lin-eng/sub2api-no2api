@@ -1633,7 +1633,7 @@ func (a *Account) IsOpenAIOAuth() bool {
 // Responses transport. A legacy upstream key is accepted for read compatibility
 // but all new writes use ExcelBPSEnabledExtraKey.
 func (a *Account) IsExcelBPSEligible() bool {
-	return a != nil && a.IsOpenAIOAuth() && !a.IsShadow() && !a.IsOpenAIAgentIdentity() && !a.IsOpenAIPersonalAccessToken()
+	return a != nil && a.IsOpenAIOAuth() && !a.IsShadow() && !a.IsOpenAIAgentIdentity() && !a.IsOpenAIPersonalAccessToken() && !a.IsOpenAISIWC()
 }
 
 func (a *Account) IsExcelBPSEnabled() bool {
@@ -2220,7 +2220,7 @@ func (a *Account) SupportsOpenAIEndpointCapability(capability OpenAIEndpointCapa
 		return a.Platform == PlatformOpenAI &&
 			a.Type == AccountTypeOAuth &&
 			!a.IsOpenAIPersonalAccessToken() &&
-			!a.IsOpenAIAgentIdentity()
+			!a.IsOpenAIAgentIdentity() && !a.IsOpenAISIWC()
 	case OpenAIEndpointCapabilityResponses:
 		// Responses 支持状态由 accounts.extra 的自动探测标记决定，而非
 		// credentials 能力集。已探测确认不支持 /v1/responses 的 APIKey 上游

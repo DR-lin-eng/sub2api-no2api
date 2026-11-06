@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"io"
 	"strconv"
 	"strings"
 	"time"
@@ -49,22 +50,24 @@ func NewOpenAIOAuthHandler(
 type OpenAIGenerateAuthURLRequest struct {
 	ProxyID     *int64 `json:"proxy_id"`
 	RedirectURI string `json:"redirect_uri"`
+	Flow        string `json:"flow"`
 }
 
 // GenerateAuthURL generates OpenAI OAuth authorization URL
 // POST /api/v1/admin/openai/generate-auth-url
 func (h *OpenAIOAuthHandler) GenerateAuthURL(c *gin.Context) {
 	var req OpenAIGenerateAuthURLRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		// Allow empty body
-		req = OpenAIGenerateAuthURLRequest{}
+	if err := c.ShouldBindJSON(&req); err != nil && err != io.EOF {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
 	}
 
-	result, err := h.openaiOAuthService.GenerateAuthURL(
+	result, err := h.openaiOAuthService.GenerateAuthURLWithFlow(
 		c.Request.Context(),
 		req.ProxyID,
 		req.RedirectURI,
 		oauthPlatformFromPath(c),
+		req.Flow,
 	)
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -78,9 +81,10 @@ func (h *OpenAIOAuthHandler) GenerateAuthURL(c *gin.Context) {
 type OpenAIExchangeCodeRequest struct {
 	SessionID   string `json:"session_id" binding:"required"`
 	Code        string `json:"code" binding:"required"`
-	State       string `json:"state" binding:"required"`
+	State       string `json:"state"`
 	RedirectURI string `json:"redirect_uri"`
 	ProxyID     *int64 `json:"proxy_id"`
+	ClientID    string `json:"client_id"`
 }
 
 // ExchangeCode exchanges OpenAI authorization code for tokens
@@ -98,6 +102,7 @@ func (h *OpenAIOAuthHandler) ExchangeCode(c *gin.Context) {
 		State:       req.State,
 		RedirectURI: req.RedirectURI,
 		ProxyID:     req.ProxyID,
+		ClientID:    req.ClientID,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -244,7 +249,8 @@ func (h *OpenAIOAuthHandler) CreateAccountFromOAuth(c *gin.Context) {
 	var req struct {
 		SessionID   string  `json:"session_id" binding:"required"`
 		Code        string  `json:"code" binding:"required"`
-		State       string  `json:"state" binding:"required"`
+		State       string  `json:"state"`
+		ClientID    string  `json:"client_id"`
 		RedirectURI string  `json:"redirect_uri"`
 		ProxyID     *int64  `json:"proxy_id"`
 		Name        string  `json:"name"`
@@ -264,6 +270,7 @@ func (h *OpenAIOAuthHandler) CreateAccountFromOAuth(c *gin.Context) {
 		State:       req.State,
 		RedirectURI: req.RedirectURI,
 		ProxyID:     req.ProxyID,
+		ClientID:    req.ClientID,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)

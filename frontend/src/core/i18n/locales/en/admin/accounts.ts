@@ -968,6 +968,11 @@ export default {
         // OpenAI specific
         openai: {
           title: 'OpenAI Account Authorization',
+          siwcAuth: 'Sign in with ChatGPT (SIWC)',
+          siwcCallbackLabel: 'Complete SIWC callback URL',
+          siwcDesc: 'Authorize direct access with your ChatGPT account. After signing in, paste the complete callback URL below, including code, state and client_id.',
+          siwcCallbackPlaceholder: 'http://127.0.0.1:1455/auth/callback?code=...&state=...&client_id=...',
+          siwcCallbackHint: 'Copy the entire address even if the callback page cannot load. SIWC requires the client_id from this URL.',
           followSteps: 'Follow these steps to complete OpenAI account authorization:',
           step1GenerateUrl: 'Click the button below to generate the authorization URL',
           generateAuthUrl: 'Generate Auth URL',
@@ -988,6 +993,13 @@ export default {
           failedToExchangeCode: 'Failed to exchange OpenAI auth code',
           failedToValidateRT: 'Failed to validate refresh token',
           errors: {
+            OPENAI_SIWC_CLIENT_ID_REQUIRED: 'Paste the complete SIWC callback URL, including client_id.',
+            OPENAI_SIWC_CALLBACK_INVALID: 'The callback does not match this authorization. Generate a new URL and try again.',
+            OPENAI_SIWC_NONCE_INVALID: 'The SIWC ID token does not match this authorization. Please reconnect ChatGPT.',
+            OPENAI_SIWC_GRANT_INVALID: 'OpenAI did not return a complete SIWC direct-access grant. Please authorize again.',
+            OPENAI_SIWC_CREDENTIALS_MISSING: 'This SIWC account is missing its client ID or refresh token. Please reconnect ChatGPT.',
+            OPENAI_SIWC_TOKEN_FAILED: 'OpenAI rejected the SIWC token request. Please generate a new authorization URL and try again.',
+            OPENAI_SIWC_ACCESS_DENIED: 'ChatGPT authorization was not completed.',
             OPENAI_OAUTH_PROXY_REQUIRED:
               'No proxy is configured and this server could not reach OpenAI directly, so the OpenAI OAuth request failed. Select a proxy that can access OpenAI and retry; if the authorization code has expired, regenerate the authorization URL.'
           },
