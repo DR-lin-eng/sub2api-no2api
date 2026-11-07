@@ -187,6 +187,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	// All payload mutations above are complete. Share one immutable snapshot
 	// throughout header projection instead of encoding the full input per reader.
 	headerPayload := resolvePayloadJSON()
+	syncOpenAIResponsesInstructionsEcho(c, headerPayload)
 	stageCodexOutboundSessionBody(c, headerPayload)
 	wsHeaders, sessionResolution, buildHdrErr := s.buildOpenAIWSHeaders(
 		ctx,
@@ -450,7 +451,10 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	var localFirstEventTTFTMs *int
 	streamOutputStarted := false
 	responseID := ""
-	var finalResponse []byte
+	var nonStreamResponse *openAIWSNonStreamingResponse
+	if !reqStream {
+		nonStreamResponse = newOpenAIWSNonStreamingResponse(s.cfg)
+	}
 	wroteDownstream := false
 	needModelReplace := originalModel != mappedModel
 	var mappedModelBytes []byte
@@ -653,7 +657,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 			message = normalized
 		}
 
-		eventType, eventResponseID, responseField := parseOpenAIWSEventEnvelope(message)
+		eventType, eventResponseID, _ := parseOpenAIWSEventEnvelope(message)
 		if eventType == "" {
 			continue
 		}
@@ -730,6 +734,13 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 			parseOpenAIWSResponseUsageFromCompletedEvent(message, usage)
 		}
 		imageCounter.AddSSEData(message)
+		if err := nonStreamResponse.Observe(message, eventType); err != nil {
+			lease.MarkBroken()
+			setOpsUpstreamError(c, http.StatusBadGateway, "upstream response too large", "")
+			MarkResponseCommitted(c)
+			openAITooLargeError(c)
+			return nil, err
+		}
 
 		if eventType == "error" || eventType == "response.failed" {
 			markOpenAICyberPolicyEvent(c, message, http.StatusOK, usage)
@@ -837,6 +848,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 				emitStreamMessage(message, true)
 			}
 			if !reqStream {
+				MarkResponseCommitted(c)
 				c.JSON(statusCode, gin.H{
 					"error": gin.H{
 						"type":    "upstream_error",
@@ -951,10 +963,6 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 				flushBufferedStreamEvents(eventType, false)
 				emitStreamMessage(message, startsStreamOutput || isTerminalEvent)
 			}
-		} else {
-			if responseField.Exists() && responseField.Type == gjson.JSON {
-				finalResponse = []byte(responseField.Raw)
-			}
 		}
 
 		if isTerminalEvent {
@@ -968,7 +976,9 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	}
 
 	if !reqStream {
+		finalResponse := nonStreamResponse.response
 		if len(finalResponse) == 0 {
+			lease.MarkBroken()
 			logOpenAIWSModeInfo(
 				"missing_final_response account_id=%d conn_id=%s events=%d token_events=%d terminal_events=%d wrote_downstream=%v",
 				account.ID,
@@ -988,6 +998,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 			finalResponse = s.replaceModelInResponseBody(finalResponse, mappedModel, originalModel)
 		}
 		finalResponse = s.correctToolCallsInResponseBody(finalResponse)
+		finalResponse = restoreOpenAIResponsesInstructionsEchoInResponse(c, finalResponse)
 		populateOpenAIUsageFromResponseJSON(finalResponse, usage)
 		if responseID == "" {
 			responseID = strings.TrimSpace(gjson.GetBytes(finalResponse, "id").String())
