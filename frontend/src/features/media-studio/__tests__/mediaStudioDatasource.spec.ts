@@ -4,6 +4,7 @@ import {
 	getVideoGenerationTask,
 	normalizeMediaStudioVideoTask,
   submitImageGeneration,
+  submitImageEdit,
   submitVideoGeneration,
 } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
 import {
@@ -20,6 +21,18 @@ function jsonResponse(body: unknown, init: ResponseInit = {}) {
 
 describe('media studio datasource', () => {
   afterEach(() => vi.unstubAllGlobals())
+
+  it('forwards GPT Image 2.6 complexity in JSON and multipart requests', async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => jsonResponse({ data: [{ b64_json: 'AAAA' }] }))
+    vi.stubGlobal('fetch', fetchMock)
+    const payload = { model: 'gpt-image-2.6-flare', prompt: 'map', quality: 'xhigh', complexity: 'medium' as const }
+    await submitImageGeneration('fixture', payload, 'generate-26')
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject(payload)
+    await submitImageEdit('fixture', [new File(['image'], 'map.png', { type: 'image/png' })], payload, 'edit-26')
+    const form = fetchMock.mock.calls[1][1].body as FormData
+    expect(form.get('complexity')).toBe('medium')
+    expect(form.get('quality')).toBe('xhigh')
+  })
 
   it('uses the synchronous image endpoint without persisting output', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({

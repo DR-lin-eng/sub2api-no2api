@@ -92,6 +92,8 @@ type OpenAIImagesRequest struct {
 	Moderation         string
 	InputFidelity      string
 	Style              string
+	SafetyIdentifier   string
+	User               string
 	OutputCompression  *int
 	PartialImages      *int
 	FrameCount         *int
@@ -251,6 +253,9 @@ func (s *OpenAIGatewayService) ParseOpenAIImagesRequest(c *gin.Context, body []b
 	}
 
 	applyOpenAIImagesDefaults(req)
+	if err := parseAndValidateOpenAIImages26Options(req); err != nil {
+		return nil, err
+	}
 	if err := s.validateOpenAIImagesModel(c.Request.Context(), req.Model); err != nil {
 		return nil, err
 	}
@@ -489,6 +494,10 @@ func parseOpenAIImagesMultipartRequest(body []byte, contentType string, req *Ope
 		case "style":
 			req.Style = value
 			req.HasNativeOptions = true
+		case "safety_identifier":
+			req.SafetyIdentifier = value
+		case "user":
+			req.User = value
 		case "output_compression":
 			n, err := strconv.Atoi(value)
 			if err != nil {
@@ -784,6 +793,9 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 	}
 	upstreamModel := account.GetMappedModel(requestModel)
 	if err := s.validateOpenAIImagesMappedModel(ctx, upstreamModel, clientModel, requestModel); err != nil {
+		return nil, err
+	}
+	if err := validateOpenAIImages26Options(parsed, upstreamModel); err != nil {
 		return nil, err
 	}
 	logger.LegacyPrintf(
@@ -1179,7 +1191,7 @@ func (s *OpenAIGatewayService) handleOpenAIImagesNonStreamingResponse(resp *http
 	}
 	c.Data(resp.StatusCode, contentType, body)
 
-	usage, _ := extractOpenAIUsageFromJSONBytes(body)
+	usage, _ := codexDirectImagesUsage(body)
 	return usage, extractOpenAIImageCountFromJSONBytes(body), collectOpenAIResponseImageOutputSizesFromJSONBytes(body), nil
 }
 
@@ -1223,7 +1235,7 @@ func (s *OpenAIGatewayService) handleOpenAIImagesPseudoStreamingResponse(resp *h
 	}
 	flusher.Flush()
 
-	usage, _ := extractOpenAIUsageFromJSONBytes(body)
+	usage, _ := codexDirectImagesUsage(body)
 	return usage, extractOpenAIImageCountFromJSONBytes(body), collectOpenAIResponseImageOutputSizesFromJSONBytes(body), nil
 }
 
@@ -1273,11 +1285,9 @@ func (s *OpenAIGatewayService) handleOpenAIImagesStreamingResponseWithDirect(res
 			if upstreamErr := openAIImagesUpstreamErrorFromSSEPayload(dataBytes); upstreamErr != nil {
 				responseRewriteErr = upstreamErr
 			}
-			if parsedUsage, ok := codexDirectImagesUsage(dataBytes); ok {
-				mergeCodexDirectImagesUsage(&usage, parsedUsage)
-			}
-		} else {
-			mergeOpenAIUsage(&usage, dataBytes)
+		}
+		if parsedUsage, ok := codexDirectImagesUsage(dataBytes); ok {
+			mergeCodexDirectImagesUsage(&usage, parsedUsage)
 		}
 		imageCounter.AddSSEData(dataBytes)
 	}
@@ -1372,7 +1382,9 @@ func (s *OpenAIGatewayService) handleOpenAIImagesStreamingResponseWithDirect(res
 			}
 			return
 		}
-		mergeOpenAIUsage(&usage, body)
+		if parsedUsage, ok := codexDirectImagesUsage(body); ok {
+			mergeCodexDirectImagesUsage(&usage, parsedUsage)
+		}
 		imageCounter.AddJSONResponse(body)
 	}
 

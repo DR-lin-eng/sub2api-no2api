@@ -124,3 +124,5 @@ Claude 指纹的 UTF-16 前缀、Gemini fileData 计图、DeepSeek Pro/缓存读
 关闭/暂缓边界与 Docker 证据见 [同步审查](../../../../docs/UPSTREAM_SYNC_20261107.md)。
 
 2026-11-07 后续同步的原生 Images 2.6 请求/响应由 `openai_images_direct.go` 接入既有图片、账号出口和可靠计费 owner；`pricing_openai_defaults.go` 保存静态价卡，`openai_codex_known_metadata.go` 保存启动期 Terra 描述。Antigravity 分组额度和模型级 INTERNAL 500 仍由对应前缀持有。边界见 [后续同步](../../../../docs/UPSTREAM_SYNC_20261107_FOLLOWUP.md)。
+
+`openai_images26_options.go` 校验 2.6 参数和安全标识；原生 Images 用量在 OAuth 与 API Key 路径共享解析。`openai_images_svg_billing.go` 分别计价参考图片与 SVG 作者，再合并到既有结算命令；计费及目录边界见 [2.6 适配](../../../../docs/GPT_IMAGE26.md)。

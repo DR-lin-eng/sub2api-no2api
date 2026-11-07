@@ -672,6 +672,8 @@ OpenAI API-key `/v1/messages` 的纯搜索请求在协议转换前经过既有�
 
 OpenAI/composite 分组的 `image_count_billing` 默认关闭；开启后仅专用 Images 端点按实际出图张数结算，混合 Responses/Chat/WS 继续 token 定价。字段经当前分组 owner 与鉴权快照 26 传递，保留可靠结算；全部节点升级后再开启。升级、回退及上游差异状态见 [同步审查](UPSTREAM_SYNC_20261026.md)。
 
+GPT Image 2.6 的专用 Images 请求在 OAuth/API Key 路径共享图文用量解析。SVG 使用独立作者模型的 `svg_usage`，在 token 模式分别计价后合并为一次可靠结算；显式按张/按次价格覆盖完整作品。模型目录、参数组合和前端入口见 [2.6 适配](GPT_IMAGE26.md)。
+
 ### 2026-10-27 Grok 目录与响应审计
 
 Grok 目录复用现有 modelcatalog 的有界读取、原子快照和旧节点写入保护；详情诊断不进入网关热路径。Grok Responses 和缓冲兼容响应补齐原始模型/冲突位，沿用当前渠道 response_model 的不增价规则。Sol/Terra Chat-only 账号的工具调用在映射后返回协议 400。升级与冻结差异见 [本轮同步记录](UPSTREAM_SYNC_20261027.md)。

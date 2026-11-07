@@ -91,6 +91,37 @@ describe('media studio controller', () => {
     })
   })
 
+  it.each(['gpt-image-2.6-flare', 'gpt-image-2.6-sunburst'])('submits %s quality and complexity and restores retry parameters', async (model) => {
+    const submitImage = vi.fn().mockResolvedValue({
+      id: 'image-26', task_id: 'image-26', object: 'image.generation.task', status: 'completed',
+      result: { data: [{ url: 'https://cdn.example/image.png' }] }, created_at: 1, expires_at: 2,
+    })
+    const controller = useMediaStudioController({
+      storage: localStorage,
+      getConfig: vi.fn().mockResolvedValue({ groups: [{ ...config.groups[0], models: [model] }] }),
+      createSession: vi.fn().mockResolvedValue(session()),
+      listModels: vi.fn().mockResolvedValue({ object: 'list', data: [{ id: model }] }),
+      submitImage,
+    })
+    await controller.loadMediaGroups()
+    expect(controller.imageQualityOptions.value.map(option => option.value)).toContain('max')
+    expect(controller.imageComplexityOptions.value).toEqual(['low', 'medium', 'high'])
+    controller.prompt.value = 'a map'
+    controller.quality.value = 'max'
+    controller.complexity.value = 'low'
+    await controller.submitPrompt()
+    expect(submitImage).toHaveBeenCalledWith('sk-demo', expect.objectContaining({ model, quality: 'max', complexity: 'low' }), expect.any(String))
+    const completed = controller.conversation.value.messages.at(-1)!
+    expect(completed).toMatchObject({ quality: 'max', complexity: 'low', status: 'completed' })
+    controller.complexity.value = 'high'
+    await controller.retryMessage(completed)
+    expect(submitImage.mock.calls.at(-1)?.[1]).toMatchObject({ quality: 'max', complexity: 'low' })
+    controller.model.value = 'gpt-image-2'
+    await nextTick()
+    expect(controller.quality.value).toBe('auto')
+    expect(controller.imageComplexityOptions.value).toEqual([])
+  })
+
   it('submits reference images through the image edits endpoint', async () => {
     const submitImage = vi.fn().mockResolvedValue({
       id: 'generation-1', task_id: 'generation-1', object: 'image.generation.task', status: 'completed',

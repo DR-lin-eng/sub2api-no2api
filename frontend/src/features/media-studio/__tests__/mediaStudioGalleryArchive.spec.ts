@@ -80,6 +80,14 @@ describe('media studio gallery archive', () => {
     expect(gallery.items.value).toHaveLength(1)
   })
 
+  it.each(['image/gif', 'image/svg+xml'])('preserves %s in the gallery', async (mimeType) => {
+    const gallery = useMediaStudioGallery()
+    const source = `data:${mimeType};base64,AAAA`
+    await gallery.saveFromMessages([imageMessage({ images: [{ id: 'img-26', src: source }] })])
+    expect(state.items[0].mimeType).toBe(mimeType)
+    expect(state.media.get('gallery:gallery_msg-image_img-26')).toBe(source)
+  })
+
   it('copies inline image data into the gallery media store', async () => {
     const gallery = useMediaStudioGallery()
     await gallery.saveFromMessages([

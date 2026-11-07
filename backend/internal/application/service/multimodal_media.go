@@ -112,6 +112,8 @@ func multimodalMediaClientEndpointPath(endpoint MultimodalMediaEndpoint) string 
 func DefaultMultimodalModelIDs() []string {
 	return []string{
 		// 图片
+		"gpt-image-2.6-flare",
+		"gpt-image-2.6-sunburst",
 		"gpt-image-2.5",
 		"gpt-image-2.5-flare",
 		"gpt-image-2.5-sunburst",
