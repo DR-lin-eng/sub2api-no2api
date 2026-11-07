@@ -47,3 +47,12 @@ Responses JSON/SSE 均结算 1000/100 token、$0.004，图片实际两张结算 
 本轮已按职责拆分新增 WS 计时测试和图片静态价卡，没有扩大 `.source-layout-allowlist`。
 
 远端 CI 的最终事实以本轮 PR 和合并提交的 GitHub Actions 记录为准。本地 Docker 结果不代表远端 CI 或生产部署。
+
+
+## CI 时序回归收尾
+
+首次远端后端失败是既有 `TestOpenAIUsageHandlersValidateAndStream` 在 peer 看到 Close 后立即断言
+subscription release，观察到 0 次。handler 与测试在冻结主线到本轮之前均未修改；Close defer 先于
+后续 release defer，客户端读失败不构成清理已完成的同步点。测试改为有界等待原子 release 计数，
+保留次数、来源校验和协议断言，产品生命周期不变。Docker 连续 200 次通过（0.066 秒）。
+具体运行和关闭证据见 [CI_TEST_FIX.json](CI_TEST_FIX.json)。

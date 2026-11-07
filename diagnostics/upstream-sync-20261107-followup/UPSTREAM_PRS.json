@@ -308,5 +308,15 @@
     "strategy": "ours",
     "upstream_parent": "6b4b37db43443b5e88e424fe3c69602cc3810dfb",
     "meaning": "Record reviewed ancestry without overwriting local owners or claiming deferred capabilities."
-  }
+  },
+  "local_ci_fixes": [
+    {
+      "test": "TestOpenAIUsageHandlersValidateAndStream",
+      "owner": "backend/internal/transport/http/handler/admin/openai_usage_test.go",
+      "fully_closed": true,
+      "reason": "The client can observe the deferred socket Close before the handler invokes its remaining subscription release defer.",
+      "evidence": "CI_TEST_FIX.json",
+      "reopen_when": "The owning WebSocket lifecycle or cleanup contract changes."
+    }
+  ]
 }

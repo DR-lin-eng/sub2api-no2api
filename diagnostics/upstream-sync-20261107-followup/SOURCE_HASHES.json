@@ -75,6 +75,7 @@
   "backend/internal/shared/openai/codex_gpt61_terra.json": "7afc1b34a6a0fe874f64e922984e38eef039bdfc4d05b66a99ca9fc44f16c37d",
   "backend/internal/shared/openai/codex_terra.go": "5fd2d02d36621db3aaef126086735c45d64be09544bf4c67ad6663ff849fea82",
   "backend/internal/shared/openai/constants.go": "ac4c44a4b7784aee04184ee29bc5fd4194e7c91dd3aed21edde759744ceadfb7",
+  "backend/internal/transport/http/handler/admin/openai_usage_test.go": "0ccfff92c5ba94fb7f5e32ca98616c06aa49fb672444f5a7efc74415b74b7050",
   "backend/internal/transport/http/handler/agnes_video.go": "65d1b7b41ef59f5447554a42906fa27928a3839369aae424e718bb1fb7dd80c6",
   "backend/internal/transport/http/handler/gateway_handler_chat_completions.go": "c3b39f8dc763cdb9a5aed5638730e7dd5d7e355deca01b4899303609be49a745",
   "backend/internal/transport/http/handler/gateway_handler_count_tokens.go": "cc8f8203e009c0fdb595044fdde1841a3da7a05d51fed0c8a4a6d31efcca0228",
