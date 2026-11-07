@@ -26,6 +26,8 @@ export default {
       applyModel: 'Apply',
       resolution: 'Resolution',
       quality: 'Quality',
+      complexity: 'Complexity',
+      complexityLevels: { low: 'Low', medium: 'Medium', high: 'High' },
       count: 'Count',
       duration: 'Duration',
       durationIncrease: 'Increase duration',

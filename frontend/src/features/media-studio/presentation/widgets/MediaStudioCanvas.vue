@@ -607,6 +607,22 @@
                 </span>
               </div>
 
+              <div v-if="selectedModeId === 'image' && imageComplexityOptions?.length && !hiddenParameterControls.includes('image.complexity')" class="composer-chip-wrap relative">
+                <select
+                  class="composer-chip-select"
+                  :value="complexity"
+                  :aria-label="t('mediaStudio.composer.complexity')"
+                  @change="emit('update:complexity', ($event.target as HTMLSelectElement).value as 'low' | 'medium' | 'high')"
+                >
+                  <option v-for="option in imageComplexityOptions" :key="option" :value="option">{{ complexityOptionLabel(option) }}</option>
+                </select>
+                <span class="composer-chip composer-chip--param" aria-hidden="true">
+                  <span class="composer-chip__key">{{ t('mediaStudio.composer.complexity') }}</span>
+                  <span class="composer-chip__value">{{ complexityOptionLabel(complexity) }}</span>
+                  <Icon name="chevronDown" size="xs" class="text-gray-400" />
+                </span>
+              </div>
+
               <div
                 v-if="selectedModeId === 'image' && qualityVisible"
                 class="composer-chip-wrap relative"
@@ -874,11 +890,13 @@ const props = defineProps<{
   imageAspectRatio: MediaStudioImageAspectRatio
   customImageAspectRatios: string[]
   quality: string
+  complexity?: 'low' | 'medium' | 'high'
   count: number
   resolution: MediaStudioVideoResolution
   videoAspectRatio: MediaStudioVideoAspectRatio
   duration: number
   imageQualityOptions: MediaStudioParameterOption[]
+  imageComplexityOptions?: readonly ('low' | 'medium' | 'high')[]
   groupOptions: MediaStudioGroupOption[]
   loadingGroups: boolean
   groupLoadError: string
@@ -917,6 +935,7 @@ const emit = defineEmits<{
   'update:imageAspectRatio': [value: MediaStudioImageAspectRatio]
   addCustomImageAspectRatio: [value: string]
   'update:quality': [value: string]
+  'update:complexity': [value: 'low' | 'medium' | 'high']
   'update:count': [value: number]
   'update:resolution': [value: MediaStudioVideoResolution]
   'update:videoAspectRatio': [value: MediaStudioVideoAspectRatio]
@@ -986,6 +1005,13 @@ const qualityVisible = computed(() => (
 const qualityLabel = computed(() => (
   props.imageQualityOptions.find(option => option.value === props.quality)?.label ?? props.quality
 ))
+function complexityOptionLabel(value: string | undefined): string {
+  switch (value) {
+    case 'low': return t('mediaStudio.composer.complexityLevels.low')
+    case 'medium': return t('mediaStudio.composer.complexityLevels.medium')
+    default: return t('mediaStudio.composer.complexityLevels.high')
+  }
+}
 
 function aspectRatioLabel(value: string): string {
   return value.startsWith('custom:') ? value.slice('custom:'.length) : value

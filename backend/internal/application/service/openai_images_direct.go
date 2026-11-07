@@ -26,6 +26,9 @@ func buildOpenAIImagesOAuthPayload(parsed *OpenAIImagesRequest, model string) ([
 	if parsed == nil {
 		return nil, "", fmt.Errorf("parsed images request is required")
 	}
+	if err := validateOpenAIImages26Options(parsed, model); err != nil {
+		return nil, "", err
+	}
 	if !usesCodexDirectImages(model) {
 		body, err := buildOpenAIImagesResponsesRequest(parsed, model)
 		return body, chatgptCodexURL, err
@@ -51,6 +54,7 @@ func buildOpenAIImagesOAuthPayload(parsed *OpenAIImagesRequest, model string) ([
 		{"background", parsed.Background}, {"output_format", parsed.OutputFormat},
 		{"moderation", parsed.Moderation}, {"input_fidelity", parsed.InputFidelity},
 		{"style", parsed.Style},
+		{"safety_identifier", parsed.SafetyIdentifier}, {"user", parsed.User},
 	} {
 		if value := strings.TrimSpace(field.value); value != "" {
 			payload[field.key] = value
@@ -175,11 +179,20 @@ func codexDirectImagesUsage(body []byte) (OpenAIUsage, bool) {
 	value := gjson.GetBytes(body, "usage")
 	usage, ok := openAIUsageFromGJSON(value)
 	if !ok {
-		return usage, false
+		// Compatible Images providers may retain a Responses-style usage wrapper.
+		// Keep that legacy extraction without treating mixed output as all images.
+		usage, ok = extractOpenAIUsageFromJSONBytes(body)
+		usage.SVGUsage = parseOpenAIImagesSVGUsage(gjson.GetBytes(body, "svg_usage"))
+		return usage, ok || usage.SVGUsage != nil
 	}
-	if !value.Get("output_tokens_details.image_tokens").Exists() {
+	usage.InputTokens = max(usage.InputTokens, 0)
+	usage.OutputTokens = max(usage.OutputTokens, 0)
+	usage.ImageInputTokens = min(max(usage.ImageInputTokens, 0), usage.InputTokens)
+	if !value.Get("output_tokens_details.image_tokens").Exists() && !value.Get("output_tokens_details.text_tokens").Exists() {
 		usage.ImageOutputTokens = usage.OutputTokens
 	}
+	usage.ImageOutputTokens = min(max(usage.ImageOutputTokens, 0), usage.OutputTokens)
+	usage.CacheReadInputTokens = min(max(usage.CacheReadInputTokens, 0), usage.InputTokens)
 	cached := value.Get("input_tokens_details.cached_tokens_details")
 	if !value.Get("input_tokens_details.cached_tokens").Exists() && cached.IsObject() {
 		imageTokens, _ := boundedJSONNonNegativeInt(cached.Get("image_tokens"))
@@ -189,6 +202,7 @@ func codexDirectImagesUsage(body []byte) (OpenAIUsage, bool) {
 	}
 	imageCached, _ := boundedJSONNonNegativeInt(cached.Get("image_tokens"))
 	usage.ImageCacheReadTokens = min(imageCached, max(usage.ImageInputTokens, 0), max(usage.CacheReadInputTokens, 0))
+	usage.SVGUsage = parseOpenAIImagesSVGUsage(gjson.GetBytes(body, "svg_usage"))
 	return usage, true
 }
 
@@ -292,5 +306,8 @@ func mergeCodexDirectImagesUsage(dst *OpenAIUsage, src OpenAIUsage) {
 	}
 	if src.ImageCacheReadTokens > 0 {
 		dst.ImageCacheReadTokens = src.ImageCacheReadTokens
+	}
+	if src.SVGUsage != nil {
+		dst.SVGUsage = src.SVGUsage
 	}
 }

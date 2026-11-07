@@ -287,6 +287,7 @@ const perplexityModels = [
 
 // 多模态（图片 + 视频）
 const multimodalModels = [
+  'gpt-image-2.6-flare', 'gpt-image-2.6-sunburst',
   'gpt-image-2.5', 'gpt-image-2.5-flare', 'gpt-image-2.5-sunburst', 'gpt-image-2',
   'seedream', 'seedream5',
   'grok-imagine-image', 'grok-imagine-image-2.0', 'grok-imagine-image-lite',

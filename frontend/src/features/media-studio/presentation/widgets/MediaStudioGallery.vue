@@ -218,7 +218,8 @@ function savedAt(item: MediaStudioGalleryItem) {
 }
 
 function downloadName(item: MediaStudioGalleryItem) {
-  const extension = item.mode === 'video' ? 'mp4' : 'png'
+  const imageExtensions: Record<string, string> = { 'image/gif': 'gif', 'image/svg+xml': 'svg', 'image/webp': 'webp', 'image/jpeg': 'jpg' }
+  const extension = item.mode === 'video' ? 'mp4' : imageExtensions[item.mimeType || ''] || 'png'
   return `media-studio-${item.id}.${extension}`
 }
 

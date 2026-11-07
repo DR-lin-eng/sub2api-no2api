@@ -197,7 +197,7 @@ func TestGPTImage26NativeOptions(t *testing.T) {
 			if multipartInput {
 				var buf bytes.Buffer
 				writer := multipart.NewWriter(&buf)
-				for key, value := range map[string]string{"model": "gpt-image-2.6-flare", "prompt": "edit", "complexity": "low", "frame_count": "2", "frame_duration_ms": "100"} {
+				for key, value := range map[string]string{"model": "gpt-image-2.6-flare", "prompt": "edit", "complexity": "low", "output_format": "gif", "frame_count": "2", "frame_duration_ms": "100", "safety_identifier": "hashed-user", "user": "legacy-user"} {
 					require.NoError(t, writer.WriteField(key, value))
 				}
 				for _, name := range []string{"image", "markup"} {
@@ -223,6 +223,11 @@ func TestGPTImage26NativeOptions(t *testing.T) {
 			require.Equal(t, "https://chatgpt.com/backend-api/codex/images/edits", target)
 			require.Equal(t, "data:image/png;base64,bWFya3Vw", gjson.GetBytes(payload, "markup.image_url").String())
 			require.Equal(t, "low", gjson.GetBytes(payload, "complexity").String())
+			require.Equal(t, "low", openAIImagesAttributeValues(parsed)["complexity"])
+			if multipartInput {
+				require.Equal(t, "hashed-user", gjson.GetBytes(payload, "safety_identifier").String())
+				require.Equal(t, "legacy-user", gjson.GetBytes(payload, "user").String())
+			}
 			require.Len(t, gjson.GetBytes(parsed.ModerationBody(), "images").Array(), 2)
 			_, err = buildOpenAIImagesResponsesRequest(parsed, parsed.Model)
 			require.ErrorContains(t, err, "native Images endpoint")

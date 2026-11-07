@@ -61,7 +61,10 @@ import {
   type MediaStudioModeId,
 } from '@/features/media-studio/presentation/composables/useMediaStudioPreview'
 import {
-  IMAGE_QUALITY_OPTIONS,
+  IMAGE_COMPLEXITY_OPTIONS,
+  imageQualityOptionsForModel,
+  supportsImageComplexity,
+  normalizeImageComplexity,
   MEDIA_STUDIO_MAX_SESSIONS,
   mediaStudioUserStorageKey,
   aspectRatioFromSize,
@@ -239,6 +242,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   )
   const size = computed(() => imageSizeFor(imageResolution.value, imageAspectRatio.value))
   const quality = ref(normalizeImageQuality(persisted.quality))
+  const complexity = ref(normalizeImageComplexity(persisted.complexity))
   const count = ref(normalizeCount(persisted.count || 1))
   const resolution = ref<MediaStudioVideoResolution>(normalizeResolution(persisted.resolution))
   const videoAspectRatio = ref<MediaStudioVideoAspectRatio>(
@@ -317,7 +321,11 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   })))
   const selectedMode = computed(() => modes.value.find(mode => mode.id === selectedModeId.value) ?? modes.value[0])
   const modelSelectionLocked = computed(() => (selectedGroup.value?.models?.length || 0) > 0)
-  const imageQualityOptions = computed(() => IMAGE_QUALITY_OPTIONS)
+  const imageQualityOptions = computed(() => imageQualityOptionsForModel(model.value))
+  const imageComplexityOptions = computed(() => supportsImageComplexity(model.value) ? IMAGE_COMPLEXITY_OPTIONS : [])
+  watch(imageQualityOptions, (options) => {
+    if (!options.some(option => option.value === quality.value)) quality.value = 'auto'
+  }, { immediate: true })
   const activeModelFields = computed<ModelAttributeField[]>(
     () => modelOptions.value.find(option => option.id === model.value)?.fields ?? [],
   )
@@ -582,6 +590,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       imageAspectRatio: imageAspectRatio.value,
       customImageAspectRatios: customImageAspectRatios.value,
       quality: quality.value,
+      complexity: complexity.value,
       count: count.value,
       resolution: resolution.value,
       videoAspectRatio: videoAspectRatio.value,
@@ -685,7 +694,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   }
 
   // 配置项变更即时落盘，会话本身只在关键状态变更时写入。
-  watch([selectedGroupId, imageModel, videoModel, size, imageResolution, imageAspectRatio, customImageAspectRatios, quality, count, resolution, videoAspectRatio, duration], persist, { deep: true })
+  watch([selectedGroupId, imageModel, videoModel, size, imageResolution, imageAspectRatio, customImageAspectRatios, quality, complexity, count, resolution, videoAspectRatio, duration], persist, { deep: true })
   watch(model, (value) => {
     if (selectedModeId.value === 'image') imageModel.value = value
     if (selectedModeId.value === 'video') videoModel.value = value
@@ -932,6 +941,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       imageResolution: mode === 'image' ? imageResolution.value : undefined,
       imageAspectRatio: mode === 'image' ? imageAspectRatio.value : undefined,
       quality: mode === 'image' ? quality.value : undefined,
+      complexity: mode === 'image' && supportsImageComplexity(model.value) ? complexity.value : undefined,
       count: mode === 'image' ? normalizeCount(count.value) : 1,
       resolution: mode === 'video' ? normalizeResolution(resolution.value) : undefined,
       aspectRatio: mode === 'video' ? normalizeVideoAspectRatio(videoAspectRatio.value) : undefined,
@@ -1015,6 +1025,9 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
           }
           if (!replacedByTemplate('image.quality') && assistantMessage.quality) {
             payload.quality = assistantMessage.quality
+          }
+          if (!replacedByTemplate('image.complexity') && assistantMessage.complexity) {
+            payload.complexity = assistantMessage.complexity
           }
         }
 
@@ -1208,6 +1221,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       imageResolution.value = normalizeImageResolution(message.imageResolution)
       imageAspectRatio.value = normalizeImageAspectRatio(message.imageAspectRatio || aspectRatioFromSize(message.size))
       quality.value = normalizeImageQuality(message.quality)
+      complexity.value = normalizeImageComplexity(message.complexity)
       count.value = normalizeCount(message.count || 1)
       imageAttachments.value = await restoreImageAttachments(message)
     } else {
@@ -1400,11 +1414,13 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     imageAspectRatio,
     size,
     quality,
+    complexity,
     count,
     resolution,
     videoAspectRatio,
     duration,
     imageQualityOptions,
+    imageComplexityOptions,
     activeModelLimits,
     imageAttachmentLimits,
     referenceLimits,

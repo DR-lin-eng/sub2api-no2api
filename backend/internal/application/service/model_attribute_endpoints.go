@@ -6,12 +6,15 @@ func openAIImagesAttributeValues(parsed *OpenAIImagesRequest) map[string]any {
 	if parsed == nil {
 		return nil
 	}
-	values := make(map[string]any, 3)
+	values := make(map[string]any, 4)
 	if parsed.Size != "" {
 		values["size"] = parsed.Size
 	}
 	if parsed.Quality != "" {
 		values["quality"] = parsed.Quality
+	}
+	if parsed.Complexity != "" {
+		values["complexity"] = parsed.Complexity
 	}
 	if parsed.N > 0 {
 		values["n"] = parsed.N

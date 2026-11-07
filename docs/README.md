@@ -38,6 +38,7 @@
 | [Cloudflare 接口分类与边缘规则建议](CLOUDFLARE_EDGE_RULES.md) | 按浏览器页、自动化 API、纯 API 和强人机验证入口分类，方便编写 CF/WAF 规则 |
 | [管理端支付集成 API](ADMIN_PAYMENT_INTEGRATION_API.md) | 外部支付页面与余额/兑换集成 |
 | [异步图片任务](ASYNC_IMAGE_TASKS.md) | 异步 Images API 的启用、提交和轮询 |
+| [GPT Image 2.6](GPT_IMAGE26.md) | Flare/Sunburst 模型目录、原生参数、GIF/SVG 与作者计费 |
 | [批量图片 MVP](BATCH_IMAGE_MVP.md) | 批量图片任务的接口与状态模型 |
 | [PR #180 多模态视频按次计费审查](PR180_VIDEO_BILLING_REVIEW.md) | 按次视频分辨率档位、冻结结算、升级回退和 Docker 验证 |
 

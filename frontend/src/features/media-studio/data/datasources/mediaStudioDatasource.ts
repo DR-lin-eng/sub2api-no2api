@@ -151,6 +151,7 @@ export function mediaStudioFileKind(file: File): MediaStudioMediaType | '' {
 export type MediaStudioParameterControl =
   | 'image.size'
   | 'image.quality'
+  | 'image.complexity'
   | 'image.count'
   | 'video.resolution'
   | 'video.aspectRatio'
@@ -159,6 +160,7 @@ export type MediaStudioParameterControl =
 export const MEDIA_STUDIO_PARAMETER_BINDINGS: Record<MediaStudioParameterControl, string> = {
   'image.size': 'size',
   'image.quality': 'quality',
+  'image.complexity': 'complexity',
   'image.count': 'n',
   'video.resolution': 'resolution',
   'video.aspectRatio': 'aspect_ratio',
@@ -188,6 +190,7 @@ export interface MediaStudioImageSubmitRequest {
   n?: number
   size?: string
   quality?: string
+  complexity?: 'low' | 'medium' | 'high'
   response_format?: 'b64_json' | 'url'
   attributes?: ModelAttributeValues
 }
@@ -251,10 +254,12 @@ export interface MediaStudioGeneratedImage {
   url?: string
   b64_json?: string
   revised_prompt?: string
+  output_format?: string
 }
 
 export interface MediaStudioImageResult {
   created?: number
+  output_format?: string
   data?: MediaStudioGeneratedImage[]
   [key: string]: unknown
 }
@@ -548,6 +553,7 @@ export async function submitImageEdit(
   if (payload.n !== undefined) form.append('n', String(payload.n))
   if (payload.size) form.append('size', payload.size)
   if (payload.quality) form.append('quality', payload.quality)
+  if (payload.complexity) form.append('complexity', payload.complexity)
   for (const [key, value] of Object.entries(payload.attributes ?? {})) form.append(key, String(value))
   for (const file of files) form.append('image', file, file.name)
 

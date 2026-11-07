@@ -26,6 +26,8 @@ export default {
       applyModel: '应用',
       resolution: '分辨率',
       quality: '质量',
+      complexity: '复杂度',
+      complexityLevels: { low: '低', medium: '中', high: '高' },
       count: '数量',
       duration: '时长',
       durationIncrease: '增加时长',

@@ -133,7 +133,7 @@ export function useMediaStudioGallery(options: MediaStudioGalleryOptions = {}) {
       prompt: message.prompt,
       favorite: false,
       createdAt: message.completedAt || message.createdAt,
-      mimeType: 'image/png',
+      mimeType: image.mimeType || 'image/png',
       sourceMessageId: message.id,
       sourceImageId: imageID,
     }
@@ -150,6 +150,7 @@ export function useMediaStudioGallery(options: MediaStudioGalleryOptions = {}) {
       const cached = image.cacheKey ? await loadMediaStudioImage(image.cacheKey, ownerID) : ''
       const inline = cached || persistedImageSource(image.src)
       if (!inline.startsWith('data:image/')) return null
+      item.mimeType = /^data:([^;]+);/i.exec(inline)?.[1] || item.mimeType
       const mediaKey = mediaStudioGalleryMediaKey(itemID)
       if (!await putMediaStudioGalleryMedia(mediaKey, inline, ownerID)) return null
       item.mediaKey = mediaKey
