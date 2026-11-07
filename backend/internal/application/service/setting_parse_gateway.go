@@ -9,6 +9,7 @@ import (
 )
 
 func (s *SettingService) applyGatewaySettings(result *SystemSettings, settings map[string]string) {
+	result.OpenAIImagesLegacyEnabled = strings.EqualFold(settings[SettingKeyOpenAIImagesLegacyEnabled], "true")
 	result.OpenAIRequestTimezoneEnabled, result.OpenAIRequestTimezone = s.resolveOpenAIRequestTimezoneSettings(settings)
 	result.OpenAIOAuthForceRelayEnabled = strings.EqualFold(strings.TrimSpace(settings[SettingKeyOpenAIOAuthForceRelayEnabled]), "true")
 	result.OpenAIOAuthForceRelayBaseURL = strings.TrimSpace(settings[SettingKeyOpenAIOAuthForceRelayBaseURL])

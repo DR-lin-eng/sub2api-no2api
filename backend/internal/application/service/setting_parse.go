@@ -261,6 +261,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyRequestPriorityPendingMiBPerInstance:               strconv.Itoa(DefaultRequestPriorityPendingMiBPerInstance),
 		SettingKeyOpenAIWSModeRouterV2Enabled:                        strconv.FormatBool(s.defaultOpenAIWSModeRouterV2Enabled()),
 		SettingKeyOpenAIRequestTimezoneEnabled:                       "true",
+		SettingKeyOpenAIImagesLegacyEnabled:                          "false",
 		SettingKeyOpenAIRequestTimezone:                              "",
 		SettingKeyOpenAIVisibleOutputTTFTEnabled:                     "true",
 		SettingKeyOpenAIOAuthForceRelayEnabled:                       "false",

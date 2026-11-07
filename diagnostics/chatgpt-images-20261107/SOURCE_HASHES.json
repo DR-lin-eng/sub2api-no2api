@@ -1,0 +1,55 @@
+{
+  "scope": "Read static report and source modules; no App/CLI/native binary execution or real account request.",
+  "files": [
+    {
+      "file": "/Volumes/移动/一些资料文档/codexapprea/新版本/20261107/逆向分析报告.md",
+      "bytes": 61173,
+      "sha256": "ac18d58f14a813e06f22ae62754f0678fcc6be852ffb56e1a4c61c67a3e7a582"
+    },
+    {
+      "file": "/Volumes/移动/一些资料文档/codexapprea/新版本/20261107/evidence/image-focused-slices.json",
+      "bytes": 140107,
+      "sha256": "d8794bc35f0574f49d5cfb1e9660fa594e773d51a6e672f108377b1989efd540"
+    },
+    {
+      "file": "/Volumes/移动/一些资料文档/codexapprea/新版本/20261107/evidence/image-analysis.json",
+      "bytes": 22574,
+      "sha256": "19def361ce7802e295f973a88efe8857b6d38e4813d58ba38e5dd4867ca3cd3b"
+    },
+    {
+      "file": "/Volumes/移动/一些资料文档/codexapprea/新版本/20261107/evidence/image-modules/current_mac/hk6w.8a54992c16.js",
+      "bytes": 29750,
+      "sha256": "8bb03851dbab9524ce8185f3f1e2933ce2bd4cb902b02415a6dee5a1edcae4a8"
+    },
+    {
+      "file": "/Volumes/移动/一些资料文档/codexapprea/新版本/20261107/evidence/image-modules/current_mac/uLW7.e8ef09ac6e.js",
+      "bytes": 18771,
+      "sha256": "0a032dd12b5a95f949975570d7fb4c9f14b6c6ca745cdbd254275e748a108a76"
+    },
+    {
+      "file": "/Volumes/移动/一些资料文档/codexapprea/新版本/20261107/evidence/image-modules/current_mac/hrUs.1cdb78e4d0.js",
+      "bytes": 2044,
+      "sha256": "9aa62173f01a5d563734796d169012f2ba868233b842959fb318ab67a0a3ad52"
+    },
+    {
+      "file": "/Volumes/移动/一些资料文档/codexapprea/新版本/20261107/evidence/image-modules/current_mac/ccwJ.20eb25db2e.js",
+      "bytes": 5578,
+      "sha256": "cbb6557fd8fc55f1df9f189c9bafe8be6f30ca0994688ecec56eabd164059714"
+    },
+    {
+      "file": "/Volumes/移动/一些资料文档/codexapprea/新版本/20261107/evidence/image-modules/current_mac/ahSm.bddba5ae04.js",
+      "bytes": 4211,
+      "sha256": "6de40f2bbd3ab4c877d1aca4ea3d5ccbdc9b7b1cd8fd2961fd243f898e52e616"
+    },
+    {
+      "file": "/Volumes/移动/一些资料文档/codexapprea/新版本/20261107/evidence/image-sources/current_mac/webview/assets/async/189497.7105543924.js",
+      "bytes": 1899021,
+      "sha256": "319cc13d5fa192335a5453199d94238c84f3628f25507b52c4255944c00981aa"
+    },
+    {
+      "file": "/Volumes/移动/一些资料文档/codexapprea/新版本/20261107/evidence/image-sources/current_mac/webview/assets/async/182735.d1916dd704.js",
+      "bytes": 8273877,
+      "sha256": "5a3b8967a8021db6a7a09c1f1ce7ec247d17e98c16b9156b5e7dd8a086e3268e"
+    }
+  ]
+}

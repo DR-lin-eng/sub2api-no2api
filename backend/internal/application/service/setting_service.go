@@ -76,6 +76,8 @@ type SettingService struct {
 	codexRestrictionPolicySF    singleflight.Group
 	openAIRequestTimezoneCache  atomic.Pointer[cachedOpenAIRequestTimezoneSettings]
 	openAIRequestTimezoneMu     sync.Mutex
+	openAIImagesModeCache       atomic.Pointer[cachedOpenAIImagesMode]
+	openAIImagesModeMu          sync.Mutex
 	adminAPIKeyMu               sync.Mutex
 
 	registrationEmailBlacklistMu    sync.Mutex

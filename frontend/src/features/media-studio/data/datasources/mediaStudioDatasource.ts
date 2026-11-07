@@ -14,6 +14,7 @@ export type {
 export type MediaStudioMediaType = 'image' | 'video' | 'audio'
 
 export interface MediaStudioGroupOption {
+  openai_images_protocol?: "chatgpt_app" | "legacy"
   group_id: number
   group_name: string
   platform: string
@@ -22,6 +23,7 @@ export interface MediaStudioGroupOption {
 }
 
 export interface MediaStudioConfig {
+  openai_images_protocol?: "chatgpt_app" | "legacy"
   groups: MediaStudioGroupOption[]
   storage_available?: boolean
 }

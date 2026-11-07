@@ -1,0 +1,178 @@
+{
+  "base_commit": "345e85e7ecb745a509e236d5181f0f7eb3801a9c",
+  "docker": {
+    "image": "golang:1.26.10-alpine",
+    "image_id": "sha256:87c65a688975c0b1d4585d204874c45ca78354670e3a5f11368c5a492303d696",
+    "platform": "linux/arm64",
+    "network": "none",
+    "source_mount": "read-only",
+    "environment": {
+      "GOTOOLCHAIN": "local",
+      "GOPROXY": "off",
+      "GOSUMDB": "off",
+      "CGO_ENABLED": "0",
+      "GOMAXPROCS": "4"
+    }
+  },
+  "baseline": {
+    "exit_code": 1,
+    "expected_failure": true,
+    "summary": {
+      "test_and_subtest_events": {
+        "pass": 21,
+        "fail": 24
+      },
+      "top_level_test_events": {
+        "fail": 5,
+        "pass": 1
+      },
+      "packages": [
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/application/service",
+          "Action": "fail",
+          "Elapsed": 0.127
+        }
+      ],
+      "skipped_tests": [],
+      "non_json_diagnostics": []
+    },
+    "note": "Original HEAD plus new regression fixtures; the one test calling a new production helper is omitted. Exact baseline fixtures are archived in records/."
+  },
+  "focused": {
+    "exit_code": 0,
+    "summary": {
+      "test_and_subtest_events": {
+        "pass": 161
+      },
+      "top_level_test_events": {
+        "pass": 36
+      },
+      "packages": [
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/application/service",
+          "Action": "pass",
+          "Elapsed": 0.42
+        }
+      ],
+      "skipped_tests": [],
+      "non_json_diagnostics": []
+    }
+  },
+  "regression": {
+    "exit_code": 0,
+    "summary": {
+      "test_and_subtest_events": {
+        "pass": 17742,
+        "skip": 4
+      },
+      "top_level_test_events": {
+        "pass": 9239,
+        "skip": 4
+      },
+      "packages": [
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2",
+          "Action": "pass",
+          "Elapsed": 3.03
+        },
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler",
+          "Action": "pass",
+          "Elapsed": 60.165
+        },
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin",
+          "Action": "pass",
+          "Elapsed": 0.552
+        },
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto",
+          "Action": "pass",
+          "Elapsed": 0.015
+        },
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/quotaview",
+          "Action": "pass",
+          "Elapsed": 0.009
+        },
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/supportchatasset",
+          "Action": "pass",
+          "Elapsed": 0.005
+        },
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/managementmcp",
+          "Action": "pass",
+          "Elapsed": 0.127
+        },
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/server",
+          "Action": "pass",
+          "Elapsed": 1.794
+        },
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware",
+          "Action": "pass",
+          "Elapsed": 0.058
+        },
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes",
+          "Action": "pass",
+          "Elapsed": 7.27
+        },
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/shared/openai",
+          "Action": "pass",
+          "Elapsed": 0.026
+        },
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/application/service",
+          "Action": "pass",
+          "Elapsed": 228.271
+        }
+      ],
+      "skipped_tests": [
+        "TestDingTalkOAuthStart_Disabled",
+        "TestAuthPendingIdentityService_UpsertAdoptionDecision_ClearsLegacyNullSessionReference",
+        "TestOpenAIContentSessionBurstBalanceConcurrent50000",
+        "TestEstimateOpenAIInputTokens_CompareWithOpenAIAPI"
+      ],
+      "non_json_diagnostics": []
+    }
+  },
+  "backend_build": {
+    "exit_code": 0,
+    "command": "go build -p 2 -o /tmp/sub2api ./cmd/server",
+    "scope": "Backend executable compilation in Docker; no release image or production deployment."
+  },
+  "repository_checks": {
+    "docs": {
+      "exit_code": 0,
+      "output": "Documentation checks passed."
+    },
+    "diff_check": {
+      "exit_code": 0
+    },
+    "layout": {
+      "exit_code": 2,
+      "baseline_issue": "backend/internal/application/service/payment_fulfillment_test.go has 1201 lines; limit 1200; HEAD and working file both 1201.",
+      "output": "./scripts/check-source-layout.sh\nlayout error: internal/application/service/payment_fulfillment_test.go has 1201 lines (limit 1200); split by responsibility\nmake: *** [check-layout] Error 1"
+    }
+  },
+  "final_go_source_sha256": {
+    "backend/internal/application/service/openai_chatgpt_headers.go": "5184e3df60b2c48c3be91c0ef7d271d12309a0d06a5f4efc2bab554ef420dfd9",
+    "backend/internal/application/service/openai_oauth_auth_context.go": "88e04e65ddf6e8e9f5a9bedb3e41903f2fd2e8288feb25ee49f4c10edcac2dc6",
+    "backend/internal/application/service/openai_token_provider.go": "4457a5412ee9d9ee671f274224c779cdb2d4f3bc52e8c7d534737ba7b5fb6918",
+    "backend/internal/application/service/openai_ws_handshake_compatibility.go": "1835f133371bc7a61d39f7feb6b900763a5eb6648f5263e90c28c33d4f2e9acf",
+    "backend/internal/application/service/token_refresher.go": "8f1b78e1dd2f6dc3ecb08f151fc7a652769f168fa0886800719f9adc0ece48a6",
+    "backend/internal/application/service/openai_oauth_auth_context_test.go": "9e010d58701ba65e12ab5381bdcfac9041ef32ef336f20790dbbd0c892822164",
+    "backend/internal/application/service/openai_codex_request_headers_test.go": "acd23a391b4be842ce2297608196b4f4be67b94406bebd98c2d09c53c329ed19",
+    "backend/internal/application/service/openai_token_expired_recovery_integration_test.go": "a855d1d2e4b927ead38ecb6d806ba5ac253a735595197db8cfb170b58c42dffe"
+  },
+  "limits": [
+    "No real OpenAI OAuth/model/image/APNs request.",
+    "No deployment, publication, remote account mutation or GitHub CI.",
+    "Four pre-existing unit tests were skipped; see regression.skipped_tests.",
+    "JWT metadata guards continuity and local expiry only; upstream remains authoritative for authentication."
+  ]
+}

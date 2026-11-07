@@ -12,7 +12,9 @@
 以及管理端对应账号的模型选择器均包含两款模型。账号显式映射、已同步能力快照、分组白名单和自定义展示列表
 继续决定最终可见范围；默认目录不会替代管理员限制或上游能力快照。
 
-API Key 账号保留原生 Images 参数并应用既有模型映射、请求模板。OAuth 账号使用 Codex 原生 Images 端点。
+API Key 账号保留原生 Images 参数并应用既有模型映射、请求模板。普通 ChatGPT OAuth 账号默认采用
+[新版 App 生图](CHATGPT_APP_IMAGES.md)；开启网关「使用旧版 OpenAI 生图」后恢复本文的 Codex 原生 Images 参数合同。
+新版 App 内部图像模型 ID 未确认，调用方的模型名用于网关路由与计价，不能据此保证内部运行同名 2.6 模型。
 `complexity` 支持 `low`、`medium`、`high`，省略时使用上游默认值 `high`，与渲染 `quality` 独立。
 2.6 的质量选项包括 `auto`、`low`、`medium`、`high`、`xhigh`、`max`。
 JSON 和 multipart 编辑请求均保留复杂度与标注图片 `markup`。GIF 参数可用于生成或编辑，SVG 作者配置仅用于生成。

@@ -310,6 +310,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		StreamModePerformanceEnabled:                           settings.StreamModePerformanceEnabled,
 		OpenAIWSModeRouterV2Enabled:                            settings.OpenAIWSModeRouterV2Enabled,
 		OpenAIRequestTimezoneEnabled:                           settings.OpenAIRequestTimezoneEnabled,
+		OpenAIImagesLegacyEnabled:                              settings.OpenAIImagesLegacyEnabled,
 		OpenAIRequestTimezone:                                  settings.OpenAIRequestTimezone,
 		OpenAIVisibleOutputTTFTEnabled:                         settings.OpenAIVisibleOutputTTFTEnabled,
 		OpenAIOAuthForceRelayEnabled:                           settings.OpenAIOAuthForceRelayEnabled,

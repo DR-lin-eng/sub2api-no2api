@@ -125,6 +125,7 @@ func openAIWSPrincipalCompatibilityHash(account *Account) [sha256.Size]byte {
 		strings.TrimSpace(account.CodexVirtualClientKey()),
 		strings.TrimSpace(account.GetChatGPTAccountID()),
 		strings.TrimSpace(account.GetChatGPTUserID()),
+		openAIOAuthAccountPlanClass(account),
 	}, "\x00")
 	if strings.Trim(principal, "\x00") == "" {
 		return [sha256.Size]byte{}

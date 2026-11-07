@@ -1,5 +1,33 @@
 # OpenAI OAuth 与 Codex 桌面请求对照
 
+## 2026-11-07 增量对齐
+
+本轮来源为用户提供的 `20261107/逆向分析报告.md`，样本分别为 macOS
+`26.1103.41825 / build 25679` 和 Linux `26.1103.32239 / build 25471`。
+macOS 内置 CLI 仍为 `0.167.0-alpha.3.2`，其二进制与上一轮一致；两平台不能视为同一 build。
+已读取报告和认证证据的哈希见 [来源清单](../../diagnostics/desktop-alignment-20261107/SOURCE_HASHES.json)，
+Docker 验证与限制见 [本轮记录](../../diagnostics/desktop-alignment-20261107/README.md)。
+
+| 报告中的行为 | 当前适配 |
+| --- | --- |
+| Codex 凭证连续性还比较套餐类别 | 请求构造、主动刷新和 401 恢复同时校验已知账号、用户、个人/工作区类别。Team 与 Business/Enterprise 等已确认 workspace 类别可兼容，Plus→Pro 可兼容；跨类别返回 `account_changed`，当前轮次不在新身份上重放。空 claim 不补造身份；未知非空套餐不归入 workspace 集合。 |
+| 访问 token 自身的 `exp` 与 300 秒提前窗口 | 结合当前 bearer 的 JWT `exp` 与对应凭据的 `expires_at` 取较早值，刷新判断和缓存 TTL 共用该期限。请求路径窗口由 3 分钟改为 5 分钟，旧缓存内临近/已过期 JWT 重新进入既有带锁刷新。旧账号快照的期限不用于否定另一条更新的缓存 token。 |
+| 刷新和现有 WS 的身份分别维护 | WS 兼容键增加套餐类别；相同 opaque bearer、账号及用户下的类别变化也重建空闲连接。同类别套餐升级不因套餐名称变化而强制换连接。HTTP、SSE、透传和 WS 继续共享一次有界 401 恢复与主体改变时停止重放的规则。 |
+| 新版 UA 的应用字段变化 | 保留显式配置 UA 的独立 engine/app 版本；不把桌面 `26.*` 写入 engine `version`。既有默认稳定版自动同步继续由当前版本 owner 管理。 |
+| 额度发现与 APNs 是独立协议 | 已有实现使用 `GET /celsius/ws/user` 返回的 `websocket_url`，再订阅 `codex-work-usage-push-v1`；异常保持 HTTP 回退。本项目启用策略不能被表述为官方 App 每个账号默认启用 push。 |
+
+网关在请求路径等待现有锁保护的刷新；桌面 JS 在未过期的 5 分钟窗口内返回旧 token 并后台刷新。
+这是服务器凭据管理的有意差异，避免增加脱离请求生命周期的刷新 goroutine；已过期 token 不作为成功结果返回。
+静态解析 JWT 只用于缩短本地使用期限及拒绝身份矛盾，不代替上游验签或授予模型权限。
+
+本次未将 APNs 注册/注销、`exec-server --concurrent-requests`、Statsig 曝光或完成事件元数据
+加入模型请求。报告确认执行器并发参数的直接消费点是本地 argv，未证明它属于 Responses body/header。
+5 秒通知注销信号、35 秒额度订阅信号和 Codex 300 秒 idle 分属不同阶段。
+
+专用 Images 网关现支持默认的 App `/f/conversation` 主生图流程，以及管理端旧版回退开关。
+Library `/wham/images/*` 仍是独立的单图最小 JSON 合同。App 模型、原生参数、按张计价、
+浏览器验证和旧版升级边界见 [App 生图与旧版回退](../CHATGPT_APP_IMAGES.md)。
+
 ## 2026-11-06 增量对齐
 
 本轮对照用户提供的四份静态报告，样本从 `26.1023.51421 / build 22530`、

@@ -26,6 +26,7 @@
         v-model:resolution="resolution"
         v-model:video-aspect-ratio="videoAspectRatio"
         v-model:duration="duration"
+        :chatgpt-app-images="chatgptAppImages"
         :image-quality-options="imageQualityOptions"
         :image-complexity-options="imageComplexityOptions"
         :modes="modes"
@@ -119,6 +120,7 @@ const {
   resolution,
   videoAspectRatio,
   duration,
+  chatgptAppImages,
   imageQualityOptions,
   imageComplexityOptions,
   groupOptions,

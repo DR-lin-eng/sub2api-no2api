@@ -95,6 +95,8 @@ func TestOpenAIOAuthGatewayRateLimitExcludesAPIKeysAndAuxiliaryRequests(t *testi
 		"/v1/responses/input_tokens",
 		"/backend-api/codex/alpha/search",
 		"/backend-api/codex/realtime/calls",
+		"/backend-api/f/conversation",
+		"/backend-api/f/conversation/resume",
 	} {
 		request, err := http.NewRequest(http.MethodPost, "https://chatgpt.com"+path, nil)
 		require.NoError(t, err)

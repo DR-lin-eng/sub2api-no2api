@@ -460,6 +460,7 @@ export interface SystemSettings {
   stream_mode_performance_enabled: boolean;
   openai_ws_mode_router_v2_enabled: boolean;
   openai_request_timezone_enabled: boolean;
+  openai_images_legacy_enabled: boolean;
   openai_request_timezone: string;
   openai_visible_output_ttft_enabled: boolean;
   custom_menu_items: CustomMenuItem[];
@@ -849,6 +850,7 @@ export interface UpdateSettingsRequest {
   stream_mode_performance_enabled?: boolean;
   openai_ws_mode_router_v2_enabled?: boolean;
   openai_request_timezone_enabled?: boolean;
+  openai_images_legacy_enabled?: boolean;
   openai_request_timezone?: string;
   openai_visible_output_ttft_enabled?: boolean;
   custom_menu_items?: CustomMenuItem[];

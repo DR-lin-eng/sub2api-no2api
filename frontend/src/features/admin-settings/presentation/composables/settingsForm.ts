@@ -341,6 +341,7 @@ export function createSettingsForm(localText: LocalText): SettingsForm {
     stream_mode_performance_enabled: false,
     openai_ws_mode_router_v2_enabled: false,
     openai_request_timezone_enabled: true,
+    openai_images_legacy_enabled: false,
     openai_request_timezone: "",
     openai_visible_output_ttft_enabled: true,
     enable_fingerprint_unification: true,

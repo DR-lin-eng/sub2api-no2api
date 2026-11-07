@@ -66,9 +66,19 @@ OpenAI OAuth Responses、自动透传和原生 WebSocket 握手收到上游 `401
 
 上述重放要求刷新前后的已知 workspace/user 一致；身份改变时返回账号级 `account_changed`，当前轮次不在新主体上重发，刷新后的凭据供后续独立请求使用。WS 池还比较最终账号/FedRAMP 头和 credential principal 摘要；旧握手不能跟随变更后的身份复用。WHAM 路由发现先核对 account/user，并以 `Cache-Control: no-store` 和禁止重定向发送。Responses/Compact 的实际 HTTP/WS 发送点不再回带或消费旧 `X-OAI-IS` 更新状态；完整性/本地路由字段也不能经 metadata 注入。各桌面通信面和超时阶段的证据边界见 [桌面端增量对照](codex/desktop-request-alignment.md)。
 
+2026-11-07 桌面对齐补充个人/工作区套餐类别连续性：同账号、同用户的 Team→Plus 也中止当前轮次重放，Plus→Pro 或已确认 workspace 套餐间变化可继续；WS 池按同一类别重建不兼容连接。请求路径结合实际 bearer 的 JWT `exp` 与对应 `expires_at` 取较早期限，提前 5 分钟进入既有锁保护的刷新，不以旧缓存 TTL 延长已过期 token 的使用。来源、桌面后台刷新与网关同步刷新的差异见同一对照文档。
+
 普通 OpenAI HTTP Responses 遇到 TLS 握手超时，且 HTTP trace 确认请求头尚未发送、下游尚无语义输出时，会在同一账号上等待 250ms 后重试一次。SSE 注释心跳不消耗这次恢复机会；请求取消会中止等待。第二次仍失败则进入现有传输 failover 和短时冷却策略，蒸馏分组继续只发一次上游请求。透传路径使用原有请求级重试预算。
 
 OpenAI OAuth 历史重放会移除 `type=reasoning` 条目中的非空 `content` 数组，因为 ChatGPT Codex 输入契约的该字段最大长度为 0；保留整个条目、`summary` 与 `encrypted_content`，不截断顶层 `input` 历史，也不改写普通消息或工具内容。普通/透传 HTTP、compact 与原生 WebSocket 每轮使用同一约束；API Key 账号不应用该 OAuth 专用转换。原始 JSON 路径保留其它字段的数值精度与内容字节。
+
+## ChatGPT App 专用生图
+
+普通 ChatGPT OAuth 的 Images 请求默认捕获新版模式，经过验证准备、参考图上传、
+`/f/conversation` 的流/续接和图像下载，再投影回既有 Images JSON/SSE。
+开关为 `openai_images_legacy_enabled`，管理端可恢复原 Codex 实现。
+同一请求不因配置变更或下载失败重新生成；已完成图像的张数、尺寸及用量进入原可靠结算 owner。
+协议能力、原生参数和显式 token 定价的限制见 [App 生图与旧版回退](CHATGPT_APP_IMAGES.md)。
 
 ## OAuth2 对外授权
 

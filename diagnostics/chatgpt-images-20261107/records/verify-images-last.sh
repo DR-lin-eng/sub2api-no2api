@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+gofmt -w internal/application/service/openai_images_chatgpt.go internal/application/service/openai_images_chatgpt_assets.go internal/application/service/openai_images_chatgpt_stream.go internal/application/service/openai_images_chatgpt_topic.go internal/application/service/openai_images_chatgpt_recovery_test.go internal/application/service/openai_images_chatgpt_test.go internal/modules/chatgptimages/decoder_test.go internal/application/service/openai_images_chatgpt_transport.go
+go test -json -tags=unit -p 1 -count=1 -timeout=10m ./internal/modules/chatgptimages ./internal/application/service ./internal/transport/http/handler/admin ./internal/transport/http/server ./internal/transport/http/handler -run 'ChatGPTAppImages|PictureV2|DeltaImage|CurrentDelta|IntermediatePixel|MessageIDFallback|DistinctImageIDs|UserReferences|ImageResultsDeduplicate|MalformedDelta|OpenAIImages|GPTImage26|SettingHandlerImagesMode|OpenAIOAuthGateway|APIContracts|BuildSystemSettingsUpdatesGolden|Images_ServerError' > /results/images-last-focused.jsonl 2>&1
+go build -p 1 -o /tmp/sub2api ./cmd/server > /results/images-last-build.log 2>&1
+golangci-lint run --concurrency 1 --timeout=10m --max-same-issues 0 --max-issues-per-linter 0 ./... > /results/images-last-lint.log 2>&1
