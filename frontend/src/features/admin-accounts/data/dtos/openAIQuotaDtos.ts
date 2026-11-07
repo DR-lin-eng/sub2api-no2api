@@ -105,6 +105,9 @@ export interface OpenAIQuotaUsage {
   rate_limit?: OpenAIRateLimit | null
   rateLimit?: OpenAIRateLimit | null
   additional_rate_limits?: OpenAIAdditionalRateLimit[]
+  code_review_rate_limit?: OpenAIRateLimit | null
+  spend_control?: unknown
+  credits?: unknown
   rate_limits_by_limit_id?: Record<string, OpenAIAppServerRateLimitBucket | unknown>
   rateLimitsByLimitId?: Record<string, OpenAIAppServerRateLimitBucket | unknown>
   rate_limit_reset_credits?: OpenAIRateLimitResetCredits | null

@@ -82,9 +82,11 @@ import { useAccountsUpstreamBilling } from '@/features/admin-accounts/presentati
 import { useAccountTablePresentation } from '@/features/admin-accounts/presentation/composables/useAccountTablePresentation'
 import { useAccountColumnPreferences } from '@/features/admin-accounts/presentation/composables/useAccountColumnPreferences'
 import { useAccountTodayStats } from '@/features/admin-accounts/presentation/composables/useAccountTodayStats'
+import { useAccountsOpenAIUsagePush, type OpenAIUsageLiveTransport } from '@/features/admin-accounts/presentation/composables/useAccountsOpenAIUsagePush'
 import type { AccountTableViewContext } from '@/features/admin-accounts/presentation/accountTableViewContext'
 import { buildAccountQueryFiltersFromState, mergeRuntimeFields } from '@/features/admin-accounts/presentation/accountListTransforms'
 import type { Account, AccountPlatform, AccountType, Proxy as AccountProxy, AdminGroup } from '@/types'
+import type { OpenAIQuotaUsage } from '@/features/admin-accounts/data/dtos/openAIQuotaDtos'
 import type { ClaudeModel } from '@/features/admin-accounts/data/dtos/adminAccountDtos'
 
 const { t } = useI18n()
@@ -350,6 +352,24 @@ const {
     include_scheduler_score: shouldIncludeSchedulerScore() ? '1' : '0',
     sort_by: sortState.sort_by,
     sort_order: sortState.sort_order
+  }
+})
+
+const liveOpenAIQuotaResults = reactive(new Map<number, OpenAIQuotaUsage>())
+const liveOpenAIQuotaTransports = reactive(new Map<number, OpenAIUsageLiveTransport>())
+
+useAccountsOpenAIUsagePush({
+  getAccounts: () => accounts.value,
+  onQuota: (accountID, quota) => {
+    liveOpenAIQuotaResults.set(accountID, quota)
+    upstreamBillingNow.value = Date.now()
+  },
+  onTransport: (accountID, transport) => {
+    liveOpenAIQuotaTransports.set(accountID, transport)
+  },
+  onStopped: (accountID) => {
+    liveOpenAIQuotaResults.delete(accountID)
+    liveOpenAIQuotaTransports.delete(accountID)
   }
 })
 
@@ -1404,6 +1424,8 @@ const accountTableViewContext = {
   todayStatsError,
   usageManualRefreshToken,
   bulkOpenAIQuotaResults,
+  liveOpenAIQuotaResults,
+  liveOpenAIQuotaTransports,
   upstreamQuotaResults,
   upstreamBillingNow,
   upstreamBillingProbeGloballyEnabled,

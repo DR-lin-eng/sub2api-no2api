@@ -347,6 +347,9 @@
               :today-stats-loading="todayStatsLoading"
               :manual-refresh-token="usageManualRefreshToken"
               :bulk-openai-quota-result="bulkOpenAIQuotaResults.get(row.id)"
+              :live-quota-result="liveOpenAIQuotaResults.get(row.id)"
+              :live-transport="liveOpenAIQuotaTransports.get(row.id)"
+              live-managed
               :upstream-quota-result="upstreamQuotaResults.get(row.id)"
               :now="upstreamBillingNow"
               @account-updated="handleAccountUpdated"
@@ -593,6 +596,8 @@ const {
   todayStatsError,
   usageManualRefreshToken,
   bulkOpenAIQuotaResults,
+  liveOpenAIQuotaResults,
+  liveOpenAIQuotaTransports,
   upstreamQuotaResults,
   upstreamBillingNow,
   upstreamBillingProbeGloballyEnabled,

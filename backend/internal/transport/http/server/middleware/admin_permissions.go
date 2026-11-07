@@ -105,6 +105,11 @@ func requiredAdminPermission(method, path string) string {
 		return service.PermissionGroupsManage
 	case "accounts", "account-inspection", "account-quality", "state-diagnostics", "proxies", "egress":
 		return service.PermissionAccountsManage
+	case "openai":
+		if len(parts) == 5 && parts[1] == "accounts" && parts[3] == "usage" && (parts[4] == "ws" && method == http.MethodGet || parts[4] == "query" && method == http.MethodPost) {
+			return service.PermissionAccountsManage
+		}
+		return ""
 	case "payment":
 		return service.PermissionPaymentManage
 	default:

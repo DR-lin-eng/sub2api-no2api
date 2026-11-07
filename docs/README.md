@@ -31,6 +31,7 @@
 | [Admin API](ADMIN_API.md) | Admin API Key、权限范围和管理接口调用方式 |
 | [批量同步账号上游模型](ACCOUNT_UPSTREAM_MODELS_SYNC.md) | OAuth/API Key 账号的一键模型同步、保留规则、逐账号结果与验证 |
 | [OpenAI SIWC 账号授权](OPENAI_SIWC.md) | 管理端 Sign in with ChatGPT 入口、完整回调、动态客户端、token 刷新与模型请求 |
+| [OpenAI 实时额度与用量详情](OPENAI_USAGE.md) | WS 推送、原刷新回退、账号级模型/会话/余额/额度历史查询与缓存边界 |
 | [管理 MCP](MANAGEMENT_MCP.md) | OAuth/PKCE 管理工具、权限与审计、启用和升级回退 |
 | [OAuth2 对外授权服务](OAUTH2_PROVIDER.md) | 管理员控制的客户端、PKCE 授权码、用户信息与撤销接口 |
 | [降智账号 API](ACCOUNT_QUALITY_DEGRADED_ACCOUNTS_API.md) | 读取降智 OAuth 账号邮箱、account ID 及 401 认证错误 |

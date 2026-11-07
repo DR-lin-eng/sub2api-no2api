@@ -1,0 +1,30 @@
+export default {
+  title: '上游用量详情',
+  description: '查询 ChatGPT 返回的模型用量、会话消耗和额度历史；统计范围与本站记录可能不同。',
+  expand: '查看更多', collapse: '收起', live: '实时额度已连接', connecting: '正在连接实时额度…',
+  tabs: { daily: '每日模型用量', billing: '工作区余额与月额度', threads: '会话用量', plan_history: '额度使用历史', balance_history: '剩余额度曲线' },
+  scope: '查询范围', personal: '个人', workspace: '工作区', startDate: '开始日期', endDate: '结束日期',
+  resource: '查询内容', remainingBalance: '工作区剩余余额', monthly: '当前用户月度额度',
+  window: '额度窗口', fiveHour: '5 小时', weekly: '7 天', refresh: '刷新', query: '查询',
+  threadIDs: '会话 ID', threadPlaceholder: '每行一个会话 ID，也可用逗号分隔',
+  threadHint: '使用该账号的真实会话 ID。详细查询最多 1000 个，Top Chats 最多 100 个主会话。本站不保存 Codex 本地会话目录。',
+  topThreads: 'Top Chats：5 小时、周额度和余额消耗',
+  descendantHint: '每行是一组会话：第一个 ID 为主会话，后续 ID 用逗号分隔，作为子代理会话计入该组。最多 100 组、合计 1000 个 ID。',
+  sortBy: '按消耗降序排列',
+  invalidThreads: '请提供不重复的有效会话 ID，每个不超过 200 个字符。',
+  invalidDates: '请选择不超过 90 天的有效日期范围。',
+  failed: '用量查询失败，请稍后重试。',
+  unavailable: '上游暂未提供此项用量，或该账号无查询权限（{status}）。这不代表用量为零。',
+  fetchedAt: '查询时间', dataAsOf: '上游数据时间', interval: '前台每 {minutes} 分钟刷新',
+  approximate: '历史额度和重置时间为近似值。曲线在观测点之间沿用上次余额，并在可确认的重置边界估计恢复满额。',
+  remainingPercent: '剩余额度 (%)', empty: '当前范围暂无用量数据。', loadMore: '加载更多历史', fullDetails: '查看完整明细',
+  columns: { date: '日期', model: '模型', uncached: '未缓存输入 Token', cached: '缓存输入 Token', output: '输出 Token', total: '总 Token', credits: '用量点数', thread: '会话 ID' },
+  fields: {
+    five_hour_limit_percent: '5 小时额度消耗 (%)', weekly_limit_percent: '周额度消耗 (%)', balance_usage_credits: '余额消耗（点数）',
+    net_new_input_tokens: '未缓存输入 Token', cached_input_tokens: '缓存输入 Token', output_tokens: '输出 Token',
+    estimated_usage_credits_micros: '估算用量点数', native_usage_usd_micros: '原生费用 (USD)',
+    window_minutes: '窗口（分钟）', starts_at: '开始时间', ends_at: '结束时间', used_basis_points: '已用额度', accounting_complete: '结算完整',
+    remaining_balance: '剩余余额', balance: '余额', currency: '币种', plan_type: '套餐', monthly_usage: '月度用量',
+    limit: '额度上限', used: '已用', remaining: '剩余', reset_at: '重置时间', usage_limit_mode: '额度模式'
+  }
+}

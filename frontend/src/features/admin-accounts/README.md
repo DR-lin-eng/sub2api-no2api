@@ -2,6 +2,8 @@
 
 管理账号 feature 负责账号列表、创建/编辑、批量更新、授权和用量展示。
 
+`useAccountsOpenAIUsagePush.ts` 在账号列表页面按当前加载页逐账号维护额度 WS，只为 `status=active` 的 OpenAI OAuth 账号连接；`error`/`inactive` 行不会连接，虚拟滚动不会释放订阅。`openAIUsageDatasource.ts`、`useOpenAIUsagePush.ts`、`useOpenAIUsageDetails.ts` 与 `OpenAIUsageDetails*` 维护单行回退和“使用统计”的上游详情。后台页面释放推送/停止查询，切换账号或凭据后忽略旧响应；上游不可用继续原刷新路径。资源范围、刷新频率、曲线近似值和会话 ID 边界见 [用量说明](../../../../docs/OPENAI_USAGE.md)。
+
 OpenAI OAuth 授权步骤可选择 Sign in with ChatGPT（SIWC）。完整回调 URL 必须保留已签发 `client_id`；切换认证方式会清空已有授权会话，重新授权 SIWC 账号继续使用该协议。入口、刷新和模型请求边界见 [SIWC 说明](../../../../docs/OPENAI_SIWC.md)。
 
 账号列表的“同步上游模型”通过 `useAccountUpstreamModelSync.ts` 按每批 20 个账号调用批量同步 Action，`UpstreamModelSyncResultsDialog.vue` 展示进度与逐账号结果。成功后刷新列表，失败/跳过账号保持选中；保存规则和平台边界见 [同步说明](../../../../docs/ACCOUNT_UPSTREAM_MODELS_SYNC.md)。

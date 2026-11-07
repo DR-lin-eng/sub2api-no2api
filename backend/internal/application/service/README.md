@@ -11,6 +11,7 @@
 | `gateway*` | Anthropic/Claude 通用网关请求、调度、转发和计费 |
 | `gateway_systemone.go`, `account_test_service_typesafe.go` | TypeSafe 原生非流式转发与账号测试，复用完整账号出口和可靠计费 |
 | `openai*` | OpenAI/Codex/Responses/Images/WS 管线 |
+| `openai_usage*` | OAuth 额度推送共享连接、快照校验、详细用量资源与独立缓存；见 [用量说明](../../../../docs/OPENAI_USAGE.md) |
 | `openai_request_set_patches.go` | 大 JSON 的多项普通 set 局部改写与一次拼接，保留 sjson 回退路径 |
 | `openai_capacity_retry.go` | 请求级容量错误的 HTTP/SSE/WS 等待提示解析；有限数值先限幅，沿用现有重试预算 |
 | `openai_auth_recovery.go`, `openai_tls_handshake_recovery.go` | OAuth 401 刷新候选分类；刷新后的已知主体由 `openai_chatgpt_headers.go` 与 token provider 核对，变化时终止当前轮次重放；普通 HTTP Responses 的 TLS 握手超时恢复、请求发送追踪及单次重试边界 |

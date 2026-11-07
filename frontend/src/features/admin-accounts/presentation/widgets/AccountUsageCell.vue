@@ -127,6 +127,9 @@
           :local-window-stats="openAILocalWindowStats"
           :query-local-usage="loadActiveUsage"
           :external-quota-result="bulkOpenaiQuotaResult"
+          :live-quota-result="liveQuotaResult"
+          :live-transport="liveTransport"
+          :live-enabled="!liveManaged && (!shouldLazyLoadOnMobile || hasEnteredViewport)"
           class="mt-1"
           @account-updated="handleQuotaResetAccountUpdated"
           @quota-updated="handleQuotaUsageUpdated"
@@ -565,7 +568,8 @@ import { buildOpenAIUsageRefreshKey } from '@/core/utils/accountUsageRefresh'
 import { enqueueUsageRequest } from '@/core/utils/usageLoadQueue'
 import { formatCompactNumber, formatRelativeTime } from '@/core/utils/format'
 import { useOpenAIQuotaDisplayState } from '@/features/admin-accounts/presentation/composables/useOpenAIQuotaDisplayState'
-import type { OpenAIQuotaRefreshResult } from '@/features/admin-accounts/data/dtos/openAIQuotaDtos'
+import type { OpenAIQuotaRefreshResult, OpenAIQuotaUsage } from '@/features/admin-accounts/data/dtos/openAIQuotaDtos'
+import type { OpenAIUsageLiveTransport } from '../composables/useAccountsOpenAIUsagePush'
 import UsageProgressBar from './UsageProgressBar.vue'
 import AccountQuotaInfo from './AccountQuotaInfo.vue'
 import OpenAIQuotaResetCell from './OpenAIQuotaResetCell.vue'
@@ -573,11 +577,9 @@ import GrokQuotaProbeCell from './GrokQuotaProbeCell.vue'
 import CNProviderUsageCell from './CNProviderUsageCell.vue'
 import AccountKeyUsageDetails from './AccountKeyUsageDetails.vue'
 
-// Module-level cache shared across all AccountUsageCell instances
 const _usageCache = new Map<number, { data: AccountUsageInfo; ts: number }>()
 const USAGE_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 const SUPPRESS_USAGE_REFRESH_WINDOW_MS = 5 * 1000
-
 const props = withDefaults(
   defineProps<{
     account: Account
@@ -585,6 +587,9 @@ const props = withDefaults(
     todayStatsLoading?: boolean
     manualRefreshToken?: number
     bulkOpenaiQuotaResult?: OpenAIQuotaRefreshResult | null
+    liveQuotaResult?: OpenAIQuotaUsage | null
+    liveTransport?: OpenAIUsageLiveTransport
+    liveManaged?: boolean
     upstreamQuotaResult?: UpstreamQuotaQueryResult | null
     now?: number
   }>(),
@@ -593,20 +598,19 @@ const props = withDefaults(
     todayStatsLoading: false,
     manualRefreshToken: 0,
     bulkOpenaiQuotaResult: null,
+    liveQuotaResult: null,
+    liveTransport: undefined,
+    liveManaged: false,
     upstreamQuotaResult: null
   }
 )
-
 const emit = defineEmits<{
   'account-updated': [account: Account]
 }>()
-
 const { t } = useI18n()
 const desktopViewportQuery = '(min-width: 768px)'
-
 const unmounted = ref(false)
 onBeforeUnmount(() => { unmounted.value = true })
-
 const loading = ref(false)
 const activeQueryLoading = ref(false)
 const error = ref<string | null>(null)
@@ -629,7 +633,6 @@ let desktopViewportMediaQuery: MediaQueryList | null = null
 let desktopViewportListener: ((event: MediaQueryListEvent) => void) | null = null
 let visibilityObserver: IntersectionObserver | null = null
 
-// Show usage windows for OAuth and Setup Token accounts
 const showUsageWindows = computed(() => {
   // Gemini: we can always compute local usage windows from DB logs (simulated quotas).
   if (props.account.platform === 'gemini') return true
