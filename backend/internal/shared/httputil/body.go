@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/klauspost/compress/zstd"
 )
@@ -94,8 +95,13 @@ func ReadRequestBodyWithPrealloc(req *http.Request) ([]byte, error) {
 		}
 	}
 
+	startedAt := time.Now()
 	raw, err := readRequestBodyChunks(req.Body, capHint, req.ContentLength)
 	if err != nil {
+		var readErr *RequestBodyReadError
+		if errors.As(err, &readErr) {
+			readErr.Elapsed = time.Since(startedAt)
+		}
 		return nil, err
 	}
 
@@ -151,7 +157,7 @@ func readRequestBodyChunks(reader io.Reader, initialCapacity int, contentLength 
 			n += read
 		}
 		if err != nil && err != io.EOF {
-			return nil, err
+			return nil, &RequestBodyReadError{Err: err, BytesRead: int64(total + n)}
 		}
 		if n > 0 {
 			chunks = append(chunks, chunk[:n])

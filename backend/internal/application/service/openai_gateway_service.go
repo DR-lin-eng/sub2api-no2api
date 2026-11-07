@@ -224,6 +224,7 @@ func (s *OpenAICodexUsageSnapshot) Normalize() *NormalizedCodexLimits {
 
 // OpenAIUsage represents OpenAI API response usage
 type OpenAIUsage struct {
+	ImageCacheReadTokens     int     `json:"image_cache_read_tokens,omitempty"`
 	ServiceTier              *string `json:"-"` // Actual upstream tier, when supplied alongside usage.
 	ReasoningTokens          *int    `json:"reasoning_tokens,omitempty"`
 	InputTokens              int     `json:"input_tokens"`

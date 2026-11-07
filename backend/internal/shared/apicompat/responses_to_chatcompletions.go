@@ -35,7 +35,7 @@ func ResponsesToChatCompletions(resp *ResponsesResponse, model string) *ChatComp
 
 	var contentText string
 	var refusalText string
-	var reasoningText string
+	var reasoningText strings.Builder
 	var toolCalls []ChatToolCall
 
 	for _, item := range resp.Output {
@@ -59,11 +59,7 @@ func ResponsesToChatCompletions(resp *ResponsesResponse, model string) *ChatComp
 				},
 			})
 		case "reasoning":
-			for _, s := range item.Summary {
-				if s.Type == "summary_text" && s.Text != "" {
-					reasoningText += s.Text
-				}
-			}
+			_, _ = reasoningText.WriteString(responsesReasoningText(item))
 		case "web_search_call":
 			// silently consumed — results already incorporated into text output
 		}
@@ -77,8 +73,8 @@ func ResponsesToChatCompletions(resp *ResponsesResponse, model string) *ChatComp
 		raw, _ := json.Marshal(contentText)
 		msg.Content = raw
 	}
-	if reasoningText != "" {
-		msg.ReasoningContent = reasoningText
+	if reasoningText.Len() > 0 {
+		msg.ReasoningContent = reasoningText.String()
 	}
 
 	finishReason := responsesStatusToChatFinishReason(resp.Status, resp.IncompleteDetails, toolCalls)

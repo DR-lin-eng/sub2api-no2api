@@ -139,6 +139,11 @@ type GatewayConfig struct {
 
 	// Antigravity 429 fallback 限流时间（分钟），解析重置时间失败时使用
 	AntigravityFallbackCooldownMinutes int `mapstructure:"antigravity_fallback_cooldown_minutes"`
+	// INTERNAL 500 policy; 0 durations keep defaults, values are capped at seven days.
+	AntigravityInternal500ImageCooldownSeconds int   `mapstructure:"antigravity_internal500_image_cooldown_seconds"`
+	AntigravityInternal500Tier1Seconds         int   `mapstructure:"antigravity_internal500_tier1_seconds"`
+	AntigravityInternal500Tier2Seconds         int   `mapstructure:"antigravity_internal500_tier2_seconds"`
+	AntigravityInternal500DisableAccount       *bool `mapstructure:"antigravity_internal500_disable_account"`
 
 	// Scheduling: 账号调度相关配置
 	Scheduling GatewaySchedulingConfig `mapstructure:"scheduling"`

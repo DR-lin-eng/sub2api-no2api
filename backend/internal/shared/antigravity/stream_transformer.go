@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"strings"
+
+	"github.com/tidwall/gjson"
 )
 
 // BlockType 内容块类型
@@ -118,8 +120,9 @@ func (p *StreamingProcessor) ProcessLine(line string) []byte {
 
 	// 解包 v1internal 响应
 	var v1Resp V1InternalResponse
-	if err := json.Unmarshal([]byte(data), &v1Resp); err != nil {
-		// 尝试直接解析为 GeminiResponse
+	if !gjson.Get(data, "response").Exists() {
+		// A direct response also unmarshals into V1InternalResponse without
+		// an error, but leaves Response empty. Select the shape explicitly.
 		var directResp GeminiResponse
 		if err2 := json.Unmarshal([]byte(data), &directResp); err2 != nil {
 			return nil
@@ -127,6 +130,8 @@ func (p *StreamingProcessor) ProcessLine(line string) []byte {
 		v1Resp.Response = directResp
 		v1Resp.ResponseID = directResp.ResponseID
 		v1Resp.ModelVersion = directResp.ModelVersion
+	} else if err := json.Unmarshal([]byte(data), &v1Resp); err != nil {
+		return nil
 	}
 
 	geminiResp := &v1Resp.Response

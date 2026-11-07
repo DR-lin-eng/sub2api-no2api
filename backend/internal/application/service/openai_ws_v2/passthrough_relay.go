@@ -841,6 +841,12 @@ func observeUpstreamMessage(
 	} else {
 		turnTiming = state.activeTurn
 	}
+	if turnTiming != nil && turnTiming.firstTokenMs == nil && isTTFTEvent(eventType, state.legacyTTFT) && !isLocalFirstEventTTFT {
+		ms := int(now.Sub(turnTiming.startAt).Milliseconds())
+		if ms >= 0 {
+			turnTiming.firstTokenMs = &ms
+		}
+	}
 	observeRelayTurnResponseModel(turnTiming, firstRelayResponseModel(message), isTerminalEvent(eventType))
 	if turnTiming != nil {
 		turnTiming.openAITiming.Observe(message, eventType)
