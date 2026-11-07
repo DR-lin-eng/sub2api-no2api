@@ -38,6 +38,8 @@ var DefaultModels = []Model{
 	{ID: "gpt-image-2", Object: "model", Created: 1738368000, OwnedBy: "openai", Type: "model", DisplayName: "GPT Image 2"},
 	{ID: "gpt-image-2.5-flare", Object: "model", Created: 1788825600, OwnedBy: "openai", Type: "model", DisplayName: "GPT Image 2.5 Flare"},
 	{ID: "gpt-image-2.5-sunburst", Object: "model", Created: 1788825600, OwnedBy: "openai", Type: "model", DisplayName: "GPT Image 2.5 Sunburst"},
+	{ID: "gpt-image-2.6-flare", Object: "model", Created: 1793750400, OwnedBy: "openai", Type: "model", DisplayName: "GPT Image 2.6 Flare"},
+	{ID: "gpt-image-2.6-sunburst", Object: "model", Created: 1793750400, OwnedBy: "openai", Type: "model", DisplayName: "GPT Image 2.6 Sunburst"},
 }
 
 // DefaultModelIDs returns the default model ID list
@@ -109,6 +111,8 @@ func CodexBaseInstructionsForModel(model string) string {
 		m = "gpt-6" + strings.TrimPrefix(m, "gpt6")
 	}
 	switch {
+	case IsGPT61TerraModelSpelling(m):
+		return codexTerraInstructions
 	case m == "gpt-6" || m == "gpt-6-astra" || strings.HasPrefix(m, "gpt-6-astra-") ||
 		m == "gpt-6.1-sol" || strings.HasPrefix(m, "gpt-6.1-sol-") ||
 		m == "gpt-6.1-terra" || strings.HasPrefix(m, "gpt-6.1-terra-") ||

@@ -331,6 +331,19 @@ func validateGatewayReliability(c *Config) error {
 }
 
 func validateGatewayRouting(c *Config) error {
+	for _, field := range []struct {
+		name  string
+		value int
+	}{
+		{"antigravity_internal500_image_cooldown_seconds", c.Gateway.AntigravityInternal500ImageCooldownSeconds},
+		{"antigravity_internal500_tier1_seconds", c.Gateway.AntigravityInternal500Tier1Seconds},
+		{"antigravity_internal500_tier2_seconds", c.Gateway.AntigravityInternal500Tier2Seconds},
+	} {
+		if field.value < 0 || field.value > 604800 {
+			return fmt.Errorf("gateway.%s must be between 0 and 604800", field.name)
+		}
+	}
+
 	if c.Gateway.MaxSameAccountRetriesGemini < 0 || c.Gateway.MaxSameAccountRetriesGemini > 10 {
 		return fmt.Errorf("gateway.max_same_account_retries_gemini must be between 0 and 10")
 	}

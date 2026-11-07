@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/gin-gonic/gin"
@@ -73,7 +74,8 @@ func TestOpenAIUsageHandlersValidateAndStream(t *testing.T) {
 	require.Equal(t, "fallback", event.Type)
 	_, _, err = conn.ReadMessage()
 	require.Error(t, err)
-	require.EqualValues(t, 1, stub.released.Load())
+	// The peer observes Close before the handler runs the remaining defers.
+	require.Eventually(t, func() bool { return stub.released.Load() == 1 }, time.Second, time.Millisecond)
 	_, resp, err := dialer.Dial("ws"+strings.TrimPrefix(server.URL, "http")+"/accounts/41/usage/ws", http.Header{"Origin": []string{"https://other.example"}})
 	require.Error(t, err)
 	require.Equal(t, 403, resp.StatusCode)

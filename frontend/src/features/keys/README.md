@@ -18,3 +18,5 @@ API Key 的 `group_bindings` 是有序路由候选，`group_id` 始终镜像第�
 pnpm exec vitest run src/features/keys
 pnpm run typecheck
 ```
+
+Codex 导出包含实时搜索；显式 API Key 模式启用原生图片工具并继续使用 env_key。CC Switch 的 provider 配置由 `core/utils/codexAuthConfig.ts` 序列化；现有兼容模式和默认模型不变。

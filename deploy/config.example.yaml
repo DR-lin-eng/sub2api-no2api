@@ -574,6 +574,13 @@ gateway:
   # Gemini same-account retries before switching accounts (excluding the first request, 0-10)
   # Gemini 同账号重试次数（不含首次请求，0-10 次；默认 4）
   max_same_account_retries_gemini: 4
+  # Antigravity INTERNAL 500: image faults cool only the failed model.
+  # Positive durations are bounded at seven days; 0 keeps the default.
+  antigravity_internal500_image_cooldown_seconds: 120
+  antigravity_internal500_tier1_seconds: 1800
+  antigravity_internal500_tier2_seconds: 7200
+  antigravity_internal500_disable_account: true
+
   # Scheduling configuration
   # 调度配置
   scheduling:

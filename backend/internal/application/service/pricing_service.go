@@ -75,23 +75,6 @@ var (
 		Mode:                                "chat",
 		SupportsPromptCaching:               true,
 	}
-	openAIGPT61TerraFallbackPricing = &LiteLLMModelPricing{
-		InputCostPerToken:                   1e-06,
-		InputCostPerTokenPriority:           2e-06,
-		OutputCostPerToken:                  5e-06,
-		OutputCostPerTokenPriority:          10e-06,
-		CacheCreationInputTokenCost:         1.25e-06,
-		CacheCreationInputTokenCostPriority: 2.5e-06,
-		CacheReadInputTokenCost:             0.05e-06,
-		CacheReadInputTokenCostPriority:     0.1e-06,
-		LongContextInputTokenThreshold:      openAIGPT54LongContextInputThreshold,
-		LongContextInputCostMultiplier:      openAIGPT54LongContextInputMultiplier,
-		LongContextOutputCostMultiplier:     openAIGPT54LongContextOutputMultiplier,
-		SupportsServiceTier:                 true,
-		LiteLLMProvider:                     "openai",
-		Mode:                                "chat",
-		SupportsPromptCaching:               true,
-	}
 	openAIGPT6LunaFallbackPricing = &LiteLLMModelPricing{
 		InputCostPerToken:                   0.1e-06,
 		InputCostPerTokenPriority:           0.2e-06,
@@ -171,15 +154,6 @@ var (
 		Mode:                                "chat",
 		SupportsPromptCaching:               true,
 	}
-	openAIGPTImage25FallbackPricing = &LiteLLMModelPricing{
-		InputCostPerToken:       5e-06,
-		CacheReadInputTokenCost: 1.25e-06,
-		InputCostPerImageToken:  8e-06,
-		OutputCostPerImageToken: 3e-05,
-		LiteLLMProvider:         "openai",
-		Mode:                    "image_generation",
-		SupportsPromptCaching:   true,
-	}
 	openAIGPT54MiniFallbackPricing = &LiteLLMModelPricing{
 		InputCostPerToken:       7.5e-07,
 		OutputCostPerToken:      4.5e-06,
@@ -201,6 +175,7 @@ var (
 // LiteLLMModelPricing LiteLLM价格数据结构
 // 只保留我们需要的字段，使用指针来处理可能缺失的值
 type LiteLLMModelPricing struct {
+	CacheReadInputImageTokenCost        float64 `json:"cache_read_input_image_token_cost"`
 	InputCostPerToken                   float64 `json:"input_cost_per_token"`
 	InputCostPerTokenPriority           float64 `json:"input_cost_per_token_priority"`
 	OutputCostPerToken                  float64 `json:"output_cost_per_token"`
@@ -235,6 +210,7 @@ type PricingRemoteClient interface {
 
 // LiteLLMRawEntry 用于解析原始JSON数据
 type LiteLLMRawEntry struct {
+	CacheReadInputImageTokenCost        *float64 `json:"cache_read_input_image_token_cost"`
 	InputCostPerToken                   *float64 `json:"input_cost_per_token"`
 	InputCostPerTokenPriority           *float64 `json:"input_cost_per_token_priority"`
 	OutputCostPerToken                  *float64 `json:"output_cost_per_token"`
@@ -593,6 +569,9 @@ func (s *PricingService) parsePricingData(body []byte) (map[string]*LiteLLMModel
 		}
 		if entry.OutputCostPerImageToken != nil {
 			pricing.OutputCostPerImageToken = *entry.OutputCostPerImageToken
+		}
+		if entry.CacheReadInputImageTokenCost != nil {
+			pricing.CacheReadInputImageTokenCost = *entry.CacheReadInputImageTokenCost
 		}
 		if entry.InputCostPerImageToken != nil {
 			pricing.InputCostPerImageToken = *entry.InputCostPerImageToken
@@ -1104,7 +1083,7 @@ func (s *PricingService) matchOpenAIModel(model string) *LiteLLMModelPricing {
 	}
 
 	if isOpenAIImageGenerationModel(model) {
-		if model == "gpt-image-2.5-flare" || model == "gpt-image-2.5-flare-2026-09-08" ||
+		if model == "gpt-image-2.6-flare" || model == "gpt-image-2.6-sunburst" || model == "gpt-image-2.5-flare" || model == "gpt-image-2.5-flare-2026-09-08" ||
 			model == "gpt-image-2.5-sunburst" || model == "gpt-image-2.5-sunburst-2026-09-08" {
 			logger.LegacyPrintf("service.pricing", "[Pricing] OpenAI image fallback matched %s -> gpt-image-2.5(static)", model)
 			return openAIGPTImage25FallbackPricing

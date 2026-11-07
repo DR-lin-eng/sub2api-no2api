@@ -13,10 +13,13 @@ func openAISubscriptionLongContextExempt(account *Account, result *OpenAIForward
 	}
 	model = strings.ReplaceAll(strings.ToLower(strings.TrimSpace(model)), "_", "-")
 	model = strings.TrimPrefix(model, "openai/")
-	if model == "gpt-6.1-sol" {
+	if model == "gpt-6.1-sol" || model == "gpt-6.1-terra" {
 		return true
 	}
 	suffix, ok := strings.CutPrefix(model, "gpt-6.1-sol-")
+	if !ok {
+		suffix, ok = strings.CutPrefix(model, "gpt-6.1-terra-")
+	}
 	if !ok {
 		return false
 	}

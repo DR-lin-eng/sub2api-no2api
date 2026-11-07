@@ -610,6 +610,7 @@ func codexModelsManifestBodyETag(body []byte) string {
 }
 
 var apiKeyCodexModelsWithoutResponsesLite = map[string]struct{}{
+	"gpt-6.1-terra": {},
 	"gpt-5.6-sol":   {},
 	"gpt-5.6-terra": {},
 	"gpt-5.6-luna":  {},
@@ -766,7 +767,7 @@ func convertOpenAIModelListToCodexManifestWithFallback(body []byte, includeFallb
 		}
 		model := modelcatalog.Normalize(entry, id)
 		if includeFallback {
-			model = modelcatalog.Fill(model, modelcatalog.KnownFallback(id))
+			model = modelcatalog.Fill(model, codexKnownModelFallback(id))
 		}
 		delete(model, "id")
 		model["slug"], _ = json.Marshal(id)
