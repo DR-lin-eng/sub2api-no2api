@@ -40,7 +40,7 @@ BASELINE → MODIFIED → ROLLBACK → RESTORED 四阶段，24 个真实 HTTP �
 用量行摘要保持一致，每次成功请求只结算一次，`余额 + 累计 actual_cost = 初始余额` 在四阶段均成立。
 Responses JSON/SSE 均结算 1000/100 token、$0.004，图片实际两张结算 $0.20。新增缓冲 reasoning 在候选/恢复节点出现，
 在旧节点回退为旧行为，且每阶段均只有一条结算。后端全包 unit 和官方 MCP Go SDK OAuth 互操作检查通过（service 全集 229.254 秒）；
-最后的账号原生图片预览、畸形输出和额度展示规模限制又通过定向 Docker 回归。固定 Go 1.26.10 / golangci-lint 2.9.0
+最后的账号原生图片预览、畸形输出和额度展示规模限制又通过定向 Docker 回归。追加的原生图片流回归覆盖“已有用量后收到空 usage”的结算保留，Docker 定向集通过（0.023 秒）。固定 Go 1.26.10 / golangci-lint 2.9.0
 的检查报告 **0 issues**。生产节点未部署。
 
 `make check-docs` 通过。源码布局门禁目前只报告未修改的 `payment_fulfillment_test.go` 为 1201 行；

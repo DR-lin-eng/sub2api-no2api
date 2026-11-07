@@ -5,6 +5,9 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"io"
+	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -112,4 +115,21 @@ func TestAccountTestNativeImagesUsesSamePayloadAndProtocol(t *testing.T) {
 	require.Empty(t, upstream.lastReq.Header.Get("OpenAI-Beta"))
 	require.Contains(t, rec.Body.String(), `"success":true`)
 	require.NotContains(t, rec.Body.String(), "Responses driver")
+}
+
+func TestNativeImagesStreamEmptyUsagePreservesObservedSettlement(t *testing.T) {
+	body := "data: {\"type\":\"image_generation.partial_image\",\"usage\":{\"input_tokens\":100,\"input_tokens_details\":{\"image_tokens\":80,\"cached_tokens\":40,\"cached_tokens_details\":{\"image_tokens\":30}},\"output_tokens\":40}}\n\n" +
+		"data: {\"type\":\"image_generation.completed\",\"b64_json\":\"AA==\",\"usage\":{}}\n\n"
+	c, _ := newOpenAIImagesTestContext(t, nil)
+	response := &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": {"text/event-stream"}}, Body: io.NopCloser(strings.NewReader(body))}
+	svc := newOpenAIImagesService(nil)
+	usage, count, _, _, err := svc.handleOpenAIImagesStreamingResponseWithDirect(response, c, time.Now(), "b64_json", &OpenAIImagesRequest{Model: "gpt-image-2.6-flare", Stream: true})
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+	require.Equal(t, 100, usage.InputTokens)
+	require.Equal(t, 80, usage.ImageInputTokens)
+	require.Equal(t, 40, usage.OutputTokens)
+	require.Equal(t, 40, usage.ImageOutputTokens)
+	require.Equal(t, 40, usage.CacheReadInputTokens)
+	require.Equal(t, 30, usage.ImageCacheReadTokens)
 }

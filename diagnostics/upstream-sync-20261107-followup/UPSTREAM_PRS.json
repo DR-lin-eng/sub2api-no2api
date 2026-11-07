@@ -98,7 +98,7 @@
       "fully_closed": true,
       "status": "ported-with-local-image-and-billing-owners",
       "owner": "application/service/openai_images_direct.go; openai_images_responses.go; billing_service.go",
-      "decision": "Native routes for new 2.6 models, strict options, mapped models, MIME, actual output and usage. Preserve old image routes; batch response rewrites, separate explicitly reported image cache tokens and keep durable settlement.",
+      "decision": "Native routes for new 2.6 models, strict options, mapped models, MIME, actual output and usage. Preserve old image routes; batch response rewrites, separate explicitly reported image cache tokens and keep durable settlement. Later empty usage frames retain previously observed counters using the existing image-stream merge policy.",
       "reopen_when": "Frozen patch changes, current owner regresses, or the user explicitly changes the documented local policy."
     },
     {

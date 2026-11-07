@@ -268,3 +268,29 @@ func rewriteCodexDirectImagesResponse(body []byte, parsed *OpenAIImagesRequest) 
 	}
 	return json.Marshal(root)
 }
+
+// Match the existing image stream owner: later empty usage must not erase
+// counters already observed before completion or downstream disconnect.
+func mergeCodexDirectImagesUsage(dst *OpenAIUsage, src OpenAIUsage) {
+	if src.InputTokens > 0 {
+		dst.InputTokens = src.InputTokens
+	}
+	if src.OutputTokens > 0 {
+		dst.OutputTokens = src.OutputTokens
+	}
+	if src.CacheReadInputTokens > 0 {
+		dst.CacheReadInputTokens = src.CacheReadInputTokens
+	}
+	if src.CacheCreationInputTokens > 0 {
+		dst.CacheCreationInputTokens = src.CacheCreationInputTokens
+	}
+	if src.ImageInputTokens > 0 {
+		dst.ImageInputTokens = src.ImageInputTokens
+	}
+	if src.ImageOutputTokens > 0 {
+		dst.ImageOutputTokens = src.ImageOutputTokens
+	}
+	if src.ImageCacheReadTokens > 0 {
+		dst.ImageCacheReadTokens = src.ImageCacheReadTokens
+	}
+}

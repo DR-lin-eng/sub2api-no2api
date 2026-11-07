@@ -1274,7 +1274,7 @@ func (s *OpenAIGatewayService) handleOpenAIImagesStreamingResponseWithDirect(res
 				responseRewriteErr = upstreamErr
 			}
 			if parsedUsage, ok := codexDirectImagesUsage(dataBytes); ok {
-				usage = parsedUsage
+				mergeCodexDirectImagesUsage(&usage, parsedUsage)
 			}
 		} else {
 			mergeOpenAIUsage(&usage, dataBytes)
