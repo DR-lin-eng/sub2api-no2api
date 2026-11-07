@@ -179,6 +179,9 @@ func openAIWSHasInlineImageInput(payload []byte) bool {
 }
 
 func (s *OpenAIGatewayService) prepareOpenAIWSHTTPFallback(ctx context.Context, c *gin.Context, account *Account, wsErr error, body, canonicalBody []byte) bool {
+	if s.prepareOpenAIWSNonStreamingHTTPFallback(ctx, c, account, wsErr, body, canonicalBody) {
+		return true
+	}
 	var fallback *openAIWSFallbackError
 	if errors.As(wsErr, &fallback) && fallback != nil {
 		reason := strings.TrimPrefix(strings.TrimSpace(fallback.Reason), "prewarm_")

@@ -162,7 +162,7 @@ func (s *OpenAIQuotaService) runUsagePush(ctx context.Context, accountID int64, 
 	}
 	readCtx, cancelRead := context.WithCancel(ctx)
 	defer cancelRead()
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	type frame struct {
 		data []byte
 		err  error

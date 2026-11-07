@@ -159,7 +159,11 @@ func (s *OpenAIQuotaService) QueryUsageDetails(ctx context.Context, accountID in
 		if result.Err != nil {
 			return nil, result.Err
 		}
-		return result.Val.(*OpenAIUsageDetails), nil
+		details, ok := result.Val.(*OpenAIUsageDetails)
+		if !ok || details == nil {
+			return nil, fmt.Errorf("invalid usage query result")
+		}
+		return details, nil
 	}
 }
 

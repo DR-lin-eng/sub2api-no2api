@@ -234,7 +234,7 @@ func TestOpenAIUsageWebSocketSharedSnapshotAndFallback(t *testing.T) {
 		if err != nil {
 			return
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 		var writeMu sync.Mutex
 		write := func(value any) { writeMu.Lock(); defer writeMu.Unlock(); _ = conn.WriteJSON(value) }
 		write(map[string]any{"type": "keepalive"})
@@ -262,7 +262,8 @@ func TestOpenAIUsageWebSocketSharedSnapshotAndFallback(t *testing.T) {
 					reply["recovered"] = false
 				}
 				if command.Command["type"] == "presence" {
-					metadata := command.Command["metadata"].(map[string]any)
+					metadata, ok := command.Command["metadata"].(map[string]any)
+					require.True(t, ok)
 					require.Equal(t, "electron", metadata["codex_usage_client"])
 				}
 				write([]any{map[string]any{"id": command.ID, "reply": reply}})
