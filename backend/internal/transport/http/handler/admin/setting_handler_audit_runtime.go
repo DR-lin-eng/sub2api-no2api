@@ -3,6 +3,9 @@ package admin
 import "github.com/Wei-Shaw/sub2api/internal/application/service"
 
 func appendRuntimeSettingChanges(changed []string, before, after *service.SystemSettings) []string {
+	if before.OpenAIImagesLegacyEnabled != after.OpenAIImagesLegacyEnabled {
+		changed = append(changed, "openai_images_legacy_enabled")
+	}
 	if before.OpsMonitoringEnabled != after.OpsMonitoringEnabled {
 		changed = append(changed, "ops_monitoring_enabled")
 	}

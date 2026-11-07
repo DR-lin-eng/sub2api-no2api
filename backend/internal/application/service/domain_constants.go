@@ -691,6 +691,7 @@ const (
 	// output event classifier (false). Missing values default to true.
 	SettingKeyOpenAIVisibleOutputTTFTEnabled = "openai_visible_output_ttft_enabled"
 	SettingKeyOpenAIRequestTimezoneEnabled   = "openai_request_timezone_enabled"
+	SettingKeyOpenAIImagesLegacyEnabled      = "openai_images_legacy_enabled"
 	SettingKeyOpenAIRequestTimezone          = "openai_request_timezone"
 	// SettingKeyOpenAIOAuthForceRelayEnabled forces OpenAI OAuth/Codex model
 	// traffic through the administrator-selected relay. OAuth authorization and

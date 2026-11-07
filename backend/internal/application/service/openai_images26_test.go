@@ -66,7 +66,7 @@ func TestGPTImage26ComplexityAcrossImageEndpoints(t *testing.T) {
 						require.NoError(t, err)
 						account := directImagesTestAccount()
 						account.Type = accountType
-						result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")
+						result, err := forwardLegacyOpenAIImagesForTest(svc, context.Background(), c, account, body, parsed, "")
 						require.NoError(t, err)
 						require.Equal(t, endpoint, upstream.lastReq.URL.Path)
 						require.Equal(t, model, result.UpstreamModel)
@@ -99,7 +99,7 @@ func TestGPTImage26DoesNotFallbackToResponses(t *testing.T) {
 				svc := newOpenAIImagesService(upstream)
 				parsed, err := svc.ParseOpenAIImagesRequest(c, body)
 				require.NoError(t, err)
-				result, err := svc.ForwardImages(context.Background(), c, directImagesTestAccount(), body, parsed, "")
+				result, err := forwardLegacyOpenAIImagesForTest(svc, context.Background(), c, directImagesTestAccount(), body, parsed, "")
 				require.Error(t, err)
 				require.Nil(t, result)
 				require.Equal(t, 1, calls)
@@ -121,7 +121,7 @@ func TestOpenAIImagesComplexityLegacyBridgeAndAPIKey(t *testing.T) {
 			parsed, err := svc.ParseOpenAIImagesRequest(c, body)
 			require.NoError(t, err)
 			if apiKey {
-				_, err = svc.ForwardImages(context.Background(), c, newOpenAIImagesAPIKeyAccount(), body, parsed, "")
+				_, err = forwardLegacyOpenAIImagesForTest(svc, context.Background(), c, newOpenAIImagesAPIKeyAccount(), body, parsed, "")
 				require.NoError(t, err)
 				require.JSONEq(t, string(body), string(upstream.lastBody))
 			} else {
@@ -149,7 +149,7 @@ func TestGPTImage26OutputFormats(t *testing.T) {
 			svc := newOpenAIImagesService(upstream)
 			parsed, err := svc.ParseOpenAIImagesRequest(c, body)
 			require.NoError(t, err)
-			result, err := svc.ForwardImages(context.Background(), c, directImagesTestAccount(), body, parsed, "")
+			result, err := forwardLegacyOpenAIImagesForTest(svc, context.Background(), c, directImagesTestAccount(), body, parsed, "")
 			require.NoError(t, err)
 			require.Equal(t, 1, result.ImageCount)
 			mime := "image/gif"
@@ -250,7 +250,7 @@ func TestGPTImage26StreamedJSONEdits(t *testing.T) {
 				svc := newOpenAIImagesService(upstream)
 				parsed, err := svc.ParseOpenAIImagesRequest(c, body)
 				require.NoError(t, err)
-				result, err := svc.ForwardImages(context.Background(), c, directImagesTestAccount(), body, parsed, "")
+				result, err := forwardLegacyOpenAIImagesForTest(svc, context.Background(), c, directImagesTestAccount(), body, parsed, "")
 				require.NoError(t, err)
 				require.Equal(t, 2, result.ImageCount)
 				require.Equal(t, 40, result.Usage.ImageOutputTokens)
@@ -273,7 +273,7 @@ func TestGPTImage26StreamedJSONEdits(t *testing.T) {
 			svc := newOpenAIImagesService(upstream)
 			parsed, err := svc.ParseOpenAIImagesRequest(c, body)
 			require.NoError(t, err)
-			result, err := svc.ForwardImages(context.Background(), c, directImagesTestAccount(), body, parsed, "")
+			result, err := forwardLegacyOpenAIImagesForTest(svc, context.Background(), c, directImagesTestAccount(), body, parsed, "")
 			require.Error(t, err)
 			require.Nil(t, result)
 			require.NotContains(t, rec.Body.String(), "event: image_generation.completed")

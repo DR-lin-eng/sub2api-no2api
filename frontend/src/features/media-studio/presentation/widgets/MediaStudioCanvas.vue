@@ -454,7 +454,7 @@
                   :aria-expanded="modelMenuOpen"
                   @click="toggleModelMenu"
                 >
-                  <span class="composer-chip__key">{{ t('mediaStudio.composer.model') }}</span>
+                  <span class="composer-chip__key">{{ chatgptAppImages ? t('mediaStudio.composer.appImageBillingModel') : t('mediaStudio.composer.model') }}</span>
                   <span class="composer-chip__value max-w-[12rem] truncate">{{ model || t('mediaStudio.composer.selectModel') }}</span>
                   <Icon :name="modelMenuOpen ? 'chevronUp' : 'chevronDown'" size="xs" class="text-gray-400" />
                 </button>
@@ -606,6 +606,8 @@
                   <Icon name="chevronDown" size="xs" class="text-gray-400" />
                 </span>
               </div>
+
+              <span v-if="selectedModeId === 'image' && chatgptAppImages" class="text-xs text-gray-500 dark:text-gray-400">{{ t('mediaStudio.composer.appImagesHint') }}</span>
 
               <div v-if="selectedModeId === 'image' && imageComplexityOptions?.length && !hiddenParameterControls.includes('image.complexity')" class="composer-chip-wrap relative">
                 <select
@@ -895,6 +897,7 @@ const props = defineProps<{
   resolution: MediaStudioVideoResolution
   videoAspectRatio: MediaStudioVideoAspectRatio
   duration: number
+  chatgptAppImages?: boolean
   imageQualityOptions: MediaStudioParameterOption[]
   imageComplexityOptions?: readonly ('low' | 'medium' | 'high')[]
   groupOptions: MediaStudioGroupOption[]

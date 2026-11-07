@@ -522,6 +522,8 @@ export default {
         saveFailed: '保存 Ollama Cloud 用量刷新设置失败'
       },
       gatewayForwarding: {
+        openAIImagesLegacy: '使用旧版 OpenAI 生图',
+        openAIImagesLegacyHint: '默认使用新版 ChatGPT App 生图。开启后恢复旧版 Codex 生图；保存后新请求生效。新版由 ChatGPT 决定图像模型与输出尺寸，原生质量、动画、SVG 和遮罩参数请使用旧版。',
         title: '请求转发行为',
         description: '控制请求转发到上游 OAuth 账号时的行为',
         openAIWSModeRouterV2: 'OpenAI WS 账号模式路由',

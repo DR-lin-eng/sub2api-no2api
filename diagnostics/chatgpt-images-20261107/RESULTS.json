@@ -1,0 +1,259 @@
+{
+  "base_commit": "345e85e7ecb745a509e236d5181f0f7eb3801a9c",
+  "docker": {
+    "platform": "linux/arm64",
+    "go_image": "golang:1.26.10-alpine",
+    "go_version": "1.26.10",
+    "test_network": "none",
+    "GOTOOLCHAIN": "local",
+    "GOPROXY": "off",
+    "GOSUMDB": "off",
+    "GOMAXPROCS": "2",
+    "full_regression_memory": "1000MiB / GOGC 40",
+    "final_focused_build_lint_memory": "1400MiB / GOGC 70",
+    "CGO_ENABLED": "0",
+    "test_package_parallelism": 1
+  },
+  "focused": {
+    "exit_code": 0,
+    "summary": {
+      "test_and_subtest_events": {
+        "pass": 261
+      },
+      "top_level_test_events": {
+        "pass": 114
+      },
+      "packages": [
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/modules/chatgptimages",
+          "Action": "pass",
+          "Elapsed": 0.002
+        },
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/application/service",
+          "Action": "pass",
+          "Elapsed": 1.5310000000000001
+        },
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin",
+          "Action": "pass",
+          "Elapsed": 0.029
+        },
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/server",
+          "Action": "pass",
+          "Elapsed": 0.014
+        },
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler",
+          "Action": "pass",
+          "Elapsed": 0.04
+        }
+      ],
+      "skipped": [],
+      "diagnostics": []
+    }
+  },
+  "regression": {
+    "exit_code": 0,
+    "summary": {
+      "test_and_subtest_events": {
+        "pass": 17776,
+        "skip": 4
+      },
+      "top_level_test_events": {
+        "pass": 9265,
+        "skip": 4
+      },
+      "packages": [
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/application/service",
+          "Action": "pass",
+          "Elapsed": 231.228
+        },
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2",
+          "Action": "pass",
+          "Elapsed": 6.05
+        },
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler",
+          "Action": "pass",
+          "Elapsed": 60.763
+        },
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin",
+          "Action": "pass",
+          "Elapsed": 0.577
+        },
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto",
+          "Action": "pass",
+          "Elapsed": 0.02
+        },
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/quotaview",
+          "Action": "pass",
+          "Elapsed": 0.014
+        },
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/supportchatasset",
+          "Action": "pass",
+          "Elapsed": 0.006
+        },
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/managementmcp",
+          "Action": "pass",
+          "Elapsed": 0.157
+        },
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/server",
+          "Action": "pass",
+          "Elapsed": 1.7930000000000001
+        },
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware",
+          "Action": "pass",
+          "Elapsed": 0.071
+        },
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes",
+          "Action": "pass",
+          "Elapsed": 7.547
+        },
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/shared/openai",
+          "Action": "pass",
+          "Elapsed": 0.013
+        },
+        {
+          "Package": "github.com/Wei-Shaw/sub2api/internal/modules/chatgptimages",
+          "Action": "pass",
+          "Elapsed": 0.002
+        }
+      ],
+      "skipped": [
+        "TestAuthPendingIdentityService_UpsertAdoptionDecision_ClearsLegacyNullSessionReference",
+        "TestOpenAIContentSessionBurstBalanceConcurrent50000",
+        "TestEstimateOpenAIInputTokens_CompareWithOpenAIAPI",
+        "TestDingTalkOAuthStart_Disabled"
+      ],
+      "diagnostics": []
+    },
+    "note": "Full related regression followed by final focused regression after support for event-prefixed WS encoded SSE, verbatim prompt whitespace and error-return handling was tightened."
+  },
+  "backend_build": {
+    "exit_code": 0,
+    "command": "go build -p 1 -o /tmp/sub2api ./cmd/server"
+  },
+  "backend_lint": {
+    "exit_code": 0,
+    "command": "golangci-lint run --concurrency 1 --timeout=10m --max-same-issues 0 --max-issues-per-linter 0 ./...",
+    "log": "0 issues.\n"
+  },
+  "frontend": {
+    "exit_code": 0,
+    "test_files": 9,
+    "tests": 109,
+    "typecheck": "passed",
+    "lint": "passed",
+    "production_build": "passed",
+    "note": "Current source and Vite/TS/ESLint/HTML/CSS config mounted into preinstalled dependency image; Vite reported existing large-chunk notices."
+  },
+  "browser": {
+    "result": "passed",
+    "evidence": "BROWSER.json"
+  },
+  "repository_checks": {
+    "docs": {
+      "exit_code": 0,
+      "output": "Documentation checks passed."
+    },
+    "diff_check": {
+      "exit_code": 0
+    },
+    "layout": {
+      "exit_code": 2,
+      "baseline_issue": "payment_fulfillment_test.go already has 1201 lines in HEAD; limit 1200",
+      "output": "./scripts/check-source-layout.sh\nlayout error: internal/application/service/payment_fulfillment_test.go has 1201 lines (limit 1200); split by responsibility\nmake: *** [check-layout] Error 1"
+    }
+  },
+  "source_sha256": {
+    "backend/internal/application/service/account_test_service.go": "bc34e6a8f2db2937b0a28609d539c2929439120315fc426638f7d149b89ba2b1",
+    "backend/internal/application/service/account_test_service_chatgpt_images.go": "555883ec7b09570a9032d607bc0a0bff0b319f37b70e11c2a5c228a34228d0b5",
+    "backend/internal/application/service/account_test_service_openai_images.go": "b5d1ee98b355c928b1e39f1bc3d55c525de6ed3b8669b518ecab271c9cf61349",
+    "backend/internal/application/service/domain_constants.go": "d1d37a47c8e8d6aa9efa0337a130dd23ad26828ae20fb449a9362ab0997c4ba9",
+    "backend/internal/application/service/media_studio.go": "34a0f3bcd0c66aff8c03bb1ee96bc17fedb18abf0122ca58ea347b4d195e6654",
+    "backend/internal/application/service/media_studio_image_protocol.go": "9488c851b625bf71ae5b0e2caf7e9a01fc62f3bfd3527704c6d6462701bbcb51",
+    "backend/internal/application/service/media_studio_image_protocol_test.go": "8d9389df2a0f7c26dd5913b960cc8d06530bb618567d1a2043590239cf807532",
+    "backend/internal/application/service/openai_chatgpt_headers.go": "5184e3df60b2c48c3be91c0ef7d271d12309a0d06a5f4efc2bab554ef420dfd9",
+    "backend/internal/application/service/openai_codex_request_headers_test.go": "acd23a391b4be842ce2297608196b4f4be67b94406bebd98c2d09c53c329ed19",
+    "backend/internal/application/service/openai_images.go": "1a92dd36126c97e63a4ce00bcccc621283a117d6494fefd864feae39aa4e39d4",
+    "backend/internal/application/service/openai_images26_completion_test.go": "33f71b553857c13496cc96dbccd8760474255a19f818453e92712f172989eb39",
+    "backend/internal/application/service/openai_images26_test.go": "b0915c45c97110a5a2da9da3fd553c97718c51bad3281914d888733d7478a5eb",
+    "backend/internal/application/service/openai_images_actual_size_test.go": "09ee5960b41814f5c20bd639a3dd3e5342e5eda1c9f9ac96a5f990c914bcc8c2",
+    "backend/internal/application/service/openai_images_chatgpt.go": "57da09b2cedf5c1618aeddf18b4800a8258c23175cdc8722ff563a69954a6b9d",
+    "backend/internal/application/service/openai_images_chatgpt_assets.go": "cd9c6530639f1b9b026933ead0c77c2e5b9d9c5a03258a641b7e9b7ffcc64fdb",
+    "backend/internal/application/service/openai_images_chatgpt_completion_test.go": "5c0f78db50b09a8e07f23617513f93872d2d500da143768cc378c66ecd555241",
+    "backend/internal/application/service/openai_images_chatgpt_integrity.go": "d3c6771b394ad55d838ed25971c009537746c598e46c665229985715b8a84269",
+    "backend/internal/application/service/openai_images_chatgpt_recovery_test.go": "c396fc82ad3726f4403bc6698e631d3889226fbb3828e3bf2830773e2cee5ff2",
+    "backend/internal/application/service/openai_images_chatgpt_stream.go": "6395ab0e4490ffc32306ef20e17960fd5d2ca53a1ada0339c0d3f4afbc590527",
+    "backend/internal/application/service/openai_images_chatgpt_test.go": "d2cd6083735dec858c7afafcaef538792ad80672073e1d14272fac03f1a90f98",
+    "backend/internal/application/service/openai_images_chatgpt_topic.go": "082b725ccad3da8440fe5b3a3ca00cd6cb1c955a7cd01dcc08c53d77d4245e87",
+    "backend/internal/application/service/openai_images_chatgpt_transport.go": "58666eaa8f131af4a97f51d940a1dc0bea62a13032a5d20b802850ee582b9437",
+    "backend/internal/application/service/openai_images_json_keepalive_test.go": "5f8e29e5441841d505e52e6201da8f95497926a981c88e9ca66707f0f4d42690",
+    "backend/internal/application/service/openai_images_test.go": "aa05add8769e37d61d6c64ce9a843388619d5c091beefdd06893ae94c64cb342",
+    "backend/internal/application/service/openai_images_upstream_context_test.go": "da60383d382115bd8d679f2a68c5282d0a5686a9277f8eba41b00324785602ac",
+    "backend/internal/application/service/openai_oauth_auth_context.go": "88e04e65ddf6e8e9f5a9bedb3e41903f2fd2e8288feb25ee49f4c10edcac2dc6",
+    "backend/internal/application/service/openai_oauth_auth_context_test.go": "9e010d58701ba65e12ab5381bdcfac9041ef32ef336f20790dbbd0c892822164",
+    "backend/internal/application/service/openai_oauth_gateway_rate_limit.go": "6c1bc07cab69fd0c8bb1ca622744385b7b8daad3c7b3d6a404f4836cee12476c",
+    "backend/internal/application/service/openai_oauth_gateway_rate_limit_test.go": "8243e45178bcd0c75063a94e0d03a778e5d4a1cd9bc68a30060d82f71e3f4ac6",
+    "backend/internal/application/service/openai_token_expired_recovery_integration_test.go": "a855d1d2e4b927ead38ecb6d806ba5ac253a735595197db8cfb170b58c42dffe",
+    "backend/internal/application/service/openai_token_provider.go": "4457a5412ee9d9ee671f274224c779cdb2d4f3bc52e8c7d534737ba7b5fb6918",
+    "backend/internal/application/service/openai_ws_handshake_compatibility.go": "1835f133371bc7a61d39f7feb6b900763a5eb6648f5263e90c28c33d4f2e9acf",
+    "backend/internal/application/service/ratelimit_service_openai_image_test.go": "9d2b44d9089a97f19b885df1f60030fdb48a73eb6f257a083f9e48a9c56ece1b",
+    "backend/internal/application/service/setting_openai_images_mode.go": "2328eafd53911f29f6bac3593c7246ad7bbec522f1bc9625844b09b2779c2ed2",
+    "backend/internal/application/service/setting_parse.go": "5ef730dfdbb94b4d147f4764bb73dadb747e84be1525f9b6dc4407dcc6e0c482",
+    "backend/internal/application/service/setting_parse_gateway.go": "b9c63f9a081f8fe41e082253677ea07cdd92b08f142885597f2a0d2e8e411d4c",
+    "backend/internal/application/service/setting_service.go": "116b265b066745a47aa3d7a666856c8791ee0e42a397a62e61589d89571a818d",
+    "backend/internal/application/service/setting_update.go": "136e0cf35172286838b43bc8c53a0006bdca7794d988dd874d1cede866735967",
+    "backend/internal/application/service/setting_update_equivalence_test.go": "b6172a031241c7cbd415be7d07f3a51f72ed5d06238407ad36b1d5fd2b449faa",
+    "backend/internal/application/service/setting_update_gateway.go": "1d69767e043e6d90d6cf01f9a120e4bd247f7341a78c2b4c4bb5ce50056ee527",
+    "backend/internal/application/service/settings_view.go": "4e3fb208d33ece806dc225d37d3a11212e8cb421abb506e758ff1e81052ae172",
+    "backend/internal/application/service/token_refresher.go": "8f1b78e1dd2f6dc3ecb08f151fc7a652769f168fa0886800719f9adc0ece48a6",
+    "backend/internal/modules/chatgptimages/decoder.go": "83d9739b07ad820d7679e2f9306a995a687d17d82d8e44357b98f48854c9e295",
+    "backend/internal/modules/chatgptimages/decoder_test.go": "bed5363d88a815acd01c5276a0ddeac2a34c338963d57c78b98a04fc629470be",
+    "backend/internal/modules/chatgptimages/request.go": "96a1cd55ed52b76aaf17124223d3b9f0be86d26af7bf4a5dd8829052467e7b15",
+    "backend/internal/transport/http/handler/admin/setting_handler.go": "92ca6e79a7649717002db9b20c3c8d349ad4d633871a42f8b7b0a6bd9230a805",
+    "backend/internal/transport/http/handler/admin/setting_handler_audit_runtime.go": "015f80c2961d9e540785193fe54c0e37daa5197d56b8f4100618865327bab55d",
+    "backend/internal/transport/http/handler/admin/setting_handler_images_mode_test.go": "2e6ab4e0f03e7642c81ecf62de6e558b8e5e7664508f3917de8695e2711d4dca",
+    "backend/internal/transport/http/handler/admin/setting_handler_update_data.go": "936a6b23e566aec8149894b8117bfb1a233c2a89c0a4de316c64bdc4712d4793",
+    "backend/internal/transport/http/handler/admin/setting_handler_update_mapping.go": "f272fb5bb16611e3772759939acbfb75e1c523839fe52c4112449473a5ef64b4",
+    "backend/internal/transport/http/handler/admin/setting_handler_update_response_mapping.go": "b891c486d2c66fad11649ba3bbaa0ee082807ff5672430e48189dacb42c2e0ec",
+    "backend/internal/transport/http/handler/dto/settings.go": "8bb018bed982ba2d11febb2a89b828fe31c091c844a4a1e00ba762bac3123a50",
+    "backend/internal/transport/http/handler/openai_images_failover_test.go": "88dc676d42c6634bcd9aebd1857a5c92715499aa0b1d9ce403fa41dcaeebe51d",
+    "backend/internal/transport/http/server/api_contract_test.go": "8af6598076dfbac88bcb8817f64287b91a71147234c048059e91e44f512c8f7f",
+    "frontend/src/core/i18n/locales/en/admin/settings.ts": "9a559395affe517c1790f820c351f87221111c9ca055b57fa0c3fc5e7ea29e0e",
+    "frontend/src/core/i18n/locales/en/mediaStudio.ts": "64b682d22fec5cacaf99bd0404621e6f0e2294089c756c585b6ae120a434f6ba",
+    "frontend/src/core/i18n/locales/zh/admin/settings.ts": "ab285e2a3a80f6ca9358be9ae16b578243d4af1482e869e250fa3061d9c8ac39",
+    "frontend/src/core/i18n/locales/zh/mediaStudio.ts": "2490f2bc95d99d2af489d5247e371ad9d55bbe754549d8ed825b801629e19da9",
+    "frontend/src/features/admin-settings/__tests__/SettingsPage.spec.ts": "d9f06f1befd0fe47806e5d5e533520f0a231d57caed38b037265841ea6bdc613",
+    "frontend/src/features/admin-settings/data/dtos/systemSettingsDtos.ts": "b614a63a599d03e8c2f58ef416dbec0c926cf3af513b6270ed416bb75b9a0cc6",
+    "frontend/src/features/admin-settings/presentation/composables/settingsForm.ts": "549bfaf89fccbfddb70667b6c80ecf6cae7aa7a667e0160726dec8ab2ddf9f88",
+    "frontend/src/features/admin-settings/presentation/composables/settingsSavePayload.ts": "b183b2a17d7e191e98e5d47633eaa4c194631684037a986484d03167acf305be",
+    "frontend/src/features/admin-settings/presentation/widgets/settings-tabs/SettingsGatewayForwardingPanel.vue": "eec9f254bc28e2756f2f7429aabc985ac7736dc31df7b2b6e4f9cb0083a2dd2f",
+    "frontend/src/features/admin-settings/presentation/widgets/settings-tabs/SettingsOpenAIImagesModeFields.vue": "120b442ce154f21267bc51c3e7b1911a194818c04eaae493d2e752460a0e7c0a",
+    "frontend/src/features/media-studio/__tests__/mediaStudioController.spec.ts": "567eaea8938c9b0f278c7ff69fe71bbd64ad6d2dc3241375636cbfe856f4fd56",
+    "frontend/src/features/media-studio/data/datasources/mediaStudioDatasource.ts": "6aaf87fc3839f6d3b2aff0023d8ce7cea13f3f0c00fd9d658c5c905a6c5707f6",
+    "frontend/src/features/media-studio/presentation/composables/useMediaStudioController.ts": "d0d016c2b67168806fa11e1dc61b2b0079c9488cbab379b3c8846b3211bc7b3b",
+    "frontend/src/features/media-studio/presentation/widgets/MediaStudioCanvas.vue": "b215cc95c02fb9297207958a1ba0347618032e48ccdc8fd9720fe90b3fe8dbb1",
+    "frontend/src/features/media-studio/presentation/widgets/MediaStudioWorkspace.vue": "3ef8b8409ba2e776e97272afea1b17b048d2e27269e61f6fa0e14d1f9998ffef"
+  },
+  "limitations": [
+    "No live OpenAI model/image, APNs or hardware/browser attestation request.",
+    "The requirements prepare request reports absent browser context using the recovered error envelope; mandatory browser challenge responses stop before generation.",
+    "The gateway cannot guarantee the internal image model ID or native quality/dimension parameters.",
+    "No production deployment, release, GitHub CI or upstream account mutation.",
+    "Existing test skips remain reported separately."
+  ]
+}

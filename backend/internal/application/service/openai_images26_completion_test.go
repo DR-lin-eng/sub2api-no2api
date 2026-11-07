@@ -36,7 +36,7 @@ func TestGPTImage26APIKeyUsageAcrossEndpoints(t *testing.T) {
 					svc := newOpenAIImagesService(upstream)
 					parsed, err := svc.ParseOpenAIImagesRequest(c, body)
 					require.NoError(t, err)
-					result, err := svc.ForwardImages(context.Background(), c, newOpenAIImagesAPIKeyAccount(), body, parsed, "")
+					result, err := forwardLegacyOpenAIImagesForTest(svc, context.Background(), c, newOpenAIImagesAPIKeyAccount(), body, parsed, "")
 					require.NoError(t, err)
 					require.Equal(t, 1, result.ImageCount)
 					require.Equal(t, 20, result.Usage.ImageOutputTokens)

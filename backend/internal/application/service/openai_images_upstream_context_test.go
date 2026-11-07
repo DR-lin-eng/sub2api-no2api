@@ -23,6 +23,18 @@ func newOpenAIImagesContext(t *testing.T, body []byte) *gin.Context {
 	return c
 }
 
+func enableLegacyOpenAIImagesForTest(svc *OpenAIGatewayService) {
+	if svc.settingService == nil {
+		svc.settingService = &SettingService{}
+	}
+	svc.settingService.refreshOpenAIImagesMode(true)
+}
+
+func forwardLegacyOpenAIImagesForTest(svc *OpenAIGatewayService, ctx context.Context, c *gin.Context, account *Account, body []byte, parsed *OpenAIImagesRequest, mapped string) (*OpenAIForwardResult, error) {
+	enableLegacyOpenAIImagesForTest(svc)
+	return svc.ForwardImages(ctx, c, account, body, parsed, mapped)
+}
+
 func newOpenAIImagesService(upstream HTTPUpstream) *OpenAIGatewayService {
 	return &OpenAIGatewayService{
 		httpUpstream: upstream,
@@ -60,7 +72,7 @@ func TestForwardOpenAIImagesAPIKeyNonStreamDetachesUpstreamContext(t *testing.T)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	result, err := svc.ForwardImages(ctx, c, newOpenAIImagesAPIKeyAccount(), body, parsed, "")
+	result, err := forwardLegacyOpenAIImagesForTest(svc, ctx, c, newOpenAIImagesAPIKeyAccount(), body, parsed, "")
 
 	require.NoError(t, err)
 	require.NotNil(t, result)

@@ -261,7 +261,7 @@ func TestOpenAICodexDesktopHeadersDropCallerOwnedRoutingAndProofState(t *testing
 }
 
 func TestOpenAIWSPoolRebuildsHandshakeWhenOAuthPrincipalChanges(t *testing.T) {
-	for _, field := range []string{"chatgpt_account_id", "chatgpt_user_id", "chatgpt-account-id", "x-openai-fedramp"} {
+	for _, field := range []string{"chatgpt_account_id", "chatgpt_user_id", "plan_type", "chatgpt-account-id", "x-openai-fedramp"} {
 		t.Run(field, func(t *testing.T) {
 			cfg := &config.Config{}
 			cfg.Gateway.OpenAIWS.MaxConnsPerAccount = 1
@@ -270,7 +270,7 @@ func TestOpenAIWSPoolRebuildsHandshakeWhenOAuthPrincipalChanges(t *testing.T) {
 			pool.setClientDialerForTest(&openAIWSFakeDialer{})
 			t.Cleanup(pool.Close)
 			account := &Account{ID: 101, Platform: PlatformOpenAI, Type: AccountTypeOAuth,
-				Credentials: map[string]any{"chatgpt_account_id": "workspace-a", "chatgpt_user_id": "user-a"}}
+				Credentials: map[string]any{"chatgpt_account_id": "workspace-a", "chatgpt_user_id": "user-a", "plan_type": "team"}}
 			headers := make(http.Header)
 			headers.Set("Authorization", "Bearer opaque-token")
 			headers.Set("chatgpt-account-id", "workspace-a")
@@ -286,6 +286,16 @@ func TestOpenAIWSPoolRebuildsHandshakeWhenOAuthPrincipalChanges(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, firstID, same.ConnID(), "an unchanged principal must retain its socket")
 			same.Release()
+			if field == "plan_type" {
+				upgrade := *account
+				upgrade.Credentials = shallowCopyMap(account.Credentials)
+				upgrade.Credentials["plan_type"] = "business"
+				req.Account = &upgrade
+				compatible, err := pool.Acquire(ctx, req)
+				require.NoError(t, err)
+				require.Equal(t, firstID, compatible.ConnID(), "workspace plan upgrades preserve socket compatibility")
+				compatible.Release()
+			}
 
 			// Keep the local account ID, URL and opaque token unchanged. A new
 			// principal or actual workspace header must still force a new dial.
@@ -294,6 +304,8 @@ func TestOpenAIWSPoolRebuildsHandshakeWhenOAuthPrincipalChanges(t *testing.T) {
 			req.Account = &updated
 			req.Headers = headers.Clone()
 			switch field {
+			case "plan_type":
+				updated.Credentials[field] = "plus"
 			case "chatgpt_account_id", "chatgpt_user_id":
 				updated.Credentials[field] = "changed-principal"
 			default:

@@ -109,7 +109,7 @@ func TestOpenAIGatewayServiceForwardImages_ImageRateLimitReturnsFailoverAndCools
 		},
 	}
 
-	result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")
+	result, err := forwardLegacyOpenAIImagesForTest(svc, context.Background(), c, account, body, parsed, "")
 
 	require.Nil(t, result)
 	var failoverErr *UpstreamFailoverError
@@ -144,7 +144,7 @@ func TestOpenAIGatewayServiceForwardImages_TextFallbackDoesNotCoolImageCapabilit
 	require.NoError(t, err)
 	account := &Account{ID: 205, Name: "openai-oauth", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"access_token": "token-123"}}
 
-	result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")
+	result, err := forwardLegacyOpenAIImagesForTest(svc, context.Background(), c, account, body, parsed, "")
 
 	require.Nil(t, result)
 	var failoverErr *UpstreamFailoverError

@@ -281,7 +281,7 @@ func TestOpenAIImagesJSONKeepalive_HeartbeatBeforeForwardStillFailsOver(t *testi
 		},
 	}
 
-	result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")
+	result, err := forwardLegacyOpenAIImagesForTest(svc, context.Background(), c, account, body, parsed, "")
 
 	require.Nil(t, result)
 	var failoverErr *UpstreamFailoverError

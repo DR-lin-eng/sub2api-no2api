@@ -39,15 +39,17 @@ type MediaStudioGroupRoute struct {
 }
 
 type MediaStudioGroupOption struct {
-	GroupID   int64    `json:"group_id"`
-	GroupName string   `json:"group_name"`
-	Platform  string   `json:"platform"`
-	MediaType string   `json:"media_type"`
-	Models    []string `json:"models,omitempty"`
+	OpenAIImagesProtocol string   `json:"openai_images_protocol,omitempty"`
+	GroupID              int64    `json:"group_id"`
+	GroupName            string   `json:"group_name"`
+	Platform             string   `json:"platform"`
+	MediaType            string   `json:"media_type"`
+	Models               []string `json:"models,omitempty"`
 }
 
 type MediaStudioConfig struct {
-	Groups []MediaStudioGroupOption `json:"groups"`
+	OpenAIImagesProtocol string                   `json:"openai_images_protocol"`
+	Groups               []MediaStudioGroupOption `json:"groups"`
 	// StorageAvailable 保留协议字段；参考素材由浏览器编码，不依赖服务器存储。
 	StorageAvailable bool `json:"storage_available"`
 }
@@ -193,12 +195,24 @@ func (s *MediaStudioService) SaveGroupRoutes(ctx context.Context, routes MediaSt
 }
 
 func (s *MediaStudioService) GetAvailableGroups(ctx context.Context, userID int64) (*MediaStudioConfig, error) {
+	protocol := "chatgpt_app"
+	if s.gatewayService != nil && s.gatewayService.settingService.OpenAIImagesLegacyEnabled(ctx) {
+		protocol = "legacy"
+	} else if (s.gatewayService == nil || s.gatewayService.settingService == nil) && s.settingRepo != nil {
+		values, err := s.settingRepo.GetMultiple(ctx, []string{SettingKeyOpenAIImagesLegacyEnabled})
+		if err != nil {
+			return nil, fmt.Errorf("load image protocol: %w", err)
+		}
+		if strings.EqualFold(values[SettingKeyOpenAIImagesLegacyEnabled], "true") {
+			protocol = "legacy"
+		}
+	}
 	routes, err := s.GetGroupRoutes(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if s.apiKeyService == nil {
-		return &MediaStudioConfig{StorageAvailable: true}, nil
+		return &MediaStudioConfig{StorageAvailable: true, OpenAIImagesProtocol: protocol}, nil
 	}
 
 	available, err := s.apiKeyService.GetAvailableGroups(ctx, userID)
@@ -210,9 +224,16 @@ func (s *MediaStudioService) GetAvailableGroups(ctx context.Context, userID int6
 		availableByID[group.ID] = group
 	}
 
+	groups := s.resolveGroupOptions(routes, availableByID)
+	for index := range groups {
+		if groups[index].MediaType == "image" {
+			groups[index].OpenAIImagesProtocol = s.imageProtocolForGroup(ctx, groups[index], protocol)
+		}
+	}
 	return &MediaStudioConfig{
-		Groups:           s.resolveGroupOptions(routes, availableByID),
-		StorageAvailable: true,
+		Groups:               groups,
+		OpenAIImagesProtocol: protocol,
+		StorageAvailable:     true,
 	}, nil
 }
 

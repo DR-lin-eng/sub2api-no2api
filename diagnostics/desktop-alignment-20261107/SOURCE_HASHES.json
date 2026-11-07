@@ -1,0 +1,35 @@
+{
+  "files": [
+    {
+      "file": "/Volumes/移动/一些资料文档/codexapprea/新版本/20261107/逆向分析报告.md",
+      "bytes": 61173,
+      "sha256": "ac18d58f14a813e06f22ae62754f0678fcc6be852ffb56e1a4c61c67a3e7a582"
+    },
+    {
+      "file": "/Volumes/移动/一些资料文档/codexapprea/新版本/20261107/evidence/auth-native-plan-tags.json",
+      "bytes": 1994,
+      "sha256": "386f8e135850901f2a09e35d7057325933aa7d0dbe7180dedad6569071571549"
+    },
+    {
+      "file": "/Volumes/移动/一些资料文档/codexapprea/新版本/20261107/evidence/auth-native-plan-matrix.json",
+      "bytes": 5329,
+      "sha256": "b2954bfb2610023d29e8a43392c6ac1431181165b0a22a8f7bf51fad56ac63d5"
+    },
+    {
+      "file": "/Volumes/移动/一些资料文档/codexapprea/新版本/20261107/evidence/auth-fixtures.json",
+      "bytes": 4035,
+      "sha256": "802d347ea261048adb3d38bd5b3ad7c96895a4ed6eca4d16503e7b2407abda0a"
+    },
+    {
+      "file": "/Volumes/移动/一些资料文档/codexapprea/新版本/20261107/evidence/current_mac-performDesktopFetch.txt",
+      "bytes": 6769,
+      "sha256": "060319302ba8816808d16af4d3849005559103be456f672c13090fe4da0b05fe"
+    },
+    {
+      "file": "/Volumes/移动/一些资料文档/codexapprea/新版本/20261107/evidence/current_linux-performDesktopFetch.txt",
+      "bytes": 6769,
+      "sha256": "060319302ba8816808d16af4d3849005559103be456f672c13090fe4da0b05fe"
+    }
+  ],
+  "scope": "User-supplied static report and selected supporting evidence; application packages were not executed or rehashed."
+}

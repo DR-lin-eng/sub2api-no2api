@@ -120,7 +120,7 @@ func TestOpenAIGatewayService_TeamGenericUnauthorizedRefreshesAndReplaysSameAcco
 
 func TestOpenAIGatewayService_RefreshPrincipalChangeDoesNotReplayCurrentTurn(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	for _, changed := range []string{"account", "user"} {
+	for _, changed := range []string{"account", "user", "plan"} {
 		for _, passthrough := range []bool{false, true} {
 			for _, stream := range []bool{false, true} {
 				t.Run(fmt.Sprintf("%s/passthrough=%t/stream=%t", changed, passthrough, stream), func(t *testing.T) {
@@ -134,20 +134,24 @@ func TestOpenAIGatewayService_RefreshPrincipalChangeDoesNotReplayCurrentTurn(t *
 							"access_token":       workspaceRoutingToken("workspace-a", "user-a"),
 							"refresh_token":      "fixture-refresh-token",
 							"expires_at":         time.Now().Add(time.Hour).UTC().Format(time.RFC3339),
-							"chatgpt_account_id": "workspace-a", "chatgpt_user_id": "user-a",
+							"chatgpt_account_id": "workspace-a", "chatgpt_user_id": "user-a", "plan_type": "team",
 						},
 						Extra: map[string]any{"openai_passthrough": passthrough},
 					}
 					newAccount, newUser := "workspace-a", "user-a"
 					if changed == "account" {
 						newAccount = "workspace-b"
-					} else {
+					} else if changed == "user" {
 						newUser = "user-b"
+					}
+					newToken := workspaceRoutingToken(newAccount, newUser)
+					if changed == "plan" {
+						newToken = desktopAuthContextToken(t, "plus", time.Time{})
 					}
 					repo := &refreshAPIAccountRepo{account: account}
 					cache := newOpenAITokenCacheStub()
 					oauthClient := &tokenExpiredRecoveryOAuthClient{response: &openai.TokenResponse{
-						AccessToken: workspaceRoutingToken(newAccount, newUser), RefreshToken: "rotated-fixture-refresh", ExpiresIn: 3600,
+						AccessToken: newToken, RefreshToken: "rotated-fixture-refresh", ExpiresIn: 3600,
 					}}
 					oauthService := NewOpenAIOAuthService(nil, oauthClient)
 					t.Cleanup(oauthService.Stop)
@@ -174,7 +178,7 @@ func TestOpenAIGatewayService_RefreshPrincipalChangeDoesNotReplayCurrentTurn(t *
 
 func TestOpenAIGatewayService_WSRefreshPrincipalChangeDoesNotFallbackToHTTP(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	for _, stage := range []string{"handshake", "event"} {
+	for _, stage := range []string{"handshake", "event", "handshake-plan", "event-plan"} {
 		t.Run(stage, func(t *testing.T) {
 			cfg := &config.Config{}
 			cfg.Gateway.OpenAIWS.Enabled = true
@@ -187,13 +191,17 @@ func TestOpenAIGatewayService_WSRefreshPrincipalChangeDoesNotFallbackToHTTP(t *t
 				Credentials: map[string]any{
 					"access_token": workspaceRoutingToken("workspace-a", "user-a"), "refresh_token": "fixture-refresh",
 					"expires_at":         time.Now().Add(time.Hour).UTC().Format(time.RFC3339),
-					"chatgpt_account_id": "workspace-a", "chatgpt_user_id": "user-a",
+					"chatgpt_account_id": "workspace-a", "chatgpt_user_id": "user-a", "plan_type": "team",
 				}, Extra: map[string]any{"responses_websockets_v2_enabled": true},
 			}
 			repo := &refreshAPIAccountRepo{account: account}
 			cache := newOpenAITokenCacheStub()
+			refreshedToken := workspaceRoutingToken("workspace-a", "user-b")
+			if strings.HasSuffix(stage, "-plan") {
+				refreshedToken = desktopAuthContextToken(t, "plus", time.Time{})
+			}
 			oauthClient := &tokenExpiredRecoveryOAuthClient{response: &openai.TokenResponse{
-				AccessToken: workspaceRoutingToken("workspace-a", "user-b"), RefreshToken: "rotated-fixture-refresh", ExpiresIn: 3600,
+				AccessToken: refreshedToken, RefreshToken: "rotated-fixture-refresh", ExpiresIn: 3600,
 			}}
 			oauthService := NewOpenAIOAuthService(nil, oauthClient)
 			t.Cleanup(oauthService.Stop)
@@ -202,7 +210,7 @@ func TestOpenAIGatewayService_WSRefreshPrincipalChangeDoesNotFallbackToHTTP(t *t
 			pool := newOpenAIWSConnPool(cfg)
 			t.Cleanup(pool.Close)
 			var dialCount func() int
-			if stage == "handshake" {
+			if strings.HasPrefix(stage, "handshake") {
 				dialer := &openAIWSRejectDialer{statusCode: http.StatusUnauthorized, responseBody: []byte(`{"detail":"Unauthorized"}`)}
 				pool.setClientDialerForTest(dialer)
 				dialCount = func() int { return int(dialer.dialCount.Load()) }

@@ -529,6 +529,8 @@ export default {
         saveFailed: 'Failed to save Ollama Cloud usage refresh settings'
       },
       gatewayForwarding: {
+        openAIImagesLegacy: 'Use legacy OpenAI image generation',
+        openAIImagesLegacyHint: 'Uses the new ChatGPT App workflow by default. Enable to restore legacy Codex images for new requests after saving. ChatGPT selects its image model and dimensions; use legacy mode for native quality, animation, SVG and mask options.',
         title: 'Request Forwarding',
         description: 'Control how requests are forwarded to upstream OAuth accounts',
         openAIWSModeRouterV2: 'OpenAI WS account mode router',

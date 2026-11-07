@@ -122,6 +122,42 @@ describe('media studio controller', () => {
     expect(controller.imageComplexityOptions.value).toEqual([])
   })
 
+  it('submits the App image protocol without native model controls', async () => {
+    const submitImage = vi.fn().mockResolvedValue({
+      id: 'app-image', status: 'completed', result: { data: [{ url: 'https://cdn.example/app.png' }] },
+    });
+    const controller = useMediaStudioController({
+      storage: localStorage,
+      getConfig: vi.fn().mockResolvedValue({ ...config, openai_images_protocol: 'chatgpt_app' }),
+      createSession: vi.fn().mockResolvedValue(session()),
+      listModels: vi.fn().mockResolvedValue({ object: 'list', data: [{ id: 'gpt-image-2' }] }),
+      submitImage,
+    });
+    await controller.loadMediaGroups();
+    expect(controller.chatgptAppImages.value).toBe(true);
+    expect(controller.hiddenParameterControls.value).toEqual(expect.arrayContaining(['image.size', 'image.quality', 'image.complexity']));
+    controller.prompt.value = 'App image';
+    await controller.submitPrompt();
+    const payload = submitImage.mock.calls[0]?.[1];
+    expect(payload).toMatchObject({ model: 'gpt-image-2', prompt: 'App image' });
+    expect(payload).not.toHaveProperty('size');
+    expect(payload).not.toHaveProperty('quality');
+    expect(payload).not.toHaveProperty('complexity');
+  });
+
+  it('retains native controls for an API-key-only group under the App default', async () => {
+    const controller = useMediaStudioController({
+      storage: localStorage,
+      getConfig: vi.fn().mockResolvedValue({ ...config, openai_images_protocol: 'chatgpt_app', groups: [{ ...config.groups[0], openai_images_protocol: 'legacy' }] }),
+      createSession: vi.fn().mockResolvedValue(session()),
+      listModels: vi.fn().mockResolvedValue({ object: 'list', data: [{ id: 'gpt-image-2' }] }),
+    });
+    await controller.loadMediaGroups();
+    expect(controller.chatgptAppImages.value).toBe(false);
+    expect(controller.imageQualityOptions.value.map(option => option.value)).toContain('high');
+    expect(controller.hiddenParameterControls.value).not.toContain('image.size');
+  });
+
   it('submits reference images through the image edits endpoint', async () => {
     const submitImage = vi.fn().mockResolvedValue({
       id: 'generation-1', task_id: 'generation-1', object: 'image.generation.task', status: 'completed',

@@ -272,6 +272,7 @@ type SystemSettings struct {
 
 	// Gateway forwarding behavior
 	OpenAIRequestTimezoneEnabled           bool
+	OpenAIImagesLegacyEnabled              bool
 	OpenAIRequestTimezone                  string
 	OpenAIOAuthForceRelayEnabled           bool   `json:"openai_oauth_force_relay_enabled"`
 	OpenAIOAuthForceRelayBaseURL           string `json:"openai_oauth_force_relay_base_url"`

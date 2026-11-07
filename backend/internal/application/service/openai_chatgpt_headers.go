@@ -56,6 +56,7 @@ func validateOpenAIOAuthRequestPrincipal(account *Account, accessToken string) e
 	}
 	_, accountChanged := openAIWorkspaceRoutingAccountID(account, accessToken)
 	userChanged := false
+	planChanged := false
 	if claims, err := openai.DecodeIDToken(strings.TrimSpace(accessToken)); err == nil && claims.OpenAIAuth != nil {
 		storedUser := strings.TrimSpace(account.GetCredential("chatgpt_user_id"))
 		tokenUser := strings.TrimSpace(claims.OpenAIAuth.UserID)
@@ -63,8 +64,9 @@ func validateOpenAIOAuthRequestPrincipal(account *Account, accessToken string) e
 			tokenUser = strings.TrimSpace(claims.OpenAIAuth.ChatGPTUserID)
 		}
 		userChanged = storedUser != "" && tokenUser != "" && storedUser != tokenUser
+		planChanged = openAIOAuthPlanClassesChanged(openAIOAuthAccountPlanClass(account), openAIOAuthPlanClass(claims.OpenAIAuth.ChatGPTPlanType))
 	}
-	if !accountChanged && !userChanged {
+	if !accountChanged && !userChanged && !planChanged {
 		return nil
 	}
 	return newOpenAIOAuthPrincipalChangedError()
@@ -79,7 +81,8 @@ func validateOpenAIOAuthRefreshPrincipal(expected, refreshed *Account) error {
 	expectedAccount, currentAccount := strings.TrimSpace(expected.GetChatGPTAccountID()), strings.TrimSpace(refreshed.GetChatGPTAccountID())
 	expectedUser, currentUser := strings.TrimSpace(expected.GetChatGPTUserID()), strings.TrimSpace(refreshed.GetChatGPTUserID())
 	if (expectedAccount != "" && currentAccount != "" && !strings.EqualFold(expectedAccount, currentAccount)) ||
-		(expectedUser != "" && currentUser != "" && expectedUser != currentUser) {
+		(expectedUser != "" && currentUser != "" && expectedUser != currentUser) ||
+		openAIOAuthPlanClassesChanged(openAIOAuthAccountPlanClass(expected), openAIOAuthAccountPlanClass(refreshed)) {
 		return newOpenAIOAuthPrincipalChangedError()
 	}
 	return validateOpenAIOAuthRequestPrincipal(expected, refreshed.GetOpenAIAccessToken())

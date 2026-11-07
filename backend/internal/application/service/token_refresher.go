@@ -107,12 +107,12 @@ func (r *OpenAITokenRefresher) NeedsRefresh(account *Account, refreshWindow time
 	if strings.TrimSpace(account.GetOpenAIRefreshToken()) == "" {
 		return false
 	}
-	expiresAt := account.GetCredentialAsTime("expires_at")
+	expiresAt := openAIOAuthAccessTokenExpiresAt(account, account.GetOpenAIAccessToken())
 	if expiresAt == nil {
 		return account.IsRateLimited()
 	}
 
-	return time.Until(*expiresAt) < refreshWindow
+	return time.Until(*expiresAt) <= refreshWindow
 }
 
 // Refresh 执行token刷新

@@ -8,6 +8,7 @@ import (
 )
 
 func writeGatewaySystemSettingUpdates(updates map[string]string, settings *SystemSettings) error {
+	updates[SettingKeyOpenAIImagesLegacyEnabled] = strconv.FormatBool(settings.OpenAIImagesLegacyEnabled)
 	updates[SettingKeyOpenAIRequestTimezoneEnabled] = strconv.FormatBool(settings.OpenAIRequestTimezoneEnabled)
 	updates[SettingKeyOpenAIRequestTimezone] = strings.TrimSpace(settings.OpenAIRequestTimezone)
 	updates[SettingKeyAllowUngroupedKeyScheduling] = strconv.FormatBool(settings.AllowUngroupedKeyScheduling)
