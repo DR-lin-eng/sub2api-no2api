@@ -64,6 +64,9 @@ const auditedDynamicCalls: Record<string, number> = {
   'features/admin-accounts/presentation/widgets/CNProviderUsageCell.vue :: `admin.accounts.cnProvider.window.${window}`': 1,
   'features/admin-accounts/presentation/widgets/CreateAccountDialog.vue :: `admin.accounts.headerOverride.${headerError}`': 2,
   'features/admin-accounts/presentation/widgets/GrokBaseUrlPresets.vue :: `admin.accounts.grokCustomBaseUrl.presets.${preset.labelKey}`': 1,
+  // Both values come from the component's fixed local tab/column arrays.
+  'features/admin-accounts/presentation/widgets/OpenAIUsageDetailsContent.vue :: `admin.accounts.upstreamUsage.columns.${column}`': 1,
+  'features/admin-accounts/presentation/widgets/OpenAIUsageDetailsContent.vue :: `admin.accounts.upstreamUsage.tabs.${item}`': 1,
   "features/admin-accounts/presentation/widgets/QuotaDimensionRow.vue :: 'admin.accounts.dayOfWeek.' + d.key": 1,
   "features/admin-accounts/presentation/widgets/QuotaLimitCard.vue :: 'admin.accounts.dayOfWeek.' + dayKey": 1,
   'features/admin-channels/presentation/adminChannelSignals.ts :: `admin.channels.intervalValidation.${key}`': 1,

@@ -96,7 +96,7 @@ func (h *OpenAIOAuthHandler) StreamUsage(c *gin.Context) {
 	if err != nil {
 		return
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	conn.SetReadLimit(1024)
 	_ = conn.SetReadDeadline(time.Now().Add(time.Minute))
 	conn.SetPongHandler(func(string) error { return conn.SetReadDeadline(time.Now().Add(time.Minute)) })
