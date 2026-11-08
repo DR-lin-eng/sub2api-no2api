@@ -119,6 +119,11 @@ func (s *OpenAIUsageSyncService) runLeader(parent context.Context, owner string)
 			<-ctx.Done()
 			return
 		}
+		locks, ok := s.locks.(RenewableLeaderLockCache)
+		if !ok {
+			cancel()
+			return
+		}
 		ticker := time.NewTicker(s.opts.leaseInterval)
 		defer ticker.Stop()
 		for {
@@ -128,7 +133,7 @@ func (s *OpenAIUsageSyncService) runLeader(parent context.Context, owner string)
 			case <-ticker.C:
 			}
 			callCtx, stop := context.WithTimeout(ctx, 2*time.Second)
-			ok, err := s.locks.(RenewableLeaderLockCache).RenewLeaderLock(callCtx, openAIUsageSyncLeaseKey, owner, s.opts.leaseTTL)
+			ok, err := locks.RenewLeaderLock(callCtx, openAIUsageSyncLeaseKey, owner, s.opts.leaseTTL)
 			stop()
 			if err != nil || !ok {
 				cancel()

@@ -241,9 +241,9 @@ func (s *OpenAIQuotaService) runUsagePush(ctx context.Context, accountID int64, 
 			// Once initialized, use the lifetime context, not the setup deadline.
 			setupCtx = context.Background()
 		case <-flush.C:
-			if latest != nil && time.Since(lastSaved) >= 5*time.Second {
-				persist()
-			}
+			// The ticker already batches writes. Comparing against lastSaved
+			// can skip the first tick and delay a pending snapshot for ten seconds.
+			persist()
 		case <-heartbeat.C:
 			if time.Since(lastPresence) > 35*time.Second {
 				return fmt.Errorf("usage push presence lost")
