@@ -16,6 +16,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/sjson"
 )
 
 type usageSyncRepository struct {
@@ -93,7 +94,7 @@ func newUsageSyncFixture(t *testing.T) *usageSyncFixture {
 		}
 		f.connCount.Add(1)
 		defer f.closed.Add(1)
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 		var mu sync.Mutex
 		write := func(v any) { mu.Lock(); defer mu.Unlock(); _ = conn.WriteJSON(v) }
 		done := make(chan struct{})
@@ -109,11 +110,12 @@ func newUsageSyncFixture(t *testing.T) *usageSyncFixture {
 					return
 				case percent := <-f.next:
 					sequence++
-					var snapshot map[string]any
-					_ = json.Unmarshal(usageSnapshot(sequence, time.Now().UnixMilli(), "user-41"), &snapshot)
-					usage := snapshot["payload"].(map[string]any)["usage_by_client"].(map[string]any)["electron"].(map[string]any)
-					usage["rate_limit"].(map[string]any)["primary_window"].(map[string]any)["used_percent"] = percent
-					write([]any{map[string]any{"type": "message", "topic_id": openAIUsagePushTopic, "payload": snapshot}})
+					snapshot, err := sjson.SetBytes(usageSnapshot(sequence, time.Now().UnixMilli(), "user-41"), "payload.usage_by_client.electron.rate_limit.primary_window.used_percent", percent)
+					if err != nil {
+						t.Errorf("build usage snapshot: %v", err)
+						return
+					}
+					write([]any{map[string]any{"type": "message", "topic_id": openAIUsagePushTopic, "payload": json.RawMessage(snapshot)}})
 				}
 			}
 		}()
