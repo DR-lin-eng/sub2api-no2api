@@ -66,6 +66,8 @@ OpenAI OAuth Responses、自动透传和原生 WebSocket 握手收到上游 `401
 
 上述重放要求刷新前后的已知 workspace/user 一致；身份改变时返回账号级 `account_changed`，当前轮次不在新主体上重发，刷新后的凭据供后续独立请求使用。WS 池还比较最终账号/FedRAMP 头和 credential principal 摘要；旧握手不能跟随变更后的身份复用。WHAM 路由发现先核对 account/user，并以 `Cache-Control: no-store` 和禁止重定向发送。Responses/Compact 的实际 HTTP/WS 发送点不再回带或消费旧 `X-OAI-IS` 更新状态；完整性/本地路由字段也不能经 metadata 注入。各桌面通信面和超时阶段的证据边界见 [桌面端增量对照](codex/desktop-request-alignment.md)。
 
+WHAM 工作区发现的 401/403 不等同于模型接口拒绝凭据；此时保留已选账号头和禁止重定向策略，使用默认官方 Codex 路由，并按当前 token 退避 60 秒，换 token 后立即重新发现。模型接口确认的 401 仍按上一段规则刷新一次，失败后由现有策略标记账号错误或暂时停止调度。其它发现错误、无效路由或主体不一致继续终止当前账号尝试，不触发非流式 WS 临时 5xx 的 HTTP 回退，避免同一发现错误在两个传输间重复。
+
 2026-11-07 桌面对齐补充个人/工作区套餐类别连续性：同账号、同用户的 Team→Plus 也中止当前轮次重放，Plus→Pro 或已确认 workspace 套餐间变化可继续；WS 池按同一类别重建不兼容连接。请求路径结合实际 bearer 的 JWT `exp` 与对应 `expires_at` 取较早期限，提前 5 分钟进入既有锁保护的刷新，不以旧缓存 TTL 延长已过期 token 的使用。来源、桌面后台刷新与网关同步刷新的差异见同一对照文档。
 
 普通 OpenAI HTTP Responses 遇到 TLS 握手超时，且 HTTP trace 确认请求头尚未发送、下游尚无语义输出时，会在同一账号上等待 250ms 后重试一次。SSE 注释心跳不消耗这次恢复机会；请求取消会中止等待。第二次仍失败则进入现有传输 failover 和短时冷却策略，蒸馏分组继续只发一次上游请求。透传路径使用原有请求级重试预算。

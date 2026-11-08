@@ -211,7 +211,10 @@ OpenAI OAuth 的 Responses HTTP、Compact、透传和 Responses WebSocket 路径
   并纳入连接兼容键，避免 Lite 与普通握手复用同一 socket。
 - Workspace routing 由网关使用当前 OAuth token 调用 `wham/accounts/check` 发现；只接受 HTTPS origin 与
   `us`、`us_cr`、`NO_CONSTRAINT`。`us/us_cr` 生成 `x-openai-account-routing-override`，
-  `NO_CONSTRAINT` 不生成该头但仍禁用重定向。发现失败对当前账号 fail-closed 并进入账号级切换。
+  `NO_CONSTRAINT` 不生成该头但仍禁用重定向。发现接口的 401/403 仅表示该接口拒绝访问，
+  不直接判定模型凭据失效：回到默认官方 Codex 路由并按 token 缓存 60 秒，换 token 立即重新发现；
+  模型接口返回的 401 继续进入单次刷新、账号错误/冷却及换号流程。其它发现失败和非法路由仍终止
+  当前账号尝试，且不会被误判成可通过 HTTP 恢复的 WS 临时 502。
 - WS 连接兼容键包含最终目标 URL、routing override、认证摘要、Guardian/memgen/subagent 和 timing 头，
   不会把不同 workspace、token 或语义会话复用到同一握手。
 

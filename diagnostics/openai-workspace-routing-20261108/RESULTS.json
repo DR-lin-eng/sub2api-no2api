@@ -1,0 +1,181 @@
+{
+  "baseline_commit": "77a8d0a885c3ac7cbefa94d372691b2e91bf0b15",
+  "docker_version": "29.2.1",
+  "go_version": "1.26.10",
+  "platform": "linux/arm64",
+  "test_network": "none",
+  "tests_use": "mock upstream responses and local HTTP/WebSocket servers; no production credentials",
+  "test_count_includes": "top-level tests and table subtests",
+  "implementation_sha256": {
+    "backend/internal/application/service/openai_workspace_routing.go": "ce043a752cbfb0a0a08448900fb0cd49e4ceb55fdaeecc5290b7dba4ba4d5579",
+    "backend/internal/application/service/openai_ws_non_streaming_recovery.go": "35b56041084d09c83ce5ae0579c55b148cedc6b79bc8879d2125b31232832c6a"
+  },
+  "checks": {
+    "baseline": {
+      "expected": "expected failure",
+      "log_sha256": "74be133345ccc7e06a60c1dd604732554fa257175476e8e368770af750ce27e3",
+      "test_results": {
+        "fail": 25
+      },
+      "packages": [
+        {
+          "package": "github.com/Wei-Shaw/sub2api/internal/application/service",
+          "result": "fail",
+          "elapsed_seconds": 0.104
+        }
+      ],
+      "failed_top_level_tests": [
+        "TestForwardWorkspaceDiscoveryDeniedReachesModel",
+        "TestForwardWorkspaceDiscoveryDeniedModel401SetsAccountError",
+        "TestForwardWorkspaceDiscoveryDeniedModel401RefreshesOnce",
+        "TestOpenAIWorkspaceRoutingDiscoveryDeniedUsesDefaultRoute",
+        "TestOpenAIWorkspaceRoutingDiscoveryDeniedCacheExpires",
+        "TestOpenAIWorkspaceRoutingDiscoveryDeniedCacheRechecksCredentials",
+        "TestOpenAIWorkspaceRoutingDiscoveryDeniedCoalescesConcurrentRequests",
+        "TestOpenAIWSNonStreamDoesNotRecoverWorkspaceRoutingFailureThroughHTTP"
+      ],
+      "skipped_tests": [],
+      "overlay": "Original HEAD implementations; one unused expiresAt struct field added solely to compile the expiry test."
+    },
+    "focused-final": {
+      "expected": "pass",
+      "log_sha256": "b6dcc79812630ac76e5f4707f228504f5c64e3f2b38eb804602e1eac92af2ac0",
+      "test_results": {
+        "pass": 108
+      },
+      "packages": [
+        {
+          "package": "github.com/Wei-Shaw/sub2api/internal/application/service",
+          "result": "pass",
+          "elapsed_seconds": 0.324
+        }
+      ],
+      "failed_top_level_tests": [],
+      "skipped_tests": []
+    },
+    "regression": {
+      "expected": "pass",
+      "log_sha256": "faa658056df01a894abe1541b79f50fbefd1b82a336f969cbae29b3c794e1162",
+      "test_results": {
+        "pass": 17827,
+        "skip": 4
+      },
+      "packages": [
+        {
+          "package": "github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2",
+          "result": "pass",
+          "elapsed_seconds": 3.023
+        },
+        {
+          "package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler",
+          "result": "pass",
+          "elapsed_seconds": 60.357
+        },
+        {
+          "package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin",
+          "result": "pass",
+          "elapsed_seconds": 0.58
+        },
+        {
+          "package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto",
+          "result": "pass",
+          "elapsed_seconds": 0.013
+        },
+        {
+          "package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/quotaview",
+          "result": "pass",
+          "elapsed_seconds": 0.015
+        },
+        {
+          "package": "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/supportchatasset",
+          "result": "pass",
+          "elapsed_seconds": 0.007
+        },
+        {
+          "package": "github.com/Wei-Shaw/sub2api/internal/transport/http/managementmcp",
+          "result": "pass",
+          "elapsed_seconds": 0.195
+        },
+        {
+          "package": "github.com/Wei-Shaw/sub2api/internal/transport/http/server",
+          "result": "pass",
+          "elapsed_seconds": 1.796
+        },
+        {
+          "package": "github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware",
+          "result": "pass",
+          "elapsed_seconds": 0.057
+        },
+        {
+          "package": "github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes",
+          "result": "pass",
+          "elapsed_seconds": 7.414
+        },
+        {
+          "package": "github.com/Wei-Shaw/sub2api/internal/shared/openai",
+          "result": "pass",
+          "elapsed_seconds": 0.011
+        },
+        {
+          "package": "github.com/Wei-Shaw/sub2api/internal/application/service",
+          "result": "pass",
+          "elapsed_seconds": 236.32
+        }
+      ],
+      "failed_top_level_tests": [],
+      "skipped_tests": [
+        "TestDingTalkOAuthStart_Disabled",
+        "TestAuthPendingIdentityService_UpsertAdoptionDecision_ClearsLegacyNullSessionReference",
+        "TestOpenAIContentSessionBurstBalanceConcurrent50000",
+        "TestEstimateOpenAIInputTokens_CompareWithOpenAIAPI"
+      ]
+    },
+    "race": {
+      "expected": "pass",
+      "log_sha256": "effa8120e8e6c2674ce1ab173804d9c5294e231371ff7a9409388e4a6ef581f4",
+      "test_results": {
+        "pass": 61
+      },
+      "packages": [
+        {
+          "package": "github.com/Wei-Shaw/sub2api/internal/application/service",
+          "result": "pass",
+          "elapsed_seconds": 2.054
+        }
+      ],
+      "failed_top_level_tests": [],
+      "skipped_tests": []
+    },
+    "lint-final": {
+      "result": "pass",
+      "log_sha256": "e92606b0bf483111dff0a120c315ea165821348f31365020e2468a0059095c47",
+      "output": "0 issues."
+    },
+    "build": {
+      "result": "pass",
+      "log_sha256": "ff6fd23147ce53786f399f4194e05e8a8938b62cadbba6c8f31ee6538b223c35",
+      "output": "2026-11-08T15:00:21.809Z\tINFO\tstdlog\tSub2API 0.1.235 (commit: unknown, built: unknown)\t{\"service\": \"sub2api\", \"env\": \"bootstrap\", \"legacy_stdlog\": true}"
+    },
+    "documentation": {
+      "command": "make check-docs",
+      "result": "pass"
+    },
+    "diff_whitespace": {
+      "command": "git diff --check",
+      "result": "pass"
+    },
+    "source_layout": {
+      "command": "make -C backend check-layout",
+      "result": "pre-existing failure",
+      "path": "backend/internal/application/service/payment_fulfillment_test.go",
+      "lines": 1201,
+      "limit": 1200,
+      "unchanged_from_HEAD": true
+    }
+  },
+  "limitations": [
+    "No production deployment or account-state changes.",
+    "SetError persistence is asserted through a repository stub; no live PostgreSQL or Redis writes.",
+    "Real OpenAI behavior remains to be verified after deployment."
+  ]
+}

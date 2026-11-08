@@ -28,6 +28,7 @@ func (s *OpenAIGatewayService) prepareOpenAIWSNonStreamingHTTPFallback(
 	switch {
 	case errors.As(wsErr, &failover):
 		if failover.StatusCode < 500 || failover.StatusCode > 599 || failover.SafeToFailoverAfterWrite ||
+			failover.Reason == openAIWorkspaceRoutingFailureReason ||
 			isOpenAIOAuthPrincipalChangedError(wsErr) {
 			return false
 		}
