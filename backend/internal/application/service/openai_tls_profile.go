@@ -57,6 +57,9 @@ func (s *OpenAIGatewayService) doAccountHTTPUpstream(
 			return nil, err
 		}
 	}
+	if isOpenAIUsageModelCall(req, account) {
+		s.notifyOpenAIUsageActivity(account)
+	}
 	resp, err := doAccountHTTPUpstream(s.httpUpstream, req, proxyURL, account)
 	if req != nil && resp != nil {
 		s.captureIntegrityState(req.Context(), resp.Header)

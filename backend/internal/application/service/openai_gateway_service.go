@@ -470,6 +470,7 @@ type OpenAIGatewayService struct {
 	userGroupRateResolver   *userGroupRateResolver
 	httpUpstream            HTTPUpstream
 	deferredService         *DeferredService
+	usageSync               *OpenAIUsageSyncService
 	openAITokenProvider     *OpenAITokenProvider
 	grokTokenProvider       *GrokTokenProvider
 	toolCorrector           *CodexToolCorrector

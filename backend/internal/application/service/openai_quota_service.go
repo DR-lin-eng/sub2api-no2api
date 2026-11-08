@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
@@ -212,6 +213,7 @@ type OpenAIQuotaService struct {
 	usageDetailsCache    map[string]openAIUsageDetailsCacheEntry
 	usageDetailsFlight   singleflight.Group
 	usagePushDialer      openAIWSClientDialer
+	usageSyncManaged     atomic.Bool
 }
 
 // SetHTTPUpstream attaches the account-scoped Codex transport used by the C

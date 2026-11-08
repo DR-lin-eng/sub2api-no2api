@@ -13,7 +13,7 @@
 | `openai*` | OpenAI/Codex/Responses/Images/WS 管线 |
 | `openai_images_chatgpt*`, `setting_openai_images_mode.go` | 默认 App 生图、上传/下载、SSE/topic 恢复和旧版回退；见 [协议与开关](../../../../docs/CHATGPT_APP_IMAGES.md) |
 | `openai_oauth_auth_context.go` | OAuth 个人/工作区套餐连续性、access-token exp 与凭据期限；见 [桌面请求对照](../../../../docs/codex/desktop-request-alignment.md) |
-| `openai_usage*` | OAuth 额度推送共享连接、快照校验、详细用量资源与独立缓存；见 [用量说明](../../../../docs/OPENAI_USAGE.md) |
+| `openai_usage*` | OAuth 调用触发的后台额度 WS、10 分钟活跃窗口、快照校验、详细用量与缓存；见 [用量说明](../../../../docs/OPENAI_USAGE.md) |
 | `openai_request_set_patches.go` | 大 JSON 的多项普通 set 局部改写与一次拼接，保留 sjson 回退路径 |
 | `openai_capacity_retry.go` | 请求级容量错误的 HTTP/SSE/WS 等待提示解析；有限数值先限幅，沿用现有重试预算 |
 | `openai_auth_recovery.go`, `openai_tls_handshake_recovery.go` | OAuth 401 刷新候选分类；刷新后的已知主体由 `openai_chatgpt_headers.go` 与 token provider 核对，变化时终止当前轮次重放；普通 HTTP Responses 的 TLS 握手超时恢复、请求发送追踪及单次重试边界 |

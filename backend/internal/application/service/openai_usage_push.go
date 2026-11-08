@@ -17,17 +17,26 @@ type OpenAIUsagePushEvent struct {
 }
 
 type openAIUsagePushStream struct {
-	identity  string
-	listeners map[chan OpenAIUsagePushEvent]struct{}
-	cancel    context.CancelFunc
-	last      *OpenAIUsagePushEvent
-	failedAt  time.Time
+	identity   string
+	listeners  map[chan OpenAIUsagePushEvent]struct{}
+	cancel     context.CancelFunc
+	last       *OpenAIUsagePushEvent
+	failedAt   time.Time
+	done       chan struct{}
+	background bool
 }
 
-// SubscribeUsage shares one upstream connection per account in this process.
-// The last observer releases it. A failed connection cools down for a minute;
-// callers keep their existing HTTP/passive refresh behavior during that time.
+// SubscribeUsage observes the background-owned stream. Production browsers
+// never start or stop upstream WS connections. Non-owner nodes read persisted
+// snapshots so viewing an account cannot create a second upstream subscription.
 func (s *OpenAIQuotaService) SubscribeUsage(ctx context.Context, accountID int64) (<-chan OpenAIUsagePushEvent, func(), error) {
+	if s != nil && s.usageSyncManaged.Load() {
+		return s.observeManagedUsage(ctx, accountID)
+	}
+	return s.subscribeUsage(ctx, accountID, false)
+}
+
+func (s *OpenAIQuotaService) subscribeUsage(ctx context.Context, accountID int64, background bool) (<-chan OpenAIUsagePushEvent, func(), error) {
 	if s == nil || s.accountRepo == nil {
 		return nil, nil, usageInvalid("usage account is unavailable")
 	}
@@ -81,19 +90,19 @@ func (s *OpenAIQuotaService) SubscribeUsage(ctx context.Context, accountID int64
 		delete(s.usagePushStreams, accountID)
 		stream = nil
 	}
-	if stream != nil && !stream.failedAt.IsZero() {
+	if stream != nil && !stream.failedAt.IsZero() && !background {
 		return nil, nil, fmt.Errorf("usage push is cooling down")
 	}
 	if stream == nil {
-		if len(s.usagePushStreams) >= 256 {
+		if !background && len(s.usagePushStreams) >= 256 {
 			return nil, nil, fmt.Errorf("usage push capacity reached")
 		}
-		streamCtx, cancel := context.WithCancel(context.Background())
-		stream = &openAIUsagePushStream{identity: identity, listeners: make(map[chan OpenAIUsagePushEvent]struct{}), cancel: cancel}
+		streamCtx, cancel := context.WithCancel(ctx)
+		stream = &openAIUsagePushStream{identity: identity, listeners: make(map[chan OpenAIUsagePushEvent]struct{}), cancel: cancel, done: make(chan struct{}), background: background}
 		s.usagePushStreams[accountID] = stream
 		go s.runSharedUsagePush(streamCtx, accountID, stream)
 	}
-	if len(stream.listeners) >= 16 {
+	if len(stream.listeners) >= 17 {
 		return nil, nil, fmt.Errorf("too many usage observers")
 	}
 	channel := make(chan OpenAIUsagePushEvent, 1)
@@ -101,24 +110,52 @@ func (s *OpenAIQuotaService) SubscribeUsage(ctx context.Context, accountID int64
 	if stream.last != nil {
 		channel <- *stream.last
 	}
-	release := func() {
+	release := s.usageObserverRelease(accountID, stream, channel)
+	return channel, release, nil
+}
+
+func (s *OpenAIQuotaService) usageObserverRelease(accountID int64, stream *openAIUsagePushStream, channel chan OpenAIUsagePushEvent) func() {
+	return func() {
 		s.usagePushMu.Lock()
-		defer s.usagePushMu.Unlock()
 		if _, exists := stream.listeners[channel]; !exists {
+			s.usagePushMu.Unlock()
 			return
 		}
 		delete(stream.listeners, channel)
 		if len(stream.listeners) == 0 {
 			stream.cancel()
-			if stream.failedAt.IsZero() && s.usagePushStreams[accountID] == stream {
+			if (stream.background || stream.failedAt.IsZero()) && s.usagePushStreams[accountID] == stream {
 				delete(s.usagePushStreams, accountID)
 			}
+			done := stream.done
+			s.usagePushMu.Unlock()
+			if done != nil {
+				<-done
+			}
+			return
 		}
+		s.usagePushMu.Unlock()
 	}
-	return channel, release, nil
 }
 
 func (s *OpenAIQuotaService) runSharedUsagePush(ctx context.Context, accountID int64, stream *openAIUsagePushStream) {
+	defer func() {
+		if ctx.Err() != nil {
+			s.usagePushMu.Lock()
+			if s.usagePushStreams[accountID] == stream {
+				delete(s.usagePushStreams, accountID)
+			}
+			for listener := range stream.listeners {
+				select {
+				case <-listener:
+				default:
+				}
+				listener <- OpenAIUsagePushEvent{Type: "fallback", Transport: "polling"}
+			}
+			s.usagePushMu.Unlock()
+		}
+		close(stream.done)
+	}()
 	publish := func(event OpenAIUsagePushEvent) {
 		s.usagePushMu.Lock()
 		defer s.usagePushMu.Unlock()

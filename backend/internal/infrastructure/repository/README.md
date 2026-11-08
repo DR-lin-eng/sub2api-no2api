@@ -26,6 +26,7 @@
 | `http_upstream_public.go`, `http_upstream_public_proxy.go` | 用户图片下载的逐跳公开 IP 校验与 DNS 固定，保留账号出口；HTTP/HTTPS 代理通过 CONNECT 访问固定 IP，SOCKS 代理接收固定 IP |
 | `http_upstream_codex_tls.go` | req/v3 实验传输逐连接创建独立 ClientHello 和 key share，避免重连或并发握手复用 uTLS 的可变状态 |
 | `oauth2_provider_store.go` | OAuth2 一次性 authorization code 与 access token 摘要的 Redis 存储 |
+| `leader_lock_cache.go` | Redis 后台任务租约，按 owner 比较释放/续租，用于长期额度 WS owner |
 | `wire.go` | repository provider 集合 |
 
 `account_repo.go` 只保留仓储结构和构造器；账户持久化分别位于 `account_repo_crud.go`, `account_repo_list.go`, `account_repo_credentials.go`, `account_repo_oauth_401_delete.go`, `account_repo_scheduler_cache.go`, `account_repo_scheduling.go`, `account_repo_extra.go`, `account_repo_probe.go`, `account_repo_mapping.go` 和 `account_repo_quota.go`。新增账户查询或写入应进入对应职责文件，不再回填主文件。

@@ -1,6 +1,6 @@
 # Sub2API 关键请求链路
 
-OpenAI OAuth 额度卡通过管理员 WS 订阅 application 的账号级共享连接，经 Celsius discovery、topic/presence 和通知注册接收快照。失败时继续原主动查询与被动列表刷新；“使用统计”的上游详情使用固定资源 Query，独立管理模型、会话、余额及历史缓存。见 [OpenAI 实时额度与用量详情](OPENAI_USAGE.md)。
+OpenAI OAuth 模型请求在发送时通知后台额度同步服务：active 账号首次调用触发 WS，后续调用续期，空闲 10 分钟关闭。后台 owner 通过 Celsius discovery、topic/presence 和通知注册持续接收并持久化快照，不依赖管理页面。管理员 WS 仅观察后台结果，失败时继续原主动查询与被动列表刷新；“使用统计”的上游详情使用固定资源 Query，独立管理模型、会话、余额及历史缓存。见 [OpenAI 实时额度与用量详情](OPENAI_USAGE.md)。
 
 账号列表批量同步上游模型由 `admin-accounts` 的同步 composable 顺序分批调用管理端账号路由，经 `account_models_batch.go` 进入 `AccountTestService.BatchSyncUpstreamModels`。该用例复用平台模型查询，通过 repository 的行锁/JSONB 合并新增映射，同时写 scheduler outbox 并刷新缓存；失败账号保留原配置。规则与验证见 [批量同步说明](ACCOUNT_UPSTREAM_MODELS_SYNC.md)。
 

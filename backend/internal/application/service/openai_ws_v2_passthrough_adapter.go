@@ -856,6 +856,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	if err := s.admitOpenAIOAuthGatewayModelRequest(withOpenAIOAuthGatewayTurnKey(ctx, 1), account); err != nil {
 		return openAIOAuthGatewayRateLimitWSFailover(err, 1, firstClientMessage)
 	}
+	s.notifyOpenAIUsageActivity(account)
 
 	// 在 policy filter 之后再提取 service_tier / reasoning_effort 用于
 	// usage 上报：filter
@@ -1128,6 +1129,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 				if err := s.admitOpenAIOAuthGatewayModelRequest(withOpenAIOAuthGatewayTurnKey(ctx, turnNo), account); err != nil {
 					return payload, nil, openAIOAuthGatewayRateLimitWSFailover(err, turnNo, payload)
 				}
+				s.notifyOpenAIUsageActivity(account)
 			}
 			if isResponseCreate {
 				if isOpenAIResponsesLiteWebSocketPayload(payload) {

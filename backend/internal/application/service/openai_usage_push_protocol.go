@@ -117,6 +117,11 @@ func (s *OpenAIQuotaService) registerUsagePush(ctx context.Context, accountID in
 func (s *OpenAIQuotaService) runUsagePush(ctx context.Context, accountID int64, emit func(OpenAIUsagePushEvent)) error {
 	setupCtx, setupCancel := context.WithTimeout(ctx, 35*time.Second)
 	defer setupCancel()
+	requested, err := s.accountRepo.GetByID(setupCtx, accountID)
+	if err != nil || requested == nil || requested.Status != StatusActive || !requested.IsOpenAIOAuth() {
+		return fmt.Errorf("usage account is not active")
+	}
+	shadow := requested.IsShadow()
 	// Retain the existing HTTP read as a baseline while the first push is
 	// pending, and establish the authoritative account/user/plan identity.
 	baseline, err := s.QueryUsage(setupCtx, accountID)
@@ -125,6 +130,11 @@ func (s *OpenAIQuotaService) runUsagePush(ctx context.Context, accountID int64, 
 	}
 	if baseline.UserID == "" || baseline.AccountID == "" || baseline.PlanType == "" {
 		return fmt.Errorf("usage push identity unavailable")
+	}
+	// Persist the HTTP baseline even when discovery/WS is unavailable. The
+	// background retry then keeps quota available without a browser request.
+	if err := s.persistUsagePushSnapshot(setupCtx, accountID, shadow, baseline); err != nil {
+		return err
 	}
 	emit(OpenAIUsagePushEvent{Type: "quota", Transport: "polling", Quota: baseline})
 	status, _, discovery, err := s.usageHTTP(setupCtx, accountID, http.MethodGet, "/celsius/ws/user", nil, nil)
@@ -141,11 +151,6 @@ func (s *OpenAIQuotaService) runUsagePush(ctx context.Context, accountID int64, 
 	if err != nil {
 		return err
 	}
-	requested, err := s.accountRepo.GetByID(setupCtx, accountID)
-	if err != nil || requested == nil {
-		return fmt.Errorf("usage account unavailable")
-	}
-	shadow := requested.IsShadow()
 	var route platformegress.Route
 	if _, _, _, _, err := s.prepareUpstreamCall(setupCtx, accountID, &route); err != nil {
 		return err
@@ -161,14 +166,15 @@ func (s *OpenAIQuotaService) runUsagePush(ctx context.Context, accountID int64, 
 		return fmt.Errorf("usage push connection failed")
 	}
 	readCtx, cancelRead := context.WithCancel(ctx)
-	defer cancelRead()
-	defer func() { _ = conn.Close() }()
+	readerDone := make(chan struct{})
+	defer func() { cancelRead(); _ = conn.Close(); <-readerDone }()
 	type frame struct {
 		data []byte
 		err  error
 	}
 	frames := make(chan frame, 1)
 	go func() {
+		defer close(readerDone)
 		for {
 			data, err := conn.ReadMessage(readCtx)
 			if len(data) > 1<<20 {
@@ -350,6 +356,8 @@ func (s *OpenAIQuotaService) runUsagePush(ctx context.Context, accountID int64, 
 					continue
 				}
 				hasSnapshot = true
+				setupCancel()
+				setupCtx = context.Background()
 				if usage.RateLimitResetCredits == nil {
 					usage.RateLimitResetCredits = baseline.RateLimitResetCredits
 				}
@@ -406,6 +414,25 @@ func nextUsageResetDelay(usage *OpenAIQuotaUsage, now time.Time) time.Duration {
 }
 
 func (s *OpenAIQuotaService) persistUsagePushSnapshot(ctx context.Context, accountID int64, shadow bool, usage *OpenAIQuotaUsage) error {
+	writeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	account, err := s.accountRepo.GetByID(writeCtx, accountID)
+	if err != nil || account == nil || account.Status != StatusActive {
+		return fmt.Errorf("usage account is not active")
+	}
+	if shadow {
+		account, err = s.quotaCredentialAccount(writeCtx, accountID)
+		if err != nil {
+			return err
+		}
+	}
+	principal := account.GetCredential("chatgpt_account_id")
+	if principal == "" {
+		principal = account.GetCredential("organization_id")
+	}
+	if principal != usage.AccountID || account.GetChatGPTUserID() != "" && account.GetChatGPTUserID() != usage.UserID {
+		return fmt.Errorf("usage account identity changed")
+	}
 	updates := make(map[string]any)
 	if snapshot := rateLimitSnapshotFromUsage(usage); snapshot != nil {
 		updates[openAIQuotaRateLimitSnapshotKey] = snapshot
@@ -438,7 +465,5 @@ func (s *OpenAIQuotaService) persistUsagePushSnapshot(ctx context.Context, accou
 	if len(updates) == 0 {
 		return nil
 	}
-	writeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
 	return s.accountRepo.UpdateExtra(writeCtx, accountID, updates)
 }

@@ -103,6 +103,7 @@ func TestProvideCleanup_WithMinimalDependencies_NoPanic(t *testing.T) {
 		nil, // accountInspection
 		nil, // accountQuality
 		nil, // oauthModelSync
+		nil, // openAIUsageSync
 		nil, // backupSvc
 		nil, // paymentOrderExpiry
 		nil, // channelMonitorRunner

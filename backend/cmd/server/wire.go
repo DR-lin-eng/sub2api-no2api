@@ -125,6 +125,7 @@ func provideCleanup(
 	accountInspection *service.AccountInspectionService,
 	accountQuality *service.AccountQualityMonitoringService,
 	oauthModelSync *service.OAuthModelSyncService,
+	openAIUsageSync *service.OpenAIUsageSyncService,
 	backupSvc *service.BackupService,
 	paymentOrderExpiry *service.PaymentOrderExpiryService,
 	channelMonitorRunner *service.ChannelMonitorRunner,
@@ -145,6 +146,9 @@ func provideCleanup(
 	egressService *moduleegress.Service,
 ) func() {
 	return func() {
+		if openAIUsageSync != nil {
+			openAIUsageSync.Stop()
+		}
 		if channelService != nil {
 			channelService.Stop()
 		}

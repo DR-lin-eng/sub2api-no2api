@@ -77,3 +77,26 @@ func TestLeaderLockCache_TTLExpires(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, ok, "lock should be re-acquirable after the TTL expires")
 }
+
+func TestLeaderLockCache_RenewRequiresCurrentOwner(t *testing.T) {
+	cache, mr := newLeaderLockTestCache(t)
+	ctx := context.Background()
+	ok, err := cache.TryAcquireLeaderLock(ctx, "usage", "A", time.Minute)
+	require.NoError(t, err)
+	require.True(t, ok)
+	mr.FastForward(40 * time.Second)
+	ok, err = cache.RenewLeaderLock(ctx, "usage", "A", time.Minute)
+	require.NoError(t, err)
+	require.True(t, ok)
+	mr.FastForward(40 * time.Second)
+	ok, err = cache.TryAcquireLeaderLock(ctx, "usage", "B", time.Minute)
+	require.NoError(t, err)
+	require.False(t, ok, "renewed lease must keep the peer out")
+	mr.FastForward(21 * time.Second)
+	ok, err = cache.TryAcquireLeaderLock(ctx, "usage", "B", time.Minute)
+	require.NoError(t, err)
+	require.True(t, ok)
+	ok, err = cache.RenewLeaderLock(ctx, "usage", "A", 2*time.Minute)
+	require.NoError(t, err)
+	require.False(t, ok, "stale owner cannot extend its peer's lease")
+}
