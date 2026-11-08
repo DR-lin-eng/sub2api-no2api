@@ -1,0 +1,688 @@
+{
+  "sourceSHA256": "57b731e3438e640d816c78bb377207e00de6631c50133a8dfda3655b3c4888bc",
+  "fixtures": [
+    {
+      "name": "resolve",
+      "program": [
+        [
+          3,
+          "fixture-ok"
+        ]
+      ],
+      "token": "Zml4dHVyZS1vaw==",
+      "rejected": false
+    },
+    {
+      "name": "latin1",
+      "program": [
+        [
+          3,
+          "éÿ"
+        ]
+      ],
+      "token": "6f8=",
+      "rejected": false
+    },
+    {
+      "name": "arithmetic",
+      "program": [
+        [
+          2,
+          40,
+          7
+        ],
+        [
+          2,
+          41,
+          3
+        ],
+        [
+          33,
+          42,
+          40,
+          41
+        ],
+        [
+          35,
+          43,
+          42,
+          41
+        ],
+        [
+          29,
+          44,
+          41,
+          40
+        ],
+        [
+          5,
+          40,
+          41
+        ],
+        [
+          27,
+          40,
+          41
+        ],
+        [
+          2,
+          45,
+          0
+        ],
+        [
+          35,
+          46,
+          40,
+          45
+        ],
+        [
+          2,
+          50,
+          []
+        ],
+        [
+          5,
+          50,
+          42
+        ],
+        [
+          5,
+          50,
+          43
+        ],
+        [
+          5,
+          50,
+          44
+        ],
+        [
+          5,
+          50,
+          46
+        ],
+        [
+          15,
+          51,
+          50
+        ],
+        [
+          7,
+          3,
+          51
+        ]
+      ],
+      "token": "WzIxLDcsdHJ1ZSwwXQ==",
+      "rejected": false
+    },
+    {
+      "name": "strings",
+      "program": [
+        [
+          2,
+          40,
+          "hello"
+        ],
+        [
+          2,
+          41,
+          "key"
+        ],
+        [
+          1,
+          40,
+          41
+        ],
+        [
+          1,
+          40,
+          41
+        ],
+        [
+          19,
+          40
+        ],
+        [
+          18,
+          40
+        ],
+        [
+          8,
+          42,
+          40
+        ],
+        [
+          7,
+          3,
+          42
+        ]
+      ],
+      "token": "aGVsbG8=",
+      "rejected": false
+    },
+    {
+      "name": "arrayRemoval",
+      "program": [
+        [
+          2,
+          40,
+          [
+            1,
+            2,
+            3
+          ]
+        ],
+        [
+          2,
+          41,
+          99
+        ],
+        [
+          27,
+          40,
+          41
+        ],
+        [
+          15,
+          42,
+          40
+        ],
+        [
+          7,
+          3,
+          42
+        ]
+      ],
+      "token": "WzEsMl0=",
+      "rejected": false
+    },
+    {
+      "name": "parse",
+      "program": [
+        [
+          2,
+          40,
+          "{\"value\":42}"
+        ],
+        [
+          14,
+          41,
+          40
+        ],
+        [
+          2,
+          42,
+          "value"
+        ],
+        [
+          6,
+          43,
+          41,
+          42
+        ],
+        [
+          7,
+          3,
+          43
+        ]
+      ],
+      "token": "NDI=",
+      "rejected": false
+    },
+    {
+      "name": "conditionals",
+      "program": [
+        [
+          2,
+          40,
+          1
+        ],
+        [
+          2,
+          41,
+          1
+        ],
+        [
+          20,
+          40,
+          41,
+          2,
+          42,
+          "equal"
+        ],
+        [
+          2,
+          43,
+          5
+        ],
+        [
+          2,
+          44,
+          2
+        ],
+        [
+          21,
+          40,
+          43,
+          44,
+          2,
+          45,
+          "threshold"
+        ],
+        [
+          23,
+          42,
+          2,
+          46,
+          "defined"
+        ],
+        [
+          13,
+          47,
+          999
+        ],
+        [
+          23,
+          47,
+          2,
+          48,
+          "caught"
+        ],
+        [
+          2,
+          50,
+          []
+        ],
+        [
+          5,
+          50,
+          42
+        ],
+        [
+          5,
+          50,
+          45
+        ],
+        [
+          5,
+          50,
+          46
+        ],
+        [
+          5,
+          50,
+          48
+        ],
+        [
+          15,
+          51,
+          50
+        ],
+        [
+          7,
+          3,
+          51
+        ]
+      ],
+      "token": "WyJlcXVhbCIsInRocmVzaG9sZCIsImRlZmluZWQiLCJjYXVnaHQiXQ==",
+      "rejected": false
+    },
+    {
+      "name": "nestedQueue",
+      "program": [
+        [
+          22,
+          40,
+          [
+            [
+              2,
+              41,
+              "from-subqueue"
+            ]
+          ]
+        ],
+        [
+          7,
+          3,
+          41
+        ]
+      ],
+      "token": "ZnJvbS1zdWJxdWV1ZQ==",
+      "rejected": false
+    },
+    {
+      "name": "nestedError",
+      "program": [
+        [
+          22,
+          40,
+          [
+            [
+              7,
+              999
+            ]
+          ]
+        ],
+        [
+          23,
+          40,
+          2,
+          41,
+          "caught-subqueue"
+        ],
+        [
+          7,
+          3,
+          41
+        ]
+      ],
+      "token": "Y2F1Z2h0LXN1YnF1ZXVl",
+      "rejected": false
+    },
+    {
+      "name": "closureAndPromise",
+      "program": [
+        [
+          30,
+          40,
+          53,
+          [
+            51,
+            52
+          ],
+          [
+            [
+              33,
+              53,
+              51,
+              52
+            ]
+          ]
+        ],
+        [
+          2,
+          41,
+          6
+        ],
+        [
+          2,
+          42,
+          7
+        ],
+        [
+          17,
+          43,
+          40,
+          41,
+          42
+        ],
+        [
+          34,
+          44,
+          43
+        ],
+        [
+          7,
+          3,
+          44
+        ]
+      ],
+      "token": "NDI=",
+      "rejected": false
+    },
+    {
+      "name": "closureWithoutParams",
+      "program": [
+        [
+          30,
+          40,
+          41,
+          [
+            [
+              2,
+              41,
+              "closure"
+            ]
+          ]
+        ],
+        [
+          17,
+          42,
+          40
+        ],
+        [
+          7,
+          3,
+          42
+        ]
+      ],
+      "token": "Y2xvc3VyZQ==",
+      "rejected": false
+    },
+    {
+      "name": "mapAccess",
+      "program": [
+        [
+          12,
+          40
+        ],
+        [
+          2,
+          41,
+          "get"
+        ],
+        [
+          24,
+          42,
+          40,
+          41
+        ],
+        [
+          2,
+          43,
+          16
+        ],
+        [
+          17,
+          44,
+          42,
+          43
+        ],
+        [
+          2,
+          45,
+          "gAAAAAC"
+        ],
+        [
+          2,
+          46,
+          "startsWith"
+        ],
+        [
+          24,
+          47,
+          44,
+          46
+        ],
+        [
+          17,
+          48,
+          47,
+          45
+        ],
+        [
+          7,
+          3,
+          48
+        ]
+      ],
+      "token": "dHJ1ZQ==",
+      "rejected": false
+    },
+    {
+      "name": "navigator",
+      "program": [
+        [
+          2,
+          40,
+          "navigator"
+        ],
+        [
+          6,
+          41,
+          10,
+          40
+        ],
+        [
+          2,
+          42,
+          "language"
+        ],
+        [
+          6,
+          43,
+          41,
+          42
+        ],
+        [
+          7,
+          3,
+          43
+        ]
+      ],
+      "token": "ZW4=",
+      "rejected": false
+    },
+    {
+      "name": "boundMath",
+      "program": [
+        [
+          2,
+          40,
+          "Math"
+        ],
+        [
+          6,
+          41,
+          10,
+          40
+        ],
+        [
+          2,
+          42,
+          "round"
+        ],
+        [
+          24,
+          43,
+          41,
+          42
+        ],
+        [
+          2,
+          44,
+          2.6
+        ],
+        [
+          17,
+          45,
+          43,
+          44
+        ],
+        [
+          7,
+          3,
+          45
+        ]
+      ],
+      "token": "Mw==",
+      "rejected": false
+    },
+    {
+      "name": "scriptsAndNoops",
+      "program": [
+        [
+          2,
+          40,
+          "c/[^/]*/_"
+        ],
+        [
+          11,
+          41,
+          40
+        ],
+        [
+          25
+        ],
+        [
+          26
+        ],
+        [
+          28
+        ],
+        [
+          31
+        ],
+        [
+          32
+        ],
+        [
+          15,
+          42,
+          41
+        ],
+        [
+          7,
+          3,
+          42
+        ]
+      ],
+      "token": "bnVsbA==",
+      "rejected": false
+    },
+    {
+      "name": "timeoutCount",
+      "program": [
+        [
+          25
+        ],
+        [
+          26
+        ],
+        [
+          28
+        ]
+      ],
+      "token": "3",
+      "rejected": false
+    },
+    {
+      "name": "reject",
+      "program": [
+        [
+          4,
+          "fixture-rejected"
+        ]
+      ],
+      "token": "Zml4dHVyZS1yZWplY3RlZA==",
+      "rejected": true
+    }
+  ],
+  "hashes": [
+    {
+      "input": "",
+      "hex": "ab3e7c0b"
+    },
+    {
+      "input": "fixture",
+      "hex": "a3cd620a"
+    },
+    {
+      "input": "seed🌈漢字gAAAAAC",
+      "hex": "815aaac6"
+    },
+    {
+      "input": "é  ",
+      "hex": "8c8004c9"
+    }
+  ]
+}

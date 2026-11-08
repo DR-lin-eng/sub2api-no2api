@@ -76,12 +76,31 @@ App 不保证返回图像 token 用量。新版默认沿用已有图片价格，
 
 ## 验证准备与边界
 
-请求先调用 `/sentinel/chat-requirements/prepare`，将服务端实际返回的 token 仅用于
-同一 principal、同一 backend 的生成/续接请求。Go 网关没有 App 浏览器上下文，
-prepare 的 `p` 使用包内实现提供的错误信封分支，明确报告浏览器上下文不可用。
-该信封不声称浏览器遥测、设备证明或 challenge 已成功。
-需要浏览器 VM/Turnstile 或 proof-of-work 的响应返回明确的 `chatgpt_verification_required`，
-由用户在 App 完成验证或由管理员切回旧版。不会执行上游下发的浏览器程序。
+请求先调用 `/sentinel/chat-requirements/prepare`。依据报告第 12 节的 2026-11-08
+补充，prepare 的 `p` 使用 UTF-8 JSON/Base64 编码的 25 槽环境数组，每轮生成新 UUID，
+不再固定发送「浏览器上下文不可用」信封。`oai-did` 复用现有账号
+`extra.openai_device_id` 及原安装身份解析，不创建另一套设备 ID；`OAI-Language`
+与环境数组的语言一致。Electron 的内部认证/surface/expected-account 控制头在本地消费，
+不会当作上游头转发。
+
+需要 PoW 时，Go 按实际 seed/difficulty、UTF-16 code unit、32 位乘法和字符串阈值比较
+搜索最多 500,000 次，复用序列化/Base64 缓冲区。需要 `turnstile.dx` 时，以本轮 `p`
+进行 Base64/XOR 解码，在进程内纯 Go JavaScript 运行时执行已恢复的寄存器 VM，
+支持子队列、闭包、Promise、条件、算术与编码操作。验证工作最多并行 4 份
+（GOMAXPROCS 更小时取较小值），排队及计算合计最多 5 秒；VM 的逻辑 timer 为
+500ms、硬中断为 550ms，并限制指令、寄存器、队列、递归和字符串扩张。
+
+四个 Sentinel 头按实际返回结果设置：token 优先于 prepare_token，proof/turnstile
+只在相应挑战要求且有结果时附带。它们只用于同一 principal、同一 backend 的生成/续接，
+不跨轮次缓存，不为普通已登录 Images 强制追加匿名 preview 的 finalize。
+`force_login` 在生成前停止；无效挑战、VM 拒绝或预算耗尽保留明确错误，
+不会重新生图或自动改走旧版。
+
+该实现采用协议环境模型，缺失的显示器、脚本/build、JS heap 等材料保留零值或 null；
+没有真实 DOM、App Cookie 或 Apple DeviceCheck 证明，也不把浏览器的四项头与原生证明混用。
+动态 VM 不接收 bearer、Cookie 或账号凭据，没有网络、文件、进程接口；
+服务端新增环境 API 或真实设备要求仍可能无法满足。离线原模块对照和 Docker 证据见
+[协议验证记录](../diagnostics/chatgpt-integrity-20261108/README.md)，不代表真实账号放行率。
 
 Library 笔记的 `/wham/images/*` 是另一套单图、最小 JSON、`retry:never` 合同，
 没有替换本次选择的独立 Images 页面通道。App 生图可能创建所选上游账号的聊天历史。

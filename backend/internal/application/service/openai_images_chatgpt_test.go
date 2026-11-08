@@ -68,9 +68,17 @@ func (u *chatGPTAppImageLocalUpstream) DoWithTLS(r *http.Request, p string, a in
 }
 
 func newChatGPTAppImageTestService(t *testing.T, handler http.HandlerFunc) (*OpenAIGatewayService, *chatGPTAppImageLocalUpstream) {
+	return newChatGPTAppImageTestServiceWithPrepare(t, nil, handler)
+}
+
+func newChatGPTAppImageTestServiceWithPrepare(t *testing.T, prepare, handler http.HandlerFunc) (*OpenAIGatewayService, *chatGPTAppImageLocalUpstream) {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/backend-api/sentinel/chat-requirements/prepare" {
+			if prepare != nil {
+				prepare(w, r)
+				return
+			}
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprint(w, `{"token":"fixture-requirements-token"}`)
 			return

@@ -11,7 +11,7 @@
 | `gateway*` | Anthropic/Claude 通用网关请求、调度、转发和计费 |
 | `gateway_systemone.go`, `account_test_service_typesafe.go` | TypeSafe 原生非流式转发与账号测试，复用完整账号出口和可靠计费 |
 | `openai*` | OpenAI/Codex/Responses/Images/WS 管线 |
-| `openai_images_chatgpt*`, `setting_openai_images_mode.go` | 默认 App 生图、上传/下载、SSE/topic 恢复和旧版回退；见 [协议与开关](../../../../docs/CHATGPT_APP_IMAGES.md) |
+| `openai_images_chatgpt*`, `setting_openai_images_mode.go` | 默认 App 生图与验证、上传/下载、SSE/topic 恢复和旧版回退；见 [协议与开关](../../../../docs/CHATGPT_APP_IMAGES.md) |
 | `openai_oauth_auth_context.go` | OAuth 个人/工作区套餐连续性、access-token exp 与凭据期限；见 [桌面请求对照](../../../../docs/codex/desktop-request-alignment.md) |
 | `openai_usage*` | OAuth 调用触发的后台额度 WS、10 分钟活跃窗口、快照校验、详细用量与缓存；见 [用量说明](../../../../docs/OPENAI_USAGE.md) |
 | `openai_request_set_patches.go` | 大 JSON 的多项普通 set 局部改写与一次拼接，保留 sjson 回退路径 |

@@ -2,39 +2,37 @@ package service
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
-	"fmt"
+	"errors"
 	"net/http"
 
-	"github.com/tidwall/gjson"
+	"github.com/Wei-Shaw/sub2api/internal/modules/chatgptimages"
 )
 
-// The recovered lXEa.jU browser implementation has an explicit error-envelope
-// branch when its browser context cannot be read. A Go gateway has no browser
-// context. Report that condition honestly; do not fabricate browser telemetry,
-// execute a server-supplied browser VM, or invent a successful challenge proof.
 func (s *chatGPTImageSession) prepareIntegrity(ctx context.Context) error {
-	contextError, _ := json.Marshal("Error: browser context unavailable in the gateway")
-	p := "gAAAAACwQ8Lk5FbGpA2NcR9dShT6gYjU7VxZ4D" + base64.StdEncoding.EncodeToString(contextError)
-	body, err := s.json(ctx, http.MethodPost, "/sentinel/chat-requirements/prepare", map[string]any{"p": p})
+	// Clear the previous turn before doing any work. Every prepare gets a new
+	// environment UUID/key and consumes only its own seed/difficulty/dx.
+	s.integrity = nil
+	integrity, err := chatgptimages.NewIntegrity(s.headers.Get("User-Agent"), s.headers.Get("OAI-Language"), s.headers.Get("oai-did"))
 	if err != nil {
 		return err
 	}
-	if !gjson.ValidBytes(body) || !gjson.ParseBytes(body).IsObject() {
-		return fmt.Errorf("invalid ChatGPT requirements response")
+	body, err := s.json(ctx, http.MethodPost, "/sentinel/chat-requirements/prepare", map[string]any{"p": integrity.RequirementsKey()})
+	if err != nil {
+		return err
 	}
-	if gjson.GetBytes(body, "force_login").Bool() {
+	headers, err := integrity.Headers(ctx, body)
+	if errors.Is(err, chatgptimages.ErrForceLogin) {
 		return &OpenAIImagesUpstreamError{StatusCode: 401, ErrorType: "authentication_error", Code: "force_login", Message: "ChatGPT requires the selected account to sign in again."}
 	}
-	if gjson.GetBytes(body, "turnstile.required").Bool() || gjson.GetBytes(body, "proofofwork.required").Bool() {
-		return &OpenAIImagesUpstreamError{StatusCode: 403, ErrorType: "permission_error", Code: "chatgpt_verification_required", Message: "ChatGPT App images require browser verification for this account. Use the App to verify the account or select legacy images in Gateway settings."}
+	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
+		if errors.Is(err, chatgptimages.ErrRequirements) {
+			return err
+		}
+		return &OpenAIImagesUpstreamError{StatusCode: 403, ErrorType: "permission_error", Code: "chatgpt_verification_required", Message: "ChatGPT App image verification could not be completed within the protocol limits. Sign in with the App or select legacy images in Gateway settings."}
 	}
-	s.integrity = make(http.Header)
-	if token := gjson.GetBytes(body, "token").String(); token != "" {
-		s.integrity.Set("OpenAI-Sentinel-Chat-Requirements-Token", token)
-	} else if token := gjson.GetBytes(body, "prepare_token").String(); token != "" {
-		s.integrity.Set("OpenAI-Sentinel-Chat-Requirements-Prepare-Token", token)
-	}
+	s.integrity = headers
 	return nil
 }

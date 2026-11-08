@@ -134,8 +134,8 @@ func TestChatGPTAppImagesTopicHistoryNullableIDsAndEncodedSSE(t *testing.T) {
 	require.False(t, gjson.GetBytes(command, "0.command.include_all_history").Exists())
 }
 
-func TestChatGPTAppImagesBrowserChallengeIsExplicitAndDoesNotGenerate(t *testing.T) {
-	for _, body := range []string{`{"turnstile":{"required":true,"dx":"untrusted-code"}}`, `{"proofofwork":{"required":true,"seed":"fixture","difficulty":"00"}}`} {
+func TestChatGPTAppImagesInvalidBrowserChallengeDoesNotGenerate(t *testing.T) {
+	for _, body := range []string{`{"turnstile":{"required":true,"dx":"untrusted-code"}}`, `{"proofofwork":{"required":true,"difficulty":"00"}}`, `{"turnstile":{"required":true}}`} {
 		upstream := &httpUpstreamRecorder{resp: &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(body))}}
 		svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
 		request := []byte(`{"model":"gpt-image-2","prompt":"draw"}`)
