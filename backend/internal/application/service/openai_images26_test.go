@@ -129,7 +129,7 @@ func TestOpenAIImagesComplexityLegacyBridgeAndAPIKey(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, chatgptCodexURL, target)
 				require.Equal(t, "low", gjson.GetBytes(payload, "tools.0.complexity").String())
-				require.Equal(t, "medium", gjson.GetBytes(payload, "reasoning.effort").String())
+				require.False(t, gjson.GetBytes(payload, "reasoning").Exists())
 			}
 		})
 	}

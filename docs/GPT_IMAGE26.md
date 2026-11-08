@@ -20,6 +20,12 @@ API Key 账号保留原生 Images 参数并应用既有模型映射、请求模�
 JSON 和 multipart 编辑请求均保留复杂度与标注图片 `markup`。GIF 参数可用于生成或编辑，SVG 作者配置仅用于生成。
 OAuth 原生请求还保留 `safety_identifier` 和兼容字段 `user`；非空安全标识的优先级由上游执行。
 
+旧模型的 Codex Responses 图片桥接不强制设置驱动模型的 `reasoning.effort`。
+按 [Responses 工具参数说明](https://developers.openai.com/api/reference/resources/responses/methods/create)，
+图片工具未指定 `complexity` 时会继承外层推理强度；固定发送 `medium` 会使 2.5 等旧模型
+收到不支持的复杂度并报 `svgComplexity 'medium' is not supported for this image model`。
+后台账号生图测试与网关共用该请求构造，均省略这项强制设置，让上游使用模型默认值。
+
 GIF 输出使用 `output_format=gif`，可设置 `frame_count`（2–16）及 `frame_duration_ms`，
 不接受流式、部分图片、遮罩或输出压缩参数。按官方指南，SVG 仅用于生成端点，要求 `n=1`，
 不接受流式、部分图片和输出压缩；可通过 `svg.model` 和 `svg.reasoning` 选择作者模型及推理设置。
