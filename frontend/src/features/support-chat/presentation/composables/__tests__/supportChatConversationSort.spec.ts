@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { ChatConversation } from '@/features/support-chat/data/datasources/supportChatDatasource'
-import { sortSupportChatConversations } from '@/features/support-chat/presentation/composables/supportChatConversationSort'
+import {
+  reconcileSupportChatConversations,
+  sortSupportChatConversations,
+} from '@/features/support-chat/presentation/composables/supportChatConversationSort'
 
 function conversation(id: number, overrides: Partial<ChatConversation> = {}): ChatConversation {
   return {
@@ -19,6 +22,17 @@ function conversation(id: number, overrides: Partial<ChatConversation> = {}): Ch
 }
 
 describe('support chat conversation ordering', () => {
+  it('sorts fully read conversations by their latest message rather than creation or read time', () => {
+    const result = sortSupportChatConversations([
+      conversation(3, { last_message_at: '2026-11-07T03:00:00Z', updated_at: '2026-11-09T08:00:00Z' }),
+      conversation(1, { last_message_at: '2026-11-09T02:00:00Z' }),
+      conversation(2, { last_message_at: '2026-11-08T02:00:00Z' }),
+      conversation(4, { last_message_at: null, updated_at: '2026-11-09T09:00:00Z' }),
+    ])
+
+    expect(result.map(item => item.id)).toEqual([1, 2, 3, 4])
+  })
+
   it('puts real unread conversations before newer read conversations', () => {
     const result = sortSupportChatConversations([
       conversation(3, { unread_by_admin: 0, last_message_at: '2026-11-07T03:00:00Z' }),
@@ -37,5 +51,13 @@ describe('support chat conversation ordering', () => {
     ])
 
     expect(result.map(item => item.id)).toEqual([2, 1, 3])
+  })
+
+  it('accepts server-side cleanup and search filtering when no newer event arrived during the request', () => {
+    const existing = conversation(1)
+    const filtered = conversation(2)
+    const response = conversation(1, { last_message_at: null })
+    expect(reconcileSupportChatConversations([response], [existing, filtered], [existing, filtered]))
+      .toEqual([response])
   })
 })

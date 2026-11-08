@@ -12,4 +12,6 @@
 
 页面 socket 连接成功后立即补拉 HTTP 历史。刷新和翻页须记录请求开始时的消息快照，通过 `supportChatHistory.ts` 保留请求期间到达的消息和撤回；不能直接用旧历史响应替换当前消息列表，也不能无条件保留已被服务端清理的消息。客服收件箱统一将真实未读和手动未读提醒排在已读会话前面。
 
+同一未读状态按 `last_message_at` 倒序排列，空会话排在有消息的会话后面，不以会话创建或已读更新时间替代消息时间。延迟/重放的旧消息不能降低会话最新时间；列表响应需合并请求期间收到的更新，服务端清理和搜索过滤继续生效。
+
 从 `frontend/` 执行 `pnpm exec vitest run src/features/support-chat`；后端入口及事务、撤回、保留测试见 [chat 模块](../../../../backend/internal/modules/chat/README.md)。

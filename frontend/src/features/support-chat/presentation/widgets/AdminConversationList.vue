@@ -69,7 +69,7 @@
           </span>
         </div>
         <div class="mt-2 text-xs text-gray-500 dark:text-dark-400">
-          {{ lastActiveLabel(conversation.last_message_at || conversation.updated_at) }}
+          {{ lastActiveLabel(conversation.last_message_at) }}
         </div>
       </div>
     </div>
