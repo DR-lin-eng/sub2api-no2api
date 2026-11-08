@@ -76,6 +76,8 @@ OpenAI OAuth 历史重放会移除 `type=reasoning` 条目中的非空 `content`
 
 普通 ChatGPT OAuth 的 Images 请求默认捕获新版模式，经过验证准备、参考图上传、
 `/f/conversation` 的流/续接和图像下载，再投影回既有 Images JSON/SSE。
+验证准备按报告第 12 节执行纯协议环境数组、Go PoW 与有界进程内 VM；
+设备头复用既有账号持久身份，每轮临时 UUID、挑战和令牌独立，内部 Electron 控制头不出站。
 开关为 `openai_images_legacy_enabled`，管理端可恢复原 Codex 实现。
 同一请求不因配置变更或下载失败重新生成；已完成图像的张数、尺寸及用量进入原可靠结算 owner。
 协议能力、原生参数和显式 token 定价的限制见 [App 生图与旧版回退](CHATGPT_APP_IMAGES.md)。

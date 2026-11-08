@@ -99,6 +99,12 @@ func (s *OpenAIGatewayService) newChatGPTImageSession(ctx context.Context, c *gi
 	if language := strings.TrimSpace(c.GetHeader("Accept-Language")); language != "" {
 		headers.Set("Accept-Language", language)
 	}
+	language := strings.TrimSpace(strings.Split(strings.Split(headers.Get("Accept-Language"), ",")[0], ";")[0])
+	if language == "" || language == "*" || len(language) > 64 {
+		language = "en"
+	}
+	headers.Set("OAI-Language", language)
+	headers.Set("oai-did", resolveConvergedInstallationID(credential))
 	return &chatGPTImageSession{gateway: s, account: account, credential: expected, token: token, base: parsed, headers: headers}, nil
 }
 
@@ -160,6 +166,11 @@ func (s *chatGPTImageSession) request(ctx context.Context, method, path string, 
 		return nil, err
 	}
 	req.Header = s.headers.Clone()
+	// Electron consumes these control headers before sending. Principal checks
+	// above enforce the expected identity locally; these are not wire fields.
+	for _, name := range []string{"X-OpenAI-Attach-Auth", "X-OpenAI-Attach-Desktop-Surface", "X-OpenAI-Attach-DeviceCheck-Token", "X-OpenAI-Expected-Account-ID"} {
+		deleteOpenAIHeaderEqualFold(req.Header, name)
+	}
 	if strings.HasPrefix(path, "/f/conversation") {
 		for key, values := range s.integrity {
 			req.Header[key] = append([]string(nil), values...)
