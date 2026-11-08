@@ -42,7 +42,7 @@ Library `/wham/images/*` 仍是独立的单图最小 JSON 合同。App 模型、
 | 报告证据 | 当前网关处理 |
 | --- | --- |
 | 五项保留头继续清理；主进程没有 `X-OAI-IS-Update` 消费或 `integrityStateStore` | HTTP、Compact、透传与 WS 保留入站白名单；完整性头和 `x-local-routing-key` 也从外层/turn metadata 中移除。Responses/Compact 的实际发送点不再加载旧 `ois1` 缓存，也不保存响应更新，避免请求构造后又恢复已删除的旧协议。独立设备证明仍由原有显式开关和真实 provider 提供。 |
-| 环境配置 fetch 校验 account/user，再重建 workspace 路由 | WHAM discovery 在任何请求或缓存命中前核对当前 token 的已知账号和用户；发现请求携带 `Cache-Control: no-store` 并拒绝重定向。网关仍使用自己的 10 秒发现预算和按 token 隔离的进程内路由缓存；这里没有把 Electron 的 30 秒环境配置预算当成模型总时限。 |
+| 环境配置 fetch 校验 account/user，再重建 workspace 路由 | WHAM discovery 在任何请求或缓存命中前核对当前 token 的已知账号和用户；发现请求携带 `Cache-Control: no-store` 并拒绝重定向。网关使用 10 秒发现预算和按 token 隔离的进程内路由缓存；发现接口拒绝访问（401/403）时使用默认官方 Codex 路由 60 秒，换 token 立即重新发现，模型鉴权仍由实际模型接口确认。其它发现错误及非法路由不降级。这里没有把 Electron 的 30 秒环境配置预算当成模型总时限。 |
 | 401 至多刷新一次；主体变化撤销旧连接 | 保留一次受分布式锁保护的刷新。若刷新改变当前轮次已知的 workspace/user，返回账号级 `account_changed`，不在 HTTP、SSE、透传、WS 握手或 WS 错误事件路径中重发当前轮次；新凭据保留给后续独立请求。 |
 | durable 连接必须跟随当前认证主体 | WS 握手兼容键加入 credential principal 摘要、最终 `ChatGPT-Account-Id` 和 FedRAMP 头。相同身份继续复用；相同本地账号/opaque token 但 workspace 或用户改变时替换旧空闲连接。既有 token、目标 URL、出口、安装/窗口和 continuation 隔离继续生效。 |
 | 新增 `x-local-routing-key`、`x-ms-request-id`、`x-openai-legal-models` 字面量 | 分别是本地删除字段、Azure 响应诊断和 MCP schema 属性；不作为模型新增发送头。`X-OpenAI-Product-Sku: codex` 的新增位置是环境配置/云附件 ASB RPC，Responses 不额外注入。 |
