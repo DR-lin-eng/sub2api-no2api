@@ -90,8 +90,16 @@ func (s *OpenAIQuotaService) subscribeUsage(ctx context.Context, accountID int64
 		delete(s.usagePushStreams, accountID)
 		stream = nil
 	}
-	if stream != nil && !stream.failedAt.IsZero() && !background {
-		return nil, nil, fmt.Errorf("usage push is cooling down")
+	if stream != nil && !stream.failedAt.IsZero() {
+		if !background {
+			return nil, nil, fmt.Errorf("usage push is cooling down")
+		}
+		// Background workers own retry scheduling. A failed stream must be
+		// replaced before the next attempt; otherwise the worker would attach
+		// to a completed channel and never perform a new handshake.
+		stream.cancel()
+		delete(s.usagePushStreams, accountID)
+		stream = nil
 	}
 	if stream == nil {
 		if !background && len(s.usagePushStreams) >= 256 {
@@ -123,8 +131,12 @@ func (s *OpenAIQuotaService) usageObserverRelease(accountID int64, stream *openA
 		}
 		delete(stream.listeners, channel)
 		if len(stream.listeners) == 0 {
+			if stream.background {
+				s.usagePushMu.Unlock()
+				return
+			}
 			stream.cancel()
-			if (stream.background || stream.failedAt.IsZero()) && s.usagePushStreams[accountID] == stream {
+			if stream.failedAt.IsZero() && s.usagePushStreams[accountID] == stream {
 				delete(s.usagePushStreams, accountID)
 			}
 			done := stream.done
