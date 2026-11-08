@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   getConversation: vi.fn(),
   markRead: vi.fn(),
   showError: vi.fn(),
+  showSuccess: vi.fn(),
   sockets: [] as SupportChatSocketOptions[],
 }))
 
@@ -28,6 +29,7 @@ vi.mock('@/features/auth', () => ({ useAuthStore: () => ({ hasPermission: () => 
 vi.mock('@/core/stores/appStore', () => ({
   useAppStore: () => ({
     showError: mocks.showError,
+    showSuccess: mocks.showSuccess,
     setSupportInboxUnread: vi.fn(),
     setSupportUserUnread: vi.fn(),
   }),
@@ -89,6 +91,58 @@ const MessageList = defineComponent({
   template: '<div />',
 })
 const wrappers: VueWrapper[] = []
+
+async function mountAdminInbox() {
+  const wrapper = shallowMount(AdminSupportChatPage, {
+    global: { stubs: { AppLayout: { template: '<div><slot /></div>' }, SupportMessageList: MessageList } },
+  })
+  wrappers.push(wrapper)
+  await flushPromises()
+  return wrapper
+}
+
+describe('admin inbox activity timestamps', () => {
+  const oldActivity = '2026-11-06T01:00:00Z'
+  const latestActivity = '2026-11-09T10:00:00Z'
+  const otherActivity = '2026-11-08T10:00:00Z'
+
+  function inbox() {
+    return [
+      { ...conversation, id: 8, last_message_at: otherActivity },
+      { ...conversation, last_message_at: oldActivity },
+    ]
+  }
+
+  function listProps(wrapper: VueWrapper): ChatConversation[] {
+    return wrapper.findComponent({ name: 'AdminConversationList' }).props('conversations')
+  }
+
+  it('keeps a read thread at the top when an old message is replayed after its latest message', async () => {
+    mocks.listConversations.mockResolvedValue({ ...page([]), items: inbox() })
+    const wrapper = await mountAdminInbox()
+    await mocks.sockets[0].onMessage({ ...message(20), created_at: latestActivity })
+    await mocks.sockets[0].onMessage({ ...message(1), created_at: oldActivity })
+    await flushPromises()
+
+    expect(listProps(wrapper).map(item => item.id)).toEqual([7, 8])
+    expect(listProps(wrapper)[0]).toMatchObject({ unread_by_admin: 0, last_message_at: latestActivity })
+  })
+
+  it('keeps the latest activity when an inbox refresh returns a snapshot taken before a new message', async () => {
+    mocks.listConversations.mockResolvedValue({ ...page([]), items: inbox() })
+    const wrapper = await mountAdminInbox()
+    const pending = deferred<{ items: ChatConversation[]; total: number; page: number; page_size: number; pages: number }>()
+    mocks.listConversations.mockReturnValueOnce(pending.promise)
+    wrapper.findComponent({ name: 'AdminConversationList' }).vm.$emit('refresh')
+    await flushPromises()
+    await mocks.sockets[0].onMessage({ ...message(20), created_at: latestActivity })
+    pending.resolve({ items: inbox(), total: 2, page: 1, page_size: 100, pages: 1 })
+    await flushPromises()
+
+    expect(listProps(wrapper).map(item => item.id)).toEqual([7, 8])
+    expect(listProps(wrapper)[0]).toMatchObject({ unread_by_admin: 0, last_message_at: latestActivity })
+  })
+})
 
 beforeEach(() => {
   vi.clearAllMocks()

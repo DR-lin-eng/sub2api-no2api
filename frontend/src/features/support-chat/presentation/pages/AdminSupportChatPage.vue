@@ -203,7 +203,11 @@ import {
   reconcileChatMessageHistory,
   SUPPORT_CHAT_MESSAGE_PAGE_SIZE,
 } from '@/features/support-chat/presentation/composables/supportChatHistory'
-import { sortSupportChatConversations } from '@/features/support-chat/presentation/composables/supportChatConversationSort'
+import {
+  latestSupportChatMessageAt,
+  reconcileSupportChatConversations,
+  sortSupportChatConversations,
+} from '@/features/support-chat/presentation/composables/supportChatConversationSort'
 import { useSupportChatAdminStore } from '@/features/support-chat/presentation/stores/supportChatAdminStore'
 import AdminConversationList from '@/features/support-chat/presentation/widgets/AdminConversationList.vue'
 import SupportBrowserNotificationButton from '@/features/support-chat/presentation/widgets/SupportBrowserNotificationButton.vue'
@@ -343,13 +347,15 @@ function upsertConversationActivity(message: ChatMessage) {
   const existing = conversations.value.find((item) => item.id === message.conversation_id)
   if (!existing) {
     if (selectedConversationSnapshot.value?.id === message.conversation_id) {
-      selectedConversationSnapshot.value.last_message_at = message.created_at
+      selectedConversationSnapshot.value.last_message_at = latestSupportChatMessageAt(
+        selectedConversationSnapshot.value.last_message_at, message.created_at,
+      )
       if (message.sender_type === 'user') selectedConversationSnapshot.value.unread_by_admin += 1
     }
     void loadConversations()
     return
   }
-  existing.last_message_at = message.created_at
+  existing.last_message_at = latestSupportChatMessageAt(existing.last_message_at, message.created_at)
   if (message.sender_type === 'user') {
     existing.unread_by_admin += 1
     appStore.setSupportInboxUnread(true)
@@ -369,6 +375,7 @@ async function scrollToBottom() {
 
 async function loadConversations() {
   if (conversationsLoading.value) return
+  const beforeLoad = conversations.value.map(conversation => ({ ...conversation }))
   conversationsLoading.value = true
   try {
     const page = await listAdminChatConversations({
@@ -377,7 +384,9 @@ async function loadConversations() {
       unread_only: unreadOnly.value,
       search: search.value.trim() || undefined,
     })
-    conversations.value = sortSupportChatConversations(page.items)
+    conversations.value = sortSupportChatConversations(
+      reconcileSupportChatConversations(page.items, beforeLoad, conversations.value),
+    )
     lastResyncAt = Date.now()
     conversationTotal.value = page.total
     if (unreadOnly.value) {

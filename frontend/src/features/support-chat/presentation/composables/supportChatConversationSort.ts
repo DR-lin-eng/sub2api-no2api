@@ -5,7 +5,35 @@ function isUnread(conversation: ChatConversation): boolean {
 }
 
 function activityTime(conversation: ChatConversation): number {
-  return Date.parse(conversation.last_message_at || conversation.updated_at) || 0
+  return messageTime(conversation.last_message_at)
+}
+
+function messageTime(value: string | null): number {
+  const timestamp = Date.parse(value || '')
+  return Number.isFinite(timestamp) ? timestamp : Number.NEGATIVE_INFINITY
+}
+
+export function latestSupportChatMessageAt(current: string | null, incoming: string | null): string | null {
+  return messageTime(incoming) > messageTime(current) ? incoming : current
+}
+
+// Keep activity received while a list request was pending. Other rows use the
+// response, including server-side retention cleanup and search filtering.
+export function reconcileSupportChatConversations(
+  incoming: ChatConversation[],
+  beforeLoad: ChatConversation[],
+  current: ChatConversation[],
+): ChatConversation[] {
+  const previousByID = new Map(beforeLoad.map(conversation => [conversation.id, conversation.last_message_at]))
+  const currentByID = new Map(current.map(conversation => [conversation.id, conversation]))
+  return incoming.map(conversation => {
+    const latest = currentByID.get(conversation.id)
+    if (!latest || latest.last_message_at === previousByID.get(conversation.id)) return conversation
+    return {
+      ...conversation,
+      last_message_at: latestSupportChatMessageAt(conversation.last_message_at, latest.last_message_at),
+    }
+  })
 }
 
 /** Keep actionable inbox conversations ahead of already-read conversations. */
