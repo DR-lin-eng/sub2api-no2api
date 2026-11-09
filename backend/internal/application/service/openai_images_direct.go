@@ -231,7 +231,8 @@ func (s *OpenAIGatewayService) handleCodexDirectImagesNonStreamingResponse(resp 
 		}
 	}
 	c.Data(resp.StatusCode, contentType, body)
-	return usage, len(results), openAIResponsesImageResultSizes(results), nil
+	count, sizes := openAIImagesBillableOutputs(body, parsed, len(results), openAIResponsesImageResultSizes(results), imageCountBillingEnabled(getAPIKeyFromContext(c)))
+	return usage, count, sizes, nil
 }
 
 // Rewrite each data item once, preserving unknown response fields. Whole-body

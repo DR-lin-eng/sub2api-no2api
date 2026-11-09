@@ -22,6 +22,23 @@ function jsonResponse(body: unknown, init: ResponseInit = {}) {
 describe('media studio datasource', () => {
   afterEach(() => vi.unstubAllGlobals())
 
+  it('forwards 2.6 GIF frames and SVG author options in JSON and multipart', async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => jsonResponse({ data: [{ b64_json: 'AAAA' }] }))
+    vi.stubGlobal('fetch', fetchMock)
+    const gif = { model: 'gpt-image-2.6-flare', prompt: 'animate', output_format: 'gif' as const, frame_count: 4, frame_duration_ms: 120 }
+    const task = await submitImageGeneration('fixture', gif, 'gif-26')
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject(gif)
+    expect(task.result?.output_format).toBe('gif')
+    await submitImageEdit('fixture', [new File(['image'], 'input.png', { type: 'image/png' })], gif, 'gif-edit')
+    const form = fetchMock.mock.calls[1][1].body as FormData
+    expect(form.get('output_format')).toBe('gif')
+    expect(form.get('frame_count')).toBe('4')
+    expect(form.get('frame_duration_ms')).toBe('120')
+    const svg = { model: gif.model, prompt: 'logo', output_format: 'svg' as const, svg: { model: 'gpt-6-astra', reasoning: { effort: 'high' } } }
+    await submitImageGeneration('fixture', svg, 'svg-26')
+    expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toMatchObject(svg)
+  })
+
   it('forwards GPT Image 2.6 complexity in JSON and multipart requests', async () => {
     const fetchMock = vi.fn().mockImplementation(async () => jsonResponse({ data: [{ b64_json: 'AAAA' }] }))
     vi.stubGlobal('fetch', fetchMock)

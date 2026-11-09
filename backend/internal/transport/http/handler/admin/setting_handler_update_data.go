@@ -244,6 +244,7 @@ type UpdateSettingsRequest struct {
 
 	// Gateway forwarding behavior
 	OpenAIRequestTimezoneEnabled           *bool   `json:"openai_request_timezone_enabled"`
+	ImageIndependentSchedulingEnabled      *bool   `json:"image_independent_scheduling_enabled"`
 	OpenAIImagesLegacyEnabled              *bool   `json:"openai_images_legacy_enabled"`
 	OpenAIRequestTimezone                  *string `json:"openai_request_timezone"`
 	OpenAIOAuthForceRelayEnabled           *bool   `json:"openai_oauth_force_relay_enabled"`

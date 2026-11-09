@@ -501,6 +501,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 	c.Request = c.Request.WithContext(h.gatewayService.WithSingleAntigravityAccountGroupProbe(c.Request.Context(), apiKey.GroupID))
 
 	for {
+		c.Request = c.Request.WithContext(h.gatewayService.WithImageScheduling(c.Request.Context(), modelName))
 		selection, err := h.gatewayService.SelectAccountWithLoadAwareness(c.Request.Context(), apiKey.GroupID, sessionKey, modelName, fs.FailedAccountIDs, "", int64(0)) // Gemini 不使用会话限制
 		if err != nil {
 			if errors.Is(err, service.ErrPriorityAdmissionUnavailable) {

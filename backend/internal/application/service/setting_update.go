@@ -286,6 +286,7 @@ func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {
 	s.openAIWSModeRouterV2Loaded.Store(time.Now().UnixNano())
 	s.refreshOpenAIRequestTimezoneSettings(settings)
 	s.refreshOpenAIImagesMode(settings.OpenAIImagesLegacyEnabled)
+	s.refreshImageSchedulingSettings(settings.ImageIndependentSchedulingEnabled)
 	s.refreshOpenAIOAuthForceRelaySettings(settings)
 	s.storeRequestPriorityAdmissionSettings(RequestPriorityAdmissionSettings{
 		Enabled:                 settings.RequestPriorityAdmissionEnabled,

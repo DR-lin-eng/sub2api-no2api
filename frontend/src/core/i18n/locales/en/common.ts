@@ -1,5 +1,18 @@
 export default {
   common: {
+    imageOutput: {
+      download: 'Download file',
+      format: 'Output file format',
+      default: 'Default',
+      frames: 'GIF frames',
+      duration: 'Frame duration (ms)',
+      author: 'SVG author model (optional)',
+      authorDefault: 'Use upstream default',
+      reasoning: 'Author reasoning effort',
+      gifHint: 'GIF output is non-streaming; frame dimensions are selected automatically. Actual-image-count billing charges one image per frame at the returned size.',
+      svgHint: 'SVG generates one file. Selecting an author model requires upstream access.',
+      svgEditHint: 'SVG does not support image editing. Remove reference images to select SVG.',
+    },
     loading: 'Loading...',
     submitting: 'Submitting...',
     justNow: 'just now',

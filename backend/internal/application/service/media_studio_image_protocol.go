@@ -8,6 +8,7 @@ func (s *MediaStudioService) imageProtocolForGroup(ctx context.Context, group Me
 	if protocol != "chatgpt_app" || group.Platform != PlatformOpenAI || s.gatewayService == nil || s.gatewayService.accountRepo == nil {
 		return protocol
 	}
+	ctx = s.gatewayService.WithImageScheduling(WithOpenAIImagesEndpoint(ctx), "")
 	accounts, err := s.gatewayService.accountRepo.ListSchedulableByGroupIDAndPlatform(ctx, group.GroupID, PlatformOpenAI)
 	if err != nil || len(accounts) == 0 {
 		return protocol

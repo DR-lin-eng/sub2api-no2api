@@ -97,6 +97,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 	reqLog = reqLog.With(zap.String("model", reqModel), zap.Bool("stream", reqStream))
 
 	setOpsRequestContext(c, reqModel, reqStream)
+	c.Request = c.Request.WithContext(h.gatewayService.WithImageScheduling(c.Request.Context(), reqModel))
 	if openai_compat.ShouldRejectGPT56ResponsesExplicitCache(reqModel, body) {
 		h.responsesInvalidRequestParamErrorResponse(
 			c,

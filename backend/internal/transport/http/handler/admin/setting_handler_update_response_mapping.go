@@ -193,6 +193,7 @@ func buildSettingsUpdateResponsePayload(
 		StreamModePerformanceEnabled:                           updatedSettings.StreamModePerformanceEnabled,
 		OpenAIWSModeRouterV2Enabled:                            updatedSettings.OpenAIWSModeRouterV2Enabled,
 		OpenAIRequestTimezoneEnabled:                           updatedSettings.OpenAIRequestTimezoneEnabled,
+		ImageIndependentSchedulingEnabled:                      updatedSettings.ImageIndependentSchedulingEnabled,
 		OpenAIImagesLegacyEnabled:                              updatedSettings.OpenAIImagesLegacyEnabled,
 		OpenAIRequestTimezone:                                  updatedSettings.OpenAIRequestTimezone,
 		OpenAIVisibleOutputTTFTEnabled:                         updatedSettings.OpenAIVisibleOutputTTFTEnabled,

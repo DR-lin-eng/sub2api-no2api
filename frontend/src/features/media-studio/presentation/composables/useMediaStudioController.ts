@@ -1,3 +1,4 @@
+import { normalizeGPTImageOutput, supportsGPTImage26Output } from '@/core/utils/gptImageOutput'
 import { useMediaStudioCostEstimate } from './useMediaStudioCostEstimate'
 import { computed, getCurrentInstance, onBeforeUnmount, ref, watch } from 'vue'
 import {
@@ -243,6 +244,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   const size = computed(() => imageSizeFor(imageResolution.value, imageAspectRatio.value))
   const quality = ref(normalizeImageQuality(persisted.quality))
   const complexity = ref(normalizeImageComplexity(persisted.complexity))
+  const imageOutput = ref(normalizeGPTImageOutput(persisted.imageOutput))
   const count = ref(normalizeCount(persisted.count || 1))
   const resolution = ref<MediaStudioVideoResolution>(normalizeResolution(persisted.resolution))
   const videoAspectRatio = ref<MediaStudioVideoAspectRatio>(
@@ -328,6 +330,13 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       (group?.platform === 'openai' || /^gpt-image-/i.test(imageModel))
   }
   const chatgptAppImages = computed(() => usesAppImageProtocol(model.value, selectedGroupId.value))
+  const imageOutputSupported = computed(() => !chatgptAppImages.value && supportsGPTImage26Output(model.value))
+  watch([imageOutput, imageAttachments], () => {
+    if (imageOutput.value.output_format === 'svg') {
+      count.value = 1
+      if (imageAttachments.value.length) imageOutput.value = {}
+    }
+  }, { deep: true })
   const imageQualityOptions = computed(() => chatgptAppImages.value ? [] : imageQualityOptionsForModel(model.value))
   const imageComplexityOptions = computed(() => !chatgptAppImages.value && supportsImageComplexity(model.value) ? IMAGE_COMPLEXITY_OPTIONS : [])
   watch(imageQualityOptions, (options) => {
@@ -353,7 +362,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   const hiddenParameterControls = computed<MediaStudioParameterControl[]>(() => {
     const mode = attributeRenderMode.value
     const controls = Object.keys(MEDIA_STUDIO_PARAMETER_BINDINGS) as MediaStudioParameterControl[]
-    const protocolHidden: MediaStudioParameterControl[] = chatgptAppImages.value ? ['image.size', 'image.quality', 'image.complexity'] : []
+    const protocolHidden: MediaStudioParameterControl[] = chatgptAppImages.value ? ['image.size', 'image.quality', 'image.complexity', 'image.outputFormat', 'image.frameCount', 'image.frameDuration', 'image.svg'] : []
     if (mode === 'hardcoded') return protocolHidden
     if (mode === 'replace') return controls
     const declared = new Set([
@@ -454,7 +463,11 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     if (!ownerID || !selectedGroup.value || !model.value || (mode !== 'image' && mode !== 'video')) return null
     const request: MediaStudioCostEstimateRequest = { media_type: mode, group_id: selectedGroupId.value, model: model.value }
     if (mode === 'video') { request.resolution = resolution.value; request.duration = duration.value }
-    else { request.size = size.value; request.count = normalizeCount(count.value) }
+    else {
+      request.size = imageOutputSupported.value && imageOutput.value.output_format === 'gif' ? 'auto' : size.value
+      request.count = imageOutputSupported.value && imageOutput.value.output_format === 'svg' ? 1 : normalizeCount(count.value)
+      if (imageOutputSupported.value) { request.output_format = imageOutput.value.output_format; request.frame_count = imageOutput.value.frame_count }
+    }
     return request
   }, data.estimateCost)
 
@@ -551,6 +564,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   }
 
   async function editGeneratedImage(image: MediaStudioGeneratedImagePreview) {
+    if (imageOutputSupported.value && image.mimeType === 'image/svg+xml') return
     if (selectedModeId.value !== 'image') await selectMode('image')
     submitError.value = ''
     try {
@@ -599,6 +613,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       customImageAspectRatios: customImageAspectRatios.value,
       quality: quality.value,
       complexity: complexity.value,
+      imageOutput: imageOutput.value,
       count: count.value,
       resolution: resolution.value,
       videoAspectRatio: videoAspectRatio.value,
@@ -702,7 +717,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   }
 
   // 配置项变更即时落盘，会话本身只在关键状态变更时写入。
-  watch([selectedGroupId, imageModel, videoModel, size, imageResolution, imageAspectRatio, customImageAspectRatios, quality, complexity, count, resolution, videoAspectRatio, duration], persist, { deep: true })
+  watch([selectedGroupId, imageModel, videoModel, size, imageResolution, imageAspectRatio, customImageAspectRatios, quality, complexity, imageOutput, count, resolution, videoAspectRatio, duration], persist, { deep: true })
   watch(model, (value) => {
     if (selectedModeId.value === 'image') imageModel.value = value
     if (selectedModeId.value === 'video') videoModel.value = value
@@ -945,12 +960,13 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       // 记录提交时所在分组，刷新后只恢复当前分组里的任务。
       groupId: selectedGroupId.value,
       model: model.value.trim() || (mode === 'video' ? DEFAULT_VIDEO_MODEL : DEFAULT_IMAGE_MODEL),
-      size: mode === 'image' && !chatgptAppImages.value ? size.value : undefined,
-      imageResolution: mode === 'image' && !chatgptAppImages.value ? imageResolution.value : undefined,
-      imageAspectRatio: mode === 'image' && !chatgptAppImages.value ? imageAspectRatio.value : undefined,
+      size: mode === 'image' && !chatgptAppImages.value ? (imageOutputSupported.value && imageOutput.value.output_format === 'gif' ? 'auto' : size.value) : undefined,
+      imageResolution: mode === 'image' && !chatgptAppImages.value && !(imageOutputSupported.value && imageOutput.value.output_format === 'gif') ? imageResolution.value : undefined,
+      imageAspectRatio: mode === 'image' && !chatgptAppImages.value && !(imageOutputSupported.value && imageOutput.value.output_format === 'gif') ? imageAspectRatio.value : undefined,
       quality: mode === 'image' && !chatgptAppImages.value ? quality.value : undefined,
       complexity: mode === 'image' && !chatgptAppImages.value && supportsImageComplexity(model.value) ? complexity.value : undefined,
-      count: mode === 'image' ? normalizeCount(count.value) : 1,
+      imageOutput: mode === 'image' && imageOutputSupported.value ? normalizeGPTImageOutput(imageOutput.value) : undefined,
+      count: mode === 'image' ? (imageOutputSupported.value && imageOutput.value.output_format === 'svg' ? 1 : normalizeCount(count.value)) : 1,
       resolution: mode === 'video' ? normalizeResolution(resolution.value) : undefined,
       aspectRatio: mode === 'video' ? normalizeVideoAspectRatio(videoAspectRatio.value) : undefined,
       duration: mode === 'video' ? normalizeDuration(duration.value, activeModelLimits.value.duration) : undefined,
@@ -1026,7 +1042,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
         }
         if (attributeMode !== 'replace' && !usesAppImageProtocol(assistantMessage.model || '', assistantMessage.groupId ?? null)) {
           if (!replacedByTemplate('image.size')) {
-            payload.size = imageSizeFor(
+            payload.size = assistantMessage.imageOutput?.output_format === 'gif' ? 'auto' : imageSizeFor(
               normalizeImageResolution(assistantMessage.imageResolution),
               normalizeImageAspectRatio(assistantMessage.imageAspectRatio),
             )
@@ -1039,6 +1055,12 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
           }
         }
 
+        if (attributeMode !== 'replace' && !usesAppImageProtocol(assistantMessage.model || '', assistantMessage.groupId ?? null) && supportsGPTImage26Output(assistantMessage.model || '')) {
+          for (const [key, value] of Object.entries(normalizeGPTImageOutput(assistantMessage.imageOutput))) {
+            const binding = Object.entries(MEDIA_STUDIO_PARAMETER_BINDINGS).find(([, field]) => field === key)?.[0] as MediaStudioParameterControl | undefined
+            if (!binding || !replacedByTemplate(binding)) Object.assign(payload, { [key]: value })
+          }
+        }
         const submitImageTask = (requestPayload: MediaStudioImageSubmitRequest) => (
           submittedAttachments.length > 0
             ? data.submitImageEdit(
@@ -1230,6 +1252,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       imageAspectRatio.value = normalizeImageAspectRatio(message.imageAspectRatio || aspectRatioFromSize(message.size))
       quality.value = normalizeImageQuality(message.quality)
       complexity.value = normalizeImageComplexity(message.complexity)
+      imageOutput.value = normalizeGPTImageOutput(message.imageOutput)
       count.value = normalizeCount(message.count || 1)
       imageAttachments.value = await restoreImageAttachments(message)
     } else {
@@ -1423,6 +1446,8 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     size,
     quality,
     complexity,
+    imageOutput,
+    imageOutputSupported,
     count,
     resolution,
     videoAspectRatio,

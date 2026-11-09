@@ -196,6 +196,7 @@
                   />
                 </button>
                 <button
+                  v-if="!(imageOutputSupported && image.mimeType === 'image/svg+xml')"
                   type="button"
                   class="image-edit-action"
                   :aria-label="t('mediaStudio.session.editImage')"
@@ -547,7 +548,7 @@
 
               <!-- 常用参数全部外置到工具条；模型声明的额外参数在模型菜单内。 -->
               <div
-                v-if="selectedModeId === 'image' && !hiddenParameterControls.includes('image.size')"
+                v-if="selectedModeId === 'image' && imageOutput?.output_format !== 'gif' && !hiddenParameterControls.includes('image.size')"
                 class="composer-chip-wrap relative"
               >
                 <select
@@ -570,7 +571,7 @@
               </div>
 
               <div
-                v-if="selectedModeId === 'image' && !hiddenParameterControls.includes('image.size')"
+                v-if="selectedModeId === 'image' && imageOutput?.output_format !== 'gif' && !hiddenParameterControls.includes('image.size')"
                 class="composer-chip-wrap relative"
               >
                 <select
@@ -589,7 +590,7 @@
               </div>
 
               <div
-                v-if="selectedModeId === 'image' && !hiddenParameterControls.includes('image.count')"
+                v-if="selectedModeId === 'image' && imageOutput?.output_format !== 'svg' && !hiddenParameterControls.includes('image.count')"
                 class="composer-chip-wrap relative"
               >
                 <select
@@ -608,6 +609,14 @@
               </div>
 
               <span v-if="selectedModeId === 'image' && chatgptAppImages" class="text-xs text-gray-500 dark:text-gray-400">{{ t('mediaStudio.composer.appImagesHint') }}</span>
+
+              <GPTImageOutputFields
+                v-if="selectedModeId === 'image' && imageOutputSupported && !hiddenParameterControls.includes('image.outputFormat')"
+                :model-value="imageOutput"
+                :allow-svg="imageAttachments.length === 0"
+                :hidden-fields="hiddenParameterControls.map(control => MEDIA_STUDIO_PARAMETER_BINDINGS[control])"
+                @update:model-value="emit('update:imageOutput', $event)"
+              />
 
               <div v-if="selectedModeId === 'image' && imageComplexityOptions?.length && !hiddenParameterControls.includes('image.complexity')" class="composer-chip-wrap relative">
                 <select
@@ -843,6 +852,9 @@
 </template>
 
 <script setup lang="ts">
+import GPTImageOutputFields from '@/common/widgets/forms/GPTImageOutputFields.vue'
+import type { GPTImageOutputOptions } from '@/core/utils/gptImageOutput'
+import { MEDIA_STUDIO_PARAMETER_BINDINGS } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/common/widgets/icons/Icon.vue'
@@ -893,6 +905,8 @@ const props = defineProps<{
   customImageAspectRatios: string[]
   quality: string
   complexity?: 'low' | 'medium' | 'high'
+  imageOutput?: GPTImageOutputOptions
+  imageOutputSupported?: boolean
   count: number
   resolution: MediaStudioVideoResolution
   videoAspectRatio: MediaStudioVideoAspectRatio
@@ -939,6 +953,7 @@ const emit = defineEmits<{
   addCustomImageAspectRatio: [value: string]
   'update:quality': [value: string]
   'update:complexity': [value: 'low' | 'medium' | 'high']
+  'update:imageOutput': [value: GPTImageOutputOptions]
   'update:count': [value: number]
   'update:resolution': [value: MediaStudioVideoResolution]
   'update:videoAspectRatio': [value: MediaStudioVideoAspectRatio]
@@ -1346,6 +1361,9 @@ function ratioNumber(value: string | undefined, fallback: string): number {
 const MAX_MEDIA_PREVIEW_HEIGHT_PX = 384
 
 function imageFrameStyle(message: MediaStudioMessage) {
+  if (message.imageOutput?.output_format === 'gif' && message.images?.length) {
+    return { aspectRatio: 'auto', maxWidth: `min(100%, ${MAX_MEDIA_PREVIEW_HEIGHT_PX}px)` }
+  }
   const ratio = ratioNumber(message.imageAspectRatio || props.imageAspectRatio, '1:1')
   return {
     aspectRatio: `${ratio}`,

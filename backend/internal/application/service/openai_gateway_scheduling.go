@@ -712,6 +712,7 @@ func (s *OpenAIGatewayService) selectAccountForModelWithExclusions(ctx context.C
 }
 
 func (s *OpenAIGatewayService) selectAccountForModelWithExclusionsAndStreamHealth(ctx context.Context, groupID *int64, platform string, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, requireCompact bool, stickyAccountID int64, requiredCapability OpenAIEndpointCapability, preferLowUpstreamRate bool) (*Account, bool, error) {
+	ctx = s.WithImageScheduling(ctx, requestedModel)
 	ctx = s.withOpenAIRoutingModelContext(ctx, groupID, requestedModel, requireCompact)
 	ctx = withSchedulerCandidateExclusions(ctx, excludedIDs)
 	platform = normalizeOpenAICompatiblePlatform(platform)
@@ -790,7 +791,7 @@ func (s *OpenAIGatewayService) tryStickySessionHit(ctx context.Context, groupID 
 
 	// 检查账号是否需要清理粘性会话
 	// Check if sticky session should be cleared
-	if shouldClearStickySession(account, requestedModel) {
+	if shouldClearStickySessionWithContext(ctx, account, requestedModel) {
 		_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
 		return nil
 	}
@@ -1006,7 +1007,7 @@ func (s *OpenAIGatewayService) selectLegacyStickyAccountBeforePoolScan(
 		}
 		return nil, false, true, nil
 	}
-	if shouldClearStickySession(account, requestedModel) || !isOpenAICompatibleAccountEligibleForRequest(ctx, account, platform, requestedModel, false, requiredCapability) {
+	if shouldClearStickySessionWithContext(ctx, account, requestedModel) || !isOpenAICompatibleAccountEligibleForRequest(ctx, account, platform, requestedModel, false, requiredCapability) {
 		if !preserveStickyBinding {
 			_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
 		}
@@ -1121,6 +1122,7 @@ func (s *OpenAIGatewayService) selectOpenAIContentSessionBurstCandidates(
 }
 
 func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Context, groupID *int64, platform string, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, requireCompact bool, requiredCapability OpenAIEndpointCapability, useUpstreamTokenCost bool, contentSessionConcurrent bool) (*AccountSelectionResult, error) {
+	ctx = s.WithImageScheduling(ctx, requestedModel)
 	ctx = s.withOpenAIRoutingModelContext(ctx, groupID, requestedModel, requireCompact)
 	ctx = withSchedulerCandidateExclusions(ctx, excludedIDs)
 	platform = normalizeOpenAICompatiblePlatform(platform)
@@ -1259,7 +1261,7 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 		if accountID > 0 && !isExcluded(accountID) {
 			account, err := s.getSchedulableAccount(ctx, accountID)
 			if err == nil {
-				clearSticky := shouldClearStickySession(account, requestedModel)
+				clearSticky := shouldClearStickySessionWithContext(ctx, account, requestedModel)
 				if clearSticky {
 					_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
 				}

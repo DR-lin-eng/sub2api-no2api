@@ -104,6 +104,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 	reqLog = reqLog.With(zap.String("model", reqModel), zap.Bool("stream", reqStream))
 
 	setOpsRequestContext(c, reqModel, reqStream)
+	c.Request = c.Request.WithContext(h.gatewayService.WithImageScheduling(c.Request.Context(), reqModel))
 	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(reqStream, false)))
 	pricingCtx, pricingAt := service.WithGatewayTokenRequestPricing(c.Request.Context())
 	c.Request = c.Request.WithContext(pricingCtx)

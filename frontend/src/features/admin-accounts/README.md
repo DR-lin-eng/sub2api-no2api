@@ -75,3 +75,5 @@ OpenAI 与 Anthropic API-key 的 WebSearch 模拟共用已有三态字段和全�
 `GrokModelDiagnosticsPanel.vue` 查询已保存账号详情并显式刷新目录；诊断和 API 类型由同 feature 的 `data/dtos/grokModelDiagnostics.ts` 所有。Grok 白名单同步只补下拉可选项，不自动改变选择。账号切换后忽略迟到响应，旧节点缺少诊断字段时显示兼容提示。
 
 `presentation/accountCreateOpenAIExtra.ts` 构造创建账号的 OpenAI extra；`openaiImageSizeTiers.ts` 与 `OpenAIImageSizeTiersField.vue` 统一创建、编辑和批量更新的图片档位。缺省/全选不限，批量 null 不修改、显式空数组清除限制；启用前须完成全部节点升级，见 [同步审查](../../../../docs/UPSTREAM_SYNC_20261104.md)。
+
+`AdminAccountTestDialog.vue` 与 `AccountTestDialog.vue` 为原生 GPT Image 2.6 提供 SVG/GIF 输出测试，使用共享 `GPTImageOutputFields.vue`，结果按实际格式预览和下载。后端校验文件而非只看格式标签；普通 ChatGPT App 通道明确提示原生格式不可用。

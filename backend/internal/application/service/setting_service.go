@@ -78,6 +78,8 @@ type SettingService struct {
 	openAIRequestTimezoneMu     sync.Mutex
 	openAIImagesModeCache       atomic.Pointer[cachedOpenAIImagesMode]
 	openAIImagesModeMu          sync.Mutex
+	imageSchedulingCache        atomic.Pointer[cachedImageSchedulingSettings]
+	imageSchedulingMu           sync.Mutex
 	adminAPIKeyMu               sync.Mutex
 
 	registrationEmailBlacklistMu    sync.Mutex

@@ -2,6 +2,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"github.com/Wei-Shaw/sub2api/internal/modules/typesafe"
@@ -338,10 +339,20 @@ func (a *Account) EffectiveLoadFactor() int {
 }
 
 func (a *Account) IsSchedulable() bool {
+	return a.isSchedulable(false)
+}
+
+// IsSchedulableWithContext preserves health checks while allowing trusted image
+// requests to bypass the account's persistent scheduling switch.
+func (a *Account) IsSchedulableWithContext(ctx context.Context) bool {
+	return a.isSchedulable(ImageIndependentSchedulingFromContext(ctx))
+}
+
+func (a *Account) isSchedulable(ignoreSwitch bool) bool {
 	if a == nil {
 		return false
 	}
-	if !a.IsActive() || !a.Schedulable {
+	if !a.IsActive() || (!ignoreSwitch && !a.Schedulable) {
 		return false
 	}
 	now := time.Now()

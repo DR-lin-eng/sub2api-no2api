@@ -105,6 +105,7 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 	reqLog = reqLog.With(zap.String("model", reqModel), zap.Bool("stream", reqStream))
 
 	setOpsRequestContext(c, reqModel, reqStream)
+	c.Request = c.Request.WithContext(h.gatewayService.WithImageScheduling(c.Request.Context(), reqModel))
 	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(reqStream, false)))
 	pricingCtx, pricingAt := h.gatewayService.WithOpenAIRequestPricingContext(c.Request.Context(), apiKey.GroupID)
 	c.Request = c.Request.WithContext(pricingCtx)

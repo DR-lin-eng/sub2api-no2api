@@ -1,10 +1,10 @@
 //go:build unit
 
 // Package service 提供 API 网关核心服务。
-// 本文件包含 shouldClearStickySession 函数的单元测试，
+// 本文件包含 shouldClearStickySessionWithContext 函数的单元测试，
 // 验证粘性会话清理逻辑在各种账号状态下的正确行为。
 //
-// This file contains unit tests for the shouldClearStickySession function,
+// This file contains unit tests for the shouldClearStickySessionWithContext function,
 // verifying correct sticky session clearing behavior under various account states.
 package service
 
@@ -143,7 +143,7 @@ func TestShouldClearStickySession(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.want, shouldClearStickySession(tt.account, tt.requestedModel))
+			require.Equal(t, tt.want, shouldClearStickySessionWithContext(t.Context(), tt.account, tt.requestedModel))
 		})
 	}
 }
