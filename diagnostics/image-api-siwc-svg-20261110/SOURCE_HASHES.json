@@ -1,0 +1,14 @@
+{
+  "baseline": "818667ced",
+  "production_files": {
+    "backend/internal/application/service/account_test_image_options.go": "2c6d394a5f8d828cd2d605cb79f2bacb38b7b85e8970cf851872b93ddc8c5495",
+    "backend/internal/application/service/account_test_service_openai_images.go": "961a4bc184e0329904a836af0fa66481bf780ec7c4421ebf96d0213cb5fadae4",
+    "backend/internal/application/service/openai_image_output_decode.go": "fc37a7c5fb78579c6aa9d386156a3da611db1434deb6c2db50055e582d839999",
+    "backend/internal/application/service/openai_images.go": "55eef553a4389f038eab110d5fd018a5bbb33695ec4995ae1fffbea1736d598f",
+    "backend/internal/application/service/openai_images_chatgpt.go": "f26dbad6563c45049654b610f762dfec7683bb222b23f5be099bb080106b0247",
+    "backend/internal/application/service/openai_images_direct.go": "72d5e8a0b00bc16eacdf12f33db5741f2d219792370b5ebb5b483587eee59590",
+    "backend/internal/application/service/openai_images_output_validation.go": "304aa17b1df86055aa382f09ee500d1b8ac8b16559ea2e38120d406766e89365",
+    "backend/internal/application/service/openai_images_protocol_selection.go": "aa8591fd22188c10f2712c561ff4dbbbd3fc184fcd6b2738160abee1ca08eb26",
+    "backend/internal/application/service/openai_images_response_files.go": "25a3f84e981e50bb93d74e797cda239d099aca506efe85e462e26609bc4fa8a2"
+  }
+}

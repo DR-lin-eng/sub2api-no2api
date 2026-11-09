@@ -2,7 +2,6 @@ package service
 
 import (
 	"encoding/base64"
-	"encoding/xml"
 	"fmt"
 	"io"
 	"strings"
@@ -11,7 +10,11 @@ import (
 // Read GIF blocks without decoding pixel buffers, so checking animations does
 // not allocate width*height*frame_count memory.
 func openAIImagesGIFFrames(image string) (int, error) {
-	r := base64.NewDecoder(base64.StdEncoding, strings.NewReader(image))
+	payload, encoding, err := openAIImageBase64Payload(image)
+	if err != nil {
+		return 0, err
+	}
+	r := base64.NewDecoder(encoding, strings.NewReader(payload))
 	header := make([]byte, 13)
 	if _, err := io.ReadFull(r, header); err != nil {
 		return 0, err
@@ -95,26 +98,8 @@ func validateAccountImageTestOutput(image, format string) error {
 			return fmt.Errorf("upstream did not return a valid animated GIF file")
 		}
 	case "svg":
-		decoder := xml.NewDecoder(base64.NewDecoder(base64.StdEncoding, strings.NewReader(image)))
-		found := false
-		for {
-			token, err := decoder.Token()
-			if err == io.EOF {
-				if found {
-					return nil
-				}
-				return fmt.Errorf("SVG output is empty")
-			}
-			if err != nil {
-				return fmt.Errorf("upstream did not return a valid SVG file: %w", err)
-			}
-			if element, ok := token.(xml.StartElement); ok && !found {
-				if element.Name.Local != "svg" {
-					return fmt.Errorf("upstream did not return an SVG document")
-				}
-				found = true
-			}
-		}
+		_, err := normalizeOpenAISVGOutput(image)
+		return err
 	}
 	return nil
 }

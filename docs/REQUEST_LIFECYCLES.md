@@ -82,6 +82,9 @@ OpenAI OAuth 历史重放会移除 `type=reasoning` 条目中的非空 `content`
 设备头复用既有账号持久身份，每轮临时 UUID、挑战和令牌独立，内部 Electron 控制头不出站。
 开关为 `openai_images_legacy_enabled`，管理端可恢复原 Codex 实现。
 同一请求不因配置变更或下载失败重新生成；已完成图像的张数、尺寸及用量进入原可靠结算 owner。
+API Key 与 SIWC 的图片调用始终走标准 Images，普通 OAuth 才可使用 App 适配。
+普通 OAuth 的请求包含 App 未表达的原生字段时，在第一次发送前选原生链路，避免合法 OpenAI 参数被 App 门禁拒绝；
+不丢字段、不先生成再重放，也不添加对外回退提示。SVG 文件规范化保留作者用量与未知元数据。
 协议能力、原生参数和显式 token 定价的限制见 [App 生图与旧版回退](CHATGPT_APP_IMAGES.md)。
 
 ## OAuth2 对外授权

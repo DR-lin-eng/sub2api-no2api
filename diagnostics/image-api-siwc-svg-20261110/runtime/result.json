@@ -1,0 +1,174 @@
+[
+  {
+    "stage": "BASELINE",
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "double-gateway-standard-request",
+        "status": 400
+      },
+      {
+        "case": "API-key-probe-through-OAuth-gateway",
+        "success": false
+      },
+      {
+        "case": "SIWC-protocol",
+        "upstream_path": "/v1/responses"
+      },
+      {
+        "case": "OAuth-SVG-UTF16-probe",
+        "success": false
+      },
+      {
+        "case": "API-key-standard-images",
+        "stream": false,
+        "status": 200
+      },
+      {
+        "case": "API-key-standard-images",
+        "stream": true,
+        "status": 200
+      },
+      {
+        "case": "API-key-SVG-public-encoding",
+        "canonical_utf8": false
+      },
+      {
+        "case": "GIF-actual-frame-billing",
+        "billable_frames": 4,
+        "settled_once": true
+      }
+    ],
+    "migrations_unchanged": true,
+    "historical_usage_unchanged": true
+  },
+  {
+    "stage": "MODIFIED",
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "double-gateway-standard-request",
+        "status": 200
+      },
+      {
+        "case": "API-key-probe-through-OAuth-gateway",
+        "success": true
+      },
+      {
+        "case": "SIWC-protocol",
+        "upstream_path": "/v1/images/generations"
+      },
+      {
+        "case": "OAuth-SVG-UTF16-probe",
+        "success": true
+      },
+      {
+        "case": "API-key-standard-images",
+        "stream": false,
+        "status": 200
+      },
+      {
+        "case": "API-key-standard-images",
+        "stream": true,
+        "status": 200
+      },
+      {
+        "case": "API-key-SVG-public-encoding",
+        "canonical_utf8": true
+      },
+      {
+        "case": "GIF-actual-frame-billing",
+        "billable_frames": 4,
+        "settled_once": true
+      }
+    ],
+    "migrations_unchanged": true,
+    "historical_usage_unchanged": true
+  },
+  {
+    "stage": "ROLLBACK",
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "double-gateway-standard-request",
+        "status": 400
+      },
+      {
+        "case": "API-key-probe-through-OAuth-gateway",
+        "success": false
+      },
+      {
+        "case": "SIWC-protocol",
+        "upstream_path": "/v1/responses"
+      },
+      {
+        "case": "OAuth-SVG-UTF16-probe",
+        "success": false
+      },
+      {
+        "case": "API-key-standard-images",
+        "stream": false,
+        "status": 200
+      },
+      {
+        "case": "API-key-standard-images",
+        "stream": true,
+        "status": 200
+      },
+      {
+        "case": "API-key-SVG-public-encoding",
+        "canonical_utf8": false
+      },
+      {
+        "case": "GIF-actual-frame-billing",
+        "billable_frames": 4,
+        "settled_once": true
+      }
+    ],
+    "migrations_unchanged": true,
+    "historical_usage_unchanged": true
+  },
+  {
+    "stage": "RESTORED",
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "double-gateway-standard-request",
+        "status": 200
+      },
+      {
+        "case": "API-key-probe-through-OAuth-gateway",
+        "success": true
+      },
+      {
+        "case": "SIWC-protocol",
+        "upstream_path": "/v1/images/generations"
+      },
+      {
+        "case": "OAuth-SVG-UTF16-probe",
+        "success": true
+      },
+      {
+        "case": "API-key-standard-images",
+        "stream": false,
+        "status": 200
+      },
+      {
+        "case": "API-key-standard-images",
+        "stream": true,
+        "status": 200
+      },
+      {
+        "case": "API-key-SVG-public-encoding",
+        "canonical_utf8": true
+      },
+      {
+        "case": "GIF-actual-frame-billing",
+        "billable_frames": 4,
+        "settled_once": true
+      }
+    ],
+    "migrations_unchanged": true,
+    "historical_usage_unchanged": true
+  }
+]

@@ -12,8 +12,10 @@
 以及管理端对应账号的模型选择器均包含两款模型。账号显式映射、已同步能力快照、分组白名单和自定义展示列表
 继续决定最终可见范围；默认目录不会替代管理员限制或上游能力快照。
 
-API Key 账号保留原生 Images 参数并应用既有模型映射、请求模板。普通 ChatGPT OAuth 账号默认采用
-[新版 App 生图](CHATGPT_APP_IMAGES.md)；开启网关「使用旧版 OpenAI 生图」后恢复本文的 Codex 原生 Images 参数合同。
+API Key 与 SIWC OAuth 账号属于标准 API 调用：保留原生 Images 参数和响应、模型映射及请求模板，
+不进入 App conversation。普通 ChatGPT OAuth 账号默认采用 [新版 App 生图](CHATGPT_APP_IMAGES.md)；
+公共 Images 请求包含原生尺寸、质量、SVG/GIF 格式等参数时，在发送前自动选择本账号的原生 Images 链路。
+网关「使用旧版 OpenAI 生图」只控制普通 OAuth 无原生参数时的默认通道。
 新版 App 内部图像模型 ID 未确认，调用方的模型名用于网关路由与计价，不能据此保证内部运行同名 2.6 模型。
 `complexity` 支持 `low`、`medium`、`high`，省略时使用上游默认值 `high`，与渲染 `quality` 独立。
 2.6 的质量选项包括 `auto`、`low`、`medium`、`high`、`xhigh`、`max`。
@@ -40,6 +42,9 @@ SVG 固定为单个生成文件，存在编辑参考图时不可选；GIF 可带
 
 账号管理的画图测试提供同样的 2.6 格式选项，并返回可下载的 SVG/GIF 文件。测试会解析 SVG XML
 及 GIF 文件块，只有确实收到对应文件时才报告成功；单帧 GIF 不作为动画能力验证成功。
+SVG 返回在账号测试和公共 Images JSON 响应中共用规范化：接受 Base64（含 URL-safe/无填充）、data URL、
+UTF-8 XML，以及明确 BOM 的 UTF-16 或 gzip SVG；最终输出标准 Base64 编码的 UTF-8 SVG。
+解码和解压受文件大小限制。PNG 等位图不因请求 `output_format=svg` 被重标为矢量，损坏 XML/字节仍明确报错。
 API Key、原生 OAuth/SIWC/PAT 测试保留实际 MIME；ChatGPT App 账号测试对 GIF 使用 conversation
 动画意图，对 SVG 在本次测试内回退 Codex legacy Images；媒体工坊不会把未确认的 App 原生字段静默提交。
 官方能力说明不代表每个账号已获预览权限，实际可用性以上游测试结果为准。
@@ -92,3 +97,6 @@ HEAD 中该文件已是 1201 行，超过 1200 行门槛，本次未修改该文
 
 2026-11-09 的账号格式测试、媒体工坊 SVG/GIF 选择与按帧计费实现及验证见
 [专项验证记录](../diagnostics/gpt-image26-formats-20261109/VERIFICATION.md)。
+
+2026-11-10 的标准 API/SIWC 分流、两层网关 400 与 SVG 编码修复、Docker 升级回退证据见
+[协议与编码验证](../diagnostics/image-api-siwc-svg-20261110/VERIFICATION.md)。

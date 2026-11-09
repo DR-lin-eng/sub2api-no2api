@@ -182,8 +182,8 @@ func validateChatGPTAppImageOptions(parsed *OpenAIImagesRequest) error {
 	}
 	// The recovered App Images page has no native model-specific controls.
 	// Reject unsupported guarantees before creating a conversation or uploading.
-	if parsed.SVG != nil || parsed.FrameCount != nil || parsed.FrameDurationMS != nil || parsed.MaskUpload != nil || parsed.MaskImageURL != "" || parsed.MarkupUpload != nil || parsed.MarkupImageURL != "" || parsed.OutputCompression != nil || parsed.PartialImages != nil || parsed.Complexity != "" || parsed.OutputFormat != "" || parsed.Quality != "" && parsed.Quality != "auto" || parsed.Background != "" && parsed.Background != "auto" || parsed.ExplicitSize && parsed.Size != "auto" || parsed.Style != "" || parsed.InputFidelity != "" || parsed.Moderation != "" || parsed.SafetyIdentifier != "" || parsed.User != "" {
-		return &OpenAIImagesUpstreamError{StatusCode: 400, ErrorType: "invalid_request_error", Message: "This image option requires legacy image generation. Enable legacy images in Gateway settings."}
+	if openAIImagesRequiresNativeProtocol(parsed) {
+		return &OpenAIImagesUpstreamError{StatusCode: 400, ErrorType: "invalid_request_error", Message: "The selected image generation options could not be processed."}
 	}
 	return nil
 }

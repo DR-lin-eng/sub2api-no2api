@@ -69,9 +69,15 @@ func (s *AccountTestService) sendAccountImageTestResult(c *gin.Context, parsed *
 		format = parsed.OutputFormat
 	}
 	mimeType := openAIImageOutputMIMEType(format)
-	if err := validateAccountImageTestOutput(image, parsed.OutputFormat); err != nil {
-		return s.sendErrorAndEnd(c, err.Error())
+	normalized, err := normalizeOpenAIImageOutput(image, format)
+	if err != nil {
+		return s.sendErrorAndEnd(c, fmt.Sprintf("upstream returned invalid %s image data: %s", format, err))
 	}
-	s.sendEvent(c, TestEvent{Type: "image", ImageURL: "data:" + mimeType + ";base64," + image, MimeType: mimeType})
+	if format == "gif" {
+		if err := validateAccountImageTestOutput(normalized, "gif"); err != nil {
+			return s.sendErrorAndEnd(c, err.Error())
+		}
+	}
+	s.sendEvent(c, TestEvent{Type: "image", ImageURL: "data:" + mimeType + ";base64," + normalized, MimeType: mimeType})
 	return nil
 }

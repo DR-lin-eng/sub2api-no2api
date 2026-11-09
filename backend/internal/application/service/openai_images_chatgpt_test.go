@@ -277,8 +277,10 @@ func TestChatGPTAppImagesUnsupportedOptionsFailBeforeUpstream(t *testing.T) {
 		c := newOpenAIImagesContext(t, body)
 		parsed, err := svc.ParseOpenAIImagesRequest(c, body)
 		require.NoError(t, err)
-		_, err = svc.ForwardImages(context.Background(), c, chatGPTAppImageTestAccount(), body, parsed, "")
-		require.ErrorContains(t, err, "legacy")
+		_, err = svc.forwardChatGPTAppImages(context.Background(), c, chatGPTAppImageTestAccount(), parsed, "")
+		require.ErrorContains(t, err, "image generation options")
+		require.NotContains(t, err.Error(), "legacy")
+		require.NotContains(t, err.Error(), "fallback")
 		require.Equal(t, 400, c.Writer.Status())
 	}
 	require.Empty(t, upstream.calls)
