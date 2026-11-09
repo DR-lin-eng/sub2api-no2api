@@ -58,7 +58,11 @@ HTTP resume 最多 3 次，随后按元数据进行有限历史查询。
 新版支持 prompt、参考图、`n`（最多 10）、流式/非流式及 `b64_json`/`url` 结果表示。
 多张请求按需串行创建独立生成；已取得足够图片时停止创建新会话。
 App 不提供本项目可以确认的原生尺寸、质量、复杂度、SVG、mask 或 markup 参数合同；逆向证据显示 GIF 是 conversation animation intent 与 `image/gif` 结果链路，而不是稳定的 Images API `output_format` 字段。管理员账号测试对 GIF 使用该 conversation 意图并验证实际动画文件；对 SVG 测试只在本次 probe 内静默回退到 Codex legacy Images 链路，内部策略不进入 SSE、请求体或用户可见文案。
-显式要求这些保证时，网关在上传/生成前返回 400，提示使用旧版；不会静默丢弃参数。
+对外 `/v1/images/generations`、`/v1/images/edits` 保留 OpenAI Images 参数合同。
+API Key 和 SIWC OAuth 账号始终使用标准 Images 请求与端点，不经过 App conversation、验证准备或 App 参数门禁。
+普通 OAuth 账号仅在请求可由 App 合同表达时使用新版；请求显式包含尺寸、质量、复杂度、格式、GIF 帧参数、
+SVG 作者、mask 或 markup 等原生字段时，发送前在同一账号选择 Codex 原生链路，完整保留参数。
+这不是失败后重放，不修改全局设置，也不向 API、上游请求或界面添加内部选路提示。
 
 媒体工坊通过配置中的 `openai_images_protocol` 选择控件和请求字段。
 可能调度普通 OAuth 的分组使用新版共同参数，并将模型选择标为计费模型；

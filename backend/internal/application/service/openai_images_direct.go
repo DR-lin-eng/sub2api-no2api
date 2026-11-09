@@ -214,6 +214,10 @@ func (s *OpenAIGatewayService) handleCodexDirectImagesNonStreamingResponse(resp 
 		}
 		return OpenAIUsage{}, 0, nil, err
 	}
+	body, err = normalizeOpenAIImagesResponseFiles(body, parsed)
+	if err != nil {
+		return OpenAIUsage{}, 0, nil, err
+	}
 	results, err := parseCodexDirectImagesResponse(body)
 	if err != nil {
 		return OpenAIUsage{}, 0, nil, err

@@ -26,6 +26,9 @@ func (s *AccountTestService) testOpenAIImageOAuth(c *gin.Context, ctx context.Co
 	if parseErr != nil {
 		return s.sendErrorAndEnd(c, parseErr.Error())
 	}
+	if credentialAccount.IsOpenAISIWC() {
+		return s.testOpenAIImageAPIKey(c, ctx, account, modelID, prompt)
+	}
 	appImages := s.settingService != nil && !s.settingService.OpenAIImagesLegacyEnabled(ctx) && !credentialAccount.IsOpenAISIWC() && !credentialAccount.IsOpenAIPersonalAccessToken() && !credentialAccount.IsOpenAIAgentIdentity()
 	if !accountTestForceLegacyImages(ctx) && appImages {
 		if parsed.OutputFormat == "svg" || parsed.SVG != nil {
@@ -179,12 +182,25 @@ func (s *AccountTestService) testOpenAIImageAPIKey(c *gin.Context, ctx context.C
 	if parseErr != nil {
 		return s.sendErrorAndEnd(c, parseErr.Error())
 	}
-	authToken := account.GetOpenAIApiKey()
+	credentialAccount, err := resolveCredentialAccount(ctx, s.accountRepo, account)
+	if err != nil {
+		return s.sendErrorAndEnd(c, "Failed to resolve account credentials")
+	}
+	authToken := credentialAccount.GetOpenAIApiKey()
+	if credentialAccount.IsOpenAISIWC() {
+		authToken = credentialAccount.GetOpenAIAccessToken()
+	}
 	if authToken == "" {
 		return s.sendErrorAndEnd(c, "No API key available")
 	}
 
 	baseURL := account.GetOpenAIBaseURL()
+	if credentialAccount.IsOpenAISIWC() {
+		baseURL, _, err = resolveOpenAIOAuthCodexBaseURL(ctx, s.settingService, s.cfg, credentialAccount)
+		if err != nil {
+			return s.sendErrorAndEnd(c, "Invalid SIWC API base URL")
+		}
+	}
 	if baseURL == "" {
 		baseURL = "https://api.openai.com"
 	}
@@ -239,6 +255,9 @@ func (s *AccountTestService) testOpenAIImageAPIKey(c *gin.Context, ctx context.C
 
 	// 账号级请求头覆写：测试请求与真实转发保持一致的最终头
 	account.ApplyHeaderOverrides(req.Header)
+	if credentialAccount.IsOpenAISIWC() {
+		applyOpenAISIWCHeaders(req.Header)
+	}
 
 	proxyURL := ""
 	if account.ProxyID != nil && account.Proxy != nil {

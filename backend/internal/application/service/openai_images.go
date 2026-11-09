@@ -772,7 +772,10 @@ func (s *OpenAIGatewayService) ForwardImages(
 		if err != nil {
 			return nil, err
 		}
-		if s.useChatGPTAppImages(ctx, c, credentialAccount) {
+		if credentialAccount.IsOpenAISIWC() {
+			return s.forwardOpenAIImagesAPIKey(ctx, c, account, body, parsed, channelMappedModel)
+		}
+		if s.useChatGPTAppImages(ctx, c, credentialAccount) && !openAIImagesRequiresNativeProtocol(parsed) {
 			return s.forwardChatGPTAppImages(ctx, c, account, parsed, channelMappedModel)
 		}
 		return s.forwardOpenAIImagesOAuth(ctx, c, account, parsed, channelMappedModel)
@@ -1034,6 +1037,16 @@ func (s *OpenAIGatewayService) buildOpenAIImagesRequestReader(
 		targetURL = openAIImagesEditsURL
 	}
 	baseURL := account.GetOpenAIBaseURL()
+	credentialAccount, err := resolveCredentialAccount(ctx, s.accountRepo, account)
+	if err != nil {
+		return nil, err
+	}
+	if credentialAccount.IsOpenAISIWC() {
+		baseURL, _, err = resolveOpenAIOAuthCodexBaseURL(ctx, s.settingService, s.cfg, credentialAccount)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if baseURL != "" {
 		validatedURL, err := s.validateUpstreamBaseURL(baseURL)
 		if err != nil {
@@ -1079,6 +1092,9 @@ func (s *OpenAIGatewayService) buildOpenAIImagesRequestReader(
 	}
 	// 账号级请求头覆写（仅 openai api_key 账号启用时生效；OAuth 路径 no-op）
 	account.ApplyHeaderOverrides(req.Header)
+	if credentialAccount.IsOpenAISIWC() {
+		applyOpenAISIWCHeaders(req.Header)
+	}
 	return req, nil
 }
 
@@ -1195,6 +1211,10 @@ func (s *OpenAIGatewayService) handleOpenAIImagesNonStreamingResponse(resp *http
 		if err != nil {
 			return OpenAIUsage{}, 0, nil, err
 		}
+	}
+	body, err = normalizeOpenAIImagesResponseFiles(body, parsed)
+	if err != nil {
+		return OpenAIUsage{}, 0, nil, err
 	}
 	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
 	contentType := "application/json"

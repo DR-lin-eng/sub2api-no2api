@@ -22,7 +22,9 @@
 
 服务端会话持有 flow、回调地址、nonce、设备与 PKCE；回调不能更换 token 端点或 redirect URI。兑换时校验 state、回调地址和重复参数，并检查 ID token 的 nonce、token 完整性与 direct scope。凭据刷新沿用现有账号出口、锁和持久化流程。SIWC token 不用于 ChatGPT 后台账号信息和训练隐私设置请求。
 
-SIWC 账号用于直接模型请求。Live、Excel/BPS 与 Spark 影子账号功能不适用于此认证模式；额度查询和 reset credit 是独立的 WHAM 管理路径，不依赖这些功能。
+SIWC 账号用于直接模型请求。图片生成/编辑使用标准 `/v1/images/generations`、`/v1/images/edits`，
+与 API Key 账号共用原生参数与响应路径；账号画图测试遵循同一规则。SIWC 不使用普通 OAuth 的
+ChatGPT App conversation、Sentinel 或全局 Codex 中转覆盖。Live、Excel/BPS 与 Spark 影子账号功能不适用于此认证模式；额度查询和 reset credit 是独立的 WHAM 管理路径，不依赖这些功能。
 
 主要源码：
 

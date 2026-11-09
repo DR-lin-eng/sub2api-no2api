@@ -144,7 +144,11 @@ func TestGPTImage26OutputFormats(t *testing.T) {
 		t.Run(format, func(t *testing.T) {
 			body := []byte(fmt.Sprintf(`{"model":"gpt-image-2.6-flare","prompt":"draw","output_format":%q,"response_format":"url"}`, format))
 			c, rec := newOpenAIImagesTestContext(t, body)
-			response := fmt.Sprintf(`{"output_format":%q,"data":[{"b64_json":"AA=="}],"usage":{"input_tokens":10,"output_tokens":20}}`, format)
+			encoded := "AA=="
+			if format == "svg" {
+				encoded = base64.StdEncoding.EncodeToString([]byte(`<svg xmlns="http://www.w3.org/2000/svg"/>`))
+			}
+			response := fmt.Sprintf(`{"output_format":%q,"data":[{"b64_json":%q}],"usage":{"input_tokens":10,"output_tokens":20}}`, format, encoded)
 			upstream := &httpUpstreamRecorder{resp: &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(response))}}
 			svc := newOpenAIImagesService(upstream)
 			parsed, err := svc.ParseOpenAIImagesRequest(c, body)
@@ -156,7 +160,7 @@ func TestGPTImage26OutputFormats(t *testing.T) {
 			if format == "svg" {
 				mime = "image/svg+xml"
 			}
-			require.Equal(t, "data:"+mime+";base64,AA==", gjson.GetBytes(rec.Body.Bytes(), "data.0.url").String())
+			require.Equal(t, "data:"+mime+";base64,"+encoded, gjson.GetBytes(rec.Body.Bytes(), "data.0.url").String())
 		})
 	}
 	var buf bytes.Buffer
@@ -185,7 +189,12 @@ func TestGPTImage26NativeOptions(t *testing.T) {
 		}
 		_, err = buildOpenAIImagesResponsesRequest(parsed, parsed.Model)
 		require.ErrorContains(t, err, "native Images endpoint", "native options must not disappear during a legacy fallback")
-		upstream := &httpUpstreamRecorder{resp: openAIImagesJSONResponse()}
+		response := openAIImagesJSONResponse()
+		if parsed.OutputFormat == "svg" {
+			encoded := base64.StdEncoding.EncodeToString([]byte(`<svg xmlns="http://www.w3.org/2000/svg"/>`))
+			response.Body = io.NopCloser(strings.NewReader(fmt.Sprintf(`{"data":[{"b64_json":%q}]}`, encoded)))
+		}
+		upstream := &httpUpstreamRecorder{resp: response}
 		_, err = newOpenAIImagesService(upstream).ForwardImages(context.Background(), c, newOpenAIImagesAPIKeyAccount(), body, parsed, "")
 		require.NoError(t, err)
 		require.JSONEq(t, string(body), string(upstream.lastBody), "API-key requests must retain the original options")
