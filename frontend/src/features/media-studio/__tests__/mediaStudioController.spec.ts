@@ -65,16 +65,20 @@ describe('media studio controller', () => {
       listModels: vi.fn().mockResolvedValue({ object: 'list', data: [{ id: model }] }), submitImage,
     })
     await controller.loadMediaGroups()
+    controller.imageResolution.value = '2K'
+    controller.imageAspectRatio.value = '16:9'
     controller.imageOutput.value = format === 'gif'
       ? { output_format: 'gif', frame_count: 4, frame_duration_ms: 150 }
       : { output_format: 'svg', svg: { model: 'gpt-6-astra', reasoning: { effort: 'high' } } }
     controller.prompt.value = 'a moving geometric logo'
     await controller.submitPrompt()
     expect(submitImage.mock.calls[0]?.[1]).toMatchObject({ model, n: 1, ...controller.imageOutput.value })
-    if (format === 'gif') expect(submitImage.mock.calls[0]?.[1].size).toBe('auto')
+    expect(submitImage.mock.calls[0]?.[1].size).toBe('2048x1152')
     const completed = controller.conversation.value.messages.at(-1)!
     expect(completed).toMatchObject({ status: 'completed', imageOutput: controller.imageOutput.value })
-    if (format === 'gif') { expect(completed.size).toBe('auto'); expect(completed.imageResolution).toBeUndefined() }
+    expect(completed.size).toBe('2048x1152')
+    expect(completed.imageResolution).toBe('2K')
+    expect(completed.imageAspectRatio).toBe('16:9')
     if (format === 'svg') {
       await controller.editGeneratedImage(completed.images![0])
       expect(controller.imageAttachments.value).toHaveLength(0)

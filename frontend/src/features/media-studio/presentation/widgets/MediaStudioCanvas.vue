@@ -548,7 +548,7 @@
 
               <!-- 常用参数全部外置到工具条；模型声明的额外参数在模型菜单内。 -->
               <div
-                v-if="selectedModeId === 'image' && imageOutput?.output_format !== 'gif' && !hiddenParameterControls.includes('image.size')"
+                v-if="selectedModeId === 'image' && !hiddenParameterControls.includes('image.size')"
                 class="composer-chip-wrap relative"
               >
                 <select
@@ -571,7 +571,7 @@
               </div>
 
               <div
-                v-if="selectedModeId === 'image' && imageOutput?.output_format !== 'gif' && !hiddenParameterControls.includes('image.size')"
+                v-if="selectedModeId === 'image' && !hiddenParameterControls.includes('image.size')"
                 class="composer-chip-wrap relative"
               >
                 <select
@@ -590,12 +590,13 @@
               </div>
 
               <div
-                v-if="selectedModeId === 'image' && imageOutput?.output_format !== 'svg' && !hiddenParameterControls.includes('image.count')"
+                v-if="selectedModeId === 'image' && !hiddenParameterControls.includes('image.count')"
                 class="composer-chip-wrap relative"
               >
                 <select
                   class="composer-chip-select"
                   :value="count"
+                  :disabled="imageOutput?.output_format === 'svg'"
                   :aria-label="t('mediaStudio.composer.count')"
                   @change="emit('update:count', Number(($event.target as HTMLSelectElement).value))"
                 >
@@ -1361,9 +1362,6 @@ function ratioNumber(value: string | undefined, fallback: string): number {
 const MAX_MEDIA_PREVIEW_HEIGHT_PX = 384
 
 function imageFrameStyle(message: MediaStudioMessage) {
-  if (message.imageOutput?.output_format === 'gif' && message.images?.length) {
-    return { aspectRatio: 'auto', maxWidth: `min(100%, ${MAX_MEDIA_PREVIEW_HEIGHT_PX}px)` }
-  }
   const ratio = ratioNumber(message.imageAspectRatio || props.imageAspectRatio, '1:1')
   return {
     aspectRatio: `${ratio}`,

@@ -464,7 +464,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     const request: MediaStudioCostEstimateRequest = { media_type: mode, group_id: selectedGroupId.value, model: model.value }
     if (mode === 'video') { request.resolution = resolution.value; request.duration = duration.value }
     else {
-      request.size = imageOutputSupported.value && imageOutput.value.output_format === 'gif' ? 'auto' : size.value
+      request.size = size.value
       request.count = imageOutputSupported.value && imageOutput.value.output_format === 'svg' ? 1 : normalizeCount(count.value)
       if (imageOutputSupported.value) { request.output_format = imageOutput.value.output_format; request.frame_count = imageOutput.value.frame_count }
     }
@@ -960,9 +960,9 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
       // 记录提交时所在分组，刷新后只恢复当前分组里的任务。
       groupId: selectedGroupId.value,
       model: model.value.trim() || (mode === 'video' ? DEFAULT_VIDEO_MODEL : DEFAULT_IMAGE_MODEL),
-      size: mode === 'image' && !chatgptAppImages.value ? (imageOutputSupported.value && imageOutput.value.output_format === 'gif' ? 'auto' : size.value) : undefined,
-      imageResolution: mode === 'image' && !chatgptAppImages.value && !(imageOutputSupported.value && imageOutput.value.output_format === 'gif') ? imageResolution.value : undefined,
-      imageAspectRatio: mode === 'image' && !chatgptAppImages.value && !(imageOutputSupported.value && imageOutput.value.output_format === 'gif') ? imageAspectRatio.value : undefined,
+      size: mode === 'image' && !chatgptAppImages.value ? size.value : undefined,
+      imageResolution: mode === 'image' && !chatgptAppImages.value ? imageResolution.value : undefined,
+      imageAspectRatio: mode === 'image' && !chatgptAppImages.value ? imageAspectRatio.value : undefined,
       quality: mode === 'image' && !chatgptAppImages.value ? quality.value : undefined,
       complexity: mode === 'image' && !chatgptAppImages.value && supportsImageComplexity(model.value) ? complexity.value : undefined,
       imageOutput: mode === 'image' && imageOutputSupported.value ? normalizeGPTImageOutput(imageOutput.value) : undefined,
@@ -1042,7 +1042,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
         }
         if (attributeMode !== 'replace' && !usesAppImageProtocol(assistantMessage.model || '', assistantMessage.groupId ?? null)) {
           if (!replacedByTemplate('image.size')) {
-            payload.size = assistantMessage.imageOutput?.output_format === 'gif' ? 'auto' : imageSizeFor(
+            payload.size = imageSizeFor(
               normalizeImageResolution(assistantMessage.imageResolution),
               normalizeImageAspectRatio(assistantMessage.imageAspectRatio),
             )
