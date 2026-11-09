@@ -11,6 +11,7 @@
 - `presentation/pages/`: 路由级加载、保存、step-up 与对话框编排。
 - `presentation/widgets/settings-tabs/`: 按设置领域拆分的 tab 和 panel。
 - `presentation/widgets/settings-tabs/SettingsOpenAIRequestTimezoneFields.vue`: 网关服务 → 请求转发行为中的 OpenAI 请求时区开关与目标时区；复用主设置统一保存，数据库值覆盖部署默认值，保存后无需重启。
+- `presentation/widgets/settings-tabs/SettingsImageSchedulingFields.vue`: 网关服务调度面板中的画图模型独立调度开关，允许健康但关闭调度的账号参与画图，复用主设置的加载与统一保存。
 - `presentation/widgets/settings-tabs/SettingsOpenAIImagesModeFields.vue`: 网关生图旧版回退开关；关闭时默认使用新版 App 流程，复用主设置的读取、部分保存与回填。
 - `presentation/widgets/settings-tabs/SettingsOAuth2ProviderPanel.vue`: 完整管理员专用的 OAuth2 provider 总开关、issuer、token TTL、客户端、回调、scope 与密钥轮换面板。
 - `presentation/widgets/settings-tabs/gateway-resilience/`: Codex A/B/C、系统强制账号预热、关注模型的 Turn State 自动监测/代理探测/重放、兼容多值随机重放与质量巡检一键同步、临时不可调度、OAuth 401 自动清理、冷却、流超时、请求修正与策略设置卡片；直接复用页面 context，由网关韧性 panel 按原顺序装配。Codex 查询失败时不得显示默认关闭状态，独立强制恢复 action 必须保持可用。

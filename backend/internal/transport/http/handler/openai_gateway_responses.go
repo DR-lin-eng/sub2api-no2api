@@ -178,6 +178,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	if imageIntent {
 		c.Request = c.Request.WithContext(service.WithOpenAIImageGenerationIntent(c.Request.Context()))
 	}
+	c.Request = c.Request.WithContext(h.gatewayService.WithImageScheduling(c.Request.Context(), reqModel))
 	llmStream := reqStream && !imageIntent
 	stopForcedImagePreKeepalive := func() {}
 	if forceImageTool && reqStream {

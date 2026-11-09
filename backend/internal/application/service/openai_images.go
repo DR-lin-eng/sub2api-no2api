@@ -972,7 +972,7 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 		if parsed.Stream {
 			nonStreamUsage, nonStreamCount, nonStreamSizes, err = s.handleOpenAIImagesPseudoStreamingResponse(resp, c, parsed.ResponseFormat)
 		} else {
-			nonStreamUsage, nonStreamCount, nonStreamSizes, err = s.handleOpenAIImagesNonStreamingResponse(resp, c, parsed.ResponseFormat)
+			nonStreamUsage, nonStreamCount, nonStreamSizes, err = s.handleOpenAIImagesNonStreamingResponse(resp, c, parsed)
 		}
 		if err != nil {
 			return nil, err
@@ -1172,13 +1172,20 @@ func cloneMultipartHeader(src textproto.MIMEHeader) textproto.MIMEHeader {
 	return dst
 }
 
-func (s *OpenAIGatewayService) handleOpenAIImagesNonStreamingResponse(resp *http.Response, c *gin.Context, responseFormat ...string) (OpenAIUsage, int, []string, error) {
+func (s *OpenAIGatewayService) handleOpenAIImagesNonStreamingResponse(resp *http.Response, c *gin.Context, options ...*OpenAIImagesRequest) (OpenAIUsage, int, []string, error) {
 	body, err := ReadUpstreamResponseBody(resp.Body, s.cfg, c, openAITooLargeError)
 	if err != nil {
 		return OpenAIUsage{}, 0, nil, err
 	}
 	body = stripOpenAIImagesEmptySSEKeepalives(body)
-	if strings.EqualFold(strings.TrimSpace(firstOptionalString(responseFormat)), "url") {
+	var parsed *OpenAIImagesRequest
+	if len(options) > 0 {
+		parsed = options[0]
+	}
+	if parsed != nil && (parsed.OutputFormat == "gif" || parsed.OutputFormat == "svg") && extractOpenAIImageCountFromJSONBytes(body) == 0 {
+		return OpenAIUsage{}, 0, nil, &OpenAIImagesUpstreamError{StatusCode: 502, ErrorType: "upstream_error", Message: "Images API returned no image file"}
+	}
+	if parsed != nil && strings.EqualFold(strings.TrimSpace(parsed.ResponseFormat), "url") {
 		body, err = s.rewriteOpenAIImagesResponseURLsStrict(c, body)
 		if err != nil {
 			return OpenAIUsage{}, 0, nil, err
@@ -1199,7 +1206,8 @@ func (s *OpenAIGatewayService) handleOpenAIImagesNonStreamingResponse(resp *http
 	c.Data(resp.StatusCode, contentType, body)
 
 	usage, _ := codexDirectImagesUsage(body)
-	return usage, extractOpenAIImageCountFromJSONBytes(body), collectOpenAIResponseImageOutputSizesFromJSONBytes(body), nil
+	count, sizes := openAIImagesBillableOutputs(body, parsed, extractOpenAIImageCountFromJSONBytes(body), collectOpenAIResponseImageOutputSizesFromJSONBytes(body), imageCountBillingEnabled(getAPIKeyFromContext(c)))
+	return usage, count, sizes, nil
 }
 
 func (s *OpenAIGatewayService) handleOpenAIImagesPseudoStreamingResponse(resp *http.Response, c *gin.Context, responseFormat ...string) (OpenAIUsage, int, []string, error) {

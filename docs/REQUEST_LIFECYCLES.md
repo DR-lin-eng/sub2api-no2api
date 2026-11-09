@@ -359,6 +359,24 @@ Happy Eyeballs 回退 IPv4。连接池键包含源地址和绑定版本，轮换
   API Key 串联其他 Sub2API 时保持相同行为。Responses 流已通过 keepalive 提交 200 时使用协议内失败事件。
 - 客户端取消应停止上游读取和后台转发，不能继续占用账号或累计无主缓存。
 
+### 画图模型独立调度
+
+“网关服务”调度面板中的“画图模型独立调度”对应持久设置
+`image_independent_scheduling_enabled`，默认关闭。开启后，专用 Images 端点及
+GPT Image、Grok 图片、Gemini 图片模型的请求可使用 `status=active` 的账号，
+不受账号 `schedulable` 开关限制；普通文本请求继续遵守该开关。
+错误、禁用、已删除、过期、过载、限流或错误冷却中的账号仍不参与，模型级图片限流、
+分组/模型权限、影子母账号健康、账号并发和请求失败排除仍由原调度链路检查。
+仅在普通文本请求中声明图片工具不会取得这项资格。
+
+该请求在旧快照和候选索引两种引擎下均从数据库读取独立候选，不写回普通调度缓存；
+排队取得槽位后重新读取账号健康，账号变为错误时释放槽位并重选。当前节点保存后立即生效，
+其他节点最多 5 秒刷新；请求使用固定的策略快照。无需数据库迁移；混合版本节点仍使用各自
+支持的调度规则，全部节点升级后再开启；回退前关闭开关即可恢复原账号调度控制。
+实现入口是 `image_independent_scheduling.go`、`setting_image_scheduling.go` 与
+`account_repo_image_scheduling.go`。 Docker 与浏览器验收、已有检查问题见
+[验证记录](../diagnostics/image-independent-scheduling-20261109/VERIFICATION.md)。
+
 ### 上游错误与临时不可调度范围
 
 `credentials.temp_unschedulable_rules[].scope` 是可选字段：未设置时保留既有的模型已知且非 401 使用模型冷却的行为，`account` 暂停整个账号，`model` 只冷却当前调度模型。模型未知、OAuth/影子账号的认证失效以及 OpenAI 明确凭据撤销仍保留账号保护。token 计数、Bedrock 和重试耗尽都传递调度器读取的模型键，运行态阻断采用相同范围。滚动升级先更新全部节点再启用新 scope，回退前恢复自动范围。

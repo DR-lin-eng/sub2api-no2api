@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog"
 	"github.com/Wei-Shaw/sub2api/internal/modules/typesafe"
+	"io"
 	"log"
 	"log/slog"
 	"net/http"
@@ -1401,6 +1402,7 @@ func (h *AccountHandler) Delete(c *gin.Context) {
 
 // TestAccountRequest represents the request body for testing an account
 type TestAccountRequest struct {
+	service.AccountImageTestOptions
 	ModelID string `json:"model_id"`
 	Prompt  string `json:"prompt"`
 	Mode    string `json:"mode"`
@@ -1430,8 +1432,13 @@ func (h *AccountHandler) Test(c *gin.Context) {
 	}
 
 	var req TestAccountRequest
-	// Allow empty body, model_id is optional
-	_ = c.ShouldBindJSON(&req)
+	// Allow an empty body while rejecting malformed image options.
+	if err := c.ShouldBindJSON(&req); err != nil && !errors.Is(err, io.EOF) {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	c.Request = c.Request.WithContext(service.WithAccountImageTestOptions(c.Request.Context(), req.AccountImageTestOptions))
 
 	// Use AccountTestService to test the account with SSE streaming
 	if err := h.accountTestService.TestAccountConnection(c, accountID, req.ModelID, req.Prompt, req.Mode); err != nil {

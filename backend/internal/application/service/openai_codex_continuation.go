@@ -180,7 +180,7 @@ func (s *OpenAIGatewayService) RefreshCodexContinuationSchedulingAccount(ctx con
 	if err != nil {
 		return nil, fmt.Errorf("refresh Codex continuation account %d: %w", selected.ID, err)
 	}
-	if latest == nil || !latest.IsSchedulable() || !codexContinuationSchedulingMatches(ctx, latest) {
+	if latest == nil || !latest.IsSchedulableWithContext(ctx) || !codexContinuationSchedulingMatches(ctx, latest) {
 		return nil, fmt.Errorf("%w: Codex continuation account %d no longer matches its owner", ErrAccountSchedulingChanged, selected.ID)
 	}
 	return latest, nil

@@ -59,6 +59,7 @@
 | `openai_codex_cache_identity.go` | 按主体与会话 root 原子固定首次 UUIDv7，会话/缓存键跨请求、重连和实例复用及有界本地 fallback |
 | `openai_codex_continuation.go` | Codex continuation 分类、owner 策略、跨主体 sanitizer 与成功回写 |
 | `openai_oauth_gateway_rate_limit.go` | 统一配置、按账号分桶且跨实例共享的 OpenAI OAuth RPM/burst 准入、逻辑请求去重与协议错误投影 |
+| `image_independent_scheduling.go`, `setting_image_scheduling.go` | 画图模型独立候选的请求策略、持久开关和 5 秒运行时缓存；账号错误与图片限流仍由原调度链路检查 |
 | `openai_request_timezone.go`, `setting_openai_request_timezone.go` | OpenAI HTTP/WS 用户环境与搜索时区替换、管理员全局开关与 IANA 目标、60 秒缓存及写后立即刷新 |
 | `openai_request_integrity_observe.go` | OpenAI OAuth 兼容转换前后语义字段的只观察差异诊断 |
 | `openai_chatgpt_headers.go`, `openai_codex_request_headers.go`, `openai_codex_metadata_sanitize.go` | OpenAI OAuth 凭据 principal 校验、HTTP JSON/SSE/Compact 媒体类型和证明/完整性状态的跨账号边界 |
@@ -128,3 +129,5 @@ Claude 指纹的 UTF-16 前缀、Gemini fileData 计图、DeepSeek Pro/缓存读
 2026-11-07 后续同步的原生 Images 2.6 请求/响应由 `openai_images_direct.go` 接入既有图片、账号出口和可靠计费 owner；`pricing_openai_defaults.go` 保存静态价卡，`openai_codex_known_metadata.go` 保存启动期 Terra 描述。Antigravity 分组额度和模型级 INTERNAL 500 仍由对应前缀持有。边界见 [后续同步](../../../../docs/UPSTREAM_SYNC_20261107_FOLLOWUP.md)。
 
 `openai_images26_options.go` 校验 2.6 参数和安全标识；原生 Images 用量在 OAuth 与 API Key 路径共享解析。`openai_images_svg_billing.go` 分别计价参考图片与 SVG 作者，再合并到既有结算命令；计费及目录边界见 [2.6 适配](../../../../docs/GPT_IMAGE26.md)。
+
+`account_test_image_options.go` 与 `openai_images_output_validation.go` 负责账号测试的原生 SVG/GIF 参数和有界文件校验；GIF 扫描不解压像素。`openai_images_frame_billing.go` 只在实际张数计费开启时按返回帧数累计 GIF 计费单位，并保持尺寸档位和 token 用量独立。

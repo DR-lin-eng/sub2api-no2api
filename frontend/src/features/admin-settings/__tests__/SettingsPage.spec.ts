@@ -578,6 +578,7 @@ const baseSettingsResponse = {
   backend_mode_enabled: false,
   stream_mode_performance_enabled: false,
   openai_ws_mode_router_v2_enabled: false,
+  image_independent_scheduling_enabled: false,
   openai_images_legacy_enabled: false,
   openai_request_timezone_enabled: true,
   openai_request_timezone: "Asia/Singapore",
@@ -1101,6 +1102,31 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(payload.openai_oauth_force_relay_enabled).toBe(true);
     expect(payload.openai_oauth_force_relay_base_url).toBe(relayURL);
     reloadedView.unmount();
+  });
+
+  it("loads, saves and restores independent image scheduling in gateway settings", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+    const toggle = wrapper.get('[data-testid="image-independent-scheduling-toggle"]');
+    expect((toggle.element as HTMLInputElement).checked).toBe(false);
+    await toggle.setValue(true);
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+    expect(updateSettings.mock.calls.at(-1)?.[0]).toHaveProperty("image_independent_scheduling_enabled", true);
+    wrapper.unmount();
+
+    getSettings.mockResolvedValueOnce({ ...baseSettingsResponse, image_independent_scheduling_enabled: true });
+    const restored = mountView();
+    await flushPromises();
+    await openGatewayTab(restored);
+    const restoredToggle = restored.get('[data-testid="image-independent-scheduling-toggle"]');
+    expect((restoredToggle.element as HTMLInputElement).checked).toBe(true);
+    await restoredToggle.setValue(false);
+    await restored.find("form").trigger("submit.prevent");
+    await flushPromises();
+    expect(updateSettings.mock.calls.at(-1)?.[0]).toHaveProperty("image_independent_scheduling_enabled", false);
+    restored.unmount();
   });
 
   it("defaults to App images and persists the legacy rollback toggle", async () => {

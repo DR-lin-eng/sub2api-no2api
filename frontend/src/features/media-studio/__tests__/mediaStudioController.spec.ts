@@ -52,6 +52,40 @@ describe('media studio controller', () => {
     vi.restoreAllMocks()
   })
 
+  it.each(['gif', 'svg'] as const)('submits and restores 2.6 %s files and format parameters', async (format) => {
+    const model = 'gpt-image-2.6-flare'
+    const submitImage = vi.fn().mockResolvedValue({
+      id: 'format-26', task_id: 'format-26', status: 'completed',
+      result: { output_format: format, data: [{ url: `https://cdn.example/format.${format}` }] }, created_at: 1, expires_at: 2,
+    })
+    const controller = useMediaStudioController({
+      storage: localStorage,
+      getConfig: vi.fn().mockResolvedValue({ groups: [{ ...config.groups[0], openai_images_protocol: 'legacy', models: [model] }] }),
+      createSession: vi.fn().mockResolvedValue(session()),
+      listModels: vi.fn().mockResolvedValue({ object: 'list', data: [{ id: model }] }), submitImage,
+    })
+    await controller.loadMediaGroups()
+    controller.imageOutput.value = format === 'gif'
+      ? { output_format: 'gif', frame_count: 4, frame_duration_ms: 150 }
+      : { output_format: 'svg', svg: { model: 'gpt-6-astra', reasoning: { effort: 'high' } } }
+    controller.prompt.value = 'a moving geometric logo'
+    await controller.submitPrompt()
+    expect(submitImage.mock.calls[0]?.[1]).toMatchObject({ model, n: 1, ...controller.imageOutput.value })
+    if (format === 'gif') expect(submitImage.mock.calls[0]?.[1].size).toBe('auto')
+    const completed = controller.conversation.value.messages.at(-1)!
+    expect(completed).toMatchObject({ status: 'completed', imageOutput: controller.imageOutput.value })
+    if (format === 'gif') { expect(completed.size).toBe('auto'); expect(completed.imageResolution).toBeUndefined() }
+    if (format === 'svg') {
+      await controller.editGeneratedImage(completed.images![0])
+      expect(controller.imageAttachments.value).toHaveLength(0)
+    }
+    controller.imageOutput.value = {}
+    await controller.retryMessage(completed)
+    expect(submitImage.mock.calls.at(-1)?.[1]).toMatchObject({ output_format: format })
+    const restored = useMediaStudioController({ storage: localStorage })
+    expect(restored.imageOutput.value).toMatchObject({ output_format: format })
+  })
+
   it('loads image models and submits a completed image result', async () => {
     const submitImage = vi.fn().mockResolvedValue({
       id: 'image-1', task_id: 'image-1', object: 'image.generation.task', status: 'completed',

@@ -40,7 +40,7 @@ func (r *accountRepository) queryAccountsByGroup(ctx context.Context, groupID in
 		preds = append(preds, dbaccount.PlatformIn(opts.platforms...))
 	}
 	if opts.schedulable {
-		preds = append(preds, dbaccount.SchedulableEQ(true))
+		preds = append(preds, accountSchedulingSwitchPredicate(ctx))
 		if !opts.ignoreTransientState {
 			now := time.Now()
 			preds = append(preds,

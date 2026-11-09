@@ -22,6 +22,8 @@
         :custom-image-aspect-ratios="customImageAspectRatios"
         v-model:quality="quality"
         v-model:complexity="complexity"
+        v-model:image-output="imageOutput"
+        :image-output-supported="imageOutputSupported"
         v-model:count="count"
         v-model:resolution="resolution"
         v-model:video-aspect-ratio="videoAspectRatio"
@@ -116,6 +118,8 @@ const {
   addCustomImageAspectRatio,
   quality,
   complexity,
+  imageOutput,
+  imageOutputSupported,
   count,
   resolution,
   videoAspectRatio,

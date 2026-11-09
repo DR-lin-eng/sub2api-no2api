@@ -685,7 +685,7 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 		}
 		return nil, 0, nil
 	}
-	if shouldClearStickySession(account, req.RequestedModel) || account.Platform != normalizeOpenAICompatiblePlatform(req.Platform) || !account.IsOpenAICompatible() || !account.IsSchedulable() {
+	if shouldClearStickySessionWithContext(ctx, account, req.RequestedModel) || account.Platform != normalizeOpenAICompatiblePlatform(req.Platform) || !account.IsOpenAICompatible() || !account.IsSchedulableWithContext(ctx) {
 		if req.EphemeralStickyAccount {
 			s.service.dropOpenAIContentSessionCandidate(ctx, req.GroupID, sessionHash, accountID)
 		} else {
@@ -1776,7 +1776,7 @@ func (s *defaultOpenAIAccountScheduler) selectionFailureDetails(
 				continue
 			}
 		}
-		if !account.IsSchedulable() {
+		if !account.IsSchedulableWithContext(ctx) {
 			stats.exclude("not_schedulable")
 			continue
 		}
@@ -1836,7 +1836,7 @@ func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 				continue
 			}
 		}
-		if !account.IsSchedulable() {
+		if !account.IsSchedulableWithContext(ctx) {
 			continue
 		}
 		if account.Platform != normalizeOpenAICompatiblePlatform(req.Platform) || !account.IsOpenAICompatible() {
@@ -2622,6 +2622,7 @@ func (s *OpenAIGatewayService) SelectAccountWithSchedulerForImages(
 	excludedIDs map[int64]struct{},
 	requiredCapability OpenAIImagesCapability,
 ) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
+	ctx = s.WithImageScheduling(WithOpenAIImagesEndpoint(ctx), requestedModel)
 	selection, decision, err := s.selectAccountWithScheduler(ctx, groupID, "", sessionHash, requestedModel, excludedIDs, OpenAIUpstreamTransportHTTPSSE, "", requiredCapability, false, PlatformOpenAI, false, false)
 	if err == nil && selection != nil && selection.Account != nil {
 		s.recordOpenAIContentSessionCandidate(ctx, groupID, sessionHash, selection.Account.ID)
@@ -2670,6 +2671,7 @@ func (s *OpenAIGatewayService) selectAccountWithScheduler(
 	previousResponseCanMove bool,
 	useUpstreamTokenCost bool,
 ) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
+	ctx = s.WithImageScheduling(ctx, requestedModel)
 	candidates, routed := apiKeyGroupRoutingCandidates(ctx, groupID)
 	if !routed {
 		return s.selectAccountWithSchedulerInGroup(ctx, groupID, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, requiredCapability, requiredImageCapability, requireCompact, platform, previousResponseCanMove, useUpstreamTokenCost)

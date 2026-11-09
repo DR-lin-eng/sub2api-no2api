@@ -251,6 +251,14 @@ func (s *SchedulerSnapshotService) ListSchedulableAccounts(ctx context.Context, 
 	}
 	mode := s.resolveMode(platform, hasForcePlatform)
 	bucket := s.bucketFor(groupID, platform, mode)
+	// Image candidates include healthy accounts whose persistent switch is off.
+	// Never publish this pool into either ordinary scheduler cache/index.
+	if ImageIndependentSchedulingFromContext(ctx) {
+		readCtx, cancel := s.withFallbackTimeout(ctx)
+		defer cancel()
+		accounts, err := s.loadAccountsFromDB(readCtx, bucket, useMixed)
+		return accounts, useMixed, err
+	}
 	if s.schedulerV2Enabled(ctx) {
 		accounts, err := s.listSchedulerV2Accounts(ctx, bucket)
 		return accounts, useMixed, err
@@ -679,6 +687,11 @@ func (s *SchedulerSnapshotService) GetAccount(ctx context.Context, accountID int
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
+	}
+	if ImageIndependentSchedulingFromContext(ctx) && s.accountRepo != nil {
+		readCtx, cancel := s.withFallbackTimeout(ctx)
+		defer cancel()
+		return s.accountRepo.GetByID(readCtx, accountID)
 	}
 	if s.cache != nil {
 		account, err := s.cache.GetAccount(ctx, accountID)

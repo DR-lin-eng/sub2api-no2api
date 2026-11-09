@@ -35,3 +35,25 @@ func TestChatGPTAppImagesMediaNativeOnlyAndMixedGroups(t *testing.T) {
 		})
 	}
 }
+
+type image26IndependentProtocolRepo struct{ AccountRepository }
+
+func (image26IndependentProtocolRepo) ListSchedulableByGroupIDAndPlatform(ctx context.Context, _ int64, _ string) ([]Account, error) {
+	accounts := []Account{
+		{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: false},
+		{ID: 2, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusError, Schedulable: true},
+	}
+	var eligible []Account
+	for _, a := range accounts {
+		if a.IsSchedulableWithContext(ctx) {
+			eligible = append(eligible, a)
+		}
+	}
+	return eligible, nil
+}
+
+func TestGPTImage26NativeControlsUseIndependentImagePool(t *testing.T) {
+	settings := NewSettingService(&openAIAdvancedSchedulerSettingRepoStub{values: map[string]string{SettingKeyImageIndependentSchedulingEnabled: "true"}}, nil)
+	svc := &MediaStudioService{gatewayService: &OpenAIGatewayService{accountRepo: image26IndependentProtocolRepo{}, settingService: settings}}
+	require.Equal(t, "legacy", svc.imageProtocolForGroup(t.Context(), MediaStudioGroupOption{GroupID: 1, Platform: PlatformOpenAI}, "chatgpt_app"), "healthy paused native accounts support the SVG/GIF controls; errored OAuth accounts do not force App mode")
+}

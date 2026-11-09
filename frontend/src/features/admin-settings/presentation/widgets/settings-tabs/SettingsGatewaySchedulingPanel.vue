@@ -1,5 +1,6 @@
 <template>
 <div class="space-y-6">
+  <SettingsImageSchedulingFields />
   <!-- Claude Code Settings -->
   <div class="card">
     <div
@@ -824,6 +825,7 @@
 </template>
 
 <script setup lang="ts">
+import SettingsImageSchedulingFields from "./SettingsImageSchedulingFields.vue"
 import Toggle from '@/common/widgets/forms/Toggle.vue'
 import { useSettingsPageContext } from '@/features/admin-settings/presentation/composables/settingsPageContext'
 

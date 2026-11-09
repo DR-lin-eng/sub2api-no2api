@@ -1,3 +1,4 @@
+import { normalizeGPTImageOutput, type GPTImageOutputOptions } from '@/core/utils/gptImageOutput'
 import { safeMediaStudioReferenceSource } from '@/features/media-studio/data/datasources/mediaStudioBrowserMedia'
 import { normalizeMediaStudioOwnerID } from '@/features/media-studio/data/datasources/mediaStudioImageStore'
 import type {
@@ -134,6 +135,7 @@ export interface MediaStudioMessage {
   imageResolution?: MediaStudioImageResolution
   imageAspectRatio?: MediaStudioImageAspectRatio
   quality?: string
+  imageOutput?: GPTImageOutputOptions
   complexity?: MediaStudioImageComplexity
   count?: number
   resolution?: MediaStudioVideoResolution
@@ -175,6 +177,7 @@ export interface PersistedMediaStudioState {
   imageAspectRatio?: MediaStudioImageAspectRatio
   customImageAspectRatios?: string[]
   quality?: string
+  imageOutput?: GPTImageOutputOptions
   complexity?: MediaStudioImageComplexity
   count?: number
   resolution?: MediaStudioVideoResolution
@@ -311,12 +314,13 @@ export function restorePersistedConversation(value: unknown): MediaStudioConvers
           : undefined,
         model: typeof candidate.model === 'string' ? candidate.model : undefined,
         size: typeof candidate.size === 'string' ? candidate.size : undefined,
-        imageResolution: normalizeImageResolution(candidate.imageResolution),
-        imageAspectRatio: candidate.imageAspectRatio
+        imageResolution: candidate.imageOutput?.output_format === 'gif' ? undefined : normalizeImageResolution(candidate.imageResolution),
+        imageAspectRatio: candidate.imageOutput?.output_format === 'gif' ? undefined : candidate.imageAspectRatio
           ? normalizeImageAspectRatio(candidate.imageAspectRatio)
           : aspectRatioFromSize(candidate.size),
         quality: normalizeImageQuality(candidate.quality),
         complexity: normalizeImageComplexity(candidate.complexity),
+        imageOutput: normalizeGPTImageOutput(candidate.imageOutput),
         count: typeof candidate.count === 'number' ? normalizeCount(candidate.count) : undefined,
         resolution: candidate.resolution === '480p' || candidate.resolution === '720p' || candidate.resolution === '1080p'
           ? candidate.resolution

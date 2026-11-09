@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,7 +22,14 @@ func (s *AccountTestService) testOpenAIImageOAuth(c *gin.Context, ctx context.Co
 		}
 		credentialAccount = resolved
 	}
+	parsed, parseErr := buildAccountImageTestRequest(ctx, account, modelID, prompt)
+	if parseErr != nil {
+		return s.sendErrorAndEnd(c, parseErr.Error())
+	}
 	if s.settingService != nil && !s.settingService.OpenAIImagesLegacyEnabled(ctx) && !credentialAccount.IsOpenAISIWC() && !credentialAccount.IsOpenAIPersonalAccessToken() && !credentialAccount.IsOpenAIAgentIdentity() {
+		if parsed.OutputFormat != "" || parsed.FrameCount != nil || parsed.FrameDurationMS != nil || parsed.SVG != nil {
+			return s.sendErrorAndEnd(c, "This ChatGPT App account does not expose native SVG/GIF controls. Enable legacy OpenAI images or use a native API Key/SIWC/PAT account.")
+		}
 		return s.testChatGPTAppImage(c, ctx, account, modelID, prompt)
 	}
 	authToken := ""
@@ -44,14 +52,6 @@ func (s *AccountTestService) testOpenAIImageOAuth(c *gin.Context, ctx context.Co
 		s.sendEvent(c, TestEvent{Type: "content", Text: "Calling Codex /responses image tool...\n"})
 	}
 
-	parsed := &OpenAIImagesRequest{
-		Endpoint: openAIImagesGenerationsEndpoint,
-		Model:    strings.TrimSpace(modelID),
-		Prompt:   prompt,
-		Size:     account.OpenAIImageTestSize(),
-	}
-	parsed.ExplicitSize = parsed.Size != ""
-	applyOpenAIImagesDefaults(parsed)
 	if !usesCodexDirectImages(parsed.Model) {
 		s.sendEvent(c, TestEvent{Type: "content", Text: fmt.Sprintf("Responses driver: %s; image model: %s\n", openAIImagesResponsesMainModelValue(), parsed.Model)})
 	}
@@ -162,17 +162,144 @@ func (s *AccountTestService) testOpenAIImageOAuth(c *gin.Context, ctx context.Co
 	}
 
 	for _, item := range results {
-		if item.RevisedPrompt != "" {
-			s.sendEvent(c, TestEvent{Type: "content", Text: item.RevisedPrompt})
+		if err := s.sendAccountImageTestResult(c, parsed, item.Result, item.OutputFormat, item.RevisedPrompt); err != nil {
+			return err
 		}
-		mimeType := openAIImageOutputMIMEType(item.OutputFormat)
-		s.sendEvent(c, TestEvent{
-			Type:     "image",
-			ImageURL: "data:" + mimeType + ";base64," + item.Result,
-			MimeType: mimeType,
-		})
 	}
 
+	s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
+	return nil
+}
+
+// testOpenAIImageAPIKey tests OpenAI image generation using an API Key account.
+func (s *AccountTestService) testOpenAIImageAPIKey(c *gin.Context, ctx context.Context, account *Account, modelID, prompt string) error {
+	parsed, parseErr := buildAccountImageTestRequest(ctx, account, modelID, prompt)
+	if parseErr != nil {
+		return s.sendErrorAndEnd(c, parseErr.Error())
+	}
+	authToken := account.GetOpenAIApiKey()
+	if authToken == "" {
+		return s.sendErrorAndEnd(c, "No API key available")
+	}
+
+	baseURL := account.GetOpenAIBaseURL()
+	if baseURL == "" {
+		baseURL = "https://api.openai.com"
+	}
+	normalizedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
+	if err != nil {
+		return s.sendErrorAndEnd(c, fmt.Sprintf("Invalid base URL: %s", err.Error()))
+	}
+	apiURL := buildOpenAIImagesURL(normalizedBaseURL, openAIImagesGenerationsEndpoint)
+
+	// Set SSE headers
+	c.Writer.Header().Set("Content-Type", "text/event-stream")
+	c.Writer.Header().Set("Cache-Control", "no-cache")
+	c.Writer.Header().Set("Connection", "keep-alive")
+	c.Writer.Header().Set("X-Accel-Buffering", "no")
+	c.Writer.Flush()
+
+	s.sendEvent(c, TestEvent{Type: "test_start", Model: modelID})
+
+	payload := map[string]any{
+		"model":  modelID,
+		"prompt": prompt,
+		"size":   "1024x1024",
+		"n":      1,
+	}
+	if size := account.OpenAIImageTestSize(); size != "" {
+		payload["size"] = size
+	}
+	if parsed.Size != "" {
+		payload["size"] = parsed.Size
+	}
+	if parsed.OutputFormat != "" {
+		payload["output_format"] = parsed.OutputFormat
+	}
+	if parsed.FrameCount != nil {
+		payload["frame_count"] = *parsed.FrameCount
+	}
+	if parsed.FrameDurationMS != nil {
+		payload["frame_duration_ms"] = *parsed.FrameDurationMS
+	}
+	if parsed.SVG != nil {
+		payload["svg"] = parsed.SVG
+	}
+	payloadBytes, _ := json.Marshal(payload)
+
+	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewReader(payloadBytes))
+	if err != nil {
+		return s.sendErrorAndEnd(c, "Failed to create request")
+	}
+	req = req.WithContext(WithHTTPUpstreamProfile(req.Context(), HTTPUpstreamProfileOpenAI))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+authToken)
+
+	// 账号级请求头覆写：测试请求与真实转发保持一致的最终头
+	account.ApplyHeaderOverrides(req.Header)
+
+	proxyURL := ""
+	if account.ProxyID != nil && account.Proxy != nil {
+		proxyURL = account.Proxy.URL()
+	}
+
+	resp, err := s.doAccountTestHTTPUpstreamWithTLS(req, proxyURL, account, s.tlsFPProfileService.ResolveTLSProfile(account))
+	if err != nil {
+		return s.sendErrorAndEnd(c, fmt.Sprintf("Request failed: %s", err.Error()))
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := ReadUpstreamResponseBody(resp.Body, s.cfg, c, openAITooLargeError)
+	if err != nil {
+		return s.sendErrorAndEnd(c, fmt.Sprintf("Failed to read response: %s", err.Error()))
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return s.sendErrorAndEnd(c, fmt.Sprintf("API returned %d: %s", resp.StatusCode, string(body)))
+	}
+
+	// Parse {"data": [{"b64_json": "...", "revised_prompt": "..."}]}
+	var result struct {
+		OutputFormat string `json:"output_format"`
+		Data         []struct {
+			B64JSON       string `json:"b64_json"`
+			OutputFormat  string `json:"output_format"`
+			URL           string `json:"url"`
+			RevisedPrompt string `json:"revised_prompt"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return s.sendErrorAndEnd(c, fmt.Sprintf("Failed to parse response: %s", err.Error()))
+	}
+
+	if len(result.Data) == 0 {
+		return s.sendErrorAndEnd(c, "No images returned from API")
+	}
+
+	outputs := 0
+	for _, item := range result.Data {
+		if item.B64JSON != "" {
+			outputs++
+			format := firstNonEmptyString(item.OutputFormat, result.OutputFormat, parsed.OutputFormat)
+			if err := s.sendAccountImageTestResult(c, parsed, item.B64JSON, format, item.RevisedPrompt); err != nil {
+				return err
+			}
+		} else if item.URL != "" {
+			outputs++
+			if parsed.OutputFormat == "svg" || parsed.OutputFormat == "gif" {
+				return s.sendErrorAndEnd(c, "The upstream returned a URL instead of file bytes; SVG/GIF output could not be verified")
+			}
+			s.sendEvent(c, TestEvent{
+				Type:     "image",
+				ImageURL: item.URL,
+				MimeType: "image/*",
+			})
+		}
+	}
+
+	if outputs == 0 {
+		return s.sendErrorAndEnd(c, "No image file was returned from API")
+	}
 	s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
 	return nil
 }

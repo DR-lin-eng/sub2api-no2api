@@ -58,13 +58,15 @@ type MediaStudioGroupRoutes []MediaStudioGroupRoute
 
 // MediaStudioCostEstimateRequest 描述媒体工坊提交前的计价输入。
 type MediaStudioCostEstimateRequest struct {
-	MediaType  string `json:"media_type"`
-	GroupID    int64  `json:"group_id"`
-	Model      string `json:"model"`
-	Resolution string `json:"resolution"`
-	Duration   int    `json:"duration"`
-	Size       string `json:"size"`
-	Count      int    `json:"count"`
+	OutputFormat string `json:"output_format"`
+	FrameCount   *int   `json:"frame_count"`
+	MediaType    string `json:"media_type"`
+	GroupID      int64  `json:"group_id"`
+	Model        string `json:"model"`
+	Resolution   string `json:"resolution"`
+	Duration     int    `json:"duration"`
+	Size         string `json:"size"`
+	Count        int    `json:"count"`
 }
 
 // MediaStudioCostEstimate 是 sub2api 本地计价链路算出的预估消耗。
@@ -351,7 +353,7 @@ func (s *MediaStudioService) EstimateCost(
 	// multimodal 是逐模型定价分组，没有条目时会退化成 LiteLLM/兜底 token 价，
 	// 这种情况交给图片/视频计价链路报“未配置价格”，不能误报为预估不可用。
 	if resolved := s.gatewayService.resolveOpenAIChannelPricing(ctx, model, apiKey); resolved != nil &&
-		resolved.Mode == BillingModeToken &&
+		resolved.Mode == BillingModeToken && (mediaType != "image" || !group.ImageCountBilling) &&
 		(!IsMultimodal(group.Platform) ||
 			resolved.Source == PricingSourceGroup ||
 			resolved.Source == PricingSourceChannel) {
@@ -388,9 +390,30 @@ func (s *MediaStudioService) EstimateCost(
 			DurationSeconds: durationSeconds,
 		}, nil
 	case "image":
+		if req.OutputFormat == "gif" && strings.EqualFold(strings.TrimSpace(req.Size), "auto") {
+			return nil, ErrMediaStudioCostEstimateUnavailable
+		}
 		count := req.Count
 		if count <= 0 {
 			count = 1
+		}
+		if count > 10 {
+			return nil, ErrMediaStudioGroupRouteInvalid
+		}
+		if req.OutputFormat == "svg" && count != 1 {
+			return nil, ErrMediaStudioGroupRouteInvalid
+		}
+		if req.OutputFormat == "gif" {
+			frames := defaultOpenAIImagesGIFFrameCount
+			if req.FrameCount != nil {
+				frames = *req.FrameCount
+			}
+			if frames < 2 || frames > 16 {
+				return nil, ErrMediaStudioGroupRouteInvalid
+			}
+			if group.ImageCountBilling {
+				count *= frames
+			}
 		}
 		cost, err := s.gatewayService.calculateOpenAIImageCost(ctx, model, apiKey, &OpenAIForwardResult{
 			ImageCount: count,
