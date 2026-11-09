@@ -44,6 +44,7 @@ var schedulerNeutralExtraKeyPrefixes = []string{
 	"passive_usage_",
 	"upstream_billing_probe",
 	"ollama_cloud_usage",
+	"openai_location_",
 	service.OAuthSupportedModelsExtraKey,
 	service.OpenAIOAuthSupportedModelsExtraKey,
 }

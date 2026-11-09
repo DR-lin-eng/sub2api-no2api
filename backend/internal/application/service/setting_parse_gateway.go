@@ -12,6 +12,7 @@ func (s *SettingService) applyGatewaySettings(result *SystemSettings, settings m
 	result.ImageIndependentSchedulingEnabled = strings.EqualFold(strings.TrimSpace(settings[SettingKeyImageIndependentSchedulingEnabled]), "true")
 	result.OpenAIImagesLegacyEnabled = strings.EqualFold(settings[SettingKeyOpenAIImagesLegacyEnabled], "true")
 	result.OpenAIRequestTimezoneEnabled, result.OpenAIRequestTimezone = s.resolveOpenAIRequestTimezoneSettings(settings)
+	result.OpenAILocationEnabled, result.OpenAILocationLatitude, result.OpenAILocationLongitude = s.resolveOpenAILocationSettings(settings)
 	result.OpenAIOAuthForceRelayEnabled = strings.EqualFold(strings.TrimSpace(settings[SettingKeyOpenAIOAuthForceRelayEnabled]), "true")
 	result.OpenAIOAuthForceRelayBaseURL = strings.TrimSpace(settings[SettingKeyOpenAIOAuthForceRelayBaseURL])
 	if result.OpenAIOAuthForceRelayBaseURL == "" && !result.OpenAIOAuthForceRelayEnabled {

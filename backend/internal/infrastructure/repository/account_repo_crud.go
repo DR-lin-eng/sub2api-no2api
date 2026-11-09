@@ -547,7 +547,8 @@ func lockAndMergeAccountProbeExtra(
 			extra -> 'ollama_cloud_usage_session',
 			extra -> 'ollama_cloud_usage_auto_refresh',
 			extra -> 'ollama_cloud_usage_snapshot',
-			extra -> 'upstream_model_metadata'
+			extra -> 'upstream_model_metadata',
+			extra -> 'openai_location_persistent_offset'
 		FROM accounts
 		WHERE id = $1 AND deleted_at IS NULL
 		FOR NO KEY UPDATE
@@ -574,6 +575,7 @@ func lockAndMergeAccountProbeExtra(
 		currentOllamaAutoRefresh     []byte
 		currentOllamaSnapshot        []byte
 		currentModelMetadata         []byte
+		currentLocationOffset        []byte
 	)
 	if err := rows.Scan(
 		&identityUnchanged,
@@ -586,6 +588,7 @@ func lockAndMergeAccountProbeExtra(
 		&currentOllamaAutoRefresh,
 		&currentOllamaSnapshot,
 		&currentModelMetadata,
+		&currentLocationOffset,
 	); err != nil {
 		return nil, err
 	}
@@ -594,6 +597,14 @@ func lockAndMergeAccountProbeExtra(
 	}
 
 	extra := copyJSONMap(normalizeJSONMap(account.Extra))
+	// A stale admin form or background update must not reset a location that
+	// another request has already fixed for this account.
+	delete(extra, service.OpenAILocationPersistentOffsetExtraKey)
+	if value, ok, err := decodeAccountExtraJSON(currentLocationOffset); err != nil {
+		return nil, err
+	} else if ok {
+		extra[service.OpenAILocationPersistentOffsetExtraKey] = value
+	}
 	delete(extra, service.UpstreamModelMetadataExtraKey)
 	if identityUnchanged {
 		if value, ok, err := decodeAccountExtraJSON(currentModelMetadata); err != nil {

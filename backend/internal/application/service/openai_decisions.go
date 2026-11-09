@@ -83,6 +83,7 @@ func (s *OpenAIGatewayService) ForwardDecisions(
 		upstreamReq.Header.Set("user-agent", customUA)
 	}
 	account.ApplyHeaderOverrides(upstreamReq.Header)
+	s.applyOpenAILocationHeader(upstreamCtx, upstreamReq.Header, account)
 
 	proxyURL := ""
 	if account.Proxy != nil {

@@ -1095,6 +1095,7 @@ func (s *OpenAIGatewayService) buildOpenAIImagesRequestReader(
 	if credentialAccount.IsOpenAISIWC() {
 		applyOpenAISIWCHeaders(req.Header)
 	}
+	s.applyOpenAILocationHeader(ctx, req.Header, account)
 	return req, nil
 }
 

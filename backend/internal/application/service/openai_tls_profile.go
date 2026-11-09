@@ -33,6 +33,10 @@ func (s *OpenAIGatewayService) doAccountHTTPUpstream(
 	account *Account,
 ) (*http.Response, error) {
 	if req != nil {
+		req = req.Clone(req.Context())
+		s.applyOpenAILocationHeader(req.Context(), req.Header, account)
+	}
+	if req != nil {
 		req = req.WithContext(WithHTTPUpstreamTLSProfile(req.Context(), s.resolveTLSProfile(account)))
 	}
 	if isOpenAIOAuthGatewayModelRequest(req, account) {

@@ -694,6 +694,9 @@ const (
 	SettingKeyImageIndependentSchedulingEnabled = "image_independent_scheduling_enabled"
 	SettingKeyOpenAIImagesLegacyEnabled         = "openai_images_legacy_enabled"
 	SettingKeyOpenAIRequestTimezone             = "openai_request_timezone"
+	SettingKeyOpenAILocationEnabled             = "openai_location_enabled"
+	SettingKeyOpenAILocationLatitude            = "openai_location_latitude"
+	SettingKeyOpenAILocationLongitude           = "openai_location_longitude"
 	// SettingKeyOpenAIOAuthForceRelayEnabled forces OpenAI OAuth/Codex model
 	// traffic through the administrator-selected relay. OAuth authorization and
 	// token refresh endpoints intentionally do not use this setting.

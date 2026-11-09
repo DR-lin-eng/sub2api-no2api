@@ -262,6 +262,9 @@ function buildGatewaySettingsPayload({
     image_independent_scheduling_enabled: form.image_independent_scheduling_enabled,
     openai_images_legacy_enabled: form.openai_images_legacy_enabled,
     openai_request_timezone: form.openai_request_timezone.trim(),
+    openai_location_enabled: form.openai_location_enabled,
+    openai_location_latitude: Number(form.openai_location_latitude),
+    openai_location_longitude: Number(form.openai_location_longitude),
     openai_visible_output_ttft_enabled:
       form.openai_visible_output_ttft_enabled,
     scheduler_v2_enabled: form.scheduler_v2_enabled,

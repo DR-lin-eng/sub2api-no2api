@@ -105,6 +105,7 @@ func (s *OpenAIGatewayService) newChatGPTImageSession(ctx context.Context, c *gi
 	}
 	headers.Set("OAI-Language", language)
 	headers.Set("oai-did", resolveConvergedInstallationID(credential))
+	s.applyOpenAILocationHeader(ctx, headers, account)
 	return &chatGPTImageSession{gateway: s, account: account, credential: expected, token: token, base: parsed, headers: headers}, nil
 }
 

@@ -81,6 +81,15 @@ func appendRuntimeSettingChanges(changed []string, before, after *service.System
 	if before.OpenAIRequestTimezone != after.OpenAIRequestTimezone {
 		changed = append(changed, "openai_request_timezone")
 	}
+	if before.OpenAILocationEnabled != after.OpenAILocationEnabled {
+		changed = append(changed, "openai_location_enabled")
+	}
+	if before.OpenAILocationLatitude != after.OpenAILocationLatitude {
+		changed = append(changed, "openai_location_latitude")
+	}
+	if before.OpenAILocationLongitude != after.OpenAILocationLongitude {
+		changed = append(changed, "openai_location_longitude")
+	}
 	if before.OpenAIVisibleOutputTTFTEnabled != after.OpenAIVisibleOutputTTFTEnabled {
 		changed = append(changed, "openai_visible_output_ttft_enabled")
 	}

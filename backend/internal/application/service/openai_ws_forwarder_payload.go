@@ -224,6 +224,7 @@ func (s *OpenAIGatewayService) buildOpenAIWSHeaders(
 	applyOpenAIResponsesLiteWebSocketHeader(headers, stagedCodexOutboundSessionBody(c))
 	applyOpenAICodexSemanticRequestHeaders(headers, c, account, stagedCodexOutboundSessionBody(c))
 	applyOpenAIWorkspaceRoutingHeader(headers, workspaceRouting)
+	s.applyOpenAILocationHeader(ctx, headers, account)
 	logOpenAIRoutingDiagnostics(
 		ctx,
 		account,
