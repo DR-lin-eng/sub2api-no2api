@@ -100,11 +100,16 @@ func TestAccountTestService_ChatGPTAppSVGProbeFallsBackToCodexLegacyImages(t *te
 
 	err := probe.testOpenAIImageOAuth(c, ctx, &Account{ID: 56, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"access_token": "token-123"}}, "gpt-image-2.6-flare", "draw a vector logo")
 	require.NoError(t, err)
-	require.Contains(t, rec.Body.String(), "falling back to the Codex legacy Images chain")
+	require.NotContains(t, rec.Body.String(), "falling back to the Codex legacy Images chain")
+	require.NotContains(t, rec.Body.String(), "SVG is not exposed")
 	require.Contains(t, rec.Body.String(), "data:image/svg+xml;base64,")
 	require.Contains(t, rec.Body.String(), `"success":true`)
 	require.NotNil(t, upstream.lastReq)
 	require.Contains(t, upstream.lastReq.URL.Path, "/images/generations")
+	requestBody, readErr := io.ReadAll(upstream.lastReq.Body)
+	require.NoError(t, readErr)
+	require.NotContains(t, string(requestBody), "falling back")
+	require.NotContains(t, string(requestBody), "SVG is not exposed")
 }
 
 func TestAccountTestService_OpenAIImageAPIKeyUsesConfiguredV1BaseURL(t *testing.T) {
