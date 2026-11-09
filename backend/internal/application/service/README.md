@@ -131,3 +131,5 @@ Claude 指纹的 UTF-16 前缀、Gemini fileData 计图、DeepSeek Pro/缓存读
 `openai_images26_options.go` 校验 2.6 参数和安全标识；原生 Images 用量在 OAuth 与 API Key 路径共享解析。`openai_images_svg_billing.go` 分别计价参考图片与 SVG 作者，再合并到既有结算命令；计费及目录边界见 [2.6 适配](../../../../docs/GPT_IMAGE26.md)。
 
 `account_test_image_options.go` 与 `openai_images_output_validation.go` 负责账号测试的原生 SVG/GIF 参数和有界文件校验；GIF 扫描不解压像素。`openai_images_frame_billing.go` 只在实际张数计费开启时按返回帧数累计 GIF 计费单位，并保持尺寸档位和 token 用量独立。
+
+ChatGPT App 账号测试对 GIF 使用 App conversation 的动画意图并验证实际 `image/gif` 文件；SVG 没有 App Images 原生输出选择器，测试会在当前 probe 内静默回退到 Codex legacy Images 链路，不修改全局 legacy 设置，也不把内部回退策略写入 SSE、请求体或用户可见文案。

@@ -16,6 +16,7 @@ type AccountImageTestOptions struct {
 }
 
 type accountImageTestOptionsKey struct{}
+type accountTestForceLegacyImagesKey struct{}
 
 func WithAccountImageTestOptions(ctx context.Context, options AccountImageTestOptions) context.Context {
 	return context.WithValue(ctx, accountImageTestOptionsKey{}, options)
@@ -24,6 +25,15 @@ func WithAccountImageTestOptions(ctx context.Context, options AccountImageTestOp
 func accountImageTestOptions(ctx context.Context) AccountImageTestOptions {
 	options, _ := ctx.Value(accountImageTestOptionsKey{}).(AccountImageTestOptions)
 	return options
+}
+
+func withAccountTestForceLegacyImages(ctx context.Context) context.Context {
+	return context.WithValue(ctx, accountTestForceLegacyImagesKey{}, true)
+}
+
+func accountTestForceLegacyImages(ctx context.Context) bool {
+	forced, _ := ctx.Value(accountTestForceLegacyImagesKey{}).(bool)
+	return forced
 }
 
 func buildAccountImageTestRequest(ctx context.Context, account *Account, model, prompt string) (*OpenAIImagesRequest, error) {
