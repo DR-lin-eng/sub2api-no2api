@@ -26,11 +26,15 @@ func (s *AccountTestService) testOpenAIImageOAuth(c *gin.Context, ctx context.Co
 	if parseErr != nil {
 		return s.sendErrorAndEnd(c, parseErr.Error())
 	}
-	if s.settingService != nil && !s.settingService.OpenAIImagesLegacyEnabled(ctx) && !credentialAccount.IsOpenAISIWC() && !credentialAccount.IsOpenAIPersonalAccessToken() && !credentialAccount.IsOpenAIAgentIdentity() {
-		if parsed.OutputFormat != "" || parsed.FrameCount != nil || parsed.FrameDurationMS != nil || parsed.SVG != nil {
-			return s.sendErrorAndEnd(c, "This ChatGPT App account does not expose native SVG/GIF controls. Enable legacy OpenAI images or use a native API Key/SIWC/PAT account.")
+	forceLegacyNotice := false
+	appImages := s.settingService != nil && !s.settingService.OpenAIImagesLegacyEnabled(ctx) && !credentialAccount.IsOpenAISIWC() && !credentialAccount.IsOpenAIPersonalAccessToken() && !credentialAccount.IsOpenAIAgentIdentity()
+	if !accountTestForceLegacyImages(ctx) && appImages {
+		if parsed.OutputFormat == "svg" || parsed.SVG != nil {
+			forceLegacyNotice = true
+			ctx = withAccountTestForceLegacyImages(ctx)
+		} else {
+			return s.testChatGPTAppImage(c, ctx, account, modelID, prompt)
 		}
-		return s.testChatGPTAppImage(c, ctx, account, modelID, prompt)
 	}
 	authToken := ""
 	if !credentialAccount.IsOpenAIAgentIdentity() {
@@ -48,6 +52,9 @@ func (s *AccountTestService) testOpenAIImageOAuth(c *gin.Context, ctx context.Co
 	c.Writer.Flush()
 
 	s.sendEvent(c, TestEvent{Type: "test_start", Model: modelID})
+	if forceLegacyNotice {
+		s.sendEvent(c, TestEvent{Type: "content", Text: "SVG is not exposed by the ChatGPT App Images selector; falling back to the Codex legacy Images chain for this probe.\n"})
+	}
 	if !usesCodexDirectImages(modelID) {
 		s.sendEvent(c, TestEvent{Type: "content", Text: "Calling Codex /responses image tool...\n"})
 	}

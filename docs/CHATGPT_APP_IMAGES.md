@@ -57,7 +57,7 @@ HTTP resume 最多 3 次，随后按元数据进行有限历史查询。
 
 新版支持 prompt、参考图、`n`（最多 10）、流式/非流式及 `b64_json`/`url` 结果表示。
 多张请求按需串行创建独立生成；已取得足够图片时停止创建新会话。
-App 不提供本项目可以确认的原生尺寸、质量、复杂度、动画、SVG、mask 或 markup 参数合同。
+App 不提供本项目可以确认的原生尺寸、质量、复杂度、SVG、mask 或 markup 参数合同；逆向证据显示 GIF 是 conversation animation intent 与 `image/gif` 结果链路，而不是稳定的 Images API `output_format` 字段。管理员账号测试对 GIF 使用该 conversation 意图并验证实际动画文件；对 SVG 测试只在本次 probe 内回退到 Codex legacy Images 链路。
 显式要求这些保证时，网关在上传/生成前返回 400，提示使用旧版；不会静默丢弃参数。
 
 媒体工坊通过配置中的 `openai_images_protocol` 选择控件和请求字段。

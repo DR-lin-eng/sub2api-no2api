@@ -40,8 +40,9 @@ SVG 固定为单个生成文件，存在编辑参考图时不可选；GIF 可带
 
 账号管理的画图测试提供同样的 2.6 格式选项，并返回可下载的 SVG/GIF 文件。测试会解析 SVG XML
 及 GIF 文件块，只有确实收到对应文件时才报告成功；单帧 GIF 不作为动画能力验证成功。
-API Key、原生 OAuth/SIWC/PAT 测试保留实际 MIME；普通 ChatGPT App 通道要求使用原生选项时明确报错，
-不静默改协议。官方能力说明不代表每个账号已获预览权限，实际可用性以上游测试结果为准。
+API Key、原生 OAuth/SIWC/PAT 测试保留实际 MIME；ChatGPT App 账号测试对 GIF 使用 conversation
+动画意图，对 SVG 在本次测试内回退 Codex legacy Images；媒体工坊不会把未确认的 App 原生字段静默提交。
+官方能力说明不代表每个账号已获预览权限，实际可用性以上游测试结果为准。
 
 ## 用量与计费
 
