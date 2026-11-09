@@ -314,8 +314,8 @@ export function restorePersistedConversation(value: unknown): MediaStudioConvers
           : undefined,
         model: typeof candidate.model === 'string' ? candidate.model : undefined,
         size: typeof candidate.size === 'string' ? candidate.size : undefined,
-        imageResolution: candidate.imageOutput?.output_format === 'gif' ? undefined : normalizeImageResolution(candidate.imageResolution),
-        imageAspectRatio: candidate.imageOutput?.output_format === 'gif' ? undefined : candidate.imageAspectRatio
+        imageResolution: normalizeImageResolution(candidate.imageResolution),
+        imageAspectRatio: candidate.imageAspectRatio
           ? normalizeImageAspectRatio(candidate.imageAspectRatio)
           : aspectRatioFromSize(candidate.size),
         quality: normalizeImageQuality(candidate.quality),
