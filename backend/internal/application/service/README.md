@@ -61,6 +61,7 @@
 | `openai_oauth_gateway_rate_limit.go` | 统一配置、按账号分桶且跨实例共享的 OpenAI OAuth RPM/burst 准入、逻辑请求去重与协议错误投影 |
 | `image_independent_scheduling.go`, `setting_image_scheduling.go` | 画图模型独立候选的请求策略、持久开关和 5 秒运行时缓存；账号错误与图片限流仍由原调度链路检查 |
 | `openai_request_timezone.go`, `setting_openai_request_timezone.go` | OpenAI HTTP/WS 用户环境与搜索时区替换、管理员全局开关与 IANA 目标、60 秒缓存及写后立即刷新 |
+| `openai_location.go`, `setting_openai_location.go` | OpenAI OAI-Location 管理设置、账号持久化偏移、按请求生成的 10 分钟缓存偏移与 3–20 米随机精度 |
 | `openai_request_integrity_observe.go` | OpenAI OAuth 兼容转换前后语义字段的只观察差异诊断 |
 | `openai_chatgpt_headers.go`, `openai_codex_request_headers.go`, `openai_codex_metadata_sanitize.go` | OpenAI OAuth 凭据 principal 校验、HTTP JSON/SSE/Compact 媒体类型和证明/完整性状态的跨账号边界 |
 | `openai_integrity_state.go`, `openai_oauth_proof.go`, `openai_proof_binding.go`, `openai_desktop_devicecheck.go` | 发送点 proof 生成、principal/installation/origin 状态隔离；Responses/Compact 清除旧 integrity receipt，其他既有调用面保留 Redis 原子 CAS helper；独立 Desktop DeviceCheck 注册/cookie 链 |

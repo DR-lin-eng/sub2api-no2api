@@ -275,6 +275,9 @@ type SystemSettings struct {
 	ImageIndependentSchedulingEnabled      bool
 	OpenAIImagesLegacyEnabled              bool
 	OpenAIRequestTimezone                  string
+	OpenAILocationEnabled                  bool
+	OpenAILocationLatitude                 float64
+	OpenAILocationLongitude                float64
 	OpenAIOAuthForceRelayEnabled           bool   `json:"openai_oauth_force_relay_enabled"`
 	OpenAIOAuthForceRelayBaseURL           string `json:"openai_oauth_force_relay_base_url"`
 	EnableFingerprintUnification           bool   // 是否统一 OAuth 账号的指纹头（默认 true）

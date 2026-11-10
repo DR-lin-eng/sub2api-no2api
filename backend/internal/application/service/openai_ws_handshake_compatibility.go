@@ -28,6 +28,7 @@ type openAIWSHandshakeCompatibilityKey struct {
 	guardian         string
 	memgen           string
 	timingMetrics    string
+	locationHash     [sha256.Size]byte
 	authHash         [sha256.Size]byte
 	principalHash    [sha256.Size]byte
 	fingerprintKey   string
@@ -97,9 +98,17 @@ func normalizeOpenAIWSHandshakeCompatibility(headers http.Header) openAIWSHandsh
 		guardian:         headers.Get("x-codex-guardian"),
 		memgen:           headers.Get("x-openai-memgen-request"),
 		timingMetrics:    headers.Get("x-responsesapi-include-timing-metrics"),
+		locationHash:     openAIWSLocationCompatibilityHash(headers),
 		fingerprintKey:   headers.Get(codexFingerprintWSKeyHeader),
 		turnStateHash:    openAIWSTurnStateCompatibilityHash(headers),
 	}
+}
+
+func openAIWSLocationCompatibilityHash(headers http.Header) [sha256.Size]byte {
+	if value := headers.Get("OAI-Location"); value != "" {
+		return sha256.Sum256([]byte(value))
+	}
+	return [sha256.Size]byte{}
 }
 
 func openAIWSAuthorizationCompatibilityHash(headers http.Header) [sha256.Size]byte {

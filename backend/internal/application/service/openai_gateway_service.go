@@ -515,6 +515,9 @@ type OpenAIGatewayService struct {
 	openAIWorkspaceRoutingEnabled  bool
 	openAIWorkspaceRoutingCache    sync.Map
 	openAIWorkspaceRoutingSF       singleflight.Group
+	openAILocationMu               sync.Mutex
+	openAILocationSF               singleflight.Group
+	openAILocationCache            map[string]openAILocationCacheEntry
 	openAIIntegrityMu              sync.Mutex
 	openAIIntegrityStates          map[string]openAIIntegrityBinding
 	openAIDeviceCookieMu           sync.Mutex
@@ -649,6 +652,7 @@ func NewOpenAIGatewayService(
 		liveAttestation:         liveattestation.NewProvider(),
 		liveAttestationCipher:   newLiveAttestationCipher(cfg),
 		openAIIntegrityStates:   make(map[string]openAIIntegrityBinding),
+		openAILocationCache:     make(map[string]openAILocationCacheEntry),
 		responseHeaderFilter:    compileResponseHeaderFilter(cfg),
 		codexSnapshotThrottle:   newAccountWriteThrottle(openAICodexSnapshotPersistMinInterval),
 		openaiModelTransient:    newOpenAIAccountModelTransientState(openAIModelTransientDefaultMax),

@@ -243,25 +243,28 @@ type UpdateSettingsRequest struct {
 	OpenAIVisibleOutputTTFTEnabled *bool `json:"openai_visible_output_ttft_enabled"`
 
 	// Gateway forwarding behavior
-	OpenAIRequestTimezoneEnabled           *bool   `json:"openai_request_timezone_enabled"`
-	ImageIndependentSchedulingEnabled      *bool   `json:"image_independent_scheduling_enabled"`
-	OpenAIImagesLegacyEnabled              *bool   `json:"openai_images_legacy_enabled"`
-	OpenAIRequestTimezone                  *string `json:"openai_request_timezone"`
-	OpenAIOAuthForceRelayEnabled           *bool   `json:"openai_oauth_force_relay_enabled"`
-	OpenAIOAuthForceRelayBaseURL           *string `json:"openai_oauth_force_relay_base_url"`
-	EnableFingerprintUnification           *bool   `json:"enable_fingerprint_unification"`
-	EnableMetadataPassthrough              *bool   `json:"enable_metadata_passthrough"`
-	EnableCCHSigning                       *bool   `json:"enable_cch_signing"`
-	EnableClaudeOAuthSystemPromptInjection *bool   `json:"enable_claude_oauth_system_prompt_injection"`
-	ClaudeOAuthSystemPrompt                *string `json:"claude_oauth_system_prompt"`
-	ClaudeOAuthSystemPromptBlocks          *string `json:"claude_oauth_system_prompt_blocks"`
-	EnableAnthropicCacheTTL1hInjection     *bool   `json:"enable_anthropic_cache_ttl_1h_injection"`
-	RewriteMessageCacheControl             *bool   `json:"rewrite_message_cache_control"`
-	EnableClientDatelineNormalization      *bool   `json:"enable_client_dateline_normalization"`
-	AntigravityUserAgentVersion            *string `json:"antigravity_user_agent_version"`
-	OpenAICodexUserAgent                   *string `json:"openai_codex_user_agent"`
-	OpenAICodexClientVersion               *string `json:"openai_codex_client_version"`
-	OpenAICodexVersionAutoSyncEnabled      *bool   `json:"openai_codex_version_auto_sync_enabled"`
+	OpenAIRequestTimezoneEnabled           *bool    `json:"openai_request_timezone_enabled"`
+	ImageIndependentSchedulingEnabled      *bool    `json:"image_independent_scheduling_enabled"`
+	OpenAIImagesLegacyEnabled              *bool    `json:"openai_images_legacy_enabled"`
+	OpenAIRequestTimezone                  *string  `json:"openai_request_timezone"`
+	OpenAILocationEnabled                  *bool    `json:"openai_location_enabled"`
+	OpenAILocationLatitude                 *float64 `json:"openai_location_latitude"`
+	OpenAILocationLongitude                *float64 `json:"openai_location_longitude"`
+	OpenAIOAuthForceRelayEnabled           *bool    `json:"openai_oauth_force_relay_enabled"`
+	OpenAIOAuthForceRelayBaseURL           *string  `json:"openai_oauth_force_relay_base_url"`
+	EnableFingerprintUnification           *bool    `json:"enable_fingerprint_unification"`
+	EnableMetadataPassthrough              *bool    `json:"enable_metadata_passthrough"`
+	EnableCCHSigning                       *bool    `json:"enable_cch_signing"`
+	EnableClaudeOAuthSystemPromptInjection *bool    `json:"enable_claude_oauth_system_prompt_injection"`
+	ClaudeOAuthSystemPrompt                *string  `json:"claude_oauth_system_prompt"`
+	ClaudeOAuthSystemPromptBlocks          *string  `json:"claude_oauth_system_prompt_blocks"`
+	EnableAnthropicCacheTTL1hInjection     *bool    `json:"enable_anthropic_cache_ttl_1h_injection"`
+	RewriteMessageCacheControl             *bool    `json:"rewrite_message_cache_control"`
+	EnableClientDatelineNormalization      *bool    `json:"enable_client_dateline_normalization"`
+	AntigravityUserAgentVersion            *string  `json:"antigravity_user_agent_version"`
+	OpenAICodexUserAgent                   *string  `json:"openai_codex_user_agent"`
+	OpenAICodexClientVersion               *string  `json:"openai_codex_client_version"`
+	OpenAICodexVersionAutoSyncEnabled      *bool    `json:"openai_codex_version_auto_sync_enabled"`
 
 	// codex_cli_only 加固（global-only）
 	MinCodexVersion                      string `json:"min_codex_version"`

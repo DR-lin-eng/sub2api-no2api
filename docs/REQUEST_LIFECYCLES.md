@@ -309,6 +309,8 @@ OAuth 授权码、refresh token、账号隐私/授权接口仍使用 OpenAI 官�
 
 管理员在“系统设置 → 网关服务 → 请求转发行为”的“OpenAI 请求时区替换”中统一控制 `openai_request_timezone_enabled` 和 `openai_request_timezone`。设置随主设置接口读写并持久化到数据库，保存后当前实例立即使用新值，其他实例最多 60 秒刷新；关闭时保留客户端原始时区。未配置目标或留空时沿用 `gateway.openai_request_timezone` / `GATEWAY_OPENAI_REQUEST_TIMEZONE`（默认 `Asia/Singapore`），不改变服务器时间或计费自然日。HTTP 与 WS 首轮/后续 `response.create` 共用设置，完整的用户 `environment_context` 与搜索工具 `user_location.timezone` 执行定点替换。
 
+同一面板的“OpenAI 精确位置坐标”由管理员只填写大概纬度/经度并显式开启后生效。每个 OpenAI 账号首次实际出站请求时在管理员坐标 500 米范围内生成一次偏移并写入账号 `extra`；之后仅在请求到达且缓存超过 10 分钟时，围绕该持久化坐标生成一次 10 米范围内缓存偏移，同时随机生成 3–20 米的精度字段，按 `OAI-Location: latitude,longitude,accuracy` 写入 HTTP、WS、图片、搜索和 Live 出站请求。PostgreSQL 原子固定首次偏移，普通账号编辑保留该值；Redis 跨实例共享缓存，读取不延长 10 分钟到期时间。关闭时删除客户端传入的位置头，不生成缓存；缓存不会由后台任务预生成。位置不随独立图片存储上传/下载请求外发。持久化或共享缓存不可用时省略位置头，模型请求继续执行。WebSocket 位置属于不可变握手头，连接池在下一次申请连接时按位置摘要隔离；已有透明转发长连接在重连后更新位置。
+
 管理员还可以在“网关设置 -> 请求转发行为”开启
 `openai_oauth_force_relay_enabled`，并填写 `openai_oauth_force_relay_base_url`。开启后该全局
 策略优先于账号级 `custom_base_url`，覆盖 OpenAI OAuth 的 Responses、Compact、Responses WS、

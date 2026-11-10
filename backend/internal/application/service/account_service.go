@@ -532,6 +532,7 @@ func (s *AccountService) Update(ctx context.Context, id int64, req UpdateAccount
 			OAuthSupportedModelsSyncedAtExtraKey,
 			OpenAIOAuthSupportedModelsExtraKey,
 			OpenAIOAuthSupportedModelsSyncedAtExtraKey,
+			OpenAILocationPersistentOffsetExtraKey,
 		} {
 			if _, submitted := extra[key]; submitted {
 				continue

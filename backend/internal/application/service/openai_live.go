@@ -500,6 +500,7 @@ func (s *OpenAIGatewayService) createUpstreamLiveCall(
 		upstreamReq.Header.Set(liveAttestationHeader, attestation)
 	}
 	applyLiveUpstreamIdentityHeaders(upstreamReq.Header)
+	s.applyOpenAILocationHeader(reqCtx, upstreamReq.Header, account)
 	upstreamReq.Header.Set("X-Session-Id", upstreamReq.Header.Get("session-id"))
 
 	resp, err := s.doAccountHTTPUpstream(upstreamReq, resolveAccountProxyURL(account), account)
@@ -640,6 +641,7 @@ func (s *OpenAIGatewayService) liveSidebandHeaders(
 		headers.Set(liveAttestationHeader, attestation)
 	}
 	applyLiveUpstreamIdentityHeaders(headers)
+	s.applyOpenAILocationHeader(ctx, headers, account)
 	if record.SessionID != "" {
 		headers.Set("session-id", record.SessionID)
 		headers.Set("X-Session-Id", record.SessionID)
