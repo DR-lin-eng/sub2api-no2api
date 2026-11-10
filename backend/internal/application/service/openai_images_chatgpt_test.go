@@ -272,7 +272,7 @@ func TestChatGPTAppImagesErrorsDoNotRegenerate(t *testing.T) {
 
 func TestChatGPTAppImagesUnsupportedOptionsFailBeforeUpstream(t *testing.T) {
 	svc, upstream := newChatGPTAppImageTestService(t, func(w http.ResponseWriter, r *http.Request) { t.Error("unsupported request reached upstream") })
-	for _, field := range []string{`"size":"1024x1024"`, `"quality":"high"`, `"output_format":"gif"`, `"complexity":"high"`} {
+	for _, field := range []string{`"size":"1024x1024"`, `"quality":"high"`, `"output_format":"svg"`, `"complexity":"high"`} {
 		body := []byte(`{"model":"gpt-image-2.6-flare","prompt":"draw",` + field + `}`)
 		c := newOpenAIImagesContext(t, body)
 		parsed, err := svc.ParseOpenAIImagesRequest(c, body)

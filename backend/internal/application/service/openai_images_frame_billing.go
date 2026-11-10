@@ -43,6 +43,10 @@ func openAIImagesBillableOutputs(body []byte, parsed *OpenAIImagesRequest, count
 		}
 		perOutput = append(perOutput, actual)
 	}
+	return expandOpenAIImagesFrameOutputs(count, sizes, frames, perOutput)
+}
+
+func expandOpenAIImagesFrameOutputs(count int, sizes []string, frames int, perOutput []int) (int, []string) {
 	total := 0
 	var expanded []string
 	for i := 0; i < count; i++ {

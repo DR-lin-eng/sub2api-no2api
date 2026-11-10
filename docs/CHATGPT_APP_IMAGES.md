@@ -57,11 +57,14 @@ HTTP resume 最多 3 次，随后按元数据进行有限历史查询。
 
 新版支持 prompt、参考图、`n`（最多 10）、流式/非流式及 `b64_json`/`url` 结果表示。
 多张请求按需串行创建独立生成；已取得足够图片时停止创建新会话。
-App 不提供本项目可以确认的原生尺寸、质量、复杂度、SVG、mask 或 markup 参数合同；逆向证据显示 GIF 是 conversation animation intent 与 `image/gif` 结果链路，而不是稳定的 Images API `output_format` 字段。管理员账号测试对 GIF 使用该 conversation 意图并验证实际动画文件；对 SVG 测试只在本次 probe 内静默回退到 Codex legacy Images 链路，内部策略不进入 SSE、请求体或用户可见文案。
+App 不提供本项目可以确认的原生尺寸、质量、复杂度、SVG、mask 或 markup 参数合同；逆向证据显示 GIF 是 conversation animation intent 与 `image/gif` 结果链路，而不是稳定的 App `output_format` 字段。
+普通 OAuth 的基础 GIF API 请求与管理员 GIF 测试共用动画意图和文件校验：将格式、帧数和帧时长转为动画指令，验证成品确为 GIF 且满足帧数和时长；没有给 App 请求发明原生字段。
+省略时使用 9 帧、200 ms；按 Images API reference 将帧时长舍入至 10 ms 并限制在 GIF 编码范围。
+文件或控制不符返回上游错误，保留已完成作品的实际帧计费，不重新生成。SVG 测试继续在当前 probe 内静默使用 Codex legacy Images。
 对外 `/v1/images/generations`、`/v1/images/edits` 保留 OpenAI Images 参数合同。
 API Key 和 SIWC OAuth 账号始终使用标准 Images 请求与端点，不经过 App conversation、验证准备或 App 参数门禁。
-普通 OAuth 账号仅在请求可由 App 合同表达时使用新版；请求显式包含尺寸、质量、复杂度、格式、GIF 帧参数、
-SVG 作者、mask 或 markup 等原生字段时，发送前在同一账号选择 Codex 原生链路，完整保留参数。
+普通 OAuth 账号仅在请求可由 App 适配表达时使用新版；GIF 请求可省略尺寸或使用 `auto`。
+请求显式包含尺寸、质量、复杂度、其他输出格式、SVG 作者、mask 或 markup 等原生保证时，发送前在同一账号选择 Codex 原生链路，完整保留参数。
 这不是失败后重放，不修改全局设置，也不向 API、上游请求或界面添加内部选路提示。
 
 媒体工坊通过配置中的 `openai_images_protocol` 选择控件和请求字段。

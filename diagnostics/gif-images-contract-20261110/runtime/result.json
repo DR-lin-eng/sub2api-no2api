@@ -1,0 +1,158 @@
+[
+  {
+    "stage": "BASELINE",
+    "same_image_for_both_gateways": "sub2api:gif-contract-baseline-20261110",
+    "status": "PASS",
+    "cases": [
+      {
+        "case": "OAuth-button-GIF",
+        "model": "gpt-image-2.6-flare",
+        "success": true
+      },
+      {
+        "case": "API-key-button-through-pool",
+        "model": "gpt-image-2.6-flare",
+        "success": false
+      },
+      {
+        "case": "OAuth-button-GIF",
+        "model": "gpt-image-2.6-sunburst",
+        "success": true
+      },
+      {
+        "case": "API-key-button-through-pool",
+        "model": "gpt-image-2.6-sunburst",
+        "success": false
+      },
+      {
+        "case": "standard-API-two-gateways",
+        "status": 400,
+        "frames": 9,
+        "both_hops_settled": false
+      },
+      {
+        "case": "standard-API-two-gateways",
+        "status": 400,
+        "frames": 4,
+        "both_hops_settled": false
+      }
+    ]
+  },
+  {
+    "stage": "MODIFIED",
+    "same_image_for_both_gateways": "sub2api:gif-contract-fixed-20261110",
+    "status": "PASS",
+    "cases": [
+      {
+        "case": "OAuth-button-GIF",
+        "model": "gpt-image-2.6-flare",
+        "success": true
+      },
+      {
+        "case": "API-key-button-through-pool",
+        "model": "gpt-image-2.6-flare",
+        "success": true
+      },
+      {
+        "case": "OAuth-button-GIF",
+        "model": "gpt-image-2.6-sunburst",
+        "success": true
+      },
+      {
+        "case": "API-key-button-through-pool",
+        "model": "gpt-image-2.6-sunburst",
+        "success": true
+      },
+      {
+        "case": "standard-API-two-gateways",
+        "status": 200,
+        "frames": 9,
+        "both_hops_settled": true
+      },
+      {
+        "case": "standard-API-two-gateways",
+        "status": 200,
+        "frames": 4,
+        "both_hops_settled": true
+      }
+    ]
+  },
+  {
+    "stage": "ROLLBACK",
+    "same_image_for_both_gateways": "sub2api:gif-contract-baseline-20261110",
+    "status": "PASS",
+    "cases": [
+      {
+        "case": "OAuth-button-GIF",
+        "model": "gpt-image-2.6-flare",
+        "success": true
+      },
+      {
+        "case": "API-key-button-through-pool",
+        "model": "gpt-image-2.6-flare",
+        "success": false
+      },
+      {
+        "case": "OAuth-button-GIF",
+        "model": "gpt-image-2.6-sunburst",
+        "success": true
+      },
+      {
+        "case": "API-key-button-through-pool",
+        "model": "gpt-image-2.6-sunburst",
+        "success": false
+      },
+      {
+        "case": "standard-API-two-gateways",
+        "status": 400,
+        "frames": 9,
+        "both_hops_settled": false
+      },
+      {
+        "case": "standard-API-two-gateways",
+        "status": 400,
+        "frames": 4,
+        "both_hops_settled": false
+      }
+    ]
+  },
+  {
+    "stage": "RESTORED",
+    "same_image_for_both_gateways": "sub2api:gif-contract-fixed-20261110",
+    "status": "PASS",
+    "cases": [
+      {
+        "case": "OAuth-button-GIF",
+        "model": "gpt-image-2.6-flare",
+        "success": true
+      },
+      {
+        "case": "API-key-button-through-pool",
+        "model": "gpt-image-2.6-flare",
+        "success": true
+      },
+      {
+        "case": "OAuth-button-GIF",
+        "model": "gpt-image-2.6-sunburst",
+        "success": true
+      },
+      {
+        "case": "API-key-button-through-pool",
+        "model": "gpt-image-2.6-sunburst",
+        "success": true
+      },
+      {
+        "case": "standard-API-two-gateways",
+        "status": 200,
+        "frames": 9,
+        "both_hops_settled": true
+      },
+      {
+        "case": "standard-API-two-gateways",
+        "status": 200,
+        "frames": 4,
+        "both_hops_settled": true
+      }
+    ]
+  }
+]
