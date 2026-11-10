@@ -76,6 +76,7 @@ func (s *OpenAIGatewayService) forwardChatGPTAppImagesAttempt(ctx context.Contex
 	var usage OpenAIUsage
 	knownCount := 0
 	var knownSizes []string
+	var knownFrames []int
 	conversationID := ""
 	var generationErr error
 	actualModel := ""
@@ -89,6 +90,7 @@ func (s *OpenAIGatewayService) forwardChatGPTAppImagesAttempt(ctx context.Contex
 			prompt = raw.String()
 		}
 	}
+	prompt = chatGPTAppImagePrompt(parsed, prompt)
 	for i := 0; i < count; i++ {
 		if len(results) >= count {
 			break
@@ -105,7 +107,10 @@ func (s *OpenAIGatewayService) forwardChatGPTAppImagesAttempt(ctx context.Contex
 		}
 		knownCount += len(decoder.Images)
 		generationSizes := make([]string, len(decoder.Images))
+		generationFrames := make([]int, len(decoder.Images))
+		requestedFrames, _ := chatGPTAppGIFOptions(parsed)
 		for index, image := range decoder.Images {
+			generationFrames[index] = requestedFrames
 			if image.Width > 0 && image.Height > 0 {
 				generationSizes[index] = fmt.Sprintf("%dx%d", image.Width, image.Height)
 			}
@@ -121,9 +126,22 @@ func (s *OpenAIGatewayService) forwardChatGPTAppImagesAttempt(ctx context.Contex
 		images, err := session.materialize(upstreamCtx, decoder)
 		for index, image := range images {
 			generationSizes[index] = image.Size
+			generationFrames[index] = 1
+			if image.OutputFormat == "gif" {
+				if frames, scanErr := openAIImagesGIFFrames(image.Result); scanErr == nil {
+					generationFrames[index] = frames
+				}
+			}
 		}
 		knownSizes = append(knownSizes, generationSizes...)
-		results = append(results, images...)
+		knownFrames = append(knownFrames, generationFrames...)
+		for _, image := range images {
+			if outputErr := validateChatGPTAppImageOutput(parsed, image); outputErr != nil {
+				err = outputErr
+				break
+			}
+			results = append(results, image)
+		}
 		if err != nil {
 			generationErr = err
 			break
@@ -141,6 +159,10 @@ func (s *OpenAIGatewayService) forwardChatGPTAppImagesAttempt(ctx context.Contex
 	}
 	reconcileOpenAIResponsesImageResultSizes(results, nil)
 	result := &OpenAIForwardResult{RequestID: session.requestID, ResponseID: conversationID, Model: model, UpstreamModel: actualModel, Stream: parsed.Stream, Usage: usage, Duration: time.Since(start), ImageEndpoint: true, ImageCount: knownCount, ImageSize: parsed.SizeTier, ImageInputSize: parsed.Size, ImageOutputSizes: knownSizes}
+	if parsed.OutputFormat == "gif" && imageCountBillingEnabled(getAPIKeyFromContext(c)) {
+		frames, _ := chatGPTAppGIFOptions(parsed)
+		result.ImageCount, result.ImageOutputSizes = expandOpenAIImagesFrameOutputs(knownCount, knownSizes, frames, knownFrames)
+	}
 	result.ImageSize = ResolveImageBillingSize(parsed.Size, result.ImageOutputSizes).BillingSize
 	if len(results) == 0 {
 		err := chatGPTAppImageFailure(generationErr)
@@ -177,6 +199,9 @@ func (s *OpenAIGatewayService) forwardChatGPTAppImagesAttempt(ctx context.Contex
 }
 
 func validateChatGPTAppImageOptions(parsed *OpenAIImagesRequest) error {
+	if err := validateOpenAIImages26Options(parsed, parsed.Model); err != nil {
+		return &OpenAIImagesUpstreamError{StatusCode: 400, ErrorType: "invalid_request_error", Message: err.Error()}
+	}
 	if parsed.N > 10 {
 		return &OpenAIImagesUpstreamError{StatusCode: 400, ErrorType: "invalid_request_error", Message: "ChatGPT App image count must not exceed 10"}
 	}

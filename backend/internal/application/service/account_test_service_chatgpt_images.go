@@ -14,6 +14,10 @@ import (
 // as gateway requests. The low-level tester without settings retains its legacy
 // probe contract, as it cannot advertise a selected gateway protocol.
 func (s *AccountTestService) testChatGPTAppImage(c *gin.Context, ctx context.Context, account *Account, model, prompt string) error {
+	parsed, err := buildAccountImageTestRequest(ctx, account, model, prompt)
+	if err != nil {
+		return s.sendErrorAndEnd(c, err.Error())
+	}
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
 	c.Writer.Header().Set("Cache-Control", "no-cache")
 	c.Writer.Header().Set("X-Accel-Buffering", "no")
@@ -35,12 +39,7 @@ func (s *AccountTestService) testChatGPTAppImage(c *gin.Context, ctx context.Con
 	if enabled, configured := s.settingService.GetOpenAIRequestTimezoneSettings(ctx); enabled {
 		timezone = configured
 	}
-	options := accountImageTestOptions(ctx)
-	if options.OutputFormat == "gif" {
-		// The App Images page expresses animation through the conversation
-		// generation intent; it does not accept native output_format/frame fields.
-		prompt = fmt.Sprintf("Create a short seamless looping animated GIF. Use the requested visual subject and motion. %s", prompt)
-	}
+	prompt = chatGPTAppImagePrompt(parsed, prompt)
 	payload := chatgptimages.Conversation(prompt, openAIImagesResponsesMainModelValue(), uuid.NewString(), uuid.NewString(), uuid.NewString(), timezone, nil)
 	decoder := &chatgptimages.Decoder{}
 	if err = session.generate(ctx, payload, decoder); err != nil {
@@ -51,13 +50,8 @@ func (s *AccountTestService) testChatGPTAppImage(c *gin.Context, ctx context.Con
 		return s.sendErrorAndEnd(c, "ChatGPT App image test returned no complete image")
 	}
 	for _, item := range images {
-		if options.OutputFormat == "gif" {
-			if item.OutputFormat != "gif" {
-				return s.sendErrorAndEnd(c, "ChatGPT App did not return an animated GIF for this account. The account may not have GIF generation enabled.")
-			}
-			if err := validateAccountImageTestOutput(item.Result, "gif"); err != nil {
-				return s.sendErrorAndEnd(c, err.Error())
-			}
+		if err := validateChatGPTAppImageOutput(parsed, item); err != nil {
+			return s.sendErrorAndEnd(c, err.Error())
 		}
 		mimeType := openAIImageOutputMIMEType(item.OutputFormat)
 		s.sendEvent(c, TestEvent{Type: "image", ImageURL: fmt.Sprintf("data:%s;base64,%s", mimeType, item.Result), MimeType: mimeType})

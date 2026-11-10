@@ -1,0 +1,69 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: fixture
+      POSTGRES_PASSWORD: ${GIF_DB_PASSWORD:?}
+      POSTGRES_DB: postgres
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U fixture -d postgres']
+      interval: 1s
+      timeout: 3s
+      retries: 40
+  pool-cache:
+    image: redis:8-alpine
+  downstream-cache:
+    image: redis:8-alpine
+  pool:
+    image: ${GIF_IMAGE:?}
+    ports: ['127.0.0.1:18573:8080']
+    environment: &app-environment
+      AUTO_SETUP: 'true'
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 8080
+      SERVER_MODE: release
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: fixture
+      DATABASE_PASSWORD: ${GIF_DB_PASSWORD:?}
+      DATABASE_DBNAME: pool
+      DATABASE_SSLMODE: disable
+      REDIS_HOST: pool-cache
+      REDIS_PORT: 6379
+      ADMIN_EMAIL: ${GIF_ADMIN_EMAIL:?}
+      ADMIN_PASSWORD: ${GIF_ADMIN_PASSWORD:?}
+      JWT_SECRET: ${GIF_JWT_SECRET:?}
+      TOTP_ENCRYPTION_KEY: ${GIF_ENCRYPTION_KEY:?}
+      OAUTH_MODEL_SYNC_ENABLED: 'false'
+      GATEWAY_OPENAI_WS_FORCE_HTTP: 'true'
+      PRICING_REMOTE_URL: 'https://127.0.0.1:9/pricing.json'
+      PRICING_HASH_URL: 'https://127.0.0.1:9/pricing.sha256'
+      SECURITY_URL_ALLOWLIST_ENABLED: 'false'
+      SECURITY_URL_ALLOWLIST_ALLOW_PRIVATE_HOSTS: 'true'
+      SECURITY_URL_ALLOWLIST_ALLOW_INSECURE_HTTP: 'true'
+      HTTP_PROXY: ''
+      HTTPS_PROXY: ''
+      ALL_PROXY: ''
+      NO_PROXY: localhost,127.0.0.1,postgres,pool,downstream
+    depends_on:
+      postgres:
+        condition: service_healthy
+      pool-cache:
+        condition: service_started
+  downstream:
+    image: ${GIF_IMAGE:?}
+    ports: ['127.0.0.1:18574:8080']
+    environment:
+      <<: *app-environment
+      DATABASE_DBNAME: downstream
+      REDIS_HOST: downstream-cache
+    depends_on:
+      postgres:
+        condition: service_healthy
+      downstream-cache:
+        condition: service_started
+  provider:
+    image: python:3.13-alpine
+    network_mode: service:pool
+    volumes: ['./provider.py:/fixture.py:ro']
+    command: [python, /fixture.py]

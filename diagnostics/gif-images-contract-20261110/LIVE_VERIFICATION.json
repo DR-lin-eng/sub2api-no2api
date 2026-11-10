@@ -1,0 +1,76 @@
+{
+  "credential_source": "user supplied OAuth export; never persisted in evidence",
+  "transport": "standard TLS in disposable Docker gateways",
+  "button": [
+    {
+      "case": "LIVE API-key account button -> second Sub2API -> supplied OAuth",
+      "http_status": 200,
+      "success": true,
+      "elapsed_seconds": 37.98,
+      "errors": [],
+      "mime_type": "image/gif",
+      "bytes": 75533,
+      "gif_header": "GIF89a"
+    },
+    {
+      "case": "LIVE pool settlement",
+      "rows": [
+        {
+          "images": 4,
+          "cost": 0.4
+        }
+      ]
+    }
+  ],
+  "standard_api": {
+    "case": "LIVE standard Images API -> two Sub2API gateways -> supplied OAuth",
+    "http_status": 200,
+    "success": true,
+    "elapsed_seconds": 30.26,
+    "gif_header": "GIF89a",
+    "bytes": 106757,
+    "output_format": "gif",
+    "pool_settlement": [
+      {
+        "images": 4,
+        "cost": 0.4
+      }
+    ],
+    "downstream_settlement": [
+      {
+        "images": 4,
+        "cost": 0.4
+      }
+    ]
+  },
+  "independent_gif_decode": [
+    {
+      "delays_ms": [
+        200,
+        200,
+        200,
+        200
+      ],
+      "file": "live-api.gif",
+      "frames": 4,
+      "height": 444,
+      "loop_count": 0,
+      "valid_lzw_image_data": true,
+      "width": 887
+    },
+    {
+      "delays_ms": [
+        200,
+        200,
+        200,
+        200
+      ],
+      "file": "live-standard-api.gif",
+      "frames": 4,
+      "height": 437,
+      "loop_count": 0,
+      "valid_lzw_image_data": true,
+      "width": 881
+    }
+  ]
+}
