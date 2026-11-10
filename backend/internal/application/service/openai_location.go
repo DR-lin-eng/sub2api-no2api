@@ -78,7 +78,10 @@ func (s *OpenAIGatewayService) applyOpenAILocationHeader(ctx context.Context, he
 		logOpenAILocationPersistenceFailure(account.ID, err)
 		return
 	}
-	coordinate := value.(openAILocationCoordinate)
+	coordinate, ok := value.(openAILocationCoordinate)
+	if !ok {
+		return
+	}
 	headers.Set("OAI-Location", formatOpenAILocationHeader(coordinate.latitude, coordinate.longitude, coordinate.accuracy))
 }
 

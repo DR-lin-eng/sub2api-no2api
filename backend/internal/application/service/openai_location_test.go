@@ -147,13 +147,6 @@ func parseOpenAILocationHeader(t *testing.T, raw string) (float64, float64, floa
 	return latitude, longitude, accuracy
 }
 
-func mustReadOpenAILocationPersistentOffset(t *testing.T, extra map[string]any) openAILocationPersistentOffset {
-	t.Helper()
-	offset, ok := readOpenAILocationPersistentOffset(extra)
-	require.True(t, ok)
-	return offset
-}
-
 func haversineMeters(lat1, lon1, lat2, lon2 float64) float64 {
 	const radius = 6371008.8
 	lat1, lon1, lat2, lon2 = lat1*math.Pi/180, lon1*math.Pi/180, lat2*math.Pi/180, lon2*math.Pi/180
