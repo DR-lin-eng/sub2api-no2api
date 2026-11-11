@@ -62,7 +62,7 @@ func TestImagesProtocolStandardAccountsNeverUseApp(t *testing.T) {
 func TestImagesProtocolOAuthNativeParametersKeepOpenAIContract(t *testing.T) {
 	for _, fields := range []string{
 		`"size":"1024x1024"`, `"quality":"high"`, `"complexity":"low"`,
-		`"output_format":"png"`, `"output_format":"gif","frame_count":4,"frame_duration_ms":200,"quality":"high"`,
+		`"output_format":"png"`,
 		`"output_format":"svg","svg":{"model":"gpt-6-astra","reasoning":{"effort":"high"}}`,
 		`"background":"transparent"`, `"moderation":"low"`, `"safety_identifier":"hashed-user"`,
 	} {

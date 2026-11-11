@@ -16,6 +16,8 @@
 
 普通 OAuth 的 GIF 请求显式携带默认复杂度、质量、审核级别或自动尺寸时，保持 App GIF 通道；复杂度保留在动画指令。PNG 通过原上传/处理/引用链路附加到同一请求，再提交动画生成。
 
+第三方客户端常发送 `quality=low`、`complexity=high`、`moderation=low`、`size=auto`；这些 GIF 控制现在也留在 App 动画链路，并转为动画意图，避免再次切到返回 `GIF output is not enabled for this request.` 的原生端点。显式尺寸、背景、SVG、mask、markup 等 App 无法表达的字段仍走原生合同。
+
 存储上传使用专用的有界 HTTPS PUT 标记，继续检查所有 DNS 结果、固定目标 IP、验证原域名 TLS、禁用重定向。存储请求只发送 MIME 与上游存储头，不携带账号认证、Cookie、工作区或设备证明。Azure 缺省头可被上游返回的同名存储头覆盖。普通下载仍只允许 GET/HEAD，账号代理和 IPv6 出口保留。
 
 API Key/SIWC 保持原生标准 API 体与端点；非默认质量、复杂度、自定义尺寸等原生控制继续保留原生路径，不在 App 适配中丢弃。SVG 与显式旧版开关保持既有行为。GIF 已完成结果继续按真实帧数可靠结算，失败不重新生图。
