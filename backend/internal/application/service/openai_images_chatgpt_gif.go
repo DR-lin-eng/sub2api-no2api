@@ -28,6 +28,15 @@ func chatGPTAppImagePrompt(parsed *OpenAIImagesRequest, prompt string) string {
 	if parsed.Complexity != "" {
 		intent += "Use " + parsed.Complexity + " planning complexity. "
 	}
+	if parsed.Quality != "" && parsed.Quality != "auto" {
+		intent += "Render with " + parsed.Quality + " output quality. "
+	}
+	if parsed.Moderation != "" && parsed.Moderation != "auto" {
+		intent += "Apply the requested " + parsed.Moderation + " moderation setting. "
+	}
+	if parsed.InputFidelity != "" {
+		intent += "Preserve reference image details with " + parsed.InputFidelity + " input fidelity. "
+	}
 	return intent + prompt
 }
 

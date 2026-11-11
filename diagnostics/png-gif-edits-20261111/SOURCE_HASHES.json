@@ -3,8 +3,8 @@
   "production_files": {
     "backend/internal/application/service/http_upstream_profile.go": "173a87c7ebbcd974f63198d6996d61263bf0f13999185cc4c58a4a2a17fdf052",
     "backend/internal/application/service/openai_images_chatgpt_assets.go": "1075e50fe2713acfe9ac4cece21027c5d2bffd8ccf3c5ca70b83f0fc09793382",
-    "backend/internal/application/service/openai_images_chatgpt_gif.go": "1d132ca7702da485ea1642d2db791de3d0991c9f6b077d706049bbd22e5471df",
-    "backend/internal/application/service/openai_images_protocol_selection.go": "3cab7b536dd2771a173950debf2d8342995c2d0b01386e4797f96c2fe0286b0a",
+    "backend/internal/application/service/openai_images_chatgpt_gif.go": "a4d07347d2d1d298e4b05b2a706132737a0c5a3edff1d9dd557bb326b321bb1c",
+    "backend/internal/application/service/openai_images_protocol_selection.go": "5bf6ca98c36bfe9b78e7aadba52cf58f6b9b02cb95849a1ea216cf3f06d21cc9",
     "backend/internal/infrastructure/repository/http_upstream_public.go": "2574760ca9169b1bb39672ddac54fa4fd26f71a28b3db7357df39dd6fff3c3ba"
   }
 }

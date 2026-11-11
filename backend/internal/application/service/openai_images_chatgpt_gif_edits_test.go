@@ -9,6 +9,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -104,11 +105,78 @@ func TestChatGPTAppPNGToGIFEditsWithExplicitDefaults(t *testing.T) {
 }
 
 func TestChatGPTAppGIFNonDefaultControlsKeepNativeProtocol(t *testing.T) {
-	for _, extra := range []string{`"size":"512x512"`, `"complexity":"low"`, `"complexity":"medium"`, `"quality":"high"`, `"moderation":"low"`, `"input_fidelity":"high"`} {
+	for _, extra := range []string{`"size":"512x512"`, `"background":"transparent"`, `"style":"vivid"`, `"safety_identifier":"hashed"`, `"user":"legacy"`} {
 		body := []byte(`{"model":"gpt-image-2.6-sunburst","prompt":"draw","output_format":"gif",` + extra + `}`)
 		c := newOpenAIImagesContext(t, body)
 		parsed, err := newOpenAIImagesService(nil).ParseOpenAIImagesRequest(c, body)
 		require.NoError(t, err)
 		require.True(t, openAIImagesRequiresNativeProtocol(parsed), extra)
 	}
+}
+
+func TestChatGPTAppGIFStandardClientControlsStayOnAppPath(t *testing.T) {
+	for _, tc := range []struct{ extra, phrase string }{
+		{`"complexity":"low"`, "low planning complexity"},
+		{`"complexity":"medium"`, "medium planning complexity"},
+		{`"quality":"low"`, "low output quality"},
+		{`"quality":"high"`, "high output quality"},
+		{`"moderation":"low"`, "low moderation setting"},
+		{`"input_fidelity":"high"`, "high input fidelity"},
+	} {
+		t.Run(tc.extra, func(t *testing.T) {
+			body := []byte(`{"model":"gpt-image-2.6-sunburst","prompt":"animate the reference","images":[{"image_url":"data:image/png;base64,AA=="}],"output_format":"gif",` + tc.extra + `}`)
+			c := newOpenAIImagesContext(t, body)
+			c.Request.URL.Path = openAIImagesEditsEndpoint
+			parsed, err := newOpenAIImagesService(nil).ParseOpenAIImagesRequest(c, body)
+			require.NoError(t, err)
+			require.False(t, openAIImagesRequiresNativeProtocol(parsed), tc.extra)
+			prompt := chatGPTAppImagePrompt(parsed, parsed.Prompt)
+			require.Contains(t, prompt, "Animate the supplied reference images")
+			require.Contains(t, prompt, tc.phrase)
+			require.NotContains(t, prompt, strings.Trim(tc.extra, `"`))
+		})
+	}
+}
+
+func TestChatGPTAppPNGToGIFCurlControlsDoNotSelectNativeEndpoint(t *testing.T) {
+	png := encodeOpenAIImageTestPNG(t, 3, 2)
+	gif := image26AnimatedGIF(t, 9)
+	svc, upstream := newChatGPTAppImageTestService(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/backend-api/files":
+			fmt.Fprint(w, `{"file_id":"file_reference","upload_url":"https://signed.oaiusercontent.com/reference.png?sig=fixture","upload_headers":{}}`)
+		case "/reference.png":
+			w.WriteHeader(http.StatusCreated)
+		case "/backend-api/files/process_upload_stream":
+			w.Header().Set("Content-Type", "application/x-ndjson")
+			fmt.Fprint(w, "{\"file_id\":\"file_reference\",\"event\":\"file.processing.completed\"}\n")
+		case "/backend-api/f/conversation":
+			chatGPTAppImageStream(w, "data:image/gif;base64,"+gif)
+		default:
+			t.Errorf("unexpected path reached: %s", r.URL.Path)
+			http.Error(w, `{"detail":"GIF output is not enabled for this request."}`, http.StatusBadRequest)
+		}
+	})
+	body := fmt.Appendf(nil, `{"model":"gpt-image-2.6-sunburst","prompt":"让参考图中的主体轻轻上下浮动，保持外观和背景一致，生成首尾衔接的循环动画。","images":[{"image_url":"data:image/png;base64,%s"}],"n":1,"size":"auto","quality":"low","output_format":"gif","complexity":"high","moderation":"low","frame_count":9,"frame_duration_ms":200}`, png)
+	c, rec := newOpenAIImagesTestContext(t, body)
+	c.Request.URL.Path = openAIImagesEditsEndpoint
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+	require.False(t, openAIImagesRequiresNativeProtocol(parsed))
+	result, err := svc.ForwardImages(t.Context(), c, chatGPTAppImageTestAccount(), body, parsed, "")
+	require.NoError(t, err)
+	require.Equal(t, 1, result.ImageCount)
+	require.Contains(t, rec.Body.String(), `"b64_json":"`)
+	var conversation []byte
+	for _, call := range upstream.imageCalls() {
+		if call.path == "/backend-api/f/conversation" {
+			conversation = call.body
+		}
+	}
+	require.NotEmpty(t, conversation)
+	require.Contains(t, gjson.GetBytes(conversation, "messages.0.content.parts.1").String(), "low output quality")
+	require.Contains(t, gjson.GetBytes(conversation, "messages.0.content.parts.1").String(), "low moderation setting")
+	require.NotContains(t, string(conversation), "output_format")
+	require.NotContains(t, string(conversation), "frame_count")
+	require.NotContains(t, rec.Body.String(), "GIF output is not enabled")
 }
