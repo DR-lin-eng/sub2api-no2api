@@ -1,0 +1,101 @@
+{
+  "model": "gpt-image-2.6-sunburst",
+  "input": "synthetic reference.png in runtime fixture",
+  "baseline": [
+    {
+      "case": "PNG -> GIF edit via two gateways",
+      "options": {
+        "complexity": "high"
+      },
+      "http_status": 400,
+      "success": false,
+      "elapsed_seconds": 3.56,
+      "error": "{'error': {'message': 'GIF output is not enabled for this request.', 'type': 'invalid_request_error'}}"
+    },
+    {
+      "case": "PNG -> GIF edit via two gateways",
+      "options": {},
+      "http_status": 502,
+      "success": false,
+      "elapsed_seconds": 0.44,
+      "error": "{'error': {'message': 'Upstream service temporarily unavailable', 'type': 'upstream_error'}}"
+    }
+  ],
+  "fixed": [
+    {
+      "case": "PNG -> GIF edit via two gateways",
+      "multipart": false,
+      "options": {
+        "complexity": "high",
+        "quality": "auto",
+        "moderation": "auto"
+      },
+      "http_status": 200,
+      "success": true,
+      "elapsed_seconds": 59.39,
+      "bytes": 101618,
+      "gif_header": "GIF89a",
+      "pool_settlement": {
+        "images": 4,
+        "cost": 0.4
+      },
+      "downstream_settlement": {
+        "images": 4,
+        "cost": 0.4
+      }
+    },
+    {
+      "case": "PNG -> GIF edit via two gateways",
+      "multipart": true,
+      "options": {
+        "complexity": "high",
+        "quality": "auto",
+        "moderation": "auto"
+      },
+      "http_status": 200,
+      "success": true,
+      "elapsed_seconds": 77.23,
+      "bytes": 109504,
+      "gif_header": "GIF89a",
+      "pool_settlement": {
+        "images": 4,
+        "cost": 0.4
+      },
+      "downstream_settlement": {
+        "images": 4,
+        "cost": 0.4
+      }
+    }
+  ],
+  "independent_gif_decode": [
+    {
+      "delays_ms": [
+        200,
+        200,
+        200,
+        200
+      ],
+      "file": "live-edit-json.gif",
+      "frames": 4,
+      "height": 444,
+      "loop_count": 0,
+      "valid_lzw_image_data": true,
+      "width": 887
+    },
+    {
+      "delays_ms": [
+        200,
+        200,
+        200,
+        200
+      ],
+      "file": "live-edit-multipart.gif",
+      "frames": 4,
+      "height": 435,
+      "loop_count": 0,
+      "valid_lzw_image_data": true,
+      "width": 879
+    }
+  ],
+  "test_environment": "standard TLS, HTTP/2 and temporary HTTPS DNS to avoid local proxy fake-IP; original account file unchanged"
+}

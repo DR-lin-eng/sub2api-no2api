@@ -15,6 +15,7 @@
 API Key 与 SIWC OAuth 账号属于标准 API 调用：保留原生 Images 参数和响应、模型映射及请求模板，
 不进入 App conversation。普通 ChatGPT OAuth 账号默认采用 [新版 App 生图](CHATGPT_APP_IMAGES.md)；
 公共 GIF 请求在没有显式尺寸、质量等原生保证时复用普通 OAuth 账号测试的 App 动画链路；格式、帧数和帧时长统一转接并验证实际文件。
+标准 `/v1/images/edits` 的 PNG 参考图支持 JSON data URL 与 multipart `image`/`image[]`；显式默认 `complexity=high` 和 `moderation=auto` 不会误切到原生 GIF 端点。上传文件后才提交动画指令。
 包含原生尺寸、质量、SVG 等参数时，在发送前自动选择本账号的原生 Images 链路。
 网关「使用旧版 OpenAI 生图」开启时，普通 OAuth 图片请求均保留原生路径。
 新版 App 内部图像模型 ID 未确认，调用方的模型名用于网关路由与计价，不能据此保证内部运行同名 2.6 模型。
@@ -104,3 +105,6 @@ HEAD 中该文件已是 1201 行，超过 1200 行门槛，本次未修改该文
 
 同日 GIF 按钮测试与公共 API 转接统一、两套独立 Sub2API 串接和帧计费对照见
 [GIF 请求合同验证](../diagnostics/gif-images-contract-20261110/VERIFICATION.md)。
+
+2026-11-11 的 PNG 图生 GIF 默认参数选路与 HTTPS 参考图上传修复见
+[PNG/GIF 编辑验证](../diagnostics/png-gif-edits-20261111/VERIFICATION.md)。

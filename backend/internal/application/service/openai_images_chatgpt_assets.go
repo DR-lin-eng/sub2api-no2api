@@ -69,6 +69,16 @@ func (s *chatGPTImageSession) uploadInputs(ctx context.Context, c *gin.Context, 
 		address := gjson.GetBytes(entry, "upload_url").String()
 		headers := make(http.Header)
 		headers.Set("Content-Type", kind)
+		// App direct-Azure uploads need these defaults even when /files omits
+		// upload_headers. Upstream-provided storage headers override them below.
+		if parsed, parseErr := url.Parse(address); parseErr == nil {
+			host := strings.ToLower(parsed.Hostname())
+			if strings.HasSuffix(host, ".blob.core.windows.net") || strings.HasSuffix(host, ".oaiusercontent.com") {
+				headers.Set("x-ms-blob-type", "BlockBlob")
+				headers.Set("x-ms-version", "2020-04-08")
+				headers.Set("x-ms-blob-content-type", kind)
+			}
+		}
 		gjson.GetBytes(entry, "upload_headers").ForEach(func(key, value gjson.Result) bool {
 			lower := strings.ToLower(key.String())
 			if lower == "content-type" || lower == "content-md5" || strings.HasPrefix(lower, "x-ms-") {
@@ -152,6 +162,9 @@ func (s *chatGPTImageSession) publicBytes(ctx context.Context, method, address s
 		return nil, fmt.Errorf("invalid ChatGPT image storage destination")
 	}
 	ctx = WithHTTPUpstreamPublicDestination(WithHTTPUpstreamRedirectsDisabled(ctx))
+	if method == http.MethodPut {
+		ctx = WithHTTPUpstreamPublicUpload(ctx)
+	}
 	req, err := http.NewRequestWithContext(ctx, method, address, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
@@ -161,7 +174,9 @@ func (s *chatGPTImageSession) publicBytes(ctx context.Context, method, address s
 	if s.account.ProxyID != nil && s.account.Proxy != nil {
 		proxy = s.account.Proxy.URL()
 	}
-	resp, err := s.gateway.doAccountHTTPUpstream(req, proxy, s.account)
+	// Storage receives only its upload/download headers. Preserve account egress
+	// without the first-party OAuth proof, workspace, or device-header adapters.
+	resp, err := doAccountHTTPUpstream(s.gateway.httpUpstream, req, proxy, s.account)
 	if err != nil {
 		return nil, fmt.Errorf("ChatGPT image storage request failed")
 	}
