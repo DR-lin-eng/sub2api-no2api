@@ -1,0 +1,16 @@
+{
+  "command": [
+    "sh",
+    "backend/scripts/check-source-layout.sh"
+  ],
+  "cwd": "/Users/lin/.codex/worktrees/5c4f/sub2api-no2api",
+  "exit_status": 1,
+  "elapsed_s": 0.325950084021315,
+  "utc": "2026-11-11T18:50:06.981586+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderr_sha256": "fa8ca7f44ff6c5a8f2bae1e58b27df9c4b6128e614fbd97be61e593449cd1e83",
+  "stdout_file": "source-layout.stdout.gz",
+  "stderr_file": "source-layout.stderr.gz",
+  "output_encoding": "gzip; recorded SHA-256 values cover the original decompressed bytes"
+}

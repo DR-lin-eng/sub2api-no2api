@@ -24,7 +24,7 @@ const cards = [
     marker: 'Codex OAuth A/B Simulation Settings',
     component: 'SettingsCodexSimulationCard',
     file: 'SettingsCodexSimulationCard.vue',
-		templateHash: 'c78190ebe0430d38d939afcd187759beb1e88dd0fda341eb303e65facf4fdb3e',
+    templateHash: 'f72f76ef998051b6103723348ab9ed9cdfd37c7353bc88676583558c8b56cb03',
   },
   {
     marker: 'Global Temporary Unschedulable Settings',

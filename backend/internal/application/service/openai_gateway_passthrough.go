@@ -964,10 +964,11 @@ func (s *OpenAIGatewayService) handleFailoverErrorResponsePassthrough(
 	}
 	setOpsUpstreamError(c, resp.StatusCode, upstreamMsg, upstreamDetail)
 	logOpenAIInstructionsRequiredDebug(ctx, c, account, resp.StatusCode, upstreamMsg, requestBody, body)
+	shouldDisable := false
 	if !cyberHit {
 		reqModel, _, _ := extractOpenAIRequestMetaFromBody(requestBody)
 		canonicalModel := canonicalOpenAIAccountSchedulingModel(account, reqModel)
-		_ = s.handleOpenAIAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, body, canonicalModel)
+		shouldDisable = s.handleOpenAIAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, body, canonicalModel)
 	}
 	appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
 		Platform:             account.Platform,
@@ -988,6 +989,9 @@ func (s *OpenAIGatewayService) handleFailoverErrorResponsePassthrough(
 		upstreamMsg,
 		account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode),
 	)
+	if shouldDisable && account.Platform == PlatformOpenAI && failoverErr.Scope == GatewayFailureScopeRequest {
+		failoverErr.RetryableOnSameAccount = false
+	}
 	_, clientMessage := sanitizedOpenAIPassthroughErrorStatusAndMessage(resp.StatusCode)
 	if isOpenAIContextWindowError(upstreamMsg, body) && upstreamMsg != "" {
 		clientMessage = upstreamMsg
@@ -2155,7 +2159,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 				clientHadSemanticOutput := openAIStreamClientOutputStarted(c, clientOutputStarted)
 				if !clientHadSemanticOutput {
 					if handledErr, handled := s.handleOpenAIResponseFailedBeforeOutput(
-						c, account, true, upstreamRequestID, dataBytes, failedMessage, resp.Header,
+						c, account, true, upstreamRequestID, dataBytes, failedMessage, resp.Header, mappedModel,
 					); handled {
 						if handledErr != nil {
 							return resultWithUsage(), handledErr
@@ -2163,6 +2167,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 						return resultWithUsage(), fmt.Errorf("upstream response failed")
 					}
 				} else if openAIStreamFailureIsExplicitlyRetryable(dataBytes, failedMessage) {
+					s.applyOpenAICapacityModelCooldownForRequest(c, account, dataBytes, mappedModel)
 					s.recordOpenAIStreamUpstreamError(c, account, true, upstreamRequestID, "http_error", dataBytes, failedMessage)
 					if !capacityFailoverSuppressedLogged && isOpenAIUpstreamCapacityShedEvent(dataBytes) {
 						logOpenAICapacityFailoverSuppressed(ctx, account, "passthrough_sse", upstreamRequestID, eventType)
@@ -2475,7 +2480,7 @@ func (s *OpenAIGatewayService) handleNonStreamingResponsePassthrough(
 		return s.handlePassthroughSSEToJSONWithAccount(resp, c, body, originalModel, mappedModel, account)
 	}
 	if failurePayload, failure := extractOpenAIJSONFailureEnvelope(body); failure {
-		return nil, s.handleOpenAINonStreamingFailureEnvelope(resp, c, account, failurePayload, body, true)
+		return nil, s.handleOpenAINonStreamingFailureEnvelope(resp, c, account, failurePayload, body, true, mappedModel)
 	}
 
 	usage := &OpenAIUsage{}
@@ -2551,11 +2556,12 @@ func (s *OpenAIGatewayService) handlePassthroughSSEToJSONWithAccount(
 		if !openAIResponseFailureHasSemanticOutput(bodyText, failurePayload) {
 			if handledErr, handled := s.handleOpenAIResponseFailedBeforeOutput(
 				c, account, true, strings.TrimSpace(resp.Header.Get("x-request-id")),
-				failurePayload, failedMessage, resp.Header,
+				failurePayload, failedMessage, resp.Header, mappedModel,
 			); handled {
 				return nil, handledErr
 			}
 		} else {
+			s.applyOpenAICapacityModelCooldownForRequest(c, account, failurePayload, mappedModel)
 			s.recordOpenAIStreamUpstreamError(c, account, true, strings.TrimSpace(resp.Header.Get("x-request-id")), "http_error", failurePayload, failedMessage)
 			logger.LegacyPrintf("service.openai_gateway", "OpenAI passthrough non-streaming response.failed after semantic output; failover skipped: response already produced output")
 			if openAIStreamFailureIsExplicitlyRetryable(failurePayload, failedMessage) {

@@ -8,6 +8,7 @@
 - `paymentDisplay.ts`: currency normalization/formatting, order status display, refund eligibility, date display, and plan-validity wording.
 - `paymentMethods.ts`: canonical visible-method normalization shared with administrator payment settings.
 - `rechargeBonus.ts`: bounded tier validation and currency-aware bonus/discount previews shared with administrator settings. Checkout applies tiers only when the server explicitly enables the feature; the server order snapshot is authoritative.
+- Recharge multipliers retain up to six decimal places independently of currency settlement precision. EasyPay refund success codes are per provider instance and default to 1; changing this setting requires all refund workers to support it. See the [upgrade boundaries](../../../../docs/UPSTREAM_SYNC_20261112.md).
 - `orderStatusBadge.ts`, `orderTable.ts`: narrow order-component exports.
 - `paymentProviderDialog.ts`, `paymentProviderList.ts`: narrow provider-management component exports.
 - `paymentStore.ts`: compatibility-safe public Store entry.

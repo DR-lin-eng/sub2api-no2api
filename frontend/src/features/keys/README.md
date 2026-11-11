@@ -20,3 +20,5 @@ pnpm run typecheck
 ```
 
 Codex 导出包含实时搜索；显式 API Key 模式启用原生图片工具并继续使用 env_key。CC Switch 的 provider 配置由 `core/utils/codexAuthConfig.ts` 序列化；现有兼容模式和默认模型不变。
+
+OpenCode 原生 Anthropic 导出包含 Fable/Mythos 5.2 的 adaptive 与 effort variants，Antigravity 使用独立的已验证目录。新模型开放时序见 [升级边界](../../../../docs/UPSTREAM_SYNC_20261112.md)。

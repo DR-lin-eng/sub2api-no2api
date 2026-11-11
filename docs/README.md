@@ -49,6 +49,7 @@
 
 | 文档 | 内容 |
 | --- | --- |
+| [上游主线同步审查（2026-11-12）](UPSTREAM_SYNC_20261112.md) | 33 个冻结 PR 的关闭台账、性能、索引升级回退与专项边界 |
 | [TypeSafe 与充值阶梯专项适配](UPSTREAM_ADAPT_20261006.md) | 原生协议、计费探测、优惠快照、升级回退和验证 |
 | [组合分组](COMPOSITE_GROUPS.md) | Composite group 的平台解析和使用约束 |
 | [Excel BPS 与 DeepSeek 兼容](BPS_DEEPSEEK_COMPAT.md) | 账号级 BPS 开关/筛选/批量更新、Responses 与 Chat Completions 兼容入口 |

@@ -1,6 +1,7 @@
 import {
   antigravityGeminiModelCatalog,
   claudeModelCatalog,
+  claude52ModelCatalog,
   geminiModelCatalog,
   grokModelCatalog,
   openAIModelCatalog,
@@ -58,6 +59,7 @@ function resolveProviderConfig(
       break
     case 'anthropic':
       provider.npm = '@ai-sdk/anthropic'
+      provider.models = claude52ModelCatalog
       break
     case 'antigravity-claude':
       provider.npm = '@ai-sdk/anthropic'

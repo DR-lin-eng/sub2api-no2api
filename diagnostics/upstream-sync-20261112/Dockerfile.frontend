@@ -1,0 +1,6 @@
+FROM sub2api-sync-followup-frontend:20261107
+COPY frontend/ /work/frontend/
+COPY docs/legal/ /work/docs/legal/
+COPY Makefile /work/Makefile
+WORKDIR /work
+RUN apk add --no-cache make && pnpm --dir frontend install --frozen-lockfile

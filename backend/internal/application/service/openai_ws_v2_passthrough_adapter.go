@@ -1325,6 +1325,12 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 		Options: openaiwsv2.RelayOptions{
 			WriteTimeout: s.openAIWSWriteTimeout(),
 			LegacyTTFT:   !visibleOutputTTFT,
+			IsFirstTokenEvent: func(eventType string, message []byte) bool {
+				if strings.HasPrefix(strings.TrimSpace(eventType), "codex.") {
+					return false
+				}
+				return openAIStreamDataStartsTTFT(string(message), eventType, visibleOutputTTFT)
+			},
 			// Passthrough idle is enforced only after a completed turn by
 			// clientFrameConn. The relay-wide activity watchdog would also
 			// terminate a healthy active upstream turn.

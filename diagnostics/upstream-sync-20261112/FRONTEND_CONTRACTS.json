@@ -1,0 +1,226 @@
+{
+  "baseline": {
+    "anthropic": {
+      "bytes": 237,
+      "sha256": "1c1fdbcb71199d58fe56dd8140cdb27d408e699f473e1acac6261ac09d1f9fba",
+      "providerKeys": [
+        "options",
+        "npm"
+      ],
+      "modelIds": []
+    },
+    "openai": {
+      "bytes": 6888,
+      "sha256": "ac14ec38120fbf2b3d29f9d465f3e4a83fecb975fae3e3e65d0e494e79e72eae",
+      "providerKeys": [
+        "options",
+        "models"
+      ],
+      "modelIds": [
+        "gpt-6-astra",
+        "gpt-6.1-sol",
+        "gpt-6.1-terra",
+        "gpt-6-sol",
+        "gpt-6-luna",
+        "gpt-5.2",
+        "gpt-5.6",
+        "gpt-5.6-sol",
+        "gpt-5.6-terra",
+        "gpt-5.6-luna",
+        "gpt-5.5",
+        "gpt-5.4",
+        "gpt-5.4-mini",
+        "gpt-5.3-codex-spark",
+        "codex-mini-latest"
+      ]
+    },
+    "gemini": {
+      "bytes": 3331,
+      "sha256": "58e586cdcc97f9506ce57b7aee6623134a2cb09a1643a2a143335cb371d6df56",
+      "providerKeys": [
+        "options",
+        "npm",
+        "models"
+      ],
+      "modelIds": [
+        "gemini-2.0-flash",
+        "gemini-2.5-flash",
+        "gemini-2.5-pro",
+        "gemini-3.5-flash",
+        "gemini-3-flash-preview",
+        "gemini-3-pro-preview",
+        "gemini-3.1-pro-preview"
+      ]
+    },
+    "antigravity-claude": {
+      "bytes": 2327,
+      "sha256": "43d6e7b7809d3911bacff829c96f6de43b356a47db4b9799baf98e6eb1cc8aa1",
+      "providerKeys": [
+        "options",
+        "npm",
+        "name",
+        "models"
+      ],
+      "modelIds": [
+        "claude-fable-5-1",
+        "claude-fable-5",
+        "claude-opus-4-6-thinking",
+        "claude-sonnet-4-6"
+      ]
+    },
+    "antigravity-gemini": {
+      "bytes": 4471,
+      "sha256": "47b486d2995c7c41b0598aa776a2d7f1258d6a3257dfc33910799f624a035640",
+      "providerKeys": [
+        "options",
+        "npm",
+        "name",
+        "models"
+      ],
+      "modelIds": [
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite",
+        "gemini-2.5-flash-thinking",
+        "gemini-3-flash",
+        "gemini-3.1-pro-low",
+        "gemini-3.1-pro-high",
+        "gemini-2.5-flash-image",
+        "gemini-3.1-flash-image"
+      ]
+    },
+    "grok": {
+      "bytes": 943,
+      "sha256": "bc7dd784b03d1792243f39cde154c4b8a885e17f9b1cd100d5966a220a91e95e",
+      "providerKeys": [
+        "options",
+        "npm",
+        "name",
+        "models"
+      ],
+      "modelIds": [
+        "grok-4.5",
+        "grok-4.3",
+        "grok-build-0.1",
+        "grok-composer-2.5-fast"
+      ]
+    },
+    "codexCard": {
+      "source_sha256": "bd5237512545b9bb90c65d51692998a080faa4764dccacb5ef1c42f6667979f1",
+      "template_sha256": "f72f76ef998051b6103723348ab9ed9cdfd37c7353bc88676583558c8b56cb03"
+    }
+  },
+  "candidate": {
+    "anthropic": {
+      "bytes": 2047,
+      "sha256": "beb277783144fc4fa8a1c4e2d1574fa601ba4e37452a8752adb6050be2cc45ac",
+      "providerKeys": [
+        "options",
+        "npm",
+        "models"
+      ],
+      "modelIds": [
+        "claude-fable-5-2",
+        "claude-mythos-5-2"
+      ]
+    },
+    "openai": {
+      "bytes": 6888,
+      "sha256": "ac14ec38120fbf2b3d29f9d465f3e4a83fecb975fae3e3e65d0e494e79e72eae",
+      "providerKeys": [
+        "options",
+        "models"
+      ],
+      "modelIds": [
+        "gpt-6-astra",
+        "gpt-6.1-sol",
+        "gpt-6.1-terra",
+        "gpt-6-sol",
+        "gpt-6-luna",
+        "gpt-5.2",
+        "gpt-5.6",
+        "gpt-5.6-sol",
+        "gpt-5.6-terra",
+        "gpt-5.6-luna",
+        "gpt-5.5",
+        "gpt-5.4",
+        "gpt-5.4-mini",
+        "gpt-5.3-codex-spark",
+        "codex-mini-latest"
+      ]
+    },
+    "gemini": {
+      "bytes": 3331,
+      "sha256": "58e586cdcc97f9506ce57b7aee6623134a2cb09a1643a2a143335cb371d6df56",
+      "providerKeys": [
+        "options",
+        "npm",
+        "models"
+      ],
+      "modelIds": [
+        "gemini-2.0-flash",
+        "gemini-2.5-flash",
+        "gemini-2.5-pro",
+        "gemini-3.5-flash",
+        "gemini-3-flash-preview",
+        "gemini-3-pro-preview",
+        "gemini-3.1-pro-preview"
+      ]
+    },
+    "antigravity-claude": {
+      "bytes": 2327,
+      "sha256": "43d6e7b7809d3911bacff829c96f6de43b356a47db4b9799baf98e6eb1cc8aa1",
+      "providerKeys": [
+        "options",
+        "npm",
+        "name",
+        "models"
+      ],
+      "modelIds": [
+        "claude-fable-5-1",
+        "claude-fable-5",
+        "claude-opus-4-6-thinking",
+        "claude-sonnet-4-6"
+      ]
+    },
+    "antigravity-gemini": {
+      "bytes": 4471,
+      "sha256": "47b486d2995c7c41b0598aa776a2d7f1258d6a3257dfc33910799f624a035640",
+      "providerKeys": [
+        "options",
+        "npm",
+        "name",
+        "models"
+      ],
+      "modelIds": [
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite",
+        "gemini-2.5-flash-thinking",
+        "gemini-3-flash",
+        "gemini-3.1-pro-low",
+        "gemini-3.1-pro-high",
+        "gemini-2.5-flash-image",
+        "gemini-3.1-flash-image"
+      ]
+    },
+    "grok": {
+      "bytes": 943,
+      "sha256": "bc7dd784b03d1792243f39cde154c4b8a885e17f9b1cd100d5966a220a91e95e",
+      "providerKeys": [
+        "options",
+        "npm",
+        "name",
+        "models"
+      ],
+      "modelIds": [
+        "grok-4.5",
+        "grok-4.3",
+        "grok-build-0.1",
+        "grok-composer-2.5-fast"
+      ]
+    },
+    "codexCard": {
+      "source_sha256": "bd5237512545b9bb90c65d51692998a080faa4764dccacb5ef1c42f6667979f1",
+      "template_sha256": "f72f76ef998051b6103723348ab9ed9cdfd37c7353bc88676583558c8b56cb03"
+    }
+  }
+}

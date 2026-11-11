@@ -1,0 +1,24 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--memory=5g",
+    "-e",
+    "NODE_OPTIONS=--max-old-space-size=4096",
+    "sub2api-sync-frontend:20261112",
+    "sh",
+    "-c",
+    "pnpm --dir frontend run lint:check && pnpm --dir frontend run typecheck && make test-frontend-critical && pnpm --dir frontend exec vitest run src/features/admin-accounts src/features/keys src/features/billing src/features/admin-settings --maxWorkers=2 --minWorkers=1"
+  ],
+  "cwd": "/Users/lin/.codex/worktrees/5c4f/sub2api-no2api",
+  "exit_status": 1,
+  "elapsed_s": 79.08557150000706,
+  "utc": "2026-11-11T18:51:24.610013+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "30048303d4d65ad4338b18e7e8d139b199a10c35b1f815f2c6cbf4a7b26b72f1",
+  "stderr_sha256": "ad3fe2001d47cc414ad4d6d0246bcceaad8ca7fbb2a65dcc958df1582a4e1c3d",
+  "stdout_file": "frontend-verified.stdout.gz",
+  "stderr_file": "frontend-verified.stderr.gz",
+  "output_encoding": "gzip; recorded SHA-256 values cover the original decompressed bytes"
+}

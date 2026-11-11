@@ -34,6 +34,7 @@ func (s *OpenAIGatewayService) handleOpenAINonStreamingFailureEnvelope(
 	failurePayload []byte,
 	body []byte,
 	passthrough bool,
+	canonicalModel ...string,
 ) error {
 	if c != nil && c.Request != nil {
 		s.observeCodexEncryptedContentPayload(c.Request.Context(), c, account, openAICodexTurnStateModel(c), failurePayload, "http_failure")
@@ -48,11 +49,12 @@ func (s *OpenAIGatewayService) handleOpenAINonStreamingFailureEnvelope(
 	requestID := strings.TrimSpace(resp.Header.Get("x-request-id"))
 	if !openAIJSONFailureHasSemanticOutput(body) {
 		if handledErr, handled := s.handleOpenAIResponseFailedBeforeOutput(
-			c, account, passthrough, requestID, failurePayload, message, resp.Header,
+			c, account, passthrough, requestID, failurePayload, message, resp.Header, firstRequestedModel(canonicalModel),
 		); handled {
 			return handledErr
 		}
 	} else {
+		s.applyOpenAICapacityModelCooldownForRequest(c, account, failurePayload, firstRequestedModel(canonicalModel))
 		s.recordOpenAIStreamUpstreamError(c, account, passthrough, requestID, "http_error", failurePayload, message)
 		logger.LegacyPrintf("service.openai_gateway", "OpenAI HTTP 200 failure envelope after semantic output; failover skipped: response already produced output")
 		if openAIStreamFailureIsExplicitlyRetryable(failurePayload, message) {

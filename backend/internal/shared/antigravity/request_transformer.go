@@ -455,6 +455,7 @@ const DummyThoughtSignature = "skip_thought_signature_validator"
 // allowDummyThought: 只有 Gemini 模型支持 dummy thought signature
 func buildParts(content json.RawMessage, toolIDToName map[string]string, allowDummyThought, multimodalToolResults bool) ([]GeminiPart, bool, error) {
 	var parts []GeminiPart
+	var toolMediaParts []GeminiPart
 	strippedThinking := false
 
 	// 尝试解析为字符串
@@ -560,10 +561,11 @@ func buildParts(content json.RawMessage, toolIDToName map[string]string, allowDu
 			}
 			parts = append(parts, GeminiPart{FunctionResponse: response})
 			if !multimodalToolResults {
-				parts = append(parts, inlineParts...)
+				toolMediaParts = append(toolMediaParts, inlineParts...)
 			}
 		}
 	}
+	parts = append(parts, toolMediaParts...)
 
 	return parts, strippedThinking, nil
 }

@@ -1,0 +1,21 @@
+{
+  "command": [
+    "docker",
+    "build",
+    "--build-arg",
+    "COMMIT=sync-validation-20261112",
+    "-t",
+    "sub2api:sync-candidate-20261112",
+    "."
+  ],
+  "cwd": "/Users/lin/.codex/worktrees/5c4f/sub2api-no2api",
+  "exit_status": 0,
+  "elapsed_s": 34.11912408302305,
+  "utc": "2026-11-11T19:46:14.551856+00:00",
+  "input": "repository sources and checked-in test fixtures; see SOURCE_HASHES.json for final validation snapshot",
+  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderr_sha256": "e7216143aff3b66df27b64ea62a4d28fce54784abcb7a5bbf05c8d3db0657743",
+  "stdout_file": "candidate-image-verified.stdout.gz",
+  "stderr_file": "candidate-image-verified.stderr.gz",
+  "output_encoding": "gzip; recorded SHA-256 values cover the original decompressed bytes"
+}

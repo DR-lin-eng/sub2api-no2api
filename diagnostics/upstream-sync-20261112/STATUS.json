@@ -1,0 +1,42 @@
+{
+  "upstream_base": "6b4b37db43443b5e88e424fe3c69602cc3810dfb",
+  "reviewed_upstream": "530c5e3a4f9c73ca2b0881191d0ef8e0d82c5484",
+  "baseline": "0f1836b5a3db2ccdf8d4ab985d199215e45f39a2",
+  "integration_base": "e367b7ce6c8275d87eb4f46747308fc3d2da7b4a",
+  "pr_count": 33,
+  "fully_closed": 30,
+  "partial_or_deferred": [
+    8606,
+    8358,
+    8639
+  ],
+  "inherited_ledger": "diagnostics/upstream-sync-20261107-followup/UPSTREAM_PRS.json",
+  "inherited_deferred_items": [
+    "#8484 shared ingress/patch/async-image budgets and transport/SSE policy",
+    "#8006/#8369 explicit Gemini cachedContents",
+    "#8319/#8476 resource-scoped admin key migration"
+  ],
+  "semantic_review": "complete",
+  "local_validation": "passed",
+  "publication": "Track exact pushed/merged SHA on the GitHub pull request and GitHub Actions; local records do not assert remote success.",
+  "meaning": "Reviewed history boundary does not implement deferred contracts.",
+  "validated_source_manifest": "SOURCE_HASHES.json",
+  "runtime_cases": 42,
+  "runtime_migrations": [
+    314,
+    315,
+    315,
+    315
+  ],
+  "validation_records": [
+    "backend-unit-verified",
+    "backend-integration-verified",
+    "candidate-ja3-probe",
+    "frontend-final",
+    "frontend-mobile-verified",
+    "backend-final-focused",
+    "runtime-publish-final",
+    "performance-isolated",
+    "backend-lint-verified"
+  ]
+}

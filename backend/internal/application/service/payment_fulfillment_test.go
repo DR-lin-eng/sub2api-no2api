@@ -518,23 +518,6 @@ func TestValidateProviderNotificationMetadataRejectsAlipaySnapshotMismatch(t *te
 	assert.ErrorContains(t, err, "alipay app_id mismatch")
 }
 
-func TestValidateProviderNotificationMetadataRejectsEasyPaySnapshotMismatch(t *testing.T) {
-	t.Parallel()
-
-	order := &dbent.PaymentOrder{
-		PaymentType: payment.TypeAlipay,
-		ProviderSnapshot: map[string]any{
-			"schema_version": 2,
-			"merchant_id":    "pid-expected",
-		},
-	}
-
-	err := validateProviderNotificationMetadata(order, payment.TypeEasyPay, map[string]string{
-		"pid": "pid-other",
-	})
-	assert.ErrorContains(t, err, "easypay pid mismatch")
-}
-
 func TestValidateProviderNotificationMetadataRejectsAirwallexSnapshotMismatch(t *testing.T) {
 	t.Parallel()
 

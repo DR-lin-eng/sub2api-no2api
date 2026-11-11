@@ -36,6 +36,9 @@ type openAIImagesJSONKeepalive struct {
 // StartOpenAIImagesJSONKeepalive starts whitespace heartbeats for a
 // non-streaming Images request. A non-positive interval disables the feature.
 func StartOpenAIImagesJSONKeepalive(c *gin.Context, interval time.Duration) func() {
+	if c != nil && c.GetHeader("X-Codex-Image-Turn-Id") != "" {
+		return func() {}
+	}
 	return startOpenAIImagesKeepalive(c, interval, "application/json; charset=utf-8", []byte("\n"), false)
 }
 

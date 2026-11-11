@@ -15,14 +15,14 @@ interface OpenCodeBaseline {
 const baselines: OpenCodeBaseline[] = [
   {
     platform: 'anthropic',
-    bytes: 237,
-    sha256: '1c1fdbcb71199d58fe56dd8140cdb27d408e699f473e1acac6261ac09d1f9fba',
-    providerKeys: ['options', 'npm']
+    bytes: 2047,
+    sha256: 'beb277783144fc4fa8a1c4e2d1574fa601ba4e37452a8752adb6050be2cc45ac',
+    providerKeys: ['options', 'npm', 'models']
   },
   {
     platform: 'openai',
-    bytes: 5734,
-    sha256: '677f03c3dc7ad73e0aa79396db0ad180df78682397b4b48d731b32d86b003348',
+    bytes: 6888,
+    sha256: 'ac14ec38120fbf2b3d29f9d465f3e4a83fecb975fae3e3e65d0e494e79e72eae',
     providerKeys: ['options', 'models']
   },
   {
@@ -88,5 +88,20 @@ describe('OpenCode config resolver', () => {
 
     expect(result.path).toBe('opencode.json')
     expect(result.hint).toBe('translated hint')
+  })
+
+  it('exposes Claude 5.2 adaptive effort variants only on its supported native provider', () => {
+    const config = (platform: OpenCodeProviderId) => JSON.parse(generateOpenCodeConfig({
+      platform, baseUrl: 'https://example.com/v1', apiKey: 'sk-test', hint: 'hint'
+    }).content).provider[platform]
+
+    const native = config('anthropic')
+    const antigravity = config('antigravity-claude')
+    for (const model of ['claude-fable-5-2', 'claude-mythos-5-2']) {
+      expect(native.models[model].limit).toEqual({ context: 1000000, output: 128000 })
+      expect(native.models[model].options).toEqual({ thinking: { type: 'adaptive' }, effort: 'high' })
+      expect(native.models[model].variants.xhigh).toEqual({ effort: 'xhigh' })
+      expect(antigravity.models[model]).toBeUndefined()
+    }
   })
 })
