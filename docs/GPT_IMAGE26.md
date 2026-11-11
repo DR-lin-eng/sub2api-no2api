@@ -80,7 +80,7 @@ Go 文件均位于 `backend/internal/`：模型目录在 `shared/openai/constant
 与 `openai_images_direct.go`，作者结算在 `openai_images_svg_billing.go` 和 `openai_gateway_usage.go`。
 前端见 [媒体工坊](../frontend/src/features/media-studio/README.md)。
 
-使用固定 `golang:1.26.10-alpine` Docker 容器，在 `backend/` 执行：
+使用固定 `golang:1.26.11-alpine` Docker 容器，在 `backend/` 执行：
 
 ```sh
 go test -tags=unit ./internal/application/service ./internal/shared/openai ./internal/transport/http/handler \
