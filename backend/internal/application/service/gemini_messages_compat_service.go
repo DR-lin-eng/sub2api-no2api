@@ -2449,7 +2449,7 @@ func convertGeminiToClaudeMessage(geminiResp map[string]any, originalModel strin
 						if !ok {
 							continue
 						}
-						if text, ok := pm["text"].(string); ok && text != "" {
+						if text, ok := pm["text"].(string); ok && text != "" && !isGeminiThoughtPart(pm) {
 							contentBlocks = append(contentBlocks, map[string]any{
 								"type": "text",
 								"text": text,

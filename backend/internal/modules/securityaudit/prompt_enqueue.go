@@ -10,6 +10,7 @@ type Enqueuer struct {
 	repo    JobRepository
 	payload PayloadStore
 	metrics Metrics
+	notify  func()
 }
 
 func NewEnqueuer(config ConfigStore, repo JobRepository, payload PayloadStore, metrics ...Metrics) *Enqueuer {
@@ -88,6 +89,9 @@ func (e *Enqueuer) Enqueue(ctx context.Context, req Request) error {
 	}))
 	if e.metrics != nil {
 		e.metrics.IncEnqueued()
+	}
+	if e.notify != nil {
+		e.notify()
 	}
 	return nil
 }

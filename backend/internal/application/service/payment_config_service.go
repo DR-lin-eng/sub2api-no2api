@@ -340,8 +340,12 @@ func (s *PaymentConfigService) getStripePublishableKey(ctx context.Context) stri
 // and cannot be meaningfully decomposed without introducing unnecessary abstraction.
 func (s *PaymentConfigService) UpdatePaymentConfig(ctx context.Context, req UpdatePaymentConfigRequest) error {
 	if req.BalanceRechargeMultiplier != nil {
-		if math.IsNaN(*req.BalanceRechargeMultiplier) || math.IsInf(*req.BalanceRechargeMultiplier, 0) || *req.BalanceRechargeMultiplier <= 0 {
+		v := *req.BalanceRechargeMultiplier
+		if math.IsNaN(v) || math.IsInf(v, 0) || v <= 0 {
 			return infraerrors.BadRequest("INVALID_BALANCE_RECHARGE_MULTIPLIER", "balance recharge multiplier must be greater than 0")
+		}
+		if balanceRechargeMultiplierHasExcessPrecision(v) {
+			return infraerrors.BadRequest("INVALID_BALANCE_RECHARGE_MULTIPLIER", "balance recharge multiplier allows at most 6 decimal places")
 		}
 	}
 	if req.SubscriptionUSDToCNYRate != nil {
@@ -398,7 +402,7 @@ func (s *PaymentConfigService) UpdatePaymentConfig(ctx context.Context, req Upda
 		m[SettingBalancePayDisabled] = formatBoolOrEmpty(req.BalanceDisabled)
 	}
 	if req.BalanceRechargeMultiplier != nil {
-		m[SettingBalanceRechargeMult] = formatPositiveFloat(req.BalanceRechargeMultiplier)
+		m[SettingBalanceRechargeMult] = formatBalanceRechargeMultiplier(req.BalanceRechargeMultiplier)
 	}
 	if req.SubscriptionUSDToCNYRate != nil {
 		m[SettingSubscriptionUSDToCNYRate] = formatPositiveFloatExact(req.SubscriptionUSDToCNYRate)
@@ -478,6 +482,29 @@ func formatPositiveFloat(v *float64) string {
 		return "" // empty → parsePaymentConfig uses default
 	}
 	return strconv.FormatFloat(*v, 'f', 2, 64)
+}
+
+const balanceRechargeMultiplierMaxDecimals = 6
+
+func balanceRechargeMultiplierHasExcessPrecision(v float64) bool {
+	scaled := v * math.Pow10(balanceRechargeMultiplierMaxDecimals)
+	if math.IsInf(scaled, 0) {
+		return false // Large finite floats already have integer precision.
+	}
+	rounded := math.Round(scaled)
+	return rounded == 0 || math.Abs(scaled-rounded) > 1e-6
+}
+
+func formatBalanceRechargeMultiplier(v *float64) string {
+	if v == nil || *v <= 0 {
+		return ""
+	}
+	scaled := *v * math.Pow10(balanceRechargeMultiplierMaxDecimals)
+	if math.IsInf(scaled, 0) {
+		return strconv.FormatFloat(*v, 'f', -1, 64)
+	}
+	rounded := math.Round(scaled) / math.Pow10(balanceRechargeMultiplierMaxDecimals)
+	return strconv.FormatFloat(rounded, 'f', -1, 64)
 }
 
 // formatPositiveFloatExact 保留完整精度，用于汇率等对小数位敏感的配置。

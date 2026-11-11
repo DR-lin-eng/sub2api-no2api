@@ -16,6 +16,7 @@
 | `openai_usage*` | OAuth 调用触发的后台额度 WS、10 分钟活跃窗口、快照校验、详细用量与缓存；见 [用量说明](../../../../docs/OPENAI_USAGE.md) |
 | `openai_request_set_patches.go` | 大 JSON 的多项普通 set 局部改写与一次拼接，保留 sjson 回退路径 |
 | `openai_capacity_retry.go` | 请求级容量错误的 HTTP/SSE/WS 等待提示解析；有限数值先限幅，沿用现有重试预算 |
+| `openai_capacity_model_cooldown.go` | 容量错误的显式模型级自定义规则；只匹配真实错误字段，沿用当前规则命中后的换号与持久化失败隔离 |
 | `openai_auth_recovery.go`, `openai_tls_handshake_recovery.go` | OAuth 401 刷新候选分类；刷新后的已知主体由 `openai_chatgpt_headers.go` 与 token provider 核对，变化时终止当前轮次重放；普通 HTTP Responses 的 TLS 握手超时恢复、请求发送追踪及单次重试边界 |
 | `openai_ws_size_recovery.go` | 内嵌图片/大 JSON 请求发送前的 HTTP 选路、1009/断连后一次安全回退与完整历史重放边界 |
 | `openai_ws_fallback_response.go` | WS 终止错误的 HTTP/SSE 映射、1009 大小限制提示与已提交响应保护 |

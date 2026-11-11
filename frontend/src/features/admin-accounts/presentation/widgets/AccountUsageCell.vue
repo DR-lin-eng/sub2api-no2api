@@ -1,5 +1,5 @@
 <template>
-  <div ref="rootRef" v-if="showUsageWindows">
+  <div ref="rootRef" v-if="showUsageWindows" :aria-busy="loading || activeQueryLoading">
     <!-- Anthropic OAuth and Setup Token accounts: fetch real usage data -->
     <template
       v-if="
@@ -8,7 +8,7 @@
       "
     >
       <!-- Loading state -->
-      <div v-if="loading" class="space-y-1.5">
+      <div v-if="loading && !usageInfo" class="space-y-1.5">
         <!-- OAuth: 3 rows, Setup Token: 1 row -->
         <div class="flex items-center gap-1">
           <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
@@ -88,7 +88,7 @@
           <button
             type="button"
             class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30 transition-colors"
-            :disabled="activeQueryLoading"
+            :disabled="activeQueryLoading || loading"
             @click="loadActiveUsage"
           >
             <svg
@@ -139,7 +139,7 @@
               type="button"
               data-testid="openai-primary-query"
               class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-              :disabled="activeQueryLoading"
+              :disabled="activeQueryLoading || loading"
               :title="t('admin.accounts.usageWindow.activeQueryOpenAI')"
               @click="handleOpenAIQuotaQuery"
             >
@@ -322,6 +322,12 @@
         💳 {{ t('admin.accounts.aiCreditsBalance') }}: {{ aiCreditsDisplay }}
       </div>
       <div v-else class="text-xs text-gray-400">-</div>
+      <div v-if="account.platform === 'antigravity' && !loading" class="mt-1">
+        <button type="button" data-testid="antigravity-active-query" class="rounded px-1.5 py-0.5 text-[10px] font-medium text-blue-600 disabled:opacity-50 dark:text-blue-400" :disabled="activeQueryLoading" @click="loadActiveUsage">
+          {{ t('admin.accounts.usageWindow.activeQuery') }}
+        </button>
+      </div>
+
     </template>
 
     <!-- Grok OAuth accounts: passive xAI quota headers + local Sub2API usage -->
@@ -587,6 +593,7 @@ import { formatCompactNumber, formatRelativeTime } from '@/core/utils/format'
 import { useOpenAIQuotaDisplayState } from '@/features/admin-accounts/presentation/composables/useOpenAIQuotaDisplayState'
 import type { OpenAIQuotaRefreshResult, OpenAIQuotaUsage } from '@/features/admin-accounts/data/dtos/openAIQuotaDtos'
 import type { OpenAIUsageLiveTransport } from '../composables/useAccountsOpenAIUsagePush'
+import { resolveAntigravityModelUsage, resolveAntigravityQuotaGroupBars } from '../antigravityQuotaDisplay'
 import UsageProgressBar from './UsageProgressBar.vue'
 import AccountQuotaInfo from './AccountQuotaInfo.vue'
 import OpenAIQuotaResetCell from './OpenAIQuotaResetCell.vue'
@@ -707,95 +714,14 @@ const shouldLazyLoadOnMobile = computed(() => {
   return shouldFetchUsage.value && !isDesktopViewport.value
 })
 
-// Antigravity quota types (用于 API 返回的数据)
-interface AntigravityUsageResult {
-  utilization: number
-  resetTime: string | null
-}
-
-// ===== Antigravity quota groups (usageInfo.antigravity_quota_groups) =====
-// The summary reports each group's real 5-hour and weekly window. When present it replaces the
-// per-model bars below, which show only whichever window is tighter for each model.
-const antigravityQuotaGroupBars = computed(() => {
-  const groups = usageInfo.value?.antigravity_quota_groups
-  if (!groups || groups.length === 0) return []
-  const bars: Array<{
-    key: string
-    label: string
-    title: string
-    utilization: number
-    resetsAt: string | null
-    color: 'indigo' | 'emerald' | 'purple' | 'amber'
-  }> = []
-  for (const group of groups) {
-    // 'gemini' = Gemini models, 'gemini-argon-wtu' = the separate Argon quota of Pro plans,
-    // '3p' (or anything else) = Antigravity's Claude and GPT models.
-    const family = group.key === 'gemini' ? 'Gemini' : group.key.startsWith('gemini-argon') ? 'Argon' : 'Other'
-    for (const window of group.windows || []) {
-      if (window.window !== '5h' && window.window !== 'weekly') continue
-      const weekly = window.window === 'weekly'
-      const labels = {
-        Gemini: { fiveHour: t('admin.accounts.usageWindow.antigravityGemini5h'), weekly: t('admin.accounts.usageWindow.antigravityGeminiWeekly') },
-        Argon: { fiveHour: t('admin.accounts.usageWindow.antigravityArgon5h'), weekly: t('admin.accounts.usageWindow.antigravityArgonWeekly') },
-        Other: { fiveHour: t('admin.accounts.usageWindow.antigravityOther5h'), weekly: t('admin.accounts.usageWindow.antigravityOtherWeekly') }
-      }
-      const color: 'indigo' | 'emerald' | 'purple' | 'amber' =
-        family === 'Gemini' ? (weekly ? 'indigo' : 'emerald') : family === 'Argon' ? 'indigo' : weekly ? 'purple' : 'amber'
-      bars.push({
-        key: `${group.key}-${window.window}`,
-        label: labels[family][weekly ? 'weekly' : 'fiveHour'],
-        title: group.name,
-        utilization: Math.round(window.utilization ?? 0),
-        resetsAt: window.resets_at ?? null,
-        color
-      })
-    }
-  }
-  return bars
-})
-
-// ===== Antigravity quota from API (usageInfo.antigravity_quota) =====
-
-// 检查是否有从 API 获取的配额数据
-const hasAntigravityQuotaFromAPI = computed(() => {
-  return usageInfo.value?.antigravity_quota && Object.keys(usageInfo.value.antigravity_quota).length > 0
-})
-
-// 从 API 配额数据中获取使用率（多模型取最高使用率）
-const getAntigravityUsageFromAPI = (
-  modelNames: string[]
-): AntigravityUsageResult | null => {
-  const quota = usageInfo.value?.antigravity_quota
-  if (!quota) return null
-
-  let maxUtilization = 0
-  let earliestReset: string | null = null
-
-  for (const model of modelNames) {
-    const modelQuota = quota[model]
-    if (!modelQuota) continue
-
-    if (modelQuota.utilization > maxUtilization) {
-      maxUtilization = modelQuota.utilization
-    }
-    if (modelQuota.reset_time) {
-      if (!earliestReset || modelQuota.reset_time < earliestReset) {
-        earliestReset = modelQuota.reset_time
-      }
-    }
-  }
-
-  // 如果没有找到任何匹配的模型
-  if (maxUtilization === 0 && earliestReset === null) {
-    const hasAnyData = modelNames.some((m) => quota[m])
-    if (!hasAnyData) return null
-  }
-
-  return {
-    utilization: maxUtilization,
-    resetTime: earliestReset
-  }
-}
+const antigravityQuotaGroupBars = computed(() =>
+  resolveAntigravityQuotaGroupBars(usageInfo.value?.antigravity_quota_groups, t)
+)
+const hasAntigravityQuotaFromAPI = computed(() =>
+  usageInfo.value?.antigravity_quota && Object.keys(usageInfo.value.antigravity_quota).length > 0
+)
+const getAntigravityUsageFromAPI = (modelNames: string[]) =>
+  resolveAntigravityModelUsage(usageInfo.value?.antigravity_quota, modelNames)
 
 // Gemini 3 Pro from API
 const antigravity3ProUsageFromAPI = computed(() =>
@@ -1373,6 +1299,7 @@ const loadActiveUsage = async () => {
   activeQueryLoading.value = true
   try {
     usageInfo.value = await getUsage(props.account.id, 'active', true)
+    error.value = null
   } catch (e: any) {
     console.error('Failed to load active usage:', e)
   } finally {

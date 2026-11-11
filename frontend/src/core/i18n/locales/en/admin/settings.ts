@@ -674,7 +674,7 @@ export default {
         maxAmount: 'Maximum Amount',
         dailyLimit: 'Daily Limit',
         balanceRechargeMultiplier: 'Balance Recharge Multiplier',
-        balanceRechargeMultiplierHint: 'How many USD balance the user receives for each 1 CNY paid',
+        balanceRechargeMultiplierHint: 'USD balance credited for each 1 CNY paid. Supports up to 6 decimal places.',
         balanceRechargePreview: 'Preview: 1 CNY = {usd} USD',
         subscriptionUsdToCnyRate: 'Subscription USD to CNY Rate',
         subscriptionUsdToCnyRateHint:
@@ -763,6 +763,8 @@ export default {
         field_airwallexApiBaseHint: 'Must match the API key environment: use https://api-demo.airwallex.com/api/v1 for sandbox/demo keys, and https://api.airwallex.com/api/v1 for production keys. Mixed environments return credentials_invalid / Access Denied.',
         field_paymentCurrencyHint: 'Default is CNY. Stripe and Airwallex can choose HKD, USD, or another listed currency supported by the account; WeChat Pay, Alipay, and EasyPay remain CNY.',
         field_accountIdHint: 'Leave this empty unless you use multiple accounts, an organization-level key, or connected-account payments. A single-account scoped API key uses the selected account by default.',
+        field_refundSuccessCode: 'Refund success code',
+        field_refundSuccessCodeHint: 'EasyPay gateways usually return 1 for a successful refund. Select 0 only when this endpoint documents 0 as its success code.',
         field_cid: 'Channel ID',
         field_cidAlipay: 'Alipay Channel ID',
         field_cidWxpay: 'WeChat Channel ID',

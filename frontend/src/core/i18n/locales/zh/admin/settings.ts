@@ -670,7 +670,7 @@ export default {
         maxAmount: '最高金额',
         dailyLimit: '每日限额',
         balanceRechargeMultiplier: '余额充值倍率',
-        balanceRechargeMultiplierHint: '用户每支付 1 CNY 可获得多少 USD 余额',
+        balanceRechargeMultiplierHint: '用户每支付 1 CNY 可获得多少 USD 余额，最多支持 6 位小数。',
         balanceRechargePreview: '预览：1 CNY = {usd} USD',
         subscriptionUsdToCnyRate: '订阅 CNY 换算汇率',
         subscriptionUsdToCnyRateHint:
@@ -759,6 +759,8 @@ export default {
         field_airwallexApiBaseHint: '必须和 API Key 所属环境一致：沙箱/测试密钥使用 https://api-demo.airwallex.com/api/v1，生产密钥使用 https://api.airwallex.com/api/v1。环境混用会返回 credentials_invalid / Access Denied。',
         field_paymentCurrencyHint: '默认 CNY。Stripe 和 Airwallex 可按账户支持从下拉项选择 HKD、USD 等币种；微信、支付宝、易支付仍按 CNY。',
         field_accountIdHint: '不涉及多账户、组织级密钥或连接账户收款时可以不填；单账户 Scoped API Key 会默认使用所选账户。',
+        field_refundSuccessCode: '退款成功码',
+        field_refundSuccessCodeHint: '易支付通常以 1 表示退款成功。只有服务商明确约定 0 为成功码时才选择 0。',
         field_cid: '支付渠道 ID',
         field_cidAlipay: '支付宝渠道 ID',
         field_cidWxpay: '微信渠道 ID',

@@ -1,0 +1,18 @@
+{
+  "command": [
+    "env",
+    "SYNC_INTEGRATION_SKIP=^TestJA3Fingerprint$",
+    "python3",
+    "diagnostics/upstream-sync-20261112/run_integration.py"
+  ],
+  "cwd": "/Users/lin/.codex/worktrees/5c4f/sub2api-no2api",
+  "exit_status": 1,
+  "elapsed_s": 2.208744667004794,
+  "utc": "2026-11-11T19:24:11.252857+00:00",
+  "input": "repository sources and checked-in test fixtures; see SOURCE_HASHES.json for final validation snapshot",
+  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderr_sha256": "4ef55ac136179bbc8ffd477a068b8f1b25b0e42ab06b41f7ae91de2d3ddb29cd",
+  "stdout_file": "backend-integration-local.stdout.gz",
+  "stderr_file": "backend-integration-local.stderr.gz",
+  "output_encoding": "gzip; recorded SHA-256 values cover the original decompressed bytes"
+}

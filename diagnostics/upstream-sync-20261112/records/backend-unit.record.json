@@ -1,0 +1,32 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "-v",
+    "/Users/lin/.codex/worktrees/5c4f/sub2api-no2api/backend:/app",
+    "-v",
+    "/private/tmp/sub2api-modcache:/go/pkg/mod",
+    "-v",
+    "/private/tmp/sub2api-gocache:/root/.cache/go-build",
+    "-w",
+    "/app",
+    "-e",
+    "GOPROXY=https://goproxy.cn,direct",
+    "golang:1.26.11-alpine",
+    "go",
+    "test",
+    "-tags=unit",
+    "./..."
+  ],
+  "cwd": "/Users/lin/.codex/worktrees/5c4f/sub2api-no2api",
+  "exit_status": 1,
+  "elapsed_s": 308.7801005410147,
+  "utc": "2026-11-11T18:35:20.230419+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "aca17ccce0e6f49bf68dc27e8715b559993dc4069d309107ae644a9016817885",
+  "stderr_sha256": "571529b8cf6ee02941f97232f7ed04359d1e483189e048c2c2319c3dea51aec5",
+  "stdout_file": "backend-unit.stdout.gz",
+  "stderr_file": "backend-unit.stderr.gz",
+  "output_encoding": "gzip; recorded SHA-256 values cover the original decompressed bytes"
+}

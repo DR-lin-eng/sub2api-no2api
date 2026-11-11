@@ -1,0 +1,362 @@
+[
+  {
+    "stage": "BASELINE",
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "image-4k",
+        "selected_fixture": "fixture-high",
+        "settlement": [
+          {
+            "input": 0,
+            "output": 0,
+            "count": 2,
+            "total": 0.2,
+            "actual": 0.2,
+            "mode": "image"
+          }
+        ]
+      },
+      {
+        "case": "responses",
+        "stream": false,
+        "settlement": [
+          {
+            "input": 1000,
+            "output": 100,
+            "count": 0,
+            "total": 0.004,
+            "actual": 0.004,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "responses",
+        "stream": true,
+        "settlement": [
+          {
+            "input": 1000,
+            "output": 100,
+            "count": 0,
+            "total": 0.004,
+            "actual": 0.004,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "buffered-reasoning-fallback",
+        "plaintext_present": true,
+        "settled_once": true
+      },
+      {
+        "case": "grok-delegation",
+        "normalized": true
+      },
+      {
+        "case": "kimi-concurrency-403",
+        "http": 502,
+        "state": {
+          "status": "active",
+          "rate_limited": true,
+          "temporary": null
+        }
+      },
+      {
+        "case": "refresh-rotation-and-reuse",
+        "single_use": true
+      },
+      {
+        "case": "multiplier-save-readback",
+        "value": 0.14
+      },
+      {
+        "case": "claude52-model-listing",
+        "visible": false
+      },
+      {
+        "case": "page-context",
+        "http": 400,
+        "normalized": false
+      }
+    ],
+    "migrations": 314,
+    "persistent_identity_key_subscription": "PASS",
+    "historical_usage_unchanged": "PASS",
+    "balance_settlement_identity": "PASS"
+  },
+  {
+    "stage": "MODIFIED",
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "image-4k",
+        "selected_fixture": "fixture-high",
+        "settlement": [
+          {
+            "input": 0,
+            "output": 0,
+            "count": 2,
+            "total": 0.2,
+            "actual": 0.2,
+            "mode": "image"
+          }
+        ]
+      },
+      {
+        "case": "responses",
+        "stream": false,
+        "settlement": [
+          {
+            "input": 1000,
+            "output": 100,
+            "count": 0,
+            "total": 0.004,
+            "actual": 0.004,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "responses",
+        "stream": true,
+        "settlement": [
+          {
+            "input": 1000,
+            "output": 100,
+            "count": 0,
+            "total": 0.004,
+            "actual": 0.004,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "buffered-reasoning-fallback",
+        "plaintext_present": true,
+        "settled_once": true
+      },
+      {
+        "case": "grok-delegation",
+        "normalized": true
+      },
+      {
+        "case": "kimi-concurrency-403",
+        "http": 502,
+        "state": {
+          "status": "active",
+          "rate_limited": true,
+          "temporary": null
+        }
+      },
+      {
+        "case": "refresh-rotation-and-reuse",
+        "single_use": true
+      },
+      {
+        "case": "atomic-concurrent-refresh",
+        "callers": 8,
+        "successes": 1,
+        "rejected": 7
+      },
+      {
+        "case": "multiplier-save-readback",
+        "value": 0.140845
+      },
+      {
+        "case": "claude52-model-listing",
+        "visible": true
+      },
+      {
+        "case": "page-context",
+        "http": 200,
+        "normalized": true
+      }
+    ],
+    "migrations": 315,
+    "persistent_identity_key_subscription": "PASS",
+    "historical_usage_unchanged": "PASS",
+    "balance_settlement_identity": "PASS"
+  },
+  {
+    "stage": "ROLLBACK",
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "image-4k",
+        "selected_fixture": "fixture-high",
+        "settlement": [
+          {
+            "input": 0,
+            "output": 0,
+            "count": 2,
+            "total": 0.2,
+            "actual": 0.2,
+            "mode": "image"
+          }
+        ]
+      },
+      {
+        "case": "responses",
+        "stream": false,
+        "settlement": [
+          {
+            "input": 1000,
+            "output": 100,
+            "count": 0,
+            "total": 0.004,
+            "actual": 0.004,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "responses",
+        "stream": true,
+        "settlement": [
+          {
+            "input": 1000,
+            "output": 100,
+            "count": 0,
+            "total": 0.004,
+            "actual": 0.004,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "buffered-reasoning-fallback",
+        "plaintext_present": true,
+        "settled_once": true
+      },
+      {
+        "case": "grok-delegation",
+        "normalized": true
+      },
+      {
+        "case": "kimi-concurrency-403",
+        "http": 502,
+        "state": {
+          "status": "active",
+          "rate_limited": true,
+          "temporary": null
+        }
+      },
+      {
+        "case": "refresh-rotation-and-reuse",
+        "single_use": true
+      },
+      {
+        "case": "multiplier-save-readback",
+        "value": 0.14
+      },
+      {
+        "case": "claude52-model-listing",
+        "visible": false
+      },
+      {
+        "case": "page-context",
+        "http": 400,
+        "normalized": false
+      }
+    ],
+    "migrations": 315,
+    "persistent_identity_key_subscription": "PASS",
+    "historical_usage_unchanged": "PASS",
+    "balance_settlement_identity": "PASS"
+  },
+  {
+    "stage": "RESTORED",
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "image-4k",
+        "selected_fixture": "fixture-high",
+        "settlement": [
+          {
+            "input": 0,
+            "output": 0,
+            "count": 2,
+            "total": 0.2,
+            "actual": 0.2,
+            "mode": "image"
+          }
+        ]
+      },
+      {
+        "case": "responses",
+        "stream": false,
+        "settlement": [
+          {
+            "input": 1000,
+            "output": 100,
+            "count": 0,
+            "total": 0.004,
+            "actual": 0.004,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "responses",
+        "stream": true,
+        "settlement": [
+          {
+            "input": 1000,
+            "output": 100,
+            "count": 0,
+            "total": 0.004,
+            "actual": 0.004,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "buffered-reasoning-fallback",
+        "plaintext_present": true,
+        "settled_once": true
+      },
+      {
+        "case": "grok-delegation",
+        "normalized": true
+      },
+      {
+        "case": "kimi-concurrency-403",
+        "http": 502,
+        "state": {
+          "status": "active",
+          "rate_limited": true,
+          "temporary": null
+        }
+      },
+      {
+        "case": "refresh-rotation-and-reuse",
+        "single_use": true
+      },
+      {
+        "case": "atomic-concurrent-refresh",
+        "callers": 8,
+        "successes": 1,
+        "rejected": 7
+      },
+      {
+        "case": "multiplier-save-readback",
+        "value": 0.140845
+      },
+      {
+        "case": "claude52-model-listing",
+        "visible": true
+      },
+      {
+        "case": "page-context",
+        "http": 200,
+        "normalized": true
+      }
+    ],
+    "migrations": 315,
+    "persistent_identity_key_subscription": "PASS",
+    "historical_usage_unchanged": "PASS",
+    "balance_settlement_identity": "PASS"
+  }
+]

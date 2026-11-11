@@ -24,7 +24,7 @@ func (s *BillingService) initClaude55FallbackPricing() {
 	}
 	s.fallbackPrices["claude-sonnet-5-5"] = &ModelPricing{
 		InputPricePerToken: 2e-6, OutputPricePerToken: 10e-6,
-		CacheCreationPricePerToken: 2.5e-6, CacheReadPricePerToken: .2e-6,
+		CacheCreationPricePerToken: 2.5e-6, CacheReadPricePerToken: .1e-6,
 		CacheCreation5mPrice: 2.5e-6, CacheCreation1hPrice: 4e-6, SupportsCacheBreakdown: true,
 	}
 	s.fallbackPrices["claude-haiku-5-5"] = &ModelPricing{

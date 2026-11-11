@@ -12,7 +12,7 @@ func TestClaude55PricingFallbackBoundariesAndCustomPrecedence(t *testing.T) {
 	for _, item := range []struct {
 		model                      string
 		input, output, write, read float64
-	}{{"opus", 4e-6, 20e-6, 5e-6, .2e-6}, {"sonnet", 2e-6, 10e-6, 2.5e-6, .2e-6}, {"haiku", .1e-6, .5e-6, .125e-6, .01e-6}} {
+	}{{"opus", 4e-6, 20e-6, 5e-6, .2e-6}, {"sonnet", 2e-6, 10e-6, 2.5e-6, .1e-6}, {"haiku", .1e-6, .5e-6, .125e-6, .01e-6}} {
 		for _, suffix := range []string{"", "-high"} {
 			p, err := service.GetModelPricing("anthropic/claude-" + item.model + "-5-5" + suffix)
 			require.NoError(t, err)

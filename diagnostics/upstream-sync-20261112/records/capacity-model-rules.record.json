@@ -1,0 +1,33 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "-v",
+    "/Users/lin/.codex/worktrees/5c4f/sub2api-no2api/backend:/app",
+    "-v",
+    "/private/tmp/sub2api-modcache:/go/pkg/mod",
+    "-v",
+    "/private/tmp/sub2api-gocache:/root/.cache/go-build",
+    "-w",
+    "/app",
+    "golang:1.26.11-alpine",
+    "go",
+    "test",
+    "-tags=unit",
+    "./internal/application/service",
+    "-run",
+    "TestOpenAICapacityShedModelRule|TestOpenAICapacityModelRuleHTTP",
+    "-count=1"
+  ],
+  "cwd": "/Users/lin/.codex/worktrees/5c4f/sub2api-no2api",
+  "exit_status": 0,
+  "elapsed_s": 30.614877375017386,
+  "utc": "2026-11-11T18:43:50.938851+00:00",
+  "input": "exact repository sources and committed fixtures",
+  "stdout_sha256": "9400789c1c0e67bc388bd2359cdb7c8d5b5549a042dc0c6f5aa9ed2160fcba82",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stdout_file": "capacity-model-rules.stdout.gz",
+  "stderr_file": "capacity-model-rules.stderr.gz",
+  "output_encoding": "gzip; recorded SHA-256 values cover the original decompressed bytes"
+}

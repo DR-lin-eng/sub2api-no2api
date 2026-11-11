@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/Wei-Shaw/sub2api/internal/shared/apicompat"
@@ -76,6 +77,11 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 
 	if len(body) == 0 {
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Request body is empty")
+		return
+	}
+
+	if !utf8.Valid(body) {
+		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Request body must be valid UTF-8 JSON. Send UTF-8 encoded bytes.")
 		return
 	}
 

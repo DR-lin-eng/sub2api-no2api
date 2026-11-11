@@ -358,6 +358,7 @@ func (s *BillingService) initFallbackPricing() {
 	s.fallbackPrices["claude-opus-5"] = s.fallbackPrices["claude-opus-4.8"]
 
 	s.initClaude55FallbackPricing()
+	s.initClaude52FallbackPricing()
 
 	// Gemini 3.1 Pro
 	s.fallbackPrices["gemini-3.1-pro"] = &ModelPricing{
@@ -854,6 +855,9 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 	}
 
 	if id := claude55PricingID(modelLower); id != "" {
+		return s.fallbackPrices[id]
+	}
+	if id := claude52PricingID(modelLower); id != "" {
 		return s.fallbackPrices[id]
 	}
 

@@ -19,6 +19,7 @@ OpenAI OAuth 授权步骤可选择 Sign in with ChatGPT（SIWC）。完整回调
 - `presentation/widgets/create/`: 创建表单的领域字段。
 - `presentation/widgets/edit/`: 编辑表单的领域字段。
 - `presentation/composables/`: 有界的表单策略、OAuth 与提交编排。
+- `presentation/antigravityQuotaDisplay.ts`: 分组额度进度条和模型额度汇总的纯展示转换；请求与定时器继续由现有单元格持有。
 
 账号列表页保留路由、请求和弹窗编排，表格 DOM 由 `AccountsTableView.vue` 静态承载。列表列偏好、展示映射、今日统计和上游额度分别由同域 composable 管理；表格只消费 `accountTableViewContext.ts` 的 typed context，不直接请求 API 或创建 watcher、timer。`excel_bps` 独立筛选普通 OpenAI OAuth 账号的账号级 BPS 状态，筛选在后端分页、导出与上游计费快照前生效；编辑开关保存为 `extra.excel_bps_enabled`，显式 `false` 覆盖旧字段。
 

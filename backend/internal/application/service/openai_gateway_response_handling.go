@@ -552,7 +552,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 				clientHadSemanticOutput := openAIStreamClientOutputStarted(c, clientOutputStarted)
 				if !clientHadSemanticOutput {
 					if handledErr, handled := s.handleOpenAIResponseFailedBeforeOutput(
-						c, account, false, upstreamRequestID, dataBytes, failedMessage, resp.Header,
+						c, account, false, upstreamRequestID, dataBytes, failedMessage, resp.Header, mappedModel,
 					); handled {
 						sawFailedEvent = true
 						// A type:error envelope is terminal in practice even though it is
@@ -562,6 +562,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 						return
 					}
 				} else if openAIStreamFailureIsExplicitlyRetryable(dataBytes, failedMessage) {
+					s.applyOpenAICapacityModelCooldownForRequest(c, account, dataBytes, mappedModel)
 					s.recordOpenAIStreamUpstreamError(c, account, false, upstreamRequestID, "http_error", dataBytes, failedMessage)
 					if !capacityFailoverSuppressedLogged && isOpenAIUpstreamCapacityShedEvent(dataBytes) {
 						logOpenAICapacityFailoverSuppressed(ctx, account, "native_sse", upstreamRequestID, eventType)
@@ -1448,12 +1449,12 @@ func (s *OpenAIGatewayService) handleNonStreamingResponse(ctx context.Context, r
 			return s.handleSSEToJSONWithAccount(resp, c, body, originalModel, mappedModel, account, false)
 		}
 		if failurePayload, failure := extractOpenAIJSONFailureEnvelope(body); failure {
-			return nil, s.handleOpenAINonStreamingFailureEnvelope(resp, c, account, failurePayload, body, false)
+			return nil, s.handleOpenAINonStreamingFailureEnvelope(resp, c, account, failurePayload, body, false, mappedModel)
 		}
 		return nil, fmt.Errorf("parse response: invalid json response")
 	}
 	if failurePayload, failure := extractOpenAIJSONFailureEnvelope(body); failure {
-		return nil, s.handleOpenAINonStreamingFailureEnvelope(resp, c, account, failurePayload, body, false)
+		return nil, s.handleOpenAINonStreamingFailureEnvelope(resp, c, account, failurePayload, body, false, mappedModel)
 	}
 	usage := &usageValue
 
@@ -1542,11 +1543,12 @@ func (s *OpenAIGatewayService) handleSSEToJSONWithAccount(
 		if !openAIResponseFailureHasSemanticOutput(bodyText, failurePayload) {
 			if handledErr, handled := s.handleOpenAIResponseFailedBeforeOutput(
 				c, account, passthrough, strings.TrimSpace(resp.Header.Get("x-request-id")),
-				failurePayload, failedMessage, resp.Header,
+				failurePayload, failedMessage, resp.Header, mappedModel,
 			); handled {
 				return nil, handledErr
 			}
 		} else {
+			s.applyOpenAICapacityModelCooldownForRequest(c, account, failurePayload, mappedModel)
 			// The body is buffered for stream=false, but an earlier semantic delta
 			// still means the request cannot be replayed safely.  Keep the normal
 			// protocol error and record why failover was intentionally skipped.

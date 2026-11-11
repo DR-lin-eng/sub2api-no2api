@@ -72,7 +72,7 @@ func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Cont
 	// Capacity shedding describes this request, not account health. The request
 	// retry budget handles recovery without cooling down the selected account.
 	if account != nil && account.Platform == PlatformOpenAI && isOpenAIRequestScopedCapacityShed("", responseBody) {
-		return false
+		return s.applyOpenAICapacityModelCooldown(ctx, account, statusCode, responseBody, firstRequestedModel(canonicalModel))
 	}
 	if statusCode == http.StatusForbidden && s.disableOpenAIAgentIdentityOnForbidden(ctx, account, responseBody) {
 		return true

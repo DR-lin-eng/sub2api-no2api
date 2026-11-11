@@ -89,6 +89,13 @@ GIF 请求与 OAuth 账号测试共用 App 动画指令和实际文件校验，�
 GIF 编辑显式填写默认复杂度/审核级别与省略保持同一选路；参考 PNG 在生成前经过有界、无账号凭据的 HTTPS PUT 上传，保留独立的公共目的地校验和 DNS 固定。
 协议能力、原生参数和显式 token 定价的限制见 [App 生图与旧版回退](CHATGPT_APP_IMAGES.md)。
 
+## 站内会话刷新
+
+`POST /api/v1/auth/refresh` 从请求或 HttpOnly cookie 读取 refresh credential，应用层先校验期限、用户状态、
+TokenVersion 和会话绑定，再通过 `RefreshTokenCache.ConsumeRefreshToken` 原子消费旧凭据。
+Redis repository 用 Lua 将 GET 与 DEL 合为一次操作；只有一个并发调用可签发后继令牌，消费失败则拒绝签发。
+原 key、JSON、TTL、家族与绑定格式继续兼容；混合版本部署边界见 [同步与升级说明](UPSTREAM_SYNC_20261112.md)。
+
 ## OAuth2 对外授权
 
 第三方应用从 `/oauth/authorize` 发起 Authorization Code + PKCE S256 请求。前端要求用户先登录，再通过 `/api/v1/oauth2/authorize` 读取服务端校验后的客户端与 scope 预览；用户允许后，后端将 authorization code 摘要及用户、客户端、精确回调、scope、PKCE challenge 和 TokenVersion 保存到 Redis。`/oauth/token` 原子消费 code，复查客户端、回调、PKCE 和用户状态后签发不透明 access token。`/oauth/userinfo` 每次调用都重查全局开关、客户端启用状态、当前 scope 和用户 TokenVersion，因此管理员收回授权后无需等待 token TTL。完整协议和管理端入口见 [OAuth2 对外授权服务](OAUTH2_PROVIDER.md)。

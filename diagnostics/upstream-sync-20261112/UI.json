@@ -1,0 +1,47 @@
+{
+  "environment": "Docker production image and in-app browser",
+  "desktop": {
+    "documentWidth": 1272,
+    "englishHint": true,
+    "preview": true,
+    "save": [
+      {
+        "bottom": 783,
+        "sticky": "sticky",
+        "top": 743
+      }
+    ],
+    "viewport": 1280
+  },
+  "mobile": {
+    "viewport": 390,
+    "height": 844,
+    "document_width": 382,
+    "preview_six_decimals": true,
+    "save_visible": true
+  },
+  "accounts_refresh": {
+    "rows_before": 21,
+    "rows_during_refresh": 21,
+    "aria_busy_during_refresh": true
+  },
+  "easypay": {
+    "default_refund_code": "1",
+    "available_codes": [
+      "1",
+      "0"
+    ],
+    "selection_zero_visible": true
+  },
+  "locales": [
+    "zh",
+    "en"
+  ],
+  "console_errors": [
+    {
+      "reason": "Expected stale session auto-refresh failure while disposable server and JWT secret were recreated for final image",
+      "time": "2026-11-11T19:35:14.600Z"
+    }
+  ],
+  "production_writes": false
+}
