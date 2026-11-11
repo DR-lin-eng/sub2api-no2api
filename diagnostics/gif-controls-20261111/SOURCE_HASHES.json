@@ -1,0 +1,7 @@
+{
+  "baseline": "330d81ba7d3a8bcd0eb94e1c8651992fb847d570",
+  "production_files": {
+    "backend/internal/application/service/openai_images_protocol_selection.go": "dc05d639c10ff513c6111437cf3ee6cbe07b958465d0c9b2ee334db356ed068f",
+    "backend/internal/application/service/openai_images_chatgpt_gif.go": "766b1e10e52e89d772b2374c75e5a01a8401b25c998798fe3dffbb242bc9aff2"
+  }
+}

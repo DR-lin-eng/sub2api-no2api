@@ -105,13 +105,30 @@ func TestChatGPTAppPNGToGIFEditsWithExplicitDefaults(t *testing.T) {
 }
 
 func TestChatGPTAppGIFNonDefaultControlsKeepNativeProtocol(t *testing.T) {
-	for _, extra := range []string{`"size":"512x512"`, `"background":"transparent"`, `"style":"vivid"`, `"safety_identifier":"hashed"`, `"user":"legacy"`} {
-		body := []byte(`{"model":"gpt-image-2.6-sunburst","prompt":"draw","output_format":"gif",` + extra + `}`)
-		c := newOpenAIImagesContext(t, body)
-		parsed, err := newOpenAIImagesService(nil).ParseOpenAIImagesRequest(c, body)
-		require.NoError(t, err)
-		require.True(t, openAIImagesRequiresNativeProtocol(parsed), extra)
-	}
+	body := []byte(`{"model":"gpt-image-2.6-sunburst","prompt":"draw","output_format":"svg","svg":{"model":"gpt-6-astra"}}`)
+	c := newOpenAIImagesContext(t, body)
+	parsed, err := newOpenAIImagesService(nil).ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+	require.True(t, openAIImagesRequiresNativeProtocol(parsed))
+}
+
+func TestChatGPTAppOrdinaryImagesIgnoreOptionalNativeControls(t *testing.T) {
+	body := []byte(`{"model":"gpt-image-2.6-sunburst","prompt":"draw a blue circle","size":"1536x1024","quality":"low","complexity":"medium","background":"transparent","output_format":"jpeg","output_compression":80,"partial_images":1,"moderation":"low","input_fidelity":"high","safety_identifier":"hashed","user":"legacy"}`)
+	c, rec := newOpenAIImagesTestContext(t, body)
+	encoded := encodeOpenAIImageTestPNG(t, 3, 2)
+	svc, upstream := newChatGPTAppImageTestService(t, func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/backend-api/f/conversation", r.URL.Path)
+		chatGPTAppImageStream(w, encoded)
+	})
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+	require.False(t, openAIImagesRequiresNativeProtocol(parsed))
+	_, err = svc.ForwardImages(t.Context(), c, chatGPTAppImageTestAccount(), body, parsed, "")
+	require.NoError(t, err)
+	require.Len(t, upstream.imageCalls(), 1)
+	require.Contains(t, rec.Body.String(), `"b64_json":"`+encoded+`"`)
+	require.NotContains(t, rec.Body.String(), "legacy")
+	require.NotContains(t, rec.Body.String(), "fallback")
 }
 
 func TestChatGPTAppGIFStandardClientControlsStayOnAppPath(t *testing.T) {

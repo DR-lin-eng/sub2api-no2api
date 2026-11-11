@@ -1,0 +1,422 @@
+[
+  {
+    "stage": "BASELINE",
+    "image": "ghcr.io/dr-lin-eng/sub2api-no2api@sha256:627f6ace313ab71af53e6b0a18238a3cafdc218bb7bfd0b243d95ecadc89b7c8",
+    "result": "PASS",
+    "cases": [
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "output": "jpeg-request",
+        "mode": "generation",
+        "status": 400,
+        "billable_units": 0
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "output": "jpeg-request",
+        "mode": "stream",
+        "status": 200,
+        "billable_units": 0
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "output": "jpeg-request",
+        "mode": "edit-json",
+        "status": 400,
+        "billable_units": 0
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "output": "jpeg-request",
+        "mode": "edit-multipart",
+        "status": 400,
+        "billable_units": 0
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "output": "gif",
+        "mode": "generation",
+        "status": 400,
+        "billable_units": 0
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "output": "gif",
+        "mode": "edit-json",
+        "status": 400,
+        "billable_units": 0
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "output": "gif",
+        "mode": "edit-multipart",
+        "status": 400,
+        "billable_units": 0
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "output": "jpeg-request",
+        "mode": "generation",
+        "status": 400,
+        "billable_units": 0
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "output": "jpeg-request",
+        "mode": "stream",
+        "status": 200,
+        "billable_units": 0
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "output": "jpeg-request",
+        "mode": "edit-json",
+        "status": 400,
+        "billable_units": 0
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "output": "jpeg-request",
+        "mode": "edit-multipart",
+        "status": 400,
+        "billable_units": 0
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "output": "gif",
+        "mode": "generation",
+        "status": 400,
+        "billable_units": 0
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "output": "gif",
+        "mode": "edit-json",
+        "status": 400,
+        "billable_units": 0
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "output": "gif",
+        "mode": "edit-multipart",
+        "status": 400,
+        "billable_units": 0
+      }
+    ]
+  },
+  {
+    "stage": "MODIFIED",
+    "image": "sub2api:app-image-optional-20261111",
+    "result": "PASS",
+    "cases": [
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "output": "jpeg-request",
+        "mode": "generation",
+        "status": 200,
+        "billable_units": 1
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "output": "jpeg-request",
+        "mode": "stream",
+        "status": 200,
+        "billable_units": 1
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "output": "jpeg-request",
+        "mode": "edit-json",
+        "status": 200,
+        "billable_units": 1
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "output": "jpeg-request",
+        "mode": "edit-multipart",
+        "status": 200,
+        "billable_units": 1
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "output": "gif",
+        "mode": "generation",
+        "status": 200,
+        "billable_units": 9
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "output": "gif",
+        "mode": "edit-json",
+        "status": 200,
+        "billable_units": 9
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "output": "gif",
+        "mode": "edit-multipart",
+        "status": 200,
+        "billable_units": 9
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "output": "jpeg-request",
+        "mode": "generation",
+        "status": 200,
+        "billable_units": 1
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "output": "jpeg-request",
+        "mode": "stream",
+        "status": 200,
+        "billable_units": 1
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "output": "jpeg-request",
+        "mode": "edit-json",
+        "status": 200,
+        "billable_units": 1
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "output": "jpeg-request",
+        "mode": "edit-multipart",
+        "status": 200,
+        "billable_units": 1
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "output": "gif",
+        "mode": "generation",
+        "status": 200,
+        "billable_units": 9
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "output": "gif",
+        "mode": "edit-json",
+        "status": 200,
+        "billable_units": 9
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "output": "gif",
+        "mode": "edit-multipart",
+        "status": 200,
+        "billable_units": 9
+      }
+    ]
+  },
+  {
+    "stage": "ROLLBACK",
+    "image": "ghcr.io/dr-lin-eng/sub2api-no2api@sha256:627f6ace313ab71af53e6b0a18238a3cafdc218bb7bfd0b243d95ecadc89b7c8",
+    "result": "PASS",
+    "cases": [
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "output": "jpeg-request",
+        "mode": "generation",
+        "status": 400,
+        "billable_units": 0
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "output": "jpeg-request",
+        "mode": "stream",
+        "status": 200,
+        "billable_units": 0
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "output": "jpeg-request",
+        "mode": "edit-json",
+        "status": 400,
+        "billable_units": 0
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "output": "jpeg-request",
+        "mode": "edit-multipart",
+        "status": 400,
+        "billable_units": 0
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "output": "gif",
+        "mode": "generation",
+        "status": 400,
+        "billable_units": 0
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "output": "gif",
+        "mode": "edit-json",
+        "status": 400,
+        "billable_units": 0
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "output": "gif",
+        "mode": "edit-multipart",
+        "status": 400,
+        "billable_units": 0
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "output": "jpeg-request",
+        "mode": "generation",
+        "status": 400,
+        "billable_units": 0
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "output": "jpeg-request",
+        "mode": "stream",
+        "status": 200,
+        "billable_units": 0
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "output": "jpeg-request",
+        "mode": "edit-json",
+        "status": 400,
+        "billable_units": 0
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "output": "jpeg-request",
+        "mode": "edit-multipart",
+        "status": 400,
+        "billable_units": 0
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "output": "gif",
+        "mode": "generation",
+        "status": 400,
+        "billable_units": 0
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "output": "gif",
+        "mode": "edit-json",
+        "status": 400,
+        "billable_units": 0
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "output": "gif",
+        "mode": "edit-multipart",
+        "status": 400,
+        "billable_units": 0
+      }
+    ]
+  },
+  {
+    "stage": "RESTORED",
+    "image": "sub2api:app-image-optional-20261111",
+    "result": "PASS",
+    "cases": [
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "output": "jpeg-request",
+        "mode": "generation",
+        "status": 200,
+        "billable_units": 1
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "output": "jpeg-request",
+        "mode": "stream",
+        "status": 200,
+        "billable_units": 1
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "output": "jpeg-request",
+        "mode": "edit-json",
+        "status": 200,
+        "billable_units": 1
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "output": "jpeg-request",
+        "mode": "edit-multipart",
+        "status": 200,
+        "billable_units": 1
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "output": "gif",
+        "mode": "generation",
+        "status": 200,
+        "billable_units": 9
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "output": "gif",
+        "mode": "edit-json",
+        "status": 200,
+        "billable_units": 9
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "output": "gif",
+        "mode": "edit-multipart",
+        "status": 200,
+        "billable_units": 9
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "output": "jpeg-request",
+        "mode": "generation",
+        "status": 200,
+        "billable_units": 1
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "output": "jpeg-request",
+        "mode": "stream",
+        "status": 200,
+        "billable_units": 1
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "output": "jpeg-request",
+        "mode": "edit-json",
+        "status": 200,
+        "billable_units": 1
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "output": "jpeg-request",
+        "mode": "edit-multipart",
+        "status": 200,
+        "billable_units": 1
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "output": "gif",
+        "mode": "generation",
+        "status": 200,
+        "billable_units": 9
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "output": "gif",
+        "mode": "edit-json",
+        "status": 200,
+        "billable_units": 9
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "output": "gif",
+        "mode": "edit-multipart",
+        "status": 200,
+        "billable_units": 9
+      }
+    ]
+  }
+]

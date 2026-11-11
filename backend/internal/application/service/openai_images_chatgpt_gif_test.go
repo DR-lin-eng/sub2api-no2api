@@ -142,14 +142,12 @@ func TestChatGPTAppGIFRequestTimingRoundingAndNativeBoundaries(t *testing.T) {
 		require.NoError(t, validateChatGPTAppImageOutput(parsed, openAIResponsesImageResult{OutputFormat: "gif", Result: encoded}))
 	}
 	gin.SetMode(gin.TestMode)
-	for _, fields := range []string{`"size":"512x512"`, `"background":"transparent"`, `"style":"vivid"`} {
-		body := []byte(`{"model":"gpt-image-2.6-flare","prompt":"draw","output_format":"gif",` + fields + `}`)
-		c, _ := gin.CreateTestContext(httptest.NewRecorder())
-		c.Request = httptest.NewRequest(http.MethodPost, openAIImagesGenerationsEndpoint, strings.NewReader(string(body)))
-		parsed, err := newOpenAIImagesService(nil).ParseOpenAIImagesRequest(c, body)
-		require.NoError(t, err)
-		require.True(t, openAIImagesRequiresNativeProtocol(parsed), fields)
-	}
+	body := []byte(`{"model":"gpt-image-2.6-flare","prompt":"draw","output_format":"svg","svg":{"model":"gpt-6-astra"}}`)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, openAIImagesGenerationsEndpoint, strings.NewReader(string(body)))
+	parsed, err := newOpenAIImagesService(nil).ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+	require.True(t, openAIImagesRequiresNativeProtocol(parsed))
 }
 
 func TestChatGPTAppGIFStandardAccountsRemainNative(t *testing.T) {
