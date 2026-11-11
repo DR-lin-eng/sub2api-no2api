@@ -21,7 +21,14 @@ func chatGPTAppImagePrompt(parsed *OpenAIImagesRequest, prompt string) string {
 		return prompt
 	}
 	frames, delay := chatGPTAppGIFOptions(parsed)
-	return fmt.Sprintf("Create a short seamless looping animated GIF with exactly %d frames and %d milliseconds per frame. Return the finished GIF animation. Use the requested visual subject and motion. %s", frames, delay, prompt)
+	intent := fmt.Sprintf("Create a short seamless looping animated GIF with exactly %d frames and %d milliseconds per frame. Return the finished GIF animation. Use the requested visual subject and motion. ", frames, delay)
+	if parsed.IsEdits() {
+		intent += "Animate the supplied reference images, preserving their subject and visual details. "
+	}
+	if parsed.Complexity != "" {
+		intent += "Use " + parsed.Complexity + " planning complexity. "
+	}
+	return intent + prompt
 }
 
 // Conversation intent cannot guarantee native controls. Verify the file before

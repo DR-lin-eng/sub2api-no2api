@@ -19,6 +19,7 @@ const (
 type httpUpstreamProfileContextKey struct{}
 type httpUpstreamDisableRedirectsContextKey struct{}
 type httpUpstreamPublicDestinationContextKey struct{}
+type httpUpstreamPublicUploadContextKey struct{}
 type openAIStreamSchedulingContextKey struct{}
 
 // WithHTTPUpstreamProfile injects an upstream transport profile into ctx.
@@ -74,6 +75,18 @@ func WithHTTPUpstreamPublicDestination(ctx context.Context) context.Context {
 
 func HTTPUpstreamPublicDestination(ctx context.Context) bool {
 	return ctx != nil && ctx.Value(httpUpstreamPublicDestinationContextKey{}) == true
+}
+
+// WithHTTPUpstreamPublicUpload marks a bounded PUT to an upstream-issued HTTPS
+// storage URL. It retains public-IP/DNS validation and never follows redirects.
+// It does not authorize POSTs, private destinations, or credential forwarding.
+func WithHTTPUpstreamPublicUpload(ctx context.Context) context.Context {
+	ctx = WithHTTPUpstreamPublicDestination(WithHTTPUpstreamRedirectsDisabled(ctx))
+	return context.WithValue(ctx, httpUpstreamPublicUploadContextKey{}, true)
+}
+
+func HTTPUpstreamPublicUpload(ctx context.Context) bool {
+	return ctx != nil && ctx.Value(httpUpstreamPublicUploadContextKey{}) == true
 }
 
 // WithOpenAIStreamScheduling marks scheduler work that will open a streaming

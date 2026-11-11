@@ -39,6 +39,7 @@
 `/files/process_upload_stream` 的 NDJSON 就绪事件。引用按 `file_` 前缀选择
 `sediment://` 或 `file-service://`，不保存到 Library。用户提供的 HTTP 图片输入继续经过
 现有公开目的地校验；所有请求保留所选账号的代理、IPv6 出口和 TLS profile。
+上传单独标记为有界 HTTPS PUT，继续校验全部 DNS 答案并固定 IP，不跟随重定向，也不携带账号 bearer、Cookie 或工作区头；普通图片下载仍只接受 GET/HEAD。
 
 流解码支持 v1 的通道、字段继承、patch、数组插入、append、truncate 和普通消息快照。
 输入引用、进行中的图像条目及尚未完成的像素高度不作为最终出图。
@@ -64,6 +65,7 @@ App 不提供本项目可以确认的原生尺寸、质量、复杂度、SVG、m
 对外 `/v1/images/generations`、`/v1/images/edits` 保留 OpenAI Images 参数合同。
 API Key 和 SIWC OAuth 账号始终使用标准 Images 请求与端点，不经过 App conversation、验证准备或 App 参数门禁。
 普通 OAuth 账号仅在请求可由 App 适配表达时使用新版；GIF 请求可省略尺寸或使用 `auto`。
+GIF 请求显式填写默认 `complexity=high`、`quality=auto`、`background=auto` 或 `moderation=auto` 不改变选路；复杂度仍写入动画指令。
 请求显式包含尺寸、质量、复杂度、其他输出格式、SVG 作者、mask 或 markup 等原生保证时，发送前在同一账号选择 Codex 原生链路，完整保留参数。
 这不是失败后重放，不修改全局设置，也不向 API、上游请求或界面添加内部选路提示。
 

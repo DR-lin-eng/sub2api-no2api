@@ -1,0 +1,254 @@
+[
+  {
+    "stage": "BASELINE",
+    "same_image_for_both_gateways": "sub2api:gif-contract-fixed-20261110",
+    "result": "PASS",
+    "cases": [
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "multipart": false,
+        "explicit_defaults": false,
+        "status": 502,
+        "billable_frames_per_gateway": 0
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "multipart": false,
+        "explicit_defaults": true,
+        "status": 400,
+        "billable_frames_per_gateway": 0
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "multipart": true,
+        "explicit_defaults": false,
+        "status": 502,
+        "billable_frames_per_gateway": 0
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "multipart": true,
+        "explicit_defaults": true,
+        "status": 400,
+        "billable_frames_per_gateway": 0
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "multipart": false,
+        "explicit_defaults": false,
+        "status": 502,
+        "billable_frames_per_gateway": 0
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "multipart": false,
+        "explicit_defaults": true,
+        "status": 400,
+        "billable_frames_per_gateway": 0
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "multipart": true,
+        "explicit_defaults": false,
+        "status": 502,
+        "billable_frames_per_gateway": 0
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "multipart": true,
+        "explicit_defaults": true,
+        "status": 400,
+        "billable_frames_per_gateway": 0
+      }
+    ]
+  },
+  {
+    "stage": "MODIFIED",
+    "same_image_for_both_gateways": "sub2api:png-gif-edits-fixed-20261111",
+    "result": "PASS",
+    "cases": [
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "multipart": false,
+        "explicit_defaults": false,
+        "status": 200,
+        "billable_frames_per_gateway": 4
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "multipart": false,
+        "explicit_defaults": true,
+        "status": 200,
+        "billable_frames_per_gateway": 4
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "multipart": true,
+        "explicit_defaults": false,
+        "status": 200,
+        "billable_frames_per_gateway": 4
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "multipart": true,
+        "explicit_defaults": true,
+        "status": 200,
+        "billable_frames_per_gateway": 4
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "multipart": false,
+        "explicit_defaults": false,
+        "status": 200,
+        "billable_frames_per_gateway": 4
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "multipart": false,
+        "explicit_defaults": true,
+        "status": 200,
+        "billable_frames_per_gateway": 4
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "multipart": true,
+        "explicit_defaults": false,
+        "status": 200,
+        "billable_frames_per_gateway": 4
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "multipart": true,
+        "explicit_defaults": true,
+        "status": 200,
+        "billable_frames_per_gateway": 4
+      }
+    ]
+  },
+  {
+    "stage": "ROLLBACK",
+    "same_image_for_both_gateways": "sub2api:gif-contract-fixed-20261110",
+    "result": "PASS",
+    "cases": [
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "multipart": false,
+        "explicit_defaults": false,
+        "status": 502,
+        "billable_frames_per_gateway": 0
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "multipart": false,
+        "explicit_defaults": true,
+        "status": 400,
+        "billable_frames_per_gateway": 0
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "multipart": true,
+        "explicit_defaults": false,
+        "status": 502,
+        "billable_frames_per_gateway": 0
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "multipart": true,
+        "explicit_defaults": true,
+        "status": 400,
+        "billable_frames_per_gateway": 0
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "multipart": false,
+        "explicit_defaults": false,
+        "status": 502,
+        "billable_frames_per_gateway": 0
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "multipart": false,
+        "explicit_defaults": true,
+        "status": 400,
+        "billable_frames_per_gateway": 0
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "multipart": true,
+        "explicit_defaults": false,
+        "status": 502,
+        "billable_frames_per_gateway": 0
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "multipart": true,
+        "explicit_defaults": true,
+        "status": 400,
+        "billable_frames_per_gateway": 0
+      }
+    ]
+  },
+  {
+    "stage": "RESTORED",
+    "same_image_for_both_gateways": "sub2api:png-gif-edits-fixed-20261111",
+    "result": "PASS",
+    "cases": [
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "multipart": false,
+        "explicit_defaults": false,
+        "status": 200,
+        "billable_frames_per_gateway": 4
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "multipart": false,
+        "explicit_defaults": true,
+        "status": 200,
+        "billable_frames_per_gateway": 4
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "multipart": true,
+        "explicit_defaults": false,
+        "status": 200,
+        "billable_frames_per_gateway": 4
+      },
+      {
+        "model": "gpt-image-2.6-sunburst",
+        "multipart": true,
+        "explicit_defaults": true,
+        "status": 200,
+        "billable_frames_per_gateway": 4
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "multipart": false,
+        "explicit_defaults": false,
+        "status": 200,
+        "billable_frames_per_gateway": 4
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "multipart": false,
+        "explicit_defaults": true,
+        "status": 200,
+        "billable_frames_per_gateway": 4
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "multipart": true,
+        "explicit_defaults": false,
+        "status": 200,
+        "billable_frames_per_gateway": 4
+      },
+      {
+        "model": "gpt-image-2.6-flare",
+        "multipart": true,
+        "explicit_defaults": true,
+        "status": 200,
+        "billable_frames_per_gateway": 4
+      }
+    ]
+  }
+]

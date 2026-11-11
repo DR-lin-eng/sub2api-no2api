@@ -21,10 +21,10 @@ import (
 )
 
 type chatGPTAppImageCall struct {
-	host, path, method        string
-	body                      []byte
-	headers                   http.Header
-	public, redirectsDisabled bool
+	host, path, method                string
+	body                              []byte
+	headers                           http.Header
+	public, upload, redirectsDisabled bool
 }
 
 type chatGPTAppImageLocalUpstream struct {
@@ -51,7 +51,7 @@ func (u *chatGPTAppImageLocalUpstream) Do(req *http.Request, _ string, _ int64, 
 		return nil, err
 	}
 	u.mu.Lock()
-	u.calls = append(u.calls, chatGPTAppImageCall{host: req.URL.Host, path: req.URL.Path, method: req.Method, body: body, headers: req.Header.Clone(), public: HTTPUpstreamPublicDestination(req.Context()), redirectsDisabled: HTTPUpstreamRedirectsDisabled(req.Context())})
+	u.calls = append(u.calls, chatGPTAppImageCall{host: req.URL.Host, path: req.URL.Path, method: req.Method, body: body, headers: req.Header.Clone(), public: HTTPUpstreamPublicDestination(req.Context()), upload: HTTPUpstreamPublicUpload(req.Context()), redirectsDisabled: HTTPUpstreamRedirectsDisabled(req.Context())})
 	u.mu.Unlock()
 	clone := req.Clone(req.Context())
 	copyURL := *req.URL
