@@ -37,6 +37,9 @@ func chatGPTAppImagePrompt(parsed *OpenAIImagesRequest, prompt string) string {
 	if parsed.InputFidelity != "" {
 		intent += "Preserve reference image details with " + parsed.InputFidelity + " input fidelity. "
 	}
+	if parsed.Style != "" {
+		intent += "Use a " + parsed.Style + " visual style. "
+	}
 	return intent + prompt
 }
 

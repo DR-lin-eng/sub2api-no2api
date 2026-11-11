@@ -14,7 +14,7 @@
 
 API Key 与 SIWC OAuth 账号属于标准 API 调用：保留原生 Images 参数和响应、模型映射及请求模板，
 不进入 App conversation。普通 ChatGPT OAuth 账号默认采用 [新版 App 生图](CHATGPT_APP_IMAGES.md)；
-公共 GIF 请求复用普通 OAuth 账号测试的 App 动画链路；`quality`、`complexity`、`moderation`、`input_fidelity` 转为动画指令，显式尺寸、背景等 App 无法表达的原生保证才切换原生链路。格式、帧数和帧时长统一转接并验证实际文件。
+公共 GIF 请求复用普通 OAuth 账号测试的 App 动画链路；`quality`、`complexity`、`moderation`、`input_fidelity` 转为动画指令。普通图片生成对 App 无法表达的可选控制直接忽略并继续新路径；显式尺寸、背景等只在需要原生输出语义时切换原生链路。格式、帧数和帧时长统一转接并验证实际文件。
 标准 `/v1/images/edits` 的 PNG 参考图支持 JSON data URL 与 multipart `image`/`image[]`；显式默认 `complexity=high` 和 `moderation=auto` 不会误切到原生 GIF 端点。上传文件后才提交动画指令。
 包含原生尺寸、背景、SVG 等参数时，在发送前自动选择本账号的原生 Images 链路。
 网关「使用旧版 OpenAI 生图」开启时，普通 OAuth 图片请求均保留原生路径。
@@ -108,3 +108,6 @@ HEAD 中该文件已是 1201 行，超过 1200 行门槛，本次未修改该文
 
 2026-11-11 的 PNG 图生 GIF 默认参数选路与 HTTPS 参考图上传修复见
 [PNG/GIF 编辑验证](../diagnostics/png-gif-edits-20261111/VERIFICATION.md)。
+
+同日普通图片可选参数忽略、GIF 控制字段转 App 动画指令的回归见
+[GIF 控制选路验证](../diagnostics/gif-controls-20261111/VERIFICATION.md)。

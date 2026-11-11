@@ -65,7 +65,8 @@ App 不提供本项目可以确认的原生尺寸、质量、复杂度、SVG、m
 对外 `/v1/images/generations`、`/v1/images/edits` 保留 OpenAI Images 参数合同。
 API Key 和 SIWC OAuth 账号始终使用标准 Images 请求与端点，不经过 App conversation、验证准备或 App 参数门禁。
 普通 OAuth 账号仅在请求可由 App 适配表达时使用新版；GIF 请求可省略尺寸或使用 `auto`。
-GIF 的 `quality`、`complexity`、`moderation` 和 `input_fidelity` 会转为动画指令，保留用户意图；显式尺寸、背景、其他输出格式、SVG 作者、mask 或 markup 等 App 无法表达的原生保证，发送前在同一账号选择 Codex 原生链路，完整保留参数。
+GIF 的 `quality`、`complexity`、`moderation` 和 `input_fidelity` 会转为动画指令，保留用户意图；普通图片生成也会忽略 App 无法表达的可选尺寸、质量、复杂度、背景、格式、压缩和安全字段，继续使用新路径。
+显式 SVG、mask 或 markup 等无法忽略而会改变输出语义的字段，发送前在同一账号选择 Codex 原生链路，完整保留参数。
 这不是失败后重放，不修改全局设置，也不向 API、上游请求或界面添加内部选路提示。
 
 媒体工坊通过配置中的 `openai_images_protocol` 选择控件和请求字段。

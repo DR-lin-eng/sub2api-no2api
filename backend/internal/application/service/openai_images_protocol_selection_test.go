@@ -59,13 +59,8 @@ func TestImagesProtocolStandardAccountsNeverUseApp(t *testing.T) {
 	}
 }
 
-func TestImagesProtocolOAuthNativeParametersKeepOpenAIContract(t *testing.T) {
-	for _, fields := range []string{
-		`"size":"1024x1024"`, `"quality":"high"`, `"complexity":"low"`,
-		`"output_format":"png"`,
-		`"output_format":"svg","svg":{"model":"gpt-6-astra","reasoning":{"effort":"high"}}`,
-		`"background":"transparent"`, `"moderation":"low"`, `"safety_identifier":"hashed-user"`,
-	} {
+func TestImagesProtocolOAuthHardNativeSVGKeepsOpenAIContract(t *testing.T) {
+	for _, fields := range []string{`"output_format":"svg","svg":{"model":"gpt-6-astra","reasoning":{"effort":"high"}}`} {
 		t.Run(fields, func(t *testing.T) {
 			body := []byte(`{"model":"gpt-image-2.6-sunburst","prompt":"a logo",` + fields + `}`)
 			encoded := encodeOpenAIImageTestPNG(t, 3, 3)
@@ -108,7 +103,7 @@ func TestImagesSIWCAccountProbeUsesPublicImagesEndpoint(t *testing.T) {
 	}
 }
 
-func TestImagesProtocolOAuthNativeStreaming(t *testing.T) {
+func TestImagesProtocolAPIKeyNativeStreaming(t *testing.T) {
 	body := []byte(`{"model":"gpt-image-2.6-sunburst","prompt":"draw","stream":true,"size":"1024x1024","quality":"high","output_format":"png"}`)
 	encoded := encodeOpenAIImageTestPNG(t, 3, 3)
 	response := fmt.Sprintf("data: {\"type\":\"image_generation.completed\",\"b64_json\":%q,\"output_format\":\"png\"}\n\ndata: [DONE]\n\n", encoded)
@@ -117,12 +112,12 @@ func TestImagesProtocolOAuthNativeStreaming(t *testing.T) {
 	c, rec := newOpenAIImagesTestContext(t, body)
 	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
 	require.NoError(t, err)
-	result, err := svc.ForwardImages(t.Context(), c, chatGPTAppImageTestAccount(), body, parsed, "")
+	result, err := svc.ForwardImages(t.Context(), c, newOpenAIImagesAPIKeyAccount(), body, parsed, "")
 	require.NoError(t, err)
 	require.True(t, result.Stream)
 	require.Equal(t, 1, result.ImageCount)
 	require.Len(t, upstream.requests, 1)
-	require.Equal(t, "/backend-api/codex/images/generations", upstream.lastReq.URL.Path)
+	require.Equal(t, "/v1/images/generations", upstream.lastReq.URL.Path)
 	require.Equal(t, "png", gjson.GetBytes(upstream.lastBody, "output_format").String())
 	require.Equal(t, "1024x1024", gjson.GetBytes(upstream.lastBody, "size").String())
 	require.Contains(t, rec.Body.String(), encoded)
@@ -132,8 +127,9 @@ func TestImagesProtocolOAuthNativeStreaming(t *testing.T) {
 
 type imagesChainUpstream struct {
 	HTTPUpstream
-	t       *testing.T
-	gateway *OpenAIGatewayService
+	t           *testing.T
+	gateway     *OpenAIGatewayService
+	forceLegacy bool
 }
 
 func (u imagesChainUpstream) DoWithTLS(req *http.Request, proxy string, accountID int64, concurrency int, _ *tlsfingerprint.Profile) (*http.Response, error) {
@@ -150,6 +146,9 @@ func (u imagesChainUpstream) Do(req *http.Request, _ string, _ int64, _ int) (*h
 	c.Request.Header.Set("Content-Type", "application/json")
 	parsed, err := u.gateway.ParseOpenAIImagesRequest(c, body)
 	require.NoError(u.t, err)
+	if u.forceLegacy {
+		enableLegacyOpenAIImagesForTest(u.gateway)
+	}
 	_, err = u.gateway.ForwardImages(context.Background(), c, chatGPTAppImageTestAccount(), body, parsed, "")
 	require.NoError(u.t, err)
 	return rec.Result(), nil
@@ -158,7 +157,7 @@ func (u imagesChainUpstream) Do(req *http.Request, _ string, _ int64, _ int) (*h
 func TestImagesAPIKeyProbeAcrossDownstreamGateway(t *testing.T) {
 	upstream := &httpUpstreamRecorder{resp: &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": {"application/json"}}, Body: io.NopCloser(strings.NewReader(`{"data":[{"b64_json":"aGVsbG8="}]}`))}}
 	gateway := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream, settingService: &SettingService{}}
-	probe := &AccountTestService{cfg: &config.Config{}, httpUpstream: imagesChainUpstream{t: t, gateway: gateway}}
+	probe := &AccountTestService{cfg: &config.Config{}, httpUpstream: imagesChainUpstream{t: t, gateway: gateway, forceLegacy: true}}
 	account := &Account{ID: 2, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "test-key", "base_url": "https://downstream.example/v1"}}
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
