@@ -91,6 +91,13 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 			replaySafe,
 		)
 		err = normalizeOpenAIPassthroughRetrySafety(err, replaySafe)
+		if err != nil && replaySafe {
+			if retry, retryErr := s.retryOpenAIHTTP200Failure(ctx, c, account, body, canonicalImageIntentBody, nil, err); retryErr != nil {
+				return result, retryErr
+			} else if retry {
+				continue
+			}
+		}
 		if err == nil {
 			if replaySafe && openAITransportTimeoutPending(c) {
 				s.ClearAccountSchedulingBlockIfReason(account.ID, "transport_timeout")
@@ -390,7 +397,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 		}
 
 		upstreamStart := time.Now()
-		resp, err = s.doOpenAIResponsesUpstream(ctx, c, upstreamReq, proxyURL, account, reqStream)
+		resp, err = s.doOpenAIResponsesWithCompressionRecovery(ctx, c, upstreamReq, proxyURL, account, reqStream, canonicalImageIntentBody, budget)
 		SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
 		if headerGuard != nil && headerGuard.stopHeaderWait() {
 			if resp != nil && resp.Body != nil {
@@ -486,6 +493,12 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 			responseCtx, resp, c, account, startTime, reqModel, upstreamPassthroughModel, reasoningEffortValue,
 		)
 		if err != nil {
+			if result != nil && openAIResponseHasReportedUsage(result.usage) {
+				var failover *UpstreamFailoverError
+				if errors.As(err, &failover) && failover.Reason == openAIHTTP200GenericFailureReason {
+					failover.Reason = ""
+				}
+			}
 			return nil, err
 		}
 		usage = result.usage
@@ -1668,6 +1681,9 @@ func (s *OpenAIGatewayService) newOpenAIStreamFailoverError(
 		ResponseHeaders:        headers,
 		RetryableOnSameAccount: openAIStreamFailedEventRetryableOnSameAccount(account, payload, message),
 	}
+	if IsOpenAIGenericUpstreamFailureBody(payload) && !openAIResponseFailureReportsUsage(payload) {
+		failoverErr.Reason = openAIHTTP200GenericFailureReason
+	}
 	requestScopedCapacity := isOpenAIUpstreamCapacityShedEvent(payload)
 	if requestScopedCapacity {
 		failoverErr.Scope = GatewayFailureScopeRequest
@@ -1771,6 +1787,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 	mappedModel string,
 	reasoningEfforts ...string,
 ) (*openaiStreamingResultPassthrough, error) {
+	s.adaptOpenAIHTTP200JSONError(resp)
 	beginOpenAITimingObservation(c)
 	visibleOutputTTFT := s.useOpenAIVisibleOutputTTFT(ctx)
 	observer := upstreamResponseModelObserverFromContext(c)
@@ -2083,7 +2100,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 			firstUpstreamDataEvent := !seenUpstreamDataEvent
 			seenUpstreamDataEvent = true
 			dataBytes := []byte(data)
-			normalizedData, normalizedPolicyEvent := normalizeOpenAIPolicyErrorEvent(dataBytes)
+			normalizedData, normalizedPolicyEvent := normalizeOpenAIResponsesErrorEvent(dataBytes)
 			if normalizedPolicyEvent {
 				dataBytes = normalizedData
 				data = string(normalizedData)
@@ -2405,6 +2422,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 			upstreamRequestID,
 			err,
 		)
+		writeOpenAIResponsesStreamReadFailure(c, err)
 		return resultWithUsage(), fmt.Errorf("stream read error: %w", err)
 	}
 	if sawFailedEvent {
@@ -2422,6 +2440,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 		}
 		commitPendingOutputProgress()
 		s.recordOpenAIProxyStreamDisconnect(account, errors.New("stream ended before terminal event"), upstreamRequestID, startTime)
+		writeOpenAIResponsesStreamReadFailure(c, ErrOpenAIUpstreamStreamTruncated)
 		return resultWithUsage(), errors.New("stream usage incomplete: missing terminal event")
 	}
 	if (sawDone || sawTerminalEvent) && !sawFailedEvent {

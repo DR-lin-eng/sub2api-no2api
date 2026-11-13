@@ -47,6 +47,7 @@ func (s *OpenAIGatewayService) handleStreamingResponse(ctx context.Context, resp
 }
 
 func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.Context, resp *http.Response, c *gin.Context, account *Account, startTime time.Time, originalModel, mappedModel, reasoningEffort string) (*openaiStreamingResult, error) {
+	s.adaptOpenAIHTTP200JSONError(resp)
 	beginOpenAITimingObservation(c)
 	visibleOutputTTFT := s.useOpenAIVisibleOutputTTFT(ctx)
 	observer := upstreamResponseModelObserverFromContext(c)
@@ -416,6 +417,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 		if !sawTerminalEvent {
 			if openAIStreamClientOutputStarted(c, clientOutputStarted) && !clientDisconnected {
 				s.recordOpenAIProxyStreamDisconnect(account, errors.New("stream ended before terminal event"), upstreamRequestID, startTime)
+				writeOpenAIResponsesStreamReadFailure(c, ErrOpenAIUpstreamStreamTruncated)
 			}
 			return resultWithUsage(), fmt.Errorf("stream usage incomplete: missing terminal event")
 		}
@@ -481,7 +483,15 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 			return resultWithUsage(), fmt.Errorf("stream usage incomplete after disconnect: %w", scanErr), true
 		}
 		s.recordOpenAIProxyStreamDisconnect(account, scanErr, upstreamRequestID, startTime)
-		sendErrorEvent("stream_read_error")
+		if stageFirstOutput && eventInProgress {
+			completeGuardedEvent(true)
+		} else {
+			flushPending("Client disconnected during failed stream flush, returning collected usage")
+		}
+		if clientDisconnected {
+			return resultWithUsage(), fmt.Errorf("stream usage incomplete after disconnect: %w", scanErr), true
+		}
+		writeOpenAIResponsesStreamReadFailure(c, scanErr)
 		return resultWithUsage(), fmt.Errorf("stream read error: %w", scanErr), true
 	}
 	processSSELine := func(line string, queueDrained, dataValid bool) {
@@ -497,7 +507,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 			firstUpstreamDataEvent := !seenUpstreamDataEvent
 			seenUpstreamDataEvent = true
 			dataBytes := []byte(data)
-			normalizedData, normalizedPolicyEvent := normalizeOpenAIPolicyErrorEvent(dataBytes)
+			normalizedData, normalizedPolicyEvent := normalizeOpenAIResponsesErrorEvent(dataBytes)
 			if normalizedPolicyEvent {
 				dataBytes = normalizedData
 				data = string(normalizedData)

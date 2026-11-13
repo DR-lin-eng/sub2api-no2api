@@ -1,0 +1,245 @@
+{
+  "recorded_at": "2026-11-13T13:48:05.520416+08:00",
+  "source": "1d3e1ea2b7bd716f5b0a849c2e1163638e6f946e",
+  "pending": [],
+  "baseline_reproduction": {
+    "passed_including_subtests": 0,
+    "failed_tests": [
+      "TestOpenAIOAuthCompressionRecoveryForward/passthrough=false/stream=false/compact=false",
+      "TestOpenAIOAuthCompressionRecoveryForward/passthrough=false/stream=false/compact=true",
+      "TestOpenAIOAuthCompressionRecoveryForward/passthrough=false/stream=true/compact=false",
+      "TestOpenAIOAuthCompressionRecoveryForward/passthrough=true/stream=false/compact=false",
+      "TestOpenAIOAuthCompressionRecoveryForward/passthrough=true/stream=false/compact=true",
+      "TestOpenAIOAuthCompressionRecoveryForward/passthrough=true/stream=true/compact=false",
+      "TestOpenAIOAuthCompressionRecoveryForward",
+      "TestOpenAIOAuthCompressionRecoveryIsRequestScoped/false",
+      "TestOpenAIOAuthCompressionRecoveryIsRequestScoped/true",
+      "TestOpenAIOAuthCompressionRecoveryIsRequestScoped"
+    ],
+    "skipped_tests": [],
+    "passed_packages": []
+  },
+  "focused": {
+    "passed_including_subtests": 67,
+    "failed_tests": [],
+    "skipped_tests": [],
+    "passed_packages": [
+      "github.com/Wei-Shaw/sub2api/internal/application/service"
+    ]
+  },
+  "initial_regression": {
+    "passed_including_subtests": 17976,
+    "failed_tests": [
+      "TestOpenAIGatewayServiceForwardImages_APIKeyStreamingDrainsAfterClientDisconnect"
+    ],
+    "skipped_tests": [
+      "TestDingTalkOAuthStart_Disabled",
+      "TestAuthPendingIdentityService_UpsertAdoptionDecision_ClearsLegacyNullSessionReference",
+      "TestOpenAIContentSessionBurstBalanceConcurrent50000",
+      "TestEstimateOpenAIInputTokens_CompareWithOpenAIAPI"
+    ],
+    "passed_packages": [
+      "github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/handler",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/quotaview",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/supportchatasset",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/managementmcp",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/server",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes",
+      "github.com/Wei-Shaw/sub2api/internal/shared/httputil"
+    ]
+  },
+  "image_baseline_recheck": {
+    "passed_including_subtests": 10,
+    "failed_tests": [],
+    "skipped_tests": [],
+    "passed_packages": [
+      "github.com/Wei-Shaw/sub2api/internal/application/service"
+    ]
+  },
+  "image_fixed_recheck": {
+    "passed_including_subtests": 10,
+    "failed_tests": [],
+    "skipped_tests": [],
+    "passed_packages": [
+      "github.com/Wei-Shaw/sub2api/internal/application/service"
+    ]
+  },
+  "runtime": {
+    "status": "passed",
+    "cases": 61,
+    "expected_statuses": {
+      "200": 45,
+      "400": 16
+    },
+    "concurrency": {
+      "requests": 40,
+      "workers": 4,
+      "success": 40,
+      "key_id": 61,
+      "upstream_calls": 80,
+      "compression_enabled": true
+    },
+    "settlement": {
+      "rows": 85,
+      "concurrent_rows": 40,
+      "failed_request_rows": 0,
+      "duplicate_rows": 0
+    }
+  },
+  "source_layout": "passed",
+  "final_regression": {
+    "passed_including_subtests": 17977,
+    "failed_tests": [],
+    "skipped_tests": [
+      "TestAuthPendingIdentityService_UpsertAdoptionDecision_ClearsLegacyNullSessionReference",
+      "TestOpenAIContentSessionBurstBalanceConcurrent50000",
+      "TestEstimateOpenAIInputTokens_CompareWithOpenAIAPI",
+      "TestDingTalkOAuthStart_Disabled"
+    ],
+    "passed_packages": [
+      "github.com/Wei-Shaw/sub2api/internal/application/service",
+      "github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/handler",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/quotaview",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/supportchatasset",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/managementmcp",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/server",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes",
+      "github.com/Wei-Shaw/sub2api/internal/shared/httputil"
+    ]
+  },
+  "docs": "passed",
+  "diff_whitespace": "passed",
+  "gofmt": "passed",
+  "diagnostic_python_syntax": "passed",
+  "static_check": {
+    "exit_code": 0,
+    "output": "0 issues.",
+    "command": "golangci-lint run --concurrency=1 --timeout=15m ./...",
+    "initial_exit_code": 137,
+    "initial_output_bytes": 0
+  },
+  "result": "passed",
+  "files": {
+    "/private/tmp/sub2api-issue-8636-fix-20261113/baseline.jsonl": {
+      "bytes": 25004,
+      "sha256": "cf679800853287383a0f517d01b94c97511303d01887b119089109695c9f1d82"
+    },
+    "/private/tmp/sub2api-issue-8636-fix-20261113/focused.jsonl": {
+      "bytes": 89145,
+      "sha256": "3046abef8e7b805d4f45572472fdbd8eceda60e7cae520e5487cfa34f0f05a91"
+    },
+    "/private/tmp/sub2api-issue-8636-fix-20261113/focused-final.jsonl": {
+      "bytes": 84280,
+      "sha256": "b8a41b649198e51f183cb5cf47bb0ec68c84dc26a9a551e1c63c3c5694e28bb8"
+    },
+    "/private/tmp/sub2api-issue-8636-fix-20261113/regression.jsonl": {
+      "bytes": 28024368,
+      "sha256": "8c0fb99e514b08e37db91a911052044adbbddf60567c5c7bb12abdae13fc3c0b"
+    },
+    "/private/tmp/sub2api-issue-8636-fix-20261113/image-baseline-recheck.jsonl": {
+      "bytes": 19051,
+      "sha256": "b3ea6564dc44d3e107948ba494523382a998a0b7118966e9db056626e5e74444"
+    },
+    "/private/tmp/sub2api-issue-8636-fix-20261113/image-fixed-recheck.jsonl": {
+      "bytes": 19062,
+      "sha256": "f8510c99ace0965d835f6ac5a2050ae73f0bce2fd5e98bbc355a88e7f1a612bf"
+    },
+    "/private/tmp/sub2api-issue-8636-fix-20261113/regression-final.jsonl": {
+      "bytes": 28029385,
+      "sha256": "2132440942cfd1e21f3040bd48898deb5ce24dbf843a35c482ed138bbc8521e8"
+    },
+    "/private/tmp/sub2api-issue-8636-fix-20261113/lint.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "/private/tmp/sub2api-issue-8636-fix-20261113/lint-initial.record.json": {
+      "bytes": 154,
+      "sha256": "d5f2707af6f5f150fe22c040745c0a633f046c8a673e7a9ba5df9067e17e34fc"
+    },
+    "/private/tmp/sub2api-issue-8636-fix-20261113/lint-final.log": {
+      "bytes": 10,
+      "sha256": "e92606b0bf483111dff0a120c315ea165821348f31365020e2468a0059095c47"
+    },
+    "/private/tmp/sub2api-issue-8636-fix-20261113/runtime.stdout": {
+      "bytes": 6308,
+      "sha256": "a348862ad06972ebed42ad7e64ee346fae08227d1a5d275907ebc1df4cac5a96"
+    },
+    "/private/tmp/sub2api-issue-8636-fix-20261113/runtime.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "/private/tmp/sub2api-issue-8636-fix-20261113/app.log": {
+      "bytes": 365695,
+      "sha256": "45de197a6ce34ef0626780d090951ca187ee932130155f0d002c341947485f5d"
+    },
+    "/private/tmp/sub2api-issue-8636-fix-20261113/version.txt": {
+      "bytes": 162,
+      "sha256": "7567b06d69fbd0d3e37929113d2eee81db3a64dcc6edbb466dc45854ff69abe2"
+    },
+    "/private/tmp/sub2api-issue-8636-fix-20261113/sub2api": {
+      "bytes": 170347161,
+      "sha256": "f30043452d7b991898cf3247e36cf2ce1033ff3db0e9e743c99d8d50d8718553"
+    },
+    "/private/tmp/sub2api-issue-8636-fix-20261113/provider": {
+      "bytes": 8357795,
+      "sha256": "8b331e2d2d8ee631fc706c96b3b5b605f79a86e54aec9332de288f049fe52ae0"
+    },
+    "/private/tmp/sub2api-issue-8636-fix-20261113/baseline-overlay.json": {
+      "bytes": 241,
+      "sha256": "c5c22acab2cd6d9a4adb347562acc681de41019de3cb6d0bf646d6360328959a"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/backend/internal/application/service/openai_oauth_compression_recovery.go": {
+      "bytes": 5162,
+      "sha256": "a6bfb3420874639183355b57b4cd263565f5d1f4ec02085d101f61e7f119426a"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/backend/internal/application/service/openai_oauth_compression_recovery_test.go": {
+      "bytes": 11423,
+      "sha256": "f1962cb25d74c0e90b14bf32b40f4725e97ca123354ce8958d87b6da4918c5eb"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/backend/internal/application/service/openai_gateway_forward.go": {
+      "bytes": 47677,
+      "sha256": "b7719bfd683404eb2ac86b513932bc622944fc64b401750b6a496b2e2d8c1c7e"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/backend/internal/application/service/openai_gateway_passthrough.go": {
+      "bytes": 97624,
+      "sha256": "d57db7703102aee7387071a9c9a77ab2e2c2cc3cb47ad4d862b8d295a1235702"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/diagnostics/issue-8636-20261112/run.py": {
+      "bytes": 18268,
+      "sha256": "8c731682f5c013dc3686071f15d967fc48b24204de5140d963b4499b0eaf9ba5"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/diagnostics/issue-8636-20261112/compose.yaml": {
+      "bytes": 1896,
+      "sha256": "4e0477bdd6843d4f38dfd803c4df78533268341ce3bcebc582efd9d5a6aa1bf6"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/diagnostics/issue-8636-fix-20261113/provider.go": {
+      "bytes": 5142,
+      "sha256": "81e0e9979ae10d1d80dda7948caa1efb2c5a460bbae679a1f9f9273b49039d27"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/diagnostics/issue-8636-fix-20261113/RESULTS.json": {
+      "bytes": 62318,
+      "sha256": "d5831960a87813c7320b920787d735bbf2888b4d4de07148bd8b085b874cabd0"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/diagnostics/issue-8636-fix-20261113/README.md": {
+      "bytes": 1606,
+      "sha256": "d21e15eedbac8a7f3c6faad83996087f8907fdfd0dbd74fe6a8bd66714e1fe2b"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/diagnostics/issue-8636-fix-20261113/VERIFICATION.md": {
+      "bytes": 6913,
+      "sha256": "74e158c0ad0bd57bfecf3774abd9c4f6fd8c9c19a068970e859a6aa1b667946c"
+    }
+  },
+  "docker_fixture_cleanup": {
+    "containers": "verified removed",
+    "networks": "verified removed",
+    "ephemeral_data": "compose down -v completed"
+  }
+}

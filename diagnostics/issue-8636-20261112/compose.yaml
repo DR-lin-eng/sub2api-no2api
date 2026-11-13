@@ -1,0 +1,65 @@
+services:
+  postgres:
+    image: postgres:18.1-alpine3.23
+    environment:
+      POSTGRES_USER: fixture
+      POSTGRES_PASSWORD: ${ISSUE_DB_PASSWORD:?}
+      POSTGRES_DB: fixture
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U fixture -d fixture']
+      interval: 1s
+      timeout: 3s
+      retries: 40
+  redis:
+    image: redis:8.4-alpine
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 1s
+      timeout: 3s
+      retries: 40
+  app:
+    image: sub2api:sync-candidate-20261112
+    volumes:
+      - ${ISSUE_RESULTS:?}/sub2api:/app/sub2api:ro
+    environment:
+      AUTO_SETUP: 'true'
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 8080
+      SERVER_MODE: release
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: fixture
+      DATABASE_PASSWORD: ${ISSUE_DB_PASSWORD:?}
+      DATABASE_DBNAME: fixture
+      DATABASE_SSLMODE: disable
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      ADMIN_EMAIL: admin@fixture.invalid
+      ADMIN_PASSWORD: ${ISSUE_ADMIN_PASSWORD:?}
+      JWT_SECRET: ${ISSUE_JWT_SECRET:?}
+      TOTP_ENCRYPTION_KEY: ${ISSUE_ENCRYPTION_KEY:?}
+      OAUTH_MODEL_SYNC_ENABLED: 'false'
+      GATEWAY_OPENAI_WS_FORCE_HTTP: 'true'
+      PRICING_REMOTE_URL: https://127.0.0.1:9/pricing.json
+      PRICING_HASH_URL: https://127.0.0.1:9/pricing.sha256
+      SECURITY_URL_ALLOWLIST_ENABLED: 'false'
+      SECURITY_URL_ALLOWLIST_ALLOW_PRIVATE_HOSTS: 'true'
+      SECURITY_URL_ALLOWLIST_ALLOW_INSECURE_HTTP: 'true'
+      HTTP_PROXY: ''
+      HTTPS_PROXY: ''
+      ALL_PROXY: ''
+      NO_PROXY: localhost,127.0.0.1,postgres,redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+  provider:
+    image: alpine:3.21
+    network_mode: service:app
+    volumes:
+      - ${ISSUE_RESULTS:?}/provider:/provider:ro
+    command: [/provider]
+networks:
+  default:
+    internal: true

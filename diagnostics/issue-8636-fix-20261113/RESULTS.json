@@ -1,0 +1,1822 @@
+{
+  "source": "1d3e1ea2b7bd716f5b0a849c2e1163638e6f946e",
+  "backend_sha256": "f30043452d7b991898cf3247e36cf2ce1033ff3db0e9e743c99d8d50d8718553",
+  "real_upstream_tested": false,
+  "compression_recovery": true,
+  "cases": [
+    {
+      "case": "standard-gpt-6.1-sol-False-True-accept-plain",
+      "status": 200,
+      "key_id": 1,
+      "success": true,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 295,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 295,
+          "identity_hash": "583a59a196d154d4d24219dae423baaafe2c8b7fc42eb004aac759e5d8639be5"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "standard-gpt-6.1-sol-True-True-accept-plain",
+      "status": 200,
+      "key_id": 2,
+      "success": true,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 295,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 295,
+          "identity_hash": "c9728b2167f7639de579c7b7d26a4924156d0927149ffd00a4202d1a8fd580a3"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "standard-gpt-6-astra-False-True-accept-plain",
+      "status": 200,
+      "key_id": 3,
+      "success": true,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 294,
+          "decoded_bytes": 5493,
+          "body_hash": "b27cbb782d3f7283e8bbb477a9b8e3f583d7a17f45064125bcec6a10c805f0f5",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6-astra",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 294,
+          "identity_hash": "8161f94322b065f7d4aad5256ea376fb092c555e63838fe0a676b805756b6c4c"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "standard-gpt-6-astra-True-True-accept-plain",
+      "status": 200,
+      "key_id": 4,
+      "success": true,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 294,
+          "decoded_bytes": 5493,
+          "body_hash": "b27cbb782d3f7283e8bbb477a9b8e3f583d7a17f45064125bcec6a10c805f0f5",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6-astra",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 294,
+          "identity_hash": "39b742d775dc0d38156ac28228137e9bdacb209f09dffc615f0eab10f72d5469"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "standard-gpt-6.1-sol-False-True-reject_zstd-plain",
+      "status": 200,
+      "key_id": 5,
+      "success": true,
+      "upstream_calls": 2,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 295,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 295,
+          "identity_hash": "1cdb046df0f5542c6fc2f4f2358363bb5407dabc4b3fa114ffeef61dd8ea2340"
+        },
+        {
+          "encoding": "",
+          "wire_bytes": 5493,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5493,
+          "identity_hash": "1cdb046df0f5542c6fc2f4f2358363bb5407dabc4b3fa114ffeef61dd8ea2340"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "standard-gpt-6.1-sol-True-True-reject_zstd-plain",
+      "status": 200,
+      "key_id": 6,
+      "success": true,
+      "upstream_calls": 2,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 295,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 295,
+          "identity_hash": "872f343974dd9a9bf41e44d9e5f94cdcda4972938a121041b15c175717c347a2"
+        },
+        {
+          "encoding": "",
+          "wire_bytes": 5493,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5493,
+          "identity_hash": "872f343974dd9a9bf41e44d9e5f94cdcda4972938a121041b15c175717c347a2"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "standard-gpt-6-astra-False-True-reject_zstd-plain",
+      "status": 200,
+      "key_id": 7,
+      "success": true,
+      "upstream_calls": 2,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 294,
+          "decoded_bytes": 5493,
+          "body_hash": "b27cbb782d3f7283e8bbb477a9b8e3f583d7a17f45064125bcec6a10c805f0f5",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6-astra",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 294,
+          "identity_hash": "a9cf8798bd2947fc7b00de8d5823903aa355a983c4d79a339b7f10e132a45591"
+        },
+        {
+          "encoding": "",
+          "wire_bytes": 5493,
+          "decoded_bytes": 5493,
+          "body_hash": "b27cbb782d3f7283e8bbb477a9b8e3f583d7a17f45064125bcec6a10c805f0f5",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6-astra",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5493,
+          "identity_hash": "a9cf8798bd2947fc7b00de8d5823903aa355a983c4d79a339b7f10e132a45591"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "standard-gpt-6-astra-True-True-reject_zstd-plain",
+      "status": 200,
+      "key_id": 8,
+      "success": true,
+      "upstream_calls": 2,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 294,
+          "decoded_bytes": 5493,
+          "body_hash": "b27cbb782d3f7283e8bbb477a9b8e3f583d7a17f45064125bcec6a10c805f0f5",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6-astra",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 294,
+          "identity_hash": "a12fadc4d8498e70981e26715a7ffcddcdfe2cd99fa933da30b1d484f661ec39"
+        },
+        {
+          "encoding": "",
+          "wire_bytes": 5493,
+          "decoded_bytes": 5493,
+          "body_hash": "b27cbb782d3f7283e8bbb477a9b8e3f583d7a17f45064125bcec6a10c805f0f5",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6-astra",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5493,
+          "identity_hash": "a12fadc4d8498e70981e26715a7ffcddcdfe2cd99fa933da30b1d484f661ec39"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "standard-gpt-6.1-sol-False-False-accept-plain",
+      "status": 200,
+      "key_id": 9,
+      "success": true,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "",
+          "wire_bytes": 5493,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5493,
+          "identity_hash": "07fb8b2a201ed68d1db6b3f23b1b3b2fcec3e1043d55f20cdafdfc3eb073e4d3"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "standard-gpt-6.1-sol-True-False-accept-plain",
+      "status": 200,
+      "key_id": 10,
+      "success": true,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "",
+          "wire_bytes": 5493,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5493,
+          "identity_hash": "b90c9978c09548a64967992f9380f06785cbd6e3049ce4ac9b0f918e1ff7fb93"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "standard-gpt-6-astra-False-False-accept-plain",
+      "status": 200,
+      "key_id": 11,
+      "success": true,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "",
+          "wire_bytes": 5493,
+          "decoded_bytes": 5493,
+          "body_hash": "b27cbb782d3f7283e8bbb477a9b8e3f583d7a17f45064125bcec6a10c805f0f5",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6-astra",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5493,
+          "identity_hash": "8e828b25511bbc3b864f7686ce0c299f5b6795dd4ec4e05fe53cb48ed9986f1f"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "standard-gpt-6-astra-True-False-accept-plain",
+      "status": 200,
+      "key_id": 12,
+      "success": true,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "",
+          "wire_bytes": 5493,
+          "decoded_bytes": 5493,
+          "body_hash": "b27cbb782d3f7283e8bbb477a9b8e3f583d7a17f45064125bcec6a10c805f0f5",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6-astra",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5493,
+          "identity_hash": "8f0dfc98e48c8dc2b3cd6bb83a5ad1e743cf9fd4241fcfba682206992266edee"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "standard-gpt-6.1-sol-False-False-reject_zstd-plain",
+      "status": 200,
+      "key_id": 13,
+      "success": true,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "",
+          "wire_bytes": 5493,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5493,
+          "identity_hash": "c0997b0d32cc92b19fe5895a2d1cfb399cbba4fa9f36987455e339f7bc964637"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "standard-gpt-6.1-sol-True-False-reject_zstd-plain",
+      "status": 200,
+      "key_id": 14,
+      "success": true,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "",
+          "wire_bytes": 5493,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5493,
+          "identity_hash": "7710257ec103f747e01854ae2ad9834225b8e640eb5cdd4b4ce1e2e08b3f71d3"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "standard-gpt-6-astra-False-False-reject_zstd-plain",
+      "status": 200,
+      "key_id": 15,
+      "success": true,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "",
+          "wire_bytes": 5493,
+          "decoded_bytes": 5493,
+          "body_hash": "b27cbb782d3f7283e8bbb477a9b8e3f583d7a17f45064125bcec6a10c805f0f5",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6-astra",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5493,
+          "identity_hash": "11cea09de6033f0e34196f42bfc0a0e273a8351984f83e2a119fa53539122b1c"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "standard-gpt-6-astra-True-False-reject_zstd-plain",
+      "status": 200,
+      "key_id": 16,
+      "success": true,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "",
+          "wire_bytes": 5493,
+          "decoded_bytes": 5493,
+          "body_hash": "b27cbb782d3f7283e8bbb477a9b8e3f583d7a17f45064125bcec6a10c805f0f5",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6-astra",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5493,
+          "identity_hash": "3727610073bb3e77b3bc08b5cdf3858836fc69965748c8780fddf2532e846a3a"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "standard-gpt-6.1-sol-False-False-reject_zstd-zstd",
+      "status": 200,
+      "key_id": 17,
+      "success": true,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "",
+          "wire_bytes": 5493,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5493,
+          "identity_hash": "48341c9eb11160bd192309ca8b42db39c9c18e4de4bf522813bda70b2d73c182"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "standard-gpt-6.1-sol-False-False-reject_all-plain",
+      "status": 400,
+      "key_id": 18,
+      "success": false,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "",
+          "wire_bytes": 5493,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 5493,
+          "identity_hash": "3370badf418d06f52f223638f0e9a8660d6bf4ae44786e0c28367572fb69a36d"
+        }
+      ],
+      "client_error": {
+        "error": {
+          "message": "Bad Request",
+          "type": "invalid_request_error"
+        }
+      }
+    },
+    {
+      "case": "standard-gpt-6.1-sol-True-False-reject_zstd-zstd",
+      "status": 200,
+      "key_id": 19,
+      "success": true,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "",
+          "wire_bytes": 5493,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5493,
+          "identity_hash": "c19efda2d0b754ad95464adf54b701eaaeb556b57d5aab93544c7832010bd4f3"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "standard-gpt-6.1-sol-True-False-reject_all-plain",
+      "status": 400,
+      "key_id": 20,
+      "success": false,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "",
+          "wire_bytes": 5493,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 5493,
+          "identity_hash": "394b605ed4b537ec5dd3aaf82f01b4de872895600749e1a8b617852727fbf608"
+        }
+      ],
+      "client_error": {
+        "error": {
+          "message": "Bad Request",
+          "type": "invalid_request_error"
+        }
+      }
+    },
+    {
+      "case": "standard-gpt-6.1-sol-True-False-accept-zstd_without_header",
+      "status": 400,
+      "key_id": 21,
+      "success": false,
+      "upstream_calls": 0,
+      "wire": [],
+      "client_error": {
+        "error": {
+          "message": "Request body must be valid UTF-8 JSON. Send UTF-8 encoded bytes.",
+          "type": "invalid_request_error"
+        }
+      }
+    },
+    {
+      "case": "standard-gpt-6.1-sol-True-False-accept-plain_with_zstd_header",
+      "status": 400,
+      "key_id": 22,
+      "success": false,
+      "upstream_calls": 0,
+      "wire": [],
+      "client_error": {
+        "error": {
+          "message": "Failed to read request body",
+          "type": "invalid_request_error"
+        }
+      }
+    },
+    {
+      "case": "standard-gpt-6.1-sol-False-True-reject_all-plain",
+      "status": 400,
+      "key_id": 23,
+      "success": false,
+      "upstream_calls": 2,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 295,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 295,
+          "identity_hash": "551626f5f50b43c0b5e94a65a6122197c121d3b820414753d0bc6b32df1cc89a"
+        },
+        {
+          "encoding": "",
+          "wire_bytes": 5493,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 5493,
+          "identity_hash": "551626f5f50b43c0b5e94a65a6122197c121d3b820414753d0bc6b32df1cc89a"
+        }
+      ],
+      "client_error": {
+        "error": {
+          "message": "Bad Request",
+          "type": "invalid_request_error"
+        }
+      }
+    },
+    {
+      "case": "standard-gpt-6.1-sol-False-True-reject_zstd_415-plain",
+      "status": 200,
+      "key_id": 24,
+      "success": true,
+      "upstream_calls": 2,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 295,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 415,
+          "content_length": 295,
+          "identity_hash": "a9416e106a2c14fd37e9a6adb1c069f378d0a71ecd44cfb35b278b2fd0aae213"
+        },
+        {
+          "encoding": "",
+          "wire_bytes": 5493,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5493,
+          "identity_hash": "a9416e106a2c14fd37e9a6adb1c069f378d0a71ecd44cfb35b278b2fd0aae213"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "standard-gpt-6.1-sol-False-True-reject_structured-plain",
+      "status": 400,
+      "key_id": 25,
+      "success": false,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 295,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 295,
+          "identity_hash": "99c06c474681e058723645dde75eccf7436f94eb88789441aefbdab1a82be607"
+        }
+      ],
+      "client_error": {
+        "error": {
+          "message": "Invalid input parameter",
+          "param": "input",
+          "type": "invalid_request_error"
+        }
+      }
+    },
+    {
+      "case": "standard-gpt-6.1-sol-False-True-reject_zstd-zstd",
+      "status": 200,
+      "key_id": 26,
+      "success": true,
+      "upstream_calls": 2,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 295,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 295,
+          "identity_hash": "1a038163dd9efd7bb1a9a0f24e46e6c628aec2d0a7bbfc409075a4ce716bebc9"
+        },
+        {
+          "encoding": "",
+          "wire_bytes": 5493,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5493,
+          "identity_hash": "1a038163dd9efd7bb1a9a0f24e46e6c628aec2d0a7bbfc409075a4ce716bebc9"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "standard-gpt-6.1-sol-True-True-reject_all-plain",
+      "status": 400,
+      "key_id": 27,
+      "success": false,
+      "upstream_calls": 2,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 295,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 295,
+          "identity_hash": "bf44ec7f50f6c55bc492f0209ab52ee84434e753bbef3832c8b50f17f0909d3c"
+        },
+        {
+          "encoding": "",
+          "wire_bytes": 5493,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 5493,
+          "identity_hash": "bf44ec7f50f6c55bc492f0209ab52ee84434e753bbef3832c8b50f17f0909d3c"
+        }
+      ],
+      "client_error": {
+        "error": {
+          "message": "Bad Request",
+          "type": "invalid_request_error"
+        }
+      }
+    },
+    {
+      "case": "standard-gpt-6.1-sol-True-True-reject_zstd_415-plain",
+      "status": 200,
+      "key_id": 28,
+      "success": true,
+      "upstream_calls": 2,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 295,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 415,
+          "content_length": 295,
+          "identity_hash": "f30fdacd6bb112d8aa8b35bcea8ba67cd89b4e8d6b9a8c3f0dd995f35d73f311"
+        },
+        {
+          "encoding": "",
+          "wire_bytes": 5493,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5493,
+          "identity_hash": "f30fdacd6bb112d8aa8b35bcea8ba67cd89b4e8d6b9a8c3f0dd995f35d73f311"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "standard-gpt-6.1-sol-True-True-reject_structured-plain",
+      "status": 400,
+      "key_id": 29,
+      "success": false,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 295,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 295,
+          "identity_hash": "b060e896d70a78de95a1146a06503666b0d3677ca409e3c9c053443759503df0"
+        }
+      ],
+      "client_error": {
+        "error": {
+          "message": "Invalid input parameter",
+          "param": "input",
+          "type": "invalid_request_error"
+        }
+      }
+    },
+    {
+      "case": "standard-gpt-6.1-sol-True-True-reject_zstd-zstd",
+      "status": 200,
+      "key_id": 30,
+      "success": true,
+      "upstream_calls": 2,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 295,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 295,
+          "identity_hash": "be8c66757d8b17ce34369af3e26bdbab1cab58d65d80806b3acec426f263a99a"
+        },
+        {
+          "encoding": "",
+          "wire_bytes": 5493,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5493,
+          "identity_hash": "be8c66757d8b17ce34369af3e26bdbab1cab58d65d80806b3acec426f263a99a"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "passthrough-gpt-6.1-sol-False-True-accept-plain",
+      "status": 200,
+      "key_id": 31,
+      "success": true,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 165,
+          "decoded_bytes": 5305,
+          "body_hash": "2eeef216e8b6d1f17411ecd4eb805072a65726e20f9f1fc084643ce6ad113e9c",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 165,
+          "identity_hash": "6e1e2e147099c1c144ecbc694b163738b76bbbbfc6188874036a9dcba4f41f4c"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "passthrough-gpt-6.1-sol-True-True-accept-plain",
+      "status": 200,
+      "key_id": 32,
+      "success": true,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 165,
+          "decoded_bytes": 5305,
+          "body_hash": "2eeef216e8b6d1f17411ecd4eb805072a65726e20f9f1fc084643ce6ad113e9c",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 165,
+          "identity_hash": "5040b945001539b21d20576c69ef179e85312f06de26222a1a5b630ee0dd326d"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "passthrough-gpt-6-astra-False-True-accept-plain",
+      "status": 200,
+      "key_id": 33,
+      "success": true,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 164,
+          "decoded_bytes": 5305,
+          "body_hash": "67182c2d0d33b59e0006ec3de7cd029a33bd3f16ab7152fb95dd8397bccff195",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6-astra",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 164,
+          "identity_hash": "a11f5e13d4d1c62600fee3208618163e955873d32212403e13401c3adb31a85e"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "passthrough-gpt-6-astra-True-True-accept-plain",
+      "status": 200,
+      "key_id": 34,
+      "success": true,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 164,
+          "decoded_bytes": 5305,
+          "body_hash": "67182c2d0d33b59e0006ec3de7cd029a33bd3f16ab7152fb95dd8397bccff195",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6-astra",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 164,
+          "identity_hash": "ac384be296ff6499887522bc34b8db16c21a1d1fce3e177d406e4bf9a1d07e64"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "passthrough-gpt-6.1-sol-False-True-reject_zstd-plain",
+      "status": 200,
+      "key_id": 35,
+      "success": true,
+      "upstream_calls": 2,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 165,
+          "decoded_bytes": 5305,
+          "body_hash": "2eeef216e8b6d1f17411ecd4eb805072a65726e20f9f1fc084643ce6ad113e9c",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 165,
+          "identity_hash": "ba50d9b6c8278c9869093dbab057042d0f2439bf3116f9109f95ddb9c4052eb5"
+        },
+        {
+          "encoding": "",
+          "wire_bytes": 5305,
+          "decoded_bytes": 5305,
+          "body_hash": "2eeef216e8b6d1f17411ecd4eb805072a65726e20f9f1fc084643ce6ad113e9c",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5305,
+          "identity_hash": "ba50d9b6c8278c9869093dbab057042d0f2439bf3116f9109f95ddb9c4052eb5"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "passthrough-gpt-6.1-sol-True-True-reject_zstd-plain",
+      "status": 200,
+      "key_id": 36,
+      "success": true,
+      "upstream_calls": 2,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 165,
+          "decoded_bytes": 5305,
+          "body_hash": "2eeef216e8b6d1f17411ecd4eb805072a65726e20f9f1fc084643ce6ad113e9c",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 165,
+          "identity_hash": "f08d73a864d9c9c68313db337b42c390c1aab6d02f260ddcafdc1fd28d688dd5"
+        },
+        {
+          "encoding": "",
+          "wire_bytes": 5305,
+          "decoded_bytes": 5305,
+          "body_hash": "2eeef216e8b6d1f17411ecd4eb805072a65726e20f9f1fc084643ce6ad113e9c",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5305,
+          "identity_hash": "f08d73a864d9c9c68313db337b42c390c1aab6d02f260ddcafdc1fd28d688dd5"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "passthrough-gpt-6-astra-False-True-reject_zstd-plain",
+      "status": 200,
+      "key_id": 37,
+      "success": true,
+      "upstream_calls": 2,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 164,
+          "decoded_bytes": 5305,
+          "body_hash": "67182c2d0d33b59e0006ec3de7cd029a33bd3f16ab7152fb95dd8397bccff195",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6-astra",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 164,
+          "identity_hash": "5b8cbd817d2f5a1240a875d2a06187d54d6717d1c58b1385a1fc39103f050a93"
+        },
+        {
+          "encoding": "",
+          "wire_bytes": 5305,
+          "decoded_bytes": 5305,
+          "body_hash": "67182c2d0d33b59e0006ec3de7cd029a33bd3f16ab7152fb95dd8397bccff195",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6-astra",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5305,
+          "identity_hash": "5b8cbd817d2f5a1240a875d2a06187d54d6717d1c58b1385a1fc39103f050a93"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "passthrough-gpt-6-astra-True-True-reject_zstd-plain",
+      "status": 200,
+      "key_id": 38,
+      "success": true,
+      "upstream_calls": 2,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 164,
+          "decoded_bytes": 5305,
+          "body_hash": "67182c2d0d33b59e0006ec3de7cd029a33bd3f16ab7152fb95dd8397bccff195",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6-astra",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 164,
+          "identity_hash": "d916f16fba048a4eb7f7820a9937379cdd49c9c92e9a0892d4d8df47fdbc1a0a"
+        },
+        {
+          "encoding": "",
+          "wire_bytes": 5305,
+          "decoded_bytes": 5305,
+          "body_hash": "67182c2d0d33b59e0006ec3de7cd029a33bd3f16ab7152fb95dd8397bccff195",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6-astra",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5305,
+          "identity_hash": "d916f16fba048a4eb7f7820a9937379cdd49c9c92e9a0892d4d8df47fdbc1a0a"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "passthrough-gpt-6.1-sol-False-False-accept-plain",
+      "status": 200,
+      "key_id": 39,
+      "success": true,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "",
+          "wire_bytes": 5305,
+          "decoded_bytes": 5305,
+          "body_hash": "2eeef216e8b6d1f17411ecd4eb805072a65726e20f9f1fc084643ce6ad113e9c",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5305,
+          "identity_hash": "dbc2c6fbc35bc2e213a2bd0e41c73f4ffca2a8fa239a20c57d20eadfc109f6d0"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "passthrough-gpt-6.1-sol-True-False-accept-plain",
+      "status": 200,
+      "key_id": 40,
+      "success": true,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "",
+          "wire_bytes": 5305,
+          "decoded_bytes": 5305,
+          "body_hash": "2eeef216e8b6d1f17411ecd4eb805072a65726e20f9f1fc084643ce6ad113e9c",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5305,
+          "identity_hash": "2a3d0b9acd1b2a487bf0c0ba5b79e6d153475bca55d37de1cd5911246228d607"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "passthrough-gpt-6-astra-False-False-accept-plain",
+      "status": 200,
+      "key_id": 41,
+      "success": true,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "",
+          "wire_bytes": 5305,
+          "decoded_bytes": 5305,
+          "body_hash": "67182c2d0d33b59e0006ec3de7cd029a33bd3f16ab7152fb95dd8397bccff195",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6-astra",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5305,
+          "identity_hash": "d2bd12c034ff68fa0f4cb5dac44fb278c6187c927443fe30c33b8cfeb48afdc8"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "passthrough-gpt-6-astra-True-False-accept-plain",
+      "status": 200,
+      "key_id": 42,
+      "success": true,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "",
+          "wire_bytes": 5305,
+          "decoded_bytes": 5305,
+          "body_hash": "67182c2d0d33b59e0006ec3de7cd029a33bd3f16ab7152fb95dd8397bccff195",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6-astra",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5305,
+          "identity_hash": "befaa269d6f49208c8550f4ff084cf9bed39dbd69c1e37851fc084fdfa35d672"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "passthrough-gpt-6.1-sol-False-False-reject_zstd-plain",
+      "status": 200,
+      "key_id": 43,
+      "success": true,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "",
+          "wire_bytes": 5305,
+          "decoded_bytes": 5305,
+          "body_hash": "2eeef216e8b6d1f17411ecd4eb805072a65726e20f9f1fc084643ce6ad113e9c",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5305,
+          "identity_hash": "149adb0a031c62b29779d164737e5e618bff0d062d14c77cbc78e736bf256ecf"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "passthrough-gpt-6.1-sol-True-False-reject_zstd-plain",
+      "status": 200,
+      "key_id": 44,
+      "success": true,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "",
+          "wire_bytes": 5305,
+          "decoded_bytes": 5305,
+          "body_hash": "2eeef216e8b6d1f17411ecd4eb805072a65726e20f9f1fc084643ce6ad113e9c",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5305,
+          "identity_hash": "fdbfc73d972498d0c4fc0337bdda101c1889feb86fc621ed8485491d8229dc0f"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "passthrough-gpt-6-astra-False-False-reject_zstd-plain",
+      "status": 200,
+      "key_id": 45,
+      "success": true,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "",
+          "wire_bytes": 5305,
+          "decoded_bytes": 5305,
+          "body_hash": "67182c2d0d33b59e0006ec3de7cd029a33bd3f16ab7152fb95dd8397bccff195",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6-astra",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5305,
+          "identity_hash": "82d22e198460aac0ceaa8c0cb52d55ccd27ce0a321cd71ef0e8167c2e2e3528d"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "passthrough-gpt-6-astra-True-False-reject_zstd-plain",
+      "status": 200,
+      "key_id": 46,
+      "success": true,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "",
+          "wire_bytes": 5305,
+          "decoded_bytes": 5305,
+          "body_hash": "67182c2d0d33b59e0006ec3de7cd029a33bd3f16ab7152fb95dd8397bccff195",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6-astra",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5305,
+          "identity_hash": "af07a5ed1052f763804c3efe69dce707290c3658d46614dbf1cbbd047ee21952"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "passthrough-gpt-6.1-sol-False-False-reject_zstd-zstd",
+      "status": 200,
+      "key_id": 47,
+      "success": true,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "",
+          "wire_bytes": 5305,
+          "decoded_bytes": 5305,
+          "body_hash": "2eeef216e8b6d1f17411ecd4eb805072a65726e20f9f1fc084643ce6ad113e9c",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5305,
+          "identity_hash": "79be607d03aa0b2a13960d0a934f493e6ae268da099193fafc77f02540ac90ec"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "passthrough-gpt-6.1-sol-False-False-reject_all-plain",
+      "status": 400,
+      "key_id": 48,
+      "success": false,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "",
+          "wire_bytes": 5305,
+          "decoded_bytes": 5305,
+          "body_hash": "2eeef216e8b6d1f17411ecd4eb805072a65726e20f9f1fc084643ce6ad113e9c",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 5305,
+          "identity_hash": "9dce20b000df79fb3a0f50e9b6c1f29bb5f6e1773713b8f3e1bcbfd9caaf3d4c"
+        }
+      ],
+      "client_error": {
+        "error": {
+          "message": "Upstream request failed",
+          "type": "upstream_error"
+        }
+      }
+    },
+    {
+      "case": "passthrough-gpt-6.1-sol-True-False-reject_zstd-zstd",
+      "status": 200,
+      "key_id": 49,
+      "success": true,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "",
+          "wire_bytes": 5305,
+          "decoded_bytes": 5305,
+          "body_hash": "2eeef216e8b6d1f17411ecd4eb805072a65726e20f9f1fc084643ce6ad113e9c",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5305,
+          "identity_hash": "3670bc909e107fabfa560d73b9598e4d31cb8ba694d77d83397b6449f2a06053"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "passthrough-gpt-6.1-sol-True-False-reject_all-plain",
+      "status": 400,
+      "key_id": 50,
+      "success": false,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "",
+          "wire_bytes": 5305,
+          "decoded_bytes": 5305,
+          "body_hash": "2eeef216e8b6d1f17411ecd4eb805072a65726e20f9f1fc084643ce6ad113e9c",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 5305,
+          "identity_hash": "ef96420c19b54c6ea834bc6c43bf6a899d43e5beafb1cd1b0e3c9e697abb778a"
+        }
+      ],
+      "client_error": {
+        "error": {
+          "message": "Upstream request failed",
+          "type": "upstream_error"
+        }
+      }
+    },
+    {
+      "case": "passthrough-gpt-6.1-sol-True-False-accept-zstd_without_header",
+      "status": 400,
+      "key_id": 51,
+      "success": false,
+      "upstream_calls": 0,
+      "wire": [],
+      "client_error": {
+        "error": {
+          "message": "Request body must be valid UTF-8 JSON. Send UTF-8 encoded bytes.",
+          "type": "invalid_request_error"
+        }
+      }
+    },
+    {
+      "case": "passthrough-gpt-6.1-sol-True-False-accept-plain_with_zstd_header",
+      "status": 400,
+      "key_id": 52,
+      "success": false,
+      "upstream_calls": 0,
+      "wire": [],
+      "client_error": {
+        "error": {
+          "message": "Failed to read request body",
+          "type": "invalid_request_error"
+        }
+      }
+    },
+    {
+      "case": "passthrough-gpt-6.1-sol-False-True-reject_all-plain",
+      "status": 400,
+      "key_id": 53,
+      "success": false,
+      "upstream_calls": 2,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 165,
+          "decoded_bytes": 5305,
+          "body_hash": "2eeef216e8b6d1f17411ecd4eb805072a65726e20f9f1fc084643ce6ad113e9c",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 165,
+          "identity_hash": "ca72d58c9ca7c6290a4ae9bd4da3fb66e02788def2c51c7c4698c6c41e73d354"
+        },
+        {
+          "encoding": "",
+          "wire_bytes": 5305,
+          "decoded_bytes": 5305,
+          "body_hash": "2eeef216e8b6d1f17411ecd4eb805072a65726e20f9f1fc084643ce6ad113e9c",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 5305,
+          "identity_hash": "ca72d58c9ca7c6290a4ae9bd4da3fb66e02788def2c51c7c4698c6c41e73d354"
+        }
+      ],
+      "client_error": {
+        "error": {
+          "message": "Upstream request failed",
+          "type": "upstream_error"
+        }
+      }
+    },
+    {
+      "case": "passthrough-gpt-6.1-sol-False-True-reject_zstd_415-plain",
+      "status": 200,
+      "key_id": 54,
+      "success": true,
+      "upstream_calls": 2,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 165,
+          "decoded_bytes": 5305,
+          "body_hash": "2eeef216e8b6d1f17411ecd4eb805072a65726e20f9f1fc084643ce6ad113e9c",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 415,
+          "content_length": 165,
+          "identity_hash": "ff376e74c03271098f15bc2cee91918b8a0ba16e7e2754bd9f83d26d821574d5"
+        },
+        {
+          "encoding": "",
+          "wire_bytes": 5305,
+          "decoded_bytes": 5305,
+          "body_hash": "2eeef216e8b6d1f17411ecd4eb805072a65726e20f9f1fc084643ce6ad113e9c",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5305,
+          "identity_hash": "ff376e74c03271098f15bc2cee91918b8a0ba16e7e2754bd9f83d26d821574d5"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "passthrough-gpt-6.1-sol-False-True-reject_structured-plain",
+      "status": 400,
+      "key_id": 55,
+      "success": false,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 165,
+          "decoded_bytes": 5305,
+          "body_hash": "2eeef216e8b6d1f17411ecd4eb805072a65726e20f9f1fc084643ce6ad113e9c",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 165,
+          "identity_hash": "ec68ac1ce3fc4ab83580371bc72df6a5e341291b81ecf826dcce98b1e82f58fb"
+        }
+      ],
+      "client_error": {
+        "error": {
+          "message": "Upstream request failed",
+          "type": "upstream_error"
+        }
+      }
+    },
+    {
+      "case": "passthrough-gpt-6.1-sol-False-True-reject_zstd-zstd",
+      "status": 200,
+      "key_id": 56,
+      "success": true,
+      "upstream_calls": 2,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 165,
+          "decoded_bytes": 5305,
+          "body_hash": "2eeef216e8b6d1f17411ecd4eb805072a65726e20f9f1fc084643ce6ad113e9c",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 165,
+          "identity_hash": "e91fcc53d4f86423dad55d3680bf19e3103ff019fef35b30b9a93250dc38621d"
+        },
+        {
+          "encoding": "",
+          "wire_bytes": 5305,
+          "decoded_bytes": 5305,
+          "body_hash": "2eeef216e8b6d1f17411ecd4eb805072a65726e20f9f1fc084643ce6ad113e9c",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5305,
+          "identity_hash": "e91fcc53d4f86423dad55d3680bf19e3103ff019fef35b30b9a93250dc38621d"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "passthrough-gpt-6.1-sol-True-True-reject_all-plain",
+      "status": 400,
+      "key_id": 57,
+      "success": false,
+      "upstream_calls": 2,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 165,
+          "decoded_bytes": 5305,
+          "body_hash": "2eeef216e8b6d1f17411ecd4eb805072a65726e20f9f1fc084643ce6ad113e9c",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 165,
+          "identity_hash": "1f155d3d334f36d8825ea1d2a08cedd5b81c3e90678f7e590936ff5dffe297d7"
+        },
+        {
+          "encoding": "",
+          "wire_bytes": 5305,
+          "decoded_bytes": 5305,
+          "body_hash": "2eeef216e8b6d1f17411ecd4eb805072a65726e20f9f1fc084643ce6ad113e9c",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 5305,
+          "identity_hash": "1f155d3d334f36d8825ea1d2a08cedd5b81c3e90678f7e590936ff5dffe297d7"
+        }
+      ],
+      "client_error": {
+        "error": {
+          "message": "Upstream request failed",
+          "type": "upstream_error"
+        }
+      }
+    },
+    {
+      "case": "passthrough-gpt-6.1-sol-True-True-reject_zstd_415-plain",
+      "status": 200,
+      "key_id": 58,
+      "success": true,
+      "upstream_calls": 2,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 165,
+          "decoded_bytes": 5305,
+          "body_hash": "2eeef216e8b6d1f17411ecd4eb805072a65726e20f9f1fc084643ce6ad113e9c",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 415,
+          "content_length": 165,
+          "identity_hash": "8789d7e171d9fac6675d183350a81bde60ed3cbcc4629c741916c643b3400884"
+        },
+        {
+          "encoding": "",
+          "wire_bytes": 5305,
+          "decoded_bytes": 5305,
+          "body_hash": "2eeef216e8b6d1f17411ecd4eb805072a65726e20f9f1fc084643ce6ad113e9c",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5305,
+          "identity_hash": "8789d7e171d9fac6675d183350a81bde60ed3cbcc4629c741916c643b3400884"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "passthrough-gpt-6.1-sol-True-True-reject_structured-plain",
+      "status": 400,
+      "key_id": 59,
+      "success": false,
+      "upstream_calls": 1,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 165,
+          "decoded_bytes": 5305,
+          "body_hash": "2eeef216e8b6d1f17411ecd4eb805072a65726e20f9f1fc084643ce6ad113e9c",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 165,
+          "identity_hash": "58302cd57db85526e21ab76ce807ff32d548d2d925c26d108c3029d2ba05d781"
+        }
+      ],
+      "client_error": {
+        "error": {
+          "message": "Upstream request failed",
+          "type": "upstream_error"
+        }
+      }
+    },
+    {
+      "case": "passthrough-gpt-6.1-sol-True-True-reject_zstd-zstd",
+      "status": 200,
+      "key_id": 60,
+      "success": true,
+      "upstream_calls": 2,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 165,
+          "decoded_bytes": 5305,
+          "body_hash": "2eeef216e8b6d1f17411ecd4eb805072a65726e20f9f1fc084643ce6ad113e9c",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 165,
+          "identity_hash": "8987e59a4e21510a50f2c625da69c53798cab6439908c060096af8b39ea5224c"
+        },
+        {
+          "encoding": "",
+          "wire_bytes": 5305,
+          "decoded_bytes": 5305,
+          "body_hash": "2eeef216e8b6d1f17411ecd4eb805072a65726e20f9f1fc084643ce6ad113e9c",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5305,
+          "identity_hash": "8987e59a4e21510a50f2c625da69c53798cab6439908c060096af8b39ea5224c"
+        }
+      ],
+      "client_error": null
+    },
+    {
+      "case": "restored-gpt-6.1-sol-True-True-reject_zstd-plain",
+      "status": 200,
+      "key_id": 62,
+      "success": true,
+      "upstream_calls": 2,
+      "wire": [
+        {
+          "encoding": "zstd",
+          "wire_bytes": 295,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 400,
+          "content_length": 295,
+          "identity_hash": "ddd14047e292a79b0bb5c12c7abf00db041d07128f1a449547bd656da1b2f0f8"
+        },
+        {
+          "encoding": "",
+          "wire_bytes": 5493,
+          "decoded_bytes": 5493,
+          "body_hash": "4b6960bc69efd77e0db5983366adf14b5536ab6ff7f909aff2acf4f8a63d9c00",
+          "input_hash": "8c72d87c8a7227aad07f0dfbba1275766c5324c12a915ac978a5e34312896f8f",
+          "valid_json": true,
+          "stream": true,
+          "model": "gpt-6.1-sol",
+          "path": "/backend-api/codex/responses",
+          "status": 200,
+          "content_length": 5493,
+          "identity_hash": "ddd14047e292a79b0bb5c12c7abf00db041d07128f1a449547bd656da1b2f0f8"
+        }
+      ],
+      "client_error": null
+    }
+  ],
+  "scope": "HTTP Responses, synthetic OAuth accounts",
+  "concurrency": {
+    "requests": 40,
+    "workers": 4,
+    "success": 40,
+    "key_id": 61,
+    "upstream_calls": 80,
+    "compression_enabled": true
+  },
+  "settlement": {
+    "rows": 85,
+    "concurrent_rows": 40,
+    "failed_request_rows": 0,
+    "duplicate_rows": 0
+  },
+  "account_state": [
+    {
+      "status": "active",
+      "schedulable": true,
+      "error_msg": ""
+    },
+    {
+      "status": "active",
+      "schedulable": true,
+      "error_msg": ""
+    }
+  ],
+  "matching_error_log_count": 12,
+  "recovery_log_count": 61,
+  "compression_enabled_after_test": [
+    true,
+    true
+  ],
+  "result": "passed"
+}
