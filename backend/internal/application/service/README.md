@@ -18,6 +18,8 @@
 | `openai_capacity_retry.go` | 请求级容量错误的 HTTP/SSE/WS 等待提示解析；有限数值先限幅，沿用现有重试预算 |
 | `openai_capacity_model_cooldown.go` | 容量错误的显式模型级自定义规则；只匹配真实错误字段，沿用当前规则命中后的换号与持久化失败隔离 |
 | `openai_auth_recovery.go`, `openai_tls_handshake_recovery.go` | OAuth 401 刷新候选分类；刷新后的已知主体由 `openai_chatgpt_headers.go` 与 token provider 核对，变化时终止当前轮次重放；普通 HTTP Responses 的 TLS 握手超时恢复、请求发送追踪及单次重试边界 |
+| `openai_oauth_body_compression.go`, `openai_oauth_compression_recovery.go` | OAuth HTTP 默认 zstd 压缩，以及裸 400/显式编码 415 的请求级单次兼容恢复；每个新请求仍默认压缩，保留完整输入、身份和安全重放边界 |
+| `openai_http200_stream_recovery.go`, `openai_http200_json_error.go`, `openai_responses_error_event.go` | HTTP 200 通用失败的安全单次恢复、JSON 错误惰性适配和输出后断流的 Responses 终止事件；保留已输出数据及 zstd 协商状态 |
 | `openai_ws_size_recovery.go` | 内嵌图片/大 JSON 请求发送前的 HTTP 选路、1009/断连后一次安全回退与完整历史重放边界 |
 | `openai_ws_fallback_response.go` | WS 终止错误的 HTTP/SSE 映射、1009 大小限制提示与已提交响应保护 |
 | `openai_ws_non_streaming*.go` | HTTP 非流式请求的有界 WS 输出聚合、终态校验，以及预热模式下可安全重放的临时 5xx HTTP 恢复 |
@@ -71,7 +73,7 @@
 | `ratelimit_oauth_401_delete.go` | 网关 OAuth 401 自动删除准入、凭据 CAS 结果和运行态清理 |
 | `openai_codex_remote_control_client.go` | 绑定 OAuth credential owner、安装状态与账号出口的 native controller client 工厂 |
 | `openai_codex_remote_control_store.go` | Codex Remote Control enrollment token 的账号级加密持久化适配 |
-| `openai_gateway_forward.go`, `openai_gateway_forward_prepare.go`, `openai_gateway_request_build.go` | OpenAI 转发编排与 HTTP 上游请求构造 |
+| `openai_gateway_forward.go`, `openai_gateway_forward_prepare.go`, `openai_gateway_request_build.go`, `openai_gateway_forward_response.go` | OpenAI 转发编排、HTTP 上游请求构造，以及成功后的响应绑定/额度快照 |
 | `openai_responses_image_api_bridge.go`, `openai_responses_image_plan.go`, `http_upstream_profile.go` | Responses 图片/遮罩解析、共享下载与单图子请求；用户远程输入携带独立公开地址策略，管理员私网上游配置不放宽此策略 |
 | `invalid_auth_abuse_limiter.go`, `cloudflare_ingress_settings.go` | 无效 API Key 来源计数、本地临时封禁，以及 Access Rule/WAF 双模式的 Cloudflare 加密持久设置与边缘端口 |
 

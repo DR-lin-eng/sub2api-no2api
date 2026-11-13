@@ -1,0 +1,315 @@
+{
+  "pending": [],
+  "baseline_reproduction": {
+    "passed_including_subtests": 4,
+    "failed_tests": [
+      "TestOpenAIHTTP200GenericStreamFailureRecovers/pass=false/stream=false/nested",
+      "TestOpenAIHTTP200GenericStreamFailureRecovers/pass=false/stream=false/flat",
+      "TestOpenAIHTTP200GenericStreamFailureRecovers/pass=false/stream=false/named",
+      "TestOpenAIHTTP200GenericStreamFailureRecovers/pass=false/stream=false/bare",
+      "TestOpenAIHTTP200GenericStreamFailureRecovers/pass=false/stream=false/failed",
+      "TestOpenAIHTTP200GenericStreamFailureRecovers/pass=false/stream=true/nested",
+      "TestOpenAIHTTP200GenericStreamFailureRecovers/pass=false/stream=true/flat",
+      "TestOpenAIHTTP200GenericStreamFailureRecovers/pass=false/stream=true/named",
+      "TestOpenAIHTTP200GenericStreamFailureRecovers/pass=false/stream=true/bare",
+      "TestOpenAIHTTP200GenericStreamFailureRecovers/pass=false/stream=true/failed",
+      "TestOpenAIHTTP200GenericStreamFailureRecovers/pass=true/stream=false/nested",
+      "TestOpenAIHTTP200GenericStreamFailureRecovers/pass=true/stream=false/flat",
+      "TestOpenAIHTTP200GenericStreamFailureRecovers/pass=true/stream=false/named",
+      "TestOpenAIHTTP200GenericStreamFailureRecovers/pass=true/stream=false/bare",
+      "TestOpenAIHTTP200GenericStreamFailureRecovers/pass=true/stream=false/failed",
+      "TestOpenAIHTTP200GenericStreamFailureRecovers/pass=true/stream=true/nested",
+      "TestOpenAIHTTP200GenericStreamFailureRecovers/pass=true/stream=true/flat",
+      "TestOpenAIHTTP200GenericStreamFailureRecovers/pass=true/stream=true/named",
+      "TestOpenAIHTTP200GenericStreamFailureRecovers/pass=true/stream=true/bare",
+      "TestOpenAIHTTP200GenericStreamFailureRecovers/pass=true/stream=true/failed",
+      "TestOpenAIHTTP200GenericStreamFailureRecovers",
+      "TestOpenAIHTTP200FailureAfterOutputHasTerminalEvent/pass=false/data:_{\"type\":\"error\",\"code\":\"server_error\",\"message\":\"Upstream_request_failed\"}",
+      "TestOpenAIHTTP200FailureAfterOutputHasTerminalEvent/pass=false/event:_error_data:_{\"error\":{\"message\":\"Upstream_request_failed\",\"type\":\"upstream_error\"}}",
+      "TestOpenAIHTTP200FailureAfterOutputHasTerminalEvent/pass=true/data:_{\"type\":\"error\",\"code\":\"server_error\",\"message\":\"Upstream_request_failed\"}",
+      "TestOpenAIHTTP200FailureAfterOutputHasTerminalEvent/pass=true/event:_error_data:_{\"error\":{\"message\":\"Upstream_request_failed\",\"type\":\"upstream_error\"}}",
+      "TestOpenAIHTTP200FailureAfterOutputHasTerminalEvent",
+      "TestOpenAIGenericFailureFlatEnvelopeIsNarrow/{\"type\":\"error\",\"code\":\"server_error\",\"message\":\"Upstream_request_failed\"}",
+      "TestOpenAIGenericFailureFlatEnvelopeIsNarrow/{\"type\":\"error\",\"code\":null,\"message\":\"Upstream_request_failed\"}",
+      "TestOpenAIGenericFailureFlatEnvelopeIsNarrow"
+    ],
+    "skipped_tests": [],
+    "passed_packages": []
+  },
+  "focused": {
+    "passed_including_subtests": 151,
+    "failed_tests": [],
+    "skipped_tests": [],
+    "passed_packages": [
+      "github.com/Wei-Shaw/sub2api/internal/application/service"
+    ]
+  },
+  "initial_regression": {
+    "passed_including_subtests": 18036,
+    "failed_tests": [
+      "TestOpenAIStreamingPassthroughScannerErrorFlushesWrittenResidual",
+      "TestOpenAIResponseFlush_OutputWithoutTerminalFlushesResidualWithoutFailover",
+      "TestOpenAIStreamingPostOutputDisconnectQuarantinesSharedProxyWithoutSameStreamFailover"
+    ],
+    "skipped_tests": [
+      "TestAuthPendingIdentityService_UpsertAdoptionDecision_ClearsLegacyNullSessionReference",
+      "TestOpenAIContentSessionBurstBalanceConcurrent50000",
+      "TestEstimateOpenAIInputTokens_CompareWithOpenAIAPI",
+      "TestDingTalkOAuthStart_Disabled"
+    ],
+    "passed_packages": [
+      "github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/handler",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/quotaview",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/supportchatasset",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/managementmcp",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/server",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes",
+      "github.com/Wei-Shaw/sub2api/internal/shared/httputil"
+    ]
+  },
+  "final_regression": {
+    "passed_including_subtests": 18039,
+    "failed_tests": [],
+    "skipped_tests": [
+      "TestAuthPendingIdentityService_UpsertAdoptionDecision_ClearsLegacyNullSessionReference",
+      "TestOpenAIContentSessionBurstBalanceConcurrent50000",
+      "TestEstimateOpenAIInputTokens_CompareWithOpenAIAPI",
+      "TestDingTalkOAuthStart_Disabled"
+    ],
+    "passed_packages": [
+      "github.com/Wei-Shaw/sub2api/internal/application/service",
+      "github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/handler",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/quotaview",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/handler/supportchatasset",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/managementmcp",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/server",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes",
+      "github.com/Wei-Shaw/sub2api/internal/shared/httputil"
+    ]
+  },
+  "recorded_at": "2026-11-13T15:01:27.125170+08:00",
+  "runtime": {
+    "result": "passed",
+    "cases": 123,
+    "successes": 97,
+    "status_counts": {
+      "200": 105,
+      "400": 16,
+      "502": 2
+    },
+    "concurrency": {
+      "requests": 40,
+      "workers": 4,
+      "success": 40,
+      "key_id": 123,
+      "upstream_calls": 80,
+      "compression_enabled": true
+    },
+    "settlement": {
+      "rows": 137,
+      "concurrent_rows": 40,
+      "failed_request_rows": 0,
+      "duplicate_rows": 0
+    },
+    "backend_sha256": "ec5d4f86b1c0715a458ce237ef95147e5d11fe22df5dfd6092223116bd4eb480",
+    "compression_enabled": [
+      true,
+      true
+    ],
+    "single_failed_terminal_events_verified": 8,
+    "final_binary_identical": true
+  },
+  "documentation": "passed",
+  "source_layout": "passed",
+  "diff_whitespace": "passed",
+  "gofmt": "passed",
+  "static_initial": {
+    "result": "failed",
+    "rule": "SA9004",
+    "resolution": "explicit string type on request context key; no runtime behavior change"
+  },
+  "focused_release": {
+    "passed_including_subtests": 151,
+    "failed_tests": [],
+    "skipped_tests": [],
+    "passed_packages": [
+      "github.com/Wei-Shaw/sub2api/internal/application/service"
+    ]
+  },
+  "result": "passed",
+  "static_check": {
+    "exit_code": 0,
+    "output": "0 issues."
+  },
+  "files": {
+    "/private/tmp/sub2api-http200-stream-20261113/baseline.jsonl": {
+      "bytes": 88782,
+      "sha256": "f2418119fbc87c364a50445733d27a4f921d187cabcc96559cdd4d32b1be7508"
+    },
+    "/private/tmp/sub2api-http200-stream-20261113/focused.jsonl": {
+      "bytes": 56148,
+      "sha256": "45b03498fd20674d3309af16c3552f584899a05cb3b2611ff39e91bcd666c7bb"
+    },
+    "/private/tmp/sub2api-http200-stream-20261113/focused-expanded.jsonl": {
+      "bytes": 197057,
+      "sha256": "8749513951125940a3a7ef9fd227e67d56a7a4603c347a56e7336696bdfa2103"
+    },
+    "/private/tmp/sub2api-http200-stream-20261113/focused-final.jsonl": {
+      "bytes": 205118,
+      "sha256": "4aa4c8adf618ebbbe783483a61bf2b4e00429d9c8ea6056788ae9d6888def690"
+    },
+    "/private/tmp/sub2api-http200-stream-20261113/focused-verified.jsonl": {
+      "bytes": 201117,
+      "sha256": "1426e394a4857872bba2ea10a8f6c3750c5860313ec87f78a5a9d95ae9306e03"
+    },
+    "/private/tmp/sub2api-http200-stream-20261113/focused-release.jsonl": {
+      "bytes": 201193,
+      "sha256": "acdc6cd92a3444f85649a63db648086fdb98e89ca1269b1cadfb6c9e296a67d4"
+    },
+    "/private/tmp/sub2api-http200-stream-20261113/regression.jsonl": {
+      "bytes": 28192079,
+      "sha256": "aed73d0def74a269b05206a96563f13aa7d229349446d2d8e1d02667d6a07c8c"
+    },
+    "/private/tmp/sub2api-http200-stream-20261113/regression-final.jsonl": {
+      "bytes": 28182531,
+      "sha256": "0a6182b1ddfd0014aab2f808e8b68f1d086722069249f6d90e32e7883bb03fca"
+    },
+    "/private/tmp/sub2api-http200-stream-20261113/lint-initial.log": {
+      "bytes": 271,
+      "sha256": "3524e09975b9e513f39cbe64009efa646a219d047c592c09e4625b4b9f90735d"
+    },
+    "/private/tmp/sub2api-http200-stream-20261113/lint-verified.log": {
+      "bytes": 10,
+      "sha256": "e92606b0bf483111dff0a120c315ea165821348f31365020e2468a0059095c47"
+    },
+    "/private/tmp/sub2api-http200-stream-20261113/runtime.stdout": {
+      "bytes": 8663,
+      "sha256": "ed102c35b2a425d2556cc7d9bf1ec1a8d9b611059cb69946ca205b936270f85a"
+    },
+    "/private/tmp/sub2api-http200-stream-20261113/runtime.stderr": {
+      "bytes": 541,
+      "sha256": "b3340795d1faaefeaa8bb9eefe6221c29659b49d9af0f5ab22a5f1766e82334d"
+    },
+    "/private/tmp/sub2api-http200-stream-20261113/runtime-final.stdout": {
+      "bytes": 12009,
+      "sha256": "9a10ddbbaf270b768563ce01cd935dcaff178342113516004f3177d1fc042212"
+    },
+    "/private/tmp/sub2api-http200-stream-20261113/runtime-final.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "/private/tmp/sub2api-http200-stream-20261113/runtime-verified.stdout": {
+      "bytes": 12218,
+      "sha256": "473703b4d4a9e17f3e41a49751bd97e187371bc5ee252fa764940d7624807103"
+    },
+    "/private/tmp/sub2api-http200-stream-20261113/runtime-verified.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "/private/tmp/sub2api-http200-stream-20261113/app.log": {
+      "bytes": 580539,
+      "sha256": "9085ce0b2d20d349e0a004c4e7551e23c557f782bfa1a19294ca5c011c0b15a9"
+    },
+    "/private/tmp/sub2api-http200-stream-20261113/sub2api": {
+      "bytes": 170354049,
+      "sha256": "ec5d4f86b1c0715a458ce237ef95147e5d11fe22df5dfd6092223116bd4eb480"
+    },
+    "/private/tmp/sub2api-http200-stream-20261113/provider": {
+      "bytes": 8428106,
+      "sha256": "9d4da2194f712f3b6ed21b3afacecb7b0a0460d193c902ea6b116e492bb88415"
+    },
+    "/private/tmp/sub2api-http200-stream-20261113/version-final.txt": {
+      "bytes": 166,
+      "sha256": "373642c158d9c13ef66764e8d08376c579ffc77efd23f1a0dc198ff62b92381c"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/diagnostics/http200-stream-20261113/provider.go": {
+      "bytes": 7699,
+      "sha256": "b725f2af7c67bbd4bfdd5f3bf0ab047d7ddda9936cff342df4f7ac86ae552ab2"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/diagnostics/http200-stream-20261113/README.md": {
+      "bytes": 1483,
+      "sha256": "2a8a284968ea529c2e3948c61431ea150f34560984403a6c724af9715073e3a7"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/diagnostics/http200-stream-20261113/VERIFICATION.md": {
+      "bytes": 7749,
+      "sha256": "d42e3e676bfb3332ee4c054a83f5069ff8ccfe28cd9a5267685f3ab8f7fc5c2f"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/diagnostics/http200-stream-20261113/RESULTS.json": {
+      "bytes": 158492,
+      "sha256": "4f897dbe135c7bcb468a90454426466980ad20821bc07e2f81c6c715dea16933"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/diagnostics/issue-8636-20261112/run.py": {
+      "bytes": 22344,
+      "sha256": "63b2b559c2a44a1e80522b11c108e5e644fe3e19127a8bc59a08aff98b8e2bc9"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/diagnostics/issue-8636-20261112/compose.yaml": {
+      "bytes": 1896,
+      "sha256": "4e0477bdd6843d4f38dfd803c4df78533268341ce3bcebc582efd9d5a6aa1bf6"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/backend/internal/application/service/openai_http200_json_error.go": {
+      "bytes": 1805,
+      "sha256": "12fb7b4536a0602a80d794627356b5dad559a052b4f474a86a2e1e4067fdad99"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/backend/internal/application/service/openai_http200_stream_recovery.go": {
+      "bytes": 2717,
+      "sha256": "afadab0821962224f4a5923146c4656c94cf0185b2a8865f778acf5fc3b96c33"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/backend/internal/application/service/openai_http200_stream_recovery_test.go": {
+      "bytes": 9045,
+      "sha256": "4512a4a1d0659e43a2789b3330208b17828d91f4a90d4b40819ad2191a76a1c5"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/backend/internal/application/service/openai_responses_error_event.go": {
+      "bytes": 2812,
+      "sha256": "ab576a7cc623cbc5875ce0168b495a032e817613208b94bbe51a1fac4d23e13c"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/backend/internal/application/service/openai_gateway_forward_response.go": {
+      "bytes": 773,
+      "sha256": "41a1732eb626f7cb4433bfe3c50140e9b7839ab0e741161a27649232ef101a4f"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/backend/internal/application/service/openai_oauth_compression_recovery.go": {
+      "bytes": 6193,
+      "sha256": "5c9a04c675ee0c7357cb1851503a7876030f6e6858129375653e50327c11f4d7"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/backend/internal/application/service/openai_gateway_forward.go": {
+      "bytes": 47545,
+      "sha256": "ca7d2c8d8757133d761f1615eedc0a1084630f6aa7a844c5b5263dc937e2a5a9"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/backend/internal/application/service/openai_gateway_passthrough.go": {
+      "bytes": 98418,
+      "sha256": "7332eeb8856b9d5464464305107b468fcfff498df39a0e234d8cc78012f8d120"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/backend/internal/application/service/openai_gateway_response_handling.go": {
+      "bytes": 80537,
+      "sha256": "1f57d9a323f647aea9aa1ea7103dce5e3a7ac52f3f2443c05fb573d734a02978"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/backend/internal/application/service/openai_gateway_passthrough_flush_test.go": {
+      "bytes": 10623,
+      "sha256": "6d5a487c21670efc61531edc66c03876add24ebef0fb38930b2a4c9cf973cf1f"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/backend/internal/application/service/openai_gateway_response_flush_test.go": {
+      "bytes": 19683,
+      "sha256": "86a98e5be65d4337a3a41698d902d406039c1c7246736bafb74aa7c0aac53e31"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/backend/internal/application/service/openai_upstream_client_error.go": {
+      "bytes": 3776,
+      "sha256": "9486e1d377e088d36a2f6c2acbd653295c298b4aee58f030d4d91cbdb77e9935"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/backend/internal/application/service/openai_ws_forwarder_logutil.go": {
+      "bytes": 20162,
+      "sha256": "6032b3266d3f264ff5a96bbc8b00c8429e7fe87b1b9d35f87be6e3017f832c8c"
+    }
+  },
+  "docker_fixture_cleanup": {
+    "containers": "verified removed",
+    "networks": "verified removed",
+    "temporary_database": "compose down -v completed"
+  }
+}

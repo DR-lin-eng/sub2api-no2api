@@ -990,7 +990,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		// Send request
 		upstreamReq = tlsRecovery.trace(upstreamReq)
 		upstreamStart := time.Now()
-		resp, err := s.doOpenAIResponsesUpstream(ctx, c, upstreamReq, proxyURL, account, reqStream)
+		resp, err := s.doOpenAIResponsesWithCompressionRecovery(ctx, c, upstreamReq, proxyURL, account, reqStream, canonicalImageIntentBody, nil)
 		SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
 		if headerGuard != nil && headerGuard.stopHeaderWait() {
 			if resp != nil && resp.Body != nil {
@@ -1134,37 +1134,37 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		responseID := ""
 		imageCount := 0
 		var imageOutputSizes []string
+		var responseErr error
 		if reqStream {
-			streamResult, err := s.handleStreamingResponseWithReasoning(ctx, resp, c, account, startTime, originalModel, upstreamModel, reasoningEffortValue)
-			if err != nil {
-				return nil, err
+			streamResult, streamErr := s.handleStreamingResponseWithReasoning(ctx, resp, c, account, startTime, originalModel, upstreamModel, reasoningEffortValue)
+			responseErr = streamErr
+			if streamResult != nil {
+				usage = streamResult.usage
+				firstTokenMs = streamResult.firstTokenMs
+				responseID = strings.TrimSpace(streamResult.responseID)
+				imageCount = streamResult.imageCount
+				imageOutputSizes = streamResult.imageOutputSizes
 			}
-			usage = streamResult.usage
-			firstTokenMs = streamResult.firstTokenMs
-			responseID = strings.TrimSpace(streamResult.responseID)
-			imageCount = streamResult.imageCount
-			imageOutputSizes = streamResult.imageOutputSizes
-			s.bindStagedOpenAICodexTurnState(c, account, resp.Header)
 		} else {
-			nonStreamResult, err := s.handleNonStreamingResponse(ctx, resp, c, account, originalModel, upstreamModel)
-			if err != nil {
-				return nil, err
-			}
-			usage = nonStreamResult.usage
-			responseID = strings.TrimSpace(nonStreamResult.responseID)
-			imageCount = nonStreamResult.imageCount
-			imageOutputSizes = nonStreamResult.imageOutputSizes
-			s.bindStagedOpenAICodexTurnState(c, account, resp.Header)
-		}
-		s.bindHTTPResponseAccount(ctx, c, account, responseID)
-
-		// Extract and save Codex usage snapshot from response headers (for OAuth accounts).
-		// 排除 spark 影子:其 codex_* 仅由 QueryUsage(/wham/usage bengalfox)更新(外审第7轮 P1)。
-		if account.Type == AccountTypeOAuth && !account.IsShadow() {
-			if snapshot := ParseCodexRateLimitHeaders(resp.Header); snapshot != nil {
-				s.updateCodexUsageSnapshot(ctx, account.ID, snapshot)
+			nonStreamResult, nonStreamErr := s.handleNonStreamingResponse(ctx, resp, c, account, originalModel, upstreamModel)
+			responseErr = nonStreamErr
+			if nonStreamResult != nil {
+				usage = nonStreamResult.usage
+				responseID = strings.TrimSpace(nonStreamResult.responseID)
+				imageCount = nonStreamResult.imageCount
+				imageOutputSizes = nonStreamResult.imageOutputSizes
 			}
 		}
+		if responseErr != nil {
+			if retry, retryErr := s.retryOpenAIHTTP200Failure(ctx, c, account, body, canonicalImageIntentBody, usage, responseErr); retryErr != nil {
+				return nil, retryErr
+			} else if retry {
+				_ = resp.Body.Close()
+				continue
+			}
+			return nil, responseErr
+		}
+		s.completeOpenAIHTTPResponse(ctx, c, account, resp.Header, responseID)
 
 		if usage == nil {
 			usage = &OpenAIUsage{}

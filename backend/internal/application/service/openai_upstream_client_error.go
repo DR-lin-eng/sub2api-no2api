@@ -40,6 +40,15 @@ func IsOpenAIGenericUpstreamFailureBody(body []byte) bool {
 			return true
 		}
 	}
+	// Native Responses error events carry code/message at the event root.
+	// The root type is the event name, not the error category.
+	if gjson.GetBytes(body, "type").String() == "error" &&
+		strings.EqualFold(strings.TrimSpace(gjson.GetBytes(body, "message").String()), openAIGenericUpstreamFailureMessage) {
+		switch strings.ToLower(strings.TrimSpace(gjson.GetBytes(body, "code").String())) {
+		case "", "upstream_error", "server_error", "api_error", "internal_error":
+			return true
+		}
+	}
 	return false
 }
 
