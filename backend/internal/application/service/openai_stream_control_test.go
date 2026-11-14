@@ -21,6 +21,27 @@ const streamControlPreamble = "data: {\"type\":\"codex.rate_limits\",\"rate_limi
 	"data: {\"type\":\"codex.response.metadata\",\"headers\":{\"x-codex-turn-state\":\"fixture-state\"}}\n\n" +
 	"data: {\"type\":\"response.in_progress\",\"response\":{\"id\":\"resp_control\"}}\n\n"
 
+type openAIStreamReadErrorBody struct {
+	data []byte
+	err  error
+	done bool
+}
+
+func (r *openAIStreamReadErrorBody) Read(p []byte) (int, error) {
+	if len(r.data) > 0 {
+		n := copy(p, r.data)
+		r.data = r.data[n:]
+		return n, nil
+	}
+	if r.done {
+		return 0, io.EOF
+	}
+	r.done = true
+	return 0, r.err
+}
+
+func (r *openAIStreamReadErrorBody) Close() error { return nil }
+
 func runStreamControlResponse(svc *OpenAIGatewayService, mode string, c *gin.Context, body io.ReadCloser) (*OpenAIUsage, *int, error) {
 	resp := &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: body}
 	account := &Account{ID: 81, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
@@ -41,6 +62,42 @@ func TestOpenAIStreamControlClassification(t *testing.T) {
 		})
 	}
 	require.True(t, openAIStreamDataStartsClientOutput(`{"type":"response.future_event"}`, "response.future_event"))
+}
+
+func TestOpenAIStreamExperimentalBodyTimeoutUsesReplayGate(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, tc := range []struct {
+		name       string
+		replaySafe bool
+		wantRetry  bool
+	}{
+		{name: "safe request", replaySafe: true, wantRetry: true},
+		{name: "unsafe request", replaySafe: false, wantRetry: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(recorder)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+			setOpenAIStreamReplaySafe(c, tc.replaySafe)
+			svc := &OpenAIGatewayService{cfg: &config.Config{}}
+			account := &Account{ID: 81, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+			body := &openAIStreamReadErrorBody{
+				data: []byte(streamControlPreamble),
+				err:  context.DeadlineExceeded,
+			}
+			resp := &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: body}
+			_, err := svc.handleStreamingResponse(context.Background(), resp, c, account, time.Now(), "gpt-6.1-sol", "gpt-6.1-sol")
+			var failover *UpstreamFailoverError
+			require.ErrorAs(t, err, &failover)
+			require.Equal(t, tc.wantRetry, failover.RetryableOnSameAccount)
+			if tc.wantRetry {
+				require.Equal(t, openAIPassthroughTransportRetryReason, failover.Reason)
+				require.True(t, openAITransportTimeoutPending(c))
+			} else {
+				require.NotEqual(t, openAIPassthroughTransportRetryReason, failover.Reason)
+			}
+		})
+	}
 }
 
 func TestOpenAIStreamControlServerErrorClassification(t *testing.T) {

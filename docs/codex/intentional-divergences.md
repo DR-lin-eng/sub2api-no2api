@@ -181,6 +181,11 @@ canonical version 同步决定。账号显式 UA 继续优先；任一开关关�
 Profile 传输层开关是两个边界。OpenAI/Codex 的 models、usage、quota 辅助请求现在也复用账号级
 HTTP/TLS upstream；未接入该端口的测试桩仍保留旧客户端 fallback：
 
+实验 req/v3 client 的默认 `http.Client.Timeout` 不适用于已经开始的 Responses SSE body。启用 C 与实验传输时，
+流请求按 `HTTPUpstreamProfileOpenAIStream` 清除该总时限，保留请求 context、响应头、首语义输出和流间隔保护；
+短的 token exchange 等非流式请求仍使用有限总时限。只有通过 replay gate 且尚未有语义输出/用量的上游 body-read
+timeout 才允许一次受限恢复；客户端取消、续接、显式存储、托管工具和已提交输出保持原有不可重放边界。
+
 ChatGPT HTTPS 请求还共享只允许 Cloudflare 基础设施 cookie 的进程级 jar；jar 仍按 host/domain/path
 执行 CookieJar 匹配，账号、session、auth cookie 会被拒绝，不会因为多个虚拟客户端共用 jar 而互相泄露。
 
