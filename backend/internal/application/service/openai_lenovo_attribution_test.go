@@ -137,6 +137,12 @@ func TestOpenAILenovoAttributionIndependentPersistentInstallations(t *testing.T)
 	a, b := lenovoAccount(301), lenovoAccount(302)
 	b.Credentials["access_token"] = "synthetic-token-b"
 	svc, repo, upstream := lenovoFixture(a, b)
+	svc.settingService.refreshOpenAIAuxiliarySettings(&SystemSettings{
+		OpenAILenovoAttributionEnabled: true, OpenAIOAuthAttestationEnabled: true,
+	})
+	svc.openAIIntegrityStates = map[string]openAIIntegrityBinding{
+		openAIIntegrityKey(a, a, "https://chatgpt.com"): {value: "ois1.fixture.issued.state", expiresAt: time.Now().Add(time.Hour)},
+	}
 	first, second := fetchLenovo(t, svc, a), fetchLenovo(t, svc, b)
 	require.NotEqual(t, first.InstallationID, second.InstallationID)
 	_, err := uuid.Parse(first.InstallationID)
@@ -149,6 +155,7 @@ func TestOpenAILenovoAttributionIndependentPersistentInstallations(t *testing.T)
 		require.Equal(t, "application/json", upstream.requests[i].Header.Get("Content-Type"))
 		require.Empty(t, upstream.requests[i].Header.Get(lenovoattribution.RecordedHeader))
 		require.Empty(t, upstream.requests[i].Header.Get("x-oai-attestation"))
+		require.Empty(t, upstream.requests[i].Header.Get("X-OAI-IS"))
 		require.True(t, HTTPUpstreamRedirectsDisabled(upstream.requests[i].Context()))
 		require.JSONEq(t, `{"installation_id":"`+result.InstallationID+`"}`, string(upstream.bodies[i]))
 	}

@@ -37,7 +37,9 @@ type openAILenovoAttributionLocal struct {
 }
 
 func openAILenovoAttributionEligible(account *Account) bool {
-	return account != nil && account.ID > 0 && account.IsExcelBPSEligible() &&
+	return account != nil && account.ID > 0 && account.IsOpenAIOAuth() &&
+		!account.IsShadow() && !account.IsOpenAIPersonalAccessToken() &&
+		!account.IsOpenAIAgentIdentity() && !account.IsOpenAISIWC() &&
 		account.Status == StatusActive && strings.TrimSpace(account.GetChatGPTAccountID()) != "" &&
 		strings.TrimSpace(account.GetChatGPTUserID()) != ""
 }
@@ -212,7 +214,15 @@ func (s *OpenAIGatewayService) fetchOpenAILenovoAttribution(ctx context.Context,
 	// The gateway explicitly opts into the installation-only App request; it
 	// does not assert Windows hardware provenance or manufacture a serial digest.
 	applyOpenAIChatGPTDesktopSurfaceHeaders(req.Header)
-	resp, sendErr := s.doAccountHTTPUpstream(req, resolveAccountProxyURL(account), account)
+	req = req.WithContext(WithHTTPUpstreamTLSProfile(req.Context(), s.resolveTLSProfile(account)))
+	// Attribution has its own App wire contract, outside the model proof and
+	// legacy integrity projection. Keep account egress/TLS while performing the
+	// request-current check immediately before this dedicated transport call.
+	var resp *http.Response
+	sendErr := checkOpenAIRequestCurrent(req.Context())
+	if sendErr == nil {
+		resp, sendErr = doAccountHTTPUpstream(s.httpUpstream, req, resolveAccountProxyURL(account), account)
+	}
 	status, headers := 0, http.Header{}
 	if resp != nil {
 		status, headers = resp.StatusCode, resp.Header
