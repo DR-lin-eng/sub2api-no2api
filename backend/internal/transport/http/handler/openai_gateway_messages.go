@@ -64,7 +64,11 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 			h.anthropicErrorResponse(c, http.StatusRequestEntityTooLarge, "invalid_request_error", buildBodyTooLargeMessage(maxErr.Limit))
 			return
 		}
-		h.anthropicErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "Failed to read request body")
+		if handleRequestBodyReadError(c, err) {
+			return
+		}
+		status, message := requestBodyReadFailure(requestLogger(c, "handler.request_body"), c.Request, err)
+		h.anthropicErrorResponse(c, status, "invalid_request_error", message)
 		return
 	}
 	if len(body) == 0 {
@@ -393,6 +397,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 		sessionID := service.ExtractClientSessionID(c)
 
 		cyberBlocked := service.GetOpsCyberPolicy(c) != nil
+		channelUsageFields := clientRequestedUsageFields(c, channelMappingMsg, reqModel, result.UpstreamModel)
 		h.submitOpenAIUsageRecordTask(c.Request.Context(), result, func(ctx context.Context) {
 			if err := h.gatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
 				Result:             result,
@@ -409,7 +414,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 				APIKeyService:      h.apiKeyService,
 				QuotaPlatform:      quotaPlatform,
 				PricingAt:          pricingAt,
-				ChannelUsageFields: clientRequestedUsageFields(c, channelMappingMsg, reqModel, result.UpstreamModel),
+				ChannelUsageFields: channelUsageFields,
 				CyberBlocked:       cyberBlocked,
 			}); err != nil {
 				logger.L().With(

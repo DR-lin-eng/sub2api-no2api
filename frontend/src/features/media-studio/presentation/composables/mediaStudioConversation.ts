@@ -1,3 +1,4 @@
+import { normalizeGPTImageOutput, type GPTImageOutputOptions } from '@/core/utils/gptImageOutput'
 import { safeMediaStudioReferenceSource } from '@/features/media-studio/data/datasources/mediaStudioBrowserMedia'
 import { normalizeMediaStudioOwnerID } from '@/features/media-studio/data/datasources/mediaStudioImageStore'
 import type {
@@ -42,6 +43,26 @@ export const IMAGE_QUALITY_OPTIONS: MediaStudioParameterOption[] = [
   { value: 'medium', label: 'medium' },
   { value: 'high', label: 'high' },
 ]
+const IMAGE_EXTENDED_QUALITY_OPTIONS: MediaStudioParameterOption[] = [
+  ...IMAGE_QUALITY_OPTIONS,
+  { value: 'xhigh', label: 'xhigh' },
+  { value: 'max', label: 'max' },
+]
+export const IMAGE_COMPLEXITY_OPTIONS = ['low', 'medium', 'high'] as const
+export type MediaStudioImageComplexity = typeof IMAGE_COMPLEXITY_OPTIONS[number]
+
+export function imageQualityOptionsForModel(model: string): MediaStudioParameterOption[] {
+  return /^gpt-image-2\.[56]-(?:flare|sunburst)(?:-|$)/i.test(model.trim())
+    ? IMAGE_EXTENDED_QUALITY_OPTIONS : IMAGE_QUALITY_OPTIONS
+}
+
+export function supportsImageComplexity(model: string): boolean {
+  return /^gpt-image-2\.6-(?:flare|sunburst)(?:-|$)/i.test(model.trim())
+}
+
+export function normalizeImageComplexity(value: unknown): MediaStudioImageComplexity {
+  return value === 'low' || value === 'medium' ? value : 'high'
+}
 const IMAGE_RESOLUTION_MAX_EDGE: Record<MediaStudioImageResolution, number> = {
   '1K': 1024,
   '2K': 2048,
@@ -56,6 +77,7 @@ export interface MediaStudioGeneratedImagePreview {
   url?: string
   b64Json?: string
   revisedPrompt?: string
+  mimeType?: string
   cacheKey?: string
 }
 
@@ -113,6 +135,8 @@ export interface MediaStudioMessage {
   imageResolution?: MediaStudioImageResolution
   imageAspectRatio?: MediaStudioImageAspectRatio
   quality?: string
+  imageOutput?: GPTImageOutputOptions
+  complexity?: MediaStudioImageComplexity
   count?: number
   resolution?: MediaStudioVideoResolution
   aspectRatio?: MediaStudioVideoAspectRatio
@@ -153,6 +177,8 @@ export interface PersistedMediaStudioState {
   imageAspectRatio?: MediaStudioImageAspectRatio
   customImageAspectRatios?: string[]
   quality?: string
+  imageOutput?: GPTImageOutputOptions
+  complexity?: MediaStudioImageComplexity
   count?: number
   resolution?: MediaStudioVideoResolution
   videoAspectRatio?: MediaStudioVideoAspectRatio
@@ -200,7 +226,7 @@ export function persistedImageSource(value: unknown): string {
   const remoteURL = safeRemoteImageURL(value)
   if (remoteURL) return remoteURL
 
-  const match = /^data:(image\/(?:png|jpeg|webp|gif));base64,(.+)$/i.exec(value.trim())
+  const match = /^data:(image\/(?:png|jpeg|webp|gif|svg\+xml));base64,(.+)$/i.exec(value.trim())
   if (!match || !safeBase64Image(match[2])) return ''
   return `data:${match[1].toLowerCase()};base64,${match[2]}`
 }
@@ -293,6 +319,8 @@ export function restorePersistedConversation(value: unknown): MediaStudioConvers
           ? normalizeImageAspectRatio(candidate.imageAspectRatio)
           : aspectRatioFromSize(candidate.size),
         quality: normalizeImageQuality(candidate.quality),
+        complexity: normalizeImageComplexity(candidate.complexity),
+        imageOutput: normalizeGPTImageOutput(candidate.imageOutput),
         count: typeof candidate.count === 'number' ? normalizeCount(candidate.count) : undefined,
         resolution: candidate.resolution === '480p' || candidate.resolution === '720p' || candidate.resolution === '1080p'
           ? candidate.resolution
@@ -396,6 +424,7 @@ export function restorePersistedConversation(value: unknown): MediaStudioConvers
               src: source,
               url: persistedImageSource(item.url) || undefined,
               revisedPrompt: typeof item.revisedPrompt === 'string' ? item.revisedPrompt : undefined,
+              mimeType: typeof item.mimeType === 'string' ? item.mimeType : undefined,
               cacheKey: cacheKey || undefined,
             }]
           })
@@ -478,9 +507,10 @@ export function extractImages(task: MediaStudioImageTask): MediaStudioGeneratedI
   const images: MediaStudioGeneratedImagePreview[] = []
   const resultImages = Array.isArray(task.result?.data) ? task.result?.data ?? [] : []
   resultImages.forEach((item: MediaStudioGeneratedImage, index: number) => {
-    const url = safeRemoteImageURL(item.url)
+    const url = safeRemoteImageURL(item.url) || persistedImageSource(item.url)
     const b64Json = safeBase64Image(item.b64_json)
-    const src = url || (b64Json ? `data:image/png;base64,${b64Json}` : '')
+    const format = item.output_format || task.result?.output_format
+    const src = url || (b64Json ? `data:${imageOutputMIMEType(format)};base64,${b64Json}` : '')
     if (!src) return
     images.push({
       id: `${task.task_id || task.id}-image-${index}`,
@@ -488,6 +518,7 @@ export function extractImages(task: MediaStudioImageTask): MediaStudioGeneratedI
       url: url || undefined,
       b64Json: b64Json || undefined,
       revisedPrompt: item.revised_prompt,
+      mimeType: imageOutputMIMEType(format),
     })
   })
   if (images.length === 0) {
@@ -544,6 +575,7 @@ export function conversationForPersistence(value: MediaStudioConversation): Medi
             src: remoteURL,
             url: remoteURL,
             revisedPrompt: image.revisedPrompt,
+            mimeType: image.mimeType,
           }]
         }
         if (!image.cacheKey) return []
@@ -551,6 +583,7 @@ export function conversationForPersistence(value: MediaStudioConversation): Medi
           id: image.id,
           src: '',
           revisedPrompt: image.revisedPrompt,
+          mimeType: image.mimeType,
           cacheKey: image.cacheKey,
         }]
       }),
@@ -599,7 +632,17 @@ export function normalizeCount(value: number): number {
 }
 
 export function normalizeImageQuality(value: unknown): string {
-  return IMAGE_QUALITY_OPTIONS.some(option => option.value === value) ? String(value) : 'auto'
+  return IMAGE_EXTENDED_QUALITY_OPTIONS.some(option => option.value === value) ? String(value) : 'auto'
+}
+
+function imageOutputMIMEType(format: unknown): string {
+  switch (format) {
+    case 'jpeg': return 'image/jpeg'
+    case 'webp': return 'image/webp'
+    case 'gif': return 'image/gif'
+    case 'svg': return 'image/svg+xml'
+    default: return 'image/png'
+  }
 }
 
 export function normalizeImageResolution(value: unknown): MediaStudioImageResolution {

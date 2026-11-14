@@ -62,7 +62,7 @@ func (u *integrityWireUpstream) DoWithTLS(req *http.Request, proxy string, id in
 	return u.Do(req, proxy, id, concurrency)
 }
 
-func TestOpenAIIntegrityHTTPWireAndOriginIsolation(t *testing.T) {
+func TestOpenAIIntegrityHTTPWireDoesNotReplayLegacyModelState(t *testing.T) {
 	u := &integrityWireUpstream{}
 	svc := &OpenAIGatewayService{httpUpstream: u}
 	a := &Account{ID: 41, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
@@ -75,8 +75,34 @@ func TestOpenAIIntegrityHTTPWireAndOriginIsolation(t *testing.T) {
 		require.NoError(t, resp.Body.Close())
 	}
 	require.Empty(t, u.requests[0].Header.Get("X-OAI-IS"))
-	require.Equal(t, "ois1.server.issued.state", u.requests[1].Header.Get("X-OAI-IS"))
+	require.Empty(t, u.requests[1].Header.Get("X-OAI-IS"))
 	require.Empty(t, u.requests[2].Header.Get("X-OAI-IS"))
+	require.Empty(t, svc.openAIIntegrityStates, "modern model responses must not populate the legacy state store")
+}
+
+func TestOpenAIIntegrityModelSendIgnoresCachedStateAndInheritedReceipt(t *testing.T) {
+	for _, target := range []string{
+		"https://chatgpt.com/backend-api/codex/responses",
+		"https://chatgpt.com/backend-api/codex/responses/compact",
+		"wss://chatgpt.com/backend-api/codex/responses",
+	} {
+		t.Run(target, func(t *testing.T) {
+			svc := &OpenAIGatewayService{}
+			account := &Account{ID: 43, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+			headers := make(http.Header)
+			scope := openAIProofScope(context.Background(), account, account, "https://chatgpt.com", headers)
+			ctx := svc.attachIntegrityState(context.Background(), headers, scope.Key)
+			update := http.Header{}
+			update.Set("X-OAI-IS-Update", "ois1.cached.legacy.state")
+			require.True(t, svc.captureIntegrityState(ctx, update))
+			ctx = svc.attachIntegrityState(ctx, headers, scope.Key)
+			require.NotEmpty(t, headers.Get("X-OAI-IS"))
+			ctx, headers, err := svc.prepareOpenAIWSProof(ctx, account, target, headers)
+			require.NoError(t, err)
+			require.Empty(t, headers.Get("X-OAI-IS"))
+			require.False(t, svc.captureIntegrityState(ctx, update), "the send must clear an inherited legacy CAS receipt")
+		})
+	}
 }
 
 type failingIntegrityCache struct{ GatewayCache }

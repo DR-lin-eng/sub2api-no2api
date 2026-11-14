@@ -19,10 +19,19 @@ const (
 // call-less bootstrap output into ordinary user input. Normal tool outputs are
 // left untouched so their call_id pairing remains mandatory.
 func NormalizeCodexCallOutputBootstrap(body []byte) ([]byte, string, bool) {
-	if !bytes.Contains(body, []byte(`"function_call_output"`)) ||
-		(!bytes.Contains(body, []byte(`"create_thread"`)) &&
-			!bytes.Contains(body, []byte(`"send_message_to_thread"`)) &&
-			!bytes.Contains(body, []byte(`"automation_update"`))) {
+	if !bytes.Contains(body, []byte(`"function_call_output"`)) {
+		return body, "", false
+	}
+	if normalized, changed := NormalizeCodexPageContext(body); changed {
+		body = normalized
+		if next, kind, mixed := NormalizeCodexCallOutputBootstrap(body); mixed {
+			return next, kind, true
+		}
+		return body, "page_context", true
+	}
+	if !bytes.Contains(body, []byte(`"create_thread"`)) &&
+		!bytes.Contains(body, []byte(`"send_message_to_thread"`)) &&
+		!bytes.Contains(body, []byte(`"automation_update"`)) {
 		return body, "", false
 	}
 	if !hasUniqueJSONMembers(body) {

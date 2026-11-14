@@ -1,5 +1,8 @@
 <template>
   <div v-if="visible" class="space-y-1">
+    <div v-if="displayedLiveTransport !== 'polling'" class="text-[10px] text-emerald-600 dark:text-emerald-400" data-testid="openai-live-status">
+      {{ t(displayedLiveTransport === 'websocket' ? 'admin.accounts.upstreamUsage.live' : 'admin.accounts.upstreamUsage.connecting') }}
+    </div>
     <!--
       Unified action row. The parent supplies the primary 查询 action through
       #pre-actions; standalone uses render the same action here.
@@ -254,16 +257,18 @@ import type {
   OpenAIQuotaUsage,
   OpenAIQuotaResetResult
 } from '@/features/admin-accounts/data/dtos/openAIQuotaDtos'
+import type { OpenAIUsageLiveTransport } from '../composables/useAccountsOpenAIUsagePush'
 import ConfirmDialog from '@/common/widgets/feedback/ConfirmDialog.vue'
 import { formatCompactNumber } from '@/core/utils/format'
 import UsageProgressBar from './UsageProgressBar.vue'
+import { useOpenAIUsagePush } from '../composables/useOpenAIUsagePush'
 
 // Account rows are replaced by the admin auto-refresh list. Keep the last
 // explicit App Server result outside the row component so a reactive row
 // replacement does not erase the queried percentage within a few seconds.
 const openAIQuotaSnapshotCache = new Map<number, OpenAIQuotaUsage>()
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   account: Account
   localWindowStats?: {
     five_hour?: WindowStats | null
@@ -272,7 +277,10 @@ const props = defineProps<{
   /** Refresh local request/token/cost counters with the upstream snapshot. */
   queryLocalUsage?: () => Promise<void>
   externalQuotaResult?: OpenAIQuotaRefreshResult | null
-}>()
+  liveQuotaResult?: OpenAIQuotaUsage | null
+  liveTransport?: OpenAIUsageLiveTransport
+  liveEnabled?: boolean
+}>(), { liveEnabled: true })
 
 const emit = defineEmits<{
   'account-updated': [account: Account]
@@ -295,6 +303,40 @@ const resetMessage = ref<string | null>(null)
 const resetWarning = ref<string | null>(null)
 const showResetConfirm = ref(false)
 const showResetCreditDetails = ref(false)
+
+const { transport: liveTransport } = useOpenAIUsagePush(
+  () => props.account,
+  () => props.liveEnabled !== false,
+  (quota) => {
+    const next = {
+      ...quota,
+      server_token_usage: quota.server_token_usage ?? data.value?.server_token_usage,
+      source: 'active' as const
+    }
+    openAIQuotaSnapshotCache.set(props.account.id, next)
+    data.value = next
+    cachedData.value = next
+    emit('quota-updated', next)
+  }
+)
+
+const displayedLiveTransport = computed(() => props.liveTransport ?? liveTransport.value)
+
+const applyLiveQuota = (quota: OpenAIQuotaUsage | null | undefined) => {
+  if (!quota) return
+  const next = {
+    ...quota,
+    server_token_usage: quota.server_token_usage ?? data.value?.server_token_usage,
+    source: 'active' as const
+  }
+  openAIQuotaSnapshotCache.set(props.account.id, next)
+  data.value = next
+  cachedData.value = next
+  error.value = null
+  emit('quota-updated', next)
+}
+
+watch(() => props.liveQuotaResult, applyLiveQuota, { immediate: true })
 
 const quotaNumber = (value: unknown): number | null => {
   if (value == null || (typeof value === 'string' && value.trim() === '')) return null

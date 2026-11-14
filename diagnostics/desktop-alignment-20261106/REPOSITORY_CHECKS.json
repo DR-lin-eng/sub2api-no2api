@@ -1,0 +1,31 @@
+{
+  "backend/internal/application/service/payment_fulfillment_test.go": {
+    "baseline_lines": 1201,
+    "current_lines": 1201,
+    "unchanged": true
+  },
+  "backend/internal/application/service/pricing_service.go": {
+    "baseline_lines": 1218,
+    "current_lines": 1218,
+    "unchanged": true
+  },
+  "docs/PR169_MEDIA_STUDIO_REVIEW.md": {
+    "exists_in_baseline": false,
+    "current_exists": false,
+    "referenced_by_baseline_index": true
+  },
+  "modified_doc_links": {
+    "docs/codex/desktop-request-alignment.md": {
+      "missing": []
+    },
+    "docs/REQUEST_LIFECYCLES.md": {
+      "missing": []
+    },
+    "backend/internal/application/service/README.md": {
+      "missing": []
+    },
+    "diagnostics/desktop-alignment-20261106/README.md": {
+      "missing": []
+    }
+  }
+}

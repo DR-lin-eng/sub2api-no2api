@@ -90,7 +90,7 @@
           <p class="gallery-meta" :title="savedAt(item)">{{ metaLine(item) }}</p>
           <div class="gallery-actions">
             <button
-              v-if="item.mode === 'image'"
+              v-if="item.mode === 'image' && !(supportsGPTImage26Output(item.model || '') && item.mimeType === 'image/svg+xml')"
               type="button"
               class="gallery-action"
               :title="t('mediaStudio.gallery.actions.edit')"
@@ -139,6 +139,7 @@
 </template>
 
 <script setup lang="ts">
+import { supportsGPTImage26Output } from '@/core/utils/gptImageOutput'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/common/widgets/icons/Icon.vue'
@@ -218,7 +219,8 @@ function savedAt(item: MediaStudioGalleryItem) {
 }
 
 function downloadName(item: MediaStudioGalleryItem) {
-  const extension = item.mode === 'video' ? 'mp4' : 'png'
+  const imageExtensions: Record<string, string> = { 'image/gif': 'gif', 'image/svg+xml': 'svg', 'image/webp': 'webp', 'image/jpeg': 'jpg' }
+  const extension = item.mode === 'video' ? 'mp4' : imageExtensions[item.mimeType || ''] || 'png'
   return `media-studio-${item.id}.${extension}`
 }
 

@@ -172,6 +172,8 @@ func TestOpenAIGatewayHandlerImages_ServerErrorFailsOverAndReturnsClearErrorWhen
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = req
+	// Native size/quality controls and their failover contract use legacy mode.
+	c.Set("openai_images_legacy_snapshot", true)
 	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
 		ID:      99,
 		GroupID: &groupID,

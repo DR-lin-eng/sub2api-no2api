@@ -200,8 +200,14 @@ import {
   chatMessagePageCount,
   loadChatMessagePages,
   mergeChatMessages,
+  reconcileChatMessageHistory,
   SUPPORT_CHAT_MESSAGE_PAGE_SIZE,
 } from '@/features/support-chat/presentation/composables/supportChatHistory'
+import {
+  latestSupportChatMessageAt,
+  reconcileSupportChatConversations,
+  sortSupportChatConversations,
+} from '@/features/support-chat/presentation/composables/supportChatConversationSort'
 import { useSupportChatAdminStore } from '@/features/support-chat/presentation/stores/supportChatAdminStore'
 import AdminConversationList from '@/features/support-chat/presentation/widgets/AdminConversationList.vue'
 import SupportBrowserNotificationButton from '@/features/support-chat/presentation/widgets/SupportBrowserNotificationButton.vue'
@@ -272,6 +278,7 @@ const socket = useSupportChatSocket({
   scope: 'admin',
   onStatusChange: (connected) => {
     socketConnected.value = connected
+    if (connected) void resyncMessages(true)
   },
   onMessage: async (message) => {
     upsertConversationActivity(message)
@@ -340,13 +347,15 @@ function upsertConversationActivity(message: ChatMessage) {
   const existing = conversations.value.find((item) => item.id === message.conversation_id)
   if (!existing) {
     if (selectedConversationSnapshot.value?.id === message.conversation_id) {
-      selectedConversationSnapshot.value.last_message_at = message.created_at
+      selectedConversationSnapshot.value.last_message_at = latestSupportChatMessageAt(
+        selectedConversationSnapshot.value.last_message_at, message.created_at,
+      )
       if (message.sender_type === 'user') selectedConversationSnapshot.value.unread_by_admin += 1
     }
     void loadConversations()
     return
   }
-  existing.last_message_at = message.created_at
+  existing.last_message_at = latestSupportChatMessageAt(existing.last_message_at, message.created_at)
   if (message.sender_type === 'user') {
     existing.unread_by_admin += 1
     appStore.setSupportInboxUnread(true)
@@ -355,12 +364,7 @@ function upsertConversationActivity(message: ChatMessage) {
   if (selectedConversationSnapshot.value?.id === message.conversation_id) {
     selectedConversationSnapshot.value = existing
   }
-  conversations.value = [...conversations.value].sort((a, b) => {
-    const at = Date.parse(a.last_message_at || a.updated_at) || 0
-    const bt = Date.parse(b.last_message_at || b.updated_at) || 0
-    if (at !== bt) return bt - at
-    return b.id - a.id
-  })
+  conversations.value = sortSupportChatConversations(conversations.value)
 }
 
 async function scrollToBottom() {
@@ -371,6 +375,7 @@ async function scrollToBottom() {
 
 async function loadConversations() {
   if (conversationsLoading.value) return
+  const beforeLoad = conversations.value.map(conversation => ({ ...conversation }))
   conversationsLoading.value = true
   try {
     const page = await listAdminChatConversations({
@@ -379,7 +384,9 @@ async function loadConversations() {
       unread_only: unreadOnly.value,
       search: search.value.trim() || undefined,
     })
-    conversations.value = page.items
+    conversations.value = sortSupportChatConversations(
+      reconcileSupportChatConversations(page.items, beforeLoad, conversations.value),
+    )
     lastResyncAt = Date.now()
     conversationTotal.value = page.total
     if (unreadOnly.value) {
@@ -455,6 +462,7 @@ async function reloadSelectedMessages() {
   if (!selectedConversationID.value) return
   const conversationID = selectedConversationID.value
   const sequence = ++messageLoadSequence
+  const beforeLoad = [...messages.value]
   const requestedPage = Math.max(1, messagePage.value)
   const shouldStickToBottom = stickMessagesToBottom.value
   messagesLoading.value = true
@@ -467,7 +475,7 @@ async function reloadSelectedMessages() {
       requestedPage,
     )
     if (sequence !== messageLoadSequence || selectedConversationID.value !== conversationID) return
-    messages.value = history.items
+    messages.value = reconcileChatMessageHistory(history.items, beforeLoad, messages.value)
     messagePage.value = history.page
     messagePages.value = history.pages
     stickMessagesToBottom.value = shouldStickToBottom
@@ -484,6 +492,7 @@ async function loadOlderMessages() {
   if (!conversationID || olderMessagesLoading.value || messagesLoading.value || !hasOlderMessages.value) return
 
   const sequence = messageLoadSequence
+  const beforeLoad = [...messages.value]
   const nextPage = messagePage.value + 1
   const pane = messagePaneRef.value
   const previousHeight = pane?.scrollHeight ?? 0
@@ -500,7 +509,9 @@ async function loadOlderMessages() {
       messagePages.value = messagePage.value
       return
     }
-    messages.value = mergeChatMessages(messages.value, page.items)
+    messages.value = reconcileChatMessageHistory(
+      mergeChatMessages(beforeLoad, page.items), beforeLoad, messages.value,
+    )
     messagePage.value = Math.max(messagePage.value, nextPage)
     messagePages.value = Math.max(messagePage.value, chatMessagePageCount(page))
     await nextTick()
@@ -534,6 +545,7 @@ async function markSelectedRead(conversationID = selectedConversationID.value) {
       selectedConversationSnapshot.value = target
     }
   }
+  conversations.value = sortSupportChatConversations(conversations.value)
   await supportChatAdminStore.refreshUnreadIndicator(true)
   appStore.setSupportInboxUnread(supportChatAdminStore.hasUnread)
 }
@@ -549,6 +561,7 @@ async function markSelectedUnread() {
       ? selectedConversationSnapshot.value
       : null)
     if (target) target.manually_unread_by_admin = true
+    conversations.value = sortSupportChatConversations(conversations.value)
     await supportChatAdminStore.refreshUnreadIndicator(true)
     appStore.setSupportInboxUnread(supportChatAdminStore.hasUnread)
     appStore.showSuccess(t('supportChat.markUnreadSuccess'))
@@ -748,9 +761,9 @@ function handleCatalogDelete(value: { scope: 'library' | 'sticker'; id: number }
   })
 }
 
-async function resyncMessages() {
+async function resyncMessages(force = false) {
   if (sending.value) return
-  if (socketConnected.value && Date.now() - lastResyncAt < SUPPORT_CHAT_CONNECTED_RESYNC_MS) return
+  if (!force && socketConnected.value && Date.now() - lastResyncAt < SUPPORT_CHAT_CONNECTED_RESYNC_MS) return
   await loadConversations()
   if (selectedConversationID.value) {
     await reloadSelectedMessages()

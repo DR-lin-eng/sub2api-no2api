@@ -64,6 +64,13 @@
         >
           {{ t('admin.accounts.bulkActions.queryOpenAIQuota') }}
         </button>
+        <button
+          :disabled="resettingOpenaiQuota"
+          @click="$emit('reset-openai-quota')"
+          class="btn btn-warning btn-sm disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {{ t(resettingOpenaiQuota ? 'admin.accounts.bulkActions.resetOpenAIQuotaRunning' : 'admin.accounts.bulkActions.resetOpenAIQuota') }}
+        </button>
         <button @click="$emit('probe-upstream-billing')" class="btn btn-secondary btn-sm">{{ t('admin.accounts.bulkActions.probeUpstreamBilling') }}</button>
         <button @click="$emit('toggle-schedulable', true)" class="btn btn-success btn-sm">{{ t('admin.accounts.bulkActions.enableScheduling') }}</button>
         <button @click="$emit('toggle-schedulable', false)" class="btn btn-warning btn-sm">{{ t('admin.accounts.bulkActions.disableScheduling') }}</button>
@@ -86,6 +93,7 @@ withDefaults(defineProps<{
   allResultsSelected?: boolean
   queryingUpstreamQuota?: boolean
   queryingOpenaiQuota?: boolean
+  resettingOpenaiQuota?: boolean
   syncingUpstreamModels?: boolean
 }>(), {
   totalResults: 0,
@@ -93,6 +101,7 @@ withDefaults(defineProps<{
   allResultsSelected: false,
   queryingUpstreamQuota: false,
   queryingOpenaiQuota: false,
+  resettingOpenaiQuota: false,
   syncingUpstreamModels: false
 })
 defineEmits([
@@ -108,6 +117,7 @@ defineEmits([
   'sync-upstream-models',
   'query-upstream-quota',
   'query-openai-quota',
+  'reset-openai-quota',
   'probe-upstream-billing'
 ])
 

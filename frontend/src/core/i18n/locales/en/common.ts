@@ -1,5 +1,18 @@
 export default {
   common: {
+    imageOutput: {
+      download: 'Download file',
+      format: 'Output file format',
+      default: 'Default',
+      frames: 'GIF frames',
+      duration: 'Frame duration (ms)',
+      author: 'SVG author model (optional)',
+      authorDefault: 'Use upstream default',
+      reasoning: 'Author reasoning effort',
+      gifHint: 'GIF output is non-streaming; frame dimensions are selected automatically. Actual-image-count billing charges one image per frame at the returned size.',
+      svgHint: 'SVG generates one file. Selecting an author model requires upstream access.',
+      svgEditHint: 'SVG does not support image editing. Remove reference images to select SVG.',
+    },
     loading: 'Loading...',
     submitting: 'Submitting...',
     justNow: 'just now',
@@ -320,6 +333,7 @@ export default {
       failed: 'Verification failed, please try again',
     },
     errors: {
+      EMAIL_BLOCKED: 'This email address is not allowed. Please use a different one.',
       USER_NOT_ACTIVE: 'Account has been disabled.',
       LOCAL_CAPTCHA_REQUIRED: 'Enter the image CAPTCHA',
       LOCAL_CAPTCHA_EXPIRED: 'CAPTCHA expired. Enter the new challenge',

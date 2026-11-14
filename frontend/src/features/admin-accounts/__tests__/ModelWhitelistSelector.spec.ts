@@ -85,6 +85,13 @@ describe('ModelWhitelistSelector', () => {
     expect(wrapper.emitted('update:modelValue')).toEqual([[['gpt-5.6-sol']]])
     expect(copyToClipboard).not.toHaveBeenCalled()
   })
+
+  it.each(['openai', 'multimodal'])('lists both GPT Image 2.6 models for %s accounts', async (platform) => {
+    const wrapper = mountSelector({ platform })
+    await wrapper.get('div.cursor-pointer').trigger('click')
+    expect(findModelRow(wrapper, 'gpt-image-2.6-flare').exists()).toBe(true)
+    expect(findModelRow(wrapper, 'gpt-image-2.6-sunburst').exists()).toBe(true)
+  })
 })
 
 

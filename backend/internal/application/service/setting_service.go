@@ -72,11 +72,21 @@ type SettingService struct {
 	openAICodexUASF             singleflight.Group
 	openAICodexVersionCache     atomic.Value // *cachedOpenAICodexClientVersion
 	openAICodexVersionSF        singleflight.Group
+	openAILocationCache         atomic.Pointer[cachedOpenAILocationSettings]
+	openAILocationSettingsMu    sync.Mutex
 	codexRestrictionPolicyCache atomic.Value // *cachedCodexRestrictionPolicy
 	codexRestrictionPolicySF    singleflight.Group
 	openAIRequestTimezoneCache  atomic.Pointer[cachedOpenAIRequestTimezoneSettings]
 	openAIRequestTimezoneMu     sync.Mutex
+	openAIImagesModeCache       atomic.Pointer[cachedOpenAIImagesMode]
+	openAIImagesModeMu          sync.Mutex
+	imageSchedulingCache        atomic.Pointer[cachedImageSchedulingSettings]
+	imageSchedulingMu           sync.Mutex
 	adminAPIKeyMu               sync.Mutex
+
+	registrationEmailBlacklistMu    sync.Mutex
+	registrationEmailBlacklistCache atomic.Value // *registrationEmailBlacklistIndex
+	registrationEmailBlacklistSF    singleflight.Group
 
 	cyberSessionBlockRuntimeCache atomic.Value // *cachedCyberSessionBlockRuntime
 	cyberSessionBlockRuntimeSF    singleflight.Group

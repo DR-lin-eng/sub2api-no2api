@@ -426,6 +426,10 @@ func (s *userHandlerRefreshTokenCacheStub) GetRefreshToken(context.Context, stri
 	return nil, service.ErrRefreshTokenNotFound
 }
 
+func (s *userHandlerRefreshTokenCacheStub) ConsumeRefreshToken(context.Context, string) (*service.RefreshTokenData, error) {
+	return nil, service.ErrRefreshTokenNotFound
+}
+
 func (s *userHandlerRefreshTokenCacheStub) DeleteRefreshToken(context.Context, string) error {
 	return nil
 }

@@ -8,8 +8,13 @@ import (
 )
 
 func writeGatewaySystemSettingUpdates(updates map[string]string, settings *SystemSettings) error {
+	updates[SettingKeyImageIndependentSchedulingEnabled] = strconv.FormatBool(settings.ImageIndependentSchedulingEnabled)
+	updates[SettingKeyOpenAIImagesLegacyEnabled] = strconv.FormatBool(settings.OpenAIImagesLegacyEnabled)
 	updates[SettingKeyOpenAIRequestTimezoneEnabled] = strconv.FormatBool(settings.OpenAIRequestTimezoneEnabled)
 	updates[SettingKeyOpenAIRequestTimezone] = strings.TrimSpace(settings.OpenAIRequestTimezone)
+	updates[SettingKeyOpenAILocationEnabled] = strconv.FormatBool(settings.OpenAILocationEnabled)
+	updates[SettingKeyOpenAILocationLatitude] = strconv.FormatFloat(settings.OpenAILocationLatitude, 'f', -1, 64)
+	updates[SettingKeyOpenAILocationLongitude] = strconv.FormatFloat(settings.OpenAILocationLongitude, 'f', -1, 64)
 	updates[SettingKeyAllowUngroupedKeyScheduling] = strconv.FormatBool(settings.AllowUngroupedKeyScheduling)
 	updates[SettingKeySchedulerV2Enabled] = strconv.FormatBool(settings.SchedulerV2Enabled)
 	updates[SettingKeySchedulerV2CandidateLimit] = strconv.Itoa(settings.SchedulerV2CandidateLimit)

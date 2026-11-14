@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	openAITokenRefreshSkew    = 3 * time.Minute
+	openAITokenRefreshSkew    = 5 * time.Minute
 	openAITokenCacheSkew      = 5 * time.Minute
 	openAILockInitialWait     = 20 * time.Millisecond
 	openAILockMaxWait         = 120 * time.Millisecond
@@ -140,6 +140,7 @@ func (p *OpenAITokenProvider) RefreshAfterUnauthorized(ctx context.Context, acco
 	p.ensureMetrics()
 	p.metrics.refreshRequests.Add(1)
 	p.metrics.touchNow()
+	expectedAccount := snapshotOAuthRefreshAccount(account)
 	cacheKey := OpenAITokenCacheKey(account)
 	if p.tokenCache != nil {
 		if err := p.tokenCache.DeleteAccessToken(ctx, cacheKey); err != nil {
@@ -169,12 +170,18 @@ func (p *OpenAITokenProvider) RefreshAfterUnauthorized(ctx context.Context, acco
 		if strings.TrimSpace(token) == "" {
 			return errors.New("openai token refresh lock released without a cached token")
 		}
-		return nil
+		return validateOpenAIOAuthAccessToken(expectedAccount, token)
 	}
 
 	refreshedAccount := result.Account
 	if refreshedAccount == nil {
 		return errors.New("openai token force refresh returned no account")
+	}
+	if err := validateOpenAIOAuthRefreshPrincipal(expectedAccount, refreshedAccount); err != nil {
+		return err
+	}
+	if err := validateOpenAIOAuthAccessToken(refreshedAccount, refreshedAccount.GetOpenAIAccessToken()); err != nil {
+		return err
 	}
 	if refreshedAccount.ID == account.ID && refreshedAccount.Credentials != nil {
 		account.Credentials = shallowCopyMap(refreshedAccount.Credentials)
@@ -184,7 +191,7 @@ func (p *OpenAITokenProvider) RefreshAfterUnauthorized(ctx context.Context, acco
 	}
 	if p.tokenCache != nil {
 		ttl := 30 * time.Minute
-		if expiresAt := account.GetCredentialAsTime("expires_at"); expiresAt != nil {
+		if expiresAt := openAIOAuthAccessTokenExpiresAt(account, account.GetOpenAIAccessToken()); expiresAt != nil {
 			if until := time.Until(*expiresAt); until > 0 && until < ttl {
 				ttl = until
 			}
@@ -227,17 +234,26 @@ func (p *OpenAITokenProvider) GetAccessToken(ctx context.Context, account *Accou
 	// 1) Try cache first.
 	if p.tokenCache != nil {
 		if token, err := p.tokenCache.GetAccessToken(ctx, cacheKey); err == nil && strings.TrimSpace(token) != "" {
-			slog.Debug("openai_token_cache_hit", "account_id", account.ID)
-			return token, nil
+			if err := validateOpenAIOAuthRequestPrincipal(account, token); err != nil {
+				return "", err
+			}
+			// A cache entry from an older process can outlive the JWT's exp.
+			// Re-enter the locked refresh path inside the desktop's 5m window.
+			expiresAt := openAIOAuthAccessTokenExpiresAt(account, token)
+			if expiresAt == nil || time.Until(*expiresAt) > openAITokenRefreshSkew || account.IsOpenAIPersonalAccessToken() {
+				slog.Debug("openai_token_cache_hit", "account_id", account.ID)
+				return token, nil
+			}
 		} else if err != nil {
 			slog.Warn("openai_token_cache_get_failed", "account_id", account.ID, "error", err)
 		}
 	}
 
 	slog.Debug("openai_token_cache_miss", "account_id", account.ID)
+	expectedAccount := snapshotOAuthRefreshAccount(account)
 
 	// 2) Refresh if needed (pre-expiry skew).
-	expiresAt := account.GetCredentialAsTime("expires_at")
+	expiresAt := openAIOAuthAccessTokenExpiresAt(account, account.GetOpenAIAccessToken())
 	needsRefresh := !account.IsOpenAIPersonalAccessToken() && (expiresAt == nil || time.Until(*expiresAt) <= openAITokenRefreshSkew)
 	if needsRefresh && strings.TrimSpace(account.GetOpenAIRefreshToken()) == "" {
 		if expiresAt != nil && !time.Now().Before(*expiresAt) {
@@ -273,16 +289,25 @@ func (p *OpenAITokenProvider) GetAccessToken(ctx context.Context, account *Accou
 				}
 				if strings.TrimSpace(token) != "" {
 					slog.Debug("openai_token_cache_hit_after_wait", "account_id", account.ID)
+					if err := validateOpenAIOAuthAccessToken(expectedAccount, token); err != nil {
+						return "", err
+					}
 					return token, nil
 				}
 			}
 		} else if result.Refreshed {
+			if err := validateOpenAIOAuthRefreshPrincipal(expectedAccount, result.Account); err != nil {
+				return "", err
+			}
 			p.metrics.refreshSuccess.Add(1)
 			account = result.Account
-			expiresAt = account.GetCredentialAsTime("expires_at")
+			expiresAt = openAIOAuthAccessTokenExpiresAt(account, account.GetOpenAIAccessToken())
 		} else {
+			if err := validateOpenAIOAuthRefreshPrincipal(expectedAccount, result.Account); err != nil {
+				return "", err
+			}
 			account = result.Account
-			expiresAt = account.GetCredentialAsTime("expires_at")
+			expiresAt = openAIOAuthAccessTokenExpiresAt(account, account.GetOpenAIAccessToken())
 		}
 	} else if needsRefresh && p.tokenCache != nil {
 		// Backward-compatible test path when refreshAPI is not injected.
@@ -304,6 +329,9 @@ func (p *OpenAITokenProvider) GetAccessToken(ctx context.Context, account *Accou
 			}
 			if strings.TrimSpace(token) != "" {
 				slog.Debug("openai_token_cache_hit_after_wait", "account_id", account.ID)
+				if err := validateOpenAIOAuthAccessToken(expectedAccount, token); err != nil {
+					return "", err
+				}
 				return token, nil
 			}
 		}
@@ -313,11 +341,23 @@ func (p *OpenAITokenProvider) GetAccessToken(ctx context.Context, account *Accou
 	if strings.TrimSpace(accessToken) == "" {
 		return "", errors.New("access_token not found in credentials")
 	}
+	if err := validateOpenAIOAuthRequestPrincipal(expectedAccount, accessToken); err != nil {
+		return "", err
+	}
+	if err := validateOpenAIOAuthAccessToken(account, accessToken); err != nil {
+		return "", err
+	}
 
 	// 3) Populate cache with TTL.
 	if p.tokenCache != nil {
 		latestAccount, isStale := CheckTokenVersion(ctx, account, p.accountRepo)
 		if isStale && latestAccount != nil {
+			if err := validateOpenAIOAuthRefreshPrincipal(expectedAccount, latestAccount); err != nil {
+				return "", err
+			}
+			if err := validateOpenAIOAuthAccessToken(latestAccount, latestAccount.GetOpenAIAccessToken()); err != nil {
+				return "", err
+			}
 			slog.Debug("openai_token_version_stale_use_latest", "account_id", account.ID)
 			accessToken = latestAccount.GetOpenAIAccessToken()
 			if strings.TrimSpace(accessToken) == "" {

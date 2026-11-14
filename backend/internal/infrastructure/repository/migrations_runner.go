@@ -59,6 +59,8 @@ const latestAPIKeyIPIndexMigration = "174_add_usage_logs_api_key_latest_ip_index
 const latestAPIKeyIPIndex = "idx_usage_logs_api_key_latest_ip"
 const usageLogsUpstreamModelMismatchIndexMigration = "203_add_usage_log_upstream_model_mismatch_index_notx.sql"
 const usageLogsUpstreamModelMismatchIndex = "idx_usage_logs_upstream_model_mismatch_created_at"
+const usageLogsAPIKeyCostIndexMigration = "257_add_usage_logs_api_key_cost_index_notx.sql"
+const usageLogsAPIKeyCostIndex = "idx_usage_logs_api_key_created_cost"
 
 type migrationChecksumCompatibilityRule struct {
 	fileChecksum       string
@@ -293,6 +295,8 @@ func prepareNonTransactionalMigration(ctx context.Context, db migrationConnectio
 		return dropInvalidIndexIfPresent(ctx, db, latestAPIKeyIPIndex)
 	case usageLogsUpstreamModelMismatchIndexMigration:
 		return dropInvalidIndexIfPresent(ctx, db, usageLogsUpstreamModelMismatchIndex)
+	case usageLogsAPIKeyCostIndexMigration:
+		return dropInvalidIndexIfPresent(ctx, db, usageLogsAPIKeyCostIndex)
 	default:
 		return nil
 	}

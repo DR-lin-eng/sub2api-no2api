@@ -1,0 +1,16 @@
+{
+  "command": [
+    "python3",
+    "diagnostics/upstream-sync-20261112/run_integration.py"
+  ],
+  "cwd": "/Users/lin/.codex/worktrees/5c4f/sub2api-no2api",
+  "exit_status": 1,
+  "elapsed_s": 502.8232100420282,
+  "utc": "2026-11-11T19:21:53.209511+00:00",
+  "input": "repository sources and checked-in test fixtures; see SOURCE_HASHES.json for final validation snapshot",
+  "stdout_sha256": "c7610018d143b4aa47e5e8259e0a0218cfe8cde90e0e8d92052b90d840d81264",
+  "stderr_sha256": "933d3ba308ae225a2403704ae13fef4b2924ebc060a453b46ebeabf229e92985",
+  "stdout_file": "backend-integration.stdout.gz",
+  "stderr_file": "backend-integration.stderr.gz",
+  "output_encoding": "gzip; recorded SHA-256 values cover the original decompressed bytes"
+}

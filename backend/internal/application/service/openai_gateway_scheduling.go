@@ -323,61 +323,6 @@ func openAICompactSupportTier(account *Account) int {
 	return 0
 }
 
-// isOpenAICompatibleAccountEligibleForRequest 判断 OpenAI 兼容账号是否满足本次请求的调度条件。
-// 检查内容包括：平台匹配、账号可用性、quota 自动暂停、spark 路由限制、模型支持及端点能力。
-//
-// 注意：对 spark 影子账号，调用方还须额外调用 parentHealthyForShadow(account, lookup)
-// 检查母账号凭据可用性；该检查未内置于本函数，以避免注入 DB 依赖。
-func isOpenAICompatibleAccountEligibleForRequest(ctx context.Context, account *Account, platform string, requestedModel string, requireCompact bool, requiredCapability OpenAIEndpointCapability) bool {
-	platform = normalizeOpenAICompatiblePlatform(platform)
-	if account == nil || !codexContinuationSchedulingMatches(ctx, account) || account.Platform != platform || !account.IsOpenAICompatible() || !account.IsSchedulableForModelWithContext(ctx, requestedModel) {
-		return false
-	}
-	if vetoed, _ := profitControlVetoReason(ctx, account); vetoed {
-		return false
-	}
-	if account.IsOpenAI() {
-		if paused, reason := shouldAutoPauseOpenAIAccountByQuota(ctx, account); paused {
-			// Debug level: this fires per-candidate on the scheduling hot path, so Info
-			// would amplify into log spam once several accounts cross the threshold.
-			slog.Debug("account_auto_paused_by_quota",
-				"account_id", account.ID,
-				"window", reason.window,
-				"threshold", reason.threshold,
-				"utilization", reason.utilization,
-			)
-			return false
-		}
-	}
-	if account.IsGrok() {
-		if paused, reason := shouldAutoPauseGrokAccountByQuota(account); paused {
-			slog.Debug("grok_account_auto_paused_by_quota",
-				"account_id", account.ID,
-				"window", reason.window,
-				"threshold", reason.threshold,
-				"utilization", reason.utilization,
-			)
-			return false
-		}
-	}
-	if requestedModel != "" && !supportsOpenAIRequestModel(account, requestedModel, openAIRequestModelForSupport(ctx, requestedModel), requireCompact) {
-		return false
-	}
-	if account.IsGrok() && requiredCapability == OpenAIEndpointCapabilityGrokMediaGeneration {
-		eligible, reason := account.GrokMediaGenerationEligibility()
-		if !eligible {
-			slog.Debug("grok_media_account_ineligible", "account_id", account.ID, "reason", reason)
-			return false
-		}
-	} else if !account.SupportsOpenAIEndpointCapability(requiredCapability) {
-		return false
-	}
-	if requireCompact && openAICompactSupportTier(account) == 0 {
-		return false
-	}
-	return true
-}
-
 type openAIQuotaAutoPauseDecision struct {
 	window      string
 	threshold   float64
@@ -767,6 +712,7 @@ func (s *OpenAIGatewayService) selectAccountForModelWithExclusions(ctx context.C
 }
 
 func (s *OpenAIGatewayService) selectAccountForModelWithExclusionsAndStreamHealth(ctx context.Context, groupID *int64, platform string, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, requireCompact bool, stickyAccountID int64, requiredCapability OpenAIEndpointCapability, preferLowUpstreamRate bool) (*Account, bool, error) {
+	ctx = s.WithImageScheduling(ctx, requestedModel)
 	ctx = s.withOpenAIRoutingModelContext(ctx, groupID, requestedModel, requireCompact)
 	ctx = withSchedulerCandidateExclusions(ctx, excludedIDs)
 	platform = normalizeOpenAICompatiblePlatform(platform)
@@ -805,7 +751,7 @@ func (s *OpenAIGatewayService) selectAccountForModelWithExclusionsAndStreamHealt
 
 	// 4. 设置粘性会话绑定
 	// Set sticky session binding
-	if sessionHash != "" && !openAIStickyFailoverPreservationEnabled(ctx) {
+	if sessionHash != "" && !openAIStickyFailoverPreservationEnabled(ctx) && !openAIImageSizeSpilloverPass(ctx) {
 		_ = s.setStickySessionAccountID(ctx, groupID, sessionHash, selected.ID, openaiStickySessionTTL)
 	}
 
@@ -836,6 +782,8 @@ func (s *OpenAIGatewayService) tryStickySessionHit(ctx context.Context, groupID 
 		return nil
 	}
 
+	ctx = withOpenAIImageSizeStickyAccount(ctx, accountID)
+
 	account, err := s.getSchedulableAccount(ctx, accountID)
 	if err != nil {
 		return nil
@@ -843,7 +791,7 @@ func (s *OpenAIGatewayService) tryStickySessionHit(ctx context.Context, groupID 
 
 	// 检查账号是否需要清理粘性会话
 	// Check if sticky session should be cleared
-	if shouldClearStickySession(account, requestedModel) {
+	if shouldClearStickySessionWithContext(ctx, account, requestedModel) {
 		_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
 		return nil
 	}
@@ -1042,6 +990,7 @@ func (s *OpenAIGatewayService) selectLegacyStickyAccountBeforePoolScan(
 	forceSticky bool,
 	preserveStickyBinding bool,
 ) (*AccountSelectionResult, bool, bool, error) {
+	preserveStickyBinding = preserveStickyBinding || openAIImageSizeSpilloverPass(ctx)
 	if accountID <= 0 || s.concurrencyService == nil {
 		return nil, false, false, nil
 	}
@@ -1058,7 +1007,7 @@ func (s *OpenAIGatewayService) selectLegacyStickyAccountBeforePoolScan(
 		}
 		return nil, false, true, nil
 	}
-	if shouldClearStickySession(account, requestedModel) || !isOpenAICompatibleAccountEligibleForRequest(ctx, account, platform, requestedModel, false, requiredCapability) {
+	if shouldClearStickySessionWithContext(ctx, account, requestedModel) || !isOpenAICompatibleAccountEligibleForRequest(ctx, account, platform, requestedModel, false, requiredCapability) {
 		if !preserveStickyBinding {
 			_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
 		}
@@ -1173,6 +1122,7 @@ func (s *OpenAIGatewayService) selectOpenAIContentSessionBurstCandidates(
 }
 
 func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Context, groupID *int64, platform string, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, requireCompact bool, requiredCapability OpenAIEndpointCapability, useUpstreamTokenCost bool, contentSessionConcurrent bool) (*AccountSelectionResult, error) {
+	ctx = s.WithImageScheduling(ctx, requestedModel)
 	ctx = s.withOpenAIRoutingModelContext(ctx, groupID, requestedModel, requireCompact)
 	ctx = withSchedulerCandidateExclusions(ctx, excludedIDs)
 	platform = normalizeOpenAICompatiblePlatform(platform)
@@ -1184,7 +1134,7 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 	}
 
 	cfg := s.schedulingConfig()
-	preserveStickyBinding := openAIStickyFailoverPreservationEnabled(ctx)
+	preserveStickyBinding := openAIStickyFailoverPreservationEnabled(ctx) || openAIImageSizeSpilloverPass(ctx)
 	preferLowUpstreamRate := useUpstreamTokenCost && s.isOpenAILowUpstreamRatePriorityEnabled(ctx)
 	needsUpstreamCheck := s.needsUpstreamChannelRestrictionCheck(ctx, groupID)
 	var stickyAccountID int64
@@ -1193,6 +1143,7 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 			stickyAccountID = accountID
 		}
 	}
+	ctx = withOpenAIImageSizeStickyAccount(ctx, stickyAccountID)
 	contentSessionOverflow := openAIContentSessionRequestOverflow(ctx)
 	if !contentSessionConcurrent && sessionHash != "" {
 		selection, handled, invalidated, stickyErr := s.selectLegacyStickyAccountBeforePoolScan(
@@ -1237,6 +1188,8 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 			}
 		}
 	}
+	ctx = withOpenAIImageSizeStickyAccount(ctx, stickyAccountID)
+
 	if s.concurrencyService == nil || !cfg.LoadBatchEnabled {
 		account, hasHealthyStreamAccount, err := s.selectAccountForModelWithExclusionsAndStreamHealth(ctx, groupID, platform, sessionHash, requestedModel, excludedIDs, requireCompact, stickyAccountID, requiredCapability, preferLowUpstreamRate)
 		if err != nil {
@@ -1308,7 +1261,7 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 		if accountID > 0 && !isExcluded(accountID) {
 			account, err := s.getSchedulableAccount(ctx, accountID)
 			if err == nil {
-				clearSticky := shouldClearStickySession(account, requestedModel)
+				clearSticky := shouldClearStickySessionWithContext(ctx, account, requestedModel)
 				if clearSticky {
 					_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
 				}

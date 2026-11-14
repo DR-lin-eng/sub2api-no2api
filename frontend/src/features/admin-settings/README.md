@@ -11,6 +11,9 @@
 - `presentation/pages/`: 路由级加载、保存、step-up 与对话框编排。
 - `presentation/widgets/settings-tabs/`: 按设置领域拆分的 tab 和 panel。
 - `presentation/widgets/settings-tabs/SettingsOpenAIRequestTimezoneFields.vue`: 网关服务 → 请求转发行为中的 OpenAI 请求时区开关与目标时区；复用主设置统一保存，数据库值覆盖部署默认值，保存后无需重启。
+- `presentation/widgets/settings-tabs/SettingsOpenAILocationFields.vue`: 网关服务 → 请求转发行为中的 OpenAI 大概坐标、账号持久化偏移和缓存精度策略设置。
+- `presentation/widgets/settings-tabs/SettingsImageSchedulingFields.vue`: 网关服务调度面板中的画图模型独立调度开关，允许健康但关闭调度的账号参与画图，复用主设置的加载与统一保存。
+- `presentation/widgets/settings-tabs/SettingsOpenAIImagesModeFields.vue`: 网关生图旧版回退开关；关闭时默认使用新版 App 流程，复用主设置的读取、部分保存与回填。
 - `presentation/widgets/settings-tabs/SettingsOAuth2ProviderPanel.vue`: 完整管理员专用的 OAuth2 provider 总开关、issuer、token TTL、客户端、回调、scope 与密钥轮换面板。
 - `presentation/widgets/settings-tabs/gateway-resilience/`: Codex A/B/C、系统强制账号预热、关注模型的 Turn State 自动监测/代理探测/重放、兼容多值随机重放与质量巡检一键同步、临时不可调度、OAuth 401 自动清理、冷却、流超时、请求修正与策略设置卡片；直接复用页面 context，由网关韧性 panel 按原顺序装配。Codex 查询失败时不得显示默认关闭状态，独立强制恢复 action 必须保持可用。
 - `presentation/widgets/settings-tabs/identity-providers/`: LinuxDo、邮箱 OAuth、微信、钉钉与 OIDC 静态设置卡片；直接复用页面 context，由身份源 panel 按原顺序装配。
@@ -33,3 +36,8 @@ pnpm run typecheck
 ## 人员权限组
 
 `SettingsPermissionGroupsTab.vue` 按需挂载、独立加载和保存权限组，保存失败保留草稿。`permissionGroupsDatasource.ts` 与对应 DTO 负责协议。只有完整管理员可以编辑；`settings.manage` 不等同于授权管理。操作教程见 [权限组教程](../../../../docs/PERMISSION_GROUPS.md)。
+
+`RegistrationEmailBlacklistEditor.vue` 独立加载和保存注册邮箱名单；所属 datasource 直接使用统一网络客户端。
+匹配用户查询/禁用属于 `admin-users/data/datasources/userBlacklistActions.ts`；只有具备用户管理权限时展示
+核对入口，保存名单不会自动禁用用户。名单最多 20,000 地址，列表最多渲染 200 行，确认后按 1,000 用户
+顺序提交；失败保留未提交批次。升级与回退见 [同步审查](../../../../docs/UPSTREAM_SYNC_20261107.md)。

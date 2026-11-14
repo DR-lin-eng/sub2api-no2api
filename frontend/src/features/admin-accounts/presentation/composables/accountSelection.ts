@@ -1,5 +1,6 @@
 import type { Account } from '@/types'
 import { ACCOUNT_OAUTH_QUOTA_FILTER } from '@/features/admin-accounts/data/dtos/accountQuotaFilters'
+import { ACCOUNT_OAUTH_PLAN_FILTER } from '@/features/admin-accounts/data/dtos/accountPlanFilters'
 
 interface AccountIDRow {
   id: number
@@ -26,6 +27,7 @@ export interface AccountSelectionFilters {
   type?: string
   status?: string
   oauth_quota?: string
+  plan_type?: string
   excel_bps?: 'enabled' | 'disabled' | ''
   group?: string
   privacy_mode?: string
@@ -39,6 +41,17 @@ const readQuotaNumber = (value: unknown): number | null => {
     return Number.isFinite(parsed) ? parsed : null
   }
   return null
+}
+
+const normalizePlanType = (value: unknown): string =>
+  typeof value === 'string' ? value.trim().toLowerCase().replace(/[\s_-]+/g, '') : ''
+
+const accountMatchesOAuthPlan = (account: Account, filter: string): boolean => {
+  if (account.platform !== 'openai' || account.type !== 'oauth') return false
+  const plan = normalizePlanType((account.credentials as Record<string, unknown> | undefined)?.plan_type)
+  if (!plan) return false
+  if (filter === ACCOUNT_OAUTH_PLAN_FILTER.pro) return plan === 'pro' || plan === 'chatgptpro'
+  return plan === normalizePlanType(filter)
 }
 
 const quotaResetIsActive = (value: unknown, now: number, unixSeconds = false): boolean => {
@@ -244,7 +257,7 @@ export function accountMatchesFilters(account: Account, filters: AccountSelectio
     const authMode = String(credentials.auth_mode ?? credentials.openai_auth_mode ?? '').toLowerCase()
     if (
       account.platform !== 'openai' || account.type !== 'oauth' || account.parent_account_id != null ||
-      ['personalaccesstoken', 'personal_access_token', 'agentidentity'].includes(authMode)
+      ['personalaccesstoken', 'personal_access_token', 'agentidentity', 'siwc'].includes(authMode)
     ) return false
     const extra = (account.extra ?? {}) as Record<string, unknown>
     const enabled = typeof extra.excel_bps_enabled === 'boolean'
@@ -254,6 +267,7 @@ export function accountMatchesFilters(account: Account, filters: AccountSelectio
     if (filters.excel_bps === 'disabled' && enabled) return false
   }
   const quotaFilter = filters.oauth_quota ?? ''
+  if (filters.plan_type && !accountMatchesOAuthPlan(account, filters.plan_type)) return false
   if (quotaFilter === ACCOUNT_OAUTH_QUOTA_FILTER.exhausted && !accountHasExhaustedOAuthQuota(account, now)) return false
   if (quotaFilter === ACCOUNT_OAUTH_QUOTA_FILTER.hasQuota &&
     (!accountHasKnownOAuthQuota(account) || accountHasExhaustedOAuthQuota(account, now))) return false

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/netip"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
@@ -35,7 +36,7 @@ func (s *httpUpstreamService) doWithTLSRouteAndVirtualClientKey(req *http.Reques
 }
 
 // User-controlled destinations use fresh transports so ordinary upstream pools
-// and their private-host exceptions cannot weaken image download validation.
+// and their private-host exceptions cannot weaken public destination validation.
 type publicDestinationTransport struct {
 	resolver  platformegress.IPResolver
 	allowHTTP bool
@@ -46,8 +47,8 @@ type publicDestinationTransport struct {
 }
 
 func (s *httpUpstreamService) doPublicDestination(req *http.Request, route platformegress.Route, concurrency int) (*http.Response, error) {
-	if req.Method != http.MethodGet && req.Method != http.MethodHead {
-		return nil, fmt.Errorf("public image download requires GET or HEAD")
+	if err := validatePublicDestinationMethod(req); err != nil {
+		return nil, err
 	}
 	effective, _, _, proxyURL, err := s.normalizeEgressRoute(route)
 	if err != nil {
@@ -82,6 +83,31 @@ func (s *httpUpstreamService) doPublicDestination(req *http.Request, route platf
 	return resp, err
 }
 
+func validatePublicDestinationMethod(req *http.Request) error {
+	if !service.HTTPUpstreamPublicUpload(req.Context()) {
+		if req.Method != http.MethodGet && req.Method != http.MethodHead {
+			return fmt.Errorf("public image download requires GET or HEAD")
+		}
+		return nil
+	}
+	if req.Method != http.MethodPut || req.URL == nil || req.URL.Scheme != "https" ||
+		!service.HTTPUpstreamRedirectsDisabled(req.Context()) {
+		return fmt.Errorf("public image upload requires HTTPS PUT without redirects")
+	}
+	if req.ContentLength <= 0 || req.ContentLength > 50<<20 || req.Body == nil {
+		return fmt.Errorf("public image upload requires a bounded image body")
+	}
+	for key, values := range req.Header {
+		switch strings.ToLower(key) {
+		case "authorization", "cookie", "chatgpt-account-id", "x-openai-expected-account-id":
+			if len(values) > 0 {
+				return fmt.Errorf("public image upload must not include account credentials")
+			}
+		}
+	}
+	return nil
+}
+
 func (t *publicDestinationTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if req.URL == nil {
 		return nil, fmt.Errorf("public image URL is required")
@@ -103,6 +129,17 @@ func (t *publicDestinationTransport) RoundTrip(req *http.Request) (*http.Respons
 			return nil, err
 		}
 		pinned := pinPublicDestination(req, ip)
+		if len(failures) > 0 && req.Body != nil && req.Body != http.NoBody {
+			// A failed address may already have consumed the upload reader.
+			// Recreate its bounded bytes rather than sending an empty PUT.
+			if req.GetBody == nil {
+				return nil, errors.Join(failures...)
+			}
+			pinned.Body, err = req.GetBody()
+			if err != nil {
+				return nil, err
+			}
+		}
 		resp, err := transport.RoundTrip(pinned)
 		transport.CloseIdleConnections()
 		if err == nil {

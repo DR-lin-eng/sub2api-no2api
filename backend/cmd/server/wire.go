@@ -110,6 +110,8 @@ func provideCleanup(
 	emailQueue *service.EmailQueueService,
 	billingCache *service.BillingCacheService,
 	usageRecordWorkerPool *service.UsageRecordWorkerPool,
+	balanceNotify *service.BalanceNotifyService,
+	digestSessions *service.DigestSessionStore,
 	usageBillingRepository service.UsageBillingRepository,
 	_ *service.UsageBillingQueueRuntimeCoordinator,
 	subscriptionService *service.SubscriptionService,
@@ -123,6 +125,7 @@ func provideCleanup(
 	accountInspection *service.AccountInspectionService,
 	accountQuality *service.AccountQualityMonitoringService,
 	oauthModelSync *service.OAuthModelSyncService,
+	openAIUsageSync *service.OpenAIUsageSyncService,
 	backupSvc *service.BackupService,
 	paymentOrderExpiry *service.PaymentOrderExpiryService,
 	channelMonitorRunner *service.ChannelMonitorRunner,
@@ -143,6 +146,9 @@ func provideCleanup(
 	egressService *moduleegress.Service,
 ) func() {
 	return func() {
+		if openAIUsageSync != nil {
+			openAIUsageSync.Stop()
+		}
 		if channelService != nil {
 			channelService.Stop()
 		}
@@ -156,6 +162,18 @@ func provideCleanup(
 
 		// 应用层清理步骤可并行执行，基础设施资源（Redis/Ent）最后按顺序关闭。
 		parallelSteps := []cleanupStep{
+			{"BalanceNotifyService", func() error {
+				if balanceNotify != nil {
+					balanceNotify.Stop()
+				}
+				return nil
+			}},
+			{"DigestSessionStore", func() error {
+				if digestSessions != nil {
+					digestSessions.Close()
+				}
+				return nil
+			}},
 			{"IPv6EgressService", func() error {
 				if egressService != nil {
 					egressService.Stop()

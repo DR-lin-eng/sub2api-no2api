@@ -1,0 +1,2 @@
+export * from '/work/frontend/src/features/admin-accounts/data/datasources/adminAccountQueries.ts'
+export async function getUsage(){return {five_hour:null,seven_day:null,updated_at:null,antigravity_quota_groups:[{key:'gemini',name:'Gemini Models',windows:[{window:'5h',utilization:38,resets_at:null},{window:'weekly',utilization:72,resets_at:null}]},{key:'3p',name:'Claude and GPT models',windows:[{window:'5h',utilization:12,resets_at:null},{window:'weekly',utilization:41,resets_at:null}]}]}}

@@ -74,6 +74,7 @@ type RelayOptions struct {
 	FirstMessageSent                bool
 	StartClientAfterFirstDownstream bool
 	LegacyTTFT                      bool
+	IsFirstTokenEvent               func(eventType string, message []byte) bool
 	OnUsageParseFailure             func(eventType string, usageRaw string)
 	OnTurnComplete                  func(turn RelayTurnResult)
 	BeforeWriteClient               func(msgType coderws.MessageType, payload []byte, wroteDownstream bool) error
@@ -120,6 +121,7 @@ type relayState struct {
 	pendingFirstEventTTFTMs *int
 	pendingFirstEventMu     sync.Mutex
 	legacyTTFT              bool
+	isFirstTokenEvent       func(eventType string, message []byte) bool
 	turnTimingByID          map[string]*relayTurnTiming
 	activeTurn              *relayTurnTiming
 }
@@ -151,6 +153,18 @@ type relayTurnTiming struct {
 	firstResponseModel    string
 	terminalResponseModel string
 	responseModelConflict bool
+}
+
+func (s *relayState) startsFirstToken(eventType string, message []byte) bool {
+	// The local Codex first-event metric is independent of the configurable
+	// token classifier. Preserve it while aligning payload-aware token timing.
+	if isFirstEventTTFTEvent(eventType) {
+		return true
+	}
+	if s != nil && s.isFirstTokenEvent != nil {
+		return !isTerminalEvent(eventType) && s.isFirstTokenEvent(eventType, message)
+	}
+	return isTTFTEvent(eventType, s != nil && s.legacyTTFT)
 }
 
 const relayResponseModelMaxLength = 200
@@ -187,7 +201,7 @@ func Relay(
 		firstMessageType = coderws.MessageText
 	}
 	startAt := nowFn()
-	state := &relayState{requestModel: result.RequestModel, legacyTTFT: options.LegacyTTFT}
+	state := &relayState{requestModel: result.RequestModel, legacyTTFT: options.LegacyTTFT, isFirstTokenEvent: options.IsFirstTokenEvent}
 	state.pendingTurn.Store(strings.TrimSpace(gjson.GetBytes(firstClientMessage, "type").String()) == "response.create")
 	onTrace := options.OnTrace
 
@@ -794,7 +808,8 @@ func observeUpstreamMessage(
 	}
 
 	isLocalFirstEventTTFT := isFirstEventTTFTEvent(eventType)
-	if isTTFTEvent(eventType, state.legacyTTFT) {
+	startsFirstToken := state.startsFirstToken(eventType, message)
+	if startsFirstToken {
 		ms := int(now.Sub(startAt).Milliseconds())
 		if ms >= 0 {
 			if isLocalFirstEventTTFT {
@@ -827,7 +842,7 @@ func observeUpstreamMessage(
 		if turnTiming != nil && turnTiming.firstTokenMs == nil {
 			if pending := state.takePendingFirstEventTTFT(); pending != nil {
 				turnTiming.firstEventTTFTMs = pending
-			} else if isTTFTEvent(eventType, state.legacyTTFT) {
+			} else if startsFirstToken {
 				if !isLocalFirstEventTTFT {
 					ms := int(now.Sub(turnTiming.startAt).Milliseconds())
 					if ms >= 0 {
@@ -840,6 +855,12 @@ func observeUpstreamMessage(
 		}
 	} else {
 		turnTiming = state.activeTurn
+	}
+	if turnTiming != nil && turnTiming.firstTokenMs == nil && startsFirstToken && !isLocalFirstEventTTFT {
+		ms := int(now.Sub(turnTiming.startAt).Milliseconds())
+		if ms >= 0 {
+			turnTiming.firstTokenMs = &ms
+		}
 	}
 	observeRelayTurnResponseModel(turnTiming, firstRelayResponseModel(message), isTerminalEvent(eventType))
 	if turnTiming != nil {

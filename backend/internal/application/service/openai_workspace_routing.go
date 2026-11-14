@@ -17,13 +17,17 @@ import (
 )
 
 const (
-	openAIAccountRoutingOverrideHeader = "x-openai-account-routing-override"
-	openAIWorkspaceRoutingDiscoveryURL = "https://chatgpt.com/backend-api/wham/accounts/check"
-	openAIWorkspaceRoutingTimeout      = 10 * time.Second
-	openAIWorkspaceRoutingBodyLimit    = 1 << 20
+	openAIAccountRoutingOverrideHeader  = "x-openai-account-routing-override"
+	openAIWorkspaceRoutingDiscoveryURL  = "https://chatgpt.com/backend-api/wham/accounts/check"
+	openAIWorkspaceRoutingTimeout       = 10 * time.Second
+	openAIWorkspaceRoutingBodyLimit     = 1 << 20
+	openAIWorkspaceRoutingCacheControl  = "no-store"
+	openAIWorkspaceRoutingDeniedTTL     = time.Minute
+	openAIWorkspaceRoutingFailureReason = GatewayFailureReason("openai_workspace_routing_unavailable")
 )
 
 var errOpenAIWorkspaceRoutingUnavailable = errors.New("openai workspace routing unavailable")
+var errOpenAIWorkspaceRoutingDiscoveryDenied = errors.New("workspace discovery access denied")
 
 type openAIWorkspaceRouting struct {
 	chatGPTAccountID       string
@@ -35,6 +39,7 @@ type cachedOpenAIWorkspaceRouting struct {
 	tokenDigest      [sha256.Size]byte
 	chatGPTAccountID string
 	routing          openAIWorkspaceRouting
+	expiresAt        time.Time
 }
 
 type openAIWorkspaceRoutingWireEntry struct {
@@ -77,9 +82,6 @@ func (s *OpenAIGatewayService) resolveOpenAIWorkspaceRouting(
 	// token on the verified first-party ChatGPT origin; custom/global relays are
 	// deliberately left on their existing route until an explicit trusted
 	// discovery contract exists for that relay.
-	// This checkout uses the official ChatGPT Codex target directly. Custom
-	// relay support lives on a newer branch; keeping discovery tied to the
-	// fixed first-party origin preserves the bearer-token boundary here.
 	if s.httpUpstream == nil {
 		return nil, fmt.Errorf("%w: HTTP upstream is not configured", errOpenAIWorkspaceRoutingUnavailable)
 	}
@@ -90,6 +92,13 @@ func (s *OpenAIGatewayService) resolveOpenAIWorkspaceRouting(
 	}
 	if credentialAccount == nil {
 		return nil, fmt.Errorf("%w: credential account is missing", errOpenAIWorkspaceRoutingUnavailable)
+	}
+	// Desktop environment/workspace requests re-check both account and user
+	// ownership before rebuilding routing headers. Do the same at discovery time
+	// so a rotated token cannot keep a durable connection or workspace route
+	// attached to the previous principal.
+	if err := validateOpenAIOAuthRequestPrincipal(credentialAccount, accessToken); err != nil {
+		return nil, fmt.Errorf("%w: token principal changed", errOpenAIWorkspaceRoutingUnavailable)
 	}
 	chatGPTAccountID, accountChanged := openAIWorkspaceRoutingAccountID(credentialAccount, accessToken)
 	if accountChanged {
@@ -120,13 +129,32 @@ func (s *OpenAIGatewayService) resolveOpenAIWorkspaceRouting(
 			accessToken,
 			chatGPTAccountID,
 		)
-		if discoverErr != nil {
+		var expiresAt time.Time
+		if errors.Is(discoverErr, errOpenAIWorkspaceRoutingDiscoveryDenied) {
+			// A Codex bearer can be accepted by Responses while WHAM discovery
+			// denies access. Let the model endpoint validate authentication rather
+			// than turning this auxiliary 401/403 into a synthetic model 502.
+			// Keep the default official route, selected principal and redirect
+			// protection; retry discovery shortly, or immediately on token change.
+			routing = openAIWorkspaceRouting{
+				chatGPTAccountID:       chatGPTAccountID,
+				backendOrigin:          "NO_CONSTRAINT",
+				accountRoutingOverride: "NO_CONSTRAINT",
+			}
+			expiresAt = time.Now().Add(openAIWorkspaceRoutingDeniedTTL)
+			slog.Info("openai workspace routing discovery denied; using default Codex route",
+				"account_id", account.ID,
+				"credential_account_id", credentialAccount.ID,
+				"retry_after_seconds", openAIWorkspaceRoutingDeniedTTL.Seconds(),
+			)
+		} else if discoverErr != nil {
 			return nil, discoverErr
 		}
 		s.openAIWorkspaceRoutingCache.Store(credentialAccount.ID, cachedOpenAIWorkspaceRouting{
 			tokenDigest:      tokenDigest,
 			chatGPTAccountID: chatGPTAccountID,
 			routing:          routing,
+			expiresAt:        expiresAt,
 		})
 		return routing, nil
 	})
@@ -158,7 +186,8 @@ func (s *OpenAIGatewayService) loadOpenAIWorkspaceRouting(
 		return openAIWorkspaceRouting{}, false
 	}
 	cached, ok := value.(cachedOpenAIWorkspaceRouting)
-	if !ok || cached.tokenDigest != tokenDigest || cached.chatGPTAccountID != chatGPTAccountID {
+	if !ok || cached.tokenDigest != tokenDigest || cached.chatGPTAccountID != chatGPTAccountID ||
+		(!cached.expiresAt.IsZero() && !time.Now().Before(cached.expiresAt)) {
 		return openAIWorkspaceRouting{}, false
 	}
 	return cached.routing, true
@@ -181,6 +210,7 @@ func (s *OpenAIGatewayService) discoverOpenAIWorkspaceRouting(
 		return openAIWorkspaceRouting{}, fmt.Errorf("%w: build discovery request", errOpenAIWorkspaceRoutingUnavailable)
 	}
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Cache-Control", openAIWorkspaceRoutingCacheControl)
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	setOpenAIChatGPTAccountHeaders(req.Header, credentialAccount)
 	identity := resolveCodexOutboundIdentity(s.codexIdentityOverrideUA(credentialAccount))
@@ -206,6 +236,9 @@ func (s *OpenAIGatewayService) discoverOpenAIWorkspaceRouting(
 	}
 	if len(body) > openAIWorkspaceRoutingBodyLimit {
 		return openAIWorkspaceRouting{}, fmt.Errorf("%w: discovery response is too large", errOpenAIWorkspaceRoutingUnavailable)
+	}
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return openAIWorkspaceRouting{}, fmt.Errorf("%w: %w (HTTP %d)", errOpenAIWorkspaceRoutingUnavailable, errOpenAIWorkspaceRoutingDiscoveryDenied, resp.StatusCode)
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return openAIWorkspaceRouting{}, fmt.Errorf("%w: discovery returned HTTP %d", errOpenAIWorkspaceRoutingUnavailable, resp.StatusCode)
@@ -383,7 +416,7 @@ func newOpenAIWorkspaceRoutingFailoverError(err error) *UpstreamFailoverError {
 	return &UpstreamFailoverError{
 		StatusCode:        http.StatusBadGateway,
 		Scope:             GatewayFailureScopeAccount,
-		Reason:            GatewayFailureReason("openai_workspace_routing_unavailable"),
+		Reason:            openAIWorkspaceRoutingFailureReason,
 		NextAccountAction: NextAccountRetry,
 		ClientStatusCode:  http.StatusBadGateway,
 		ClientMessage:     "OpenAI workspace routing is temporarily unavailable",

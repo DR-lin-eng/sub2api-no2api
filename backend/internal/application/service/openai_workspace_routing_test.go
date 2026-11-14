@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -55,6 +57,16 @@ func workspaceRoutingTestAccount() *Account {
 			"chatgpt_account_id": "workspace-71",
 		},
 	}
+}
+
+func workspaceRoutingToken(accountID, userID string) string {
+	payload, _ := json.Marshal(map[string]any{
+		"https://api.openai.com/auth": map[string]any{
+			"chatgpt_account_id": accountID,
+			"chatgpt_user_id":    userID,
+		},
+	})
+	return "eyJhbGciOiJub25lIn0." + base64.RawURLEncoding.EncodeToString(payload) + ".fixture"
 }
 
 func newWorkspaceRoutingTestContext(t *testing.T) *gin.Context {
@@ -153,6 +165,7 @@ func TestBuildOpenAIRequestAppliesDiscoveredWorkspaceRouting(t *testing.T) {
 	require.Equal(t, openAIWorkspaceRoutingDiscoveryURL, discovery.URL.String())
 	require.Equal(t, "Bearer request-token", discovery.Header.Get("Authorization"))
 	require.Equal(t, "workspace-71", discovery.Header.Get("ChatGPT-Account-Id"))
+	require.Equal(t, "no-store", discovery.Header.Get("Cache-Control"))
 	require.NotEmpty(t, discovery.Header.Get("User-Agent"))
 	require.NotEmpty(t, discovery.Header.Get("originator"))
 	require.True(t, HTTPUpstreamRedirectsDisabled(discovery.Context()))
@@ -202,6 +215,31 @@ func TestOpenAIWorkspaceRoutingCacheKeysByToken(t *testing.T) {
 	upstream.mu.Lock()
 	require.Len(t, upstream.requests, 2, "same token should hit cache; a refreshed token must rediscover routing")
 	upstream.mu.Unlock()
+}
+
+func TestResolveOpenAIWorkspaceRoutingRejectsChangedUserPrincipalBeforeCachedRouteReuse(t *testing.T) {
+	upstream := &openAIWorkspaceRoutingUpstream{responses: []*http.Response{
+		workspaceRoutingResponse(http.StatusOK, `{"accounts":[{"id":"workspace-71","workspace_backend_origin":"NO_CONSTRAINT","account_routing_override":"NO_CONSTRAINT"}]}`),
+	}}
+	service := &OpenAIGatewayService{httpUpstream: upstream}
+	service.enableOpenAIWorkspaceRouting()
+	account := workspaceRoutingTestAccount()
+	account.Credentials["chatgpt_user_id"] = "user-a"
+	token := workspaceRoutingToken("workspace-71", "user-a")
+	_, err := service.resolveOpenAIWorkspaceRouting(context.Background(), account, token)
+	require.NoError(t, err)
+	require.Len(t, upstream.requests, 1)
+
+	account.Credentials["chatgpt_user_id"] = "user-b"
+	_, err = service.resolveOpenAIWorkspaceRouting(
+		context.Background(),
+		account,
+		token,
+	)
+	require.Error(t, err)
+	require.NotContains(t, err.Error(), "user-a")
+	require.NotContains(t, err.Error(), "user-b")
+	require.Len(t, upstream.requests, 1, "a mismatched user must not reuse cached routing or send a second discovery")
 }
 
 func TestBuildOpenAIRequestWorkspaceRoutingFailureIsAccountFailover(t *testing.T) {

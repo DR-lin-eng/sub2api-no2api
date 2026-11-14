@@ -224,6 +224,9 @@ func (s *OpenAICodexUsageSnapshot) Normalize() *NormalizedCodexLimits {
 
 // OpenAIUsage represents OpenAI API response usage
 type OpenAIUsage struct {
+	SVGUsage *OpenAIImagesSVGUsage `json:"svg_usage,omitempty"`
+
+	ImageCacheReadTokens     int     `json:"image_cache_read_tokens,omitempty"`
 	ServiceTier              *string `json:"-"` // Actual upstream tier, when supplied alongside usage.
 	ReasoningTokens          *int    `json:"reasoning_tokens,omitempty"`
 	InputTokens              int     `json:"input_tokens"`
@@ -467,6 +470,7 @@ type OpenAIGatewayService struct {
 	userGroupRateResolver   *userGroupRateResolver
 	httpUpstream            HTTPUpstream
 	deferredService         *DeferredService
+	usageSync               *OpenAIUsageSyncService
 	openAITokenProvider     *OpenAITokenProvider
 	grokTokenProvider       *GrokTokenProvider
 	toolCorrector           *CodexToolCorrector
@@ -511,6 +515,9 @@ type OpenAIGatewayService struct {
 	openAIWorkspaceRoutingEnabled  bool
 	openAIWorkspaceRoutingCache    sync.Map
 	openAIWorkspaceRoutingSF       singleflight.Group
+	openAILocationMu               sync.Mutex
+	openAILocationSF               singleflight.Group
+	openAILocationCache            map[string]openAILocationCacheEntry
 	openAIIntegrityMu              sync.Mutex
 	openAIIntegrityStates          map[string]openAIIntegrityBinding
 	openAIDeviceCookieMu           sync.Mutex
@@ -645,6 +652,7 @@ func NewOpenAIGatewayService(
 		liveAttestation:         liveattestation.NewProvider(),
 		liveAttestationCipher:   newLiveAttestationCipher(cfg),
 		openAIIntegrityStates:   make(map[string]openAIIntegrityBinding),
+		openAILocationCache:     make(map[string]openAILocationCacheEntry),
 		responseHeaderFilter:    compileResponseHeaderFilter(cfg),
 		codexSnapshotThrottle:   newAccountWriteThrottle(openAICodexSnapshotPersistMinInterval),
 		openaiModelTransient:    newOpenAIAccountModelTransientState(openAIModelTransientDefaultMax),

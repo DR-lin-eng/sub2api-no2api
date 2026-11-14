@@ -26,7 +26,21 @@ vi.mock('@/features/admin-accounts/data/datasources/adminAccountOAuthActions', (
 }))
 
 import { useOpenAIOAuth } from '@/features/admin-accounts/presentation/composables/useOpenAIOAuth'
-import { exchangeOpenAICode } from '@/features/admin-accounts/data/datasources/adminAccountOAuthActions'
+import { exchangeOpenAICode, generateOpenAIAuthUrl } from '@/features/admin-accounts/data/datasources/adminAccountOAuthActions'
+
+describe('SIWC authorization', () => {
+  it('passes the selected protocol and preserves the dynamic credentials', async () => {
+    vi.mocked(generateOpenAIAuthUrl).mockResolvedValueOnce({ auth_url: 'https://auth.openai.com/api/accounts/authorize?state=siwc-state', session_id: 'siwc-session' })
+    const oauth = useOpenAIOAuth()
+    await expect(oauth.generateAuthUrl(7, undefined, 'siwc')).resolves.toBe(true)
+    expect(generateOpenAIAuthUrl).toHaveBeenCalledWith({ proxy_id: 7, flow: 'siwc' })
+    const callback = 'http://127.0.0.1:1455/auth/callback?code=code&state=siwc-state&client_id=oaiapp_issued'
+    vi.mocked(exchangeOpenAICode).mockResolvedValueOnce({ access_token: 'at', refresh_token: 'rt', auth_mode: 'siwc', client_id: 'oaiapp_issued', scope: 'chatgpt.tokens.use.direct', device_id: 'device' })
+    const token = await oauth.exchangeAuthCode(callback, oauth.sessionId.value, oauth.oauthState.value, 7)
+    expect(exchangeOpenAICode).toHaveBeenLastCalledWith({ session_id: 'siwc-session', code: callback, state: 'siwc-state', proxy_id: 7 })
+    expect(oauth.buildCredentials(token!)).toMatchObject({ auth_mode: 'siwc', client_id: 'oaiapp_issued', device_id: 'device', scope: 'chatgpt.tokens.use.direct' })
+  })
+})
 
 describe('useOpenAIOAuth.buildCredentials', () => {
   it('should keep client_id when token response contains it', () => {

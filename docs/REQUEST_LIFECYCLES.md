@@ -1,5 +1,7 @@
 # Sub2API 关键请求链路
 
+OpenAI OAuth 模型请求在发送时通知后台额度同步服务：active 账号首次调用触发 WS，后续调用续期，空闲 10 分钟关闭。后台 owner 通过 Celsius discovery、topic/presence 和通知注册持续接收并持久化快照，不依赖管理页面。管理员 WS 仅观察后台结果，失败时继续原主动查询与被动列表刷新；“使用统计”的上游详情使用固定资源 Query，独立管理模型、会话、余额及历史缓存。见 [OpenAI 实时额度与用量详情](OPENAI_USAGE.md)。
+
 账号列表批量同步上游模型由 `admin-accounts` 的同步 composable 顺序分批调用管理端账号路由，经 `account_models_batch.go` 进入 `AccountTestService.BatchSyncUpstreamModels`。该用例复用平台模型查询，通过 repository 的行锁/JSONB 合并新增映射，同时写 scheduler outbox 并刷新缓存；失败账号保留原配置。规则与验证见 [批量同步说明](ACCOUNT_UPSTREAM_MODELS_SYNC.md)。
 
 本文给出高频链路的阅读顺序和不变量。它刻意省略平台内部的全部分支；调试具体问题时，应从命中的路由和 handler 继续追踪。
@@ -58,9 +60,45 @@ Responses 走图片编辑桥接时，用户提交的图片与遮罩 URL 在共�
 
 普通 OpenAI OAuth 账号在 `extra.excel_bps_enabled=true` 且不是独立 compact 路径时将 Responses 请求转入账号级 Excel/Basispoints 桥接；桥接不支持的原生托管工具显式报错，不静默回退。账号管理页的 `excel_bps=enabled|disabled` 在 PostgreSQL JSONB 谓词中先于分页计算，同时用于批量编辑目标解析、导出和上游计费快照；批量 BPS 开关在写入前校验所有账号资格，SQL 写入时复查并保持整批原子性；DeepSeek 专用兼容调整分别落在 Responses 出站请求与 Chat Completions 出站/回退链路。配置、能力边界和验证入口见 [Excel BPS 与 DeepSeek 兼容](BPS_DEEPSEEK_COMPAT.md)。
 
-OpenAI OAuth Responses、自动透传和原生 WebSocket 握手收到上游 `401` 且错误码为 `token_expired` 时，网关先删除该账号的 token 缓存，在分布式刷新锁下强制执行一次 refresh token 流程，即使数据库中的 `expires_at` 仍在未来；刷新成功后仅重放当前请求一次并继续使用同一账号。刷新失败、refresh token 缺失、`token_revoked`/`token_invalidated` 或再次收到 401 继续走原有账号冷却、永久错误和 failover 策略。其它 401 不会被误判为可恢复过期。
+SIWC OpenAI OAuth 账号的管理端额度卡复用 WHAM 用量服务，但使用 SIWC agent User-Agent、Bearer access token 和 `chatgpt-account-id` principal。主动查询读取 `rate_limits_by_limit_id` 中的 5 小时/7 天窗口，并读取 reset credit 数量及每张 credit 的过期时间；重置按钮调用 `rate-limit-reset-credits/consume`，成功后刷新窗口和 credit 快照。SIWC 账号的 token 刷新仍走动态 client_id 的 SIWC refresh endpoint。查询和重置请求不经过本地 ChatGPT 隐私设置或 Codex 模拟路径。
+
+OpenAI OAuth Responses、自动透传和原生 WebSocket 握手收到上游 `401` 且错误码为 `token_expired`，或 ChatGPT Team 工作区返回无结构化错误码的通用 Unauthorized 时，网关先删除该账号的 token 缓存，在分布式刷新锁下强制执行一次 refresh token 流程，即使数据库中的 `expires_at` 仍在未来；刷新成功后仅重放当前请求一次并继续使用同一账号。刷新失败、refresh token 缺失、`token_revoked`/`token_invalidated`、明确的禁用/撤销错误码或再次收到 401 继续走原有账号冷却、永久错误和 failover 策略。OpenAI OAuth refresh 响应缺少 `id_token` 时，系统从新的 access token 重新提取 ChatGPT/Team workspace、用户、套餐和 POID 字段，避免沿用旧 workspace 路由身份。
+
+上述重放要求刷新前后的已知 workspace/user 一致；身份改变时返回账号级 `account_changed`，当前轮次不在新主体上重发，刷新后的凭据供后续独立请求使用。WS 池还比较最终账号/FedRAMP 头和 credential principal 摘要；旧握手不能跟随变更后的身份复用。WHAM 路由发现先核对 account/user，并以 `Cache-Control: no-store` 和禁止重定向发送。Responses/Compact 的实际 HTTP/WS 发送点不再回带或消费旧 `X-OAI-IS` 更新状态；完整性/本地路由字段也不能经 metadata 注入。各桌面通信面和超时阶段的证据边界见 [桌面端增量对照](codex/desktop-request-alignment.md)。
+
+WHAM 工作区发现的 401/403 不等同于模型接口拒绝凭据；此时保留已选账号头和禁止重定向策略，使用默认官方 Codex 路由，并按当前 token 退避 60 秒，换 token 后立即重新发现。模型接口确认的 401 仍按上一段规则刷新一次，失败后由现有策略标记账号错误或暂时停止调度。其它发现错误、无效路由或主体不一致继续终止当前账号尝试，不触发非流式 WS 临时 5xx 的 HTTP 回退，避免同一发现错误在两个传输间重复。
+
+2026-11-07 桌面对齐补充个人/工作区套餐类别连续性：同账号、同用户的 Team→Plus 也中止当前轮次重放，Plus→Pro 或已确认 workspace 套餐间变化可继续；WS 池按同一类别重建不兼容连接。请求路径结合实际 bearer 的 JWT `exp` 与对应 `expires_at` 取较早期限，提前 5 分钟进入既有锁保护的刷新，不以旧缓存 TTL 延长已过期 token 的使用。来源、桌面后台刷新与网关同步刷新的差异见同一对照文档。
+
+普通 OpenAI HTTP Responses 遇到 TLS 握手超时，且 HTTP trace 确认请求头尚未发送、下游尚无语义输出时，会在同一账号上等待 250ms 后重试一次。SSE 注释心跳不消耗这次恢复机会；请求取消会中止等待。第二次仍失败则进入现有传输 failover 和短时冷却策略，蒸馏分组继续只发一次上游请求。透传路径使用原有请求级重试预算。
+
+OpenAI OAuth HTTP Responses、compact 与自动透传仍默认以 zstd 发送每个新请求。已压缩请求收到精确的 `400 {"detail":"Bad Request"}`，或单字段 `detail` 明确指出不支持 zstd/Content-Encoding 的 415 时，只对可安全重放且尚无语义输出的请求，在同账号、同出口上执行一次未压缩重发。解码实际发送的快照后保留完整 JSON 字节和身份，重新计算长度；不重新执行请求转换、不删除输入、不修改账号压缩设置。请求内标记限制跨账号/透传重试累计至多一次；透传的第二次发送消耗既有总预算。原始与最终请求都必须通过重放检查，存储/后台响应、上游工具、增量 continuation、取消或已提交输出与蒸馏分组不进入此恢复。下一条新请求仍先使用 zstd。代码和 Docker 证据见 [保留压缩的 400 恢复](../diagnostics/issue-8636-fix-20261113/README.md)。
 
 OpenAI OAuth 历史重放会移除 `type=reasoning` 条目中的非空 `content` 数组，因为 ChatGPT Codex 输入契约的该字段最大长度为 0；保留整个条目、`summary` 与 `encrypted_content`，不截断顶层 `input` 历史，也不改写普通消息或工具内容。普通/透传 HTTP、compact 与原生 WebSocket 每轮使用同一约束；API Key 账号不应用该 OAuth 专用转换。原始 JSON 路径保留其它字段的数值精度与内容字节。
+
+HTTP 200 中的 Responses 通用失败支持嵌套、扁平、named/bare SSE 以及有界 JSON 错误信封。错误在输出前分类，只有原始/最终请求均可安全重放、尚无语义输出且未报告用量时，才在同账号上等待 250 ms 后重试一次；之后仍失败则由既有调度处理。输出后的真实 EOF/读取错误保留已发送和缓冲的正文，补齐帧边界并以明确分类的 `response.failed` 终止，不继续重放。当前逻辑请求已经协商的压缩编码保留到重试结束，新请求仍默认 zstd。实现、边界与 Docker 证据见 [HTTP 200 流内失败与断流恢复](../diagnostics/http200-stream-20261113/README.md)。
+
+## ChatGPT App 专用生图
+
+普通 ChatGPT OAuth 的 Images 请求默认捕获新版模式，经过验证准备、参考图上传、
+`/f/conversation` 的流/续接和图像下载，再投影回既有 Images JSON/SSE。
+验证准备按报告第 12 节执行纯协议环境数组、Go PoW 与有界进程内 VM；
+设备头复用既有账号持久身份，每轮临时 UUID、挑战和令牌独立，内部 Electron 控制头不出站。
+开关为 `openai_images_legacy_enabled`，管理端可恢复原 Codex 实现。
+同一请求不因配置变更或下载失败重新生成；已完成图像的张数、尺寸及用量进入原可靠结算 owner。
+API Key 与 SIWC 的图片调用始终走标准 Images，普通 OAuth 才可使用 App 适配。
+普通 OAuth 在新版模式下仅因 SVG 输出/作者配置、mask 或 markup 选择原生链路。尺寸、背景、静态格式、质量、复杂度、压缩、部分图片、审核、保真度、风格和安全标识等可选字段不改变选路；普通图片生成忽略这些 App 不支持的字段，结果以实际返回格式与尺寸为准。
+选路在第一次发送前确定，不先生成再重放，也不添加对外回退提示。SVG 文件规范化保留作者用量与未知元数据。
+GIF 请求与 OAuth 账号测试共用 App 动画指令和实际文件校验，检查帧数及舍入后的帧时长；质量、复杂度、审核、参考图保真度和风格控制转为动画指令，其余可选字段忽略。完成后按实际帧数进入可靠结算，格式或控制不符不触发重新生成。
+GIF 编辑显式填写默认复杂度/审核级别与省略保持同一选路；参考 PNG 在生成前经过有界、无账号凭据的 HTTPS PUT 上传，保留独立的公共目的地校验和 DNS 固定。
+协议能力、原生参数和显式 token 定价的限制见 [App 生图与旧版回退](CHATGPT_APP_IMAGES.md)。
+
+## 站内会话刷新
+
+`POST /api/v1/auth/refresh` 从请求或 HttpOnly cookie 读取 refresh credential，应用层先校验期限、用户状态、
+TokenVersion 和会话绑定，再通过 `RefreshTokenCache.ConsumeRefreshToken` 原子消费旧凭据。
+Redis repository 用 Lua 将 GET 与 DEL 合为一次操作；只有一个并发调用可签发后继令牌，消费失败则拒绝签发。
+原 key、JSON、TTL、家族与绑定格式继续兼容；混合版本部署边界见 [同步与升级说明](UPSTREAM_SYNC_20261112.md)。
 
 ## OAuth2 对外授权
 
@@ -284,6 +322,8 @@ OAuth 授权码、refresh token、账号隐私/授权接口仍使用 OpenAI 官�
 
 管理员在“系统设置 → 网关服务 → 请求转发行为”的“OpenAI 请求时区替换”中统一控制 `openai_request_timezone_enabled` 和 `openai_request_timezone`。设置随主设置接口读写并持久化到数据库，保存后当前实例立即使用新值，其他实例最多 60 秒刷新；关闭时保留客户端原始时区。未配置目标或留空时沿用 `gateway.openai_request_timezone` / `GATEWAY_OPENAI_REQUEST_TIMEZONE`（默认 `Asia/Singapore`），不改变服务器时间或计费自然日。HTTP 与 WS 首轮/后续 `response.create` 共用设置，完整的用户 `environment_context` 与搜索工具 `user_location.timezone` 执行定点替换。
 
+同一面板的“OpenAI 精确位置坐标”由管理员只填写大概纬度/经度并显式开启后生效。每个 OpenAI 账号首次实际出站请求时在管理员坐标 500 米范围内生成一次偏移并写入账号 `extra`；之后仅在请求到达且缓存超过 10 分钟时，围绕该持久化坐标生成一次 10 米范围内缓存偏移，同时随机生成 3–20 米的精度字段，按 `OAI-Location: latitude,longitude,accuracy` 写入 HTTP、WS、图片、搜索和 Live 出站请求。PostgreSQL 原子固定首次偏移，普通账号编辑保留该值；Redis 跨实例共享缓存，读取不延长 10 分钟到期时间。关闭时删除客户端传入的位置头，不生成缓存；缓存不会由后台任务预生成。位置不随独立图片存储上传/下载请求外发。持久化或共享缓存不可用时省略位置头，模型请求继续执行。WebSocket 位置属于不可变握手头，连接池在下一次申请连接时按位置摘要隔离；已有透明转发长连接在重连后更新位置。
+
 管理员还可以在“网关设置 -> 请求转发行为”开启
 `openai_oauth_force_relay_enabled`，并填写 `openai_oauth_force_relay_base_url`。开启后该全局
 策略优先于账号级 `custom_base_url`，覆盖 OpenAI OAuth 的 Responses、Compact、Responses WS、
@@ -336,6 +376,24 @@ Happy Eyeballs 回退 IPv4。连接池键包含源地址和绑定版本，轮换
   此类请求不重试、不切号、不冷却账号，也不被自定义错误码、池模式 400 重试或错误改写规则覆盖；
   API Key 串联其他 Sub2API 时保持相同行为。Responses 流已通过 keepalive 提交 200 时使用协议内失败事件。
 - 客户端取消应停止上游读取和后台转发，不能继续占用账号或累计无主缓存。
+
+### 画图模型独立调度
+
+“网关服务”调度面板中的“画图模型独立调度”对应持久设置
+`image_independent_scheduling_enabled`，默认关闭。开启后，专用 Images 端点及
+GPT Image、Grok 图片、Gemini 图片模型的请求可使用 `status=active` 的账号，
+不受账号 `schedulable` 开关限制；普通文本请求继续遵守该开关。
+错误、禁用、已删除、过期、过载、限流或错误冷却中的账号仍不参与，模型级图片限流、
+分组/模型权限、影子母账号健康、账号并发和请求失败排除仍由原调度链路检查。
+仅在普通文本请求中声明图片工具不会取得这项资格。
+
+该请求在旧快照和候选索引两种引擎下均从数据库读取独立候选，不写回普通调度缓存；
+排队取得槽位后重新读取账号健康，账号变为错误时释放槽位并重选。当前节点保存后立即生效，
+其他节点最多 5 秒刷新；请求使用固定的策略快照。无需数据库迁移；混合版本节点仍使用各自
+支持的调度规则，全部节点升级后再开启；回退前关闭开关即可恢复原账号调度控制。
+实现入口是 `image_independent_scheduling.go`、`setting_image_scheduling.go` 与
+`account_repo_image_scheduling.go`。 Docker 与浏览器验收、已有检查问题见
+[验证记录](../diagnostics/image-independent-scheduling-20261109/VERIFICATION.md)。
 
 ### 上游错误与临时不可调度范围
 
@@ -399,6 +457,13 @@ ML-KEM-768 key share、每连接 TLS 扩展随机化、req/v3 HTTP/2 SETTINGS/WI
 账号在运行时强制走预热续接，创建、OAuth 导入及更新账号时也会持久化该账号开关，关闭系统开关不会影响
 已显式保存的账号级启用状态。
 
+预热模式下的 `/v1/responses` HTTP 非流式请求仍向客户端返回单个 JSON；上游 WS 保持流式生成，
+只聚合业务轮的终态、输出条目和增量，保留工具、加密推理与用量，预热事件不进入响应或业务用量。
+聚合遵循 `gateway.upstream_response_read_max_bytes`，缺少终态响应对象时不返回 created/in_progress 快照。
+启用现有 HTTP bridge 后，握手、预热或首个下游输出前的临时 WS 5xx 可对完整、可安全重放的非流式请求
+尝试一次 HTTP/SSE 恢复，并丢弃连接专属的预热 anchor 和角色改写。流式请求、增量续链、显式存储、
+托管工具、已提交响应及取消请求不进入这条新增恢复路径；401/403、429 和策略拒绝保持既有处理。
+
 每个 HTTP 请求在开始时固定一份运行时设置快照，普通设置变更只影响后续请求。下游 WS 也保持单会话快照，
 但紧急恢复原版后，已启用 A/B/C 的现有 WS 会在下一轮请求时关闭并要求客户端重连，避免继续使用模拟身份。
 Responses
@@ -410,7 +475,10 @@ HMAC；项目头在所有 HTTP/WS 上游构造器中删除。每个账号 attemp
 `chatgpt_account_id` 时有意视为同一上游主体。
 
 full simulation 的 session/thread/turn 使用 UUIDv7，并从同一 attempt plan 投影到请求头、`prompt_cache_key`
-和 `client_metadata`。`parent_turn_id`/`root_turn_id` 在同一主体 turn 命名空间重新派生；没有显式 root
+和 `client_metadata`。session/thread 在 `root × principal` 作用域首次创建后，由 Redis 原子固定并沿用模拟
+状态 TTL 续期；后续 HTTP 请求、WS 重连和其他实例复用同一 UUIDv7，避免请求时间使缓存键漂移。
+Redis 故障时使用有界本地 fallback，恢复后遵循共享身份；turn 仍按轮生成，Compact 成功只推进窗口。
+`parent_turn_id`/`root_turn_id` 在同一主体 turn 命名空间重新派生；没有显式 root
 时使用当前 `turn_id`。HTTP/WS 请求头复用正文投影，避免重复派生。`window_id` 使用从 1 开始的
 `thread_id:window_number`。每个 OpenAI OAuth 账号有一个随机生成、持久化在
 `accounts.extra.codex_context_window_id` 的 `context_window_id`；body 与 `x-codex-turn-metadata` 只使用该账号值，
@@ -653,6 +721,8 @@ OpenAI API-key `/v1/messages` 的纯搜索请求在协议转换前经过既有�
 ### 2026-10-26 图片按张计费
 
 OpenAI/composite 分组的 `image_count_billing` 默认关闭；开启后仅专用 Images 端点按实际出图张数结算，混合 Responses/Chat/WS 继续 token 定价。字段经当前分组 owner 与鉴权快照 26 传递，保留可靠结算；全部节点升级后再开启。升级、回退及上游差异状态见 [同步审查](UPSTREAM_SYNC_20261026.md)。
+
+GPT Image 2.6 的专用 Images 请求在 OAuth/API Key 路径共享图文用量解析。SVG 使用独立作者模型的 `svg_usage`，在 token 模式分别计价后合并为一次可靠结算；显式按张/按次价格覆盖完整作品。模型目录、参数组合和前端入口见 [2.6 适配](GPT_IMAGE26.md)。
 
 ### 2026-10-27 Grok 目录与响应审计
 

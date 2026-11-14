@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+
+	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
+	"go.uber.org/zap"
 	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
@@ -14,6 +17,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+const statusClientClosedRequest = 499
 
 const maxAPIKeyAuthorizationHeaderBytes = service.MaxAPIKeyCredentialBytes + 128
 
@@ -107,6 +112,9 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 			if errors.Is(err, service.ErrAPIKeyAuthOverloaded) {
 				MarkIngressRejected(c, IngressRejectAPIKeyAuthOverloaded)
 				AbortWithError(c, http.StatusServiceUnavailable, "API_KEY_AUTH_OVERLOADED", "API key authentication is temporarily unavailable")
+				return
+			}
+			if abortIfAPIKeyLookupClientGone(c, err) {
 				return
 			}
 			AbortWithError(c, 500, "INTERNAL_ERROR", "Failed to validate API key")
@@ -463,4 +471,18 @@ func validateAPIKeyGroupAvailable(apiKey *service.APIKey) (string, string, bool)
 		return "GROUP_DISABLED", "API Key 所属分组已停用", false
 	}
 	return "", "", true
+}
+
+// abortIfAPIKeyLookupClientGone 处理 GetByKey 的非业务错误。
+// 客户端已断开（连接关闭、HTTP/2 流被取消）时请求 ctx 被取消，查 Key 拿到的只是
+// context 错误，不是服务端故障：以 499 结束并返回 true。其余错误记一行日志（不含 key），
+// 由调用方按 500 处理。
+func abortIfAPIKeyLookupClientGone(c *gin.Context, err error) bool {
+	ctx := c.Request.Context()
+	if ctx.Err() != nil {
+		c.AbortWithStatus(statusClientClosedRequest)
+		return true
+	}
+	logger.FromContext(ctx).Warn("api key lookup failed", zap.Error(err))
+	return false
 }

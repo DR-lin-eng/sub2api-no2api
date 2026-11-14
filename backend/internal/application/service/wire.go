@@ -229,6 +229,17 @@ func ProvideOpenAIQuotaService(
 	return service
 }
 
+func ProvideOpenAIUsageSyncService(quota *OpenAIQuotaService, gateway *OpenAIGatewayService, locks LeaderLockCache, cfg *config.Config) *OpenAIUsageSyncService {
+	svc := NewOpenAIUsageSyncService(quota, locks)
+	if gateway != nil {
+		gateway.usageSync = svc
+	}
+	if cfg != nil && cfg.Deployment.WorkerEnabledResolved() {
+		svc.Start()
+	}
+	return svc
+}
+
 func ProvideAccountUsageService(
 	accountRepo AccountRepository,
 	usageLogRepo UsageLogRepository,
@@ -1005,6 +1016,7 @@ var ProviderSet = wire.NewSet(
 	ProvideGrokTokenProvider,
 	ProvideOpenAITokenProvider,
 	ProvideOpenAIQuotaService,
+	ProvideOpenAIUsageSyncService,
 	ProvideGrokQuotaService,
 	NewCNProviderQuotaService,
 	NewCNProviderBalanceService,

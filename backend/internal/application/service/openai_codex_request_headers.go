@@ -68,6 +68,10 @@ func applyOpenAICodexSemanticRequestHeaders(headers http.Header, c *gin.Context,
 	if account == nil || !account.IsOpenAIOAuth() {
 		return
 	}
+	if account.IsOpenAISIWC() {
+		applyOpenAISIWCHeaders(headers)
+		return
+	}
 	normalizeOpenAICodexDesktopIdentityHeaders(headers, c, account)
 	normalizeOpenAICodexTurnMetadataHeader(headers, c, account, body)
 
@@ -110,11 +114,14 @@ func normalizeOpenAICodexDesktopIdentityHeaders(headers http.Header, c *gin.Cont
 	deleteOpenAIHeaderEqualFold(headers, "x-codex-installation-id")
 	deleteOpenAIHeaderEqualFold(headers, "x-codex-window-id")
 	// Modern Desktop no longer generates or updates integrity state. Routing
-	// override is separately excluded by ingress allowlists and generated only
-	// by the verified workspace-routing plan.
+	// override is excluded by ingress allowlists and rebuilt by the verified
+	// workspace plan. This normalizer may run again after that plan in WS paths,
+	// so it must preserve a routing header that has already been rebuilt.
 	for _, name := range []string{
 		"x-openai-attach-integrity-state", "x-oai-is",
 		"x-oai-is-pending-updates", "x-oai-is-client-observation",
+		"x-oai-is-update", "x-local-routing-key",
+		"x-openai-expected-account-id",
 	} {
 		deleteOpenAIHeaderEqualFold(headers, name)
 	}

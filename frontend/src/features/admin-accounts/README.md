@@ -2,6 +2,10 @@
 
 管理账号 feature 负责账号列表、创建/编辑、批量更新、授权和用量展示。
 
+`useAccountsOpenAIUsagePush.ts` 在账号列表页面按当前加载页观察后台额度快照；浏览器连接只接收结果，不创建上游 WS。上游同步由服务启动后的后台 owner 管理，首次模型调用激活 active 账号，连续 10 分钟未调用后释放；页面关闭不影响后台同步。`openAIUsageDatasource.ts`、`useOpenAIUsagePush.ts`、`useOpenAIUsageDetails.ts` 与 `OpenAIUsageDetails*` 维护单行回退和“使用统计”的上游详情。后台页面释放推送/停止查询，切换账号或凭据后忽略旧响应；上游不可用继续原刷新路径。资源范围、刷新频率、曲线近似值和会话 ID 边界见 [用量说明](../../../../docs/OPENAI_USAGE.md)。
+
+OpenAI OAuth 授权步骤可选择 Sign in with ChatGPT（SIWC）。完整回调 URL 必须保留已签发 `client_id`；切换认证方式会清空已有授权会话，重新授权 SIWC 账号继续使用该协议。入口、刷新和模型请求边界见 [SIWC 说明](../../../../docs/OPENAI_SIWC.md)。
+
 账号列表的“同步上游模型”通过 `useAccountUpstreamModelSync.ts` 按每批 20 个账号调用批量同步 Action，`UpstreamModelSyncResultsDialog.vue` 展示进度与逐账号结果。成功后刷新列表，失败/跳过账号保持选中；保存规则和平台边界见 [同步说明](../../../../docs/ACCOUNT_UPSTREAM_MODELS_SYNC.md)。
 
 - `data/dtos/adminAccountDtos.ts`, `openAIQuotaDtos.ts`: 账号创建/更新、混合渠道预检、Codex 导入、OpenAI quota、模型和临时不可调度状态等账号专属协议类型；`src/types` 仅保留兼容转发。
@@ -15,6 +19,7 @@
 - `presentation/widgets/create/`: 创建表单的领域字段。
 - `presentation/widgets/edit/`: 编辑表单的领域字段。
 - `presentation/composables/`: 有界的表单策略、OAuth 与提交编排。
+- `presentation/antigravityQuotaDisplay.ts`: 分组额度进度条和模型额度汇总的纯展示转换；请求与定时器继续由现有单元格持有。
 
 账号列表页保留路由、请求和弹窗编排，表格 DOM 由 `AccountsTableView.vue` 静态承载。列表列偏好、展示映射、今日统计和上游额度分别由同域 composable 管理；表格只消费 `accountTableViewContext.ts` 的 typed context，不直接请求 API 或创建 watcher、timer。`excel_bps` 独立筛选普通 OpenAI OAuth 账号的账号级 BPS 状态，筛选在后端分页、导出与上游计费快照前生效；编辑开关保存为 `extra.excel_bps_enabled`，显式 `false` 覆盖旧字段。
 
@@ -69,3 +74,7 @@ OpenAI 与 Anthropic API-key 的 WebSearch 模拟共用已有三态字段和全�
 `presentation/accountFilterState.ts` 校验并持久化账号平台/状态筛选；`presentation/accountQuota.ts` 统一 API Key、Bedrock 与 service account 的本地配额展示和编辑资格，池模式权限保持独立。
 
 `GrokModelDiagnosticsPanel.vue` 查询已保存账号详情并显式刷新目录；诊断和 API 类型由同 feature 的 `data/dtos/grokModelDiagnostics.ts` 所有。Grok 白名单同步只补下拉可选项，不自动改变选择。账号切换后忽略迟到响应，旧节点缺少诊断字段时显示兼容提示。
+
+`presentation/accountCreateOpenAIExtra.ts` 构造创建账号的 OpenAI extra；`openaiImageSizeTiers.ts` 与 `OpenAIImageSizeTiersField.vue` 统一创建、编辑和批量更新的图片档位。缺省/全选不限，批量 null 不修改、显式空数组清除限制；启用前须完成全部节点升级，见 [同步审查](../../../../docs/UPSTREAM_SYNC_20261104.md)。
+
+`AdminAccountTestDialog.vue` 与 `AccountTestDialog.vue` 为原生 GPT Image 2.6 提供 SVG/GIF 输出测试，使用共享 `GPTImageOutputFields.vue`，结果按实际格式预览和下载。后端校验文件而非只看格式标签；ChatGPT App 账号的 GIF 测试走 conversation animation intent，SVG 测试自动回退到 Codex legacy Images 链路。

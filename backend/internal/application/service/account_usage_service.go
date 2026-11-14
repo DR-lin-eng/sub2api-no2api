@@ -321,6 +321,21 @@ type UsageProgress struct {
 	LimitRequests    int64        `json:"limit_requests,omitempty"`
 }
 
+// AntigravityQuotaGroup is a group of Antigravity models that share their quota windows.
+type AntigravityQuotaGroup struct {
+	Key         string                    `json:"key"` // bucket prefix, e.g. "gemini" or "3p"
+	Name        string                    `json:"name"`
+	Description string                    `json:"description,omitempty"`
+	Windows     []*AntigravityQuotaWindow `json:"windows"`
+}
+
+// AntigravityQuotaWindow is one window ("5h" or "weekly") of an Antigravity quota group.
+type AntigravityQuotaWindow struct {
+	Window      string     `json:"window"`
+	Utilization float64    `json:"utilization"` // used percentage, 0-100
+	ResetsAt    *time.Time `json:"resets_at"`
+}
+
 // AntigravityModelQuota Antigravity 单个模型的配额信息
 type AntigravityModelQuota struct {
 	Utilization int    `json:"utilization"` // 使用率 0-100
@@ -363,6 +378,9 @@ type UsageInfo struct {
 
 	// Antigravity 多模型配额
 	AntigravityQuota map[string]*AntigravityModelQuota `json:"antigravity_quota,omitempty"`
+	// Antigravity per-group 5-hour and weekly windows (retrieveUserQuotaSummary). Within a group
+	// every model shares both windows; fetchAvailableModels cannot tell the two apart.
+	AntigravityQuotaGroups []*AntigravityQuotaGroup `json:"antigravity_quota_groups,omitempty"`
 
 	// Grok / xAI 被动额度快照
 	GrokRequestQuota       *xai.QuotaWindow    `json:"grok_request_quota,omitempty"`
@@ -529,7 +547,7 @@ func NewAccountUsageService(
 
 // GetUsage 获取账号使用量
 // OAuth账号: 调用Anthropic API获取真实数据（需要profile scope），API响应缓存10分钟，窗口统计缓存1分钟
-// Setup Token账号: 根据session_window推算5h窗口，7d数据不可用（没有profile scope）
+// Setup Token账号: 返回响应头采样的5h/7d窗口；无5h采样时回退到session_window估算
 // API Key账号: 不支持usage查询
 func (s *AccountUsageService) GetUsage(ctx context.Context, accountID int64, force ...bool) (*UsageInfo, error) {
 	if s.cache != nil {
@@ -576,7 +594,7 @@ func (s *AccountUsageService) getUsageForAccount(ctx context.Context, account *A
 
 	// Antigravity 平台：使用 AntigravityQuotaFetcher 获取额度
 	if account.Platform == PlatformAntigravity {
-		usage, err := s.getAntigravityUsage(ctx, account)
+		usage, err := s.getAntigravityUsage(ctx, account, forceProbe)
 		if err == nil {
 			s.tryClearRecoverableAccountError(ctx, account)
 		}
@@ -680,10 +698,12 @@ func (s *AccountUsageService) getUsageForAccount(ctx context.Context, account *A
 		return usage, nil
 	}
 
-	// Setup Token账号：根据session_window推算（没有profile scope，无法调用usage API）
+	// Setup Token 没有 profile scope，复用响应头采样的窗口数据，不能主动调用 usage API。
 	if account.Type == AccountTypeSetupToken {
+		if account.IsAnthropicOAuthOrSetupToken() {
+			return s.getPassiveUsageForAccount(ctx, account)
+		}
 		usage := s.estimateSetupTokenUsage(account)
-		// 添加窗口统计
 		s.addWindowStats(ctx, account, usage)
 		return usage, nil
 	}
@@ -1191,42 +1211,52 @@ func (s *AccountUsageService) getGeminiUsage(ctx context.Context, account *Accou
 }
 
 // getAntigravityUsage 获取 Antigravity 账户额度
-func (s *AccountUsageService) getAntigravityUsage(ctx context.Context, account *Account) (*UsageInfo, error) {
+
+// Return independent countdown fields so concurrent readers do not mutate the cache.
+func cloneAntigravityUsageForRead(info *UsageInfo) *UsageInfo {
+	if info == nil {
+		return nil
+	}
+	copy := *info
+	if info.FiveHour != nil {
+		window := *info.FiveHour
+		copy.FiveHour = &window
+	}
+	recalcAntigravityRemainingSeconds(&copy)
+	return &copy
+}
+
+func (s *AccountUsageService) cachedAntigravityUsage(accountID int64, force bool) (*UsageInfo, bool) {
+	if force {
+		return nil, false
+	}
+	cached, ok := s.cache.antigravityCache.Load(accountID)
+	if !ok {
+		return nil, false
+	}
+	entry, ok := cached.(*antigravityUsageCache)
+	if !ok || entry == nil || entry.usageInfo == nil || time.Since(entry.timestamp) >= antigravityCacheTTL(entry.usageInfo) {
+		s.cache.antigravityCache.Delete(accountID)
+		return nil, false
+	}
+	return cloneAntigravityUsageForRead(entry.usageInfo), true
+}
+func (s *AccountUsageService) getAntigravityUsage(ctx context.Context, account *Account, force ...bool) (*UsageInfo, error) {
 	if s.antigravityQuotaFetcher == nil || !s.antigravityQuotaFetcher.CanFetch(account) {
 		now := time.Now()
 		return &UsageInfo{UpdatedAt: &now}, nil
 	}
 
-	// 1. 检查缓存
-	if cached, ok := s.cache.antigravityCache.Load(account.ID); ok {
-		if cache, ok := cached.(*antigravityUsageCache); ok {
-			ttl := antigravityCacheTTL(cache.usageInfo)
-			if time.Since(cache.timestamp) < ttl {
-				usage := cache.usageInfo
-				if usage.FiveHour != nil && usage.FiveHour.ResetsAt != nil {
-					usage.FiveHour.RemainingSeconds = int(time.Until(*usage.FiveHour.ResetsAt).Seconds())
-				}
-				return usage, nil
-			}
-		}
-		s.cache.antigravityCache.Delete(account.ID)
+	forceProbe := len(force) > 0 && force[0]
+	if usage, ok := s.cachedAntigravityUsage(account.ID, forceProbe); ok {
+		return usage, nil
 	}
 
 	// 2. singleflight 防止并发击穿
 	flightKey := fmt.Sprintf("ag-usage:%d", account.ID)
 	result, flightErr, _ := s.cache.antigravityFlight.Do(flightKey, func() (any, error) {
-		// 再次检查缓存（等待期间可能已被填充）
-		if cached, ok := s.cache.antigravityCache.Load(account.ID); ok {
-			if cache, ok := cached.(*antigravityUsageCache); ok {
-				ttl := antigravityCacheTTL(cache.usageInfo)
-				if time.Since(cache.timestamp) < ttl {
-					usage := cache.usageInfo
-					// 重新计算 RemainingSeconds，避免返回过时的剩余秒数
-					recalcAntigravityRemainingSeconds(usage)
-					return usage, nil
-				}
-			}
-			s.cache.antigravityCache.Delete(account.ID)
+		if usage, ok := s.cachedAntigravityUsage(account.ID, forceProbe); ok {
+			return usage, nil
 		}
 
 		// 使用独立 context，避免调用方 cancel 导致所有共享 flight 的请求失败
@@ -1261,7 +1291,7 @@ func (s *AccountUsageService) getAntigravityUsage(ctx context.Context, account *
 		now := time.Now()
 		return &UsageInfo{UpdatedAt: &now}, nil
 	}
-	return usage, nil
+	return cloneAntigravityUsageForRead(usage), nil
 }
 
 func (s *AccountUsageService) getGrokUsage(ctx context.Context, account *Account, force bool) (*UsageInfo, error) {
@@ -1925,7 +1955,6 @@ func (s *AccountUsageService) estimateSetupTokenUsage(account *Account) *UsageIn
 		}
 	}
 
-	// Setup Token无法获取7d数据
 	return info
 }
 

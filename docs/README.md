@@ -21,7 +21,7 @@
 | [活动中心](ACTIVITY_CENTER.md) | 抽奖、签到、兑换膨胀、资格与奖励记录 |
 | [在线客服](SUPPORT_CHAT.md) | 会话、图片、已读、转账、保留清理与多实例边界 |
 | [自定义模型与媒体工坊](CUSTOM_MODELS_AND_MEDIA.md) | 能力配置、请求模板、媒体生成与分组路由 |
-| [PR #169 媒体工坊同步审查](PR169_MEDIA_STUDIO_REVIEW.md) | 浏览器历史边界、原子视频计费、性能、范围关闭与升级回退 |
+| [PR #169 媒体工坊同步审查](../diagnostics/pr169-media-studio/VERIFICATION.md) | 浏览器历史边界、原子视频计费、性能、范围关闭与升级回退 |
 
 ## 接口与集成
 
@@ -30,13 +30,18 @@
 | [权限组与客服账号教程](PERMISSION_GROUPS.md) | 启用客服、自定义权限组、分配员工账号、验收和回退 |
 | [Admin API](ADMIN_API.md) | Admin API Key、权限范围和管理接口调用方式 |
 | [批量同步账号上游模型](ACCOUNT_UPSTREAM_MODELS_SYNC.md) | OAuth/API Key 账号的一键模型同步、保留规则、逐账号结果与验证 |
+| [OpenAI SIWC 账号授权](OPENAI_SIWC.md) | 管理端 Sign in with ChatGPT 入口、完整回调、动态客户端、token 刷新与模型请求 |
+| [OpenAI 实时额度与用量详情](OPENAI_USAGE.md) | WS 推送、原刷新回退、账号级模型/会话/余额/额度历史查询与缓存边界 |
 | [管理 MCP](MANAGEMENT_MCP.md) | OAuth/PKCE 管理工具、权限与审计、启用和升级回退 |
 | [OAuth2 对外授权服务](OAUTH2_PROVIDER.md) | 管理员控制的客户端、PKCE 授权码、用户信息与撤销接口 |
 | [降智账号 API](ACCOUNT_QUALITY_DEGRADED_ACCOUNTS_API.md) | 读取降智 OAuth 账号邮箱、account ID 及 401 认证错误 |
 | [Cloudflare 接口分类与边缘规则建议](CLOUDFLARE_EDGE_RULES.md) | 按浏览器页、自动化 API、纯 API 和强人机验证入口分类，方便编写 CF/WAF 规则 |
 | [管理端支付集成 API](ADMIN_PAYMENT_INTEGRATION_API.md) | 外部支付页面与余额/兑换集成 |
 | [异步图片任务](ASYNC_IMAGE_TASKS.md) | 异步 Images API 的启用、提交和轮询 |
+| [GPT Image 2.6](GPT_IMAGE26.md) | Flare/Sunburst 模型目录、原生参数、GIF/SVG 与作者计费 |
+| [ChatGPT App 生图与旧版回退](CHATGPT_APP_IMAGES.md) | 新版 App Images 默认通道、旧版开关、参考图、结果恢复、图片计价与验证边界 |
 | [批量图片 MVP](BATCH_IMAGE_MVP.md) | 批量图片任务的接口与状态模型 |
+| [PR #180 多模态视频按次计费审查](PR180_VIDEO_BILLING_REVIEW.md) | 按次视频分辨率档位、冻结结算、升级回退和 Docker 验证 |
 
 路由的最终事实来源是 `backend/internal/transport/http/server/routes/`。文档不维护一份完整路由副本，以免与代码产生双重事实。
 
@@ -44,6 +49,7 @@
 
 | 文档 | 内容 |
 | --- | --- |
+| [上游主线同步审查（2026-11-12）](UPSTREAM_SYNC_20261112.md) | 33 个冻结 PR 的关闭台账、性能、索引升级回退与专项边界 |
 | [TypeSafe 与充值阶梯专项适配](UPSTREAM_ADAPT_20261006.md) | 原生协议、计费探测、优惠快照、升级回退和验证 |
 | [组合分组](COMPOSITE_GROUPS.md) | Composite group 的平台解析和使用约束 |
 | [Excel BPS 与 DeepSeek 兼容](BPS_DEEPSEEK_COMPAT.md) | 账号级 BPS 开关/筛选/批量更新、Responses 与 Chat Completions 兼容入口 |
@@ -94,10 +100,16 @@
 | [上游主线增量同步审查（2026-10-28）](UPSTREAM_SYNC_20261028.md) | 10 个增量 PR 的当前 owner 适配、计费与协议修复、性能和 Docker 升级回退 |
 | [上游主线增量同步审查（2026-10-29）](UPSTREAM_SYNC_20261029.md) | Gemini 重试、OAuth 非流式 Responses、管理员保护、渠道配置保留、性能边界与 Docker 验证 |
 | [上游主线增量同步审查（2026-10-30）](UPSTREAM_SYNC_20261030.md) | 管理 MCP PR 的分层/性能审查、前端依赖安全覆盖、平滑升级与 Docker 验证 |
+| [上游主线增量同步审查（2026-11-04）](UPSTREAM_SYNC_20261104.md) | 7 个冻结 PR 的关闭与专项台账、图片尺寸分流、协议性能适配、Docker 升级回退与 CI |
+| [上游主线增量同步审查（2026-11-07）](UPSTREAM_SYNC_20261107.md) | 6 个冻结 PR 的当前 owner 适配、资源策略专项、性能与 Docker 升级回退证据 |
+| [上游主线后续增量审查（2026-11-07）](UPSTREAM_SYNC_20261107_FOLLOWUP.md) | 20 个新增 PR 的当前模块适配、已覆盖差异关闭、性能与 Docker 升级回退验证 |
 | [API Key 删除与计费竞争条件审查（2026-10-06）](../diagnostics/billing-key-deletion-20261006/REPORT.md) | 旧版本漏扣回放、当前修复边界、真实数据库与 24 个 Docker HTTP 场景 |
 | [GPT-6 Astra 接入记录](GPT6_ASTRA.md) | OpenAI 官方模型目录、能力、价格和本项目兼容计费映射 |
 | [GPT-6 模型目录与价格](GPT6_MODELS.md) | GPT-6 Astra、Sol、Luna、GPT-6.1 Sol/Terra 的官方能力、价格与本项目实现位置 |
 | [OpenAI 请求计时](OPENAI_TIMING.md) | 上游 timing 采集、用户明细投影与管理员本地/上游对比 |
+| [Codex 间歇性 400 与请求压缩诊断](../diagnostics/issue-8636-20261112/README.md) | Issue #8636 的 zstd 线索、Docker 对照、账号级开关与诊断边界 |
+| [保留 zstd 的 Codex 400 恢复](../diagnostics/issue-8636-fix-20261113/README.md) | 默认压缩继续启用、精确错误分类、请求级单次恢复及 Docker 结算验证 |
+| [HTTP 200 流内失败与断流恢复](../diagnostics/http200-stream-20261113/README.md) | Codex 通用错误信封、单账号恢复、失败终态、残留正文及编码组合的 Docker 验证 |
 
 
 ## 长期优化计划
@@ -105,6 +117,7 @@
 | 文档 | 内容 |
 | --- | --- |
 | [前端架构优化计划](FRONTEND_ARCHITECTURE_OPTIMIZATION_PLAN.md) | Feature owner 收口、DTO、Query/Action、依赖门禁与分阶段迁移路线 |
+| [网关性能优化与 Rust 评估](GATEWAY_PERFORMANCE_OPTIMIZATION_CN.md) | JSON/WS/SSE 热路径优化、Rust 候选边界与 Docker 对照证据 |
 
 处于方案或交付阶段的功能记录在 `openspec/changes/`。使用这些文档前，应同时核对实现和测试，不能把 proposal 当作当前运行事实。
 

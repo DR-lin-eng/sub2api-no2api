@@ -1,4 +1,5 @@
 import grokCatalog from './accounts.grok-catalog'
+import upstreamUsage from './accounts.upstream-usage'
 import billingMessages from './accounts.billing'
 import accountPriority from './accountPriority'
 
@@ -9,6 +10,7 @@ import channelMessages from './accounts.channels'
 
 export default {
     accounts: {
+      upstreamUsage,
       grokCatalog,
       title: 'Account Management',
       description: 'Manage AI platform accounts and credentials',
@@ -104,6 +106,7 @@ export default {
       allPlatforms: 'All Platforms',
       allTypes: 'All Types',
       allStatus: 'All Status', allOAuthQuota: 'All OAuth Quota', oauthQuotaHasQuota: 'OAuth has quota', oauthQuotaExhausted: 'OAuth quota exhausted', openAIQuotaWithReset: 'OpenAI OAuth with reset credits', openAIQuota5hExhausted: 'OpenAI 5h quota full', openAIQuota7dExhausted: 'OpenAI 7d quota full',
+      allOAuthPlans: 'All OAuth plans', oauthPlanFree: 'Free', oauthPlanPro5x: 'Pro 5x', oauthPlanPro20x: 'Pro 20x', oauthPlanPro50x: 'Pro 50x', oauthPlanTeam: 'Team', oauthPlanPlus: 'Plus', oauthPlanPro: 'Pro', oauthPlanEnterprise: 'Enterprise', oauthPlanEdu: 'Edu',
       allExcelBPS: 'All BPS states', excelBPSEnabled: 'BPS enabled', excelBPSDisabled: 'BPS disabled',
       allGroups: 'All Groups',
       ungroupedGroup: 'Ungrouped',
@@ -567,6 +570,11 @@ export default {
         responsesModeForceChatCompletions: 'Force Chat Completions',
         responsesModeTextDisabledHint:
           'Not applicable when the Responses / Chat Completions endpoint is not enabled.',
+        imageSizeTiers: 'Image size tiers',
+        imageSizeTiersDesc:
+          'Limits the image size tiers this account serves, using the billing tiers: longest edge ≤1024 is 1K, ≤2048 is 2K, larger is 4K (2560x1440 is 4K). Requests with an explicit size are only scheduled to accounts allowing that tier; requests without a size or with auto prefer accounts without a tier limit, then accounts allowing 4K, 2K and 1K in that order. Selecting all tiers means no limit. Applies to the Images API and the Responses image generation tool.',
+        imageSizeTiersAtLeastOne: 'Keep at least one tier',
+        imageSizeTiersUpdate: 'Update image size tiers',
         endpointCapabilities: 'Endpoint capabilities',
         endpointCapabilitiesDesc:
           'Used by account routing. The text endpoint follows the Responses API support setting above; Embeddings controls /v1/embeddings and Decisions controls /v1/decisions.',
@@ -963,6 +971,11 @@ export default {
         // OpenAI specific
         openai: {
           title: 'OpenAI Account Authorization',
+          siwcAuth: 'Sign in with ChatGPT (SIWC)',
+          siwcCallbackLabel: 'Complete SIWC callback URL',
+          siwcDesc: 'Authorize direct access with your ChatGPT account. After signing in, paste the complete callback URL below, including code, state and client_id.',
+          siwcCallbackPlaceholder: 'http://127.0.0.1:1455/auth/callback?code=...&state=...&client_id=...',
+          siwcCallbackHint: 'Copy the entire address even if the callback page cannot load. SIWC requires the client_id from this URL.',
           followSteps: 'Follow these steps to complete OpenAI account authorization:',
           step1GenerateUrl: 'Click the button below to generate the authorization URL',
           generateAuthUrl: 'Generate Auth URL',
@@ -983,6 +996,13 @@ export default {
           failedToExchangeCode: 'Failed to exchange OpenAI auth code',
           failedToValidateRT: 'Failed to validate refresh token',
           errors: {
+            OPENAI_SIWC_CLIENT_ID_REQUIRED: 'Paste the complete SIWC callback URL, including client_id.',
+            OPENAI_SIWC_CALLBACK_INVALID: 'The callback does not match this authorization. Generate a new URL and try again.',
+            OPENAI_SIWC_NONCE_INVALID: 'The SIWC ID token does not match this authorization. Please reconnect ChatGPT.',
+            OPENAI_SIWC_GRANT_INVALID: 'OpenAI did not return a complete SIWC direct-access grant. Please authorize again.',
+            OPENAI_SIWC_CREDENTIALS_MISSING: 'This SIWC account is missing its client ID or refresh token. Please reconnect ChatGPT.',
+            OPENAI_SIWC_TOKEN_FAILED: 'OpenAI rejected the SIWC token request. Please generate a new authorization URL and try again.',
+            OPENAI_SIWC_ACCESS_DENIED: 'ChatGPT authorization was not completed.',
             OPENAI_OAUTH_PROXY_REQUIRED:
               'No proxy is configured and this server could not reach OpenAI directly, so the OpenAI OAuth request failed. Select a proxy that can access OpenAI and retry; if the authorization code has expired, regenerate the authorization URL.'
           },
@@ -1391,6 +1411,12 @@ export default {
         gemini3Pro: 'G3P',
         gemini3Flash: 'G3F',
         gemini3Image: 'G31FI',
+        antigravityGemini5h: 'G·5h',
+        antigravityGeminiWeekly: 'G·wk',
+        antigravityArgon5h: 'A·5h',
+        antigravityArgonWeekly: 'A·wk',
+        antigravityOther5h: 'C·5h',
+        antigravityOtherWeekly: 'C·wk',
         claude: 'Claude',
         grokRequests: 'Req',
         grokTokens: 'Tok',

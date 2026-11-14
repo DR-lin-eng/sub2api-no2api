@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -55,6 +56,7 @@ func validateOpenAIOAuthRequestPrincipal(account *Account, accessToken string) e
 	}
 	_, accountChanged := openAIWorkspaceRoutingAccountID(account, accessToken)
 	userChanged := false
+	planChanged := false
 	if claims, err := openai.DecodeIDToken(strings.TrimSpace(accessToken)); err == nil && claims.OpenAIAuth != nil {
 		storedUser := strings.TrimSpace(account.GetCredential("chatgpt_user_id"))
 		tokenUser := strings.TrimSpace(claims.OpenAIAuth.UserID)
@@ -62,10 +64,36 @@ func validateOpenAIOAuthRequestPrincipal(account *Account, accessToken string) e
 			tokenUser = strings.TrimSpace(claims.OpenAIAuth.ChatGPTUserID)
 		}
 		userChanged = storedUser != "" && tokenUser != "" && storedUser != tokenUser
+		planChanged = openAIOAuthPlanClassesChanged(openAIOAuthAccountPlanClass(account), openAIOAuthPlanClass(claims.OpenAIAuth.ChatGPTPlanType))
 	}
-	if !accountChanged && !userChanged {
+	if !accountChanged && !userChanged && !planChanged {
 		return nil
 	}
+	return newOpenAIOAuthPrincipalChangedError()
+}
+
+// A refresh may persist a newly selected workspace for subsequent requests,
+// but it must not replay an existing turn under a different known principal.
+func validateOpenAIOAuthRefreshPrincipal(expected, refreshed *Account) error {
+	if expected == nil || refreshed == nil || expected.ID != refreshed.ID {
+		return newOpenAIOAuthPrincipalChangedError()
+	}
+	expectedAccount, currentAccount := strings.TrimSpace(expected.GetChatGPTAccountID()), strings.TrimSpace(refreshed.GetChatGPTAccountID())
+	expectedUser, currentUser := strings.TrimSpace(expected.GetChatGPTUserID()), strings.TrimSpace(refreshed.GetChatGPTUserID())
+	if (expectedAccount != "" && currentAccount != "" && !strings.EqualFold(expectedAccount, currentAccount)) ||
+		(expectedUser != "" && currentUser != "" && expectedUser != currentUser) ||
+		openAIOAuthPlanClassesChanged(openAIOAuthAccountPlanClass(expected), openAIOAuthAccountPlanClass(refreshed)) {
+		return newOpenAIOAuthPrincipalChangedError()
+	}
+	return validateOpenAIOAuthRequestPrincipal(expected, refreshed.GetOpenAIAccessToken())
+}
+
+func isOpenAIOAuthPrincipalChangedError(err error) bool {
+	var failover *UpstreamFailoverError
+	return errors.As(err, &failover) && failover != nil && failover.Reason == "openai_oauth_account_changed"
+}
+
+func newOpenAIOAuthPrincipalChangedError() *UpstreamFailoverError {
 	return &UpstreamFailoverError{
 		StatusCode:        http.StatusConflict,
 		Scope:             GatewayFailureScopeAccount,

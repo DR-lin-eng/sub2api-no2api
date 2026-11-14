@@ -441,6 +441,8 @@ func registerUserManagementRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		users.GET("/:id/rpm-status", h.Admin.User.GetUserRPMStatus)
 		users.POST("/batch-concurrency", h.Admin.User.BatchUpdateConcurrency)
 		users.POST("/batch-limits", h.Admin.User.BatchUpdateLimits)
+		users.POST("/batch-disable", h.Admin.User.BatchDisable)
+		users.POST("/blacklist-matches", h.Admin.User.FindBlacklistedEmailUsers)
 		users.POST("/platform-quotas/batch", h.Admin.User.GetBatchUserPlatformQuotas)
 		users.GET("/:id/platform-quotas", h.Admin.User.GetUserPlatformQuotas)
 		users.PUT("/:id/platform-quotas", h.Admin.User.UpdateUserPlatformQuotas)
@@ -600,7 +602,10 @@ func registerOpenAIOAuthRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		openai.POST("/create-from-oauth", h.Admin.OpenAIOAuth.CreateAccountFromOAuth)
 		openai.POST("/create-from-codex-pat", h.Admin.OpenAIOAuth.CreateAccountFromCodexPAT)
 		openai.POST("/accounts/quota/refresh/batch", h.Admin.OpenAIOAuth.RefreshQuotaBatch)
+		openai.POST("/accounts/quota/reset/batch", h.Admin.OpenAIOAuth.ResetQuotaBatch)
 		openai.GET("/accounts/:id/quota", h.Admin.OpenAIOAuth.QueryQuota)
+		openai.GET("/accounts/:id/usage/ws", h.Admin.OpenAIOAuth.StreamUsage)
+		openai.POST("/accounts/:id/usage/query", h.Admin.OpenAIOAuth.QueryUsageDetails)
 		openai.POST("/accounts/:id/quota/refresh", h.Admin.OpenAIOAuth.RefreshQuota)
 		openai.POST("/accounts/:id/reset-quota", h.Admin.OpenAIOAuth.ResetQuota)
 	}
@@ -695,6 +700,8 @@ func registerPromoCodeRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 
 func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	adminSettings := admin.Group("/settings")
+	adminSettings.GET("/registration-email-blacklist", h.Admin.Setting.GetRegistrationEmailBlacklist)
+	adminSettings.PUT("/registration-email-blacklist", h.Admin.Setting.UpdateRegistrationEmailBlacklist)
 	{
 		adminSettings.GET("", h.Admin.Setting.GetSettings)
 		adminSettings.PUT("", h.Admin.Setting.UpdateSettings)

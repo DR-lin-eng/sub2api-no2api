@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -63,6 +64,15 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 				return nil, newOpenAIWorkspaceRoutingFailoverError(urlErr)
 			}
 		}
+	}
+
+	if endpoint, ok := ctx.Value(openAIImagesNativeEndpointContextKey{}).(string); ok {
+		target, parseErr := url.Parse(targetURL)
+		if parseErr != nil || !strings.HasSuffix(target.Path, "/responses") {
+			return nil, fmt.Errorf("native Images requires a Codex Responses endpoint")
+		}
+		target.Path = strings.TrimSuffix(target.Path, "/responses") + endpoint
+		targetURL = target.String()
 	}
 
 	body = normalizeNativeCNResponsesRequestBody(account, body)
@@ -231,6 +241,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 	applyOpenAICodexSemanticRequestHeaders(req.Header, c, account, outboundBody)
 	applyOpenAIWorkspaceRoutingHeader(req.Header, workspaceRouting)
 	normalizeOpenAICodexHTTPProtocolHeaders(req, c, account)
+	s.applyOpenAILocationHeader(req.Context(), req.Header, account)
 	req = req.WithContext(withOpenAIProofIdentity(req.Context(), newOpenAIProofIdentityFromHeaders(account, fingerprintIDs, req.Header)))
 
 	return req, nil

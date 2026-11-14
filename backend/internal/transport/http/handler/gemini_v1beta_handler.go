@@ -319,7 +319,11 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 			googleError(c, http.StatusRequestEntityTooLarge, buildBodyTooLargeMessage(maxErr.Limit))
 			return
 		}
-		googleError(c, http.StatusBadRequest, "Failed to read request body")
+		if handleRequestBodyReadError(c, err) {
+			return
+		}
+		status, message := requestBodyReadFailure(requestLogger(c, "handler.request_body"), c.Request, err)
+		googleError(c, status, message)
 		return
 	}
 	if len(body) == 0 {
@@ -497,6 +501,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 	c.Request = c.Request.WithContext(h.gatewayService.WithSingleAntigravityAccountGroupProbe(c.Request.Context(), apiKey.GroupID))
 
 	for {
+		c.Request = c.Request.WithContext(h.gatewayService.WithImageScheduling(c.Request.Context(), modelName))
 		selection, err := h.gatewayService.SelectAccountWithLoadAwareness(c.Request.Context(), apiKey.GroupID, sessionKey, modelName, fs.FailedAccountIDs, "", int64(0)) // Gemini 不使用会话限制
 		if err != nil {
 			if errors.Is(err, service.ErrPriorityAdmissionUnavailable) {
@@ -738,6 +743,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		forceCacheBilling := fs.ForceCacheBilling
 		quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
 		sessionID := service.ExtractClientSessionID(c)
+		channelUsageFields := clientRequestedUsageFields(c, channelMapping, reqModel, result.UpstreamModel)
 		h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
 			if err := h.gatewayService.RecordUsageWithLongContext(ctx, &service.RecordUsageLongContextInput{
 				Result:                result,
@@ -757,7 +763,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 				ForceCacheBilling:     forceCacheBilling,
 				APIKeyService:         h.apiKeyService,
 				SessionID:             sessionID,
-				ChannelUsageFields:    clientRequestedUsageFields(c, channelMapping, reqModel, result.UpstreamModel),
+				ChannelUsageFields:    channelUsageFields,
 			}); err != nil {
 				logger.L().With(
 					zap.String("component", "handler.gemini_v1beta.models"),

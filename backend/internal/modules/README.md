@@ -7,6 +7,7 @@
 | [activitycenter](activitycenter/README.md) | 活动配置、可见性、抽奖、签到、兑换膨胀和参与记录领域规则 |
 | [codexremotecontrol](codexremotecontrol/README.md) | Codex controller 注册、step-up、设备密钥 challenge 与会话生命周期 |
 | [chat](chat/README.md) | 在线客服会话、消息、未读状态、撤回事件、保留清理和实时广播 |
+| [chatgptimages](chatgptimages/README.md) | ChatGPT App Images 请求、v1 多通道增量和最终图像结果纯解析 |
 | [egress](egress/README.md) | 账号 IPv6 出口池、绑定、探测和 HE 隧道管理 |
 | [qualityrender](qualityrender/README.md) | HTML/SVG 代码匹配（预览由前端浏览器渲染） |
 | [modelcatalog](modelcatalog/README.md) | 有界模型描述、能力字段归一化、版本化快照与元数据优先级 |

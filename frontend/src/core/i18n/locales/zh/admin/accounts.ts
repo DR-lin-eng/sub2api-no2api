@@ -1,4 +1,5 @@
 import grokCatalog from './accounts.grok-catalog'
+import upstreamUsage from './accounts.upstream-usage'
 import billingMessages from './accounts.billing'
 import accountPriority from './accountPriority'
 
@@ -9,6 +10,7 @@ import channelMessages from './accounts.channels'
 
 export default {
     accounts: {
+      upstreamUsage,
       grokCatalog,
       title: '账号管理',
       description: '管理 AI 平台账号和 Cookie',
@@ -104,6 +106,7 @@ export default {
       allPlatforms: '全部平台',
       allTypes: '全部类型',
       allStatus: '全部状态', allOAuthQuota: '全部 OAuth 额度', oauthQuotaHasQuota: 'OAuth 有额度', oauthQuotaExhausted: 'OAuth 额度已耗尽', openAIQuotaWithReset: 'OpenAI OAuth 有可用重置', openAIQuota5hExhausted: 'OpenAI 5h 额度已满', openAIQuota7dExhausted: 'OpenAI 7d 额度已满',
+      allOAuthPlans: '全部 OAuth 套餐', oauthPlanFree: 'Free', oauthPlanPro5x: 'Pro 5x', oauthPlanPro20x: 'Pro 20x', oauthPlanPro50x: 'Pro 50x', oauthPlanTeam: 'Team', oauthPlanPlus: 'Plus', oauthPlanPro: 'Pro', oauthPlanEnterprise: 'Enterprise', oauthPlanEdu: 'Edu',
       allExcelBPS: '全部 BPS 状态', excelBPSEnabled: 'BPS 已启用', excelBPSDisabled: 'BPS 未启用',
       allGroups: '全部分组',
       ungroupedGroup: '未分配分组',
@@ -408,6 +411,12 @@ export default {
         gemini3Pro: 'G3P',
         gemini3Flash: 'G3F',
         gemini3Image: 'G31FI',
+        antigravityGemini5h: 'G·5h',
+        antigravityGeminiWeekly: 'G·周',
+        antigravityArgon5h: 'A·5h',
+        antigravityArgonWeekly: 'A·周',
+        antigravityOther5h: 'C·5h',
+        antigravityOtherWeekly: 'C·周',
         claude: 'Claude',
         grokRequests: '请求',
         grokTokens: 'Token',
@@ -640,6 +649,11 @@ export default {
         responsesModeForceResponses: '强制 Responses',
         responsesModeForceChatCompletions: '强制 Chat Completions',
         responsesModeTextDisabledHint: '未启用 Responses / Chat Completions 端点时，此设置不适用。',
+        imageSizeTiers: '生图尺寸档位',
+        imageSizeTiersDesc:
+          '限制本账号承接的生图尺寸档位，档位与计费一致：最长边 ≤1024 为 1K，≤2048 为 2K，更大为 4K（2560x1440 属于 4K）。指定了尺寸的请求只会调度到允许该档位的账号；未传尺寸或 auto 的请求优先调度到不限档位的账号，没有时依次选允许 4K、2K、1K 的账号。全选即不限，对 Images 接口与 Responses 生图工具生效。',
+        imageSizeTiersAtLeastOne: '至少保留一个档位',
+        imageSizeTiersUpdate: '更新生图尺寸档位',
         endpointCapabilities: '端点能力',
         endpointCapabilitiesDesc:
           '用于调度筛选。文本端点跟随上方 Responses API 支持；Embeddings 控制 /v1/embeddings，Decisions 控制 /v1/decisions。',
@@ -1023,6 +1037,11 @@ export default {
         // OpenAI specific
         openai: {
           title: 'OpenAI 账户授权',
+          siwcAuth: 'Sign in with ChatGPT（SIWC）',
+          siwcCallbackLabel: '完整 SIWC 回调地址',
+          siwcDesc: '使用 ChatGPT 账号授权直接访问。登录完成后，请在下方粘贴完整回调地址，保留 code、state 和 client_id 参数。',
+          siwcCallbackPlaceholder: 'http://127.0.0.1:1455/auth/callback?code=...&state=...&client_id=...',
+          siwcCallbackHint: '即使回调页面无法打开，也请复制地址栏的完整地址。SIWC 必须使用其中的 client_id。',
           followSteps: '请按照以下步骤完成 OpenAI 账户的授权：',
           step1GenerateUrl: '点击下方按钮生成授权链接',
           generateAuthUrl: '生成授权链接',
@@ -1041,6 +1060,13 @@ export default {
           failedToExchangeCode: 'OpenAI 授权码兑换失败',
           failedToValidateRT: '验证 Refresh Token 失败',
           errors: {
+            OPENAI_SIWC_CLIENT_ID_REQUIRED: '请粘贴包含 client_id 的完整 SIWC 回调地址。',
+            OPENAI_SIWC_CALLBACK_INVALID: '回调与本次授权不匹配，请重新生成链接并授权。',
+            OPENAI_SIWC_NONCE_INVALID: 'SIWC 身份令牌与本次授权不匹配，请重新连接 ChatGPT。',
+            OPENAI_SIWC_GRANT_INVALID: 'OpenAI 未返回完整的 SIWC 直接访问授权，请重新授权。',
+            OPENAI_SIWC_CREDENTIALS_MISSING: '此 SIWC 账号缺少客户端 ID 或刷新令牌，请重新连接 ChatGPT。',
+            OPENAI_SIWC_TOKEN_FAILED: 'OpenAI 拒绝了 SIWC 令牌请求，请重新生成授权链接后重试。',
+            OPENAI_SIWC_ACCESS_DENIED: '尚未完成 ChatGPT 授权。',
             OPENAI_OAUTH_PROXY_REQUIRED:
               '未设置代理，当前服务器无法直连 OpenAI，导致 OpenAI OAuth 请求失败。请先选择可访问 OpenAI 的代理后重试；如果授权码已失效，请重新生成授权链接。'
           },

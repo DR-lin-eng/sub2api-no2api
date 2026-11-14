@@ -21,11 +21,16 @@
         v-model:image-aspect-ratio="imageAspectRatio"
         :custom-image-aspect-ratios="customImageAspectRatios"
         v-model:quality="quality"
+        v-model:complexity="complexity"
+        v-model:image-output="imageOutput"
+        :image-output-supported="imageOutputSupported"
         v-model:count="count"
         v-model:resolution="resolution"
         v-model:video-aspect-ratio="videoAspectRatio"
         v-model:duration="duration"
+        :chatgpt-app-images="chatgptAppImages"
         :image-quality-options="imageQualityOptions"
+        :image-complexity-options="imageComplexityOptions"
         :modes="modes"
         :selected-mode="selectedMode"
         :selected-mode-id="selectedModeId"
@@ -112,11 +117,16 @@ const {
   customImageAspectRatios,
   addCustomImageAspectRatio,
   quality,
+  complexity,
+  imageOutput,
+  imageOutputSupported,
   count,
   resolution,
   videoAspectRatio,
   duration,
+  chatgptAppImages,
   imageQualityOptions,
+  imageComplexityOptions,
   groupOptions,
   loadingGroups,
   groupLoadError,

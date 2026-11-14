@@ -312,8 +312,10 @@ func TestOpenAIResponseFlush_OutputWithoutTerminalFlushesResidualWithoutFailover
 	require.False(t, errors.As(err, &failoverErr))
 	require.NotNil(t, result)
 	gotBody, flushes := recorder.snapshot()
-	require.Equal(t, body, gotBody)
-	require.Equal(t, []string{body}, flushes)
+	require.True(t, strings.HasPrefix(gotBody, body+"\n"))
+	require.Contains(t, gotBody, OpenAIUpstreamStreamTruncatedCode)
+	require.Equal(t, 1, strings.Count(gotBody, `"type":"response.failed"`))
+	require.Equal(t, []string{body, gotBody}, flushes)
 }
 
 func TestOpenAIResponseFlush_PreambleWithoutTerminalRemainsBufferedForFailover(t *testing.T) {

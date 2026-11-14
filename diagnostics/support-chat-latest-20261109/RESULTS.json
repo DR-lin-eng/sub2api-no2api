@@ -1,0 +1,184 @@
+{
+  "date": "2026-11-09",
+  "source_base": "76c848013dde0e26d077f86e3edf094a7e908704",
+  "image": "sub2api:chat-latest-20261109",
+  "image_id": "sha256:1adeada5565bbc14b6c3187f8a51d6deaeeac2e9be379d09ed59cd0e62fd9e32",
+  "platform": "linux/arm64",
+  "frontend": {
+    "tests": 48,
+    "files": 11,
+    "passed": 48,
+    "eslint": "passed",
+    "typecheck": "passed",
+    "production_build": "passed",
+    "node_build_heap_mib": 4096
+  },
+  "backend": {
+    "backend-tests.jsonl": {
+      "top_level_tests": 8,
+      "passed_including_subtests": 17,
+      "failed": 0,
+      "skipped": 0
+    },
+    "backend-unit.jsonl": {
+      "top_level_tests": 12,
+      "passed_including_subtests": 12,
+      "failed": 0,
+      "skipped": 0
+    }
+  },
+  "runtime": {
+    "http-seed": {
+      "check": "seed",
+      "passed": true,
+      "expected": [
+        1,
+        2,
+        3
+      ],
+      "observed": [
+        1,
+        2,
+        3
+      ],
+      "all_read": true,
+      "last_message_matches_persisted_reply": true,
+      "empty_last": true
+    },
+    "http-stale-summary": {
+      "check": "stale-summary",
+      "passed": true,
+      "expected": [
+        1,
+        2,
+        3
+      ],
+      "observed": [
+        1,
+        2,
+        3
+      ],
+      "all_read": true,
+      "last_message_matches_persisted_reply": true,
+      "empty_last": true
+    },
+    "browser-refresh": {
+      "all_read": true,
+      "latest_reply_first": true,
+      "empty_last": true,
+      "before": [
+        {
+          "name": "first@example.test",
+          "unread": false
+        },
+        {
+          "name": "second@example.test",
+          "unread": false
+        },
+        {
+          "name": "empty@example.test",
+          "unread": false
+        }
+      ],
+      "after": [
+        {
+          "name": "first@example.test",
+          "unread": false
+        },
+        {
+          "name": "second@example.test",
+          "unread": false
+        },
+        {
+          "name": "empty@example.test",
+          "unread": false
+        }
+      ],
+      "full_page_refresh": "passed"
+    },
+    "browser-send-order": {
+      "passed": true,
+      "all_read": true,
+      "newest_reply_moves_thread_first": true,
+      "beforeRefresh": [
+        {
+          "name": "second@example.test",
+          "unread": false
+        },
+        {
+          "name": "first@example.test",
+          "unread": false
+        },
+        {
+          "name": "empty@example.test",
+          "unread": false
+        }
+      ],
+      "afterRefresh": [
+        {
+          "name": "second@example.test",
+          "unread": false
+        },
+        {
+          "name": "first@example.test",
+          "unread": false
+        },
+        {
+          "name": "empty@example.test",
+          "unread": false
+        }
+      ]
+    }
+  },
+  "source_hashes": {
+    "backend/internal/infrastructure/repository/chat_repo.go": "050a77332eabec70526b7f3b5662c373a4aa633d62b647b5e7cc62bc21ee5cc1",
+    "backend/internal/infrastructure/repository/chat_conversation_order_integration_test.go": "112d57e87646c56131e1d57d8e49b7ae296497929aed2586fc76d12a5469d59c",
+    "frontend/src/features/support-chat/presentation/composables/supportChatConversationSort.ts": "48c441f3c5992f621b7e936ee64773f5cd1a52a68170abc6061b83bcac483269",
+    "frontend/src/features/support-chat/presentation/pages/AdminSupportChatPage.vue": "00beea9f1303f6e1c87db2c0ba631a82b662de2a31a9134797e1b3ee798fca39",
+    "frontend/src/features/support-chat/presentation/widgets/AdminConversationList.vue": "074f6249440478eb29bbc5104caebddea32f401ea1c144d6bb15313fcb27bffd",
+    "frontend/src/features/support-chat/presentation/composables/__tests__/supportChatConversationSort.spec.ts": "536adebf15e1dfd06282a2013d55826a0ac408dcf50ab389e8408f21f9b2e3c8",
+    "frontend/src/features/support-chat/__tests__/SupportChatHistoryLifecycle.spec.ts": "2bb03f8e3a76d445ab8bf618bc223b0f37f1638aeabe77c0bb1d2fb8167b334f",
+    "backend/go.mod": "ef9753eee49fef49e0f7d342c751c39e4d0ad6f47143900ed3f6458684bf316f",
+    "backend/go.sum": "c3eae7af6be0af22c29faef703075a952820c56a5db5e577f31c6bf38298dc0b",
+    "frontend/pnpm-lock.yaml": "e6bdb04f5266fc940d20a75b3dba7d28a533550b416539c8828f5b280885cded"
+  },
+  "records": {
+    "backend-baseline.txt.gz": "280446b626c7c9e6d03204da0fd70a068453b906b66fe7e250f99ac2b4fa4ec6",
+    "backend-build.txt.gz": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+    "backend-tests.jsonl.gz": "e5b2580cabd30475e11612622cc1624e2ec3d3a8b1120734df67e55754d5fc32",
+    "backend-unit.jsonl.gz": "7a5c3ce03afa126ae16899632499a5d1841c9b9a1f09f9544d40eeb7023fa0b0",
+    "browser-refresh.txt.gz": "d58b117d2c061f36cbee8866e91feab71781d9085401ef589f266317c485cb65",
+    "browser-send-order.txt.gz": "27a9682b2494f1f9240bd3d4dbb484d3b7c9a97653e209edc5245125677942ea",
+    "cleanup.txt.gz": "2f1b91a61f3af87126093e82b06a6ea502111d09049017dc25683b8aa0fd192e",
+    "db-stale-summary.txt.gz": "57c9a75852c8496eb03172ec003b952e8416f00f4a28b043a573027bd1b6b974",
+    "docs-check.txt.gz": "00eece0eb3129cd98418ad8ff65147da7ef09e16e9acbd3edaae3e7156e36aa8",
+    "frontend-baseline.txt.gz": "1cf2d3234cf4bbde9ee10d895940d4b7366e72baf5b99f079428637a7a79b8ac",
+    "frontend-build-install.txt.gz": "2868f953ec2d2f798c0bf4715079c98701b39200b90ccb0b61ab60464f5ee19f",
+    "frontend-build.txt.gz": "de55e15ecf5f8ed8376ea13650033bf6b09c326cbf7d25a134e063756749b859",
+    "frontend-eslint.txt.gz": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+    "frontend-install.txt.gz": "aafa5fa87ea7cade0ab84e7845cf9640de30526c37198786bde1ff58e8d03358",
+    "frontend-tests.txt.gz": "dcaf1fee70cdec6a99429f8d9b2e293fdb51ab81d40a1a1409beda52b0e6a101",
+    "frontend-typecheck.txt.gz": "caa79f63d114c442c4e3308ebea991b8f52af325f61c4a5d9ad1f28795667307",
+    "http-seed.txt.gz": "973321201babd2adeaf2e84316730d8590a6c4db3afc31c9df1aa9d229a9c2e8",
+    "http-stale-summary.txt.gz": "a0bdf1a9a8ba0b5a7c3885db80596c5e8cd5eb9fb16f7efa8671fa4fb7f10f25",
+    "query-plan.txt.gz": "29fafd59dbaed26a8a500c2518685be673741a6ea5baee1990f8b2c1183057f8"
+  },
+  "query_plan": {
+    "conversations": 1000,
+    "messages": 20000,
+    "latest_message_index": "idx_chat_messages_conversation_created_id",
+    "strategy": "Index Only Scan Backward, one latest row per conversation",
+    "execution_ms": 1.157,
+    "scope": "Isolated warm PostgreSQL sample, not a production latency guarantee."
+  },
+  "docs_check": "passed",
+  "diff_check": "passed",
+  "cleanup": "Temporary Docker app, databases, Redis, test containers and network removed; candidate image retained.",
+  "limitations": [
+    "Single application instance in an isolated local Docker environment; production was not accessed."
+  ],
+  "baseline_reproductions": {
+    "frontend_stale_list_and_old_socket_event": "2 new page tests fail before fix",
+    "backend_empty_threads_and_first_contact_summary": "2 new database subtests fail before fix"
+  }
+}

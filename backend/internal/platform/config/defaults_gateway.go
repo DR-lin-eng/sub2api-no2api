@@ -7,6 +7,7 @@ import (
 )
 
 func setGatewayDefaults() {
+	viper.SetDefault("gateway.disable_openai_transport_error_cooldown", false)
 	viper.SetDefault("gateway.min_output_tokens", 128)
 	// Gateway
 	viper.SetDefault("gateway.response_header_timeout", 600) // 600秒(10分钟)等待上游响应头，LLM高负载时可能排队较久
@@ -109,6 +110,11 @@ func setGatewayDefaults() {
 	viper.SetDefault("gateway.image_concurrency.wait_timeout_seconds", 30)
 	viper.SetDefault("gateway.image_concurrency.max_waiting_requests", 100)
 	viper.SetDefault("gateway.antigravity_fallback_cooldown_minutes", 1)
+	viper.SetDefault("gateway.antigravity_internal500_image_cooldown_seconds", 120)
+	viper.SetDefault("gateway.antigravity_internal500_tier1_seconds", 1800)
+	viper.SetDefault("gateway.antigravity_internal500_tier2_seconds", 7200)
+	viper.SetDefault("gateway.antigravity_internal500_disable_account", true)
+
 	viper.SetDefault("gateway.antigravity_extra_retries", 10)
 	viper.SetDefault("gateway.max_body_size", int64(256*1024*1024))
 	viper.SetDefault("gateway.text_max_body_size", int64(32*1024*1024))

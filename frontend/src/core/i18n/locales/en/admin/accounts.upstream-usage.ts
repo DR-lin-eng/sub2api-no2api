@@ -1,0 +1,30 @@
+export default {
+  title: 'Upstream usage details',
+  description: 'ChatGPT model usage, thread costs and allowance history. Its reporting scope may differ from local records.',
+  expand: 'View details', collapse: 'Collapse', live: 'Live quota connected', connecting: 'Connecting live quota…',
+  tabs: { daily: 'Daily model usage', billing: 'Workspace balance and monthly cap', threads: 'Thread usage', plan_history: 'Plan usage history', balance_history: 'Remaining allowance' },
+  scope: 'Scope', personal: 'Personal', workspace: 'Workspace', startDate: 'Start date', endDate: 'End date',
+  resource: 'Resource', remainingBalance: 'Workspace remaining balance', monthly: 'Current user monthly allowance',
+  window: 'Allowance window', fiveHour: '5 hours', weekly: '7 days', refresh: 'Refresh', query: 'Query',
+  threadIDs: 'Thread IDs', threadPlaceholder: 'One thread ID per line, or separate with commas',
+  threadHint: 'Use real thread IDs belonging to this account. Detailed queries support up to 1000 IDs; Top Chats supports 100 roots. Codex local chat lists are not stored here.',
+  topThreads: 'Top Chats: five-hour, weekly and balance usage',
+  descendantHint: 'Each line is one group: the first ID is the root; comma-separated IDs after it are subagent descendants. Up to 100 groups and 1000 IDs in total.',
+  sortBy: 'Sort by usage, highest first',
+  invalidThreads: 'Provide unique, valid thread IDs of at most 200 characters each.',
+  invalidDates: 'Choose a valid date range of at most 90 days.',
+  failed: 'Usage query failed. Please try again.',
+  unavailable: 'The upstream does not currently provide this resource, or this account lacks access ({status}). This does not mean zero usage.',
+  fetchedAt: 'Fetched', dataAsOf: 'Upstream data as of', interval: 'Refreshes every {minutes} minute(s) in the foreground',
+  approximate: 'Historical allowances and reset times are approximate. The chart carries the last observation forward and estimates full allowance at identifiable reset boundaries.',
+  remainingPercent: 'Remaining allowance (%)', empty: 'No usage data in this range.', loadMore: 'Load more history', fullDetails: 'View full details',
+  columns: { date: 'Date', model: 'Model', uncached: 'Uncached input tokens', cached: 'Cached input tokens', output: 'Output tokens', total: 'Total tokens', credits: 'Usage credits', thread: 'Thread ID' },
+  fields: {
+    five_hour_limit_percent: 'Five-hour allowance used (%)', weekly_limit_percent: 'Weekly allowance used (%)', balance_usage_credits: 'Balance usage (credits)',
+    net_new_input_tokens: 'Uncached input tokens', cached_input_tokens: 'Cached input tokens', output_tokens: 'Output tokens',
+    estimated_usage_credits_micros: 'Estimated usage credits', native_usage_usd_micros: 'Native cost (USD)',
+    window_minutes: 'Window (minutes)', starts_at: 'Started', ends_at: 'Ended', used_basis_points: 'Allowance used', accounting_complete: 'Accounting complete',
+    remaining_balance: 'Remaining balance', balance: 'Balance', currency: 'Currency', plan_type: 'Plan', monthly_usage: 'Monthly usage',
+    limit: 'Limit', used: 'Used', remaining: 'Remaining', reset_at: 'Resets at', usage_limit_mode: 'Allowance mode'
+  }
+}

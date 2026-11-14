@@ -91,7 +91,11 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 				h.errorResponse(c, http.StatusRequestEntityTooLarge, "invalid_request_error", buildBodyTooLargeMessage(maxErr.Limit))
 				return
 			}
-			h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Failed to read request body")
+			if handleRequestBodyReadError(c, err) {
+				return
+			}
+			status, message := requestBodyReadFailure(requestLogger(c, "handler.request_body"), c.Request, err)
+			h.errorResponse(c, status, "invalid_request_error", message)
 			return
 		}
 		if len(body) == 0 {
@@ -262,21 +266,32 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 		}
 	}()
 
-	// 未知视频分辨率不能静默按 480p 计费：提交上游前直接拒绝，避免少扣费。
+	// Per-request video pricing must lock a supported resolution tier before
+	// submission. Per-second pricing keeps provider-supported resolutions intact.
 	if endpoint.IsVideoGenerationRequest() {
-		if resolutionErr := service.ValidateMultimodalVideoResolution(requestInfo.ResolutionRaw); resolutionErr != nil {
-			reqLog.Warn("multimodal_media.video_resolution_unsupported",
-				zap.String("model", requestModel),
-				zap.String("resolution", requestInfo.ResolutionRaw),
-				zap.Error(resolutionErr),
-			)
-			status, code, message, retryAfter := billingErrorDetails(resolutionErr)
-			if retryAfter > 0 {
-				c.Header("Retry-After", strconv.Itoa(retryAfter))
+		requestInfo.ResolutionTierLocked = h.gatewayService.MultimodalVideoRequestTierBilling(c.Request.Context(), apiKey, requestModel)
+		if requestInfo.ResolutionTierLocked {
+			if resolutionErr := service.ValidateMultimodalVideoResolution(requestInfo.ResolutionRaw, true); resolutionErr != nil {
+				reqLog.Warn("multimodal_media.video_resolution_unsupported",
+					zap.String("model", requestModel),
+					zap.String("resolution", requestInfo.ResolutionRaw),
+					zap.Error(resolutionErr),
+				)
+				status, code, message, retryAfter := billingErrorDetails(resolutionErr)
+				if retryAfter > 0 {
+					c.Header("Retry-After", strconv.Itoa(retryAfter))
+				}
+				h.errorResponse(c, status, code, message)
+				return
 			}
-			h.errorResponse(c, status, code, message)
-			return
 		}
+	}
+
+	videoBillingResolution := requestInfo.Resolution
+	if requestInfo.ResolutionTierLocked {
+		// The parser normalizes unknown values to 480p. Per-request pricing must
+		// use the original client value so missing tiers cannot be hidden.
+		videoBillingResolution = requestInfo.ResolutionRaw
 	}
 
 	// 未启用两段式冻结（订阅制分组、简单模式）时创建期不会直扣，必须在提交上游前
@@ -291,8 +306,9 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 			UserID:          subject.UserID,
 			GroupID:         pricingGroupID,
 			Model:           requestModel,
-			Resolution:      requestInfo.Resolution,
+			Resolution:      videoBillingResolution,
 			DurationSeconds: service.MultimodalVideoBillingDurationSeconds(requestInfo, body),
+			TierBilling:     requestInfo.ResolutionTierLocked,
 		}); pricingErr != nil {
 			reqLog.Warn("multimodal_media.video_pricing_unavailable",
 				zap.String("model", requestModel),
@@ -475,10 +491,11 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 				GroupID:    groupID,
 				AccountID:  account.ID,
 				Model:      requestModel,
-				Resolution: requestInfo.Resolution,
+				Resolution: videoBillingResolution,
 				// 与结算阶段使用同一口径的时长（duration=-1 按上限），否则冻结额偏小，
 				// 结算时会被封顶导致少扣费。
 				DurationSeconds: service.MultimodalVideoBillingDurationSeconds(requestInfo, body),
+				TierBilling:     requestInfo.ResolutionTierLocked,
 			})
 			if holdErr != nil {
 				reqLog.Warn("multimodal_media.reserve_video_balance_failed",
@@ -498,7 +515,7 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 		writerSizeBeforeForward := c.Writer.Size()
 		result, err := func() (*service.OpenAIForwardResult, error) {
 			defer releaseAccount()
-			return h.gatewayService.ForwardMultimodalMedia(requestCtx, c, account, endpoint, requestID, body, contentType, videoHold)
+			return h.gatewayService.ForwardMultimodalMediaWithResolutionTierBilling(requestCtx, c, account, endpoint, requestID, body, contentType, videoHold, requestInfo.ResolutionTierLocked)
 		}()
 
 		forwardDurationMs := time.Since(forwardStart).Milliseconds()

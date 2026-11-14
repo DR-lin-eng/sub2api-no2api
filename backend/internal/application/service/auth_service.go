@@ -1160,17 +1160,6 @@ func inferLegacySignupSource(email string) string {
 	}
 }
 
-func (s *AuthService) validateRegistrationEmailPolicy(ctx context.Context, email string) error {
-	if s.settingService == nil {
-		return nil
-	}
-	whitelist := s.settingService.GetRegistrationEmailSuffixWhitelist(ctx)
-	if !IsRegistrationEmailSuffixAllowed(email, whitelist) {
-		return buildEmailSuffixNotAllowedError(whitelist)
-	}
-	return nil
-}
-
 func buildEmailSuffixNotAllowedError(whitelist []string) error {
 	if len(whitelist) == 0 {
 		return ErrEmailSuffixNotAllowed
@@ -1694,10 +1683,13 @@ func (s *AuthService) RefreshTokenPair(ctx context.Context, refreshToken string)
 		}
 	}
 
-	// Token轮转：立即使旧Token失效
-	if err := s.refreshTokenCache.DeleteRefreshToken(ctx, tokenHash); err != nil {
-		logger.LegacyPrintf("service.auth", "[Auth] Failed to delete old refresh token: %v", err)
-		// 继续处理，不影响主流程
+	// 原子消费发生在全部校验之后，只有一个并发请求可以兑换旧令牌。
+	if _, err := s.refreshTokenCache.ConsumeRefreshToken(ctx, tokenHash); err != nil {
+		if errors.Is(err, ErrRefreshTokenNotFound) {
+			return nil, ErrRefreshTokenInvalid
+		}
+		logger.LegacyPrintf("service.auth", "[Auth] Failed to consume old refresh token: %v", err)
+		return nil, ErrServiceUnavailable
 	}
 
 	// 生成新的Token对，保持同一个家族ID

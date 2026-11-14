@@ -1,0 +1,11 @@
+{
+  "run": "https://github.com/DR-lin-eng/sub2api-no2api/actions/runs/42353198932",
+  "head": "efa666ec36212007aa73fb720e19580e009712f0",
+  "test": "TestOpenAIUsageHandlersValidateAndStream",
+  "location": "backend/internal/transport/http/handler/admin/openai_usage_test.go:76",
+  "expected_release_calls": 1,
+  "observed_release_calls": 0,
+  "owning_handler_and_test_unchanged_from_baseline": "1e629a9a75e043ae0a888a9231cf7c88ad8f37e8",
+  "diagnosis": "The client can observe the deferred socket Close before the handler invokes its remaining subscription release defer.",
+  "fix": "Await the existing atomic release counter with a bounded Eventually assertion; no product lifecycle changes."
+}

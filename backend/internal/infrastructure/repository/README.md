@@ -5,6 +5,8 @@
 ## 文件索引
 
 `gateway_cache_integrity.go` 保存第一方 OAuth integrity 状态的共享读取与 Lua 原子 expected-state CAS。
+`account_repo_location.go` 原子固定账号首次位置偏移；`gateway_cache_location.go` 按固定 TTL 共享按请求生成的坐标和精度。
+`gateway_cache_codex_session.go` 原子创建并续期 Codex 虚拟会话身份，保持 UUIDv7 的首次生成时间和跨实例缓存亲和性。
 
 | 前缀 | 职责 |
 | --- | --- |
@@ -22,8 +24,10 @@
 | `chat*` | 在线客服会话、消息、素材、快捷回复及分批保留清理 |
 | `cluster*` | 逻辑节点、runner 历史、共享任务租约与版本发布状态 |
 | `*_oauth_*`, `http_upstream*`, `proxy*` | 外部凭据、代理池均衡/健康状态和网络访问实现 |
-| `http_upstream_public.go`, `http_upstream_public_proxy.go` | 用户图片下载的逐跳公开 IP 校验与 DNS 固定，保留账号出口；HTTP/HTTPS 代理通过 CONNECT 访问固定 IP，SOCKS 代理接收固定 IP |
+| `http_upstream_public.go`, `http_upstream_public_proxy.go` | 用户图片下载与显式标记的有界 HTTPS PUT 上传，逐跳公开 IP 校验和 DNS 固定，保留账号出口；上传不携带账号凭据或跟随重定向，HTTP/HTTPS 代理通过 CONNECT 访问固定 IP，SOCKS 代理接收固定 IP |
+| `http_upstream_codex_tls.go` | req/v3 实验传输逐连接创建独立 ClientHello 和 key share，避免重连或并发握手复用 uTLS 的可变状态 |
 | `oauth2_provider_store.go` | OAuth2 一次性 authorization code 与 access token 摘要的 Redis 存储 |
+| `leader_lock_cache.go` | Redis 后台任务租约，按 owner 比较释放/续租，用于长期额度 WS owner |
 | `wire.go` | repository provider 集合 |
 
 `account_repo.go` 只保留仓储结构和构造器；账户持久化分别位于 `account_repo_crud.go`, `account_repo_list.go`, `account_repo_credentials.go`, `account_repo_oauth_401_delete.go`, `account_repo_scheduler_cache.go`, `account_repo_scheduling.go`, `account_repo_extra.go`, `account_repo_probe.go`, `account_repo_mapping.go` 和 `account_repo_quota.go`。新增账户查询或写入应进入对应职责文件，不再回填主文件。
@@ -39,3 +43,6 @@ API Key 列表排序由 `api_key_repo_sort.go` 定义，在 SQL 分页前按第�
 `api_key_auth_bloom_cache.go` 用标准 Redis Lua/位图保存共享 API Key 成员预筛；`api_key_auth_bloom_repo.go` 按主键分页预热，并用 PostgreSQL 事务 advisory lock 协调重建与创建。位图固定约 2 MiB，随机无效凭据不新增 key 或写入位图；准备标记与位图同键、构建代次与租约校验避免缓存丢失后发布不完整快照。
 
 `mcp_oauth*` owns durable management grants, digest credentials, transactional replay revocation and the single joined token-authority read. Migration 252 also revokes grants for old-node user mutations during upgrade/rollback.
+
+`user_repo_email_blacklist.go` 为管理端执行单次有界邮箱探针查询；application 按当前邮箱身份规则复核。
+批量禁用在同一事务更新普通用户状态并撤销 MCP 授权，再由 application 触发既有鉴权缓存失效。

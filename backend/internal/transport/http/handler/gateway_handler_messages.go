@@ -49,7 +49,11 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			h.errorResponse(c, http.StatusRequestEntityTooLarge, "invalid_request_error", buildBodyTooLargeMessage(maxErr.Limit))
 			return
 		}
-		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Failed to read request body")
+		if handleRequestBodyReadError(c, err) {
+			return
+		}
+		status, message := requestBodyReadFailure(requestLogger(c, "handler.request_body"), c.Request, err)
+		h.errorResponse(c, status, "invalid_request_error", message)
 		return
 	}
 
@@ -97,6 +101,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	c.Request = c.Request.WithContext(service.WithThinkingEnabled(c.Request.Context(), parsedReq.ThinkingEnabled, h.metadataBridgeEnabled()))
 
 	setOpsRequestContext(c, reqModel, reqStream)
+	c.Request = c.Request.WithContext(h.gatewayService.WithImageScheduling(c.Request.Context(), reqModel))
 	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(reqStream, false)))
 	pricingCtx, pricingAt := service.WithGatewayTokenRequestPricing(c.Request.Context())
 	c.Request = c.Request.WithContext(pricingCtx)
@@ -506,6 +511,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			forceCacheBilling := fs.ForceCacheBilling
 			quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
 			sessionID := service.ExtractClientSessionID(c)
+			channelUsageFields := clientRequestedUsageFields(c, channelMapping, reqModel, result.UpstreamModel)
 			h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
 				if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
 					Result:             result,
@@ -523,7 +529,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					RequestPayloadHash: requestPayloadHash,
 					ForceCacheBilling:  forceCacheBilling,
 					APIKeyService:      h.apiKeyService,
-					ChannelUsageFields: clientRequestedUsageFields(c, channelMapping, reqModel, result.UpstreamModel),
+					ChannelUsageFields: channelUsageFields,
 				}); err != nil {
 					logger.L().With(
 						zap.String("component", "handler.gateway.messages"),

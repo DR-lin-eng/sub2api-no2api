@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/Wei-Shaw/sub2api/internal/shared/apicompat"
@@ -66,12 +67,21 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 			h.errorResponse(c, http.StatusRequestEntityTooLarge, "invalid_request_error", buildBodyTooLargeMessage(maxErr.Limit))
 			return
 		}
-		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Failed to read request body")
+		if handleRequestBodyReadError(c, err) {
+			return
+		}
+		status, message := requestBodyReadFailure(requestLogger(c, "handler.request_body"), c.Request, err)
+		h.errorResponse(c, status, "invalid_request_error", message)
 		return
 	}
 
 	if len(body) == 0 {
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Request body is empty")
+		return
+	}
+
+	if !utf8.Valid(body) {
+		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Request body must be valid UTF-8 JSON. Send UTF-8 encoded bytes.")
 		return
 	}
 
@@ -174,6 +184,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	if imageIntent {
 		c.Request = c.Request.WithContext(service.WithOpenAIImageGenerationIntent(c.Request.Context()))
 	}
+	c.Request = c.Request.WithContext(h.gatewayService.WithImageScheduling(c.Request.Context(), reqModel))
 	llmStream := reqStream && !imageIntent
 	stopForcedImagePreKeepalive := func() {}
 	if forceImageTool && reqStream {
@@ -301,6 +312,10 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	service.ConfigureOpenAIPassthroughAttemptBudget(c, maxAccountSwitches)
 	switchCount := 0
 	firstOutputTimeoutSwitchCount := 0
+	if imageIntent && requestPlatform == service.PlatformOpenAI {
+		imageSize := service.OpenAIResponsesImageRequestSize(body)
+		c.Request = c.Request.WithContext(service.WithOpenAIImageSizeRouting(c.Request.Context(), imageSize))
+	}
 	var failedAccountIDs map[int64]struct{}
 	profitVetoCount := 0
 	var sameAccountRetryCount map[int64]int
@@ -363,6 +378,14 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
 					h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "compact_not_supported", "No available accounts support /responses/compact", streamStarted)
 					return
+				}
+				if imageIntent && requestPlatform == service.PlatformOpenAI {
+					size := service.OpenAIResponsesImageRequestSize(body)
+					if tier, unsupported := h.gatewayService.OpenAIImageSizeTierUnsupported(c.Request.Context(), apiKey.GroupID, reqModel, size, requiredCapability, ""); unsupported {
+						service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalModelConfiguration)
+						h.handleStreamingAwareError(c, http.StatusBadRequest, "invalid_request_error", service.OpenAIImageSizeTierUnsupportedMessage(size, tier), streamStarted)
+						return
+					}
 				}
 				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel, requestPlatform)
 				if !cls.ModelNotFound {
@@ -610,6 +633,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 
 		// 使用量记录通过有界 worker 池提交，避免请求热路径创建无界 goroutine。
 		cyberBlocked := service.GetOpsCyberPolicy(c) != nil
+		channelUsageFields := clientRequestedUsageFields(c, channelMapping, reqModel, result.UpstreamModel)
 		h.submitOpenAIUsageRecordTask(c.Request.Context(), result, func(ctx context.Context) {
 			if err := h.gatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
 				Result:             result,
@@ -626,7 +650,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 				APIKeyService:      h.apiKeyService,
 				QuotaPlatform:      quotaPlatform,
 				PricingAt:          pricingAt,
-				ChannelUsageFields: clientRequestedUsageFields(c, channelMapping, reqModel, result.UpstreamModel),
+				ChannelUsageFields: channelUsageFields,
 				CyberBlocked:       cyberBlocked,
 			}); err != nil {
 				logger.L().With(

@@ -67,7 +67,7 @@ func enrichCodexModelsManifest(body []byte, account *Account) ([]byte, error) {
 		if json.Unmarshal(entry["slug"], &id) != nil || !modelcatalog.ValidID(id) {
 			continue
 		}
-		fallback := modelcatalog.KnownFallback(id)
+		fallback := codexKnownModelFallback(id)
 		if snapshot != nil {
 			fallback = modelcatalog.Fill(snapshot.Models[id], fallback)
 		}

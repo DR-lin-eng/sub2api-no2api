@@ -1,3 +1,8 @@
+vi.mock("@/features/admin-settings/data/datasources/registrationEmailBlacklistDatasource", () => ({
+  getRegistrationEmailBlacklist: vi.fn().mockResolvedValue({ emails: [], max: 20000 }),
+  updateRegistrationEmailBlacklist: vi.fn(),
+}));
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, type Component } from "vue";
 import { flushPromises, mount } from "@vue/test-utils";
@@ -573,6 +578,8 @@ const baseSettingsResponse = {
   backend_mode_enabled: false,
   stream_mode_performance_enabled: false,
   openai_ws_mode_router_v2_enabled: false,
+  image_independent_scheduling_enabled: false,
+  openai_images_legacy_enabled: false,
   openai_request_timezone_enabled: true,
   openai_request_timezone: "Asia/Singapore",
   openai_visible_output_ttft_enabled: true,
@@ -1095,6 +1102,84 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(payload.openai_oauth_force_relay_enabled).toBe(true);
     expect(payload.openai_oauth_force_relay_base_url).toBe(relayURL);
     reloadedView.unmount();
+  });
+
+  it("loads, saves and restores independent image scheduling in gateway settings", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+    const toggle = wrapper.get('[data-testid="image-independent-scheduling-toggle"]');
+    expect((toggle.element as HTMLInputElement).checked).toBe(false);
+    await toggle.setValue(true);
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+    expect(updateSettings.mock.calls.at(-1)?.[0]).toHaveProperty("image_independent_scheduling_enabled", true);
+    wrapper.unmount();
+
+    getSettings.mockResolvedValueOnce({ ...baseSettingsResponse, image_independent_scheduling_enabled: true });
+    const restored = mountView();
+    await flushPromises();
+    await openGatewayTab(restored);
+    const restoredToggle = restored.get('[data-testid="image-independent-scheduling-toggle"]');
+    expect((restoredToggle.element as HTMLInputElement).checked).toBe(true);
+    await restoredToggle.setValue(false);
+    await restored.find("form").trigger("submit.prevent");
+    await flushPromises();
+    expect(updateSettings.mock.calls.at(-1)?.[0]).toHaveProperty("image_independent_scheduling_enabled", false);
+    restored.unmount();
+  });
+
+  it("defaults to App images and persists the legacy rollback toggle", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+    const toggle = wrapper.get('[data-testid="openai-images-legacy-toggle"]');
+    expect((toggle.element as HTMLInputElement).checked).toBe(false);
+    await toggle.setValue(true);
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+    expect(updateSettings.mock.calls.at(-1)?.[0]).toHaveProperty("openai_images_legacy_enabled", true);
+    wrapper.unmount();
+    getSettings.mockResolvedValueOnce({ ...baseSettingsResponse, openai_images_legacy_enabled: true });
+    const restored = mountView();
+    await flushPromises();
+    await openGatewayTab(restored);
+    const restoredToggle = restored.get('[data-testid="openai-images-legacy-toggle"]');
+    expect((restoredToggle.element as HTMLInputElement).checked).toBe(true);
+    await restoredToggle.setValue(false);
+    await restored.find("form").trigger("submit.prevent");
+    await flushPromises();
+    expect(updateSettings.mock.calls.at(-1)?.[0]).toHaveProperty("openai_images_legacy_enabled", false);
+    restored.unmount();
+  });
+
+  it("saves and restores account location controls", async () => {
+    getSettings.mockResolvedValueOnce({ ...baseSettingsResponse, openai_location_enabled: true, openai_location_latitude: 31.2304, openai_location_longitude: 121.4737 });
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+    const latitude = wrapper.get('[data-testid="openai-location-latitude"]');
+    const longitude = wrapper.get('[data-testid="openai-location-longitude"]');
+    const toggle = wrapper.get('[data-testid="openai-location-toggle"]');
+    expect((latitude.element as HTMLInputElement).value).toBe("31.2304");
+    await longitude.setValue("120.1234");
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+    expect(updateSettings.mock.calls.at(-1)?.[0]).toMatchObject({ openai_location_enabled: true, openai_location_latitude: 31.2304, openai_location_longitude: 120.1234 });
+    await toggle.setValue(false);
+    expect((latitude.element as HTMLInputElement).disabled).toBe(true);
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+    const payload = updateSettings.mock.calls.at(-1)?.[0];
+    expect(payload).toMatchObject({ openai_location_enabled: false, openai_location_latitude: 31.2304 });
+    wrapper.unmount();
+    getSettings.mockResolvedValueOnce({ ...baseSettingsResponse, ...payload });
+    const restored = mountView();
+    await flushPromises();
+    await openGatewayTab(restored);
+    expect((restored.get('[data-testid="openai-location-toggle"]').element as HTMLInputElement).checked).toBe(false);
+    expect((restored.get('[data-testid="openai-location-longitude"]').element as HTMLInputElement).value).toBe("120.1234");
+    restored.unmount();
   });
 
   it("loads, saves and restores request timezone controls from gateway settings", async () => {

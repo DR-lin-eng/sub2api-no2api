@@ -196,6 +196,7 @@
                   />
                 </button>
                 <button
+                  v-if="!(imageOutputSupported && image.mimeType === 'image/svg+xml')"
                   type="button"
                   class="image-edit-action"
                   :aria-label="t('mediaStudio.session.editImage')"
@@ -454,7 +455,7 @@
                   :aria-expanded="modelMenuOpen"
                   @click="toggleModelMenu"
                 >
-                  <span class="composer-chip__key">{{ t('mediaStudio.composer.model') }}</span>
+                  <span class="composer-chip__key">{{ chatgptAppImages ? t('mediaStudio.composer.appImageBillingModel') : t('mediaStudio.composer.model') }}</span>
                   <span class="composer-chip__value max-w-[12rem] truncate">{{ model || t('mediaStudio.composer.selectModel') }}</span>
                   <Icon :name="modelMenuOpen ? 'chevronUp' : 'chevronDown'" size="xs" class="text-gray-400" />
                 </button>
@@ -595,6 +596,7 @@
                 <select
                   class="composer-chip-select"
                   :value="count"
+                  :disabled="imageOutput?.output_format === 'svg'"
                   :aria-label="t('mediaStudio.composer.count')"
                   @change="emit('update:count', Number(($event.target as HTMLSelectElement).value))"
                 >
@@ -603,6 +605,32 @@
                 <span class="composer-chip composer-chip--param" aria-hidden="true">
                   <span class="composer-chip__key">{{ t('mediaStudio.composer.count') }}</span>
                   <span class="composer-chip__value">{{ count }}</span>
+                  <Icon name="chevronDown" size="xs" class="text-gray-400" />
+                </span>
+              </div>
+
+              <span v-if="selectedModeId === 'image' && chatgptAppImages" class="text-xs text-gray-500 dark:text-gray-400">{{ t('mediaStudio.composer.appImagesHint') }}</span>
+
+              <GPTImageOutputFields
+                v-if="selectedModeId === 'image' && imageOutputSupported && !hiddenParameterControls.includes('image.outputFormat')"
+                :model-value="imageOutput"
+                :allow-svg="imageAttachments.length === 0"
+                :hidden-fields="hiddenParameterControls.map(control => MEDIA_STUDIO_PARAMETER_BINDINGS[control])"
+                @update:model-value="emit('update:imageOutput', $event)"
+              />
+
+              <div v-if="selectedModeId === 'image' && imageComplexityOptions?.length && !hiddenParameterControls.includes('image.complexity')" class="composer-chip-wrap relative">
+                <select
+                  class="composer-chip-select"
+                  :value="complexity"
+                  :aria-label="t('mediaStudio.composer.complexity')"
+                  @change="emit('update:complexity', ($event.target as HTMLSelectElement).value as 'low' | 'medium' | 'high')"
+                >
+                  <option v-for="option in imageComplexityOptions" :key="option" :value="option">{{ complexityOptionLabel(option) }}</option>
+                </select>
+                <span class="composer-chip composer-chip--param" aria-hidden="true">
+                  <span class="composer-chip__key">{{ t('mediaStudio.composer.complexity') }}</span>
+                  <span class="composer-chip__value">{{ complexityOptionLabel(complexity) }}</span>
                   <Icon name="chevronDown" size="xs" class="text-gray-400" />
                 </span>
               </div>
@@ -825,6 +853,9 @@
 </template>
 
 <script setup lang="ts">
+import GPTImageOutputFields from '@/common/widgets/forms/GPTImageOutputFields.vue'
+import type { GPTImageOutputOptions } from '@/core/utils/gptImageOutput'
+import { MEDIA_STUDIO_PARAMETER_BINDINGS } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/common/widgets/icons/Icon.vue'
@@ -874,11 +905,16 @@ const props = defineProps<{
   imageAspectRatio: MediaStudioImageAspectRatio
   customImageAspectRatios: string[]
   quality: string
+  complexity?: 'low' | 'medium' | 'high'
+  imageOutput?: GPTImageOutputOptions
+  imageOutputSupported?: boolean
   count: number
   resolution: MediaStudioVideoResolution
   videoAspectRatio: MediaStudioVideoAspectRatio
   duration: number
+  chatgptAppImages?: boolean
   imageQualityOptions: MediaStudioParameterOption[]
+  imageComplexityOptions?: readonly ('low' | 'medium' | 'high')[]
   groupOptions: MediaStudioGroupOption[]
   loadingGroups: boolean
   groupLoadError: string
@@ -917,6 +953,8 @@ const emit = defineEmits<{
   'update:imageAspectRatio': [value: MediaStudioImageAspectRatio]
   addCustomImageAspectRatio: [value: string]
   'update:quality': [value: string]
+  'update:complexity': [value: 'low' | 'medium' | 'high']
+  'update:imageOutput': [value: GPTImageOutputOptions]
   'update:count': [value: number]
   'update:resolution': [value: MediaStudioVideoResolution]
   'update:videoAspectRatio': [value: MediaStudioVideoAspectRatio]
@@ -986,6 +1024,13 @@ const qualityVisible = computed(() => (
 const qualityLabel = computed(() => (
   props.imageQualityOptions.find(option => option.value === props.quality)?.label ?? props.quality
 ))
+function complexityOptionLabel(value: string | undefined): string {
+  switch (value) {
+    case 'low': return t('mediaStudio.composer.complexityLevels.low')
+    case 'medium': return t('mediaStudio.composer.complexityLevels.medium')
+    default: return t('mediaStudio.composer.complexityLevels.high')
+  }
+}
 
 function aspectRatioLabel(value: string): string {
   return value.startsWith('custom:') ? value.slice('custom:'.length) : value

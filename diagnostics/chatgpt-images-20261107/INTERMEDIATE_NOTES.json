@@ -1,0 +1,7 @@
+{
+  "first_full_regression": "Settings key count and two admin settings API contract snapshots lacked the newly added field; native size/quality handler test needed explicit legacy selection. Fixed and full regression passed.",
+  "gofmt_attempt": "Overlapping glob patterns selected a test file twice; gofmt reported file size changed during reading. Replaced with a unique file list.",
+  "concurrent_compile": "A service test compile was killed while frontend build and backend lint were active. Stopped only the task lint container and reran with -p 1, GOMAXPROCS=2, GOMEMLIMIT=1000MiB, GOGC=40.",
+  "browser_approval": "One local browser resize approval review timed out; the allowed one retry succeeded. No user action remained blocked.",
+  "lint_first_pass": "First pass displayed seven errcheck findings. The max-same-issues limit initially hid two additional transport Close findings. All nine explicit return checks were fixed; final focused/build/full lint rerun disables duplicate issue truncation."
+}

@@ -158,8 +158,8 @@
                           ) || 1
                       "
                       type="number"
-                      step="0.01"
-                      min="0.01"
+                      step="0.000001"
+                      min="0.000001"
                       class="input"
                     />
                     <p class="mt-0.5 text-xs text-gray-400">
@@ -174,10 +174,9 @@
                     >
                       {{
                         t("admin.settings.payment.balanceRechargePreview", {
-                          usd: (
-                            Number(form.payment_balance_recharge_multiplier) ||
-                            1
-                          ).toFixed(2),
+                          usd: formatBalanceRechargeMultiplier(
+                            Number(form.payment_balance_recharge_multiplier) || 1,
+                          ),
                         })
                       }}
                     </p>
@@ -301,7 +300,7 @@
                     <label class="input-label">{{
                       t("admin.settings.payment.cancelRateLimit")
                     }}</label>
-                    <div class="flex items-center gap-2">
+                    <div class="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
                         :class="[
@@ -566,6 +565,7 @@ import PaymentProviderList from '@/features/billing/paymentProviderList'
 import Select from '@/common/widgets/forms/Select.vue'
 import Toggle from '@/common/widgets/forms/Toggle.vue'
 import { useSettingsPageContext } from '@/features/admin-settings/presentation/composables/settingsPageContext'
+import { formatBalanceRechargeMultiplier } from '@/features/billing/rechargeBonus'
 
 const { allPaymentTypes, cancelRateLimitModeOptions, cancelRateLimitUnitOptions, confirmDeleteProvider, form, handleReorderProviders, handleToggleField, handleToggleType, hasAnyPaymentTypeEnabled, isPaymentTypeEnabled, loadBalanceOptions, loadProviders, openCreateProvider, openEditProvider, paymentGuideHref, paymentMethodsHref, providers, providersLoading, t, togglePaymentType } = useSettingsPageContext()
 </script>

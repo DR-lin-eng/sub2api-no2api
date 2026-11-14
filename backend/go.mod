@@ -1,13 +1,13 @@
 module github.com/Wei-Shaw/sub2api
 
-go 1.26.10
+go 1.26.11
 
 require (
 	entgo.io/ent v0.14.5
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/alicebob/miniredis/v2 v2.38.0
 	github.com/alitto/pond/v2 v2.6.2
-	github.com/andybalholm/brotli v1.2.0
+	github.com/andybalholm/brotli v1.2.7
 	github.com/aws/aws-sdk-go-v2 v1.41.5
 	github.com/aws/aws-sdk-go-v2/config v1.32.10
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.10
@@ -15,6 +15,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/coder/websocket v1.8.14
 	github.com/dgraph-io/ristretto v0.2.0
+	github.com/dop251/goja v0.0.0-20261107161106-d6eaa50db8bc
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-webauthn/webauthn v0.17.4
 	github.com/golang-jwt/jwt/v5 v5.3.1
@@ -23,7 +24,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/imroc/req/v3 v3.59.0
 	github.com/jackpal/gateway v1.2.0
-	github.com/klauspost/compress v1.18.7
+	github.com/klauspost/compress v1.20.2
 	github.com/lib/pq v1.10.9
 	github.com/modelcontextprotocol/go-sdk v1.4.1
 	github.com/patrickmn/go-cache v2.1.0+incompatible
@@ -58,6 +59,8 @@ require (
 )
 
 require (
+	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
+	github.com/google/pprof v0.0.0-20250317173921-a4b03ec1a45e // indirect
 	github.com/segmentio/asm v1.1.3 // indirect
 	github.com/segmentio/encoding v0.5.4 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
@@ -97,7 +100,7 @@ require (
 	github.com/cpuguy83/dockercfg v0.3.2 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/distribution/reference v0.6.0 // indirect
-	github.com/dlclark/regexp2/v2 v2.1.0 // indirect
+	github.com/dlclark/regexp2/v2 v2.11.0 // indirect
 	github.com/docker/docker v28.5.1+incompatible // indirect
 	github.com/docker/go-connections v0.6.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect

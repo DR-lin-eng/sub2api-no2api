@@ -20,11 +20,12 @@ import (
 
 // Forward forwards request to OpenAI API
 func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, account *Account, body []byte) (*OpenAIForwardResult, error) {
+	rememberOpenAIResponsesClientInstructions(c, body)
 	distillation := s.IsDistillationGroupRequest(c, account)
 	if distillation {
 		body = stripDistillationCacheFields(body)
 	}
-	integrityOriginalBody := bytes.Clone(body)
+	integrityOriginalBody := s.captureOpenAIRequestIntegritySnapshot(ctx, account, body)
 	body = s.normalizeOpenAIRequestTimezone(ctx, account, body, "http")
 	ctx = s.WithOpenAIStreamRuntimeSettings(ctx)
 	if c != nil && c.Request != nil {
@@ -539,7 +540,8 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		// 反向转换已在上方 switch 中处理。
 		if account.Platform == PlatformOpenAI {
 			if maxTokens := gjson.GetBytes(body, "max_tokens"); maxTokens.Exists() {
-				if !gjson.GetBytes(body, "max_output_tokens").Exists() {
+				// OAuth preparation has already removed unsupported output limits.
+				if account.Type != AccountTypeOAuth && !gjson.GetBytes(body, "max_output_tokens").Exists() {
 					markPatchSet("max_output_tokens", maxTokens.Value())
 				}
 				markPatchDelete("max_tokens")
@@ -783,18 +785,17 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 				}
 				continue
 			}
-			if !wsAuthRecoveryTried && account.IsOpenAIOAuth() && s.openAITokenProvider != nil && isOpenAIWSDialTokenExpired(wsErr) {
+			if !wsAuthRecoveryTried && s.openAITokenProvider != nil && isOpenAIWSDialAuthRecoveryCandidate(wsErr, account) {
 				wsAuthRecoveryTried = true
-				if refreshErr := s.openAITokenProvider.RefreshAfterUnauthorized(ctx, account); refreshErr == nil {
-					token, _, err = s.GetAccessToken(ctx, account)
-					if err != nil {
-						return nil, err
-					}
+				if refreshedToken, refreshErr := s.tryRefreshOpenAIRequestToken(ctx, account); refreshErr != nil {
+					return nil, refreshErr
+				} else if refreshedToken != "" {
+					token = refreshedToken
 					continue
 				}
 			}
 			var wsFailoverErr *UpstreamFailoverError
-			if errors.As(wsErr, &wsFailoverErr) && wsFailoverErr.SafeToFailoverAfterWrite {
+			if errors.As(wsErr, &wsFailoverErr) && (wsFailoverErr.SafeToFailoverAfterWrite || isOpenAIOAuthPrincipalChangedError(wsErr)) {
 				return nil, wsFailoverErr
 			}
 			if c != nil && c.Writer != nil && c.Writer.Written() {
@@ -957,6 +958,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	httpInvalidEncryptedContentRetryTried := false
 	agentTaskRecoveryTried := false
 	openAIAuthRecoveryTried := false
+	tlsRecovery := openAITLSHandshakeRecovery{}
 	rejectedFieldRetryState := newOpenAIResponsesRejectedFieldRetryState(body)
 	for {
 		// Build upstream request
@@ -967,6 +969,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 				upstreamCtx, releaseUpstreamCtx, startTime.Add(firstOutputTimeout),
 			)
 		}
+		syncOpenAIResponsesInstructionsEcho(c, body)
 		upstreamReq, err := s.buildUpstreamRequestWithFingerprint(upstreamCtx, c, account, body, token, reqStream, promptCacheKey, isCodexCLI, fingerprintIDs)
 		if headerGuard == nil {
 			releaseUpstreamCtx()
@@ -985,8 +988,9 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		}
 
 		// Send request
+		upstreamReq = tlsRecovery.trace(upstreamReq)
 		upstreamStart := time.Now()
-		resp, err := s.doOpenAIResponsesUpstream(ctx, c, upstreamReq, proxyURL, account, reqStream)
+		resp, err := s.doOpenAIResponsesWithCompressionRecovery(ctx, c, upstreamReq, proxyURL, account, reqStream, canonicalImageIntentBody, nil)
 		SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
 		if headerGuard != nil && headerGuard.stopHeaderWait() {
 			if resp != nil && resp.Body != nil {
@@ -1004,6 +1008,11 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			}
 			if headerGuard != nil {
 				headerGuard.close()
+			}
+			if retry, retryErr := tlsRecovery.retry(ctx, c, account, err); retryErr != nil {
+				return nil, retryErr
+			} else if retry {
+				continue
 			}
 			// Transport-level failure (proxy/DNS/TCP/TLS — no HTTP response). Convert to
 			// a failover so the handler switches to a healthy account, and temporarily
@@ -1023,15 +1032,14 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(respBody))
 			upstreamMsg = sanitizeUpstreamErrorMessage(upstreamMsg)
 			upstreamCode := extractUpstreamErrorCode(respBody)
-			if resp.StatusCode == http.StatusUnauthorized && upstreamCode == "token_expired" &&
-				!openAIAuthRecoveryTried && account.IsOpenAIOAuth() && s.openAITokenProvider != nil {
+			if !openAIAuthRecoveryTried && s.openAITokenProvider != nil &&
+				shouldRefreshOpenAIOAuth401(account, resp.StatusCode, respBody) {
 				openAIAuthRecoveryTried = true
-				if refreshErr := s.openAITokenProvider.RefreshAfterUnauthorized(ctx, account); refreshErr == nil {
+				if refreshedToken, refreshErr := s.tryRefreshOpenAIRequestToken(ctx, account); refreshErr != nil {
+					return nil, refreshErr
+				} else if refreshedToken != "" {
 					_ = resp.Body.Close()
-					token, _, err = s.GetAccessToken(ctx, account)
-					if err != nil {
-						return nil, err
-					}
+					token = refreshedToken
 					reqBody = nil
 					continue
 				}
@@ -1126,37 +1134,37 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		responseID := ""
 		imageCount := 0
 		var imageOutputSizes []string
+		var responseErr error
 		if reqStream {
-			streamResult, err := s.handleStreamingResponseWithReasoning(ctx, resp, c, account, startTime, originalModel, upstreamModel, reasoningEffortValue)
-			if err != nil {
-				return nil, err
+			streamResult, streamErr := s.handleStreamingResponseWithReasoning(ctx, resp, c, account, startTime, originalModel, upstreamModel, reasoningEffortValue)
+			responseErr = streamErr
+			if streamResult != nil {
+				usage = streamResult.usage
+				firstTokenMs = streamResult.firstTokenMs
+				responseID = strings.TrimSpace(streamResult.responseID)
+				imageCount = streamResult.imageCount
+				imageOutputSizes = streamResult.imageOutputSizes
 			}
-			usage = streamResult.usage
-			firstTokenMs = streamResult.firstTokenMs
-			responseID = strings.TrimSpace(streamResult.responseID)
-			imageCount = streamResult.imageCount
-			imageOutputSizes = streamResult.imageOutputSizes
-			s.bindStagedOpenAICodexTurnState(c, account, resp.Header)
 		} else {
-			nonStreamResult, err := s.handleNonStreamingResponse(ctx, resp, c, account, originalModel, upstreamModel)
-			if err != nil {
-				return nil, err
-			}
-			usage = nonStreamResult.usage
-			responseID = strings.TrimSpace(nonStreamResult.responseID)
-			imageCount = nonStreamResult.imageCount
-			imageOutputSizes = nonStreamResult.imageOutputSizes
-			s.bindStagedOpenAICodexTurnState(c, account, resp.Header)
-		}
-		s.bindHTTPResponseAccount(ctx, c, account, responseID)
-
-		// Extract and save Codex usage snapshot from response headers (for OAuth accounts).
-		// 排除 spark 影子:其 codex_* 仅由 QueryUsage(/wham/usage bengalfox)更新(外审第7轮 P1)。
-		if account.Type == AccountTypeOAuth && !account.IsShadow() {
-			if snapshot := ParseCodexRateLimitHeaders(resp.Header); snapshot != nil {
-				s.updateCodexUsageSnapshot(ctx, account.ID, snapshot)
+			nonStreamResult, nonStreamErr := s.handleNonStreamingResponse(ctx, resp, c, account, originalModel, upstreamModel)
+			responseErr = nonStreamErr
+			if nonStreamResult != nil {
+				usage = nonStreamResult.usage
+				responseID = strings.TrimSpace(nonStreamResult.responseID)
+				imageCount = nonStreamResult.imageCount
+				imageOutputSizes = nonStreamResult.imageOutputSizes
 			}
 		}
+		if responseErr != nil {
+			if retry, retryErr := s.retryOpenAIHTTP200Failure(ctx, c, account, body, canonicalImageIntentBody, usage, responseErr); retryErr != nil {
+				return nil, retryErr
+			} else if retry {
+				_ = resp.Body.Close()
+				continue
+			}
+			return nil, responseErr
+		}
+		s.completeOpenAIHTTPResponse(ctx, c, account, resp.Header, responseID)
 
 		if usage == nil {
 			usage = &OpenAIUsage{}

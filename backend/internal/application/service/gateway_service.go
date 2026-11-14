@@ -510,21 +510,21 @@ func prefetchedStickyAccountIDFromContext(ctx context.Context, groupID *int64) i
 	return 0
 }
 
-// shouldClearStickySession 检查账号是否处于不可调度状态，需要清理粘性会话绑定。
+// shouldClearStickySessionWithContext 检查账号是否处于不可调度状态，需要清理粘性会话绑定。
 // 委托 IsSchedulable() 判断账号级可调度性（状态、配额、过载、限流等），
 // 额外检查模型级限流。
 //
-// shouldClearStickySession checks if an account is in an unschedulable state
+// shouldClearStickySessionWithContext checks if an account is in an unschedulable state
 // and the sticky session binding should be cleared.
 // Delegates to IsSchedulable() for account-level checks, plus model-level rate limiting.
-func shouldClearStickySession(account *Account, requestedModel string) bool {
+func shouldClearStickySessionWithContext(ctx context.Context, account *Account, requestedModel string) bool {
 	if account == nil {
 		return false
 	}
-	if !account.IsSchedulable() {
+	if !account.IsSchedulableWithContext(ctx) {
 		return true
 	}
-	if remaining := account.GetRateLimitRemainingTimeWithContext(context.Background(), requestedModel); remaining > 0 {
+	if remaining := account.GetRateLimitRemainingTimeWithContext(ctx, requestedModel); remaining > 0 {
 		return true
 	}
 	return false

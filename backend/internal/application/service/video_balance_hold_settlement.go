@@ -20,7 +20,12 @@ func (s *OpenAIGatewayService) multimodalVideoCapture(ctx context.Context, c *gi
 	}
 	seconds = NormalizeVideoBillingDurationSecondsOrDefault(seconds)
 	requestedSeconds := NormalizeVideoBillingDurationSecondsOrDefault(record.DurationSeconds)
-	ratio := math.Min(1, float64(seconds)/float64(requestedSeconds))
+	// Per-request video prices are independent of generated duration. Older
+	// holds have an empty BillingMode and retain the original capped ratio.
+	ratio := 1.0
+	if record.BillingMode != string(BillingModePerRequest) {
+		ratio = math.Min(1, float64(seconds)/float64(requestedSeconds))
+	}
 	amount := math.Min(record.HoldAmount, QuantizeUsageBillingAmount(record.HoldAmount*ratio))
 	total := QuantizeUsageBillingAmount(record.BaseAmount * ratio)
 	if total == 0 && amount > 0 {
@@ -35,6 +40,9 @@ func (s *OpenAIGatewayService) multimodalVideoCapture(ctx context.Context, c *gi
 		accountRate, accountType = account.BillingRateMultiplier(), account.Type
 	}
 	billingMode, resolution := string(BillingModeVideo), record.Resolution
+	if record.BillingMode != "" {
+		billingMode = record.BillingMode
+	}
 	inbound, upstream := "/v1/videos/generations", "/v1/videos/generations"
 	if c != nil && c.Request != nil && c.Request.URL != nil {
 		inbound = c.Request.URL.Path

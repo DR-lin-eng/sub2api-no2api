@@ -45,6 +45,22 @@ const (
 	AccountExcelBPSFilterDisabled = "disabled"
 )
 
+// AccountOAuthPlanFilter* values select the persisted ChatGPT plan type for
+// OpenAI OAuth accounts. The value is stored in credentials.plan_type and is
+// intentionally normalized at the HTTP/application boundary before it reaches
+// the repository.
+const (
+	AccountOAuthPlanFilterFree       = "free"
+	AccountOAuthPlanFilterPro        = "pro"
+	AccountOAuthPlanFilterPro5x      = "pro5x"
+	AccountOAuthPlanFilterPro20x     = "pro20x"
+	AccountOAuthPlanFilterPro50x     = "pro50x"
+	AccountOAuthPlanFilterTeam       = "team"
+	AccountOAuthPlanFilterPlus       = "plus"
+	AccountOAuthPlanFilterEnterprise = "enterprise"
+	AccountOAuthPlanFilterEdu        = "edu"
+)
+
 func NormalizeAccountExcelBPSFilter(value string) (string, error) {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "":
@@ -55,6 +71,38 @@ func NormalizeAccountExcelBPSFilter(value string) (string, error) {
 		return AccountExcelBPSFilterDisabled, nil
 	default:
 		return "", fmt.Errorf("invalid Excel BPS filter")
+	}
+}
+
+// NormalizeAccountOAuthPlanFilter accepts the stable plan filter values used
+// by the admin account list. Spaces, underscores and hyphens are ignored so
+// values copied from upstream responses (for example "pro-5x") remain usable.
+func NormalizeAccountOAuthPlanFilter(value string) (string, error) {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	normalized = strings.NewReplacer(" ", "", "_", "", "-", "").Replace(normalized)
+	switch normalized {
+	case "":
+		return "", nil
+	case AccountOAuthPlanFilterFree:
+		return AccountOAuthPlanFilterFree, nil
+	case AccountOAuthPlanFilterPro, "chatgptpro":
+		return AccountOAuthPlanFilterPro, nil
+	case AccountOAuthPlanFilterPro5x:
+		return AccountOAuthPlanFilterPro5x, nil
+	case AccountOAuthPlanFilterPro20x:
+		return AccountOAuthPlanFilterPro20x, nil
+	case AccountOAuthPlanFilterPro50x:
+		return AccountOAuthPlanFilterPro50x, nil
+	case AccountOAuthPlanFilterTeam:
+		return AccountOAuthPlanFilterTeam, nil
+	case AccountOAuthPlanFilterPlus:
+		return AccountOAuthPlanFilterPlus, nil
+	case AccountOAuthPlanFilterEnterprise:
+		return AccountOAuthPlanFilterEnterprise, nil
+	case AccountOAuthPlanFilterEdu:
+		return AccountOAuthPlanFilterEdu, nil
+	default:
+		return "", fmt.Errorf("invalid OAuth plan filter")
 	}
 }
 
@@ -106,12 +154,34 @@ type AdminAccountFeatureListService interface {
 	) ([]Account, int64, error)
 }
 
+// AdminAccountOAuthPlanListService is the combined paginated filter extension
+// for the OpenAI OAuth plan selector. It accepts the other account-list feature
+// filters so all predicates stay in SQL and pagination remains correct.
+type AdminAccountOAuthPlanListService interface {
+	ListAccountsWithPlanTypeFilter(
+		ctx context.Context,
+		page, pageSize int,
+		platform, accountType, status, search string,
+		groupID int64,
+		privacyMode, sortBy, sortOrder, oauthQuotaFilter, excelBPSFilter, planTypeFilter string,
+	) ([]Account, int64, error)
+}
+
 type AdminAccountFeatureSchedulerFilterService interface {
 	ListAccountsForSchedulerScoreFilterWithFeatureFilters(
 		ctx context.Context,
 		platform, accountType, status, search string,
 		groupID int64,
 		privacyMode, oauthQuotaFilter, excelBPSFilter string,
+	) ([]Account, error)
+}
+
+type AdminAccountOAuthPlanSchedulerFilterService interface {
+	ListAccountsForSchedulerScoreFilterWithPlanType(
+		ctx context.Context,
+		platform, accountType, status, search string,
+		groupID int64,
+		privacyMode, oauthQuotaFilter, excelBPSFilter, planTypeFilter string,
 	) ([]Account, error)
 }
 
@@ -462,6 +532,7 @@ func (s *AccountService) Update(ctx context.Context, id int64, req UpdateAccount
 			OAuthSupportedModelsSyncedAtExtraKey,
 			OpenAIOAuthSupportedModelsExtraKey,
 			OpenAIOAuthSupportedModelsSyncedAtExtraKey,
+			OpenAILocationPersistentOffsetExtraKey,
 		} {
 			if _, submitted := extra[key]; submitted {
 				continue

@@ -10,7 +10,7 @@ import (
 )
 
 func isClaude55SignedThinkingModel(model string) bool {
-	return claude.IsOpus55(model) || claude.IsSonnet55(model) || claude.IsHaiku55(model)
+	return claude.IsOpus55(model) || claude.IsSonnet55(model) || claude.IsHaiku55(model) || claude.IsFable52(model) || claude.IsMythos52(model)
 }
 
 func validateClaude55Request(body []byte, model string) error {
@@ -51,6 +51,7 @@ func validateClaude55Request(body []byte, model string) error {
 	}
 	isSonnet55 := claude.IsSonnet55(model)
 	isHaiku55 := claude.IsHaiku55(model)
+	isFableOrMythos52 := claude.IsFable52(model) || claude.IsMythos52(model)
 	thinkingType := get("thinking.type").String()
 	switch thinkingType {
 	case "disabled", "enabled":
@@ -69,13 +70,16 @@ func validateClaude55Request(body []byte, model string) error {
 		if isSonnet55 {
 			return fmt.Errorf("claude-sonnet-5-5 requires adaptive thinking or thinking.type=between_tools; omit thinking or use one of those modes")
 		}
+		if isFableOrMythos52 {
+			return fmt.Errorf("%s requires adaptive thinking; omit thinking or use thinking.type=adaptive and output_config.effort", model)
+		}
 		return fmt.Errorf("claude-opus-5-5 requires adaptive thinking; omit thinking or use thinking.type=adaptive and output_config.effort")
 	case "between_tools":
 		if !isSonnet55 {
 			if isHaiku55 {
 				return fmt.Errorf("claude-haiku-5-5 requires adaptive thinking; thinking.type=between_tools is unsupported (use thinking.type=disabled at high effort or below)")
 			}
-			return fmt.Errorf("claude-opus-5-5 requires adaptive thinking; thinking.type=between_tools is unsupported")
+			return fmt.Errorf("%s requires adaptive thinking; thinking.type=between_tools is unsupported", model)
 		}
 		effort := get("output_config.effort").String()
 		if effort == "xhigh" || effort == "max" {
@@ -94,6 +98,9 @@ func validateClaude55Request(body []byte, model string) error {
 	if isHaiku55 {
 		modelName = "claude-haiku-5-5"
 	}
+	if isFableOrMythos52 {
+		modelName = model
+	}
 	// haiku-5-5 接受强制 tool_choice（响应以 tool call 开头、无 thinking 块），
 	// 与 opus/sonnet-5-5 不同，不拦截。见官方 migration guide。
 	if !isHaiku55 {
@@ -105,19 +112,19 @@ func validateClaude55Request(body []byte, model string) error {
 			return fmt.Errorf("%s does not support forced tool_choice; use auto or none", modelName)
 		}
 	}
-	if isSonnet55 || isHaiku55 {
+	if isSonnet55 || isHaiku55 || isFableOrMythos52 {
 		if temperature := get("temperature"); temperature.Exists() && (temperature.Type != gjson.Number || temperature.Float() != 1) {
 			return fmt.Errorf("%s does not support non-default temperature", modelName)
 		}
 		// Haiku 5.5 只接受显式 top_p=0.99；保留 Sonnet 5.5 既有的区间策略。
 		if topP := get("top_p"); topP.Exists() && (topP.Type != gjson.Number ||
-			(isHaiku55 && topP.Float() != 0.99) || (isSonnet55 && (topP.Float() < 0.99 || topP.Float() > 1))) {
+			((isHaiku55 || isFableOrMythos52) && topP.Float() != 0.99) || (isSonnet55 && (topP.Float() < 0.99 || topP.Float() > 1))) {
 			return fmt.Errorf("%s does not support non-default top_p", modelName)
 		}
 		if get("top_k").Exists() {
 			return fmt.Errorf("%s does not support top_k", modelName)
 		}
-		if isHaiku55 && get("temperature").Exists() && get("top_p").Exists() {
+		if (isHaiku55 || isFableOrMythos52) && get("temperature").Exists() && get("top_p").Exists() {
 			return fmt.Errorf("%s does not allow temperature and top_p together; omit both", modelName)
 		}
 	}

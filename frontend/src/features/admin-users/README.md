@@ -18,3 +18,6 @@ pnpm exec vitest run src/features/admin-users
 pnpm exec vitest run src/common/widgets/data/__tests__/GroupOptionItem.spec.ts src/core/i18n/__tests__/routeLocaleCoverage.spec.ts
 pnpm run typecheck
 ```
+
+`data/datasources/userBlacklistActions.ts` 拥有邮箱匹配查询和批量禁用协议；设置面板在明确用户管理权限下复用。
+批量禁用只处理确认的 ID，服务端保护管理员、事务撤销 MCP 并触发原有鉴权缓存失效。

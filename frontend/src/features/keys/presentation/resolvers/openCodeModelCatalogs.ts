@@ -1,5 +1,6 @@
 type OpenCodeModality = 'text' | 'image' | 'pdf'
 type OpenCodeThinkingType = 'adaptive' | 'disable' | 'enabled'
+type OpenCodeEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max'
 
 interface OpenCodeModelLimit {
   context: number
@@ -19,6 +20,7 @@ interface OpenCodeThinkingOptions {
 interface OpenCodeModelOptions {
   store?: boolean
   thinking?: OpenCodeThinkingOptions
+  effort?: OpenCodeEffort
 }
 
 interface OpenCodeModelDefinition {
@@ -26,7 +28,7 @@ interface OpenCodeModelDefinition {
   limit: OpenCodeModelLimit
   modalities?: OpenCodeModelModalities
   options?: OpenCodeModelOptions
-  variants?: Readonly<Record<string, Readonly<Record<string, never>>>>
+  variants?: Readonly<Record<string, Readonly<{ effort?: OpenCodeEffort }>>>
 }
 
 export type OpenCodeModelCatalog = Readonly<Record<string, OpenCodeModelDefinition>>
@@ -537,6 +539,23 @@ export const antigravityGeminiModelCatalog = {
         type: 'enabled'
       }
     }
+  }
+} satisfies OpenCodeModelCatalog
+
+export const claude52ModelCatalog = {
+  'claude-fable-5-2': {
+    name: 'Claude Fable 5.2',
+    limit: { context: 1000000, output: 128000 },
+    modalities: { input: ['text', 'image', 'pdf'], output: ['text'] },
+    options: { thinking: { type: 'adaptive' }, effort: 'high' },
+    variants: { low: { effort: 'low' }, medium: { effort: 'medium' }, high: { effort: 'high' }, xhigh: { effort: 'xhigh' }, max: { effort: 'max' } }
+  },
+  'claude-mythos-5-2': {
+    name: 'Claude Mythos 5.2',
+    limit: { context: 1000000, output: 128000 },
+    modalities: { input: ['text', 'image', 'pdf'], output: ['text'] },
+    options: { thinking: { type: 'adaptive' }, effort: 'high' },
+    variants: { low: { effort: 'low' }, medium: { effort: 'medium' }, high: { effort: 'high' }, xhigh: { effort: 'xhigh' }, max: { effort: 'max' } }
   }
 } satisfies OpenCodeModelCatalog
 

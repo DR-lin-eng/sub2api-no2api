@@ -136,7 +136,8 @@ type ConversationRepository interface {
 	GetByID(ctx context.Context, id int64) (*Conversation, error)
 	GetByUserID(ctx context.Context, userID int64) (*Conversation, error)
 
-	// List returns conversations for the admin inbox, sorted by most recent activity.
+	// List returns conversations for the admin inbox, with unread conversations
+	// first and most recent activity used as the tie-breaker.
 	List(ctx context.Context, params pagination.PaginationParams, filters ConversationListFilters) ([]Conversation, *pagination.PaginationResult, error)
 	// CountUnreadByAdmin returns the number of conversations with messages waiting for support.
 	CountUnreadByAdmin(ctx context.Context) (int, error)

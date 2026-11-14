@@ -176,7 +176,8 @@ type AnthropicEventToResponsesState struct {
 	ContentIndex int
 	// TextAccum accumulates the current text part so that output_text.done and
 	// content_part.done can carry the full text (deltas carry increments only).
-	TextAccum string
+	TextAccum  string
+	textBuffer strings.Builder
 
 	// For function_call: track per-output info
 	CurrentCallID string
@@ -187,6 +188,8 @@ type AnthropicEventToResponsesState struct {
 	CurrentArgs                string                 // function_call
 	PendingToolInput           string                 // Inline arguments, used only when no delta arrives.
 	CurrentSummary             string                 // reasoning
+	argsBuffer                 strings.Builder
+	summaryBuffer              strings.Builder
 	CurrentThinking            AnthropicContentBlock
 	PreserveThinkingSignatures bool
 	thinkingSignature          strings.Builder
@@ -367,6 +370,7 @@ func anthToResHandleContentBlockStart(evt *AnthropicStreamEvent, state *Anthropi
 			Part:         &ResponsesContentPart{Type: "output_text", Text: ""},
 		}))
 		state.TextAccum = ""
+		state.textBuffer.Reset()
 
 	case "tool_use":
 		// Close previous item if any
@@ -403,7 +407,7 @@ func anthToResHandleContentBlockDelta(evt *AnthropicStreamEvent, state *Anthropi
 		if evt.Delta.Text == "" {
 			return nil
 		}
-		state.TextAccum += evt.Delta.Text
+		state.TextAccum = appendStreamFragment(&state.textBuffer, state.TextAccum, evt.Delta.Text)
 		return []ResponsesStreamEvent{makeResponsesEvent(state, "response.output_text.delta", &ResponsesStreamEvent{
 			OutputIndex:  state.OutputIndex,
 			ContentIndex: state.ContentIndex,
@@ -422,7 +426,7 @@ func anthToResHandleContentBlockDelta(evt *AnthropicStreamEvent, state *Anthropi
 				state.thinkingOverflow = true
 			}
 		} else {
-			state.CurrentSummary += evt.Delta.Thinking
+			state.CurrentSummary = appendStreamFragment(&state.summaryBuffer, state.CurrentSummary, evt.Delta.Thinking)
 		}
 		return []ResponsesStreamEvent{makeResponsesEvent(state, "response.reasoning_summary_text.delta", &ResponsesStreamEvent{
 			OutputIndex:  state.OutputIndex,
@@ -436,7 +440,7 @@ func anthToResHandleContentBlockDelta(evt *AnthropicStreamEvent, state *Anthropi
 			return nil
 		}
 		state.PendingToolInput = ""
-		state.CurrentArgs += evt.Delta.PartialJSON
+		state.CurrentArgs = appendStreamFragment(&state.argsBuffer, state.CurrentArgs, evt.Delta.PartialJSON)
 		return []ResponsesStreamEvent{makeResponsesEvent(state, "response.function_call_arguments.delta", &ResponsesStreamEvent{
 			OutputIndex: state.OutputIndex,
 			Delta:       evt.Delta.PartialJSON,
@@ -507,6 +511,7 @@ func anthToResHandleContentBlockStop(evt *AnthropicStreamEvent, state *Anthropic
 		// item itself stays open since more blocks may follow.
 		text := state.TextAccum
 		state.TextAccum = ""
+		state.textBuffer.Reset()
 		contentIndex := state.ContentIndex
 		state.CurrentContent = append(state.CurrentContent, ResponsesContentPart{Type: "output_text", Text: text})
 		state.ContentIndex++
@@ -622,13 +627,16 @@ func closeCurrentResponsesItem(state *AnthropicEventToResponsesState) []Response
 	state.CurrentName = ""
 	state.CurrentContent = nil
 	state.CurrentArgs = ""
+	state.argsBuffer.Reset()
 	state.PendingToolInput = ""
 	state.CurrentSummary = ""
+	state.summaryBuffer.Reset()
 	state.CurrentThinking = AnthropicContentBlock{}
 	state.thinkingSignature.Reset()
 	state.thinkingText.Reset()
 	state.thinkingOverflow = false
 	state.TextAccum = ""
+	state.textBuffer.Reset()
 	state.OutputIndex++
 	state.ContentIndex = 0
 
@@ -750,5 +758,5 @@ func seedToolArguments(input json.RawMessage) string {
 }
 
 func isAnthropicSignedThinkingModel(model string) bool {
-	return claude.IsOpus55(model) || claude.IsSonnet55(model) || claude.IsHaiku55(model)
+	return claude.IsOpus55(model) || claude.IsSonnet55(model) || claude.IsHaiku55(model) || claude.IsFable52(model) || claude.IsMythos52(model)
 }

@@ -331,6 +331,9 @@ func (s *OpenAIGatewayService) FetchCodexModelsManifest(ctx context.Context, acc
 		headerVersion = identity.version
 	}
 	headers.Set("Version", headerVersion)
+	if credAccount.IsOpenAISIWC() {
+		applyOpenAISIWCHeaders(headers)
+	}
 
 	proxyURL := ""
 	if account.ProxyID != nil && account.Proxy != nil {
@@ -561,7 +564,7 @@ func (s *OpenAIGatewayService) fetchCodexModelsManifestUpstream(ctx context.Cont
 		}
 	}
 	upstreamBody := body
-	if request.useAPIKeyUpstream {
+	if request.useAPIKeyUpstream || request.credentialAccount.IsOpenAISIWC() {
 		body = convertOpenAIModelListToCodexManifestRaw(body)
 	}
 	if err := validateCodexModelsManifestEnvelope(body); err != nil {
@@ -607,6 +610,7 @@ func codexModelsManifestBodyETag(body []byte) string {
 }
 
 var apiKeyCodexModelsWithoutResponsesLite = map[string]struct{}{
+	"gpt-6.1-terra": {},
 	"gpt-5.6-sol":   {},
 	"gpt-5.6-terra": {},
 	"gpt-5.6-luna":  {},
@@ -763,7 +767,7 @@ func convertOpenAIModelListToCodexManifestWithFallback(body []byte, includeFallb
 		}
 		model := modelcatalog.Normalize(entry, id)
 		if includeFallback {
-			model = modelcatalog.Fill(model, modelcatalog.KnownFallback(id))
+			model = modelcatalog.Fill(model, codexKnownModelFallback(id))
 		}
 		delete(model, "id")
 		model["slug"], _ = json.Marshal(id)

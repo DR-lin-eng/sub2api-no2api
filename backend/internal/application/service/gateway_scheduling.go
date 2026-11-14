@@ -33,6 +33,7 @@ func (s *GatewayService) SelectAccountForModel(ctx context.Context, groupID *int
 
 // SelectAccountForModelWithExclusions selects an account supporting the requested model while excluding specified accounts.
 func (s *GatewayService) SelectAccountForModelWithExclusions(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*Account, error) {
+	ctx = s.WithImageScheduling(ctx, requestedModel)
 	candidates, routed := apiKeyGroupRoutingCandidates(ctx, groupID)
 	if !routed {
 		return s.selectAccountForModelWithExclusionsInGroup(ctx, groupID, sessionHash, requestedModel, excludedIDs)
@@ -97,6 +98,7 @@ func (s *GatewayService) selectAccountForModelWithExclusionsInGroup(ctx context.
 		// 无分组时只使用原生 anthropic 平台
 		platform = PlatformAnthropic
 	}
+	ctx = s.WithImageScheduling(ctx, requestedModel)
 	ctx = s.withGatewayProfitControlGate(ctx, groupID)
 
 	// Claude Code 限制可能已将 groupID 解析为 fallback group，
@@ -162,6 +164,7 @@ func (s *GatewayService) selectAccountForModelWithExclusionsInGroup(ctx context.
 // metadataUserID: 用于客户端亲和调度，从中提取客户端 ID
 // sub2apiUserID: 系统用户 ID，用于二维亲和调度
 func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, metadataUserID string, sub2apiUserID int64) (*AccountSelectionResult, error) {
+	ctx = s.WithImageScheduling(ctx, requestedModel)
 	candidates, routed := apiKeyGroupRoutingCandidates(ctx, groupID)
 	if !routed {
 		return s.selectAccountWithLoadAwarenessInGroup(ctx, groupID, sessionHash, requestedModel, excludedIDs, metadataUserID, sub2apiUserID)
@@ -213,6 +216,7 @@ func (s *GatewayService) selectAccountWithLoadAwarenessInGroup(ctx context.Conte
 		return nil, err
 	}
 	ctx = s.withGroupContext(ctx, group)
+	ctx = s.WithImageScheduling(ctx, requestedModel)
 	ctx = s.withGatewayProfitControlGate(ctx, groupID)
 
 	// Claude Code 限制可能已将 groupID 解析为 fallback group，
@@ -392,7 +396,7 @@ func (s *GatewayService) selectAccountWithLoadAwarenessInGroup(ctx context.Conte
 				continue
 			}
 			account, ok := accountByID[routingAccountID]
-			if !ok || !s.isAccountSchedulableForSelection(account) {
+			if !ok || !s.isAccountSchedulableForSelection(ctx, account) {
 				if !ok {
 					filteredMissing++
 				} else {
@@ -454,7 +458,7 @@ func (s *GatewayService) selectAccountWithLoadAwarenessInGroup(ctx context.Conte
 					if stickyAccount, ok := accountByID[stickyAccountID]; ok {
 						var stickyCacheMissReason string
 
-						gatePass := s.isAccountSchedulableForSelection(stickyAccount) &&
+						gatePass := s.isAccountSchedulableForSelection(ctx, stickyAccount) &&
 							s.isAccountAllowedForPlatform(stickyAccount, platform, useMixed) &&
 							(requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, stickyAccount, requestedModel)) &&
 							s.isAccountSchedulableForModelSelection(ctx, stickyAccount, requestedModel) &&
@@ -637,7 +641,7 @@ func (s *GatewayService) selectAccountWithLoadAwarenessInGroup(ctx context.Conte
 			account, ok := accountByID[accountID]
 			if ok {
 				// 检查账户是否需要清理粘性会话绑定
-				clearSticky := shouldClearStickySession(account, requestedModel)
+				clearSticky := shouldClearStickySessionWithContext(ctx, account, requestedModel)
 				if clearSticky {
 					slog.Debug("sticky.layer1_5_no_routing_clear",
 						"account_id", accountID,
@@ -656,7 +660,7 @@ func (s *GatewayService) selectAccountWithLoadAwarenessInGroup(ctx context.Conte
 				quotaOK := s.isAccountSchedulableForQuota(account)
 				windowCostOK := s.isAccountSchedulableForWindowCost(ctx, account, true)
 				rpmOK := s.isAccountSchedulableForRPM(ctx, account, true)
-				schedulable := s.isAccountSchedulableForSelection(account)
+				schedulable := s.isAccountSchedulableForSelection(ctx, account)
 
 				slog.Debug("sticky.layer1_5_no_routing_checks",
 					"account_id", accountID,
@@ -770,7 +774,7 @@ func (s *GatewayService) selectAccountWithLoadAwarenessInGroup(ctx context.Conte
 		// Scheduler snapshots can be temporarily stale (bucket rebuild is throttled);
 		// re-check schedulability here so recently rate-limited/overloaded accounts
 		// are not selected again before the bucket is rebuilt.
-		if !s.isAccountSchedulableForSelection(acc) {
+		if !s.isAccountSchedulableForSelection(ctx, acc) {
 			continue
 		}
 		if !s.isAccountAllowedForPlatform(acc, platform, useMixed) {
@@ -1258,11 +1262,11 @@ func (s *GatewayService) isAccountAllowedForPlatform(account *Account, platform 
 	return account.Platform == platform
 }
 
-func (s *GatewayService) isAccountSchedulableForSelection(account *Account) bool {
+func (s *GatewayService) isAccountSchedulableForSelection(ctx context.Context, account *Account) bool {
 	if account == nil {
 		return false
 	}
-	return account.IsSchedulable()
+	return account.IsSchedulableWithContext(ctx)
 }
 
 func (s *GatewayService) isAccountSchedulableForModelSelection(ctx context.Context, account *Account, requestedModel string) bool {
@@ -1965,7 +1969,7 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 	// require_privacy_set: 获取分组信息
 	var schedGroup *Group
 	if groupID != nil && s.groupRepo != nil {
-		schedGroup, _ = s.groupRepo.GetByIDLite(ctx, *groupID)
+		schedGroup, _ = s.resolveGroupByID(ctx, *groupID)
 	}
 
 	var accounts []Account
@@ -1987,11 +1991,11 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 					account, err := s.getSchedulableAccount(ctx, accountID)
 					// 检查账号分组归属和平台匹配（确保粘性会话不会跨分组或跨平台）
 					if err == nil {
-						clearSticky := shouldClearStickySession(account, requestedModel)
+						clearSticky := shouldClearStickySessionWithContext(ctx, account, requestedModel)
 						if clearSticky {
 							_ = s.cache.DeleteSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
 						}
-						if !clearSticky && s.isAccountInGroup(account, groupID) && account.Platform == platform && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) && !s.isStickyAccountUpstreamRestricted(ctx, groupID, account, requestedModel) {
+						if !clearSticky && (schedGroup == nil || !schedGroup.RequirePrivacySet || account.IsPrivacySet()) && s.isAccountInGroup(account, groupID) && account.Platform == platform && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) && !s.isStickyAccountUpstreamRestricted(ctx, groupID, account, requestedModel) {
 							if s.debugModelRoutingEnabled() {
 								logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] legacy routed sticky hit: group_id=%v model=%s session=%s account=%d", derefGroupID(groupID), requestedModel, shortSessionHash(sessionHash), accountID)
 							}
@@ -2037,13 +2041,11 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 			}
 			// Scheduler snapshots can be temporarily stale; re-check schedulability here to
 			// avoid selecting accounts that were recently rate-limited/overloaded.
-			if !s.isAccountSchedulableForSelection(acc) {
+			if !s.isAccountSchedulableForSelection(ctx, acc) {
 				continue
 			}
-			// require_privacy_set: 跳过 privacy 未设置的账号并标记异常
+			// require_privacy_set: 仅过滤当前分组，不改变共享账号状态
 			if schedGroup != nil && schedGroup.RequirePrivacySet && !acc.IsPrivacySet() {
-				_ = s.accountRepo.SetError(ctx, acc.ID,
-					fmt.Sprintf("Privacy not set, required by group [%s]", schedGroup.Name))
 				continue
 			}
 			if requestedModel != "" && !s.isModelSupportedByAccountWithContext(ctx, acc, requestedModel) {
@@ -2107,11 +2109,11 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 				account, err := s.getSchedulableAccount(ctx, accountID)
 				// 检查账号分组归属和平台匹配（确保粘性会话不会跨分组或跨平台）
 				if err == nil {
-					clearSticky := shouldClearStickySession(account, requestedModel)
+					clearSticky := shouldClearStickySessionWithContext(ctx, account, requestedModel)
 					if clearSticky {
 						_ = s.cache.DeleteSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
 					}
-					if !clearSticky && s.isAccountInGroup(account, groupID) && account.Platform == platform && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) {
+					if !clearSticky && (schedGroup == nil || !schedGroup.RequirePrivacySet || account.IsPrivacySet()) && s.isAccountInGroup(account, groupID) && account.Platform == platform && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) {
 						return account, nil
 					}
 				}
@@ -2148,13 +2150,11 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 		}
 		// Scheduler snapshots can be temporarily stale; re-check schedulability here to
 		// avoid selecting accounts that were recently rate-limited/overloaded.
-		if !s.isAccountSchedulableForSelection(acc) {
+		if !s.isAccountSchedulableForSelection(ctx, acc) {
 			continue
 		}
-		// require_privacy_set: 跳过 privacy 未设置的账号并标记异常
+		// require_privacy_set: 仅过滤当前分组，不改变共享账号状态
 		if schedGroup != nil && schedGroup.RequirePrivacySet && !acc.IsPrivacySet() {
-			_ = s.accountRepo.SetError(ctx, acc.ID,
-				fmt.Sprintf("Privacy not set, required by group [%s]", schedGroup.Name))
 			continue
 		}
 		if requestedModel != "" && !s.isModelSupportedByAccountWithContext(ctx, acc, requestedModel) {
@@ -2227,7 +2227,7 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 	// require_privacy_set: 获取分组信息
 	var schedGroup *Group
 	if groupID != nil && s.groupRepo != nil {
-		schedGroup, _ = s.groupRepo.GetByIDLite(ctx, *groupID)
+		schedGroup, _ = s.resolveGroupByID(ctx, *groupID)
 	}
 
 	var accounts []Account
@@ -2247,11 +2247,11 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 					account, err := s.getSchedulableAccount(ctx, accountID)
 					// 检查账号分组归属和有效性：原生平台直接匹配，antigravity 需要启用混合调度
 					if err == nil {
-						clearSticky := shouldClearStickySession(account, requestedModel)
+						clearSticky := shouldClearStickySessionWithContext(ctx, account, requestedModel)
 						if clearSticky {
 							_ = s.cache.DeleteSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
 						}
-						if !clearSticky && s.isAccountInGroup(account, groupID) && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) {
+						if !clearSticky && (schedGroup == nil || !schedGroup.RequirePrivacySet || account.IsPrivacySet()) && s.isAccountInGroup(account, groupID) && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) {
 							if account.Platform == nativePlatform || (account.Platform == PlatformAntigravity && account.IsMixedSchedulingEnabled()) {
 								if s.debugModelRoutingEnabled() {
 									logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] legacy mixed routed sticky hit: group_id=%v model=%s session=%s account=%d", derefGroupID(groupID), requestedModel, shortSessionHash(sessionHash), accountID)
@@ -2295,13 +2295,11 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 			}
 			// Scheduler snapshots can be temporarily stale; re-check schedulability here to
 			// avoid selecting accounts that were recently rate-limited/overloaded.
-			if !s.isAccountSchedulableForSelection(acc) {
+			if !s.isAccountSchedulableForSelection(ctx, acc) {
 				continue
 			}
-			// require_privacy_set: 跳过 privacy 未设置的账号并标记异常
+			// require_privacy_set: 仅过滤当前分组，不改变共享账号状态
 			if schedGroup != nil && schedGroup.RequirePrivacySet && !acc.IsPrivacySet() {
-				_ = s.accountRepo.SetError(ctx, acc.ID,
-					fmt.Sprintf("Privacy not set, required by group [%s]", schedGroup.Name))
 				continue
 			}
 			// 过滤：原生平台直接通过，antigravity 需要启用混合调度
@@ -2369,11 +2367,11 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 				account, err := s.getSchedulableAccount(ctx, accountID)
 				// 检查账号分组归属和有效性：原生平台直接匹配，antigravity 需要启用混合调度
 				if err == nil {
-					clearSticky := shouldClearStickySession(account, requestedModel)
+					clearSticky := shouldClearStickySessionWithContext(ctx, account, requestedModel)
 					if clearSticky {
 						_ = s.cache.DeleteSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
 					}
-					if !clearSticky && s.isAccountInGroup(account, groupID) && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) && !s.isStickyAccountUpstreamRestricted(ctx, groupID, account, requestedModel) {
+					if !clearSticky && (schedGroup == nil || !schedGroup.RequirePrivacySet || account.IsPrivacySet()) && s.isAccountInGroup(account, groupID) && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) && !s.isStickyAccountUpstreamRestricted(ctx, groupID, account, requestedModel) {
 						if account.Platform == nativePlatform || (account.Platform == PlatformAntigravity && account.IsMixedSchedulingEnabled()) {
 							return account, nil
 						}
@@ -2407,13 +2405,11 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 		}
 		// Scheduler snapshots can be temporarily stale; re-check schedulability here to
 		// avoid selecting accounts that were recently rate-limited/overloaded.
-		if !s.isAccountSchedulableForSelection(acc) {
+		if !s.isAccountSchedulableForSelection(ctx, acc) {
 			continue
 		}
-		// require_privacy_set: 跳过 privacy 未设置的账号并标记异常
+		// require_privacy_set: 仅过滤当前分组，不改变共享账号状态
 		if schedGroup != nil && schedGroup.RequirePrivacySet && !acc.IsPrivacySet() {
-			_ = s.accountRepo.SetError(ctx, acc.ID,
-				fmt.Sprintf("Privacy not set, required by group [%s]", schedGroup.Name))
 			continue
 		}
 		// 过滤：原生平台直接通过，antigravity 需要启用混合调度
@@ -2582,7 +2578,7 @@ func (s *GatewayService) diagnoseSelectionFailure(
 	if _, excluded := excludedIDs[acc.ID]; excluded {
 		return selectionFailureDiagnosis{Category: "excluded"}
 	}
-	if !s.isAccountSchedulableForSelection(acc) {
+	if !s.isAccountSchedulableForSelection(ctx, acc) {
 		return selectionFailureDiagnosis{Category: "unschedulable", Detail: "generic_unschedulable"}
 	}
 	if isPlatformFilteredForSelection(acc, platform, allowMixedScheduling) {

@@ -8,6 +8,8 @@
 
 公共分页、ID 列表和幂等辅助仅在确有多个资源复用时保留；资源特有逻辑应回到对应前缀文件。
 
+`openai_usage.go` 提供管理员账号额度 WebSocket 与固定资源用量 Query。协议校验、订阅、批量和分页边界位于 application 的 `openai_usage*`；见 [用量说明](../../../../../../docs/OPENAI_USAGE.md)。
+
 设置更新以 `setting_handler_update.go` 为编排入口：
 
 | 文件组 | 职责 |

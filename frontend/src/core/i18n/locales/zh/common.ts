@@ -1,5 +1,18 @@
 export default {
   common: {
+    imageOutput: {
+      download: '下载文件',
+      format: '输出文件格式',
+      default: '默认',
+      frames: 'GIF 帧数',
+      duration: '每帧时长（毫秒）',
+      author: 'SVG 作者模型（可选）',
+      authorDefault: '使用上游默认作者',
+      reasoning: '作者推理强度',
+      gifHint: 'GIF 以非流式返回，帧尺寸由上游自动选择。开启按实际张数计费时，每帧按一张图片计费，费用以实际尺寸结算。',
+      svgHint: 'SVG 仅支持生成单个文件；作者模型选择需要上游权限。',
+      svgEditHint: 'SVG 不支持图片编辑，请移除参考图片后选择 SVG。',
+    },
     loading: '加载中...',
     submitting: '提交中...',
     justNow: '刚刚',
@@ -320,6 +333,7 @@ export default {
       failed: '验证失败，请重试',
     },
     errors: {
+      EMAIL_BLOCKED: '该邮箱不允许注册，请更换其他邮箱。',
       USER_NOT_ACTIVE: '账号已被禁用',
       LOCAL_CAPTCHA_REQUIRED: '请输入图形验证码',
       LOCAL_CAPTCHA_EXPIRED: '验证码已过期，请重新输入',

@@ -342,6 +342,8 @@ func TestCodexCompactGenerationAdvancesOnlyAfterSuccess(t *testing.T) {
 	svc.completeCodexSimulationSuccess(context.Background(), failedContext, account, "resp_compact", "")
 	_, afterSuccess := prepare()
 	require.Equal(t, uint64(1), afterSuccess.generation, "success completion must be idempotent for one attempt")
+	require.Equal(t, beforeFailure.sessionID, afterSuccess.sessionID, "Compact advances the window within the same session")
+	require.Equal(t, beforeFailure.promptCacheKey, afterSuccess.promptCacheKey)
 	require.NotEqual(t, beforeFailure.windowID, afterSuccess.windowID)
 }
 

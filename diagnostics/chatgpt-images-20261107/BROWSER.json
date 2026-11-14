@@ -1,0 +1,27 @@
+{
+  "method": "Playwright CLI against a Docker Vite harness importing the actual Vue component and project locale owner",
+  "surfaces": [
+    {
+      "width": 1440,
+      "height": 900
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "document_scroll_width": 390
+    }
+  ],
+  "observations": [
+    "Legacy switch off initially",
+    "Legacy switch checked after selecting",
+    "Saved legacy mode and restored it after reload",
+    "Switched back and saved new App mode",
+    "No horizontal overflow at 390px"
+  ],
+  "persistence_scope": "Harness isolated localStorage; actual backend persistence and settings API use handler/SettingsPage tests.",
+  "console": "Initial favicon 404 only; harness added empty favicon and subsequent reload had no console errors.",
+  "screenshot_sha256": {
+    "desktop.png": "9b63dc3c5d6cf67106670696b4dbacc5b917164d075823197915a2bae67ae559",
+    "mobile-legacy.png": "44c74837c5f60e4dfc895355bc86bf2802657629db6d4c685ced0b82bf0baeff"
+  }
+}

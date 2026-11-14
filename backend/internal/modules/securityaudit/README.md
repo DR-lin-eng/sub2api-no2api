@@ -15,3 +15,5 @@
 | `wire.go` | 模块依赖装配 |
 
 同步热路径必须保持有界等待；异步审计不可因队列拥塞无限创建 goroutine。
+
+入队只有在持久 publish 成功后才通知本进程 worker。`Runner.Notify` 轮转唤醒一个配置内 worker，缓冲信号合并突发通知；原 500ms polling 负责跨实例和到期重试恢复，通知不替代可靠队列。

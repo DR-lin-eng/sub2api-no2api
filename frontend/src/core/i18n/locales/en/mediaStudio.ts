@@ -18,6 +18,8 @@ export default {
       disabled: 'Unavailable'
     },
     composer: {
+      appImageBillingModel: 'Billing model',
+      appImagesHint: 'The selected model name controls routing and pricing; ChatGPT chooses the image model and dimensions.',
       greeting: 'Hi, what do you want to create?',
       placeholder: 'Describe the image you want to generate, press Ctrl/⌘ + Enter to start.',
       videoPlaceholder: 'Describe the scene, camera motion, and mood, then press Ctrl/⌘ + Enter to generate a video.',
@@ -26,6 +28,8 @@ export default {
       applyModel: 'Apply',
       resolution: 'Resolution',
       quality: 'Quality',
+      complexity: 'Complexity',
+      complexityLevels: { low: 'Low', medium: 'Medium', high: 'High' },
       count: 'Count',
       duration: 'Duration',
       durationIncrease: 'Increase duration',

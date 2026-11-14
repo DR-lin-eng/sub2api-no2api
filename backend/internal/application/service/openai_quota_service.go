@@ -4,17 +4,22 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
+	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
 	"github.com/imroc/req/v3"
+	"golang.org/x/sync/singleflight"
 )
 
 // ErrSparkShadowResetNotSupported is returned when ResetCredit is called on a
@@ -162,6 +167,9 @@ type OpenAIQuotaUsage struct {
 	RateLimitResetCredits *OpenAIRateLimitResetCredits              `json:"rate_limit_reset_credits,omitempty"`
 	ServerTokenUsage      *OpenAIServerTokenUsage                   `json:"server_token_usage,omitempty"`
 	FetchedAt             int64                                     `json:"fetched_at"`
+	CodeReviewRateLimit   *OpenAIRateLimit                          `json:"code_review_rate_limit,omitempty"`
+	SpendControl          json.RawMessage                           `json:"spend_control,omitempty"`
+	Credits               json.RawMessage                           `json:"credits,omitempty"`
 }
 
 // OpenAIQuotaResetCredit captures the redeemed credit metadata returned by the
@@ -199,6 +207,13 @@ type OpenAIQuotaService struct {
 	agentIdentityTaskMu  sync.Mutex
 	agentIdentityWS      agentIdentityWSConnectionInvalidator
 	cfg                  *config.Config
+	usagePushMu          sync.Mutex
+	usagePushStreams     map[int64]*openAIUsagePushStream
+	usageDetailsMu       sync.Mutex
+	usageDetailsCache    map[string]openAIUsageDetailsCacheEntry
+	usageDetailsFlight   singleflight.Group
+	usagePushDialer      openAIWSClientDialer
+	usageSyncManaged     atomic.Bool
 }
 
 // SetHTTPUpstream attaches the account-scoped Codex transport used by the C
@@ -674,6 +689,14 @@ func (s *OpenAIQuotaService) buildCodexQuotaHeaders(ctx context.Context, account
 		} else if strings.TrimSpace(accessToken) == "" {
 			return nil, "", fmt.Errorf("agent identity shadow credentials are unavailable")
 		}
+	}
+	if account.IsOpenAISIWC() {
+		// SIWC access tokens are issued for direct OpenAI access. WHAM still
+		// expects the account principal and Codex quota headers, but the client
+		// identity must match the SIWC agent instead of Codex Desktop. Keep the
+		// common WHAM headers because they are part of the first-party quota
+		// contract; only replace the client identity here.
+		headers["user-agent"] = fmt.Sprintf("%s (%s; %s)", openai.SIWCAgentNameHint, runtime.GOOS, runtime.GOARCH)
 	}
 	if !account.IsOpenAIAgentIdentity() {
 		return headers, "", nil

@@ -25,6 +25,15 @@ principal 重新派生，合法的 subagent 分类和对应兼容头会保留。
 full simulation 的 session、thread、turn 以及上下文窗口 ID 使用 UUIDv7 的毫秒时间戳布局；installation ID
 继续使用 UUIDv4，以保持安装身份与会话时间身份的边界。
 
+session/thread 与 `prompt_cache_key` 复用该虚拟主体、会话 root 首次生成的 UUIDv7，而不是每次 HTTP
+请求或 WS 重连都用当前时间重建。Redis 原子创建并续期这份身份，沿用模拟状态 TTL（默认 7 天），
+保证并发首次请求和多实例看到同一个会话 ID；Redis 不可用时使用已有上限和 TTL 的进程内缓存，
+恢复后以共享值为准。冷启动且共享状态不可用时只能保证本进程内连续性。turn ID 继续每轮单独生成；
+成功 Compact 只推进 window 编号，保留会话与缓存键。全部节点升级后才具备跨实例稳定性，旧节点仍会
+按请求时间生成身份；会话状态完全过期或丢失后允许重新建立缓存分区。
+这条缓存回归由 [PR #44](https://github.com/DR-lin-eng/sub2api-no2api/pull/44) 的
+`a4f795e67` 引入：会话派生从仅使用稳定 root/principal，改为额外嵌入每个请求的 `createdAtMS`。
+
 ## 默认 OAuth 出站身份
 
 桌面静态报告的端点边界与本轮一致性校验见
@@ -202,7 +211,10 @@ OpenAI OAuth 的 Responses HTTP、Compact、透传和 Responses WebSocket 路径
   并纳入连接兼容键，避免 Lite 与普通握手复用同一 socket。
 - Workspace routing 由网关使用当前 OAuth token 调用 `wham/accounts/check` 发现；只接受 HTTPS origin 与
   `us`、`us_cr`、`NO_CONSTRAINT`。`us/us_cr` 生成 `x-openai-account-routing-override`，
-  `NO_CONSTRAINT` 不生成该头但仍禁用重定向。发现失败对当前账号 fail-closed 并进入账号级切换。
+  `NO_CONSTRAINT` 不生成该头但仍禁用重定向。发现接口的 401/403 仅表示该接口拒绝访问，
+  不直接判定模型凭据失效：回到默认官方 Codex 路由并按 token 缓存 60 秒，换 token 立即重新发现；
+  模型接口返回的 401 继续进入单次刷新、账号错误/冷却及换号流程。其它发现失败和非法路由仍终止
+  当前账号尝试，且不会被误判成可通过 HTTP 恢复的 WS 临时 502。
 - WS 连接兼容键包含最终目标 URL、routing override、认证摘要、Guardian/memgen/subagent 和 timing 头，
   不会把不同 workspace、token 或语义会话复用到同一握手。
 

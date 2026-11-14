@@ -39,15 +39,17 @@ type MediaStudioGroupRoute struct {
 }
 
 type MediaStudioGroupOption struct {
-	GroupID   int64    `json:"group_id"`
-	GroupName string   `json:"group_name"`
-	Platform  string   `json:"platform"`
-	MediaType string   `json:"media_type"`
-	Models    []string `json:"models,omitempty"`
+	OpenAIImagesProtocol string   `json:"openai_images_protocol,omitempty"`
+	GroupID              int64    `json:"group_id"`
+	GroupName            string   `json:"group_name"`
+	Platform             string   `json:"platform"`
+	MediaType            string   `json:"media_type"`
+	Models               []string `json:"models,omitempty"`
 }
 
 type MediaStudioConfig struct {
-	Groups []MediaStudioGroupOption `json:"groups"`
+	OpenAIImagesProtocol string                   `json:"openai_images_protocol"`
+	Groups               []MediaStudioGroupOption `json:"groups"`
 	// StorageAvailable 保留协议字段；参考素材由浏览器编码，不依赖服务器存储。
 	StorageAvailable bool `json:"storage_available"`
 }
@@ -56,13 +58,15 @@ type MediaStudioGroupRoutes []MediaStudioGroupRoute
 
 // MediaStudioCostEstimateRequest 描述媒体工坊提交前的计价输入。
 type MediaStudioCostEstimateRequest struct {
-	MediaType  string `json:"media_type"`
-	GroupID    int64  `json:"group_id"`
-	Model      string `json:"model"`
-	Resolution string `json:"resolution"`
-	Duration   int    `json:"duration"`
-	Size       string `json:"size"`
-	Count      int    `json:"count"`
+	OutputFormat string `json:"output_format"`
+	FrameCount   *int   `json:"frame_count"`
+	MediaType    string `json:"media_type"`
+	GroupID      int64  `json:"group_id"`
+	Model        string `json:"model"`
+	Resolution   string `json:"resolution"`
+	Duration     int    `json:"duration"`
+	Size         string `json:"size"`
+	Count        int    `json:"count"`
 }
 
 // MediaStudioCostEstimate 是 sub2api 本地计价链路算出的预估消耗。
@@ -193,12 +197,24 @@ func (s *MediaStudioService) SaveGroupRoutes(ctx context.Context, routes MediaSt
 }
 
 func (s *MediaStudioService) GetAvailableGroups(ctx context.Context, userID int64) (*MediaStudioConfig, error) {
+	protocol := "chatgpt_app"
+	if s.gatewayService != nil && s.gatewayService.settingService.OpenAIImagesLegacyEnabled(ctx) {
+		protocol = "legacy"
+	} else if (s.gatewayService == nil || s.gatewayService.settingService == nil) && s.settingRepo != nil {
+		values, err := s.settingRepo.GetMultiple(ctx, []string{SettingKeyOpenAIImagesLegacyEnabled})
+		if err != nil {
+			return nil, fmt.Errorf("load image protocol: %w", err)
+		}
+		if strings.EqualFold(values[SettingKeyOpenAIImagesLegacyEnabled], "true") {
+			protocol = "legacy"
+		}
+	}
 	routes, err := s.GetGroupRoutes(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if s.apiKeyService == nil {
-		return &MediaStudioConfig{StorageAvailable: true}, nil
+		return &MediaStudioConfig{StorageAvailable: true, OpenAIImagesProtocol: protocol}, nil
 	}
 
 	available, err := s.apiKeyService.GetAvailableGroups(ctx, userID)
@@ -210,9 +226,16 @@ func (s *MediaStudioService) GetAvailableGroups(ctx context.Context, userID int6
 		availableByID[group.ID] = group
 	}
 
+	groups := s.resolveGroupOptions(routes, availableByID)
+	for index := range groups {
+		if groups[index].MediaType == "image" {
+			groups[index].OpenAIImagesProtocol = s.imageProtocolForGroup(ctx, groups[index], protocol)
+		}
+	}
 	return &MediaStudioConfig{
-		Groups:           s.resolveGroupOptions(routes, availableByID),
-		StorageAvailable: true,
+		Groups:               groups,
+		OpenAIImagesProtocol: protocol,
+		StorageAvailable:     true,
 	}, nil
 }
 
@@ -330,7 +353,7 @@ func (s *MediaStudioService) EstimateCost(
 	// multimodal 是逐模型定价分组，没有条目时会退化成 LiteLLM/兜底 token 价，
 	// 这种情况交给图片/视频计价链路报“未配置价格”，不能误报为预估不可用。
 	if resolved := s.gatewayService.resolveOpenAIChannelPricing(ctx, model, apiKey); resolved != nil &&
-		resolved.Mode == BillingModeToken &&
+		resolved.Mode == BillingModeToken && (mediaType != "image" || !group.ImageCountBilling) &&
 		(!IsMultimodal(group.Platform) ||
 			resolved.Source == PricingSourceGroup ||
 			resolved.Source == PricingSourceChannel) {
@@ -341,6 +364,11 @@ func (s *MediaStudioService) EstimateCost(
 	switch mediaType {
 	case "video":
 		resolution := NormalizeVideoBillingResolutionOrDefault(req.Resolution)
+		if s.gatewayService.MultimodalVideoRequestTierBilling(ctx, apiKey, model) {
+			// 按次计费的视频按请求分辨率档位取价；无法解析时保留空档位，
+			// 让统一计价链路返回缺价，而不是静默折成 480p。
+			resolution = VideoBillingResolutionTier(req.Resolution)
+		}
 		durationSeconds := NormalizeVideoBillingDurationSecondsOrDefault(req.Duration)
 		cost, err := s.gatewayService.calculateOpenAIVideoCost(ctx, model, apiKey, &OpenAIForwardResult{
 			VideoCount:           1,
@@ -348,10 +376,10 @@ func (s *MediaStudioService) EstimateCost(
 			VideoDurationSeconds: durationSeconds,
 		}, s.gatewayService.multimodalVideoRateMultiplier(ctx, apiKey, userID, group.ID))
 		if err != nil {
-			return nil, ErrVideoPriceNotConfigured.WithCause(err)
+			return nil, s.videoPriceNotConfiguredError(ctx, model, req.Resolution, apiKey, err)
 		}
 		if cost == nil {
-			return nil, ErrVideoPriceNotConfigured
+			return nil, s.videoPriceNotConfiguredError(ctx, model, req.Resolution, apiKey, nil)
 		}
 		return &MediaStudioCostEstimate{
 			Amount:          QuantizeUsageBillingAmount(cost.ActualCost),
@@ -362,9 +390,30 @@ func (s *MediaStudioService) EstimateCost(
 			DurationSeconds: durationSeconds,
 		}, nil
 	case "image":
+		if req.OutputFormat == "gif" && strings.EqualFold(strings.TrimSpace(req.Size), "auto") {
+			return nil, ErrMediaStudioCostEstimateUnavailable
+		}
 		count := req.Count
 		if count <= 0 {
 			count = 1
+		}
+		if count > 10 {
+			return nil, ErrMediaStudioGroupRouteInvalid
+		}
+		if req.OutputFormat == "svg" && count != 1 {
+			return nil, ErrMediaStudioGroupRouteInvalid
+		}
+		if req.OutputFormat == "gif" {
+			frames := defaultOpenAIImagesGIFFrameCount
+			if req.FrameCount != nil {
+				frames = *req.FrameCount
+			}
+			if frames < 2 || frames > 16 {
+				return nil, ErrMediaStudioGroupRouteInvalid
+			}
+			if group.ImageCountBilling {
+				count *= frames
+			}
 		}
 		cost, err := s.gatewayService.calculateOpenAIImageCost(ctx, model, apiKey, &OpenAIForwardResult{
 			ImageCount: count,
@@ -386,6 +435,16 @@ func (s *MediaStudioService) EstimateCost(
 	default:
 		return nil, ErrMediaStudioCostEstimateUnavailable
 	}
+}
+
+func (s *MediaStudioService) videoPriceNotConfiguredError(
+	ctx context.Context,
+	model string,
+	resolution string,
+	apiKey *APIKey,
+	cause error,
+) error {
+	return s.gatewayService.VideoPriceNotConfiguredError(ctx, apiKey, model, resolution, cause)
 }
 
 // mediaStudioBaseRateMultiplier 复刻用量结算的基础倍率口径：

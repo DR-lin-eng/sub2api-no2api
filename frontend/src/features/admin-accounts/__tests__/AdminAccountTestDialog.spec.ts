@@ -115,6 +115,21 @@ describe('AccountTestModal', () => {
     vi.restoreAllMocks()
   })
 
+  it.each(['gif', 'svg'])('tests 2.6 %s files through the account page dialog', async (format) => {
+    getAvailableModels.mockResolvedValue([{ id: 'gpt-image-2.6-sunburst', display_name: 'Sunburst 2.6' }])
+    const wrapper = mountModal({ id: 42, name: 'Native Images', platform: 'openai', type: 'apikey', status: 'active' })
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+    ;(wrapper.vm as any).selectedModelId = 'gpt-image-2.6-sunburst'
+    await flushPromises()
+    await wrapper.get('[data-testid="image-output-format"]').setValue(format)
+    await (wrapper.vm as any).startTest()
+    const request = (global.fetch as any).mock.calls[0][1]
+    expect(JSON.parse(request.body)).toMatchObject({ model_id: 'gpt-image-2.6-sunburst', output_format: format, mode: 'default' })
+    if (format === 'gif') expect(JSON.parse(request.body)).toMatchObject({ frame_count: 9, frame_duration_ms: 200 })
+    wrapper.unmount()
+  })
+
   it('gemini 图片模型测试会携带提示词并渲染图片预览', async () => {
     const wrapper = mountModal()
     await wrapper.setProps({ show: true })

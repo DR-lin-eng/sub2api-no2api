@@ -1,0 +1,16 @@
+{
+  "command": [
+    "python3",
+    "diagnostics/upstream-sync-20261112/runtime/check.py"
+  ],
+  "cwd": "/Users/lin/.codex/worktrees/5c4f/sub2api-no2api",
+  "exit_status": 0,
+  "elapsed_s": 42.44553495798027,
+  "utc": "2026-11-11T19:47:59.529840+00:00",
+  "input": "repository sources and checked-in test fixtures; see SOURCE_HASHES.json for final validation snapshot",
+  "stdout_sha256": "d01e9ada98b0de41f0c9238143ba5b0e077ba80d1342e4f7e1dc34838d6ca16b",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stdout_file": "runtime-publish-final.stdout.gz",
+  "stderr_file": "runtime-publish-final.stderr.gz",
+  "output_encoding": "gzip; recorded SHA-256 values cover the original decompressed bytes"
+}

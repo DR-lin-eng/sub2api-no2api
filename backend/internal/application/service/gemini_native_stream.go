@@ -1,7 +1,6 @@
 package service
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"io"
@@ -49,7 +48,7 @@ func (s *GeminiMessagesCompatService) handleNativeStreamingResponseObserved(c *g
 		return nil, errors.New("streaming not supported")
 	}
 
-	reader := bufio.NewReader(resp.Body)
+	reader := newBoundedSSELineReader(resp.Body, s.cfg)
 	usage := &ClaudeUsage{}
 	observer := upstreamResponseModelObserverFromContext(c)
 	if observer == nil {
@@ -63,7 +62,7 @@ func (s *GeminiMessagesCompatService) handleNativeStreamingResponseObserved(c *g
 	writer := &geminiStreamWriteTracker{Writer: c.Writer}
 
 	for {
-		line, err := reader.ReadString('\n')
+		line, err := reader.ReadLineString()
 		// A non-EOF read error leaves an incomplete line; never observe or forward it.
 		if len(line) > 0 && (err == nil || errors.Is(err, io.EOF)) {
 			trimmed := strings.TrimRight(line, "\r\n")

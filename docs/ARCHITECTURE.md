@@ -86,6 +86,8 @@ infrastructure implements application ports
 
 数据库变更必须同时考虑 Ent schema、迁移、repository、DTO/API 兼容和测试 fixture。只改 schema 或只写迁移都不完整。
 
+OpenAI OAuth 额度由 `OpenAIUsageSyncService` 后台维护：实际模型调用激活 active 账号，近 10 分钟持续同步，空闲后释放；浏览器只观察共享或已持久化结果。全局可续租 owner 限制跨实例重复连接，初始化并发上限为 1000，退出前清理所有 WS。见 [额度同步](OPENAI_USAGE.md)。
+
 ## 前端结构
 
 前端入口是 `frontend/src/main.ts`。它依次初始化主题、Pinia、后端注入设置、i18n 和 Router，再挂载应用。

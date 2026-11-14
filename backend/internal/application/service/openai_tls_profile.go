@@ -33,6 +33,10 @@ func (s *OpenAIGatewayService) doAccountHTTPUpstream(
 	account *Account,
 ) (*http.Response, error) {
 	if req != nil {
+		req = req.Clone(req.Context())
+		s.applyOpenAILocationHeader(req.Context(), req.Header, account)
+	}
+	if req != nil {
 		req = req.WithContext(WithHTTPUpstreamTLSProfile(req.Context(), s.resolveTLSProfile(account)))
 	}
 	if isOpenAIOAuthGatewayModelRequest(req, account) {
@@ -56,6 +60,9 @@ func (s *OpenAIGatewayService) doAccountHTTPUpstream(
 		if err := s.attachDesktopDeviceCheck(req, account, owner); err != nil {
 			return nil, err
 		}
+	}
+	if isOpenAIUsageModelCall(req, account) {
+		s.notifyOpenAIUsageActivity(account)
 	}
 	resp, err := doAccountHTTPUpstream(s.httpUpstream, req, proxyURL, account)
 	if req != nil && resp != nil {

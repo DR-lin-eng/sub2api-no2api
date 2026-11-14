@@ -98,14 +98,14 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	}
 	_, hasTools := payload["tools"]
 	debugEnabled := isOpenAIWSModeDebugEnabled()
-	payloadBytes := -1
-	resolvePayloadBytes := func() int {
-		if payloadBytes >= 0 {
-			return payloadBytes
+	var payloadJSON []byte
+	resolvePayloadJSON := func() []byte {
+		if payloadJSON == nil {
+			payloadJSON = payloadAsJSONBytes(payload)
 		}
-		payloadBytes = len(payloadAsJSONBytes(payload))
-		return payloadBytes
+		return payloadJSON
 	}
+	resolvePayloadBytes := func() int { return len(resolvePayloadJSON()) }
 	streamValue := "-"
 	if raw, ok := payload["stream"]; ok {
 		streamValue = normalizeOpenAIWSLogValue(strings.TrimSpace(fmt.Sprintf("%v", raw)))
@@ -184,7 +184,11 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	storeDisabledConnMode := s.openAIWSStoreDisabledConnMode()
 	forceNewConnByPolicy := shouldForceNewConnOnStoreDisabled(storeDisabledConnMode, lastFailureReason)
 	forceNewConn := forceNewConnByPolicy && storeDisabled && previousResponseID == "" && sessionHash != "" && preferredConnID == ""
-	stageCodexOutboundSessionBody(c, payloadAsJSONBytes(payload))
+	// All payload mutations above are complete. Share one immutable snapshot
+	// throughout header projection instead of encoding the full input per reader.
+	headerPayload := resolvePayloadJSON()
+	syncOpenAIResponsesInstructionsEcho(c, headerPayload)
+	stageCodexOutboundSessionBody(c, headerPayload)
 	wsHeaders, sessionResolution, buildHdrErr := s.buildOpenAIWSHeaders(
 		ctx,
 		c,
@@ -205,10 +209,10 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		wsHeaders.Del(CodexProjectIDHeader)
 	}
 	stageCodexFingerprintIDs(c, fingerprintIDs)
-	applyCodexOutboundSessionHeaders(c, account, payloadAsJSONBytes(payload), promptCacheKey, wsHeaders, fingerprintIDs)
+	applyCodexOutboundSessionHeaders(c, account, headerPayload, promptCacheKey, wsHeaders, fingerprintIDs)
 	applyCodexFingerprintWSHeaders(wsHeaders, fingerprintIDs)
-	applyOpenAIResponsesLiteWebSocketHeader(wsHeaders, payloadAsJSONBytes(payload))
-	applyOpenAICodexSemanticRequestHeaders(wsHeaders, c, account, payloadAsJSONBytes(payload))
+	applyOpenAIResponsesLiteWebSocketHeader(wsHeaders, headerPayload)
+	applyOpenAICodexSemanticRequestHeaders(wsHeaders, c, account, headerPayload)
 	logOpenAIWSModeDebug(
 		"acquire_start account_id=%d account_type=%s transport=%s preferred_conn_id=%s has_previous_response_id=%v session_hash=%s has_turn_state=%v turn_state_len=%d has_turn_metadata=%v turn_metadata_len=%d store_disabled=%v store_disabled_conn_mode=%s retry_last_reason=%s force_new_conn=%v header_user_agent=%s header_openai_beta=%s header_originator=%s header_accept_language=%s header_session_id=%s header_conversation_id=%s session_id_source=%s conversation_id_source=%s has_prompt_cache_key=%v has_chatgpt_account_id=%v has_authorization=%v has_session_id=%v has_conversation_id=%v proxy_enabled=%v",
 		account.ID,
@@ -417,7 +421,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	// Account-level prewarm continuation mutates the business payload after the
 	// warmup response ID is known. Refresh derived log/size fields before write.
 	previousResponseID = openAIWSPayloadString(payload, "previous_response_id")
-	payloadBytes = -1
+	payloadJSON = nil
 
 	if err := lease.WriteJSONWithContextTimeout(ctx, payload, s.openAIWSWriteTimeout()); err != nil {
 		lease.MarkBroken()
@@ -447,7 +451,10 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	var localFirstEventTTFTMs *int
 	streamOutputStarted := false
 	responseID := ""
-	var finalResponse []byte
+	var nonStreamResponse *openAIWSNonStreamingResponse
+	if !reqStream {
+		nonStreamResponse = newOpenAIWSNonStreamingResponse(s.cfg)
+	}
 	wroteDownstream := false
 	needModelReplace := originalModel != mappedModel
 	var mappedModelBytes []byte
@@ -552,9 +559,12 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	for {
 		var message []byte
 		var readErr error
+		messageValid := false
 		if len(pendingJSONDocuments) > 0 {
 			message = pendingJSONDocuments[0]
 			pendingJSONDocuments = pendingJSONDocuments[1:]
+			// Queued documents were decoded and validated by the classifier.
+			messageValid = true
 		} else {
 			readCtx := ctx
 			var cancelRead context.CancelFunc
@@ -580,7 +590,9 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 				)
 			}
 			if readErr == nil {
-				if documents, repaired := splitOpenAIConcatenatedJSONDocuments(message); repaired {
+				documents, repaired, valid := prepareOpenAIWSJSONDocuments(message)
+				messageValid = valid
+				if repaired {
 					logOpenAIWSModeInfo(
 						"concatenated_json_repaired account_id=%d conn_id=%s documents=%d bytes=%d",
 						account.ID,
@@ -590,10 +602,11 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 					)
 					message = documents[0]
 					pendingJSONDocuments = append(pendingJSONDocuments, documents[1:]...)
+					messageValid = true
 				}
 			}
 		}
-		if readErr == nil && !json.Valid(message) {
+		if readErr == nil && !messageValid {
 			eventType, _, _ := parseOpenAIWSEventEnvelope(message)
 			if eventType == "" {
 				eventType = "unknown"
@@ -644,7 +657,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 			message = normalized
 		}
 
-		eventType, eventResponseID, responseField := parseOpenAIWSEventEnvelope(message)
+		eventType, eventResponseID, _ := parseOpenAIWSEventEnvelope(message)
 		if eventType == "" {
 			continue
 		}
@@ -721,6 +734,13 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 			parseOpenAIWSResponseUsageFromCompletedEvent(message, usage)
 		}
 		imageCounter.AddSSEData(message)
+		if err := nonStreamResponse.Observe(message, eventType); err != nil {
+			lease.MarkBroken()
+			setOpsUpstreamError(c, http.StatusBadGateway, "upstream response too large", "")
+			MarkResponseCommitted(c)
+			openAITooLargeError(c)
+			return nil, err
+		}
 
 		if eventType == "error" || eventType == "response.failed" {
 			markOpenAICyberPolicyEvent(c, message, http.StatusOK, usage)
@@ -728,11 +748,14 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 
 		if eventType == "error" {
 			errCodeRaw, errTypeRaw, errMsgRaw := parseOpenAIWSErrorEventFields(message)
-			if allowAuthRecovery && !wroteDownstream && account.IsOpenAIOAuth() &&
-				s.openAITokenProvider != nil && isOpenAIWSTokenExpiredEvent(message) {
+			if allowAuthRecovery && !wroteDownstream && s.openAITokenProvider != nil &&
+				isOpenAIWSTokenAuthRecoveryCandidate(message, account) {
 				if refreshErr := s.openAITokenProvider.RefreshAfterUnauthorized(ctx, account); refreshErr == nil {
 					lease.MarkBroken()
 					return nil, &openAIWSAuthRecoveredError{}
+				} else if isOpenAIOAuthPrincipalChangedError(refreshErr) {
+					lease.MarkBroken()
+					return nil, refreshErr
 				}
 			}
 			errMsg := strings.TrimSpace(errMsgRaw)
@@ -825,6 +848,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 				emitStreamMessage(message, true)
 			}
 			if !reqStream {
+				MarkResponseCommitted(c)
 				c.JSON(statusCode, gin.H{
 					"error": gin.H{
 						"type":    "upstream_error",
@@ -939,10 +963,6 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 				flushBufferedStreamEvents(eventType, false)
 				emitStreamMessage(message, startsStreamOutput || isTerminalEvent)
 			}
-		} else {
-			if responseField.Exists() && responseField.Type == gjson.JSON {
-				finalResponse = []byte(responseField.Raw)
-			}
 		}
 
 		if isTerminalEvent {
@@ -956,7 +976,9 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	}
 
 	if !reqStream {
+		finalResponse := nonStreamResponse.response
 		if len(finalResponse) == 0 {
+			lease.MarkBroken()
 			logOpenAIWSModeInfo(
 				"missing_final_response account_id=%d conn_id=%s events=%d token_events=%d terminal_events=%d wrote_downstream=%v",
 				account.ID,
@@ -976,6 +998,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 			finalResponse = s.replaceModelInResponseBody(finalResponse, mappedModel, originalModel)
 		}
 		finalResponse = s.correctToolCallsInResponseBody(finalResponse)
+		finalResponse = restoreOpenAIResponsesInstructionsEchoInResponse(c, finalResponse)
 		populateOpenAIUsageFromResponseJSON(finalResponse, usage)
 		if responseID == "" {
 			responseID = strings.TrimSpace(gjson.GetBytes(finalResponse, "id").String())

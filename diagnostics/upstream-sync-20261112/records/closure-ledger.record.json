@@ -1,0 +1,16 @@
+{
+  "command": [
+    "python3",
+    "diagnostics/upstream-sync-20261112/verify_ledger.py"
+  ],
+  "cwd": "/Users/lin/.codex/worktrees/5c4f/sub2api-no2api",
+  "exit_status": 0,
+  "elapsed_s": 0.7928938330151141,
+  "utc": "2026-11-11T19:24:55.389348+00:00",
+  "input": "repository sources and checked-in test fixtures; see SOURCE_HASHES.json for final validation snapshot",
+  "stdout_sha256": "76bfd0207ed919a6688397b8333f79ea7ee19f34ef88fe8a94f77a02471451f6",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stdout_file": "closure-ledger.stdout.gz",
+  "stderr_file": "closure-ledger.stderr.gz",
+  "output_encoding": "gzip; recorded SHA-256 values cover the original decompressed bytes"
+}

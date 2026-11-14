@@ -43,6 +43,19 @@ func (s *OpenAIGatewayService) EnsureAccountSchedulableAfterWait(ctx context.Con
 }
 
 func accountSchedulableForWaitRevalidation(ctx context.Context, repo AccountRepository, snapshot *SchedulerSnapshotService, accountID int64) (bool, error) {
+	if ImageIndependentSchedulingFromContext(ctx) {
+		if repo == nil {
+			return false, errors.New("account state unavailable")
+		}
+		account, err := repo.GetByID(ctx, accountID)
+		if errors.Is(err, ErrAccountNotFound) {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		return account.IsSchedulableWithContext(ctx), nil
+	}
 	var cacheErr error
 	if snapshot != nil {
 		state, found, err := snapshot.cachedAccountSchedulingState(ctx, accountID)

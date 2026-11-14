@@ -260,7 +260,7 @@ func normalizeClaudeOAuthRequestBody(body []byte, modelID string, opts claudeOAu
 	// temperature：真实 Claude Code CLI 总是发送 temperature（默认 1，客户端可覆盖）。
 	// 之前的实现直接 delete 会导致 payload 缺字段，与真实 CLI 字节级不一致。
 	// 策略：客户端传了什么就透传；没传则补默认 1。
-	samplingLocked := claude.IsSonnet55(modelID) || claude.IsHaiku55(modelID)
+	samplingLocked := claude.IsSonnet55(modelID) || claude.IsHaiku55(modelID) || claude.IsFable52(modelID) || claude.IsMythos52(modelID)
 	if !gjson.GetBytes(out, "temperature").Exists() && !claude.IsOpus55(modelID) && (!samplingLocked || !gjson.GetBytes(out, "top_p").Exists()) {
 		if next, ok := setJSONValueBytes(out, "temperature", 1); ok {
 			out = next
@@ -972,7 +972,10 @@ type cacheControlPath struct {
 }
 
 func collectCacheControlPaths(body []byte) (invalidThinking []cacheControlPath, messagePaths []string, toolPaths []string, systemPaths []string) {
-	system := gjson.GetBytes(body, "system")
+	// Borrow only during this synchronous scan. Returned paths/logs own their
+	// strings; no result may retain the request body after this function returns.
+	view := requestJSONReadOnlyString(body)
+	system := gjson.Get(view, "system")
 	if system.IsArray() {
 		sysIndex := 0
 		system.ForEach(func(_, item gjson.Result) bool {
@@ -992,7 +995,7 @@ func collectCacheControlPaths(body []byte) (invalidThinking []cacheControlPath, 
 		})
 	}
 
-	messages := gjson.GetBytes(body, "messages")
+	messages := gjson.Get(view, "messages")
 	if messages.IsArray() {
 		msgIndex := 0
 		messages.ForEach(func(_, msg gjson.Result) bool {
@@ -1020,7 +1023,7 @@ func collectCacheControlPaths(body []byte) (invalidThinking []cacheControlPath, 
 		})
 	}
 
-	tools := gjson.GetBytes(body, "tools")
+	tools := gjson.Get(view, "tools")
 	if tools.IsArray() {
 		toolIndex := 0
 		tools.ForEach(func(_, tool gjson.Result) bool {

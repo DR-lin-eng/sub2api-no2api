@@ -9,6 +9,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	entsql "entgo.io/ent/dialect/sql"
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/chatasset"
 	"github.com/Wei-Shaw/sub2api/ent/chatconversation"
@@ -120,8 +121,9 @@ func (r *chatConversationRepository) List(
 		Offset(params.Offset()).
 		Limit(params.Limit()).
 		Order(
-			dbent.Desc(chatconversation.FieldLastMessageAt),
-			dbent.Desc(chatconversation.FieldID),
+			chatConversationUnreadFirstOrder(),
+			chatConversationLatestMessageOrder(),
+			chatconversation.ByID(entsql.OrderDesc()),
 		).
 		All(ctx)
 	if err != nil {
@@ -138,6 +140,44 @@ func (r *chatConversationRepository) List(
 		out = append(out, conv)
 	}
 	return out, paginationResultFromTotal(int64(total), params), nil
+}
+
+func chatConversationUnreadFirstOrder() chatconversation.OrderOption {
+	return func(selector *entsql.Selector) {
+		selector.OrderExprFunc(func(builder *entsql.Builder) {
+			builder.WriteString("CASE WHEN (")
+			builder.Ident(selector.C(chatconversation.FieldUnreadByAdmin))
+			builder.WriteString(" > 0 OR ")
+			builder.Ident(selector.C(chatconversation.FieldManuallyUnreadByAdmin))
+			builder.WriteString(") THEN 0 ELSE 1 END ASC")
+		})
+	}
+}
+
+// Derive both the returned activity time and the pagination order from the
+// persisted messages. An old summary must not leave a long-running thread at
+// its first-contact position. The conversation/created_at/id index supplies
+// the newest row without scanning each thread's entire history.
+func chatConversationLatestMessageOrder() chatconversation.OrderOption {
+	return func(selector *entsql.Selector) {
+		columns := make([]string, 0, len(chatconversation.Columns)-1)
+		for _, column := range chatconversation.Columns {
+			if column != chatconversation.FieldLastMessageAt {
+				columns = append(columns, selector.C(column))
+			}
+		}
+		message := entsql.Table(chatmessage.Table).As("latest_message")
+		latest := entsql.Dialect(selector.Dialect()).
+			Select(message.C(chatmessage.FieldCreatedAt)).
+			From(message).
+			Where(entsql.ColumnsEQ(message.C(chatmessage.FieldConversationID), selector.C(chatconversation.FieldID))).
+			OrderBy(entsql.Desc(message.C(chatmessage.FieldCreatedAt)), entsql.Desc(message.C(chatmessage.FieldID))).
+			Limit(1)
+		selector.Select(columns...).AppendSelectExprAs(latest, chatconversation.FieldLastMessageAt)
+		selector.OrderExprFunc(func(builder *entsql.Builder) {
+			builder.Ident(chatconversation.FieldLastMessageAt).WriteString(" DESC NULLS LAST")
+		})
+	}
 }
 
 func (r *chatConversationRepository) CountUnreadByAdmin(ctx context.Context) (int, error) {

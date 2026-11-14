@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -20,6 +21,7 @@ import (
 
 type tokenExpiredRecoveryOAuthClient struct {
 	refreshCalls int32
+	response     *openai.TokenResponse
 }
 
 func (c *tokenExpiredRecoveryOAuthClient) ExchangeCode(context.Context, string, string, string, string, string) (*openai.TokenResponse, error) {
@@ -32,6 +34,9 @@ func (c *tokenExpiredRecoveryOAuthClient) RefreshToken(context.Context, string, 
 
 func (c *tokenExpiredRecoveryOAuthClient) RefreshTokenWithClientID(context.Context, string, string, string) (*openai.TokenResponse, error) {
 	atomic.AddInt32(&c.refreshCalls, 1)
+	if c.response != nil {
+		return c.response, nil
+	}
 	return &openai.TokenResponse{
 		AccessToken:  "refreshed-access-token",
 		RefreshToken: "refreshed-refresh-token",
@@ -39,17 +44,14 @@ func (c *tokenExpiredRecoveryOAuthClient) RefreshTokenWithClientID(context.Conte
 	}, nil
 }
 
-func TestOpenAIGatewayService_TokenExpiredRefreshesAndReplaysSameAccount(t *testing.T) {
+func runOpenAIGatewayServiceAuthRecovery(t *testing.T, errorBody string) {
+	t.Helper()
 	gin.SetMode(gin.TestMode)
 	upstream := &httpUpstreamRecorder{responses: []*http.Response{
 		{
 			StatusCode: http.StatusUnauthorized,
 			Header:     http.Header{"Content-Type": []string{"application/json"}},
-			Body: io.NopCloser(strings.NewReader(`{
-  "detail": {"code": "token_expired", "message": "Your authentication token has expired. Please try refreshing it."},
-  "error": {"code": "token_expired", "message": "Your authentication token has expired. Please try refreshing it.", "param": null, "type": "invalid_request_error"},
-  "status": 401
-}`)),
+			Body:       io.NopCloser(strings.NewReader(errorBody)),
 		},
 		{
 			StatusCode: http.StatusOK,
@@ -102,4 +104,136 @@ func TestOpenAIGatewayService_TokenExpiredRefreshesAndReplaysSameAccount(t *test
 	require.Equal(t, int32(1), atomic.LoadInt32(&oauthClient.refreshCalls))
 	require.Equal(t, "refreshed-access-token", account.GetOpenAIAccessToken())
 	require.Equal(t, "refreshed-access-token", cache.tokens[OpenAITokenCacheKey(account)])
+}
+
+func TestOpenAIGatewayService_TokenExpiredRefreshesAndReplaysSameAccount(t *testing.T) {
+	runOpenAIGatewayServiceAuthRecovery(t, `{
+  "detail": {"code": "token_expired", "message": "Your authentication token has expired. Please try refreshing it."},
+  "error": {"code": "token_expired", "message": "Your authentication token has expired.", "param": null, "type": "invalid_request_error"},
+  "status": 401
+}`)
+}
+
+func TestOpenAIGatewayService_TeamGenericUnauthorizedRefreshesAndReplaysSameAccount(t *testing.T) {
+	runOpenAIGatewayServiceAuthRecovery(t, `{"detail":"Unauthorized","status":401}`)
+}
+
+func TestOpenAIGatewayService_RefreshPrincipalChangeDoesNotReplayCurrentTurn(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, changed := range []string{"account", "user", "plan"} {
+		for _, passthrough := range []bool{false, true} {
+			for _, stream := range []bool{false, true} {
+				t.Run(fmt.Sprintf("%s/passthrough=%t/stream=%t", changed, passthrough, stream), func(t *testing.T) {
+					upstream := &httpUpstreamRecorder{responses: []*http.Response{
+						workspaceRoutingResponse(http.StatusUnauthorized, `{"detail":"Unauthorized"}`),
+						openAICompatSSECompletedResponse("resp-unsafe-replay", "gpt-5.5"),
+					}}
+					account := &Account{ID: 904, Platform: PlatformOpenAI, Type: AccountTypeOAuth,
+						Status: StatusActive, Schedulable: true, Concurrency: 1,
+						Credentials: map[string]any{
+							"access_token":       workspaceRoutingToken("workspace-a", "user-a"),
+							"refresh_token":      "fixture-refresh-token",
+							"expires_at":         time.Now().Add(time.Hour).UTC().Format(time.RFC3339),
+							"chatgpt_account_id": "workspace-a", "chatgpt_user_id": "user-a", "plan_type": "team",
+						},
+						Extra: map[string]any{"openai_passthrough": passthrough},
+					}
+					newAccount, newUser := "workspace-a", "user-a"
+					if changed == "account" {
+						newAccount = "workspace-b"
+					} else if changed == "user" {
+						newUser = "user-b"
+					}
+					newToken := workspaceRoutingToken(newAccount, newUser)
+					if changed == "plan" {
+						newToken = desktopAuthContextToken(t, "plus", time.Time{})
+					}
+					repo := &refreshAPIAccountRepo{account: account}
+					cache := newOpenAITokenCacheStub()
+					oauthClient := &tokenExpiredRecoveryOAuthClient{response: &openai.TokenResponse{
+						AccessToken: newToken, RefreshToken: "rotated-fixture-refresh", ExpiresIn: 3600,
+					}}
+					oauthService := NewOpenAIOAuthService(nil, oauthClient)
+					t.Cleanup(oauthService.Stop)
+					provider := NewOpenAITokenProvider(repo, cache, oauthService)
+					provider.SetRefreshAPI(NewOAuthRefreshAPI(repo, cache), NewOpenAITokenRefresher(oauthService, repo))
+					svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream, openAITokenProvider: provider}
+					c, _ := gin.CreateTestContext(httptest.NewRecorder())
+					c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+					body := []byte(fmt.Sprintf(`{"model":"gpt-5.5","stream":%t,"input":"hello"}`, stream))
+					result, err := svc.Forward(context.Background(), c, account, body)
+					require.Nil(t, result)
+					var failover *UpstreamFailoverError
+					require.ErrorAs(t, err, &failover)
+					require.Equal(t, GatewayFailureReason("openai_oauth_account_changed"), failover.Reason)
+					require.Len(t, upstream.requests, 1, "the original turn must not be replayed under the new principal")
+					require.Equal(t, int32(1), atomic.LoadInt32(&oauthClient.refreshCalls))
+					require.Equal(t, newAccount, repo.account.GetChatGPTAccountID(), "persist the refreshed identity for subsequent requests")
+					require.Equal(t, newUser, repo.account.GetChatGPTUserID())
+				})
+			}
+		}
+	}
+}
+
+func TestOpenAIGatewayService_WSRefreshPrincipalChangeDoesNotFallbackToHTTP(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, stage := range []string{"handshake", "event", "handshake-plan", "event-plan"} {
+		t.Run(stage, func(t *testing.T) {
+			cfg := &config.Config{}
+			cfg.Gateway.OpenAIWS.Enabled = true
+			cfg.Gateway.OpenAIWS.OAuthEnabled = true
+			cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+			cfg.Gateway.OpenAIWS.MaxConnsPerAccount = 1
+			cfg.Gateway.OpenAIWS.MaxIdlePerAccount = 1
+			account := &Account{ID: 905, Platform: PlatformOpenAI, Type: AccountTypeOAuth,
+				Status: StatusActive, Schedulable: true, Concurrency: 1,
+				Credentials: map[string]any{
+					"access_token": workspaceRoutingToken("workspace-a", "user-a"), "refresh_token": "fixture-refresh",
+					"expires_at":         time.Now().Add(time.Hour).UTC().Format(time.RFC3339),
+					"chatgpt_account_id": "workspace-a", "chatgpt_user_id": "user-a", "plan_type": "team",
+				}, Extra: map[string]any{"responses_websockets_v2_enabled": true},
+			}
+			repo := &refreshAPIAccountRepo{account: account}
+			cache := newOpenAITokenCacheStub()
+			refreshedToken := workspaceRoutingToken("workspace-a", "user-b")
+			if strings.HasSuffix(stage, "-plan") {
+				refreshedToken = desktopAuthContextToken(t, "plus", time.Time{})
+			}
+			oauthClient := &tokenExpiredRecoveryOAuthClient{response: &openai.TokenResponse{
+				AccessToken: refreshedToken, RefreshToken: "rotated-fixture-refresh", ExpiresIn: 3600,
+			}}
+			oauthService := NewOpenAIOAuthService(nil, oauthClient)
+			t.Cleanup(oauthService.Stop)
+			provider := NewOpenAITokenProvider(repo, cache, oauthService)
+			provider.SetRefreshAPI(NewOAuthRefreshAPI(repo, cache), NewOpenAITokenRefresher(oauthService, repo))
+			pool := newOpenAIWSConnPool(cfg)
+			t.Cleanup(pool.Close)
+			var dialCount func() int
+			if strings.HasPrefix(stage, "handshake") {
+				dialer := &openAIWSRejectDialer{statusCode: http.StatusUnauthorized, responseBody: []byte(`{"detail":"Unauthorized"}`)}
+				pool.setClientDialerForTest(dialer)
+				dialCount = func() int { return int(dialer.dialCount.Load()) }
+			} else {
+				dialer := &openAIWSCaptureDialer{conn: &openAIWSCaptureConn{events: [][]byte{
+					[]byte(`{"type":"error","error":{"code":"token_expired"}}`),
+				}}}
+				pool.setClientDialerForTest(dialer)
+				dialCount = dialer.DialCount
+			}
+			upstream := &httpUpstreamRecorder{resp: openAICompatSSECompletedResponse("resp-unsafe-http-fallback", "gpt-5.5")}
+			svc := &OpenAIGatewayService{cfg: cfg, httpUpstream: upstream, openAITokenProvider: provider,
+				openaiWSResolver: NewOpenAIWSProtocolResolver(cfg), openaiWSPool: pool, toolCorrector: NewCodexToolCorrector()}
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+			result, err := svc.Forward(context.Background(), c, account, []byte(`{"model":"gpt-5.5","stream":true,"input":"hello"}`))
+			require.Nil(t, result)
+			var failover *UpstreamFailoverError
+			require.ErrorAs(t, err, &failover)
+			require.Equal(t, GatewayFailureReason("openai_oauth_account_changed"), failover.Reason)
+			require.Equal(t, int32(1), atomic.LoadInt32(&oauthClient.refreshCalls))
+			require.Equal(t, 1, dialCount(), "a new principal must not reconnect the original turn")
+			require.Empty(t, upstream.requests, "a principal change must not trigger HTTP replay")
+		})
+	}
 }

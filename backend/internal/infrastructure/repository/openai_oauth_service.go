@@ -20,7 +20,8 @@ func NewOpenAIOAuthClient() service.OpenAIOAuthClient {
 }
 
 type openaiOAuthService struct {
-	tokenURL string
+	tokenURL     string
+	siwcTokenURL string
 }
 
 func (s *openaiOAuthService) ExchangeCode(ctx context.Context, code, codeVerifier, redirectURI, proxyURL, clientID string) (*openai.TokenResponse, error) {

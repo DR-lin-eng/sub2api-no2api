@@ -393,10 +393,11 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	usageBillingQueueRuntimeCoordinator := service.ProvideUsageBillingQueueRuntimeCoordinator(usageBillingRepository, clusterReleaseService, usageRecordWorkerPool, clusterService, opsService)
 	scheduledTestRunnerService := service.ProvideScheduledTestRunnerService(scheduledTestPlanRepository, scheduledTestService, accountTestService, rateLimitService, leaderLockCache, db, configConfig, clusterService)
 	oAuthModelSyncService := service.ProvideOAuthModelSyncService(accountRepository, accountTestService, leaderLockCache, db, configConfig, gatewayService)
+	openAIUsageSyncService := service.ProvideOpenAIUsageSyncService(openAIQuotaService, openAIGatewayService, leaderLockCache, configConfig)
 	paymentOrderExpiryService := service.ProvidePaymentOrderExpiryService(paymentService, leaderLockCache, db)
 	channelMonitorRunner := service.ProvideChannelMonitorRunner(channelMonitorService, settingService, leaderLockCache, db, configConfig, clusterService)
 	userPlatformQuotaUsageFlusher := service.ProvideUserPlatformQuotaUsageFlusher(configConfig, billingCache, serviceUserPlatformQuotaRepository, timingWheelService)
-	v := provideCleanup(channelService, client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, opsService, settingService, opsIngressRejectAggregator, apiKeyService, invalidAuthEdgeBlocker, authCacheInvalidationWorker, schedulerSnapshotService, tokenRefreshService, accountExpiryService, openAICodexVersionSyncService, proxyExpiryService, proxyHealthService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, supportChatRetentionService, batchImageCleanupService, batchImageWorkerRuntime, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, usageBillingRepository, usageBillingQueueRuntimeCoordinator, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, grokOAuthService, openAIGatewayService, scheduledTestRunnerService, accountInspectionService, accountQualityMonitoringService, oAuthModelSyncService, backupService, paymentOrderExpiryService, channelMonitorRunner, userPlatformQuotaUsageFlusher, upstreamBillingProbeService, ollamaCloudUsageService, auditLogService, promptService, contentModerationService, concurrencyService, userMessageQueueService, dashboardAggregationService, deferredService, timingWheelService, clusterReleaseService, clusterService, resolver, egressService)
+	v := provideCleanup(channelService, client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, opsService, settingService, opsIngressRejectAggregator, apiKeyService, invalidAuthEdgeBlocker, authCacheInvalidationWorker, schedulerSnapshotService, tokenRefreshService, accountExpiryService, openAICodexVersionSyncService, proxyExpiryService, proxyHealthService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, supportChatRetentionService, batchImageCleanupService, batchImageWorkerRuntime, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, balanceNotifyService, digestSessionStore, usageBillingRepository, usageBillingQueueRuntimeCoordinator, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, grokOAuthService, openAIGatewayService, scheduledTestRunnerService, accountInspectionService, accountQualityMonitoringService, oAuthModelSyncService, openAIUsageSyncService, backupService, paymentOrderExpiryService, channelMonitorRunner, userPlatformQuotaUsageFlusher, upstreamBillingProbeService, ollamaCloudUsageService, auditLogService, promptService, contentModerationService, concurrencyService, userMessageQueueService, dashboardAggregationService, deferredService, timingWheelService, clusterReleaseService, clusterService, resolver, egressService)
 	application := &Application{
 		Server:      httpServer,
 		PromptAudit: promptService,
@@ -458,6 +459,8 @@ func provideCleanup(
 	emailQueue *service.EmailQueueService,
 	billingCache *service.BillingCacheService,
 	usageRecordWorkerPool *service.UsageRecordWorkerPool,
+	balanceNotify *service.BalanceNotifyService,
+	digestSessions *service.DigestSessionStore,
 	usageBillingRepository service.UsageBillingRepository,
 	_ *service.UsageBillingQueueRuntimeCoordinator,
 	subscriptionService *service.SubscriptionService,
@@ -471,6 +474,7 @@ func provideCleanup(
 	accountInspection *service.AccountInspectionService,
 	accountQuality *service.AccountQualityMonitoringService,
 	oauthModelSync *service.OAuthModelSyncService,
+	openAIUsageSync *service.OpenAIUsageSyncService,
 	backupSvc *service.BackupService,
 	paymentOrderExpiry *service.PaymentOrderExpiryService,
 	channelMonitorRunner *service.ChannelMonitorRunner,
@@ -491,6 +495,9 @@ func provideCleanup(
 	egressService *egress.Service,
 ) func() {
 	return func() {
+		if openAIUsageSync != nil {
+			openAIUsageSync.Stop()
+		}
 		if channelService != nil {
 			channelService.Stop()
 		}
@@ -503,6 +510,18 @@ func provideCleanup(
 		}
 
 		parallelSteps := []cleanupStep{
+			{"BalanceNotifyService", func() error {
+				if balanceNotify != nil {
+					balanceNotify.Stop()
+				}
+				return nil
+			}},
+			{"DigestSessionStore", func() error {
+				if digestSessions != nil {
+					digestSessions.Close()
+				}
+				return nil
+			}},
 			{"IPv6EgressService", func() error {
 				if egressService != nil {
 					egressService.Stop()

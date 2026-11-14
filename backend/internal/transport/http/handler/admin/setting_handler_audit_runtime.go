@@ -3,6 +3,12 @@ package admin
 import "github.com/Wei-Shaw/sub2api/internal/application/service"
 
 func appendRuntimeSettingChanges(changed []string, before, after *service.SystemSettings) []string {
+	if before.ImageIndependentSchedulingEnabled != after.ImageIndependentSchedulingEnabled {
+		changed = append(changed, "image_independent_scheduling_enabled")
+	}
+	if before.OpenAIImagesLegacyEnabled != after.OpenAIImagesLegacyEnabled {
+		changed = append(changed, "openai_images_legacy_enabled")
+	}
 	if before.OpsMonitoringEnabled != after.OpsMonitoringEnabled {
 		changed = append(changed, "ops_monitoring_enabled")
 	}
@@ -74,6 +80,15 @@ func appendRuntimeSettingChanges(changed []string, before, after *service.System
 	}
 	if before.OpenAIRequestTimezone != after.OpenAIRequestTimezone {
 		changed = append(changed, "openai_request_timezone")
+	}
+	if before.OpenAILocationEnabled != after.OpenAILocationEnabled {
+		changed = append(changed, "openai_location_enabled")
+	}
+	if before.OpenAILocationLatitude != after.OpenAILocationLatitude {
+		changed = append(changed, "openai_location_latitude")
+	}
+	if before.OpenAILocationLongitude != after.OpenAILocationLongitude {
+		changed = append(changed, "openai_location_longitude")
 	}
 	if before.OpenAIVisibleOutputTTFTEnabled != after.OpenAIVisibleOutputTTFTEnabled {
 		changed = append(changed, "openai_visible_output_ttft_enabled")

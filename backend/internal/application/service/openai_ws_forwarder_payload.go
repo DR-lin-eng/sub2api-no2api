@@ -224,6 +224,7 @@ func (s *OpenAIGatewayService) buildOpenAIWSHeaders(
 	applyOpenAIResponsesLiteWebSocketHeader(headers, stagedCodexOutboundSessionBody(c))
 	applyOpenAICodexSemanticRequestHeaders(headers, c, account, stagedCodexOutboundSessionBody(c))
 	applyOpenAIWorkspaceRoutingHeader(headers, workspaceRouting)
+	s.applyOpenAILocationHeader(ctx, headers, account)
 	logOpenAIRoutingDiagnostics(
 		ctx,
 		account,
@@ -250,6 +251,10 @@ func (s *OpenAIGatewayService) buildOpenAIWSCreatePayload(reqBody map[string]any
 		payload["stream"] = true
 	}
 	payload["type"] = "response.create"
+	if account.IsOpenAISIWC() {
+		delete(payload, "stream")
+		payload["store"] = false
+	}
 
 	// OAuth 默认保持 store=false，避免误依赖服务端历史。
 	if account != nil && account.Type == AccountTypeOAuth && !s.isOpenAIWSStoreRecoveryAllowed(account) {

@@ -55,6 +55,8 @@
         />
       </div>
 
+      <GPTImageOutputFields v-if="supportsOpenAIImageTest && supportsGPTImage26Output(selectedModelId)" v-model="imageOutput" :disabled="status === 'connecting'" />
+
       <div v-if="isOpenAIAccount && !supportsImageTest && !supportsVideoTest" class="space-y-1.5">
         <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
           {{ t('admin.accounts.openai.testMode') }}
@@ -156,6 +158,7 @@
             </div>
             <div class="border-t border-gray-100 px-3 py-1.5 text-xs text-gray-500 dark:border-dark-500 dark:text-gray-300">
               {{ image.mimeType || 'image/*' }}
+              <a :href="image.url" :download="`image-test-${index + 1}.${imageOutputExtension(image.mimeType)}`" class="ml-3 text-primary-600 hover:underline" @click.stop>{{ t('common.imageOutput.download') }}</a>
             </div>
           </div>
         </div>
@@ -256,6 +259,8 @@ import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import Select from '@/common/widgets/forms/Select.vue'
 import TextArea from '@/common/widgets/forms/TextArea.vue'
+import GPTImageOutputFields from '@/common/widgets/forms/GPTImageOutputFields.vue'
+import { supportsGPTImage26Output, imageOutputExtension, type GPTImageOutputOptions } from '@/core/utils/gptImageOutput'
 import { Icon } from '@/common/widgets/icons'
 import { useClipboard } from '@/common/composables/useClipboard'
 import { buildApiUrl } from '@/core/networks/client'
@@ -270,6 +275,7 @@ import type { ClaudeModel } from '@/features/admin-accounts/data/dtos/adminAccou
 
 const { t } = useI18n()
 const { copyToClipboard } = useClipboard()
+const imageOutput = ref<GPTImageOutputOptions>({})
 
 interface OutputLine {
   text: string
@@ -470,7 +476,8 @@ const startTest = async () => {
       body: JSON.stringify({
         model_id: selectedModelId.value,
         prompt: testMode.value === 'compact' ? '' : testPrompt.value.trim(),
-        mode: isOpenAIAccount.value && !supportsImageTest.value ? testMode.value : 'default'
+        mode: isOpenAIAccount.value && !supportsImageTest.value ? testMode.value : 'default',
+        ...(supportsOpenAIImageTest.value && supportsGPTImage26Output(selectedModelId.value) ? imageOutput.value : {})
       }),
       signal: abortController.signal
     })

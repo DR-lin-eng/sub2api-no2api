@@ -421,6 +421,7 @@ func (s *OpenAIGatewayService) buildOpenAIAlphaSearchRequest(ctx context.Context
 
 	account.ApplyHeaderOverrides(req.Header)
 	stripOpenAIAlphaSearchResponsesHeaders(req.Header)
+	s.applyOpenAILocationHeader(ctx, req.Header, account)
 	return req, nil
 }
 

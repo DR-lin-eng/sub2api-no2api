@@ -88,6 +88,7 @@ func isOpenAIOAuthGatewayModelRequest(req *http.Request, account *Account) bool 
 	const responsesRoot = "/backend-api/codex/responses"
 	return path == responsesRoot ||
 		strings.HasPrefix(path, responsesRoot+"/") ||
+		path == "/backend-api/f/conversation" || path == "/backend-api/f/conversation/resume" ||
 		path == "/v1/responses/input_tokens" ||
 		path == "/backend-api/codex/alpha/search" ||
 		path == "/backend-api/codex/realtime/calls"

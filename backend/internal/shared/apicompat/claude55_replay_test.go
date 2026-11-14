@@ -9,7 +9,7 @@ import (
 )
 
 func TestClaude55BufferedSignedReplayOrder(t *testing.T) {
-	for _, model := range []string{"claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"} {
+	for _, model := range []string{"claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-2", "claude-mythos-5-2"} {
 		t.Run(model, func(t *testing.T) {
 			content := []AnthropicContentBlock{{Type: "thinking", Thinking: "check", Signature: "provider-signature"}, {Type: "text", Text: "before"}, {Type: "tool_use", ID: "toolu_1", Name: "read", Input: json.RawMessage(`{"path":"x"}`)}, {Type: "redacted_thinking", Data: "opaque-redaction"}, {Type: "text", Text: "after"}}
 			response := AnthropicToResponsesResponse(&AnthropicResponse{ID: "msg_signed", Model: model, Content: content})

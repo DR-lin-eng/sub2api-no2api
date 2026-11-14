@@ -82,9 +82,11 @@ import { useAccountsUpstreamBilling } from '@/features/admin-accounts/presentati
 import { useAccountTablePresentation } from '@/features/admin-accounts/presentation/composables/useAccountTablePresentation'
 import { useAccountColumnPreferences } from '@/features/admin-accounts/presentation/composables/useAccountColumnPreferences'
 import { useAccountTodayStats } from '@/features/admin-accounts/presentation/composables/useAccountTodayStats'
+import { useAccountsOpenAIUsagePush, type OpenAIUsageLiveTransport } from '@/features/admin-accounts/presentation/composables/useAccountsOpenAIUsagePush'
 import type { AccountTableViewContext } from '@/features/admin-accounts/presentation/accountTableViewContext'
 import { buildAccountQueryFiltersFromState, mergeRuntimeFields } from '@/features/admin-accounts/presentation/accountListTransforms'
 import type { Account, AccountPlatform, AccountType, Proxy as AccountProxy, AdminGroup } from '@/types'
+import type { OpenAIQuotaUsage } from '@/features/admin-accounts/data/dtos/openAIQuotaDtos'
 import type { ClaudeModel } from '@/features/admin-accounts/data/dtos/adminAccountDtos'
 
 const { t } = useI18n()
@@ -109,6 +111,7 @@ type AccountBulkEditTarget =
         type?: string
         status?: string
         oauth_quota?: string
+    plan_type?: string
         excel_bps?: 'enabled' | 'disabled' | ''
         group?: string
         search?: string
@@ -172,6 +175,7 @@ const {
   upstreamQuotaErrors,
   bulkQueryingUpstreamQuota,
   bulkQueryingOpenAIQuota,
+    bulkResettingOpenAIQuota,
   bulkOpenAIQuotaResults,
   upstreamBillingFeedback,
   upstreamQuotaFeedback,
@@ -186,6 +190,7 @@ const {
   handleBulkProbeUpstreamBilling,
   handleBulkQueryUpstreamQuota,
   handleBulkQueryOpenAIQuota,
+    handleBulkResetOpenAIQuota,
   disposeUpstreamBilling
 } = useAccountsUpstreamBilling({
   currentAdminID: () => authStore.user?.id ?? null,
@@ -207,7 +212,8 @@ const {
   showError: message => appStore.showError(message),
   showSuccess: message => appStore.showSuccess(message),
   showProgress: message => appStore.showToast('info', message),
-  hideProgress: toastID => appStore.hideToast(toastID)
+    hideProgress: toastID => appStore.hideToast(toastID),
+    clearSelection: () => clearSelection()
 })
 
 // Account tools dropdown
@@ -338,6 +344,7 @@ const {
     ...loadInitialAccountFilterState(),
     type: '',
     oauth_quota: '',
+    plan_type: '',
     excel_bps: '',
     privacy_mode: '',
     group: '',
@@ -345,6 +352,24 @@ const {
     include_scheduler_score: shouldIncludeSchedulerScore() ? '1' : '0',
     sort_by: sortState.sort_by,
     sort_order: sortState.sort_order
+  }
+})
+
+const liveOpenAIQuotaResults = reactive(new Map<number, OpenAIQuotaUsage>())
+const liveOpenAIQuotaTransports = reactive(new Map<number, OpenAIUsageLiveTransport>())
+
+useAccountsOpenAIUsagePush({
+  getAccounts: () => accounts.value,
+  onQuota: (accountID, quota) => {
+    liveOpenAIQuotaResults.set(accountID, quota)
+    upstreamBillingNow.value = Date.now()
+  },
+  onTransport: (accountID, transport) => {
+    liveOpenAIQuotaTransports.set(accountID, transport)
+  },
+  onStopped: (accountID) => {
+    liveOpenAIQuotaResults.delete(accountID)
+    liveOpenAIQuotaTransports.delete(accountID)
   }
 })
 
@@ -605,6 +630,7 @@ const refreshAccountsIncrementally = async () => {
         type?: string
         status?: string
         oauth_quota?: string
+    plan_type?: string
         excel_bps?: 'enabled' | 'disabled' | ''
         privacy_mode?: string
         group?: string
@@ -954,6 +980,7 @@ const buildBulkEditFilterSnapshot = () => {
     type: typeof rawParams.type === 'string' ? rawParams.type : '',
     status: typeof rawParams.status === 'string' ? rawParams.status : '',
     oauth_quota: typeof rawParams.oauth_quota === 'string' ? rawParams.oauth_quota : '',
+    plan_type: typeof rawParams.plan_type === 'string' ? rawParams.plan_type : '',
     excel_bps: excelBps,
     group: typeof rawParams.group === 'string' ? rawParams.group : '',
     search: typeof rawParams.search === 'string' ? rawParams.search : '',
@@ -1351,6 +1378,7 @@ const accountTableViewContext = {
   allResultsSelected,
   bulkQueryingUpstreamQuota,
   bulkQueryingOpenAIQuota,
+    bulkResettingOpenAIQuota,
   handleBulkDelete,
   handleBulkResetStatus,
   handleBulkRefreshToken,
@@ -1358,6 +1386,7 @@ const accountTableViewContext = {
   handleBulkSyncUpstreamModels,
   handleBulkQueryUpstreamQuota,
   handleBulkQueryOpenAIQuota,
+    handleBulkResetOpenAIQuota,
   handleBulkProbeUpstreamBilling,
   openBulkEditSelected,
   openBulkEditFiltered,
@@ -1395,6 +1424,8 @@ const accountTableViewContext = {
   todayStatsError,
   usageManualRefreshToken,
   bulkOpenAIQuotaResults,
+  liveOpenAIQuotaResults,
+  liveOpenAIQuotaTransports,
   upstreamQuotaResults,
   upstreamBillingNow,
   upstreamBillingProbeGloballyEnabled,

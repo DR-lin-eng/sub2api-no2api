@@ -1,0 +1,223 @@
+{
+  "baseline": "e0ecc7c85ce7c2f8e561e8da12f6cdcaae7c489c",
+  "upstream_base": "6f92090d7f540efd88cd4b81e651120cb36e3ff5",
+  "upstream_head": "0eee80ba87aa4f3aff7282bf1695aa6dc0471c36",
+  "entries": [
+    {
+      "pr": 8504,
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8504",
+      "merge_sha": "b9d6ff5ca2b2d34afcc4f6281de7beddd63f9959",
+      "head": "721dfb282e3bd94b513ad6d2d65dcb27df246369",
+      "diff_source": "git diff merge_sha^1 merge_sha",
+      "diff_sha256": "6a723f8c04011bc8452e31ad538dcd7d9ab30f56aed62bdd3e59a5c259e83a16",
+      "status": "ported-with-local-email-identity-and-feature-owners",
+      "reviewed": true,
+      "fully_closed": true,
+      "owner": "application/service/registration_email_blacklist.go; user_repo_email_blacklist.go; features/admin-settings and admin-users",
+      "decision": "Empty default; Gmail-only alias folding; cached membership; bounded admin SQL and 1000-user batches; transactional MCP revocation; explicit confirmation.",
+      "reopen_when": "The frozen upstream patch changes, the owning implementation regresses, or an explicitly named deferred capability is commissioned."
+    },
+    {
+      "pr": 8484,
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8484",
+      "merge_sha": "503617a82fa5b58e4bb1954fb98d4494233d9193",
+      "head": "457602c8fc07112fb6e38642adea88a61d7c9759",
+      "diff_source": "git diff merge_sha^1 merge_sha",
+      "diff_sha256": "f75571925a617fb826bb77db73806201a650342bf6f95bfd167f5ca23ecb2592",
+      "status": "selective-port-with-explicit-compatibility-deferrals",
+      "reviewed": true,
+      "fully_closed": false,
+      "owner": "current billing, shared/apicompat, httputil, DigestSessionStore and transport owners",
+      "decision": "Port safe ownership, remaining linear buffers, bounded notifications, digest cache and strict decompression. Keep durable billing and existing transport/image boundaries.",
+      "reopen_when": "The frozen upstream patch changes, the owning implementation regresses, or an explicitly named deferred capability is commissioned.",
+      "subitems": [
+        {
+          "part": "request metadata ownership and async Gin context snapshots",
+          "status": "ported",
+          "fully_closed": true
+        },
+        {
+          "part": "remaining Read-tool/deferred Anthropic tool string growth and completion precheck",
+          "status": "ported",
+          "fully_closed": true
+        },
+        {
+          "part": "Anthropic-to-Responses, Chat-to-Responses and Responses-to-Chat accumulators",
+          "status": "existing-local-refactors-retained",
+          "fully_closed": true,
+          "evidence": "docs/GATEWAY_PERFORMANCE_OPTIMIZATION_CN.md and current progress/builder owners"
+        },
+        {
+          "part": "notification worker and legacy quota mirror persistence",
+          "status": "ported-with-durable-local-billing",
+          "fully_closed": true
+        },
+        {
+          "part": "DigestSessionStore byte/entry bounds and active expiry",
+          "status": "ported",
+          "fully_closed": true
+        },
+        {
+          "part": "OpenAI compatibility session caches",
+          "status": "intentional-divergence",
+          "fully_closed": true,
+          "decision": "Retain existing boundedOpenAICompatSessionCache owner and semantics; do not replace the already-refactored cache with a second store."
+        },
+        {
+          "part": "decoded request overflow and zstd workspace",
+          "status": "ported",
+          "fully_closed": true
+        },
+        {
+          "part": "shared ingress/patch/async-image memory reservations",
+          "status": "specialist-defer",
+          "fully_closed": false,
+          "reopen_when": "One project-wide ownership design covers routing prereads, every transformation, retries and async retention, with overload and rolling-upgrade evidence."
+        },
+        {
+          "part": "socket idle deadlines, downstream write deadlines and HTTP/1 drain deadlines",
+          "status": "specialist-defer",
+          "fully_closed": false,
+          "reopen_when": "Transport-specific HTTP/1, H2C, SSE and hijacked/WS behavior is verified against current owners without new default request failures."
+        },
+        {
+          "part": "total post-disconnect upstream drain deadline",
+          "status": "intentional-divergence",
+          "fully_closed": true,
+          "decision": "Do not truncate a billable upstream drain before reliable terminal usage; upstream explicitly documents possible missing settlement after its new deadline."
+        },
+        {
+          "part": "SSE event/queue byte and line budgets and large-image limit changes",
+          "status": "specialist-defer",
+          "fully_closed": false,
+          "reopen_when": "Current Images/Responses/Grok/Anthropic paths have one validated event/queue ownership plan that preserves unknown fields, errors and usage."
+        }
+      ]
+    },
+    {
+      "pr": 8495,
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8495",
+      "merge_sha": "8e92c892b47f3f934f18ce63da4c4dcb75f0b6bd",
+      "head": "e97a48d84be5f4b23898ab2d2f968482dbd0b3ce",
+      "diff_source": "git diff merge_sha^1 merge_sha",
+      "diff_sha256": "9a9e1a69fa10f8131e29d53843ba7848f763297a59eec7fac8d56a9b0624634a",
+      "status": "already-covered",
+      "reviewed": true,
+      "fully_closed": true,
+      "owner": "frontend/src/core/utils/ccswitchImport.ts",
+      "decision": "Current main already exports gpt-5.6-sol; no repeated edit.",
+      "reopen_when": "The frozen upstream patch changes, the owning implementation regresses, or an explicitly named deferred capability is commissioned."
+    },
+    {
+      "pr": 8549,
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8549",
+      "merge_sha": "9432aa05fc21e3fe3bd042268d11158c7c1a2561",
+      "head": "b6c0ca4256b3b437f1fd025690795cc12dda8dd3",
+      "diff_source": "git diff merge_sha^1 merge_sha",
+      "diff_sha256": "814e4fad2849e204eecd2a463ad9f17d07956f3a9d1f82c63886c8363a3025d4",
+      "status": "already-covered-and-intentional-explicit-session-policy",
+      "reviewed": true,
+      "fully_closed": true,
+      "owner": "openai_cyber_session_block.go; backend/go.mod",
+      "decision": "No transcript-derived blocking exists locally: only explicit session IDs and API-key-scoped exact keys. Long-history overflow path is absent. brotli 1.2.7 and compress 1.20.2 already present.",
+      "reopen_when": "The frozen upstream patch changes, the owning implementation regresses, or an explicitly named deferred capability is commissioned."
+    },
+    {
+      "pr": 8543,
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8543",
+      "merge_sha": "c5ca149a3d856d92fa0b61bea276338be718c5db",
+      "head": "489cfd5f4f7893ac12d3bb93a38d9f1baea7171f",
+      "diff_source": "git diff merge_sha^1 merge_sha",
+      "diff_sha256": "9b0eb2fc2a2c34305e23b48f5aaf414c1b96b469fb9e211775533da8b18eeeab",
+      "status": "ported-preserving-default-protection",
+      "reviewed": true,
+      "fully_closed": true,
+      "owner": "platform/config; openai_upstream_transport_error.go; deployment templates",
+      "decision": "New opt-out is false by default, affects only persistent transport-error cooldown, and keeps bounded failover, telemetry, existing state and other cooldowns.",
+      "reopen_when": "The frozen upstream patch changes, the owning implementation regresses, or an explicitly named deferred capability is commissioned."
+    },
+    {
+      "pr": 8518,
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8518",
+      "merge_sha": "0eee80ba87aa4f3aff7282bf1695aa6dc0471c36",
+      "head": "1c83bb825a845c7d820194d5bfbee692864cf465",
+      "diff_source": "git diff merge_sha^1 merge_sha",
+      "diff_sha256": "9605e1dbcc4453e90d0f0c9df68a29a342fae6c2cad04028297aeff70f5771a2",
+      "status": "ported-with-current-json-and-scheduler-owners",
+      "reviewed": true,
+      "fully_closed": true,
+      "owner": "gateway_request_state.go; gateway_thinking_precheck.go; current scheduling/auth snapshots; Gemini/Bedrock streams",
+      "decision": "Retain existing sjson batch owner and shared Codex bootstrap/continuation sanitizer. Port immutable parse reuse, borrowed cache-control views, no-op thinking gate, group-bound RPM knowledge/privacy projection, bounded frames/lines and Gemini builders.",
+      "reopen_when": "The frozen upstream patch changes, the owning implementation regresses, or an explicitly named deferred capability is commissioned.",
+      "subitems": [
+        {
+          "part": "moego alpha dependency and replacement JSON editor",
+          "status": "existing-local-refactor-retained",
+          "fully_closed": true,
+          "decision": "Current sjson batch editor already materializes one large set-patch output, with differential/fuzz evidence. Do not add a competing alpha editor."
+        },
+        {
+          "part": "raw orphan cleanup precheck",
+          "status": "not-applicable-to-current-owner",
+          "fully_closed": true,
+          "decision": "The upstream normalizeOpenAIResponsesCompatibilityBodyWithOptions/sanitizeOpenAIResponsesOrphanToolOutputs full-map stage does not exist locally. Retain codex continuation sanitizer."
+        },
+        {
+          "part": "Codex automation/delegation precheck",
+          "status": "already-covered",
+          "fully_closed": true,
+          "owner": "shared/apicompat/codex_bootstrap.go"
+        },
+        {
+          "part": "async image budget regression",
+          "status": "not-applicable",
+          "fully_closed": true,
+          "dependency": "#8484 ingress reservation capability is not enabled locally."
+        },
+        {
+          "part": "compaction-trigger read",
+          "status": "ported-as-borrowed-existing-reader",
+          "fully_closed": true,
+          "decision": "Current implementation already uses lightweight GJSON rather than upstream full decode."
+        },
+        {
+          "part": "parse reuse/cache-control/thinking/RPM/privacy/Gemini/Bedrock/Antigravity bounds",
+          "status": "ported-with-current-owners",
+          "fully_closed": true
+        }
+      ]
+    }
+  ],
+  "inherited_closed_ledger": "diagnostics/upstream-sync-20261104/UPSTREAM_PRS.json",
+  "inherited_deferred_items": [
+    "#8006/#8369 explicit Gemini cachedContents",
+    "#8319/#8476 resource-scoped admin key policy/store migration"
+  ],
+  "git_history_closure": {
+    "strategy": "ours",
+    "upstream_parent": "0eee80ba87aa4f3aff7282bf1695aa6dc0471c36",
+    "verification": "Preserve the adapted tree; upstream head becomes an ancestor. This does not implement explicitly deferred capabilities."
+  },
+  "direct_commits": [
+    {
+      "sha": "25608d216bb7be04e4a646830cb065cd09b7d7e9",
+      "status": "intentional-fork-brand-metadata",
+      "fully_closed": true
+    },
+    {
+      "sha": "876b96d204855ad1aac486b7dd39a95d377d4760",
+      "status": "intentional-fork-brand-metadata",
+      "fully_closed": true
+    },
+    {
+      "sha": "251094436325175c9e0ab06e7b962d05369fd766",
+      "status": "intentional-fork-brand-metadata",
+      "fully_closed": true
+    },
+    {
+      "sha": "e353c832261c9358949e2071bfb17e99d36aa8cc",
+      "status": "intentional-fork-brand-metadata",
+      "fully_closed": true
+    }
+  ]
+}

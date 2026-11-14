@@ -9,7 +9,8 @@ import type {
   UpstreamQuotaQueryResult,
   WindowStats
 } from '@/types'
-import type { OpenAIQuotaRefreshResult } from '@/features/admin-accounts/data/dtos/openAIQuotaDtos'
+import type { OpenAIQuotaRefreshResult, OpenAIQuotaUsage } from '@/features/admin-accounts/data/dtos/openAIQuotaDtos'
+import type { OpenAIUsageLiveTransport } from '@/features/admin-accounts/presentation/composables/useAccountsOpenAIUsagePush'
 
 type UpstreamFeedback = 'success' | 'error'
 
@@ -68,6 +69,7 @@ export interface AccountTableViewContext {
   allResultsSelected: ComputedRef<boolean>
   bulkQueryingUpstreamQuota: Ref<boolean>
   bulkQueryingOpenAIQuota: Ref<boolean>
+  bulkResettingOpenAIQuota: Ref<boolean>
   handleBulkDelete: () => Promise<void>
   handleBulkResetStatus: () => Promise<void>
   handleBulkRefreshToken: () => Promise<void>
@@ -75,6 +77,7 @@ export interface AccountTableViewContext {
   handleBulkSyncUpstreamModels: () => Promise<void>
   handleBulkQueryUpstreamQuota: () => Promise<void>
   handleBulkQueryOpenAIQuota: () => Promise<void>
+  handleBulkResetOpenAIQuota: () => Promise<void>
   handleBulkProbeUpstreamBilling: () => Promise<void>
   openBulkEditSelected: () => void
   openBulkEditFiltered: () => Promise<void>
@@ -112,6 +115,8 @@ export interface AccountTableViewContext {
   todayStatsError: Ref<string | null>
   usageManualRefreshToken: Ref<number>
   bulkOpenAIQuotaResults: Map<number, OpenAIQuotaRefreshResult>
+  liveOpenAIQuotaResults: Map<number, OpenAIQuotaUsage>
+  liveOpenAIQuotaTransports: Map<number, OpenAIUsageLiveTransport>
   upstreamQuotaResults: Map<number, UpstreamQuotaQueryResult>
   upstreamBillingNow: Ref<number>
   upstreamBillingProbeGloballyEnabled: Ref<boolean | undefined>

@@ -126,6 +126,7 @@ func (s *APIKeyRepoSuite) TestGetByKeyForAuth_PreservesMessagesDispatchModelConf
 		SetSubscriptionType(service.SubscriptionTypeStandard).
 		SetRateMultiplier(1).
 		SetAllowMessagesDispatch(true).
+		SetRequirePrivacySet(true).
 		SetDefaultMappedModel("gpt-5.4").
 		SetMessagesDispatchModelConfig(service.OpenAIMessagesDispatchModelConfig{
 			OpusMappedModel:   "gpt-5.4-nano",
@@ -150,6 +151,7 @@ func (s *APIKeyRepoSuite) TestGetByKeyForAuth_PreservesMessagesDispatchModelConf
 	got, err := s.repo.GetByKeyForAuth(s.ctx, key.Key)
 	s.Require().NoError(err)
 	s.Require().NotNil(got.Group)
+	s.Require().True(got.Group.RequirePrivacySet, "auth projection must preserve group privacy")
 	s.Require().True(got.Group.AllowMessagesDispatch)
 	s.Require().Equal("gpt-5.4", got.Group.DefaultMappedModel)
 	s.Require().Equal("gpt-5.4-nano", got.Group.MessagesDispatchModelConfig.OpusMappedModel)

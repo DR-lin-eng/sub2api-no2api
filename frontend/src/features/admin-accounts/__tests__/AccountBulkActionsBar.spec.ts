@@ -72,4 +72,20 @@ describe('AccountBulkActionsBar', () => {
     await wrapper.setProps({ queryingOpenaiQuota: true })
     expect(button!.attributes('disabled')).toBeDefined()
   })
+
+  it('exposes the irreversible reset-credit batch action while selected', async () => {
+    const wrapper = mount(AccountBulkActionsBar, {
+      props: { selectedIds: [1, 2], resettingOpenaiQuota: false }
+    })
+    const button = wrapper.findAll('button').find(item =>
+      item.text().includes('admin.accounts.bulkActions.resetOpenAIQuota')
+    )
+    expect(button).toBeDefined()
+    await button!.trigger('click')
+    expect(wrapper.emitted('reset-openai-quota')).toHaveLength(1)
+
+    await wrapper.setProps({ resettingOpenaiQuota: true })
+    expect(button!.attributes('disabled')).toBeDefined()
+    expect(button!.text()).toBe('admin.accounts.bulkActions.resetOpenAIQuotaRunning')
+  })
 })

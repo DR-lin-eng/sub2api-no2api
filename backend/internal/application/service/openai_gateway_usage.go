@@ -153,12 +153,13 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 
 	// Calculate cost
 	tokens := UsageTokens{
-		InputTokens:         actualInputTokens,
-		ImageInputTokens:    result.Usage.ImageInputTokens,
-		OutputTokens:        result.Usage.OutputTokens,
-		CacheCreationTokens: result.Usage.CacheCreationInputTokens,
-		CacheReadTokens:     result.Usage.CacheReadInputTokens,
-		ImageOutputTokens:   result.Usage.ImageOutputTokens,
+		ImageCacheReadTokens: result.Usage.ImageCacheReadTokens,
+		InputTokens:          actualInputTokens,
+		ImageInputTokens:     max(result.Usage.ImageInputTokens-result.Usage.ImageCacheReadTokens, 0),
+		OutputTokens:         result.Usage.OutputTokens,
+		CacheCreationTokens:  result.Usage.CacheCreationInputTokens,
+		CacheReadTokens:      result.Usage.CacheReadInputTokens,
+		ImageOutputTokens:    result.Usage.ImageOutputTokens,
 	}
 
 	// Get rate multiplier
@@ -288,6 +289,11 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		}
 	}
 
+	cost, err = s.addOpenAIImagesSVGCost(ctx, result, apiKey, cost, multiplier, longContextBillingEnabled)
+	if err != nil {
+		return err
+	}
+
 	// Determine billing type
 	isSubscriptionBilling := subscription != nil && apiKey.Group != nil && apiKey.Group.IsSubscriptionType()
 	billingType := BillingTypeBalance
@@ -344,6 +350,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		ImageSizeSource:       optionalTrimmedStringPtr(result.ImageSizeSource),
 		ImageSizeBreakdown:    result.ImageSizeBreakdown,
 	}
+	addOpenAIImagesSVGUsageToLog(usageLog, result)
 	if isVideoUsage {
 		usageLog.VideoCount = result.VideoCount
 		usageLog.VideoResolution = optionalTrimmedStringPtr(NormalizeVideoBillingResolutionOrDefault(result.VideoResolution))
@@ -739,12 +746,38 @@ func (s *OpenAIGatewayService) calculateOpenAIVideoCost(
 	if videoCount <= 0 {
 		videoCount = 1
 	}
+	tierBilling := s.MultimodalVideoRequestTierBilling(ctx, apiKey, billingModel)
 	resolution := NormalizeVideoBillingResolutionOrDefault(result.VideoResolution)
+	if tierBilling {
+		// Per-request video pricing uses the request resolution as its price key;
+		// preserve an unclassifiable value as empty so it cannot fall back to 480p.
+		resolution = VideoBillingResolutionTier(result.VideoResolution)
+	}
 	durationSeconds := NormalizeVideoBillingDurationSecondsOrDefault(result.VideoDurationSeconds)
 	resolved := s.resolveOpenAIChannelPricing(ctx, billingModel, apiKey)
 	// multimodal 是逐模型定价分组：视频每秒价必须写在模型/渠道定价条目里，
 	// 分组级视频价不参与计费。条目缺价时不能静默按 0 元放行，最终仍无价则返回 503。
 	multimodal := IsMultimodal(PlatformFromAPIKey(apiKey))
+	// A multimodal model may explicitly use per-request video pricing. In that
+	// mode duration is irrelevant and the request tier must match exactly.
+	if resolved != nil && resolved.Mode == BillingModePerRequest && isExplicitAdminPricing(resolved) {
+		sizeTier := VideoBillingResolutionTier(result.VideoResolution)
+		if sizeTier == "" {
+			return nil, fmt.Errorf("video price is not configured: model=%q resolution=%q: per-request video billing requires a supported resolution",
+				billingModel, strings.TrimSpace(result.VideoResolution))
+		}
+		gid := apiKey.Group.ID
+		cost, err := s.billingService.CalculateCostUnified(CostInput{
+			Ctx: ctx, Model: billingModel, GroupID: &gid, Group: apiKey.Group,
+			RequestCount: videoCount, SizeTier: sizeTier,
+			RateMultiplier: multiplier, Resolver: s.resolver, Resolved: resolved,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("video price is not configured: model=%q resolution=%q: %w",
+				billingModel, strings.TrimSpace(result.VideoResolution), err)
+		}
+		return cost, nil
+	}
 	videoPriceConfigured := func(resolved *ResolvedPricing) bool {
 		return !multimodal || videoUnitPriceConfigured(resolved, resolution)
 	}
@@ -799,6 +832,10 @@ func (s *OpenAIGatewayService) calculateOpenAIVideoCost(
 		logger.LegacyPrintf("service.openai_gateway", "Calculate video channel cost failed: %v", err)
 	}
 
+	if tierBilling && resolution == "" {
+		return nil, fmt.Errorf("video price is not configured: model=%q resolution=%q: per-request video billing requires a supported resolution",
+			billingModel, strings.TrimSpace(result.VideoResolution))
+	}
 	return s.billingService.CalculateVideoCost(billingModel, resolution, videoCount, durationSeconds, groupConfig, multiplier)
 }
 
@@ -811,7 +848,7 @@ func videoUnitPriceConfigured(resolved *ResolvedPricing, resolution string) bool
 		return false
 	}
 	for _, tier := range resolved.RequestTiers {
-		if tier.TierLabel == resolution && tier.PerRequestPrice != nil {
+		if tier.PerRequestPrice != nil && VideoResolutionTierMatches(tier.TierLabel, resolution) {
 			return true
 		}
 	}

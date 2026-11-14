@@ -1,0 +1,11 @@
+{
+  "baseline": "4c11746335e384a8241e7f6f7457b1d8fce1ba42",
+  "production_files": {
+    "backend/internal/application/service/account_test_service_chatgpt_images.go": "9fd2c880659f19d927efb75f9135c98d8a3316c6a21d474a6e000eefaad004ba",
+    "backend/internal/application/service/openai_images_chatgpt.go": "26280fefb89abb3fc2be3e167dc992bd0d252284641c4ca168c5246c7c399ea1",
+    "backend/internal/application/service/openai_images_chatgpt_gif.go": "cdaa58e289e346c13c2006682b565b14168ed7740656541970dc45ff7fed7fa5",
+    "backend/internal/application/service/openai_images_frame_billing.go": "19d40aeb5d65d876d3c761950eb383d1631ec09e51f70fb71e239706880a7536",
+    "backend/internal/application/service/openai_images_output_validation.go": "4ab26b2ee171c14d2de07869aea32e6bcc791f141fb1b60b50f604f176f096ca",
+    "backend/internal/application/service/openai_images_protocol_selection.go": "f8ac67f31d9eb5d2e2b1971f69d23aecf2309248586425186041e00a03818cdb"
+  }
+}

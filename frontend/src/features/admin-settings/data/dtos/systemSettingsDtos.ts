@@ -460,7 +460,12 @@ export interface SystemSettings {
   stream_mode_performance_enabled: boolean;
   openai_ws_mode_router_v2_enabled: boolean;
   openai_request_timezone_enabled: boolean;
+  image_independent_scheduling_enabled: boolean;
+  openai_images_legacy_enabled: boolean;
   openai_request_timezone: string;
+  openai_location_enabled: boolean;
+  openai_location_latitude: number;
+  openai_location_longitude: number;
   openai_visible_output_ttft_enabled: boolean;
   custom_menu_items: CustomMenuItem[];
   custom_endpoints: CustomEndpoint[];
@@ -849,7 +854,12 @@ export interface UpdateSettingsRequest {
   stream_mode_performance_enabled?: boolean;
   openai_ws_mode_router_v2_enabled?: boolean;
   openai_request_timezone_enabled?: boolean;
+  image_independent_scheduling_enabled?: boolean;
+  openai_images_legacy_enabled?: boolean;
   openai_request_timezone?: string;
+  openai_location_enabled?: boolean;
+  openai_location_latitude?: number;
+  openai_location_longitude?: number;
   openai_visible_output_ttft_enabled?: boolean;
   custom_menu_items?: CustomMenuItem[];
   custom_endpoints?: CustomEndpoint[];

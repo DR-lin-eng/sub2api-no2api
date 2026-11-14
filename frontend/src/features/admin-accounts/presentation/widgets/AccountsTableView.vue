@@ -181,6 +181,7 @@
           :all-results-selected="allResultsSelected"
           :querying-upstream-quota="bulkQueryingUpstreamQuota"
           :querying-openai-quota="bulkQueryingOpenAIQuota"
+          :resetting-openai-quota="bulkResettingOpenAIQuota"
           :syncing-upstream-models="syncingUpstreamModels"
           @delete="handleBulkDelete"
           @reset-status="handleBulkResetStatus"
@@ -188,6 +189,7 @@
           @sync-upstream-models="handleBulkSyncUpstreamModels"
           @query-upstream-quota="handleBulkQueryUpstreamQuota"
           @query-openai-quota="handleBulkQueryOpenAIQuota"
+          @reset-openai-quota="handleBulkResetOpenAIQuota"
           @probe-upstream-billing="handleBulkProbeUpstreamBilling"
           @edit-selected="openBulkEditSelected"
           @edit-filtered="openBulkEditFiltered"
@@ -196,12 +198,12 @@
           @select-all-results="handleSelectAllResults"
           @toggle-schedulable="handleBulkToggleSchedulable"
         />
-        <div ref="accountTableRef" class="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div ref="accountTableRef" class="flex min-h-0 flex-1 flex-col overflow-hidden" :aria-busy="loading" :inert="loading && accounts.length > 0">
         <DataTable
           ref="dataTableRef"
           :columns="cols"
           :data="accounts"
-          :loading="loading"
+          :loading="loading && accounts.length === 0"
           row-key="id"
           :server-side-sort="true"
           @sort="handleSort"
@@ -345,6 +347,9 @@
               :today-stats-loading="todayStatsLoading"
               :manual-refresh-token="usageManualRefreshToken"
               :bulk-openai-quota-result="bulkOpenAIQuotaResults.get(row.id)"
+              :live-quota-result="liveOpenAIQuotaResults.get(row.id)"
+              :live-transport="liveOpenAIQuotaTransports.get(row.id)"
+              live-managed
               :upstream-quota-result="upstreamQuotaResults.get(row.id)"
               :now="upstreamBillingNow"
               @account-updated="handleAccountUpdated"
@@ -545,6 +550,7 @@ const {
   allResultsSelected,
   bulkQueryingUpstreamQuota,
   bulkQueryingOpenAIQuota,
+  bulkResettingOpenAIQuota,
   handleBulkDelete,
   handleBulkResetStatus,
   handleBulkRefreshToken,
@@ -552,6 +558,7 @@ const {
   handleBulkSyncUpstreamModels,
   handleBulkQueryUpstreamQuota,
   handleBulkQueryOpenAIQuota,
+  handleBulkResetOpenAIQuota,
   handleBulkProbeUpstreamBilling,
   openBulkEditSelected,
   openBulkEditFiltered,
@@ -589,6 +596,8 @@ const {
   todayStatsError,
   usageManualRefreshToken,
   bulkOpenAIQuotaResults,
+  liveOpenAIQuotaResults,
+  liveOpenAIQuotaTransports,
   upstreamQuotaResults,
   upstreamBillingNow,
   upstreamBillingProbeGloballyEnabled,

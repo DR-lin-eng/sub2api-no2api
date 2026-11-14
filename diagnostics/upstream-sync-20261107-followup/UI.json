@@ -1,0 +1,21 @@
+{
+  "environment": "Docker fixture, Codex in-app browser",
+  "desktop": {
+    "width": 1280,
+    "height": 720,
+    "quota_groups_visible": true
+  },
+  "mobile": {
+    "width": 390,
+    "height": 844,
+    "document_width": 390,
+    "api_key_env_config_visible": true,
+    "native_image_feature_visible": true
+  },
+  "locales": [
+    "zh",
+    "en"
+  ],
+  "console_errors": [],
+  "external_writes": false
+}

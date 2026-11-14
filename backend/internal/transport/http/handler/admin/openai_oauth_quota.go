@@ -46,6 +46,8 @@ const (
 	openAIQuotaResetPostProcessTimeout           = 8 * time.Second
 	openAIQuotaRefreshBatchConcurrency           = 4
 	openAIQuotaRefreshBatchMaxAccounts           = 20
+	openAIQuotaResetBatchConcurrency             = 2
+	openAIQuotaResetBatchMaxAccounts             = 20
 )
 
 var errOpenAIQuotaEmptyResult = errors.New("openai quota query returned an empty result")
@@ -205,6 +207,16 @@ type openAIQuotaRefreshBatchResponse struct {
 	SkippedAccountIDs []int64                               `json:"skipped_account_ids"`
 }
 
+type openAIQuotaResetBatchRequest struct {
+	AccountIDs []int64 `json:"account_ids"`
+}
+
+type openAIQuotaResetBatchResponse struct {
+	Results           map[int64]*openAIQuotaResetResponse `json:"results"`
+	Errors            map[int64]string                    `json:"errors"`
+	SkippedAccountIDs []int64                             `json:"skipped_account_ids"`
+}
+
 // RefreshQuotaBatch actively queries selected OpenAI OAuth accounts with bounded concurrency.
 // POST /api/v1/admin/openai/accounts/quota/refresh/batch
 func (h *OpenAIOAuthHandler) RefreshQuotaBatch(c *gin.Context) {
@@ -285,44 +297,35 @@ func (h *OpenAIOAuthHandler) RefreshQuotaBatch(c *gin.Context) {
 	response.Success(c, result)
 }
 
-// ResetQuota consumes a non-refundable reset credit and repairs local account state.
-// POST /api/v1/admin/openai/accounts/:id/reset-quota
-func (h *OpenAIOAuthHandler) ResetQuota(c *gin.Context) {
-	accountID, ok := openAIQuotaAccountID(c)
-	if !ok {
-		return
+// resetOpenAIQuota consumes one non-refundable reset credit and repairs local
+// account state. The helper is shared by the single-account and bounded batch
+// endpoints so both paths have identical recovery/cache semantics.
+func (h *OpenAIOAuthHandler) resetOpenAIQuota(ctx context.Context, accountID int64) (*openAIQuotaResetResponse, error) {
+	if h == nil || h.quotaService == nil {
+		return nil, errors.New("openai quota service is not enabled")
 	}
-	if h.quotaService == nil {
-		response.BadRequest(c, "openai quota service is not enabled")
-		return
-	}
-
-	result, err := h.quotaService.ResetCredit(c.Request.Context(), accountID)
+	result, err := h.quotaService.ResetCredit(ctx, accountID)
 	if err != nil {
-		response.ErrorFrom(c, err)
-		return
+		return nil, err
 	}
 	if result == nil {
-		response.Error(c, http.StatusInternalServerError, "openai quota reset returned an empty result")
-		return
+		return nil, errors.New("openai quota reset returned an empty result")
 	}
 
-	resetResponse := openAIQuotaResetResponse{OpenAIQuotaResetResult: *result}
-	postCtx, cancelPost := openAIQuotaResetPostProcessContext(c.Request.Context())
+	resetResponse := &openAIQuotaResetResponse{OpenAIQuotaResetResult: *result}
+	postCtx, cancelPost := openAIQuotaResetPostProcessContext(ctx)
 	defer cancelPost()
 
 	if h.rateLimitService == nil {
 		resetResponse.WarningCode = openAIQuotaResetWarningAccountRecoveryFailed
-		response.Success(c, resetResponse)
-		return
+		return resetResponse, nil
 	}
 	if _, err := h.rateLimitService.RecoverAccountState(postCtx, accountID, service.AccountRecoveryOptions{
 		InvalidateToken: true,
 	}); err != nil {
 		slog.Warn("openai_quota_reset_account_recovery_failed", "account_id", accountID, "error", err)
 		resetResponse.WarningCode = openAIQuotaResetWarningAccountRecoveryFailed
-		response.Success(c, resetResponse)
-		return
+		return resetResponse, nil
 	}
 	resetResponse.AccountStateRecovered = true
 
@@ -344,9 +347,7 @@ func (h *OpenAIOAuthHandler) ResetQuota(c *gin.Context) {
 		if snapshotErr != nil {
 			slog.Warn("openai_quota_rate_limit_snapshot_persist_failed", "account_id", accountID, "error", snapshotErr)
 		}
-		if creditsErr != nil {
-			resetResponse.WarningCode = openAIQuotaResetWarningCacheRefreshFailed
-		} else if snapshotErr != nil {
+		if creditsErr != nil || snapshotErr != nil {
 			resetResponse.WarningCode = openAIQuotaResetWarningCacheRefreshFailed
 		} else {
 			resetResponse.Quota = usage
@@ -354,17 +355,122 @@ func (h *OpenAIOAuthHandler) ResetQuota(c *gin.Context) {
 		}
 	}
 
+	if h.adminService == nil {
+		if resetResponse.WarningCode == "" {
+			resetResponse.WarningCode = openAIQuotaResetWarningAccountRefreshFailed
+		}
+		return resetResponse, nil
+	}
 	account, err := h.adminService.GetAccount(postCtx, accountID)
 	if err != nil {
 		slog.Warn("openai_quota_reset_account_refresh_failed", "account_id", accountID, "error", err)
 		if resetResponse.WarningCode == "" {
 			resetResponse.WarningCode = openAIQuotaResetWarningAccountRefreshFailed
 		}
-		response.Success(c, resetResponse)
-		return
+		return resetResponse, nil
 	}
 	resetResponse.Account = dto.AccountFromService(account)
+	return resetResponse, nil
+}
+
+// ResetQuota consumes a non-refundable reset credit and repairs local account state.
+// POST /api/v1/admin/openai/accounts/:id/reset-quota
+func (h *OpenAIOAuthHandler) ResetQuota(c *gin.Context) {
+	accountID, ok := openAIQuotaAccountID(c)
+	if !ok {
+		return
+	}
+	if h.quotaService == nil {
+		response.BadRequest(c, "openai quota service is not enabled")
+		return
+	}
+	resetResponse, err := h.resetOpenAIQuota(c.Request.Context(), accountID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 	response.Success(c, resetResponse)
+}
+
+// ResetQuotaBatch consumes at most one reset credit per selected OpenAI OAuth
+// account. Each account is isolated so one exhausted card or upstream failure
+// does not prevent the remaining accounts from being processed.
+// POST /api/v1/admin/openai/accounts/quota/reset/batch
+func (h *OpenAIOAuthHandler) ResetQuotaBatch(c *gin.Context) {
+	var req openAIQuotaResetBatchRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	accountIDs := normalizeInt64IDList(req.AccountIDs)
+	if len(accountIDs) == 0 {
+		response.BadRequest(c, "account_ids is required")
+		return
+	}
+	if len(accountIDs) > openAIQuotaResetBatchMaxAccounts {
+		response.BadRequest(c, "account_ids must contain at most 20 unique IDs")
+		return
+	}
+	if h.quotaService == nil {
+		response.BadRequest(c, "openai quota service is not enabled")
+		return
+	}
+	if h.adminService == nil {
+		response.Error(c, http.StatusServiceUnavailable, "admin account service is not available")
+		return
+	}
+
+	accounts, err := h.adminService.GetAccountsByIDs(c.Request.Context(), accountIDs)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	accountsByID := make(map[int64]*service.Account, len(accounts))
+	for _, account := range accounts {
+		if account != nil {
+			accountsByID[account.ID] = account
+		}
+	}
+	result := openAIQuotaResetBatchResponse{
+		Results: make(map[int64]*openAIQuotaResetResponse),
+		Errors:  make(map[int64]string),
+	}
+	eligibleIDs := make([]int64, 0, len(accountIDs))
+	for _, accountID := range accountIDs {
+		account := accountsByID[accountID]
+		if account == nil {
+			result.Errors[accountID] = service.ErrAccountNotFound.Error()
+			continue
+		}
+		if !account.IsOpenAIOAuth() || account.IsShadow() {
+			result.SkippedAccountIDs = append(result.SkippedAccountIDs, accountID)
+			continue
+		}
+		eligibleIDs = append(eligibleIDs, accountID)
+	}
+
+	var mu sync.Mutex
+	g, gctx := errgroup.WithContext(c.Request.Context())
+	g.SetLimit(openAIQuotaResetBatchConcurrency)
+	for _, accountID := range eligibleIDs {
+		accountID := accountID
+		g.Go(func() error {
+			resetResponse, resetErr := h.resetOpenAIQuota(gctx, accountID)
+			mu.Lock()
+			defer mu.Unlock()
+			if resetErr != nil {
+				result.Errors[accountID] = resetErr.Error()
+				return nil
+			}
+			result.Results[accountID] = resetResponse
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, result)
 }
 
 func openAIQuotaAccountID(c *gin.Context) (int64, bool) {

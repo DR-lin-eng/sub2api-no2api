@@ -18,6 +18,8 @@ export default {
       disabled: '不可用'
     },
     composer: {
+      appImageBillingModel: '计费模型',
+      appImagesHint: '所选模型名用于路由和计价，实际图像模型与尺寸由 ChatGPT 自动选择。',
       greeting: '你好，想创作什么？',
       placeholder: '描述你想生成的图片，按 Ctrl/⌘ + Enter 开始生成。',
       videoPlaceholder: '描述画面、镜头运动和氛围，按 Ctrl/⌘ + Enter 开始生成视频。',
@@ -26,6 +28,8 @@ export default {
       applyModel: '应用',
       resolution: '分辨率',
       quality: '质量',
+      complexity: '复杂度',
+      complexityLevels: { low: '低', medium: '中', high: '高' },
       count: '数量',
       duration: '时长',
       durationIncrease: '增加时长',

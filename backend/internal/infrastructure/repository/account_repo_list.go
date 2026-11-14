@@ -398,7 +398,7 @@ func applyExcelBPSFilter(q *dbent.AccountQuery, filter string) (*dbent.AccountQu
 		credentials := s.C(dbaccount.FieldCredentials)
 		extra := s.C(dbaccount.FieldExtra)
 		eligible := "(" + typeColumn + " = 'oauth' AND " + platformColumn + " = 'openai' AND " + parentColumn + " IS NULL" +
-			" AND LOWER(BTRIM(COALESCE(" + credentials + "->>'auth_mode', ''))) NOT IN ('agentidentity', 'personalaccesstoken', 'personal_access_token')" +
+			" AND LOWER(BTRIM(COALESCE(" + credentials + "->>'auth_mode', ''))) NOT IN ('agentidentity', 'personalaccesstoken', 'personal_access_token', 'siwc')" +
 			" AND LOWER(BTRIM(COALESCE(" + credentials + "->>'openai_auth_mode', ''))) NOT IN ('personalaccesstoken', 'personal_access_token'))"
 		// Match Account.IsExcelBPSEnabled: only JSON booleans count. A
 		// malformed new value falls back to the legacy boolean; a new false
@@ -412,6 +412,39 @@ func applyExcelBPSFilter(q *dbent.AccountQuery, filter string) (*dbent.AccountQu
 		s.Where(entsql.ExprP(eligible + " AND " + enabled))
 	})
 	return q.Where(predicate), nil
+}
+
+// applyOAuthPlanTypeFilter selects OpenAI OAuth accounts by the normalized
+// credentials.plan_type value. Plan values are credentials data rather than a
+// first-class account column, so this predicate must run before pagination.
+func applyOAuthPlanTypeFilter(q *dbent.AccountQuery, filter string) (*dbent.AccountQuery, error) {
+	normalized, err := service.NormalizeAccountOAuthPlanFilter(filter)
+	if err != nil {
+		return nil, err
+	}
+	if normalized == "" {
+		return q, nil
+	}
+
+	// Normalize the common formatting variants seen in upstream plan labels.
+	// The allowed values are produced by NormalizeAccountOAuthPlanFilter, so
+	// interpolating the selected literals here cannot introduce SQL syntax.
+	credentials := "credentials"
+	planExpression := "LOWER(REPLACE(REPLACE(REPLACE(BTRIM(COALESCE(" + credentials + "->>'plan_type', '')), ' ', ''), '_', ''), '-', ''))"
+	allowed := []string{"'" + normalized + "'"}
+	if normalized == service.AccountOAuthPlanFilterPro {
+		allowed = append(allowed, "'chatgptpro'")
+	}
+	predicate := dbpredicate.Account(func(s *entsql.Selector) {
+		planColumn := s.C(dbaccount.FieldCredentials)
+		expression := strings.Replace(planExpression, credentials, planColumn, 1)
+		s.Where(entsql.ExprP(expression + " IN (" + strings.Join(allowed, ", ") + ")"))
+	})
+	return q.Where(
+		dbaccount.PlatformEQ(service.PlatformOpenAI),
+		dbaccount.TypeEQ(service.AccountTypeOAuth),
+		predicate,
+	), nil
 }
 
 func (r *accountRepository) ListWithFeatureFilters(
@@ -428,6 +461,46 @@ func (r *accountRepository) ListWithFeatureFilters(
 		return nil, nil, err
 	}
 	q, err = applyExcelBPSFilter(q, excelBPSFilter)
+	if err != nil {
+		return nil, nil, err
+	}
+	total, err := q.Clone().Count(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	accountsQuery := q.Offset(params.Offset()).Limit(params.Limit())
+	for _, order := range accountListOrder(params) {
+		accountsQuery = accountsQuery.Order(order)
+	}
+	accounts, err := accountsQuery.All(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	outAccounts, err := r.accountsToService(ctx, accounts)
+	if err != nil {
+		return nil, nil, err
+	}
+	return outAccounts, paginationResultFromTotal(int64(total), params), nil
+}
+
+func (r *accountRepository) ListWithPlanTypeFilters(
+	ctx context.Context,
+	params pagination.PaginationParams,
+	platform, accountType, status, search string,
+	groupID int64,
+	privacyMode, oauthQuotaFilter, excelBPSFilter, planTypeFilter string,
+) ([]service.Account, *pagination.PaginationResult, error) {
+	q := r.accountListFilteredQuery(platform, accountType, status, search, groupID, privacyMode)
+	var err error
+	q, err = applyOAuthQuotaFilter(q, oauthQuotaFilter)
+	if err != nil {
+		return nil, nil, err
+	}
+	q, err = applyExcelBPSFilter(q, excelBPSFilter)
+	if err != nil {
+		return nil, nil, err
+	}
+	q, err = applyOAuthPlanTypeFilter(q, planTypeFilter)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -507,6 +580,10 @@ func (r *accountRepository) ListUpstreamBillingRateProjections(
 	if err != nil {
 		return nil, 0, err
 	}
+	q, err = applyOAuthPlanTypeFilter(q, filters.PlanTypeFilter)
+	if err != nil {
+		return nil, 0, err
+	}
 	total, err := q.Clone().Count(ctx)
 	if err != nil {
 		return nil, 0, err
@@ -548,6 +625,33 @@ func (r *accountRepository) ListAllWithFeatureFilters(
 		return nil, err
 	}
 	q, err = applyExcelBPSFilter(q, excelBPSFilter)
+	if err != nil {
+		return nil, err
+	}
+	accounts, err := q.All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return r.accountsToService(ctx, accounts)
+}
+
+func (r *accountRepository) ListAllWithPlanTypeFilters(
+	ctx context.Context,
+	platform, accountType, status, search string,
+	groupID int64,
+	privacyMode, oauthQuotaFilter, excelBPSFilter, planTypeFilter string,
+) ([]service.Account, error) {
+	q := r.accountListFilteredQuery(platform, accountType, status, search, groupID, privacyMode)
+	var err error
+	q, err = applyOAuthQuotaFilter(q, oauthQuotaFilter)
+	if err != nil {
+		return nil, err
+	}
+	q, err = applyExcelBPSFilter(q, excelBPSFilter)
+	if err != nil {
+		return nil, err
+	}
+	q, err = applyOAuthPlanTypeFilter(q, planTypeFilter)
 	if err != nil {
 		return nil, err
 	}

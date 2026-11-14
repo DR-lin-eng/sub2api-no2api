@@ -22,6 +22,11 @@ type OpenAIOAuthService struct {
 	cfg                  *config.Config
 }
 
+const (
+	OpenAIAuthFlowCodex = "codex"
+	OpenAIAuthFlowSIWC  = "siwc"
+)
+
 // NewOpenAIOAuthService creates a new OpenAI OAuth service
 func NewOpenAIOAuthService(proxyRepo ProxyRepository, oauthClient OpenAIOAuthClient) *OpenAIOAuthService {
 	return &OpenAIOAuthService{
@@ -45,6 +50,20 @@ type OpenAIAuthURLResult struct {
 
 // GenerateAuthURL generates an OpenAI OAuth authorization URL
 func (s *OpenAIOAuthService) GenerateAuthURL(ctx context.Context, proxyID *int64, redirectURI, platform string) (*OpenAIAuthURLResult, error) {
+	return s.GenerateAuthURLWithFlow(ctx, proxyID, redirectURI, platform, OpenAIAuthFlowCodex)
+}
+
+// GenerateAuthURLWithFlow generates the legacy Codex OAuth URL or the
+// dynamic-agent Sign in with ChatGPT URL and stores the selected protocol in
+// the server-owned session.
+func (s *OpenAIOAuthService) GenerateAuthURLWithFlow(ctx context.Context, proxyID *int64, redirectURI, platform, flow string) (*OpenAIAuthURLResult, error) {
+	flow = strings.ToLower(strings.TrimSpace(flow))
+	if flow == "" {
+		flow = OpenAIAuthFlowCodex
+	}
+	if flow != OpenAIAuthFlowCodex && flow != OpenAIAuthFlowSIWC {
+		return nil, infraerrors.New(http.StatusBadRequest, "OPENAI_OAUTH_FLOW_INVALID", "unsupported OpenAI OAuth flow")
+	}
 	// Generate PKCE values
 	state, err := openai.GenerateState()
 	if err != nil {
@@ -57,6 +76,18 @@ func (s *OpenAIOAuthService) GenerateAuthURL(ctx context.Context, proxyID *int64
 	}
 
 	codeChallenge := openai.GenerateCodeChallenge(codeVerifier)
+	nonce := ""
+	deviceID := ""
+	if flow == OpenAIAuthFlowSIWC {
+		nonce, err = openai.GenerateRandomBase64URL()
+		if err != nil {
+			return nil, infraerrors.Newf(http.StatusInternalServerError, "OPENAI_SIWC_NONCE_FAILED", "failed to generate SIWC nonce: %v", err)
+		}
+		deviceID, err = openai.GenerateUUID()
+		if err != nil {
+			return nil, infraerrors.Newf(http.StatusInternalServerError, "OPENAI_SIWC_DEVICE_FAILED", "failed to generate SIWC device id: %v", err)
+		}
+	}
 
 	// Generate session ID
 	sessionID, err := openai.GenerateSessionID()
@@ -79,9 +110,15 @@ func (s *OpenAIOAuthService) GenerateAuthURL(ctx context.Context, proxyID *int64
 	// Use default redirect URI if not specified
 	if redirectURI == "" {
 		redirectURI = openai.DefaultRedirectURI
+		if flow == OpenAIAuthFlowSIWC {
+			redirectURI = openai.SIWCRedirectURI
+		}
 	}
 	normalizedPlatform := normalizeOpenAIOAuthPlatform(platform)
 	clientID, _ := openai.OAuthClientConfigByPlatform(normalizedPlatform)
+	if flow == OpenAIAuthFlowSIWC {
+		clientID = openai.SIWCDynamicClientID
+	}
 
 	// Store session
 	session := &openai.OAuthSession{
@@ -91,6 +128,9 @@ func (s *OpenAIOAuthService) GenerateAuthURL(ctx context.Context, proxyID *int64
 		RedirectURI:  redirectURI,
 		ProxyURL:     proxyURL,
 		CreatedAt:    time.Now(),
+		Flow:         flow,
+		Nonce:        nonce,
+		DeviceID:     deviceID,
 	}
 	if err := s.sessionStore.SetContext(ctx, sessionID, session); err != nil {
 		return nil, infraerrors.Newf(http.StatusServiceUnavailable, "OPENAI_OAUTH_SESSION_STORE_FAILED", "failed to store oauth session: %v", err)
@@ -98,6 +138,9 @@ func (s *OpenAIOAuthService) GenerateAuthURL(ctx context.Context, proxyID *int64
 
 	// Build authorization URL
 	authURL := openai.BuildAuthorizationURLForPlatform(state, codeChallenge, redirectURI, normalizedPlatform)
+	if flow == OpenAIAuthFlowSIWC {
+		authURL = openai.BuildSIWCAuthorizationURL(state, nonce, deviceID, codeChallenge, redirectURI)
+	}
 
 	return &OpenAIAuthURLResult{
 		AuthURL:   authURL,
@@ -112,6 +155,7 @@ type OpenAIExchangeCodeInput struct {
 	State       string
 	RedirectURI string
 	ProxyID     *int64
+	ClientID    string
 }
 
 // OpenAITokenInfo represents the token information for OpenAI
@@ -123,6 +167,8 @@ type OpenAITokenInfo struct {
 	ExpiresAt             int64  `json:"expires_at"`
 	ClientID              string `json:"client_id,omitempty"`
 	AuthMode              string `json:"auth_mode,omitempty"`
+	Scope                 string `json:"scope,omitempty"`
+	DeviceID              string `json:"device_id,omitempty"`
 	Email                 string `json:"email,omitempty"`
 	ChatGPTAccountID      string `json:"chatgpt_account_id,omitempty"`
 	ChatGPTUserID         string `json:"chatgpt_user_id,omitempty"`
@@ -142,6 +188,9 @@ func (s *OpenAIOAuthService) ExchangeCode(ctx context.Context, input *OpenAIExch
 	}
 	if !ok {
 		return nil, infraerrors.New(http.StatusBadRequest, "OPENAI_OAUTH_SESSION_NOT_FOUND", "session not found or expired")
+	}
+	if session.Flow == OpenAIAuthFlowSIWC {
+		return s.exchangeSIWCCode(ctx, input, session)
 	}
 	if input.State == "" {
 		return nil, infraerrors.New(http.StatusBadRequest, "OPENAI_OAUTH_STATE_REQUIRED", "oauth state is required")
@@ -171,8 +220,6 @@ func (s *OpenAIOAuthService) ExchangeCode(ctx context.Context, input *OpenAIExch
 	if clientID == "" {
 		clientID = openai.ClientID
 	}
-
-	// Exchange code for token
 	tokenResp, err := s.oauthClient.ExchangeCode(ctx, input.Code, session.CodeVerifier, redirectURI, proxyURL, clientID)
 	if err != nil {
 		return nil, err
@@ -210,6 +257,12 @@ func (s *OpenAIOAuthService) ExchangeCode(ctx context.Context, input *OpenAIExch
 		tokenInfo.OrganizationID = userInfo.OrganizationID
 		tokenInfo.PlanType = userInfo.PlanType
 	}
+	// Refresh responses often omit id_token. The new access token still carries
+	// the OpenAI auth claims, including the ChatGPT/Team workspace principal.
+	// Rehydrate only missing fields so an explicit ID-token value remains the
+	// preferred source while a rotated Team token cannot keep stale routing
+	// metadata from the previous credential.
+	fillMissingOpenAITokenInfoFromAccessToken(tokenInfo)
 
 	s.enrichTokenInfo(ctx, tokenInfo, proxyURL)
 
@@ -257,6 +310,7 @@ func (s *OpenAIOAuthService) RefreshTokenWithClientID(ctx context.Context, refre
 		tokenInfo.OrganizationID = userInfo.OrganizationID
 		tokenInfo.PlanType = userInfo.PlanType
 	}
+	fillMissingOpenAITokenInfoFromAccessToken(tokenInfo)
 
 	s.enrichTokenInfo(ctx, tokenInfo, proxyURL)
 
@@ -313,6 +367,46 @@ func shouldApplyChatGPTAccountInfoPlanType(current, candidate string) bool {
 	return strings.TrimSpace(candidate) != "" && strings.TrimSpace(current) == ""
 }
 
+func fillMissingOpenAITokenInfoFromAccessToken(tokenInfo *OpenAITokenInfo) {
+	if tokenInfo == nil || strings.TrimSpace(tokenInfo.AccessToken) == "" {
+		return
+	}
+	claims, err := openai.DecodeIDToken(strings.TrimSpace(tokenInfo.AccessToken))
+	if err != nil || claims == nil || claims.OpenAIAuth == nil {
+		return
+	}
+	auth := claims.OpenAIAuth
+	if strings.TrimSpace(tokenInfo.Email) == "" {
+		tokenInfo.Email = strings.TrimSpace(claims.Email)
+	}
+	if strings.TrimSpace(tokenInfo.ChatGPTAccountID) == "" {
+		tokenInfo.ChatGPTAccountID = strings.TrimSpace(auth.ChatGPTAccountID)
+	}
+	if strings.TrimSpace(tokenInfo.ChatGPTUserID) == "" {
+		tokenInfo.ChatGPTUserID = strings.TrimSpace(auth.ChatGPTUserID)
+		if tokenInfo.ChatGPTUserID == "" {
+			tokenInfo.ChatGPTUserID = strings.TrimSpace(auth.UserID)
+		}
+	}
+	if strings.TrimSpace(tokenInfo.PlanType) == "" {
+		tokenInfo.PlanType = strings.TrimSpace(auth.ChatGPTPlanType)
+	}
+	if strings.TrimSpace(tokenInfo.OrganizationID) == "" {
+		tokenInfo.OrganizationID = strings.TrimSpace(auth.POID)
+		if tokenInfo.OrganizationID == "" {
+			for _, organization := range auth.Organizations {
+				if organization.IsDefault {
+					tokenInfo.OrganizationID = strings.TrimSpace(organization.ID)
+					break
+				}
+			}
+		}
+		if tokenInfo.OrganizationID == "" && len(auth.Organizations) > 0 {
+			tokenInfo.OrganizationID = strings.TrimSpace(auth.Organizations[0].ID)
+		}
+	}
+}
+
 func chatGPTAccountInfoBelongsToTokenAccount(tokenInfo *OpenAITokenInfo, info *ChatGPTAccountInfo) bool {
 	personalID := strings.TrimSpace(tokenInfo.ChatGPTAccountID)
 	sourceID := strings.TrimSpace(info.AccountID)
@@ -352,6 +446,9 @@ func (s *OpenAIOAuthService) RefreshAccountToken(ctx context.Context, account *A
 		}
 	}
 	ctx = withAccountEgressContext(ctx, account, proxyURL, s.cfg)
+	if account.IsOpenAISIWC() {
+		return s.refreshSIWCAccountToken(ctx, account, proxyURL)
+	}
 
 	accessToken := account.GetCredential("access_token")
 	if account.IsOpenAIPersonalAccessToken() {
@@ -426,6 +523,11 @@ func (s *OpenAIOAuthService) BuildAccountCredentials(tokenInfo *OpenAITokenInfo)
 	}
 	if strings.TrimSpace(tokenInfo.ClientID) != "" {
 		creds["client_id"] = strings.TrimSpace(tokenInfo.ClientID)
+	}
+	if tokenInfo.AuthMode == OpenAIAuthModeSIWC {
+		creds[openAIAuthModeCredentialKey] = OpenAIAuthModeSIWC
+		creds["scope"] = tokenInfo.Scope
+		creds["device_id"] = tokenInfo.DeviceID
 	}
 	if tokenInfo.AuthMode == OpenAIAuthModePersonalAccessToken {
 		creds[openAIAuthModeCredentialKey] = OpenAIAuthModePersonalAccessToken

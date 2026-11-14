@@ -36,6 +36,8 @@
         </span>
       </div>
 
+      <OpenAIUsageDetailsPanel v-if="show && account?.platform === 'openai' && account.type === 'oauth'" :account="account" />
+
       <!-- Loading State -->
       <div v-if="loading" class="flex items-center justify-center py-12">
         <LoadingSpinner />
@@ -513,6 +515,7 @@ import LoadingSpinner from '@/common/widgets/feedback/LoadingSpinner.vue'
 import ModelDistributionChart from '@/common/widgets/charts/ModelDistributionChart.vue'
 import EndpointDistributionChart from '@/common/widgets/charts/EndpointDistributionChart.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
+import OpenAIUsageDetailsPanel from './OpenAIUsageDetailsPanel.vue'
 import { getStats } from '@/features/admin-accounts/data/datasources/adminAccountQueries'
 import type { Account, AccountUsageStatsResponse } from '@/types'
 

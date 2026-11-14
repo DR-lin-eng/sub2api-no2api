@@ -1,3 +1,4 @@
+import type { GPTImageOutputOptions } from '@/core/utils/gptImageOutput'
 import { isMediaStudioAudioModel, isMediaStudioImageModel, isMediaStudioVideoModel } from '@/features/custom-model-config/domain/services/modelCapabilityService'
 import { mediaStudioBlobDataURL } from './mediaStudioBrowserMedia'
 import { apiClient, buildGatewayUrl } from '@/core/networks/client'
@@ -14,6 +15,7 @@ export type {
 export type MediaStudioMediaType = 'image' | 'video' | 'audio'
 
 export interface MediaStudioGroupOption {
+  openai_images_protocol?: "chatgpt_app" | "legacy"
   group_id: number
   group_name: string
   platform: string
@@ -22,6 +24,7 @@ export interface MediaStudioGroupOption {
 }
 
 export interface MediaStudioConfig {
+  openai_images_protocol?: "chatgpt_app" | "legacy"
   groups: MediaStudioGroupOption[]
   storage_available?: boolean
 }
@@ -151,7 +154,12 @@ export function mediaStudioFileKind(file: File): MediaStudioMediaType | '' {
 export type MediaStudioParameterControl =
   | 'image.size'
   | 'image.quality'
+  | 'image.complexity'
   | 'image.count'
+  | 'image.outputFormat'
+  | 'image.frameCount'
+  | 'image.frameDuration'
+  | 'image.svg'
   | 'video.resolution'
   | 'video.aspectRatio'
   | 'video.duration'
@@ -159,7 +167,12 @@ export type MediaStudioParameterControl =
 export const MEDIA_STUDIO_PARAMETER_BINDINGS: Record<MediaStudioParameterControl, string> = {
   'image.size': 'size',
   'image.quality': 'quality',
+  'image.complexity': 'complexity',
   'image.count': 'n',
+  'image.outputFormat': 'output_format',
+  'image.frameCount': 'frame_count',
+  'image.frameDuration': 'frame_duration_ms',
+  'image.svg': 'svg',
   'video.resolution': 'resolution',
   'video.aspectRatio': 'aspect_ratio',
   'video.duration': 'duration',
@@ -182,12 +195,13 @@ export interface MediaStudioModelsResponse {
   data: MediaStudioModel[]
 }
 
-export interface MediaStudioImageSubmitRequest {
+export interface MediaStudioImageSubmitRequest extends GPTImageOutputOptions {
   model: string
   prompt: string
   n?: number
   size?: string
   quality?: string
+  complexity?: 'low' | 'medium' | 'high'
   response_format?: 'b64_json' | 'url'
   attributes?: ModelAttributeValues
 }
@@ -221,6 +235,8 @@ export async function createMediaStudioSession(
 
 // 提交前预估消耗：金额由后端 sub2api 本地计价链路算出，前端不自行推算价格。
 export interface MediaStudioCostEstimateRequest {
+  output_format?: GPTImageOutputOptions['output_format']
+  frame_count?: number
   media_type: MediaStudioMediaType
   group_id: number
   model: string
@@ -251,10 +267,12 @@ export interface MediaStudioGeneratedImage {
   url?: string
   b64_json?: string
   revised_prompt?: string
+  output_format?: string
 }
 
 export interface MediaStudioImageResult {
   created?: number
+  output_format?: string
   data?: MediaStudioGeneratedImage[]
   [key: string]: unknown
 }
@@ -519,6 +537,7 @@ export async function submitImageGeneration(
   })
   if (!response.ok) throw await parseMediaStudioError(response)
   const result = await response.json() as MediaStudioImageResult
+  if (payload.output_format && !result.output_format) result.output_format = payload.output_format
   const createdAt = typeof result.created === 'number' ? result.created : Math.floor(Date.now() / 1000)
   const imageURL = result.data?.find(item => typeof item.url === 'string' && item.url.trim())?.url || ''
   const id = `imgsync_${idempotencyKey.replace(/[^a-zA-Z0-9_]/g, '').slice(-32) || Date.now()}`
@@ -548,6 +567,11 @@ export async function submitImageEdit(
   if (payload.n !== undefined) form.append('n', String(payload.n))
   if (payload.size) form.append('size', payload.size)
   if (payload.quality) form.append('quality', payload.quality)
+  if (payload.complexity) form.append('complexity', payload.complexity)
+  if (payload.output_format) form.append('output_format', payload.output_format)
+  if (payload.frame_count !== undefined) form.append('frame_count', String(payload.frame_count))
+  if (payload.frame_duration_ms !== undefined) form.append('frame_duration_ms', String(payload.frame_duration_ms))
+  if (payload.svg) form.append('svg', JSON.stringify(payload.svg))
   for (const [key, value] of Object.entries(payload.attributes ?? {})) form.append(key, String(value))
   for (const file of files) form.append('image', file, file.name)
 
@@ -560,6 +584,7 @@ export async function submitImageEdit(
   })
   if (!response.ok) throw await parseMediaStudioError(response)
   const result = await response.json() as MediaStudioImageResult
+  if (payload.output_format && !result.output_format) result.output_format = payload.output_format
   const createdAt = typeof result.created === 'number' ? result.created : Math.floor(Date.now() / 1000)
   const imageURL = result.data?.find(item => typeof item.url === 'string' && item.url.trim())?.url || ''
   const id = `imgedit_${idempotencyKey.replace(/[^a-zA-Z0-9_]/g, '').slice(-32) || Date.now()}`

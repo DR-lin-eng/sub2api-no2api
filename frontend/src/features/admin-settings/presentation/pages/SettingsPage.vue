@@ -57,7 +57,7 @@
         <SettingsBackupTab v-show="activeTab === 'backup'" />
 
         <!-- Save Button -->
-        <div v-show="activeTab !== 'backup' && activeTab !== 'permission-groups'" class="flex justify-end">
+        <div v-show="activeTab !== 'backup' && activeTab !== 'permission-groups'" class="sticky bottom-0 z-20 flex justify-end rounded-xl border border-gray-200 bg-white/95 p-4 shadow-sm backdrop-blur dark:border-dark-700 dark:bg-dark-800/95">
           <button
             type="submit"
             :disabled="saving || loadFailed"

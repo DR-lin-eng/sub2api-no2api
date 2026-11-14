@@ -22,4 +22,16 @@ describe('media studio shell', () => {
     expect(canvas).toContain('<video')
     expect(canvas).toContain('preload="metadata"')
   })
+
+  it('keeps the full image parameter rail visible with native 2.6 output formats', () => {
+    const canvas = readFileSync(resolve(currentDir, '../presentation/widgets/MediaStudioCanvas.vue'), 'utf8')
+    const outputFields = readFileSync(resolve(currentDir, '../../../common/widgets/forms/GPTImageOutputFields.vue'), 'utf8')
+
+    expect(canvas).toContain('imageAspectRatio')
+    expect(canvas).toContain('imageResolution')
+    expect(canvas).toContain("imageOutput?.output_format === 'svg'")
+    expect(canvas).toContain('GPTImageOutputFields')
+    expect(outputFields).toContain('data-testid="image-output-format"')
+    expect(canvas).not.toContain("imageOutput?.output_format !== 'gif'")
+  })
 })

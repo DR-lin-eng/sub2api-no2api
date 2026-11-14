@@ -1,7 +1,6 @@
 package service
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"crypto/rand"
@@ -21,6 +20,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	"github.com/Wei-Shaw/sub2api/internal/shared/apicompat"
 	"github.com/Wei-Shaw/sub2api/internal/shared/ctxkey"
+	"github.com/Wei-Shaw/sub2api/internal/shared/gemini"
 	"github.com/Wei-Shaw/sub2api/internal/shared/geminicli"
 	"github.com/Wei-Shaw/sub2api/internal/shared/googleapi"
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
@@ -227,7 +227,7 @@ func (s *GeminiMessagesCompatService) tryStickySessionHit(
 
 	// 检查账号是否需要清理粘性会话
 	// Check if sticky session should be cleared
-	if shouldClearStickySession(account, requestedModel) {
+	if shouldClearStickySessionWithContext(ctx, account, requestedModel) {
 		_ = s.cache.DeleteSessionAccountID(ctx, derefGroupID(groupID), cacheKey)
 		return nil
 	}
@@ -527,7 +527,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 		mappedModel = account.GetMappedModel(req.Model)
 	}
 
-	geminiReq, err := convertClaudeMessagesToGeminiGenerateContent(body)
+	geminiReq, err := convertClaudeMessagesToGeminiGenerateContent(body, mappedModel)
 	if err != nil {
 		return nil, s.writeClaudeError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
 	}
@@ -791,7 +791,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 					stageName = "thinking+tools"
 					signatureRetryStage = 2
 				}
-				retryGeminiReq, txErr := convertClaudeMessagesToGeminiGenerateContent(strippedClaudeBody)
+				retryGeminiReq, txErr := convertClaudeMessagesToGeminiGenerateContent(strippedClaudeBody, mappedModel)
 				if txErr == nil {
 					logger.LegacyPrintf("service.gemini_messages_compat", "Gemini account %d: detected signature-related 400, retrying with downgraded Claude blocks (%s)", account.ID, stageName)
 					geminiReq = applyGeminiCompatThinkingConfig(retryGeminiReq, originalClaudeBody, mappedModel, includeThoughts)
@@ -1017,7 +1017,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 		clientDisconnect, streamFinished = streamRes.clientDisconnect, streamRes.finished
 	} else {
 		if useUpstreamStream {
-			collected, usageObj, err := collectGeminiSSE(resp.Body, true)
+			collected, usageObj, err := collectGeminiSSE(resp.Body, true, s.cfg)
 			if err != nil {
 				return nil, s.writeClaudeError(c, http.StatusBadGateway, "upstream_error", "Failed to read upstream stream")
 			}
@@ -1578,7 +1578,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 				if sig, ok := detectGeminiResponseSignal(rawBytes); ok && sig.Kind > best.Kind {
 					best = sig
 				}
-			})
+			}, s.cfg)
 			if err != nil {
 				return nil, s.writeGoogleError(c, http.StatusBadGateway, "Failed to read upstream stream")
 			}
@@ -2044,8 +2044,8 @@ func unwrapIfNeeded(isOAuth bool, raw []byte) []byte {
 	return inner
 }
 
-func collectGeminiSSE(body io.Reader, isOAuth bool) (map[string]any, *ClaudeUsage, error) {
-	collected, usage, _, err := collectGeminiSSEObserved(body, isOAuth, nil)
+func collectGeminiSSE(body io.Reader, isOAuth bool, configs ...*config.Config) (map[string]any, *ClaudeUsage, error) {
+	collected, usage, _, err := collectGeminiSSEObserved(body, isOAuth, nil, configs...)
 	return collected, usage, err
 }
 
@@ -2057,8 +2057,12 @@ type geminiSSECollectStats struct {
 // collectGeminiSSEObserved aggregates a stream while optionally inspecting
 // each decoded event for in-band Gemini signals. The legacy wrapper above
 // keeps other compatibility paths byte/behavior compatible.
-func collectGeminiSSEObserved(body io.Reader, isOAuth bool, observe func([]byte)) (map[string]any, *ClaudeUsage, geminiSSECollectStats, error) {
-	reader := bufio.NewReader(body)
+func collectGeminiSSEObserved(body io.Reader, isOAuth bool, observe func([]byte), configs ...*config.Config) (map[string]any, *ClaudeUsage, geminiSSECollectStats, error) {
+	var cfg *config.Config
+	if len(configs) > 0 {
+		cfg = configs[0]
+	}
+	reader := newBoundedSSELineReader(body, cfg)
 
 	var last map[string]any
 	var lastWithParts map[string]any
@@ -2067,7 +2071,7 @@ func collectGeminiSSEObserved(body io.Reader, isOAuth bool, observe func([]byte)
 	stats := geminiSSECollectStats{fallback: &geminiSSEFallbackBody{}}
 
 	for {
-		line, err := reader.ReadString('\n')
+		line, err := reader.ReadLineString()
 		if len(line) > 0 {
 			trimmed := strings.TrimRight(line, "\r\n")
 			if !strings.HasPrefix(trimmed, "data:") {
@@ -2445,7 +2449,7 @@ func convertGeminiToClaudeMessage(geminiResp map[string]any, originalModel strin
 						if !ok {
 							continue
 						}
-						if text, ok := pm["text"].(string); ok && text != "" {
+						if text, ok := pm["text"].(string); ok && text != "" && !isGeminiThoughtPart(pm) {
 							contentBlocks = append(contentBlocks, map[string]any{
 								"type": "text",
 								"text": text,
@@ -2806,24 +2810,6 @@ func extractGeminiParts(geminiResp map[string]any) []map[string]any {
 	return nil
 }
 
-func computeGeminiTextDelta(seen, incoming string) (delta, newSeen string) {
-	incoming = strings.TrimSuffix(incoming, "\u0000")
-	if incoming == "" {
-		return "", seen
-	}
-
-	// Cumulative mode: incoming contains full text so far.
-	if strings.HasPrefix(incoming, seen) {
-		return strings.TrimPrefix(incoming, seen), incoming
-	}
-	// Duplicate/rewind: ignore.
-	if strings.HasPrefix(seen, incoming) {
-		return "", seen
-	}
-	// Delta mode: treat incoming as incremental chunk.
-	return incoming, seen + incoming
-}
-
 func mapGeminiFinishReasonToClaudeStopReason(finishReason string) string {
 	switch strings.ToUpper(strings.TrimSpace(finishReason)) {
 	case "MAX_TOKENS":
@@ -2835,7 +2821,7 @@ func mapGeminiFinishReasonToClaudeStopReason(finishReason string) string {
 	}
 }
 
-func convertClaudeMessagesToGeminiGenerateContent(body []byte) ([]byte, error) {
+func convertClaudeMessagesToGeminiGenerateContent(body []byte, models ...string) ([]byte, error) {
 	var req map[string]any
 	if err := json.Unmarshal(body, &req); err != nil {
 		return nil, err
@@ -2844,7 +2830,7 @@ func convertClaudeMessagesToGeminiGenerateContent(body []byte) ([]byte, error) {
 	toolUseIDToName := make(map[string]string)
 
 	systemText := extractClaudeSystemText(req["system"])
-	contents, err := convertClaudeMessagesToGeminiContents(req["messages"], toolUseIDToName)
+	contents, err := convertClaudeMessagesToGeminiContents(req["messages"], toolUseIDToName, gemini.SupportsMultimodalFunctionResponses(firstOptionalString(models)))
 	if err != nil {
 		return nil, err
 	}
@@ -2924,7 +2910,8 @@ func extractClaudeSystemText(system any) string {
 	}
 }
 
-func convertClaudeMessagesToGeminiContents(messages any, toolUseIDToName map[string]string) ([]any, error) {
+func convertClaudeMessagesToGeminiContents(messages any, toolUseIDToName map[string]string, options ...bool) ([]any, error) {
+	multimodalToolResults := len(options) > 0 && options[0]
 	arr, ok := messages.([]any)
 	if !ok {
 		return nil, errors.New("messages must be an array")
@@ -2998,18 +2985,19 @@ func convertClaudeMessagesToGeminiContents(messages any, toolUseIDToName map[str
 						name = "tool"
 					}
 					text, images := extractClaudeToolResultContent(bm["content"])
-					if text == "" && len(images) > 0 {
+					if text == "" && len(images) > 0 && !multimodalToolResults {
 						text = "[image attached below]"
 					}
-					parts = append(parts, map[string]any{
-						"functionResponse": map[string]any{
-							"name": name,
-							"response": map[string]any{
-								"content": text,
-							},
-						},
-					})
-					toolImageParts = append(toolImageParts, images...)
+					response := map[string]any{
+						"name":     name,
+						"response": map[string]any{"content": text},
+					}
+					if multimodalToolResults && len(images) > 0 {
+						response["parts"] = images
+					} else {
+						toolImageParts = append(toolImageParts, images...)
+					}
+					parts = append(parts, map[string]any{"functionResponse": response})
 				case "image":
 					if src, ok := bm["source"].(map[string]any); ok {
 						if srcType, _ := src["type"].(string); srcType == "base64" {

@@ -1,0 +1,160 @@
+{
+  "baseline": "1e629a9a75e043ae0a888a9231cf7c88ad8f37e8",
+  "upstream": "6b4b37db43443b5e88e424fe3c69602cc3810dfb",
+  "environment": {
+    "docker": "linux/arm64",
+    "go": "1.26.10",
+    "benchmark_cpu": 1,
+    "memory": "4GiB",
+    "benchtime": "200ms",
+    "samples": 3
+  },
+  "baseline_results": {
+    "BenchmarkSyncBufferedReasoning": {
+      "samples": [
+        {
+          "ns/op": 8719843.0,
+          "B/op": 138003296.0,
+          "allocs/op": 1026.0
+        },
+        {
+          "ns/op": 8655469.0,
+          "B/op": 138003296.0,
+          "allocs/op": 1026.0
+        },
+        {
+          "ns/op": 8713949.0,
+          "B/op": 138003296.0,
+          "allocs/op": 1026.0
+        }
+      ],
+      "median": {
+        "ns/op": 8713949.0,
+        "B/op": 138003296.0,
+        "allocs/op": 1026.0
+      }
+    }
+  },
+  "candidate_results": {
+    "BenchmarkSyncBufferedReasoning": {
+      "samples": [
+        {
+          "ns/op": 153840.0,
+          "B/op": 1448800.0,
+          "allocs/op": 1049.0
+        },
+        {
+          "ns/op": 153305.0,
+          "B/op": 1448800.0,
+          "allocs/op": 1049.0
+        },
+        {
+          "ns/op": 153135.0,
+          "B/op": 1448800.0,
+          "allocs/op": 1049.0
+        }
+      ],
+      "median": {
+        "ns/op": 153305.0,
+        "B/op": 1448800.0,
+        "allocs/op": 1049.0
+      }
+    },
+    "BenchmarkSyncNativeImageRewrite/upstream": {
+      "samples": [
+        {
+          "ns/op": 43610333.0,
+          "B/op": 126658784.0,
+          "allocs/op": 384.0
+        },
+        {
+          "ns/op": 42554717.0,
+          "B/op": 126658784.0,
+          "allocs/op": 384.0
+        },
+        {
+          "ns/op": 42778975.0,
+          "B/op": 126658742.0,
+          "allocs/op": 384.0
+        }
+      ],
+      "median": {
+        "ns/op": 42778975.0,
+        "B/op": 126658784.0,
+        "allocs/op": 384.0
+      }
+    },
+    "BenchmarkSyncNativeImageRewrite/linear": {
+      "samples": [
+        {
+          "ns/op": 37267014.0,
+          "B/op": 17109145.0,
+          "allocs/op": 317.0
+        },
+        {
+          "ns/op": 37447653.0,
+          "B/op": 17109156.0,
+          "allocs/op": 318.0
+        },
+        {
+          "ns/op": 37649562.0,
+          "B/op": 17109148.0,
+          "allocs/op": 317.0
+        }
+      ],
+      "median": {
+        "ns/op": 37447653.0,
+        "B/op": 17109148.0,
+        "allocs/op": 317.0
+      }
+    },
+    "BenchmarkSyncTerraInstructions/per-request-decode": {
+      "samples": [
+        {
+          "ns/op": 233730.0,
+          "B/op": 44088.0,
+          "allocs/op": 14.0
+        },
+        {
+          "ns/op": 235418.0,
+          "B/op": 44088.0,
+          "allocs/op": 14.0
+        },
+        {
+          "ns/op": 233937.0,
+          "B/op": 44088.0,
+          "allocs/op": 14.0
+        }
+      ],
+      "median": {
+        "ns/op": 233937.0,
+        "B/op": 44088.0,
+        "allocs/op": 14.0
+      }
+    },
+    "BenchmarkSyncTerraInstructions/startup-cache": {
+      "samples": [
+        {
+          "ns/op": 47.74,
+          "B/op": 0.0,
+          "allocs/op": 0.0
+        },
+        {
+          "ns/op": 46.89,
+          "B/op": 0.0,
+          "allocs/op": 0.0
+        },
+        {
+          "ns/op": 47.85,
+          "B/op": 0.0,
+          "allocs/op": 0.0
+        }
+      ],
+      "median": {
+        "ns/op": 47.74,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    }
+  }
+}

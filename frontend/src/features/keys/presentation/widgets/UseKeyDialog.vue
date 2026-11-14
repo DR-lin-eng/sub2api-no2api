@@ -864,6 +864,7 @@ function generateOpenAIConfigContent(baseUrl: string, supportsWebSockets = false
   return `model_provider = "${codexProviderId}"
 model = "gpt-5.6-sol"
 review_model = "gpt-5.6-sol"
+web_search = "live"
 model_reasoning_effort = "xhigh"
 model_context_window = 1000000
 
@@ -874,7 +875,7 @@ wire_api = "responses"${websocketConfig}
 ${generateCodexProviderAuthConfig()}
 
 [features]
-goals = true`
+${codexAuthMode.value === 'api-key' ? 'image_generation = true\n' : ''}goals = true`
 }
 
 function generateGrokFiles(baseUrl: string, apiKey: string): FileConfig[] {
@@ -908,6 +909,7 @@ function generateGrokCodexFiles(baseUrl: string, apiKey: string): FileConfig[] {
   const configContent = `model_provider = "sub2api_grok"
 model = "grok-4.5"
 review_model = "grok-4.5"
+web_search = "live"
 model_reasoning_effort = "xhigh"
 model_context_window = 1000000
 

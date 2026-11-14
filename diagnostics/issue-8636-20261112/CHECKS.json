@@ -1,0 +1,69 @@
+{
+  "recorded_at": "2026-11-12T17:47:57.890413+08:00",
+  "source": "1d3e1ea2b7bd716f5b0a849c2e1163638e6f946e",
+  "unit": {
+    "passed_tests_including_subtests": 29,
+    "failed": 0,
+    "packages": [
+      "github.com/Wei-Shaw/sub2api/internal/shared/httputil",
+      "github.com/Wei-Shaw/sub2api/internal/application/service",
+      "github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
+    ]
+  },
+  "http": {
+    "cases": 45,
+    "expected_statuses": {
+      "200": 28,
+      "400": 17
+    },
+    "concurrent_requests": 40,
+    "settled_requests": 68
+  },
+  "files": {
+    "/private/tmp/sub2api-issue-8636-20261112/unit.jsonl": {
+      "bytes": 31931,
+      "sha256": "9cf031d77e09eadd5dc601a961e886cfcb551cd53547605063696fb478ba139f"
+    },
+    "/private/tmp/sub2api-issue-8636-20261112/runtime.stdout": {
+      "bytes": 4663,
+      "sha256": "b93cc239a08c1e37254c42eb7d6ee13b9279f7311e5a8114e2e043c4b6608706"
+    },
+    "/private/tmp/sub2api-issue-8636-20261112/runtime.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "/private/tmp/sub2api-issue-8636-20261112/app.log": {
+      "bytes": 301474,
+      "sha256": "c413ec8ca354a41f6111976baadafad53619ba75f64545099f7222a799569363"
+    },
+    "/private/tmp/sub2api-issue-8636-20261112/sub2api": {
+      "bytes": 170342329,
+      "sha256": "25fb8f44269be7b0273ac9fbd25d5c9b7b0d2910a641e9ae08146df2f4474bf3"
+    },
+    "/private/tmp/sub2api-issue-8636-20261112/provider": {
+      "bytes": 8357568,
+      "sha256": "4a3e95b5cdd677da86d5e1e42dac7a77b4db41b47e629f2536896e6813cda74f"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/diagnostics/issue-8636-20261112/RESULTS.json": {
+      "bytes": 31610,
+      "sha256": "d1435f602bdfc1b2d35f8a6a3095c72b92ef5a5a08347ea392cb96d4c38c5b24"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/diagnostics/issue-8636-20261112/provider.go": {
+      "bytes": 4320,
+      "sha256": "1dc9a78954cd2355c2ecaecf1ea260bcbcb097fe63b17176af52d42e4652fb13"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/diagnostics/issue-8636-20261112/run.py": {
+      "bytes": 15650,
+      "sha256": "7048dd37f0844fb1188899b61b003797f68ce8f7d675968dbc34a675f8359c75"
+    },
+    "/Users/lin/.codex/worktrees/a8f6/sub2api-no2api/diagnostics/issue-8636-20261112/compose.yaml": {
+      "bytes": 1896,
+      "sha256": "4e0477bdd6843d4f38dfd803c4df78533268341ce3bcebc582efd9d5a6aa1bf6"
+    }
+  },
+  "checks": {
+    "documentation": "passed",
+    "diff_whitespace": "passed",
+    "docker_fixture_cleanup": "verified"
+  }
+}

@@ -66,7 +66,7 @@ func TestOpenAIOAuthAlignmentBehaviorProbe(t *testing.T) {
 		require.NoError(t, resp.Body.Close())
 	}
 	firstRemoved := u.headers[0].Get("X-OAI-IS") == ""
-	echo := u.headers[1].Get("X-OAI-IS") == "ois1.real.fixture.update"
+	legacyIgnored := u.headers[1].Get("X-OAI-IS") == ""
 	trusted := u.headers[0].Get("x-oai-attestation") == `{"v":1,"s":0,"t":"v1.Zml4dHVyZQ"}`
 	relayClean := u.headers[2].Get("X-OAI-IS") == "" && u.headers[2].Get("x-oai-attestation") == ""
 	registered := false
@@ -77,6 +77,6 @@ func TestOpenAIOAuthAlignmentBehaviorProbe(t *testing.T) {
 	}
 	last := u.headers[len(u.headers)-1]
 	cookie := strings.Contains(last.Get("Cookie"), "_devicecheck=")
-	fmt.Printf("ALIGNMENT_BEHAVIOR untrusted_integrity_removed=%t server_update_echoed=%t generated_attestation_used=%t relay_proof_removed=%t device_cookie_registered=%t device_cookie_sent=%t\n", firstRemoved, echo, trusted, relayClean, registered, cookie)
-	require.True(t, firstRemoved && echo && trusted && relayClean && registered && cookie)
+	fmt.Printf("ALIGNMENT_BEHAVIOR untrusted_integrity_removed=%t legacy_model_update_ignored=%t generated_attestation_used=%t relay_proof_removed=%t device_cookie_registered=%t device_cookie_sent=%t\n", firstRemoved, legacyIgnored, trusted, relayClean, registered, cookie)
+	require.True(t, firstRemoved && legacyIgnored && trusted && relayClean && registered && cookie)
 }

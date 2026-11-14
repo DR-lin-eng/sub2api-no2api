@@ -20,13 +20,15 @@ type WorkerRuntime struct {
 }
 
 type Runner struct {
-	config  ConfigStore
-	repo    JobRepository
-	payload PayloadStore
-	scanner PromptScanner
-	metrics Metrics
-	clock   Clock
-	runtime WorkerRuntime
+	config   ConfigStore
+	repo     JobRepository
+	payload  PayloadStore
+	scanner  PromptScanner
+	metrics  Metrics
+	clock    Clock
+	runtime  WorkerRuntime
+	wake     []chan struct{}
+	wakeNext atomic.Uint64
 
 	mu     sync.Mutex
 	cancel context.CancelFunc
@@ -34,7 +36,30 @@ type Runner struct {
 }
 
 func NewRunner(config ConfigStore, repo JobRepository, payload PayloadStore, scanner PromptScanner, metrics Metrics) *Runner {
-	return &Runner{config: config, repo: repo, payload: payload, scanner: scanner, metrics: metrics, clock: realClock{}}
+	wake := make([]chan struct{}, MaxWorkerCount)
+	for i := range wake {
+		wake[i] = make(chan struct{}, 1)
+		wake[i] <- struct{}{}
+	}
+	return &Runner{config: config, repo: repo, payload: payload, scanner: scanner, metrics: metrics, clock: realClock{}, wake: wake}
+}
+
+// Notify wakes one configured worker in round-robin order. Buffered signals
+// coalesce while busy; the normal polling fallback still serves other replicas.
+func (r *Runner) Notify() {
+	if r == nil || r.config == nil || len(r.wake) == 0 {
+		return
+	}
+	cfg, ok := r.config.Active()
+	if !ok || cfg.WorkerCount <= 0 {
+		return
+	}
+	count := min(cfg.WorkerCount, len(r.wake))
+	ch := r.wake[(r.wakeNext.Add(1)-1)%uint64(count)]
+	select {
+	case ch <- struct{}{}:
+	default:
+	}
 }
 
 func (r *Runner) Start(ctx context.Context) error {
@@ -85,31 +110,37 @@ func (r *Runner) Shutdown(ctx context.Context) error {
 
 func (r *Runner) worker(ctx context.Context, workerID int) {
 	defer r.wg.Done()
-	ticker := time.NewTicker(500 * time.Millisecond)
+	const workerIdlePoll = 500 * time.Millisecond
+	ticker := time.NewTicker(workerIdlePoll)
 	defer ticker.Stop()
+	var wake <-chan struct{}
+	if workerID < len(r.wake) {
+		wake = r.wake[workerID]
+	}
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			r.runtime.heartbeatNS.Store(r.clock.Now().UnixNano())
-			cfg, ok := r.config.Active()
-			if !ok || !cfg.RiskControlEnabled || !cfg.Enabled || workerID >= cfg.WorkerCount {
-				continue
+		case <-wake:
+		}
+		r.runtime.heartbeatNS.Store(r.clock.Now().UnixNano())
+		cfg, ok := r.config.Active()
+		if !ok || !cfg.RiskControlEnabled || !cfg.Enabled || workerID >= cfg.WorkerCount {
+			continue
+		}
+		for {
+			job, claimed, err := r.repo.ClaimNextJob(ctx, r.clock.Now())
+			if err != nil {
+				r.setLastError("claim_job_failed", err.Error())
+				break
 			}
-			for {
-				job, claimed, err := r.repo.ClaimNextJob(ctx, r.clock.Now())
-				if err != nil {
-					r.setLastError("claim_job_failed", err.Error())
-					break
-				}
-				if !claimed {
-					break
-				}
-				r.runtime.active.Add(1)
-				r.processSafely(ctx, workerID, cfg, job)
-				r.runtime.active.Add(-1)
+			if !claimed {
+				break
 			}
+			r.runtime.active.Add(1)
+			r.processSafely(ctx, workerID, cfg, job)
+			r.runtime.active.Add(-1)
 		}
 	}
 }
@@ -273,6 +304,7 @@ func (r *Runner) reclaimer(ctx context.Context) {
 				continue
 			}
 			if count > 0 {
+				r.Notify()
 				LogWarn(EventProcessingReclaimed, map[string]any{"reclaimed_total": count, "status": "reclaimed"})
 			}
 		}

@@ -483,7 +483,7 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 	if updates.ExcelBPSEnabled != nil {
 		// Recheck eligibility at write time if the account changed since prefetch.
 		whereClause += " AND platform = 'openai' AND type = 'oauth' AND parent_account_id IS NULL" +
-			" AND LOWER(BTRIM(COALESCE(credentials->>'auth_mode', ''))) NOT IN ('agentidentity', 'personalaccesstoken', 'personal_access_token')" +
+			" AND LOWER(BTRIM(COALESCE(credentials->>'auth_mode', ''))) NOT IN ('agentidentity', 'personalaccesstoken', 'personal_access_token', 'siwc')" +
 			" AND LOWER(BTRIM(COALESCE(credentials->>'openai_auth_mode', ''))) NOT IN ('personalaccesstoken', 'personal_access_token')"
 	}
 	if updates.ProbeEnabled != nil {

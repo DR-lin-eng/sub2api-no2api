@@ -117,6 +117,24 @@ describe('AccountTestModal', () => {
     localStorage.clear()
   })
 
+  it.each(['gif', 'svg'])('submits 2.6 %s test options and offers the returned file for download', async (format) => {
+    getAvailableModelsMock.mockResolvedValue([{ id: 'gpt-image-2.6-flare', display_name: 'Flare 2.6' }])
+    const wrapper = mount(AccountTestModal, { props: { show: true, account: buildAccount() }, global: { stubs: { BaseDialog: BaseDialogStub, Select: SelectStub, TextArea: TextAreaStub, Icon: true } } })
+    await flushPromises()
+    ;(wrapper.vm as any).selectedModelId = 'gpt-image-2.6-flare'
+    await flushPromises()
+    await wrapper.get('[data-testid="image-output-format"]').setValue(format)
+    if (format === 'gif') await wrapper.get('[data-testid="image-frame-count"]').setValue(4)
+    await (wrapper.vm as any).startTest()
+    const payload = JSON.parse((global.fetch as any).mock.calls[0][1].body)
+    expect(payload).toMatchObject({ model_id: 'gpt-image-2.6-flare', output_format: format })
+    if (format === 'gif') expect(payload).toMatchObject({ frame_count: 4, frame_duration_ms: 200 })
+    ;(wrapper.vm as any).handleEvent({ type: 'image', image_url: `data:image/${format === 'svg' ? 'svg+xml' : 'gif'};base64,AAAA`, mime_type: `image/${format === 'svg' ? 'svg+xml' : 'gif'}` })
+    await flushPromises()
+    expect(wrapper.get('a[download]').attributes('download')).toBe(`image-test-1.${format}`)
+    wrapper.unmount()
+  })
+
   it('posts compact mode for OpenAI compact probe', async () => {
     const wrapper = mount(AccountTestModal, {
       props: {

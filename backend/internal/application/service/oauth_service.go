@@ -20,6 +20,14 @@ type OpenAIOAuthClient interface {
 	RefreshTokenWithClientID(ctx context.Context, refreshToken, proxyURL string, clientID string) (*openai.TokenResponse, error)
 }
 
+// OpenAISIWCOAuthClient is the optional client port for Sign in with
+// ChatGPT's dynamic-agent OAuth flow. Keeping it separate preserves source
+// compatibility for existing OpenAI OAuth client implementations.
+type OpenAISIWCOAuthClient interface {
+	ExchangeSIWCCode(ctx context.Context, code, codeVerifier, redirectURI, proxyURL, clientID string) (*openai.TokenResponse, error)
+	RefreshSIWCToken(ctx context.Context, refreshToken, proxyURL, clientID string) (*openai.TokenResponse, error)
+}
+
 // GrokOAuthClient interface for xAI/Grok OAuth operations.
 type GrokOAuthClient interface {
 	ExchangeCode(ctx context.Context, code, codeVerifier, redirectURI, proxyURL, clientID string) (*xai.TokenResponse, error)

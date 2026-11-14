@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -145,15 +146,26 @@ func (s *OpenAIGatewayService) handleOpenAIResponseFailedBeforeOutput(
 	payload []byte,
 	message string,
 	responseHeaders http.Header,
+	canonicalModel ...string,
 ) (error, bool) {
 	if _, policy := openAIUpstreamPolicyErrorDetails(payload); policy {
 		s.recordOpenAIStreamUpstreamError(c, account, passthrough, upstreamRequestID, "http_error", payload, message)
 		return nil, false // The streaming caller forwards the terminal event.
 	}
 	if account != nil && openAIResponseFailureShouldFailover(payload, message) {
-		return s.newOpenAIStreamFailoverError(
+		failover := s.newOpenAIStreamFailoverError(
 			c, account, passthrough, upstreamRequestID, payload, message, responseHeaders,
-		), true
+		)
+		if isOpenAIUpstreamCapacityShedEvent(payload) {
+			ctx := context.Background()
+			if c != nil && c.Request != nil {
+				ctx = c.Request.Context()
+			}
+			if s.applyOpenAICapacityModelCooldown(ctx, account, http.StatusServiceUnavailable, payload, firstRequestedModel(canonicalModel)) {
+				failover.RetryableOnSameAccount = false
+			}
+		}
+		return failover, true
 	}
 
 	platform := PlatformOpenAI

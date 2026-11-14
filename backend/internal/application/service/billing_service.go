@@ -121,6 +121,7 @@ type BillingMutationVersionCache interface {
 
 // ModelPricing 模型价格配置（per-token价格，与LiteLLM格式一致）
 type ModelPricing struct {
+	ImageCacheReadPricePerToken        float64
 	InputPricePerToken                 float64 // 每token输入价格 (USD)
 	InputPricePerTokenPriority         float64 // priority service tier 下每token输入价格 (USD)
 	ImageInputPricePerToken            float64 // 图片输入 token 价格 (USD)，用于多模态 embedding 等图文不同价场景；为 0 时回退到 InputPricePerToken
@@ -179,6 +180,7 @@ func serviceTierCostMultiplier(serviceTier string) float64 {
 
 // UsageTokens 使用的token数量
 type UsageTokens struct {
+	ImageCacheReadTokens  int
 	InputTokens           int
 	ImageInputTokens      int
 	OutputTokens          int
@@ -356,6 +358,7 @@ func (s *BillingService) initFallbackPricing() {
 	s.fallbackPrices["claude-opus-5"] = s.fallbackPrices["claude-opus-4.8"]
 
 	s.initClaude55FallbackPricing()
+	s.initClaude52FallbackPricing()
 
 	// Gemini 3.1 Pro
 	s.fallbackPrices["gemini-3.1-pro"] = &ModelPricing{
@@ -838,6 +841,11 @@ func (s *BillingService) initFallbackPricing() {
 
 // getFallbackPricing 根据模型系列获取回退价格
 func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
+	if strings.EqualFold(model, "gpt-image-2.6-flare") || strings.EqualFold(model, "gpt-image-2.6-sunburst") {
+		p := openAIGPTImage25FallbackPricing
+		return &ModelPricing{InputPricePerToken: p.InputCostPerToken, CacheReadPricePerToken: p.CacheReadInputTokenCost, ImageInputPricePerToken: p.InputCostPerImageToken, ImageCacheReadPricePerToken: p.CacheReadInputImageTokenCost, ImageOutputPricePerToken: p.OutputCostPerImageToken}
+	}
+
 	modelLower := normalizeAntigravityClaudeTierAlias(strings.ToLower(model))
 	if id := grok47FastPricingID(modelLower); id != "" {
 		return s.fallbackPrices[id]
@@ -847,6 +855,9 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 	}
 
 	if id := claude55PricingID(modelLower); id != "" {
+		return s.fallbackPrices[id]
+	}
+	if id := claude52PricingID(modelLower); id != "" {
 		return s.fallbackPrices[id]
 	}
 
@@ -1192,6 +1203,7 @@ func (s *BillingService) getModelPricingAt(model string, pricingAt time.Time) (*
 				LongContextInputMultiplier:         litellmPricing.LongContextInputCostMultiplier,
 				LongContextOutputMultiplier:        litellmPricing.LongContextOutputCostMultiplier,
 				ImageInputPricePerToken:            litellmPricing.InputCostPerImageToken,
+				ImageCacheReadPricePerToken:        litellmPricing.CacheReadInputImageTokenCost,
 				ImageOutputPricePerToken:           litellmPricing.OutputCostPerImageToken,
 			}, true, pricingAt), nil
 		}
@@ -1239,6 +1251,7 @@ func (s *BillingService) GetModelPricingWithChannel(model string, channelPricing
 	}
 	if channelPricing.CacheReadPrice != nil {
 		pricing.CacheReadPricePerToken = *channelPricing.CacheReadPrice
+		pricing.ImageCacheReadPricePerToken = *channelPricing.CacheReadPrice
 	}
 	if channelPricing.ImageOutputPrice != nil {
 		pricing.ImageOutputPricePerToken = *channelPricing.ImageOutputPrice
@@ -1465,7 +1478,13 @@ func (s *BillingService) computeTokenBreakdown(
 	// 缓存创建费用
 	bd.CacheCreationCost = s.computeCacheCreationCost(pricing, tokens, cacheCreationPrice, cacheCreationMultiplier)
 
-	bd.CacheReadCost = float64(tokens.CacheReadTokens) * cacheReadPrice
+	imageCached := min(max(tokens.ImageCacheReadTokens, 0), max(tokens.CacheReadTokens, 0))
+	imageCachePrice := pricing.ImageCacheReadPricePerToken
+	if imageCachePrice == 0 {
+		imageCachePrice = cacheReadPrice
+	}
+	imageCacheCost := float64(imageCached) * imageCachePrice
+	bd.CacheReadCost = float64(tokens.CacheReadTokens-imageCached)*cacheReadPrice + imageCacheCost
 
 	if tierMultiplier != 1.0 {
 		bd.InputCost *= tierMultiplier
@@ -1474,12 +1493,13 @@ func (s *BillingService) computeTokenBreakdown(
 		bd.ImageOutputCost *= tierMultiplier
 		bd.CacheCreationCost *= tierMultiplier
 		bd.CacheReadCost *= tierMultiplier
+		imageCacheCost *= tierMultiplier
 	}
 
 	bd.TotalCost = bd.InputCost + bd.ImageInputCost + bd.OutputCost + bd.ImageOutputCost +
 		bd.CacheCreationCost + bd.CacheReadCost
-	nonImageCost := bd.InputCost + bd.OutputCost + bd.CacheCreationCost + bd.CacheReadCost
-	imageCost := bd.ImageInputCost + bd.ImageOutputCost
+	nonImageCost := bd.InputCost + bd.OutputCost + bd.CacheCreationCost + bd.CacheReadCost - imageCacheCost
+	imageCost := bd.ImageInputCost + bd.ImageOutputCost + imageCacheCost
 	bd.ActualCost = nonImageCost*rateMultiplier + imageCost*effectiveImageRateMultiplier
 	bd.LongContextBillingApplied = baselineCost != nil && bd.ActualCost > baselineCost.ActualCost
 

@@ -11,9 +11,18 @@
 | `gateway*` | Anthropic/Claude 通用网关请求、调度、转发和计费 |
 | `gateway_systemone.go`, `account_test_service_typesafe.go` | TypeSafe 原生非流式转发与账号测试，复用完整账号出口和可靠计费 |
 | `openai*` | OpenAI/Codex/Responses/Images/WS 管线 |
+| `openai_images_chatgpt*`, `setting_openai_images_mode.go` | 默认 App 生图与验证、上传/下载、SSE/topic 恢复和旧版回退；见 [协议与开关](../../../../docs/CHATGPT_APP_IMAGES.md) |
+| `openai_oauth_auth_context.go` | OAuth 个人/工作区套餐连续性、access-token exp 与凭据期限；见 [桌面请求对照](../../../../docs/codex/desktop-request-alignment.md) |
+| `openai_usage*` | OAuth 调用触发的后台额度 WS、10 分钟活跃窗口、快照校验、详细用量与缓存；见 [用量说明](../../../../docs/OPENAI_USAGE.md) |
+| `openai_request_set_patches.go` | 大 JSON 的多项普通 set 局部改写与一次拼接，保留 sjson 回退路径 |
 | `openai_capacity_retry.go` | 请求级容量错误的 HTTP/SSE/WS 等待提示解析；有限数值先限幅，沿用现有重试预算 |
+| `openai_capacity_model_cooldown.go` | 容量错误的显式模型级自定义规则；只匹配真实错误字段，沿用当前规则命中后的换号与持久化失败隔离 |
+| `openai_auth_recovery.go`, `openai_tls_handshake_recovery.go` | OAuth 401 刷新候选分类；刷新后的已知主体由 `openai_chatgpt_headers.go` 与 token provider 核对，变化时终止当前轮次重放；普通 HTTP Responses 的 TLS 握手超时恢复、请求发送追踪及单次重试边界 |
+| `openai_oauth_body_compression.go`, `openai_oauth_compression_recovery.go` | OAuth HTTP 默认 zstd 压缩，以及裸 400/显式编码 415 的请求级单次兼容恢复；每个新请求仍默认压缩，保留完整输入、身份和安全重放边界 |
+| `openai_http200_stream_recovery.go`, `openai_http200_json_error.go`, `openai_responses_error_event.go` | HTTP 200 通用失败的安全单次恢复、JSON 错误惰性适配和输出后断流的 Responses 终止事件；保留已输出数据及 zstd 协商状态 |
 | `openai_ws_size_recovery.go` | 内嵌图片/大 JSON 请求发送前的 HTTP 选路、1009/断连后一次安全回退与完整历史重放边界 |
 | `openai_ws_fallback_response.go` | WS 终止错误的 HTTP/SSE 映射、1009 大小限制提示与已提交响应保护 |
+| `openai_ws_non_streaming*.go` | HTTP 非流式请求的有界 WS 输出聚合、终态校验，以及预热模式下可安全重放的临时 5xx HTTP 恢复 |
 | `openai_live*` | Codex CLI/旧 Desktop Live、Sideband 控制、分钟结算和持久恢复 |
 | `gemini*`, `grok*`, `antigravity*`, `bedrock*` | 各上游协议适配与重试 |
 | `scheduler*`, `channel*`, `ratelimit*`, `concurrency*` | 调度、通道和并发控制 |
@@ -50,22 +59,29 @@
 | `api_key_group_routing.go` | API Key 有序分组候选、倍率保护过滤和请求内实际分组切换 |
 | `openai_codex_request_headers.go`, `openai_codex_metadata_projection.go`, `openai_gateway_request_decode.go`, `openai_ws_handshake_compatibility.go` | OAuth 出站身份/metadata 投影、metadata 保精度解码与 WS 不可变握手身份 |
 | `openai_codex_identity_plan.go`, `openai_codex_simulation_state.go` | Codex request root、per-principal 身份计划与短状态 fallback |
+| `openai_codex_cache_identity.go` | 按主体与会话 root 原子固定首次 UUIDv7，会话/缓存键跨请求、重连和实例复用及有界本地 fallback |
 | `openai_codex_continuation.go` | Codex continuation 分类、owner 策略、跨主体 sanitizer 与成功回写 |
 | `openai_oauth_gateway_rate_limit.go` | 统一配置、按账号分桶且跨实例共享的 OpenAI OAuth RPM/burst 准入、逻辑请求去重与协议错误投影 |
+| `image_independent_scheduling.go`, `setting_image_scheduling.go` | 画图模型独立候选的请求策略、持久开关和 5 秒运行时缓存；账号错误与图片限流仍由原调度链路检查 |
 | `openai_request_timezone.go`, `setting_openai_request_timezone.go` | OpenAI HTTP/WS 用户环境与搜索时区替换、管理员全局开关与 IANA 目标、60 秒缓存及写后立即刷新 |
+| `openai_location.go`, `setting_openai_location.go` | OpenAI OAI-Location 管理设置、账号持久化偏移、按请求生成的 10 分钟缓存偏移与 3–20 米随机精度 |
 | `openai_request_integrity_observe.go` | OpenAI OAuth 兼容转换前后语义字段的只观察差异诊断 |
 | `openai_chatgpt_headers.go`, `openai_codex_request_headers.go`, `openai_codex_metadata_sanitize.go` | OpenAI OAuth 凭据 principal 校验、HTTP JSON/SSE/Compact 媒体类型和证明/完整性状态的跨账号边界 |
-| `openai_integrity_state.go`, `openai_oauth_proof.go`, `openai_proof_binding.go`, `openai_desktop_devicecheck.go` | 发送点 proof 生成、immutable receipt、principal/installation/origin 状态隔离与 Redis 原子 CAS；独立 Desktop DeviceCheck 注册/cookie 链 |
+| `openai_integrity_state.go`, `openai_oauth_proof.go`, `openai_proof_binding.go`, `openai_desktop_devicecheck.go` | 发送点 proof 生成、principal/installation/origin 状态隔离；Responses/Compact 清除旧 integrity receipt，其他既有调用面保留 Redis 原子 CAS helper；独立 Desktop DeviceCheck 注册/cookie 链 |
 | `openai_quota_account_transport.go` | OpenAI quota/reset 通过账号级 HTTP/TLS upstream 的辅助请求路径 |
 | `account_quality_runtime_snapshot.go` | 质量巡检私有 artifact 的非敏感请求运行画像快照 |
 | `ratelimit_oauth_401_delete.go` | 网关 OAuth 401 自动删除准入、凭据 CAS 结果和运行态清理 |
 | `openai_codex_remote_control_client.go` | 绑定 OAuth credential owner、安装状态与账号出口的 native controller client 工厂 |
 | `openai_codex_remote_control_store.go` | Codex Remote Control enrollment token 的账号级加密持久化适配 |
-| `openai_gateway_forward.go`, `openai_gateway_forward_prepare.go`, `openai_gateway_request_build.go` | OpenAI 转发编排与 HTTP 上游请求构造 |
+| `openai_gateway_forward.go`, `openai_gateway_forward_prepare.go`, `openai_gateway_request_build.go`, `openai_gateway_forward_response.go` | OpenAI 转发编排、HTTP 上游请求构造，以及成功后的响应绑定/额度快照 |
 | `openai_responses_image_api_bridge.go`, `openai_responses_image_plan.go`, `http_upstream_profile.go` | Responses 图片/遮罩解析、共享下载与单图子请求；用户远程输入携带独立公开地址策略，管理员私网上游配置不放宽此策略 |
 | `invalid_auth_abuse_limiter.go`, `cloudflare_ingress_settings.go` | 无效 API Key 来源计数、本地临时封禁，以及 Access Rule/WAF 双模式的 Cloudflare 加密持久设置与边缘端口 |
 
 ## 拆分约定
+
+JSON patch、WS 握手快照复用及流式编解码的性能边界与 Docker 对照见 [网关性能优化](../../../../docs/GATEWAY_PERFORMANCE_OPTIMIZATION_CN.md)。
+
+`openai_request_integrity_observe.go` 在诊断准入后捕获原始请求快照；`image_output_accounting_view.go` 为图片计数提供局部只读投影，并在重复字段时保留原路径查询语义。WS JSON 修复/校验状态由 `openai_sse_json_documents.go` 管理，envelope 的持久身份字符串独立保存。
 
 单个功能按 `types/plan/request/forward/response/billing/runtime` 职责拆文件，不按“公共 helper”堆积。新增功能若不需要访问本包大量私有状态，应建立 `modules/<domain>` 并通过接口接入。
 
@@ -102,3 +118,27 @@ Claude 指纹的 UTF-16 前缀、Gemini fileData 计图、DeepSeek Pro/缓存读
 `gemini_declared_models.go` 对原生模型元数据复用单次账号读取；Gemini 可配置同号重试、渠道平台维度合并和 OAuth 非流式终止响应聚合见 [2026-10-29 同步记录](../../../../docs/UPSTREAM_SYNC_20261029.md)。
 
 `mcp_oauth*` owns OAuth/PKCE management authorizations and repository ports; tool schemas remain in `modules/managementmcp` and HTTP/SDK adaptation stays in transport.
+
+图片尺寸路由由 `openai_image_size_routing.go` 持有，保留有序分组和现有调度准入；Antigravity 系统身份转换和 Responses 指令回显分别由 `antigravity_system_identity.go`、`openai_responses_instructions_echo.go` 持有。新增档位须全节点升级后启用，见 [同步审查](../../../../docs/UPSTREAM_SYNC_20261104.md)。
+
+2026-11-07 同步的注册邮箱黑名单由 `registration_email_blacklist.go` 与 `admin_user_email_blacklist.go` 持有；
+名单缓存和别名规则继续使用当前注册 owner。请求解析快照和无修改 thinking 预检分别在
+`gateway_request_state.go`、`gateway_thinking_precheck.go`。`openai_account_eligibility.go` 保存当前候选准入规则，
+`auth_registration_email_blacklist.go` 保存认证入口的邮箱策略钩子，避免继续扩大兼容大文件。`openai_privacy_group.go` 保存请求所属分组的
+只读隐私条件，鉴权 v27 同时携带已确认的 RPM 分组。`billing_notification_worker.go` 只处理提醒，
+`gateway_platform_quota_persistence.go` 留在计费 worker 内执行。共享摘要缓存的主动过期与内存边界由
+`session_memory_cache.go` 管理；已有 OpenAI 兼容会话缓存继续由原 owner 管理。
+关闭/暂缓边界与 Docker 证据见 [同步审查](../../../../docs/UPSTREAM_SYNC_20261107.md)。
+
+2026-11-07 后续同步的原生 Images 2.6 请求/响应由 `openai_images_direct.go` 接入既有图片、账号出口和可靠计费 owner；`pricing_openai_defaults.go` 保存静态价卡，`openai_codex_known_metadata.go` 保存启动期 Terra 描述。Antigravity 分组额度和模型级 INTERNAL 500 仍由对应前缀持有。边界见 [后续同步](../../../../docs/UPSTREAM_SYNC_20261107_FOLLOWUP.md)。
+
+`openai_images26_options.go` 校验 2.6 参数和安全标识；原生 Images 用量在 OAuth 与 API Key 路径共享解析。`openai_images_svg_billing.go` 分别计价参考图片与 SVG 作者，再合并到既有结算命令；计费及目录边界见 [2.6 适配](../../../../docs/GPT_IMAGE26.md)。
+
+`account_test_image_options.go` 与 `openai_images_output_validation.go` 负责账号测试的原生 SVG/GIF 参数和有界文件校验；GIF 扫描不解压像素。`openai_images_frame_billing.go` 只在实际张数计费开启时按返回帧数累计 GIF 计费单位，并保持尺寸档位和 token 用量独立。
+
+ChatGPT App 账号测试对 GIF 使用 App conversation 的动画意图并验证实际 `image/gif` 文件；SVG 没有 App Images 原生输出选择器，测试会在当前 probe 内静默回退到 Codex legacy Images 链路，不修改全局 legacy 设置，也不把内部回退策略写入 SSE、请求体或用户可见文案。
+
+`openai_images_protocol_selection.go` 在发送前决定普通 OAuth 图片请求是否需要原生参数路径；API Key 与 SIWC 始终使用标准 Images。
+`openai_images_chatgpt_gif.go` 统一普通 OAuth GIF API 与账号测试的动画指令和实际帧数/帧时长校验，复用现有 App 会话、出口和可靠计费；不向 App 添加原生 Images 字段。
+`http_upstream_profile.go` 的 public-upload 标记供 App 参考图的有界 HTTPS PUT 使用，保持与 GET/HEAD 下载独立的方法门禁；默认 GIF 复杂度与审核参数不改变协议选路。
+`openai_image_output_decode.go` 与 `openai_images_response_files.go` 规范化 SVG 文件编码并复用于账号测试/API 响应，保留图像与作者用量；GIF 帧扫描继续使用流式 Base64 解码，不解压像素。

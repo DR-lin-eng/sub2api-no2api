@@ -16,7 +16,7 @@ import (
 )
 
 func (r *accountRepository) ListSchedulable(ctx context.Context) ([]service.Account, error) {
-	accounts, err := r.schedulableAccountsQuery(time.Now()).All(ctx)
+	accounts, err := r.schedulableAccountsQuery(ctx, time.Now()).All(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -24,7 +24,7 @@ func (r *accountRepository) ListSchedulable(ctx context.Context) ([]service.Acco
 }
 
 func (r *accountRepository) ListSchedulableAccountLoads(ctx context.Context) ([]service.AccountWithConcurrency, error) {
-	accounts, err := r.schedulableAccountsQuery(time.Now()).
+	accounts, err := r.schedulableAccountsQuery(ctx, time.Now()).
 		Select(
 			dbaccount.FieldID,
 			dbaccount.FieldConcurrency,
@@ -50,11 +50,11 @@ func (r *accountRepository) ListSchedulableAccountLoads(ctx context.Context) ([]
 	return loads, nil
 }
 
-func (r *accountRepository) schedulableAccountsQuery(now time.Time) *dbent.AccountQuery {
+func (r *accountRepository) schedulableAccountsQuery(ctx context.Context, now time.Time) *dbent.AccountQuery {
 	return r.client.Account.Query().
 		Where(
 			dbaccount.StatusEQ(service.StatusActive),
-			dbaccount.SchedulableEQ(true),
+			accountSchedulingSwitchPredicate(ctx),
 			schedulableTempUnschedulablePredicate(),
 			notExpiredPredicate(now),
 			dbaccount.Or(dbaccount.OverloadUntilIsNil(), dbaccount.OverloadUntilLTE(now)),
@@ -160,7 +160,7 @@ func (r *accountRepository) ListSchedulableByPlatform(ctx context.Context, platf
 		Where(
 			dbaccount.PlatformEQ(platform),
 			dbaccount.StatusEQ(service.StatusActive),
-			dbaccount.SchedulableEQ(true),
+			accountSchedulingSwitchPredicate(ctx),
 			schedulableTempUnschedulablePredicate(),
 			notExpiredPredicate(now),
 			dbaccount.Or(dbaccount.OverloadUntilIsNil(), dbaccount.OverloadUntilLTE(now)),
@@ -194,7 +194,7 @@ func (r *accountRepository) ListSchedulableByPlatforms(ctx context.Context, plat
 		Where(
 			dbaccount.PlatformIn(platforms...),
 			dbaccount.StatusEQ(service.StatusActive),
-			dbaccount.SchedulableEQ(true),
+			accountSchedulingSwitchPredicate(ctx),
 			schedulableTempUnschedulablePredicate(),
 			notExpiredPredicate(now),
 			dbaccount.Or(dbaccount.OverloadUntilIsNil(), dbaccount.OverloadUntilLTE(now)),
@@ -214,7 +214,7 @@ func (r *accountRepository) ListSchedulableUngroupedByPlatform(ctx context.Conte
 		Where(
 			dbaccount.PlatformEQ(platform),
 			dbaccount.StatusEQ(service.StatusActive),
-			dbaccount.SchedulableEQ(true),
+			accountSchedulingSwitchPredicate(ctx),
 			dbaccount.Not(dbaccount.HasAccountGroups()),
 			schedulableTempUnschedulablePredicate(),
 			notExpiredPredicate(now),
@@ -238,7 +238,7 @@ func (r *accountRepository) ListSchedulableUngroupedByPlatforms(ctx context.Cont
 		Where(
 			dbaccount.PlatformIn(platforms...),
 			dbaccount.StatusEQ(service.StatusActive),
-			dbaccount.SchedulableEQ(true),
+			accountSchedulingSwitchPredicate(ctx),
 			dbaccount.Not(dbaccount.HasAccountGroups()),
 			schedulableTempUnschedulablePredicate(),
 			notExpiredPredicate(now),
@@ -289,7 +289,7 @@ func (r *accountRepository) ListModelAvailabilityCandidates(
 
 	preds := []dbpredicate.Account{
 		dbaccount.StatusEQ(service.StatusActive),
-		dbaccount.SchedulableEQ(true),
+		accountSchedulingSwitchPredicate(ctx),
 		dbaccount.PlatformIn(platforms...),
 	}
 	if !includeGrouped {

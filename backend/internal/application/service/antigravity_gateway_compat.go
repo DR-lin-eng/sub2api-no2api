@@ -78,7 +78,7 @@ func (s *AntigravityGatewayService) ForwardAsChatCompletions(
 	if err != nil {
 		return nil, s.writeAntigravityCompatError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
 	}
-	claudeRequest, err := apicompat.ResponsesToAnthropicRequest(responsesRequest)
+	claudeRequest, err := convertAntigravityCompatResponsesToAnthropic(responsesRequest)
 	if err != nil {
 		return nil, s.writeAntigravityCompatError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
 	}
@@ -121,7 +121,7 @@ func (s *AntigravityGatewayService) ForwardAsResponses(
 		return nil, s.writeAntigravityCompatError(c, http.StatusBadRequest, "invalid_request_error", "model is required")
 	}
 
-	claudeRequest, err := apicompat.ResponsesToAnthropicRequest(&request)
+	claudeRequest, err := convertAntigravityCompatResponsesToAnthropic(&request)
 	if err != nil {
 		return nil, s.writeAntigravityCompatError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
 	}
@@ -274,7 +274,7 @@ func (s *AntigravityGatewayService) buildAntigravityCompatGeminiBody(
 	mappedModel string,
 ) ([]byte, error) {
 	if strings.HasPrefix(strings.ToLower(mappedModel), "gemini-") {
-		body, err := convertClaudeMessagesToGeminiGenerateContent(claudeBody)
+		body, err := convertClaudeMessagesToGeminiGenerateContent(claudeBody, mappedModel)
 		if err != nil {
 			return nil, err
 		}
