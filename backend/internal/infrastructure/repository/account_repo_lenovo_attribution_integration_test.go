@@ -3,6 +3,7 @@
 package repository
 
 import (
+	"context"
 	"sync"
 	"testing"
 	"time"
@@ -22,7 +23,11 @@ func TestLenovoAttributionPostgresCASRestartAndStaleEdits(t *testing.T) {
 		Status: service.StatusActive, Credentials: map[string]any{"access_token": "synthetic-token"},
 		Extra: map[string]any{"keep": true}, Concurrency: 1, Schedulable: true}
 	require.NoError(t, first.Create(ctx, a))
-	t.Cleanup(func() { _ = first.Delete(ctx, a.ID) })
+	t.Cleanup(func() {
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		require.NoError(t, first.Delete(cleanupCtx, a.ID))
+	})
 	stale, err := first.GetByID(ctx, a.ID)
 	require.NoError(t, err)
 	var wg sync.WaitGroup
