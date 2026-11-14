@@ -70,6 +70,7 @@ export interface AdminApiKeyStatus {
 export type AdminApiKeyScope =
   | "admin.read"
   | "admin.write"
+  | "admin.redeem.secrets"
   | "admin.users.read"
   | "admin.users.write"
   | "admin.accounts.read"

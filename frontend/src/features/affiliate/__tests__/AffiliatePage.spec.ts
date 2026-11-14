@@ -59,6 +59,24 @@ describe('AffiliateView', () => {
     })
   })
 
+  it('shows refund debt separately and keeps transfers disabled until it is repaid', async () => {
+    getAffiliateDetail.mockResolvedValue({
+      user_id: 1, aff_code: affiliateCode, aff_count: 1,
+      aff_quota: 0, aff_debt: 2.5, aff_frozen_quota: 0, aff_history_quota: 2.5,
+      effective_rebate_rate_percent: 10, invitees: [],
+    })
+    const wrapper = mount(AffiliateView, {
+      global: { stubs: { AppLayout: { template: '<main><slot /></main>' }, Icon: true } },
+    })
+    await flushPromises()
+    expect(wrapper.text()).toContain('affiliate.stats.debt')
+    expect(wrapper.text()).toContain('affiliate.stats.debtHint')
+    const transfer = wrapper.findAll('button').find(button => button.text().includes('affiliate.transfer.button'))
+    expect(transfer?.attributes('disabled')).toBeDefined()
+    expect(wrapper.text()).not.toContain('-$2.50')
+    wrapper.unmount()
+  })
+
   it('stacks long values and copy controls on mobile while retaining desktop rows', async () => {
     const wrapper = mount(AffiliateView, {
       global: {

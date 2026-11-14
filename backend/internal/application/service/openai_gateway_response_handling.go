@@ -476,6 +476,19 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 			if errText := strings.TrimSpace(scanErr.Error()); errText != "" {
 				msg += ": " + errText
 			}
+			// req/v3's experimental client used to impose a 120-second total
+			// timeout on the whole HTTP exchange. A body-read timeout with a
+			// live parent request is an upstream transport failure, not a client
+			// disconnect. Retry it only when the immutable request passed the
+			// replay-safety gate; the outer handler/bridge owns the bounded
+			// same-account and account failover budgets.
+			if (ctx == nil || ctx.Err() == nil) &&
+				isOpenAITransportTimeout(scanErr) &&
+				!IsOpenAIStreamResponseHeaderTimeout(scanErr) &&
+				openAIStreamReplaySafe(c) {
+				markOpenAITransportTimeoutPending(c)
+				return resultWithUsage(), s.newRetryableOpenAIStreamFailoverError(c, account, false, upstreamRequestID, nil, msg), true
+			}
 			return resultWithUsage(), s.newOpenAIStreamFailoverError(c, account, false, upstreamRequestID, nil, msg), true
 		}
 		// 客户端已断开时，上游出错仅影响体验，不影响计费；返回已收集 usage

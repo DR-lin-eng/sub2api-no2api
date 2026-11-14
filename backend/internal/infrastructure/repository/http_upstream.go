@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/flate"
 	"compress/gzip"
+	"compress/zlib"
 	"context"
 	"crypto/sha256"
 	"crypto/tls"
@@ -164,12 +165,32 @@ func experimentalHTTPClientForRequest(client *req.Client, request *http.Request)
 		return nil
 	}
 	base := client.GetClient()
-	if base == nil || request == nil || !service.HTTPUpstreamRedirectsDisabled(request.Context()) {
+	if base == nil {
 		return base
 	}
+	streamRequest := request != nil && service.HTTPUpstreamProfileFromContext(request.Context()) == service.HTTPUpstreamProfileOpenAIStream
+	redirectsDisabled := request != nil && service.HTTPUpstreamRedirectsDisabled(request.Context())
+	if !streamRequest && !redirectsDisabled {
+		return base
+	}
+
+	// req/v3's default http.Client has a 120-second total Timeout. That value is
+	// appropriate for short OAuth/token exchanges, but it also includes reading
+	// an already-started SSE response body. The experimental Codex transport is
+	// selected for model requests as well, so a long Responses stream would be
+	// cancelled at exactly two minutes even while the upstream is still sending
+	// a valid response. Streaming requests already have request-context,
+	// response-header, first-output, and stream-interval guards; remove only the
+	// client-wide deadline for that profile. Keep the finite req/v3 timeout for
+	// non-streaming requests.
 	clone := *base
-	clone.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
-		return http.ErrUseLastResponse
+	if redirectsDisabled {
+		clone.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		}
+	}
+	if streamRequest {
+		clone.Timeout = 0
 	}
 	return &clone
 }
@@ -1880,7 +1901,20 @@ func decompressResponseBody(resp *http.Response) {
 	case "br":
 		reader = brotli.NewReader(resp.Body)
 	case "deflate":
-		reader = flate.NewReader(resp.Body)
+		// HTTP deflate uses a zlib wrapper (RFC 9110). Retain compatibility
+		// with relays that historically sent raw DEFLATE under the same name.
+		bufferedBody := bufio.NewReader(resp.Body)
+		resp.Body = &decompressedBody{reader: bufferedBody, closer: originalBody}
+		header, _ := bufferedBody.Peek(2)
+		if len(header) == 2 && header[0]&0x0f == 8 && header[0]>>4 <= 7 && (uint16(header[0])<<8|uint16(header[1]))%31 == 0 {
+			zr, err := zlib.NewReader(bufferedBody)
+			if err != nil {
+				return
+			}
+			reader = zr
+		} else {
+			reader = flate.NewReader(bufferedBody)
+		}
 	case "zstd":
 		bufferedBody := bufio.NewReader(resp.Body)
 		resp.Body = &decompressedBody{reader: bufferedBody, closer: originalBody}

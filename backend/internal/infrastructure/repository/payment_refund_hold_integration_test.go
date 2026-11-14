@@ -115,6 +115,66 @@ func TestPaymentRefundHoldPostgres(t *testing.T) {
 			require.Error(t, err)
 		})
 	}
+	for _, settled := range []string{"succeeded", "failed"} {
+		t.Run("pending rebate reversal "+settled, func(t *testing.T) {
+			order := create(t)
+			inviter, err := client.User.Create().SetEmail(fmt.Sprintf("pending-rebate-%d@fixture.invalid", time.Now().UnixNano())).SetPasswordHash("fixture").Save(ctx)
+			require.NoError(t, err)
+			affiliates := NewAffiliateRepository(client, integrationDB)
+			_, err = affiliates.BindInviter(ctx, order.UserID, inviter.ID)
+			require.NoError(t, err)
+			_, err = affiliates.AccrueQuota(ctx, inviter.ID, order.UserID, 10, 0, &order.ID)
+			require.NoError(t, err)
+			_, _, err = affiliates.TransferQuotaToBalance(ctx, inviter.ID)
+			require.NoError(t, err)
+			begin(t, order)
+			summary, err := affiliates.EnsureUserAffiliate(ctx, inviter.ID)
+			require.NoError(t, err)
+			require.Zero(t, summary.AffDebt, "pending does not reverse rewards")
+			rebateSvc := service.NewPaymentService(client, payment.NewRegistry(), payment.NewDefaultLoadBalancer(client, encryptionKey), nil, subscriptionService, nil, users, nil, service.NewAffiliateService(affiliates, nil, nil, nil))
+			gatewayStatus.Store(settled)
+			_, err = rebateSvc.QueryAndFinalizeRefund(ctx, order.ID)
+			require.NoError(t, err)
+			summary, err = affiliates.EnsureUserAffiliate(ctx, inviter.ID)
+			require.NoError(t, err)
+			if settled == "succeeded" {
+				require.Equal(t, 10.0, summary.AffDebt)
+			} else {
+				require.Zero(t, summary.AffDebt)
+			}
+		})
+	}
+	t.Run("retry can enter pending and fail again", func(t *testing.T) {
+		order := create(t)
+		for range 2 {
+			begin(t, order)
+			gatewayStatus.Store("failed")
+			result, err := svc.QueryAndFinalizeRefund(ctx, order.ID)
+			require.NoError(t, err)
+			require.False(t, result.Success)
+			user, err := users.GetByID(ctx, order.UserID)
+			require.NoError(t, err)
+			require.Equal(t, 100.0, user.Balance)
+		}
+	})
+	t.Run("legacy returned hold settles approved credit in full", func(t *testing.T) {
+		order := create(t)
+		_, err := client.PaymentOrder.UpdateOneID(order.ID).SetStatus(service.OrderStatusRefundPending).SetRefundAmount(100).Save(ctx)
+		require.NoError(t, err)
+		_, err = client.PaymentAuditLog.Create().SetOrderID(strconv.FormatInt(order.ID, 10)).SetAction("REFUND_PENDING").
+			SetDetail(`{"refundID":"re_fixture","deductionRollbackOK":true,"balanceDeducted":100}`).Save(ctx)
+		require.NoError(t, err)
+		_, err = client.User.UpdateOneID(order.UserID).SetBalance(5).Save(ctx)
+		require.NoError(t, err)
+		gatewayStatus.Store("succeeded")
+		result, err := svc.QueryAndFinalizeRefund(ctx, order.ID)
+		require.NoError(t, err)
+		require.True(t, result.Success)
+		require.Equal(t, 100.0, result.BalanceDeducted)
+		user, err := users.GetByID(ctx, order.UserID)
+		require.NoError(t, err)
+		require.Equal(t, -95.0, user.Balance)
+	})
 	t.Run("audit failure rolls back status and returned funds", func(t *testing.T) {
 		order := create(t)
 		begin(t, order)

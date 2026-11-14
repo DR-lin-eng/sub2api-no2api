@@ -33,6 +33,8 @@
 | 修改分组用量汇总 | `application/service/group_usage_rollup.go` | `infrastructure/repository/group_usage_rollup_repo.go`, `usage_log_repo_group_rollup.go`, `features/admin-groups/` | rollup unit/integration + admin-groups feature tests |
 | 修改订阅配额 | `application/service/subscription*` | `repository/subscription*`, middleware | subscription + gateway billing 测试 |
 | 修改支付 | `internal/modules/payment/`, `frontend/src/features/billing/paymentContracts.ts` | `routes/payment.go`, payment handlers/repositories；前端 `features/billing/`, `features/admin-orders/` | provider、webhook、订单状态 + 前端 billing/admin-orders 测试 |
+| 商户硬限额与退款返利 | `application/service/payment_provider_budget.go`, `payment_refund.go`, `affiliate_refund.go` | `modules/payment/budget.go`, `repository/affiliate_refund.go`, `features/affiliate/` | PostgreSQL 并发准入、追回/解冻/转出、成功凭证重试与欠额展示 |
+| 管理密钥卡密权限 | `server/middleware/redeem_secrets.go`, `handler/admin/redeem_secrets.go` | `application/service/admin_api_keys.go`, `admin_api_key_legacy_scopes.go`, `features/admin-settings/` | 逐出口脱敏、搜索/导出/幂等撤权、旧密钥值兼容与编辑测试 |
 | 修改活动中心/抽奖 | `internal/modules/activitycenter/campaign.go`, `transport/http/server/routes/user.go`, `admin.go` | `repository/activity_center_repo.go`, `application/service/activity_center_rewards.go`, 前端 `features/activity-center/` | activitycenter + DTO/handler 编译 + activity-center Vitest/typecheck |
 | 修改数据库表 | `backend/ent/schema/` | `backend/migrations/`, repository, DTO | generate + migration/integration tests |
 | 修改运行配置 | `platform/config/` | `deploy/config.example.yaml`, setting service/admin UI | config tests + 相关 service/前端测试 |

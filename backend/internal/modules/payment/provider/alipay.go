@@ -348,7 +348,13 @@ func (a *Alipay) Refund(ctx context.Context, req payment.RefundRequest) (*paymen
 		return nil, err
 	}
 
-	outRequestNo := fmt.Sprintf("%s%s%d", req.OrderID, alipayRefundRequestSep, time.Now().UnixNano())
+	amountMinor, err := payment.AmountToMinorUnit(req.Amount, payment.DefaultPaymentCurrency)
+	if err != nil {
+		return nil, fmt.Errorf("alipay refund amount: %w", err)
+	}
+	// Repeating the same refund after a lost response must address the same
+	// upstream operation, just as the other idempotent providers do.
+	outRequestNo := fmt.Sprintf("%s%s%d", req.OrderID, alipayRefundRequestSep, amountMinor)
 	result, err := alipayTradeRefund(ctx, client, alipay.TradeRefund{
 		OutTradeNo:   req.OrderID,
 		RefundAmount: req.Amount,
@@ -356,10 +362,13 @@ func (a *Alipay) Refund(ctx context.Context, req payment.RefundRequest) (*paymen
 		OutRequestNo: outRequestNo,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("alipay TradeRefund: %w", err)
+		// The gateway may have accepted the refund before the connection
+		// failed. Keep the deduction held until QueryRefund confirms the
+		// terminal state rather than allowing a new refund attempt.
+		return &payment.RefundResponse{RefundID: outRequestNo, Status: payment.ProviderStatusPending}, fmt.Errorf("alipay TradeRefund: %w", err)
 	}
 	if result == nil {
-		return nil, fmt.Errorf("alipay TradeRefund: empty response")
+		return &payment.RefundResponse{RefundID: outRequestNo, Status: payment.ProviderStatusPending}, fmt.Errorf("alipay TradeRefund: empty response")
 	}
 
 	refundStatus := payment.ProviderStatusPending

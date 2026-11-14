@@ -825,6 +825,8 @@ export default {
       rebateRateHint: 'What you earn each time an invitee recharges',
       invitedUsers: 'Invited Users',
       availableQuota: 'Available Rebate Quota',
+      debt: 'Rebate debt',
+      debtHint: 'Refunded rewards already transferred are repaid from future rebates before more can be transferred.',
       frozenQuota: 'Frozen',
       frozenQuotaHint: 'Recently earned rebates pending release',
       totalQuota: 'Historical Rebate Quota'

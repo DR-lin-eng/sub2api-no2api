@@ -942,8 +942,9 @@ export default {
         metricsIntervalHint: '系统/请求指标采集频率（60-3600 秒）'
       },
       adminApiKey: {
+        redeemSecretsScope: '卡密明文读取与导出',
         title: '管理员 API Key',
-        description: '旧版兼容 API Key。新生成的 scoped Key 才能按资源和读写操作授权，旧 Key 仅保留只读权限。',
+        description: '按资源、读写及卡密分别授权。现有密钥（含旧版）可直接编辑权限，无需更换密钥值；旧版默认只读。',
         notConfigured: '尚未配置管理员 API Key',
         configured: '管理员 API Key 已启用',
         currentKey: '当前密钥',
@@ -960,10 +961,10 @@ export default {
         copyKey: '复制密钥',
         keyCopied: '密钥已复制到剪贴板',
         keyWarning: '此密钥仅显示一次，请立即复制保存。',
-        securityWarning: '旧版 Key 仅允许受限只读操作；建议迁移到上方的 scoped Key，并妥善保管密钥。',
+        securityWarning: '卡密权限仅授予可信集成。在上方编辑原密钥权限即可保留原密钥值，现有软件无需换密钥。',
         usage: '使用方法：在请求头中添加 x-api-key: <your-admin-api-key>',
         scopedTitle: '管理员 API Key 权限控制',
-        scopedDescription: '为不同的自动化任务创建独立密钥，按资源和读写操作授予最小权限。密钥只保存摘要，完整值仅在创建或轮换时显示一次。',
+        scopedDescription: '按集成分别管理资源、读写和卡密权限。编辑权限保持原密钥值，只有创建或轮换时才显示新密钥。',
         namePlaceholder: '密钥名称，例如：只读运维',
         createScoped: '创建 scoped Key',
         saveScoped: '保存权限',

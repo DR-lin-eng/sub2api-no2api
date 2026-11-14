@@ -2,6 +2,7 @@ package payment
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/shopspring/decimal"
@@ -109,6 +110,9 @@ func AmountToMinorUnit(amountStr, currency string) (int64, error) {
 	}
 	factor := decimal.New(1, int32(amountUnit.apiMinorUnit))
 	minorAmount := d.Mul(factor)
+	if minorAmount.GreaterThan(decimal.NewFromInt(math.MaxInt64)) || minorAmount.LessThan(decimal.NewFromInt(math.MinInt64)) {
+		return 0, fmt.Errorf("payment amount for %s exceeds supported minor-unit range", normalizedCurrency)
+	}
 	return minorAmount.IntPart(), nil
 }
 

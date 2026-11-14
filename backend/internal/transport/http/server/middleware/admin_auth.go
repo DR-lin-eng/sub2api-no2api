@@ -192,10 +192,13 @@ func adminAPIKeyRequestAllowed(c *gin.Context, scopes []string) bool {
 }
 
 func adminAPIKeyRequiredScope(method, path string) string {
+	if strings.EqualFold(method, http.MethodGet) && path == "/api/v1/admin/redeem-codes/export" ||
+		strings.EqualFold(method, http.MethodPost) && path == "/api/v1/admin/redeem-codes/export-generated" {
+		return service.AdminAPIKeyScopeRedeemSecrets
+	}
 	read := strings.EqualFold(method, http.MethodGet) ||
 		strings.EqualFold(method, http.MethodHead) ||
-		strings.EqualFold(method, http.MethodOptions) ||
-		(strings.EqualFold(method, http.MethodPost) && path == "/api/v1/admin/redeem-codes/export-generated")
+		strings.EqualFold(method, http.MethodOptions)
 	verb := ".write"
 	if read {
 		verb = ".read"

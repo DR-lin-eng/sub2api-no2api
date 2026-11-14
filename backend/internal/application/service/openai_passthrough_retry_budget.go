@@ -14,7 +14,23 @@ const (
 	openAIPassthroughRetryBudgetContextKey                      = "openai_passthrough_retry_budget"
 	openAIPassthroughRetryBudgetReason     GatewayFailureReason = "openai_passthrough_attempt_budget_exhausted"
 	openAIPassthroughNonReplayableReason   GatewayFailureReason = "openai_passthrough_non_replayable_transport"
+	openAIStreamReplaySafeContextKey                            = "openai_stream_replay_safe"
 )
+
+func setOpenAIStreamReplaySafe(c *gin.Context, replaySafe bool) {
+	if c != nil {
+		c.Set(openAIStreamReplaySafeContextKey, replaySafe)
+	}
+}
+
+func openAIStreamReplaySafe(c *gin.Context) bool {
+	if c == nil {
+		return false
+	}
+	value, _ := c.Get(openAIStreamReplaySafeContextKey)
+	replaySafe, _ := value.(bool)
+	return replaySafe
+}
 
 // openAIPassthroughRetryBudget is shared by every account attempt in one HTTP
 // request. The handler reuses the Gin context while switching accounts, so a

@@ -45,6 +45,7 @@ export function useSettingsAdminApiKeys(
   const adminApiKeyScopeOptions: Array<{ value: AdminApiKeyScope; label: string }> = [
     { value: "admin.read", label: "全部只读" },
     { value: "admin.write", label: "全部写入" },
+    { value: "admin.redeem.secrets", label: t("admin.settings.adminApiKey.redeemSecretsScope") },
     { value: "admin.users.read", label: "用户读取" },
     { value: "admin.users.write", label: "用户修改" },
     { value: "admin.accounts.read", label: "账号读取" },

@@ -100,6 +100,10 @@ var pendingOrderStatuses = []string{
 	payment.OrderStatusPending,
 	payment.OrderStatusPaid,
 	payment.OrderStatusRecharging,
+	payment.OrderStatusRefundRequested,
+	payment.OrderStatusRefunding,
+	payment.OrderStatusRefundPending,
+	payment.OrderStatusRefundFailed,
 }
 
 // providerSensitiveConfigFields is the authoritative list of config keys that

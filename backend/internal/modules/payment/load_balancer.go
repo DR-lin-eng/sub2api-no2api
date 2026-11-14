@@ -83,7 +83,7 @@ type instanceCandidate struct {
 //  2. Batch-query daily usage (PENDING + PAID + COMPLETED + RECHARGING) for all candidates
 //  3. Filter out instances where: single-min/max violated OR daily remaining < orderAmount
 //  4. Pick from survivors using the configured strategy (round-robin / least-amount)
-//  5. If all filtered out, fall back to full list (let the provider itself reject)
+//  5. Reject when no merchant can accommodate the quotation.
 func (lb *DefaultLoadBalancer) SelectInstance(
 	ctx context.Context,
 	providerKey string,
@@ -98,15 +98,15 @@ func (lb *DefaultLoadBalancer) SelectInstance(
 	}
 
 	// Step 2: batch-fetch daily usage for all candidates.
-	candidates := lb.attachDailyUsage(ctx, instances)
+	candidates, err := lb.attachDailyUsage(ctx, instances)
+	if err != nil {
+		return nil, err
+	}
 
 	// Step 3: filter by limits.
 	available := filterByLimits(candidates, paymentType, orderAmount)
 	if len(available) == 0 {
-		slog.Warn("all instances exceeded limits, using full candidate list",
-			"provider", providerKey, "payment_type", paymentType,
-			"order_amount", orderAmount, "count", len(candidates))
-		available = candidates
+		return nil, fmt.Errorf("no provider instance within configured limits")
 	}
 
 	// Step 4: pick by strategy.
@@ -166,53 +166,20 @@ func (lb *DefaultLoadBalancer) queryEnabledInstances(
 
 // attachDailyUsage queries daily usage for each instance in a single pass.
 // Usage includes PENDING orders to avoid over-committing capacity.
-func (lb *DefaultLoadBalancer) attachDailyUsage(
-	ctx context.Context,
-	instances []*dbent.PaymentProviderInstance,
-) []instanceCandidate {
-	todayStart := startOfDay(time.Now())
-
-	// Collect instance IDs.
+func (lb *DefaultLoadBalancer) attachDailyUsage(ctx context.Context, instances []*dbent.PaymentProviderInstance) ([]instanceCandidate, error) {
 	ids := make([]string, len(instances))
-	for i, inst := range instances {
-		ids[i] = fmt.Sprintf("%d", inst.ID)
+	for i, instance := range instances {
+		ids[i] = fmt.Sprintf("%d", instance.ID)
 	}
-
-	// Batch query: sum pay_amount grouped by provider_instance_id.
-	type row struct {
-		InstanceID string  `json:"provider_instance_id"`
-		Sum        float64 `json:"sum"`
-	}
-	var rows []row
-	err := lb.db.PaymentOrder.Query().
-		Where(
-			paymentorder.ProviderInstanceIDIn(ids...),
-			paymentorder.StatusIn(
-				OrderStatusPending, OrderStatusPaid,
-				OrderStatusCompleted, OrderStatusRecharging,
-			),
-			paymentorder.CreatedAtGTE(todayStart),
-		).
-		GroupBy(paymentorder.FieldProviderInstanceID).
-		Aggregate(dbent.Sum(paymentorder.FieldPayAmount)).
-		Scan(ctx, &rows)
+	usage, err := ProviderDailyUsage(ctx, lb.db, ids, time.Now())
 	if err != nil {
-		slog.Warn("batch daily usage query failed, treating all as zero", "error", err)
+		return nil, err
 	}
-
-	usageMap := make(map[string]float64, len(rows))
-	for _, r := range rows {
-		usageMap[r.InstanceID] = r.Sum
-	}
-
 	candidates := make([]instanceCandidate, len(instances))
-	for i, inst := range instances {
-		candidates[i] = instanceCandidate{
-			inst:      inst,
-			dailyUsed: usageMap[fmt.Sprintf("%d", inst.ID)],
-		}
+	for i, instance := range instances {
+		candidates[i] = instanceCandidate{inst: instance, dailyUsed: usage[ids[i]]}
 	}
-	return candidates
+	return candidates, nil
 }
 
 // filterByLimits removes instances that cannot accommodate the order:
@@ -220,39 +187,27 @@ func (lb *DefaultLoadBalancer) attachDailyUsage(
 //   - daily remaining capacity (limit - used) < orderAmount
 func filterByLimits(candidates []instanceCandidate, paymentType PaymentType, orderAmount float64) []instanceCandidate {
 	var result []instanceCandidate
-	for _, c := range candidates {
-		cl := getInstanceChannelLimits(c.inst, paymentType)
-
-		if cl.SingleMin > 0 && orderAmount < cl.SingleMin {
-			slog.Info("order below instance single min, skipping",
-				"instance_id", c.inst.ID, "order", orderAmount, "min", cl.SingleMin)
+	for _, candidate := range candidates {
+		limits, err := GetInstanceChannelLimits(candidate.inst, paymentType)
+		if err != nil {
 			continue
 		}
-		if cl.SingleMax > 0 && orderAmount > cl.SingleMax {
-			slog.Info("order above instance single max, skipping",
-				"instance_id", c.inst.ID, "order", orderAmount, "max", cl.SingleMax)
+		if CheckChannelBudget(limits, candidate.dailyUsed, orderAmount) != nil {
 			continue
 		}
-		if cl.DailyLimit > 0 && c.dailyUsed+orderAmount > cl.DailyLimit {
-			slog.Info("instance daily remaining insufficient, skipping",
-				"instance_id", c.inst.ID, "used", c.dailyUsed,
-				"order", orderAmount, "limit", cl.DailyLimit)
-			continue
-		}
-
-		result = append(result, c)
+		result = append(result, candidate)
 	}
 	return result
 }
 
-// getInstanceChannelLimits returns the channel limits for a specific payment type.
-func getInstanceChannelLimits(inst *dbent.PaymentProviderInstance, paymentType PaymentType) ChannelLimits {
+// GetInstanceChannelLimits returns the channel limits for a specific payment type.
+func GetInstanceChannelLimits(inst *dbent.PaymentProviderInstance, paymentType PaymentType) (ChannelLimits, error) {
 	if inst.Limits == "" {
-		return ChannelLimits{}
+		return ChannelLimits{}, nil
 	}
 	var limits InstanceLimits
 	if err := json.Unmarshal([]byte(inst.Limits), &limits); err != nil {
-		return ChannelLimits{}
+		return ChannelLimits{}, fmt.Errorf("invalid provider limits: %w", err)
 	}
 	// For Stripe, limits are stored under the provider key "stripe".
 	lookupKey := paymentType
@@ -260,14 +215,14 @@ func getInstanceChannelLimits(inst *dbent.PaymentProviderInstance, paymentType P
 		lookupKey = "stripe"
 	}
 	if cl, ok := limits[lookupKey]; ok {
-		return cl
+		return cl, nil
 	}
 	if aliasKey := legacyVisibleMethodAlias(lookupKey); aliasKey != "" {
 		if cl, ok := limits[aliasKey]; ok {
-			return cl
+			return cl, nil
 		}
 	}
-	return ChannelLimits{}
+	return ChannelLimits{}, nil
 }
 
 // pickByStrategy selects one instance from the available candidates.

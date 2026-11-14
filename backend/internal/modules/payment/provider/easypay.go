@@ -543,9 +543,15 @@ func (e *EasyPay) Refund(ctx context.Context, req payment.RefundRequest) (*payme
 	for i, attempt := range attempts {
 		body, status, err := e.postRaw(ctx, e.apiBase()+"/api.php?act=refund", attempt.params)
 		if err != nil {
+			if refundTransportUncertain(err) {
+				return &payment.RefundResponse{RefundID: attempt.refundID, Status: payment.ProviderStatusPending}, fmt.Errorf("easypay refund outcome unknown: %w", err)
+			}
 			return nil, fmt.Errorf("easypay refund request: %w", err)
 		}
 		if err := parseEasyPayRefundResponse(status, body, successCode); err != nil {
+			if status >= 500 || status >= 200 && status < 300 && !json.Valid(body) {
+				return &payment.RefundResponse{RefundID: attempt.refundID, Status: payment.ProviderStatusPending}, err
+			}
 			if firstErr == nil {
 				firstErr = err
 			}

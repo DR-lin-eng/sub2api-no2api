@@ -42,7 +42,7 @@ LEFT JOIN (
     GROUP BY user_id
 ) rebated ON rebated.user_id = ua.user_id
 LEFT JOIN (
-    SELECT user_id, COALESCE(SUM(amount), 0)::double precision AS matured_frozen_quota
+    SELECT user_id, COALESCE(SUM(amount-reversed_amount), 0)::double precision AS matured_frozen_quota
     FROM user_affiliate_ledger
     WHERE action = 'accrue' AND frozen_until IS NOT NULL AND frozen_until <= NOW()
     GROUP BY user_id
@@ -192,14 +192,19 @@ func (r *affiliateRepository) ThawFrozenQuota(ctx context.Context, userID int64)
 
 // thawFrozenQuotaTx moves matured frozen quota to available quota within an existing tx.
 func thawFrozenQuotaTx(txCtx context.Context, txClient *dbent.Client, userID int64) (float64, error) {
+	found, err := lockAffiliateAccount(txCtx, txClient, userID)
+	if err != nil || !found {
+		return 0, err
+	}
 	rows, err := txClient.QueryContext(txCtx, `
 WITH matured AS (
     UPDATE user_affiliate_ledger
     SET frozen_until = NULL, updated_at = NOW()
     WHERE user_id = $1
+	  AND action = 'accrue'
       AND frozen_until IS NOT NULL
       AND frozen_until <= NOW()
-    RETURNING amount
+    RETURNING GREATEST(amount - reversed_amount, 0) AS amount
 )
 SELECT COALESCE(SUM(amount), 0) FROM matured`, userID)
 	if err != nil {
@@ -669,6 +674,10 @@ func (r *affiliateRepository) GetAffiliateUserOverview(ctx context.Context, user
 		overview.RebateRatePercent = customRate
 		overview.RebateRateCustom = true
 	}
+	if overview.AvailableQuota < 0 {
+		overview.Debt = -overview.AvailableQuota
+		overview.AvailableQuota = 0
+	}
 	return &overview, rows.Err()
 }
 
@@ -829,6 +838,7 @@ WHERE user_id = $1`, userID)
 		v := rebateRate.Float64
 		out.AffRebateRatePercent = &v
 	}
+	normalizeAffiliateDebt(&out)
 	return &out, nil
 }
 
@@ -885,6 +895,7 @@ LIMIT 1`, strings.ToUpper(strings.TrimSpace(code)))
 		v := rebateRate.Float64
 		out.AffRebateRatePercent = &v
 	}
+	normalizeAffiliateDebt(&out)
 	return &out, nil
 }
 
@@ -1208,4 +1219,11 @@ func scanInt64(ctx context.Context, client affiliateQueryExecer, query string, a
 		return 0, err
 	}
 	return v, nil
+}
+
+func normalizeAffiliateDebt(summary *service.AffiliateSummary) {
+	if summary.AffQuota < 0 {
+		summary.AffDebt = -summary.AffQuota
+		summary.AffQuota = 0
+	}
 }

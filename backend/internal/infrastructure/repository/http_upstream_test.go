@@ -17,6 +17,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
@@ -94,6 +95,54 @@ func TestCodexExperimentalHTTP2ClientNegotiatesAndKeepsConfiguredSettings(t *tes
 	data, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	require.Equal(t, `{"ok":true}`, string(data))
+}
+
+func TestCodexExperimentalHTTPClientDisablesTotalTimeoutForOpenAIStream(t *testing.T) {
+	codexsimulation.SetCLevelEnabled(true)
+	codexsimulation.SetExperimentalTransportEnabled(true)
+	t.Cleanup(func() {
+		codexsimulation.SetCLevelEnabled(false)
+		codexsimulation.SetExperimentalTransportEnabled(false)
+	})
+
+	profile := tlsfingerprint.BuiltInCodexRustlsProfile().WithCodexExperimentalTransport()
+	client := buildCodexExperimentalHTTP2Client(profile, platformegress.DirectRoute(false), nil)
+	require.NotNil(t, client)
+	require.Equal(t, 2*time.Minute, client.GetClient().Timeout, "req/v3 keeps its finite default for non-streaming requests")
+
+	streamRequest := httptest.NewRequest(http.MethodPost, "https://chatgpt.com/backend-api/codex/responses", nil)
+	streamRequest = streamRequest.WithContext(service.WithHTTPUpstreamProfile(streamRequest.Context(), service.HTTPUpstreamProfileOpenAIStream))
+	streamClient := experimentalHTTPClientForRequest(client, streamRequest)
+	require.NotSame(t, client.GetClient(), streamClient)
+	require.Zero(t, streamClient.Timeout, "streaming model responses must not inherit req/v3's two-minute total timeout")
+
+	nonStreamRequest := httptest.NewRequest(http.MethodPost, "https://chatgpt.com/backend-api/codex/responses", nil)
+	nonStreamRequest = nonStreamRequest.WithContext(service.WithHTTPUpstreamProfile(nonStreamRequest.Context(), service.HTTPUpstreamProfileOpenAI))
+	nonStreamClient := experimentalHTTPClientForRequest(client, nonStreamRequest)
+	require.Same(t, client.GetClient(), nonStreamClient)
+	require.Equal(t, 2*time.Minute, nonStreamClient.Timeout)
+}
+
+func TestCodexExperimentalHTTPClientKeepsRedirectOverrideWithStreamTimeoutPolicy(t *testing.T) {
+	codexsimulation.SetCLevelEnabled(true)
+	codexsimulation.SetExperimentalTransportEnabled(true)
+	t.Cleanup(func() {
+		codexsimulation.SetCLevelEnabled(false)
+		codexsimulation.SetExperimentalTransportEnabled(false)
+	})
+
+	profile := tlsfingerprint.BuiltInCodexRustlsProfile().WithCodexExperimentalTransport()
+	client := buildCodexExperimentalHTTP2Client(profile, platformegress.DirectRoute(false), nil)
+	require.NotNil(t, client)
+	request := httptest.NewRequest(http.MethodGet, "https://chatgpt.com/backend-api/models", nil)
+	ctx := service.WithHTTPUpstreamRedirectsDisabled(request.Context())
+	ctx = service.WithHTTPUpstreamProfile(ctx, service.HTTPUpstreamProfileOpenAIStream)
+	request = request.WithContext(ctx)
+	cloned := experimentalHTTPClientForRequest(client, request)
+	require.NotSame(t, client.GetClient(), cloned)
+	require.Zero(t, cloned.Timeout)
+	require.NotNil(t, cloned.CheckRedirect)
+	require.ErrorIs(t, cloned.CheckRedirect(request, nil), http.ErrUseLastResponse)
 }
 
 func TestCodexExperimentalDiagnosticIsRateLimitedAndRedacted(t *testing.T) {
