@@ -34,13 +34,17 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const isEdit = computed(() => !!props.scheme)
 
+const DEFAULT_TTFT_WEIGHT = 40
+const DEFAULT_ERROR_WEIGHT = 60
+
 const form = ref<RoutingSchemeDraft>({
   name: '',
   description: '',
   platform: 'deepseek',
   status: 'active',
   sort_order: 10,
-  sort_mode: 'score',
+  ttft_weight: DEFAULT_TTFT_WEIGHT,
+  error_weight: DEFAULT_ERROR_WEIGHT,
   items: [],
 })
 
@@ -53,7 +57,8 @@ const reset = () => {
         platform: source.platform,
         status: source.status,
         sort_order: source.sort_order,
-        sort_mode: source.sort_mode ?? 'score',
+        ttft_weight: source.ttft_weight,
+        error_weight: source.error_weight,
         items: source.items.map(item => ({ ...item })),
       }
     : {
@@ -62,7 +67,8 @@ const reset = () => {
         platform: props.groups[0]?.platform ?? 'deepseek',
         status: 'active',
         sort_order: 10,
-        sort_mode: 'score',
+        ttft_weight: DEFAULT_TTFT_WEIGHT,
+        error_weight: DEFAULT_ERROR_WEIGHT,
         items: [],
       }
 }
@@ -70,6 +76,27 @@ const reset = () => {
 watch(() => props.show, (show) => {
   if (show) reset()
 }, { immediate: true })
+
+const clampWeight = (value: unknown): number => {
+  const numeric = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(numeric)) return 0
+  return Math.min(100, Math.max(0, Math.round(numeric)))
+}
+
+// Weights only matter through their ratio; zero/zero falls back to the backend
+// default so the preview always matches what the scheduler will use.
+const scoreWeights = computed(() => {
+  let ttft = clampWeight(form.value.ttft_weight)
+  let errors = clampWeight(form.value.error_weight)
+  let valid = true
+  if (ttft + errors === 0) {
+    ttft = DEFAULT_TTFT_WEIGHT
+    errors = DEFAULT_ERROR_WEIGHT
+    valid = false
+  }
+  const ttftShare = Math.round((ttft / (ttft + errors)) * 100)
+  return { ttft, errors, ttftShare, errorShare: 100 - ttftShare, valid }
+})
 
 let scoreRequestSeq = 0
 const mergeGroupScores = async () => {
@@ -79,7 +106,7 @@ const mergeGroupScores = async () => {
   if (ids.length === 0) return
   const seq = ++scoreRequestSeq
   try {
-    const scores = await listGroupScores(ids)
+    const scores = await listGroupScores(ids, scoreWeights.value.ttft, scoreWeights.value.errors)
     if (seq !== scoreRequestSeq) return
     const byID = new Map(scores.map(score => [score.group_id, score]))
     form.value.items = form.value.items.map((item) => {
@@ -100,10 +127,11 @@ const mergeGroupScores = async () => {
   }
 }
 
-// Pull read-only scores as soon as the selected group set changes, including
-// before the scheme is saved for the first time.
+// Pull read-only scores as soon as the selected groups or the score weights
+// change, including before the scheme is saved for the first time.
 watch(
-  () => form.value.items.map(item => item.group_id).join(','),
+  () => `${form.value.items.map(item => item.group_id).join(',')}`
+    + `|${scoreWeights.value.ttft}|${scoreWeights.value.errors}`,
   () => { void mergeGroupScores() },
 )
 
@@ -143,15 +171,19 @@ const changePlatform = (value: string | number | boolean | null) => {
 
 const canSave = computed(() =>
   form.value.name.trim().length > 0
-  && form.value.items.length > 0,
+  && form.value.items.length > 0
+  && scoreWeights.value.valid,
 )
 
 const submit = () => {
   if (!canSave.value || props.saving) return
+  const weights = scoreWeights.value
   emit('save', {
     ...form.value,
     name: form.value.name.trim(),
     description: form.value.description.trim(),
+    ttft_weight: weights.ttft,
+    error_weight: weights.errors,
     items: form.value.items.map(item => ({ ...item })),
   })
 }
@@ -213,6 +245,43 @@ const submit = () => {
           </div>
 
           <div>
+            <label class="input-label">{{ t('admin.routingSchemes.form.scoreWeights') }}</label>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="input-label">{{ t('admin.routingSchemes.form.ttftWeight') }}</label>
+                <input
+                  v-model.number="form.ttft_weight"
+                  type="number"
+                  step="1"
+                  class="input"
+                  min="0"
+                  max="100"
+                />
+                <p class="input-hint">
+                  {{ t('admin.routingSchemes.form.weightShare', { percent: scoreWeights.ttftShare }) }}
+                </p>
+              </div>
+              <div>
+                <label class="input-label">{{ t('admin.routingSchemes.form.errorWeight') }}</label>
+                <input
+                  v-model.number="form.error_weight"
+                  type="number"
+                  step="1"
+                  class="input"
+                  min="0"
+                  max="100"
+                />
+                <p class="input-hint">
+                  {{ t('admin.routingSchemes.form.weightShare', { percent: scoreWeights.errorShare }) }}
+                </p>
+              </div>
+            </div>
+            <p class="input-hint">
+              {{ t('admin.routingSchemes.form.scoreWeightHint') }}
+            </p>
+          </div>
+
+          <div>
             <label class="input-label">{{ t('admin.routingSchemes.form.description') }}</label>
             <textarea
               v-model="form.description"
@@ -250,9 +319,7 @@ const submit = () => {
           <RoutingSchemeGroupPicker
             :groups="groupsForPlatform"
             :model-value="form.items"
-            :sort-mode="form.sort_mode"
             @update:model-value="setItems"
-            @update:sort-mode="form.sort_mode = $event"
           />
         </div>
       </div>

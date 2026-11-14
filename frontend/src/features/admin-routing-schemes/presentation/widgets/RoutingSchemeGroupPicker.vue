@@ -3,31 +3,25 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import GroupBadge from '@/common/widgets/data/GroupBadge.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
-import Select from '@/common/widgets/forms/Select.vue'
 import type {
   RoutingSchemeGroupOption,
   RoutingSchemeItem,
   RoutingSchemeRule,
-  RoutingSchemeSortMode,
 } from '../../data/dtos/routingSchemeDtos'
 import {
   scoreBarClass,
-  scorePercent,
+  scorePercents,
   scoreToneClass,
 } from '../../data/routingScorePreview'
 import RoutingSchemeRulesDialog from './RoutingSchemeRulesDialog.vue'
 
-const props = withDefaults(defineProps<{
+const props = defineProps<{
   groups: RoutingSchemeGroupOption[]
   modelValue: RoutingSchemeItem[]
-  sortMode?: RoutingSchemeSortMode
-}>(), {
-  sortMode: 'score',
-})
+}>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: RoutingSchemeItem[]]
-  'update:sortMode': [value: RoutingSchemeSortMode]
 }>()
 
 const { t } = useI18n()
@@ -83,47 +77,27 @@ const scoreOf = (groupID: number) => {
 }
 
 const scoredItems = computed(() => {
-  // Only known scores participate in the normalized share.
-  const knownValues = props.modelValue
-    .map(item => scoreOf(item.group_id))
-    .filter(score => score.known)
-    .map(score => score.overall)
+  // Only known scores participate in the normalized share; largest-remainder
+  // rounding keeps the displayed percentages at 100% in total.
+  const known = selectedItems.value.filter(item => scoreOf(item.group_id).known)
+  const percents = scorePercents(known.map(item => scoreOf(item.group_id).overall))
+  const percentByID = new Map<number, number>()
+  known.forEach((item, index) => percentByID.set(item.group_id, percents[index] ?? 0))
   return selectedItems.value.map((item) => {
     const score = scoreOf(item.group_id)
     return {
       ...item,
       score,
-      percent: score.known ? scorePercent(score.overall, knownValues) : 0,
+      percent: percentByID.get(item.group_id) ?? 0,
     }
   })
 })
 
-const sortModeOptions = computed(() => [
-  { value: 'score', label: t('admin.routingSchemes.picker.sortScore') },
-  { value: 'ttft', label: t('admin.routingSchemes.picker.sortTtft') },
-  { value: 'error_count', label: t('admin.routingSchemes.picker.sortErrors') },
-])
-
-const changeSortMode = (value: string | number | boolean | null) => {
-  emit('update:sortMode', value as RoutingSchemeSortMode)
-}
-
+// Display order only; the backend distributes traffic by the composite score
+// through session-stable weighted rendezvous.
 const sortedItems = computed(() => {
   const list = [...scoredItems.value]
-  list.sort((a, b) => {
-    if (props.sortMode === 'ttft') {
-      const aTTFT = a.score.ttft_seconds
-      const bTTFT = b.score.ttft_seconds
-      if (aTTFT == null && bTTFT == null) return b.score.overall - a.score.overall
-      if (aTTFT == null) return 1
-      if (bTTFT == null) return -1
-      return aTTFT - bTTFT || b.score.overall - a.score.overall
-    }
-    if (props.sortMode === 'error_count') {
-      return a.score.error_count - b.score.error_count || b.score.overall - a.score.overall
-    }
-    return b.score.overall - a.score.overall
-  })
+  list.sort((a, b) => b.score.overall - a.score.overall)
   return list
 })
 
@@ -133,7 +107,7 @@ const toggleGroup = (group: RoutingSchemeGroupOption) => {
     emit('update:modelValue', props.modelValue.filter(item => item.group_id !== group.id))
     return
   }
-  emit('update:modelValue', [...props.modelValue, { group_id: group.id, weight: 1, rules: [] }])
+  emit('update:modelValue', [...props.modelValue, { group_id: group.id, rules: [] }])
 }
 
 const removeGroup = (groupID: number) => {
@@ -256,21 +230,6 @@ const updateRules = (groupID: number, rules: RoutingSchemeRule[]) => {
         </div>
         <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-dark-700 dark:text-gray-300">
           {{ selectedItems.length }}
-        </span>
-      </div>
-
-      <div class="mb-3 flex flex-wrap items-center gap-2">
-        <span class="whitespace-nowrap text-[11px] font-medium text-gray-500 dark:text-gray-400">
-          {{ t('admin.routingSchemes.picker.sortRule') }}
-        </span>
-        <Select
-          :model-value="sortMode"
-          :options="sortModeOptions"
-          class="w-36"
-          @update:model-value="changeSortMode"
-        />
-        <span class="text-[11px] leading-4 text-gray-400 dark:text-gray-500">
-          {{ t('admin.routingSchemes.picker.sortHint') }}
         </span>
       </div>
 

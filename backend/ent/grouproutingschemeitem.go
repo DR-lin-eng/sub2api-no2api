@@ -28,8 +28,6 @@ type GroupRoutingSchemeItem struct {
 	SchemeID int64 `json:"scheme_id,omitempty"`
 	// GroupID holds the value of the "group_id" field.
 	GroupID int64 `json:"group_id,omitempty"`
-	// Cold-start fallback weight; scheduling normalizes computed scores
-	Weight int `json:"weight,omitempty"`
 	// Position holds the value of the "position" field.
 	Position int `json:"position,omitempty"`
 	// Declarative failover rules for this group inside the scheme
@@ -67,7 +65,7 @@ func (*GroupRoutingSchemeItem) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case grouproutingschemeitem.FieldRules:
 			values[i] = new([]byte)
-		case grouproutingschemeitem.FieldID, grouproutingschemeitem.FieldSchemeID, grouproutingschemeitem.FieldGroupID, grouproutingschemeitem.FieldWeight, grouproutingschemeitem.FieldPosition:
+		case grouproutingschemeitem.FieldID, grouproutingschemeitem.FieldSchemeID, grouproutingschemeitem.FieldGroupID, grouproutingschemeitem.FieldPosition:
 			values[i] = new(sql.NullInt64)
 		case grouproutingschemeitem.FieldCreatedAt, grouproutingschemeitem.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -115,12 +113,6 @@ func (_m *GroupRoutingSchemeItem) assignValues(columns []string, values []any) e
 				return fmt.Errorf("unexpected type %T for field group_id", values[i])
 			} else if value.Valid {
 				_m.GroupID = value.Int64
-			}
-		case grouproutingschemeitem.FieldWeight:
-			if value, ok := values[i].(*sql.NullInt64); !ok {
-				return fmt.Errorf("unexpected type %T for field weight", values[i])
-			} else if value.Valid {
-				_m.Weight = int(value.Int64)
 			}
 		case grouproutingschemeitem.FieldPosition:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -188,9 +180,6 @@ func (_m *GroupRoutingSchemeItem) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("group_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.GroupID))
-	builder.WriteString(", ")
-	builder.WriteString("weight=")
-	builder.WriteString(fmt.Sprintf("%v", _m.Weight))
 	builder.WriteString(", ")
 	builder.WriteString("position=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Position))

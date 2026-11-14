@@ -17,7 +17,6 @@ const (
 	RoutingErrorClassTimeout          = "timeout"
 	RoutingErrorClassHTTP429          = "http_429"
 	RoutingErrorClassHTTP5xx          = "http_5xx"
-	RoutingErrorClassEmptyStream      = "empty_stream"
 	RoutingErrorClassAuth             = "auth"
 	RoutingErrorClassModelUnavailable = "model_unavailable"
 )
@@ -31,7 +30,7 @@ const (
 	// the same burst into one aggregation query.
 	routingMetricCacheTTL = 5 * time.Second
 	// routingColdStartSamples is the sample count below which a group keeps a
-	// neutral score; weight only breaks ties until real traffic arrives.
+	// neutral score so an unmeasured group is never ranked as the healthiest.
 	routingColdStartSamples = 5
 	// routingTTFTFloorMs/routingTTFTCeilingMs map p95 TTFT to a 100..0 score.
 	routingTTFTFloorMs   = 1000
@@ -142,7 +141,7 @@ func (s *RoutingSchemeService) metricsFor(ctx context.Context, groupIDs []int64)
 	return out
 }
 
-func scoreRoutingGroup(metric RoutingSchemeGroupMetric, weight int) RoutingGroupScore {
+func scoreRoutingGroup(metric RoutingSchemeGroupMetric, ttftWeight, errorWeight int) RoutingGroupScore {
 	samples := metric.SuccessCount + metric.FailureCount
 	score := RoutingGroupScore{
 		P95TTFTMs:    metric.P95TTFTMs,
@@ -153,8 +152,8 @@ func scoreRoutingGroup(metric RoutingSchemeGroupMetric, weight int) RoutingGroup
 		score.FailureRate = float64(metric.FailureCount) / float64(samples)
 	}
 	if samples < routingColdStartSamples {
-		// Cold start and stale data both stay neutral. A stale group keeps its
-		// historic weight only as a tie-breaker, never as a fake healthy score.
+		// Cold start and stale data both stay neutral so an unmeasured group is
+		// neither punished nor credited as the healthiest.
 		score.ColdStart = true
 		score.TTFT = routingNeutralScore
 		score.Error = routingNeutralScore
@@ -169,12 +168,21 @@ func scoreRoutingGroup(metric RoutingSchemeGroupMetric, weight int) RoutingGroup
 		score.TTFT = routingNeutralScore
 	}
 	score.Error = routingErrorScore(score.FailureRate)
-	score.Overall = score.TTFT*0.4 + score.Error*0.6
-	score.Overall += mathMin(float64(weight), 10) * 0.05
+	score.Overall = weightedScore(score.TTFT, score.Error, ttftWeight, errorWeight)
 	if score.Overall > 100 {
 		score.Overall = 100
 	}
 	return score
+}
+
+// weightedScore blends the dimension scores with the scheme's weights. Only the
+// ratio matters, so 40/60, 20/30 and 2/3 all produce the same distribution.
+func weightedScore(ttftScore, errorScore float64, ttftWeight, errorWeight int) float64 {
+	total := ttftWeight + errorWeight
+	if total <= 0 {
+		return routingNeutralScore
+	}
+	return (ttftScore*float64(ttftWeight) + errorScore*float64(errorWeight)) / float64(total)
 }
 
 func routingTTFTScore(p95ms float64) float64 {
@@ -195,13 +203,6 @@ func routingErrorScore(rate float64) float64 {
 		return 0
 	}
 	return (routingFailureRateCeiling - rate) / routingFailureRateCeiling * 100
-}
-
-func mathMin(a, b float64) float64 {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 type rankedRoutingItem struct {
@@ -243,26 +244,30 @@ func (s *RoutingSchemeService) orderedRoutingItems(ctx context.Context, scheme *
 	}
 	metrics := s.metricsFor(ctx, ids)
 	now := time.Now()
+	ttftWeight, errorWeight := scoringWeights(scheme.TTFTWeight, scheme.ErrorWeight)
 
 	ranked := make([]rankedRoutingItem, 0, len(scheme.Items))
 	fallback := make([]rankedRoutingItem, 0, len(scheme.Items))
+	cooldownCreated := false
 	for _, item := range scheme.Items {
 		if item.GroupID <= 0 {
 			continue
 		}
 		metric := metrics[item.GroupID]
-		score := scoreRoutingGroup(metric, item.Weight)
+		score := scoreRoutingGroup(metric, ttftWeight, errorWeight)
 		entry := rankedRoutingItem{item: item, score: score}
 		fallback = append(fallback, entry)
 		if s.inCooldown(scheme.ID, item.GroupID, now) {
 			continue
 		}
 		if action, cooldown := evaluateRoutingRules(item.Rules, metric, score); action != "" {
-			if action == domain.RoutingActionCooldown || action == domain.RoutingActionWeightZero {
+			if action == domain.RoutingActionCooldown {
 				if cooldown <= 0 {
 					cooldown = 60
 				}
-				s.setCooldown(scheme.ID, item.GroupID, now.Add(time.Duration(cooldown)*time.Second))
+				if s.setCooldown(scheme.ID, item.GroupID, now.Add(time.Duration(cooldown)*time.Second)) {
+					cooldownCreated = true
+				}
 				continue
 			}
 			// failover: keep the group but test it after the healthy ones.
@@ -273,6 +278,11 @@ func (s *RoutingSchemeService) orderedRoutingItems(ctx context.Context, scheme *
 		}
 		ranked = append(ranked, entry)
 	}
+	if cooldownCreated && s.authCacheInvalidator != nil {
+		// Keys holding an older snapshot would keep hitting the cooled group
+		// until the L2 TTL expired; dropping them makes the next request rebuild.
+		s.authCacheInvalidator.InvalidateAuthCacheByRoutingScheme(ctx, scheme.ID)
+	}
 	if len(ranked) == 0 {
 		// Never starve the key: fall back to the best-scoring group even when
 		// every group is cooling down.
@@ -281,44 +291,15 @@ func (s *RoutingSchemeService) orderedRoutingItems(ctx context.Context, scheme *
 		})
 		ranked = fallback[:1]
 	}
-	sortRoutingItems(ranked, scheme.SortMode)
+	// Candidate order is only a stable display/fallback order; the request-time
+	// weighted rendezvous decides which group actually serves.
+	sort.SliceStable(ranked, func(i, j int) bool {
+		if ranked[i].score.Overall != ranked[j].score.Overall {
+			return ranked[i].score.Overall > ranked[j].score.Overall
+		}
+		return ranked[i].item.Position < ranked[j].item.Position
+	})
 	return ranked
-}
-
-func sortRoutingItems(items []rankedRoutingItem, mode string) {
-	switch mode {
-	case domain.RoutingSortTTFT:
-		sort.SliceStable(items, func(i, j int) bool {
-			a, b := items[i].score.P95TTFTMs, items[j].score.P95TTFTMs
-			if a == 0 && b != 0 {
-				return false
-			}
-			if b == 0 && a != 0 {
-				return true
-			}
-			if a != b {
-				return a < b
-			}
-			return items[i].score.Overall > items[j].score.Overall
-		})
-	case domain.RoutingSortErrorCount:
-		sort.SliceStable(items, func(i, j int) bool {
-			if items[i].score.FailureCount != items[j].score.FailureCount {
-				return items[i].score.FailureCount < items[j].score.FailureCount
-			}
-			return items[i].score.Overall > items[j].score.Overall
-		})
-	default:
-		sort.SliceStable(items, func(i, j int) bool {
-			if items[i].score.Overall != items[j].score.Overall {
-				return items[i].score.Overall > items[j].score.Overall
-			}
-			if items[i].item.Weight != items[j].item.Weight {
-				return items[i].item.Weight > items[j].item.Weight
-			}
-			return items[i].item.Position < items[j].item.Position
-		})
-	}
 }
 
 // evaluateRoutingRules returns the highest-priority action triggered by an
@@ -333,8 +314,8 @@ func evaluateRoutingRules(rules []domain.RoutingSchemeRule, metric RoutingScheme
 		if !routingRuleTriggered(rule.Trigger, metric, score) {
 			continue
 		}
-		// Cooldown and weight_zero are stronger than a soft failover.
-		if action == domain.RoutingActionCooldown || action == domain.RoutingActionWeightZero {
+		// Cooldown is stronger than a soft failover.
+		if action == domain.RoutingActionCooldown {
 			continue
 		}
 		action = rule.Action.Kind
@@ -346,11 +327,14 @@ func evaluateRoutingRules(rules []domain.RoutingSchemeRule, metric RoutingScheme
 func routingRuleTriggered(trigger domain.RoutingSchemeRuleTrigger, metric RoutingSchemeGroupMetric, score RoutingGroupScore) bool {
 	switch trigger.Kind {
 	case domain.RoutingTriggerTTFT:
-		minimum := trigger.Consecutive
-		if minimum < 1 {
-			minimum = 1
+		// Consecutive is the minimum sample count in the rolling window; the
+		// metrics are aggregates, so an exact "N slow requests in a row" cannot
+		// be observed here.
+		minSamples := trigger.Consecutive
+		if minSamples < 1 {
+			minSamples = 1
 		}
-		if score.SampleCount < int64(minimum) || metric.P95TTFTMs <= 0 {
+		if score.SampleCount < int64(minSamples) || metric.P95TTFTMs <= 0 {
 			return false
 		}
 		return metric.P95TTFTMs > trigger.ThresholdSeconds*1000
@@ -362,17 +346,17 @@ func routingRuleTriggered(trigger domain.RoutingSchemeRuleTrigger, metric Routin
 		for _, class := range trigger.Classes {
 			total += metric.ErrorClassCounts[class]
 		}
-		minimum := int64(trigger.Consecutive)
-		if minimum < 1 {
-			minimum = 1
+		minHits := int64(trigger.Consecutive)
+		if minHits < 1 {
+			minHits = 1
 		}
-		return total >= minimum
+		return total >= minHits
 	case domain.RoutingTriggerErrorRate:
-		minimum := int64(trigger.MinRequests)
-		if minimum < 1 {
-			minimum = 1
+		minRequests := int64(trigger.MinRequests)
+		if minRequests < 1 {
+			minRequests = 1
 		}
-		if score.SampleCount < minimum {
+		if score.SampleCount < minRequests {
 			return false
 		}
 		return score.FailureRate*100 >= trigger.FailurePercent
@@ -393,19 +377,20 @@ func (s *RoutingSchemeService) Scores(ctx context.Context, scheme *RoutingScheme
 		}
 	}
 	metrics := s.metricsFor(ctx, ids)
+	ttftWeight, errorWeight := scoringWeights(scheme.TTFTWeight, scheme.ErrorWeight)
 	for _, item := range scheme.Items {
 		if item.GroupID <= 0 {
 			continue
 		}
-		out[item.GroupID] = scoreRoutingGroup(metrics[item.GroupID], item.Weight)
+		out[item.GroupID] = scoreRoutingGroup(metrics[item.GroupID], ttftWeight, errorWeight)
 	}
 	return out
 }
 
 // GroupScores returns read-only scores for arbitrary groups. The admin editor
-// uses it before a scheme is saved, so the cold-start value still comes from
-// the backend instead of a frontend placeholder.
-func (s *RoutingSchemeService) GroupScores(ctx context.Context, groupIDs []int64) map[int64]RoutingGroupScore {
+// uses it before a scheme is saved, so even the cold-start value and the
+// weighting come from the backend instead of a frontend placeholder.
+func (s *RoutingSchemeService) GroupScores(ctx context.Context, groupIDs []int64, ttftWeight, errorWeight int) map[int64]RoutingGroupScore {
 	out := make(map[int64]RoutingGroupScore)
 	ids := make([]int64, 0, len(groupIDs))
 	seen := make(map[int64]struct{}, len(groupIDs))
@@ -422,9 +407,10 @@ func (s *RoutingSchemeService) GroupScores(ctx context.Context, groupIDs []int64
 	if len(ids) == 0 {
 		return out
 	}
+	ttftWeight, errorWeight = scoringWeights(ttftWeight, errorWeight)
 	metrics := s.metricsFor(ctx, ids)
 	for _, id := range ids {
-		out[id] = scoreRoutingGroup(metrics[id], 1)
+		out[id] = scoreRoutingGroup(metrics[id], ttftWeight, errorWeight)
 	}
 	return out
 }
@@ -447,13 +433,19 @@ func (s *RoutingSchemeService) inCooldown(schemeID, groupID int64, now time.Time
 	return true
 }
 
-func (s *RoutingSchemeService) setCooldown(schemeID, groupID int64, until time.Time) {
+// setCooldown records a cooldown and reports whether it was newly created.
+func (s *RoutingSchemeService) setCooldown(schemeID, groupID int64, until time.Time) bool {
 	s.cooldownMu.Lock()
 	defer s.cooldownMu.Unlock()
 	if s.cooldownUntil == nil {
 		s.cooldownUntil = make(map[string]time.Time)
 	}
-	s.cooldownUntil[s.cooldownKey(schemeID, groupID)] = until
+	key := s.cooldownKey(schemeID, groupID)
+	if existing, ok := s.cooldownUntil[key]; ok && existing.After(until) {
+		return false
+	}
+	s.cooldownUntil[key] = until
+	return true
 }
 
 // ClearSchemeRuntimeState drops cached metrics and cooldown state after the

@@ -11,6 +11,7 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/grouproutingschemeitem"
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
 	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
@@ -243,6 +244,37 @@ func (r *groupRepository) GetByIDLite(ctx context.Context, id int64) (*service.G
 	return groupEntityToService(m), nil
 }
 
+// GetByIDs loads groups in a single query. Missing or non-positive ids are
+// skipped so callers can pass a union of references without pre-filtering.
+func (r *groupRepository) GetByIDs(ctx context.Context, ids []int64) ([]service.Group, error) {
+	unique := make([]int64, 0, len(ids))
+	seen := make(map[int64]struct{}, len(ids))
+	for _, id := range ids {
+		if id <= 0 {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		unique = append(unique, id)
+	}
+	if len(unique) == 0 {
+		return nil, nil
+	}
+	rows, err := r.client.Group.Query().Where(group.IDIn(unique...)).All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]service.Group, 0, len(rows))
+	for _, row := range rows {
+		if g := groupEntityToService(row); g != nil {
+			out = append(out, *g)
+		}
+	}
+	return out, nil
+}
+
 func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) error {
 	modelPricing, err := json.Marshal(groupIn.ModelPricing)
 	if err != nil {
@@ -410,6 +442,13 @@ func (r *groupRepository) Delete(ctx context.Context, id int64) error {
 	}
 	if _, err := client.Group.Delete().Where(group.IDEQ(id)).Exec(ctx); err != nil {
 		return translatePersistenceError(err, service.ErrGroupNotFound, nil)
+	}
+	// Routing scheme items have no database foreign key to groups. Detach the
+	// deleted group so the admin UI never shows a dangling scheme entry.
+	if _, err := client.GroupRoutingSchemeItem.Delete().
+		Where(grouproutingschemeitem.GroupIDEQ(id)).
+		Exec(ctx); err != nil {
+		return err
 	}
 	if err := cleanupDeletedModerationGroup(ctx, client, id); err != nil {
 		return err
@@ -895,12 +934,20 @@ func (r *groupRepository) DeleteCascade(ctx context.Context, id int64) ([]int64,
 		return nil, err
 	}
 
-	// 4. Soft-delete composite model routes owned by this group.
+	// 4. Detach the group from routing schemes. The items table has no database
+	// foreign key to groups, so a cascade delete must clean it explicitly.
+	if _, err := txClient.GroupRoutingSchemeItem.Delete().
+		Where(grouproutingschemeitem.GroupIDEQ(id)).
+		Exec(ctx); err != nil {
+		return nil, err
+	}
+
+	// 5. Soft-delete composite model routes owned by this group.
 	if _, err := exec.ExecContext(ctx, "UPDATE composite_model_routes SET deleted_at = NOW() WHERE group_id = $1 AND deleted_at IS NULL", id); err != nil {
 		return nil, err
 	}
 
-	// 5. Soft-delete group itself.
+	// 6. Soft-delete group itself.
 	if _, err := txClient.Group.Delete().Where(group.IDEQ(id)).Exec(ctx); err != nil {
 		return nil, err
 	}

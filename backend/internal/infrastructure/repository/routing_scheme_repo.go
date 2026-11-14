@@ -6,7 +6,6 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/grouproutingscheme"
 	"github.com/Wei-Shaw/sub2api/ent/grouproutingschemeitem"
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
@@ -27,7 +26,13 @@ func (r *routingSchemeRepository) List(ctx context.Context, platform string, inc
 		WithItems(func(q *dbent.GroupRoutingSchemeItemQuery) {
 			q.Order(dbent.Asc(grouproutingschemeitem.FieldPosition), dbent.Asc(grouproutingschemeitem.FieldID))
 		}).
-		Order(dbent.Asc(grouproutingscheme.FieldSortOrder), dbent.Asc(grouproutingscheme.FieldID))
+		// Platform first so the admin grid groups schemes the same way the client
+		// store does; sort_order alone let equal orders interleave across platforms.
+		Order(
+			dbent.Asc(grouproutingscheme.FieldPlatform),
+			dbent.Asc(grouproutingscheme.FieldSortOrder),
+			dbent.Asc(grouproutingscheme.FieldID),
+		)
 	if platform != "" {
 		query.Where(grouproutingscheme.PlatformEQ(platform))
 	}
@@ -76,7 +81,8 @@ func (r *routingSchemeRepository) Create(ctx context.Context, scheme *service.Ro
 		SetPlatform(scheme.Platform).
 		SetStatus(scheme.Status).
 		SetSortOrder(scheme.SortOrder).
-		SetSortMode(scheme.SortMode).
+		SetTtftWeight(scheme.TTFTWeight).
+		SetErrorWeight(scheme.ErrorWeight).
 		Save(ctx)
 	if err != nil {
 		_ = tx.Rollback()
@@ -108,7 +114,8 @@ func (r *routingSchemeRepository) Update(ctx context.Context, scheme *service.Ro
 		SetDescription(scheme.Description).
 		SetStatus(scheme.Status).
 		SetSortOrder(scheme.SortOrder).
-		SetSortMode(scheme.SortMode).
+		SetTtftWeight(scheme.TTFTWeight).
+		SetErrorWeight(scheme.ErrorWeight).
 		Save(ctx)
 	if err != nil {
 		_ = tx.Rollback()
@@ -134,29 +141,37 @@ func (r *routingSchemeRepository) Update(ctx context.Context, scheme *service.Ro
 	return nil
 }
 
-func (r *routingSchemeRepository) Delete(ctx context.Context, id int64) error {
-	tx, err := r.client.Tx(ctx)
-	if err != nil {
-		return err
+// ListSchemeIDsByGroupID returns the live schemes that reference the group.
+func (r *routingSchemeRepository) ListSchemeIDsByGroupID(ctx context.Context, groupID int64) ([]int64, error) {
+	if groupID <= 0 {
+		return nil, nil
 	}
-	if err := tx.GroupRoutingScheme.UpdateOneID(id).
+	ids, err := r.client.GroupRoutingScheme.Query().
+		Where(
+			grouproutingscheme.DeletedAtIsNil(),
+			grouproutingscheme.HasItemsWith(grouproutingschemeitem.GroupIDEQ(groupID)),
+		).
+		IDs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return ids, nil
+}
+
+func (r *routingSchemeRepository) Delete(ctx context.Context, id int64) error {
+	// Soft-delete only. api_keys.routing_scheme_id is intentionally kept: the
+	// auth snapshot must still see the reference, notice the scheme is gone and
+	// reject the key with 403 instead of silently turning it into a group-less
+	// key (which would skip group authorization entirely).
+	if err := r.client.GroupRoutingScheme.UpdateOneID(id).
 		SetDeletedAt(time.Now()).
 		Exec(ctx); err != nil {
-		_ = tx.Rollback()
 		if dbent.IsNotFound(err) {
 			return service.ErrRoutingSchemeNotFound
 		}
 		return err
 	}
-	// Keys must not keep a dangling scheme reference after the scheme is gone.
-	if _, err := tx.APIKey.Update().
-		Where(apikey.RoutingSchemeIDEQ(id)).
-		ClearRoutingSchemeID().
-		Save(ctx); err != nil {
-		_ = tx.Rollback()
-		return err
-	}
-	return tx.Commit()
+	return nil
 }
 
 func createRoutingSchemeItems(ctx context.Context, tx *dbent.Tx, schemeID int64, items []service.RoutingSchemeItem) error {
@@ -168,7 +183,6 @@ func createRoutingSchemeItems(ctx context.Context, tx *dbent.Tx, schemeID int64,
 		if _, err := tx.GroupRoutingSchemeItem.Create().
 			SetSchemeID(schemeID).
 			SetGroupID(item.GroupID).
-			SetWeight(item.Weight).
 			SetPosition(position).
 			SetRules(rules).
 			Save(ctx); err != nil {
@@ -176,6 +190,25 @@ func createRoutingSchemeItems(ctx context.Context, tx *dbent.Tx, schemeID int64,
 		}
 	}
 	return nil
+}
+
+// legacyRoutingActionWeightZero is the persisted name of an action that behaved
+// exactly like cooldown. The API no longer accepts it, but rows written before
+// the cleanup still carry it, so it is folded on read.
+const legacyRoutingActionWeightZero = "weight_zero"
+
+func normalizeRoutingSchemeRules(rules []domain.RoutingSchemeRule) []domain.RoutingSchemeRule {
+	if len(rules) == 0 {
+		return rules
+	}
+	out := make([]domain.RoutingSchemeRule, len(rules))
+	for i, rule := range rules {
+		if rule.Action.Kind == legacyRoutingActionWeightZero {
+			rule.Action.Kind = domain.RoutingActionCooldown
+		}
+		out[i] = rule
+	}
+	return out
 }
 
 func routingSchemeEntityToService(row *dbent.GroupRoutingScheme) service.RoutingScheme {
@@ -186,9 +219,8 @@ func routingSchemeEntityToService(row *dbent.GroupRoutingScheme) service.Routing
 	for _, item := range row.Edges.Items {
 		items = append(items, service.RoutingSchemeItem{
 			GroupID:  item.GroupID,
-			Weight:   item.Weight,
 			Position: item.Position,
-			Rules:    item.Rules,
+			Rules:    normalizeRoutingSchemeRules(item.Rules),
 		})
 	}
 	description := ""
@@ -202,7 +234,8 @@ func routingSchemeEntityToService(row *dbent.GroupRoutingScheme) service.Routing
 		Platform:    row.Platform,
 		Status:      row.Status,
 		SortOrder:   row.SortOrder,
-		SortMode:    row.SortMode,
+		TTFTWeight:  row.TtftWeight,
+		ErrorWeight: row.ErrorWeight,
 		Items:       items,
 		CreatedAt:   row.CreatedAt,
 		UpdatedAt:   row.UpdatedAt,

@@ -33,8 +33,10 @@ type GroupRoutingScheme struct {
 	Status string `json:"status,omitempty"`
 	// SortOrder holds the value of the "sort_order" field.
 	SortOrder int `json:"sort_order,omitempty"`
-	// Per-request candidate order: score / ttft / error_count
-	SortMode string `json:"sort_mode,omitempty"`
+	// Weight of the TTFT score in the composite score (0-100)
+	TtftWeight int `json:"ttft_weight,omitempty"`
+	// Weight of the error score in the composite score (0-100)
+	ErrorWeight int `json:"error_weight,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the GroupRoutingSchemeQuery when eager-loading is set.
 	Edges        GroupRoutingSchemeEdges `json:"edges"`
@@ -64,9 +66,9 @@ func (*GroupRoutingScheme) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case grouproutingscheme.FieldID, grouproutingscheme.FieldSortOrder:
+		case grouproutingscheme.FieldID, grouproutingscheme.FieldSortOrder, grouproutingscheme.FieldTtftWeight, grouproutingscheme.FieldErrorWeight:
 			values[i] = new(sql.NullInt64)
-		case grouproutingscheme.FieldName, grouproutingscheme.FieldDescription, grouproutingscheme.FieldPlatform, grouproutingscheme.FieldStatus, grouproutingscheme.FieldSortMode:
+		case grouproutingscheme.FieldName, grouproutingscheme.FieldDescription, grouproutingscheme.FieldPlatform, grouproutingscheme.FieldStatus:
 			values[i] = new(sql.NullString)
 		case grouproutingscheme.FieldCreatedAt, grouproutingscheme.FieldUpdatedAt, grouproutingscheme.FieldDeletedAt:
 			values[i] = new(sql.NullTime)
@@ -141,11 +143,17 @@ func (_m *GroupRoutingScheme) assignValues(columns []string, values []any) error
 			} else if value.Valid {
 				_m.SortOrder = int(value.Int64)
 			}
-		case grouproutingscheme.FieldSortMode:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field sort_mode", values[i])
+		case grouproutingscheme.FieldTtftWeight:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field ttft_weight", values[i])
 			} else if value.Valid {
-				_m.SortMode = value.String
+				_m.TtftWeight = int(value.Int64)
+			}
+		case grouproutingscheme.FieldErrorWeight:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field error_weight", values[i])
+			} else if value.Valid {
+				_m.ErrorWeight = int(value.Int64)
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -216,8 +224,11 @@ func (_m *GroupRoutingScheme) String() string {
 	builder.WriteString("sort_order=")
 	builder.WriteString(fmt.Sprintf("%v", _m.SortOrder))
 	builder.WriteString(", ")
-	builder.WriteString("sort_mode=")
-	builder.WriteString(_m.SortMode)
+	builder.WriteString("ttft_weight=")
+	builder.WriteString(fmt.Sprintf("%v", _m.TtftWeight))
+	builder.WriteString(", ")
+	builder.WriteString("error_weight=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ErrorWeight))
 	builder.WriteByte(')')
 	return builder.String()
 }

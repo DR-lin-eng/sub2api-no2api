@@ -15,7 +15,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 29 // v29: scheme candidate weights for request-level distribution
+const apiKeyAuthSnapshotVersion = 30 // v30: scheme keys fail closed instead of falling back to a group-less key
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -447,10 +447,23 @@ func (s *APIKeyService) hydrateAPIKeyGroupBindingsForAuth(ctx context.Context, a
 	bindings := apiKey.GroupBindings
 	// Scheme-based keys are expanded here, at the narrow candidate interface the
 	// scheduler already consumes. The scheme is never written into group_bindings.
-	if apiKey.RoutingSchemeID != nil && *apiKey.RoutingSchemeID > 0 && s.routingSchemeService != nil {
-		if schemeBindings := s.routingSchemeBindingsForAuth(ctx, *apiKey.RoutingSchemeID); len(schemeBindings) > 0 {
-			bindings = schemeBindings
+	if apiKey.RoutingSchemeID != nil && *apiKey.RoutingSchemeID > 0 {
+		// Fail closed: a scheme key must never degrade into a group-less key.
+		// An empty expansion means the scheme was disabled/deleted or has no
+		// active group left. The auth middleware then answers 403 instead of
+		// letting the request fall through to the global account pool.
+		schemeBindings := s.routingSchemeBindingsForAuth(ctx, *apiKey.RoutingSchemeID)
+		if len(schemeBindings) == 0 {
+			slog.Warn("routing scheme expanded to no available groups",
+				"api_key_id", apiKey.ID,
+				"scheme_id", *apiKey.RoutingSchemeID,
+			)
+			apiKey.GroupBindings = nil
+			apiKey.GroupID = nil
+			apiKey.Group = nil
+			return
 		}
+		bindings = schemeBindings
 	}
 	if len(bindings) == 0 && apiKey.GroupID != nil && *apiKey.GroupID > 0 {
 		bindings = []APIKeyGroupBinding{{APIKeyGroupBinding: domain.APIKeyGroupBinding{GroupID: *apiKey.GroupID}}}
@@ -483,8 +496,9 @@ func (s *APIKeyService) hydrateAPIKeyGroupBindingsForAuth(ctx context.Context, a
 }
 
 // routingSchemeBindingsForAuth turns a scheme into ordered, hydrated runtime
-// candidates. It returns nil on any lookup failure so the key falls back to its
-// legacy bindings instead of failing authentication.
+// candidates. It returns nil when the scheme cannot be expanded (not found,
+// disabled, or no active group). Callers must treat nil as "scheme unavailable"
+// and fail closed; a scheme key must not fall back to the legacy group list.
 func (s *APIKeyService) routingSchemeBindingsForAuth(ctx context.Context, schemeID int64) []APIKeyGroupBinding {
 	if s == nil || s.routingSchemeService == nil || s.groupRepo == nil || schemeID <= 0 {
 		return nil
@@ -494,10 +508,11 @@ func (s *APIKeyService) routingSchemeBindingsForAuth(ctx context.Context, scheme
 		return nil
 	}
 	ordered, weights := s.routingSchemeService.OrderedGroupWeights(ctx, scheme)
+	groupByID := loadGroupsByIDs(ctx, s.groupRepo, ordered)
 	bindings := make([]APIKeyGroupBinding, 0, len(ordered))
 	for _, groupID := range ordered {
-		group, err := s.groupRepo.GetByID(ctx, groupID)
-		if err != nil || group == nil || !group.IsActive() {
+		group := groupByID[groupID]
+		if group == nil || !group.IsActive() {
 			continue
 		}
 		weight := weights[groupID]

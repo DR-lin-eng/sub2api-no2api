@@ -123,9 +123,12 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 		}
 		if code, message, ok := validateAPIKeyGroupAvailable(apiKey); !ok {
 			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonAPIKeyGroupUnavailable)
-			if code == "GROUP_DELETED" {
+			switch code {
+			case "GROUP_DELETED":
 				MarkIngressRejected(c, IngressRejectGroupDeleted)
-			} else {
+			case "ROUTING_SCHEME_UNAVAILABLE":
+				MarkIngressRejected(c, IngressRejectRoutingSchemeUnavailable)
+			default:
 				MarkIngressRejected(c, IngressRejectGroupDisabled)
 			}
 			abortWithGoogleError(c, 403, message)

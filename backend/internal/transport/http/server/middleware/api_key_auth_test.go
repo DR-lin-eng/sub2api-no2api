@@ -642,6 +642,83 @@ func TestAPIKeyAuthRejectsUnavailableGroup(t *testing.T) {
 	}
 }
 
+func TestValidateAPIKeyGroupAvailableForRoutingScheme(t *testing.T) {
+	schemeID := int64(2)
+
+	healthy := &service.APIKey{
+		RoutingSchemeID: &schemeID,
+		GroupBindings:   []service.APIKeyGroupBinding{{}},
+	}
+	code, _, ok := validateAPIKeyGroupAvailable(healthy)
+	require.True(t, ok)
+	require.Empty(t, code)
+
+	unavailable := &service.APIKey{RoutingSchemeID: &schemeID}
+	code, message, ok := validateAPIKeyGroupAvailable(unavailable)
+	require.False(t, ok)
+	require.Equal(t, "ROUTING_SCHEME_UNAVAILABLE", code)
+	require.NotEmpty(t, message)
+
+	// 传统 Key（无方案）保持原有行为，不因为缺少分组被这里拦截。
+	legacy := &service.APIKey{}
+	_, _, ok = validateAPIKeyGroupAvailable(legacy)
+	require.True(t, ok)
+}
+
+func TestAPIKeyAuthRejectsUnavailableRoutingScheme(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	schemeID := int64(2)
+	user := &service.User{
+		ID:          7,
+		Role:        service.RoleUser,
+		Status:      service.StatusActive,
+		Balance:     10,
+		Concurrency: 3,
+	}
+
+	apiKey := &service.APIKey{
+		ID:              100,
+		UserID:          user.ID,
+		RoutingSchemeID: &schemeID,
+		Key:             "test-key",
+		Status:          service.StatusActive,
+		User:            user,
+	}
+	apiKeyRepo := &stubApiKeyRepo{
+		getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
+			if key != apiKey.Key {
+				return nil, service.ErrAPIKeyNotFound
+			}
+			clone := *apiKey
+			return &clone, nil
+		},
+	}
+	cfg := &config.Config{RunMode: config.RunModeStandard}
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+	router := gin.New()
+	var rejectReason IngressRejectReason
+	var rejected bool
+	router.Use(func(c *gin.Context) {
+		c.Next()
+		rejectReason, rejected = GetIngressRejectReason(c)
+	})
+	router.Use(gin.HandlerFunc(NewAPIKeyAuthMiddleware(apiKeyService, nil, cfg)))
+	router.GET("/t", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/t", nil)
+	req.Header.Set("x-api-key", apiKey.Key)
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusForbidden, w.Code)
+	require.Contains(t, w.Body.String(), "ROUTING_SCHEME_UNAVAILABLE")
+	require.True(t, rejected)
+	require.Equal(t, IngressRejectRoutingSchemeUnavailable, rejectReason)
+}
+
 func TestAPIKeyAuthMarksOnlyExpectedIngressRejections(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

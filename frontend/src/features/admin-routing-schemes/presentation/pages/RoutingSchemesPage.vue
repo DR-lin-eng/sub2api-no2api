@@ -22,7 +22,7 @@ import type {
 import {
   useRoutingSchemeStore,
 } from '../stores/routingSchemeStore'
-import { scorePercent } from '../../data/routingScorePreview'
+import { scorePercents } from '../../data/routingScorePreview'
 import RoutingSchemeEditorDialog from '../widgets/RoutingSchemeEditorDialog.vue'
 import RoutingSchemeAnalyticsDialog from '../widgets/RoutingSchemeAnalyticsDialog.vue'
 
@@ -98,12 +98,20 @@ const averageScore = (scheme: RoutingScheme): number => {
   return Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length)
 }
 
-const percentOf = (scheme: RoutingScheme, groupID: number): number => {
-  const scores = scoresFor(scheme)
-  const current = scheme.items.find(item => item.group_id === groupID)
-  if (!current) return 0
-  return scorePercent(current.score == null ? 0 : Math.round(current.score), scores)
-}
+// Largest-remainder rounding keeps the displayed shares at 100% in total.
+const percentMap = computed(() => {
+  const map = new Map<string, number>()
+  for (const scheme of filteredSchemes.value) {
+    const percents = scorePercents(scoresFor(scheme))
+    scheme.items.forEach((item, index) => {
+      map.set(`${scheme.id}:${item.group_id}`, percents[index] ?? 0)
+    })
+  }
+  return map
+})
+
+const percentOf = (scheme: RoutingScheme, groupID: number): number =>
+  percentMap.value.get(`${scheme.id}:${groupID}`) ?? 0
 
 const loadGroups = async () => {
   loading.value = true
@@ -317,6 +325,7 @@ onMounted(loadGroups)
           <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
             <span>{{ t('admin.routingSchemes.groupCount', { count: groupsFor(scheme).length }) }}</span>
             <span>{{ t('admin.routingSchemes.avgScore', { score: averageScore(scheme) }) }}</span>
+            <span>{{ t('admin.routingSchemes.scoreWeightsValue', { ttft: scheme.ttft_weight, error: scheme.error_weight }) }}</span>
             <span>{{ t('admin.routingSchemes.policy.ruleCount', { count: ruleCount(scheme) }) }}</span>
           </div>
 

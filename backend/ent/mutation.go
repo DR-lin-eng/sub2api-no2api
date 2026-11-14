@@ -34503,26 +34503,29 @@ func (m *GroupMutation) ResetEdge(name string) error {
 // GroupRoutingSchemeMutation represents an operation that mutates the GroupRoutingScheme nodes in the graph.
 type GroupRoutingSchemeMutation struct {
 	config
-	op            Op
-	typ           string
-	id            *int64
-	created_at    *time.Time
-	updated_at    *time.Time
-	deleted_at    *time.Time
-	name          *string
-	description   *string
-	platform      *string
-	status        *string
-	sort_order    *int
-	addsort_order *int
-	sort_mode     *string
-	clearedFields map[string]struct{}
-	items         map[int64]struct{}
-	removeditems  map[int64]struct{}
-	cleareditems  bool
-	done          bool
-	oldValue      func(context.Context) (*GroupRoutingScheme, error)
-	predicates    []predicate.GroupRoutingScheme
+	op              Op
+	typ             string
+	id              *int64
+	created_at      *time.Time
+	updated_at      *time.Time
+	deleted_at      *time.Time
+	name            *string
+	description     *string
+	platform        *string
+	status          *string
+	sort_order      *int
+	addsort_order   *int
+	ttft_weight     *int
+	addttft_weight  *int
+	error_weight    *int
+	adderror_weight *int
+	clearedFields   map[string]struct{}
+	items           map[int64]struct{}
+	removeditems    map[int64]struct{}
+	cleareditems    bool
+	done            bool
+	oldValue        func(context.Context) (*GroupRoutingScheme, error)
+	predicates      []predicate.GroupRoutingScheme
 }
 
 var _ ent.Mutation = (*GroupRoutingSchemeMutation)(nil)
@@ -34957,40 +34960,116 @@ func (m *GroupRoutingSchemeMutation) ResetSortOrder() {
 	m.addsort_order = nil
 }
 
-// SetSortMode sets the "sort_mode" field.
-func (m *GroupRoutingSchemeMutation) SetSortMode(s string) {
-	m.sort_mode = &s
+// SetTtftWeight sets the "ttft_weight" field.
+func (m *GroupRoutingSchemeMutation) SetTtftWeight(i int) {
+	m.ttft_weight = &i
+	m.addttft_weight = nil
 }
 
-// SortMode returns the value of the "sort_mode" field in the mutation.
-func (m *GroupRoutingSchemeMutation) SortMode() (r string, exists bool) {
-	v := m.sort_mode
+// TtftWeight returns the value of the "ttft_weight" field in the mutation.
+func (m *GroupRoutingSchemeMutation) TtftWeight() (r int, exists bool) {
+	v := m.ttft_weight
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldSortMode returns the old "sort_mode" field's value of the GroupRoutingScheme entity.
+// OldTtftWeight returns the old "ttft_weight" field's value of the GroupRoutingScheme entity.
 // If the GroupRoutingScheme object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *GroupRoutingSchemeMutation) OldSortMode(ctx context.Context) (v string, err error) {
+func (m *GroupRoutingSchemeMutation) OldTtftWeight(ctx context.Context) (v int, err error) {
 	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldSortMode is only allowed on UpdateOne operations")
+		return v, errors.New("OldTtftWeight is only allowed on UpdateOne operations")
 	}
 	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldSortMode requires an ID field in the mutation")
+		return v, errors.New("OldTtftWeight requires an ID field in the mutation")
 	}
 	oldValue, err := m.oldValue(ctx)
 	if err != nil {
-		return v, fmt.Errorf("querying old value for OldSortMode: %w", err)
+		return v, fmt.Errorf("querying old value for OldTtftWeight: %w", err)
 	}
-	return oldValue.SortMode, nil
+	return oldValue.TtftWeight, nil
 }
 
-// ResetSortMode resets all changes to the "sort_mode" field.
-func (m *GroupRoutingSchemeMutation) ResetSortMode() {
-	m.sort_mode = nil
+// AddTtftWeight adds i to the "ttft_weight" field.
+func (m *GroupRoutingSchemeMutation) AddTtftWeight(i int) {
+	if m.addttft_weight != nil {
+		*m.addttft_weight += i
+	} else {
+		m.addttft_weight = &i
+	}
+}
+
+// AddedTtftWeight returns the value that was added to the "ttft_weight" field in this mutation.
+func (m *GroupRoutingSchemeMutation) AddedTtftWeight() (r int, exists bool) {
+	v := m.addttft_weight
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetTtftWeight resets all changes to the "ttft_weight" field.
+func (m *GroupRoutingSchemeMutation) ResetTtftWeight() {
+	m.ttft_weight = nil
+	m.addttft_weight = nil
+}
+
+// SetErrorWeight sets the "error_weight" field.
+func (m *GroupRoutingSchemeMutation) SetErrorWeight(i int) {
+	m.error_weight = &i
+	m.adderror_weight = nil
+}
+
+// ErrorWeight returns the value of the "error_weight" field in the mutation.
+func (m *GroupRoutingSchemeMutation) ErrorWeight() (r int, exists bool) {
+	v := m.error_weight
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldErrorWeight returns the old "error_weight" field's value of the GroupRoutingScheme entity.
+// If the GroupRoutingScheme object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupRoutingSchemeMutation) OldErrorWeight(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldErrorWeight is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldErrorWeight requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldErrorWeight: %w", err)
+	}
+	return oldValue.ErrorWeight, nil
+}
+
+// AddErrorWeight adds i to the "error_weight" field.
+func (m *GroupRoutingSchemeMutation) AddErrorWeight(i int) {
+	if m.adderror_weight != nil {
+		*m.adderror_weight += i
+	} else {
+		m.adderror_weight = &i
+	}
+}
+
+// AddedErrorWeight returns the value that was added to the "error_weight" field in this mutation.
+func (m *GroupRoutingSchemeMutation) AddedErrorWeight() (r int, exists bool) {
+	v := m.adderror_weight
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetErrorWeight resets all changes to the "error_weight" field.
+func (m *GroupRoutingSchemeMutation) ResetErrorWeight() {
+	m.error_weight = nil
+	m.adderror_weight = nil
 }
 
 // AddItemIDs adds the "items" edge to the GroupRoutingSchemeItem entity by ids.
@@ -35081,7 +35160,7 @@ func (m *GroupRoutingSchemeMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupRoutingSchemeMutation) Fields() []string {
-	fields := make([]string, 0, 9)
+	fields := make([]string, 0, 10)
 	if m.created_at != nil {
 		fields = append(fields, grouproutingscheme.FieldCreatedAt)
 	}
@@ -35106,8 +35185,11 @@ func (m *GroupRoutingSchemeMutation) Fields() []string {
 	if m.sort_order != nil {
 		fields = append(fields, grouproutingscheme.FieldSortOrder)
 	}
-	if m.sort_mode != nil {
-		fields = append(fields, grouproutingscheme.FieldSortMode)
+	if m.ttft_weight != nil {
+		fields = append(fields, grouproutingscheme.FieldTtftWeight)
+	}
+	if m.error_weight != nil {
+		fields = append(fields, grouproutingscheme.FieldErrorWeight)
 	}
 	return fields
 }
@@ -35133,8 +35215,10 @@ func (m *GroupRoutingSchemeMutation) Field(name string) (ent.Value, bool) {
 		return m.Status()
 	case grouproutingscheme.FieldSortOrder:
 		return m.SortOrder()
-	case grouproutingscheme.FieldSortMode:
-		return m.SortMode()
+	case grouproutingscheme.FieldTtftWeight:
+		return m.TtftWeight()
+	case grouproutingscheme.FieldErrorWeight:
+		return m.ErrorWeight()
 	}
 	return nil, false
 }
@@ -35160,8 +35244,10 @@ func (m *GroupRoutingSchemeMutation) OldField(ctx context.Context, name string) 
 		return m.OldStatus(ctx)
 	case grouproutingscheme.FieldSortOrder:
 		return m.OldSortOrder(ctx)
-	case grouproutingscheme.FieldSortMode:
-		return m.OldSortMode(ctx)
+	case grouproutingscheme.FieldTtftWeight:
+		return m.OldTtftWeight(ctx)
+	case grouproutingscheme.FieldErrorWeight:
+		return m.OldErrorWeight(ctx)
 	}
 	return nil, fmt.Errorf("unknown GroupRoutingScheme field %s", name)
 }
@@ -35227,12 +35313,19 @@ func (m *GroupRoutingSchemeMutation) SetField(name string, value ent.Value) erro
 		}
 		m.SetSortOrder(v)
 		return nil
-	case grouproutingscheme.FieldSortMode:
-		v, ok := value.(string)
+	case grouproutingscheme.FieldTtftWeight:
+		v, ok := value.(int)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetSortMode(v)
+		m.SetTtftWeight(v)
+		return nil
+	case grouproutingscheme.FieldErrorWeight:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetErrorWeight(v)
 		return nil
 	}
 	return fmt.Errorf("unknown GroupRoutingScheme field %s", name)
@@ -35245,6 +35338,12 @@ func (m *GroupRoutingSchemeMutation) AddedFields() []string {
 	if m.addsort_order != nil {
 		fields = append(fields, grouproutingscheme.FieldSortOrder)
 	}
+	if m.addttft_weight != nil {
+		fields = append(fields, grouproutingscheme.FieldTtftWeight)
+	}
+	if m.adderror_weight != nil {
+		fields = append(fields, grouproutingscheme.FieldErrorWeight)
+	}
 	return fields
 }
 
@@ -35255,6 +35354,10 @@ func (m *GroupRoutingSchemeMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
 	case grouproutingscheme.FieldSortOrder:
 		return m.AddedSortOrder()
+	case grouproutingscheme.FieldTtftWeight:
+		return m.AddedTtftWeight()
+	case grouproutingscheme.FieldErrorWeight:
+		return m.AddedErrorWeight()
 	}
 	return nil, false
 }
@@ -35270,6 +35373,20 @@ func (m *GroupRoutingSchemeMutation) AddField(name string, value ent.Value) erro
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddSortOrder(v)
+		return nil
+	case grouproutingscheme.FieldTtftWeight:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTtftWeight(v)
+		return nil
+	case grouproutingscheme.FieldErrorWeight:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddErrorWeight(v)
 		return nil
 	}
 	return fmt.Errorf("unknown GroupRoutingScheme numeric field %s", name)
@@ -35337,8 +35454,11 @@ func (m *GroupRoutingSchemeMutation) ResetField(name string) error {
 	case grouproutingscheme.FieldSortOrder:
 		m.ResetSortOrder()
 		return nil
-	case grouproutingscheme.FieldSortMode:
-		m.ResetSortMode()
+	case grouproutingscheme.FieldTtftWeight:
+		m.ResetTtftWeight()
+		return nil
+	case grouproutingscheme.FieldErrorWeight:
+		m.ResetErrorWeight()
 		return nil
 	}
 	return fmt.Errorf("unknown GroupRoutingScheme field %s", name)
@@ -35438,8 +35558,6 @@ type GroupRoutingSchemeItemMutation struct {
 	updated_at    *time.Time
 	group_id      *int64
 	addgroup_id   *int64
-	weight        *int
-	addweight     *int
 	position      *int
 	addposition   *int
 	rules         *[]domain.RoutingSchemeRule
@@ -35714,62 +35832,6 @@ func (m *GroupRoutingSchemeItemMutation) ResetGroupID() {
 	m.addgroup_id = nil
 }
 
-// SetWeight sets the "weight" field.
-func (m *GroupRoutingSchemeItemMutation) SetWeight(i int) {
-	m.weight = &i
-	m.addweight = nil
-}
-
-// Weight returns the value of the "weight" field in the mutation.
-func (m *GroupRoutingSchemeItemMutation) Weight() (r int, exists bool) {
-	v := m.weight
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldWeight returns the old "weight" field's value of the GroupRoutingSchemeItem entity.
-// If the GroupRoutingSchemeItem object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *GroupRoutingSchemeItemMutation) OldWeight(ctx context.Context) (v int, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldWeight is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldWeight requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldWeight: %w", err)
-	}
-	return oldValue.Weight, nil
-}
-
-// AddWeight adds i to the "weight" field.
-func (m *GroupRoutingSchemeItemMutation) AddWeight(i int) {
-	if m.addweight != nil {
-		*m.addweight += i
-	} else {
-		m.addweight = &i
-	}
-}
-
-// AddedWeight returns the value that was added to the "weight" field in this mutation.
-func (m *GroupRoutingSchemeItemMutation) AddedWeight() (r int, exists bool) {
-	v := m.addweight
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// ResetWeight resets all changes to the "weight" field.
-func (m *GroupRoutingSchemeItemMutation) ResetWeight() {
-	m.weight = nil
-	m.addweight = nil
-}
-
 // SetPosition sets the "position" field.
 func (m *GroupRoutingSchemeItemMutation) SetPosition(i int) {
 	m.position = &i
@@ -35938,7 +36000,7 @@ func (m *GroupRoutingSchemeItemMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupRoutingSchemeItemMutation) Fields() []string {
-	fields := make([]string, 0, 7)
+	fields := make([]string, 0, 6)
 	if m.created_at != nil {
 		fields = append(fields, grouproutingschemeitem.FieldCreatedAt)
 	}
@@ -35950,9 +36012,6 @@ func (m *GroupRoutingSchemeItemMutation) Fields() []string {
 	}
 	if m.group_id != nil {
 		fields = append(fields, grouproutingschemeitem.FieldGroupID)
-	}
-	if m.weight != nil {
-		fields = append(fields, grouproutingschemeitem.FieldWeight)
 	}
 	if m.position != nil {
 		fields = append(fields, grouproutingschemeitem.FieldPosition)
@@ -35976,8 +36035,6 @@ func (m *GroupRoutingSchemeItemMutation) Field(name string) (ent.Value, bool) {
 		return m.SchemeID()
 	case grouproutingschemeitem.FieldGroupID:
 		return m.GroupID()
-	case grouproutingschemeitem.FieldWeight:
-		return m.Weight()
 	case grouproutingschemeitem.FieldPosition:
 		return m.Position()
 	case grouproutingschemeitem.FieldRules:
@@ -35999,8 +36056,6 @@ func (m *GroupRoutingSchemeItemMutation) OldField(ctx context.Context, name stri
 		return m.OldSchemeID(ctx)
 	case grouproutingschemeitem.FieldGroupID:
 		return m.OldGroupID(ctx)
-	case grouproutingschemeitem.FieldWeight:
-		return m.OldWeight(ctx)
 	case grouproutingschemeitem.FieldPosition:
 		return m.OldPosition(ctx)
 	case grouproutingschemeitem.FieldRules:
@@ -36042,13 +36097,6 @@ func (m *GroupRoutingSchemeItemMutation) SetField(name string, value ent.Value) 
 		}
 		m.SetGroupID(v)
 		return nil
-	case grouproutingschemeitem.FieldWeight:
-		v, ok := value.(int)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetWeight(v)
-		return nil
 	case grouproutingschemeitem.FieldPosition:
 		v, ok := value.(int)
 		if !ok {
@@ -36074,9 +36122,6 @@ func (m *GroupRoutingSchemeItemMutation) AddedFields() []string {
 	if m.addgroup_id != nil {
 		fields = append(fields, grouproutingschemeitem.FieldGroupID)
 	}
-	if m.addweight != nil {
-		fields = append(fields, grouproutingschemeitem.FieldWeight)
-	}
 	if m.addposition != nil {
 		fields = append(fields, grouproutingschemeitem.FieldPosition)
 	}
@@ -36090,8 +36135,6 @@ func (m *GroupRoutingSchemeItemMutation) AddedField(name string) (ent.Value, boo
 	switch name {
 	case grouproutingschemeitem.FieldGroupID:
 		return m.AddedGroupID()
-	case grouproutingschemeitem.FieldWeight:
-		return m.AddedWeight()
 	case grouproutingschemeitem.FieldPosition:
 		return m.AddedPosition()
 	}
@@ -36109,13 +36152,6 @@ func (m *GroupRoutingSchemeItemMutation) AddField(name string, value ent.Value) 
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddGroupID(v)
-		return nil
-	case grouproutingschemeitem.FieldWeight:
-		v, ok := value.(int)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.AddWeight(v)
 		return nil
 	case grouproutingschemeitem.FieldPosition:
 		v, ok := value.(int)
@@ -36162,9 +36198,6 @@ func (m *GroupRoutingSchemeItemMutation) ResetField(name string) error {
 		return nil
 	case grouproutingschemeitem.FieldGroupID:
 		m.ResetGroupID()
-		return nil
-	case grouproutingschemeitem.FieldWeight:
-		m.ResetWeight()
 		return nil
 	case grouproutingschemeitem.FieldPosition:
 		m.ResetPosition()

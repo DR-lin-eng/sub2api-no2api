@@ -16,10 +16,25 @@ export interface RoutingGroupScore {
   cold_start?: boolean
 }
 
-export function scorePercent(score: number, scores: number[]): number {
+/**
+ * Normalizes scores into integer percentages that always sum to 100.
+ * Largest-remainder rounding avoids the "99%" / "101%" drift of rounding each
+ * share independently.
+ */
+export function scorePercents(scores: number[]): number[] {
   const total = scores.reduce((sum, value) => sum + value, 0)
-  if (total <= 0) return 0
-  return Math.round((score / total) * 100)
+  if (total <= 0) return scores.map(() => 0)
+  const exact = scores.map(value => (value / total) * 100)
+  const result = exact.map(value => Math.floor(value))
+  let remainder = 100 - result.reduce((sum, value) => sum + value, 0)
+  const byFraction = exact
+    .map((value, index) => ({ index, fraction: value - result[index] }))
+    .sort((left, right) => right.fraction - left.fraction)
+  for (let i = 0; i < byFraction.length && remainder > 0; i += 1) {
+    result[byFraction[i].index] += 1
+    remainder -= 1
+  }
+  return result
 }
 
 export function scoreToneClass(score: number): string {

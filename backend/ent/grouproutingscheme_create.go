@@ -127,16 +127,30 @@ func (_c *GroupRoutingSchemeCreate) SetNillableSortOrder(v *int) *GroupRoutingSc
 	return _c
 }
 
-// SetSortMode sets the "sort_mode" field.
-func (_c *GroupRoutingSchemeCreate) SetSortMode(v string) *GroupRoutingSchemeCreate {
-	_c.mutation.SetSortMode(v)
+// SetTtftWeight sets the "ttft_weight" field.
+func (_c *GroupRoutingSchemeCreate) SetTtftWeight(v int) *GroupRoutingSchemeCreate {
+	_c.mutation.SetTtftWeight(v)
 	return _c
 }
 
-// SetNillableSortMode sets the "sort_mode" field if the given value is not nil.
-func (_c *GroupRoutingSchemeCreate) SetNillableSortMode(v *string) *GroupRoutingSchemeCreate {
+// SetNillableTtftWeight sets the "ttft_weight" field if the given value is not nil.
+func (_c *GroupRoutingSchemeCreate) SetNillableTtftWeight(v *int) *GroupRoutingSchemeCreate {
 	if v != nil {
-		_c.SetSortMode(*v)
+		_c.SetTtftWeight(*v)
+	}
+	return _c
+}
+
+// SetErrorWeight sets the "error_weight" field.
+func (_c *GroupRoutingSchemeCreate) SetErrorWeight(v int) *GroupRoutingSchemeCreate {
+	_c.mutation.SetErrorWeight(v)
+	return _c
+}
+
+// SetNillableErrorWeight sets the "error_weight" field if the given value is not nil.
+func (_c *GroupRoutingSchemeCreate) SetNillableErrorWeight(v *int) *GroupRoutingSchemeCreate {
+	if v != nil {
+		_c.SetErrorWeight(*v)
 	}
 	return _c
 }
@@ -219,9 +233,13 @@ func (_c *GroupRoutingSchemeCreate) defaults() error {
 		v := grouproutingscheme.DefaultSortOrder
 		_c.mutation.SetSortOrder(v)
 	}
-	if _, ok := _c.mutation.SortMode(); !ok {
-		v := grouproutingscheme.DefaultSortMode
-		_c.mutation.SetSortMode(v)
+	if _, ok := _c.mutation.TtftWeight(); !ok {
+		v := grouproutingscheme.DefaultTtftWeight
+		_c.mutation.SetTtftWeight(v)
+	}
+	if _, ok := _c.mutation.ErrorWeight(); !ok {
+		v := grouproutingscheme.DefaultErrorWeight
+		_c.mutation.SetErrorWeight(v)
 	}
 	return nil
 }
@@ -261,12 +279,20 @@ func (_c *GroupRoutingSchemeCreate) check() error {
 	if _, ok := _c.mutation.SortOrder(); !ok {
 		return &ValidationError{Name: "sort_order", err: errors.New(`ent: missing required field "GroupRoutingScheme.sort_order"`)}
 	}
-	if _, ok := _c.mutation.SortMode(); !ok {
-		return &ValidationError{Name: "sort_mode", err: errors.New(`ent: missing required field "GroupRoutingScheme.sort_mode"`)}
+	if _, ok := _c.mutation.TtftWeight(); !ok {
+		return &ValidationError{Name: "ttft_weight", err: errors.New(`ent: missing required field "GroupRoutingScheme.ttft_weight"`)}
 	}
-	if v, ok := _c.mutation.SortMode(); ok {
-		if err := grouproutingscheme.SortModeValidator(v); err != nil {
-			return &ValidationError{Name: "sort_mode", err: fmt.Errorf(`ent: validator failed for field "GroupRoutingScheme.sort_mode": %w`, err)}
+	if v, ok := _c.mutation.TtftWeight(); ok {
+		if err := grouproutingscheme.TtftWeightValidator(v); err != nil {
+			return &ValidationError{Name: "ttft_weight", err: fmt.Errorf(`ent: validator failed for field "GroupRoutingScheme.ttft_weight": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.ErrorWeight(); !ok {
+		return &ValidationError{Name: "error_weight", err: errors.New(`ent: missing required field "GroupRoutingScheme.error_weight"`)}
+	}
+	if v, ok := _c.mutation.ErrorWeight(); ok {
+		if err := grouproutingscheme.ErrorWeightValidator(v); err != nil {
+			return &ValidationError{Name: "error_weight", err: fmt.Errorf(`ent: validator failed for field "GroupRoutingScheme.error_weight": %w`, err)}
 		}
 	}
 	return nil
@@ -328,9 +354,13 @@ func (_c *GroupRoutingSchemeCreate) createSpec() (*GroupRoutingScheme, *sqlgraph
 		_spec.SetField(grouproutingscheme.FieldSortOrder, field.TypeInt, value)
 		_node.SortOrder = value
 	}
-	if value, ok := _c.mutation.SortMode(); ok {
-		_spec.SetField(grouproutingscheme.FieldSortMode, field.TypeString, value)
-		_node.SortMode = value
+	if value, ok := _c.mutation.TtftWeight(); ok {
+		_spec.SetField(grouproutingscheme.FieldTtftWeight, field.TypeInt, value)
+		_node.TtftWeight = value
+	}
+	if value, ok := _c.mutation.ErrorWeight(); ok {
+		_spec.SetField(grouproutingscheme.FieldErrorWeight, field.TypeInt, value)
+		_node.ErrorWeight = value
 	}
 	if nodes := _c.mutation.ItemsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -502,15 +532,39 @@ func (u *GroupRoutingSchemeUpsert) AddSortOrder(v int) *GroupRoutingSchemeUpsert
 	return u
 }
 
-// SetSortMode sets the "sort_mode" field.
-func (u *GroupRoutingSchemeUpsert) SetSortMode(v string) *GroupRoutingSchemeUpsert {
-	u.Set(grouproutingscheme.FieldSortMode, v)
+// SetTtftWeight sets the "ttft_weight" field.
+func (u *GroupRoutingSchemeUpsert) SetTtftWeight(v int) *GroupRoutingSchemeUpsert {
+	u.Set(grouproutingscheme.FieldTtftWeight, v)
 	return u
 }
 
-// UpdateSortMode sets the "sort_mode" field to the value that was provided on create.
-func (u *GroupRoutingSchemeUpsert) UpdateSortMode() *GroupRoutingSchemeUpsert {
-	u.SetExcluded(grouproutingscheme.FieldSortMode)
+// UpdateTtftWeight sets the "ttft_weight" field to the value that was provided on create.
+func (u *GroupRoutingSchemeUpsert) UpdateTtftWeight() *GroupRoutingSchemeUpsert {
+	u.SetExcluded(grouproutingscheme.FieldTtftWeight)
+	return u
+}
+
+// AddTtftWeight adds v to the "ttft_weight" field.
+func (u *GroupRoutingSchemeUpsert) AddTtftWeight(v int) *GroupRoutingSchemeUpsert {
+	u.Add(grouproutingscheme.FieldTtftWeight, v)
+	return u
+}
+
+// SetErrorWeight sets the "error_weight" field.
+func (u *GroupRoutingSchemeUpsert) SetErrorWeight(v int) *GroupRoutingSchemeUpsert {
+	u.Set(grouproutingscheme.FieldErrorWeight, v)
+	return u
+}
+
+// UpdateErrorWeight sets the "error_weight" field to the value that was provided on create.
+func (u *GroupRoutingSchemeUpsert) UpdateErrorWeight() *GroupRoutingSchemeUpsert {
+	u.SetExcluded(grouproutingscheme.FieldErrorWeight)
+	return u
+}
+
+// AddErrorWeight adds v to the "error_weight" field.
+func (u *GroupRoutingSchemeUpsert) AddErrorWeight(v int) *GroupRoutingSchemeUpsert {
+	u.Add(grouproutingscheme.FieldErrorWeight, v)
 	return u
 }
 
@@ -678,17 +732,45 @@ func (u *GroupRoutingSchemeUpsertOne) UpdateSortOrder() *GroupRoutingSchemeUpser
 	})
 }
 
-// SetSortMode sets the "sort_mode" field.
-func (u *GroupRoutingSchemeUpsertOne) SetSortMode(v string) *GroupRoutingSchemeUpsertOne {
+// SetTtftWeight sets the "ttft_weight" field.
+func (u *GroupRoutingSchemeUpsertOne) SetTtftWeight(v int) *GroupRoutingSchemeUpsertOne {
 	return u.Update(func(s *GroupRoutingSchemeUpsert) {
-		s.SetSortMode(v)
+		s.SetTtftWeight(v)
 	})
 }
 
-// UpdateSortMode sets the "sort_mode" field to the value that was provided on create.
-func (u *GroupRoutingSchemeUpsertOne) UpdateSortMode() *GroupRoutingSchemeUpsertOne {
+// AddTtftWeight adds v to the "ttft_weight" field.
+func (u *GroupRoutingSchemeUpsertOne) AddTtftWeight(v int) *GroupRoutingSchemeUpsertOne {
 	return u.Update(func(s *GroupRoutingSchemeUpsert) {
-		s.UpdateSortMode()
+		s.AddTtftWeight(v)
+	})
+}
+
+// UpdateTtftWeight sets the "ttft_weight" field to the value that was provided on create.
+func (u *GroupRoutingSchemeUpsertOne) UpdateTtftWeight() *GroupRoutingSchemeUpsertOne {
+	return u.Update(func(s *GroupRoutingSchemeUpsert) {
+		s.UpdateTtftWeight()
+	})
+}
+
+// SetErrorWeight sets the "error_weight" field.
+func (u *GroupRoutingSchemeUpsertOne) SetErrorWeight(v int) *GroupRoutingSchemeUpsertOne {
+	return u.Update(func(s *GroupRoutingSchemeUpsert) {
+		s.SetErrorWeight(v)
+	})
+}
+
+// AddErrorWeight adds v to the "error_weight" field.
+func (u *GroupRoutingSchemeUpsertOne) AddErrorWeight(v int) *GroupRoutingSchemeUpsertOne {
+	return u.Update(func(s *GroupRoutingSchemeUpsert) {
+		s.AddErrorWeight(v)
+	})
+}
+
+// UpdateErrorWeight sets the "error_weight" field to the value that was provided on create.
+func (u *GroupRoutingSchemeUpsertOne) UpdateErrorWeight() *GroupRoutingSchemeUpsertOne {
+	return u.Update(func(s *GroupRoutingSchemeUpsert) {
+		s.UpdateErrorWeight()
 	})
 }
 
@@ -1022,17 +1104,45 @@ func (u *GroupRoutingSchemeUpsertBulk) UpdateSortOrder() *GroupRoutingSchemeUpse
 	})
 }
 
-// SetSortMode sets the "sort_mode" field.
-func (u *GroupRoutingSchemeUpsertBulk) SetSortMode(v string) *GroupRoutingSchemeUpsertBulk {
+// SetTtftWeight sets the "ttft_weight" field.
+func (u *GroupRoutingSchemeUpsertBulk) SetTtftWeight(v int) *GroupRoutingSchemeUpsertBulk {
 	return u.Update(func(s *GroupRoutingSchemeUpsert) {
-		s.SetSortMode(v)
+		s.SetTtftWeight(v)
 	})
 }
 
-// UpdateSortMode sets the "sort_mode" field to the value that was provided on create.
-func (u *GroupRoutingSchemeUpsertBulk) UpdateSortMode() *GroupRoutingSchemeUpsertBulk {
+// AddTtftWeight adds v to the "ttft_weight" field.
+func (u *GroupRoutingSchemeUpsertBulk) AddTtftWeight(v int) *GroupRoutingSchemeUpsertBulk {
 	return u.Update(func(s *GroupRoutingSchemeUpsert) {
-		s.UpdateSortMode()
+		s.AddTtftWeight(v)
+	})
+}
+
+// UpdateTtftWeight sets the "ttft_weight" field to the value that was provided on create.
+func (u *GroupRoutingSchemeUpsertBulk) UpdateTtftWeight() *GroupRoutingSchemeUpsertBulk {
+	return u.Update(func(s *GroupRoutingSchemeUpsert) {
+		s.UpdateTtftWeight()
+	})
+}
+
+// SetErrorWeight sets the "error_weight" field.
+func (u *GroupRoutingSchemeUpsertBulk) SetErrorWeight(v int) *GroupRoutingSchemeUpsertBulk {
+	return u.Update(func(s *GroupRoutingSchemeUpsert) {
+		s.SetErrorWeight(v)
+	})
+}
+
+// AddErrorWeight adds v to the "error_weight" field.
+func (u *GroupRoutingSchemeUpsertBulk) AddErrorWeight(v int) *GroupRoutingSchemeUpsertBulk {
+	return u.Update(func(s *GroupRoutingSchemeUpsert) {
+		s.AddErrorWeight(v)
+	})
+}
+
+// UpdateErrorWeight sets the "error_weight" field to the value that was provided on create.
+func (u *GroupRoutingSchemeUpsertBulk) UpdateErrorWeight() *GroupRoutingSchemeUpsertBulk {
+	return u.Update(func(s *GroupRoutingSchemeUpsert) {
+		s.UpdateErrorWeight()
 	})
 }
 

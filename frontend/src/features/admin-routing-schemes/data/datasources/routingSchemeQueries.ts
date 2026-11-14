@@ -1,17 +1,16 @@
 import { apiClient } from '@/core/networks/client'
 import type { GroupPlatform } from '@/types/group'
+import { ROUTING_RULE_ERROR_CLASSES } from '../routingRuleCatalog'
 import type {
   RoutingScheme,
   RoutingSchemeDraft,
   RoutingSchemeItem,
   RoutingSchemeRule,
-  RoutingSchemeSortMode,
   RoutingSchemeStatus,
 } from '../dtos/routingSchemeDtos'
 
 interface RoutingSchemeItemDto {
   group_id: number
-  weight: number
   rules: RoutingSchemeRule[]
   group_name?: string
   platform?: GroupPlatform
@@ -32,7 +31,8 @@ interface RoutingSchemeDto {
   platform: GroupPlatform
   status: RoutingSchemeStatus
   sort_order: number
-  sort_mode: RoutingSchemeSortMode
+  ttft_weight?: number
+  error_weight?: number
   items: RoutingSchemeItemDto[]
   created_at: string
   updated_at: string
@@ -40,9 +40,20 @@ interface RoutingSchemeDto {
 
 // weight_zero was removed because it behaved exactly like cooldown; fold any
 // value saved before that into cooldown so the editor never shows a blank action.
-function toRule(rule: RoutingSchemeRule): RoutingSchemeRule {
-  if (rule.action?.kind !== 'weight_zero') return rule
-  return { ...rule, action: { ...rule.action, kind: 'cooldown' } }
+// empty_stream is no longer reported by the metrics repository, so legacy rules
+// that only watched it could never fire and are dropped.
+function toRule(rule: RoutingSchemeRule): RoutingSchemeRule | null {
+  let next = rule
+  if (next.action?.kind === 'weight_zero') {
+    next = { ...next, action: { ...next.action, kind: 'cooldown' } }
+  }
+  if (next.trigger?.kind === 'error_class') {
+    const classes = (next.trigger.classes ?? [])
+      .filter(className => ROUTING_RULE_ERROR_CLASSES.includes(className))
+    if (classes.length === 0) return null
+    next = { ...next, trigger: { ...next.trigger, classes } }
+  }
+  return next
 }
 
 function toScheme(dto: RoutingSchemeDto): RoutingScheme {
@@ -53,11 +64,13 @@ function toScheme(dto: RoutingSchemeDto): RoutingScheme {
     platform: dto.platform,
     status: dto.status === 'disabled' ? 'disabled' : 'active',
     sort_order: dto.sort_order ?? 0,
-    sort_mode: dto.sort_mode ?? 'score',
+    ttft_weight: dto.ttft_weight ?? 40,
+    error_weight: dto.error_weight ?? 60,
     items: (dto.items ?? []).map((item): RoutingSchemeItem => ({
       group_id: item.group_id,
-      weight: item.weight,
-      rules: (item.rules ?? []).map(toRule),
+      rules: (item.rules ?? [])
+        .map(toRule)
+        .filter((rule): rule is RoutingSchemeRule => rule !== null),
       group_name: item.group_name,
       platform: item.platform,
       rate_multiplier: item.rate_multiplier,
@@ -81,10 +94,10 @@ function toPayload(draft: RoutingSchemeDraft) {
     platform: draft.platform,
     status: draft.status,
     sort_order: draft.sort_order,
-    sort_mode: draft.sort_mode,
+    ttft_weight: draft.ttft_weight,
+    error_weight: draft.error_weight,
     items: draft.items.map(item => ({
       group_id: item.group_id,
-      weight: item.weight,
       rules: item.rules,
     })),
   }
@@ -102,12 +115,20 @@ export interface RoutingGroupScoreDto {
 
 /**
  * Read-only scores for arbitrary groups. The editor calls this before a scheme
- * exists so even the cold-start value comes from the backend.
+ * exists so even the cold-start value and the weighting come from the backend.
  */
-export async function listGroupScores(groupIDs: number[]): Promise<RoutingGroupScoreDto[]> {
+export async function listGroupScores(
+  groupIDs: number[],
+  ttftWeight?: number,
+  errorWeight?: number,
+): Promise<RoutingGroupScoreDto[]> {
   if (groupIDs.length === 0) return []
   const { data } = await apiClient.get<RoutingGroupScoreDto[]>('/admin/routing-schemes/group-scores', {
-    params: { group_ids: groupIDs.join(',') },
+    params: {
+      group_ids: groupIDs.join(','),
+      ...(ttftWeight != null ? { ttft_weight: ttftWeight } : {}),
+      ...(errorWeight != null ? { error_weight: errorWeight } : {}),
+    },
   })
   return data ?? []
 }
@@ -151,6 +172,8 @@ export interface RoutingSchemeAnalyticsGroupDto {
   requests: number
   successes: number
   failures: number
+  /** successes / requests, already normalized by the backend. */
+  success_rate: number
   p95_ttft_ms: number
   input_tokens: number
   output_tokens: number

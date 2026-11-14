@@ -49,10 +49,18 @@ func (GroupRoutingScheme) Fields() []ent.Field {
 			Default(domain.RoutingSchemeStatusActive),
 		field.Int("sort_order").
 			Default(0),
-		field.String("sort_mode").
-			MaxLen(20).
-			Default(domain.RoutingSortScore).
-			Comment("Per-request candidate order: score / ttft / error_count"),
+		// Score weights trade TTFT against errors when ranking the scheme's
+		// groups. Only their ratio matters; the backend normalizes them.
+		field.Int("ttft_weight").
+			Default(domain.RoutingSchemeDefaultTTFTWeight).
+			Min(0).
+			Max(domain.RoutingSchemeMaxScoreWeight).
+			Comment("Weight of the TTFT score in the composite score (0-100)"),
+		field.Int("error_weight").
+			Default(domain.RoutingSchemeDefaultErrorWeight).
+			Min(0).
+			Max(domain.RoutingSchemeMaxScoreWeight).
+			Comment("Weight of the error score in the composite score (0-100)"),
 	}
 }
 

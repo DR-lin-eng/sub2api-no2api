@@ -138,17 +138,45 @@ func (_u *GroupRoutingSchemeUpdate) AddSortOrder(v int) *GroupRoutingSchemeUpdat
 	return _u
 }
 
-// SetSortMode sets the "sort_mode" field.
-func (_u *GroupRoutingSchemeUpdate) SetSortMode(v string) *GroupRoutingSchemeUpdate {
-	_u.mutation.SetSortMode(v)
+// SetTtftWeight sets the "ttft_weight" field.
+func (_u *GroupRoutingSchemeUpdate) SetTtftWeight(v int) *GroupRoutingSchemeUpdate {
+	_u.mutation.ResetTtftWeight()
+	_u.mutation.SetTtftWeight(v)
 	return _u
 }
 
-// SetNillableSortMode sets the "sort_mode" field if the given value is not nil.
-func (_u *GroupRoutingSchemeUpdate) SetNillableSortMode(v *string) *GroupRoutingSchemeUpdate {
+// SetNillableTtftWeight sets the "ttft_weight" field if the given value is not nil.
+func (_u *GroupRoutingSchemeUpdate) SetNillableTtftWeight(v *int) *GroupRoutingSchemeUpdate {
 	if v != nil {
-		_u.SetSortMode(*v)
+		_u.SetTtftWeight(*v)
 	}
+	return _u
+}
+
+// AddTtftWeight adds value to the "ttft_weight" field.
+func (_u *GroupRoutingSchemeUpdate) AddTtftWeight(v int) *GroupRoutingSchemeUpdate {
+	_u.mutation.AddTtftWeight(v)
+	return _u
+}
+
+// SetErrorWeight sets the "error_weight" field.
+func (_u *GroupRoutingSchemeUpdate) SetErrorWeight(v int) *GroupRoutingSchemeUpdate {
+	_u.mutation.ResetErrorWeight()
+	_u.mutation.SetErrorWeight(v)
+	return _u
+}
+
+// SetNillableErrorWeight sets the "error_weight" field if the given value is not nil.
+func (_u *GroupRoutingSchemeUpdate) SetNillableErrorWeight(v *int) *GroupRoutingSchemeUpdate {
+	if v != nil {
+		_u.SetErrorWeight(*v)
+	}
+	return _u
+}
+
+// AddErrorWeight adds value to the "error_weight" field.
+func (_u *GroupRoutingSchemeUpdate) AddErrorWeight(v int) *GroupRoutingSchemeUpdate {
+	_u.mutation.AddErrorWeight(v)
 	return _u
 }
 
@@ -252,9 +280,14 @@ func (_u *GroupRoutingSchemeUpdate) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "GroupRoutingScheme.status": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.SortMode(); ok {
-		if err := grouproutingscheme.SortModeValidator(v); err != nil {
-			return &ValidationError{Name: "sort_mode", err: fmt.Errorf(`ent: validator failed for field "GroupRoutingScheme.sort_mode": %w`, err)}
+	if v, ok := _u.mutation.TtftWeight(); ok {
+		if err := grouproutingscheme.TtftWeightValidator(v); err != nil {
+			return &ValidationError{Name: "ttft_weight", err: fmt.Errorf(`ent: validator failed for field "GroupRoutingScheme.ttft_weight": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ErrorWeight(); ok {
+		if err := grouproutingscheme.ErrorWeightValidator(v); err != nil {
+			return &ValidationError{Name: "error_weight", err: fmt.Errorf(`ent: validator failed for field "GroupRoutingScheme.error_weight": %w`, err)}
 		}
 	}
 	return nil
@@ -302,8 +335,17 @@ func (_u *GroupRoutingSchemeUpdate) sqlSave(ctx context.Context) (_node int, err
 	if value, ok := _u.mutation.AddedSortOrder(); ok {
 		_spec.AddField(grouproutingscheme.FieldSortOrder, field.TypeInt, value)
 	}
-	if value, ok := _u.mutation.SortMode(); ok {
-		_spec.SetField(grouproutingscheme.FieldSortMode, field.TypeString, value)
+	if value, ok := _u.mutation.TtftWeight(); ok {
+		_spec.SetField(grouproutingscheme.FieldTtftWeight, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedTtftWeight(); ok {
+		_spec.AddField(grouproutingscheme.FieldTtftWeight, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ErrorWeight(); ok {
+		_spec.SetField(grouproutingscheme.FieldErrorWeight, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedErrorWeight(); ok {
+		_spec.AddField(grouproutingscheme.FieldErrorWeight, field.TypeInt, value)
 	}
 	if _u.mutation.ItemsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -479,17 +521,45 @@ func (_u *GroupRoutingSchemeUpdateOne) AddSortOrder(v int) *GroupRoutingSchemeUp
 	return _u
 }
 
-// SetSortMode sets the "sort_mode" field.
-func (_u *GroupRoutingSchemeUpdateOne) SetSortMode(v string) *GroupRoutingSchemeUpdateOne {
-	_u.mutation.SetSortMode(v)
+// SetTtftWeight sets the "ttft_weight" field.
+func (_u *GroupRoutingSchemeUpdateOne) SetTtftWeight(v int) *GroupRoutingSchemeUpdateOne {
+	_u.mutation.ResetTtftWeight()
+	_u.mutation.SetTtftWeight(v)
 	return _u
 }
 
-// SetNillableSortMode sets the "sort_mode" field if the given value is not nil.
-func (_u *GroupRoutingSchemeUpdateOne) SetNillableSortMode(v *string) *GroupRoutingSchemeUpdateOne {
+// SetNillableTtftWeight sets the "ttft_weight" field if the given value is not nil.
+func (_u *GroupRoutingSchemeUpdateOne) SetNillableTtftWeight(v *int) *GroupRoutingSchemeUpdateOne {
 	if v != nil {
-		_u.SetSortMode(*v)
+		_u.SetTtftWeight(*v)
 	}
+	return _u
+}
+
+// AddTtftWeight adds value to the "ttft_weight" field.
+func (_u *GroupRoutingSchemeUpdateOne) AddTtftWeight(v int) *GroupRoutingSchemeUpdateOne {
+	_u.mutation.AddTtftWeight(v)
+	return _u
+}
+
+// SetErrorWeight sets the "error_weight" field.
+func (_u *GroupRoutingSchemeUpdateOne) SetErrorWeight(v int) *GroupRoutingSchemeUpdateOne {
+	_u.mutation.ResetErrorWeight()
+	_u.mutation.SetErrorWeight(v)
+	return _u
+}
+
+// SetNillableErrorWeight sets the "error_weight" field if the given value is not nil.
+func (_u *GroupRoutingSchemeUpdateOne) SetNillableErrorWeight(v *int) *GroupRoutingSchemeUpdateOne {
+	if v != nil {
+		_u.SetErrorWeight(*v)
+	}
+	return _u
+}
+
+// AddErrorWeight adds value to the "error_weight" field.
+func (_u *GroupRoutingSchemeUpdateOne) AddErrorWeight(v int) *GroupRoutingSchemeUpdateOne {
+	_u.mutation.AddErrorWeight(v)
 	return _u
 }
 
@@ -606,9 +676,14 @@ func (_u *GroupRoutingSchemeUpdateOne) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "GroupRoutingScheme.status": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.SortMode(); ok {
-		if err := grouproutingscheme.SortModeValidator(v); err != nil {
-			return &ValidationError{Name: "sort_mode", err: fmt.Errorf(`ent: validator failed for field "GroupRoutingScheme.sort_mode": %w`, err)}
+	if v, ok := _u.mutation.TtftWeight(); ok {
+		if err := grouproutingscheme.TtftWeightValidator(v); err != nil {
+			return &ValidationError{Name: "ttft_weight", err: fmt.Errorf(`ent: validator failed for field "GroupRoutingScheme.ttft_weight": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ErrorWeight(); ok {
+		if err := grouproutingscheme.ErrorWeightValidator(v); err != nil {
+			return &ValidationError{Name: "error_weight", err: fmt.Errorf(`ent: validator failed for field "GroupRoutingScheme.error_weight": %w`, err)}
 		}
 	}
 	return nil
@@ -673,8 +748,17 @@ func (_u *GroupRoutingSchemeUpdateOne) sqlSave(ctx context.Context) (_node *Grou
 	if value, ok := _u.mutation.AddedSortOrder(); ok {
 		_spec.AddField(grouproutingscheme.FieldSortOrder, field.TypeInt, value)
 	}
-	if value, ok := _u.mutation.SortMode(); ok {
-		_spec.SetField(grouproutingscheme.FieldSortMode, field.TypeString, value)
+	if value, ok := _u.mutation.TtftWeight(); ok {
+		_spec.SetField(grouproutingscheme.FieldTtftWeight, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedTtftWeight(); ok {
+		_spec.AddField(grouproutingscheme.FieldTtftWeight, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ErrorWeight(); ok {
+		_spec.SetField(grouproutingscheme.FieldErrorWeight, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedErrorWeight(); ok {
+		_spec.AddField(grouproutingscheme.FieldErrorWeight, field.TypeInt, value)
 	}
 	if _u.mutation.ItemsCleared() {
 		edge := &sqlgraph.EdgeSpec{

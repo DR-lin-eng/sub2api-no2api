@@ -31,8 +31,10 @@ const (
 	FieldStatus = "status"
 	// FieldSortOrder holds the string denoting the sort_order field in the database.
 	FieldSortOrder = "sort_order"
-	// FieldSortMode holds the string denoting the sort_mode field in the database.
-	FieldSortMode = "sort_mode"
+	// FieldTtftWeight holds the string denoting the ttft_weight field in the database.
+	FieldTtftWeight = "ttft_weight"
+	// FieldErrorWeight holds the string denoting the error_weight field in the database.
+	FieldErrorWeight = "error_weight"
 	// EdgeItems holds the string denoting the items edge name in mutations.
 	EdgeItems = "items"
 	// Table holds the table name of the grouproutingscheme in the database.
@@ -57,7 +59,8 @@ var Columns = []string{
 	FieldPlatform,
 	FieldStatus,
 	FieldSortOrder,
-	FieldSortMode,
+	FieldTtftWeight,
+	FieldErrorWeight,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -96,10 +99,14 @@ var (
 	StatusValidator func(string) error
 	// DefaultSortOrder holds the default value on creation for the "sort_order" field.
 	DefaultSortOrder int
-	// DefaultSortMode holds the default value on creation for the "sort_mode" field.
-	DefaultSortMode string
-	// SortModeValidator is a validator for the "sort_mode" field. It is called by the builders before save.
-	SortModeValidator func(string) error
+	// DefaultTtftWeight holds the default value on creation for the "ttft_weight" field.
+	DefaultTtftWeight int
+	// TtftWeightValidator is a validator for the "ttft_weight" field. It is called by the builders before save.
+	TtftWeightValidator func(int) error
+	// DefaultErrorWeight holds the default value on creation for the "error_weight" field.
+	DefaultErrorWeight int
+	// ErrorWeightValidator is a validator for the "error_weight" field. It is called by the builders before save.
+	ErrorWeightValidator func(int) error
 )
 
 // OrderOption defines the ordering options for the GroupRoutingScheme queries.
@@ -150,9 +157,14 @@ func BySortOrder(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSortOrder, opts...).ToFunc()
 }
 
-// BySortMode orders the results by the sort_mode field.
-func BySortMode(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldSortMode, opts...).ToFunc()
+// ByTtftWeight orders the results by the ttft_weight field.
+func ByTtftWeight(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTtftWeight, opts...).ToFunc()
+}
+
+// ByErrorWeight orders the results by the error_weight field.
+func ByErrorWeight(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldErrorWeight, opts...).ToFunc()
 }
 
 // ByItemsCount orders the results by items count.

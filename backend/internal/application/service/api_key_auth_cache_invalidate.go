@@ -28,11 +28,21 @@ func (s *APIKeyService) InvalidateAuthCacheByGroupID(ctx context.Context, groupI
 	if groupID <= 0 {
 		return
 	}
-	keys, err := s.apiKeyRepo.ListKeysByGroupID(ctx, groupID)
+	if keys, err := s.apiKeyRepo.ListKeysByGroupID(ctx, groupID); err == nil {
+		s.deleteAuthCacheByKeys(ctx, keys)
+	}
+	// Scheme keys do not store a group_id, so a group change must also refresh
+	// every key routed through a scheme that contains this group.
+	if s.routingSchemeService == nil {
+		return
+	}
+	schemeIDs, err := s.routingSchemeService.SchemeIDsByGroupID(ctx, groupID)
 	if err != nil {
 		return
 	}
-	s.deleteAuthCacheByKeys(ctx, keys)
+	for _, schemeID := range schemeIDs {
+		s.InvalidateAuthCacheByRoutingScheme(ctx, schemeID)
+	}
 }
 
 // InvalidateAuthCacheByRoutingScheme 清除使用该方案的 API Key 认证缓存。

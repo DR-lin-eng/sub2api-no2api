@@ -95,9 +95,14 @@ func SortOrder(v int) predicate.GroupRoutingScheme {
 	return predicate.GroupRoutingScheme(sql.FieldEQ(FieldSortOrder, v))
 }
 
-// SortMode applies equality check predicate on the "sort_mode" field. It's identical to SortModeEQ.
-func SortMode(v string) predicate.GroupRoutingScheme {
-	return predicate.GroupRoutingScheme(sql.FieldEQ(FieldSortMode, v))
+// TtftWeight applies equality check predicate on the "ttft_weight" field. It's identical to TtftWeightEQ.
+func TtftWeight(v int) predicate.GroupRoutingScheme {
+	return predicate.GroupRoutingScheme(sql.FieldEQ(FieldTtftWeight, v))
+}
+
+// ErrorWeight applies equality check predicate on the "error_weight" field. It's identical to ErrorWeightEQ.
+func ErrorWeight(v int) predicate.GroupRoutingScheme {
+	return predicate.GroupRoutingScheme(sql.FieldEQ(FieldErrorWeight, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
@@ -540,69 +545,84 @@ func SortOrderLTE(v int) predicate.GroupRoutingScheme {
 	return predicate.GroupRoutingScheme(sql.FieldLTE(FieldSortOrder, v))
 }
 
-// SortModeEQ applies the EQ predicate on the "sort_mode" field.
-func SortModeEQ(v string) predicate.GroupRoutingScheme {
-	return predicate.GroupRoutingScheme(sql.FieldEQ(FieldSortMode, v))
+// TtftWeightEQ applies the EQ predicate on the "ttft_weight" field.
+func TtftWeightEQ(v int) predicate.GroupRoutingScheme {
+	return predicate.GroupRoutingScheme(sql.FieldEQ(FieldTtftWeight, v))
 }
 
-// SortModeNEQ applies the NEQ predicate on the "sort_mode" field.
-func SortModeNEQ(v string) predicate.GroupRoutingScheme {
-	return predicate.GroupRoutingScheme(sql.FieldNEQ(FieldSortMode, v))
+// TtftWeightNEQ applies the NEQ predicate on the "ttft_weight" field.
+func TtftWeightNEQ(v int) predicate.GroupRoutingScheme {
+	return predicate.GroupRoutingScheme(sql.FieldNEQ(FieldTtftWeight, v))
 }
 
-// SortModeIn applies the In predicate on the "sort_mode" field.
-func SortModeIn(vs ...string) predicate.GroupRoutingScheme {
-	return predicate.GroupRoutingScheme(sql.FieldIn(FieldSortMode, vs...))
+// TtftWeightIn applies the In predicate on the "ttft_weight" field.
+func TtftWeightIn(vs ...int) predicate.GroupRoutingScheme {
+	return predicate.GroupRoutingScheme(sql.FieldIn(FieldTtftWeight, vs...))
 }
 
-// SortModeNotIn applies the NotIn predicate on the "sort_mode" field.
-func SortModeNotIn(vs ...string) predicate.GroupRoutingScheme {
-	return predicate.GroupRoutingScheme(sql.FieldNotIn(FieldSortMode, vs...))
+// TtftWeightNotIn applies the NotIn predicate on the "ttft_weight" field.
+func TtftWeightNotIn(vs ...int) predicate.GroupRoutingScheme {
+	return predicate.GroupRoutingScheme(sql.FieldNotIn(FieldTtftWeight, vs...))
 }
 
-// SortModeGT applies the GT predicate on the "sort_mode" field.
-func SortModeGT(v string) predicate.GroupRoutingScheme {
-	return predicate.GroupRoutingScheme(sql.FieldGT(FieldSortMode, v))
+// TtftWeightGT applies the GT predicate on the "ttft_weight" field.
+func TtftWeightGT(v int) predicate.GroupRoutingScheme {
+	return predicate.GroupRoutingScheme(sql.FieldGT(FieldTtftWeight, v))
 }
 
-// SortModeGTE applies the GTE predicate on the "sort_mode" field.
-func SortModeGTE(v string) predicate.GroupRoutingScheme {
-	return predicate.GroupRoutingScheme(sql.FieldGTE(FieldSortMode, v))
+// TtftWeightGTE applies the GTE predicate on the "ttft_weight" field.
+func TtftWeightGTE(v int) predicate.GroupRoutingScheme {
+	return predicate.GroupRoutingScheme(sql.FieldGTE(FieldTtftWeight, v))
 }
 
-// SortModeLT applies the LT predicate on the "sort_mode" field.
-func SortModeLT(v string) predicate.GroupRoutingScheme {
-	return predicate.GroupRoutingScheme(sql.FieldLT(FieldSortMode, v))
+// TtftWeightLT applies the LT predicate on the "ttft_weight" field.
+func TtftWeightLT(v int) predicate.GroupRoutingScheme {
+	return predicate.GroupRoutingScheme(sql.FieldLT(FieldTtftWeight, v))
 }
 
-// SortModeLTE applies the LTE predicate on the "sort_mode" field.
-func SortModeLTE(v string) predicate.GroupRoutingScheme {
-	return predicate.GroupRoutingScheme(sql.FieldLTE(FieldSortMode, v))
+// TtftWeightLTE applies the LTE predicate on the "ttft_weight" field.
+func TtftWeightLTE(v int) predicate.GroupRoutingScheme {
+	return predicate.GroupRoutingScheme(sql.FieldLTE(FieldTtftWeight, v))
 }
 
-// SortModeContains applies the Contains predicate on the "sort_mode" field.
-func SortModeContains(v string) predicate.GroupRoutingScheme {
-	return predicate.GroupRoutingScheme(sql.FieldContains(FieldSortMode, v))
+// ErrorWeightEQ applies the EQ predicate on the "error_weight" field.
+func ErrorWeightEQ(v int) predicate.GroupRoutingScheme {
+	return predicate.GroupRoutingScheme(sql.FieldEQ(FieldErrorWeight, v))
 }
 
-// SortModeHasPrefix applies the HasPrefix predicate on the "sort_mode" field.
-func SortModeHasPrefix(v string) predicate.GroupRoutingScheme {
-	return predicate.GroupRoutingScheme(sql.FieldHasPrefix(FieldSortMode, v))
+// ErrorWeightNEQ applies the NEQ predicate on the "error_weight" field.
+func ErrorWeightNEQ(v int) predicate.GroupRoutingScheme {
+	return predicate.GroupRoutingScheme(sql.FieldNEQ(FieldErrorWeight, v))
 }
 
-// SortModeHasSuffix applies the HasSuffix predicate on the "sort_mode" field.
-func SortModeHasSuffix(v string) predicate.GroupRoutingScheme {
-	return predicate.GroupRoutingScheme(sql.FieldHasSuffix(FieldSortMode, v))
+// ErrorWeightIn applies the In predicate on the "error_weight" field.
+func ErrorWeightIn(vs ...int) predicate.GroupRoutingScheme {
+	return predicate.GroupRoutingScheme(sql.FieldIn(FieldErrorWeight, vs...))
 }
 
-// SortModeEqualFold applies the EqualFold predicate on the "sort_mode" field.
-func SortModeEqualFold(v string) predicate.GroupRoutingScheme {
-	return predicate.GroupRoutingScheme(sql.FieldEqualFold(FieldSortMode, v))
+// ErrorWeightNotIn applies the NotIn predicate on the "error_weight" field.
+func ErrorWeightNotIn(vs ...int) predicate.GroupRoutingScheme {
+	return predicate.GroupRoutingScheme(sql.FieldNotIn(FieldErrorWeight, vs...))
 }
 
-// SortModeContainsFold applies the ContainsFold predicate on the "sort_mode" field.
-func SortModeContainsFold(v string) predicate.GroupRoutingScheme {
-	return predicate.GroupRoutingScheme(sql.FieldContainsFold(FieldSortMode, v))
+// ErrorWeightGT applies the GT predicate on the "error_weight" field.
+func ErrorWeightGT(v int) predicate.GroupRoutingScheme {
+	return predicate.GroupRoutingScheme(sql.FieldGT(FieldErrorWeight, v))
+}
+
+// ErrorWeightGTE applies the GTE predicate on the "error_weight" field.
+func ErrorWeightGTE(v int) predicate.GroupRoutingScheme {
+	return predicate.GroupRoutingScheme(sql.FieldGTE(FieldErrorWeight, v))
+}
+
+// ErrorWeightLT applies the LT predicate on the "error_weight" field.
+func ErrorWeightLT(v int) predicate.GroupRoutingScheme {
+	return predicate.GroupRoutingScheme(sql.FieldLT(FieldErrorWeight, v))
+}
+
+// ErrorWeightLTE applies the LTE predicate on the "error_weight" field.
+func ErrorWeightLTE(v int) predicate.GroupRoutingScheme {
+	return predicate.GroupRoutingScheme(sql.FieldLTE(FieldErrorWeight, v))
 }
 
 // HasItems applies the HasEdge predicate on the "items" edge.

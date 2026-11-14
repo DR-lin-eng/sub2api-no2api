@@ -1551,12 +1551,46 @@ func init() {
 	grouproutingschemeDescSortOrder := grouproutingschemeFields[4].Descriptor()
 	// grouproutingscheme.DefaultSortOrder holds the default value on creation for the sort_order field.
 	grouproutingscheme.DefaultSortOrder = grouproutingschemeDescSortOrder.Default.(int)
-	// grouproutingschemeDescSortMode is the schema descriptor for sort_mode field.
-	grouproutingschemeDescSortMode := grouproutingschemeFields[5].Descriptor()
-	// grouproutingscheme.DefaultSortMode holds the default value on creation for the sort_mode field.
-	grouproutingscheme.DefaultSortMode = grouproutingschemeDescSortMode.Default.(string)
-	// grouproutingscheme.SortModeValidator is a validator for the "sort_mode" field. It is called by the builders before save.
-	grouproutingscheme.SortModeValidator = grouproutingschemeDescSortMode.Validators[0].(func(string) error)
+	// grouproutingschemeDescTtftWeight is the schema descriptor for ttft_weight field.
+	grouproutingschemeDescTtftWeight := grouproutingschemeFields[5].Descriptor()
+	// grouproutingscheme.DefaultTtftWeight holds the default value on creation for the ttft_weight field.
+	grouproutingscheme.DefaultTtftWeight = grouproutingschemeDescTtftWeight.Default.(int)
+	// grouproutingscheme.TtftWeightValidator is a validator for the "ttft_weight" field. It is called by the builders before save.
+	grouproutingscheme.TtftWeightValidator = func() func(int) error {
+		validators := grouproutingschemeDescTtftWeight.Validators
+		fns := [...]func(int) error{
+			validators[0].(func(int) error),
+			validators[1].(func(int) error),
+		}
+		return func(ttft_weight int) error {
+			for _, fn := range fns {
+				if err := fn(ttft_weight); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// grouproutingschemeDescErrorWeight is the schema descriptor for error_weight field.
+	grouproutingschemeDescErrorWeight := grouproutingschemeFields[6].Descriptor()
+	// grouproutingscheme.DefaultErrorWeight holds the default value on creation for the error_weight field.
+	grouproutingscheme.DefaultErrorWeight = grouproutingschemeDescErrorWeight.Default.(int)
+	// grouproutingscheme.ErrorWeightValidator is a validator for the "error_weight" field. It is called by the builders before save.
+	grouproutingscheme.ErrorWeightValidator = func() func(int) error {
+		validators := grouproutingschemeDescErrorWeight.Validators
+		fns := [...]func(int) error{
+			validators[0].(func(int) error),
+			validators[1].(func(int) error),
+		}
+		return func(error_weight int) error {
+			for _, fn := range fns {
+				if err := fn(error_weight); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
 	grouproutingschemeitemMixin := schema.GroupRoutingSchemeItem{}.Mixin()
 	grouproutingschemeitemMixinFields0 := grouproutingschemeitemMixin[0].Fields()
 	_ = grouproutingschemeitemMixinFields0
@@ -1572,16 +1606,12 @@ func init() {
 	grouproutingschemeitem.DefaultUpdatedAt = grouproutingschemeitemDescUpdatedAt.Default.(func() time.Time)
 	// grouproutingschemeitem.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
 	grouproutingschemeitem.UpdateDefaultUpdatedAt = grouproutingschemeitemDescUpdatedAt.UpdateDefault.(func() time.Time)
-	// grouproutingschemeitemDescWeight is the schema descriptor for weight field.
-	grouproutingschemeitemDescWeight := grouproutingschemeitemFields[2].Descriptor()
-	// grouproutingschemeitem.DefaultWeight holds the default value on creation for the weight field.
-	grouproutingschemeitem.DefaultWeight = grouproutingschemeitemDescWeight.Default.(int)
 	// grouproutingschemeitemDescPosition is the schema descriptor for position field.
-	grouproutingschemeitemDescPosition := grouproutingschemeitemFields[3].Descriptor()
+	grouproutingschemeitemDescPosition := grouproutingschemeitemFields[2].Descriptor()
 	// grouproutingschemeitem.DefaultPosition holds the default value on creation for the position field.
 	grouproutingschemeitem.DefaultPosition = grouproutingschemeitemDescPosition.Default.(int)
 	// grouproutingschemeitemDescRules is the schema descriptor for rules field.
-	grouproutingschemeitemDescRules := grouproutingschemeitemFields[4].Descriptor()
+	grouproutingschemeitemDescRules := grouproutingschemeitemFields[3].Descriptor()
 	// grouproutingschemeitem.DefaultRules holds the default value on creation for the rules field.
 	grouproutingschemeitem.DefaultRules = grouproutingschemeitemDescRules.Default.([]domain.RoutingSchemeRule)
 	ipv6egresspoolMixin := schema.IPv6EgressPool{}.Mixin()

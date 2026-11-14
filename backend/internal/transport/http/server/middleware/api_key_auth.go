@@ -429,9 +429,12 @@ func abortIfAPIKeyGroupUnavailable(c *gin.Context, apiKey *service.APIKey) bool 
 		return false
 	}
 	service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonAPIKeyGroupUnavailable)
-	if code == "GROUP_DELETED" {
+	switch code {
+	case "GROUP_DELETED":
 		MarkIngressRejected(c, IngressRejectGroupDeleted)
-	} else {
+	case "ROUTING_SCHEME_UNAVAILABLE":
+		MarkIngressRejected(c, IngressRejectRoutingSchemeUnavailable)
+	default:
 		MarkIngressRejected(c, IngressRejectGroupDisabled)
 	}
 	AbortWithError(c, 403, code, message)
@@ -460,7 +463,15 @@ func validateAPIKeyGroupAllowed(apiKey *service.APIKey) bool {
 }
 
 func validateAPIKeyGroupAvailable(apiKey *service.APIKey) (string, string, bool) {
-	if apiKey == nil || apiKey.GroupID == nil {
+	if apiKey == nil {
+		return "", "", true
+	}
+	// 方案 Key 的分组由后端在认证快照里展开。方案停用、删除或展开后无可用分组时
+	// 必须 fail closed：否则 GroupID 为空会跳过整段分组校验，请求落到全局账号池。
+	if apiKey.RoutingSchemeID != nil && *apiKey.RoutingSchemeID > 0 && len(apiKey.GroupBindings) == 0 {
+		return "ROUTING_SCHEME_UNAVAILABLE", "API Key 所属调度方案已停用、已删除或暂无可用分组", false
+	}
+	if apiKey.GroupID == nil {
 		return "", "", true
 	}
 	group := apiKey.Group

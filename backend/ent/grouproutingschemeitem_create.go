@@ -64,20 +64,6 @@ func (_c *GroupRoutingSchemeItemCreate) SetGroupID(v int64) *GroupRoutingSchemeI
 	return _c
 }
 
-// SetWeight sets the "weight" field.
-func (_c *GroupRoutingSchemeItemCreate) SetWeight(v int) *GroupRoutingSchemeItemCreate {
-	_c.mutation.SetWeight(v)
-	return _c
-}
-
-// SetNillableWeight sets the "weight" field if the given value is not nil.
-func (_c *GroupRoutingSchemeItemCreate) SetNillableWeight(v *int) *GroupRoutingSchemeItemCreate {
-	if v != nil {
-		_c.SetWeight(*v)
-	}
-	return _c
-}
-
 // SetPosition sets the "position" field.
 func (_c *GroupRoutingSchemeItemCreate) SetPosition(v int) *GroupRoutingSchemeItemCreate {
 	_c.mutation.SetPosition(v)
@@ -146,10 +132,6 @@ func (_c *GroupRoutingSchemeItemCreate) defaults() {
 		v := grouproutingschemeitem.DefaultUpdatedAt()
 		_c.mutation.SetUpdatedAt(v)
 	}
-	if _, ok := _c.mutation.Weight(); !ok {
-		v := grouproutingschemeitem.DefaultWeight
-		_c.mutation.SetWeight(v)
-	}
 	if _, ok := _c.mutation.Position(); !ok {
 		v := grouproutingschemeitem.DefaultPosition
 		_c.mutation.SetPosition(v)
@@ -173,9 +155,6 @@ func (_c *GroupRoutingSchemeItemCreate) check() error {
 	}
 	if _, ok := _c.mutation.GroupID(); !ok {
 		return &ValidationError{Name: "group_id", err: errors.New(`ent: missing required field "GroupRoutingSchemeItem.group_id"`)}
-	}
-	if _, ok := _c.mutation.Weight(); !ok {
-		return &ValidationError{Name: "weight", err: errors.New(`ent: missing required field "GroupRoutingSchemeItem.weight"`)}
 	}
 	if _, ok := _c.mutation.Position(); !ok {
 		return &ValidationError{Name: "position", err: errors.New(`ent: missing required field "GroupRoutingSchemeItem.position"`)}
@@ -224,10 +203,6 @@ func (_c *GroupRoutingSchemeItemCreate) createSpec() (*GroupRoutingSchemeItem, *
 	if value, ok := _c.mutation.GroupID(); ok {
 		_spec.SetField(grouproutingschemeitem.FieldGroupID, field.TypeInt64, value)
 		_node.GroupID = value
-	}
-	if value, ok := _c.mutation.Weight(); ok {
-		_spec.SetField(grouproutingschemeitem.FieldWeight, field.TypeInt, value)
-		_node.Weight = value
 	}
 	if value, ok := _c.mutation.Position(); ok {
 		_spec.SetField(grouproutingschemeitem.FieldPosition, field.TypeInt, value)
@@ -345,24 +320,6 @@ func (u *GroupRoutingSchemeItemUpsert) UpdateGroupID() *GroupRoutingSchemeItemUp
 // AddGroupID adds v to the "group_id" field.
 func (u *GroupRoutingSchemeItemUpsert) AddGroupID(v int64) *GroupRoutingSchemeItemUpsert {
 	u.Add(grouproutingschemeitem.FieldGroupID, v)
-	return u
-}
-
-// SetWeight sets the "weight" field.
-func (u *GroupRoutingSchemeItemUpsert) SetWeight(v int) *GroupRoutingSchemeItemUpsert {
-	u.Set(grouproutingschemeitem.FieldWeight, v)
-	return u
-}
-
-// UpdateWeight sets the "weight" field to the value that was provided on create.
-func (u *GroupRoutingSchemeItemUpsert) UpdateWeight() *GroupRoutingSchemeItemUpsert {
-	u.SetExcluded(grouproutingschemeitem.FieldWeight)
-	return u
-}
-
-// AddWeight adds v to the "weight" field.
-func (u *GroupRoutingSchemeItemUpsert) AddWeight(v int) *GroupRoutingSchemeItemUpsert {
-	u.Add(grouproutingschemeitem.FieldWeight, v)
 	return u
 }
 
@@ -487,27 +444,6 @@ func (u *GroupRoutingSchemeItemUpsertOne) AddGroupID(v int64) *GroupRoutingSchem
 func (u *GroupRoutingSchemeItemUpsertOne) UpdateGroupID() *GroupRoutingSchemeItemUpsertOne {
 	return u.Update(func(s *GroupRoutingSchemeItemUpsert) {
 		s.UpdateGroupID()
-	})
-}
-
-// SetWeight sets the "weight" field.
-func (u *GroupRoutingSchemeItemUpsertOne) SetWeight(v int) *GroupRoutingSchemeItemUpsertOne {
-	return u.Update(func(s *GroupRoutingSchemeItemUpsert) {
-		s.SetWeight(v)
-	})
-}
-
-// AddWeight adds v to the "weight" field.
-func (u *GroupRoutingSchemeItemUpsertOne) AddWeight(v int) *GroupRoutingSchemeItemUpsertOne {
-	return u.Update(func(s *GroupRoutingSchemeItemUpsert) {
-		s.AddWeight(v)
-	})
-}
-
-// UpdateWeight sets the "weight" field to the value that was provided on create.
-func (u *GroupRoutingSchemeItemUpsertOne) UpdateWeight() *GroupRoutingSchemeItemUpsertOne {
-	return u.Update(func(s *GroupRoutingSchemeItemUpsert) {
-		s.UpdateWeight()
 	})
 }
 
@@ -803,27 +739,6 @@ func (u *GroupRoutingSchemeItemUpsertBulk) AddGroupID(v int64) *GroupRoutingSche
 func (u *GroupRoutingSchemeItemUpsertBulk) UpdateGroupID() *GroupRoutingSchemeItemUpsertBulk {
 	return u.Update(func(s *GroupRoutingSchemeItemUpsert) {
 		s.UpdateGroupID()
-	})
-}
-
-// SetWeight sets the "weight" field.
-func (u *GroupRoutingSchemeItemUpsertBulk) SetWeight(v int) *GroupRoutingSchemeItemUpsertBulk {
-	return u.Update(func(s *GroupRoutingSchemeItemUpsert) {
-		s.SetWeight(v)
-	})
-}
-
-// AddWeight adds v to the "weight" field.
-func (u *GroupRoutingSchemeItemUpsertBulk) AddWeight(v int) *GroupRoutingSchemeItemUpsertBulk {
-	return u.Update(func(s *GroupRoutingSchemeItemUpsert) {
-		s.AddWeight(v)
-	})
-}
-
-// UpdateWeight sets the "weight" field to the value that was provided on create.
-func (u *GroupRoutingSchemeItemUpsertBulk) UpdateWeight() *GroupRoutingSchemeItemUpsertBulk {
-	return u.Update(func(s *GroupRoutingSchemeItemUpsert) {
-		s.UpdateWeight()
 	})
 }
 

@@ -12,8 +12,9 @@ import (
 	"entgo.io/ent/schema/index"
 )
 
-// GroupRoutingSchemeItem binds one group to a routing scheme. Weight is only a
-// cold-start fallback; steady-state scheduling uses the backend-computed score.
+// GroupRoutingSchemeItem binds one group to a routing scheme. Candidates are
+// distributed by the backend-computed composite score, so no manual weight is
+// stored here.
 type GroupRoutingSchemeItem struct {
 	ent.Schema
 }
@@ -34,9 +35,6 @@ func (GroupRoutingSchemeItem) Fields() []ent.Field {
 	return []ent.Field{
 		field.Int64("scheme_id"),
 		field.Int64("group_id"),
-		field.Int("weight").
-			Default(1).
-			Comment("Cold-start fallback weight; scheduling normalizes computed scores"),
 		field.Int("position").
 			Default(0),
 		field.JSON("rules", []domain.RoutingSchemeRule{}).

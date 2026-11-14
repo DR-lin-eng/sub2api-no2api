@@ -24,8 +24,7 @@ function sortSchemes(list: RoutingScheme[]): RoutingScheme[] {
 
 /**
  * Admin routing scheme store. All scores and metrics in `items` are read-only
- * projections computed by the backend; the editor only writes groups, weights
- * and rules.
+ * projections computed by the backend; the editor only writes groups and rules.
  */
 export function useRoutingSchemeStore() {
   async function load(force = false): Promise<void> {
@@ -63,7 +62,8 @@ export function useRoutingSchemeStore() {
       platform: scheme.platform,
       status: scheme.status === 'active' ? 'disabled' : 'active',
       sort_order: scheme.sort_order,
-      sort_mode: scheme.sort_mode,
+      ttft_weight: scheme.ttft_weight,
+      error_weight: scheme.error_weight,
       items: scheme.items,
     })
   }

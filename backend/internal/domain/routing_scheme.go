@@ -6,11 +6,13 @@ const (
 	RoutingSchemeStatusDisabled = "disabled"
 )
 
-// Routing scheme sort modes. They decide the per-request candidate order.
+// Scheme-level score weights. The overall score is a weighted average of the
+// TTFT score and the error score, so each scheme can trade speed for stability.
+// Both weights are 0..100 and only their ratio matters.
 const (
-	RoutingSortScore      = "score"
-	RoutingSortTTFT       = "ttft"
-	RoutingSortErrorCount = "error_count"
+	RoutingSchemeDefaultTTFTWeight  = 40
+	RoutingSchemeDefaultErrorWeight = 60
+	RoutingSchemeMaxScoreWeight     = 100
 )
 
 // Routing rule trigger kinds.
@@ -22,9 +24,8 @@ const (
 
 // Routing rule action kinds.
 const (
-	RoutingActionFailover   = "failover"
-	RoutingActionCooldown   = "cooldown"
-	RoutingActionWeightZero = "weight_zero"
+	RoutingActionFailover = "failover"
+	RoutingActionCooldown = "cooldown"
 )
 
 // RoutingSchemeRule is a declarative failover rule attached to one scheme item.
@@ -38,13 +39,15 @@ type RoutingSchemeRule struct {
 }
 
 type RoutingSchemeRuleTrigger struct {
-	Kind             string   `json:"kind"`
-	ThresholdSeconds float64  `json:"threshold_seconds,omitempty"`
-	WindowSeconds    int      `json:"window_seconds,omitempty"`
-	Consecutive      int      `json:"consecutive,omitempty"`
-	Classes          []string `json:"classes,omitempty"`
-	FailurePercent   float64  `json:"failure_percent,omitempty"`
-	MinRequests      int      `json:"min_requests,omitempty"`
+	Kind             string  `json:"kind"`
+	ThresholdSeconds float64 `json:"threshold_seconds,omitempty"`
+	// Consecutive is the minimum number of samples in the fixed 15-minute
+	// window before an item-level rule may fire. It is not a literal
+	// "consecutive requests" counter: the metrics are window aggregates.
+	Consecutive    int      `json:"consecutive,omitempty"`
+	Classes        []string `json:"classes,omitempty"`
+	FailurePercent float64  `json:"failure_percent,omitempty"`
+	MinRequests    int      `json:"min_requests,omitempty"`
 }
 
 type RoutingSchemeRuleAction struct {

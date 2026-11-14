@@ -16,6 +16,8 @@ const messages: Record<string, string> = {
   'keys.groupBindings.manageEmpty': 'No routing groups configured',
   'keys.groupBindings.moreGroups': '+{count}',
   'keys.groupBindings.rateCeilingShort': '≤{rate}x',
+  'keys.groupBindings.routingSchemeUnavailableTag': 'Scheme unavailable',
+  'keys.groupBindings.routingSchemeUnavailableHint': 'The routing scheme was deleted or disabled. Choose another one.',
 }
 
 vi.mock('vue-i18n', async () => {
@@ -126,5 +128,14 @@ describe('KeyGroupBindingsSummary', () => {
 
     expect(wrapper.text()).toContain('No routing groups')
     expect(wrapper.text()).toContain('Configure')
+  })
+
+  it('reports a deleted or disabled scheme instead of pretending the key has no groups', () => {
+    const wrapper = mountSummary(createKey({ routing_scheme_id: 42, routing_scheme: null }))
+
+    expect(wrapper.text()).toContain('Scheme unavailable')
+    expect(wrapper.text()).toContain('deleted or disabled')
+    expect(wrapper.text()).not.toContain('No routing groups')
+    expect(wrapper.get('button').attributes('title')).toContain('deleted or disabled')
   })
 })

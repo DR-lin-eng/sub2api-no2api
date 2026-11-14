@@ -221,18 +221,6 @@ const toggleErrorClass = (rule: RoutingSchemeRule, errorClass: RoutingRuleErrorC
         />
         <span>{{ t('admin.routingSchemes.policy.seconds') }}</span>
         <span class="text-gray-300 dark:text-dark-500">·</span>
-        <span>{{ t('admin.routingSchemes.policy.window') }}</span>
-        <input
-          :value="rule.trigger.window_seconds"
-          type="number"
-          min="10"
-          max="3600"
-          step="10"
-          class="input h-7 w-20 px-2 py-0 text-center text-xs"
-          @input="updateTriggerNumber(rule, 'window_seconds', $event, 10, 3600, 120)"
-        />
-        <span>{{ t('admin.routingSchemes.policy.seconds') }}</span>
-        <span class="text-gray-300 dark:text-dark-500">·</span>
         <span>{{ t('admin.routingSchemes.policy.ttft.consecutive') }}</span>
         <input
           :value="rule.trigger.consecutive"
@@ -276,18 +264,6 @@ const toggleErrorClass = (rule: RoutingSchemeRule, errorClass: RoutingRuleErrorC
           @input="updateTriggerNumber(rule, 'failure_percent', $event, 1, 100, 30)"
         />
         <span>%</span>
-        <span class="text-gray-300 dark:text-dark-500">·</span>
-        <span>{{ t('admin.routingSchemes.policy.window') }}</span>
-        <input
-          :value="rule.trigger.window_seconds"
-          type="number"
-          min="10"
-          max="3600"
-          step="10"
-          class="input h-7 w-20 px-2 py-0 text-center text-xs"
-          @input="updateTriggerNumber(rule, 'window_seconds', $event, 10, 3600, 300)"
-        />
-        <span>{{ t('admin.routingSchemes.policy.seconds') }}</span>
         <span class="text-gray-300 dark:text-dark-500">·</span>
         <span>{{ t('admin.routingSchemes.policy.errorRate.minRequests') }}</span>
         <input

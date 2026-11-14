@@ -1353,7 +1353,8 @@ var (
 		{Name: "platform", Type: field.TypeString, Size: 50, Default: "anthropic"},
 		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
 		{Name: "sort_order", Type: field.TypeInt, Default: 0},
-		{Name: "sort_mode", Type: field.TypeString, Size: 20, Default: "score"},
+		{Name: "ttft_weight", Type: field.TypeInt, Default: 40},
+		{Name: "error_weight", Type: field.TypeInt, Default: 60},
 	}
 	// GroupRoutingSchemesTable holds the schema information for the "group_routing_schemes" table.
 	GroupRoutingSchemesTable = &schema.Table{
@@ -1379,7 +1380,6 @@ var (
 		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "group_id", Type: field.TypeInt64},
-		{Name: "weight", Type: field.TypeInt, Default: 1},
 		{Name: "position", Type: field.TypeInt, Default: 0},
 		{Name: "rules", Type: field.TypeJSON},
 		{Name: "scheme_id", Type: field.TypeInt64},
@@ -1392,7 +1392,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "group_routing_scheme_items_group_routing_schemes_items",
-				Columns:    []*schema.Column{GroupRoutingSchemeItemsColumns[7]},
+				Columns:    []*schema.Column{GroupRoutingSchemeItemsColumns[6]},
 				RefColumns: []*schema.Column{GroupRoutingSchemesColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
@@ -1401,12 +1401,12 @@ var (
 			{
 				Name:    "grouproutingschemeitem_scheme_id_group_id",
 				Unique:  true,
-				Columns: []*schema.Column{GroupRoutingSchemeItemsColumns[7], GroupRoutingSchemeItemsColumns[3]},
+				Columns: []*schema.Column{GroupRoutingSchemeItemsColumns[6], GroupRoutingSchemeItemsColumns[3]},
 			},
 			{
 				Name:    "grouproutingschemeitem_scheme_id_position",
 				Unique:  false,
-				Columns: []*schema.Column{GroupRoutingSchemeItemsColumns[7], GroupRoutingSchemeItemsColumns[5]},
+				Columns: []*schema.Column{GroupRoutingSchemeItemsColumns[6], GroupRoutingSchemeItemsColumns[4]},
 			},
 			{
 				Name:    "grouproutingschemeitem_group_id",

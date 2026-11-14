@@ -23,17 +23,18 @@ func NewRoutingSchemeHandler(routingSchemeService *service.RoutingSchemeService)
 
 type routingSchemeItemRequest struct {
 	GroupID int64                      `json:"group_id" binding:"required"`
-	Weight  int                        `json:"weight"`
 	Rules   []domain.RoutingSchemeRule `json:"rules"`
 }
 
 type routingSchemeRequest struct {
-	Name        string                     `json:"name" binding:"required"`
-	Description string                     `json:"description"`
-	Platform    string                     `json:"platform" binding:"required"`
-	Status      string                     `json:"status"`
-	SortOrder   int                        `json:"sort_order"`
-	SortMode    string                     `json:"sort_mode"`
+	Name        string `json:"name" binding:"required"`
+	Description string `json:"description"`
+	Platform    string `json:"platform" binding:"required"`
+	Status      string `json:"status"`
+	SortOrder   int    `json:"sort_order"`
+	// Omitting both weights keeps the default 40/60 split.
+	TTFTWeight  int                        `json:"ttft_weight"`
+	ErrorWeight int                        `json:"error_weight"`
 	Items       []routingSchemeItemRequest `json:"items" binding:"required"`
 }
 
@@ -42,7 +43,6 @@ type routingSchemeItemResponse struct {
 	GroupName      string                     `json:"group_name"`
 	Platform       string                     `json:"platform"`
 	RateMultiplier float64                    `json:"rate_multiplier"`
-	Weight         int                        `json:"weight"`
 	Position       int                        `json:"position"`
 	Rules          []domain.RoutingSchemeRule `json:"rules"`
 	// Read-only runtime metrics; admins cannot edit them.
@@ -61,7 +61,8 @@ type routingSchemeResponse struct {
 	Platform    string                      `json:"platform"`
 	Status      string                      `json:"status"`
 	SortOrder   int                         `json:"sort_order"`
-	SortMode    string                      `json:"sort_mode"`
+	TTFTWeight  int                         `json:"ttft_weight"`
+	ErrorWeight int                         `json:"error_weight"`
 	Items       []routingSchemeItemResponse `json:"items"`
 	CreatedAt   time.Time                   `json:"created_at"`
 	UpdatedAt   time.Time                   `json:"updated_at"`
@@ -89,7 +90,12 @@ func (h *RoutingSchemeHandler) GetGroupScores(c *gin.Context) {
 		}
 		ids = append(ids, id)
 	}
-	scores := h.service.GroupScores(c.Request.Context(), ids)
+	scores := h.service.GroupScores(
+		c.Request.Context(),
+		ids,
+		parseScoreWeight(c, "ttft_weight", domain.RoutingSchemeDefaultTTFTWeight),
+		parseScoreWeight(c, "error_weight", domain.RoutingSchemeDefaultErrorWeight),
+	)
 	out := make([]routingGroupScoreResponse, 0, len(ids))
 	for _, id := range ids {
 		score := scores[id]
@@ -116,6 +122,21 @@ type routingGroupScoreResponse struct {
 	ColdStart    bool    `json:"cold_start"`
 }
 
+// parseScoreWeight reads an optional 0..100 score weight query parameter. An
+// empty value keeps the default; an out-of-range value falls back as well so
+// the preview endpoint never fails on a stale client.
+func parseScoreWeight(c *gin.Context, name string, fallback int) int {
+	raw := strings.TrimSpace(c.Query(name))
+	if raw == "" {
+		return fallback
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil || value < 0 || value > domain.RoutingSchemeMaxScoreWeight {
+		return fallback
+	}
+	return value
+}
+
 type routingSchemeAnalyticsGroupResponse struct {
 	GroupID        int64   `json:"group_id"`
 	GroupName      string  `json:"group_name"`
@@ -124,6 +145,7 @@ type routingSchemeAnalyticsGroupResponse struct {
 	Requests       int64   `json:"requests"`
 	Successes      int64   `json:"successes"`
 	Failures       int64   `json:"failures"`
+	SuccessRate    float64 `json:"success_rate"`
 	P95TTFTMs      float64 `json:"p95_ttft_ms"`
 	InputTokens    int64   `json:"input_tokens"`
 	OutputTokens   int64   `json:"output_tokens"`
@@ -174,6 +196,7 @@ func (h *RoutingSchemeHandler) GetAnalytics(c *gin.Context) {
 			Requests:       group.Requests,
 			Successes:      group.Successes,
 			Failures:       group.Failures,
+			SuccessRate:    group.SuccessRate,
 			P95TTFTMs:      group.P95TTFTMs,
 			InputTokens:    group.InputTokens,
 			OutputTokens:   group.OutputTokens,
@@ -269,7 +292,6 @@ func (r routingSchemeRequest) toServiceInput() service.RoutingSchemeInput {
 	for _, item := range r.Items {
 		items = append(items, service.RoutingSchemeItemInput{
 			GroupID: item.GroupID,
-			Weight:  item.Weight,
 			Rules:   item.Rules,
 		})
 	}
@@ -279,7 +301,8 @@ func (r routingSchemeRequest) toServiceInput() service.RoutingSchemeInput {
 		Platform:    r.Platform,
 		Status:      r.Status,
 		SortOrder:   r.SortOrder,
-		SortMode:    r.SortMode,
+		TTFTWeight:  r.TTFTWeight,
+		ErrorWeight: r.ErrorWeight,
 		Items:       items,
 	}
 }
@@ -301,7 +324,6 @@ func (h *RoutingSchemeHandler) toResponse(c *gin.Context, scheme *service.Routin
 			GroupName:      item.GroupName,
 			Platform:       item.Platform,
 			RateMultiplier: item.RateMultiplier,
-			Weight:         item.Weight,
 			Position:       item.Position,
 			Rules:          rules,
 			Score:          score.Overall,
@@ -319,7 +341,8 @@ func (h *RoutingSchemeHandler) toResponse(c *gin.Context, scheme *service.Routin
 		Platform:    scheme.Platform,
 		Status:      scheme.Status,
 		SortOrder:   scheme.SortOrder,
-		SortMode:    scheme.SortMode,
+		TTFTWeight:  scheme.TTFTWeight,
+		ErrorWeight: scheme.ErrorWeight,
 		Items:       items,
 		CreatedAt:   scheme.CreatedAt,
 		UpdatedAt:   scheme.UpdatedAt,

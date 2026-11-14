@@ -72,27 +72,6 @@ func (_u *GroupRoutingSchemeItemUpdate) AddGroupID(v int64) *GroupRoutingSchemeI
 	return _u
 }
 
-// SetWeight sets the "weight" field.
-func (_u *GroupRoutingSchemeItemUpdate) SetWeight(v int) *GroupRoutingSchemeItemUpdate {
-	_u.mutation.ResetWeight()
-	_u.mutation.SetWeight(v)
-	return _u
-}
-
-// SetNillableWeight sets the "weight" field if the given value is not nil.
-func (_u *GroupRoutingSchemeItemUpdate) SetNillableWeight(v *int) *GroupRoutingSchemeItemUpdate {
-	if v != nil {
-		_u.SetWeight(*v)
-	}
-	return _u
-}
-
-// AddWeight adds value to the "weight" field.
-func (_u *GroupRoutingSchemeItemUpdate) AddWeight(v int) *GroupRoutingSchemeItemUpdate {
-	_u.mutation.AddWeight(v)
-	return _u
-}
-
 // SetPosition sets the "position" field.
 func (_u *GroupRoutingSchemeItemUpdate) SetPosition(v int) *GroupRoutingSchemeItemUpdate {
 	_u.mutation.ResetPosition()
@@ -207,12 +186,6 @@ func (_u *GroupRoutingSchemeItemUpdate) sqlSave(ctx context.Context) (_node int,
 	if value, ok := _u.mutation.AddedGroupID(); ok {
 		_spec.AddField(grouproutingschemeitem.FieldGroupID, field.TypeInt64, value)
 	}
-	if value, ok := _u.mutation.Weight(); ok {
-		_spec.SetField(grouproutingschemeitem.FieldWeight, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.AddedWeight(); ok {
-		_spec.AddField(grouproutingschemeitem.FieldWeight, field.TypeInt, value)
-	}
 	if value, ok := _u.mutation.Position(); ok {
 		_spec.SetField(grouproutingschemeitem.FieldPosition, field.TypeInt, value)
 	}
@@ -314,27 +287,6 @@ func (_u *GroupRoutingSchemeItemUpdateOne) SetNillableGroupID(v *int64) *GroupRo
 // AddGroupID adds value to the "group_id" field.
 func (_u *GroupRoutingSchemeItemUpdateOne) AddGroupID(v int64) *GroupRoutingSchemeItemUpdateOne {
 	_u.mutation.AddGroupID(v)
-	return _u
-}
-
-// SetWeight sets the "weight" field.
-func (_u *GroupRoutingSchemeItemUpdateOne) SetWeight(v int) *GroupRoutingSchemeItemUpdateOne {
-	_u.mutation.ResetWeight()
-	_u.mutation.SetWeight(v)
-	return _u
-}
-
-// SetNillableWeight sets the "weight" field if the given value is not nil.
-func (_u *GroupRoutingSchemeItemUpdateOne) SetNillableWeight(v *int) *GroupRoutingSchemeItemUpdateOne {
-	if v != nil {
-		_u.SetWeight(*v)
-	}
-	return _u
-}
-
-// AddWeight adds value to the "weight" field.
-func (_u *GroupRoutingSchemeItemUpdateOne) AddWeight(v int) *GroupRoutingSchemeItemUpdateOne {
-	_u.mutation.AddWeight(v)
 	return _u
 }
 
@@ -481,12 +433,6 @@ func (_u *GroupRoutingSchemeItemUpdateOne) sqlSave(ctx context.Context) (_node *
 	}
 	if value, ok := _u.mutation.AddedGroupID(); ok {
 		_spec.AddField(grouproutingschemeitem.FieldGroupID, field.TypeInt64, value)
-	}
-	if value, ok := _u.mutation.Weight(); ok {
-		_spec.SetField(grouproutingschemeitem.FieldWeight, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.AddedWeight(); ok {
-		_spec.AddField(grouproutingschemeitem.FieldWeight, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.Position(); ok {
 		_spec.SetField(grouproutingschemeitem.FieldPosition, field.TypeInt, value)

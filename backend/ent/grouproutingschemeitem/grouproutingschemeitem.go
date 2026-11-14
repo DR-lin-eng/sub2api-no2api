@@ -23,8 +23,6 @@ const (
 	FieldSchemeID = "scheme_id"
 	// FieldGroupID holds the string denoting the group_id field in the database.
 	FieldGroupID = "group_id"
-	// FieldWeight holds the string denoting the weight field in the database.
-	FieldWeight = "weight"
 	// FieldPosition holds the string denoting the position field in the database.
 	FieldPosition = "position"
 	// FieldRules holds the string denoting the rules field in the database.
@@ -49,7 +47,6 @@ var Columns = []string{
 	FieldUpdatedAt,
 	FieldSchemeID,
 	FieldGroupID,
-	FieldWeight,
 	FieldPosition,
 	FieldRules,
 }
@@ -71,8 +68,6 @@ var (
 	DefaultUpdatedAt func() time.Time
 	// UpdateDefaultUpdatedAt holds the default value on update for the "updated_at" field.
 	UpdateDefaultUpdatedAt func() time.Time
-	// DefaultWeight holds the default value on creation for the "weight" field.
-	DefaultWeight int
 	// DefaultPosition holds the default value on creation for the "position" field.
 	DefaultPosition int
 	// DefaultRules holds the default value on creation for the "rules" field.
@@ -105,11 +100,6 @@ func BySchemeID(opts ...sql.OrderTermOption) OrderOption {
 // ByGroupID orders the results by the group_id field.
 func ByGroupID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldGroupID, opts...).ToFunc()
-}
-
-// ByWeight orders the results by the weight field.
-func ByWeight(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldWeight, opts...).ToFunc()
 }
 
 // ByPosition orders the results by the position field.

@@ -33,18 +33,25 @@ const windows: { value: RoutingSchemeAnalyticsWindow; labelKey: string }[] = [
   { value: '30d', labelKey: 'admin.routingSchemes.analytics.window30d' },
 ]
 
+// Switching the window quickly can make a slow response land after a newer
+// one; the sequence check keeps only the latest request's result.
+let requestSeq = 0
 const load = async () => {
   const scheme = props.scheme
   if (!scheme) return
+  const seq = ++requestSeq
   loading.value = true
   failed.value = false
   try {
-    analytics.value = await getRoutingSchemeAnalytics(scheme.id, selectedWindow.value)
+    const result = await getRoutingSchemeAnalytics(scheme.id, selectedWindow.value)
+    if (seq !== requestSeq) return
+    analytics.value = result
   } catch {
+    if (seq !== requestSeq) return
     analytics.value = null
     failed.value = true
   } finally {
-    loading.value = false
+    if (seq === requestSeq) loading.value = false
   }
 }
 
@@ -59,15 +66,14 @@ watch(() => props.show, (show) => {
 watch(selectedWindow, () => { void load() })
 
 const hasTraffic = computed(() => (analytics.value?.requests ?? 0) > 0)
-
 const formatCost = (value: number) => `$${(value ?? 0).toFixed(4)}`
 const formatCount = (value: number) => (value ?? 0).toLocaleString()
 const formatPercent = (value: number) => `${Math.round((value ?? 0) * 10) / 10}%`
 const formatP95 = (ms: number) => (ms > 0 ? `${Math.round(ms / 100) / 10}s` : '—')
-const successRate = (successes: number, failures: number) => {
-  const total = successes + failures
-  return total > 0 ? formatPercent((successes / total) * 100) : '—'
-}
+// Success rate is computed by the backend as successes / requests. Provider
+// failures are attempt-level and are shown as their own column.
+const successRate = (requests: number, rate: number) =>
+  requests > 0 ? formatPercent(rate) : '—'
 </script>
 
 <template>
@@ -144,6 +150,7 @@ const successRate = (successes: number, failures: number) => {
                 <th class="px-3 py-2 text-right">{{ t('admin.routingSchemes.analytics.requests') }}</th>
                 <th class="px-3 py-2 text-right">{{ t('admin.routingSchemes.analytics.requestShare') }}</th>
                 <th class="px-3 py-2 text-right">{{ t('admin.routingSchemes.analytics.successRate') }}</th>
+                <th class="px-3 py-2 text-right">{{ t('admin.routingSchemes.analytics.providerFailures') }}</th>
                 <th class="px-3 py-2 text-right">{{ t('admin.routingSchemes.analytics.p95Ttft') }}</th>
                 <th class="px-3 py-2 text-right">{{ t('admin.routingSchemes.analytics.tokens') }}</th>
                 <th class="px-3 py-2 text-right">{{ t('admin.routingSchemes.analytics.cost') }}</th>
@@ -178,7 +185,10 @@ const successRate = (successes: number, failures: number) => {
                   </div>
                 </td>
                 <td class="px-3 py-2 text-right tabular-nums text-gray-700 dark:text-gray-200">
-                  {{ successRate(group.successes, group.failures) }}
+                  {{ successRate(group.requests, group.success_rate) }}
+                </td>
+                <td class="px-3 py-2 text-right tabular-nums text-gray-700 dark:text-gray-200">
+                  {{ formatCount(group.failures) }}
                 </td>
                 <td class="px-3 py-2 text-right tabular-nums text-gray-700 dark:text-gray-200">
                   {{ formatP95(group.p95_ttft_ms) }}

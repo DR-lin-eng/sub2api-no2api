@@ -30,7 +30,10 @@ type RoutingScheme struct {
 	Platform    string
 	Status      string
 	SortOrder   int
-	SortMode    string
+	// TTFTWeight and ErrorWeight trade speed against stability. Only their
+	// ratio matters; the scheduler normalizes them into a weighted average.
+	TTFTWeight  int
+	ErrorWeight int
 	Items       []RoutingSchemeItem
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
@@ -42,7 +45,6 @@ type RoutingSchemeItem struct {
 	GroupName      string
 	Platform       string
 	RateMultiplier float64
-	Weight         int
 	Position       int
 	Rules          []domain.RoutingSchemeRule
 }
@@ -54,13 +56,15 @@ type RoutingSchemeInput struct {
 	Platform    string
 	Status      string
 	SortOrder   int
-	SortMode    string
+	// A zero/zero pair means "use the defaults" so older clients that omit the
+	// fields keep the previous 40/60 behavior.
+	TTFTWeight  int
+	ErrorWeight int
 	Items       []RoutingSchemeItemInput
 }
 
 type RoutingSchemeItemInput struct {
 	GroupID int64
-	Weight  int
 	Rules   []domain.RoutingSchemeRule
 }
 
@@ -83,6 +87,9 @@ type RoutingSchemeRepository interface {
 	Create(ctx context.Context, scheme *RoutingScheme) error
 	Update(ctx context.Context, scheme *RoutingScheme) error
 	Delete(ctx context.Context, id int64) error
+	// ListSchemeIDsByGroupID returns the live schemes that still reference the
+	// group, so a group change can refresh the keys routed through them.
+	ListSchemeIDsByGroupID(ctx context.Context, groupID int64) ([]int64, error)
 }
 
 // RoutingSchemeService owns validation, admin CRUD and the user-facing
@@ -148,13 +155,17 @@ type RoutingSchemeAnalyticsGroup struct {
 	RateMultiplier float64
 	Requests       int64
 	Successes      int64
-	Failures       int64
-	P95TTFTMs      float64
-	InputTokens    int64
-	OutputTokens   int64
-	Cost           float64
-	RequestShare   float64
-	CostShare      float64
+	// Failures counts provider-owned failed attempts, not failed requests: one
+	// request may fail over several times. It is shown separately and must not
+	// be used as the denominator of the success rate.
+	Failures     int64
+	SuccessRate  float64
+	P95TTFTMs    float64
+	InputTokens  int64
+	OutputTokens int64
+	Cost         float64
+	RequestShare float64
+	CostShare    float64
 }
 
 // RoutingSchemeAnalytics is the admin panel projection for one scheme.
@@ -217,6 +228,12 @@ func (s *RoutingSchemeService) Analytics(ctx context.Context, schemeID int64, wi
 		if analytics.Requests > 0 {
 			analytics.Groups[i].RequestShare = float64(analytics.Groups[i].Requests) / float64(analytics.Requests) * 100
 		}
+		// Success rate uses the request count as the denominator. Provider
+		// failures come from attempt-level error logs, so mixing them into the
+		// denominator would understate healthy traffic after failovers.
+		if analytics.Groups[i].Requests > 0 {
+			analytics.Groups[i].SuccessRate = float64(analytics.Groups[i].Successes) / float64(analytics.Groups[i].Requests) * 100
+		}
 		if analytics.Cost > 0 {
 			analytics.Groups[i].CostShare = analytics.Groups[i].Cost / analytics.Cost * 100
 		}
@@ -241,16 +258,63 @@ func routingAnalyticsWindow(window string) (time.Duration, string) {
 	}
 }
 
+// groupBatchLoader is an optional capability on GroupRepository. The production
+// repository implements it, so expanding a scheme costs one query; lightweight
+// test doubles keep working through the per-id fallback.
+type groupBatchLoader interface {
+	GetByIDs(ctx context.Context, ids []int64) ([]Group, error)
+}
+
+func loadGroupsByIDs(ctx context.Context, repo GroupRepository, ids []int64) map[int64]*Group {
+	out := make(map[int64]*Group, len(ids))
+	if len(ids) == 0 {
+		return out
+	}
+	if loader, ok := repo.(groupBatchLoader); ok {
+		groups, err := loader.GetByIDs(ctx, ids)
+		if err != nil {
+			return out
+		}
+		for i := range groups {
+			out[groups[i].ID] = &groups[i]
+		}
+		return out
+	}
+	seen := make(map[int64]struct{}, len(ids))
+	for _, id := range ids {
+		if id <= 0 {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		group, err := repo.GetByID(ctx, id)
+		if err != nil || group == nil {
+			continue
+		}
+		out[id] = group
+	}
+	return out
+}
+
 // hydrateItemGroups fills the admin-facing group projection (name, platform
 // and rate) that is not persisted on the scheme item itself.
 func (s *RoutingSchemeService) hydrateItemGroups(ctx context.Context, schemes []RoutingScheme) {
-	if s.groupRepo == nil {
+	if s.groupRepo == nil || len(schemes) == 0 {
 		return
 	}
+	groupIDs := make([]int64, 0, len(schemes))
 	for i := range schemes {
 		for j := range schemes[i].Items {
-			group, err := s.groupRepo.GetByID(ctx, schemes[i].Items[j].GroupID)
-			if err != nil || group == nil {
+			groupIDs = append(groupIDs, schemes[i].Items[j].GroupID)
+		}
+	}
+	groupByID := loadGroupsByIDs(ctx, s.groupRepo, groupIDs)
+	for i := range schemes {
+		for j := range schemes[i].Items {
+			group := groupByID[schemes[i].Items[j].GroupID]
+			if group == nil {
 				continue
 			}
 			schemes[i].Items[j].GroupName = group.Name
@@ -308,6 +372,16 @@ func (s *RoutingSchemeService) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
+// SchemeIDsByGroupID returns the live schemes that contain the group. Group
+// edits use it to refresh keys that are routed through a scheme instead of a
+// direct group binding.
+func (s *RoutingSchemeService) SchemeIDsByGroupID(ctx context.Context, groupID int64) ([]int64, error) {
+	if s == nil || s.repo == nil || groupID <= 0 {
+		return nil, nil
+	}
+	return s.repo.ListSchemeIDsByGroupID(ctx, groupID)
+}
+
 // AvailableForUser returns scheme metadata for the key editor. Groups that the
 // user cannot bind are dropped before computing the rate range; schemes with no
 // bindable group are not returned.
@@ -316,6 +390,16 @@ func (s *RoutingSchemeService) AvailableForUser(ctx context.Context, user *User,
 	if err != nil {
 		return nil, err
 	}
+	// Batch-load every referenced group once. Both the key list and the key
+	// editor expand all schemes on each load, so a per-item lookup made the
+	// request cost grow with schemes x items.
+	groupIDs := make([]int64, 0, len(schemes))
+	for _, scheme := range schemes {
+		for _, item := range scheme.Items {
+			groupIDs = append(groupIDs, item.GroupID)
+		}
+	}
+	groupByID := loadGroupsByIDs(ctx, s.groupRepo, groupIDs)
 	out := make([]AvailableRoutingScheme, 0, len(schemes))
 	for _, scheme := range schemes {
 		if scheme.Status != domain.RoutingSchemeStatusActive {
@@ -323,8 +407,8 @@ func (s *RoutingSchemeService) AvailableForUser(ctx context.Context, user *User,
 		}
 		rates := make([]float64, 0, len(scheme.Items))
 		for _, item := range scheme.Items {
-			group, err := s.groupRepo.GetByID(ctx, item.GroupID)
-			if err != nil || group == nil || !group.IsActive() {
+			group := groupByID[item.GroupID]
+			if group == nil || !group.IsActive() {
 				continue
 			}
 			if user != nil && !group.IsSubscriptionType() && !user.CanBindGroup(group.ID, group.IsExclusive) {
@@ -420,13 +504,14 @@ func (s *RoutingSchemeService) validateInput(ctx context.Context, id int64, inpu
 	if status != domain.RoutingSchemeStatusActive && status != domain.RoutingSchemeStatusDisabled {
 		return nil, fmt.Errorf("%w: unsupported status", ErrRoutingSchemeInvalid)
 	}
-	sortMode := input.SortMode
-	if sortMode == "" {
-		sortMode = domain.RoutingSortScore
+	ttftWeight, errorWeight := input.TTFTWeight, input.ErrorWeight
+	if ttftWeight < 0 || ttftWeight > domain.RoutingSchemeMaxScoreWeight {
+		return nil, fmt.Errorf("%w: ttft_weight must be within [0, %d]", ErrRoutingSchemeInvalid, domain.RoutingSchemeMaxScoreWeight)
 	}
-	if sortMode != domain.RoutingSortScore && sortMode != domain.RoutingSortTTFT && sortMode != domain.RoutingSortErrorCount {
-		return nil, fmt.Errorf("%w: unsupported sort_mode", ErrRoutingSchemeInvalid)
+	if errorWeight < 0 || errorWeight > domain.RoutingSchemeMaxScoreWeight {
+		return nil, fmt.Errorf("%w: error_weight must be within [0, %d]", ErrRoutingSchemeInvalid, domain.RoutingSchemeMaxScoreWeight)
 	}
+	ttftWeight, errorWeight = scoringWeights(ttftWeight, errorWeight)
 	if len(input.Items) == 0 {
 		return nil, fmt.Errorf("%w: at least one group is required", ErrRoutingSchemeInvalid)
 	}
@@ -470,19 +555,11 @@ func (s *RoutingSchemeService) validateInput(ctx context.Context, id int64, inpu
 				return nil, err
 			}
 		}
-		weight := item.Weight
-		if weight <= 0 {
-			weight = 1
-		}
-		if weight > 100 {
-			weight = 100
-		}
 		items = append(items, RoutingSchemeItem{
 			GroupID:        item.GroupID,
 			GroupName:      group.Name,
 			Platform:       group.Platform,
 			RateMultiplier: group.RateMultiplier,
-			Weight:         weight,
 			Position:       position,
 			Rules:          item.Rules,
 		})
@@ -495,9 +572,25 @@ func (s *RoutingSchemeService) validateInput(ctx context.Context, id int64, inpu
 		Platform:    platform,
 		Status:      status,
 		SortOrder:   input.SortOrder,
-		SortMode:    sortMode,
+		TTFTWeight:  ttftWeight,
+		ErrorWeight: errorWeight,
 		Items:       items,
 	}, nil
+}
+
+// scoringWeights resolves a scheme's score weights. A zero/zero pair means the
+// caller omitted them, so it falls back to the defaults; negatives are clamped.
+func scoringWeights(ttftWeight, errorWeight int) (int, int) {
+	if ttftWeight <= 0 && errorWeight <= 0 {
+		return domain.RoutingSchemeDefaultTTFTWeight, domain.RoutingSchemeDefaultErrorWeight
+	}
+	if ttftWeight < 0 {
+		ttftWeight = 0
+	}
+	if errorWeight < 0 {
+		errorWeight = 0
+	}
+	return ttftWeight, errorWeight
 }
 
 func validateRoutingRule(rule domain.RoutingSchemeRule) error {
@@ -510,6 +603,14 @@ func validateRoutingRule(rule domain.RoutingSchemeRule) error {
 		if len(rule.Trigger.Classes) == 0 {
 			return fmt.Errorf("%w: error_class requires at least one class", ErrRoutingSchemeInvalid)
 		}
+		for _, class := range rule.Trigger.Classes {
+			switch class {
+			case RoutingErrorClassTimeout, RoutingErrorClassHTTP429, RoutingErrorClassHTTP5xx,
+				RoutingErrorClassAuth, RoutingErrorClassModelUnavailable:
+			default:
+				return fmt.Errorf("%w: unsupported error class %s", ErrRoutingSchemeInvalid, class)
+			}
+		}
 	case domain.RoutingTriggerErrorRate:
 		if rule.Trigger.FailurePercent <= 0 || rule.Trigger.FailurePercent > 100 {
 			return fmt.Errorf("%w: error_rate failure_percent must be within (0, 100]", ErrRoutingSchemeInvalid)
@@ -518,7 +619,7 @@ func validateRoutingRule(rule domain.RoutingSchemeRule) error {
 		return fmt.Errorf("%w: unsupported trigger kind %s", ErrRoutingSchemeInvalid, rule.Trigger.Kind)
 	}
 	switch rule.Action.Kind {
-	case domain.RoutingActionFailover, domain.RoutingActionCooldown, domain.RoutingActionWeightZero:
+	case domain.RoutingActionFailover, domain.RoutingActionCooldown:
 	default:
 		return fmt.Errorf("%w: unsupported action kind %s", ErrRoutingSchemeInvalid, rule.Action.Kind)
 	}

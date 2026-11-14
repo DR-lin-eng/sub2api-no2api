@@ -575,7 +575,11 @@ func (s *APIKeyService) SetRoutingSchemeService(routingSchemeService *RoutingSch
 	s.routingSchemeService = routingSchemeService
 }
 
-func (s *APIKeyService) resolveRoutingSchemeID(ctx context.Context, schemeID *int64, bindings []APIKeyGroupBinding) (*int64, error) {
+// resolveRoutingSchemeID validates that a key may opt into a scheme. A scheme
+// owns its groups, so a manual binding list is rejected instead of keeping two
+// conflicting sources of truth; the user must also be able to bind at least one
+// group in the scheme, otherwise the key would 403 on its first request.
+func (s *APIKeyService) resolveRoutingSchemeID(ctx context.Context, user *User, schemeID *int64, bindings []APIKeyGroupBinding) (*int64, error) {
 	if schemeID == nil || *schemeID <= 0 {
 		return nil, nil
 	}
@@ -589,11 +593,32 @@ func (s *APIKeyService) resolveRoutingSchemeID(ctx context.Context, schemeID *in
 	if scheme.Status != domain.RoutingSchemeStatusActive {
 		return nil, fmt.Errorf("%w: routing scheme is disabled", ErrRoutingSchemeInvalid)
 	}
-	if len(bindings) > 0 && bindings[0].Group != nil && bindings[0].Group.Platform != scheme.Platform {
-		return nil, fmt.Errorf("%w: routing scheme platform mismatch", ErrRoutingSchemeInvalid)
+	if len(bindings) > 0 {
+		return nil, fmt.Errorf("%w: routing_scheme_id and group_bindings are mutually exclusive", ErrAPIKeyGroupBindingsInvalid)
+	}
+	if !s.userCanBindAnySchemeGroup(ctx, user, scheme) {
+		return nil, fmt.Errorf("%w: no group in the routing scheme can be bound by this user", ErrRoutingSchemeInvalid)
 	}
 	id := *schemeID
 	return &id, nil
+}
+
+// userCanBindAnySchemeGroup reports whether the user can bind at least one
+// active standard group inside the scheme.
+func (s *APIKeyService) userCanBindAnySchemeGroup(ctx context.Context, user *User, scheme *RoutingScheme) bool {
+	if user == nil || scheme == nil || s.groupRepo == nil {
+		return false
+	}
+	for _, item := range scheme.Items {
+		group, err := s.groupRepo.GetByID(ctx, item.GroupID)
+		if err != nil || group == nil || !group.IsActive() || group.IsSubscriptionType() {
+			continue
+		}
+		if s.canUserBindGroup(ctx, user, group) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *APIKeyService) SetLastUsedScheduler(scheduler APIKeyLastUsedScheduler) {
@@ -741,7 +766,7 @@ func (s *APIKeyService) create(ctx context.Context, userID int64, req CreateAPIK
 	if err != nil {
 		return nil, err
 	}
-	routingSchemeID, err := s.resolveRoutingSchemeID(ctx, req.RoutingSchemeID, bindings)
+	routingSchemeID, err := s.resolveRoutingSchemeID(ctx, user, req.RoutingSchemeID, bindings)
 	if err != nil {
 		return nil, err
 	}
@@ -1078,7 +1103,11 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 		if *req.RoutingSchemeID <= 0 {
 			apiKey.RoutingSchemeID = nil
 		} else {
-			routingSchemeID, err := s.resolveRoutingSchemeID(ctx, req.RoutingSchemeID, apiKey.GroupBindings)
+			user, err := s.userRepo.GetByID(ctx, userID)
+			if err != nil {
+				return nil, fmt.Errorf("get user: %w", err)
+			}
+			routingSchemeID, err := s.resolveRoutingSchemeID(ctx, user, req.RoutingSchemeID, apiKey.GroupBindings)
 			if err != nil {
 				return nil, err
 			}

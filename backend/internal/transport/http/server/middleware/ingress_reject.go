@@ -16,19 +16,20 @@ import (
 type IngressRejectReason string
 
 const (
-	IngressRejectQueryAPIKeyDeprecated  IngressRejectReason = "query_api_key_deprecated"
-	IngressRejectAPIKeyRequired         IngressRejectReason = "api_key_required"
-	IngressRejectInvalidAPIKey          IngressRejectReason = "invalid_api_key"
-	IngressRejectAPIKeyDisabled         IngressRejectReason = "api_key_disabled"
-	IngressRejectIPRestricted           IngressRejectReason = "ip_restricted"
-	IngressRejectUserInactive           IngressRejectReason = "user_inactive"
-	IngressRejectGroupDeleted           IngressRejectReason = "group_deleted"
-	IngressRejectGroupDisabled          IngressRejectReason = "group_disabled"
-	IngressRejectGroupNotAllowed        IngressRejectReason = "group_not_allowed"
-	IngressRejectGroupUnassigned        IngressRejectReason = "group_unassigned"
-	IngressRejectInvalidAuthRateLimited IngressRejectReason = "invalid_auth_rate_limited"
-	IngressRejectAPIKeyAuthOverloaded   IngressRejectReason = "api_key_auth_overloaded"
-	IngressRejectModelNotAllowed        IngressRejectReason = "model_not_allowed"
+	IngressRejectQueryAPIKeyDeprecated    IngressRejectReason = "query_api_key_deprecated"
+	IngressRejectAPIKeyRequired           IngressRejectReason = "api_key_required"
+	IngressRejectInvalidAPIKey            IngressRejectReason = "invalid_api_key"
+	IngressRejectAPIKeyDisabled           IngressRejectReason = "api_key_disabled"
+	IngressRejectIPRestricted             IngressRejectReason = "ip_restricted"
+	IngressRejectUserInactive             IngressRejectReason = "user_inactive"
+	IngressRejectGroupDeleted             IngressRejectReason = "group_deleted"
+	IngressRejectGroupDisabled            IngressRejectReason = "group_disabled"
+	IngressRejectRoutingSchemeUnavailable IngressRejectReason = "routing_scheme_unavailable"
+	IngressRejectGroupNotAllowed          IngressRejectReason = "group_not_allowed"
+	IngressRejectGroupUnassigned          IngressRejectReason = "group_unassigned"
+	IngressRejectInvalidAuthRateLimited   IngressRejectReason = "invalid_auth_rate_limited"
+	IngressRejectAPIKeyAuthOverloaded     IngressRejectReason = "api_key_auth_overloaded"
+	IngressRejectModelNotAllowed          IngressRejectReason = "model_not_allowed"
 )
 
 const ingressRejectReasonContextKey = "ingress_reject_reason"

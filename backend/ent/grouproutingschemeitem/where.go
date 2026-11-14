@@ -75,11 +75,6 @@ func GroupID(v int64) predicate.GroupRoutingSchemeItem {
 	return predicate.GroupRoutingSchemeItem(sql.FieldEQ(FieldGroupID, v))
 }
 
-// Weight applies equality check predicate on the "weight" field. It's identical to WeightEQ.
-func Weight(v int) predicate.GroupRoutingSchemeItem {
-	return predicate.GroupRoutingSchemeItem(sql.FieldEQ(FieldWeight, v))
-}
-
 // Position applies equality check predicate on the "position" field. It's identical to PositionEQ.
 func Position(v int) predicate.GroupRoutingSchemeItem {
 	return predicate.GroupRoutingSchemeItem(sql.FieldEQ(FieldPosition, v))
@@ -223,46 +218,6 @@ func GroupIDLT(v int64) predicate.GroupRoutingSchemeItem {
 // GroupIDLTE applies the LTE predicate on the "group_id" field.
 func GroupIDLTE(v int64) predicate.GroupRoutingSchemeItem {
 	return predicate.GroupRoutingSchemeItem(sql.FieldLTE(FieldGroupID, v))
-}
-
-// WeightEQ applies the EQ predicate on the "weight" field.
-func WeightEQ(v int) predicate.GroupRoutingSchemeItem {
-	return predicate.GroupRoutingSchemeItem(sql.FieldEQ(FieldWeight, v))
-}
-
-// WeightNEQ applies the NEQ predicate on the "weight" field.
-func WeightNEQ(v int) predicate.GroupRoutingSchemeItem {
-	return predicate.GroupRoutingSchemeItem(sql.FieldNEQ(FieldWeight, v))
-}
-
-// WeightIn applies the In predicate on the "weight" field.
-func WeightIn(vs ...int) predicate.GroupRoutingSchemeItem {
-	return predicate.GroupRoutingSchemeItem(sql.FieldIn(FieldWeight, vs...))
-}
-
-// WeightNotIn applies the NotIn predicate on the "weight" field.
-func WeightNotIn(vs ...int) predicate.GroupRoutingSchemeItem {
-	return predicate.GroupRoutingSchemeItem(sql.FieldNotIn(FieldWeight, vs...))
-}
-
-// WeightGT applies the GT predicate on the "weight" field.
-func WeightGT(v int) predicate.GroupRoutingSchemeItem {
-	return predicate.GroupRoutingSchemeItem(sql.FieldGT(FieldWeight, v))
-}
-
-// WeightGTE applies the GTE predicate on the "weight" field.
-func WeightGTE(v int) predicate.GroupRoutingSchemeItem {
-	return predicate.GroupRoutingSchemeItem(sql.FieldGTE(FieldWeight, v))
-}
-
-// WeightLT applies the LT predicate on the "weight" field.
-func WeightLT(v int) predicate.GroupRoutingSchemeItem {
-	return predicate.GroupRoutingSchemeItem(sql.FieldLT(FieldWeight, v))
-}
-
-// WeightLTE applies the LTE predicate on the "weight" field.
-func WeightLTE(v int) predicate.GroupRoutingSchemeItem {
-	return predicate.GroupRoutingSchemeItem(sql.FieldLTE(FieldWeight, v))
 }
 
 // PositionEQ applies the EQ predicate on the "position" field.
