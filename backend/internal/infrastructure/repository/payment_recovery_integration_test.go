@@ -119,7 +119,57 @@ func newPaymentRecoveryFixture(t *testing.T) *paymentRecoveryFixture {
 	webhook := handler.NewPaymentWebhookHandler(f.svc, registry)
 	router.POST("/notify", webhook.EasyPayNotify)
 	f.router = router
+	t.Cleanup(func() {
+		cleanupPaymentRecoveryFixture(f.instanceID)
+	})
 	return f
+}
+
+// Payment integration fixtures share one disposable database with the rest of
+// the repository package. Remove their durable fulfillment artifacts before
+// the repository listing suites run; otherwise their deliberately generated
+// redeem codes make unrelated exact-count tests order-dependent.
+func cleanupPaymentRecoveryFixture(instanceID int64) {
+	if integrationDB == nil || instanceID <= 0 {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	statements := []struct {
+		query string
+		args  []any
+	}{
+		{
+			`DELETE FROM redeem_codes WHERE code LIKE 'RECOVERY-%' OR code LIKE 'PAY-%'`, nil},
+		{
+			`DELETE FROM user_affiliate_ledger
+ WHERE source_order_id IN (SELECT id FROM payment_orders WHERE provider_instance_id=$1)`, []any{strconv.FormatInt(instanceID, 10)}},
+		{
+			`DELETE FROM payment_audit_logs
+ WHERE order_id IN (SELECT id::text FROM payment_orders WHERE provider_instance_id=$1)`, []any{strconv.FormatInt(instanceID, 10)}},
+		{
+			`DELETE FROM redeem_code_usages
+ WHERE redeem_code_id IN (
+     SELECT id FROM redeem_codes WHERE code IN (
+         SELECT recharge_code FROM payment_orders WHERE provider_instance_id=$1
+     )
+ )`, []any{strconv.FormatInt(instanceID, 10)}},
+		{
+			`DELETE FROM redeem_codes
+ WHERE code IN (SELECT recharge_code FROM payment_orders WHERE provider_instance_id=$1)`, []any{strconv.FormatInt(instanceID, 10)}},
+		{
+			`DELETE FROM payment_orders WHERE provider_instance_id=$1`, []any{strconv.FormatInt(instanceID, 10)}},
+		{
+			`DELETE FROM payment_provider_instances WHERE id=$1`, []any{instanceID}},
+	}
+	for _, statement := range statements {
+		if _, err := integrationDB.ExecContext(ctx, statement.query, statement.args...); err != nil {
+			// Cleanup must not mask the test result or prevent later fixtures from
+			// running. Continue with independent statements so a stale audit or
+			// affiliate row cannot prevent redeem-code cleanup.
+			continue
+		}
+	}
 }
 
 type paymentFixtureInflation struct{ fixture *paymentRecoveryFixture }
