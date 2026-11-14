@@ -34,6 +34,9 @@ func TestUnavailableSignalCBORMatchesDesktopJavaScript(t *testing.T) {
 
 func TestLinuxCodexAttestationReportsUnsupportedWithoutAppleToken(t *testing.T) {
 	encoded := codexUnavailableToken(1)
+	if encoded != "v1.omplcnJvcl9jb2RlAWlidW5kbGVfaWRwY29tLm9wZW5haS5jb2RleA" {
+		t.Fatalf("Linux unsupported token changed: %s", encoded)
+	}
 	payload, err := base64.RawURLEncoding.DecodeString(encoded[3:])
 	if err != nil {
 		t.Fatal("invalid unsupported envelope")

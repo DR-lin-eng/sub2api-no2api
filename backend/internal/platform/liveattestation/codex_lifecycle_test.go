@@ -124,3 +124,31 @@ func TestLiveValidationRemainsSeparateFromOpaqueCallback(t *testing.T) {
 		t.Fatal("native Live header rejected")
 	}
 }
+
+func TestCodexCallbackTokenPreservesPresentEmptyOpaqueValue(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		header  string
+		want    string
+		wantErr bool
+	}{
+		{name: "empty success", header: `{"v":1,"s":0,"t":""}`},
+		{name: "opaque success", header: `{"v":1,"s":0,"t":"host-token"}`, want: "host-token"},
+		{name: "failure status", header: `{"v":1,"s":1}`, wantErr: true},
+		{name: "missing token", header: `{"v":1,"s":0}`, wantErr: true},
+		{name: "null token", header: `{"v":1,"s":0,"t":null}`, wantErr: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := codexCallbackToken(test.header)
+			if test.wantErr {
+				if err == nil {
+					t.Fatal("malformed callback envelope was accepted")
+				}
+				return
+			}
+			if err != nil || got != test.want {
+				t.Fatalf("callback token = %q, err = %v; want %q", got, err, test.want)
+			}
+		})
+	}
+}

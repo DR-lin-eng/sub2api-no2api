@@ -195,6 +195,8 @@ func buildSettingsUpdateResponsePayload(
 		OpenAIRequestTimezoneEnabled:                           updatedSettings.OpenAIRequestTimezoneEnabled,
 		ImageIndependentSchedulingEnabled:                      updatedSettings.ImageIndependentSchedulingEnabled,
 		OpenAIImagesLegacyEnabled:                              updatedSettings.OpenAIImagesLegacyEnabled,
+		OpenAIOAuthAttestationEnabled:                          updatedSettings.OpenAIOAuthAttestationEnabled,
+		OpenAILenovoAttributionEnabled:                         updatedSettings.OpenAILenovoAttributionEnabled,
 		OpenAIRequestTimezone:                                  updatedSettings.OpenAIRequestTimezone,
 		OpenAILocationEnabled:                                  updatedSettings.OpenAILocationEnabled,
 		OpenAILocationLatitude:                                 updatedSettings.OpenAILocationLatitude,

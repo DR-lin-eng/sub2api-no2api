@@ -319,6 +319,8 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		OpenAIVisibleOutputTTFTEnabled:                         settings.OpenAIVisibleOutputTTFTEnabled,
 		OpenAIOAuthForceRelayEnabled:                           settings.OpenAIOAuthForceRelayEnabled,
 		OpenAIOAuthForceRelayBaseURL:                           settings.OpenAIOAuthForceRelayBaseURL,
+		OpenAIOAuthAttestationEnabled:                          settings.OpenAIOAuthAttestationEnabled,
+		OpenAILenovoAttributionEnabled:                         settings.OpenAILenovoAttributionEnabled,
 		EnableFingerprintUnification:                           settings.EnableFingerprintUnification,
 		EnableMetadataPassthrough:                              settings.EnableMetadataPassthrough,
 		EnableCCHSigning:                                       settings.EnableCCHSigning,

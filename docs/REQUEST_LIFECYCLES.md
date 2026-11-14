@@ -703,7 +703,9 @@ frontend/src
 
 ## Codex 模型 attestation 回调
 
-启用 `gateway.openai_oauth_attestation_enabled` 后，第一方 OAuth HTTP/Compact 与 WS 实际发送点调用所选本地 provider。`CodexHeader` 在 100ms 总预算内等待 callback，提前取消直接返回 s=3，超时取消子 context 并返回 s=1；没有 provider 则省略头。opaque token 仅作 JSON 字符串封装，不能证明硬件可信；Live native v1 校验独立保留。全进程 64 个未完成 callback 的上限阻止不合作 provider 无界累积，迟到结果不跨请求使用。多宿主 app-server 线程注册不属于当前网关能力，版本与证据见 [原生证明对照](codex/native-device-key-alignment.md)。
+启用网关设置中的 `openai_oauth_attestation_enabled`（部署配置 `gateway.openai_oauth_attestation_enabled` 仍作为初始回退）后，第一方 OAuth HTTP/Compact 与 WS 实际发送点调用所选本地 provider。`CodexHeader` 在 100ms 总预算内等待 callback，提前取消直接返回 s=3，超时取消子 context 并返回 s=1；没有 provider 则省略头。opaque token 仅作 JSON 字符串封装，不能证明硬件可信；Live native v1 校验独立保留。全进程 64 个未完成 callback 的上限阻止不合作 provider 无界累积，迟到结果不跨请求使用。多宿主 app-server 线程注册不属于当前网关能力，版本与证据见 [原生证明对照](codex/native-device-key-alignment.md)。
+
+2026-11-15 新版桌面包的静态对照没有改变 `x-oai-attestation` 或 `attestation/generate` 的语义。新增的 `X-Codex-Surface`、`X-OpenAI-Attach-*` 是本地请求装配控制字段，发送前清理；`x-codex-websocket-max-unfragmented-message-bytes` 是远端 app-server WS 响应头；Cloud Portals、checkpoint cache 和 Lenovo attribution 属于各自的远程执行、下载或 Windows 归因链路，不加入普通 OAuth Responses/Compact/WS 请求。Lenovo 归因可以由独立网关开关启用，按普通账号在后台发送专用 POST，安装 UUID、结果和重试计划通过 PostgreSQL CAS 持久化；它不向模型请求复制响应头。持久化、升级和验证边界见 [OAuth 设备请求](codex/oauth-device-requests-20261115.md)。
 
 Codex 模型证明、Desktop DeviceCheck 与 Live 的本地生成器按已选账号的凭据 owner 和安装身份选择作用域；HTTP/透传与 WS 预热/重试保存服务端身份快照，包含 full 模式 metadata-only 的 installation ID。换号清除旧 scope，DeviceCheck cookie 与完整性状态共用 v3 命名空间，Live 在选定账号后生成证明并正确释放失败槽位。账号独立的应用会话不改变 native 证明的实际硬件来源；具体升级边界见 [原生证明对照](codex/native-device-key-alignment.md)。
 

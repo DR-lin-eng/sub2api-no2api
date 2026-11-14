@@ -284,6 +284,7 @@ func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {
 	s.streamModePerformanceLoaded.Store(time.Now().UnixNano())
 	s.openAIWSModeRouterV2Enabled.Store(settings.OpenAIWSModeRouterV2Enabled)
 	s.openAIWSModeRouterV2Loaded.Store(time.Now().UnixNano())
+	s.refreshOpenAIAuxiliarySettings(settings)
 	s.refreshOpenAIRequestTimezoneSettings(settings)
 	s.refreshOpenAILocationSettings(settings)
 	s.refreshOpenAIImagesMode(settings.OpenAIImagesLegacyEnabled)

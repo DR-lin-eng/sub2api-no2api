@@ -178,5 +178,13 @@ func omittedSettingKeys(sentFields map[string]json.RawMessage) service.OmittedSe
 			omitted[settingKey] = struct{}{}
 		}
 	}
+	// These runtime switches also use presence at the persistence boundary:
+	// an unrelated save prepared before another admin's toggle must not write
+	// the earlier snapshot back over that toggle.
+	for _, key := range []string{service.SettingKeyOpenAIOAuthAttestationEnabled, service.SettingKeyOpenAILenovoAttributionEnabled} {
+		if raw, sent := sentFields[key]; !sent || strings.TrimSpace(string(raw)) == "null" {
+			omitted[key] = struct{}{}
+		}
+	}
 	return omitted
 }

@@ -45,6 +45,34 @@
             />
           </div>
         </div>
+        <div class="flex items-center justify-between gap-4 border-b border-gray-100 pb-5 dark:border-dark-700">
+          <div>
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {{ t("admin.settings.gatewayForwarding.openAIOAuthAttestation") }}
+            </label>
+            <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+              {{ t("admin.settings.gatewayForwarding.openAIOAuthAttestationHint") }}
+            </p>
+          </div>
+          <Toggle
+            v-model="form.openai_oauth_attestation_enabled"
+            data-testid="openai-oauth-attestation-toggle"
+          />
+        </div>
+        <div class="flex items-center justify-between gap-4 border-b border-gray-100 pb-5 dark:border-dark-700">
+          <div>
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {{ t("admin.settings.gatewayForwarding.openAILenovoAttribution") }}
+            </label>
+            <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+              {{ t("admin.settings.gatewayForwarding.openAILenovoAttributionHint") }}
+            </p>
+          </div>
+          <Toggle
+            v-model="form.openai_lenovo_attribution_enabled"
+            data-testid="openai-lenovo-attribution-toggle"
+          />
+        </div>
         <div class="flex items-center justify-between gap-4">
           <div>
             <label class="text-sm font-medium text-gray-700 dark:text-gray-300">

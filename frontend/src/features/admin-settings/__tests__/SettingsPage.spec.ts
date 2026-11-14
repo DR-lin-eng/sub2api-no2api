@@ -585,6 +585,8 @@ const baseSettingsResponse = {
   openai_visible_output_ttft_enabled: true,
   openai_oauth_force_relay_enabled: false,
   openai_oauth_force_relay_base_url: "https://codex-relay.oaifree.com/backend-api/codex",
+  openai_oauth_attestation_enabled: false,
+  openai_lenovo_attribution_enabled: false,
   custom_menu_items: [],
   custom_endpoints: [],
   frontend_url: "",
@@ -1071,6 +1073,54 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(payload.openai_oauth_force_relay_base_url).toBe(
       "https://relay.example/backend-api/codex",
     );
+  });
+
+  it("saves the OpenAI OAuth attestation switch from gateway settings", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+
+    const toggle = wrapper.get('[data-testid="openai-oauth-attestation-toggle"]');
+    expect((toggle.element as HTMLInputElement).checked).toBe(false);
+    await toggle.setValue(true);
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    const payload = updateSettings.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+    expect(payload.openai_oauth_attestation_enabled).toBe(true);
+  });
+
+  it("saves the account-scoped Lenovo attribution switch from gateway settings", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+
+    const toggle = wrapper.get('[data-testid="openai-lenovo-attribution-toggle"]');
+    expect((toggle.element as HTMLInputElement).checked).toBe(false);
+    await toggle.setValue(true);
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    const payload = updateSettings.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+    expect(payload.openai_lenovo_attribution_enabled).toBe(true);
+  });
+
+  it("reloads persisted attestation and Lenovo switches and retains them on unrelated saves", async () => {
+    const stored = { ...baseSettingsResponse, openai_oauth_attestation_enabled: true, openai_lenovo_attribution_enabled: true };
+    getSettings.mockResolvedValue(stored);
+    updateSettings.mockImplementation(async (payload) => ({ ...stored, ...payload }));
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+    for (const name of ["openai-oauth-attestation-toggle", "openai-lenovo-attribution-toggle"]) {
+      expect((wrapper.get(`[data-testid="${name}"]`).element as HTMLInputElement).checked).toBe(true);
+    }
+    await wrapper.get('[data-testid="openai-visible-output-ttft-toggle"]').setValue(false);
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+    expect(updateSettings.mock.calls.at(-1)?.[0]).toMatchObject({ openai_oauth_attestation_enabled: true, openai_lenovo_attribution_enabled: true });
+    expect((wrapper.get('[data-testid="openai-lenovo-attribution-toggle"]').element as HTMLInputElement).checked).toBe(true);
+    wrapper.unmount();
   });
 
   it("reloads the persisted relay and retains it when saving other settings", async () => {

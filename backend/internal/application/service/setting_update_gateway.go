@@ -26,6 +26,8 @@ func writeGatewaySystemSettingUpdates(updates map[string]string, settings *Syste
 	updates[SettingKeyStreamModePerformanceEnabled] = strconv.FormatBool(settings.StreamModePerformanceEnabled)
 	updates[SettingKeyOpenAIOAuthForceRelayEnabled] = strconv.FormatBool(settings.OpenAIOAuthForceRelayEnabled)
 	updates[SettingKeyOpenAIOAuthForceRelayBaseURL] = strings.TrimSpace(settings.OpenAIOAuthForceRelayBaseURL)
+	updates[SettingKeyOpenAIOAuthAttestationEnabled] = strconv.FormatBool(settings.OpenAIOAuthAttestationEnabled)
+	updates[SettingKeyOpenAILenovoAttributionEnabled] = strconv.FormatBool(settings.OpenAILenovoAttributionEnabled)
 	updates[SettingKeyOpenAIWSModeRouterV2Enabled] = strconv.FormatBool(settings.OpenAIWSModeRouterV2Enabled)
 	updates[SettingKeyOpenAIVisibleOutputTTFTEnabled] = strconv.FormatBool(settings.OpenAIVisibleOutputTTFTEnabled)
 

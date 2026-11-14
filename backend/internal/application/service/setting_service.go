@@ -140,6 +140,9 @@ type SettingService struct {
 	openAIOAuthForceRelayCache atomic.Value // *cachedOpenAIOAuthForceRelaySettings
 	openAIOAuthForceRelaySF    singleflight.Group
 
+	openAIAuxiliaryCache atomic.Pointer[cachedOpenAIAuxiliarySettings]
+	openAIAuxiliaryMu    sync.Mutex
+
 	codexSimulationSettings         atomic.Pointer[CodexSimulationSettings]
 	codexSimulationSettingsRevision atomic.Uint64
 	codexSimulationSettingsMu       sync.Mutex

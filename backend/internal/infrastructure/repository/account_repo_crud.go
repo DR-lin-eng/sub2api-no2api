@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	dbaccount "github.com/Wei-Shaw/sub2api/ent/account"
@@ -34,6 +35,8 @@ func createAccountRecord(ctx context.Context, client *dbent.Client, account *ser
 	// Initialize it at the durable account boundary so imports, CRS sync, admin
 	// creates, and atomic duplicate creates all share the same persisted value.
 	account.EnsureCodexContextWindowID()
+	account.Extra = maps.Clone(account.Extra)
+	delete(account.Extra, "openai_lenovo_attribution")
 
 	builder := client.Account.Create().
 		SetName(account.Name).
@@ -548,7 +551,8 @@ func lockAndMergeAccountProbeExtra(
 			extra -> 'ollama_cloud_usage_auto_refresh',
 			extra -> 'ollama_cloud_usage_snapshot',
 			extra -> 'upstream_model_metadata',
-			extra -> 'openai_location_persistent_offset'
+			extra -> 'openai_location_persistent_offset',
+			extra -> 'openai_lenovo_attribution'
 		FROM accounts
 		WHERE id = $1 AND deleted_at IS NULL
 		FOR NO KEY UPDATE
@@ -576,6 +580,7 @@ func lockAndMergeAccountProbeExtra(
 		currentOllamaSnapshot        []byte
 		currentModelMetadata         []byte
 		currentLocationOffset        []byte
+		currentLenovoAttribution     []byte
 	)
 	if err := rows.Scan(
 		&identityUnchanged,
@@ -589,6 +594,7 @@ func lockAndMergeAccountProbeExtra(
 		&currentOllamaSnapshot,
 		&currentModelMetadata,
 		&currentLocationOffset,
+		&currentLenovoAttribution,
 	); err != nil {
 		return nil, err
 	}
@@ -604,6 +610,14 @@ func lockAndMergeAccountProbeExtra(
 		return nil, err
 	} else if ok {
 		extra[service.OpenAILocationPersistentOffsetExtraKey] = value
+	}
+	// This independent runtime state survives stale account forms and token
+	// refreshes. Its own binding/credential CAS decides when a result is current.
+	delete(extra, "openai_lenovo_attribution")
+	if value, ok, err := decodeAccountExtraJSON(currentLenovoAttribution); err != nil {
+		return nil, err
+	} else if ok {
+		extra["openai_lenovo_attribution"] = value
 	}
 	delete(extra, service.UpstreamModelMetadataExtraKey)
 	if identityUnchanged {

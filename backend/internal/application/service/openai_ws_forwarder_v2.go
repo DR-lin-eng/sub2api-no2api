@@ -423,6 +423,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	previousResponseID = openAIWSPayloadString(payload, "previous_response_id")
 	payloadJSON = nil
 
+	s.scheduleOpenAILenovoAttribution(account)
 	if err := lease.WriteJSONWithContextTimeout(ctx, payload, s.openAIWSWriteTimeout()); err != nil {
 		lease.MarkBroken()
 		logOpenAIWSModeInfo(

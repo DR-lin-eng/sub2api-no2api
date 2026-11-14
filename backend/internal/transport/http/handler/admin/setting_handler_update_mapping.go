@@ -211,6 +211,8 @@ func buildSystemSettingsUpdate(prepared *preparedSettingsUpdate) *service.System
 		OpenAIVisibleOutputTTFTEnabled:                     boolValueOrDefault(req.OpenAIVisibleOutputTTFTEnabled, previousSettings.OpenAIVisibleOutputTTFTEnabled),
 		OpenAIOAuthForceRelayEnabled:                       boolValueOrDefault(req.OpenAIOAuthForceRelayEnabled, previousSettings.OpenAIOAuthForceRelayEnabled),
 		OpenAIOAuthForceRelayBaseURL:                       stringSetting(req.OpenAIOAuthForceRelayBaseURL, previousSettings.OpenAIOAuthForceRelayBaseURL),
+		OpenAIOAuthAttestationEnabled:                      boolValueOrDefault(req.OpenAIOAuthAttestationEnabled, previousSettings.OpenAIOAuthAttestationEnabled),
+		OpenAILenovoAttributionEnabled:                     boolValueOrDefault(req.OpenAILenovoAttributionEnabled, previousSettings.OpenAILenovoAttributionEnabled),
 		AllowUserViewErrorRequests:                         boolValueOrDefault(req.AllowUserViewErrorRequests, previousSettings.AllowUserViewErrorRequests),
 		AllowUserViewUsageDetails:                          boolValueOrDefault(req.AllowUserViewUsageDetails, previousSettings.AllowUserViewUsageDetails),
 		OpsMonitoringEnabled:                               boolValueOrDefault(req.OpsMonitoringEnabled, previousSettings.OpsMonitoringEnabled),

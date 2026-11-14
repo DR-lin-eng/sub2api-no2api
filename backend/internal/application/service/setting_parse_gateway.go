@@ -18,6 +18,14 @@ func (s *SettingService) applyGatewaySettings(result *SystemSettings, settings m
 	if result.OpenAIOAuthForceRelayBaseURL == "" && !result.OpenAIOAuthForceRelayEnabled {
 		result.OpenAIOAuthForceRelayBaseURL = DefaultOpenAIOAuthForceRelayBaseURL
 	}
+	if value, ok := settings[SettingKeyOpenAIOAuthAttestationEnabled]; ok && strings.TrimSpace(value) != "" {
+		result.OpenAIOAuthAttestationEnabled = strings.EqualFold(strings.TrimSpace(value), "true")
+	} else if s != nil && s.cfg != nil {
+		// Existing installations may predate the persisted setting. Preserve
+		// the deployment config until an administrator saves the new switch.
+		result.OpenAIOAuthAttestationEnabled = s.cfg.Gateway.OpenAIOAuthAttestationEnabled
+	}
+	result.OpenAILenovoAttributionEnabled = strings.EqualFold(strings.TrimSpace(settings[SettingKeyOpenAILenovoAttributionEnabled]), "true")
 	if value, ok := settings[SettingKeyOpenAIWSModeRouterV2Enabled]; ok && strings.TrimSpace(value) != "" {
 		result.OpenAIWSModeRouterV2Enabled = strings.EqualFold(strings.TrimSpace(value), "true")
 	} else {

@@ -203,6 +203,23 @@ func ValidCodexHeader(header string) bool {
 	return *envelope.Status == 0 && envelope.Token != nil
 }
 
+// codexCallbackToken extracts a successful app-server callback without
+// imposing Live's native v1 token grammar. The pointer preserves the
+// distinction between an omitted token and a successful empty opaque token.
+func codexCallbackToken(header string) (string, error) {
+	if !ValidCodexHeader(header) {
+		return "", errors.New("malformed native Codex attestation")
+	}
+	var envelope struct {
+		Status int     `json:"s"`
+		Token  *string `json:"t"`
+	}
+	if err := json.Unmarshal([]byte(header), &envelope); err != nil || envelope.Status != 0 || envelope.Token == nil {
+		return "", errors.New("malformed native Codex attestation")
+	}
+	return *envelope.Token, nil
+}
+
 // ValidLiveHeader retains Live's native v1 token contract independently of the
 // app-server callback, which accepts an opaque string (including an empty one).
 func ValidLiveHeader(header string) bool {

@@ -27,12 +27,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	}
 	integrityOriginalBody := s.captureOpenAIRequestIntegritySnapshot(ctx, account, body)
 	body = s.normalizeOpenAIRequestTimezone(ctx, account, body, "http")
-	ctx = s.WithOpenAIStreamRuntimeSettings(ctx)
-	if c != nil && c.Request != nil {
-		settings := s.openAIStreamRuntimeSettings(ctx)
-		requestCtx := context.WithValue(c.Request.Context(), openAIStreamRuntimeSettingsContextKey{}, settings)
-		c.Request = c.Request.WithContext(requestCtx)
-	}
+	ctx = s.withOpenAIStreamRuntimeSettingsForRequest(ctx, c)
 	beginAccountUpstreamResponseModelObservation(c, account)
 	beginOpenAITimingObservation(c)
 	ClearActualOpenAIUpstreamEndpoint(c)

@@ -30,7 +30,7 @@ func (s *OpenAIGatewayService) prepareOpenAIOAuthProof(ctx context.Context, acco
 	if strings.HasSuffix(path, "/realtime/calls") && liveattestation.ValidLiveHeader(headers.Get("x-oai-attestation")) {
 		liveHeader = headers.Get("x-oai-attestation")
 	}
-	for _, name := range []string{"X-OAI-IS", "X-OAI-IS-Update", "X-OAI-IS-Pending-Updates", "X-OAI-IS-Client-Observation", "x-local-routing-key", "x-oai-attestation", "X-OpenAI-Expected-Account-Id", "X-OpenAI-Attach-Auth", "X-OpenAI-Attach-Desktop-Surface", "X-OpenAI-Attach-DeviceCheck-Token", "X-OpenAI-Attach-Integrity-State"} {
+	for _, name := range []string{"X-OAI-IS", "X-OAI-IS-Update", "X-OAI-IS-Pending-Updates", "X-OAI-IS-Client-Observation", "x-local-routing-key", "x-oai-attestation", "X-Codex-Surface", "X-OpenAI-Expected-Account-Id", "X-OpenAI-Attach-Auth", "X-OpenAI-Attach-Desktop-Surface", "X-OpenAI-Attach-DeviceCheck-Token", "X-OpenAI-Attach-Integrity-State"} {
 		deleteOpenAIHeaderEqualFold(headers, name)
 	}
 	owner, err := resolveCredentialAccount(ctx, s.accountRepo, account)
@@ -72,10 +72,17 @@ func (s *OpenAIGatewayService) prepareOpenAIOAuthProof(ctx context.Context, acco
 		integrityKey = ""
 	}
 	ctx = s.attachIntegrityState(ctx, headers, integrityKey)
+	if origin != "" && modelProofPath {
+		s.scheduleOpenAILenovoAttribution(account)
+	}
 	if origin != "" && liveHeader != "" {
 		headers.Set("x-oai-attestation", liveHeader)
 	}
-	if origin != "" && modelProofPath && s.cfg != nil && s.cfg.Gateway.OpenAIOAuthAttestationEnabled {
+	attestationEnabled := s.cfg != nil && s.cfg.Gateway.OpenAIOAuthAttestationEnabled
+	if s.settingService != nil {
+		attestationEnabled = s.settingService.OpenAIOAuthAttestationEnabled(ctx)
+	}
+	if origin != "" && modelProofPath && attestationEnabled {
 		// The selected local callback returns an opaque token or an app-server
 		// failure status. No capable provider means the header is absent.
 		if header := liveattestation.CodexHeader(ctx, s.liveAttestation); header != "" {

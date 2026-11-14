@@ -68,6 +68,16 @@ func (s *OpenAIGatewayService) WithOpenAIStreamRuntimeSettings(ctx context.Conte
 	return context.WithValue(ctx, openAIStreamRuntimeSettingsContextKey{}, s.openAIStreamRuntimeSettings(ctx))
 }
 
+func (s *OpenAIGatewayService) withOpenAIStreamRuntimeSettingsForRequest(ctx context.Context, c *gin.Context) context.Context {
+	ctx = s.WithOpenAIStreamRuntimeSettings(ctx)
+	if c != nil && c.Request != nil {
+		settings := s.openAIStreamRuntimeSettings(ctx)
+		requestCtx := context.WithValue(c.Request.Context(), openAIStreamRuntimeSettingsContextKey{}, settings)
+		c.Request = c.Request.WithContext(requestCtx)
+	}
+	return ctx
+}
+
 type openAIFirstOutputStage struct {
 	limit      int64
 	size       int64

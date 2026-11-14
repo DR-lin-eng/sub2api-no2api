@@ -305,6 +305,7 @@ gateway:
   # Emit a fresh app-server x-oai-attestation envelope on first-party OAuth
   # HTTP/WS sends, with a 100ms callback budget. s=0 means callback success;
   # its token can report a native device error. No provider omits the header.
+  # Used until an administrator saves the runtime switch in Gateway settings.
   openai_oauth_attestation_enabled: false
   # Desktop-only generation and _devicecheck cookie registration; does not
   # add DeviceCheck to ordinary Responses model requests.
