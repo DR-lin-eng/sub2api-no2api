@@ -157,6 +157,12 @@ func chatGPTImageUploadReady(body []byte, id string) bool {
 // Public-destination validation, DNS pinning and redirect rejection apply even
 // when the account uses a private trusted model relay.
 func (s *chatGPTImageSession) publicBytes(ctx context.Context, method, address string, body []byte, headers http.Header, limit int64) ([]byte, error) {
+	// Signed public uploads/downloads do not carry OAuth headers, but they are
+	// still part of the current image turn. Do not let a stale principal finish
+	// an auxiliary transfer after the selected account has changed.
+	if err := s.assertCurrent(ctx); err != nil {
+		return nil, err
+	}
 	address, err := urlvalidator.ValidatePublicHTTPURL(address, false)
 	if err != nil {
 		return nil, fmt.Errorf("invalid ChatGPT image storage destination")

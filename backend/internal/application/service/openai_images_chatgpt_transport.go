@@ -86,10 +86,9 @@ func (s *OpenAIGatewayService) newChatGPTImageSession(ctx context.Context, c *gi
 		headers.Set("X-OpenAI-Expected-Account-ID", accountID)
 	}
 	applyOpenAIWorkspaceRoutingHeader(headers, routing)
-	version := "26.1103.32239"
-	if runtime.GOOS == "darwin" {
-		version = "26.1103.41825"
-	}
+	// Both platform samples in the 20261112 report use this App build. The
+	// separately managed Rust engine version must not use an App version.
+	version := "26.1106.51428"
 	headers.Set("User-Agent", fmt.Sprintf("Codex Desktop/%s (%s; %s)", version, runtime.GOOS, runtime.GOARCH))
 	headers.Set("originator", "Codex Desktop")
 	headers.Set("x-openai-web-frontend", "codex_webview")
@@ -150,6 +149,9 @@ func (s *chatGPTImageSession) endpoint(path string) (string, error) {
 }
 
 func (s *chatGPTImageSession) request(ctx context.Context, method, path string, body []byte, stream bool) (*http.Response, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if err := validateOpenAIOAuthRequestPrincipal(s.credential, s.token); err != nil {
 		return nil, err
 	}
@@ -158,6 +160,7 @@ func (s *chatGPTImageSession) request(ctx context.Context, method, path string, 
 		return nil, err
 	}
 	ctx = WithHTTPUpstreamRedirectsDisabled(WithHTTPUpstreamProfile(ctx, HTTPUpstreamProfileOpenAI))
+	ctx = withOpenAIRequestCurrentCheck(ctx, s.assertCurrent)
 	ctx, cancel := context.WithCancel(ctx)
 	initialOpen := time.AfterFunc(60*time.Second, cancel)
 	req, err := http.NewRequestWithContext(ctx, method, target, bytes.NewReader(body))
@@ -188,7 +191,14 @@ func (s *chatGPTImageSession) request(ctx context.Context, method, path string, 
 	resp, err := s.gateway.doAccountHTTPUpstream(req, proxy, s.account)
 	initialOpen.Stop()
 	if err != nil {
+		contextErr := ctx.Err()
 		cancel()
+		if isOpenAIOAuthPrincipalChangedError(err) {
+			return nil, err
+		}
+		if contextErr != nil {
+			return nil, contextErr
+		}
 		if !s.generationAccepted {
 			if limited := openAIOAuthGatewayRateLimitFailover(err); limited != nil {
 				return nil, limited

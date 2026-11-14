@@ -128,6 +128,13 @@ func (s *OpenAIGatewayService) ensureDesktopDeviceCookie(req *http.Request, acco
 		registration.Header.Set("Accept", "application/json")
 		response, err := s.doAccountHTTPUpstream(registration, resolveAccountProxyURL(account), account)
 		if err != nil {
+			// Preserve the request-scoped OAuth identity guard through the
+			// registration subrequest. Wrapping account_changed as a generic
+			// DeviceCheck transport error would allow the caller to classify it
+			// as a transient failure and retry under the wrong principal.
+			if isOpenAIOAuthPrincipalChangedError(err) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return nil, err
+			}
 			return nil, errors.New("DeviceCheck cookie registration transport failed")
 		}
 		if response == nil {

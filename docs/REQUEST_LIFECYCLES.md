@@ -72,7 +72,7 @@ WHAM 工作区发现的 401/403 不等同于模型接口拒绝凭据；此时保
 
 普通 OpenAI HTTP Responses 遇到 TLS 握手超时，且 HTTP trace 确认请求头尚未发送、下游尚无语义输出时，会在同一账号上等待 250ms 后重试一次。SSE 注释心跳不消耗这次恢复机会；请求取消会中止等待。第二次仍失败则进入现有传输 failover 和短时冷却策略，蒸馏分组继续只发一次上游请求。透传路径使用原有请求级重试预算。
 
-OpenAI OAuth HTTP Responses、compact 与自动透传仍默认以 zstd 发送每个新请求。已压缩请求收到精确的 `400 {"detail":"Bad Request"}`，或单字段 `detail` 明确指出不支持 zstd/Content-Encoding 的 415 时，只对可安全重放且尚无语义输出的请求，在同账号、同出口上执行一次未压缩重发。解码实际发送的快照后保留完整 JSON 字节和身份，重新计算长度；不重新执行请求转换、不删除输入、不修改账号压缩设置。请求内标记限制跨账号/透传重试累计至多一次；透传的第二次发送消耗既有总预算。原始与最终请求都必须通过重放检查，存储/后台响应、上游工具、增量 continuation、取消或已提交输出与蒸馏分组不进入此恢复。下一条新请求仍先使用 zstd。代码和 Docker 证据见 [保留压缩的 400 恢复](../diagnostics/issue-8636-fix-20261113/README.md)。
+OpenAI OAuth HTTP Responses、compact 与自动透传仍默认以 zstd level 3 发送每个新请求。已压缩请求收到精确的 `400 {"detail":"Bad Request"}`，或单字段 `detail` 明确指出不支持 zstd/Content-Encoding 的 415 时，只对可安全重放且尚无语义输出的请求，在同账号、同出口上执行一次未压缩重发。发送前解码实际 zstd 快照，检查完整帧、Content-Length、UTF-8 JSON 对象和 hash，再保留完整 JSON 字节与身份；不重新执行请求转换、不删除输入、不修改账号压缩设置。请求内标记限制跨账号/透传重试累计至多一次；透传的第二次发送消耗既有总预算。原始与最终请求都必须通过重放检查，存储/后台响应、上游工具、增量 continuation、取消或已提交输出与蒸馏分组不进入此恢复。下一条新请求仍先使用 zstd。上游响应的 `deflate` 同时兼容标准 zlib 封装与历史 raw DEFLATE，解压后清除编码和长度头。代码和 Docker 证据见 [保留压缩的 400 恢复](../diagnostics/issue-8636-fix-20261113/README.md) 与 [2026-11-14 OAuth 请求与压缩对齐](../diagnostics/oauth-alignment-20261114/README.md)。
 
 OpenAI OAuth 历史重放会移除 `type=reasoning` 条目中的非空 `content` 数组，因为 ChatGPT Codex 输入契约的该字段最大长度为 0；保留整个条目、`summary` 与 `encrypted_content`，不截断顶层 `input` 历史，也不改写普通消息或工具内容。普通/透传 HTTP、compact 与原生 WebSocket 每轮使用同一约束；API Key 账号不应用该 OAuth 专用转换。原始 JSON 路径保留其它字段的数值精度与内容字节。
 
@@ -85,7 +85,7 @@ HTTP 200 中的 Responses 通用失败支持嵌套、扁平、named/bare SSE 以
 验证准备按报告第 12 节执行纯协议环境数组、Go PoW 与有界进程内 VM；
 设备头复用既有账号持久身份，每轮临时 UUID、挑战和令牌独立，内部 Electron 控制头不出站。
 开关为 `openai_images_legacy_enabled`，管理端可恢复原 Codex 实现。
-同一请求不因配置变更或下载失败重新生成；已完成图像的张数、尺寸及用量进入原可靠结算 owner。
+同一请求不因配置变更或下载失败重新生成；prepare、上传、生成、恢复和下载的发送点都会再次检查当前账号、凭据主体、用户和套餐类别，主体变化返回 `account_changed` 并停止本轮；已完成图像的张数、尺寸及用量进入原可靠结算 owner。
 API Key 与 SIWC 的图片调用始终走标准 Images，普通 OAuth 才可使用 App 适配。
 普通 OAuth 在新版模式下仅因 SVG 输出/作者配置、mask 或 markup 选择原生链路。尺寸、背景、静态格式、质量、复杂度、压缩、部分图片、审核、保真度、风格和安全标识等可选字段不改变选路；普通图片生成忽略这些 App 不支持的字段，结果以实际返回格式与尺寸为准。
 选路在第一次发送前确定，不先生成再重放，也不添加对外回退提示。SVG 文件规范化保留作者用量与未知元数据。
