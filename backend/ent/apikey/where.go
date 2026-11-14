@@ -90,6 +90,11 @@ func GroupID(v int64) predicate.APIKey {
 	return predicate.APIKey(sql.FieldEQ(FieldGroupID, v))
 }
 
+// RoutingSchemeID applies equality check predicate on the "routing_scheme_id" field. It's identical to RoutingSchemeIDEQ.
+func RoutingSchemeID(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldRoutingSchemeID, v))
+}
+
 // Status applies equality check predicate on the "status" field. It's identical to StatusEQ.
 func Status(v string) predicate.APIKey {
 	return predicate.APIKey(sql.FieldEQ(FieldStatus, v))
@@ -483,6 +488,56 @@ func GroupBindingsIsNil() predicate.APIKey {
 // GroupBindingsNotNil applies the NotNil predicate on the "group_bindings" field.
 func GroupBindingsNotNil() predicate.APIKey {
 	return predicate.APIKey(sql.FieldNotNull(FieldGroupBindings))
+}
+
+// RoutingSchemeIDEQ applies the EQ predicate on the "routing_scheme_id" field.
+func RoutingSchemeIDEQ(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldRoutingSchemeID, v))
+}
+
+// RoutingSchemeIDNEQ applies the NEQ predicate on the "routing_scheme_id" field.
+func RoutingSchemeIDNEQ(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNEQ(FieldRoutingSchemeID, v))
+}
+
+// RoutingSchemeIDIn applies the In predicate on the "routing_scheme_id" field.
+func RoutingSchemeIDIn(vs ...int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldIn(FieldRoutingSchemeID, vs...))
+}
+
+// RoutingSchemeIDNotIn applies the NotIn predicate on the "routing_scheme_id" field.
+func RoutingSchemeIDNotIn(vs ...int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotIn(FieldRoutingSchemeID, vs...))
+}
+
+// RoutingSchemeIDGT applies the GT predicate on the "routing_scheme_id" field.
+func RoutingSchemeIDGT(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGT(FieldRoutingSchemeID, v))
+}
+
+// RoutingSchemeIDGTE applies the GTE predicate on the "routing_scheme_id" field.
+func RoutingSchemeIDGTE(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGTE(FieldRoutingSchemeID, v))
+}
+
+// RoutingSchemeIDLT applies the LT predicate on the "routing_scheme_id" field.
+func RoutingSchemeIDLT(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLT(FieldRoutingSchemeID, v))
+}
+
+// RoutingSchemeIDLTE applies the LTE predicate on the "routing_scheme_id" field.
+func RoutingSchemeIDLTE(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLTE(FieldRoutingSchemeID, v))
+}
+
+// RoutingSchemeIDIsNil applies the IsNil predicate on the "routing_scheme_id" field.
+func RoutingSchemeIDIsNil() predicate.APIKey {
+	return predicate.APIKey(sql.FieldIsNull(FieldRoutingSchemeID))
+}
+
+// RoutingSchemeIDNotNil applies the NotNil predicate on the "routing_scheme_id" field.
+func RoutingSchemeIDNotNil() predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotNull(FieldRoutingSchemeID))
 }
 
 // StatusEQ applies the EQ predicate on the "status" field.

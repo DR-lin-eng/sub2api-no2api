@@ -29,8 +29,23 @@ export interface KeySelectOption {
   [key: string]: unknown
 }
 
+/**
+ * Backend contract for quick select: return only scheme metadata
+ * (name, description, min/max rate). Internal groups are scheduling-only and
+ * must never be rendered by the quick-select dialog.
+ */
+export interface KeyQuickSchemeOption {
+  id: number
+  name: string
+  description: string
+  platform: GroupPlatform
+  minRate?: number
+  maxRate?: number
+}
+
 export interface KeyFormState {
   name: string
+  quick_scheme_id: number | null
   group_id: number | null
   group_bindings: ApiKeyGroupBinding[]
   status: 'active' | 'inactive'
@@ -86,6 +101,7 @@ export interface KeyEditorDialogContext {
   selectedKey: Ref<ApiKey | null>
   formData: Ref<KeyFormState>
   groupOptions: ComputedRef<GroupOption[]>
+  quickSchemes: ComputedRef<KeyQuickSchemeOption[]>
   customKeyError: ComputedRef<string>
   statusOptions: ComputedRef<KeySelectOption[]>
   submitting: Ref<boolean>

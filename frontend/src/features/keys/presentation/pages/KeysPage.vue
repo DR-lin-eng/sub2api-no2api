@@ -149,7 +149,7 @@
       :show="showUseKeyModal"
       :api-key="selectedKey?.key || ''"
       :base-url="publicSettings?.api_base_url || ''"
-      :platform="selectedKey?.group?.platform || null"
+      :platform="selectedKey?.routing_scheme?.platform ?? selectedKey?.group?.platform ?? null"
       :allow-messages-dispatch="selectedKey?.group?.allow_messages_dispatch || false"
       @close="closeUseKeyModal"
     />
@@ -219,6 +219,10 @@ const { t } = useI18n()
 import { getPublicSettings } from '@/features/auth/data/datasources/authQueries'
 import { userGroupsAPI } from '@/features/groups-user/data/datasources/groupsUserDatasource'
 import { keysAPI } from '@/features/keys/data/datasources/keysDatasource'
+import {
+  listAvailableRoutingSchemes,
+  type UserRoutingScheme,
+} from '@/features/keys/data/datasources/routingSchemeQueries'
 import { usageAPI } from '@/features/usage/data/datasources/usageDatasource'
 import AppLayout from '@/common/widgets/layout/AppLayout.vue'
 import TablePageLayout from '@/common/widgets/layout/TablePageLayout.vue'
@@ -241,6 +245,7 @@ import type {
 } from '@/features/usage/data/datasources/usageDatasource'
 import type {
   KeyEditorDialogContext,
+  KeyQuickSchemeOption,
   KeysTableContext
 } from '@/features/keys/presentation/keysPageContext'
 import {
@@ -357,6 +362,7 @@ const columns = computed<Column[]>(() =>
 
 const apiKeys = ref<ApiKey[]>([])
 const groups = ref<Group[]>([])
+const availableRoutingSchemes = ref<UserRoutingScheme[]>([])
 const loading = ref(false)
 const submitting = ref(false)
 const now = ref(new Date())
@@ -424,6 +430,7 @@ const USAGE_STATS_REQUEST_CONCURRENCY = 2
 
 const formData = ref({
   name: '',
+  quick_scheme_id: null as number | null,
   group_id: null as number | null,
   group_bindings: [] as ApiKeyGroupBinding[],
   status: 'active' as 'active' | 'inactive',
@@ -519,6 +526,17 @@ const groupOptions = computed(() =>
     subscriptionType: group.subscription_type,
     platform: group.platform
   }))
+)
+
+const quickSchemes = computed((): KeyQuickSchemeOption[] =>
+  availableRoutingSchemes.value.map(scheme => ({
+    id: scheme.id,
+    name: scheme.name,
+    description: scheme.description,
+    platform: scheme.platform,
+    minRate: scheme.min_rate_multiplier ?? undefined,
+    maxRate: scheme.max_rate_multiplier ?? undefined,
+  })),
 )
 
 const copyToClipboard = async (text: string, keyId: number) => {
@@ -749,9 +767,10 @@ const loadApiKeys = async () => {
       signal
     })
     if (signal.aborted) return
-    const keyIds = response.items.map((apiKey) => apiKey.id)
+    const items = response.items
+    const keyIds = items.map((apiKey) => apiKey.id)
     usageStatsLoadingKeyIds.value = new Set(keyIds)
-    apiKeys.value = response.items
+    apiKeys.value = items
     pagination.value.total = response.total
     pagination.value.pages = response.pages
 
@@ -784,6 +803,14 @@ const loadGroups = async () => {
     groups.value = await userGroupsAPI.getAvailable()
   } catch (error) {
     console.error('Failed to load groups:', error)
+  }
+}
+
+const loadAvailableRoutingSchemes = async () => {
+  try {
+    availableRoutingSchemes.value = await listAvailableRoutingSchemes()
+  } catch (error) {
+    console.error('Failed to load routing schemes:', error)
   }
 }
 
@@ -842,6 +869,7 @@ const editKey = (key: ApiKey) => {
       : []
   formData.value = {
     name: key.name,
+    quick_scheme_id: key.routing_scheme_id ?? key.routing_scheme?.id ?? null,
     group_id: groupBindings[0]?.group_id ?? null,
     group_bindings: groupBindings,
     status: key.status === 'quota_exhausted' || key.status === 'expired' ? 'inactive' : key.status,
@@ -884,6 +912,12 @@ const bindingsForKey = (key: ApiKey): ApiKeyGroupBinding[] => key.group_bindings
     : []
 
 const manageKeyGroups = (key: ApiKey) => {
+  // Scheme-based keys are managed through the key editor, not the group dialog:
+  // the scheme and the legacy multi-group route are independent paths.
+  if (key.routing_scheme_id || key.routing_scheme) {
+    editKey(key)
+    return
+  }
   groupEditorKey.value = key
   groupEditorBindings.value = bindingsForKey(key)
   showGroupEditor.value = true
@@ -943,14 +977,21 @@ const confirmDelete = (key: ApiKey) => {
 }
 
 const handleSubmit = async () => {
-  const groupBindings = formData.value.group_bindings.map(binding => ({ ...binding }))
+  const selectedQuickScheme = formData.value.quick_scheme_id
+    ? quickSchemes.value.find(scheme => scheme.id === formData.value.quick_scheme_id)
+    : null
+  const routingSchemeID = selectedQuickScheme?.id ?? null
+  // A scheme owns its groups in the backend; only manual mode sends bindings.
+  const groupBindings = routingSchemeID
+    ? []
+    : formData.value.group_bindings.map(binding => ({ ...binding }))
   const groupID = groupBindings[0]?.group_id ?? null
 
-  if (groupBindings.length === 0) {
+  if (!routingSchemeID && groupBindings.length === 0) {
     appStore.showError(t('keys.groupRequired'))
     return
   }
-  if (groupBindings.some(binding => binding.max_rate_multiplier !== null && (
+  if (!routingSchemeID && groupBindings.some(binding => binding.max_rate_multiplier !== null && (
     !Number.isFinite(binding.max_rate_multiplier) || binding.max_rate_multiplier <= 0
   ))) {
     appStore.showError(t('keys.groupBindings.invalidRateProtection'))
@@ -1020,6 +1061,12 @@ const handleSubmit = async () => {
         rate_limit_1d: rateLimitData.rate_limit_1d,
         rate_limit_7d: rateLimitData.rate_limit_7d,
       }
+      if (routingSchemeID) {
+        updates.routing_scheme_id = routingSchemeID
+      } else if (selectedKey.value.routing_scheme_id) {
+        // 0 clears the scheme and falls back to the manual group list.
+        updates.routing_scheme_id = 0
+      }
       if (shouldSubmitEditStatus(selectedKey.value, formData.value.status)) {
         updates.status = formData.value.status
       }
@@ -1036,7 +1083,8 @@ const handleSubmit = async () => {
         quota,
         expiresInDays,
         rateLimitData,
-        groupBindings
+        groupBindings,
+        routingSchemeID
       )
       appStore.showSuccess(t('keys.keyCreatedSuccess'))
       // Only advance tour if active, on submit step, and creation succeeded
@@ -1083,6 +1131,7 @@ const closeModals = () => {
   selectedKey.value = null
   formData.value = {
     name: '',
+    quick_scheme_id: null,
     group_id: null,
     group_bindings: [],
     status: 'active',
@@ -1166,7 +1215,7 @@ const resetRateLimitUsage = async () => {
 }
 
 const importToCcswitch = (row: ApiKey) => {
-  const platform = row.group?.platform || 'anthropic'
+  const platform = row.routing_scheme?.platform ?? row.group?.platform ?? 'anthropic'
 
   // For antigravity platform, show client selection dialog
   if (platform === 'antigravity') {
@@ -1181,7 +1230,7 @@ const importToCcswitch = (row: ApiKey) => {
 
 const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType) => {
   const baseUrl = publicSettings.value?.api_base_url || window.location.origin
-  const platform = row.group?.platform || 'anthropic'
+  const platform = row.routing_scheme?.platform ?? row.group?.platform ?? 'anthropic'
 
   const usageScript = CC_SWITCH_USAGE_SCRIPT
   const providerName = (publicSettings.value?.site_name || 'sub2api').trim() || 'sub2api'
@@ -1266,6 +1315,7 @@ const keyEditorDialogContext: KeyEditorDialogContext = {
   selectedKey,
   formData,
   groupOptions,
+  quickSchemes,
   customKeyError,
   statusOptions,
   submitting,
@@ -1280,6 +1330,7 @@ onMounted(() => {
   loadSavedColumns()
   loadApiKeys()
   loadGroups()
+  loadAvailableRoutingSchemes()
   loadUserGroupRates()
   loadPublicSettings()
   document.addEventListener('click', closeColumnDropdown)

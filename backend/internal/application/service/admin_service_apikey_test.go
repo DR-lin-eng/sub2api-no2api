@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
 	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
 	"github.com/stretchr/testify/require"
@@ -331,6 +332,7 @@ func TestAdminService_AdminUpdateAPIKeyGroupID_Unbind(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, got.APIKey.GroupID, "group_id should be nil after unbind")
 	require.Nil(t, got.APIKey.Group, "group object should be nil after unbind")
+	require.Nil(t, got.APIKey.GroupBindings, "binding list should be cleared after unbind")
 	require.NotNil(t, repo.updated, "Update should have been called")
 	require.Nil(t, repo.updated.GroupID)
 	require.Equal(t, []string{"sk-test"}, cache.keys, "cache should be invalidated")
@@ -354,6 +356,36 @@ func TestAdminService_AdminUpdateAPIKeyGroupID_BindActiveGroup(t *testing.T) {
 	// C1 fix: verify Group object is populated
 	require.NotNil(t, got.APIKey.Group)
 	require.Equal(t, "Pro", got.APIKey.Group.Name)
+}
+
+func TestAdminService_AdminUpdateAPIKeyGroupID_ReplacesSchemeAndBindings(t *testing.T) {
+	schemeID := int64(7)
+	existing := &APIKey{
+		ID:              1,
+		Key:             "sk-test",
+		RoutingSchemeID: &schemeID,
+		GroupBindings: []APIKeyGroupBinding{{
+			APIKeyGroupBinding: domain.APIKeyGroupBinding{GroupID: 5},
+		}},
+	}
+	apiKeyRepo := &apiKeyRepoStubForGroupUpdate{key: existing}
+	groupRepo := &groupRepoStubForGroupUpdate{group: &Group{ID: 10, Name: "Pro", Status: StatusActive}}
+	svc := &adminServiceImpl{
+		apiKeyRepo:           apiKeyRepo,
+		groupRepo:            groupRepo,
+		authCacheInvalidator: &authCacheInvalidatorStub{},
+	}
+
+	got, err := svc.AdminUpdateAPIKeyGroupID(context.Background(), 1, int64Ptr(10))
+	require.NoError(t, err)
+	// A manual binding replaces the scheme, otherwise the scheme keeps winning
+	// at request time and the admin change would silently do nothing.
+	require.Nil(t, got.APIKey.RoutingSchemeID)
+	require.Len(t, got.APIKey.GroupBindings, 1)
+	require.Equal(t, int64(10), got.APIKey.GroupBindings[0].GroupID)
+	require.Nil(t, apiKeyRepo.updated.RoutingSchemeID)
+	require.Len(t, apiKeyRepo.updated.GroupBindings, 1)
+	require.Equal(t, int64(10), apiKeyRepo.updated.GroupBindings[0].GroupID)
 }
 
 func TestAdminService_AdminUpdateAPIKeyGroupID_SameGroup_Idempotent(t *testing.T) {

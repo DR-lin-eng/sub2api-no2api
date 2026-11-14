@@ -309,6 +309,30 @@ func (f GroupFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.GroupMutation", m)
 }
 
+// The GroupRoutingSchemeFunc type is an adapter to allow the use of ordinary
+// function as GroupRoutingScheme mutator.
+type GroupRoutingSchemeFunc func(context.Context, *ent.GroupRoutingSchemeMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f GroupRoutingSchemeFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.GroupRoutingSchemeMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.GroupRoutingSchemeMutation", m)
+}
+
+// The GroupRoutingSchemeItemFunc type is an adapter to allow the use of ordinary
+// function as GroupRoutingSchemeItem mutator.
+type GroupRoutingSchemeItemFunc func(context.Context, *ent.GroupRoutingSchemeItemMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f GroupRoutingSchemeItemFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.GroupRoutingSchemeItemMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.GroupRoutingSchemeItemMutation", m)
+}
+
 // The IPv6EgressPoolFunc type is an adapter to allow the use of ordinary
 // function as IPv6EgressPool mutator.
 type IPv6EgressPoolFunc func(context.Context, *ent.IPv6EgressPoolMutation) (ent.Value, error)

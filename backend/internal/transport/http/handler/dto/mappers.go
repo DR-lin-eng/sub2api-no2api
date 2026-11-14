@@ -90,6 +90,7 @@ func APIKeyFromService(k *service.APIKey) *APIKey {
 		Name:               k.Name,
 		GroupID:            k.GroupID,
 		GroupBindings:      make([]APIKeyGroupBinding, 0, len(k.GroupBindings)),
+		RoutingSchemeID:    k.RoutingSchemeID,
 		Status:             k.Status,
 		IPWhitelist:        k.IPWhitelist,
 		IPBlacklist:        k.IPBlacklist,
@@ -119,6 +120,16 @@ func APIKeyFromService(k *service.APIKey) *APIKey {
 			GroupID:           k.GroupBindings[i].GroupID,
 			MaxRateMultiplier: k.GroupBindings[i].MaxRateMultiplier,
 		})
+	}
+	if k.RoutingScheme != nil {
+		out.RoutingScheme = &APIKeyRoutingScheme{
+			ID:                k.RoutingScheme.ID,
+			Name:              k.RoutingScheme.Name,
+			Description:       k.RoutingScheme.Description,
+			Platform:          k.RoutingScheme.Platform,
+			MinRateMultiplier: k.RoutingScheme.MinRate,
+			MaxRateMultiplier: k.RoutingScheme.MaxRate,
+		}
 	}
 	if k.Window5hStart != nil && !service.IsWindowExpired(k.Window5hStart, service.RateLimitWindow5h) {
 		t := k.Window5hStart.Add(service.RateLimitWindow5h)

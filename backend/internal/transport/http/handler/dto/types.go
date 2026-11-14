@@ -65,16 +65,20 @@ type APIKey struct {
 	Name          string               `json:"name"`
 	GroupID       *int64               `json:"group_id"`
 	GroupBindings []APIKeyGroupBinding `json:"group_bindings"`
-	Status        string               `json:"status"`
-	IPWhitelist   []string             `json:"ip_whitelist"`
-	IPBlacklist   []string             `json:"ip_blacklist"`
-	LastUsedAt    *time.Time           `json:"last_used_at"`
-	LastUsedIP    *string              `json:"last_used_ip"`
-	Quota         float64              `json:"quota"`      // Quota limit in USD (0 = unlimited)
-	QuotaUsed     float64              `json:"quota_used"` // Used quota amount in USD
-	ExpiresAt     *time.Time           `json:"expires_at"` // Expiration time (nil = never expires)
-	CreatedAt     time.Time            `json:"created_at"`
-	UpdatedAt     time.Time            `json:"updated_at"`
+	// RoutingSchemeID opts into a backend-managed routing scheme. The
+	// routing_scheme projection never contains internal groups.
+	RoutingSchemeID *int64               `json:"routing_scheme_id"`
+	RoutingScheme   *APIKeyRoutingScheme `json:"routing_scheme,omitempty"`
+	Status          string               `json:"status"`
+	IPWhitelist     []string             `json:"ip_whitelist"`
+	IPBlacklist     []string             `json:"ip_blacklist"`
+	LastUsedAt      *time.Time           `json:"last_used_at"`
+	LastUsedIP      *string              `json:"last_used_ip"`
+	Quota           float64              `json:"quota"`      // Quota limit in USD (0 = unlimited)
+	QuotaUsed       float64              `json:"quota_used"` // Used quota amount in USD
+	ExpiresAt       *time.Time           `json:"expires_at"` // Expiration time (nil = never expires)
+	CreatedAt       time.Time            `json:"created_at"`
+	UpdatedAt       time.Time            `json:"updated_at"`
 	// CurrentConcurrency is the real-time active request count for this API key.
 	CurrentConcurrency int `json:"current_concurrency"`
 	// ConcurrencyLimit is the configured maximum active requests (0 = unlimited).
@@ -101,6 +105,27 @@ type APIKey struct {
 type APIKeyGroupBinding struct {
 	GroupID           int64    `json:"group_id"`
 	MaxRateMultiplier *float64 `json:"max_rate_multiplier"`
+}
+
+// APIKeyRoutingScheme is the read-only projection shown in the key list.
+type APIKeyRoutingScheme struct {
+	ID                int64   `json:"id"`
+	Name              string  `json:"name"`
+	Description       string  `json:"description"`
+	Platform          string  `json:"platform"`
+	MinRateMultiplier float64 `json:"min_rate_multiplier"`
+	MaxRateMultiplier float64 `json:"max_rate_multiplier"`
+}
+
+// AvailableRoutingScheme is the user-facing scheme catalog entry. It must never
+// include the scheme's internal groups, weights or rules.
+type AvailableRoutingScheme struct {
+	ID                int64   `json:"id"`
+	Name              string  `json:"name"`
+	Description       string  `json:"description"`
+	Platform          string  `json:"platform"`
+	MinRateMultiplier float64 `json:"min_rate_multiplier"`
+	MaxRateMultiplier float64 `json:"max_rate_multiplier"`
 }
 
 type Group struct {

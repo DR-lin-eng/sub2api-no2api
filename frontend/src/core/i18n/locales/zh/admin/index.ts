@@ -12,6 +12,7 @@ import egress from './egress'
 import accountInspection from './accountInspection'
 import stateDiagnostics from './stateDiagnostics'
 import customModelConfig from './customModelConfig'
+import routingSchemes from './routingSchemes'
 
 export default {
   ...overview,
@@ -28,4 +29,5 @@ export default {
   customModelConfig,
   ...accountInspection,
   ...stateDiagnostics,
+  ...routingSchemes,
 }

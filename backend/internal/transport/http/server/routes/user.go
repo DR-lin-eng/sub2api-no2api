@@ -100,6 +100,12 @@ func RegisterUserRoutes(
 			groups.GET("/rates", h.APIKey.GetUserGroupRates)
 		}
 
+		// 用户可用的分组调度方案（只返回方案摘要，不返回内部分组）
+		routingSchemes := authenticated.Group("/routing-schemes")
+		{
+			routingSchemes.GET("/available", h.APIKey.GetAvailableRoutingSchemes)
+		}
+
 		// 媒体工坊
 		mediaStudio := authenticated.Group("/media-studio")
 		{

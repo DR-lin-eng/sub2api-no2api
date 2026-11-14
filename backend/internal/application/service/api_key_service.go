@@ -72,6 +72,7 @@ type APIKeyUpdateFields struct {
 	Quota            bool
 	GroupID          bool
 	GroupBindings    bool
+	RoutingSchemeID  bool
 	ExpiresAt        bool
 	ConcurrencyLimit bool
 	// QuotaUsed 仅供"重置配额用量"路径声明；常规计费走 IncrementQuotaUsed。
@@ -131,6 +132,10 @@ type APIKeyRepository interface {
 
 type apiKeyAllByUserIDLister interface {
 	ListAllByUserID(ctx context.Context, userID int64, filters APIKeyListFilters) ([]APIKey, error)
+}
+
+type apiKeyRoutingSchemeKeyLister interface {
+	ListKeysByRoutingSchemeID(ctx context.Context, schemeID int64) ([]string, error)
 }
 
 // APIKeyRateLimitData holds rate limit usage and window state for an API key.
@@ -222,12 +227,13 @@ type APIKeyAuthCacheInvalidator interface {
 
 // CreateAPIKeyRequest 创建API Key请求
 type CreateAPIKeyRequest struct {
-	Name          string                     `json:"name"`
-	GroupID       *int64                     `json:"group_id"`
-	GroupBindings *[]APIKeyGroupBindingInput `json:"group_bindings"`
-	CustomKey     *string                    `json:"custom_key"`   // 可选的自定义key
-	IPWhitelist   []string                   `json:"ip_whitelist"` // IP 白名单
-	IPBlacklist   []string                   `json:"ip_blacklist"` // IP 黑名单
+	Name            string                     `json:"name"`
+	GroupID         *int64                     `json:"group_id"`
+	GroupBindings   *[]APIKeyGroupBindingInput `json:"group_bindings"`
+	RoutingSchemeID *int64                     `json:"routing_scheme_id"`
+	CustomKey       *string                    `json:"custom_key"`   // 可选的自定义key
+	IPWhitelist     []string                   `json:"ip_whitelist"` // IP 白名单
+	IPBlacklist     []string                   `json:"ip_blacklist"` // IP 黑名单
 
 	// Quota fields
 	Quota         float64 `json:"quota"`           // Quota limit in USD (0 = unlimited)
@@ -244,9 +250,11 @@ type UpdateAPIKeyRequest struct {
 	Name          *string                    `json:"name"`
 	GroupID       *int64                     `json:"group_id"`
 	GroupBindings *[]APIKeyGroupBindingInput `json:"group_bindings"`
-	Status        *string                    `json:"status"`
-	IPWhitelist   *[]string                  `json:"ip_whitelist"` // IP 白名单（nil 不修改，空数组清空）
-	IPBlacklist   *[]string                  `json:"ip_blacklist"` // IP 黑名单（nil 不修改，空数组清空）
+	// nil = keep; 0 = clear the scheme; >0 = switch to that scheme.
+	RoutingSchemeID *int64    `json:"routing_scheme_id"`
+	Status          *string   `json:"status"`
+	IPWhitelist     *[]string `json:"ip_whitelist"` // IP 白名单（nil 不修改，空数组清空）
+	IPBlacklist     *[]string `json:"ip_blacklist"` // IP 黑名单（nil 不修改，空数组清空）
 
 	// Quota fields
 	Quota            *float64   `json:"quota"`             // Quota limit in USD (nil = no change, 0 = unlimited)
@@ -456,6 +464,7 @@ type APIKeyService struct {
 	groupRepo                 GroupRepository
 	userSubRepo               UserSubscriptionRepository
 	userGroupRateRepo         UserGroupRateRepository
+	routingSchemeService      *RoutingSchemeService
 	cache                     APIKeyCache
 	rateLimitCacheInvalid     RateLimitCacheInvalidator // optional: invalidate Redis rate limit cache
 	pendingUsageReader        BillingPendingAPIKeyUsageReader
@@ -558,6 +567,58 @@ func (s *APIKeyService) GetPendingUsageCosts(ctx context.Context, apiKeyIDs []in
 
 func (s *APIKeyService) SetConcurrencyService(concurrencyService *ConcurrencyService) {
 	s.concurrencyService = concurrencyService
+}
+
+// SetRoutingSchemeService attaches the optional routing-scheme validator used
+// when a key opts into a scheme.
+func (s *APIKeyService) SetRoutingSchemeService(routingSchemeService *RoutingSchemeService) {
+	s.routingSchemeService = routingSchemeService
+}
+
+// resolveRoutingSchemeID validates that a key may opt into a scheme. A scheme
+// owns its groups, so a manual binding list is rejected instead of keeping two
+// conflicting sources of truth; the user must also be able to bind at least one
+// group in the scheme, otherwise the key would 403 on its first request.
+func (s *APIKeyService) resolveRoutingSchemeID(ctx context.Context, user *User, schemeID *int64, bindings []APIKeyGroupBinding) (*int64, error) {
+	if schemeID == nil || *schemeID <= 0 {
+		return nil, nil
+	}
+	if s.routingSchemeService == nil {
+		return nil, fmt.Errorf("%w: routing scheme service is unavailable", ErrRoutingSchemeInvalid)
+	}
+	scheme, err := s.routingSchemeService.Get(ctx, *schemeID)
+	if err != nil {
+		return nil, err
+	}
+	if scheme.Status != domain.RoutingSchemeStatusActive {
+		return nil, fmt.Errorf("%w: routing scheme is disabled", ErrRoutingSchemeInvalid)
+	}
+	if len(bindings) > 0 {
+		return nil, fmt.Errorf("%w: routing_scheme_id and group_bindings are mutually exclusive", ErrAPIKeyGroupBindingsInvalid)
+	}
+	if !s.userCanBindAnySchemeGroup(ctx, user, scheme) {
+		return nil, fmt.Errorf("%w: no group in the routing scheme can be bound by this user", ErrRoutingSchemeInvalid)
+	}
+	id := *schemeID
+	return &id, nil
+}
+
+// userCanBindAnySchemeGroup reports whether the user can bind at least one
+// active standard group inside the scheme.
+func (s *APIKeyService) userCanBindAnySchemeGroup(ctx context.Context, user *User, scheme *RoutingScheme) bool {
+	if user == nil || scheme == nil || s.groupRepo == nil {
+		return false
+	}
+	for _, item := range scheme.Items {
+		group, err := s.groupRepo.GetByID(ctx, item.GroupID)
+		if err != nil || group == nil || !group.IsActive() || group.IsSubscriptionType() {
+			continue
+		}
+		if s.canUserBindGroup(ctx, user, group) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *APIKeyService) SetLastUsedScheduler(scheduler APIKeyLastUsedScheduler) {
@@ -705,6 +766,10 @@ func (s *APIKeyService) create(ctx context.Context, userID int64, req CreateAPIK
 	if err != nil {
 		return nil, err
 	}
+	routingSchemeID, err := s.resolveRoutingSchemeID(ctx, user, req.RoutingSchemeID, bindings)
+	if err != nil {
+		return nil, err
+	}
 
 	var key string
 
@@ -743,17 +808,18 @@ func (s *APIKeyService) create(ctx context.Context, userID int64, req CreateAPIK
 
 	// 创建API Key记录
 	apiKey := &APIKey{
-		UserID:      userID,
-		Key:         key,
-		Name:        html.EscapeString(req.Name),
-		Status:      StatusActive,
-		IPWhitelist: req.IPWhitelist,
-		IPBlacklist: req.IPBlacklist,
-		Quota:       req.Quota,
-		QuotaUsed:   0,
-		RateLimit5h: req.RateLimit5h,
-		RateLimit1d: req.RateLimit1d,
-		RateLimit7d: req.RateLimit7d,
+		UserID:          userID,
+		Key:             key,
+		Name:            html.EscapeString(req.Name),
+		Status:          StatusActive,
+		RoutingSchemeID: routingSchemeID,
+		IPWhitelist:     req.IPWhitelist,
+		IPBlacklist:     req.IPBlacklist,
+		Quota:           req.Quota,
+		QuotaUsed:       0,
+		RateLimit5h:     req.RateLimit5h,
+		RateLimit1d:     req.RateLimit1d,
+		RateLimit7d:     req.RateLimit7d,
 	}
 	applyAPIKeyGroupBindings(apiKey, bindings)
 
@@ -773,6 +839,19 @@ func (s *APIKeyService) create(ctx context.Context, userID int64, req CreateAPIK
 	return apiKey, nil
 }
 
+// GetAvailableRoutingSchemes returns the user-facing scheme catalog. It never
+// exposes the schemes' internal groups.
+func (s *APIKeyService) GetAvailableRoutingSchemes(ctx context.Context, userID int64, platform string) ([]AvailableRoutingScheme, error) {
+	if s.routingSchemeService == nil {
+		return nil, nil
+	}
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get user: %w", err)
+	}
+	return s.routingSchemeService.AvailableForUser(ctx, user, platform)
+}
+
 // List 获取用户的API Key列表
 func (s *APIKeyService) List(ctx context.Context, userID int64, params pagination.PaginationParams, filters APIKeyListFilters) ([]APIKey, *pagination.PaginationResult, error) {
 	if normalizedAPIKeySortBy(params.SortBy) == apiKeySortCurrentConcurrency {
@@ -784,6 +863,7 @@ func (s *APIKeyService) List(ctx context.Context, userID int64, params paginatio
 		return nil, nil, fmt.Errorf("list api keys: %w", err)
 	}
 	s.fillCurrentConcurrency(ctx, keys)
+	s.attachRoutingSchemes(ctx, userID, keys)
 	return keys, pagination, nil
 }
 
@@ -799,7 +879,42 @@ func (s *APIKeyService) listByCurrentConcurrency(ctx context.Context, userID int
 	}
 	s.fillCurrentConcurrency(ctx, keys)
 	sortAPIKeysByCurrentConcurrency(keys, params.NormalizedSortOrder(pagination.SortOrderDesc))
+	s.attachRoutingSchemes(ctx, userID, keys)
 	return paginateAPIKeys(keys, params), apiKeyPaginationResult(int64(len(keys)), params), nil
+}
+
+// attachRoutingSchemes resolves the display projection for scheme-based keys.
+// It is read-only: the project's groups and rules never leave the backend.
+func (s *APIKeyService) attachRoutingSchemes(ctx context.Context, userID int64, keys []APIKey) {
+	if s.routingSchemeService == nil || len(keys) == 0 {
+		return
+	}
+	ids := make([]int64, 0, len(keys))
+	for i := range keys {
+		if keys[i].RoutingSchemeID != nil && *keys[i].RoutingSchemeID > 0 {
+			ids = append(ids, *keys[i].RoutingSchemeID)
+		}
+	}
+	if len(ids) == 0 {
+		return
+	}
+	var user *User
+	if s.userRepo != nil && userID > 0 {
+		user, _ = s.userRepo.GetByID(ctx, userID)
+	}
+	summaries := s.routingSchemeService.SummariesForUser(ctx, user, ids)
+	if len(summaries) == 0 {
+		return
+	}
+	for i := range keys {
+		if keys[i].RoutingSchemeID == nil {
+			continue
+		}
+		if summary, ok := summaries[*keys[i].RoutingSchemeID]; ok {
+			value := summary
+			keys[i].RoutingScheme = &value
+		}
+	}
 }
 
 func normalizedAPIKeySortBy(sortBy string) string {
@@ -903,6 +1018,11 @@ func (s *APIKeyService) GetByID(ctx context.Context, id int64) (*APIKey, error) 
 	s.compileAPIKeyIPRules(apiKey)
 	if apiKey != nil {
 		apiKey.CurrentConcurrency = s.currentConcurrencyForAPIKey(ctx, apiKey.ID)
+		if apiKey.RoutingSchemeID != nil {
+			keys := []APIKey{*apiKey}
+			s.attachRoutingSchemes(ctx, apiKey.UserID, keys)
+			apiKey.RoutingScheme = keys[0].RoutingScheme
+		}
 	}
 	return apiKey, nil
 }
@@ -977,6 +1097,23 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 			fields.GroupID = true
 			fields.GroupBindings = true
 		}
+	}
+
+	if req.RoutingSchemeID != nil {
+		if *req.RoutingSchemeID <= 0 {
+			apiKey.RoutingSchemeID = nil
+		} else {
+			user, err := s.userRepo.GetByID(ctx, userID)
+			if err != nil {
+				return nil, fmt.Errorf("get user: %w", err)
+			}
+			routingSchemeID, err := s.resolveRoutingSchemeID(ctx, user, req.RoutingSchemeID, apiKey.GroupBindings)
+			if err != nil {
+				return nil, err
+			}
+			apiKey.RoutingSchemeID = routingSchemeID
+		}
+		fields.RoutingSchemeID = true
 	}
 
 	if req.Status != nil {

@@ -949,6 +949,7 @@ func ProvideAPIKeyService(
 	concurrencyService *ConcurrencyService,
 	deferredService *DeferredService,
 	invalidAuthEdge InvalidAuthEdgeBlocker,
+	routingSchemeService *RoutingSchemeService,
 ) *APIKeyService {
 	svc := NewAPIKeyService(apiKeyRepo, userRepo, groupRepo, userSubRepo, userGroupRateRepo, cache, cfg)
 	svc.SetRateLimitCacheInvalidator(billingCacheService)
@@ -956,6 +957,8 @@ func ProvideAPIKeyService(
 	svc.SetConcurrencyService(concurrencyService)
 	svc.SetLastUsedScheduler(deferredService)
 	svc.SetInvalidAuthEdgeBlocker(invalidAuthEdge)
+	svc.SetRoutingSchemeService(routingSchemeService)
+	routingSchemeService.SetAuthCacheInvalidator(svc)
 	return svc
 }
 
@@ -973,6 +976,7 @@ var ProviderSet = wire.NewSet(
 	ProvideAPIKeyAuthCacheInvalidator,
 	ProvideAuthCacheInvalidationWorker,
 	NewGroupService,
+	NewRoutingSchemeService,
 	NewCompositeRouteResolver,
 	NewAccountService,
 	NewProxyService,

@@ -48,7 +48,13 @@
               <td class="px-3 py-2 font-mono text-xs text-gray-500 dark:text-gray-400">{{ maskApiKey(k.key) }}</td>
               <td class="px-3 py-2">
                 <GroupBadge
-                  v-if="k.group"
+                  v-if="k.routing_scheme"
+                  :name="k.routing_scheme.name"
+                  :platform="k.routing_scheme.platform"
+                  :show-rate="false"
+                />
+                <GroupBadge
+                  v-else-if="k.group"
                   :name="k.group.name"
                   :platform="k.group.platform"
                   :subscription-type="k.group.subscription_type"
@@ -104,15 +110,20 @@ watch(() => props.show, (shown) => {
   if (!shown) search.value = ''
 })
 
+// Scheme keys have no legacy group; their platform comes from the scheme
+// projection. Fall back to the scheme name for display and search.
+const keyPlatform = (key: ApiKey) => key.routing_scheme?.platform ?? key.group?.platform
+
 const filteredKeys = computed<ApiKey[]>(() => {
   const q = search.value.trim().toLowerCase()
   return props.keys.filter((k) => {
-    if (k.group?.platform !== props.provider) return false
+    if (keyPlatform(k) !== props.provider) return false
     if (!q) return true
     return (
       k.name.toLowerCase().includes(q) ||
       k.key.toLowerCase().includes(q) ||
-      (k.group?.name || '').toLowerCase().includes(q)
+      (k.group?.name || '').toLowerCase().includes(q) ||
+      (k.routing_scheme?.name || '').toLowerCase().includes(q)
     )
   })
 })

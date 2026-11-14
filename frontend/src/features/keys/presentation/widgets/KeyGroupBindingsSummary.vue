@@ -3,6 +3,8 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import GroupBadge from '@/common/widgets/data/GroupBadge.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
+import PlatformIcon from '@/common/widgets/icons/PlatformIcon.vue'
+import { platformBadgeLightClass } from '@/core/utils/platformColors'
 import type { ApiKey, ApiKeyGroupBinding } from '@/types'
 import type { GroupOption } from '../keysPageContext'
 
@@ -16,6 +18,27 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+const routingScheme = computed(() => props.apiKey.routing_scheme ?? null)
+
+// The backend keeps routing_scheme_id on the key but omits the summary once the
+// scheme is disabled or deleted. Showing that as "no groups configured" hides
+// the real reason requests are rejected.
+const schemeUnavailable = computed(() =>
+  !routingScheme.value && (props.apiKey.routing_scheme_id ?? null) != null,
+)
+
+const schemeRateLabel = computed(() => {
+  const scheme = routingScheme.value
+  if (!scheme) return ''
+  const min = scheme.min_rate_multiplier
+  const max = scheme.max_rate_multiplier
+  if (min == null && max == null) return ''
+  if (min != null && max != null && min !== max) {
+    return t('keys.groupBindings.routingSchemeRateRange', { min, max })
+  }
+  return t('keys.groupBindings.routingSchemeRateSingle', { rate: min ?? max })
+})
 
 interface ResolvedBinding {
   binding: ApiKeyGroupBinding
@@ -69,6 +92,14 @@ const ceilingText = (binding: ApiKeyGroupBinding) => binding.max_rate_multiplier
   : t('keys.groupBindings.rateCeilingShort', { rate: binding.max_rate_multiplier })
 
 const routeTitle = computed(() => {
+  if (routingScheme.value) {
+    const scheme = routingScheme.value
+    const rate = schemeRateLabel.value ? ` (${schemeRateLabel.value})` : ''
+    return `${scheme.name}${rate}${scheme.description ? ` · ${scheme.description}` : ''}`
+  }
+  if (schemeUnavailable.value) {
+    return t('keys.groupBindings.routingSchemeUnavailableHint')
+  }
   if (!resolvedBindings.value.length) {
     return t('keys.groupBindings.manageEmpty')
   }
@@ -87,11 +118,60 @@ const routeTitle = computed(() => {
     type="button"
     class="group/route -mx-2 -my-1 w-full min-w-0 max-w-[24rem] rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 md:min-w-[15rem] dark:hover:bg-dark-700/70"
     :title="routeTitle"
-    :aria-label="t('keys.groupBindings.manageFor', { name: apiKey.name })"
+    :aria-label="routingScheme || schemeUnavailable
+      ? t('keys.groupBindings.routingSchemeManageFor', { name: apiKey.name })
+      : t('keys.groupBindings.manageFor', { name: apiKey.name })"
     :data-test="`key-groups-summary-${apiKey.id}`"
     @click="emit('manage')"
   >
-    <template v-if="primary">
+    <template v-if="routingScheme">
+      <div class="flex min-w-0 items-center gap-2">
+        <span class="shrink-0 rounded-md bg-primary-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
+          {{ t('keys.groupBindings.routingSchemeTag') }}
+        </span>
+        <span
+          v-if="routingScheme.platform"
+          class="flex h-5 w-5 shrink-0 items-center justify-center rounded"
+          :class="platformBadgeLightClass(routingScheme.platform)"
+          aria-hidden="true"
+        >
+          <PlatformIcon :platform="routingScheme.platform" size="sm" />
+        </span>
+        <span class="min-w-0 truncate text-sm font-medium text-gray-800 dark:text-gray-200">
+          {{ routingScheme.name }}
+        </span>
+        <span
+          v-if="schemeRateLabel"
+          class="shrink-0 rounded bg-primary-50 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700 dark:bg-primary-900/25 dark:text-primary-300"
+        >
+          {{ schemeRateLabel }}
+        </span>
+        <span class="ml-auto inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-gray-400 transition-colors group-hover/route:text-primary-600 dark:group-hover/route:text-primary-400">
+          <Icon name="edit" size="xs" :stroke-width="2" />
+          <span class="hidden sm:inline">{{ t('keys.groupBindings.manage') }}</span>
+        </span>
+      </div>
+      <p class="mt-1 min-w-0 truncate text-[11px] text-gray-400 dark:text-gray-500">
+        {{ routingScheme.description || t('keys.groupBindings.quickSelectNoDescription') }}
+      </p>
+    </template>
+
+    <template v-else-if="schemeUnavailable">
+      <div class="flex min-w-0 items-center gap-2">
+        <span class="shrink-0 rounded-md bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-700 dark:bg-red-900/30 dark:text-red-300">
+          {{ t('keys.groupBindings.routingSchemeUnavailableTag') }}
+        </span>
+        <span class="ml-auto inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-gray-400 transition-colors group-hover/route:text-primary-600 dark:group-hover/route:text-primary-400">
+          <Icon name="edit" size="xs" :stroke-width="2" />
+          <span class="hidden sm:inline">{{ t('keys.groupBindings.manage') }}</span>
+        </span>
+      </div>
+      <p class="mt-1 min-w-0 truncate text-[11px] text-red-500 dark:text-red-400">
+        {{ t('keys.groupBindings.routingSchemeUnavailableHint') }}
+      </p>
+    </template>
+
+    <template v-else-if="primary">
       <div class="flex min-w-0 items-center gap-2">
         <span class="shrink-0 rounded-md bg-primary-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
           {{ t('keys.groupBindings.primary') }}

@@ -139,6 +139,33 @@ func (_u *APIKeyUpdate) ClearGroupBindings() *APIKeyUpdate {
 	return _u
 }
 
+// SetRoutingSchemeID sets the "routing_scheme_id" field.
+func (_u *APIKeyUpdate) SetRoutingSchemeID(v int64) *APIKeyUpdate {
+	_u.mutation.ResetRoutingSchemeID()
+	_u.mutation.SetRoutingSchemeID(v)
+	return _u
+}
+
+// SetNillableRoutingSchemeID sets the "routing_scheme_id" field if the given value is not nil.
+func (_u *APIKeyUpdate) SetNillableRoutingSchemeID(v *int64) *APIKeyUpdate {
+	if v != nil {
+		_u.SetRoutingSchemeID(*v)
+	}
+	return _u
+}
+
+// AddRoutingSchemeID adds value to the "routing_scheme_id" field.
+func (_u *APIKeyUpdate) AddRoutingSchemeID(v int64) *APIKeyUpdate {
+	_u.mutation.AddRoutingSchemeID(v)
+	return _u
+}
+
+// ClearRoutingSchemeID clears the value of the "routing_scheme_id" field.
+func (_u *APIKeyUpdate) ClearRoutingSchemeID() *APIKeyUpdate {
+	_u.mutation.ClearRoutingSchemeID()
+	return _u
+}
+
 // SetStatus sets the "status" field.
 func (_u *APIKeyUpdate) SetStatus(v string) *APIKeyUpdate {
 	_u.mutation.SetStatus(v)
@@ -649,6 +676,15 @@ func (_u *APIKeyUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if _u.mutation.GroupBindingsCleared() {
 		_spec.ClearField(apikey.FieldGroupBindings, field.TypeJSON)
 	}
+	if value, ok := _u.mutation.RoutingSchemeID(); ok {
+		_spec.SetField(apikey.FieldRoutingSchemeID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedRoutingSchemeID(); ok {
+		_spec.AddField(apikey.FieldRoutingSchemeID, field.TypeInt64, value)
+	}
+	if _u.mutation.RoutingSchemeIDCleared() {
+		_spec.ClearField(apikey.FieldRoutingSchemeID, field.TypeInt64)
+	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(apikey.FieldStatus, field.TypeString, value)
 	}
@@ -984,6 +1020,33 @@ func (_u *APIKeyUpdateOne) AppendGroupBindings(v []domain.APIKeyGroupBinding) *A
 // ClearGroupBindings clears the value of the "group_bindings" field.
 func (_u *APIKeyUpdateOne) ClearGroupBindings() *APIKeyUpdateOne {
 	_u.mutation.ClearGroupBindings()
+	return _u
+}
+
+// SetRoutingSchemeID sets the "routing_scheme_id" field.
+func (_u *APIKeyUpdateOne) SetRoutingSchemeID(v int64) *APIKeyUpdateOne {
+	_u.mutation.ResetRoutingSchemeID()
+	_u.mutation.SetRoutingSchemeID(v)
+	return _u
+}
+
+// SetNillableRoutingSchemeID sets the "routing_scheme_id" field if the given value is not nil.
+func (_u *APIKeyUpdateOne) SetNillableRoutingSchemeID(v *int64) *APIKeyUpdateOne {
+	if v != nil {
+		_u.SetRoutingSchemeID(*v)
+	}
+	return _u
+}
+
+// AddRoutingSchemeID adds value to the "routing_scheme_id" field.
+func (_u *APIKeyUpdateOne) AddRoutingSchemeID(v int64) *APIKeyUpdateOne {
+	_u.mutation.AddRoutingSchemeID(v)
+	return _u
+}
+
+// ClearRoutingSchemeID clears the value of the "routing_scheme_id" field.
+func (_u *APIKeyUpdateOne) ClearRoutingSchemeID() *APIKeyUpdateOne {
+	_u.mutation.ClearRoutingSchemeID()
 	return _u
 }
 
@@ -1526,6 +1589,15 @@ func (_u *APIKeyUpdateOne) sqlSave(ctx context.Context) (_node *APIKey, err erro
 	}
 	if _u.mutation.GroupBindingsCleared() {
 		_spec.ClearField(apikey.FieldGroupBindings, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.RoutingSchemeID(); ok {
+		_spec.SetField(apikey.FieldRoutingSchemeID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedRoutingSchemeID(); ok {
+		_spec.AddField(apikey.FieldRoutingSchemeID, field.TypeInt64, value)
+	}
+	if _u.mutation.RoutingSchemeIDCleared() {
+		_spec.ClearField(apikey.FieldRoutingSchemeID, field.TypeInt64)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(apikey.FieldStatus, field.TypeString, value)

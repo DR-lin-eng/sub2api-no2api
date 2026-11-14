@@ -32,6 +32,8 @@ const (
 	FieldGroupID = "group_id"
 	// FieldGroupBindings holds the string denoting the group_bindings field in the database.
 	FieldGroupBindings = "group_bindings"
+	// FieldRoutingSchemeID holds the string denoting the routing_scheme_id field in the database.
+	FieldRoutingSchemeID = "routing_scheme_id"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
 	// FieldLastUsedAt holds the string denoting the last_used_at field in the database.
@@ -108,6 +110,7 @@ var Columns = []string{
 	FieldName,
 	FieldGroupID,
 	FieldGroupBindings,
+	FieldRoutingSchemeID,
 	FieldStatus,
 	FieldLastUsedAt,
 	FieldIPWhitelist,
@@ -224,6 +227,11 @@ func ByName(opts ...sql.OrderTermOption) OrderOption {
 // ByGroupID orders the results by the group_id field.
 func ByGroupID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldGroupID, opts...).ToFunc()
+}
+
+// ByRoutingSchemeID orders the results by the routing_scheme_id field.
+func ByRoutingSchemeID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRoutingSchemeID, opts...).ToFunc()
 }
 
 // ByStatus orders the results by the status field.

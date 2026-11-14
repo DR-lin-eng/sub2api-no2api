@@ -18,6 +18,7 @@ var (
 		{Name: "key", Type: field.TypeString, Unique: true, Size: 128},
 		{Name: "name", Type: field.TypeString, Size: 100},
 		{Name: "group_bindings", Type: field.TypeJSON, Nullable: true},
+		{Name: "routing_scheme_id", Type: field.TypeInt64, Nullable: true},
 		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
 		{Name: "last_used_at", Type: field.TypeTime, Nullable: true},
 		{Name: "ip_whitelist", Type: field.TypeJSON, Nullable: true},
@@ -46,13 +47,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "api_keys_groups_api_keys",
-				Columns:    []*schema.Column{APIKeysColumns[24]},
+				Columns:    []*schema.Column{APIKeysColumns[25]},
 				RefColumns: []*schema.Column{GroupsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "api_keys_users_api_keys",
-				Columns:    []*schema.Column{APIKeysColumns[25]},
+				Columns:    []*schema.Column{APIKeysColumns[26]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -61,17 +62,22 @@ var (
 			{
 				Name:    "apikey_user_id",
 				Unique:  false,
-				Columns: []*schema.Column{APIKeysColumns[25]},
+				Columns: []*schema.Column{APIKeysColumns[26]},
 			},
 			{
 				Name:    "apikey_group_id",
 				Unique:  false,
-				Columns: []*schema.Column{APIKeysColumns[24]},
+				Columns: []*schema.Column{APIKeysColumns[25]},
+			},
+			{
+				Name:    "apikey_routing_scheme_id",
+				Unique:  false,
+				Columns: []*schema.Column{APIKeysColumns[7]},
 			},
 			{
 				Name:    "apikey_status",
 				Unique:  false,
-				Columns: []*schema.Column{APIKeysColumns[7]},
+				Columns: []*schema.Column{APIKeysColumns[8]},
 			},
 			{
 				Name:    "apikey_deleted_at",
@@ -81,12 +87,12 @@ var (
 			{
 				Name:    "apikey_last_used_at",
 				Unique:  false,
-				Columns: []*schema.Column{APIKeysColumns[8]},
+				Columns: []*schema.Column{APIKeysColumns[9]},
 			},
 			{
 				Name:    "apikey_user_id_id",
 				Unique:  false,
-				Columns: []*schema.Column{APIKeysColumns[25], APIKeysColumns[0]},
+				Columns: []*schema.Column{APIKeysColumns[26], APIKeysColumns[0]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "deleted_at IS NULL",
 				},
@@ -94,12 +100,12 @@ var (
 			{
 				Name:    "apikey_quota_quota_used",
 				Unique:  false,
-				Columns: []*schema.Column{APIKeysColumns[11], APIKeysColumns[12]},
+				Columns: []*schema.Column{APIKeysColumns[12], APIKeysColumns[13]},
 			},
 			{
 				Name:    "apikey_expires_at",
 				Unique:  false,
-				Columns: []*schema.Column{APIKeysColumns[13]},
+				Columns: []*schema.Column{APIKeysColumns[14]},
 			},
 		},
 	}
@@ -1336,6 +1342,79 @@ var (
 			},
 		},
 	}
+	// GroupRoutingSchemesColumns holds the columns for the "group_routing_schemes" table.
+	GroupRoutingSchemesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "name", Type: field.TypeString, Size: 100},
+		{Name: "description", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "platform", Type: field.TypeString, Size: 50, Default: "anthropic"},
+		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
+		{Name: "sort_order", Type: field.TypeInt, Default: 0},
+		{Name: "ttft_weight", Type: field.TypeInt, Default: 40},
+		{Name: "error_weight", Type: field.TypeInt, Default: 60},
+	}
+	// GroupRoutingSchemesTable holds the schema information for the "group_routing_schemes" table.
+	GroupRoutingSchemesTable = &schema.Table{
+		Name:       "group_routing_schemes",
+		Columns:    GroupRoutingSchemesColumns,
+		PrimaryKey: []*schema.Column{GroupRoutingSchemesColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "grouproutingscheme_platform_status",
+				Unique:  false,
+				Columns: []*schema.Column{GroupRoutingSchemesColumns[6], GroupRoutingSchemesColumns[7]},
+			},
+			{
+				Name:    "grouproutingscheme_deleted_at",
+				Unique:  false,
+				Columns: []*schema.Column{GroupRoutingSchemesColumns[3]},
+			},
+		},
+	}
+	// GroupRoutingSchemeItemsColumns holds the columns for the "group_routing_scheme_items" table.
+	GroupRoutingSchemeItemsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "group_id", Type: field.TypeInt64},
+		{Name: "position", Type: field.TypeInt, Default: 0},
+		{Name: "rules", Type: field.TypeJSON},
+		{Name: "scheme_id", Type: field.TypeInt64},
+	}
+	// GroupRoutingSchemeItemsTable holds the schema information for the "group_routing_scheme_items" table.
+	GroupRoutingSchemeItemsTable = &schema.Table{
+		Name:       "group_routing_scheme_items",
+		Columns:    GroupRoutingSchemeItemsColumns,
+		PrimaryKey: []*schema.Column{GroupRoutingSchemeItemsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "group_routing_scheme_items_group_routing_schemes_items",
+				Columns:    []*schema.Column{GroupRoutingSchemeItemsColumns[6]},
+				RefColumns: []*schema.Column{GroupRoutingSchemesColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "grouproutingschemeitem_scheme_id_group_id",
+				Unique:  true,
+				Columns: []*schema.Column{GroupRoutingSchemeItemsColumns[6], GroupRoutingSchemeItemsColumns[3]},
+			},
+			{
+				Name:    "grouproutingschemeitem_scheme_id_position",
+				Unique:  false,
+				Columns: []*schema.Column{GroupRoutingSchemeItemsColumns[6], GroupRoutingSchemeItemsColumns[4]},
+			},
+			{
+				Name:    "grouproutingschemeitem_group_id",
+				Unique:  false,
+				Columns: []*schema.Column{GroupRoutingSchemeItemsColumns[3]},
+			},
+		},
+	}
 	// Ipv6EgressPoolsColumns holds the columns for the "ipv6_egress_pools" table.
 	Ipv6EgressPoolsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -2547,6 +2626,8 @@ var (
 		CustomModelRequestTemplatesTable,
 		ErrorPassthroughRulesTable,
 		GroupsTable,
+		GroupRoutingSchemesTable,
+		GroupRoutingSchemeItemsTable,
 		Ipv6EgressPoolsTable,
 		IdempotencyRecordsTable,
 		IdentityAdoptionDecisionsTable,
@@ -2669,6 +2750,13 @@ func init() {
 	}
 	GroupsTable.Annotation = &entsql.Annotation{
 		Table: "groups",
+	}
+	GroupRoutingSchemesTable.Annotation = &entsql.Annotation{
+		Table: "group_routing_schemes",
+	}
+	GroupRoutingSchemeItemsTable.ForeignKeys[0].RefTable = GroupRoutingSchemesTable
+	GroupRoutingSchemeItemsTable.Annotation = &entsql.Annotation{
+		Table: "group_routing_scheme_items",
 	}
 	Ipv6EgressPoolsTable.Annotation = &entsql.Annotation{
 		Table: "ipv6_egress_pools",

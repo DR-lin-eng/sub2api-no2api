@@ -940,7 +940,7 @@ func (s *OpenAIGatewayService) selectBestAccount(ctx context.Context, groupID *i
 
 // SelectAccountWithLoadAwareness selects an account with load-awareness and wait plan.
 func (s *OpenAIGatewayService) SelectAccountWithLoadAwareness(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*AccountSelectionResult, error) {
-	candidates, routed := apiKeyGroupRoutingCandidates(ctx, groupID)
+	candidates, routed := apiKeyGroupRoutingCandidates(ctx, groupID, sessionHash)
 	if !routed {
 		return s.selectAccountWithLoadAwareness(s.withOpenAIQuotaAutoPauseContext(ctx), groupID, PlatformOpenAI, sessionHash, requestedModel, excludedIDs, false, "", true, false)
 	}

@@ -86,6 +86,8 @@ var migrationChecksumCompatibilityRules = map[string]migrationChecksumCompatibil
 	"159_batch_image_foundation.sql":                          newMigrationChecksumCompatibilityRule("d902b70982025ec519749faf058aab7631e82c3f48167b9a4ae4db718eb72cce", "82da85b5d98e67a0507647b873a40373e84538e4adafdeed6767c0ac8b6570b2"),
 	"161_batch_image_pricing_snapshot.sql":                    newMigrationChecksumCompatibilityRule("4012af3e43636cb6af22e0176d59d1fcc70615c0f310194329461ae462c4fbd6", "96d915c9b7a6941ae99039e0ff3f1a61481eb9bddd933d11c6fadb2274554e87"),
 	"188_allow_live_usage_request_type.sql":                   newMigrationChecksumCompatibilityRule("f1f2d54b6bcff0c18f32692f418517aed0fc887fcb4d729f5572a851e9a3b3ac", "0233dba07a75bd9c740402a64e3af75c2a3884dfc8c4b63145df115e716fd35e"),
+	// 256 的注释内容在应用后被改写（SQL 语义未变），兼容已按旧注释版本落库的环境。
+	"256_video_balance_hold_billing_mode.sql": newMigrationChecksumCompatibilityRule("52469d9021706187f3b4f7c18ebd3a6297e18b2bf6ef08f532e8e2d284be096e", "bf279de8665f4fbcca2cddae636c043e69cfe0bd4f49a2a68e0311935186ecb8"),
 }
 
 // ApplyMigrations 将嵌入的 SQL 迁移文件应用到指定的数据库。

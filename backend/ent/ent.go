@@ -37,6 +37,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/custommodelrequesttemplate"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/grouproutingscheme"
+	"github.com/Wei-Shaw/sub2api/ent/grouproutingschemeitem"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
 	"github.com/Wei-Shaw/sub2api/ent/ipv6egresspool"
@@ -146,6 +148,8 @@ func checkColumn(t, c string) error {
 			custommodelrequesttemplate.Table:    custommodelrequesttemplate.ValidColumn,
 			errorpassthroughrule.Table:          errorpassthroughrule.ValidColumn,
 			group.Table:                         group.ValidColumn,
+			grouproutingscheme.Table:            grouproutingscheme.ValidColumn,
+			grouproutingschemeitem.Table:        grouproutingschemeitem.ValidColumn,
 			ipv6egresspool.Table:                ipv6egresspool.ValidColumn,
 			idempotencyrecord.Table:             idempotencyrecord.ValidColumn,
 			identityadoptiondecision.Table:      identityadoptiondecision.ValidColumn,

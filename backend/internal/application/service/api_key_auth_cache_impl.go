@@ -15,7 +15,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 27 // v27: group privacy projection and group-bound RPM knowledge; retain v26 fields
+const apiKeyAuthSnapshotVersion = 30 // v30: scheme keys fail closed instead of falling back to a group-less key
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -445,6 +445,26 @@ func (s *APIKeyService) hydrateAPIKeyGroupBindingsForAuth(ctx context.Context, a
 		return
 	}
 	bindings := apiKey.GroupBindings
+	// Scheme-based keys are expanded here, at the narrow candidate interface the
+	// scheduler already consumes. The scheme is never written into group_bindings.
+	if apiKey.RoutingSchemeID != nil && *apiKey.RoutingSchemeID > 0 {
+		// Fail closed: a scheme key must never degrade into a group-less key.
+		// An empty expansion means the scheme was disabled/deleted or has no
+		// active group left. The auth middleware then answers 403 instead of
+		// letting the request fall through to the global account pool.
+		schemeBindings := s.routingSchemeBindingsForAuth(ctx, *apiKey.RoutingSchemeID)
+		if len(schemeBindings) == 0 {
+			slog.Warn("routing scheme expanded to no available groups",
+				"api_key_id", apiKey.ID,
+				"scheme_id", *apiKey.RoutingSchemeID,
+			)
+			apiKey.GroupBindings = nil
+			apiKey.GroupID = nil
+			apiKey.Group = nil
+			return
+		}
+		bindings = schemeBindings
+	}
 	if len(bindings) == 0 && apiKey.GroupID != nil && *apiKey.GroupID > 0 {
 		bindings = []APIKeyGroupBinding{{APIKeyGroupBinding: domain.APIKeyGroupBinding{GroupID: *apiKey.GroupID}}}
 	}
@@ -473,6 +493,40 @@ func (s *APIKeyService) hydrateAPIKeyGroupBindingsForAuth(ctx context.Context, a
 		}
 	}
 	apiKey.GroupBindings = bindings
+}
+
+// routingSchemeBindingsForAuth turns a scheme into ordered, hydrated runtime
+// candidates. It returns nil when the scheme cannot be expanded (not found,
+// disabled, or no active group). Callers must treat nil as "scheme unavailable"
+// and fail closed; a scheme key must not fall back to the legacy group list.
+func (s *APIKeyService) routingSchemeBindingsForAuth(ctx context.Context, schemeID int64) []APIKeyGroupBinding {
+	if s == nil || s.routingSchemeService == nil || s.groupRepo == nil || schemeID <= 0 {
+		return nil
+	}
+	scheme, err := s.routingSchemeService.Get(ctx, schemeID)
+	if err != nil || scheme == nil || scheme.Status != domain.RoutingSchemeStatusActive {
+		return nil
+	}
+	ordered, weights := s.routingSchemeService.OrderedGroupWeights(ctx, scheme)
+	groupByID := loadGroupsByIDs(ctx, s.groupRepo, ordered)
+	bindings := make([]APIKeyGroupBinding, 0, len(ordered))
+	for _, groupID := range ordered {
+		group := groupByID[groupID]
+		if group == nil || !group.IsActive() {
+			continue
+		}
+		weight := weights[groupID]
+		if weight <= 0 {
+			weight = 1
+		}
+		bindings = append(bindings, APIKeyGroupBinding{
+			APIKeyGroupBinding:      domain.APIKeyGroupBinding{GroupID: groupID},
+			Group:                   group,
+			EffectiveRateMultiplier: group.RateMultiplier,
+			Weight:                  weight,
+		})
+	}
+	return bindings
 }
 
 func (s *APIKeyService) applyAuthCacheEntry(key string, entry *APIKeyAuthCacheEntry) (*APIKey, bool, error) {
@@ -527,6 +581,7 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 		APIKeyID:         apiKey.ID,
 		UserID:           apiKey.UserID,
 		GroupID:          apiKey.GroupID,
+		RoutingSchemeID:  apiKey.RoutingSchemeID,
 		Name:             apiKey.Name,
 		Status:           apiKey.Status,
 		IPWhitelist:      apiKey.IPWhitelist,
@@ -629,6 +684,7 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 			snapshot.GroupBindings = append(snapshot.GroupBindings, APIKeyAuthGroupBindingSnapshot{
 				APIKeyGroupBinding:      binding.APIKeyGroupBinding,
 				EffectiveRateMultiplier: binding.EffectiveRateMultiplier,
+				Weight:                  binding.Weight,
 				Group:                   apiKeyAuthGroupSnapshotFromGroup(binding.Group),
 			})
 		}
@@ -644,6 +700,7 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 		ID:               snapshot.APIKeyID,
 		UserID:           snapshot.UserID,
 		GroupID:          snapshot.GroupID,
+		RoutingSchemeID:  snapshot.RoutingSchemeID,
 		Key:              key,
 		Name:             snapshot.Name,
 		Status:           snapshot.Status,
@@ -741,6 +798,7 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 			apiKey.GroupBindings = append(apiKey.GroupBindings, APIKeyGroupBinding{
 				APIKeyGroupBinding:      binding.APIKeyGroupBinding,
 				EffectiveRateMultiplier: binding.EffectiveRateMultiplier,
+				Weight:                  binding.Weight,
 				Group:                   apiKeyGroupFromAuthSnapshot(binding.Group),
 			})
 		}

@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { VueDraggable } from 'vue-draggable-plus'
+import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import GroupBadge from '@/common/widgets/data/GroupBadge.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import PlatformIcon from '@/common/widgets/icons/PlatformIcon.vue'
@@ -13,22 +14,31 @@ import {
   KEY_GROUP_PROVIDERS,
   type KeyGroupProvider,
 } from '../keyGroupProviders'
-import type { GroupOption } from '../keysPageContext'
+import type {
+  GroupOption,
+  KeyQuickSchemeOption,
+} from '../keysPageContext'
 
 const props = withDefaults(defineProps<{
   modelValue: ApiKeyGroupBinding[]
   groupOptions: GroupOption[]
+  quickSchemes?: KeyQuickSchemeOption[]
+  quickSchemeId?: number | null
   filterByProvider?: boolean
 }>(), {
+  quickSchemes: () => [],
+  quickSchemeId: null,
   filterByProvider: false,
 })
 
 const emit = defineEmits<{
   'update:modelValue': [value: ApiKeyGroupBinding[]]
+  'update:quickSchemeId': [value: number | null]
 }>()
 
 const { t } = useI18n()
 const showPicker = ref(false)
+const showQuickSelect = ref(false)
 const searchQuery = ref('')
 const createProvider = ref<KeyGroupProvider>('anthropic')
 
@@ -72,8 +82,53 @@ const selectCreateProvider = (provider: KeyGroupProvider) => {
   if (bindings.value.length > 0) {
     bindings.value = []
   }
+  emit('update:quickSchemeId', null)
   searchQuery.value = ''
   showPicker.value = false
+  showQuickSelect.value = false
+}
+
+const selectedQuickScheme = computed(() =>
+  props.quickSchemes.find(scheme => scheme.id === props.quickSchemeId))
+
+const quickSchemeOptions = computed((): KeyQuickSchemeOption[] => {
+  const platform = primaryOption.value?.platform
+  return props.quickSchemes.filter((scheme) => {
+    if (platform) return scheme.platform === platform
+    if (props.filterByProvider) return getKeyGroupProvider(scheme.platform) === createProvider.value
+    return true
+  })
+})
+
+const toggleQuickSelect = () => {
+  showQuickSelect.value = !showQuickSelect.value
+  if (showQuickSelect.value) {
+    showPicker.value = false
+    searchQuery.value = ''
+  }
+}
+
+const applyQuickScheme = (scheme: KeyQuickSchemeOption) => {
+  bindings.value = []
+  emit('update:quickSchemeId', scheme.id)
+  showQuickSelect.value = false
+}
+
+const clearQuickScheme = () => {
+  emit('update:quickSchemeId', null)
+  bindings.value = []
+}
+
+const formatRate = (value: number) => Number.isInteger(value) ? value.toString() : value.toFixed(2)
+
+const schemeRateRange = (scheme: KeyQuickSchemeOption): string => {
+  const min = scheme.minRate
+  const max = scheme.maxRate
+  if (min == null && max == null) return '—'
+  const low = min ?? max
+  const high = max ?? min
+  if (low == null || high == null) return '—'
+  return low === high ? `${formatRate(low)}x` : `${formatRate(low)}x – ${formatRate(high)}x`
 }
 
 watch([() => props.filterByProvider, providerOptions], ([enabled, providers]) => {
@@ -120,6 +175,7 @@ const updateRateCeiling = (index: number, event: Event) => {
 
 const togglePicker = () => {
   showPicker.value = !showPicker.value
+  if (showPicker.value) showQuickSelect.value = false
   if (!showPicker.value) searchQuery.value = ''
 }
 </script>
@@ -179,6 +235,7 @@ const togglePicker = () => {
     </fieldset>
 
     <VueDraggable
+      v-if="!selectedQuickScheme"
       v-model="bindings"
       :animation="180"
       handle=".key-group-drag-handle"
@@ -296,21 +353,22 @@ const togglePicker = () => {
       </div>
     </VueDraggable>
 
-    <div class="relative">
-      <button
-        v-if="bindings.length < 20 && primaryOption?.subscriptionType !== 'subscription'"
-        type="button"
-        class="btn btn-secondary btn-sm"
-        data-test="key-group-add"
-        @click="togglePicker"
-      >
-        <Icon name="plus" size="sm" :stroke-width="2" />
-        {{ t('keys.groupBindings.addGroup') }}
-      </button>
+    <div v-if="!selectedQuickScheme" class="flex flex-wrap items-start gap-2">
+      <div class="relative">
+        <button
+          v-if="bindings.length < 20 && primaryOption?.subscriptionType !== 'subscription'"
+          type="button"
+          class="btn btn-secondary btn-sm"
+          data-test="key-group-add"
+          @click="togglePicker"
+        >
+          <Icon name="plus" size="sm" :stroke-width="2" />
+          {{ t('keys.groupBindings.addGroup') }}
+        </button>
 
       <div
         v-if="showPicker"
-        class="mt-2 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg dark:border-dark-600 dark:bg-dark-800"
+        class="absolute left-0 top-full z-20 mt-2 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg dark:border-dark-600 dark:bg-dark-800"
         data-test="key-group-picker"
       >
         <div class="border-b border-gray-100 p-2 dark:border-dark-700">
@@ -358,10 +416,121 @@ const togglePicker = () => {
           </p>
         </div>
       </div>
+      </div>
+
+      <div v-if="primaryOption?.subscriptionType !== 'subscription'" class="relative">
+        <button
+          type="button"
+          class="btn btn-secondary btn-sm"
+          data-test="key-group-quick-select"
+          @click="toggleQuickSelect"
+        >
+          <Icon name="bolt" size="sm" :stroke-width="2" />
+          {{ t('keys.groupBindings.quickSelect') }}
+        </button>
+
+      </div>
     </div>
 
-    <p class="input-hint">{{ t('keys.groupBindings.orderHint') }}</p>
-    <p v-if="primaryOption?.subscriptionType === 'subscription'" class="input-hint">
+    <div
+      v-if="selectedQuickScheme"
+      class="rounded-lg border border-gray-200 bg-white p-3 dark:border-dark-600 dark:bg-dark-800"
+      data-test="key-quick-scheme-selected"
+    >
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-1.5">
+            <span
+              v-if="selectedQuickScheme.platform"
+              class="flex h-5 w-5 shrink-0 items-center justify-center rounded"
+              :class="platformBadgeLightClass(selectedQuickScheme.platform)"
+              aria-hidden="true"
+            >
+              <PlatformIcon :platform="selectedQuickScheme.platform" size="sm" />
+            </span>
+            <span class="text-sm font-medium text-gray-900 dark:text-white">
+              {{ selectedQuickScheme.name }}
+            </span>
+            <span class="rounded-md bg-primary-50 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
+              {{ schemeRateRange(selectedQuickScheme) }}
+            </span>
+          </div>
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {{ selectedQuickScheme.description || t('keys.groupBindings.quickSelectNoDescription') }}
+          </p>
+        </div>
+      </div>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <button type="button" class="btn btn-secondary btn-sm" @click="toggleQuickSelect">
+          <Icon name="bolt" size="sm" :stroke-width="2" />
+          {{ t('keys.groupBindings.quickSelectReselect') }}
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" @click="clearQuickScheme">
+          <Icon name="grid" size="sm" :stroke-width="2" />
+          {{ t('keys.groupBindings.quickSelectCustom') }}
+        </button>
+      </div>
+    </div>
+
+    <BaseDialog
+      :show="showQuickSelect"
+      :title="t('keys.groupBindings.quickSelectTitle')"
+      width="normal"
+      @close="showQuickSelect = false"
+    >
+      <div class="space-y-3">
+        <div v-if="quickSchemeOptions.length > 0" class="space-y-2">
+          <button
+            v-for="scheme in quickSchemeOptions"
+            :key="scheme.id"
+            type="button"
+            class="w-full rounded-xl border border-gray-200 bg-white p-4 text-left transition-colors hover:border-primary-300 hover:bg-primary-50/50 dark:border-dark-600 dark:bg-dark-900 dark:hover:border-primary-700 dark:hover:bg-primary-500/10"
+            :data-test="`key-group-quick-scheme-${scheme.id}`"
+            @click="applyQuickScheme(scheme)"
+          >
+            <div class="flex items-center justify-between gap-3">
+              <span class="flex min-w-0 items-center gap-2">
+                <span
+                  v-if="scheme.platform"
+                  class="flex h-5 w-5 shrink-0 items-center justify-center rounded"
+                  :class="platformBadgeLightClass(scheme.platform)"
+                  aria-hidden="true"
+                >
+                  <PlatformIcon :platform="scheme.platform" size="sm" />
+                </span>
+                <span class="min-w-0 truncate text-base font-semibold text-gray-900 dark:text-white">
+                  {{ scheme.name }}
+                </span>
+              </span>
+              <span class="flex-shrink-0 rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-500/10 dark:text-primary-300">
+                {{ schemeRateRange(scheme) }}
+              </span>
+            </div>
+            <p class="mt-1 text-sm leading-6 text-gray-500 dark:text-gray-400">
+              {{ scheme.description || t('keys.groupBindings.quickSelectNoDescription') }}
+            </p>
+          </button>
+        </div>
+
+        <p
+          v-else
+          class="rounded-lg border border-dashed border-gray-200 px-3 py-8 text-center text-sm text-gray-500 dark:border-dark-600 dark:text-gray-400"
+        >
+          {{ t('keys.groupBindings.quickSelectEmpty') }}
+        </p>
+      </div>
+
+      <template #footer>
+        <div class="flex justify-end">
+          <button type="button" class="btn btn-secondary" @click="showQuickSelect = false">
+            {{ t('common.close') }}
+          </button>
+        </div>
+      </template>
+    </BaseDialog>
+
+    <p v-if="!selectedQuickScheme" class="input-hint">{{ t('keys.groupBindings.orderHint') }}</p>
+    <p v-if="!selectedQuickScheme && primaryOption?.subscriptionType === 'subscription'" class="input-hint">
       {{ t('keys.groupBindings.subscriptionSingleHint') }}
     </p>
   </div>

@@ -81,6 +81,12 @@ type ErrorPassthroughRule func(*sql.Selector)
 // Group is the predicate function for group builders.
 type Group func(*sql.Selector)
 
+// GroupRoutingScheme is the predicate function for grouproutingscheme builders.
+type GroupRoutingScheme func(*sql.Selector)
+
+// GroupRoutingSchemeItem is the predicate function for grouproutingschemeitem builders.
+type GroupRoutingSchemeItem func(*sql.Selector)
+
 // IPv6EgressPool is the predicate function for ipv6egresspool builders.
 type IPv6EgressPool func(*sql.Selector)
 

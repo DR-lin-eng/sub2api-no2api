@@ -10,6 +10,7 @@ type AdminHandlers struct {
 	Dashboard              *admin.DashboardHandler
 	User                   *admin.UserHandler
 	Group                  *admin.GroupHandler
+	RoutingScheme          *admin.RoutingSchemeHandler
 	Account                *admin.AccountHandler
 	AccountInspection      *admin.AccountInspectionHandler
 	AccountQuality         *admin.AccountQualityHandler

@@ -319,7 +319,7 @@ func (s *OpenAIGatewayService) OpenAIImageSizeTierUnsupported(
 	requiredCapability OpenAIEndpointCapability,
 	requiredImageCapability OpenAIImagesCapability,
 ) (string, bool) {
-	if candidates, routed := apiKeyGroupRoutingCandidates(ctx, groupID); routed {
+	if candidates, routed := apiKeyGroupRoutingCandidates(ctx, groupID, ""); routed {
 		unsupportedTier := ""
 		for _, candidate := range candidates {
 			id := candidate.GroupID

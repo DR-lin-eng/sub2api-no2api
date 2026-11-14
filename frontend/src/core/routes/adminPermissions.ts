@@ -11,6 +11,7 @@ const pagePermissions: Record<string, string> = {
   '/admin/support': 'support.read',
   '/admin/users': 'users.manage',
   '/admin/groups': 'groups.manage',
+  '/admin/group-routing-schemes': 'groups.manage',
   '/admin/accounts': 'accounts.manage',
   '/admin/account-inspection': 'accounts.manage',
   '/admin/account-quality': 'accounts.manage',

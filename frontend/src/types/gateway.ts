@@ -1,4 +1,4 @@
-import type { Group } from './group'
+import type { Group, GroupPlatform } from './group'
 
 export * from './group'
 export type {
@@ -21,6 +21,13 @@ export interface ApiKey {
   name: string
   group_id: number | null
   group_bindings: ApiKeyGroupBinding[]
+  /** Optional quick routing scheme selected for this key. */
+  routing_scheme_id?: number | null
+  /**
+   * Scheme metadata for list rendering. Backend must only return name,
+   * description and the public rate range; internal scheme groups stay hidden.
+   */
+  routing_scheme?: ApiKeyRoutingSchemeSummary | null
   status: 'active' | 'inactive' | 'quota_exhausted' | 'expired'
   ip_whitelist: string[]
   ip_blacklist: string[]
@@ -53,10 +60,22 @@ export interface ApiKeyGroupBinding {
   max_rate_multiplier: number | null
 }
 
+/** Public scheme metadata for key list rendering; never contains scheme groups. */
+export interface ApiKeyRoutingSchemeSummary {
+  id: number
+  name: string
+  description: string
+  platform?: GroupPlatform
+  min_rate_multiplier: number | null
+  max_rate_multiplier: number | null
+}
+
 export interface CreateApiKeyRequest {
   name: string
   group_id?: number | null
   group_bindings?: ApiKeyGroupBinding[]
+  /** Opt into a backend-managed routing scheme instead of manual groups. */
+  routing_scheme_id?: number | null
   custom_key?: string // Optional custom API Key
   ip_whitelist?: string[]
   ip_blacklist?: string[]
@@ -71,6 +90,8 @@ export interface UpdateApiKeyRequest {
   name?: string
   group_id?: number | null
   group_bindings?: ApiKeyGroupBinding[]
+  /** nil/undefined = keep, 0 = clear the scheme, >0 = switch scheme. */
+  routing_scheme_id?: number | null
   status?: 'active' | 'inactive'
   ip_whitelist?: string[]
   ip_blacklist?: string[]

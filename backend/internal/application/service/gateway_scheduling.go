@@ -34,7 +34,7 @@ func (s *GatewayService) SelectAccountForModel(ctx context.Context, groupID *int
 // SelectAccountForModelWithExclusions selects an account supporting the requested model while excluding specified accounts.
 func (s *GatewayService) SelectAccountForModelWithExclusions(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*Account, error) {
 	ctx = s.WithImageScheduling(ctx, requestedModel)
-	candidates, routed := apiKeyGroupRoutingCandidates(ctx, groupID)
+	candidates, routed := apiKeyGroupRoutingCandidates(ctx, groupID, sessionHash)
 	if !routed {
 		return s.selectAccountForModelWithExclusionsInGroup(ctx, groupID, sessionHash, requestedModel, excludedIDs)
 	}
@@ -165,7 +165,7 @@ func (s *GatewayService) selectAccountForModelWithExclusionsInGroup(ctx context.
 // sub2apiUserID: 系统用户 ID，用于二维亲和调度
 func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, metadataUserID string, sub2apiUserID int64) (*AccountSelectionResult, error) {
 	ctx = s.WithImageScheduling(ctx, requestedModel)
-	candidates, routed := apiKeyGroupRoutingCandidates(ctx, groupID)
+	candidates, routed := apiKeyGroupRoutingCandidates(ctx, groupID, sessionHash)
 	if !routed {
 		return s.selectAccountWithLoadAwarenessInGroup(ctx, groupID, sessionHash, requestedModel, excludedIDs, metadataUserID, sub2apiUserID)
 	}

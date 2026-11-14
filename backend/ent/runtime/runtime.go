@@ -30,6 +30,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/custommodelrequesttemplate"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/grouproutingscheme"
+	"github.com/Wei-Shaw/sub2api/ent/grouproutingschemeitem"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
 	"github.com/Wei-Shaw/sub2api/ent/ipv6egresspool"
@@ -122,47 +124,47 @@ func init() {
 	// apikey.DefaultGroupBindings holds the default value on creation for the group_bindings field.
 	apikey.DefaultGroupBindings = apikeyDescGroupBindings.Default.([]domain.APIKeyGroupBinding)
 	// apikeyDescStatus is the schema descriptor for status field.
-	apikeyDescStatus := apikeyFields[5].Descriptor()
+	apikeyDescStatus := apikeyFields[6].Descriptor()
 	// apikey.DefaultStatus holds the default value on creation for the status field.
 	apikey.DefaultStatus = apikeyDescStatus.Default.(string)
 	// apikey.StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	apikey.StatusValidator = apikeyDescStatus.Validators[0].(func(string) error)
 	// apikeyDescQuota is the schema descriptor for quota field.
-	apikeyDescQuota := apikeyFields[9].Descriptor()
+	apikeyDescQuota := apikeyFields[10].Descriptor()
 	// apikey.DefaultQuota holds the default value on creation for the quota field.
 	apikey.DefaultQuota = apikeyDescQuota.Default.(float64)
 	// apikeyDescQuotaUsed is the schema descriptor for quota_used field.
-	apikeyDescQuotaUsed := apikeyFields[10].Descriptor()
+	apikeyDescQuotaUsed := apikeyFields[11].Descriptor()
 	// apikey.DefaultQuotaUsed holds the default value on creation for the quota_used field.
 	apikey.DefaultQuotaUsed = apikeyDescQuotaUsed.Default.(float64)
 	// apikeyDescConcurrencyLimit is the schema descriptor for concurrency_limit field.
-	apikeyDescConcurrencyLimit := apikeyFields[12].Descriptor()
+	apikeyDescConcurrencyLimit := apikeyFields[13].Descriptor()
 	// apikey.DefaultConcurrencyLimit holds the default value on creation for the concurrency_limit field.
 	apikey.DefaultConcurrencyLimit = apikeyDescConcurrencyLimit.Default.(int)
 	// apikey.ConcurrencyLimitValidator is a validator for the "concurrency_limit" field. It is called by the builders before save.
 	apikey.ConcurrencyLimitValidator = apikeyDescConcurrencyLimit.Validators[0].(func(int) error)
 	// apikeyDescRateLimit5h is the schema descriptor for rate_limit_5h field.
-	apikeyDescRateLimit5h := apikeyFields[13].Descriptor()
+	apikeyDescRateLimit5h := apikeyFields[14].Descriptor()
 	// apikey.DefaultRateLimit5h holds the default value on creation for the rate_limit_5h field.
 	apikey.DefaultRateLimit5h = apikeyDescRateLimit5h.Default.(float64)
 	// apikeyDescRateLimit1d is the schema descriptor for rate_limit_1d field.
-	apikeyDescRateLimit1d := apikeyFields[14].Descriptor()
+	apikeyDescRateLimit1d := apikeyFields[15].Descriptor()
 	// apikey.DefaultRateLimit1d holds the default value on creation for the rate_limit_1d field.
 	apikey.DefaultRateLimit1d = apikeyDescRateLimit1d.Default.(float64)
 	// apikeyDescRateLimit7d is the schema descriptor for rate_limit_7d field.
-	apikeyDescRateLimit7d := apikeyFields[15].Descriptor()
+	apikeyDescRateLimit7d := apikeyFields[16].Descriptor()
 	// apikey.DefaultRateLimit7d holds the default value on creation for the rate_limit_7d field.
 	apikey.DefaultRateLimit7d = apikeyDescRateLimit7d.Default.(float64)
 	// apikeyDescUsage5h is the schema descriptor for usage_5h field.
-	apikeyDescUsage5h := apikeyFields[16].Descriptor()
+	apikeyDescUsage5h := apikeyFields[17].Descriptor()
 	// apikey.DefaultUsage5h holds the default value on creation for the usage_5h field.
 	apikey.DefaultUsage5h = apikeyDescUsage5h.Default.(float64)
 	// apikeyDescUsage1d is the schema descriptor for usage_1d field.
-	apikeyDescUsage1d := apikeyFields[17].Descriptor()
+	apikeyDescUsage1d := apikeyFields[18].Descriptor()
 	// apikey.DefaultUsage1d holds the default value on creation for the usage_1d field.
 	apikey.DefaultUsage1d = apikeyDescUsage1d.Default.(float64)
 	// apikeyDescUsage7d is the schema descriptor for usage_7d field.
-	apikeyDescUsage7d := apikeyFields[18].Descriptor()
+	apikeyDescUsage7d := apikeyFields[19].Descriptor()
 	// apikey.DefaultUsage7d holds the default value on creation for the usage_7d field.
 	apikey.DefaultUsage7d = apikeyDescUsage7d.Default.(float64)
 	accountMixin := schema.Account{}.Mixin()
@@ -1496,6 +1498,122 @@ func init() {
 	groupDescProfitSafetyBuffer := groupFields[58].Descriptor()
 	// group.DefaultProfitSafetyBuffer holds the default value on creation for the profit_safety_buffer field.
 	group.DefaultProfitSafetyBuffer = groupDescProfitSafetyBuffer.Default.(float64)
+	grouproutingschemeMixin := schema.GroupRoutingScheme{}.Mixin()
+	grouproutingschemeMixinHooks1 := grouproutingschemeMixin[1].Hooks()
+	grouproutingscheme.Hooks[0] = grouproutingschemeMixinHooks1[0]
+	grouproutingschemeMixinInters1 := grouproutingschemeMixin[1].Interceptors()
+	grouproutingscheme.Interceptors[0] = grouproutingschemeMixinInters1[0]
+	grouproutingschemeMixinFields0 := grouproutingschemeMixin[0].Fields()
+	_ = grouproutingschemeMixinFields0
+	grouproutingschemeFields := schema.GroupRoutingScheme{}.Fields()
+	_ = grouproutingschemeFields
+	// grouproutingschemeDescCreatedAt is the schema descriptor for created_at field.
+	grouproutingschemeDescCreatedAt := grouproutingschemeMixinFields0[0].Descriptor()
+	// grouproutingscheme.DefaultCreatedAt holds the default value on creation for the created_at field.
+	grouproutingscheme.DefaultCreatedAt = grouproutingschemeDescCreatedAt.Default.(func() time.Time)
+	// grouproutingschemeDescUpdatedAt is the schema descriptor for updated_at field.
+	grouproutingschemeDescUpdatedAt := grouproutingschemeMixinFields0[1].Descriptor()
+	// grouproutingscheme.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	grouproutingscheme.DefaultUpdatedAt = grouproutingschemeDescUpdatedAt.Default.(func() time.Time)
+	// grouproutingscheme.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	grouproutingscheme.UpdateDefaultUpdatedAt = grouproutingschemeDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// grouproutingschemeDescName is the schema descriptor for name field.
+	grouproutingschemeDescName := grouproutingschemeFields[0].Descriptor()
+	// grouproutingscheme.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	grouproutingscheme.NameValidator = func() func(string) error {
+		validators := grouproutingschemeDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// grouproutingschemeDescPlatform is the schema descriptor for platform field.
+	grouproutingschemeDescPlatform := grouproutingschemeFields[2].Descriptor()
+	// grouproutingscheme.DefaultPlatform holds the default value on creation for the platform field.
+	grouproutingscheme.DefaultPlatform = grouproutingschemeDescPlatform.Default.(string)
+	// grouproutingscheme.PlatformValidator is a validator for the "platform" field. It is called by the builders before save.
+	grouproutingscheme.PlatformValidator = grouproutingschemeDescPlatform.Validators[0].(func(string) error)
+	// grouproutingschemeDescStatus is the schema descriptor for status field.
+	grouproutingschemeDescStatus := grouproutingschemeFields[3].Descriptor()
+	// grouproutingscheme.DefaultStatus holds the default value on creation for the status field.
+	grouproutingscheme.DefaultStatus = grouproutingschemeDescStatus.Default.(string)
+	// grouproutingscheme.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+	grouproutingscheme.StatusValidator = grouproutingschemeDescStatus.Validators[0].(func(string) error)
+	// grouproutingschemeDescSortOrder is the schema descriptor for sort_order field.
+	grouproutingschemeDescSortOrder := grouproutingschemeFields[4].Descriptor()
+	// grouproutingscheme.DefaultSortOrder holds the default value on creation for the sort_order field.
+	grouproutingscheme.DefaultSortOrder = grouproutingschemeDescSortOrder.Default.(int)
+	// grouproutingschemeDescTtftWeight is the schema descriptor for ttft_weight field.
+	grouproutingschemeDescTtftWeight := grouproutingschemeFields[5].Descriptor()
+	// grouproutingscheme.DefaultTtftWeight holds the default value on creation for the ttft_weight field.
+	grouproutingscheme.DefaultTtftWeight = grouproutingschemeDescTtftWeight.Default.(int)
+	// grouproutingscheme.TtftWeightValidator is a validator for the "ttft_weight" field. It is called by the builders before save.
+	grouproutingscheme.TtftWeightValidator = func() func(int) error {
+		validators := grouproutingschemeDescTtftWeight.Validators
+		fns := [...]func(int) error{
+			validators[0].(func(int) error),
+			validators[1].(func(int) error),
+		}
+		return func(ttft_weight int) error {
+			for _, fn := range fns {
+				if err := fn(ttft_weight); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// grouproutingschemeDescErrorWeight is the schema descriptor for error_weight field.
+	grouproutingschemeDescErrorWeight := grouproutingschemeFields[6].Descriptor()
+	// grouproutingscheme.DefaultErrorWeight holds the default value on creation for the error_weight field.
+	grouproutingscheme.DefaultErrorWeight = grouproutingschemeDescErrorWeight.Default.(int)
+	// grouproutingscheme.ErrorWeightValidator is a validator for the "error_weight" field. It is called by the builders before save.
+	grouproutingscheme.ErrorWeightValidator = func() func(int) error {
+		validators := grouproutingschemeDescErrorWeight.Validators
+		fns := [...]func(int) error{
+			validators[0].(func(int) error),
+			validators[1].(func(int) error),
+		}
+		return func(error_weight int) error {
+			for _, fn := range fns {
+				if err := fn(error_weight); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	grouproutingschemeitemMixin := schema.GroupRoutingSchemeItem{}.Mixin()
+	grouproutingschemeitemMixinFields0 := grouproutingschemeitemMixin[0].Fields()
+	_ = grouproutingschemeitemMixinFields0
+	grouproutingschemeitemFields := schema.GroupRoutingSchemeItem{}.Fields()
+	_ = grouproutingschemeitemFields
+	// grouproutingschemeitemDescCreatedAt is the schema descriptor for created_at field.
+	grouproutingschemeitemDescCreatedAt := grouproutingschemeitemMixinFields0[0].Descriptor()
+	// grouproutingschemeitem.DefaultCreatedAt holds the default value on creation for the created_at field.
+	grouproutingschemeitem.DefaultCreatedAt = grouproutingschemeitemDescCreatedAt.Default.(func() time.Time)
+	// grouproutingschemeitemDescUpdatedAt is the schema descriptor for updated_at field.
+	grouproutingschemeitemDescUpdatedAt := grouproutingschemeitemMixinFields0[1].Descriptor()
+	// grouproutingschemeitem.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	grouproutingschemeitem.DefaultUpdatedAt = grouproutingschemeitemDescUpdatedAt.Default.(func() time.Time)
+	// grouproutingschemeitem.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	grouproutingschemeitem.UpdateDefaultUpdatedAt = grouproutingschemeitemDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// grouproutingschemeitemDescPosition is the schema descriptor for position field.
+	grouproutingschemeitemDescPosition := grouproutingschemeitemFields[2].Descriptor()
+	// grouproutingschemeitem.DefaultPosition holds the default value on creation for the position field.
+	grouproutingschemeitem.DefaultPosition = grouproutingschemeitemDescPosition.Default.(int)
+	// grouproutingschemeitemDescRules is the schema descriptor for rules field.
+	grouproutingschemeitemDescRules := grouproutingschemeitemFields[3].Descriptor()
+	// grouproutingschemeitem.DefaultRules holds the default value on creation for the rules field.
+	grouproutingschemeitem.DefaultRules = grouproutingschemeitemDescRules.Default.([]domain.RoutingSchemeRule)
 	ipv6egresspoolMixin := schema.IPv6EgressPool{}.Mixin()
 	ipv6egresspoolMixinFields0 := ipv6egresspoolMixin[0].Fields()
 	_ = ipv6egresspoolMixinFields0
