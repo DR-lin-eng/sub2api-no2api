@@ -583,6 +583,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/group-routing-schemes',
+    name: 'AdminGroupRoutingSchemes',
+    component: () => import('@/features/admin-routing-schemes/presentation/pages/RoutingSchemesPage.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Group Routing Schemes',
+      titleKey: 'admin.routingSchemes.title',
+      descriptionKey: 'admin.routingSchemes.description'
+    }
+  },
+  {
     path: '/admin/channels',
     redirect: '/admin/channels/pricing',
     meta: {

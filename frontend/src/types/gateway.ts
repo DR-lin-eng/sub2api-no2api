@@ -21,6 +21,13 @@ export interface ApiKey {
   name: string
   group_id: number | null
   group_bindings: ApiKeyGroupBinding[]
+  /** Optional quick routing scheme selected for this key. */
+  routing_scheme_id?: number | null
+  /**
+   * Scheme metadata for list rendering. Backend must only return name,
+   * description and the public rate range; internal scheme groups stay hidden.
+   */
+  routing_scheme?: ApiKeyRoutingSchemeSummary | null
   status: 'active' | 'inactive' | 'quota_exhausted' | 'expired'
   ip_whitelist: string[]
   ip_blacklist: string[]
@@ -50,6 +57,15 @@ export interface ApiKey {
 
 export interface ApiKeyGroupBinding {
   group_id: number
+  max_rate_multiplier: number | null
+}
+
+/** Public scheme metadata for key list rendering; never contains scheme groups. */
+export interface ApiKeyRoutingSchemeSummary {
+  id: number
+  name: string
+  description: string
+  min_rate_multiplier: number | null
   max_rate_multiplier: number | null
 }
 

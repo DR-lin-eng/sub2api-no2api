@@ -219,6 +219,12 @@ const { t } = useI18n()
 import { getPublicSettings } from '@/features/auth/data/datasources/authQueries'
 import { userGroupsAPI } from '@/features/groups-user/data/datasources/groupsUserDatasource'
 import { keysAPI } from '@/features/keys/data/datasources/keysDatasource'
+import { listQuickSchemes } from '@/features/keys/data/datasources/routingSchemePreview'
+import {
+  forgetKeyRoutingScheme,
+  listKeyRoutingSchemes,
+  rememberKeyRoutingScheme
+} from '@/features/keys/data/datasources/keyRoutingSchemePreview'
 import { usageAPI } from '@/features/usage/data/datasources/usageDatasource'
 import AppLayout from '@/common/widgets/layout/AppLayout.vue'
 import TablePageLayout from '@/common/widgets/layout/TablePageLayout.vue'
@@ -233,7 +239,7 @@ import TablePageLayout from '@/common/widgets/layout/TablePageLayout.vue'
 import KeyEditorDialog from '@/features/keys/presentation/widgets/KeyEditorDialog.vue'
 import KeyGroupBindingsDialog from '@/features/keys/presentation/widgets/KeyGroupBindingsDialog.vue'
 import KeysTable from '@/features/keys/presentation/widgets/KeysTable.vue'
-	import type { ApiKey, ApiKeyGroupBinding, Group, PublicSettings, UpdateApiKeyRequest } from '@/types'
+	import type { ApiKey, ApiKeyGroupBinding, ApiKeyRoutingSchemeSummary, Group, PublicSettings, UpdateApiKeyRequest } from '@/types'
 import type { Column } from '@/common/types/uiTypes'
 import type {
   BatchApiKeysUsageResponse,
@@ -241,6 +247,7 @@ import type {
 } from '@/features/usage/data/datasources/usageDatasource'
 import type {
   KeyEditorDialogContext,
+  KeyQuickSchemeOption,
   KeysTableContext
 } from '@/features/keys/presentation/keysPageContext'
 import {
@@ -424,6 +431,7 @@ const USAGE_STATS_REQUEST_CONCURRENCY = 2
 
 const formData = ref({
   name: '',
+  quick_scheme_id: null as number | null,
   group_id: null as number | null,
   group_bindings: [] as ApiKeyGroupBinding[],
   status: 'active' as 'active' | 'inactive',
@@ -520,6 +528,79 @@ const groupOptions = computed(() =>
     platform: group.platform
   }))
 )
+
+const quickSchemes = computed((): KeyQuickSchemeOption[] => {
+  const availableGroupIDs = new Set(groupOptions.value.map(group => group.value))
+  const rateByGroupID = new Map(groupOptions.value.map(group => [group.value, group.userRate ?? group.rate]))
+  const stored = listQuickSchemes()
+    .map(scheme => {
+      const items = scheme.items.filter(item => availableGroupIDs.has(item.group_id))
+      const rates = items
+        .map(item => rateByGroupID.get(item.group_id))
+        .filter((rate): rate is number => rate != null)
+      return {
+        id: scheme.id,
+        name: scheme.name,
+        description: scheme.description,
+        platform: scheme.platform,
+        items,
+        minRate: rates.length ? Math.min(...rates) : undefined,
+        maxRate: rates.length ? Math.max(...rates) : undefined,
+      }
+    })
+    .filter(scheme => scheme.items.length > 0)
+  if (stored.length > 0) return stored
+
+  // UI preview fallback so the quick-select dialog always has visible data.
+  const platform = groupOptions.value[0]?.platform ?? 'deepseek'
+  const groups = groupOptions.value
+    .filter(group => group.platform === platform && group.subscriptionType !== 'subscription')
+    .slice(0, 3)
+  const buildItems = (weights: number[]) => groups.map((group, index) => ({
+    group_id: group.value,
+    weight: weights[index] ?? 1,
+  }))
+  return [
+    {
+      id: -1,
+      name: t('keys.groupBindings.quickDemo.stable'),
+      description: t('keys.groupBindings.quickDemo.stableDescription'),
+      platform,
+      items: buildItems([80, 20, 10]),
+      minRate: 1,
+      maxRate: 1.2,
+      demo: true,
+    },
+    {
+      id: -2,
+      name: t('keys.groupBindings.quickDemo.value'),
+      description: t('keys.groupBindings.quickDemo.valueDescription'),
+      platform,
+      items: buildItems([40, 40, 20]),
+      minRate: 0.8,
+      maxRate: 1.1,
+      demo: true,
+    },
+    {
+      id: -3,
+      name: t('keys.groupBindings.quickDemo.cheap'),
+      description: t('keys.groupBindings.quickDemo.cheapDescription'),
+      platform,
+      items: buildItems([20, 30, 50]),
+      minRate: 0.6,
+      maxRate: 0.9,
+      demo: true,
+    },
+  ]
+})
+
+const schemeSummaryOf = (scheme: KeyQuickSchemeOption): ApiKeyRoutingSchemeSummary => ({
+  id: scheme.id,
+  name: scheme.name,
+  description: scheme.description,
+  min_rate_multiplier: scheme.minRate ?? null,
+  max_rate_multiplier: scheme.maxRate ?? null,
+})
 
 const copyToClipboard = async (text: string, keyId: number) => {
   const success = await clipboardCopy(text, t('keys.copied'))
@@ -749,9 +830,22 @@ const loadApiKeys = async () => {
       signal
     })
     if (signal.aborted) return
-    const keyIds = response.items.map((apiKey) => apiKey.id)
+    // Preview bridge: until the backend returns routing_scheme on keys, restore
+    // scheme metadata remembered locally when the key was created or edited.
+    const previewSchemes = listKeyRoutingSchemes()
+    const items = response.items.map((item) => {
+      if (item.routing_scheme) return item
+      const preview = previewSchemes[String(item.id)]
+      if (!preview) return item
+      return {
+        ...item,
+        routing_scheme_id: item.routing_scheme_id ?? preview.id,
+        routing_scheme: preview,
+      }
+    })
+    const keyIds = items.map((apiKey) => apiKey.id)
     usageStatsLoadingKeyIds.value = new Set(keyIds)
-    apiKeys.value = response.items
+    apiKeys.value = items
     pagination.value.total = response.total
     pagination.value.pages = response.pages
 
@@ -842,6 +936,7 @@ const editKey = (key: ApiKey) => {
       : []
   formData.value = {
     name: key.name,
+    quick_scheme_id: key.routing_scheme_id ?? key.routing_scheme?.id ?? null,
     group_id: groupBindings[0]?.group_id ?? null,
     group_bindings: groupBindings,
     status: key.status === 'quota_exhausted' || key.status === 'expired' ? 'inactive' : key.status,
@@ -884,6 +979,12 @@ const bindingsForKey = (key: ApiKey): ApiKeyGroupBinding[] => key.group_bindings
     : []
 
 const manageKeyGroups = (key: ApiKey) => {
+  // Scheme-based keys are managed through the key editor, not the group dialog:
+  // the scheme and the legacy multi-group route are independent paths.
+  if (key.routing_scheme_id || key.routing_scheme) {
+    editKey(key)
+    return
+  }
   groupEditorKey.value = key
   groupEditorBindings.value = bindingsForKey(key)
   showGroupEditor.value = true
@@ -943,11 +1044,21 @@ const confirmDelete = (key: ApiKey) => {
 }
 
 const handleSubmit = async () => {
-  const groupBindings = formData.value.group_bindings.map(binding => ({ ...binding }))
+  const selectedQuickScheme = formData.value.quick_scheme_id
+    ? quickSchemes.value.find(scheme => scheme.id === formData.value.quick_scheme_id)
+    : null
+  const groupBindings = selectedQuickScheme
+    ? selectedQuickScheme.items.map(item => ({
+      group_id: item.group_id,
+      max_rate_multiplier: null,
+    }))
+    : formData.value.group_bindings.map(binding => ({ ...binding }))
   const groupID = groupBindings[0]?.group_id ?? null
 
   if (groupBindings.length === 0) {
-    appStore.showError(t('keys.groupRequired'))
+    appStore.showError(t(selectedQuickScheme
+      ? 'keys.groupBindings.quickSelectEmpty'
+      : 'keys.groupRequired'))
     return
   }
   if (groupBindings.some(binding => binding.max_rate_multiplier !== null && (
@@ -1024,10 +1135,15 @@ const handleSubmit = async () => {
         updates.status = formData.value.status
       }
       await keysAPI.update(selectedKey.value.id, updates)
+      if (selectedQuickScheme) {
+        rememberKeyRoutingScheme(selectedKey.value.id, schemeSummaryOf(selectedQuickScheme))
+      } else {
+        forgetKeyRoutingScheme(selectedKey.value.id)
+      }
       appStore.showSuccess(t('keys.keyUpdatedSuccess'))
     } else {
       const customKey = formData.value.use_custom_key ? formData.value.custom_key : undefined
-      await keysAPI.create(
+      const created = await keysAPI.create(
         formData.value.name,
         groupID,
         customKey,
@@ -1038,6 +1154,9 @@ const handleSubmit = async () => {
         rateLimitData,
         groupBindings
       )
+      if (selectedQuickScheme) {
+        rememberKeyRoutingScheme(created.id, schemeSummaryOf(selectedQuickScheme))
+      }
       appStore.showSuccess(t('keys.keyCreatedSuccess'))
       // Only advance tour if active, on submit step, and creation succeeded
       if (onboardingStore.isCurrentStep('[data-tour="key-form-submit"]')) {
@@ -1066,6 +1185,7 @@ const handleDelete = async () => {
   try {
     const keyID = selectedKey.value.id
     await stepUp.run(() => keysAPI.delete(keyID))
+    forgetKeyRoutingScheme(keyID)
     appStore.showSuccess(t('keys.keyDeletedSuccess'))
     showDeleteDialog.value = false
     loadApiKeys()
@@ -1083,6 +1203,7 @@ const closeModals = () => {
   selectedKey.value = null
   formData.value = {
     name: '',
+    quick_scheme_id: null,
     group_id: null,
     group_bindings: [],
     status: 'active',
@@ -1266,6 +1387,7 @@ const keyEditorDialogContext: KeyEditorDialogContext = {
   selectedKey,
   formData,
   groupOptions,
+  quickSchemes,
   customKeyError,
   statusOptions,
   submitting,

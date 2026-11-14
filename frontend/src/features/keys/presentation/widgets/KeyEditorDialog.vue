@@ -19,6 +19,7 @@ const {
   formData,
   groupOptions,
   handleSubmit,
+  quickSchemes,
   selectedKey,
   setExpirationDays,
   showCreateModal,
@@ -53,8 +54,11 @@ const {
           <KeyGroupBindingsEditor
             v-model="formData.group_bindings"
             :group-options="groupOptions"
+            :quick-schemes="quickSchemes"
+            :quick-scheme-id="formData.quick_scheme_id"
             :filter-by-provider="!showEditModal"
             data-tour="key-form-group"
+            @update:quick-scheme-id="formData.quick_scheme_id = $event"
           />
         </div>
 

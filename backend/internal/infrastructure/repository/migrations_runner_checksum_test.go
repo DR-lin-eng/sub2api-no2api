@@ -161,4 +161,31 @@ func TestIsMigrationChecksumCompatible(t *testing.T) {
 		)
 		require.False(t, ok)
 	})
+
+	t.Run("256旧注释版本checksum可兼容", func(t *testing.T) {
+		ok := isMigrationChecksumCompatible(
+			"256_video_balance_hold_billing_mode.sql",
+			"bf279de8665f4fbcca2cddae636c043e69cfe0bd4f49a2a68e0311935186ecb8",
+			"52469d9021706187f3b4f7c18ebd3a6297e18b2bf6ef08f532e8e2d284be096e",
+		)
+		require.True(t, ok)
+	})
+
+	t.Run("256回滚到旧注释版本后仍兼容已应用的新checksum", func(t *testing.T) {
+		ok := isMigrationChecksumCompatible(
+			"256_video_balance_hold_billing_mode.sql",
+			"52469d9021706187f3b4f7c18ebd3a6297e18b2bf6ef08f532e8e2d284be096e",
+			"bf279de8665f4fbcca2cddae636c043e69cfe0bd4f49a2a68e0311935186ecb8",
+		)
+		require.True(t, ok)
+	})
+
+	t.Run("256未知checksum不兼容", func(t *testing.T) {
+		ok := isMigrationChecksumCompatible(
+			"256_video_balance_hold_billing_mode.sql",
+			"bf279de8665f4fbcca2cddae636c043e69cfe0bd4f49a2a68e0311935186ecb8",
+			"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+		)
+		require.False(t, ok)
+	})
 }

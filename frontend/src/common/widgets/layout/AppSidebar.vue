@@ -467,6 +467,21 @@ const FolderIcon = {
     )
 }
 
+const RoutingSchemeIcon = {
+  render: () =>
+    h(
+      'svg',
+      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.5' },
+      [
+        h('path', {
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+          d: 'M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5'
+        })
+      ]
+    )
+}
+
 const ChannelIcon = {
   render: () =>
     h(
@@ -880,6 +895,7 @@ const adminNavItems = computed((): NavItem[] => {
     { path: '/admin/multi-instance', label: t('nav.multiInstance'), icon: ServerIcon, permission: 'settings.manage' },
     { path: '/admin/users', label: t('nav.users'), icon: UsersIcon, hideInSimpleMode: true, permission: 'users.manage' },
     { path: '/admin/groups', label: t('nav.groups'), icon: FolderIcon, hideInSimpleMode: true, permission: 'groups.manage' },
+    { path: '/admin/group-routing-schemes', label: t('nav.groupRoutingSchemes'), icon: RoutingSchemeIcon, hideInSimpleMode: true, permission: 'groups.manage' },
     {
       path: '/admin/channels',
       label: t('nav.channelManagement'),
