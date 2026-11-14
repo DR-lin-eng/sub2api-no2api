@@ -93,25 +93,11 @@ const selectedQuickScheme = computed(() =>
 
 const quickSchemeOptions = computed((): KeyQuickSchemeOption[] => {
   const platform = primaryOption.value?.platform
-  return props.quickSchemes
-    .filter((scheme) => {
-      if (platform) return scheme.platform === platform
-      if (props.filterByProvider) return getKeyGroupProvider(scheme.platform) === createProvider.value
-      return true
-    })
-    .map(scheme => ({
-      ...scheme,
-      items: scheme.items
-        .filter((item) => {
-          const option = optionByID.value.get(item.group_id)
-          if (!option) return false
-          if (option.subscriptionType === 'subscription') return false
-          if (platform && option.platform !== platform) return false
-          return true
-        })
-        .sort((a, b) => b.weight - a.weight || a.group_id - b.group_id),
-    }))
-    .filter(scheme => scheme.items.length > 0 || scheme.demo)
+  return props.quickSchemes.filter((scheme) => {
+    if (platform) return scheme.platform === platform
+    if (props.filterByProvider) return getKeyGroupProvider(scheme.platform) === createProvider.value
+    return true
+  })
 })
 
 const toggleQuickSelect = () => {
@@ -123,7 +109,6 @@ const toggleQuickSelect = () => {
 }
 
 const applyQuickScheme = (scheme: KeyQuickSchemeOption) => {
-  if (scheme.items.length === 0) return
   bindings.value = []
   emit('update:quickSchemeId', scheme.id)
   showQuickSelect.value = false
@@ -137,18 +122,13 @@ const clearQuickScheme = () => {
 const formatRate = (value: number) => Number.isInteger(value) ? value.toString() : value.toFixed(2)
 
 const schemeRateRange = (scheme: KeyQuickSchemeOption): string => {
-  let min = scheme.minRate
-  let max = scheme.maxRate
-  if (min === undefined || max === undefined) {
-    const rates = scheme.items
-      .map(item => optionByID.value.get(item.group_id))
-      .filter((option): option is GroupOption => !!option)
-      .map(option => option.userRate ?? option.rate)
-    if (rates.length === 0) return '—'
-    min = Math.min(...rates)
-    max = Math.max(...rates)
-  }
-  return min === max ? `${formatRate(min)}x` : `${formatRate(min)}x – ${formatRate(max)}x`
+  const min = scheme.minRate
+  const max = scheme.maxRate
+  if (min == null && max == null) return '—'
+  const low = min ?? max
+  const high = max ?? min
+  if (low == null || high == null) return '—'
+  return low === high ? `${formatRate(low)}x` : `${formatRate(low)}x – ${formatRate(high)}x`
 }
 
 watch([() => props.filterByProvider, providerOptions], ([enabled, providers]) => {
@@ -460,6 +440,14 @@ const togglePicker = () => {
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-1.5">
+            <span
+              v-if="selectedQuickScheme.platform"
+              class="flex h-5 w-5 shrink-0 items-center justify-center rounded"
+              :class="platformBadgeLightClass(selectedQuickScheme.platform)"
+              aria-hidden="true"
+            >
+              <PlatformIcon :platform="selectedQuickScheme.platform" size="sm" />
+            </span>
             <span class="text-sm font-medium text-gray-900 dark:text-white">
               {{ selectedQuickScheme.name }}
             </span>
@@ -496,14 +484,23 @@ const togglePicker = () => {
             v-for="scheme in quickSchemeOptions"
             :key="scheme.id"
             type="button"
-            class="w-full rounded-xl border border-gray-200 bg-white p-4 text-left transition-colors hover:border-primary-300 hover:bg-primary-50/50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-dark-600 dark:bg-dark-900 dark:hover:border-primary-700 dark:hover:bg-primary-500/10"
-            :disabled="scheme.items.length === 0"
+            class="w-full rounded-xl border border-gray-200 bg-white p-4 text-left transition-colors hover:border-primary-300 hover:bg-primary-50/50 dark:border-dark-600 dark:bg-dark-900 dark:hover:border-primary-700 dark:hover:bg-primary-500/10"
             :data-test="`key-group-quick-scheme-${scheme.id}`"
             @click="applyQuickScheme(scheme)"
           >
             <div class="flex items-center justify-between gap-3">
-              <span class="text-base font-semibold text-gray-900 dark:text-white">
-                {{ scheme.name }}
+              <span class="flex min-w-0 items-center gap-2">
+                <span
+                  v-if="scheme.platform"
+                  class="flex h-5 w-5 shrink-0 items-center justify-center rounded"
+                  :class="platformBadgeLightClass(scheme.platform)"
+                  aria-hidden="true"
+                >
+                  <PlatformIcon :platform="scheme.platform" size="sm" />
+                </span>
+                <span class="min-w-0 truncate text-base font-semibold text-gray-900 dark:text-white">
+                  {{ scheme.name }}
+                </span>
               </span>
               <span class="flex-shrink-0 rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-500/10 dark:text-primary-300">
                 {{ schemeRateRange(scheme) }}

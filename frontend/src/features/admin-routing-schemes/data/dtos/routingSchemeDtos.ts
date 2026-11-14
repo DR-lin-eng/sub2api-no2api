@@ -54,6 +54,18 @@ export interface RoutingSchemeItem {
   group_id: number
   weight: number
   rules: RoutingSchemeRule[]
+  /** Read-only projections returned by the admin API. */
+  group_name?: string
+  platform?: GroupPlatform
+  rate_multiplier?: number
+  position?: number
+  /** Backend-computed composite score and rolling metrics. */
+  score?: number
+  p95_ttft_ms?: number
+  failure_rate?: number
+  failure_count?: number
+  sample_count?: number
+  cold_start?: boolean
 }
 
 export interface RoutingScheme {

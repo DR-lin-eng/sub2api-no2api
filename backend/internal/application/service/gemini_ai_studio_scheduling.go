@@ -16,7 +16,9 @@ func (s *GeminiMessagesCompatService) SelectAccountForAIStudioEndpoints(ctx cont
 // SelectAccountForAIStudioEndpointsWithExclusions keeps metadata retries away
 // from accounts whose scheduling state changed after a queued slot was granted.
 func (s *GeminiMessagesCompatService) SelectAccountForAIStudioEndpointsWithExclusions(ctx context.Context, groupID *int64, excludedAccountIDs map[int64]struct{}) (*Account, error) {
-	candidates, routed := apiKeyGroupRoutingCandidates(ctx, groupID)
+	// Metadata endpoints have no conversation hash; the request-level seed
+	// still spreads attempts across groups.
+	candidates, routed := apiKeyGroupRoutingCandidates(ctx, groupID, "")
 	if !routed {
 		return s.selectAccountForAIStudioEndpointsWithExclusionsInGroup(ctx, groupID, excludedAccountIDs)
 	}

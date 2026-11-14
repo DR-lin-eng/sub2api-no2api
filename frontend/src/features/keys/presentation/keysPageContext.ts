@@ -29,11 +29,6 @@ export interface KeySelectOption {
   [key: string]: unknown
 }
 
-export interface KeyQuickSchemeItem {
-  group_id: number
-  weight: number
-}
-
 /**
  * Backend contract for quick select: return only scheme metadata
  * (name, description, min/max rate). Internal groups are scheduling-only and
@@ -44,10 +39,8 @@ export interface KeyQuickSchemeOption {
   name: string
   description: string
   platform: GroupPlatform
-  items: KeyQuickSchemeItem[]
   minRate?: number
   maxRate?: number
-  demo?: boolean
 }
 
 export interface KeyFormState {

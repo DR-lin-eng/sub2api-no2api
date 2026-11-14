@@ -33,6 +33,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/custommodelrequesttemplate"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/grouproutingscheme"
+	"github.com/Wei-Shaw/sub2api/ent/grouproutingschemeitem"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
 	"github.com/Wei-Shaw/sub2api/ent/ipv6egresspool"
@@ -791,6 +793,60 @@ func (f TraverseGroup) Traverse(ctx context.Context, q ent.Query) error {
 	return fmt.Errorf("unexpected query type %T. expect *ent.GroupQuery", q)
 }
 
+// The GroupRoutingSchemeFunc type is an adapter to allow the use of ordinary function as a Querier.
+type GroupRoutingSchemeFunc func(context.Context, *ent.GroupRoutingSchemeQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f GroupRoutingSchemeFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.GroupRoutingSchemeQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.GroupRoutingSchemeQuery", q)
+}
+
+// The TraverseGroupRoutingScheme type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseGroupRoutingScheme func(context.Context, *ent.GroupRoutingSchemeQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseGroupRoutingScheme) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseGroupRoutingScheme) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.GroupRoutingSchemeQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.GroupRoutingSchemeQuery", q)
+}
+
+// The GroupRoutingSchemeItemFunc type is an adapter to allow the use of ordinary function as a Querier.
+type GroupRoutingSchemeItemFunc func(context.Context, *ent.GroupRoutingSchemeItemQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f GroupRoutingSchemeItemFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.GroupRoutingSchemeItemQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.GroupRoutingSchemeItemQuery", q)
+}
+
+// The TraverseGroupRoutingSchemeItem type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseGroupRoutingSchemeItem func(context.Context, *ent.GroupRoutingSchemeItemQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseGroupRoutingSchemeItem) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseGroupRoutingSchemeItem) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.GroupRoutingSchemeItemQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.GroupRoutingSchemeItemQuery", q)
+}
+
 // The IPv6EgressPoolFunc type is an adapter to allow the use of ordinary function as a Querier.
 type IPv6EgressPoolFunc func(context.Context, *ent.IPv6EgressPoolQuery) (ent.Value, error)
 
@@ -1492,6 +1548,10 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.ErrorPassthroughRuleQuery, predicate.ErrorPassthroughRule, errorpassthroughrule.OrderOption]{typ: ent.TypeErrorPassthroughRule, tq: q}, nil
 	case *ent.GroupQuery:
 		return &query[*ent.GroupQuery, predicate.Group, group.OrderOption]{typ: ent.TypeGroup, tq: q}, nil
+	case *ent.GroupRoutingSchemeQuery:
+		return &query[*ent.GroupRoutingSchemeQuery, predicate.GroupRoutingScheme, grouproutingscheme.OrderOption]{typ: ent.TypeGroupRoutingScheme, tq: q}, nil
+	case *ent.GroupRoutingSchemeItemQuery:
+		return &query[*ent.GroupRoutingSchemeItemQuery, predicate.GroupRoutingSchemeItem, grouproutingschemeitem.OrderOption]{typ: ent.TypeGroupRoutingSchemeItem, tq: q}, nil
 	case *ent.IPv6EgressPoolQuery:
 		return &query[*ent.IPv6EgressPoolQuery, predicate.IPv6EgressPool, ipv6egresspool.OrderOption]{typ: ent.TypeIPv6EgressPool, tq: q}, nil
 	case *ent.IdempotencyRecordQuery:

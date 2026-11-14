@@ -64,6 +64,10 @@ type Tx struct {
 	ErrorPassthroughRule *ErrorPassthroughRuleClient
 	// Group is the client for interacting with the Group builders.
 	Group *GroupClient
+	// GroupRoutingScheme is the client for interacting with the GroupRoutingScheme builders.
+	GroupRoutingScheme *GroupRoutingSchemeClient
+	// GroupRoutingSchemeItem is the client for interacting with the GroupRoutingSchemeItem builders.
+	GroupRoutingSchemeItem *GroupRoutingSchemeItemClient
 	// IPv6EgressPool is the client for interacting with the IPv6EgressPool builders.
 	IPv6EgressPool *IPv6EgressPoolClient
 	// IdempotencyRecord is the client for interacting with the IdempotencyRecord builders.
@@ -268,6 +272,8 @@ func (tx *Tx) init() {
 	tx.CustomModelRequestTemplate = NewCustomModelRequestTemplateClient(tx.config)
 	tx.ErrorPassthroughRule = NewErrorPassthroughRuleClient(tx.config)
 	tx.Group = NewGroupClient(tx.config)
+	tx.GroupRoutingScheme = NewGroupRoutingSchemeClient(tx.config)
+	tx.GroupRoutingSchemeItem = NewGroupRoutingSchemeItemClient(tx.config)
 	tx.IPv6EgressPool = NewIPv6EgressPoolClient(tx.config)
 	tx.IdempotencyRecord = NewIdempotencyRecordClient(tx.config)
 	tx.IdentityAdoptionDecision = NewIdentityAdoptionDecisionClient(tx.config)

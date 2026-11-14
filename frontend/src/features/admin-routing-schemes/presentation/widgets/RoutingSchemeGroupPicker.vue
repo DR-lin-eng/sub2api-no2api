@@ -11,7 +11,6 @@ import type {
   RoutingSchemeSortMode,
 } from '../../data/dtos/routingSchemeDtos'
 import {
-  previewGroupScore,
   scoreBarClass,
   scorePercent,
   scoreToneClass,
@@ -60,16 +59,43 @@ const selectedItems = computed(() => props.modelValue
   })
   .filter((item): item is RoutingSchemeItem & { group: RoutingSchemeGroupOption } => item !== null))
 
-const scoreOf = (groupID: number) =>
-  previewGroupScore(groupID, groupMap.value.get(groupID)?.name ?? '')
+const scoreOf = (groupID: number) => {
+  const item = props.modelValue.find(entry => entry.group_id === groupID)
+  const rawScore = item?.score
+  const known = rawScore != null
+  const sampleCount = item?.sample_count ?? 0
+  // Without samples the backend has no success/failure signal; never render a
+  // synthetic 100% / 0% / 0s.
+  const metricsKnown = known && sampleCount > 0
+  const p95 = item?.p95_ttft_ms ?? 0
+  const failureRate = metricsKnown ? (item?.failure_rate ?? 0) : 0
+  return {
+    overall: rawScore == null ? 0 : Math.round(rawScore),
+    known,
+    ttft_seconds: metricsKnown && p95 > 0 ? Math.round(p95 / 100) / 10 : null,
+    success_rate: metricsKnown ? Math.round((1 - failureRate) * 1000) / 10 : null,
+    error_rate: metricsKnown ? Math.round(failureRate * 1000) / 10 : null,
+    error_count: item?.failure_count ?? 0,
+    sample_count: sampleCount,
+    window_seconds: 900,
+    cold_start: item?.cold_start ?? false,
+  }
+}
 
 const scoredItems = computed(() => {
-  const values = props.modelValue.map(item => scoreOf(item.group_id).overall)
-  return selectedItems.value.map(item => ({
-    ...item,
-    score: scoreOf(item.group_id),
-    percent: scorePercent(scoreOf(item.group_id).overall, values),
-  }))
+  // Only known scores participate in the normalized share.
+  const knownValues = props.modelValue
+    .map(item => scoreOf(item.group_id))
+    .filter(score => score.known)
+    .map(score => score.overall)
+  return selectedItems.value.map((item) => {
+    const score = scoreOf(item.group_id)
+    return {
+      ...item,
+      score,
+      percent: score.known ? scorePercent(score.overall, knownValues) : 0,
+    }
+  })
 })
 
 const sortModeOptions = computed(() => [
@@ -86,7 +112,12 @@ const sortedItems = computed(() => {
   const list = [...scoredItems.value]
   list.sort((a, b) => {
     if (props.sortMode === 'ttft') {
-      return a.score.ttft_seconds - b.score.ttft_seconds || b.score.overall - a.score.overall
+      const aTTFT = a.score.ttft_seconds
+      const bTTFT = b.score.ttft_seconds
+      if (aTTFT == null && bTTFT == null) return b.score.overall - a.score.overall
+      if (aTTFT == null) return 1
+      if (bTTFT == null) return -1
+      return aTTFT - bTTFT || b.score.overall - a.score.overall
     }
     if (props.sortMode === 'error_count') {
       return a.score.error_count - b.score.error_count || b.score.overall - a.score.overall
@@ -309,33 +340,36 @@ const updateRules = (groupID: number, rules: RoutingSchemeRule[]) => {
               <span class="whitespace-nowrap text-[11px] text-gray-500 dark:text-gray-400">
                 {{ t('admin.routingSchemes.picker.overallScore') }}
               </span>
-              <span class="w-8 text-base font-semibold tabular-nums" :class="scoreToneClass(item.score.overall)">
-                {{ item.score.overall }}
+              <span class="w-8 text-base font-semibold tabular-nums" :class="item.score.known ? scoreToneClass(item.score.overall) : 'text-gray-400 dark:text-gray-500'">
+                {{ item.score.known ? item.score.overall : '—' }}
               </span>
               <div class="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-gray-200 dark:bg-dark-700">
                 <div
                   class="h-full rounded-full transition-all"
-                  :class="scoreBarClass(item.score.overall)"
-                  :style="{ width: `${item.score.overall}%` }"
+                  :class="item.score.known ? scoreBarClass(item.score.overall) : 'bg-gray-300 dark:bg-dark-600'"
+                  :style="{ width: `${item.score.known ? item.score.overall : 0}%` }"
                 />
               </div>
               <span class="rounded-full bg-primary-50 px-2 py-0.5 text-xs font-semibold text-primary-700 dark:bg-primary-500/15 dark:text-primary-300">
-                {{ item.percent }}%
+                {{ item.score.known ? `${item.percent}%` : '—' }}
               </span>
             </div>
 
             <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
               <span class="inline-flex items-center rounded-md bg-white px-1.5 py-0.5 text-[10px] text-gray-500 shadow-sm dark:bg-dark-700 dark:text-gray-300">
                 {{ t('admin.routingSchemes.picker.ttft') }}
-                <span class="ml-1 font-semibold text-gray-700 dark:text-gray-200">{{ item.score.ttft_seconds }}s</span>
+                <span class="ml-1 font-semibold text-gray-700 dark:text-gray-200">{{ item.score.ttft_seconds == null ? '—' : `${item.score.ttft_seconds}s` }}</span>
               </span>
               <span class="inline-flex items-center rounded-md bg-white px-1.5 py-0.5 text-[10px] text-gray-500 shadow-sm dark:bg-dark-700 dark:text-gray-300">
                 {{ t('admin.routingSchemes.picker.successRate') }}
-                <span class="ml-1 font-semibold text-gray-700 dark:text-gray-200">{{ item.score.success_rate }}%</span>
+                <span class="ml-1 font-semibold text-gray-700 dark:text-gray-200">{{ item.score.success_rate == null ? '—' : `${item.score.success_rate}%` }}</span>
               </span>
               <span class="inline-flex items-center rounded-md bg-white px-1.5 py-0.5 text-[10px] text-gray-500 shadow-sm dark:bg-dark-700 dark:text-gray-300">
                 {{ t('admin.routingSchemes.picker.failureRate') }}
-                <span class="ml-1 font-semibold text-gray-700 dark:text-gray-200">{{ item.score.error_rate }}%</span>
+                <span class="ml-1 font-semibold text-gray-700 dark:text-gray-200">{{ item.score.error_rate == null ? '—' : `${item.score.error_rate}%` }}</span>
+              </span>
+              <span class="inline-flex items-center rounded-md bg-white px-1.5 py-0.5 text-[10px] text-gray-500 shadow-sm dark:bg-dark-700 dark:text-gray-300">
+                {{ t('admin.routingSchemes.picker.sampleCount', { count: item.score.sample_count }) }}
               </span>
               <button
                 type="button"

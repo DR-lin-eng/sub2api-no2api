@@ -39,6 +39,9 @@ func RegisterAdminRoutes(
 		// 分组管理
 		registerGroupRoutes(admin, h)
 
+		// 分组调度方案
+		registerRoutingSchemeRoutes(admin, h)
+
 		// 账号管理
 		registerAccountRoutes(admin, h, stepUpAuth)
 
@@ -482,6 +485,19 @@ func registerGroupRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		groups.PUT("/:id/rpm-overrides", h.Admin.Group.BatchSetGroupRPMOverrides)
 		groups.DELETE("/:id/rpm-overrides", h.Admin.Group.ClearGroupRPMOverrides)
 		groups.GET("/:id/api-keys", h.Admin.Group.GetGroupAPIKeys)
+	}
+}
+
+func registerRoutingSchemeRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	schemes := admin.Group("/routing-schemes")
+	{
+		schemes.GET("", h.Admin.RoutingScheme.List)
+		schemes.GET("/group-scores", h.Admin.RoutingScheme.GetGroupScores)
+		schemes.GET("/:id/analytics", h.Admin.RoutingScheme.GetAnalytics)
+		schemes.GET("/:id", h.Admin.RoutingScheme.GetByID)
+		schemes.POST("", h.Admin.RoutingScheme.Create)
+		schemes.PUT("/:id", h.Admin.RoutingScheme.Update)
+		schemes.DELETE("/:id", h.Admin.RoutingScheme.Delete)
 	}
 }
 

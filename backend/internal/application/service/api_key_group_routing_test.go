@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"testing"
 
@@ -230,7 +231,7 @@ func TestAPIKeyGroupRoutingSkipsProtectedGroupAndTracksSelectedBillingGroup(t *t
 
 	require.Equal(t, int64(2), *apiKey.GroupID)
 	require.Same(t, second, tokenRequestBillingGroupFromContext(ctx))
-	candidates, routed := apiKeyGroupRoutingCandidates(ctx, apiKey.GroupID)
+	candidates, routed := apiKeyGroupRoutingCandidates(ctx, apiKey.GroupID, "")
 	require.True(t, routed)
 	require.Equal(t, []int64{2}, bindingGroupIDs(candidates))
 }
@@ -353,6 +354,80 @@ func bindingGroupIDs(bindings []APIKeyGroupBinding) []int64 {
 		out = append(out, bindings[i].GroupID)
 	}
 	return out
+}
+
+func weightedRoutingAPIKey(id int64, first, second *Group, firstWeight, secondWeight int) *APIKey {
+	groupID := first.ID
+	schemeID := int64(7)
+	return &APIKey{
+		ID:              id,
+		GroupID:         &groupID,
+		Group:           first,
+		RoutingSchemeID: &schemeID,
+		GroupBindings: []APIKeyGroupBinding{
+			{
+				APIKeyGroupBinding:      domain.APIKeyGroupBinding{GroupID: first.ID},
+				Group:                   first,
+				EffectiveRateMultiplier: first.RateMultiplier,
+				Weight:                  firstWeight,
+			},
+			{
+				APIKeyGroupBinding:      domain.APIKeyGroupBinding{GroupID: second.ID},
+				Group:                   second,
+				EffectiveRateMultiplier: second.RateMultiplier,
+				Weight:                  secondWeight,
+			},
+		},
+	}
+}
+
+func TestOrderRoutingBindingsIsStablePerSession(t *testing.T) {
+	first := activeRoutingGroup(31)
+	second := activeRoutingGroup(32)
+	apiKey := weightedRoutingAPIKey(77, first, second, 70, 30)
+
+	baseline := bindingGroupIDs(orderRoutingBindings(apiKey, "session-a"))
+	for i := 0; i < 10; i++ {
+		require.Equal(t, baseline, bindingGroupIDs(orderRoutingBindings(apiKey, "session-a")))
+	}
+}
+
+func TestOrderRoutingBindingsDistributesByWeight(t *testing.T) {
+	first := activeRoutingGroup(41)
+	second := activeRoutingGroup(42)
+	apiKey := weightedRoutingAPIKey(88, first, second, 90, 10)
+
+	firstWins := 0
+	const sessions = 400
+	for i := 0; i < sessions; i++ {
+		ordered := orderRoutingBindings(apiKey, fmt.Sprintf("session-%d", i))
+		if ordered[0].GroupID == first.ID {
+			firstWins++
+		}
+	}
+	require.Greater(t, firstWins, sessions*3/4)
+}
+
+func TestOrderRoutingBindingsKeepsLegacyPriorityOrder(t *testing.T) {
+	first := activeRoutingGroup(51)
+	second := activeRoutingGroup(52)
+	apiKey := routingAPIKey(first, second, nil)
+
+	require.Equal(t, []int64{first.ID, second.ID}, bindingGroupIDs(orderRoutingBindings(apiKey, "session-a")))
+}
+
+func TestAPIKeyGroupRoutingCandidatesUseSessionOrder(t *testing.T) {
+	first := activeRoutingGroup(61)
+	second := activeRoutingGroup(62)
+	apiKey := weightedRoutingAPIKey(99, first, second, 1, 1)
+
+	sessionHash := "sticky-session"
+	expected := bindingGroupIDs(orderRoutingBindings(apiKey, sessionHash))
+
+	ctx := WithAPIKeyGroupRouting(context.Background(), apiKey)
+	candidates, routed := apiKeyGroupRoutingCandidates(ctx, apiKey.GroupID, sessionHash)
+	require.True(t, routed)
+	require.Equal(t, expected, bindingGroupIDs(candidates))
 }
 
 func makeAPIKeyGroupBindingInputs(count int) []APIKeyGroupBindingInput {

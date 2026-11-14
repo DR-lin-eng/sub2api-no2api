@@ -17,10 +17,11 @@ export const ROUTING_RULE_TRIGGER_KINDS: RoutingRuleTriggerKind[] = [
   'error_rate',
 ]
 
+// weight_zero duplicates the cooldown behavior in the backend, so it is not
+// offered as a separate choice.
 export const ROUTING_RULE_ACTION_KINDS: RoutingRuleActionKind[] = [
   'failover',
   'cooldown',
-  'weight_zero',
 ]
 
 export const ROUTING_RULE_ERROR_CLASSES: RoutingRuleErrorClass[] = [

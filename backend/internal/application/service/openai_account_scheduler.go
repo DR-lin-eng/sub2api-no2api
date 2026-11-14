@@ -2672,7 +2672,7 @@ func (s *OpenAIGatewayService) selectAccountWithScheduler(
 	useUpstreamTokenCost bool,
 ) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
 	ctx = s.WithImageScheduling(ctx, requestedModel)
-	candidates, routed := apiKeyGroupRoutingCandidates(ctx, groupID)
+	candidates, routed := apiKeyGroupRoutingCandidates(ctx, groupID, sessionHash)
 	if !routed {
 		return s.selectAccountWithSchedulerInGroup(ctx, groupID, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, requiredCapability, requiredImageCapability, requireCompact, platform, previousResponseCanMove, useUpstreamTokenCost)
 	}

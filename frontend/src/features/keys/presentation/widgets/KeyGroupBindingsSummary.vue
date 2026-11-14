@@ -3,6 +3,8 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import GroupBadge from '@/common/widgets/data/GroupBadge.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
+import PlatformIcon from '@/common/widgets/icons/PlatformIcon.vue'
+import { platformBadgeLightClass } from '@/core/utils/platformColors'
 import type { ApiKey, ApiKeyGroupBinding } from '@/types'
 import type { GroupOption } from '../keysPageContext'
 
@@ -116,6 +118,14 @@ const routeTitle = computed(() => {
       <div class="flex min-w-0 items-center gap-2">
         <span class="shrink-0 rounded-md bg-primary-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
           {{ t('keys.groupBindings.routingSchemeTag') }}
+        </span>
+        <span
+          v-if="routingScheme.platform"
+          class="flex h-5 w-5 shrink-0 items-center justify-center rounded"
+          :class="platformBadgeLightClass(routingScheme.platform)"
+          aria-hidden="true"
+        >
+          <PlatformIcon :platform="routingScheme.platform" size="sm" />
         </span>
         <span class="min-w-0 truncate text-sm font-medium text-gray-800 dark:text-gray-200">
           {{ routingScheme.name }}

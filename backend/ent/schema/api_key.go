@@ -48,6 +48,10 @@ func (APIKey) Fields() []ent.Field {
 			Optional().
 			Default([]domain.APIKeyGroupBinding{}).
 			Comment("Ordered API key group candidates; group_id mirrors the first item for compatibility"),
+		field.Int64("routing_scheme_id").
+			Optional().
+			Nillable().
+			Comment("Optional group routing scheme; independent from group_bindings"),
 		field.String("status").
 			MaxLen(20).
 			Default(domain.StatusActive),
@@ -146,6 +150,7 @@ func (APIKey) Indexes() []ent.Index {
 		// key 字段已在 Fields() 中声明 Unique()，无需重复索引
 		index.Fields("user_id"),
 		index.Fields("group_id"),
+		index.Fields("routing_scheme_id"),
 		index.Fields("status"),
 		index.Fields("deleted_at"),
 		index.Fields("last_used_at"),

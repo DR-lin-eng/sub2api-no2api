@@ -35,6 +35,22 @@ func (s *APIKeyService) InvalidateAuthCacheByGroupID(ctx context.Context, groupI
 	s.deleteAuthCacheByKeys(ctx, keys)
 }
 
+// InvalidateAuthCacheByRoutingScheme 清除使用该方案的 API Key 认证缓存。
+func (s *APIKeyService) InvalidateAuthCacheByRoutingScheme(ctx context.Context, schemeID int64) {
+	if schemeID <= 0 {
+		return
+	}
+	lister, ok := s.apiKeyRepo.(apiKeyRoutingSchemeKeyLister)
+	if !ok {
+		return
+	}
+	keys, err := lister.ListKeysByRoutingSchemeID(ctx, schemeID)
+	if err != nil {
+		return
+	}
+	s.deleteAuthCacheByKeys(ctx, keys)
+}
+
 func (s *APIKeyService) deleteAuthCacheByKeys(ctx context.Context, keys []string) {
 	if len(keys) == 0 {
 		return

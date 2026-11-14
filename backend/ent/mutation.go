@@ -37,6 +37,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/custommodelrequesttemplate"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/grouproutingscheme"
+	"github.com/Wei-Shaw/sub2api/ent/grouproutingschemeitem"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
 	"github.com/Wei-Shaw/sub2api/ent/ipv6egresspool"
@@ -99,6 +101,8 @@ const (
 	TypeCustomModelRequestTemplate    = "CustomModelRequestTemplate"
 	TypeErrorPassthroughRule          = "ErrorPassthroughRule"
 	TypeGroup                         = "Group"
+	TypeGroupRoutingScheme            = "GroupRoutingScheme"
+	TypeGroupRoutingSchemeItem        = "GroupRoutingSchemeItem"
 	TypeIPv6EgressPool                = "IPv6EgressPool"
 	TypeIdempotencyRecord             = "IdempotencyRecord"
 	TypeIdentityAdoptionDecision      = "IdentityAdoptionDecision"
@@ -138,6 +142,8 @@ type APIKeyMutation struct {
 	name                 *string
 	group_bindings       *[]domain.APIKeyGroupBinding
 	appendgroup_bindings []domain.APIKeyGroupBinding
+	routing_scheme_id    *int64
+	addrouting_scheme_id *int64
 	status               *string
 	last_used_at         *time.Time
 	ip_whitelist         *[]string
@@ -618,6 +624,76 @@ func (m *APIKeyMutation) ResetGroupBindings() {
 	m.group_bindings = nil
 	m.appendgroup_bindings = nil
 	delete(m.clearedFields, apikey.FieldGroupBindings)
+}
+
+// SetRoutingSchemeID sets the "routing_scheme_id" field.
+func (m *APIKeyMutation) SetRoutingSchemeID(i int64) {
+	m.routing_scheme_id = &i
+	m.addrouting_scheme_id = nil
+}
+
+// RoutingSchemeID returns the value of the "routing_scheme_id" field in the mutation.
+func (m *APIKeyMutation) RoutingSchemeID() (r int64, exists bool) {
+	v := m.routing_scheme_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRoutingSchemeID returns the old "routing_scheme_id" field's value of the APIKey entity.
+// If the APIKey object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyMutation) OldRoutingSchemeID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRoutingSchemeID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRoutingSchemeID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRoutingSchemeID: %w", err)
+	}
+	return oldValue.RoutingSchemeID, nil
+}
+
+// AddRoutingSchemeID adds i to the "routing_scheme_id" field.
+func (m *APIKeyMutation) AddRoutingSchemeID(i int64) {
+	if m.addrouting_scheme_id != nil {
+		*m.addrouting_scheme_id += i
+	} else {
+		m.addrouting_scheme_id = &i
+	}
+}
+
+// AddedRoutingSchemeID returns the value that was added to the "routing_scheme_id" field in this mutation.
+func (m *APIKeyMutation) AddedRoutingSchemeID() (r int64, exists bool) {
+	v := m.addrouting_scheme_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearRoutingSchemeID clears the value of the "routing_scheme_id" field.
+func (m *APIKeyMutation) ClearRoutingSchemeID() {
+	m.routing_scheme_id = nil
+	m.addrouting_scheme_id = nil
+	m.clearedFields[apikey.FieldRoutingSchemeID] = struct{}{}
+}
+
+// RoutingSchemeIDCleared returns if the "routing_scheme_id" field was cleared in this mutation.
+func (m *APIKeyMutation) RoutingSchemeIDCleared() bool {
+	_, ok := m.clearedFields[apikey.FieldRoutingSchemeID]
+	return ok
+}
+
+// ResetRoutingSchemeID resets all changes to the "routing_scheme_id" field.
+func (m *APIKeyMutation) ResetRoutingSchemeID() {
+	m.routing_scheme_id = nil
+	m.addrouting_scheme_id = nil
+	delete(m.clearedFields, apikey.FieldRoutingSchemeID)
 }
 
 // SetStatus sets the "status" field.
@@ -1677,7 +1753,7 @@ func (m *APIKeyMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *APIKeyMutation) Fields() []string {
-	fields := make([]string, 0, 25)
+	fields := make([]string, 0, 26)
 	if m.created_at != nil {
 		fields = append(fields, apikey.FieldCreatedAt)
 	}
@@ -1701,6 +1777,9 @@ func (m *APIKeyMutation) Fields() []string {
 	}
 	if m.group_bindings != nil {
 		fields = append(fields, apikey.FieldGroupBindings)
+	}
+	if m.routing_scheme_id != nil {
+		fields = append(fields, apikey.FieldRoutingSchemeID)
 	}
 	if m.status != nil {
 		fields = append(fields, apikey.FieldStatus)
@@ -1777,6 +1856,8 @@ func (m *APIKeyMutation) Field(name string) (ent.Value, bool) {
 		return m.GroupID()
 	case apikey.FieldGroupBindings:
 		return m.GroupBindings()
+	case apikey.FieldRoutingSchemeID:
+		return m.RoutingSchemeID()
 	case apikey.FieldStatus:
 		return m.Status()
 	case apikey.FieldLastUsedAt:
@@ -1836,6 +1917,8 @@ func (m *APIKeyMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldGroupID(ctx)
 	case apikey.FieldGroupBindings:
 		return m.OldGroupBindings(ctx)
+	case apikey.FieldRoutingSchemeID:
+		return m.OldRoutingSchemeID(ctx)
 	case apikey.FieldStatus:
 		return m.OldStatus(ctx)
 	case apikey.FieldLastUsedAt:
@@ -1934,6 +2017,13 @@ func (m *APIKeyMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetGroupBindings(v)
+		return nil
+	case apikey.FieldRoutingSchemeID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRoutingSchemeID(v)
 		return nil
 	case apikey.FieldStatus:
 		v, ok := value.(string)
@@ -2062,6 +2152,9 @@ func (m *APIKeyMutation) SetField(name string, value ent.Value) error {
 // this mutation.
 func (m *APIKeyMutation) AddedFields() []string {
 	var fields []string
+	if m.addrouting_scheme_id != nil {
+		fields = append(fields, apikey.FieldRoutingSchemeID)
+	}
 	if m.addquota != nil {
 		fields = append(fields, apikey.FieldQuota)
 	}
@@ -2097,6 +2190,8 @@ func (m *APIKeyMutation) AddedFields() []string {
 // was not set, or was not defined in the schema.
 func (m *APIKeyMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
+	case apikey.FieldRoutingSchemeID:
+		return m.AddedRoutingSchemeID()
 	case apikey.FieldQuota:
 		return m.AddedQuota()
 	case apikey.FieldQuotaUsed:
@@ -2124,6 +2219,13 @@ func (m *APIKeyMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *APIKeyMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case apikey.FieldRoutingSchemeID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRoutingSchemeID(v)
+		return nil
 	case apikey.FieldQuota:
 		v, ok := value.(float64)
 		if !ok {
@@ -2204,6 +2306,9 @@ func (m *APIKeyMutation) ClearedFields() []string {
 	if m.FieldCleared(apikey.FieldGroupBindings) {
 		fields = append(fields, apikey.FieldGroupBindings)
 	}
+	if m.FieldCleared(apikey.FieldRoutingSchemeID) {
+		fields = append(fields, apikey.FieldRoutingSchemeID)
+	}
 	if m.FieldCleared(apikey.FieldLastUsedAt) {
 		fields = append(fields, apikey.FieldLastUsedAt)
 	}
@@ -2247,6 +2352,9 @@ func (m *APIKeyMutation) ClearField(name string) error {
 		return nil
 	case apikey.FieldGroupBindings:
 		m.ClearGroupBindings()
+		return nil
+	case apikey.FieldRoutingSchemeID:
+		m.ClearRoutingSchemeID()
 		return nil
 	case apikey.FieldLastUsedAt:
 		m.ClearLastUsedAt()
@@ -2300,6 +2408,9 @@ func (m *APIKeyMutation) ResetField(name string) error {
 		return nil
 	case apikey.FieldGroupBindings:
 		m.ResetGroupBindings()
+		return nil
+	case apikey.FieldRoutingSchemeID:
+		m.ResetRoutingSchemeID()
 		return nil
 	case apikey.FieldStatus:
 		m.ResetStatus()
@@ -34387,6 +34498,1756 @@ func (m *GroupMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown Group edge %s", name)
+}
+
+// GroupRoutingSchemeMutation represents an operation that mutates the GroupRoutingScheme nodes in the graph.
+type GroupRoutingSchemeMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *int64
+	created_at    *time.Time
+	updated_at    *time.Time
+	deleted_at    *time.Time
+	name          *string
+	description   *string
+	platform      *string
+	status        *string
+	sort_order    *int
+	addsort_order *int
+	sort_mode     *string
+	clearedFields map[string]struct{}
+	items         map[int64]struct{}
+	removeditems  map[int64]struct{}
+	cleareditems  bool
+	done          bool
+	oldValue      func(context.Context) (*GroupRoutingScheme, error)
+	predicates    []predicate.GroupRoutingScheme
+}
+
+var _ ent.Mutation = (*GroupRoutingSchemeMutation)(nil)
+
+// grouproutingschemeOption allows management of the mutation configuration using functional options.
+type grouproutingschemeOption func(*GroupRoutingSchemeMutation)
+
+// newGroupRoutingSchemeMutation creates new mutation for the GroupRoutingScheme entity.
+func newGroupRoutingSchemeMutation(c config, op Op, opts ...grouproutingschemeOption) *GroupRoutingSchemeMutation {
+	m := &GroupRoutingSchemeMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeGroupRoutingScheme,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withGroupRoutingSchemeID sets the ID field of the mutation.
+func withGroupRoutingSchemeID(id int64) grouproutingschemeOption {
+	return func(m *GroupRoutingSchemeMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *GroupRoutingScheme
+		)
+		m.oldValue = func(ctx context.Context) (*GroupRoutingScheme, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().GroupRoutingScheme.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withGroupRoutingScheme sets the old GroupRoutingScheme of the mutation.
+func withGroupRoutingScheme(node *GroupRoutingScheme) grouproutingschemeOption {
+	return func(m *GroupRoutingSchemeMutation) {
+		m.oldValue = func(context.Context) (*GroupRoutingScheme, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m GroupRoutingSchemeMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m GroupRoutingSchemeMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *GroupRoutingSchemeMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *GroupRoutingSchemeMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().GroupRoutingScheme.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *GroupRoutingSchemeMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *GroupRoutingSchemeMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the GroupRoutingScheme entity.
+// If the GroupRoutingScheme object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupRoutingSchemeMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *GroupRoutingSchemeMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *GroupRoutingSchemeMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *GroupRoutingSchemeMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the GroupRoutingScheme entity.
+// If the GroupRoutingScheme object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupRoutingSchemeMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *GroupRoutingSchemeMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetDeletedAt sets the "deleted_at" field.
+func (m *GroupRoutingSchemeMutation) SetDeletedAt(t time.Time) {
+	m.deleted_at = &t
+}
+
+// DeletedAt returns the value of the "deleted_at" field in the mutation.
+func (m *GroupRoutingSchemeMutation) DeletedAt() (r time.Time, exists bool) {
+	v := m.deleted_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDeletedAt returns the old "deleted_at" field's value of the GroupRoutingScheme entity.
+// If the GroupRoutingScheme object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupRoutingSchemeMutation) OldDeletedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDeletedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDeletedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDeletedAt: %w", err)
+	}
+	return oldValue.DeletedAt, nil
+}
+
+// ClearDeletedAt clears the value of the "deleted_at" field.
+func (m *GroupRoutingSchemeMutation) ClearDeletedAt() {
+	m.deleted_at = nil
+	m.clearedFields[grouproutingscheme.FieldDeletedAt] = struct{}{}
+}
+
+// DeletedAtCleared returns if the "deleted_at" field was cleared in this mutation.
+func (m *GroupRoutingSchemeMutation) DeletedAtCleared() bool {
+	_, ok := m.clearedFields[grouproutingscheme.FieldDeletedAt]
+	return ok
+}
+
+// ResetDeletedAt resets all changes to the "deleted_at" field.
+func (m *GroupRoutingSchemeMutation) ResetDeletedAt() {
+	m.deleted_at = nil
+	delete(m.clearedFields, grouproutingscheme.FieldDeletedAt)
+}
+
+// SetName sets the "name" field.
+func (m *GroupRoutingSchemeMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *GroupRoutingSchemeMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the GroupRoutingScheme entity.
+// If the GroupRoutingScheme object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupRoutingSchemeMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *GroupRoutingSchemeMutation) ResetName() {
+	m.name = nil
+}
+
+// SetDescription sets the "description" field.
+func (m *GroupRoutingSchemeMutation) SetDescription(s string) {
+	m.description = &s
+}
+
+// Description returns the value of the "description" field in the mutation.
+func (m *GroupRoutingSchemeMutation) Description() (r string, exists bool) {
+	v := m.description
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDescription returns the old "description" field's value of the GroupRoutingScheme entity.
+// If the GroupRoutingScheme object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupRoutingSchemeMutation) OldDescription(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDescription is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDescription requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDescription: %w", err)
+	}
+	return oldValue.Description, nil
+}
+
+// ClearDescription clears the value of the "description" field.
+func (m *GroupRoutingSchemeMutation) ClearDescription() {
+	m.description = nil
+	m.clearedFields[grouproutingscheme.FieldDescription] = struct{}{}
+}
+
+// DescriptionCleared returns if the "description" field was cleared in this mutation.
+func (m *GroupRoutingSchemeMutation) DescriptionCleared() bool {
+	_, ok := m.clearedFields[grouproutingscheme.FieldDescription]
+	return ok
+}
+
+// ResetDescription resets all changes to the "description" field.
+func (m *GroupRoutingSchemeMutation) ResetDescription() {
+	m.description = nil
+	delete(m.clearedFields, grouproutingscheme.FieldDescription)
+}
+
+// SetPlatform sets the "platform" field.
+func (m *GroupRoutingSchemeMutation) SetPlatform(s string) {
+	m.platform = &s
+}
+
+// Platform returns the value of the "platform" field in the mutation.
+func (m *GroupRoutingSchemeMutation) Platform() (r string, exists bool) {
+	v := m.platform
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPlatform returns the old "platform" field's value of the GroupRoutingScheme entity.
+// If the GroupRoutingScheme object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupRoutingSchemeMutation) OldPlatform(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPlatform is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPlatform requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPlatform: %w", err)
+	}
+	return oldValue.Platform, nil
+}
+
+// ResetPlatform resets all changes to the "platform" field.
+func (m *GroupRoutingSchemeMutation) ResetPlatform() {
+	m.platform = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *GroupRoutingSchemeMutation) SetStatus(s string) {
+	m.status = &s
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *GroupRoutingSchemeMutation) Status() (r string, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the GroupRoutingScheme entity.
+// If the GroupRoutingScheme object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupRoutingSchemeMutation) OldStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *GroupRoutingSchemeMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetSortOrder sets the "sort_order" field.
+func (m *GroupRoutingSchemeMutation) SetSortOrder(i int) {
+	m.sort_order = &i
+	m.addsort_order = nil
+}
+
+// SortOrder returns the value of the "sort_order" field in the mutation.
+func (m *GroupRoutingSchemeMutation) SortOrder() (r int, exists bool) {
+	v := m.sort_order
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSortOrder returns the old "sort_order" field's value of the GroupRoutingScheme entity.
+// If the GroupRoutingScheme object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupRoutingSchemeMutation) OldSortOrder(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSortOrder is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSortOrder requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSortOrder: %w", err)
+	}
+	return oldValue.SortOrder, nil
+}
+
+// AddSortOrder adds i to the "sort_order" field.
+func (m *GroupRoutingSchemeMutation) AddSortOrder(i int) {
+	if m.addsort_order != nil {
+		*m.addsort_order += i
+	} else {
+		m.addsort_order = &i
+	}
+}
+
+// AddedSortOrder returns the value that was added to the "sort_order" field in this mutation.
+func (m *GroupRoutingSchemeMutation) AddedSortOrder() (r int, exists bool) {
+	v := m.addsort_order
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSortOrder resets all changes to the "sort_order" field.
+func (m *GroupRoutingSchemeMutation) ResetSortOrder() {
+	m.sort_order = nil
+	m.addsort_order = nil
+}
+
+// SetSortMode sets the "sort_mode" field.
+func (m *GroupRoutingSchemeMutation) SetSortMode(s string) {
+	m.sort_mode = &s
+}
+
+// SortMode returns the value of the "sort_mode" field in the mutation.
+func (m *GroupRoutingSchemeMutation) SortMode() (r string, exists bool) {
+	v := m.sort_mode
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSortMode returns the old "sort_mode" field's value of the GroupRoutingScheme entity.
+// If the GroupRoutingScheme object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupRoutingSchemeMutation) OldSortMode(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSortMode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSortMode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSortMode: %w", err)
+	}
+	return oldValue.SortMode, nil
+}
+
+// ResetSortMode resets all changes to the "sort_mode" field.
+func (m *GroupRoutingSchemeMutation) ResetSortMode() {
+	m.sort_mode = nil
+}
+
+// AddItemIDs adds the "items" edge to the GroupRoutingSchemeItem entity by ids.
+func (m *GroupRoutingSchemeMutation) AddItemIDs(ids ...int64) {
+	if m.items == nil {
+		m.items = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.items[ids[i]] = struct{}{}
+	}
+}
+
+// ClearItems clears the "items" edge to the GroupRoutingSchemeItem entity.
+func (m *GroupRoutingSchemeMutation) ClearItems() {
+	m.cleareditems = true
+}
+
+// ItemsCleared reports if the "items" edge to the GroupRoutingSchemeItem entity was cleared.
+func (m *GroupRoutingSchemeMutation) ItemsCleared() bool {
+	return m.cleareditems
+}
+
+// RemoveItemIDs removes the "items" edge to the GroupRoutingSchemeItem entity by IDs.
+func (m *GroupRoutingSchemeMutation) RemoveItemIDs(ids ...int64) {
+	if m.removeditems == nil {
+		m.removeditems = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.items, ids[i])
+		m.removeditems[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedItems returns the removed IDs of the "items" edge to the GroupRoutingSchemeItem entity.
+func (m *GroupRoutingSchemeMutation) RemovedItemsIDs() (ids []int64) {
+	for id := range m.removeditems {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ItemsIDs returns the "items" edge IDs in the mutation.
+func (m *GroupRoutingSchemeMutation) ItemsIDs() (ids []int64) {
+	for id := range m.items {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetItems resets all changes to the "items" edge.
+func (m *GroupRoutingSchemeMutation) ResetItems() {
+	m.items = nil
+	m.cleareditems = false
+	m.removeditems = nil
+}
+
+// Where appends a list predicates to the GroupRoutingSchemeMutation builder.
+func (m *GroupRoutingSchemeMutation) Where(ps ...predicate.GroupRoutingScheme) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the GroupRoutingSchemeMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *GroupRoutingSchemeMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.GroupRoutingScheme, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *GroupRoutingSchemeMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *GroupRoutingSchemeMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (GroupRoutingScheme).
+func (m *GroupRoutingSchemeMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *GroupRoutingSchemeMutation) Fields() []string {
+	fields := make([]string, 0, 9)
+	if m.created_at != nil {
+		fields = append(fields, grouproutingscheme.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, grouproutingscheme.FieldUpdatedAt)
+	}
+	if m.deleted_at != nil {
+		fields = append(fields, grouproutingscheme.FieldDeletedAt)
+	}
+	if m.name != nil {
+		fields = append(fields, grouproutingscheme.FieldName)
+	}
+	if m.description != nil {
+		fields = append(fields, grouproutingscheme.FieldDescription)
+	}
+	if m.platform != nil {
+		fields = append(fields, grouproutingscheme.FieldPlatform)
+	}
+	if m.status != nil {
+		fields = append(fields, grouproutingscheme.FieldStatus)
+	}
+	if m.sort_order != nil {
+		fields = append(fields, grouproutingscheme.FieldSortOrder)
+	}
+	if m.sort_mode != nil {
+		fields = append(fields, grouproutingscheme.FieldSortMode)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *GroupRoutingSchemeMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case grouproutingscheme.FieldCreatedAt:
+		return m.CreatedAt()
+	case grouproutingscheme.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case grouproutingscheme.FieldDeletedAt:
+		return m.DeletedAt()
+	case grouproutingscheme.FieldName:
+		return m.Name()
+	case grouproutingscheme.FieldDescription:
+		return m.Description()
+	case grouproutingscheme.FieldPlatform:
+		return m.Platform()
+	case grouproutingscheme.FieldStatus:
+		return m.Status()
+	case grouproutingscheme.FieldSortOrder:
+		return m.SortOrder()
+	case grouproutingscheme.FieldSortMode:
+		return m.SortMode()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *GroupRoutingSchemeMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case grouproutingscheme.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case grouproutingscheme.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case grouproutingscheme.FieldDeletedAt:
+		return m.OldDeletedAt(ctx)
+	case grouproutingscheme.FieldName:
+		return m.OldName(ctx)
+	case grouproutingscheme.FieldDescription:
+		return m.OldDescription(ctx)
+	case grouproutingscheme.FieldPlatform:
+		return m.OldPlatform(ctx)
+	case grouproutingscheme.FieldStatus:
+		return m.OldStatus(ctx)
+	case grouproutingscheme.FieldSortOrder:
+		return m.OldSortOrder(ctx)
+	case grouproutingscheme.FieldSortMode:
+		return m.OldSortMode(ctx)
+	}
+	return nil, fmt.Errorf("unknown GroupRoutingScheme field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *GroupRoutingSchemeMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case grouproutingscheme.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case grouproutingscheme.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case grouproutingscheme.FieldDeletedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDeletedAt(v)
+		return nil
+	case grouproutingscheme.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case grouproutingscheme.FieldDescription:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDescription(v)
+		return nil
+	case grouproutingscheme.FieldPlatform:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPlatform(v)
+		return nil
+	case grouproutingscheme.FieldStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case grouproutingscheme.FieldSortOrder:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSortOrder(v)
+		return nil
+	case grouproutingscheme.FieldSortMode:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSortMode(v)
+		return nil
+	}
+	return fmt.Errorf("unknown GroupRoutingScheme field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *GroupRoutingSchemeMutation) AddedFields() []string {
+	var fields []string
+	if m.addsort_order != nil {
+		fields = append(fields, grouproutingscheme.FieldSortOrder)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *GroupRoutingSchemeMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case grouproutingscheme.FieldSortOrder:
+		return m.AddedSortOrder()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *GroupRoutingSchemeMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case grouproutingscheme.FieldSortOrder:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSortOrder(v)
+		return nil
+	}
+	return fmt.Errorf("unknown GroupRoutingScheme numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *GroupRoutingSchemeMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(grouproutingscheme.FieldDeletedAt) {
+		fields = append(fields, grouproutingscheme.FieldDeletedAt)
+	}
+	if m.FieldCleared(grouproutingscheme.FieldDescription) {
+		fields = append(fields, grouproutingscheme.FieldDescription)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *GroupRoutingSchemeMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *GroupRoutingSchemeMutation) ClearField(name string) error {
+	switch name {
+	case grouproutingscheme.FieldDeletedAt:
+		m.ClearDeletedAt()
+		return nil
+	case grouproutingscheme.FieldDescription:
+		m.ClearDescription()
+		return nil
+	}
+	return fmt.Errorf("unknown GroupRoutingScheme nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *GroupRoutingSchemeMutation) ResetField(name string) error {
+	switch name {
+	case grouproutingscheme.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case grouproutingscheme.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case grouproutingscheme.FieldDeletedAt:
+		m.ResetDeletedAt()
+		return nil
+	case grouproutingscheme.FieldName:
+		m.ResetName()
+		return nil
+	case grouproutingscheme.FieldDescription:
+		m.ResetDescription()
+		return nil
+	case grouproutingscheme.FieldPlatform:
+		m.ResetPlatform()
+		return nil
+	case grouproutingscheme.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case grouproutingscheme.FieldSortOrder:
+		m.ResetSortOrder()
+		return nil
+	case grouproutingscheme.FieldSortMode:
+		m.ResetSortMode()
+		return nil
+	}
+	return fmt.Errorf("unknown GroupRoutingScheme field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *GroupRoutingSchemeMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.items != nil {
+		edges = append(edges, grouproutingscheme.EdgeItems)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *GroupRoutingSchemeMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case grouproutingscheme.EdgeItems:
+		ids := make([]ent.Value, 0, len(m.items))
+		for id := range m.items {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *GroupRoutingSchemeMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.removeditems != nil {
+		edges = append(edges, grouproutingscheme.EdgeItems)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *GroupRoutingSchemeMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case grouproutingscheme.EdgeItems:
+		ids := make([]ent.Value, 0, len(m.removeditems))
+		for id := range m.removeditems {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *GroupRoutingSchemeMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.cleareditems {
+		edges = append(edges, grouproutingscheme.EdgeItems)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *GroupRoutingSchemeMutation) EdgeCleared(name string) bool {
+	switch name {
+	case grouproutingscheme.EdgeItems:
+		return m.cleareditems
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *GroupRoutingSchemeMutation) ClearEdge(name string) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown GroupRoutingScheme unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *GroupRoutingSchemeMutation) ResetEdge(name string) error {
+	switch name {
+	case grouproutingscheme.EdgeItems:
+		m.ResetItems()
+		return nil
+	}
+	return fmt.Errorf("unknown GroupRoutingScheme edge %s", name)
+}
+
+// GroupRoutingSchemeItemMutation represents an operation that mutates the GroupRoutingSchemeItem nodes in the graph.
+type GroupRoutingSchemeItemMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *int64
+	created_at    *time.Time
+	updated_at    *time.Time
+	group_id      *int64
+	addgroup_id   *int64
+	weight        *int
+	addweight     *int
+	position      *int
+	addposition   *int
+	rules         *[]domain.RoutingSchemeRule
+	appendrules   []domain.RoutingSchemeRule
+	clearedFields map[string]struct{}
+	scheme        *int64
+	clearedscheme bool
+	done          bool
+	oldValue      func(context.Context) (*GroupRoutingSchemeItem, error)
+	predicates    []predicate.GroupRoutingSchemeItem
+}
+
+var _ ent.Mutation = (*GroupRoutingSchemeItemMutation)(nil)
+
+// grouproutingschemeitemOption allows management of the mutation configuration using functional options.
+type grouproutingschemeitemOption func(*GroupRoutingSchemeItemMutation)
+
+// newGroupRoutingSchemeItemMutation creates new mutation for the GroupRoutingSchemeItem entity.
+func newGroupRoutingSchemeItemMutation(c config, op Op, opts ...grouproutingschemeitemOption) *GroupRoutingSchemeItemMutation {
+	m := &GroupRoutingSchemeItemMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeGroupRoutingSchemeItem,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withGroupRoutingSchemeItemID sets the ID field of the mutation.
+func withGroupRoutingSchemeItemID(id int64) grouproutingschemeitemOption {
+	return func(m *GroupRoutingSchemeItemMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *GroupRoutingSchemeItem
+		)
+		m.oldValue = func(ctx context.Context) (*GroupRoutingSchemeItem, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().GroupRoutingSchemeItem.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withGroupRoutingSchemeItem sets the old GroupRoutingSchemeItem of the mutation.
+func withGroupRoutingSchemeItem(node *GroupRoutingSchemeItem) grouproutingschemeitemOption {
+	return func(m *GroupRoutingSchemeItemMutation) {
+		m.oldValue = func(context.Context) (*GroupRoutingSchemeItem, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m GroupRoutingSchemeItemMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m GroupRoutingSchemeItemMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *GroupRoutingSchemeItemMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *GroupRoutingSchemeItemMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().GroupRoutingSchemeItem.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *GroupRoutingSchemeItemMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *GroupRoutingSchemeItemMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the GroupRoutingSchemeItem entity.
+// If the GroupRoutingSchemeItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupRoutingSchemeItemMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *GroupRoutingSchemeItemMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *GroupRoutingSchemeItemMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *GroupRoutingSchemeItemMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the GroupRoutingSchemeItem entity.
+// If the GroupRoutingSchemeItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupRoutingSchemeItemMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *GroupRoutingSchemeItemMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetSchemeID sets the "scheme_id" field.
+func (m *GroupRoutingSchemeItemMutation) SetSchemeID(i int64) {
+	m.scheme = &i
+}
+
+// SchemeID returns the value of the "scheme_id" field in the mutation.
+func (m *GroupRoutingSchemeItemMutation) SchemeID() (r int64, exists bool) {
+	v := m.scheme
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSchemeID returns the old "scheme_id" field's value of the GroupRoutingSchemeItem entity.
+// If the GroupRoutingSchemeItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupRoutingSchemeItemMutation) OldSchemeID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSchemeID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSchemeID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSchemeID: %w", err)
+	}
+	return oldValue.SchemeID, nil
+}
+
+// ResetSchemeID resets all changes to the "scheme_id" field.
+func (m *GroupRoutingSchemeItemMutation) ResetSchemeID() {
+	m.scheme = nil
+}
+
+// SetGroupID sets the "group_id" field.
+func (m *GroupRoutingSchemeItemMutation) SetGroupID(i int64) {
+	m.group_id = &i
+	m.addgroup_id = nil
+}
+
+// GroupID returns the value of the "group_id" field in the mutation.
+func (m *GroupRoutingSchemeItemMutation) GroupID() (r int64, exists bool) {
+	v := m.group_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGroupID returns the old "group_id" field's value of the GroupRoutingSchemeItem entity.
+// If the GroupRoutingSchemeItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupRoutingSchemeItemMutation) OldGroupID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGroupID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGroupID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGroupID: %w", err)
+	}
+	return oldValue.GroupID, nil
+}
+
+// AddGroupID adds i to the "group_id" field.
+func (m *GroupRoutingSchemeItemMutation) AddGroupID(i int64) {
+	if m.addgroup_id != nil {
+		*m.addgroup_id += i
+	} else {
+		m.addgroup_id = &i
+	}
+}
+
+// AddedGroupID returns the value that was added to the "group_id" field in this mutation.
+func (m *GroupRoutingSchemeItemMutation) AddedGroupID() (r int64, exists bool) {
+	v := m.addgroup_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetGroupID resets all changes to the "group_id" field.
+func (m *GroupRoutingSchemeItemMutation) ResetGroupID() {
+	m.group_id = nil
+	m.addgroup_id = nil
+}
+
+// SetWeight sets the "weight" field.
+func (m *GroupRoutingSchemeItemMutation) SetWeight(i int) {
+	m.weight = &i
+	m.addweight = nil
+}
+
+// Weight returns the value of the "weight" field in the mutation.
+func (m *GroupRoutingSchemeItemMutation) Weight() (r int, exists bool) {
+	v := m.weight
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldWeight returns the old "weight" field's value of the GroupRoutingSchemeItem entity.
+// If the GroupRoutingSchemeItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupRoutingSchemeItemMutation) OldWeight(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldWeight is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldWeight requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldWeight: %w", err)
+	}
+	return oldValue.Weight, nil
+}
+
+// AddWeight adds i to the "weight" field.
+func (m *GroupRoutingSchemeItemMutation) AddWeight(i int) {
+	if m.addweight != nil {
+		*m.addweight += i
+	} else {
+		m.addweight = &i
+	}
+}
+
+// AddedWeight returns the value that was added to the "weight" field in this mutation.
+func (m *GroupRoutingSchemeItemMutation) AddedWeight() (r int, exists bool) {
+	v := m.addweight
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetWeight resets all changes to the "weight" field.
+func (m *GroupRoutingSchemeItemMutation) ResetWeight() {
+	m.weight = nil
+	m.addweight = nil
+}
+
+// SetPosition sets the "position" field.
+func (m *GroupRoutingSchemeItemMutation) SetPosition(i int) {
+	m.position = &i
+	m.addposition = nil
+}
+
+// Position returns the value of the "position" field in the mutation.
+func (m *GroupRoutingSchemeItemMutation) Position() (r int, exists bool) {
+	v := m.position
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPosition returns the old "position" field's value of the GroupRoutingSchemeItem entity.
+// If the GroupRoutingSchemeItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupRoutingSchemeItemMutation) OldPosition(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPosition is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPosition requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPosition: %w", err)
+	}
+	return oldValue.Position, nil
+}
+
+// AddPosition adds i to the "position" field.
+func (m *GroupRoutingSchemeItemMutation) AddPosition(i int) {
+	if m.addposition != nil {
+		*m.addposition += i
+	} else {
+		m.addposition = &i
+	}
+}
+
+// AddedPosition returns the value that was added to the "position" field in this mutation.
+func (m *GroupRoutingSchemeItemMutation) AddedPosition() (r int, exists bool) {
+	v := m.addposition
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetPosition resets all changes to the "position" field.
+func (m *GroupRoutingSchemeItemMutation) ResetPosition() {
+	m.position = nil
+	m.addposition = nil
+}
+
+// SetRules sets the "rules" field.
+func (m *GroupRoutingSchemeItemMutation) SetRules(dsr []domain.RoutingSchemeRule) {
+	m.rules = &dsr
+	m.appendrules = nil
+}
+
+// Rules returns the value of the "rules" field in the mutation.
+func (m *GroupRoutingSchemeItemMutation) Rules() (r []domain.RoutingSchemeRule, exists bool) {
+	v := m.rules
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRules returns the old "rules" field's value of the GroupRoutingSchemeItem entity.
+// If the GroupRoutingSchemeItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupRoutingSchemeItemMutation) OldRules(ctx context.Context) (v []domain.RoutingSchemeRule, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRules is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRules requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRules: %w", err)
+	}
+	return oldValue.Rules, nil
+}
+
+// AppendRules adds dsr to the "rules" field.
+func (m *GroupRoutingSchemeItemMutation) AppendRules(dsr []domain.RoutingSchemeRule) {
+	m.appendrules = append(m.appendrules, dsr...)
+}
+
+// AppendedRules returns the list of values that were appended to the "rules" field in this mutation.
+func (m *GroupRoutingSchemeItemMutation) AppendedRules() ([]domain.RoutingSchemeRule, bool) {
+	if len(m.appendrules) == 0 {
+		return nil, false
+	}
+	return m.appendrules, true
+}
+
+// ResetRules resets all changes to the "rules" field.
+func (m *GroupRoutingSchemeItemMutation) ResetRules() {
+	m.rules = nil
+	m.appendrules = nil
+}
+
+// ClearScheme clears the "scheme" edge to the GroupRoutingScheme entity.
+func (m *GroupRoutingSchemeItemMutation) ClearScheme() {
+	m.clearedscheme = true
+	m.clearedFields[grouproutingschemeitem.FieldSchemeID] = struct{}{}
+}
+
+// SchemeCleared reports if the "scheme" edge to the GroupRoutingScheme entity was cleared.
+func (m *GroupRoutingSchemeItemMutation) SchemeCleared() bool {
+	return m.clearedscheme
+}
+
+// SchemeIDs returns the "scheme" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// SchemeID instead. It exists only for internal usage by the builders.
+func (m *GroupRoutingSchemeItemMutation) SchemeIDs() (ids []int64) {
+	if id := m.scheme; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetScheme resets all changes to the "scheme" edge.
+func (m *GroupRoutingSchemeItemMutation) ResetScheme() {
+	m.scheme = nil
+	m.clearedscheme = false
+}
+
+// Where appends a list predicates to the GroupRoutingSchemeItemMutation builder.
+func (m *GroupRoutingSchemeItemMutation) Where(ps ...predicate.GroupRoutingSchemeItem) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the GroupRoutingSchemeItemMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *GroupRoutingSchemeItemMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.GroupRoutingSchemeItem, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *GroupRoutingSchemeItemMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *GroupRoutingSchemeItemMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (GroupRoutingSchemeItem).
+func (m *GroupRoutingSchemeItemMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *GroupRoutingSchemeItemMutation) Fields() []string {
+	fields := make([]string, 0, 7)
+	if m.created_at != nil {
+		fields = append(fields, grouproutingschemeitem.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, grouproutingschemeitem.FieldUpdatedAt)
+	}
+	if m.scheme != nil {
+		fields = append(fields, grouproutingschemeitem.FieldSchemeID)
+	}
+	if m.group_id != nil {
+		fields = append(fields, grouproutingschemeitem.FieldGroupID)
+	}
+	if m.weight != nil {
+		fields = append(fields, grouproutingschemeitem.FieldWeight)
+	}
+	if m.position != nil {
+		fields = append(fields, grouproutingschemeitem.FieldPosition)
+	}
+	if m.rules != nil {
+		fields = append(fields, grouproutingschemeitem.FieldRules)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *GroupRoutingSchemeItemMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case grouproutingschemeitem.FieldCreatedAt:
+		return m.CreatedAt()
+	case grouproutingschemeitem.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case grouproutingschemeitem.FieldSchemeID:
+		return m.SchemeID()
+	case grouproutingschemeitem.FieldGroupID:
+		return m.GroupID()
+	case grouproutingschemeitem.FieldWeight:
+		return m.Weight()
+	case grouproutingschemeitem.FieldPosition:
+		return m.Position()
+	case grouproutingschemeitem.FieldRules:
+		return m.Rules()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *GroupRoutingSchemeItemMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case grouproutingschemeitem.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case grouproutingschemeitem.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case grouproutingschemeitem.FieldSchemeID:
+		return m.OldSchemeID(ctx)
+	case grouproutingschemeitem.FieldGroupID:
+		return m.OldGroupID(ctx)
+	case grouproutingschemeitem.FieldWeight:
+		return m.OldWeight(ctx)
+	case grouproutingschemeitem.FieldPosition:
+		return m.OldPosition(ctx)
+	case grouproutingschemeitem.FieldRules:
+		return m.OldRules(ctx)
+	}
+	return nil, fmt.Errorf("unknown GroupRoutingSchemeItem field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *GroupRoutingSchemeItemMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case grouproutingschemeitem.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case grouproutingschemeitem.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case grouproutingschemeitem.FieldSchemeID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSchemeID(v)
+		return nil
+	case grouproutingschemeitem.FieldGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGroupID(v)
+		return nil
+	case grouproutingschemeitem.FieldWeight:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetWeight(v)
+		return nil
+	case grouproutingschemeitem.FieldPosition:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPosition(v)
+		return nil
+	case grouproutingschemeitem.FieldRules:
+		v, ok := value.([]domain.RoutingSchemeRule)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRules(v)
+		return nil
+	}
+	return fmt.Errorf("unknown GroupRoutingSchemeItem field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *GroupRoutingSchemeItemMutation) AddedFields() []string {
+	var fields []string
+	if m.addgroup_id != nil {
+		fields = append(fields, grouproutingschemeitem.FieldGroupID)
+	}
+	if m.addweight != nil {
+		fields = append(fields, grouproutingschemeitem.FieldWeight)
+	}
+	if m.addposition != nil {
+		fields = append(fields, grouproutingschemeitem.FieldPosition)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *GroupRoutingSchemeItemMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case grouproutingschemeitem.FieldGroupID:
+		return m.AddedGroupID()
+	case grouproutingschemeitem.FieldWeight:
+		return m.AddedWeight()
+	case grouproutingschemeitem.FieldPosition:
+		return m.AddedPosition()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *GroupRoutingSchemeItemMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case grouproutingschemeitem.FieldGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddGroupID(v)
+		return nil
+	case grouproutingschemeitem.FieldWeight:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddWeight(v)
+		return nil
+	case grouproutingschemeitem.FieldPosition:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPosition(v)
+		return nil
+	}
+	return fmt.Errorf("unknown GroupRoutingSchemeItem numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *GroupRoutingSchemeItemMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *GroupRoutingSchemeItemMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *GroupRoutingSchemeItemMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown GroupRoutingSchemeItem nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *GroupRoutingSchemeItemMutation) ResetField(name string) error {
+	switch name {
+	case grouproutingschemeitem.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case grouproutingschemeitem.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case grouproutingschemeitem.FieldSchemeID:
+		m.ResetSchemeID()
+		return nil
+	case grouproutingschemeitem.FieldGroupID:
+		m.ResetGroupID()
+		return nil
+	case grouproutingschemeitem.FieldWeight:
+		m.ResetWeight()
+		return nil
+	case grouproutingschemeitem.FieldPosition:
+		m.ResetPosition()
+		return nil
+	case grouproutingschemeitem.FieldRules:
+		m.ResetRules()
+		return nil
+	}
+	return fmt.Errorf("unknown GroupRoutingSchemeItem field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *GroupRoutingSchemeItemMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.scheme != nil {
+		edges = append(edges, grouproutingschemeitem.EdgeScheme)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *GroupRoutingSchemeItemMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case grouproutingschemeitem.EdgeScheme:
+		if id := m.scheme; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *GroupRoutingSchemeItemMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *GroupRoutingSchemeItemMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *GroupRoutingSchemeItemMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedscheme {
+		edges = append(edges, grouproutingschemeitem.EdgeScheme)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *GroupRoutingSchemeItemMutation) EdgeCleared(name string) bool {
+	switch name {
+	case grouproutingschemeitem.EdgeScheme:
+		return m.clearedscheme
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *GroupRoutingSchemeItemMutation) ClearEdge(name string) error {
+	switch name {
+	case grouproutingschemeitem.EdgeScheme:
+		m.ClearScheme()
+		return nil
+	}
+	return fmt.Errorf("unknown GroupRoutingSchemeItem unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *GroupRoutingSchemeItemMutation) ResetEdge(name string) error {
+	switch name {
+	case grouproutingschemeitem.EdgeScheme:
+		m.ResetScheme()
+		return nil
+	}
+	return fmt.Errorf("unknown GroupRoutingSchemeItem edge %s", name)
 }
 
 // IPv6EgressPoolMutation represents an operation that mutates the IPv6EgressPool nodes in the graph.

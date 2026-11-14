@@ -40,6 +40,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/custommodelrequesttemplate"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/grouproutingscheme"
+	"github.com/Wei-Shaw/sub2api/ent/grouproutingschemeitem"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
 	"github.com/Wei-Shaw/sub2api/ent/ipv6egresspool"
@@ -123,6 +125,10 @@ type Client struct {
 	ErrorPassthroughRule *ErrorPassthroughRuleClient
 	// Group is the client for interacting with the Group builders.
 	Group *GroupClient
+	// GroupRoutingScheme is the client for interacting with the GroupRoutingScheme builders.
+	GroupRoutingScheme *GroupRoutingSchemeClient
+	// GroupRoutingSchemeItem is the client for interacting with the GroupRoutingSchemeItem builders.
+	GroupRoutingSchemeItem *GroupRoutingSchemeItemClient
 	// IPv6EgressPool is the client for interacting with the IPv6EgressPool builders.
 	IPv6EgressPool *IPv6EgressPoolClient
 	// IdempotencyRecord is the client for interacting with the IdempotencyRecord builders.
@@ -207,6 +213,8 @@ func (c *Client) init() {
 	c.CustomModelRequestTemplate = NewCustomModelRequestTemplateClient(c.config)
 	c.ErrorPassthroughRule = NewErrorPassthroughRuleClient(c.config)
 	c.Group = NewGroupClient(c.config)
+	c.GroupRoutingScheme = NewGroupRoutingSchemeClient(c.config)
+	c.GroupRoutingSchemeItem = NewGroupRoutingSchemeItemClient(c.config)
 	c.IPv6EgressPool = NewIPv6EgressPoolClient(c.config)
 	c.IdempotencyRecord = NewIdempotencyRecordClient(c.config)
 	c.IdentityAdoptionDecision = NewIdentityAdoptionDecisionClient(c.config)
@@ -348,6 +356,8 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		CustomModelRequestTemplate:    NewCustomModelRequestTemplateClient(cfg),
 		ErrorPassthroughRule:          NewErrorPassthroughRuleClient(cfg),
 		Group:                         NewGroupClient(cfg),
+		GroupRoutingScheme:            NewGroupRoutingSchemeClient(cfg),
+		GroupRoutingSchemeItem:        NewGroupRoutingSchemeItemClient(cfg),
 		IPv6EgressPool:                NewIPv6EgressPoolClient(cfg),
 		IdempotencyRecord:             NewIdempotencyRecordClient(cfg),
 		IdentityAdoptionDecision:      NewIdentityAdoptionDecisionClient(cfg),
@@ -416,6 +426,8 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		CustomModelRequestTemplate:    NewCustomModelRequestTemplateClient(cfg),
 		ErrorPassthroughRule:          NewErrorPassthroughRuleClient(cfg),
 		Group:                         NewGroupClient(cfg),
+		GroupRoutingScheme:            NewGroupRoutingSchemeClient(cfg),
+		GroupRoutingSchemeItem:        NewGroupRoutingSchemeItemClient(cfg),
 		IPv6EgressPool:                NewIPv6EgressPoolClient(cfg),
 		IdempotencyRecord:             NewIdempotencyRecordClient(cfg),
 		IdentityAdoptionDecision:      NewIdentityAdoptionDecisionClient(cfg),
@@ -476,13 +488,13 @@ func (c *Client) Use(hooks ...Hook) {
 		c.ChannelMonitorRequestTemplate, c.ChatAsset, c.ChatConversation,
 		c.ChatMessage, c.ChatMessageAsset, c.ChatQuickReply, c.CompositeModelRoute,
 		c.CustomModelConfig, c.CustomModelRequestTemplate, c.ErrorPassthroughRule,
-		c.Group, c.IPv6EgressPool, c.IdempotencyRecord, c.IdentityAdoptionDecision,
-		c.PaymentAuditLog, c.PaymentOrder, c.PaymentProviderInstance,
-		c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage, c.Proxy, c.RedeemCode,
-		c.RedeemCodeUsage, c.SecuritySecret, c.Setting, c.SubscriptionPlan,
-		c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog, c.User,
-		c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
-		c.UserPlatformQuota, c.UserSubscription,
+		c.Group, c.GroupRoutingScheme, c.GroupRoutingSchemeItem, c.IPv6EgressPool,
+		c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
+		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
+		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.RedeemCodeUsage, c.SecuritySecret,
+		c.Setting, c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask,
+		c.UsageLog, c.User, c.UserAllowedGroup, c.UserAttributeDefinition,
+		c.UserAttributeValue, c.UserPlatformQuota, c.UserSubscription,
 	} {
 		n.Use(hooks...)
 	}
@@ -499,13 +511,13 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.ChannelMonitorRequestTemplate, c.ChatAsset, c.ChatConversation,
 		c.ChatMessage, c.ChatMessageAsset, c.ChatQuickReply, c.CompositeModelRoute,
 		c.CustomModelConfig, c.CustomModelRequestTemplate, c.ErrorPassthroughRule,
-		c.Group, c.IPv6EgressPool, c.IdempotencyRecord, c.IdentityAdoptionDecision,
-		c.PaymentAuditLog, c.PaymentOrder, c.PaymentProviderInstance,
-		c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage, c.Proxy, c.RedeemCode,
-		c.RedeemCodeUsage, c.SecuritySecret, c.Setting, c.SubscriptionPlan,
-		c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog, c.User,
-		c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
-		c.UserPlatformQuota, c.UserSubscription,
+		c.Group, c.GroupRoutingScheme, c.GroupRoutingSchemeItem, c.IPv6EgressPool,
+		c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
+		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
+		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.RedeemCodeUsage, c.SecuritySecret,
+		c.Setting, c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask,
+		c.UsageLog, c.User, c.UserAllowedGroup, c.UserAttributeDefinition,
+		c.UserAttributeValue, c.UserPlatformQuota, c.UserSubscription,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -564,6 +576,10 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.ErrorPassthroughRule.mutate(ctx, m)
 	case *GroupMutation:
 		return c.Group.mutate(ctx, m)
+	case *GroupRoutingSchemeMutation:
+		return c.GroupRoutingScheme.mutate(ctx, m)
+	case *GroupRoutingSchemeItemMutation:
+		return c.GroupRoutingSchemeItem.mutate(ctx, m)
 	case *IPv6EgressPoolMutation:
 		return c.IPv6EgressPool.mutate(ctx, m)
 	case *IdempotencyRecordMutation:
@@ -4572,6 +4588,306 @@ func (c *GroupClient) mutate(ctx context.Context, m *GroupMutation) (Value, erro
 	}
 }
 
+// GroupRoutingSchemeClient is a client for the GroupRoutingScheme schema.
+type GroupRoutingSchemeClient struct {
+	config
+}
+
+// NewGroupRoutingSchemeClient returns a client for the GroupRoutingScheme from the given config.
+func NewGroupRoutingSchemeClient(c config) *GroupRoutingSchemeClient {
+	return &GroupRoutingSchemeClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `grouproutingscheme.Hooks(f(g(h())))`.
+func (c *GroupRoutingSchemeClient) Use(hooks ...Hook) {
+	c.hooks.GroupRoutingScheme = append(c.hooks.GroupRoutingScheme, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `grouproutingscheme.Intercept(f(g(h())))`.
+func (c *GroupRoutingSchemeClient) Intercept(interceptors ...Interceptor) {
+	c.inters.GroupRoutingScheme = append(c.inters.GroupRoutingScheme, interceptors...)
+}
+
+// Create returns a builder for creating a GroupRoutingScheme entity.
+func (c *GroupRoutingSchemeClient) Create() *GroupRoutingSchemeCreate {
+	mutation := newGroupRoutingSchemeMutation(c.config, OpCreate)
+	return &GroupRoutingSchemeCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of GroupRoutingScheme entities.
+func (c *GroupRoutingSchemeClient) CreateBulk(builders ...*GroupRoutingSchemeCreate) *GroupRoutingSchemeCreateBulk {
+	return &GroupRoutingSchemeCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *GroupRoutingSchemeClient) MapCreateBulk(slice any, setFunc func(*GroupRoutingSchemeCreate, int)) *GroupRoutingSchemeCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &GroupRoutingSchemeCreateBulk{err: fmt.Errorf("calling to GroupRoutingSchemeClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*GroupRoutingSchemeCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &GroupRoutingSchemeCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for GroupRoutingScheme.
+func (c *GroupRoutingSchemeClient) Update() *GroupRoutingSchemeUpdate {
+	mutation := newGroupRoutingSchemeMutation(c.config, OpUpdate)
+	return &GroupRoutingSchemeUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *GroupRoutingSchemeClient) UpdateOne(_m *GroupRoutingScheme) *GroupRoutingSchemeUpdateOne {
+	mutation := newGroupRoutingSchemeMutation(c.config, OpUpdateOne, withGroupRoutingScheme(_m))
+	return &GroupRoutingSchemeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *GroupRoutingSchemeClient) UpdateOneID(id int64) *GroupRoutingSchemeUpdateOne {
+	mutation := newGroupRoutingSchemeMutation(c.config, OpUpdateOne, withGroupRoutingSchemeID(id))
+	return &GroupRoutingSchemeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for GroupRoutingScheme.
+func (c *GroupRoutingSchemeClient) Delete() *GroupRoutingSchemeDelete {
+	mutation := newGroupRoutingSchemeMutation(c.config, OpDelete)
+	return &GroupRoutingSchemeDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *GroupRoutingSchemeClient) DeleteOne(_m *GroupRoutingScheme) *GroupRoutingSchemeDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *GroupRoutingSchemeClient) DeleteOneID(id int64) *GroupRoutingSchemeDeleteOne {
+	builder := c.Delete().Where(grouproutingscheme.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &GroupRoutingSchemeDeleteOne{builder}
+}
+
+// Query returns a query builder for GroupRoutingScheme.
+func (c *GroupRoutingSchemeClient) Query() *GroupRoutingSchemeQuery {
+	return &GroupRoutingSchemeQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeGroupRoutingScheme},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a GroupRoutingScheme entity by its id.
+func (c *GroupRoutingSchemeClient) Get(ctx context.Context, id int64) (*GroupRoutingScheme, error) {
+	return c.Query().Where(grouproutingscheme.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *GroupRoutingSchemeClient) GetX(ctx context.Context, id int64) *GroupRoutingScheme {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryItems queries the items edge of a GroupRoutingScheme.
+func (c *GroupRoutingSchemeClient) QueryItems(_m *GroupRoutingScheme) *GroupRoutingSchemeItemQuery {
+	query := (&GroupRoutingSchemeItemClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(grouproutingscheme.Table, grouproutingscheme.FieldID, id),
+			sqlgraph.To(grouproutingschemeitem.Table, grouproutingschemeitem.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, grouproutingscheme.ItemsTable, grouproutingscheme.ItemsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *GroupRoutingSchemeClient) Hooks() []Hook {
+	hooks := c.hooks.GroupRoutingScheme
+	return append(hooks[:len(hooks):len(hooks)], grouproutingscheme.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *GroupRoutingSchemeClient) Interceptors() []Interceptor {
+	inters := c.inters.GroupRoutingScheme
+	return append(inters[:len(inters):len(inters)], grouproutingscheme.Interceptors[:]...)
+}
+
+func (c *GroupRoutingSchemeClient) mutate(ctx context.Context, m *GroupRoutingSchemeMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&GroupRoutingSchemeCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&GroupRoutingSchemeUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&GroupRoutingSchemeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&GroupRoutingSchemeDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown GroupRoutingScheme mutation op: %q", m.Op())
+	}
+}
+
+// GroupRoutingSchemeItemClient is a client for the GroupRoutingSchemeItem schema.
+type GroupRoutingSchemeItemClient struct {
+	config
+}
+
+// NewGroupRoutingSchemeItemClient returns a client for the GroupRoutingSchemeItem from the given config.
+func NewGroupRoutingSchemeItemClient(c config) *GroupRoutingSchemeItemClient {
+	return &GroupRoutingSchemeItemClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `grouproutingschemeitem.Hooks(f(g(h())))`.
+func (c *GroupRoutingSchemeItemClient) Use(hooks ...Hook) {
+	c.hooks.GroupRoutingSchemeItem = append(c.hooks.GroupRoutingSchemeItem, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `grouproutingschemeitem.Intercept(f(g(h())))`.
+func (c *GroupRoutingSchemeItemClient) Intercept(interceptors ...Interceptor) {
+	c.inters.GroupRoutingSchemeItem = append(c.inters.GroupRoutingSchemeItem, interceptors...)
+}
+
+// Create returns a builder for creating a GroupRoutingSchemeItem entity.
+func (c *GroupRoutingSchemeItemClient) Create() *GroupRoutingSchemeItemCreate {
+	mutation := newGroupRoutingSchemeItemMutation(c.config, OpCreate)
+	return &GroupRoutingSchemeItemCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of GroupRoutingSchemeItem entities.
+func (c *GroupRoutingSchemeItemClient) CreateBulk(builders ...*GroupRoutingSchemeItemCreate) *GroupRoutingSchemeItemCreateBulk {
+	return &GroupRoutingSchemeItemCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *GroupRoutingSchemeItemClient) MapCreateBulk(slice any, setFunc func(*GroupRoutingSchemeItemCreate, int)) *GroupRoutingSchemeItemCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &GroupRoutingSchemeItemCreateBulk{err: fmt.Errorf("calling to GroupRoutingSchemeItemClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*GroupRoutingSchemeItemCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &GroupRoutingSchemeItemCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for GroupRoutingSchemeItem.
+func (c *GroupRoutingSchemeItemClient) Update() *GroupRoutingSchemeItemUpdate {
+	mutation := newGroupRoutingSchemeItemMutation(c.config, OpUpdate)
+	return &GroupRoutingSchemeItemUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *GroupRoutingSchemeItemClient) UpdateOne(_m *GroupRoutingSchemeItem) *GroupRoutingSchemeItemUpdateOne {
+	mutation := newGroupRoutingSchemeItemMutation(c.config, OpUpdateOne, withGroupRoutingSchemeItem(_m))
+	return &GroupRoutingSchemeItemUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *GroupRoutingSchemeItemClient) UpdateOneID(id int64) *GroupRoutingSchemeItemUpdateOne {
+	mutation := newGroupRoutingSchemeItemMutation(c.config, OpUpdateOne, withGroupRoutingSchemeItemID(id))
+	return &GroupRoutingSchemeItemUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for GroupRoutingSchemeItem.
+func (c *GroupRoutingSchemeItemClient) Delete() *GroupRoutingSchemeItemDelete {
+	mutation := newGroupRoutingSchemeItemMutation(c.config, OpDelete)
+	return &GroupRoutingSchemeItemDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *GroupRoutingSchemeItemClient) DeleteOne(_m *GroupRoutingSchemeItem) *GroupRoutingSchemeItemDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *GroupRoutingSchemeItemClient) DeleteOneID(id int64) *GroupRoutingSchemeItemDeleteOne {
+	builder := c.Delete().Where(grouproutingschemeitem.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &GroupRoutingSchemeItemDeleteOne{builder}
+}
+
+// Query returns a query builder for GroupRoutingSchemeItem.
+func (c *GroupRoutingSchemeItemClient) Query() *GroupRoutingSchemeItemQuery {
+	return &GroupRoutingSchemeItemQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeGroupRoutingSchemeItem},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a GroupRoutingSchemeItem entity by its id.
+func (c *GroupRoutingSchemeItemClient) Get(ctx context.Context, id int64) (*GroupRoutingSchemeItem, error) {
+	return c.Query().Where(grouproutingschemeitem.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *GroupRoutingSchemeItemClient) GetX(ctx context.Context, id int64) *GroupRoutingSchemeItem {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryScheme queries the scheme edge of a GroupRoutingSchemeItem.
+func (c *GroupRoutingSchemeItemClient) QueryScheme(_m *GroupRoutingSchemeItem) *GroupRoutingSchemeQuery {
+	query := (&GroupRoutingSchemeClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(grouproutingschemeitem.Table, grouproutingschemeitem.FieldID, id),
+			sqlgraph.To(grouproutingscheme.Table, grouproutingscheme.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, grouproutingschemeitem.SchemeTable, grouproutingschemeitem.SchemeColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *GroupRoutingSchemeItemClient) Hooks() []Hook {
+	return c.hooks.GroupRoutingSchemeItem
+}
+
+// Interceptors returns the client interceptors.
+func (c *GroupRoutingSchemeItemClient) Interceptors() []Interceptor {
+	return c.inters.GroupRoutingSchemeItem
+}
+
+func (c *GroupRoutingSchemeItemClient) mutate(ctx context.Context, m *GroupRoutingSchemeItemMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&GroupRoutingSchemeItemCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&GroupRoutingSchemeItemUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&GroupRoutingSchemeItemUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&GroupRoutingSchemeItemDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown GroupRoutingSchemeItem mutation op: %q", m.Op())
+	}
+}
+
 // IPv6EgressPoolClient is a client for the IPv6EgressPool schema.
 type IPv6EgressPoolClient struct {
 	config
@@ -8502,13 +8818,13 @@ type (
 		ChannelMonitorHistory, ChannelMonitorRequestTemplate, ChatAsset,
 		ChatConversation, ChatMessage, ChatMessageAsset, ChatQuickReply,
 		CompositeModelRoute, CustomModelConfig, CustomModelRequestTemplate,
-		ErrorPassthroughRule, Group, IPv6EgressPool, IdempotencyRecord,
-		IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
-		PaymentProviderInstance, PendingAuthSession, PromoCode, PromoCodeUsage, Proxy,
-		RedeemCode, RedeemCodeUsage, SecuritySecret, Setting, SubscriptionPlan,
-		TLSFingerprintProfile, UsageCleanupTask, UsageLog, User, UserAllowedGroup,
-		UserAttributeDefinition, UserAttributeValue, UserPlatformQuota,
-		UserSubscription []ent.Hook
+		ErrorPassthroughRule, Group, GroupRoutingScheme, GroupRoutingSchemeItem,
+		IPv6EgressPool, IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog,
+		PaymentOrder, PaymentProviderInstance, PendingAuthSession, PromoCode,
+		PromoCodeUsage, Proxy, RedeemCode, RedeemCodeUsage, SecuritySecret, Setting,
+		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
+		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
+		UserPlatformQuota, UserSubscription []ent.Hook
 	}
 	inters struct {
 		APIKey, Account, AccountEgressBinding, AccountGroup, Announcement,
@@ -8517,13 +8833,13 @@ type (
 		ChannelMonitorHistory, ChannelMonitorRequestTemplate, ChatAsset,
 		ChatConversation, ChatMessage, ChatMessageAsset, ChatQuickReply,
 		CompositeModelRoute, CustomModelConfig, CustomModelRequestTemplate,
-		ErrorPassthroughRule, Group, IPv6EgressPool, IdempotencyRecord,
-		IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
-		PaymentProviderInstance, PendingAuthSession, PromoCode, PromoCodeUsage, Proxy,
-		RedeemCode, RedeemCodeUsage, SecuritySecret, Setting, SubscriptionPlan,
-		TLSFingerprintProfile, UsageCleanupTask, UsageLog, User, UserAllowedGroup,
-		UserAttributeDefinition, UserAttributeValue, UserPlatformQuota,
-		UserSubscription []ent.Interceptor
+		ErrorPassthroughRule, Group, GroupRoutingScheme, GroupRoutingSchemeItem,
+		IPv6EgressPool, IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog,
+		PaymentOrder, PaymentProviderInstance, PendingAuthSession, PromoCode,
+		PromoCodeUsage, Proxy, RedeemCode, RedeemCodeUsage, SecuritySecret, Setting,
+		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
+		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
+		UserPlatformQuota, UserSubscription []ent.Interceptor
 	}
 )
 

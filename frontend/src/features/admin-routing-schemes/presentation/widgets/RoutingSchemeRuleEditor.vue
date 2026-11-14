@@ -303,17 +303,22 @@ const toggleErrorClass = (rule: RoutingSchemeRule, errorClass: RoutingRuleErrorC
       </div>
 
       <div class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[11px] text-gray-600 dark:text-gray-300">
-        <span>{{ t('admin.routingSchemes.policy.cooldown') }}</span>
-        <input
-          :value="rule.action.cooldown_seconds"
-          type="number"
-          min="5"
-          max="86400"
-          step="5"
-          class="input h-7 w-20 px-2 py-0 text-center text-xs"
-          @input="updateCooldown(rule, $event)"
-        />
-        <span>{{ t('admin.routingSchemes.policy.secondsThenRecover') }}</span>
+        <template v-if="rule.action.kind === 'cooldown'">
+          <span>{{ t('admin.routingSchemes.policy.cooldown') }}</span>
+          <input
+            :value="rule.action.cooldown_seconds"
+            type="number"
+            min="5"
+            max="86400"
+            step="5"
+            class="input h-7 w-20 px-2 py-0 text-center text-xs"
+            @input="updateCooldown(rule, $event)"
+          />
+          <span>{{ t('admin.routingSchemes.policy.secondsThenRecover') }}</span>
+        </template>
+        <span v-else class="text-gray-500 dark:text-gray-400">
+          {{ t('admin.routingSchemes.policy.actionHints.failover') }}
+        </span>
       </div>
     </div>
 

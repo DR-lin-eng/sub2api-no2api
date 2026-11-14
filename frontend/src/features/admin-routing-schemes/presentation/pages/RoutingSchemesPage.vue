@@ -20,15 +20,15 @@ import type {
   RoutingSchemeItem,
 } from '../../data/dtos/routingSchemeDtos'
 import {
-  ensurePreviewSchemes,
-  useRoutingSchemePreviewStore,
-} from '../stores/routingSchemePreviewStore'
-import { previewGroupScore, scorePercent } from '../../data/routingScorePreview'
+  useRoutingSchemeStore,
+} from '../stores/routingSchemeStore'
+import { scorePercent } from '../../data/routingScorePreview'
 import RoutingSchemeEditorDialog from '../widgets/RoutingSchemeEditorDialog.vue'
+import RoutingSchemeAnalyticsDialog from '../widgets/RoutingSchemeAnalyticsDialog.vue'
 
 const { t } = useI18n()
 const appStore = useAppStore()
-const store = useRoutingSchemePreviewStore()
+const store = useRoutingSchemeStore()
 
 const groups = ref<RoutingSchemeGroupOption[]>([])
 const loading = ref(false)
@@ -39,18 +39,10 @@ const showEditor = ref(false)
 const editingScheme = ref<RoutingScheme | null>(null)
 const saving = ref(false)
 const deleteTarget = ref<RoutingScheme | null>(null)
+const analyticsScheme = ref<RoutingScheme | null>(null)
 
 const schemeGroups = computed(() => groups.value)
 const groupMap = computed(() => new Map(groups.value.map(group => [group.id, group])))
-
-const seedLabels = computed(() => ({
-  stable: t('admin.routingSchemes.seed.stable'),
-  value: t('admin.routingSchemes.seed.value'),
-  cheap: t('admin.routingSchemes.seed.cheap'),
-  stableDescription: t('admin.routingSchemes.seed.stableDescription'),
-  valueDescription: t('admin.routingSchemes.seed.valueDescription'),
-  cheapDescription: t('admin.routingSchemes.seed.cheapDescription'),
-}))
 
 const platformOptions = computed(() => {
   const values = new Set<GroupPlatform>(groups.value.map(group => group.platform))
@@ -81,27 +73,36 @@ const filteredSchemes = computed(() => {
   })
 })
 
-const groupsFor = (scheme: RoutingScheme) => scheme.items
-  .map(item => ({ ...item, group: groupMap.value.get(item.group_id) }))
-  .filter((item): item is RoutingSchemeItem & { group: RoutingSchemeGroupOption } => !!item.group)
+const groupsFor = (scheme: RoutingScheme): Array<RoutingSchemeItem & { group: RoutingSchemeGroupOption }> =>
+  scheme.items.map((item) => {
+    const group: RoutingSchemeGroupOption = groupMap.value.get(item.group_id) ?? {
+      id: item.group_id,
+      name: item.group_name || `#${item.group_id}`,
+      platform: item.platform ?? scheme.platform,
+      status: 'inactive',
+      subscription_type: 'standard',
+      rate_multiplier: item.rate_multiplier,
+    }
+    return { ...item, group }
+  })
 
 const ruleCount = (scheme: RoutingScheme) =>
   scheme.items.reduce((sum, item) => sum + (item.rules?.length ?? 0), 0)
 
-const scoresFor = (scheme: RoutingScheme) => scheme.items.map(item =>
-  previewGroupScore(item.group_id, groupMap.value.get(item.group_id)?.name ?? ''),
-)
+const scoresFor = (scheme: RoutingScheme) =>
+  scheme.items.map(item => (item.score == null ? 0 : Math.round(item.score)))
 
 const averageScore = (scheme: RoutingScheme): number => {
   const scores = scoresFor(scheme)
   if (scores.length === 0) return 0
-  return Math.round(scores.reduce((sum, score) => sum + score.overall, 0) / scores.length)
+  return Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length)
 }
 
 const percentOf = (scheme: RoutingScheme, groupID: number): number => {
   const scores = scoresFor(scheme)
-  const current = scores[scheme.items.findIndex(item => item.group_id === groupID)]
-  return scorePercent(current?.overall ?? 0, scores.map(score => score.overall))
+  const current = scheme.items.find(item => item.group_id === groupID)
+  if (!current) return 0
+  return scorePercent(current.score == null ? 0 : Math.round(current.score), scores)
 }
 
 const loadGroups = async () => {
@@ -119,7 +120,7 @@ const loadGroups = async () => {
         rate_multiplier: group.rate_multiplier,
         description: group.description ?? null,
       }))
-    ensurePreviewSchemes(groups.value, seedLabels.value)
+    await store.load(true)
   } catch {
     appStore.showError(t('admin.routingSchemes.loadFailed'))
   } finally {
@@ -143,38 +144,50 @@ const closeEditor = () => {
   editingScheme.value = null
 }
 
-const handleSave = (draft: RoutingSchemeDraft) => {
+const handleSave = async (draft: RoutingSchemeDraft) => {
+  if (saving.value) return
   saving.value = true
+  let saved = false
   try {
     if (editingScheme.value) {
-      store.updateScheme(editingScheme.value.id, draft)
+      await store.updateScheme(editingScheme.value.id, draft)
       appStore.showSuccess(t('admin.routingSchemes.updateSuccess'))
     } else {
-      store.createScheme(draft)
+      await store.createScheme(draft)
       appStore.showSuccess(t('admin.routingSchemes.createSuccess'))
     }
-    closeEditor()
+    saved = true
   } catch {
     appStore.showError(t('admin.routingSchemes.saveFailed'))
   } finally {
     saving.value = false
   }
+  // closeEditor refuses to run while saving, so close only after the flag flips.
+  if (saved) closeEditor()
 }
 
-const toggleScheme = (scheme: RoutingScheme) => {
-  store.toggleScheme(scheme.id)
-  appStore.showSuccess(t(
-    scheme.status === 'active'
-      ? 'admin.routingSchemes.disabledSuccess'
-      : 'admin.routingSchemes.enabledSuccess',
-  ))
+const toggleScheme = async (scheme: RoutingScheme) => {
+  try {
+    await store.toggleScheme(scheme)
+    appStore.showSuccess(t(
+      scheme.status === 'active'
+        ? 'admin.routingSchemes.disabledSuccess'
+        : 'admin.routingSchemes.enabledSuccess',
+    ))
+  } catch {
+    appStore.showError(t('admin.routingSchemes.saveFailed'))
+  }
 }
 
-const confirmDelete = () => {
+const confirmDelete = async () => {
   if (!deleteTarget.value) return
-  store.deleteScheme(deleteTarget.value.id)
-  appStore.showSuccess(t('admin.routingSchemes.deleteSuccess'))
-  deleteTarget.value = null
+  try {
+    await store.deleteScheme(deleteTarget.value.id)
+    appStore.showSuccess(t('admin.routingSchemes.deleteSuccess'))
+    deleteTarget.value = null
+  } catch {
+    appStore.showError(t('admin.routingSchemes.saveFailed'))
+  }
 }
 
 onMounted(loadGroups)
@@ -186,24 +199,16 @@ onMounted(loadGroups)
       <section class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-dark-700 dark:bg-dark-900">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div class="max-w-2xl">
-            <div class="flex flex-wrap items-center gap-2">
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-                {{ t('admin.routingSchemes.title') }}
-              </h2>
-              <span class="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
-                {{ t('admin.routingSchemes.previewBadge') }}
-              </span>
-            </div>
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+              {{ t('admin.routingSchemes.title') }}
+            </h2>
             <p class="mt-1 text-sm leading-6 text-gray-500 dark:text-gray-400">
               {{ t('admin.routingSchemes.description') }}
             </p>
-            <p class="mt-2 text-xs leading-5 text-amber-600 dark:text-amber-400">
-              {{ t('admin.routingSchemes.previewNotice') }}
-            </p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
-            <button class="btn btn-secondary" :disabled="loading" @click="loadGroups">
-              <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
+            <button class="btn btn-secondary" :disabled="loading || store.loading.value" @click="loadGroups">
+              <Icon name="refresh" size="md" :class="loading || store.loading.value ? 'animate-spin' : ''" />
             </button>
             <button class="btn btn-primary" :disabled="groups.length === 0" @click="openCreate">
               <Icon name="plus" size="md" class="mr-2" />
@@ -268,6 +273,14 @@ onMounted(loadGroups)
               </div>
             </div>
             <div class="flex flex-shrink-0 items-center gap-1">
+              <button
+                class="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-sky-600 dark:hover:bg-dark-700 dark:hover:text-sky-400"
+                :title="t('admin.routingSchemes.analytics.open')"
+                :data-test="`routing-scheme-analytics-${scheme.id}`"
+                @click="analyticsScheme = scheme"
+              >
+                <Icon name="chartBar" size="sm" />
+              </button>
               <button
                 class="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-primary-600 dark:hover:bg-dark-700 dark:hover:text-primary-400"
                 :title="t('common.edit')"
@@ -350,7 +363,6 @@ onMounted(loadGroups)
 
           <div class="mt-auto flex items-center justify-between border-t border-gray-100 pt-3 text-[11px] text-gray-400 dark:border-dark-800 dark:text-gray-500">
             <span>{{ t('admin.routingSchemes.updatedAt', { time: formatDateTime(scheme.updated_at) }) }}</span>
-            <span>{{ t('admin.routingSchemes.previewTag') }}</span>
           </div>
         </article>
       </div>
@@ -372,6 +384,12 @@ onMounted(loadGroups)
       :saving="saving"
       @close="closeEditor"
       @save="handleSave"
+    />
+
+    <RoutingSchemeAnalyticsDialog
+      :show="!!analyticsScheme"
+      :scheme="analyticsScheme"
+      @close="analyticsScheme = null"
     />
 
     <ConfirmDialog

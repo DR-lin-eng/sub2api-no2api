@@ -62,6 +62,7 @@ export async function getById(id: number): Promise<ApiKey> {
  * @param expiresInDays - Optional days until expiry (undefined = never expires)
  * @param rateLimitData - Optional rate limit fields
  * @param groupBindings - Ordered group candidates for routing fallback
+ * @param routingSchemeId - Optional backend-managed routing scheme opt-in
  * @returns Created API key
  */
 export async function create(
@@ -73,7 +74,8 @@ export async function create(
   quota?: number,
   expiresInDays?: number,
   rateLimitData?: { rate_limit_5h?: number; rate_limit_1d?: number; rate_limit_7d?: number },
-  groupBindings?: ApiKeyGroupBinding[]
+  groupBindings?: ApiKeyGroupBinding[],
+  routingSchemeId?: number | null
 ): Promise<ApiKey> {
   const payload: CreateApiKeyRequest = { name }
   if (groupId !== undefined) {
@@ -81,6 +83,9 @@ export async function create(
   }
   if (groupBindings !== undefined) {
     payload.group_bindings = groupBindings
+  }
+  if (routingSchemeId && routingSchemeId > 0) {
+    payload.routing_scheme_id = routingSchemeId
   }
   if (customKey) {
     payload.custom_key = customKey

@@ -1,10 +1,8 @@
 /**
- * UI preview for the backend-computed group score.
+ * Read-only presentation helpers for the backend-computed group score.
  *
- * The real score is produced by the backend from recent requests (first-token
- * latency, success rate, error rate and other dimensions). Until that API is
- * wired, derive a stable sample score from the group identity so the admin UI
- * can render the real layout.
+ * The score itself comes from `/admin/routing-schemes`; this module only keeps
+ * the shared shape and the percentage/color mapping used by the admin UI.
  */
 export interface RoutingGroupScore {
   /** 0-100 composite score used to normalize the scheduling share. */
@@ -15,33 +13,7 @@ export interface RoutingGroupScore {
   error_count: number
   sample_count: number
   window_seconds: number
-}
-
-const SCORE_WINDOW_SECONDS = 900
-
-function sampleRatio(groupID: number, name: string): number {
-  const input = `${groupID}:${name}`
-  let hash = 2166136261
-  for (let i = 0; i < input.length; i += 1) {
-    hash ^= input.charCodeAt(i)
-    hash = Math.imul(hash, 16777619)
-  }
-  return ((hash >>> 0) % 1000) / 1000
-}
-
-export function previewGroupScore(groupID: number, name = ''): RoutingGroupScore {
-  const ratio = sampleRatio(groupID, name)
-  const successRate = Math.round((95.5 + ratio * 4.4) * 10) / 10
-  const sampleCount = 60 + Math.round(ratio * 500)
-  return {
-    overall: Math.round(68 + ratio * 30),
-    ttft_seconds: Math.round((0.6 + (1 - ratio) * 3.4) * 10) / 10,
-    success_rate: successRate,
-    error_rate: Math.round((100 - successRate) * 10) / 10,
-    error_count: Math.round(sampleCount * (100 - successRate) / 100),
-    sample_count: sampleCount,
-    window_seconds: SCORE_WINDOW_SECONDS,
-  }
+  cold_start?: boolean
 }
 
 export function scorePercent(score: number, scores: number[]): number {

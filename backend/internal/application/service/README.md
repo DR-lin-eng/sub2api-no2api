@@ -125,7 +125,8 @@ Claude 指纹的 UTF-16 前缀、Gemini fileData 计图、DeepSeek Pro/缓存读
 名单缓存和别名规则继续使用当前注册 owner。请求解析快照和无修改 thinking 预检分别在
 `gateway_request_state.go`、`gateway_thinking_precheck.go`。`openai_account_eligibility.go` 保存当前候选准入规则，
 `auth_registration_email_blacklist.go` 保存认证入口的邮箱策略钩子，避免继续扩大兼容大文件。`openai_privacy_group.go` 保存请求所属分组的
-只读隐私条件，鉴权 v27 同时携带已确认的 RPM 分组。`billing_notification_worker.go` 只处理提醒，
+只读隐私条件，鉴权 v29 在 v28 的方案 opt-in、展开候选基础上携带候选分组的分发权重；`apiKeyGroupRoutingCandidates` 用该权重与 `sessionHash` 做加权 Rendezvous，同一会话稳定命中同一分组，不同会话按分数占比分布，传统 `group_bindings`（无权重）仍按配置优先级回落。`routing_scheme_service.go` 持有方案 CRUD、用户侧摘要投影与方案流量分析，`routing_scheme_scheduler.go` 持有综合评分、排序规则与冷却求值；方案只通过候选分组汇入既有调度，
+不会写回 `api_keys.group_bindings`。`billing_notification_worker.go` 只处理提醒，
 `gateway_platform_quota_persistence.go` 留在计费 worker 内执行。共享摘要缓存的主动过期与内存边界由
 `session_memory_cache.go` 管理；已有 OpenAI 兼容会话缓存继续由原 owner 管理。
 关闭/暂缓边界与 Docker 证据见 [同步审查](../../../../docs/UPSTREAM_SYNC_20261107.md)。

@@ -15,12 +15,15 @@ type APIKeyAuthSnapshot struct {
 	UserID        int64                            `json:"user_id"`
 	GroupID       *int64                           `json:"group_id,omitempty"`
 	GroupBindings []APIKeyAuthGroupBindingSnapshot `json:"group_bindings,omitempty"`
-	Name          string                           `json:"name"`
-	Status        string                           `json:"status"`
-	IPWhitelist   []string                         `json:"ip_whitelist,omitempty"`
-	IPBlacklist   []string                         `json:"ip_blacklist,omitempty"`
-	User          APIKeyAuthUserSnapshot           `json:"user"`
-	Group         *APIKeyAuthGroupSnapshot         `json:"group,omitempty"`
+	// RoutingSchemeID is kept so restored runtime keys retain their scheme
+	// opt-in even when the snapshot carries expanded candidates.
+	RoutingSchemeID *int64                   `json:"routing_scheme_id,omitempty"`
+	Name            string                   `json:"name"`
+	Status          string                   `json:"status"`
+	IPWhitelist     []string                 `json:"ip_whitelist,omitempty"`
+	IPBlacklist     []string                 `json:"ip_blacklist,omitempty"`
+	User            APIKeyAuthUserSnapshot   `json:"user"`
+	Group           *APIKeyAuthGroupSnapshot `json:"group,omitempty"`
 
 	// Quota fields for API Key independent quota feature
 	Quota     float64 `json:"quota"`      // Quota limit in USD (0 = unlimited)
@@ -41,6 +44,7 @@ type APIKeyAuthSnapshot struct {
 type APIKeyAuthGroupBindingSnapshot struct {
 	domain.APIKeyGroupBinding
 	EffectiveRateMultiplier float64                  `json:"effective_rate_multiplier"`
+	Weight                  int                      `json:"weight,omitempty"`
 	Group                   *APIKeyAuthGroupSnapshot `json:"group,omitempty"`
 }
 

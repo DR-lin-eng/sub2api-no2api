@@ -37,6 +37,12 @@ type APIKey struct {
 	// GroupBindings is ordered. GroupID always mirrors its first item for
 	// compatibility with older instances and clients.
 	GroupBindings []APIKeyGroupBinding
+	// RoutingSchemeID opts into a backend-managed group routing scheme. It is
+	// independent from the legacy ordered group bindings above.
+	RoutingSchemeID *int64
+	// RoutingScheme is the read-only display projection resolved on read. It
+	// never carries the scheme's internal groups.
+	RoutingScheme *APIKeyRoutingSchemeSummary
 	Status        string
 	IPWhitelist   []string
 	IPBlacklist   []string
@@ -76,6 +82,10 @@ type APIKeyGroupBinding struct {
 	domain.APIKeyGroupBinding
 	Group                   *Group  `json:"-"`
 	EffectiveRateMultiplier float64 `json:"effective_rate_multiplier"`
+	// Weight is a transient scheduling weight. Routing schemes expand their
+	// items into bindings with this field set; legacy group_bindings leave it 0
+	// and keep their configured priority order.
+	Weight int `json:"-"`
 }
 
 func (k *APIKey) CloneForRequest() *APIKey {

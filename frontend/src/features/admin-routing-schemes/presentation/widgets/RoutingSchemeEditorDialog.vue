@@ -13,6 +13,7 @@ import type {
   RoutingSchemeItem,
   RoutingSchemeStatus,
 } from '../../data/dtos/routingSchemeDtos'
+import { listGroupScores } from '../../data/datasources/routingSchemeQueries'
 import RoutingSchemeGroupPicker from './RoutingSchemeGroupPicker.vue'
 
 const props = withDefaults(defineProps<{
@@ -69,6 +70,42 @@ const reset = () => {
 watch(() => props.show, (show) => {
   if (show) reset()
 }, { immediate: true })
+
+let scoreRequestSeq = 0
+const mergeGroupScores = async () => {
+  const ids = Array.from(new Set(
+    form.value.items.map(item => item.group_id).filter(id => id > 0),
+  ))
+  if (ids.length === 0) return
+  const seq = ++scoreRequestSeq
+  try {
+    const scores = await listGroupScores(ids)
+    if (seq !== scoreRequestSeq) return
+    const byID = new Map(scores.map(score => [score.group_id, score]))
+    form.value.items = form.value.items.map((item) => {
+      const score = byID.get(item.group_id)
+      if (!score) return item
+      return {
+        ...item,
+        score: score.score,
+        p95_ttft_ms: score.p95_ttft_ms,
+        failure_rate: score.failure_rate,
+        failure_count: score.failure_count,
+        sample_count: score.sample_count,
+        cold_start: score.cold_start,
+      }
+    })
+  } catch {
+    // Keep the last known metrics; the editor still works without them.
+  }
+}
+
+// Pull read-only scores as soon as the selected group set changes, including
+// before the scheme is saved for the first time.
+watch(
+  () => form.value.items.map(item => item.group_id).join(','),
+  () => { void mergeGroupScores() },
+)
 
 const platformOptions = computed(() => {
   const platforms = new Set<GroupPlatform>(props.groups.map(group => group.platform))

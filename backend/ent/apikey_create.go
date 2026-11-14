@@ -106,6 +106,20 @@ func (_c *APIKeyCreate) SetGroupBindings(v []domain.APIKeyGroupBinding) *APIKeyC
 	return _c
 }
 
+// SetRoutingSchemeID sets the "routing_scheme_id" field.
+func (_c *APIKeyCreate) SetRoutingSchemeID(v int64) *APIKeyCreate {
+	_c.mutation.SetRoutingSchemeID(v)
+	return _c
+}
+
+// SetNillableRoutingSchemeID sets the "routing_scheme_id" field if the given value is not nil.
+func (_c *APIKeyCreate) SetNillableRoutingSchemeID(v *int64) *APIKeyCreate {
+	if v != nil {
+		_c.SetRoutingSchemeID(*v)
+	}
+	return _c
+}
+
 // SetStatus sets the "status" field.
 func (_c *APIKeyCreate) SetStatus(v string) *APIKeyCreate {
 	_c.mutation.SetStatus(v)
@@ -572,6 +586,10 @@ func (_c *APIKeyCreate) createSpec() (*APIKey, *sqlgraph.CreateSpec) {
 		_spec.SetField(apikey.FieldGroupBindings, field.TypeJSON, value)
 		_node.GroupBindings = value
 	}
+	if value, ok := _c.mutation.RoutingSchemeID(); ok {
+		_spec.SetField(apikey.FieldRoutingSchemeID, field.TypeInt64, value)
+		_node.RoutingSchemeID = &value
+	}
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(apikey.FieldStatus, field.TypeString, value)
 		_node.Status = value
@@ -841,6 +859,30 @@ func (u *APIKeyUpsert) UpdateGroupBindings() *APIKeyUpsert {
 // ClearGroupBindings clears the value of the "group_bindings" field.
 func (u *APIKeyUpsert) ClearGroupBindings() *APIKeyUpsert {
 	u.SetNull(apikey.FieldGroupBindings)
+	return u
+}
+
+// SetRoutingSchemeID sets the "routing_scheme_id" field.
+func (u *APIKeyUpsert) SetRoutingSchemeID(v int64) *APIKeyUpsert {
+	u.Set(apikey.FieldRoutingSchemeID, v)
+	return u
+}
+
+// UpdateRoutingSchemeID sets the "routing_scheme_id" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdateRoutingSchemeID() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldRoutingSchemeID)
+	return u
+}
+
+// AddRoutingSchemeID adds v to the "routing_scheme_id" field.
+func (u *APIKeyUpsert) AddRoutingSchemeID(v int64) *APIKeyUpsert {
+	u.Add(apikey.FieldRoutingSchemeID, v)
+	return u
+}
+
+// ClearRoutingSchemeID clears the value of the "routing_scheme_id" field.
+func (u *APIKeyUpsert) ClearRoutingSchemeID() *APIKeyUpsert {
+	u.SetNull(apikey.FieldRoutingSchemeID)
 	return u
 }
 
@@ -1305,6 +1347,34 @@ func (u *APIKeyUpsertOne) UpdateGroupBindings() *APIKeyUpsertOne {
 func (u *APIKeyUpsertOne) ClearGroupBindings() *APIKeyUpsertOne {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.ClearGroupBindings()
+	})
+}
+
+// SetRoutingSchemeID sets the "routing_scheme_id" field.
+func (u *APIKeyUpsertOne) SetRoutingSchemeID(v int64) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetRoutingSchemeID(v)
+	})
+}
+
+// AddRoutingSchemeID adds v to the "routing_scheme_id" field.
+func (u *APIKeyUpsertOne) AddRoutingSchemeID(v int64) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.AddRoutingSchemeID(v)
+	})
+}
+
+// UpdateRoutingSchemeID sets the "routing_scheme_id" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdateRoutingSchemeID() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateRoutingSchemeID()
+	})
+}
+
+// ClearRoutingSchemeID clears the value of the "routing_scheme_id" field.
+func (u *APIKeyUpsertOne) ClearRoutingSchemeID() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.ClearRoutingSchemeID()
 	})
 }
 
@@ -1985,6 +2055,34 @@ func (u *APIKeyUpsertBulk) UpdateGroupBindings() *APIKeyUpsertBulk {
 func (u *APIKeyUpsertBulk) ClearGroupBindings() *APIKeyUpsertBulk {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.ClearGroupBindings()
+	})
+}
+
+// SetRoutingSchemeID sets the "routing_scheme_id" field.
+func (u *APIKeyUpsertBulk) SetRoutingSchemeID(v int64) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetRoutingSchemeID(v)
+	})
+}
+
+// AddRoutingSchemeID adds v to the "routing_scheme_id" field.
+func (u *APIKeyUpsertBulk) AddRoutingSchemeID(v int64) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.AddRoutingSchemeID(v)
+	})
+}
+
+// UpdateRoutingSchemeID sets the "routing_scheme_id" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdateRoutingSchemeID() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateRoutingSchemeID()
+	})
+}
+
+// ClearRoutingSchemeID clears the value of the "routing_scheme_id" field.
+func (u *APIKeyUpsertBulk) ClearRoutingSchemeID() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.ClearRoutingSchemeID()
 	})
 }
 

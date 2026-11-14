@@ -61,6 +61,7 @@ func (r *apiKeyRepository) createAPIKey(ctx context.Context, client *dbent.Clien
 		SetStatus(key.Status).
 		SetNillableGroupID(key.GroupID).
 		SetGroupBindings(apiKeyGroupBindingsToDomain(key.GroupBindings)).
+		SetNillableRoutingSchemeID(key.RoutingSchemeID).
 		SetNillableLastUsedAt(key.LastUsedAt).
 		SetQuota(key.Quota).
 		SetQuotaUsed(key.QuotaUsed).
@@ -148,6 +149,7 @@ func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*se
 			apikey.FieldUserID,
 			apikey.FieldGroupID,
 			apikey.FieldGroupBindings,
+			apikey.FieldRoutingSchemeID,
 			apikey.FieldName,
 			apikey.FieldStatus,
 			apikey.FieldIPWhitelist,
@@ -317,6 +319,13 @@ func (r *apiKeyRepository) Update(ctx context.Context, key *service.APIKey, fiel
 	}
 	if fields.GroupBindings {
 		builder.SetGroupBindings(apiKeyGroupBindingsToDomain(key.GroupBindings))
+	}
+	if fields.RoutingSchemeID {
+		if key.RoutingSchemeID != nil {
+			builder.SetRoutingSchemeID(*key.RoutingSchemeID)
+		} else {
+			builder.ClearRoutingSchemeID()
+		}
 	}
 
 	// Expiration time
@@ -714,6 +723,26 @@ func (r *apiKeyRepository) ClearGroupIDByGroupID(ctx context.Context, groupID in
 }
 
 // UpdateGroupIDByUserAndGroup 将用户下绑定 oldGroupID 的所有 Key 迁移到 newGroupID
+func (r *apiKeyRepository) ListKeysByRoutingSchemeID(ctx context.Context, schemeID int64) ([]string, error) {
+	if schemeID <= 0 {
+		return nil, nil
+	}
+	rows, err := r.activeQuery().
+		Where(apikey.RoutingSchemeIDEQ(schemeID)).
+		Select(apikey.FieldKey).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, 0, len(rows))
+	for _, row := range rows {
+		if row.Key != "" {
+			out = append(out, row.Key)
+		}
+	}
+	return out, nil
+}
+
 func (r *apiKeyRepository) UpdateGroupIDByUserAndGroup(ctx context.Context, userID, oldGroupID, newGroupID int64) (int64, error) {
 	client := clientFromContext(ctx, r.client)
 	keys, err := client.APIKey.Query().
@@ -992,6 +1021,7 @@ func apiKeyEntityToService(m *dbent.APIKey) *service.APIKey {
 		UpdatedAt:        m.UpdatedAt,
 		GroupID:          m.GroupID,
 		GroupBindings:    apiKeyGroupBindingsFromDomain(m.GroupBindings, m.GroupID),
+		RoutingSchemeID:  m.RoutingSchemeID,
 		Quota:            m.Quota,
 		QuotaUsed:        m.QuotaUsed,
 		ExpiresAt:        m.ExpiresAt,
