@@ -61,6 +61,11 @@ func (s *OpenAIGatewayService) doAccountHTTPUpstream(
 			return nil, err
 		}
 	}
+	if req != nil {
+		if err := checkOpenAIRequestCurrent(req.Context()); err != nil {
+			return nil, err
+		}
+	}
 	if isOpenAIUsageModelCall(req, account) {
 		s.notifyOpenAIUsageActivity(account)
 	}

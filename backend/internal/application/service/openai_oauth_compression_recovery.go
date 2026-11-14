@@ -3,9 +3,13 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"errors"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/Wei-Shaw/sub2api/internal/shared/httputil"
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
@@ -63,7 +67,13 @@ func (s *OpenAIGatewayService) doOpenAIResponsesWithCompressionRecovery(
 	// metadata, continuation IDs or headers; the encoding is the only difference
 	// here. Reuse the bounded ingress decoder and keep GetBody/length consistent.
 	retryReq, body, decodeErr := newOpenAIIdentityEncodingRequest(req)
-	if decodeErr != nil || !openAIWSHTTPReplaySafeBody(body) ||
+	if decodeErr != nil {
+		logger.LegacyPrintf("service.openai_gateway",
+			"[OpenAI] Rejected zstd request snapshot is invalid: account_id=%d status=%d error=%v",
+			account.ID, resp.StatusCode, decodeErr)
+		return resp, nil
+	}
+	if !openAIWSHTTPReplaySafeBody(body) ||
 		!s.openAIOAuthCompressionRecoveryAllowed(ctx, c, req, account) {
 		return resp, nil
 	}
@@ -77,8 +87,8 @@ func (s *OpenAIGatewayService) doOpenAIResponsesWithCompressionRecovery(
 	c.Set(openAIOAuthIdentityEncodingAccountKey, account.ID)
 	_ = resp.Body.Close()
 	logger.LegacyPrintf("service.openai_gateway",
-		"[OpenAI] Retrying rejected zstd request once with identity encoding: account_id=%d status=%d upstream_request_id=%s",
-		account.ID, resp.StatusCode, resp.Header.Get("x-request-id"))
+		"[OpenAI] Retrying rejected zstd request once with identity encoding: account_id=%d status=%d upstream_request_id=%s pre_compression_bytes=%d post_compression_bytes=%d json_sha256=%x",
+		account.ID, resp.StatusCode, resp.Header.Get("x-request-id"), len(body), req.ContentLength, sha256.Sum256(body))
 	// This remains on the same selected account/proxy and passes through the
 	// ordinary deadline, keepalive, OAuth admission and per-send proof lifecycle.
 	return s.doOpenAIResponsesUpstream(ctx, c, retryReq, proxyURL, account, stream)
@@ -91,10 +101,26 @@ func newOpenAIIdentityEncodingRequest(req *http.Request) (*http.Request, []byte,
 	if err != nil {
 		return nil, nil, err
 	}
+	// Validate the bytes actually sent, rather than trusting the declared size
+	// or accepting a successful JSON prefix from a truncated/stacked encoding.
+	snapshot := &openAICompressionSnapshotReader{ReadCloser: retryReq.Body}
+	retryReq.Body = snapshot
 	body, err := httputil.ReadRequestBodyWithPrealloc(retryReq)
 	_ = retryReq.Body.Close()
 	if err != nil {
 		return nil, nil, err
+	}
+	if req.ContentLength >= 0 && req.ContentLength != snapshot.bytesRead {
+		return nil, nil, errors.New("compressed request snapshot length mismatch")
+	}
+	if length := req.Header.Get("Content-Length"); length != "" {
+		declared, err := strconv.ParseInt(length, 10, 64)
+		if err != nil || declared != snapshot.bytesRead {
+			return nil, nil, errors.New("compressed request snapshot Content-Length mismatch")
+		}
+	}
+	if !utf8.Valid(body) || !gjson.ValidBytes(body) || !gjson.ParseBytes(body).IsObject() {
+		return nil, nil, errors.New("compressed request snapshot is not a UTF-8 JSON object")
 	}
 	retryReq.GetBody = func() (io.ReadCloser, error) {
 		return io.NopCloser(bytes.NewReader(body)), nil
@@ -102,6 +128,17 @@ func newOpenAIIdentityEncodingRequest(req *http.Request) (*http.Request, []byte,
 	retryReq.Body, _ = retryReq.GetBody()
 	retryReq.TransferEncoding = nil
 	return retryReq, body, nil
+}
+
+type openAICompressionSnapshotReader struct {
+	io.ReadCloser
+	bytesRead int64
+}
+
+func (r *openAICompressionSnapshotReader) Read(p []byte) (int, error) {
+	n, err := r.ReadCloser.Read(p)
+	r.bytesRead += int64(n)
+	return n, err
 }
 
 func (s *OpenAIGatewayService) openAIOAuthCompressionRecoveryAllowed(ctx context.Context, c *gin.Context, req *http.Request, account *Account) bool {

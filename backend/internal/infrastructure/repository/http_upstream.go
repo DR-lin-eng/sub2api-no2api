@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/flate"
 	"compress/gzip"
+	"compress/zlib"
 	"context"
 	"crypto/sha256"
 	"crypto/tls"
@@ -1880,7 +1881,20 @@ func decompressResponseBody(resp *http.Response) {
 	case "br":
 		reader = brotli.NewReader(resp.Body)
 	case "deflate":
-		reader = flate.NewReader(resp.Body)
+		// HTTP deflate uses a zlib wrapper (RFC 9110). Retain compatibility
+		// with relays that historically sent raw DEFLATE under the same name.
+		bufferedBody := bufio.NewReader(resp.Body)
+		resp.Body = &decompressedBody{reader: bufferedBody, closer: originalBody}
+		header, _ := bufferedBody.Peek(2)
+		if len(header) == 2 && header[0]&0x0f == 8 && header[0]>>4 <= 7 && (uint16(header[0])<<8|uint16(header[1]))%31 == 0 {
+			zr, err := zlib.NewReader(bufferedBody)
+			if err != nil {
+				return
+			}
+			reader = zr
+		} else {
+			reader = flate.NewReader(bufferedBody)
+		}
 	case "zstd":
 		bufferedBody := bufio.NewReader(resp.Body)
 		resp.Body = &decompressedBody{reader: bufferedBody, closer: originalBody}
