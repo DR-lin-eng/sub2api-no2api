@@ -160,34 +160,13 @@ func TestPrepDeductBalanceRequiresForceWhenBalanceIsInsufficient(t *testing.T) {
 func TestExecuteRefundUsesActualAvailableBalanceDeduction(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)
-	user, err := client.User.Create().
-		SetEmail("refund-execute-clamp@example.com").
-		SetPasswordHash("hash").
-		SetUsername("refund-execute-clamp").
-		Save(ctx)
-	require.NoError(t, err)
-	order, err := client.PaymentOrder.Create().
-		SetUserID(user.ID).
-		SetUserEmail(user.Email).
-		SetUserName(user.Username).
-		SetAmount(100).
-		SetPayAmount(100).
-		SetFeeRate(0).
-		SetRechargeCode("REFUND-EXECUTE-CLAMP").
-		SetOutTradeNo("refund_execute_clamp").
-		SetPaymentType(payment.TypeStripe).
-		SetPaymentTradeNo("").
-		SetOrderType(payment.OrderTypeBalance).
-		SetStatus(OrderStatusCompleted).
-		SetExpiresAt(time.Now().Add(time.Hour)).
-		SetPaidAt(time.Now()).
-		SetClientIP("127.0.0.1").
-		SetSrcHost("api.example.com").
-		Save(ctx)
-	require.NoError(t, err)
+	order := createCompletedRefundableOrderForTest(t, ctx, client, "refund-execute-clamp")
+	prov := &paymentSuccessfulRefundProvider{}
+	restore := replacePaymentProviderFactoryForTest(t, prov)
+	defer restore()
 
 	repo := &mockUserRepo{deductAvailableBalanceFn: func(_ context.Context, id int64, amount float64) (float64, error) {
-		require.Equal(t, user.ID, id)
+		require.Equal(t, order.UserID, id)
 		require.Equal(t, 100.0, amount)
 		return 25, nil
 	}}
@@ -196,7 +175,7 @@ func TestExecuteRefundUsesActualAvailableBalanceDeduction(t *testing.T) {
 		Reason: "concurrent spend", Force: true, DeductionType: payment.DeductionTypeBalance, BalanceToDeduct: 100,
 	}
 
-	result, err := (&PaymentService{entClient: client, userRepo: repo}).ExecuteRefund(ctx, plan)
+	result, err := (&PaymentService{entClient: client, userRepo: repo, loadBalancer: &captureLoadBalancer{}}).ExecuteRefund(ctx, plan)
 	require.NoError(t, err)
 	require.True(t, result.Success)
 	require.Equal(t, 25.0, plan.BalanceToDeduct)
@@ -386,7 +365,7 @@ func TestFinishRefundPendingMarksOrderPendingAndHoldsDeduction(t *testing.T) {
 }
 
 func TestFinishRefundSuccessStatusesFinalize(t *testing.T) {
-	for _, status := range []string{payment.ProviderStatusSuccess, payment.ProviderStatusRefunded} {
+	for _, status := range []string{payment.ProviderStatusSuccess, payment.ProviderStatusRefunded, " success "} {
 		t.Run(status, func(t *testing.T) {
 			ctx := context.Background()
 			client := newPaymentConfigServiceTestClient(t)
@@ -449,7 +428,11 @@ func TestFinishRefundSuccessStatusesFinalize(t *testing.T) {
 				Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(order.ID, 10)), paymentauditlog.ActionEQ("REFUND_PENDING")).
 				Count(ctx)
 			require.NoError(t, err)
-			require.Zero(t, pendingAudits)
+			require.Equal(t, 1, pendingAudits, "successful gateway receipt is retained before local settlement")
+			detail, err := svc.latestRefundPendingDetail(ctx, order.ID)
+			require.NoError(t, err)
+			require.True(t, detail.GatewayConfirmed)
+			require.True(t, detail.DeductionHeld)
 		})
 	}
 }

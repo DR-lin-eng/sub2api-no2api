@@ -36,6 +36,7 @@ const (
 	AdminAPIKeyScopeAuditWrite    = "admin.audit.write"
 	AdminAPIKeyScopeOpsRead       = "admin.ops.read"
 	AdminAPIKeyScopeOpsWrite      = "admin.ops.write"
+	AdminAPIKeyScopeRedeemSecrets = "admin.redeem.secrets"
 )
 
 var AdminAPIKeyScopes = []string{
@@ -47,6 +48,7 @@ var AdminAPIKeyScopes = []string{
 	AdminAPIKeyScopeSystemRead, AdminAPIKeyScopeSystemWrite,
 	AdminAPIKeyScopeAuditRead, AdminAPIKeyScopeAuditWrite,
 	AdminAPIKeyScopeOpsRead, AdminAPIKeyScopeOpsWrite,
+	AdminAPIKeyScopeRedeemSecrets,
 }
 
 type AdminAPIKey struct {
@@ -178,10 +180,13 @@ func (s *SettingService) ListAdminAPIKeys(ctx context.Context) ([]AdminAPIKey, e
 	for i := range store.Keys {
 		result = append(result, cloneAdminAPIKey(&store.Keys[i]))
 	}
-	// Preserve the pre-scoped single-key setting as a read-only legacy entry.
+	// Preserve the pre-scoped key value; permissions default to read-only.
 	if legacy, err := s.settingRepo.GetValue(ctx, SettingKeyAdminAPIKey); err == nil && legacy != "" {
-		now := time.Now().UTC()
-		result = append(result, AdminAPIKey{ID: "legacy", Name: "Legacy Admin API Key", KeyPrefix: legacy[:adminMinInt(10, len(legacy))], LastFour: legacy[adminMaxInt(0, len(legacy)-4):], Scopes: []string{AdminAPIKeyScopeRead}, Status: "active", CreatedAt: now, UpdatedAt: now})
+		record, err := s.legacyAdminKeyRecord(ctx, legacy)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, cloneAdminAPIKey(record))
 	} else if err != nil && !errors.Is(err, ErrSettingNotFound) {
 		return nil, err
 	}
@@ -223,6 +228,9 @@ func (s *SettingService) CreateAdminAPIKey(ctx context.Context, input AdminAPIKe
 func (s *SettingService) UpdateAdminAPIKey(ctx context.Context, id string, input AdminAPIKeyUpdateInput) (AdminAPIKey, error) {
 	s.adminAPIKeyMu.Lock()
 	defer s.adminAPIKeyMu.Unlock()
+	if id == "legacy" {
+		return s.updateLegacyAdminKeyOptions(ctx, input)
+	}
 	store, err := s.readAdminAPIKeyStore(ctx)
 	if err != nil {
 		return AdminAPIKey{}, err
@@ -332,18 +340,32 @@ func (s *SettingService) AuthenticateAdminAPIKey(ctx context.Context, key string
 			return nil, errors.New("admin API key is inactive or expired")
 		}
 		record.LastUsedAt = &now
-		record.UpdatedAt = now
-		if err := s.writeAdminAPIKeyStore(ctx, store); err != nil {
-			return nil, err
+		// Authentication must never rewrite a stale credential store over a
+		// concurrent revoke/rotation on another node. Only update usage metadata
+		// in-place when the repository supports the narrow atomic operation.
+		if recorder, ok := s.settingRepo.(interface {
+			RecordAdminAPIKeyUsage(context.Context, string, string, time.Time) error
+		}); ok {
+			if err := recorder.RecordAdminAPIKeyUsage(ctx, record.ID, digest, now); err != nil {
+				return nil, err
+			}
 		}
 		keyCopy := cloneAdminAPIKey(record)
 		return &keyCopy, nil
 	}
-	// Backwards-compatible legacy key. It remains read-only until explicitly
-	// removed from the settings panel.
+	// Backwards-compatible legacy key. A full administrator can edit its
+	// permissions without changing the header used by existing integrations.
 	legacy, legacyErr := s.settingRepo.GetValue(ctx, SettingKeyAdminAPIKey)
 	if legacyErr == nil && subtle.ConstantTimeCompare([]byte(key), []byte(legacy)) == 1 {
-		return &AdminAPIKey{ID: "legacy", Name: "Legacy Admin API Key", KeyPrefix: legacy[:adminMinInt(10, len(legacy))], LastFour: legacy[adminMaxInt(0, len(legacy)-4):], Scopes: []string{AdminAPIKeyScopeRead}, Status: "active", CreatedAt: now, UpdatedAt: now}, nil
+		record, err := s.legacyAdminKeyRecord(ctx, legacy)
+		if err != nil {
+			return nil, err
+		}
+		if record.ExpiresAt != nil && !record.ExpiresAt.After(now) {
+			return nil, errors.New("admin API key is expired")
+		}
+		keyCopy := cloneAdminAPIKey(record)
+		return &keyCopy, nil
 	}
 	if legacyErr != nil && !errors.Is(legacyErr, ErrSettingNotFound) {
 		return nil, legacyErr

@@ -26,6 +26,8 @@
 
 邮件模板、面板限流、管理员 API Key、OAuth2 provider、独立网关策略、Web Search、SMTP 测试及主设置均已迁入明确 owner。`adminSettingsDatasource.ts` 仅服务旧 `src/api/admin` 兼容出口；新调用不得继续扩展 `settingsAPI`。
 
+管理员密钥面板提供独立“读取卡密”权限 `admin.redeem.secrets`，普通读写 scope 不会自动勾选它。已有 scoped/legacy 密钥均通过编辑接口更新权限，保持原密钥值；创建和轮换仍只展示一次完整值。scope 数组完整替换，编辑时保留已有选项。
+
 验证入口：
 
 ```sh

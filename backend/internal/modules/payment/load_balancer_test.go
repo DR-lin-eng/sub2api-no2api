@@ -102,13 +102,19 @@ func TestGetInstanceChannelLimitsFallsBackToLegacyDirectAliases(t *testing.T) {
 	t.Parallel()
 
 	inst := testInstance(1, TypeAlipay, makeLimitsJSON(TypeAlipayDirect, ChannelLimits{SingleMax: 66}))
-	got := getInstanceChannelLimits(inst, TypeAlipay)
+	got, err := GetInstanceChannelLimits(inst, TypeAlipay)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if got.SingleMax != 66 {
 		t.Fatalf("getInstanceChannelLimits() = %+v, want SingleMax=66", got)
 	}
 
 	wxInst := testInstance(2, TypeWxpay, makeLimitsJSON(TypeWxpayDirect, ChannelLimits{SingleMin: 8}))
-	wxGot := getInstanceChannelLimits(wxInst, TypeWxpay)
+	wxGot, err := GetInstanceChannelLimits(wxInst, TypeWxpay)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if wxGot.SingleMin != 8 {
 		t.Fatalf("getInstanceChannelLimits() = %+v, want SingleMin=8", wxGot)
 	}
@@ -388,6 +394,7 @@ func TestGetInstanceChannelLimits(t *testing.T) {
 		inst        *dbent.PaymentProviderInstance
 		paymentType PaymentType
 		want        ChannelLimits
+		wantErr     bool
 	}{
 		{
 			name:        "empty limits string returns zero ChannelLimits",
@@ -396,7 +403,8 @@ func TestGetInstanceChannelLimits(t *testing.T) {
 			want:        ChannelLimits{},
 		},
 		{
-			name:        "invalid JSON returns zero ChannelLimits",
+			name:        "invalid JSON rejects the provider limits",
+			wantErr:     true,
 			inst:        testInstance(1, "easypay", "not-json{"),
 			paymentType: "alipay",
 			want:        ChannelLimits{},
@@ -448,7 +456,16 @@ func TestGetInstanceChannelLimits(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := getInstanceChannelLimits(tt.inst, tt.paymentType)
+			got, err := GetInstanceChannelLimits(tt.inst, tt.paymentType)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected invalid limits error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
 			if got != tt.want {
 				t.Fatalf("getInstanceChannelLimits() = %+v, want %+v", got, tt.want)
 			}

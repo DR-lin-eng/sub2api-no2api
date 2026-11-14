@@ -818,6 +818,8 @@ export default {
       rebateRateHint: '被邀请用户每次充值后你可获得的返利比例',
       invitedUsers: '邀请人数',
       availableQuota: '可转返利额度',
+      debt: '返利欠额',
+      debtHint: '已转出后被退款追回的返利，将优先从后续返利抵扣，结清后可继续转入余额。',
       frozenQuota: '冻结中',
       frozenQuotaHint: '新产生的返利正在冻结期中',
       totalQuota: '历史返利额度'

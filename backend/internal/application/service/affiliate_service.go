@@ -65,6 +65,7 @@ type AffiliateSummary struct {
 	InviterID            *int64    `json:"inviter_id,omitempty"`
 	AffCount             int       `json:"aff_count"`
 	AffQuota             float64   `json:"aff_quota"`
+	AffDebt              float64   `json:"aff_debt"`
 	AffFrozenQuota       float64   `json:"aff_frozen_quota"`
 	AffHistoryQuota      float64   `json:"aff_history_quota"`
 	CreatedAt            time.Time `json:"created_at"`
@@ -85,6 +86,7 @@ type AffiliateDetail struct {
 	InviterID       *int64  `json:"inviter_id,omitempty"`
 	AffCount        int     `json:"aff_count"`
 	AffQuota        float64 `json:"aff_quota"`
+	AffDebt         float64 `json:"aff_debt"`
 	AffFrozenQuota  float64 `json:"aff_frozen_quota"`
 	AffHistoryQuota float64 `json:"aff_history_quota"`
 	// EffectiveRebateRatePercent 是当前用户作为邀请人时实际生效的返利比例：
@@ -201,6 +203,7 @@ type AffiliateUserOverview struct {
 	InvitedCount        int     `json:"invited_count"`
 	RebatedInviteeCount int     `json:"rebated_invitee_count"`
 	AvailableQuota      float64 `json:"available_quota"`
+	Debt                float64 `json:"debt"`
 	HistoryQuota        float64 `json:"history_quota"`
 }
 
@@ -210,6 +213,8 @@ type AffiliateService struct {
 	authCacheInvalidator APIKeyAuthCacheInvalidator
 	billingCacheService  *BillingCacheService
 }
+
+type affiliateBudgetLocked struct{}
 
 func NewAffiliateService(repo AffiliateRepository, settingService *SettingService, authCacheInvalidator APIKeyAuthCacheInvalidator, billingCacheService *BillingCacheService) *AffiliateService {
 	return &AffiliateService{
@@ -259,6 +264,7 @@ func (s *AffiliateService) GetAffiliateDetail(ctx context.Context, userID int64)
 		InviterID:                  summary.InviterID,
 		AffCount:                   summary.AffCount,
 		AffQuota:                   summary.AffQuota,
+		AffDebt:                    summary.AffDebt,
 		AffFrozenQuota:             summary.AffFrozenQuota,
 		AffHistoryQuota:            summary.AffHistoryQuota,
 		EffectiveRebateRatePercent: s.resolveRebateRatePercent(ctx, summary),
@@ -333,6 +339,19 @@ func (s *AffiliateService) AccrueInviteRebateForOrder(ctx context.Context, invit
 	}
 	if inviteeSummary.InviterID == nil || *inviteeSummary.InviterID <= 0 {
 		return 0, nil
+	}
+	if s.settingService != nil && s.settingService.GetAffiliateRebatePerInviteeCap(ctx) > 0 && ctx.Value(affiliateBudgetLocked{}) == nil {
+		if locker, ok := s.repo.(interface {
+			WithRebateBudget(context.Context, int64, func(context.Context) error) error
+		}); ok {
+			var amount float64
+			err := locker.WithRebateBudget(ctx, *inviteeSummary.InviterID, func(txCtx context.Context) error {
+				var err error
+				amount, err = s.AccrueInviteRebateForOrder(context.WithValue(txCtx, affiliateBudgetLocked{}, true), inviteeUserID, baseRechargeAmount, sourceOrderID)
+				return err
+			})
+			return amount, err
+		}
 	}
 
 	// 加载邀请人 profile，优先使用专属比例（覆盖全局）

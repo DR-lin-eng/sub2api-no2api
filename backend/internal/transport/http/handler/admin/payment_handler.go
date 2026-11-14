@@ -1,7 +1,9 @@
 package admin
 
 import (
+	"github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
 	"strconv"
+	"strings"
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
@@ -68,7 +70,11 @@ func (h *PaymentHandler) ListOrders(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Paginated(c, sanitizeAdminPaymentOrdersForResponse(orders), int64(total), page, pageSize)
+	results := sanitizeAdminPaymentOrdersForResponse(orders)
+	for _, item := range results {
+		redactPaymentVoucher(c, item)
+	}
+	response.Paginated(c, results, int64(total), page, pageSize)
 }
 
 // GetOrderDetail returns detailed information about a single order.
@@ -84,7 +90,12 @@ func (h *PaymentHandler) GetOrderDetail(c *gin.Context) {
 		return
 	}
 	auditLogs, _ := h.paymentService.GetOrderAuditLogs(c.Request.Context(), orderID)
-	response.Success(c, gin.H{"order": sanitizeAdminPaymentOrderForResponse(order), "auditLogs": auditLogs})
+	if !middleware.CanReadRedeemSecrets(c) && order.RechargeCode != "" {
+		for _, entry := range auditLogs {
+			entry.Detail = strings.ReplaceAll(entry.Detail, order.RechargeCode, "********")
+		}
+	}
+	response.Success(c, gin.H{"order": redactPaymentVoucher(c, sanitizeAdminPaymentOrderForResponse(order)), "auditLogs": auditLogs})
 }
 
 // CancelOrder cancels a pending order (admin).

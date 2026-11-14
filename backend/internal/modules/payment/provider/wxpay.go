@@ -3,6 +3,7 @@ package provider
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -441,6 +442,9 @@ func (w *Wxpay) VerifyNotification(ctx context.Context, rawBody string, headers 
 	if nr.EventType != wxpayEventTransactionSuccess {
 		return nil, nil
 	}
+	if err := w.validateNotificationIdentity(&tx); err != nil {
+		return nil, err
+	}
 	var amt float64
 	if tx.Amount != nil && tx.Amount.Total != nil {
 		amt = payment.FenToYuan(*tx.Amount.Total)
@@ -453,6 +457,17 @@ func (w *Wxpay) VerifyNotification(ctx context.Context, rawBody string, headers 
 		TradeNo: wxSV(tx.TransactionId), OrderID: wxSV(tx.OutTradeNo),
 		Amount: amt, Status: st, RawData: rawBody, Metadata: buildWxpayTransactionMetadata(&tx),
 	}, nil
+}
+
+func (w *Wxpay) validateNotificationIdentity(tx *payments.Transaction) error {
+	if tx == nil || wxSV(tx.Mchid) != strings.TrimSpace(w.config["mchId"]) {
+		return fmt.Errorf("wxpay notification merchant mismatch")
+	}
+	appID := wxSV(tx.Appid)
+	if appID == "" || appID != strings.TrimSpace(w.config["appId"]) && appID != ResolveWxpayJSAPIAppID(w.config) {
+		return fmt.Errorf("wxpay notification appid mismatch")
+	}
+	return nil
 }
 
 func (w *Wxpay) Refund(ctx context.Context, req payment.RefundRequest) (*payment.RefundResponse, error) {
@@ -478,6 +493,11 @@ func (w *Wxpay) Refund(ctx context.Context, req payment.RefundRequest) (*payment
 		Amount:      &refunddomestic.AmountReq{Refund: core.Int64(rf), Total: core.Int64(tf), Currency: &cur},
 	})
 	if err != nil {
+		var rejected *core.APIError
+		definitive := errors.As(err, &rejected) && rejected.StatusCode >= 400 && rejected.StatusCode < 500
+		if !definitive && refundTransportUncertain(err) {
+			return &payment.RefundResponse{RefundID: outRefundNo, Status: payment.ProviderStatusPending}, fmt.Errorf("wxpay refund outcome unknown: %w", err)
+		}
 		return nil, fmt.Errorf("wxpay refund: %w", err)
 	}
 	st := payment.ProviderStatusPending

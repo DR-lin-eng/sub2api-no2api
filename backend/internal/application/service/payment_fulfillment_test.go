@@ -809,6 +809,8 @@ func TestPaymentNotificationAcceptsValidEasyPayTradeNo(t *testing.T) {
 		SetUsername("valid-easypay").
 		Save(ctx)
 	require.NoError(t, err)
+	instance, err := client.PaymentProviderInstance.Create().SetProviderKey(payment.TypeEasyPay).SetName("fixture merchant").SetConfig("{}").Save(ctx)
+	require.NoError(t, err)
 
 	order, err := client.PaymentOrder.Create().
 		SetUserID(user.ID).
@@ -822,10 +824,12 @@ func TestPaymentNotificationAcceptsValidEasyPayTradeNo(t *testing.T) {
 		SetPaymentType(payment.TypeEasyPay).
 		SetPaymentTradeNo("").
 		SetProviderKey(payment.TypeEasyPay).
+		SetProviderInstanceID(strconv.FormatInt(instance.ID, 10)).
 		SetProviderSnapshot(map[string]any{
-			"schema_version": 2,
-			"provider_key":   payment.TypeEasyPay,
-			"merchant_id":    "1000",
+			"schema_version":       2,
+			"provider_key":         payment.TypeEasyPay,
+			"provider_instance_id": strconv.FormatInt(instance.ID, 10),
+			"merchant_id":          "1000",
 		}).
 		SetOrderType(payment.OrderTypeBalance).
 		SetStatus(OrderStatusPending).
@@ -956,7 +960,11 @@ func createPaymentFulfillmentSubscriptionOrder(
 		Save(ctx)
 	require.NoError(t, err)
 
-	order, err := client.PaymentOrder.Create().
+	b := client.PaymentOrder.Create()
+	if status != OrderStatusPending && status != OrderStatusCancelled && status != OrderStatusExpired {
+		b.SetPaidAt(time.Now().Add(-time.Hour))
+	}
+	order, err := b.
 		SetUserID(user.ID).
 		SetUserEmail(user.Email).
 		SetUserName(user.Username).
@@ -972,7 +980,6 @@ func createPaymentFulfillmentSubscriptionOrder(
 		SetSubscriptionGroupID(7).
 		SetSubscriptionDays(30).
 		SetStatus(status).
-		SetPaidAt(time.Now().Add(-time.Hour)).
 		SetExpiresAt(time.Now().Add(time.Hour)).
 		SetClientIP("127.0.0.1").
 		SetSrcHost("api.example.com").
@@ -1017,6 +1024,7 @@ func TestExecuteSubscriptionFulfillmentAppliesAffiliateRebate(t *testing.T) {
 		SetSubscriptionGroupID(7).
 		SetSubscriptionDays(30).
 		SetStatus(OrderStatusPaid).
+		SetPaidAt(time.Now()).
 		SetExpiresAt(time.Now().Add(time.Hour)).
 		SetClientIP("127.0.0.1").
 		SetSrcHost("api.example.com").
@@ -1103,6 +1111,7 @@ func TestExecuteSubscriptionFulfillmentDoesNotDuplicateWorkAfterLegacySuccessAud
 		SetSubscriptionGroupID(7).
 		SetSubscriptionDays(30).
 		SetStatus(OrderStatusPaid).
+		SetPaidAt(time.Now()).
 		SetExpiresAt(time.Now().Add(time.Hour)).
 		SetClientIP("127.0.0.1").
 		SetSrcHost("api.example.com").
@@ -1165,16 +1174,20 @@ func TestExecuteSubscriptionFulfillmentDoesNotDuplicateWorkAfterLegacySuccessAud
 var _ AffiliateRepository = (*paymentFulfillmentAffiliateRepoStub)(nil)
 var _ SettingRepository = (*paymentFulfillmentSettingRepoStub)(nil)
 
-func TestCancelledPaymentRecoveryHasGraceWindow(t *testing.T) {
+func TestCancelledPaymentRecoveryUsesOrderDeadline(t *testing.T) {
 	ctx := t.Context()
 	client := newPaymentConfigServiceTestClient(t)
 	svc := &PaymentService{entClient: client, groupRepo: &subscriptionGroupRepoStub{group: &Group{ID: 7, Status: "inactive"}}}
 	old := createPaymentFulfillmentSubscriptionOrder(t, ctx, client, OrderStatusCancelled, time.Now().Add(-24*time.Hour))
-	require.NoError(t, svc.toPaid(ctx, old, "late-payment", 80, payment.TypeAlipay))
+	_, err := client.PaymentOrder.UpdateOneID(old.ID).SetExpiresAt(time.Now().Add(-24 * time.Hour)).Save(ctx)
+	require.NoError(t, err)
+	require.ErrorIs(t, svc.toPaid(ctx, old, "late-payment", 80, payment.TypeAlipay), ErrPaymentAfterRecoveryWindow)
 	stored, err := client.PaymentOrder.Get(ctx, old.ID)
 	require.NoError(t, err)
 	require.Equal(t, OrderStatusCancelled, stored.Status)
 	recent := createPaymentFulfillmentSubscriptionOrder(t, ctx, client, OrderStatusCancelled, time.Now())
+	_, err = client.PaymentOrder.UpdateOneID(recent.ID).SetExpiresAt(time.Now().Add(-time.Minute)).Save(ctx)
+	require.NoError(t, err)
 	// Fulfillment lacks subscription dependencies in this fixture. A reported
 	// fulfillment error still leaves the observed PAID transition for inspection.
 	_ = svc.toPaid(ctx, recent, "racing-payment", 80, payment.TypeAlipay)

@@ -1151,7 +1151,9 @@ func exchangeWeChatOAuthCode(ctx context.Context, cfg wechatOAuthConfig, code st
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("request wechat access token: %w", err)
+		// net/url errors carry the full request URL, including the app
+		// secret and authorization code. Public redirects must not expose it.
+		return nil, errors.New("request wechat access token failed")
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -1199,7 +1201,7 @@ func fetchWeChatUserInfo(ctx context.Context, tokenResp *wechatOAuthTokenRespons
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("request wechat userinfo: %w", err)
+		return nil, errors.New("request wechat userinfo failed")
 	}
 	defer func() { _ = resp.Body.Close() }()
 

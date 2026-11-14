@@ -32,6 +32,12 @@
             <p class="mt-2 text-2xl font-semibold text-emerald-600 dark:text-emerald-400">
               {{ formatCurrency(detail.aff_quota) }}
             </p>
+            <p v-if="(detail.aff_debt ?? 0) > 0" class="mt-2 text-sm text-amber-700 dark:text-amber-400">
+              {{ t('affiliate.stats.debt') }}: {{ formatCurrency(detail.aff_debt ?? 0) }}
+            </p>
+            <p v-if="(detail.aff_debt ?? 0) > 0" class="mt-1 text-xs text-gray-500 dark:text-dark-400">
+              {{ t('affiliate.stats.debtHint') }}
+            </p>
           </div>
           <div class="card p-5">
             <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('affiliate.stats.totalQuota') }}</p>

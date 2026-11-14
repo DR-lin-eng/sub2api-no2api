@@ -946,8 +946,9 @@ export default {
         metricsIntervalHint: 'How often to collect system/request metrics (60-3600 seconds)'
       },
       adminApiKey: {
+        redeemSecretsScope: 'Read and export voucher secrets',
         title: 'Admin API Key',
-        description: 'Legacy compatibility key. New scoped keys provide resource and read/write permissions; legacy keys are read-only.',
+        description: 'Manage resource, read/write and voucher permissions. Existing keys, including the legacy key, can be edited without changing their value; legacy keys default to read-only.',
         notConfigured: 'Admin API key not configured',
         configured: 'Admin API key is active',
         currentKey: 'Current Key',
@@ -965,10 +966,10 @@ export default {
         copyKey: 'Copy Key',
         keyCopied: 'Key copied to clipboard',
         keyWarning: 'This key will only be shown once. Please copy it now.',
-        securityWarning: 'Legacy keys are limited to read-only operations. Migrate to a scoped key above and keep it secure.',
+        securityWarning: 'Grant voucher access only to trusted integrations. Edit the original key permissions above to keep existing software using the same key value.',
         usage: 'Usage: Add to request header - x-api-key: <your-admin-api-key>',
         scopedTitle: 'Scoped Admin API Keys',
-        scopedDescription: 'Create separate machine credentials with least-privilege resource and read/write scopes. Only a digest is stored; the full secret is shown once at creation or rotation.',
+        scopedDescription: 'Manage resource, read/write and voucher permissions for each integration. Editing permissions keeps the key value; a new secret is shown only at creation or rotation.',
         namePlaceholder: 'Key name, for example: Read-only operations',
         createScoped: 'Create scoped key',
         saveScoped: 'Save permissions',

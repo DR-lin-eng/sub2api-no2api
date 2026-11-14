@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -235,6 +236,11 @@ func (s *Stripe) Refund(ctx context.Context, req payment.RefundRequest) (*paymen
 
 	r, err := s.sc.V1Refunds.Create(ctx, params)
 	if err != nil {
+		var gatewayError *stripe.Error
+		definitive := errors.As(err, &gatewayError) && gatewayError.HTTPStatusCode >= 400 && gatewayError.HTTPStatusCode < 500
+		if !definitive && refundTransportUncertain(err) {
+			return &payment.RefundResponse{Status: payment.ProviderStatusPending}, fmt.Errorf("stripe refund outcome unknown: %w", err)
+		}
 		return nil, fmt.Errorf("stripe refund: %w", err)
 	}
 
