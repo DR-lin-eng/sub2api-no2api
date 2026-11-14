@@ -618,6 +618,8 @@ export interface SystemSettings {
   // Gateway forwarding behavior
   openai_oauth_force_relay_enabled: boolean;
   openai_oauth_force_relay_base_url: string;
+  openai_oauth_attestation_enabled: boolean;
+  openai_lenovo_attribution_enabled: boolean;
   enable_fingerprint_unification: boolean;
   enable_metadata_passthrough: boolean;
   enable_cch_signing: boolean;
@@ -985,6 +987,8 @@ export interface UpdateSettingsRequest {
   request_priority_pending_mib_per_instance?: number;
   openai_oauth_force_relay_enabled?: boolean;
   openai_oauth_force_relay_base_url?: string;
+  openai_oauth_attestation_enabled?: boolean;
+  openai_lenovo_attribution_enabled?: boolean;
   enable_fingerprint_unification?: boolean;
   enable_metadata_passthrough?: boolean;
   enable_cch_signing?: boolean;

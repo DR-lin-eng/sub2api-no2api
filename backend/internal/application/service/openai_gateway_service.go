@@ -523,6 +523,9 @@ type OpenAIGatewayService struct {
 	openAIDeviceCookieMu           sync.Mutex
 	openAIDeviceCookies            map[string]openAIDeviceCookieBinding
 	openAIDeviceCookieSF           singleflight.Group
+	openAILenovoAttributionMu      sync.Mutex
+	openAILenovoAttribution        map[int64]openAILenovoAttributionLocal
+	openAILenovoAttributionActive  int
 	sessionIDAdmissionCache        OpenAISessionIDAdmissionCache
 	oauthGatewayRateLimitCache     OpenAIOAuthGatewayRateLimitCache
 	sessionIDRateMetrics           *OpenAISessionIDRateMetrics

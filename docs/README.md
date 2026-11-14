@@ -54,6 +54,7 @@
 | [组合分组](COMPOSITE_GROUPS.md) | Composite group 的平台解析和使用约束 |
 | [Excel BPS 与 DeepSeek 兼容](BPS_DEEPSEEK_COMPAT.md) | 账号级 BPS 开关/筛选/批量更新、Responses 与 Chat Completions 兼容入口 |
 | [Codex OAuth 模拟的有意差异](codex/intentional-divergences.md) | 固定 Codex 源码 revision、纯 Go A/B 身份与 continuation 边界、暂缓的传输层差异 |
+| [OAuth 证明与 Lenovo 归因（2026-11-15）](codex/oauth-device-requests-20261115.md) | 独立网关开关、账号持久安装身份、204 响应规则、CAS 租约与重启/升级边界 |
 | [OpenAI OAuth 与 Codex 桌面请求对照](codex/desktop-request-alignment.md) | 桌面静态报告的端点边界、OAuth principal 校验、HTTP 媒体类型与证明字段归属 |
 | [Codex 桌面深度报告与请求还原补充](codex/ChatGPT_Codex_桌面端_深度分析报告_请求还原补充.md) | 完整头部清单、逐端点模板、真实值来源、bundle 证据与项目待补齐字段 |
 | [Ghidra 原生证明与设备密钥对照](codex/native-device-key-alignment.md) | TPM/SE native 桥、controller step-up 与签名 challenge、CBOR 和静态报告校正 |

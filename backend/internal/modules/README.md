@@ -10,6 +10,7 @@
 | [chatgptimages](chatgptimages/README.md) | ChatGPT App Images 请求、v1 多通道增量和最终图像结果纯解析 |
 | [egress](egress/README.md) | 账号 IPv6 出口池、绑定、探测和 HE 隧道管理 |
 | [qualityrender](qualityrender/README.md) | HTML/SVG 代码匹配（预览由前端浏览器渲染） |
+| [lenovoattribution](lenovoattribution/README.md) | Lenovo 归因 JSON、204 响应契约和账号持久重试状态 |
 | [modelcatalog](modelcatalog/README.md) | 有界模型描述、能力字段归一化、版本化快照与元数据优先级 |
 | [payment](payment/README.md) | 支付金额、币种、渠道注册与提供商适配 |
 | [securityaudit](securityaudit/README.md) | Prompt 审计、同步防护、队列和审计策略 |

@@ -87,6 +87,32 @@ func TestSettingService_IsUserUsageDetailViewAllowed_DefaultsOffAndRequiresExpli
 	}
 }
 
+func TestSettingService_OpenAIOAuthAttestationUsesPersistedRuntimeSwitch(t *testing.T) {
+	values := map[string]string{
+		SettingKeyOpenAIOAuthAttestationEnabled: "true",
+	}
+	svc := NewSettingService(nil, &config.Config{})
+
+	settings := svc.parseSettings(values)
+	require.True(t, settings.OpenAIOAuthAttestationEnabled)
+	svc.refreshCachedSettings(settings)
+	require.True(t, svc.OpenAIOAuthAttestationEnabled(t.Context()))
+
+	svc.refreshCachedSettings(&SystemSettings{OpenAIOAuthAttestationEnabled: false})
+	require.False(t, svc.OpenAIOAuthAttestationEnabled(t.Context()))
+}
+
+func TestSettingService_OpenAILenovoAttributionUsesPersistedRuntimeSwitch(t *testing.T) {
+	svc := NewSettingService(nil, &config.Config{})
+	settings := svc.parseSettings(map[string]string{SettingKeyOpenAILenovoAttributionEnabled: "true"})
+	require.True(t, settings.OpenAILenovoAttributionEnabled)
+	svc.refreshCachedSettings(settings)
+	require.True(t, svc.OpenAILenovoAttributionEnabled(t.Context()))
+
+	svc.refreshCachedSettings(&SystemSettings{OpenAILenovoAttributionEnabled: false})
+	require.False(t, svc.OpenAILenovoAttributionEnabled(t.Context()))
+}
+
 func TestSettingService_GetModelPlazaRuntime_AutoPublicModelsRequiresExplicitTrue(t *testing.T) {
 	ctx := context.Background()
 	enabled := NewSettingService(&settingPublicRepoStub{values: map[string]string{

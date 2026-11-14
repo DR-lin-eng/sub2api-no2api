@@ -94,13 +94,15 @@ func TestBuildSystemSettingsUpdatesGolden(t *testing.T) {
 
 	updates, err := svc.buildSystemSettingsUpdates(context.Background(), settings)
 	require.NoError(t, err)
-	require.Equal(t, 247, len(updates), "system setting key count")
+	require.Equal(t, 249, len(updates), "system setting key count")
 	require.Equal(t, "false", updates[SettingKeyOpenAIImagesLegacyEnabled])
 	require.Equal(t, "false", updates[SettingKeyOpenAILocationEnabled])
 	require.Equal(t, "0", updates[SettingKeyOpenAILocationLatitude])
 	require.Equal(t, "0", updates[SettingKeyOpenAILocationLongitude])
 	require.Equal(t, "false", updates[SettingKeyOpenAIOAuthForceRelayEnabled])
 	require.Equal(t, DefaultOpenAIOAuthForceRelayBaseURL, updates[SettingKeyOpenAIOAuthForceRelayBaseURL])
+	require.Equal(t, "false", updates[SettingKeyOpenAIOAuthAttestationEnabled])
+	require.Equal(t, "false", updates[SettingKeyOpenAILenovoAttributionEnabled])
 	require.Equal(t, "false", updates[SettingKeyActivityCenterEnabled], "activity center is opt-in")
 	require.Equal(t, "false", updates[SettingKeyOpenAIOAuthGatewayRateLimitEnabled])
 	require.Equal(t, "60", updates[SettingKeyOpenAIOAuthGatewayRateLimitRPM])
@@ -125,6 +127,8 @@ func TestBuildSystemSettingsUpdatesGolden(t *testing.T) {
 		SettingKeyOpenAIRequestIntegrityObserveEnabled,
 		SettingKeyOpenAIOAuthForceRelayEnabled,
 		SettingKeyOpenAIOAuthForceRelayBaseURL,
+		SettingKeyOpenAIOAuthAttestationEnabled,
+		SettingKeyOpenAILenovoAttributionEnabled,
 	} {
 		delete(updates, key)
 	} // All previously shipped settings keep their exact baseline digest.

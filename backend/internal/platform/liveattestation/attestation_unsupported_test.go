@@ -39,3 +39,10 @@ func TestBuildDeviceCheckHeaders(t *testing.T) {
 		t.Fatalf("OAI-Package-Name = %q", got)
 	}
 }
+
+func TestLinuxCodexHeaderWrapsUnsupportedTokenAsOpaqueSuccess(t *testing.T) {
+	want := `{"v":1,"s":0,"t":"v1.omplcnJvcl9jb2RlAWlidW5kbGVfaWRwY29tLm9wZW5haS5jb2RleA"}`
+	if got := CodexHeader(context.Background(), NewProvider()); got != want {
+		t.Fatalf("Linux x-oai-attestation = %s, want %s", got, want)
+	}
+}

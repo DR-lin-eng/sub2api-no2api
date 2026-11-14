@@ -43,6 +43,8 @@ export type SettingsForm = Omit<
   openai_low_upstream_rate_priority_enabled: boolean;
   openai_oauth_force_relay_enabled: boolean;
   openai_oauth_force_relay_base_url: string;
+  openai_oauth_attestation_enabled: boolean;
+  openai_lenovo_attribution_enabled: boolean;
   openai_oauth_scheduling_rate_multiplier: number;
   openai_content_session_burst_balance_enabled: boolean;
   openai_session_id_rate_limit_enabled: boolean;
@@ -308,6 +310,8 @@ export function createSettingsForm(localText: LocalText): SettingsForm {
     openai_oauth_force_relay_enabled: false,
     openai_oauth_force_relay_base_url:
       "https://codex-relay.oaifree.com/backend-api/codex",
+    openai_oauth_attestation_enabled: false,
+    openai_lenovo_attribution_enabled: false,
     openai_oauth_scheduling_rate_multiplier: 1,
     openai_content_session_burst_balance_enabled: false,
     openai_session_id_rate_limit_enabled: false,

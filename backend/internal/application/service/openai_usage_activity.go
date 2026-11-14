@@ -67,6 +67,12 @@ func (s *OpenAIUsageSyncService) lastActivity(id int64, persisted time.Time) tim
 }
 
 func (s *OpenAIGatewayService) notifyOpenAIUsageActivity(account *Account) {
+	// Native/passthrough WS turns can reuse an existing handshake. Activity
+	// must also reach the independent attribution scheduler after a runtime
+	// toggle or a persisted next-check time expires.
+	if s != nil {
+		s.scheduleOpenAILenovoAttribution(account)
+	}
 	if s == nil || s.usageSync == nil || account == nil || !account.IsOpenAIOAuth() || account.Status != StatusActive {
 		return
 	}

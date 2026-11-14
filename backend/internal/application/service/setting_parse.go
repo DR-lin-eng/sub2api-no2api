@@ -270,6 +270,8 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyOpenAIVisibleOutputTTFTEnabled:                     "true",
 		SettingKeyOpenAIOAuthForceRelayEnabled:                       "false",
 		SettingKeyOpenAIOAuthForceRelayBaseURL:                       DefaultOpenAIOAuthForceRelayBaseURL,
+		SettingKeyOpenAIOAuthAttestationEnabled:                      strconv.FormatBool(s.defaultOpenAIOAuthAttestationEnabled()),
+		SettingKeyOpenAILenovoAttributionEnabled:                     "false",
 		SettingKeyEnableAnthropicCacheTTL1hInjection:                 "false",
 		SettingKeyRewriteMessageCacheControl:                         strconv.FormatBool(s.defaultRewriteMessageCacheControl()),
 		SettingKeyEnableClientDatelineNormalization:                  "true",

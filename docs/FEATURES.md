@@ -67,6 +67,8 @@
 
 管理端的公告、活动、客服和返利页面由上表用户功能中的同名 feature 共同持有，并非另建一套 owner。它们分别位于 `/admin/announcements`、`/admin/activity-center/campaigns`、`/admin/support` 和 `/admin/affiliates` 下。
 
+Lenovo 归因与证明的独立网关开关、持久化和验证边界见 [OAuth 设备请求](codex/oauth-device-requests-20261115.md)；状态规则由 [lenovoattribution](../backend/internal/modules/lenovoattribution/README.md) 持有。
+
 ## 网关与后台能力
 
 | 能力 | 功能文档 | 实现入口 |

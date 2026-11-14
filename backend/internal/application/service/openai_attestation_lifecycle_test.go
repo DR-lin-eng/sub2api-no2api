@@ -44,11 +44,13 @@ func TestOpenAIAttestationLifecycleAtHTTPAndWSDial(t *testing.T) {
 				req, err := http.NewRequest(http.MethodPost, "https://chatgpt.com"+path, nil)
 				require.NoError(t, err)
 				req.Header.Set("x-oai-attestation", "untrusted")
+				req.Header.Set("X-Codex-Surface", "untrusted-surface-control")
 				resp, err := svc.doAccountHTTPUpstream(req, "", account)
 				require.NoError(t, err)
 				require.NoError(t, resp.Body.Close())
 				observed := u.requests[len(u.requests)-1].Header
 				require.Equal(t, tc.want, observed.Get("x-oai-attestation"))
+				require.Empty(t, observed.Get("X-Codex-Surface"))
 				if tc.want == "" {
 					require.NotContains(t, observed, http.CanonicalHeaderKey("x-oai-attestation"), "omit instead of sending an empty header")
 				}
@@ -58,18 +60,41 @@ func TestOpenAIAttestationLifecycleAtHTTPAndWSDial(t *testing.T) {
 			wsURL := "wss://chatgpt.com/backend-api/codex/responses"
 			_, err := pool.dialConn(context.Background(), openAIWSAcquireRequest{
 				Account: account, WSURL: wsURL,
-				Headers: http.Header{"X-Oai-Attestation": {"untrusted"}},
+				Headers: http.Header{"X-Oai-Attestation": {"untrusted"}, "X-Codex-Surface": {"untrusted-surface-control"}},
 				ProofFactory: func(ctx context.Context, headers http.Header) (context.Context, http.Header, error) {
 					return svc.prepareOpenAIWSProof(ctx, account, wsURL, headers)
 				},
 			})
 			require.Error(t, err, "capture dialer deliberately stops before making a network connection")
 			require.Equal(t, tc.want, dialer.headers.Get("x-oai-attestation"))
+			require.Empty(t, dialer.headers.Get("X-Codex-Surface"))
 			if tc.want == "" {
 				require.NotContains(t, dialer.headers, http.CanonicalHeaderKey("x-oai-attestation"))
 			}
 		})
 	}
+}
+
+func TestOpenAIOAuthProofUsesPersistedGatewayAttestationSwitch(t *testing.T) {
+	settings := &SettingService{}
+	settings.refreshCachedSettings(&SystemSettings{OpenAIOAuthAttestationEnabled: true})
+	provider := lifecycleProofFixture{generate: func(context.Context) (string, error) {
+		return "persisted-switch-token", nil
+	}}
+	upstream := &integrityWireUpstream{}
+	svc := &OpenAIGatewayService{
+		cfg:             &config.Config{},
+		settingService:  settings,
+		httpUpstream:    upstream,
+		liveAttestation: provider,
+	}
+	account := &Account{ID: 99, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+	req, err := http.NewRequest(http.MethodPost, "https://chatgpt.com/backend-api/codex/responses", nil)
+	require.NoError(t, err)
+	resp, err := svc.doAccountHTTPUpstream(req, "", account)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	require.Equal(t, `{"v":1,"s":0,"t":"persisted-switch-token"}`, upstream.requests[0].Header.Get("x-oai-attestation"))
 }
 
 func TestOpenAILiveDoesNotPreserveOpaqueOrFailureCallbackHeader(t *testing.T) {

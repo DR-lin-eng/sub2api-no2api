@@ -704,6 +704,12 @@ const (
 	// SettingKeyOpenAIOAuthForceRelayBaseURL stores the relay base URL before the
 	// endpoint-specific /responses, /models, or /alpha/search suffix.
 	SettingKeyOpenAIOAuthForceRelayBaseURL = "openai_oauth_force_relay_base_url"
+	// SettingKeyOpenAIOAuthAttestationEnabled controls first-party OAuth
+	// Responses/Compact and WS attestation envelope generation.
+	SettingKeyOpenAIOAuthAttestationEnabled = "openai_oauth_attestation_enabled"
+	// SettingKeyOpenAILenovoAttributionEnabled controls the account-scoped
+	// Lenovo preload attribution fetch and its response-header state machine.
+	SettingKeyOpenAILenovoAttributionEnabled = "openai_lenovo_attribution_enabled"
 
 	// Gateway Forwarding Behavior
 	// SettingKeyEnableFingerprintUnification 是否统一 OAuth 账号的 X-Stainless-* 指纹头（默认 true）

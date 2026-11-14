@@ -137,13 +137,11 @@ func (p *darwinProvider) GenerateCodexToken(ctx context.Context) (string, error)
 	if err != nil {
 		return "", err
 	}
-	var envelope struct {
-		Token string `json:"t"`
-	}
-	if json.Unmarshal([]byte(header), &envelope) != nil || envelope.Token == "" {
-		return "", errors.New("malformed native Codex attestation")
-	}
-	return envelope.Token, nil
+	// The app-server contract treats the callback value as opaque. A present
+	// empty string is still a successful callback result; only a missing token
+	// or a non-success envelope is malformed. Do not apply Live's native v1
+	// validation here because Codex callback tokens may use another host format.
+	return codexCallbackToken(header)
 }
 
 func (p *darwinProvider) generate(ctx context.Context, codexMode bool) (string, error) {

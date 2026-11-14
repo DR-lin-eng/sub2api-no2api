@@ -281,6 +281,8 @@ function buildGatewaySettingsPayload({
     openai_oauth_force_relay_enabled: form.openai_oauth_force_relay_enabled,
     openai_oauth_force_relay_base_url:
       form.openai_oauth_force_relay_base_url?.trim() || "",
+    openai_oauth_attestation_enabled: form.openai_oauth_attestation_enabled,
+    openai_lenovo_attribution_enabled: form.openai_lenovo_attribution_enabled,
     enable_fingerprint_unification: form.enable_fingerprint_unification,
     enable_metadata_passthrough: form.enable_metadata_passthrough,
     enable_cch_signing: form.enable_cch_signing,

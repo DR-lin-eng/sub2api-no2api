@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"runtime"
 	"strings"
 	"time"
 
@@ -86,13 +85,7 @@ func (s *OpenAIGatewayService) newChatGPTImageSession(ctx context.Context, c *gi
 		headers.Set("X-OpenAI-Expected-Account-ID", accountID)
 	}
 	applyOpenAIWorkspaceRoutingHeader(headers, routing)
-	// Both platform samples in the 20261112 report use this App build. The
-	// separately managed Rust engine version must not use an App version.
-	version := "26.1106.51428"
-	headers.Set("User-Agent", fmt.Sprintf("Codex Desktop/%s (%s; %s)", version, runtime.GOOS, runtime.GOARCH))
-	headers.Set("originator", "Codex Desktop")
-	headers.Set("x-openai-web-frontend", "codex_webview")
-	headers.Set("x-openai-codex-window-type", "electron")
+	applyOpenAIChatGPTDesktopSurfaceHeaders(headers)
 	headers.Set("Content-Type", "application/json")
 	headers.Set("Accept", "application/json")
 	if language := strings.TrimSpace(c.GetHeader("Accept-Language")); language != "" {
