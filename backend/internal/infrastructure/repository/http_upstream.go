@@ -165,12 +165,32 @@ func experimentalHTTPClientForRequest(client *req.Client, request *http.Request)
 		return nil
 	}
 	base := client.GetClient()
-	if base == nil || request == nil || !service.HTTPUpstreamRedirectsDisabled(request.Context()) {
+	if base == nil {
 		return base
 	}
+	streamRequest := request != nil && service.HTTPUpstreamProfileFromContext(request.Context()) == service.HTTPUpstreamProfileOpenAIStream
+	redirectsDisabled := request != nil && service.HTTPUpstreamRedirectsDisabled(request.Context())
+	if !streamRequest && !redirectsDisabled {
+		return base
+	}
+
+	// req/v3's default http.Client has a 120-second total Timeout. That value is
+	// appropriate for short OAuth/token exchanges, but it also includes reading
+	// an already-started SSE response body. The experimental Codex transport is
+	// selected for model requests as well, so a long Responses stream would be
+	// cancelled at exactly two minutes even while the upstream is still sending
+	// a valid response. Streaming requests already have request-context,
+	// response-header, first-output, and stream-interval guards; remove only the
+	// client-wide deadline for that profile. Keep the finite req/v3 timeout for
+	// non-streaming requests.
 	clone := *base
-	clone.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
-		return http.ErrUseLastResponse
+	if redirectsDisabled {
+		clone.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		}
+	}
+	if streamRequest {
+		clone.Timeout = 0
 	}
 	return &clone
 }

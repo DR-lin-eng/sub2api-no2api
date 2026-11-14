@@ -453,6 +453,11 @@ Chat 转为 Responses 后，只有 auto 且已确认支持 Responses 的 OpenAI 
 `experimental_transport_enabled` 是 C 下的二级实验开关；只有 C 与该开关同时开启时，才启用插件参考的
 ML-KEM-768 key share、每连接 TLS 扩展随机化、req/v3 HTTP/2 SETTINGS/WINDOW 参数和
 `pricing.data_dir/plugin-diag/codex-persona.log` 诊断写入。任一开关关闭即回退到现有 Go transport。
+实验 req/v3 客户端的默认 120 秒总时限只适用于短请求；OpenAI Responses 流请求会按
+`HTTPUpstreamProfileOpenAIStream` 使用独立 client 副本并清除总时限，继续由响应头、首语义输出、请求 context
+和流间隔策略共同保护。OAuth token exchange 等非流式请求仍保留有限总时限。流正文读取超时只有在父请求仍存活、
+请求通过重放安全检查且尚未产生语义输出/用量时才进入一次受限同账号恢复；下游取消、工具/存储/续接或已提交输出
+不会重放，也不会因为 C 开关而模拟真实 DeviceCheck、Sentinel 或其它原生证明。
 同一面板中的 `codex_prewarm_continuation_force_enabled` 是系统级账号预热开关；开启后所有 OpenAI OAuth
 账号在运行时强制走预热续接，创建、OAuth 导入及更新账号时也会持久化该账号开关，关闭系统开关不会影响
 已显式保存的账号级启用状态。

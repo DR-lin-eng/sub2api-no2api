@@ -58,6 +58,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 		canonicalImageIntentBody,
 		attemptImageIntentInvalidated,
 	)
+	setOpenAIStreamReplaySafe(c, replaySafe)
 	resetOpenAITransportRetryState(c)
 	agentTaskRecoveryTried := false
 	var fingerprintIDs *codexFingerprintIDs

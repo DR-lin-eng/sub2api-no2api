@@ -1136,6 +1136,10 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		var imageOutputSizes []string
 		var responseErr error
 		if reqStream {
+			// Keep the replay decision with this request so a body-read timeout
+			// from the experimental client cannot be mistaken for a downstream
+			// disconnect or replay an unsafe tool request.
+			setOpenAIStreamReplaySafe(c, openAIPassthroughRequestReplaySafe(c, reqModel, body, canonicalImageIntentBody, false))
 			streamResult, streamErr := s.handleStreamingResponseWithReasoning(ctx, resp, c, account, startTime, originalModel, upstreamModel, reasoningEffortValue)
 			responseErr = streamErr
 			if streamResult != nil {
