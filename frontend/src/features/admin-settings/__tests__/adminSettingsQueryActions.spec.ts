@@ -414,7 +414,10 @@ describe("admin settings query and action owners", () => {
       scopes: ["admin.read" as const],
       expires_at: null,
     };
-    const updateRequest = { name: "ops-readonly" };
+    const updateRequest = {
+      name: "ops-readonly",
+      scopes: ["admin.read" as const, "admin.redeem.secrets" as const],
+    };
     post
       .mockResolvedValueOnce({ data: { key: "created", metadata: key } })
       .mockResolvedValueOnce({ data: { key: "rotated", metadata: key } })

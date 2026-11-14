@@ -276,6 +276,7 @@ func TestRefundPendingAuditPreventsLegacyDoubleDeduction(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)
 	order := createCompletedRefundableOrderForTest(t, ctx, client, "legacy-reader")
+	require.NoError(t, client.PaymentOrder.UpdateOneID(order.ID).SetStatus(OrderStatusRefunding).Exec(ctx))
 	svc := &PaymentService{entClient: client}
 	_, err := svc.markRefundPending(ctx, &RefundPlan{OrderID: order.ID, Order: order,
 		RefundAmount: 60, DeductionType: payment.DeductionTypeBalance, BalanceToDeduct: 60},

@@ -47,6 +47,14 @@ type Airwallex struct {
 	httpClient *http.Client
 }
 
+type airwallexHTTPError struct {
+	status int
+	detail string
+}
+
+func (e *airwallexHTTPError) Error() string       { return fmt.Sprintf("HTTP %d: %s", e.status, e.detail) }
+func (e *airwallexHTTPError) HTTPStatusCode() int { return e.status }
+
 type airwallexTokenState struct {
 	mu        sync.Mutex
 	token     string
@@ -381,6 +389,9 @@ func (a *Airwallex) Refund(ctx context.Context, req payment.RefundRequest) (*pay
 
 	var resp airwallexRefund
 	if err := a.doJSON(ctx, http.MethodPost, "/pa/refunds/create", token, payload, &resp); err != nil {
+		if refundTransportUncertain(err) {
+			return &payment.RefundResponse{Status: payment.ProviderStatusPending}, fmt.Errorf("airwallex refund outcome unknown: %w", err)
+		}
 		return nil, fmt.Errorf("airwallex refund: %w", err)
 	}
 	if strings.TrimSpace(resp.ID) == "" {
@@ -535,7 +546,7 @@ func (a *Airwallex) doJSON(ctx context.Context, method, path, token string, payl
 		return err
 	}
 	if status < http.StatusOK || status >= http.StatusMultipleChoices {
-		return fmt.Errorf("HTTP %d: %s", status, summarizeAirwallexResponse(body))
+		return &airwallexHTTPError{status: status, detail: summarizeAirwallexResponse(body)}
 	}
 	if out == nil || len(bytes.TrimSpace(body)) == 0 {
 		return nil

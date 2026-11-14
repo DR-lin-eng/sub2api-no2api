@@ -184,6 +184,7 @@ export interface UserAffiliateDetail {
   inviter_id?: number | null
   aff_count: number
   aff_quota: number
+  aff_debt?: number
   aff_frozen_quota: number
   aff_history_quota: number
   /** 当前用户作为邀请人时实际生效的返利比例（专属覆盖全局）。0-100。 */

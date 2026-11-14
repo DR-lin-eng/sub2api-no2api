@@ -32,6 +32,9 @@ func (s *PaymentService) GetWebhookProvider(ctx context.Context, providerKey, ou
 func (s *PaymentService) GetWebhookProviders(ctx context.Context, providerKey, outTradeNo string) ([]payment.Provider, error) {
 	if outTradeNo != "" {
 		order, err := s.entClient.PaymentOrder.Query().Where(paymentorder.OutTradeNo(outTradeNo)).Only(ctx)
+		if err != nil && !dbent.IsNotFound(err) {
+			return nil, fmt.Errorf("look up webhook order provider: %w", err)
+		}
 		if err == nil {
 			if psHasPinnedProviderInstance(order) {
 				prov, err := s.getPinnedOrderProvider(ctx, order)
@@ -133,15 +136,20 @@ func (s *PaymentService) getEnabledWebhookProvidersByKey(ctx context.Context, pr
 	}
 
 	providers := make([]payment.Provider, 0, len(instances))
+	var configErr error
 	for _, inst := range instances {
 		prov, provErr := s.createProviderFromInstance(ctx, inst)
 		if provErr != nil {
+			configErr = provErr
 			slog.Warn("skip webhook provider instance", "provider", providerKey, "instanceID", inst.ID, "error", provErr)
 			continue
 		}
 		providers = append(providers, prov)
 	}
 	if len(providers) == 0 {
+		if configErr != nil {
+			return nil, fmt.Errorf("construct webhook provider: %w", configErr)
+		}
 		return nil, payment.ErrProviderNotFound
 	}
 	return providers, nil

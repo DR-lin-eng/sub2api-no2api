@@ -134,6 +134,7 @@
           <OverviewStat :label="t('admin.affiliates.overview.invitedCount')" :value="String(selectedOverview.invited_count)" />
           <OverviewStat :label="t('admin.affiliates.overview.rebatedInviteeCount')" :value="String(selectedOverview.rebated_invitee_count)" />
           <OverviewStat :label="t('admin.affiliates.overview.availableQuota')" :value="'$' + formatAmount(selectedOverview.available_quota)" />
+          <OverviewStat v-if="(selectedOverview.debt ?? 0) > 0" :label="t('admin.affiliates.overview.debt')" :value="'$' + formatAmount(selectedOverview.debt ?? 0)" />
           <OverviewStat :label="t('admin.affiliates.overview.historyQuota')" :value="'$' + formatAmount(selectedOverview.history_quota)" />
         </div>
       </div>

@@ -86,6 +86,7 @@ export interface AffiliateUserOverview {
   invited_count: number
   rebated_invitee_count: number
   available_quota: number
+  debt?: number
   history_quota: number
 }
 

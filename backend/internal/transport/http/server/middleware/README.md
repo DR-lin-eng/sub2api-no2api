@@ -15,3 +15,5 @@
 | `recovery*`, `logger.go`, `middleware.go`, `wire.go` | 公共链路和注入 |
 
 通用限流器、验证码和凭据加密位于 `internal/platform/middleware`。
+
+`redeem_secrets.go` 显式检查机器密钥的 `admin.redeem.secrets`，不接受 `admin.read` 或 `admin.write` 通配。管理端 handler 复用此检查处理明文卡密出口和幂等缓存，完整管理员 JWT 保留原规则。

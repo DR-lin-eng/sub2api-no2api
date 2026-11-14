@@ -8,6 +8,8 @@
 
 公共分页、ID 列表和幂等辅助仅在确有多个资源复用时保留；资源特有逻辑应回到对应前缀文件。
 
+`redeem_secrets.go` 统一管理端卡密投影：没有显式 `admin.redeem.secrets` 的机器密钥读取脱敏码，包含用户余额历史和支付订单副本。返回明文的生成、创建兑换、导出及卡密搜索在幂等缓存前检查该权限；普通资源读写权限继续由管理鉴权检查。
+
 `openai_usage.go` 提供管理员账号额度 WebSocket 与固定资源用量 Query。协议校验、订阅、批量和分页边界位于 application 的 `openai_usage*`；见 [用量说明](../../../../../../docs/OPENAI_USAGE.md)。
 
 设置更新以 `setting_handler_update.go` 为编排入口：

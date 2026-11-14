@@ -25,7 +25,7 @@
 
 说明：管理员 JWT 也可访问 admin 路由，但服务间调用建议使用 Admin API Key。
 
-Admin API Key 现在采用细粒度 scope。本文涉及的 Key 至少需要 `admin.users.read`、`admin.users.write` 和 `admin.write`。创建、轮换和撤销说明见 [Admin API 调用文档](./ADMIN_API.md)。
+Admin API Key 采用细粒度 scope。本文涉及的 Key 至少需要 `admin.users.read`、`admin.users.write`、`admin.write` 和独立的 `admin.redeem.secrets`。创建并兑换会返回卡密，因此还需要最后一项权限；只有余额调整的集成无需卡密权限。现有软件可在安全设置中编辑原 Key，保留原 scope 并增加卡密权限，原 `x-api-key` 值不变，旧版 `legacy` Key 也可直接编辑。权限列表为完整替换；示例为 `["admin.users.read", "admin.users.write", "admin.write", "admin.redeem.secrets"]`。详见 [Admin API 调用文档](./ADMIN_API.md)。
 
 ### 1) 一步完成创建并兑换
 `POST /api/v1/admin/redeem-codes/create-and-redeem`
@@ -178,7 +178,7 @@ Recommended headers:
 
 Note: Admin JWT can also access admin routes, but Admin API Key is recommended for server-to-server integration.
 
-Admin API Keys now use fine-grained scopes. The integration in this document requires at least `admin.users.read`, `admin.users.write`, and `admin.write`. See [Admin API documentation](./ADMIN_API.md) for key creation, rotation, and revocation.
+Admin API Keys use fine-grained scopes. This integration requires `admin.users.read`, `admin.users.write`, `admin.write`, and the separate `admin.redeem.secrets` scope. Create-and-redeem returns the voucher secret and requires the last scope; balance-only adjustments do not. Edit the existing key in Security settings and add the scope while preserving its existing scopes. Its `x-api-key` value stays the same, including for the editable `legacy` key. The scope array replaces the complete list, for example `["admin.users.read", "admin.users.write", "admin.write", "admin.redeem.secrets"]`. See [Admin API documentation](./ADMIN_API.md).
 
 ### 1) Create and Redeem in one step
 `POST /api/v1/admin/redeem-codes/create-and-redeem`

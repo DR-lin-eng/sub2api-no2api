@@ -80,7 +80,7 @@ func TestRechargeGiftPostgresFulfillmentCreditsSnapshotOnce(t *testing.T) {
 	require.NoError(t, err)
 	order, err := client.PaymentOrder.Create().SetUserID(user.ID).SetUserEmail(user.Email).SetUserName(stamp).
 		SetAmount(120).SetPayAmount(100).SetBonusAmount(20).SetRechargeCode(stamp).SetOutTradeNo(stamp).
-		SetPaymentType(payment.TypeAlipay).SetPaymentTradeNo(stamp).SetStatus(service.OrderStatusPaid).
+		SetPaymentType(payment.TypeAlipay).SetPaymentTradeNo(stamp).SetStatus(service.OrderStatusPaid).SetPaidAt(time.Now()).
 		SetExpiresAt(time.Now().Add(time.Hour)).SetClientIP("127.0.0.1").SetSrcHost("fixture.test").Save(ctx)
 	require.NoError(t, err)
 	userRepo := NewUserRepository(client, integrationDB)

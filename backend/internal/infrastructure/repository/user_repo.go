@@ -860,7 +860,7 @@ func (r *userRepository) UpdateBalance(ctx context.Context, id int64, amount flo
 func (r *userRepository) ApplyRedeemBalanceAdjustment(ctx context.Context, id int64, delta float64) error {
 	const updateSQL = `
 		UPDATE users
-		SET balance = GREATEST(balance + $1, 0), updated_at = NOW()
+		SET balance = CASE WHEN balance < 0 THEN balance ELSE GREATEST(balance + $1, 0) END, updated_at = NOW()
 		WHERE id = $2 AND deleted_at IS NULL
 	`
 	client := clientFromContext(ctx, r.client)

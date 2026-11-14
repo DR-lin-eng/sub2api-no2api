@@ -90,6 +90,12 @@ func (h *PaymentWebhookHandler) handleNotify(c *gin.Context, providerKey string)
 	providers, err := h.paymentService.GetWebhookProviders(c.Request.Context(), providerKey, outTradeNo)
 	if err != nil {
 		slog.Warn("[Payment Webhook] provider not found", "provider", providerKey, "outTradeNo", outTradeNo, "error", err)
+		if !errors.Is(err, payment.ErrProviderNotFound) {
+			// Database/configuration failures are retryable. A success ACK
+			// here would permanently lose a valid payment notification.
+			c.String(http.StatusServiceUnavailable, "provider unavailable")
+			return
+		}
 		if providerKey == payment.TypeWxpay {
 			c.String(http.StatusBadRequest, "verify failed")
 			return
@@ -124,6 +130,15 @@ func (h *PaymentWebhookHandler) handleNotify(c *gin.Context, providerKey string)
 	}
 
 	if err := h.paymentService.HandleVerifiedPaymentNotification(c.Request.Context(), notification, verifiedProvider); err != nil {
+		if errors.Is(err, service.ErrPaymentAfterRecoveryWindow) {
+			slog.Warn("[Payment Webhook] payment arrived after recovery window; acknowledging for manual reconciliation",
+				"provider", resolvedProviderKey,
+				"outTradeNo", notification.OrderID,
+				"tradeNo", notification.TradeNo,
+			)
+			writeSuccessResponse(c, resolvedProviderKey)
+			return
+		}
 		if errors.Is(err, service.ErrPaymentUpstreamUnconfirmed) {
 			slog.Error("[Payment Webhook] upstream confirmation failed", "provider", resolvedProviderKey, "outTradeNo", notification.OrderID, "error", err)
 			c.String(http.StatusBadGateway, "confirm failed")
@@ -171,9 +186,21 @@ func extractOutTradeNo(rawBody, providerKey string) string {
 		if err := json.Unmarshal([]byte(rawBody), &payload); err == nil {
 			return strings.TrimSpace(payload.Data.Object.MerchantOrderID)
 		}
+	case payment.TypeStripe:
+		// This is only a lookup hint for the original merchant instance.
+		// That instance still verifies the signature before any order mutation.
+		var payload struct {
+			Data struct {
+				Object struct {
+					Metadata map[string]string `json:"metadata"`
+				} `json:"object"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal([]byte(rawBody), &payload); err == nil {
+			return strings.TrimSpace(payload.Data.Object.Metadata["orderId"])
+		}
 	}
-	// For other providers (Stripe, Alipay direct, WxPay direct), the registry
-	// typically has only one instance, so no instance lookup is needed.
+	// Encrypted WeChat callbacks select verification candidates before decryption.
 	return ""
 }
 

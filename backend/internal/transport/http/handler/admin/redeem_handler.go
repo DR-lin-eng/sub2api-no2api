@@ -15,6 +15,7 @@ import (
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
 	"github.com/Wei-Shaw/sub2api/internal/shared/response"
 	"github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto"
+	"github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -100,6 +101,9 @@ func (h *RedeemHandler) List(c *gin.Context) {
 	sortOrder := c.DefaultQuery("sort_order", "desc")
 	// 标准化和验证 search 参数
 	search = strings.TrimSpace(search)
+	if search != "" && !middleware.RequireRedeemSecrets(c) {
+		return
+	}
 	if len(search) > 100 {
 		search = search[:100]
 	}
@@ -112,7 +116,7 @@ func (h *RedeemHandler) List(c *gin.Context) {
 
 	out := make([]dto.AdminRedeemCode, 0, len(codes))
 	for i := range codes {
-		out = append(out, *dto.RedeemCodeFromServiceAdmin(&codes[i]))
+		out = append(out, *adminRedeemCodeForRequest(c, &codes[i]))
 	}
 	response.Paginated(c, out, total, page, pageSize)
 }
@@ -132,12 +136,15 @@ func (h *RedeemHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, dto.RedeemCodeFromServiceAdmin(code))
+	response.Success(c, adminRedeemCodeForRequest(c, code))
 }
 
 // Generate handles generating new redeem codes
 // POST /api/v1/admin/redeem-codes/generate
 func (h *RedeemHandler) Generate(c *gin.Context) {
+	if !middleware.RequireRedeemSecrets(c) {
+		return
+	}
 	var req GenerateRedeemCodesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
@@ -167,7 +174,7 @@ func (h *RedeemHandler) Generate(c *gin.Context) {
 
 		out := make([]dto.AdminRedeemCode, 0, len(codes))
 		for i := range codes {
-			out = append(out, *dto.RedeemCodeFromServiceAdmin(&codes[i]))
+			out = append(out, *adminRedeemCodeForRequest(c, &codes[i]))
 		}
 		return out, nil
 	})
@@ -176,6 +183,9 @@ func (h *RedeemHandler) Generate(c *gin.Context) {
 // CreateAndRedeem creates a fixed redeem code and redeems it for a target user in one step.
 // POST /api/v1/admin/redeem-codes/create-and-redeem
 func (h *RedeemHandler) CreateAndRedeem(c *gin.Context) {
+	if !middleware.RequireRedeemSecrets(c) {
+		return
+	}
 	if h.redeemService == nil {
 		response.InternalError(c, "redeem service not configured")
 		return
@@ -377,7 +387,7 @@ func (h *RedeemHandler) Expire(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, dto.RedeemCodeFromServiceAdmin(code))
+	response.Success(c, adminRedeemCodeForRequest(c, code))
 }
 
 // GetStats handles getting redeem code statistics
@@ -401,6 +411,9 @@ func (h *RedeemHandler) GetStats(c *gin.Context) {
 // Export handles exporting redeem codes to CSV
 // GET /api/v1/admin/redeem-codes/export
 func (h *RedeemHandler) Export(c *gin.Context) {
+	if !middleware.RequireRedeemSecrets(c) {
+		return
+	}
 	codeType := c.Query("type")
 	status := c.Query("status")
 	search := strings.TrimSpace(c.Query("search"))
@@ -478,6 +491,9 @@ func (h *RedeemHandler) Export(c *gin.Context) {
 
 // ExportGenerated exports only the codes returned by one completed generation request.
 func (h *RedeemHandler) ExportGenerated(c *gin.Context) {
+	if !middleware.RequireRedeemSecrets(c) {
+		return
+	}
 	var req ExportGeneratedRedeemCodesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())

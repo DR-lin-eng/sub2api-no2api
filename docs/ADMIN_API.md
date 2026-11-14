@@ -72,6 +72,7 @@ curl -X POST "${BASE}/api/v1/admin/settings/admin-api-keys" \
 | --- | --- |
 | `admin.read` | 所有非敏感 Admin GET/HEAD/OPTIONS 请求 |
 | `admin.write` | 未划分到专属资源的 Admin POST/PUT/PATCH/DELETE 请求 |
+| `admin.redeem.secrets` | 显式允许读取明文卡密、按卡密搜索和导出；生成/创建并兑换还需原写权限 |
 | `admin.users.read` | 用户管理读取接口 |
 | `admin.users.write` | 用户管理写入接口 |
 | `admin.accounts.read` | 上游账号管理读取接口 |
@@ -89,6 +90,10 @@ curl -X POST "${BASE}/api/v1/admin/settings/admin-api-keys" \
 
 读权限不会自动授予写权限，写权限也不会自动授予读权限。需要完整访问时必须同时授予对应的 read 和 write scope。
 
+卡密权限独立于 `admin.read` 和 `admin.write`，必须明确勾选 `admin.redeem.secrets`。没有该权限时，兑换码列表、详情、过期操作返回值和用户余额历史的 `code` 返回 `********`，支付订单的 `recharge_code` 被清空，支付审计中的对应卡密也会脱敏；非空卡密搜索、导出、生成和创建并兑换返回 `403`。生成和创建并兑换同时需要原有的 `admin.write`。普通只读密钥仍可读取脱敏列表和其他已授权数据。
+
+现有软件需要明文卡密时，在“系统设置 -> 安全”编辑原密钥，保留已有 scope 并增加“读取卡密”即可；不需要创建或轮换密钥，调用方的 `x-api-key` 值保持不变。完整管理员 JWT 会话保留原有卡密访问规则。权限检查先于幂等响应缓存，撤权后不能重放旧缓存取得卡密。
+
 以下敏感读取无论授予什么 scope 都不允许 Admin API Key 调用：
 
 - `GET /api/v1/admin/accounts/data`
@@ -99,7 +104,7 @@ curl -X POST "${BASE}/api/v1/admin/settings/admin-api-keys" \
 
 管理员密钥的创建、编辑、轮换、撤销，以及旧版密钥的重新生成和删除，只允许完整管理员的 JWT 会话调用。机器密钥不能管理自身或其他密钥，无论其 scope 或 step-up 开关状态如何；仅含脱敏元数据的列表/状态读取保留原 scope 规则。
 
-旧版单一 Admin API Key 仅保留只读兼容能力，不能修改设置、轮换自身或执行其他写操作。建议重新创建 scoped Key 后撤销旧 Key。
+旧版单一 Admin API Key 默认保留 `admin.read`。完整管理员可直接编辑列表中的旧密钥权限和有效期，ID 为 `legacy`，原密钥值保持不变。权限元数据绑定该密钥的摘要；重新生成旧密钥后回到默认只读，不继承此前的额外授权。机器密钥仍不能编辑、轮换自身或管理其他密钥。
 
 ## 权限组与客服角色
 
@@ -314,6 +319,16 @@ curl -X PUT "${BASE}/api/v1/admin/settings/admin-api-keys/<key-id>" \
 ```
 
 将 `expires_at` 设置为 `null` 可以取消有效期限制。
+
+此接口只更新元数据，不改变密钥值。旧版密钥也可使用 `:id=legacy`。例如，向旧版只读密钥增加卡密读取权限时，保留完整 scope 列表：
+
+```json
+{
+  "scopes": ["admin.read", "admin.redeem.secrets"]
+}
+```
+
+`scopes` 是完整替换；编辑已有 scoped Key 时应一并保留原有授权。
 
 ### 轮换 Key
 

@@ -16,9 +16,14 @@ import (
 
 // --- Dashboard & Analytics ---
 
+const MaxPaymentDashboardDays = 366
+
 func (s *PaymentService) GetDashboardStats(ctx context.Context, days int) (*DashboardStats, error) {
 	if days <= 0 {
 		days = 30
+	}
+	if days > MaxPaymentDashboardDays {
+		days = MaxPaymentDashboardDays
 	}
 	now := time.Now()
 	since := now.AddDate(0, 0, -days)

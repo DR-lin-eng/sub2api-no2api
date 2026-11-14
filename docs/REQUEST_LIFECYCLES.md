@@ -553,7 +553,9 @@ sequenceDiagram
 
 ### 易支付异步支付
 
-EasyPay 的 `async` 选项通过服务端 `mapi.php` 创建订单，前端接收返回的扫码串或收银台地址。原有 `popup` 继续使用 `submit.php`，`qrcode` 和历史 API 模式也保持原行为，管理员可手动切换。各模式的异步通知均由 `payment_webhook_handler.go` 验签后交给 `payment_fulfillment.go`，在本地金额和实例校验后查上游确认，再执行幂等充值；同步跳转页不决定到账。详见 [支付配置](PAYMENT_CN.md)。
+EasyPay 的 `async` 选项通过服务端 `mapi.php` 创建订单，前端接收返回的扫码串或收银台地址。原有 `popup` 继续使用 `submit.php`，`qrcode` 和历史 API 模式也保持原行为，管理员可手动切换。各模式的异步通知均由 `payment_webhook_handler.go` 验签后交给 `payment_confirmation.go`，在本地金额和实例校验后查上游确认，再由 `payment_fulfillment.go` 幂等充值；同步跳转页不决定到账。首次收款同时受 `expires_at + 30 分钟` 限制，包含未收款的创建失败订单。超过窗口的支付先持久化审计再 ACK；存储或原商户配置异常保留可重试响应。查单与迟到创建响应不会改写已收款订单的流水或履约锁。详见 [支付配置](PAYMENT_CN.md)。
+
+订单创建在同一事务按用户 → 商户行锁顺序预留用户额度与商户最终报价额度，商户超限或配置/用量读取失败时拒绝准入。退款先事务认领/扣减再调用渠道；同步成功先保存可重试凭证，再将订单终态、历史返利比例追回和成功审计同事务提交。已转出返利的缺口进入独立返利欠额，后续返利抵扣；本地结算重试不再次请求渠道退款。
 
 ### 认证刷新
 
@@ -562,6 +564,8 @@ EasyPay 的 `async` 选项通过服务端 `mapi.php` 创建订单，前端接收
 登录和会话业务由 `features/auth/data/datasources/authDatasource.ts` 与 `features/auth/presentation/stores/authStore.ts` 拥有；网络级刷新和请求重试仍由 `core/networks/` 统一负责。
 
 管理员路由的前端 guard 只改善体验。真正的管理员权限、step-up 和 scoped Admin API Key 校验在后端 middleware。
+
+卡密读取由显式 `admin.redeem.secrets` 另行授权。管理端对兑换码、用户余额历史和支付订单采用同一脱敏规则；返回明文的导出、生成和创建兑换先验权限再进入幂等缓存。完整管理员可编辑原 scoped/legacy 密钥的权限而不改变集成密钥值，旧版附加权限绑定当前密钥摘要，重新生成不会继承。具体调用见 [Admin API](ADMIN_API.md)。
 
 ### 认证人机验证
 
