@@ -8,19 +8,19 @@ package main
 
 import (
 	"context"
-	"github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
-	"github.com/Wei-Shaw/sub2api/internal/infrastructure/repository"
-	"github.com/Wei-Shaw/sub2api/internal/modules/chat"
-	"github.com/Wei-Shaw/sub2api/internal/modules/egress"
-	"github.com/Wei-Shaw/sub2api/internal/modules/payment"
-	"github.com/Wei-Shaw/sub2api/internal/modules/securityaudit"
-	"github.com/Wei-Shaw/sub2api/internal/platform/config"
-	"github.com/Wei-Shaw/sub2api/internal/shared/ip"
-	"github.com/Wei-Shaw/sub2api/internal/transport/http/handler"
-	"github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin"
-	"github.com/Wei-Shaw/sub2api/internal/transport/http/server"
-	"github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
+	"github.com/DR-lin-eng/sub2api-no2api/ent"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/infrastructure/repository"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/chat"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/egress"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/payment"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/securityaudit"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/ip"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/handler"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/handler/admin"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/server"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/server/middleware"
 	"github.com/redis/go-redis/v9"
 	"log"
 	"net/http"
@@ -30,7 +30,7 @@ import (
 
 import (
 	_ "embed"
-	_ "github.com/Wei-Shaw/sub2api/ent/runtime"
+	_ "github.com/DR-lin-eng/sub2api-no2api/ent/runtime"
 )
 
 // Injectors from wire.go:

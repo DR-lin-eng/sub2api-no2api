@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/modules/securityaudit"
-	"github.com/Wei-Shaw/sub2api/internal/shared/ctxkey"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/securityaudit"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/ctxkey"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )

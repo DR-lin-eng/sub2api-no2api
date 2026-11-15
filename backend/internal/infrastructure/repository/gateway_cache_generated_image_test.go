@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
-	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	platformegress "github.com/DR-lin-eng/sub2api-no2api/internal/platform/egress"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"

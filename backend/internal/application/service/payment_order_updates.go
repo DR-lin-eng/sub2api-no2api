@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
-	"github.com/Wei-Shaw/sub2api/internal/modules/payment"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/paymentorder"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/payment"
 )
 
 // Creation can finish after a callback has accepted payment. Only the unpaid

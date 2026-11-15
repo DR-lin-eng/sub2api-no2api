@@ -1,4 +1,4 @@
-module github.com/Wei-Shaw/sub2api
+module github.com/DR-lin-eng/sub2api-no2api
 
 go 1.26.11
 

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/usagestats"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/usagestats"
 )
 
 // TrendDataPoint represents a single point in trend data

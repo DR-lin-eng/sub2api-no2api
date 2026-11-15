@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/gemini"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/gemini"
 	"github.com/google/uuid"
 )
 

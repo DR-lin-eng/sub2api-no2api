@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	moduleegress "github.com/Wei-Shaw/sub2api/internal/modules/egress"
-	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
-	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
+	moduleegress "github.com/DR-lin-eng/sub2api-no2api/internal/modules/egress"
+	platformegress "github.com/DR-lin-eng/sub2api-no2api/internal/platform/egress"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/tlsfingerprint"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )

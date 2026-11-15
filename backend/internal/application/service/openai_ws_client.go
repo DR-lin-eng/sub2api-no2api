@@ -12,12 +12,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	openaiwsv2 "github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2"
-	"github.com/Wei-Shaw/sub2api/internal/platform/config"
-	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
-	"github.com/Wei-Shaw/sub2api/internal/shared/chatgptcookies"
-	"github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation"
-	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
+	openaiwsv2 "github.com/DR-lin-eng/sub2api-no2api/internal/application/service/openai_ws_v2"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
+	platformegress "github.com/DR-lin-eng/sub2api-no2api/internal/platform/egress"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/chatgptcookies"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/codexsimulation"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/tlsfingerprint"
 	coderws "github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 )

@@ -9,7 +9,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/Wei-Shaw/sub2api/ent/batchimagejob"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/batchimagejob"
 )
 
 // BatchImageJob is the model entity for the BatchImageJob schema.

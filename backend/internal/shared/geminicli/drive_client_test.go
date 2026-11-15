@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
+	platformegress "github.com/DR-lin-eng/sub2api-no2api/internal/platform/egress"
 )
 
 func TestDriveClientExplicitIPv6DisabledFailsClosed(t *testing.T) {

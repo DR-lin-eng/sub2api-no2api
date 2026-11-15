@@ -11,7 +11,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
 )
 
 const (

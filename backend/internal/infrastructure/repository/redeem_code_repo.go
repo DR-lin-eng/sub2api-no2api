@@ -6,12 +6,12 @@ import (
 	"strings"
 	"time"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
-	"github.com/Wei-Shaw/sub2api/ent/redeemcodeusage"
-	"github.com/Wei-Shaw/sub2api/ent/user"
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
-	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
+	dbent "github.com/DR-lin-eng/sub2api-no2api/ent"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/redeemcode"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/redeemcodeusage"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/user"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/pagination"
 
 	entsql "entgo.io/ent/dialect/sql"
 )

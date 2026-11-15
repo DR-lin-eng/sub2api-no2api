@@ -11,9 +11,9 @@ import (
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
 	"github.com/DATA-DOG/go-sqlmock"
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/internal/modules/chat"
-	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
+	dbent "github.com/DR-lin-eng/sub2api-no2api/ent"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/chat"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/pagination"
 	"github.com/stretchr/testify/require"
 )
 

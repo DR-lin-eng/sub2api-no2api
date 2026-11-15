@@ -10,8 +10,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/platform/config"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
+	infraerrors "github.com/DR-lin-eng/sub2api-no2api/internal/shared/errors"
 )
 
 const (

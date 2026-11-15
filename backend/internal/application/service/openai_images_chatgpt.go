@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/modules/chatgptimages"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/chatgptimages"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/tidwall/gjson"

@@ -9,9 +9,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog"
-	"github.com/Wei-Shaw/sub2api/internal/shared/claude"
-	"github.com/Wei-Shaw/sub2api/internal/shared/geminicli"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/modelcatalog"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/claude"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/geminicli"
 )
 
 type openAIModelsManifestFetcher interface {

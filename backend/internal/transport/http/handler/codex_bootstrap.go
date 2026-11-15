@@ -1,6 +1,6 @@
 package handler
 
-import "github.com/Wei-Shaw/sub2api/internal/shared/apicompat"
+import "github.com/DR-lin-eng/sub2api-no2api/internal/shared/apicompat"
 
 // Keep the handler-local entry points small and stable for callers/tests while
 // the protocol parser itself is shared with the application and WS paths.

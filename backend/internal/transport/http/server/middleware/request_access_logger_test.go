@@ -8,9 +8,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/ctxkey"
-	clientip "github.com/Wei-Shaw/sub2api/internal/shared/ip"
-	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/ctxkey"
+	clientip "github.com/DR-lin-eng/sub2api-no2api/internal/shared/ip"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/logger"
 	"github.com/gin-gonic/gin"
 )
 

@@ -15,8 +15,8 @@ import (
 	"sync"
 	"time"
 
-	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
-	"github.com/Wei-Shaw/sub2api/internal/shared/proxyutil"
+	platformegress "github.com/DR-lin-eng/sub2api-no2api/internal/platform/egress"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/proxyutil"
 	"github.com/redis/go-redis/v9"
 )
 

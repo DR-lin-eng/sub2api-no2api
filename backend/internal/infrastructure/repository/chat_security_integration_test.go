@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/ent/chatasset"
-	"github.com/Wei-Shaw/sub2api/ent/chatmessage"
-	"github.com/Wei-Shaw/sub2api/internal/modules/chat"
-	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
+	dbent "github.com/DR-lin-eng/sub2api-no2api/ent"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/chatasset"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/chatmessage"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/chat"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/pagination"
 	"github.com/stretchr/testify/require"
 )
 

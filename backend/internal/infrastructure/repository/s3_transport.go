@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
+	platformegress "github.com/DR-lin-eng/sub2api-no2api/internal/platform/egress"
 )
 
 // S3 configuration is request-controlled. Validate every DNS answer at the

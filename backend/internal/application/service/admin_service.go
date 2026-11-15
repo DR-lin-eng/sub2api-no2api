@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"time"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/internal/platform/config"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
+	dbent "github.com/DR-lin-eng/sub2api-no2api/ent"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
+	infraerrors "github.com/DR-lin-eng/sub2api-no2api/internal/shared/errors"
 )
 
 // AdminService interface defines admin management operations

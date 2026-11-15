@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/logger"
 )
 
 // MaxBatchDisableUsers 是单次批量禁用的用户数上限。

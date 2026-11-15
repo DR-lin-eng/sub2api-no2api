@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
 )
 
 // defaultAllowed 定义允许透传的响应头白名单

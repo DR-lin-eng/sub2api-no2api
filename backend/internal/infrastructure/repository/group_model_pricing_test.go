@@ -5,7 +5,7 @@ package repository
 import (
 	"testing"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
+	dbent "github.com/DR-lin-eng/sub2api-no2api/ent"
 	"github.com/stretchr/testify/require"
 )
 

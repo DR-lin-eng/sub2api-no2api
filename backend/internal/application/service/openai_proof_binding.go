@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/platform/liveattestation"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/liveattestation"
 )
 
 type openAIProofIdentityContextKey struct{}

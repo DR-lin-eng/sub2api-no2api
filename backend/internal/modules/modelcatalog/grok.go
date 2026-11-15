@@ -1,7 +1,7 @@
 package modelcatalog
 
 import (
-	"github.com/Wei-Shaw/sub2api/internal/shared/xai"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/xai"
 	"sort"
 	"strings"
 	"time"

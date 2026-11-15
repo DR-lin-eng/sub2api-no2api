@@ -6,13 +6,13 @@ import (
 	"strings"
 	"time"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
-	"github.com/Wei-Shaw/sub2api/internal/modules/payment"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
-	clientip "github.com/Wei-Shaw/sub2api/internal/shared/ip"
-	"github.com/Wei-Shaw/sub2api/internal/shared/response"
-	middleware2 "github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
+	dbent "github.com/DR-lin-eng/sub2api-no2api/ent"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/payment"
+	infraerrors "github.com/DR-lin-eng/sub2api-no2api/internal/shared/errors"
+	clientip "github.com/DR-lin-eng/sub2api-no2api/internal/shared/ip"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/response"
+	middleware2 "github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/server/middleware"
 
 	"github.com/gin-gonic/gin"
 )

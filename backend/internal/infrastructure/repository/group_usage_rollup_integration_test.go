@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
-	dbmigrations "github.com/Wei-Shaw/sub2api/migrations"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	dbmigrations "github.com/DR-lin-eng/sub2api-no2api/migrations"
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 )

@@ -9,7 +9,7 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	"github.com/Wei-Shaw/sub2api/internal/modules/qualityrender"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/qualityrender"
 )
 
 // Only final answers and provider identifiers are retained. Never copy request

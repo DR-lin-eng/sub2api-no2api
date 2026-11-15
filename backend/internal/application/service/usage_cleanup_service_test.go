@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/platform/config"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
-	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
+	infraerrors "github.com/DR-lin-eng/sub2api-no2api/internal/shared/errors"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/pagination"
 	"github.com/stretchr/testify/require"
 )
 

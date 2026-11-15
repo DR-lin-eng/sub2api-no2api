@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/claude"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/claude"
 	"github.com/tidwall/gjson"
 )
 

@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"strings"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/ent/group"
-	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
-	"github.com/Wei-Shaw/sub2api/internal/modules/payment"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
+	dbent "github.com/DR-lin-eng/sub2api-no2api/ent"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/group"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/subscriptionplan"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/payment"
+	infraerrors "github.com/DR-lin-eng/sub2api-no2api/internal/shared/errors"
 )
 
 // normalizePlanCurrency validates and normalizes the display-only currency label.

@@ -5,12 +5,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/modules/chat"
-	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
-	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
-	"github.com/Wei-Shaw/sub2api/internal/shared/response"
-	"github.com/Wei-Shaw/sub2api/internal/shared/wsutil"
-	middleware2 "github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/chat"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/logger"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/pagination"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/response"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/wsutil"
+	middleware2 "github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/server/middleware"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"

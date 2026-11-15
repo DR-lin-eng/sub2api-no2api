@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
-	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
-	"github.com/Wei-Shaw/sub2api/internal/shared/response"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	infraerrors "github.com/DR-lin-eng/sub2api-no2api/internal/shared/errors"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/pagination"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/response"
 
 	"github.com/gin-gonic/gin"
 )

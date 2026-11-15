@@ -12,9 +12,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/Wei-Shaw/sub2api/ent/chatasset"
-	"github.com/Wei-Shaw/sub2api/ent/chatconversation"
-	"github.com/Wei-Shaw/sub2api/ent/chatmessage"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/chatasset"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/chatconversation"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/chatmessage"
 )
 
 // ChatMessageCreate is the builder for creating a ChatMessage entity.

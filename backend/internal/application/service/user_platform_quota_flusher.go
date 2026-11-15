@@ -6,8 +6,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/platform/config"
-	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/logger"
 )
 
 // quotaDirtyCache 是 flusher 依赖的窄接口（来自 BillingCache）。

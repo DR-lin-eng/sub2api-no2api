@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/openai"
 )
 
 // The 20261107 desktop report recovers workspace tags 6..18. Keep an exact

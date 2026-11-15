@@ -1,7 +1,7 @@
 package service
 
 import (
-	"github.com/Wei-Shaw/sub2api/internal/modules/typesafe"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/typesafe"
 	"strings"
 )
 

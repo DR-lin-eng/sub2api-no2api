@@ -14,13 +14,13 @@ import (
 
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/ent/authidentity"
-	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
-	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
-	dbpredicate "github.com/Wei-Shaw/sub2api/ent/predicate"
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
+	dbent "github.com/DR-lin-eng/sub2api-no2api/ent"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/authidentity"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/authidentitychannel"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/identityadoptiondecision"
+	dbpredicate "github.com/DR-lin-eng/sub2api-no2api/ent/predicate"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	infraerrors "github.com/DR-lin-eng/sub2api-no2api/internal/shared/errors"
 )
 
 var (

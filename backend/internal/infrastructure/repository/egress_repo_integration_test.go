@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	moduleegress "github.com/Wei-Shaw/sub2api/internal/modules/egress"
-	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
+	dbent "github.com/DR-lin-eng/sub2api-no2api/ent"
+	moduleegress "github.com/DR-lin-eng/sub2api-no2api/internal/modules/egress"
+	platformegress "github.com/DR-lin-eng/sub2api-no2api/internal/platform/egress"
 	"github.com/stretchr/testify/require"
 )
 

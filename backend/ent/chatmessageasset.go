@@ -8,9 +8,9 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/Wei-Shaw/sub2api/ent/chatasset"
-	"github.com/Wei-Shaw/sub2api/ent/chatmessage"
-	"github.com/Wei-Shaw/sub2api/ent/chatmessageasset"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/chatasset"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/chatmessage"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/chatmessageasset"
 )
 
 // ChatMessageAsset is the model entity for the ChatMessageAsset schema.

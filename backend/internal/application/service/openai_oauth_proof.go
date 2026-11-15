@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/platform/liveattestation"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/liveattestation"
 )
 
 // prepareOpenAIOAuthProof runs at the transport boundary, after identity and

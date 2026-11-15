@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	openaiutil "github.com/Wei-Shaw/sub2api/internal/shared/openai"
+	openaiutil "github.com/DR-lin-eng/sub2api-no2api/internal/shared/openai"
 )
 
 const (

@@ -13,8 +13,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/platform/config"
-	"github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/urlvalidator"
 )
 
 // cnValidateProbeURL 按全局出站 URL 安全策略校验探测端点，返回规范化 URL。

@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Wei-Shaw/sub2api/internal/platform/config"
-	"github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator"
-	"github.com/Wei-Shaw/sub2api/internal/shared/xai"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/urlvalidator"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/xai"
 )
 
 func grokBaseURLValidator(account *Account, cfg *config.Config) (xai.BaseURLValidator, error) {

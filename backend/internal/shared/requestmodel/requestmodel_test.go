@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/httputil"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/httputil"
 )
 
 func TestFromBodyJSONModel(t *testing.T) {

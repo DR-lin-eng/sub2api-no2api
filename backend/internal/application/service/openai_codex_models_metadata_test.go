@@ -2,7 +2,7 @@ package service
 
 import (
 	"encoding/json"
-	"github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/modelcatalog"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"testing"

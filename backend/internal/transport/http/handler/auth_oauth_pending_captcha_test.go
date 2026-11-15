@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	dbuser "github.com/Wei-Shaw/sub2api/ent/user"
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	dbent "github.com/DR-lin-eng/sub2api-no2api/ent"
+	dbuser "github.com/DR-lin-eng/sub2api-no2api/ent/user"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )

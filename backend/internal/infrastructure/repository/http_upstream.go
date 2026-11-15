@@ -31,17 +31,17 @@ import (
 	"github.com/klauspost/compress/zstd"
 	"golang.org/x/net/http2"
 
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
-	"github.com/Wei-Shaw/sub2api/internal/platform/config"
-	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
-	"github.com/Wei-Shaw/sub2api/internal/shared/chatgptcookies"
-	"github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation"
-	"github.com/Wei-Shaw/sub2api/internal/shared/proxyurl"
-	"github.com/Wei-Shaw/sub2api/internal/shared/proxyutil"
-	"github.com/Wei-Shaw/sub2api/internal/shared/servertiming"
-	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
-	"github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator"
-	"github.com/Wei-Shaw/sub2api/internal/shared/xai"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
+	platformegress "github.com/DR-lin-eng/sub2api-no2api/internal/platform/egress"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/chatgptcookies"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/codexsimulation"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/proxyurl"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/proxyutil"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/servertiming"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/tlsfingerprint"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/urlvalidator"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/xai"
 )
 
 // 默认配置常量

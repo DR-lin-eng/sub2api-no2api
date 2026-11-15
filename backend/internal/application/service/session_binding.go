@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"strings"
 
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
+	infraerrors "github.com/DR-lin-eng/sub2api-no2api/internal/shared/errors"
 )
 
 // ErrSessionBindingMismatch 会话绑定的 IP/UA 发生变化，会话已失效。

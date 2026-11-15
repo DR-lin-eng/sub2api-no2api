@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"time"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
-	"github.com/Wei-Shaw/sub2api/internal/modules/payment"
+	dbent "github.com/DR-lin-eng/sub2api-no2api/ent"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/paymentauditlog"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/payment"
 )
 
 // ErrPaymentAfterRecoveryWindow is returned for a cryptographically valid

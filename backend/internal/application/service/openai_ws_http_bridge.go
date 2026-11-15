@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/platform/config"
-	"github.com/Wei-Shaw/sub2api/internal/shared/openaitiming"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/openaitiming"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 )

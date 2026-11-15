@@ -20,10 +20,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/robfig/cron/v3"
 
-	"github.com/Wei-Shaw/sub2api/internal/platform/config"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
-	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
-	"github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
+	infraerrors "github.com/DR-lin-eng/sub2api-no2api/internal/shared/errors"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/logger"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/urlvalidator"
 )
 
 const (

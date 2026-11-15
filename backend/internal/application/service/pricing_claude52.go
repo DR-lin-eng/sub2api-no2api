@@ -1,6 +1,6 @@
 package service
 
-import "github.com/Wei-Shaw/sub2api/internal/shared/claude"
+import "github.com/DR-lin-eng/sub2api-no2api/internal/shared/claude"
 
 var claude52FallbackPricing = &LiteLLMModelPricing{
 	InputCostPerToken:                   8e-6,

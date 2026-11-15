@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/logger"
 )
 
 // IdempotencyMetricsSnapshot 提供幂等核心指标快照（进程内累计）。

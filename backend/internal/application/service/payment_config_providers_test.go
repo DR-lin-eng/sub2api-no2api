@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/internal/modules/payment"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
+	dbent "github.com/DR-lin-eng/sub2api-no2api/ent"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/payment"
+	infraerrors "github.com/DR-lin-eng/sub2api-no2api/internal/shared/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -10,8 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
-	platformmiddleware "github.com/Wei-Shaw/sub2api/internal/platform/middleware"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	platformmiddleware "github.com/DR-lin-eng/sub2api-no2api/internal/platform/middleware"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"

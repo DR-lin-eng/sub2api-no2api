@@ -3,7 +3,7 @@ package service
 import (
 	"encoding/json"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/antigravity"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/antigravity"
 )
 
 // CleanGeminiNativeThoughtSignatures 从 Gemini 原生 API 请求中替换 thoughtSignature 字段为 dummy 签名，

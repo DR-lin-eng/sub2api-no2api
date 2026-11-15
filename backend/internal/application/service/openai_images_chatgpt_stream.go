@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/modules/chatgptimages"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/chatgptimages"
 )
 
 func (s *chatGPTImageSession) requestJSONBody(value any) ([]byte, error) { return json.Marshal(value) }

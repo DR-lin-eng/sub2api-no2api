@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
-	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
+	platformegress "github.com/DR-lin-eng/sub2api-no2api/internal/platform/egress"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/tlsfingerprint"
 )
 
 // Handshake identity is immutable for the life of an upstream socket.

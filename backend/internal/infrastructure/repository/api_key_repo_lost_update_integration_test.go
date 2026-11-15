@@ -3,7 +3,7 @@
 package repository
 
 import (
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
 )
 
 // api_keys 上的用量列由计费热路径原子递增（IncrementQuotaUsed /

@@ -11,7 +11,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/pagination"
 )
 
 // Broadcaster pushes a newly created message to connected websocket clients.

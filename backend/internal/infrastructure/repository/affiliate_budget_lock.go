@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
+	dbent "github.com/DR-lin-eng/sub2api-no2api/ent"
 )
 
 func (r *affiliateRepository) WithRebateBudget(ctx context.Context, inviterID int64, fn func(context.Context) error) error {

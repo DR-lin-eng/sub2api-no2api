@@ -3,7 +3,7 @@ package service
 import (
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/antigravity"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/antigravity"
 )
 
 // TestGeminiSessionContinuousConversation 测试连续会话的摘要链匹配

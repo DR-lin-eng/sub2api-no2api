@@ -45,7 +45,7 @@ linters:
             - "!**/internal/application/service/ops_system_log_sink.go"
             - "!**/internal/application/service/wire.go"
           deny:
-            - pkg: github.com/Wei-Shaw/sub2api/internal/infrastructure/repository
+            - pkg: github.com/DR-lin-eng/sub2api-no2api/internal/infrastructure/repository
               desc: "service must not import repository"
             - pkg: gorm.io/gorm
               desc: "service must not import gorm"
@@ -56,7 +56,7 @@ linters:
           files:
             - "**/internal/transport/http/handler/**"
           deny:
-            - pkg: github.com/Wei-Shaw/sub2api/internal/infrastructure/repository
+            - pkg: github.com/DR-lin-eng/sub2api-no2api/internal/infrastructure/repository
               desc: "handler must not import repository"
             - pkg: gorm.io/gorm
               desc: "handler must not import gorm"

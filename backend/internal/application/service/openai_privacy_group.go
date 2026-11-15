@@ -2,7 +2,7 @@ package service
 
 import (
 	"context"
-	"github.com/Wei-Shaw/sub2api/internal/shared/ctxkey"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/ctxkey"
 )
 
 func (s *OpenAIGatewayService) openAIPrivacyGroup(ctx context.Context, groupID *int64) *Group {

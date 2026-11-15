@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/Wei-Shaw/sub2api/internal/modules/activitycenter"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/activitycenter"
 )
 
 func TestUserActivityCampaignFromService_RedactsLotteryWeights(t *testing.T) {

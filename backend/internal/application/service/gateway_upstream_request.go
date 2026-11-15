@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/claude"
-	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
-	"github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/claude"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/logger"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/urlvalidator"
 	"github.com/google/uuid"
 	"github.com/tidwall/gjson"
 

@@ -14,11 +14,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/platform/config"
-	"github.com/Wei-Shaw/sub2api/internal/shared/claude"
-	"github.com/Wei-Shaw/sub2api/internal/shared/ctxkey"
-	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
-	"github.com/Wei-Shaw/sub2api/internal/shared/usagestats"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/claude"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/ctxkey"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/logger"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/usagestats"
 )
 
 // SelectAccount 选择账号（粘性会话+优先级）

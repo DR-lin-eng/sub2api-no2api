@@ -13,10 +13,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/domain/model"
-	"github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation"
-	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
-	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/domain/model"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/codexsimulation"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/logger"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/tlsfingerprint"
 )
 
 // TLSFingerprintProfileRepository 定义 TLS 指纹模板的数据访问接口

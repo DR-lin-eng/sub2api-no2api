@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog"
-	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/modelcatalog"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
 	"github.com/google/uuid"
 )
 

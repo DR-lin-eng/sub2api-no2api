@@ -5,12 +5,12 @@ import (
 	"errors"
 	"time"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	dbaccount "github.com/Wei-Shaw/sub2api/ent/account"
-	dbaccountgroup "github.com/Wei-Shaw/sub2api/ent/accountgroup"
-	dbgroup "github.com/Wei-Shaw/sub2api/ent/group"
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
-	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
+	dbent "github.com/DR-lin-eng/sub2api-no2api/ent"
+	dbaccount "github.com/DR-lin-eng/sub2api-no2api/ent/account"
+	dbaccountgroup "github.com/DR-lin-eng/sub2api-no2api/ent/accountgroup"
+	dbgroup "github.com/DR-lin-eng/sub2api-no2api/ent/group"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/logger"
 )
 
 func (r *accountRepository) syncSchedulerAccountSnapshot(ctx context.Context, accountID int64) {

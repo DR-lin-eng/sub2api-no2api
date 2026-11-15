@@ -3,8 +3,8 @@ package repository
 import (
 	"context"
 
-	dbaccount "github.com/Wei-Shaw/sub2api/ent/account"
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	dbaccount "github.com/DR-lin-eng/sub2api-no2api/ent/account"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
 )
 
 func (r *accountRepository) GetAccountSchedulingState(ctx context.Context, accountID int64) (service.AccountSchedulingState, error) {

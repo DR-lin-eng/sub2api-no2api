@@ -10,8 +10,8 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/Wei-Shaw/sub2api/ent/chatconversation"
-	"github.com/Wei-Shaw/sub2api/ent/chatmessage"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/chatconversation"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/chatmessage"
 )
 
 // ChatMessage is the model entity for the ChatMessage schema.

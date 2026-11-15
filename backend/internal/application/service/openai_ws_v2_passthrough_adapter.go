@@ -12,9 +12,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	openaiwsv2 "github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2"
-	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
-	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
+	openaiwsv2 "github.com/DR-lin-eng/sub2api-no2api/internal/application/service/openai_ws_v2"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/logger"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/openai"
 	coderws "github.com/coder/websocket"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"

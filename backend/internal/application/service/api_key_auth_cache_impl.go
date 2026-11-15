@@ -10,8 +10,8 @@ import (
 	"math/rand/v2"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/domain"
-	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/domain"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
 	"github.com/dgraph-io/ristretto"
 )
 

@@ -7,13 +7,13 @@ import (
 	"strings"
 	"time"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	dbaccount "github.com/Wei-Shaw/sub2api/ent/account"
-	dbbinding "github.com/Wei-Shaw/sub2api/ent/accountegressbinding"
-	dbpool "github.com/Wei-Shaw/sub2api/ent/ipv6egresspool"
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
-	moduleegress "github.com/Wei-Shaw/sub2api/internal/modules/egress"
-	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
+	dbent "github.com/DR-lin-eng/sub2api-no2api/ent"
+	dbaccount "github.com/DR-lin-eng/sub2api-no2api/ent/account"
+	dbbinding "github.com/DR-lin-eng/sub2api-no2api/ent/accountegressbinding"
+	dbpool "github.com/DR-lin-eng/sub2api-no2api/ent/ipv6egresspool"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	moduleegress "github.com/DR-lin-eng/sub2api-no2api/internal/modules/egress"
+	platformegress "github.com/DR-lin-eng/sub2api-no2api/internal/platform/egress"
 )
 
 const egressPoolAdvisoryLock int64 = 0x6970763665677265

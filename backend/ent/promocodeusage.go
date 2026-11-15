@@ -9,9 +9,9 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/Wei-Shaw/sub2api/ent/promocode"
-	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
-	"github.com/Wei-Shaw/sub2api/ent/user"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/promocode"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/promocodeusage"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/user"
 )
 
 // PromoCodeUsage is the model entity for the PromoCodeUsage schema.

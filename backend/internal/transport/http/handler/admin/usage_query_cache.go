@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/usagestats"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/usagestats"
 )
 
 // 与 dashboard 查询缓存同款:30s TTL 进程内缓存,仅服务 /admin/usage/stats 读路径。

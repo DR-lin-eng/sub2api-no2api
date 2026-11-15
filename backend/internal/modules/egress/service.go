@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/platform/config"
-	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
+	platformegress "github.com/DR-lin-eng/sub2api-no2api/internal/platform/egress"
 )
 
 type Service struct {

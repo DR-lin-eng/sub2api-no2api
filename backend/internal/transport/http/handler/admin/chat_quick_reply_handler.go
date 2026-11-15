@@ -4,9 +4,9 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/Wei-Shaw/sub2api/internal/modules/chat"
-	"github.com/Wei-Shaw/sub2api/internal/shared/response"
-	middleware2 "github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/chat"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/response"
+	middleware2 "github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/server/middleware"
 	"github.com/gin-gonic/gin"
 )
 

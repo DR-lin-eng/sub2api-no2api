@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/httpclient"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/httpclient"
 	"github.com/golang-jwt/jwt/v5"
 )
 

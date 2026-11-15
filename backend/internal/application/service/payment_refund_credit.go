@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"math"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
-	"github.com/Wei-Shaw/sub2api/ent/redeemcodeusage"
-	"github.com/Wei-Shaw/sub2api/internal/modules/payment"
+	dbent "github.com/DR-lin-eng/sub2api-no2api/ent"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/redeemcode"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/redeemcodeusage"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/payment"
 	"github.com/shopspring/decimal"
 )
 

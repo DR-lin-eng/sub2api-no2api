@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/domain/model"
-	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/domain/model"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/logger"
 )
 
 // ErrorPassthroughRepository 定义错误透传规则的数据访问接口

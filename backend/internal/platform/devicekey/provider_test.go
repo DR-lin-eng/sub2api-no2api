@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/remotecontrol"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/remotecontrol"
 )
 
 type fixtureReader struct{ io.Reader }

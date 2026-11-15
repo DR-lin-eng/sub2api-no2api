@@ -11,8 +11,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/antigravity"
-	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/antigravity"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/openai"
 	"golang.org/x/sync/singleflight"
 )
 

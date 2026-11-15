@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
-	"github.com/Wei-Shaw/sub2api/internal/shared/response"
-	"github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto"
-	middleware2 "github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	infraerrors "github.com/DR-lin-eng/sub2api-no2api/internal/shared/errors"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/response"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/handler/dto"
+	middleware2 "github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/server/middleware"
 
 	"github.com/gin-gonic/gin"
 )

@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"strings"
 
-	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
+	platformegress "github.com/DR-lin-eng/sub2api-no2api/internal/platform/egress"
 )
 
 const openAIUsageBaseURL = "https://chatgpt.com/backend-api"

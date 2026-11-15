@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
+	platformegress "github.com/DR-lin-eng/sub2api-no2api/internal/platform/egress"
+	infraerrors "github.com/DR-lin-eng/sub2api-no2api/internal/shared/errors"
 	"github.com/stretchr/testify/require"
 )
 

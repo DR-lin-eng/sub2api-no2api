@@ -11,7 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/Wei-Shaw/sub2api/ent/custommodelconfig"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/custommodelconfig"
 )
 
 // CustomModelConfigCreate is the builder for creating a CustomModelConfig entity.

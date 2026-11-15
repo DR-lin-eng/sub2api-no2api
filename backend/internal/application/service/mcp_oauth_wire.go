@@ -1,8 +1,8 @@
 package service
 
 import (
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	dbent "github.com/DR-lin-eng/sub2api-no2api/ent"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
 )
 
 func ProvideMCPAwareAuthService(

@@ -4,14 +4,14 @@ import (
 	"context"
 	"time"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/ent/group"
-	"github.com/Wei-Shaw/sub2api/ent/predicate"
-	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
-	"github.com/Wei-Shaw/sub2api/ent/user"
-	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
-	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
+	dbent "github.com/DR-lin-eng/sub2api-no2api/ent"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/group"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/predicate"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/schema/mixins"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/user"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/usersubscription"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/pagination"
 )
 
 type userSubscriptionRepository struct {

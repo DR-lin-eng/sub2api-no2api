@@ -3,7 +3,7 @@ package service
 import (
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/ip"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/ip"
 )
 
 func firstNonEmpty(values ...string) string {

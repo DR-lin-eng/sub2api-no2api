@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/geminicli"
-	openaiidentity "github.com/Wei-Shaw/sub2api/internal/shared/openai"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/geminicli"
+	openaiidentity "github.com/DR-lin-eng/sub2api-no2api/internal/shared/openai"
 )
 
 // AccountQualityRuntimeSnapshot records the non-secret execution profile that

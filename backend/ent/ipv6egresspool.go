@@ -9,7 +9,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/Wei-Shaw/sub2api/ent/ipv6egresspool"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/ipv6egresspool"
 )
 
 // IPv6EgressPool is the model entity for the IPv6EgressPool schema.

@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
-	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
-	"github.com/Wei-Shaw/sub2api/internal/shared/usagestats"
+	dbent "github.com/DR-lin-eng/sub2api-no2api/ent"
+	infraerrors "github.com/DR-lin-eng/sub2api-no2api/internal/shared/errors"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/pagination"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/usagestats"
 )
 
 var (

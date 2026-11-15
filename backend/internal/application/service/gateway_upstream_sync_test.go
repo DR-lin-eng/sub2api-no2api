@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/internal/shared/claude"
+	dbent "github.com/DR-lin-eng/sub2api-no2api/ent"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/claude"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/oauthstate"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/oauthstate"
 	"github.com/redis/go-redis/v9"
 )
 

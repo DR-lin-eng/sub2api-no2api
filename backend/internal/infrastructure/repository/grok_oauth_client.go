@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
-	sharedhttp "github.com/Wei-Shaw/sub2api/internal/shared/httpclient"
-	"github.com/Wei-Shaw/sub2api/internal/shared/logredact"
-	"github.com/Wei-Shaw/sub2api/internal/shared/xai"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	infraerrors "github.com/DR-lin-eng/sub2api-no2api/internal/shared/errors"
+	sharedhttp "github.com/DR-lin-eng/sub2api-no2api/internal/shared/httpclient"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/logredact"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/xai"
 	"github.com/imroc/req/v3"
 )
 

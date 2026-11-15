@@ -10,7 +10,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/Wei-Shaw/sub2api/ent/custommodelrequesttemplate"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/custommodelrequesttemplate"
 )
 
 // CustomModelRequestTemplate is the model entity for the CustomModelRequestTemplate schema.

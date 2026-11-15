@@ -7,7 +7,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
 
-	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/schema/mixins"
 )
 
 // ChatQuickReply stores a reusable reply owned by one administrator.

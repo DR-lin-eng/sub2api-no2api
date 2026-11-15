@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	dbaccount "github.com/Wei-Shaw/sub2api/ent/account"
-	dbpredicate "github.com/Wei-Shaw/sub2api/ent/predicate"
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
-	"github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation"
+	dbaccount "github.com/DR-lin-eng/sub2api-no2api/ent/account"
+	dbpredicate "github.com/DR-lin-eng/sub2api-no2api/ent/predicate"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/codexsimulation"
 
 	entsql "entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqljson"

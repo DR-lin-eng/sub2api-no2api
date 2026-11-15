@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"github.com/Wei-Shaw/sub2api/internal/shared/httputil"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/httputil"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"net/http"

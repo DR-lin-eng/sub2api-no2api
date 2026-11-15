@@ -12,7 +12,7 @@ import (
 	"time"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
-	"github.com/Wei-Shaw/sub2api/migrations"
+	"github.com/DR-lin-eng/sub2api-no2api/migrations"
 	"github.com/stretchr/testify/require"
 )
 

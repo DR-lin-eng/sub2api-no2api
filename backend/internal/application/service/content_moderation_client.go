@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/httpclient"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/httpclient"
 )
 
 func (s *ContentModerationService) callModeration(ctx context.Context, cfg *ContentModerationConfig, input any, trackKeyLoad ...bool) (*moderationAPIResult, error) {

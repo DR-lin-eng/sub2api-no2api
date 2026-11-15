@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/domain"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/domain"
 )
 
 // APIKeyAuthSnapshot API Key 认证缓存快照（仅包含认证所需字段）

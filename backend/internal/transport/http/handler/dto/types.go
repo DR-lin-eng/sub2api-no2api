@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
-	"github.com/Wei-Shaw/sub2api/internal/domain"
-	moduleegress "github.com/Wei-Shaw/sub2api/internal/modules/egress"
-	"github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog"
-	"github.com/Wei-Shaw/sub2api/internal/shared/openaitiming"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/domain"
+	moduleegress "github.com/DR-lin-eng/sub2api-no2api/internal/modules/egress"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/modelcatalog"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/openaitiming"
 )
 
 type User struct {

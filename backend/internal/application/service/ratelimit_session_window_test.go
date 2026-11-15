@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/pagination"
 )
 
 // sessionWindowMockRepo is a minimal AccountRepository mock that records calls

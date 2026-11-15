@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
-	clientip "github.com/Wei-Shaw/sub2api/internal/shared/ip"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	clientip "github.com/DR-lin-eng/sub2api-no2api/internal/shared/ip"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

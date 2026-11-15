@@ -4,13 +4,13 @@ import (
 	"context"
 	"log"
 
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
-	"github.com/Wei-Shaw/sub2api/internal/modules/activitycenter"
-	"github.com/Wei-Shaw/sub2api/internal/modules/chat"
-	moduleegress "github.com/Wei-Shaw/sub2api/internal/modules/egress"
-	"github.com/Wei-Shaw/sub2api/internal/modules/securityaudit"
-	"github.com/Wei-Shaw/sub2api/internal/platform/config"
-	"github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/activitycenter"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/chat"
+	moduleegress "github.com/DR-lin-eng/sub2api-no2api/internal/modules/egress"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/securityaudit"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/handler/admin"
 
 	"github.com/google/wire"
 )

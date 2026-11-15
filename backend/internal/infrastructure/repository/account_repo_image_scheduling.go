@@ -3,9 +3,9 @@ package repository
 import (
 	"context"
 
-	dbaccount "github.com/Wei-Shaw/sub2api/ent/account"
-	dbpredicate "github.com/Wei-Shaw/sub2api/ent/predicate"
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	dbaccount "github.com/DR-lin-eng/sub2api-no2api/ent/account"
+	dbpredicate "github.com/DR-lin-eng/sub2api-no2api/ent/predicate"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
 )
 
 // Image scheduling ignores only the persistent switch. Keep the active-status

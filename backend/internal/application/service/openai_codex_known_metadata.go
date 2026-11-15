@@ -2,8 +2,8 @@ package service
 
 import (
 	"encoding/json"
-	"github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog"
-	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/modelcatalog"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/openai"
 )
 
 var codexTerraMetadata = func() modelcatalog.Descriptor {

@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/modules/payment"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/payment"
 	"github.com/stretchr/testify/require"
 	stripe "github.com/stripe/stripe-go/v85"
 )

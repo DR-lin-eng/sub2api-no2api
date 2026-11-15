@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/openai"
 	"github.com/google/uuid"
 )
 

@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/transport/http/handler"
-	"github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin"
-	servermiddleware "github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/handler"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/handler/admin"
+	servermiddleware "github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/server/middleware"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"

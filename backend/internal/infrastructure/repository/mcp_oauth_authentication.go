@@ -2,7 +2,7 @@ package repository
 
 import (
 	"context"
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
 )
 
 func (r *mcpOAuthRepository) GetAuthentication(ctx context.Context, hash string) (*service.MCPAuthentication, error) {

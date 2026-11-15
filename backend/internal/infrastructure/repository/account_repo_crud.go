@@ -6,12 +6,12 @@ import (
 	"errors"
 	"maps"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	dbaccount "github.com/Wei-Shaw/sub2api/ent/account"
-	dbbinding "github.com/Wei-Shaw/sub2api/ent/accountegressbinding"
-	dbaccountgroup "github.com/Wei-Shaw/sub2api/ent/accountgroup"
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
-	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
+	dbent "github.com/DR-lin-eng/sub2api-no2api/ent"
+	dbaccount "github.com/DR-lin-eng/sub2api-no2api/ent/account"
+	dbbinding "github.com/DR-lin-eng/sub2api-no2api/ent/accountegressbinding"
+	dbaccountgroup "github.com/DR-lin-eng/sub2api-no2api/ent/accountgroup"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/logger"
 
 	entsql "entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqljson"

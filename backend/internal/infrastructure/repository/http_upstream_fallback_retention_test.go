@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	servicepkg "github.com/Wei-Shaw/sub2api/internal/application/service"
+	servicepkg "github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
 )
 
 func TestOpenAIHTTP2FallbackStateCacheIsBounded(t *testing.T) {

@@ -9,16 +9,16 @@ import (
 	"strings"
 	"time"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/internal/modules/typesafe"
-	"github.com/Wei-Shaw/sub2api/internal/shared/antigravity"
-	"github.com/Wei-Shaw/sub2api/internal/shared/claude"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
-	"github.com/Wei-Shaw/sub2api/internal/shared/geminicli"
-	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
-	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
-	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
-	"github.com/Wei-Shaw/sub2api/internal/shared/xai"
+	dbent "github.com/DR-lin-eng/sub2api-no2api/ent"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/typesafe"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/antigravity"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/claude"
+	infraerrors "github.com/DR-lin-eng/sub2api-no2api/internal/shared/errors"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/geminicli"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/logger"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/openai"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/pagination"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/xai"
 )
 
 // Group management implementations

@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
 )
 
 // makeOverlayService 构造一个没有 cron / db 的 cleanup service，仅用来测试 effective overlay。

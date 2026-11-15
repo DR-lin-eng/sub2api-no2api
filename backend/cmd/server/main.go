@@ -15,13 +15,13 @@ import (
 	"syscall"
 	"time"
 
-	_ "github.com/Wei-Shaw/sub2api/ent/runtime"
-	"github.com/Wei-Shaw/sub2api/internal/bootstrap/setup"
-	"github.com/Wei-Shaw/sub2api/internal/platform/config"
-	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
-	"github.com/Wei-Shaw/sub2api/internal/transport/http/handler"
-	"github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
-	"github.com/Wei-Shaw/sub2api/internal/transport/webassets"
+	_ "github.com/DR-lin-eng/sub2api-no2api/ent/runtime"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/bootstrap/setup"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/logger"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/handler"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/server/middleware"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/transport/webassets"
 
 	"github.com/gin-gonic/gin"
 )

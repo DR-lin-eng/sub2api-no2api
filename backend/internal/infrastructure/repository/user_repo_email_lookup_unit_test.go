@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/ent/enttest"
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	dbent "github.com/DR-lin-eng/sub2api-no2api/ent"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/enttest"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
 	"github.com/stretchr/testify/require"
 
 	"entgo.io/ent/dialect"

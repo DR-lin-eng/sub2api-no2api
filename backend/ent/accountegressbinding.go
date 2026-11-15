@@ -9,9 +9,9 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/Wei-Shaw/sub2api/ent/account"
-	"github.com/Wei-Shaw/sub2api/ent/accountegressbinding"
-	"github.com/Wei-Shaw/sub2api/ent/ipv6egresspool"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/account"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/accountegressbinding"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/ipv6egresspool"
 )
 
 // AccountEgressBinding is the model entity for the AccountEgressBinding schema.

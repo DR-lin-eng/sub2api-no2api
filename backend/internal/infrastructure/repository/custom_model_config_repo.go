@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/ent/custommodelconfig"
-	"github.com/Wei-Shaw/sub2api/ent/custommodelrequesttemplate"
-	"github.com/Wei-Shaw/sub2api/ent/setting"
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	"github.com/DR-lin-eng/sub2api-no2api/ent"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/custommodelconfig"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/custommodelrequesttemplate"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/setting"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
 )
 
 type customModelConfigRepository struct {

@@ -10,15 +10,15 @@ import (
 	"unicode/utf8"
 
 	entsql "entgo.io/ent/dialect/sql"
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/ent/chatasset"
-	"github.com/Wei-Shaw/sub2api/ent/chatconversation"
-	"github.com/Wei-Shaw/sub2api/ent/chatmessage"
-	"github.com/Wei-Shaw/sub2api/ent/chatmessageasset"
-	"github.com/Wei-Shaw/sub2api/ent/predicate"
-	"github.com/Wei-Shaw/sub2api/ent/user"
-	"github.com/Wei-Shaw/sub2api/internal/modules/chat"
-	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
+	dbent "github.com/DR-lin-eng/sub2api-no2api/ent"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/chatasset"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/chatconversation"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/chatmessage"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/chatmessageasset"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/predicate"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/user"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/chat"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/pagination"
 )
 
 type chatConversationRepository struct {

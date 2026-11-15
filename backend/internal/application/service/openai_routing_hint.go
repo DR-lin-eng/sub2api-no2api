@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/logger"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 	"golang.org/x/net/http/httpguts"

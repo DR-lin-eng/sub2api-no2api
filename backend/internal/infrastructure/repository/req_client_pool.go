@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
-	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
-	"github.com/Wei-Shaw/sub2api/internal/shared/chatgptcookies"
-	"github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation"
-	"github.com/Wei-Shaw/sub2api/internal/shared/proxyurl"
-	"github.com/Wei-Shaw/sub2api/internal/shared/servertiming"
+	platformegress "github.com/DR-lin-eng/sub2api-no2api/internal/platform/egress"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/chatgptcookies"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/codexsimulation"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/proxyurl"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/servertiming"
 
 	"github.com/imroc/req/v3"
 )

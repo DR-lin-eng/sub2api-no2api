@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/domain"
-	"github.com/Wei-Shaw/sub2api/internal/shared/claude"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/domain"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/claude"
+	infraerrors "github.com/DR-lin-eng/sub2api-no2api/internal/shared/errors"
 )
 
 // GroupModelAllowlist is the group-level model policy exposed by the admin API.

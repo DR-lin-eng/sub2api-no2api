@@ -13,7 +13,7 @@ import (
 	"testing/fstest"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/migrations"
+	"github.com/DR-lin-eng/sub2api-no2api/migrations"
 	"github.com/stretchr/testify/require"
 )
 

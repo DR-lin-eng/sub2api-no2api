@@ -3,9 +3,9 @@ package repository
 import (
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
-	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
-	"github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	platformegress "github.com/DR-lin-eng/sub2api-no2api/internal/platform/egress"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/codexsimulation"
 	"github.com/stretchr/testify/require"
 )
 

@@ -12,10 +12,10 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/Wei-Shaw/sub2api/ent/account"
-	"github.com/Wei-Shaw/sub2api/ent/accountegressbinding"
-	"github.com/Wei-Shaw/sub2api/ent/ipv6egresspool"
-	"github.com/Wei-Shaw/sub2api/ent/predicate"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/account"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/accountegressbinding"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/ipv6egresspool"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/predicate"
 )
 
 // AccountEgressBindingQuery is the builder for querying AccountEgressBinding entities.

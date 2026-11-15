@@ -3,7 +3,7 @@ package admin
 import (
 	"slices"
 
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
 )
 
 func appendAccessSettingChanges(changed []string, before, after *service.SystemSettings, req *UpdateSettingsRequest) []string {

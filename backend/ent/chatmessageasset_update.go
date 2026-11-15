@@ -10,10 +10,10 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/Wei-Shaw/sub2api/ent/chatasset"
-	"github.com/Wei-Shaw/sub2api/ent/chatmessage"
-	"github.com/Wei-Shaw/sub2api/ent/chatmessageasset"
-	"github.com/Wei-Shaw/sub2api/ent/predicate"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/chatasset"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/chatmessage"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/chatmessageasset"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/predicate"
 )
 
 // ChatMessageAssetUpdate is the builder for updating ChatMessageAsset entities.

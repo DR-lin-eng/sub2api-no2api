@@ -3,8 +3,8 @@ package service
 import (
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/domain/model"
-	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/domain/model"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/tlsfingerprint"
 	"github.com/stretchr/testify/require"
 )
 

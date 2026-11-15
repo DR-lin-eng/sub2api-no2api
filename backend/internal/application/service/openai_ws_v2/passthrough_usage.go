@@ -1,7 +1,7 @@
 package openai_ws_v2
 
 import (
-	"github.com/Wei-Shaw/sub2api/internal/shared/apicompat"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/apicompat"
 	"github.com/tidwall/gjson"
 	"strings"
 )

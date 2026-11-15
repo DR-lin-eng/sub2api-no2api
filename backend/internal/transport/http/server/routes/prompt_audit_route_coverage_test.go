@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/modules/securityaudit"
-	"github.com/Wei-Shaw/sub2api/internal/transport/http/handler"
-	servermiddleware "github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/securityaudit"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/handler"
+	servermiddleware "github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/server/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )

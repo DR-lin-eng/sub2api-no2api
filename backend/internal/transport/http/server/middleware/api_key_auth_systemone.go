@@ -1,6 +1,6 @@
 package middleware
 
-import "github.com/Wei-Shaw/sub2api/internal/application/service"
+import "github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
 
 // Called only after CloneForRequest: preserve binding order while ensuring
 // native requests cannot authorize, bill, or fail over through a chat-only group.

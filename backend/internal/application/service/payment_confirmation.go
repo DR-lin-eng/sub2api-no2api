@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
-	"github.com/Wei-Shaw/sub2api/internal/modules/payment"
-	"github.com/Wei-Shaw/sub2api/internal/shared/servertiming"
+	dbent "github.com/DR-lin-eng/sub2api-no2api/ent"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/paymentorder"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/payment"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/servertiming"
 )
 
 // ErrOrderNotFound is returned by HandlePaymentNotification when the webhook

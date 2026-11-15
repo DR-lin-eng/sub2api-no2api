@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/platform/liveattestation"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/liveattestation"
 	"golang.org/x/net/publicsuffix"
 )
 

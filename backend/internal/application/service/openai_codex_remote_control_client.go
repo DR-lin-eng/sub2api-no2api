@@ -5,8 +5,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/Wei-Shaw/sub2api/internal/modules/codexremotecontrol"
-	"github.com/Wei-Shaw/sub2api/internal/platform/devicekey"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/codexremotecontrol"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/devicekey"
 )
 
 type CodexRemoteControlClientOptions struct {

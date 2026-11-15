@@ -7,7 +7,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/pagination"
 	"github.com/stretchr/testify/require"
 )
 

@@ -10,9 +10,9 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/platform/config"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
-	clientip "github.com/Wei-Shaw/sub2api/internal/shared/ip"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
+	infraerrors "github.com/DR-lin-eng/sub2api-no2api/internal/shared/errors"
+	clientip "github.com/DR-lin-eng/sub2api-no2api/internal/shared/ip"
 	"github.com/stretchr/testify/require"
 )
 

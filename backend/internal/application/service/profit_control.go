@@ -7,8 +7,8 @@ import (
 	"math"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/ctxkey"
-	"github.com/Wei-Shaw/sub2api/internal/shared/timezone"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/ctxkey"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/timezone"
 )
 
 const (

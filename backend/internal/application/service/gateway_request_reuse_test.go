@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/domain"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/domain"
 	"github.com/stretchr/testify/require"
 )
 

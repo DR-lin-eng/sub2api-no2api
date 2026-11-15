@@ -1,6 +1,6 @@
 package admin
 
-import "github.com/Wei-Shaw/sub2api/internal/application/service"
+import "github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
 
 func appendRuntimeSettingChanges(changed []string, before, after *service.SystemSettings) []string {
 	if before.ImageIndependentSchedulingEnabled != after.ImageIndependentSchedulingEnabled {

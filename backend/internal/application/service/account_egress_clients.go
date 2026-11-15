@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
-	"github.com/Wei-Shaw/sub2api/internal/shared/antigravity"
+	platformegress "github.com/DR-lin-eng/sub2api-no2api/internal/platform/egress"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/antigravity"
 )
 
 func newAntigravityClient(ctx context.Context, proxyURL string) (*antigravity.Client, error) {

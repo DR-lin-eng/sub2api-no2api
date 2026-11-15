@@ -3,9 +3,9 @@ package repository
 import (
 	"context"
 
-	dbaccount "github.com/Wei-Shaw/sub2api/ent/account"
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
-	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
+	dbaccount "github.com/DR-lin-eng/sub2api-no2api/ent/account"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/logger"
 )
 
 // nowUTC is a SQL expression to generate a UTC RFC3339 timestamp string.

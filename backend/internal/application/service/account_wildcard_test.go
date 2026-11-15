@@ -5,7 +5,7 @@ package service
 import (
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/domain"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/domain"
 )
 
 func TestMatchWildcard(t *testing.T) {

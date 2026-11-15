@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/servertiming"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/servertiming"
 )
 
 const fakeDriverDelay = 2 * time.Millisecond

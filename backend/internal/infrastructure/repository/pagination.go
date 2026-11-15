@@ -1,6 +1,6 @@
 package repository
 
-import "github.com/Wei-Shaw/sub2api/internal/shared/pagination"
+import "github.com/DR-lin-eng/sub2api-no2api/internal/shared/pagination"
 
 func paginationResultFromTotal(total int64, params pagination.PaginationParams) *pagination.PaginationResult {
 	pages := int(total) / params.Limit()

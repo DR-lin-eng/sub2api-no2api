@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"github.com/Wei-Shaw/sub2api/internal/modules/securityaudit"
-	"github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/securityaudit"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/handler/admin"
 )
 
 // AdminHandlers contains all admin-related HTTP handlers

@@ -3,7 +3,7 @@ package service
 import (
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
 )
 
 func (s *SettingService) applyLinuxDoConnectSettings(result *SystemSettings, settings map[string]string) {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
 )
 
 // imageUnitPriceConfigured 报告图片定价是否为当前尺寸档位配置了单价。

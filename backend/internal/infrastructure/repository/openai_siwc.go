@@ -6,8 +6,8 @@ import (
 	"net/url"
 	"strings"
 
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
-	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
+	infraerrors "github.com/DR-lin-eng/sub2api-no2api/internal/shared/errors"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/openai"
 	"github.com/tidwall/gjson"
 )
 

@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/transport/http/handler"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/handler"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )

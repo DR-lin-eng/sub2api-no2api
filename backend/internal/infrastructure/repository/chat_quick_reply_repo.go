@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/ent/chatquickreply"
-	"github.com/Wei-Shaw/sub2api/internal/modules/chat"
+	dbent "github.com/DR-lin-eng/sub2api-no2api/ent"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/chatquickreply"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/chat"
 )
 
 const chatQuickReplyAdvisoryNamespace int64 = 0x5355505000000000

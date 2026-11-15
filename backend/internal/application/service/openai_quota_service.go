@@ -14,10 +14,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/platform/config"
-	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
-	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
+	platformegress "github.com/DR-lin-eng/sub2api-no2api/internal/platform/egress"
+	infraerrors "github.com/DR-lin-eng/sub2api-no2api/internal/shared/errors"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/openai"
 	"github.com/imroc/req/v3"
 	"golang.org/x/sync/singleflight"
 )

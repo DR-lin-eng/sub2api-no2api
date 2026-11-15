@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/servertiming"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/servertiming"
 )
 
 // quotaSummaryBodyLimit bounds the retrieveUserQuotaSummary response (a few hundred bytes today).

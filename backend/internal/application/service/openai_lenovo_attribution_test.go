@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/modules/lenovoattribution"
-	"github.com/Wei-Shaw/sub2api/internal/platform/config"
-	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/lenovoattribution"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/tlsfingerprint"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )

@@ -8,7 +8,7 @@ By signing this Agreement, you accept and agree to the following terms and condi
 
 - **"You" (or "Your")** means the copyright owner or legal entity authorized by the copyright owner that is making this Agreement.
 - **"Contribution"** means any original work of authorship, including any modifications or additions to an existing work, that is intentionally submitted by You to the Project for inclusion in, or documentation of, any of the products owned or managed by the Project. For the purposes of this definition, "submitted" means any form of electronic, verbal, or written communication sent to the Project or its representatives, including but not limited to communication on electronic mailing lists, source code control systems, and issue tracking systems that are managed by, or on behalf of, the Project for the purpose of discussing and improving the Project, but excluding communication that is conspicuously marked or otherwise designated in writing by You as "Not a Contribution."
-- **"Project Owner"** means Wesley Liddick, or any individual or legal entity to whom Wesley Liddick has explicitly assigned or transferred ownership of the Project in writing, and their respective successors and assigns.
+- **"Project Owner"** means the owner of the `DR-lin-eng/sub2api-no2api` repository, or any individual or legal entity to whom that owner has explicitly assigned or transferred ownership of the Project in writing, and their respective successors and assigns.
 
 ## 2. Grant of Copyright License
 

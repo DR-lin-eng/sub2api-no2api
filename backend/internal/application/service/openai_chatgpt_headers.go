@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/openai"
 )
 
 func setOpenAIChatGPTAccountHeaders(headers http.Header, account *Account) {

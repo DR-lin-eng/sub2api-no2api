@@ -9,11 +9,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
-	"github.com/Wei-Shaw/sub2api/internal/shared/response"
-	"github.com/Wei-Shaw/sub2api/internal/shared/xai"
-	"github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	infraerrors "github.com/DR-lin-eng/sub2api-no2api/internal/shared/errors"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/response"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/xai"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/handler/dto"
 	"github.com/gin-gonic/gin"
 )
 

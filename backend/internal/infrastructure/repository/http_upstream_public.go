@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
-	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
-	"github.com/Wei-Shaw/sub2api/internal/shared/servertiming"
-	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
-	"github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	platformegress "github.com/DR-lin-eng/sub2api-no2api/internal/platform/egress"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/servertiming"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/tlsfingerprint"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/urlvalidator"
 )
 
 const publicImageDownloadTimeout = 30 * time.Second

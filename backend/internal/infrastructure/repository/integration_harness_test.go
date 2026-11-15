@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	_ "github.com/Wei-Shaw/sub2api/ent/runtime"
-	"github.com/Wei-Shaw/sub2api/internal/shared/timezone"
+	dbent "github.com/DR-lin-eng/sub2api-no2api/ent"
+	_ "github.com/DR-lin-eng/sub2api-no2api/ent/runtime"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/timezone"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
-	clientip "github.com/Wei-Shaw/sub2api/internal/shared/ip"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	clientip "github.com/DR-lin-eng/sub2api-no2api/internal/shared/ip"
 )
 
 // CustomMenuItem represents a user-configured custom menu entry.

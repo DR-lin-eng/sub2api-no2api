@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/response"
-	"github.com/Wei-Shaw/sub2api/internal/shared/sysutil"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/response"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/sysutil"
 
 	"github.com/gin-gonic/gin"
 )

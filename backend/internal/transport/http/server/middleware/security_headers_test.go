@@ -3,13 +3,13 @@ package middleware
 import (
 	"crypto/tls"
 	"encoding/base64"
-	clientip "github.com/Wei-Shaw/sub2api/internal/shared/ip"
+	clientip "github.com/DR-lin-eng/sub2api-no2api/internal/shared/ip"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

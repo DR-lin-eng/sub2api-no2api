@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/openai_compat"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/openai_compat"
 	"github.com/gin-gonic/gin"
 )
 

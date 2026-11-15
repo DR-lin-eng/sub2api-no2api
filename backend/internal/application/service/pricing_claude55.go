@@ -1,6 +1,6 @@
 package service
 
-import "github.com/Wei-Shaw/sub2api/internal/shared/claude"
+import "github.com/DR-lin-eng/sub2api-no2api/internal/shared/claude"
 
 func claude55PricingID(model string) string {
 	switch {

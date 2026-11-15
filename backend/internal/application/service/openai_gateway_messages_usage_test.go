@@ -5,7 +5,7 @@ package service
 import (
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/apicompat"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/apicompat"
 	"github.com/stretchr/testify/require"
 )
 

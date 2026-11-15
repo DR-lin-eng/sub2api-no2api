@@ -17,9 +17,9 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/Wei-Shaw/sub2api/internal/modules/modelcatalog"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
-	"github.com/Wei-Shaw/sub2api/internal/shared/httpclient"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/modelcatalog"
+	infraerrors "github.com/DR-lin-eng/sub2api-no2api/internal/shared/errors"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/httpclient"
 	"github.com/tidwall/gjson"
 	"golang.org/x/net/http2"
 	"golang.org/x/sync/singleflight"

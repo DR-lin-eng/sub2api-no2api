@@ -7,13 +7,13 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
-	"github.com/Wei-Shaw/sub2api/internal/shared/antigravity"
-	"github.com/Wei-Shaw/sub2api/internal/shared/claude"
-	"github.com/Wei-Shaw/sub2api/internal/shared/geminicli"
-	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
-	"github.com/Wei-Shaw/sub2api/internal/shared/xai"
-	middleware2 "github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/antigravity"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/claude"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/geminicli"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/openai"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/xai"
+	middleware2 "github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/server/middleware"
 
 	"github.com/gin-gonic/gin"
 )

@@ -12,8 +12,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/modules/qualityrender"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/qualityrender"
+	infraerrors "github.com/DR-lin-eng/sub2api-no2api/internal/shared/errors"
 	"github.com/google/uuid"
 )
 

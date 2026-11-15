@@ -21,7 +21,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/logger"
 )
 
 // errAnthropicNativeStreamIdle 表示上游流读间隔超时（见上方文件注释）。

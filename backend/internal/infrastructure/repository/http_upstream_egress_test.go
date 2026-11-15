@@ -3,7 +3,7 @@ package repository
 import (
 	"net/http"
 
-	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
+	platformegress "github.com/DR-lin-eng/sub2api-no2api/internal/platform/egress"
 	"github.com/stretchr/testify/require"
 )
 

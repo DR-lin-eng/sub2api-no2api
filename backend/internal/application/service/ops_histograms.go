@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
+	infraerrors "github.com/DR-lin-eng/sub2api-no2api/internal/shared/errors"
 )
 
 func (s *OpsService) GetLatencyHistogram(ctx context.Context, filter *OpsDashboardFilter) (*OpsLatencyHistogramResponse, error) {

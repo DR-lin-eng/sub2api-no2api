@@ -9,7 +9,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/Wei-Shaw/sub2api/ent/chatasset"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/chatasset"
 )
 
 // ChatAsset is the model entity for the ChatAsset schema.

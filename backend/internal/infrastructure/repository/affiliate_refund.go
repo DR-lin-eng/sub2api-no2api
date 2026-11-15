@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"math"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
+	dbent "github.com/DR-lin-eng/sub2api-no2api/ent"
 	"github.com/shopspring/decimal"
 )
 

@@ -8,8 +8,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/Wei-Shaw/sub2api/ent/custommodelrequesttemplate"
-	"github.com/Wei-Shaw/sub2api/ent/predicate"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/custommodelrequesttemplate"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/predicate"
 )
 
 // CustomModelRequestTemplateDelete is the builder for deleting a CustomModelRequestTemplate entity.

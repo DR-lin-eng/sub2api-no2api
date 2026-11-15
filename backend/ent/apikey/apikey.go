@@ -8,7 +8,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
-	"github.com/Wei-Shaw/sub2api/internal/domain"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/domain"
 )
 
 const (
@@ -141,7 +141,7 @@ func ValidColumn(column string) bool {
 // package on the initialization of the application. Therefore,
 // it should be imported in the main as follows:
 //
-//	import _ "github.com/Wei-Shaw/sub2api/ent/runtime"
+//	import _ "github.com/DR-lin-eng/sub2api-no2api/ent/runtime"
 var (
 	Hooks        [1]ent.Hook
 	Interceptors [1]ent.Interceptor

@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/antigravity"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/antigravity"
+	infraerrors "github.com/DR-lin-eng/sub2api-no2api/internal/shared/errors"
 )
 
 // OmittedSettingKeys marks setting keys the caller's payload never carried.

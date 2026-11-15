@@ -6,13 +6,13 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/tlsfingerprint"
 	"io"
 	"net/http"
 	"testing"
 	"time"
 
-	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
+	platformegress "github.com/DR-lin-eng/sub2api-no2api/internal/platform/egress"
 	"github.com/stretchr/testify/require"
 )
 

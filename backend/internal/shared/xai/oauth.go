@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/logredact"
-	"github.com/Wei-Shaw/sub2api/internal/shared/oauthstate"
-	"github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/logredact"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/oauthstate"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/urlvalidator"
 	"github.com/redis/go-redis/v9"
 )
 

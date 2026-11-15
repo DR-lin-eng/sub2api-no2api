@@ -5,9 +5,9 @@ import (
 	"errors"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/ent/setting"
-	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	"github.com/DR-lin-eng/sub2api-no2api/ent"
+	"github.com/DR-lin-eng/sub2api-no2api/ent/setting"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
 )
 
 // SetContentModerationConfig holds live group rows until the setting is written.
