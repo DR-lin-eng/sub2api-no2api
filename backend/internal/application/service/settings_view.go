@@ -307,8 +307,9 @@ type SystemSettings struct {
 	WebSearchEmulationEnabled bool // 是否启用 web search 模拟
 
 	// Payment visible method routing
-	PaymentVisibleMethodAlipaySource  string
-	PaymentVisibleMethodWxpaySource   string
+	PaymentVisibleMethodAlipaySource string
+	PaymentVisibleMethodWxpaySource  string
+	// Deprecated: legacy response fields only; updates do not persist these flags.
 	PaymentVisibleMethodAlipayEnabled bool
 	PaymentVisibleMethodWxpayEnabled  bool
 

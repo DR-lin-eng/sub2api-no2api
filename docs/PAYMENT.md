@@ -26,7 +26,7 @@ Sub2API has a built-in payment system that enables user self-service top-up with
 | **WeChat Pay (Direct)** | Native QR, H5, MP/JSAPI Pay | Direct integration with WeChat Pay APIv3 with environment-aware routing |
 | **Stripe** | Card, Alipay, WeChat Pay, Link, etc. | International payments, multi-currency support |
 
-> Alipay/WeChat Pay direct and EasyPay can both exist as backend provider instances, but the frontend always exposes only two visible buttons: `Alipay` and `WeChat Pay`. Admins choose exactly one source for each visible method: direct or EasyPay. Direct channels connect to payment APIs directly with lower fees; EasyPay aggregates through third-party platforms with easier setup.
+> Alipay/WeChat Pay direct and EasyPay can both exist as backend provider instances. The frontend uses the shared `Alipay` and `WeChat Pay` names; enabled instances and their supported methods determine which provider handles checkout. Direct channels connect to payment APIs directly with lower fees; EasyPay aggregates through third-party platforms with easier setup.
 
 > **EasyPay Provider Recommendations**: Both options below are third-party aggregators compatible with the EasyPay protocol. Pick based on the funding channel and settlement currency you need:
 >
@@ -67,12 +67,13 @@ Configure the following in Admin Dashboard **Settings → Payment Settings**:
 
 ### Frontend Visible Method Routing
 
-The current payment UX keeps the frontend method list unified and does not expose provider brands directly:
+Control payments in **Settings → Payment Settings → Provider Management**:
 
-- **Alipay**: when enabled, this button must be routed to either `Alipay (Direct)` or `EasyPay Alipay`
-- **WeChat Pay**: when enabled, this button must be routed to either `WeChat Pay (Direct)` or `EasyPay WeChat`
-- Each visible method can route to only one source at a time
-- If a visible method is enabled without a selected source, the frontend will not expose that method
+- **Enable Payment** is the global switch; disabling it rejects all new orders with `PAYMENT_DISABLED`.
+- Each provider's **Enabled** switch controls that instance. Its payment method buttons control the methods it supports. Disabling every matching instance or deselecting a method removes it from checkout and rejects direct order requests.
+- A single provider source routes automatically without extra source settings. Existing configurations with multiple sources retain their source selection and compatibility routing.
+
+The retired `payment_visible_method_alipay_enabled` and `payment_visible_method_wxpay_enabled` fields no longer control payment availability, and settings saves no longer create or update them. Legacy API fields remain for response and request compatibility; existing database values need no migration. The 2026-11-14 order guard incorrectly treated their default `false` values as active switches, rejecting orders even when global payment and provider instances were enabled. Checkout and order creation now use the same provider state.
 
 ### Load Balance Strategies
 

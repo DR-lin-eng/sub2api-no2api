@@ -794,7 +794,7 @@ export default {
         strategyRoundRobin: 'Round Robin',
         strategyLeastAmount: 'Least Daily Amount',
         providerManagement: 'Provider Management',
-        providerManagementDesc: 'Manage payment provider instances',
+        providerManagementDesc: 'Control payments with each provider’s Enabled switch and payment method buttons. Changes take effect immediately.',
         createProvider: 'Add Provider',
         editProvider: 'Edit Provider',
         deleteProvider: 'Delete Provider',

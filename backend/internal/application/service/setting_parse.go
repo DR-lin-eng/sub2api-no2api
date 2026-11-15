@@ -282,8 +282,6 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyOpenAICodexVersionAutoSyncEnabled:                  "true",
 		SettingPaymentVisibleMethodAlipaySource:                      "",
 		SettingPaymentVisibleMethodWxpaySource:                       "",
-		SettingPaymentVisibleMethodAlipayEnabled:                     "false",
-		SettingPaymentVisibleMethodWxpayEnabled:                      "false",
 		SettingKeyOpenAIContentSessionBurstBalanceEnabled:            "false",
 		SettingKeyOpenAISessionIDRateLimitEnabled:                    "false",
 		SettingKeyOpenAISessionIDRateLimitPerMinute:                  "0",
@@ -386,8 +384,7 @@ func isFalseSettingValue(value string) bool {
 	}
 }
 
-func normalizeVisibleMethodSettingSource(method, source string, enabled bool) (string, error) {
-	_ = enabled
+func normalizeVisibleMethodSettingSource(method, source string) (string, error) {
 	source = strings.TrimSpace(source)
 	if source == "" {
 		return "", nil

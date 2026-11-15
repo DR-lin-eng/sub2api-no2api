@@ -167,7 +167,7 @@ func (s *PaymentConfigService) resolveVisibleMethodSourceProviderKey(ctx context
 		}
 	}
 
-	normalizedSource, err := normalizeVisibleMethodSettingSource(method, rawSource, true)
+	normalizedSource, err := normalizeVisibleMethodSettingSource(method, rawSource)
 	if err != nil {
 		return "", err
 	}

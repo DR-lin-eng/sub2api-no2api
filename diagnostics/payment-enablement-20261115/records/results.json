@@ -1,0 +1,82 @@
+{
+  "recorded_at": "2026-11-15T15:11:49.847152+08:00",
+  "base_commit": "39ea4774671a5035ea996ef0553a8b31be67fb3b",
+  "live_read_only_snapshot": {
+    "url": "https://www.fhl.mom/",
+    "payment_enabled_after_user_update": true,
+    "balance_recharge_disabled": false,
+    "enabled_provider_ids": [
+      2
+    ],
+    "provider_key": "easypay",
+    "supported_types": [
+      "alipay"
+    ],
+    "payment_visible_method_alipay_enabled": false,
+    "payment_visible_method_wxpay_enabled": false,
+    "writes_performed": false
+  },
+  "baseline_regression": {
+    "exit_code": 1,
+    "http_status": 403,
+    "reason": "PAYMENT_DISABLED",
+    "message": "payment method is disabled",
+    "failing_methods": [
+      "alipay",
+      "wxpay",
+      "alipay_direct",
+      "wxpay_direct"
+    ]
+  },
+  "integration": {
+    "exit_code": 0,
+    "command": "python3 diagnostics/payment-enablement-20261115/run.py",
+    "passed_suites": 19,
+    "passed_checks_including_subtests": 82
+  },
+  "backend_unit": {
+    "exit_code": 0,
+    "image": "sub2api-deferred-go:20261115 (Go 1.26.11)",
+    "command": "go test -tags=unit ./internal/application/service ./internal/transport/http/handler/admin ./internal/transport/http/server -run '(?i)(payment|visiblemethod|recharge|initial.*default)|^TestAPIContracts$' -count=1 -timeout=8m",
+    "additional_verified_packages": [
+      "internal/transport/http/handler",
+      "internal/modules/payment",
+      "internal/modules/payment/provider"
+    ]
+  },
+  "frontend": {
+    "exit_code": 0,
+    "image": "sub2api-sync-frontend:20261112 (current sources copied into container)",
+    "checks": [
+      "pnpm run lint:check",
+      "pnpm run typecheck",
+      "pnpm exec vitest run src/features/billing src/features/admin-settings/__tests__/SettingsPage.spec.ts src/core/i18n/__tests__/routeLocaleCoverage.spec.ts"
+    ],
+    "passed_test_files": 27,
+    "passed_tests": 234
+  },
+  "static_checks": [
+    "make check-docs",
+    "make -C backend check-layout",
+    "git diff --check"
+  ],
+  "logs": {
+    "before.integration": {
+      "path": "diagnostics/payment-enablement-20261115/records/before.integration.log.gz",
+      "sha256": "108a61e13a91de525809d16a33d3b29d3f4d35630650ef2224af5c677b7aa1ec"
+    },
+    "after.integration": {
+      "path": "diagnostics/payment-enablement-20261115/records/after.integration.log.gz",
+      "sha256": "91833e87e9efcf07a2236e8d1adcbec6c74f4d57128c24e45129e1d3cb00509c"
+    },
+    "backend-unit": {
+      "path": "diagnostics/payment-enablement-20261115/records/backend-unit.log.gz",
+      "sha256": "463380cbfb0d88f0d816d537efd7e3094c59ef2cc09079a5eb94b01ea8a3245f"
+    },
+    "frontend": {
+      "path": "diagnostics/payment-enablement-20261115/records/frontend.log.gz",
+      "sha256": "65cb05d6c3d7996a37e324cdf3db742e8bece618e7ec502c69fde789d9a516bd"
+    }
+  },
+  "deployed": false
+}

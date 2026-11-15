@@ -24,8 +24,10 @@ const (
 	PaymentSourceHostedRedirect    = "hosted_redirect"
 	PaymentSourceWechatInAppResume = "wechat_in_app_resume"
 
-	SettingPaymentVisibleMethodAlipaySource  = "payment_visible_method_alipay_source"
-	SettingPaymentVisibleMethodWxpaySource   = "payment_visible_method_wxpay_source"
+	SettingPaymentVisibleMethodAlipaySource = "payment_visible_method_alipay_source"
+	SettingPaymentVisibleMethodWxpaySource  = "payment_visible_method_wxpay_source"
+	// Deprecated: retained for reading legacy settings/API responses only.
+	// Provider instances and supported types control method availability.
 	SettingPaymentVisibleMethodAlipayEnabled = "payment_visible_method_alipay_enabled"
 	SettingPaymentVisibleMethodWxpayEnabled  = "payment_visible_method_wxpay_enabled"
 
@@ -208,17 +210,6 @@ func (lb *visibleMethodLoadBalancer) SelectInstance(ctx context.Context, provide
 		return nil, fmt.Errorf("visible payment method %s has no enabled provider instance", visibleMethod)
 	}
 	return lb.inner.SelectInstance(ctx, inst.ProviderKey, paymentType, strategy, orderAmount)
-}
-
-func visibleMethodEnabledSettingKey(method string) string {
-	switch NormalizeVisibleMethod(method) {
-	case payment.TypeAlipay:
-		return SettingPaymentVisibleMethodAlipayEnabled
-	case payment.TypeWxpay:
-		return SettingPaymentVisibleMethodWxpayEnabled
-	default:
-		return ""
-	}
 }
 
 func visibleMethodSourceSettingKey(method string) string {
