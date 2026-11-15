@@ -188,6 +188,7 @@ const { t } = useI18n()
 
 const history = ref<BalanceHistoryItem[]>([])
 const loading = ref(false)
+let requestVersion = 0
 const currentPage = ref(1)
 const total = ref(0)
 const totalRecharged = ref(0)
@@ -208,8 +209,14 @@ const typeOptions = computed(() => [
 ])
 
 // Watch modal open
-watch(() => props.show, (v) => {
-  if (v && props.user) {
+watch(() => [props.show, props.user?.id] as const, ([show], _, onCleanup) => {
+  requestVersion++
+  onCleanup(() => { requestVersion++ })
+  history.value = []
+  total.value = 0
+  totalRecharged.value = 0
+  loading.value = false
+  if (show && props.user) {
     typeFilter.value = ''
     loadHistory(1)
   }
@@ -217,6 +224,7 @@ watch(() => props.show, (v) => {
 
 const loadHistory = async (page: number) => {
   if (!props.user) return
+  const version = ++requestVersion
   loading.value = true
   currentPage.value = page
   try {
@@ -226,13 +234,15 @@ const loadHistory = async (page: number) => {
       pageSize,
       typeFilter.value || undefined
     )
+    if (version !== requestVersion) return
     history.value = res.items || []
     total.value = res.total || 0
     totalRecharged.value = res.total_recharged || 0
   } catch (error) {
+    if (version !== requestVersion) return
     console.error('Failed to load balance history:', error)
   } finally {
-    loading.value = false
+    if (version === requestVersion) loading.value = false
   }
 }
 

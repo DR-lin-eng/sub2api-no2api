@@ -55,6 +55,7 @@
           :class="[instanceId]"
           :style="dropdownStyle"
           role="listbox"
+          tabindex="-1"
           @click.stop
           @mousedown.stop
           @keydown="onDropdownKeyDown"
@@ -326,6 +327,12 @@ const handleOptionMouseEnter = (option: any, index: number) => {
   focusedIndex.value = index
 }
 
+watch(filteredOptions, () => {
+  if (!isOpen.value) return
+  focusedIndex.value = findNextEnabledIndex(0)
+  if (focusedIndex.value >= 0) scrollToFocused()
+})
+
 // Update trigger rect periodically while open to follow scroll/resize
 const updateTriggerRect = () => {
   if (containerRef.value) {
@@ -376,6 +383,8 @@ watch(isOpen, (open) => {
 
     if (isSearchable.value) {
       nextTick(() => searchInputRef.value?.focus())
+    } else {
+      nextTick(() => dropdownRef.value?.focus())
     }
     // Add scroll listener to update position
     window.addEventListener('scroll', updateTriggerRect, { capture: true, passive: true })

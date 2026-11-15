@@ -54,7 +54,7 @@ export default {
     targetEndpoint: 'Upstream Endpoint',
     endpointRewrite: 'Endpoint Rewrite',
     endpointRewriteHint:
-      'Replace the client request path with an upstream path; leave empty to pass through. The upstream endpoint supports {{request.xxx}} template variables.',
+      "Replace the client request path with an upstream path; leave empty to pass through. The upstream endpoint supports {'{{request.xxx}}'} template variables.",
     endpointRewriteModes: {
       exact: 'Exact',
       prefix: 'Prefix'

@@ -290,7 +290,7 @@ func (s *SettingService) getConfiguredOpenAICodexUserAgent(ctx context.Context) 
 			})
 			return fallback, nil
 		}
-		ua := strings.TrimSpace(value)
+		ua := strings.Trim(value, " \t")
 		s.openAICodexUACache.Store(&cachedOpenAICodexUserAgent{
 			value:     ua,
 			expiresAt: time.Now().Add(openAICodexUserAgentCacheTTL).UnixNano(),
@@ -380,7 +380,9 @@ func (s *SettingService) GetOpenAICodexCanonicalUserAgent(ctx context.Context) s
 		return codexCLIUserAgent
 	}
 	if ua := s.getConfiguredOpenAICodexUserAgent(ctx); ua != "" {
-		return ua
+		if _, paired, ok := openai.PairCodexClientIdentity(ua); ok && NormalizeCodexClientVersion(openai.CodexUserAgentVersion(paired)) != "" {
+			return paired
+		}
 	}
 	return buildCodexCLIUserAgent(s.GetOpenAICodexClientVersion(ctx))
 }

@@ -319,7 +319,7 @@ func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {
 		expiresAt: time.Now().Add(antigravityUserAgentVersionCacheTTL).UnixNano(),
 	})
 	s.openAICodexUASF.Forget("openai_codex_user_agent")
-	codexUA := strings.TrimSpace(settings.OpenAICodexUserAgent)
+	codexUA := strings.Trim(settings.OpenAICodexUserAgent, " \t")
 	s.openAICodexUACache.Store(&cachedOpenAICodexUserAgent{
 		value:     codexUA,
 		expiresAt: time.Now().Add(openAICodexUserAgentCacheTTL).UnixNano(),

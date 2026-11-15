@@ -148,6 +148,8 @@ make generate
 
 ## 高效检索方式
 
+历史上游同步先读 [当前差异台账](UPSTREAM_DEFERRED_STATUS.md)，按固定 PR、净 diff hash 和 `capability_complete` 核对已有实现或明确未采用范围，再进入当前 owner；不要从旧“暂缓”文档或 Git 祖先关系推断功能状态。
+
 先找定义，再找调用和测试：
 
 ```sh

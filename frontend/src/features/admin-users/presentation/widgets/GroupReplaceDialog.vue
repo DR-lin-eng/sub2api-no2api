@@ -79,6 +79,7 @@
 import { ref, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
+import { extractApiErrorMessage } from '@/core/utils/apiError'
 import { replaceGroup } from '@/features/admin-users/data/datasources/adminUsersDatasource'
 import type { AdminUser, AdminGroup } from '@/types'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
@@ -123,6 +124,7 @@ const handleReplace = async () => {
     emit('success')
     emit('close')
   } catch (error) {
+    appStore.showError(extractApiErrorMessage(error, t('common.error')))
     console.error('Failed to replace group:', error)
   } finally {
     submitting.value = false

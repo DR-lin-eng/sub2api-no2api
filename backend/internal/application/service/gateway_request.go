@@ -1510,6 +1510,10 @@ const (
 //  3. Contains ">= 1024" or "greater than or equal to 1024" or ("1024" + "input should be")
 func isThinkingBudgetConstraintError(errMsg string) bool {
 	m := strings.ToLower(errMsg)
+	if strings.Contains(m, "must be greater than 1024 to reserve tokens for a final answer") &&
+		strings.Contains(m, "baseten reasoning is enabled") {
+		return true
+	}
 
 	// Condition 1: budget_tokens or budget tokens
 	hasBudget := strings.Contains(m, "budget_tokens") || strings.Contains(m, "budget tokens")

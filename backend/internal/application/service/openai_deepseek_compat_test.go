@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -27,6 +28,32 @@ func TestEnsureDeepSeekChatReasoningPlaceholders(t *testing.T) {
 func TestDeepSeekNonTargetBodyRemainsByteIdentical(t *testing.T) {
 	body := []byte(`{"model":"gpt-5.6","messages":[{"role":"assistant","content":"old"}]}`)
 	require.True(t, bytes.Equal(body, ensureDeepSeekChatReasoningPlaceholders(&Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}, body)))
+}
+
+func TestDeepSeekProviderPrefixAndHistoryPreserveUntouchedBytes(t *testing.T) {
+	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	body := []byte(`{ "model": "opencode/deepseek-v4-pro", "messages": [ {"role":"assistant","content":"one"}, {"role":"tool","content":"keep"}, {"role":"assistant","reasoning_content":"real","content":"two"}, {"role":"assistant","reasoning_content":null,"content":"three"} ], "metadata": { "literal": "keep spacing" } }`)
+	patched := ensureDeepSeekChatReasoningPlaceholders(account, body)
+	require.Equal(t, " ", gjson.GetBytes(patched, "messages.0.reasoning_content").String())
+	require.Equal(t, "real", gjson.GetBytes(patched, "messages.2.reasoning_content").String())
+	require.Equal(t, " ", gjson.GetBytes(patched, "messages.3.reasoning_content").String())
+	require.Contains(t, string(patched), `"metadata": { "literal": "keep spacing" }`)
+	require.Contains(t, string(patched), `{"role":"tool","content":"keep"}`)
+	require.False(t, isDeepSeekModelName("provider/not-deepseek"))
+}
+
+func BenchmarkDeferredDeepSeekHistory(b *testing.B) {
+	for _, turns := range []int{1, 100, 1000} {
+		b.Run(fmt.Sprint(turns), func(b *testing.B) {
+			body := []byte(`{"model":"deepseek-reasoner","messages":[` + strings.TrimSuffix(strings.Repeat(`{"role":"assistant","content":"history"},`, turns), ",") + `]}`)
+			account := deepSeekCompatAccount()
+			b.ReportAllocs()
+			b.SetBytes(int64(len(body)))
+			for b.Loop() {
+				ensureDeepSeekChatReasoningPlaceholders(account, body)
+			}
+		})
+	}
 }
 
 func TestNormalizeDeepSeekResponsesIsStatelessAndAliasesImages(t *testing.T) {

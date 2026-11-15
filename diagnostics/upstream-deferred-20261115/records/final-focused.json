@@ -1,0 +1,33 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=4g",
+    "-v",
+    "/Users/lin/.codex/worktrees/4330/sub2api-no2api:/src:ro",
+    "-v",
+    "/private/tmp/sub2api-modcache:/go/pkg/mod",
+    "-v",
+    "/private/tmp/sub2api-gocache:/root/.cache/go-build",
+    "-e",
+    "CGO_ENABLED=0",
+    "-e",
+    "GOMAXPROCS=2",
+    "-e",
+    "GOMEMLIMIT=1500MiB",
+    "-e",
+    "GOFLAGS=-p=1",
+    "-e",
+    "GOTOOLCHAIN=local",
+    "golang:1.26.11-alpine",
+    "sh",
+    "-c",
+    "mkdir /work && cp -a /src/backend /work/backend && cd /work/backend && go test -tags=unit ./internal/application/service ./internal/shared/antigravity -run \"Test(RedeemReduction|ProxyFallback|OpenAIStreamStatusAliases|CodingPlan|AntigravityBare|AntigravityThinkingDepth|CodexTurnMetadataUses|CodexUAInvalidSetting|EnsureDeepSeek|DeepSeekProvider|SanitizeOpenAIResponsesToolParameterTypes|ModerationKeywords|ModerationAnthropic|GrokQuotaQueryRemains|GrokQuotaBillingStill|CleanSchema)\" -count=1 -timeout=5m"
+  ],
+  "exit_code": 1,
+  "elapsed_seconds": 81.644,
+  "utc": "2026-11-15T06:03:56.028928+00:00",
+  "output_sha256": "244e5b712e52d8c71512d3d7701efeb51c765cec425106046200c271d79250c8"
+}

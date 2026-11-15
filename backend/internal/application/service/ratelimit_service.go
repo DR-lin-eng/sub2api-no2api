@@ -1152,6 +1152,12 @@ func (s *RateLimitService) handle403(ctx context.Context, account *Account, upst
 		s.apply429FallbackRateLimit(ctx, account, "cn_concurrency_limit")
 		return false
 	}
+	if isCodingPlanQuotaExhausted403(account, responseBody, upstreamMsg) {
+		if !s.cooldownCodingPlanQuotaSnapshot(ctx, account) {
+			s.apply429FallbackRateLimit(ctx, account, "cn_quota_exhausted")
+		}
+		return false
+	}
 	if account.Platform == PlatformAntigravity {
 		return s.handleAntigravity403(ctx, account, upstreamMsg, responseBody)
 	}

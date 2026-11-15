@@ -18,8 +18,9 @@ const (
 )
 
 type openAIResponsesToolSchemaNullType struct {
-	offset int
-	length int
+	offset      int
+	length      int
+	replacement string
 }
 
 // sanitizeOpenAIResponsesToolParameterTypes fixes explicit null values in
@@ -53,7 +54,7 @@ func sanitizeOpenAIResponsesToolParameterTypes(body []byte) ([]byte, bool, error
 			continue
 		}
 		sanitized = append(sanitized, body[cursor:hit.offset]...)
-		sanitized = append(sanitized, openAIResponsesToolSchemaFallbackType...)
+		sanitized = append(sanitized, hit.replacement...)
 		cursor = hit.offset + hit.length
 	}
 	sanitized = append(sanitized, body[cursor:]...)
@@ -75,14 +76,15 @@ func collectOpenAIResponsesToolSchemaNullTypes(
 		}
 		// Responses tools use parameters directly; Chat Completions-shaped tools
 		// may also appear here after compatibility normalization.
-		for _, suffix := range []string{"parameters", "function.parameters"} {
+		for _, suffix := range []string{"parameters", "function.parameters", "input_schema"} {
 			params := tool.Get(suffix)
 			if !params.IsObject() {
 				continue
 			}
 			if typ := params.Get("type"); typ.Type == gjson.Null && typ.Raw == openAIResponsesToolSchemaNullLiteral {
-				appendOpenAIResponsesToolSchemaNullType(body, typ, hits)
+				appendOpenAIResponsesToolSchemaNullType(body, typ, openAIResponsesToolSchemaFallbackType, hits)
 			}
+			collectOpenAIResponsesNullRequired(body, params, 0, hits)
 		}
 		collectOpenAIResponsesToolSchemaNullTypes(body, tool.Get("tools"), depth+1, hits)
 		return true
@@ -92,6 +94,7 @@ func collectOpenAIResponsesToolSchemaNullTypes(
 func appendOpenAIResponsesToolSchemaNullType(
 	body []byte,
 	typ gjson.Result,
+	replacement string,
 	hits *[]openAIResponsesToolSchemaNullType,
 ) {
 	end := typ.Index + len(typ.Raw)
@@ -101,5 +104,41 @@ func appendOpenAIResponsesToolSchemaNullType(
 	if !bytes.Equal(body[typ.Index:end], []byte(typ.Raw)) {
 		return
 	}
-	*hits = append(*hits, openAIResponsesToolSchemaNullType{offset: typ.Index, length: len(typ.Raw)})
+	*hits = append(*hits, openAIResponsesToolSchemaNullType{offset: typ.Index, length: len(typ.Raw), replacement: replacement})
+}
+
+// Only follow JSON Schema edges: default/const/examples and properties named
+// "required" are user data. Replacing invalid required:null with [] preserves
+// the optional-field meaning without deleting commas or re-encoding a body.
+func collectOpenAIResponsesNullRequired(body []byte, schema gjson.Result, depth int, hits *[]openAIResponsesToolSchemaNullType) {
+	if depth >= 64 || !schema.IsObject() {
+		return
+	}
+	schema.ForEach(func(key, value gjson.Result) bool {
+		switch key.String() {
+		case "required":
+			if value.Type == gjson.Null && value.Raw == "null" {
+				appendOpenAIResponsesToolSchemaNullType(body, value, "[]", hits)
+			}
+		case "properties", "patternProperties", "$defs", "definitions", "dependentSchemas":
+			if value.IsObject() {
+				value.ForEach(func(_, child gjson.Result) bool {
+					collectOpenAIResponsesNullRequired(body, child, depth+1, hits)
+					return true
+				})
+			}
+		case "allOf", "anyOf", "oneOf", "prefixItems", "items":
+			if value.IsArray() {
+				value.ForEach(func(_, child gjson.Result) bool {
+					collectOpenAIResponsesNullRequired(body, child, depth+1, hits)
+					return true
+				})
+			} else {
+				collectOpenAIResponsesNullRequired(body, value, depth+1, hits)
+			}
+		case "additionalProperties", "additionalItems", "contains", "not", "if", "then", "else", "propertyNames", "unevaluatedProperties", "unevaluatedItems", "contentSchema":
+			collectOpenAIResponsesNullRequired(body, value, depth+1, hits)
+		}
+		return true
+	})
 }

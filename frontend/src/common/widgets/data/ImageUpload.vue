@@ -56,7 +56,7 @@
           v-if="modelValue"
           type="button"
           class="btn btn-secondary btn-sm text-red-600 hover:text-red-700 dark:text-red-400"
-          @click="$emit('update:modelValue', '')"
+          @click="removeImage"
         >
           <Icon name="trash" size="sm" class="mr-1.5" :stroke-width="2" />
           {{ removeLabel }}
@@ -69,7 +69,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onBeforeUnmount } from 'vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import { sanitizeSvg } from '@/core/utils/sanitize'
 
@@ -95,6 +95,20 @@ const emit = defineEmits<{
 }>()
 
 const error = ref('')
+let pendingReader: FileReader | null = null
+
+function cancelPendingRead() {
+  const reader = pendingReader
+  pendingReader = null
+  reader?.abort()
+}
+
+function removeImage() {
+  cancelPendingRead()
+  emit('update:modelValue', '')
+}
+
+onBeforeUnmount(cancelPendingRead)
 
 const acceptTypes = computed(() => props.mode === 'svg' ? '.svg' : 'image/*')
 
@@ -112,6 +126,7 @@ function handleUpload(event: Event) {
   error.value = ''
 
   if (!file) return
+  cancelPendingRead()
 
   if (props.maxSize && file.size > props.maxSize) {
     error.value = `File too large (${(file.size / 1024).toFixed(1)} KB), max ${(props.maxSize / 1024).toFixed(0)} KB`
@@ -120,8 +135,11 @@ function handleUpload(event: Event) {
   }
 
   const reader = new FileReader()
+  pendingReader = reader
   if (props.mode === 'svg') {
     reader.onload = (e) => {
+      if (pendingReader !== reader) return
+      pendingReader = null
       const text = e.target?.result as string
       if (text) emit('update:modelValue', text.trim())
     }
@@ -133,12 +151,16 @@ function handleUpload(event: Event) {
       return
     }
     reader.onload = (e) => {
+      if (pendingReader !== reader) return
+      pendingReader = null
       emit('update:modelValue', e.target?.result as string)
     }
     reader.readAsDataURL(file)
   }
 
   reader.onerror = () => {
+    if (pendingReader !== reader) return
+    pendingReader = null
     error.value = 'Failed to read file'
   }
   input.value = ''

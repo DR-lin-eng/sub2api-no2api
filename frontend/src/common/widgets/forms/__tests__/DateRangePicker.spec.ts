@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { ref } from 'vue'
 
@@ -34,6 +34,35 @@ const formatLocalDate = (date: Date): string => {
 }
 
 describe('DateRangePicker', () => {
+  afterEach(() => vi.useRealTimers())
+
+  it('discards edits when dismissed and preserves a later applied range', async () => {
+    const wrapper = mount(DateRangePicker, { props: { startDate: '2026-11-01', endDate: '2026-11-05' }, global: { stubs: { Icon: true } } })
+    await wrapper.get('.date-picker-trigger').trigger('click')
+    await wrapper.findAll('input[type="date"]')[0].setValue('2026-11-02')
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await wrapper.vm.$nextTick()
+    await wrapper.get('.date-picker-trigger').trigger('click')
+    expect((wrapper.findAll('input[type="date"]')[0].element as HTMLInputElement).value).toBe('2026-11-01')
+    await wrapper.setProps({ startDate: '2026-11-03', endDate: '2026-11-06' })
+    await wrapper.get('.date-picker-apply').trigger('click')
+    await wrapper.get('.date-picker-trigger').trigger('click')
+    expect((wrapper.findAll('input[type="date"]')[0].element as HTMLInputElement).value).toBe('2026-11-03')
+    wrapper.unmount()
+  })
+
+  it('computes relative presets again after midnight without a timer', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 10, 15, 23, 59))
+    const wrapper = mount(DateRangePicker, { props: { startDate: '2026-11-01', endDate: '2026-11-05' }, global: { stubs: { Icon: true } } })
+    await wrapper.get('.date-picker-trigger').trigger('click')
+    await wrapper.findAll('.date-picker-preset').find(node => node.text() === 'Today')!.trigger('click')
+    expect((wrapper.findAll('input[type="date"]')[0].element as HTMLInputElement).value).toBe('2026-11-15')
+    vi.setSystemTime(new Date(2026, 10, 16, 0, 1))
+    await wrapper.findAll('.date-picker-preset').find(node => node.text() === 'Today')!.trigger('click')
+    expect((wrapper.findAll('input[type="date"]')[0].element as HTMLInputElement).value).toBe('2026-11-16')
+    wrapper.unmount()
+  })
   it('uses last 24 hours as the default recognized preset', () => {
     const now = new Date()
     const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)

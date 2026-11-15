@@ -115,29 +115,35 @@ const monitors = ref<AssociatedMonitorBrief[]>([])
 const selectedIds = ref<number[]>([])
 
 const selectedSet = computed(() => new Set(selectedIds.value))
+let requestVersion = 0
 
 watch(
   () => [props.show, props.templateId] as const,
-  ([show, id]) => {
+  ([show, id], _, onCleanup) => {
+    const version = ++requestVersion
+    onCleanup(() => { requestVersion++ })
+    loading.value = false
     if (!show || id == null) return
-    void fetchMonitors(id)
+    void fetchMonitors(id, version)
   },
   { immediate: true },
 )
 
-async function fetchMonitors(id: number) {
+async function fetchMonitors(id: number, version: number) {
   loading.value = true
   monitors.value = []
   selectedIds.value = []
   try {
     const { items } = await adminAPI.channelMonitorTemplate.listAssociatedMonitors(id)
+    if (version !== requestVersion) return
     monitors.value = items
     // 默认全选
     selectedIds.value = items.map((m) => m.id)
   } catch (err: unknown) {
+    if (version !== requestVersion) return
     appStore.showError(extractApiErrorMessage(err, t('common.error')))
   } finally {
-    loading.value = false
+    if (version === requestVersion) loading.value = false
   }
 }
 

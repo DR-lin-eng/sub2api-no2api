@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "diagnostics/upstream-deferred-20261115/run_integration.py"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 420.307,
+  "utc": "2026-11-15T06:14:11.379093+00:00",
+  "output_sha256": "8c4b3aee3337fef5d63e13e8f72b1d853b3c716970aa12386eff0335474be0e0"
+}

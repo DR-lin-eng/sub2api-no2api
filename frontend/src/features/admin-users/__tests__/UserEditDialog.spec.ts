@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 
 import type { AdminUser } from '@/types'
 import UserEditModal from '@/features/admin-users/presentation/widgets/UserEditDialog.vue'
@@ -23,6 +24,10 @@ vi.mock('@/features/admin-users/data/datasources/userAttributesDatasource', () =
 
 vi.mock('@/core/stores/appStore', () => ({
   useAppStore: () => ({ showError, showSuccess })
+}))
+
+vi.mock('@/features/auth', () => ({
+  useAuthStore: () => ({ isAdmin: false, hasPermission: () => true })
 }))
 
 vi.mock('@/common/composables/useClipboard', () => ({
@@ -70,6 +75,7 @@ const mountModal = () => mount(UserEditModal, {
 
 describe('UserEditModal', () => {
   beforeEach(() => {
+    setActivePinia(createPinia())
     update.mockReset()
     showError.mockReset()
     showSuccess.mockReset()

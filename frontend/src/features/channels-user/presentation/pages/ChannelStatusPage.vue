@@ -82,6 +82,7 @@ const detailTarget = ref<UserMonitorView | null>(null)
 let abortController: AbortController | null = null
 
 const autoRefresh = useAutoRefresh({
+  defaultEnabled: true,
   storageKey: 'channel-status-auto-refresh',
   intervals: [30, 60, 120] as const,
   defaultInterval: DEFAULT_INTERVAL_SECONDS,
@@ -227,7 +228,7 @@ watch(
 onMounted(() => {
   void reload(false)
   if (appStore.cachedPublicSettings?.channel_monitor_enabled !== false) {
-    autoRefresh.setEnabled(true)
+    autoRefresh.setEnabled(autoRefresh.enabled.value)
   }
 })
 

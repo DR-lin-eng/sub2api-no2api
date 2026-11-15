@@ -1,0 +1,43 @@
+{
+  "toolchain": "Go 1.26.11 linux/arm64",
+  "cpus": 2,
+  "samples": 3,
+  "input": "identical synthetic assistant histories; BenchmarkDeferredDeepSeekHistory",
+  "results": {
+    "baseline": {
+      "1": {
+        "ns_op_median": 871.0,
+        "bytes_op_median": 920,
+        "allocations_op_median": 10
+      },
+      "100": {
+        "ns_op_median": 448112.0,
+        "bytes_op_median": 1058712,
+        "allocations_op_median": 731
+      },
+      "1000": {
+        "ns_op_median": 37215433.0,
+        "bytes_op_median": 88746865,
+        "allocations_op_median": 7844
+      }
+    },
+    "candidate": {
+      "1": {
+        "ns_op_median": 531.4,
+        "bytes_op_median": 504,
+        "allocations_op_median": 7
+      },
+      "100": {
+        "ns_op_median": 36778.0,
+        "bytes_op_median": 51288,
+        "allocations_op_median": 405
+      },
+      "1000": {
+        "ns_op_median": 357461.0,
+        "bytes_op_median": 501400,
+        "allocations_op_median": 4005
+      }
+    }
+  },
+  "scope": "microbenchmark, not production throughput"
+}

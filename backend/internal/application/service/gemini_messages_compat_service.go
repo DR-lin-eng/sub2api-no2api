@@ -2681,6 +2681,9 @@ func ParseGeminiRateLimitResetTime(body []byte) *int64 {
 	}
 
 	// 遍历 error.details 查找 quotaResetDelay
+	if reset := geminiRetryInfoResetTime(body); reset != nil {
+		return reset
+	}
 	var found *int64
 	gjson.GetBytes(body, "error.details").ForEach(func(_, detail gjson.Result) bool {
 		v := detail.Get("metadata.quotaResetDelay").String()

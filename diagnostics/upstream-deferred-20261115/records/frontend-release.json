@@ -1,0 +1,21 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=3",
+    "--memory=4g",
+    "-e",
+    "NODE_OPTIONS=--max-old-space-size=3072",
+    "-v",
+    "/Users/lin/.codex/worktrees/4330/sub2api-no2api:/src:ro",
+    "sub2api-sync-frontend:20261112",
+    "sh",
+    "-c",
+    "rm -rf /work/frontend/src && cp -a /src/frontend/src /work/frontend/src && cp /src/Makefile /work/Makefile && cd /work/frontend && pnpm run lint:check && pnpm run typecheck && pnpm run test:run"
+  ],
+  "exit_code": 1,
+  "elapsed_seconds": 184.336,
+  "utc": "2026-11-15T06:30:48.866669+00:00",
+  "output_sha256": "2b94da585063a84298061fe1979357d0ba403db6c6c1d82895c03f11d907865b"
+}

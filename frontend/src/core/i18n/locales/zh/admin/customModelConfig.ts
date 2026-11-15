@@ -54,7 +54,7 @@ export default {
     targetEndpoint: '上游端点',
     endpointRewrite: '端点重写',
     endpointRewriteHint:
-      '把客户端请求路径替换为上游路径，留空则原样透传。上游端点支持 {{request.xxx}} 模板变量。',
+      "把客户端请求路径替换为上游路径，留空则原样透传。上游端点支持 {'{{request.xxx}}'} 模板变量。",
     endpointRewriteModes: {
       exact: '精确匹配',
       prefix: '前缀匹配'

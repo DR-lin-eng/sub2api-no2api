@@ -1,0 +1,33 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=3",
+    "--memory=5g",
+    "-v",
+    "/Users/lin/.codex/worktrees/4330/sub2api-no2api:/src:ro",
+    "-v",
+    "/private/tmp/sub2api-modcache:/go/pkg/mod",
+    "-v",
+    "/private/tmp/sub2api-gocache:/root/.cache/go-build",
+    "-e",
+    "CGO_ENABLED=0",
+    "-e",
+    "GOMAXPROCS=3",
+    "-e",
+    "GOMEMLIMIT=1800MiB",
+    "-e",
+    "GOFLAGS=-p=2",
+    "-e",
+    "GOTOOLCHAIN=local",
+    "golang:1.26.11-alpine",
+    "sh",
+    "-c",
+    "mkdir /work && cp -a /src/backend /work/backend && cd /work/backend && go test -tags=unit ./internal/application/service -run \"Test(RedeemReduction|ProxyFallback|OpenAIStreamStatusAliases)\" -count=1 -timeout=5m"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 61.269,
+  "utc": "2026-11-15T05:43:13.111892+00:00",
+  "output_sha256": "1fb046830b4b7b9ed6e109a60e3c77fd089b6fa6af22dc61d107ccb6dc626c1f"
+}

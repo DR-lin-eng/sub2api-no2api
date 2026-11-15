@@ -294,6 +294,13 @@ func mapAntigravityModel(account *Account, requestedModel string) string {
 // getMappedModel 获取映射后的模型名
 // 完全依赖映射配置：账户映射（通配符）→ 默认映射兜底
 func (s *AntigravityGatewayService) getMappedModel(account *Account, requestedModel string) string {
+	return s.getMappedModelForThinkingLevel(account, requestedModel, "")
+}
+
+func (s *AntigravityGatewayService) getMappedModelForThinkingLevel(account *Account, requestedModel, thinkingLevel string) string {
+	if mapped, ok := resolveGeminiThinkingVariantForLevel(account, requestedModel, thinkingLevel); ok {
+		return mapped
+	}
 	return mapAntigravityModel(account, requestedModel)
 }
 

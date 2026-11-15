@@ -10,7 +10,7 @@ import (
 )
 
 func mkProxy(id int64, mode string, backup *int64, expiresInDays *int, now time.Time) Proxy {
-	p := Proxy{ID: id, FallbackMode: mode, BackupProxyID: backup}
+	p := Proxy{ID: id, Status: StatusActive, FallbackMode: mode, BackupProxyID: backup}
 	if expiresInDays != nil {
 		t := now.AddDate(0, 0, *expiresInDays)
 		p.ExpiresAt = &t

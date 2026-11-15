@@ -1,0 +1,2217 @@
+[
+  {
+    "pr": 5443,
+    "merge_sha": "de6388aecaba61c2d4d6d1cc9a51188d8ae11e01",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 77,
+        "historical_decision": "| #5443 | `de6388aec` | fix(gemini): honor RetryInfo on 429 and stop cooling Vertex service accounts until PST midnight | application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 5616,
+    "merge_sha": "fd80b08c90b55edcad5b00171b53f08721d30da1",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260927.md",
+        "line": 23,
+        "historical_decision": "| #5616 | `fd80b08c9` | OpenCode Go 用量窗口与更多平台；仓储、服务、管理 DTO/UI | **现有额度解析已覆盖；余项专项暂缓** | 本项目已有 OpenCode Go 额度解析/冷却状态和平台迁移；新账号列表持久窗口、批量资格与调度传播尚未合入，需证明查询批量化、索引和到期更新上限，避免按账户 N+1 请求或无界探测。 |"
+      }
+    ]
+  },
+  {
+    "pr": 5816,
+    "merge_sha": "2a5ae2b2dc4b8ffe016f44d66245bfe234a1a398",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260821.md",
+        "line": 24,
+        "historical_decision": "- #5816/#5817 的 Composite CN provider 扩展依赖本项目尚未采用的独立 `kimi`/`zhipu`/`deepseek` 平台常量和迁移编号。固定增加调度桶会把每组快照从 12 个扩大到 18 个，增加 Redis/内存和重建写放大；本次只保留协议兼容审查，不引入半套路由。"
+      }
+    ]
+  },
+  {
+    "pr": 5817,
+    "merge_sha": "6a945b3cadfec1cc593490caf7eaccb4b244feae",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260821.md",
+        "line": 24,
+        "historical_decision": "- #5816/#5817 的 Composite CN provider 扩展依赖本项目尚未采用的独立 `kimi`/`zhipu`/`deepseek` 平台常量和迁移编号。固定增加调度桶会把每组快照从 12 个扩大到 18 个，增加 Redis/内存和重建写放大；本次只保留协议兼容审查，不引入半套路由。"
+      }
+    ]
+  },
+  {
+    "pr": 5842,
+    "merge_sha": "740f5808018bbc6addd22e1582e977341dcd8ccb",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260821.md",
+        "line": 25,
+        "historical_decision": "- #5842 的 adaptive CN API protocol 会改变新建账号默认协议并引入多端点连接测试，属于存量配置行为变化，暂不在没有完整 CN 路由 owner 的情况下合入。"
+      }
+    ]
+  },
+  {
+    "pr": 5851,
+    "merge_sha": "1b5dc676a9d35532ac2d88dbbe0ee2638b2ab05f",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260821.md",
+        "line": 26,
+        "historical_decision": "- #5851 的可配置 Fast/Flex 和长上下文倍率涉及存量账单变化及新的 schema 字段。本项目已有 `ApplyServiceTierMultiplier` 设计，已覆盖渠道标准价与 tier 倍率；不重复引入上游 migration 228 或把分组长上下文门控从 AND 改为 OR。"
+      }
+    ]
+  },
+  {
+    "pr": 5866,
+    "merge_sha": "03ab687686f28a054b19c4fba6826347fa04ab5f",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260831.md",
+        "line": 71,
+        "historical_decision": "| #5866 channel monitor user groups、#6332 quota singleflight | 当前模块化 monitor 没有上游 legacy quota fetcher owner；不可达代码不移植。若新增 monitor quota mode，必须把 cache recheck 放进 singleflight 执行体 |"
+      }
+    ]
+  },
+  {
+    "pr": 5905,
+    "merge_sha": "f25f399be0cf2b0b863c905f0a024d900ebc2305",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260825.md",
+        "line": 38,
+        "historical_decision": "- #5905 custom tool alias、#6081 之外的 deferred/tool-search 变体、#6116 之外的 Gemini provider 变更：当前桥接已有 custom/namespace/tool-search 兼容；仅接入能证明不改变现有输出契约的窄修复。"
+      }
+    ]
+  },
+  {
+    "pr": 5925,
+    "merge_sha": "4033387fd49b15b676d2e5c9fd3833f156050f57",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260821.md",
+        "line": 3,
+        "historical_decision": "本次审查以本项目远端 `origin/main` 的 `b9f7a552174a9280148281dc4ceb42ff18549654` 为发布基线，将上游 `Wei-Shaw/sub2api` 的 `main` 冻结在 `4033387fd49b15b676d2e5c9fd3833f156050f57`。先前已审查边界是 `2bc139ab527b4a687546d145dc7bb9063cf14510`，本次增量包含合并 PR #5925（Grok compatibility）及其 28 个主题提交；更早的同步区间见 `82f7dd14f717bef480879f73cba288791b9b9663`。"
+      }
+    ]
+  },
+  {
+    "pr": 6068,
+    "merge_sha": "d45135d87df16d48637f04ccd245727bc955ba54",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260825.md",
+        "line": 6,
+        "historical_decision": "- 上次已记录的上游冻结点：`d45135d87df16d48637f04ccd245727bc955ba54`（PR #6068）。"
+      }
+    ]
+  },
+  {
+    "pr": 6079,
+    "merge_sha": "7bb9c0ed7d63687ae3e7584f25fa4d1f53304f51",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260825.md",
+        "line": 32,
+        "historical_decision": "- #6079 Codex analytics/parent affinity、#6127 OAuth transport plugin：引入大块旧调度、隐私和 transport owner；当前已有 Codex identity、continuation、WS pool 和 scheduler 实现。整体移植会改变账号选择、缓存亲和及多实例行为，暂缓。"
+      }
+    ]
+  },
+  {
+    "pr": 6081,
+    "merge_sha": "748b84a15a279dd25db6b89c5e33a9cc619d57c5",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260825.md",
+        "line": 20,
+        "historical_decision": "| #6081 deferred tools | `shared/apicompat` 与 Grok tool sanitizer：没有 `tool_search` 时去掉孤立 `defer_loading` | 避免兼容上游 schema 拒绝；不改变带 `tool_search` 的声明 |"
+      }
+    ]
+  },
+  {
+    "pr": 6127,
+    "merge_sha": "f82d32207f875770bcf247e70e821694fa2915e3",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260825.md",
+        "line": 32,
+        "historical_decision": "- #6079 Codex analytics/parent affinity、#6127 OAuth transport plugin：引入大块旧调度、隐私和 transport owner；当前已有 Codex identity、continuation、WS pool 和 scheduler 实现。整体移植会改变账号选择、缓存亲和及多实例行为，暂缓。"
+      }
+    ]
+  },
+  {
+    "pr": 6155,
+    "merge_sha": "810d50a00f52eec287c3a7f576a081ae884a4347",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260828.md",
+        "line": 31,
+        "historical_decision": "- #6204 Kimi concurrency 403、#6155 Kimi K3 composite：本项目没有独立 `PlatformKimi` 调度桶，Kimi 兼容请求按 OpenAI 账号协议处理；强行增加平台会扩大快照/筛选和迁移面，暂缓。"
+      }
+    ]
+  },
+  {
+    "pr": 6179,
+    "merge_sha": "432ebc498cb395696d0be9762a33f70a63bf9375",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260905.md",
+        "line": 47,
+        "historical_decision": "| #6179 Ops 代理归因 | 涉及全部上游 attempt 站点与持久 JSON 契约。当前队列已把每请求事件限制为 16 个并限制 body 大小；代理历史快照应作为独立 Ops 变更验证所有协议路径 |"
+      }
+    ]
+  },
+  {
+    "pr": 6188,
+    "merge_sha": "7b693ae4295e20329f18ff451b29a38879cb4705",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260831.md",
+        "line": 67,
+        "historical_decision": "| #6283 compaction kind、#6188 requested reasoning effort | 都新增 usage schema 和全套查询/DTO/filter；上游 migration `231` 已与本项目历史冲突。若接入需从本项目下一迁移号开始并做大表写放大/索引评估 |"
+      }
+    ]
+  },
+  {
+    "pr": 6204,
+    "merge_sha": "4952b919a4d389ddf51fecb005cfbcae22643283",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260828.md",
+        "line": 31,
+        "historical_decision": "- #6204 Kimi concurrency 403、#6155 Kimi K3 composite：本项目没有独立 `PlatformKimi` 调度桶，Kimi 兼容请求按 OpenAI 账号协议处理；强行增加平台会扩大快照/筛选和迁移面，暂缓。"
+      }
+    ]
+  },
+  {
+    "pr": 6254,
+    "merge_sha": "fbc69322af576a8ffe47898a60d980ed176d9bf3",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260831.md",
+        "line": 72,
+        "historical_decision": "| #6254 configurable image cooldown | 当前固定 30 分钟且 #6270 已去除误触发；新增设置需和 admin UI/runtime cache 同批交付，不只接后端隐藏配置 |"
+      }
+    ]
+  },
+  {
+    "pr": 6281,
+    "merge_sha": "233f3dffe64b0748ea7d610ccca4bdb44544051d",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260909.md",
+        "line": 45,
+        "historical_decision": "| #6791, #6758, #6759, #6760, #6775, #6281 | 不适用或延期；涉及不同 schema、平台、统计窗口、插件树或未接线 profile。 |"
+      },
+      {
+        "source": "docs/UPSTREAM_SYNC_20260909.md",
+        "line": 31,
+        "historical_decision": "- #6281 long-stream HTTP/2 keepalive 已由 `HTTPUpstreamProfileOpenAIStream`、显式 HTTP/2 PING 和 30 秒 WS sweep 覆盖；上游新增未使用的 profile 不引入。"
+      }
+    ]
+  },
+  {
+    "pr": 6283,
+    "merge_sha": "0678b24d58dceb668ce8b952b5d3c0be3ec9dbb0",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260831.md",
+        "line": 67,
+        "historical_decision": "| #6283 compaction kind、#6188 requested reasoning effort | 都新增 usage schema 和全套查询/DTO/filter；上游 migration `231` 已与本项目历史冲突。若接入需从本项目下一迁移号开始并做大表写放大/索引评估 |"
+      }
+    ]
+  },
+  {
+    "pr": 6291,
+    "merge_sha": "d4754c211a1b5ad71b80734e7d4daec827c54f4f",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260831.md",
+        "line": 70,
+        "historical_decision": "| #6325 Grok vision tool-output、#6291 Grok request sanitizer | 当前 Grok 使用可逆 client-tool adapter；直接复制上游全量 model-input decode/marshal 会在大 base64 请求上扩大分配。待设计有大小上限的媒体提升 adapter 后重开 |"
+      }
+    ]
+  },
+  {
+    "pr": 6303,
+    "merge_sha": "e866ff6ec431816e8b9d4b81dc7b00122ca3f7f8",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260831.md",
+        "line": 68,
+        "historical_decision": "| #6303 限制用户公开分组 | 改变 `CanBindGroup` 的权限模型并新增用户字段；当前 `allowed_groups` 只表示专属分组。需独立设计兼容默认值和 auth-cache snapshot 版本 |"
+      }
+    ]
+  },
+  {
+    "pr": 6320,
+    "merge_sha": "6f0d0ababc64f79f06b6a532b1f0d041b1716d94",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260909.md",
+        "line": 44,
+        "historical_decision": "| #6320, #6434, #6488 | 部分实现或延期；缺少与当前 runtime/WS/UI owner 同构契约，已关闭本轮差异。 |"
+      },
+      {
+        "source": "docs/UPSTREAM_SYNC_20260909.md",
+        "line": 14,
+        "historical_decision": "| #6320 runtime block cooldown | 保留现有本地 block 的权威恢复与 generation 合同；不接入会清理新写入保护的旧快路径。 | 需上游明确 generation/持久状态契约后重开。 |"
+      }
+    ]
+  },
+  {
+    "pr": 6325,
+    "merge_sha": "a2d7d4118599d70412860e5e494cbc93fe755646",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260831.md",
+        "line": 70,
+        "historical_decision": "| #6325 Grok vision tool-output、#6291 Grok request sanitizer | 当前 Grok 使用可逆 client-tool adapter；直接复制上游全量 model-input decode/marshal 会在大 base64 请求上扩大分配。待设计有大小上限的媒体提升 adapter 后重开 |"
+      }
+    ]
+  },
+  {
+    "pr": 6353,
+    "merge_sha": "2ac784c51a5d0925b324efef2ba6b3446c364781",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260905.md",
+        "line": 42,
+        "historical_decision": "| #6353 定价目录重构与 override file | 涉及账务目录、远端覆盖、阶梯价和默认价卡；需单独核对历史账单、自定义渠道优先级和回滚，不夹带进兼容同步 |"
+      }
+    ]
+  },
+  {
+    "pr": 6378,
+    "merge_sha": "fdf9751c1223a74a7153e537c6d9d1fb14ee9cad",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260831.md",
+        "line": 65,
+        "historical_decision": "| #6378 service-tier billing | 会改变真实扣费；需要单独移植 response-tier observer，并分别验证 public API 可降价、private Codex OAuth 不信任 `default`。本轮不把货币语义夹带进兼容同步 |"
+      }
+    ]
+  },
+  {
+    "pr": 6384,
+    "merge_sha": "1dd0f2e5dc17f0e07e5f8ae155e3858a76024d7f",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260831.md",
+        "line": 73,
+        "historical_decision": "| #6384 usage window style、direct `706b5676a` group errors | 主要是旧大页面展示/文案变化；当前 feature widgets 已拆分，未发现相同行为缺陷，后续按具体 UI issue 在 owner 内处理 |"
+      }
+    ]
+  },
+  {
+    "pr": 6388,
+    "merge_sha": "f34735f462488a140e1f3121bda411b6bc72da79",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260831.md",
+        "line": 69,
+        "historical_decision": "| #6388 Ollama usage 挂 CN 平台、#6330 Zhipu team usage | 当前 Ollama owner 限定 OpenAI/Anthropic API-key + ollama.com；跨平台凭据/页面归属需独立协议设计 |"
+      }
+    ]
+  },
+  {
+    "pr": 6425,
+    "merge_sha": "3510aa22b55188b87cc9d602c4e3148143f23f59",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260905.md",
+        "line": 45,
+        "historical_decision": "| #6447 / #6425 推理强度 deny 与模型范围映射 | 新增持久字段、DTO 与较大 UI；需在当前 feature owner 内独立设计默认 downgrade、旧缓存反序列化和 composite 目标模型语义 |"
+      }
+    ]
+  },
+  {
+    "pr": 6434,
+    "merge_sha": "43569bb44c3eea843cec5fcacf0688961cd97f6b",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260909.md",
+        "line": 44,
+        "historical_decision": "| #6320, #6434, #6488 | 部分实现或延期；缺少与当前 runtime/WS/UI owner 同构契约，已关闭本轮差异。 |"
+      },
+      {
+        "source": "docs/UPSTREAM_SYNC_20260909.md",
+        "line": 29,
+        "historical_decision": "- #6434 client disconnect drain：当前 WS 取消读可能丢失 partial usage；上游 blind drain 不适配本 fork，保留为需要 websocket close/read 语义设计的后续项。"
+      }
+    ]
+  },
+  {
+    "pr": 6443,
+    "merge_sha": "a4fb58e428a0c5d12087d1de2e6d91b56b7db8b2",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260905.md",
+        "line": 44,
+        "historical_decision": "| #6443 / #6444 分组 Fast 与免费 Fast | 新增 Group schema、auth snapshot 和真实计费策略；当前已有管理员 Fast policy，但没有等价的组级免费账务契约 |"
+      }
+    ]
+  },
+  {
+    "pr": 6444,
+    "merge_sha": "f2804eb2c80ec83696ba46eb9bde5bb164308926",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260905.md",
+        "line": 44,
+        "historical_decision": "| #6443 / #6444 分组 Fast 与免费 Fast | 新增 Group schema、auth snapshot 和真实计费策略；当前已有管理员 Fast policy，但没有等价的组级免费账务契约 |"
+      }
+    ]
+  },
+  {
+    "pr": 6447,
+    "merge_sha": "559960865a379fb7e7ba880fa37495333a544f7d",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260905.md",
+        "line": 45,
+        "historical_decision": "| #6447 / #6425 推理强度 deny 与模型范围映射 | 新增持久字段、DTO 与较大 UI；需在当前 feature owner 内独立设计默认 downgrade、旧缓存反序列化和 composite 目标模型语义 |"
+      }
+    ]
+  },
+  {
+    "pr": 6463,
+    "merge_sha": "65380be9c80a7c3180a42d3a11e22477a36eb64c",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260905.md",
+        "line": 43,
+        "historical_decision": "| #6463 Kimi 原生 Responses | 当前 fork 的 CN provider 已按模块化兼容链路收口，上游实现依赖 legacy `PlatformKimi` / `api_protocol` owner；需独立设计 endpoint 探测、计费和前端协议迁移 |"
+      }
+    ]
+  },
+  {
+    "pr": 6473,
+    "merge_sha": "e26abaef7d50d99c41b3e814b1d9dd46956438f5",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 95,
+        "historical_decision": "| #6473 | `e26abaef7` | fix(openai): end streaming at terminal event instead of waiting for u… | application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 6474,
+    "merge_sha": "2786ae9de6eb8b16953d6ea4b5f9b95b14d140fb",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260905.md",
+        "line": 46,
+        "historical_decision": "| #6474 渠道 1h cache-write 自定义价格 | 上游 migration 号与本项目历史冲突，且会改变渠道/账号统计计价；若接入须从本项目下一迁移号开始并完成四张表的升级/降级对账 |"
+      }
+    ]
+  },
+  {
+    "pr": 6488,
+    "merge_sha": "29646ba6b4e6b3355ca59cb17141b6ac3e92f206",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260909.md",
+        "line": 44,
+        "historical_decision": "| #6320, #6434, #6488 | 部分实现或延期；缺少与当前 runtime/WS/UI owner 同构契约，已关闭本轮差异。 |"
+      },
+      {
+        "source": "docs/UPSTREAM_SYNC_20260909.md",
+        "line": 32,
+        "historical_decision": "- #6488 Grok media eligibility：后端已有能力，专用 UI/GET-PUT owner 尚缺，保留后续；#6821 plan 解析、#6798 账号菜单浮层、#6659 非活跃分组保护已移植到模块化 owner。"
+      }
+    ]
+  },
+  {
+    "pr": 6507,
+    "merge_sha": "40f4d450beda49d2cedee432a51b26f7bfbc4b07",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260905.md",
+        "line": 126,
+        "historical_decision": "| #6507（Anthropic 部分） | 上游 native Anthropic forwarder 在本项目没有同构 owner；其强制 thinking=enabled 会改变显式 disabled 语义。待当前 CN transport 契约设计后接入 |"
+      }
+    ]
+  },
+  {
+    "pr": 6510,
+    "merge_sha": "9517f12cdd34b42c499e96d0a97aef668d14edcc",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260905.md",
+        "line": 125,
+        "historical_decision": "| #6510 | 上游按 session hash 无条件删除注册，缺少当前并行请求租赁/代际所有权；同一 session 另一成功请求可能仍占用。需 token/compare-delete 释放设计、并发 race + Redis 验证后重开，不引入该竞态 |"
+      }
+    ]
+  },
+  {
+    "pr": 6514,
+    "merge_sha": "fb44e2dd091970dc899f59cbc568bed961035d3f",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260905.md",
+        "line": 120,
+        "historical_decision": "| #6514 | reasoning pricing 涉及账务字段、迁移与历史账单；按 fork 新迁移号完成升级及降级对账后重开 |"
+      }
+    ]
+  },
+  {
+    "pr": 6535,
+    "merge_sha": "78e1aaedb983a3e30d250e15b1093be3d3ca8018",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260905.md",
+        "line": 118,
+        "historical_decision": "| #6535 | 定价文件 hot reload 需与此前 #6353 的价格覆盖优先级、远端目录和历史账单共同设计；价格 owner 方案及对账矩阵确认后重开 |"
+      }
+    ]
+  },
+  {
+    "pr": 6542,
+    "merge_sha": "c6ff69fd12b4d684350e5834c4ab859d0a0afa99",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260905.md",
+        "line": 124,
+        "historical_decision": "| #6542 | 批量改并发错误 code 涉及本项目 priority admission、Responses SSE、Anthropic 和 Gemini 的共享调用方；协议矩阵单独验证后重开，保留现有错误格式 |"
+      }
+    ]
+  },
+  {
+    "pr": 6555,
+    "merge_sha": "701f844755aa4b9dd1d79ae621820a9b3dcf469d",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260905.md",
+        "line": 121,
+        "historical_decision": "| #6555 | upstream request ID 持久化与当前 usage / Ops owner 和迁移历史交叉；统一字段契约后重开，不直接搬上游生成代码 |"
+      }
+    ]
+  },
+  {
+    "pr": 6557,
+    "merge_sha": "aafe93b335763e0586f4f30665751c279dc78c73",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260905.md",
+        "line": 128,
+        "historical_decision": "| #6557 | 上游 AccountListItem/lite 与本项目按需详情、分组和管理动作状态契约不一致；独立测量大账号列表载荷、查询及详情动作后重开 |"
+      }
+    ]
+  },
+  {
+    "pr": 6571,
+    "merge_sha": "c42d78e26c42153dac7641d51ddd6fb0977b0b14",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260905.md",
+        "line": 127,
+        "historical_decision": "| #6571 | ultrafast 同时改变服务等级、计费倍率和管理员策略；不当成静态清单变更，独立费率/开关/旧客户端矩阵确认后重开 |"
+      }
+    ]
+  },
+  {
+    "pr": 6590,
+    "merge_sha": "eba6ea563991d62d6742d5c1ae1ae8514b708e35",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260905.md",
+        "line": 123,
+        "historical_decision": "| #6590 | 当前 manifest 代理按实际选中账号和上游能力传递，不采用上游跨账号生成 catalog；在本地生成 catalog 的 owner 正式引入时再评估 capability 推断 |"
+      }
+    ]
+  },
+  {
+    "pr": 6602,
+    "merge_sha": "c4e6dcfd80abe36e98718c95b98f17e4ba2737df",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260905.md",
+        "line": 119,
+        "historical_decision": "| #6602 | 账号 pinned manifest 涉及 Group schema、auth snapshot 和缓存契约；独立迁移及旧缓存回退方案齐备后重开 |"
+      }
+    ]
+  },
+  {
+    "pr": 6638,
+    "merge_sha": "d2f87c612e1820f6d4900a71fda1248c5b3544ed",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260905.md",
+        "line": 122,
+        "historical_decision": "| #6638 | 图片 URL 回填需要接入当前 egress、URL allowlist、媒体任务大小和下载超时边界；独立资源预算设计后重开 |"
+      }
+    ]
+  },
+  {
+    "pr": 6691,
+    "merge_sha": "0bba06d64a2eafdec1b4d37a48e5af40a6d44ce7",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260915.md",
+        "line": 38,
+        "historical_decision": "| #6691 | 暂缓 | API Key 批量编辑是独立用户写入面；本项目已有不同的 keys feature owner，需要单独的后端授权和交互审查。 |"
+      }
+    ]
+  },
+  {
+    "pr": 6758,
+    "merge_sha": "dbe92a1c241a03c77e2b218761369ff988b8356b",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260909.md",
+        "line": 45,
+        "historical_decision": "| #6791, #6758, #6759, #6760, #6775, #6281 | 不适用或延期；涉及不同 schema、平台、统计窗口、插件树或未接线 profile。 |"
+      },
+      {
+        "source": "docs/UPSTREAM_SYNC_20260909.md",
+        "line": 45,
+        "historical_decision": "| #6791, #6758, #6759, #6760, #6775, #6281 | 不适用或延期；涉及不同 schema、平台、统计窗口、插件树或未接线 profile。 |"
+      }
+    ]
+  },
+  {
+    "pr": 6759,
+    "merge_sha": "52f7bcaedddd5294d88eb76d7964e3c2fd8a12c2",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260909.md",
+        "line": 45,
+        "historical_decision": "| #6791, #6758, #6759, #6760, #6775, #6281 | 不适用或延期；涉及不同 schema、平台、统计窗口、插件树或未接线 profile。 |"
+      },
+      {
+        "source": "docs/UPSTREAM_SYNC_20260909.md",
+        "line": 45,
+        "historical_decision": "| #6791, #6758, #6759, #6760, #6775, #6281 | 不适用或延期；涉及不同 schema、平台、统计窗口、插件树或未接线 profile。 |"
+      }
+    ]
+  },
+  {
+    "pr": 6760,
+    "merge_sha": "9bcf8a5b801badd8ab39f200ee559b08ec57d2ff",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260909.md",
+        "line": 45,
+        "historical_decision": "| #6791, #6758, #6759, #6760, #6775, #6281 | 不适用或延期；涉及不同 schema、平台、统计窗口、插件树或未接线 profile。 |"
+      },
+      {
+        "source": "docs/UPSTREAM_SYNC_20260909.md",
+        "line": 45,
+        "historical_decision": "| #6791, #6758, #6759, #6760, #6775, #6281 | 不适用或延期；涉及不同 schema、平台、统计窗口、插件树或未接线 profile。 |"
+      }
+    ]
+  },
+  {
+    "pr": 6769,
+    "merge_sha": "9fade3e8c2ff1e9097364c9e5d1cf8a7e4f36559",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260915.md",
+        "line": 40,
+        "historical_decision": "| #6769 | 暂缓 | Ollama 异步 rate-limit reset 引入额外探针、CAS 与后台调度；需与现有 Ollama session/refresh owner 单独压测。 |"
+      }
+    ]
+  },
+  {
+    "pr": 6775,
+    "merge_sha": "aa167a25a7ec3bf27acf1814f64e9157f55197fb",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260909.md",
+        "line": 45,
+        "historical_decision": "| #6791, #6758, #6759, #6760, #6775, #6281 | 不适用或延期；涉及不同 schema、平台、统计窗口、插件树或未接线 profile。 |"
+      },
+      {
+        "source": "docs/UPSTREAM_SYNC_20260909.md",
+        "line": 45,
+        "historical_decision": "| #6791, #6758, #6759, #6760, #6775, #6281 | 不适用或延期；涉及不同 schema、平台、统计窗口、插件树或未接线 profile。 |"
+      }
+    ]
+  },
+  {
+    "pr": 6791,
+    "merge_sha": "8fa67d477d6651a744754392a8982ea589c26ae6",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260909.md",
+        "line": 45,
+        "historical_decision": "| #6791, #6758, #6759, #6760, #6775, #6281 | 不适用或延期；涉及不同 schema、平台、统计窗口、插件树或未接线 profile。 |"
+      },
+      {
+        "source": "docs/UPSTREAM_SYNC_20260909.md",
+        "line": 27,
+        "historical_decision": "- #6791 的 `groups.model_allowlist` 自愈迁移依赖上游列重命名，而本项目继续使用 `models_list_config` 的兼容 schema；直接移植会破坏旧数据库，保留为独立迁移设计项。"
+      }
+    ]
+  },
+  {
+    "pr": 6811,
+    "merge_sha": "9e7039ebca5d4cd668ca1868becbd243d14f3c65",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260909.md",
+        "line": 9,
+        "historical_decision": "| #6811 proxy partial update | 在 `application/service` 合并已存在代理状态；DTO 用 `NullableInt64Field` 区分省略与显式 null，导入流程显式清空字段。 | PUT 省略字段保持旧值；显式 null 才清空；只增加一次既有代理查询，不增加探测请求。 |"
+      }
+    ]
+  },
+  {
+    "pr": 6920,
+    "merge_sha": "20a94fbb567b62208751292ed7786b24a7e7c0fe",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 99,
+        "historical_decision": "| #6920 | `20a94fbb5` | fix(grok): allow quota queries during account cooldowns | application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 6960,
+    "merge_sha": "3fb03cdac1d4878a271a3efc111ec8f0a489f1dd",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260913.md",
+        "line": 48,
+        "historical_decision": "| #6960 WS execution scope/preemption | 当前 continuation/turn owner 与上游不同；整 PR 会破坏 affinity，暂缓并保留现有 session 语义。 |"
+      }
+    ]
+  },
+  {
+    "pr": 7038,
+    "merge_sha": "02d9901b49787d1eaa0d1553307d733f78f09aa8",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 97,
+        "historical_decision": "| #7038 | `02d9901b4` | fix(openai): remove Responses Lite markers after OAuth mapping to GPT-5.5 | application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7057,
+    "merge_sha": "9383e0b154348b224f64e66985f907f336b00c2e",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260913.md",
+        "line": 53,
+        "historical_decision": "| #7057 | 当前没有同构 `UpstreamModelMetadata/MaxContextWindow` 快照；暂缓 schema 设计。 |"
+      }
+    ]
+  },
+  {
+    "pr": 7060,
+    "merge_sha": "0dd71286f26395dd766519ddcfede57972a43a2b",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 114,
+        "historical_decision": "| #7060 | `0dd71286f` | fix(images): allow compatible Gemini models on API-key upstreams | application/service、transport/http/handler、transport/http/server | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7062,
+    "merge_sha": "749cd7c3546187c893513bc21af88c1c50bc2eb9",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260913.md",
+        "line": 54,
+        "historical_decision": "| #7062 | MiniMax monitor adapter 与本项目 monitor contract 不同，暂缓。 |"
+      }
+    ]
+  },
+  {
+    "pr": 7077,
+    "merge_sha": "da25b18db7dea8570de1edafab1837ab9c55e132",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 98,
+        "historical_decision": "| #7077 | `da25b18db` | fix(antigravity): handle prefixItems and ensure array schema has valid items fallback | shared | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7090,
+    "merge_sha": "b2d6b954a1aaca7953ad655daf8fa38d37521b91",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260927.md",
+        "line": 18,
+        "historical_decision": "| #7090 | `b2d6b954a` | 账号费率自动回退；OpenAI 调度分值/缓存/设置/UI | **专项暂缓，未移植** | 本项目已有按候选一次扫描的 `openAIUpstreamCostFactors`、OAuth 倍率及粘性/并发选取逻辑；上游把倍率从数值改可空、改排序决策与管理默认值，不能直接替换，需同样候选集的基线/候选 benchmark 和选中账号分布对照。 |"
+      }
+    ]
+  },
+  {
+    "pr": 7091,
+    "merge_sha": "1920a7d6879be25884733f4e8629d0ff3c0e43b6",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260915.md",
+        "line": 39,
+        "historical_decision": "| #7091 | 暂缓 | 订阅多动作批处理会扩大幂等、事务和恢复边界；现有批量分配保持不变，另立专题移植。 |"
+      }
+    ]
+  },
+  {
+    "pr": 7097,
+    "merge_sha": "b12a187d4f2d61d1b309a1698c680a99b7d019ac",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 92,
+        "historical_decision": "| #7097 | `b12a187d4` | fix(streaming): drop Anthropic ping keepalives before OpenAI conversion | application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7108,
+    "merge_sha": "974a819ba15359b00b87f4c96ad3b7ae3b4a6f93",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 91,
+        "historical_decision": "| #7108 | `974a819ba` | fix(ui): focus non-searchable select dropdowns | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7109,
+    "merge_sha": "d27fbb3b7dfd6a2a5a26e80fbca781fc7bbdc112",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 90,
+        "historical_decision": "| #7109 | `d27fbb3b7` | fix(ui): discard unapplied date ranges on dismissal | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7139,
+    "merge_sha": "b350e079f868bf8ecba7917d48106a5d5c6c3df6",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 113,
+        "historical_decision": "| #7139 | `b350e079f` | fix: keep API-key accounts available for unknown models | application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7142,
+    "merge_sha": "ea34a2356ca546cb12cd960efc203baaff5e39c4",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 89,
+        "historical_decision": "| #7142 | `ea34a2356` | fix(ui): reset select highlight when search results change | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7160,
+    "merge_sha": "7c0a2a556c440836c54b3f3135f033755f15ecb7",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 115,
+        "historical_decision": "| #7160 | `7c0a2a556` | feat: 支持运维与请求日志的滚动保留设置 | frontend/features 或 common、infrastructure/repository、application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7169,
+    "merge_sha": "fa9f104a93ae290f72ec9820fb1e02b173ea8a9a",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 88,
+        "historical_decision": "| #7169 | `fa9f104a9` | fix(gateway): list mixed Antigravity models for Gemini groups | application/service、transport/http/handler | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7173,
+    "merge_sha": "d52ab27def5936529d1b59145330446abc4c9373",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260918.md",
+        "line": 43,
+        "historical_decision": "- #7212 兑换历史分页、#7173 Gemini native model listing 需要分别调整当前 feature/API owner，暂不把旧目录实现整体带入；列入下一专项。"
+      }
+    ]
+  },
+  {
+    "pr": 7212,
+    "merge_sha": "18328aed05edc7d804d53205470f637216f272bd",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260918.md",
+        "line": 43,
+        "historical_decision": "- #7212 兑换历史分页、#7173 Gemini native model listing 需要分别调整当前 feature/API owner，暂不把旧目录实现整体带入；列入下一专项。"
+      }
+    ]
+  },
+  {
+    "pr": 7247,
+    "merge_sha": "aea725f2ea644d5592d0bbb1d63b607efa7e200a",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 29,
+        "historical_decision": "| #7247 | `aea725f2e` | feat: 支持 Seedance / Ark 原生视频任务 API | frontend/features 或 common、application/service、transport/http/handler、transport/http/server | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7258,
+    "merge_sha": "74431ffad8b9446100a6c1416fe69e908c03ae81",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 28,
+        "historical_decision": "| #7258 | `74431ffad` | fix(antigravity): Gemini 原生请求的裸模型名按 thinkingConfig 解析到 -low/-medium/-high 变体 | application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7264,
+    "merge_sha": "e7d348868c3891d0a63889807537552bd4c0cadc",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 54,
+        "historical_decision": "| #7264 | `e7d348868` | fix(accounts): retry default mappings after a failed fetch | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7272,
+    "merge_sha": "51f73840a17d237dc44a1a9d2ce38bfc400e696a",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 87,
+        "historical_decision": "| #7272 | `51f73840a` | fix(apicompat): 修复 Anthropic 转 Responses 流中 function_call_arguments.done 缺少 arguments 参数的问题 | shared | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7276,
+    "merge_sha": "13be6ca27c8fa5b6940773f8ffc79974454eb01b",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 96,
+        "historical_decision": "| #7276 | `13be6ca27` | fix(openai): keep transport heartbeats outside semantic output | application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7278,
+    "merge_sha": "0c9e83b59cf9f8647434008a7377ad481b291d3f",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 27,
+        "historical_decision": "| #7278 | `0c9e83b59` | fix(antigravity): Gemini 原生流对 go-genai / python-genai 客户端不发 SSE 注释心跳 | application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7282,
+    "merge_sha": "d8d5e1dd35fbecbc30fa9f037ae6d8d70e4cbffd",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260927.md",
+        "line": 20,
+        "historical_decision": "| #7282 | `d8d5e1dd3` | 线下提现与 ledger operation ID；affiliate 仓储/handler/UI/migration | **专项暂缓，未移植** | 上游迁移 `240_affiliate_ledger_operation_id.sql` 与本项目既有 `240_add_group_distillation_mode.sql` 编号冲突；审批权限、幂等扣账和负载锁需要专项设计，不能整包照搬。 |"
+      }
+    ]
+  },
+  {
+    "pr": 7288,
+    "merge_sha": "1947add842d77f2c6ba4a93ec3a75e06d179bfc8",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260927.md",
+        "line": 17,
+        "historical_decision": "| #7288 | `1947add84` | 备份月度归档/保留；backup 应用/HTTP/UI | **专项暂缓，未移植** | 新 checkpoint、跨节点锁与删除保留策略影响历史备份恢复和存储用量；需要独立迁移/回滚、长周期保留和并发删除验证。 |"
+      }
+    ]
+  },
+  {
+    "pr": 7289,
+    "merge_sha": "b717ac7f0bb8bbc8c779e078ea259bbf9fb9ef12",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 72,
+        "historical_decision": "| #7289 | `b717ac7f0` | fix(admin): align platform quota editor with supported platforms | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7294,
+    "merge_sha": "09f88865e08f938c1e7e6df54df9928fef902f7b",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 26,
+        "historical_decision": "| #7294 | `09f88865e` | ui(header): 手机竖屏顶栏保留模型广场图标入口 | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7300,
+    "merge_sha": "5ad7cf4fb9653dceb575b12a281fd7c798ec8839",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 111,
+        "historical_decision": "| #7300 | `5ad7cf4fb` | fix(responses): emit protocol-correct stream errors once | application/service、transport/http/handler | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7303,
+    "merge_sha": "583398d1869f6361146dd09cf6a58ca6a21a61ac",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 94,
+        "historical_decision": "| #7303 | `583398d18` | fix(upstream): prevent EOF stalls when closing response bodies | infrastructure/repository | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7304,
+    "merge_sha": "bbdcfbac0a3c0982a33639fba372d55d25724e2f",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 35,
+        "historical_decision": "| #7304 | `bbdcfbac0` | fix(gateway): restore public response model aliases | application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7308,
+    "merge_sha": "60b9bf75589e71a26f08bbc06ec9e1e64a5ffe7f",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 110,
+        "historical_decision": "| #7308 | `60b9bf755` | fix(codex-models): 非 GPT 模型的 Codex 提示词模板去掉 GPT 身份声明，避免 Antigravity 429 | application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7313,
+    "merge_sha": "4275047d164591118be946e964e921e9672347c6",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 23,
+        "historical_decision": "| #7313 | `4275047d1` | fix(openai): pass DeepSeek thinking-mode reasoning_content on chat fallback | application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7314,
+    "merge_sha": "7403a011775c2543cb0e212e8cf1dd52f1a13cc1",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 34,
+        "historical_decision": "| #7314 | `7403a0117` | fix(moderation): prevent reminder tags from bypassing keyword checks | application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7319,
+    "merge_sha": "2b12de14eed7fc915147d82f647057bcaa078dec",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 86,
+        "historical_decision": "| #7319 | `2b12de14e` | fix(dialog): keep body locked while another dialog is open | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7320,
+    "merge_sha": "7865051fdf93823cb55c099424345ca74ba3a1f1",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 85,
+        "historical_decision": "| #7320 | `7865051fd` | fix(upload): cancel superseded image reads | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7321,
+    "merge_sha": "4b0adb68636c4d8bef479e2c1ed541950a031c27",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 84,
+        "historical_decision": "| #7321 | `4b0adb686` | fix(proxies): label newly expired proxies correctly | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7322,
+    "merge_sha": "ba5737fe14b859b46de99648767c2f147f59a682",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 83,
+        "historical_decision": "| #7322 | `ba5737fe1` | fix(ccswitch): trim trailing slashes before Antigravity path | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7323,
+    "merge_sha": "7b13cb410dae1a75f0d6fc3782b271815ada4446",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 82,
+        "historical_decision": "| #7323 | `7b13cb410` | fix(announcements): ignore superseded fetch results | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7339,
+    "merge_sha": "231e72fdde89bd2c4cc172dd1f51ff90e5d0b0a9",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 75,
+        "historical_decision": "| #7339 | `231e72fdd` | fix(openai): honor error.status when classifying in-stream failures | application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7340,
+    "merge_sha": "1b45d213288cb8f69e1cd611293f05dae6dc1c7f",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 25,
+        "historical_decision": "| #7340 | `1b45d2132` | fix(ratelimit): CN coding-plan 账号配额耗尽的 403 按限流暂停调度，而非永久禁用 | application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7341,
+    "merge_sha": "ed2360d7ea752b7632097fbcd34c001c395dbf0d",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 73,
+        "historical_decision": "| #7341 | `ed2360d7e` | fix(proxies): preserve renewals during expiry sweeps | infrastructure/repository | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7342,
+    "merge_sha": "a079a6596a8085aa5e27bf21798d360c6cce1ad8",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 74,
+        "historical_decision": "| #7342 | `a079a6596` | fix(proxies): exclude inactive fallback targets | infrastructure/repository、application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7345,
+    "merge_sha": "d5cea617a5795ba1c159f90a20efeae54df138c1",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 24,
+        "historical_decision": "| #7345 | `d5cea617a` | fix(apicompat): 摊平 Responses→Anthropic 工具 schema 顶层联合，修复 Codex 内置工具导致的 400 | shared、application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7349,
+    "merge_sha": "53b4bbe736323abac37dcf0a5f1ed7cd7893008f",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 33,
+        "historical_decision": "| #7349 | `53b4bbe73` | fix(settings): preserve client version on invalid user agent | application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7351,
+    "merge_sha": "4dbcdce43c63814c93e215cbf06044b57660341b",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 22,
+        "historical_decision": "| #7351 | `4dbcdce43` | feat(plugin): generic host services + read-only status bridge channel | frontend/features 或 common、infrastructure/repository、application/service、transport/http/handler、transport/http/server | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7354,
+    "merge_sha": "a5015e1fc4fdab939c150630cda81529be3b75bc",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 67,
+        "historical_decision": "| #7354 | `a5015e1fc` | fix(openai): alias DeepSeek Responses input_image with url | application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7361,
+    "merge_sha": "483cd5692425442f626555d235e05d802c71f8ae",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 49,
+        "historical_decision": "| #7361 | `483cd5692` | feat(simple): make startup default group creation optional | infrastructure/repository | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7362,
+    "merge_sha": "8bb48622a3893c7a968756bb7d4a5d9cfda5c029",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 32,
+        "historical_decision": "| #7362 | `8bb48622a` | fix(accounts): preserve refresh errors during usage queries | application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7363,
+    "merge_sha": "322cc5e5f1a0049215b73ed12736bfb585bea383",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 52,
+        "historical_decision": "| #7363 | `322cc5e5f` | fix(users): keep numeric custom attribute values as strings | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7364,
+    "merge_sha": "9e175bd49161d486b3dd5d87f43724d98a45b07a",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 55,
+        "historical_decision": "| #7364 | `9e175bd49` | fix(users): show errors when group replacement fails | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7365,
+    "merge_sha": "62a8919a1c82b902a93818eaf2a15ff972d0e610",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 64,
+        "historical_decision": "| #7365 | `62a8919a1` | fix(monitor): ignore stale template picker responses | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7366,
+    "merge_sha": "e4f97a53ec24a29820d59e53c6c02117e14c6342",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 56,
+        "historical_decision": "| #7366 | `e4f97a53e` | fix(users): persist cleared custom attribute hints | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7367,
+    "merge_sha": "a765b3c1765f50a18e3b845170916d91c21a12cc",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 61,
+        "historical_decision": "| #7367 | `a765b3c17` | fix(groups): require integer RPM overrides before adding | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7369,
+    "merge_sha": "a266e50e8e366d8153f286edd54766df4f5cf1fe",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 41,
+        "historical_decision": "| #7369 | `a266e50e8` | ui(users): 禁用/启用用户后原地更新该行 | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7372,
+    "merge_sha": "c0b23ff79116baec40fe2d66b33eccb6b74427a2",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 53,
+        "historical_decision": "| #7372 | `c0b23ff79` | fix(settings): allow retrying failed initial admin settings loads | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7373,
+    "merge_sha": "023b38354feb5c1b2371dda51a6973d8bb084033",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 62,
+        "historical_decision": "| #7373 | `023b38354` | fix(users): wait for group configuration before enabling save | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7374,
+    "merge_sha": "c96d36ec9567c98a378e0b93b46ee2d9b4242994",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 57,
+        "historical_decision": "| #7374 | `c96d36ec9` | fix(search): wait for committed IME input before searching | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7375,
+    "merge_sha": "1ea00258d0aa8323c8d67dfc428a4cf03b7cdae2",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 63,
+        "historical_decision": "| #7375 | `1ea00258d` | fix(users): ignore superseded balance history requests | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7376,
+    "merge_sha": "ca47fa352c6942907ae01b3c36eb508bc38d01e5",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 60,
+        "historical_decision": "| #7376 | `ca47fa352` | fix(groups): reject negative custom rates before adding | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7378,
+    "merge_sha": "ccb027b51506b2f64c16290ac33b185c547d8963",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20260930/UPSTREAM_PRS.json",
+        "historical_decision": "上游新增 account_model 归属 gate 和连接级路由 resolver；本项目 composite routes 与 HTTP/WS identity/MapRequestModel owner 不同，需完整每 turn、sticky、legacy/advanced 调度对照并重生成 Wire。"
+      }
+    ]
+  },
+  {
+    "pr": 7380,
+    "merge_sha": "1f955af353f0e0a3f6137aa26090e85aee1109cc",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20260930/UPSTREAM_PRS.json",
+        "historical_decision": "上游无视 include_usage 转发已接收 usage，并重新规范化 cache 桶；本项目共享 native pump、可靠结算和终态投影不同，需四条流式/非流式线验证 billing/outward 数值一致后移植。"
+      }
+    ]
+  },
+  {
+    "pr": 7387,
+    "merge_sha": "f28adb6ddbfcf6a1b6bc65663d31e983b3eff5a1",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 31,
+        "historical_decision": "| #7387 | `f28adb6dd` | feat: 内容审计接入 TypeSafe AI，支持双引擎切换与独立配置 | frontend/features 或 common、infrastructure/repository、shared、application/service、transport/http/handler、schema/migrations | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7394,
+    "merge_sha": "55108ee877469ef89493e0adc5866b7cecf9c117",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 76,
+        "historical_decision": "| #7394 | `55108ee87` | fix(gateway): recognize Baseten reasoning budget errors | application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7395,
+    "merge_sha": "2448a38b55fd8b62a0554a6e87edd8c53ba65a15",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 70,
+        "historical_decision": "| #7395 | `2448a38b5` | fix(frontend): ensure Codex base URLs include /v1 | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7397,
+    "merge_sha": "19794bc46afb1147d6cd6c266f3b77193c8c8c42",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 30,
+        "historical_decision": "| #7397 | `19794bc46` | feat(pluginapi): HostService 账号目录返回结构化只读元数据 | application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7401,
+    "merge_sha": "acdf3c54da70ee05c5b939a30ac2d2b28f2a7a22",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 37,
+        "historical_decision": "| #7401 | `acdf3c54d` | feat(openai): display Codex credits and support referral invitations | frontend/features 或 common、infrastructure/repository、application/service、transport/http/handler、transport/http/server | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7404,
+    "merge_sha": "c619ff8474acccd728904a08a6c7daf1b731d10e",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 71,
+        "historical_decision": "| #7404 | `c619ff847` | fix(account): preserve model mapping on OAuth reauth | transport/http/handler | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7411,
+    "merge_sha": "d6e8b44bcb1247bc4f9730ce93e9ed7558cdb7f8",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 109,
+        "historical_decision": "| #7411 | `d6e8b44bc` | fix(antigravity): neutralize Claude Agent SDK identity in system prompts | shared | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7412,
+    "merge_sha": "1c0a69c0ceddb2fd21581c17ab09f6c500b89ba1",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 39,
+        "historical_decision": "| #7412 | `1c0a69c0c` | feat: 支持自定义思考等级倍率计费 | frontend/features 或 common、infrastructure/repository、application/service、transport/http/handler、schema/migrations | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7413,
+    "merge_sha": "87957a608bd3b0fdd1e91852f9afcd9b2af55135",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 38,
+        "historical_decision": "| #7413 | `87957a608` | ci: parallelize release builds across platform runners | 构建/文档 | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7417,
+    "merge_sha": "c1319917cf347560844b7abe5cb8ac3623469f11",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 68,
+        "historical_decision": "| #7417 | `c1319917c` | fix(payment): trim callback base URL trailing slashes | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7418,
+    "merge_sha": "5fd346114252ff66f49dc0e70b6f4e9958e0c601",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 69,
+        "historical_decision": "| #7418 | `5fd346114` | fix(pricing): parse scientific notation in token bounds | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7419,
+    "merge_sha": "23dc073e65cd27656b98c673e19db1413139008e",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 51,
+        "historical_decision": "| #7419 | `23dc073e6` | fix(monitor): preserve the saved auto-refresh preference | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7420,
+    "merge_sha": "f2e55bf4d704ae5730f207d437f563c41be9573a",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 58,
+        "historical_decision": "| #7420 | `f2e55bf4d` | fix(usage): ignore superseded error detail requests | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7422,
+    "merge_sha": "5af29a3b93122179568195d92c8f02afe45231fb",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 65,
+        "historical_decision": "| #7422 | `5af29a3b9` | fix(users): keep API key results scoped to the selected user | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7426,
+    "merge_sha": "680a992fc94a359a6ef2c4ca178fe9681a7130a7",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 59,
+        "historical_decision": "| #7426 | `680a992fc` | fix(openai): 改写 Codex turn metadata 时保留非 ASCII 转义 | application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7427,
+    "merge_sha": "b0e32fe5be4017e21a89f383fa5952444bca9d15",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 79,
+        "historical_decision": "| #7427 | `b0e32fe5b` | fix(openai): 非高级调度补齐选号决策并按 previous_response 路由 | application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7432,
+    "merge_sha": "3442a6a53e2555300217268cb763012383850f0a",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 47,
+        "historical_decision": "| #7432 | `3442a6a53` | fix(antigravity): 裸 Gemini 模型名在所有转发入口解析到思考变体，修复 404/502 | application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7442,
+    "merge_sha": "738ef1c73c090c412f7097daa2d36b992b399547",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 66,
+        "historical_decision": "| #7442 | `738ef1c73` | fix(images): preserve insufficient balance failures | application/service、transport/http/handler | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7446,
+    "merge_sha": "5295bd822780c1242d8bd034f817a417367be7b9",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 40,
+        "historical_decision": "| #7446 | `5295bd822` | fix(usage): export missing reasoning effort cleanly | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7448,
+    "merge_sha": "9d9e90960e397e6adcda71e3de43af26a27ca071",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 46,
+        "historical_decision": "| #7448 | `9d9e90960` | fix(gemini): 传输层错误转 failover,不再同账号退避重试 | application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7466,
+    "merge_sha": "1716e991517096eec6ec92d025b62b24f70b63f0",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 50,
+        "historical_decision": "| #7466 | `1716e9915` | feat(grok):add grok 4.7 support | frontend/features 或 common、shared、application/service、transport/http/handler | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7473,
+    "merge_sha": "b6c6f1add5808d8dc70bb5edbe50b7f506a440cc",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 48,
+        "historical_decision": "| #7473 | `b6c6f1add` | fix(codex): include OpenCode Go in model capability resolution | application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7475,
+    "merge_sha": "fcd07ba0aff605de99640370a23f9293fa5fb9e2",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 45,
+        "historical_decision": "| #7475 | `fcd07ba0a` | fix(proxies): invalidate billing probe on fallback restore | infrastructure/repository | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7476,
+    "merge_sha": "a46493724b045796e82ff968aa1afab7b0cfef5a",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 43,
+        "historical_decision": "| #7476 | `a46493724` | fix(subscriptions): lock negative redemption updates | infrastructure/repository、application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7477,
+    "merge_sha": "405727805abcef1f485ff7562d83b2dbf999c3dc",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 44,
+        "historical_decision": "| #7477 | `405727805` | fix(subscriptions): preserve partial days during redemption deductions | infrastructure/repository、application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7478,
+    "merge_sha": "59a00631ed9b1067ef8899203be6212c75c28aed",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260927.md",
+        "line": 19,
+        "historical_decision": "| #7478 | `59a00631e` | simple mode API key 金额窗口；billing cache、HTTP/WS 准入及部署配置 | **专项暂缓，未移植** | 开关默认关闭，但启用后每次准入用 DB authoritative 读且 WS 每 turn 再检查，会增加数据库压力；本项目有可靠异步结算与多实例用量路径，需独立限流一致性/高并发压测。 |"
+      }
+    ]
+  },
+  {
+    "pr": 7479,
+    "merge_sha": "65f086d2d0ae4db8c608a815ee3b6de9694186cf",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 78,
+        "historical_decision": "| #7479 | `65f086d2d` | fix(gateway): prevent Cloudflare 1010 from disabling OpenCode and Command Code accounts | application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7487,
+    "merge_sha": "bb1f40e35f1467c30ced2782803c3abd48c47771",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 81,
+        "historical_decision": "| #7487 | `bb1f40e35` | Handle trailing system messages in moderation input | application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7489,
+    "merge_sha": "fa3f526785814cfc21072b3215e5ac6fe182a3b0",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 108,
+        "historical_decision": "| #7489 | `fa3f52678` | fix(tools): 清洗工具 Schema 里非法的 null required，修复 xAI / Moonshot 400 | application/service | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7492,
+    "merge_sha": "7d5615998c0ac2ed8ae91dce43cabe63434bc5c0",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 107,
+        "historical_decision": "| #7492 | `7d5615998` | fix(channel-monitor): ignore stale detail requests | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7493,
+    "merge_sha": "24872fda7cf89ad6be5f059751dc01e741da1f9e",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 112,
+        "historical_decision": "| #7493 | `24872fda7` | fix(accounts): keep temporary unschedulable status scoped to the current account | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7494,
+    "merge_sha": "d7e4bba0e7b02579b909e7e1120a4a1d777d9dc0",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 106,
+        "historical_decision": "| #7494 | `d7e4bba0e` | fix(users): show normalized API errors in the balance dialog | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7495,
+    "merge_sha": "d3d0f653e516877bff2c4d2c28490cb5fff74b01",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 105,
+        "historical_decision": "| #7495 | `d3d0f653e` | fix(subscriptions): use calendar dates for expiry labels | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7496,
+    "merge_sha": "9e0e1469844665c4bd3220bbec5836ab48b17537",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 104,
+        "historical_decision": "| #7496 | `9e0e14698` | fix(profile): avoid starting TOTP cooldowns after unmount | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7498,
+    "merge_sha": "fc4465f78bf0f1233f3ebd3fc6b4bf2a97b6ad06",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 103,
+        "historical_decision": "| #7498 | `fc4465f78` | fix(channels): preserve model tags during IME composition | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7499,
+    "merge_sha": "0eaa7c3c84c53704438809f52887c44824b14b95",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 102,
+        "historical_decision": "| #7499 | `0eaa7c3c8` | fix(date-picker): refresh relative dates after midnight | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7501,
+    "merge_sha": "a81547f244dca300625b818caf4facbde60e5e17",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260923.md",
+        "line": 100,
+        "historical_decision": "| #7501 | `a81547f24` | fix(profile): recognize DingTalk profile sources | frontend/features 或 common | 专项暂缓，未移植 |"
+      }
+    ]
+  },
+  {
+    "pr": 7509,
+    "merge_sha": "4318a63bd886b1a64c49015979c61bf34eca19ff",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260927.md",
+        "line": 21,
+        "historical_decision": "| #7509 | `4318a63bd` | GPT-6 Sol/Luna 与 Claude Opus 5.5 混合目录/协议/计费 | **Sol/Luna 已覆盖；余项专项暂缓** | 本项目已完整登记 Sol/Luna 的常量、别名、兜底价格、前端元数据及测试；不覆盖新目录与计费默认值。Opus 5.5 和协议转换变更尚未移植，需单独核实提供商费率和 SSE/WS 行为。 |"
+      }
+    ]
+  },
+  {
+    "pr": 7526,
+    "merge_sha": "b3c7038cf418f374b207d22f8ac399ba508441e7",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20260930/UPSTREAM_PRS.json",
+        "historical_decision": "当前目录同时使用显式映射和后台 OAuth capability snapshot；上游静态默认集合补齐会改变 pending snapshot 可见性，需保留本项目已有测试后重新设计合并规则。"
+      }
+    ]
+  },
+  {
+    "pr": 7532,
+    "merge_sha": "afd069b169b9c2dfd1f222c2390b525b3c894770",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20260927.md",
+        "line": 22,
+        "historical_decision": "| #7532 | `afd069b16` | Claude CLI 自动版本同步；后台任务、设置、GitHub API、gateway 身份 | **专项暂缓，未移植** | 新每实例定时抓取虽有启动节流和版本单调护栏，但引入网络请求、持久设置、运行缓存和版本漂移；先审查多实例负载、禁用/回滚与 UA 兼容性。 |"
+      }
+    ]
+  },
+  {
+    "pr": 7555,
+    "merge_sha": "93c3da03eb5760fdc95f42415d422fb205b5fb6d",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20260930/UPSTREAM_PRS.json",
+        "historical_decision": "本项目未接入上游自动用 reset-credit 后台服务；缓存投影/通知修复依赖该前置项。上游新增全局 sync.Map 冷却未清理，接入时应改为有界 owner 缓存。"
+      }
+    ]
+  },
+  {
+    "pr": 7562,
+    "merge_sha": "1df5c39311a4b7b808c354bbb151b662745e4065",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20260930/UPSTREAM_PRS.json",
+        "historical_decision": "当前账号/目标模型 DeepSeek semantics 与 Chat pipeline 已补 reasoning_content，OpenCode 的普通 deepseek-* 模型命中；提供商前缀变体须单独确认模型规范化，不重复改写已覆盖路径。"
+      }
+    ]
+  },
+  {
+    "pr": 7573,
+    "merge_sha": "1ff2bd6d95989d7a8a457f7bb3ec22cb0fd2b899",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20260930/UPSTREAM_PRS.json",
+        "historical_decision": "上游把渠道空图片价格从显式免费/文本回退改为目录继承，会改变既有账号实收；当前测试明确保留 nil 与显式 0 契约，须独立配置迁移与账单对照。"
+      }
+    ]
+  },
+  {
+    "pr": 7579,
+    "merge_sha": "a0f41f95a07ee6ca0b1300d3c96ce4b62e24724b",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20260930/UPSTREAM_PRS.json",
+        "historical_decision": "允许 Claude-only 兼容端点退回 fallback 会影响实际分组倍率、并发与多分组路由；需验证本项目请求内分组切换和可靠结算，不仅移除 handler 403。"
+      }
+    ]
+  },
+  {
+    "pr": 7595,
+    "merge_sha": "f592b336a3ea32ec799976260eb1117c4492f878",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20260930/UPSTREAM_PRS.json",
+        "historical_decision": "当前允许精确与末尾通配，所有准入仍由后端执行；上游任意位置通配会改变 listing 交集和热路径分配，需在当前缓存 owner 中设计编译/匹配和 benchmark。"
+      }
+    ]
+  },
+  {
+    "pr": 7597,
+    "merge_sha": "69060621872d80a66eed31324c0767bb82e3a810",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20260930/UPSTREAM_PRS.json",
+        "historical_decision": "依赖上一轮未移植的 Opus 5.5 effort catalog 和签名 thinking；需与模型目录、提供商定价及协议限制一起验证。"
+      }
+    ]
+  },
+  {
+    "pr": 7609,
+    "merge_sha": "79c18ec836c0f700ee41ced949d603c598cf368c",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20260930/UPSTREAM_PRS.json",
+        "historical_decision": "当前 failoverClientGone 与 concurrencyErrorResponse 已标记未提交响应 499；上游更广的 Google/Antigravity/Ops 分类仍需逐协议对照，保留现有异常记录。"
+      }
+    ]
+  },
+  {
+    "pr": 7613,
+    "merge_sha": "dc4874a2f1766cb4a01753ac97c51e856a8863e7",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20260930/UPSTREAM_PRS.json",
+        "historical_decision": "当前 missing-pricing 分支已记录零费用用量，未引入会再次因 Standard 定价失败而丢行的 Free Fast 重算分支。"
+      }
+    ]
+  },
+  {
+    "pr": 7615,
+    "merge_sha": "ff6b85e30b4add5bfda9af98c127d0a336b45012",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20260930/UPSTREAM_PRS.json",
+        "historical_decision": "本项目有独立 continuation owner、账号身份重写和重放策略；根据客户端 window ID 切断链必须同时验证 native/HTTP bridge、跨账号亲和和恢复，不能替换旧 ingress。"
+      }
+    ]
+  },
+  {
+    "pr": 7618,
+    "merge_sha": "d0392edf066fb0b308c8e1212edfb80539321973",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20261009/UPSTREAM_PRS.json",
+        "historical_decision": "Adapt security fixes to supported Go 1.26.9 patch branch and x/net v0.60.0; trim Responses native-Anthropic billing model at its owner. Preserve established platform validation, CN/OpenCode dispatch, TypeSafe isolation and 11-platform quota contracts. Do not claim platform registry, multi-protocol set catalogs, Command Code or Cline implemented."
+      }
+    ]
+  },
+  {
+    "pr": 7643,
+    "merge_sha": "883a53fea0aeb26b1268f582e2676ed2fb21d5c2",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20260930/UPSTREAM_PRS.json",
+        "historical_decision": "15s 首内容前 ping 会提交 HTTP 200，随后空流/失败不再可换号；保留当前提交前重试契约和预算，后续需独立配置、协议错误及首 token 计时设计。"
+      }
+    ]
+  },
+  {
+    "pr": 7646,
+    "merge_sha": "b35a611538ad713d1e39ce4e9dd3242a36f3cb15",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20260930/UPSTREAM_PRS.json",
+        "historical_decision": "新消费 Top 用户排序会增加统计查询维度和缓存键；本项目 snapshot-v2/水位聚合为独立 owner，需比较 SQL plan 和切换期间缓存隔离。"
+      }
+    ]
+  },
+  {
+    "pr": 7678,
+    "merge_sha": "2f3fed2fdb0787141294cec81487a5df30426f7f",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20260930/UPSTREAM_PRS.json",
+        "historical_decision": "Claude Code only 的 tabs 与下游 fallback、API Key 多分组/首选绑定关联；需要当前有效 group 的 DTO/UI/服务端端点矩阵一起定义。"
+      }
+    ]
+  },
+  {
+    "pr": 7679,
+    "merge_sha": "fe9dadfc7d929957de908aba17c3fb0da76e8e86",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20260930/UPSTREAM_PRS.json",
+        "historical_decision": "信任用户白名单改变本地处罚、HTTP/WS gate、后台累计与审计记录；需在本项目 coordinator/权限设置链统一实现，不能移植旧 settings/handler 单一路径。"
+      }
+    ]
+  },
+  {
+    "pr": 7681,
+    "merge_sha": "4f0c079e27505ae37af8e2645867bb7f5f69f095",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20260930/UPSTREAM_PRS.json",
+        "historical_decision": "默认打开 Redis 余额预占，准入/释放/续期新增调用与每流 goroutine，Lua 按用户预占集合求和；与本项目 Redis Stream pending 用量和多实例结算衔接须独立一致性/高并发测试。"
+      }
+    ]
+  },
+  {
+    "pr": 7683,
+    "merge_sha": "dd6cb410e6db51b5c5662f4edce562b3b68c271b",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20260930/UPSTREAM_PRS.json",
+        "historical_decision": "Sonnet 5.5 整包依赖上一轮 Opus 5.5 signed thinking/effort 基础，涉及强制工具选择、Bedrock/Vertex、签名重试及计费；需独立官方价格和多协议验收。"
+      }
+    ]
+  },
+  {
+    "pr": 7684,
+    "merge_sha": "052e08e764b8c1899202f1b81524cb4443317fb4",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20260930/UPSTREAM_PRS.json",
+        "historical_decision": "新增原生重置次数 GET、独立 HTTP client、路由、Wire 与 UI；须复用本项目账号级 proxy/IPv6/TLS/权限 owner，避免独立客户端绕开出口。"
+      }
+    ]
+  },
+  {
+    "pr": 7726,
+    "merge_sha": "96f4c115c9749078f90cbf210a01d39baf3f53b6",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20260930/UPSTREAM_PRS.json",
+        "historical_decision": "消费一次性上游 grant，新增机构级 Redis lease、幂等持久 fence、POST 与 UI 确认；依赖 #7684，须验证并发、超时未知结果、跨节点重试与回退恢复。"
+      }
+    ]
+  },
+  {
+    "pr": 7730,
+    "merge_sha": "327c32218406cef47186736c7473275cd1b39918",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20260930/UPSTREAM_PRS.json",
+        "historical_decision": "下游 #105 已在冻结基线登记 GPT-6.1 Sol 常量、别名、官方价格、metadata 与测试；新 Codex 套餐、Ultrafast 和更广验证矩阵尚未移植。"
+      }
+    ]
+  },
+  {
+    "pr": 7736,
+    "merge_sha": "48b71095887f8f150a26d3f471a344565c31ea58",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20260930/UPSTREAM_PRS.json",
+        "historical_decision": "上游默认 model_catalog_url 依赖较新 Codex 并引入远程目录/1MiB 回退；当前配置支持旧/新版 env_key，需显式客户端版本选择与完整目录预算验证。"
+      }
+    ]
+  },
+  {
+    "pr": 7738,
+    "merge_sha": "c2885c430fe01d0d88b23d52e062ccbb073d0905",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20261012.md",
+        "line": 19,
+        "historical_decision": "| #7738 | 暂缓 | 当前 `admin-channel-monitor` 没有上游 v2 平台配置 owner；启用前需要明确配置快照、模型目录和滚动升级契约。 |"
+      },
+      {
+        "source": "diagnostics/upstream-sync-20261012/UPSTREAM_PRS.json",
+        "historical_decision": "current admin-channel-monitor lacks upstream v2 platform catalog owner"
+      }
+    ]
+  },
+  {
+    "pr": 7752,
+    "merge_sha": "b0cfff9826524fdedb45de1d030654c00bbb08f1",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20260930/UPSTREAM_PRS.json",
+        "historical_decision": "上游默认 200 个/60 次会改变升级后的创建行为；CountByUserID 再 Create 存在并发窗口，并含媒体工坊内部 Key。应在当前事务 owner 设计用户锁、内部凭据资格与默认兼容开关。"
+      }
+    ]
+  },
+  {
+    "pr": 7764,
+    "merge_sha": "2c13fb595eafa5c36c6c89a79a2445c78c6d1f45",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20261008/UPSTREAM_PRS.json",
+        "historical_decision": "当前项目未启用插件配置 UI/UISession，不存在该运行路径；保留独立前置功能和关闭原因。"
+      }
+    ]
+  },
+  {
+    "pr": 7782,
+    "merge_sha": "bc63bd2874d4d77ed39859cd5399d514b53674d5",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20261008/UPSTREAM_PRS.json",
+        "historical_decision": "已有普通 Codex manifest 端点按显式账号映射投影，保留元数据、不改共享缓存，identity mapping 保留 ETag；无 pinned 聚合前置。"
+      }
+    ]
+  },
+  {
+    "pr": 7793,
+    "merge_sha": "8e2c4fad321fe8ce86d577dd7561c371bf602647",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20261008/UPSTREAM_PRS.json",
+        "historical_decision": "组合分组列出 exact public aliases，复用现有缓存编译快照；没有复建旧 resolver 或启用 composite Codex catalog。"
+      }
+    ]
+  },
+  {
+    "pr": 7811,
+    "merge_sha": "db29b3a7738e26cfbc30025f033f481ac365ab7a",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20261008/UPSTREAM_PRS.json",
+        "historical_decision": "API Key manifest 中显式 null service_tiers 改为 []，不覆盖已有非空数组和未知字段；上游跨账号元数据求交尚无对应功能。"
+      }
+    ]
+  },
+  {
+    "pr": 7891,
+    "merge_sha": "bbf1d37783d37d58edc8b9c07ffec53b075e4de9",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20261008/UPSTREAM_PRS.json",
+        "historical_decision": "统一账单探测限制 Retry-After 在 24h 内；本项目无独立 opencode_go_usage，现有通用 http_error 不把 403 误判为订阅缺失。"
+      }
+    ]
+  },
+  {
+    "pr": 7916,
+    "merge_sha": "5fc0e486c3f6a8a191b8bd140f39b60457f611cf",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20261008/UPSTREAM_PRS.json",
+        "historical_decision": "当前项目无上游 channel_monitor_v2 最小样本健康阈值模块；当前 passive 监控契约保持，不伪造 V2 完成。"
+      }
+    ]
+  },
+  {
+    "pr": 7957,
+    "merge_sha": "7c5afa4c361b7b69afeb9aaf5b47c0bbe9af0180",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20261013/UPSTREAM_PRS.json",
+        "historical_decision": "Claude 5.5 signed-thinking prerequisites are absent in current native and reverse protocol owners; do not advertise a partially functioning model or overwrite the established thinking filtering policy."
+      }
+    ]
+  },
+  {
+    "pr": 8006,
+    "merge_sha": "53c21fed252cec522035cfc2d4dd890a8c47140b",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20261013/UPSTREAM_PRS.json",
+        "historical_decision": "A new persisted cachedContents API changes billing admission, reservation/settlement, account pinning and cross-instance mutation recovery. Upstream migrations 243-245 collide with current CN, OpenCode and proxy-health migrations."
+      }
+    ]
+  },
+  {
+    "pr": 8033,
+    "merge_sha": "9591136d45cef26453348ed9532a7ebbce7cf99c",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20261012.md",
+        "line": 26,
+        "historical_decision": "| #8033 | 暂缓 | 当前 owner 是上游 manifest 透传与账号映射，没有旧树的静态 `configuredCodexModelDescriptor`；新增 500k 默认值需先建立目录快照、显式元数据优先级和回退矩阵。 |"
+      },
+      {
+        "source": "diagnostics/upstream-sync-20261012/UPSTREAM_PRS.json",
+        "historical_decision": "current modular manifest owner has no static configured descriptor; explicit catalog contract required"
+      }
+    ]
+  },
+  {
+    "pr": 8251,
+    "merge_sha": "a34f373973bf547ccec301c7405eb45194e1f28a",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20261022.md",
+        "line": 19,
+        "historical_decision": "| #8251 | deferred | 上游进程内快照复用会在当前候选索引中引入十秒陈旧窗口、嵌套 map/指针共享和无界条目增长；当前 writer 没有对应修订号发布。需要独立的有界不可变快照设计和混合版本失效矩阵。 |"
+      },
+      {
+        "source": "diagnostics/upstream-sync-20261022/UPSTREAM_PRS.json",
+        "historical_decision": "Do not introduce process-local decoded snapshot memoization into current candidate-index and account-mutation owners. Upstream reuses nested maps and pointer fields, has no entry-count cap, and permits up to ten seconds of stale reads from writers that do not publish new revision keys. Current rolling writers do not publish those keys. Requires a separate bounded immutable-snapshot design and mixed-version invalidation matrix before activation."
+      }
+    ]
+  },
+  {
+    "pr": 8319,
+    "merge_sha": "37067e8e340e9440d173a92b4faa05e8ce58368f",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20261026.md",
+        "line": 15,
+        "historical_decision": "| #8319 资源级操作/IP/CIDR/事务权限复核等 | 专项暂缓，未完全关闭 | 需要与本项目 scope、客服权限、扩展账号操作及存储升级共同设计 |"
+      },
+      {
+        "source": "diagnostics/upstream-sync-20261026/UPSTREAM_PRS.json",
+        "historical_decision": "Reuse existing scoped keys/JWT step-up and read-only legacy policy; port per-Key-ID rate limiting without administrator exemption. Do not replace existing scope policy with an incompatible second key store."
+      }
+    ]
+  },
+  {
+    "pr": 8358,
+    "merge_sha": "9725718e125131c016812240086b99a8c52ed639",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20261112/UPSTREAM_PRS.json",
+        "historical_decision": "现有历史 search 声明复用原 owner；不引入上游为切换 search 而长期保存全部输出并自动重放的新 owner。需先对完整历史证明、字节上限、取消、首轮/后续轮次、槽位和断连可靠计费做专项验收。"
+      }
+    ]
+  },
+  {
+    "pr": 8369,
+    "merge_sha": "184193f01ea0c681e2ab31c238c067aa9e7f34a6",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20261029.md",
+        "line": 14,
+        "historical_decision": "| #8369 显式缓存同号重试 | 继承 #8006 专项暂缓，未实现 | 本项目尚无 cachedContents 资源、token-hour 可靠结算和账号绑定 owner；不引入孤立的绑定缓存重试分支。原专项条件仍按 10 月 13 日台账执行 |"
+      },
+      {
+        "source": "diagnostics/upstream-sync-20261029/UPSTREAM_PRS.json",
+        "historical_decision": "Preserve existing #8006 explicit-cache deferral; no new dormant cache state or worker is added. Reconsider when the cache module and reliable token-hour settlement are implemented."
+      }
+    ]
+  },
+  {
+    "pr": 8476,
+    "merge_sha": "4a4a83ee5ec86b19d3a2dd9b6471de5128963bec",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20261104.md",
+        "line": 10,
+        "historical_decision": "| #8476 管理员密钥权限与全权模式 | 继承 #8319 专项暂缓；全权模式为有意差异 | 保留本项目 scoped Key、客服权限组、JWT-only 敏感操作和只读旧 Key。资源级权限、统计及事务校验仍须统一迁移；不引入另一套密钥事实源或扩大旧凭据权限。其 follow-redirects 1.16.2 修复已由主线覆盖，关闭该子项。 |"
+      },
+      {
+        "source": "diagnostics/upstream-sync-20261104/UPSTREAM_PRS.json",
+        "historical_decision": "Resource-scoped changes still depend on #8319 policy/store migration. Do not introduce a second key store or full-access bypass; retain scoped read/write, sensitive JWT-only routes and read-only legacy keys."
+      }
+    ]
+  },
+  {
+    "pr": 8484,
+    "merge_sha": "503617a82fa5b58e4bb1954fb98d4494233d9193",
+    "references": [
+      {
+        "source": "docs/UPSTREAM_SYNC_20261107.md",
+        "line": 11,
+        "historical_decision": "| #8484 后端资源边界 | 选择性适配，按子项关闭/暂缓 | 补齐标量所有权、异步 Gin 快照、剩余工具参数线性累积、有界通知、计费 worker 内的旧配额镜像持久化及摘要会话缓存。全局预算和传输策略保持专项，详见下文。 |"
+      },
+      {
+        "source": "diagnostics/upstream-sync-20261107/UPSTREAM_PRS.json",
+        "historical_decision": "Port safe ownership, remaining linear buffers, bounded notifications, digest cache and strict decompression. Keep durable billing and existing transport/image boundaries."
+      }
+    ]
+  },
+  {
+    "pr": 8606,
+    "merge_sha": "ee58c0013c76ccd3f36439881bc848d342ec1c9d",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20261112/UPSTREAM_PRS.json",
+        "historical_decision": "当前可靠结算仅有聚合写入及 Anthropic 5m/1h，继续原价，不把 12h 误塞旧字段或只移植新默认价。新 30m/12h 用量、四类运营者价卡及其区间、持久队列/救援重放、管理员 DTO 和旧节点结算需作为同一专项适配/迁移；不采用与本项目冲突的上游 250 编号。"
+      }
+    ]
+  },
+  {
+    "pr": 8610,
+    "merge_sha": "d7c05053877cc2dff8f0cd10c6ac396ba9d28785",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20261112/UPSTREAM_PRS.json",
+        "historical_decision": "本项目未启用其依赖的 request_body_memory_budget_bytes，因而没有固定 1 GiB 的 503 回归。共享 ingress/patch/SSE 预算继续继承专项，不单独增加无消费者的自适应配置或 sysutil API。"
+      }
+    ]
+  },
+  {
+    "pr": 8639,
+    "merge_sha": "10ba8f9b4dc2e6023d4a9879ab77b21841babd10",
+    "references": [
+      {
+        "source": "diagnostics/upstream-sync-20261112/UPSTREAM_PRS.json",
+        "historical_decision": "移植 Anthropic/Bedrock 目录、adaptive/签名重放、校验和 OpenCode。保留本项目 CLI 指纹 pin 及源码目录的当前元数据 owner；原生 speed=fast 计费与上游另一个 Codex descriptor owner 不夹带启用。标准价卡由 #8634 覆盖。"
+      }
+    ]
+  }
+]

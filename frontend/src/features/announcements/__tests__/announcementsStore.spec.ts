@@ -3,16 +3,30 @@ import { createPinia, setActivePinia } from 'pinia'
 import { useAnnouncementStore } from '@/features/announcements/presentation/stores/announcementsStore'
 
 const markRead = vi.hoisted(() => vi.fn())
+const list = vi.hoisted(() => vi.fn())
 vi.mock('@/features/announcements/data/datasources/announcementsDatasource', () => ({
-  default: { markRead }
+  default: { markRead, list }
 }))
 
 beforeEach(() => {
   setActivePinia(createPinia())
   markRead.mockReset()
+  list.mockReset()
 })
 
 describe('mark all announcements read', () => {
+  it('does not publish an old session fetch after reset', async () => {
+    let finish!: (value: unknown[]) => void
+    list.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    const store = useAnnouncementStore()
+    const request = store.fetchAnnouncements()
+    store.reset()
+    finish([{ id: 1, title: 'old user', notify_mode: 'popup' }])
+    await request
+    expect(store.announcements).toEqual([])
+    expect(store.currentPopup).toBeNull()
+    expect(store.loading).toBe(false)
+  })
   it('preserves successful results and retries only failures', async () => {
     const store = useAnnouncementStore()
     store.announcements = [1, 2].map((id) => ({

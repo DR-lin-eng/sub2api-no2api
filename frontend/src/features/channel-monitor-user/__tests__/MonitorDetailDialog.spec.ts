@@ -66,6 +66,19 @@ function mountDialog(fetchDetail?: (id: number) => Promise<UserMonitorDetail>) {
 }
 
 describe('MonitorDetailDialog detail loader', () => {
+  it('keeps the current monitor when the previous request finishes later', async () => {
+    let finishOld!: (value: UserMonitorDetail) => void
+    const fetch = vi.fn().mockImplementationOnce(() => new Promise(resolve => { finishOld = resolve }))
+      .mockResolvedValueOnce({ ...detail, id: 8, models: [{ ...detail.models[0], model: 'current-model' }] })
+    const wrapper = mountDialog(fetch)
+    await wrapper.setProps({ monitorId: 8 })
+    await flushPromises()
+    finishOld(detail)
+    await flushPromises()
+    expect(wrapper.text()).toContain('current-model')
+    expect(wrapper.text()).not.toContain('gpt-test')
+    wrapper.unmount()
+  })
   beforeEach(() => {
     defaultFetchDetail.mockReset()
     defaultFetchDetail.mockResolvedValue(detail)

@@ -14,6 +14,17 @@ func ExtractContentModerationText(protocol string, body []byte) string {
 }
 
 func ExtractContentModerationInput(protocol string, body []byte) ContentModerationInput {
+	return extractContentModerationInput(protocol, body, true)
+}
+
+func extractContentModerationKeywordText(protocol string, body []byte) string {
+	return extractContentModerationInput(protocol, body, false).Text
+}
+
+type moderationTextCollector struct{ filterReminders bool }
+
+func extractContentModerationInput(protocol string, body []byte, filterReminders bool) ContentModerationInput {
+	collector := moderationTextCollector{filterReminders: filterReminders}
 	if len(body) == 0 || !gjson.ValidBytes(body) {
 		return ContentModerationInput{}
 	}
@@ -21,32 +32,34 @@ func ExtractContentModerationInput(protocol string, body []byte) ContentModerati
 	var images []string
 	switch protocol {
 	case ContentModerationProtocolAnthropicMessages:
-		collectLastAnthropicUserMessage(gjson.GetBytes(body, "messages"), &parts, &images)
+		collector.collectLastAnthropicUserMessage(gjson.GetBytes(body, "messages"), &parts, &images)
 	case ContentModerationProtocolOpenAIChat:
-		collectLastRoleMessage(gjson.GetBytes(body, "messages"), "user", &parts, &images)
+		collector.collectLastRoleMessage(gjson.GetBytes(body, "messages"), "user", &parts, &images)
 	case ContentModerationProtocolOpenAIResponses:
-		collectLastResponsesInput(gjson.GetBytes(body, "input"), &parts, &images)
+		collector.collectLastResponsesInput(gjson.GetBytes(body, "input"), &parts, &images)
 	case ContentModerationProtocolGemini:
-		collectLastGeminiContent(gjson.GetBytes(body, "contents"), &parts, &images)
+		collector.collectLastGeminiContent(gjson.GetBytes(body, "contents"), &parts, &images)
 	case ContentModerationProtocolTypeSafeSystemOne:
 		collectSystemOneInput(body, &parts)
 	case ContentModerationProtocolOpenAIImages:
-		addModerationText(&parts, gjson.GetBytes(body, "prompt").String())
-		collectContentValue(gjson.GetBytes(body, "images"), &parts, &images)
+		collector.addModerationText(&parts, gjson.GetBytes(body, "prompt").String())
+		collector.collectContentValue(gjson.GetBytes(body, "images"), &parts, &images)
 	default:
-		collectLastResponsesInput(gjson.GetBytes(body, "input"), &parts, &images)
-		collectLastRoleMessage(gjson.GetBytes(body, "messages"), "user", &parts, &images)
-		collectLastGeminiContent(gjson.GetBytes(body, "contents"), &parts, &images)
+		collector.collectLastResponsesInput(gjson.GetBytes(body, "input"), &parts, &images)
+		collector.collectLastRoleMessage(gjson.GetBytes(body, "messages"), "user", &parts, &images)
+		collector.collectLastGeminiContent(gjson.GetBytes(body, "contents"), &parts, &images)
 	}
 	out := ContentModerationInput{
 		Text:   normalizeContentModerationText(strings.Join(parts, "\n")),
 		Images: normalizeModerationImages(images),
 	}
-	out.Normalize()
+	if filterReminders {
+		out.Normalize()
+	}
 	return out
 }
 
-func collectLastRoleMessage(messages gjson.Result, role string, parts *[]string, images *[]string) {
+func (collector moderationTextCollector) collectLastRoleMessage(messages gjson.Result, role string, parts *[]string, images *[]string) {
 	if !messages.IsArray() {
 		return
 	}
@@ -60,7 +73,7 @@ func collectLastRoleMessage(messages gjson.Result, role string, parts *[]string,
 	}
 	var candidate []string
 	var candidateImages []string
-	collectContentValue(last.Get("content"), &candidate, &candidateImages)
+	collector.collectContentValue(last.Get("content"), &candidate, &candidateImages)
 	if normalizeContentModerationText(strings.Join(candidate, "\n")) == "" && len(candidateImages) == 0 {
 		return
 	}
@@ -68,7 +81,7 @@ func collectLastRoleMessage(messages gjson.Result, role string, parts *[]string,
 	*images = append(*images, candidateImages...)
 }
 
-func collectLastAnthropicUserMessage(messages gjson.Result, parts *[]string, images *[]string) {
+func (collector moderationTextCollector) collectLastAnthropicUserMessage(messages gjson.Result, parts *[]string, images *[]string) {
 	if !messages.IsArray() {
 		return
 	}
@@ -76,13 +89,20 @@ func collectLastAnthropicUserMessage(messages gjson.Result, parts *[]string, ima
 	if len(array) == 0 {
 		return
 	}
-	last := array[len(array)-1]
+	lastIndex := len(array) - 1
+	for lastIndex >= 0 && strings.EqualFold(strings.TrimSpace(array[lastIndex].Get("role").String()), "system") {
+		lastIndex--
+	}
+	if lastIndex < 0 {
+		return
+	}
+	last := array[lastIndex]
 	if strings.ToLower(strings.TrimSpace(last.Get("role").String())) != "user" {
 		return
 	}
 	var candidate []string
 	var candidateImages []string
-	collectAnthropicUserContentValue(last.Get("content"), &candidate, &candidateImages)
+	collector.collectAnthropicUserContentValue(last.Get("content"), &candidate, &candidateImages)
 	if normalizeContentModerationText(strings.Join(candidate, "\n")) == "" && len(candidateImages) == 0 {
 		return
 	}
@@ -90,31 +110,31 @@ func collectLastAnthropicUserMessage(messages gjson.Result, parts *[]string, ima
 	*images = append(*images, candidateImages...)
 }
 
-func collectAnthropicUserContentValue(value gjson.Result, parts *[]string, images *[]string) {
+func (collector moderationTextCollector) collectAnthropicUserContentValue(value gjson.Result, parts *[]string, images *[]string) {
 	switch {
 	case !value.Exists():
 		return
 	case value.Type == gjson.String:
-		if !isAnthropicSystemReminderText(value.String()) {
-			addModerationText(parts, value.String())
+		if !collector.filterReminders || !isAnthropicSystemReminderText(value.String()) {
+			collector.addModerationText(parts, value.String())
 		}
 	case value.IsArray():
 		value.ForEach(func(_, item gjson.Result) bool {
-			collectAnthropicUserContentValue(item, parts, images)
+			collector.collectAnthropicUserContentValue(item, parts, images)
 			return true
 		})
 	case value.IsObject():
 		typ := strings.ToLower(strings.TrimSpace(value.Get("type").String()))
 		switch typ {
 		case "", "text", "input_text", "message":
-			if value.Get("text").Exists() && !isAnthropicSystemReminderText(value.Get("text").String()) {
-				addModerationText(parts, value.Get("text").String())
+			if value.Get("text").Exists() && (!collector.filterReminders || !isAnthropicSystemReminderText(value.Get("text").String())) {
+				collector.addModerationText(parts, value.Get("text").String())
 			}
 			if value.Get("content").Exists() {
-				collectAnthropicUserContentValue(value.Get("content"), parts, images)
+				collector.collectAnthropicUserContentValue(value.Get("content"), parts, images)
 			}
 		case "image_url", "input_image", "image":
-			collectContentValue(value, parts, images)
+			collector.collectContentValue(value, parts, images)
 		}
 	}
 }
@@ -123,57 +143,57 @@ func isAnthropicSystemReminderText(text string) bool {
 	return strings.HasPrefix(strings.TrimSpace(text), "<system-reminder>")
 }
 
-func collectLastResponsesInput(input gjson.Result, parts *[]string, images *[]string) {
+func (collector moderationTextCollector) collectLastResponsesInput(input gjson.Result, parts *[]string, images *[]string) {
 	switch {
 	case !input.Exists():
 		return
 	case input.Type == gjson.String:
-		addModerationText(parts, input.String())
+		collector.addModerationText(parts, input.String())
 	case input.IsArray():
 		array := input.Array()
 		if len(array) == 0 {
 			return
 		}
 		last := array[len(array)-1]
-		if !isResponsesUserTextItem(last) {
+		if !collector.isResponsesUserTextItem(last) {
 			return
 		}
-		collectContentValue(last.Get("content"), parts, images)
+		collector.collectContentValue(last.Get("content"), parts, images)
 		if last.Get("type").String() == "input_text" || last.Get("text").Exists() {
-			collectContentValue(last, parts, images)
+			collector.collectContentValue(last, parts, images)
 		}
 	case input.IsObject():
-		if isResponsesUserTextItem(input) {
-			collectContentValue(input.Get("content"), parts, images)
+		if collector.isResponsesUserTextItem(input) {
+			collector.collectContentValue(input.Get("content"), parts, images)
 			if input.Get("type").String() == "input_text" || input.Get("text").Exists() {
-				collectContentValue(input, parts, images)
+				collector.collectContentValue(input, parts, images)
 			}
 		}
 	}
 }
 
-func isResponsesUserTextItem(item gjson.Result) bool {
+func (collector moderationTextCollector) isResponsesUserTextItem(item gjson.Result) bool {
 	role := strings.ToLower(strings.TrimSpace(item.Get("role").String()))
 	if role == "user" {
-		return responseItemHasModerationText(item)
+		return collector.responseItemHasModerationText(item)
 	}
 	if role != "" {
 		return false
 	}
-	return responseItemHasModerationText(item)
+	return collector.responseItemHasModerationText(item)
 }
 
-func responseItemHasModerationText(item gjson.Result) bool {
+func (collector moderationTextCollector) responseItemHasModerationText(item gjson.Result) bool {
 	var parts []string
 	var images []string
-	collectContentValue(item.Get("content"), &parts, &images)
+	collector.collectContentValue(item.Get("content"), &parts, &images)
 	if item.Get("type").String() == "input_text" || item.Get("text").Exists() {
-		collectContentValue(item, &parts, &images)
+		collector.collectContentValue(item, &parts, &images)
 	}
 	return normalizeContentModerationText(strings.Join(parts, "\n")) != "" || len(images) > 0
 }
 
-func collectLastGeminiContent(contents gjson.Result, parts *[]string, images *[]string) {
+func (collector moderationTextCollector) collectLastGeminiContent(contents gjson.Result, parts *[]string, images *[]string) {
 	if !contents.IsArray() {
 		return
 	}
@@ -190,7 +210,7 @@ func collectLastGeminiContent(contents gjson.Result, parts *[]string, images *[]
 	var candidateImages []string
 	if arr := last.Get("parts"); arr.IsArray() {
 		arr.ForEach(func(_, part gjson.Result) bool {
-			addModerationText(&candidate, part.Get("text").String())
+			collector.addModerationText(&candidate, part.Get("text").String())
 			addGeminiModerationImage(&candidateImages, part)
 			return true
 		})
@@ -202,15 +222,15 @@ func collectLastGeminiContent(contents gjson.Result, parts *[]string, images *[]
 	*images = append(*images, candidateImages...)
 }
 
-func collectContentValue(value gjson.Result, parts *[]string, images *[]string) {
+func (collector moderationTextCollector) collectContentValue(value gjson.Result, parts *[]string, images *[]string) {
 	switch {
 	case !value.Exists():
 		return
 	case value.Type == gjson.String:
-		addModerationText(parts, value.String())
+		collector.addModerationText(parts, value.String())
 	case value.IsArray():
 		value.ForEach(func(_, item gjson.Result) bool {
-			collectContentValue(item, parts, images)
+			collector.collectContentValue(item, parts, images)
 			return true
 		})
 	case value.IsObject():
@@ -229,10 +249,10 @@ func collectContentValue(value gjson.Result, parts *[]string, images *[]string) 
 		switch typ {
 		case "", "text", "input_text", "message":
 			if value.Get("text").Exists() {
-				addModerationText(parts, value.Get("text").String())
+				collector.addModerationText(parts, value.Get("text").String())
 			}
 			if value.Get("content").Exists() {
-				collectContentValue(value.Get("content"), parts, images)
+				collector.collectContentValue(value.Get("content"), parts, images)
 			}
 		case "image_url", "input_image", "image":
 		}
@@ -305,12 +325,12 @@ func limitContentModerationImages(images []string) []string {
 	return []string{images[int(idx.Int64())]}
 }
 
-func addModerationText(parts *[]string, text string) {
+func (collector moderationTextCollector) addModerationText(parts *[]string, text string) {
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return
 	}
-	if strings.Contains(text, "<system-reminder>") {
+	if collector.filterReminders && strings.Contains(text, "<system-reminder>") {
 		return
 	}
 	*parts = append(*parts, text)

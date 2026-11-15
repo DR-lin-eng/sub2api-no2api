@@ -1,0 +1,26 @@
+[
+  {
+    "Id": "sha256:fbe702b3c824eab870face52e0421e6875ce0172439917411094dc0acddc69a7",
+    "RepoTags": [
+      "sub2api:deferred-baseline-20261115"
+    ],
+    "RepoDigests": [
+      "sub2api@sha256:fbe702b3c824eab870face52e0421e6875ce0172439917411094dc0acddc69a7"
+    ],
+    "Os": "linux",
+    "Architecture": "arm64",
+    "Created": "2026-11-15T06:29:32.524968384Z"
+  },
+  {
+    "Id": "sha256:569b5cc22539508f083522b4605111a15ea50919439539863112b7e46aa78979",
+    "RepoTags": [
+      "sub2api:deferred-candidate-20261115"
+    ],
+    "RepoDigests": [
+      "sub2api@sha256:569b5cc22539508f083522b4605111a15ea50919439539863112b7e46aa78979"
+    ],
+    "Os": "linux",
+    "Architecture": "arm64",
+    "Created": "2026-11-15T06:38:58.07123834Z"
+  }
+]
