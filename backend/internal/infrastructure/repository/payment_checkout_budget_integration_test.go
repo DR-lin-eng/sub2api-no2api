@@ -62,8 +62,9 @@ func TestPaymentCheckoutBudgetsPostgres(t *testing.T) {
 		require.NoError(t, create(user, 75))
 		require.ErrorContains(t, create(user, 75), "DAILY_LIMIT_EXCEEDED")
 	})
-	t.Run("disabled visible method rejects direct API request", func(t *testing.T) {
-		require.NoError(t, settings.Set(ctx, service.SettingPaymentVisibleMethodAlipayEnabled, "false"))
-		require.ErrorContains(t, create(newUser(), 25), "PAYMENT_DISABLED")
+	t.Run("disabled provider rejects direct API request", func(t *testing.T) {
+		_, err := f.client.PaymentProviderInstance.UpdateOneID(f.instanceID).SetEnabled(false).Save(ctx)
+		require.NoError(t, err)
+		require.ErrorContains(t, create(newUser(), 25), "PAYMENT_GATEWAY_ERROR")
 	})
 }

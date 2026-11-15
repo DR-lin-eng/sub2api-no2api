@@ -37,15 +37,9 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 	if !cfg.Enabled {
 		return nil, infraerrors.Forbidden("PAYMENT_DISABLED", "payment system is disabled")
 	}
-	if key := visibleMethodEnabledSettingKey(req.PaymentType); key != "" && s.configService.settingRepo != nil {
-		value, err := s.configService.settingRepo.GetValue(ctx, key)
-		if err != nil && !errors.Is(err, ErrSettingNotFound) {
-			return nil, fmt.Errorf("get payment method status: %w", err)
-		}
-		if value == "false" {
-			return nil, infraerrors.Forbidden("PAYMENT_DISABLED", "payment method is disabled")
-		}
-	}
+	// Method availability follows enabled provider instances and their supported
+	// types, as checkout-info and the current admin UI do. Legacy visible-method
+	// flags defaulted to false and are no longer payment controls.
 	plan, err := s.validateOrderInput(ctx, req, cfg)
 	if err != nil {
 		return nil, err

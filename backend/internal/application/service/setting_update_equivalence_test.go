@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"sort"
 	"testing"
 
@@ -94,7 +95,9 @@ func TestBuildSystemSettingsUpdatesGolden(t *testing.T) {
 
 	updates, err := svc.buildSystemSettingsUpdates(context.Background(), settings)
 	require.NoError(t, err)
-	require.Equal(t, 249, len(updates), "system setting key count")
+	require.Equal(t, 247, len(updates), "system setting key count")
+	require.NotContains(t, updates, SettingPaymentVisibleMethodAlipayEnabled)
+	require.NotContains(t, updates, SettingPaymentVisibleMethodWxpayEnabled)
 	require.Equal(t, "false", updates[SettingKeyOpenAIImagesLegacyEnabled])
 	require.Equal(t, "false", updates[SettingKeyOpenAILocationEnabled])
 	require.Equal(t, "0", updates[SettingKeyOpenAILocationLatitude])
@@ -111,6 +114,11 @@ func TestBuildSystemSettingsUpdatesGolden(t *testing.T) {
 	require.Equal(t, "true", updates[SettingKeyOpenAIRequestTimezoneEnabled])
 	require.Equal(t, "Asia/Singapore", updates[SettingKeyOpenAIRequestTimezone])
 	require.Equal(t, "20", updates[SettingKeyChannelMonitorTimelinePoints])
+	// Restore retired defaults only in the historical digest comparison, so all
+	// remaining settings must still match their previously shipped values.
+	baselineUpdates := maps.Clone(updates)
+	baselineUpdates[SettingPaymentVisibleMethodAlipayEnabled] = "false"
+	baselineUpdates[SettingPaymentVisibleMethodWxpayEnabled] = "false"
 	for _, key := range []string{
 		SettingKeyImageIndependentSchedulingEnabled,
 		SettingKeyOpenAILocationEnabled,
@@ -130,9 +138,9 @@ func TestBuildSystemSettingsUpdatesGolden(t *testing.T) {
 		SettingKeyOpenAIOAuthAttestationEnabled,
 		SettingKeyOpenAILenovoAttributionEnabled,
 	} {
-		delete(updates, key)
+		delete(baselineUpdates, key)
 	} // All previously shipped settings keep their exact baseline digest.
-	require.Equal(t, "9d64874681797263600218930f15dfea050325802661126a67c3f18b4faa60ea", digestSystemSettingUpdates(t, updates), "system setting digest")
+	require.Equal(t, "9d64874681797263600218930f15dfea050325802661126a67c3f18b4faa60ea", digestSystemSettingUpdates(t, baselineUpdates), "system setting digest")
 	require.Equal(t, []string{"@example.com", "*.edu.cn"}, settings.RegistrationEmailSuffixWhitelist)
 	require.Equal(t, clientip.ResolutionModeTrustedProxy, settings.ClientIPResolutionMode)
 	require.Equal(t, []string{"192.0.2.7/32", "2001:db8::/32"}, settings.ClientIPTrustedProxies)

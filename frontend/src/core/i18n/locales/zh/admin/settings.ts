@@ -790,7 +790,7 @@ export default {
         strategyRoundRobin: '轮询',
         strategyLeastAmount: '最少金额',
         providerManagement: '服务商管理',
-        providerManagementDesc: '管理支付服务商实例',
+        providerManagementDesc: '通过服务商“启用”开关及支付宝、微信等方式按钮控制收款，修改后立即生效',
         createProvider: '添加服务商',
         editProvider: '编辑服务商',
         deleteProvider: '删除服务商',

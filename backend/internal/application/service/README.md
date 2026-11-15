@@ -29,7 +29,7 @@
 | `scheduler*`, `channel*`, `ratelimit*`, `concurrency*` | 调度、通道和并发控制 |
 | `billing*`, `usage*`, `pricing*`, `subscription*` | 计费、用量和订阅 |
 | `media_studio*`, `model_attribute*`, `multimodal_media*`, `video_balance_hold*` | 媒体配置/预估、编译模板属性、有界媒体协议与视频冻结编排；浏览器历史不入服务端存储 |
-| `payment*`, `batch_image*` | 支付应用编排与批量图片任务 |
+| `payment*`, `batch_image*` | 支付应用编排与批量图片任务；支付方式启停统一依据服务商实例和支持类型，见 [支付配置](../../../../docs/PAYMENT_CN.md) |
 | `ops*`, `audit*`, `content_moderation*` | 运维、审计和内容策略 |
 | `setting*`, `notification*`, `backup*` | 配置、通知和维护用例 |
 | `proxy_auto_assignment*`, `proxy_health*` | 代理池强制均衡分配、定期测活和失活迁移 |
