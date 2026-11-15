@@ -127,7 +127,7 @@ type UpdatePaymentConfigRequest struct {
 
 	VisibleMethodAlipaySource *string `json:"payment_visible_method_alipay_source"`
 	VisibleMethodWxpaySource  *string `json:"payment_visible_method_wxpay_source"`
-	// Deprecated: accepted for API compatibility, ignored on updates.
+	// Legacy API compatibility fields: accepted but ignored on updates.
 	VisibleMethodAlipayEnabled *bool `json:"payment_visible_method_alipay_enabled"`
 	VisibleMethodWxpayEnabled  *bool `json:"payment_visible_method_wxpay_enabled"`
 }

@@ -26,7 +26,7 @@ const (
 
 	SettingPaymentVisibleMethodAlipaySource = "payment_visible_method_alipay_source"
 	SettingPaymentVisibleMethodWxpaySource  = "payment_visible_method_wxpay_source"
-	// Deprecated: retained for reading legacy settings/API responses only.
+	// Legacy API compatibility: retained for reading old settings/responses only.
 	// Provider instances and supported types control method availability.
 	SettingPaymentVisibleMethodAlipayEnabled = "payment_visible_method_alipay_enabled"
 	SettingPaymentVisibleMethodWxpayEnabled  = "payment_visible_method_wxpay_enabled"

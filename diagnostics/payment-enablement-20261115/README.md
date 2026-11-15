@@ -49,3 +49,5 @@ python3 diagnostics/payment-enablement-20261115/run.py
 - `make check-docs`、`make -C backend check-layout` 和 `git diff --check` 通过。命令摘要及压缩日志见 [验证记录](records/results.json)。
 
 线上未执行写入或真实下单；代码修复需要部署后才会作用于网站。
+
+完整设置快照测试同时断言写入字段数从 249 减至 247，且两个旧开关不再写入。历史摘要比较仅在测试副本中补回两个旧默认值，从而继续校验其余设置的值完全一致。旧 API 字段继续参与兼容响应，注释明确其用途，不将兼容调用标记为静态检查错误。

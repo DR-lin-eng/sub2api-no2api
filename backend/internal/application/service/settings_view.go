@@ -309,7 +309,7 @@ type SystemSettings struct {
 	// Payment visible method routing
 	PaymentVisibleMethodAlipaySource string
 	PaymentVisibleMethodWxpaySource  string
-	// Deprecated: legacy response fields only; updates do not persist these flags.
+	// Legacy response fields only; updates do not persist these flags.
 	PaymentVisibleMethodAlipayEnabled bool
 	PaymentVisibleMethodWxpayEnabled  bool
 
