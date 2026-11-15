@@ -25,3 +25,5 @@
 首次前端全量的 8 个主线失败已在冻结主线同镜像复现，见 `frontend-baseline.json`。修正 Pinia/权限/确认密码夹具及中英文 literal 文案；CSV 缺省值预期随 #7446 的新行为更新。初始 Node 堆不足、移植测试使用上游专属入口、未用 helper 和未检查类型断言均已修正；这些记录不覆盖或删除。
 
 发布以 PR head / main merge 的精确 SHA 和远端工作流结论为准。本目录中的本地 Docker 构建不充当 GHCR 已发布证明。
+
+PR 首次 CI 的 push lint 在获取 `golangci.v2.9.jsonschema.json` 时连接超时，未进入代码检查；PR 的另一轮 lint 正常继续。CLA 工作流的守卫在 `39ea47746` 模块更名中被从上游仓库名称替换为 fork 名称，从而误启用未配置 `cla-signatures` 分支的流程。本轮恢复其父提交的原工作流，保持此前 fork 跳过上游 CLA 的行为，不创建或修改任何签名记录。`pull_request_target` 使用 base 分支工作流，因此修复在合并进入 base 后才生效。
