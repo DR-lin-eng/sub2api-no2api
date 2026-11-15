@@ -118,6 +118,20 @@ func cleanJSONSchemaRecursive(value any) any {
 
 	// 0. [NEW] 合并 allOf
 	mergeAllOf(schemaMap)
+	if tuple, exists := schemaMap["prefixItems"]; exists {
+		if choices, ok := tuple.([]any); ok && len(choices) > 0 {
+			items, hasItems := schemaMap["items"]
+			_, booleanItems := items.(bool)
+			if !hasItems || items == nil || booleanItems {
+				best := extractBestSchemaFromUnion(choices)
+				if best == nil {
+					best = map[string]any{"type": "string"}
+				}
+				schemaMap["items"] = best
+			}
+		}
+		delete(schemaMap, "prefixItems")
+	}
 
 	// 1. [CRITICAL] 深度递归处理子项
 	if props, ok := schemaMap["properties"].(map[string]any); ok {
@@ -126,7 +140,8 @@ func cleanJSONSchemaRecursive(value any) any {
 		}
 		// Go 中不需要像 Rust 那样显式处理 nullable_keys remove required，
 		// 因为我们在子项处理中会正确设置 type 和 description
-	} else if items, ok := schemaMap["items"]; ok {
+	}
+	if items, ok := schemaMap["items"]; ok {
 		// [FIX] Gemini 期望 "items" 是单个 Schema 对象（列表验证），而不是数组（元组验证）。
 		if itemsArr, ok := items.([]any); ok {
 			// 策略：将元组 [A, B] 视为 A、B 中的最佳匹配项。
@@ -141,7 +156,8 @@ func cleanJSONSchemaRecursive(value any) any {
 		} else {
 			cleanJSONSchemaRecursive(items)
 		}
-	} else {
+	}
+	if !hasKey(schemaMap, "properties") && !hasKey(schemaMap, "items") {
 		// 遍历所有值递归
 		for _, v := range schemaMap {
 			if _, isMap := v.(map[string]any); isMap {
@@ -311,9 +327,21 @@ func cleanJSONSchemaRecursive(value any) any {
 			// 如果没有 type，但有 properties，补一个
 			if hasKey(schemaMap, "properties") {
 				schemaMap["type"] = "object"
+			} else if hasKey(schemaMap, "items") {
+				schemaMap["type"] = "array"
+			} else if hasKey(schemaMap, "enum") {
+				// The existing Gemini adapter encodes enum values as strings.
+				schemaMap["type"] = "string"
 			} else {
 				// 默认为 string ? or object? Gemini 通常需要明确 type
 				schemaMap["type"] = "object"
+			}
+		}
+
+		if schemaMap["type"] == "array" {
+			items, ok := schemaMap["items"].(map[string]any)
+			if !ok || len(items) == 0 {
+				schemaMap["items"] = map[string]any{"type": "string"}
 			}
 		}
 

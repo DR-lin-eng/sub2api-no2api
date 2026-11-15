@@ -1,0 +1,33 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=3g",
+    "-v",
+    "/Users/lin/.codex/worktrees/4330/sub2api-no2api:/src:ro",
+    "-v",
+    "/private/tmp/sub2api-modcache:/go/pkg/mod",
+    "-v",
+    "/private/tmp/sub2api-gocache:/root/.cache/go-build",
+    "-e",
+    "CGO_ENABLED=0",
+    "-e",
+    "GOMAXPROCS=2",
+    "-e",
+    "GOMEMLIMIT=1400MiB",
+    "-e",
+    "GOFLAGS=-p=1",
+    "-e",
+    "GOTOOLCHAIN=local",
+    "golang:1.26.11-alpine",
+    "sh",
+    "-c",
+    "mkdir /work && cp -a /src/backend /work/backend && cd /work/backend && go test -tags=unit ./internal/shared/apicompat ./internal/shared/antigravity && go test -tags=unit ./internal/application/service -run \"Test(GeminiSDKComment|GeminiRetryInfo|AntigravityBare|AntigravityThinkingDepth|CodexUAInvalidSetting|ModerationKeywords|ModerationAnthropic)\" -count=1 -timeout=5m"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 142.254,
+  "utc": "2026-11-15T06:30:04.296119+00:00",
+  "output_sha256": "c4d7895eb92f4991b3c1de9d0ecd02cb7c8f939e5734fc31769dfb82bf350d66"
+}

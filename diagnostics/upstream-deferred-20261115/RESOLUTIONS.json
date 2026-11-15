@@ -1,0 +1,1102 @@
+[
+  {
+    "prs": [
+      7476,
+      7477
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "在兑换事务内锁定并重读订阅，再按日历日扣减；剩余小时不被向下取整丢失。",
+    "owner_files": [
+      "backend/internal/application/service/redeem_service.go",
+      "backend/internal/application/service/upstream_deferred_regression_test.go"
+    ]
+  },
+  {
+    "prs": [
+      7341,
+      7342,
+      7475
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "到期扫描使用条件 UPDATE 复核快照；回退只选择 active 节点；恢复原代理时按真实出口变化清除账单/Ollama 快照。",
+    "owner_files": [
+      "backend/internal/infrastructure/repository/proxy_repo.go",
+      "backend/internal/infrastructure/repository/account_repo_quota.go",
+      "backend/internal/application/service/proxy_fallback.go"
+    ]
+  },
+  {
+    "prs": [
+      7339
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "在当前独立流失败分类器识别 status/status_code；保留客户端 502/429 和现有安全重放边界，不把上游认证错误冒充本站认证失败。",
+    "owner_files": [
+      "backend/internal/application/service/openai_stream_failure.go"
+    ]
+  },
+  {
+    "prs": [
+      7362
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "OpenAI 用量来自有效 access token 或旧快照不能证明 refresh token 恢复；删除用量查询的自动清错。",
+    "owner_files": [
+      "backend/internal/application/service/account_usage_service.go"
+    ]
+  },
+  {
+    "prs": [
+      7340
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "只为明确 Coding Plan 配额耗尽 403 使用已耗尽窗口的未来重置点；没有证据时复用秒级兜底；不永久禁用凭据。",
+    "owner_files": [
+      "backend/internal/application/service/ratelimit_coding_plan.go",
+      "backend/internal/application/service/ratelimit_service.go"
+    ]
+  },
+  {
+    "prs": [
+      5443
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "保留现有 Vertex 共享容量一分钟兜底与真正日配额策略，补 Google RPC RetryInfo，向上取整且拒绝非法、非正及超过 24h 的新延迟。",
+    "owner_files": [
+      "backend/internal/application/service/gemini_retry_info.go",
+      "backend/internal/application/service/gemini_messages_compat_service.go"
+    ]
+  },
+  {
+    "prs": [
+      7258,
+      7432
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "Gemini native、Messages、Chat 兼容入口统一按 thinking 选择裸名变体；显式映射优先；用 gjson 定点提取替代全请求解码。",
+    "owner_files": [
+      "backend/internal/application/service/antigravity_gemini_thinking_variant.go",
+      "backend/internal/application/service/antigravity_gateway_gemini.go",
+      "backend/internal/application/service/antigravity_gateway_compat.go",
+      "backend/internal/application/service/antigravity_gateway_claude.go"
+    ]
+  },
+  {
+    "prs": [
+      7278
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "仅对明确声明的 go-genai/python-genai 禁用不被其接受的 SSE 注释心跳；其它客户端复用原配置。",
+    "owner_files": [
+      "backend/internal/application/service/gemini_sse_comment_compat.go",
+      "backend/internal/application/service/antigravity_gateway_streaming.go"
+    ]
+  },
+  {
+    "prs": [
+      7489
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "在既有一次拼接清洗器补 required:null→[] 和 Messages input_schema；只遍历 schema 边，不改 default/const 或同名用户属性。",
+    "owner_files": [
+      "backend/internal/application/service/openai_responses_tool_schema.go",
+      "backend/internal/application/service/openai_gateway_messages.go"
+    ]
+  },
+  {
+    "prs": [
+      7345
+    ],
+    "status": "ported-redesigned",
+    "capability_complete": true,
+    "decision": "对象根联合按分支收集属性后一次编码，避免重复嵌套累计 JSON；每个工具最多 512 分支、16 层；超限保留原 schema 供协议校验，不静默替换为空约束。",
+    "owner_files": [
+      "backend/internal/shared/apicompat/responses_to_anthropic_tool_schema.go",
+      "backend/internal/shared/apicompat/responses_to_anthropic_request.go"
+    ]
+  },
+  {
+    "prs": [
+      7077
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "补 prefixItems、items:false/null/缺省和同时有 properties/items 的递归；保留本地 const 规则，修复 Gemini 数组工具参数。",
+    "owner_files": [
+      "backend/internal/shared/antigravity/schema_cleaner.go",
+      "backend/internal/shared/antigravity/schema_tuple_test.go"
+    ]
+  },
+  {
+    "prs": [
+      7314,
+      7487
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "关键词检查独立读取当前用户文本，客户端 reminder 标记不能豁免；外部审核仍按原规则过滤 reminder；跳过尾部 system 但不回查 assistant/tool 历史。",
+    "owner_files": [
+      "backend/internal/application/service/content_moderation_input.go",
+      "backend/internal/application/service/content_moderation_check.go"
+    ]
+  },
+  {
+    "prs": [
+      7426
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "在当前指纹和非模拟元数据边界使用 ASCII JSON，保留 Unicode/大整数值及已有身份和路径脱敏。",
+    "owner_files": [
+      "backend/internal/application/service/openai_codex_turn_metadata.go",
+      "backend/internal/application/service/openai_codex_metadata_sanitize.go",
+      "backend/internal/application/service/openai_codex_fingerprint.go"
+    ]
+  },
+  {
+    "prs": [
+      7349
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "配置 UA 不再通过 TrimSpace 吞掉控制符；非法 UA 回到已同步版本；有效 Desktop UA 的引擎和应用版本继续独立。",
+    "owner_files": [
+      "backend/internal/application/service/setting_gateway_runtime.go",
+      "backend/internal/application/service/setting_update.go"
+    ]
+  },
+  {
+    "prs": [
+      7562
+    ],
+    "status": "ported-redesigned",
+    "capability_complete": true,
+    "decision": "补 provider/deepseek-* 识别；复用既有 reasoning_content 逻辑，逐消息修改后一次拼接，替代每轮复制整份历史。",
+    "owner_files": [
+      "backend/internal/application/service/openai_deepseek_compat.go",
+      "backend/internal/application/service/openai_deepseek_compat_test.go"
+    ]
+  },
+  {
+    "prs": [
+      6920
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "额度诊断使用既有手动测试凭据路径，冷却期间仍可查询；不恢复模型调度，不放宽代理/凭据校验。",
+    "owner_files": [
+      "backend/internal/application/service/grok_quota_service.go",
+      "backend/internal/application/service/grok_quota_cooldown_test.go"
+    ]
+  },
+  {
+    "prs": [
+      7108,
+      7142
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "非搜索下拉框获取键盘焦点；选项变化时重新定位可选项。",
+    "owner_files": [
+      "frontend/src/common/widgets/forms/Select.vue"
+    ]
+  },
+  {
+    "prs": [
+      7109,
+      7499
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "关闭日期编辑时恢复已应用范围；相对日期按使用时间求值，跨午夜不新增常驻 timer。",
+    "owner_files": [
+      "frontend/src/common/widgets/forms/DateRangePicker.vue"
+    ]
+  },
+  {
+    "prs": [
+      7320
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "新上传、删除、卸载取消旧 FileReader，且所有异步回调核对当前 reader 所有权。",
+    "owner_files": [
+      "frontend/src/common/widgets/data/ImageUpload.vue"
+    ]
+  },
+  {
+    "prs": [
+      7321,
+      7322
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "到期不足一天显示已到期；Antigravity CC Switch URL 拼接去重尾部斜杠。",
+    "owner_files": [
+      "frontend/src/core/utils/proxyExpiry.ts",
+      "frontend/src/core/utils/ccswitchImport.ts"
+    ]
+  },
+  {
+    "prs": [
+      7323
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "公告 fetch 使用 session generation，reset 后旧用户响应不再写入。",
+    "owner_files": [
+      "frontend/src/features/announcements/presentation/stores/announcementsStore.ts"
+    ]
+  },
+  {
+    "prs": [
+      7363,
+      7366
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "自定义数值输入保持 API 所需字符串；清空说明/占位符发送空串而非忽略字段。",
+    "owner_files": [
+      "frontend/src/features/admin-users/presentation/widgets/UserAttributeForm.vue",
+      "frontend/src/features/admin-users/presentation/widgets/UserAttributesConfigDialog.vue"
+    ]
+  },
+  {
+    "prs": [
+      7364,
+      7494
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "替换分组与余额编辑统一显示当前 API 错误说明。",
+    "owner_files": [
+      "frontend/src/features/admin-users/presentation/widgets/GroupReplaceDialog.vue",
+      "frontend/src/features/admin-users/presentation/widgets/UserBalanceDialog.vue"
+    ]
+  },
+  {
+    "prs": [
+      7365,
+      7492
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "模板关联列表和用户监控详情均校验请求版本；切换、关闭、卸载后旧响应与错误不提交。",
+    "owner_files": [
+      "frontend/src/features/admin-channel-monitor/presentation/widgets/MonitorTemplateApplyPickerDialog.vue",
+      "frontend/src/features/channel-monitor-user/presentation/widgets/MonitorDetailDialog.vue"
+    ]
+  },
+  {
+    "prs": [
+      7367,
+      7376
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "在加入本地编辑集合和按钮两处约束 RPM 为非负整数、倍率为正有限数。",
+    "owner_files": [
+      "frontend/src/features/admin-groups/presentation/widgets/GroupRPMOverridesDialog.vue",
+      "frontend/src/features/admin-groups/presentation/widgets/GroupRateMultipliersDialog.vue"
+    ]
+  },
+  {
+    "prs": [
+      7369
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "启停成功只合并状态/更新时间，保留二级用量数据；存在并发列表读取时重新加载。",
+    "owner_files": [
+      "frontend/src/features/admin-users/presentation/pages/UsersPage.vue"
+    ]
+  },
+  {
+    "prs": [
+      7372
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "首次设置加载失败不标记 loaded，允许重试并保留原缓存默认值。",
+    "owner_files": [
+      "frontend/src/features/admin-settings/presentation/stores/adminSettingsStore.ts"
+    ]
+  },
+  {
+    "prs": [
+      7373
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "用户分组配置成功加载且归属当前用户后才允许保存；旧响应不可覆盖新用户。",
+    "owner_files": [
+      "frontend/src/features/admin-users/presentation/widgets/UserAllowedGroupsDialog.vue"
+    ]
+  },
+  {
+    "prs": [
+      7374,
+      7498
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "搜索和模型标签等待 IME 提交；Enter/Tab/Backspace 不截断组合输入。",
+    "owner_files": [
+      "frontend/src/common/widgets/forms/SearchInput.vue",
+      "frontend/src/features/admin-channels/presentation/widgets/ModelTagInput.vue"
+    ]
+  },
+  {
+    "prs": [
+      7375,
+      7420,
+      7422,
+      7493
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "余额历史、错误详情、用户 Key 列表和账号暂停状态校验当前请求版本；关闭/切换清空旧数据。",
+    "owner_files": [
+      "frontend/src/features/admin-users/presentation/widgets/UserBalanceHistoryDialog.vue",
+      "frontend/src/features/usage/presentation/widgets/UserErrorDetailDialog.vue",
+      "frontend/src/features/admin-users/presentation/widgets/UserApiKeysDialog.vue",
+      "frontend/src/features/admin-accounts/presentation/widgets/TempUnschedStatusDialog.vue"
+    ]
+  },
+  {
+    "prs": [
+      7417,
+      7418
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "支付回调基址去重斜杠；token 边界支持科学计数法并拒绝非有限数。",
+    "owner_files": [
+      "frontend/src/features/billing/presentation/widgets/PaymentProviderDialog.vue",
+      "frontend/src/features/admin-channels/presentation/widgets/IntervalRow.vue"
+    ]
+  },
+  {
+    "prs": [
+      7419
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "监控自动刷新初值只用于无历史配置场景；保存的关闭偏好不被 mount 覆盖。",
+    "owner_files": [
+      "frontend/src/common/composables/useAutoRefresh.ts",
+      "frontend/src/features/channels-user/presentation/pages/ChannelStatusPage.vue"
+    ]
+  },
+  {
+    "prs": [
+      7446,
+      7495
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "CSV 缺省横线不加公式转义前缀；订阅今日/明日按日历日期判断，复用已有工具。",
+    "owner_files": [
+      "frontend/src/features/usage/presentation/pages/UsagePage.vue",
+      "frontend/src/common/widgets/data/SubscriptionProgressMini.vue"
+    ]
+  },
+  {
+    "prs": [
+      7496,
+      7501
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "TOTP 卸载后不再启动发码倒计时；资料来源补已有 DingTalk 绑定类型。",
+    "owner_files": [
+      "frontend/src/features/profile/presentation/widgets/TotpDisableDialog.vue",
+      "frontend/src/features/profile/presentation/widgets/TotpSetupDialog.vue",
+      "frontend/src/features/profile/presentation/widgets/ProfileInfoCard.vue"
+    ]
+  },
+  {
+    "prs": [
+      5817,
+      6155,
+      6758,
+      7062,
+      7289
+    ],
+    "status": "covered-current",
+    "capability_complete": true,
+    "decision": "国产平台已由 9 月后独立平台/多协议模块适配完成；平台常量、分组、配额编辑和监控在当前 owner 接线，不导入旧目录或重跑迁移。",
+    "owner_files": [
+      "docs/BPS_DEEPSEEK_COMPAT.md",
+      "docs/UPSTREAM_SYNC_20260916.md",
+      "backend/internal/application/service/account.go",
+      "backend/internal/application/service/channel_monitor_validate.go"
+    ]
+  },
+  {
+    "prs": [
+      5842,
+      6463,
+      6507
+    ],
+    "status": "covered-current",
+    "capability_complete": true,
+    "decision": "当前多协议账号已实现 native Responses/adaptive 和 GLM effort；保持旧 OpenAI 账号不被自动迁移。",
+    "owner_files": [
+      "backend/internal/application/service/account.go",
+      "backend/internal/application/service/gateway_request.go",
+      "backend/internal/application/service/openai_deepseek_compat.go"
+    ]
+  },
+  {
+    "prs": [
+      5905,
+      6081,
+      6291,
+      6325,
+      7354,
+      7411
+    ],
+    "status": "covered-current",
+    "capability_complete": true,
+    "decision": "当前 custom/namespace/tool-search、Grok 媒体、DeepSeek 图片和 Antigravity 身份 owner 已适配；保留当前输入输出及性能重构。",
+    "owner_files": [
+      "backend/internal/application/service/openai_gateway_grok.go",
+      "backend/internal/application/service/openai_deepseek_compat.go",
+      "backend/internal/shared/antigravity/system_identity.go",
+      "backend/internal/shared/apicompat/responses_client_tools.go"
+    ]
+  },
+  {
+    "prs": [
+      6068,
+      6079
+    ],
+    "status": "covered-current",
+    "capability_complete": true,
+    "decision": "当前账号主体/指纹、continuation 与父轮亲和由独立 owner 维护，已强制主体一致和重放约束；不增加第二个 affinity 缓存。",
+    "owner_files": [
+      "backend/internal/application/service/openai_codex_fingerprint.go",
+      "backend/internal/application/service/openai_auth_recovery.go",
+      "docs/codex/intentional-divergences.md"
+    ]
+  },
+  {
+    "prs": [
+      6204,
+      7479
+    ],
+    "status": "covered-current",
+    "capability_complete": true,
+    "decision": "Kimi 并发 403 秒级冷却和 Cloudflare 1010 非凭据错误已由本地分类器实现，不重复计数或禁用。",
+    "owner_files": [
+      "backend/internal/application/service/ratelimit_kimi.go",
+      "backend/internal/application/service/ratelimit_cloudflare_test.go",
+      "backend/internal/application/service/ratelimit_service.go"
+    ]
+  },
+  {
+    "prs": [
+      6281,
+      7276,
+      7300
+    ],
+    "status": "covered-current",
+    "capability_complete": true,
+    "decision": "本项目已有 H2 保活、终态/失败恢复与语义输出隔离；保留当前流预算、断连可靠结算和协议错误，不移植另一套流生命周期。",
+    "owner_files": [
+      "backend/internal/infrastructure/repository/http_upstream_http2_keepalive_test.go",
+      "backend/internal/application/service/openai_gateway_response_handling.go",
+      "backend/internal/application/service/openai_http200_stream_recovery.go"
+    ]
+  },
+  {
+    "prs": [
+      6378
+    ],
+    "status": "covered-current",
+    "capability_complete": true,
+    "decision": "当前 ForwardResult 与结算已传递实际 service_tier；保留有效 tier 定价与渠道覆盖。",
+    "owner_files": [
+      "backend/internal/application/service/openai_gateway_usage.go",
+      "backend/internal/application/service/billing_service.go"
+    ]
+  },
+  {
+    "prs": [
+      6811
+    ],
+    "status": "covered-current",
+    "capability_complete": true,
+    "decision": "此前代理局部更新已完成并有集成回归；本轮只补仍缺的到期和恢复竞态。",
+    "owner_files": [
+      "backend/internal/infrastructure/repository/proxy_repo.go",
+      "docs/UPSTREAM_SYNC_20260909.md"
+    ]
+  },
+  {
+    "prs": [
+      7057,
+      7509,
+      7597,
+      7683,
+      7957,
+      8033
+    ],
+    "status": "covered-current",
+    "capability_complete": true,
+    "decision": "#8093 后续已完成 Claude 5.5 签名/effort/价格及 Codex 元数据优先级；GPT-6.1 Sol 500000 上下文已有测试。关闭旧的同一前置项，不重复功能或价格迁移。",
+    "owner_files": [
+      "docs/UPSTREAM_SYNC_20261015.md",
+      "backend/internal/application/service/gateway_claude55_policy.go",
+      "backend/internal/application/service/openai_codex_models_metadata.go",
+      "backend/internal/shared/claude/effort_catalog.go",
+      "backend/internal/shared/apicompat/claude55_replay_test.go"
+    ]
+  },
+  {
+    "prs": [
+      7060,
+      7139
+    ],
+    "status": "covered-current",
+    "capability_complete": true,
+    "decision": "当前图片能力配置与模型不可用分类按目标模型判断；未知模型不把 API Key 凭据永久禁用。",
+    "owner_files": [
+      "backend/internal/application/service/openai_images.go",
+      "backend/internal/application/service/ratelimit_service_model_not_found_test.go"
+    ]
+  },
+  {
+    "prs": [
+      7097,
+      7272,
+      7313
+    ],
+    "status": "covered-current",
+    "capability_complete": true,
+    "decision": "Anthropic ping、function_call_arguments.done 和 DeepSeek 推理历史已有当前协议回归；仅在本轮追加缺失的 provider 前缀和性能修复。",
+    "owner_files": [
+      "backend/internal/application/service/gateway_forward_as_chat_completions_ping_test.go",
+      "backend/internal/shared/apicompat/anthropic_to_responses_response.go",
+      "backend/internal/application/service/openai_gateway_cc_pipeline.go"
+    ]
+  },
+  {
+    "prs": [
+      7169,
+      7173
+    ],
+    "status": "covered-current",
+    "capability_complete": true,
+    "decision": "Gemini declared-model owner 已合并允许混调的 Antigravity 映射；模型准入仍经过分组白名单。",
+    "owner_files": [
+      "backend/internal/application/service/gemini_declared_models.go"
+    ]
+  },
+  {
+    "prs": [
+      7264
+    ],
+    "status": "covered-current",
+    "capability_complete": true,
+    "decision": "当前默认映射 fetch 失败直接返回空结果而不永久缓存失败，保持重试能力。",
+    "owner_files": [
+      "frontend/src/features/admin-accounts/presentation/composables/useModelWhitelist.ts"
+    ]
+  },
+  {
+    "prs": [
+      7404
+    ],
+    "status": "covered-current",
+    "capability_complete": true,
+    "decision": "OAuth 更新走当前凭据合并和受管字段保护；不恢复旧 handler 的整块 credentials 覆写。",
+    "owner_files": [
+      "backend/internal/infrastructure/repository/account_repo_credentials.go",
+      "backend/internal/transport/http/handler/admin/account_handler.go"
+    ]
+  },
+  {
+    "prs": [
+      7466
+    ],
+    "status": "covered-current",
+    "capability_complete": true,
+    "decision": "Grok 4.7 及后续模型目录/价格已经由独立版本适配，不回写旧默认 4.5。",
+    "owner_files": [
+      "docs/UPSTREAM_SYNC_20261022_PR8170.md",
+      "backend/internal/shared/xai/README.md"
+    ]
+  },
+  {
+    "prs": [
+      6590,
+      7473,
+      7782,
+      7793,
+      7811
+    ],
+    "status": "covered-local-surface",
+    "capability_complete": false,
+    "decision": "Codex manifest 由当前 modelcatalog、账号映射和显式别名投影负责；旧 pinned 跨账号聚合未启用，关闭其对不存在运行路径的补丁。",
+    "owner_files": [
+      "backend/internal/application/service/openai_codex_models_metadata.go",
+      "backend/internal/application/service/openai_codex_models_mapping.go",
+      "backend/internal/modules/modelcatalog/README.md"
+    ]
+  },
+  {
+    "prs": [
+      6127,
+      7351,
+      7397,
+      7764,
+      6775
+    ],
+    "status": "not-applicable",
+    "capability_complete": false,
+    "decision": "本项目没有上游插件 host/config/ZIP runtime；OAuth 传输由纯 Go owner 提供。导入整套插件宿主会新增凭据、执行和后台服务面，相关修复没有本地消费者。",
+    "owner_files": [
+      "docs/ARCHITECTURE.md",
+      "docs/codex/intentional-divergences.md"
+    ]
+  },
+  {
+    "prs": [
+      5866,
+      6759,
+      6760,
+      7738,
+      7916
+    ],
+    "status": "not-applicable",
+    "capability_complete": false,
+    "decision": "上游 channel-monitor-v2、其排行/周期估算/最小样本健康分数不是本项目 passive monitor 契约；当前平台列表和权限 owner 保留，不通过复制 V2 建立平行统计系统。",
+    "owner_files": [
+      "backend/internal/application/service/channel_monitor_validate.go",
+      "docs/PR153_CHANNEL_MONITOR_REVIEW.md"
+    ]
+  },
+  {
+    "prs": [
+      5851,
+      6353,
+      6425,
+      6443,
+      6444,
+      6447,
+      6474,
+      6514,
+      6535,
+      6571,
+      7412,
+      7573,
+      7613,
+      7730,
+      8606
+    ],
+    "status": "not-adopted-billing-contract",
+    "capability_complete": false,
+    "decision": "未采用会改变存量账单、免费 Fast、推理倍率/独立计价、nil 图片价继承、12h cache-write 或价格覆盖源的上游方案。当前渠道/分组/账号/可靠队列的完整价格契约继续为事实源；不能仅搬新默认价、复用错误 TTL 桶或覆盖迁移。字段级差异保留在原始审查引用。",
+    "owner_files": [
+      "backend/internal/application/service/billing_service.go",
+      "backend/internal/application/service/openai_gateway_usage.go",
+      "docs/UPSTREAM_SYNC_20261112.md",
+      "docs/UPSTREAM_SYNC_20260930.md"
+    ]
+  },
+  {
+    "prs": [
+      6188,
+      6283,
+      6555
+    ],
+    "status": "not-adopted-reporting-schema",
+    "capability_complete": false,
+    "decision": "新增 requested effort/compaction kind/独立 upstream request-id 持久字段没有与本地用量幂等键、DTO 和聚合完成统一迁移；不以额外字段替换现有请求身份或重算历史数据。",
+    "owner_files": [
+      "backend/internal/application/service/usage_log.go",
+      "backend/internal/infrastructure/repository/usage_log_repo_insert.go"
+    ]
+  },
+  {
+    "prs": [
+      6303,
+      7679,
+      8319,
+      8476
+    ],
+    "status": "not-adopted-authorization-contract",
+    "capability_complete": false,
+    "decision": "不导入第二套授权存储、不恢复 legacy 全权或自动扩大资源/可信用户豁免。现有 scopes、permission groups、JWT-only 敏感动作和后台鉴权继续执行；资源 ID 范围策略及单用户公开组限制的新契约未实现。",
+    "owner_files": [
+      "backend/internal/application/service/admin_api_keys.go",
+      "backend/internal/transport/http/server/middleware/admin_permissions.go",
+      "docs/PERMISSION_GROUPS.md"
+    ]
+  },
+  {
+    "prs": [
+      5925,
+      6254,
+      6320,
+      6434,
+      6542,
+      6960,
+      7038,
+      7303,
+      7304,
+      7378,
+      7380,
+      7427,
+      7448,
+      7526,
+      7579,
+      7609,
+      7615,
+      7643,
+      6473
+    ],
+    "status": "retain-local-contract",
+    "capability_complete": false,
+    "decision": "保留当前重试预算、取消/断连可靠结算、模型返回名、并发错误、组合分组和 continuation owner。原始记录列出的其余子契约没有通过本地多协议/混合版本矩阵，不能从 upstream ancestry 推断已实现；本批只拒绝直接移植这些替代实现，不新增第二套状态或改旧默认。",
+    "owner_files": [
+      "backend/internal/application/service/gemini_same_account_retries_test.go",
+      "backend/internal/application/service/openai_gateway_response_handling.go",
+      "backend/internal/application/service/openai_ws_forwarder_ingress.go",
+      "docs/REQUEST_LIFECYCLES.md",
+      "docs/COMPOSITE_GROUPS.md"
+    ]
+  },
+  {
+    "prs": [
+      6510
+    ],
+    "status": "not-adopted-unsafe-release",
+    "capability_complete": false,
+    "decision": "上游按 session hash 无条件释放无法证明当前并行请求的租赁所有权；可清除另一成功请求的会话槽。保留当前释放策略，不能把更快释放等同于正确释放。",
+    "owner_files": [
+      "backend/internal/infrastructure/repository/session_limit_cache.go",
+      "docs/UPSTREAM_SYNC_20260905.md"
+    ]
+  },
+  {
+    "prs": [
+      6557,
+      8251
+    ],
+    "status": "not-adopted-unsafe-cache",
+    "capability_complete": false,
+    "decision": "不替换当前账号 DTO/按需详情和调度索引。上游共享可变快照 memo 缺容量上限且旧写入节点不发布新 revision，直接启用会产生混合版本陈旧调度；新增缓存不是本地已测 owner 的等价优化。",
+    "owner_files": [
+      "backend/internal/infrastructure/repository/scheduler_cache.go",
+      "docs/SCHEDULER_CANDIDATE_INDEX_OPTIMIZATION_CN.md",
+      "docs/UPSTREAM_SYNC_20261022.md"
+    ]
+  },
+  {
+    "prs": [
+      5616,
+      6384,
+      6388,
+      6769,
+      7555
+    ],
+    "status": "retain-local-quota-owner",
+    "capability_complete": false,
+    "decision": "当前 CN/Ollama/OpenAI quota 探测和持久快照复用已有 singleflight、出口与调度 owner。没有导入上游独立窗口 worker、自动消费 reset credit 或无界冷却 Map；相应未实现子能力不能算作完成。",
+    "owner_files": [
+      "backend/internal/application/service/cn_provider_quota_service.go",
+      "backend/internal/application/service/ollama_cloud_usage.go",
+      "backend/internal/application/service/account_usage_service.go"
+    ]
+  },
+  {
+    "prs": [
+      5816,
+      6602,
+      7308,
+      7736
+    ],
+    "status": "retain-local-manifest",
+    "capability_complete": false,
+    "decision": "保留管理员覆盖、上游字段、成功快照和编译目录的优先级及预算；不增加另一套 pinned 账号 catalog/远程目录客户端配置默认，不以旧 prompt descriptor 覆盖当前模型目录。",
+    "owner_files": [
+      "backend/internal/application/service/openai_codex_models_metadata.go",
+      "backend/internal/modules/modelcatalog/README.md",
+      "docs/UPSTREAM_SYNC_20261015.md"
+    ]
+  },
+  {
+    "prs": [
+      6638,
+      7247
+    ],
+    "status": "not-adopted-media-runtime",
+    "capability_complete": false,
+    "decision": "URL 自动回填和 Seedance/Ark 原生任务会引入新下载/任务/计费状态；当前媒体工坊和独立公网目的地策略保留，不以导入旧 media owner 绕过出口、大小上限或幂等结算。",
+    "owner_files": [
+      "docs/CUSTOM_MODELS_AND_MEDIA.md",
+      "backend/internal/infrastructure/repository/http_upstream_public.go"
+    ]
+  },
+  {
+    "prs": [
+      6691,
+      7091
+    ],
+    "status": "not-adopted-bulk-write-surface",
+    "capability_complete": false,
+    "decision": "用户 Key 批量编辑和订阅多动作批处理是尚未实现的新写入面；保留当前单项所有权校验及已有批量分配。未导入跨用户/多动作事务和恢复语义不完整的旧页面实现。",
+    "owner_files": [
+      "docs/ADMIN_API.md",
+      "backend/internal/application/service/api_key_service.go",
+      "backend/internal/application/service/subscription_service.go"
+    ]
+  },
+  {
+    "prs": [
+      6791
+    ],
+    "status": "not-applicable",
+    "capability_complete": true,
+    "decision": "本项目使用自身 Ent schema 与递增迁移，groups.model_allowlist 已存在；不执行与历史编号冲突的上游自愈 migration。",
+    "owner_files": [
+      "backend/ent/schema/group.go",
+      "backend/migrations/README.md"
+    ]
+  },
+  {
+    "prs": [
+      7160,
+      7212,
+      7282,
+      7288,
+      7361,
+      7646,
+      7684,
+      7726,
+      7752,
+      8006,
+      8369
+    ],
+    "status": "not-adopted-persistent-workflow",
+    "capability_complete": false,
+    "decision": "这些新增日志保留/分页、提现、备份归档、首次组设置、消费排行、Claude reset、Key 默认硬上限和 Gemini cachedContents 不能按旧 owner 直接迁移。本次不改变存量清理、授权、账务和创建行为。尤其旧分页 owner 在内存读取全部历史，预占与 cachedContents 需新幂等持久设计；未实现能力明确保留为产品范围差异。",
+    "owner_files": [
+      "docs/ARCHITECTURE.md",
+      "docs/UPSTREAM_SYNC_20260927.md",
+      "docs/UPSTREAM_SYNC_20260930.md",
+      "docs/UPSTREAM_SYNC_20261013.md"
+    ]
+  },
+  {
+    "prs": [
+      7090,
+      7681
+    ],
+    "status": "not-adopted-scheduling-cost",
+    "capability_complete": false,
+    "decision": "不改变已测的 cost-factor 单次扫描选择或默认启用余额预占。上游预占每流续期和 Lua 集合求和会放大 Redis/goroutine 成本，并与持久结算重叠；需要独立财务准入设计，而非再叠一套热路径状态。",
+    "owner_files": [
+      "backend/internal/application/service/openai_account_scheduler.go",
+      "backend/internal/application/service/gateway_usage_billing.go",
+      "docs/GATEWAY_PERFORMANCE_OPTIMIZATION_CN.md"
+    ]
+  },
+  {
+    "prs": [
+      7294,
+      7395,
+      7413,
+      7532,
+      7678
+    ],
+    "status": "retain-local-product-policy",
+    "capability_complete": false,
+    "decision": "保留当前响应式导航/客户端配置入口、独立 CI/版本发布与固定 Claude 指纹 pin；不引入每实例自动 UA 漂移或上游另一套布局/打包默认。不存在已移植功能回退。",
+    "owner_files": [
+      "frontend/src/common/widgets/layout/AppHeader.vue",
+      "frontend/src/core/utils/ccswitchImport.ts",
+      "docs/codex/intentional-divergences.md",
+      ".github/workflows/backend-ci.yml"
+    ]
+  },
+  {
+    "prs": [
+      8358
+    ],
+    "status": "not-adopted-automatic-replay",
+    "capability_complete": false,
+    "decision": "现有 web_search 历史补工具已存在；没有采用长期保存全部输出后自动重连重放。完整历史、取消、首轮/后续轮次、工具执行与可靠结算没有共同的可重放证明，不能为 search 自动重复整轮。",
+    "owner_files": [
+      "backend/internal/application/service/openai_oauth_web_search_history.go",
+      "backend/internal/application/service/openai_ws_pool.go",
+      "docs/UPSTREAM_SYNC_20261112.md"
+    ]
+  },
+  {
+    "prs": [
+      8484,
+      8610
+    ],
+    "status": "retain-local-resource-bounds",
+    "capability_complete": false,
+    "decision": "已移植的线性缓冲、摘要缓存和可靠后台工作保留；不新增无消费者的自适应全局预算、无损计费替代队列或改变现有 SSE/图片传输政策。共享 ingress/patch/async-image 预算不是已实现能力。",
+    "owner_files": [
+      "docs/UPSTREAM_SYNC_20261107.md",
+      "docs/GATEWAY_PERFORMANCE_OPTIMIZATION_CN.md"
+    ]
+  },
+  {
+    "prs": [
+      8639
+    ],
+    "status": "retain-local-partial-capability",
+    "capability_complete": false,
+    "decision": "Fable/Mythos 5.2 标准目录/签名/校验/标准价卡已适配；原生 speed=fast 账务和未确认的 Antigravity 5.2 映射没有启用，不把另一套 Codex descriptor 重新导入。",
+    "owner_files": [
+      "docs/UPSTREAM_SYNC_20261112.md",
+      "backend/internal/application/service/gateway_claude55_policy.go"
+    ]
+  },
+  {
+    "prs": [
+      7394
+    ],
+    "status": "ported",
+    "capability_complete": true,
+    "decision": "精准识别 Baseten final-answer reserve 约束，复用已有单次 budget 修正，普通配额和上下文错误不误修。",
+    "owner_files": [
+      "backend/internal/application/service/gateway_request.go"
+    ]
+  },
+  {
+    "prs": [
+      7319
+    ],
+    "status": "covered-current",
+    "capability_complete": true,
+    "decision": "当前 BaseDialog 已使用 acquireBodyScrollLock 引用计数及顶部弹窗 Escape 栈；不重复加入另一套全局滚动锁。",
+    "owner_files": [
+      "frontend/src/common/widgets/feedback/BaseDialog.vue",
+      "frontend/src/core/utils/bodyScrollLock.ts"
+    ]
+  },
+  {
+    "prs": [
+      6179
+    ],
+    "status": "not-adopted-reporting-contract",
+    "capability_complete": false,
+    "decision": "事件时代理 ID/名称的历史快照尚未接入所有协议；不为补归因增加逐事件数据库查询，也不把当前代理配置冒充历史事实。现有有界异步快照与上游 URL/request-id 诊断保留。",
+    "owner_files": [
+      "backend/internal/application/service/ops_upstream_context.go"
+    ]
+  },
+  {
+    "prs": [
+      6488
+    ],
+    "status": "retain-local-media-policy",
+    "capability_complete": false,
+    "decision": "Grok 媒体资格由当前账户纯规则与网关能力判断；没有引入上游独立资格控制端点和旧编辑页字段。当前可选管理控件不是已实现能力。",
+    "owner_files": [
+      "backend/internal/application/service/account_grok_media_eligibility_test.go",
+      "backend/internal/application/service/grok_media.go"
+    ]
+  },
+  {
+    "prs": [
+      7387
+    ],
+    "status": "not-adopted-audit-engine",
+    "capability_complete": false,
+    "decision": "当前内容审核和 securityaudit 协调器不引入另一套 TypeSafe AI 审核配置/worker；原生 TypeSafe 模型网关不等同于该审核引擎。",
+    "owner_files": [
+      "backend/internal/application/service/content_moderation_client.go",
+      "backend/internal/modules/securityaudit/README.md"
+    ]
+  },
+  {
+    "prs": [
+      7401
+    ],
+    "status": "retain-local-quota-owner",
+    "capability_complete": false,
+    "decision": "Codex credit/reset 详情已有 SIWC/普通 OAuth owner；referral 邀请发送是未接入的新写入面，不能用额度展示顺带启用。",
+    "owner_files": [
+      "backend/internal/application/service/openai_quota_reset_credits.go",
+      "docs/OPENAI_USAGE.md"
+    ]
+  },
+  {
+    "prs": [
+      7442
+    ],
+    "status": "retain-local-error-contract",
+    "capability_complete": false,
+    "decision": "保留当前精确余额不足分类、账号显式自动禁用策略和错误透传规则；没有把所有上游图片错误替换为另一种全局 failover 文案或扩大自动处罚。",
+    "owner_files": [
+      "backend/internal/application/service/upstream_insufficient_balance.go",
+      "backend/internal/application/service/openai_gateway_upstream_errors.go"
+    ]
+  },
+  {
+    "prs": [
+      7478
+    ],
+    "status": "not-adopted-hot-path-db",
+    "capability_complete": false,
+    "decision": "不为 simple mode 每次请求/每轮 WebSocket 新增强制数据库金额窗口读取。当前 API Key 准入、可靠结算与多实例缓存继续共同维护原配额契约。",
+    "owner_files": [
+      "backend/internal/application/service/billing_cache_service.go",
+      "backend/internal/application/service/gateway_usage_billing.go"
+    ]
+  },
+  {
+    "prs": [
+      7595
+    ],
+    "status": "retain-local-model-policy",
+    "capability_complete": false,
+    "decision": "任意位置 glob 改变模型 listing 交集与授权范围；保留精确/尾部通配现有语义，不在热路径按请求编译正则，也不扩大已有白名单。",
+    "owner_files": [
+      "backend/internal/application/service/group_model_allowlist.go"
+    ]
+  },
+  {
+    "prs": [
+      7618
+    ],
+    "status": "retain-local-platform-owners",
+    "capability_complete": false,
+    "decision": "保留本项目模块化 11 平台、CN/OpenCode 和 TypeSafe 协议 owner，不以全局平台 registry 重写替换已测调度。Command Code/Cline 新平台未启用；其中工具链修复已由后续 Go 1.26.11 分支覆盖。",
+    "owner_files": [
+      "backend/internal/domain/constants.go",
+      "docs/UPSTREAM_SYNC_20261009.md",
+      "backend/go.mod"
+    ]
+  },
+  {
+    "prs": [
+      7891
+    ],
+    "status": "covered-local-surface",
+    "capability_complete": true,
+    "decision": "当前统一账单探测已将 Retry-After 限幅到 24h，普通 403 为中性 HTTP 错误；没有上游独立 OpenCode Go 用量 worker，因此不恢复其平行 owner。",
+    "owner_files": [
+      "backend/internal/application/service/upstream_billing_probe.go"
+    ]
+  }
+]

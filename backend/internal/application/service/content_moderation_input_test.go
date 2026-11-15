@@ -6,6 +6,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestModerationKeywordsInspectReminderTextWithoutChangingSemanticInput(t *testing.T) {
+	for _, tc := range []struct{ protocol, body string }{
+		{ContentModerationProtocolAnthropicMessages, `{"messages":[{"role":"user","content":"<system-reminder>blocked-word</system-reminder>"}]}`},
+		{ContentModerationProtocolOpenAIChat, `{"messages":[{"role":"user","content":"<system-reminder>blocked-word</system-reminder>"}]}`},
+		{ContentModerationProtocolOpenAIResponses, `{"input":"<system-reminder>blocked-word</system-reminder>"}`},
+		{ContentModerationProtocolGemini, `{"contents":[{"role":"user","parts":[{"text":"<system-reminder>blocked-word</system-reminder>"}]}]}`},
+	} {
+		t.Run(tc.protocol, func(t *testing.T) {
+			require.Contains(t, extractContentModerationKeywordText(tc.protocol, []byte(tc.body)), "blocked-word")
+			require.Empty(t, ExtractContentModerationText(tc.protocol, []byte(tc.body)))
+		})
+	}
+}
+
+func TestModerationAnthropicIgnoresTrailingSystemButNotAssistantTurns(t *testing.T) {
+	body := []byte(`{"messages":[{"role":"user","content":"latest user"},{"role":"system","content":"system instruction"}]}`)
+	require.Equal(t, "latest user", ExtractContentModerationText(ContentModerationProtocolAnthropicMessages, body))
+	ended := []byte(`{"messages":[{"role":"user","content":"old"},{"role":"assistant","content":"answer"},{"role":"system","content":"system"}]}`)
+	require.Empty(t, ExtractContentModerationText(ContentModerationProtocolAnthropicMessages, ended))
+}
+
 // 当数组末尾不是用户消息时（典型场景：Agent 工具循环结束于 tool/assistant），
 // 应直接跳过审计——不再回溯查找历史中的某条用户消息。
 

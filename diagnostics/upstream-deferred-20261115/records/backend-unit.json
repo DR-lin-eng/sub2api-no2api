@@ -1,0 +1,33 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=3",
+    "--memory=5g",
+    "-v",
+    "/Users/lin/.codex/worktrees/4330/sub2api-no2api:/src:ro",
+    "-v",
+    "/private/tmp/sub2api-modcache:/go/pkg/mod",
+    "-v",
+    "/private/tmp/sub2api-gocache:/root/.cache/go-build",
+    "-e",
+    "CGO_ENABLED=0",
+    "-e",
+    "GOMAXPROCS=3",
+    "-e",
+    "GOMEMLIMIT=1800MiB",
+    "-e",
+    "GOFLAGS=-p=1",
+    "-e",
+    "GOTOOLCHAIN=local",
+    "golang:1.26.11-alpine",
+    "sh",
+    "-c",
+    "mkdir /work && cp -a /src/backend /work/backend && cd /work/backend && go test -tags=unit ./... -timeout=12m && go test -tags=mcp_go_client_oauth ./internal/transport/http/server/routes -run TestMCPOAuthOfficialGoSDKInteroperability -count=1"
+  ],
+  "exit_code": 1,
+  "elapsed_seconds": 471.248,
+  "utc": "2026-11-15T06:03:41.405981+00:00",
+  "output_sha256": "65bfc123a500a7e7db3abf31f8dbe75b85cf19bdb093e1d7becc1f83c192280b"
+}

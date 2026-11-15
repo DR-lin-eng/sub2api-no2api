@@ -1,7 +1,6 @@
 package service
 
 import (
-	"encoding/json"
 	"net/url"
 	"sort"
 	"strings"
@@ -56,7 +55,7 @@ func sanitizeCodexTurnMetadataValue(raw string) string {
 	if !keep {
 		return `{"redacted":true}`
 	}
-	encoded, err := json.Marshal(value)
+	encoded, err := marshalCodexTurnMetadata(value)
 	if err != nil || len(encoded) > codexWorkspaceMetadataMaxBytes {
 		return `{"redacted":true}`
 	}
@@ -199,7 +198,7 @@ func normalizeUntrustedCodexTurnMetadataValue(raw string, ids *codexOutboundSess
 	// prevents an arbitrary header map from becoming an unbounded risk signal or
 	// a cross-principal fingerprint.
 	projectCodexFullSimulationTurnMetadata(metadata)
-	encoded, err := json.Marshal(metadata)
+	encoded, err := marshalCodexTurnMetadata(metadata)
 	if err != nil || len(encoded) > codexWorkspaceMetadataMaxBytes {
 		return "", false
 	}

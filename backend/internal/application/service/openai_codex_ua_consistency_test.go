@@ -51,6 +51,18 @@ func TestCodexUAClearSettingRestoresSynchronizedDefault(t *testing.T) {
 	require.Equal(t, "codex_cli_rs/0.200.0"+codexCLIUserAgentSuffix, svc.GetOpenAICodexCanonicalUserAgent(context.Background()))
 }
 
+func TestCodexUAInvalidSettingPreservesSynchronizedVersion(t *testing.T) {
+	for _, ua := range []string{"Mozilla/5.0", "codex_cli_rs/1.0.0\n", "Codex Desktop/invalid"} {
+		t.Run(ua, func(t *testing.T) {
+			repo := newCodexVersionSettingRepo()
+			repo.settings[SettingKeyOpenAICodexUserAgent] = &Setting{Value: ua}
+			repo.settings[SettingKeyOpenAICodexClientVersionSynced] = &Setting{Value: "0.200.0"}
+			svc := NewSettingService(repo, nil)
+			require.Equal(t, buildCodexCLIUserAgent("0.200.0"), svc.GetOpenAICodexCanonicalUserAgent(context.Background()))
+		})
+	}
+}
+
 func TestCodexUADisabledEnforcementStillPairsVersion(t *testing.T) {
 	SetCodexIdentityEnforcementEnabled(false)
 	t.Cleanup(func() { SetCodexIdentityEnforcementEnabled(true) })

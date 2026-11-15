@@ -197,6 +197,7 @@ const methodLoading = ref(true)
 const verificationMethod = ref<'email' | 'password'>('password')
 const verifyForm = ref({ emailCode: '', password: '' })
 const sendingCode = ref(false)
+let disposed = false
 const codeCooldown = ref(0)
 const cooldownTimer = ref<ReturnType<typeof setInterval> | null>(null)
 
@@ -352,6 +353,7 @@ const handleSendCode = async () => {
   sendingCode.value = true
   try {
     await sendVerifyCode()
+    if (disposed) return
     appStore.showSuccess(t('profile.totp.codeSent'))
     // Start cooldown
     codeCooldown.value = 60
@@ -421,6 +423,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  disposed = true
   if (cooldownTimer.value) {
     clearInterval(cooldownTimer.value)
     cooldownTimer.value = null

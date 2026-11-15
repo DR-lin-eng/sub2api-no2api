@@ -101,13 +101,13 @@ function emitField(field: keyof IntervalFormEntry, value: string | number | null
 }
 
 function toInt(val: string): number {
-  const n = parseInt(val, 10)
-  return isNaN(n) ? 0 : n
+  const n = Math.trunc(Number(val))
+  return Number.isFinite(n) ? n : 0
 }
 
 function toIntOrNull(val: string): number | null {
   if (val === '') return null
-  const n = parseInt(val, 10)
-  return isNaN(n) ? null : n
+  const n = Math.trunc(Number(val))
+  return Number.isFinite(n) ? n : null
 }
 </script>

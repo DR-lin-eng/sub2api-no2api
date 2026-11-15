@@ -510,7 +510,7 @@ func rewriteCodexTurnMetadataValue(raw string, ids *codexFingerprintIDs) string 
 		metadata = decoded
 	}
 	applyCodexTurnMetadataFields(metadata, ids)
-	rebuilt, err := json.Marshal(metadata)
+	rebuilt, err := marshalCodexTurnMetadata(metadata)
 	if err != nil {
 		return raw
 	}
@@ -518,7 +518,7 @@ func rewriteCodexTurnMetadataValue(raw string, ids *codexFingerprintIDs) string 
 }
 
 func mustMarshalCodexMetadata(metadata map[string]any, fallback string) string {
-	encoded, err := json.Marshal(metadata)
+	encoded, err := marshalCodexTurnMetadata(metadata)
 	if err != nil {
 		return fallback
 	}
@@ -692,7 +692,7 @@ func projectCodexFullSimulationMetadata(metadata map[string]any) {
 		turnMetadata[key] = value
 	}
 	projectCodexFullSimulationTurnMetadata(turnMetadata)
-	if encoded, err := json.Marshal(turnMetadata); err == nil {
+	if encoded, err := marshalCodexTurnMetadata(turnMetadata); err == nil {
 		metadata["x-codex-turn-metadata"] = string(encoded)
 	}
 	normalizeCodexOfficialClientMetadataTypes(metadata)
@@ -887,7 +887,7 @@ func rewriteEmbeddedCodexTurnMetadata(clientMetadata map[string]any, ids *codexF
 		projectCodexFullSimulationTurnMetadata(metadata)
 	}
 	applyCodexTurnMetadataFields(metadata, ids)
-	rebuilt, err := json.Marshal(metadata)
+	rebuilt, err := marshalCodexTurnMetadata(metadata)
 	if err == nil {
 		clientMetadata["x-codex-turn-metadata"] = string(rebuilt)
 	}

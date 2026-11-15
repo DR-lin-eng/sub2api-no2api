@@ -1,0 +1,13 @@
+{
+  "command": [
+    "python3",
+    "diagnostics/upstream-deferred-20261115/run_integration.py",
+    "./internal/infrastructure/repository",
+    "-run",
+    "TestRedeem(ReductionPreservesRenewal|ConcurrentReductionsBothApply)"
+  ],
+  "exit_code": 1,
+  "elapsed_seconds": 37.975,
+  "utc": "2026-11-15T06:30:32.041822+00:00",
+  "output_sha256": "00bf814842a4dc71c22c6ce9a186d1a2e0ddbb51d868f685302512d1d7836d64"
+}

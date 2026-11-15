@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 
 import type { AdminUser } from '@/types'
 import UsersView from '@/features/admin-users/presentation/pages/UsersPage.vue'
@@ -137,6 +138,7 @@ const BulkEditUserModalStub = {
 
 describe('admin UsersView', () => {
   beforeEach(() => {
+    setActivePinia(createPinia())
     vi.useRealTimers()
     localStorage.clear()
 

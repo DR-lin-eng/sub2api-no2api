@@ -11,3 +11,15 @@ it('allows Tab to leave an empty model input', () => {
   wrapper.get('input').element.dispatchEvent(event)
   expect(event.defaultPrevented).toBe(false)
 })
+
+it('keeps model tags and composing text intact during IME key events', async () => {
+  const wrapper = mount(ModelTagInput, { props: { models: ['existing'] }, global: { stubs: { Icon: true } } })
+  const input = wrapper.get('input')
+  await input.setValue('中文')
+  for (const key of ['Enter', 'Tab', 'Backspace']) {
+    input.element.dispatchEvent(new KeyboardEvent('keydown', { key, isComposing: true, bubbles: true, cancelable: true }))
+  }
+  expect(wrapper.emitted('update:models')).toBeUndefined()
+  await input.trigger('keydown', { key: 'Enter' })
+  expect(wrapper.emitted('update:models')).toEqual([[['existing', '中文']]])
+})

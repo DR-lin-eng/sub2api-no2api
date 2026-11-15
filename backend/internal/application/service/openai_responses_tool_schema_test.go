@@ -9,6 +9,19 @@ import (
 )
 
 func TestSanitizeOpenAIResponsesToolParameterTypes(t *testing.T) {
+	t.Run("messages schema null required only follows schema edges", func(t *testing.T) {
+		body := []byte(`{"messages":[{"role":"user","content":"required:null"}],"tools":[{"input_schema":{"type":null,"required":null,"properties":{"required":{"type":"string"},"nested":{"type":"object","required":null}},"default":{"required":null},"const":{"required":null},"allOf":[{"required":null}]}}]}`)
+		sanitized, changed, err := sanitizeOpenAIResponsesToolParameterTypes(body)
+		require.NoError(t, err)
+		require.True(t, changed)
+		require.True(t, json.Valid(sanitized))
+		require.Equal(t, "[]", gjson.GetBytes(sanitized, "tools.0.input_schema.required").Raw)
+		require.Equal(t, "[]", gjson.GetBytes(sanitized, "tools.0.input_schema.properties.nested.required").Raw)
+		require.Equal(t, "[]", gjson.GetBytes(sanitized, "tools.0.input_schema.allOf.0.required").Raw)
+		require.Equal(t, "null", gjson.GetBytes(sanitized, "tools.0.input_schema.default.required").Raw)
+		require.Equal(t, "null", gjson.GetBytes(sanitized, "tools.0.input_schema.const.required").Raw)
+		require.Equal(t, "string", gjson.GetBytes(sanitized, "tools.0.input_schema.properties.required.type").String())
+	})
 	t.Run("top level function tool", func(t *testing.T) {
 		body := []byte(`{"model":"gpt-5.6-sol","input":"Reply with OK.","tools":[{"type":"function","name":"automation_update","description":"Update an automation.","parameters":{"type":null,"properties":{}}}]}`)
 

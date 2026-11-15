@@ -25,6 +25,17 @@ func openAIStreamFailedEventSemanticStatus(payload []byte, message string) int {
 		errType = strings.ToLower(strings.TrimSpace(gjson.GetBytes(payload, "error.type").String()))
 	}
 	combined := strings.TrimSpace(errType + " " + code + " " + strings.ToLower(strings.TrimSpace(message)))
+	// Compatible upstreams use both spellings; a response's textual status
+	// (e.g. "failed") must not be confused with an HTTP status number.
+	for _, path := range [...]string{
+		"response.error.status_code", "response.error.status",
+		"error.status_code", "error.status", "status_code", "status",
+	} {
+		switch status := int(gjson.GetBytes(payload, path).Int()); status {
+		case http.StatusUnauthorized, http.StatusForbidden, http.StatusTooManyRequests, 529:
+			return status
+		}
+	}
 	switch {
 	case strings.Contains(combined, "rate_limit"):
 		return http.StatusTooManyRequests

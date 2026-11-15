@@ -1,0 +1,19 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=3g",
+    "-v",
+    "/private/tmp/sub2api-deferred-baseline-20261115:/src:ro",
+    "sub2api-sync-frontend:20261112",
+    "sh",
+    "-c",
+    "rm -rf /work/frontend/src && cp -a /src/frontend/src /work/frontend/src && cd /work/frontend && pnpm exec vitest run src/features/admin-users/__tests__/UserEditDialog.spec.ts src/features/admin-users/__tests__/UsersPage.spec.ts src/features/auth/__tests__/RegisterViewCredentialStorage.spec.ts src/core/i18n/__tests__/localesMessageCompile.spec.ts"
+  ],
+  "exit_code": 1,
+  "elapsed_seconds": 4.912,
+  "utc": "2026-11-15T05:55:56.091557+00:00",
+  "output_sha256": "e9b0d51243be83e2e756d038858e3ac3dc5681206dcb560a1da4471ec64036a6"
+}

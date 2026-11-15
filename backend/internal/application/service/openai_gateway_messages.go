@@ -49,6 +49,11 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	promptCacheKey string,
 	defaultMappedModel string,
 ) (*OpenAIForwardResult, error) {
+	if sanitized, changed, err := sanitizeOpenAIResponsesToolParameterTypes(body); err != nil {
+		return nil, err
+	} else if changed {
+		body = sanitized
+	}
 	rememberOpenCodeInboundBody(c, body)
 	distillation := s.IsDistillationGroupRequest(c, account)
 	if distillation {

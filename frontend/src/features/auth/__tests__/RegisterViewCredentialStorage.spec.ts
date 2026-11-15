@@ -110,6 +110,7 @@ describe('RegisterView credential storage', () => {
     await flushPromises()
     await wrapper.get('#email').setValue('user@example.com')
     await wrapper.get('#password').setValue('secret-123')
+    await wrapper.get('#confirmPassword').setValue('secret-123')
     await wrapper.get('form').trigger('submit.prevent')
     await flushPromises()
 

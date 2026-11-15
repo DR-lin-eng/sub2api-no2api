@@ -10,6 +10,8 @@
 4. 涉及网关、计费或管理端请求时，再读 `docs/REQUEST_LIFECYCLES.md`。
 5. 进入目录后，优先读取该目录最近的 `README.md`。
 
+上游同步先读 `docs/UPSTREAM_DEFERRED_STATUS.md` 和其机器台账。按 PR 与冻结净 diff hash 复用当前决策；`diff_review_closed` 不等于功能已实现，能力状态以 `capability_complete` 和明确边界为准。
+
 ## 仓库结构
 
 - `backend/`: Go 1.26.11 模块化单体。入口在 `backend/cmd/server/`。

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/apicompat"
@@ -21,6 +20,9 @@ import (
 // not inherit DeepSeek's reasoning-history rules.
 func isDeepSeekModelName(model string) bool {
 	model = strings.ToLower(strings.TrimSpace(model))
+	if slash := strings.LastIndexByte(model, '/'); slash >= 0 {
+		model = model[slash+1:]
+	}
 	return strings.HasPrefix(model, "deepseek-") || model == "deepseek"
 }
 
@@ -107,23 +109,38 @@ func ensureDeepSeekChatReasoningPlaceholders(account *Account, body []byte) []by
 	if !messages.IsArray() {
 		return body
 	}
-	updated := body
-	changed := false
-	for i, message := range messages.Array() {
+	// Patch individual message objects, then splice once. Setting every path
+	// against the full request repeatedly copied all history (quadratic in the
+	// number of assistant turns).
+	var updated []byte
+	cursor := 0
+	valid := true
+	messages.ForEach(func(_, message gjson.Result) bool {
 		if strings.TrimSpace(message.Get("role").String()) != "assistant" || message.Get("reasoning_content").String() != "" {
-			continue
+			return true
 		}
-		next, err := sjson.SetBytes(updated, "messages."+strconv.Itoa(i)+".reasoning_content", deepSeekChatReasoningPlaceholderText)
+		start, end := message.Index, message.Index+len(message.Raw)
+		if start < cursor || end > len(body) || !bytes.Equal(body[start:end], []byte(message.Raw)) {
+			valid = false
+			return false
+		}
+		next, err := sjson.Set(message.Raw, "reasoning_content", deepSeekChatReasoningPlaceholderText)
 		if err != nil {
-			return body
+			valid = false
+			return false
 		}
-		updated = next
-		changed = true
-	}
-	if !changed {
+		if updated == nil {
+			updated = make([]byte, 0, len(body)+64)
+		}
+		updated = append(updated, body[cursor:start]...)
+		updated = append(updated, next...)
+		cursor = end
+		return true
+	})
+	if !valid || updated == nil {
 		return body
 	}
-	return updated
+	return append(updated, body[cursor:]...)
 }
 
 // normalizeDeepSeekResponsesRequestBody adapts the stateless native DeepSeek

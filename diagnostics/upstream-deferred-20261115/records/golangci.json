@@ -1,0 +1,31 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=3g",
+    "-v",
+    "/Users/lin/.codex/worktrees/4330/sub2api-no2api:/src:ro",
+    "-v",
+    "/private/tmp/sub2api-modcache:/go/pkg/mod",
+    "-v",
+    "/private/tmp/sub2api-gocache:/root/.cache/go-build",
+    "-e",
+    "GOMAXPROCS=2",
+    "-e",
+    "GOMEMLIMIT=1400MiB",
+    "-e",
+    "GOFLAGS=-p=1",
+    "-e",
+    "GOTOOLCHAIN=local",
+    "sub2api:png-gif-go12611-lint",
+    "sh",
+    "-c",
+    "mkdir /work && cp -a /src/backend /work/backend && cd /work/backend && golangci-lint run --timeout=12m ./..."
+  ],
+  "exit_code": 1,
+  "elapsed_seconds": 330.13,
+  "utc": "2026-11-15T06:36:23.118942+00:00",
+  "output_sha256": "35ab455292404aec5f98a477c7a21a70530e6e5afe72280108b7d9faf31a28a0"
+}

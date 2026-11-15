@@ -1502,11 +1502,19 @@ const closeEditModal = () => {
 const handleToggleStatus = async (user: AdminUser) => {
   const newStatus = user.status === 'active' ? 'disabled' : 'active'
   try {
-    await toggleStatus(user.id, newStatus)
+    const updated = await toggleStatus(user.id, newStatus)
     appStore.showSuccess(
       newStatus === 'active' ? t('admin.users.userEnabled') : t('admin.users.userDisabled')
     )
-    loadUsers()
+    if (loading.value) {
+      void loadUsers()
+      return
+    }
+    const row = users.value.find((candidate) => candidate.id === user.id)
+    if (row) {
+      row.status = updated.status
+      row.updated_at = updated.updated_at
+    }
   } catch (error: any) {
     appStore.showError(error.response?.data?.detail || t('admin.users.failedToToggle'))
     console.error('Error toggling user status:', error)
