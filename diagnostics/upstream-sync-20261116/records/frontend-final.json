@@ -1,0 +1,21 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=4g",
+    "-v",
+    "/Users/lin/.codex/worktrees/fc65/sub2api-no2api/frontend/src:/work/frontend/src:ro",
+    "-e",
+    "NODE_OPTIONS=--max-old-space-size=3072",
+    "sub2api-sync-frontend:20261116",
+    "sh",
+    "-c",
+    "cd /work/frontend && pnpm run lint:check && pnpm run typecheck && pnpm exec vitest run src/features/admin-accounts/__tests__/CNProviderUsageCell.spec.ts src/features/admin-accounts/__tests__/AccountUsageCell.spec.ts src/features/admin-accounts/presentation/composables/__tests__/useModelWhitelist.spec.ts src/features/admin-channels/__tests__/channelFormCodec.spec.ts"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 40.323,
+  "utc": "2026-11-16T11:24:51.240068+00:00",
+  "output_sha256": "70f0f17431b4b198cb71fde0f7d1b56d49f2144386e80689e01c9086db788ed5"
+}

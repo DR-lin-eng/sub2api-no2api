@@ -160,7 +160,7 @@ type ConcurrencyHelper struct {
 
 // NewConcurrencyHelper creates a new ConcurrencyHelper
 func NewConcurrencyHelper(concurrencyService *service.ConcurrencyService, pingFormat SSEPingFormat, pingInterval time.Duration) *ConcurrencyHelper {
-	if pingInterval <= 0 {
+	if pingInterval < 0 {
 		pingInterval = defaultPingInterval
 	}
 	return &ConcurrencyHelper{
@@ -551,7 +551,7 @@ func (h *ConcurrencyHelper) waitForSlotWithPingTimeout(c *gin.Context, slotType 
 
 	// Determine if ping is needed (streaming + ping format defined)
 	pingFormat := resolveSSEPingFormat(c, h.pingFormat)
-	needPing := isStream && pingFormat != ""
+	needPing := isStream && pingFormat != "" && h.pingInterval > 0
 
 	var flusher http.Flusher
 	if needPing {
@@ -691,7 +691,7 @@ func (h *ConcurrencyHelper) waitForPrioritySlotWithPing(ctx context.Context, c *
 		return result.ReleaseFunc, nil
 	}
 	pingFormat := resolveSSEPingFormat(c, h.pingFormat)
-	needPing := isStream && pingFormat != ""
+	needPing := isStream && pingFormat != "" && h.pingInterval > 0
 	var flusher http.Flusher
 	if needPing {
 		var ok bool

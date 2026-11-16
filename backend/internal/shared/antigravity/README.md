@@ -9,3 +9,5 @@ Antigravity 上游客户端与 Claude/Gemini 请求、响应、流和 schema 转
 `system_identity.go` 只中和系统指令开头的客户端身份与 attribution；原生 Anthropic 转发和用户消息不调用该规则。
 
 Gemini 3+ 工具媒体保留在 `functionResponse.parts`，旧模型沿用 inline parts；继续在同一次解码中提取文本与媒体。`quota_summary.go` 提供有界分组额度读取，application 决定时限与缓存。
+
+Schema cleaner 在最终类型选择后移除非 array 的 `items`；保留既有 tuple 到 schema 对象的转换与普通同名属性。

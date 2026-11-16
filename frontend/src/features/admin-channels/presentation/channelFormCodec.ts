@@ -171,16 +171,12 @@ export function buildChannelAPIFields(
       : {}
   let webSearchTouched = false
   const codexImageGenerationBridge: Record<string, boolean> = {}
-  const bedrockCCCompat: Record<string, boolean> = {}
   for (const section of sections) {
     if (WEB_SEARCH_EMULATION_PLATFORMS.has(section.platform)) {
       webSearchEmulation[section.platform] = section.enabled ? !!section.web_search_emulation : false
       webSearchTouched = true
     }
     if (!section.enabled) continue
-    if (section.enabled && section.platform === 'anthropic') {
-      bedrockCCCompat[section.platform] = !!section.bedrock_cc_compat
-    }
     if (section.platform === 'openai') {
       codexImageGenerationBridge[section.platform] = !!section.codex_image_generation_bridge
     }
@@ -194,11 +190,9 @@ export function buildChannelAPIFields(
   } else {
     delete featuresConfig.codex_image_generation_bridge
   }
-  if (Object.keys(bedrockCCCompat).length > 0) {
-    featuresConfig.bedrock_cc_compat = bedrockCCCompat
-  } else {
-    delete featuresConfig.bedrock_cc_compat
-  }
+  featuresConfig.bedrock_cc_compat = sections.some(
+    section => section.enabled && section.platform === 'anthropic' && section.bedrock_cc_compat
+  )
 
   return {
     group_ids: Array.from(new Set(groupIds)),

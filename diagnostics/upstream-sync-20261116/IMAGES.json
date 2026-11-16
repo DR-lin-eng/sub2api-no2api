@@ -1,0 +1,18 @@
+[
+  {
+    "id": "sha256:b1827547d446d99cfbb6d449f41111fff0e488bc6f6bb1233eb93d1053e538d7",
+    "tags": [
+      "sub2api:sync-baseline-20261116"
+    ],
+    "architecture": "arm64",
+    "os": "linux"
+  },
+  {
+    "id": "sha256:c24eaef3a1112985db7e7aa0dde7e4dae61b038b3205617586911696e535383e",
+    "tags": [
+      "sub2api:sync-candidate-20261116"
+    ],
+    "architecture": "arm64",
+    "os": "linux"
+  }
+]

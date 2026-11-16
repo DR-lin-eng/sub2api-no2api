@@ -103,3 +103,14 @@ func groupForcesOpenAIImageTool(c *gin.Context, apiKey *service.APIKey) bool {
 	}
 	return service.GroupForcesOpenAIImageToolForPlatform(apiKey.Group, effectiveAPIKeyPlatform(c, apiKey))
 }
+
+// Compatibility routes carry OpenAI effort fields before conversion to Anthropic.
+func applyAnthropicCompatEffortPolicyForRequest(c *gin.Context, apiKey *service.APIKey, body []byte) ([]byte, bool) {
+	if apiKey == nil || apiKey.Group == nil {
+		return body, false
+	}
+	if effectiveAPIKeyPlatform(c, apiKey) != service.PlatformAnthropic {
+		return applyOpenAIReasoningEffortPolicyForRequest(c, apiKey, body)
+	}
+	return service.ApplyOpenAIReasoningEffortPolicy(body, apiKey.Group.MaxReasoningEffort, apiKey.Group.ReasoningEffortMappings)
+}

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import { platformTextClass } from '@/core/utils/platformColors'
@@ -17,6 +17,7 @@ import UsageProgressBar from './UsageProgressBar.vue'
 const props = defineProps<{ account: Account }>()
 const { t } = useI18n()
 
+let generation = 0
 const loading = ref(false)
 const error = ref('')
 const quotaResult = ref<CNProviderQuotaProbeResult | null>(null)
@@ -109,30 +110,44 @@ const windowLabel = (window: string) => t(`admin.accounts.cnProvider.window.${wi
 
 const refresh = async () => {
   if (loading.value || !probeAvailable.value) return
+  const requestGeneration = ++generation
+  const accountID = props.account.id
   loading.value = true
   error.value = ''
   try {
     if (quotaVisible.value) {
-      const result = await queryCNProviderQuota(props.account.id)
+      const result = await queryCNProviderQuota(accountID)
+      if (requestGeneration !== generation) return
       if (result.success) quotaResult.value = result
       else error.value = result.error || t('common.error')
     } else {
-      const result = await queryCNProviderBalance(props.account.id)
+      const result = await queryCNProviderBalance(accountID)
+      if (requestGeneration !== generation) return
       if (result.success) balanceResult.value = result
       else error.value = result.error || t('common.error')
     }
   } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : t('common.error')
+    if (requestGeneration === generation) error.value = caught instanceof Error ? caught.message : t('common.error')
   } finally {
-    loading.value = false
+    if (requestGeneration === generation) loading.value = false
   }
 }
 
-watch(() => props.account.id, () => {
+watch([() => props.account.id, () => props.account.platform, mode], () => {
+  generation++
+  loading.value = false
   quotaResult.value = null
   balanceResult.value = null
   error.value = ''
 })
+watch(() => JSON.stringify([snapshotQuota.value, props.account.extra?.[`${props.account.platform}_usage_updated_at`]]), () => {
+  quotaResult.value = null
+})
+watch(() => JSON.stringify([snapshotBalances.value, props.account.extra?.[`${props.account.platform}_balance_updated_at`]]), () => {
+  balanceResult.value = null
+})
+onBeforeUnmount(() => { generation++ })
+
 </script>
 
 <template>

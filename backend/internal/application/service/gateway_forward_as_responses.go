@@ -353,6 +353,7 @@ func (s *GatewayService) handleResponsesBufferedStreamingResponse(
 	startTime time.Time,
 	clientToolMapping apicompat.ResponsesClientToolMapping,
 ) (*ForwardResult, error) {
+	beginUpstreamResponseModelObservation(c)
 	requestID := resp.Header.Get("x-request-id")
 
 	scanner := bufio.NewScanner(resp.Body)
@@ -393,6 +394,8 @@ func (s *GatewayService) handleResponsesBufferedStreamingResponse(
 			)
 			continue
 		}
+
+		observeAnthropicCompatibilityPayload(c, []byte(payload))
 
 		// message_start carries the initial response structure
 		if event.Type == "message_start" && event.Message != nil {
@@ -498,6 +501,9 @@ func (s *GatewayService) handleResponsesBufferedStreamingResponse(
 	}
 
 	return &ForwardResult{
+		UpstreamResponseModel:         observedUpstreamResponseModel(c),
+		UpstreamResponseModelConflict: observedUpstreamResponseModelConflict(c),
+
 		RequestID:       requestID,
 		Usage:           usage,
 		Model:           originalModel,
@@ -519,6 +525,7 @@ func (s *GatewayService) handleResponsesStreamingResponse(
 	startTime time.Time,
 	clientToolMapping apicompat.ResponsesClientToolMapping,
 ) (*ForwardResult, error) {
+	beginUpstreamResponseModelObservation(c)
 	requestID := resp.Header.Get("x-request-id")
 
 	if s.responseHeaderFilter != nil {
@@ -547,6 +554,9 @@ func (s *GatewayService) handleResponsesStreamingResponse(
 
 	resultWithUsage := func() *ForwardResult {
 		return &ForwardResult{
+			UpstreamResponseModel:         observedUpstreamResponseModel(c),
+			UpstreamResponseModelConflict: observedUpstreamResponseModelConflict(c),
+
 			RequestID:        requestID,
 			Usage:            usage,
 			Model:            originalModel,
@@ -693,6 +703,7 @@ func (s *GatewayService) handleResponsesStreamingResponse(
 			continue
 		}
 
+		observeAnthropicCompatibilityPayload(c, []byte(payload))
 		stream.observe(&event, payload)
 		if stream.upstreamErrType != "" {
 			break

@@ -376,6 +376,9 @@ func cleanJSONSchemaRecursive(value any) any {
 		}
 	}
 
+	if schemaMap["type"] != "array" {
+		delete(schemaMap, "items")
+	}
 	return schemaMap
 }
 

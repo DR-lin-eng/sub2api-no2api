@@ -74,6 +74,9 @@ func (s *GatewayService) ForwardAsChatCompletions(
 	if err != nil {
 		return nil, fmt.Errorf("marshal anthropic request: %w", err)
 	}
+	if !account.IsOAuth() {
+		anthropicBody = withChatCompletionsMetadataUserID(body, anthropicBody)
+	}
 
 	if err := validateClaude55Request(anthropicBody, mappedModel); err != nil {
 		writeChatCompletionsError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
@@ -241,6 +244,7 @@ func (s *GatewayService) handleCCBufferedFromAnthropic(
 	reasoningEffort *string,
 	startTime time.Time,
 ) (*ForwardResult, error) {
+	beginUpstreamResponseModelObservation(c)
 	requestID := resp.Header.Get("x-request-id")
 
 	scanner := bufio.NewScanner(resp.Body)
@@ -275,6 +279,7 @@ func (s *GatewayService) handleCCBufferedFromAnthropic(
 		if err := json.Unmarshal([]byte(payload), &event); err != nil {
 			continue
 		}
+		observeAnthropicCompatibilityPayload(c, []byte(payload))
 
 		// message_start carries the initial response structure and cache usage
 		if event.Type == "message_start" && event.Message != nil {
@@ -376,6 +381,9 @@ func (s *GatewayService) handleCCBufferedFromAnthropic(
 	}
 
 	return &ForwardResult{
+		UpstreamResponseModel:         observedUpstreamResponseModel(c),
+		UpstreamResponseModelConflict: observedUpstreamResponseModelConflict(c),
+
 		RequestID:       requestID,
 		Usage:           usage,
 		Model:           originalModel,
@@ -397,6 +405,7 @@ func (s *GatewayService) handleCCStreamingFromAnthropic(
 	startTime time.Time,
 	includeUsage bool,
 ) (*ForwardResult, error) {
+	beginUpstreamResponseModelObservation(c)
 	requestID := resp.Header.Get("x-request-id")
 
 	if s.responseHeaderFilter != nil {
@@ -426,6 +435,9 @@ func (s *GatewayService) handleCCStreamingFromAnthropic(
 
 	resultWithUsage := func() *ForwardResult {
 		return &ForwardResult{
+			UpstreamResponseModel:         observedUpstreamResponseModel(c),
+			UpstreamResponseModelConflict: observedUpstreamResponseModelConflict(c),
+
 			RequestID:        requestID,
 			Usage:            usage,
 			Model:            originalModel,
@@ -445,7 +457,7 @@ func (s *GatewayService) handleCCStreamingFromAnthropic(
 		}
 		// Reverse tool name mapping: fake → real, per-chunk bytes.Replace.
 		// c 可能持有请求侧注入的 ToolNameRewrite；无则仅做静态前缀还原。
-		out := string(reverseToolNamesIfPresent(c, []byte(sse)))
+		out := reverseToolNamesIfPresentString(c, sse)
 		if _, err := fmt.Fprint(c.Writer, out); err != nil {
 			return true // client disconnected
 		}
@@ -523,6 +535,7 @@ func (s *GatewayService) handleCCStreamingFromAnthropic(
 			continue
 		}
 
+		observeAnthropicCompatibilityPayload(c, []byte(payload))
 		stream.observe(&event, payload)
 		if stream.upstreamErrType != "" {
 			break

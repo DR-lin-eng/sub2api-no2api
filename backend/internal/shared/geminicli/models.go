@@ -11,6 +11,7 @@ type Model struct {
 
 // DefaultModels is the curated Gemini model list used by the admin UI "test account" flow.
 var DefaultModels = []Model{
+	{ID: "gemini-4-hydrogen", Type: "model", DisplayName: "Gemini 4 Hydrogen"},
 	{ID: "gemini-4-argon", Type: "model", DisplayName: "Gemini 4 Argon"},
 	{ID: "gemini-2.0-flash", Type: "model", DisplayName: "Gemini 2.0 Flash", CreatedAt: ""},
 	{ID: "gemini-2.5-flash", Type: "model", DisplayName: "Gemini 2.5 Flash", CreatedAt: ""},

@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "diagnostics/upstream-sync-20261116/runtime/check.py"
+  ],
+  "exit_code": 1,
+  "elapsed_seconds": 21.953,
+  "utc": "2026-11-16T11:24:27.528229+00:00",
+  "output_sha256": "eeb9e9e8fdeb7dd1196dff86f882d779fea5e30965c11450866add44da1deb2e"
+}

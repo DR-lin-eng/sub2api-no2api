@@ -1026,18 +1026,35 @@ func normalizeOpenAIPassthroughOAuthBody(body []byte, compact bool) ([]byte, boo
 
 	// Remove only the provider-internal field on input items. User content and
 	// same-named top-level fields remain byte-exact.
-	input := gjson.GetBytes(normalized, "input")
+	input := parseRawJSONView(normalized).Get("input")
+	hasMetadata := false
 	if input.IsArray() {
-		for i, item := range input.Array() {
-			if !item.IsObject() || !item.Get("internal_chat_message_metadata_passthrough").Exists() {
-				continue
+		input.ForEach(func(_, item gjson.Result) bool {
+			hasMetadata = item.IsObject() && item.Get("internal_chat_message_metadata_passthrough").Exists()
+			return !hasMetadata
+		})
+	}
+	if hasMetadata {
+		const field = "internal_chat_message_metadata_passthrough"
+		var items []string
+		var cleanErr error
+		input.ForEach(func(_, item gjson.Result) bool {
+			raw := item.Raw
+			if item.IsObject() && item.Get(field).Exists() {
+				raw, cleanErr = sjson.Delete(raw, field)
+				if cleanErr != nil {
+					return false
+				}
+				changed = true
 			}
-			next, err := sjson.DeleteBytes(normalized, fmt.Sprintf("input.%d.internal_chat_message_metadata_passthrough", i))
-			if err != nil {
-				return body, false, fmt.Errorf("normalize oauth input metadata: %w", err)
-			}
-			normalized = next
-			changed = true
+			items = append(items, raw)
+			return true
+		})
+		if cleanErr != nil {
+			return body, false, fmt.Errorf("normalize oauth input metadata: %w", cleanErr)
+		}
+		if changed {
+			normalized = replaceOpenAIRawInput(normalized, input, items)
 		}
 	}
 

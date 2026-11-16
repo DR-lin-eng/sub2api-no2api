@@ -1,0 +1,33 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=1",
+    "--memory=2g",
+    "-v",
+    "/private/tmp/sub2api-sync-20261116-baseline/backend:/src:ro",
+    "-v",
+    "/private/tmp/sub2api-modcache:/go/pkg/mod",
+    "-v",
+    "/private/tmp/sub2api-gocache:/root/.cache/go-build",
+    "-e",
+    "CI=true",
+    "-e",
+    "CGO_ENABLED=0",
+    "-e",
+    "GOMAXPROCS=1",
+    "-e",
+    "GOFLAGS=-p=1",
+    "-e",
+    "GOTOOLCHAIN=local",
+    "golang:1.26.11-alpine",
+    "sh",
+    "-c",
+    "mkdir /work && cp -a /src /work/backend && cd /work/backend && go test -tags=integration ./internal/transport/http/server/routes -run=^TestCredentialKeyRouteUsesBoundedLocalLimiterWithoutRedisCounter$ -count=3"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 137.8,
+  "utc": "2026-11-16T10:46:53.151140+00:00",
+  "output_sha256": "76e46a366d7ce4bf8e37fc66021fae423b25274316ea91146a9b2ab7e4700dd0"
+}

@@ -100,6 +100,13 @@ TokenVersion 和会话绑定，再通过 `RefreshTokenCache.ConsumeRefreshToken`
 Redis repository 用 Lua 将 GET 与 DEL 合为一次操作；只有一个并发调用可签发后继令牌，消费失败则拒绝签发。
 原 key、JSON、TTL、家族与绑定格式继续兼容；混合版本部署边界见 [同步与升级说明](UPSTREAM_SYNC_20261112.md)。
 
+2026-11-16 兼容同步中，Gemini Chat 结构化输出在转换后进入 `gemini_compat_response_format.go`；
+原生 Gemini 无显式 CLI 会话时由 `gemini_content_session.go` 按租户与稳定前缀派生粘性 hash。
+冷却账号保留在配置成员快照，`scheduler_snapshot_membership.go` 每次读取复查临时状态。
+原生 Anthropic 与 Chat fallback 的实际响应模型继续独立观测；`actual_cost` 始终表示用户实扣，
+管理员的 `account_cost` 独立返回，用户 HTTP owner 清除该内部字段。
+完整能力与混合版本边界见 [上游同步审查](UPSTREAM_SYNC_20261116.md)。
+
 ## OAuth2 对外授权
 
 第三方应用从 `/oauth/authorize` 发起 Authorization Code + PKCE S256 请求。前端要求用户先登录，再通过 `/api/v1/oauth2/authorize` 读取服务端校验后的客户端与 scope 预览；用户允许后，后端将 authorization code 摘要及用户、客户端、精确回调、scope、PKCE challenge 和 TokenVersion 保存到 Redis。`/oauth/token` 原子消费 code，复查客户端、回调、PKCE 和用户状态后签发不透明 access token。`/oauth/userinfo` 每次调用都重查全局开关、客户端启用状态、当前 scope 和用户 TokenVersion，因此管理员收回授权后无需等待 token TTL。完整协议和管理端入口见 [OAuth2 对外授权服务](OAUTH2_PROVIDER.md)。

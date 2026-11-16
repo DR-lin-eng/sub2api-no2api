@@ -851,7 +851,7 @@ func (s *OpenAIGatewayService) writeAnthropicBufferedFinalResponse(
 		observer = beginUpstreamResponseModelObservation(c)
 	}
 	observer.Observe(finalResponse.Model, true)
-	anthropicResp := apicompat.ResponsesToAnthropic(finalResponse, originalModel)
+	anthropicResp := apicompat.ResponsesToAnthropic(finalResponse, compositeClientModel(c.Request.Context(), originalModel))
 	if !anthropicResponseHasVisibleOutput(anthropicResp) {
 		result := &OpenAIForwardResult{
 			RequestID:                     requestID,
@@ -2230,7 +2230,7 @@ func (s *OpenAIGatewayService) handleAnthropicStreamingResponse(
 	writeStreamHeaders := s.newStreamHeaderWriter(c, resp.Header)
 
 	state := apicompat.NewResponsesEventToAnthropicState()
-	state.Model = originalModel
+	state.Model = compositeClientModel(c.Request.Context(), originalModel)
 	if estimatedInputTokens > 0 {
 		state.InputTokens = estimatedInputTokens
 	}
@@ -2391,6 +2391,7 @@ func (s *OpenAIGatewayService) handleAnthropicStreamingResponse(
 					streamFailoverErr = s.newOpenAIStreamFailoverError(c, account, false, requestID, payloadBytes, message, resp.Header)
 					return true
 				}
+				s.applyCompatStreamTerminalAccountError(c, account, payloadBytes, message, resp.Header, upstreamModel)
 				message = s.recordOpenAIStreamUpstreamError(c, account, false, requestID, "http_error", payloadBytes, message)
 				errStatus, errType, errMsg := http.StatusBadGateway, "api_error", message
 				// 统一走语义状态推断 + body 归一化（与 /v1/responses 路径一致），

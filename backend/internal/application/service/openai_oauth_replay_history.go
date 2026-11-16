@@ -18,7 +18,11 @@ func normalizeOpenAIOAuthReplayHistoryForAccount(body []byte, account *Account, 
 		normalized, err := normalizeOpenAISIWCBody(body, compact, gjson.GetBytes(body, "type").String() == "response.create")
 		return normalized, string(normalized) != string(body), err
 	}
-	normalized, contentChanged, err := stripOpenAIOAuthReasoningContent(body)
+	normalized, idsChanged, err := normalizeCodexAdditionalToolsIDsBody(body)
+	if err != nil {
+		return body, false, err
+	}
+	normalized, contentChanged, err := stripOpenAIOAuthReasoningContent(normalized)
 	if err != nil {
 		return body, false, err
 	}
@@ -26,7 +30,7 @@ func normalizeOpenAIOAuthReplayHistoryForAccount(body []byte, account *Account, 
 	if err != nil {
 		return body, false, err
 	}
-	return normalized, contentChanged || toolsChanged, nil
+	return normalized, idsChanged || contentChanged || toolsChanged, nil
 }
 
 // Reasoning content is response-only on Codex OAuth: a non-empty array is

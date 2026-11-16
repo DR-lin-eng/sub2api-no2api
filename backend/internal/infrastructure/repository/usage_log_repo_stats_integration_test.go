@@ -113,4 +113,16 @@ func TestUsageLog_GetStatsWithFilters_AggregatesAndEndpoints(t *testing.T) {
 	require.NotEmpty(t, stats.Endpoints)
 	require.NotEmpty(t, stats.UpstreamEndpoints)
 	require.NotEmpty(t, stats.EndpointPaths)
+	accountOnly, err := repo.GetStatsWithFilters(ctx, usagestats.UsageLogFilters{AccountID: account.ID, StartTime: &start, EndTime: &end})
+	require.NoError(t, err)
+	require.InDelta(t, 1.2, accountOnly.TotalActualCost, 1e-9)
+	require.Len(t, accountOnly.Endpoints, 1)
+	require.InDelta(t, 1.2, accountOnly.Endpoints[0].ActualCost, 1e-9)
+	require.InDelta(t, 1.5, accountOnly.Endpoints[0].AccountCost, 1e-9)
+	modelStats, err := repo.GetModelStatsWithUsageFiltersBySource(ctx, start, end, usagestats.UsageLogFilters{AccountID: account.ID}, "requested")
+	require.NoError(t, err)
+	require.Len(t, modelStats, 1)
+	require.InDelta(t, 1.2, modelStats[0].ActualCost, 1e-9)
+	require.InDelta(t, 1.5, modelStats[0].AccountCost, 1e-9)
+
 }

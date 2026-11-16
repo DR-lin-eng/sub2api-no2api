@@ -938,6 +938,7 @@ func sanitizeAnthropicBodyForBetaTokens(body []byte, anthropicBetaHeader string)
 // the empty system control message emitted by some clients.
 func stripAnthropicMessageOutputConfigUnlessBeta(body []byte, anthropicBetaHeader string) ([]byte, bool) {
 	if anthropicBetaTokensContains(anthropicBetaHeader, claude.BetaMidConversationOutputConfig) ||
+		anthropicBetaTokensContains(anthropicBetaHeader, claude.BetaPerTurnControl) ||
 		!bytes.Contains(body, []byte("output_config")) {
 		return body, false
 	}

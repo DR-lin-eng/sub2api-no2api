@@ -182,7 +182,7 @@ describe('channel form codec', () => {
       untouched: { enabled: true },
       web_search_emulation: { stale: true, anthropic: true, openai: false },
       codex_image_generation_bridge: { openai: true },
-      bedrock_cc_compat: { anthropic: true },
+      bedrock_cc_compat: true,
     })
     expect(result.features_config).not.toBe(existingFeatures)
   })
@@ -201,6 +201,7 @@ describe('channel form codec', () => {
     expect(result.features_config).toStrictEqual({
       untouched: true,
       web_search_emulation: { anthropic: false },
+      bedrock_cc_compat: false,
     })
   })
 

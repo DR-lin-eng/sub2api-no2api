@@ -1,0 +1,9 @@
+{
+  "test_and_subtest_events": {
+    "pass": 23434,
+    "skip": 28
+  },
+  "passed_packages": 75,
+  "mcp_oauth_interoperability": "PASS",
+  "note": "Counts include nested subtests. Conditional skips are kept in the raw log."
+}
