@@ -49,3 +49,7 @@ API Key 列表排序由 `api_key_repo_sort.go` 定义，在 SQL 分页前按第�
 
 `user_repo_email_blacklist.go` 为管理端执行单次有界邮箱探针查询；application 按当前邮箱身份规则复核。
 批量禁用在同一事务更新普通用户状态并撤销 MCP 授权，再由 application 触发既有鉴权缓存失效。
+
+分组倍率/RPM 全量同步的清除、删除和 upsert 在 `user_group_rate_repo.go` 同一事务内执行；
+重复用户最后一项优先。用量分布的 `actual_cost` 与 `account_cost` 分别代表用户实扣和账号成本，
+不会因 account 筛选改写含义。混合版本边界见 [2026-11-16 同步](../../../../docs/UPSTREAM_SYNC_20261116.md)。

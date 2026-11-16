@@ -1,0 +1,6 @@
+{
+  "reviewed_upstream": "8ed701382cbc4eadecc0de0684698ad85cf7cce0",
+  "baseline_main": "d8d23aa16663e2262f51e9543062b90812c33c3c",
+  "state": "local-validation",
+  "remote_evidence_note": "Exact PR/main workflow and registry results are collected after publication in the task output artifact; this file does not claim a remote pass."
+}

@@ -1,0 +1,272 @@
+{
+  "baseline": {
+    "BenchmarkUpstreamSyncMetadata/100": {
+      "samples": [
+        {
+          "ns_per_op": 660715.0,
+          "bytes_per_op": 1426074,
+          "allocs_per_op": 745
+        },
+        {
+          "ns_per_op": 676012.0,
+          "bytes_per_op": 1426074,
+          "allocs_per_op": 745
+        },
+        {
+          "ns_per_op": 656372.0,
+          "bytes_per_op": 1426074,
+          "allocs_per_op": 745
+        }
+      ],
+      "median_ns_per_op": 660715.0,
+      "median_bytes_per_op": 1426074,
+      "median_allocs_per_op": 745
+    },
+    "BenchmarkUpstreamSyncMetadata/1000": {
+      "samples": [
+        {
+          "ns_per_op": 52293028.0,
+          "bytes_per_op": 126718038,
+          "allocs_per_op": 7862
+        },
+        {
+          "ns_per_op": 53542944.0,
+          "bytes_per_op": 126718049,
+          "allocs_per_op": 7862
+        },
+        {
+          "ns_per_op": 52626104.0,
+          "bytes_per_op": 126718016,
+          "allocs_per_op": 7862
+        }
+      ],
+      "median_ns_per_op": 52626104.0,
+      "median_bytes_per_op": 126718038,
+      "median_allocs_per_op": 7862
+    },
+    "BenchmarkUpstreamSyncCacheControlNoop": {
+      "samples": [
+        {
+          "ns_per_op": 2286074.0,
+          "bytes_per_op": 0,
+          "allocs_per_op": 0
+        },
+        {
+          "ns_per_op": 2285911.0,
+          "bytes_per_op": 0,
+          "allocs_per_op": 0
+        },
+        {
+          "ns_per_op": 2299234.0,
+          "bytes_per_op": 0,
+          "allocs_per_op": 0
+        }
+      ],
+      "median_ns_per_op": 2286074.0,
+      "median_bytes_per_op": 0,
+      "median_allocs_per_op": 0
+    },
+    "BenchmarkUpstreamSyncAnthropicStream": {
+      "samples": [
+        {
+          "ns_per_op": 1385404.0,
+          "bytes_per_op": 1225790,
+          "allocs_per_op": 18669
+        },
+        {
+          "ns_per_op": 1380692.0,
+          "bytes_per_op": 1225790,
+          "allocs_per_op": 18669
+        },
+        {
+          "ns_per_op": 1388385.0,
+          "bytes_per_op": 1225791,
+          "allocs_per_op": 18669
+        }
+      ],
+      "median_ns_per_op": 1385404.0,
+      "median_bytes_per_op": 1225790,
+      "median_allocs_per_op": 18669
+    }
+  },
+  "candidate": {
+    "BenchmarkUpstreamSyncMetadata/100": {
+      "samples": [
+        {
+          "ns_per_op": 69207.0,
+          "bytes_per_op": 46912,
+          "allocs_per_op": 312
+        },
+        {
+          "ns_per_op": 69279.0,
+          "bytes_per_op": 46912,
+          "allocs_per_op": 312
+        },
+        {
+          "ns_per_op": 68637.0,
+          "bytes_per_op": 46912,
+          "allocs_per_op": 312
+        }
+      ],
+      "median_ns_per_op": 69207.0,
+      "median_bytes_per_op": 46912,
+      "median_allocs_per_op": 312
+    },
+    "BenchmarkUpstreamSyncMetadata/1000": {
+      "samples": [
+        {
+          "ns_per_op": 655183.0,
+          "bytes_per_op": 455424,
+          "allocs_per_op": 3015
+        },
+        {
+          "ns_per_op": 656844.0,
+          "bytes_per_op": 455424,
+          "allocs_per_op": 3015
+        },
+        {
+          "ns_per_op": 668910.0,
+          "bytes_per_op": 455424,
+          "allocs_per_op": 3015
+        }
+      ],
+      "median_ns_per_op": 656844.0,
+      "median_bytes_per_op": 455424,
+      "median_allocs_per_op": 3015
+    },
+    "BenchmarkUpstreamSyncCacheControlNoop": {
+      "samples": [
+        {
+          "ns_per_op": 282650.0,
+          "bytes_per_op": 0,
+          "allocs_per_op": 0
+        },
+        {
+          "ns_per_op": 284059.0,
+          "bytes_per_op": 0,
+          "allocs_per_op": 0
+        },
+        {
+          "ns_per_op": 282413.0,
+          "bytes_per_op": 0,
+          "allocs_per_op": 0
+        }
+      ],
+      "median_ns_per_op": 282650.0,
+      "median_bytes_per_op": 0,
+      "median_allocs_per_op": 0
+    },
+    "BenchmarkUpstreamSyncAnthropicStream": {
+      "samples": [
+        {
+          "ns_per_op": 543945.0,
+          "bytes_per_op": 351872,
+          "allocs_per_op": 3136
+        },
+        {
+          "ns_per_op": 610382.0,
+          "bytes_per_op": 351860,
+          "allocs_per_op": 3136
+        },
+        {
+          "ns_per_op": 554162.0,
+          "bytes_per_op": 351855,
+          "allocs_per_op": 3136
+        }
+      ],
+      "median_ns_per_op": 554162.0,
+      "median_bytes_per_op": 351860,
+      "median_allocs_per_op": 3136
+    }
+  },
+  "rollback": {
+    "BenchmarkUpstreamSyncMetadata/100": {
+      "samples": [
+        {
+          "ns_per_op": 702566.0,
+          "bytes_per_op": 1426074,
+          "allocs_per_op": 745
+        },
+        {
+          "ns_per_op": 712193.0,
+          "bytes_per_op": 1426074,
+          "allocs_per_op": 745
+        },
+        {
+          "ns_per_op": 690328.0,
+          "bytes_per_op": 1426074,
+          "allocs_per_op": 745
+        }
+      ],
+      "median_ns_per_op": 702566.0,
+      "median_bytes_per_op": 1426074,
+      "median_allocs_per_op": 745
+    },
+    "BenchmarkUpstreamSyncMetadata/1000": {
+      "samples": [
+        {
+          "ns_per_op": 54140500.0,
+          "bytes_per_op": 126718021,
+          "allocs_per_op": 7862
+        },
+        {
+          "ns_per_op": 53365868.0,
+          "bytes_per_op": 126718024,
+          "allocs_per_op": 7862
+        },
+        {
+          "ns_per_op": 53467028.0,
+          "bytes_per_op": 126718049,
+          "allocs_per_op": 7862
+        }
+      ],
+      "median_ns_per_op": 53467028.0,
+      "median_bytes_per_op": 126718024,
+      "median_allocs_per_op": 7862
+    },
+    "BenchmarkUpstreamSyncCacheControlNoop": {
+      "samples": [
+        {
+          "ns_per_op": 2392686.0,
+          "bytes_per_op": 0,
+          "allocs_per_op": 0
+        },
+        {
+          "ns_per_op": 2391456.0,
+          "bytes_per_op": 0,
+          "allocs_per_op": 0
+        },
+        {
+          "ns_per_op": 2413514.0,
+          "bytes_per_op": 0,
+          "allocs_per_op": 0
+        }
+      ],
+      "median_ns_per_op": 2392686.0,
+      "median_bytes_per_op": 0,
+      "median_allocs_per_op": 0
+    },
+    "BenchmarkUpstreamSyncAnthropicStream": {
+      "samples": [
+        {
+          "ns_per_op": 1477388.0,
+          "bytes_per_op": 1225794,
+          "allocs_per_op": 18669
+        },
+        {
+          "ns_per_op": 1464934.0,
+          "bytes_per_op": 1225793,
+          "allocs_per_op": 18669
+        },
+        {
+          "ns_per_op": 1466945.0,
+          "bytes_per_op": 1225793,
+          "allocs_per_op": 18669
+        }
+      ],
+      "median_ns_per_op": 1466945.0,
+      "median_bytes_per_op": 1225793,
+      "median_allocs_per_op": 18669
+    }
+  }
+}

@@ -1,0 +1,753 @@
+{
+  "baseline": "d8d23aa16663e2262f51e9543062b90812c33c3c",
+  "upstream_base": "530c5e3a4f9c73ca2b0881191d0ef8e0d82c5484",
+  "upstream_head": "d70676756fd3a35b854d41aa46c07935bbef283f",
+  "inherited_ledger": "diagnostics/upstream-deferred-20261115/UPSTREAM_PRS.json",
+  "entries": [
+    {
+      "pr": 8767,
+      "merge_sha": "e3151c5201c2456a5cac09a3582de0fc1d7913a0",
+      "title": "chore(ci): bump Go toolchain to 1.27.4 for GO-2026-6859",
+      "diff_sha256": "9bed881da22e62fdf4d1455e0eb0546f29875d8fc74866b9b8f03752349e1ce5",
+      "files": [
+        ".github/workflows/backend-ci.yml",
+        ".github/workflows/release.yml",
+        ".github/workflows/security-scan.yml",
+        "DEV_GUIDE.md",
+        "Dockerfile",
+        "backend/Dockerfile",
+        "backend/go.mod",
+        "deploy/Dockerfile"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8644,
+      "merge_sha": "a81a345a17575cddc08af9efafcd92bb9fa16fa1",
+      "title": "fix(usage): read Fable weekly quotas from scoped limits",
+      "diff_sha256": "baad87c82ffa20c8829fcfabb36ae9533792f98691a39e1406f047e5de07a986",
+      "files": [
+        "backend/internal/repository/claude_usage_service_test.go",
+        "backend/internal/service/account_usage_service.go",
+        "backend/internal/service/account_usage_service_fable_test.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8649,
+      "merge_sha": "d7d45924e8f5dc87de2a7b885932202a6b0ea307",
+      "title": "fix(payment): make Alipay refund request id stable across retries",
+      "diff_sha256": "a4e4caa8b5b6d755922554448d0f37d5864d569cc68899e141c702fca054368b",
+      "files": [
+        "backend/internal/payment/provider/alipay.go",
+        "backend/internal/payment/provider/alipay_test.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8651,
+      "merge_sha": "314de5d0c09e73970a7cb930170f68f660245677",
+      "title": "fix(billing): scope RPM override to the group it belongs to",
+      "diff_sha256": "240098d307293daf6b53dd309fa4ae3139ea431855c59de7ececb902d795d85d",
+      "files": [
+        "backend/internal/service/billing_cache_service.go",
+        "backend/internal/service/rpm_override_group_repro_test.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8653,
+      "merge_sha": "83a1f5dbe82edf8b440d564811875c7460117837",
+      "title": "perf(gateway): skip JSON decode for forwarded Anthropic stream events",
+      "diff_sha256": "dec12f6205ad149f3401a096e111ca2dfbe5ac6a1269ad5dfc2e36f6ad0b615d",
+      "files": [
+        "backend/internal/service/gateway_anthropic_passthrough.go",
+        "backend/internal/service/gateway_forward_as_chat_completions.go",
+        "backend/internal/service/gateway_forward_as_responses.go",
+        "backend/internal/service/gateway_service.go",
+        "backend/internal/service/gateway_streaming_test.go",
+        "backend/internal/service/gateway_tool_rewrite.go",
+        "backend/internal/service/gateway_tool_rewrite_test.go",
+        "backend/internal/service/gateway_upstream_response.go",
+        "backend/internal/service/openai_gateway_chat_completions_anthropic_native.go",
+        "backend/internal/service/openai_gateway_messages_anthropic_native.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8659,
+      "merge_sha": "0c641e5ed7d6894d409915f5284652aa23eb8b72",
+      "title": "fix(billing): make group rate/RPM sync transactional",
+      "diff_sha256": "20141f9529646f67c17f92c7748d140a4c5d369ec0a1205c7eeefe57c9c931bc",
+      "files": [
+        "backend/internal/repository/user_group_rate_repo.go",
+        "backend/internal/repository/user_group_rate_repo_sync_test.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8662,
+      "merge_sha": "980ddd942511262f49f10a51d304c1fa074d7cf7",
+      "title": "fix(gemini): 兼容入口 chat 请求转发 response_format 结构化输出",
+      "diff_sha256": "620f9b2d0b9fef1b5cee27621bc90d0b676e1be81b5dcc49fdd63cee6f1f1d10",
+      "files": [
+        "backend/internal/service/gemini_chat_completions_compat_service.go",
+        "backend/internal/service/gemini_compat_response_format.go",
+        "backend/internal/service/gemini_compat_response_format_test.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8664,
+      "merge_sha": "a6e02a37aafa07a2d149aa563120890a41ce255a",
+      "title": "fix(openai): keep Codex forks on their parent's prompt cache key",
+      "diff_sha256": "0ea0687aeca54e33d2af9335d55c164515a7889dbf607d83b5e67616b0436c2e",
+      "files": [
+        "backend/internal/service/openai_codex_account_identity.go",
+        "backend/internal/service/openai_codex_account_identity_test.go",
+        "backend/internal/service/openai_codex_turn_metadata_test.go",
+        "backend/internal/service/openai_gateway_chat_completions.go",
+        "backend/internal/service/openai_gateway_forward.go",
+        "backend/internal/service/openai_gateway_messages.go",
+        "backend/internal/service/openai_gateway_passthrough.go",
+        "backend/internal/service/openai_ws_forwarder_ingress.go",
+        "backend/internal/service/openai_ws_v2_passthrough_adapter.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8667,
+      "merge_sha": "41c567b38fb0a709f540f4c47477910522364eee",
+      "title": "perf(gateway): trim per-request JSON work on the Anthropic request path",
+      "diff_sha256": "a3c371949d0b7dff00ddb21b3dedbcdb5d72ea3aa059de834475d6e8fdac9129",
+      "files": [
+        "backend/internal/service/gateway_billing_header.go",
+        "backend/internal/service/gateway_claude_oauth_body.go",
+        "backend/internal/service/gateway_count_tokens.go",
+        "backend/internal/service/gateway_request_json_bench_test.go",
+        "backend/internal/service/gateway_request_json_equivalence_test.go",
+        "backend/internal/service/gateway_request_json_legacy_test.go",
+        "backend/internal/service/gateway_service.go",
+        "backend/internal/service/gateway_tool_rewrite.go",
+        "backend/internal/service/gateway_upstream_request.go",
+        "backend/internal/service/gateway_upstream_response.go",
+        "backend/internal/service/gateway_websearch_emulation.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8673,
+      "merge_sha": "8da0388542f01bc5bf7317730d94fe3ce2c0aedf",
+      "title": "fix(antigravity): stream Gemini compat thoughts and anchor pre-content timeout after headers",
+      "diff_sha256": "d75310f1f741969981a318f6c509090b67e4abf240d88e8fd9713c19906eb939",
+      "files": [
+        "backend/internal/service/antigravity_gateway_compat.go",
+        "backend/internal/service/antigravity_gateway_compat_stream.go",
+        "backend/internal/service/antigravity_gateway_compat_test.go",
+        "backend/internal/service/antigravity_gemini_thinking_variant.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8675,
+      "merge_sha": "0ebc8b2fd698739554271956df63119dfd79310f",
+      "title": "fix(bedrock): 按错误语义区分封号、用例缺失、限流与内容过滤，流中断保留 usage",
+      "diff_sha256": "b4d4e12d2c4595b35c220ce4c0736343da757f7cd34758e467280301e7ae6a49",
+      "files": [
+        "backend/internal/handler/gateway_handler.go",
+        "backend/internal/service/gateway_bedrock.go",
+        "backend/internal/service/gateway_upstream_response.go",
+        "backend/internal/service/ratelimit_bedrock.go",
+        "backend/internal/service/ratelimit_bedrock_test.go",
+        "backend/internal/service/ratelimit_service.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8678,
+      "merge_sha": "bd3a878ef49baa32f741041755e7b9b6041ddc1e",
+      "title": "fix: allow disabling concurrency wait pings",
+      "diff_sha256": "4588ab36fd3747db9f7669f289aa358946c0d5838c9f19d80160d5a99e4b4c97",
+      "files": [
+        "backend/internal/config/config.go",
+        "backend/internal/config/config_test.go",
+        "backend/internal/handler/gateway_handler.go",
+        "backend/internal/handler/gateway_helper.go",
+        "backend/internal/handler/gateway_helper_ping_test.go",
+        "backend/internal/handler/openai_gateway_handler.go",
+        "backend/internal/handler/user_msg_queue_helper.go",
+        "deploy/config.example.yaml"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8682,
+      "merge_sha": "89fce5446d0a449c8d0ca1dd650245747bf3cee5",
+      "title": "fix(apicompat): retain encrypted function call content",
+      "diff_sha256": "ac71481c4994d74d87bef4f6514065e3091b460f666cb5095aa57e637556d5dd",
+      "files": [
+        "backend/internal/pkg/apicompat/responses_to_chatcompletions.go",
+        "backend/internal/service/openai_responses_sealed_call_test.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8684,
+      "merge_sha": "910d4d86b2c0d389f3201415123c386c98c6be2c",
+      "title": "fix(auth): 登录回填 email 身份失败时不再 panic",
+      "diff_sha256": "2e1eabfba3b036e8b49892eb931353bc6558e552149f20cb2e941bb6f0bfec20",
+      "files": [
+        "backend/internal/service/auth_service.go",
+        "backend/internal/service/auth_service_identity_sync_test.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8693,
+      "merge_sha": "fde504e343b2897c738c1fea7014cac7fc731371",
+      "title": "fix(usage): 分组日汇总重建与保留期清理不阻塞 usage_logs 写入",
+      "diff_sha256": "30e322643f92b8b9d887381cee23a2cbac2536ea8b5fff971f76a45e903a8567",
+      "files": [
+        "backend/internal/repository/custom_group_usage_rollup_repo.go",
+        "backend/internal/repository/dashboard_aggregation_group_usage_test.go",
+        "backend/internal/repository/dashboard_aggregation_repo.go",
+        "backend/internal/repository/group_usage_rollup_nonblocking_integration_test.go",
+        "backend/internal/repository/group_usage_rollup_trigger_integration_test.go",
+        "backend/internal/repository/integration_harness_test.go",
+        "backend/internal/repository/usage_cleanup_repo.go",
+        "backend/internal/repository/usage_cleanup_repo_test.go",
+        "backend/internal/repository/usage_log_repo_group_summary_test.go",
+        "backend/internal/service/custom_group_usage_rollup.go",
+        "backend/internal/service/dashboard_aggregation_service.go",
+        "backend/internal/service/request_log_retention_test.go",
+        "backend/migrations/251_group_usage_rollup_nonblocking_build.sql",
+        "backend/migrations/group_usage_rollup_migration_test.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8698,
+      "merge_sha": "2df3dbcfbb2973927dfe585bdaaa092e09fee7f7",
+      "title": "fix(usage): advance five-hour window start on active quota sync",
+      "diff_sha256": "aef7f0a4c4e3d302da3b1035b58a03b37f3905930d251a375b86cd28b900135b",
+      "files": [
+        "backend/internal/repository/account_repo.go",
+        "backend/internal/repository/usage_log_repo_integration_test.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8703,
+      "merge_sha": "0b473ad60b442828dfbecde8a9653789b862b492",
+      "title": "fix(apicompat): send mid-conversation system messages to Responses as developer",
+      "diff_sha256": "bb86344386cf13f67296f932f4d26e248fcc6f7b89b8bcc1c4d4280c71434c28",
+      "files": [
+        "backend/internal/pkg/apicompat/anthropic_to_responses.go",
+        "backend/internal/pkg/apicompat/anthropic_translation_fidelity_test.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8723,
+      "merge_sha": "90eb1744d42adeb7c78896ab094627dcd676f7c3",
+      "title": "fix(anthropic): keep weekly usage readings across 5h rollovers",
+      "diff_sha256": "18abc68ef5532c87858a1e875398c37be144833c0746dbda90fd8428b3296c13",
+      "files": [
+        "backend/internal/service/ratelimit_rollover_weekly_usage_test.go",
+        "backend/internal/service/ratelimit_service.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8726,
+      "merge_sha": "51e76a46c181ae93697f3a06702bc74ab4a45931",
+      "title": "fix(gateway): retain sticky writes after client disconnects",
+      "diff_sha256": "16a4ffe3fcd41f6ac589b299e7876f1e86de82718b0aad77357a1a400afc1358",
+      "files": [
+        "backend/internal/handler/gateway_handler.go",
+        "backend/internal/handler/gateway_sticky_writeback_test.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8727,
+      "merge_sha": "32e4283894b45e2a7256acb374d0e4896bc6bd72",
+      "title": "fix(usage): retain native Anthropic response observations",
+      "diff_sha256": "b807a80da851be1195d80e6372521e9e77cf868cae3d3d52034980a425ed9be8",
+      "files": [
+        "backend/internal/service/openai_gateway_messages_anthropic_native.go",
+        "backend/internal/service/openai_gateway_native_anthropic_observation_test.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8728,
+      "merge_sha": "a38ffc30506cdb48a1228082d2e2c86e199f5ddb",
+      "title": "fix(usage): retain response models through Chat fallbacks",
+      "diff_sha256": "9c710050c9415ebfb5218f5ce5ddba9f34546a2eaa088f39e12164e53aff4af7",
+      "files": [
+        "backend/internal/service/openai_gateway_chat_fallback_observation_test.go",
+        "backend/internal/service/openai_gateway_messages_chat_fallback.go",
+        "backend/internal/service/openai_gateway_responses_chat_fallback.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8729,
+      "merge_sha": "c6d9d48f9a3b52d1ce7b48f020d4630162f8e486",
+      "title": "fix(scheduler): recover snapshot accounts after cooldown expiry",
+      "diff_sha256": "33e5fcb0661a61d41341c7208bd7b876ee4462054c52a5e0c96d52e2333ea5d9",
+      "files": [
+        "backend/internal/repository/scheduler_snapshot_membership_integration_test.go",
+        "backend/internal/service/account_service.go",
+        "backend/internal/service/billing_inflight_reservation_test.go",
+        "backend/internal/service/gateway_multiplatform_test.go",
+        "backend/internal/service/scheduler_snapshot_batch_query_test.go",
+        "backend/internal/service/scheduler_snapshot_cancellation_test.go",
+        "backend/internal/service/scheduler_snapshot_full_rebuild_lifecycle_test.go",
+        "backend/internal/service/scheduler_snapshot_group_lifecycle_test.go",
+        "backend/internal/service/scheduler_snapshot_outbox_cleanup_test.go",
+        "backend/internal/service/scheduler_snapshot_retirement_test.go",
+        "backend/internal/service/scheduler_snapshot_service.go",
+        "backend/internal/service/scheduler_snapshot_transient_expiry_test.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8735,
+      "merge_sha": "eb25511c7166b3e85e911ebb969bb1c9fffba215",
+      "title": "perf(openai): avoid repeated full-body copies during OAuth metadata cleanup",
+      "diff_sha256": "2b6d51d9a93280d47c2dae2b21b13cbd1e9612e31e8b000c2e684be6535157e6",
+      "files": [
+        "backend/internal/service/openai_gateway_request_body.go",
+        "backend/internal/service/openai_oauth_input_metadata_test.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8736,
+      "merge_sha": "472ea5752598d7e4581ba195aaa72989c165640b",
+      "title": "fix(accounts): reject wildcard model whitelist entries",
+      "diff_sha256": "b36becca0b67ab10af30ab137a50cbb641a1fb626948fe35f7c2e6d6fcd99a44",
+      "files": [
+        "frontend/src/components/account/ModelWhitelistSelector.vue",
+        "frontend/src/components/account/__tests__/ModelWhitelistSelector.spec.ts",
+        "frontend/src/i18n/locales/en/admin/accounts.ts",
+        "frontend/src/i18n/locales/zh/admin/accounts.ts"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8737,
+      "merge_sha": "5146728d2f98b73330f5c316807e495f44182a7c",
+      "title": "fix(claude): recover requests after concurrent token rotation",
+      "diff_sha256": "f482190b6de991b37acaccaa9a9c844e31f10a0bc52862de57f0e1296823ae52",
+      "files": [
+        "backend/internal/service/gateway_forward.go",
+        "backend/internal/service/gateway_forward_as_chat_completions.go",
+        "backend/internal/service/gateway_forward_as_responses.go",
+        "backend/internal/service/gateway_rotated_token_test.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8738,
+      "merge_sha": "d7ae0544e8f243b2956fbee6eaad823fbd35d03a",
+      "title": "fix(cn-quota): refresh usage cells with account snapshots",
+      "diff_sha256": "49cedc57d07484758260ed84a08ac6299094a6c7c8c4615d6efb5f155d6f3296",
+      "files": [
+        "Makefile",
+        "frontend/src/components/account/CNProviderQuotaCell.vue",
+        "frontend/src/components/account/__tests__/CNProviderQuotaCell.spec.ts"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8739,
+      "merge_sha": "c782537eef5cee6d72614d963a815b4704039662",
+      "title": "fix(gateway): enforce effort policies on Anthropic compatibility routes",
+      "diff_sha256": "55a13ef17edd991c8680e603dd6a6d822604287734ede6452de3a0ee2e195bcc",
+      "files": [
+        "backend/internal/handler/gateway_compat_effort_policy_test.go",
+        "backend/internal/handler/gateway_handler_chat_completions.go",
+        "backend/internal/handler/gateway_handler_responses.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8740,
+      "merge_sha": "0563176a5d72c51a96a525322bd13b55faf6c6df",
+      "title": "fix(accounts): keep Gemini usage bars visible during refetch",
+      "diff_sha256": "a441bfebedf2b7d977aabda2bac5d158bf37395a16c37a044df97a235d713dc7",
+      "files": [
+        "frontend/src/components/account/AccountUsageCell.vue"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8741,
+      "merge_sha": "e54a186548a0ca1aac6211a7d8c0ed6f8b939d8f",
+      "title": "fix(gateway): record native Anthropic endpoints on error paths",
+      "diff_sha256": "eb5705e1bf42d920d54e313075030500b525f2ed5a46d6b23d77693f480ac855",
+      "files": [
+        "backend/internal/handler/openai_native_anthropic_endpoint_test.go",
+        "backend/internal/service/openai_gateway_chat_completions_anthropic_native.go",
+        "backend/internal/service/openai_gateway_messages_anthropic_native.go",
+        "backend/internal/service/openai_gateway_responses_anthropic_native.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8742,
+      "merge_sha": "6fd905f30d890c18152c17050cba4232658a6c22",
+      "title": "fix(gateway): preserve message output config with per-turn beta",
+      "diff_sha256": "9e4647a62e5fb9d5b866b42c275efcb7fba0eab71b152944193bcb6588da2797",
+      "files": [
+        "backend/internal/pkg/claude/constants.go",
+        "backend/internal/service/gateway_mid_conversation_output_config_test.go",
+        "backend/internal/service/gateway_request.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8743,
+      "merge_sha": "6247d33eb6009f557df3f7e1f23f3fbc74c9396e",
+      "title": "test(billing): make peak-rate usage tests independent of wall clock",
+      "diff_sha256": "ae4a7c8711651e876fdbe86a0a2bbfe680f41197fd440a771168dfed5d6c2416",
+      "files": [
+        "backend/internal/service/gateway_record_usage_test.go",
+        "backend/internal/service/openai_gateway_record_usage_test.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8745,
+      "merge_sha": "8a585c91414150bc3ce31a18809d1760422c9614",
+      "title": "fix(gateway): record Anthropic response models in compatibility routes",
+      "diff_sha256": "ac347315080bc2367cc60a46fd1bf0fff91df0ceb61d88846c28456944ae8cba",
+      "files": [
+        "backend/internal/service/gateway_anthropic_compat_observation_test.go",
+        "backend/internal/service/gateway_forward_as_chat_completions.go",
+        "backend/internal/service/gateway_forward_as_responses.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8754,
+      "merge_sha": "e16a349ebb102caef1ec3bf5804f0c7058251636",
+      "title": "fix(codex): preserve and normalize additional_tools IDs",
+      "diff_sha256": "7de91f92e8e064f5ac117993f058ff05ed097df340c938db3a146cf807ac7524",
+      "files": [
+        "backend/internal/service/openai_codex_additional_tools_test.go",
+        "backend/internal/service/openai_codex_transform.go",
+        "backend/internal/service/openai_gateway_request_body.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8757,
+      "merge_sha": "3b5310c5d54ff9fcb047e0b0bb59b19691873b0c",
+      "title": "fix(claude): default account tests to claude-sonnet-4-6",
+      "diff_sha256": "4e3fa267883ad670e3c95e09ce27f82ef141d035c57e486d24fb0b5206ab7fed",
+      "files": [
+        "backend/internal/pkg/claude/constants.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8759,
+      "merge_sha": "202740441d6352c2218b1c2abc8479a94539d1a3",
+      "title": "fix(antigravity): match schema items to the selected type",
+      "diff_sha256": "34700a31abbbf83611d0c51d311c263fd7bc3a0c28cf3df8a0878dbf8887d4fc",
+      "files": [
+        "backend/internal/pkg/antigravity/schema_cleaner.go",
+        "backend/internal/service/antigravity_gateway_compat_test.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8761,
+      "merge_sha": "4763569af25273c38476dfcd9f5dbf1965428751",
+      "title": "fix(apicompat): default json_schema strict=false when converting CC to Responses",
+      "diff_sha256": "61e17b52395f4cc12d741a89f00b645eb691ca16b2e14e241e33630e7980a1dc",
+      "files": [
+        "backend/internal/pkg/apicompat/chatcompletions_responses_test.go",
+        "backend/internal/pkg/apicompat/response_format.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8763,
+      "merge_sha": "56848016c5b57573e92cf3d5a0f9dcc2caad663e",
+      "title": "fix(kimi): 解析新套餐月度额度并清理缺席窗口快照",
+      "diff_sha256": "302e0788eda124bb1a3f054fb6e932f5e69a624b9c94d6434ccd52c8968d37b2",
+      "files": [
+        "backend/internal/service/account_scheduling_threshold_eval.go",
+        "backend/internal/service/cn_provider_quota_service.go",
+        "backend/internal/service/cn_providers_test.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8769,
+      "merge_sha": "d31a87a4e2024de151ac517ef7eeb16cb30085c0",
+      "title": "fix(openai): normalize additional Codex context on HTTP Responses",
+      "diff_sha256": "1cba5c1e875a1c28294b38be3f8dee4e0d97a99642e32421e692dfb28d849ad3",
+      "files": [
+        "backend/internal/handler/openai_gateway_handler.go",
+        "backend/internal/handler/openai_page_context.go",
+        "backend/internal/handler/openai_page_context_test.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8775,
+      "merge_sha": "c7df3b693f075945da9ba2d3f03bb12e5a541bb3",
+      "title": "fix(web): stop caching settings-injected HTML",
+      "diff_sha256": "89bcc8e7063f4b865f6255c3f7e53bc52b1bc70d7d5c7ae40bad4be39efc386e",
+      "files": [
+        "backend/internal/web/embed_on.go",
+        "backend/internal/web/embed_test.go",
+        "backend/internal/web/html_cache_headers.go",
+        "backend/internal/web/html_cache_headers_test.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8779,
+      "merge_sha": "4cebc098c32940939dc1e850f23d757cfc742d24",
+      "title": "fix(ratelimit): lift Anthropic Fable model limit when the 7d_oi window recovers",
+      "diff_sha256": "6e61b2a1cc818674667572b878504c37c94ad0fbf994468c6188354d9d6d0535",
+      "files": [
+        "backend/internal/repository/account_repo.go",
+        "backend/internal/server/api_contract_test.go",
+        "backend/internal/service/account_service.go",
+        "backend/internal/service/account_service_delete_test.go",
+        "backend/internal/service/account_usage_service.go",
+        "backend/internal/service/account_usage_service_fable_test.go",
+        "backend/internal/service/account_usage_session_window_test.go",
+        "backend/internal/service/admin_service_clear_error_test.go",
+        "backend/internal/service/gateway_multiplatform_test.go",
+        "backend/internal/service/gemini_multiplatform_test.go",
+        "backend/internal/service/model_rate_limit.go",
+        "backend/internal/service/ratelimit_fable_recovery_test.go",
+        "backend/internal/service/ratelimit_service.go",
+        "backend/internal/service/ratelimit_service_clear_test.go",
+        "backend/internal/service/ratelimit_session_window_test.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8786,
+      "merge_sha": "1d585c94fd793e98d8e531b5eb1634405e323fec",
+      "title": "fix(gateway): keep client metadata.user_id in Chat Completions to Anthropic",
+      "diff_sha256": "fffa3e22b18f77974796eba78bfafbd17658e9c2e68b29bbc2ef87cc4638e3c4",
+      "files": [
+        "backend/internal/service/chat_completions_metadata.go",
+        "backend/internal/service/chat_completions_metadata_test.go",
+        "backend/internal/service/gateway_forward_as_chat_completions.go",
+        "backend/internal/service/openai_gateway_chat_completions_anthropic_native.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8788,
+      "merge_sha": "63751ea4de56e5204f2619d66e202efe441b7269",
+      "title": "fix(gateway): stop duplicating headers on count_tokens passthrough",
+      "diff_sha256": "018771da6f04f879d57cd46a57fee3def3ed139310ce77b1cbbfaad8368a5b8d",
+      "files": [
+        "backend/internal/service/gateway_count_tokens.go",
+        "backend/internal/service/gateway_count_tokens_raw_headers_test.go",
+        "backend/internal/service/gateway_service.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8790,
+      "merge_sha": "97957edd9e8e7db1388fb36d5e8d1143a59fa999",
+      "title": "fix(websearch): honor account mode on every channel-toggle platform",
+      "diff_sha256": "8d90e925ed1ff13a0249a3b1d8d180072ae132a5fd7daaa57986b9b04a72e6ee",
+      "files": [
+        "backend/internal/service/account.go",
+        "backend/internal/service/gateway_websearch_emulation_test.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8796,
+      "merge_sha": "470c02b39944414f622615573bc00e0fe88275ca",
+      "title": "fix(gateway): restore public model in composite-routed responses",
+      "diff_sha256": "6723e263015ca132a5ca29f3c85a96c79a758c98c36f8b71eb231b52aa469aad",
+      "files": [
+        "backend/internal/service/composite_platform.go",
+        "backend/internal/service/composite_route_client_model_test.go",
+        "backend/internal/service/gateway_anthropic_passthrough.go",
+        "backend/internal/service/gateway_upstream_response.go",
+        "backend/internal/service/openai_gateway_messages.go",
+        "backend/internal/service/openai_gateway_messages_chat_fallback.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8798,
+      "merge_sha": "857ab95081dad5a47132c5e4219fd6148391bedb",
+      "title": "fix(pricing): check remote hash in background at startup",
+      "diff_sha256": "b0074e5d395e74a170d4eeb74d0dcaa4aa053ed429593d88734389f5c3efc753",
+      "files": [
+        "backend/internal/service/pricing_service.go",
+        "backend/internal/service/pricing_service_startup_test.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8800,
+      "merge_sha": "119b04f945a055607f9f078d54dc31bf3dd8f1b6",
+      "title": "fix(upstream): detect dead upstream connections in about 30s",
+      "diff_sha256": "f6a2866406fb14f70b45592de2c2863bb16e9d988b60216e3798eabb2ead4ddd",
+      "files": [
+        "backend/internal/repository/http_upstream.go",
+        "backend/internal/repository/http_upstream_dial_timeout_test.go",
+        "backend/internal/repository/http_upstream_keepalive.go",
+        "backend/internal/repository/http_upstream_keepalive_linux.go",
+        "backend/internal/repository/http_upstream_keepalive_linux_test.go",
+        "backend/internal/repository/http_upstream_keepalive_other.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8806,
+      "merge_sha": "568db32f22c1e7b315367a2f5219565e0a9b776a",
+      "title": "fix(usage): 按账户筛选时模型与端点分布的实际扣费不再替换为账号成本",
+      "diff_sha256": "317b6bacada7363dd4d0804fe0c2fe83a2987e5128d2c8e4f09edbdd19225fc9",
+      "files": [
+        "backend/internal/handler/usage_handler.go",
+        "backend/internal/pkg/usagestats/usage_log_types.go",
+        "backend/internal/repository/usage_log_repo_integration_test.go",
+        "backend/internal/repository/usage_log_repo_request_type_test.go",
+        "backend/internal/repository/usage_log_repo_stats.go",
+        "backend/internal/repository/usage_log_repo_trend.go",
+        "backend/internal/service/gemini_quota.go",
+        "backend/internal/service/gemini_quota_test.go",
+        "frontend/src/components/charts/EndpointDistributionChart.vue",
+        "frontend/src/types/index.ts",
+        "frontend/src/views/user/UsageView.vue"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8808,
+      "merge_sha": "9750f8e039a74bdb76cead0d1b23624db3f49ddb",
+      "title": "fix(openai): fall back to memory when first-output spool creation fails",
+      "diff_sha256": "38a56a5aa9509e44b3c52e845988b4c55ac5053702af23e8e115e5e243543822",
+      "files": [
+        "backend/internal/service/openai_first_output_timeout.go",
+        "backend/internal/service/openai_first_output_timeout_test.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8811,
+      "merge_sha": "1ca302abf36dd32963c9b15845be21b60720f38d",
+      "title": "fix(openai): fail over Messages bridge errors before first content",
+      "diff_sha256": "7d3f3c4f3c52c8bd6edc8eabaef93a1a00ceaa225d8f71f8c4e146cbf381589f",
+      "files": [
+        "backend/internal/handler/openai_gateway_handler.go",
+        "backend/internal/handler/openai_gateway_messages_pre_content_failover_test.go",
+        "backend/internal/service/gateway_service.go",
+        "backend/internal/service/openai_compat_model_test.go",
+        "backend/internal/service/openai_gateway_messages.go",
+        "backend/internal/service/openai_gateway_messages_pre_content_test.go",
+        "backend/internal/service/openai_gateway_passthrough.go",
+        "backend/internal/service/opencode_go.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8813,
+      "merge_sha": "101c2462ddb748e3ceb5e5a2e999fce9cf92467c",
+      "title": "fix(openai): forward upstream keepalive events before first output",
+      "diff_sha256": "6ead2b3f67a32a540aa609a450c821c72d07e8607be4a9a63c469fac985876cb",
+      "files": [
+        "backend/internal/service/openai_capacity_shed_test.go",
+        "backend/internal/service/openai_gateway_response_handling.go",
+        "backend/internal/service/openai_gateway_stream_keepalive_forward_test.go",
+        "backend/internal/service/openai_visible_ttft_test.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8814,
+      "merge_sha": "992ac633082d33e8dd0ed519014c98018ed7258e",
+      "title": "fix(openai): apply account side effects to stream errors after output on compat paths",
+      "diff_sha256": "108b21ef88fd440bf8e79761e0a0dc521d8886f23a98bcd349d3928853251ee5",
+      "files": [
+        "backend/internal/service/openai_gateway_chat_completions.go",
+        "backend/internal/service/openai_gateway_compat_stream_account_side_effects_test.go",
+        "backend/internal/service/openai_gateway_messages.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8825,
+      "merge_sha": "f2eaed31c365da3b986eca4b28ed8c8ca53b530b",
+      "title": "fix(pricing): honor explicit DeepSeek token price overrides",
+      "diff_sha256": "cb2a85b6b5035c6b4287b3caf413a09185aa70a24897810948af16849c50bada",
+      "files": [
+        "backend/internal/service/billing_service.go",
+        "backend/internal/service/deepseek_pricing_test.go",
+        "backend/internal/service/pricing_service.go",
+        "deploy/config.example.yaml"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8826,
+      "merge_sha": "4f3f9163172b27f29988811e82cea16024d5aaeb",
+      "title": "fix(antigravity): keepalive 后空流释放会话粘性账号 / Release the sticky account after a committed empty compat stream",
+      "diff_sha256": "8bcee8119f49185b4edc66c2907786181b6c1806359806de66724a43d8b2e20e",
+      "files": [
+        "backend/internal/handler/gateway_handler_chat_completions.go",
+        "backend/internal/handler/gateway_handler_responses.go",
+        "backend/internal/service/antigravity_compat_committed_no_content.go",
+        "backend/internal/service/antigravity_compat_committed_no_content_test.go",
+        "backend/internal/service/antigravity_gateway_compat_stream.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8828,
+      "merge_sha": "46b879265896850f0ee3cb4971c5bdf3dde7df2f",
+      "title": "fix(gemini): separate same-name parallel tool calls in streams",
+      "diff_sha256": "59b835d32f2e885845fc93f278755cbf2b9eb229f8f8bd4f507b3f7e9774a58d",
+      "files": [
+        "backend/internal/service/gemini_chat_completions_compat_service.go",
+        "backend/internal/service/gemini_messages_compat_service.go",
+        "backend/internal/service/gemini_parallel_tools_test.go",
+        "backend/internal/service/gemini_tool_call_boundary.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8837,
+      "merge_sha": "6b7cbc63bed7defa0a5b83c21f5a315a1ab02beb",
+      "title": "fix(scheduler): keep openai_capabilities in the scheduler metadata projection so Seedance accounts stay schedulable",
+      "diff_sha256": "4f993f547097ec81af3146e4e495dcd3d5a0faebe2922ffaec3d945251bb30d4",
+      "files": [
+        "backend/internal/repository/scheduler_cache.go",
+        "backend/internal/repository/scheduler_metadata_capabilities_unit_test.go"
+      ],
+      "inherited": null
+    },
+    {
+      "pr": 8840,
+      "merge_sha": "d70676756fd3a35b854d41aa46c07935bbef283f",
+      "title": "fix(channels): persist Bedrock compatibility as a boolean",
+      "diff_sha256": "c41ce148442a6518b967f2b0215dab471ee008492d94aa7f646222d689e98e92",
+      "files": [
+        "frontend/src/views/admin/ChannelsView.vue",
+        "frontend/src/views/admin/__tests__/ChannelsView.bedrockCompat.spec.ts"
+      ],
+      "inherited": null
+    }
+  ]
+}

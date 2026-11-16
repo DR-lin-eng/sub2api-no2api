@@ -1,0 +1,16 @@
+{
+  "command": [
+    "docker",
+    "build",
+    "--progress=plain",
+    "-f",
+    "diagnostics/upstream-sync-20261116/Dockerfile.frontend",
+    "-t",
+    "sub2api-sync-frontend:20261116",
+    "."
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 4.562,
+  "utc": "2026-11-16T10:13:07.641218+00:00",
+  "output_sha256": "045fe5adeef3525aeade30caf8b6b5698f01665946bc66f1b1300aefd2b3a529"
+}

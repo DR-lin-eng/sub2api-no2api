@@ -1,0 +1,104 @@
+{
+  "initial_frozen_head": "d70676756fd3a35b854d41aa46c07935bbef283f",
+  "new_frozen_head": "8ed701382cbc4eadecc0de0684698ad85cf7cce0",
+  "entries": [
+    {
+      "pr": 8746,
+      "merge_sha": "1cf7eb48c46f5f1fbbe75db7fe955a4f8a699448",
+      "title": "feat(gemini): 补齐 Gemini 4 Hydrogen 计费",
+      "diff_sha256": "146a7b2319e989e651bdc30dee71d3f9622f0ca273659e7d53060682f93457ef",
+      "files": [
+        "backend/internal/service/billing_service.go",
+        "backend/internal/service/gemini_cache_storage_pricing_test.go",
+        "backend/internal/service/pricing_service_test.go",
+        "backend/resources/model-pricing/model_prices_and_context_window.json"
+      ]
+    },
+    {
+      "pr": 8827,
+      "merge_sha": "f242a6ea2327e2c849b8765bcfd3bf9e2abc7160",
+      "title": "feat(gemini): Vertex 账号支持 us/eu 多区域端点，并按实际请求区域计价",
+      "diff_sha256": "c9694d350b03836258a2baeca6f105627ae3915c5694d95c11798c526751345c",
+      "files": [
+        "backend/internal/handler/gemini_cached_contents_handler.go",
+        "backend/internal/service/account_stats_pricing.go",
+        "backend/internal/service/account_stats_pricing_test.go",
+        "backend/internal/service/account_test_service.go",
+        "backend/internal/service/batch_image_provider_vertex.go",
+        "backend/internal/service/gateway_service.go",
+        "backend/internal/service/gateway_usage_billing.go",
+        "backend/internal/service/gemini_cached_content.go",
+        "backend/internal/service/gemini_cached_content_test.go",
+        "backend/internal/service/gemini_chat_completions_compat_service.go",
+        "backend/internal/service/gemini_messages_compat_service.go",
+        "backend/internal/service/gemini_models_endpoints.go",
+        "backend/internal/service/gemini_models_endpoints_test.go",
+        "backend/internal/service/gemini_vertex_api_key_forward_test.go",
+        "backend/internal/service/openai_gateway_usage.go",
+        "backend/internal/service/upstream_models.go",
+        "backend/internal/service/vertex_locations.go",
+        "backend/internal/service/vertex_locations_test.go",
+        "backend/internal/service/vertex_service_account.go",
+        "backend/internal/service/vertex_service_account_test.go"
+      ]
+    },
+    {
+      "pr": 8822,
+      "merge_sha": "04503e001e3d5ac3c156b8293accbebc31afeb17",
+      "title": "fix(gemini): 原生请求按稳定前缀生成粘性会话哈希，换号按上游实际用量计费",
+      "diff_sha256": "60afcbbd1b321186c1fe706bd6c1e91a3d088924abffa53aff47d98fd5b30561",
+      "files": [
+        "backend/internal/handler/gemini_v1beta_handler.go",
+        "backend/internal/service/gemini_session.go",
+        "backend/internal/service/gemini_session_test.go"
+      ]
+    },
+    {
+      "pr": 8816,
+      "merge_sha": "b140d5db8cfbfa651a388960a24098fe99ad0a53",
+      "title": "perf: 同一用户的扣费按用户通道合并结算，请求体热点路径改用零拷贝读取",
+      "diff_sha256": "d282cec83c31e295d4f97da7b251ff6ab0180daabe1960e69078592370e70d05",
+      "files": [
+        "backend/cmd/server/wire.go",
+        "backend/cmd/server/wire_gen.go",
+        "backend/cmd/server/wire_gen_test.go",
+        "backend/internal/handler/openai_codex_call_output_gate_test.go",
+        "backend/internal/handler/openai_gateway_handler.go",
+        "backend/internal/repository/account_repo.go",
+        "backend/internal/repository/usage_billing_batch_repo.go",
+        "backend/internal/repository/usage_billing_batch_repo_integration_test.go",
+        "backend/internal/repository/usage_billing_repo.go",
+        "backend/internal/service/bedrock_request.go",
+        "backend/internal/service/bedrock_stream.go",
+        "backend/internal/service/gateway_usage_billing.go",
+        "backend/internal/service/hot_path_zero_copy_test.go",
+        "backend/internal/service/json_escape_probe.go",
+        "backend/internal/service/json_escape_probe_test.go",
+        "backend/internal/service/openai_call_output_probe.go",
+        "backend/internal/service/openai_compact_body_signal.go",
+        "backend/internal/service/openai_gateway_request_body.go",
+        "backend/internal/service/openai_reasoning_effort_policy.go",
+        "backend/internal/service/openai_responses_namespace.go",
+        "backend/internal/service/usage_billing.go",
+        "backend/internal/service/usage_billing_lane.go",
+        "backend/internal/service/usage_billing_lane_test.go",
+        "backend/internal/service/wire.go"
+      ]
+    },
+    {
+      "pr": 8833,
+      "merge_sha": "8ed701382cbc4eadecc0de0684698ad85cf7cce0",
+      "title": "perf(scheduler): 调度快照加载与数据库回源按 bucket 合并，减少大分组选号的整组复制",
+      "diff_sha256": "c1e505adfb8f692e1f0bb799f9e4500ec8db0dfa65a458b30b97b90aece323ef",
+      "files": [
+        "backend/internal/repository/scheduler_cache.go",
+        "backend/internal/repository/scheduler_cache_snapshot_memo_unit_test.go",
+        "backend/internal/service/account.go",
+        "backend/internal/service/gateway_scheduling.go",
+        "backend/internal/service/scheduler_cache.go",
+        "backend/internal/service/scheduler_snapshot_fallback_coalesce_test.go",
+        "backend/internal/service/scheduler_snapshot_service.go"
+      ]
+    }
+  ]
+}

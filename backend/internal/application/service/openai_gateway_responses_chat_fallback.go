@@ -225,6 +225,9 @@ func (s *OpenAIGatewayService) bufferCompatCompactAsResponses(
 	}
 
 	return &OpenAIForwardResult{
+		UpstreamResponseModel:         observedUpstreamResponseModel(c),
+		UpstreamResponseModelConflict: observedUpstreamResponseModelConflict(c),
+
 		RequestID:       requestID,
 		Usage:           usage,
 		Model:           originalModel,
@@ -264,6 +267,9 @@ func (s *OpenAIGatewayService) bufferChatCompletionsAsResponses(
 	c.JSON(http.StatusOK, responsesResp)
 
 	return &OpenAIForwardResult{
+		UpstreamResponseModel:         observedUpstreamResponseModel(c),
+		UpstreamResponseModelConflict: observedUpstreamResponseModelConflict(c),
+
 		RequestID:       requestID,
 		Usage:           usage,
 		Model:           originalModel,
@@ -333,6 +339,9 @@ func (s *OpenAIGatewayService) streamChatCompletionsAsResponses(
 		markOpenAICyberPolicyEvent(c, scan.PolicyPayload, http.StatusOK, &scan.Usage)
 		policyErr, _ := writeOpenAIUpstreamPolicyErrorForEndpoint(c, http.StatusOK, scan.PolicyPayload)
 		return &OpenAIForwardResult{
+			UpstreamResponseModel:         observedUpstreamResponseModel(c),
+			UpstreamResponseModelConflict: observedUpstreamResponseModelConflict(c),
+
 			RequestID: requestID, Usage: scan.Usage, Model: originalModel,
 			BillingModel: billingModel, UpstreamModel: upstreamModel, Stream: true,
 			Duration: time.Since(startTime), FirstTokenMs: scan.FirstTokenMs,
@@ -341,6 +350,9 @@ func (s *OpenAIGatewayService) streamChatCompletionsAsResponses(
 
 	if scan.Err != nil {
 		return &OpenAIForwardResult{
+			UpstreamResponseModel:         observedUpstreamResponseModel(c),
+			UpstreamResponseModelConflict: observedUpstreamResponseModelConflict(c),
+
 			RequestID:       requestID,
 			Usage:           scan.Usage,
 			Model:           originalModel,
@@ -355,6 +367,9 @@ func (s *OpenAIGatewayService) streamChatCompletionsAsResponses(
 	}
 	if err := state.ValidateToolCallArguments(); err != nil {
 		return &OpenAIForwardResult{
+			UpstreamResponseModel:         observedUpstreamResponseModel(c),
+			UpstreamResponseModelConflict: observedUpstreamResponseModelConflict(c),
+
 			RequestID:       requestID,
 			Usage:           scan.Usage,
 			Model:           originalModel,
@@ -383,6 +398,9 @@ func (s *OpenAIGatewayService) streamChatCompletionsAsResponses(
 	}
 
 	return &OpenAIForwardResult{
+		UpstreamResponseModel:         observedUpstreamResponseModel(c),
+		UpstreamResponseModelConflict: observedUpstreamResponseModelConflict(c),
+
 		RequestID:       requestID,
 		Usage:           scan.Usage,
 		Model:           originalModel,

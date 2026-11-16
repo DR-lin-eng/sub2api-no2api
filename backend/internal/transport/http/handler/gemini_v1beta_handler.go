@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
-	"github.com/DR-lin-eng/sub2api-no2api/internal/domain"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/antigravity"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/gemini"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/googleapi"
@@ -394,16 +393,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 	// 优先使用 Gemini CLI 的会话标识（privileged-user-id + tmp 目录哈希）
 	sessionHash := extractGeminiCLISessionHash(c, body)
 	if sessionHash == "" {
-		// Fallback: 使用通用的会话哈希生成逻辑（适用于其他客户端）
-		parsedReq, _ := service.ParseGatewayRequest(service.NewRequestBodyRef(body), domain.PlatformGemini)
-		if parsedReq != nil {
-			parsedReq.SessionContext = &service.SessionContext{
-				ClientIP:  ip.GetClientIP(c),
-				UserAgent: c.GetHeader("User-Agent"),
-				APIKeyID:  apiKey.ID,
-			}
-		}
-		sessionHash = h.gatewayService.GenerateSessionHash(parsedReq)
+		sessionHash = service.GenerateGeminiContentSessionHash(apiKey.ID, reqModel, body)
 	}
 	sessionKey := sessionHash
 	if sessionHash != "" {

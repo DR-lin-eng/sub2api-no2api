@@ -1,0 +1,21 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=4g",
+    "-v",
+    "/Users/lin/.codex/worktrees/fc65/sub2api-no2api/frontend/src:/work/frontend/src:ro",
+    "-e",
+    "NODE_OPTIONS=--max-old-space-size=3072",
+    "sub2api-sync-frontend:20261116",
+    "sh",
+    "-c",
+    "cd /work/frontend && pnpm run lint:check && pnpm run typecheck && pnpm run test:run"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 183.907,
+  "utc": "2026-11-16T10:20:18.215625+00:00",
+  "output_sha256": "e23e737a03f0509d811e7a2fd1be00bc817c292b9c65304be923dedd0f357213"
+}

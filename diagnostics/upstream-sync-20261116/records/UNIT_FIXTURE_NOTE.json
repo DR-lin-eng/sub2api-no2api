@@ -1,0 +1,4 @@
+{
+  "note": "Early native Anthropic test fixture used an OpenAI platform account, whose local GetAPIProtocol intentionally does not expose the CN native protocol. Final fixture uses Kimi with explicit Anthropic protocol. Buffered Responses observation is verified separately before the final complete unit pass.",
+  "native_stream_error_contract": "The endpoint diagnostics test does not change the existing native Chat/Responses read-error finalization behavior."
+}

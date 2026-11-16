@@ -78,3 +78,6 @@ OpenAI 与 Anthropic API-key 的 WebSearch 模拟共用已有三态字段和全�
 `presentation/accountCreateOpenAIExtra.ts` 构造创建账号的 OpenAI extra；`openaiImageSizeTiers.ts` 与 `OpenAIImageSizeTiersField.vue` 统一创建、编辑和批量更新的图片档位。缺省/全选不限，批量 null 不修改、显式空数组清除限制；启用前须完成全部节点升级，见 [同步审查](../../../../docs/UPSTREAM_SYNC_20261104.md)。
 
 `AdminAccountTestDialog.vue` 与 `AccountTestDialog.vue` 为原生 GPT Image 2.6 提供 SVG/GIF 输出测试，使用共享 `GPTImageOutputFields.vue`，结果按实际格式预览和下载。后端校验文件而非只看格式标签；ChatGPT App 账号的 GIF 测试走 conversation animation intent，SVG 测试自动回退到 Codex legacy Images 链路。
+
+`CNProviderUsageCell.vue` 保留手动探测结果直到供应商快照实际变化；账号/模式切换与卸载使旧响应失效，
+普通列表刷新不新增探测。Gemini refetch 有旧结果时继续展示进度条。

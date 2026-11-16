@@ -7,6 +7,11 @@ vi.mock('@/features/admin-accounts/data/datasources/adminAccountQueries', () => 
 import { buildModelMappingObject, getModelsByPlatform, getPresetMappingsByPlatform, splitModelMappingObject } from '../useModelWhitelist'
 
 describe('useModelWhitelist', () => {
+  it('exposes Hydrogen in Gemini while preserving the declared Antigravity catalog', () => {
+    expect(getModelsByPlatform('gemini')).toContain('gemini-4-hydrogen')
+    expect(getModelsByPlatform('antigravity')).not.toContain('gemini-4-hydrogen')
+  })
+
   it('openai 模型列表包含 GPT-5.4 官方快照', () => {
     const models = getModelsByPlatform('openai')
 

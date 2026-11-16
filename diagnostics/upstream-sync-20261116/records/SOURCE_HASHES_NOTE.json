@@ -1,0 +1,5 @@
+{
+  "final_runtime_build": "build-release-candidate.json",
+  "unit_suite": "backend-release-unit.json",
+  "note": "Runtime source snapshot is frozen in SOURCE_HASHES.json. Changes after the final build are test assertions, diagnostic fixtures and documentation only."
+}

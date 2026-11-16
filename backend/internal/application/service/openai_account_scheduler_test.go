@@ -4298,3 +4298,27 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_RefreshesAllFullSnapsho
 		selection.ReleaseFunc()
 	}
 }
+
+func (r schedulerTestOpenAIAccountRepo) ListModelAvailabilityCandidates(_ context.Context, _ *int64, platforms []string, _ bool) ([]Account, error) {
+	var result []Account
+	for _, account := range r.accounts {
+		if account.Status == StatusActive && account.Schedulable && slices.Contains(platforms, account.Platform) {
+			result = append(result, account)
+		}
+	}
+	return result, nil
+}
+
+func (r schedulerGroupAwareOpenAIAccountRepo) ListModelAvailabilityCandidates(ctx context.Context, groupID *int64, platforms []string, includeGrouped bool) ([]Account, error) {
+	accounts, err := r.schedulerTestOpenAIAccountRepo.ListModelAvailabilityCandidates(ctx, groupID, platforms, includeGrouped)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]Account, 0, len(accounts))
+	for _, account := range accounts {
+		if includeGrouped || openAIStickyAccountMatchesGroup(&account, groupID) {
+			result = append(result, account)
+		}
+	}
+	return result, nil
+}

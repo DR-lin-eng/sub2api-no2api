@@ -123,4 +123,31 @@ describe('CNProviderUsageCell', () => {
     expect(wrapper.find('button').exists()).toBe(false)
     expect(wrapper.text()).toContain('admin.accounts.cnProvider.noPublicEndpoint')
   })
+  it('ignores an old probe after switching accounts', async () => {
+    let resolveOld!: (value: unknown) => void
+    queryQuota.mockImplementationOnce(() => new Promise(resolve => { resolveOld = resolve }))
+    const wrapper = mountCell(account({ id: 1 }))
+    await wrapper.get('button').trigger('click')
+    await wrapper.setProps({ account: account({ id: 2, extra: { kimi_5h_used_percent: 37 } }) })
+    resolveOld({ success: true, tiers: [{ window: '5h', used_percent: 99 }] })
+    await vi.waitFor(() => expect(wrapper.text()).toContain('37'))
+    expect(wrapper.text()).not.toContain('99')
+    expect(wrapper.get('button').attributes('disabled')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('keeps a manual probe on unrelated updates and accepts a newer quota snapshot', async () => {
+    queryQuota.mockResolvedValue({ success: true, tiers: [{ window: '5h', used_percent: 22 }] })
+    const initial = account({ extra: { kimi_5h_used_percent: 10, kimi_usage_updated_at: 'old' } })
+    const wrapper = mountCell(initial)
+    await wrapper.get('button').trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('22'))
+    await wrapper.setProps({ account: { ...initial, name: 'renamed' } })
+    expect(wrapper.text()).toContain('22')
+    await wrapper.setProps({ account: { ...initial, extra: { kimi_5h_used_percent: 44, kimi_usage_updated_at: 'new' } } })
+    expect(wrapper.text()).toContain('44')
+    expect(wrapper.text()).not.toContain('22')
+    wrapper.unmount()
+  })
+
 })

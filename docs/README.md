@@ -50,6 +50,7 @@
 | 文档 | 内容 |
 | --- | --- |
 | [历史上游差异当前台账](UPSTREAM_DEFERRED_STATUS.md) | 198 个历史暂缓/部分项的当前决策、54 项适配、重复关闭、明确未采用范围和 Docker 验证 |
+| [上游主线增量同步审查（2026-11-16）](UPSTREAM_SYNC_20261116.md) | 61 个冻结 PR、当前 owner 适配、能力边界、性能与 Docker 升级回退 |
 | [上游主线同步审查（2026-11-12）](UPSTREAM_SYNC_20261112.md) | 33 个冻结 PR 的关闭台账、性能、索引升级回退与专项边界 |
 | [TypeSafe 与充值阶梯专项适配](UPSTREAM_ADAPT_20261006.md) | 原生协议、计费探测、优惠快照、升级回退和验证 |
 | [组合分组](COMPOSITE_GROUPS.md) | Composite group 的平台解析和使用约束 |

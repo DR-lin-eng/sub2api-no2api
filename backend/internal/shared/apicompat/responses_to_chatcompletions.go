@@ -528,6 +528,7 @@ type bufferedFuncCall struct {
 	Name                  string
 	Namespace             string
 	EncryptedFunctionArgs json.RawMessage
+	EncryptedContent      string
 	Args                  strings.Builder
 }
 
@@ -571,6 +572,7 @@ func (a *BufferedResponseAccumulator) ProcessEvent(event *ResponsesStreamEvent) 
 				Name:                  event.Item.Name,
 				Namespace:             event.Item.Namespace,
 				EncryptedFunctionArgs: event.Item.EncryptedFunctionArgs,
+				EncryptedContent:      event.Item.EncryptedContent,
 			})
 		}
 	case "response.output_item.done":
@@ -579,6 +581,9 @@ func (a *BufferedResponseAccumulator) ProcessEvent(event *ResponsesStreamEvent) 
 				call := a.funcCalls[idx]
 				if event.Item.Namespace != "" {
 					call.Namespace = event.Item.Namespace
+				}
+				if event.Item.EncryptedContent != "" {
+					call.EncryptedContent = event.Item.EncryptedContent
 				}
 				if event.Item.EncryptedFunctionArgs != nil {
 					call.EncryptedFunctionArgs = event.Item.EncryptedFunctionArgs
@@ -650,6 +655,7 @@ func (a *BufferedResponseAccumulator) BuildOutput() []ResponsesOutput {
 			Name:                  a.funcCalls[i].Name,
 			Namespace:             a.funcCalls[i].Namespace,
 			EncryptedFunctionArgs: a.funcCalls[i].EncryptedFunctionArgs,
+			EncryptedContent:      a.funcCalls[i].EncryptedContent,
 			Arguments:             a.funcCalls[i].Args.String(),
 		})
 	}
@@ -699,6 +705,9 @@ func (a *BufferedResponseAccumulator) SupplementResponseOutput(resp *ResponsesRe
 		}
 		if item.Namespace == "" {
 			item.Namespace = call.Namespace
+		}
+		if item.EncryptedContent == "" {
+			item.EncryptedContent = call.EncryptedContent
 		}
 		if item.EncryptedFunctionArgs == nil {
 			item.EncryptedFunctionArgs = call.EncryptedFunctionArgs

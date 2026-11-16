@@ -1522,6 +1522,7 @@ func filterCodexInput(input []any, preserveReferences bool) []any {
 
 func filterCodexInputWithOptions(input []any, opts codexInputFilterOptions) []any {
 	filtered := make([]any, 0, len(input))
+	additionalToolsIDMappings := codexAdditionalToolsIDMappings(input)
 	for _, item := range input {
 		m, ok := item.(map[string]any)
 		if !ok {
@@ -1596,6 +1597,10 @@ func filterCodexInputWithOptions(input []any, opts codexInputFilterOptions) []an
 				newItem[key] = value
 			}
 			if id, ok := newItem["id"].(string); ok {
+				if normalized, exists := additionalToolsIDMappings[id]; exists {
+					newItem["id"] = normalized
+					id = normalized
+				}
 				if len(id) > openAIResponsesIDMaxLength && !isLikelyOpenAIResponsesToolCallReferenceID(id) {
 					continue
 				}
@@ -1661,7 +1666,14 @@ func filterCodexInputWithOptions(input []any, opts codexInputFilterOptions) []an
 			}
 		}
 
-		if !opts.PreserveReferences {
+		if typ == "additional_tools" {
+			if id, ok := m["id"].(string); ok {
+				if normalized, exists := additionalToolsIDMappings[id]; exists {
+					ensureCopy()
+					newItem["id"] = normalized
+				}
+			}
+		} else if !opts.PreserveReferences {
 			ensureCopy()
 			delete(newItem, "id")
 		} else if id, exists := m["id"]; exists {

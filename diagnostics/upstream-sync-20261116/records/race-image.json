@@ -1,0 +1,16 @@
+{
+  "command": [
+    "docker",
+    "build",
+    "--progress=plain",
+    "-f",
+    "diagnostics/upstream-sync-20261116/Dockerfile.race",
+    "-t",
+    "sub2api-sync-race:20261116",
+    "."
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 15.852,
+  "utc": "2026-11-16T11:23:30.371951+00:00",
+  "output_sha256": "f8e4474a55763f7ba9306dfe968e4cee7fcf633a6d4c0a0ba2ecad6964dcd562"
+}

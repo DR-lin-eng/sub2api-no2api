@@ -602,16 +602,3 @@ func TestOpenAIImageSizeTierUnsupported(t *testing.T) {
 	_, unsupported = svc.OpenAIImageSizeTierUnsupported(context.Background(), &groupID, "gpt-5.4", "3840x2160", OpenAIEndpointCapabilityChatCompletions, "")
 	require.False(t, unsupported)
 }
-
-func (r schedulerTestOpenAIAccountRepo) ListModelAvailabilityCandidates(_ context.Context, _ *int64, platforms []string, _ bool) ([]Account, error) {
-	var accounts []Account
-	for _, account := range r.accounts {
-		for _, platform := range platforms {
-			if account.Platform == platform && account.Status == StatusActive && account.Schedulable {
-				accounts = append(accounts, account)
-				break
-			}
-		}
-	}
-	return accounts, nil
-}

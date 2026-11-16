@@ -326,7 +326,10 @@ func GetInboundEndpoint(c *gin.Context) string {
 // and the account platform. Handlers call this after scheduling an
 // account, passing account.Platform.
 func GetUpstreamEndpoint(c *gin.Context, platform string) string {
-	if platform == service.PlatformOpenAI || platform == service.PlatformGrok || platform == service.PlatformMultimodal {
+	switch platform {
+	case service.PlatformOpenAI, service.PlatformGrok, service.PlatformMultimodal,
+		service.PlatformKimi, service.PlatformZhipu, service.PlatformDeepseek,
+		service.PlatformMiniMax, service.PlatformOpenCodeGo:
 		if endpoint := service.GetActualOpenAIUpstreamEndpoint(c); endpoint != "" {
 			return endpoint
 		}

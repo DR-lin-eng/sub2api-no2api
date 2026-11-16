@@ -145,3 +145,14 @@ ChatGPT App 账号测试对 GIF 使用 App conversation 的动画意图并验证
 `openai_images_chatgpt_gif.go` 统一普通 OAuth GIF API 与账号测试的动画指令和实际帧数/帧时长校验，复用现有 App 会话、出口和可靠计费；不向 App 添加原生 Images 字段。
 `http_upstream_profile.go` 的 public-upload 标记供 App 参考图的有界 HTTPS PUT 使用，保持与 GET/HEAD 下载独立的方法门禁；默认 GIF 复杂度与审核参数不改变协议选路。
 `openai_image_output_decode.go` 与 `openai_images_response_files.go` 规范化 SVG 文件编码并复用于账号测试/API 响应，保留图像与作者用量；GIF 帧扫描继续使用流式 Base64 解码，不解压像素。
+
+2026-11-16 同步的配置池成员与读时到期过滤由 `scheduler_snapshot_membership.go` 所有；
+`gemini_tool_call_boundary.go` 区分并行同名工具，`gemini_compat_response_format.go` 承接 Chat 结构化输出。
+`openai_codex_additional_tools.go` 在统一 OAuth replay owner 保留声明 ID，
+`openai_compat_terminal_account.go` 在兼容流末尾调用既有账号错误策略，
+`ratelimit_bedrock.go` 保存 Bedrock 语义分类和调度模型 context。
+`gateway_compat_observation.go` 与 `chat_completions_metadata.go` 保持协议观测和客户端 metadata 的小边界。
+范围及混合版本限制见 [同步说明](../../../../docs/UPSTREAM_SYNC_20261116.md)。
+
+`gemini_content_session.go` 按租户和首轮稳定内容生成 Gemini 原生请求的会话 hash，局部规范化使用保精度数值。
+Hydrogen 价卡在既有 Gemini fallback owner；模型发现与前端选择器同步维护，不替换旧账号映射。

@@ -1,0 +1,3 @@
+FROM golang:1.26.11-alpine
+RUN apk add --no-cache build-base
+ENV GOMAXPROCS=2 GOFLAGS=-p=1 GOMEMLIMIT=1600MiB

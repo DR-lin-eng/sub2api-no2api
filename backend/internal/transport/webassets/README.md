@@ -7,6 +7,7 @@
 | `embed_on.go` | release 构建嵌入 `dist/` |
 | `embed_off.go` | 非嵌入构建的兼容实现 |
 | `html_cache.go` | 注入公开设置后的 HTML 缓存 |
+| `html_cache_headers.go` | 设置注入 HTML 的浏览器/共享缓存禁用策略；nonce 响应不复用 304 |
 | `static_cache.go` | 静态资源缓存策略 |
 | `dist/` | 前端构建输出，不手工编辑 |
 
