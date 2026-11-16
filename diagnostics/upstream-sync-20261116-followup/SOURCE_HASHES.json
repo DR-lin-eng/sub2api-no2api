@@ -1,6 +1,6 @@
 {
   "baseline": "b617f7e37d8fac78cecb2251a472d8388b896a22",
-  "meaning": "Changed production inputs at the final layout image build; untouched inputs remain from the frozen baseline.",
+  "meaning": "Changed production inputs at the final keyword-guard image build; untouched inputs remain from the frozen baseline.",
   "files": {
     "backend/internal/application/service/account.go": "0c8697f47b34f1254516c84f66f3d2ffee8d3c4a2338dd80181d3a73da2bd49b",
     "backend/internal/application/service/account_openai_passthrough.go": "7319a8c792610f203801f41e1b0ed30ee8f9ad57fcc68db9baa0204b4af68fd8",
@@ -21,7 +21,7 @@
     "backend/internal/application/service/openai_gateway_forward.go": "dd98e0c7e6336c5b28669fb0260d6545c04c496f12374fad67c51d2dc847ca4e",
     "backend/internal/application/service/openai_gateway_messages.go": "6bc47d0089e7ab52c5c61571188bd9cecda4f4b008694a26418d383824783b09",
     "backend/internal/application/service/openai_gateway_response_handling.go": "9ce251885701e8fae0dc7b3fefb7049e4a75e2e674db51db6d055b02fc357942",
-    "backend/internal/application/service/openai_tool_schema_patterns.go": "577c1c06c602cb2118b67a800c30705d32ed055b26a24580145c4f0eafe0dcb9",
+    "backend/internal/application/service/openai_tool_schema_patterns.go": "89a6356448c3fb2474107e2b14631a096307b4b9415f38e5deb857c2e1a06821",
     "backend/internal/application/service/pricing_antigravity_aliases.go": "be7af096e5e60e879e3b1504910d78d703fc4fb8b3b245fc4539edd55fce4ee7",
     "backend/internal/domain/constants.go": "e3efaaa1532d92f02ea6135fde30907b35396340540d2241aea0ea6b916f7af1",
     "backend/internal/infrastructure/repository/scheduler_cache.go": "19fa95c13d18111d09339789d5471c975af4440b4eecc9fb69102a9cf9b522d6",

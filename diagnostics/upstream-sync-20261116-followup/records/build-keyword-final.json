@@ -1,0 +1,20 @@
+{
+  "command": [
+    "docker",
+    "build",
+    "--progress=plain",
+    "--build-arg",
+    "GOLANG_IMAGE=sub2api-deferred-go:20261115",
+    "--build-arg",
+    "NODE_BUILD_OPTIONS=--max-old-space-size=3072",
+    "--build-arg",
+    "COMMIT=b617f7e3-followup-7pr-keyword-final-20261116",
+    "-t",
+    "sub2api:sync-followup-candidate-20261116",
+    "."
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 37.72,
+  "utc": "2026-11-16T14:42:32.227402+00:00",
+  "output_sha256": "71dd7511178889fe039cef8907bdfe453267680c31128dce6100c5b960bb3d2e"
+}

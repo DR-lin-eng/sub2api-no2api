@@ -29,6 +29,11 @@ func BenchmarkFollowupRegex(b *testing.B) {
   })
  }
 }
+func BenchmarkFollowupUnicodeNoTool(b *testing.B) {
+ body:=[]byte(`{"input":"`+strings.Repeat(`\\u4e2d\\u00e9\\ud83d\\ude80`,43690)+`","tools":[]}`)
+ b.ReportAllocs()
+ for b.Loop(){_,_,_=sanitizeOpenAIResponsesToolSchemaPatterns(body)}
+}
 '''
 stubs = '''package service
 const (PlatformOpenAI="openai";PlatformAnthropic="anthropic";PlatformGrok="grok")
@@ -47,20 +52,20 @@ summary = {'scope': 'Regex compatibility pass only; fixed 1 MiB prompt and 0/100
     'source_sha256': {'upstream': hashlib.sha256(upstream).hexdigest(),
         **{name: hashlib.sha256(raw).hexdigest() for name, raw in local.items()}}}
 for stage, source in [('upstream', 'upstream'), ('adapted', 'adapted'), ('upstream-repeat', 'upstream')]:
-    name = 'performance-final-' + stage
+    name = 'performance-keyword-' + stage
     command = ['docker', 'run', '--rm', '--network=none', '--cpus=2', '--memory=2g',
         '-v', str(fixture / source) + ':/src:ro',
         '-v', '/private/tmp/sub2api-modcache:/go/pkg/mod',
         '-v', '/private/tmp/sub2api-gocache:/root/.cache/go-build',
         '-e', 'GOTOOLCHAIN=local', '-e', 'GOMAXPROCS=1', '-e', 'CGO_ENABLED=0',
         'golang:1.26.11-alpine', 'sh', '-c',
-        'cp -a /src /work && cd /work && go version && go test -run=^$ -bench=^BenchmarkFollowupRegex$ -benchmem -benchtime=300ms -count=3 -cpu=1']
+        'cp -a /src /work && cd /work && go version && go test -run=^$ -bench=^BenchmarkFollowup -benchmem -benchtime=300ms -count=3 -cpu=1']
     subprocess.run([sys.executable, str(ROOT / 'run_record.py'), name, *command], check=True)
     log = gzip.decompress((ROOT / 'records' / (name + '.log.gz')).read_bytes()).decode()
     samples = {}
-    for label, ns, size, allocs in re.findall(r'^(BenchmarkFollowupRegex/\d+)\s+\d+\s+([\d.]+) ns/op(?:\s+[\d.]+ MB/s)?\s+(\d+) B/op\s+(\d+) allocs/op$', log, re.M):
+    for label, ns, size, allocs in re.findall(r'^(BenchmarkFollowup(?:Regex/\d+|UnicodeNoTool))\s+\d+\s+([\d.]+) ns/op(?:\s+[\d.]+ MB/s)?\s+(\d+) B/op\s+(\d+) allocs/op$', log, re.M):
         samples.setdefault(label, []).append({'ns': float(ns), 'bytes': int(size), 'allocs': int(allocs)})
-    assert len(samples) == 3 and all(len(values) == 3 for values in samples.values()), samples
+    assert len(samples) == 4 and all(len(values) == 3 for values in samples.values()), samples
     summary[stage] = {label: {'samples': values, **{key: statistics.median(v[key] for v in values)
         for key in ['ns', 'bytes', 'allocs']}} for label, values in samples.items()}
 (ROOT / 'PERFORMANCE.json').write_text(json.dumps(summary, indent=2) + '\n')

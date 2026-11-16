@@ -1,7 +1,8 @@
 {
   "state": "all-listed-checks-passed",
+  "validation_sequence": "Full backend unit/MCP and integration; final keyword predicate targeted checks, lint, release image and 94 HTTP cases. Frontend inputs unchanged after layout validation.",
   "records": {
-    "backend-unit-final": {
+    "backend-release-unit": {
       "command": [
         "docker",
         "run",
@@ -34,9 +35,46 @@
         "mkdir /work && cp -a /src/backend /work/backend && cd /work/backend && go test -json -tags=unit ./... -timeout=10m && go test -tags=mcp_go_client_oauth ./internal/transport/http/server/routes -run TestMCPOAuthOfficialGoSDKInteroperability -count=1"
       ],
       "exit_code": 0,
-      "elapsed_seconds": 418.487,
-      "utc": "2026-11-16T13:49:44.684903+00:00",
-      "output_sha256": "f05912ec9073fc96f76f72ea94257c717bcab09938cff2faca862573f7f8b2b8"
+      "elapsed_seconds": 551.801,
+      "utc": "2026-11-16T14:30:42.600829+00:00",
+      "output_sha256": "a065459d55d71678ada1c3eeab9364c3ec3a8db2cd90a90f2554002771a3d69b"
+    },
+    "backend-keyword-contracts": {
+      "command": [
+        "docker",
+        "run",
+        "--rm",
+        "--cpus=2",
+        "--memory=6g",
+        "-v",
+        "/Users/lin/.codex/worktrees/7fef/sub2api-no2api:/src:ro",
+        "-v",
+        "/private/tmp/sub2api-modcache:/go/pkg/mod",
+        "-v",
+        "/private/tmp/sub2api-gocache:/root/.cache/go-build",
+        "-e",
+        "CI=true",
+        "-e",
+        "CGO_ENABLED=0",
+        "-e",
+        "GOMAXPROCS=2",
+        "-e",
+        "GOMEMLIMIT=1800MiB",
+        "-e",
+        "GOGC=50",
+        "-e",
+        "GOFLAGS=-p=1",
+        "-e",
+        "GOTOOLCHAIN=local",
+        "golang:1.26.11-alpine",
+        "sh",
+        "-c",
+        "mkdir /work && cp -a /src/backend /work/backend && cd /work/backend && go test -tags=unit ./internal/application/service -run=\"^TestOpenAITool\" -count=1 -timeout=5m"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 84.338,
+      "utc": "2026-11-16T14:37:12.228650+00:00",
+      "output_sha256": "0b2cb4337755cdf24d361f5c76fe164a172617de0c2674c8009c039eb8441396"
     },
     "integration": {
       "command": [
@@ -48,7 +86,7 @@
       "utc": "2026-11-16T13:34:57.930313+00:00",
       "output_sha256": "45fccdc6a833e029f1867d0981e94cf9734ef134c2a5dbc35da763b18d60bf6a"
     },
-    "backend-lint-final": {
+    "backend-lint-release": {
       "command": [
         "docker",
         "run",
@@ -79,8 +117,8 @@
         "mkdir /work && cp -a /src/backend /work/backend && cd /work/backend && golangci-lint run --timeout=12m ./..."
       ],
       "exit_code": 0,
-      "elapsed_seconds": 277.89,
-      "utc": "2026-11-16T13:40:32.847409+00:00",
+      "elapsed_seconds": 234.18,
+      "utc": "2026-11-16T14:48:49.496042+00:00",
       "output_sha256": "e92606b0bf483111dff0a120c315ea165821348f31365020e2468a0059095c47"
     },
     "frontend-final": {
@@ -145,7 +183,7 @@
       "utc": "2026-11-16T13:05:59.364830+00:00",
       "output_sha256": "b5be8c0a181017a980741c07fefe98002f2047c80d82e5e90e0595569ddfc739"
     },
-    "build-layout-final": {
+    "build-keyword-final": {
       "command": [
         "docker",
         "build",
@@ -155,40 +193,48 @@
         "--build-arg",
         "NODE_BUILD_OPTIONS=--max-old-space-size=3072",
         "--build-arg",
-        "COMMIT=b617f7e3-followup-7pr-layout-final-20261116",
+        "COMMIT=b617f7e3-followup-7pr-keyword-final-20261116",
         "-t",
         "sub2api:sync-followup-candidate-20261116",
         "."
       ],
       "exit_code": 0,
-      "elapsed_seconds": 153.017,
-      "utc": "2026-11-16T13:52:46.516647+00:00",
-      "output_sha256": "ab59e7a386e3cf55f04dace887546a163973d8782c17ad105fb4eedcd29b9031"
+      "elapsed_seconds": 37.72,
+      "utc": "2026-11-16T14:42:32.227402+00:00",
+      "output_sha256": "71dd7511178889fe039cef8907bdfe453267680c31128dce6100c5b960bb3d2e"
     },
-    "runtime-final": {
+    "runtime-release": {
       "command": [
-        "env",
-        "SYNC_KEEP_UI=1",
         "python3",
         "diagnostics/upstream-sync-20261116-followup/runtime/check.py"
       ],
       "exit_code": 0,
-      "elapsed_seconds": 618.659,
-      "utc": "2026-11-16T14:04:26.458237+00:00",
-      "output_sha256": "c319b7ad5d32e22cea93ab22a77459851a76441b585b4e7bd90ed1f6763326e5"
+      "elapsed_seconds": 49.548,
+      "utc": "2026-11-16T14:45:33.834166+00:00",
+      "output_sha256": "15f7f9d27ba33182c87b647ce7035fd1e47b876ab147d9c64b2cf3ed42506ad3"
     },
-    "performance-final": {
+    "performance-keyword": {
       "command": [
         "python3",
         "diagnostics/upstream-sync-20261116-followup/run_performance.py"
       ],
       "exit_code": 0,
-      "elapsed_seconds": 20.039,
-      "utc": "2026-11-16T13:20:10.192580+00:00",
-      "output_sha256": "cc3a7e4cc92afe735e0791a2d08ff48a0e20efd03e1246d3a7cb8b7ac11c78ea"
+      "elapsed_seconds": 16.914,
+      "utc": "2026-11-16T14:36:15.449138+00:00",
+      "output_sha256": "3995f5eb2d715db83aa42875fbc0aa7cb637deb15146603612b78768777b5c8a"
+    },
+    "unicode-keyword": {
+      "command": [
+        "python3",
+        "diagnostics/upstream-sync-20261116-followup/run_unicode_guard.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 4.063,
+      "utc": "2026-11-16T14:36:19.557889+00:00",
+      "output_sha256": "96066d4444e0bb7ad40ce35770f82d13176d81e963694ea7060540db2477dab7"
     }
   },
-  "runtime_cases": 90,
+  "runtime_cases": 94,
   "changed_production_input_hashes_verified": 52,
-  "ui": "desktop/mobile PASS"
+  "ui": "desktop/mobile PASS; identical frontend layer reused by final image"
 }

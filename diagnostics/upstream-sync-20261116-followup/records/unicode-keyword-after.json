@@ -1,0 +1,30 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--network=none",
+    "--cpus=1",
+    "--memory=2g",
+    "-v",
+    "/var/folders/8n/2t9wvjvd4hx2ms7g6r78g2d00000gn/T/sub2api-unicode-guard-p6qth7an/after:/src:ro",
+    "-v",
+    "/private/tmp/sub2api-modcache:/go/pkg/mod",
+    "-v",
+    "/private/tmp/sub2api-gocache:/root/.cache/go-build",
+    "-e",
+    "GOTOOLCHAIN=local",
+    "-e",
+    "GOMAXPROCS=1",
+    "-e",
+    "CGO_ENABLED=0",
+    "golang:1.26.11-alpine",
+    "sh",
+    "-c",
+    "cp -a /src /work && cd /work && go version && go test -run=^$ -bench=BenchmarkUnicodeNoTool -benchmem -benchtime=200ms -count=3 -cpu=1"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 2.167,
+  "utc": "2026-11-16T14:36:19.531907+00:00",
+  "output_sha256": "33193238ce2aed1c99c33d74b5283c829e047f5cbd256467ea691b4497b3e841"
+}

@@ -5,16 +5,16 @@
 
 | 最终门禁 | 结果 | 记录 |
 | --- | --- | --- |
-| Docker 全后端 unit / 官方 MCP Go OAuth | PASS，23688 用例/子用例，28 条件跳过，无失败 | `backend-unit-final.json`, `UNIT_SUMMARY.json` |
+| Docker 全后端 unit / 官方 MCP Go OAuth | PASS，23689 用例/子用例，28 条件跳过，无失败 | `backend-release-unit.json`, `UNIT_RELEASE_SUMMARY.json`; 最终关键字边界见 `backend-keyword-contracts.json` |
 | PostgreSQL/Redis 全包 integration / 独立审计库 | PASS | `integration.json` |
 | 全前端 / 最终相邻表单与额度用例 | PASS，427 files / 2642 tests；布局后 4 files / 140 tests | `frontend-final.json`, `frontend-layout-tests.json` |
-| 后端 lint | PASS，0 issues | `backend-lint-final.json` |
+| 后端 lint | PASS，0 issues | `backend-lint-release.json` |
 | 前端 lint / 类型 / 正式 Vite 构建 | PASS；最终布局通过 `vue-tsc -b` 和正式构建 | `frontend-final.json`, `build-layout-final.json` |
-| 正式根 Dockerfile 基线 / 最终候选 | PASS | `build-baseline.json`, `build-layout-final.json` |
-| 最终镜像同库基线→候选→回退→恢复 | PASS，90 HTTP 场景，每阶段 317 migrations | `runtime-final.json`, `runtime/result.json` |
+| 正式根 Dockerfile 基线 / 最终候选 | PASS | `build-baseline.json`, `build-keyword-final.json` |
+| 最终镜像同库基线→候选→回退→恢复 | PASS，94 HTTP 场景，每阶段 317 migrations | `runtime-release.json`, `runtime/result.json` |
 | 冻结补丁 / 259 项继承决定 | PASS，7 PR + 1 直接提交，原台账字节不变 | `verify_ledger.py --require-ancestry` |
 | 浏览器桌面 1280×720 / 窄屏 390×844 | PASS，默认关闭、说明完整显示、手动开启恢复模型限制 | `UI_QA.json`, `ui-desktop.jpg`, `ui-mobile.jpg` |
-| 正则步骤性能 / 原始上游重复对照 | PASS，固定输入各三次，含源码 hash | `PERFORMANCE.json` |
+| 正则步骤性能 / 原始上游重复对照 | PASS，固定输入各三次，含源码 hash | `PERFORMANCE.json`, `UNICODE_GUARD.json` |
 
 `SOURCE_HASHES.json` 核对最终构建的改动运行输入，未变输入来自冻结基线；镜像标识见 `IMAGES.json`。
 完整前端测试和布局后相邻补验分开保留，不把旧截图当作最终布局证明。
@@ -30,9 +30,10 @@ Grok 扁平 400 不结算；Carbon JSON/SSE 各 1000/100 token，标准费用 $0
 
 | 正则兼容步骤 | 上游中位耗时 | 适配中位耗时 | 上游重复对照 | 上游/适配分配次数 |
 | --- | ---: | ---: | ---: | ---: |
-| 无工具、无修改 | 0.965 ms | 0.065 ms | 0.487 ms | 0 / 0 |
-| 100 个工具 | 7.468 ms | 2.011 ms | 5.520 ms | 112 / 12 |
-| 1000 个工具 | 6.612 ms | 3.402 ms | 6.355 ms | 1015 / 15 |
+| 无工具、无修改 | 0.451 ms | 0.034 ms | 0.448 ms | 0 / 0 |
+| 100 个工具 | 5.013 ms | 1.678 ms | 5.030 ms | 112 / 12 |
+| 1000 个工具 | 5.657 ms | 2.062 ms | 5.521 ms | 1015 / 15 |
+| 混合 Unicode、无工具 | 1.375 ms | 0.632 ms | 1.370 ms | 0 / 0 |
 
 1000 工具的 B/op 为上游约 1.176 MB、本地约 1.184 MB，不声称内存字节数大幅下降。
 首次适配结果保留于 `PERFORMANCE_INITIAL.json`：gjson.GetBytes 曾为大 input 字符串复制整段数据；
@@ -50,3 +51,11 @@ Grok 扁平 400 不结算；Carbon JSON/SSE 各 1000/100 token，标准费用 $0
 
 同步 PR 为 [#217](https://github.com/DR-lin-eng/sub2api-no2api/pull/217)。
 PR 和 main 工作流分别按精确 head/merge SHA 核对，状态以 GitHub Actions 的实际记录为准；本地通过不替代远端门禁。
+
+
+最终补查发现广泛匹配 Unicode 转义会解码没有工具的整段字符串。关键字预检改为只识别
+`pattern` 前缀可能使用的 `\u006x` / `\u007x`，回归同时保留转义 schema 的修复能力。
+固定约 1 MiB 中文、Latin-1、emoji 混合提示词与冻结初稿对照：约 3.345 ms / 1,441,792 B/op
+降为 0.634 ms / 0 B/op（`UNICODE_GUARD.json`）。此前纯中文样本及两轮矩阵保留，样本不混算。
+最终关键字谓词的定向 Docker 回归见 `backend-keyword-contracts.json`；全后端 unit / MCP 的最后完整记录为
+`backend-release-unit.json`，随后只收窄该预检并增加混合 Unicode 输入，没有改动持久化或其它业务 owner。

@@ -1,0 +1,279 @@
+{
+  "scope": "Regex compatibility pass only; fixed 1 MiB prompt and 0/100/1000 tool schemas. Not production throughput.",
+  "source_sha256": {
+    "upstream": "7fc41cb69d131c8746d3a5715b20ea9cdc97e726cae3468ed8c02955e5e141a9",
+    "openai_responses_tool_schema.go": "ed4c9447fe4c06fbeb50eab6ef8007e9da313d184291b33d4c231ec427cff5c0",
+    "openai_tool_schema_patterns.go": "378e602c1bc907ed93302dd13ebd407fe768c1a854449d5a9eda208b350704a8",
+    "gateway_json_view.go": "1a0713e57131805b55d52662fd81b7bc2481526f52fb9fce348849f24bed73b0"
+  },
+  "upstream": {
+    "BenchmarkFollowupRegex/0": {
+      "samples": [
+        {
+          "ns": 493586.0,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 496075.0,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 492079.0,
+          "bytes": 0,
+          "allocs": 0
+        }
+      ],
+      "ns": 493586.0,
+      "bytes": 0,
+      "allocs": 0
+    },
+    "BenchmarkFollowupRegex/100": {
+      "samples": [
+        {
+          "ns": 5462975.0,
+          "bytes": 1067833,
+          "allocs": 112
+        },
+        {
+          "ns": 5688506.0,
+          "bytes": 1067830,
+          "allocs": 112
+        },
+        {
+          "ns": 5789887.0,
+          "bytes": 1067830,
+          "allocs": 112
+        }
+      ],
+      "ns": 5688506.0,
+      "bytes": 1067830,
+      "allocs": 112
+    },
+    "BenchmarkFollowupRegex/1000": {
+      "samples": [
+        {
+          "ns": 6154283.0,
+          "bytes": 1175930,
+          "allocs": 1015
+        },
+        {
+          "ns": 6478733.0,
+          "bytes": 1175929,
+          "allocs": 1015
+        },
+        {
+          "ns": 6266042.0,
+          "bytes": 1175926,
+          "allocs": 1015
+        }
+      ],
+      "ns": 6266042.0,
+      "bytes": 1175929,
+      "allocs": 1015
+    },
+    "BenchmarkFollowupUnicodeNoTool": {
+      "samples": [
+        {
+          "ns": 1388920.0,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 1366149.0,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 1395556.0,
+          "bytes": 0,
+          "allocs": 0
+        }
+      ],
+      "ns": 1388920.0,
+      "bytes": 0,
+      "allocs": 0
+    }
+  },
+  "adapted": {
+    "BenchmarkFollowupRegex/0": {
+      "samples": [
+        {
+          "ns": 29528.0,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 35122.0,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 64297.0,
+          "bytes": 0,
+          "allocs": 0
+        }
+      ],
+      "ns": 35122.0,
+      "bytes": 0,
+      "allocs": 0
+    },
+    "BenchmarkFollowupRegex/100": {
+      "samples": [
+        {
+          "ns": 3387574.0,
+          "bytes": 1066184,
+          "allocs": 12
+        },
+        {
+          "ns": 2229550.0,
+          "bytes": 1066184,
+          "allocs": 12
+        },
+        {
+          "ns": 1951645.0,
+          "bytes": 1066184,
+          "allocs": 12
+        }
+      ],
+      "ns": 2229550.0,
+      "bytes": 1066184,
+      "allocs": 12
+    },
+    "BenchmarkFollowupRegex/1000": {
+      "samples": [
+        {
+          "ns": 2576895.0,
+          "bytes": 1184456,
+          "allocs": 15
+        },
+        {
+          "ns": 3346507.0,
+          "bytes": 1184456,
+          "allocs": 15
+        },
+        {
+          "ns": 2504058.0,
+          "bytes": 1184456,
+          "allocs": 15
+        }
+      ],
+      "ns": 2576895.0,
+      "bytes": 1184456,
+      "allocs": 15
+    },
+    "BenchmarkFollowupUnicodeNoTool": {
+      "samples": [
+        {
+          "ns": 330802.0,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 323037.0,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 326814.0,
+          "bytes": 0,
+          "allocs": 0
+        }
+      ],
+      "ns": 326814.0,
+      "bytes": 0,
+      "allocs": 0
+    }
+  },
+  "upstream-repeat": {
+    "BenchmarkFollowupRegex/0": {
+      "samples": [
+        {
+          "ns": 497013.0,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 543456.0,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 608581.0,
+          "bytes": 0,
+          "allocs": 0
+        }
+      ],
+      "ns": 543456.0,
+      "bytes": 0,
+      "allocs": 0
+    },
+    "BenchmarkFollowupRegex/100": {
+      "samples": [
+        {
+          "ns": 5623245.0,
+          "bytes": 1067831,
+          "allocs": 112
+        },
+        {
+          "ns": 6679028.0,
+          "bytes": 1067831,
+          "allocs": 112
+        },
+        {
+          "ns": 8713046.0,
+          "bytes": 1067831,
+          "allocs": 112
+        }
+      ],
+      "ns": 6679028.0,
+      "bytes": 1067831,
+      "allocs": 112
+    },
+    "BenchmarkFollowupRegex/1000": {
+      "samples": [
+        {
+          "ns": 7087057.0,
+          "bytes": 1175930,
+          "allocs": 1015
+        },
+        {
+          "ns": 6580849.0,
+          "bytes": 1175929,
+          "allocs": 1015
+        },
+        {
+          "ns": 6447495.0,
+          "bytes": 1175930,
+          "allocs": 1015
+        }
+      ],
+      "ns": 6580849.0,
+      "bytes": 1175930,
+      "allocs": 1015
+    },
+    "BenchmarkFollowupUnicodeNoTool": {
+      "samples": [
+        {
+          "ns": 1728052.0,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 1424561.0,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 1532891.0,
+          "bytes": 0,
+          "allocs": 0
+        }
+      ],
+      "ns": 1532891.0,
+      "bytes": 0,
+      "allocs": 0
+    }
+  }
+}

@@ -81,6 +81,24 @@ func TestOpenAIToolRegexPlatformAndHistoryBoundaries(t *testing.T) {
 	}
 }
 
+func TestOpenAIToolRegexEscapedUnicodePromptDoesNotAllocate(t *testing.T) {
+	body := []byte(`{"input":"` + strings.Repeat(`\u4e2d\u00e9\ud83d\ude80`, 43690) + `","tools":[]}`)
+	allocs := testing.AllocsPerRun(3, func() {
+		got, changed, err := sanitizeOpenAIResponsesToolSchemaPatterns(body)
+		if err != nil || changed || len(got) != len(body) || &got[0] != &body[0] {
+			t.Fatal("a prompt without tool schemas must remain byte-identical")
+		}
+	})
+	require.Zero(t, allocs, "do not decode a large Unicode prompt to inspect tool schemas")
+
+	// Escaping any ASCII part of a schema keyword must still enter repair.
+	escaped := []byte(`{"\u0074ools":[{"parameters":{"patt\u0065rn":"\\p{L}"}}]}`)
+	got, changed, err := sanitizeOpenAIResponsesToolSchemaPatterns(escaped)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, ".*", gjson.GetBytes(got, "tools.0.parameters.pattern").String())
+}
+
 func BenchmarkFollowupToolSchemaPatterns(b *testing.B) {
 	for _, count := range []int{100, 1000} {
 		body := []byte(`{"input":"` + strings.Repeat("x", 1<<20) + `","tools":[` + strings.TrimSuffix(strings.Repeat(`{"parameters":{"type":"object","pattern":"(?<name>abc)"}},`, count), ",") + `]}`)

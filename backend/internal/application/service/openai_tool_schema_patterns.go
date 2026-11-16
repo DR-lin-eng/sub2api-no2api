@@ -21,7 +21,10 @@ func sanitizeOpenAIResponsesToolSchemasForPlatform(body []byte, platform string)
 // Collect byte spans only along schema edges, then copy the request once.
 // Prompts, defaults, examples and arbitrary objects named "pattern" are data.
 func sanitizeOpenAIResponsesToolSchemaPatterns(body []byte) ([]byte, bool, error) {
-	if !bytes.Contains(body, []byte(`"pattern`)) && !bytes.Contains(body, []byte(`\u`)) {
+	// An escaped lowercase letter in the "pattern" prefix begins with \u006
+	// or \u007. Other Unicode prompt text must not trigger scalar decoding.
+	if !bytes.Contains(body, []byte(`"pattern`)) &&
+		!bytes.Contains(body, []byte(`\u006`)) && !bytes.Contains(body, []byte(`\u007`)) {
 		return body, false, nil
 	}
 	if !gjson.ValidBytes(body) {

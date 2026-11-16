@@ -316,6 +316,13 @@ def check_stage(stage, token, uid, fixed):
         else:
             assert sql(f'SELECT COUNT(*) FROM usage_logs WHERE api_key_id={kid}') == '0'
         cases.append({'case':'regex-compatibility','stream':stream,'http':code,'settled':candidate})
+    kid, key = create_key(token, regex_gid, stage + '-unicode-no-tools')
+    unicode_prompt = '中文提示词é🚀' * 4000
+    code, body = request('/v1/responses', {'model':'gpt-5.4','input':unicode_prompt,'stream':False,'tools':[]}, key)
+    assert code == 200, (stage, 'unicode prompt', code, body)
+    assert provider('/fixture/last')['body']['input'] == unicode_prompt, (stage, 'unicode text must remain intact')
+    assert len(usage_row(kid)) == 1
+    cases.append({'case':'unicode-prompt-without-schema','http':code,'settled_once':True})
     filter_gid, filter_aid = create_fixture('filter-' + stage, 'openai', 'qwen3.8-max', [])
     update_extra(filter_aid, {'openai_responses_supported':True,'openai_passthrough':True,'openai_passthrough_model_filter':True})
     mapping = json.dumps({'qwen3.8-max':'must-not-rewrite'})

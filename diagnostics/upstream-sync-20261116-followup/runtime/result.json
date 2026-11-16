@@ -117,6 +117,11 @@
         "settled": false
       },
       {
+        "case": "unicode-prompt-without-schema",
+        "http": 200,
+        "settled_once": true
+      },
+      {
         "case": "passthrough-model-filter",
         "restricted": false,
         "http": 200
@@ -264,6 +269,11 @@
         "stream": true,
         "http": 200,
         "settled": true
+      },
+      {
+        "case": "unicode-prompt-without-schema",
+        "http": 200,
+        "settled_once": true
       },
       {
         "case": "passthrough-model-filter",
@@ -437,6 +447,11 @@
         "settled": false
       },
       {
+        "case": "unicode-prompt-without-schema",
+        "http": 200,
+        "settled_once": true
+      },
+      {
         "case": "passthrough-model-filter",
         "restricted": false,
         "http": 200
@@ -584,6 +599,11 @@
         "stream": true,
         "http": 200,
         "settled": true
+      },
+      {
+        "case": "unicode-prompt-without-schema",
+        "http": 200,
+        "settled_once": true
       },
       {
         "case": "passthrough-model-filter",

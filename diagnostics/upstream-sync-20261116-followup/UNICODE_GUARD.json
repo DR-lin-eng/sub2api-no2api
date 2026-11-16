@@ -1,0 +1,60 @@
+{
+  "before_ref": "4e8c9908748f3920b37771f10c4af97ac484ee1c",
+  "scope": "1 MiB escaped Chinese, Latin-1 and emoji prompt, no tools; regex pass only",
+  "sources": {
+    "before": {
+      "backend/internal/application/service/openai_responses_tool_schema.go": "ed4c9447fe4c06fbeb50eab6ef8007e9da313d184291b33d4c231ec427cff5c0",
+      "backend/internal/application/service/openai_tool_schema_patterns.go": "577c1c06c602cb2118b67a800c30705d32ed055b26a24580145c4f0eafe0dcb9",
+      "backend/internal/application/service/gateway_json_view.go": "1a0713e57131805b55d52662fd81b7bc2481526f52fb9fce348849f24bed73b0"
+    },
+    "after": {
+      "backend/internal/application/service/openai_responses_tool_schema.go": "ed4c9447fe4c06fbeb50eab6ef8007e9da313d184291b33d4c231ec427cff5c0",
+      "backend/internal/application/service/openai_tool_schema_patterns.go": "89a6356448c3fb2474107e2b14631a096307b4b9415f38e5deb857c2e1a06821",
+      "backend/internal/application/service/gateway_json_view.go": "1a0713e57131805b55d52662fd81b7bc2481526f52fb9fce348849f24bed73b0"
+    }
+  },
+  "before": {
+    "samples": [
+      {
+        "ns": 3347129.0,
+        "bytes": 1441792,
+        "allocs": 2
+      },
+      {
+        "ns": 3329882.0,
+        "bytes": 1441792,
+        "allocs": 2
+      },
+      {
+        "ns": 3345459.0,
+        "bytes": 1441792,
+        "allocs": 2
+      }
+    ],
+    "ns": 3345459.0,
+    "bytes": 1441792,
+    "allocs": 2
+  },
+  "after": {
+    "samples": [
+      {
+        "ns": 632951.0,
+        "bytes": 0,
+        "allocs": 0
+      },
+      {
+        "ns": 634039.0,
+        "bytes": 0,
+        "allocs": 0
+      },
+      {
+        "ns": 644176.0,
+        "bytes": 0,
+        "allocs": 0
+      }
+    ],
+    "ns": 634039.0,
+    "bytes": 0,
+    "allocs": 0
+  }
+}
