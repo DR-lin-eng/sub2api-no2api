@@ -198,8 +198,8 @@
         "frontend/src/types/index.ts"
       ],
       "url": "https://github.com/Wei-Shaw/sub2api/pull/8747",
-      "status": "ported-current-quota-owner",
-      "capability_complete": true,
+      "status": "ported-partial-current-quota-owner",
+      "capability_complete": false,
       "current_owners": [
         "backend/internal/application/service/account_usage_service.go",
         "backend/internal/application/service/account_usage_openai_freshness.go",
@@ -247,7 +247,7 @@
   "counts": {
     "ported": 3,
     "ported-bounded-schema-edits": 1,
-    "ported-current-quota-owner": 1,
+    "ported-partial-current-quota-owner": 1,
     "ported-partial-local-billing": 1,
     "ported-redesigned": 1,
     "retain-local-branding": 1

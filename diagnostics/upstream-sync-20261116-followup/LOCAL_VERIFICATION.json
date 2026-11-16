@@ -1,0 +1,194 @@
+{
+  "state": "all-listed-checks-passed",
+  "records": {
+    "backend-unit-final": {
+      "command": [
+        "docker",
+        "run",
+        "--rm",
+        "--cpus=2",
+        "--memory=6g",
+        "-v",
+        "/Users/lin/.codex/worktrees/7fef/sub2api-no2api:/src:ro",
+        "-v",
+        "/private/tmp/sub2api-modcache:/go/pkg/mod",
+        "-v",
+        "/private/tmp/sub2api-gocache:/root/.cache/go-build",
+        "-e",
+        "CI=true",
+        "-e",
+        "CGO_ENABLED=0",
+        "-e",
+        "GOMAXPROCS=2",
+        "-e",
+        "GOMEMLIMIT=1800MiB",
+        "-e",
+        "GOGC=50",
+        "-e",
+        "GOFLAGS=-p=1",
+        "-e",
+        "GOTOOLCHAIN=local",
+        "golang:1.26.11-alpine",
+        "sh",
+        "-c",
+        "mkdir /work && cp -a /src/backend /work/backend && cd /work/backend && go test -json -tags=unit ./... -timeout=10m && go test -tags=mcp_go_client_oauth ./internal/transport/http/server/routes -run TestMCPOAuthOfficialGoSDKInteroperability -count=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 418.487,
+      "utc": "2026-11-16T13:49:44.684903+00:00",
+      "output_sha256": "f05912ec9073fc96f76f72ea94257c717bcab09938cff2faca862573f7f8b2b8"
+    },
+    "integration": {
+      "command": [
+        "python3",
+        "diagnostics/upstream-sync-20261116-followup/run_integration.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 820.886,
+      "utc": "2026-11-16T13:34:57.930313+00:00",
+      "output_sha256": "45fccdc6a833e029f1867d0981e94cf9734ef134c2a5dbc35da763b18d60bf6a"
+    },
+    "backend-lint-final": {
+      "command": [
+        "docker",
+        "run",
+        "--rm",
+        "--cpus=2",
+        "--memory=6g",
+        "-v",
+        "/Users/lin/.codex/worktrees/7fef/sub2api-no2api:/src:ro",
+        "-v",
+        "/private/tmp/sub2api-modcache:/go/pkg/mod",
+        "-v",
+        "/private/tmp/sub2api-gocache:/root/.cache/go-build",
+        "-v",
+        "/private/tmp/sub2api-deferred-lintcache:/root/.cache/golangci-lint",
+        "-e",
+        "GOMAXPROCS=2",
+        "-e",
+        "GOMEMLIMIT=1800MiB",
+        "-e",
+        "GOGC=50",
+        "-e",
+        "GOFLAGS=-p=1",
+        "-e",
+        "GOTOOLCHAIN=local",
+        "sub2api:png-gif-go12611-lint",
+        "sh",
+        "-c",
+        "mkdir /work && cp -a /src/backend /work/backend && cd /work/backend && golangci-lint run --timeout=12m ./..."
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 277.89,
+      "utc": "2026-11-16T13:40:32.847409+00:00",
+      "output_sha256": "e92606b0bf483111dff0a120c315ea165821348f31365020e2468a0059095c47"
+    },
+    "frontend-final": {
+      "command": [
+        "docker",
+        "run",
+        "--rm",
+        "--cpus=2",
+        "--memory=4g",
+        "-v",
+        "/Users/lin/.codex/worktrees/7fef/sub2api-no2api/frontend/src:/work/frontend/src:ro",
+        "-e",
+        "NODE_OPTIONS=--max-old-space-size=3072",
+        "sub2api-sync-frontend:20261116",
+        "sh",
+        "-c",
+        "cd /work/frontend && pnpm run lint:check && pnpm run typecheck && pnpm run test:run"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 262.455,
+      "utc": "2026-11-16T13:19:06.406647+00:00",
+      "output_sha256": "a512f0dd4eff16d2c9fb52a86358f8dc077ec697729bbeb919576b0f0b4e93f5"
+    },
+    "frontend-layout-tests": {
+      "command": [
+        "docker",
+        "run",
+        "--rm",
+        "--cpus=1",
+        "--memory=2g",
+        "-v",
+        "/Users/lin/.codex/worktrees/7fef/sub2api-no2api/frontend/src:/work/frontend/src:ro",
+        "-e",
+        "NODE_OPTIONS=--max-old-space-size=1536",
+        "sub2api-sync-frontend:20261116",
+        "sh",
+        "-c",
+        "cd /work/frontend && pnpm exec vitest run src/features/admin-accounts/__tests__/CreateAccountModal.spec.ts src/features/admin-accounts/__tests__/EditAccountModal.spec.ts src/features/admin-accounts/__tests__/BulkEditAccountModal.spec.ts src/features/admin-accounts/__tests__/OpenAIQuotaResetCell.spark_shadow.spec.ts"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 40.403,
+      "utc": "2026-11-16T13:52:01.256837+00:00",
+      "output_sha256": "bc88fea88fdbba9f46fa778508de7696176afb4f349e7dfb6efee8dc7519dccb"
+    },
+    "build-baseline": {
+      "command": [
+        "docker",
+        "build",
+        "--progress=plain",
+        "--build-arg",
+        "GOLANG_IMAGE=sub2api-deferred-go:20261115",
+        "--build-arg",
+        "NODE_BUILD_OPTIONS=--max-old-space-size=3072",
+        "--build-arg",
+        "COMMIT=b617f7e37d8fac78cecb2251a472d8388b896a22",
+        "-t",
+        "sub2api:sync-followup-baseline-20261116",
+        "/private/tmp/sub2api-sync-followup-20261116/baseline"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 17.111,
+      "utc": "2026-11-16T13:05:59.364830+00:00",
+      "output_sha256": "b5be8c0a181017a980741c07fefe98002f2047c80d82e5e90e0595569ddfc739"
+    },
+    "build-layout-final": {
+      "command": [
+        "docker",
+        "build",
+        "--progress=plain",
+        "--build-arg",
+        "GOLANG_IMAGE=sub2api-deferred-go:20261115",
+        "--build-arg",
+        "NODE_BUILD_OPTIONS=--max-old-space-size=3072",
+        "--build-arg",
+        "COMMIT=b617f7e3-followup-7pr-layout-final-20261116",
+        "-t",
+        "sub2api:sync-followup-candidate-20261116",
+        "."
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 153.017,
+      "utc": "2026-11-16T13:52:46.516647+00:00",
+      "output_sha256": "ab59e7a386e3cf55f04dace887546a163973d8782c17ad105fb4eedcd29b9031"
+    },
+    "runtime-final": {
+      "command": [
+        "env",
+        "SYNC_KEEP_UI=1",
+        "python3",
+        "diagnostics/upstream-sync-20261116-followup/runtime/check.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 618.659,
+      "utc": "2026-11-16T14:04:26.458237+00:00",
+      "output_sha256": "c319b7ad5d32e22cea93ab22a77459851a76441b585b4e7bd90ed1f6763326e5"
+    },
+    "performance-final": {
+      "command": [
+        "python3",
+        "diagnostics/upstream-sync-20261116-followup/run_performance.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 20.039,
+      "utc": "2026-11-16T13:20:10.192580+00:00",
+      "output_sha256": "cc3a7e4cc92afe735e0791a2d08ff48a0e20efd03e1246d3a7cb8b7ac11c78ea"
+    }
+  },
+  "runtime_cases": 90,
+  "changed_production_input_hashes_verified": 52,
+  "ui": "desktop/mobile PASS"
+}

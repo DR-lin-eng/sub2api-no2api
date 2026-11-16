@@ -1,0 +1,12 @@
+{
+  "command": [
+    "env",
+    "SYNC_KEEP_UI=1",
+    "python3",
+    "diagnostics/upstream-sync-20261116-followup/runtime/check.py"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 675.92,
+  "utc": "2026-11-16T13:41:34.634394+00:00",
+  "output_sha256": "c319b7ad5d32e22cea93ab22a77459851a76441b585b4e7bd90ed1f6763326e5"
+}

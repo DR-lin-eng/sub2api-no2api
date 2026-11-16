@@ -1,0 +1,29 @@
+{
+  "environment": "Local disposable Docker fixture only",
+  "desktop_viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "mobile_viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "initial_finding": "The new option was inside the horizontal toggle row, reducing its text to 131 px at a 390 px viewport. Move the shared option below that row in create/edit forms.",
+  "final_verification": "PASS",
+  "final_mobile_label_width": 332,
+  "final_desktop_bounds": {
+    "bottom": 386.5,
+    "checked": true,
+    "right": 1055,
+    "viewport": 1280,
+    "width": 838,
+    "x": 217,
+    "y": 346.5
+  },
+  "screenshots": [
+    "ui-desktop.jpg",
+    "ui-mobile.jpg"
+  ],
+  "default_filter_off": true,
+  "viewport_override_reset": true
+}

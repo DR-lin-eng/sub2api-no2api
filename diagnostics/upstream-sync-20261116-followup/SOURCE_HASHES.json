@@ -1,6 +1,6 @@
 {
   "baseline": "b617f7e37d8fac78cecb2251a472d8388b896a22",
-  "meaning": "Changed production inputs at the completed candidate build; untouched inputs remain from the frozen baseline.",
+  "meaning": "Changed production inputs at the final layout image build; untouched inputs remain from the frozen baseline.",
   "files": {
     "backend/internal/application/service/account.go": "0c8697f47b34f1254516c84f66f3d2ffee8d3c4a2338dd80181d3a73da2bd49b",
     "backend/internal/application/service/account_openai_passthrough.go": "7319a8c792610f203801f41e1b0ed30ee8f9ad57fcc68db9baa0204b4af68fd8",
@@ -51,8 +51,8 @@
     "frontend/src/features/admin-accounts/presentation/widgets/EditAccountDialog.vue": "a38f73956777ba549cdebed91fc41cbfe60401edafcb5175873530c63d443b2d",
     "frontend/src/features/admin-accounts/presentation/widgets/OpenAIPassthroughModelFilterField.vue": "ce76f866c863105d987e36e78102c0aca5159fb1330d3e410f389cafd199f637",
     "frontend/src/features/admin-accounts/presentation/widgets/OpenAIQuotaResetCell.vue": "1e3e9a4154412fa046a888e47d38101dd9d35c490c471858f23e4cc6b81aacc5",
-    "frontend/src/features/admin-accounts/presentation/widgets/create/CreateAccountAdvancedFields.vue": "ab3dcaafc6680c878a7f55a78e4df3ddec084d74ea72d8de627be0c8dcba3579",
-    "frontend/src/features/admin-accounts/presentation/widgets/edit/EditAccountAdvancedFields.vue": "d1b5a668f8e8f02533c0d6f886fbdd0efaafd2796783ae6938e2c03f49a043d3",
+    "frontend/src/features/admin-accounts/presentation/widgets/create/CreateAccountAdvancedFields.vue": "b0be54a77da7ea060e117a5473e670f279aca96512c4390064ef932fdcad174c",
+    "frontend/src/features/admin-accounts/presentation/widgets/edit/EditAccountAdvancedFields.vue": "0128eed0365742752f93a2ee08c73407817923212a7c8a4d762944471374e9c9",
     "frontend/src/types/gateway.ts": "fb8c6d88e28160dc865a5969a84c1fb802fe91fc5715266be2c36793249e2311"
   }
 }

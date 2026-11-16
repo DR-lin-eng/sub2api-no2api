@@ -1,0 +1,12 @@
+{
+  "sub2api:sync-followup-baseline-20261116": {
+    "id": "sha256:f2f3ecddcd59bb704af3187df68ef83d2f4c76900bf60f9272d7dedc3b7d0a64",
+    "architecture": "arm64",
+    "os": "linux"
+  },
+  "sub2api:sync-followup-candidate-20261116": {
+    "id": "sha256:1a1562087f536aa143f922f3c67f844e7ef4f0ecd992e201b657203a55e0b3bf",
+    "architecture": "arm64",
+    "os": "linux"
+  }
+}

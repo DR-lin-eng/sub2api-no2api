@@ -732,8 +732,8 @@
               ]"
             />
           </button>
-          <OpenAIPassthroughModelFilterField v-if="openaiPassthroughEnabled" v-model="openaiPassthroughModelFilterEnabled" />
         </div>
+        <OpenAIPassthroughModelFilterField v-if="openaiPassthroughEnabled" v-model="openaiPassthroughModelFilterEnabled" />
       </div>
 
       <!-- OpenAI Codex namespace flattening compatibility (OAuth only) -->
