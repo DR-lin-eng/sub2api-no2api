@@ -550,6 +550,7 @@ export interface WindowStats {
 }
 
 export interface UsageProgress {
+	utilization_unknown?: boolean
   utilization: number // Percentage (0-100+, 100 = 100%)
   resets_at: string | null
   remaining_seconds: number

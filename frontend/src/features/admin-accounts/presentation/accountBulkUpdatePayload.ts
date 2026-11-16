@@ -25,6 +25,7 @@ export interface BulkAccountUpdatePayloadState {
   baseUrl: string
   enableOpenAIPassthrough: boolean
   openaiPassthroughEnabled: boolean
+  openaiPassthroughModelFilterEnabled?: boolean
   enableOpenAIFlattenNamespaces: boolean
   openaiFlattenNamespacesEligible: boolean
   openaiFlattenNamespacesEnabled: boolean
@@ -122,6 +123,7 @@ export function buildBulkAccountUpdatePayload(
   if (state.enableOpenAIPassthrough) {
     const extra = ensureExtra()
     extra.openai_passthrough = state.openaiPassthroughEnabled
+    extra.openai_passthrough_model_filter = state.openaiPassthroughEnabled && state.openaiPassthroughModelFilterEnabled === true
     if (!state.openaiPassthroughEnabled) extra.openai_oauth_passthrough = false
   }
 

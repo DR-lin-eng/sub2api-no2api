@@ -1,0 +1,212 @@
+{
+  "scope": "Regex compatibility pass only; fixed 1 MiB prompt and 0/100/1000 tool schemas. Not production throughput.",
+  "source_sha256": {
+    "upstream": "7fc41cb69d131c8746d3a5715b20ea9cdc97e726cae3468ed8c02955e5e141a9",
+    "openai_responses_tool_schema.go": "ed4c9447fe4c06fbeb50eab6ef8007e9da313d184291b33d4c231ec427cff5c0",
+    "openai_tool_schema_patterns.go": "8d7cf938a7e082acf5196cdeebe41eabf52fedb1a77a822d6559dca7c3f14630"
+  },
+  "upstream": {
+    "BenchmarkFollowupRegex/0": {
+      "samples": [
+        {
+          "ns": 578196.0,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 556096.0,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 558398.0,
+          "bytes": 0,
+          "allocs": 0
+        }
+      ],
+      "ns": 558398.0,
+      "bytes": 0,
+      "allocs": 0
+    },
+    "BenchmarkFollowupRegex/100": {
+      "samples": [
+        {
+          "ns": 6660881.0,
+          "bytes": 1067833,
+          "allocs": 112
+        },
+        {
+          "ns": 6769475.0,
+          "bytes": 1067830,
+          "allocs": 112
+        },
+        {
+          "ns": 5904354.0,
+          "bytes": 1067831,
+          "allocs": 112
+        }
+      ],
+      "ns": 6660881.0,
+      "bytes": 1067831,
+      "allocs": 112
+    },
+    "BenchmarkFollowupRegex/1000": {
+      "samples": [
+        {
+          "ns": 6838994.0,
+          "bytes": 1175930,
+          "allocs": 1015
+        },
+        {
+          "ns": 6500708.0,
+          "bytes": 1175927,
+          "allocs": 1015
+        },
+        {
+          "ns": 6384508.0,
+          "bytes": 1175929,
+          "allocs": 1015
+        }
+      ],
+      "ns": 6500708.0,
+      "bytes": 1175929,
+      "allocs": 1015
+    }
+  },
+  "adapted": {
+    "BenchmarkFollowupRegex/0": {
+      "samples": [
+        {
+          "ns": 28461.0,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 27142.0,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 26304.0,
+          "bytes": 0,
+          "allocs": 0
+        }
+      ],
+      "ns": 27142.0,
+      "bytes": 0,
+      "allocs": 0
+    },
+    "BenchmarkFollowupRegex/100": {
+      "samples": [
+        {
+          "ns": 1841951.0,
+          "bytes": 2129096,
+          "allocs": 14
+        },
+        {
+          "ns": 1825848.0,
+          "bytes": 2129096,
+          "allocs": 14
+        },
+        {
+          "ns": 2340192.0,
+          "bytes": 2129096,
+          "allocs": 14
+        }
+      ],
+      "ns": 1841951.0,
+      "bytes": 2129096,
+      "allocs": 14
+    },
+    "BenchmarkFollowupRegex/1000": {
+      "samples": [
+        {
+          "ns": 2938289.0,
+          "bytes": 2306760,
+          "allocs": 17
+        },
+        {
+          "ns": 2528803.0,
+          "bytes": 2306760,
+          "allocs": 17
+        },
+        {
+          "ns": 2334905.0,
+          "bytes": 2306760,
+          "allocs": 17
+        }
+      ],
+      "ns": 2528803.0,
+      "bytes": 2306760,
+      "allocs": 17
+    }
+  },
+  "upstream-repeat": {
+    "BenchmarkFollowupRegex/0": {
+      "samples": [
+        {
+          "ns": 593152.0,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 685709.0,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 660501.0,
+          "bytes": 0,
+          "allocs": 0
+        }
+      ],
+      "ns": 660501.0,
+      "bytes": 0,
+      "allocs": 0
+    },
+    "BenchmarkFollowupRegex/100": {
+      "samples": [
+        {
+          "ns": 7851502.0,
+          "bytes": 1067833,
+          "allocs": 112
+        },
+        {
+          "ns": 8368899.0,
+          "bytes": 1067831,
+          "allocs": 112
+        },
+        {
+          "ns": 8007512.0,
+          "bytes": 1067832,
+          "allocs": 112
+        }
+      ],
+      "ns": 8007512.0,
+      "bytes": 1067832,
+      "allocs": 112
+    },
+    "BenchmarkFollowupRegex/1000": {
+      "samples": [
+        {
+          "ns": 14389198.0,
+          "bytes": 1175932,
+          "allocs": 1015
+        },
+        {
+          "ns": 16669185.0,
+          "bytes": 1175932,
+          "allocs": 1015
+        },
+        {
+          "ns": 10886904.0,
+          "bytes": 1175931,
+          "allocs": 1015
+        }
+      ],
+      "ns": 14389198.0,
+      "bytes": 1175932,
+      "allocs": 1015
+    }
+  }
+}

@@ -682,3 +682,40 @@ describe('OpenAIQuotaResetCell — 外审 F6:影子禁用重置', () => {
     wrapper.unmount()
   })
 })
+
+
+describe('OpenAI quota observation freshness', () => {
+  it('keeps the observation timestamp and cached bars when a refresh fails', async () => {
+    const observedAt = '2026-11-01T01:02:03Z'
+    const account = makeAccount({ id: 879001, extra: {
+      codex_usage_updated_at: observedAt, codex_5h_used_percent: 45,
+      codex_5h_window_minutes: 300, codex_5h_reset_at: new Date(Date.now() + 3600_000).toISOString(),
+    } })
+    const wrapper = mount(OpenAIQuotaResetCell, { props: { account, liveEnabled: false } })
+    const timestamp = () => wrapper.get('[data-testid="openai-quota-observed-at"] time').attributes('datetime')
+    expect(timestamp()).toBe(new Date(observedAt).toISOString())
+    vi.mocked(refreshOpenAIQuota).mockRejectedValueOnce(new Error('fixture upstream unavailable'))
+    await wrapper.get('[data-testid="openai-primary-query"]').trigger('click')
+    await flushPromises()
+    expect(timestamp()).toBe(new Date(observedAt).toISOString())
+    expect(wrapper.get('[role="alert"]').text()).toContain('admin.accounts.usageWindow.quotaRefreshFailedCached')
+    wrapper.unmount()
+  })
+
+  it('ignores a late quota reply after the row switches accounts and returns', async () => {
+    let resolve!: (result: Awaited<ReturnType<typeof refreshOpenAIQuota>>) => void
+    vi.mocked(refreshOpenAIQuota).mockReturnValueOnce(new Promise(result => { resolve = result }))
+    const account = makeAccount({ id: 879002 })
+    const wrapper = mount(OpenAIQuotaResetCell, { props: { account, liveEnabled: false } })
+    await wrapper.get('[data-testid="openai-primary-query"]').trigger('click')
+    await wrapper.setProps({ account: makeAccount({ id: 879003 }) })
+    await wrapper.setProps({ account })
+    resolve({ fetched_at: 1770000000, cache_persisted: true,
+      rate_limits_by_limit_id: { old: { limit_id: 'old', limit_name: 'old-account', primary: { used_percent: 99, window_duration_mins: 300 } } },
+    })
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('old-account')
+    expect(wrapper.find('[data-testid="openai-rate-limit-buckets"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+})

@@ -530,6 +530,8 @@ export default {
         baseUrlHint: 'Leave default for official OpenAI API',
         apiKeyHint: 'Your OpenAI API Key',
         oauthPassthrough: 'Auto passthrough (auth only)',
+        passthroughModelFilter: 'Filter passthrough accounts by model',
+        passthroughModelFilterDesc: 'Use source model names in the account whitelist or mapping to select accounts. Passthrough preserves the request model. Empty means unrestricted; disabled by default.',
         oauthPassthroughDesc:
           'When enabled, this OpenAI account uses automatic passthrough: the gateway forwards request/response as-is and only swaps auth, while keeping billing/concurrency/audit and necessary safety filtering.',
         excelBpsEnabled: 'Excel / Basispoints bridge',
@@ -640,7 +642,7 @@ export default {
         testModeResponses: 'Responses API',
         testModeChatCompletions: 'Chat Completions API',
         testModeCompact: 'Compact probe',
-        modelRestrictionDisabledByPassthrough: 'Automatic passthrough is enabled: model whitelist/mapping will not take effect.',
+        modelRestrictionDisabledByPassthrough: 'Passthrough ignores model restrictions by default. Enable filtering to use source model names for account selection.',
       },
       grok: {
         baseUrlHint: 'Grok OAuth accounts forward to the official xAI API base URL.',
@@ -1432,6 +1434,10 @@ export default {
         grokLastStatus: 'Status {status}',
         grokLastProbe: 'Probe {time}',
         grokLastHeadersSeen: 'Headers {time}',
+        quotaObservedAt: 'Quota observed: ',
+        quotaObservationUnknown: 'Unknown (cached)',
+        quotaRefreshFailedCached: 'Refresh failed. Showing an earlier quota observation.',
+        quotaRefreshFailedUnknown: 'Refresh failed. Current quota is unknown.',
         passiveSampled: 'Passive',
         activeQuery: 'Query',
         activeQueryOpenAI: 'Query upstream quota and local usage',

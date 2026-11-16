@@ -1,0 +1,256 @@
+{
+  "baseline": "b617f7e37d8fac78cecb2251a472d8388b896a22",
+  "upstream_base": "8ed701382cbc4eadecc0de0684698ad85cf7cce0",
+  "upstream_head": "9cd1a1eb21e84707685e1998dcb5a3d1ceafae49",
+  "entries": [
+    {
+      "pr": 8661,
+      "merge_sha": "03c17491b3ab69ff36ae7d45e15d3d6088be0c2d",
+      "title": "Merge pull request #8661 from xy3xy3/feat/gemini-4-carbon-8658",
+      "diff_sha256": "50d4e847a97ed8b4897a98a74afec645e44738fa1c7a50863080ea405e69c3c9",
+      "files": [
+        "backend/internal/domain/constants.go",
+        "backend/internal/domain/constants_test.go",
+        "backend/internal/pkg/antigravity/carbon_thinking_test.go",
+        "backend/internal/pkg/antigravity/claude_types.go",
+        "backend/internal/pkg/antigravity/claude_types_test.go",
+        "backend/internal/pkg/antigravity/gemini_types.go",
+        "backend/internal/pkg/antigravity/request_transformer.go",
+        "backend/internal/pkg/gemini/function_response_test.go",
+        "backend/internal/pkg/gemini/models.go",
+        "backend/internal/pkg/gemini/models_test.go",
+        "backend/internal/pkg/geminicli/models.go",
+        "backend/internal/pkg/geminicli/models_test.go",
+        "backend/internal/service/billing_service.go",
+        "backend/internal/service/gemini_cache_storage_pricing_test.go",
+        "backend/internal/service/gemini_carbon_pricing_test.go",
+        "backend/internal/service/gemini_compat_thinking.go",
+        "backend/internal/service/gemini_compat_thinking_test.go",
+        "backend/internal/service/pricing_service.go",
+        "backend/resources/model-pricing/model_prices_and_context_window.json",
+        "frontend/src/composables/__tests__/useModelWhitelist.spec.ts",
+        "frontend/src/composables/useModelWhitelist.ts"
+      ],
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8661",
+      "status": "ported",
+      "capability_complete": true,
+      "current_owners": [
+        "backend/internal/shared/antigravity/request_transformer.go",
+        "backend/internal/application/service/billing_gemini_argon.go",
+        "backend/resources/model-pricing/model_prices_and_context_window.json",
+        "frontend/src/features/admin-accounts/presentation/composables/useModelWhitelist.ts"
+      ],
+      "decision": "在当前模型目录、Gemini/Antigravity thinking 和独立价卡 owner 适配 Carbon；官方价卡另行核对。保留动态价卡和渠道显式价格优先级；范围限于现有同步网关，不扩展 long-decode、batch 或显式缓存运行面。",
+      "diff_review_closed": true,
+      "reopen_when": "Changed frozen upstream semantics, a demonstrated current-owner regression, or an explicitly commissioned unimplemented capability. The same PR and net diff hash are not a reopen trigger."
+    },
+    {
+      "pr": 8834,
+      "merge_sha": "4328510f285c2fbcd57fe4e57ab3a73a86e62368",
+      "title": "Merge pull request #8834 from Anankke/fix/grok-server-search-calls",
+      "diff_sha256": "1509fb4de47e89dfecbddf68e6fc3291b31f32303f09b79456152d5e962c34d3",
+      "files": [
+        "backend/internal/pkg/apicompat/responses_server_side_search.go",
+        "backend/internal/pkg/apicompat/responses_server_side_search_calls_test.go",
+        "backend/internal/pkg/apicompat/responses_server_side_search_test.go",
+        "backend/internal/pkg/apicompat/responses_to_anthropic.go",
+        "backend/internal/pkg/apicompat/responses_to_chatcompletions.go",
+        "backend/internal/service/grok_search_count.go",
+        "backend/internal/service/grok_search_count_test.go",
+        "backend/internal/service/openai_gateway_chat_completions.go",
+        "backend/internal/service/openai_gateway_grok_server_side_search_test.go",
+        "backend/internal/service/openai_gateway_messages.go",
+        "backend/internal/service/openai_gateway_response_handling.go"
+      ],
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8834",
+      "status": "ported-partial-local-billing",
+      "capability_complete": false,
+      "current_owners": [
+        "backend/internal/shared/apicompat/responses_server_side_search.go",
+        "backend/internal/shared/apicompat/responses_to_chatcompletions.go",
+        "backend/internal/shared/apicompat/responses_to_anthropic.go",
+        "backend/internal/application/service/openai_gateway_messages.go"
+      ],
+      "decision": "Grok 的 xs_/as_ 服务端搜索不再变成客户端工具，HTTP JSON、SSE 和空终态缓冲恢复保持同一语义；其它平台的同名前缀仍为客户端工具。不重开 #5925 已保留的独立原生搜索计费契约，未导入该计数器或改变现有账单。",
+      "diff_review_closed": true,
+      "reopen_when": "Changed frozen upstream semantics, a demonstrated current-owner regression, or an explicitly commissioned unimplemented capability. The same PR and net diff hash are not a reopen trigger."
+    },
+    {
+      "pr": 8748,
+      "merge_sha": "7a19bbef73b76e9158944d4a94c7e58bb5c78912",
+      "title": "Merge pull request #8748 from r266-tech/codex/passthrough-model-filter",
+      "diff_sha256": "18396df7fbd1103b012a3894341c52232911e4273c41ccf6d3cb6704a3c1e254",
+      "files": [
+        "backend/internal/repository/scheduler_cache.go",
+        "backend/internal/repository/scheduler_cache_unit_test.go",
+        "backend/internal/service/account.go",
+        "backend/internal/service/gateway_scheduling.go",
+        "backend/internal/service/gateway_service.go",
+        "backend/internal/service/group_model_allowlist.go",
+        "backend/internal/service/openai_models_list.go",
+        "backend/internal/service/openai_models_list_test.go",
+        "backend/internal/service/openai_passthrough_model_filter_test.go",
+        "frontend/src/components/account/BulkEditAccountModal.vue",
+        "frontend/src/components/account/CreateAccountModal.vue",
+        "frontend/src/components/account/EditAccountModal.vue",
+        "frontend/src/components/account/__tests__/BulkEditAccountModal.spec.ts",
+        "frontend/src/components/account/__tests__/CreateAccountModal.spec.ts",
+        "frontend/src/components/account/__tests__/EditAccountModal.spec.ts",
+        "frontend/src/i18n/locales/en/admin/accounts.ts",
+        "frontend/src/i18n/locales/zh/admin/accounts.ts"
+      ],
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8748",
+      "status": "ported-redesigned",
+      "capability_complete": true,
+      "current_owners": [
+        "backend/internal/application/service/account_openai_passthrough.go",
+        "backend/internal/application/service/account.go",
+        "backend/internal/infrastructure/repository/scheduler_cache.go",
+        "backend/internal/application/service/openai_codex_models_mapping.go",
+        "frontend/src/features/admin-accounts/presentation/accountCreateOpenAIExtra.ts"
+      ],
+      "decision": "默认关闭的账号级透传模型筛选接入当前 candidate、投影、Codex manifest 和创建/编辑/批量表单。只用来源模型名，目标不改写请求；缺省、非法值及空白名单保持原契约。不恢复上游旧路径目录。",
+      "diff_review_closed": true,
+      "reopen_when": "Changed frozen upstream semantics, a demonstrated current-owner regression, or an explicitly commissioned unimplemented capability. The same PR and net diff hash are not a reopen trigger."
+    },
+    {
+      "pr": 8724,
+      "merge_sha": "f8d891d6fbdfb3c378f827d897f45b80438d974f",
+      "title": "Merge pull request #8724 from r266-tech/codex/anthropic-errors-after-keepalive",
+      "diff_sha256": "a3940972eb2d86602a2baa83d805d62e10b83fb051a8a7fe35f024b86fd90408",
+      "files": [
+        "backend/internal/service/gateway_upstream_response.go",
+        "backend/internal/service/gateway_upstream_response_sse_test.go"
+      ],
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8724",
+      "status": "ported",
+      "capability_complete": true,
+      "current_owners": [
+        "backend/internal/application/service/gateway_upstream_response.go"
+      ],
+      "decision": "复用当前错误和 Ops owner：只有 SSE 已提交时才发送 Anthropic error 事件；未提交路径保留 HTTP 状态和原始 400。规则透传、上游错误与重试耗尽均覆盖，不扩大 failover 或重放。",
+      "diff_review_closed": true,
+      "reopen_when": "Changed frozen upstream semantics, a demonstrated current-owner regression, or an explicitly commissioned unimplemented capability. The same PR and net diff hash are not a reopen trigger."
+    },
+    {
+      "pr": 8772,
+      "merge_sha": "3e8e3254d1a5c9f4e2bf66d05ca95ba57bdf6297",
+      "title": "Merge pull request #8772 from Henglie/fix/openai-tool-schema-python-regex",
+      "diff_sha256": "2a7f1fd44638760de8b6962c761445f3cd4f8ab42b2a9f2a24fef33b9dccbade",
+      "files": [
+        "backend/go.mod",
+        "backend/internal/service/openai_responses_tool_schema.go",
+        "backend/internal/service/openai_responses_tool_schema_test.go"
+      ],
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8772",
+      "status": "ported-bounded-schema-edits",
+      "capability_complete": false,
+      "current_owners": [
+        "backend/internal/application/service/openai_tool_schema_patterns.go",
+        "backend/internal/application/service/openai_gateway_forward.go",
+        "backend/internal/application/service/openai_gateway_messages.go"
+      ],
+      "decision": "保留当前 null/required 和对象根联合重构，仅为 OpenAI 补不兼容正则、patternProperties 删除及 additionalProperties 放宽。只遍历 schema 边，收集偏移后一次拼接；不改消息/default/const/examples。每个 schema 最多 1 MiB、64 层、每请求 4096 修改；超限保留原请求，不声称支持上游更大的解析上限。不引入额外依赖或替换旧 parser。",
+      "diff_review_closed": true,
+      "reopen_when": "Changed frozen upstream semantics, a demonstrated current-owner regression, or an explicitly commissioned unimplemented capability. The same PR and net diff hash are not a reopen trigger."
+    },
+    {
+      "pr": 8669,
+      "merge_sha": "7e4c614bcfb7fc93c955f6da3227c4c0cdfab8cb",
+      "title": "Merge pull request #8669 from r266-tech/codex/grok-top-level-errors",
+      "diff_sha256": "878aece0675c0ea62af7a2ec07f1641854cf20db26ad50eae97c4332a78fb294",
+      "files": [
+        "backend/internal/handler/grok_media_errors_test.go",
+        "backend/internal/service/error_passthrough_runtime.go",
+        "backend/internal/service/grok_media.go",
+        "backend/internal/service/grok_media_errors_test.go",
+        "backend/internal/service/grok_upstream_error_fields_test.go",
+        "backend/internal/service/grok_upstream_errors.go"
+      ],
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8669",
+      "status": "ported",
+      "capability_complete": true,
+      "current_owners": [
+        "backend/internal/application/service/grok_upstream_errors.go",
+        "backend/internal/application/service/grok_media.go",
+        "backend/internal/application/service/error_passthrough_runtime.go"
+      ],
+      "decision": "Grok 独立读取扁平 error/code，嵌套字段优先；未知对象不回显，消息和 code 沿用脱敏。原媒体错误规则和内容拒绝优先级保留，不扩大其它平台的失败分类或模型 400 换号。",
+      "diff_review_closed": true,
+      "reopen_when": "Changed frozen upstream semantics, a demonstrated current-owner regression, or an explicitly commissioned unimplemented capability. The same PR and net diff hash are not a reopen trigger."
+    },
+    {
+      "pr": 8747,
+      "merge_sha": "ef29203002bf134560b78627e675a79547b88ab3",
+      "title": "Merge pull request #8747 from ruixingshi/fix/openai-quota-freshness",
+      "diff_sha256": "822ccb50551e4b0bfbdf5a2e3a21ece1b3809940e23ec8460abb8256aa5e1a38",
+      "files": [
+        "backend/internal/service/account_usage_service.go",
+        "backend/internal/service/account_usage_service_spark_shadow_test.go",
+        "backend/internal/service/account_usage_service_test.go",
+        "backend/internal/service/channel_monitor_quota_fetcher.go",
+        "backend/internal/service/channel_monitor_quota_fetcher_test.go",
+        "frontend/src/components/account/AccountUsageCell.vue",
+        "frontend/src/components/account/UsageProgressBar.vue",
+        "frontend/src/components/account/__tests__/AccountUsageCell.spec.ts",
+        "frontend/src/i18n/locales/en/admin/accounts.ts",
+        "frontend/src/i18n/locales/zh/admin/accounts.ts",
+        "frontend/src/types/index.ts"
+      ],
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8747",
+      "status": "ported-current-quota-owner",
+      "capability_complete": true,
+      "current_owners": [
+        "backend/internal/application/service/account_usage_service.go",
+        "backend/internal/application/service/account_usage_openai_freshness.go",
+        "frontend/src/features/admin-accounts/presentation/widgets/OpenAIQuotaResetCell.vue",
+        "frontend/src/features/admin-accounts/presentation/widgets/AccountUsageCell.vue"
+      ],
+      "decision": "读缓存不推进观测时间；失败保留旧快照并标记 quota_refresh_failed，仅有本地统计的利用率保持未知。当前独立额度单元格展示实际观测时间，失败保留原进度并提示；请求版本隔离账号切换和卸载的迟到响应。不重建本地不存在的旧 channel_monitor_quota_fetcher，当前额度单元格本就仅为已观测窗口生成进度条。",
+      "diff_review_closed": true,
+      "reopen_when": "Changed frozen upstream semantics, a demonstrated current-owner regression, or an explicitly commissioned unimplemented capability. The same PR and net diff hash are not a reopen trigger."
+    },
+    {
+      "pr": null,
+      "merge_sha": "9cd1a1eb21e84707685e1998dcb5a3d1ceafae49",
+      "title": "chore: update sponsors",
+      "diff_sha256": "9b43f9da739aba6a6537234706c5b49bba36195e0df306ca0e5d3d555dc93f1c",
+      "files": [
+        "README.md",
+        "README_CN.md",
+        "README_JA.md",
+        "assets/partners/logos/DataEyesAI.png"
+      ],
+      "status": "retain-local-branding",
+      "capability_complete": false,
+      "current_owners": [
+        "README.md",
+        "README_CN.md",
+        "README_JA.md"
+      ],
+      "decision": "本项目保留 fork 的说明和赞助信息，不引入上游商业 Logo；该提交仅文档/图片，无运行路径。",
+      "diff_review_closed": true,
+      "reopen_when": "Changed frozen upstream semantics, a demonstrated current-owner regression, or an explicitly commissioned unimplemented capability. The same PR and net diff hash are not a reopen trigger."
+    }
+  ],
+  "inherited_ledgers": [
+    {
+      "path": "diagnostics/upstream-deferred-20261115/UPSTREAM_PRS.json",
+      "sha256": "bff83d0d7a14827b826185391fcf69116338ae9197a680686df7ee3c1fe5dd04"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261116/UPSTREAM_PRS.json",
+      "sha256": "61da2564ce13d4364c32b5403e074b846da4a2d777599b8657747a89b006ec91"
+    }
+  ],
+  "schema_version": 1,
+  "counts": {
+    "ported": 3,
+    "ported-bounded-schema-edits": 1,
+    "ported-current-quota-owner": 1,
+    "ported-partial-local-billing": 1,
+    "ported-redesigned": 1,
+    "retain-local-branding": 1
+  },
+  "meaning": "Frozen diff review closure is not capability parity. Reuse inherited decisions by PR and patch hash; explicit unadopted scope remains incomplete."
+}

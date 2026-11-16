@@ -156,3 +156,8 @@ ChatGPT App 账号测试对 GIF 使用 App conversation 的动画意图并验证
 
 `gemini_content_session.go` 按租户和首轮稳定内容生成 Gemini 原生请求的会话 hash，局部规范化使用保精度数值。
 Hydrogen 价卡在既有 Gemini fallback owner；模型发现与前端选择器同步维护，不替换旧账号映射。
+
+2026-11-16 后续适配的透传模型筛选由 `account_openai_passthrough.go` 接入现有调度与模型目录；
+`openai_tool_schema_patterns.go` 对 OpenAI 工具 schema 执行有界局部修改，不替换 null/required 和根联合 owner。
+额度观测的新鲜度由 `account_usage_openai_freshness.go` 和原 usage owner 维护。能力及混合版本边界见
+[后续审查](../../../../docs/UPSTREAM_SYNC_20261116_FOLLOWUP.md)。

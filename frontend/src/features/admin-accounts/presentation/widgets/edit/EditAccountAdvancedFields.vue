@@ -304,6 +304,7 @@
               ]"
             />
           </button>
+          <OpenAIPassthroughModelFilterField v-if="openaiPassthroughEnabled" v-model="openaiPassthroughModelFilterEnabled" />
         </div>
       </div>
 
@@ -846,6 +847,7 @@
 </template>
 
 <script setup lang="ts">
+import OpenAIPassthroughModelFilterField from "@/features/admin-accounts/presentation/widgets/OpenAIPassthroughModelFilterField.vue"
 import { supportsAccountQuota } from '@/features/admin-accounts/presentation/accountQuota'
 
 import Icon from '@/common/widgets/icons/Icon.vue'
@@ -862,5 +864,5 @@ import { isUpstreamBillingProbeEligible } from '../../upstreamBillingProbeEligib
 
 const props = defineProps<{ context: EditAccountAdvancedContext }>()
 const browserTimeZone = getBrowserTimeZone()
-const { account, addTempUnschedRule, anthropicAPIKeyAuthScheme, anthropicPassthroughEnabled, codexFingerprintMode, codexFingerprintModeOptions, codexPrewarmContinuationEnabled, codexThinkingTagNormalizationEnabled, codexCLIOnlyAppServerEnabled, codexCLIOnlyEnabled, codexImageToolBadgeClass, codexImageToolBadgeLabel, codexImageToolMode, codexImageToolOptions, codexWebSearchEnabled, editDailyResetHour, editDailyResetMode, editQuotaDailyLimit, editQuotaLimit, editQuotaWeeklyLimit, editResetTimezone, editWeeklyResetDay, editWeeklyResetHour, editWeeklyResetMode, expiresAtInput, form, getTempUnschedRuleKey, handleOllamaCloudUsageUpdated, interceptWarmupRequests, isOpenAIPersonalAccessTokenAccount, isSparkShadow, moveTempUnschedRule, openAIEndpointCapabilities, openAIEndpointCapabilityOptions, openAIForceImageAPIEnabled, openAILongContextBillingEnabled, openAIResponsesMode, openAIResponsesModeOptions, openAIResponsesStatusKey, openAITextGenerationCapabilityEnabled, openAIWSModeConcurrencyHintKey, openAIWSModeOptions, openaiPassthroughEnabled, openaiFlattenNamespacesEnabled, openaiResponsesWebSocketV2Mode, proxies, quotaNotifyGlobalEnabled, quotaNotifyState, removeTempUnschedRule, t, tempUnschedEnabled, tempUnschedPresets, tempUnschedRules, toggleOpenAIEndpointCapability, upstreamBillingAutoProbeEnabled, upstreamBillingRateSyncEnabled, webSearchEmulationMode, webSearchGlobalEnabled } = props.context
+const { account, addTempUnschedRule, anthropicAPIKeyAuthScheme, anthropicPassthroughEnabled, codexFingerprintMode, codexFingerprintModeOptions, codexPrewarmContinuationEnabled, codexThinkingTagNormalizationEnabled, codexCLIOnlyAppServerEnabled, codexCLIOnlyEnabled, codexImageToolBadgeClass, codexImageToolBadgeLabel, codexImageToolMode, codexImageToolOptions, codexWebSearchEnabled, editDailyResetHour, editDailyResetMode, editQuotaDailyLimit, editQuotaLimit, editQuotaWeeklyLimit, editResetTimezone, editWeeklyResetDay, editWeeklyResetHour, editWeeklyResetMode, expiresAtInput, form, getTempUnschedRuleKey, handleOllamaCloudUsageUpdated, interceptWarmupRequests, isOpenAIPersonalAccessTokenAccount, isSparkShadow, moveTempUnschedRule, openAIEndpointCapabilities, openAIEndpointCapabilityOptions, openAIForceImageAPIEnabled, openAILongContextBillingEnabled, openAIResponsesMode, openAIResponsesModeOptions, openAIResponsesStatusKey, openAITextGenerationCapabilityEnabled, openAIWSModeConcurrencyHintKey, openAIWSModeOptions, openaiPassthroughEnabled, openaiPassthroughModelFilterEnabled, openaiFlattenNamespacesEnabled, openaiResponsesWebSocketV2Mode, proxies, quotaNotifyGlobalEnabled, quotaNotifyState, removeTempUnschedRule, t, tempUnschedEnabled, tempUnschedPresets, tempUnschedRules, toggleOpenAIEndpointCapability, upstreamBillingAutoProbeEnabled, upstreamBillingRateSyncEnabled, webSearchEmulationMode, webSearchGlobalEnabled } = props.context
 </script>

@@ -81,3 +81,8 @@ OpenAI 与 Anthropic API-key 的 WebSearch 模拟共用已有三态字段和全�
 
 `CNProviderUsageCell.vue` 保留手动探测结果直到供应商快照实际变化；账号/模式切换与卸载使旧响应失效，
 普通列表刷新不新增探测。Gemini refetch 有旧结果时继续展示进度条。
+
+`OpenAIPassthroughModelFilterField.vue` 在创建、编辑和批量表单复用默认关闭的账号模型筛选开关；
+extra 和模型来源名单仍由原 payload owner 保存。`OpenAIQuotaResetCell.vue` 展示实际观测时间，
+刷新失败保留旧窗口，账号切换和卸载使在途查询失效。启用和回退要求见
+[后续同步](../../../../docs/UPSTREAM_SYNC_20261116_FOLLOWUP.md)。

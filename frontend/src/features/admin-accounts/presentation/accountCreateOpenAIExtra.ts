@@ -9,6 +9,7 @@ interface CreateOpenAIExtraState {
   openaiOAuthResponsesWebSocketV2Mode: Ref<OpenAIWSMode>
   openaiAPIKeyResponsesWebSocketV2Mode: Ref<OpenAIWSMode>
   openaiPassthroughEnabled: Ref<boolean>
+  openaiPassthroughModelFilterEnabled: Ref<boolean>
   openaiFlattenNamespacesEnabled: Ref<boolean>
   codexPrewarmContinuationEnabled: Ref<boolean>
   codexFingerprintMode: Ref<string>
@@ -25,7 +26,7 @@ interface CreateOpenAIExtraState {
 }
 
 export function buildCreateOpenAIExtra(state: CreateOpenAIExtraState, base?: Record<string, unknown>): Record<string, unknown> | undefined {
-  const { form, openAIImageSizeTiers, accountCategory, openaiOAuthResponsesWebSocketV2Mode, openaiAPIKeyResponsesWebSocketV2Mode, openaiPassthroughEnabled, openaiFlattenNamespacesEnabled, codexPrewarmContinuationEnabled, codexFingerprintMode, customBaseUrlEnabled, customBaseUrl, codexThinkingTagNormalizationEnabled, openAILongContextBillingEnabled, codexCLIOnlyEnabled, codexCLIOnlyAppServerEnabled, openAICompactMode, openAITextGenerationCapabilityEnabled, openAIResponsesMode, openAIForceImageAPIEnabled } = state
+  const { form, openAIImageSizeTiers, accountCategory, openaiOAuthResponsesWebSocketV2Mode, openaiAPIKeyResponsesWebSocketV2Mode, openaiPassthroughEnabled, openaiPassthroughModelFilterEnabled, openaiFlattenNamespacesEnabled, codexPrewarmContinuationEnabled, codexFingerprintMode, customBaseUrlEnabled, customBaseUrl, codexThinkingTagNormalizationEnabled, openAILongContextBillingEnabled, codexCLIOnlyEnabled, codexCLIOnlyAppServerEnabled, openAICompactMode, openAITextGenerationCapabilityEnabled, openAIResponsesMode, openAIForceImageAPIEnabled } = state
 
   if (form.platform !== 'openai') {
     return base
@@ -48,6 +49,11 @@ export function buildCreateOpenAIExtra(state: CreateOpenAIExtraState, base?: Rec
   } else {
     delete extra.openai_passthrough
     delete extra.openai_oauth_passthrough
+  }
+  if (openaiPassthroughEnabled.value && openaiPassthroughModelFilterEnabled.value) {
+    extra.openai_passthrough_model_filter = true
+  } else {
+    delete extra.openai_passthrough_model_filter
   }
   if (form.type === 'oauth' && openaiFlattenNamespacesEnabled.value) {
     extra.openai_responses_flatten_namespaces = true

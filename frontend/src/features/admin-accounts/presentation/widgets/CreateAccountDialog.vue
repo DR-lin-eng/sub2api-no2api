@@ -353,6 +353,7 @@ const applyGrokOAuthUpstreamConfig = (credentials: Record<string, unknown>) => {
 const interceptWarmupRequests = ref(false)
 const autoPauseOnExpired = ref(true)
 const openaiPassthroughEnabled = ref(false)
+const openaiPassthroughModelFilterEnabled = ref(false)
 const openAIImageSizeTiers = ref<OpenAIImageSizeTier[]>([...OPENAI_IMAGE_SIZE_TIERS])
 // OAuth-only compatibility switch; default preserves namespace declarations.
 const openaiFlattenNamespacesEnabled = ref(false)
@@ -583,7 +584,7 @@ const openAIWSModeConcurrencyHintKey = computed(() =>
 )
 
 const isOpenAIModelRestrictionDisabled = computed(() =>
-  form.platform === 'openai' && openaiPassthroughEnabled.value
+  form.platform === 'openai' && openaiPassthroughEnabled.value && !openaiPassthroughModelFilterEnabled.value
 )
 
 const mixedChannelWarningMessageText = computed(() => {
@@ -734,7 +735,7 @@ const {
   modelMappings, modelRestrictionMode, notifications, oauth,
   openAICompactModelMappings, openAIEndpointCapabilities, openAIForceImageAPIEnabled,
   openaiAPIKeyResponsesWebSocketV2Mode, openaiOAuth, openaiOAuthResponsesWebSocketV2Mode,
-  openaiFlattenNamespacesEnabled, openaiPassthroughEnabled, resetForm: () => resetForm(),
+  openaiFlattenNamespacesEnabled, openaiPassthroughEnabled, openaiPassthroughModelFilterEnabled, resetForm: () => resetForm(),
   selectedErrorCodes,
   show: () => props.show, t, tempUnschedEnabled, tempUnschedRules, tlsFingerprintProfiles,
   vertexClientEmail, vertexLocation, vertexProjectId, vertexServiceAccountJson,
@@ -903,6 +904,7 @@ const resetForm = () => {
   interceptWarmupRequests.value = false
   autoPauseOnExpired.value = true
   openaiPassthroughEnabled.value = false
+  openaiPassthroughModelFilterEnabled.value = false
   openAIImageSizeTiers.value = [...OPENAI_IMAGE_SIZE_TIERS]
   openaiFlattenNamespacesEnabled.value = false
   openAILongContextBillingEnabled.value = false
@@ -975,7 +977,7 @@ const buildOpenAIExtra = (base?: Record<string, unknown>): Record<string, unknow
   buildCreateOpenAIExtra({
     form,
     openAIImageSizeTiers, accountCategory, openaiOAuthResponsesWebSocketV2Mode,
-    openaiAPIKeyResponsesWebSocketV2Mode, openaiPassthroughEnabled, openaiFlattenNamespacesEnabled,
+    openaiAPIKeyResponsesWebSocketV2Mode, openaiPassthroughEnabled, openaiPassthroughModelFilterEnabled, openaiFlattenNamespacesEnabled,
     codexPrewarmContinuationEnabled, codexFingerprintMode, customBaseUrlEnabled,
     customBaseUrl, codexThinkingTagNormalizationEnabled, openAILongContextBillingEnabled,
     codexCLIOnlyEnabled, codexCLIOnlyAppServerEnabled, openAICompactMode,
@@ -1392,7 +1394,7 @@ const createAccountAdvancedContext = {
   openAICompactModelMappings, openAIEndpointCapabilities, openAIEndpointCapabilityOptions,
   openAIForceImageAPIEnabled, openAILongContextBillingEnabled, openAIResponsesMode,
   openAIResponsesModeOptions, openAITextGenerationCapabilityEnabled, openAIWSModeConcurrencyHintKey,
-  openAIWSModeOptions, openaiPassthroughEnabled, openaiFlattenNamespacesEnabled,
+  openAIWSModeOptions, openaiPassthroughEnabled, openaiPassthroughModelFilterEnabled, openaiFlattenNamespacesEnabled,
   openaiResponsesWebSocketV2Mode,
   proxies: availableProxies, removeOpenAICompactModelMapping, removeTempUnschedRule,
   rpmLimitEnabled, rpmStickyBuffer, rpmStrategy, sessionIdMaskingEnabled, sessionIdleTimeout,

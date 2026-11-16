@@ -229,6 +229,8 @@ type ResponsesEventToAnthropicState struct {
 	// emitted as signature_delta before the thinking block is closed.
 	PendingThinkingSignature string
 	HasToolCall              bool
+	// xAI executes xs_/as_ custom calls itself; other providers keep client tools.
+	XAIServerSideSearch bool
 
 	// OutputIndexToBlockIdx maps Responses output_index → Anthropic content block index.
 	OutputIndexToBlockIdx map[int]int
@@ -390,6 +392,9 @@ func resToAnthHandleOutputItemAdded(evt *ResponsesStreamEvent, state *ResponsesE
 	// function_call 与 custom_tool_call（custom/freeform 工具，如新版 apply_patch）
 	// 同样映射为 Anthropic 的 tool_use 块。
 	case "function_call", "custom_tool_call":
+		if state.XAIServerSideSearch && IsServerSideSearchCall(evt.Item.Type, evt.Item.CallID) {
+			return nil
+		}
 		var events []AnthropicStreamEvent
 		events = append(events, closeCurrentBlock(state)...)
 

@@ -12,7 +12,7 @@ import (
 // CodexManifestMappingEnabled limits projection to stored administrator mappings.
 // Default OAuth aliases and explicit passthrough retain the existing manifest policy.
 func CodexManifestMappingEnabled(account *Account) bool {
-	if account == nil || account.IsOpenAIPassthroughEnabled() {
+	if account == nil || (account.IsOpenAIPassthroughEnabled() && !account.IsOpenAIPassthroughModelFilterEnabled()) {
 		return false
 	}
 	switch mapping := account.Credentials["model_mapping"].(type) {
@@ -86,6 +86,9 @@ func projectCodexAccountModelsBody(body []byte, account *Account, group *Group) 
 			continue
 		}
 		target, matched := account.ResolveMappedModel(id)
+		if account.IsOpenAIPassthroughEnabled() {
+			target, matched = id, account.IsModelSupported(id)
+		}
 		raw, available := byID[strings.TrimSpace(target)]
 		if !matched || !available {
 			continue

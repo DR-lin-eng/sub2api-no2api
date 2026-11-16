@@ -1,0 +1,642 @@
+[
+  {
+    "stage": "BASELINE",
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "image-4k",
+        "selected_fixture": "fixture-high",
+        "settlement": [
+          {
+            "input": 0,
+            "output": 0,
+            "count": 2,
+            "total": 0.2,
+            "actual": 0.2,
+            "mode": "image"
+          }
+        ]
+      },
+      {
+        "case": "responses",
+        "stream": false,
+        "settlement": [
+          {
+            "input": 1000,
+            "output": 100,
+            "count": 0,
+            "total": 0.004,
+            "actual": 0.004,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "responses",
+        "stream": true,
+        "settlement": [
+          {
+            "input": 1000,
+            "output": 100,
+            "count": 0,
+            "total": 0.004,
+            "actual": 0.004,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "buffered-reasoning-fallback",
+        "plaintext_present": true,
+        "settled_once": true
+      },
+      {
+        "case": "grok-delegation",
+        "normalized": true
+      },
+      {
+        "case": "kimi-concurrency-403",
+        "http": 502,
+        "state": {
+          "status": "active",
+          "rate_limited": true,
+          "temporary": null
+        }
+      },
+      {
+        "case": "refresh-rotation-and-reuse",
+        "single_use": true
+      },
+      {
+        "case": "multiplier-save-readback",
+        "value": 0.140845
+      },
+      {
+        "case": "claude52-model-listing",
+        "visible": true
+      },
+      {
+        "case": "page-context",
+        "http": 200,
+        "normalized": true
+      },
+      {
+        "case": "external-context-browser_info",
+        "http": 200
+      },
+      {
+        "case": "external-context-goal_objective",
+        "http": 200
+      },
+      {
+        "case": "external-context-untrusted_context",
+        "http": 200
+      },
+      {
+        "case": "chat-schema-strict",
+        "requested": null,
+        "forwarded": false,
+        "settled_once": true
+      },
+      {
+        "case": "chat-schema-strict",
+        "requested": true,
+        "forwarded": true,
+        "settled_once": true
+      },
+      {
+        "case": "regex-compatibility",
+        "stream": false,
+        "http": 400,
+        "settled": false
+      },
+      {
+        "case": "regex-compatibility",
+        "stream": true,
+        "http": 400,
+        "settled": false
+      },
+      {
+        "case": "passthrough-model-filter",
+        "restricted": false,
+        "http": 200
+      },
+      {
+        "case": "passthrough-source-name",
+        "http": 200,
+        "settled_once": true
+      },
+      {
+        "case": "grok-flat-error",
+        "http": 400,
+        "fields_preserved": false,
+        "settled": false
+      },
+      {
+        "case": "carbon-discovery",
+        "visible": false
+      }
+    ],
+    "migrations": 317,
+    "persistent_identity_key_subscription": "PASS",
+    "historical_usage_unchanged": "PASS",
+    "balance_settlement_identity": "PASS"
+  },
+  {
+    "stage": "MODIFIED",
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "image-4k",
+        "selected_fixture": "fixture-high",
+        "settlement": [
+          {
+            "input": 0,
+            "output": 0,
+            "count": 2,
+            "total": 0.2,
+            "actual": 0.2,
+            "mode": "image"
+          }
+        ]
+      },
+      {
+        "case": "responses",
+        "stream": false,
+        "settlement": [
+          {
+            "input": 1000,
+            "output": 100,
+            "count": 0,
+            "total": 0.004,
+            "actual": 0.004,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "responses",
+        "stream": true,
+        "settlement": [
+          {
+            "input": 1000,
+            "output": 100,
+            "count": 0,
+            "total": 0.004,
+            "actual": 0.004,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "buffered-reasoning-fallback",
+        "plaintext_present": true,
+        "settled_once": true
+      },
+      {
+        "case": "grok-delegation",
+        "normalized": true
+      },
+      {
+        "case": "kimi-concurrency-403",
+        "http": 502,
+        "state": {
+          "status": "active",
+          "rate_limited": true,
+          "temporary": null
+        }
+      },
+      {
+        "case": "refresh-rotation-and-reuse",
+        "single_use": true
+      },
+      {
+        "case": "atomic-concurrent-refresh",
+        "callers": 8,
+        "successes": 1,
+        "rejected": 7
+      },
+      {
+        "case": "multiplier-save-readback",
+        "value": 0.140845
+      },
+      {
+        "case": "claude52-model-listing",
+        "visible": true
+      },
+      {
+        "case": "page-context",
+        "http": 200,
+        "normalized": true
+      },
+      {
+        "case": "external-context-browser_info",
+        "http": 200
+      },
+      {
+        "case": "external-context-goal_objective",
+        "http": 200
+      },
+      {
+        "case": "external-context-untrusted_context",
+        "http": 200
+      },
+      {
+        "case": "chat-schema-strict",
+        "requested": null,
+        "forwarded": false,
+        "settled_once": true
+      },
+      {
+        "case": "chat-schema-strict",
+        "requested": true,
+        "forwarded": true,
+        "settled_once": true
+      },
+      {
+        "case": "regex-compatibility",
+        "stream": false,
+        "http": 200,
+        "settled": true
+      },
+      {
+        "case": "regex-compatibility",
+        "stream": true,
+        "http": 200,
+        "settled": true
+      },
+      {
+        "case": "passthrough-model-filter",
+        "restricted": true,
+        "http": 404
+      },
+      {
+        "case": "passthrough-source-name",
+        "http": 200,
+        "settled_once": true
+      },
+      {
+        "case": "grok-flat-error",
+        "http": 400,
+        "fields_preserved": true,
+        "settled": false
+      },
+      {
+        "case": "carbon-discovery",
+        "visible": true
+      },
+      {
+        "case": "carbon-native",
+        "stream": false,
+        "settlement": [
+          {
+            "input": 1000,
+            "output": 100,
+            "count": 0,
+            "total": 0.003,
+            "actual": 0.003,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "carbon-native",
+        "stream": true,
+        "settlement": [
+          {
+            "input": 1000,
+            "output": 100,
+            "count": 0,
+            "total": 0.003,
+            "actual": 0.003,
+            "mode": "token"
+          }
+        ]
+      }
+    ],
+    "migrations": 317,
+    "persistent_identity_key_subscription": "PASS",
+    "historical_usage_unchanged": "PASS",
+    "balance_settlement_identity": "PASS"
+  },
+  {
+    "stage": "ROLLBACK",
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "image-4k",
+        "selected_fixture": "fixture-high",
+        "settlement": [
+          {
+            "input": 0,
+            "output": 0,
+            "count": 2,
+            "total": 0.2,
+            "actual": 0.2,
+            "mode": "image"
+          }
+        ]
+      },
+      {
+        "case": "responses",
+        "stream": false,
+        "settlement": [
+          {
+            "input": 1000,
+            "output": 100,
+            "count": 0,
+            "total": 0.004,
+            "actual": 0.004,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "responses",
+        "stream": true,
+        "settlement": [
+          {
+            "input": 1000,
+            "output": 100,
+            "count": 0,
+            "total": 0.004,
+            "actual": 0.004,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "buffered-reasoning-fallback",
+        "plaintext_present": true,
+        "settled_once": true
+      },
+      {
+        "case": "grok-delegation",
+        "normalized": true
+      },
+      {
+        "case": "kimi-concurrency-403",
+        "http": 502,
+        "state": {
+          "status": "active",
+          "rate_limited": true,
+          "temporary": null
+        }
+      },
+      {
+        "case": "refresh-rotation-and-reuse",
+        "single_use": true
+      },
+      {
+        "case": "multiplier-save-readback",
+        "value": 0.140845
+      },
+      {
+        "case": "claude52-model-listing",
+        "visible": true
+      },
+      {
+        "case": "page-context",
+        "http": 200,
+        "normalized": true
+      },
+      {
+        "case": "external-context-browser_info",
+        "http": 200
+      },
+      {
+        "case": "external-context-goal_objective",
+        "http": 200
+      },
+      {
+        "case": "external-context-untrusted_context",
+        "http": 200
+      },
+      {
+        "case": "chat-schema-strict",
+        "requested": null,
+        "forwarded": false,
+        "settled_once": true
+      },
+      {
+        "case": "chat-schema-strict",
+        "requested": true,
+        "forwarded": true,
+        "settled_once": true
+      },
+      {
+        "case": "regex-compatibility",
+        "stream": false,
+        "http": 400,
+        "settled": false
+      },
+      {
+        "case": "regex-compatibility",
+        "stream": true,
+        "http": 400,
+        "settled": false
+      },
+      {
+        "case": "passthrough-model-filter",
+        "restricted": false,
+        "http": 200
+      },
+      {
+        "case": "passthrough-source-name",
+        "http": 200,
+        "settled_once": true
+      },
+      {
+        "case": "grok-flat-error",
+        "http": 400,
+        "fields_preserved": false,
+        "settled": false
+      },
+      {
+        "case": "carbon-discovery",
+        "visible": false
+      }
+    ],
+    "migrations": 317,
+    "persistent_identity_key_subscription": "PASS",
+    "historical_usage_unchanged": "PASS",
+    "balance_settlement_identity": "PASS"
+  },
+  {
+    "stage": "RESTORED",
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "image-4k",
+        "selected_fixture": "fixture-high",
+        "settlement": [
+          {
+            "input": 0,
+            "output": 0,
+            "count": 2,
+            "total": 0.2,
+            "actual": 0.2,
+            "mode": "image"
+          }
+        ]
+      },
+      {
+        "case": "responses",
+        "stream": false,
+        "settlement": [
+          {
+            "input": 1000,
+            "output": 100,
+            "count": 0,
+            "total": 0.004,
+            "actual": 0.004,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "responses",
+        "stream": true,
+        "settlement": [
+          {
+            "input": 1000,
+            "output": 100,
+            "count": 0,
+            "total": 0.004,
+            "actual": 0.004,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "buffered-reasoning-fallback",
+        "plaintext_present": true,
+        "settled_once": true
+      },
+      {
+        "case": "grok-delegation",
+        "normalized": true
+      },
+      {
+        "case": "kimi-concurrency-403",
+        "http": 502,
+        "state": {
+          "status": "active",
+          "rate_limited": true,
+          "temporary": null
+        }
+      },
+      {
+        "case": "refresh-rotation-and-reuse",
+        "single_use": true
+      },
+      {
+        "case": "atomic-concurrent-refresh",
+        "callers": 8,
+        "successes": 1,
+        "rejected": 7
+      },
+      {
+        "case": "multiplier-save-readback",
+        "value": 0.140845
+      },
+      {
+        "case": "claude52-model-listing",
+        "visible": true
+      },
+      {
+        "case": "page-context",
+        "http": 200,
+        "normalized": true
+      },
+      {
+        "case": "external-context-browser_info",
+        "http": 200
+      },
+      {
+        "case": "external-context-goal_objective",
+        "http": 200
+      },
+      {
+        "case": "external-context-untrusted_context",
+        "http": 200
+      },
+      {
+        "case": "chat-schema-strict",
+        "requested": null,
+        "forwarded": false,
+        "settled_once": true
+      },
+      {
+        "case": "chat-schema-strict",
+        "requested": true,
+        "forwarded": true,
+        "settled_once": true
+      },
+      {
+        "case": "regex-compatibility",
+        "stream": false,
+        "http": 200,
+        "settled": true
+      },
+      {
+        "case": "regex-compatibility",
+        "stream": true,
+        "http": 200,
+        "settled": true
+      },
+      {
+        "case": "passthrough-model-filter",
+        "restricted": true,
+        "http": 404
+      },
+      {
+        "case": "passthrough-source-name",
+        "http": 200,
+        "settled_once": true
+      },
+      {
+        "case": "grok-flat-error",
+        "http": 400,
+        "fields_preserved": true,
+        "settled": false
+      },
+      {
+        "case": "carbon-discovery",
+        "visible": true
+      },
+      {
+        "case": "carbon-native",
+        "stream": false,
+        "settlement": [
+          {
+            "input": 1000,
+            "output": 100,
+            "count": 0,
+            "total": 0.003,
+            "actual": 0.003,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "carbon-native",
+        "stream": true,
+        "settlement": [
+          {
+            "input": 1000,
+            "output": 100,
+            "count": 0,
+            "total": 0.003,
+            "actual": 0.003,
+            "mode": "token"
+          }
+        ]
+      }
+    ],
+    "migrations": 317,
+    "persistent_identity_key_subscription": "PASS",
+    "historical_usage_unchanged": "PASS",
+    "balance_settlement_identity": "PASS"
+  }
+]

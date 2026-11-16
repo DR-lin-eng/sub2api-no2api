@@ -432,6 +432,10 @@ export default {
         grokLastStatus: '状态 {status}',
         grokLastProbe: '探测 {time}',
         grokLastHeadersSeen: '响应头 {time}',
+        quotaObservedAt: '额度采样时间：',
+        quotaObservationUnknown: '未知（历史缓存）',
+        quotaRefreshFailedCached: '刷新失败，当前显示历史额度。',
+        quotaRefreshFailedUnknown: '刷新失败，当前额度未知。',
         passiveSampled: '被动采样',
         activeQuery: '查询',
         activeQueryOpenAI: '查询上游额度和本地用量',
@@ -613,6 +617,8 @@ export default {
         baseUrlHint: '留空使用官方 OpenAI API',
         apiKeyHint: '您的 OpenAI API Key',
         oauthPassthrough: '自动透传（仅替换认证）',
+        passthroughModelFilter: '透传时按账号模型筛选',
+        passthroughModelFilterDesc: '使用账号白名单或映射的来源模型名筛选候选账号，透传请求的模型名保持不变。空列表不限制，默认关闭。',
         oauthPassthroughDesc:
           '开启后，该 OpenAI 账号将自动透传请求与响应，仅替换认证并保留计费/并发/审计及必要安全过滤；如遇兼容性问题可随时关闭回滚。',
         excelBpsEnabled: 'Excel / Basispoints 桥接',
@@ -715,7 +721,7 @@ export default {
         testModeResponses: 'Responses API',
         testModeChatCompletions: 'Chat Completions API',
         testModeCompact: 'Compact 探测',
-        modelRestrictionDisabledByPassthrough: '已开启自动透传：模型白名单/映射不会生效。',
+        modelRestrictionDisabledByPassthrough: '自动透传默认忽略模型限制；开启“透传时按账号模型筛选”后，仅用于筛选候选账号。',
       },
       grok: {
         baseUrlHint: 'Grok OAuth 账号会转发到官方 xAI API Base URL。',

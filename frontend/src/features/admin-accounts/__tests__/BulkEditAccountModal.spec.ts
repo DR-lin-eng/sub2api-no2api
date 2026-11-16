@@ -280,7 +280,8 @@ describe('BulkEditAccountModal', () => {
     expect(bulkUpdate).toHaveBeenCalledTimes(1)
     expect(bulkUpdate).toHaveBeenCalledWith([1, 2], {
       extra: {
-        openai_passthrough: true
+        openai_passthrough: true,
+        openai_passthrough_model_filter: false
       }
     })
   })
@@ -756,6 +757,7 @@ describe('BulkEditAccountModal', () => {
     expect(bulkUpdate).toHaveBeenCalledWith([1, 2], {
       extra: {
         openai_passthrough: false,
+        openai_passthrough_model_filter: false,
         openai_oauth_passthrough: false
       }
     })
@@ -776,7 +778,8 @@ describe('BulkEditAccountModal', () => {
     expect(bulkUpdate).toHaveBeenCalledTimes(1)
     expect(bulkUpdate).toHaveBeenCalledWith([1, 2], {
       extra: {
-        openai_passthrough: true
+        openai_passthrough: true,
+        openai_passthrough_model_filter: false
       }
     })
     expect(wrapper.text()).toContain('admin.accounts.openai.modelRestrictionDisabledByPassthrough')
@@ -818,4 +821,19 @@ describe('BulkEditAccountModal', () => {
       status: 'active'
     })
   })
+  it('persists passthrough model filtering only after explicit selection', async () => {
+    const wrapper = mountModal({ selectedPlatforms: ['openai'], selectedTypes: ['oauth'] })
+    expect(wrapper.find('[data-testid="openai-passthrough-model-filter"]').exists()).toBe(false)
+    await wrapper.get('#bulk-edit-openai-passthrough-enabled').setValue(true)
+    await wrapper.get('#bulk-edit-openai-passthrough-toggle').trigger('click')
+    const checkbox = wrapper.get('[data-testid="openai-passthrough-model-filter"]')
+    expect((checkbox.element as HTMLInputElement).checked).toBe(false)
+    await checkbox.setValue(true)
+    expect(wrapper.text()).not.toContain('admin.accounts.openai.modelRestrictionDisabledByPassthrough')
+    await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(bulkUpdate).toHaveBeenCalledWith([1, 2], { extra: { openai_passthrough: true, openai_passthrough_model_filter: true } })
+    wrapper.unmount()
+  })
+
 })

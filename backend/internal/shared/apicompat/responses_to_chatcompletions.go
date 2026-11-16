@@ -131,6 +131,7 @@ type ResponsesEventToChatState struct {
 	arguments              map[int]*chatArgumentProgress
 	IncludeUsage           bool
 	Usage                  *ChatUsage
+	XAIServerSideSearch    bool
 }
 
 // NewResponsesEventToChatState returns an initialised stream state.
@@ -259,6 +260,9 @@ func resToChatHandleOutputItemAdded(evt *ResponsesStreamEvent, state *ResponsesE
 	// function_call 与 custom_tool_call（custom/freeform 工具）均按工具调用注册，
 	// 以便后续 *_input.delta / *_arguments.delta 能映射到正确的工具索引。
 	if evt.Item == nil || (evt.Item.Type != "function_call" && evt.Item.Type != "custom_tool_call") {
+		return nil
+	}
+	if state.XAIServerSideSearch && IsServerSideSearchCall(evt.Item.Type, evt.Item.CallID) {
 		return nil
 	}
 
@@ -524,6 +528,7 @@ func generateChatCmplID() string {
 // ---------------------------------------------------------------------------
 
 type bufferedFuncCall struct {
+	ServerSideSearch      bool
 	CallID                string
 	Name                  string
 	Namespace             string
@@ -536,6 +541,7 @@ type bufferedFuncCall struct {
 // so that non-streaming handlers can reconstruct output when the terminal event
 // (response.completed / response.done) carries an empty output array.
 type BufferedResponseAccumulator struct {
+	XAIServerSideSearch  bool
 	text                 strings.Builder
 	refusal              strings.Builder
 	reasoning            strings.Builder
@@ -568,6 +574,7 @@ func (a *BufferedResponseAccumulator) ProcessEvent(event *ResponsesStreamEvent) 
 			idx := len(a.funcCalls)
 			a.outputIndexToFuncIdx[event.OutputIndex] = idx
 			a.funcCalls = append(a.funcCalls, &bufferedFuncCall{
+				ServerSideSearch:      a.XAIServerSideSearch && IsServerSideSearchCall(event.Item.Type, event.Item.CallID),
 				CallID:                event.Item.CallID,
 				Name:                  event.Item.Name,
 				Namespace:             event.Item.Namespace,
@@ -649,6 +656,10 @@ func (a *BufferedResponseAccumulator) BuildOutput() []ResponsesOutput {
 	}
 
 	for i := range a.funcCalls {
+		if a.funcCalls[i].ServerSideSearch {
+			out = append(out, ResponsesOutput{Type: "custom_tool_call", CallID: a.funcCalls[i].CallID, Name: a.funcCalls[i].Name, Input: a.funcCalls[i].Args.String()})
+			continue
+		}
 		out = append(out, ResponsesOutput{
 			Type:                  "function_call",
 			CallID:                a.funcCalls[i].CallID,

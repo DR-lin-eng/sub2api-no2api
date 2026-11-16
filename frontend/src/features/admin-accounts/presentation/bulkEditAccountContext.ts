@@ -40,6 +40,7 @@ export interface BulkEditRoutingPolicyContext {
   modelMappings: Ref<ModelMapping[]>
   modelRestrictionMode: Ref<ModelRestrictionMode>
   openaiPassthroughEnabled: Ref<boolean>
+  openaiPassthroughModelFilterEnabled: Ref<boolean>
   openaiFlattenNamespacesEnabled: Ref<boolean>
   removeErrorCode: (code: number) => void
   removeModelMapping: (index: number) => void

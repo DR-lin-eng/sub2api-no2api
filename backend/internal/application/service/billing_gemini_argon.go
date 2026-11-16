@@ -2,6 +2,11 @@ package service
 
 // Argon promotional rates run through 2026-11-30; Cyber has a separate rate.
 func (s *BillingService) initGeminiArgonFallbackPricing() {
+	// Carbon introductory rates through 2026-11-30; administrator/dynamic cards retain priority.
+	s.fallbackPrices["gemini-4-carbon"] = &ModelPricing{
+		InputPricePerToken: 2e-6, OutputPricePerToken: 10e-6, CacheReadPricePerToken: 0.1e-6,
+		InputPricePerTokenPriority: 3.6e-6, OutputPricePerTokenPriority: 18e-6, CacheReadPricePerTokenPriority: 0.18e-6,
+	}
 	s.fallbackPrices["gemini-4-argon"] = &ModelPricing{InputPricePerToken: 2e-6, OutputPricePerToken: 10e-6, CacheReadPricePerToken: 0.1e-6}
 	s.fallbackPrices["gemini-4-argon-cyber-permissive"] = &ModelPricing{InputPricePerToken: 4e-6, OutputPricePerToken: 20e-6, CacheReadPricePerToken: 0.2e-6}
 	s.fallbackPrices["gemini-4-hydrogen"] = &ModelPricing{

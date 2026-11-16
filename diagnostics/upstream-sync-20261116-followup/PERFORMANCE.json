@@ -1,0 +1,213 @@
+{
+  "scope": "Regex compatibility pass only; fixed 1 MiB prompt and 0/100/1000 tool schemas. Not production throughput.",
+  "source_sha256": {
+    "upstream": "7fc41cb69d131c8746d3a5715b20ea9cdc97e726cae3468ed8c02955e5e141a9",
+    "openai_responses_tool_schema.go": "ed4c9447fe4c06fbeb50eab6ef8007e9da313d184291b33d4c231ec427cff5c0",
+    "openai_tool_schema_patterns.go": "577c1c06c602cb2118b67a800c30705d32ed055b26a24580145c4f0eafe0dcb9",
+    "gateway_json_view.go": "1a0713e57131805b55d52662fd81b7bc2481526f52fb9fce348849f24bed73b0"
+  },
+  "upstream": {
+    "BenchmarkFollowupRegex/0": {
+      "samples": [
+        {
+          "ns": 964965.0,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 1634114.0,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 594530.0,
+          "bytes": 0,
+          "allocs": 0
+        }
+      ],
+      "ns": 964965.0,
+      "bytes": 0,
+      "allocs": 0
+    },
+    "BenchmarkFollowupRegex/100": {
+      "samples": [
+        {
+          "ns": 11853943.0,
+          "bytes": 1067834,
+          "allocs": 112
+        },
+        {
+          "ns": 7468450.0,
+          "bytes": 1067832,
+          "allocs": 112
+        },
+        {
+          "ns": 7259328.0,
+          "bytes": 1067830,
+          "allocs": 112
+        }
+      ],
+      "ns": 7468450.0,
+      "bytes": 1067832,
+      "allocs": 112
+    },
+    "BenchmarkFollowupRegex/1000": {
+      "samples": [
+        {
+          "ns": 7637792.0,
+          "bytes": 1175929,
+          "allocs": 1015
+        },
+        {
+          "ns": 6612083.0,
+          "bytes": 1175928,
+          "allocs": 1015
+        },
+        {
+          "ns": 6586658.0,
+          "bytes": 1175929,
+          "allocs": 1015
+        }
+      ],
+      "ns": 6612083.0,
+      "bytes": 1175929,
+      "allocs": 1015
+    }
+  },
+  "adapted": {
+    "BenchmarkFollowupRegex/0": {
+      "samples": [
+        {
+          "ns": 41242.0,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 102249.0,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 64883.0,
+          "bytes": 0,
+          "allocs": 0
+        }
+      ],
+      "ns": 64883.0,
+      "bytes": 0,
+      "allocs": 0
+    },
+    "BenchmarkFollowupRegex/100": {
+      "samples": [
+        {
+          "ns": 2010964.0,
+          "bytes": 1066184,
+          "allocs": 12
+        },
+        {
+          "ns": 2025730.0,
+          "bytes": 1066184,
+          "allocs": 12
+        },
+        {
+          "ns": 1990123.0,
+          "bytes": 1066184,
+          "allocs": 12
+        }
+      ],
+      "ns": 2010964.0,
+      "bytes": 1066184,
+      "allocs": 12
+    },
+    "BenchmarkFollowupRegex/1000": {
+      "samples": [
+        {
+          "ns": 2791148.0,
+          "bytes": 1184456,
+          "allocs": 15
+        },
+        {
+          "ns": 3554001.0,
+          "bytes": 1184456,
+          "allocs": 15
+        },
+        {
+          "ns": 3401835.0,
+          "bytes": 1184456,
+          "allocs": 15
+        }
+      ],
+      "ns": 3401835.0,
+      "bytes": 1184456,
+      "allocs": 15
+    }
+  },
+  "upstream-repeat": {
+    "BenchmarkFollowupRegex/0": {
+      "samples": [
+        {
+          "ns": 475035.0,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 486605.0,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 486668.0,
+          "bytes": 0,
+          "allocs": 0
+        }
+      ],
+      "ns": 486605.0,
+      "bytes": 0,
+      "allocs": 0
+    },
+    "BenchmarkFollowupRegex/100": {
+      "samples": [
+        {
+          "ns": 5519792.0,
+          "bytes": 1067833,
+          "allocs": 112
+        },
+        {
+          "ns": 5394044.0,
+          "bytes": 1067831,
+          "allocs": 112
+        },
+        {
+          "ns": 5978469.0,
+          "bytes": 1067831,
+          "allocs": 112
+        }
+      ],
+      "ns": 5519792.0,
+      "bytes": 1067831,
+      "allocs": 112
+    },
+    "BenchmarkFollowupRegex/1000": {
+      "samples": [
+        {
+          "ns": 6267779.0,
+          "bytes": 1175929,
+          "allocs": 1015
+        },
+        {
+          "ns": 6354854.0,
+          "bytes": 1175926,
+          "allocs": 1015
+        },
+        {
+          "ns": 7288468.0,
+          "bytes": 1175927,
+          "allocs": 1015
+        }
+      ],
+      "ns": 6354854.0,
+      "bytes": 1175927,
+      "allocs": 1015
+    }
+  }
+}

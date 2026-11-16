@@ -47,6 +47,7 @@
               ]"
             />
           </button>
+          <OpenAIPassthroughModelFilterField v-if="openaiPassthroughEnabled" v-model="openaiPassthroughModelFilterEnabled" />
         </div>
       </div>
 
@@ -577,6 +578,7 @@
 </template>
 
 <script setup lang="ts">
+import OpenAIPassthroughModelFilterField from "@/features/admin-accounts/presentation/widgets/OpenAIPassthroughModelFilterField.vue"
 import GrokBaseUrlPresets from '@/features/admin-accounts/presentation/widgets/GrokBaseUrlPresets.vue'
 import HeaderOverrideEditor from '@/features/admin-accounts/presentation/widgets/HeaderOverrideEditor.vue'
 import ModelWhitelistSelector from '@/features/admin-accounts/presentation/widgets/ModelWhitelistSelector.vue'
@@ -611,7 +613,7 @@ const {
   modelMappings,
   modelRestrictionMode,
   openaiFlattenNamespacesEnabled,
-  openaiPassthroughEnabled,
+  openaiPassthroughEnabled, openaiPassthroughModelFilterEnabled,
   removeErrorCode,
   removeModelMapping,
   selectedErrorCodes,

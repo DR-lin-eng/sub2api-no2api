@@ -1257,6 +1257,12 @@ func (s *GatewayService) GetAvailableModels(ctx context.Context, groupID *int64,
 	hasUnobservedOAuth := false
 
 	for _, acc := range accounts {
+		if acc.IsOpenAIPassthroughEnabled() && !acc.IsOpenAIPassthroughModelFilterEnabled() {
+			for _, model := range openai.DefaultModelIDs() {
+				modelSet[model] = struct{}{}
+			}
+			continue
+		}
 		if acc.IsOAuth() && !acc.HasExplicitModelMapping() {
 			if supportedModels, ok := acc.OAuthSupportedModels(); ok {
 				hasSnapshot = true

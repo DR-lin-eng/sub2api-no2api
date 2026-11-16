@@ -86,6 +86,11 @@
       data-testid="openai-rate-limit-buckets"
       class="space-y-1"
     >
+      <div class="text-[10px] text-gray-500 dark:text-gray-400" data-testid="openai-quota-observed-at">
+        {{ t('admin.accounts.usageWindow.quotaObservedAt') }}
+        <time v-if="quotaObservedAt" :datetime="quotaObservedAt">{{ formatDateTime(quotaObservedAt) }}</time>
+        <span v-else>{{ t('admin.accounts.usageWindow.quotaObservationUnknown') }}</span>
+      </div>
       <div class="flex items-center gap-1.5 text-[9px] font-medium text-gray-500 dark:text-gray-400">
         <span>{{ t('admin.accounts.upstreamBilling.quotaModeRateLimits') }}</span>
         <span v-if="isPassiveQuotaData" class="italic text-gray-400 dark:text-gray-500">
@@ -212,9 +217,11 @@
     <!-- Error / success feedback -->
     <div
       v-if="error"
+      role="alert"
       class="text-[10px] text-red-600 dark:text-red-400"
       :title="error"
     >
+      <span v-if="quotaRefreshFailed">{{ t(rateLimitWindows.length > 0 ? 'admin.accounts.usageWindow.quotaRefreshFailedCached' : 'admin.accounts.usageWindow.quotaRefreshFailedUnknown') }}</span>
       {{ truncatedError }}
     </div>
     <div
@@ -244,7 +251,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, useSlots } from 'vue'
+import { ref, computed, watch, useSlots, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Account, WindowStats } from '@/types'
 import {
@@ -259,7 +266,7 @@ import type {
 } from '@/features/admin-accounts/data/dtos/openAIQuotaDtos'
 import type { OpenAIUsageLiveTransport } from '../composables/useAccountsOpenAIUsagePush'
 import ConfirmDialog from '@/common/widgets/feedback/ConfirmDialog.vue'
-import { formatCompactNumber } from '@/core/utils/format'
+import { formatCompactNumber, formatDateTime } from '@/core/utils/format'
 import UsageProgressBar from './UsageProgressBar.vue'
 import { useOpenAIUsagePush } from '../composables/useOpenAIUsagePush'
 
@@ -297,6 +304,10 @@ const visible = computed(() => props.account.platform === 'openai' && props.acco
 const loading = ref(false)
 const resetting = ref(false)
 const error = ref<string | null>(null)
+const quotaRefreshFailed = ref(false)
+let quotaQueryVersion = 0
+onBeforeUnmount(() => { quotaQueryVersion++ })
+watch(() => props.account.id, () => { quotaQueryVersion++ })
 const data = ref<OpenAIQuotaUsage | null>(null)
 const cachedData = ref<OpenAIQuotaUsage | null>(null)
 const resetMessage = ref<string | null>(null)
@@ -333,6 +344,7 @@ const applyLiveQuota = (quota: OpenAIQuotaUsage | null | undefined) => {
   data.value = next
   cachedData.value = next
   error.value = null
+  quotaRefreshFailed.value = false
   emit('quota-updated', next)
 }
 
@@ -468,6 +480,12 @@ const isShadow = computed(() => props.account.parent_account_id != null)
 
 const availableResetCount = computed(() => data.value?.rate_limit_reset_credits?.available_count ?? 0)
 const isPassiveQuotaData = computed(() => data.value?.source === 'passive')
+const quotaObservedAt = computed(() => {
+  const seconds = data.value?.fetched_at
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds <= 0) return null
+  const observedAt = new Date(seconds * 1000)
+  return Number.isNaN(observedAt.getTime()) ? null : observedAt.toISOString()
+})
 const resetCreditExpirations = computed(() =>
   ((data.value ?? cachedData.value)?.rate_limit_reset_credits?.credits ?? [])
     .map((credit) => credit.expires_at?.trim() ?? '')
@@ -829,20 +847,24 @@ const toggleResetCreditDetails = () => {
 
 const handleQuery = async () => {
   if (loading.value) return
+  const request = ++quotaQueryVersion
+  const accountID = props.account.id
   loading.value = true
   error.value = null
+  quotaRefreshFailed.value = false
   resetMessage.value = null
   resetWarning.value = null
   showResetCreditDetails.value = false
   try {
     // Start both reads together. The primary 查询 action therefore refreshes
     // local counters and the authoritative App Server snapshot as one gesture.
-    const quotaPromise = refreshOpenAIQuota(props.account.id)
+    const quotaPromise = refreshOpenAIQuota(accountID)
     const localPromise = props.queryLocalUsage?.() ?? Promise.resolve()
     const result = await quotaPromise
     await localPromise
+    if (request !== quotaQueryVersion || props.account.id !== accountID) return
     const activeResult = { ...result, source: 'active' as const }
-    openAIQuotaSnapshotCache.set(props.account.id, activeResult)
+    openAIQuotaSnapshotCache.set(accountID, activeResult)
     data.value = activeResult
     emit('quota-updated', activeResult)
     if (result.account_auto_enabled && result.account) {
@@ -854,9 +876,12 @@ const handleQuery = async () => {
       resetWarning.value = t('admin.accounts.openaiQuotaReset.refreshCachePersistFailed')
     }
   } catch (e) {
-    error.value = extractErrorMessage(e)
+    if (request === quotaQueryVersion && props.account.id === accountID) {
+      quotaRefreshFailed.value = true
+      error.value = extractErrorMessage(e)
+    }
   } finally {
-    loading.value = false
+    if (request === quotaQueryVersion) loading.value = false
   }
 }
 
@@ -887,6 +912,7 @@ const confirmReset = async () => {
   }
   resetting.value = true
   error.value = null
+  quotaRefreshFailed.value = false
   resetMessage.value = null
   resetWarning.value = null
   try {
@@ -942,6 +968,7 @@ watch(
     cachedData.value = fallback
     data.value = fallback
     error.value = null
+  quotaRefreshFailed.value = false
     resetMessage.value = null
     resetWarning.value = null
     loading.value = false
@@ -960,6 +987,7 @@ watch(
     data.value = activeResult
     cachedData.value = activeResult
     error.value = null
+  quotaRefreshFailed.value = false
     emit('quota-updated', activeResult)
   },
   { immediate: true }
