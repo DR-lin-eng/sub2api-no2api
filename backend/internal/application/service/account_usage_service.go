@@ -313,12 +313,13 @@ type WindowStats struct {
 
 // UsageProgress 使用量进度
 type UsageProgress struct {
-	Utilization      float64      `json:"utilization"`            // 使用率百分比 (0-100+，100表示100%)
-	ResetsAt         *time.Time   `json:"resets_at"`              // 重置时间
-	RemainingSeconds int          `json:"remaining_seconds"`      // 距重置剩余秒数
-	WindowStats      *WindowStats `json:"window_stats,omitempty"` // 窗口期统计（从窗口开始到当前的使用量）
-	UsedRequests     int64        `json:"used_requests,omitempty"`
-	LimitRequests    int64        `json:"limit_requests,omitempty"`
+	UtilizationUnknown bool         `json:"utilization_unknown,omitempty"`
+	Utilization        float64      `json:"utilization"`            // 使用率百分比 (0-100+，100表示100%)
+	ResetsAt           *time.Time   `json:"resets_at"`              // 重置时间
+	RemainingSeconds   int          `json:"remaining_seconds"`      // 距重置剩余秒数
+	WindowStats        *WindowStats `json:"window_stats,omitempty"` // 窗口期统计（从窗口开始到当前的使用量）
+	UsedRequests       int64        `json:"used_requests,omitempty"`
+	LimitRequests      int64        `json:"limit_requests,omitempty"`
 }
 
 // AntigravityQuotaGroup is a group of Antigravity models that share their quota windows.
@@ -855,7 +856,7 @@ func (s *AccountUsageService) syncActiveToPassive(ctx context.Context, accountID
 
 func (s *AccountUsageService) getOpenAIUsage(ctx context.Context, account *Account, force bool) (*UsageInfo, error) {
 	now := time.Now()
-	usage := &UsageInfo{UpdatedAt: &now}
+	usage := &UsageInfo{Source: "passive"}
 
 	if account == nil {
 		return usage, nil
@@ -871,24 +872,24 @@ func (s *AccountUsageService) getOpenAIUsage(ctx context.Context, account *Accou
 			// Extra keys and immediately reflected in the returned UsageInfo.
 			if s.openAIQuotaService != nil {
 				if quotaUsage, err := s.openAIQuotaService.QueryUsage(ctx, account.ID); err == nil {
-					if updates := buildCodexSparkWindowExtraUpdates(quotaUsage, now); len(updates) > 0 {
+					if updates := buildCodexSparkWindowExtraUpdates(quotaUsage, now); hasOpenAIQuotaObservation(updates) {
 						mergeAccountExtra(account, updates)
 						s.persistOpenAICodexProbeSnapshot(account.ID, updates)
-						if usage.UpdatedAt == nil {
-							usage.UpdatedAt = &now
-						}
 						applyExtraToUsage(usage, account.Extra, now)
+						usage.Source = "active"
 					}
 				}
 			}
 		} else {
-			if updates, err := s.probeOpenAICodexSnapshot(ctx, account); err == nil && len(updates) > 0 {
+			if updates, err := s.probeOpenAICodexSnapshot(ctx, account); err == nil && hasOpenAIQuotaObservation(updates) {
 				mergeAccountExtra(account, updates)
-				if usage.UpdatedAt == nil {
-					usage.UpdatedAt = &now
-				}
 				applyExtraToUsage(usage, account.Extra, now)
+				usage.Source = "active"
 			}
+		}
+		if usage.Source != "active" {
+			usage.ErrorCode = errorCodeQuotaRefreshFailed
+			usage.Error = "Unable to refresh OpenAI quota; displayed values may be from an earlier observation"
 		}
 	}
 
@@ -901,15 +902,7 @@ func (s *AccountUsageService) getOpenAIUsage(ctx context.Context, account *Accou
 
 func (s *AccountUsageService) getOpenAIPassiveUsage(ctx context.Context, account *Account) *UsageInfo {
 	now := time.Now()
-	updatedAt := now
-	if account != nil && account.Extra != nil {
-		if raw, ok := account.Extra["codex_usage_updated_at"]; ok {
-			if parsed, err := parseTime(fmt.Sprint(raw)); err == nil {
-				updatedAt = parsed
-			}
-		}
-	}
-	usage := &UsageInfo{Source: "passive", UpdatedAt: &updatedAt}
+	usage := &UsageInfo{Source: "passive"}
 	if account == nil {
 		return usage
 	}
@@ -926,14 +919,14 @@ func (s *AccountUsageService) addOpenAILocalWindowStats(ctx context.Context, acc
 	}
 	if stats, err := s.usageLogRepo.GetAccountWindowStats(ctx, account.ID, codexWindowStatsStart(usage.FiveHour, 5*time.Hour, now)); err == nil {
 		if usage.FiveHour == nil {
-			usage.FiveHour = &UsageProgress{Utilization: 0}
+			usage.FiveHour = &UsageProgress{UtilizationUnknown: true}
 		}
 		usage.FiveHour.WindowStats = windowStatsFromAccountStats(stats)
 	}
 
 	if stats, err := s.usageLogRepo.GetAccountWindowStats(ctx, account.ID, codexWindowStatsStart(usage.SevenDay, 7*24*time.Hour, now)); err == nil {
 		if usage.SevenDay == nil {
-			usage.SevenDay = &UsageProgress{Utilization: 0}
+			usage.SevenDay = &UsageProgress{UtilizationUnknown: true}
 		}
 		usage.SevenDay.WindowStats = windowStatsFromAccountStats(stats)
 	}
@@ -1100,7 +1093,7 @@ func (s *AccountUsageService) probeOpenAICodexSnapshot(ctx context.Context, acco
 	if err != nil {
 		return nil, err
 	}
-	if len(updates) > 0 {
+	if hasOpenAIQuotaObservation(updates) {
 		s.persistOpenAICodexProbeSnapshot(account.ID, updates)
 		return updates, nil
 	}
@@ -1154,6 +1147,12 @@ func mergeAccountExtra(account *Account, updates map[string]any) {
 func applyExtraToUsage(usage *UsageInfo, extra map[string]any, now time.Time) {
 	if usage == nil {
 		return
+	}
+	usage.UpdatedAt = nil
+	if raw, ok := extra["codex_usage_updated_at"]; ok {
+		if observedAt, err := parseTime(fmt.Sprint(raw)); err == nil && !observedAt.IsZero() {
+			usage.UpdatedAt = &observedAt
+		}
 	}
 	if progress := buildCodexUsageProgressFromExtra(extra, "5h", now); progress != nil {
 		usage.FiveHour = progress

@@ -1080,7 +1080,11 @@ func (a *Account) isModelMappingSupportedForRequest(requestedModel, routedModel 
 	// credentials 里常残留旧的非空 model_mapping，若不在此放行，透传账号会被
 	// model_mapping 白名单错误排除出候选集，导致 no available accounts / 404（issue #4936）。
 	if a.IsOpenAIPassthroughEnabled() {
-		return true
+		if !a.IsOpenAIPassthroughModelFilterEnabled() {
+			return true
+		}
+		mapping := a.GetModelMapping()
+		return len(mapping) == 0 || mappingSupportsRequestedModel(mapping, strings.TrimSpace(requestedModel))
 	}
 	// OAuth accounts with no administrator-provided mapping may have a
 	// periodically refreshed upstream capability snapshot. Check it before

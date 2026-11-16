@@ -646,6 +646,7 @@
 </template>
 
 <script setup lang="ts">
+import { ACCOUNT_ERROR_CODE_OPTIONS } from "@/features/admin-accounts/presentation/accountFormPolicy"
 import { ref, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
@@ -868,6 +869,7 @@ const rateMultiplier = ref(1)
 const status = ref<'active' | 'inactive'>('active')
 const groupIds = ref<number[]>([])
 const openaiPassthroughEnabled = ref(false)
+const openaiPassthroughModelFilterEnabled = ref(false)
 const openaiFlattenNamespacesEnabled = ref(false)
 const openAICustomRelayEnabled = ref(false)
 const openAICustomRelayURL = ref('')
@@ -905,15 +907,7 @@ const umqModeOptions = computed(() => [
 ])
 
 // Common HTTP error codes
-const commonErrorCodes = [
-  { value: 401, label: 'Unauthorized' },
-  { value: 403, label: 'Forbidden' },
-  { value: 429, label: 'Rate Limit' },
-  { value: 500, label: 'Server Error' },
-  { value: 502, label: 'Bad Gateway' },
-  { value: 503, label: 'Unavailable' },
-  { value: 529, label: 'Overloaded' }
-]
+const commonErrorCodes = ACCOUNT_ERROR_CODE_OPTIONS
 
 const statusOptions = computed(() => [
   { value: 'active', label: t('common.active') },
@@ -927,7 +921,7 @@ const isOpenAIModelRestrictionDisabled = computed(
   () =>
     allOpenAIPassthroughCapable.value &&
     enableOpenAIPassthrough.value &&
-    openaiPassthroughEnabled.value
+    openaiPassthroughEnabled.value && !openaiPassthroughModelFilterEnabled.value
 )
 
 const openAIWSModeOptions = computed(() => [
@@ -1071,7 +1065,7 @@ const bulkEditRoutingPolicyContext = {
   modelMappings,
   modelRestrictionMode,
   openaiFlattenNamespacesEnabled,
-  openaiPassthroughEnabled,
+  openaiPassthroughEnabled, openaiPassthroughModelFilterEnabled,
   removeErrorCode,
   removeModelMapping,
   selectedErrorCodes,
@@ -1127,6 +1121,7 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
     baseUrl: baseUrl.value,
     enableOpenAIPassthrough: enableOpenAIPassthrough.value,
     openaiPassthroughEnabled: openaiPassthroughEnabled.value,
+    openaiPassthroughModelFilterEnabled: openaiPassthroughModelFilterEnabled.value,
     enableOpenAIFlattenNamespaces: enableOpenAIFlattenNamespaces.value,
     excelBpsMode: allOpenAIOAuthOnly.value ? excelBpsMode.value : 'unchanged',
     openaiFlattenNamespacesEligible: allOpenAIOAuthOnly.value,
@@ -1443,6 +1438,7 @@ watch(
       // Reset all values
       baseUrl.value = ''
       openaiPassthroughEnabled.value = false
+  openaiPassthroughModelFilterEnabled.value = false
       openaiFlattenNamespacesEnabled.value = false
       openAICustomRelayEnabled.value = false
       openAICustomRelayURL.value = ''

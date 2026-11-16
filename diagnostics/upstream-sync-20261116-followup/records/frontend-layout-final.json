@@ -1,0 +1,21 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=1",
+    "--memory=2g",
+    "-v",
+    "/Users/lin/.codex/worktrees/7fef/sub2api-no2api/frontend/src:/work/frontend/src:ro",
+    "-e",
+    "NODE_OPTIONS=--max-old-space-size=1536",
+    "sub2api-sync-frontend:20261116",
+    "sh",
+    "-c",
+    "cd /work/frontend && pnpm run lint:check && pnpm run typecheck && pnpm exec vitest run src/features/admin-accounts/__tests__/CreateAccountModal.spec.ts src/features/admin-accounts/__tests__/EditAccountModal.spec.ts src/features/admin-accounts/__tests__/BulkEditAccountModal.spec.ts src/features/admin-accounts/__tests__/OpenAIQuotaResetCell.spark_shadow.spec.ts"
+  ],
+  "exit_code": 134,
+  "elapsed_seconds": 137.552,
+  "utc": "2026-11-16T13:46:41.177329+00:00",
+  "output_sha256": "360f97632a4aa71a199c638068255a3bd68329c7d7ba6648c0bb2592a2038d8e"
+}

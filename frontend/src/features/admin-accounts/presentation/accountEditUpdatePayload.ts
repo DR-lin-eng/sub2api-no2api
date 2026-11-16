@@ -103,6 +103,7 @@ type EditorFields =
     | 'openAITextGenerationCapabilityEnabled'
     | 'openaiFlattenNamespacesEnabled'
     | 'openaiPassthroughEnabled'
+    | 'openaiPassthroughModelFilterEnabled'
     | 'upstreamBillingAutoProbeEnabled'
     | 'upstreamBillingRateSyncEnabled'
     | 'webSearchEmulationMode'
@@ -263,7 +264,7 @@ function buildAPIKeyCredentials(
   }
 
   const shouldApplyModelMapping = !(
-    account.platform === 'openai' && context.openaiPassthroughEnabled.value
+    account.platform === 'openai' && context.openaiPassthroughEnabled.value && !context.openaiPassthroughModelFilterEnabled.value
   )
   if (shouldApplyModelMapping) {
     applyModelRestriction(credentials, context)
@@ -916,6 +917,11 @@ function applyOpenAIExtra(
   } else {
     delete extra.openai_passthrough
     delete extra.openai_oauth_passthrough
+  }
+  if (context.openaiPassthroughEnabled.value && context.openaiPassthroughModelFilterEnabled.value) {
+    extra.openai_passthrough_model_filter = true
+  } else {
+    delete extra.openai_passthrough_model_filter
   }
   if (account.type === 'oauth' && context.openaiFlattenNamespacesEnabled.value) {
     extra.openai_responses_flatten_namespaces = true

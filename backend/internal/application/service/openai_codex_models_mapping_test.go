@@ -8,6 +8,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestCodexPassthroughModelFilterRetainsSourceNamesAndSharedManifest(t *testing.T) {
+	body := []byte(`{"models":[{"slug":"qwen-max","display_name":"Qwen"},{"slug":"qwen-plus"},{"slug":"gpt-6.1-sol"}]}`)
+	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
+		Extra:       map[string]any{"openai_passthrough": true, "openai_passthrough_model_filter": true},
+		Credentials: map[string]any{"model_mapping": map[string]any{"qwen-*": "must-not-rewrite", "absent": "gpt-6.1-sol"}}}
+	manifest := &CodexModelsManifest{Body: body, ETag: `"shared"`}
+	got, err := ProjectCodexModelsManifestForAccount(manifest, account, nil, "")
+	require.NoError(t, err)
+	require.JSONEq(t, `{"models":[{"slug":"qwen-max","display_name":"Qwen"},{"slug":"qwen-plus"}]}`, string(got.Body))
+	require.Equal(t, body, manifest.Body)
+	require.NotEqual(t, manifest.ETag, got.ETag)
+}
+
 func TestCodexManifestAccountMappingPreservesMetadataAndCache(t *testing.T) {
 	body := []byte(`{"revision":"fixture","models":[{"slug":"target","future":{"keep":true},"service_tiers":[]},{"slug":"other"}]}`)
 	account := &Account{Credentials: map[string]any{"model_mapping": map[string]any{"alias": "target"}}}

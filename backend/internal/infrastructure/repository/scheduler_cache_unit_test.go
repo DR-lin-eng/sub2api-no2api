@@ -1155,3 +1155,27 @@ func schedulerCacheBenchmarkAccounts(size int) []service.Account {
 	}
 	return accounts
 }
+
+func TestBuildSchedulerMetadataAccount_KeepsOpenAIPassthroughModelFilter(t *testing.T) {
+	account := service.Account{
+		ID:       8748,
+		Platform: service.PlatformOpenAI,
+		Type:     service.AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"model_mapping": map[string]any{"qwen3.8-max": "qwen3.8-max"},
+			"api_key":       "drop-me",
+		},
+		Extra: map[string]any{"openai_passthrough": true, "openai_passthrough_model_filter": true},
+	}
+	require.False(t, account.IsModelSupported("gpt-6.1-sol"), "前置条件：开启筛选的透传账号应拒绝白名单外模型")
+
+	payload, err := json.Marshal(buildSchedulerMetadataAccount(account))
+	require.NoError(t, err)
+	var restored service.Account
+	require.NoError(t, json.Unmarshal(payload, &restored))
+
+	require.Equal(t, true, restored.Extra["openai_passthrough_model_filter"])
+	require.True(t, restored.IsOpenAIPassthroughModelFilterEnabled())
+	require.False(t, restored.IsModelSupported("gpt-6.1-sol"))
+	require.True(t, restored.IsModelSupported("qwen3.8-max"))
+}

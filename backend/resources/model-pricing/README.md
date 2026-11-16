@@ -45,3 +45,9 @@ The Grok 4.7 Fast and Grok Build Fast entries follow the official xAI Fast card.
 Explicit `long_context_input_token_threshold` and multiplier fields are included
 for this project parser; the inherited xAI threshold is inclusive at 200000 tokens.
 See [PR #8170 review](../../../docs/UPSTREAM_SYNC_20261022_PR8170.md).
+
+Gemini 4 Carbon was checked against the official AI Studio price card on 2026-11-16.
+Its bundled introductory rates run through 2026-11-30; refresh the independent
+price source or configure an explicit override before the 2026-12-01 rate change.
+The supported synchronous paths and priority rates are documented in the
+[follow-up sync review](../../../docs/UPSTREAM_SYNC_20261116_FOLLOWUP.md).

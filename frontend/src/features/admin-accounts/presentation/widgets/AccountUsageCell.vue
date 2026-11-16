@@ -1295,15 +1295,28 @@ const attachVisibilityObserver = () => {
   visibilityObserver.observe(rootRef.value)
 }
 
+let activeUsageRequest = 0
+watch(() => props.account.id, () => {
+  activeUsageRequest++
+  activeQueryLoading.value = false
+})
 const loadActiveUsage = async () => {
+  const request = ++activeUsageRequest
+  const accountID = props.account.id
   activeQueryLoading.value = true
   try {
-    usageInfo.value = await getUsage(props.account.id, 'active', true)
-    error.value = null
-  } catch (e: any) {
-    console.error('Failed to load active usage:', e)
+    const result = await getUsage(accountID, 'active', true)
+    if (!unmounted.value && request === activeUsageRequest && props.account.id === accountID) {
+      usageInfo.value = result
+      error.value = null
+    }
+  } catch (e: unknown) {
+    if (!unmounted.value && request === activeUsageRequest && props.account.id === accountID) {
+      error.value = t('common.error')
+      console.error('Failed to load active usage:', e)
+    }
   } finally {
-    activeQueryLoading.value = false
+    if (!unmounted.value && request === activeUsageRequest) activeQueryLoading.value = false
   }
 }
 

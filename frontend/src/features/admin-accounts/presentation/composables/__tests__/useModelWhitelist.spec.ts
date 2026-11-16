@@ -7,6 +7,14 @@ vi.mock('@/features/admin-accounts/data/datasources/adminAccountQueries', () => 
 import { buildModelMappingObject, getModelsByPlatform, getPresetMappingsByPlatform, splitModelMappingObject } from '../useModelWhitelist'
 
 describe('useModelWhitelist', () => {
+  it('exposes Carbon with its declared model ID and identity preset', () => {
+    expect(getModelsByPlatform('gemini')).toContain('gemini-4-carbon')
+    expect(getModelsByPlatform('antigravity')).toContain('gemini-4-carbon')
+    expect(getModelsByPlatform('gemini')).not.toContain('gemini-4-carbon-preview')
+    expect(getPresetMappingsByPlatform('antigravity')).toEqual(expect.arrayContaining([
+      expect.objectContaining({ from: 'gemini-4-carbon', to: 'gemini-4-carbon' })
+    ]))
+  })
   it('exposes Hydrogen in Gemini while preserving the declared Antigravity catalog', () => {
     expect(getModelsByPlatform('gemini')).toContain('gemini-4-hydrogen')
     expect(getModelsByPlatform('antigravity')).not.toContain('gemini-4-hydrogen')

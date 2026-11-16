@@ -1,0 +1,38 @@
+{
+  "url": "https://aistudio.google.com/docs/pricing#gemini-4-carbon",
+  "response_sha256": "1ddcee6adba7130c4fe1a6c40315f1bcae6e402a7262619b45d819cfcb021d8f",
+  "observations": {
+    "currency": "USD per million tokens",
+    "through_2026_11_30": {
+      "standard": [
+        2,
+        10,
+        0.1
+      ],
+      "priority": [
+        3.6,
+        18,
+        0.18
+      ]
+    },
+    "from_2026_12_01": {
+      "standard": [
+        4,
+        20,
+        0.2
+      ],
+      "priority": [
+        7.2,
+        36,
+        0.36
+      ]
+    },
+    "column_order": [
+      "input",
+      "output_including_thinking",
+      "implicit_cache_read"
+    ],
+    "explicit_cache": false,
+    "scope": "Synchronous gateway only. No new batch, flex, long-decode or grounding charge contract."
+  }
+}

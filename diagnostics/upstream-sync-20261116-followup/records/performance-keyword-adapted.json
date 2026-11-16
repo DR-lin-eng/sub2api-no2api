@@ -1,0 +1,30 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--network=none",
+    "--cpus=2",
+    "--memory=2g",
+    "-v",
+    "/var/folders/8n/2t9wvjvd4hx2ms7g6r78g2d00000gn/T/sub2api-followup-regex-kpj59rlz/adapted:/src:ro",
+    "-v",
+    "/private/tmp/sub2api-modcache:/go/pkg/mod",
+    "-v",
+    "/private/tmp/sub2api-gocache:/root/.cache/go-build",
+    "-e",
+    "GOTOOLCHAIN=local",
+    "-e",
+    "GOMAXPROCS=1",
+    "-e",
+    "CGO_ENABLED=0",
+    "golang:1.26.11-alpine",
+    "sh",
+    "-c",
+    "cp -a /src /work && cd /work && go version && go test -run=^$ -bench=^BenchmarkFollowup -benchmem -benchtime=300ms -count=3 -cpu=1"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 5.546,
+  "utc": "2026-11-16T14:36:09.991574+00:00",
+  "output_sha256": "0b4ac75e2d8230536e25560edd39864451c62fd7f71fdfaf23ed4d5ec2736b44"
+}

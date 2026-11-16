@@ -49,7 +49,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	promptCacheKey string,
 	defaultMappedModel string,
 ) (*OpenAIForwardResult, error) {
-	if sanitized, changed, err := sanitizeOpenAIResponsesToolParameterTypes(body); err != nil {
+	if sanitized, changed, err := sanitizeOpenAIResponsesToolSchemasForPlatform(body, account.Platform); err != nil {
 		return nil, err
 	} else if changed {
 		body = sanitized
@@ -688,7 +688,7 @@ func (s *OpenAIGatewayService) handleAnthropicCompactStreamingResponse(
 ) (*OpenAIForwardResult, error) {
 	requestID := resp.Header.Get("x-request-id")
 
-	finalResponse, usage, acc, err := s.readOpenAICompatBufferedTerminal(resp, "openai messages compact buffered", requestID, c)
+	finalResponse, usage, acc, err := s.readOpenAICompatBufferedTerminalForAccount(account, resp, "openai messages compact buffered", requestID, c)
 	if err != nil {
 		return nil, err
 	}
@@ -772,7 +772,7 @@ func (s *OpenAIGatewayService) handleAnthropicBufferedStreamingResponse(
 ) (*OpenAIForwardResult, error) {
 	requestID := resp.Header.Get("x-request-id")
 
-	finalResponse, usage, acc, err := s.readOpenAICompatBufferedTerminal(resp, "openai messages buffered", requestID, c)
+	finalResponse, usage, acc, err := s.readOpenAICompatBufferedTerminalForAccount(account, resp, "openai messages buffered", requestID, c)
 	if err != nil {
 		var readErr *openAICompatBufferedReadError
 		if errors.As(err, &readErr) && readErr != nil {
@@ -1382,7 +1382,7 @@ func (s *OpenAIGatewayService) runOpenAIAnthropicCompactFallbackResponsesRequest
 		return nil, OpenAIUsage{}, requestID, fmt.Errorf("compact fallback upstream status %d: %s", resp.StatusCode, sanitizeUpstreamErrorMessage(upstreamMsg))
 	}
 
-	finalResponse, usage, acc, err := s.readOpenAICompatBufferedTerminal(resp, "openai messages compact fallback", requestID)
+	finalResponse, usage, acc, err := s.readOpenAICompatBufferedTerminalForAccount(account, resp, "openai messages compact fallback", requestID)
 	if err != nil {
 		return nil, usage, requestID, err
 	}
@@ -2014,6 +2014,16 @@ func (s *OpenAIGatewayService) readOpenAICompatBufferedTerminal(
 	requestID string,
 	contexts ...*gin.Context,
 ) (*apicompat.ResponsesResponse, OpenAIUsage, *apicompat.BufferedResponseAccumulator, error) {
+	return s.readOpenAICompatBufferedTerminalForAccount(nil, resp, logPrefix, requestID, contexts...)
+}
+
+func (s *OpenAIGatewayService) readOpenAICompatBufferedTerminalForAccount(
+	account *Account,
+	resp *http.Response,
+	logPrefix string,
+	requestID string,
+	contexts ...*gin.Context,
+) (*apicompat.ResponsesResponse, OpenAIUsage, *apicompat.BufferedResponseAccumulator, error) {
 	var timingContext *gin.Context
 	if len(contexts) > 0 {
 		timingContext = contexts[0]
@@ -2023,6 +2033,7 @@ func (s *OpenAIGatewayService) readOpenAICompatBufferedTerminal(
 		observer = upstreamResponseModelObserverFromContext(timingContext)
 	}
 	acc := apicompat.NewBufferedResponseAccumulator()
+	acc.XAIServerSideSearch = account != nil && account.IsGrok()
 	var usage OpenAIUsage
 	if resp == nil || resp.Body == nil {
 		return nil, usage, acc, errors.New("upstream response body is nil")
@@ -2230,6 +2241,7 @@ func (s *OpenAIGatewayService) handleAnthropicStreamingResponse(
 	writeStreamHeaders := s.newStreamHeaderWriter(c, resp.Header)
 
 	state := apicompat.NewResponsesEventToAnthropicState()
+	state.XAIServerSideSearch = account != nil && account.IsGrok()
 	state.Model = compositeClientModel(c.Request.Context(), originalModel)
 	if estimatedInputTokens > 0 {
 		state.InputTokens = estimatedInputTokens

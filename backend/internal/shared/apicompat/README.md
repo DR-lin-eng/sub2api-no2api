@@ -15,3 +15,6 @@ Chat 兼容桥的 `EffectiveResponsesTools` 同时处理 additional_tools 和完
 `chatcompletions_tool_arguments.go` 按工具 index 累积 Chat→Responses 参数；单片参数直接保留，后续分片才创建 builder。它与 Anthropic 流共享 `stream_fragments.go`，保留既有快照和终止参数校验。
 
 Responses 缓冲工具调用的 `encrypted_content` 在 added/done 和 terminal 补全中保留，既有终态非空值优先；Chat json_schema 未指定 strict 时显式 false。
+
+`responses_server_side_search.go` 统一识别 xAI 的 xs_/as_ 服务端 custom 调用；只有调用方已确认 xAI 时，
+流式转换和空终态缓冲才抑制客户端工具调用。其它平台同名前缀保持原语义，计费继续由 application owner 决定。

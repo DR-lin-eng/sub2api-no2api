@@ -357,6 +357,7 @@ const customBaseUrl = ref('')
 
 // OpenAI 自动透传开关（OAuth/API Key）
 const openaiPassthroughEnabled = ref(false)
+const openaiPassthroughModelFilterEnabled = ref(false)
 const openAIImageSizeTiers = ref<OpenAIImageSizeTier[]>([...OPENAI_IMAGE_SIZE_TIERS])
 // OAuth-only compatibility switch; default preserves namespace declarations.
 const openaiFlattenNamespacesEnabled = ref(false)
@@ -581,7 +582,7 @@ const normalizeOpenAIResponsesMode = (mode: unknown): OpenAIResponsesMode => {
   return 'auto'
 }
 const isOpenAIModelRestrictionDisabled = computed(() =>
-  props.account?.platform === 'openai' && openaiPassthroughEnabled.value
+  props.account?.platform === 'openai' && openaiPassthroughEnabled.value && !openaiPassthroughModelFilterEnabled.value
 )
 const openAIResponsesStatusKey = computed(() => {
   if (openAIResponsesMode.value === 'force_responses') {
@@ -703,7 +704,7 @@ const buildModelRestrictionMapping = () =>
   buildModelMappingObject('combined', allowedModels.value, modelMappings.value)
 
 const applyOpenAIModelMappingCredentials = (credentials: Record<string, unknown>) => {
-  const shouldApplyModelMapping = !openaiPassthroughEnabled.value
+  const shouldApplyModelMapping = !isOpenAIModelRestrictionDisabled.value
 
   if (shouldApplyModelMapping) {
     const modelMapping = buildModelRestrictionMapping()
@@ -782,6 +783,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
 
   // Load OpenAI passthrough toggle (OpenAI OAuth/SetupToken/API Key)
   openaiPassthroughEnabled.value = false
+  openaiPassthroughModelFilterEnabled.value = false
   openAIImageSizeTiers.value = readOpenAIImageSizeTiers(extra)
   openaiFlattenNamespacesEnabled.value = false
   openAILongContextBillingEnabled.value = false
@@ -803,6 +805,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   webSearchEmulationMode.value = 'default'
   if (newAccount.platform === 'openai' && (newAccount.type === 'oauth' || newAccount.type === 'setup-token' || newAccount.type === 'apikey')) {
     openaiPassthroughEnabled.value = extra?.openai_passthrough === true || extra?.openai_oauth_passthrough === true
+    openaiPassthroughModelFilterEnabled.value = extra?.openai_passthrough_model_filter === true
     openaiFlattenNamespacesEnabled.value =
       newAccount.type === 'oauth' && extra?.openai_responses_flatten_namespaces === true
     const longContextBillingValue = extra?.openai_long_context_billing_enabled
@@ -1423,7 +1426,7 @@ const {
   openAILongContextBillingEnabled, openAIResponsesMode,
   openAITextGenerationCapabilityEnabled, openaiAPIKeyResponsesWebSocketV2Mode,
   openaiOAuthResponsesWebSocketV2Mode, openaiFlattenNamespacesEnabled,
-  openaiPassthroughEnabled, openAIImageSizeTiers, poolModeEnabled,
+  openaiPassthroughEnabled, openaiPassthroughModelFilterEnabled, openAIImageSizeTiers, poolModeEnabled,
   poolModeRetryCount, poolModeRetryStatusCodesInput, rpmLimitEnabled, rpmStickyBuffer,
   rpmStrategy, selectedErrorCodes, sessionIdMaskingEnabled, sessionIdleTimeout,
   sessionLimitEnabled, showMixedChannelWarning, submitting, t, tlsFingerprintEnabled,
@@ -1465,7 +1468,7 @@ const editAccountAdvancedContext = {
   isSparkShadow, moveTempUnschedRule, openAIEndpointCapabilities, openAIEndpointCapabilityOptions,
   openAIForceImageAPIEnabled, openAILongContextBillingEnabled, openAIResponsesMode,
   openAIResponsesModeOptions, openAIResponsesStatusKey, openAITextGenerationCapabilityEnabled,
-  openAIWSModeConcurrencyHintKey, openAIWSModeOptions, openaiPassthroughEnabled,
+  openAIWSModeConcurrencyHintKey, openAIWSModeOptions, openaiPassthroughEnabled, openaiPassthroughModelFilterEnabled,
   openaiFlattenNamespacesEnabled,
   openaiResponsesWebSocketV2Mode, proxies: availableProxies, quotaNotifyGlobalEnabled,
   quotaNotifyState, removeTempUnschedRule, t, tempUnschedEnabled, tempUnschedPresets,

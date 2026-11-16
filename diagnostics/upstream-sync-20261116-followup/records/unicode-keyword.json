@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "diagnostics/upstream-sync-20261116-followup/run_unicode_guard.py"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 4.063,
+  "utc": "2026-11-16T14:36:19.557889+00:00",
+  "output_sha256": "96066d4444e0bb7ad40ce35770f82d13176d81e963694ea7060540db2477dab7"
+}

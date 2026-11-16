@@ -92,6 +92,7 @@ interface SharedOpenAIOptionsContext {
   openAIWSModeConcurrencyHintKey: ComputedRef<string>
   openAIWSModeOptions: ComputedRef<Array<SelectOption<OpenAIWSMode>>>
   openaiPassthroughEnabled: Ref<boolean>
+  openaiPassthroughModelFilterEnabled: Ref<boolean>
   openaiFlattenNamespacesEnabled: Ref<boolean>
   openaiResponsesWebSocketV2Mode: WritableComputedRef<OpenAIWSMode>
   toggleOpenAIEndpointCapability: (

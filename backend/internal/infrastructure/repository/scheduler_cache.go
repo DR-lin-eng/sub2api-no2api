@@ -1638,6 +1638,7 @@ func filterSchedulerExtra(extra map[string]any) map[string]any {
 		"openai_compact_supported",
 		"openai_passthrough",
 		"openai_oauth_passthrough",
+		"openai_passthrough_model_filter",
 		service.AccountExtraOpenAIImageSizeTiers,
 		"openai_oauth_responses_websockets_v2_enabled",
 		"openai_oauth_responses_websockets_v2_mode",

@@ -1,0 +1,21 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--cpus=2",
+    "--memory=4g",
+    "-v",
+    "/Users/lin/.codex/worktrees/7fef/sub2api-no2api/frontend/src:/work/frontend/src:ro",
+    "-e",
+    "NODE_OPTIONS=--max-old-space-size=3072",
+    "sub2api-sync-frontend:20261116",
+    "sh",
+    "-c",
+    "cd /work/frontend && pnpm run lint:check && pnpm run typecheck && pnpm exec vitest run src/features/admin-accounts"
+  ],
+  "exit_code": 1,
+  "elapsed_seconds": 113.435,
+  "utc": "2026-11-16T12:59:17.675954+00:00",
+  "output_sha256": "815b5fe7939cf39fa2bf6a464947cc5b675da8b564202eb5a54515c7f0c861e8"
+}
