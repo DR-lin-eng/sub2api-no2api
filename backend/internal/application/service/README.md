@@ -165,3 +165,5 @@ Hydrogen 价卡在既有 Gemini fallback owner；模型发现与前端选择器�
 `billing_qwen3_input.go` 保存已核实的 SiliconFlow Qwen3 输入价卡与精确 ID 兜底匹配。
 未核实美元价的 Reranker-4B 不推算；分组/渠道/动态价格及已有可靠结算继续由原 owner 持有。
 已关闭的分组强制档位边界和混合版本价格顺序见 [2026-11-17 审查](../../../../docs/UPSTREAM_SYNC_20261117.md)。
+
+`openai_gpt62_request.go` 在原生 Responses 和 Chat 兼容入口复用局部参数补丁；GPT-6.2 的目录、价卡和 Ultrafast 优惠时间边界见 [模型说明](../../../../docs/GPT6_MODELS.md)。兼容转换在终止事件保留实际 service tier，交给既有可靠结算。

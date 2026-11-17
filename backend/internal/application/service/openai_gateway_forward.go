@@ -395,6 +395,9 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			markDecodedModified()
 		}
 	}
+	if isOpenAIGPT62Model(upstreamModel) {
+		patchGPT62ResponsesParameters(body, markPatchSet, markPatchDelete)
+	}
 	if rawEffort := gjson.GetBytes(body, "reasoning.effort").String(); rawEffort != "" {
 		if normalizedEffort, changed := normalizeOpenAIReasoningEffortForUpstream(rawEffort, upstreamModel); changed {
 			markPatchSet("reasoning.effort", normalizedEffort)

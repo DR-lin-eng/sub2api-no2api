@@ -34,11 +34,14 @@ The file contains JSON data with model pricing information including:
 - Context window sizes
 - Model capabilities
 
-Last reviewed: 2026-10-27 against the official OpenAI model and pricing pages.
-The bundled cards include GPT-6.1 Sol and Terra, with standard, 30-minute cache
-write, cache read, long-context, Batch, Flex and Fast rates. Astra and GPT-6.1 Sol
-also include the official Ultrafast card (6x Standard). Custom catalog base rates
-retain precedence. See [GPT-6 models and pricing](../../../docs/GPT6_MODELS.md)
+Last reviewed: 2026-11-18 against the official OpenAI model and pricing pages.
+The bundled cards include GPT-6.2 Astra/Sol with Standard, 30-minute cache
+write, cache read, long-context, Batch and Fast rates. Their Ultrafast promotion
+is 3x Standard through February 28, 2027 Pacific time, then 6x from March 1
+(08:00 UTC); billing uses the pricing instant and applies the switch automatically.
+The raw snapshot records current Ultrafast prices, list prices and the promotion
+end. GPT-6 Astra and GPT-6.1 Sol retain their 6x Ultrafast card. Older supported
+models retain Flex rates. Custom catalog base rates retain precedence. See [GPT-6 models and pricing](../../../docs/GPT6_MODELS.md)
 for supported billing paths and the 12-hour cache-write limitation.
 
 The Grok 4.7 Fast and Grok Build Fast entries follow the official xAI Fast card.

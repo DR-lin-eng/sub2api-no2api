@@ -22,6 +22,10 @@ import (
 func TestOpenAIModelPricingSyncForwardAndSettlement(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	for _, tc := range []struct{ model, requested, actual string }{
+		{"gpt-6.2-astra", "ultrafast", "ultrafast"},
+		{"gpt-6.2-astra", "ultrafast", "default"},
+		{"gpt-6.2-sol", "ultrafast", "ultrafast"},
+		{"gpt-6.2-sol", "ultrafast", "default"},
 		{"gpt-6.1-terra", "default", "default"},
 		{"gpt-6.1-sol", "ultrafast", "ultrafast"},
 		{"gpt-6.1-sol", "ultrafast", "default"},
@@ -29,7 +33,8 @@ func TestOpenAIModelPricingSyncForwardAndSettlement(t *testing.T) {
 		for _, stream := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/%s/%s/stream=%t", tc.model, tc.requested, tc.actual, stream), func(t *testing.T) {
 				body, err := json.Marshal(map[string]any{"model": tc.model, "input": "hello", "stream": stream, "service_tier": tc.requested,
-					"reasoning": map[string]any{"effort": "none"}})
+					"reasoning": map[string]any{"effort": "none"}, "temperature": 0.3, "top_p": 0.9, "top_logprobs": 2,
+					"include": []string{"reasoning.encrypted_content", "message.output_text.logprobs"}})
 				require.NoError(t, err)
 				rec := httptest.NewRecorder()
 				c, _ := gin.CreateTestContext(rec)
@@ -52,6 +57,13 @@ func TestOpenAIModelPricingSyncForwardAndSettlement(t *testing.T) {
 				require.Equal(t, http.StatusOK, rec.Code)
 				require.Equal(t, tc.model, gjson.GetBytes(upstream.lastBody, "model").String())
 				require.Equal(t, tc.requested, gjson.GetBytes(upstream.lastBody, "service_tier").String())
+				if isOpenAIGPT62Model(tc.model) {
+					require.Equal(t, "low", gjson.GetBytes(upstream.lastBody, "reasoning.effort").String())
+					for _, field := range []string{"temperature", "top_p", "top_logprobs"} {
+						require.False(t, gjson.GetBytes(upstream.lastBody, field).Exists())
+					}
+					require.JSONEq(t, `["reasoning.encrypted_content"]`, gjson.GetBytes(upstream.lastBody, "include").Raw)
+				}
 				if tc.model == "gpt-6.1-terra" {
 					require.Equal(t, "none", gjson.GetBytes(upstream.lastBody, "reasoning.effort").String())
 				}

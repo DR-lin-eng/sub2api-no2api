@@ -216,6 +216,9 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	if responsesReq.Reasoning != nil {
 		responsesReq.Reasoning.Effort = openAICompatAnthropicReasoningEffort(&anthropicReq, upstreamModel, responsesReq.Reasoning.Effort)
 	}
+	if isOpenAIGPT62Model(upstreamModel) {
+		normalizeGPT6AstraResponsesRequest(responsesReq, upstreamModel)
+	}
 	if previousResponseID != "" {
 		responsesReq.PreviousResponseID = previousResponseID
 		trimAnthropicCompatResponsesInputToLatestTurn(responsesReq)
@@ -2127,6 +2130,7 @@ func (s *OpenAIGatewayService) readOpenAICompatBufferedTerminalForAccount(
 							if event.Response.Usage != nil {
 								usage = copyOpenAIUsageFromResponsesUsage(event.Response.Usage)
 							}
+							captureOpenAIResponseServiceTier([]byte(payload), &usage)
 							return event.Response, usage, acc, nil
 						}
 					}
@@ -2179,6 +2183,7 @@ func (s *OpenAIGatewayService) readOpenAICompatBufferedTerminalForAccount(
 				if event.Response.Usage != nil {
 					usage = copyOpenAIUsageFromResponsesUsage(event.Response.Usage)
 				}
+				captureOpenAIResponseServiceTier([]byte(payload), &usage)
 				return event.Response, usage, acc, nil
 			}
 
@@ -2357,6 +2362,7 @@ func (s *OpenAIGatewayService) handleAnthropicStreamingResponse(
 			if event.Usage != nil {
 				usage = copyOpenAIUsageFromResponsesUsage(event.Usage)
 			}
+			captureOpenAIResponseServiceTier([]byte(payload), &usage)
 			// cyber_policy 致命不可重试：标记供 handler 事后记录；以 Anthropic SSE error 事件
 			// 回写让客户端感知并停止重试（F4），丢弃后续转换输出。
 			if eventType == "response.failed" || isBareErrorEvent {

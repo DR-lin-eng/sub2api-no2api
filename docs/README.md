@@ -110,7 +110,7 @@
 | [上游主线后续增量审查（2026-11-07）](UPSTREAM_SYNC_20261107_FOLLOWUP.md) | 20 个新增 PR 的当前模块适配、已覆盖差异关闭、性能与 Docker 升级回退验证 |
 | [API Key 删除与计费竞争条件审查（2026-10-06）](../diagnostics/billing-key-deletion-20261006/REPORT.md) | 旧版本漏扣回放、当前修复边界、真实数据库与 24 个 Docker HTTP 场景 |
 | [GPT-6 Astra 接入记录](GPT6_ASTRA.md) | OpenAI 官方模型目录、能力、价格和本项目兼容计费映射 |
-| [GPT-6 模型目录与价格](GPT6_MODELS.md) | GPT-6 Astra、Sol、Luna、GPT-6.1 Sol/Terra 的官方能力、价格与本项目实现位置 |
+| [GPT-6 模型目录与价格](GPT6_MODELS.md) | GPT-6.2 Astra/Sol、GPT-6 与 GPT-6.1 的官方能力、价格、Ultrafast 优惠切换与实现位置 |
 | [OpenAI 请求计时](OPENAI_TIMING.md) | 上游 timing 采集、用户明细投影与管理员本地/上游对比 |
 | [Codex 间歇性 400 与请求压缩诊断](../diagnostics/issue-8636-20261112/README.md) | Issue #8636 的 zstd 线索、Docker 对照、账号级开关与诊断边界 |
 | [保留 zstd 的 Codex 400 恢复](../diagnostics/issue-8636-fix-20261113/README.md) | 默认压缩继续启用、精确错误分类、请求级单次恢复及 Docker 结算验证 |

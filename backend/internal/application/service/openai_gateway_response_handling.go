@@ -1243,6 +1243,14 @@ func (s *OpenAIGatewayService) parseSSEUsageBytes(data []byte, usage *OpenAIUsag
 	}
 }
 
+// Typed Responses usage contains only token counts; retain the envelope's actual
+// service tier separately so compatibility conversions bill the served tier.
+func captureOpenAIResponseServiceTier(body []byte, usage *OpenAIUsage) {
+	if parsed, ok := extractOpenAIUsageFromJSONBytes(body); ok && parsed.ServiceTier != nil {
+		usage.ServiceTier = parsed.ServiceTier
+	}
+}
+
 func extractOpenAIUsageFromJSONBytes(body []byte) (OpenAIUsage, bool) {
 	if len(body) == 0 || !gjson.ValidBytes(body) {
 		return OpenAIUsage{}, false

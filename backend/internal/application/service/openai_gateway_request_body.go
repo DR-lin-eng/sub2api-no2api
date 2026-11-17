@@ -1760,7 +1760,7 @@ func normalizeOpenAIReasoningEffortForModel(raw, model string) string {
 	if (rawNormalized == "none" || rawNormalized == "minimal") && normalizeKnownOpenAICodexModel(model) == "gpt-6.1-terra" {
 		return "none"
 	}
-	if (rawNormalized == "none" || rawNormalized == "minimal") && (isOpenAIGPT6AstraModel(model) || isOpenAIGPT61SolModel(model)) {
+	if (rawNormalized == "none" || rawNormalized == "minimal") && isOpenAIReasoningOnlyModel(model) {
 		return "low"
 	}
 	if rawNormalized == "max" && supportsOpenAIReasoningEffortMax(model) {
@@ -1771,7 +1771,7 @@ func normalizeOpenAIReasoningEffortForModel(raw, model string) string {
 
 func normalizeOpenAIReasoningEffortForUpstream(raw, model string) (string, bool) {
 	normalized := strings.ToLower(strings.TrimSpace(raw))
-	if (normalized == "none" || normalized == "minimal") && (isOpenAIGPT6AstraModel(model) || isOpenAIGPT61SolModel(model)) {
+	if (normalized == "none" || normalized == "minimal") && isOpenAIReasoningOnlyModel(model) {
 		return "low", true
 	}
 	if normalized == "minimal" {

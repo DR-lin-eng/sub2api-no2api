@@ -19,6 +19,8 @@ type Model struct {
 // DefaultModels OpenAI models list
 var DefaultModels = []Model{
 	{ID: "gpt-5.6-sol", Object: "model", Created: 1780876800, OwnedBy: "openai", Type: "model", DisplayName: "GPT-5.6 Sol"},
+	{ID: "gpt-6.2-astra", Object: "model", Created: 1794873600, OwnedBy: "openai", Type: "model", DisplayName: "GPT-6.2 Astra"},
+	{ID: "gpt-6.2-sol", Object: "model", Created: 1794873600, OwnedBy: "openai", Type: "model", DisplayName: "GPT-6.2 Sol"},
 	{ID: "gpt-6-astra", Object: "model", Created: 1788480000, OwnedBy: "openai", Type: "model", DisplayName: "GPT-6 Astra"},
 	{ID: "gpt-6.1-sol", Object: "model", Created: 1790640000, OwnedBy: "openai", Type: "model", DisplayName: "GPT-6.1 Sol"},
 	{ID: "gpt-6.1-terra", Object: "model", Created: 1793059200, OwnedBy: "openai", Type: "model", DisplayName: "GPT-6.1 Terra"},
@@ -114,6 +116,8 @@ func CodexBaseInstructionsForModel(model string) string {
 	case IsGPT61TerraModelSpelling(m):
 		return codexTerraInstructions
 	case m == "gpt-6" || m == "gpt-6-astra" || strings.HasPrefix(m, "gpt-6-astra-") ||
+		m == "gpt-6.2-astra" || strings.HasPrefix(m, "gpt-6.2-astra-") ||
+		m == "gpt-6.2-sol" || strings.HasPrefix(m, "gpt-6.2-sol-") ||
 		m == "gpt-6.1-sol" || strings.HasPrefix(m, "gpt-6.1-sol-") ||
 		m == "gpt-6.1-terra" || strings.HasPrefix(m, "gpt-6.1-terra-") ||
 		m == "gpt-6-sol" || strings.HasPrefix(m, "gpt-6-sol-") ||
