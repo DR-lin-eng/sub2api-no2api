@@ -860,6 +860,10 @@ func (s *PricingService) matchOpenAIModel(model string) *LiteLLMModelPricing {
 	// is absent, use the matching static price before generic family fallbacks.
 	if strings.HasPrefix(canonicalizeOpenAIModelAliasSpelling(model), "gpt-6") {
 		switch normalizeKnownOpenAICodexModel(model) {
+		case "gpt-6.2-astra":
+			return openAIGPT62AstraFallbackPricing
+		case "gpt-6.2-sol":
+			return openAIGPT62SolFallbackPricing
 		case "gpt-6-astra":
 			logger.With(zap.String("component", "service.pricing")).
 				Info(fmt.Sprintf("[Pricing] OpenAI fallback matched %s -> %s", model, "gpt-6-astra(static)"))

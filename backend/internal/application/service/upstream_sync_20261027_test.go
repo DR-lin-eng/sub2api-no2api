@@ -19,8 +19,8 @@ import (
 	"time"
 )
 
-func TestGPT61CompatEffortAliases(t *testing.T) {
-	for _, model := range []string{"gpt-6.1-sol", "gpt-6.1-terra"} {
+func TestGPT61And62CompatEffortAliases(t *testing.T) {
+	for _, model := range []string{"gpt-6.2-astra", "gpt-6.2-sol", "gpt-6.1-sol", "gpt-6.1-terra"} {
 		for _, effort := range []string{"none", "low", "medium", "high", "xhigh", "max"} {
 			req := &apicompat.AnthropicRequest{Model: "openai/" + model + "-" + effort}
 			applyOpenAICompatModelNormalization(req)
@@ -40,9 +40,9 @@ func TestGPT61CompatEffortAliases(t *testing.T) {
 	applyOpenAICompatModelNormalization(req)
 	require.Equal(t, "low", req.OutputConfig.Effort)
 }
-func TestGPT61ChatOnlyToolGateUsesMappedModel(t *testing.T) {
+func TestGPT61And62ChatOnlyToolGateUsesMappedModel(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	for _, model := range []string{"gpt-6.1-sol", "gpt-6.1-terra"} {
+	for _, model := range []string{"gpt-6.2-astra", "gpt-6.2-sol", "gpt-6.1-sol", "gpt-6.1-terra"} {
 		for _, entry := range []string{"chat", "responses", "messages"} {
 			t.Run(model+"/"+entry, func(t *testing.T) {
 				account := rawChatCompletionsTestAccount()

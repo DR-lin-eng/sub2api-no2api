@@ -23,6 +23,12 @@ describe('useModelWhitelist', () => {
   it('openai 模型列表包含 GPT-5.4 官方快照', () => {
     const models = getModelsByPlatform('openai')
 
+    for (const id of ['gpt-6.2-astra', 'gpt-6.2-sol']) {
+      expect(models).toContain(id)
+      expect(getPresetMappingsByPlatform('openai')).toEqual(expect.arrayContaining([
+        expect.objectContaining({ from: id, to: id })
+      ]))
+    }
     expect(models).toContain('gpt-6-astra')
     expect(models).toContain('gpt-6.1-sol')
     expect(models).toContain('gpt-6.1-terra')

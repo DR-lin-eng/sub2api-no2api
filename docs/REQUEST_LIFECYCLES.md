@@ -39,6 +39,10 @@ sequenceDiagram
 
 流式事件可能在最终用量结算前已经发送给客户端；这也是结算必须可恢复、幂等且不能依赖客户端连接继续存活的原因。
 
+OpenAI 原生与兼容转换在终止事件保留上游实际 `service_tier`，结算优先使用该值，缺失时使用请求档位。
+GPT-6.2 的请求参数与推理强度在最终账号模型映射后规范化；Ultrafast 优惠按计费时间自动切换，
+并保留动态/渠道基础价及既有长上下文规则。价卡和协议边界见 [GPT-6 模型说明](GPT6_MODELS.md)。
+
 OpenAI 文本 Responses 流式请求在本地校验和安全检查通过后、并发准入和选号之前启动下游 SSE 注释心跳，原生与透传 Forward 的令牌读取/刷新也复用同一个心跳器，避免等待上游 HTTP 请求发出前，下游 Sub2API/New API 已因收不到响应头超时。首拍仍遵循管理员的 `stream_keepalive_interval_seconds`（默认 10 秒，0 为关闭）；快速错误保留原 HTTP 状态，首拍之后的错误使用 `response.failed` 终止事件。心跳不算语义输出，不阻止安全换号；非流式和图片请求保留各自的响应方式。下游先断开时，本站通常只观察到客户端取消，后台启用 `IgnoreContextCanceled` 时会过滤这类记录，不能据此排除下游等待超时。
 
 上游用量中的 reasoning token 作为输出 token 的子集记录在 `usage_logs.reasoning_tokens`：OpenAI Responses/Chat Completions（HTTP、SSE 和 WebSocket）读取对应的 `*_tokens_details.reasoning_tokens`，Gemini 兼容链路读取 `usageMetadata.thoughtsTokenCount`。未报告计数及历史数据保持 NULL，明确返回 0 则保存 0。该字段不加入计费总量，只由管理员 DTO 返回，并在管理端请求明细、详情和导出中独立展示；用户 DTO 和用户 audience 不展示。

@@ -411,6 +411,35 @@ func (s *BillingService) initFallbackPricing() {
 	s.fallbackPrices["gpt-5.5"] = s.fallbackPrices["gpt-5.4"]
 	s.fallbackPrices["gpt-5.5-pro"] = s.fallbackPrices["gpt-5.4"]
 
+	// OpenAI GPT-6.2 Standard/Fast cards, reviewed 2026-11-18.
+	// Ultrafast's time-limited multiplier follows the billing pricing instant.
+	s.fallbackPrices["gpt-6.2-astra"] = &ModelPricing{
+		InputPricePerToken:                 8e-6,
+		InputPricePerTokenPriority:         16e-6,
+		OutputPricePerToken:                40e-6,
+		OutputPricePerTokenPriority:        80e-6,
+		CacheCreationPricePerToken:         10e-6,
+		CacheCreationPricePerTokenPriority: 20e-6,
+		CacheReadPricePerToken:             0.4e-6,
+		CacheReadPricePerTokenPriority:     0.8e-6,
+		LongContextInputThreshold:          openAIGPT54LongContextInputThreshold,
+		LongContextInputMultiplier:         openAIGPT54LongContextInputMultiplier,
+		LongContextOutputMultiplier:        openAIGPT54LongContextOutputMultiplier,
+	}
+	s.fallbackPrices["gpt-6.2-sol"] = &ModelPricing{
+		InputPricePerToken:                 2e-6,
+		InputPricePerTokenPriority:         4e-6,
+		OutputPricePerToken:                10e-6,
+		OutputPricePerTokenPriority:        20e-6,
+		CacheCreationPricePerToken:         2.5e-6,
+		CacheCreationPricePerTokenPriority: 5e-6,
+		CacheReadPricePerToken:             0.1e-6,
+		CacheReadPricePerTokenPriority:     0.2e-6,
+		LongContextInputThreshold:          openAIGPT54LongContextInputThreshold,
+		LongContextInputMultiplier:         openAIGPT54LongContextInputMultiplier,
+		LongContextOutputMultiplier:        openAIGPT54LongContextOutputMultiplier,
+	}
+
 	// OpenAI GPT-6 Astra 官方价格（USD/token）。Fast 为 Standard 的 2 倍，
 	// Flex 为 Standard 的 0.5 倍；超过 272K 输入后整次请求输入/缓存 2 倍、输出 1.5 倍。
 	s.fallbackPrices["gpt-6-astra"] = &ModelPricing{
@@ -1051,6 +1080,8 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 	// OpenAI（GPT-5 / Codex 族）：仅匹配已知型号，避免未知 OpenAI 型号误计价。
 	if normalized := normalizeKnownOpenAICodexModel(modelLower); normalized != "" {
 		switch normalized {
+		case "gpt-6.2-astra", "gpt-6.2-sol":
+			return s.fallbackPrices[normalized]
 		case "gpt-6-astra":
 			return s.fallbackPrices["gpt-6-astra"]
 		case "gpt-6.1-sol":
@@ -1287,7 +1318,7 @@ type CostInput struct {
 	UsageUnits                float64 // 音频、视频等连续计量单位
 	SizeTier                  string  // 按次/图片模式的层级标签（"1K","2K","4K","HD" 等）
 	RateMultiplier            float64
-	PricingAt                 time.Time             // channel time-pricing instant
+	PricingAt                 time.Time             // time-based model and channel pricing instant
 	ImageRateMultiplier       *float64              // token 计费时可选：图片输入/输出费用使用的独立倍率
 	ServiceTier               string                // "priority","flex","" 等
 	Resolver                  *ModelPricingResolver // 定价解析器
@@ -1306,7 +1337,7 @@ func (s *BillingService) CalculateCostUnified(input CostInput) (*CostBreakdown, 
 		if input.LongContextBillingEnabled != nil {
 			applyLongContextBilling = *input.LongContextBillingEnabled
 		}
-		return s.calculateCostInternalWithPolicy(
+		return s.calculateCostInternalWithPolicyAt(
 			input.Model,
 			input.Tokens,
 			input.RateMultiplier,
@@ -1314,6 +1345,7 @@ func (s *BillingService) CalculateCostUnified(input CostInput) (*CostBreakdown, 
 			input.ServiceTier,
 			nil,
 			applyLongContextBilling && !input.DisableModelLongContextPricing,
+			input.PricingAt,
 		)
 	}
 
@@ -1668,12 +1700,29 @@ func (s *BillingService) calculateCostInternalWithPolicy(
 	channelPricing *ChannelModelPricing,
 	longContextBillingEnabled bool,
 ) (*CostBreakdown, error) {
+	return s.calculateCostInternalWithPolicyAt(model, tokens, rateMultiplier, imageRateMultiplier, serviceTier, channelPricing, longContextBillingEnabled, time.Time{})
+}
+
+func (s *BillingService) calculateCostInternalWithPolicyAt(
+	model string,
+	tokens UsageTokens,
+	rateMultiplier float64,
+	imageRateMultiplier *float64,
+	serviceTier string,
+	channelPricing *ChannelModelPricing,
+	longContextBillingEnabled bool,
+	pricingAt time.Time,
+) (*CostBreakdown, error) {
+	if pricingAt.IsZero() {
+		pricingAt = timezone.Now()
+	}
 	var pricing *ModelPricing
 	var err error
 	if channelPricing != nil {
 		pricing, err = s.GetModelPricingWithChannel(model, channelPricing)
+		pricing = applyOpenAIUltrafastPricingPolicy(model, pricing, pricingAt)
 	} else {
-		pricing, err = s.GetModelPricing(model)
+		pricing, err = s.getModelPricingAt(model, pricingAt)
 	}
 	if err != nil {
 		return nil, err
@@ -1683,7 +1732,7 @@ func (s *BillingService) calculateCostInternalWithPolicy(
 }
 
 // DeepSeek Pro retains its Pro card at every date; peak pricing is applied separately.
-func (s *BillingService) applyModelSpecificPricingPolicyEx(model string, pricing *ModelPricing, forceDeepSeekRates bool, _ time.Time) *ModelPricing {
+func (s *BillingService) applyModelSpecificPricingPolicyEx(model string, pricing *ModelPricing, forceDeepSeekRates bool, pricingAt time.Time) *ModelPricing {
 	if pricing == nil {
 		return nil
 	}
@@ -1701,7 +1750,7 @@ func (s *BillingService) applyModelSpecificPricingPolicyEx(model string, pricing
 		pricing = &cloned
 	}
 	pricing = applyHaiku55DefaultPolicy(model, pricing, forceDeepSeekRates)
-	pricing = applyOpenAIUltrafastPricingPolicy(model, pricing)
+	pricing = applyOpenAIUltrafastPricingPolicy(model, pricing, pricingAt)
 	normalized := normalizeKnownOpenAICodexModel(model)
 	isGPT6 := isOpenAIGPT6Model(normalized)
 	isGPT56 := isOpenAIGPT56Model(normalized)

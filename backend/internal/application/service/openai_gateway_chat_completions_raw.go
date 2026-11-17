@@ -101,13 +101,22 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletionsWithStartTime(ctx cont
 	if upstreamModel != originalModel {
 		upstreamBody = ReplaceModelInBody(body, upstreamModel)
 	}
+	if isOpenAIGPT62Model(upstreamModel) {
+		for _, field := range []string{"temperature", "top_p", "logprobs", "top_logprobs"} {
+			var stripErr error
+			upstreamBody, stripErr = sjson.DeleteBytes(upstreamBody, field)
+			if stripErr != nil {
+				return nil, fmt.Errorf("remove unsupported GPT-6.2 parameter %s: %w", field, stripErr)
+			}
+		}
+	}
 	if rawEffort := gjson.GetBytes(upstreamBody, "reasoning_effort").String(); rawEffort != "" {
-		if isOpenAIGPT6AstraModel(upstreamModel) {
+		if isOpenAIReasoningOnlyModel(upstreamModel) {
 			if normalizedEffort := normalizeOpenAIReasoningEffortForModel(rawEffort, upstreamModel); normalizedEffort != "" && normalizedEffort != rawEffort {
 				var normalizeErr error
 				upstreamBody, normalizeErr = sjson.SetBytes(upstreamBody, "reasoning_effort", normalizedEffort)
 				if normalizeErr != nil {
-					return nil, fmt.Errorf("normalize GPT-6 Astra reasoning effort: %w", normalizeErr)
+					return nil, fmt.Errorf("normalize OpenAI reasoning effort: %w", normalizeErr)
 				}
 			}
 		}

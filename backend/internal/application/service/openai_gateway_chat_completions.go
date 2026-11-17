@@ -232,6 +232,14 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
 				responsesBody = stripped
 			}
 		}
+		if isOpenAIGPT62Model(upstreamModel) {
+			view := newOpenAIRequestView(responsesBody)
+			patchGPT62ResponsesParameters(responsesBody, view.MarkPatchSet, view.MarkPatchDelete)
+			responsesBody, err = view.ApplyPatches()
+			if err != nil {
+				return nil, fmt.Errorf("normalize GPT-6.2 Responses parameters: %w", err)
+			}
+		}
 		var normalizedServiceTier string
 		responsesBody, normalizedServiceTier, err = normalizeResponsesBodyServiceTier(responsesBody)
 		if err != nil {
@@ -480,7 +488,7 @@ func normalizeResponsesRequestServiceTier(req *apicompat.ResponsesRequest) {
 }
 
 func normalizeGPT6AstraResponsesRequest(req *apicompat.ResponsesRequest, model string) {
-	if req == nil || (!isOpenAIGPT6AstraModel(model) && !isOpenAIGPT61SolModel(model)) {
+	if req == nil || !isOpenAIReasoningOnlyModel(model) {
 		return
 	}
 	if req.Reasoning != nil {
@@ -488,7 +496,7 @@ func normalizeGPT6AstraResponsesRequest(req *apicompat.ResponsesRequest, model s
 			req.Reasoning.Effort = effort
 		}
 	}
-	// GPT-6 Astra and GPT-6.1 Sol are reasoning models and do not accept custom sampling values.
+	// These models require reasoning and do not accept custom sampling values.
 	req.Temperature = nil
 	req.TopP = nil
 }
@@ -796,6 +804,7 @@ func (s *OpenAIGatewayService) handleChatStreamingResponse(
 			if event.Response != nil && event.Response.Usage != nil {
 				usage = copyOpenAIUsageFromResponsesUsage(event.Response.Usage)
 			}
+			captureOpenAIResponseServiceTier([]byte(payload), &usage)
 		}
 		if strings.TrimSpace(event.Type) == "response.failed" {
 			payloadBytes := []byte(payload)
