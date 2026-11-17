@@ -292,6 +292,7 @@ func NewBillingService(cfg *config.Config, pricingService *PricingService) *Bill
 func (s *BillingService) initFallbackPricing() {
 	s.initGeminiArgonFallbackPricing()
 	s.initGrok47FastFallbackPricing()
+	s.initQwen3InputFallbackPricing()
 	// Claude 4.5 Opus
 	s.fallbackPrices["claude-opus-4.5"] = &ModelPricing{
 		InputPricePerToken:         5e-6,    // $5 per MTok
@@ -847,6 +848,9 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 	}
 
 	modelLower := normalizeAntigravityClaudeTierAlias(strings.ToLower(model))
+	if id := qwen3InputPricingID(modelLower); id != "" {
+		return s.fallbackPrices[id]
+	}
 	if id := grok47FastPricingID(modelLower); id != "" {
 		return s.fallbackPrices[id]
 	}

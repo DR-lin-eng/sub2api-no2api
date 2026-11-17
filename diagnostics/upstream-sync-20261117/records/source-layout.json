@@ -1,0 +1,12 @@
+{
+  "command": [
+    "make",
+    "-C",
+    "backend",
+    "check-layout"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 1.028,
+  "utc": "2026-11-17T05:38:01.725810+00:00",
+  "output_sha256": "bc47e5caa9ee997120b50f2387547331f77907d12d8228a259881f576e7443fe"
+}

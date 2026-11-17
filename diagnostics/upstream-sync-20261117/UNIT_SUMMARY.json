@@ -1,0 +1,125 @@
+{
+  "test_cases_and_subtests": {
+    "pass": 23710,
+    "skip": 28
+  },
+  "packages": {
+    "pass": 75,
+    "skip": 61
+  },
+  "skipped_tests": [
+    {
+      "package": "github.com/DR-lin-eng/sub2api-no2api/internal/application/service",
+      "test": "TestAuthPendingIdentityService_UpsertAdoptionDecision_ClearsLegacyNullSessionReference"
+    },
+    {
+      "package": "github.com/DR-lin-eng/sub2api-no2api/internal/application/service",
+      "test": "TestOpenAIContentSessionBurstBalanceConcurrent50000"
+    },
+    {
+      "package": "github.com/DR-lin-eng/sub2api-no2api/internal/application/service",
+      "test": "TestEstimateOpenAIInputTokens_CompareWithOpenAIAPI"
+    },
+    {
+      "package": "github.com/DR-lin-eng/sub2api-no2api/internal/infrastructure/repository",
+      "test": "TestSecurityH3RestoreWithPsql"
+    },
+    {
+      "package": "github.com/DR-lin-eng/sub2api-no2api/internal/infrastructure/repository",
+      "test": "TestCodexSessionIDCacheRealRedis"
+    },
+    {
+      "package": "github.com/DR-lin-eng/sub2api-no2api/internal/infrastructure/repository",
+      "test": "TestOpenAIIntegrityRealRedis"
+    },
+    {
+      "package": "github.com/DR-lin-eng/sub2api-no2api/internal/infrastructure/repository",
+      "test": "TestOpenAIFailureCounterCacheLiveRedis"
+    },
+    {
+      "package": "github.com/DR-lin-eng/sub2api-no2api/internal/infrastructure/repository",
+      "test": "TestOpenAIOAuthAlignmentLiveSuppliedAccount"
+    },
+    {
+      "package": "github.com/DR-lin-eng/sub2api-no2api/internal/infrastructure/repository",
+      "test": "TestOpenAIOAuthGatewayRateLimitCacheAgainstRedis"
+    },
+    {
+      "package": "github.com/DR-lin-eng/sub2api-no2api/internal/modules/securityaudit",
+      "test": "TestPromptAuditConfigCASSecretRoundTripInvalidationAndTTL"
+    },
+    {
+      "package": "github.com/DR-lin-eng/sub2api-no2api/internal/modules/securityaudit",
+      "test": "TestRedisPayloadStoreRoundTripTTLNamespaceAndDelete"
+    },
+    {
+      "package": "github.com/DR-lin-eng/sub2api-no2api/internal/modules/securityaudit",
+      "test": "TestPromptRuntimeAggregatesConfigWorkersQueueRedisEndpointsAndGuardMetrics"
+    },
+    {
+      "package": "github.com/DR-lin-eng/sub2api-no2api/internal/modules/securityaudit",
+      "test": "TestPromptAuditMigrationSchemaAndLeakageGate"
+    },
+    {
+      "package": "github.com/DR-lin-eng/sub2api-no2api/internal/modules/securityaudit",
+      "test": "TestPromptAuditDatabasePersistsFullPromptOnEventsOnly"
+    },
+    {
+      "package": "github.com/DR-lin-eng/sub2api-no2api/internal/modules/securityaudit",
+      "test": "TestPromptAuditRepositoryAdmissionClaimFencingAndEventTransaction"
+    },
+    {
+      "package": "github.com/DR-lin-eng/sub2api-no2api/internal/modules/securityaudit",
+      "test": "TestPromptAuditRepositoryRetryRetainsAndFailReleasesQueueSlot"
+    },
+    {
+      "package": "github.com/DR-lin-eng/sub2api-no2api/internal/modules/securityaudit",
+      "test": "TestPromptAuditRepositoryConcurrentAdmissionDoesNotDropBelowCapacity"
+    },
+    {
+      "package": "github.com/DR-lin-eng/sub2api-no2api/internal/modules/securityaudit",
+      "test": "TestPromptAuditRepositoryForeignKeysFiltersAndStableIdentitySnapshots"
+    },
+    {
+      "package": "github.com/DR-lin-eng/sub2api-no2api/internal/modules/securityaudit",
+      "test": "TestPromptAuditRepositoryHighWaterAndSafeDeletion"
+    },
+    {
+      "package": "github.com/DR-lin-eng/sub2api-no2api/internal/modules/securityaudit",
+      "test": "TestPromptAuditServiceConfirmationKeepsPostPreviewEventsAndConcurrentDeletesAreSafe"
+    },
+    {
+      "package": "github.com/DR-lin-eng/sub2api-no2api/internal/platform/devicekey",
+      "test": "TestNativeDeviceKeyRoundTrip"
+    },
+    {
+      "package": "github.com/DR-lin-eng/sub2api-no2api/internal/platform/liveattestation",
+      "test": "TestNativeCodexCallback"
+    },
+    {
+      "package": "github.com/DR-lin-eng/sub2api-no2api/internal/platform/liveattestation",
+      "test": "TestNativeDeviceCheckGeneration"
+    },
+    {
+      "package": "github.com/DR-lin-eng/sub2api-no2api/internal/shared/tlsfingerprint",
+      "test": "TestDialerBasicConnection"
+    },
+    {
+      "package": "github.com/DR-lin-eng/sub2api-no2api/internal/shared/tlsfingerprint",
+      "test": "TestJA3Fingerprint"
+    },
+    {
+      "package": "github.com/DR-lin-eng/sub2api-no2api/internal/shared/tlsfingerprint",
+      "test": "TestAllProfiles"
+    },
+    {
+      "package": "github.com/DR-lin-eng/sub2api-no2api/internal/shared/xai",
+      "test": "TestCLIUserAgentMatchesOfficialInteractiveCapture"
+    },
+    {
+      "package": "github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/handler",
+      "test": "TestDingTalkOAuthStart_Disabled"
+    }
+  ],
+  "mcp_go_client_oauth": "PASS (command exit 0 after JSON unit stream)"
+}
