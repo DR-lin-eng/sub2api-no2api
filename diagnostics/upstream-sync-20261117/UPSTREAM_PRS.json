@@ -1,0 +1,160 @@
+{
+  "schema_version": 1,
+  "baseline": "73b58110a25e99bbcaa2626cf53874ea582e6f93",
+  "upstream_base": "9cd1a1eb21e84707685e1998dcb5a3d1ceafae49",
+  "upstream_head": "15871f904056f548dd874a1d069ffc6cdf777b78",
+  "frozen_at_utc": "2026-11-17T05:27:52.628865+00:00",
+  "entries": [
+    {
+      "pr": 8812,
+      "merge_sha": "8b13851ac830885eceaf509273418dc47eb90a62",
+      "title": "Merge pull request #8812 from Wei-Shaw/feat/group-force-openai-ultrafast",
+      "diff_sha256": "6759dde5a065ddecc057209829f1fa0e6f4ad2a6a0805f931bca72ad4caca60c",
+      "files": [
+        "backend/ent/group.go",
+        "backend/ent/group/group.go",
+        "backend/ent/group/where.go",
+        "backend/ent/group_create.go",
+        "backend/ent/group_update.go",
+        "backend/ent/migrate/schema.go",
+        "backend/ent/mutation.go",
+        "backend/ent/runtime/runtime.go",
+        "backend/ent/schema/group.go",
+        "backend/internal/handler/admin/group_handler.go",
+        "backend/internal/handler/admin/group_handler_openai_fast_test.go",
+        "backend/internal/handler/dto/group_mapper_openai_fast_test.go",
+        "backend/internal/handler/dto/mappers.go",
+        "backend/internal/handler/dto/types.go",
+        "backend/internal/repository/api_key_repo.go",
+        "backend/internal/repository/api_key_repo_openai_fast_projection_integration_test.go",
+        "backend/internal/repository/fixtures_integration_test.go",
+        "backend/internal/repository/group_repo.go",
+        "backend/internal/repository/migrations_schema_integration_test.go",
+        "backend/internal/service/admin_group.go",
+        "backend/internal/service/admin_group_duplicate.go",
+        "backend/internal/service/admin_group_duplicate_test.go",
+        "backend/internal/service/admin_service.go",
+        "backend/internal/service/admin_service_group_test.go",
+        "backend/internal/service/api_key_auth_cache.go",
+        "backend/internal/service/api_key_auth_cache_impl.go",
+        "backend/internal/service/api_key_auth_cache_openai_fast_test.go",
+        "backend/internal/service/billing_service.go",
+        "backend/internal/service/billing_service_test.go",
+        "backend/internal/service/group.go",
+        "backend/internal/service/openai_fast_policy_test.go",
+        "backend/internal/service/openai_fast_policy_ws_test.go",
+        "backend/internal/service/openai_gateway_forward.go",
+        "backend/internal/service/openai_gateway_record_usage_test.go",
+        "backend/internal/service/openai_gateway_request_body.go",
+        "backend/internal/service/openai_oauth_passthrough_test.go",
+        "backend/migrations/251_group_force_openai_ultrafast.sql",
+        "backend/migrations/group_force_openai_ultrafast_migration_test.go",
+        "frontend/src/i18n/locales/en/admin/overview.ts",
+        "frontend/src/i18n/locales/zh/admin/overview.ts",
+        "frontend/src/types/index.ts",
+        "frontend/src/views/admin/GroupsView.vue",
+        "frontend/src/views/admin/__tests__/GroupsView.codexManifest.spec.ts",
+        "frontend/src/views/admin/__tests__/GroupsView.openaiForcedTier.spec.ts",
+        "frontend/src/views/admin/__tests__/groupsOpenAIFast.spec.ts"
+      ],
+      "diff_review_closed": true,
+      "reopen_when": "Changed frozen upstream semantics, a demonstrated current-owner regression, or an explicitly commissioned unimplemented capability. The same PR and net diff hash are not a reopen trigger.",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8812",
+      "status": "covered-billing-retain-group-policy",
+      "capability_complete": false,
+      "current_owners": [
+        "backend/internal/application/service/billing_openai_ultrafast.go",
+        "backend/internal/application/service/openai_gateway_request_body.go",
+        "backend/internal/application/service/group.go",
+        "backend/ent/schema/group.go",
+        "frontend/src/features/admin-groups/README.md",
+        "docs/GPT6_MODELS.md"
+      ],
+      "decision": "Astra 和 GPT-6.1 Sol 的 Ultrafast 6× 标准价与不可变价卡已在当前 owner 实现，复用其 HTTP/SSE 结算及 Fast/Flex 策略。保留已关闭 #6443/#6444 的组级强制/免费 Fast 未采用边界，不新增分组强制 Ultrafast 字段、Ent 生成结果、鉴权快照版本或冲突的上游 251 迁移。现有全局策略不等价于新的分组强制能力；该能力明确未实现。",
+      "inherited_prs": [
+        6443,
+        6444,
+        6571,
+        7730
+      ],
+      "subscopes": {
+        "astra_sol_ultrafast_6x_billing": "covered-current",
+        "group_force_ultrafast": "not-adopted-persistent-group-policy",
+        "free_fast_and_upstream_auth_snapshot": "retain-local-contract"
+      }
+    },
+    {
+      "pr": 7540,
+      "merge_sha": "b0fa9f3e6eeab1968a53e1289b69daa4bb40ca2b",
+      "title": "Merge pull request #7540 from alfadb/fix/qwen3-embedding-fallback-pricing",
+      "diff_sha256": "7a9b2bac3817aa5c65c7c75636425b0c89da6f9d30fe02f5f8d76e221d8ba2a9",
+      "files": [
+        "backend/internal/service/billing_service.go",
+        "backend/internal/service/billing_service_test.go",
+        "backend/internal/service/openai_gateway_cn_fixes_test.go"
+      ],
+      "diff_review_closed": true,
+      "reopen_when": "Changed frozen upstream semantics, a demonstrated current-owner regression, or an explicitly commissioned unimplemented capability. The same PR and net diff hash are not a reopen trigger.",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/7540",
+      "status": "ported-verified-cards",
+      "capability_complete": false,
+      "current_owners": [
+        "backend/internal/application/service/billing_qwen3_input.go",
+        "backend/internal/application/service/billing_service.go",
+        "backend/internal/application/service/model_pricing_resolver.go",
+        "backend/internal/application/service/openai_embeddings.go"
+      ],
+      "decision": "只采用独立核对的五张 SiliconFlow 国际站美元输入价卡，输出价为零；现有动态、渠道、分组显式价格保持优先。使用精确 ID 和明确的 Qwen/SiliconFlow 前缀及 0-6b 别名替代任意子串匹配，不猜测其它版本。Reranker-4B 无已核实美元价，不采用人民币推算的 0.02 USD/MTok。当前没有 /v1/rerank 路由，不因添加价卡声称支持该端点，也不新增路由。",
+      "adopted_models": [
+        "qwen3-embedding-8b",
+        "qwen3-embedding-4b",
+        "qwen3-embedding-0.6b",
+        "qwen3-reranker-8b",
+        "qwen3-reranker-0.6b"
+      ],
+      "unadopted_scope": [
+        "inferred Qwen3-Reranker-4B USD rate",
+        "arbitrary substring aliases",
+        "new rerank endpoint (not part of this frozen patch)"
+      ]
+    },
+    {
+      "pr": null,
+      "merge_sha": "15871f904056f548dd874a1d069ffc6cdf777b78",
+      "title": "chore: sync VERSION to 0.2.22 [skip ci]",
+      "diff_sha256": "56dca22829d1afdb3f92e3ef349fd55f2757aabcffa570f52a349bbecd05127d",
+      "files": [
+        "backend/cmd/server/VERSION"
+      ],
+      "diff_review_closed": true,
+      "reopen_when": "Changed frozen upstream semantics, a demonstrated current-owner regression, or an explicitly commissioned unimplemented capability. The same PR and net diff hash are not a reopen trigger.",
+      "status": "retain-local-version",
+      "capability_complete": false,
+      "current_owners": [
+        "backend/cmd/server/VERSION",
+        "backend/scripts/resolve-version.sh"
+      ],
+      "decision": "保留 fork 自己的发布版本；上游 0.2.22 仅为其发布标识，不覆盖本项目 VERSION 或触发发行标签。"
+    }
+  ],
+  "inherited_ledgers": [
+    {
+      "path": "diagnostics/upstream-deferred-20261115/UPSTREAM_PRS.json",
+      "sha256": "bff83d0d7a14827b826185391fcf69116338ae9197a680686df7ee3c1fe5dd04"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261116/UPSTREAM_PRS.json",
+      "sha256": "61da2564ce13d4364c32b5403e074b846da4a2d777599b8657747a89b006ec91"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261116-followup/UPSTREAM_PRS.json",
+      "sha256": "f85d33399f87f8800a2ff27d6c91e770d545388bc6d82a4551c91889de53b2ab"
+    }
+  ],
+  "counts": {
+    "covered-billing-retain-group-policy": 1,
+    "ported-verified-cards": 1,
+    "retain-local-version": 1
+  },
+  "meaning": "Frozen diff closure records the decision, not feature parity. Inherited decisions remain byte-for-byte unchanged. New group forcing, unverified 4B rerank pricing and upstream release numbering are explicitly unadopted."
+}

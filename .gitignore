@@ -140,6 +140,7 @@ vite.config.js
 docs/*
 !docs/UPSTREAM_SYNC_20261116.md
 !docs/UPSTREAM_SYNC_20261116_FOLLOWUP.md
+!docs/UPSTREAM_SYNC_20261117.md
 !docs/BPS_DEEPSEEK_COMPAT.md
 !docs/CODEX_VOICE.md
 !docs/README.md

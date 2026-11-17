@@ -1,0 +1,10 @@
+{
+  "backend/internal/application/service/billing_service.go": "825d5213a93139f7c02a834f6e8ac486b2b323ba43c8d5eba2467525ce7d5cac",
+  "backend/internal/application/service/billing_qwen3_input.go": "f2fbc2d4c755cac69c6a59bdf2bb7089459dac68351cde2e19019d9f68f1def9",
+  "backend/internal/application/service/billing_qwen3_input_test.go": "a3cac4259ce4a7c2a2ddf8bf90238743ba87e7772644cb8b3360b59c370327a1",
+  "backend/go.mod": "767361641bd2c6c7b9983a4be59a6966484fb2abdbdedafae65366b5589c09bb",
+  "backend/go.sum": "c3eae7af6be0af22c29faef703075a952820c56a5db5e577f31c6bf38298dc0b",
+  "Dockerfile": "12260ad42b5ff207262a39d18739d41a05bd3723fc9eea4968ab1472cf7f4fe5",
+  "frontend/package.json": "1e4c3c48a38f7f593c25718f16ad283c5b38db22626268ec04ea423c7d868a3f",
+  "frontend/pnpm-lock.yaml": "e6bdb04f5266fc940d20a75b3dba7d28a533550b416539c8828f5b280885cded"
+}

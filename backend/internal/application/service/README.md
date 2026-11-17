@@ -161,3 +161,7 @@ Hydrogen 价卡在既有 Gemini fallback owner；模型发现与前端选择器�
 `openai_tool_schema_patterns.go` 对 OpenAI 工具 schema 执行有界局部修改，不替换 null/required 和根联合 owner。
 额度观测的新鲜度由 `account_usage_openai_freshness.go` 和原 usage owner 维护。能力及混合版本边界见
 [后续审查](../../../../docs/UPSTREAM_SYNC_20261116_FOLLOWUP.md)。
+
+`billing_qwen3_input.go` 保存已核实的 SiliconFlow Qwen3 输入价卡与精确 ID 兜底匹配。
+未核实美元价的 Reranker-4B 不推算；分组/渠道/动态价格及已有可靠结算继续由原 owner 持有。
+已关闭的分组强制档位边界和混合版本价格顺序见 [2026-11-17 审查](../../../../docs/UPSTREAM_SYNC_20261117.md)。

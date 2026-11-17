@@ -1,0 +1,10 @@
+{
+  "command": [
+    "make",
+    "check-docs"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 0.816,
+  "utc": "2026-11-17T05:38:01.513793+00:00",
+  "output_sha256": "ab1fbcf1c93cd55f385149bf1c995a2792e8b277a63057e99e56bdae540dc5e9"
+}

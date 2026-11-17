@@ -1,0 +1,15 @@
+{
+  "command": [
+    "docker",
+    "build",
+    "--build-arg",
+    "COMMIT=73b58110a",
+    "-t",
+    "sub2api:sync-baseline-20261117",
+    "/private/tmp/sub2api-sync-baseline-20261117"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 65.333,
+  "utc": "2026-11-17T05:29:21.828283+00:00",
+  "output_sha256": "e5774888fa78d0aa82701c265ed156b1a5899b6335726530b2fc5c7c26523b3b"
+}

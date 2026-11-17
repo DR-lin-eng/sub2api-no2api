@@ -1,0 +1,11 @@
+{
+  "command": [
+    "python3",
+    "diagnostics/upstream-sync-20261117/verify_ledger.py",
+    "--require-ancestry"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 0.133,
+  "utc": "2026-11-17T05:45:22.667720+00:00",
+  "output_sha256": "ca31ec75f28aaa83d38f854a3f589d5ac4bc21de0b46add30bfd5af7d0a60151"
+}

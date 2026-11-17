@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "baseline": "73b58110a25e99bbcaa2626cf53874ea582e6f93",
+  "upstream_base": "9cd1a1eb21e84707685e1998dcb5a3d1ceafae49",
+  "upstream_head": "15871f904056f548dd874a1d069ffc6cdf777b78",
+  "frozen_at_utc": "2026-11-17T05:27:52.628865+00:00",
+  "entries": [
+    {
+      "pr": 8812,
+      "merge_sha": "8b13851ac830885eceaf509273418dc47eb90a62",
+      "title": "Merge pull request #8812 from Wei-Shaw/feat/group-force-openai-ultrafast",
+      "diff_sha256": "6759dde5a065ddecc057209829f1fa0e6f4ad2a6a0805f931bca72ad4caca60c",
+      "files": [
+        "backend/ent/group.go",
+        "backend/ent/group/group.go",
+        "backend/ent/group/where.go",
+        "backend/ent/group_create.go",
+        "backend/ent/group_update.go",
+        "backend/ent/migrate/schema.go",
+        "backend/ent/mutation.go",
+        "backend/ent/runtime/runtime.go",
+        "backend/ent/schema/group.go",
+        "backend/internal/handler/admin/group_handler.go",
+        "backend/internal/handler/admin/group_handler_openai_fast_test.go",
+        "backend/internal/handler/dto/group_mapper_openai_fast_test.go",
+        "backend/internal/handler/dto/mappers.go",
+        "backend/internal/handler/dto/types.go",
+        "backend/internal/repository/api_key_repo.go",
+        "backend/internal/repository/api_key_repo_openai_fast_projection_integration_test.go",
+        "backend/internal/repository/fixtures_integration_test.go",
+        "backend/internal/repository/group_repo.go",
+        "backend/internal/repository/migrations_schema_integration_test.go",
+        "backend/internal/service/admin_group.go",
+        "backend/internal/service/admin_group_duplicate.go",
+        "backend/internal/service/admin_group_duplicate_test.go",
+        "backend/internal/service/admin_service.go",
+        "backend/internal/service/admin_service_group_test.go",
+        "backend/internal/service/api_key_auth_cache.go",
+        "backend/internal/service/api_key_auth_cache_impl.go",
+        "backend/internal/service/api_key_auth_cache_openai_fast_test.go",
+        "backend/internal/service/billing_service.go",
+        "backend/internal/service/billing_service_test.go",
+        "backend/internal/service/group.go",
+        "backend/internal/service/openai_fast_policy_test.go",
+        "backend/internal/service/openai_fast_policy_ws_test.go",
+        "backend/internal/service/openai_gateway_forward.go",
+        "backend/internal/service/openai_gateway_record_usage_test.go",
+        "backend/internal/service/openai_gateway_request_body.go",
+        "backend/internal/service/openai_oauth_passthrough_test.go",
+        "backend/migrations/251_group_force_openai_ultrafast.sql",
+        "backend/migrations/group_force_openai_ultrafast_migration_test.go",
+        "frontend/src/i18n/locales/en/admin/overview.ts",
+        "frontend/src/i18n/locales/zh/admin/overview.ts",
+        "frontend/src/types/index.ts",
+        "frontend/src/views/admin/GroupsView.vue",
+        "frontend/src/views/admin/__tests__/GroupsView.codexManifest.spec.ts",
+        "frontend/src/views/admin/__tests__/GroupsView.openaiForcedTier.spec.ts",
+        "frontend/src/views/admin/__tests__/groupsOpenAIFast.spec.ts"
+      ]
+    },
+    {
+      "pr": 7540,
+      "merge_sha": "b0fa9f3e6eeab1968a53e1289b69daa4bb40ca2b",
+      "title": "Merge pull request #7540 from alfadb/fix/qwen3-embedding-fallback-pricing",
+      "diff_sha256": "7a9b2bac3817aa5c65c7c75636425b0c89da6f9d30fe02f5f8d76e221d8ba2a9",
+      "files": [
+        "backend/internal/service/billing_service.go",
+        "backend/internal/service/billing_service_test.go",
+        "backend/internal/service/openai_gateway_cn_fixes_test.go"
+      ]
+    },
+    {
+      "pr": null,
+      "merge_sha": "15871f904056f548dd874a1d069ffc6cdf777b78",
+      "title": "chore: sync VERSION to 0.2.22 [skip ci]",
+      "diff_sha256": "56dca22829d1afdb3f92e3ef349fd55f2757aabcffa570f52a349bbecd05127d",
+      "files": [
+        "backend/cmd/server/VERSION"
+      ]
+    }
+  ],
+  "inherited_ledgers": [
+    {
+      "path": "diagnostics/upstream-deferred-20261115/UPSTREAM_PRS.json",
+      "sha256": "bff83d0d7a14827b826185391fcf69116338ae9197a680686df7ee3c1fe5dd04"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261116/UPSTREAM_PRS.json",
+      "sha256": "61da2564ce13d4364c32b5403e074b846da4a2d777599b8657747a89b006ec91"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261116-followup/UPSTREAM_PRS.json",
+      "sha256": "f85d33399f87f8800a2ff27d6c91e770d545388bc6d82a4551c91889de53b2ab"
+    }
+  ]
+}

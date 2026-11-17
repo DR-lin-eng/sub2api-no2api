@@ -1,0 +1,55 @@
+{
+  "checked_at_utc": "2026-11-17T05:27:52.677979+00:00",
+  "transport": "curl with system TLS verification; Python urllib initially failed local CA lookup",
+  "sources": [
+    {
+      "url": "https://www.siliconflow.com/models/qwen3-embedding-0-6b",
+      "response_sha256": "4e22ce74a5ed75f323eebddf3d842bbd4677d1ced4758c54085c12535813dd8d",
+      "bytes": 510352,
+      "price_excerpt": "Input Price $ 0.01 / M Tokens Playground API Usage Benc",
+      "model_title": "Qwen3-Embedding-0.6B - Model Info, Parameters, Benchmarks - SiliconFlow\"",
+      "adopted": true
+    },
+    {
+      "url": "https://www.siliconflow.com/models/qwen3-embedding-4b",
+      "response_sha256": "dec3e834ad9c7c326e52d1fe17930556a1e954c4b21de5340aff56473174c676",
+      "bytes": 509396,
+      "price_excerpt": "Input Price $ 0.02 / M Tokens Playground API Usage Benc",
+      "model_title": "Qwen3-Embedding-4B - Model Info, Parameters, Benchmarks - SiliconFlow\"",
+      "adopted": true
+    },
+    {
+      "url": "https://www.siliconflow.com/models/qwen3-embedding-8b",
+      "response_sha256": "109aedb5d3344d97c6c0c0e44876a795fbd81c6fdb76c0cbeee0e0a822018b94",
+      "bytes": 509487,
+      "price_excerpt": "Input Price $ 0.04 / M Tokens Playground API Usage Benc",
+      "model_title": "Qwen3-Embedding-8B - Model Info, Parameters, Benchmarks - SiliconFlow\"",
+      "adopted": true
+    },
+    {
+      "url": "https://www.siliconflow.com/models/qwen3-reranker-0-6b",
+      "response_sha256": "069827067c1dcae9dd0c04170c97eb8bd5a0f30d34957a13f033897fbc09a255",
+      "bytes": 508567,
+      "price_excerpt": "Input Price $ 0.01 / M Tokens Playground API Usage Benc",
+      "model_title": "Qwen3-Reranker-0.6B - Model Info, Parameters, Benchmarks - SiliconFlow\"",
+      "adopted": true
+    },
+    {
+      "url": "https://www.siliconflow.com/models/qwen3-reranker-4b",
+      "response_sha256": "0cd030ac5b48d65b9c0fb5ce13d44caeab120daa8f88963f596b331ee40fcf52",
+      "bytes": 481070,
+      "price_excerpt": null,
+      "model_title": "Qwen3-Reranker-4B - Model Info, Parameters, Benchmarks - SiliconFlow\"",
+      "adopted": false
+    },
+    {
+      "url": "https://www.siliconflow.com/models/qwen3-reranker-8b",
+      "response_sha256": "b5aa2090aa5342fc58a8d8f4a6449b785b76bf01f4d8786b75cea7985fc3e49f",
+      "bytes": 508378,
+      "price_excerpt": "Input Price $ 0.04 / M Tokens Playground API Usage Benc",
+      "model_title": "Qwen3-Reranker-8B - Model Info, Parameters, Benchmarks - SiliconFlow\"",
+      "adopted": true
+    }
+  ],
+  "unadopted": "Qwen3-Reranker-4B has no verified international USD card. Do not infer exchange rates from related models."
+}

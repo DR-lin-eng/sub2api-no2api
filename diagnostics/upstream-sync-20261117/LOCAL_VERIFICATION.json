@@ -1,0 +1,86 @@
+{
+  "final_gates": "PASS",
+  "successful_gates": [
+    "backend-focused",
+    "backend-unit",
+    "backend-lint",
+    "integration",
+    "build-baseline-verified",
+    "build-candidate",
+    "runtime-final",
+    "performance",
+    "docs",
+    "source-layout",
+    "ledger"
+  ],
+  "records": {
+    "backend-focused": {
+      "exit_code": 0,
+      "elapsed_seconds": 86.177,
+      "record": "records/backend-focused.json"
+    },
+    "backend-lint": {
+      "exit_code": 0,
+      "elapsed_seconds": 277.373,
+      "record": "records/backend-lint.json"
+    },
+    "backend-unit": {
+      "exit_code": 0,
+      "elapsed_seconds": 437.163,
+      "record": "records/backend-unit.json"
+    },
+    "build-baseline-verified": {
+      "exit_code": 0,
+      "elapsed_seconds": 65.333,
+      "record": "records/build-baseline-verified.json"
+    },
+    "build-baseline": {
+      "exit_code": 1,
+      "elapsed_seconds": 0.514,
+      "record": "records/build-baseline.json"
+    },
+    "build-candidate": {
+      "exit_code": 0,
+      "elapsed_seconds": 28.889,
+      "record": "records/build-candidate.json"
+    },
+    "docs": {
+      "exit_code": 0,
+      "elapsed_seconds": 0.816,
+      "record": "records/docs.json"
+    },
+    "integration": {
+      "exit_code": 0,
+      "elapsed_seconds": 372.111,
+      "record": "records/integration.json"
+    },
+    "ledger": {
+      "exit_code": 0,
+      "elapsed_seconds": 0.133,
+      "record": "records/ledger.json"
+    },
+    "performance": {
+      "exit_code": 0,
+      "elapsed_seconds": 17.675,
+      "record": "records/performance.json"
+    },
+    "runtime-final": {
+      "exit_code": 0,
+      "elapsed_seconds": 29.893,
+      "record": "records/runtime-final.json"
+    },
+    "runtime": {
+      "exit_code": 1,
+      "elapsed_seconds": 9.383,
+      "record": "records/runtime.json"
+    },
+    "source-layout": {
+      "exit_code": 0,
+      "elapsed_seconds": 1.028,
+      "record": "records/source-layout.json"
+    }
+  },
+  "source_hashes": "PASS",
+  "fixture_http_cases": 40,
+  "runtime_stages": 4
+}
