@@ -7,6 +7,8 @@
 | --- | --- | --- |
 | Docker 计费/价格优先级、Fast policy、WS 契约回归 | PASS | `backend-focused.json` |
 | Docker 全后端 unit / 官方 MCP Go OAuth | PASS，23710 用例/子用例，28 条件跳过 | `backend-unit.json`、`UNIT_SUMMARY.json` |
+| Docker 应用层 lint | PASS，0 issues | `backend-lint.json` |
+| Docker 全包 PostgreSQL/Redis integration / 独立审计数据库 | PASS | `integration.json` |
 | 正式 Dockerfile 主线基线与候选构建 | PASS | `build-baseline-verified.json`、`build-candidate.json` |
 | PostgreSQL/Redis 同库基线→候选→回退→恢复 | PASS，4 阶段 / 40 HTTP 场景 | `runtime-final.json`、`runtime/result.json` |
 | 文档与后端文件布局 | PASS | `docs.json`、`source-layout.json` |
@@ -42,4 +44,5 @@ $0.00004/$0.00002/$0.00001；相似的未知 ID 保持缺价处理。HTTP JSON/S
 
 ## 发布核验
 
+本地门禁全部通过，汇总见 `LOCAL_VERIFICATION.json`。前端源码未变，正式镜像构建使用原有 TypeScript/Vite 流程；远端前端门禁继续执行。
 推送后按 PR 的精确 head SHA 跟踪 CI；合并后另按 main 的精确 merge SHA 复查。远端状态以 GitHub Actions 实际结果为准。
